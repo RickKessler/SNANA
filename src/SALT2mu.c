@@ -11167,10 +11167,6 @@ void  write_COVINT_biasCor(void) {
   fprintf(fp, "# REDCOV12 = COVINT(x1,c )/(sigma_x1*sigma_c ) \n");
   fprintf(fp, "# \n");
 
-#ifdef TEXTFILE_NVAR
-  int NVAR=13 ;
-  fprintf(fp, "NVAR: %d\n", NVAR);
-#endif
   fprintf(fp, "VARNAMES: "
 	  "ROW NEVT IDSAMPLE z alpha beta gammaDM"    // 7
 	  "sigma_mB sigma_x1 sigma_c "            // 3
@@ -19315,16 +19311,6 @@ void  write_M0_fitres(char *fileName) {
 
   write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
-
-#ifdef TEXTFILE_NVAR
-  int NVAR=8 ;
-  fprintf(fp,"NVAR:  %d \n", NVAR);
-#endif
-
-  /* xxx mark delete Nov 9 2022 xxxxxxxx
-  fprintf(fp,"VARNAMES: ROW  zMIN     zMAX     z        "
-	  "MUDIF  MUDIFERR   MUREF  NFIT \n");
-  xxxxxxx end mark xxxx */
 
   fprintf(fp,"VARNAMES: ROW  zHDMIN zHDMAX   zHD        "
 	  "MUDIF  MUDIFERR   MUREF  NFIT \n");

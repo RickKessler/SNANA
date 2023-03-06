@@ -587,10 +587,6 @@ void  open_fitresFile(void) {
 
   write_headerInfo(FP_OUTFILE); 
 
-#ifdef TEXTFILE_NVAR
-  if ( INPUTS.ISFORMAT_CSV == 0 ) 
-    { fprintf(FP_OUTFILE,"NVAR: %d\n", INPUTS.NVAR ); } 
-#endif
 
   if ( INPUTS.ISFORMAT_CSV ) 
     { sprintf(SEP,", "); }

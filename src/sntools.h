@@ -1,3 +1,4 @@
+
 /*******************************************************
      Created Jan 2005 by R.Kessler
 
@@ -658,6 +659,11 @@ int   match_cid_hash__(char *cid, int *ilist, int *isn);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );
+
+void read_YAML_VALS(char *fileName, char *key_list, char *callFun, 
+		    double *val_list);
+void read_yaml_vals__(char *fileName, char *key_list, char *callFun, 
+		      double *val_list);
 
 unsigned int *CIDMASK_LIST;  int  MXCIDMASK, NCIDMASK_LIST ;
 int  exec_cidmask(int mode, int CID);

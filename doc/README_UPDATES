@@ -21539,6 +21539,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools.c:
      - subtle fix in get_SNANA_VERSION_FLOAT() to handle new tag
        that has no dashes.
+     - new util read_yaml_vals(...)
 
    snlc_sim, sntools_cosmology:
      add typedef ANISOTROPY_INFO to pass these model params to dLmag.
@@ -21553,6 +21554,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
   sntools_host.*
     + increase ZMAX_HOSTLIB = ZMAX_SNANA
+
+  submit_prog_sim.py:
+    + write sim-input yaml info to final/merged README from sim
 
   Remove all legacy KCOR code from snana.car and snlc_fit.car
 

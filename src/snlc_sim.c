@@ -12824,9 +12824,6 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     fprintf(fp, "\n") ;
 
-#ifdef TEXTFILE_NVAR
-    fprintf(fp, "NVAR: %d \n", NVAR);    
-#endif
 
     sprintf(SIMFILE_AUX->OUTLINE,"VARNAMES: ");
     for ( ivar = 0; ivar < NVAR ; ivar++ ) {

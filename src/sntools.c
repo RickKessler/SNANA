@@ -2203,7 +2203,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
-  int LDMP =  0 ;   // .xyz
+  int LDMP =  0 ;  
   // ------------- BEGIN --------------------
 
   if ( LENF == 0  ) { PARSE_WORDS.NWD = 0 ; return(0); }
@@ -8347,6 +8347,76 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   return ;
 
 } // end read_VARNAMES_KEYS
+
+void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun, 
+		    double *val_list ) {
+
+  // Created Mar 2023 by R.Kessler
+  // Open and read yaml file (fileName), read list of comma-sep keys
+  // specified by keystring_list, and return list of double-precision values
+  // in val_list. CallFun is for error messages.
+
+  int n_key, k ;
+  char **key_list, c_get[MXWORDLINE_PARSE_WORDS];
+  FILE *fp;
+  char fnam[] = "read_YAML_VALS" ;
+
+  // --------------- BEGIN -----------
+
+  // parse keystring_list to get array of keys in key_list
+  parse_commaSepList(callFun, keystring_list, 20,80, 
+		     &n_key, &key_list);
+
+  /* xxx
+  printf(" xxx %s: keystring_list = %s \n", fnam, keystring_list );
+  printf(" xxx %s: file = '%s' \n", fnam, fileName);
+  printf(" xxx %s: n_key = %d \n", fnam, n_key);
+  xxxxx */
+
+  // add colon for each key, and init val_list
+  for(k=0; k < n_key; k++ ) {
+    int len = strlen(key_list[k]);
+    sprintf(&key_list[k][len], ":") ;
+    val_list[k] = -9.0 ;
+  }
+
+  fp = fopen(fileName,"rt");
+  if ( ! fp  ) {
+    sprintf(c1err,"Cannot open yaml file '%s'", fileName);
+    sprintf(c2err,"Trying to read yaml keys: '%s' ", key_list);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+  int n_key_found = 0 ;
+  while( (fscanf(fp, "%s", c_get)) != EOF) {
+    for(k=0; k < n_key; k++ ) {
+      if ( strcmp(key_list[k],c_get) == 0 ) {
+	fscanf(fp, "%le", &val_list[k] ) ;	
+	//  printf(" xxx load %s (%d) = %f \n",  key_list[k], k, val_list[k]);
+	fflush(stdout);
+	n_key_found++ ;
+      }
+    } 
+    if ( n_key_found == n_key ) { break; }
+  }
+
+  //.xyz
+
+  fclose(fp);
+  for( k=0; k < n_key; k++ ) { free(key_list[k]) ; }
+  free(key_list);
+      
+  return ;
+
+} // end read_YAML_VALS
+
+
+void read_yaml_vals__(char *fileName, char *key_list, char *callFun,  
+		      double *val_list ) {
+  read_YAML_VALS(fileName, key_list, callFun, val_list);
+}
+
 
 // **********************
 void check_uniform_bins(int NBIN,double *VAL_ARRAY, char *comment_forAbort) {

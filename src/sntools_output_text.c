@@ -719,11 +719,9 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     fflush(FP);
     
     fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
-    fprintf(FP, "# TABLE NAME:    %s \n", TBNAME);
+    fprintf(FP, "# TABLE_NAME:    %s \n", TBNAME);
     fprintf(FP, "# \n" );
-#ifdef TEXTFILE_NVAR
-    fprintf(FP, "NVAR: %d \n", NVAR ); 
-#endif
+
     fprintf(FP, "VARNAMES: %s \n", VARLIST );
     fprintf(FP, "#\n" );
     fflush(FP);	
@@ -952,9 +950,6 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
 	    ivar+1, VARNAME_SNLC[ivar], VARDEF_SNLC[ivar] );
   }
 
-#ifdef TEXTFILE_NVAR
-  fprintf(PTRFILE_LCLIST, "\nNVAR: 2\n");
-#endif
   fprintf(PTRFILE_LCLIST, "VARNAMES: CID IFIT\n");
   fflush(PTRFILE_LCLIST);
 
@@ -1095,7 +1090,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
     }
 
-#ifndef TEXTFILE_NVAR
+
     // no NVAR key, so read entire VARNAMES line and parse VARLIST
     if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
       FOUNDKEY = 1;
@@ -1111,23 +1106,6 @@ int  SNTABLE_READPREP_TEXT(void) {
 	READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST_for_textVar(VARNAME);
       }
     }
-#endif
-
-
-
-#ifdef TEXTFILE_NVAR
-    if ( strcmp(ctmp,"NVAR:") == 0 ) 
-      { readint( FP, 1, &NVAR ); FOUNDKEY = 1 ; }
-
-    if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
-      for ( ivar=0; ivar < NVAR; ivar++ ) {
-	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
-	readchar(FP, VARNAME );
-	READTABLE_POINTERS.ICAST_STORE[ivar] = ICAST_for_textVar(VARNAME);
-	READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST_for_textVar(VARNAME);
-      } 
-    }  // not row key
-#endif
 
     // abort if a valid KEY cannot be found
     if ( FOUNDKEY == 0 && NRD >= 10000 ) {
@@ -1191,24 +1169,6 @@ int SNTABLE_READ_EXEC_TEXT(void) {
     sprintf(ctmp, "%s", ptrtok);
     if ( ctmp[0] == '#' ) { continue ; }  // skip comment lines
 	
-#ifdef TEXTFILE_NVAR
-    // for catenated TEXT files, NVAR key can appear
-    // multiple times; ABORT if any NVAR is different
-    // to avoid mistakes
-    if ( strcmp(ctmp,"NVAR:") == 0 ) {
-      ptrtok = strtok(NULL," " );
-      sscanf(ptrtok, "%d", &NVAR_TMP ) ;
-      NKEY_NVAR++ ;
-
-      if ( NVAR_TMP != NVAR_TOT ) {
-	sprintf(MSGERR1,"Invalid 'NVAR: %d' (NKEY=%d) -> column change.",
-		NVAR_TMP, NKEY_NVAR);
-	sprintf(MSGERR2,"Expect NVAR=%d.", NVAR_TOT);
-	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
-      }
-    }
-#endif
-
     if ( validRowKey_TEXT(ctmp) == 0 ) { continue ; }
 
     // if we get here, we have a valid ROW key so read rest of row.
@@ -1509,9 +1469,6 @@ void SNLCPAK_WRITE_HEADER_TEXT(FILE *fp) {
     }
   }
   else if ( OPT_FORMAT == OPT_FORMAT_KEY ) {
-#ifdef TEXTFILE_NVAR
-    fprintf(fp, "NVAR:  %d\n", NVAR);
-#endif
     fprintf(fp, "VARNAMES: ");
     for(ivar=0; ivar < NVAR; ivar++ ) 
       { fprintf(fp, "%s ", VARNAME_SNLC[ivar] ); }

@@ -656,6 +656,10 @@ void readme_docana_genmodel(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "wa_LAMBDA:", noComment,
 		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
 
+  dval = (double)INPUTS.MUSHIFT ;
+  VERSION_INFO_load(&i, pad, "MUSHIFT:", noComment,
+		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
+
   // - - - - 
   // check extra cosmology keys
   if ( README_KEYS_COSMO.NKEY > 0 ) {

@@ -2196,19 +2196,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //  - - - - - cosmology params - - - - - - 
   else if ( keyMatchSim(1, "OMEGA_MATTER", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_MATTER );
-    // xxx   README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam);
   }
   else if ( keyMatchSim(1, "OMEGA_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_LAMBDA );
-    // xxx    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam);
   }
   else if ( keyMatchSim(1, "W0_LAMBDA w0_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.w0_LAMBDA );
-    // xxx README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam);
   }
   else if ( keyMatchSim(1, "Wa_LAMBDA wa_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.wa_LAMBDA );
-    // xxxx README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );

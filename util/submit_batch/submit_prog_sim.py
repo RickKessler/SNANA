@@ -2331,6 +2331,8 @@ class Simulation(Program):
 
     def merge_write_readme(self, f, iver_all, MERGE_INFO_CONTENTS):
 
+        # Mar 2023: refactor to write sim-input keys for each model
+
         input_file          = self.config_yaml['args'].input_file
         submit_info_yaml    = self.config_prep['submit_info_yaml']
         infile_list2d       = self.config_prep['infile_list2d']
@@ -2348,10 +2350,10 @@ class Simulation(Program):
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
         iver            = row_list_merge[iver_all][COLNUM_SIM_MERGE_IVER]
 
-        nlc_gen   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
-        nlc_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
+        nlc_gen     = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
+        nlc_write   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
         nspec_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NSPEC_WRITE]
-        cpu    = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
+        cpu         = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
 
         IS_REPEAT =  'REPEAT' in ranseed_key
         IS_CHANGE =  'CHANGE' in ranseed_key
@@ -2365,19 +2367,25 @@ class Simulation(Program):
         f.write(f"  - {'TOTAL':<12}   {nlc_gen:8}   {nlc_write:8} " \
                 f" {nspec_write:8}        {cpu}\n")
 
+        # construct  model_string for each row (e.g., SNIaMODEL0, NONIaMODEL1 ...)
+        # and store is list
+        model_string_list = []
+        g0 = len("TMP_" + USER4) + len(genversion) + 2
+        for row in row_list_split :
+            TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
+            g1          = len(TMP_GENV)
+            model_string= f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
+            model_string_list.append(model_string)
+
         # write out same info for each model ... only for RANSEED_REPEAT
         if IS_REPEAT :
-            g0 = len("TMP_" + USER4) + len(genversion) + 2
-            for row in row_list_split :
+            for row, model_string in zip(row_list_split, model_string_list) :
                 if iver == row[COLNUM_SIM_MERGE_IVER] :
-                    TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                    g1          = len(TMP_GENV)
-                    genv   = f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
-                    nlc_gen   = row[COLNUM_SIM_MERGE_NLC_GEN]
-                    nlc_write = row[COLNUM_SIM_MERGE_NLC_WRITE]
+                    nlc_gen     = row[COLNUM_SIM_MERGE_NLC_GEN]
+                    nlc_write   = row[COLNUM_SIM_MERGE_NLC_WRITE]
                     nspec_write = row[COLNUM_SIM_MERGE_NSPEC_WRITE]
-                    cpu       = row[COLNUM_SIM_MERGE_CPU]
-                    f.write(f"  - {genv:<12}   " \
+                    cpu         = row[COLNUM_SIM_MERGE_CPU]
+                    f.write(f"  - {model_string:<12}   " \
                             f"{nlc_gen:8}   {nlc_write:8}  {nspec_write:8} " \
                             f"       {cpu}\n")
         # - - - -
@@ -2394,10 +2402,55 @@ class Simulation(Program):
 
         f.write("\n")
         f.write(f"  SUBMIT_DIR:  {CWD}\n")
+
+        # - - - - - - - - -
+        # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
+        if IS_REPEAT:
+            for row,model_string in zip(row_list_split,model_string_list) :
+                if iver == row[COLNUM_SIM_MERGE_IVER] :
+                    TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
+                    v_list      = glob.glob1(path_sndata_sim,f"{TMP_GENV}*")
+                    v0          = v_list[0]  # pick first one from list
+                    tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+                    self.merge_write_input_keys(f, model_string, tmp_readme)
+                    #sys.exit("\nbye bye\n")
+
         f.write("DOCUMENTATION_END:\n")
 
         # end merge_write_readme
 
+    def merge_write_input_keys(self, f, model_string, tmp_readme):
+        # Created Mar 2023 by R.Kessler
+        # read sim input keys from tmp_readme file and write them to file pointer f
+        # that points to global read for merged sim version
+        # The tricky part is to skip the '# Output data' keys.
+
+        INPUT_KEYS_BASENAME  = "INPUT_KEYS"
+        INPUT_NOTES_BASENAME = "INPUT_NOTES"
+
+        KEYLIST_IGNORE = ['GENVERSION', 'NGENTOT_LC', 'NGEN_LC', 
+                          'CIDOFF', 'CIDRAN_MIN', 'CIDRAN_MAX' ]
+
+        input_keys_name = f"{INPUT_KEYS_BASENAME}_{model_string}"
+
+        f.write("\n# - - - - - - - - - - - - - - - - - - - - - - - - - - - - \n")
+        f.write(f"\n  {input_keys_name}: \n")
+        
+        found_input_keys = False
+        
+        with open(tmp_readme,"rt") as r:
+            for line in r :
+                if INPUT_NOTES_BASENAME in line: found_input_keys = False                
+                if found_input_keys : 
+                    wdlist = line.split()
+                    key    = wdlist[0][:-1]   # remove colon
+                    if key in KEYLIST_IGNORE: continue
+                    f.write(f"{line}")
+
+                if INPUT_KEYS_BASENAME  in line: found_input_keys = True
+
+        # end merge_write_input_keys
+        
     def merge_cleanup_final(self) :
 
         # Called after all tasks have complete (see -M arg);

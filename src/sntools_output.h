@@ -354,7 +354,10 @@ struct LASTREAD_AUTOSTORE  {
 
 // generic strings for errmsg 
 char MSGERR1[200], MSGERR2[200] ;
-char SNANA_VERSION[60] ;
+char SNANA_VERSION[100] ;
+
+#define KEYNAME_VERSION_PHOTOMETRY "VERSION_PHOTOMETRY:"
+char VERSION_PHOTOMETRY[100];
 
 // -------------------------------------------------
 //                   FUNCTIONS

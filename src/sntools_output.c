@@ -160,7 +160,8 @@ void TABLEFILE_INIT(void) {
     }
   }
 
-  get_SNANA_VERSION(SNANA_VERSION); // Dec 10 2017
+  get_SNANA_VERSION(SNANA_VERSION);
+  VERSION_PHOTOMETRY[0] = 0 ; 
 
   ADDCOL_VARLIST_LAST[0] = 0 ;
 
@@ -241,7 +242,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
   // STRINGOPT is a list of option-keys:
   // -  new   -> open and create new file for writing
-  // -  read  -> open and existing file for readonly
+  // -  read  -> open existing file for readonly
   // -  q     -> quiet mode; don't print anything to screen
   // -  root or hbook or text -> use explicit file type; ignore suffix.
   //

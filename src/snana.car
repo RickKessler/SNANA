@@ -5758,7 +5758,10 @@ c - - - - - - - - - - - -
       write(6,20) 'SNDATA_PATH:', SNDATA_PATH(1:LEN), ' '
 
       LEN = INDEX(SNLIST_FILE,' ') - 1
-      write(6,20) 'LIST_FILE:', SNLIST_FILE(1:LEN), ' '
+      write(6,20) 'LIST_FILE:  ', SNLIST_FILE(1:LEN), ' '
+
+      LEN = INDEX(SNREADME_FILE(1),' ') - 1
+      write(6,20) 'README_FILE:', SNREADME_FILE(1)(1:LEN), ' '
 
  20   format(A, 2x, A,  3x, A)
  21   format(A, 2x, I8, 3x, A)

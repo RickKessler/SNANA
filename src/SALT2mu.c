@@ -20199,7 +20199,12 @@ void write_cat_info(FILE *fout) {
 
   int NFILE = INPUTS.nfile_data; 
   int ifile;
+  char fnam[] = "write_cat_info" ;
+
   // write cat info to fout file header.
+
+  if ( strlen(VERSION_PHOTOMETRY) > 0 ) 
+    { fprintf(fout,"# %s %s \n", KEYNAME_VERSION_PHOTOMETRY, VERSION_PHOTOMETRY);}
 
   fprintf(fout,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
 

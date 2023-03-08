@@ -5295,10 +5295,7 @@ void read_data(void) {
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");
     ISTART      = INFO_DATA.TABLEVAR.NSN_ALL ;
 
-    SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], &INFO_DATA.TABLEVAR);
-    
-    catVarList_with_comma(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_DATA],
-			  SNTABLE_VERSION_PHOTOMETRY);
+    SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], &INFO_DATA.TABLEVAR);   
 
     if ( INPUTS.cat_only ) 
       { NROW = NEVT[ifile];  SNTABLE_CLOSE_TEXT(); }
@@ -5312,6 +5309,12 @@ void read_data(void) {
     store_input_varnames(ifile, &INFO_DATA.TABLEVAR) ;
   }
 
+
+  // store comma-sep list of VERSION_PHOTOMETRY; note that
+  // SNTABLE_VERSION_PHOTOMETRY appends comma-sep list internally
+  // so here we just do a simple copy.
+  sprintf(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_DATA],"%s",
+	  SNTABLE_VERSION_PHOTOMETRY);
 
   // apply parameter blinding (after we know if DATA are real or sim)
   apply_blindpar();
@@ -9355,9 +9358,6 @@ void  read_simFile_biasCor(void) {
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
 			      &INFO_BIASCOR.TABLEVAR);
 
-    catVarList_with_comma(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_BIASCOR],
-			  SNTABLE_VERSION_PHOTOMETRY);
-
     NROW = SNTABLE_READ_EXEC(); // read entire file; load arrays
     INFO_BIASCOR.TABLEVAR.NSN_ALL += NROW ;
 
@@ -9367,6 +9367,9 @@ void  read_simFile_biasCor(void) {
     store_input_varnames(ifile, &INFO_BIASCOR.TABLEVAR) ;
   }
 
+
+  sprintf(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_BIASCOR],"%s",
+	  SNTABLE_VERSION_PHOTOMETRY);
 
   t_read_biasCor[1] = time(NULL); 
   
@@ -13911,9 +13914,6 @@ void  read_simFile_CCprior(void) {
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
 			      &INFO_CCPRIOR.TABLEVAR);
 
-    catVarList_with_comma(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_CCPRIOR],
-			  SNTABLE_VERSION_PHOTOMETRY);
-
     NROW = SNTABLE_READ_EXEC();
     INFO_CCPRIOR.TABLEVAR.NSN_ALL += NROW ;
 
@@ -13923,6 +13923,10 @@ void  read_simFile_CCprior(void) {
     store_input_varnames(ifile, &INFO_CCPRIOR.TABLEVAR) ;
   }
 
+
+  sprintf(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_CCPRIOR],"%s",
+	  SNTABLE_VERSION_PHOTOMETRY);
+  
   for(isn=0; isn < INFO_CCPRIOR.TABLEVAR.NSN_ALL; isn++ )  { 
     compute_more_TABLEVAR(isn, &INFO_CCPRIOR.TABLEVAR ); 
     compute_CUTMASK(isn, &INFO_CCPRIOR.TABLEVAR ); 

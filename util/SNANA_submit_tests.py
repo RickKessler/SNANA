@@ -8,6 +8,7 @@
 #
 # Aug 09 2021: add --snana_dir and --nrowskip args
 # Jan 20 2022: run create_coariance.py if CREATE_COV is in input file name
+# Mar 08 2023: add -l arg to switch list file
 #
 # ==================================================
 

@@ -298,8 +298,11 @@ For help, run code with no arguments
 #define EVENT_TYPE_BIASCOR  2
 #define EVENT_TYPE_CCPRIOR  3
 #define MXEVENT_TYPE        4
+
 char STRING_EVENT_TYPE[MXEVENT_TYPE][12] = 
   { "NULL", "DATA", "BIASCOR", "CCPRIOR" } ;
+bool USE_EVENT_TYPE[MXEVENT_TYPE];
+char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_FILENAME*2];
 
 char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
@@ -755,8 +758,8 @@ struct {
 
 struct {
 
-  int ILCPAR_MIN, ILCPAR_MAX ; // either mB,x1,c  OR just mu
   TABLEVAR_DEF TABLEVAR ;
+  int ILCPAR_MIN, ILCPAR_MAX ; // either mB,x1,c  OR just mu
 
   int  NDIM;     // number of dimensions for biasCor e.g., 1, 5, 7
   char STRING_PARLIST[20]; // e.g., z,x1,c,a,b
@@ -5251,7 +5254,7 @@ void read_data(void) {
   //
 
   int  NFILE = INPUTS.nfile_data;
-  //  int  EVENT_TYPE = EVENT_TYPE_DATA;
+  int  EVENT_TYPE = EVENT_TYPE_DATA;
   int  NEVT_TOT, NEVT[MXFILE_DATA], ifile, NVAR_ORIG, IFILETYPE, LEN_MALLOC ;
   int  ISTART, NROW, isn ;
   char *dataFile ;
@@ -5261,6 +5264,9 @@ void read_data(void) {
 
    sprintf(BANNER,"%s", fnam);
    fprint_banner(FP_STDOUT,BANNER);   
+
+   USE_EVENT_TYPE[EVENT_TYPE_DATA] = true;
+   SNTABLE_VERSION_PHOTOMETRY[0] = 0 ; // reset list of phot versions
 
    // read each file quickly to get total size of arrays to malloc
    NEVT_TOT = 0 ;
@@ -5286,6 +5292,9 @@ void read_data(void) {
     ISTART      = INFO_DATA.TABLEVAR.NSN_ALL ;
 
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], &INFO_DATA.TABLEVAR);
+    
+    catVarList_with_comma(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_DATA],
+			  SNTABLE_VERSION_PHOTOMETRY);
 
     if ( INPUTS.cat_only ) 
       { NROW = NEVT[ifile];  SNTABLE_CLOSE_TEXT(); }
@@ -5329,6 +5338,7 @@ void read_data(void) {
     sprintf(c2err,"Check cut-windows in SALT2mu input file.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
+
 
   return;
 
@@ -7679,8 +7689,9 @@ void store_output_varnames(void) {
 				  OUTPUT_VARNAMES.LIST );
       if ( ivar_match < 0  ) {
 	NDROP++ ;
-	strcat(OUTPUT_VARNAMES.DROPLIST,varName);
-	strcat(OUTPUT_VARNAMES.DROPLIST," ");	
+	catVarList_with_comma(OUTPUT_VARNAMES.DROPLIST,varName);
+	// xxx mark strcat(OUTPUT_VARNAMES.DROPLIST,varName);
+	// xxx mark strcat(OUTPUT_VARNAMES.DROPLIST," ");	
 	if ( LDMP) {
 	  printf(" xxx %s: DROP varName='%s'  match=%d (ifile=%d,ivar=%d)\n",
 		 fnam,  varName, ivar_match, ifile, ivar );
@@ -8954,6 +8965,9 @@ void prepare_biasCor(void) {
 
   if ( nfile_biasCor == 0 ) { return ; }
 
+  USE_EVENT_TYPE[EVENT_TYPE_BIASCOR] = true;
+  SNTABLE_VERSION_PHOTOMETRY[0] = 0; // reset list of phot versions
+
   print_banner(fnam);
 
   print_biascor_options(); // print info for each bit, July 2022
@@ -9336,6 +9350,10 @@ void  read_simFile_biasCor(void) {
     ISTART      = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
 			      &INFO_BIASCOR.TABLEVAR);
+
+    catVarList_with_comma(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_BIASCOR],
+			  SNTABLE_VERSION_PHOTOMETRY);
+
     NROW = SNTABLE_READ_EXEC(); // read entire file; load arrays
     INFO_BIASCOR.TABLEVAR.NSN_ALL += NROW ;
 
@@ -13795,6 +13813,9 @@ void prepare_CCprior(void) {
 
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
   
+  USE_EVENT_TYPE[EVENT_TYPE_CCPRIOR] = true;
+  SNTABLE_VERSION_PHOTOMETRY[0] = 0 ; // reset list of phot versions
+
   if ( NDIM_BIASCOR == 1 ) {
     sprintf(c1err,"Cannot use 1D biasCor with CC likelihood.");
     sprintf(c2err,"Either remove CC term, or use 5D biasCor.");
@@ -13885,6 +13906,9 @@ void  read_simFile_CCprior(void) {
 
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
 			      &INFO_CCPRIOR.TABLEVAR);
+
+    catVarList_with_comma(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_CCPRIOR],
+			  SNTABLE_VERSION_PHOTOMETRY);
 
     NROW = SNTABLE_READ_EXEC();
     INFO_CCPRIOR.TABLEVAR.NSN_ALL += NROW ;
@@ -17922,6 +17946,11 @@ void prep_input_driver(void) {
 
   if ( INPUTS.cat_only ) { prep_input_varname_missing(); return; }
 
+  for(i=0; i < MXEVENT_TYPE; i++ )  {
+    USE_EVENT_TYPE[i] = false; 
+    VERSION_PHOTOMETRY_EVENT_TYPE[i][0] = 0 ;
+  }
+
   // check option to select only true SNIA and ignore CC prior
   if ( INPUTS.select_trueIa ) { prep_input_trueIa(); }
 
@@ -18218,7 +18247,6 @@ void prep_input_driver(void) {
 
     INPUTS.uM0 = 2;
     INPUTS.iflag_chi2max = 0;
-    // .xyz
   }
 
 
@@ -19065,6 +19093,24 @@ void outFile_driver(void) {
 // ******************************************
 void write_version_info(FILE *fp) {
 
+  int ev;
+  int lenkey = strlen(KEYNAME_VERSION_PHOTOMETRY);
+  char KEY_TMP[100], KEY_NOCOLON[100];
+  char fnam[] = "write_version_info" ;
+
+  // ----------- BEGIN --------------
+
+  sprintf(KEY_NOCOLON, "%s", KEYNAME_VERSION_PHOTOMETRY);
+  KEY_NOCOLON[lenkey-1] = 0 ;  // remove colon
+
+  for(ev=1; ev < MXEVENT_TYPE; ev++ ) {
+    if ( USE_EVENT_TYPE[ev] ) {
+      sprintf(KEY_TMP, "%s(%s):", KEY_NOCOLON, STRING_EVENT_TYPE[ev]);
+      fprintf(fp,"# %-28.28s  %s \n", 
+	      KEY_TMP, VERSION_PHOTOMETRY_EVENT_TYPE[ev]);
+    }
+  }
+
   fprintf(fp,"# ISDATA_REAL:   %d \n", ISDATA_REAL);
   fprintf(fp,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
   fprintf(fp,"# BBC_VERSION:   %d \n", BBC_VERSION);
@@ -19087,11 +19133,14 @@ void write_yaml_info(char *fileName) {
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
+
+  /* xxx mark delete Mar 8 2023 ; see global xxxx
   bool USE_DATA    = true ;
   bool USE_BIASCOR = (INPUTS.nfile_biasCor > 0) ;
   bool USE_CCPRIOR = (INPUTS.nfile_CCprior > 0) ;
   bool USE_EVENT_TYPE[MXEVENT_TYPE] = 
-    { false, USE_DATA, USE_BIASCOR, USE_CCPRIOR };
+    { false, USE_DATA, USE_BIASCOR, USE_CCPRIOR }; // .xyz make global
+  xxxxxxxxx end mark xxxx */
 
   double t_cpu = (t_end_fit-t_start)/60.0 ;
 
@@ -20203,8 +20252,10 @@ void write_cat_info(FILE *fout) {
 
   // write cat info to fout file header.
 
-  if ( strlen(VERSION_PHOTOMETRY) > 0 ) 
-    { fprintf(fout,"# %s %s \n", KEYNAME_VERSION_PHOTOMETRY, VERSION_PHOTOMETRY);}
+  if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 )  { 
+    fprintf(fout,"# %s %s \n", 
+	    KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY);
+  }
 
   fprintf(fout,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
 
@@ -22675,11 +22726,6 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  /* xxxxxxxxxxxx 
-  printf(" xxx %s: ITAB=%d VARNAME=%s IVAR=%d ivar_match=%d  PTRVAL=%f, %f ... \n",
-	 fnam, ITABLE, VARNAME, IVAR, ivar_match, PTRVAL[0], PTRVAL[1] ) ;
-  fflush(stdout); //.xyz
-  xxxxxxxxxxxxxx */
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 

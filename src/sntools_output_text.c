@@ -83,6 +83,7 @@ char FILEPREFIX_TEXT[100];
 #define TEXTMODE_wt           "wt"
 
 #define MSKOPT_PARSE_WORDS_STRING 2 // must match same param in sntools.h
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA 4 
 
 FILE *PTRFILE_TEXT ;                   // generic ascii file pointer
 char FILENAME_TEXT[MXCHAR_FILENAME];   // name of opened text file
@@ -719,9 +720,9 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     }
     fflush(FP);
     
-    if ( strlen(VERSION_PHOTOMETRY) > 0 ) 
+    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 ) 
       { fprintf(FP, "# %s %s \n", 
-		KEYNAME_VERSION_PHOTOMETRY, VERSION_PHOTOMETRY) ; 
+		KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY) ; 
       }
 
     fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
@@ -1072,9 +1073,10 @@ int SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR) {
 // ==========================================
 int  SNTABLE_READPREP_TEXT(void) {
 
-  int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG, iwd ; 
+  int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG, iwd, MSKOPT ; 
+  bool MATCH;
   FILE *FP ;
-  char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST ;
+  char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST, vtmp[MXCHAR_FILENAME*2] ;
   char fnam[]=  "SNTABLE_READPREP_TEXT" ;
 
   // ---------- BEGIN -------------
@@ -1100,10 +1102,12 @@ int  SNTABLE_READPREP_TEXT(void) {
     // Mar 2023: check for '# VERSION_PHOTOMETRY: <string>'
     if (ctmp[0] == '#' ) {
       fgets(VARLIST, MXCHAR_LINE, FP );
-      bool MATCH = ( strstr(VARLIST,KEYNAME_VERSION_PHOTOMETRY) != NULL ) ;
+      MATCH = ( strstr(VARLIST,KEYNAME_VERSION_PHOTOMETRY) != NULL ) ;
       if ( MATCH ) {
-	NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
-	iwd=1; get_PARSE_WORD(0, iwd, VERSION_PHOTOMETRY) ; 
+	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
+	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST);
+	iwd=1;   get_PARSE_WORD(0, iwd, vtmp) ; 
+	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
       } // end MATCH
       continue ;
     }
@@ -1160,7 +1164,6 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   // Sep  07 2021: abort if ivar < NVAR_TOT 
   //    (e.g., if split jobs with different NVAR are merged)
   //
-  // Mar 6 2023: refactor to read optional VERSION_PHOTOMETRY from comments
 
   int NROW = 0 ;
   int i, iwd, ivar, isn, ICAST, nptr, NWD_LINE ;

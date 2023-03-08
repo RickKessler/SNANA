@@ -129,6 +129,7 @@ void TABLEFILE_INIT(void) {
   int o,t ;
   char *s ;
   char U[] = "UNKNOWN" ;
+  char fnam[] = "TABLEFILE_INIT" ;
 
   // -------------- BEGIN --------------
 
@@ -161,7 +162,7 @@ void TABLEFILE_INIT(void) {
   }
 
   get_SNANA_VERSION(SNANA_VERSION);
-  VERSION_PHOTOMETRY[0] = 0 ; 
+  SNTABLE_VERSION_PHOTOMETRY[0] = 0 ; 
 
   ADDCOL_VARLIST_LAST[0] = 0 ;
 

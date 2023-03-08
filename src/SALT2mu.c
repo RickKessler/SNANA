@@ -271,6 +271,10 @@ For help, run code with no arguments
    refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
    real data.
 
+ Mar 8 2023:
+    write VERSION_PHOTOMETRY(type): <version>  to output tables for
+    type = DATA, BIASCOR, CCPRIOR. See VERSION_PHOTOMETRY_EVENT_TYPE string.
+
  ******************************************************/
 
 #include "sntools.h" 

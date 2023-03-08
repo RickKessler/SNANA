@@ -19,8 +19,7 @@ CWD              = os.getcwd()
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNANA_TESTS_DIR  = os.environ['SNANA_TESTS'] + '/inputs_submit_batch'
 
-SUBMIT_LIST_FILE = \
-    (f"{SNANA_TESTS_DIR}/SNANA_submit_tests.LIST")
+SUBMIT_LIST_FILE_DEFAULT = f"{SNANA_TESTS_DIR}/SNANA_submit_tests.LIST"
 
 KEY_SUBMIT_LIST = 'SUBMIT_LIST'
 
@@ -52,6 +51,11 @@ def parse_args():
     msg = f"Number of rows to skip in job-list file"
     parser.add_argument("--nrowskip", help=msg, default=0, 
                         type=int)
+
+    msg = f"alternate job-list file"
+    parser.add_argument("-l", "--list_file", help=msg, 
+                        default=SUBMIT_LIST_FILE_DEFAULT, 
+                        type=str)
 
     args = parser.parse_args()
 
@@ -230,8 +234,8 @@ if __name__ == "__main__":
     SUBMIT_INFO = {}
 
     # read list of input files 
-    print(f" Read input files from :\n\t {SUBMIT_LIST_FILE}")
-    config = extract_yaml(SUBMIT_LIST_FILE)
+    print(f" Read input files from :\n\t {INPUTS.list_file}")
+    config = extract_yaml(INPUTS.list_file)
     SUBMIT_INFO.update( {'config' : config} )
     infile_submit_list = config[KEY_SUBMIT_LIST]
     nset = 0

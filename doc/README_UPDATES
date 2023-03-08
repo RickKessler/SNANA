@@ -21532,6 +21532,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05c) ***** 
 
+   Modified several codes to read VERSION_PHOTOMETRY at top of FITRES table,
+   and pass it on to subsequent output tables from combine_fitres, BBC, etc.
+   The goal is to write VERSION_PHOTOMETRY(DATA,BIASCOR,CCPRIOR) and
+   COSPAR_BIASCOR(OM,OL,wa,w0) to INFO.YML in the output of create_covariance.
+
         ***** USEFUL(v11_05c) ***** 
  
         ***** MISCELLANEOUS(v11_05c) ***** 
@@ -21560,5 +21565,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
   Remove all legacy KCOR code from snana.car and snlc_fit.car
 
- 
+  create_covariance.py: read VERSION_PHOTOMETRY and cospar_biascor,
+     and write to INFO.YML output.
+
 END: 

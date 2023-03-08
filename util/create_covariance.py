@@ -2,7 +2,7 @@
 #
 # Compute syst covariance matrices
 #
-# Jun 2017: Original script written by D.Scolnic for Pantheon  
+# Jun 2017: Original script written by D.Scolnic for Pantheon
 #
 # Oct 2020: Re-written by S.Hinton for Pippin compatibility,
 #            and unbinned option
@@ -88,6 +88,9 @@
 #   + fix bug in prep_config(); affects pippin integration
 #   + write SNANA_VERSION to INFO.YML file
 #   + new --nosys arg
+#
+# Mar 08 2023 RK - read VERSION_PHOTOMETRY and cospar_biascor and write to INFO.YML
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -136,11 +139,19 @@ VARNAME_NEVT_BIN = 'NEVT'
 
 SUBDIR_COSMOMC = "cosmomc"
 KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
+KEYNAME_VERSION_PHOTOMETRY = "VERSION_PHOTOMETRY"
 
 KEYNAME_SYS_SCALE_FILE = "SYS_SCALE_FILE"
 
 m_REF = 0  # MUOPT reference number for cov
 f_REF = 0  # FITOPT reference number for cov
+
+
+# define list of sim-input keys for cosmology params; needed to recover biasCor cospar
+KEY_DOCANA    = "DOCUMENTATION"
+KEY_SIM_INPUT = "INPUT_KEYS_SNIaMODEL0"
+KEYLIST_COSPAR_SIM = [ 'OMEGA_MATTER', 'OMEGA_LAMBDA', 'w0_LAMBDA', 'wa_LAMBDA',
+                       'MUSHIFT' ]
 
 # ============================
 def setup_logging():
@@ -313,14 +324,15 @@ def get_snana_version():
     snana_version = ret.stdout.replace('\n','')
     return snana_version
 
-def check_isdata_real(hd_file):
+def read_header_info(hd_file):
 
     # Created oct 6 2021 by R.Kessler
     # read first few lines of hd_file and look for ISDATA_REAL  key
     # that is in a comment field ... hence read as yaml.
     # SALT2mu begain wriring ISDATA_REAL key on Oct 6 2021;
-    # Function returns ISDATA_REAL = 0 or 1 of key is found;
+    # Function returns ISDATA_REAL = 0 or 1 if key is found;
     # returns -1 (unknown) if key not found.
+    # Mar 2023: rename isdata_real to read_header_info
 
     with gzip.open(hd_file, 'r') as f:
         line_list = f.readlines()
@@ -328,24 +340,33 @@ def check_isdata_real(hd_file):
     isdata_real = -1  # init to unknonw
     maxline_read = 10 # bail after this many lines
     nline_read   = 0
+    isdata_real  = -1
+    header_info = {}  # define output dictionary
 
-    key = f"{KEYNAME_ISDATA}:" # include colon in brute force search
+    key_isdata = f"{KEYNAME_ISDATA}:" # include colon in brute force search
 
     for line in line_list:
         line  = line.rstrip()  # remove trailing space and linefeed  
         line  = line.decode('utf-8')
         wd_list = line.split()
-        if key in wd_list:
-            j = wd_list.index(key)
-            isdata_real = int(wd_list[j+1])
-                        
+        if key_isdata in wd_list:
+            j = wd_list.index(key_isdata)
+            isdata_real = int(wd_list[j+1])            
+
+        if any(KEYNAME_VERSION_PHOTOMETRY in s for s in wd_list):  
+            key = wd_list[1].replace(':','')  # item 0 is hash, item 1 is key
+            arg = wd_list[2].split(',')
+            header_info[key] = arg
+
         nline_read += 1
         if nline_read == maxline_read or isdata_real>=0 : break
 
+    header_info[KEYNAME_ISDATA] = isdata_real
     logging.info(f"ISDATA_REAL = {isdata_real}")
-    return isdata_real
 
-    # end check_isdata_real
+    return header_info
+
+    # end read_header_info
 
 def load_hubble_diagram(hd_file, args, config):
 
@@ -426,7 +447,6 @@ def get_hubble_diagrams(folder, args, config):
     infile_list = []
     label_list  = []
     first_load  = True
-    isdata_real = -1  # init to unknwon data or sim
 
     for infile in sorted(os.listdir(folder_expand)):
 
@@ -455,12 +475,14 @@ def get_hubble_diagrams(folder, args, config):
             hd_file = folder_expand/infile
             # grab contents of every M0DIF(binned) or FITRES(unbinned) file 
             HD_list[label] = load_hubble_diagram(hd_file, args, config)
-            if first_load:  isdata_real = check_isdata_real(hd_file)
+            if first_load:  
+                header_info = read_header_info(hd_file)
             first_load = False
 
     #sys.exit(f"\n xxx\n result = {result} \n")
 
-    config[KEYNAME_ISDATA] = isdata_real # Oct 6 2021, R.Kessler
+    config[KEYNAME_ISDATA] = header_info[KEYNAME_ISDATA]
+    config['header_info']  = header_info
 
     # - - - - -  -
     # for unbinned or rebin, select SNe that are common to all 
@@ -820,8 +842,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     # Split covopt into two terms so that extra pad spaces don't
     # break findall command (RK May 14 2021)
     #
-    # .xyz 9.29.2022 RK - optional 3rd arg with sys scale ?
-    # .xyz        "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
+    # 9.29.2022 RK - optional 3rd arg with sys scale ?
+    #         "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
 
     
     covopt_list = covopt.split() # break into two terms
@@ -1323,6 +1345,7 @@ def write_summary_output(config, covariances, base):
     # picked up by cosmology fitting progam. Info includes
     # each covsys label & file, name of hubble diagram file.
     # and ISDATA_REAL flag.
+    # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
 
     out  = Path(config["OUTDIR"])
     info = {} # init dictionary to dump to info file
@@ -1336,17 +1359,73 @@ def write_summary_output(config, covariances, base):
         # xxx mark delete oct 13 2022 cov_info[i] = label
 
     info["COVOPTS"] = cov_info
-
-    info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+        
+    # xxx mark del Mar 2023:  info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
 
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
 
+    sim_version = None
+    for key,item in config['header_info'].items() :
+        info[key] = item     # store stuff from BBC table 
+        if 'BIASCOR' in key :  # fetch biasCor sim version
+            sim_version    = item[0]
+ 
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
-        yaml.safe_dump(info, f)
+        yaml.safe_dump(info, f )
+
+    # - - - - - - - - - - - - - 
+    # append cospar_biascor so that it's at the end, rather than 
+    # at the beginning with default alphabetical ordering
+    # Beware that this method of fetching cospar_biascor requries
+    # original biasCor sim folder to still exist on disk; if this folder
+    # is purged (e.g., to deal with quota crisis) then cospar will not
+    # be found using this method.
+
+    cospar_biascor = []
+    if sim_version is not None:
+        cospar_biascor = get_cospar_sim(sim_version)
+        with open(out / INFO_YML_FILENAME, "at") as f:
+            info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
+            yaml.safe_dump(info_cospar, f )
 
     # end write_summary_output
+
+def get_cospar_sim(sim_version):
+
+    # for input snana_folder 'sim_version', run snana.exe GETINFO folder 
+    # to extract name of README file, then parse README to get cosmo params
+
+    cospar_sim = {}  # init output dictionary
+
+    cmd = f"snana.exe GETINFO {sim_version}"
+    ret = subprocess.run( [cmd], shell=True,
+                          capture_output=True, text=True )
+    ret_stdout = ret.stdout.split()
+
+    key_readme = "README_FILE:"
+    if key_readme not in ret_stdout:
+        msgerr = []
+        msgerr.append(f"Cannot find {key_readme} key from command")
+        msgerr.append(f"   {cmd}")
+        log_assert(False,msgerr)
+
+    k           = ret_stdout.index(key_readme)
+    readme_file = ret_stdout[k+1]
+
+    readme_contents = read_yaml(readme_file)
+    sim_inputs      = readme_contents[KEY_DOCANA][KEY_SIM_INPUT]
+
+    for cospar in KEYLIST_COSPAR_SIM:
+        if cospar in sim_inputs :
+            cospar_sim[cospar] = sim_inputs[cospar]
+        else:
+            cospar_sim[cospar] = 0.0
+
+    return cospar_sim
+
+    # end get_cospar_sim
 
 def write_correlation(path, label, base_cov, diag, base):
     logging.debug(f"\tWrite out cov for COVOPT {label}")

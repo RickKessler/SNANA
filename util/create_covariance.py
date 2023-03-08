@@ -2,7 +2,7 @@
 #
 # Compute syst covariance matrices
 #
-# Jun 2017: Original script written by D.Scolnic for Pantheon
+# Jun 2017: Original script written by D.Scolnic for Pantheon  
 #
 # Oct 2020: Re-written by S.Hinton for Pippin compatibility,
 #            and unbinned option

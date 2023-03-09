@@ -21536,6 +21536,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    and pass it on to subsequent output tables from combine_fitres, BBC, etc.
    The goal is to write VERSION_PHOTOMETRY(DATA,BIASCOR,CCPRIOR) and
    COSPAR_BIASCOR(OM,OL,wa,w0) to INFO.YML in the output of create_covariance.
+   A caveat is that the biasCor sim data folder must remain to read 
+   COSPAR_BIASCOR from the sim-README ... but sim data folders are sometimes 
+   removed to resolve disk-quota crises.
 
         ***** USEFUL(v11_05c) ***** 
  

@@ -1385,7 +1385,7 @@ def write_summary_output(config, covariances, base):
 
     cospar_biascor = []
     if sim_version is not None:
-        cospar_biascor = get_cospar_sim(sim_version)
+        cospar_biascor = get_cospar_sim(sim_version )
         with open(out / INFO_YML_FILENAME, "at") as f:
             info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
             yaml.safe_dump(info_cospar, f )
@@ -1398,18 +1398,25 @@ def get_cospar_sim(sim_version):
     # to extract name of README file, then parse README to get cosmo params
 
     cospar_sim = {}  # init output dictionary
+    msgerr     = '\n'
 
     cmd = f"snana.exe GETINFO {sim_version}"
+    
     ret = subprocess.run( [cmd], shell=True,
                           capture_output=True, text=True )
     ret_stdout = ret.stdout.split()
 
     key_readme = "README_FILE:"
+    if 'FATAL' in ret_stdout:
+        msgerr += f"  Cannot find biasCor sim-data folder {sim_version}\n"
+        msgerr += f"  May need to regenerate biasCor {sim_version}  \n"
+        msgerr += f"  Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
+        assert False, msgerr
+
     if key_readme not in ret_stdout:
-        msgerr = []
-        msgerr.append(f"Cannot find {key_readme} key from command")
-        msgerr.append(f"   {cmd}")
-        log_assert(False,msgerr)
+        msgerr += f"  Cannot find {key_readme} key from command\n"
+        msgerr += f"     {cmd}\n"
+        assert False, msgerr
 
     k           = ret_stdout.index(key_readme)
     readme_file = ret_stdout[k+1]

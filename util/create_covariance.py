@@ -89,7 +89,10 @@
 #   + write SNANA_VERSION to INFO.YML file
 #   + new --nosys arg
 #
-# Mar 08 2023 RK - read VERSION_PHOTOMETRY and cospar_biascor and write to INFO.YML
+# Mar 08 2023 RK 
+#     - read VERSION_PHOTOMETRY from hubble diagram table header
+#     - read cospar_biascor from sim-README
+#     - write above info to INFO.YML (to pass on to cosmology fitting codes)
 #
 # ===============================================
 
@@ -97,15 +100,15 @@ import os, argparse, logging, shutil, time, subprocess
 import re, yaml, sys, gzip, math
 import numpy  as np
 import pandas as pd
-from pathlib import Path
-from functools import reduce
-from sklearn.linear_model import LinearRegression
+from   pathlib import Path
+from   functools import reduce
+from   sklearn.linear_model import LinearRegression
 import seaborn as sb
 import matplotlib.pyplot as plt
 
 import astropy.units as u
-from astropy.cosmology import Planck13, z_at_value
-from astropy.cosmology import FlatLambdaCDM
+from   astropy.cosmology import Planck13, z_at_value
+from   astropy.cosmology import FlatLambdaCDM
 
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
@@ -138,7 +141,9 @@ VARNAME_c      = "c"
 VARNAME_NEVT_BIN = 'NEVT'
 
 SUBDIR_COSMOMC = "cosmomc"
-KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
+
+# keys in header of FITRES and M0DIF tables output by SALT2mu
+KEYNAME_ISDATA             = "ISDATA_REAL" 
 KEYNAME_VERSION_PHOTOMETRY = "VERSION_PHOTOMETRY"
 
 KEYNAME_SYS_SCALE_FILE = "SYS_SCALE_FILE"
@@ -343,26 +348,41 @@ def read_header_info(hd_file):
     isdata_real  = -1
     header_info = {}  # define output dictionary
 
-    key_isdata = f"{KEYNAME_ISDATA}:" # include colon in brute force search
+    found_isdata   = False
+    found_ver_phot = False
 
     for line in line_list:
         line  = line.rstrip()  # remove trailing space and linefeed  
         line  = line.decode('utf-8')
         wd_list = line.split()
-        if key_isdata in wd_list:
-            j = wd_list.index(key_isdata)
-            isdata_real = int(wd_list[j+1])            
+
+        # xxx mark delete: if key_isdata in wd_list:
+        if any(KEYNAME_ISDATA in s for s in wd_list):  
+            key_isdata     = f"{KEYNAME_ISDATA}:"
+            j              = wd_list.index(key_isdata)
+            if j > 0 :
+                isdata_real    = int(wd_list[j+1])            
+                found_isdata   = True
 
         if any(KEYNAME_VERSION_PHOTOMETRY in s for s in wd_list):  
             key = wd_list[1].replace(':','')  # item 0 is hash, item 1 is key
             arg = wd_list[2].split(',')
             header_info[key] = arg
+            found_ver_phot   = True
 
         nline_read += 1
         if nline_read == maxline_read or isdata_real>=0 : break
 
     header_info[KEYNAME_ISDATA] = isdata_real
     logging.info(f"ISDATA_REAL = {isdata_real}")
+
+    # - - - - - give warnings for key(s) not found - - - - - -
+    found_list = [ found_isdata, found_ver_phot ]
+    key_list   = [ KEYNAME_ISDATA, KEYNAME_VERSION_PHOTOMETRY ]
+
+    for found,key in zip(found_list,key_list):
+        if not found:
+            logging.warning(f"did not find {key} in table header")
 
     return header_info
 
@@ -934,7 +954,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         if flag2:
             logging.info(f"{label} Matrix is Positive-Definite")
         else :
-            logging.info(f"WARNING: {label} Matrix is not Positive-Definite")
+            logging.warning(f"{label} Matrix is not Positive-Definite")
         
         # check that COV is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon
@@ -1385,7 +1405,7 @@ def write_summary_output(config, covariances, base):
 
     cospar_biascor = []
     if sim_version is not None:
-        cospar_biascor = get_cospar_sim(sim_version )
+        cospar_biascor = get_cospar_sim(sim_version)
         with open(out / INFO_YML_FILENAME, "at") as f:
             info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
             yaml.safe_dump(info_cospar, f )
@@ -1422,13 +1442,17 @@ def get_cospar_sim(sim_version):
     readme_file = ret_stdout[k+1]
 
     readme_contents = read_yaml(readme_file)
-    sim_inputs      = readme_contents[KEY_DOCANA][KEY_SIM_INPUT]
+    docana          = readme_contents[KEY_DOCANA] # DOCUMENTATION block
+    
+    if KEY_SIM_INPUT in docana :
+        sim_inputs      = docana[KEY_SIM_INPUT]
+    else :
+        sim_inputs = []  # allow for for older SNANA versions 
+        logging.warning(f"did not find {KEY_SIM_INPUT} in biasCor sim README")
 
     for cospar in KEYLIST_COSPAR_SIM:
         if cospar in sim_inputs :
             cospar_sim[cospar] = sim_inputs[cospar]
-        else:
-            cospar_sim[cospar] = 0.0
 
     return cospar_sim
 

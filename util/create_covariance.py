@@ -366,7 +366,10 @@ def read_header_info(hd_file):
 
         if any(KEYNAME_VERSION_PHOTOMETRY in s for s in wd_list):  
             key = wd_list[1].replace(':','')  # item 0 is hash, item 1 is key
-            arg = wd_list[2].split(',')
+            if len(wd_list) > 2 :
+                arg = wd_list[2].split(',')
+            else:
+                arg = [ "UNKNOWN" ]
             header_info[key] = arg
             found_ver_phot   = True
 

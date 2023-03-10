@@ -2208,11 +2208,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
-    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
-    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
@@ -11259,7 +11257,7 @@ void gen_event_stronglens(int ilc, int istage) {
       GENSL.NGENLC_LENS_TOT++ ;
 
       // pick lens gal from HOSTLIB, and compute RA_LENS & DEC_LENS
-      GEN_SNHOST_STRONGLENS(); 
+      if ( INPUTS.HOSTLIB_USE )  { GEN_SNHOST_STRONGLENS(); }
     }
 
     XIMG          = XIMG_LIST[IMGNUM] ;   // arcSec
@@ -11269,7 +11267,7 @@ void gen_event_stronglens(int ilc, int istage) {
     GENLC.DEC     = GENSL.DEC_LENS + (YIMG/3600.0) ;
 
     // compute DDLR for this lens LC
-    GEN_DDLR_STRONGLENS(IMGNUM); 
+    if ( INPUTS.HOSTLIB_USE ) { GEN_DDLR_STRONGLENS(IMGNUM); }
 
     if ( fabs(GENLC.RA) > 400.0 || fabs(GENLC.DEC) > 400.0 ) {
       print_preAbort_banner(fnam);

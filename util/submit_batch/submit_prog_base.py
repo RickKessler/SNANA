@@ -320,7 +320,7 @@ class Program:
         # Beware that shifter -> Podman at some point on Perlmutter
         docker_command_dict = {
             #  ENV_HOST      docker-command
-            'NERSC_HOST'  : 'shifter --module=none' ,
+            'NERSC_HOST'  : 'shifter --module=none --clearenv' ,
             'SLAC_HOST'   : 'singularity'  # ?? check if we ever use SLAC cluster
         }
 

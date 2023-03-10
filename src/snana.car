@@ -1811,6 +1811,7 @@ c
 
       CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)
      &    HEADER_OVERRIDE_FILE  ! I: comma-sep list of files with CID VAR
+     &    ,SIM_HEADER_OVERRIDE_FILE  ! I: same, but for sims
 
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! I: SN versions to read
@@ -1967,7 +1968,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
-     &    , VPEC_FILE, HEADER_OVERRIDE_FILE
+     &    , VPEC_FILE, HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
@@ -2019,7 +2020,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
-     &    , VPEC_FILE, HEADER_OVERRIDE_FILE
+     &    , VPEC_FILE, HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
      &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
@@ -3051,7 +3052,8 @@ c Called once during global init stage.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER IVERS, INIT_NUM, LENF
+      INTEGER IVERS, INIT_NUM, LENF_DATA, LENF_SIM
+      CHARACTER TMP_FILE*(MXCHAR_FILENAME)
 C ------------ BEGIN -----------
 
 c one-time init for both FITS and TEXT (since we don't know format yet)   
@@ -3073,17 +3075,22 @@ c (SURVEY, FILTERS ..) needed for initialization
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
 c check header override option
-      LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-      IF ( LENF > 0 ) THEN
-        IF ( LSIM_SNANA ) THEN
+      LENF_DATA = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
+      LENF_SIM = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1
+      IF ( LENF_DATA > 0 .AND. LSIM_SNANA ) THEN
           print*,' '
           print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
           print*,'    WARNING: HEADER_OVERRIDE_FILE ignored for sim'
           print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
           print*,' '
-        ELSE
-          CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0))
-        ENDIF
+      ENDIF
+      IF ( LENF_DATA > 0 ) THEN
+       TMP_FILE = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
+       CALL RD_OVERRIDE_INIT(TMP_FILE)
+      ENDIF
+      IF ( LENF_SIM > 0 ) THEN
+       TMP_FILE = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
+       CALL RD_OVERRIDE_INIT(TMP_FILE)
       ENDIF
 
       RETURN
@@ -7520,6 +7527,9 @@ c ------------- BEGIN -------------
          else if ( MATCH_NMLKEY('HEADER_OVERRIDE_FILE',
      &             1, iArg, ARGLIST) ) then 
            HEADER_OVERRIDE_FILE = ARGLIST(1)
+         else if ( MATCH_NMLKEY('SIM_HEADER_OVERRIDE_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SIM_HEADER_OVERRIDE_FILE = ARGLIST(1)
 
 c LSNIGNORE 
 
@@ -11358,6 +11368,7 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
       USERTAGS_FILE = ''
       VPEC_FILE            = ''
       HEADER_OVERRIDE_FILE = ''
+      SIM_HEADER_OVERRIDE_FILE = ''
 
 
       NPAR_SIMSED      = 0

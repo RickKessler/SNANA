@@ -21573,4 +21573,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   create_covariance.py: read VERSION_PHOTOMETRY and cospar_biascor,
      and write to INFO.YML output.
 
+  snana.car
+    + add &SNLCINP input SIM_HEADER_OVERRIDE_FILE 
+      (since HEADER_OVERRIDE_FILE works only for real data)
 END: 

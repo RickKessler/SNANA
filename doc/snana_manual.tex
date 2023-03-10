@@ -9644,9 +9644,11 @@ To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
 The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
-     HEADER_OVERRIDE_FILE = 'myUpdates.dat'
+     HEADER_OVERRIDE_FILE = 'myUpdates.dat'  ! real data only
          or
-     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat
+     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat  ! real data only
+         or
+     SIM_HEADER_OVERRIDE_FILE = 'sim_overrides.dat'  ! sim data only
 
 more myUpdates.dat
 VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV

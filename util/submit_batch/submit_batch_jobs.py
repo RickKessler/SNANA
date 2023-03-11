@@ -28,14 +28,14 @@ import submit_translate as tr
 
 from   submit_params      import *
 from   submit_prog_sim    import Simulation
-from   submit_prog_lcfit  import LightCurveFit
+#from   submit_prog_lcfit  import LightCurveFit
 
 # xxxxxxxx mark delete Feb 27 2023 xxxxxxxxx
-#try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
-#    from   submit_prog_lcfit  import LightCurveFit
-#except Exception as e:
-#    print(f" WARNING: could not import LightCurveFit")
-#    pass
+try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
+    from   submit_prog_lcfit  import LightCurveFit
+except Exception as e:
+    print(f" WARNING: could not import LightCurveFit")
+    pass
 # xxxxxxxxxxxxxx
 
 from   submit_prog_bbc      import BBC

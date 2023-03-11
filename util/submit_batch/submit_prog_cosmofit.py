@@ -802,7 +802,7 @@ class cosmofit(Program):
 
         
         # define output YAML file to be parsed by submit-merge process
-        #arg_list.append(f"-cospar_yaml {prefix}.YAML")
+        arg_list.append(f"--summary {script_dir}/{prefix}.YAML")
         # XYZ Need something analogous for Firecrown
 
         JOB_INFO = {}
@@ -1003,7 +1003,7 @@ class cosmofit(Program):
             STATE       = row[COLNUM_STATE]
             prefix      = self.cosmofit_prefix(row) 
             search_wildcard = f"{prefix}*"
-
+            
             # check if DONE or FAIL ; i.e., if Finished
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)

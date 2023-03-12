@@ -3451,14 +3451,6 @@ double EofZ(double z, Cosparam *cptr){
   arg = arg_omm + arg_omk + arg_ome ;
   if ( omr > 0.0 )  { arg += arg_r; }
 
-  /* xxxxxxxxx mark delete Sep 12 2022 xxxxxx
-    omm * z1_pow3 + 
-    omk * z1_pow2 + 
-    ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
-    // xxx mark delete Sep 12 2022  if(omr>0.0) { arg += (omr * z1_pow4); }
-  xxxxxxx end mark xxxxxxxx */
-
-
   /* xxx
   if ( arg < 0.0 ) 
     { printf(" xxx z=%.3f, arg_omm=%.3f  arg_ome=%.3f  w0=%.3f\n", 

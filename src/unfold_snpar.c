@@ -945,7 +945,7 @@ void fill_TABLE(int itype) {
     if ( isn < INPUTS.NREAD_RANGE[itype][0] ) { continue ; }
     if ( isn > INPUTS.NREAD_RANGE[itype][1] ) { continue ; }
 
-    // check for CC contamination: .xyz later need CC subtraction 
+    // check for CC contamination: later need CC subtraction 
     ISTRUE_NONIA = ARRAY[itype].ISTRUE_NONIA[isn] ;
     if ( ISTRUE_NONIA ) { continue; }
 
@@ -1063,9 +1063,9 @@ void fill_MIGRATION_TABLE(int IZACC, int IB1ACC, int IB2ACC,
   if ( IB2FIT >= NB2 ) goto SKIPPY ;
 
   // bail if fitted bin value is too far from underlying value.
-  DIFZ = (double)(IZACC  - IZFIT ); // xxx mark delete - 0.5 ;
-  DIF1 = (double)(IB1ACC - IB1FIT); // - 0.5 ;
-  DIF2 = (double)(IB2ACC - IB2FIT); // - 0.5 ;
+  DIFZ = (double)(IZACC  - IZFIT ); // 
+  DIF1 = (double)(IB1ACC - IB1FIT); // 
+  DIF2 = (double)(IB2ACC - IB2FIT); // 
   RSQDIF = DIFZ*DIFZ + DIF1*DIF1 + DIF2*DIF2 ;
   if ( RSQDIF > INPUTS.MIGBIN_SQRADIUS ) { goto SKIPPY ; }
 

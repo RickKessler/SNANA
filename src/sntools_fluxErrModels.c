@@ -425,6 +425,8 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
   //
   // Split input STRING and load contents into struct REDCOV_FLUXERRMAP.
   // Each band can be defined no more than once; otherwise abort.
+  //
+  // Nov 30 2022: abort on invalid RHO value(s)
 
   int MXRED   = MXREDCOV_FLUXERRMAP;
   int MEMC    = MXCHAR_STRING_REDCOV * sizeof(char) ;
@@ -462,7 +464,7 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
   splitString(STRING, space, MXRED, &NKEYVAL, ptrSplit0);
   NKEY = NKEYVAL/2; 
 
-  int i2key=0;
+  int i2key=0, istat=0, NERR=0;
   for(ikey=0; ikey < NKEY; ikey++ ) {
     i2key = 2*ikey;
 
@@ -480,13 +482,23 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
     
     // split by comma
     splitString(ptrSplit0[i2key+1], comma, MXRED, &NITEM, ptrSplit1);
-    for(i=0; i < NITEM; i++ ) 
-      {  load_REDCOV_FLUXERRMODEL(ptrSplit1[i],FIELD); }    
+    for(i=0; i < NITEM; i++ ) { 
+      istat = load_REDCOV_FLUXERRMODEL(ptrSplit1[i],FIELD); 
+      if ( istat != 0 ) { NERR++; }
+    }    
 
   } // end ikey
-
+  
   // free local memory
   for(i=0; i < MXRED; i++ ) { free(ptrSplit0[i]); free(ptrSplit1[i]);  }
+
+
+  if ( NERR > 0 ) {
+    sprintf(c1err,"Found %d invalid reduced correlations (scroll up).",
+	    NERR);
+    sprintf(c2err,"Must modify or remove REDCOV key(s).");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   return ;
 
@@ -494,18 +506,20 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
 
 
 // ========================================
-void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
+int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
 
   // Input is argument item of REDCOV or FLUXERRMODEL_REDCOV
-  // If argument is g:0.2,r,0.3,i:0.4
-  // then ITEM_REDCOV is either g:0.2 or r:0.3 or i:0.4.
-   
+  // If sim-input argument is g:0.2,r,0.3,i:0.4
+  // then loca arg ITEM_REDCOV is either g:0.2 or r:0.3 or i:0.4.
+  //
+  // Function returns istat=0 on valid REDCOV;
+  // returns -1 if |REDCOV| > 1. 
+
   int  NREDCOV = NREDCOV_FLUXERRMODEL ;
-  int  N2, ifilt_obs, NBAND_TMP, iband, INDEX_CHECK ;
+  int  N2, ifilt_obs, NBAND_TMP, iband, INDEX_CHECK, istat=0 ;
   double REDCOV ;
   char *ptr_BANDSTRING, *ptr_BANDLIST, *ptrSplit2[2];
   char *ptr_FIELDGRP, *ptr_FIELDLIST, band[2] ;
-  char colon[] = ":" ;
   char fnam[]= "load_REDCOV_FLUXERRMODEL";
 
   // ------------- BEGIN ------------
@@ -518,11 +532,17 @@ void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   ptr_FIELDGRP   = COVINFO_FLUXERRMODEL[NREDCOV].FIELDGROUP ;
   ptr_FIELDLIST  = COVINFO_FLUXERRMODEL[NREDCOV].FIELDLIST ;
 
-  splitString(ITEM_REDCOV, colon, 2, &N2, ptrSplit2);    
+  splitString(ITEM_REDCOV, COLON, 2, &N2, ptrSplit2);    
   sprintf(ptr_BANDSTRING,  "%s", ITEM_REDCOV );
   sprintf(ptr_BANDLIST,    "%s", ptrSplit2[0] );
   sprintf(ptr_FIELDGRP,    "%s", FIELD);
   sscanf(ptrSplit2[1], "%le", &REDCOV );
+
+  if ( fabs(REDCOV) > 1.0000001 ) {
+    printf(" ERROR: Invalid REDCOV = %f for BAND=%s FIELDGRP=%s\n",
+	   REDCOV, ptr_BANDLIST, ptr_FIELDGRP ); fflush(stdout);
+    istat = -1;
+  }
 
   // set FIELDLIST based on FIELDGRP; 
   sprintf(ptr_FIELDLIST, "%s", ptr_FIELDGRP);
@@ -553,7 +573,7 @@ void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   free(ptrSplit2[0]);      free(ptrSplit2[1]);
   NREDCOV_FLUXERRMODEL++ ;
 
-  return ;
+  return istat ;
 
 } // end load_REDCOV_FLUXERRMODEL
 
@@ -722,9 +742,9 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   //  int NMAP      = NMAP_FLUXERRMODEL; 
   int NSPARSE[MXMAP_FLUXERRMAP];
   int IDMAP, istat, isp, imap, NVAR, IVAR, ivar, MASK_APPLY ;
-  int LDMP = 0 ;
+  int LDMP = (OPT & 512) ;
   double FLUXERR_TMP, errModelVal, parList[MXPAR_FLUXERRMAP] ;
-  char *tmpString ;
+  char *VARNAMES, tmpString[40], cparList[200] ;
   char fnam[] = "get_FLUXERRMODEL";
 
   // ----------- BEGIN -------------
@@ -769,21 +789,28 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   // errModelVal is the error scale from map
   IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;
   load_parList_FLUXERRMAP(imap, PARLIST, parList);
-  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
-  
-  if ( LDMP || istat<0 ) {
-    char cparList[100] ;  cparList[0] = 0 ;
+
+  if ( LDMP ) {
+    cparList[0] = 0 ;
     NVAR      = FLUXERRMAP[imap].NVAR ;
     for(ivar=0; ivar < NVAR-1; ivar++ ) { 
       IVAR      = FLUXERRMAP[imap].IVARLIST[ivar] ;
-      tmpString = FLUXERRMAP[imap].VARNAMES[ivar] ;
-      sprintf(cparList,"%s %s=%.3f", cparList, tmpString, parList[ivar] ); 
+      VARNAMES  = FLUXERRMAP[imap].VARNAMES[ivar] ;
+      sprintf(tmpString,"%s=%.3f ",  VARNAMES, parList[ivar] ); 
+      strcat(cparList,tmpString);
+      // xxx sprintf(cparList,"%s %s=%.3f", cparList,VARNAMES,parList[ivar]); 
     }
     printf(" xxx imap=%2d  %s(%s-%s)  MJD=%.3f  FLUXERR_IN=%.3f\n", 
 	   imap, FLUXERRMAP[imap].NAME, FIELD, BAND,
 	   PARLIST[IPAR_FLUXERRMAP_MJD],  FLUXERR_IN) ;
-    printf(" xxx     %s  :  errModelVal=%.3f\n", 
-	   cparList, errModelVal);
+    fflush(stdout) ;
+
+  }
+
+  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
+  
+  if ( LDMP || istat<0 ) {
+    printf(" xxx     %s  :  errModelVal=%.3f\n",  cparList, errModelVal);
     fflush(stdout) ;
   }
   

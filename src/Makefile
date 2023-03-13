@@ -1,104 +1,16 @@
 # $Source: /cvs/sdss/snana/src/Makefile,v $
 # $Revision: 1.500 $    Last Modified: $Date: 2019/05/02 20:24:47 $
 #
-#  R.Kessler    
+# TO DO (Sep 2022):
+#     You can define C macro variables via -D gcc flag, 
+#     for example -D USE_PYTHON -D MY_VARIABLE=206265. 
+#      In Makefile you can add it to pre-processor flags, e.g. CPPFLAGS 
+#
+#
+#  R.Kessler 
 #
 #  HISTORY 
 # -----------------------------------
-# Apr 07, 2012: add genSmear_models.c[.o]
-#
-# Jun 18, 2012: add public psnid based on pnsid.cra (with snana interface)
-#
-# Jul 25, 2012: added $PSNID_OBJECTS
-#               Remove *.f90 from list
-#
-# Oct 18, 2012: psnid.cra -> psnid.cra and psnid.car  to have same
-#               structre and snana and snlc_fit.
-#
-# Oct 23, 2012: remove SDSS_xxx programs from Make
-#
-# Dec 19, 2012: 
-#    - for FNAL, use BITNESS to determine 32- or 64-bit version of
-#      libraries. For non-FNAL use $(PRODUCT)/lib
-#    - General cleanup and organization
-#    - Fix 'make ../bin/psnid.exe' to work after 'make clean'
-#
-# Jan 09, 2013: add -lpthread link flag.
-#
-# Jan 31, 2013:  
-#      snfitsio -> sntools_fitsio
-#      remove $(OBJ)/human_search_eff.o 
-#
-# Feb 2, 2013: 
-#   - compile and link to sntools_output
-#   - remove 'make_resids.exe', which is broken anyway
-#   - link combine_fitres.exe to sntools_output.o
-#
-# Feb 20, 2013: lots of tweaks to prepare for CC = c++ .
-#
-# Apr  2, 2013: require LMINUIT for linking snana.exe and snlc_fit.exe
-# Apr 15, 2013: add sntools_nearnbr
-# Apr 20, 2013: add sntable_dump.exe
-# Apr 26, 2013: eigen.f -> sntools_eigen.F
-# May 02, 2013: add merge_hboook.exe (eventually to replace hmerge.exe)
-# May 07, 2013: remove hmerge
-# Sep 21, 2013: link a few more program to MWgaldust.o since 
-#                GALextinct is there.
-#
-# Jan 17, 2014: compile sntools_trigger.o
-# Feb  2, 2014: fix psnid dependencies to allow 
-#                    "make clean ; make ../psnid.exe"
-# Mar  2, 2014: add a few needed 'sndata.h' dependences.
-#
-# Apr 17, 2014: 
-#   - add fcasplit from cernlib (from D.Cinabro) and use
-#     $(SNANA_DIR//bin/fcasplit rather than CERNLIB's fcasplit.
-#   - use local ypatchy.pl instead of CERNLIB's ypatchy.
-#
-# Apr 27 2014:
-#   Define OBJ_OUTPUT = sntools_output.o + libsnana.a, where the latter
-#   contains wrapper FORCLOSE(LUN) called by CLOSE_HFILE. This is needed
-#   only to close a read-only file before the end of a program.
-#
-# May 27 2014: m64 is default instead of m64
-#
-# Aug 20 2014: compile with sntools_imageNoiseModels.c
-#
-# Sep 30 2014: add $(LROOT) to a few more programs since all of the
-#              fitres-ascii code is uner sntools_output_text.c
-#
-# Dec 17 2014: 
-#  check CERN_DIR and ROOT_DIR to internally set  USE_HBOOK and USE_ROOT.
-#  Also call defineOutputFlags.pl to set C pre-processor flags.
-#  User no longer has to manually edit files to select HBOOK,ROOT.
-#
-# Feb 19, 2015: remove SNANA_DIR dependence so that make works 
-#               without SNANA_DIR defined.
-#
-#               Replace LMINUIT with $(OBJ)/minuit.o (see minuit.F)
-#               so that we don't need the external MINUIT lib.
-#
-# Oct 28 2015: compile/link  sntools_fluxErrModel
-#
-# Mar 14 2016: compile genmag_NON1AGRID.o for simulation.
-#              Separate OBJ_GENMAGS -> OBJ_GENMAG_FIT and OBJ_GENMAG_SIM.  
-#
-# Apr 26 2016: compile sntools_nonlinearity.c
-#
-# Jul 2 2016: add sntools_spectrograph
-# Sep 2 2016: 
-#   + add sntools_genGauss_asym.o  
-#   + define USE_PYTHON based on $SNANA_PYTHON_DIR 
-#         [E.Jennings figured out how to call python from C]
-#
-# Jan 6 2017: add sntable_combine.c
-#
-# Apr 15 2017: add sntools_lensing.o to simulation
-# Aug 17 2017: add sntools_devel.o for simulation
-#
-# Feb 12 2018: 
-#  + remove sntools_imageNoiseModels
-#  + add sntools_fluxErrModels_legacy
 #
 # May 31 2018: add SIMSED_rebin
 # Jul 28 2018: remove SIMSED_prep.exe, and add SIMSED_check.exe
@@ -145,7 +57,26 @@
 # Mar 16 2021: 
 #   + remove obsolete install feature
 #   + finall add debug flag;  make debug
-# ---------------------------------------------------------------------
+#
+# Jun 24 2021: 
+#   + include sntools_genGauss_asym dependence for SALT2mu
+#
+# Jul 17 2021: make sntools_gridmap.o
+# Dec 10 2021: incorporate sntools_data.o
+# Dec 22 2021: incorporate sntools_sim_readme.c[h]
+# Apr 03 2022: link SIMSED_xxx programs to sntools_output because 
+#              sntools.c util now calls AUTOSTORE util.
+#
+# Jun 10 2022: for deciding C-python interace, check $VERSION_LIBPYTHON
+#    instead of $SNANA_PYTHON_DIR. 
+#
+# Sep 15 2022: define EXTRA_FLAGS_CPLUS = -std=c++17 (for ROOT v6 at NERSC)
+# Nov 22 2022: add USE_BAYESN flag to use libyaml
+# Nov 23 2022: add genmag_extinction
+# Nov 29 2022: remove kcordump
+# Dec 02 2022: append CFLAGS with snana git version
+#
+# ------------------------------------------------------------------------
 
 SHELL = /bin/sh
 
@@ -164,11 +95,11 @@ FFC  = gfortran
 #CC   = cc
 CC   = gcc
 
-  EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
+  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-# EXTRA_FLAGS = -O2 -Wall
-#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+# EXTRA_FLAGS = -O2 -
+# EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
 GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
@@ -176,10 +107,12 @@ GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
 ifeq ($(GCCVERSION10),0)
    EXTRA_FLAGS_FORTRAN  = $(EXTRA_FLAGS)
    EXTRA_FLAGS_C        = $(EXTRA_FLAGS)
+   EXTRA_FLAGS_CPLUS    = 
 else 
 # for gcc v10, allow argument-mismatch errors (9.2020)
    EXTRA_FLAGS_FORTRAN = $(EXTRA_FLAGS) -fallow-argument-mismatch -fcommon
    EXTRA_FLAGS_C       = $(EXTRA_FLAGS) -fcommon
+   EXTRA_FLAGS_CPLUS   = -std=c++17
 endif
 
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
@@ -188,6 +121,7 @@ endif
 # compile default storage options for both ROOT and HBOOK ....
 USE_ROOT   = 1
 USE_HBOOK  = 1
+USE_BAYESN = 1
 
 # ... unless the product is not installed.
 ifndef CERN_DIR
@@ -198,6 +132,13 @@ ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
+ifndef YAML_DIR
+	LYAML = 
+	USE_BAYESN = 0
+else
+	LYAML = -lyaml
+	USE_BAYESN = 1
+endif 
 
 # ------------------------------------------
 # default lib-subdir name is just 'lib'.
@@ -243,7 +184,8 @@ ifeq ($(USE_ROOT),0)
    CPPLIB   = 
    SNTOOLS_ROOT = 
 else
-   CCoutput    = c++ 
+#   $(info EXTRA_FLAGS_CPLUS = $(EXTRA_FLAGS_CPLUS))
+   CCoutput    = c++ $(EXTRA_FLAGS_CPLUS)
    CPPLIB      = -lstdc++
    IROOT       = -I/$(ROOT_DIR)/include -I/opt/local/include/freetype2
    ROOT_LIBDIR = $(LIB_SDIR)
@@ -264,15 +206,14 @@ endif
 #echo " LIBINT_ROOT5 = $(LIBCINT_ROOT5) " ;
 
 # Apr 2019: check for python codes
-ifndef SNANA_PYTHON_DIR
+# Jun 2022: use VERSION_LIBPYTHON to decide on C-python interface
+ifndef VERSION_LIBPYTHON
   IPY = 
   LPY = 
 else
-  IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.7m
-  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.7m
+  IPY = -I/$(CONDA_PREFIX)/include/python$(VERSION_LIBPYTHON)
+  LPY = -L$(CONDA_PREFIX)/lib -ldl  -lutil -Wl,-rpath,$(CONDA_PREFIX)/lib -lpython$(VERSION_LIBPYTHON)
 endif
-
-
 
 # --------------------------------------------
 # set compile flags.
@@ -302,6 +243,12 @@ else
 endif
 endif
 
+#GIT_VERSION := "$(shell git describe --dirty --always --tags)"
+GIT_VERSION := "$(shell git describe --always --tags)"
+SNCFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
+
+# ===========================
+
 UTIL = ../util
 BIN  = ../bin
 OBJ  = ../obj
@@ -309,7 +256,6 @@ SRC  = ../src
 LIB  = ../lib
 TMPANA = $(SRC)/tempana
 TMPFIT = $(SRC)/tempfit
-
 
 # --------------------------------------------
 
@@ -323,7 +269,6 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/snlc_fit.exe		\
 	$(BIN)/psnid.exe		\
 	$(BIN)/kcor.exe			\
-	$(BIN)/kcordump.exe		\
 	$(BIN)/nearnbr_maxFoM.exe	\
 	$(BIN)/nearnbr_apply.exe	\
 	$(BIN)/wfit.exe			\
@@ -367,10 +312,12 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_stretch2.o \
 	$(OBJ)/genmag_mlcs2k2.o \
 	$(OBJ)/genmag_SALT2.o	\
+	$(OBJ)/genmag_BAYESN.o	\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
 	$(OBJ)/genmag_SIMSED.o	\
-	$(OBJ)/genmag_SEDtools.o
+	$(OBJ)/genmag_SEDtools.o \
+	$(OBJ)/genmag_extinction.o
 
 OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
@@ -381,13 +328,16 @@ OBJ_GENMAG_SIM =	\
 
 OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools.o 	\
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_nonlinearity.o  	\
 	$(OBJ)/sntools_fluxErrModels.o	  \
 	$(OBJ)/sntools_fluxErrModels_legacy.o	\
+	$(OBJ)/sntools_simeff_obsolete.o	\
 	$(OBJ)/sntools_dataformat_fits.o	\
 	$(OBJ)/sntools_dataformat_text.o	\
-	$(OBJ)/sntools_gridread.o \
-	$(OBJ)/sntools_kcor.o \
+	$(OBJ)/sntools_data.o 			\
+	$(OBJ)/sntools_modelgrid_read.o \
+	$(OBJ)/sntools_calib.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/minuit.o		\
@@ -395,6 +345,13 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/multiseason.o
 
+OBJ_SNTOOLS_DATA =  \
+	$(OBJ)/sntools_dataformat_fits.o        \
+        $(OBJ)/sntools_dataformat_text.o        \
+        $(OBJ)/sntools_data.o                   \
+	$(OBJ)/sntools_output.o			\
+	$(OBJ)/sntools_cosmology.o
+ 
 OBJ_OUTPUT = $(OBJ)/sntools_output.o
 
 # now the program-specific lists
@@ -408,6 +365,7 @@ OBJ_SNFIT	 = 		\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o    \
+	$(OBJ)/sntools_zPDF_spline.o \
 	$(OBJ_GENMAG_FIT)
 
 OBJ_PSNID	=  		\
@@ -426,8 +384,9 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_wronghost.o   \
 	$(OBJ)/sntools_genSmear.o  \
 	$(OBJ)/sntools_devel.o  \
+	$(OBJ)/sntools_sim_readme.o \
 	$(OBJ)/sntools_trigger.o  \
-	$(OBJ)/sntools_gridgen.o  \
+	$(OBJ)/sntools_modelgrid_gen.o  \
 	$(OBJ)/sntools_spectrograph.o \
 	$(OBJ)/sntools_genPDF.o \
 	$(OBJ)/sntools_genGauss_asym.o \
@@ -498,9 +457,13 @@ $(OBJ)/minuit.o :  minuit.F
 $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/wfit.c ) 
 
-$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_cosmology.o
+$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
-	$(OBJ)/wfit.o  $(OBJ)/sntools.o  $(OBJ)/sntools_cosmology.o \
+	$(OBJ)/wfit.o  \
+	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
+	$(OBJ)/sntools_cosmology.o \
+	$(LCERN) $(LROOT) $(CPPLIB) \
 	$(LCFITSIO)  \
 	-lm $(LGSL) 
 	(cd $(OBJ);  rm wfit.o )
@@ -529,14 +492,17 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 #	$(FFC) $(SNFFLAGS) $(SRC)/sntools_eigen.F)
 
 
-$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c $(SRC)/minuit.F
+$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
-$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o
+$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o $(OBJ)/sntools_gridmap.o $(OBJ)/sntools_genGauss_asym.o $(OBJ)/sntools_genExpHalfGauss.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/SALT2mu.o  \
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
+	$(OBJ)/sntools_gridmap.o \
+	$(OBJ)/sntools_genGauss_asym.o \
+	$(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/minuit.o 	\
 	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	(cd $(OBJ);  rm SALT2mu.o ) 
@@ -630,22 +596,25 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
 	$(OBJ_SNFIT) 	\
 	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm  $(CPPLIB)
+	$(LCERN)  $(LROOT) -lm $(LYAML) $(CPPLIB)
 	(cd $(OBJ); rm snlc_fit.o )
 
 # -------------------------------------------------
 # PSNID photometric classifier (Jun 2012)
 
-$(OBJ)/psnid_tools.o : $(SRC)/psnid_tools.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+$(OBJ)/psnid_tools.o : $(SRC)/psnid_tools.c $(SRC)/sntools.h \
+	$(SRC)/sntools_modelgrid_read.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_tools.c )
 
-$(OBJ)/psnid_BEST.o : $(SRC)/psnid_BEST.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+$(OBJ)/psnid_BEST.o : $(SRC)/psnid_BEST.c $(SRC)/sntools.h \
+	$(SRC)/sntools_modelgrid_read.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST.c )
 
 
-$(OBJ)/psnid_BEST2.o : $(SRC)/psnid_BEST2.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+$(OBJ)/psnid_BEST2.o : $(SRC)/psnid_BEST2.c $(SRC)/sntools.h \
+	$(SRC)/sntools_modelgrid_read.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST2.c )
 
@@ -674,36 +643,18 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO)  $(IGSL) $(SRC)/kcor.c )
 
-$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ)/sntools_cosmology.o
+$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ_SNTOOLS_DATA)
 	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/kcor.o $(OBJ)/sntools.o  $(OBJ)/MWgaldust.o \
-	$(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o \
-	$(OBJ)/sntools_cosmology.o \
-	$(LCFITSIO)  $(LGSL) $(LCERN)
+	$(OBJ)/kcor.o \
+	$(OBJ)/sntools.o  	\
+	$(OBJ)/MWgaldust.o 	\
+	$(OBJ_SNTOOLS_DATA) 	\
+	$(OBJ)/sntools_spectrograph.o  	\
+	$(LCFITSIO)  $(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm kcor.o )
 
 # -------------------------------------------------
-# kcordump program
-
-$(OBJ)/kcordump.o :  kcordump.f
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) $(IGSL) $(SRC)/kcordump.f)
-
-kcordump.f : kcordump.cra  kcordump.cra 
-	ln -s $(SRC)/snana.car snana.lnk
-	$(UTIL)/ypatchy.pl - $@ kcordump.cra .go
-	rm snana.lnk
-
-$(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/kcordump.o 	\
-	$(LIB)/libsnana.a  	\
-	$(OBJ)/sntools.o 	\
-	$(OBJ)/sntools_kcor.o 	\
-	$(OBJ)/sntools_dataformat_fits.o \
-	$(OBJ)/sntools_dataformat_text.o \
-	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  -lm
-	(cd $(OBJ); rm kcordump.o)
+# kcordump program (removed Nov 29 2022)
 
 # -------------------------------------------------
 # combine_fitres (C-version with no array limits)
@@ -782,6 +733,7 @@ $(BIN)/nearnbr_apply.exe :  \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/nearnbr_apply.o \
 	$(OBJ)/sntools.o  	\
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ_OUTPUT)		\
 	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
@@ -819,6 +771,10 @@ $(OBJ)/sntools_fluxErrModels_legacy.o : $(SRC)/sntools_fluxErrModels_legacy.c $(
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_fluxErrModels_legacy.c )
 
+$(OBJ)/sntools_simeff_obsolete.o : $(SRC)/sntools_simeff_obsolete.c $(SRC)/sntools_simeff_obsolete.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_simeff_obsolete.c )
+
 # -------------------------------------------------
 # Oct 2020: cosmology util (extracted from sntools.c)
 
@@ -837,18 +793,22 @@ $(OBJ)/sntools_dataformat_text.o : $(SRC)/sntools_dataformat_text.c $(SRC)/sntoo
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_dataformat_text.c )
 
+$(OBJ)/sntools_data.o : $(SRC)/sntools_data.c $(SRC)/sntools_data.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_data.c )
+
 # ---------
-$(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
+$(OBJ)/sntools_calib.o : $(SRC)/sntools_calib.c $(SRC)/sntools_calib.h $(SRC)/sndata.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_calib.c )
 
-$(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
+$(OBJ)/sntools_modelgrid_gen.o : $(SRC)/sntools_modelgrid_gen.c $(SRC)/sntools_modelgrid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridgen.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_modelgrid_gen.c )
 
-$(OBJ)/sntools_gridread.o : $(SRC)/sntools_gridread.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
+$(OBJ)/sntools_modelgrid_read.o : $(SRC)/sntools_modelgrid_read.c $(SRC)/sntools_modelgrid.h $(SRC)/sndata.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridread.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_modelgrid_read.c )
 
 # -------------------------------------------------
 # compile sntools_host (.o only)
@@ -864,6 +824,13 @@ $(OBJ)/sntools_host.o : $(SRC)/sntools_host.c  $(SRC)/sntools_host.h $(SRC)/snlc
 $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_devel.c )
+
+# -------------------------------------------------
+# compile sntools_sim_readme (.o only)
+
+$(OBJ)/sntools_sim_readme.o : $(SRC)/sntools_sim_readme.c  $(SRC)/sntools_sim_readme.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_sim_readme.c )
 
 # -------------------------------------------------
 # compile sntools_weaklens (.o only)
@@ -892,6 +859,13 @@ $(OBJ)/inoue_igm.o : $(SRC)/inoue_igm.c  $(SRC)/inoue_igm.h
 $(OBJ)/sntools_wronghost.o : $(SRC)/sntools_wronghost.c  $(SRC)/sntools_wronghost.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_wronghost.c )
+
+# -------------------------------------------------
+# compile sntools_wronghost (.o only)
+
+$(OBJ)/sntools_zPDF_spline.o : $(SRC)/sntools_zPDF_spline.c 
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_zPDF_spline.c )
 
 
 # -------------------------------------------------
@@ -948,6 +922,12 @@ $(OBJ)/sntools_genPDF.o : $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genPDF.h
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genPDF.c )
 
 # -------------------------------------------------
+#  sntools_gridmap (July 2021)
+
+$(OBJ)/sntools_gridmap.o : $(SRC)/sntools_gridmap.c  $(SRC)/sntools_gridmap.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_gridmap.c )
+# -------------------------------------------------
 #  sntools_genGauss_asym  tools (Sep 2016)
 
 $(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h
@@ -980,6 +960,10 @@ $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 	(cd $(OBJ); \
 	$(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/genmag_SALT2.c )
 
+$(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_BAYESN.c
+	(cd $(OBJ); \
+	$(CC) $(LYAML) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
+
 $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \
 	$(CC)  $(SNCFLAGS) $(SRC)/genmag_SIMSED.c )
@@ -1008,17 +992,25 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_LCLIB.c )
 
+$(OBJ)/genmag_extinction.o : $(SRC)/genmag_extinction.c  $(SRC)/sntools.h $(SRC)/sntools_calib.c
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_extinction.c )
+
 # -------------------------------------------------
 # Generic Lightcurve simulator 
 # $(SRC)/sntools_genPDF.c
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
-	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c $(SRC)/sntools_gridgen.c \
+	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c \
+	$(SRC)/sntools_calib.c \
+	$(SRC)/sntools_modelgrid_gen.c \
+	$(SRC)/sntools_data.c 	\
 	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \
 	$(SRC)/sntools_host.c  \
 	$(SRC)/sntools_genPDF.c $(SRC)/sntools_wronghost.c \
 	$(SRC)/sntools_genSmear.c $(SRC)/sntools_devel.c \
 	$(SRC)/SNcadenceFoM.c  \
+	$(SRC)/sim_unit_tests.c \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 
@@ -1027,7 +1019,7 @@ $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
 	$(OBJ_SIM)	  	\
 	$(LIB)/libsnana.a  	\
 	$(LCFITSIO) $(LGSL)  	\
-	$(LPY)  $(LCERN) $(LROOT)  -lm  $(CPPLIB)
+	$(LPY)  $(LCERN) $(LROOT)  -lm $(LYAML) $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
 # -------------------------------------------------
@@ -1041,9 +1033,10 @@ $(BIN)/simlib_coadd.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/simlib_coadd.o  \
 	$(OBJ)/sntools.o \
+	$(OBJ)/sntools_output.o \
 	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/MWgaldust.o \
-	$(LGSL) 
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm simlib_coadd.o )
 
 # ---------------------------------------
@@ -1080,7 +1073,9 @@ $(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
 $(BIN)/filtercal_sim.exe : \
 	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o $(LCERN)  -lm $(LGSL)
+	$(OBJ)/filtercal_sim.o  \
+	$(OBJ)/sntools.o \
+	$(LCERN)  -lm $(LGSL)
 	(cd $(OBJ); rm filtercal_sim.o )
 
 # -------------
@@ -1095,9 +1090,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_fudge.o  \
 	$(OBJ)/sntools.o  \
-	$(OBJ)/sntools_cosmology.o  \
-	$(OBJ)/sntools_dataformat_fits.o  \
-	$(OBJ)/sntools_dataformat_text.o  \
+	$(OBJ_SNTOOLS_DATA) 		\
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_SIMSED.o   \
 	$(OBJ)/genmag_SALT2.o   \
@@ -1105,7 +1098,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/sntools_devel.o \
 	$(OBJ)/MWgaldust.o \
 	$(LIB)/libsnana.a  \
-	-lm $(LCFITSIO) $(LGSL) $(LCERN)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_fudge.o )
 
 # -------------
@@ -1119,14 +1112,16 @@ $(OBJ)/SIMSED_extractSpec.o : $(SRC)/SIMSED_extractSpec.c \
 
 $(BIN)/SIMSED_extractSpec.exe : \
 	$(OBJ)/SIMSED_extractSpec.o  \
-	$(OBJ)/sntools.o  $(OBJ)/genmag_SEDtools.o 
+	$(OBJ)/sntools.o  \
+	$(OBJ)/genmag_SEDtools.o 
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_extractSpec.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
-	-lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_extractSpec.o )
 
 # -------------
@@ -1142,10 +1137,11 @@ $(BIN)/SIMSED_rebin.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_rebin.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
-	-lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_rebin.o )
 
 # -------------
@@ -1161,11 +1157,12 @@ $(BIN)/SIMSED_check.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_check.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	$(OBJ)/genmag_SIMSED.o  \
-	-lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_check.o )
 
 # -------------
@@ -1180,7 +1177,7 @@ $(BIN)/atmosphere_sim.exe : \
 	$(OBJ)/atmosphere_sim.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LCERN) $(LROOT)  -lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm atmosphere_sim.o )
 
 # -------------

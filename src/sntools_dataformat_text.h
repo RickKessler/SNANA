@@ -22,7 +22,7 @@ struct {
   int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR, MAG, MAGERR ;
   int ZPFLUX, ZPERR, PSF_FWHM, PSF_SIG, NEA;
   int SKYSIG, SKYSIG_T, SKYSIG_GAIN ;
-  int GAIN, PHOTFLAG, PHOTPROB, XPIX, YPIX, CCDNUM; 
+  int GAIN, PHOTFLAG, PHOTPROB, XPIX, YPIX, CCDNUM, IMGNUM ; 
   int SIMEPOCH_MAG ; // EPFILTREST, EPMAGREST??
 } IVAROBS_SNTEXTIO ;
 
@@ -65,11 +65,17 @@ struct {
 } SNTEXTIO_FILE_INFO ;
 
 
+bool WRITE_VALID_SNTEXTIO; // flag to write only valid values (Jan 2022)
+
+bool DEBUG_FLAG_SNTEXTIO ;
+
 void WR_SNTEXTIO_DATAFILE(char *OUTFILE);
 void wr_sntextio_datafile__(char *OUTFILE);
 
 void wr_dataformat_text_HEADER(FILE *fp ) ;
 void wr_dataformat_text_HOSTGAL(FILE *fp) ;
+void wr_dataformat_text_PRIVATE(FILE *fp) ;
+
 void wr_dataformat_text_SIMPAR(FILE *fp ) ;
 void wr_dataformat_text_SNPHOT(FILE *fp ) ;
 void wr_dataformat_text_SNSPEC(FILE *fp ) ;
@@ -91,11 +97,15 @@ void rd_sntextio_malloc_spec(int ISPEC, int NBLAM);
 void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile);
 void rd_sntextio_event__(int *OPTMASK, int *ifile);
 bool parse_SNTEXTIO_HEAD(int *iwd);
+bool parse_SNTEXTIO_HEAD_legacy(int *iwd);
 bool parse_SNTEXTIO_OBS(int *iwd);
 bool parse_SNTEXTIO_SPEC(int *iwd);
+void check_nblam_sntextio_spec(void);
 
 void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
 			      float *PTR_VAL, float *PTR_ERR) ;
+
+bool is_valid_SNTEXTIO(float VAL_MIN, float VAL);
 
 void copy_keyword_nocolon(char *key_in, char *key_out) ;
 void check_head_sntextio(int OPT);

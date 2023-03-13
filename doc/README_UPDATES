@@ -20045,22 +20045,1535 @@
 
 
 # ======================================================================= 
-         v11_02p (  ) 
+         v11_02p (Jun 26 2021) 
 
          ***** IMPORTANT(v11_02p) ***** 
 
+    + SALT2mu: release change of NOT applying MUCOVSCALE to vpec part 
+      of MUERR. Note that SALT2mu results change very slightly.
+      debug_flag=-68 to go back.                             
+
          ***** USEFUL(v11_02p) ***** 
+
+    + submit_batch(SIM) has new INCLUDE_FILE_LIST to apply
+        independent systematic changes for each RANSEED_CHANGE.
+
+    + SNANA_code_tester.py has new --snana_dir arg so that anyone
+        can test their private snana repo.
+
+    + new utility colnum_in_table(char *fileName, char *varName)
 
          ***** MISCELLANEOUS(v11_02p) ***** 
 
     SALT2mu.c
       + clean out some LEGACY codes from previous tag
-  
+      + new feautre cat_only/5 to prescale output
+      + fix bug reading logmass in SUBPROCESS
+      + new inputs force_realdata and select_trueIa
+      + new input arg SUBPROCESS_OPTMASK 1 -> write fitres file each iter
+      + for SUBPROCESS, supress writing muerr_renorm since it is not
+          malloced or filled.
+
     snana.car
       + clean out some LEGACY codes from previous tag
          (remove stuff related to MXCCID_LIST)
 
     snlc_sim
       + new option in WGTMAP; see OPT_EXTRAP_WGTMAP in manual.
+      + restore inputs SEPNBR_MAX & NNBR_WRITE_MAX
+           (lost in July 2020 refactor)
+      + fix bug (from May 27) reading TAKE_SPECTRUM keys from SIMLIB header.
+      + define GENRANGE_TOBS_PAD = 0.1 to apply consistent MJD-select padding
+      + finally fix INCLUDE_FILE logic with more clear priorities:
+        1) primary input, 2) include files in primary, 
+        3) include files on command line, 4) command line args
+         [higher number priority overrides lower priority]
+      + MXINPUT_FILE_SIM -> 4 (was 3) to allow 3 INCLUDE files.
 
+    SNANA_code_tester.py
+      + refactor and add --snana_dir arg to that anyone can
+        test their private development version of snana.
+
+   sntable_dump.c: 
+     + increase file name string-length allocations
+  
+   genmag_LCLIB.c
+     + skip COMMENT lines and DOCANA block reading LCLIB
+
+   sntools_genGauss_asym.c[h]:
+     + move a few utils from snlc_sim.c[h] to here so that
+       SALT2mu can use it.
+
+   Makefile:
+    + add sntools_genGauss_asym dependence for SALT2mu
+
+  UNRESOLVED SALT2mu ISSUES to FINISH NEXT CODE TAG:
+    - for select_cid_file, match with CID+IDSURVEY to handle duplicates
+         (partially started with column_in_table function)
+    - debug logmass dependence
+        (filled in logmass indices, but no rigorous debug yet)
+    - SUBPROCESS: alpha & beta asym Gaussian profiles
+       (refactored so that parse_input_GENGAUSS is visible to SALT2mu)
+
+
+# ======================================================================= 
+         v11_03 (July 17 2021) 
+
+         ***** IMPORTANT(v11_03) ***** 
+
+     + fix subtle SATL2mu bug related to chi2max cut (see details below)
+     + SALT2mu: interp_biascor_logmass option applies to muCOVscale
+     + REQUIRE_DOCANA=T for sim; enabled for HOSTLIB, WGTMAP, SIMLIB 
+        [disable with command line arg "REQUIRE_DOCANA 0"]
+
+         ***** USEFUL(v11_03) ***** 
+
+    + SALT2mu matches on CID_IDSURVEY to handle duplicate CID
+          from different surveys.
+
+    + new sim input key GENPEAKRANGE_XXX to give flat top to asym Gauss.
+       Initial use is bounding function for SALT2mu SUBPROCES.
+       
+    + train_SALT3: add SURVEY_LIST_SAMEMAGSYS[FILTER] keys
+
+         ***** MISCELLANEOUS(v11_03) ***** 
+
+   all codes: all random-number functions renamed with "getRan_" prefix
+
+   genmag_LCLIB: 
+      + call coord_translate_LCLIB before anglematch cut 
+
+   sntools_host.c
+     + fix index bug related to reading HOSTNBR.
+     + add kludge reading gzipped HOSTLIB with HOSTNBR by
+        subtracting 1 from rowNum (since first GAL key is skipped)
+     + fix +HOSTNBR write and read to work for both unzpped and zipped;
+         trick: after reading header, close and re-open file to avoid 
+          rewind that doesn't work for gzip files.
+
+   sntools.c
+     + fix hash_table_def to declare name[20] instead of name[10];
+        name[10] was stopping matches for long CID lengths.
+     + for large GRIDMAP, print update every 500,000 rows.
+     + add peakinterval arg to biGaussRan
+     + move malloc_double2D[3D][4D] functions from SALT2mu.c to sntools.c
+
+   SALT2mu.c
+     + implement interp_biascor_logmass option for muCOVscale
+         (to work same way as for biasCor)
+     + suppress unecessary INFO_DATA mallocs if no biasCor.
+
+     + when chi2max cut rejects events, call setup_zbins_fit()
+       for 2nd time to update NFIT(z), and check for z-bin drop-outs.
+       This fixes subtle bug if chi2max cut causes z-bin to be
+       empty; empty z-bin was still included in the fit.
+       Also fixes cosmetic bug for NFIT column in .M0DIF outfile.
+
+   snana.car
+     + default CUTWIN_NFILT_SNRMAX -> 0 (was 1) to show events with nothing.
+     + MXLEN_EPSTRING -> 40k (was 20k) to read Roman with synthetic bands.
+     + add N_SNHOST_ZSPEC[PHOT] to output yaml file if OPT_YAML=1
+     + abort on TYPE < 0 (see PASS_SNTYPE function)
+
+   snlc_sim.c
+     + for pre-scaled spectra, fix logic to suppress rejected spectra
+       from output that have NLAM=0.
+     + On 1st event set GENLC.RA_LAST = GENLC.DEC_LAST = -999 so that LIBID 
+       with  RA=DEC=0 results in NEWCOORD=T on 1st event for MWEBV calc.
+         (thanks Alex and Gautham for finding this bug with IDEAL sims)
+       Bug detail: RA[DEC]_LAST variables were not initialized, and
+       thus took values of zero ...so RA != RA_LAST was never satisfied.
+     + require DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
+     + write KCOR_FILE to FITS header.
+    
+   submit_train_SALT3.py:
+      new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
+       (beware: copied code snippets from train_SALT2, but not tested)
+
+   sntools_genExpHalfGauss.c :
+      + new utility parse_input_EXP_HALFGAUSS
+
+   simlib_coadd.c
+     + fix a few string bugs setting header strings.
+        (caught by segfault with debug flag)
+
+
+# ======================================================================= 
+         v11_03b (Aug 4 2021) 
+
+         ***** IMPORTANT(v11_03b) ***** 
+
+    wfit.c: major overhaul to optionally fit for wa
+
+         ***** USEFUL(v11_03b) ***** 
+
+         ***** MISCELLANEOUS(v11_03b) ***** 
+
+    extract GRIDMAP utils from sntools.c[h] into sntools_gridmap.c[h]
+    extract SIMEFF  utils from sntools.c[h] into sntools_simeff_obsolete.c[h]
+
+    clean out "mark"
+
+    snlc_sim.c
+      + fix bug implementing CIDRAN_MIN
+      + screen_update prints GenRate every 100 sec.
+
+    SALT2mu.c
+      + more subprocess development; add Beta distribution.
+      + read bounding functions from sim-input file.
+      + use new utility  sigint_muresid_list
+      + new option to add to COV instead of scale COV (Dillon)
+
+    sntools_cosmology.c
+     + fix dumb bug using wa in Hzfun_wCDM().
+
+    create_covariance.py: minor fix by Dillon
+
+    snlc_fit.car
+     + new inputs INIVAL_GRIDSEARCH_DPEAKMJD and INIVAL_GRIDSEARCH_COLOR
+        (min,max,bin) to find better initial values before fit.
+
+
+
+# ======================================================================= 
+         v11_03c (Aug 20 2021) 
+
+         ***** IMPORTANT(v11_03c) ***** 
+
+         ***** USEFUL(v11_03c) ***** 
+
+   + sim: if hostmag errors are in HOSTLIB, propagate to data files
+   + sim: refactor to prioritize GENPDF_FILE or asymGauss on command line
+   + fix bug reading text files with full filter name
+   + add --snana_dir arg to submit_batch_jobs and SNANA_submit_tests.py 
+
+         ***** MISCELLANEOUS(v11_03c) ***** 
+
+    genmag_SALT2.c
+      + for MAGSHIFT key in SALT2[3].INFO file, read only last char of band.
+
+    sntools_host.c[h]
+      + if hostmag errors are in HOSTLIB, propagate to data files.
+
+    sntools_dataformat_text.c
+      + strip of last char of band to allow full filter string
+        in text formatted data.
+
+    sntools.c
+      + fix splitString() to remove termination chars so that it works
+        when extra pad spaces + <CR> are included.
+
+    SALT2mu.c
+     + fix conflict_check to allow zbinuser
+
+    submit_batch_jobs     : add optoinal --snana_dir arg
+    SNANA_submit_tests.py : add optional --snana_dir arg
+   
+    wfit.c
+      + refactor write_output_cospar
+
+    snana.car
+      + for SIMLIB_OUTFILE option, write DOCANA
+      + write HOST_SBMAG to output table, and HOST_SB -> HOST_SBFLUXCAL
+
+   util/make_fluxerr_model.py : 
+     + if SBMAG is used in map, reject epochs with invalid SBMAG>50.
+
+   submit_trainSALT2.py:
+     + fix stupid bug writing SNLS WAVESHIFT info to SUBMIT.INFO
+
+   snlc_sim.c
+     + refactor to prioritize GENPDF vs. asymGauss, and to
+       print correct genPop source in README when GENPDF
+       overrides asymGauss, or vice-versa
+     + crazyflux *= 2 
+
+   submit_prog_[fit,sim].py
+     + implment optional --snana_dir to work with SIMnorm job
+       and snana.exe job.
+
+
+# ======================================================================= 
+         v11_03d (Aug 30 2021) 
+
+         ***** IMPORTANT(v11_03d) ***** 
+
+         ***** USEFUL(v11_03d) ***** 
+
+         ***** MISCELLANEOUS(v11_03d) ***** 
+
+    + sntools_spectrograph.c: 
+      in getSNR_spectrograph, interpolate ZP vs. log10(Texpose) instead
+      of ZP vs. Texpose. Works much better with sparse Texpose grid.
+      [issue found by comparing SNR against D.Rubin]
+ 
+    + genmag_SALT2.c: 
+      in genSpec_SALT2, remove buggy 1/z1 factor in computing GENMAG 
+         from GENFLUX
+   
+    + snlc_fit.car:
+      INIBND(color) = -1.6,1 -> -1.6,2 to allow for redder events.
+      Results in very small regression test differences, so need
+      to cut new version.
+
+
+# ======================================================================= 
+         v11_03e (Sep 19 2021) 
+
+         ***** IMPORTANT(v11_03e) ***** 
+
+         ***** USEFUL(v11_03e) ***** 
+
+   + add makeDataFiles/
+   + for SALT2mu, CUTWIN on command line properly overrides, allowing
+      relaxed cut w.r.t. CUTIN in the input file.
+   + new SIMLIB_SURVEY key to fake a different sample (e.g., LOWZ)
+     with the same survey-sim.
+
+         ***** MISCELLANEOUS(v11_03e) ***** 
+
+   snlc_sim.c
+     + refactor simlib-read to read entire line with fgets instead
+       of reading each string. Hope is to speed up jobs on Cori.
+     + for OPT_MWEBV=0 on command line, disable APPLYMWEBV correction.
+     + prep_user_input; set HOSTLIB_MSKOPT=0 if HOSTLIB_FILE is NONE;
+       fixes command line override to remove HOSTLIB by setting 
+       file name to NONE
+     + new input key SIMLIB_SURVEY to override SURVEY in simlib file.
+       If LOWZ and high are from same survey, can split into LOWZ and
+       survey name.
+
+   sntools_host, snlc_sim:
+     + add few more HOSTLIB variables to output HOSTGAL (for ELASTICC):
+       OBJID2, SQRADIUS, ELLIPTICITY.
+     + abort on duplicate HOSTLIB colmuns ... but disable with local
+       logical until GHOSTLIBs are fixed on Cori.
+
+   SALT2mu.c:
+     + remove debug_flag=99 and integrate feature into code.
+       Note that MASK_BIASCOR_MAD=2048 is automatically set
+       if MASK_BIASCOR_MUCOVADD=4096 is set.
+
+     + fix subtle bug by rejecting cells where MUCOVSCALE is not valid
+       because NperCell < 5. Not clear what info was stored in these 
+       cells that were not processed. The bug-fix could result in fewer 
+       cells to interpolate, and possibly more rejected events. Regression 
+       test on SALT2mu jobs show two small changes: 
+         delta-beta/beta = 3E-5,  and delta-gamma/gamma = 3E-5
+
+     + fix CUTWIN parsing to properly override from command line;
+       allows looser CUTWIN on command line to override input file.
+
+     + yaml output includes stats by IDSAMPLE for each
+        event_type = DATA, BIASCOR, CCPRIOR
+
+   submit_batch_jobs:
+     + print NEVT_bySAMPLE to BBC_SUMMARY_FITPAR.YAML
+
+   snana.car
+     + always write SIM_gammaDM; previously it required SIM_gammaDM!=0,
+       but can fail if sim has gDM = 0 and nonZero values.
+     + fixes for SNCID_IGNORE_FILE: works with/without DOCANA,
+       ignores comments after hash, prints 1st/last CID.
+
+To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
+
+
+# ======================================================================= 
+         v11_04 (Oct 3 2021) 
+
+         ***** IMPORTANT(v11_04) ***** 
+
+    + Major refact/overhaul of wfit.c code; read top of source code.
+    + create_covariance.py writes "standard" output 
+      (cosmomc/ subdir still created if input "COSMOMC" key is used)
+
+         ***** USEFUL(v11_04) ***** 
+
+         ***** MISCELLANEOUS(v11_04) ***** 
+
+    snana.car, sntoold_dataformat_fits.c
+      + fix bug reading SIM_TEMPLATEMAG
+
+    create_covariance.py:
+      + major refac to write more standard output that is
+         separate from the output for cosmomc.
+
+    Remove obsolete sntable_dump.pl
+  
+    get_fitres_values.py:
+      + update to work for HOSTLIB and to skip DOCANA keys
+
+    SALT2mu.c:
+      + in MNCHI2FUN, abort on muerrsq < 0
+      + in check_duplicate_SNID, replace large local arrays
+        with malloc to avoid weird valgrind errors.
+      + in WGT_biasCor, check interp_biasCor_logmass to include
+          wgt from logmass; fixes add bug found by Brodie and Dillon.
+      + new input cidlist_debug_biascor
+      + debug_mucovscale is now a j1d index to print info for.
+      + prep SUBPROCESS output table to write STD and STD_ROBUST
+
+  sntools.c
+    + sigint_muresid_list(): reduce covfloor from 0.1^2 to 0.02^2
+    + arrayStat(); fix median calculation to depend on odd or even N
+
+  wfit.c
+    + write wa info to yaml file
+    + complete refactor/overhaul; read top of code.
+
+  submit_prog_bbc.py:
+    + include wa results in BBC_SUMMARY_wfit file
+
+  create_covariance:
+    + for unbinned, write CID IDSURVEY MUERR_VPEC ...
+
+  genmag_SALT2.c:
+    + remove setting magerr=5 when errfrac > 1 -> 
+        5 very small changes in regression test.
+
+
+# ======================================================================= 
+         v11_04b (Oct 15 2021) 
+
+         ***** IMPORTANT(v11_04b) ***** 
+
+   create_covariance.py: 
+     + write ISDATA_REAL flag to INFO.YML so that cosmology fitting
+       codes can auto-detect real data and apply blinding.
+
+   Require DOCANA in weak-lensing map.
+
+   Add IMGNUM (image number) into data files (similar to CCDNUM); 
+   this is EXPNUM for DES, VISIT_ID for LSST.
+   Needed for chromatic corrections and useful for image debugging.
+ 
+   Realized 2 problems that need be fixed next snana version:
+   1) writing sim spectra to FITS; constant wave bins for each spectrum 
+      is assumed to write more compact output, but this won't work for 
+      real data. Need to re-write output with explicit wave column, 
+      and include legacy flag.
+   2) combine_dataVersions writes corrupt kcor-input file if there
+      are multiple filter sets in one of the input kcor inputs.
+
+  snlc_sim.exe <input> DEBUG_FLAG 1024
+    -> require DOCANA in trigger files; will be permanent Oct 24.
+
+         ***** USEFUL(v11_04b) ***** 
+
+   submit_batch: 
+     +  add new 'wfit' class
+     +  fix logic to wait for program to exist; abort if program
+        is not found after 5 minutes.
+     + new --check_abort option (for sim and lcfit) 
+     
+         ***** MISCELLANEOUS(v11_04b) ***** 
+
+   wfit.c : misc updates to work with submit_batch
+
+   SALT2mu.c: 
+    + write ISDATA_REAL to output yaml so that it can be
+      propagated to cosmology fitters for auto-blinding.
+
+   snlc_sim.c
+     + restore parsing "WV07_REWGT_EXPAV" key
+     + read WARP_SPECTRUM from simlib
+
+   sntools_dataformat_fits.c[h]
+     + split several arrays ito RD_ and WR_ so that FITS formatted
+       data files can be read and re-written in FITS format after
+       apply corrections to fluxes and their uncertainties.
+     + pass mask for writing spectra so that it can work for
+        both sim and data.
+
+   sntools_weaklensig.c: require DOCANA
+
+   sntools_host.c: 
+     + set LOGMASS_OBS = LOGMASS_TRUE
+        if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
+        avoids mysterious -9 values in data files
+
+  snana.car
+    + new &SNLCIP input MXEVT_CUTS
+
+  combine_dataVersions.py
+    + fix bug in args for snana.exe
+
+
+# ======================================================================= 
+         v11_04c (Nov 1 2021) 
+
+         ***** IMPORTANT(v11_04c) ***** 
+
+   + Sim aborts if DOCANA missing from files specified by SEARCHEFF* keys.
+   + Sim aborts if OPT_MWEBV < 0 (no more correcting FLUXCAL for MWEBV)
+
+         ***** USEFUL(v11_04c) ***** 
+
+   + Integrate makeDataFiles into submit_batch
+   + Integrate writing LSST alerts into makeDataFiles
+   + Sim writes new header vars: MJD_TRIGGER, MJD_DETECT_FIRST[LAST]
+   + fix I/O to handle spectra for real data
+
+         ***** MISCELLANEOUS(v11_04c) ***** 
+
+    sntools_dataformat*
+      + fix to read/write spectra with real data (SIRAH)
+      + fix bug from recent zbug writing SIM_HOSTLIB info to FITS file
+   
+    snlc_fit.car
+      + write CCDNUM and IMGNUM to model spec table (for chromatic corr)
+
+    snlc_sim, sntools_dataformat_*
+      + write new header variables: 
+           MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST
+      + new input HOSTLIB_GALID_UNIQUE_OFFSET
+      + abort if OPT_MWEBV < 0 
+      + require DOCANA in trigger/search files (Oct 26 2021, 9pm)
+      + if EXPOSURE_TIME>10, skip saturation check.
+
+    wfit.c
+      + begin adding modern BAO prior from Alam 2020
+
+    submit_batch_jobs:
+      + integrate makeDataFiles 
+      + add optional "extra table" to MERGE.LOG
+
+    makeDataFiles/
+       + lots of development
+       - tasks to complete next snana version
+         1. organize LSST alerts by NITE instead of MJD
+         2. try to split compression tasks among more CPUs to avoid overload
+
+
+# ======================================================================= 
+         v11_04d (Dec 2 2021) 
+
+         ***** IMPORTANT(v11_04d) ***** 
+
+    + create_covariance.py works with BEAMS for unbin and rebin
+        (needs high-stat sim testing)
+    + wfit's boa option is now based on Alam 2020 (no longer Eisen2006)
+    + submit_batch ready with wfit (submit_batch_jobs -H WFIT)
+    + Integrate skeleton gensed_BAYESN.py into sim
+
+         ***** USEFUL(v11_04d) ***** 
+
+    + new sim-input HOSTLIB_GENZPHOT_FUDGEMAP (see manual)
+    + get_fitres_values.py works on gzip files, and on HOSTLIB
+
+         ***** MISCELLANEOUS(v11_04d) ***** 
+
+   snlc_sim.c:
+     + new input RANSYSTPAR_GENPDF_FILE_WILDCARD
+        (not yet tested)
+     + can read SALT2ALPHA and SALT2BETA maps from GENPDF_FILE,
+        or read asymGauss keys from GENPDF_FILE and convert to map.
+     + in hostgal_to_SNDATA(), remove ancient code snippet that
+        set hostmags even if there was no DDLR match.
+     + for text format with spectra, write LAMRANGE_VALID key
+        in data file.
+     + read/apply global FIELD key simlib header.
+     + abort if OPT_MWEBV < 0 (previous attempt didn't actaully abort)
+     + new input  HOSTLIB_GENZPHOT_FUDGEMAP (see manual)
+     + copy LCLIB_CUTWIN REDSHIFT to GENRANGE_REDSHIFT
+ 
+   sntools_host.c:
+     + adjust HOSTGAL mags for MU(zSN) - MU(zGAL)
+
+   kcor.c:
+    + For spectrograph, extend stored wavelength range of SEDs to that 
+      of spectraograph.
+    + fix bug reading correct wave range of primary SED.
+
+   submit_batch_jobs:
+     + check_abort is monitored after each job so no longer have
+        to wait for all jobs to finish.
+     
+   submit_prog_sim.py:
+     + strip out comments from reading sim-input files.
+
+   submit_prog_wfit.py
+     + improve WFIT_SUMMARY file
+
+   genmag_LCLIB: fix refac bugs from Jun 23 2021 (affected AGN)
+
+   Add gensed_BAYESN.py [begin development of new PySEDMODEL option]
+ 
+   SALT2mu.c:
+     + fix override to work when two variables (zHEL and VPEC)
+       both affect zHD.
+     + fix VPECERR override to affect MUERR.
+     + new input prescale_simIa=3
+
+  get_fitres_values.py:
+    + fix to work on gzipped files.
+
+  wfit.c
+    + -bao and -bao_sim priors now use Alam 2020
+        (no longer uses Eisenstein 2006 prior)
+
+  create_covariance.py
+    + unbinning/rebinning working with BBC(Ia+CC), but needs
+      more testing with high-stat sins to measure bias.
+
+
+# ======================================================================= 
+         v11_04e (Dec 29 2021) 
+
+         ***** IMPORTANT(v11_04e) ***** 
+
+   Fixed HEADER_OVERRIDE bug that set zFit = zCMB instead of zHEL.
+   New &SNLCINP input RESTORE_OVERRIDE_ZBUG restores the bug.
+
+   sim: DEBUG_FLAG 1222 -> write refactored [GENVERSION].README
+         (will become default next code version)
+
+         ***** USEFUL(v11_04e) ***** 
+
+   New script make_simsed_binaries.py
+
+   Call check_EOF from store_PARSE_WORDS and host-reading;
+     try to get more info about file-reading errors.
+
+   SALT2mu prescale option now works for HOSTLIB.
+
+         ***** MISCELLANEOUS(v11_04e) ***** 
+
+   submit_batch_jobs:
+     + new arg --merge_background
+
+   submit_prog_wfit.py: fix few bugs
+
+   wfit.c: 
+     + new input "-speed_flag_chi2 0" to disable speed-trick.
+     + for speed-trick, increase CHI2-DIAG cut from 10 to 30 sigma.
+
+   sntools_dataformat_fits.c
+     + always write XPIX and YPIX columns.
+     + check HOSTGAL_USEMASK to write host mags and SB
+
+   snana.car:
+     fix REFORMAT to work when FLUXCALERR are modified by 
+     FLUXERRMODEL_FILE, and when FLUXCAL are changed by MAGCOR_INFILE.
+
+   new code-utility files sntools_data.c[h] that contain data-handling
+   functions which are not format-specific. Move relevant functions
+   out of sntools.c[h] and into new code file.
+
+   snlc_sim.c
+    + new default SIMSED_USE_BINARY = 0
+    + new bit-mask options for SIMSED_USE_BINARY; see manual
+    + if writing binary flux table, write few more items to yaml.
+    + new sim-input DNDB_SCALE to scale galactic/LCLIB models
+    + for batch mode FITS format, automatically gzip FITS files;
+       should speed up submit_batch for sims.
+    + print sim-init time before event-generation loop.
+    + new sim-input "APPLYFLAG_MWEBV: 1" to correct FLUXCAL for MWEBV.
+    + DEBUG_FLAG 1222 -> write refactored [GENVERSION].README
+    + new option to globally override min or max redshift;
+         GENRANGE_REDSHIFT 0.05 -1 # override zmin only
+
+   genmag_SIMSED.c
+     + implement new options to force creation of binaries (see manual)
+     + refactor so that WR and RD binary flags are global.
+
+   sntools.c
+     + in open_textgz, if both file and file.gz exist, wait 5 sec
+       and try again. Needed for pipelines where job runs while
+       gzip on another core is in progress.
+
+   SALT2mu.c
+     + fix prescale option to also work with HOSTLIB.
+
+
+# ======================================================================= 
+         v11_04f (Jan 15 2022) 
+
+         ***** IMPORTANT(v11_04f) ***** 
+
+   sntools_host.c:
+     + Improve IGAL search algorithm to improve speed. With few million
+       galaxies in HOSTLIB, overall sim speed up is ~ x5.
+
+   sim: release README refactor with all-yaml DOCUMENTATION block; see manual.
+      (recover legacy readme with DEBUG_FLAG -1222)
+
+   sim: prepare abort fix on duplidate keys in input files (but not released)
+
+   sim: optional ZPHOT_QP[0,1,2...] to describe zPHOT PDF with quantiles.
+
+   sntools_SEDtools.c:
+     + fix subtle bug setting up logz bins for SIMSED model;
+       see https://github.com/RickKessler/SNANA/issues/776
+
+         ***** USEFUL(v11_04f) ***** 
+
+         ***** MISCELLANEOUS(v11_04f) ***** 
+
+    snlc_sim.c
+      + see IMPORTANT updates avove
+      + write NGEN(TOT,WRITE) for each SUBSURVEY into README 
+      + add local REFAC flag (default=false) to abort on 
+          duplicates in INCLUDE file
+
+    sntools_dataformat_text.c:
+      + few fixes to read TEXT files extracted from FITS created by sim
+      + write out private variables (forgot in last I/O refactor)
+  
+    makeDataFiles/
+     + fix a few bugs introduced during devel of lsst_alerts
+     + refactor global params (Bruno)
+ 
+   sntools_dataformat_fits.c:
+     + read/write ZPHOT_QP* so that FITS -> TEXT conversion works.
+
+   sntools_host:
+     + protect NUSE in FREEHOST_GALID()
+
+   ZPHOT_QP: longer term plan is to
+     - read ZPHOT_QP into snana/snlc_fit
+     - unpack ZPHOT_ZP into zPHOT(PDF)
+     - use in photo-z LCFIT
+
+
+# ======================================================================= 
+         v11_04g (Jan 27 2022) 
+
+         ***** IMPORTANT(v11_04g) ***** 
+
+  snlc_sim: release refactor to abort on duplicate keys in 
+             different input files.
+            https://github.com/RickKessler/SNANA/issues/781
+
+  snlc_sim: fix bug setting REDSHIFT_FINAL for wrong host;
+        https://github.com/RickKessler/SNANA/issues/778
+
+         ***** USEFUL(v11_04g) ***** 
+
+   New uncombine_dataVersions.py script.
+
+         ***** MISCELLANEOUS(v11_04g) ***** 
+ 
+   snlc_sim.c: 
+     + remove legacy readme_doc_xxx functions
+     + ZPHOT_QP += (ZSN-ZGAL) 
+
+   snana.car: release refactored HEADER_OVERRIDE 
+           DEBUG_FLAG = -1210 -> LEGACY_HEADER_OVERRIDE
+
+   submit_prog_bbc.py:
+      + fix writing REJECT_FRAC_BIASCOR to BBC_SUMMARY_FITPAR.YAML
+ 
+   SALT2mu.c
+     + fix bug in SUBPROCESS reading sim-input reference file.
+
+   quick_commands.py:
+     + new option --diff_fitres to analyze stats on difference
+       betweeen two fitres files:   avg, median, std, min/max
+
+   wfit: fix speed trick to work for Pantheon that has chi2 > Ndof.
+
+   submit_prog_wfit.py
+      + new config key WEIGHT_AVG to specify computation of wgted 
+        averages;  submit_batch_jobs.sh -H WFIT
+
+
+# ======================================================================= 
+         v11_04h (Feb 27 2022) 
+
+         ***** IMPORTANT(v11_04h) ***** 
+
+   Finalize [PERCENTILE]_ZPHOT_Q notation for sim and real data.
+   Analysis codes reads ZPHOT quantile info and fills SNDATA struct; 
+   still need to pass quantile info to snana.car.
+
+         ***** USEFUL(v11_04h) ***** 
+
+   sim: New README argument to print README file and quit.
+        Designed for Pippin to quickly extract GENMODEL & GENTYPE info.
+
+   wfit: fix speed trick bug (had left out analytic H0 marg)      
+
+         ***** MISCELLANEOUS(v11_04h) ***** 
+  
+    ZPHOT_Q (quantiles) devel for sim read it from hostlib
+      and reading it from data files.
+
+    snlc_sim.c
+     + GENFILT struct changed from 2D array to 1D array of pointers
+     + new function malloc_GENFILT() 
+     + MXEPSIM -> 15k (was 10k) for SCOTCH generation
+     + MXEPSIM_PERFILT -> 2500 (was 2000)
+     + avoid passing ran[0,1]=0.00 to weak-lens function; see
+          https://github.com/RickKessler/SNANA/issues/819
+          
+    submit_batch_jobs: 
+      + new --faster arg to process 1% (--fast still does 10%)
+
+    sntools_host.c[h]
+      + read 4 generic hostgal properties (LOGMASS, LOGSFR, LOGsSFR, COLOR)
+        from HOSTLIB and write to data files.
+      + abort if Sersic profile size is zero.
+
+    sntools_data.c
+      + process overrides for above hostgal properties.
+
+    snana.car
+      + read 4 generic hostgal properties and write existing ones
+        to output tables (SNANA,FITRES)
+      + remove legacy HEADER_OVERIDE code
+
+    SALT2mu.c
+      + subtle bug fix in sort_IDSAMPLE_biasCor() to allow survey
+        in surveygroup and also allow survey's fields to be in a
+        fieldgroup.
+      + fix bug to enable fixing beta (u2=0)
+  
+    sntools.c
+      + fix bug initialize HOST_LOGMASS_XXX to -9999 instead of -9.
+
+    genmag_SALT2.c
+      + modify MAGSHIFT matching logic to use base name of filter
+        so that different LOWz combinations can be used compared
+        to traning. E.g., suppose CFA3K-B/q is used for training
+        with systematic MAGSHIFT, but CFA3K-B/n is used in light 
+        curve fit. New matching logic only compares the CFA3K-B
+        part (before the slash).
+   
+    SALT2mu.c:
+      + increase DROPLIST array size to fix memory overwrite bug
+
+    Remove util/sntools.pm
+
+
+# ======================================================================= 
+         v11_04i (Mar 18 2022) 
+
+         ***** IMPORTANT(v11_04i) ***** 
+
+   + SALT2mu: if 1 beta bin, set DUST_FLAG and set SIM_BETA = p2
+       (initial beta) -> fixes BS21-model problem of chi2_red well 
+       below unity from computing MUERR with SIM_BETA ~ 2 instead of 3.
+
+         ***** USEFUL(v11_04i) ***** 
+
+   + New option to re-write sim data without sim-truth so that it looks
+     like real data; see OPT_REFORMAT_FITS = 256
+
+   + Hopefully fixed two causes of rare batch-job aborts for sims;
+     1) reading zero words from inputs and 2) running code during make.
+
+         ***** MISCELLANEOUS(v11_04i) ***** 
+   
+   SALT2mu.c
+     + compute internal DUST_FLAG for BS21 model (see above)
+     + fix bug in prepNextFit() related to sigma_int=0
+     + read and use zprior[err] if zspec_errmax is set
+     + fix SUBPROCESS bug to use non-standard BBC variables in GENPDF table.
+     + set default INPUTS.cmin/cmax/x1min/x1max to nominal defaults of
+       +_0.3 and +_3.0 -> slight change for 2 BBC jobs in regression test.
+     + Add user input nbinc_mucovscale (default=3)
+     + fix bugs related to sigint_fix
+
+   genmag_SIMSED.c
+     + fix UVLAM_EXTRAP to work reading binary and text files.
+
+   snlc_fit.car:
+     + for photo-z fit, write zPRIOR and zPRIOR_ERR to output tables.
+  
+   sntools_host.h
+     + increase SERSIC_INDEX_MAX->11 (was 8)
+
+   simlib_coadd.c/simlib_tools.c[h]
+     + refactor and add SORT_BAND option to co-add non-sequential bands
+
+   snana.car
+     + fix SNTYPE_IGNORE to work with 0 so that only spec-confirmed
+       events are selected.
+     + OPT_REFORMAT_FITS[TEXT] = 256  -> re-write data files without
+       sim-truth so that it looks like real data
+     + increase MXVERS from 12 -> 50 to handle all of ELASTICC
+         for selecting training subset.
+
+   submit_prog_sim.py
+     + fix bug so that sim-input files are no longer copied for
+       each merge task. Hopefully fixes the rare and mysterious abort
+       from sim-batch jobs reading zero words from sim-input file.
+
+   submit_util.py
+     + replace -f with -x to check that program exists and is executable.
+       Hopefully fixes problem of running code on partial exe during make.
+
+   submit_train_SALT2.py
+     + begin adding option to use Patrick's Jacobian method to perturb
+       SALT2 surface as an approximation to re-training with calibration
+       shifts.
+
+   sntools_dataformat_fits.c
+     + write/read SIM_MODEL_INDEX to global header so that rewriting
+       FITS -> FITS can work.
+     + implement MSKOPT & 256 -> suppress sim-truth from output.
+   
+   wfit.c:
+     + fix bug causing -bao_sim to be the same as -bao.
+
+   snlc_sim.c
+     + fix bug setting AV for GENAV_WV07 option (all AV were zero);
+       bug found by C.Alves trying to reproduce original plasticc.
+     + remove obsolete AV variables and use only the newer
+        INPUTS.GENPROFILE_AV
+
+   remove util/split_version.pl
+
+
+# ======================================================================= 
+         v11_04j (Apr 23 2022) 
+
+         ***** IMPORTANT(v11_04j) ***** 
+
+    + LCFIT stdout greatly reduced for batch jobs.
+    + create_covariance cov-matrix output is gzipped.
+    + wfit.c runs x5 faster with unbinned data and cov-matrix.
+    + SALT2mu default updates: 
+         minos->0 (was 1) and sigint_step1->0.01 (was 0.05)
+
+         ***** USEFUL(v11_04j) ***** 
+
+    SALT2mu: new input flag izbin_from_cid_file=1 to force same izbin
+             among all FITOPT/MUOPT
+
+    SALT2mu output distances & errors written as %.5f instead %.4f
+
+    submit_batch recognizes --image in sbatch template 
+             (to use shifter at NERSC)
+
+         ***** MISCELLANEOUS(v11_04j) ***** 
+
+    snlc_fit.car
+      + for MODELSPEC table, include model mags for each band at each MJD;
+        for calib corrections that need color.
+
+    snana.car
+      + fix bug in INIT_REFORMAT
+      + HEADER_OVERRIDE_FILE for sim data gives warning instead of abort.
+      + new functions IGNOREFILE_fortran() and VALIDFILENAME
+      + fix VERSION_REFORMAT_FITS[TEXT] to use VALIDFILENAME
+
+    sntools_dataformat_fits.c[h]
+      + count number of written events and spectra;
+        WR_SNFITSIO_END prints actual number of written events at end of job.
+  
+   submit_prog_base.py
+     + if --image is found in sbatch-template, check for docker
+       command such as shifter.
+
+   submit_prog_bbc.py
+     + write IZBIN to BBC_ACCEPT summary file; needed to preserve IZBIN
+       in systematics involving z-shift.
+     + try to make sync_evt logic more robust:
+         https://github.com/RickKessler/SNANA/issues/874
+
+   submit_prog_lcfit.py
+     + wait for merge_root.exe to exists in case of SNANA build.
+
+   submit_prog_sim.py
+     + leave SUBMIT.INFO outside SIMLOGS.tar
+
+   snlc_sim.c
+     + fix bug reading SALT2ALPHA[BETA] asymGauss params from
+       GENPDF_FILE passed as command-line arg;
+        https://github.com/RickKessler/SNANA/issues/864
+     + write TIME_START to output README
+     + MXARGV -> 200 (was 100) to allow for many SIMGEN_DUMP args
+     + change SEV_WARN to SEV_FATAL of NARG > MXARGV
+
+   sntools_sim_readme.c
+     + write TIME_START
+
+   sntools.c[h], SALT2mu.c
+     + refactor cid-matching util to enable BBC to use optional IZBIN
+       column in cid_select_file.
+
+   genmag_SALT2.h
+     + MXBIN_VAR_SALT2 -> 200k (was 120k) for IR modeling.
+
+   snana.car
+     + if no events are read, create empty table text-files so that
+       submit_batch does not hang.
+     + include SBMAG table column if EITHER SBMAG or host-mag exists.
+       
+   steps to reduce wasteful/large output:
+     + default MXLC_PLOT=5 (was 100) in &SNLCINP namelist for LC fitting.
+     + use STDOUT_UPDATE in many places; less printout if JOBSPLIT(1)>1
+     + new util remove_minuit_stdout.py used in CPU*.CMD files for snlc_fit.
+
+    sntools_genSmear.c
+      + abort if lam-range in color_dispersion file does not cover
+        wave range in salt2_template file.
+
+    SALT2mu.c:
+      + write distances and errors with 5 digits after decimals instead of 4.
+      + new defaults: minos=0 (was 1) and sigint_step=0.01 (was 0.05)
+      + new flag izbin_from_cid_file=1 to sync izbin
+
+    create_covariancy.py
+      + write standard cov matrices gzipped. 
+        Cosmomc matrix are not zipped [yet?]
+
+    wfit: reduce number of log10 calls in cov-matrix loop
+           -> runs x5 faster for unbinned data.
+
+
+# ======================================================================= 
+         v11_04k (Jun 5 2022) 
+
+         ***** IMPORTANT(v11_04k) ***** 
+
+         ***** USEFUL(v11_04k) ***** 
+
+    snlc_fit: OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
+
+    snlc_sim: if MWEBV is LCLIB parmaeter, sim sets SIM_MWEBV=0
+              but still reports MWEBV; see Manual section
+              9.10.5 Special MODEL_PARNAMES Features
+
+         ***** MISCELLANEOUS(v11_04k) ***** 
+
+   snana.car
+     + fix bug from suppressing LCPLOT table in batch; it's CSV
+       attribute was mistakenly passed to FITRES table.
+     + MXSNLC -> 8 million (was 5 million)
+
+   snlc_fit.car: 
+     + new &FITINP input USESIM_INIVAL
+     + OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
+
+   sndata.h
+     + move  HOSTGAL_PROPERTY_BASENAME_XXX from sntools_host.h to sndata.h
+
+   sntools_dataformat_[fits,text].c
+     + use HOSTGAL_PROPERTY_BASENAME_XXX instead of hard-coded names.
+
+   SALT2mu.c:
+     + refactor so that invalid varname to output tables results in
+       printing list of valid varnames for SUBPROCESS.
+     + improve stdout dump for events with no biasCor.
+
+   +HOSTNBR fixes; see https://github.com/RickKessler/SNANA/issues/893
+
+   wfit.c:
+     add another speed trick; see input -speed_flag_chi2.
+
+   create_covariancy.py
+     + reduce output labels to only new row and diag; reduce file size by 50%.
+     + write MUERR_SYS to hubble diagram as diagnostic
+
+   snlc_sim.c
+     + fix parsing bug for +HOSTAPPEND, and verify for GALIDs in the 
+       append file that are in different order than in original HOSTLIB.
+     + move INIT_HOSTLIB call inside "not LCLIB" if block
+     + new input keys RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
+     + call get_lamrange_SEDMODEL for NON1ASED model ...
+        to get u-band at high-z.
+     + for LCLIB-Galactic, set redshifts to -9 for "host-less"
+
+   sntools.c[h]
+     + add varList_store arg to match_cidList_init ...
+       goal is to read SALT2 params for event sync, and use
+       previous SALT2 params as initial values in systematics fit.
+
+   submit_prog_sim:
+     + protect wildcard args (e.g., /bla/xyz*) by adding quotes if
+       there are no quotes.
+
+   sntools_host.c[h]
+     + read optional TRUE column of HOSTLIB so that a subset is used
+       for TRUE hosts while the entire library is used for DLR matching.
+         [need to update manual]
+     + fix char memory bug reading NBR_LIST
+     + fix subtle realloc bug in malloc_HOSTLIB
+
+   sim_SNgrid.pl: fix a few bugs.
+
+   psnic_BEST.c: allow for Ic-BL
+
+   sntools_zPDF_spline.c[h]: new utility used by snlc_fit.
+
+
+# ======================================================================= 
+         v11_04l (July 17, 2022) 
+
+         ***** IMPORTANT(v11_04l) ***** 
+
+   snlc_sim:
+      Fixed aweful index bug reading SED.BINARY for SIMSED model.
+      For NDAY x NLAM SED flux-space, all fluxes read from binary
+      were off by 1 in the index jflux = ilam+iday+NDAY.
+      Bug was introduced in SNANA v10_60b (Aug 12 2018), and was perhaps
+      part of PLASTICC. Bug only affects SIMSED models; does NOT impact
+      SNIa-SALT2, SNIa-SNoopy, NON1ASED (i.e., V19 CC models).
+      Bug takes affect if reading SED.BINARY to make flux-table,
+      but NOT if creating both binaries simultaneously; thus it's
+      not clear if/when the bug took effect.
+
+      I checked SNIax for LSST at z=0.1:
+        PEAKMAG[ugriz]: 22.53  20.87  20.46  20.44  20.44  20.47  # bug
+        PEAKMAG[ugriz]: 22.48  20.88  20.47  20.45  20.44  20.48  # fixed
+      -> u-band change is .05 mag, and other bands are within 0.01 mag.
+      Implementing this fix requires re-making SIMSED binaries
+      (preferably with make_simsed_binaries.py)
+
+      For C-python interface (BYOSED), use ENV VERSION_LIBPYTHON instead 
+      of $SNANA_PYTHON_DIR to communicate with Makefile. Solves problem 
+      of different libpython versions on RCC and Cori. 
+      Modified files: src/Makefile and util/set_Cpreproc_flags.py
+
+    sntools_dataformat_fit.c:
+       snana.exe and snlc_fit.exe now abort if both _HEAD.FITS and
+       _HEAD.FITS.gz exist.
+
+    snana.car
+       Fixed bug reading MWEBV_ERR with OPT_MWEBV=1
+         https://github.com/RickKessler/SNANA/issues/959
+ 
+         ***** USEFUL(v11_04l) ***** 
+
+   new sim-input HOSTLIB_SNR_DETECT (see manual) to apply SNR cut
+    for host detections.
+
+   Fix subtle mistake for mis-matched host photo-z:
+   mis-matched photo-z now includes same ZGEN-ZTRUE offset as
+   for the true host because mis-matched hosts are often in the
+   same galaxy group/cluster as the true host.
+ 
+   sim: 
+     + stronglens assigns host at zLENS and works with CIDRAN
+     + stronglens automatically writes auxillary file [VERSION].SL
+         with information about each lens and each lensed LC.
+
+         ***** MISCELLANEOUS(v11_04l) ***** 
+
+   snlc_sim.c
+     + avoid SIMGEN_DUMP conflict between SIMSED and HOSTLIB varnames.
+     + new sim-input APPLY_DETECT_SINGLE
+     + fix bug to allow COSBPOLY to override BPOLY and vice-versa
+     + add GALNMATCH to simgen-dump
+     + write hostmatch fractions to README for Nmatch=0 and Nmatch=2
+     + fix shifting of final galaxy coords in output data files,
+          https://github.com/RickKessler/SNANA/issues/960
+
+   genmag_SIMSED.c
+     + fix bug reading MXDAY with NDAY_PAD to account for recent
+       5 day pad added when reading original files.
+
+   wfit.c:
+     + new input varname_muerr to replace MUERR with something else.
+     + refactor using VARLIST_DEFAULT_XXX parameter names.
+
+   sntools_trigger.c
+     + check option for single detections instead of coadd.
+
+   sntools_host.c[h]
+     + process new sim-input HOSTLIB_SNR_DETECT
+     + pricess new sim-input HOSTLIB_SMEAR_SERSIC
+
+   snana.car
+     + allow SNTYPE = -9 by changing ISNLC_TYPE -> 0
+        (fix is needed to process Pantheon HST sample)
+
+   snlc_fit.car
+     + inputs USESIM_REDSHIFT and REDSHIFT_FINAL_SHIFT work together
+       to allow forcing zTrue+shift in LCFIT.
+
+   use -Wall in compilation and fix a lot of warnings
+   for snana.car, snlc_fit.car, snlc_sim.c .
+   There was one fix with 1-byte string declaration that
+   may have been harmful.
+
+
+# ======================================================================= 
+         v11_04m (Sep 11, 2022) 
+
+         ***** IMPORTANT(v11_04m) ***** 
+
+   Running a compiled code without arguments results in printing 
+   help menu to stdout for config-file valid keys:
+      snlc_sim.exe, snana.exe, snlc_fit.exe, psnid.exe, SALT2mu,exe
+      combine_fitres.exe 
+
+   New sim-input HOSTLIB_MAXDDLR2 (default=7) so that host_confustion()
+   computation has more information. Note that HOSTGAL_NMATCH will 
+   sometimes be less than HOSTGAL_NMATCH2.
+      
+         ***** USEFUL(v11_04m) ***** 
+
+   Sim writes PHOTFLAG_DETECT mask in global header of FITS file.
+   Recommend adding this flag for real data too.
+
+   Implement new wfit option -outfile_chi2grid <fileName>, and also
+   integrate this feature into submit_batch_jobs to replace user file name
+   with standard name.
+
+   New utility util/simsed_modify.py
+
+         ***** MISCELLANEOUS(v11_04m) ***** 
+
+   submit_prog_base.py:
+     + implement new CONFIG option "BATCH_SINGLE_NODE: True" to run all
+       jobs on a single node. First use is to write ELASTICC alerts
+       on Cori.
+
+   SALT2mu.c:
+     + write comment to stdout for each bit in opt_biascor
+
+   makeDataFiles:
+     + add output_csv option ... not finished.
+
+   snlc_sim.c
+     + fix refactor bug from July 7 that caused only first
+       host match to be output to data files.
+     + new sim-input CIDRAN_SKIPLIST (comma-sep list) to prevent
+       random CID from taking these values
+     + compute and write SIM_MJD_EXPLODE ... works only for SIMSED model.
+       First use is simulating LVC skymap (for KN) that needs MJD_EXPLODE.
+     + allow adding ZPHOT_Q[nnn] to SIMGEN_DUMP list for option to
+         force Gauss quantiles
+     + fix bug setting SIM_REDSHIFT_FLAG for zPHOT events with wrong host.
+     
+   create_covariance.py
+     + fix index bug for rebin option (found by P.Armstrong)
+
+   snana.car
+     + new &SNLCINP input LDMP_SATURATE to print one-line summary for 
+       each saturated observation.
+     + read SIM_MJD_EXPLODE and add to output SNANA/FITRES table if > 0
+     + set abort trap on VERSION string length
+     + compute SNHOST_CONFUSION
+     + new MJDPERIOD_PLOT arg to fold all observations into one cycle;
+        affects LCPLOT table.
+
+  get_fitres_values.py: fix bug counting lines before VARNAMES
+
+  sntools_dataformat_fits.c
+    + add hack for DES to force SUBSURVEY_FLAG=0
+       [due to mistake in DES-DIFFIMG data]
+
+  submit_prog_lcfit.py
+    + during merge, abort if any VARNAMES list does not match
+      among SPLIT jobs.
+
+  genmag_NON1ASED.c
+    + add call to print_ranges_SEDMODEL() to print warnings for
+      Flux(Trestmin)/Flux(peak) > threshold.
+
+  plot_snana.py
+    + new --mjdperiod input arg
+    + new --mxevt input arg ;
+       default=0, but if there is no CID arg then mxevt -> 6
+    + remove -i 1-10 option since some CID names might have hyphen.
+
+
+# ======================================================================= 
+         v11_04n (Oct 17 2022) 
+
+         ***** IMPORTANT(v11_04n) ***** 
+
+   SALT2mu:  
+     + auto-detect crazy-small or crazy-big fitted M0 errors 
+       and repeat BBC fit;
+            see https://github.com/RickKessler/SNANA/issues/955
+
+     + abort if MUCOVADD and sigmB>0.05
+         see https://github.com/RickKessler/SNANA/issues/1009
+
+   Add gensed_AGN.py as part of PySEDMODEL, and major refac of 
+   PySEDMODEL to be more robust (by K.Malanchev)
+
+   Add COVMAT class to submit_batch_jobs to run create_covariance.py.
+   See new code submit_prog_covmat.py.
+
+   create_covariance.py: 
+     + change output format from 12.8f to 12.6e to get 7 digits of 
+        precision instead of 3 digits with 12.8f.
+     + in output INFO.YML, write HD file name and covsys file names
+
+         ***** USEFUL(v11_04n) ***** 
+
+   Fix old refactor bug reading SIM_HOSTLIB_PARVAL (TEXT and FITS format)
+
+         ***** MISCELLANEOUS(v11_04n) ***** 
+
+   sim:
+     + write SCALE_HOST_CONTAM to spec output.
+     + Always write cosmology parameters to README YAML
+     + for HOSTSNFRAC integral, require both F_HOST and F_PEAK>0
+
+   sntools_dataformat_fits.c
+     + CODE_IVERSION -> 22 to read extra SCALE_HOST_CONTAM column.
+
+   wfit.c
+     + few minor tweaks to allow om<0 for SN-only fits.
+     + write rho_omm to YAML; change rho  -> rho_w0wa in YAML output
+
+   submit_prog_wfit.py
+     + write rho_omm to WFIT_SUMMARY.FITRES for wOM model
+         (AVG file is not updated)
+     + add and test merge_reset() [standard method in base class]
+     + minor refac to read HD file name and covsys file names from INFO.YML
+
+   sntools.c
+     + fix evil bug in check_file_docana()
+
+   Makefile:
+     + add -std=c++17 compile flag for root v6 (for Cori @ NERSC).
+
+   genmag_PySEDMODL:
+     + call new function  prepEvent_PySEDMODEL() to enable 
+       preparing all SEDs for event, rather than by band.
+     + fix awful bug using genSmear
+         https://github.com/RickKessler/SNANA/issues/1011
+
+   submit_prog_lcfit.py:
+     see https://github.com/RickKessler/SNANA/issues/1010
+
+   submit_train_SALT3.py
+      + fix indentation bug that caused phony FAIL_REPEAT jobs.
+
+   sntools_dataformat_text.c
+     + check NLAM for reading spectra
+
+   genmag_SALT2.c[h]
+     + fix few bugs related to MAGSHIFT and WAVESHIFT keys in
+       SALT2.INFO file; 
+        https://github.com/RickKessler/SNANA/issues/1033
+
+   combine_dataVersions.py:
+     + replace output kcor_ prefix with calib_ prefix.
+
+   Begin genmag_BAYESN.c[h] and start integration into snlc_fit.car.
+
+   perl cleanup:
+    + Translate remove_locf_messages.pl to remove_locf_messages.py
+        [remove remove_locf_messages.pl later after being sure that .py works]
+    + Translate startSNANAversion.pl to startSNANAversion.py
+    + rm wait_for_files.pl NEARNBR_pipeline.pl translate_SALT2dictFile.pl
+
+
+# =============================================================
+        v11_04o (Nov 28 2022) 
+
+        ***** IMPORTANT(v11_04o) ***** 
+
+   Finished refactor of reading/implementing kcor/calib files 
+   from snlc_sim & snlc_fit; see sntools_calib.c[h]. 
+   Refactor flags still OFF by default. Follow progress on 
+   https://github.com/RickKessler/SNANA/issues/1059
+
+   SALT2mu.c and create_covariance.py:
+     + write consistent redshift name as zHD; see github issue 1052.
+
+   sntools_genSmear.c / genmag_SALT2.c
+     + read and apply COLOR_DISP_MAX from SALT3.INFO file
+
+        ***** USEFUL(v11_04o) ***** 
+
+        ***** MISCELLANEOUS(v11_04o) ***** 
+
+   update_data_files.py: 
+     + add option to remove filter bands
+
+   Continue development of genmag_BAYESN.c[h]
+
+   Split BAYESN models into PYBAYESN (python) and BAYESN (C-code)
+
+   kcor.c : allow comment lines in sed primary file
+
+   sntools_kcor.c[h]
+     + after 3 year break, continue translating fortran KCOR functions to C.
+
+   Remove GENLC.*SPECTROGRAPH* from snlc_sim.h[c], and define everything
+   we need in INPUTS_SPECTRO struct in sntools_spectrograph.h.
+
+   submit_batch: LCFIT class has on-the-fly compression to reduce file count;
+      see https://github.com/RickKessler/SNANA/issues/1054
+
+   new genmag_extinction.c[h] to compute host gal extinction vs.
+   { RVinv, Trest, ifilt_rest}; part of refactor where fortran
+   utils are translated to C code.
+
+
+# =============================================================
+        v11_05 (Dec 2 2022) 
+
+        ***** IMPORTANT(v11_05) ***** 
+
+   C and fortran codes write snana_version that includes tag+commit
+   (see https://github.com/RickKessler/SNANA/issues/1067)
+   Similar python code modification will be done next SNANA version.
+
+   Set USE_KCOR_REFACTOR flags = True in snlc_sim.c and snana.car
+    [see below for list of regression test changes]
+
+        ***** USEFUL(v11_05) ***** 
+
+        ***** MISCELLANEOUS(v11_05) ***** 
+
+  snlc_sim.c
+    + fix bug setting FIELD per epoch when there are overlaps.
+      Was writing header FIELD list (e.g., C2+C3) for each epoch
+      instead of just writing the field for each epoch.
+
+  make_fluxerr_model.py: bug fixes and misc updates
+
+  To test code without legacy/fortran kcor code:
+   - remove "+USE,KCOR" from snana.cra and snlc_fit.cra
+   - disable USE_KCOR_FORTRAN flag in sntools.h
+   - set USE_KCOR_REFACTOR=T in snana.car
+   - set USE_KCOR_REFACTOR=2 in snlc_sim.c
+   
+  Regression test changes with USE_KCOR_REFACTOR:
+
+TASK034_SIMFIT_MLCS_SDSS                :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-50015 = 40.611 +/- 0.1521
+	 ==> TEST: DLMAG-50015 = 40.614 +/- 0.1517
+TASK035_SIMFIT_MLCS_DES                 :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-70018 = 40.829 +/- 0.6371E-01(m)
+	 ==> TEST: DLMAG-70018 = 40.829 +/- 0.6370E-01(m)
+TASK041_SIMFIT_NON1ASED_DES             :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-21 = 38.096 +/- 0.8289E-01(P)
+	 ==> TEST: DLMAG-21 = 38.097 +/- 0.8286E-01(P)
+TASK064_LCFIT_MLCS_SDSS2                :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-1112 = 40.924 +/- 0.1413
+	 ==> TEST: DLMAG-1112 = 40.924 +/- 0.1348
+TASK066_LCFIT_MLCS_SNLS                 :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-03D1ew = 43.631 +/- 0.2658
+	 ==> TEST: DLMAG-03D1ew = 43.630 +/- 0.2647
+TASK072_LCFIT_SALT2_SNLS3               :  mis-match (REF != TEST)
+	 ==> REF:  x0-03D1aw = 0.85396E-05 +/- 0.2361E-06(P)
+	 ==> TEST: x0-03D1aw = 0.85375E-05 +/- 0.2370E-06(P)
+TASK077_ZPHOT_SDSSa_SALT2_noHOST_5PAR   :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.87284E-01 +/- 0.1156E-01(P)
+	 ==> TEST: ZPHOT-1032 = 0.87284E-01 +/- 0.1245E-01(P)
+TASK078_ZPHOT_SDSSb_SALT2_noHOST_5PAR   :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1285 = 0.28235 +/- 0.1326E-01(P)
+	 ==> TEST: ZPHOT-1285 = 0.28235 +/- 0.1357E-01(P)
+TASK079_ZPHOT_SDSS_MLCS_noHOST_4PAR     :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.11226 +/- 0.6223E-02(m)
+	 ==> TEST: ZPHOT-1032 = 0.11195 +/- 0.6075E-02(m)
+TASK080_ZPHOT_SDSS_MLCS_noHOST_5PAR     :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.77033E-01 +/- 0.2115E-01(m)
+	 ==> TEST: ZPHOT-1032 = 0.77063E-01 +/- 0.2082E-01(m)
+TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.11881 +/- 0.1313E-01(P)
+	 ==> TEST: ZPHOT-1032 = 0.11697 +/- 0.1390E-01(P)
+
+
+
+# =============================================================
+        v11_05b (Feb 13 2023) 
+
+        ***** IMPORTANT(v11_05b) ***** 
+
+    SALT2mu: fix nasty bug where vpec error was ignored in 
+             determining sigma_int for biasCor.
+
+    wfit: for redshift varname list (zHD zCMB), use first item instead
+          of last. This affects jobs running on BBC output because both
+          zHD and zCMB exist (should use zHD). No problems for output
+          of create_covariance that only write zhd.
+
+        ***** USEFUL(v11_05b) ***** 
+
+        ***** MISCELLANEOUS(v11_05b) ***** 
+
+    snana.car/snlc_fit.car
+     + call cast-specfic SNTABLE_ADDCOL_[int,flt,dbl,str] 
+       to avoid warnings with gcc version 10.
+
+    create_covariance.py
+      + fix bug in prep_config
+      + write SNANA_VERSION to INFO.YML file 
+    
+    SALT2mu.c
+      + refactor selection for sntype_select and idsample_select           
+         add idsurvey_select input  
+      + found a rare fit that had crazy-small M0-errors for both
+        fit attempts. Rather than changing alpha,beta shifts for
+        2nd fit, fixed subtle logic in prepNextFit so that it won't
+        force STOP_TOL=False on repeated fit.
+
+      + new sim-input keys CUTWIN_IDSAMPLE and CUTWIN_SURVEY (see HELP menu);
+        refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
+        real data.
+
+      + fix SUBPROCESS bug reading multiple data files with host info;
+         malloc host var only on IFILE==0
+
+    combine_dataVersions.py:
+       + fix to handle full filter names in pantheon+
+
+    update_data_files.py: 
+      + add --sntype input ; needed to force SNTYPE=1 for Pantheon+
+        since many data files had SNTYPE=0
+
+    Exclude fortran-KCOR code by commenting out pre-proc flags (Dec 12 2022)
+         snana.cra:c+USE,KCOR.
+         snlc_fit.cra:c+USE,KCOR.
+         snlc_fit_private.cra:c+USE,KCOR.
+         sntools.h: //#define USE_KCOR_FORTRAN
+    The old fortran code is still there, but not included in the compilation.
+
+    sntools_dataformat_*: read/write SIM_THETA for BayeSN model.
+
+
+# =============================================================
+        v11_05c ([tag-date]) 
+
+        ***** IMPORTANT(v11_05c) ***** 
+
+   Modified several codes to read VERSION_PHOTOMETRY at top of FITRES table,
+   and pass it on to subsequent output tables from combine_fitres, BBC, etc.
+   The goal is to write VERSION_PHOTOMETRY(DATA,BIASCOR,CCPRIOR) and
+   COSPAR_BIASCOR(OM,OL,wa,w0) to INFO.YML in the output of create_covariance.
+   A caveat is that the biasCor sim data folder must remain to read 
+   COSPAR_BIASCOR from the sim-README ... but sim data folders are sometimes 
+   removed to resolve disk-quota crises.
+
+        ***** USEFUL(v11_05c) ***** 
+ 
+        ***** MISCELLANEOUS(v11_05c) ***** 
+
+   sntools.c:
+     - subtle fix in get_SNANA_VERSION_FLOAT() to handle new tag
+       that has no dashes.
+     - new util read_yaml_vals(...)
+
+   snlc_sim, sntools_cosmology:
+     add typedef ANISOTROPY_INFO to pass these model params to dLmag.
+
+     To do: combine HzFUN_INFO and ANISOTROPY_INFO into a single
+     EXOTIC_MODEL_INFO struct so that we can easily add more model
+     params without adding a new typedef in many places.
+
+     fix bug to enable STRONGLENS without HOSTLIB
+
+  SALT2mu.c:
+    + new input muref_zpoly to replace LCDM mu-function with
+      polynominal function of z. For testing only.
+
+  sntools_host.*
+    + increase ZMAX_HOSTLIB = ZMAX_SNANA
+
+  submit_prog_sim.py:
+    + write sim-input yaml info to final/merged README from sim
+
+  Remove all legacy KCOR code from snana.car and snlc_fit.car
+
+  create_covariance.py: read VERSION_PHOTOMETRY and cospar_biascor,
+     and write to INFO.YML output.
+
+  snana.car
+    + add &SNLCINP input SIM_HEADER_OVERRIDE_FILE 
+      (since HEADER_OVERRIDE_FILE works only for real data)
 END: 

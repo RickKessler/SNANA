@@ -51,6 +51,7 @@
 #define APPLYMASK_SEARCHEFF_PIPELINE    1  // pipeline detection
 #define APPLYMASK_SEARCHEFF_SPEC        2  // spec confirmed
 #define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host
+// xxxx #define APPLYMASK_SEARCHEFF_SINGLE  8 // pipe detect on single detect
 
 #define DETECT_MASK_SNR         1  // detect mask for SNR or MAG
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
@@ -66,7 +67,7 @@
 #define IVARABS_PHOTPROB_GALMAG    4  // Feb 16 2020
 #define MXDEF_VARNAMES_PHOTPROB    5
 
-char COMMENT_README_TRIGGER[200];
+char COMMENT_README_SEARCHEFF[2][200];
 
 char VARDEF_SEARCHEFF_PHOTPROB[MXDEF_VARNAMES_PHOTPROB][20] ;
 
@@ -94,12 +95,17 @@ struct  {
   int    IFLAG_SPEC_EFFZERO;       // flag to set EFF_SPEC=0
   int    IVERSION_zHOST;           // 1=legacy, 2=multi-D
 
+  int    APPLY_DETECT_SINGLE;    // check EFF(pipe) on each exposure, not coadd
+
   double USER_SPECEFF_SCALE; // default=1.0
   double CUTWIN_SNRMAX_zHOST[2]; // extra requirement for zHOST
 
   // time-window (days) in which all detections count as 1 detection
   // e.g.,  0.3 -> 1 roughly night, 0.007 -> 10 minutes, or SDSS ugriz
   double TIME_SINGLE_DETECT ;  // days
+
+  // Number of PSF-sigmas to resolve nearby LCs for detections (e.g, SL images)
+  double NPSFSIGMA_MINSEP_DETECT; 
 
   // global peakmag shift for GRIDMAP lookup
   double MAGSHIFT_SPECEFF ; 
@@ -135,6 +141,7 @@ int    MAPVERSION_SEARCHEFF_DETECT ; // allows legacy or new map style
 struct SEARCHEFF_PIPELINE {
   char   MAPNAME[40] ;
   int    NBIN ;
+  char   FIELDLIST[60] ;  // Nov 2022
   char   FILTERLIST[MXFILTINDX] ;
   double *VAL, *EFF ;
   int    NLINE_README;
@@ -234,7 +241,10 @@ struct {
 } SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
 
 
-
+// Oct 2021 - definw MJDs associated with pipeline detections
+typedef struct {
+  double TRIGGER, FIRST, LAST;
+} MJD_DETECT_DEF ;
 
 // ------ data needed to evaluate trigger -------
 
@@ -243,7 +253,9 @@ struct {
 
   // scalars
   int    CID ;
-  double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX ;
+  double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX, MWEBV ;
+  int    SIMLIB_ID;
+
 
   char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
   char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
@@ -254,19 +266,24 @@ struct {
   double HOSTMAG[MXFILTINDX] ;
   double SBMAG[MXFILTINDX] ;
 
+  double SEP_NEAREST_SRC; // sep (arcsec) to nearest src (e.g., another SL)
+
   // obs-dependent quantities
   double MJD[MXOBS_TRIGGER];
   double MAG[MXOBS_TRIGGER];  // mag for each obs
   double SNR[MXOBS_TRIGGER];  // signal-to-noise for each obs
+  double FLUX[MXOBS_TRIGGER]; // flux in ADU, or errmsg only
+  double FLUXERR[MXOBS_TRIGGER];
   int    IFILTOBS[MXOBS_TRIGGER];  // absolute filter index. each obs
   int    NPE_SAT[MXOBS_TRIGGER];   // Npe above sat (negative --> ok)
   int detectFlag[MXOBS_TRIGGER]; // detection flag for each obs (not trigger)
   double PHOTPROB[MXOBS_TRIGGER];  // Mar 13 2018
-
+  double PSFSIG[MXOBS_TRIGGER];    // PSF sigma, arcsec
+  int    NEXPOSE[MXOBS_TRIGGER]; // Number of Exposures in CO-ADD. 08/06/2022 
 } SEARCHEFF_DATA ;
 
 
-  // randoms
+// randoms
 struct {
   double FLAT_PIPELINE[MXOBS_TRIGGER];     // flat ran for each obs [0,1]
   double FLAT_PHOTPROB[MXOBS_TRIGGER];     // flat ran for each detection
@@ -297,8 +314,8 @@ int  malloc_NEXTMAP_SEARCHEFF_DETECT(void);
 void   check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF);
 
 int    gen_SEARCHEFF(int ID, double *EFF_SPEC, double *EFF_zHOST, 
-		     double *MJD_TRIGGER ) ;
-int    gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER );
+		     MJD_DETECT_DEF *MJD_DETECT );
+int    gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT );
 int    gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC );
 int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);

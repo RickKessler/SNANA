@@ -1,20 +1,27 @@
 // Created Sep 2018
+// Sep 30 2022: MXPAR_PySEDMODEL -> 100 (was 20) for BAYESN
 // Nov 20 2020: MXPAR_PySEDMODEL -> 20 (was 10) for SNEMO
+// Nov 11 2021: Add BayeSN
 
 // define pre-processor command to use python interface
-#define USE_PYTHONxxx   
+#define USE_PYTHONxxx      
 
 
 // ===========================================
 // global variables
 
 #define MXLAM_PySEDMODEL  10000  // max wave bins to define SED
-#define MXPAR_PySEDMODEL     20  // max number of params to describe SED
+#define MXPAR_PySEDMODEL     100  // max number of params to describe SED
 #define MXHOSTPAR_PySEDMODEL 20  // max number of items in NAMES_HOSTPAR
 
 #define MODEL_NAME_BYOSED   "BYOSED"
 #define MODEL_NAME_SNEMO    "SNEMO"
-#define NCHOICE_PySEDMODEL  2
+#define MODEL_NAME_PYBAYESN "PYBAYESN" // BayeSN has both C- and python versions
+#define MODEL_NAME_AGN      "AGN"
+#define NCHOICE_PySEDMODEL  4
+
+#define OPTMASK_ALLOW_C_ONLY 4096 // allow running C-code without python
+
 char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][12] ;
 
 // store inputs from init_genmag_PySEDMODEL
@@ -25,7 +32,7 @@ struct {
 
   // stuff determined from inputs above
   char  MODEL_NAME[40] ; // e.g., BYOSED, SNEMO ....
-  char  PyFUN_NAME[60] ; // e.g., genmag_BYOSED
+  char  PyCLASS_NAME[60] ; // e.g., genmag_BYOSED
 
 } INPUTS_PySEDMODEL ;
 
@@ -34,6 +41,7 @@ struct {
   int NLAM;           // number of bins in SED
   double *LAM, *SED;  // SED
   int EXTERNAL_ID, LAST_EXTERNAL_ID ;
+  double Tobs_template; 
 
   int    NPAR ;
   char   **PARNAME;    // par names set during init stage
@@ -45,24 +53,28 @@ struct {
 // function declarations
 void load_PySEDMODEL_CHOICE_LIST(void);
 
-void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, 
+void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION,
 			    int OPTMASK, char *ARGLIST, char *NAMES_HOSTPAR);
 
 void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME);
 
-void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU, 
+void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zCMB, 
+			  int NHOSTPAR, double *HOSTPAR_LIST,
+                          int NOBS_ALL, double *TOBS_LIST);
+
+void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 		       double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
-		       int IFILT, int NOBS, double *TOBS_list, 
-		       double *MAGOBS_list, double *MAGERR_list );
+		       int IFILT, int NOBS, double *TOBS_list,
+		       double *MAGOBS_list, double *MAG_TEMPLATE,
+		       double *MAGERR_list );
 
 int  fetchParNames_PySEDMODEL(char **parNameList);
 void fetchParVal_PySEDMODEL(double *parVal);
-void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Tobs, 
-			 int MXLAM, double *HOSTPAR_LIST, int *NLAM, 
-			 double *LAM, double *FLUX, 
-			 char *pyFORMAT_STRING_HOSTPAR);
+void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Tobs,
+			 int MXLAM, double *HOSTPAR_LIST, int *NLAM,
+			 double *LAM, double *FLUX);
 
-void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs, 
+void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs,
 			   double zHEL, double x0,
 			   double RV, double AV,
 			   int NLAM, double *LAM, double *SED,
@@ -70,8 +82,9 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs,
 
 // return spectrum for spectrograph
 void genSpec_PySEDMODEL(double Tobs, double z, double MU, double MWEBV,
-			double RV_host, double AV_host, // (I)		     
-			double *GENFLUX_LIST,         // (O) fluxGen per bin 
+			double RV_host, double AV_host, // (I)
+			int NHOSTPAR, double *HOSTPAR_LIST,
+			double *GENFLUX_LIST,         // (O) fluxGen per bin
 			double *GENMAG_LIST );        // (O) magGen per bin
 
 void read_SALT2_template0(void); // for debug only (no python)

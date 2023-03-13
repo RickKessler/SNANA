@@ -284,14 +284,14 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   // generate Guassian randoms for intrinsic scatter [genSmear] model
   if ( NRANGauss < MXFILTINDX-1 ) { NRANGauss = MXFILTINDX-1; } 
   for(iran=0; iran < NRANGauss; iran++ ) {                 
-    GENSMEAR.RANGauss_LIST[iran] = GaussRanClip(ILIST_RAN,gmin,gmax); 
+    GENSMEAR.RANGauss_LIST[iran] = getRan_GaussClip(ILIST_RAN,gmin,gmax); 
   }
 
  
   // repeat for 0-1 [flat] randoms
   if ( NRANFlat < MXFILTINDX-1 ) { NRANFlat = MXFILTINDX-1; }
   for ( iran=0; iran < NRANFlat; iran++ ) 
-    {  GENSMEAR.RANFlat_LIST[iran]  = FlatRan1(ILIST_RAN);  } 
+    {  GENSMEAR.RANFlat_LIST[iran]  = getRan_Flat1(ILIST_RAN);  } 
   
   if ( LDMP ) {
     double GFIRST = GENSMEAR.RANGauss_LIST[0];
@@ -314,7 +314,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
     int NBIN = GENSMEAR_PHASECOR.NBIN ;
     for(iran=0; iran < NBIN; iran++ ) {                 
       GENSMEAR_PHASECOR.RANGauss_LIST[iran] = 
-	GaussRanClip(ILIST_RAN,gmin,gmax); 
+	getRan_GaussClip(ILIST_RAN,gmin,gmax); 
     }
   }
 
@@ -412,7 +412,6 @@ void get_genSmear(double *parList, int NLam, double *Lam,
 
   // Mar 2020: check option to scale the smearing vs. c & x1
   if ( GENSMEAR_SCALE.USE ) {    
-    // xxxx mark delete double SCALE = get_genSmear_SCALE(c,x1);
     double SCALE = get_genSmear_SCALE(parList);
     for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] *= SCALE ; }
   }
@@ -1087,8 +1086,9 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //
   // Dec 28 2020: check for SALT3
 
-  //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
+  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
+  double COLOR_DISP_MAX = 5.0;
   double zmin = GENRANGE_REDSHIFT[0];
   char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
@@ -1137,12 +1137,12 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // read SIGMA_INT from SALT2.INFO file
   
   if ( SIGCOH < -8.1 )  {  
-    //    GENSMEAR_SALT2.SIGCOH = read_genSmear_SALT2sigcoh(versionSALT2); 
-    read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM); 
+    read_genSmear_SALT2INFO(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM,
+			    &COLOR_DISP_MAX); 
   }
   else if ( SIGCOH >= 0.0 ) {
-    //xxx  GENSMEAR_SALT2.SIGCOH = SIGCOH ; 
-    read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM);     
+    read_genSmear_SALT2INFO(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM,
+			    &COLOR_DISP_MAX); 
   }
   else {
     // do nothing because user input includes
@@ -1160,7 +1160,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 	  versionSALT2, SALT2_ERRMAP_FILES[INDEX_ERRMAP_COLORDISP]);
   xxx */
 
-  read_genSmear_SALT2disp(dispFile) ;
+  read_genSmear_SALT2disp(dispFile, COLOR_DISP_MAX) ;
 
   // ----
 
@@ -1229,6 +1229,23 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   MAXLAM_LOOP = MAXLAM + DLAM ; 
 
+  // Apr 2022
+  // make sure that lam-range in salt2_color_dispersion.dat covers
+  // lam-range of SED template. Beware UV extrap cause failure on blue side.
+  //  if ( MINLAM > SED_LAMMIN || MAXLAM < SED_LAMMAX ) {
+  if (  MAXLAM < SED_LAMMAX ) {
+    print_preAbort_banner(fnam);
+    char cdisp_file[] = "salt2_color_dispersion.dat";
+    printf("  %s MINLAM / MAXLAM = %.2f / %.2f\n", 
+	   cdisp_file, MINLAM, MAXLAM);
+    printf("  SALT2 SED MINLAM / MAXLAM = %.2f / %.2f\n", 
+	   SED_LAMMIN, SED_LAMMAX);
+
+    sprintf(c1err,"wave-range for %s is too small;", cdisp_file); 
+    sprintf(c2err,"Check MINLAM/MAXLAM ranges above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
+
   for ( LAM = MINLAM ; LAM <= MAXLAM; LAM+=DLAM ) {
 
     LAM2 = LAM ;
@@ -1283,15 +1300,14 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
 
 // ********************************************
-void read_genSmear_SALT2sigcoh(char *versionSALT2, 
-			       GRIDMAP1D *SIGCOH_LAM) {  // <== returned
+void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM,     
+			     double  *COLOR_DISP_MAX) 
+{ 
 
-  // read SIGMA_INT key from SALT2.INFO file, and return value
-  // as function output.
-  // Input *versionSALT2 is the name of the SALT2 version,
+  // Minor refactor Oct 21 2022 to read and return COLOR_DISP_MAX.
+  // Read SALT2[3].INFO file for information needed for genSmear.
+  // Input *versionSALT2 is the name of the SALT2/SALT3 version,
   // including full path
-  //
-  // May 30 2018: refactor to fill struct SIGCOH_LAM (sigcoh vs. lam)
   //
   // Fix INFO_FILE to work with SALT2 or SALT3
 
@@ -1323,6 +1339,9 @@ void read_genSmear_SALT2sigcoh(char *versionSALT2,
       readchar(fp, keyArg); 
       parse_SIGCOH_SALT2(keyName,keyArg, SIGCOH_LAM);
     }
+
+    if ( strcmp(c_get,"COLOR_DISP_MAX:") == 0 ) 
+      { readdouble(fp, 1, COLOR_DISP_MAX); }
   }
 
   fclose(fp);
@@ -1434,7 +1453,7 @@ void  parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG,
 
 
 // ************************************
-void read_genSmear_SALT2disp(char *smearFile) {
+void read_genSmear_SALT2disp(char *smearFile, double COLOR_DISP_MAX ) {
 
   // Created May 1 2014
   // read dispersion vs. wavelength from file.
@@ -1443,10 +1462,11 @@ void read_genSmear_SALT2disp(char *smearFile) {
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
   // Aug 28 2019: fill GENSMEAR_SALT2.MINLAM[MAXLAM]
   // Sep 03 2019: GENSMEAR_SALT2.LAM[SIGMA] arrays start at 0, not 1
+  // Oct 21 2022: apply COLOR_DISP_MAX passed as new arg
 
   char fnam[] = "read_genSmear_SALT2disp" ;
   FILE *fp ;
-  int NLAM,  GZIPFLAG ;
+  int  ilam, NLAM,  GZIPFLAG ;
 
   // -------------- BEGIN ----------------
 
@@ -1477,6 +1497,13 @@ void read_genSmear_SALT2disp(char *smearFile) {
   GENSMEAR_SALT2.NLAM   = NLAM;  
   GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];
   GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM-1];
+
+  // Oct 2022: put a cap on color smear, to avoid crazy mags in far UV
+  for(ilam=0; ilam < NLAM; ilam++ ) {
+    if ( GENSMEAR_SALT2.SIGMA[ilam] > COLOR_DISP_MAX ) 
+      { GENSMEAR_SALT2.SIGMA[ilam] = COLOR_DISP_MAX ; }
+  }
+
 
   if ( NLAM >= MXLAM_GENSMEAR_SALT2 ) {
     sprintf(c1err,"G10 NLAM=%d exceeds array bound of %d",
@@ -1545,15 +1572,20 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
     }
 
     magSmear[ilam] = SMEAR0 ;
+
+    /* xxx mark delete Oct 18 2022 RK xxxxxx
     if ( lam <= MINLAM ) { continue ; }
     if ( lam >= MAXLAM ) { continue ; }
+    xxxxxxxxx end mark xxxxxxxx */
+
+    if ( lam <= (MINLAM+0.001) ) { continue ; }
+    if ( lam >= (MAXLAM-0.001) ) { continue ; }
 
     INODE = INODE_LAMBDA(lam, GENSMEAR_SALT2.NNODE, GENSMEAR_SALT2.LAM_NODE);
     if ( INODE < 0 || INODE >= GENSMEAR_SALT2.NNODE ) {      
-      // .xyz
-      print_preAbort_banner(fnam);
+      print_preAbort_banner(fnam); 
       printf("  MINLAM / MAXLAM = %.2f / %.2f \n", MINLAM, MAXLAM);
-      printf("  ilam = %d of %d \n", ilam, NLam);
+      printf("  ilam = %d of %d   Trest=%.2f\n",  ilam, NLam, Trest);
       sprintf(c1err,"Could not find INODE for lam=%7.1f", lam);
       sprintf(c2err,"NNODE=%d  INODE=%d", GENSMEAR_SALT2.NNODE, INODE) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -1740,21 +1772,6 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   init_Cholesky(+1, &GENSMEAR_C11.DECOMP); 
 
-  /* xxxxx mark deleteFeb 17 2020  xxxxxxxxx
-  chk  = gsl_matrix_view_array ( COVAR1, NBAND_C11, NBAND_C11); 
-  gsl_linalg_cholesky_decomp ( &chk.matrix )  ;  
-
-  for (i =0; i < NBAND_C11 ; i++){
-    for (j = 0; j < NBAND_C11 ; j++) { 
-      if ( j >= i ) 
-	{ GENSMEAR_C11.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
-      else
-	{ GENSMEAR_C11.Cholesky[i][j] = 0.0 ; }
-    }
-  }
-  xxxxxxxx mark delete xxxxxx */
-
-
   // print Cholesky matrix
   printf("\n\t Cholesky Decomp: \n" );
   for (i =0; i < NBAND_C11; i++){
@@ -1792,8 +1809,8 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
   // ---------- BEGIN -------
 
   // Feb 17 2020: use new utility for correlated randoms
-  GaussRanCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
-	       SCATTER_VALUES );            // (O)
+  getRan_GaussCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+		   SCATTER_VALUES );            // (O)
 
   // -------------
   for ( ilam=0; ilam < NLam; ilam++ ) {
@@ -2907,11 +2924,6 @@ void init_genSmear_OIR(char *VERSION) {
 
   //  debugexit(fnam); // DDDDDDD
 
-  /* xxx mark delete (RK) since this is done in init_genSmear_randoms
-  GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
-  GENSMEAR.NGEN_RANFlat  = 0 ;
-  xxxxxxxxxxxxxx */
-
   // ----------------------------
   // store number of randoms to generate.
 
@@ -3488,8 +3500,8 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
 
 
   // Feb 17 2020: new utility to fetch correlated randoms
-  GaussRanCorr(&GENSMEAR_COVSED.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
-	       GENSMEAR_COVSED.SCATTER_VALUES );        // (O)
+  getRan_GaussCorr(&GENSMEAR_COVSED.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+		   GENSMEAR_COVSED.SCATTER_VALUES );        // (O)
 
   // -------------
   for ( iwave=0; iwave < NWAVE; iwave++ ) {
@@ -3664,8 +3676,8 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
   // Then read list of params externally. Then call this function
   // to store parameter values.
 
-
   int N, i ;
+  char cval[20];
   char fnam[] = "store_genSmear_override" ;
 
   // ------------- BEGIN ----------
@@ -3683,14 +3695,13 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
 
   printf("\t %s : store %2d values for '%s' \n", fnam, NVAL, parName);
   fflush(stdout);
-
-  for(i=0 ; i < NVAL; i++ ) {
-    GENMAG_SMEARPAR_OVERRIDE[N].VALUE[i] = tmpList[i] ;
-  }
-
+  for(i=0 ; i < NVAL; i++ ) 
+    { GENMAG_SMEARPAR_OVERRIDE[N].VALUE[i] = tmpList[i] ; }
   NSMEARPAR_OVERRIDE++ ;
 
-} // end of   store_genSmear_override
+  return;
+
+} // end of store_genSmear_override
 
 int  exec_genSmear_override(int IPAR, char *PARNAME, double *VAL) {
 
@@ -3837,8 +3848,9 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
     if ( LDMP ) 
       { printf(" xxx ----------- CID = %d -------------- \n", CID); }
 
-    GaussRanCorr(&GENSMEAR_PHASECOR.DECOMP, GENSMEAR_PHASECOR.RANGauss_LIST,
-		 GENSMEAR_PHASECOR.GRID_MAGSMEAR);
+    getRan_GaussCorr(&GENSMEAR_PHASECOR.DECOMP, 
+		     GENSMEAR_PHASECOR.RANGauss_LIST,
+		     GENSMEAR_PHASECOR.GRID_MAGSMEAR);
 
     check_genSmear_phaseCor();    
 	

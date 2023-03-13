@@ -37,6 +37,7 @@ struct {
   double *LAMMIN_LIST, *LAMMAX_LIST, *LAMAVG_LIST ;     // per spectro bin
   double *LAMBIN_LIST, *LAMSIGMA_LIST ; // binSize & resolution vs. lambda
   double TEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH] ;    // per expTime bin
+  double LOGTEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH];  // used for ZP-interp
   double **SNR0, **SNR1  ;  // per spectro bin & expTime
   bool   *ISLAM_EXTEND_LIST; // True -> extended lam bin for lam-resulution
 
@@ -46,6 +47,10 @@ struct {
   double **ZP, **SQSIGSKY ; // per spectro & expTime bin
 
   // syn-filter info from kcor-iput file; filled when reading kcor file
+  int    NSYN_FILTER;
+  int    SYN_IFILTDEF_LIST[MXFILTINDX];
+  int    SYN_IFILTINV_LIST[MXFILTINDX]; // map ifiltdef -> sparse ifilt
+  bool   IS_SYN_FILTER[MXFILTINDX];     // vs. ifiltdef
   char   SYN_FILTERLIST_BAND[MXFILTINDX] ;
   char   SYN_FILTERLIST_NAME[MXFILTINDX][20] ;
   double SYN_FILTERLIST_LAMMIN[MXFILTINDX] ;
@@ -58,11 +63,13 @@ double  VALUES_SPECBIN[MXVALUES_SPECBIN];
 
 
 // ------ GENERATED SPECTRA ------                                                        
-
 struct {
   int    NMJD_TOT, NMJD_PROC ;
   int    NBLAM_TOT[MXSPEC];    // total number of wavelength bins
   int    NBLAM_VALID[MXSPEC] ; // number of valid wavelength bins per epoch
+  int    NBLAM_READ[MXSPEC];   // used by reader to check SPECTRUM_NLAM key
+  double LAMRANGE_VALID[MXSPEC][2];  // used for print only
+
   int    IMJD_HOST, IS_HOST[MXSPEC];
   bool   SKIP[MXSPEC];        // outside Trest range of model
 
@@ -89,6 +96,7 @@ struct {
   double *GENFLUX_LAMSMEAR_LIST[MXSPEC]; // lam-smeared flux, no Poisson noise
   double *GENFLUX_PEAK ; // GENFLUX at PEAKMJD; needed for HOSTSNFRAC option
   double *GENMAG_PEAK ;  
+  double  SCALE_FLAM_HOST_CONTAM[MXSPEC]; // fraction of host spec included in SN spec
 
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise
@@ -108,7 +116,6 @@ struct {
   double FLATRAN_LIST[100]; // 0-1 randoms, e.g., for pre-scales
 
   // define array of Gaussian randoms for noise
-  double *RANGauss_NOISE_LEGACY[MXLAMSMEAR_SPECTROGRAPH] ;  // mark delete
   double *RANGauss_NOISE_TEMPLATE ; 
 
 } GENSPEC ;

@@ -10,7 +10,7 @@
   MODEL:  FLUX_pe       ! May 27 2016
 
   START_MAP:
-  FILTERS: abcxyz
+  FILTERS: abcdef
   NONLIN:   4.0  0.982  # 
   NONLIN:  40.0  0.986  # 
   NONLIN: 400.0  0.988  # 

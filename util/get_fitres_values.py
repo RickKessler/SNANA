@@ -5,26 +5,62 @@
 # Extract table value(s) for cid(s) and print to screen.
 # Intended for visual debugging.
 #
-# Feb 24 2021: print table with sorted(cid_list) to avoid random ordering.
+# For "-f bla.fitres", script checks for both bla.fitres and bla.fitres.gz.
+# for "-f bla.fitres.gz", script checks only for this file name.
 #
-import os, sys, argparse
+# Feb 24 2021: print table with sorted(cid_list) to avoid random ordering.
+# Sep 23 2021: add -g (--galid) option to work for HOSTLIB, and 
+#              count DOCANA rows to skip
+#
+# Nov 22 2021: fix to work with gzip files
+# Feb 07 2022: fix bug skipping comment lines before VARNAMES (see nrow_skip)
+# Jul 16 2022: 
+#   [Patrick Armstrong] add generic function (mean, min, max, etc...) 
+#    and command line plotting
+# Jul 19 2022 RK 
+#     --filt replaced with --sel to avoid confusion with filters.
+#     Put plotext import under try to avoid abort if not installed.
+#
+# Aug 21 2022 RK - fix bug counting lines before VARNAMES key
+            
+import os, sys, argparse, gzip
+import numpy as np
 import pandas as pd
+
+try:  
+    import plotext as plt
+except ImportError:
+    pass
+
+KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
 
 # =====================================
 def get_args():
     parser = argparse.ArgumentParser()
     
-    msg = "name of fitres file"
-    parser.add_argument("-f", "--file", help=msg, type=str, default="")
+    msg = "name of fitres file (automatically checks for .gz extension)"
+    parser.add_argument("-f", "--fitres_file", help=msg, type=str, default="")
 
-    msg = "comma separated list of CIDs"
+    msg = "comma separated list of CIDs for FITRES file"
     parser.add_argument("-c", "--cid", help=msg, type=str, default=None)
+
+    msg = "comma sep list of GALIDs for HOSTLIB"
+    parser.add_argument("-g", "--galid", help=msg, type=str, default=None)
 
     msg = "number of rows to fetch CIDs (no need to know CIDs)"
     parser.add_argument("--nrow", help=msg, type=int, default=0)
 
+    msg = "comma seperated list of selection functions: combined via 'or'. Can use <, >, or =="
+    parser.add_argument("--sel", help=msg, type=str, default=None)
+
     msg = "comma separated list of variable names"
     parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
+
+    msg = "comma seperated list of functions (mean, min, or max)"
+    parser.add_argument("--func", help=msg, type=str, default=None)
+
+    msg = "type of plot. Options include hist (histogram of each variable), and scatter (scatter plot, must specify 2 variables)"
+    parser.add_argument("--plot", help=msg, type=str, default=None)
 
     if len(sys.argv) == 1:  parser.print_help(); sys.exit()
 
@@ -37,64 +73,253 @@ def get_args():
 def parse_inputs(args):
 
     # parse comma-sep list of cid(s) and varname(s)
+    fitres_file = args.fitres_file
 
-    exist_ff   = os.path.exists(args.file)
-    msgerr_ff  = (f"fitres file {args.file} does not exist.")
+    # - - - - - -
+    # check fitres_file and fitres_file.gz
+    msgerr_ff  = (f"fitres file {args.fitres_file} does not exist.")
+    ff_list    = [ fitres_file ]
+    if ".gz" not in fitres_file:
+        ff_list.append(f"{fitres_file}.gz")
+    
+    n_ff = 0
+    exist_ff = False
+    for ff in ff_list:
+        if os.path.exists(ff):
+            n_ff += 1
+            exist_ff = True
+            args.fitres_file = ff
 
-    exist_cid_list = (args.cid is not None) or (args.nrow > 0 )
-    msgerr_cid     = "Must cid list using --cid or --nrow arg"
+    # - - - - - - -
+    exist_cid_list = (args.cid   is not None) or \
+                     (args.galid is not None) or \
+                     (args.sel   is not None) or \
+                     (args.nrow > 0)
+
+    exist_func = args.func is not None
+    exist_plot = args.plot is not None
+    msgerr_cid     = "If --func or --plot are not defined, must get cid list using --cid, --nrow, or --sel arg"
 
     exist_var_list = args.varname is not None
     msgerr_var     = "Must specify varnames using -v arg"
 
     assert exist_ff,       msgerr_ff
-    assert exist_cid_list, msgerr_cid
+    assert exist_cid_list or exist_func or exist_plot, msgerr_cid
     assert exist_var_list, msgerr_var
 
-    if args.cid is not None :    
-        cid_list = args.cid.split(",")
-    else:
-        cid_list = []
+    if exist_func:
+        # Check func is min, max, or mean
+        correct_func = True in [x in ['min', 'max', 'mean'] for x in args.func.split(",")]
+        msgerr_func = f"--func must be either min, mean, or max, not {args.func}"
+        assert correct_func, msgerr_func 
 
-    nrow       = args.nrow
     var_list   = args.varname.split(",")
 
-    return args.file, cid_list, nrow, var_list
+    if exist_plot:
+        # Check plot is hist or scatter 
+        correct_plot = args.plot in ['hist', 'scatter']
+        msgerr_plot = f"--plot must be either hist or scatter, not {args.plot}"
+        assert correct_plot, msgerr_plot
+
+        if args.plot == 'scatter':
+            assert len(var_list) == 2, f"Only 2 variables can be defined when creating a scatter plot, not {len(var_list)}"
+
+    
+    id_list = []
+    func_list = []
+    sel_list = []
+    keyname_id = None
+
+    if args.cid is not None :    
+        id_list = args.cid.split(",")
+        keyname_id = 'CID'
+    elif args.galid is not None :    
+        id_list = args.galid.split(",")
+        keyname_id = 'GALID'
+    if args.func is not None :
+        func_list = args.func.split(",")
+    if args.sel is not None :
+        for sel in args.sel.split(","):
+            if "<" in sel:
+                v, n = sel.split("<")
+                sel_list.append([v, "<", float(n)])
+            elif ">" in sel:
+                v, n = sel.split(">")
+                sel_list.append([v, ">", float(n)])
+            elif "==" in sel:
+                v, n = sel.split("==")
+                sel_list.append([v, "==", float(n)])
+            else:
+                raise ValueError(f"Valid select functions are <, >, and ==. None of these were not found in {sel}")
+
+    nrow       = args.nrow
+
+    info_fitres = {
+        'fitres_file' : args.fitres_file,
+        'id_list'     : id_list,
+        'nrow'        : nrow,
+        'var_list'    : var_list,
+        'keyname_id'  : keyname_id,
+        'func_list'   : func_list,
+        'plot'        : args.plot,
+        'sel_list'    : sel_list
+    }
+    return info_fitres
 
     # end parse_inputs
 
-def read_fitres_file(ff, var_list):
+def read_fitres_file(info_fitres):
 
-    # inputs:
-    #   ff       = name of fitres file
-    #   var_list = list of variables to parse
+    # strip inputs
+    ff         = info_fitres['fitres_file']  # fitres file or hostlib
+    var_list   = info_fitres['var_list']     # list of variables
+    keyname_id = info_fitres['keyname_id']
+ 
+    print(f"\n Read {ff}")
 
-    var_list_local = ['CID'] + var_list
-    df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
-                      usecols=var_list_local)
-    df["CID"] = df["CID"].astype(str)
-    df        = df.set_index("CID", drop=False)
-    return df
+    nrow_skip   = 0
+    nrow_docana = 0
+    isrow_docana = False
+
+    if ".gz" in ff:
+        f = gzip.open(ff,"rt", encoding='utf-8')
+    else:
+        f = open(ff,"rt")
+
+    # - - - - - 
+    # check keyname of id; e.g., CID, ROW, GALID, etc ...
+    # read first VARNAMES element and number of rows to
+    # skip for DOCANAN keys
+
+    for line in f:       
+        wdlist = line.split()
+        if len(wdlist) < 1 : 
+            nrow_skip += 1
+            continue
+
+        if line[0] == '#' :
+            nrow_skip += 1
+            continue
+
+        if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
+        # xxx if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
+        if isrow_docana : 
+            nrow_skip   += 1
+            nrow_docana += 1
+            #continue
+
+        if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
+
+        if wdlist[0] == 'VARNAMES:' : 
+            keyname_id = wdlist[1]
+            print(f" Found keyname_id = {keyname_id} " \
+                  f"after skipping {nrow_skip} rows")
+            if nrow_docana > 0:
+                print(f"\t (skipped {nrow_docana} DOCANA rows)")
+
+            info_fitres['keyname_id'] = keyname_id
+            break
+
+    f.close()
+    # - - - - - - 
+
+    var_list_local =  [ keyname_id ] + var_list
+    if info_fitres['nrow'] > 0:
+        df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
+                          skiprows=nrow_skip,
+                          usecols=var_list_local,
+                          nrows = info_fitres['nrow'])
+    else:
+        df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
+                          skiprows=nrow_skip,
+                          usecols=var_list_local)
+
+
+    df[keyname_id] = df[keyname_id].astype(str)
+    df             = df.set_index(keyname_id, drop=False)
+
+    # other columns to print as string to avoid int->float roundoff
+    keyname_str_list = [ 'SIM_HOSTLIB_GALID', 'HOST_OBJID' ]
+    for k in keyname_str_list:
+        if k in df:
+            df[k] = df[k].astype(str)
+
+    # load data frame
+    info_fitres['df'] = df
+    return
 
     # end read_fitres_file
 
-def print_info(df, cid_list, nrow):
+def print_info(info_fitres):
 
     # Inputs:
     #   df       = data frame for input fitres file
-    #   cid_list = comma-sep list of cids
+    #   id_list  = comma-sep list of cids or galids
     #   nrow     = number of rows to fetch CID
 
-    # check option to use CIDs from first 'nrow' rows
-    if nrow > 0 :
-        cid_rows = df['CID'].head(nrow).tolist()
-        #print(f" xxx cid_rows = {cid_rows}   ty={type(cid_rows)}")
-        cid_list += cid_rows
-        cid_list = list(set(cid_list))
+    df         = info_fitres['df']
+    id_list    = info_fitres['id_list']
+    nrow       = info_fitres['nrow']
+    var_list   = info_fitres['var_list']
+    keyname_id = info_fitres['keyname_id']
+    func_list  = info_fitres['func_list']
+    plot       = info_fitres['plot']
+    sel_list   = info_fitres['sel_list']
 
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)
-    print(df.loc[sorted(cid_list), var_list].__repr__())
+
+    # check option to use IDs from first 'nrow' rows
+    if nrow > 0 :
+        id_rows = df[keyname_id].head(nrow).tolist()
+        #print(f" xxx cid_rows = {cid_rows}   ty={type(cid_rows)}")
+        id_list += id_rows
+
+    if len(sel_list) > 0:
+        for sel in sel_list:
+            if sel[1] == "<":
+                id_rows = df[df[sel[0]] < sel[2]][keyname_id].tolist()
+            elif sel[1] == ">":
+                id_rows = df[df[sel[0]] > sel[2]][keyname_id].tolist()
+            elif sel[1] == "==":
+                id_rows = df[df[sel[0]] == sel[2]][keyname_id].tolist()
+            id_list += id_rows
+
+    id_list = list(set(id_list))
+    # Only print if id_list defined either by cid or nrow
+    if len(id_list) > 0:
+        df = df.loc[sorted(id_list), var_list]
+        print(df.__repr__())
+    else:
+        df = df.loc[df[keyname_id].to_list(), var_list]
+
+    for func in func_list: 
+        if func == 'mean':
+            print("\n",df.mean().to_frame('Mean'),"\n")
+        if func == 'min':
+            print("\n",df.min().to_frame('Min'),"\n")
+        if func == 'max':
+            print("\n",df.max().to_frame('Max'),"\n")
+
+    if plot == "hist":
+        for var in var_list:
+            data = df[var]
+            q1 = data.quantile(0.25)
+            q3 = data.quantile(0.75)
+            iqr = q3 - q1
+            bin_width = (2 * iqr) / (len(data) ** (1 / 3))
+            bin_count = int(np.ceil((data.max() - data.min()) / bin_width))
+            plt.hist(df[var].to_list(), bins=bin_count, label=var)
+        plt.show()
+
+    if plot == "scatter":
+        x = df[var_list[0]].to_list()
+        y = df[var_list[1]].to_list()
+        plt.scatter(x, y)
+        plt.xlabel(var_list[0])
+        plt.ylabel(var_list[1])
+        plt.show()
+
     # end print_info
 
 # =============================================
@@ -103,14 +328,15 @@ if __name__ == "__main__":
     # read command-line arguments
     args  = get_args()
 
+    info_fitres = parse_inputs(args)
     # parse comma-sep lists
-    ff, cid_list, nrow, var_list = parse_inputs(args)
+    ## xxx ff, id_list, nrow, var_list = parse_inputs(args)
 
-    # read fitres file
-    df = read_fitres_file(ff, var_list)
+    # read fitres file, tack on info_fitres['df']
+    read_fitres_file(info_fitres)
 
     # print requested info
-    print_info(df,cid_list, nrow)
+    print_info(info_fitres)
 
     # end main
 

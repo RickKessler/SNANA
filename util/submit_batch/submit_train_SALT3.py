@@ -2,7 +2,14 @@
 # SALT3 training using saltshaker code from 
 #    https://arxiv.org/abs/2104.07795
 # 
+# Jul 09 2021: 
+#   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
+#   to record extra surveys in SALT2.INFO file.      
 #
+# Oct 6 2022; copy argument of loggingconfig to script_dir, 
+#             and also copy master input file
+#
+# Oct 10 2022: fix indentation bug in merge_update_state().
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
@@ -36,6 +43,8 @@ KEY_LAMSHIFT       = "LAMSHIFT"
 KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
 KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
 
+KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
+
 # define prefix for files with calib shifts.
 PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"  
 
@@ -48,7 +57,8 @@ KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
 # create list of config keys whose argument is a file that
 # gets copied to script_dir
 SECTION_FILE_COPY  = 'iodata'
-KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist' ]
+KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist', 
+                       'loggingconfig' ]
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -91,9 +101,6 @@ class train_SALT3(Program):
         # copy input files to script_dir
         self.train_prep_copy_files()
 
-        # scoop up TRAINOPT list from user CONFIG
-        # xxxx  self.train_prep_trainopt_list()
-
         # foreach training, prepare output paths 
         self.train_prep_paths()
 
@@ -108,7 +115,8 @@ class train_SALT3(Program):
         input_master_file = self.config_yaml['args'].input_file 
         CONFIG            = self.config_yaml['CONFIG']
         
-        input_file_list = []  # init input files for trainsalt
+        # start list of all input files for trainsalt
+        input_file_list = [ ]  
         msgerr = []
 
         if KEY_CONFIG_FILE not in CONFIG:
@@ -165,19 +173,21 @@ class train_SALT3(Program):
         CONFIG   = self.config_yaml['CONFIG']
 
         trainopt_global = ""  # apply to each TRAINOPT
-        trainopt_rows   = []  # TRAINOT-specified commands
+        trainopt_rows   = []  # TRAINOPT-specified commands
 
         # start with global settings
         key = TRAINOPT_GLOBAL_STRING
-        if key in CONFIG:  trainopt_global = CONFIG[key]
+        if key in CONFIG:  
+            trainopt_global = CONFIG[key]
 
         # next, TRAINOPT per job
         key      = TRAINOPT_STRING
-        if key in CONFIG :  trainopt_rows = CONFIG[key]
+        if key in CONFIG :  
+            trainopt_rows = CONFIG[key]
 
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
-                                              TRAINOPT_STRING, 
+                                              TRAINOPT_STRING, 1,
                                               KEY_SHIFTLIST_FILE )
 
         n_trainopt          = trainopt_dict['n_jobopt']
@@ -320,10 +330,14 @@ class train_SALT3(Program):
         # have full path ... to avoid clobbering same input tile names
         # in different directories
 
+        input_master_file = self.config_yaml['args'].input_file
+
         input_file_list = self.config_prep['input_file_list']
         script_dir      = self.config_prep['script_dir']
 
-        for input_file in input_file_list:
+        local_list = [ input_master_file ] + input_file_list
+
+        for input_file in local_list:
             if '/' not in input_file:
                 print(f"\t Copy input file: {input_file}")
                 os.system(f"cp {input_file} {script_dir}/")
@@ -355,7 +369,8 @@ class train_SALT3(Program):
                 job_info_train   = self.prep_JOB_INFO_train(itrain)
                 util.write_job_info(f, job_info_train, icpu)
     
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         return n_job_cpu
@@ -387,11 +402,6 @@ class train_SALT3(Program):
         done_file  = f"{prefix}.DONE"
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
-
-        # xxxx mark delete 
-        #for key,input_file in zip(CODE_KEYLIST_INPUT_FILE,input_file_list):
-        #    arg_list.append(f"{key} {input_file}")
-        # xxxx
 
         arg_list.append(f"--configfile {config_file}")
         arg_list.append(f"--outputdir {outdir_model}")
@@ -445,6 +455,7 @@ class train_SALT3(Program):
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
+        CONFIG       = self.config_yaml['CONFIG']
         n_trainopt   = self.config_prep['n_trainopt'] 
         num_list     = self.config_prep['trainopt_num_list']
         arg_list     = self.config_prep['trainopt_arg_list'] 
@@ -471,6 +482,12 @@ class train_SALT3(Program):
             f.write(f"  - {model_dir}\n")
         f.write("\n")
 
+        for key in KEYS_SURVEY_LIST_SAME:
+            if key in CONFIG :
+                f.write(f"{key}:  {CONFIG[key]} \n")
+            else:
+                f.write(f"{key}:  [ ] \n")
+
         # write keys for SALT2.INFO to be read by SNANA code 
         # each row is
         #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
@@ -490,6 +507,8 @@ class train_SALT3(Program):
 
         # read MERGE.LOG, check LOG & DONE files.
         # Return update row list MERGE tables.
+        # Oct 10 2022: fix indentation bug under 'if NDONE == n_job_split'
+        #               --> fixes phony failures.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
@@ -549,20 +568,29 @@ class train_SALT3(Program):
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
 
-                job_stats = self.get_job_stats(script_dir, 
-                                               log_list, yaml_list, key_list)
+                    job_stats = self.get_job_stats(script_dir, 
+                                                   log_list, 
+                                                   yaml_list, 
+                                                   key_list)
 
-                row[COLNUM_STATE]     = NEW_STATE
-                row[COLNUM_NLC]       = job_stats[key_nlc_sum]
-                row[COLNUM_NSPEC]     = job_stats[key_nspec_sum]
-                row[COLNUM_CPU]       = job_stats[key_cpu_sum]
+                    row[COLNUM_STATE]     = NEW_STATE
+                    row[COLNUM_NLC]       = job_stats[key_nlc_sum]
+                    row[COLNUM_NSPEC]     = job_stats[key_nspec_sum]
+                    row[COLNUM_CPU]       = job_stats[key_cpu_sum]
 
-                row_list_merge_new[irow] = row  # update new row
-                n_state_change += 1             
-
+                    row_list_merge_new[irow] = row  # update new row
+                    n_state_change += 1             
+                
+        # - - - - - 
         # first return arg (row_split) is null since there is 
         # no need for a SPLIT table
-        return [], row_list_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
+
+        return row_list_dict, n_state_change
         # end merge_update_state
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
@@ -616,6 +644,9 @@ class train_SALT3(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
 
+        SURVEY_LIST_SAMEMAGSYS = submit_info_yaml['SURVEY_LIST_SAMEMAGSYS']
+        SURVEY_LIST_SAMEFILTER = submit_info_yaml['SURVEY_LIST_SAMEFILTER']
+
         if trainopt == f"{TRAINOPT_STRING}000" : return
 
         # read SNANA_SALT3_INFO from SUBMIT.INFO; this includes
@@ -624,7 +655,6 @@ class train_SALT3(Program):
 
         SALT3_INFO_FILE = f"{model_dir}/SALT3.INFO"
         print(f"\t Append calib info to {SALT3_INFO_FILE}")
-
 
         f = open(SALT3_INFO_FILE,"at")
         f.write(f"\n\n# Calibration shifts used in SALTshaker Training\n")
@@ -635,10 +665,21 @@ class train_SALT3(Program):
                 survey = row[2]
                 band   = row[3]
                 shift  = row[4]
-                f.write(f"{key}: {survey} {band} {shift} \n")
+                f.write(f"{key}: {survey:<10} {band} {shift} \n")
+
+                # write other surveys with same magsys (Jul 9 2021)
+                if key == KEY_MAGSHIFT:
+                    s_list  = SURVEY_LIST_SAMEMAGSYS
+                else:
+                    s_list  = SURVEY_LIST_SAMEFILTER
+
+                if survey in s_list :
+                    for s in filter(lambda s: s not in [survey], s_list):
+                        comment = f"same {key} as {survey}"
+                        f.write(f"{key}: {s:<10} {band} {shift}  " \
+                                f"  # {comment}\n")
         f.close()
 
-        # .xyz
         # end append_SALT2_INFO_FILE
 
     def get_misc_merge_info(self):

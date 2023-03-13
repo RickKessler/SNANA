@@ -34,8 +34,8 @@
 
 
 // define flags for software packages
-#define USE_HBOOK  
-#define USE_ROOT     
+#define USE_HBOOK   
+#define USE_ROOT      
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
 
@@ -101,10 +101,8 @@ char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
 // -------------------------------------
 // define a few things from sntools.h so that we don't have to
 // include all of sntools.h
-// #define MXFILTINDX 100    // must match value in sndata.h
+
 #define SEV_FATAL  4      // must match value in sntools.h, for errmsg call
-//#define MXEPOCH   2000    // should match MXEPOCH in snana.car (Aug 2 2014)
-//#define MXSPEC_SPECPAK 40 // must match MXSPECTRA in sndata.h
 #define MXSPEC_SPECPAK MXSPECTRA
 
 #define ICAST_L   16  // long long int (64 bits)
@@ -329,6 +327,7 @@ struct OUTLIER_INFO {
 
 #define MXFILE_AUTOSTORE 10   // max files to autoStore (Jan 2017)
 int NFILE_AUTOSTORE ;
+int NREAD_AUTOSTORE ;
 struct SNTABLE_AUTOSTORE {
   int     NVAR ;
   int     IVARMAP[MXVAR_TABLE]; 
@@ -355,7 +354,10 @@ struct LASTREAD_AUTOSTORE  {
 
 // generic strings for errmsg 
 char MSGERR1[200], MSGERR2[200] ;
-char SNANA_VERSION[20] ;
+char SNANA_VERSION[100] ;
+
+#define KEYNAME_VERSION_PHOTOMETRY "VERSION_PHOTOMETRY:"
+char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_FILENAME*2]; // beware it's a comma-sep list
 
 // -------------------------------------------------
 //                   FUNCTIONS
@@ -437,10 +439,28 @@ extern"C" {
   void sntable_fill__(int *TableID ) ;
 
 
-  void SNTABLE_ADDCOL  (int  TableID, char *BLOCK, void * PTRVAR, 
-			char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL(int  TableID, char *BLOCK, void *PTRVAR, 
+		      char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_int(int  TableID, char *BLOCK, int *I_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_flt(int  TableID, char *BLOCK, float *F_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_dbl(int  TableID, char *BLOCK, double *D_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_str(int  TableID, char *BLOCK, char *S_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+
   void sntable_addcol__(int *TableID, char *BLOCK, void* PTRVAR, 
 			char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_int__(int *TableID, char *BLOCK, int *I_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_flt__(int *TableID, char *BLOCK, float *F_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_dbl__(int *TableID, char *BLOCK, double *D_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_str__(int *TableID, char *BLOCK, char *S_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+
 
   void parse_ADDCOL_VARLIST(char *VARLIST,
 			    SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF); 
@@ -465,6 +485,9 @@ extern"C" {
   int  ICAST_for_textVar(char *varName) ;
 
   // - - - autoStore utility functions - - - - 
+  void SNTABLE_AUTOSTORE_RESET(void);
+  void sntable_autostore_reset__(void);
+
   int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName, 
 			     char *varList, int optMask);
   int sntable_autostore_init__(char *fileName, char *tableName, 
@@ -479,8 +502,9 @@ extern"C" {
   void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid);
 
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
+  
 
-
+  int IVAR_VARNAME_AUTOSTORE(char *varName);
   int EXIST_VARNAME_AUTOSTORE(char *varName);
   int exist_varname_autostore__(char *varName);
 

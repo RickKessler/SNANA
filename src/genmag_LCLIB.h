@@ -18,10 +18,13 @@
 
 #define OPTMASK_LCLIB_IGNORE_ANGLEMATCH 1 // option to ignore ANGLEMATCH cut
 #define OPTMASK_LCLIB_useRADEC          8 // use RA,DEC from LCLIB
+#define OPTMASK_LCLIB_DEBUG           512 // debug/refactor
 
 #define DAYBACK_TEMPLATE_LCLIB 30.0 // used in forceTemplateRows
 #define MODEL_RANMAG_LCLIB  "RANMAG" 
 
+#define PARNAME_REDSHIFT_LCLIB  "REDSHIFT"
+#define PARNAME_MWEBV_LCLIB     "MWEBV"
 
 int LDUMP_EVENT_LCLIB ;
 
@@ -52,6 +55,7 @@ struct {
 
   char   PARNAME_MODEL[MXPAR_LCLIB][40] ; // list of modelPar names
   int    IPAR_REDSHIFT;    // non-zero for PARNAME=REDSHIFT
+  int    IPAR_MWEBV ;      // non-zero of MWEBV is a model param
   double ZPHOTZ1ERR ;        // if REDSHIFT, Err[zphot/(1+z)] = 0.05
 
   // variables needed for setting photo-z
@@ -76,6 +80,7 @@ struct {
   int    NCUTWIN;
   char   PARNAME[MXCUT_LCLIB][40];
   double CUTWIN[MXCUT_LCLIB][2];
+  int    ICUT_REDSHIFT;
 } LCLIB_CUTS ;
 
 
@@ -144,6 +149,8 @@ struct {
   double TOBS_RANGE ;
   double TOBS_OFFSET ;            // shift Tobs overlap LCLIB DAY-range
 
+  int NCHAR_ROW; // used by fseek to skip rows (Dec 2021)
+
 } LCLIB_EVENT ;
 
 
@@ -167,6 +174,7 @@ void set_randomStart_LCLIB(void);
 
 void parse_PARNAMES_LCLIB(char *parNameString);
 void read_PARVAL_LCLIB(char *LINE);
+void coord_translate_LCLIB(double *RA, double *DEC);
 int  keep_PARVAL_LCLIB(void);
 int  keep_ANGLEMATCH_LCLIB(double GalLat, double GalLong);
 

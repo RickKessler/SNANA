@@ -17,7 +17,7 @@
 #  + NSPLITRAN runs on all FITOPT & MUOPT ... beware of large N_JOB_TOT
 #
 #  + new FITOPTxMUOPT input to select subset of FITOPTxMUOPT matrix.
-#     (see help with -H BBC args)
+#     (see help with -H BBC arg)
 #
 #  + Automatically creates summary files:
 #     BBC_REJECT_SUMMRY.LIST      -> SN rejected by some FITOPT/MUOPT
@@ -42,9 +42,31 @@
 # May 24 2021: check option to use events from FITOPT000
 # May 27 2021: new def make_FITOPT_OUT_LIST 
 #                 (append_fitopt_info_file is obsolete)
+# Aug 09 2021: 
+#     use def get_wfit_values() to handel legacy vs. refact yaml keys.
+#     Beware that new w0,wa model in wfit is NOT handled here [yet]
+# Sep 19 2021: write NEVT_bySAMPLE in BBC_SUMMARY_FITPAR.YAML
+# Sep 28 2021: include wa if -wa arg is specified for wfit
+# Oct 05 2021: move get_wfit_values to submit_util.py so that
+#                dedicated wfit class can use it too.
+# Nov 17 2021: add list protection in def make_fitpar_summary()
+# Nov 24 2021: write OLAM_REF and w_REF to submit info
+# Jan 18 2022: fix writing REJECT_FRAC_BIASCOR to yaml file.
+# Mar 03 2022: add zPRIOR* to append_varname_missing 
+# Mar 28 2022: write IZBIN to BBC_ACCEPT summary file
+# Apr 08 2022: 
+#   + fix missing-IZBIN bug for M11-style fit without biasCor.
+#   + local sync_evt is no True/False instead of 1/0
+#   + use merge_force logic on FITOPT000 if sync_evt is set
 #
-# - - - - - - - - - -
-
+# Aug 18 2022: change 4D loop order so that iver is inside instead of outside;
+#      --> ensures that FITOPT000 is always done first.
+#
+# Oct 01 2022 RK - minor refactor for merge_reset()
+# 
+# Nov 13 2022 RK - fix subtle bugs so that NSPLITRAN works with event-sync.
+#
+# ================================================================
 
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
@@ -61,7 +83,7 @@ USE_INPDIR = True
 PREFIX_SALT2mu           = "SALT2mu"
 
 # define FIT column to extract FIT VERSION for FIT-MERGE.LOG
-COLNUM_FIT_MERGE_VERSION = 1  # same param in submit_prog_fit.py -> fragile
+COLNUM_FIT_MERGE_VERSION = 1  # same param in submit_prog_lcfit.py -> fragile
 
 # define colums in BBC MERGE.LOG
 COLNUM_BBC_MERGE_VERSION      = 1
@@ -73,7 +95,6 @@ COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
 COLNUM_BBC_MERGE_SPLITRAN     = 7
 
 # list used in wrapup, cleanup, and merge_reset
-JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
 
 # hard-wire output subDir name if there is 1-and-only-1 version
@@ -81,6 +102,7 @@ SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 
 # name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
+PREFIX_wfit = "wfit"
 
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
@@ -97,15 +119,17 @@ BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 #  Allow either of two keys
 #                        pippin/submit key       key for snlc_fit
 KEYLIST_SYNC_EVT     = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
-### mark KEY_OPT_SNCID_LIST   = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
 
 MUOPT_STRING           = "MUOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 
 OUTDIR_ITER1_SUFFIX    = "_ITER1"
 
-# internal development flags
-DEVEL_SYNC_EVT = True
+
+KEYNAME_VARNAMES = "VARNAMES"
+TABLE_VARNAME_CID      = "CID"
+TABLE_VARNAME_IDSURVEY = "IDSURVEY"
+TABLE_VARNAME_IZBIN    = "IZBIN"
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
@@ -129,15 +153,10 @@ class BBC(Program):
         return output_dir_name,SUBDIR_SCRIPTS_BBC
 
     def submit_prepare_driver(self):
-        print("")
+        logging.info("")
 
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
-
-        # xxxx should remove this soon ... May 30 2021
-        global DEVEL_SYNC_EVT ; 
-        if devel_flag == -20 :  DEVEL_SYNC_EVT = False
-        # xxxxxxxxxxxx
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -211,6 +230,7 @@ class BBC(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file 
+        devel_flag      = self.config_yaml['args'].devel_flag
         IS_FITOPT_MAP   = BLOCKNAME_FITOPT_MAP in self.config_yaml
         msgerr = []
         
@@ -249,13 +269,21 @@ class BBC(Program):
             self.bbc_prep_noINPDIR()
             return
 
+        # check BBC option to disable sync_evt from 2_LCFIT stage
+        preserve_sync_evt = True
+        for key in KEYLIST_SYNC_EVT:
+            if key in CONFIG:
+                if CONFIG[key] == 0 : 
+                    preserve_sync_evt = False
+                    logging.info(f"\t DISABLE SYNC-EVENT flag passed from 2_LCFIT")
+
         # - - - - - 
         for path_orig in config_inpdir_list: 
             logging.info(f"  Prepare INPDIR {path_orig}")
             path_expand        = os.path.expandvars(path_orig)
-            MERGE_LOG_PATHFILE = (f"{path_expand}/{MERGE_LOG_FILE}")
-            INFO_PATHFILE      = (f"{path_expand}/{SUBMIT_INFO_FILE}")
-            DONE_PATHFILE      = (f"{path_expand}/{DEFAULT_DONE_FILE}")
+            MERGE_LOG_PATHFILE = f"{path_expand}/{MERGE_LOG_FILE}"
+            INFO_PATHFILE      = f"{path_expand}/{SUBMIT_INFO_FILE}"
+            DONE_PATHFILE      = f"{path_expand}/{DEFAULT_DONE_FILE}"
 
             # check that required files exist
             msgerr = [f"Missing required {DEFAULT_DONE_FILE} file in", 
@@ -311,12 +339,16 @@ class BBC(Program):
             fit_info_yaml  = util.extract_yaml(INFO_PATHFILE, None, None)
             fitopt_table   = fit_info_yaml['FITOPT_LIST']
 
-            sync_evt       = 0  # back-compatible if key isn't there
+            sync_evt       = False  # back-compatible if key isn't there
             KEY_SYNC_EVT = ""
             for key in KEYLIST_SYNC_EVT :  # check both key name options
                 if key in fit_info_yaml:
-                    sync_evt       = fit_info_yaml[key]
-                    KEY_SYNC_EVT = key
+                    sync_evt       = fit_info_yaml[key] > 0
+                    KEY_SYNC_EVT   = key
+
+            # xxx if devel_flag == -20: sync_evt = False # disable event sync
+            if not preserve_sync_evt :
+                sync_evt = False 
 
             # - - - 
             n_fitopt       = len(fitopt_table)
@@ -349,7 +381,7 @@ class BBC(Program):
         # - - - - - -
         # abort if sync_evt is different for any INPDIR
         SAME = len(set(sync_evt_list)) == 1
-        if not SAME and DEVEL_SYNC_EVT :
+        if not SAME :
             msgerr = []
             msgerr.append(f"Mis-match for {KEY_SYNC_EVT} flag; ")
             for path,sync in zip(inpdir_list_orig,sync_evt_list) :
@@ -369,6 +401,12 @@ class BBC(Program):
         self.config_prep['fitopt_table_list2d'] = fitopt_table_list2d
         self.config_prep['sync_evt_list']       = sync_evt_list
 
+        # Jun 27 2022; for sync_evt, force the kill_on_fail option
+        #    since the output is useless if any task fails.
+        sync_evt = sync_evt_list[0]
+        if sync_evt:
+            self.config_yaml['args'].kill_on_fail = True
+
         return;
 
         # end bbc_prep_version_list
@@ -384,7 +422,7 @@ class BBC(Program):
         self.config_prep['version_list2d']      = [] * n_inpdir
         self.config_prep['fitopt_table_list2d'] = [] * n_inpdir
         self.config_prep['fitopt_num_outlist_map'] = []
-        self.config_prep['sync_evt_list']          = [ 0 ]
+        self.config_prep['sync_evt_list']          = [ False ]
         return;
 
 
@@ -711,14 +749,14 @@ class BBC(Program):
         # - - - - - - - - - 
         print(f"\n Prepare output FITOPT list:")
         for survey,n in zip(survey_inplist,n_fitopt_inplist):
-            print(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
+            logging.info(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
 
         if IS_FITOPT_MAP :
-            print(f"   Found {BLOCKNAME_FITOPT_MAP}  ")
+            logging.info(f"   Found {BLOCKNAME_FITOPT_MAP}  ")
         else :
-            print(f"   Did not find {BLOCKNAME_FITOPT_MAP}  ")
+            logging.info(f"   Did not find {BLOCKNAME_FITOPT_MAP}  ")
 
-        print(f"   --> {n_fitopt} output FITOPTs")            
+        logging.info(f"   --> {n_fitopt} output FITOPTs")            
 
         # store *outlist arrays
         self.config_prep['n_fitopt']               = n_fitopt
@@ -759,7 +797,7 @@ class BBC(Program):
         for fitopt_num_out in fitopt_num_list:            
 
             if dump_flag :
-                print(" xxx ---------------------------------------- ")
+                logging.info(" xxx ---------------------------------------- ")
             # check if this FITOPT is global, or specific to one survey
             fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
 
@@ -839,9 +877,9 @@ class BBC(Program):
 
         # 4D lists are for prep_JOB_INFO
         iver_list4=[]; ifit_list4=[]; imu_list4=[]; isplitran_list4=[]
-        for iver in range(0,n_version):
-            for ifit in range(0,n_fitopt):
-                for imu in range(0,n_muopt):
+        for ifit in range(0,n_fitopt):
+            for imu in range(0,n_muopt):
+                for iver in range(0,n_version):
                     if not use_matrix2d[ifit][imu] : continue
                     for isplitran in range(0,n_splitran):
                         iver_list4.append(iver)
@@ -935,8 +973,8 @@ class BBC(Program):
             ifit_logic   = int(FITOPTxMUOPT[0:j_bool])   # fitopt number
             imu_logic    = int(FITOPTxMUOPT[j_bool+1:])  # muopt number
 
-            msg = (f"  {KEY_FITOPTxMUOPT} logic: process " \
-                   f"FITOPT={ifit_logic} {bool_string} MUOPT={imu_logic} ")
+            msg = f"  {KEY_FITOPTxMUOPT} logic: process " \
+                  f"FITOPT={ifit_logic} {bool_string} MUOPT={imu_logic} "
             logging.info(msg)
 
             bool_logic_list.append(bool_logic)
@@ -998,7 +1036,7 @@ class BBC(Program):
 
         logging.info(f"\n Dump FITOPTxMUOPT matrix: ")
         for ifit in range(0,n_fitopt):
-            line = (f"   FITOPT{ifit:03d}:  ")
+            line = f"   FITOPT{ifit:03d}:  "
             for imu in range(0,n_muopt):
                 USE = "F"
                 if matrix[ifit][imu] : USE = "T"
@@ -1022,7 +1060,7 @@ class BBC(Program):
             for i in range(0,n_splitran):
                 isplitran = i + 1  # 1 to n_splitran
                 v_dir     = v_out + self.suffix_splitran(n_splitran,isplitran)
-                V_DIR     = (f"{output_dir}/{v_dir}")
+                V_DIR     = f"{output_dir}/{v_dir}"
                 logging.info(f"    Create BBC output dir {v_dir} ")
                 os.mkdir(V_DIR)
 
@@ -1046,7 +1084,7 @@ class BBC(Program):
         n_splitran         = self.config_prep['n_splitran']
         USE_SPLITRAN       = n_splitran > 1
 
-        cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
+        cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG"
 
         logging.info("\n  Prepare input FITRES files")
         iver_last = -9
@@ -1058,7 +1096,7 @@ class BBC(Program):
             # get output dir name
             v_dir   = v_out_list[idir0][iver]
             v_dir  += self.suffix_splitran(n_splitran,1)
-            V_DIR   = (f"{output_dir}/{v_dir}")
+            V_DIR   = f"{output_dir}/{v_dir}"
 
             cat_list   = self.make_cat_fitres_list(iver,ifit)
 
@@ -1068,9 +1106,9 @@ class BBC(Program):
 
             # execute the FITRES catenation
             fitopt_num     = fitopt_num_outlist[ifit]
-            ff             = (f"{fitopt_num}.{SUFFIX_FITRES}")
+            ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
             input_ff       = "INPUT_" + ff
-            cat_file_out   = (f"{V_DIR}/{input_ff}")
+            cat_file_out   = f"{V_DIR}/{input_ff}"
             nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
 
             if iver != iver_last : logging.info(f"    {v_dir}: ")
@@ -1081,11 +1119,11 @@ class BBC(Program):
 
         # - - - - - 
         logging.info("   gzip the catenated FITRES files.")
-        cmd_gzip = (f"cd {output_dir}; gzip */INPUT_FITOPT*.{SUFFIX_FITRES}")
+        cmd_gzip = f"cd {output_dir}; gzip */INPUT_FITOPT*.{SUFFIX_FITRES}"
         os.system(cmd_gzip)
 
         # remove cat log file
-        rm_log = (f"cd {output_dir}; rm {cat_file_log}")
+        rm_log = f"cd {output_dir}; rm {cat_file_log}"
         os.system(rm_log)
 
         # end bbc_prep_combine_tables
@@ -1102,10 +1140,16 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        cmd_cat = f"SALT2mu.exe  " \
+        snana_dir    = self.config_yaml['args'].snana_dir
+        if snana_dir is None:
+            code_name = PROGRAM_NAME_BBC
+        else:
+            code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
+
+        cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
-                  f"append_varname_missing='PROB*'  " \
+                  f"append_varname_missing='PROB*,zPRIOR*'  " \
                   f"catfile_out={cat_file_out}  " \
                   f" &> {cat_file_log}"
 
@@ -1141,10 +1185,10 @@ class BBC(Program):
             v_orig       = v_orig_list[idir][iver]
             fitopt_num_inp  = fitopt_num_map[ifit][idir] 
 
-            ff    = (f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}")
-            FF    = (f"{inpdir}/{ff}")
-            FFgz  = (f"{FF}.gz")
-            cat_list += (f"{FF},")
+            ff    = f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}"
+            FF    = f"{inpdir}/{ff}"
+            FFgz  = f"{FF}.gz"
+            cat_list += f"{FF},"
 
             EXIST_FF = os.path.isfile(FF) or os.path.isfile(FFgz)
             if not EXIST_FF:
@@ -1173,7 +1217,7 @@ class BBC(Program):
             muopt_rows = []
 
         # - - - - - -
-        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, None)
+        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, 1, None)
 
         n_muopt          = muopt_dict['n_jobopt']
         muopt_arg_list   = muopt_dict['jobopt_arg_list']
@@ -1223,8 +1267,6 @@ class BBC(Program):
 
     def change_outdir_iter1(self):
 
-        if not DEVEL_SYNC_EVT : return
-
         output_dir   = self.config_prep['output_dir']  
         sync_evt     = self.config_prep['sync_evt_list'][0]
         iter2        = self.config_yaml['args'].iter2
@@ -1235,7 +1277,7 @@ class BBC(Program):
         # set submit_iter for global control
         if iter1: 
             self.config_prep['submit_iter'] = 1
-        if iter2: 
+        else:
             self.config_prep['submit_iter'] = 2 
             return
 
@@ -1251,7 +1293,7 @@ class BBC(Program):
         output_subdir          = os.path.basename(output_dir)
         override_output_subdir = os.path.basename(override_output_dir)
 
-        print(f"\n\t move  {output_subdir} -> {override_output_subdir}")
+        logging.info(f"\n\t move  {output_subdir} -> {override_output_subdir}")
 
         # remove target dir if it already  exists
         if  os.path.exists(override_output_dir) : 
@@ -1316,8 +1358,10 @@ class BBC(Program):
                 if use_wfit :
                     job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict)
                     util.write_job_info(f, job_info_wfit, icpu)
-
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
+    
+                merge_force = self.set_merge_force_bbc(ifit)
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,merge_force) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 
@@ -1325,6 +1369,32 @@ class BBC(Program):
         return n_job_cpu
 
         # end write_command_file
+
+    def set_merge_force_bbc(self,ifit):
+
+        # Created Apr 8 2022 by R.Kessler
+        # If event-sync is set for first iteration,
+        # then return merge_force=True on FITOPT000.
+        # Goal is to avoid hang up when another
+        # merge process sets a BUSY.
+
+        sync_evt     = self.config_prep['sync_evt_list'][0]
+        iter2        = self.config_yaml['args'].iter2
+        iter1        = not iter2
+
+        if not sync_evt: return False
+
+        FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST']
+        label       = FITOPT_OUT_LIST[ifit][COLNUM_FITOPT_LABEL]
+        skip_sync   = FITOPT_STRING_NOREJECT in label
+        if skip_sync: return False
+
+        if iter1 and ifit==0:
+            return True
+        else:
+            return False
+
+        # end set_merge_force_bbc
 
     def prep_JOB_INFO_bbc(self,index_dict):
         # Return JOB_INFO dictionary with 
@@ -1343,12 +1413,13 @@ class BBC(Program):
         ifit      = index_dict['ifit']
         imu       = index_dict['imu'] 
         isplitran = index_dict['isplitran'] 
+        n_splitran   = self.config_prep['n_splitran']
 
         #print(f" xxx iver={iver}, ifit={ifit}, imu={imu} ", \
             #flush=True)
 
         input_file    = self.config_yaml['args'].input_file 
-        fast          = self.config_yaml['args'].fast
+        prescale      = self.config_yaml['args'].prescale
         kill_on_fail  = self.config_yaml['args'].kill_on_fail
         iter2         = self.config_yaml['args'].iter2
         iter1         = not iter2
@@ -1357,10 +1428,10 @@ class BBC(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
         version      = self.config_prep['version_out_list'][iver]
+
         fitopt_num   = self.config_prep['fitopt_num_outlist'][ifit] #e.g FITOPT002
         muopt_num    = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
         muopt_arg    = self.config_prep['muopt_arg_list'][imu]
-        n_splitran   = self.config_prep['n_splitran']
         USE_SPLITRAN = n_splitran > 1
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
@@ -1402,25 +1473,26 @@ class BBC(Program):
 
         if USE_SPLITRAN :
             # note that fortran-like isplitran index is used here
-            arg = (f"NSPLITRAN={n_splitran} JOBID_SPLITRAN={isplitran}")
+            arg = f"NSPLITRAN={n_splitran} JOBID_SPLITRAN={isplitran}"
             arg_list.append(f"  {arg}")
 
         arg_list.append(f"{muopt_arg}")     # user input
 
         # check command line input --fast option to prescale by 10
         # Only sim is pre-scaled; don't pre-scale data.
-        if fast:
-            arg_list.append(f"prescale_simdata={FASTFAC}")
+        if prescale > 1 :
+            arg_list.append(f"prescale_simdata={prescale}")
 
         # - - - - - -
         # check option to use FITOPT000 events for all syst.
 
-        if DEVEL_SYNC_EVT and sync_evt : 
+        if sync_evt : 
             FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST']
             label       = FITOPT_OUT_LIST[ifit][COLNUM_FITOPT_LABEL]
             skip_sync   = FITOPT_STRING_NOREJECT in label
             wait_file   = None
             select_file = None
+            version_out = version + self.suffix_splitran(n_splitran,isplitran)
 
             # check logic for each iterations. 
             if skip_sync : 
@@ -1430,7 +1502,7 @@ class BBC(Program):
                 # process events from FITOPT000_MUOPT000
                 row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-                ff_file     = f"../{version}/{prefix_final}.{SUFFIX_FITRES}"
+                ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}"
                 wait_file   = f"{ff_file}.gz"
                 select_file = ff_file
 
@@ -1438,7 +1510,8 @@ class BBC(Program):
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
-                select_file  = f"{outdir_iter1}/{version}/{BBC_ACCEPT_SUMMARY_FILE}"
+                # xxx?? f" {STRING_SUCCESS}" # require SUCCESS in file
+                select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
                 JOB_INFO['wait_file'] = wait_file
@@ -1475,10 +1548,10 @@ class BBC(Program):
     
         # note that the done file has the SALT2mu/BBC done stamp,
         # not a wfit done stamp.
-        wfit_inp_file   = (f"{prefix_bbc_orig}.{SUFFIX_M0DIF}")
-        wfit_done_file  = (f"{prefix_bbc_orig}.DONE")  
-        wfit_out_file   = (f"{prefix_wfit_orig}.YAML")
-        wfit_log_file   = (f"{prefix_wfit_orig}.LOG")
+        wfit_inp_file   = f"{prefix_bbc_orig}.{SUFFIX_M0DIF}"
+        wfit_done_file  = f"{prefix_bbc_orig}.DONE"
+        wfit_out_file   = f"{prefix_wfit_orig}.YAML"
+        wfit_log_file   = f"{prefix_wfit_orig}.LOG"
 
         arg_list = []
         arg_list.append(f"-cospar_yaml {wfit_out_file} ") 
@@ -1510,8 +1583,11 @@ class BBC(Program):
         survey_list       = self.config_prep['survey_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
+        input_file_dict   = self.config_prep['input_file_dict']
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+        iter2             = self.config_yaml['args'].iter2
+        sync_evt          = self.config_prep['sync_evt_list'][0]
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
         CONFIG            = self.config_yaml['CONFIG']
         FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
@@ -1530,8 +1606,19 @@ class BBC(Program):
                 f"# number of BBC options\n")
         f.write(f"NSPLITRAN:      {n_splitran}      " \
                 f"# number of random sub-samples\n")
+
+        olam_ref = input_file_dict['p9']
+        w_ref    = input_file_dict['p11']
+        f.write(f"OLAM_REF:  {olam_ref} \n")
+        f.write(f"w_REF:     {w_ref}  \n")
+        
+        f.write(f"ITER2:        {iter2} # False, True -> ITER1, ITER2 \n")
+        f.write(f"SYNC_EVT:     {sync_evt} # T -> use evnts from FITOP000\n")
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
+        if use_wfit :
+            f.write(f"OPT_WFIT:       {CONFIG['WFITMUDIF_OPT']}    " \
+                    f"# wfit arguments\n")
 
         f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
@@ -1550,8 +1637,6 @@ class BBC(Program):
         f.write("VERSION_OUT_LIST:\n")
         for v in vout_list :   f.write(f"  - {v}\n")
 
-        # writing output FITOPTs is tricky, so use special function
-        # xxx mark delete self.append_fitopt_info_file(f)
 
         # - - - - - -
         f.write("\n")
@@ -1564,102 +1649,14 @@ class BBC(Program):
         f.write("\n")
         f.write("MUOPT_OUT_LIST:  " \
                 "# 'MUOPTNUM'  'user_label'  'user_args'\n")
-        for num,arg,label in zip(muopt_num_list,muopt_arg_list,
+        for num,arg,label in zip(muopt_num_list, muopt_arg_list,
                                  muopt_label_list):
+            if arg == '' : arg = None  # 9.19.2021
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
 
         # end append_info_file
-
-    def append_fitopt_info_file(self,f):
-
-        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-        #
-        # write list of output FITOPTS to filt pointer f, and include
-        #   FIOPTmmm  SURVEY  LABEL ARG
-        #
-        # where
-        #   SURVEY = GLOBAL if every INPDIR has valid arg
-        #   SURVEY = <survey> if only one INPDIR has valid arg
-        #   LABEL  = user label back in LC fit stage
-        #   ARG    = FITOPT argList used in LC fit
-        #
-        # The logic & code here is nasty because we have input FITOPTs
-        # in the LC fit stage, and output FITOPTs from FITOPT_MAP.
-
-        fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #iver,ifit
-        fitopt_num_list = self.config_prep['fitopt_num_outlist'] 
-        fitopt_num_map  = self.config_prep['fitopt_num_outlist_map'] 
-        inpdir_list     = self.config_prep['inpdir_list']
-        n_inpdir        = self.config_prep['n_inpdir']
-        survey_list     = self.config_prep['survey_list']
-        dump_flag = False  # local dump flag
-
-        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-        f.write("\n")
-        f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
-                f"'user_label'   'user_args'\n")
-
-        if not USE_INPDIR : 
-            item_list = [ 'GLOBAL', 'FITOPT000', None, None ]
-            f.write(f"  - {item_list}\n")
-            return
-
-        ifit_out = 0
-        for fitopt_num_out in fitopt_num_list:            
-
-            if dump_flag :
-                print(" xxx ---------------------------------------- ")
-            # check if this FITOPT is global, or specific to one survey
-            fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-            n_arg_none = 0 ;  n_arg_FITOPT000 = 0; n_arg_define = 0
-            survey_store = 'ERROR' ;  label_store = None; arg_store = None 
-            for idir in range(0,n_inpdir):          
-                survey         = survey_list[idir]   
-                fitopt_num_inp = fitopt_num_inplist[idir]
-                ifit_inp       = int(fitopt_num_inp[6:])
-                row    = fitopt_table_list2d[idir][ifit_inp]
-                num    = row[COLNUM_FITOPT_NUM]  # e.g., FITOPT003
-                label  = row[COLNUM_FITOPT_LABEL]
-                arg    = row[COLNUM_FITOPT_ARG]
-                if arg == '' : # only for FITOPT000
-                    n_arg_none  += 1
-                elif arg == 'FITOPT000' : # sym link back to FITOPT000
-                    n_arg_FITOPT000 += 1  
-                else :                    # genuine LC fit arg list
-                    survey_store = survey
-                    arg_store    = arg
-                    label_store  = label
-                    n_arg_define += 1
-
-                if dump_flag :
-                    print(f" xxx {fitopt_num_out}: idir={idir} num={num} " \
-                          f"label={label} arg='{arg}'")
-
-            # - - - - - - - - - - - - - - - - - - - - - 
-            # if all args are valid, set survey_store to GLOBAL
-            if n_arg_define == n_inpdir or ifit_out == 0 :
-                survey_store = 'GLOBAL'
-
-            ifit_out += 1
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-            # construct and write yaml-compliant info list
-            item_list = []
-            item_list.append(fitopt_num_out)
-            item_list.append(survey_store)
-            item_list.append(label_store)
-            item_list.append(arg_store)
-            f.write(f"  - {item_list}\n")
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-        # end append_fitopt_info_file
 
     def create_merge_table(self,f):
 
@@ -1674,8 +1671,8 @@ class BBC(Program):
         # create only MERGE table ... no need for SPLIT table
 
         header_line_merge = \
-            (f" STATE   VERSION  FITOPT  MUOPT " \
-             f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  SPLITRAN" )
+            f" STATE   VERSION  FITOPT  MUOPT " \
+            f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  SPLITRAN"
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -1688,8 +1685,8 @@ class BBC(Program):
 
             version    = self.config_prep['version_out_list'][iver]
             version   += self.suffix_splitran(n_splitran,isplitran)
-            fitopt_num = (f"FITOPT{ifit:03d}")
-            muopt_num  = (f"{MUOPT_STRING}{imu:03d}")
+            fitopt_num = f"FITOPT{ifit:03d}"
+            muopt_num  = f"{MUOPT_STRING}{imu:03d}"
 
             # ROW here is fragile in case columns are changed
             ROW_MERGE = []
@@ -1768,7 +1765,7 @@ class BBC(Program):
             STATE       = row[COLNUM_STATE]
 
             prefix_orig, prefix_final = self.bbc_prefix("bbc", row)            
-            search_wildcard = (f"{prefix_orig}*")
+            search_wildcard = f"{prefix_orig}*"
 
             if irow < NROW_DUMP  :
                 print(f" xxx ------------------------ ") 
@@ -1818,7 +1815,12 @@ class BBC(Program):
         # - - - - - -  -
         # The first return arg (row_split) is null since there is 
         # no need for a SPLIT table
-        return [], row_list_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
+        return row_list_dict, n_state_change
 
         # end merge_update_state
         
@@ -1842,16 +1844,16 @@ class BBC(Program):
         version = row[COLNUM_BBC_MERGE_VERSION]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
 
-        cddir         = (f"cd {script_dir}")
-        cdv           = (f"cd {output_dir}/{version}")
+        cddir         = f"cd {script_dir}"
+        cdv           = f"cd {output_dir}/{version}"
 
         logging.info(f"\t Move {prefix_orig} files to {version}/ ")
         for suffix_move in SUFFIX_MOVE_LIST :
-            orig_file = (f"{prefix_orig}.{suffix_move}")
-            move_file = (f"{prefix_final}.{suffix_move}")
-            cmd_move  = (f"{cddir}; mv {orig_file} ../{version}/{move_file}")
-            cmd_gzip  = (f"gzip ../{version}/{move_file}")
-            cmd_all   = (f"{cmd_move} ; {cmd_gzip}")
+            orig_file = f"{prefix_orig}.{suffix_move}"
+            move_file = f"{prefix_final}.{suffix_move}"
+            cmd_move  = f"{cddir}; mv {orig_file} ../{version}/{move_file}"
+            cmd_gzip  = f"gzip ../{version}/{move_file}"
+            cmd_all   = f"{cmd_move} ; {cmd_gzip}"
             #print(f" xxx cmd_all = {cmd_all}")
             os.system(cmd_all)
 
@@ -1859,15 +1861,15 @@ class BBC(Program):
         if use_wfit :
             prefix_orig, prefix_final = self.bbc_prefix("wfit", row)
             suffix_move = "YAML"
-            orig_file = (f"{prefix_orig}.{suffix_move}")
+            orig_file = f"{prefix_orig}.{suffix_move}"
 
             EXIST_ORIG_FILE = os.path.isfile(f"{script_dir}/{orig_file}")
             msgerr = [ f"{prefix_orig} problem", "No YAML output" ] 
             self.log_assert( EXIST_ORIG_FILE, msgerr )
 
-            move_file = (f"{prefix_final}.{suffix_move}")
-            cmd_move  = (f"{cddir}; mv {orig_file} ../{version}/{move_file}")
-            cmd_all   = (f"{cmd_move}")
+            move_file = f"{prefix_final}.{suffix_move}"
+            cmd_move  = f"{cddir}; mv {orig_file} ../{version}/{move_file}"
+            cmd_all   = f"{cmd_move}"
             os.system(cmd_all)
 
         if irow == 9999 :
@@ -1882,6 +1884,7 @@ class BBC(Program):
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
+
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
@@ -1899,12 +1902,29 @@ class BBC(Program):
             logging.info(f"  BBC cleanup: create {SPLITRAN_SUMMARY_FILE}")
             self.make_splitran_summary()
 
-        for vout in vout_list :
-            self.make_reject_summary(vout)
+        # for reject/accept summarys, read versions in MERGE.LOG so
+        # that it works for NSPLITRAN. 
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
+        MERGE_INFO_CONTENTS,comment_lines = \
+            util.read_merge_file(MERGE_LOG_PATHFILE)
+
+        # loop over every row in MERGE.LOG, but process each
+        # data version only once, regardless of how many FITOPT/MUOPT.
+        vout_proc_list = []
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+            vout    = row[COLNUM_BBC_MERGE_VERSION]
+            if vout not in vout_proc_list:
+                self.make_reject_summary(vout)
+                vout_proc_list.append(vout)
+
+        # xxxxxx mark delete Nov 23 2022 xxxxxx
+        #for vout in vout_list : 
+        #    self.make_reject_summary(vout)
+        # xxxxxxxxx
 
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
-            wildcard = (f"{jobfile_wildcard}*.{suffix}") 
+            wildcard = f"{jobfile_wildcard}*.{suffix}"
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         logging.info("")
@@ -1924,9 +1944,12 @@ class BBC(Program):
         # only events that pass in all FITOPT and MUOPTs.
         #
         # Jan 12 2021: write ACCEPT file as well. Return if n_splitran>1
+        # Nov 23 2022: continue with n_splitran>1
 
-        n_splitran    = self.config_prep['n_splitran']
-        if n_splitran > 1 : return
+        # xxx mark delete xxx
+        # n_splitran    = self.config_prep['n_splitran']
+        # if n_splitran > 1 : return
+        # xxxxxxxxxxxxxxxx
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
@@ -1942,35 +1965,48 @@ class BBC(Program):
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
 
         n_ff     = len(fitres_list) # number of FITRES files
-        cid_list = []
-        n_file   = 0
+        
+        first_fitres_file = VOUT + "/" + fitres_list[0]
 
-        # get cid_list of all CIDs in all files. If same events appear in 
-        # each file, each CID appears n_ff times. If a CID appears less 
-        # than n_ff times, it goes into reject list.
-        for ff in fitres_list:
-            n_file += 1
-            FF       = (f"{VOUT}/{ff}")
-            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
-            cid_list = np.concatenate((cid_list, df.CID.astype(str)))
+        # check for duplicates from 
+        # same data light curve measured by multiple surveys, or
+        # multiple sims (e.g., LOWZ + HIGHZ) with random overlap CIDs
 
-        # - - - - - - - - - - - - -
-        # get list of unique CIDs, and how many times each CID appears
-        cid_unique, n_count = np.unique(cid_list, return_counts=True)
+        df_first  = pd.read_csv(first_fitres_file, 
+                                comment="#", delim_whitespace=True)
+        first_cids  = df_first[TABLE_VARNAME_CID]
+        first_cids_unique, counts = np.unique(first_cids,return_counts=True)
+        n_dupl   = len(counts[counts>1])
+        has_dupl = n_dupl > 0
 
-        # number of times each CID does not appear in a fitres file
-        n_reject        = n_ff - n_count
+        dump_dupl = False 
+        if dump_dupl:
+            for cid,cnt in zip(first_cids_unique,counts) :
+                if cnt > 1:
+                    print(f" xxx duplicate cid={cid} has cnt={cnt}")
+                
+        # - - - - - - - - 
+        if has_dupl :
+            logging.info(f"\t {n_dupl} duplicates found in first fitres file.")
+            cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
+            unique_dict = cid_dict['unique_dict']
+        else:
+            cid_dict = self.get_cid_list(fitres_list, VOUT)
 
-        if n_file == -9 :
-            sys.exit(f" xxx cid_unique={cid_unique}\n xxx n_count = {n_count}\n xxx n_rej={n_reject}\n xxx n_ff= {n_ff}\n")
-
+        cid_list        = cid_dict['cid_list']
+        cid_unique      = cid_dict['cid_unique']
+        n_count         = cid_dict['n_count']
+        n_reject        = cid_dict['n_reject']
+                    
         cid_all_pass    = cid_unique[n_count == n_ff]
         cid_some_fail   = cid_unique[n_count <  n_ff]
         n_all           = len(cid_unique)
         n_some_fail     = len(cid_some_fail)
         n_all_pass      = len(cid_all_pass)
         f_some_fail     = float(n_some_fail)/float(n_all)
-        str_some_fail   = (f"{f_some_fail:.4f}")
+        str_some_fail   = f"{f_some_fail:.4f}"
+
+        KEYVAR = KEYNAME_VARNAMES
 
         # - - - - - - - -
         with open(REJECT_FILE,"wt") as f:
@@ -1980,14 +2016,26 @@ class BBC(Program):
             f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
                     f"fail cuts in 1 or more BBC-FF\n")
             f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
-            f.write(f"# These CIDs can be rejected in SALT2mu.exe with\n")
+            f.write(f"# These CIDs are rejected in {PROGRAM_NAME_BBC} with\n")
             f.write(f"#    reject_list_file={reject_file} \n")
             f.write(f"\n")
-            f.write(f"VARNAMES: CID NJOB_REJECT \n")
-        
-            for cid,nrej in zip(cid_unique,n_reject) :
-                if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
+            if has_dupl :
+                f.write(f"# Beware of Duplicate CIDs "
+                        f"(each CID + IDSURVEY is unique) \n")
+                f.write(f"{KEYVAR}: CID IDSURVEY NJOB_REJECT \n")
+                for ucid,nrej in zip(cid_unique,n_reject) :
+                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
+                    if nrej>0: 
+                        f.write(f"SN:  {cid:<12} {idsurv}  {nrej:3d} \n")
+            else:
+                f.write(f"{KEYVAR}: CID NJOB_REJECT \n")
+                for cid,nrej in zip(cid_unique,n_reject) :
+                    if nrej>0: 
+                        f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
             f.write(f"\n")
+
+        # - - - - 
 
         with open(ACCEPT_FILE,"wt") as f:
             f.write(f"# BBC-FF = BBC FITRES file.\n")
@@ -1995,16 +2043,147 @@ class BBC(Program):
                     f"{n_ff} (FITOPT x MUOPT). \n")
             f.write(f"# {n_all_pass} CIDs " \
                     f"pass cuts in all BBC-FF\n")
-            f.write(f"# These CIDs can be selected in SALT2mu.exe with\n")
-            f.write(f"#    acceptt_list_file={accept_file} \n")
+            f.write(f"# These CIDs are selected in {PROGRAM_NAME_BBC} with\n")
+            f.write(f"#    accept_list_file={accept_file} \n")
             f.write(f"\n")
-            f.write(f"VARNAMES: CID  \n")
-        
-            for cid,nrej in zip(cid_unique,n_reject) :
-                if nrej==0: f.write(f"SN:  {cid:<12}  \n")
+            if has_dupl :
+                f.write(f"# Beware of Duplicate CIDs " \
+                        f"(each CID + IDSURVEY is unique) \n")
+                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
+                        f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_IZBIN}\n")
+                for ucid,nrej in zip(cid_unique,n_reject) :
+                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
+                    izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
+                    if nrej==0: 
+                        f.write(f"SN:  {cid:<12} {idsurv}  {izbin}\n")
+            else:
+                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} "\
+                        f" {TABLE_VARNAME_IZBIN}\n")
+                izbin_unique      = cid_dict['izbin_unique']
+
+                for cid, izbin, nrej in \
+                    zip(cid_unique,izbin_unique,n_reject) :
+                    if nrej==0: 
+                        f.write(f"SN:  {cid:<12}  {izbin}\n")
+
             f.write(f"\n")
 
+        # - - - - -
+        return
         # end make_reject_summary
+
+    def get_cid_list(self,fitres_list,VOUT):
+        # get cid_list of all CIDs in all files. If same events appear in 
+        # each file, each CID appears n_ff times. If a CID appears less 
+        # than n_ff times, it goes into reject list.
+        n_ff       = len(fitres_list)
+        cid_list   = []
+        izbin_list = []
+        found_first_file = False
+
+        for ff in fitres_list:
+            FF       = f"{VOUT}/{ff}"
+            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            cid_list = np.concatenate((cid_list, df.CID.astype(str)))
+
+            if not found_first_file: 
+                df0 = df.copy()
+                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
+                found_first_file = True
+
+        # - - - - - - - - - - - - -
+        # get list of unique CIDs, and how many times each CID appears
+        cid_unique, n_count = np.unique(cid_list, return_counts=True)
+
+        # number of times each CID does not appear in a fitres file
+        n_reject        = n_ff - n_count
+
+        cid_dict = {}
+        cid_dict['cid_list']   = cid_list
+        cid_dict['cid_unique'] = cid_unique
+        cid_dict['n_count']    = n_count
+        cid_dict['n_reject']   = n_reject
+
+        # Mar 28 2022: fetch list of izbin 
+        if TABLE_VARNAME_IZBIN in df0:
+            izbin_unique = []
+            for cid in cid_unique:
+                izbin_tmplist = df0.loc[df0[TABLE_VARNAME_CID]==cid][TABLE_VARNAME_IZBIN].values
+                izbin = -9
+                if len(izbin_tmplist) > 0 : izbin = izbin_tmplist[0]
+                izbin_unique.append(izbin)
+        else:
+            ncid         = len(cid_unique)
+            izbin_unique = [ -9 ] * ncid
+
+        cid_dict['izbin_unique']  = izbin_unique
+
+        return cid_dict
+        # end of get_cid_list
+
+    def get_cid_list_duplicates(self,fitres_list,VOUT):
+        # get cid_list of all CIDs in all files. If same events appear in 
+        # each file, each CID appears n_ff times. If a CID appears less 
+        # than n_ff times, it goes into reject list.
+
+        devel_flag = self.config_yaml['args'].devel_flag
+
+        n_ff        = len(fitres_list)
+        unique_dict = {}
+        ucid_list   = []
+        found_first_file = False
+
+        for ff in fitres_list:
+            FF       = f"{VOUT}/{ff}"
+            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            ucid_list = np.concatenate((ucid_list, 
+                                        df.CID.astype(str)+"__"+df.IDSURVEY.astype(str)))
+
+            if not found_first_file:
+                df0 = df.copy()
+                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
+                found_first_file = True
+
+        # - - - - - - - - - - - - -
+        # get list of unique CIDs, and how many times each CID appears
+
+        cid_unique, n_count = np.unique(ucid_list, return_counts=True)
+        HAS_IZBIN = TABLE_VARNAME_IZBIN in df0
+
+        for ucid in cid_unique:
+            unique_dict[ucid] = {}
+            cid      = str(ucid.split("__")[0])
+            idsurvey = int(ucid.split("__")[1])
+
+            if HAS_IZBIN:
+                izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
+                                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey)][TABLE_VARNAME_IZBIN].values
+            else:
+                izbin_list = []
+
+            if len(izbin_list) > 0 :
+                izbin = int(izbin_list[0])
+            else:
+                izbin = -9
+
+            unique_dict[ucid][TABLE_VARNAME_CID]      = cid
+            unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
+            unique_dict[ucid][TABLE_VARNAME_IZBIN]    = izbin
+
+        # number of times each CID does not appear in a fitres file
+        n_reject        = n_ff - n_count
+
+        cid_dict = {}
+        cid_dict['cid_list']    = ucid_list
+        cid_dict['cid_unique']  = cid_unique
+        cid_dict['unique_dict'] = unique_dict
+        cid_dict['n_count']     = n_count
+        cid_dict['n_reject']    = n_reject
+
+        return cid_dict 
+
+        # end of get_cid_list_duplicates
 
     def get_fflist_reject_summary(self,VOUT):
 
@@ -2024,6 +2203,9 @@ class BBC(Program):
         fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
         fitres_list       = []
         NOREJECT_list     = []
+        
+        if FITOPT_OUT_LIST is None: 
+            FITOPT_OUT_LIST = []   # Dec 2022
 
         for row in FITOPT_OUT_LIST:
             fitnum = row[0]
@@ -2053,23 +2235,27 @@ class BBC(Program):
         # Output is YAML, but designed mainly for human readability.
         # When this function was written, there were no codes expected
         # to read this; only for human eyes.
-
+        #
+        # Nov 17 2021: 
+        #     protect against FITOPT_LIST=None and MUOPT_LIST=None
+        
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
+        iter2            = submit_info_yaml['ITER2']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
         FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
         MUOPT_LIST       = submit_info_yaml['MUOPT_OUT_LIST']
-
+        
         if n_splitran > 1 : return
 
         # read the whole MERGE.LOG file to figure out where things are
-        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         # - - - 
-        SUMMARYF_FILE     = (f"{output_dir}/{FITPAR_SUMMARY_FILE}")
+        SUMMARYF_FILE     = f"{output_dir}/{FITPAR_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"wt") 
         version_last = "BLEH"
 
@@ -2084,7 +2270,7 @@ class BBC(Program):
             
             # figure out name of BBC-YAML file and read it 
             prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-            YAML_FILE  = (f"{script_dir}/{version}_{prefix_final}.YAML")
+            YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
             #print(f"  YAML_FILE = {YAML_FILE}")
             bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
             BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
@@ -2106,16 +2292,68 @@ class BBC(Program):
             f.write(f"- {fitopt_num}_{muopt_num}: \n")
 
             # check list sizes to accomodate noINPDIR option
-            if len(FITOPT_LIST) > 0 :
+            n_list = 0
+            if FITOPT_LIST : n_list = len(FITOPT_LIST)
+            if n_list > 0 :
                 f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
-            if len(MUOPT_LIST) > 0 :
+
+            n_list = 0
+            if MUOPT_LIST : n_list = len(MUOPT_LIST)
+            if n_list > 0 :
                 f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
-            f.write(f"    NEVT(DATA,BIASCOR,CCPRIOR):  " \
-                    f" {NEVT_DATA} {NEVT_BIASCOR} {NEVT_CCPRIOR} \n")
-            f.write(f"    REJECT_FRAC_BIASCOR:  {frac_reject:.3f} " \
-                    f" # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+            f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
+                    f"        # DATA, BIASCOR, CCPRIOR\n")
 
+            # - - - - - - - - -
+            # check for NEVT by sample (9.19.2021)
+            if 'SAMPLE_LIST' in bbc_yaml :
+                # split string by commas and remove white space
+                tmp         = bbc_yaml['SAMPLE_LIST']
+                SAMPLE_LIST = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_DATA_bySAMPLE']
+                NEVT_DATA_bySAMPLE    = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_BIASCOR_bySAMPLE']
+                NEVT_BIASCOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
+                NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+
+                #print(f" xxx ---------------------------- ")
+                #print(f" xxx {fitopt_num}_{muopt_num}")
+                #print(f" xxx SAMPLE_LIST = {SAMPLE_LIST} ")
+                #print(f" xxx NEVT_DATA_bySAMPLE = {NEVT_DATA_bySAMPLE}")
+                
+                f.write(f"    NEVT_bySAMPLE:"
+                        f"                # DATA, BIASCOR, CCPRIOR\n")
+                for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
+                                                  NEVT_DATA_bySAMPLE,
+                                                  NEVT_BIASCOR_bySAMPLE,
+                                                  NEVT_CCPRIOR_bySAMPLE) :
+                    key = f"{sample}:"
+                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
+
+            # - - - - -
+            nrej = NEVT_REJECT_BIASCOR
+            if iter2:
+                comment = f"{nrej} evts have no biasCor at ITER2; check ITER1"
+            else:
+                comment = f"{nrej} evts have no biasCor "
+            f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
+
+# - - - - - - - fix YAML output before doing frac-by-sample - - - - - 
+#            f.write(f"    REJECT_FRAC_BIASCOR_bySAMPLE:\n"
+# XYZ            for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
+#                                                  NEVT_DATA_bySAMPLE,
+#                                                  NEVT_BIASCOR_bySAMPLE,
+#                                                  NEVT_CCPRIOR_bySAMPLE) :
+#                    key = f"{sample}:"
+#                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
+# - - - - - - - - - - - 
+
+            # - - - - 
             for result in BBCFIT_RESULTS:
                 #print(f" xxx result = {result}  key = {result.keys()} ")
                 for key in result:
@@ -2139,18 +2377,31 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         n_splitran       = submit_info_yaml['NSPLITRAN']
+        opt_wfit         = submit_info_yaml['OPT_WFIT']
+        use_wfit_w0wa    = '-wa'    in opt_wfit
+        use_wfit_blind   = '-blind' in opt_wfit
 
         # - - - 
-        SUMMARYF_FILE     = (f"{output_dir}/{WFIT_SUMMARY_FILE}")
+        SUMMARYF_FILE     = f"{output_dir}/{WFIT_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"w") 
 
-        varnames = (f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
-                    f"w w_sig  omm omm_sig  "\
-                    f"chi2 sigint wrand ommrand  \n" )
-        f.write(f"{varnames}\n")
+        varname_w   = "w"
+        if use_wfit_w0wa : varname_w = "w0"
+        varname_wa  = "wa"
+        varname_omm = "omm"
+        
+        # prepare w-varnames for varnames
+        varlist_w = f"{varname_w} {varname_w}sig"
+        if use_wfit_w0wa :
+            varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
+
+
+        varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
+                   f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
+                   f"chi2 sigint   \n"
 
         # read the whole MERGE.LOG file to figure out where things are
-        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
@@ -2163,25 +2414,50 @@ class BBC(Program):
             isplitran  = row[COLNUM_BBC_MERGE_SPLITRAN]
             
             # get indices for summary file
-            ifit = (f"{fitopt_num[6:]}")
-            imu  = (f"{muopt_num[5:]}")
+            ifit = f"{fitopt_num[6:]}"
+            imu  = f"{muopt_num[5:]}"
             
             # figure out name of wfit-YAML file and read it
             prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
-            YAML_FILE  = (f"{output_dir}/{version}/{prefix_final}.YAML")
+            YAML_FILE  = f"{output_dir}/{version}/{prefix_final}.YAML"
             wfit_yaml  = util.extract_yaml(YAML_FILE, None, None )
 
             # extract wfit values into local variables
-            w   = wfit_yaml['w']   ; w_sig   = wfit_yaml['w_sig']
-            omm = wfit_yaml['omm'] ; omm_sig = wfit_yaml['omm_sig']
-            chi2  = wfit_yaml['chi2'] ;  sigint= wfit_yaml['sigint']
-            wrand   = int(wfit_yaml['wrand']) 
-            ommrand = int(wfit_yaml['ommrand'])
+            wfit_values_dict = util.get_wfit_values(wfit_yaml)
+
+            w       = wfit_values_dict['w']  
+            w_sig   = wfit_values_dict['w_sig']
+            wa      = wfit_values_dict['wa']    
+            wa_sig  = wfit_values_dict['wa_sig']
+            omm     = wfit_values_dict['omm']  
+            omm_sig = wfit_values_dict['omm_sig']
+            chi2    = wfit_values_dict['chi2'] 
+            sigint  = wfit_values_dict['sigint']
+            w_ran   = int(wfit_values_dict['w_ran']) 
+            wa_ran  = int(wfit_values_dict['wa_ran'])
+            omm_ran = int(wfit_values_dict['omm_ran'])
+
+            if use_wfit_w0wa :
+                w0 = w ; w0_sig = w_sig
+                w_values = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+            else:
+                w_values = f"{w:7.4f} {w_sig:6.4f}"
 
             string_values = \
-                (f"{nrow:3d}  {version} {ifit} {imu} " \
-                 f"{w:7.4f} {w_sig:6.4f}  {omm:6.4f} {omm_sig:6.4f} " \
-                 f"{chi2:.1f} {sigint:.3f} {wrand} {ommrand} ")
+                f"{nrow:3d}  {version} {ifit} {imu} " \
+                f"{w_values}  {omm:6.4f} {omm_sig:6.4f} " \
+                f"{chi2:.1f} {sigint:.3f} "
+
+            if nrow == 1 and use_wfit_blind: 
+                f.write(f"# cosmology params blinded.\n")
+                f.write(f"#   {varname_w:<3} includes sin({w_ran}) \n")
+                if use_wfit_w0wa :
+                    f.write(f"#   {varname_wa:<3} includes sin({wa_ran}) \n")
+                f.write(f"#   {varname_omm:<3} includes sin({omm_ran}) \n")
+                f.write(f"\n")
+
+            if nrow==1 : 
+                f.write(f"{varnames}\n")
 
             f.write(f"{KEY_ROW} {string_values}\n")
 
@@ -2202,14 +2478,14 @@ class BBC(Program):
         use_wfit         = submit_info_yaml['USE_WFIT']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
 
-        SUMMARYF_FILE     = (f"{output_dir}/{SPLITRAN_SUMMARY_FILE}")
+        SUMMARYF_FILE     = f"{output_dir}/{SPLITRAN_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"w") 
 
         self.write_splitran_comments(f)
         self.write_splitran_header(f)
 
         # read the whole MERGE.LOG file to figure out where things are
-        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
@@ -2226,10 +2502,10 @@ class BBC(Program):
             version_base = version[0:len_base]
             sys.stdout.flush()
 
-            # get indices for summary file
+            # get original indices for summary file
             iver = vout_list.index(version_base)
-            ifit = (f"{fitopt_num[6:]}")
-            imu  = (f"{muopt_num[5:]}")
+            ifit = f"{fitopt_num[6:]}"
+            imu  = f"{muopt_num[5:]}"
 
             # process all splitran files upon reaching SPLITRAN=1
             # in MERGE.LOG file
@@ -2254,9 +2530,9 @@ class BBC(Program):
                 ERR_RMS    = stat_dict['ERR_RMS'] # error on RMS
 
                 string_values = \
-                    (f"{nrow:3d} {iver} {ifit} {imu} {varname:<10} "\
-                     f"{AVG_VAL:8.4f} {ERR_AVG:8.4f} " \
-                     f"{AVG_ERR:8.4f} {RMS:8.4f} {ERR_RMS:8.4f} ") 
+                    f"{nrow:3d} {iver} {ifit} {imu} {varname:<10} "\
+                    f"{AVG_VAL:8.4f} {ERR_AVG:8.4f} " \
+                    f"{AVG_ERR:8.4f} {RMS:8.4f} {ERR_RMS:8.4f} "
 
                 f.write(f"{KEY_ROW} {string_values}\n")
 
@@ -2289,12 +2565,12 @@ class BBC(Program):
         # remove other dashes in version name.
 
         prefix_search = prefix_orig.replace(split_string,'*')
-        wildcard_yaml = (f"{prefix_search}*.YAML")
+        wildcard_yaml = f"{prefix_search}*.YAML"
         yaml_list     = glob.glob1(script_dir, wildcard_yaml)
 
         bbc_results_yaml   = []
         for yaml_file in yaml_list :
-            YAML_FILE = (f"{script_dir}/{yaml_file}")
+            YAML_FILE = f"{script_dir}/{yaml_file}"
             tmp_yaml  = util.extract_yaml(YAML_FILE, None, None )
             n_var     = len(tmp_yaml['BBCFIT_RESULTS'])
             bbc_results_yaml.append(tmp_yaml)
@@ -2343,8 +2619,8 @@ class BBC(Program):
             w_list = [] ;  werr_list = []
             varname_list.append("w_wfit")
             prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
-            yaml_file     = (f"{prefix_final}.YAML"  )
-            v_wildcard    = (f"{output_dir}/{version_base}*" )
+            yaml_file     = f"{prefix_final}.YAML"
+            v_wildcard    = f"{output_dir}/{version_base}*"
             yaml_list     = glob.glob(f"{v_wildcard}/{yaml_file}")
 
             #print(f" xxx wildcard = {v_wildcard}/{yaml_file}")
@@ -2352,8 +2628,9 @@ class BBC(Program):
 
             for yaml_file in yaml_list :
                 tmp_yaml  = util.extract_yaml(yaml_file, None, None )
-                w         = tmp_yaml['w']
-                w_sig     = tmp_yaml['w_sig']
+                wfit_values_dict = util.get_wfit_values(tmp_yaml)
+                w       = wfit_values_dict['w']  
+                w_sig   = wfit_values_dict['w_sig']
                 w_list.append(w)
                 werr_list.append(w_sig)
             value_list2d[ivar] = w_list
@@ -2409,7 +2686,6 @@ class BBC(Program):
 
         # unpack things in merge_cleanup_final, but in reverse order
 
-        output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
@@ -2418,43 +2694,59 @@ class BBC(Program):
         fnam = "merge_reset"
 
         logging.info(f"   {fnam}: reset STATE and NEVT in {MERGE_LOG_FILE}")
-        MERGE_LOG_PATHFILE = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE = f"{output_dir}/{MERGE_LOG_FILE}"
         colnum_zero_list = [ COLNUM_BBC_MERGE_NEVT_DATA, 
                              COLNUM_BBC_MERGE_NEVT_BIASCOR,
                              COLNUM_BBC_MERGE_NEVT_CCPRIOR ]
         util.merge_table_reset(MERGE_LOG_PATHFILE, TABLE_MERGE,  \
                                COLNUM_MERGE_STATE, colnum_zero_list)
 
-        logging.info(f"  {fnam}: uncompress {script_subdir}/")
-        util.compress_subdir(-1, f"{output_dir}/{script_subdir}" )
+        # xxx unpack_script_dir(scrippt_dir, jobfile_wildcard)
+        util.untar_script_dir(script_dir)
 
-        logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
-        for suffix in JOB_SUFFIX_TAR_LIST :
-            wildcard = (f"{jobfile_wildcard}*.{suffix}") 
-            util.compress_files(-1, script_dir, wildcard, suffix, "" )
+        # xxxxxxxxx mark delete Oct 1 2022 xxxxxx
+        #logging.info(f"  {fnam}: uncompress {script_subdir}/")
+        #util.compress_subdir(-1, f"{output_dir}/{script_subdir}" )
 
-        logging.info(f"  {fnam}: uncompress CPU* files")
-        util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
+        #logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
+        #for suffix in JOB_SUFFIX_TAR_LIST :
+        #    wildcard = f"{jobfile_wildcard}*.{suffix}"
+        #    util.compress_files(-1, script_dir, wildcard, suffix, "" )
 
+        #logging.info(f"  {fnam}: uncompress CPU* files")
+        #util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
+        # xxxxxxxxx end mark xxxxxxxx
+
+        # - - - - - - - - - 
         logging.info(f"  {fnam}: restore {SUFFIX_MOVE_LIST} to {script_subdir}")
         for vout in vout_list : 
-            vout_dir = (f"{output_dir}/{vout}")
-            cdv      = (f"cd {vout_dir}")
+            vout_dir = f"{output_dir}/{vout}"
+            cdv      = f"cd {vout_dir}"
             logging.info(f" \t\t restore {vout}")
             for suffix_move in SUFFIX_MOVE_LIST :
                 #logging.info(f" \t\t restore {vout}/*{suffix_move}")
-                wildcard  = (f"FITOPT*.{suffix_move}")
-                cmd_unzip = (f"{cdv} ; gunzip {wildcard}.gz")
+                wildcard  = f"FITOPT*.{suffix_move}"
+                cmd_unzip = f"{cdv} ; gunzip {wildcard}.gz"
                 os.system(cmd_unzip)
 
             # restore each file with version_ appended to name
             ff_list = sorted(glob.glob1(vout_dir,"FITOPT*"))
             #print(f"\t xxx ff_list = {ff_list} ")
             for ff in ff_list:
-                ff_move   = (f"{script_dir}/{vout}_{ff}")                    
-                cmd_move  = (f"mv {ff} {ff_move}")
-                cmd_all   = (f"{cdv} ; {cmd_move}")
+                ff_move   = f"{script_dir}/{vout}_{ff}"
+                cmd_move  = f"mv {ff} {ff_move}"
+                cmd_all   = f"{cdv} ; {cmd_move}"
                 os.system(cmd_all)
+
+            # DILLON June 24th 2021: REPEAT FOR wfit YAML      
+            if len(glob.glob1(vout_dir,"wfit*")) > 0:
+                wfit_list = sorted(glob.glob1(vout_dir,"wfit*"))
+                for wff in wfit_list: # wfit filenames in OUTPUT directory               
+                    wf = wff[len(PREFIX_wfit)+1:] # shortened temporary version 
+                    wf_move   = f"{script_dir}/wfit_{vout}_{wf}" # for SCRIPTS directory 
+                    cmd_move  = f"mv {wff} {wf_move}"
+                    cmd_all   = f"{cdv} ; {cmd_move}"
+                    os.system(cmd_all)
 
         # end merge_reset
 
@@ -2482,13 +2774,13 @@ class BBC(Program):
         # if suffix is already part of version, don't re-apply it.
         if len(suffix) > 3 and suffix in version :   suffix = ''
 
-        prefix_orig   = (f"{version}{suffix}_{fitopt_num}_{muopt_num}")
-        prefix_final  = (f"{fitopt_num}_{muopt_num}")
+        prefix_orig   = f"{version}{suffix}_{fitopt_num}_{muopt_num}"
+        prefix_final  = f"{fitopt_num}_{muopt_num}"
 
         # check for adding 'wfit' to prefix
         if program.lower() == 'wfit' :
-            prefix_orig  = (f"wfit_{prefix_orig}")
-            prefix_final = (f"wfit_{prefix_final}")
+            prefix_orig  = f"wfit_{prefix_orig}"
+            prefix_final = f"wfit_{prefix_final}"
 
         return prefix_orig, prefix_final
 
@@ -2496,7 +2788,7 @@ class BBC(Program):
 
     def suffix_splitran(self,n_splitran,isplitran):
         suffix = ''
-        if n_splitran > 1 : suffix = (f"-{isplitran:04d}")
+        if n_splitran > 1 : suffix = f"-{isplitran:04d}"
         return suffix
 
     def get_misc_merge_info(self):

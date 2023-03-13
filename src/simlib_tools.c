@@ -60,35 +60,21 @@
 
 ********************************************/
 
-
-void simlib_open_write(char *filename, char *surveyname, char *filters, 
-		       char *telescope, char *comment, char *headFile );
-
-void simlib_add_header(int optflag, int IDLIB, int NOBS, 
-		       char *FIELD, float *INFO );
-
-void simlib_add_mjd(int opt, double MJD, char * STRINGID, char *FILTNAME, float *INFO);
-
-
-void simlib_close_write(void);
-
-
-int  CHECK_SIMLIB_VAL(char *varname, float value, float varmin, float varmax);
-
-void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
-
-void PRINT_SIMLIB_ERROR(char *msgerr );
+#include "simlib_tools.h"
 
 FILE *FPLIB;      // global pointer to library file.
 
-int   NSIMLIB        ;  // number of simlib entries          
-int   NMJD_FOUND     ;  // number of add_mjd  calls; should equal NOBS
-int   NMJD_EXPECT = 0;  // = NOBS
-double    MJD_LAST;
-char     STRINGID_LAST[20];
-char     CFILT_LAST[2];
+struct {
+  int   NSIMLIB         ;  // number of simlib entries          
+  int   NOBS_FOUND      ;  // number of add_mjd  calls; should equal NOBS
+  int   NOBS_EXPECT ; // = 0 ;  // = NOBS
+  double   MJD_LAST;
+  char     STRINGID_LAST[20];
+  char     CFILT_LAST[2];
+  
+  int OPT_CHECKVAL ;
+} SIMLIB_TOOLS;
 
-int OPT_CHECKVAL ;
 
 
 // *************************************
@@ -115,13 +101,11 @@ void simlib_open_write(
   // -------------- BEGIN --------------
 
 
-  NSIMLIB = 0;
+  SIMLIB_TOOLS.NSIMLIB = 0;
 
   if ( (FPLIB = fopen(filename, "wt"))==NULL ) {       
-    // xxxx mark delete    sprintf(c1err, "FATAL ERROR(%s): \n", fnam );
     sprintf(c1err, "Cannot open simlib file :" );
     sprintf(c2err, " '%s' \n", filename);
-    // xxx    MADABORT();
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -139,10 +123,8 @@ void simlib_open_write(
 
   if ( strlen(headFile) > 0 ) {
     if ( (fp_head = fopen(headFile, "rt"))==NULL ) {       
-      // xxxx mark printf( "FATAL ERROR(%s): \n", fnam );
       sprintf(c1err, "Cannot open headFile: headFile :\n" );
       sprintf(c2err, " '%s' \n", headFile);
-      // xxxx MADABORT();
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -196,28 +178,25 @@ void simlib_add_header(
    optflag = -1  leave END_LIBID marker after all epochs 
                       (all other args ignored) 
 
-  Jun  8, 2009: pass FIELDNAME to include in header
+      HISTORY
 
-  Sep 22 2013: write MWEBV ad .4f instead of .3f to have better
-               precision on verifying that it's from SFD.
+  Dec 6 2021: fix setting NEA_PSF_UNIT
 
   *****/
 
-
-  char fnam[20] = "simlib_add_header";
   char msgerr[100];
-  int istat, NOPT;
+  int istat, NOPT, NEA_PSF_UNIT ;
 
   float RA, DEC, MWEBV, PIXSIZE, Z, PEAKMJD ;
+  char fnam[] = "simlib_add_header";
 
   // ------------ BEGIN ------------
 
-  OPT_CHECKVAL = 1;  // default: make checks on variable values
+  SIMLIB_TOOLS.OPT_CHECKVAL = 1;  // default: make checks on variable values
+  SIMLIB_TOOLS.NOBS_EXPECT  = NOBS ;
 
-  if ( optflag == 1 ) 
-    OPT_CHECKVAL = 0; // turn off sanity checks (for debugging)
-
-
+  // turn off sanity checks (for debugging)
+  if ( optflag == 1 )  { SIMLIB_TOOLS.OPT_CHECKVAL = 0; }
 
   // check number of MJDs for last lib entry
   //  if ( NMJD_EXPECT > 0 &&  NMJD_FOUND != NMJD_EXPECT )
@@ -226,42 +205,41 @@ void simlib_add_header(
 
     fprintf(FPLIB,"END_LIBID: %d \n", IDLIB );
 
-    if ( NMJD_FOUND != NMJD_EXPECT ) {
+    if ( SIMLIB_TOOLS.NOBS_FOUND != SIMLIB_TOOLS.NOBS_EXPECT ) {
 
       PRINT_SIMLIB_ERROR("\n");
 
       sprintf(msgerr,"  FATAL ERROR in %s \n", fnam);
       PRINT_SIMLIB_ERROR(msgerr);
 
-      sprintf(c1err,"Found %d MJDs, but expect %d from user NOBS arg. \n", 
-	      NMJD_FOUND, NMJD_EXPECT);
+      sprintf(c1err,"Found %d MJDs, but expect %d from user NOBS arg.\n", 
+	      SIMLIB_TOOLS.NOBS_FOUND, SIMLIB_TOOLS.NOBS_EXPECT);
       PRINT_SIMLIB_ERROR(c1err);
 
       sprintf(c2err,"\t Check last entry in your library file. \n");
       PRINT_SIMLIB_ERROR(c2err);
       
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      // xxx      MADABORT();
     }
     return;
   }
 
 
-  NMJD_EXPECT = NOBS;
-  NMJD_FOUND  = 0;
-  MJD_LAST    = 0.0 ;
-  // xxx mark delete   IDEXPT_LAST = 0;
-  STRINGID_LAST[0] = 0 ;
-  sprintf(CFILT_LAST,"?");
+  SIMLIB_TOOLS.NOBS_EXPECT = NOBS;
+  SIMLIB_TOOLS.NOBS_FOUND  = 0;
+  SIMLIB_TOOLS.MJD_LAST    = 0.0 ;
+  SIMLIB_TOOLS.STRINGID_LAST[0] = 0 ;
+  sprintf(SIMLIB_TOOLS.CFILT_LAST,"?");
 
   // unpack header info
 
-  RA      = *(INFO+0) ;  // required: right-ascension, degrees
-  DEC     = *(INFO+1) ;  // required: declination, degrees
-  MWEBV   = *(INFO+2) ;  // required: MilkyWay extinction = AV/RV
-  PIXSIZE = *(INFO+3) ;  // required: pixel size, arcseconds
-  Z       = *(INFO+4) ;  // optional: redshift
-  PEAKMJD = *(INFO+5) ;  // optional: MJD at maximum B-band luminosity
+  RA      = INFO[IPAR_RA] ;  // required: right-ascension, degrees
+  DEC     = INFO[IPAR_DEC] ;  // required: declination, degrees
+  MWEBV   = INFO[IPAR_MWEBV] ;  // required: MilkyWay extinction = AV/RV
+  PIXSIZE = INFO[IPAR_PIXSIZE] ;  // required: pixel size, arcseconds
+  Z       = INFO[IPAR_Z] ;  // optional: redshift
+  PEAKMJD = INFO[IPAR_PKMJD] ;  // optional: MJD at maximum B-band luminosity
+  NEA_PSF_UNIT = (int)INFO[IPAR_NEA_UNIT] ; // Dec 2021
 
   // start by writing required info.
 
@@ -291,8 +269,6 @@ void simlib_add_header(
 
   // make table header to that file is self-documented.
 
-  bool NEA_PSF_UNIT = ( INFO[6] < -900.0 );  // PSF[1]
-
   fprintf(FPLIB, "\n");
   if ( NEA_PSF_UNIT ) {
     fprintf(FPLIB,"#                           CCD  CCD         "
@@ -308,11 +284,11 @@ void simlib_add_header(
 
 
 
-  NSIMLIB++ ;
+  SIMLIB_TOOLS.NSIMLIB++ ;
 
   // make sanity checks on input values.
 
-  if ( OPT_CHECKVAL == 1 ) {
+  if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
     istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, 100000. );
     istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, 3000.   );
     istat = CHECK_SIMLIB_VAL("RA",      RA,           -200., 400.0  );
@@ -330,10 +306,9 @@ void simlib_add_header(
 // *********************************************
 void simlib_add_mjd(
 		    int opt            // 1=>search info;  2=> template info
-		    ,double MJD        // MJD
+		    ,double *INFO      // see IPAR_xxx params 
 		    ,char *STRINGID    // exposure ID/RUN/FIELD/whatever
 		    ,char *FILTNAME    // filter name, abbreviation
-		    ,float *INFO       // see unpacking comments below
 		    ) {
 
   /*****
@@ -372,51 +347,49 @@ void simlib_add_mjd(
     + SKYSIG ABORT = 1000 -> 2000 (for LSST-DDF)
     + add MJD argument
 
+  Mar 2022: 
+     + INFO -> double (was float) and absorb MJD
+     + remove MJD arg from function
   *****/
 
 
   char key[2], string_psf[80] ;
-  char fnam[20] = " simlib_add_mjd" ;
-  int istat;
-  int ISNEWMJD, ISNEWID ;
+  int istat, ISNEWMJD, ISNEWID ;
+  double MJD, PSF[3], ZPT[2], SKYSIG, CCDGAIN, CCDNOISE, MAGOBS;
 
-  // define local variables for unpacking
-
-  float PSF[3], ZPT[2], SKYSIG, CCDGAIN, CCDNOISE, MAGOBS;
+  char fnam[] = "simlib_add_mjd" ;
 
   // --------------- BEGIN --------------
 
   // unpack *INFO array
-  // xxx mark delete   MJD      = *(INFO+0) ;  // 53000 in year 2006
-  CCDGAIN  = *(INFO+1) ;  // electrons per ADU
-  CCDNOISE = *(INFO+2) ;  // CCD read noise in electrons
-  SKYSIG   = *(INFO+3) ;  // skynoise in ADU per pixel
-  PSF[0]   = *(INFO+4) ;  // PSF-sigma (pixels) for inner Gaussian
-  PSF[1]   = *(INFO+5) ;  // PSF-sigma (pixels) for outer Gaussian
-  PSF[2]   = *(INFO+6) ;  // PSF(outer)/PSF(inner) ratio at origin
-  ZPT[0]   = *(INFO+7) ;  // zero point
-  ZPT[1]   = *(INFO+8) ;  // zero point error, or spread
-  MAGOBS   = *(INFO+9) ;  // model of observed mag (optional)
-
+  MJD      = INFO[IPAR_MJD];
+  CCDGAIN  = INFO[IPAR_CCDGAIN] ;  // electrons per ADU
+  CCDNOISE = INFO[IPAR_CCDNOISE]; // CCD read noise in electrons
+  SKYSIG   = INFO[IPAR_SKYSIG] ;  // skynoise in ADU per pixel
+  PSF[0]   = INFO[IPAR_PSF0]   ;  // PSF-sigma (pixels) for inner Gaussian
+  PSF[1]   = INFO[IPAR_PSF0+1] ;  // PSF-sigma (pixels) for outer Gaussian
+  PSF[2]   = INFO[IPAR_PSF0+2] ;  // PSF(outer)/PSF(inner) ratio at origin
+  ZPT[0]   = INFO[IPAR_ZPT0]   ;  // zero point
+  ZPT[1]   = INFO[IPAR_ZPT0+1] ;  // zero point error, or spread
+  MAGOBS   = INFO[IPAR_MAG] ;  // model of observed mag (optional)
 
   if ( opt == 1 ) {
     sprintf(key, "S") ;
 
     ISNEWMJD = ISNEWID = 0 ;
-    if ( MJD != MJD_LAST || strcmp(FILTNAME,CFILT_LAST) != 0 ) 
+    if ( MJD != SIMLIB_TOOLS.MJD_LAST || 
+	 strcmp(FILTNAME,SIMLIB_TOOLS.CFILT_LAST) != 0 ) 
       { ISNEWMJD = 1 ; }
 
-    if ( strcmp(STRINGID,STRINGID_LAST) != 0 ) 
+    if ( strcmp(STRINGID,SIMLIB_TOOLS.STRINGID_LAST) != 0 ) 
       { ISNEWID = 1; }
 
-    if ( ISNEWMJD == 1  || ISNEWID )  {
-      NMJD_FOUND++ ;
-    }
+    if ( ISNEWMJD == 1  || ISNEWID )  
+      { SIMLIB_TOOLS.NOBS_FOUND++ ;  }
 
-    MJD_LAST = MJD ;
-    sprintf(CFILT_LAST,"%s", FILTNAME);
-    // xxx mark delete     IDEXPT_LAST = IDEXPT;
-    sprintf(STRINGID_LAST, "%s", STRINGID);
+    SIMLIB_TOOLS.MJD_LAST = MJD ;
+    sprintf(SIMLIB_TOOLS.CFILT_LAST,    "%s", FILTNAME);
+    sprintf(SIMLIB_TOOLS.STRINGID_LAST, "%s", STRINGID);
   }
   else if ( opt == 2 ) 
     sprintf(key, "T") ;
@@ -424,14 +397,13 @@ void simlib_add_mjd(
     sprintf(c1err, "opt=%d is invalid for function %s \n", opt, fnam);
     sprintf(c2err, "Something is messed up.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    // xxxx    MADABORT();
   }
 
 
   if ( PSF[1] < -900.0 ) 
-    { sprintf(string_psf,"%6.3f ", PSF[0]); } // write NEA
+    { sprintf(string_psf, "%6.3f ", PSF[0]); } // write NEA
   else
-    { sprintf(string_psf,"%4.2f %4.2f %5.3f ", 
+    { sprintf(string_psf, "%4.2f %4.2f %5.3f ", 
 	      PSF[0], PSF[1], PSF[2] ); 
     } // write PSF params
 
@@ -442,7 +414,6 @@ void simlib_add_mjd(
 	  "%6.2f %6.3f"
 	  , key
 	  , MJD, STRINGID, FILTNAME, CCDGAIN, CCDNOISE, SKYSIG
-	  //	  , PSF[0], PSF[1], PSF[2]
 	  , string_psf
 	  , ZPT[0], ZPT[1]
 	  );
@@ -458,7 +429,7 @@ void simlib_add_mjd(
 
   // make sanity checks after adding entry to file
 
-  if ( OPT_CHECKVAL == 1 ) {
+  if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
     
     istat = CHECK_SIMLIB_VAL("MJD",         MJD,     20000., 80000. );
     istat = CHECK_SIMLIB_VAL("CCDGAIN",     CCDGAIN, 0.0, 100. );
@@ -481,7 +452,7 @@ void simlib_add_mjd(
 void simlib_close_write(void) {
 
   fprintf(FPLIB, "\n");
-  fprintf(FPLIB, "END_OF_SIMLIB: %d ENTRIES \n", NSIMLIB );
+  fprintf(FPLIB, "END_OF_SIMLIB: %d ENTRIES \n", SIMLIB_TOOLS.NSIMLIB );
   fclose(FPLIB) ;
   return;
 }  
@@ -547,7 +518,6 @@ int CHECK_SIMLIB_VAL(char *varname,
     }
 
     errmsg(SEV_FATAL, 0, fnam, msgerr[1], msgerr[2] ); 
-    //xxxx    MADABORT();
   }
 
   return 0 ;
@@ -562,24 +532,4 @@ void PRINT_SIMLIB_ERROR(char *msgerr ) {
   fprintf(FPLIB, "%s", msgerr );
   return ;
 }  // end of PRINT_SIMLIB_ERROR
-
-/* xxxxxxxxxxx mark delete Jan 7 2021 xxxxxxxxxxx
-void MADABORT(void) {
-   char cmsg[40] = { "ABORT program on Fatal Error." };
-
-   printf("\n");
-   printf("\n   `|```````|`    ");
-   printf("\n   <| o\\ /o |>    ");
-   printf("\n    | ' ; ' |     ");
-   printf("\n    |  ___  |     %s ", cmsg);
-   printf("\n    | |' '| |     ");
-   printf("\n    | `---' |     ");
-   printf("\n    \\_______/    ");
-   printf("\n");
-
-   printf("\n");   exit(1);
-   return ;
-
-}    //  end of "MADABORT"  
-xxxxxxxxxx end mark xxxxxxxxx */
 

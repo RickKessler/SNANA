@@ -13,17 +13,10 @@
  
  ******************************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
-#include <string.h>
-*/
 
 #include "fitsio.h"
 #include "sntools.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "genmag_NON1AGRID.h"
 #include "MWgaldust.h"
 
@@ -169,7 +162,6 @@ void genmag_NON1AGRID (int ifilt_obs, double mwebv, double z,
 	   ifilt_obs, z, meanlam_obs);
   }
 
-  // xyz
   // -------------------------------------------------------
   for(obs=0; obs < NOBS;  obs++ ) {
     Tobs = TobsList[obs];

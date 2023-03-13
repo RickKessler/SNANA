@@ -4,13 +4,31 @@
 # Use "quick_commands.py -H" to get explicit examples on how to combine 
 # arguments to perform specific tasks.
 #
+# Jan 22 2022: add --diff_fitres option 
+# Apr 22 2022: for -d option, include 'MU' if it exists
+# Sep 12 2022: fix --extract_sim_input for sims run in batch mode
+# Oct 13 2022: add : --cov_file option. Rewrites diagonal and
+#                    begining of row positions and indices in comments
+#                       A. Mitra
+#
+# Mar 02 2023: if output version name exceeds MXCHAR_VERSION=72, 
+#              truncate output version name to fit in max allowed string len
+#              for snana.exe.
+#
 # =========================
 
-import os, sys, argparse
+import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
+import pandas as pd
+import numpy as np
+import gzip
 
-snana_program = "snana.exe"
+# ----------------
+snana_program          = "snana.exe"
+combine_fitres_program = "combine_fitres.exe"
 
 LOG_FILE = "quick_command.log"
+MXCHAR_VERSION = 72 # should match same parameter in snana.car
+
 
 HELP_COMMANDS = f"""
 # translate TEXT format (from $SNDATA_ROOT/lcmerge) to FITS format
@@ -45,7 +63,13 @@ HELP_COMMANDS = f"""
 # extract info about SNANA code
   quick_commands.py --get_info_code
 
+# analyze stat differences (z,mB,x1,c) between two fitres files
+# run on same events (e.g., to validate updated data set);
+# Computes mean diff, RMS(diff), max outliers ...
+  quick_commands.py --diff_fitres  lcfit_ref.fitres  lcfit_test.fitres
+
 """
+
 # =============================
 
 
@@ -79,24 +103,40 @@ def get_args():
     msg = "CID list to make table of redshifts and vpec"
     parser.add_argument("--cidlist_ztable", help=msg, type=str, default="")
 
+    msg = "Name of covariance matrix to display for debug"
+    parser.add_argument("--cov_file", help=msg, type=str, default="")
+    
     msg = "get info for photometry version"
     parser.add_argument("--get_info_phot", help=msg, action="store_true")
 
     msg = "get info for code version"
     parser.add_argument("--get_info_code", help=msg, action="store_true")
 
+    msg = "convert this simgen_dump file to fitres file for SALT2mu"
+    parser.add_argument("--simgen_dump_file", help=msg, type=str, default="")
+
+    msg = "extract sim-input file from sim VERSION.README"
+    parser.add_argument("--extract_sim_input", help=msg, action="store_true")
+
+    msg = "two fitres files to analyse stat difference for SALT2 fit params"
+    parser.add_argument("-d", "--diff_fitres", nargs='+', 
+                        help=msg, type=str,default=None)
+
 # SIMLIB_OUT ...
 
-    #msg = "comma-sep list of CIDs (for list args)"
-    #parser.add_argument("--c", help=msg, type=str, default="")
-
-    #msg = "Use each SN instead of BBC binning"
-    #parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
-
-
-    if len(sys.argv) == 1:  parser.print_help(); sys.exit()
+    if len(sys.argv) == 1:  
+        parser.print_help(); sys.exit()
 
     args = parser.parse_args()
+
+    # - - - - - - - - - - - - - - - 
+    # if version includes full path, separate here into version
+    # and private path args
+    if args.version:
+        v = args.version
+        if '/' in v:
+            args.version = os.path.basename(v)
+            args.path    = os.path.dirname(v)
 
     return args
 
@@ -135,9 +175,9 @@ def make_ztable(args):
 def extract_text_format(args):
 
     vin     = args.version
-    vout    = f"{vin}_TEXT"
+    vout    = create_vout_string(vin,"TEXT")
     cidlist = args.cidlist_text
-
+                
     rmdir_check(vout)
         
     print(f"\n Create new data folder: {vout}")
@@ -147,6 +187,27 @@ def extract_text_format(args):
     command += arg_cidlist(cidlist)
     exec_command(command,args,0)
     # end extract_text_format
+
+def create_vout_string(vin,suffix):
+    # Created Mar 2 2023
+    # Default is that vout = [vin]_[suffix] ;
+    # however, if vout exceeds MXCHAR_VERSION length, then
+    # truncate chars from vin so that vout strlen < MXCHAR_VERSION
+
+    vout = f"{vin}_{suffix}"
+    len_vout = len(vout)
+    if len_vout > MXCHAR_VERSION:
+        nchar_remove = len_vout - MXCHAR_VERSION + 1
+        vout_orig    = vout
+        vin_truncate = vin[:-nchar_remove]
+        vout         = f"{vin_truncate}_{suffix}" 
+        print(f"\n WARNING:")
+        print(f" len({vout_orig}) = {len_vout} \n" \
+              f"\t exceeds MXCHAR_VERSION={MXCHAR_VERSION}")
+        print(f" Truncate vout -> \n\t {vout}\n")
+
+    return vout
+    # end create_vout_string
 
 def make_simlib(args):
 
@@ -195,13 +256,19 @@ def arg_cidlist(cidlist):
 
 def get_info_photometry(args):
 
-    command  = f"{snana_program} GETINFO {args.version}"
+    # if private_data_path is set, then glue it back to version
+    if args.path :
+        version = f"{args.path}/{args.version}"
+    else:
+        version = args.version 
+
+    command  = f"{snana_program} GETINFO {version} "
     exec_command(command,args,9)
 
     # end get_info_photometry
 
 def get_info_code(args):
-    command = f"snana.exe --snana_version"
+    command = f"{snana_program} --snana_version"
     exec_command(command,args,4)
 
 def rmdir_check(dir_name):
@@ -252,6 +319,334 @@ def exec_command(command,args,ntail):
     return istat0, istat1
     # end exec_command
 
+def translate_simgen_dump_file(args):
+    # Aug 27 2021
+    # translate simgen dump file (form SNANA sim) into an ideal 
+    # fitres file where fitted parameters are true values.
+    # Enables using SALT2mu on true values.
+
+    simgen_dump_file = args.simgen_dump_file
+    out_table_file   = "simgen_dump.fitres"
+
+    # define artificially small errors
+    zHDERR = 0.0001
+    mBERR  = 0.0001
+    cERR   = 0.0001/3.0
+    x1ERR  = 0.0001/0.14
+    IDSURVEY = 1  # anything in SURVEY.DEF file
+
+    df  = pd.read_csv(simgen_dump_file, comment="#", delim_whitespace=True)
+    df["CID"] = df["CID"].astype(str)
+
+    FOUND_SIM_mB       = ("SIM_mB" in df)
+    FOUND_SIM_x0       = ("SIM_x0" in df)
+    FOUND_MAGSMEAR_COH = ("MAGSMEAR_COH" in df)
+    FOUND_gammaDM      = ("SALT2gammaDM" in df)
+
+    VARNAMES_STRING = f"CID IDSURVEY zHD zHDERR mB mBERR " \
+                      f"x0 x0ERR x1 x1ERR c cERR  COVx0x COVx0c COVx1c"
+
+    nrow = 0 
+    with open(out_table_file,"wt") as o:
+        o.write(f"VARNAMES: {VARNAMES_STRING} \n")
+        for index, row in df.iterrows():
+            nrow += 1
+            line = "SN: "
+            line += f"{row['CID']:14s} "
+
+            line += f"{IDSURVEY} "
+
+            line += f"{row['ZCMB']:.4f} "
+            line += f"{zHDERR:0.4f} "
+
+            magsmear_coh=0.0; gammaDM=0.0
+            if FOUND_MAGSMEAR_COH:               
+                magsmear_coh = row['MAGSMEAR_COH']
+                if magsmear_coh == 0.0 : continue # PEAKMJD far from cadence
+
+            if FOUND_gammaDM:
+                gammaDM = row['SALT2gammaDM']
+
+            SIM_mB = row['SIM_mB'] 
+            if FOUND_SIM_x0 :
+                SIM_x0 = row['SIM_x0'] 
+            else:
+                # mB = -2.5*log10(x0) + 10.63
+                SIM_x0 = 10**(-0.4*(SIM_mB-10.63))
+
+            extra_mB = magsmear_coh + gammaDM
+            SIM_mB += extra_mB
+            SIM_x0 *= 10**(-0.4*extra_mB)
+            x0ERR   = SIM_x0 * mBERR
+
+            line += f"{SIM_mB:.5f} "
+            line += f"{mBERR:0.5f} "
+
+            line += f"{SIM_x0:11.4e} "
+            line += f"{x0ERR:11.4e} "
+
+            line += f"{row['SIM_x1']:.5f} "
+            line += f"{x1ERR:0.5f} "
+
+            line += f"{row['SIM_c']:.5f} "
+            line += f"{cERR:0.5f} "
+
+            line += f"0.0 0.0 0.0" # 3 covariances
+
+            o.write(f"{line}\n")
+
+    # end translate_simgen_dump_file
+
+def get_README_contents(version):
+    # find README file(s)
+    # if sim was run interactivly, this(or these) should just be VERSION.README
+    # if sim was run with submit_batch, this(or these) should be in misc.tar.gz
+    
+    # find directory with sim data using snana uti;
+    command  = f"{snana_program} GETINFO {version}"
+    ret = subprocess.run( [ command ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+
+    ret_list = (ret.stdout).split()
+    j        = ret_list.index("SNDATA_PATH:")
+    path_simdata = ret_list[j+1]
+    print(f"\n Found sim data in : {path_simdata} ")
+
+    dict_yaml={}
+    readme_file = f"{path_simdata}/{version}.README"
+    misc_file = f"{path_simdata}/misc.tar.gz"
+    if os.path.exists(misc_file):
+        members = tarfile.open(misc_file).getmembers()
+        members_name = [m.name for m in members]
+#        print (f"len members {len(members)}, len members_name {len(members_name)}")
+        wildcard = f"*.README"
+        match_list = sorted(fnmatch.filter(members_name, wildcard))
+        for imodel in range(0,10):
+            key_model = f"MODEL{imodel}"
+            model_match = [match for match in match_list if key_model in match]
+            if len(model_match)==0: break
+            member = [m for m in members if m.name==model_match[0]][0]
+#            print (f"member {member.name}, model_match[0] {model_match[0]}")
+            with tarfile.open(misc_file).extractfile(member) as r:
+                docana_yaml = yaml.safe_load(r)
+                dict_yaml[f"{version}_{key_model}"] = docana_yaml
+    else:
+        # read README created by simulation
+        with open(readme_file, 'rt') as r:
+            docana_yaml = yaml.safe_load(r)
+            dict_yaml[version] = docana_yaml
+
+    return dict_yaml
+
+def write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat):
+    nkey_write = 0
+    key = 'INPUT_KEYS'
+    DOCANA = sim_readme_yaml['DOCUMENTATION']
+    if key in DOCANA:
+        INPUT_KEYS = DOCANA[key]
+    else:
+        msgerr = f"\n ERROR: could not find {key} key in \n {sim_input_file} "
+        assert False, msgerr 
+
+    with open(sim_input_file,"wt") as f :
+        for key, val_orig in INPUT_KEYS.items() :
+            key_plus_colon = key + ':'
+            val_out = val_orig
+            if key == "GENVERSION" : val_out = version_repeat
+
+            # check for key list with multiple entries 
+            if isinstance(val_out,list):
+                val_list = val_out  # val_out is already a list
+            else:
+                val_list = [ val_out ] # convert item into list
+
+            for val in val_list:
+                f.write(f"{key_plus_colon:<28}  {val}\n")
+                nkey_write += 1
+    print(f"\t Done writing {nkey_write} keys for {sim_input_file}")
+    return None
+
+def extract_sim_input_file(args):
+
+    # read INPUT_KEYS from DOCUMENTATION in VERSION.README,
+    # and create a sim-input file. Modify the GENVERSION
+    # to be {version}_REPEAT to avoid clobbering orginal output.
+
+    version_orig   = args.version
+    version_repeat = f"{version_orig}_REPEAT"
+
+    sim_input_file = f"sim_input_{version_orig}.input"
+
+    dict_yaml = get_README_contents(args.version)
+    for model_name,sim_readme_yaml in dict_yaml.items():
+        sim_input_file = f"sim_input_{model_name}.input"
+        print(f" Create sim-input file: {sim_input_file}")       
+        write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat)
+
+    # end extract_sim_input_file
+
+def analyze_diff_fitres(args):
+
+    # suppress strange pandas warnings
+    pd.options.mode.chained_assignment = None 
+
+    # local variables with names of fitres files
+    ff_ref  = os.path.expandvars(args.diff_fitres[0])
+    ff_test = os.path.expandvars(args.diff_fitres[1])
+
+    if not os.path.exists(ff_ref):
+        msgerr = f"Could not find REF-input fitres file: \n\t {ff_ref}"
+        assert False, msgerr
+
+    if not os.path.exists(ff_test):
+        msgerr = f"Could not find TEST-input fitres file: \n\t {ff_test}"
+        assert False, msgerr
+
+    print(f"\n Analyze statistical differences between")
+    print(f"\t REF  fitres file: {ff_ref}")
+    print(f"\t TEST fitres file: {ff_test}")
+    print(f"\t Definition: dif_X = X(TEST) - X(REF)")
+    sys.stdout.flush()
+
+    fitres_combine_file = "combine_fitres.text"
+
+    # remove pre-existing combine-fitres file to avoid confusion
+    # if new file fails to be created.
+    if os.path.exists(fitres_combine_file):
+        os.remove(fitres_combine_file)
+
+    cmd = f"{combine_fitres_program} "
+    cmd += f"{ff_ref} {ff_test} "
+    cmd += f"t "    # only text output; no HBOOK or ROOT
+
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+
+    if not os.path.exists(fitres_combine_file):
+        msgerr = f"Could not find combined fitres file: {fitres_combine_file}"
+        assert False, msgerr
+
+    df  = pd.read_csv(fitres_combine_file, comment="#", delim_whitespace=True)
+    df["CID"] = df["CID"].astype(str)
+
+    # define ref variables to check; test var name is {var}_2
+    var_check_list = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
+
+    # Apr 22 2022: add MU if it's there (e.g., output of BBC)
+    if 'MU' in df:
+        var_check_list.append('MU')
+        var_check_list.append('MUERR')
+
+    # define dfsel = table rows where both ref and test are defined
+    #dfsel        = df.loc[df['c_2']>-8.0]
+    dfsel        = df.loc[df['c_2']>-8.0]
+    dfcut        = df.loc[df['c_2']<-8.0]
+
+    len_tot = len(df)
+    len_sel = len(dfsel)
+    CID_lost_list = dfcut['CID'].to_numpy()
+
+    print(f" TEST table contains {len_sel} of {len_tot} REF events ")
+    print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
+
+    print("")
+    print("   quantity    avg       median      std          " \
+          f"min/max      CIDmin/CIDmax")
+    print("# --------------------------------------------------" \
+          "--------------------------- ")
+    for var in var_check_list:
+        var_2   = f"{var}_2"
+        var_dif = f"dif_{var}"
+        dfsel[var_dif] = dfsel[var_2] - dfsel[var]
+        mean  = dfsel[var_dif].mean()
+        med   = dfsel[var_dif].median()
+        std   = dfsel[var_dif].std()
+        mn    = dfsel[var_dif].min()
+        mx    = dfsel[var_dif].max()
+
+        CIDmin = None ; CIDmax=None
+        if mn < 0.0 :
+            CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
+        if mx > 0.0 :
+            CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
+
+        print(f"  {var_dif:10} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
+              f" {mn:8.5f}/{mx:8.5f}  {CIDmin}/{CIDmax}")
+        sys.stdout.flush()
+
+    return
+    # end analyze_diff_fitres
+
+def rewrite_cov_file(args):
+
+    # Created 13 Oct 2022 by A.Mitra
+    # 1. Rewrite cov with row,column labels
+    # 2. Add "Start row" for readibility 0.20043.  # (0,2)  START_ROW
+    # 3. Add Diagonal" for readibility : 0.23243.  # (2,2)  DIAGONAL
+
+    cov_file = os.path.expandvars(args.cov_file)
+    data     = args.cov_file
+
+    X=[];comment_1 = []; comment_2=[];
+    com_row = 'START ROW';  com_d = ' DIAGONAL'; com_null=' '
+    cc = 0;index_elements = [];
+
+    cov_basename  = os.path.basename(cov_file) 
+    out_cov_file  = f"DISPLAY_{cov_basename}"
+    print(f"Input cov matrix file: {cov_file}")
+    print(f"rewrite cov matrix to: {out_cov_file}")
+
+    c     = pd.read_csv(data,compression='gzip',sep='\s+',comment="#")
+    c0    = np.array(c); 
+    shape = int(np.sqrt(np.shape(c)[0]))
+    c1    = np.reshape(c0,(-1,shape));
+    D     = np.diag(c1);
+
+    for i in np.ndindex(c1.shape):
+        tmp = "#" + str(i)
+        X.append(tmp)
+        index_elements.append((c1[i],i))
+
+        if(cc%shape == 0):
+            comment_1.append(com_row)
+        else :
+            comment_1.append(com_null)
+
+        if (D.__contains__(c1[i])==True):     
+            comment_2.append(com_d)
+        else :
+            comment_2.append(com_null)
+            cc += 1
+
+    X = pd.DataFrame(X) 
+    X.columns = (["Index"])
+
+    comment_1= pd.DataFrame(comment_1) 
+    comment_1.columns = (["Comments"])
+
+    comment_2= pd.DataFrame(comment_2) 
+    comment_2.columns = (["Comments"])
+
+    comments = comment_1 + comment_2
+
+    cov_m = pd.concat([pd.DataFrame(c),X], axis=1)
+    cov_m = pd.concat([cov_m,comments],    axis=1)
+    #print(cov_m)
+
+    cov_m.to_csv(out_cov_file, sep='\t', encoding='utf-8',
+                 header=True, index=False, compression='gzip')
+
+    return 
+    # end rewrite_cov_file
+   
+
+
+def print_HELP():
+    see_me = (f" !!! ************************************************ !!!")
+    print(f"\n{see_me}\n{see_me}\n{see_me}")
+    print(f"{HELP_COMMANDS}")
+    sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+    
 # =====================================
 #
 #      MAIN
@@ -261,13 +656,10 @@ def exec_command(command,args,ntail):
 if __name__ == "__main__":
 
     args = get_args()
-
+    
     # option for long HELP menus
-    if args.HELP :
-        see_me = (f" !!! ************************************************ !!!")
-        print(f"\n{see_me}\n{see_me}\n{see_me}")
-        print(f"{HELP_COMMANDS}")
-        sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+    if args.HELP : 
+        print_HELP()
 
     if args.version_reformat_fits :
         reformat_fits(args)
@@ -284,10 +676,23 @@ if __name__ == "__main__":
     if args.cidlist_ztable :
         make_ztable(args)
 
-    if args.get_info_phot :
-        get_info_photometry(args)
+    if args.cov_file :
+        rewrite_cov_file(args)
 
+    if args.get_info_phot :
+        get_info_photometry(args)    
+        
     if args.get_info_code :
         get_info_code(args)
 
-    # END
+    if args.simgen_dump_file :
+        translate_simgen_dump_file(args)
+
+    if args.extract_sim_input :
+        extract_sim_input_file(args)
+
+    if args.diff_fitres :
+        analyze_diff_fitres(args)
+
+    # END main
+

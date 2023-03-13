@@ -13,22 +13,13 @@
 #define OPT_MWEBV_SFD98          2  // use SFD98 value
 #define OPT_MWEBV_Sch11_PS2013   3  // PS1-2013 implementation of Schlafly 2011
 
-#define WAVEMAX_FITZ99 12000.0  // Jan 2020
+#define WAVEMAX_FITZ99 25000.0  // Oct 2021 Dillon and Dan switched from 12000
 
 // =======================================
 //      SNANA-interface functons
 // =======================================
 
 void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
-
-/* xxx mark for deletion Oct 28 2013 (moved to sntools.c/h)
-void slaEqgal ( double dr, double dd, double *dl, double *db );
-void slaDcs2c ( double a, double b, double v[3] );
-void slaDmxv ( double dm[3][3], double va[3], double vb[3] );
-void slaDcc2s ( double v[3], double *a, double *b );
-double slaDrange ( double angle );
-double slaDranrm ( double angle );
-xxxxxxxxxx */
 
 // functions moved from sntools.c (Sep 2013)
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
@@ -115,8 +106,8 @@ char * asciifile_read_line
 #define min(a,b) ( ((a) < (b)) ? (a) : (b) )
 #define max(a,b) ( ((a) > (b)) ? (a) : (b) )
 #define SIGN(a)  ( ((a) >= 0.0) ? (1.0) : (-1.0) )
-#define TRUE  1
-#define FALSE 0
+#define TRUE_MWDUST  1
+#define FALSE_MWDUST 0
 
 #if 0
 static float minarg1,minarg2;

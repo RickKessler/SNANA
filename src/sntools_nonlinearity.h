@@ -2,7 +2,6 @@
 
 // -------------------------------
 #define MXBIN_NONLIN 100 
-#define MXFILTINDX 100     //  max filter index
 
 char MODEL_NONLIN[100];
 int  NMAP_NONLIN ;

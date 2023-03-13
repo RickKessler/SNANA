@@ -26,7 +26,7 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 #define VERSION_KCOR 4    // internal version
 #define MXFILTDEF   100    // max number of defined filters 
 #define MXLAM_SN    4000  // max number of lambda bins 
-#define MXLAM_PRIMARY  5000  // max number of lambda bins 
+#define MXLAM_PRIMARY  5000  // max number of lambda bins
 #define MXLAM_FILT  5000  // max number of lambda bins for filters
 #define MXEP        150   // 110
 #define MXREDSHIFT  80    // max number of redshift bins 
@@ -335,9 +335,10 @@ struct  FILTER
 } FILTER[MXFILTDEF] ;
 
 
-double FILTER_LAMBDA_MAX; // max lambda among all filters
-double FILTER_LAMBDA_MIN; // min lambda ...
-
+double FILTER_LAMBDA_MAX ; // max lambda among all filters
+double FILTER_LAMBDA_MIN ; // min lambda ...
+double STORE_LAMBDA_MAX ;
+double STORE_LAMBDA_MIN ;
 
 struct R4KCOR_GRID {
   float ****VALUE ;
@@ -380,6 +381,7 @@ struct STRFITS {
 //
 // =====================================================
 
+void  print_kcor_help(void);
 int   rd_input(void) ;
 void  check_valid_survey_names(char *SURVEYS);
 void  get_NZBIN(void);
@@ -388,6 +390,8 @@ void  kcor_input_override(int OPT);
 void  primary_override(char *primName, char *fileName);
 int   kcor_ini(void) ;
 void  set_kcorFile_format(void) ;
+void  set_store_lambda_range(void);
+
 int   malloc_ini(void);
 int   kcor_out(void) ;
 int   kcor_grid(void) ;

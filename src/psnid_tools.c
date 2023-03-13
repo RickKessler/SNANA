@@ -56,10 +56,10 @@
 #include "sntools_cosmology.h"  // cosmology functions (10.2020)
 #include "MWgaldust.h"    // GALextinct is here
 
-#define SNGRIDREAD // use only the read utilities in sngridtools.c
+#define MODELGRID_READ // use only the read utilities in sngridtools.c
+
 #include "fitsio.h"
-#include "sntools_grid.h"
-// #include "sntools_grid.c"
+#include "sntools_modelgrid.h"
 
 #include "psnid_tools.h"  // psnid tools (after including sngrindtools)
 
@@ -99,9 +99,10 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   cosPar[ICOSPAR_HzFUN_wa] = 0.0 ;
   VBOSE = 1;
   init_HzFUN_INFO(VBOSE, cosPar, "", &PSNID_INPUTS.HzFUN_INFO);
+  PSNID_INPUTS.ANISOTROPY_INFO.USE_FLAG = false; // Feb 2023
 
   ivar++ ; dval = input_array[ivar];
-  PSNID_INPUTS.OPT_DEBUG = (int)dval ;
+  PSNID_INPUTS.DEBUG_FLAG = (int)dval ;
 
   // load &PSNIDINP doubles ...
   ivar++ ; dval = input_array[ivar];

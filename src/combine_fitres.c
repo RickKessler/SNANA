@@ -2,15 +2,10 @@
   Jun 23, 2009 by R.Kessler
  
   ------------
-  Re-written in C to use utilities that allow
-  arbitrary-length fitres file. Current fortran
-  version is memory limited because it reads the
-  entire file as char strings.
   
-  Combine multiple fitres contents into a
-  single ntuple. Designed to study correlations
-  between different fitres outputs for the same
-  set of SN.
+  Combine multiple fitres contents into a single table in 
+  TEXT/ROOT/HBOOK format. Designed to study correlations
+  between different fitres outputs for the same set of SN.
 
  Usage:
   >  combine_fitres.exe <fitres1> <fitres2> ...
@@ -22,18 +17,22 @@
       combine_fitres.root   (root tree)
       combine_fitres.txt    (combined fitres text-file)
 
- Option:
-  >  combine_fitres.exe <fitres1> <fitres2> -outprefix <outprefix>
+ Options below accept python like args, but with no dashs, 1 dash
+ or 2 dashes. I.e., outprefix, -outprefix, --outprefix are all 
+ accepted.
+
+  >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
     produces output files <outprefix>.hbook and  <outprefix>.text
 
-  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile>
+  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile>
        (text outpout name is <outfile>)
 
-  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile.gz>
+  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile.gz>
        (produce gzipped outfile.gz)
 
-  >  combine_fitres.exe <fitres1>  R      ! .ROOT extension 
-  >  combine_fitres.exe <fitres1>  r      ! .root extension
+  >  combine_fitres.exe <fitres1>   R      ! .ROOT extension 
+  >  combine_fitres.exe <fitres1>  -R      ! same with python syntax
+  >  combine_fitres.exe <fitres1>   r      ! .root extension
        (create root file instead of hbook file)
 
   >  combine_fitres.exe <fitres1>  H      ! .HBOOK extension
@@ -44,19 +43,20 @@
   >  combine_fitres.exe <fitres1>  H R
       (create both hbook and root files)
 
-  >  combine_fitres.exe <fitres1>  -mxrow 50000
+  >  combine_fitres.exe <fitres1>  --mxrow 50000
 
-  >  combine_fitres.exe <fitres1>  -varnames zHD,c,x1,SIM_DLMAG
+  >  combine_fitres.exe <fitres1>  --varnames zHD,c,x1,SIM_DLMAG
           [select only these varnames (along with CID)]
 
-  >  combine_fitres.exe  <fitres1> -zcut <zmin> <zmax>
+  >  combine_fitres.exe  <fitres1> --zcut <zmin> <zmax>
          [cut on zHD]
 
-  >  combine_fitres.exe <fitres1> <fitres2> .. T   ! [outPrefix].TEXT
-  >  combine_fitres.exe <fitres1> <fitres2> .. t   ! [outPrefix].text
+  >  combine_fitres.exe <fitres1> <fitres2> ..  T   ! [outPrefix].TEXT
+  >  combine_fitres.exe <fitres1> <fitres2> .. -T   ! same in python syntax
+  >  combine_fitres.exe <fitres1> <fitres2> ..  t   ! [outPrefix].text
       (create only text output; disable default hbook output)
 
-  >  combine_fitres.exe  <fitres1> <fitres2> ... -nullval_float -12345
+  >  combine_fitres.exe  <fitres1> <fitres2> ... --nullval_float -12345
          (override default nullval_float = -888)
 
  WARNINGS/NOTES:
@@ -132,6 +132,15 @@
  Jun 08 2021: switch to using match_cid_hash  utility in sntools.c
                 (matchflag=5).
    
+ Apr 27 2022: 
+   + print full command to stdout.
+   + new parsing util keyarg_match to allow args with no dashes, 
+     1 dash, or 2 dashes ... to allow python-like inputs.
+     All previous args should still work; this update allows
+     more variations of inputs.
+
+ Sep 1 2022: if no args, call print_combine_fitres_help()
+
 ******************************/
 
 #include <stdio.h>
@@ -152,8 +161,9 @@
 // Function Declarations
 // ================================
 
-
+void  print_combine_fitres_help(void);
 void  PARSE_ARGV(int argc, char **argv);
+bool  keyarg_match(char *arg, char *keyname_base);
 void  parse_FFILE(char *arg);
 
 void  init_misc(void);
@@ -185,7 +195,7 @@ void malloc_NMATCH_PER_EVT(int N);
 
 
 #define MXFFILE  20       // max number of fitres files to combine
-#define MXSN     5000000   // max SN to read per fitres file
+#define MXSN     10000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 
@@ -311,6 +321,9 @@ int main(int argc, char **argv) {
 
   // ----------------- BEGIN --------
 
+  // Give help if no arguments  
+  if (argc < 2) { print_combine_fitres_help();  exit(0); }
+
   sprintf(BANNER,"Begin execution of combine_fitres.exe \n" );
   print_banner(BANNER);
 
@@ -350,7 +363,82 @@ int main(int argc, char **argv) {
 } // end of main
 
 
-// ===============================
+// ======================================
+void  print_combine_fitres_help(void) {
+
+  // Creatd Sep 1 2022
+
+  static char *help[] = {
+
+    "",
+    "\t ***** combine_fitres.exe help menu *****",
+    "",
+    "# All arguments are input via command-line; there is no config file.",
+    "",
+    "# Usage:",
+    "      combine_fitres.exe <fitres1> <fitres2> ... ",
+    "",
+    "# Example: both fitres1 and fitres2 are FITRES (text) table files",
+    "# containing",
+    "   VARNAMES: CID zHD mB x1 c extra1  # fitres1",
+    "   VARNAMES: CID zHD mB x1 c extra2  # fitres2",
+    "# The output fitres file from above combine_fitres.exe command contains",
+    "   VARNAMES: CID zHD mB x1 c extra1 zHD_2 mB_2 x1_2 c_2 extra2",
+    "# where the  '_2' suffix indicates a duplicate variable in 2nd file.",
+    "# Since extra1 and extra2 are unique, there is no added suffix.",
+    "# If 3 fitres files are given, e.g, ",
+   "      combine_fitres.exe <fitres1> <fitres2> <fitres3> ",
+    "# the output file contains",
+    "   VARNAMES: CID zHD mB x1 c extra1 \\",
+    "             zHD_2 mB_2 x1_2 c_2 extra2 \\",
+    "             zHD_3 mB_3 x1_3 c_3 extra3",
+    "",
+    "The fitres1 file defines the list of CIDs in output file.",
+    "If fitres2 has additional CIDs that are not in fitres1,",
+    "these extra CIDs do not appear in the output fitres file.",
+    "If fitres1 has CIDs that are not in fitres2, they will appear",
+    "in output fitres file, and all of the fitres2 values are -888",
+    "(or arg of --nullval_float; see below)",
+    "",
+    "# - - - - - - Output files - - - - - -",  
+    "# The default output files are",
+    "      combine_fitres.text    ",
+    "      combine_fitres.root   (root tree) ",
+    "      combine_fitres.hbook  (hbook column-wise ntuple)",
+    "",
+    "# - - - - - - Misc options - - - - - -",
+    " --outprefix   <prefix>       # replace default combine_fitres prefix",
+    " --outfile_text <outfile>     # replace entire file name for text",
+    " --outfile_text <outfile.gz>  # produce gzipped output",
+    "",
+    "# output table file extensions:",
+    " -T or T  # .TEXT extension, and suppress ROOT and HBOOK output",
+    " -t or t  # .text extension, and suppress ROOT and HBOOK output",
+    " -R or R  # .ROOT extension ",
+    " -r or r  # .root extension ",
+    " -H or H  # .HBOK extension ",
+    " -h or h  # .hbook extension ",
+    " ",
+    " --mxrow <mxrow>        # output this number of rows (default=all)",
+    " --zcut <zmin> <zmax>   # zHD cut window",
+    "",
+    " --varnames zHD,c,x1,SIM_DLMAG  # select CID and these varnames",
+    "",
+    " --nullval_float -12345  # override default nullval of -888",
+    
+    0
+  };
+
+  int i;
+  // ----------- BEGIN ------------                                            
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+
+  
+  return;
+} // end print_combine_fitres_help
+
+// ======================================
 void  init_misc(void) {
 
   int i;
@@ -387,7 +475,6 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.NFFILE       = 0;
   INPUTS.MXROW_READ   = 1000000000 ;
 
-  // xxx mark  INPUTS.MATCHFLAG    = MATCHFLAG_HASH_LOCAL ; // 2019
   INPUTS.MATCHFLAG    = MATCHFLAG_HASH_UTIL ;  // Jun 2021  
 
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
@@ -399,77 +486,78 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.NVARNAMES_KEEP  = 0 ;
   INPUTS.VARLIST_KEEP[0] = 0 ;
 
+  
+  printf("\n Full command: ");
+  for ( i = 0; i < NARGV_LIST ; i++ ) {  printf("%s ", argv[i]);   }
+  printf("\n\n"); fflush(stdout);
+
+  // - - - - -
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
     // check for optional args
 
-    if ( strcmp(argv[i],"--outprefix") == 0 || 
-	 strcmp(argv[i],"-outprefix") == 0  ) {
+    if ( keyarg_match(argv[i],"outprefix"))  {
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
 
+    /* xxx mark delete xxxxx
     if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
+    xxxxxxx */
 
-
-    if ( strcmp(argv[i],"-outfile_text") == 0 || 
-	 strcmp(argv[i],"--outfile_text") == 0 ) { 
+    if ( keyarg_match(argv[i],"outfile_text"))  {
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-mxrow") == 0 || 
-	 strcmp(argv[i],"--mxrow") == 0  ) {
+    if ( keyarg_match(argv[i],"mxrow"))  {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-varnames") == 0 || 
-	 strcmp(argv[i],"--varnames") == 0  ) {
+    if ( keyarg_match(argv[i],"varnames"))  {
       i++ ; sscanf(argv[i], "%s", INPUTS.VARLIST_KEEP);
       parse_commaSepList("VARNAMES_KEEP", INPUTS.VARLIST_KEEP, MXVAR_TOT,
 			 40, &INPUTS.NVARNAMES_KEEP, &INPUTS.VARNAMES_KEEP);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-zcut") == 0 || 
-	 strcmp(argv[i],"--zcut") == 0  ) {
+    if ( keyarg_match(argv[i],"zcut"))  {
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[0] );
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[1] );
       INPUTS.DOzCUT = 1; 
       continue ;
     }
 
-    if ( strcmp(argv[i],"-nullval_float") == 0 ||
-	 strcmp(argv[i],"--nullval_float") == 0   ) {
+    if ( keyarg_match(argv[i],"nullval_float"))  {
       i++ ; sscanf(argv[i], "%f", &INPUTS.NULLVAL_FLOAT);
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"r") == 0 ) { 
+    if ( keyarg_match(argv[i],"r") )  {
       CREATEFILE_ROOT = 1;
       if (CREATEFILE_HBOOK==1) {CREATEFILE_HBOOK=0;}  // root on, hbook off
-      if ( strcmp(argv[i],"R")==0 ) { ptrSuffix_root = SUFFIX_ROOT ; }
+      if ( strstr(argv[i],"R")!=NULL ) { ptrSuffix_root = SUFFIX_ROOT ; }
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"h") == 0 ) { 
+    if ( keyarg_match(argv[i],"h") )  {
       CREATEFILE_HBOOK = 2 ;  // turn hbook back on and leave it on
-      if ( strcmp(argv[i],"H")==0) { ptrSuffix_hbook = SUFFIX_HBOOK ; }
+      if ( strstr(argv[i],"H") !=NULL ) { ptrSuffix_hbook = SUFFIX_HBOOK ; }
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"t") == 0 ) { 
+    if ( keyarg_match(argv[i],"t") )  {
       CREATEFILE_HBOOK = 0 ; 
       CREATEFILE_ROOT  = 0 ; 
-      if ( strcmp(argv[i],"T")==0) { ptrSuffix_text = SUFFIX_TEXT ; }
+      if ( strstr(argv[i],"T") !=NULL ) { ptrSuffix_text = SUFFIX_TEXT ; }
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"-matchflag") == 0 ) {
+    if ( keyarg_match(argv[i],"matchflag") )  {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MATCHFLAG);
       continue ;
     }
@@ -518,6 +606,37 @@ void  PARSE_ARGV(int argc, char **argv) {
   return;
 
 } // end of PARSE_ARGV
+
+// ===============================================
+bool keyarg_match(char *arg, char *keyname_base) {
+
+  // return true if
+  // arg == keyname_base  OR
+  // arg == -keyname_base OR
+  // arg == --keyname_base
+  //
+  // This allows python-like args, and also allows
+  // SNANA style without dashes.
+
+#define NKEY_CHECK 3
+  bool match = false;
+  int  k;
+  char key_list[NKEY_CHECK][80];
+  char fnam[] = "keyarg_match";
+
+  // ------------- BEGIN -------------
+
+  sprintf(key_list[0],"%s", keyname_base);
+  sprintf(key_list[1],"-%s", keyname_base);
+  sprintf(key_list[2],"--%s", keyname_base);
+
+  for(k=0; k < NKEY_CHECK; k++ ) {
+    if ( strcmp_ignoreCase(arg,key_list[k]) == 0 ) { match = true; }
+  }
+
+  return match;
+
+} // end keyarg_match
 
 // ====================================
 void parse_FFILE(char *arg) {
@@ -1144,7 +1263,6 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
   NMATCH = 0;
 
   for ( i=0; i < ntlist; i++ ) {
-    // xxx mark delete   OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
     OVP    = strcmp_ignoreCase(ctag,VARNAME_COMBINE[i]) ;
     if ( OVP == 0 )  { NMATCH++ ; }
   }
@@ -1195,7 +1313,6 @@ void  print_stats(void) {
     fflush(stdout);
   }
 
-  //.xyz
   return;
 
 } // end print_stats
@@ -1225,7 +1342,7 @@ void WRITE_SNTABLE(void) {
   int ivar, ivarstr, isn, ICAST, CIDint ;
   int IFILETYPE, NOUT, out, SKIP ;
 
-  // char  fnam[] = "WRITE_SNTABLE" ;
+  char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
 
   NOUT = 0 ;
@@ -1366,6 +1483,16 @@ void WRITE_SNTABLE(void) {
       else
 	{ TABLEROW_VALUES.FLT[ivar] = FITRES_VALUES.FLT_ALL[ivar][isn];  }
       
+      /*
+      float VAL = TABLEROW_VALUES.FLT[ivar];
+      if ( ivar == 54 && VAL < 0.0 ) {
+	printf(" xxx %s: CID=%d  %s = %le \n", 
+	       fnam, CIDint,  VARNAME_COMBINE[ivar], 
+	       TABLEROW_VALUES.FLT[ivar] );
+	fflush(stdout);
+	}  */
+
+
     } // ivar
 
     SKIP = 0 ;

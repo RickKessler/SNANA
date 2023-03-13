@@ -13,41 +13,43 @@
  Aug 10 2017: MXEPSIM_PERFILT -> 500 (was 200)
  Aug 14 2017: MXCID_SIM->199 million (was 99 million)
  Sep 25 2017: MXCID_SIM->299 million
- Jan 25 2018: 
+ Jan 25 2018:
      + MXFIELD_OVP_SIMLIB -> 10 (was 5); thanks Zoheyr !
      + MXREAD_SIMLIB      -> 100000 (was 12000)
 
  Jul 30 2018: define input_file_include2
  Jan 06 2020: genmag8 -> genmag, same for epoch8 & peakmag8
- Mar 20 2020: Dillon: MXPAR_ZVAR -> 150 (was 100) 
+ Mar 20 2020: Dillon: MXPAR_ZVAR -> 150 (was 100)
 
  Nov 05 2020: MXEPSIM_PERFILT -> 1000 (was 500) for ZTF sims.
- Feb 05 2021: 
+ Feb 05 2021:
    + remove definition of MXFIELD_OVP_SIMLIB
    + replace MXFIELD_OVP_SIMLIB with MXFIELD_OVP from sndata.h
 
  Apr 27 2021: MXSIMGEN_DUMP -> 600 (was 400)
 
- Jun 02 2021: 
+ Jun 02 2021:
     + MXEPSIM_PERFILT -> 2000 (was 1000) for 0.1 day cadence
     + MXOBS_SIMLIB -> 15,000 (was 10k) for Roman synthetic bands
+
+ Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
+ Jan 28 2022: MXEPSIM -> 15k (was 10k)
 
 ********************************************/
 
 
 // ************ GLOBAL VARIABLES *************
 
-time_t t_start, t_end, t_end_init ;
-
-#define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
+#define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
-#define  MXEPSIM_PERFILT  2000       // 
-#define  MXEPSIM       10000  // really big for sntools_grid
+#define  MXEPSIM_PERFILT  2500       //
+#define  MXEPSIM       15000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
+#define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
 #define  MXCUTWIN_PEAKMJD_BYFIELD 10
 #define  MXNON1A_TYPE 1000     // max number of non1a types/indices
-#define  MXNON1A_KEY  10      // max number of non1a keys    
+#define  MXNON1A_KEY  10      // max number of non1a keys
 #define  MXCHAR_FIELDNAME 20
 #define  MXSIMGEN_DUMP 600    // max number of variables to dump
 #define  TABLEID_DUMP  7100   // for SNTABLE functions
@@ -58,14 +60,14 @@ time_t t_start, t_end, t_end_init ;
 #define  MXOBS_SIMLIB  15000    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
-#define  MXGENSKIP_PEAKMJD_SIMLIB  10 
+#define  MXGENSKIP_PEAKMJD_SIMLIB  10
 #define  MXSEASON_SIMLIB  20      // max number of seasons
 #define  MXFLUXERR_COR_SIMLIB 100  // max number of FLUXERR_COR keys in header
 #define  TGAP_SEASON_SIMLIB 90.0  // gap (days) to define new season
+#define  GENRANGE_TOBS_PAD  0.1   // Tobs padding for MJD-selection
 #define  SIMLIB_ID_REWIND -7   // rewind flag
 #define  ISOURCE_PEAKMJD_RANDOM 1 // PEAKMJD is randomly generated
 #define  ISOURCE_PEAKMJD_SIMLIB 2 // PEAKMJD is read from SIMLIB header
-// xxx mark delete Apr 2021  #define  FIELDNAME_NULL     "NULL" 
 
 #define  OPTLINE_SIMLIB_S             1   // is a SIMLIB line with 'S:'
 #define  OPTLINE_SIMLIB_T             2   // obsolete
@@ -75,23 +77,24 @@ time_t t_start, t_end, t_end_init ;
 #define  INDEX_RATEMODEL_POWERLAW2 2
 #define  INDEX_RATEMODEL_AB       3
 #define  INDEX_RATEMODEL_ZPOLY    4  // cubic polynomial in redshift
-#define  INDEX_RATEMODEL_FLAT     5  // 
+#define  INDEX_RATEMODEL_FLAT     5  //
 #define  INDEX_RATEMODEL_CCS15    6  // CANDELES/Strolger 2015 CC rate
 #define  INDEX_RATEMODEL_MD14     7  // Madau & Dickey 2014
-#define  INDEX_RATEMODEL_PISN     8  // 
+#define  INDEX_RATEMODEL_PISN     8  //
 #define  INDEX_RATEMODEL_TDE      9  // Tidal disrupt event (was EPM)
 #define  INDEX_RATEMODEL_BPOLY    10  // relRate vs. GalLat
 #define  INDEX_RATEMODEL_COSBPOLY 11  // relRate vs. cos(GalLat)
 #define  MXPOLY_GALRATE            5   // 5th order poly for BPOLY or COSB
 
 #define  MXRATEPAR_ZRANGE  9    // max number of z-ranges for rate model
-#define  RATEMODELNAME_CCS15       "CC_S15" 
-#define  RATEMODELNAME_MD14        "MD14" 
+#define  RATEMODELNAME_CCS15       "CC_S15"
+#define  RATEMODELNAME_MD14        "MD14"
 #define  RATEMODELNAME_PISN        "PISN_PLK12"
 #define  RATEMODELNAME_TDE         "TDE"
 
+// in analysis outpout FITRES table, see SIM_ZFLAG
 #define  REDSHIFT_FLAG_NONE      0
-#define  REDSHIFT_FLAG_SNSPEC    1 
+#define  REDSHIFT_FLAG_SNSPEC    1
 #define  REDSHIFT_FLAG_HOSTSPEC  2
 #define  REDSHIFT_FLAG_HOSTPHOT  3
 #define  REDSHIFT_FLAG_WRONGHOST 4
@@ -99,7 +102,7 @@ time_t t_start, t_end, t_end_init ;
 
 // define write flags
 #define WRMASK_VBOSE     1   // legacy verbose output
-#define WRMASK_TEXT      2   // terse/text output: MJD FLUX etc ... 
+#define WRMASK_TEXT      2   // terse/text output: MJD FLUX etc ...
 #define WRMASK_MODEL     4   // dump obs model mag vs. Tobs
 #define WRMASK_BLINDTEST 8   // suppress SIM_XXX and other info
 #define WRMASK_CIDRAN   16   // use random CID (1-MXCID)
@@ -107,8 +110,9 @@ time_t t_start, t_end, t_end_init ;
 #define WRMASK_COMPACT  64   // suppress non-essential PHOT output
 #define WRMASK_FILTERS  256  // write filterTrans files (Aug 2016)
 
-#define KEYSOURCE_FILE 1
-#define KEYSOURCE_ARG  2
+// xxx #define KEYSOURCE_FILE 1
+// xxx #define KEYSOURCE_ARG  2
+#define FLAG_NWD_ZERO 100 // flag that override word is a key with no arg
 
 #define IFLAG_GENSMEAR_FILT 1 // intrinsic smear at central LAMBDA of filter
 #define IFLAG_GENSMEAR_LAM  2 // intrinsic smear vs. wavelength
@@ -118,12 +122,12 @@ int IFLAG_GENSMEAR ;
 #define SMEARMASK_HOSTGAL_PHOT   1 // add Poisson shot noise
 #define SMEARMASK_HOSTGAL_IMAGE  2 // anomalouse image noise in HOSTNOISE_FILE
 
-int WRFLAG_VBOSE     ; 
-int WRFLAG_TEXT      ; 
-int WRFLAG_MODEL     ; 
-int WRFLAG_BLINDTEST ; 
-int WRFLAG_CIDRAN    ; 
-int WRFLAG_FITS      ; 
+int WRFLAG_VBOSE     ;
+int WRFLAG_TEXT      ;
+int WRFLAG_MODEL     ;
+int WRFLAG_BLINDTEST ;
+int WRFLAG_CIDRAN    ;
+int WRFLAG_FITS      ;
 int WRFLAG_FILTERS   ; // Aug 2016
 int WRFLAG_COMPACT   ; // Jan 2018
 
@@ -147,9 +151,14 @@ int WRFLAG_COMPACT   ; // Jan 2018
 
 #define METHOD_TYPE_SPEC 1    // spec id
 #define METHOD_TYPE_PHOT 2    // phot id
-#define OFFSET_TYPE_PHOT 100   // add this to specType to get photoType 
+#define OFFSET_TYPE_PHOT 100   // add this to specType to get photoType
 
 FILE  *fp_SIMLIB ;
+
+struct {
+  time_t t_start, t_end, t_end_init, t_update_last ;
+  int    NGENTOT_LAST ;
+} TIMERS ;
 
 // define auxillary files produced with data files.
 typedef struct {
@@ -159,6 +168,7 @@ typedef struct {
   FILE *FP_README;  char  README[MXPATHLEN] ;
   FILE *FP_IGNORE;  char  IGNORE[MXPATHLEN] ;
   FILE *FP_DUMP;    char  DUMP[MXPATHLEN] ;
+  FILE *FP_SLDUMP;  char  SLDUMP[MXPATHLEN] ;
   FILE *FP_YAML;    char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -168,13 +178,13 @@ typedef struct {
 
   // char string to write each line to memory, and then
   // one ASCI write per line instead of per value.
-  char *OUTLINE ; 
+  char *OUTLINE ;
 
 } SIMFILE_AUX_DEF ;
 
 
-// Mar 2016: create typedefs for NON1A 
-typedef struct {  
+// Mar 2016: create typedefs for NON1A
+typedef struct {
 
   int IFLAG_GEN;
 
@@ -188,12 +198,12 @@ typedef struct {
   float WGT[MXNON1A_TYPE];       // relative wgt for simulation
   float MAGOFF[MXNON1A_TYPE];    // magoff
   float MAGSMEAR[MXNON1A_TYPE][2];  // mag-smear (bifurc Gaussian)
-  int   SNTAG[MXNON1A_TYPE];     // user index-tag 
-  float KEYVAL[MXNON1A_TYPE][MXNON1A_KEY]; // same as above 
+  int   SNTAG[MXNON1A_TYPE];     // user index-tag
+  float KEYVAL[MXNON1A_TYPE][MXNON1A_KEY]; // same as above
   int   ISPEC1A[MXNON1A_TYPE];  // 1 --> PEC1A instead of CC (Aug 2016)
   int   NNON1A ;                // number of NON1A SED templates
   int   NPEC1A ;                // number of PEC1A SED templates
-  int   STOP ;                  //  flag to stop reading NON1a 
+  int   STOP ;                  //  flag to stop reading NON1a
 
   // computed from NON1ASED inputs
   int   NINDEX;                   // number of NON1A indices to simulate
@@ -224,22 +234,28 @@ typedef struct {
 typedef struct {
   int   USE ;
 
-  int   RANSEED_GEN;         // fix ranseed for generation AFTER picking syst params
+  int  IDSURVEY;    // override true IDSURVEY for survey-dependent randoms
+
+  int  RANSEED_SYST; // RANSEED for picking syst variations (if >0)
+  int  RANSEED_GEN;  // ranseed for AFTER picking syst params (if >0)
+
   float SIGSHIFT_ZP[MXFILTINDX];
-  float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang 
+  float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang
   float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG
-  float SIGSCALE_FLUXERR2;   // scale measured errors, not true errors 
+  float SIGSCALE_FLUXERR2;   // scale measured errors, not true errors
   float SIGSCALE_MWEBV;      // scale Galactic extinction by 1+Gran*SIG
   float SIGSHIFT_MWRV;       // shift RV
-  float SIGSHIFT_REDSHIFT;   // shift redshift PA 2020
+  float SIGSHIFT_REDSHIFT;   // shift measured redshift PA 2020
+  float SIGSHIFT_zPHOT_HOST; // shift in host photo-z, May 2022
   char GENMODEL_WILDCARD[MXPATHLEN]; // choose between wildcard models PA 2020
+  char GENPDF_FILE_WILDCARD[MXPATHLEN]; // choose between wildcard GENPDF_FILEs
 
   float SIGSHIFT_OMEGA_MATTER ;
   float SIGSHIFT_W0 ;
   float RANGESHIFT_OMEGA_MATTER[2] ;
   float RANGESHIFT_W0[2] ;
 
-} INPUTS_RANSYSTPAR_DEF ; 
+} INPUTS_RANSYSTPAR_DEF ;
 
 
 typedef struct  {
@@ -254,21 +270,23 @@ typedef struct  {
 
 
 typedef struct {
-  char   NAME[40] ;           // filled internally             
-  double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT  
+  char   NAME[40] ;           // filled internally
+
+  double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   double DNDZ_ZPOLY_REWGT_LEGACY[4]; // xxx legacy var
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
 
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
   double DNDZ_ALLSCALE ;      // scale all SN models (Ia, SIMSED, etc ... )
+  double DNDB_SCALE ;         // scale rate for galactic models (LCLIB)
 
-  // rate model pars: A&B or R0&beta, zpoly ...   
-  int    NMODEL_ZRANGE;     // number of rate models glued together  
+  // rate model pars: A&B or R0&beta, zpoly ...
+  int    NMODEL_ZRANGE;     // number of rate models glued together
   double MODEL_PARLIST[MXRATEPAR_ZRANGE+1][20];
-  double MODEL_ZRANGE[MXRATEPAR_ZRANGE+1][2];  // z-range of rate model 
+  double MODEL_ZRANGE[MXRATEPAR_ZRANGE+1][2];  // z-range of rate model
   GENPOLY_DEF MODEL_ZPOLY;  // some models are polynom functions of z
   GENPOLY_DEF MODEL_BPOLY;  // rate vs. Galact b or cosb (LCLIB model)
-  int    INDEX_MODEL ;  //            
+  int    INDEX_MODEL ;  //
 
   double RATEMAX;  // used with DNDB (Galactic models)
 
@@ -290,10 +308,12 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_onlyTNOISE 32  // only template noise
 #define SPECTROGRAPH_OPTMASK_TEXTRAP    64  // extrap TEXPOSE outside range
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
+#define SPECTROGRAPH_OPTMASK_FITS_REFAC 1024 // temp: refactor fits format
+#define SPECTROGRAPH_OPTMASK_FITS_LEGACY 4096 // later: preserve legacy format
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
 typedef struct {
-  int    DOFLAG_SPEC ; // logical flag for spectra 
+  int    DOFLAG_SPEC ; // logical flag for spectra
   int    OPTMASK;    // sim-input key SPECTROGRAPH_OPTMASK: <MASK>
   double NLAMSIGMA ; // how far out to smear flux in lambda bins
 
@@ -307,7 +327,7 @@ typedef struct {
 
 
 #define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
-int     NPEREVT_TAKE_SPECTRUM ; 
+int     NPEREVT_TAKE_SPECTRUM ;
 typedef struct {
   float   EPOCH_RANGE[4];    // Trest or TOBS range, or MJD range
   char    FIELD[80];         // restrict spectra to particular field(s)
@@ -317,7 +337,7 @@ typedef struct {
   GENPOLY_DEF GENZPOLY_SNR ;      // SNR = poly fun of z
   float   SNR_LAMRANGE[2];   // lam-range to define SNR
   char    EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'HOST'
-  int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS or MJD  
+  int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS or MJD
   int   OPT_FRAME_LAMBDA ; // for SNR opt below, LAMREST or LAMOBS
 
   // OPT_TEXPOSE = 1(TEXPOSE), or 2(SNR)
@@ -342,17 +362,17 @@ typedef struct {
   double SQSIG_FUDGE_DATA ;
   double SQSIG_FINAL_TRUE[NTYPE_FLUXNOISE];
   double SQSIG_FINAL_DATA, SIG_FINAL_DATA ;
-  
+
   double SNR_CALC_S;     // for legacy fluxerr scale option
-  double SNR_CALC_ST;    // feeds pipe detection effic 
+  double SNR_CALC_ST;    // feeds pipe detection effic
   double SNR_CALC_SZT ;  // feeds FLUXERRMODEL_FILE
 
   double SQSIG_SRC;       // source noise = Npe
   double SQSIG_SKY;       // sky+CCD noise
   double SQSIG_ZP ;        // ZP error
-  double SQSIG_TSRC;      // template source noise 
+  double SQSIG_TSRC;      // template source noise
   double SQSIG_TSKY ;     // corrsky_ccd  noise from template
-  double SQSIG_HOST_PHOT ;  // galaxy shot noise 
+  double SQSIG_HOST_PHOT ;  // galaxy shot noise
   double SQSIG_HOST_IMAGE ; // anomalous noise from HOSTNOISE_FILE->obsolete
   double SQSIG_RAN ;        // error shift due to Poisson noise
 
@@ -376,20 +396,32 @@ typedef struct {
   double RHO_EVT, RHO_SUM, RHO_AVG ;
 } MONITOR_REDCOV_FLUXNOISE_DEF ;
 
+
+// Nov 2021: define struct for interpolating host photo-z resolution vs z
+//   Sim input key is HOSTLIB_GENZPHOT_FUDGEMAP: <STRING>
+typedef struct {
+  char STRING[200]; // e.g., 'z0:RMS0,z1:RMS1,z2:RMS2,etc...'
+  int    NzBIN; 
+  double z_LIST[100]  ;
+  double RMS_LIST[100] ;
+} HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
+
 // -------------------------------------
-// define user INPUTS
+// HELP_INPUTS_BEGIN SIM
 
 struct INPUTS {
 
-  int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
-  int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
-  int USE_SPECTROGRAPH_REFACTOR ; // handle LSF at bin edges
+  int USE_KCOR_REFACTOR; // 1-> run both legacy and new; 2-> new only 
+  int USE_KCOR_LEGACY;   // use legacy fortran code to read & apply
+  
+  bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
+  bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
+  bool README_DUMPFLAG;      // dump readme and stop (Feb 2022)
 
-  bool DASHBOARD_DUMPFLAG ;
-  bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
-
-  // input file list includes nominal, plus up to 2 INCLUDE files
+  // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
+  char TIME_START[100];  // override start time for batch uniformity 
+
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 
   int  NWORDLIST ;      // number of words read from input file
@@ -397,28 +429,32 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
+  bool APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
+
+  bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_DES3YR;          // restore DES3YR bugs
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
-  char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
-  char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
+
+  char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file
+  char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)
   int  SIMLIB_GZIPFLAG ;            // gzip flag (needed to rewind)
 
+  char SIMLIB_SURVEY[40];     // override name of SURVEY in simlib file
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
-  //xxxSTRING_DICT_DEF DICT_FIELDLIST_PRESCALE; //
   STRING_DICT_DEF DICT_SIMLIB_FIELDLIST_PRESCALE;   // SIMLIB ps per FIELD
   STRING_DICT_DEF DICT_SPECTRUM_FIELDLIST_PRESCALE; // spectrum ps per FIELD
 
   int  SIMLIB_IDSTART;      // start at this LIBID (default=1)
   int  SIMLIB_MAXRANSTART;  // start at random LIBID among this many
-  int  SIMLIB_IDLOCK;    // >0 => use same LIBID; 
+  int  SIMLIB_IDLOCK;    // >0 => use same LIBID;
                          // e.g., 1 => always 1st used LIBID
-  int  SIMLIB_MINOBS;    // min NOBS to use (default=5) 
-  int  SIMLIB_NREPEAT ;  // repeat each ID this many times (for less reading) 
+  int  SIMLIB_MINOBS;    // min NOBS to use (default=5)
+  int  SIMLIB_NREPEAT ;  // repeat each ID this many times (for less reading)
   int  SIMLIB_MXREPEAT ; // used only with BPOLY Galactic rate model
   double SIMLIB_MINSEASON ; // min season length (days); default=0
 
@@ -445,9 +481,12 @@ struct INPUTS {
   int *CIDRAN_LIST ;        // for internal use to create random CID list
   int  CIDRAN_MAX ;         // max CID (used for random CID only)
   int  CIDRAN_MIN ;         // min CID (used for random CID only)
+  int  CIDRAN_SKIPLIST[MXZRAN];  // do not use these user-input CIDRANs
+  int  NCIDRAN_SKIPLIST;
+  char CIDRAN_SKIPLIST_STRING[200]; // for writing to readme
 
   int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
-  int  NJOBTOT;     // idem, for submit_batch_jobs.py 
+  int  NJOBTOT;     // idem, for submit_batch_jobs.py
 
   int  HOSTLIB_USE ;            // 1=> used; 0 => not used, 2=>rewrite HOSTLIB
   char HOSTLIB_PLUS_COMMAND[60];        //e.g., +HOSTMAGS, +HOSTNBR, +HOSTAPPEND
@@ -460,12 +499,25 @@ struct INPUTS {
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
-  int  HOSTLIB_GALID_PRIORITY[2] ;    // preferentially select this GALID range
-  int  HOSTLIB_MINDAYSEP_SAMEGAL ;    // min DAYs before re-using host gal  
+  int  HOSTLIB_GALID_PRIORITY[2] ;  // preferentially select this GALID range
+  int  HOSTLIB_GALID_UNIQUE;         // flag to force unique galid
+  int  HOSTLIB_MINDAYSEP_SAMEGAL ;    // min DAYs before re-using host gal
+  float  HOSTLIB_MNINTFLUX_SNPOS; // gen SNPOS greater than this flux-fraction (.00)
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
+  float  HOSTLIB_MAXDDLR2 ;            // keep 2nd host with DDLR < MAXDDLR2
+  float  HOSTLIB_SMEAR_SERSIC ;        // PSF smear (FWHM, arcsec) for DLR_meas
+  char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
+  int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
+  float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
+
+  int    HOSTLIB_NMJD_SNR_SCALE;     // number of MJD ranges to scale host-SNR
+  float  HOSTLIB_SNR_SCALE[10][3];   //  up to 10 x { scale, MJDRange[2] }
+
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
+
+  HOSTLIB_GENZPHOT_FUDGEMAP_DEF HOSTLIB_GENZPHOT_FUDGEMAP;
   float  HOSTLIB_GENZPHOT_OUTLIER[2];  // range for FLAT outlier distribution.
   float  HOSTLIB_GENZPHOT_BIAS[5];     // poly(z) bias on ZPHOT (Mar 28 2018)
   int    USE_HOSTLIB_GENZPHOT;         // T if any of above are used
@@ -474,18 +526,19 @@ struct INPUTS {
   double HOSTLIB_GENRANGE_DEC[2];
   double HOSTLIB_SBRADIUS ; // arcsec, determine SB using this radius
 
-  double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tol vs z 
+  double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tol vs z
   GENPOLY_DEF HOSTLIB_GENPOLY_DZTOL; // zSN-zGAL tol vs zPOLY
 
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
+  char   HOSTLIB_SCALE_PROPERTY_ERR[200] ; // e.g. '0.8(LOGMASS),0.0(LOGSFR),0.1(LOGsSFR)' , default is 1.0 for every host prop  
   double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
   char   HOSTLIB_STOREPAR_LIST[2*MXPATHLEN]; // (I) comma-sep list
 
   // debug options
-  int    HOSTLIB_GALID_FORCE ;    // force this GALID 
+  int    HOSTLIB_GALID_FORCE ;    // force this GALID
   double HOSTLIB_ABMAG_FORCE ;    // for ABmag on galmag and gal spec
   double HOSTLIB_FIXRAN_RADIUS ;  // fix random number of radius
-  double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi 
+  double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi
   double HOSTLIB_FIXSERSIC[4];    // fix sersic a,b,n,a_rot
 
   char FLUXERRMODEL_FILE[MXPATHLEN];   // input err-scale map(s)
@@ -495,7 +548,7 @@ struct INPUTS {
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
-  char HOSTNOISE_FILE[MXPATHLEN]; 
+  char HOSTNOISE_FILE[MXPATHLEN];
 
   int  NGEN_LC;            // number of LCs to generate & write
   int  NGENTOT_LC;         // number of LCs to generate
@@ -504,7 +557,7 @@ struct INPUTS {
   float NGEN_SEASON ;      // Number of seasons to generate;
                            // season defined by redshift, MJDrange and dOmega
   int  NGEN ;               // one of the above
-  int  NGEN_SCREEN_UPDATE ; // screen-update after this many 
+  int  NGEN_SCREEN_UPDATE ; // screen-update after this many
 
   int  INIT_ONLY;           // 1=quit after init_RateModel
                             // 2=quit before generation
@@ -520,7 +573,7 @@ struct INPUTS {
   char MODELNAME[100];       // stripped from GENMODEL
 
   char GENPDF_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
-  char GENPDF_IGNORE[MXPATHLEN]; 
+  char GENPDF_IGNORE[MXPATHLEN];
   int  GENPDF_OPTMASK;           // bit-mask of options
   char GENPDF_FLAT[100];         // force flat PDF; e.g., SALT2x1,SALT2c,RV
 
@@ -530,6 +583,7 @@ struct INPUTS {
   char GENMODEL_ARGLIST[400] ;
   int  GENMAG_SMEAR_MSKOPT;   // bit-mask of GENSMEAR options
   unsigned int ISEED;         // random seed
+  unsigned int ISEED_ORIG;    // for readme output
   int          NSTREAM_RAN;   // number of independent random streams
 
   int    RANLIST_START_GENSMEAR;  // to pick different genSmear randoms
@@ -539,12 +593,14 @@ struct INPUTS {
   double w0_LAMBDA;
   double wa_LAMBDA;    // w = w0 + wa*(1-a)
   double H0;           // km/s per MPc
-  double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020) 
+  double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020)
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
   HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
+  ANISOTROPY_INFO_DEF ANISOTROPY_INFO ;
 
-  float GENRANGE_RA[2];        // RA range (deg) to generate
-  float GENRANGE_DEC[2];       // idem for DEC
+  double GENRANGE_RA[2];        // RA range (deg) to generate
+  double GENRANGE_DEC[2];       // idem for DEC
+  double GENRANGE_b[2];        // for Galactic events
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
   float MXRADIUS_RANDOM_SHIFT; // random coord shift within MXRADIUS, deg
 
@@ -552,7 +608,7 @@ struct INPUTS {
   double GENSIGMA_REDSHIFT;     // smear reported redshift
   double GENBIAS_REDSHIFT ;     // measurement + local bubble
   float  GENSIGMA_VPEC ;        // Gaussian sigma on Vpec, km/sec (default=0)
-  float  VEL_CMBAPEX ;          // CMB dipole vel; =0 --> zhelio = zcmb
+  double VEL_CMBAPEX ;          // CMB dipole vel; =0 --> zhelio = zcmb
   float  VPEC_ERR;              // error for vpec in data file
 
   char   WRONGHOST_FILE[MXPATHLEN];
@@ -561,7 +617,7 @@ struct INPUTS {
   RATEPAR_DEF RATEPAR_PEC1A ; // only for PEC1A in NON1A input
 
   char  STRING_FUDGE_SNRMAX[20];  // '[SNRMAX]'  or  '[BAND]=[SNRMAX]'
-  float FUDGE_SNRMAX;      // adjust EXPOSURE_TIME to force SNR at peak 
+  float FUDGE_SNRMAX;      // adjust EXPOSURE_TIME to force SNR at peak
   int   IFILTOBS_FUDGE_SNRMAX; // -1=all, or get scale from this IFILTOBS
   int   OPT_FUDGE_SNRMAX ;     // 1=adjust EXPOSURE_TIME; 2=adjust sigSKY only
 
@@ -577,12 +633,13 @@ struct INPUTS {
   float  MJDWIN_SETPKMJD;
   float  SNRCUT_SETPKMJD;
   float  NEWMJD_DIF;            // min MJD dif to count NEW MJD
-  
+
   int  MAGMONITOR_SNR ;   // compute SNR for this mag -> monitor
 
   GENGAUSS_ASYM_DEF GENGAUSS_SHAPEPAR ;    // MEAN, SIGMA, RANGE
   GENGAUSS_ASYM_DEF GENGAUSS_DELTA ;
   GENGAUSS_ASYM_DEF GENGAUSS_DM15 ;
+  GENGAUSS_ASYM_DEF GENGAUSS_THETA ;
   GENGAUSS_ASYM_DEF GENGAUSS_STRETCH ;
   GENGAUSS_ASYM_DEF GENGAUSS_RV ;
 
@@ -600,21 +657,17 @@ struct INPUTS {
   int                       NWARP_TAKE_SPECTRUM ; // set internally
   int                       NHOST_TAKE_SPECTRUM ; // set internally
 
-  char  STRETCH_TEMPLATE_FILE[200]; 
+  char  STRETCH_TEMPLATE_FILE[200];
 
-  double GENRANGE_AV[2];      // host extinction range
-  double GENEXPTAU_AV ;       // define exponential distribution of AV  
-  double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
-  double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
-  double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
-  int    DO_AV ;
+  int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
+  bool   DOGEN_SHAPE, DOGEN_COLOR ; // generate with function or GENPDF
 
   int    WV07_GENAV_FLAG;   //  1=> use published ESSENCE-WV07 distrib.
-  double WV07_REWGT_EXPAV;   //  re-weight exp component (default=1)   
+  double WV07_REWGT_EXPAV;   //  re-weight exp component (default=1)
 
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;    // MEAN, SIGMA, RANGE
-  GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;   
+  GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2ALPHA ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
   GENPOLY_DEF SALT2BETA_cPOLY;
@@ -629,7 +682,7 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_FALLTIME_SHIFT ;
 
   double  FIXMAG[2] ; // for observer-frame FIXMAG model
-  int     GENFRAME_FIXMAG;  // GENFRAME_OBS or GENFRAME_REST 
+  int     GENFRAME_FIXMAG;  // GENFRAME_OBS or GENFRAME_REST
 
   // SIMSED parameters & ranges
   int   USE_BINARY_SIMSED;  // 1 => use binary files fof faster I/O
@@ -650,7 +703,7 @@ struct INPUTS {
   int   OPTMASK_SIMSED; // argument for genmag_SIMSED (Dec 2018)
 
   int   NINDEX_SUBSET_SIMSED_GRIDONLY ;
-  int   INDEX_SUBSET_SIMSED_GRIDONLY[MXPAR_SIMSED]; 
+  int   INDEX_SUBSET_SIMSED_GRIDONLY[MXPAR_SIMSED];
 
   // inputs for SIMSED covariances among parameters in SED.INFO file
   int   NPAIR_SIMSED_COV ;                 // number of input COV pairs
@@ -667,7 +720,7 @@ struct INPUTS {
   int    MWEBV_FLAG;             // Milky way extinction flag (0,1)
   double MWEBV_SIGRATIO;         // ERR(MWEBV)/MWEBV (=0.16 in SJ code)
   double MWEBV_SIG ;             // fixed error on MWEBV
-  double MWEBV_SHIFT;  
+  double MWEBV_SHIFT;
   double MWEBV_SCALE;            // multiplicative scale (Jun 2017)
   double GENRANGE_MWEBV[2] ;     // useful for effic. maps.
   double RV_MWCOLORLAW ;          // Galactic RV (default=3.1)
@@ -683,8 +736,8 @@ struct INPUTS {
   float GENMAG_OFF_MODEL[MXFILTINDX];  // add user-model offset to mags
 
   float TMPOFF_ZP[MXFILTINDX];         // vs. sparse ifilt
-  float TMPOFF_MODEL[MXFILTINDX];  
-  float TMPOFF_LAMSHIFT[MXFILTINDX];   //  vs. sparse ifilt
+  float TMPOFF_MODEL[MXFILTINDX];
+  float TMPOFF_LAMFILT[MXFILTINDX];    // vs. sparse index
 
   // use float for MJD_TEMPLATE to use convenient parsing utility.
   // Precision doesn't matter for this.
@@ -702,8 +755,8 @@ struct INPUTS {
   char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
   float  GENMAG_SMEAR_ADDPHASECOR[2]; // magSmear and coh time
   char   GENMAG_SMEAR_SCALE[100];
-  // GENMAG_SMEAR_SCALE(c): 0.98,.1,-0.02,0.3,-5.0 
-  // GENMAG_SMEAR_SCALE(x1): 0.98,.1,-0.02 
+  // GENMAG_SMEAR_SCALE(c): 0.98,.1,-0.02,0.3,-5.0
+  // GENMAG_SMEAR_SCALE(x1): 0.98,.1,-0.02
 
   int    NPAR_GENSMEAR_USRFUN ;
   double GENMAG_SMEAR_USRFUN[100];   // intrinsic smear with function
@@ -711,7 +764,8 @@ struct INPUTS {
   double GENSMEAR_RANGauss_FIX ;   // if >=0 then set Gauss randoms to this
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
-  char   STRONGLENS_FILE[MXPATHLEN] ; 
+  char   STRONGLENS_FILE[MXPATHLEN] ;
+
   char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
   float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
   float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
@@ -725,10 +779,10 @@ struct INPUTS {
   char  GENFILTERS[MXFILTINDX];        // 'gri', 'grizY', etc ...
   int   NFILTDEF_OBS;
   int   IFILTMAP_OBS[MXFILTINDX];     // converts ifilt to ifilt_obs
-  float LAMAVG_OBS[MXFILTINDX];  
-  float LAMRMS_OBS[MXFILTINDX];  
-  float LAMMIN_OBS[MXFILTINDX];  
-  float LAMMAX_OBS[MXFILTINDX];  
+  double LAMAVG_OBS[MXFILTINDX];
+  double LAMRMS_OBS[MXFILTINDX];
+  double LAMMIN_OBS[MXFILTINDX];
+  double LAMMAX_OBS[MXFILTINDX];
 
   int   GENRANGE_DMPEVENT[2];  //dump events in this evt # range
   float GENRANGE_DMPTREST[2];  //dump rest-mags for this Trest-range
@@ -758,6 +812,8 @@ struct INPUTS {
   float FUDGESCALE_NOISE_TEMPLATE; // scale template noise
   float FUDGESHIFT_ZPT ;    ;  // shift zero point
   float FUDGESHIFT_ZPT_FILTER[MXFILTINDX]; // ZP shift per filter
+  float FUDGESHIFT_LAM;
+  float FUDGESHIFT_LAM_FILTER[MXFILTINDX];    // lam shift per filter
   float FUDGESCALE_FLUXERR  ;  // global fudge on true error
   float FUDGESCALE_FLUXERR2 ;  // global fudge on measured error only
   float FUDGESCALE_FLUXERR_FILTER[MXFILTINDX];  // true & measured errors
@@ -766,22 +822,23 @@ struct INPUTS {
   float FUDGE_MAGERR ;      ;  // global mag error fudge added to all errors
   float FUDGE_MAGERR_FILTER[MXFILTINDX]; // idem for each band
   float FUDGE_ZPTERR ;         // global fudge for ZPTERR in SIMLIB file
-  float FUDGE_ZPTERR_FILTER[MXFILTINDX] ; 
+  float FUDGE_ZPTERR_FILTER[MXFILTINDX] ;
 
   int   FUDGEOPT_FLUXERR;      // option passed to model of flux-err fudge
 
   int GENPERFECT;   // 1 => perfect lightcurves with x1000 photostats
-  int APPLY_SEARCHEFF_OPT ;      // bit 0,1,2 => trigger, spec, zhost
+  int APPLY_SEARCHEFF_OPT ;   // bit 0,1,2 => trigger, spec, zhost
 
   // define Gaussian sigmas to assign random syst error(s) during init stage
   INPUTS_RANSYSTPAR_DEF RANSYSTPAR ;
 
   // define snana-style cut windows
-  int APPLY_CUTWIN_OPT ;      // 0= ignore cuts; 1=> apply cuts; 
+  int APPLY_CUTWIN_OPT ;      // 0= ignore cuts; 1=> apply cuts;
                               // 3=> apply cuts to data, not to SIMGEN-DUMP
 
+  int   NCUTWIN_TOT;
   float EPCUTWIN_LAMREST[2];    // lambda-requirement on all epochs
-  float EPCUTWIN_SNRMIN[2];     // min SNR needed for each epoch       
+  float EPCUTWIN_SNRMIN[2];     // min SNR needed for each epoch
   float CUTWIN_TRESTMIN[2];
   float CUTWIN_TRESTMAX[2];
   float CUTWIN_TGAPMAX[2];     // rest-frame maxgap
@@ -793,8 +850,8 @@ struct INPUTS {
   int   NCUTWIN_SNRMAX ;                      // number of SNRMAX cuts
   int   OVERRIDE_CUTWIN_SNRMAX ;              // flag to override SNRMAX cuts
   float CUTWIN_SNRMAX[MXCUTWIN_SNRMAX][2];    // SNRMAX window
-  // list of obs filters to require SNRMAX  
-  char  CUTWIN_SNRMAX_FILTERS[MXCUTWIN_SNRMAX][MXFILTINDX]; 
+  // list of obs filters to require SNRMAX
+  char  CUTWIN_SNRMAX_FILTERS[MXCUTWIN_SNRMAX][MXFILTINDX];
   int   CUTWIN_SNRMAX_NFILT[MXCUTWIN_SNRMAX] ;      // Nfilt passing SNRMAX
   char  CUTWIN_SNRMAX_LOGIC[MXCUTWIN_SNRMAX][8];    // specify "N", AND or OR
   float CUTWIN_SNRMAX_TREST[MXCUTWIN_SNRMAX][2];    // rest-frame epoch window
@@ -854,6 +911,7 @@ struct INPUTS {
 
   int  NVAR_SIMGEN_DUMP;  // number of SIMGEN variables to write to fitres file
   char VARNAME_SIMGEN_DUMP[MXSIMGEN_DUMP][40] ; // var-names
+  bool IS_SIMSED_SIMGEN_DUMP[MXSIMGEN_DUMP];
   int  IFLAG_SIMGEN_DUMPALL ;  // 1 -> dump every generated SN
   int  PRESCALE_SIMGEN_DUMP ;  // prescale on writing to SIMGEN_DUMP file
 
@@ -876,18 +934,20 @@ struct INPUTS {
 
 } INPUTS ;
 
+// HELP_INPUTS_END
 
 // define GENLC structure
 struct GENLC {
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
-  char SUBSURVEY_NAME[40]; // DDD mark delete after refactor
-  int  IDSURVEY ;                
+  char SUBSURVEY_NAME[40]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
+  int  SUBSURVEY_ID;       // IDSURVEY for SUBSURVEY
+  int  IDSURVEY ;
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
   int  SIMLIB_USEFILT_ENTRY[MXFILTINDX];   // 1=> filter used for this entry
 
-  int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)     
+  int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)
   int  SIMLIB_ID;        // LIB ID from simlib
   int  SIMLIB_IDMAX;     // max ID in libraray
   //  int  SIMLIB_NWRAP;     // number of library wrap-arounds
@@ -898,7 +958,7 @@ struct GENLC {
 
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
-  double RA, DEC ;          // generated position
+  double RA, DEC, cosDEC ;          // generated position
   double random_shift_RA, random_shift_DEC;     // random coord shift
   double random_shift_RADIUS, random_shift_PHI;
   double GLON, GLAT;        // for LCLIB-galactic models
@@ -912,6 +972,8 @@ struct GENLC {
   double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;
+  double MJD_RANGE[2];       // MJD range to accept in SIMLIB
+  double MJD_RANGE_LC[2];    // MJD range of lightcurve withing GENRANGE_TREST
   int    ISOURCE_PEAKMJD;    // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;       // explosion time for NON1A or SIMSED
   double DTSEASON_PEAK;      // |PEAKMJD-MJD_seasonEdge|
@@ -922,6 +984,7 @@ struct GENLC {
   double REDSHIFT_SMEAR_ERR ;     // reported error on above
   double VPEC ;                   // true radial peculiar velocity, km/sec
   double VPEC_SMEAR ;             // measured VPEC (Jan 2018)
+  double REDSHIFT_MAX_SNR5 ;      // zmax with SNR > 5 (for monitor only)
 
   int    CORRECT_HOSTMATCH ;  // 1=correct match, 0=wrong host
 
@@ -935,8 +998,9 @@ struct GENLC {
   double  STRETCH;
   double  DELTA;        // for MLCS2k2 model
   double  DM15;         // for DM15 model
+  double  THETA;        // for BAYESN
   double  SHAPEPAR ;
-  double *ptr_SHAPEPAR ; 
+  double *ptr_SHAPEPAR ;
 
   double SALT2x0 ;
   double SALT2x1 ;
@@ -950,7 +1014,7 @@ struct GENLC {
 
   char  SNTYPE_NAME[80];   // 1a, 1b, 1c, II, etc ...
   char  SNTEMPLATE[80];
- 
+
   char  DISTANCE_NAME[40];    // DLMAG, mB, ...
   char  COLORPAR_NAME[40];    // c, AV ...
   char  SHAPEPAR_NAME[40] ;   // name of SHAPEPAR: DM15, DELTA, etc ...
@@ -958,7 +1022,7 @@ struct GENLC {
   char  COLORPAR2_NAME[40] ;  // RV, beta ...
   char  SHAPEPAR2_NAME[40] ;  // alpha ...
 
-  int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat 
+  int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat
   double SIMSED_PARVAL[MXPAR_SIMSED];    // params for SIMSED model
 
   double AVTAU;       // exponential tau for host extinction
@@ -977,7 +1041,7 @@ struct GENLC {
   double MWEBV_ERR ;         // assigned error (for fitting unc.)
   double FLUXCOR_MWEBV_MAP[MXFILTINDX]; // analysis flux-cor per filter
   double MAGCOR_MWEBV_MAP[MXFILTINDX];  // analysis mag-cor per filter
-  double MAGCOR_MWEBV_TRUE[MXFILTINDX];  
+  double MAGCOR_MWEBV_TRUE[MXFILTINDX];
   double RA_LAST, DEC_LAST;  // re-compute MWEBV only if RA,DEC change
 
   int NFILTDEF_OBS;     // number of user-defined observer filters
@@ -988,11 +1052,13 @@ struct GENLC {
   int IFILTMAP_REST2[MXFILTINDX]; // 2nd near rest-filt index vs. sparse index
   int IFILTMAP_REST3[MXFILTINDX]; // 3rd nearest
 
+  /* xxx mark delete Nov 15 2022 
   int  NFILTDEF_SPECTROGRAPH ;
   int  IFILTDEF_SPECTROGRAPH[MXFILTINDX];     // vs. sparse synth spectro bands
   int  IFILTINV_SPECTROGRAPH[MXFILTINDX];     // vs. absolute ifilt_obs
   char FILTERLIST_SPECTROGRAPH[MXFILTINDX] ;  // idem
   int  IFLAG_SYNFILT_SPECTROGRAPH[MXFILTINDX] ;  // vs. ifilt_obs
+  xxxx */
 
   double LAMDIF_REST1[MXFILTINDX];
   double LAMDIF_REST2[MXFILTINDX];
@@ -1003,8 +1069,8 @@ struct GENLC {
   int IFILTINVMAP_SIMLIB[MXFILTINDX];  // inverse map
 
   int  NFILTDEF_REST;    // for model
-  int  IFILTMAP_REST[MXFILTINDX] ; 
-  int  IFILTINVMAP_REST[MXFILTINDX]; 
+  int  IFILTMAP_REST[MXFILTINDX] ;
+  int  IFILTINVMAP_REST[MXFILTINDX];
   char FILTLIST_REST[MXFILTINDX] ;
 
   int DOFILT[MXFILTINDX] ; // logical to generate ifilt_obs
@@ -1018,16 +1084,17 @@ struct GENLC {
   int   CID ;           // internal data CID or 40000 + ilc
   int   CIDOFF ;       // CID offset depends on MJD range (random only)
   int   CIDRAN ;       // use this random CID (if INPUTS.CIDRAN > 0)
-  //  int   YEAR ;         // survey year simulated
+  int   CID_FINAL;     // CID or CIDRAN
+
   int   SUBSAMPLE_INDEX ; // only if NSUBSAMPLE_MARK > 0 (June 2017)
   int   NEPOCH;        // includes model-epoch at T=0 and epoch with fluxerr<0
 
   int   ACCEPTFLAG ;       // True of event is accepted
   int   ACCEPTFLAG_FORCE ; // true if same LIBID is read too many times
-  int   ACCEPTFLAG_LAST ;  
+  int   ACCEPTFLAG_LAST ;
 
   double  MJD[MXEPSIM];
-  int     INDEX_MJDSORT[MXEPSIM]; 
+  int     INDEX_MJDSORT[MXEPSIM];
   int     IFILT_OBS[MXEPSIM];    // observer filter vs. epoch
   int     IEPOCH_NEARPEAK ;    // epoch-index closest to peak (for trigger)
   double  DTPEAK_MIN ;        // t-Tpeak for nearest obs.
@@ -1045,11 +1112,11 @@ struct GENLC {
   float TRESTMAX ;
   float TGAPMAX  ;
   float T0GAPMAX ;
-  float TIME_ABOVE_SNRMIN ;  
+  float TIME_ABOVE_SNRMIN ;
 
   double SNRMAX_GLOBAL ;
   double SNRMAX_FILT[MXFILTINDX];   // vs. filter
-  double SNRMAX_SORTED[MXFILTINDX]; // [1]=>max among all filt, [2]=>2nd max, 
+  double SNRMAX_SORTED[MXFILTINDX]; // [1]=>max among all filt, [2]=>2nd max,
   double SNRMAX_TRUE[MXFILTINDX];   // trueFlux/error
 
   double FLUXADU_at_SNRMAX[MXFILTINDX] ;   // needed for FUDGE2_SNRMAX option
@@ -1070,13 +1137,13 @@ struct GENLC {
 
   // flux and magnitudes (float-> double, Jan 2014)
   double flux[MXEPSIM] ;            // flux in ADU
-  double fluxerr_data[MXEPSIM];     // reported error in data file 
+  double fluxerr_data[MXEPSIM];     // reported error in data file
   double template_err[MXEPSIM];     // correlated template error
   double trueSNR[MXEPSIM];          // true/generated SNR
   int    npe_above_sat[MXEPSIM];    // nphotoelectrons above saturation
 
   FLUXNOISE_DEF *FLUXNOISE;    // Dec 27 2019 - refactor for noise cov.
-  
+
   MONITOR_REDCOV_FLUXNOISE_DEF MONITOR_REDCOV_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
 
   // xxxx -----------------------------------------------------
@@ -1086,7 +1153,7 @@ struct GENLC {
   double NOISE_SKY[MXEPSIM] ;
   double NOISE_TEMPLATE[MXEPSIM] ; //correlated noise from TEMPLATE_SKY[CCD]SIG
   double NOISE_CCD[MXEPSIM];
-  double NOISE_HOSTGAL_PHOT[MXEPSIM] ;  // galaxy shot noise 
+  double NOISE_HOSTGAL_PHOT[MXEPSIM] ;  // galaxy shot noise
   double NOISE_HOSTGAL_IMAGE[MXEPSIM] ; // anomalous noise from HOSTNOISE_FILE
   double NOISE_TOTAL[MXEPSIM] ;
 
@@ -1107,7 +1174,7 @@ struct GENLC {
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
 
-  double  SPECEFF_RAN[MXFILTINDX+1]  ;  
+  double  SPECEFF_RAN[MXFILTINDX+1]  ;
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
 
   double  NON1AGRID_RANFlat;    // to pick random template id
@@ -1115,7 +1182,6 @@ struct GENLC {
 
   double  COVMAT_SCATTER_GRAN[3];   // Gaussian randoms for intrinsic scatter
   double  COVMAT_SCATTER[3];        // scattered values
-  char    COVMAT_SCATTER_README[10][100];
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
@@ -1124,20 +1190,22 @@ struct GENLC {
   double  epoch_rest[MXEPSIM];      // rest epoch relative to peak, days
   double  genmag_obs[MXEPSIM] ;     // generated obs  magnitude
   double  generr_obs[MXEPSIM] ;     // obs mag err from model
-  double  peakmag_obs[MXFILTINDX] ;          
+  double  peakmag_obs[MXFILTINDX] ;
   double  genmag_obs_template[MXFILTINDX]; // for LCLIB model (stars)
 
   double  genmag_rest[MXEPSIM] ;    // idem, rest frame
   double  generr_rest[MXEPSIM] ;    // idem, rest frame
-  double  peakmag_rest[MXFILTINDX] ;          
+  double  peakmag_rest[MXFILTINDX] ;
 
   double  genmag_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
   double  generr_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  peakmag_rest2[MXFILTINDX] ;          
+  double  peakmag_rest2[MXFILTINDX] ;
 
   double  genmag_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
   double  generr_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  peakmag_rest3[MXFILTINDX] ;          
+  double  peakmag_rest3[MXFILTINDX] ;
+
+  int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
@@ -1156,11 +1224,6 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
-  // Jan 19 2020:
-  //   ISPEAK    -> OBSFLAG_PEAK
-  //   ISOBS     -> OBSFLAG_GEN
-  //   USE_EPOCH -> OBSFLAG_WRITE
-  //   ISTEMPLATE -> OBSFLAG_TEMPLATE
   bool OBSFLAG_GEN[MXEPSIM];     // flag to generate mags & flux
   bool OBSFLAG_WRITE[MXEPSIM];   // write these to data file
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
@@ -1174,10 +1237,12 @@ struct GENLC {
   float COVAR[MXFILT_COVAR][MXEPCOV][MXFILT_COVAR][MXEPCOV] ;  // cov matrix
   float PEAKMAGERR_MODEL[MXFILTINDX];
 
-  int     SEARCHEFF_MASK;     // search eff mask 
-  double  SEARCHEFF_SPEC;     // EFF(spec-confirmed) 
+  int     SEARCHEFF_MASK;     // search eff mask
+  double  SEARCHEFF_SPEC;     // EFF(spec-confirmed)
   double  SEARCHEFF_zHOST;    // zHOST efficiency (only of not spec-confirmed)
   double  MJD_TRIGGER;           // min MJD when search trigger is satisfied.
+  double  MJD_DETECT_FIRST;   // mjd of first detection
+  double  MJD_DETECT_LAST;    // mjd of last detection
 
   int     CUTBIT_MASK;           // snana cutbit mask
   float   GENEFF, GENEFFERR;     // generation efficiency & error
@@ -1192,17 +1257,17 @@ struct GENLC {
   GENLC_NON1ASED_DEF NON1ASED ;  // Mar 24 2016
 
   // spectro and phot tags
-  int METHOD_TYPE ;    // SPEC or PHOT 
+  int METHOD_TYPE ;    // SPEC or PHOT
   int NTYPE_SPEC;      // number of spectroscopic tags
   int NTYPE_SPEC_CUTS; // # spec-tags after cuts
   int NTYPE_PHOT;      // number of photometric events
   int NTYPE_PHOT_CUTS; // idem after cuts
-  int NTYPE_PHOT_WRONGHOST; // idem with wrong host (4.2019)
- 
+  int NTYPE_PHOT_WRONGHOST;  // idem with wrong host (4.2019)
+  float FRAC_PHOT_WRONGHOST; // true fraction with wrong host
+
   // misc.
   int   STOPGEN_FLAG;
   int   FUDGE_SNRMAX_FLAG ;  // 0 or 1 or 2
-  int   PEAKMAG_TRIGGER_FLAG; 
 
 } GENLC ;
 
@@ -1210,42 +1275,65 @@ struct GENLC {
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
-  int REPEAT_FLAG;     // T => repeat image
-  int NIMG;            // number of images to process
+  int REPEAT_FLAG ;     // T => repeat image
+  int NGENLC_LENS_TOT ; // total number of generated lenses
+  int NIMG_GEN;        // number of 'generated' images to process
+  int NIMG_ACC;        // number of 'accepted'  images passing trigger
+
+  int NLENS_ACC[MXIMG_STRONGLENS]; // for SL dump
+  double MINSEP[MXIMG_STRONGLENS]; // min sep to nearest other lensed LC
+  double MINSEP_ALL ; // min separation (arcsec) between all lensed events
+
   int IMGNUM;          // image-num being processed
-  int IDLENS; 
-  int BLEND_FLAG;
-  double zSN, zLENS;
+
+  EVENT_STRONGLENS_DEF LIBEVENT;
+
+  long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
+  double zSN;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
-  double RA_noSL, DEC_noSL;
+  double RA_noSL, DEC_noSL, cosDEC;
+  double RA_LENS, DEC_LENS;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
-  double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+  int    CID_LIST[MXIMG_STRONGLENS] ;
 } GENSL ;
 
 
 // temp structure used by NEPFILT_GENLC
+// Jan 28 2022: define pointers to be malloced (save memory)
 struct GENFILT {
-  // 5 MB as of Aug 10 2017
-  double Trest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double Tobs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
+  
+  double *Trest[MXFILTINDX]; 
+  double *Tobs[MXFILTINDX]; 
+  double *genmag_obs[MXFILTINDX];  
+  double *genmag_smear[MXFILTINDX];
 
-  double genmag_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double *genmag_rest[MXFILTINDX]; 
+  double *genmag_rest2[MXFILTINDX];
+  double *genmag_rest3[MXFILTINDX];
 
-  double generr_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double *generr_obs[MXFILTINDX]; 
+  double *generr_rest[MXFILTINDX];
+  double *generr_rest2[MXFILTINDX];
+  double *generr_rest3[MXFILTINDX];
 } GENFILT ;
-
 
 
 int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
+int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
+int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
+
+// store stats for hostless and multi-hosts ; intended for README output
+// to quickly monitor these effects without analysis.
+struct {
+  int    NRANGE_REDSHIFT;
+
+  int    NGENLC[10];            // Nevt vs. z-range
+  int    NGENLC_NO_HOST[10];    // host-less events vs. z-range
+  int    NGENLC_MULTI_HOST[10]; // NMATCH=2 vs. z-range
+
+  double REDSHIFT_RANGE[10][2];
+} WRITE_HOSTMATCH;  // Jun, 2022
 
 int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
@@ -1263,11 +1351,9 @@ struct NGEN_REJECT {
 
 // valid Z-range with defined rest-frame model for each obs-filter
 // (for README comment only)
-double ZVALID_FILTER[2][MXFILTINDX] ; 
+double ZVALID_FILTER[2][MXFILTINDX] ;
 int    NSKIP_FILTER[MXFILTINDX]; // number of times obs-filter is skipped
 int    NGEN_ALLSKIP ;
-
-
 
   // define SIMLIB_DUMP struct vs. SIMLIB  entry
 int NREAD_SIMLIB ;
@@ -1285,7 +1371,7 @@ typedef struct {
   double SKYSIG_pe[MXFILTINDX];    // avg sky noise/pix
   double SKYMAG[MXFILTINDX];    // sky brightness (mag/arcsec^2)
   double M5SIG[MXFILTINDX];     // 5-sigma limiting mag (calculated quantity)
-  double FOM[MXFILTINDX];       // figure of merit 
+  double FOM[MXFILTINDX];       // figure of merit
 } SIMLIB_DUMP_DEF ;
 
 SIMLIB_DUMP_DEF  SIMLIB_DUMP_AVG1   ;  // avg for one SIMLIB entry
@@ -1299,16 +1385,17 @@ char SIMLIB_DUMPFILE_ROOT[MXPATHLEN];  // covert to root
 #define SIMLIB_DUMPMASK_SEQ   1  // one-row summary for each SEQUENCE (LIBID)
 #define SIMLIB_DUMPMASK_OBS   2  // one-row summary for each OBS
 
-#define TABLEID_SIMLIB_DUMP    7788 
-#define TABLENAME_SIMLIB_DUMP  "SIMLIB" 
+#define TABLEID_SIMLIB_DUMP    7788
+#define TABLENAME_SIMLIB_DUMP  "SIMLIB"
 
 
 struct SIMLIB_GLOBAL_HEADER {
 
   // stuff read from global SIMLIB header
   char SURVEY_NAME[60];
-  char SUBSURVEY_NAME[40];
-  char FILTERS[MXFILTINDX];  // global list of all filters 
+  char SUBSURVEY_LIST[MXPATHLEN];
+  char FILTERS[MXFILTINDX];  // global list of all filters
+  char FIELD[60];            // Nov 2021
   char TELESCOPE[60];
   char PSF_UNIT[40] ;
   bool NEA_PSF_UNIT;
@@ -1327,7 +1414,7 @@ struct SIMLIB_GLOBAL_HEADER {
   // flux-error correction maps
   char   FLUXERR_ADD_FILTERS[MXFILTINDX];
   double FLUXERR_ADD_VALUES[MXFILTINDX]; // values to add in quadrature
-  
+
   // LEGACY: error scales vs. filter and LOG10(SNR)
   int    NFLUXERR_COR ;
   char   FLUXERR_COR_FILTERS[MXFLUXERR_COR_SIMLIB][MXFILTINDX];
@@ -1336,21 +1423,22 @@ struct SIMLIB_GLOBAL_HEADER {
 
 } SIMLIB_GLOBAL_HEADER ;
 
+
 struct SIMLIB_HEADER {
   // header info for each LIBID entry
 
   // required
   char   LIBNAME[20];        // LIB[LIBID] (for SNTABLE)
-  char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, LOWZ_COMBINED) 
-  int    NOBS, LIBID, NWRAP ;  
+  char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, CFA3)
+  int    NOBS, LIBID, NWRAP ;
   int    NOBS_APPEND ;  // these obs are not MJD-sorted (Jan 2018)
   int    NOBS_SIM_MAGOBS; // NOBS with SIM_MAGOBS<99
-  double RA, DEC ; 
+  double RA, DEC ;
 
-  // optional stuff 
-  double MWEBV, PIXSIZE ; 
-  int    FAKEID, CCDNUM ; 
-  long long GALID; 
+  // optional stuff
+  double MWEBV, PIXSIZE ;
+  int    FAKEID, CCDNUM ;
+  long long GALID;
 
   // these header keys can be changed anywhere in the simlib entry
   char TELESCOPE[60] ; // July 2016
@@ -1362,11 +1450,11 @@ struct SIMLIB_HEADER {
   GENGAUSS_ASYM_DEF GENGAUSS_PEAKMJD ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;
-  double GENRANGE_REDSHIFT[2] ;  
-  double CUTWIN_REDSHIFT[2] ;  
+  double GENRANGE_REDSHIFT[2] ;
+  double CUTWIN_REDSHIFT[2] ;
 
   // season stuff computed from sorted MJDs (Apr 2017)
-  int    NSEASON ;  
+  int    NSEASON ;
   int    USE_SEASON[MXSEASON_SIMLIB]; // logical flag for each used season
   double MJDRANGE_SEASON[MXSEASON_SIMLIB][2];
   double TLEN_SEASON[MXSEASON_SIMLIB] ;
@@ -1403,8 +1491,8 @@ typedef struct  {
   int     IDEXPT[MXOBS_SIMLIB];
   int     NEXPOSE[MXOBS_SIMLIB];  // Jan 2018 (for saturation calc)
   double  MJD[MXOBS_SIMLIB];
-  double  CCDGAIN[MXOBS_SIMLIB];   
-  double  READNOISE[MXOBS_SIMLIB];  
+  double  CCDGAIN[MXOBS_SIMLIB];
+  double  READNOISE[MXOBS_SIMLIB];
   double  SKYSIG[MXOBS_SIMLIB];
   double  PSFSIG1[MXOBS_SIMLIB];
   double  PSFSIG2[MXOBS_SIMLIB];
@@ -1433,13 +1521,14 @@ typedef struct  {
 
   int    IFILT_SPECTROGRAPH[MXOBS_SIMLIB] ;  // synthetic filter index
   int    INDX_TAKE_SPECTRUM[MXOBS_SIMLIB] ;  // 0 to NPEREVT_TAKE_SPECTRUM-1
-  double TEXPOSE_SPECTROGRAPH[MXOBS_SIMLIB]; // exposure time 
+  double TEXPOSE_SPECTROGRAPH[MXOBS_SIMLIB]; // exposure time
 
-} SIMLIB_OBS_DEF ;  
+} SIMLIB_OBS_DEF ;
 
 
 SIMLIB_OBS_DEF SIMLIB_OBS_RAW ;  // read from simlib
 SIMLIB_OBS_DEF SIMLIB_OBS_GEN ;  // used to generate SN
+
 
 
 // Jan 6 2016 - define contiguous temp arrays used to sort SIMLIB by MJD.
@@ -1452,7 +1541,7 @@ struct {
 } SIMLIB_LIST_forSORT ;
 
 
-#define ALLFIELDS  "ALLFIELDS"
+
 struct SIMLIB_TEMPLATE {
 
   int    USEFLAG ;      // logical to use correlated template noise
@@ -1478,8 +1567,8 @@ struct SIMLIB_FLUXERR_COR {
 
 
 int GENFRAME_OPT;        // one of below, based on model option
-#define GENFRAME_REST 1  // => generate in rest frame; then boost
-#define GENFRAME_OBS  2  // => generate directly in obs frame
+#define GENFRAME_REST MASK_FRAME_REST  // => generate in rest frame; then boost
+#define GENFRAME_OBS  MASK_FRAME_OBS   // => generate directly in obs frame
 #define GENFRAME_HOST 3  // => used by TAKE_SPECTRUM on host instead of SN
 #define GENFRAME_MJD  4  // => used by TAKE_SPECTRUM for MJD option
 
@@ -1494,12 +1583,14 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 #define  IFLAG_GENRANDOM   1
 #define  IFLAG_GENGRID     4
 
+/* xxxx mark delete Nov 23 2022 xxx
 #define OPT_SNXT_CCM89  1  // use exact CCM89 model to apply host extinc
 #define OPT_SNXT_SJPAR  2  // use Saurabh alpha,beta,zeta paramitrization
+xxxxx */
 
 #define CUTBIT_TRESTMAX     0   // (1)
 #define CUTBIT_TRESTMIN     1   // (2)
-#define CUTBIT_SNRMAX       2   // (4)   max SNR cut 
+#define CUTBIT_SNRMAX       2   // (4)   max SNR cut
 #define CUTBIT_TGAPMAX      3   // (8)   max Tgap
 #define CUTBIT_T0GAPMAX     4   // (16)  idem near peak
 #define CUTBIT_NOBS_SNR     5   // (32)  NOBS with special SNR cut
@@ -1507,12 +1598,10 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 #define CUTBIT_MWEBV        7   // (128) galactic extinction
 #define CUTBIT_REDSHIFT     8   // (256) redshift
 #define CUTBIT_PEAKMAG      9   // (512) peak mag
-#define CUTBIT_TIME_ABOVE  10   // (1023) time above SNRMIN
-#define CUTBIT_SATURATE    11   // (2047) saturation cuts
+#define CUTBIT_TIME_ABOVE  10   // (1024) time above SNRMIN
+#define CUTBIT_SATURATE    11   // (2048) saturation cuts
 
 #define ALLBIT_CUTMASK    4095   // 2^(maxbit+1)-1
-//#define ALLBIT_CUTMASK   2047   // 2^(maxbit+1)-1
-//#define ALLBIT_CUTMASK   1023   // 2^(maxbit+1)-1
 
 // define strings to contain info about simulated volume & time
 int  NLINE_RATE_INFO;
@@ -1520,8 +1609,8 @@ char LINE_RATE_INFO[MXEPSIM][80];
 
 
 // define up to four allowed names for each model (e.g., 'mlcs2k2', 'mlcs')
-#define MXNAME_PER_MODEL 4  
-char GENMODEL_NAME[MXMODEL_INDEX][MXNAME_PER_MODEL][20]; 
+#define MXNAME_PER_MODEL 4
+char GENMODEL_NAME[MXMODEL_INDEX][MXNAME_PER_MODEL][20];
 
 struct GENPERFECT {
   int NVAR;
@@ -1546,7 +1635,7 @@ struct SIMGEN_DUMP {
 
   char  VARNAME[20] ;
 } SIMGEN_DUMP[MXSIMGEN_DUMP] ;
- 
+
 struct SIMGEN_DUMMY {
   float      VAL4 ;
   double     VAL8 ;
@@ -1565,7 +1654,7 @@ char WARNING_AVWARP_OVERFLOW[100];
 struct genSEDMODEL {
   double *lam ;
   double *primaryFlux ;
-  double *TransSN, *TransREF ; 
+  double *TransSN, *TransREF ;
 } genSEDMODEL ;
 
 
@@ -1583,7 +1672,7 @@ struct {
 #define MXPAR_ZVAR     150   // max number of ZVAR variables
 #define MXZBIN_ZVAR    100   // max number of zins to define Z-variation
 #define POLYORDER_ZVAR   3  // order of polynomial with ZPOLY option
-#define FLAG_ZPOLY_ZVAR  1 
+#define FLAG_ZPOLY_ZVAR  1
 #define FLAG_ZBINS_ZVAR  2
 
 int  USE_ZVAR_FILE ; // logical flag if ZVARIATION_FILE is set
@@ -1593,7 +1682,7 @@ char INPUT_ZVARIATION_FILE[MXPATHLEN] ;   // optional file with input info
 struct {
   int     FLAG  ;         // POLYnomial or ZBINS
   char    PARNAME[40];    // name of sim parameter to vary with z
-  GENPOLY_DEF POLY;       
+  GENPOLY_DEF POLY;
 
   // optional variation in z-bins to allow any functional form
   int     NZBIN;
@@ -1630,32 +1719,34 @@ void   SIMLIB_randomize_skyCoords(void);
 
 void   init_SIMLIB_HEADER(void);
 int    keep_SIMLIB_HEADER(void);
-int    keep_SIMLIB_OBS(int isort, int REPEAT);
+int    keep_SIMLIB_OBS(int isort);
 
-void   SIMLIB_read_templateNoise(char *field, char *whatNoise); 
+int    SIMLIB_read_templateNoise(char *field, char *whatNoise, char **wdlist);
 void   SIMLIB_TAKE_SPECTRUM(void) ;
+
+void   set_TIMERS(int flag);
 
 int    SKIP_SIMLIB_FIELD(char *field);
 int    USE_SAME_SIMLIB_ID(int IFLAG) ;
 void   set_SIMLIB_NREPEAT(void);
 
 void   store_SIMLIB_SEASONS(void);
-void   set_SIMLIB_MJDrange(int sameFlag, double *MJDrange);
+void   set_SIMLIB_MJDrange(int OPT, double *MJDrange);
 void   remove_short_SIMLIB_SEASON(void);
 
 void   store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE);
 void   store_GENSPEC(double *VAL_STORE);
 
 void   get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
-				  double TEXPOSE_S, double TEXPOSE_T, 
-				  double *ZPT, double *PSFSIG, 
+				  double TEXPOSE_S, double TEXPOSE_T,
+				  double *ZPT, double *PSFSIG,
 				  double *SKYSIG_S, double *SKYSIG_T);
 
 void   ABORT_SIMLIB_FILTER(int isort);
 //void   ABORT_SIMLIB_FILTER(int OPTLINE, double MJD, char *cfilt) ;
 
 int    IFIELD_OVP_SIMLIB(int OPT, char *FIELD) ;
-void   GENFILTERS_CHECK(void); 
+void   GENFILTERS_CHECK(void);
 
 
 double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR ) ;
@@ -1664,11 +1755,11 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 			  double *SCALE_SKYSIG, double *SCALE_SKYSIG_T,
 			  double *SCALE_READNOISE ) ;
 
-double SIMLIB_angsep_min(int NSTORE, double RA, double DEC, 
+double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
-int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT, 
+int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
 			char *cfiltList, int *ifiltList) ;
-void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
+void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
 
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header
@@ -1678,18 +1769,17 @@ void   ENDSIMLIB_check(void);
 
 void   get_user_input(void);       // top function to get user inputs
 void   set_user_defaults(void);    // set INPUTS.xxx defaults
-void   set_user_defaults_SPECTROGRAPH(void);  
-void   set_user_defaults_RANSYSTPAR(void);  
+void   set_user_defaults_SPECTROGRAPH(void);
+void   set_user_defaults_RANSYSTPAR(void);
 void   set_GENMODEL_NAME(void);
-
-int    read_input_file(char *inFile);          // parse this inFile
+int    read_input_file(char *inFile, int keySource);    
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
-bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
-int    parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
-			    GENGAUSS_ASYM_DEF *genGauss );
+void   parse_input_HOSTLIB_SNR_DETECT(char *string);
+void   parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
+void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);
 int    parse_input_RANSYSTPAR(char **WORDS, int keySource );
 int    parse_input_HOSTLIB(char **WORDS, int keySource );
@@ -1698,15 +1788,13 @@ int    parse_input_GENMODEL_ARGLIST(char **WORDS, int keySource );
 int    parse_input_GENMODEL(char **WORDS, int keySource );
 int    parse_input_NON1ASED(char **WORDS, int keySource );
 void   parse_GENMAG_SMEAR_MODELNAME(void);
-int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
+int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 				 float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
-void   parse_input_FIELDLIST(void);
 
-int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT, 
+int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 			   RATEPAR_DEF *RATEPAR );
 int    parse_input_ZVARIATION(char **WORDS, int keySource);
-int    parse_input_ZVARIATION_LEGACY(char **WORDS, int keySource);
 int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
@@ -1718,9 +1806,20 @@ bool   keyContains_SIMSED_PARAM(char *KEYNAME);
 int    parse_input_LCLIB(char **WORDS, int keySource );
 int    parse_input_CUTWIN(char **WORDS, int keySource );
 int    parse_input_GRIDGEN(char **WORDS, int keySource);
+int    parse_input_LENS(char **WORDS, int keySource );
 int    parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp );
+int    parse_input_SPECTRUM(char **WORDS, int keySource);
 void   expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE);
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
+int    parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource );
+int    parse_input_CID(char **WORDS, int keySource );
+
+// xxx to do ...
+int    parse_input_MWEBV(char **WORDS, int keySource );
+int    parse_input_GENMAG_OFF(char **WORDS, int keySource );
+int    parse_input_GENMAG_SMEAR(char **WORDS, int keySource );
+// xxxx
+
 void   parse_input_OBSOLETE(char **WORDS, int keySource );
 bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );
 
@@ -1736,10 +1835,12 @@ void   prep_dustFlags(void);
 void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
-void   prep_RANSYSTPAR(void); // called after reading user input 
+void   prep_RANSYSTPAR(void); 
+void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
-
+void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
+void   compute_mjd_explode(void);
 
 void   prep_simpath(void);
 int    get_NON1A_MODELFLAG(char *GENVERSION) ;
@@ -1751,17 +1852,17 @@ void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 void   gen_event_stronglens(int ilc, int istage);
 void   gen_random_coord_shift(void);
 void   gen_filtmap(int ilc);  // generate filter-maps
-void   gen_modelPar(int ilc, int OPT_FRAME);  
-void   gen_modelPar_SALT2(int OPT_FRAME); 
-void   gen_modelPar_SIMSED(int OPT_FRAME); 
-double pick_gridval_SIMSED(int ipar);
-void   gen_modelPar_dust(int OPT_FRAME); 
+void   gen_modelPar(int ilc, int OPT_FRAME);
+void   gen_modelPar_SALT2(int OPT_FRAME);
+void   gen_modelPar_SIMSED(int OPT_FRAME);
+double pick_gridval_SIMSED(int ipar, int ipar_model);
+void   gen_modelPar_dust(int OPT_FRAME);
 double gen_MWEBV(double RA, double DEC);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;
 
 void pick_NON1ASED(int ilc,
                    INPUTS_NON1ASED_DEF *INP_NON1ASED,
-                   GENLC_NON1ASED_DEF *GEN_NON1ASED) ; 
+                   GENLC_NON1ASED_DEF *GEN_NON1ASED) ;
 // ----------
 
 void   genran_modelSmear(void); // gen randoms for mag-smearing per filter.
@@ -1775,10 +1876,11 @@ double gen_peakmjd_smear(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 
-double gen_dLmag (double zCMB, double zHEL );
-void   gen_distanceMag(double zCMB, double zHEL, double *MU, double *lensDMU);
+double gen_dLmag (double zCMB, double zHEL, double GLON, double GLAT );
+void   gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
+		       double *MU, double *lensDMU);
 
-double genz_hubble(double zmin, double zmax, RATEPAR_DEF *RATEPAR ); 
+double genz_hubble(double zmin, double zmax, RATEPAR_DEF *RATEPAR );
 
 void   init_RATEPAR ( RATEPAR_DEF *RATEPAR ) ;
 void   set_RATEPAR(int ilc, INPUTS_NON1ASED_DEF *INP_NON1ASED ) ;
@@ -1793,11 +1895,12 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void update_accept_counters(void);
+void update_hostmatch_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model
 
-double  GENAV_WV07(void);   
+double  GENAV_WV07(void);
 double  gen_RV(void);          // generate RV from model
 void    gen_conditions(void);  // generate conditions for each field
 
@@ -1806,6 +1909,7 @@ int    gen_TRIGGER_PEAKMAG_SPEC(void); // call GENMAG_DRIVER for peak only
 int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 
 void   GENMAG_DRIVER(void);    // driver to generate true mags
+void   DUMP_GENMAG_DRIVER(void);
 void   GENFLUX_DRIVER(void);   // driver to generate observed fluxes
 void   GENFLUX_DRIVER_LEGACY(void);   // driver to generate observed fluxes
 void   set_GENFLUX_FLAGS(int ep);
@@ -1831,21 +1935,19 @@ void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
 double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX );
 double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX );
-double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T, 
+double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 				double *GAURAN_T) ;
 void   GENSPEC_FLAM(int imjd);
 void   GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux );
 
-void   GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux, 
-			       double GenFluxErr, double GenFluxErr_T );
-
 void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
-double GENSPEC_PICKMJD(int OPT, int INDX, double z, 
+double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
+void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) ;
 
-void   genmodel(int ifilt_obs, int inear);   // generate model-mags
-void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest, 
+void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
+void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,
 		     double z, double *epoch, double *genmag, double *generr);
 
 double genmodelSmear_interp(int ifilt_interp, int iep);
@@ -1863,25 +1965,27 @@ void   init_hostNoise(void) ;
 void   update_PARDEF_ZVAR(char *parName); // update PARDEF_ZVAR
 void   init_CIDRAN(void);
 void   sort_CIDRAN(void);
-void   init_modelSmear(void); 
+void   load_CIDRAN(void);
+void   init_modelSmear(void);
 void   dump_modelSmearSigma(void);
-void   init_genSmear_filters(void); 
+void   init_genSmear_filters(void);
 double genSmear_ERRSCALE(double *generr, int iep, int NEPFILT);
 void   check_model_default(int indx_model);
 void   checkpar_SIMSED(void);
 double get_zvariation(double z, char *parname);
-GENGAUSS_ASYM_DEF  get_zvariation_GENGAUSS(double z, char *parName, 
+GENGAUSS_ASYM_DEF  get_zvariation_GENGAUSS(double z, char *parName,
 					   GENGAUSS_ASYM_DEF *GENGAUSS_LOCAL );
 void   cp_zvariation(char *outFile_zvar);
 void   genmag_boost(void);
 void   genmag_MWXT_fromKcor(void);   // apply MW extinct for rest-frame models
 
 void   LOAD_SEARCHEFF_DATA(void);
-void   LOAD_SEARCHEFF_DATA_LEGACY(void); 
+void   LOAD_SEARCHEFF_DATA_LEGACY(void);
 
 void   gen_spectype(void);
 
 void   setz_unconfirmed(void);
+double zHEL_WRONGHOST(void);
 
 
 int    gen_cutwin(void);
@@ -1892,7 +1996,7 @@ void   screen_update(void);
 void   set_screen_update(int NGEN);
 
 int  setEpochGrid( double TMIN, double TMAX, double *TGRID);
-void interpEpochGrid(int NEP_LC, double *TList_LC, int NGRID,     
+void interpEpochGrid(int NEP_LC, double *TList_LC, int NGRID,
                      double *TList, double *magList, double *magerrList );
 
 void   init_RANDOMsource(void);    // init stuff for randoms
@@ -1900,31 +2004,17 @@ void   init_GENLC(void);
 int    fudge_SNR(void);
 
 int    NEPFILT_GENLC(int opt, int ifilt_obs);
+void   malloc_GENFILT(void);
+
 void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
+void   check_SNDATA_HOSTGAL_SNSEP(int m);
+
 void   MWEBVfluxCor_to_SNDATA(int epoch) ;
 
-void   readme_doc(int iflag_readme);
-void   readme_doc_SIMLIB(int *iline) ;
-void   readme_doc_filterWarn(int *iline);
-void   readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) ;
-void   readme_doc_MWXT(int *iline);
-void   readme_doc_NON1ASED(int *iline);
-void   readme_doc_SIMSED(int *iline);
-void   readme_doc_magSmear(int *iline);
-void   readme_doc_nonLin(int *iline);
-void   readme_doc_SALT2params(int *iline ) ;
-void   readme_doc_FIXMAG(int *iline ) ;
-void   readme_doc_GENPERFECT(int *iline ) ;
-void   readme_doc_FUDGES(int *iline) ;
-void   readme_doc_mapFileList(int *iline) ;
-void   readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) ;
-void   readme_doc_CUTWIN(int *iline) ;
-void   readme_doc_TAKE_SPECTRUM(int *iline);
-
-void   sprintf_GENGAUSS(char *string, char *name, 
+void   sprintf_GENGAUSS(char *string, char *name,
 			GENGAUSS_ASYM_DEF *genGauss);
 
 void   append_SNPHOT_TEXT(void);  // photometry
@@ -1938,7 +2028,6 @@ void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 int  GENRANGE_CUT(void);
 int  GENMAG_CUT(void);
 
-void DUMP_GENMAG_DRIVER(void);
 
 void DASHBOARD_DRIVER(void);
 void SIMLIB_DUMP_DRIVER(void);
@@ -1950,22 +2039,18 @@ void update_SIMLIB_DUMP_AVGALL(int OPT);
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;
 
-void test_fortran(void);
-void test_igm(void);
-void test_ran(void);
-void test_PARSE_WORDS(void);
-void test_zcmb_dLmag_invert(void);
-
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;
 void PREP_SIMGEN_DUMP(int OPT_DUMP );
 void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void);
-int  doReject_SIMGEN_DUMP(char *rejectStage) ;
+bool doReject_SIMGEN_DUMP(char *rejectStage) ;
 
 // functions for instrinsic scatter (from R.Biswas, Jul 27, 2011)
 void ZERO_COVMAT_SCATTER(void);
@@ -1975,58 +2060,63 @@ int  GEN_COVMAT_SCATTER ( double * scatter, double *randoms );
 
 void INIT_FUDGE_SNRMAX(void);
 
+
+// kcor functions
 extern void init_snvar__(int *IERR);
 
 extern void rdkcor_(char *kcorFile, int *IERR, int len);
+extern void set_zpoff__(void);
 
 extern double get_maglc8__(int *ifilt, double *t8, double *z8, double *av8);
+extern double get_mag8__(int *ifilt, double *t8, double *z8, double *av8, 
+			 double *mwebv8);
 
-extern double get_mwxt8__(int *ifilt, double *t8, double *z8, double *av8, 
+extern double get_mwxt8__(int *ifilt, double *t8, double *z8, double *av8,
 			  double *mwebv8, double *RV, int *OPT_COLORLAW );
 
-extern double get_kcor8__(int *ifilt_rest, int *ifilt_obs, 
+extern double get_kcor8__(int *ifilt_rest, int *ifilt_obs,
 			  double *t8, double *z8, double *av8 );
 
-extern double get_avwarp8__(double *t8, double *z8, 
-			    double *mag8_1, double *mag8_2, 
+extern double get_avwarp8__(double *t8, double *z8,
+			    double *mag8_1, double *mag8_2,
 			    int *ifilt_1, int *ifilt_2, int *istat );
 
-extern void get_filtlam__(int *opt_frame, int *ifilt, 
-			  float *lamavg, float *lamrms, 
-			  float *lammin, float *lammax ) ;
+extern void get_filtlam__(int *opt_frame, int *ifilt,
+			  double *lamavg, double *lamrms,
+			  double *lammin, double *lammax ) ;
 
 extern void get_kcor_info__(int *NKCOR, double *RV, int *OPT_MWCOLORLAW );
 
 extern void   rdxtpar_(char *xtDir, int len);
 extern void   init_xthost__( int *opt );
-extern double get_snxt8__(int *opt, int *ifilt, 
+extern double get_snxt8__(int *opt, int *ifilt,
 			 double *T8, double *AV8, double *RV8);
 
 extern int nearest_ifilt_rest__( int *opt, int *ifilt_obs, int *rank, float *z, float *lamdif_min );
 
 
-extern int filtindx_(char *cfilt, int len); 
+extern int filtindx_(char *cfilt, int len);
 
 extern int get_filtmap__ ( char *copt, float *filtmap, int len );
 
 
-extern void get_filttrans__(int *maskFrame, int *ifilt, 
-			    char *survey_name, char *filter_name, 
-			    double *magPrim, int *NLAM, double *lam, 
-			    double *TransSN, double *TransREF, 
-			    int len1, int len2);
+extern void get_filttrans_legacy__(int *maskFrame, int *ifilt,
+				   char *survey_name, char *filter_name,
+				   double *magPrim, int *NLAM, double *lam,
+				   double *TransSN, double *TransREF,
+				   int len1, int len2);
 
 extern void set_survey__ ( char *name, int *NFILTDEF, int *IFILTDEF,
 			   float *LAMSHIFT, int len  );
 
 extern int  get_idsurvey__(char *survey, int len );
 
-extern double kcorfun8_ ( int *ifilt_obs, int *ifilt_rest, 
-			  double *mag_rest, double *lamdif, 
+extern double kcorfun8_ ( int *ifilt_obs, int *ifilt_rest,
+			  double *mag_rest, double *lamdif,
 			  double *Trest, double *Z, double *AVwarp ) ;
 
-extern void  get_primary__(char *primary, int *NLAM, 
-			   double *lam, double *primFlux, int len);
+extern void  get_primary_legacy__(char *primary, int *NLAM,
+				  double *lam, double *primFlux, int len);
 
 // -----------------------------
 //   genmag_xxx functions
@@ -2038,65 +2128,67 @@ int npe_above_saturation ( int epoch, double flux_pe);
 int init_genmag_mlcs2k2(char *version, char *covFile, float scale_covar,
 		     char *filtlist );
 
-int genmag_mlcs2k2(int ifilt, double delta, int nobs, 
+int genmag_mlcs2k2(int ifilt, double delta, int nobs,
                 double *rest_dates, double *rest_magval, double *rest_magerr);
 
-int gencovar_mlcs2k2(int matsize, int *ifilt, double *rest_epoch, 
+int gencovar_mlcs2k2(int matsize, int *ifilt, double *rest_epoch,
                   double *covar );
 
 
 int init_genmag_snoopy( char *modelPath, int optmask, char *filtlist);
 
-int genmag_snoopy(int ifilt, double dm15, int nobs, double *rest_dates, 
+int genmag_snoopy(int ifilt, double dm15, int nobs, double *rest_dates,
 		  double *rest_mags, double *rest_magerrs );
 
 int init_genmag_stretch0 ( char *templateFilename, char *filtersystem);
 
-int init_genmag_stretch ( 
+int init_genmag_stretch (
                          double H0_ini
                          ,double OMEGAM_ini
                          ,double OMEGAL_ini
-                         ,double W0_ini 
+                         ,double W0_ini
                          ,double RV_ini
-                         ,char  *templateFilename 
+                         ,char  *templateFilename
                          ,char  *filtersystem
                          );
 
 
-int init_genmag_SALT2(char *model_version, char *model_extrap_latetime, 
+int init_genmag_SALT2(char *model_version, char *model_extrap_latetime,
 		      int OPTMASK);
 
-void genmag_SALT2(int OPTMASK, int ifilt, 
+void genmag_SALT2(int OPTMASK, int ifilt,
 		  double *parList_SN, double *parList_HOST, double mwebv,
-		  double z, double z_forErr, int nobs, double *Tobs, 
+		  double z, double z_forErr, int nobs, double *Tobs,
 		  double *magobs_list, double *magerr_list );
 
-double SALT2x0calc(double alpha, double beta, double x1, double c, 
+double SALT2x0calc(double alpha, double beta, double x1, double c,
 		   double dlmag);
 double SALT2mBcalc(double x0);
 
-int init_genmag_SIMSED(char *version, char *PATH_BINARY, 
+int init_genmag_SIMSED(char *version, char *PATH_BINARY,
 		       char *SURVEY, char *kcorFile, int OPTMASK );
 
-void genmag_SIMSED(int OPTMASK, int ifilt, double x0, 
-		   int NLUMIPAR, int *iflagpar, int *iparmap, double *lumipar, 
+void genmag_SIMSED(int OPTMASK, int ifilt, double x0,
+		   int NLUMIPAR, int *iflagpar, int *iparmap, double *lumipar,
 		   double RV_host, double AV_host,
-		   double mwebv, double z, int nobs, double *Tobs, 
+		   double mwebv, double z, int nobs, double *Tobs,
 		   double *magobs_list, double *magerr_list, int *index_sed );
 
 // ------------------------------------
 // generic functions for SEDMODELs
 
 int init_filter_SEDMODEL(int ifilt, char *filter_name, char *survey_name,
-			 double magprimary, int NLAM, double *lam, 
+			 double magprimary, int NLAM, double *lam,
 			 double *transSN, double *transREF, double lamshift);
 
-int init_primary_SEDMODEL(char *refname, int NLAM, 
+int init_primary_SEDMODEL(char *refname, int NLAM,
 			  double *LAMLIST, double *FLUXLIST );
 
 int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) ;
 
 double gridval_SIMSED(int ipar,  int ibin);
 double nearest_gridval_SIMSED (int ipar, double lumipar );
+
+void print_sim_help(void);
 
 // ========== END OF FILE ============

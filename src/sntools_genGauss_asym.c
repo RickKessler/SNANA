@@ -2,6 +2,8 @@
 //   sntools_genGauss_asym.h
 //
 //  Jun 12 2020: remove obsolete/unused skewnormal code
+//  Jun 24 2021: dillon added parse_input_gengauss,checkVal_GENGAUSS
+//               from snlc_sim.c to use in SALT2mu subprocess
 // =============================
 
 #include <stdio.h>
@@ -27,8 +29,10 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   sprintf(genGauss->NAME,"NULL");
 
-  genGauss->USE       = false ;
-  genGauss->PEAK      = VAL ;
+  genGauss->USE          = false ;
+  genGauss->PEAK         = VAL ;
+  genGauss->PEAKRANGE[0] = VAL ;
+  genGauss->PEAKRANGE[1] = VAL ;
 
   genGauss->RANGE[0]  = VAL ;
   genGauss->RANGE[1]  = VAL ;
@@ -51,6 +55,10 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   genGauss->RMS       = 0.0 ;
 
+  genGauss->INDEX     = -999 ;
+
+  genGauss->KEYSOURCE = -9;
+
 } // end init_GENGAUSS_ASYM
 
 // ************************************
@@ -72,6 +80,7 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
     genGauss2->RANGE[i]  = genGauss1->RANGE[i] ;
     genGauss2->SIGMA[i]  = genGauss1->SIGMA[i] ;
     genGauss2->SKEW[i]   = genGauss1->SKEW[i] ;
+    genGauss2->PEAKRANGE[i]  = genGauss1->PEAKRANGE[i] ;
   }
 
   genGauss2->FUNINDEX = genGauss1->FUNINDEX ;
@@ -84,6 +93,10 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
 
   genGauss2->RMS        =  genGauss1->RMS ;
 
+  genGauss2->INDEX      = genGauss1->INDEX ; 
+
+  genGauss2->KEYSOURCE  = genGauss1->KEYSOURCE ; 
+
   return ;
 
 } // end copy_GENGAUSS_ASYM
@@ -95,7 +108,7 @@ void set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
 
   // July 2020
   // Utility to set Asymmetric Gauss params of genGauss.
-  // Does not set 2nd peak, nor sew.
+  // Does not set 2nd peak, nor skew.
 
   genGauss->USE      = true ;
   genGauss->PEAK     = peak;
@@ -146,15 +159,63 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
 
 
 // **********************************
-double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
+double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
+  // Created July 12 2021
+  // Warning! Works only for a single peaked Gaussian! 
+
+  double peak = genGauss->PEAK ;
+  double siglo = genGauss->SIGMA[0] ; 
+  double sighi = genGauss->SIGMA[1] ;
+  double *peakrange = genGauss->PEAKRANGE ; 
+  double prob2 = genGauss->PROB2 ;
+  double funVal = NULLDOUBLE ;
+  double arg, tmp ;
+  char *NAME  = genGauss->NAME;
+  char fnam[] = "funVal_GENGAUSS_ASYM";
+
+  // ----------- BEGIN ---------------
+  if (prob2 > 0) {
+    sprintf(c1err,"Second peak not supported for function='%s'", NAME);
+    sprintf(c2err, "Remove PROB2 or fix code") ; 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  if (x < peakrange[0]) {
+    tmp = (x - peakrange[0]) / siglo ;
+    arg = .5 * tmp * tmp ;
+    funVal = exp(-arg) ; //note funVal=1 when x = peakrange[0]
+  }
+
+  else if (x < peakrange[1]) {
+    funVal = 1.0;
+  }
+
+  else {
+    tmp = (x - peakrange[1]) / sighi ;
+    arg = .5 * tmp * tmp ;
+    funVal = exp(-arg) ; //note funVal=1 when x = peakrange[1]
+  }
+
+  if (funVal < 0.) {
+    sprintf(c1err,"Invalid funVal = %f for x = %f", funVal, x);
+    sprintf(c2err, "Something crazy happened for function='%s'", NAME) ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  } 
+
+  return funVal;
+
+} // end funVal_GENGAUSS_ASYM
+
+// **********************************
+double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   // Created May 2012: 
+  //
   // return random Guassian number with above params
   // If siglo & sighi > 100*(hi-lo), then just assume a flat
   // distribution between lo & hi.
-  // Same as BIGAUSRAN, but here a struct is passed with all the args.
+  // Same as getRan_GaussAsym, but here a struct is passed with all the args.
   //
-  // Mar 16 2014: use new SKEW parameter
   // Apr 14 2016: sigmax -> 10*range [was 100*range]
   // Apr 20 2016: check NGRID option to snap to grid
   // Aug 30 2016: add call to skewNormal().
@@ -165,22 +226,25 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   //   + remove skewnormal (never worked)
   //   + return -9 if !USE
   // 
-  
-  double peak, lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
+  // July 2 2021 
+  //  + Implementing PEAKRANGE with Bodie, Rick, Dillon
+  //  + rename exec_GENGAUSS_ASYM -> getRan_GENGAUSS_ASYM
+  //
+  double peak, peakrange[2], lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
   double gridsize, grid0;
-  int NTRY, DO_SKEWSIGMA, DO_GRID;
+  int NTRY, DO_SKEWSIGMA, DO_GRID, DO_PEAKRANGE;
   int NGRID, FUNINDEX, j ;
   int USE_PEAK1=1, MXTRY = 1000, LDMP=0 ;
   double ranval=-9.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
   char *NAME  = genGauss->NAME;
-  char fnam[] = "exec_GENGAUSS_ASYM" ;
+  char fnam[] = "getRan_GENGAUSS_ASYM" ;
 
   // ---------- BEGIN -------------
 
   //  LDMP = (strstr(NAME,"SALT2") != NULL ); // xxx REMOVE
 
   // always burn random to stay synced.
-  ran1 = FlatRan1(1) ;
+  ran1 = getRan_Flat1(1) ;
 
   if ( !genGauss->USE ) {  return(ranval);  }
 
@@ -196,9 +260,11 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   // check optional 2nd peak (Mar 2017)
   PROB2 = genGauss->PROB2 ;
   if ( PROB2 > 0.0000001 ) {
-    ran2 = FlatRan1(1) ;
+    ran2 = getRan_Flat1(1) ;
     if ( ran2 < PROB2 ) {
       peak        = genGauss->PEAK2 ;
+      peakrange[0] = peak ;
+      peakrange[1] = peak ; 
       siglo       = genGauss->SIGMA2[0] ;
       sighi       = genGauss->SIGMA2[1] ;
       skewlo = skewhi = 0.0 ;
@@ -208,6 +274,8 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   if ( USE_PEAK1 ) {
     peak        = genGauss->PEAK ;
+    peakrange[0]   = genGauss->PEAKRANGE[0] ; 
+    peakrange[1]   = genGauss->PEAKRANGE[1] ;
     siglo       = genGauss->SIGMA[0] ;
     sighi       = genGauss->SIGMA[1] ;
     skewlo      = genGauss->SKEW[0] ;
@@ -246,8 +314,9 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   NTRY  = 0;
   sigmax = 10.*rangeDif ;
   DO_SKEWSIGMA  = ( fabs(skewlo)  > 1.0E-9 || fabs(skewhi) > 1.0E-9 ) ;
+  DO_PEAKRANGE  = (peakrange[1] - peakrange[0]) > 1.0E-12 ;
 
-  
+
   if ( LDMP ) {
     printf("\t xxx ----------------- %s ------------ \n", NAME);
     printf("\t xxx peak = %f \n", peak);
@@ -283,12 +352,17 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     if ( DO_SKEWSIGMA  )  {
       xlo = lo - peak ;
       xhi = hi - peak ;
-      ranval = peak + skewGaussRan(xlo,xhi,siglo,sighi,skewlo,skewhi); 
+      ranval = peak + getRan_skewGauss(xlo,xhi,siglo,sighi,skewlo,skewhi); 
     }
-    else { 
-      ranval = peak + biGaussRan(siglo,sighi) ; 
+    else if ( DO_PEAKRANGE ) { //PROB = 1 extended over peak range
+      double peakrangeinterval = peakrange[1] - peakrange[0] ; 
+      ranval = peakrange[0] + getRan_GaussAsym(siglo,sighi,peakrangeinterval);
     }
-    
+
+    else { //prob = 1 only at peak
+      ranval = peak + getRan_GaussAsym(siglo,sighi, 0.) ; 
+    }
+
     if ( ranval < lo ) { goto GENVAL;  } 
     if ( ranval > hi ) { goto GENVAL;  } 
   }
@@ -313,7 +387,7 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   return(ranval) ;
 
-} // end of exec_GENGAUSS_ASYM
+} // end of getRan_GENGAUSS_ASYM
 
 
 // ****************************************
@@ -329,13 +403,16 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   printf("\n");
   printf("# ------------------------------------------- \n");
-  printf(" START %s  for '%s' (INDEX=%d) \n",
-	 fnam, genGauss->NAME, genGauss->FUNINDEX);
+  printf(" START %s  for '%s' (INDEX=%d, USE=%d) \n",
+	 fnam, genGauss->NAME, genGauss->FUNINDEX, genGauss->USE );
 
-  printf("\t PEAK = %.3f  \n", genGauss->PEAK);
+  printf("\t PEAK      = %.3f  \n", genGauss->PEAK);
+
+  ptrVal = genGauss->PEAKRANGE;  // Jul 9 2021 RK
+  printf("\t PEAKRANGE = %.3f, %.3f  \n", ptrVal[0], ptrVal[1] );
 
   ptrVal = genGauss->RANGE ;
-  printf("\t RANGE = %.3f to %.3f \n", 	ptrVal[0], ptrVal[1] );
+  printf("\t RANGE      = %.3f to %.3f \n", 	ptrVal[0], ptrVal[1] );
 
   ptrVal = genGauss->SIGMA; 
   printf("\t SIGMA(-/+) = %.3f / %.3f \n", ptrVal[0], ptrVal[1] );
@@ -348,5 +425,204 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   return ;
 
 } // end dump_GENGAUSS_ASYM
+
+
+int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
+                         GENGAUSS_ASYM_DEF *genGauss ) {
+
+  // July 2020 [refactor] 
+  //
+  // Utility to read GENGAUSS struct from WORDS array. 
+  // WORDS[0] is compared against [VARNAME]_XXX where 
+  // XXX is GENSIGMA, GENPEAK, etc ...
+
+  int  N = 0 ;
+  char KEYNAME[80];
+  char fnam[] = "parse_input_GENGAUSS" ;
+
+  // ----------------- BEGIN ----------------
+
+  // first make sure that VARNAME is contained in WORDS[0] 
+  if ( strstr(WORDS[0],VARNAME) == NULL ) { return(N); }
+
+  sprintf(KEYNAME, "GENPEAK_%s GENMEAN_%s",  VARNAME, VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    double PEAK;
+    N++; sscanf(WORDS[N], "%le", &PEAK );
+    genGauss->PEAK = PEAK ; 
+    genGauss->PEAKRANGE[0] = PEAK ;
+    genGauss->PEAKRANGE[1] = PEAK ; 
+    genGauss->KEYSOURCE    = keySource ;
+  }
+
+  //New GENPEAKRANGE stuff here
+  sprintf(KEYNAME, "GENPEAKRANGE_%s",  VARNAME, VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[1] );
+    genGauss->KEYSOURCE    = keySource;
+  }
+
+  sprintf(KEYNAME, "GENSIGMA_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA[1] );
+    checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA, fnam );
+    genGauss->KEYSOURCE    = keySource;
+  }
+  sprintf(KEYNAME, "GENSKEW_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->SKEW[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->SKEW[1] );
+    genGauss->KEYSOURCE    = keySource;
+  }
+
+  sprintf(KEYNAME, "GENRANGE_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->RANGE[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->RANGE[1] );
+    genGauss->KEYSOURCE    = keySource;
+    checkVal_GENGAUSS(KEYNAME, genGauss->RANGE, fnam );
+  }
+
+  sprintf(KEYNAME, "GENGRID_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%d", &genGauss->NGRID );
+    genGauss->KEYSOURCE    = keySource;
+  }
+
+  // 2nd peak ...
+  sprintf(KEYNAME, "GENPROB2_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PROB2 );
+    genGauss->KEYSOURCE    = keySource;
+  }
+
+  sprintf(KEYNAME, "GENPEAK2_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAK2 );
+    genGauss->KEYSOURCE    = keySource;
+  }
+
+  sprintf(KEYNAME, "GENSIGMA2_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA2[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA2[1] );
+    genGauss->KEYSOURCE    = keySource;
+    checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA2, fnam );
+  }
+
+  // - - - - - - 
+  if ( N > 0 ) { prepIndex_GENGAUSS(VARNAME, genGauss); }
+
+  return(N);
+
+} // end of parse_input_GENGAUSS 
+
+
+//*****************************************************
+void checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) {
+
+  // Mar 16 2014  
+  // abort if any GENGAUSS values are invalid,   
+  // such as negative GENSIGMA  
+
+  double lo, hi ;
+  char fnam[] = "checkVal_GENGAUSS" ;
+
+  // ------------- BEGIN ----------      
+
+  if ( strstr(varName,"RANGE") != NULL ) {
+    lo  = val[0] ;    hi  = val[1] ;
+    if ( hi < lo  ) {
+      sprintf(c1err, "Invalid %s range pass from %s", varName, fromFun);
+      sprintf(c2err, "Specified  %s  range is %f to %f\n",
+              varName, lo, hi);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+  }
+
+
+  if ( strstr(varName,"SIGMA") != NULL ) {
+    lo  = val[0] ;    hi  = val[1] ;
+    if ( lo < 0.0 || hi < 0.0  ) {
+      sprintf(c1err, "Invalid %s = %.3f, %.3f passed from %s",
+              varName, lo, hi, fromFun);
+      sprintf(c2err, "%s must be both positive in sim-input file.",
+              varName);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+  }
+
+  return ;
+
+}  // end of checkVal_GENGAUSS              
+
+// =============================================
+void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, 
+			      char *MAPNAME, int IDMAP,
+			      int OPT_EXTRAP, int NBIN, double *RANGE,
+			      char *callFun, GRIDMAP *GRIDMAP_LOAD) {
+
+  //Created July 16 2021
+  // returns GRIDMAP_LOAD using input *GENGAUSS for analytic function.
+  // Initially used for SALT2mu SUBPROCESS alpha/beta
+  //
+  //Inputs:
+  //   *GENGAUSS    : asymmetric Gaussian structure
+  //   *MAPNAME     : name of map
+  //   IDMAP        : integer ID of map
+  //   OPT_EXTRAP   : flag for extrapolation outside map range
+  //                  1-> extrap, 0->return error, -1->abort outside range
+  //   NBIN         : number of bins, includes edges; 
+  //                   ie 11 bins from 0-10 means  0,1,2,...10
+  //   RANGE        : [minimum, maximum]
+  //   *calFun      : calling function, used only for error messages
+  //
+  //Outputs:
+  //   *GRIDMAP_LOAD: the GRIDMAP used later for interpolation.
+
+  double BINSIZE = (RANGE[1] - RANGE[0]) / (float)(NBIN-1);
+  char  *NAME    = GENGAUSS->NAME ;
+  double XVAL_MIN = RANGE[0];
+  double XVAL_MAX = RANGE[1] + BINSIZE/1.0E5; // avoid numerical problem
+
+  int   MEMD   =  NBIN * sizeof(double);
+  int   MEMVAR =  2    * sizeof(double*);
+  int   NDIM = 1, NFUN = 1, ibin=0, ivar;
+  double XVAL, funVal;
+  double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
+  char fnam[]  = "compute_genGauss_GRIDMAP" ;
+
+  // -------------- BEGIN --------------
+
+  // allocate temporary/local map to store val,funVal
+  TMPMAP2D = (double**) malloc(MEMVAR);
+  for(ivar=0; ivar<2; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
+
+  for (XVAL = XVAL_MIN; XVAL <= XVAL_MAX; XVAL+=BINSIZE) {
+    funVal = funVal_GENGAUSS_ASYM(XVAL, GENGAUSS) ;
+    TMPMAP2D[0][ibin] = XVAL; 
+    TMPMAP2D[1][ibin] = funVal ;
+    // xxx    printf(" xxx %s: ibin=%2d   X=%le   funVal=%f\n", 
+    // fnam, ibin, XVAL, funVal);
+    ibin++;
+  } //end XVAL loop
+
+  printf("    Load GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n",
+         IDMAP, MAPNAME, NAME, NBIN); fflush(stdout);
+  
+
+  init_interp_GRIDMAP(IDMAP, MAPNAME, NBIN, NDIM, NFUN, OPT_EXTRAP,
+                      TMPMAP2D, &TMPMAP2D[NDIM],
+                      GRIDMAP_LOAD  );    // <== returned
+  
+  //free memory
+  for(ivar=0; ivar<2; ivar++) { free(TMPMAP2D[ivar]); } 
+  free(TMPMAP2D);
+
+  return ;
+} // end compute_genGauss_GRIDMAP
+
 
 

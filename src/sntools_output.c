@@ -129,6 +129,7 @@ void TABLEFILE_INIT(void) {
   int o,t ;
   char *s ;
   char U[] = "UNKNOWN" ;
+  char fnam[] = "TABLEFILE_INIT" ;
 
   // -------------- BEGIN --------------
 
@@ -136,7 +137,7 @@ void TABLEFILE_INIT(void) {
   CALLED_TABLEFILE_INIT = 740 ; // anything but 0
   NOPEN_TABLEFILE = 0 ;
   NFILE_AUTOSTORE = 0 ;
-
+  NREAD_AUTOSTORE = 0 ;
   // -------------------------------
 
   // ------ misc inits -------
@@ -160,7 +161,8 @@ void TABLEFILE_INIT(void) {
     }
   }
 
-  get_SNANA_VERSION(SNANA_VERSION); // Dec 10 2017
+  get_SNANA_VERSION(SNANA_VERSION);
+  SNTABLE_VERSION_PHOTOMETRY[0] = 0 ; 
 
   ADDCOL_VARLIST_LAST[0] = 0 ;
 
@@ -241,7 +243,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
   // STRINGOPT is a list of option-keys:
   // -  new   -> open and create new file for writing
-  // -  read  -> open and existing file for readonly
+  // -  read  -> open existing file for readonly
   // -  q     -> quiet mode; don't print anything to screen
   // -  root or hbook or text -> use explicit file type; ignore suffix.
   //
@@ -509,7 +511,7 @@ void TABLEFILE_CLOSE(char *FILENAME) {
   char fnam[] = "TABLEFILE_CLOSE" ;
 
   // --------------- BEGIN ---------------
-  
+
   // get open & type info for FILENAME by string-matching to 
   // store list of opened files.
 
@@ -758,12 +760,50 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
     { SNTABLE_ADDCOL_TEXT(IDTABLE, PTRVAR, &ADDCOL_VARDEF); }
 #endif
 
-
+  return;
 } // end of SNTABLE_ADDCOL
 
+
+// Dec 2022:
+// These cast-specific STABLE_ADDCOL_[cast] function below are tehcnically
+// not necessary, but they avoid fortran compilation warnings with gcc v10.
+
+void SNTABLE_ADDCOL_int(int IDTABLE, char *BLOCK, int *I_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, I_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_flt(int IDTABLE, char *BLOCK, float *F_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, F_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_dbl(int IDTABLE, char *BLOCK, double *D_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, D_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_str(int IDTABLE, char *BLOCK, char *S_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, S_PTRVAR, VARLIST, USE4TEXT ); }
+
+// - - - 
 void sntable_addcol__(int *ID, char *BLOCK, void* PTRVAR, 
 		      char *VARLIST, int *USE4TEXT) {
   SNTABLE_ADDCOL(*ID, BLOCK, PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_int__(int *ID, char *BLOCK, int *I_PTRVAR, 
+			  char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL_int(*ID, BLOCK, I_PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_flt__(int *ID, char *BLOCK, float *F_PTRVAR, 
+		      char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL(*ID, BLOCK, F_PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_dbl__(int *ID, char *BLOCK, double *D_PTRVAR, 
+			  char *VARLIST, int *USE4TEXT) { 
+  SNTABLE_ADDCOL(*ID, BLOCK, D_PTRVAR, VARLIST, *USE4TEXT ); 
+} 
+void sntable_addcol_str__(int *ID, char *BLOCK, char *S_PTRVAR, 
+		      char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL(*ID, BLOCK, S_PTRVAR, VARLIST, *USE4TEXT );
 }
 
 // =====================================
@@ -948,11 +988,9 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
 
     // construct varName2 = name without cast or vector info
     if ( ENDVAR == 0 ) { strcat(varName2,c1); }
-    // xxx mark delete  {  sprintf(varName2, "%s%s", varName2, c1 ) ; }
 
     // construct string-contents of []; should be integer array size
     if ( i > ibr0 && i < ibr1 )  { strcat(cBRACKET,c1); }
-    // xxx mark delete   {   sprintf(cBRACKET, "%s%s", cBRACKET, c1 ) ;  }
 
   } // end of i loop
 
@@ -1148,8 +1186,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   // Define and store pointer to read entire table column.
   // Check each element of *VARLIST to allow for ambiguous names;
   // e.g., VARLIST = 'z Z zcmb'.
-  // If multiple names are given, only one is allowed to exist,
-  // otherwise code aborts.
+  // If multiple names are given, select first one on the list.
   //
   // This function is just a shell to examine VARLIST, find the
   // defined VARNAME, and call sntable_readprep_vardef1() with the 
@@ -1162,7 +1199,10 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   //   - optMask: bit0 -> print for each var, bit1 -> abort on missing var
   //
   // Function returns absolute IVAR index.
-
+  //
+  // Feb 6 2023 RK - for multuple VARLIST names, select 1st on list 
+  //                 instead of last.
+  //
   int  istat, ISTAT,  NVAR_TOT, NVAR_FOUND, FLAG_VBOSE, FLAG_ABORT ;
   char VARLIST_LOCAL[MXCHAR_VARLIST], VARLIST_FOUND[MXCHAR_VARLIST];
   char VARNAME_withCast[MXCHAR_VARNAME]; 
@@ -1184,7 +1224,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   ptrtok = strtok(VARLIST_LOCAL," ");
   while ( ptrtok != NULL ) {
     sprintf(VARNAME_withCast,"%s", ptrtok);
-    istat=sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
+    istat = sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
 				     VARNAME_noCast );
 
     NVAR_TOT++ ;
@@ -1192,7 +1232,9 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
       ISTAT = istat ;  
       sprintf(VARLIST_FOUND, "%s %s", VARLIST_FOUND, VARNAME_withCast);
       NVAR_FOUND++ ; 
+      break; // Feb 2023
     }
+    
     ptrtok = strtok(NULL," " );
   }
 
@@ -1704,7 +1746,6 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   int    VBOSE = 3 ; // 1-->print each var; 2--> abort in missing var
   double DDUMMY ;
   char   CDUMMY[80], *ptrVar, varName_NPT[20];
-  // xxx mark delete   char varName_NPTFIT[] = "NPTFIT";
   char stringOpt[] = "read";
 
   
@@ -1803,7 +1844,6 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   OUTLIER_INFO.CUTWIN_CHI2FLUX[1] = Nsig1*Nsig1 ;
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_NPTFIT] ;
-  // xxx mark  sprintf(varName, "%s", OUTLIER_VARNAME_NPTFIT);
   sprintf(varName, "%s", VARLIST[IVAR_NPT] ); // Nov 30 2020
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_IFILT] ;
@@ -1899,6 +1939,12 @@ void SNTABLE_SUMMARY_OUTLIERS(void) {
 
 } // end of  SNTABLE_SUMMARY_OUTLIERS
 
+void SNTABLE_AUTOSTORE_RESET(void) {
+  NFILE_AUTOSTORE = 0 ;
+}
+
+void sntable_autostore_reset__(void)
+{ SNTABLE_AUTOSTORE_RESET(); }
 
 // =====================================================
 int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName, 
@@ -1965,8 +2011,11 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // do global init if not already done.
   if ( CALLED_TABLEFILE_INIT != 740 ) { TABLEFILE_INIT();  }
-  // xxx mark delete   print_banner(fnam) ;
   printf("   %s\n", fnam); fflush(stdout);
+
+  // May 2022:
+  // after reading autostore, reset NFILE for different autostore usage
+  if ( NREAD_AUTOSTORE > 0 ) { NFILE_AUTOSTORE = NREAD_AUTOSTORE = 0; } 
 
   // check option to store multiple files
   ABORT_FLAG  = ( optMask & 2 ) ;
@@ -2028,7 +2077,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   }
 
 
-  // abort if no variables are found .xyz
+  // abort if no variables are found 
   if ( ABORT_FLAG && NVAR_USR == 0 ) {
     print_preAbort_banner(fnam);
 
@@ -2224,12 +2273,38 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
   // 
   // Jan 6, 2017: check all files. 
   // Oct 27 2020: if varName == LIST, list all varNames and return 0
+  // Dec 13 2021: refactor to use IVAR_VARNAME_AUTOSTORE
+  //
+  int ivar;
+  // ------- BEGIN ---------
 
-  int ivar, ifile, NVAR_USR ;
+  ivar = IVAR_VARNAME_AUTOSTORE(varName);
+
+  if ( ivar >=  0 ) 
+    { return 1; }  // true
+  else
+    { return(0); } // false
+  
+} // end   int EXIST_VARNAME_AUTOSTORE
+
+int exist_varname_autostore__(char *varName) {
+  return EXIST_VARNAME_AUTOSTORE(varName);
+}
+
+
+// ============================================
+int IVAR_VARNAME_AUTOSTORE(char *varName) {
+
+  // Created Dec 13 2021
+  // Returns ivar [0:NVAR-1] if varName exists; else return -9
+  // 
+
+  int ivar, ifile, ivar_tot, NVAR_USR ;
   char *varName_autostore;
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
+  // ------- BEGIN ---------
 
-  ifile = 0;
+  ifile = ivar_tot = 0;
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
     NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
@@ -2239,19 +2314,16 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
 	       ifile, ivar, varName_autostore); fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
-	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(1) ; }
+	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(ivar_tot) ; }
       }
+      ivar_tot++ ;
     }
   }
 
   // varName does NOT exist
-  return(0);
+  return(-9);
   
-} // end   int EXIST_VARNAME_AUTOSTORE
-
-int exist_varname_autostore__(char *varName) {
-  return EXIST_VARNAME_AUTOSTORE(varName);
-}
+} // end   int IVAR_VARNAME_AUTOSTORE
 
 
 // ===========================================
@@ -2337,6 +2409,7 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
   *ISTAT = -1 ;       // default is that CCID is not found.
   IVAR_READ = IFILE_READ = IROW = -9 ;
+  NREAD_AUTOSTORE++ ;
 
   // search file and variable indices
   for(i=0; i < NFILE_AUTOSTORE; i++ ) {
@@ -3416,14 +3489,16 @@ int ISFILE_TEXT(char *fileName) {
   //
   // May 04 2020: return false for fits or FITS file extension.
   // Jan 22 2021: check HOSTLIB extension
+  // Oct 04 2021: add M0DIF
 
-#define NSUFFIX_TEXT 18
+#define NSUFFIX_TEXT 20
   int   isuf ;
   char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][10] = 
     { 
       ".text" ,   ".TEXT",
       ".txt" ,    ".TXT",
       ".fitres",  ".FITRES",
+      ".m0dif",   ".M0DIF",
       ".snana",   ".SNANA",    // added Apr 17 2021 (for merged SNANA table)
       ".dat",     ".DAT",
       ".out",     ".OUT",      // added Feb 7 2017

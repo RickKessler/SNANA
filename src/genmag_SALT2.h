@@ -5,12 +5,13 @@
 #define X0SCALE_SALT2   1.0E-12        // arbitrary normalization
 
 // define bounds for filter and SED arrays
-#define MXBIN_VAR_SALT2   120000 // Jul 5 2013 -> 120k (was 20k)
+// xxx #define MXBIN_VAR_SALT2   120000 // Jul 5 2013 -> 120k (was 20k)
+#define MXBIN_VAR_SALT2   200000 // Apr 2022 -> 200k for IR (was 120k)
 
 // wavelengths used for color correction
 
 #define U_WAVELENGTH  3500.
-#define B_WAVELENGTH  4302.57  // from SALT2 code; 80 A smaller than mine?
+#define B_WAVELENGTH  4302.57  // from SALT2 code
 #define V_WAVELENGTH  5428.55  // idem
 #define R_WAVELENGTH  6500.
 
@@ -35,7 +36,9 @@
 #define OPTMASK_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
 #define OPTMASK_SALT2_NONEGFLUX          16  // flux<0 -> 0 (as in DC2)
 #define OPTMASK_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
+#define OPTMASK_SALT2_DEBUG     1024  // Refactor for developer only                                                                        
 
+int  DEBUG_SALT2;
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
 int  IMODEL_SALT ; // 2 or 3
@@ -82,11 +85,13 @@ struct SALT2_ERRMAP {
 
 #define CALIB_SALT2_MAGSHIFT  1
 #define CALIB_SALT2_WAVESHIFT 2
-#define MXSHIFT_CALIB_SALT2 100
+#define MXSHIFT_CALIB_SALT2 500
+
 typedef struct {
   int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
   char   SURVEY_STRING[60];  // e.g., 'CFA3,CFA3S,CFA3K'
-  char   BAND[2];
+  char   BAND[2];            // e.g.  'r'
+  char   FILTER_STRING[60];  //e.g. 'SDSS-r'
   double SHIFT ;  
 } SHIFT_CALIB_SALT2_DEF ;
 
@@ -98,6 +103,7 @@ struct INPUT_SALT2_INFO {
   int    NCOLORLAW_PARAMS ;
   double COLORLAW_PARAMS[MXCOLORPAR] ; // for IVER=1 (SALT2.Guy10,JLA-B14)
   double COLOR_OFFSET  ;   // separate from COLORLAW_PARAMS (Aug 2, 2010)
+  double COLOR_DISP_MAX;  // Oct 2022, 
 
   double MAG_OFFSET; // global mag offset (Nov 24, 2011)
 
@@ -220,16 +226,6 @@ void genmag_SALT2(int OPTMASK, int ifilt,
 		  double z, double z_forErr, int nobs, double *Tobs_list, 
 		  double *magobs_list, double *magerr_list );
 
-/* xxxxxx mark delete 
-void genmag_SALT2(int OPTMASK, int ifilt, double x0, 
-		  double x1, double x1_forErr,
-		  double c, double mwebv, 
-		  double RV_host, double AV_host,  // added July 2016
-		  double z, double z_forErr,
-		  int nobs, double *Tobs_list, 
-		  double *magobs_list, double *magerr_list );
-xxxxxx*/
-
 void init_extrap_latetime_SALT2(void);
 double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
 double FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
@@ -277,7 +273,8 @@ double magerrFudge_SALT2(double magerr,
 void  init_SALT2interp_SEDFLUX(void);
 void  init_SALT2interp_ERRMAP(void);
 void  init_calib_shift_SALT2train(void) ;
-bool  match_SALT2train(char *survey_calib, char *band_calib, int ifilt) ;
+
+bool  match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) ;
 int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
 			    double **transREF) ;
 
@@ -286,15 +283,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 		      double *parList_SN, double *parList_HOST,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec );
-
-/* xxxxxxx mark delte xxxxxxxx
-void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
-		      double x0, double x1, double c,
-		      double RV_host, double AV_host,
-		      double *Finteg, double *Finteg_errPar, 
-		      double *Fspec );
-xxxxxxxxx */
-
 
 int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
 		   double z, double *parList_SN, double *parList_HOST, 
@@ -315,13 +303,6 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 		   double z, double Tobs, 
 		   double *GENFLUX_LIST,     // (O)
 		   double *GENMAG_LIST 	);   // (O)
-
-/* xxxx mark delete May 31 2021 xxxxxxx
-void genSpec_SALT2(double x0, double x1, double c, double mwebv,
-		   double RV_host, double AV_host,  double z, double Tobs, 
-		   double *GENFLUX_LIST,     // (O)
-		   double *GENMAG_LIST 	);   // (O)
-xxxxxxx */
 
 // function called by analysis program to return spectrum over band.
 // Note that all I/O is float instead of double.

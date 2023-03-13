@@ -58,6 +58,8 @@
 //              in TEXT SPECPLOT table.
 //
 // Jan 4 2021: MXCHAR_LINE -> 3200 (was 2500)
+// Sep 07 2021: abort if found too few variables (SNTABLE_READ_EXEC_TEXT)
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -81,6 +83,7 @@ char FILEPREFIX_TEXT[100];
 #define TEXTMODE_wt           "wt"
 
 #define MSKOPT_PARSE_WORDS_STRING 2 // must match same param in sntools.h
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA 4 
 
 FILE *PTRFILE_TEXT ;                   // generic ascii file pointer
 char FILENAME_TEXT[MXCHAR_FILENAME];   // name of opened text file
@@ -133,6 +136,7 @@ extern"C" {
   void INIT_TEXTFILES(char *PREFIX) ;  // analog of OPEN_ROOTFILE[HFILE]
 
   void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT);
+  void sntable_create_text__(int *IDTABLE, char *TBNAME, char *TEXT_FORMAT);
 
   void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR, 
 			   SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) ;
@@ -176,7 +180,6 @@ extern"C" {
   void SNTABLE_CLOSE_TEXT(void) ;
 
   int validRowKey_TEXT(char *string) ;
-  // xxx mvoed to sntools_output.h  int ICAST_for_textVar(char *varName) ;
 
   int count_varnames_TEXT();
   int get_varname_TEXT(int ivar, char *varName );
@@ -262,7 +265,8 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
 
   printf("  %s: init %s TEXT-table in %s format. \n", 
 	 fnam, TBNAME, TEXT_FORMAT); fflush(stdout);
- 
+  fflush(stdout);
+
   // construct file name from stored prefix and table name.
 
   sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT,TBNAME,SUFFIX_TEXT);
@@ -336,6 +340,9 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
 
 } // end of SNTABLE_CREATE_TEXT
 
+void sntable_create_text__(int *IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
+  SNTABLE_CREATE_TEXT(*IDTABLE, TBNAME, TEXT_FORMAT);
+}
 
 
 // =============================================
@@ -486,12 +493,12 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
     // probably a redshift
     sprintf(VALSTRING, "%.5f", VAL);    
   }
-  else if ( VAL > 1.0E10 ) {
-    sprintf(VALSTRING, "%.4le", VAL);  // Aug 2019
-  }
   else if ( (VAL - IVAL8) == 0.0 ) {
     // it's really an integer
     sprintf(VALSTRING, "%lld", IVAL8);  
+  }
+  else if ( VAL > 1.0E10 ) {
+    sprintf(VALSTRING, "%.4le", VAL);  // Aug 2019
   }
   else if ( VAL > 0.1 ) {
     sprintf(VALSTRING, "%.5f", VAL);  // .4f -> .5f Nov 10 2018
@@ -678,6 +685,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
 
   // Write optional header info at top of file.
   // See FORMAT string below.
+  // Mar 2023: write VERSION_PHOTOMETRY if it is defined
 
   int   NVAR, IVAR, OPT_FORMAT, IDTABLE ;
   char *FORMAT, *VARLIST, *TBNAME;
@@ -712,12 +720,15 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     }
     fflush(FP);
     
-    fprintf(FP, "# SNANA_VERSION : %s \n", SNANA_VERSION) ;
-    fprintf(FP, "# TABLE NAME: %s \n", TBNAME);
+    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 ) 
+      { fprintf(FP, "# %s %s \n", 
+		KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY) ; 
+      }
+
+    fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
+    fprintf(FP, "# TABLE_NAME:    %s \n", TBNAME);
     fprintf(FP, "# \n" );
-#ifdef TEXTFILE_NVAR
-    fprintf(FP, "NVAR: %d \n", NVAR ); 
-#endif
+
     fprintf(FP, "VARNAMES: %s \n", VARLIST );
     fprintf(FP, "#\n" );
     fflush(FP);	
@@ -786,7 +797,7 @@ void CLOSE_TEXTFILE(void) {
   int itab;
   char *FNAM;
   FILE *FP;
-  //  char fnam[] = "CLOSE_TEXTFILE" ;
+  char fnam[] = "CLOSE_TEXTFILE" ;
 
   // ------------- BEGIN -------------
 
@@ -794,7 +805,6 @@ void CLOSE_TEXTFILE(void) {
       FP   = TABLEINFO_TEXT.FP[itab] ;
       FNAM = TABLEINFO_TEXT.FILENAME[itab] ;
       if ( FP != NULL ) {
-	printf("   Close %s \n", FNAM); fflush(stdout);
 	fclose(FP);
       }
   }
@@ -947,9 +957,6 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
 	    ivar+1, VARNAME_SNLC[ivar], VARDEF_SNLC[ivar] );
   }
 
-#ifdef TEXTFILE_NVAR
-  fprintf(PTRFILE_LCLIST, "\nNVAR: 2\n");
-#endif
   fprintf(PTRFILE_LCLIST, "VARNAMES: CID IFIT\n");
   fflush(PTRFILE_LCLIST);
 
@@ -1013,7 +1020,7 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
   //  printf(" xxx %s: LENF=%d FILENAME=%s \n", fnam, LENF, FILENAME);
 
   if ( LENF > 0 )  { 
-    fclose(fp); 
+    if ( GZIPFLAG ) { pclose(fp); }   else { fclose(fp); }
   }
   else {
     snana_rewind(fp, FILENAME_TEXT, GZIPFLAG_TEXT);
@@ -1066,9 +1073,10 @@ int SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR) {
 // ==========================================
 int  SNTABLE_READPREP_TEXT(void) {
 
-  int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG ; 
+  int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG, iwd, MSKOPT ; 
+  bool MATCH;
   FILE *FP ;
-  char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST;
+  char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST, vtmp[MXCHAR_FILENAME*2] ;
   char fnam[]=  "SNTABLE_READPREP_TEXT" ;
 
   // ---------- BEGIN -------------
@@ -1077,6 +1085,7 @@ int  SNTABLE_READPREP_TEXT(void) {
   sprintf(ctmp,"BLANK"); 
   ISTAT = 999;
   NVAR = FOUNDKEY = NRD = 0 ;
+  VARLIST = (char*)malloc( MXCHAR_LINE * sizeof(char) );
 
   while ( validRowKey_TEXT(ctmp) == 0 && ISTAT != EOF ) {
 
@@ -1090,14 +1099,25 @@ int  SNTABLE_READPREP_TEXT(void) {
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
     }
 
-#ifndef TEXTFILE_NVAR
+    // Mar 2023: check for '# VERSION_PHOTOMETRY: <string>'
+    if (ctmp[0] == '#' ) {
+      fgets(VARLIST, MXCHAR_LINE, FP );
+      MATCH = ( strstr(VARLIST,KEYNAME_VERSION_PHOTOMETRY) != NULL ) ;
+      if ( MATCH ) {
+	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
+	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST);
+	iwd=1;   get_PARSE_WORD(0, iwd, vtmp) ; 
+	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
+      } // end MATCH
+      continue ;
+    }
+   
+
     // no NVAR key, so read entire VARNAMES line and parse VARLIST
     if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
       FOUNDKEY = 1;
-      VARLIST = (char*)malloc( MXCHAR_LINE * sizeof(char) );
       fgets(VARLIST, MXCHAR_LINE, FP );
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
-      free(VARLIST);
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
 	get_PARSE_WORD(0,ivar,VARNAME);
@@ -1106,23 +1126,6 @@ int  SNTABLE_READPREP_TEXT(void) {
 	READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST_for_textVar(VARNAME);
       }
     }
-#endif
-
-
-
-#ifdef TEXTFILE_NVAR
-    if ( strcmp(ctmp,"NVAR:") == 0 ) 
-      { readint( FP, 1, &NVAR ); FOUNDKEY = 1 ; }
-
-    if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
-      for ( ivar=0; ivar < NVAR; ivar++ ) {
-	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
-	readchar(FP, VARNAME );
-	READTABLE_POINTERS.ICAST_STORE[ivar] = ICAST_for_textVar(VARNAME);
-	READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST_for_textVar(VARNAME);
-      } 
-    }  // not row key
-#endif
 
     // abort if a valid KEY cannot be found
     if ( FOUNDKEY == 0 && NRD >= 10000 ) {
@@ -1137,14 +1140,12 @@ int  SNTABLE_READPREP_TEXT(void) {
   // reset NVARTOT_FITRES to exclude CID
   READTABLE_POINTERS.NVAR_TOT = NVAR ;
 
-  // rewind, but do not close file.
-  // xxx mark delete  rewind(FP);
-
   // close file and re-open because rewind does not work on
   // gzipped files 
   fclose(PTRFILE_TEXT);
   PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, &GZIPFLAG);
 
+  free(VARLIST);
   return NVAR;
 
 } // end of SNTABLE_READPREP_TEXT
@@ -1159,11 +1160,17 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   //
   // July 29 2016: abort on NVAR key with different value.
   // Dec  20 2017: use fgets to reduce read-time 
+  // Jun  29 2021; check GZIPFLAG_TEXT for using pclose or fclose
+  // Sep  07 2021: abort if ivar < NVAR_TOT 
+  //    (e.g., if split jobs with different NVAR are merged)
   //
-  int NROW = 0 ;
-  int i, ivar, isn, ICAST, nptr;
 
-  char ctmp[MXCHAR_FILENAME], LINE[MXCHAR_LINE], *ptrtok, cvar[100];
+  int NROW = 0 ;
+  int i, iwd, ivar, isn, ICAST, nptr, NWD_LINE ;
+
+  char LINE[MXCHAR_LINE], LINE_TMP[MXCHAR_LINE], cvar[100] ;
+  // xxx mark   char *ptrtok, cvar[100];
+  char wdlist[10][MXCHAR_VARNAME];
   char KEYNAME_ID[40];
   long double DVAR[MXVAR_TABLE];
   char        CVAR[MXVAR_TABLE][60];
@@ -1173,46 +1180,49 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   int  NVAR_READ = READTABLE_POINTERS.NVAR_READ ; // subset to read
   FILE *FP       = PTRFILE_TEXT ; 
   
-  // ------------ BEGIN -----------  
-   
+  // ------------ BEGIN -----------    
+
   // get key name of ID varname such as CID, GALID, etc.
   sprintf(KEYNAME_ID,"%s", READTABLE_POINTERS.VARNAME[0] ); 
 
   while ( fgets(LINE, MXCHAR_LINE, FP ) != NULL ) {
 
-    // check first word in the line
-    ptrtok = strtok(LINE, " ");
-    sprintf(ctmp, "%s", ptrtok);
-    if ( ctmp[0] == '#' ) { continue ; }  // skip comment lines
-	
-#ifdef TEXTFILE_NVAR
-    // for catenated TEXT files, NVAR key can appear
-    // multiple times; ABORT if any NVAR is different
-    // to avoid mistakes
-    if ( strcmp(ctmp,"NVAR:") == 0 ) {
-      ptrtok = strtok(NULL," " );
-      sscanf(ptrtok, "%d", &NVAR_TMP ) ;
-      NKEY_NVAR++ ;
+    if ( LINE[0] == '#' ) { continue; }
+    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
 
-      if ( NVAR_TMP != NVAR_TOT ) {
-	sprintf(MSGERR1,"Invalid 'NVAR: %d' (NKEY=%d) -> column change.",
-		NVAR_TMP, NKEY_NVAR);
-	sprintf(MSGERR2,"Expect NVAR=%d.", NVAR_TOT);
-	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
-      }
+    for(iwd=0; iwd < 3; iwd++ ) {
+      wdlist[iwd][0] = 0 ;
+      if ( NWD_LINE >= iwd+1 )  { get_PARSE_WORD(0, iwd, wdlist[iwd]); }
     }
-#endif
 
-    if ( validRowKey_TEXT(ctmp) == 0 ) { continue ; }
+    /* xxx mark delete; see READPREP
+    // store VERSION_PHOTOMETRY if it's there in a comment
+    if ( wdlist[0][0] == '#' ) {
+      if ( strcmp(wdlist[1],KEYNAME_VERSION_PHOTOMETRY) == 0 ) {       
+	sscanf(wdlist[2], "%s", VERSION_PHOTOMETRY ) ;
+      }
+      continue ;        // skip comment lines
+    }
+    xxxxxxxx */
+
+    /* xxx mark delete Mar 6 2023 xxxxxx
+    // check first word in the line
+    sprintf(LINE_TMP,"%s", LINE);
+    ptrtok = strtok(LINE_TMP, " ");
+    sprintf(ctmp, "%s", ptrtok);
+    if ( ctmp[0] == '#' ) { continue; }  // skip comment lines
+    xxxxxxx end mark xxxxxxx */
+
+
+    if ( validRowKey_TEXT(wdlist[0]) == 0 ) { continue ; }
 
     // if we get here, we have a valid ROW key so read rest of row.
 
     NROW++ ;   
 
+    /* xxxx mark delete Mar 6 2023 xxxxxxx
     ptrtok = strtok(NULL," " ); ivar=0 ;
-    //  xxx mark delete while ( ptrtok != NULL && ptrtok != '\0' && ivar < NVAR_TOT) { 
     while ( ptrtok != NULL && ivar < NVAR_TOT) { 
-
       // Dec 20 2017: extract only variables on READ-list
       if ( READTABLE_POINTERS.NPTR[ivar] > 0 ) {      
 	sprintf(cvar,"%s",   ptrtok );      
@@ -1222,7 +1232,24 @@ int SNTABLE_READ_EXEC_TEXT(void) {
       ptrtok = strtok(NULL," " );
       ivar++ ;
     }
-            
+    xxxxxxxxx end mark xxxxxx */
+
+    for ( ivar=0; ivar < NVAR_TOT; ivar++ ) {
+      if ( READTABLE_POINTERS.NPTR[ivar] > 0 ) { 
+	iwd = ivar+1; get_PARSE_WORD(0, iwd, cvar); 
+        sscanf(cvar, "%Lf",  &DVAR[ivar] ); 
+        sscanf(cvar, "%s",   CVAR[ivar] ); 
+      } 
+    }
+
+    // - - - - -
+
+    if ( NROW>1 && ivar < NVAR_TOT ) {
+      sprintf(MSGERR1,"Exepcted %d values, but found %d", NVAR_TOT, ivar);
+      sprintf(MSGERR2,"Check CID = %s", CVAR[0]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+    }
+
     if ( fmodf( (float)(NROW), 100000. ) == 0 && NROW > 0 )  { 
       printf("\t Reading table row %d  (%s=%s) \n", 
 	     NROW, KEYNAME_ID, CVAR[0] );  fflush(stdout);
@@ -1281,7 +1308,8 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   } // end fscanf 
   
-  fclose(FP);
+
+  if ( GZIPFLAG_TEXT ) { pclose(FP); } else { fclose(FP); }
 
   // May 2 2019: reset flags to allow opening another file.
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
@@ -1497,9 +1525,6 @@ void SNLCPAK_WRITE_HEADER_TEXT(FILE *fp) {
     }
   }
   else if ( OPT_FORMAT == OPT_FORMAT_KEY ) {
-#ifdef TEXTFILE_NVAR
-    fprintf(fp, "NVAR:  %d\n", NVAR);
-#endif
     fprintf(fp, "VARNAMES: ");
     for(ivar=0; ivar < NVAR; ivar++ ) 
       { fprintf(fp, "%s ", VARNAME_SNLC[ivar] ); }

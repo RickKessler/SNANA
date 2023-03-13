@@ -3,7 +3,16 @@
 #  June 2019 J. Pierel
 #  Aug 2020 B. Sanchez
 #  Plotter tool for SNANA LCs and Spectra
-
+#
+# Aug 19 2022: R.Kessler - compute minFlux to handle Galactic transients
+# Sep 07 2022: R.Kessler - add input --mjdperiod for periodic transients
+#                          Also do a little cleanup for snana commands.
+#
+# Sep 9 2022: R.Kessler - new input --mxevt <mxevt> to plot the
+#                          first mxevt events. (remove 1-10 feature)
+#
+# Sep 17 2022 R.Kessler - new input --mjdshift
+#
 from __future__ import print_function
 
 import matplotlib as mpl
@@ -26,6 +35,10 @@ mpl.use('Agg')
 BANDS = ["u", "b", "g", "v", "r", "i", "z", "y", "j", "h", "k"]
 __band_order__ = np.append(BANDS, [x.upper() for x in BANDS])
 
+CODE_NAME_SNANA = "snana.exe"
+CODE_NAME_LCFIT = "snlc_fit.exe"
+
+# ============================================
 
 def read_spec(cid, base_name):
     """Function that reads the spectra of a single object
@@ -306,7 +319,11 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
                 figsize=(8, 8),
                 sharex=True,
             )
-            ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
+            try:
+                ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
+            except:
+                ax = [ax]
+                ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
             for j in range(min(len(uniq_tobs[m:]), 4)):
                 temp_sn = np.where(sn["tobs"] == uniq_tobs[m])[0]
                 if bin_size != 0:
@@ -460,7 +477,11 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
             nrows=min(len(all_bands), 4), ncols=1,
             figsize=(8, 8), sharex=sharedx
         )
-        ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
+        try:
+            ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
+        except:
+            ax = [ax]
+            ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
         fit_print = False
 
         for i in range(min(len(all_bands[j:]), 4)):
@@ -569,7 +590,13 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
             else:
                 maxFlux = np.max(temp_sn["flux"])
 
-            ax[i].set_ylim((-0.1 * np.max(temp_sn["flux"]), 1.2 * maxFlux))
+            # xxx ax[i].set_ylim((-0.1*np.max(temp_sn["flux"]), 1.2*maxFlux))
+
+            # RK Aug 29 2022 : compute minFlux to handle Galactic events
+            minFlux = np.min(temp_sn["flux"])
+            if minFlux > -0.1: minFlux = -0.08*maxFlux
+            ax[i].set_ylim(( 1.2*minFlux, 1.2*maxFlux)) 
+
             if not noGrid:
                 ax[i].grid()
             j += 1
@@ -589,7 +616,8 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
     return (figs, fits)
 
 
-def plot_cmd(genversion, cid_list, nml, isdist, private):
+def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, 
+             mjdperiod, mjdshift):
     plotter = "normal"
     if nml is not None:
         if os.path.splitext(nml)[1].upper() != ".NML":
@@ -608,72 +636,103 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
     else:
         private_path = ""
     genversion += private_path
-    
+
+    # 9.07/2022 - RK define args in one place
+    arg_sntable   = " SNTABLE_LIST 'FITRES(text:key) SNANA(text:key)" \
+                    " LCPLOT(text:key) SPECPLOT(text:key)' "
+    arg_prefix    = " TEXTFILE_PREFIX OUT_TEMP_" + rand  
+    arg_version   = " VERSION_PHOTOMETRY " + genversion
+
+    arg_mxlc_plot = " "
+
+    if cid_list is not None:
+        arg_cid_list  = " SNCCID_LIST " + cid_list
+        ncid = len(cid_list.split(','))
+        arg_mxlc_plot = f" MXLC_PLOT {ncid}"  # RK - Sep 9 2022
+    else:
+        arg_cid_list  = " "
+
+    if mxevt > 0 :
+        arg_mxevt  = " MXEVT_PROCESS " + str(mxevt)
+        arg_mxlc_plot = f" MXLC_PLOT {mxevt}"  # RK - Sep 9 2022
+    else:
+        arg_mxevt  = " "
+
+    if mjdperiod is not None: 
+        arg_mjdperiod = " MJDPERIOD_PLOT " + str(mjdperiod)
+    else:
+        arg_mjdperiod  = " "
+
+    arg_mjdshift = " MJDSHIFT_PLOT " + str(mjdshift)
+
+    log_file    = "OUT_TEMP_" + rand + ".LOG"
+
     if nml is not None:
+
         if cid_list is not None:
             cmd = (
-                "snlc_fit.exe "
+                f"{CODE_NAME_LCFIT} "
                 + nml
-                + " VERSION_PHOTOMETRY "
-                + genversion
-                + " SNCCID_LIST "
-                + cid_list
-                + " CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"
-                + rand
-                + "' > OUT_TEMP_"
-                + rand
-                + ".LOG"
+                + arg_version
+                + arg_cid_list
+                + arg_mxlc_plot
+                + arg_sntable 
+                + arg_prefix
+                + " > " 
+                + log_file
             )
         elif isdist:
             cmd = (
-                "snlc_fit.exe "
+                f"{CODE_NAME_LCFIT} "
                 + nml
-                + " VERSION_PHOTOMETRY "
-                + genversion
-                + " SNTABLE_LIST "
-                + "'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"
-                + rand
-                + " > OUT_TEMP_"
-                + rand
-                + ".LOG"
+                + arg_version
+                + arg_mxevt
+                + arg_mxlc_plot
+                + arg_sntable 
+                + arg_prefix
+                + " > " 
+                + log_file
             )
         else:
             cmd = (
-                "snlc_fit.exe "
+                f"{CODE_NAME_LCFIT} "
                 + nml
-                + " VERSION_PHOTOMETRY "
-                + genversion
-                + " MXEVT_PROCESS 5 SNTABLE_LIST "
-                + "'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"
-                + rand
-                + " > OUT_TEMP_"
-                + rand
-                + ".LOG"
+                + arg_version
+                + arg_mxevt
+                + arg_mxlc_plot
+                + arg_sntable 
+                + arg_prefix
+                + " > " 
+                + log_file
             )
     elif cid_list is None:
         cmd = (
-            "snana.exe NOFILE VERSION_PHOTOMETRY "
-            + genversion
-            + " MXEVT_PROCESS 5 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)'"
-            + " TEXTFILE_PREFIX 'OUT_TEMP_"
-            + rand
-            + "' > OUT_TEMP_"
-            + rand
-            + ".LOG"
+            f"{CODE_NAME_SNANA} NOFILE "
+            + arg_version
+            + arg_mxevt
+            + arg_mxlc_plot
+            + arg_sntable
+            + arg_prefix
+            + arg_mjdperiod 
+            + arg_mjdshift
+            + " > " 
+            + log_file
         )
     else:
         cmd = (
-            "snana.exe NOFILE VERSION_PHOTOMETRY "
-            + genversion
-            + " SNCCID_LIST "
-            + cid_list
-            + " CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PRE\
-FIX 'OUT_TEMP_"
-            + rand
-                + "' > OUT_TEMP_"
-                + rand
-            + ".LOG"
+            f"{CODE_NAME_SNANA} NOFILE "
+            + arg_version
+            + arg_cid_list
+            + arg_mxevt
+            + arg_mxlc_plot
+            + arg_sntable
+            + arg_prefix
+            + arg_mjdperiod
+            + arg_mjdshift 
+            + " > " 
+            + log_file
         )
+
     os.system(cmd)
     with open("OUT_TEMP_" + rand + ".LOG", "rb+") as f:
         content = f.read()
@@ -912,6 +971,27 @@ def main():
         dest="plot_all2",
         default=False,
     )
+
+    # R.K. Sep 7 2022 - add mjdperiod input
+    parser.add_argument(
+        "--mjdperiod",   
+        help="LC: fold MJDs into one period (for periodic transients) ",
+        action="store",
+        dest="mjdperiod",
+        type=float,
+        default=None
+    )
+
+    # R.K. Sep 17 2022 - add mjdshift input
+    parser.add_argument(
+        "--mjdshift",   
+        help="shift MJDs ",
+        action="store",
+        dest="mjdshift",
+        type=float,
+        default=0.0
+    )
+
     parser.add_argument(
         "--plotAll",
         help=SUPPRESS_HELP,
@@ -978,12 +1058,22 @@ def main():
 
     parser.add_argument(
         "-i",
-        help="All: CID(s) as comma separated list or range (1-10)",
+        help="All: CID(s) as comma sep list",
         action="store",
         type=str,
         dest="CID",
         default="None",
     )
+
+    parser.add_argument(
+        "--mxevt",
+        help="First mxevt events",
+        action="store",
+        type=int,
+        dest="mxevt",
+        default=0
+    )
+
     parser.add_argument(
         "-p",
         help="All: Private Data Path",
@@ -1042,26 +1132,37 @@ def main():
             if options.fitres_filename is None:
                 raise RuntimeError("Need to define genversion")
         if options.CID == "None":
-            if options.dist or options.fitres_filename is not None:
-                print(
-                    """No CID given, assuming all for distributions, 
-                    then first 5 for LC/SPEC plotting..."""
-                )
-            else:
-                print("No CID given, assuming first 5...")
+
+            if options.mxevt == 0 :   
+                options.mxevt = 6
+                print(f" No CID and no mxevt --> force mxevt={options.mxevt}")
+
+            # xxxx mark delete R.Kessler Sep 9 2022 xxxxxxxx
+            #if options.dist or options.fitres_filename is not None:
+            #    print(f"No CID given, assuming all for distributions," \
+            #          f"then first {options.mxevt} for LC/SPEC plotting..."
+            #    )
+            #else:
+            #    print(f"No CID given, assuming first {options.mxevt}...")
+            # xxxx end mark xxxxxxxxx
+
             options.CID = None
             all_cid = True
-        elif "-" in options.CID:
-            options.CID = ",".join(
-                [
-                    str(i)
-                    for i in range(
-                        int(options.CID[: options.CID.find("-")]),
-                        int(options.CID[options.CID.find("-") + 1 :]) + 1,
-                    )
-                ]
-            )
-            all_cid = True
+
+        # xxxx mark delete by R.Kessler Sep 10 2022 xxxx
+        # xxxxx use --mxevt option instead xxxx
+        #elif "-" in options.CID:
+        #    options.CID = ",".join(
+        #        [
+        #            str(i)
+        #            for i in range(
+        #                int(options.CID[: options.CID.find("-")]),
+        #                int(options.CID[options.CID.find("-") + 1 :]) + 1,
+        #            )
+        #        ]
+        #    )
+        #
+        #    all_cid = True
         else:
             all_cid = False
     else:
@@ -1081,9 +1182,12 @@ def main():
             plotter_choice, options.base_name, options.CID = plot_cmd(
                 options.version,
                 options.CID,
+                options.mxevt,
                 options.nml_filename,
                 options.dist,
-                options.private_path
+                options.private_path,
+                options.mjdperiod,
+                options.mjdshift
             )
         else:
             (
@@ -1110,7 +1214,8 @@ def main():
         else:
             figs = []
         if all_cid:
-            options.CID = options.CID[:5]
+            # xxx mark delete options.CID = options.CID[:5]
+            options.CID = options.CID[:50]
         with PdfPages(filename) as pdf:
             for f in figs:
                 pdf.savefig(f)

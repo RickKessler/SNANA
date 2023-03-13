@@ -289,6 +289,10 @@
   May 22 2020: + added error model of H20 templates (S13_H20)
   Oct 23 2020: use HzFUN_INFO and new sntools_cosmology.c[h]
 
+  May 23 2022 RK 
+    + add Ic-BL for V19 templates
+    + abort if a type is undefined
+
  ================================================================ */
 
 #include <stdio.h>
@@ -306,7 +310,7 @@
 #include "fitsio.h"
 #include "sntools.h"              // snana stuff
 #include "sntools_cosmology.h"    // dLmag
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "sntools_output.h"
 #include "sntools_nearnbr.h"
 #include "psnid_tools.h"
@@ -405,10 +409,11 @@ extern int snana_nearnbr_rdinput__(void);  // Apr 16 2013 - RK
 // Jan 27, 2013 RK - define char-lists here in the header
 //                   instead of hard-wired in the code
 // Feb 13 2017 RK - add IIb to list (for Jones 2017 paper)
+// May 23 2022 RK - add Ic-BL to handle V19 templates
 char PSNID_CHARTYPE_LISTS[PSNID_NTYPES][80] =   
   { 
     "Ia" ,                          // itype = PSNID_ITYPE_SNIA 
-    "Ib  Ic   Ibc" ,                // itype = PSNID_ITYPE_SNIBC
+    "Ib  Ic   Ibc Ic-BL" ,          // itype = PSNID_ITYPE_SNIBC
     "II  IIP  IIL  IIn  IIN IIb",   // itype = PSNID_ITYPE_SNII
     "PEC1A-Iabg",                   // itype = PSNID_ITYPE_PEC1A
     "MODEL1" ,     // generic MODEL 1
@@ -1143,11 +1148,12 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
 
   Aug 28 2017: check for MODEL1, MODEL2, etc ...
 
+  May 2022 RK - abort if any type is not defined; see NERR
  ***/
   
 /**********************************************************************/
 {
-  int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE ;
+  int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE, NERR=0 ;
   int nmodel[PSNID_NTYPES], nmodel_sum=0 ;
   char *CTYPE ;
   char fnam[] = "psnid_best_split_nonia_types";
@@ -1157,6 +1163,8 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
   for(i=0; i<PSNID_NTYPES; i++ ) { nmodel[i]=0; }
   
   for (i=1; i <= PSNID_MAXNL_NONIA; i++) {
+
+    types[i-1] = -9 ;
 
     // define local vars (RK Jan 2013)
     ITYPE = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].NON1A_ITYPE_AUTO[i] ;
@@ -1236,16 +1244,19 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
     else {  // ITYPE <= 0
       types[i-1] = ITYPE;
       nignore = nignore + 1;
-
       if (optdebug == 1) {
 	printf("\t xxx index = %2d is ignored            itype=%d\n",
-	       i, ITYPE);
-      }
-
+	       i, ITYPE);  }
     }
+
+    if ( types[i-1] < 0 )  {
+      printf(" ERROR: unknown type for '%s'(%d) \n", CTYPE,ITYPE);
+      NERR++ ;
+    }
+
   }
 
-  if (optdebug == 1) {
+  if (NERR > 0 || optdebug == 1) {
     printf("\t There are %2d Ibc   templates\n", nibc);
     printf("\t There are %2d II    templates\n", nii);
     printf("\t There are %2d PEC1A templates\n", npec1a);
@@ -1257,7 +1268,12 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
     printf("\t There are %2d  templates ignored\n\n", nignore);
   }
 
-  
+  if ( NERR > 0 ) {
+    sprintf(c1err,"%d templates with unknown types", NERR);
+    sprintf(c2err,"Check ERROR messages above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
+
   PSNID_NGRID[PSNID_ITYPE_SNIA]  =
     USEFLAG_TEMPLATES_PSNID[TYPEINDX_SNIA_PSNID];
   PSNID_NGRID[PSNID_ITYPE_SNIBC] = nibc ;
@@ -1888,20 +1904,6 @@ void psnid_best_setup_searchgrid()
   }
 
 
-  /* xxxxxx mark delete Sep 15 2017 xxxxxxxxxx
-  PSNID_TSTART[0] = -40.0;  // Apr 8 2013
-  PSNID_TSTART[1] = -15.0;
-  PSNID_TSTART[2] =  -5.0;
-
-  PSNID_TSTOP[0]  = +60.0;  // Apr 8 2013
-  PSNID_TSTOP[1]  = +15.0;
-  PSNID_TSTOP[2]  =  +5.0;
-
-  PSNID_TSTEP[0]  = 10.0;
-  PSNID_TSTEP[1]  =  3.0;
-  PSNID_TSTEP[2]  =  1.0; 
-  xxxxxxxxxx
-  */
   return;
 
 }
@@ -2254,7 +2256,7 @@ void psnid_best_grid_compare(int itype, int zpind, int nobs,
       for (u = minu; u <= maxu; u = u + ustep) {      // dmu
 	chisqlozu = PSNID_BIGN;
 	ushift = u_grid[u];
-	// .xyz for Ia opton, set ushift=0 (9/15/2017)
+	// for Ia opton, set ushift=0 (9/15/2017)
 
 	for (d = mind; d <= maxd; d = d + dstep) {    // shapepar
 
@@ -4381,14 +4383,6 @@ void psnid_best_store_PBayes(char *CCID, int z, double **evidence, int optdump)
       }
     }
   } 
-
-  /* xxxxxx mark for delete Feb 13 2017 xxxxx
-  // global
-  for (i=0; i<PSNID_NTYPES; i++) {
-    PSNID_BEST_RESULTS.PBAYESIAN[z][i] = 
-    PSNID_BEST_RESULTS.PBAYESIAN[z][i];
-  }
-  xxxxxxxxx */
  
   // get best itype with cuts using function (RK, Feb 2017)
   int itype_best = psnid_bestType_cuts(z);
@@ -4960,7 +4954,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
   // mu
   MCMC_REDSHIFT = old_z;
   //  mu       = dl(2);
-  mu    = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO);
+  mu    = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO, &PSNID_INPUTS.ANISOTROPY_INFO);
   mu = mu + old_dmu;
   mcmc_nmu_grid = 1001;
   //  mcmc_mu_bin   = 0.005;
@@ -5176,7 +5170,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
       MCMC_REDSHIFT = new_z;
       //      mu       = dl(2);  // distance modulus
 
-      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO);
+      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO, &PSNID_INPUTS.ANISOTROPY_INFO);
 
       //      printf("%8.4f  %13.5e\n",MCMC_REDSHIFT, mu);
 
@@ -5200,7 +5194,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
 
       MCMC_REDSHIFT = old_z;
 
-      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO);
+      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO, &PSNID_INPUTS.ANISOTROPY_INFO);
 
       // output old parameter values
       /*
@@ -5691,13 +5685,6 @@ void PSNID_BEST_INIT(void) {
   psnid_best_reset_results(); // set PSNID_TYPE_NAME
 
   NVAR = snana_nearnbr_rdinput__();
-
-  /* xxxxxx mark delete Aug 28 2017 xxxxxxxxxx
-  // load fitres variables for legacy output only
-  int DO_ADDCOL = 0 ;
-  int DO_NN     = 0 ;
-  psnid_best_define_TableVARNAMES(DO_ADDCOL,DO_NN) ;
-  xxxxxxxxxx end mark xxxxxxxxx */
 
   if ( NVAR>0 && NVAR != PSNID_BEST_NEARNBR_NVAR ) {
     sprintf(c1err,"&SNLCINP NEARNBR_XXX specified NVAR=%d", NVAR);

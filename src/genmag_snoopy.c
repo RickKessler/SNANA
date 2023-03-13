@@ -6,16 +6,9 @@
 
 ********************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-*/
-
 #include "fitsio.h"
 #include "sntools.h"
-#include "sntools_grid.h" 
+#include "sntools_modelgrid.h" 
 #include "sntools_genSmear.h" // Aug 30 2019
 #include "genmag_snoopy.h" 
 
@@ -253,7 +246,6 @@ void gridinterp_snoopy(int ifilt, double shape,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // xxx mark delete Jan 2020  ioff=(ifilt-1)*NBIN_TREST + NPADWD_LCBEGIN-1 ;
   ioff       = ifilt*NBIN_TREST + NPADWD_LCBEGIN-1 ;
 
   for ( i=0; i < nobs; i++ ) {

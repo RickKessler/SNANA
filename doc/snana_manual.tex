@@ -62,6 +62,7 @@
 \newcommand{\env}{environment}
 \newcommand{\snana}{{\tt SNANA}}
 \newcommand{\SNANA}{{\tt SNANA}}
+\newcommand{\DOCANA}{{\tt DOCANA}}
 \newcommand{\snanadir}{{\tt SNANA\_DIR}}
 \newcommand{\sndataroot}{{\tt SNDATA\_ROOT}}
 \newcommand{\simlib}{{\tt SIMLIB}}
@@ -73,8 +74,8 @@
 
 \newcommand{\eff}{efficiency}
 \newcommand{\effs}{efficiencies}
-\newcommand{\simeffsub}{\epsilon_{subtr}}
-\newcommand{\simeffspec}{\epsilon_{spec}}
+\newcommand{\simeffsub}{\epsilon_{\rm subtr}}
+\newcommand{\simeffspec}{\epsilon_{\rm spec}}
 \newcommand{\magdim}{{\mathcal M}_{\rm dim}}
 
 \newcommand{\spec}{spectroscopic}
@@ -129,10 +130,10 @@
 \newcommand{\indx}{{\bf\tt INDEX}}
 \newcommand{\fpkrat}{F/F_0}
 
-\newcommand{\MXSNLC}{3100}
-\newcommand{\MXSIM}{999,000}
+\newcommand{\MXSIM}{300,000,000}
 \newcommand{\MXFILTOBS}{62}
 \newcommand{\MXFILTREST}{10}
+\newcommand{\vCMB}{370}
 
 \newcommand{\wwwMINUIT}{http://wwwasdoc.web.cern.ch/wwwasdoc/minuit/minmain.html}
 \newcommand{\minuit}{{\sc minuit}}
@@ -144,7 +145,8 @@
 
 % ========================================
 \title{ \snana\ User's Manual: \\ 
-         Simulation, Lightcurve Fitters \& Cosmology Fitters}
+         Simulation, Lightcurve Fits, BBC, 
+         Create-Covariance, Batch Utilities}
 
 \author{Richard Kessler \\ University of Chicago \\ 
     Kavli Institute for Cosmological Physics \\
@@ -229,6 +231,7 @@ writing information in a specific format, etc.
 
 
 % ####################################
+\clearpage
    \section{\snana\ Basics}
    \label{sec:basics}
 % ####################################
@@ -242,45 +245,53 @@ that the two main \env\ variables are defined:
 \end{verbatim}
 %
 The \env\ variable \$\snanadir\ points to the software that
-is accessible to everyone, but write-protected. 
-The \snana\ developers use a cvs repository to share code, 
-and an updated version is ``cut'' (i.e, released) on occasion 
-to provide a stable software version for collaborators.  
-\snana\ is re-released as often as necessary (\S~\ref{sec:snana_updates}),
-as bugs are fixed and improvements are made.
-The main source codes for simulations and fitting are
+should be accessible to a group of users.
+The \snana\ developers use 
+githib\footnote{\url{https://github.com/RickKessler/SNANA}}
+to share and distribute code, and occasional tags are released.
+\snana\ codes are updated often with bug fixes and improvements;
+each {\tt github} update follows a successfull regression test checking
+more than 100 \snana\ jobs.
+The main science codes are:
 \begin{verbatim}
-  > $SNANA_DIR/src/snlc_sim.c
-  > $SNANA_DIR/src/snlc_fit.car
-  > $SNANA_DIR/src/psnid.car
+  > $SNANA_DIR/src/snlc_sim.c     # simulation
+  > $SNANA_DIR/src/snlc_fit.car   # light curve fitting
+  > $SNANA_DIR/src/psnid.car      # psnid classifier
+  > $SNANA_DIR/src/SALT2mu.car    # implement BBC to create hubble diagram
+
+  > $SNANA_DIR/util/create_covariance.py # create stat+syst cov matrix
+  > $SNANA_DIR/util/submit_batch.sh      # submit batch jobs
 \end{verbatim}
 %
-
-The \env\ variable \$\sndataroot\ points to the group area,
-and contains general information from surveys which have 
-released data. In addition to public data, \$\sndataroot\
-contains information needed as input to the \snana\ codes:
+The \env\ variable \$\sndataroot\ points to a directory that
+contains publicly released information from survey teams,
+and is downloadable from 
+zenodo.\footnote{\url{https://zenodo.org/record/4728252}}
+\$\sndataroot\ includes 
+public data, 
 filter transmissions,
 CalSpec SEDs, 
 SN models,
+cadence libraries (SIMLIB),
+host libraries (HOSTLIB),
 Milky Way extinction map, etc.
-Everyone has write privilege under \$\sndataroot, so please be careful.
 
+
+A 200+ page manual is part of github 
+(\$\snanadir/{\tt doc/snana\_manual.pdf}).
+For beginners, however, it is recommended to get help
+from an expert.
 
 % -------------------------------------------
 \subsection{Dr. Evil-ABORT-Face}
 \label{abort}
 % -------------------------------------------
 
-The \snana\ simulation and fitter programs have intensive
-error checking throughout the execution. If anything looks
-fishy, the program will abort with a message looking like
+The \snana\ programs include intensive error checking throughout 
+the execution. If anything looks fishy, 
+the program aborts with an easy-to-identify message looking like
 %
 \begin{Verbatim}[frame=single]
- FATAL[get_user_input]: Cannot open input file : 
-                  'sim_BLABLA.input' 
-
-
 
    `|```````|`    
    <| o\ /o |>    
@@ -289,12 +300,16 @@ fishy, the program will abort with a message looking like
     | |' '| |     
     | `---' |     
     \_______/ 
-   
+
+ FATAL ERROR ABORT called by RDSNNML
+   Could not open namelist file:
+   dummy.nml   
 \end{Verbatim}
 %
 While some of these aborts may at first seem frustrating,
 they are crucial for catching bugs as early as possible
 so that you don't waste months (years) doing something silly.
+
 
 % -------------------------------------------
 \subsection{Data Files}
@@ -308,13 +323,65 @@ format.
 Large data \& sim samples should use FITS format because
 it is much more compact and much faster to read.
 With TEXT format, each event is written to a separate ASCII file.
-With FITS format, there are two FITS files: a summary HEAD file
+With FITS format (Fig.~\ref{fig:data_format}), 
+there are two FITS files: a summary HEAD file
 with a one-row summary per event, and a PHOT file with the
 light curves. For fast reading, the HEAD file includes pointers
 to the PHOT table, so do not catenate FITS files without updating
 these pointers.
 
+\begin{figure} [ht] 
+\begin{center}
+\begin{Verbatim}[frame=single]
+HEAD file:   
+  variable name              description
+# ---------------------------------------------------------------------
+* SNID                      integer or character ID
+* RA,DEC                    sky coordinates (degrees)
+* NOBS                      number of obs (all bands)
+* PTROBS_MIN                points to 1st light curve obs in PHOT file
+* PTROBS_MAX                points to last light curve obs
+* MWEBV[_ERR]               E(B-V) for Milky way
+* REDSHIFT_HELIO[_ERR]      best heliocentric redshift;
+                            zSpec if available; else zPhot; else -9
+* REDSHIFT_FINAL[_ERR]      best CMB redshift
+* VPEC_[ERR]                pec velocity (km/sec) and error on correction
+* HOSTGAL_NMATCH            number of host matches with DDLR < 4
+* HOSTGAL_NMATCH2           number of host matches with DDLR < 7
+* HOSTGAL_RA                R.A. (deg) for center of host
+* HOSTGAL_DEC               declination (deg) for center of host
+* HOSTGAL_SNSEP             transient-host separation, arcsec
+* HOSTGAL_SPECZ[_ERR]       zSpec of host  (-9 -> not available)
+* HOSTGAL_PHOTOZ[_ERR]      zphot (mean of PDF); -9 -> not available
+* HOSTGAL_ZPHOT_Q[PPP]      redshift containing PPP% of zPDF prob
+* HOSTGAL_MAG_[band]        host mags for band=u,g,r,i,z,Y
+* HOSTGAL_MAGERR_[band]     uncertainty on above mags
+    [Each hostgal_xxx has hostgal2_xxx for 2nd host-match;
+     -999 indicates no 2nd host; else values are filled.
+     First listed host has smallest DDLR and may not be the true host]
+    
+* SIM_TYPE_INDEX            true integer transient type (e.g., 1 for SNIa)
+* SIM_[SSS]                 true sim property SSS
 
+PHOT file:
+* MJD                      modified Julian date (-777 -> end of light curve)
+* BAND                     e.g.,  u,g,r,i,z
+* PHOTFLAG                 bit-mask of information (check data README)
+* FLUXCAL                  calibrated flux : mag = 27.5 - 2.5*log10(FLUXCAL)
+* FLUXCALERR               Poisson uncertainty on FLUXCAL; sky+galaxy+source
+* SIM_MAGOBS               true model mag
+     image properties
+* PSF_SIG1                 PSF Gauss sigma, pixels
+* SKY_SIG                  sky noise (ADU/pixel)
+* ZEROPT                   image zero point
+* GAIN                     N_photoelectron/ADU = 1.0
+\end{Verbatim}
+\end{center}
+\caption{
+  FITS data structure.
+ }
+\label{fig:data_format}
+\end{figure}
 
 
 % -------------------------------------------
@@ -324,7 +391,7 @@ these pointers.
 
 While an \snana\ citation is always appreciated
 (\cite{SNANA09}), please make sure to reference 
-any underlying work that is used by \snana.
+underlying work that is used by \snana.
 Referencing the appropriate light curve model 
 (\S\ref{sec:intro}) is the most obvious example.
 However, there may be other features to reference such as 
@@ -336,6 +403,88 @@ If you read a published article and suspect \snana\ usage
 with a missing reference, please contact the lead author
 and one of the \snana\ authors.
 
+% -------------------------------------------
+\clearpage
+\subsection{Community Code Contributions}
+\label{subsec:code_contributor}
+% -------------------------------------------
+
+First and most important, avoid the temptation to make quick-and-dirty
+fixes for your private use. Anything you need is likely to be useful
+for somebody else, so please work with \SNANA\ developers to integrate
+your updates into the public github repository.
+
+Before making code modifications, it is good practice to 
+inform the primary \snana\ developers, but permission is not
+needed, especially for urgent fixes.
+The \snana\ code is stored on 
+  github\footnote{\url{https://github.com/RickKessler/SNANA}},
+and you need to become a collaborator to submit a pull request (PR).
+If it is not practical to become a code collaborator
+(e.g., one-line code fix),
+an update may be sent to \SNANA\ developers via e-mail.
+
+Before submitting a PR, it is important to perform
+a regression test using the command
+\begin{verbatim}
+    SNANA_code_tests.py --snana_dir <my_snana_dir>
+\end{verbatim}
+%
+This regression test has been setup on clusters at 
+Fermilab (des*.fnal.gov), U.Chicago (midway2 at RCC), and NERSC (Cori).
+Please contact \SNANA\ developers for help on setting up
+regression tests on other clusters. If you create a code update 
+on a private laptop or cluster, 
+an \SNANA\ developer can run the regression test for you.
+
+A few other requests for coding habits:
+\begin{itemize}
+   \itemsep0em 
+   \item post github issue.
+   \item clone or update \SNANA\ code before making changes.
+%
+   \item Verify that update/fix actaully works;
+          successful compilation is not adequate.
+%
+   \item Do not fall into this dangerous logic trap:
+         ``{\it I only changed one line of code, so no need to test it.}'' 
+         As a post-doc working on the KTeV experiment, I accepted this 
+         logic and installed a one-line code fix that 
+         crashed the entire experiment.
+%
+   \item annotate history section at top of file and/or function so 
+         that future code editors can easily notice who/when 
+         previous changes were made.
+         A very brief description is adequate.
+% 
+  \item annotate end of {\tt doc/README\_UPDATES} in the appropriate
+        category of {\tt IMPORTANT} (e.g., major bug-fix or new feature),
+        {\tt USEFUL} (new feature with limited scope), or
+        {\tt MISCELLANEOUS} (little interest to anyone
+          except the person posting issue).
+        While this document is redundant with github comments, 
+        searching key-words in this file has been
+        very useful to track histories.
+% 
+   \item for a significant new feature, consider updating \SNANA\ manual
+         (pdf you are reading now).
+%
+   \item To avoid conflicts that are difficult to resolve,
+         avoid editing code for long time periods without merging. 
+         Rather than waiting several weeks for all coding to finish,
+         send multiple PR's, each with small changes.
+         Make sure that your development does not
+         interfere with normal code usage; 
+         e.g., use {\tt DEBUG\_FLAG} or new input key to invoke
+         your new code.         
+%  
+   \item  after submitting PR, contact Kessler or Narayan to merge it
+          (free github usage does not include automated e-mail alert).
+%
+   \item for major bug-fixes or improvements, inform your
+         collaborators.
+\end{itemize}
+
 
 % ##########################################
    \clearpage
@@ -346,7 +495,7 @@ and one of the \snana\ authors.
 Before running the simulation or light curve fitting program,
 a ``K-correction'' file must be created.
 This file contains 
-\begin{itemize}
+\begin{itemize}[noitemsep]
   \item filter transmissions.
   \item native mag for each filter.
   \item SED of the primary reference (i.e., AB, BD17, ...)
@@ -354,7 +503,7 @@ This file contains
   \item zeropoint offsets (native $-$ synthetic mags)
   \item Optional AB offsets (to apply to data)
   \item for rest-frame models requiring K-correction,
-  \begin{itemize}
+  \begin{itemize}[noitemsep]
     \item K-correction tables vs. 
              redshift, epoch, $A_V$-warp.
     \item rest-frame magnitudes.
@@ -719,7 +868,7 @@ To see all maps in your simulation job,
 see dashboard utility in \S\ref{sss:sim_dashboard}.
 The simulation will search for each supplemental file with
 the following priority
-\begin{enumerate}
+\begin{enumerate}[noitemsep]
   \item current diretory (i.e., no path appended to file name)
   \item path specified by sim-input~~~ {\tt PATH\_USER\_INPUT: <path>}
   \item default path under \$\sndataroot.
@@ -1200,6 +1349,10 @@ etc ...
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
   USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
   USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
+
+  SMEARFLAG_FLUX:    1  # apply Poisson noise to fluxes
+  SMEARFLAG_ZEROPT:  1  # apply ZPTSIG to true flux, but not reported flux
+  SMEARFLAG_ZEROPT:  3  # apply ZPTSIG to true and reported flux
 \end{Verbatim}
 
 More information about the {\tt SIMLIB\_DUMP} option
@@ -1383,9 +1536,8 @@ The central PSF-pixel fluxes are summed for source, galaxy and sky.
 If the resulting number of photoelectrons exceeds 
 {\tt NPE\_PIXEL\_SATURATE}, then this epoch is flagged 
 as saturated as follows:
-\begin{itemize}
+\begin{itemize}[noitemsep]
    \item {\tt PHOTFLAG = PHOTFLAG\_SATURATE}
-   \item {\tt MAG = -7}
    \item {\tt FLUXCAL} $= 0 \pm 10^8$
 \end{itemize}
 %
@@ -3431,6 +3583,36 @@ observations. For simulations, default {\tt PHOTPROB=1},
 or a {\tt PHOTPROB} map can be defined (Fig.~\ref{fig:pipeline_maps}).
 
 % ------------------------------------
+%   \clearpage
+   \subsubsection{Trigger on Single-Detections instead of Coadd}
+   \label{sssec:detect_single}
+
+{\simlib} cadences are typically co-added within a night to achieve
+optimal search depth. If the ID column of the \simlib\ includes
+the number of exposures that were co-added 
+(see {\tt NEXPOSE} in \S\ref{sssec:saturation}),
+there is a sim-input flag to trigger on single detections instead
+of the coadd,
+\begin{verbatim}
+   APPLY_DETECT_SINGLE: 1
+\end{verbatim}
+This flag results in the following changes in the pipeline-detection:
+\begin{itemize}
+   \item ${\rm SNR} \to {\rm SNR}/\sqrt{\rm NEXPOSE}$ is used to
+      determine the detection efficiency ($\simeffsub$) 
+      from the efficiency-vs-SNR map
+      (\S\ref{sss:eff_pipeline})
+   \item While SNR is reduced in each exposure, there are {\tt NEXPOSE}
+      opportunities for detection; thus the final detection efficiency
+      is re-computed as
+  \begin{equation}
+     \simeffsub \to 1 - (1-\simeffsub)^{\rm NEXPOSE}
+  \end{equation}
+\end{itemize}
+
+% ------------------------------------
+
+% ------------------------------------
    \clearpage
    \subsection{Selection Cuts }
    \label{subsec:simcuts}
@@ -3652,6 +3834,8 @@ Galactic extinction:
   OPT_MWEBV:            1      # default: MWEBV key in SIMLIB file
   GENSIGMA_MWEBV_RATIO: 0.16   # default: smear by sig(MWEBV) = .16*MWEBV
 
+  APPLYFLAG_MWEBV: 1   # correct FLUXCAL for MWEBV (e.g., for PLASTICC)
+
   # for systematic tests:
   GENSIGMA_MWEBV:       0.0      # smear by fixed sig(MWEBV) 
   GENSHIFT_MWEBV:       0.0      # fixed shift relative to dust map
@@ -3713,8 +3897,12 @@ magnitudes in the simulation.
 If the smearing for a given SN results in negative extinction, 
 the extinction is set to zero.
 
+Finally, the reported {\tt FLUXCAL} are corrected for {\tt MWEBV}
+if {\t APPLYFLAG\_MWEBV} is set, as was done for the PLASTICC 
+classification challenge. Use caution with this flag to avoid
+double-correcting in both the simulation and in the analysis.
 
-\clearpage
+%\clearpage
 \subsubsection{Some Details on Galactic Extinction Computations}
 \label{sss:GALextinc_misc}
 
@@ -3855,7 +4043,7 @@ a key after the {\tt VARNAMES} list as shown in Fig.~\ref{fig:hostlib}.
 Commonly used Sersic indices are $n=0.5, 1, 4$ 
 for Gaussian, exponential and  deVaucouleurs,
 respectively. 
-If there are more than two Sersic profiles per galaxy, 
+If there are 2 or more Sersic profiles per galaxy, 
 weights ({\tt w0\_Sersic}-{w9\_Sersic}) are needed.
 
 %Finally, the weight ``{\tt w0\_Sersic}'' give the flux-ratio
@@ -3881,16 +4069,15 @@ See \S\ref{sss:hostlib_wgtmap} for details about the WGTMAP.
 \caption{  Example \hostlib\ for the \snana\ simulation. }
 \label{fig:hostlib}
 \begin{Verbatim}[frame=single]
-NVAR: 15  # obsolete key starting at SNANA version v10_70
 VARNAMES: GALID RA_GAL DEC_GAL ZTRUE ZERR  u_obs g_obs r_obs i_obs z_obs
-          n0_Sersic  a0_Sersic  b0_Sersic  a_rot  ZPHOTFLAG
+          r_ABS n0_Sersic  a0_Sersic  b0_Sersic  a_rot  ZPHOTFLAG
 
 n0_Sersic: 0.5    # optional: fix sersic index for each host
                   # Note that n0_Sersic can be defined only once;
                   # either among the VARNAMES or here.
 
 OPT_EXTRAP_WGTMAP: 1  # option to bring out-of-range values to grid edge
-VARNAMES_WGTMAP: r_obs  WGT  SNMAGSHIFT
+VARNAMES_WGTMAP: r_ABS  WGT  SNMAGSHIFT
 WGT:  -25.0  1.2  -0.05
 WGT:  -23.0  1.0  -0.05
 WGT:  -21.0  0.8  -0.05
@@ -3899,10 +4086,10 @@ WGT:  -17.0  0.4  +0.05
 WGT:  -15.0  0.2  +0.05
 
 GAL:   2940448741  52.67432  -27.17716   0.3964    0.0828    99  
-       22.06580    20.99990  20.65600  20.33090  0.50  0.99290  
+       22.06580    20.99990  20.65600  20.33090  -21.43 0.50  0.99290  
        0.73811  154.40625  1
 GAL:   2940535300  52.67437   -28.42170   0.7860    0.0580    99    
-       25.78030    23.14940    22.06930   21.49040  0.50   1.14660  
+       25.78030    23.14940    22.0693   21.4904  -22.98 0.50   1.14660  
        0.51003     77.85583  1
 etc ...
 \end{Verbatim}
@@ -3936,8 +4123,11 @@ the sim-input file (or via command-line override):
    HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_SPECDATA_FILE:  xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
-   HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
+   HOSTLIB_MNINTFLUX_SNPOS: .20       # default=0.0
+   HOSTLIB_MXINTFLUX_SNPOS: .97       # default=0.99
+   HOSTLIB_SNR_DETECT:   xxx          # default=0 SNR>xxx (see below)
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
+   HOSTLIB_MAXDDLR2:     xxx          # default=7 (for HOST_CONFUSION calculation)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
    HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
@@ -3945,10 +4135,14 @@ the sim-input file (or via command-line override):
    HOSTLIB_MINDAYSEP_SAMEGAL: xxx     # default=9999999
    HOSTLIB_DZTOL:  a0,a1,a2,,,aN      # default=0.002,0.040
    HOSTLIB_GALID_PRIORITY: xxx yyy    # default= 0 0 
+   HOSTLIB_GALID_UNIQUE: 0            # default=0; 1-> assign unique GALID
+   HOSTLIB_GENZPHOT_FUDGEMAP: 'z0:rms0,z1:rms1,z2:rms2,etc..' #no pad spaces
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
    HOSTLIB_SCALE_SERSIC_SIZE:  xxx         # default= 1.0
-   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0
+   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0 (Legacy key)
+   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   
+                                      # default= 1.0 for all properties
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
@@ -3969,10 +4163,11 @@ true redshift and efficiency of finding a host photo-z.
 For very large \hostlib\ files,
 the {\tt MAXREAD} key may be useful to reduce the 
 initialization time or limit memory usage.
-The next option ({\tt MXINTFLUX\_SNPOS}) sets the
-fraction of total galaxy flux used to generate the
+The next options ({\tt MNINTFLUX\_SNOPOS,MXINTFLUX\_SNPOS}) sets the
+fraction range of total galaxy flux used to generate the
 SN position; this option truncates extreme galaxy-SN
-separations.  {\tt HOSTLIB\_STOREPAR} is a comma-separated
+separations, and can be used to keep events away from the core.
+{\tt HOSTLIB\_STOREPAR} is a comma-separated
 list of parameters (case-insensitive, but no blank spaces
 before or after each comma) to store in the data files;
 these ``{\tt STOREPAR}'' paramaters are automatically propagated 
@@ -3982,7 +4177,17 @@ into the SNTABLEs  and ascii fitres file.
 {\tt GENPDF\_FILE}, and
 {\tt WGTMAP}
 are automatically included in the {\tt HOSTLIB\_STOREPAR} list.
-%
+
+
+{\tt HOSTLIB\_SNR\_DETECT} works only if both mags and mag-uncertainties
+are defined in the \hostlib\ as {\tt [band]\_obs} and {\tt [band]\_obs\_err}.
+Setting ``{\tt HOSTLIB\_SNR\_DETECT: 5}'' requires at least one band with
+SNR>5; an argument of '5,5' requires two bands to satsify SNR>5;
+'5,5,3' requires at least two bands with SNR>5 and a 3rd band with SNR>3.
+If the true host fails the SNR cut, the event will either be host-less
+(no matches), or matched to a different nearby galaxy that
+passes SNR cut.
+
 {\tt HOSTLIB\_MINDAYSEP\_SAMEGAL} specifies the minimum
 {\tt PEAKMJD} separation (in days) for re-using a galaxy.
 This option can be useful, for example, in multi-year surveys 
@@ -4024,6 +4229,24 @@ with {\tt GALID < 0}, then setting
 ``{\tt HOSTLIB\_GALID\_PRIORITY: 0 99999999}''  will preferentially
 select the real galaxies before picking the fake galaxies.
 
+{\tt HOSTLIB\_GALID\_UNIQUE} sets a unique {\tt GALID} for every event, 
+even if the same {\tt HOSTLIB} galaxy is re-used many times. This 
+feature is useful, for example, in simulated data challenges.
+The algorithm uses the already unique 
+{\tt CID}\footnote{To ensure unique CIDs, set ``{\tt RESET\_CID: 2}''
+   in the sim-master-input file for {\tt submit\_batch\_jobs}.}
+and computes 
+\vspace{-0.1in}
+\begin{verbatim}
+       GALID = 57 * CID + int[ ran(0:1) x 57 ]
+\end{verbatim}
+\vspace{-0.1in}
+If there are multiple hosts per event and a duplicate GALID,
+another random GALID is selected. To avoid posible confusion with
+duplicate host-galaxy mags (e.g., {\tt r\_obs} column), 
+each mag is shifted by a Gaussian-random fluctuation based on the 
+mag-uncertainty (e.g., {\tt r\_obs\_err} column).
+
 {\tt HOSTLIB\_GENZPHOT\_FUDGEPAR} specifies an analytic description
 of the host photo-z profile and its error.
 This {\tt FUDGEPAR} implemenation does not require
@@ -4045,6 +4268,7 @@ The reported {\tt ZPHOTERR} is $\sigma_1$, and thus G2
 introduces non-Gaussian outliers which are not described
 by the reported \unc.
 
+%\clearpage
 \newcommand{\sigplus}{\sigma_{+}}
 \newcommand{\sigminus}{\sigma_{-}}
 \newcommand{\zpeak}{z_{\rm peak}}
@@ -4091,6 +4315,8 @@ or to the {\tt ZPHOT[ERR]} columns in the {\tt HOSTLIB}.
 to make the galaxy sizes bigger or smaller.
 
 {\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales the {\tt LOGMASS} \unc.
+
+{\tt HOSTLIB\_SCALE\_PROPERTY\_ERR} scales the error of the property in parenthesis as illustrated above.
 
 %\clearpage
 The {\tt HOSTLIB\_MSKOPT} options can be 
@@ -4151,11 +4377,51 @@ viewed with the grep-command
 \item {\tt MSKOPT} += 1024~: detailed screen dump
         for each event (for small tests only)
 %
+\item {\tt MSKOPT} += 32768~: force Gaussian PDF (debug test) for quantiles with
+        mean,sigma = {\tt ZPHOT,ZPHOTERR}. Overwrite quantile values in 
+        {\tt HOSTLIB}, or force 10 quantile redshifts.
+%
 \end{itemize}
 %
 Options can be combined, such as {\tt HOSTLIB\_MSKOPT}=10
 will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
+
+% ------------------------------------ 
+\subsubsection{Hostgal properties}
+\label{sss:hostgal_properties}
+In the {\tt HOSTLIB} columns you can define true, observed, and error 
+for up to four properties;
+\begin{verbatim}
+   LOGMASS  LOGMASS_TRUE  LOGMASS_OBS  LOGMASS_ERR 
+   LOGSFR   LOGSFR_TRUE   LOGSFR_OBS   LOGSFR_ERR
+   LOGsSFR  LOGsSFR_TRUE  LOGsSFR_OBS  LOGsSFR_ERR
+   COLOR    COLOR_TRUE    COLOR_OBS    COLOR_ERR
+\end{verbatim}
+%
+Item in the left column is the ``{\tt BASENAME},'' and defining a {\tt HOSTLIB}
+column as {\tt BASENAME} is interpreted as {\tt BASENAME\_TRUE}.
+If {\tt BASENAME\_ERR} is specified, {\tt BASENAME\_OBS} is computed as \\
+%
+{\tt Gauss(BASENAME\_TRUE,BASENAME\_ERR)}.
+%
+Non gaussian errors can be simulated with {\tt BASENAME\_OBS} 
+instead of {\tt BASENAME\_ERR}.
+{\tt BASENAME\_ERR} can be rescaled using the sim-input key 
+\begin{verbatim}    
+HOSTLIB_SCALE_PROPERTY_ERR: 0.0(LOGMASS),0.0(LOGSFR) # set errors to zero
+    or
+HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.5(LOGsSFR)  
+\end{verbatim}
+%
+where the first example sets errors to zero so that observed property 
+equals the true value, and second example scales the error on 3 properties.
+%
+These host-property values are automatically propagated to the simulated data 
+files, and after light-curve fitting they are propagated to output tables 
+(e.g. {\tt SNANA}, {\tt FITRES}).
+
+% ------------------------------------                                                                                                                        
 
 
 % ------------------------------------
@@ -4265,6 +4531,79 @@ is multiplied by {\tt coeff\_specbasis[nn]}, and all of the spec-basis
 terms are summed. The sum is multipled by {\tt FLAM\_SCALE} and
 the z-norm term. 
 
+
+% - - - - - - - -  -
+\subsubsection{Computation of DDLR (SNSEP/DLR) }
+\label{sss:hostlib_ddlr}
+
+The Sersic parameters in the \hostlib\ are assumed to represent
+the true galaxy profile, without PSF smearing, and this profile
+is used to overlay a true SN location near the host galaxy. 
+To compute {\tt DDLR=SNSEP/DLR}, a default DLR is computed from the 
+true Sersic profile, which does not account for PSF smearing.
+There are two approximate methods to account for PSF smearing
+in the DLR computation:
+%
+\newcommand{\absmear}{ab_{\rm smear}}
+\begin{enumerate}
+   \item define \hostlib\ columns {\tt a\_DLR} and {\tt b\_DLR} based
+       on measured half-light radii. These quanitieis are used only
+       to compute DLR, but are not used to overlay a true SN location.
+%
+   \item Use sim-input ``{\tt HOSTLIB\_SMEAR\_SERSIC: 1.0}'' which
+     is loosely interpreted as FWMH (arcsec) for average PSF.
+     This parameter does not impact placement of SN near galaxy,
+     but it affects DLR; 
+     defining $\absmear\equiv${\tt HOSTLIB\_SMEAR\_SERSIC}/2,
+       \begin{equation}
+         a \to \sqrt{a^2 + \absmear^2} ~~~~~
+         b \to \sqrt{b^2 + \absmear^2}
+       \end{equation}
+     where $a,b$ are the semimajor/minor half-light radii.
+\end{enumerate}
+
+% ---------------------------------------------
+\clearpage
+\subsubsection{Generating HOST-less Events}
+
+The following sim-input keys control the fraction of simulated
+events reported by {\tt HOSTGAL\_NMATCH=0}; i.e., ``host-less.''
+\begin{verbatim}
+  # keys that require Sersic profile in HOSTLIB
+   HOSTLIB_MAXDDLR:         4.0       # SEP/DLR
+   HOSTLIB_MXINTFLUX_SNPOS: 0.94      # default=0.99
+
+  # keys that require [band]_obs and [band]_obs_err in HOSTLIB
+   HOSTLIB_SNR_DETECT:  5    # or 5,5 -> 2 bands with SNR>5
+   HOSTLIB_SNR_SCALE:   0.5  # reduce by 2 -> impacts SNR_DETECT
+       or
+ # PEAKMJD-dependent SNR_SCALE
+   HOSTLIB_SNR_SCALE(53000:53365): 0.3
+   HOSTLIB_SNR_SCALE(53365:53720): 0.5
+   HOSTLIB_SNR_SCALE(53720:54050): 0.7
+\end{verbatim}
+%
+The first key ({\tt MAXDDLR}) defines host-less events based on
+the separation from the host. 
+Very broad profiles (e.g., de Vaucouleur with $n=4$) can lead
+to excessive host-less fractions from large {\tt DDLR}.
+To truncate the galaxy profile, {\tt MXINTFLUX\_SNPOS} removes
+the high-probability region at large radii.
+
+The last two keys simulate host-less events by excluding nearby galaxies
+which fail a user-defined SNR cut.
+Galaxy mags and uncertainties are required in the
+\hostlib\ for this feature. 
+In the example above, at least one band must satisfy SNR$>5$.
+
+A \hostlib\ is often based on the full depth of a survey,
+and is thus not appropriate for simulating samples before
+the end of the survey.
+For example, consider a \hostlib\ based on a 4-year co-add depth;
+to simulate a 1 year co-add depth, set {\tt SNR\_SCALE: 0.5}
+to reduce the galaxy SNR by a factor of $\sqrt{1/4}=1/2$.
+An optional PEAKMJD-dependent {\tt SNR\_SCALE} can be given
+by providing PEAKMJD-ranges as parenthetical arguments.
 
 % ------------------------------------
 \clearpage
@@ -4438,9 +4777,69 @@ results in undefined {\tt REDSHIFT\_FINAL}$= -9 \pm -9$.
 
 
 % ---------------------------------------
-% \clearpage
+\clearpage
+\subsubsection{Connecting {\tt SIMGEN\_DUMP} to {\tt HOSTLIB} }
+\label{sss:dump_to_hostlib}
+% ---------------------------------------
+
+Consider this example in the sim-input file:
+\begin{verbatim}
+  GENVERSION: MYTEST
+  SIMGEN_DUMP: CID,ZCMB,ZHELIO,GALID,GALZTRUE,GALZPHOT,GALZPHOTERR,GALZDIF
+  etc ...
+\end{verbatim}
+%
+The simgen-dump file can be examined with command
+\begin{verbatim}
+  get_fitres_values.py \
+    -f $SNDATA_ROOT/SIM/MYTEST/MYTEST.DUMP \
+    -v ZCMB,ZHELIO,GALID,GALZTRUE,GALZPHOT,GALZPHOTERR,GALZDIF \
+    --nrow 1
+
+CID      ZCMB    ZHELIO   GALID  GALZTRUE  GALZPHOT  GALZPHOTERR   GALZDIF
+2    0.732063  0.733324  328788    0.7359  0.736324       0.0155 -0.002576
+\end{verbatim}
+
+The original {\tt HOSTLIB} information is extracted using the
+{\tt GALID}:
+\begin{verbatim}
+  get_fitres_values.py \
+   -f <HOSTLIB_FILE_NAME> \
+   -g 328788 -v ZTRUE,ZPHOT,ZPHOTERR
+        
+GALID    ZTRUE   ZPHOT  ZPHOTERR
+328788  0.7359  0.7389    0.0155
+\end{verbatim}
+Here a few comments on how these two sets of variables are related
+to each other:
+\begin{itemize}[noitemsep]
+  \item {\tt ZCMB} is randomly selected SN redshift (cmb frame) 
+           from rate model.
+%
+  \item {\tt ZHELIO} is the SN helio-redshift, transformed from {\tt ZCMB}.
+%
+  \item {\tt GALZTRUE} is the original true helio-redshift of the 
+            selected host with {\tt GALID=328788}.
+%
+  \item {\tt GALZTRUE(SIMGEN\_DUMP) = ZTRUE(HOSTLIB) = 0.7359}
+%
+  \item {\tt ZHELIO-GALZTRUE} $= 0.733324 - 0.7359 = -0.002576$
+      is the difference between the SN redshift and randomly selected 
+      host based on {\tt HOSTLIB\_DZTOL}; 
+      this difference is {\tt GALZDIF}.
+%
+  \item {\tt GALZPHOT(SIMGEN\_DUMP) - ZPHOT(HOSTLIB)}
+        $= 0.736324 - 0.7389 = -0.002576=$ {\tt GALZDIF}.
+%
+  \item  The original {\tt ZPHOT(HOSTLIB)} can be  computed as \\
+       {\tt ZPHOT(HOSTLIB) = GALZPHOT(SIMGEN\_DUMP) - GALZDIF(SIMGEN\_DUMP)}
+\end{itemize}
+
+
+% ---------------------------------------
+\clearpage
 \subsubsection{Miscellaneous}
-\label{sss:hostlob_misc}
+\label{sss:hostlib_misc}
 % ---------------------------------------
 
 \noindent {\bf HOSTLIB Variables for {\tt SIMGEN\_DUMP} file:} \\
@@ -4617,7 +5016,7 @@ locations to galaxies in a catalog generated from the survey.
 \medskip
 There are two ways to identify mis-matched hosts from the data files.
 First is an explicit flag, {\tt SIM\_ZFLAG=4} 
-(see \S?? for details).
+(see \S~\ref{sss:redshift_flag} for details).
 Second, {\tt REDSHIFT\_FINAL - SIM\_REDSHIFT\_CMB} should 
 show a tail from wrong-host matches.
 In the output tables (SNANA,FITRES) from snana-analysis,
@@ -4757,8 +5156,8 @@ to {\tt NON1ASED} and {\tt NON1AGRID} models.
 \label{subsec:DNDB}
 % ------------------------------------
 
-For the {\tt LCLIB} model, the rate is defined as a function
-of Galactic coordinates ($l$ and $b$). Current option is
+For the {\tt LCLIB} model, the relative rate is defined as a 
+function of Galactic $b$-coordinates,
 \begin{verbatim}
    DNDB:  COSBPOLY  b0,b1,b2,,,,bN     # Nth order polynomial in cos(b)
    DNDB:  COSBPOLY  b0 b1 b2 b3 b4 b5  # legacy input for 5th order polynom
@@ -4774,26 +5173,59 @@ of Galactic coordinates ($l$ and $b$). Current option is
 which defines the $b$-dependence with an $N'th$-order
 polynomial function of $\cos(b)$ or $b$.
 The absolute number of generated events is given by
-{\tt NGENTOT\_LC}. To reduce reading of the \simlib,
+{\tt NGENTOT\_LC}.  {\it Beware} of the following:
+\vspace{-0.4cm}
+\begin{itemize}[noitemsep]
+  \item {\tt DNDB} is a re-weight function applied to the {\tt SIMLIB} 
+         distribution. 
+  \item For isotropic {\tt SIMLIB} and highly anisotropic {\tt DNDB}
+        reweight, set {\tt SIMLIB\_NREPEAT} $\gg1$ for efficient generation.
+\end{itemize}
+
+With default ``{\tt SIMLIB\_NREPEAT: 1},'' the simulation randomly
+selects/rejects each SIMLIB entry based on the input {\tt DNDB} function.
+This procedure is efficient for nearly isotropic {\tt DNDB},
+but for more realistic {\tt DNDB} with a very large anisotropy,
+the simulation spends most of the time reading and skipping {\tt SIMLIB}
+entries, and is thus very inefficient.
+
+To reduce reading of \simlib\ entries,
 and thus reduce processing time, 
 use the {\tt SIMLIB\_NREPEAT} feature (\S\ref{sssec:simlib_options}).
 While {\tt SIMLIB\_NREPEAT} is fixed for isotropic rate models
-that depend on redshift (\S\ref{subsec:DNDZ}), here it is
-multiplied by the relative rate:
+that depend on redshift (\S\ref{subsec:DNDZ}), 
+here it is multiplied by the relative rate for each {\tt SIMLIB} entry $i$:
 \begin{verbatim}
-  SIMLIB_NREPEAT = max(SIMLIB_NREPEAT) * DNDB(b,l)/max[DNDB(b,l)]
+     SIMLIB_NREPEAT(i) = max(SIMLIB_NREPEAT) * DNDB(b)/max[DNDB(b)]
 \end{verbatim}
-The $b$-weight is thus implemented by how many times each
-\simlib\ entry is read. Since {\tt SIMLIB\_NREPEAT} is usually
-a float, the floating remainder is compared with random number
+The $b$-weight is implemented by how many times each
+\simlib\ entry is read. Since {\tt SIMLIB\_NREPEAT(i)} is a float, 
+the floating remainder is compared with random number
 to determine whether to use 
 {\tt NREPEAT=int(SIMLIB\_NREPEAT)} or {\tt int(SIMLIB\_NREPEAT)+1}.
 If {\tt NREPEAT=0}, the \simlib\ entry is skipped.
 
+\medskip
+As an  example consider a $\cos^5(b)$ profile,
+\vspace{-0.2cm}
+\begin{verbatim}
+   DNDB:  COSBPOLY  0,0,0,0,0,1
+\end{verbatim}
+With default ``{\tt SIMGEN\_NREPEAT: 1}'' using each
+{\tt SIMLIB} entry once,
+only $\int_0^1 x^5 = 1/6$ of the (isotropic) {\tt SIMLIB} entries
+are processed.
+However, with ``{\tt SIMGEN\_NREPEAT: 100}'', 
+{\tt SIMLIB} entries with $|\cos(b)| > 0.4$ (60\%) have 
+{\tt SIMLIB\_NREPEAT(i)}$>1$ and thus are processed.
+A caveat is to generate enough events to sample most of
+the {\tt SIMLIB}; e.g., if {\tt NGENTOT]\_LC = 100} then
+only a few {\tt SIMLIB} entries are sampled in this example.
+
 
 %\bigskip
 \clearpage
-The {\tt DNDB}-rate feature specifies a relative rate vs. $b$,
+The {\tt DNDB}-rate feature specifies a relative re-weight vs. $b$,
 but the simulation has no mechanism to normalize separate simulations
 of different sky regions. Here we describe how to determine
 the relative normalization using the 
@@ -5058,8 +5490,10 @@ $\dFlamHost$ is scaled by $\scaleFlamHost$ such that
     \frac{\scaleFlamHost\int d\lam [\dFlamHost]}{ \int d\lam [\dFlamPeak ]}~,
 \end{equation}
 %
-where $\dFlamPeak$ is the SN spectrum at peak brightness.
-% .xyz
+where $\dFlamPeak$ is the SN spectrum at peak brightness,
+and the integration is over the spectrograph wavelength range
+in which both $F_{\rm host}$ and $F_{\rm peak}$ are defined.
+
 
 \medskip
 There are two methods to define the template exposure time.
@@ -5448,13 +5882,13 @@ An overview of redshift-related inputs are as follows:
    GENRANGE_REDSHIFT:  0.01 1.0  # ZCMB-gen range
    GENSIGMA_REDSHIFT:  0.001     # Gaussian z-error      (default=0)
    GENBIAS_REDSHIFT:   1.0E-4    # global redshift bias  (default=0)
-   VEL_CMBAPEX:        371       # CMB dipole, (default = 371 km/sec)
+   VEL_CMBAPEX:        370       # CMB dipole, (default = 370 km/sec)
 \end{verbatim}
 %
 The CMB redshift is generated first, and then the RA \& DEC
 from the \simlib\ file is used to compute $\zhelio$ with
 $\ell=264.14$~deg, ~~ $b=48.26$~deg,~~
-and default {\tt VEL\_CMBAPEX=371}.
+and default {\tt VEL\_CMBAPEX=370}.
 
 To generate $\zhelio=\zcmb$ (sometimes useful for debugging), 
 set {\tt GENSIGMA\_VPEC} (\S\ref{sss:vpec}) and  {\tt VEL\_CMBAPEX} 
@@ -5495,8 +5929,8 @@ To be on the safe side, one should generate a slightly larger
 $\zcmb$-redshift range compared to the anticipated 
 analysis cuts. The extended generation range should allow
 for $\vpec$ variations\footnote{Beware that the maximum 
-$\vpec$-redshift variation is $(1+z) 371/c$ and 
-not just $371/c$.}  % end footnote
+$\vpec$-redshift variation is $(1+z) 370/c$ and 
+not just $370/c$.}  % end footnote
 and measurement noise. 
 
 Finally, rather than simulating a $z$-bias with {\tt GENBIAS\_REDSHIFT},
@@ -5512,7 +5946,25 @@ The simulated luminosity distance is computed as
      r(\zcmb) \equiv (c/H_0)\int_0^{\zcmb} dz/H(z)~.
 \end{equation}
 %
-
+\medskip
+To override either min or max redshift,
+\vspace{-0.4cm}
+\begin{verbatim}
+   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT .05 -1  # (a) increase zmin if < 0.05
+         or
+   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT -1  1.3 # (b) decrease zmax if > 1.3
+\end{verbatim}
+\vspace{-0.2cm}
+and setting the $-1$ value in a sim-input file results in abort.
+Note that the half-range update is applied {\it only} if it is more strict
+than the original value.
+For example, if zmin=0.06 in the sim-input file, 
+the first example above makes no change; 
+but if zmin=0.04 in the sim-input file, then zmin is increased to 0.05.
+A usage example is a new {\tt HOSTLIB} with min galaxy redshift above
+the minimun defined by {\tt GENRANGE\_REDSHIFT}.
+To avoid abort, add global command (a) in either the
+command-line override, {\tt submit\_batch\_jobs}, or {\tt pippin}.
 
 % - - - - - - -
 \clearpage 
@@ -5520,31 +5972,44 @@ The simulated luminosity distance is computed as
 \label{sss:vpec}
 
 There are two methods to simulate peculiar velocity.
-The first method is to define a Gaussian profile and Gaussian 
-correction in the sim-input file,
+The first method is to define a Gaussian sigma for
+the true profile and for the measured precision in 
+the sim-input file,
 \begin{verbatim}
-   GENSIGMA_VPEC:      300       # true sigma(v_pec), km/sec  (default=0)
-   VPEC_ERR:           150       # measured error on VPEC (default=0)
+   GENSIGMA_VPEC:   300    # true sigma(v_pec), km/sec  (default=0)
+   VPEC_ERR:        150    # error on measured/computed VPEC (default=0)
 \end{verbatim}
 
-A Gaussian-random peculiar velocity correction ($\vpec$) is defined by 
+A Gaussian-random peculiar velocity ($\vpec$) is defined by 
 {\tt GENSIGMA\_VPEC},\footnote{\snana\ users would be grateful
   if somebody provides code to compute $\vpec$ based on
   RA, DEC, and $\zcmb$.}
 and corresponds to the true scatter.
-{\tt VPEC\_ERR} is the measured error on $\vpec$
-(see \S\ref{subsec:vpec}).
-{\tt VPEC} and {\tt VPEC\_ERR} are written to the data files.
-With true peculiar-velocity value {\tt SIM\_VPEC}, 
-the {\tt VPEC} correction ($\vpec$) in the data file is
+{\tt VPEC\_ERR} is the error on a $\vpec$ estimate 
+(see \S\ref{subsec:vpec}) used for analysis.
+The true peculiar-velocity value is 
+\begin{verbatim} 
+    SIM_VPEC = GENSIGMA_VPEC * GaussRan
+\end{verbatim} 
+and the ``measured {\tt VPEC}'' reported in the data file is
 \begin{verbatim}
     VPEC =  SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
     VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
 \end{verbatim}
 %
-For high-z samples that do not have a VPEC correction,
+For high-z samples that do not privde a $\vpec$ estimate,
 set {\tt VPEC\_ERR} = {\tt GENSIGMA\_VPEC} as a flag to
-apply no correction.
+skip the {\tt VPEC} estimation,
+
+The estimated {\tt VPEC} and {\tt VPEC\_ERR} are written to the 
+data files for analysis, but they are not used by the sim to modify 
+the reported redshift; this is analogous to providing 
+Galactic extinction {\tt MWEBV} without correcting the reported fluxes.
+The lightcurve fitting program ({\tt snlc\_fit.exe}) 
+outputs a Hubble diagram redshift {\tt zHD} that includes a
+{\tt VPEC} correction, and the uncertainty {\tt zHDERR} includes
+{\tt VPEC\_ERR}.
+
 
 The first method has the advantage of simplicitly, but does not
 account for large-scale correlations and bulk flows.
@@ -5554,17 +6019,18 @@ column from the {\tt HOSTLIB} if the 512-bit is set in
 The associated \unc\ can be defined in two ways:
 1) a separate {\tt VPEC\_ERR} column 
    defining a distinct \unc\ for each host, or 
-2) fixing the uncertainty with header key ``{\tt VPEC\_ERR: <vpecErr>}.''
+2) fixing the uncertainty with {\tt HOSTLIB} header key 
+``{\tt VPEC\_ERR: <vpecErr>}.''
 The output {\tt README} includes summary information as follows:
 \begin{verbatim}
-   HOSTLIB Opt:  Use VPEC (RMS=305  min/max=-3189/3350 km/sec)
+   !*!*!*! TO DO: fix this to account for README refactor *!*!*!*!
 \end{verbatim}
 
 
 Note that mixing the two methods is not allowed;
-e.g, the sim will abort if {\tt VPEC} is defined in the {\tt HOSTLIB} 
-while ``{\tt VPEC\_ERR:}'' is defined in the sim-input file.
-
+e.g, the sim will abort if the 512-bit is set for {\tt HOSTLIB\_MSKTOPT}
+while {\tt GENSIGMA\_VPEC} or {\tt VPEC\_ERR} 
+is defined in the sim-input file.
 
 % ------------------------------------
    \clearpage
@@ -5935,33 +6401,38 @@ and the sub-sections below give more details.
    \label{sss:fits_format}
 % ------------------------------------
 ``{\tt\bf FORMAT\_MASK:  32}'' 
-uses the more compact binary-FITS format 
-that is processed using the {\tt cfitsio} library. 
+uses the compact binary-FITS format that is processed using the 
+{\tt cfitsio} library. 
 The advantage of this format is that there are very few files
 to manage, reading is much faster compared to the TEXT options, 
-the compact binary files are portable to any computing platform,
+FITS files are portable to any computing platform,
 and there are public fits-viewing utilities such as ``fv.''
 
-
-Two fits files are created by the simulation.
-First is a HEAD file with a one-row summary for each SN.
-The summary info includes the SNID, sky coordinates,
-Galactic extinction, and many other quantities.
-The HEAD file also contains the name of the second 
-``PHOT'' file which contains the photometric light curves.
-All of the light curves are written sequentially into one
-PHOT-table, and pointers from the HEAD file 
+For data version {\tt VVV}, the file {\tt VVV.LIST} points 
+a set of {\tt HEAD} files with a one-row summary for each SN.
+The summary info includes the SNID, sky coordinates, redshift,
+Galactic extinction, host-galaxy information, and many other quantities.
+Each {\tt HEAD} file also contains the name of the second 
+``{\tt PHOT}'' file which contains the photometric light curves.
+All of the light curves are written sequentially to the
+{\tt PHOT}-tables, and pointers in the {\tt HEAD} file 
 (see {\tt PTROBS\_MIN} and {\tt PTROBS\_MAX}) 
-are used to select the appropriate rows from the PHOT table.
-For a given SN-data version, the {\tt [VERSION].LIST} file
-contains a list of HEAD fits-files. Usually there is only
-one such fits-file, but several can be combined into one version,
-such as combining files from different seasons.
+are used to select the appropriate rows from the {\tt PHOT} table.
+To help catch pointer mistakes, {\tt MJD = -777} is written
+after each light curve to clearly indicate the end of the light curve.
 
-The  {\tt PHOT} table columns are:
+
+If {\tt submit\_batch\_jobs} is used to generate simulations on mutiple cores,
+there will be one {\tt HEAD} and one {\tt PHOT} file per core, all gzipped. 
+Reading a gzipped FITS file requires the memory of the entire unzipped FITS
+file; therefore the FITS files are not merged to reduce memory.
+For example, 40 1GB FITS files requires only 1GB of memory to read,
+while merging into one file would require 40 GB memory.
+
+The {\tt PHOT} table columns are:
 \begin{Verbatim}[frame=single]
   TTYPE1  = 'MJD     '           / MJD
-  TTYPE2  = 'FLT     '           / single-char band label
+  TTYPE2  = 'BAND    '           / single-char band label
   TTYPE3  = 'FIELD   '           / name of FIELD
   TTYPE5  = 'PHOTFLAG'           / bit-mask from photometry pipeline
   TTYPE6  = 'PHOTPROB'           / float FoM from photometry pipeline
@@ -5972,12 +6443,12 @@ The  {\tt PHOT} table columns are:
   TTYPE13 = 'PSF_RATIO'          / PSF2/PSF1 at origin
   TTYPE14 = 'SKY_SIG '           / Search image sky sigma (ADU/pixel) 
   TTYPE15 = 'SKY_SIG_T'          / Template sky sigma (ADU per pixel)
-  TTYPE16 = 'RDNOISE '           / read noise (pe/pixel)
-  TTYPE17 = 'ZEROPT  '           / zero point (ADU)
+  TTYPE16 = 'RDNOISE '           / image read noise (pe/pixel)
+  TTYPE17 = 'ZEROPT  '           / image zero point (ADU)
   TTYPE18 = 'ZEROPT_ERR'         / error on above
   TTYPE19 = 'GAIN    '           / ADU per pe
+  TTYPE21 = 'SIM_MAGOBS'         / True model mag (sim only)
 \end{Verbatim}
-
 
 % ------------------------------------
 %   \clearpage
@@ -6083,7 +6554,7 @@ it simply provides additional information to the analysis programs.
 
 
 % ------------------------------------
-%  \clearpage
+  \clearpage
    \subsubsection{Source of Each Redshift}
    \label{sss:redshift_flag}
 % ------------------------------------
@@ -6092,7 +6563,7 @@ The output data files include {\tt REDSHIFT\_FINAL},
 the best redshift to use for Hubble diagrams.
 However, the source of this best redshift can be
 from the SN, from a host-spectrum, from a host photo-$z$,
-or from a wrong host. And integer flag, {\tt SIM\_REDSHIFT\_FLAG},
+or from a wrong host. An integer flag, {\tt SIM\_REDSHIFT\_FLAG},
 is written to the data files, and the intepretations can be
 found with the following grep command:
 
@@ -6105,10 +6576,8 @@ found with the following grep command:
    #define  REDSHIFT_FLAG_WRONGHOST 4
 \end{verbatim}
 
-In the output tables (SNANA,FITRES), the flag is called {\tt SIM\_ZFLAG}.
-This flag is written to HBOOK and ROOT files; to extract into TEXT tables,
-use the {\tt APPEND\_TABLE\_TEXT} feature in {\tt split\_and\_fit}.
-
+In the output tables (SNANA,FITRES), this flag is called {\tt SIM\_ZFLAG};
+it is written to TEXT, ROOT, and HBOOK files.
 
 
 % ------------------------------------
@@ -6603,7 +7072,7 @@ for all tables formats.
    \label{ssec:RANSYSTPAR}
 % ------------------------------------
 
-While systematic variations are typically done in the analysis stage,
+While systematic variations are typically evaluated in the analysis stage,
 it may be useful to simulate a large number of data-sized samples,
 each with a different random set of systematic errors applied.
 In principle, one can define each set of variations in a brute-force manner:
@@ -6612,25 +7081,37 @@ and specifying ``{\tt GENOPT: GENMAG\_OFF\_ZP <list>}'' for each
 {\tt GENVERSION} (see \S\ref{sss:submit_batch}).
 
 Instead of the brute-force apporach, it is simpler to use the 
-{\tt RANSYSTPAR\_XXX} input parameters so that the user need 
-only change {\tt RANSEED} and the simulation picks random errors.
+{\tt RANSYSTPAR\_XXX} input parameters so that 
+the simulation picks random errors.
 Here are examples of available options for the sim-input file:
 %
 \begin{Verbatim}[frame=single]
-   GENFILTERS:  griz
-   RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
-   RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
+#       systematics that are 100 percent correlated among samples
    RANSYSTPAR_SIGSCALE_MWEBV:    0.05     # scale MWEBV 
    RANSYSTPAR_SIGSHIFT_MWRV:     0.2      # shift RV
    RANSYSTPAR_SIGSHIFT_REDSHIFT: 1E-4     # shift measured redshift
+   RANSYSTPAR_SIGSHIFT_zPHOT_HOST: 0.01   # shift zPHOT of host galaxy
    RANSYSTPAR_SIGSHIFT_W0:           0.1  # shift w
    RANSYSTPAR_SIGSHIFT_OMEGA_MATTER: 0.1  # shift OM
 
    RANSYSTPAR_RANGESHIFT_W0:           -0.5 0.5   # flat shift range for w
    RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
-   RANSYSTPAR_GENMODEL_WILDCARD: "/path/to/genmodels*" # picks random model out of globbed list
+   RANSYSTPAR_GENMODEL_WILDCARD: "/path/to/genmodels*" 
+           # pick random model out of globbed list
 
+   RANSYSTPAR_GENPDF_FILE_WILDCARD: "/path/to/genpdf_files*" 
+           # pick random GENPDF_FILE out of globbed list
+
+\end{Verbatim}
+
+\bigskip
+
+\begin{Verbatim}[frame=single]
+#             systematics that depend on survey
+  GENFILTERS:  griz
+  RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
+  RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
   # filter-dependent variants:
   RANSYSTPAR_SIGSHIFT_ZP:           .01 .02 -0.01 .03      # sigma per band
   RANSYSTPAR_SIGSHIFT_ZP(g,r,i,z):  .01 .02 -0.01 .03      # idem
@@ -6639,12 +7120,28 @@ Here are examples of available options for the sim-input file:
 
   RANSYSTPAR_SIGSHIFT_LAMFILT:          8 7 19 9   # sigma per band
   RANSYSTPAR_SIGSHIFT_LAMFILT(g,r,i,z): 8 7 10 9   # idem
+\end{Verbatim}
+
+\clearpage
+
+\begin{Verbatim}[frame=single]
+  # misc control parameters
+
+  # use this random to select sytematic shifts; then switch back to
+  # user-define RANSEED, or RANSEED_GEN above. submut_batch_jobs uses
+  # this key to define correlated syst for each of the N samples.
+  RANSYSTPAR_RANSEED_SYST: 12345      
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS
-   RANSYSTPAR_RANSEED_GEN: 12345  
+  RANSYSTPAR_RANSEED_GEN: 12345  
+
+  # if different surveys use same instrument, force the same 
+  # IDSURVEY-dependent randoms for systematics such as ZP and FilterWave.
+  RANSYSTPAR_IDSURVEY: 15 # e.g, same shifts for Found and PS1
 \end{Verbatim}
-%
+
+
 {\tt SIGSCALE\_XXX} parameters are interpreted as follows.
 A Gaussian sigma is defined as $\sigma={\tt SIGSCALE\_XXX}$,
 and then a random Gaussian number, $r$, is picked. 
@@ -6676,10 +7173,55 @@ of shifts.
   \item {\tt RANSYSTPAR\_SIGSHIFT\_LAMFILT} applies a Gaussian-random shift
           to each filter bandpass.
 %
+  \item {\tt RANSYSTPAR\_RANSEED\_SYST} is a flag for 
+      {\tt submit\_batch\_jobs.sh} to select the same random for each
+      split job. For exampe, consider 50 random data samples for LOWZ,PS1,DES.
+      Split-sample 1 gets the same {\tt RANSYSTPAR\_RANSEED\_SYST} value
+      for each survey,  split-sample 2 gets a different value, etc...
+%
   \item {\tt RANSYSTPAR\_RANSEED\_GEN} allows fixing the generation seed
         after systematic variations are selected. This removes statistical
         fluctuations from multiple GENVERSIONs.
 \end{itemize}
+
+
+% --------------------------------------------
+   \subsection{Auto-Generated README (valid starting Jan 7 2022) }
+   \label{ssec:SIM_README}
+% --------------------------------------------
+
+The simulation produces an auto-generated {\tt README} file in the
+same directory as the data files,
+\begin{verbatim}
+    $SNDATA_ROOT/SIM/[GENVERSION]/[GENVERSION].README
+\end{verbatim} 
+where {\tt [GENVERSION]} is the argument of the {\tt GENVERSION} key.
+The {\tt README} content is a yaml-compliant {\tt DOCUMENTATION} block
+that includes 4 sub-blocks:
+\begin{verbatim} 
+  DOCUMENTATION:
+     OVERVIEW:     # survey, genmodel, node, username, snana_version ...
+       ...
+     INPUT_KEYS:   # collection of all user input keys and args
+        ...
+     INPUT_NOTES:  # computed quantities & subtle explanations
+        ...
+     OUTPUT_SUMMARY:  # summary stats
+        ...
+\end{verbatim} 
+The first 3 blocks are created during initialization and can therefore
+be viewed while the simulation is running. The {\tt OUTPUT\_SUMMARY} block
+is created at the end of the job.
+The simulation input can be distributed among several {\tt INCLUDE} files
+and command-line overrides, and thus tracking the input can be difficult.
+To enable checking the inputs more easily, the {\tt INPUT\_KEYS} block 
+lists all of the user-inputs in one location regardless of their origin.
+The {\tt INPUT\_KEYS} can be converted into a single sim-input file
+with quick-command (\S\ref{sss:quick_commands})
+\begin{verbatim}
+    quick_commands.py -v [GENVERSION] --extract_sim_input 
+       (creates sim_input_[GENVERSION].input)
+\end{verbatim}
 
 
 % ##########################################
@@ -7392,6 +7934,18 @@ namelist prior options are given below.
    in a continuous function. Recommended values are .001 to 0.01.
 \end{itemize}
 
+
+% - - - - - 
+\subsubsection{Initial Values from Existing FITRES file}
+\label{sss:fitres_initial_values}
+
+For the {\tt SNCID\_LIST\_FILE} option (\S\ref{sss:select_SNID}),
+the file can contain one of two formats:
+1) list format with list of CIDs and nothing else, or 
+2) {\tt FITRES} (keyed) format that includes CID in first column.
+For the {\tt FITRES} format, the fit-par columns (PKMJD, x1, c, zHD)
+are automatically used as initial values to the fit.
+Using the uncertainties as a prior requires a code update.
 
 
 % ------------------------------------
@@ -8576,6 +9130,8 @@ All namelist variables discuss here are in {\tt \&SNLCINP}.
 
 % -------------------
 \subsubsection{Selecting/Ignoring SNID}
+\label{sss:select_SNID}
+
 By default all candidate IDs (CID) are processed.
 Here are some example on how to select a range
 of CIDs or a list of CIDs, and to ignore
@@ -8597,10 +9153,11 @@ a list of CIDs:
                                             ! separate CIDs by space or <CR>
 
    OPT_SNCID_LIST = 1    ! ignore SN cuts & process all CIDs in list 
-   OPT_SNCID_LIST = 2    ! use PKMJDINI from FITRES-list file
+   OPT_SNCID_LIST = 2    ! if FITRES format, use SALT2 params as initial values in LCFIT
    OPT_SNCID_LIST = 3    ! both of the above
 
    MXEVT_PROCESS = 20    ! stop processing after 20 events
+   MXEVT_CUTS    =  5    ! stop processing after 5 events pass cuts
 \end{Verbatim}
 %
 Internally all CIDs are strings. If the CIDs are integers
@@ -8631,9 +9188,10 @@ forces all CIDs to be processed; example use is for systematics
 tests with small calibration shifts that could migrate events
 in and out of SNR cuts. Beware that while SN-select cuts are ignored,
 epoch-select cuts are still applied.
-The 2 bit of {\tt OPT\_SNCID\_LIST} reads and uses {\tt PKMJDINI} 
-from list-file, and does not re-compute it; code aborts if
-requested {\tt PKMJDINI} column does not exist.
+The 2 bit of {\tt OPT\_SNCID\_LIST} reads and uses SALT2 parameters as initial
+values for LC fit. If {\tt \&FITINP} namelist input {\tt INISTP\_COLOR=0}, 
+the SALT2 color parameter from the FITRES file is fixed for all fit iterations,
+and similarly for the other {\tt INISTP} inputs.   
 
 Finally, {\tt MXEVT\_PROCESS} stops processing after this many
 events, regardless of of how the other ``{\tt CID}'' inputs are set.
@@ -8651,6 +9209,8 @@ use a comma-separated list:
    snana.exe <myInputFile>  SNCCID_LIST 2004cx,2002cx,2005he
      or
    snana.exe <myInputFile> MXEVT_PROCESS 5
+     or
+   snana.exe <myInputFile> MXEVT_CUTS 5
 \end{verbatim} 
 %
 and this syntax also works for the {\tt snlc\_fit.exe} and {\tt psnid.exe}
@@ -9062,27 +9622,36 @@ for example, to label SNe confirmed by a particular telescope.
 \label{subsec:data_override}
 
 
-\subsubsection{Over-Riding Header Information}
+\subsubsection{Over-Riding Header Information: {\tt HEADER\_OVERRIDE\_FILE} }
 \label{sss:header_override}
 
-Here we describe how to over-ride header information in the
-data files without re-making the data files. This feature
-can be useful, for example, for systematics or optimization studies
+For \snana\ analysis programs 
+({\tt snana.exe}, {\tt snlc\_fit.exe}, {\tt psnid.exe}),
+here we describe how to over-ride header information in the
+data files without re-making the data files.
+This feature is useful to study the impact of data changes
+(e.g., redshifts and host matches) without altering a released
+data set. Beware that this feature is intended only for internal 
+use by analysis teams,
+and should not be part of a publicly released data set;
+see Sec.~\ref{sss:new_data_files} on updating data files with 
+override information.
+
 The header information includes host properties, peculiar
 velocities, redshifts, and Galactic extintion, all of which
-can be easily modified for a particular study. To see a complete
-list of options, search for 
-{\tt VARLIST\_ALL\_HEADER\_OVERRIDE} in {\tt snana.car}.
-
+can be modified for a particular study. 
+To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
 The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
-     HEADER_OVERRIDE_FILE = 'myUpdates.dat'
+     HEADER_OVERRIDE_FILE = 'myUpdates.dat'  ! real data only
          or
-     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat
+     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat  ! real data only
+         or
+     SIM_HEADER_OVERRIDE_FILE = 'sim_overrides.dat'  ! sim data only
 
 more myUpdates.dat
-VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR MWEBV
+VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV
 SN:  1346137      0.246  0.001    0.021
 SN:  1346387      0.533  0.0011   0.038
 etc ...
@@ -9096,25 +9665,38 @@ In the first example, three header values are updated:
 helio redshift, the uncertainty, and Galactic extintion.
 For SNe missing from the update file, the original values in the 
 data file header are used. This feature does {\tt NOT} work
-on epoch-dependent quantities.
+on epoch-dependent quantities, but mag and flux corrections can
+be applied as described below in Sec.~\ref{sss:magcor}.
 The second example illustrates a comma-separated list of table files;
 beware that the variables in each file must be unique (except for CID).
 
-The header-override list includes variables that are used later in 
+The header-override list may include variables that are used later in 
 BBC or cosmology fitting, but not used in light curve fitting;
 e.g., host-galaxy properties and peculiar velocity. To avoid 
 losing time re-running identical light curve fits for such variable changes,
 it can be more efficient to make substitutions at the 
-BBC/{\tt SALT2mu.exe} stage using input 
-\vspace{-0.4cm}
+BBC/{\tt SALT2mu.exe} stage using BBC-input 
+\vspace{-0.2cm}
 \begin{verbatim}
     datafile_override=over1.dat,over2.dat,etc
 \end{verbatim}
 Any variable in the input table (see {\tt datafile} arg) can be
 included in an override table.
 For {\tt VPEC} ({\tt VPEC\_ERR}) changes, the Hubble diagram 
-redshift ({\tt zHD}, {\tt zHDERR}) is re-computed by subtracting
+redshift ({\tt zHD}, {\tt zHDERR}) is internally re-computed by subtracting
 the original $\vpec$ and adding the override value.
+To update host matches, make sure to include the following variables
+in the header-override file:
+\vspace{-0.1cm}
+\begin{itemize}[noitemsep]
+   \item All of the {\tt HOSTGAL\_XXX},
+            except for {\tt HOSTGAL\_SB\_FLUXCAL\_[band]} \\
+     (because SB depends on SN coordinates rather than host-match)
+   \item All of the {\tt HOSTGAL2\_XXX}
+   \item {\tt REDSHIFT\_HELIO} and {\tt REDSHIFT\_HELIO\_ERR}
+   \item {\tt REDSHIFT\_FINAL} and {\tt REDSHIFT\_FINAL\_ERR}
+   \item possibly {\tt VPEC}
+\end{itemize}
 
 % ------------
 \clearpage
@@ -9176,16 +9758,32 @@ the corrections can be removed with
 where the minus sign in front is a command to subtract.
 This subtract option works only with the {\tt VERSION\_ADD} key.
 
-\medskip
+% xxxxx removed Dec 29 2022 xxxxxxxx
+%\medskip
+%Since these correction typically require an SED, the SALT2-fitted 
+%model SED can be extracted for each epoch and stored in a 
+%ROOT file with
+%\begin{verbatim}
+%  SNTABLE_LIST = 'MODELSPEC'
+%\end{verbatim}
+%and see \S\ref{subsec:anavar} for details.
+% xxxxxxxxxxxxxxxx
 
-Since these correction typically require an SED, the SALT2-fitted 
-model SED can be extracted for each epoch and stored in a 
-ROOT file with
-\begin{verbatim}
-  SNTABLE_LIST = 'MODELSPEC'
-\end{verbatim}
-and see \S\ref{subsec:anavar} for details.
-% 
+% - - - - - - - - 
+\subsubsection{Create New Data Files with {\tt OVERRIDE} Updates}
+\label{sss:new_data_files}
+
+While the data override features in 
+\S~\ref{sss:header_override} and \S~\ref{sss:magcor}
+are useful for quick testing, it is not always practical to 
+analyze data with multiple sets of data-override files,
+and public data releases should never use this feature.
+To update data files with the override information,
+use the OVERRIDE feature(s) above and also
+use the {\tt REFORMAT} feature in \S\ref{sss:text2fits}.
+Although reformatting is typically for translating TEXT to FITS
+(and vice-versa), it preserves the override values and
+it works for TEXT$\to$TEXT and FITS$\to$FITS. 
 
 % ------------------------------------------------
 \subsection{Peculiar Velocity Corrections }
@@ -10228,9 +10826,9 @@ Examples are
    GENMODEL:  [PATH]/SALT2.JLA-B14       
    GENMODEL:  [PATH]/SIMSED.SNII-MOSFIT
    GENMODEL:  [PATH]/NONIASED.UV2IR
-   GENMODEL:  [PATH]/BYOSED.TEST
 
    GENMODEL: BYOSED [AnyPathName]   # option without PATH name restriction
+   GENMODEL: BAYESN [AnyPathName]   # idem
 
    # models based on file; no restriction on PATH or fileName
    GENMODEL:  LCLIB      [PATH]/fileName
@@ -10587,24 +11185,29 @@ is the amount of memory on your computer.
 An example of an {\tt SED.INFO} file is as follows:
 \begin{Verbatim}[frame=single]
 # optional keys:
-   FLUX_SCALE:        1.000         # global flux scale (e.g., to fix units)
-   RESTLAMBDA_RANGE:  2500  15000   # valid range of <lamObs>/(1+z)
-   OPTFLAG_T0SHIFT_PEAKMAG: 0       # do NOT time-shift PEAKMAG to DAY=0
+FLUX_SCALE:        1.000         # global flux scale (e.g., to fix units)
+RESTLAMBDA_RANGE:  2500  15000   # valid range of <lamObs>/(1+z)
+OPTFLAG_T0SHIFT_PEAKMAG: 0       # do NOT time-shift PEAKMAG to DAY=0
+MAG_ERR:                 0.1     # not used
+MINSLOPE_EXTRAP_LATE:   0.05     # force min mag/day slope for late-time extrap
+LOGZBIN: 0.05                    # force logz bins to reduce storage
 
 # required keys
-   NPAR: 5
-   PARNAMES: MNI COSANGLE MBSED DM15SED TEXPL
-   SED: GCD2D_Ni0.47_Pre80_1.SED  0.47  -0.967  -18.350  0.571  -21.628
-   SED: GCD2D_Ni0.47_Pre80_8.SED  0.47  -0.500  -18.413  0.574  -20.977
-   SED: GCD2D_Ni0.47_Pre80_1.SED  0.47  -0.033  -18.426  0.654  -21.398
-   SED: GCD2D_Ni0.47_Pre80_2.SED  0.47  +0.500  -18.400  0.767  -21.385
-   etc ...
+NPAR: 6
+PARNAMES: SN_INDEX MNI COSANGLE MBSED DM15SED TEXPL
+SED: GCD2D_Ni0.47_Pre80_1.SED  1  0.47  -0.967  -18.350  0.571  -21.628
+SED: GCD2D_Ni0.47_Pre80_8.SED  2  0.47  -0.500  -18.413  0.574  -20.977
+SED: GCD2D_Ni0.47_Pre80_1.SED  3  0.47  -0.033  -18.426  0.654  -21.398
+SED: GCD2D_Ni0.47_Pre80_2.SED  4  0.47  +0.500  -18.400  0.767  -21.385
+etc ...
 \end{Verbatim}
 Users prepare the {\tt SED.INFO} file, along with each
 SED time-series file with format
 \begin{verbatim}
-   epoch(days)   wavelength(A)   flux(erg/cm^2/s/A) .
+   epoch(days)   wavelength(A)   flux(erg/cm^2/s/A at 10pc) .
 \end{verbatim}
+The wavelength binning must be uniform, but the epoch binning
+can be non-uniform.
 If the fluxes have incorrect units, the {\tt FLUX\_SCALE} key
 can be used to make a global unit conversion. 
 For each SED, there is a default internal time-shift 
@@ -10614,16 +11217,22 @@ and this rest-frame epoch corresponds to {\tt PEAKMJD} in the data header.
 In cases where the explosion time is well defined 
 (e.g., triggered event from LIGO or ICECUBE),
 it may be useful to leave the original $T=0$ definition in each
-SED file by specifying 
-\begin{verbatim}
-  OPTFLAG_T0SHIFT_PEAKMAG: 0    # do NOT shift PEAKMAG to T=0
-\end{verbatim}
+SED file by specifying   ``{\tt OPTFLAG\_T0SHIFT\_PEAKMAG: 0}'' 
 in the {\tt SED.INFO} file.  With this option,
 beware that input {\tt GENRANGE\_PEAKMJD} and output {\tt PEAKMJD} 
 correspond to the explosion time, not the time of maximum brightness.
 
+{\tt MINSLOPE\_EXTRAP\_LATE} forces extrapolated mags to get fainter
+with time; this feature is useful if late-time model fluctuations
+result in extrapolations that give brighter mags at later times.
 
-The first two parameters ({\tt MNI} and {\tt COSANGLE})
+The default redshift binning in log-space has {\tt LOGZBIN=0.02}.
+For models consuming significant memory, {\tt LOGZBIN} can be
+increased to reduce storage.
+
+The first parameter with {\tt \_INDEX} in the name can be used
+to select random indices as shown below.
+The next two parameters ({\tt MNI} and {\tt COSANGLE})
 are the physical parameters for generation; the remaining three
 {\it baggage} parameters (see below) depend on the first two 
 and they are inertly passed along to the output tables, 
@@ -10631,7 +11240,7 @@ just as a small pebble in your food is passed through
 the digestive system.
 
 
-\clearpage
+%\clearpage
 To simulate a \SIMSED\ model, the distribution for each
 physical parameter must be specified in the sim-input file 
 as follows,
@@ -10655,10 +11264,14 @@ SIMSED_COV(MNI,COSANGLE):  -1.34  # optional covar
 # other GRIDONLY options=
 SIMSED_GRIDONLY: SEQUENTIAL  # sequential generation of grid values
      or
-SIMSED_GRIDONLY: KN_INDEX    # pick random KN_INDEX
+SIMSED_GRIDONLY: SN_INDEX    # pick random SN_INDEX
     or
-SIMSED_GRIDONLY: KN_INDEX(3,5,6,9) # pick random among these KN_INDEX values
+SIMSED_GRIDONLY: SN_INDEX(3,5,6,9) # pick random among these SN_INDEX values
 
+SIMSED_USE_BINARY:    1  # create binarys if they don't exist
+SIMSED_USE_BINARY:    2  # force creation of SED.BINARY
+SIMSED_USE_BINARY:    4  # force creation of flux-integral binary table
+SIMSED_USE_BINARY:    6  # force creation of both binarys
 SIMSED_PATH_BINARY:   <path for flux-table binary file>
 \end{Verbatim}
 %
@@ -10717,47 +11330,55 @@ in the {\tt SIMGEN\_DUMP} list (\S\ref{sss:simgen_dump}).
 An explicitly defined SIMSED parameter in the {\tt SIMGEN\_DUMP} 
 list will cause the simulation to abort because of a redundant parameter.
 
-A binary flux-table (see below) is created in your current
-directory by default. Since these binary files can be quite
-large, a separate binary-table directory can be specified
-with the {\tt SIMSED\_PATH\_BINARY} key (see above).
+%A binary flux-table (see below) is created in your current
+%directory by default. Since these binary files can be quite
+%large, a separate binary-table directory can be specified
+%with the {\tt SIMSED\_PATH\_BINARY} key (see above).
 
-There are two internal binary files to speed up the initialization. 
-In principle this all works behind the scenes, 
-but it is explained here in case there are problems. 
-The initialization takes about 1 second per SED, 
-and will be rather annoying if/when there are 100's or 1000's 
-of SEDs to initialize. About half the time is reading the 
-SED text files, and the other half is
-spent doing all the flux-integrals as a function of passband,
-redshift, Trest, and SED surface. The first time that a new
-\SIMSED\ version is simulated, the initialization will be slow, 
-but two binary files are created to speed up future runs.
+\bigskip
+\noindent{\bf BINARY FILES:} \\
+The {\tt SIMSED} initialization takes ${\sim}1$~sec per SED, 
+and is somewhat time-consuming for 100's or 1000's of SEDs. 
+About half the time is reading the SED text files, and the other half 
+is doing the flux-integrals as a function of passband,
+redshift, Trest, and SED surface. 
+To greatly speed up this slow initialization,
+two internal binary files are created
+the first time a new \SIMSED\ model is simulated.
+The first simulation must be interactive; batch jobs abort to 
+avoid multiple cores writing to the same binary file.
+
 The first binary file contains the SEDs ({\tt SED.BINARY}), 
-and it is stored in the same version ({\tt VVV}) directory
+and it is stored in the same model ({\tt MMM}) directory
 as the SED text files,
-\${\tt SNDATA\_ROOT/models/SIMSED/VVV}.
-This {\tt SED.BINARY} file will be automatically used
-by any \snana\ user who specifies the {\tt VVV} version.
+\${\tt SNDATA\_ROOT/models/SIMSED/MMM}.
+This {\tt SED.BINARY} file is automatically used
+by any \snana\ user who specifies the {\tt MMM} version.
 
 
 The second binary file is the filter-specific flux-integral table, 
-and this file
-is stored either in your local directory (default)
-or the directory specified by {\tt SIMSED\_PATH\_BINARY}.
-The reason for storing in a user-specified directory is that 
-the flux integrals depend on the survey and filters,
-and therefore this file is specific to your analysis.
+and this survey-specific file is stored in the directory specified by 
+{\tt SIMSED\_PATH\_BINARY}.
+%The reason for storing in a user-specified directory is that 
+%the flux integrals depend on the survey and filters,
+%and therefore this file is specific to the survey analysis team.
 The validity of each binary file is verified internally; 
 if there is an inconsistency between the two binary files
 and/or the requested survey parameters, the simulation will 
 abort and recommend removing the old binary file(s) so that
-new ones can be created. A similar abort will occur if
-the user's binary flux-integral table has a time-stamp
+new ones can be created. A similar abort occurs if
+the binary flux-integral table has a time-stamp
 that is earlier than the SIMSED model or earlier than
 the K-cor file used to define the primary reference
 and filter transmissions.
 
+To create binary files for multiple SIMSED models,
+\vspace{-2mm}
+\begin{verbatim}
+   make_simsed_binaries.py -H  # get help on input config file
+\end{verbatim}
+\vspace{-2mm}
+Beware that this script uses the force-create options.
 
 If you are having problems with the binary files and just
 want to use the text files, the use of binary files can
@@ -11230,6 +11851,21 @@ events; rather it reduces the {\tt LCLIB} size by excluding
 \begin{figure}    
 \begin{center}
 \begin{verbatim}
+DOCUMENTATION:
+  PURPOSE: model XXX galactic transient
+  REF: 
+  - AUTHOR:  A. Author et al 2020 (few word summary/reminder) 
+    ADS:     https://ui.adsabs.harvard.edu/abs/XXX
+  USAGE_KEY: GENMODEL 
+  USAGE_CODE: snlc_fit.exe  
+  NOTES:
+  - e.g., created from another code
+  - e.g., model limitations
+  PARAMS:
+  - PAR1 is bla bla
+  - PAR2 is bla bla
+DOCUMENTATION_END:
+
 # global header info
 SURVEY:  LSST
 FILTERS:  ugrizY
@@ -11238,12 +11874,6 @@ MODEL_PARNAMES:   PAR1,PAR2,PAR3    # comma-separated strings, no spaces
 NEVENT:   <NEVENT>
 RECUR_CLASS:  RECUR-NONPERIODIC  (or RECUR-PERIODIC or NON-RECUR)
 
-COMMENT:  Created Sep 2017 by xyz, See arXiv:abcde 
-COMMENT:  PAR1 is bla
-COMMENT:  PAR2 is bla-bla
-COMMENT:  PAR3 is bla-bla-bla
-
-# info for 1st event
 START_EVENT:  <ID1>             # internal integer ID
 NROW:  <NROW>     RA: <RA>      DEC: <DEC>
 PARVAL:   <VAL1>,<VAL2>,<VAL3>        # comma-separated or space-separated 
@@ -11252,23 +11882,14 @@ T:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
 T:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
 S:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
 S:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
+etc ...
 END_EVENT:  <ID1>
 
+# ... continue next event
 
-# info for 2nd event
-START_EVENT:  <ID2>   # internal integer ID
-NROW:  <NROW>     RA: <RA>      DEC: <DEC>
-PARVAL:   <VAL1>,<VAL2>,<VAL3>        # comma-separated or space-separated 
-ANGLEMATCH:    10.0          # optional (deg) to match with cadence library
-T:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-T:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-END_EVENT:  <ID2>
-
-etc É
+# Multiple key options
+#   NOBS: and NROW: 
+#   MODEL_PARNAMES: and MODEL_PARAMETERS:
 \end{verbatim}
 \end{center}
 \caption{ TEXT-library format for {\tt LCLIB} model type. }
@@ -11291,7 +11912,79 @@ etc É
      Note that a more accurate strategy is to create a 
      SIMLIB cadence library with the correct RA,DEC distribution
      (and {\tt GENMODEL\_MSKOPT=0}).
+  \item {\tt GENRANGE\_MJD: <MJDmin> <MJDmax>} : select MJD window
 \end{itemize}
+
+% ----------------------------------------------       
+\clearpage
+\subsubsection{Special {\tt MODEL\_PARNAMES} Features}
+\label{sss:LCLIB_parnames}
+
+The {\tt MODEL\_PARNAMES} are read and passed to output data files 
+and simgen-dump file. These parameters are not used to generate events,
+except for two special features:
+
+\begin{itemize}
+  \item {\tt\bf MWEBV (mwebv):} indicates that MWEBV has been computed
+     and applied to the model light curves, perhaps using a 3D dust model.
+     The simulation reports MWEBV based on {\tt OPT\_MWEBV} (e.g., SFD98),
+     but does not make a redundant MWEBV correction to the true
+     magnitudes ({\tt SIM\_MWEBV=0}). To avoid a MWEBV-naming conflict,
+     the LCLIB-MWEBV is renamed {\tt MWEBV\_LCLIB} for the data files
+     and simgen-dump file.
+  \item {\tt\bf REDSHIFT (redshift):}
+     indicates a true non-zero redshift for the model light curve
+     (default LCLIB redshift is $z=0$), 
+     and can be used with a {\tt HOSTLIB}. 
+     This feature may be convenient for extraGalactic models such as AGN.
+\end{itemize}
+
+
+% -----------------------------------------
+\clearpage
+\subsection{PySEDMODEL: Python SED models}
+\label{subsec:PySEDMODEL}
+
+To accomodate a broader class of SED models in the simulation,
+there is a C-python interface for python SED models ({\tt PySEDMODEL}) 
+to return
+i) rest-frame SED at requested phase, and 
+ii) relevant internal parameters.
+The rest-frame SED is used by the simulation C-code\footnote{{\tt PySEDMODEL}
+  does not connect with SNANA light curve fitting codes.}
+to compute broadbad fluxes and noise in the same way as
+any other SED model (e.g., SALT2, NON1ASED ...). 
+The internal parameters are not used by the C-code, 
+but are passed to the output data files and/or {\tt SIMGEN\_DUMP} file.
+There are currently 3 python models under development which
+can be called with the following syntax:
+%
+\begin{Verbatim}[frame=single]
+   GENMODEL:  BYOSED  [path]  # Build-Your-Own SED
+   GENMODEL:  SNEMO   [path]  # based on SNFactory data
+   GENMODEL:  BAYESN  [path]  # optical+NIR
+
+   GENMODEL_MSKOPT: [mask] # integer option or mask
+   GENMODEL_ARGLIST: `key0 val0 key1 val1 key2 x0,x1,x2,x3 etc ...'
+\end{Verbatim}
+
+The {\tt GENMODEL} key is followed by a {\tt PySEDMODEL} name
+and path. The path contains formatted information \& instructions 
+that are parsed by the init function in the python code.
+
+The last two keys allow passing additional options to the
+python code, both in the form of an integer flag or char-string.
+These arguments can be passed on the command line to override
+default behavior, e.g.,
+%
+\begin{verbatim}
+    snlc_sim.exe <myInputFile> GENMODEL_MSKOPT 8
+        or
+    snlc_sim.exe <myInputFile> GENMODEL_ARGLIST `TAU_AV 0.33 ZETA 4.3'
+\end{verbatim}
+The simulation C code does not parse these argument, but simply
+passes these arguments to the python init function.
+
 
 % ##########################################
    \clearpage
@@ -11490,51 +12183,65 @@ If the {BBC\_VERSION} key is not included, set {\tt BBC\_VERSION=1}.
 
 % ##########################################
    \clearpage
-   \section{Cosmology Fitters}
+   \section{Cosmology Fitting}
    \label{sec:wfit}
 % ###########################################
 
-There are currently two cosmology fitters available.
-First is {\tt wfit.exe}, which fits for $w$ and $\OM$
-assuming a flat universe. Typing the {\tt wfit.exe} 
-command with no arguments lists the options. 
-The BAO and CMB priors are currently hard-wired, 
-but a more flexible method to specify priors may be added later.
-An example command is as follows,
-\begin{verbatim}
-  wfit.exe <fitresFile> -zmin .02 -zerr .001 -snrms .15 -bao -cmb 
-\end{verbatim}
-%
-where the fitres-file is output from the {\tt SALT2mu.exe} program.
-The arguments specify 
-using SNe with $z>0.02$, 
-adding a peculiar-velocity uncertainty of 300~km/s 
-   (i.e, the ``{\tt zerr}'' arg is $v_{\rm pec}/c$),
-adding an anomalous distance-uncertainty of 0.15 mag (``{\tt snrms}'' arg),
-and using the BAO \& CMB priors. 
-Peculiar-velocity covariances can also be used as explained below in 
-\S\ref{subsec:mucovar}.
+\newcommand{\wfit}{{\tt wfit.exe}}
+\newcommand{\de}{{$w_0w_a$CDM}}
 
-The second program, {\tt sncosmo\_mcmc.exe},
-is a more general cosmology fitter based on Monte Carlo
-Markov chains. This fitter handles more diverse cosmologies
-such as time-dependent $w$ and non-zero curvature.
-Sample inputs files are in 
+State-of-the-art cosmology fitting tools include CosmoMC and CosmoSIS
+that are not included in \snana. 
+Within \snana, \wfit\ is a fast cosmology fitting program that
+is not nearly as sohopisticated as CosmoSIS, but is useful for 
+systematics tests and forecasts. 
+\wfit\ models $w$CDM ($w$, $\OM$) and CPL $w_0w_a$CDM model,
+both assuming a flat universe. 
+The CMB prior is based the $R$ parametrization using simulated cosmology parameters
+and $\sigma_R=0.007$ to reproduce the DES3YR uncertainties. 
+The BAO prior is based on Alam 2020.
+Table \ref{tab:wfit} compares \wfit\ results to published DES3YR and Pantheon values using
 %
 \begin{verbatim}
-  $SNDATA_ROOT/sample_input_files/sncosmo_mcmc/
+   wfit.exe  [HubbleDiagram] -cmb_sim -sigma_Rcmb 0.007   -wsteps 101 -omsteps 101 \
+             -mucov_file [mucov_file]  \
+             -bao_sim               # only for DES w0waCDM only
 \end{verbatim}
-%
-Both of these cosmology fitters read self-documented ``fitres'' files
-(\S\ref{sss:combine_fitres}) that contain
-a redshift, distance modulus and survey index
-(other parameters in the fitres file are ignored).
+where {\tt HubbleDiagram} and {\tt mucov\_file} are from public data releases.
 
-Beware that These cosmology fitters are not state-of-the-art, and are thus
-useful for rapid testing or systematics studies.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|lllllll}
+& $\Omega_m$ & $\sigma (\Omega_m)$ & $w_0$ & $\sigma(w_0)$  & $w_a$ & $\sigma(w_a)$ &FoM \\
+ \hline
+     DES3YR  $w$CDM  SN+CMB &$0.321$&  $\pm0.018$ & $-0.978$ & $\pm0.059$ &  & &  \\
+     \wfit\ &$0.326$& $\pm0.018$ & $-0.964$ & $\pm0.059$ &  & &  \\ \\
+                         
+     Pantheon  $w$CDM  SN+CMB&$0.307$&$\pm0.012$  & $-1.026$ &$\pm0.041$  &  &  & \\
+     \wfit\ &$0.308$&$\pm0.012$  & $-1.029$ &$\pm0.041$  &  &  & \\ \\
+     DES3YR  \de\ SN+CMB+BAO &$0.316$& $\pm0.011$ & $-0.885$ &$\pm0.114$  & $-0.387$ & $\pm0.430$ & $46$ \\
+     \wfit\ &$0.309$&$\pm0.012$  &$-0.965$  & $\pm0.092$ & $-0.354$ & $\pm0.442$ & $64$\\ \\
+                         
+    Pantheon \de\  SN+CMB &$0.308$&$\pm0.018$  &$-1.009$  &$\pm0.159$  & $-0.129$ &$\pm0.755$  & $31$ \\
+    \wfit\ &$0.305$& $\pm0.015$ & $-0.981$ &$\pm0.159$  &$-0.302$  &  $\pm0.725$&$32$ \\ \\
+\end{tabular}
+\caption{Comparison of published cosmology parameters to those obtained with \wfit.
+  DES3YR results are from Table 2 in 
+     \url{https://arxiv.org/pdf/1811.02374.pdf}. 
+  Pantheon results are from Table $12$ and $13$  of 
+     \url{https://arxiv.org/pdf/1710.00845.pdf}. 
+  CMB prior in published results is from Planck 2016, and used in all four cases. 
+  CMB prior in \wfit\ uses $R$-parameter with $\sigma_R=0.007$ tuned to match 
+     DES3YR $w$-uncertainty. 
+  The \wfit \ BAO is based on \url{https://arxiv.org/abs/2007.08991}~.
+  All fits use redshift binned data.
+  }
+\label{tab:wfit}
+\end{table}
+
 
 % -----------------------------------------------
-%   \clearpage
+   \clearpage
    \subsection{Interpreting Redshift Variables in SNANA Tables}
    \label{subsec:zdefine}
 % -----------------------------------------------
@@ -11544,7 +12251,7 @@ from the fitting programs \\ ({\tt snlc\_fit.exe, SALT2mu.exe}):
 \begin{itemize}
    \item {\bf\tt zHEL, zHELERR:} heliocentric redshift.
    \item {\bf\tt zCMB, zCMBERR:} redshift transformed to CMB  \\
-      ($\ell=264.14$~deg, ~~ $b=48.26$~deg,~~${\rm v}_{\rm apex} = 371$~km/s)
+      ($\ell=264.14$~deg, ~~ $b=48.26$~deg,~~${\rm v}_{\rm apex} = 370$~km/s)
    \item {\bf\tt VPEC, VPECERR:} peculiar-velocity correction.  \\
            If host galaxy is moving away from (toward) Earth, 
             then {\tt VPEC<0} ({\tt VPEC>0}).
@@ -11880,6 +12587,31 @@ Finally, note that {\tt snana.exe} is $\sim 10^2$ faster than {\tt snlc\_fit},
 and thus the former can typically run interactively while the latter
 should run in batch mode.
 \end{itemize}
+
+% --------------------------------------
+  \subsubsection{{\tt SNTABLE\_APPEND} }
+  \label{sss:sntable_append}
+% --------------------------------------
+
+An arbitrary column name and value can be added to output tables with
+command-line input
+\begin{verbatim}
+    snlc_fit.exe <myInputFile>  SNTABLE_APPEND MYVAR 0.03
+\end{verbatim}
+which will include {\tt MYVAR} column in all output tables with value 0.03.
+An example usage is measuring derivatives of SALT2 parameters w.r.t. 
+changing the $i$-band zeropoint using the followig FITOPT options
+in the {\tt CONFIG} yaml block,
+%
+\begin{verbatim}
+  FITOPT:
+  - MAGOBS_SHIFT_ZP 'i -0.03'   SNTABLE_APPEND ZP_i -0.03
+  - MAGOBS_SHIFT_ZP 'i -0.01'   SNTABLE_APPEND ZP_i -0.01
+  - MAGOBS_SHIFT_ZP 'i  0.01'   SNTABLE_APPEND ZP_i  0.01
+  - MAGOBS_SHIFT_ZP 'i  0.03'   SNTABLE_APPEND ZP_i  0.03
+\end{verbatim}
+By concatinating the output {\tt FITRES} files, it is easy to plot,
+for example, c vs. {\tt ZP\_i} for individual events.
 
 % --------------------------------------
 %  \clearpage
@@ -12305,6 +13037,27 @@ you can rerun the same job as long as you
 have the original input file.
 
 
+% --------------------------------------
+  \subsubsection{{\tt quick\_commands,py}}
+   \label{sss:quick_commands}
+% --------------------------------------
+
+Many useful/quick commands can be run from a python script
+\begin{verbatim}
+   quick_commands.py -h   # standard python args help
+   quick_commands.py -H   # examples
+\end{verbatim}
+Options include
+\vspace{-0.3cm}
+\begin{itemize}[noitemsep]
+   \item translate TEXT formatted data to FITS format
+   \item extract a few events from FITS format to TEXT format
+   \item create SIMLIB file from LOWZ data that has no metaData.
+   \item make human-readable table of redshifts and vpec
+   \item Create SNANA-formatted table(s) from data or sim
+   \item extract info about a photometry version
+   \item extract info about SNANA code
+\end{itemize}
 
 % --------------------------------------
   \subsubsection{Bug-Catcher: the {\tt SNANA\_tester} Script }
@@ -12474,19 +13227,26 @@ to whatever the simulation generates.
 % --------------------------------------
 
 % --------------------------------------
-  \subsubsection{{\tt DASHBOARD} Utility}
+  \subsubsection{{\tt README} and {\tt DASHBOARD} Utilities}
   \label{sss:sim_dashboard}
 % --------------------------------------
 
-There are well over a dozen possible input files to the simulation,
-and keeping track can be difficult, especially with include files
-and command-line overrides. A brief summary of every input file
-can be displayed with
 \begin{verbatim}
-   snlc_sim.exe mysim.input DASHBOARD
+   snlc_sim.exe mysim.input README     # write README file and quit
+   snlc_sim.exe mysim.input DASHBOARD  # print all map and library file names
 \end{verbatim}
-which will print a file summary and then quit. 
-Higher-level pipelines can use this feature to better summarize the inputs.
+%
+The {\tt README} argument forces the sim to write the standard 
+{\tt README} ouptut file with the
+{\tt OVERVIEW}, {\tt INPUT\_KEYS} and {\tt INPUT\_NOTES} yaml blocks,
+and then the sim quits. For speed, most initializations are skipped such
+as for {\tt HOSTLIB} and transient model.
+
+There are well over a dozen possible input files (maps, libraries ...)
+to the simulation, and keeping track can be difficult, 
+especially with include files and command-line overrides. 
+A brief summary of every input file can be displayed with the
+{\tt DASHBOARD} command. Unused files are labeled NONE.
 
 
 % --------------------------------------
@@ -12559,6 +13319,7 @@ The {\tt snana.exe} program can create such a
 \simlib\ via the {\tt \&SNLCINP} input key(s)
 %
 \begin{verbatim}
+ &SNLCINP
     SIMLIB_OUT = 'mydata.simlib'
 
   ! for sims, or fake data with SIM_MAGOBS :
@@ -12573,6 +13334,12 @@ The {\tt snana.exe} program can create such a
    HEADER_OVERRIDE_FILE = '[fileName with c and x1 colums]'
 \end{verbatim}
 %
+and the {\tt NOFILE} feature can be used, e.g.,
+\begin{verbatim}
+   snana.exe NOFILE VERSION_PHOTOMETRY [version] SIMLIB_OUT mydata.simlib
+\end{verbatim}
+
+
 If the light curve data include meta data (PSF,SKY,ZP)
 for each epoch, these values are written out to the \simlib.
 If the meta data are not available (e.g., low-z samples),
@@ -12588,7 +13355,9 @@ assumptions and the $S/N$ from the data.
 
 
 If there are no meta-data, the default {\tt ZPERR} is 0.01, 
-which imposes an SNR ceiling of 100 in the simulation. 
+which imposes a true and/or reported SNR ceiling of 100 in the simulation
+(for {\tt ZPERR} usage, see {\tt SMEARFLAG\_ZEROPT} input in
+  \S\ref{sssec:simlib_options})
 Arbitrary {\tt ZPERR} values can be input via 
 {\tt \&SNLCINP} as shown in the following example:
 %
@@ -12657,10 +13426,12 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
 # 1. options to adjust exposure time (affects both SN flux and sky noise)
   EXPOSURE_TIME: 20            # increase all exposure times by 20
   EXPOSURE_TIME_FILTER: g 20   # increase g exposure by 20
+  EXPOSURE_TIME_FILTER: g,r 20,30   # band-dependent increase
 
   FUDGESHIFT_ZPT:  0.03           # add 0.03 to ZPT in all bands
   FUDGESHIFT_ZPT_FILTER: g  0.03  # add 0.03 to g-band ZPT only
   FUDGESHIFT_ZPT_FILTER: gz 0.03  # add 0.03 to g and z-band ZPT
+  FUDGESHIFT_ZPT_FILTER: g,r,i,z  0.03,-0.02,0.01,0.04  # band-depdendent ZPT
 
 # 2. options to increase SKY-noise while leaving SN flux unchanged
   FUDGESCALE_PSF: 2            # increase PSF
@@ -12675,16 +13446,24 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
   FUDGE_SNRMAX:  r=25      # adjust exposure time for r-band
 
 # 5. add magErr to all epochs
-  FUDGE_MAGERR: 0.03             # add .03 magErr to all epochs and bands
-  FUDGE_MAGERR_FILTER: g   .01   # add .01 magErr to g-band 
-  FUDGE_MAGERR_FILTER: riz .02   # add .02 magErr to riz bands
+  FUDGE_MAGERR: 0.03               # add .03 magErr to all epochs and bands
+  FUDGE_MAGERR_FILTER: g     .01   # add .01 magErr to g-band 
+  FUDGE_MAGERR_FILTER: riz   .02   # add .02 magErr to riz bands
+  FUDGE_MAGERR_FILTER: r,i,z .01,0.02,0.03   # band-dependent
 
 # 6. add ZPTERR to all epochs
   FUDGE_ZPTERR: 0.03             # add .03 ZPTERR to all epochs and bands
   FUDGE_ZPTERR_FILTER: g   .01   # add .01 ZPTERR to g-band 
   FUDGE_ZPTERR_FILTER: riz .02   # add .02 ZPTERR to riz bands
+  FUDGE_ZPTERR_FILTER: r,i,z  0.02,0.01,0.005 
+
+# 7. shift filter wavelength 
+  FUDGESHIFT_LAM: 10.0                              # add 10 A to all bands
+  FUDGESHIFT_LAM_FILTER: gr       7.2               # add 7.2A to g+r bands
+  FUDGESHIFT_LAM_FILTER: g,r,i,z  2.2,-3.3,4.4,1.1  # band-dependent
 \end{Verbatim}
 %
+
 There are six classes of error-fudging:
 (1) adjust exposure time to change both the SN flux and sky-noise,
 (2) increase the sky-noise while leaving the SN flux unchanged, 
@@ -12704,7 +13483,6 @@ the true fluxes, the 2-bit includes {\tt ZPTERR} in the reported
 flux-\uncs, and ``{\tt SMEARFLAG\_ZEROPT: 3}'' does both.
 
 
-\clearpage
 {\tt FUDGE2\_SNRMAX} is useful for setting a nearly fixed 
 error at all epochs, in contrast to a fixed $S/N$, or mag-error.
 For both options to fix the nearest-peak $S/N$ ratio, 
@@ -12741,7 +13519,88 @@ in the second iteration as follows:
 where $\FSNMAX$ is the SN flux (photoelectrons)
 at the epoch with the maximum $S/N$.
 
+\medskip
+Finally, {\tt FUDGESHIFT\_ZPT} and {\tt FUDGESHIFT\_LAM}
+can be used for systematic calibation shifts.
+
 % xxxxx end of misc. sim tools
+
+% --------------------------------------
+ \clearpage
+  \subsubsection{{\DOCANA}: Documenting Input Maps}
+  \label{sss:DOCANA}
+% --------------------------------------
+
+The simulation reads up to 20 different inputs maps and libraries
+(see {\tt DASHBOARD} utility in \S\ref{sss:sim_dashboard}),
+and thus documenting is a challenge.
+To enforce/remind about documentation, each map is required to 
+include a yaml-compliant documentation block at the top of the file, 
+which is called {\DOCANA}. The YAML format enables higher-level
+pipelines to extact the \DOCANA\ snippets and glue them together
+in a summary file. Examples can be found using find command, 
+e.g., 
+\vspace{-0.3cm}
+\begin{verbatim}            
+    cd $SNDATA_ROOT/simlib
+    grep -rnw ./ -e 'DOCUMENTATION:'
+\end{verbatim}             
+%
+and here is a generic illustration,
+%
+\vspace{-0.3cm}
+\begin{verbatim}
+DOCUMENTATION:
+  PURPOSE: what is this for ?
+  REF:
+  - AUTHOR: Y. Astro et al 2017 (few-word reminder)
+    ADS:    https://ui.adsabs.harvard.edu/abs/xxx    
+  - AUTHOR: C. Telescope et al 2014 (few-word reminder)
+    ADS:    https://ui.adsabs.harvard.edu/abs/xxx    
+  INTENT:     Nominal or Test
+  USAGE_KEY:  key name for input file
+  USAGE_CODE: snlc_sim.exe 
+  VALIDATE_SCIENCE: 
+  - figure(s) in published paper
+  - local/unpublished tests
+  - None ? 
+  NOTES:
+  - odd reminder
+  - another odd reminder
+  VERSIONS:
+  - DATE:  2020-02
+    AUTHORS: J. Cosmology, Y. Astro
+DOCUMENTATION_END:
+
+\end{verbatim}
+%
+While the YAML block is required to avoid a simulation abort, 
+specific keys are not required.
+Thus the {\tt REF} key could be absent during development 
+(or point to internal collaboration memo),
+while other relevant YAML keys can be added as needed.
+The {\tt INTENT} key indicates nominal analysis, or a
+generic test such as debug, systematic, etc.
+{\tt VALIDATE\_SCIENCE} briefly indicates the level of validation;
+put {\tt NONE} if there is no validation.
+For debugging or urgent/rare situations, 
+the {\DOCANA} requirement can be suppressed {\it interactively} with
+\vspace{-0.3cm}
+\begin{verbatim}                           
+   snlc_sim.exe <myInputFile>  REQUIRE_DOCANA 0
+\end{verbatim}
+%
+
+\bigskip
+\noindent
+As of July 19 2021, {\DOCANA} is required for
+\vspace{-0.3cm}
+\begin{verbatim}
+    HOSTLIB_FILE   HOSTLIB_WGTMAP_FILE  SIMLIB_FILE
+\end{verbatim}
+\vspace{-0.3cm}
+Additional maps will be gradually added over the next few months.
+
 
 % --------------------------------------
   \clearpage
@@ -12839,6 +13698,42 @@ data files can be extracted from FITS-formatted files
 where an explicit CID list or snana selection criteria can 
 be applied. To avoid file-count quota issues, 
 a max limit of 20 data files can be extracted.
+
+\medskip
+Additional reformat options can be specified using {\tt SNLCINP} input mask
+{\tt OPT\_REFORMAT\_FITS} or {\tt OPT\_REFORMAT\_TEXT}
+\begin{verbatim}  
+    OPT_REFORMAT_FITS = 2   ! include rejected epochs
+    OPT_REFORMAT_FITS = 64  ! exclude private variables
+    OPT_REFORMAT_FITS = 128 ! include spectra
+    OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
+\end{verbatim}
+%
+Here is an example command to convert a simulation into a data-like
+sample that has no truth information:
+\begin{verbatim}    
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY     CHALLENGE_SNIa  \
+  VERSION_REFORMAT_FITS  CHALLENGE_SNIa_TRAIN \ # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
+or the wildcard feature:
+
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY_WILDCARD  'CHALLENGE_*'  \
+  VERSION_REFORMAT_FITS  CHALLENGE_TRAIN \   # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
+\end{verbatim}     
+%
+The last input {\tt CUTWIN\_SNTYPE} selects all 
+spectroscopically-confirmed tags, and other {\tt CUTWIN} 
+options can be used as well. 
+The output data folder contains no sim-truth which
+is useful for i) data challenges, and ii) test analysis codes
+to ensure they don't cheat using sim-truth.
 
 % --------------------------------------
   \clearpage
@@ -13036,6 +13931,7 @@ There are other non-{\tt CUTWIN} inputs to select based on CID or TYPE,
    SNCCID_LIST   = 'Joe,Henry,Sam'   ! same for char string names
    SNTYPE_LIST   = 1,18              ! select ITYPE = 1 or 18
    MXEVT_PROCESS = 10                ! process first 10 events
+   MXEVT_CUTS    = 4                 ! process until 4 events pass cuts
 \end{verbatim}
 
 

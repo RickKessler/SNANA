@@ -112,6 +112,9 @@
  Mar 14 2021: for outlier output table, write string BAND before IFILTOBS.
               See OPT arg to load_DUMPLINE in sntools_output_hbook[root].c
 
+ Jun 22 2021: replace 200 -> MXPATHLEN for input file names.
+                [fixes failure found by Dillon]
+
 ********************************************/
 
 #include <stdio.h>
@@ -132,13 +135,13 @@ char msgerr1[80], msgerr2[80];
 #define MXVAR_DUMP 40 
 
 struct INPUTS {
-  char TABLE_FILE[200];
+  char TABLE_FILE[MXPATHLEN];
   char TABLE_ID[60];
   bool IS_SNANA, IS_FITRES;
   char VARNAMES[MXVAR_DUMP][60] ;
   char VARLIST[MXVAR_DUMP*60];     // space-separate list
-  char OUTFILE_FITRES[200] ;
-  char OUTFILE_IGNORE[200] ;   // if --format IGNORE
+  char OUTFILE_FITRES[MXPATHLEN] ;
+  char OUTFILE_IGNORE[MXPATHLEN] ;   // if --format IGNORE
   char FORMAT_OUTFILE[40];   
   int  ISFORMAT_CSV ;
 
@@ -493,9 +496,6 @@ void  set_outlier_varnames(void) {
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "MJD" );   
   NVAR++ ;
 
-  // including BAND results in core dump; don't know why ??  .xyz
-  //  sprintf(INPUTS.VARNAMES[NVAR],"%s", "BAND" );   
-  //  NVAR++ ;
 
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "IFILTOBS" );   
   NVAR++ ;
@@ -587,10 +587,6 @@ void  open_fitresFile(void) {
 
   write_headerInfo(FP_OUTFILE); 
 
-#ifdef TEXTFILE_NVAR
-  if ( INPUTS.ISFORMAT_CSV == 0 ) 
-    { fprintf(FP_OUTFILE,"NVAR: %d\n", INPUTS.NVAR ); } 
-#endif
 
   if ( INPUTS.ISFORMAT_CSV ) 
     { sprintf(SEP,", "); }

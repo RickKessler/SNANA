@@ -128,7 +128,6 @@ struct NEARNBR_TRAINLIB {
   int    *CID_VALUES;   // note this int is for sims only
   float  *FITRES_VALUES[MXVAR_NEARNBR];
   int    *TRUETYPE ;  // true TYPE for each entry in the training set
-  // xxx mark delete  float  **P_TRAIN; // train-prob for type & each event
   int     NTOT ; // total number of entries stored in FITRES_FILE
   int     NTOT_USE ; // number with valid TRUETYPE
 

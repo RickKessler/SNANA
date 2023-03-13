@@ -1,4 +1,3 @@
-
 /*****************************************************
  Created Mar 7, 2006 by R.Kessler
 
@@ -37,6 +36,7 @@
   Apr 05 2021: MXSPECTRA -> 200 (was 40)
   May 27 2021: MXSPECTRA -> 300 (was 200)
   Jun 04 2021: MXEPOCH -> 5000 (was 2000)
+  Apr 24 2022: define HOSTGAL_PROPERTY_xxx [moved from sntools_host.h]
 
 *****************************************************/
 
@@ -45,7 +45,7 @@
 
 #define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)
 #define MXFILT_COVAR  9  // max number of filters per obs.
-#define MXFILTINDX 100   // max filter index
+#define MXFILTINDX  100  // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
 #define MXSPECTRA  300   // max number of spectra in data files
 
@@ -54,7 +54,10 @@
 #define MXBRIGHT  20     // max number of bright times (for MJD ranges)
 #define MXVAR_PRIVATE 40 // max number of private variables
 #define MXHOSTGAL      2 // max number of matched hosts to write out
-
+#define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
+#define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
+#define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
+#define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 
 #define WRITE_MASK_LCMERGE       2  // idem to write lcmerge data files.
@@ -62,7 +65,9 @@
 #define WRITE_MASK_SIM_MAGOBS    8  // write data-like with SIM_MAGOBS only 
 #define WRITE_MASK_SIM_SNRMON   16  // write SNR(MAGMONITOR)
 #define WRITE_MASK_SIM_MODELPAR 32  // write model par for SIMSED, LCLIB
-#define WRITE_MASK_COMPACT    64  // suppress non-essential PHOT output
+#define WRITE_MASK_COMPACT      64  // suppress non-essential PHOT output
+#define WRITE_MASK_SPECTRA     128  // write spectra (Oct 14 2021)
+#define WRITE_MASK_SPECTRA_LEGACY 4096  // legacy format with LAMINDEX
 
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
 #define OPT_ZPTSIG_SRUN  2   // idem for search run
@@ -80,13 +85,23 @@
 
 #define RV_MWDUST 3.1               // RV for MilkyWay
 
+// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...                                
+#define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
+#define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
+#define HOSTGAL_PROPERTY_BASENAME_LOGsSFR  "LOGsSFR"
+#define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
+
+#define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
+
 // ------------------------------------------
 
 //  disk pointers defined in init_SNDATA
 
-#define MXPATHLEN 300 // max length of path of full file-name
+#define MXPATHLEN            300  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
-#define MXLEN_VERSION_PREFIX  52  // max length of prefix in data or sim version
+#define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
+
+#define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
@@ -130,7 +145,7 @@ struct VERSION
 
   int NEPOCH_TOT;          // total number of epochs in all SN
 
-  int GENFRAME_SIM ;   // sim only: 1=rest+boost(=> KCOR), 2=obs
+  // xxx mark  int GENFRAME_SIM ;   // sim only: 1=rest+boost(=> KCOR), 2=obs
 
 } VERSION_INFO ;
 
@@ -147,19 +162,23 @@ struct SNDATA {
   // name of SURVEY and SUBSURVEY
   char SURVEY_NAME[40];       // SDSS, SNLS, LSST, etc ...
   char SUBSURVEY_NAME[40];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
+  char SUBSURVEY_LIST[MXPATHLEN] ; // optional list in global simlib header
   int  SUBSURVEY_FLAG ;
-
+  
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
   bool  WRFLAG_SKYSIG_T ;
+
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
   char  VARNAME_SNRMON[40];
 
   int   SIMLIB_MSKOPT ;                // mask of options (Dec 2015)
   char  SIMLIB_FILE[MXPATHLEN];        // name of simlib file
-
+  char  KCOR_FILE[MXPATHLEN];
   char  SPEC_FILE[MXPATHLEN];
+
+  int   PHOTFLAG_DETECT; // mask in PHOTFLAG for detection
 
   // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];
@@ -197,7 +216,9 @@ struct SNDATA {
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
-  int   CCDNUM[MXEPOCH] ;
+
+  int   CCDNUM[MXEPOCH] ; // CCD number or sensor id
+  int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g., EXPNUM, VISIT_ID)
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch
@@ -210,12 +231,11 @@ struct SNDATA {
   int  IDTEL[MXEPOCH];             // integer telescope id
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
-  char *FILTCHAR[MXEPOCH];     // char string for filter
+  char *FILTCHAR[MXEPOCH];        // char string for filter
   char  FILTCHAR_1D[MXEPOCH*2];   // for fortran interface
 
   int   SEARCH_RUN[MXEPOCH] ;
   int   TEMPLATE_RUN[MXEPOCH] ;
-  int   QMASK[MXEPOCH];
   int   SEARCH_FIELD[MXEPOCH] ;
   int   TEMPLATE_FIELD[MXEPOCH] ;
 
@@ -242,8 +262,7 @@ struct SNDATA {
   float FLUXCAL_ERRTEMPLATE[MXEPOCH] ;  // correlated template error
 
   float MAG[MXEPOCH] ;            // magnitude (per filter/epoch)
-  float MAG_ERRPLUS[MXEPOCH] ;    // magnitude error (per filter/epoch)
-  float MAG_ERRMINUS[MXEPOCH] ;   // magnitude error (per filter/epoch)
+  float MAG_ERR[MXEPOCH] ;    // magnitude error (per filter/epoch)
   float ZEROPT[MXEPOCH] ;         // zero point for template 
   float ZEROPT_ERR[MXEPOCH] ;     // zero point error on mean
   float ZEROPT_SIG[MXEPOCH] ;     // zero point sigma
@@ -265,7 +284,7 @@ struct SNDATA {
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
 
-  int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
+  int     HOSTGAL_USEMASK ;  // bits 0,1,2,3 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
   int     HOSTGAL_FLAG[MXHOSTGAL];    // indicate problems (May 2021)
   long long HOSTGAL_OBJID[MXHOSTGAL] ;            // up to 4 host matches
@@ -283,12 +302,32 @@ struct SNDATA {
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
+
+  float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
+  int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles
+  int     HOSTGAL_NZPHOT_Q ;
+
+  float  *PTR_HOSTGAL_PROPERTY_TRUE[MXHOSTGAL_PROPERTY];
+  float  *PTR_HOSTGAL_PROPERTY_OBS[MXHOSTGAL_PROPERTY];
+  float  *PTR_HOSTGAL_PROPERTY_ERR[MXHOSTGAL_PROPERTY];
   float   HOSTGAL_LOGMASS_TRUE[MXHOSTGAL] ;
   float   HOSTGAL_LOGMASS_OBS[MXHOSTGAL] ;  
   float   HOSTGAL_LOGMASS_ERR[MXHOSTGAL] ;
-  float   HOSTGAL_sSFR[MXHOSTGAL] ;           // Apri 2019
-  float   HOSTGAL_sSFR_ERR[MXHOSTGAL] ;
-  int     HOSTLIB_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)
+  float   HOSTGAL_LOGSFR_TRUE[MXHOSTGAL] ;
+  float   HOSTGAL_LOGSFR_OBS[MXHOSTGAL] ;
+  float   HOSTGAL_LOGSFR_ERR[MXHOSTGAL] ;
+  float   HOSTGAL_LOGsSFR_TRUE[MXHOSTGAL] ;  
+  float   HOSTGAL_LOGsSFR_OBS[MXHOSTGAL] ;                 
+  float   HOSTGAL_LOGsSFR_ERR[MXHOSTGAL] ;
+  float   HOSTGAL_COLOR_TRUE[MXHOSTGAL] ;
+  float   HOSTGAL_COLOR_OBS[MXHOSTGAL] ;
+  float   HOSTGAL_COLOR_ERR[MXHOSTGAL] ;
+
+  long long HOSTGAL_OBJID2[MXHOSTGAL] ;
+  long long HOSTGAL_OBJID_UNIQUE[MXHOSTGAL] ;
+  float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
+  float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;
+  int     HOSTGAL_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)
 
   float REDSHIFT_HELIO;         // final (best) redshift, Helio frame
   float REDSHIFT_HELIO_ERR;     // final (best) redshift, Helio frame
@@ -303,12 +342,9 @@ struct SNDATA {
   float SEARCH_PEAKMJD ;     // approx MJD at g-band peak, from LC fit
   int   SEARCH_TYPE ;        // type from search (i.e., 120=confirmed Ia)
 
-
-  int   UNSORTED_EPOCH[MXEPOCH];  // unsorted epoch vs [epoch]
-  char  DATE[MXEPOCH][80];        // entry date
-  int   IDATE[MXEPOCH];            // integer date = YYYYMMDD
-
   float MJD_TRIGGER ;      //  MJD when trigger is satisfied (Apr 2017)
+  float MJD_DETECT_FIRST ; // mjd of 1st detection
+  float MJD_DETECT_LAST;
 
   // declare generation quantities for simulation (fake flag = 2)
 
@@ -335,6 +371,7 @@ struct SNDATA {
   float SIM_LENSDMU ;  
   float SIM_RA, SIM_DEC ;      //  simulated RA and DEC
   float SIM_PEAKMJD ;          //  peak MJD in g-band
+  float SIM_MJD_EXPLODE;       //  MJD of explosion (see OPTMASK_T0SHIFT_EXPLODE)
   float SIM_AVTAU ;            //  
   float SIM_AV, SIM_RV ;       //  host extinction parameters
   float SIM_MWRV ;             //  MilkyWay RV
@@ -354,11 +391,12 @@ struct SNDATA {
   char  HOSTLIB_FILE[MXPATHLEN];       // name of hostlib file (Feb 2014)
   int   SIM_HOSTLIB_MSKOPT ;          // non-zero => simulate HOSTLIB
   int   NPAR_SIM_HOSTLIB;             // number of host params
-  char  SIM_HOSTLIB_KEYWORD[100][60]; // keyword for ascii
-  char  SIM_HOSTLIB_PARNAME[100][40]; // name of host params to store
-  float SIM_HOSTLIB_PARVAL[100];      // host param values
+  char  SIM_HOSTLIB_KEYWORD[MXVAR_HOSTGAL][60]; // keyword for ascii
+  char  SIM_HOSTLIB_PARNAME[MXVAR_HOSTGAL][40]; // name of host params to store
+  float SIM_HOSTLIB_PARVAL[MXVAR_HOSTGAL][MXHOSTGAL];      // host param values per neighbor
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
+  //  float     SIM_HOSTLIB_DDLR  ; // true DDLR
 
   // - - - - -
   float SIM_RISETIME_SHIFT;    // rise time shift relative to model
@@ -367,9 +405,10 @@ struct SNDATA {
   float SIM_TRESTMAX ;
 
   // luminosity params
-  float SIM_STRETCH ; 
-  float SIM_DELTA ;    
-  float SIM_DM15 ;    
+  float SIM_STRETCH ;  // for history lesson
+  float SIM_DELTA ;    // for mlcs
+  float SIM_DM15 ;     // for Snoopy
+  float SIM_THETA ;    // for BayeSN
   float SIM_SALT2alpha ;
   float SIM_SALT2beta ;
   float SIM_SALT2gammaDM;    //  mag shift from host-SN correlations
@@ -401,10 +440,13 @@ struct SNDATA {
 
   // strong lens info (July 20 2019)
   int    SIM_SL_FLAG;    // strong lens flag
-  int    SIM_SL_IDLENS;  // lens ID
+  int    SIM_SL_IDLENS;  // lens ID in library
+  long long SIM_SL_GALID; // hostlib GALID matched to lens properties
   int    SIM_SL_NIMG;    // number of strong lens images
   int    SIM_SL_IMGNUM;  // image num [0 to NIMG-1]
+  double SIM_SL_MINSEP ; // separation from nearest image (Jul 2022)
   double SIM_SL_zLENS, SIM_SL_TDELAY, SIM_SL_MAGSHIFT;
+  double SIM_SL_LOGMASS, SIM_SL_LOGMASS_ERR;
   double SIM_SL_XIMG, SIM_SL_YIMG ;
 
   // simulation quantities for each epoch

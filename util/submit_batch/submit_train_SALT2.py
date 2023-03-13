@@ -1,19 +1,21 @@
 # Created Oct 31 2020
-#
-# Remaining issues:
-#   + protect against multiple changes to same filter or MagSys
-#   - how are MAG_OFFSET and SIGMA_INT determined for SNANA ??
-#   - can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
-#       NEVT:           348
-#       ABORT_IF_ZERO:  348
-#       CPU_MINUTES:    137.3
-#       ANYTHING_ELSE:  ??
-#   - how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
-#   - fast option ?
 # 
 # Nov 28 2020: 
 #   + check for multiple filter-trans files; e.g., SNLS radial dependence.
-
+#
+# Jun 20 2021:
+#   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'
+#   to record extra surveys in SALT2.INFO file.
+#
+# Jul 27 2021:
+#   added TRAINOPT_GLOBAL key (G Taylor)
+#
+# Aug 11 2021:
+#   DJB,RK fix stupid bug writing SNLS waveshift syst to SUBMIT.INFO
+#
+# Aug 15 2021: if SNANA band is a list (e..g, omn for CSP), write
+#              each band in separate row to SUBMIT.INFO
+#
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
 import  datetime, time, subprocess
@@ -22,13 +24,10 @@ from    submit_params    import *
 from    submit_prog_base import Program
 
 TRAINOPT_STRING  = "TRAINOPT"
+TRAINOPT_GLOBAL_STRING = "TRAINOPT_GLOBAL"
 SALTPATH_STRING  = "SALTPATH"  # env name of calib path for snpca
 SALTPATH_FILES   = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
 FILTERWHEEL_FILE = "FilterWheel"
-
-# define subdirs to contain outputs of snpca that are not used by LC fitters
-# xxx SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
-# xxx SUBDIR_TRAIN    = "OUTPUT_TRAIN"
 
 # define subdirs under SUBDIR_CALIB ($SALTPATH)
 SUBDIR_MAGSYS   = "MagSys"
@@ -42,6 +41,11 @@ KEY_MODEL_SUFFIX     = "MODEL_SUFFIX"      # optional: change MODEL suffix
 KEY_MAGSHIFT       = "MAGSHIFT"
 KEY_WAVESHIFT      = "WAVESHIFT"
 KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
+
+KEY_JACOBIAN_MATRIX = "JACOBIAN_MATRIX"
+KEY_JACOBIAN_BASE_SURFACE = "JACOBIAN_BASE_SURFACE"
+JACOBIAN_FLAG = False
+TRAIN_SALT2_FLAG = True
 
 # Define suffix for output model used by LC fitters.
 # Default output dirs are SALT2.MODEL000, SALT2.MODEL001, ...
@@ -78,6 +82,8 @@ MAGERR_LAMOBS:  0.0  2000  4000  # magerr minlam maxlam
 MAGERR_LAMREST: 0.1   100   200  # magerr minlam maxlam
 """
 
+KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
+
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
 COLNUM_TRAIN_MERGE_TRAINOPT    = 1
 COLNUM_TRAIN_MERGE_NEVT        = 2
@@ -113,19 +119,48 @@ class train_SALT2(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
+        self.set_jacobian_flag()
+
         # read survey map to magSys and Instruments
         self.train_prep_survey_map()
 
         # scoop up TRAINOPT list from user CONFIG
         self.train_prep_trainopt_list()
 
-        # foreach training, prepare output paths
-        self.train_prep_paths()
+        if TRAIN_SALT2_FLAG:
+            # foreach training, prepare output paths
+            self.train_prep_paths()
 
-        # check for duplicate shifts and flag erorrs/warnings
-        self.train_prep_error_checks()
+            # check for duplicate shifts and flag erorrs/warnings
+            self.train_prep_error_checks()
+
+        else:
+            # foreach training, prepare output paths
+            self.train_prep_paths()
+
+            self.submit_prep_jacobian()
 
         # end submit_prepare_driver
+        return
+    
+    def submit_prep_jacobian(self):
+        # Patrick Armstrong 17 Mar 2022
+        self.config_prep['model_suffix']  = MODEL_SUFFIX_DEFAULT 
+        # end submit_prep_jacobian
+        return
+
+    def set_jacobian_flag(self):
+        global JACOBIAN_FLAG
+        global TRAIN_SALT2_FLAG
+        CONFIG       = self.config_yaml['CONFIG']
+        JACOBIAN_FLAG = KEY_JACOBIAN_MATRIX in CONFIG
+        TRAIN_SALT2_FLAG = not JACOBIAN_FLAG
+        if JACOBIAN_FLAG:
+            logging.info("Using Jacobian method for TRAINOPT variations")
+        else:
+            logging.info("Using explicit SALT2 training")
+        return
+        # end set_jacobian_flag
 
     def train_prep_survey_map(self):
 
@@ -138,7 +173,6 @@ class train_SALT2(Program):
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
         PATH_EXPAND      = os.path.expandvars(PATH_INPUT_CALIB)
         msgerr = []
-
         if not os.path.exists(PATH_EXPAND):
             msgerr.append(f"Cannot find path for")
             msgerr.append(f"  {PATH_INPUT_CALIB}")
@@ -155,6 +189,13 @@ class train_SALT2(Program):
 
     def train_prep_trainopt_list(self):
         CONFIG   = self.config_yaml['CONFIG']
+
+        key = TRAINOPT_GLOBAL_STRING
+        if key in CONFIG:
+            trainopt_global = CONFIG[key]
+        else:
+            trainopt_global = None
+
         key      = TRAINOPT_STRING
         if key in CONFIG :
             trainopt_rows = CONFIG[key]
@@ -163,7 +204,7 @@ class train_SALT2(Program):
 
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
-                                              TRAINOPT_STRING, 
+                                              TRAINOPT_STRING, 1, 
                                               KEY_SHIFTLIST_FILE )
 
         n_trainopt          = trainopt_dict['n_jobopt']
@@ -185,102 +226,9 @@ class train_SALT2(Program):
         self.config_prep['trainopt_shift_file'] = trainopt_shift_file
         self.config_prep['use_shift_file']      = use_shift_file
 
+        self.config_prep['trainopt_global'] = trainopt_global
         # end train_prep_trainopt_list
-
-    def train_prep_trainopt_OBSOLETE(self):
-        CONFIG              = self.config_yaml['CONFIG']
-        input_file          = self.config_yaml['args'].input_file 
-        n_trainopt          = 1
-        trainopt_ARG_list   = [ '' ] # original user arg
-        trainopt_arg_list   = [ '' ] # expanded args used by script
-        trainopt_num_list   = [ f"{TRAINOPT_STRING}000" ] 
-        trainopt_label_list = [ None ]
-        trainopt_shift_file = [ None ]   
-        use_shift_file      = False
-
-        # **** OBSOLETE *****
-        key = TRAINOPT_STRING
-        if key in CONFIG  :
-            for trainopt_raw in CONFIG[key] : # might include label
-                num = (f"{TRAINOPT_STRING}{n_trainopt:03d}")
-                label, ARG = util.separate_label_from_arg(trainopt_raw)
-                arg, shift_file  = self.train_prep_expand_arg(ARG)
-                if shift_file is not None: use_shift_file = True
-                trainopt_arg_list.append(arg)
-                trainopt_ARG_list.append(ARG)
-                trainopt_num_list.append(num)
-                trainopt_label_list.append(label)
-                trainopt_shift_file.append(shift_file)
-                n_trainopt += 1
-            
-        # **** OBSOLETE *****
-        logging.info(f" Store {n_trainopt-1} TRAIN-SALT2 options " \
-                     f"from {TRAINOPT_STRING} keys")
-
-        #sys.exit(f"\n xxx DEBUG DIE xxxx")
-
-        # **** OBSOLETE *****
-        self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = trainopt_arg_list
-        self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
-        self.config_prep['trainopt_num_list']   = trainopt_num_list
-        self.config_prep['trainopt_label_list'] = trainopt_label_list
-        self.config_prep['trainopt_shift_file'] = trainopt_shift_file
-        self.config_prep['use_shift_file']      = use_shift_file
-
-        # end train_prep_trainopt_OBSOLETE
     
-    # xxxxxxxxxx mark delete Jan 24 2021
-    def train_prep_expand_arg(self,ARG):
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-
-        # if ARG starts with KEY_SHIFTLIST_FILE, the return arg
-        # equal to contents of file; otherwise return arg = ARG.
-        # Motivation is that user can build long list of random
-        # calib variations and store each set of variations in 
-        # a separate file.
-        # BEWARE that SHIFTLIST_FILE is NOT a yaml file ... the contents
-        # must be valid TRAINOPT arguments. Abort on any colons in case
-        # user accidentally goes yaml.
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-
-        arg = ARG
-        KEY = KEY_SHIFTLIST_FILE
-        shift_file = None 
-        word_list = ""
-        arg_list = ARG.split()
-        if arg_list[0] == KEY :
-            shift_file = arg_list[1]
-            with open(shift_file,"rt") as f:
-                for line in f:
-                    if util.is_comment_line(line) : continue
-                    # xxx mark if line[0] == '#' : continue 
-                    word_list += line.replace("\n"," ")
-            arg = word_list
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-
-        # - - - - -
-        #print(f" xxx ---------------------------------------- ")
-        #print(f" xxx ARG = {ARG}")
-        #print(f" xxx arg = {arg}")
-        # - - - -
-        if ':' in arg :
-            msgerr = []
-            msgerr.append(f"Found invalid colon(s) in {KEY}")
-            msgerr.append(f"   {shift_file} .")
-            msgerr.append(f"Beware that {KEY} is NOT a yaml file; ")
-            msgerr.append(f"{KEY} contents must be valid TRAINOPT args. ")
-            util.log_assert(False,msgerr)
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-        return arg, shift_file
-        # end train_prep_expand_arg
-        # xxxxxxxxxxx
-
-
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
         path          = ""
@@ -375,7 +323,7 @@ class train_SALT2(Program):
                 
         # - - - - - 
         for item in SALTPATH_FILES :
-            cmd_rsync = (f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}")
+            cmd_rsync = f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}"
             os.system(cmd_rsync)
 
         if arg == '' or replace_path_calib : return []
@@ -390,6 +338,7 @@ class train_SALT2(Program):
                 survey      = arg_sublist[1]
                 band_list   = arg_sublist[2].split(",")
                 shift_list  = arg_sublist[3].split(",")
+
                 if key == KEY_MAGSHIFT :
                     magsys_file,Instr_list = \
                         self.get_magsys_file(outdir_calib, survey)
@@ -405,11 +354,12 @@ class train_SALT2(Program):
                     calib_updates += info 
                     
                 elif key == KEY_WAVESHIFT :
-                    n_update = 0
                     for band,shift in zip(band_list,shift_list):
+                        n_update    = 0
                         shift = float(shift)
                         filter_file_list,Instr_list = \
                             self.get_filter_file(outdir_calib, survey, band)
+
                         for filt_file, Instr in zip(filter_file_list,Instr_list):
                             filter_dict = {
                                 'filter_file' :  filt_file,
@@ -516,7 +466,6 @@ class train_SALT2(Program):
         for line in line_list_inp:
             line_list_out.append(line) # default new line = old line
 
-            # xxx mark if line[0] == '#' : continue
             if util.is_comment_line(line) : continue
 
             word_list = (line.rstrip("\n")).split()
@@ -528,7 +477,7 @@ class train_SALT2(Program):
                 if not match : continue 
                 strval = word_list[2] 
                 try :
-                    value = float(strval)
+                    value = float(eval(strval))
                 except:
                     msgerr.append(f"Expected float after '{key_string}'" )
                     msgerr.append(f"but found {strval}")
@@ -573,7 +522,7 @@ class train_SALT2(Program):
         Instr_outlist       = []
         filter_file_outlist = []
 
-        # .xyz
+        
         if survey in survey_yaml :
             subdir_list = survey_yaml[survey]['Instrument_subdir']
             Instr_list  = survey_yaml[survey]['Instrument']
@@ -664,7 +613,6 @@ class train_SALT2(Program):
             line_list_out.append(line) # default new line = old line
 
             if util.is_comment_line(line) : continue
-            # xxxx mark if line[0] == '#' : continue
 
             word_list = (line.rstrip("\n")).split()
             if len(word_list) < 2 : continue
@@ -686,14 +634,21 @@ class train_SALT2(Program):
         use_shift_file    = self.config_prep['use_shift_file']
         n_update = len(update_calib_info)
         nerr = 0 ; nwarn = 0; msgerr=[] 
-        txt_error = (f"ERROR: DUPLICATE CALIB-SHIFT in same TRAINOPT:")
-        txt_warn  = (f"WARNING: DUPLICATE CALIB-SHIFT in different TRAINOPTs:")
+        txt_error = f"ERROR: DUPLICATE CALIB-SHIFT in same TRAINOPT:"
+        txt_warn  = f"WARNING: DUPLICATE CALIB-SHIFT in different TRAINOPTs:"
 
         for i in range(0,n_update):
-            for j in range(i+1,n_update):
-                if i == j : continue
+            for j in range(i,n_update):
+
                 update_i = update_calib_info[i]
                 update_j = update_calib_info[j]
+
+                #survey_snana_i, band_snana_i = self.get_SNANA_INFO(update_i)
+                #survey_snana_j, band_snana_j = self.get_SNANA_INFO(update_j)
+                #print(f" xxx i={i},j={j} survey_snana = " \
+                #      f"{survey_snana_i} {survey_snana_j}")
+
+                if i == j : continue
 
                 TRAINOPT_i = update_i[ICOL_INFO_TRAINOPT]
                 TRAINOPT_j = update_j[ICOL_INFO_TRAINOPT]
@@ -735,7 +690,7 @@ class train_SALT2(Program):
         # end train_prep_error_checks
 
     def write_command_file(self, icpu, f):
-        # For this icpu, write full set of sim commands to
+        # For this icpu, write full set of training commands to
         # already-opened command file with pointer f. 
         # Function returns number of jobs for this cpu
 
@@ -750,23 +705,72 @@ class train_SALT2(Program):
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
 
-        # open CMD file for this icpu  
-        # xxxx mark delete f = open(COMMAND_FILE, 'a')
-
         for itrain in range(0,n_trainopt):
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :
 
                 n_job_cpu += 1
-                job_info_train   = self.prep_JOB_INFO_train(itrain)
+                if TRAIN_SALT2_FLAG:
+                    job_info_train   = self.prep_JOB_INFO_train(itrain)
+                else:
+                    job_info_train = self.prep_JOB_INFO_jacobian(itrain)
                 util.write_job_info(f, job_info_train, icpu)
     
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         return n_job_cpu
 
         # end write_command_file
+
+    def prep_JOB_INFO_jacobian(self,itrain):
+    # Patrick Armstrong 17 Mar 2022
+
+        CONFIG            = self.config_yaml['CONFIG']
+        input_file        = self.config_yaml['args'].input_file 
+        program           = self.config_prep['program']
+        script_dir        = self.config_prep['script_dir']
+        kill_on_fail      = self.config_yaml['args'].kill_on_fail
+
+        output_dir        = self.config_prep['output_dir']
+        trainopt_num_list = self.config_prep['trainopt_num_list']
+        trainopt_arg_list = self.config_prep['trainopt_arg_list']
+        outdir_model_list    = self.config_prep['outdir_model_list']
+        outdir_train_list    = self.config_prep['outdir_train_list']
+        prefix            = trainopt_num_list[itrain]
+        nthreads          = self.config_prep['nthreads']
+        
+        outdir_model = outdir_model_list[itrain]
+        outdir_train = outdir_train_list[itrain]
+        trainopt_arg = trainopt_arg_list[itrain]
+        jacobian_path = os.path.expandvars(CONFIG[KEY_JACOBIAN_MATRIX])
+        base_surface_path = os.path.expandvars(CONFIG[KEY_JACOBIAN_BASE_SURFACE])
+
+        arg_list = []
+        arg_list.append(f"--jacobian {jacobian_path}")
+        arg_list.append(f"--base {base_surface_path}")
+        arg_list.append(f"--trainopt \"{trainopt_arg}\"")
+        arg_list.append(f"--output {outdir_model}")
+        arg_list.append(f"--batch")
+        arg_list.append(f"--yaml {prefix}.YAML")
+
+        JOB_INFO = {}
+        JOB_INFO['program']       = (f"{program}")
+        JOB_INFO['input_file']    = "" 
+        JOB_INFO['job_dir']       = script_dir
+        JOB_INFO['log_file']      = (f"{prefix}.LOG")
+        JOB_INFO['done_file']     = (f"{prefix}.DONE")
+        JOB_INFO['start_file']    = (f"{prefix}.START")
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['arg_list']      = arg_list
+        JOB_INFO['setenv']        = f"export JULIA_NUM_THREADS={nthreads}"
+        
+        return JOB_INFO
+
+        # end prep_JOB_INFO_jacobian
+
 
     def prep_JOB_INFO_train(self,itrain):
 
@@ -781,7 +785,13 @@ class train_SALT2(Program):
         path_calib_list   = self.config_prep['outdir_calib_list']
         path_calib        = path_calib_list[itrain]
         prefix            = trainopt_num_list[itrain]
-        arg_list          = [ ]
+        trainopt_global   = self.config_prep['trainopt_global']
+        
+
+        if trainopt_global is None:
+            arg_list = []
+        else:
+            arg_list = [trainopt_global]
 
         trainDir_file  = (f"{prefix}.CONFIG")
         self.create_trainDir_file(itrain,trainDir_file)
@@ -869,20 +879,30 @@ class train_SALT2(Program):
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
+        CONFIG       = self.config_yaml['CONFIG']
         n_trainopt   = self.config_prep['n_trainopt'] 
         num_list     = self.config_prep['trainopt_num_list']
         arg_list     = self.config_prep['trainopt_arg_list'] 
         ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
         model_suffix = self.config_prep['model_suffix']
-        survey_map_file = self.config_prep['survey_map_file'] 
 
         f.write(f"# train_SALT2 info \n")
         f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
         f.write(f"MODEL_SUFFIX: {model_suffix}   " \
                 f"# -> create SALT2.{model_suffix}nnn/ \n")
 
-        f.write(f"SURVEY_MAP_FILE:  {survey_map_file} \n")
+        if TRAIN_SALT2_FLAG:
+            survey_map_file = self.config_prep['survey_map_file'] 
+            f.write(f"SURVEY_MAP_FILE:  {survey_map_file} \n")
+
+        f.write(f"\n")
+
+        for key in KEYS_SURVEY_LIST_SAME:
+            if key in CONFIG :
+                f.write(f"{key}:  {CONFIG[key]} \n")
+            else:
+                f.write(f"{key}:  [ ] \n")
 
         f.write(f"\n")
         f.write(f"TRAINOPT_OUT_LIST:  " \
@@ -893,7 +913,11 @@ class train_SALT2(Program):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
+        self.append_calib_info(f)
+        return
+        # end append_info_file
         
+    def append_calib_info(self, f):
         # write which calib files were modified for systematics 
         # (human readable)
         update_calib_info = self.config_prep['update_calib_info' ]
@@ -909,21 +933,23 @@ class train_SALT2(Program):
         n_item = 0
         for item_full in update_calib_info:
             #print(f" xxx item_full = {item_full} ")
-            survey_snana, band_snana = self.get_SNANA_INFO(item_full)
+            survey_snana, band_snana_string = self.get_SNANA_INFO(item_full)
             if survey_snana is None : continue 
+            band_snana_list = list(band_snana_string)
+            for band_snana in band_snana_list :
+                trainopt  = item_full[ICOL_INFO_TRAINOPT]
+                key_snana = item_full[ICOL_INFO_KEY]
+                shift     = item_full[ICOL_INFO_SHIFT]
+                arg_snana = f"{survey_snana} {band_snana} {shift}"
+                item      = [ trainopt, key_snana, arg_snana ]
 
-            trainopt  = item_full[ICOL_INFO_TRAINOPT]
-            key_snana = item_full[ICOL_INFO_KEY]
-            shift     = item_full[ICOL_INFO_SHIFT]
-            arg_snana = (f"{survey_snana} {band_snana} {shift}")
-            item      = [ trainopt, key_snana, arg_snana ]
-
-            n_item += 1
-            if n_item == 1 : f.write(f"SNANA_SALT2_INFO: \n")
-            f.write(f"  - {item} \n")
+                n_item += 1
+                if n_item == 1 : f.write(f"SNANA_SALT2_INFO: \n")
+                f.write(f"  - {item} \n")
         f.write("\n")
+        return
+        # end append_calib_info
 
-        # end append_info_file
 
     def get_SNANA_INFO(self,info_list):
 
@@ -960,6 +986,7 @@ class train_SALT2(Program):
         self.config_prep['output_dir']     = output_dir 
         self.config_prep['script_dir']     = script_dir 
         self.config_prep['model_suffix']   = model_suffix
+        self.set_jacobian_flag()
         # end merge_config_prep
 
     def merge_update_state(self, MERGE_INFO_CONTENTS):
@@ -1031,8 +1058,13 @@ class train_SALT2(Program):
         # - - - - - -  -
         # The first return arg (row_split) is null since there is 
         # no need for a SPLIT table
-        return [], row_list_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
 
+        return row_list_dict, n_state_change
         # end merge_update_state
 
     def get_train_status(self,trainopt):
@@ -1058,11 +1090,18 @@ class train_SALT2(Program):
         tstart     = os.path.getmtime(start_file)
         tproc      = int((tdone - tstart)/60.0)
 
+        # If gz files are found, unzip them all.
+        gz_list = glob.glob1(model_dir, "*.gz")
+        if len(gz_list) > 0:
+            for gz_file in gz_list:
+                cmd = f"cd {model_dir}; gunzip {gz_file}"
+                os.system(cmd)
+
         # check for existence of SALT2 model files
         nerr = 0
         for check_file in CHECK_FILE_LIST:
-            CHECK_FILE = (f"{model_dir}/{check_file}")
-            if os.path.exists(CHECK_FILE) : 
+            CHECK_FILE = f"{model_dir}/{check_file}"
+            if os.path.exists(CHECK_FILE): 
                 # make sure each file has something in it
                 num_lines = sum(1 for line in open(CHECK_FILE))
                 if num_lines < 3 : 
@@ -1091,19 +1130,19 @@ class train_SALT2(Program):
         model_dir  = self.get_path_trainopt("MODEL",trainopt)
         train_dir  = self.get_path_trainopt(SUBDIR_OUTPUT_TRAIN,trainopt)
         calib_dir  = self.get_path_trainopt(SUBDIR_CALIB_TRAIN,trainopt)
-
         logging.info(f"    Compress output for {trainopt} :")
 
         # make tar file from CALIB/TRAINOPTnnn  (aka SALTPATH)
         logging.info(f"\t Compress {SUBDIR_CALIB_TRAIN}/{trainopt}")
         util.compress_subdir(+1,calib_dir)
 
-        # Gzip contents of TRAINOPT, then  TRAINOPTnnn -> TRAINOPTnnn.tar.gz
-        logging.info(f"\t Compress {SUBDIR_OUTPUT_TRAIN}/{trainopt}")
-        cmd_clean = (f"cd {train_dir}; rm *.fits; gzip *.dat *.list")
-        os.system(cmd_clean)
-        util.compress_subdir(+1,train_dir)
-
+        if TRAIN_SALT2_FLAG:
+            # Gzip contents of TRAINOPT, then  TRAINOPTnnn -> TRAINOPTnnn.tar.gz
+            logging.info(f"\t Compress {SUBDIR_OUTPUT_TRAIN}/{trainopt}")
+            cmd_clean = (f"cd {train_dir}; rm *.fits; gzip *.dat *.list")
+            os.system(cmd_clean)
+            util.compress_subdir(+1,train_dir)
+        # -----
         # gzip contents of MODEL, leave directory intact for LC fitter
         logging.info(f"\t gzip contents of {model_dir}")
         cmd = (f"cd {model_dir}; gzip salt2*.dat")
@@ -1116,16 +1155,14 @@ class train_SALT2(Program):
         # (snlc_sim.exe & snlc_fit.exe)
 
         model_dir    = self.get_path_trainopt("MODEL",trainopt)
-        info_file    = (f"{model_dir}/{SALT2_INFO_FILE}")
+        info_file    = f"{model_dir}/{SALT2_INFO_FILE}"
 
         color_law_dict = self.get_color_law(model_dir)
         min_lambda   = color_law_dict['min_lambda']
         max_lambda   = color_law_dict['max_lambda']
-        range_lambda = (f"{min_lambda} {max_lambda}")
+        range_lambda = f"{min_lambda} {max_lambda}"
         npar         = color_law_dict['npar']
         par_list     = " ".join(color_law_dict['par_list'])
-
-        submit_info_yaml = self.config_prep['submit_info_yaml']
 
         logging.info(f"    Create {SALT2_INFO_FILE}")
         with open(info_file,"wt") as f:
@@ -1141,17 +1178,48 @@ class train_SALT2(Program):
 
             f.write(f"{SALT2_INFO_INCLUDE}\n")
 
-            if 'SNANA_SALT2_INFO' in submit_info_yaml :
-                SNANA_SALT2_INFO = submit_info_yaml['SNANA_SALT2_INFO']
-                f.write(f"# {trainopt} \n")
-                for item in SNANA_SALT2_INFO :
-                    if trainopt == item[0] :
-                        key   = item[1]
-                        arg   = item[2]
-                        f.write(f"{key}: {arg} \n")
+            self.append_SALT2_INFO_TRAINOPT(f,trainopt)  
+
+        #if trainopt == "TRAINOPT003" :
+        #    sys.exit(f"\n xxx DEBUG STOP at merge_create_SALT2_INFO_file\n")
 
         # #end merge_create_SALT2_INFO_file
         
+    def append_SALT2_INFO_TRAINOPT(self,f,trainopt):
+
+        # Created Jun 2021
+        # write MAGSHIFT and WAVESHIFT keys for SNANA to use.
+
+        submit_info_yaml       = self.config_prep['submit_info_yaml']
+
+        if 'SNANA_SALT2_INFO' not in submit_info_yaml : return
+
+        SNANA_SALT2_INFO       = submit_info_yaml['SNANA_SALT2_INFO']
+        SURVEY_LIST_SAMEMAGSYS = submit_info_yaml['SURVEY_LIST_SAMEMAGSYS']
+        SURVEY_LIST_SAMEFILTER = submit_info_yaml['SURVEY_LIST_SAMEFILTER']
+
+        f.write(f"# {trainopt} \n")
+        for item in SNANA_SALT2_INFO :
+            if trainopt == item[0] :
+                key      = item[1]
+                arg_list = item[2].split()
+                survey   = arg_list[0]      # extract survey for check below
+                arg      = " ".join(arg_list[1:])  # band value
+                f.write(f"{key}: {survey:<10} {arg} \n")
+
+                # write other surveys with same magsys
+                if key == KEY_MAGSHIFT:
+                    s_list  = SURVEY_LIST_SAMEMAGSYS
+                else:
+                    s_list  = SURVEY_LIST_SAMEFILTER
+
+                if survey in s_list :
+                    for s in filter(lambda s: s not in [survey], s_list):
+                        comment = f"same {key} as {survey}"
+                        f.write(f"{key}: {s:<10} {arg}    # {comment}\n")
+
+        # end append_SALT2_INFO_TRAINOPT
+
     def get_color_law(self,model_dir):
         file_name = (f"{model_dir}/{COLORLAW_FILE}")
         color_law_dict = {}

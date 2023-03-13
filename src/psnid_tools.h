@@ -86,8 +86,9 @@ struct  PSNID_INPUTS  {
   // &SNLCINP variables
   double H0, OMAT, OLAM, W0 ;
   HzFUN_INFO_DEF HzFUN_INFO; // RK - Oct 2020
+  ANISOTROPY_INFO_DEF ANISOTROPY_INFO;
 
-  int OPT_DEBUG ;    // RK - Feb 25 2020
+  int DEBUG_FLAG ;    // RK - Feb 25 2020
 
   // &PSNIDINP variables
   char CFILTLIST[80];  // char-list of filters; i.e, 'griz'

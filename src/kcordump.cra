@@ -4,7 +4,7 @@ C
 
 
 +USE,LINUX.
-+USE,R4KCOR.
++USE,KCOR.
 
 +USE,P=*SNCOM.
 cc +USE,P=*CALIB,T=EXE.   ! for debugging
@@ -128,7 +128,7 @@ C ==============================================
       character cfilt_rest*1, cfilt_obs*1
 
 c function
-      REAL*8  GET_KCOR8, GET_KCORERR8, GET_AVWARP8
+      REAL*8  GET_KCOR8, GET_KCORERR_LEGACY, GET_AVWARP8
 
 C --------------- BEGIN -----------------
 
@@ -216,7 +216,7 @@ c -----------------------------
         KCOR8 = GET_KCOR8 ( ifilt_Rest_dmp, ifilt_obs_dmp, 
      &         T8, Z8, AVWARP8 )
 
-        ERR8 = GET_KCORERR8 ( OPT_KCORERR_SJ,
+        ERR8 = GET_KCORERR_LEGACY ( OPT_KCORERR_SJ,
      &        ifilt_Rest_dmp, ifilt_obs_dmp, T8, Z8, AVWARP8 )
 
         write(6,20) Z8, T8, AVwarp8, KCOR8, ERR8

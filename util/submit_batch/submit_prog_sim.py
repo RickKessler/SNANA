@@ -31,6 +31,32 @@
 # Jan 06 2021: cidadd safety margin -> 1000 (was 10) to reduce chance
 #               of running out of random CIDs
 # Jan 14 2021: add MERGE.LOG column for NSPEC_WRITE
+# Aug 18 2021: implement --snana_dir for SIMnorm jobs
+# Sep 09 2021: abort of NGEN_UNIT is mixed with NGENTOT_LC in GENOPT
+# Nov 09 2021: strip comment fields before reading sim-input files
+#                (see is_comment_line)
+# Dec 08 2021: write NLC_GEN[WRITE]_SUM to MERGE.LOG via get_misc_merge_info()
+#
+# Mar 07 2022: 
+#  copy sim-input files of not merge_flag ... hopefully fixes rare problem
+#  of sim jobs reading zero words from sim-input file and then aborting.
+#
+# Apr 7 2022
+#   leave SUBMIT.INFO outside SIMLOGS.tar, and create BACKUP_*.tar.gz files
+#   before SIMLOGS.tar (better organized) 
+#
+# May 3 2022: protect arg wildcards by adding quotes; see util.protect_wildcard
+#
+# May 14 2022: if RANSYSTPAR_RANSEED_SYST is set in genopt, sync the 
+#               ranseed_syst args among isplit.
+#
+# Jun 20 2022: for RESET_CIDOFF=2 (unique CID among all versions),
+#          cidran_max *= 1.1 to prevent hang-up for CIDRAN_MAX ~ 100 million.
+#
+# Jul 05 2022: combine [VERSION].SL files, same as for [VERSION].DUMP files.
+#
+# Mar 2023: write sim-input keys to merged README so that we don't have to
+#           dig them out from misc.tar.gz ; see merge_write_readme()
 #
 # ==========================================
 
@@ -64,6 +90,8 @@ MAX_SIMGEN_INFILE = 12
 
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
+KEY_INPUT_INCLUDE_FILE = 'INPUT_INCLUDE_FILE' # Optional key
+
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
@@ -94,7 +122,12 @@ FORMAT_FITS = "FITS"
 RANSEED_MAX = 1000000000   # 1 billion
 
 KEY_NGENTOT    = "NGENTOT_LC"
-    
+
+# define valid row keys for SIMGEN dump file
+ROWKEY_SIMGEN_DUMP_LIST = [ 'SN:', 'ROW:' ]
+
+NGENTOT_CHECK_ABORT = 300
+
 # - - - - - - - - - - - - - - - - - - -     -
 class Simulation(Program):
     def __init__(self, config_yaml) :
@@ -130,8 +163,8 @@ class Simulation(Program):
                 msgerr.append(f"Check {input_file}")
                 util.log_assert(False,msgerr)
 
-            OUTDIR = (f"SIMLOGS_{GENPREFIX}")
-            output_dir_name = (f"{CWD}/{OUTDIR}")
+            OUTDIR = f"SIMLOGS_{GENPREFIX}"
+            output_dir_name = f"{CWD}/{OUTDIR}"
 
         self.config_yaml['CONFIG']['OUTDIR'] = OUTDIR
         return output_dir_name,SUBDIR_SCRIPTS_SIM
@@ -170,7 +203,6 @@ class Simulation(Program):
         self.sim_prep_NGENTOT_LC()
 
         # determine CIDRAN parameters to ensure unique randoms
-        # xxx self.sim_prep_FORMAT_MASK()
         self.sim_prep_CIDRAN()
 
         # abort on conflicts
@@ -215,6 +247,7 @@ class Simulation(Program):
 
         # there is a separate GENOPT_GLOBAL for SIMnorm jobs
         # to simplify debugging if needed.
+        # M. Vincenzi Febr 2022: added protect_parenthesis in keys and values
 
         IGNORE_SIMnorm = GENOPT_GLOBAL_IGNORE_SIMnorm
 
@@ -224,12 +257,16 @@ class Simulation(Program):
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
             for key,value in GENOPT_GLOBAL.items():
-                GENOPT_GLOBAL_STRING += (f"{key} {value}  ")
+                key_protect   = util.protect_parentheses(key)
+                value_protect = util.protect_parentheses(value)
+                value_protect = util.protect_wildcard(value_protect)
 
+                GENOPT_GLOBAL_STRING += f"{key_protect} {value_protect}  "
+                
                 SKIP_SIMnorm = \
                     any(substring in key for substring in IGNORE_SIMnorm)
                 if not SKIP_SIMnorm :
-                    GENOPT_GLOBAL_SIMnorm += (f"{key} {value}  ")
+                    GENOPT_GLOBAL_SIMnorm += f"{key} {value}  "
 
         # check for ngentot_lc in GENOPT_GLOBAL (Dec 2020)
         genopt_replace, strval = \
@@ -285,7 +322,9 @@ class Simulation(Program):
                     for key2,value2 in value.items():
                         # if key includes (), replace with \( \)
                         key2_protect = util.protect_parentheses(key2)
-                        genopt = (f"{key2_protect} {value2}     ")
+                        value2_protect = util.protect_parentheses(value2)
+                        value2_protect = util.protect_wildcard(value2_protect)
+                        genopt = f"{key2_protect} {value2_protect}     "
                         #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)
                         genarg_list.append(genarg)
@@ -396,9 +435,9 @@ class Simulation(Program):
             # unless nosubmit or merge_flag flag is set
             if nosubmit is False and merge_flag is False :
                 if IS_RANSEED_CHANGE :
-                    wildcard_genversion = (f"{GENVERSION}-*")
+                    wildcard_genversion = f"{GENVERSION}-*"
                 else:
-                    wildcard_genversion = (f"{GENVERSION}")
+                    wildcard_genversion = f"{GENVERSION}"
 
                 v_list = glob.glob1(path_sndata_sim,wildcard_genversion)
                 for v in v_list:
@@ -414,9 +453,12 @@ class Simulation(Program):
         # Note that RANSEED_REPEAT splits a sim into sub-jobs, 
         # then re-combines into one effective sim job.
         # RANSEED_CHANGE splits into sub-jobs; does NOT re-combine.
+        #
+        # Oct 12 2021: if --check_abort, n_job_split -> 1
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file     # for msgerr
+        check_abort  = self.config_yaml['args'].check_abort
         do_cidran    = self.config_prep['do_cidran']
         nkey_found   = 0  # local: number of valid RANSEED_XXX keys
         ranseed_list = [] # array vs. split index
@@ -435,6 +477,8 @@ class Simulation(Program):
                 RANSEED_LIST    = CONFIG[key]
                 n_job_split     = int(RANSEED_LIST.split()[0])
                 ranseed         = int(RANSEED_LIST.split()[1])
+                if check_abort: n_job_split=1
+
                 if ranseed > RANSEED_MAX :
                     msgerr.append(f"ranseed = {ranseed} is too big.")
                     msgerr.append(f"ranseed must be under {RANSEED_MAX} " \
@@ -448,6 +492,7 @@ class Simulation(Program):
                     ranseed_list = [ranseed] * n_job_split
                 else:
                     # change seed each core 
+                    self.prep_input_file_include(n_job_split) # Check for optional input systematics
                     for job in range(0,n_job_split):
                         ranseed_tmp = ranseed + 10000*job + job*job + 13
                         ranseed_list.append(ranseed_tmp)
@@ -476,11 +521,63 @@ class Simulation(Program):
 
         # end sim_prep_RANSEED
 
+    def prep_input_file_include(self, n_job_split):
+       
+        CONFIG        = self.config_yaml['CONFIG']
+        key           = KEY_INPUT_INCLUDE_FILE
+        msgerr        = []
+        self.config_prep['include_list'] = []
+        self.config_prep['n_include_files'] = 0
+        
+        if key not in CONFIG:
+            return 
+        include_list_file = os.path.expandvars(CONFIG[key]) # File containing list of include files
+
+        if not os.path.isfile(include_list_file):
+            msgerr.append(f"include_list_file = {include_list_file}")
+            msgerr.append(f"{include_list_file} does not exist!")
+            self.log_assert(False, msgerr)
+        
+        with open(include_list_file, "rt") as f:
+            open_file = f.read()
+        if open_file == "":
+            msgerr.append(f"Contents of {include_list_file} = '{open_file}'")
+            msgerr.append(f"is empty!")
+            self.log_assert(False, msgerr)
+
+        include_list = [f for f in open_file.split("\n") if f != ""] # Assumed each line is ONLY a file name.
+        n_include_list = len(include_list)
+        print(f"Found {n_include_list} include files from {include_list_file}")
+
+        if n_include_list < n_job_split:
+            msgerr.append(f"n_job_split = {n_job_split}, n_include_list = {n_include_list}")
+            msgerr.append(f"n_include_list must be >= n_job_split")
+            self.log_assert(False, msgerr)
+
+        # Get the full path to each file
+        parent_path = os.path.dirname(include_list_file)
+        full_path_include_list = []
+        for filename in include_list:
+            if '/' in filename:
+                full_filename = filename
+            else:
+                full_filename = os.path.join(parent_path, filename)
+            if not os.path.isfile(full_filename):
+                msgerr.append(f"full_filename = {full_filename}, derived from '{filename}'")
+                msgerr.append(f"does not exist!")
+                msgerr.append(f"Check contents of {include_list_file}")
+                self.log_assert(False, msgerr)
+            full_path_include_list.append(full_filename)
+
+        self.config_prep['include_list'] = full_path_include_list
+        self.config_prep['n_include_files'] = n_include_list
+
+        # end prep_input_file_include
 
     def sim_prep_NGENTOT_LC(self):
 
         CONFIG        = self.config_yaml['CONFIG']
-        fast          = self.config_yaml['args'].fast
+        prescale      = self.config_yaml['args'].prescale
         n_genversion  = self.config_prep['n_genversion']
         infile_list2d = self.config_prep['infile_list2d']
         INFILE_KEYS   = self.config_prep['INFILE_KEYS']
@@ -503,13 +600,15 @@ class Simulation(Program):
             ngentot_list = []
             for ifile in range(0,n_file):
                 if ngen_unit < 0.0 :
-                    ngentot = self.get_ngentot_from_input(iver,ifile)
+                    ngentot = self.get_ngentot_from_input(iver,ifile,+1)
                 else:
+                    dummy   = self.get_ngentot_from_input(iver,ifile,-1)
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
                     ngentot = int(ngen_unit * ngentmp)
 
-                # finally, check for fast option to divide by 10
-                if fast:  ngentot = int(ngentot/FASTFAC)
+                # finally, check for fast option to divide by 10 or 100
+                if prescale > 1 :  
+                    ngentot = int(ngentot/prescale)
 
                 ngentot_list.append(ngentot) # append ifile dimension
                 ngentot_sum += ngentot
@@ -522,6 +621,7 @@ class Simulation(Program):
 
         # Jan 4 2021: move this test here from sim_prep_FORMAT_MASK
         if do_cidran and ngentot_sum == 0 :
+            msgerr = []
             msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
                           f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
             msgerr.append(f"Try one of the following:")
@@ -532,15 +632,24 @@ class Simulation(Program):
 
         # end sim_prep_NGENTOT_LC
 
-    def get_ngentot_from_input(self,iver,ifile):
+    def get_ngentot_from_input(self,iver,ifile,opt):
+
+        # Sep 9 2021: add opt input:
+        # opt > 0 -> return ngentot from input file or GENOPT key
+        # opt < 0 -> abort of NGENTOT_LC is in GENOPT key 
+        #             (to avoid conflict with NGEN_UNIT)
 
         INFILE_KEYS      = self.config_prep['INFILE_KEYS']
         ngentot_global   = self.config_prep['ngentot_global']
         genopt_list2d    = self.config_prep['genopt_list2d']
         genopt           = genopt_list2d[iver][ifile]
+        found_GENOPT_override = False 
+        
+        ngentot = 0
 
         # Start with default NGENTOT_LC is from the sim-input file
-        ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
+        if KEY_NGENTOT in INFILE_KEYS[iver][ifile]:
+            ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
 
         # check for GENOPT override
         genopt_replace, strval = \
@@ -549,10 +658,22 @@ class Simulation(Program):
             ngentot = int(strval)
             genopt_list2d[iver][ifile]        = genopt_replace
             self.config_prep['genopt_list2d'] = genopt_list2d
+            found_GENOPT_override = True
 
         # check for GENOPT_GLOBAL override (Dec 10 2020)
         if ngentot_global > 0 :
             ngentot = ngentot_global
+            found_GENOPT_override = True
+
+        # 9.09.2021: check option to abort on NGENTOT key
+        if found_GENOPT_override and opt < 0 :
+            msgerr = []
+            input_file   = self.config_yaml['args'].input_file 
+            msgerr.append(f"Cannot mix NGEN_UNIT and NGENTOT_LC in")
+            msgerr.append(f"{input_file} .")
+            msgerr.append(f"Either remove NGENTOT_LC from GENOPT[_GLOBAL]")
+            msgerr.append(f"or remove NGEN_UNIT from CONFIG.")
+            self.log_assert(False,msgerr)
 
         return ngentot
 
@@ -604,25 +725,26 @@ class Simulation(Program):
         output_dir    = self.config_prep['output_dir']
         genopt_global = self.config_prep['genopt_global_SIMnorm']
         genopt        = self.config_prep['genopt_list2d'][iver][ifile]
+        snana_dir     = self.config_yaml['args'].snana_dir
 
-        cddir         = (f"cd {output_dir}")
+        cddir         = f"cd {output_dir}"
         ngentot       = 0
         
         model_string  = self.model_string_suffix(model,ifile)
-        prefix        = (f"SIMnorm_{genversion}_{model_string}")
-        log_file      = (f"{prefix}.LOG")
-        LOG_FILE      = (f"{output_dir}/{log_file}")
+        prefix        = f"SIMnorm_{genversion}_{model_string}"
+        log_file      = f"{prefix}.LOG"
+        LOG_FILE      = f"{output_dir}/{log_file}"
 
         arg_list  = ""
-        arg_list += (f"INIT_ONLY 1 ")
-        arg_list += (f"{genopt} ")
-        arg_list += (f"{genopt_global} ") 
+        arg_list += f"INIT_ONLY 1 "
+        arg_list += f"{genopt} "
+        arg_list += f"{genopt_global} "
 
         # 1.31.2021: check for PATH_USER_INPU
         INFILE_KEYS  = self.config_prep['INFILE_KEYS']
         key = 'PATH_USER_INPUT'
         if key not in INFILE_KEYS[iver][ifile] :
-            arg_list += (f"{key} {CWD} ")
+            arg_list += f"{key} {CWD} "
 
         # contruct two sets of strings.
         # cmd_string is passed to os.system
@@ -630,7 +752,12 @@ class Simulation(Program):
 
         cmd_array = []     # for screen dump
         cmd_array.append(f"{cddir} ; ")
-        cmd_array.append(f"{program} {infile} ")
+
+        if snana_dir is None :
+            cmd_array.append(f"{program} {infile} ")
+        else:
+            cmd_array.append(f"{snana_dir}/bin/{program} {infile} ")
+
         cmd_array.append(f"{arg_list} ")
         cmd_array.append(f"> {log_file}")
 
@@ -719,7 +846,7 @@ class Simulation(Program):
         elif format_mask & FORMAT_MASK_FITS > 0 :
             format_type = FORMAT_FITS
         else:
-            strtmp = (f"{FORMAT_MASK_TEXT}(TEXT) or {FORMAT_MASK_FITS}(FITS)")
+            strtmp = f"{FORMAT_MASK_TEXT}(TEXT) or {FORMAT_MASK_FITS}(FITS)"
             msgerr.append(f"Invalid FORMAT_MASK = {format_mask}")
             msgerr.append(f"FORMAT_MASK must include either {strtmp}")
             self.log_assert( False , msgerr)
@@ -814,7 +941,6 @@ class Simulation(Program):
             cidoff_list3d[iver][ifile][isplit] = cidoff
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
-            # xxx ngentot_sum += ngentot    # increment total number generated
             if reset_cidoff > 0 :
                 cidadd       = int(ngentot*1.1)+1000   # leave safety margin
                 cidoff      += cidadd        # for random CIDs in snlc_sim
@@ -828,7 +954,10 @@ class Simulation(Program):
         # for unique CIDs everywhere, cidran_max must be the
         # same for all jobs
         if reset_cidoff == 2 :
+            cidran_safety  = int(0.1*cidran_max)
+            cidran_max    += cidran_safety # safety for very large CIDRAN
             cidran_max_list = [cidran_max] * n_genversion
+
 
         # store info
         self.config_prep['reset_cidoff']      = reset_cidoff
@@ -890,7 +1019,6 @@ class Simulation(Program):
         msgerr = []
 
         print(f"")
-        #print(f" DUMP CIDOFF vs. GENVERSION and MODEL/INFILE")
         print(f"     GENVERSION        MODEL        CIDOFF(GENVERSION)")
         print(f"# -------------------------------------------------- ")
 
@@ -904,15 +1032,15 @@ class Simulation(Program):
                 self.log_assert(False,msgerr)
 
             for ifile in range(0,n_file):
-                str_genv   = (f"{genv:20.20}")
+                str_genv   = f"{genv:20.20}"
                 str_model  = str(model_list2d[iver][ifile]) + '-' + str(ifile)
-                str_model  = (f"{str_model:8.8}")
+                str_model  = f"{str_model:8.8}"
                 cidoff_list = cidoff_list3d[iver][ifile]
                 len_list    = len(cidoff_list)
                 if len_list < 6 :
-                    str_cidoff = (f"{cidoff_list}")
+                    str_cidoff = f"{cidoff_list}"
                 else:
-                    str_cidoff = (f"{cidoff_list[0:2]} ... {cidoff_list[len_list-2:len_list]}")
+                    str_cidoff = f"{cidoff_list[0:2]} ... {cidoff_list[len_list-2:len_list]}"
 
                 print(f" {str_genv} {str_model} {str_cidoff}")
 
@@ -1012,7 +1140,9 @@ class Simulation(Program):
         self.log_assert(nerr==0,msgerr)
 
         # copy input files to outdir/simlogs directory
-        self.sim_prep_SIMGEN_INFILE_copy()
+        merge_flag        = self.config_yaml['args'].merge_flag
+        if not merge_flag:
+            self.sim_prep_SIMGEN_INFILE_copy()
 
         # end sim_prep_SIMGEN_INFILE
 
@@ -1118,6 +1248,10 @@ class Simulation(Program):
         for infile in include_file_list_unique :
             infile_copy_list.append(infile)
 
+        n_copy = len(infile_copy_list)
+        base_dir = os.path.basename(output_dir)
+        logging.info(f"\t Copy {n_copy} sim-input files to {base_dir}")
+
         util.copy_input_files(infile_copy_list, output_dir,
                               SIMGEN_INPUT_LISTFILE )
 
@@ -1146,15 +1280,19 @@ class Simulation(Program):
         do_dump          = False
 
         # first make sure that infile exists
-        msgerr = [ (f"Check SIMGEN_INFILE_SNIa[NONIa] keys") ]
+        msgerr = [ f"Check SIMGEN_INFILE_SNIa[NONIa] keys" ]
         util.check_file_exists(infile,msgerr)
 
         # read everything as YAML (take advantage of KEY: [VALUE] syntax)
-        with open(infile, 'r') as f :
+        with open(infile, 'rt') as f :
             for line in f: 
+                if util.is_comment_line(line) : continue
+                if '#' in line: line = line.split('#')[0] 
                 input_lines.append(line)
                 input_word_list += line.split()
                 #flat_word_list = [word for line in f for word in line.split()]
+
+        #sys.exit(f"\n xxx input_lines({infile}) = \n{input_lines}\n")
         input_yaml = yaml.safe_load("\n".join(input_lines))
 
         # search input_word_list for include file keys the old-fashion 
@@ -1192,8 +1330,10 @@ class Simulation(Program):
         for inc_file in inc_file_list :
             util.check_file_exists(inc_file,
                                    [(f"Check INCLUDE files in {infile}")] )
-            with open(inc_file, 'r') as finc :
+            with open(inc_file, 'rt') as finc :
                 for line in finc:
+                    if util.is_comment_line(line) : continue
+                    if '#' in line: line = line.split('#')[0]
                     input_lines.append(line)
 
         # read YAML again, but with all include file lines 
@@ -1259,7 +1399,7 @@ class Simulation(Program):
             infile_ref       = infile_list2d[iver][0] 
             infile_tmp       = infile_list2d[iver][ifile] 
             key_exists       = False
-            infile_pair      = (f"{infile_ref}+{infile_tmp}+{keycheck}")
+            infile_pair      = f"{infile_ref}+{infile_tmp}+{keycheck}"
             unique_pair      = infile_pair not in INFILE_PAIRS
 
             # first make check on required keys
@@ -1288,8 +1428,8 @@ class Simulation(Program):
 
                 if not verify :
                     nerr += 1 ; 
-                    msg_ref = (f"{keycheck}: {key_value_ref} in {infile_ref}")
-                    msg_tmp = (f"{keycheck}: {key_value_tmp} in {infile_tmp}")
+                    msg_ref = f"{keycheck}: {key_value_ref} in {infile_ref}"
+                    msg_tmp = f"{keycheck}: {key_value_tmp} in {infile_tmp}"
                     msg=(f"KEY-VERIFY ERROR:\n\t {msg_ref}\n\t {msg_tmp}")
                     msgerr.append(msg)
                     INFILE_PAIRS.append(infile_pair)
@@ -1312,7 +1452,7 @@ class Simulation(Program):
                 self.log_assert(False,msgerr)
             flag = True
         else:
-            path_sndata_sim = (f"{SNDATA_ROOT}/SIM")
+            path_sndata_sim = f"{SNDATA_ROOT}/SIM"
             flag = False
 
         self.config_prep['path_sndata_sim']      = path_sndata_sim
@@ -1328,9 +1468,6 @@ class Simulation(Program):
         n_job_tot      = self.config_prep['n_job_tot']
         n_job_split    = self.config_prep['n_job_split']
         n_core         = self.config_prep['n_core']
-
-        # open CMD file for this icpu
-        # xxx mark delete  f = open(COMMAND_FILE, 'a') 
 
         n_job_cpu    = 0     # number of jobs for this CPU
         iver_list    = self.config_prep['iver_list']
@@ -1360,7 +1497,8 @@ class Simulation(Program):
                 job_info_sim   = self.prep_JOB_INFO_sim(index_dict)
                 util.write_job_info(f, job_info_sim, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
                 # store TMP_VERSION for later
@@ -1368,8 +1506,6 @@ class Simulation(Program):
 
         # store TMP version strings needed later in MERGE.LOG file
         self.config_prep['TMP_genversion_list2d'] = TMP_list2d
-
-        # xxx mark delete xxx  f.close()
 
         if n_job_local != n_job_tot :
             msgerr = []
@@ -1401,8 +1537,12 @@ class Simulation(Program):
         # pick off a few globals
         CONFIG            = self.config_yaml['CONFIG']
         GENPREFIX         = CONFIG['GENPREFIX']
-        no_merge          = self.config_yaml['args'].nomerge
-        kill_on_fail      = self.config_yaml['args'].kill_on_fail
+
+        args              = self.config_yaml['args']
+        no_merge          = args.nomerge
+        kill_on_fail      = args.kill_on_fail
+        check_abort       = args.check_abort
+
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
@@ -1414,6 +1554,9 @@ class Simulation(Program):
         genopt_list2d     = self.config_prep['genopt_list2d']
         ngentot_list2d    = self.config_prep['ngentot_list2d']
         ranseed_list      = self.config_prep['ranseed_list']
+        ranseed_key       = self.config_prep['ranseed_key']
+        IS_CHANGE         = 'CHANGE' in ranseed_key
+        n_include_files   = self.config_prep.get('n_include_files', 0)
         genopt_global     = self.config_prep['genopt_global']
         user_path_sndata  = self.config_prep['user_path_sndata_sim']
         path_sndata       = self.config_prep['path_sndata_sim']
@@ -1442,18 +1585,19 @@ class Simulation(Program):
         infile       = infile_list2d[iver][ifile]
         model        = model_list2d[iver][ifile]
         ngentot      = ngentot_list2d[iver][ifile]
+        if check_abort: ngentot = NGENTOT_CHECK_ABORT
         Nsec         = seconds_since_midnight
 
-        split_string = (f"{isplit1:04d}")          # e.g., 0010
+        split_string = f"{isplit1:04d}"         # e.g., 0010
         model_string = self.model_string_suffix(model,ifile)
 
-        tmp1       = (f"TMP_{USER4}_{genversion}_{model_string}" )
+        tmp1       = f"TMP_{USER4}_{genversion}_{model_string}" 
         tmp2       = self.genversion_split_suffix(isplit1,Nsec)
 
-        tmp_ver    = (f"{tmp1}-{tmp2}")        # temp GENVERSION
-        log_file   = (f"{tmp_ver}.LOG")
-        done_file  = (f"{tmp_ver}.DONE")
-        genprefix  = (f"{GENPREFIX}_{model_string}-{split_string}")
+        tmp_ver    = f"{tmp1}-{tmp2}"        # temp GENVERSION
+        log_file   = f"{tmp_ver}.LOG"
+        done_file  = f"{tmp_ver}.DONE"
+        genprefix  = f"{GENPREFIX}_{model_string}-{split_string}"
         
         arg_list    = []
         arg_list.append(f"    GENVERSION {tmp_ver}")
@@ -1461,16 +1605,17 @@ class Simulation(Program):
         arg_list.append(f"    NGENTOT_LC    {ngentot}    NGEN_LC 0")
         arg_list.append(f"    RANSEED {ranseed}")
         arg_list.append(f"    FORMAT_MASK {format_mask}")
+        
 
         if reset_cidoff > 0 :
             cidoff = cidoff_list3d[iver][ifile][isplit]
-            str1   = (f"CIDRAN_MIN {cidran_min}")
-            str2   = (f"CIDRAN_MAX {cidran_max_list[iver]}")
-            str3   = (f"CIDOFF {cidoff}")
+            str1   = f"CIDRAN_MIN {cidran_min}"
+            str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
+            str3   = f"CIDOFF {cidoff}"
             arg_list.append(f"    {str1}    {str2}    {str3}")
 
         arg_list.append(f"    JOBID {isplit1}     NJOBTOT {n_job_split}")
-        arg_list.append(f"    WRFLAG_MODELPAR 0") # disable model-par output
+        arg_list.append(f"    WRFLAG_MODELPAR  0") # disable model-par output
         arg_list.append(f"    WRFLAG_YAML_FILE 1") # enable YAML output
 
         # check for user-option to require DOCANA
@@ -1479,14 +1624,23 @@ class Simulation(Program):
 
         if user_path_sndata :                 
             arg_list.append(f"    PATH_SNDATA_SIM {path_sndata}")
-
+        
+        
         # suppress this if PATH_USER_INPUT already defined by user ??
         key = 'PATH_USER_INPUT'
         if key not in INFILE_KEYS[iver][ifile] :
             arg_list.append(f"    {key} {CWD}")
 
+        # May 2022: check option to sync ransystpar random seeds
+        #   Note that genopt may be modified.
+        genopt = self.sync_ransystpar_ranseed_syst(genopt,isplit1)
+        #sys.exit(f"\n genopt= {genopt}")
+
         arg_list.append(f"{genopt}")         # user args by version
         arg_list.append(f"{genopt_global}")     # user global args
+        if IS_CHANGE and n_include_files > 0:
+            input_include_file = self.config_prep['include_list'][isplit]
+            arg_list.append(f"INPUT_INCLUDE_FILE {input_include_file}")
 
         JOB_INFO['input_file']    = infile
         JOB_INFO['log_file']      = log_file
@@ -1494,21 +1648,49 @@ class Simulation(Program):
         JOB_INFO['arg_list']      = arg_list
         JOB_INFO['tmp_genversion_split']  = tmp_ver
         JOB_INFO['tmp_genversion']        = tmp1    # combined genv        
-        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
         JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['check_abort']   = check_abort
 
         return JOB_INFO
 
         # end prep_JOB_INFO_sim
 
     def model_string_suffix(self,model,ifile):
-        model_string = (f"{model}MODEL{ifile}")      # e.g., SNIaMODEL0
+        model_string = f"{model}MODEL{ifile}"     # e.g., SNIaMODEL0
         return model_string
         # end model_string_suffix
 
     def genversion_split_suffix(self,isplit,Nsec):
-        suffix = (f"{isplit:04d}_{Nsec}")
+        suffix = f"{isplit:04d}_{Nsec}"
         return suffix
+
+    def sync_ransystpar_ranseed_syst(self,genopt,isplit1):
+
+        # if genopt contains "RANSYSTPAR_RANSEED_SYST <ranseed>",
+        # then replace ranseed with value that depends on isplit1
+        # so that all ISPLIT=1 have same seed, all ISPLIT=2 have same
+        # seed, etc ... Goal is to sync correlated systematics among
+        # samples; e.g., galactic extinction, cosmology params ...
+        # Note that argument genopt is modified.
+
+        key = "RANSYSTPAR_RANSEED_SYST"
+        genopt_out = genopt  
+        if key in genopt:
+            genopt_list   = genopt.split()
+            j             = genopt_list.index(key)
+            ranseed_orig  = int(genopt_list[j+1])
+            ranseed_split = ranseed_orig*7 + isplit1*41 
+
+            str_orig      = str(ranseed_orig)
+            str_split     = str(ranseed_split)
+            genopt_out    = genopt.replace(str_orig,str_split)
+            print(f"\t ransystpar_ranseed_syst -> {ranseed_split}" \
+                  f" for ISPLIT={isplit1}")
+            
+        return genopt_out
+        
+        # end sync_ransystpar_ranseed_syst
 
     def append_info_file(self,f):
 
@@ -1523,6 +1705,7 @@ class Simulation(Program):
         format_mask       = self.config_prep['format_mask']
         ranseed_key       = self.config_prep['ranseed_key'] 
         ngen_unit         = self.config_prep['ngen_unit']
+        n_job_split       = self.config_prep['n_job_split']
 
         # - - - - - - - 
         f.write("\n# Original user input \n")
@@ -1547,9 +1730,14 @@ class Simulation(Program):
 
         f.write(f"N_GENVERSION:         {n_genversion} \n")
 
-        comment = "NGEN sum over all GENVERSIONs"
-        f.write(f"NGENTOT_SUM:          {ngentot_sum}  # ({comment})\n")
+        comment = "NGEN/split summed over all GENVERSIONs"
+        f.write(f"NGENTOT_SUM:        {ngentot_sum}  # ({comment})\n")
 
+        # write grand total over all cores (July 26 2021)
+        ngentot_sumsplit = ngentot_sum * n_job_split
+        comment = f"NGEN x {n_job_split} split-jobs " \
+                  f"summed over all GENVERSIONs"
+        f.write(f"NGENTOT_SUMSPLIT:   {ngentot_sumsplit}  # ({comment})\n")
     
         #end append_info_file
 
@@ -1558,7 +1746,7 @@ class Simulation(Program):
         # Required element of submit process. Before submitting jobs,
         # create initial merge file with all WAIT states.
         # This file is read and updated frequently by merge
-        # process invoked by -m argument to submit_batch_jobs.py.
+        # process invoked by -m argument to submit_batch_jobs.sh .
         # A locally defined MERGE_INFO structure is passed to 
         # a generic write_MERGE_INFO function to create MERGE.LOG/
         # Uses YAML format, and for human-readability there is a 
@@ -1621,8 +1809,6 @@ class Simulation(Program):
             MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] )
 
-        #printf(" xxx force crash with C-like printf xxx \n")
-
         # end create_merge_table
 
     def genversion_expand_list(self,genversion_list,ranseed_key,n_job_split):
@@ -1661,7 +1847,7 @@ class Simulation(Program):
 
     def genversion_split_name(self,genversion,isplit):
         # if genversion = ABC and isplit=4, return ABC-0004
-        name = (f"{genversion}-{isplit:04d}")
+        name = f"{genversion}-{isplit:04d}"
         return name
 
 # ==============================================
@@ -1674,7 +1860,7 @@ class Simulation(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
 
         self.config_prep['path_sndata_sim']     = \
-                            submit_info_yaml['PATH_SNDATA_SIM']
+                        submit_info_yaml['PATH_SNDATA_SIM']
         self.config_prep['output_dir']     = output_dir 
 
         self.sim_prep_GENOPT_GLOBAL()
@@ -1806,7 +1992,7 @@ class Simulation(Program):
                             suffix = self.genversion_split_suffix(isplit+1,Nsec)
                             iver_all    = isplit + IVER*n_job_split
                             row_merge   = row_list_merge[iver_all]
-                            tmp_genv    = (f"{row[COLNUM_GENV]}-{suffix}")
+                            tmp_genv    = f"{row[COLNUM_GENV]}-{suffix}"
                             genv_merge  = row_merge[COLNUM_GENV]
 
                             self.move_sim_data_files(tmp_genv,genv_merge,nfail)
@@ -1865,8 +2051,13 @@ class Simulation(Program):
                 row_merge_new[iver_all][COLNUM_STATE] = SUBMIT_STATE_FAIL
             iver_all += 1
 
-        return row_split_new, row_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : row_split_new,
+            'row_merge_list' : row_merge_new,
+            'row_extra_list' : []
+        }
 
+        return row_list_dict, n_state_change
         # end merge_update_state
 
     def move_sim_data_files(self,genversion_split, genversion_combine, nfail):
@@ -1882,33 +2073,44 @@ class Simulation(Program):
         # If nfail > 0, create genversion_combine and write FAIL 
         # in README file; the quit. This allows downstream analysis codes 
         # to quickly check for FAIL.
+        #
+        # Dec 20 2021: gzip FITS if not already gzipped.
 
-        msg = (f"  move {genversion_split} files to {genversion_combine}")
-        logging.info(msg)
+        args             = self.config_yaml['args']
+        if args.check_abort: return
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         simlog_dir       = submit_info_yaml['SIMLOG_DIR']
         path_sndata_sim  = submit_info_yaml['PATH_SNDATA_SIM']    
         Nsec_time_stamp  = submit_info_yaml['TIME_STAMP_NSEC']
 
-        from_dir   = (f"{path_sndata_sim}/{genversion_split}"  )
-        target_dir = (f"{path_sndata_sim}/{genversion_combine}")
+        from_dir   = f"{path_sndata_sim}/{genversion_split}"  
+        target_dir = f"{path_sndata_sim}/{genversion_combine}"
+
+        msg = f"  move {genversion_split} files to {genversion_combine}"
+        logging.info(msg)
 
         dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
+        sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL") # strong lens
 
-        # defin aux files for combined version
-        # xxx mark ignore_file = (f"{target_dir}/{genversion_combine}.IGNORE")
-        dump_file     = (f"{target_dir}/{genversion_combine}.DUMP")
-        readme_file   = (f"{target_dir}/{genversion_combine}.README")
-        list_file     = (f"{target_dir}/{genversion_combine}.LIST")
+        merge_simgen_dump = len(dump_split_list)
+        merge_simgen_sl   = len(sl_split_list)
+
+        # define aux files for combined version
+        dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
+        sl_file       = f"{target_dir}/{genversion_combine}.SL"
+        readme_file   = f"{target_dir}/{genversion_combine}.README"
+        list_file     = f"{target_dir}/{genversion_combine}.LIST"
+
+        if merge_simgen_dump :
+            logging.info("\t Merge SIMGEN-DUMP files")
+        if merge_simgen_sl :
+            logging.info("\t Merge SIMGEN-SL files")
 
         # if target dir does NOT exist, create target dir along
         # with aux files.
         if os.path.exists(target_dir) == False :
             os.mkdir(target_dir)
-
-            # create blank IGNORE file
-            # xxx mark delete with open (ignore_file,"w") as f :   pass
 
             # create blank README file
             with open (readme_file,"w") as f :
@@ -1918,9 +2120,15 @@ class Simulation(Program):
 
             # create combined DUMP file with VARNAMES & comments from
             # first DUMP file. Protect against job failure.
-            if len(dump_split_list) > 0 :
+
+            if merge_simgen_dump :
                 dump_file_template = dump_split_list[0]
                 self.create_simgen_dump_file(dump_file_template,dump_file)
+                
+            # July 5 2022: repeat for strong lens (SL) file
+            if merge_simgen_sl > 0 :
+                sl_file_template = sl_split_list[0]
+                self.create_simgen_dump_file(sl_file_template,sl_file)
 
         # if there were failures, return
         if nfail > 0 : 
@@ -1933,27 +2141,36 @@ class Simulation(Program):
         # message when SNIa or NONIa FITS files are not there.
         # 
 
-        cd_dir      = (f"cd {target_dir}")
-        mv_FITS      = (f"mv {from_dir}/*.FITS .")
+        cd_dir    = f"cd {target_dir}"
+        mv_FITS   = f"mv {from_dir}/*.FITS* ."
         
-        tmp_FITS  = (f"*{MODEL_SNIa}MODEL*HEAD.FITS*")
-        ls_SNIa      = (f"ls {tmp_FITS}  >     {list_file} 2>/dev/null")
+        tmp_FITS  = f"*{MODEL_SNIa}MODEL*HEAD.FITS*"
+        ls_SNIa   = f"ls {tmp_FITS}  >     {list_file} 2>/dev/null"
 
-        tmp_FITS  = (f"*{MODEL_NONIa}MODEL*HEAD.FITS*")
-        ls_NONIa  = (f"ls {tmp_FITS} >> {list_file} 2>/dev/null")
+        tmp_FITS  = f"*{MODEL_NONIa}MODEL*HEAD.FITS*"
+        ls_NONIa  = f"ls {tmp_FITS} >> {list_file} 2>/dev/null"
 
-        ls_LIST      = (f"{ls_SNIa};  {ls_NONIa}")
+        ls_LIST    = f"{ls_SNIa};  {ls_NONIa}"
 
-        # gzip FITS files, and remove .gz extensions in LIST file
-        gzip_FITS = (f"gzip *.FITS")
-        rm_gz      = (f"sed -i 's/FITS.gz/FITS/g' {list_file}")
+        #remove .gz extensions in LIST file
+        rm_gz      = f"sed -i 's/FITS.gz/FITS/g' {list_file}"
 
-        cmd     = (f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz}; {gzip_FITS}")
+        cmd     = f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz} "
+
+        # gzip FITS files if not already gzipped. 
+        fits_list = glob.glob1(target_dir,"*.FITS")
+        if len(fits_list) > 0 :  cmd += "; gzip *.FITS"
+
         os.system(cmd)
 
         # loop over TMP_*DUMP files and append combined DUMP file
         for dump_split_file in dump_split_list :
             self.append_merge_dump_file(dump_split_file,dump_file)
+
+        # repeat for strong lens dump (if they exist)
+        for sl_split_file in sl_split_list :
+            self.append_merge_dump_file(sl_split_file,sl_file)
+
 
         # end move_sim_data_files
 
@@ -1978,7 +2195,7 @@ class Simulation(Program):
             for line in f:
                 word_list = line.split()
                 if len(word_list) > 0 :
-                    if word_list[0] == 'SN:' :
+                    if word_list[0] in ROWKEY_SIMGEN_DUMP_LIST :
                         lines_SN.append(line)
 
 #         nline_SN = len(lines_SN)
@@ -1998,15 +2215,18 @@ class Simulation(Program):
         dump_comment_lines = []
         dump_varnames_line = ""
         nline_read           = 0
+
         with open (dump_file_template,"r") as f :
             for line in f:
                 if len(line.strip()) > 1 :
                     nline_read += 1
+                    first_word = line.split()[0]
+
                     if line[0] == '#' :
                         dump_comment_lines.append(line.rstrip("\n"))
                     if line.split()[0] == 'VARNAMES:' :
                         dump_varnames_line = line
-                    if line.split()[0] == 'SN:' :
+                    if first_word in ROWKEY_SIMGEN_DUMP_LIST :
                         break
 
         with open (dump_file,"w") as f :
@@ -2018,7 +2238,7 @@ class Simulation(Program):
 
     def merge_job_wrapup(self,iver_all,MERGE_INFO_CONTENTS):
 
-        # MERGERD GENVERSION index iver_all is done, so perform 
+        # GENVERSION index iver_all is done, so perform 
         # wrap up tasks:
         #    + write to README
         #    + create misc/ subdir; move & copy files to misc/
@@ -2040,23 +2260,23 @@ class Simulation(Program):
         row_list_split  = MERGE_INFO_CONTENTS[TABLE_SPLIT]
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
         iver            = row_list_merge[iver_all][COLNUM_SIM_MERGE_IVER]
-        path_genv       = (f"{path_sndata_sim}/{genversion}")
+        path_genv       = f"{path_sndata_sim}/{genversion}"
 
         IS_REPEAT = 'REPEAT' in ranseed_key  # do 2nd stage merge
         IS_CHANGE = 'CHANGE' in ranseed_key  # do NOT do 2nd stage
 
         misc_subdir   = "misc"
-        misc_dir      = (f"{path_genv}/{misc_subdir}")
+        misc_dir      = f"{path_genv}/{misc_subdir}"
 
         # - - - - - - - -
-        msg = (f"    Perform wrap-up tasks for {genversion} ({Nsec_now})")
+        msg = f"    Perform wrap-up tasks for {genversion} ({Nsec_now})"
         logging.info(msg)
 
         # - - - - - - - - 
         # create and write README file
-        msg = (f"\t Create README for {genversion}")
+        msg = f"\t Create README for {genversion}"
         logging.info(msg)
-        readme_file   = (f"{path_genv}/{genversion}.README")
+        readme_file   = f"{path_genv}/{genversion}.README"
         with open(readme_file,"w") as f : 
             self.merge_write_readme(f, iver_all, MERGE_INFO_CONTENTS)
 
@@ -2066,21 +2286,21 @@ class Simulation(Program):
         for row in row_list_split :
             if iver == row[COLNUM_SIM_MERGE_IVER] :
                 if IS_CHANGE: 
-                    suffix = (f"-{genversion[-4:]}") # strip split-job number
+                    suffix = f"-{genversion[-4:]}" # strip split-job number
                 else:
                     suffix = ""
 
                 TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION] + suffix
-                TMP_GENV   += (f"*{Nsec_time_stamp}" ) 
+                TMP_GENV   += f"*{Nsec_time_stamp}"
                 TMP_GENV_LIST.append(TMP_GENV)
-                readme_list = (f"{path_sndata_sim}/{TMP_GENV}/TMP*README")
-                mv_readme   = (f"mv {readme_list} {misc_dir}/")
+                readme_list = f"{path_sndata_sim}/{TMP_GENV}/TMP*README"
+                mv_readme   = f"mv {readme_list} {misc_dir}/"
                 os.system(mv_readme)
 
         # - - - - - - - - - - 
         # copy input files to misc/
         if IS_REPEAT:
-            infile_list_2copy = [ (f"{simlog_dir}/{input_file}") ]
+            infile_list_2copy = [ f"{simlog_dir}/{input_file}" ]
             infile_list2d     = self.config_prep['infile_list2d']
             n_file            = len(infile_list2d[iver])
             for ifile in range(0,n_file) :
@@ -2096,16 +2316,16 @@ class Simulation(Program):
         # other jobs in progress.
         if cleanup_flag :
             # first tar up misc dir
-            tar      = (f"tar -cf {misc_subdir}.tar {misc_subdir} ")
-            gzip     = (f"gzip {misc_subdir}.tar")
-            rm       = (f"rm -r {misc_subdir}")
-            clean    = (f"cd {path_genv}; {tar}; {gzip}; {rm}")
+            tar      = f"tar -cf {misc_subdir}.tar {misc_subdir} "
+            gzip     = f"gzip {misc_subdir}.tar"
+            rm       = f"rm -r {misc_subdir}"
+            clean    = f"cd {path_genv}; {tar}; {gzip}; {rm}"
             os.system(clean)
 
-            msg = (f"\t Remove TMP_ GENVERSIONs")
+            msg = f"\t Remove TMP_ GENVERSIONs"
             logging.info(msg)
             for TMP_GENV in TMP_GENV_LIST:
-                rm_TMP      = (f"rm -rf {path_sndata_sim}/{TMP_GENV} ")
+                rm_TMP      = f"rm -rf {path_sndata_sim}/{TMP_GENV} "
                 os.system(rm_TMP)
 
         #if iver_all == 1 :   sys.exit("\n xxx DEBUG DIE xxx \n")
@@ -2113,6 +2333,8 @@ class Simulation(Program):
         # end merge_job_wrapup
 
     def merge_write_readme(self, f, iver_all, MERGE_INFO_CONTENTS):
+
+        # Mar 2023: refactor to write sim-input keys for each model
 
         input_file          = self.config_yaml['args'].input_file
         submit_info_yaml    = self.config_prep['submit_info_yaml']
@@ -2131,10 +2353,10 @@ class Simulation(Program):
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
         iver            = row_list_merge[iver_all][COLNUM_SIM_MERGE_IVER]
 
-        nlc_gen   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
-        nlc_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
+        nlc_gen     = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
+        nlc_write   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
         nspec_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NSPEC_WRITE]
-        cpu    = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
+        cpu         = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
 
         IS_REPEAT =  'REPEAT' in ranseed_key
         IS_CHANGE =  'CHANGE' in ranseed_key
@@ -2148,19 +2370,25 @@ class Simulation(Program):
         f.write(f"  - {'TOTAL':<12}   {nlc_gen:8}   {nlc_write:8} " \
                 f" {nspec_write:8}        {cpu}\n")
 
+        # construct  model_string for each row (e.g., SNIaMODEL0, NONIaMODEL1 ...)
+        # and store is list
+        model_string_list = []
+        g0 = len("TMP_" + USER4) + len(genversion) + 2
+        for row in row_list_split :
+            TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
+            g1          = len(TMP_GENV)
+            model_string= f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
+            model_string_list.append(model_string)
+
         # write out same info for each model ... only for RANSEED_REPEAT
         if IS_REPEAT :
-            g0 = len("TMP_" + USER4) + len(genversion) + 2
-            for row in row_list_split :
+            for row, model_string in zip(row_list_split, model_string_list) :
                 if iver == row[COLNUM_SIM_MERGE_IVER] :
-                    TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                    g1          = len(TMP_GENV)
-                    genv   = (f"{TMP_GENV[g0:g1]}") # e.g. SNIaMODEL0
-                    nlc_gen   = row[COLNUM_SIM_MERGE_NLC_GEN]
-                    nlc_write = row[COLNUM_SIM_MERGE_NLC_WRITE]
+                    nlc_gen     = row[COLNUM_SIM_MERGE_NLC_GEN]
+                    nlc_write   = row[COLNUM_SIM_MERGE_NLC_WRITE]
                     nspec_write = row[COLNUM_SIM_MERGE_NSPEC_WRITE]
-                    cpu       = row[COLNUM_SIM_MERGE_CPU]
-                    f.write(f"  - {genv:<12}   " \
+                    cpu         = row[COLNUM_SIM_MERGE_CPU]
+                    f.write(f"  - {model_string:<12}   " \
                             f"{nlc_gen:8}   {nlc_write:8}  {nspec_write:8} " \
                             f"       {cpu}\n")
         # - - - -
@@ -2177,17 +2405,66 @@ class Simulation(Program):
 
         f.write("\n")
         f.write(f"  SUBMIT_DIR:  {CWD}\n")
+
+        # - - - - - - - - -
+        # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
+        for row,model_string in zip(row_list_split,model_string_list) :
+            if iver == row[COLNUM_SIM_MERGE_IVER] :
+                TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
+                v_list      = glob.glob1(path_sndata_sim,f"{TMP_GENV}*")
+                v0          = v_list[0]  # pick first one from list
+                tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+                self.merge_write_input_keys(f, model_string, tmp_readme)
+
         f.write("DOCUMENTATION_END:\n")
 
         # end merge_write_readme
 
+    def merge_write_input_keys(self, f, model_string, tmp_readme):
+        # Created Mar 2023 by R.Kessler
+        # read sim input keys from tmp_readme file and write them to file pointer f
+        # that points to global read for merged sim version
+        # The tricky part is to skip the '# Output data' keys.
+
+        INPUT_KEYS_BASENAME  = "INPUT_KEYS"
+        INPUT_NOTES_BASENAME = "INPUT_NOTES"
+
+        KEYLIST_IGNORE = ['GENVERSION', 'NGENTOT_LC', 'NGEN_LC', 
+                          'CIDOFF', 'CIDRAN_MIN', 'CIDRAN_MAX' ]
+
+        input_keys_name = f"{INPUT_KEYS_BASENAME}_{model_string}"
+
+        f.write("\n# - - - - - - - - - - - - - - - - - - - - - - - - - - - - \n")
+        f.write(f"\n  {input_keys_name}: \n")
+        
+        found_input_keys = False
+        
+        with open(tmp_readme,"rt") as r:
+            for line in r :
+                if INPUT_NOTES_BASENAME in line: found_input_keys = False                
+                if found_input_keys : 
+                    wdlist = line.split()
+                    key    = wdlist[0][:-1]   # remove colon
+                    if key in KEYLIST_IGNORE: continue
+                    f.write(f"{line}")
+
+                if INPUT_KEYS_BASENAME  in line: found_input_keys = True
+
+        # end merge_write_input_keys
+        
     def merge_cleanup_final(self) :
 
+        # Called after all tasks have complete (see -M arg);
         # tar & gzip most of the contents of SIMLOGS;
-        # leave MERGE.LOG and ALL.DONE outside tar file so that 
-        # they are always visible.
+        # leave the following files outside tar file so that 
+        # they are always visible:
+        #    MERGE.LOG  SUBMIT.INFO  ALL.DONE
         # Everything that gets tarred is also removed; therefore
         # specify each item in tar_list and be careful wild cards.
+        #
+        # Apr 7 2022:
+        #  + leave SUBMIT.INFO out of SIMLOGS.tar
+        #  + construct several BACKUP*.tar.gz files before SIMLOGS.tar
 
         submit_info_yaml   = self.config_prep['submit_info_yaml']
         ngen_unit          = submit_info_yaml['NGEN_UNIT']
@@ -2196,32 +2473,34 @@ class Simulation(Program):
         msg = "\n SIM Clean up SIMLOGS (tar+gzip)"
         logging.info(msg)
 
-        tar_list  = ""
-        tar_list += "TMP_* "
-        tar_list += "CPU* "
-        if ngen_unit > 0 : tar_list += "SIMnorm* "
-
-        tar_list += (f"{SIMGEN_INPUT_LISTFILE} ")
-        tar_list += (f"{SUBMIT_INFO_FILE} ")
-
-        if KEEP_EVERY_MERGELOG :
-            tar_list += (f"{MERGE_LOG_FILE}_* ")
-
+        # - - - -
+        input_list = f"{SIMGEN_INPUT_LISTFILE} "
         # read list of sim-input files fom list file
-        list_file = (f"{simlog_dir}/{SIMGEN_INPUT_LISTFILE}")
+        list_file = f"{simlog_dir}/{SIMGEN_INPUT_LISTFILE}"
         with open(list_file,"r") as f:
             for infile in f.read().split():
                 infile.strip("\n")
-                tar_list += (f"{infile} ")
-                                
-        tar_file   = "SIMLOGS.tar"
-        cd_log     = (f"cd {simlog_dir}")
-        cmd_tar    = (f"tar -cf {tar_file} {tar_list}")
-        cmd_gzip   = (f"gzip {tar_file}")
-        cmd_rm     = (f"rm -rf {tar_list} {tar_file}")
-        CMD        = (f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} ")
+                input_list += f"{infile} "
+        
+        # - - - -
+        util.compress_files(+1, simlog_dir, "TMP_*.LOG",  "TMP-LOG",   "" )
+        util.compress_files(+1, simlog_dir, "TMP_*.DONE", "TMP-DONE",  "" )
+        util.compress_files(+1, simlog_dir, "TMP_*.YAML", "TMP-YAML",  "" )     
+        util.compress_files(+1, simlog_dir, "CPU*",       "CPU",   "" ) 
+        util.compress_files(+1, simlog_dir, input_list,   "INPUTS","" ) 
+        if ngen_unit > 0 :
+            util.compress_files(+1, simlog_dir, "SIMnorm*",  "SIMnorm",  "" ) 
+
+        # combine all of the BACKUP*.tar.gz files into one tar file
+        tar_file   = f"SIMLOGS.tar"
+        tar_list   = f"{BACKUP_PREFIX}_*.tar.gz"
+        cd_log     = f"cd {simlog_dir}"
+        cmd_tar    = f"tar -cf {tar_file} {tar_list}"
+        cmd_rm     = f"rm -rf {tar_list}"
+        CMD        = f"{cd_log}; {cmd_tar}; {cmd_rm} "
         os.system(CMD)
 
+        return
 
     # end merge_cleanup_final
 
@@ -2236,6 +2515,22 @@ class Simulation(Program):
         info_lines   = []
         info_lines.append(f"SURVEY:         {survey}")
         info_lines.append(f"IDSURVEY:       {idsurvey}")
+
+        # report sum of NGEN and NWRITE (Dec 2021)
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
+        MERGE_INFO_CONTENTS,comment_lines = \
+                util.read_merge_file(MERGE_LOG_PATHFILE)
+        NLC_GEN_SUM = 0
+        NLC_WRITE_SUM = 0
+        NSPEC_WRITE_SUM = 0
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE] :
+            NLC_GEN_SUM     += row[COLNUM_SIM_MERGE_NLC_GEN]
+            NLC_WRITE_SUM   += row[COLNUM_SIM_MERGE_NLC_WRITE]
+            NSPEC_WRITE_SUM += row[COLNUM_SIM_MERGE_NSPEC_WRITE]
+        
+        info_lines.append(f"NLC_GEN_SUM:      {NLC_GEN_SUM}")
+        info_lines.append(f"NLC_WRITE_SUM:    {NLC_WRITE_SUM}")
+        info_lines.append(f"NSPEC_WRITE_SUM:  {NSPEC_WRITE_SUM}")
 
         return info_lines
         # end get_misc_merge_info

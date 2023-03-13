@@ -1,7 +1,7 @@
 /****************************************
  Created Oct 2010 by R.Kessler
  
- Tools to generate GRID of templates with snlc_sim.exe
+ Tools to generate MODEL GRID from model in snlc_sim.exe
  (see manual for more details).
 
  The light curve structure for each SN is
@@ -38,19 +38,12 @@
 
 *********************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-*/
 
 #include "sntools.h"      // general snana stuff
 #include "sntools_cosmology.h"
 #include "fitsio.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"
 #include "genmag_SIMSED.h"
 #include "genmag_NON1ASED.h"
@@ -228,8 +221,14 @@ void init0_GRIDsource(void) {
 
   else {
     // mlcs, snoopy ...
+
+    /* xxx mark delete Mar 17 2022 xxxxx
     GENRANGE_LOCAL[IPAR][0]  = INPUTS.GENRANGE_AV[0];
-    GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENRANGE_AV[1];
+    GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENRANGE_AV[1]; 
+    xxxxxxxxx end mark xxxxxx*/
+
+    GENRANGE_LOCAL[IPAR][0]  = INPUTS.GENPROFILE_AV.RANGE[0] ;
+    GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENPROFILE_AV.RANGE[1] ;
     GENRANGE_LOCAL[IPAR2][0] = INPUTS.GENGAUSS_RV.RANGE[0] ;
     GENRANGE_LOCAL[IPAR2][1] = INPUTS.GENGAUSS_RV.RANGE[1] ;
 
@@ -448,7 +447,6 @@ void init1_GRIDsource(void) {
   
   
   // transfer NON1A info here
-  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
   if (INDEX_GENMODEL == MODEL_NON1ASED  )  {
     NBIN = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_SHAPEPAR] ;
     for ( i = 1; i <= NBIN; i++ ) { 
@@ -512,6 +510,7 @@ void gen_GRIDevent(int ilc) {
   GENLC.REDSHIFT_CMB = pow(10.0,logz);
 
   gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB,
+		  GENLC.GLON, GENLC.GLAT,
 		  &GENLC.DLMU, &GENLC.LENSDMU );
 
   z1 = 1.0 + GENLC.REDSHIFT_CMB ;
@@ -1148,10 +1147,6 @@ void get_GRIDKEY(void) {
   char ctkey[100] ;
   time_t tkey ;
   struct tm * ptm;
-
-  /* xxxxxx mark delete Dec 10 2017 xxxxxxxxxx
-  get_snana_versions__(vers_snana, vers_photom, 20, 200);
-  xxx */
 
   time(&tkey);
   ptm = gmtime ( &tkey );

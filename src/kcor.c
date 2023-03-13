@@ -89,75 +89,6 @@
   HISTORY
   ~~~~~~~~~~
 
- Feb 11, 2013:
-   use "#ifndef CERNLIB" to abort if using hbook format or
-   legacy key OUTFILE_GRID_HIS. This is to warn users when
-   CERNLIB flag is turned off (at some later time; not now).
-
-   Call new function set_kcorFile_format() (from kcor_ini)
-   to set format flags and to immediately abort of hbook
-   format is requested when CERNLIB flag is turned off.
-   This is to avoid waiting for the entire program to run
-   before giving a warning at the end.
-
-   In short, commenting out "#define CERNLIB" will do the following:
-   -> ABORT if  OUTFILE_GRID_HIS key is used
-   -> ABORT if  .his or .HIS extension is given to OUTFILE argument.
-
-
-  Feb 13 2013:
-    Fix bug with sizeof(pointer) in malloc_ini().
-    Bug found by Brandon P. on 64 bit machine.
-
-  Feb 19,2013: remove CERNLIB flag.
-
-  Feb 20, 2014: 
-   - remove FT_snsed
-   - fix a few compile bugs found with c++, 
-      abs -> fabs in a few places.
-
-  Mar 13 2014:
-    set PRIMARYSED[iprim].USE for SEDs that are used by
-    a filter system to avoid reading SEDs that are defined 
-    but not used. Hopefully fixes a bug found by Emille.
-
- May 26 2014: fix 666 in SN synthetic mag dump (found by Y.Kim)
-              See dlam in rd_filter() function.
-
- Nov 16 2014: new command-line arg FILTER_LAMSHIFT g 5 r 8 i 4 etc ...
-              The LAMSHIFT values can be entered via comman-line only.
-              See new functino parse_FILTER_LAMSHIFT.
-
- Apr 20 2015: allow command-line override for primary ; see new
-              function primary_override(). See udpate usage examples
-              above.
-
- Jul 2 2016: 
-   + add ENVreplace() calls to allow for ENVs in path or fileName.
-   + update IFU logic to read lambda range of spectrograph.
-     See get_FILTERtrans_spectrograph().
-
- May 2017:
-   new input option
-      DUPLICATE_LAMSHIFT_GLOBAL: 10
-   To prepare duplicate set of filters with 10 A shift.
-   Allows running filter-shift systematics with just one
-   kcor file. Each duplicate flter name has an asterisk
-   in front so that analysis code reading kcor-fits file
-   knows which filters are duplicates with lambda shift.
-
- Jun 1 2017:
-    new function parse_MAGREF() to parse mathematical function
-    with + and - signs: e.g.,   
-      FILTER: DES-g   20130322_g.dat   0.014-0.020
-    will result in AB mag of -0.006
-
-
- July 12 2017:
-    call ENVreplace for each primary SED to allow using ENV
-    in full file name.
-
- July 18 2018: call ENVreplace for SN_SED
 
  Feb 2019: 
    new OOB key to specify out-of-band transmission.
@@ -200,6 +131,13 @@
  Jan 15 2021: new ZPOFF_FILE input key (for each FILTPATH) to override
               default ZPOFF.DAT
 
+ Nov 3 2021:
+   For spectrograph, extend stored wavelength range of SEDs to that
+   of spectraograph. See new function set_store_lambda_range().
+   Goal is to enable simulated spectra to go beyond wave range of filters.
+
+ Mar 2 2023: abort on invalide filter char; see call to INTFILTER()
+
 ****************************************************/
 
 
@@ -219,6 +157,8 @@ int main(int argc, char **argv) {
   int i ;
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_KCOR);
+
+  if (argc < 2) { print_kcor_help();  exit(0); }
 
   // get name of user input file
 
@@ -245,6 +185,8 @@ int main(int argc, char **argv) {
   printf(" SNANA_DIR   = %s \n", getenv("SNANA_DIR") );
   printf(" SNDATA_ROOT = %s \n", PATH_SNDATA_ROOT );
   
+  set_FILTERSTRING(FILTERSTRING); // Mar 2023
+
   // -----------------------------------------
 
   // read survey name <-> integer map (Nov 2020)
@@ -277,6 +219,86 @@ int main(int argc, char **argv) {
 } // end of main
 
 
+// ***********************************
+void  print_kcor_help(void) {
+
+
+  static char *help[] = {
+
+    "",
+    "\t ***** kcor.exe help menu *****",
+    "",
+    "# Original kcor program was designed for mlcs2k2 that uses explicit",
+    "# k-corrections, but this code has evolved into storing filters ",
+    "# and calibration info (without K-corrections) for SALT2/3 models.",
+    "# Thus the code name 'kcor' is mis-leading since this is really a",
+    "# calibration-storage program.",
+    "# The program output is a fits-formatted file (see OUTDIR key below)",
+    "# that is the input argument for the KCOR_FILE key in both the ",
+    "# snlc_sim.exe and snlc_fit programs.",
+    "",
+    "# Usage:",
+    "   kcor.exe <InputFile>",
+    "",
+    "# InputFile keys: ",
+    "",
+    "SN_SED: <file>   # SN flux vs. lam and phase (for k-cors)",
+    "",
+    "# primary SEDs",
+    "BD17_SED:    $SNDATA_ROOT/standards/bd_17d4708_stisnic_003.dat ",
+    "VEGA_SED:    $SNDATA_ROOT/standards/alpha_lyr_stis_005.dat  ",
+    "AB_SED:      $SNDATA_ROOT/standards/flatnu.dat ",
+    "",
+    "# Example filter system for DES:",
+    "MAGSYSTEM: AB        # AB, BD17, VEGA",
+    "FILTSYSTEM: COUNT    # COUNT or ENERGY",
+    "FILTPATH:   $SNDATA_ROOT/filters/DES/DES-SN3YR_DECam",
+    "SURVEY: DES             # must be defined in $SNDATA_ROOT/SURVEY.DEF",   
+    "FILTER:  DES-g   DECam_g.dat   0.0   # stringName  file  ZPoff",
+    "FILTER:  DES-r   DECam_r.dat   0.0  ",
+    "FILTER:  DES-i   DECam_i.dat   0.0  ",
+    "FILTER:  DES-z   DECam_z.dat   0.0  ",    
+    "#    (last char of stringName is used in snlc_sim and snlc_fit)",
+    "",
+    "# other magsystem options:",
+    "MAGSYSTEM: BD17      # define BD17 system",
+    "MAGSYSTEM: BD17->AB  # read BD17 mag, but transform internally to AB",
+    "",
+    "# mutiple surveys can match a filter set; e.g., ",
+    "SURVEYS: FOUNDATION,PS1MD  ",
+    "",
+    "# optional ZPOFF file to override default ZPOFF.DAT, ",
+    "# or to adjust published mag-system offsets",
+    "ZPOFF_FILE: ZPOFF_UPDATED.DAT  ",
+    "#   (if no slash in file name, check FILTPATH)",
+    "",
+    "LAMBDA_RANGE: <lammin> <lammax>   # wave-range for filters and primary",
+    "OUTFILE:  <outFile>               # output fits file",
+    "#   (this outFile is input arg for KCOR_FILE in snlc_sim and snlc_fit)",
+    "",
+    "# To define K-corrections: ",
+    "KCOR:  <restFilter>  <obsFilter>   K_ro  # ",
+    "",
+    "REDSHIFT_RANGE: <zmin> <zmax>  # z-range to store kcor table ",
+    "REDSHIFT_BINSIZE: <binSize>    # z-bin size of kcor table",
+    "",
+    "# AV-warp params for k-corrs:"
+    "RV:         3.1       " ,
+    "AV_RANGE:   -6.0  6.0 " , 
+    "AV_BINSIZE:  0.5    # increase for faster kcor generation ",
+    "AV_OPTION:   2      # 2->proper integration over filter",
+    0
+  };
+
+  int i;
+
+  // ----------- BEGIN ------------                                            
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+  
+  return;
+
+} // end print_kcor_help
 
 // ******************************
 int rd_input(void) {
@@ -956,17 +978,28 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) {
   //
   // Motivation: allows easier adjusting ref mags in kcor-input file.
   //
+  // Mar 2 2023: abort if FILTNAME is not valid
 
-  int LENTXT = strlen(TXT_MAGREF);
-  int i, ISPLUS, ISMINUS, ISIGN, LASTCHAR ;
+  int LENTXT  = strlen(TXT_MAGREF);
+  int LENFILT = strlen(FILTNAME);
+  int i, ISPLUS, ISMINUS, ISIGN, LASTCHAR, IFILTDEF ;
   double MAGREF_LOCAL, TMPNUM, XSIGN ;
   char   c1[2], cnum[40] ;
-  //  char fnam[] = "parse_MAGREF" ;
+  char fnam[] = "parse_MAGREF" ;
 
   // ------------- BEGIN ---------------
 
   MAGREF_LOCAL = 0.0 ;
   XSIGN = +1.0 ;  cnum[0] = 0;
+
+  //  Mar 2023: check for valid filter char at end of FILTNAME
+  IFILTDEF = INTFILTER(FILTNAME);
+  if ( IFILTDEF <= 0 ) {
+    sprintf(c1err, "last filter char of '%s' is invalid", FILTNAME);
+    sprintf(c2err, "Check valid chars with "
+	    "'grep FILTERSTRING_DEFAULT sntools.h'");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   for(i=0; i < LENTXT; i++ ) {
     sprintf(c1,"%c", TXT_MAGREF[i] );
@@ -1557,7 +1590,6 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
 
 
  DONE:
-  // xxx mark delete   *indx_ARGV = i -1 ;
   *indx_ARGV = i ;
 
 } // end of parse_FILTER_LAMSHIFT
@@ -1841,8 +1873,9 @@ int kcor_ini(void) {
          istat = rd_filter(i);
    }
    fflush(stdout);
-   printf("\n Global range of all filters: %d to %d A \n",
-	  (int)FILTER_LAMBDA_MIN, (int)FILTER_LAMBDA_MAX );
+
+   // set min/max wavelength range to store SEDs
+   set_store_lambda_range();
 
    if ( rd_snsed() != SUCCESS ) { return ERROR; }
 
@@ -1924,6 +1957,52 @@ int kcor_ini(void) {
    return SUCCESS;
 }
 
+// ***************************************************
+void  set_store_lambda_range(void) {
+
+  // Created Nov 3 2021 by R.Kessler
+  // Set wave range to store SEDs.
+  // Default is min/max wavelength of bluest/reddest filters.
+  // If spectrograph goes bluer/redder than filters, store
+  // extended wvae range.
+  //
+  // Output is global STORE_LAMBDA_MIN and STORE_LAMBDA_MAX
+  //
+  // TEMP: code still uses FILTER_LAMBDA_MIN[MAX] until new
+  //      STORE_LAMBDA_MIN[MAX] are verified.
+  //
+
+  int  LEGACY = 0;  // set True to restore using FILTER_LAMBDA_MIN[MAX]
+  char fnam[] = "set_store_lambda_range" ;
+
+  // ------------ BEGIN ------------
+
+  printf("\n");
+  printf(" Global wave range of all filters: %d to %d A \n",
+	 (int)FILTER_LAMBDA_MIN, (int)FILTER_LAMBDA_MAX );
+
+  STORE_LAMBDA_MIN = FILTER_LAMBDA_MIN;
+  STORE_LAMBDA_MAX = FILTER_LAMBDA_MAX;
+
+  if ( SPECTROGRAPH_USEFLAG && !LEGACY ) {
+    printf(" Global wave range of spectrograph: %d to %d A\n",
+	   (int)INPUTS_SPECTRO.LAM_MIN, (int)INPUTS_SPECTRO.LAM_MAX);
+
+    if ( INPUTS_SPECTRO.LAM_MIN < STORE_LAMBDA_MIN ) 
+      { STORE_LAMBDA_MIN = INPUTS_SPECTRO.LAM_MIN; }
+
+    if ( INPUTS_SPECTRO.LAM_MAX > STORE_LAMBDA_MAX ) 
+      { STORE_LAMBDA_MAX = INPUTS_SPECTRO.LAM_MAX; }
+  }
+  
+  printf(" Final wavelength storage range: %d to %d A \n",
+	 (int)STORE_LAMBDA_MIN, (int)STORE_LAMBDA_MAX );
+  
+  fflush(stdout);
+
+  return;
+
+} // end set_store_lambda_range
 
 // ***************************************************
 void set_kcorFile_format(void) {
@@ -2782,12 +2861,13 @@ void  hardWire_snsed_bins(void) {
   // and primary lambda bins are defined by the SN SED bins.
   // This allows NOT defining an SN spectral time series via
   // the SN_SED key.
+  // Jan 2023: HARDWIRE_LAMBIN -> 10 (was 20)
 
   int  ilam, iday, NLAM,  NDAY ;
   double lamBin, dayBin, tmpRange, xi  ;
   char fnam[] = "hardWire_snsed_bins" ;
 
-#define HARDWIRE_LAMBIN 20.0 // Angstroms
+#define HARDWIRE_LAMBIN 10.0 // Angstroms
 #define HARDWIRE_DAYBIN  1.0 // days
 
   // ------------- BEGIN --------------
@@ -2884,13 +2964,19 @@ int rd_primary ( int INDX, char *subdir ) {
     which is then re-binned to have same bins as SN 
     for global structure.
 
+   Nov 10 2021: replace FILTER_LAMBDA_MAX -> STORE_LAMBDA_MAX
+                to store primary SED out to max of filter or spectrograph.
+
+   Nov 8 2022: skip comment lines in SED-primary file
+
+
   ****************/
 
    FILE  *fp;
    double lambda, flam, fnu, fcount, LAMMIN_READ, LAMMAX_READ  ;
    int  ilam, NBIN, ibin, gzipFlag;
    char SNPATH[MXCHAR_FILENAME], fullName[MXCHAR_FILENAME];
-   char *refName, *sedFile;
+   char *refName, *sedFile, line[200];
    char fnam[] = "rd_primary" ;
 
    /* --------------------- BEGIN -------------------------- */
@@ -2935,9 +3021,15 @@ int rd_primary ( int INDX, char *subdir ) {
    LAMMAX_READ = 0;
    int NRAW=0;
 
-   while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
+   while( fgets(line, 200, fp)  != NULL ) {
 
-     if ( lambda < FILTER_LAMBDA_MAX + 200. ) {
+     if ( commentchar(line) ) { continue; }
+     sscanf(line, "%le %le", &lambda, &flam );
+
+
+     // xxx mark   while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
+
+     if ( lambda < STORE_LAMBDA_MAX + 20. ) {
 
        ilam++;  NRAW=ilam;
   
@@ -2955,7 +3047,7 @@ int rd_primary ( int INDX, char *subdir ) {
    }   /* end while */
 
    if ( NRAW >= MXLAM_PRIMARY ) { 
-     sprintf(c1err,"NBIN(%s)=%d exceeds bound of MXPRIARY=%d",
+     sprintf(c1err,"NBIN(%s)=%d exceeds bound of MXPRIMARY=%d",
 	     refName, NRAW, MXLAM_PRIMARY );
      sprintf(c2err,"check %s", sedFile);
      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -3162,20 +3254,23 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
     Use linear interpolation for lam_in values closest
     to SNSED.LAMBDA grid point.
 
+    Nov 3 2021: replace FILTER_LAMBDA_MIN[MAX] with STORE_LAMBDA_MIN[MAX]
+             (to allow for spectrograph with broader wave range)
   ****/
 
   int NBLAM, ilam, idump=0;
   double  DLAM, LAM, LAM0,  LAM1, F0, F1, slope, FLUX_OUT  ;
-  
+  char fnam[] = "rebin_primary" ;
+
   /* ---------------------------- BEGIN -------------------- */
 
   DLAM = 10.0 ;  //hard-wire lambda binning to 10 A
   LAM  = LAM0 = LAM1 = F0 = F1 = 0.0 ; 
   NBLAM = 0 ;
 
-  while ( LAM < FILTER_LAMBDA_MAX ) {
+  while ( LAM < STORE_LAMBDA_MAX ) {
     LAM += DLAM ;
-    if ( LAM < FILTER_LAMBDA_MIN ) continue ;
+    if ( LAM < STORE_LAMBDA_MIN ) continue ;
 
     NBLAM++ ;
 
@@ -4179,7 +4274,6 @@ int snmag(void) {
        // if filtsum_check (integral over SED-lambda range)
        // does not match integral over entire filter range (to within 20%),
        // set MAG_UNDEFINED to flag problem
-       // xxx mark delete if(fabs(filter_check)>0.2) {mag=MAG_UNDEFINED;}
        if ( fabs(filter_check) > 0.05  ) { 
 	 printf(" WARNING(%s): filter_check(%s) = %.3f  ep=%d\n",
 		fnam, FILTER[ifilt].name, filter_check, iepoch );
@@ -4356,13 +4450,6 @@ void primarymag_zp(int iprim ) {
       // since AB mags are zero
       if ( !PRIMARYSED[iprim].IS_AB ) 
 	{ FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; }
-
-      /* xxxxxxxxxxxxxxx mark delet Apr 11 2020 xxxxxxx
-      name = INPUTS.name_PRIMARY[iprim] ;
-      if ( strcmp(name,"AB" ) != 0 ) {
-	FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; 
-      }
-      xxxxxxxxxx */
 
    }  // end of 'ifilt' loop
 
@@ -4727,8 +4814,8 @@ void wr_fits_HEAD(fitsfile *fp) {
   // --- Trest (Epoch)------
 
   NBIN = SNSED.NEPOCH ;
-  FMIN = SNSED.TREST_MIN;  // xxx mark delete  SNSED.EPOCH[1]
-  FMAX = SNSED.TREST_MAX;  // xxx mark delete  SNSED.EPOCH[NBIN]
+  FMIN = SNSED.TREST_MIN;  
+  FMAX = SNSED.TREST_MAX; 
   FBIN = (FMAX-FMIN)/(float)(NBIN-1) ;
 
   fits_update_key(fp, TINT, "NBT", &NBIN,
@@ -5106,7 +5193,6 @@ void wr_fits_PRIMARY(fitsfile *fp) {
 
   ncol = NPRIM+1 ;  istat = 0;
   for(iprim = 0; iprim <= NPRIM; iprim++ ) {
-    // xxx mark delete Mar 2019 NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
     NAME = INPUTS.name_PRIMARY[iprim];
 
     if ( iprim == 0 ) 
@@ -5785,17 +5871,14 @@ void wr_fits_SPECTROGRAPH(fitsfile *fp) {
 
 // ==================================================
 void wr_fits_errorCheck(char *comment, int status) {
+  // Print out cfitsio error messages and exit program
   char fnam[] = "wr_fits_errorCheck" ;
-  /*****************************************************/
-  /* Print out cfitsio error messages and exit program */
-  /*****************************************************/
-
   if (status) {
     fits_report_error(stderr, status); /* print error report */
     errmsg(SEV_FATAL, 0, fnam, comment, "Check cfitsio routines." ); 
   }
   return;
-}
+}  // wr_fits_errorCheck
 
 
 // ********************************

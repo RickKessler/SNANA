@@ -31,7 +31,7 @@
    CCD noise -> sqrt (sum of squares) / N
    SKYSIG    -> sqrt (sum of squares) / N
    PSF1      -> average PSF
-   ZPTAVG    -> 2.5 * log10 [ \sum 10^(0.4*ZPT_i) ] / N
+   ZPT       -> 2.5 * log10 [ \sum 10^(0.4*ZPT_i) ] # coadd
    ZPTSIG    -> average ZPTSIG
 
 
@@ -55,64 +55,12 @@
     simlib_coadd <simlib_file>  AVG   (average fluxes)
     simlib_coadd <simlib_file>  SNLS  (add Vega zeropts)
 
-    simlib_coadd <simlib_file>  ASTIER06  (idem SNLS, but
-                                           use only Astier06 SN)
-
+    simlib_coadd <simlib_file> SORT_BAND (sort by band before coadd) 
+         # e.g., g,r,i,g,r,i -> gg,rr,ii so that each band is coadded.
 
   History
   ---------
 
-  Nov 15, 2007: add "ASTIER06" option to use exactly those
-                SN that were published. See new function
-                LOAD_LIBID_ASTIER06(). Note that 2 of the 71
-                published SN are missing from the SIMLIB.
- 
-  Feb 27, 2008: WARNING, use only for SNLS.
-                This code combines measurements in the same night
-                without checking filters ... works for SNLS because
-                their library is ordered by filter, but does NOT 
-                work for ESSENCE since their library has R & I
-                interlaced.  For now, the multiple ESSENCE exposures
-                [within same passband] is so rare that it's not
-                worth fixing this code yet ... but should do so in
-                the future.
- 
-
-  May 14, 2009: fixed above problem so that multiple filters withing
-                the same night are processed OK. However, if your
-                library alternates  u, g, u, g ... then nothing
-                gets combined. Must have uu gg etc ... to combine
-                measurements.
-                
-  May 20, 2009: add TRACE option to trace seg-fault. 
-                Fix dumb bug in SIMLIB_compact; set obs=1 for initial cfilt.
-                Change default from AVG to SUM
-
-                MXMJD -> 4000 (was 2000)
-
-                SIMLIB_coadd:
-                 special fix for taking MJD average without roundoff error
-
-  May 28, 2009: 
-     - add option --TDIF <MAXTDIF_COMBINE> 
-     - add option --MINOBS <MINOBS_ACCEPT>
-     - add option MWEBV to compute MWEBV (if zero) from Schlagel maps
-
-     - add screen-dump comment to header in output simlib; 
-       includes exact command to created compact simlib
-
- Jun 8, 2009: define FIELDNAME as part of header
-
- Jan 07, 2011: increase crazy limit on SKYSIG from 400 to 1000;
-               this change is in simlib_tools.c (not here)
-               Also updated commentary above since it confused David.
-
- Aug 14, 2012: increase MXMJD and  MXLIBID  to 6000 (from 4000 and 5000).
-               Needed by Cinabro for LSST SIMLIBS.
-
- Aug 31, 2012: MXMJD -> 100,000 (for 10 year LSST simlibs)
-
- Aug 12, 2014: INPUTS.LIBID_MAX -> 100,000 (was 5,000)
 
  Jun 20 2017: 
     + define double MJD[MXMJD] and stop using float MJD
@@ -141,6 +89,23 @@
 
  Mar 01 2021: adapt to work for NEA column replacing 3 PSF columns.
 
+ Jul 15 2021: 
+   + MXCHAR_LINE-> 200 (was 120)
+   + fix string-cat bug for ptrhead (caught by segfault in debug mode)
+
+ Dec 6 2021: fix bug setting NEA or PSF label for each LIBID.
+             Only impacts human-readability; no effect on sim.
+
+ Mar 2022 refactor to enable co-adding bands that are no sequential
+   + use SIMLIB_CONTENTS_DEF typedef 
+   + all obs indices starts at 0 instead of 1
+   + add SORT_BAND option to sort by filter so that non-sequential bands
+     within a night are co-added.
+
+ Jun 24 2022
+   + fix bug computing min/max MJD for in update_summary_info();
+     no impact on SIMLIB contents.
+
 ***************************************/
 
 #include <stdio.h>
@@ -155,32 +120,11 @@
 
 #define MXMJD     100000    // max MJDs per LIBID
 #define MXLIBID   6000
-#define MWEBV_MAX  2.0     // reject fields with such large MWEBV
-#define MXLINE_HEADER 30   // max lines for simlib header
-#define MXCHAR_LINE 120 
-
-// define index params for INFO_HEAD arra
-#define NPAR_HEAD  6
-#define IPAR_RA       0
-#define IPAR_DECL     1
-#define IPAR_MWEBV    2 
-#define IPAR_PIXSIZE  3
-#define IPAR_Z        4
-#define IPAR_PKMJD    5 
-
-// define index parameters for INFO_MJD array
-#define NPAR_MJD     10
-#define IPAR_CCDGAIN  1
-#define IPAR_CCDNOISE 2
-#define IPAR_SKYSIG   3
-#define IPAR_PSF0     4
-#define IPAR_ZPT0     7
-#define IPAR_MAG      9
+#define MWEBV_MAX    2.0    // reject fields with such large MWEBV
+#define MXLINE_HEADER 30    // max lines for simlib header
+#define MXCHAR_LINE  200     
 
 // global variables.
-
-char msgerr[100];
-//char BANNER[100];
 
 FILE *fp_simlib_input;
 FILE *fp_simlib_output;
@@ -208,59 +152,43 @@ struct INPUTS {
   int   OPT_AVG ;       // average of exposures (for strange SNLS lib?)
   int   OPT_SNLS;       // SNLS options
 
+  int   OPT_SORT_BAND;  // Mar 2022
 } INPUTS ;
 
 // -----------------------
 int  NLIBID_FOUND;
 int  NLIBID_COADD;
 
-char SIMLIB_FILTERS[20];  // from FILTERS: <filtlist> header
+char SIMLIB_FILTERS[100];  // from FILTERS: <filtlist> header
 
-int LTRACE;
+int  LTRACE;
+bool REQUIRE_DOCANA_COADD ;
 
-struct SIMLIB_INPUT {
-  char  FILE[120];
+typedef struct {
+  char  FILE[MXPATHLEN];
+
+  // define contents for 1 LIBID entry in SIMLIB/cadence file
   int   LIBID ;
-  int   NLIBID ;
   int   NOBS ;
-  int   NMJD_ACCEPT ;
+  int   NOBS_ACCEPT ;
   char  FIELDNAME[20];
   float INFO_HEAD[NPAR_HEAD];  // RA,DECL, MWEBV, PIXSIZE, Z, PEAKMJD
 
-  double   MJD[MXMJD];   // June 2018
   char STRING_IDEXPT[MXMJD][20]; // Apr 2018
   int  NEXPOSE_IDEXPT[MXMJD];    // Jan 2021
   int  IDEXPT[MXMJD];
 
-  char FILTNAME[MXMJD][2];
+  char BAND[MXMJD][2];
   int  IFILT[MXMJD];
 
-  // info is: MJD, CCDGAIN, CCDNOISE, SKYSIG, PSF[0-2], ZPTAVG, ZPTSIG, MAG
-  float INFO_MJD[MXMJD][NPAR_MJD];
+  // info is: CCDGAIN, CCDNOISE, SKYSIG, PSF[0-2], ZPTAVG, ZPTSIG, MAG
+  double INFO_OBS[MXMJD][NPAR_OBS];
 
-  bool REFAC_DOCANA ;
-
-} SIMLIB_INPUT ;
+} SIMLIB_CONTENTS_DEF ;
 
 
-struct SIMLIB_OUTPUT {
-  char  FILE[120];
-  int   LIBID ;
-  int   NOBS ;
-  char  FIELDNAME[20];
-  float INFO_HEAD[NPAR_HEAD];  // RA,DECL, MWEBV, PIXSIZE, Z, PEAKMJD
-
-  double   MJD[MXMJD];  //  June 2017
-  char STRING_IDEXPT[MXMJD][20]; // April 2018
-  int  NEXPOSE_IDEXPT[MXMJD];    // Jan 2021
-  int  IDEXPT[MXMJD] ;
-
-  char FILTNAME[MXMJD][2];
- 
-  // info is: MJD, CCDGAIN, CCDNOISE, SKYSIG, PSF[0-2], ZPTAVG, ZPTSIG, MAG
-  float INFO_MJD[MXMJD][NPAR_MJD];
-
-} SIMLIB_OUTPUT ;
+SIMLIB_CONTENTS_DEF SIMLIB_INPUT ;
+SIMLIB_CONTENTS_DEF SIMLIB_OUTPUT ;
 
 // Jan 2021: store info for summary
 struct {
@@ -270,14 +198,16 @@ struct {
 
 // declare functions
 
+void  print_simlib_coadd_help(void);
 void  parse_args(int argc, char **argv);
 void  SIMLIB_open_read();
 void  SIMLIB_read(int *RDSTAT);
+void  SIMLIB_sort_band(void);
 void  SIMLIB_coadd(void);
 void  insert_NLIBID(void);
 
 void  init_summary_info(void);
-void  update_summary_info(void);
+void  update_summary_info(int obs);
 void  print_summary_info(void);
 
 void dmp_trace_main(char *string);
@@ -288,6 +218,12 @@ double ZPTOFF_SNLS(char *cfilt);
 // define Galactic extiction
 void MWgaldust(double RA, double DECL, double *XMW, double *MWEBV ); 
 
+void copy_SIMLIB_CONTENTS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
+			  SIMLIB_CONTENTS_DEF *CONTENTS_OUT );
+
+void copy_SIMLIB_CONTENTS_OBS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
+			      SIMLIB_CONTENTS_DEF *CONTENTS_OUT, 
+			      int o_inp,  int o_out ) ;
 
 // ****************************************
 int main(int argc, char **argv) {
@@ -299,9 +235,11 @@ int main(int argc, char **argv) {
 
   // --------------- BEGIN --------
 
+  if (argc < 2) { print_simlib_coadd_help();  exit(0); }
+
   parse_args(argc, argv );
 
-  SIMLIB_INPUT.REFAC_DOCANA = true ; // Feb 25 2021
+  REQUIRE_DOCANA_COADD = true ; // Feb 25 2021
 
   if ( LTRACE > 0 ) dmp_trace_main("01");
 
@@ -323,9 +261,11 @@ int main(int argc, char **argv) {
 
     LIBID = SIMLIB_INPUT.LIBID ;
 
+    if ( INPUTS.OPT_SORT_BAND && LIBID>=0 )  { SIMLIB_sort_band(); ; }
+
     XN = (float)NLIBID_FOUND;
     if ( fmodf(XN,XNMOD) == 0.0 && LIBID >= 0 ) 
-      printf("  Process LIBID %4d \n", LIBID);
+      { printf("  Process LIBID %4d \n", LIBID); }
 
     sprintf(BANNER,"Loop 03: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
@@ -333,7 +273,6 @@ int main(int argc, char **argv) {
     if ( LIBID < 0   ) continue ;
 
     // process valid LIBIDs
-
     SIMLIB_coadd();
 
     // apply MINOBS requirement to output libid
@@ -360,18 +299,16 @@ int main(int argc, char **argv) {
 
     sprintf(BANNER,"Loop 05: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
-
-    update_summary_info();
     
-    for ( obs=1; obs <= SIMLIB_OUTPUT.NOBS; obs++ ) 
+    for ( obs=0; obs < SIMLIB_OUTPUT.NOBS; obs++ ) {
+      update_summary_info(obs);
       simlib_add_mjd(
 		     1            // 1=>search info;  2=> template info
-		     ,SIMLIB_OUTPUT.MJD[obs]
+		     ,SIMLIB_OUTPUT.INFO_OBS[obs]
 		     ,SIMLIB_OUTPUT.STRING_IDEXPT[obs]
-		     ,SIMLIB_OUTPUT.FILTNAME[obs]
-		     ,SIMLIB_OUTPUT.INFO_MJD[obs]
+		     ,SIMLIB_OUTPUT.BAND[obs]
 		     );
-
+    }
     
     sprintf(BANNER,"Loop 06: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
@@ -406,10 +343,54 @@ int main(int argc, char **argv) {
 
 
 // ********************************************
+void  print_simlib_coadd_help(void) {
+
+  // Created Sep 1 2022
+
+  static char *help[] = {
+
+    "",
+    "\t ***** simlib_coadd.exe help menu *****",
+    "",
+    "# Usage: ",
+    "    simlib_coadd <simlib_file> <optional args> ",
+    "#     (there is no config file)",
+    "",
+    "# Optional arguments: ",
+    "",
+    "MWEBV               # compute MWEBV from Schlagel maps",
+    "--TDIF <TDIF>       # coadd within TDIF, days (default=0.4)", 
+    "--MINOBS <MINOBS>  # reject LIBIDs with few than MINOBS (default=2)",
+    "",
+    "--MJD_MIN <MJD_MIN>      # select MJDs above MJD_MIN",
+    "--MJD_MAX <MJD_MAX>      # select MJDs below MJD_MAX",
+    "--LIBID_MAX <LIBID_MAX>    ",
+    "--LIBID_MIN <LIBID_MIN>    ",
+    "",
+    "MJD_DMP     # print MJDs to stdout",
+    "SUM         # compute ZP to add fluxes; default ",
+    "AVG         # compute ZP to average fluxes instead of add",
+    "SNLS        # original hack to add Vega zeropts for Astier06",
+    ""
+    "SORT_BAND   # sort by band before coadd",
+    "#   (e.g., g,r,i,g,r,i -> gg,rr,ii so that each band is coadded)",
+    0
+  };
+
+  int i;
+  // ---------- BEGIN ---------
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+  
+  return;
+
+} // end print_simlib_coadd_help
+
+// ********************************************
 void  parse_args(int argc, char **argv) {
 
   int i, i1, N;
-  char *ptrhead, BUFFER[20], copt[20];
+  char *ptrhead, copt[20];
   char fnam[] = "parse_args" ;
 
   // --------------- BEGIN --------------
@@ -421,6 +402,7 @@ void  parse_args(int argc, char **argv) {
   sprintf(copt,"SUMMED") ;
   INPUTS.OPT_SNLS    = 0 ;
   INPUTS.OPT_MWEBV   = 0 ;
+  INPUTS.OPT_SORT_BAND = 0 ;
 
   // combine consecutive exposures in same filter 
   // within this time-diff (days)
@@ -442,7 +424,6 @@ void  parse_args(int argc, char **argv) {
     sprintf(c1err, "Must give SIMLIB file year as argument." ); 
     c2err[0] = 0;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    // xxxx MADABORT();
   } 
 
 
@@ -470,6 +451,9 @@ void  parse_args(int argc, char **argv) {
     if ( strcmp(argv[i], "MWEBV" ) == 0 ) 
       { INPUTS.OPT_MWEBV = 1; }
 
+    if ( strcmp(argv[i], "SORT_BAND" ) == 0 ) 
+      { INPUTS.OPT_SORT_BAND = 1; }
+
     if ( strcmp(argv[i],"MJD_DMP") == 0 ) 
       { INPUTS.OPT_MJD_DMP = 1;  }
 
@@ -488,19 +472,16 @@ void  parse_args(int argc, char **argv) {
   }
 
   N=0;
-  sprintf(BUFFER,"COMMENT:");
-
-  // first comment is exact user-command
-  //xxx  N++;  ptrhead = HEADER_ADD[N];
-  ///xxx sprintf(ptrhead,"# - - - - - - - - - - - - - - - - - - - - - - - - \n");
 
   ptrhead = HEADER_ADD[N]; N++ ;
   sprintf(ptrhead,"This coadd SIMLIB was created with command");
 
   ptrhead = HEADER_ADD[N]; N++;
   sprintf(ptrhead,"   '"  );
-  for ( i = 0; i < argc; i++ )  sprintf(ptrhead,"%s %s", ptrhead, argv[i] ); 
-  sprintf(ptrhead,"%s ' ", ptrhead ); 
+  for ( i = 0; i < argc; i++ )  
+    { strcat(ptrhead," "); strcat(ptrhead,argv[i]); }
+
+  strcat(ptrhead," ' ");
 
   // now parse what's happening
 
@@ -508,7 +489,7 @@ void  parse_args(int argc, char **argv) {
   //  sprintf(ptrhead," Select  MJD   between %9.2f and %9.2f " );
 
   ptrhead = HEADER_ADD[N]; N++ ;
-  sprintf(ptrhead,"%s and the following co-add cuts/options:" );
+  sprintf(ptrhead,"and the following co-add cuts/options:" );
 
   ptrhead = HEADER_ADD[N]; N++ ;
   sprintf(ptrhead,"   + Select LIBID between %d and %d", 
@@ -564,13 +545,13 @@ void SIMLIB_open_read(void) {
   // Open input SIMLIB file and read header.
   // Jan 7 2021: use snana_open to allow reading gzipped SIMLIB.
 
-  char fnam[20] = "SIMLIB_open_read" ;
   char cline[80], c_get[80], c_tmp[80], clast[80], key[80];
   char fullName[MXPATHLEN] ;
 
   bool FOUND_COMMENT = false, FOUND_DOCANA = false, FOUND_FILTERS=false ;
   int  READHEAD, i, gzipFlag, iwd, NWD, add ;
   int  langC = 0;
+  char fnam[] = "SIMLIB_open_read" ;
   // ---------------- BEGIN --------------
 
   printf("\n SIMLIB_open_read(): \n ");
@@ -625,11 +606,14 @@ void SIMLIB_open_read(void) {
       }
       sprintf(HEADER[NLINE_HEADER], "%s", KEYNAME2_DOCANA_REQUIRED) ;
       NLINE_HEADER++; 
+
+      sprintf(HEADER[NLINE_HEADER], "\n\n") ;
+      NLINE_HEADER++; 
     }
     
     if ( strcmp(key,"COMMENT:") == 0 )  { 
       FOUND_COMMENT = true ; 
-      if ( SIMLIB_INPUT.REFAC_DOCANA ) {
+      if ( REQUIRE_DOCANA_COADD ) {
 	sprintf(c1err,"COMMENT: keys no longer allowed." ) ;
 	sprintf(c2err,"Add %s YAML block before SURVEY key.",
 		KEYNAME_DOCANA_REQUIRED );
@@ -671,7 +655,7 @@ void SIMLIB_open_read(void) {
 
 
   // -----------------
-  if ( SIMLIB_INPUT.REFAC_DOCANA && !FOUND_DOCANA ) {
+  if ( REQUIRE_DOCANA_COADD && !FOUND_DOCANA ) {
     sprintf(c1err,"Missing required %s block.", 
 	    KEYNAME_DOCANA_REQUIRED) ;
     sprintf(c2err,"Add %s YAML block before SURVEY key.",
@@ -720,26 +704,25 @@ void SIMLIB_read(int *RDSTAT) {
   /* Copied/modified from snlc_sim.c    
     Read next LIBID in simlib. Fill SIMLIB structure.
     Note that fp_simlib_input has already been opened
+
+    Dec 6 2021: set INFO_HEAD[IPAR_NEA_UNIT] 
   */
 
   char  c_get[80], c_tmp[80],cfilt[4], STRING_IDEXPT[20] ;
   int   IDEXPT, NEXPOSE;
 
-  int i, NMJD, NMJD_READ, NMJD_ACCEPT, LIBID ;
-  int OPTLINE, NOBS, ENDLIB, OKLIBID, iwd, NWD    ;
+  int i, o, NOBS_READ, NOBS_ACCEPT, LIBID ;
+  int OPTLINE, NOBS_EXPECT, ENDLIB, OKLIBID, iwd, NWD    ;
 
   double MJD, CCDGAIN, CCDNOISE, SKYSIG, NEA, PSF[3], ZPT[2] ;
-  double MAG, RA, DECL, XMW[20], MWEBV    ;
+  double MAG, RA, DEC, XMW[20], MWEBV    ;
 
-  char  fnam[20] = "SIMLIB_read"  ;
+  char  fnam[] = "SIMLIB_read"  ;
 
   // ---------------- BEGIN ------------------
 
-
-
-  NMJD_READ    =  0  ;
-  NMJD_ACCEPT  =  0  ;
-  NOBS         =  0  ;
+  NOBS_READ    =  0  ;
+  NOBS_ACCEPT  =  0  ;
   ENDLIB       =  0  ;
   *RDSTAT      =  2  ;
 
@@ -749,8 +732,7 @@ void SIMLIB_read(int *RDSTAT) {
 
     *RDSTAT = fscanf(fp_simlib_input, "%s", c_get) ;
 
-    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
-    }
+    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {    }
 
     if ( strcmp(c_get,"LIBID:") == 0 ) {
       NLIBID_FOUND++ ;
@@ -765,128 +747,123 @@ void SIMLIB_read(int *RDSTAT) {
     }
 
     if ( strcmp(c_get,"NOBS:") == 0 ) {
-      readint ( fp_simlib_input, 1, &NOBS );
-      SIMLIB_INPUT.NOBS = NOBS ;
+      readint ( fp_simlib_input, 1, &NOBS_EXPECT );
+      SIMLIB_INPUT.NOBS = NOBS_EXPECT ;
     }
 
     if ( strcmp(c_get,"RA:") == 0 ) 
-      readfloat ( fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_RA] );
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_RA] ); }
 
-    if ( strcmp(c_get,"DECL:") == 0 ) 
-      readfloat ( fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_DECL] );
-
+    if ( strcmp(c_get,"DECL:") == 0 || strcmp(c_get,"DEC")==0 ) 
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_DEC] ); }
 
     if ( strcmp(c_get,"MWEBV:") == 0  ) 
-      readfloat ( fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_MWEBV] );
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_MWEBV] );}
 
     if ( strcmp(c_get,"PIXSIZE:") == 0 ) 
-      readfloat ( fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_PIXSIZE] );
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_PIXSIZE]);}
 
     if ( strcmp(c_get,"REDSHIFT:") == 0 ) 
-      readfloat ( fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_Z] );
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_Z] );}
 
     if ( strcmp(c_get,"PEAKMJD:") == 0 ) 
-      readfloat ( fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_PKMJD] );
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_PKMJD] );}
 
     if ( strcmp(c_get,"FIELD:") == 0 ) 
-        fscanf(fp_simlib_input,"%s", SIMLIB_INPUT.FIELDNAME );  
-
+      { fscanf(fp_simlib_input,"%s", SIMLIB_INPUT.FIELDNAME ); }
 
     // Search for MJD-epoch info
 
     if ( strcmp(c_get,"S:") == 0 ) 
-      OPTLINE = 1 ;
+      { OPTLINE = 1 ; }
     else if ( strcmp(c_get,"T:") == 0 ) 
-      OPTLINE = 2 ;
+      { OPTLINE = 2 ; }
     else
-      OPTLINE = 0 ;
+      { OPTLINE = 0 ; }
 
-    if (OPTLINE > 0 ) {
+    if ( OPTLINE > 0 ) {
 
-      NMJD_READ++ ;
+      NOBS_READ++ ;
 
       // read line into temporary variables.
-      readdouble ( fp_simlib_input, 1, &MJD );
+      readdouble(fp_simlib_input, 1, &MJD );
       readchar(fp_simlib_input, STRING_IDEXPT );
       parse_SIMLIB_IDplusNEXPOSE(STRING_IDEXPT, &IDEXPT, &NEXPOSE);
 
       fscanf(fp_simlib_input, "%s", cfilt );
-      readdouble ( fp_simlib_input, 1, &CCDGAIN  );
-      readdouble ( fp_simlib_input, 1, &CCDNOISE );
-      readdouble ( fp_simlib_input, 1, &SKYSIG );
+      readdouble(fp_simlib_input, 1, &CCDGAIN  );
+      readdouble(fp_simlib_input, 1, &CCDNOISE );
+      readdouble(fp_simlib_input, 1, &SKYSIG );
 
       if ( PSF_NEA_UNIT ) 
-	{ readdouble ( fp_simlib_input, 1, &NEA ); }
+	{ readdouble(fp_simlib_input, 1, &NEA ); }
       else 
-	{ readdouble ( fp_simlib_input, 3, PSF ); }
+	{ readdouble(fp_simlib_input, 3, PSF ); }
 
-      readdouble ( fp_simlib_input, 2, ZPT );
+      readdouble(fp_simlib_input, 2, ZPT );
 
       if ( OPTLINE == 1 ) {
 	readdouble ( fp_simlib_input, 1, &MAG );
-	if ( MAG < 5.0 ) MAG = 99.0 ;
+	if ( MAG < 5.0 ) { MAG = 99.0 ; }
       }
-      else
-	{ MAG = 99.0 ; } 
+      else {
+	MAG = 99.0 ; 
+      } 
 
+      NOBS_ACCEPT++ ;
+      SIMLIB_INPUT.NOBS_ACCEPT = NOBS_ACCEPT ;
+      o = NOBS_ACCEPT-1;  // o index starts at zero (Mar 7 2022)
 
-      NMJD_ACCEPT++ ;
-      SIMLIB_INPUT.NMJD_ACCEPT = NMJD_ACCEPT ;
-      NMJD  = NMJD_ACCEPT ;
-
-      if ( NMJD >= MXMJD ) {
-	sprintf(c1err,"NMJD=%d exceeds array bound at LIBID=%d. ", 
-	       NMJD, LIBID);
+      if ( NOBS_ACCEPT >= MXMJD ) {
+	sprintf(c1err,"NOBS=%d exceeds array bound at LIBID=%d. ", 
+	       NOBS_ACCEPT, LIBID);
 	sprintf(c2err,"MXMJD = %d", MXMJD);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-	// xxxx	MADABORT();
       }
 
-      SIMLIB_INPUT.MJD[NMJD]      = MJD ;  // June 2017, use double
+      sprintf(SIMLIB_INPUT.STRING_IDEXPT[o], "%s", STRING_IDEXPT) ;
+      SIMLIB_INPUT.IDEXPT[o]         = IDEXPT ;
+      SIMLIB_INPUT.NEXPOSE_IDEXPT[o] = NEXPOSE ;
 
-      sprintf(SIMLIB_INPUT.STRING_IDEXPT[NMJD], "%s", STRING_IDEXPT) ;
-      SIMLIB_INPUT.IDEXPT[NMJD]         = IDEXPT ;
-      SIMLIB_INPUT.NEXPOSE_IDEXPT[NMJD] = NEXPOSE ;
+      sprintf(SIMLIB_INPUT.BAND[o], "%s", cfilt);
 
-      sprintf(SIMLIB_INPUT.FILTNAME[NMJD], "%s", cfilt);
-
-      SIMLIB_INPUT.INFO_MJD[NMJD][1]    = CCDGAIN ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][2]    = CCDNOISE ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][3]    = SKYSIG   ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_MJD]       = MJD ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_CCDGAIN]   = CCDGAIN ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_CCDNOISE]  = CCDNOISE ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_SKYSIG]    = SKYSIG   ;
 
       if ( PSF_NEA_UNIT ) {
-	SIMLIB_INPUT.INFO_MJD[NMJD][4]    = NEA ;
-	SIMLIB_INPUT.INFO_MJD[NMJD][5]    = -999.0 ;
-	SIMLIB_INPUT.INFO_MJD[NMJD][6]    = -999.0 ;
+	SIMLIB_INPUT.INFO_OBS[o][IPAR_PSF0]    = NEA ;
+	SIMLIB_INPUT.INFO_OBS[o][IPAR_PSF0+1]  = -999.0 ;
+	SIMLIB_INPUT.INFO_OBS[o][IPAR_PSF0+2]  = -999.0 ;
 
       }
       else {
-	SIMLIB_INPUT.INFO_MJD[NMJD][4]    = PSF[0] ;
-	SIMLIB_INPUT.INFO_MJD[NMJD][5]    = PSF[1] ;
-	SIMLIB_INPUT.INFO_MJD[NMJD][6]    = PSF[2] ;
+	SIMLIB_INPUT.INFO_OBS[o][IPAR_PSF0]    = PSF[0] ;
+	SIMLIB_INPUT.INFO_OBS[o][IPAR_PSF0+1]  = PSF[1] ;
+	SIMLIB_INPUT.INFO_OBS[o][IPAR_PSF0+2]  = PSF[2] ;
       }
 
-      SIMLIB_INPUT.INFO_MJD[NMJD][7]    = ZPT[0] ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][8]    = ZPT[1] ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][9]    = MAG ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_ZPT0]    = ZPT[0] ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_ZPT0+1]  = ZPT[1] ;
+      SIMLIB_INPUT.INFO_OBS[o][IPAR_MAG]     = MAG ;
 
       if ( MJD < INPUTS.MJD_MIN ||  MJD > INPUTS.MJD_MAX ) {
-	NMJD_ACCEPT-- ;
-	SIMLIB_INPUT.NMJD_ACCEPT = NMJD_ACCEPT ;
+	NOBS_ACCEPT-- ;
+	SIMLIB_INPUT.NOBS_ACCEPT = NOBS_ACCEPT ;
       }
-
 
     } // end of OPTLINE if-block
 
 
     if ( strcmp(c_get,"END_LIBID:") == 0         ) ENDLIB = 1;
-    if ( strcmp(c_get,"#") == 0 && NMJD_READ > 3 ) ENDLIB = 1;
+    if ( strcmp(c_get,"#") == 0 && NOBS_READ > 3 ) ENDLIB = 1;
 
     if ( ENDLIB == 1 ) {
 
-      if ( NMJD_READ != NOBS && INPUTS.OPT_MJD_DMP == 0 ) {
-	sprintf(c1err,"NMJD_READ = %d, but expected NOBS=%d (LIBID=%d)",
-	       NMJD, NOBS, LIBID);
+      if ( NOBS_READ != NOBS_EXPECT && INPUTS.OPT_MJD_DMP == 0 ) {
+	sprintf(c1err,"NOBS_READ = %d, but expected NOBS=%d (LIBID=%d)",
+	       NOBS_READ, NOBS_EXPECT, LIBID);
 	c2err[0] = 0 ;
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
@@ -901,9 +878,9 @@ void SIMLIB_read(int *RDSTAT) {
 
       // if there are too few accepted exposures, set flag to skip LIBID
 
-      if ( NMJD_ACCEPT < INPUTS.MINOBS_ACCEPT ) {
+      if ( NOBS_ACCEPT < INPUTS.MINOBS_ACCEPT ) {
 	printf("\t Skipping LIBID %d : only %d exposures. \n", 
-	       LIBID, NMJD_ACCEPT);
+	       LIBID, NOBS_ACCEPT);
 	fflush(stdout);
 	SIMLIB_INPUT.LIBID = -9;
       }
@@ -911,8 +888,8 @@ void SIMLIB_read(int *RDSTAT) {
       // check option to compute MWEBV from Schlagel maps
       if ( INPUTS.OPT_MWEBV > 0 ) {
 	RA   = SIMLIB_INPUT.INFO_HEAD[IPAR_RA] ;
-	DECL = SIMLIB_INPUT.INFO_HEAD[IPAR_DECL] ;
-	MWgaldust(RA, DECL, &XMW[1], &MWEBV );  // returns XMW & MWEBV
+	DEC  = SIMLIB_INPUT.INFO_HEAD[IPAR_DEC] ;
+	MWgaldust(RA, DEC, &XMW[1], &MWEBV );  // returns XMW & MWEBV
 	SIMLIB_INPUT.INFO_HEAD[IPAR_MWEBV] = (float)MWEBV ;
       }
 
@@ -928,12 +905,60 @@ void SIMLIB_read(int *RDSTAT) {
 
   }  // end of while fscanf loop
 
+  SIMLIB_INPUT.INFO_HEAD[IPAR_NEA_UNIT] = (float)PSF_NEA_UNIT ;
 
   return ;
   
 } // end of function SIMLIB_read
 
 
+// *******************************************
+void SIMLIB_sort_band(void) {
+
+  // Created Mar 7 2022
+  // Sort SIMLIB by band so that co-add includes
+  // non-sequential bands.
+
+  SIMLIB_CONTENTS_DEF SIMLIB_INPUT_TEMP;
+  int  NOBS_orig = SIMLIB_INPUT.NOBS;
+  int  ifilt, NFILT, o, NOBS_copy=0 ;
+  int  LDMP = 0;
+  char band[2];
+  char fnam[] = "SIMLIB_sort_band" ;
+
+  // ------------ BEGIN --------------
+
+  NFILT = strlen(SIMLIB_FILTERS);
+
+  if ( LDMP ) {
+    printf("xxx %s Sort obs by band NFILT=%d for %s  LIBID=%d\n", 
+	   fnam, NFILT, SIMLIB_FILTERS, SIMLIB_INPUT.LIBID);
+  }
+
+  copy_SIMLIB_CONTENTS(&SIMLIB_INPUT, &SIMLIB_INPUT_TEMP);
+
+  for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+    sprintf(band, "%c", SIMLIB_FILTERS[ifilt] );
+
+    if ( LDMP ) 
+      { printf("\t xxx collect %s band \n", band); fflush(stdout); }
+
+    for(o=0 ; o < NOBS_orig; o++ ) {
+      if (strcmp(band,SIMLIB_INPUT_TEMP.BAND[o]) == 0 ) {
+	copy_SIMLIB_CONTENTS_OBS(&SIMLIB_INPUT_TEMP, 
+				 &SIMLIB_INPUT, o, NOBS_copy);
+	NOBS_copy++ ;
+      }
+
+    } // end obs loop
+  } // end ifilt
+
+  if ( LDMP ) {
+    printf("\t xxx NOBS[orig,copy] = %d, %d \n", NOBS_orig, NOBS_copy);
+  }
+  return;
+
+} // end SIMLIB_sort_band
 
 // *********************
 void SIMLIB_coadd(void) {
@@ -945,14 +970,11 @@ void SIMLIB_coadd(void) {
   // Jun 20, 2017: MJD -> double instead of float
   // Jan 07, 2021: sum NEXPOSE and write proper IDEXPT string
 
-  int  i, obs, ipar, NOBS_IN, NMEASURE, OVPFILT, IDEXPT, NEXPOSE ;
+  int  i, j, obs, ipar, NOBS_IN, NMEASURE, OVPFILT, IDEXPT, NEXPOSE ;
   int  OBSMIN[MXMJD], OBSMAX[MXMJD]    ;
-
   char *cfilt, *cfilt_last ;
-
-  double MJD, MJD_LAST, MJD_DIF, XIN, XSUM, XN, XNOPT, ARG, ZPTOFF ;
- 
-  float *PTR_INFO_OFFSET, *PTR_INFO_INPUT, *PTR_INFO_OUTPUT  ;
+  double MJD, MJD_LAST, MJD_DIF, XIN, XSUM, XN, XNOPT, ARG, ZPTOFF;
+  double *PTR_INFO_INPUT, *PTR_INFO_OUTPUT  ;
 
   char fnam[] = "SIMLIB_coadd";
 
@@ -971,28 +993,29 @@ void SIMLIB_coadd(void) {
   // ----------------------
   // first loop through and identify MJD-ranges to combine.
 
-  NOBS_IN  = SIMLIB_INPUT.NMJD_ACCEPT ;
+  NOBS_IN  = SIMLIB_INPUT.NOBS_ACCEPT ;
   MJD_LAST = -9.0 ;
   NMEASURE = 0 ;
 
-  obs = 1;
-  cfilt      = SIMLIB_INPUT.FILTNAME[obs] ;
-  cfilt_last = SIMLIB_INPUT.FILTNAME[obs] ;
+  obs = 0;
+  cfilt      = SIMLIB_INPUT.BAND[obs] ;
+  cfilt_last = SIMLIB_INPUT.BAND[obs] ;
 
-
-  for ( obs=1; obs <= NOBS_IN; obs++ ) {
-    MJD     = SIMLIB_INPUT.MJD[obs] ;
+  for ( obs=0; obs < NOBS_IN; obs++ ) {
+    MJD     = SIMLIB_INPUT.INFO_OBS[obs][IPAR_MJD] ;
     MJD_DIF = fabs(MJD - MJD_LAST);
-    cfilt   = SIMLIB_INPUT.FILTNAME[obs] ;
-    OVPFILT = strcmp(cfilt,cfilt_last);  // 5/14/2009
+    cfilt   = SIMLIB_INPUT.BAND[obs] ;
+    OVPFILT = strcmp(cfilt,cfilt_last);  
 
     if ( MJD_DIF < INPUTS.MAXTDIF_COMBINE && OVPFILT == 0 ) {
-      OBSMAX[NMEASURE] = obs ;  //  different MJD, same filter
+      //  different MJD, same filter -> update OBSMAX
+      OBSMAX[NMEASURE-1] = obs ;  
     } 
     else {
-      NMEASURE++ ;                  
+      // next band
       OBSMIN[NMEASURE] = obs ;
       OBSMAX[NMEASURE] = obs ;
+      NMEASURE++ ;   
     }
 
     cfilt_last = cfilt ;
@@ -1005,31 +1028,28 @@ void SIMLIB_coadd(void) {
   // Now loop through and combine exposures and take appropriate
   // averages for SIMLIB_OUTPUT structure
 
-  for ( i = 1; i <= NMEASURE; i++ ) {
-
-    SIMLIB_OUTPUT.NOBS  = NMEASURE ;
+  SIMLIB_OUTPUT.NOBS  = NMEASURE ;
+  for ( i = 0; i < NMEASURE; i++ ) {
 
     // for filter, copy element from 1st exposure to OUTPUT measurement,
     obs = OBSMIN[i] ;
 
-    cfilt = SIMLIB_INPUT.FILTNAME[obs] ;
-    sprintf(SIMLIB_OUTPUT.FILTNAME[i], "%s", cfilt);
+    cfilt = SIMLIB_INPUT.BAND[obs] ;
+    sprintf(SIMLIB_OUTPUT.BAND[i], "%s", cfilt);
 
     NEXPOSE = 0;
     IDEXPT  = SIMLIB_INPUT.IDEXPT[obs] ;
 
     // setup pointer to output INFO array
-    PTR_INFO_OUTPUT = &SIMLIB_OUTPUT.INFO_MJD[i][0] ;
+    PTR_INFO_OUTPUT = &SIMLIB_OUTPUT.INFO_OBS[i][0] ;
 
-    // init output INFO array  
-    SIMLIB_OUTPUT.MJD[i] = 0.0 ;
-    for ( ipar=0; ipar < NPAR_MJD; ipar++ ) 
-      *(PTR_INFO_OUTPUT + ipar) = 0.0 ;
+    // init output INFO array 
+    for ( ipar=0; ipar < NPAR_OBS; ipar++ ) 
+      { PTR_INFO_OUTPUT[ipar] = 0.0 ; }
 
     // take sums or sums-of-squares over INPUT 'obs' observations
 
     XN = 0.0 ;
-    PTR_INFO_OFFSET  = &SIMLIB_INPUT.INFO_MJD[1][0] ;
 
     for ( obs = OBSMIN[i]; obs <= OBSMAX[i]; obs++ ) {
 
@@ -1037,46 +1057,37 @@ void SIMLIB_coadd(void) {
 
       XN += 1.0 ;  // number of exposures for this measurement.
 
-      PTR_INFO_INPUT   = &SIMLIB_INPUT.INFO_MJD[obs][0] ;
+      PTR_INFO_INPUT   = &SIMLIB_INPUT.INFO_OBS[obs][0] ;
 
-      // special case for MJD; subtract offset to avoid float-roundoff
-      // when taking average. Add offset back after taking average
-      // of residuals.
-      
+      XIN = PTR_INFO_INPUT[IPAR_MJD];
+      SIMLIB_OUTPUT.INFO_OBS[i][IPAR_MJD] += XIN ;
 
-      XIN = SIMLIB_INPUT.MJD[obs] - SIMLIB_INPUT.MJD[1];
-      SIMLIB_OUTPUT.MJD[i] += XIN ;
+      XIN = PTR_INFO_INPUT[IPAR_CCDGAIN] ;
+      PTR_INFO_OUTPUT[IPAR_CCDGAIN] += XIN ;
 
-      XIN = *(PTR_INFO_INPUT + IPAR_CCDGAIN) ;
-      *(PTR_INFO_OUTPUT + IPAR_CCDGAIN) += XIN ;
+      XIN = PTR_INFO_INPUT[IPAR_CCDNOISE] ;
+      PTR_INFO_OUTPUT[IPAR_CCDNOISE] += (XIN * XIN) ;
 
-      XIN = *(PTR_INFO_INPUT + IPAR_CCDNOISE) ;
-      *(PTR_INFO_OUTPUT + IPAR_CCDNOISE) += (XIN * XIN) ;
-
-      XIN = *(PTR_INFO_INPUT + IPAR_SKYSIG) ;
-      *(PTR_INFO_OUTPUT + IPAR_SKYSIG) += (XIN * XIN) ;
+      XIN = PTR_INFO_INPUT[IPAR_SKYSIG] ;
+      PTR_INFO_OUTPUT[IPAR_SKYSIG] += (XIN * XIN) ;
 
       // - - - -
-      XIN = *(PTR_INFO_INPUT + IPAR_PSF0 + 0) ;
-      *(PTR_INFO_OUTPUT + IPAR_PSF0+0) += XIN ;
+      for( j=0; j < 3; j++ ) {
+	XIN = PTR_INFO_INPUT[IPAR_PSF0+j] ;
+	PTR_INFO_OUTPUT[IPAR_PSF0+j] += XIN ;
+      }
 
-      XIN = *(PTR_INFO_INPUT + IPAR_PSF0 + 1) ;
-      *(PTR_INFO_OUTPUT + IPAR_PSF0+1) += XIN ;
+      // - - - 
 
-      XIN = *(PTR_INFO_INPUT + IPAR_PSF0 + 2) ;
-      *(PTR_INFO_OUTPUT + IPAR_PSF0+2) += XIN ;
-
-      // - - - -
-
-      XIN = *(PTR_INFO_INPUT + IPAR_ZPT0 + 0) ;
+      XIN = PTR_INFO_INPUT[IPAR_ZPT0] ;
       ARG = 0.4 * (XIN - 25.0) ;
-      *(PTR_INFO_OUTPUT + IPAR_ZPT0+0) += powf(TEN,ARG); 
+      PTR_INFO_OUTPUT[IPAR_ZPT0] += powf(TEN,ARG); 
 
-      XIN = *(PTR_INFO_INPUT + IPAR_ZPT0 + 1) ;
-      *(PTR_INFO_OUTPUT + IPAR_ZPT0+1) += XIN ;
+      XIN = PTR_INFO_INPUT[IPAR_ZPT0+1] ;
+      PTR_INFO_OUTPUT[IPAR_ZPT0+1] += XIN ;
 
-      XIN = *(PTR_INFO_INPUT + IPAR_MAG) ;
-      *(PTR_INFO_OUTPUT + IPAR_MAG) += XIN ;
+      XIN = PTR_INFO_INPUT[IPAR_MAG] ;
+      PTR_INFO_OUTPUT[IPAR_MAG] += XIN ;
 
     } // end of obs loop
 
@@ -1085,60 +1096,113 @@ void SIMLIB_coadd(void) {
     if ( XN == 0.0 ) {
       sprintf(c1err,"Nexposure=0 for Meaure=%d OBS=%d-%d, filt=%s ",
 	     i, OBSMIN[i], OBSMAX[i], cfilt );
-      sprintf(c2err," MJD = %f", SIMLIB_INPUT.INFO_MJD[OBSMIN[i]][0] ) ;
+      sprintf(c2err," MJD = %f", SIMLIB_INPUT.INFO_OBS[OBSMIN[i]][0] ) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-      // xxxx      MADABORT();
     }
 
     sprintf(SIMLIB_OUTPUT.STRING_IDEXPT[i], "%d*%d", IDEXPT, NEXPOSE);
 
     if ( INPUTS.OPT_SUM > 0 ) 
-      XNOPT = 1 ;
+      { XNOPT = 1.0 ; }
     else
-      XNOPT = XN ;
+      { XNOPT = XN ; }
 
-    SIMLIB_OUTPUT.MJD[i] /= XN ;
-    SIMLIB_OUTPUT.MJD[i] += SIMLIB_INPUT.MJD[1] ;
+    SIMLIB_OUTPUT.INFO_OBS[i][IPAR_MJD] /= XN ;
 
-    *(PTR_INFO_OUTPUT + IPAR_CCDGAIN) *= (XNOPT/XN) ;
+    PTR_INFO_OUTPUT[IPAR_CCDGAIN] *= (XNOPT/XN) ;
 
-    XSUM = *(PTR_INFO_OUTPUT + IPAR_CCDNOISE) ;
-    *(PTR_INFO_OUTPUT + IPAR_CCDNOISE) = sqrtf(XSUM) / XNOPT;
+    XSUM = PTR_INFO_OUTPUT[IPAR_CCDNOISE] ;
+    PTR_INFO_OUTPUT[IPAR_CCDNOISE] = sqrtf(XSUM) / XNOPT;
 
-    XSUM = *(PTR_INFO_OUTPUT + IPAR_SKYSIG) ;
-    *(PTR_INFO_OUTPUT + IPAR_SKYSIG) = sqrtf(XSUM) / XNOPT;
+    XSUM = PTR_INFO_OUTPUT[IPAR_SKYSIG] ;
+    PTR_INFO_OUTPUT[IPAR_SKYSIG] = sqrtf(XSUM) / XNOPT;
 
-    *(PTR_INFO_OUTPUT + IPAR_PSF0+0) /= XN ;
+    for(j=0; j < 3; j++ ) 
+      { PTR_INFO_OUTPUT[IPAR_PSF0+j] /= XN ; }
 
-    *(PTR_INFO_OUTPUT + IPAR_PSF0+1) /= XN ;
+    XSUM = PTR_INFO_OUTPUT[IPAR_ZPT0] ;
+    PTR_INFO_OUTPUT[IPAR_ZPT0] = 2.5 * log10f(XSUM/XNOPT) + 25.0 ;
 
-    *(PTR_INFO_OUTPUT + IPAR_PSF0+2) /= XN ;
-
-    XSUM = *(PTR_INFO_OUTPUT + IPAR_ZPT0+0) ;
-    *(PTR_INFO_OUTPUT + IPAR_ZPT0+0) = 2.5 * log10f(XSUM/XNOPT) + 25.0 ;
-
-    *(PTR_INFO_OUTPUT + IPAR_ZPT0+1) /= XN ;
+    PTR_INFO_OUTPUT[IPAR_ZPT0+1] /= XN ;
     
     if ( INPUTS.OPT_SNLS == 1 ) {
-      ZPTOFF = ZPTOFF_SNLS(cfilt);
-      *(PTR_INFO_OUTPUT + IPAR_ZPT0+0) += ZPTOFF;
-      *(PTR_INFO_OUTPUT + IPAR_SKYSIG) *=1.5 ;
+      ZPTOFF = ZPTOFF_SNLS(cfilt);           // hard-coded hack
+      PTR_INFO_OUTPUT[IPAR_ZPT0+0] += ZPTOFF;
+      PTR_INFO_OUTPUT[IPAR_SKYSIG] *= 1.5 ;  // special hack
     }
 
 
-    *(PTR_INFO_OUTPUT + IPAR_MAG) /= XN ;
+    PTR_INFO_OUTPUT[IPAR_MAG] /= XN ;
 
     if ( INPUTS.OPT_MJD_DMP == 1 ) {
-      MJD = SIMLIB_OUTPUT.MJD[i];
+      MJD = SIMLIB_OUTPUT.INFO_OBS[i][IPAR_MJD];
       printf(" %f \n", MJD );      fflush(stdout);
     }
-
 
   }  // end of i-loop over NMEASURE
 
   return ;
 
 } // end of SIMLIB_coadd
+
+
+// ************************************************************
+void copy_SIMLIB_CONTENTS_OBS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
+			      SIMLIB_CONTENTS_DEF *CONTENTS_OUT, 
+			      int o_inp,  int o_out ) {
+
+  // Created Mar 2022
+
+  int ipar;
+  // --------- BEGIN -----------
+
+  sprintf(CONTENTS_OUT->BAND[o_out], "%s", 
+	  CONTENTS_INP->BAND[o_inp]);
+  sprintf(CONTENTS_OUT->STRING_IDEXPT[o_out], "%s", 
+	  CONTENTS_INP->STRING_IDEXPT[o_inp]);
+  
+  CONTENTS_OUT->IFILT[o_out] = CONTENTS_INP->IFILT[o_inp];
+  CONTENTS_OUT->NEXPOSE_IDEXPT[o_out] = CONTENTS_INP->NEXPOSE_IDEXPT[o_inp];
+  
+  for(ipar=0; ipar < NPAR_OBS; ipar++ ) {  
+    CONTENTS_OUT->INFO_OBS[o_out][ipar] = 
+      CONTENTS_INP->INFO_OBS[o_inp][ipar]; 
+  }
+  
+  return;
+
+} // end copy_SIMLIB_CONTENTS_OBS
+
+// ******************************************
+void copy_SIMLIB_CONTENTS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
+			  SIMLIB_CONTENTS_DEF *CONTENTS_OUT ) {
+
+  // Created Mar 7 2022
+  // Copy contents of CONTENTS_INP into CONTENTS_OUT.
+
+  int NOBS = CONTENTS_INP->NOBS;
+  int ipar, obs;
+  char fnam[] = "copy_SIMLIB_CONTENTS";
+
+  // ------------ BEGIN -------------
+
+  sprintf(CONTENTS_OUT->FILE,      "%s", CONTENTS_INP->FILE);
+  sprintf(CONTENTS_OUT->FIELDNAME, "%s", CONTENTS_INP->FIELDNAME);
+
+  CONTENTS_OUT->NOBS        = CONTENTS_INP->NOBS;
+  CONTENTS_OUT->NOBS_ACCEPT = CONTENTS_INP->NOBS_ACCEPT ;
+  CONTENTS_OUT->LIBID       = CONTENTS_INP->LIBID;
+
+  for(ipar=0; ipar < NPAR_HEAD; ipar++ ) 
+    { CONTENTS_OUT->INFO_HEAD[ipar] = CONTENTS_INP->INFO_HEAD[ipar]; }
+
+  for(obs=0; obs < NOBS; obs++ ) {
+    copy_SIMLIB_CONTENTS_OBS(CONTENTS_INP, CONTENTS_OUT, obs,obs);
+  }
+
+  return ;
+
+} // end copy_SIMLIB_CONTENTS
 
 // ******************************************
 void init_summary_info(void) {
@@ -1157,18 +1221,24 @@ void init_summary_info(void) {
 } // end init_var
 
 // ***********************************
-void update_summary_info(void) {
+void update_summary_info(int obs) {
+
+  // Jun 23 2022;
+  // pass obs argument to check all observations for min/max MJD
+  // rather than assuming that the first/last obs is min/max MJD.
+  // This fix only impacts the printed MJD range; does NOT impact
+  // the SIMLIB contents.
 
   int NOBS = SIMLIB_OUTPUT.NOBS;
   double MJD ;
-  
-  if ( NOBS < SUMMARY_INFO.NOBS_MIN ) { SUMMARY_INFO.NOBS_MIN=NOBS; }
-  if ( NOBS > SUMMARY_INFO.NOBS_MAX ) { SUMMARY_INFO.NOBS_MAX=NOBS; }
 
-  MJD = SIMLIB_OUTPUT.MJD[1];
+  if ( obs == 0 ) {
+    if ( NOBS < SUMMARY_INFO.NOBS_MIN ) { SUMMARY_INFO.NOBS_MIN=NOBS; }
+    if ( NOBS > SUMMARY_INFO.NOBS_MAX ) { SUMMARY_INFO.NOBS_MAX=NOBS; }
+  }
+
+  MJD = SIMLIB_OUTPUT.INFO_OBS[obs][IPAR_MJD];
   if ( MJD < SUMMARY_INFO.MJD_MIN ) { SUMMARY_INFO.MJD_MIN = MJD; }
-
-  MJD = SIMLIB_OUTPUT.MJD[NOBS];
   if ( MJD > SUMMARY_INFO.MJD_MAX ) { SUMMARY_INFO.MJD_MAX = MJD; }
     
   return;
@@ -1246,7 +1316,6 @@ void  insert_NLIBID(void) {
 	  INSERT_LINE, SIMLIB_OUTPUT.FILE );
 
   system(sedCmd);
-  //  printf("\n xxx sedCmd = \n %s \n", sedCmd);
 
 
   return ;

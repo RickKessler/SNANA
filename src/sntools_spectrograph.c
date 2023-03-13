@@ -37,6 +37,11 @@
   May 06 2020:
     + in getSNR_spectrograph, return SNR=0 if ZP is undefined.
 
+  Aug 20 2021:
+    + in getSNR_spectrograph, interpolate ZP vs. log10(Texpose) instead
+      of ZP vs. Texpose. Works much better with sparse Texpose grid.
+      [issue found by comparing SNR against D.Rubin]
+
 *********************************************************/
 
 #include "fitsio.h"
@@ -726,6 +731,17 @@ void  solve_spectrograph(void) {
 	check[iref] = fabs(SNR[iref]/SNR_check[iref]-1.0) ;
       }
 
+      if ( isinf(ZP) ) {
+	sprintf(c1err,"inf ZP for LAMAVG=%.3f", LAMAVG);
+	sprintf(c2err,"Check spectrograph table");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( isinf(SQSIGSKY) ) {
+	sprintf(c1err,"inf SQSIGSKY for LAMAVG=%.3f", LAMAVG );
+	sprintf(c2err,"Check spectrograph table");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
       if ( check[0] > 0.001  ||  check[1] > 0.001 ) {
 	print_preAbort_banner(fnam);
 	printf("   SNR0(input/check) = %f/%f = %f \n",
@@ -859,7 +875,7 @@ void get_FILTERtrans_spectrograph(double *LAMFILT_MIN, double *LAMFILT_MAX,
 
   } // end lambda loop
   
-  // -------------------- xyz
+  // --------------------
   if ( FLUX_MAX < 1.0E-9 ) {
     sprintf(c1err,"Synthetic FLUX_MAX=%f ", FLUX_MAX);	   
     sprintf(c2err,"LAMFILT_MIN/MAX=%.1f/%.2f  NBL_TRANS=%d", 
@@ -892,21 +908,32 @@ void read_spectrograph_fits(char *inFile) {
   //
   // Oct 14 2016: read LAMSIGMA_LIST
   // Sep 19 2018: fill INPUTS_SPECTRO.ISFIX_LAMBIN (used for output FORMAT)
-  // May 06 2020: default format is to format LAMMIN & LAMMAX instead of just LAMCEN
-
+  // May 06 2020: default format is to format LAMMIN & LAMMAX 
+  //  instead of just LAMCEN
+  // Aug 20 2021: store LOGTEXPOSE_LIST
+  // Nov 15 2022: store NSYN_FILTER and SYN_IFILTDEF_LIST
+  //
   int istat, hdutype, extver, icol, anynul ;
   fitsfile *fp ;
 
   float  tmpVal_f  ;
-  int    NBL, NBT, l, t ;
-  double L0, L1  ;
+  int    NBL, NBT, l, t, ifilt, ifiltdef ;
+  double L0, L1;
 
   char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
-  //  char fnam[] = "read_spectrograph_fits" ;
+  char fnam[] = "read_spectrograph_fits" ;
 
   // --------------- BEGIN -----------------
 
+  // init a few things
+
   SPECTROGRAPH_USEFLAG = 0;
+  INPUTS_SPECTRO.NSYN_FILTER = 0;
+
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+    {  INPUTS_SPECTRO.IS_SYN_FILTER[ifilt] = false; }
+  
+
 
   // open fits file
   istat = 0 ;
@@ -937,11 +964,16 @@ void read_spectrograph_fits(char *inFile) {
 
 
   sprintf(keyName, "%s", "SPECTROGRAPH_FILTERLIST" );
+  INPUTS_SPECTRO.SYN_FILTERLIST_BAND[0] = 0;
   fits_read_key(fp, TSTRING, keyName, &INPUTS_SPECTRO.SYN_FILTERLIST_BAND, 
 		comment, &istat );
 
-  printf("\n Read spectrograph instrument '%s' \n", 
+  printf("\n   Read spectrograph instrument '%s' \n", 
 	 INPUTS_SPECTRO.INSTRUMENT_NAME );
+
+  char *synlist = INPUTS_SPECTRO.SYN_FILTERLIST_BAND ;
+  printf("\t Found %d synthetic spectrograph filters (%s) \n",
+	 strlen(synlist), synlist );
   fflush(stdout);
 
   SPECTROGRAPH_USEFLAG = 1 ; // set global flag that spectrograph is defined.
@@ -957,13 +989,13 @@ void read_spectrograph_fits(char *inFile) {
   fits_read_key(fp, TINT, keyName, &NBL, comment, &istat );
   sprintf(c1err,"read number of lambda bins");
   snfitsio_errorCheck(c1err, istat);
-  printf("   Found %d wavelength bins \n", NBL);
+  printf("\t Found %d wavelength bins \n", NBL);
   
   sprintf(keyName, "%s", "NBT" );
   fits_read_key(fp, TINT, keyName, &NBT, comment, &istat );
   sprintf(c1err,"read number of TEXPOSE bins");
   snfitsio_errorCheck(c1err, istat);
-  printf("   Found %d TEXPOSE bins \n", NBT );
+  printf("\t Found %d TEXPOSE bins \n", NBT );
 
   fflush(stdout);
   INPUTS_SPECTRO.NBIN_LAM     = NBL ;
@@ -979,6 +1011,7 @@ void read_spectrograph_fits(char *inFile) {
 
     printf("%d ", (int)tmpVal_f );
     INPUTS_SPECTRO.TEXPOSE_LIST[t] = tmpVal_f ;
+    INPUTS_SPECTRO.LOGTEXPOSE_LIST[t] = log10(tmpVal_f) ; // Aug 20 2021
   }
   printf("\n"); fflush(stdout);
 
@@ -1006,7 +1039,7 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err,"read LAMMAX_LIST column" );
   snfitsio_errorCheck(c1err, istat);
 
-  printf("   Wavelength range: %.2f to %.2f A \n",
+  printf("\t Wavelength range stored: %.2f to %.2f A \n",
 	 INPUTS_SPECTRO.LAMMIN_LIST[0], INPUTS_SPECTRO.LAMMAX_LIST[NBL-1]);
 
   icol = 3 ;
@@ -1027,12 +1060,6 @@ void read_spectrograph_fits(char *inFile) {
 
     INPUTS_SPECTRO.ISLAM_EXTEND_LIST[l] = false ;
 
-    // xxx    INPUTS_SPECTRO.LAMSIGMA_LIST[l] = 12.0 ; // xxx REMOVE
-    /* xxxx mark delete May 8 2021 xxxxx
-    if ( l > 0 && fabs(LASTBIN-LBIN)>0.001 ) 
-      { INPUTS_SPECTRO.FORMAT_MASK = 2; } // write LAMMIN & LAMMAX
-    xxxxxxx end mark xxxxxxx */
-
     LASTBIN=LBIN; 
   }
 
@@ -1048,6 +1075,8 @@ void read_spectrograph_fits(char *inFile) {
   int NBL_MALLOC = NBL + MXLAM_SPECTROGRAPH_EXTEND ;
   float *ZP_f = (float*)malloc( NBL_MALLOC * sizeof(float) ) ;
   float *SQ_f = (float*)malloc( NBL_MALLOC * sizeof(float) ) ;
+  double  LAMMIN_ZP=1.0E9, LAMMAX_ZP=0.0, LAM, ZP, SQ ;
+
   for(t=0; t < NBT; t++ ) {
     icol++ ;
     fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
@@ -1062,10 +1091,23 @@ void read_spectrograph_fits(char *inFile) {
     snfitsio_errorCheck(c1err, istat);
 
     for(l=0; l <NBL; l++ ) {
-      INPUTS_SPECTRO.ZP[l][t]       = (double)ZP_f[l] ;
-      INPUTS_SPECTRO.SQSIGSKY[l][t] = (double)SQ_f[l] ;      
+      ZP = (double)ZP_f[l] ;
+      SQ = (double)SQ_f[l] ;
+      LAM = INPUTS_SPECTRO.LAMAVG_LIST[l];
+      INPUTS_SPECTRO.ZP[l][t]       = ZP ;
+      INPUTS_SPECTRO.SQSIGSKY[l][t] = SQ ;
+
+      if ( ZP != 0.0 ) {
+	if ( LAMMIN_ZP > 0.9E9 ) { LAMMIN_ZP = LAM; }
+	LAMMAX_ZP = LAM;
+      }
+
     } // end l loop over lambda
   } // end t loop over Texpose
+
+  /* xxx
+  printf("   Wavelength range with valid ZP: %.1f to %.1f \n",
+  LAMMIN_ZP, LAMMAX_ZP); xxx */
 
   free(ZP_f);  free(SQ_f);
 
@@ -1076,8 +1118,7 @@ void read_spectrograph_fits(char *inFile) {
   // ---------------------------------------------------
 
   float LAMMIN_f[MXFILTINDX], LAMMAX_f[MXFILTINDX];
-  int ifilt ;
-  char *cName[MXFILTINDX] ;
+  char *cName[MXFILTINDX], band[2] ;
 
   sprintf(TBLname, "SYN_FILTER_SPECTROGRAPH" );
 
@@ -1117,16 +1158,27 @@ void read_spectrograph_fits(char *inFile) {
   
   // note this is a sparse "ifilt" over SYN_FILTERLIST,
   // and not over all kcor filters.
+  INPUTS_SPECTRO.NSYN_FILTER = NROW;
+
   for(ifilt=0 ; ifilt < NROW; ifilt++ ) {
     INPUTS_SPECTRO.SYN_FILTERLIST_LAMMIN[ifilt] = LAMMIN_f[ifilt] ;
     INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] = LAMMAX_f[ifilt] ;
 
-    /*
-    printf(" xxx '%s' : LAMRANGE = %.1f to %.1f \n"
+    sprintf(band, "%c", INPUTS_SPECTRO.SYN_FILTERLIST_BAND[ifilt]);
+    ifiltdef = INTFILTER(band);
+    INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt]    = ifiltdef ;
+    INPUTS_SPECTRO.SYN_IFILTINV_LIST[ifiltdef] = ifilt ;
+    INPUTS_SPECTRO.IS_SYN_FILTER[ifiltdef] = true;
+    
+    /* xxxxxxxxx
+    printf(" xxx %s(%s:%2d) : LAMRANGE = %.1f to %.1f \n"	  
 	   ,INPUTS_SPECTRO.SYN_FILTERLIST_NAME[ifilt]
+	   ,band
+	   ,INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt] 
 	   ,INPUTS_SPECTRO.SYN_FILTERLIST_LAMMIN[ifilt]
-	   ,INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] );  */
-  }
+	   ,INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] );  fflush(stdout);
+    xxx */
+  } // end ifilt 
 
   // ------------------------------------------
   // close fits file
@@ -1136,6 +1188,8 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err, "Close Spectrograph FITS file"  );
   snfitsio_errorCheck(c1err, istat);
 
+
+  printf("\n"); fflush(stdout);
 
   return ;
 
@@ -1274,8 +1328,6 @@ void extend_spectrograph_lambins(void) {
 
   dump_INPUTS_SPECTRO(4,"+extended wave bins");
 
-  //  debugexit(fnam); // xxx REMOVE  .xyz
-
   return ;
 
 } // end extend_spectrograph_lambins
@@ -1289,6 +1341,7 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
 
   int l, NBL = INPUTS_SPECTRO.NBIN_LAM ;  
   int t, NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;  
+  int NERR = 0;
   double LAMAVG, LAMBIN, LAMSIG, ZP, SIGSKY, VARSKY, SNR0, SNR1;
   bool   ISLAM_EXTEND ;
 
@@ -1296,7 +1349,7 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
 
   t=0;
   printf("\n DUMP SPECTROGRAPH TABLE: %s\n", comment);
-  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d] SIGSKY[%d] "
+  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d]     SIGSKY[%d] "
 	 "Extended\n", t, t);
 
   for(l=0; l < NBL; l++ ) {
@@ -1311,10 +1364,10 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
     VARSKY = INPUTS_SPECTRO.SQSIGSKY[l][t] ;
 
     if ( VARSKY > 0.0 ) { SIGSKY = sqrt(VARSKY); }
-    else                { SIGSKY = VARSKY; }
+    else                { SIGSKY = -sqrt(fabs(VARSKY)) ; }
 
     printf(" %6d  %9.2f  %6.2f  %4.1f  " 
-	   "%6.1f   %7.2f    %d\n",
+	   "%8.3f   %10.3e    %d\n",
 	   l, LAMAVG, LAMBIN, LAMSIG, 
 	   ZP, SIGSKY, ISLAM_EXTEND );
   }
@@ -1348,12 +1401,15 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   // May 22 2020: return SNR=0 if variance < 0 (see SQ_SUM)
   // May 27 2020: pass & implement new option ALLOW_TEXTRAP 
   // Jun 04 2020: init *ERRFRAC_T=0
+  // Aug 20 2021: minor refac to interpolate ZP vs. log(Texpose)
+  //               intead of ZP vs. Texpose
 
   int OPT_INTERP=1;
   int NBT       = INPUTS_SPECTRO.NBIN_TEXPOSE ;
   double Tmin   = INPUTS_SPECTRO.TEXPOSE_LIST[0] ;
   double Tmax   = INPUTS_SPECTRO.TEXPOSE_LIST[NBT-1] ;
   double TEXPOSE_S_local = TEXPOSE_S ;
+  double LOGTEXPOSE_S, LOGTEXPOSE_T;
   //  double TEXPOSE_T_local = TEXPOSE_T ;
   double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, SQ_SUM, Flux, FluxErr ;
   bool   DO_TEXTRAP = false;
@@ -1363,6 +1419,8 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   char errmsg_SQ_S[] = "getSNR_spectrograph(SQ_S)";
   char errmsg_SQ_T[] = "getSNR_spectrograph(SQ_T)";
   int  LDMP = (ILAM < -3);
+  // int  LDMP = ( fabs(INPUTS_SPECTRO.LAMAVG_LIST[ILAM]-8000.) < 2.0 );
+  bool REFAC_ZP = true ;
 
   // -------------- BEGIN --------------
 
@@ -1382,22 +1440,43 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   }
 
 
+  LOGTEXPOSE_S = log10(TEXPOSE_S_local); // Aug 20 2021
+
   // May 2020: if ZP is undefined in this ILAM bin, return SNR=0
   if ( INPUTS_SPECTRO.ZP[ILAM][0] < 0.0 ) { return(SNR); }
 
   // interpolate ZP(Texpose) and SQSIG(Texpose)
-  ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
-		       INPUTS_SPECTRO.TEXPOSE_LIST,
-		       INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
-  
+
+  if ( REFAC_ZP ) {
+    ZP_S = interp_1DFUN (OPT_INTERP, LOGTEXPOSE_S, NBT, 
+			 INPUTS_SPECTRO.LOGTEXPOSE_LIST,
+			 INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
+  }
+  else {
+    // legacy 
+    ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
+			 INPUTS_SPECTRO.TEXPOSE_LIST,
+			 INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
+  }
+
   SQ_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
 		       INPUTS_SPECTRO.TEXPOSE_LIST,
 		       INPUTS_SPECTRO.SQSIGSKY[ILAM], errmsg_SQ_S );
   
   if ( TEXPOSE_T > 0.01 ) {
-    ZP_T = interp_1DFUN (OPT_INTERP, TEXPOSE_T, NBT, 
-		       INPUTS_SPECTRO.TEXPOSE_LIST,
-		       INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_T );
+    LOGTEXPOSE_T = log10(TEXPOSE_T);
+    if ( REFAC_ZP ) {
+      ZP_T = interp_1DFUN (OPT_INTERP, LOGTEXPOSE_T, NBT, 
+			   INPUTS_SPECTRO.LOGTEXPOSE_LIST,
+			   INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_T );
+
+    }
+    else {
+      // legacy
+      ZP_T = interp_1DFUN (OPT_INTERP, TEXPOSE_T, NBT, 
+			   INPUTS_SPECTRO.TEXPOSE_LIST,
+			   INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_T );
+    }
 
     SQ_T = interp_1DFUN (OPT_INTERP, TEXPOSE_T, NBT, 
 			 INPUTS_SPECTRO.TEXPOSE_LIST,
@@ -1430,6 +1509,8 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   if ( SQ_T >= 0.0 )
     {  *ERRFRAC_T = sqrt(SQ_T)/FluxErr ; } 
   
+  if ( isnan(SNR) ) { LDMP = 99; }
+
   if ( LDMP ) {
     print_preAbort_banner(fnam);
     printf(" xxx ILAM=%d LAM=%f \n", ILAM, INPUTS_SPECTRO.LAMAVG_LIST[ILAM] );
@@ -1437,12 +1518,25 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
     printf(" xxx GENMAG = %f \n", GENMAG);
     printf(" xxx SQ[S,T] = %le , %le    Flux=%le \n", SQ_S, SQ_T, Flux);    
     printf(" xxx SQ_SUM(SQ_S+SQ_T+Flux) = %le \n", SQ_SUM );
-    printf(" xxx ZP[S,T] = %le , %le  \n", ZP_S, ZP_T );    
-    printf(" xxx INPUTS_SPECTRO.ZP = %f, %f, %f ... \n",
-	   INPUTS_SPECTRO.ZP[ILAM][0], INPUTS_SPECTRO.ZP[ILAM][1], 
-	   INPUTS_SPECTRO.ZP[ILAM][2]);
+
+    int i;
+    for(i=0;  i< NBT; i++ ) {
+      printf(" xxx ZP-interpFun: i=%d: log10(Texpose)=%6.3f, ZP=%.3f \n", i,
+             INPUTS_SPECTRO.LOGTEXPOSE_LIST[i],
+             INPUTS_SPECTRO.ZP[ILAM][i] );
+    }
+
+    printf(" xxx ZP[S,T] interp values = %.3f , %.3f  \n", ZP_S, ZP_T );    
+
+    printf(" xxx SNR = %f / %f = %f \n", Flux, FluxErr,SNR);
     printf(" xxx \n");
 
+    if ( LDMP == 99 ) {
+      sprintf(c1err,"SNR is NaN");
+      sprintf(c2err,"Check preAbort dump above.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+
+    }
 
     fflush(stdout);
   }

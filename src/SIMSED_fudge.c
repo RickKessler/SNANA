@@ -1782,7 +1782,7 @@ void  mkdir_SIMSED_VERSION_OUTPUT(void) {
   // ------------ BEGIN ----------
 
   sprintf(newpath,"%s", SIMSED_PATHMODEL_OUTPUT ) ;
-  sprintf(infoFile,"%s/%s", newpath, INFO_SIMSED_FILENAME );
+  sprintf(infoFile,"%s/%s", newpath, SIMSED_INFO_FILENAME );
 
   // if SED.INFO file already exists, then replace it
 
@@ -1850,10 +1850,10 @@ void open_SEDINFO_file(void) {
 
   // ----- BEGIN -----
 
-  sprintf(infoFile,"%s/%s", SIMSED_PATHMODEL_OUTPUT, INFO_SIMSED_FILENAME );
+  sprintf(infoFile,"%s/%s", SIMSED_PATHMODEL_OUTPUT, SIMSED_INFO_FILENAME );
   fp_sedinfo = fopen(infoFile, "wt") ;
 
-  printf(" Open %s file \n", INFO_SIMSED_FILENAME);
+  printf(" Open %s file \n", SIMSED_INFO_FILENAME);
 
   fprintf(fp_sedinfo,
 	  "# ------------------------------------------------------ \n");

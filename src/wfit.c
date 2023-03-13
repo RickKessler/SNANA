@@ -122,6 +122,9 @@
               instead of last. E.g., for 'zHD zCMB', use zHD instead of
               zCMB.
 
+ Mar 13 2023: add inputs w0_sim and wa_sim to alter cmb prior in the same
+              way as om_sim input.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -205,8 +208,9 @@ struct INPUTS {
   // Gauss OM prior
   double omm_prior, omm_prior_sig; 
 
-  double snrms, sqsnrms;
-  double OMEGA_MATTER_SIM ;
+  double snrms, sqsnrms, muerr_force ;
+  double OMEGA_MATTER_SIM ; // for priors
+  double w0_SIM, wa_SIM ;   // idem
 
   // computed from user inputs
   double h_stepsize, omm_stepsize, w0_stepsize, wa_stepsize;
@@ -578,6 +582,8 @@ void init_stuff(void) {
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
   INPUTS.OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
+  INPUTS.w0_SIM           = w0_DEFAULT ;
+  INPUTS.wa_SIM           = wa_DEFAULT ;
 
   INPUTS.mucov_file[0]       = 0 ;
   INPUTS.ndump_mucov         = 0 ;
@@ -613,7 +619,7 @@ void init_stuff(void) {
   INPUTS.zmin = 0.0;  INPUTS.zmax = 9.0;
 
   INPUTS.snrms  = INPUTS.sqsnrms = 0.0 ;
-
+  INPUTS.muerr_force = -9.0 ;
 
   // - - - - - - - - - - -  - -
   // init misc variables
@@ -669,11 +675,14 @@ void print_wfit_help(void) {
     "   -cmb\t\tuse CMB prior from 5-year WMAP (2008)",
     "   -cmb_sim\tuse CMB prior with simulated cosmology and WMAP formalism",
     "   -om_sim\tOmega_M for cmb_sim (default from sntools.h)",
+    "   -w0_sim\tw0 for cmb_sim (default from sntools.h)",
+    "   -wa_sim\twa for cmb_sim (default from sntools.h)",
     "   -minchi2\tget w and OM from minchi2 instead of marginalizing",
     "   -marg\tget w and OM from marginalizing (default)",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
+    "   -muerr_force\tforce this mu_sig on all events",
     "   -zmin\tFit only data with z>zmin",
     "   -zmax\tFit only data with z<zmax",    
     "   -blind\tIf set, results are obscured with sin(large random) ",
@@ -775,9 +784,14 @@ void parse_args(int argc, char **argv) {
         INPUTS.use_cmb = 2 ;
 	INPUTS.omm_prior     = INPUTS.OMEGA_MATTER_SIM ;
 	INPUTS.omm_prior_sig = 0.9;  // turn off Gauss omm prior
+
       } else if (strcasecmp(argv[iarg]+1,"om_sim")==0) {
 	INPUTS.OMEGA_MATTER_SIM = atof(argv[++iarg]); 
 	INPUTS.omm_prior        = INPUTS.OMEGA_MATTER_SIM ;
+      } else if (strcasecmp(argv[iarg]+1,"w0_sim")==0) {
+	INPUTS.w0_SIM = atof(argv[++iarg]); 
+      } else if (strcasecmp(argv[iarg]+1,"wa_sim")==0) {
+	INPUTS.wa_SIM = atof(argv[++iarg]); 
 
       } else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
 	INPUTS.use_marg = 0 ;
@@ -787,6 +801,9 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1,"snrms")==0) { 
 	INPUTS.snrms = atof(argv[++iarg]);
 	INPUTS.sqsnrms = INPUTS.snrms * INPUTS.snrms ;
+
+      } else if (strcasecmp(argv[iarg]+1,"muerr_force")==0) { 
+	INPUTS.muerr_force = atof(argv[++iarg]); // March 2023
 
       } else if (strcasecmp(argv[iarg]+1,"refit")==0){
         INPUTS.fitnumber -= 1;  
@@ -1154,6 +1171,8 @@ void read_fitres(char *inFile) {
       sprintf(HD.cid[NROW2], "%s", HD.cid[irow] );
       HD.mu[NROW2]       = HD.mu[irow];
       HD.mu_sig[NROW2]   = HD.mu_sig[irow];
+      if ( INPUTS.muerr_force > 0.0 ) { HD.mu_sig[NROW2] = INPUTS.muerr_force; }
+
       HD.z[NROW2]        = ztmp;
       HD.logz[NROW2]     = log10(ztmp); // Apr 22 2022
       HD.z_sig[NROW2]    = HD.z_sig[irow];
@@ -1422,8 +1441,8 @@ void set_priors(void) {
 
   double OM    = INPUTS.OMEGA_MATTER_SIM ;
   double OE    = 1 - OM ;
-  double w0    = w0_DEFAULT ;
-  double wa    = wa_DEFAULT ;
+  double w0    = INPUTS.w0_SIM ;
+  double wa    = INPUTS.wa_SIM ;
 
   Cosparam cparloc;
   cparloc.omm = OM ;
@@ -1492,8 +1511,8 @@ void init_cmb_prior(int OPT) {
   double rz, a, z;
   double OM = INPUTS.OMEGA_MATTER_SIM ;
   double OE = 1 - OM ;
-  double w0 = w0_DEFAULT ;
-  double wa = wa_DEFAULT ;
+  double w0 = INPUTS.w0_SIM ;
+  double wa = INPUTS.wa_SIM ;
 
   Cosparam cparloc;
   cparloc.omm = OM ;
@@ -1566,8 +1585,8 @@ void init_bao_prior(int OPT) {
   double rz, tmp1, tmp2, z;
   double OM = INPUTS.OMEGA_MATTER_SIM ;
   double OE = 1 - OM ;
-  double w0 = w0_DEFAULT ;
-  double wa = wa_DEFAULT ;
+  double w0 = INPUTS.w0_SIM ;
+  double wa = INPUTS.wa_SIM ;
 
   Cosparam cparloc;
   cparloc.omm = OM ;

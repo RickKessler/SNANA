@@ -21576,4 +21576,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   snana.car
     + add &SNLCINP input SIM_HEADER_OVERRIDE_FILE 
       (since HEADER_OVERRIDE_FILE works only for real data)
+
+  wfit.c
+    + add new input keys: w0_sim & wa_sim for priors, and muerr_force
+
 END: 

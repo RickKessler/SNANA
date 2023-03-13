@@ -55,6 +55,9 @@
 #
 # Jul 05 2022: combine [VERSION].SL files, same as for [VERSION].DUMP files.
 #
+# Mar 2023: write sim-input keys to merged README so that we don't have to
+#           dig them out from misc.tar.gz ; see merge_write_readme()
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -87,7 +90,7 @@ MAX_SIMGEN_INFILE = 12
 
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
-KEY_INPUT_INCLUDE_FILE ='INPUT_INCLUDE_FILE' # Optional key
+KEY_INPUT_INCLUDE_FILE = 'INPUT_INCLUDE_FILE' # Optional key
 
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
@@ -2405,15 +2408,13 @@ class Simulation(Program):
 
         # - - - - - - - - -
         # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
-        if IS_REPEAT:
-            for row,model_string in zip(row_list_split,model_string_list) :
-                if iver == row[COLNUM_SIM_MERGE_IVER] :
-                    TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                    v_list      = glob.glob1(path_sndata_sim,f"{TMP_GENV}*")
-                    v0          = v_list[0]  # pick first one from list
-                    tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
-                    self.merge_write_input_keys(f, model_string, tmp_readme)
-                    #sys.exit("\nbye bye\n")
+        for row,model_string in zip(row_list_split,model_string_list) :
+            if iver == row[COLNUM_SIM_MERGE_IVER] :
+                TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
+                v_list      = glob.glob1(path_sndata_sim,f"{TMP_GENV}*")
+                v0          = v_list[0]  # pick first one from list
+                tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+                self.merge_write_input_keys(f, model_string, tmp_readme)
 
         f.write("DOCUMENTATION_END:\n")
 

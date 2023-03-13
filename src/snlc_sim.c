@@ -15336,7 +15336,7 @@ void SIMLIB_INIT_DRIVER(void) {
   //   for INIT_ONLY flag, return after initGlobalHeader in case
   //   the global header has rate info such as SOLID_ANGLE.
   
-  //  char fnam[] = "SIMLIB_INIT_DRIVER" ;
+  char fnam[] = "SIMLIB_INIT_DRIVER" ;
 
   // --------------- BEGIN --------------
 

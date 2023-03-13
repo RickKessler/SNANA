@@ -487,8 +487,8 @@ double Hzfun_wCDM(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
   double w0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_w0] ;
   double wa = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_wa] ;
   double Hz, sqHz, a, ZZ, Z2, Z3, ZL, KAPPA ;
-  double argpow, argexp ;
-    
+  double argpow, argexp ;   
+
   KAPPA = 1.0 - OM - OL ;  // curvature
   ZZ    = 1.0 + zCMB ;    Z2=ZZ*ZZ ;   Z3=Z2*ZZ ; 
   a     = 1.0/ZZ;

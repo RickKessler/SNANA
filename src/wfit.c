@@ -1490,7 +1490,12 @@ void set_priors(void) {
     printf("   %s\n", comment) ; 
   }
 
-  if ( noprior ) { printf("\t None.\n"); }
+  if ( noprior ) 
+    { printf("\t None.\n"); }
+  else {
+    printf("\t OM,w0,wa for priors: %.3f  %.3f  %.3f \n",
+	   INPUTS.OMEGA_MATTER_SIM, INPUTS.w0_SIM, INPUTS.wa_SIM );
+  }
 
   fflush(stdout);
 

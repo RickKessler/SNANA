@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 
 
-def make_simblib_ideal(survey='LSST', filters='ugrizY', zpt=35.,\
+def make_simblib_ideal(survey='LSST', filters='ugrizY', zpt=35., zpterr=0.,\
                     mjd_start=53000., mjd_end=53400., mjd_step=2.,\
                     simlib_file='IDEAL.SIMLIB', clobber=False):
 
@@ -31,7 +31,7 @@ def make_simblib_ideal(survey='LSST', filters='ugrizY', zpt=35.,\
         idexpt = 10000 +1
         for mjd in mjds:
             for pb in filters:
-                outf.write(f'S: {mjd:.3f}    {idexpt:d}   {pb}   1.00  1.00  40.0  1.00 0.00 0.000  35.00  0.00  99\n')
+                outf.write(f'S: {mjd:.3f}    {idexpt:d}   {pb}   1.00  1.00  40.0  1.00 0.00 0.000  {zpt:.3f}  {zpterr:.3f}  99\n')
                 idexpt +=1
             outf.write('\n')
         outf.write('END_LIBID: 1 \n')
@@ -48,6 +48,8 @@ def get_options(argv):
                         help='Filters (one letter per, no delimiter)')
     parser.add_argument('--zpt', '-z', default=35., type=float,\
                         help='Specify the survey zeropoint')
+    parser.add_argument('--zpterr', '-e', default=0., type=float,\
+                        help='Specify the survey zeropoint error')
     parser.add_argument('--mjd_start','-x', default=53000., type=float,\
                         help='Specify MJD for SIMLIB start')
     parser.add_argument('--mjd_end','-y', default=53400., type=float,\
@@ -64,8 +66,8 @@ def get_options(argv):
         message = f'mjd_start ({args.mjd_start}) must be greater than mjd_end ({args.mjd_end})'
         raise ValueError(message)
 
-    if args.zpt <= 0 or args.mjd_step <= 0:
-        message = f'zpt ({args.zpt}) and mjd_step ({args.mjd_step}) must be > 0'
+    if args.zpt <= 0 or args.mjd_step <= 0 or args.zpterr < 0:
+        message = f'zpt ({args.zpt}) and mjd_step ({args.mjd_step}) must be > 0 and zpterr ({args.zpterr}) must be >= 0'
         raise ValueError(message)
 
     if os.path.isfile(args.simlib_file) and not args.clobber:
@@ -80,13 +82,14 @@ def main(argv=None):
     survey      = args.survey
     filters     = args.filters
     zpt         = args.zpt
+    zpterr      = args.zpterr
     mjd_start   = args.mjd_start
     mjd_end     = args.mjd_end
     mjd_step    = args.mjd_step
     simlib_file = args.simlib_file
     clobber     = args.clobber
 
-    return make_simblib_ideal(survey=survey, filters=filters, zpt=zpt,\
+    return make_simblib_ideal(survey=survey, filters=filters, zpt=zpt, zpterr=zpterr,\
                     mjd_start=mjd_start, mjd_end=mjd_end, mjd_step=mjd_step,\
                     simlib_file=simlib_file, clobber=clobber)
 

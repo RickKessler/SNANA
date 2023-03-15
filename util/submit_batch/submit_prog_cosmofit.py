@@ -27,7 +27,12 @@
 #     allows more flexibility in file names.
 #     See new method read_hd_info_file
 #
-# Oct 1 82022 RK - change class name from wFit to cosmofit (more general name)
+# Oct 1 2022 RK - change class name from wFit to cosmofit (more general name)
+#
+# Mar 14 2023 RK 
+#   + refactor to read option comma-sep list of directories for each
+#     INPDIR, which enables HDIBC in wfit. 
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob

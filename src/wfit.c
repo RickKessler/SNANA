@@ -196,7 +196,7 @@ struct INPUTS {
   char outFile_cospar[MXCHAR_FILENAME] ; // output name of cospar file
   char outFile_resid[MXCHAR_FILENAME] ;
   char outFile_chi2grid[MXCHAR_FILENAME];
-  char mucov_file[MXCHAR_FILENAME] ;  // input cov matrix; e.g., from create_cov
+  char mucov_file[2*MXCHAR_FILENAME] ;  // input cov matrix; e.g., from create_cov
   char label_cospar[40]  ;   // string label for cospar file.
   int  ndump_mucov ; // dump this many column/rows
   char varname_muerr[40] ; // name of muerr variable, default MUERR
@@ -856,7 +856,16 @@ void parse_args(int argc, char **argv) {
 
       } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {   
   	strcpy(INPUTS.mucov_file,argv[++iarg]);
+
+	// if mucov_file is comma-sep list, remove 2nd file name for now
+	// until we figure out how to deal with two cov matrices
+	if ( strchr(INPUTS.mucov_file,',') != NULL ) {
+	  char *e   = strchr(INPUTS.mucov_file,',') ;
+	  int  j    = (int)(e - INPUTS.mucov_file);
+	  INPUTS.mucov_file[j] = 0 ;
+	}
 	INPUTS.use_mucov =1 ;
+
       } else if (strcasecmp(argv[iarg]+1,"mucovar")==0) {    // legacy key
   	strcpy(INPUTS.mucov_file,argv[++iarg]);
 	INPUTS.use_mucov =1 ;

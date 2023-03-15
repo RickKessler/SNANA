@@ -21579,5 +21579,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
   wfit.c
     + add new input keys: w0_sim & wa_sim for priors, and muerr_force
+    + first attempt at HDIBC to interpolate Hubble diagrams using
+      biascor cosmology
+ 
+  submit_prog_cosmofit.py:
+      + fix to handle comma-sep lists of HD and cov matrices.
 
 END: 

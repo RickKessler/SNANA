@@ -165,16 +165,20 @@ class cosmofit(Program):
             msgerr.append(f"Check {input_file}")
             self.log_assert(False, msgerr)
 
-        # expand inpdir for wildcards and ENVs 
+        # expand inpdir for wildcards and ENVs
+
         inpdir_list = []
         for inpdir_orig in inpdir_list_orig:
-            inpdir = os.path.expandvars(inpdir_orig)
+            inpdir = os.path.expandvars(inpdir_orig) # works on comma-sep list as well
             if '*' in inpdir_orig:
-                tmp_list = sorted(glob.glob(inpdir))
+                msgerr = [f"wildcard no longer supported for INPDIR; " ,
+                          f"needs to be fixed for HDIBC with two HDs" ]
+                self.log_assert(False, msgerr)
             else:
                 tmp_list = [ inpdir ]
             inpdir_list += tmp_list
 
+        
         # - - - - -
         isdata_list        = []
         hd_file_list       = []
@@ -189,14 +193,30 @@ class cosmofit(Program):
 
         for inpdir in inpdir_list:
 
-            if not os.path.exists(inpdir) :
-                msgerr.append(f"Cannot find input directory")
-                msgerr.append(f"  {inpdir}")       
-                self.log_assert(False, msgerr)            
+            # xxx mark delete Mar 14 2023 xxxx
+            #if not os.path.exists(inpdir) :
+            #    msgerr.append(f"Cannot find input directory")
+            #    msgerr.append(f"  {inpdir}")       
+            #    self.log_assert(False, msgerr)            
+            # xxxxxxxxxx
 
+            inpdir_split = inpdir.split(',')
+            
             yaml_info, dict_info = \
-                self.read_hd_info_file(inpdir,covsys_select_list)
+                self.read_hd_info_file(inpdir_split[0],covsys_select_list)
 
+            # for HDIBC method using two HDs, make sure that yamp info is the same
+            if len(inpdir_split) == 2:
+                yaml_info2, dict_info2 = \
+		    self.read_hd_info_file(inpdir_split[1],covsys_select_list)
+                key_check_list = [ 'hd_file', 'covsys_file_list', 'covsys_num_list',
+                                   'isdata' ]
+                for key in key_check_list:
+                    same = ( dict_info[key] == dict_info2[key] )
+                    if not same:
+                        msgerr=[f"{key} name mismatch between {inpdir_list}" ]
+                        self.log_assert(False, msgerr)
+                
             hd_file           = dict_info['hd_file'] 
             covsys_file_list  = dict_info['covsys_file_list']
             covsys_num_list   = dict_info['covsys_num_list']
@@ -229,10 +249,11 @@ class cosmofit(Program):
         self.config_prep['isdata_list']        = isdata_list
         self.config_prep['covinfo_list']       = covinfo_list
 
-        self.wfit_error_check_input_list()
+        self.cosmofit_error_check_input_list()
 
         #print(f" isdata_list = {isdata_list}")
 
+        return
         # end cosmofit_prep_input_list
 
     def cosmofit_prep_wfitavg(self):
@@ -243,7 +264,7 @@ class cosmofit(Program):
 
         CONFIG      = self.config_yaml['CONFIG']
         inpdir_list = self.config_prep['inpdir_list']
-
+        
         KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
         if KEYNAME_WFITAVG is None: 
             return
@@ -348,7 +369,7 @@ class cosmofit(Program):
         # end cosmofit_prep_outdirs
 
         
-    def wfit_error_check_input_list(self):
+    def cosmofit_error_check_input_list(self):
 
         # loop over each inpdir and abort on problems such as
         # non-existing inpdir, n_covsys=0, etc ...
@@ -364,17 +385,19 @@ class cosmofit(Program):
         for inpdir, hd_base, covsys_file_list in \
             zip(inpdir_list, hd_file_list, covsys_file_list2d):
 
-            hd_file    = f"{inpdir}/{hd_base}"
-            n_covsys   = len(covsys_file_list)
-            if n_covsys == 0 :            
-                nerr += 1
-                msgerr.append(f"ERROR: cannot find covsys files in")
-                msgerr.append(f"   {inpdir}")  
+            for inp in inpdir.split(','):    # comma-sep list for HDIBC method
+            
+                hd_file    = f"{inp}/{hd_base}"   # .xyz
+                n_covsys   = len(covsys_file_list)
+                if n_covsys == 0 :            
+                    nerr += 1
+                    msgerr.append(f"ERROR: cannot find covsys files in")
+                    msgerr.append(f"   {inpdir}")  
 
-            if not os.path.exists(hd_file):
-                nerr += 1
-                msgerr.append(f"ERROR: cannot find expected HD file:")
-                msgerr.append(f"   {hd_file}")       
+                if not os.path.exists(hd_file):
+                    nerr += 1
+                    msgerr.append(f"ERROR: cannot find expected HD file:")
+                    msgerr.append(f"   {hd_file}")       
         
         # - - - - - - -
         if nerr > 0 :
@@ -382,7 +405,7 @@ class cosmofit(Program):
             msgerr.append(f"See {nerr} ERROR messages above.")
             self.log_assert(False, msgerr)
 
-        # end wfit_error_check_input_list
+        # end cosmofit_error_check_input_list
 
 
         
@@ -414,7 +437,7 @@ class cosmofit(Program):
         INFO_KEYNAME_COVOPTS   = "COVOPTS"
         INFO_KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
         HD_BASENAME_LEGACY     = "hubble_diagram.txt" 
-
+        
         yaml_file = f"{inpdir}/{INFO_FILENAME}"
         yaml_info = util.extract_yaml(yaml_file, None, None )
 
@@ -428,7 +451,6 @@ class cosmofit(Program):
         else:
             hd_file = HD_BASENAME_LEGACY  # legacy hard wite
     
-
         # read flag indicating real data
         key     = INFO_KEYNAME_ISDATA
         if key in yaml_info:
@@ -713,11 +735,12 @@ class cosmofit(Program):
         cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
         hd_basename  = self.config_prep['hd_file_list'][idir]
         outdir_chi2grid = self.config_prep['outdir_chi2grid']
-
+        
         prefix = self.wfit_num_string(idir,icov,ifit)
 
-        covsys_file   = f"{inpdir}/{cov_basename}"
-        hd_file       = f"{inpdir}/{hd_basename}"
+        hd_file       = self.glue_inpdir_plus_filename(inpdir,hd_basename)
+        covsys_file   = self.glue_inpdir_plus_filename(inpdir,cov_basename)
+
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
@@ -755,6 +778,20 @@ class cosmofit(Program):
 
         # end prep_JOB_INFO_wfit
 
+    def glue_inpdir_plus_filename(self,inpdir,basename):
+        # If inpdir has no comma, return inpdir/basename.
+        # If inpddir = 'path0,path1' then return
+        #   path0/basename,path1/basename
+
+        flist = []
+        for inp in inpdir.split(','):
+            flist.append(f"{inp}/{basename}")
+
+        fstring = ",".join(flist)  # create comma-sep list
+        return fstring
+    
+        # end glue_inpdir_plus_filename
+        
     def prep_JOB_INFO_firecrown(self,index_dict):
 
         idir = index_dict['idir']

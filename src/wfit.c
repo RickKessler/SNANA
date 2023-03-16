@@ -196,7 +196,9 @@ struct INPUTS {
   char outFile_cospar[MXCHAR_FILENAME] ; // output name of cospar file
   char outFile_resid[MXCHAR_FILENAME] ;
   char outFile_chi2grid[MXCHAR_FILENAME];
-  char mucov_file[2*MXCHAR_FILENAME] ;  // input cov matrix; e.g., from create_cov
+  char **mucov_file ;  // input cov matrix(es); e.g., produced by create_cov
+  int    NMUCOV ; // 1 or 2 cov matrices; 2 for HDIBC method
+  
   char label_cospar[40]  ;   // string label for cospar file.
   int  ndump_mucov ; // dump this many column/rows
   char varname_muerr[40] ; // name of muerr variable, default MUERR
@@ -231,6 +233,13 @@ struct INPUTS {
 
 } INPUTS ;
 
+
+typedef struct COVMAT {
+  char    fileName[MXCHAR_FILENAME]; // file name that was read
+  double *ARRAY1D ;   // 1D representation of matrix
+  int     N_NONZERO ; // number of non-zero elements
+  int     NDIM ;      // dimension size  
+} COVMAT_DEF ;
 
 // define workspace
 struct  {
@@ -267,10 +276,10 @@ struct  {
   double omm_sig_marg, omm_sig_upper, omm_sig_lower;
   double cov_w0wa, cov_w0omm;
   double rho_w0wa, rho_w0omm; 
-  
-  double *MUCOV; // 1D array for cov matrix
-  int    NCOV_NONZERO ;
 
+  COVMAT_DEF MUCOV[2]; // up to two cov matrices
+  COVMAT_DEF MUCOV_FINAL ;
+  
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
   double sigmu_int, muoff_final, FoM_final ;
@@ -387,9 +396,6 @@ int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 int NCOVPAIR = 0 ;
 int NCOVSN   = 0 ; 
 
-int INDEX_COVSN_MAP[MXCOVSN];      // CIDLIST index vs. NCOVSN index
-int INDEX_COVSN_INVMAP[MXSN];      // NCOVSN index vs. CIDLIST
-
 // =========== function prototypes ================
 
 void print_wfit_help(void);
@@ -402,11 +408,14 @@ void read_HD(char *inFile, HD_DEF *HD);
 bool read_ISDATA_REAL(char *inFile);
 void read_cospar_biascor(char *info_yml_file, Cosparam *cospar);
 void malloc_HDarrays(int opt, int NSN, HD_DEF *HD);
+void malloc_COVMAT(int opt, COVMAT_DEF *COV);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
-void read_mucov_sys(char *inFile);
-void dump_MUCOV(char *comment);
-void invert_mucovar(double sqmurms_add);
+void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *COV);
+void dump_MUCOV(COVMAT_DEF *COV, char *comment);
+void sync_HD_LIST(void);
+void compute_MUCOV_FINAL();
+void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
 void set_stepsizes(void);
 void set_Ndof(void);
@@ -490,7 +499,7 @@ double trapezoid(double (*func)(double, Cosparam *),
 
 int main(int argc,char *argv[]){
 
-  int h;
+  int f ;
   // ----------------- BEGIN MAIN ----------------
 
   print_full_command(stdout, argc, argv);
@@ -526,17 +535,25 @@ int main(int argc,char *argv[]){
     if ( INPUTS.USE_HDIBC ) 
       { read_HD(INPUTS.HD_infile_list[1], &HD_LIST[1]); }
 
-    // xxx need to sync events to be the same on both lists xxx 
-
     // for large samples, setup logz grid to interpolate rz(z)
-    for(h=0; h < INPUTS.NHD; h++ ) { init_rz_interp(&HD_LIST[h]); }
+    for(f=0; f < INPUTS.NHD; f++ )
+      { init_rz_interp(&HD_LIST[f]); }
 
     // Set BAO and CMB priors
     set_priors();
   
-    // read optional mu-cov matrix (e..g, Cov_syst)
-    read_mucov_sys(INPUTS.mucov_file);
-   
+    // read optional mu-covSys matrix
+    for(f=0; f < INPUTS.NMUCOV; f++ ) 
+      { read_mucov_sys(INPUTS.mucov_file[f], f, &WORKSPACE.MUCOV[f] ); }
+
+    // sync HD events and MUCOV if there are two HDs
+    if ( INPUTS.USE_HDIBC ) { sync_HD_LIST(); }
+
+    if ( INPUTS.use_mucov ) {
+      compute_MUCOV_FINAL();
+      invert_mucovar(&WORKSPACE.MUCOV_FINAL, INPUTS.sqsnrms);
+    }
+    
     // compute grid step size per floated variable
     set_stepsizes();
 
@@ -611,7 +628,7 @@ void init_stuff(void) {
   INPUTS.w0_SIM           = w0_DEFAULT ;
   INPUTS.wa_SIM           = wa_DEFAULT ;
 
-  INPUTS.mucov_file[0]       = 0 ;
+  INPUTS.NMUCOV              = 0 ;
   INPUTS.ndump_mucov         = 0 ;
   INPUTS.outFile_cospar[0]   = 0 ;
   INPUTS.outFile_resid[0]    = 0 ;
@@ -854,9 +871,13 @@ void parse_args(int argc, char **argv) {
 	/* Output likelihoods as fits files & text files */
 	INPUTS.fitsflag = 1; 
 
-      } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {   
-  	strcpy(INPUTS.mucov_file,argv[++iarg]);
+      } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {
 
+	parse_commaSepList("mucov_file", argv[++iarg], 2, MXCHAR_FILENAME,
+			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
+	INPUTS.use_mucov =1 ;
+	
+	/* xxxxxxxxx
 	// if mucov_file is comma-sep list, remove 2nd file name for now
 	// until we figure out how to deal with two cov matrices
 	if ( strchr(INPUTS.mucov_file,',') != NULL ) {
@@ -864,11 +885,9 @@ void parse_args(int argc, char **argv) {
 	  int  j    = (int)(e - INPUTS.mucov_file);
 	  INPUTS.mucov_file[j] = 0 ;
 	}
-	INPUTS.use_mucov =1 ;
+	xxxxxxx */
+      
 
-      } else if (strcasecmp(argv[iarg]+1,"mucovar")==0) {    // legacy key
-  	strcpy(INPUTS.mucov_file,argv[++iarg]);
-	INPUTS.use_mucov =1 ;
       } else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
         strcpy(INPUTS.varname_muerr,argv[++iarg]);
        
@@ -1106,6 +1125,22 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
 
 } // end malloc_HDarrays
 
+// ==========================
+void malloc_COVMAT(int opt, COVMAT_DEF *COVMAT) {
+
+  int NDIM = COVMAT->NDIM ;
+  int MEMD = NDIM * NDIM * sizeof(double);
+  // ------------ BEGIN ------------
+
+  if ( opt > 0 )  {
+    COVMAT->ARRAY1D = (double*) malloc(MEMD);
+  }
+  else {
+    free(COVMAT->ARRAY1D);
+  }
+  
+  return ;
+} // end malloc_COVMAT
 
 // ==================================
 void read_HD(char *inFile, HD_DEF *HD) {
@@ -1420,17 +1455,20 @@ bool read_ISDATA_REAL(char *inFile) {
 } // end read_ISDATA_REAL
 
 // ==================================
-void read_mucov_sys(char *inFile){
+void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // Created October 2021 by A.Mitra and R.Kessler
   // Read option Cov_syst matrix, and invert it.
  
-
 #define MXSPLIT_mucov 20
 
   int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
+  int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
+  int NDIM_STORE   = NSN_STORE ;
+  
   char ctmp[200], SN[2][12], locFile[1000] ;
-  int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NDIM_STORE = HD_LIST[0].NSN;
+  int NSPLIT, NROW_read=0, NDIM_ORIG = 0;
   int NMAT_read=0,  NMAT_store = 0;
   float f_MEM;
   double cov;
@@ -1441,26 +1479,13 @@ void read_mucov_sys(char *inFile){
 
   // ---------- BEGIN ----------------
 
-  // init legacy INVMAP ... should be able to remove this
-  // after refactor.
-  for ( i=0; i<NDIM_STORE; i++ )  { INDEX_COVSN_INVMAP[i] = -9 ; }  
-
-  WORKSPACE.NCOV_NONZERO = 0;
-
-  // bail if there is no cov matrix to read
-  if ( !INPUTS.use_mucov  ) { return; }
+  MUCOV->N_NONZERO = 0;
 
   printf("\n# ======================================= \n");
   printf("  Process MUCOV systematic file  \n"); 
 
-  /* xxx mark delete Feb 2023 xxxxxxxxx
-  if ( INPUTS.zmin > 0.000001 || INPUTS.zmax < 8.99 ) {
-    sprintf(c1err,"zmim/zmax cut is not yet applied to cov_sys matrix.") ;
-    sprintf(c2err,"Either remove z cut or fix code.", inFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-  xxxxxxxxx */
-
+  sprintf(MUCOV->fileName, "%s", inFile);
+  
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
   fp = snana_openTextFile(OPENMASK, "", inFile,
@@ -1493,23 +1518,23 @@ void read_mucov_sys(char *inFile){
       printf("\t Found COV dimension %d\n", NDIM_ORIG);
       printf("\t Store COV dimension %d\n", NDIM_STORE);
       
-      if ( NDIM_ORIG != HD_LIST[0].NSN_ORIG ) {
+      if ( NDIM_ORIG != HD_LIST[imat].NSN_ORIG ) {
 	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
-		NDIM_ORIG, HD_LIST[0].NSN_ORIG);
+		NDIM_ORIG, HD_LIST[imat].NSN_ORIG);
 	sprintf(c2err,"Above NDIM are before cuts.");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-      int MEMD = NDIM_STORE * NDIM_STORE * sizeof(double);
-      WORKSPACE.MUCOV = (double*) malloc(MEMD);
+      MUCOV->NDIM    = NDIM_STORE;
+      malloc_COVMAT(+1,MUCOV);
     }
     else {
       NMAT_read++ ;
       sscanf( ptrSplit[0],"%le",&cov);      
-      if(HD_LIST[0].pass_cut[i0] && HD_LIST[0].pass_cut[i1] ) {
+      if(HD_LIST[imat].pass_cut[i0] && HD_LIST[imat].pass_cut[i1] ) {
 	kk = k1*NDIM_STORE + k0;
-	WORKSPACE.MUCOV[kk] = cov;
-	if ( cov != 0.0 ) { WORKSPACE.NCOV_NONZERO++ ; }
+	MUCOV->ARRAY1D[kk] = cov;
+	if ( cov != 0.0 ) { MUCOV->N_NONZERO++ ; }
 	NMAT_store += 1;
 	k0++;
 	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
@@ -1523,12 +1548,12 @@ void read_mucov_sys(char *inFile){
   } // end of read loop
 
 
-  printf("\t Read %d non-zero COV elements.\n", WORKSPACE.NCOV_NONZERO );
+  printf("\t Read %d non-zero COV elements.\n", MUCOV->N_NONZERO );
   fflush(stdout);
 
   // if all COV elements are zero, this is a request for stat-only fit,
   // so disable cov
-  if ( WORKSPACE.NCOV_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
+  if ( MUCOV->N_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
 
   // - - - - - - - - - - - - - - - - -
   // sanify check
@@ -1548,34 +1573,25 @@ void read_mucov_sys(char *inFile){
 
   // Add diagonal errors from the Hubble diagram
   double COV_STAT ;
-  for ( i=0; i<HD_LIST[0].NSN; i++ )  {
+  for ( i=0; i<NDIM_STORE; i++ )  {
     kk = i*NDIM_STORE + i;
-    COV_STAT = HD_LIST[0].mu_sqsig[i] ;
-    WORKSPACE.MUCOV[kk] += COV_STAT ;
+    COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
+    MUCOV->ARRAY1D[kk] += COV_STAT ;
   }
 
-  int LDMP_MUCOV = (INPUTS.ndump_mucov>0);
-  if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV"); }
   
-  // - - - - -
-  // invert MUCOV matrix ... this will ovewrite WORKSPACE.MUCOV
-  // with its inverse.
-  invert_mucovar(INPUTS.sqsnrms);
-
-  if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV^-1"); }
-
   return ; 
 }
 // end of read_mucov_sys
 
-
-void dump_MUCOV(char *comment ) {
+// ==================================
+void dump_MUCOV(COVMAT_DEF *MUCOV, char *comment ) {
 
   char fnam[]="dump_MUCOV";
   int i0, i1, NROW, kk ;
   int MAX_ROW = INPUTS.ndump_mucov ;
-  if ( HD_LIST[0].NSN < MAX_ROW ) { NROW = HD_LIST[0].NSN; }
-  else { NROW =  MAX_ROW; }
+  int NSN     = MUCOV->NDIM ;
+  if (NSN < MAX_ROW ) { NROW = NSN; }   else { NROW =  MAX_ROW; }
   
   // dump
   printf("\n DUMP %s \n", comment);
@@ -1583,15 +1599,61 @@ void dump_MUCOV(char *comment ) {
   for (i0=0; i0 < NROW; i0++)  {
       for(i1=0; i1 < NROW; i1++) {
 	kk = i0*NROW + i1;
-	printf("%9.5f ", WORKSPACE.MUCOV[kk] );
+	printf("%9.5f ", MUCOV->ARRAY1D[kk] );
       }
       printf("\n");
   }
-  printf("\n"); 
+  printf("\n");
+  fflush(stdout);
+  return;
 }// end of dump_MUCOV
 
+// ==================================
+void sync_HD_LIST(void) {
 
+  // Created Mar 2023
+  // Called for HDIBC method where we have two HDs and possibly two COVMATs.
+  // Re-define each HD and COV to include only common SN.
 
+  char fnam[] = "sync_HD_LIST" ;
+  
+  // ------------ BEGIN -----------
+
+  // ... sync here ...
+
+  
+  return ;
+} // end sync_HD_LIST
+
+// ===================================
+void compute_MUCOV_FINAL(void) {
+
+  // Ceated Mar 2023
+  // If there is just one COV, then MUCOV_FINAL = MUCOV[0].
+  // If there are two COVs, MUCOV_FINAL is the average for each element.
+ 
+  int  j, icov ;
+  int  NSN    = HD_LIST[0].NSN;
+  int  NMUCOV = INPUTS.NMUCOV; // 1 or 2
+  if ( NMUCOV == 0 ) { return; }
+  double fac = 1.0 / (double)NMUCOV ;
+  double covsum ;
+
+  // ---------- BEGIN ------------
+
+  WORKSPACE.MUCOV_FINAL.NDIM = NSN ;
+  malloc_COVMAT(+1, &WORKSPACE.MUCOV_FINAL);
+  
+  for(j=0; j < NSN*NSN; j++ ) {
+    covsum = 0.0 ;
+    for(icov = 0; icov < INPUTS.NMUCOV; icov++ )
+      { covsum += WORKSPACE.MUCOV[icov].ARRAY1D[j]; }
+
+    WORKSPACE.MUCOV_FINAL.ARRAY1D[j] = fac * covsum ;
+  }
+
+    return ;
+} // end compute_MUCOV_FINAL
 
 //===================================
 void set_priors(void) {
@@ -1909,7 +1971,8 @@ void set_stepsizes(void) {
   if (INPUTS.h_steps   > 1) 
     { INPUTS.h_stepsize   = (INPUTS.h_max-INPUTS.h_min)/(INPUTS.h_steps-1);}
   
-   
+
+  printf("\n");
   printf("   --------   Grid parameters   -------- \n");
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_w, varname_w, 
@@ -2868,6 +2931,10 @@ void wfit_final(void) {
   WORKSPACE.sigmu_int = 0.0;
   if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
 
+  
+  // --------- xxx BEWARE: BELOW IS BROKEN xxx ---------------
+
+  /* xxxxxxxxxx mark delete Mar 15 2023 xxxxxxxx
   sigint_binsize = 0.01;
   printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
   fflush(stdout);
@@ -2875,7 +2942,7 @@ void wfit_final(void) {
   for ( i = 0; i< 20; i++ ) {
     sigmu_tmp   = (double)i * sigint_binsize ;
     sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(sqmusig_tmp);
+    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
     get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
 	  	  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
     
@@ -2893,7 +2960,7 @@ void wfit_final(void) {
   for ( i = -10; i < 10; i++ ) {
     sigmu_tmp   = sigmu_int1 + (double)i * sigint_binsize ;
     sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(sqmusig_tmp);
+    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
     
     get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
 		  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
@@ -2905,7 +2972,7 @@ void wfit_final(void) {
   }
  
   WORKSPACE.sigmu_int   = sigmu_int ;
-  
+  xxxxxxxxxxxx end mark xxxxxxxx */
 
   return;
 } // end wfit_final
@@ -2983,16 +3050,17 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
 } // end set_HzFUN_for_wfit
 
 // ==================================
-void invert_mucovar(double sqmurms_add) {
+void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
 
-  // May 20, 2009 + 04 OCt, 2021
-  // add diagonal elements to covariance matrix, then invert.
+  // Mar 2023 - refactor to pass COVMAT struct
   //
-  int  i, NSN = HD_LIST[0].NSN;
+  int  NSN    = MUCOV->NDIM ;
+  int  i;
   time_t t0, t1;
   bool check_inverse = (INPUTS.debug_flag == 1000);
   double *MUCOV_ORIG ;
-
+  int LDMP_MUCOV = INPUTS.ndump_mucov > 0 ;
+  
   // ---------------- BEGIN --------------
 
   printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
@@ -3001,26 +3069,31 @@ void invert_mucovar(double sqmurms_add) {
   if ( sqmurms_add != 0.0 ) 
     { printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n"); }
 
+  if ( LDMP_MUCOV ) { dump_MUCOV(MUCOV,"MUCOV"); }
+    
   fflush(stdout);
 
-  if ( INPUTS.use_mucov) {
-    t0 = time(NULL);
+  t0 = time(NULL);
 
-    if ( check_inverse ) {
-      int MEMD = NSN * NSN * sizeof(double);
-      MUCOV_ORIG = (double*) malloc(MEMD);
-      for(i=0; i < NSN*NSN; i++ ) { MUCOV_ORIG[i] = WORKSPACE.MUCOV[i]; }
-    }
-
-    invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
-    t1 = time(NULL);
-    double t_invert = (t1-t0);
-    printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
-
-    if ( check_inverse ) 
-      { check_invertMatrix(NSN,MUCOV_ORIG,WORKSPACE.MUCOV); }
-
+  if ( check_inverse ) {
+    int MEMD = NSN * NSN * sizeof(double);
+    MUCOV_ORIG = (double*) malloc(MEMD);
+    for(i=0; i < NSN*NSN; i++ ) { MUCOV_ORIG[i] = MUCOV->ARRAY1D[i]; }
   }
+  
+  invertMatrix( NSN, NSN, MUCOV->ARRAY1D ) ;
+  t1 = time(NULL);
+  double t_invert = (t1-t0);
+  printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
+  
+  if ( check_inverse ) {
+    check_invertMatrix(NSN,MUCOV_ORIG,MUCOV->ARRAY1D);
+    free(MUCOV_ORIG);
+  }
+
+
+  if ( LDMP_MUCOV ) { dump_MUCOV(MUCOV,"MUCOV^-1"); }
+  
   fflush(stdout);
 
   return ;
@@ -3189,7 +3262,7 @@ void get_chi2wOM (
 
     n_count++ ;
     if ( use_mucov ) {
-      sqmusiginv = WORKSPACE.MUCOV[k*(NSN+1)]; 
+      sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k*(NSN+1)]; 
     }
     else {
       sqmusig     = HD0->mu_sqsig[k] + sqmurms_add ; // xxx INTERP?? xx
@@ -3238,7 +3311,7 @@ void get_chi2wOM (
       k1min = k0 + 1;
       for ( k1=k1min; k1 < NSN; k1++)  {
 	k = k0*NSN + k1;
-	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
+	sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k]; // Inverse of the matrix 
 
 	dmu0     = dmu_list[k0];
 	dmu1     = dmu_list[k1];

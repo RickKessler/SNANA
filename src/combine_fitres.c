@@ -958,6 +958,8 @@ int match_CID_hash_local(int ifile, int isn2) {
   //   isn2  = current SN index
   // 
   // Function returns isn index of ifile=0.
+  //
+  // !!! obsolete !!!
 
   int   isn;
   char  ccid[MXSTRLEN_CID];

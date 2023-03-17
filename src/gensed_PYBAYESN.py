@@ -351,9 +351,6 @@ class gensed_PYBAYESN(gensed_base):
         #    list or numpy array of rest frame wavelengths
         J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
 
-        print("J_tau matrix")
-        print(trest, J_t)
-
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package
         #    If we can't, I have the necessary code for this
@@ -372,7 +369,8 @@ class gensed_PYBAYESN(gensed_base):
         #    If we have done this right, this should be the same length
         #    as `flux`
         JWJ = np.linalg.multi_dot([self.J_l, W, J_t]).squeeze()
-
+        dlam = self.wave[1:] - self.wave[:-1]
+        print(trest, min(dlam), max(dlam), self.wave[446], JWJ[446], 10**(-0.4*JWJ)[446], JWJ.shape)
 
         #ST: Multiplies correction into Hsiao fluxes
         #    Stilde is essentially the host-dust-extinguished

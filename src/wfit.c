@@ -412,6 +412,8 @@ void malloc_COVMAT(int opt, COVMAT_DEF *COV);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
 void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *COV);
+void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *COV);
+int  applyCut_covmat(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
 void dump_MUCOV(COVMAT_DEF *COV, char *comment);
 void sync_HD_LIST(void);
 void compute_MUCOV_FINAL();
@@ -1241,7 +1243,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
       (ztmp <= INPUTS.zmax) &&
       (NFIT > 1) ;
     
-    HD->pass_cut[irow]       = false;
+    HD->pass_cut[irow]  = false; // always use original index
 
     if ( PASSCUTS ) {
       HD->pass_cut[irow]  = true;
@@ -1454,7 +1456,7 @@ bool read_ISDATA_REAL(char *inFile) {
 
 } // end read_ISDATA_REAL
 
-// ==================================
+// =================================================================
 void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // Created October 2021 by A.Mitra and R.Kessler
@@ -1476,6 +1478,135 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   char  **ptrSplit;
   FILE *fp;
   char fnam[] = "read_mucov_sys" ;
+
+  // ---------- BEGIN ----------------
+
+  MUCOV->N_NONZERO = 0;
+
+  printf("\n# ======================================= \n");
+  printf("  Process MUCOV systematic file  \n"); 
+
+  sprintf(MUCOV->fileName, "%s", inFile);
+  
+  // Open File using the utility
+  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+			  locFile, &gzipFlag );
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open mucov_file") ;
+    sprintf(c2err,"%s", inFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // allocate strings to read each line ... in case there are comments
+  ptrSplit = (char **)malloc(MXSPLIT_mucov*sizeof(char*));
+  for(j=0;j<MXSPLIT_mucov;j++){
+    ptrSplit[j]=(char *)malloc(200*sizeof(char));
+  }
+  
+  i0 = i1 = 0 ;
+  k0 = k1 = 0 ;
+  while ( fgets(ctmp, 100, fp) != NULL ) {
+    // ignore comment lines 
+    if ( commentchar(ctmp) ) { continue; }
+    
+    // break line into words
+    splitString(ctmp, " ",MXSPLIT_mucov,  // (I)
+		&NSPLIT, ptrSplit);       // (O)
+
+    if ( NROW_read == 0 ) {
+      sscanf(ptrSplit[0],"%d",&NDIM_ORIG);
+      printf("\t Found COV dimension %d\n", NDIM_ORIG);
+      printf("\t Store COV dimension %d\n", NDIM_STORE);
+      
+      if ( NDIM_ORIG != HD_LIST[imat].NSN_ORIG ) {
+	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
+		NDIM_ORIG, HD_LIST[imat].NSN_ORIG);
+	sprintf(c2err,"Above NDIM are before cuts.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
+      MUCOV->NDIM    = NDIM_ORIG; // read entire COV without cuts
+      malloc_COVMAT(+1,MUCOV);
+    }
+    else {
+      // store entire cov matrix (no cuts yet)
+      sscanf( ptrSplit[0],"%le",&cov);
+      MUCOV->ARRAY1D[NMAT_read] = cov;
+      NMAT_read++ ;
+    }
+    
+    NROW_read += 1 ;
+
+  } // end of read loop
+
+
+  // - - - - - - - - - - -  -
+  // Trim cov matrix using pass_cuts; MUCOV->ARRAY1D gets overwritten
+  int NDIM_CHECK = applyCut_covmat(HD_LIST[imat].pass_cut, MUCOV);
+
+  NMAT_store = NDIM_STORE*NDIM_STORE;
+
+  printf("\t Read %d non-zero COV elements.\n", MUCOV->N_NONZERO );
+  fflush(stdout);
+
+  // if all COV elements are zero, this is a request for stat-only fit,
+  // so disable cov
+  if ( MUCOV->N_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
+
+  // - - - - - - - - - - - - - - - - -
+  // sanify check
+  if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
+    sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
+	    NMAT_read, NDIM_ORIG, NDIM_ORIG*NDIM_ORIG);
+    sprintf(c2err,"Check %s", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  if ( NMAT_store != NDIM_STORE*NDIM_STORE )  {
+    sprintf(c1err,"Store %d cov elements, but expected %d**2=%d",
+            NMAT_store, NDIM_STORE, NDIM_STORE*NDIM_STORE);
+    sprintf(c2err,"Check %s", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // Add diagonal errors from the Hubble diagram
+  double COV_STAT ;
+  for ( i=0; i<NDIM_STORE; i++ )  {
+    kk = i*NDIM_STORE + i;
+    COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
+    MUCOV->ARRAY1D[kk] += COV_STAT ;
+  }
+
+  
+  return ; 
+}
+// end of read_mucov_sys
+
+
+// =================================================================
+void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
+
+  // Created October 2021 by A.Mitra and R.Kessler
+  // Read option Cov_syst matrix, and invert it.
+ 
+#define MXSPLIT_mucov 20
+
+  int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
+  int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
+  int NDIM_STORE   = NSN_STORE ;
+  
+  char ctmp[200], SN[2][12], locFile[1000] ;
+  int NSPLIT, NROW_read=0, NDIM_ORIG = 0;
+  int NMAT_read=0,  NMAT_store = 0;
+  float f_MEM;
+  double cov;
+  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
+  char  **ptrSplit;
+  FILE *fp;
+  char fnam[] = "read_mucov_sys_legacy" ;
 
   // ---------- BEGIN ----------------
 
@@ -1582,7 +1713,50 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   
   return ; 
 }
-// end of read_mucov_sys
+// end of read_mucov_sys_legacy
+
+// =========================================================
+int applyCut_covmat(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
+
+  // Created Mar 2023
+  // Overwrite input MUCOV->ARRAY1D with matrix containing only
+  // the elements passing 1D-array of cuts in PASS_CUT_LIST.
+  // Function Return final size of matrix = number of True elements in 
+  // PASS_CUT_LIST.
+
+  int  i0, i1, k0, k1, kk, j, NDIM_ORIG = MUCOV->NDIM;
+  int  NDIM_STORE = 0 ;
+  double cov;
+  char fnam[] = "applyCut_covmat" ;
+
+  // ----------- BEGIN --------------
+
+  i0 = i1 = k0 = k1 = 0 ;
+  MUCOV->N_NONZERO = 0 ;
+
+  // first find out how many pass cuts
+  for(j=0; j < NDIM_ORIG; j++ ) {
+    if ( PASS_CUT_LIST[j] ) { NDIM_STORE++ ; }
+  }
+
+  for(j=0; j < NDIM_ORIG*NDIM_ORIG; j++ ) {
+    cov = MUCOV->ARRAY1D[j];
+    if( PASS_CUT_LIST[i0] && PASS_CUT_LIST[i1] ) {
+	kk = k1*NDIM_STORE + k0;
+	MUCOV->ARRAY1D[kk] = cov;
+	if ( cov != 0.0 ) { MUCOV->N_NONZERO++ ; }
+	k0++;
+	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
+      }
+      i0++;
+      if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
+  }
+
+  MUCOV->NDIM = NDIM_STORE;
+  return(NDIM_STORE) ;
+
+} // end applyCut_covmat
+
 
 // ==================================
 void dump_MUCOV(COVMAT_DEF *MUCOV, char *comment ) {

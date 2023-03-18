@@ -66,6 +66,8 @@
 # 
 # Nov 13 2022 RK - fix subtle bugs so that NSPLITRAN works with event-sync.
 #
+# Mar 18 2023 RK - gzip with new util.gzip_list_by_chunks() to gzip faster in parallel
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1118,9 +1120,11 @@ class BBC(Program):
                          f" -> {nrow} events ")
 
         # - - - - - 
-        logging.info("   gzip the catenated FITRES files.")
-        cmd_gzip = f"cd {output_dir}; gzip */INPUT_FITOPT*.{SUFFIX_FITRES}"
-        os.system(cmd_gzip)
+        wildcard = f"INPUT_FITOPT*.{SUFFIX_FITRES}"
+        logging.info(f"   gzip the catenated {wildcard} files.")
+        util.gzip_list_by_chunks(output_dir,wildcard,10) # Mar 2023
+        # xxx mark cmd_gzip = f"cd {output_dir}; gzip {wildcard}"
+        # xxx mark os.system(cmd_gzip)
 
         # remove cat log file
         rm_log = f"cd {output_dir}; rm {cat_file_log}"

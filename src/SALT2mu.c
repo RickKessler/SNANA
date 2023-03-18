@@ -412,7 +412,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define M0_DEFAULT -30.0   
 
 // options for uM0
-#define M0FITFLAG_CONSTANT     0 // global constant M0 (no floated)
+#define M0FITFLAG_CONSTANT     0 // global constant M0 (not floated)
 #define M0FITFLAG_ZBINS_FLAT   1 // float constant M0 in each zbin
 #define M0FITFLAG_ZBINS_INTERP 2 // idem, but interpolate between z-bins
 
@@ -4294,7 +4294,6 @@ double fcn_M0(int n, double *M0LIST) {
 
   // ----------- BEGIN ----------
 
-  // xxx mark delete Oct 28 2022   M0  = M0_DEFAULT ;
   M0      = INPUTS.M0 ;
 
   iz0     = INFO_DATA.TABLEVAR.IZBIN[n];
@@ -21453,12 +21452,12 @@ void print_SALT2mu_HELP(void) {
     "u22=1   # 0,1 --> fix/float parameter 22",
     "sigmb=0.11         # initial guess for sigint",
     "",
-    "uM0=1   # 0 --> fix M0 params to INPUTS.mag0",
-    "        # 1 --> float M0 in each z bin (default)",
-    "        # 2 --> float M0 as knot with interpolation",
+    "uM0=0   # fix M0 params to INPUTS.mag0",
+    "uM0=1   # float M0 in each z bin (default)",
+    "uM0=2   # float M0 as knot with interpolation",
     "",
     "fixpar_all=1 # internally set all float logicals to false, even those set ",
-    "             # true in input file. (i.e., uM0=0, u1=0, u2=0, etc ...)",
+    "             # true in input file. (i.e., force uM0=0, u1=0, u2=0, etc ...)",
     "             # This option turns BBC into a distance calculator.",
     "",
     " - - - - -  misc fit params and options - - - - - ",

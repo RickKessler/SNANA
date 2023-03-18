@@ -413,9 +413,10 @@ void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
 void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *COV);
 void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *COV);
-int  applyCut_covmat(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
+int  applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD);
+int  applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
 void dump_MUCOV(COVMAT_DEF *COV, char *comment);
-void sync_HD_LIST(void);
+void sync_HD_LIST(HD_DEF *HD_REF, HD_DEF *HD, COVMAT_DEF *MUCOV);
 void compute_MUCOV_FINAL();
 void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
@@ -549,7 +550,13 @@ int main(int argc,char *argv[]){
       { read_mucov_sys(INPUTS.mucov_file[f], f, &WORKSPACE.MUCOV[f] ); }
 
     // sync HD events and MUCOV if there are two HDs
-    if ( INPUTS.USE_HDIBC ) { sync_HD_LIST(); }
+    if ( INPUTS.USE_HDIBC ) { 
+      sync_HD_LIST(&HD_LIST[0],
+		   &HD_LIST[1], &WORKSPACE.MUCOV[1] );  // <== modified
+
+      sync_HD_LIST(&HD_LIST[1],
+		   &HD_LIST[0], &WORKSPACE.MUCOV[0] );  // <== modified
+    }
 
     if ( INPUTS.use_mucov ) {
       compute_MUCOV_FINAL();
@@ -677,6 +684,10 @@ void init_stuff(void) {
 
   // - - - - -
   // WORKSPACE
+
+  WORKSPACE.MUCOV[0].NDIM = 0;
+  WORKSPACE.MUCOV[1].NDIM = 0;
+
   WORKSPACE.snchi_min  = 1.0e20 ;
   WORKSPACE.extchi_min = 1.0e20 ;
 
@@ -1242,11 +1253,15 @@ void read_HD(char *inFile, HD_DEF *HD) {
       (ztmp >= INPUTS.zmin) &&
       (ztmp <= INPUTS.zmax) &&
       (NFIT > 1) ;
-    
+
+    HD->pass_cut[irow]  = PASSCUTS ;
+
+    /* xxx mark delete xxxxxx    
     HD->pass_cut[irow]  = false; // always use original index
 
     if ( PASSCUTS ) {
       HD->pass_cut[irow]  = true;
+
       sprintf(HD->cid[NROW2], "%s", HD->cid[irow] );
       HD->mu[NROW2]       = HD->mu[irow];
       HD->mu_sig[NROW2]   = HD->mu_sig[irow];
@@ -1263,9 +1278,14 @@ void read_HD(char *inFile, HD_DEF *HD) {
       NROW2++ ;
 
     } // end PASSCUTS
+      xxxxxx end mark delete xxxxxxx */
+
   } // end irow
 
-  HD->NSN  = NROW2;
+  // xxx mark  HD->NSN  = NROW2;
+
+  HD->NSN = applyCut_HD(HD->pass_cut, HD);
+
   printf("   Keep %d of %d z-bins with z cut\n", 
 	 HD->NSN, NROW);  
 
@@ -1544,7 +1564,7 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // - - - - - - - - - - -  -
   // Trim cov matrix using pass_cuts; MUCOV->ARRAY1D gets overwritten
-  int NDIM_CHECK = applyCut_covmat(HD_LIST[imat].pass_cut, MUCOV);
+  int NDIM_CHECK = applyCut_COVMAT(HD_LIST[imat].pass_cut, MUCOV);
 
   NMAT_store = NDIM_STORE*NDIM_STORE;
 
@@ -1715,8 +1735,50 @@ void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 }
 // end of read_mucov_sys_legacy
 
+
+// ===================================
+int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
+
+  // Use PASS_CUT_LIST to update HD arrays for elements passing cuts.
+
+  int NSN_ORIG = HD->NSN_ORIG;
+  int irow, NSN_STORE=0;
+  double ztmp ;
+  char fnam[] = "applyCut_HD";
+
+  // ------------ BEGIN ------------
+
+  for(irow = 0; irow < NSN_ORIG; irow++ ) {
+
+    ztmp = HD->z[irow];
+
+    if ( !PASS_CUT_LIST[irow] ) { continue; }
+    
+    sprintf(HD->cid[NSN_STORE], "%s", HD->cid[irow] );
+    HD->mu[NSN_STORE]       = HD->mu[irow];
+    HD->mu_sig[NSN_STORE]   = HD->mu_sig[irow];
+    if ( INPUTS.muerr_force > 0.0 ) { HD->mu_sig[NSN_STORE] = INPUTS.muerr_force; }
+
+    HD->z[NSN_STORE]        = ztmp;
+    HD->logz[NSN_STORE]     = log10(ztmp); 
+    HD->z_sig[NSN_STORE]    = HD->z_sig[irow];
+    HD->mu_sqsig[NSN_STORE] = HD->mu_sig[irow]*HD->mu_sig[irow];
+
+    if ( ztmp < HD->zmin ) { HD->zmin = ztmp; }
+    if ( ztmp > HD->zmax ) { HD->zmax = ztmp; }
+
+    NSN_STORE++ ;
+  }
+
+
+  HD->NSN = NSN_STORE ;
+
+  return(NSN_STORE);
+
+} // end applyCut_HD
+
 // =========================================================
-int applyCut_covmat(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
+int applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
 
   // Created Mar 2023
   // Overwrite input MUCOV->ARRAY1D with matrix containing only
@@ -1727,7 +1789,7 @@ int applyCut_covmat(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
   int  i0, i1, k0, k1, kk, j, NDIM_ORIG = MUCOV->NDIM;
   int  NDIM_STORE = 0 ;
   double cov;
-  char fnam[] = "applyCut_covmat" ;
+  char fnam[] = "applyCut_COVMAT" ;
 
   // ----------- BEGIN --------------
 
@@ -1755,7 +1817,7 @@ int applyCut_covmat(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
   MUCOV->NDIM = NDIM_STORE;
   return(NDIM_STORE) ;
 
-} // end applyCut_covmat
+} // end applyCut_COVMAT
 
 
 // ==================================
@@ -1783,19 +1845,52 @@ void dump_MUCOV(COVMAT_DEF *MUCOV, char *comment ) {
 }// end of dump_MUCOV
 
 // ==================================
-void sync_HD_LIST(void) {
+void sync_HD_LIST(HD_DEF *HD_REF, 
+		  HD_DEF *HD,  COVMAT_DEF *MUCOV) {
 
   // Created Mar 2023
   // Called for HDIBC method where we have two HDs and possibly two COVMATs.
-  // Re-define each HD and COV to include only common SN.
+  // Re-define HD and MUCOV to include only those elements in HD_REF.
+  //
+  // WARNING: NOT TESTED !!!
 
+  int NSN_REF = HD_REF->NSN ;
+  int MEMB    = sizeof(bool) * (NSN_REF + 100);
+  bool  *SYNC_LIST = (bool*) malloc(MEMB);
+  int ilist0 = 0, ilist1=1, NREMOVE=0 ;
+  int iref, i,  idum;
+  char *cid;
   char fnam[] = "sync_HD_LIST" ;
   
   // ------------ BEGIN -----------
 
-  // ... sync here ...
+  match_cid_hash("", -1,0); // reset hash table
 
+  for(iref=0; iref < NSN_REF; iref++ ) {
+    cid = HD_REF->cid[iref] ;
+    idum = match_cid_hash(cid,ilist0,iref);  // load hash table
+  }
   
+  // loop over  HD and set SYNC_LIST
+  for(i=0; i < HD->NSN; i++ ) {
+    cid  = HD->cid[i] ;
+    iref = match_cid_hash(cid,ilist1,i);
+    SYNC_LIST[i] = false; 
+    if ( iref >= 0 )  { SYNC_LIST[i] = true; }
+    else              { NREMOVE++ ; }
+  }
+
+  printf("\t %s: remove %d SN from HD and MUCOV \n", fnam, NREMOVE);
+  fflush(stdout);
+
+  // update HD with CID selection ...
+  HD->NSN_ORIG = HD->NSN;
+  applyCut_HD(SYNC_LIST, HD);
+
+  // update MUCOV with CID selection ...
+  if ( MUCOV->NDIM > 0 ) 
+    { applyCut_COVMAT(SYNC_LIST, MUCOV); }
+
   return ;
 } // end sync_HD_LIST
 

@@ -8,11 +8,12 @@
 #
 # Aug 28 2022: wsig_hi -> wsig_up to match minimized wfit output (bug fix)
 # Sep 26 2022: in nrow_table_TEXT(), check for nan
-#
+# Mar 18 2023: add gzip_list_by_chunks
+
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath
-import logging, coloredlogs, subprocess, tarfile
+import logging, coloredlogs, subprocess, tarfile, pathlib
 import pandas as pd
 from   submit_params import *
 
@@ -626,6 +627,43 @@ def compress_subdir(flag,dir_name):
 
     return
     # end compress_subdir
+
+def gzip_list_by_chunks(topdir, file_spec, nchunk):
+
+    # Created Mar 2023
+    # break file_spec into nchunk chunks and gzip these chunks in parallel.
+    # The goal is to gzip more quickly with multiple/parallel gzip commands.
+    # Inputs 
+    #   topdir: do gzip from here
+    #   file_spec: list of files to gzip, possibly with wildcard;
+    #       e.g., */INPUT/FITOPT*.FITRES
+    #   nchunk : number of chunks to gzip in parallel
+    #
+
+    f_posix_list = list(pathlib.Path(topdir).rglob(file_spec))
+
+    # remake list with the silly posix('...')
+    f_list = []
+    for item in f_posix_list:
+        f_list.append(os.fspath(item))
+
+    len_list = len(f_list)
+    for i in range(0, len_list, nchunk):
+        chunk      = f_list[i:i + nchunk]
+        nfile_gzip = len(chunk)
+        logging.info(f"\t gzip {nfile_gzip} files from {file_spec}")
+
+        gzip_cmd = "gzip " + " ".join(chunk) 
+        if i + nchunk <= len_list-1 :  
+            gzip_cmd += ' & '
+        else:
+            logging.info(f"\t (waiting on last gzip)")
+
+        os.system(gzip_cmd)
+        #print(f" xxx gzip_cmd = {gzip_cmd}")
+
+    return
+    # end gzip_list_by_chunks
 
 def untar_script_dir(script_dir):
 

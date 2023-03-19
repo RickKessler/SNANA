@@ -275,6 +275,9 @@ For help, run code with no arguments
     write VERSION_PHOTOMETRY(type): <version>  to output tables for
     type = DATA, BIASCOR, CCPRIOR. See VERSION_PHOTOMETRY_EVENT_TYPE string.
 
+ Mar 18 2023: replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
+              min_cell_per_biascor
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -332,7 +335,7 @@ int     NCALL_SALT2mu_DRIVER_EXEC;
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
 #define MAXBIN_BIASCOR_GAMMADM 2  // for biasCor map
 #define MAXBIN_BIASCOR_1D  500000  // max on total 5D bins for {a,b,z,x1,c}
-#define MINPERCELL_BIASCOR    10  // min per cell for biasCor
+#define MINPERCELL_BIASCOR_RMS 10  // min per cell for biasCor RMS (not used)
 #define MINPERCELL_MUCOVSCALE  5  // min per cell for MUCOVSCALE
 
 // shorter names for local declarations
@@ -391,7 +394,7 @@ double  BIASCOR_MINVAL_LCFIT[3]  = {  5.0, -4.0, -0.30 } ;
 double  BIASCOR_MAXVAL_LCFIT[3]  = { 30.0, +4.0, +0.50 } ;
 double  BIASCOR_BINSIZE_LCFIT[3] = { 25.0,  0.5,  0.05 } ;
 char    BIASCOR_NAME_LCFIT[4][4] = { "mB", "x1", "c", "mu" } ;
-int     BIASCOR_MIN_PER_CELL     = 3  ; // at least this many per 5D cell
+//int     BIASCOR_MIN_PER_CELL     = 3  ; // at least this many per 5D cell
 int     BIASCOR_MINSUM           = 10 ; // at least this many summed in 3x3x3
 double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
@@ -964,6 +967,8 @@ struct INPUTS {
   int    force_realdata ;    // T -> treat SIM like real data
   double zspec_errmax_idsample; // used to create [SAMPLE]-zSPEC IDSAMPLE
   double zphot_shift;       // z-shift for photo-z subset (data only)
+
+  int min_per_cell_biasCor; // require this many per 5D/7D biasCor cell
 
   int interp_biascor_logmass;
   // ----------
@@ -4948,6 +4953,8 @@ void set_defaults(void) {
   INPUTS.idsample_select[0] = 0 ;
   INPUTS.zspec_errmax_idsample = 0.0 ;
   INPUTS.zphot_shift    = 0.0 ;
+
+  INPUTS.min_per_cell_biasCor = 3; // Mar 2023: used to be BIASCOR_MIN_PER_CELL
 
   INPUTS.select_trueIa  = 0;
   INPUTS.force_realdata = 0 ;
@@ -9914,7 +9921,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
     // if too few events in cell, sum 3x3 nbr grid to get
     // better stats for RMS
     NJ1DNBR = 1;  J1DNBR_LIST[0] = J1D ;
-    if ( N < MINPERCELL_BIASCOR ) { 
+    if ( N < MINPERCELL_BIASCOR_RMS ) { 
       get_J1DNBR_LIST(IDSAMPLE, J1D, &NJ1DNBR, J1DNBR_LIST) ; 
       if ( NJ1DNBR >= MXJ1DNBR ) {
 	sprintf(c1err,"NJ1DNBR=%d exceeds bound of %d",
@@ -10515,7 +10522,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
-    if ( CELL_BIASCOR->NperCell[J1D] < BIASCOR_MIN_PER_CELL ) 
+    if ( CELL_BIASCOR->NperCell[J1D] < INPUTS.min_per_cell_biasCor ) 
       { continue ; } 
 
     for(ia=0; ia<MXa; ia++ ) {
@@ -10840,7 +10847,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       J1D = J1D_biasCor(ievt,fnam);
       NperCell = CELL_BIASCOR->NperCell[J1D];
       i1d      = INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] ;
-      if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+      if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
       if ( i1d < 0 )                          { continue ; }
       if ( !CELL_MUCOVSCALE->USE[i1d] )       { continue; }
 
@@ -12544,7 +12551,7 @@ int get_fitParBias(char *cid,
 	
 	  j1d = CELLINFO_BIASCOR[ID].MAPCELL[ia][ib][ig][iz][im][ix1][ic];
 	  NperCell = CELLINFO_BIASCOR[ID].NperCell[j1d] ;
-	  if ( NperCell < BIASCOR_MIN_PER_CELL  ) { continue; }
+	  if ( NperCell < INPUTS.min_per_cell_biasCor  ) { continue; }
 
 	  avg_z  = CELLINFO_BIASCOR[IDSAMPLE].AVG_z[j1d] ;
 	  avg_m  = CELLINFO_BIASCOR[IDSAMPLE].AVG_m[j1d] ;
@@ -12620,7 +12627,7 @@ int get_fitParBias(char *cid,
 	
 	  // require something in a cell to use the bias estimate
 	  NperCell = CELLINFO_BIASCOR[ID].NperCell[j1d] ;
-	  if ( NperCell < BIASCOR_MIN_PER_CELL  ) { continue; }
+	  if ( NperCell < INPUTS.min_per_cell_biasCor  ) { continue; }
 	  
 	  if ( iz==IZ && im==IM && ix1==IX1 && ic==IC ) 
 	    { USE_CENTER_CELL = true ; }
@@ -13056,7 +13063,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
     NperCell = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d];
     USE      = CELLINFO_MUCOVSCALE[IDSAMPLE].USE[i1d] ;
 
-    if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+    if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
     if ( !USE ) { continue; }
 
     sprintf(line,"SN: "
@@ -13097,7 +13104,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
       // check if there is valid biasCor for this event
       J1D = J1D_biasCor(ievt,fnam);
       NperCell = CELL_BIASCOR->NperCell[J1D];
-      if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+      if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
 
       // check for valid muCov correction
       i1d      = INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] ;
@@ -15932,6 +15939,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"sigma_cell_biascor=") ) 
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }
+
+  if ( uniqueOverlap(item,"min_per_cell_biascor=") ) 
+    { sscanf(&item[21],"%d", &INPUTS.min_per_cell_biasCor); return(1); }
   
   // -------- CC prior ------------
   if ( uniqueOverlap(item,"simfile_ccprior=") )   { 
@@ -16328,7 +16338,6 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
-    // xxx mark if ( INPUTS.debug_flag==401 ) { INPUTS.izbin_from_cidFile=1; } 
     prep_debug_flag();
     return(1); 
   }
@@ -21283,7 +21292,8 @@ void print_SALT2mu_HELP(void) {
     "surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' ",
-    "surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data",
+    "surveygroup_biascor_abortflag=1  # 0->allow survey(s) that are not in data",
+    "min_cell_per_biascor=3   # min number of biasCor events per cell",
     "",
     "  # NOTE: if OPT_PHOTOZ column exists in the input FITRES tables, ",
     "  #       then each biasCor group  is automatically split into ",

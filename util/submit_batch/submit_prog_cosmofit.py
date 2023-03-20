@@ -33,6 +33,8 @@
 #   + refactor to read option comma-sep list of directories for each
 #     INPDIR, which enables HDIBC in wfit. 
 #
+# Mar 20 2023: fix bug so that COVOPT works
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -45,7 +47,7 @@ from submit_params    import *
 from submit_prog_base import Program
 
 # ------------------------------------------------
-# xxx mark delete PREFIX_wfit   = "wfit"
+
 COSMOFIT_CODE_WFIT = 'WFIT'
 COSMOFIT_CODE_FIRECROWN = 'FIRECROWN'
 
@@ -197,13 +199,6 @@ class cosmofit(Program):
                 covsys_select_list = CONFIG[key].split()
 
         for inpdir in inpdir_list:
-
-            # xxx mark delete Mar 14 2023 xxxx
-            #if not os.path.exists(inpdir) :
-            #    msgerr.append(f"Cannot find input directory")
-            #    msgerr.append(f"  {inpdir}")       
-            #    self.log_assert(False, msgerr)            
-            # xxxxxxxxxx
 
             inpdir_split = inpdir.split(',')
             
@@ -491,7 +486,8 @@ class cosmofit(Program):
             covsys_num_list_select   = []
             for covsys_num_tmp, covsys_file_tmp in \
                 zip(COVOPTS_DICT, covsys_file_list):
-                covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp]
+                # mark delete RK: covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp]
+                covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp].split()[0]
 
                 if covsys_name_tmp in covsys_select_list:
                     covsys_file_list_select.append(covsys_file_tmp)

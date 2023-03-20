@@ -1573,7 +1573,11 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // if all COV elements are zero, this is a request for stat-only fit,
   // so disable cov
-  if ( MUCOV->N_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
+  if ( MUCOV->N_NONZERO == 0 ) { 
+    printf("\t -> disable off-diag COV computations.\n"); //.xyz
+    INPUTS.use_mucov = 0; 
+    return; 
+  }
 
   // - - - - - - - - - - - - - - - - -
   // sanify check
@@ -1704,7 +1708,13 @@ void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // if all COV elements are zero, this is a request for stat-only fit,
   // so disable cov
-  if ( MUCOV->N_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
+  if ( MUCOV->N_NONZERO == 0 ) { 
+    printf("\t -> disable off-diagnoal COV computations.");
+    INPUTS.USE_SPEED_OFFDIAG = false;
+    INPUTS.use_mucov = 0; 
+    fflush(stdout);
+    return; 
+  }
 
   // - - - - - - - - - - - - - - - - -
   // sanify check

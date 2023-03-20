@@ -387,7 +387,7 @@ class cosmofit(Program):
 
             for inp in inpdir.split(','):    # comma-sep list for HDIBC method
             
-                hd_file    = f"{inp}/{hd_base}"   # .xyz
+                hd_file    = f"{inp}/{hd_base}" 
                 n_covsys   = len(covsys_file_list)
                 if n_covsys == 0 :            
                     nerr += 1
@@ -862,19 +862,29 @@ class cosmofit(Program):
         
     def wfit_num_string(self,idir,icov,ifit):
 
+        covsys_num_list2d = self.config_prep['covsys_num_list2d']
+
+        if idir >=0 and icov >=0 :
+            # usually icovnum = icov ... unless CONFIG['COVOPT'] key is used 
+            icovnum = covsys_num_list2d[idir][icov]
+        elif icov >= 0:
+            # idir < 0, so use idir=0 to get icovnum
+            icovnum = covsys_num_list2d[0][icov]
+
+        # - - - - - - 
         if idir >= 0 and icov < 0 and ifit < 0:
             string = f"DIROPT{idir:05d}"
 
         elif icov >= 0 and idir < 0 and ifit < 0 :
-            string = f"COVOPT{icov:03d}"
+            string = f"COVOPT{icovnum:03d}"
         elif ifit >= 0 and idir < 0 and icov < 0 :
             string = f"WFITOPT{ifit:03d}"
 
         elif idir < 0 and ifit>=0 and icov>=0 :
-            string = f"COVOPT{icov:03d}_WFITOPT{ifit:03d}"
+            string = f"COVOPT{icovnum:03d}_WFITOPT{ifit:03d}"
 
         elif idir >= 0 and ifit>=0 and icov>=0 :
-            string = f"DIROPT{idir:05d}_COVOPT{icov:03d}_WFITOPT{ifit:03d}"
+            string = f"DIROPT{idir:05d}_COVOPT{icovnum:03d}_WFITOPT{ifit:03d}"
         else:
             string = "ERROR"
 

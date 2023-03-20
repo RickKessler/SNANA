@@ -1576,6 +1576,7 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   if ( MUCOV->N_NONZERO == 0 ) { 
     printf("\t -> disable off-diag COV computations.\n"); //.xyz
     INPUTS.use_mucov = 0; 
+    INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
     return; 
   }
 

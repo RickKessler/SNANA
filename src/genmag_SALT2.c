@@ -3446,8 +3446,8 @@ void errorSummary_SALT2(void) {
   c = 1.0; // color value
 
   printf("\n");
-  printf("                               peak     color  \n" );
-  printf("            LAMBDA(A)  e^CL    dS0/S0   disp   \n" );
+  printf("                       e^CL     peak     color  \n" );
+  printf("            LAMBDA(A)  (c=1)    dS0/S0   disp   \n" );
   printf("  --------------------------------------------- \n" );
 
   for ( ilam = 1; ilam <= NLAM; ilam++ ) {

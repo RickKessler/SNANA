@@ -42,9 +42,12 @@
      Vincenzi 2021 (2111.10382)  w-syst for SNCC contamination in DES
      Sanchez  2021 (2111.06858)  cosmology result for LSST-DC2-SNIa analysis
      Brout    2022 (2202.04077)  Pantheon+ systematics
-     Dai      2022 (in prep)     SALT3 training syst
+     Dai      2022 (2212.06879)  SALT3 training syst
      Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
-     
+     Armstron 2023 (in prep)     contraint validation
+     Kessler  2023 (in prep)     Binning-is-sinning redemption
+     Vincenzi 2023 (in prep)     DES5YR analysis & syst
+
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
     + include option to float wa in w0waCDM model

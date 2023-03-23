@@ -497,8 +497,9 @@ c global survey info
      &  ,IDSURVEY_LIST(MXSURVEY) ! corresponds to SURVEY_NAME_LIST
      &  ,NSURVEY_LIST          ! size of SURVEY_NAME_LIST & IDSURVEY_LIST
 
-      LOGICAL*1 
-     &    EXIST_FILT(MXFILT_OBS)  ! T => at least one point per filt
+      LOGICAL*1
+     &    EXIST_KCOR_FILE 
+     &   ,EXIST_FILT(MXFILT_OBS)  ! T => at least one point per filt
      &   ,FOUND_SURVEY
      &   ,FORMAT_TEXT    ! ascii/txt for input data
      &   ,FORMAT_FITS    ! snfitsio for input data.
@@ -543,7 +544,7 @@ c global survey info
 
 c logical *1 stuff
 
-      COMMON / SNDATCOM1 / EXIST_FILT, FOUND_SURVEY
+      COMMON / SNDATCOM1 / EXIST_KCOR_FILE, EXIST_FILT, FOUND_SURVEY
      &    ,FORMAT_TEXT, FORMAT_FITS
 
 c SNTABLE control variables (May 2014)
@@ -3175,7 +3176,7 @@ c [uses refactored C code]
 +CDE,FILTCOM.
 
       INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL IGNOREFILE_fortran, EXIST_KCOR_FILE, USE_KCOR 
+      LOGICAL IGNOREFILE_fortran, USE_KCOR 
 
       INTEGER LENF, OPT_FRAME, IFILT, IFILTDEF_OBS, IFILTDEF_REST
       CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
@@ -17433,6 +17434,20 @@ c Feb 6 2020: fudge errors here before SNRMAX is computed
 c test filter mean only if KCOR file is read.
            LLAM = .TRUE.
 
+c Mar 22 2023 restore LLAM test that was mistakenly removed when
+c             fortran-KCOR code was replaced with C code.
+c 
+          LZ = ( Z > 0 .and. Z < 998 )
+          IF ( LZ .and. EXIST_KCOR_FILE ) THEN
+            LAMOBS = FILTOBS_LAMAVG(ifilt_obs)
+            LAMZ1  = LAMOBS / Z1
+            LLAM   =
+     &           LAMZ1  .GE. CUTWIN_LAMREST(1) .and.
+     &           LAMZ1  .LE. CUTWIN_LAMREST(2) .and.
+     &           LAMOBS .GE. CUTWIN_LAMOBS(1)  .and.	
+     &           LAMOBS .LE. CUTWIN_LAMOBS(2)
+          ENDIF
+c
 c strip off local variables.
           Fluxcal      = SNLC_FLUXCAL(ep)
           Fluxcal_err  = SNLC_FLUXCAL_ERRTOT(ep)

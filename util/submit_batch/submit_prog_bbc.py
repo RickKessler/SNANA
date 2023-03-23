@@ -1086,8 +1086,6 @@ class BBC(Program):
         n_splitran         = self.config_prep['n_splitran']
         USE_SPLITRAN       = n_splitran > 1
 
-        cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG"
-
         logging.info("\n  Prepare input FITRES files")
         iver_last = -9
 
@@ -1111,6 +1109,7 @@ class BBC(Program):
             ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
             input_ff       = "INPUT_" + ff
             cat_file_out   = f"{V_DIR}/{input_ff}"
+            cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG" # always same
             nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
 
             if iver != iver_last : logging.info(f"    {v_dir}: ")
@@ -1161,9 +1160,9 @@ class BBC(Program):
         os.system(cmd_cat)
 
         # check number of rows
-        nrow = util.nrow_table_TEXT(cat_file_out, "SN:")
+        n_row, n_nan = util.nrow_table_TEXT(cat_file_out, "SN:")
 
-        return nrow
+        return n_row
 
         # end exec_cat_fitres
 

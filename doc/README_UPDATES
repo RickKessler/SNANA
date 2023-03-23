@@ -21542,11 +21542,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    Mar 22 2023:
    Fixed bug from KCOR refactor (v11_05) in which a small piece of code was 
-   mistakenly removed from snana.car (in SNRECON). This bug was noticed because
-   the Mitra23+/LSST analysis changed slightly after publication, which was
-   traced to the newly refactored KCOR code. While this fix impacts the LSST 
-   analysis, it has no impact on the photo-z fits in the SNANA regression test.
-
+   mistakenly removed from snana.car (in SNRECON). For details, see
+      https://github.com/RickKessler/SNANA/issues/1106
 
         ***** USEFUL(v11_05c) ***** 
  

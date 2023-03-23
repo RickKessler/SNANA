@@ -642,25 +642,52 @@ def gzip_list_by_chunks(topdir, file_spec, nchunk):
 
     f_posix_list = list(pathlib.Path(topdir).rglob(file_spec))
 
-    # remake list with the silly posix('...')
+    # remake list without the silly posix('...')
     f_list = []
     for item in f_posix_list:
         f_list.append(os.fspath(item))
 
     len_list = len(f_list)
+    chunk_list = []
     for i in range(0, len_list, nchunk):
         chunk      = f_list[i:i + nchunk]
+        chunk_list.append(chunk)
+
+    # do the chhunks in reverse order to ensure that the last one launched
+    # has full number of files to gzip because this is the one with ampersand
+    # that we wait for. E.g., if the number of files per chunk is 10 10 10 2,
+    # submitting in normal order means that the last chunk of 2 finishes quickly
+    # before the other chunks of 10 files. Submitting in reverse order means
+    # that we wait on 10 files to gzip.
+
+    n_chunk = len(chunk_list)
+    for chunk in reversed(chunk_list):
         nfile_gzip = len(chunk)
         logging.info(f"\t gzip {nfile_gzip} files from {file_spec}")
 
         gzip_cmd = "gzip " + " ".join(chunk) 
-        if i + nchunk <= len_list-1 :  
-            gzip_cmd += ' & '
-        else:
+        if  chunk == chunk_list[0] :
             logging.info(f"\t (waiting on last gzip)")
+        else:
+            gzip_cmd += ' & '
 
         os.system(gzip_cmd)
         #print(f" xxx gzip_cmd = {gzip_cmd}")
+
+    # wait until all gzip files exist
+    done_gzip = False
+    t_sleep   = 2
+    t_wait    = 0
+    while not done_gzip:
+        time.sleep(t_sleep)
+        t_wait += t_sleep 
+        n_gzip = 0
+        for f in f_list:
+            gzip_file = f"{f}.gz"
+            if os.path.exists(gzip_file): n_gzip += 1
+        logging.info(f"\t Found {n_gzip} of {len_list} gzipped INPUT files.")
+        if n_gzip == len_list: 
+            done_gzip = True
 
     return
     # end gzip_list_by_chunks

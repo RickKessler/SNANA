@@ -1168,9 +1168,7 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   int NROW = 0 ;
   int i, iwd, ivar, isn, ICAST, nptr, NWD_LINE ;
 
-  char LINE[MXCHAR_LINE], LINE_TMP[MXCHAR_LINE], cvar[100] ;
-  // xxx mark   char *ptrtok, cvar[100];
-  char wdlist[10][MXCHAR_VARNAME];
+  char ctmp[MXCHAR_FILENAME], LINE[MXCHAR_LINE], *ptrtok, cvar[300];
   char KEYNAME_ID[40];
   long double DVAR[MXVAR_TABLE];
   char        CVAR[MXVAR_TABLE][60];
@@ -1187,40 +1185,17 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   while ( fgets(LINE, MXCHAR_LINE, FP ) != NULL ) {
 
-    if ( LINE[0] == '#' ) { continue; }
-    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-
-    for(iwd=0; iwd < 3; iwd++ ) {
-      wdlist[iwd][0] = 0 ;
-      if ( NWD_LINE >= iwd+1 )  { get_PARSE_WORD(0, iwd, wdlist[iwd]); }
-    }
-
-    /* xxx mark delete; see READPREP
-    // store VERSION_PHOTOMETRY if it's there in a comment
-    if ( wdlist[0][0] == '#' ) {
-      if ( strcmp(wdlist[1],KEYNAME_VERSION_PHOTOMETRY) == 0 ) {       
-	sscanf(wdlist[2], "%s", VERSION_PHOTOMETRY ) ;
-      }
-      continue ;        // skip comment lines
-    }
-    xxxxxxxx */
-
-    /* xxx mark delete Mar 6 2023 xxxxxx
     // check first word in the line
-    sprintf(LINE_TMP,"%s", LINE);
-    ptrtok = strtok(LINE_TMP, " ");
+    ptrtok = strtok(LINE, " ");
     sprintf(ctmp, "%s", ptrtok);
-    if ( ctmp[0] == '#' ) { continue; }  // skip comment lines
-    xxxxxxx end mark xxxxxxx */
+    if ( ctmp[0] == '#' ) { continue ; }  // skip comment lines
 
-
-    if ( validRowKey_TEXT(wdlist[0]) == 0 ) { continue ; }
+    if ( !validRowKey_TEXT(ctmp)  ) { continue ; }
 
     // if we get here, we have a valid ROW key so read rest of row.
 
     NROW++ ;   
 
-    /* xxxx mark delete Mar 6 2023 xxxxxxx
     ptrtok = strtok(NULL," " ); ivar=0 ;
     while ( ptrtok != NULL && ivar < NVAR_TOT) { 
       // Dec 20 2017: extract only variables on READ-list
@@ -1231,15 +1206,6 @@ int SNTABLE_READ_EXEC_TEXT(void) {
       }
       ptrtok = strtok(NULL," " );
       ivar++ ;
-    }
-    xxxxxxxxx end mark xxxxxx */
-
-    for ( ivar=0; ivar < NVAR_TOT; ivar++ ) {
-      if ( READTABLE_POINTERS.NPTR[ivar] > 0 ) { 
-	iwd = ivar+1; get_PARSE_WORD(0, iwd, cvar); 
-        sscanf(cvar, "%Lf",  &DVAR[ivar] ); 
-        sscanf(cvar, "%s",   CVAR[ivar] ); 
-      } 
     }
 
     // - - - - -

@@ -21567,6 +21567,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + new input muref_zpoly to replace LCDM mu-function with
       polynominal function of z. For testing only.
 
+    + replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
+              min_cell_per_biascor
+
   sntools_host.*
     + increase ZMAX_HOSTLIB = ZMAX_SNANA
 

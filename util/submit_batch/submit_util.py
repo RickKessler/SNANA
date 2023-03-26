@@ -1004,7 +1004,9 @@ def write_job_info(f,JOB_INFO,icpu):
     # Jun 27 2022: check optional 2nd arg in wait_file which is string
     #              to require. E.g., requre SUCCESS in ALL.DONE file.
     #
-
+    if JOB_INFO is None :
+        return
+    
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
     program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
     input_file   = JOB_INFO['input_file'] # input file name

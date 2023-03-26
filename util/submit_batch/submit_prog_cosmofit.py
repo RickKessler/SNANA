@@ -78,6 +78,24 @@ WFIT_SUMMARY_AVG_FILE = "WFIT_SUMMARY_AVG.FITRES"
 WFIT_AVGTYPE_SINGLE   = "AVG_SINGLE"
 WFIT_AVGTYPE_DIFF     = "AVG_DIFF"
 
+
+COSMOFIT_PARNAME_w        = 'w'
+COSMOFIT_PARNAME_w_sig    ='w_sig'
+COSMOFIT_PARNAME_wa       = 'wa'
+COSMOFIT_PARNAME_wa_sig   ='wa_sig'
+COSMOFIT_PARNAME_FoM      = 'FoM'
+COSMOFIT_PARNAME_omm      = 'omm'
+COSMOFIT_PARNAME_omm_sig  = 'omm_sig'
+COSMOFIT_PARNAME_rho_w0mm = 'rho_womm'
+COSMOFIT_PARNAME_rho_w0wa = 'rho_wowa'
+COSMOFIT_PARNAME_chi2     = 'chi2'
+COSMOFIT_PARNAME_Ndof    = 'Ndof'
+COSMOFIT_PARNAME_sigint   = 'sigint'
+COSMOFIT_PARNAME_blind    = 'blind'
+COSMOFIT_PARNAME_nwarn    = 'nwarn'
+
+
+
 # - - - - - - - - - - - - - - - - - - -  -
 class cosmofit(Program):
     def __init__(self, config_yaml):
@@ -677,7 +695,6 @@ class cosmofit(Program):
 
         
     def write_command_file(self, icpu, f):
-        # Firecrown continue XYZ
         COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
         input_file         = self.config_yaml['args'].input_file 
         inpdir_list        = self.config_prep['inpdir_list']  
@@ -707,8 +724,9 @@ class cosmofit(Program):
             elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
                 job_info_cosmofit   = self.prep_JOB_INFO_firecrown(index_dict)
 
+                
             util.write_job_info(f, job_info_cosmofit, icpu)
-
+            
             
             job_info_merge = \
                 self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
@@ -841,8 +859,11 @@ class cosmofit(Program):
         
         # define output YAML file to be parsed by submit-merge process
         arg_list.append(f"--summary {script_dir}/{prefix}.YAML")
-        # XYZ Need something analogous for Firecrown
 
+        # define output INFO file XXX AM 26/03/2023
+        # arg_list.append(f"--info {script_dir}/{prefix}.INFO")
+
+        
         JOB_INFO = {}
         JOB_INFO['program']       = program
         JOB_INFO['input_file']    = ""
@@ -856,6 +877,9 @@ class cosmofit(Program):
         return JOB_INFO
 
         # end prep_JOB_INFO_firecrown
+
+
+
 
         
 
@@ -1134,6 +1158,7 @@ class cosmofit(Program):
     def make_wfit_summary(self):
 
         CONFIG           = self.config_yaml['CONFIG']
+        COSMOFIT_CODE    = self.config_prep['COSMOFIT_CODE']
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -1158,11 +1183,16 @@ class cosmofit(Program):
             covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
             wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
             prefix     = self.cosmofit_prefix(row)
-            YAML_FILE  = f"{script_dir}/{prefix}.YAML"
 
-            wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
-            wfit_values_dict = util.get_wfit_values(wfit_yaml)
+            if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:            
+                YAML_FILE  = f"{script_dir}/{prefix}.YAML"
+                wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
+                wfit_values_dict = util.get_wfit_values(wfit_yaml)
 
+            elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
+                wfit_values_dict = self.get_firecrown_values(script_dir)
+            
+                
             w        = wfit_values_dict['w']  
             w_sig    = wfit_values_dict['w_sig']
             omm      = wfit_values_dict['omm']  
@@ -1181,8 +1211,8 @@ class cosmofit(Program):
             covopt_dict   = INPDIR_LIST[f'COVOPTS({str_diropt})']
             covopt_label  = covopt_dict[str_covopt]
             wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
-            
-            if wfitopt_label == "None" : 
+
+            if wfitopt_label is None : 
                 wfitopt_label = "NoLabel"
 
             if use_wa:
@@ -1253,6 +1283,28 @@ class cosmofit(Program):
         self.config_prep['wfit_summary_table'] = wfit_summary_table
         # end make_wfit_summary
 
+    def get_values_firecrown(self,script_dir):
+        # returns firecrown parameter values                                                       
+                                                                                                           
+                                                       
+        values_dict = {}
+        values_dict[COSMOFIT_PARNAME_w]  = -1.
+        values_dict[COSMOFIT_PARNAME_wa] = .0
+        values_dict[COSMOFIT_PARNAME_w_sig]  = 0.07
+        values_dict[COSMOFIT_PARNAME_wa_sig] = .0
+        values_dict[COSMOFIT_PARNAME_omm]  = 0.30
+        values_dict[COSMOFIT_PARNAME_omm_sig] = .03
+        values_dict[COSMOFIT_PARNAME_FoM]  = 100
+        values_dict[COSMOFIT_PARNAME_rho_w0mm] = -0.5
+        values_dict[COSMOFIT_PARNAME_rho_w0wa] = -0.9
+        values_dict[COSMOFIT_PARNAME_chi2] = 22
+        values_dict[COSMOFIT_PARNAME_Ndof] = 22
+        values_dict[COSMOFIT_PARNAME_sigint] = 0
+        values_dict[COSMOFIT_PARNAME_nwarn] =0
+        values_dict[COSMOFIT_PARNAME_blind] =0
+
+        return values_dict
+                                                       
 
     def write_wfit_summary_header(self,wfit_values_dict):
 

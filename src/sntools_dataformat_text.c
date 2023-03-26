@@ -653,24 +653,22 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     // if MAGOBS has been read for any filter, then write MAGOBS
     // for all filters.
 
-    // xxx mark if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
     if ( (SNDATA.HOSTGAL_USEMASK & 1) > 0 ) {
       fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
-	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
+	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
       }
       fprintf(fp,"# %s\n", filtlist) ;
     }
 
-    // xxx mark    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
     if ( (SNDATA.HOSTGAL_USEMASK & 2) > 0 ) {
       fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
-	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
+	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
       }

@@ -5901,6 +5901,8 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.RA_SN_DEG         = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.DEC_SN_DEG        = HOSTLIB_SNPAR_UNDEFINED ;
 
+  SNHOSTGAL.MAGOBS_ERR_SCALE  = 1.0 ;
+
   // always init GALMAG quantities to garbage
   int i, ifilt ;
   for ( i=0; i <= NMAGPSF_HOSTLIB ; i++ ) {

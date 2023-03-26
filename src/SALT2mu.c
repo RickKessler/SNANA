@@ -276,7 +276,7 @@ For help, run code with no arguments
     type = DATA, BIASCOR, CCPRIOR. See VERSION_PHOTOMETRY_EVENT_TYPE string.
 
  Mar 18 2023: replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
-              min_cell_per_biascor
+              min_per_cell_biascor
 
  ******************************************************/
 
@@ -10366,11 +10366,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Make map of MUCOVSCALE, where MUCOVSCALE = RMS(MURES)/AVG(MUERR)
   // as a function of (z,x1,c,a,b).
   //
-  // To get better stats, the bias is just a function of z & c,
-  // but the 5D binning is still used so that the
-  // on-the-fly lookup is done the same way as other bias
-  // corrections.
-  //
+  // To get better stats, the bias is just a function of {z,c,m},
+  // but the 5D binning is still used so that the on-the-fly lookup is 
+  // done the same way as other bias corrections.
   //
   // Beware that the binning for alpha,beta,z is the same
   // for biasCor and sigmu-scale ... but the color bins 
@@ -13040,7 +13038,8 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
   CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
 
-  int NCELL  = CELLINFO_BIASCOR[IDSAMPLE].NCELL ;
+  // xxx mark delete Mar 2023  int NCELL  = CELLINFO_BIASCOR[IDSAMPLE].NCELL ;
+  int NCELL  = CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL ;
   FILE *fp;
   int  i1d, NperCell;
   bool USE;
@@ -16334,11 +16333,10 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_mucovadd_bug="))
     { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
   if ( uniqueOverlap(item,"restore_muzerr_bug="))
-    { sscanf(&item[24],"%d", &INPUTS.restore_muzerr_bug); return(1); }
+    { sscanf(&item[19],"%d", &INPUTS.restore_muzerr_bug); return(1); }
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
-    prep_debug_flag();
     return(1); 
   }
 
@@ -17966,6 +17964,8 @@ void prep_input_driver(void) {
     USE_EVENT_TYPE[i] = false; 
     VERSION_PHOTOMETRY_EVENT_TYPE[i][0] = 0 ;
   }
+
+  prep_debug_flag();
 
   // check option to select only true SNIA and ignore CC prior
   if ( INPUTS.select_trueIa ) { prep_input_trueIa(); }
@@ -21293,7 +21293,7 @@ void print_SALT2mu_HELP(void) {
     "surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' ",
     "surveygroup_biascor_abortflag=1  # 0->allow survey(s) that are not in data",
-    "min_cell_per_biascor=3   # min number of biasCor events per cell",
+    "min_per_cell_biascor=3   # min number of biasCor events per cell",
     "",
     "  # NOTE: if OPT_PHOTOZ column exists in the input FITRES tables, ",
     "  #       then each biasCor group  is automatically split into ",

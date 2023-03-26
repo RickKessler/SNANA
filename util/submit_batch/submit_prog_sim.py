@@ -2370,14 +2370,20 @@ class Simulation(Program):
         f.write(f"  - {'TOTAL':<12}   {nlc_gen:8}   {nlc_write:8} " \
                 f" {nspec_write:8}        {cpu}\n")
 
-        # construct  model_string for each row (e.g., SNIaMODEL0, NONIaMODEL1 ...)
-        # and store is list
+        # construct model_string for each row 
+        # (e.g., SNIaMODEL0, NONIaMODEL1 ...)
+        # and store model_strings in list
         model_string_list = []
-        g0 = len("TMP_" + USER4) + len(genversion) + 2
+        # xxx mark g0 = len("TMP_" + USER4) + len(genversion) + 2
         for row in row_list_split :
-            TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-            g1          = len(TMP_GENV)
-            model_string= f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
+            TMP_GENV     = row[COLNUM_SIM_MERGE_GENVERSION]
+            jlast        = TMP_GENV.rindex('_'); 
+            model_string = TMP_GENV[jlast+1:] # e.g. SNIaMODEL0
+            
+            # xxx mark delete Mar 26 2023 xxx
+            #g1          = len(TMP_GENV)
+            #model_string= f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
+            # xxx end mark xxxx
             model_string_list.append(model_string)
 
         # write out same info for each model ... only for RANSEED_REPEAT

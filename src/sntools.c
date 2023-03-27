@@ -5873,6 +5873,29 @@ int commentchar(char *str) {
   return  0;
 }
 
+// ==================
+void remove_comment(char *string) {
+
+  //  Created Mar 2023
+  // If input string = 'GENMODEL: ABC # this is crazy model
+  // then this function returns
+  //    sring = 'GENMODEL: ABC 
+
+  char *e = strchr(string, '#');
+  int index;
+  char fnam[] = "remove_comment" ;
+
+  // -------- BEGIN ----------
+
+  if ( e != NULL ) {
+    index = (int)(e - string);
+    string[index] = 0;
+  }
+
+  return;
+
+} // end remove_comment
+
 // ============================================
 void fillbins(int OPT, char *name, int NBIN, float *RANGE, 
 	      float *BINSIZE, float *GRIDVAL ) {

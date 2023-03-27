@@ -15603,6 +15603,7 @@ void parse_parFile(char *parFile ) {
   //                   file names after a "FITOPT:" key.
   //
   // Apr 27 2021: remove SKIP on colon to allow colon in comment field
+  // Mar 27 2023: call remove_comment(line)
 
   FILE *fdef;
   bool YAML;  
@@ -15613,8 +15614,6 @@ void parse_parFile(char *parFile ) {
 
   if ( strstr(parFile,"cat_only") != NULL ) 
     { parse_cat_only(parFile); return; }
-
-
 
 #ifdef USE_SUBPROCESS
   if ( strcmp(parFile,"SUBPROCESS_HELP") == 0 )  { SUBPROCESS_HELP(); }
@@ -15656,6 +15655,8 @@ void parse_parFile(char *parFile ) {
     // skip blank lines and lines starting with comment char (RK 4/23/2012)
     if ( strlen(line) < 3 )       { continue ; }  
     if ( !YAML && commentchar(line) == 1 ) { continue ; } // see sntools.c
+
+    remove_comment(line); // remove comment after key/value
 
     sptr = strtok(line,"\n");
     
@@ -19755,7 +19756,6 @@ void write_fitres_driver(char* fileName) {
   int NZwrite = 4; // include this many zM0 bins in COV dump
   printCOVMAT(fout, FITINP.NFITPAR_FLOAT, NZwrite);
 
-  // xxx mark delete   indx = NWR  = NLINE = 0;
   fflush(fout);
 
   // print contamination tables if CC prior is used

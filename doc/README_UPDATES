@@ -21566,12 +21566,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      fix bug writing GENMODEL to output README so that only the
      last GENMODEL value (from INCLUDE file) is written
 
+     add SL_IDLENS to SIMGEN_DUMP 
+
   SALT2mu.c:
     + new input muref_zpoly to replace LCDM mu-function with
       polynominal function of z. For testing only.
 
     + replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
               min_cell_per_biascor
+
+    + remove comments after key/val to avoid interference;
+       see remove_comment(string) in sntools.c
 
   sntools_host.*
     + increase ZMAX_HOSTLIB = ZMAX_SNANA

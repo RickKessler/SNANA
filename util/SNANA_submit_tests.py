@@ -9,6 +9,8 @@
 # Aug 09 2021: add --snana_dir and --nrowskip args
 # Jan 20 2022: run create_coariance.py if CREATE_COV is in input file name
 # Mar 08 2023: add -l arg to switch list file
+# Mar 27 2023: disable manual run for create_cov and use submit_batch
+#               like all other jobs
 #
 # ==================================================
 
@@ -25,15 +27,12 @@ SUBMIT_LIST_FILE_DEFAULT = f"{SNANA_TESTS_DIR}/SNANA_submit_tests.LIST"
 KEY_SUBMIT_LIST = 'SUBMIT_LIST'
 
 SUBMIT_JOB_NAME     = "submit_batch_jobs.sh"
-CREATE_COV_JOB_NAME = "create_covariance.py"
 
 MERGE_LOG_FILE     = "MERGE.LOG"
 SUBMIT_INFO_FILE   = "SUBMIT.INFO"
 ALL_DONE_FILE      = "ALL.DONE"
 
 STRING_SUCCESS = "SUCCESS"
-
-PREFIX_CREATE_COV = "CREATE_COV" # for input file
 
 # =======================================
 
@@ -137,7 +136,9 @@ def get_outdir_list(config):
             if 'CONFIG' in input_yaml:
                 CONFIG     = input_yaml['CONFIG']
             else:
-                CONFIG     = input_yaml  # for create_cov input
+                msgerr = f"\n ERROR: cannot find CONFIG in {INFILE}"
+                sys.exit(msgerr)
+                # xxx mark CONFIG     = input_yaml  # for create_cov input
 
             outdir = None 
             if 'OUTDIR' in CONFIG :
@@ -152,26 +153,6 @@ def get_outdir_list(config):
     return outdir_list
     # end parse_outdir
 
-def run_create_cov(infile_list, outdir_list, INPUTS):
-
-    # Created Jan 20 2022
-    # Run create_covariance job(s) interactively.
-    # Applies to any input file with CREATE_COV in the name.
-
-    for infile,outdir in zip(infile_list,outdir_list) :
-        print(f" Create cov with {infile}  -> {outdir}")
-        sys.stdout.flush()
-
-        if INPUTS.snana_dir :
-            jobname = f"{INPUTS.snana_dir}/util/{CREATE_COV_JOB_NAME}"
-        else:
-            jobname = CREATE_COV_JOB_NAME
-
-        cmd_list = [ jobname, infile ]
-        ret = subprocess.run( cmd_list, 
-                              cwd=SNANA_TESTS_DIR,
-                              capture_output=True, text=True )
-    # end run_create_cov
 
 def run_submit(infile_list, outdir_list, INPUTS):
 
@@ -262,11 +243,9 @@ if __name__ == "__main__":
         if nset <= INPUTS.nrowskip : continue
         infile_list  = infile_set.split()
         outdir_list  = outdir_set.split()
-        if PREFIX_CREATE_COV in infile_list[0]:
-            run_create_cov(infile_list, outdir_list, INPUTS)
-        else:
-            #submit, wait for ALL.DONE
-            run_submit(infile_list, outdir_list, INPUTS)  
+
+        #submit, wait for ALL.DONE
+        run_submit(infile_list, outdir_list, INPUTS)  
 
     # - - - - 
     msg = (f"\n Done. " \

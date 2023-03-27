@@ -35,6 +35,9 @@
 #
 # Mar 20 2023: fix bug so that COVOPT works
 #
+# Mar 26 2023: 
+#  + add template method get_firecrown_values with hard-wired values
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -79,22 +82,24 @@ WFIT_AVGTYPE_SINGLE   = "AVG_SINGLE"
 WFIT_AVGTYPE_DIFF     = "AVG_DIFF"
 
 
-COSMOFIT_PARNAME_w        = 'w'
-COSMOFIT_PARNAME_w_sig    ='w_sig'
-COSMOFIT_PARNAME_wa       = 'wa'
-COSMOFIT_PARNAME_wa_sig   ='wa_sig'
-COSMOFIT_PARNAME_FoM      = 'FoM'
-COSMOFIT_PARNAME_omm      = 'omm'
-COSMOFIT_PARNAME_omm_sig  = 'omm_sig'
-COSMOFIT_PARNAME_rho_w0mm = 'rho_womm'
-COSMOFIT_PARNAME_rho_w0wa = 'rho_wowa'
-COSMOFIT_PARNAME_chi2     = 'chi2'
-COSMOFIT_PARNAME_Ndof    = 'Ndof'
-COSMOFIT_PARNAME_sigint   = 'sigint'
-COSMOFIT_PARNAME_blind    = 'blind'
-COSMOFIT_PARNAME_nwarn    = 'nwarn'
-
-
+COSMOFIT_PARNAME_w         = 'w'
+COSMOFIT_PARNAME_w0        = 'w0'
+COSMOFIT_PARNAME_w_sig     = 'w_sig'
+COSMOFIT_PARNAME_w0_sig    = 'w0_sig'
+COSMOFIT_PARNAME_wa        = 'wa'
+COSMOFIT_PARNAME_wa_sig    = 'wa_sig'
+COSMOFIT_PARNAME_FoM       = 'FoM'
+COSMOFIT_PARNAME_omm       = 'omm'
+COSMOFIT_PARNAME_omm_sig   = 'omm_sig'
+COSMOFIT_PARNAME_rho_womm  = 'rho_womm'
+COSMOFIT_PARNAME_rho_w0wa  = 'rho_w0wa'
+COSMOFIT_PARNAME_chi2      = 'chi2'
+COSMOFIT_PARNAME_Ndof      = 'Ndof'
+COSMOFIT_PARNAME_sigint    = 'sigint'
+COSMOFIT_PARNAME_blind     = 'blind'
+COSMOFIT_PARNAME_nwarn     = 'nwarn'
+COSMOFIT_PARNAME_w_ran     = 'w_ran'
+COSMOFIT_PARNAME_wa_ran    = 'wa_ran'
 
 # - - - - - - - - - - - - - - - - - - -  -
 class cosmofit(Program):
@@ -1193,15 +1198,15 @@ class cosmofit(Program):
                 wfit_values_dict = self.get_firecrown_values(script_dir)
             
                 
-            w        = wfit_values_dict['w']  
-            w_sig    = wfit_values_dict['w_sig']
-            omm      = wfit_values_dict['omm']  
-            omm_sig  = wfit_values_dict['omm_sig']
-            rho_womm = wfit_values_dict['rho_womm']
-            chi2     = wfit_values_dict['chi2'] 
-            sigint   = wfit_values_dict['sigint']
-            blind    = wfit_values_dict['blind']
-            nwarn    = wfit_values_dict['nwarn']
+            w        = wfit_values_dict[COSMOFIT_PARNAME_w]  
+            w_sig    = wfit_values_dict[COSMOFIT_PARNAME_w_sig]
+            omm      = wfit_values_dict[COSMOFIT_PARNAME_omm]  
+            omm_sig  = wfit_values_dict[COSMOFIT_PARNAME_omm_sig]
+            rho_womm = wfit_values_dict[COSMOFIT_PARNAME_rho_womm]
+            chi2     = wfit_values_dict[COSMOFIT_PARNAME_chi2] 
+            sigint   = wfit_values_dict[COSMOFIT_PARNAME_sigint]
+            blind    = wfit_values_dict[COSMOFIT_PARNAME_blind]
+            nwarn    = wfit_values_dict[COSMOFIT_PARNAME_nwarn]
             if nwarn > 0 : nrow_warn += 1
 
             # extract user labels for cov and wfit
@@ -1216,13 +1221,10 @@ class cosmofit(Program):
                 wfitopt_label = "NoLabel"
 
             if use_wa:
-                wa      = wfit_values_dict['wa']    
-                wa_sig  = wfit_values_dict['wa_sig']
-                FoM     = wfit_values_dict['FoM']
-                if 'Rho' in wfit_values_dict:
-                    rho_w0wa = wfit_values_dict['Rho']  # legacy name
-                else:
-                    rho_w0wa = wfit_values_dict['rho_w0wa']  # 9.27.2022      
+                wa      = wfit_values_dict[COSMOFIT_PARNAME_wa]    
+                wa_sig  = wfit_values_dict[COSMOFIT_PARNAME_wa_sig]
+                FoM     = wfit_values_dict[COSMOFIT_PARNAME_FoM]
+                rho_w0wa = wfit_values_dict[COSMOFIT_PARNAME_rho_w0wa]
             else:
                 wa       = 0
                 wa_sig   = 0
@@ -1233,15 +1235,18 @@ class cosmofit(Program):
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
                           'wfitnum': wfitnum, 
-                          'w':w, 'w_sig':w_sig, 
-                          'omm':omm, 'omm_sig':omm_sig, 
-                          'wa':wa, 'wa_sig': wa_sig,
-                          'rho_w0omm' : rho_womm,
-                          'rho_w0wa'  : rho_w0wa,
-                          'FoM':FoM, 
-                          'covopt_label':covopt_label,
-                          'wfitopt_label':wfitopt_label,
-                          'nwarn' : nwarn  # R.Kessler Feb 23 2022
+                          COSMOFIT_PARNAME_w       : w, 
+                          COSMOFIT_PARNAME_w_sig   : w_sig, 
+                          COSMOFIT_PARNAME_omm     : omm, 
+                          COSMOFIT_PARNAME_omm_sig : omm_sig, 
+                          COSMOFIT_PARNAME_wa      : wa, 
+                          COSMOFIT_PARNAME_wa_sig  : wa_sig,
+                          COSMOFIT_PARNAME_rho_womm  : rho_womm,
+                          COSMOFIT_PARNAME_rho_w0wa  : rho_w0wa,
+                          COSMOFIT_PARNAME_FoM       : FoM, 
+                          COSMOFIT_PARNAME_nwarn     : nwarn,
+                          'covopt_label'  : covopt_label,
+                          'wfitopt_label' : wfitopt_label
             }
 
             unique_key = dir_name + '_' + covnum + '_' + wfitnum 
@@ -1283,28 +1288,27 @@ class cosmofit(Program):
         self.config_prep['wfit_summary_table'] = wfit_summary_table
         # end make_wfit_summary
 
-    def get_values_firecrown(self,script_dir):
-        # returns firecrown parameter values                                                       
-                                                                                                           
-                                                       
+    def get_firecrown_values(self,script_dir):
+        # Created March 2023
+        # returns firecrown parameter values  
         values_dict = {}
-        values_dict[COSMOFIT_PARNAME_w]  = -1.
-        values_dict[COSMOFIT_PARNAME_wa] = .0
-        values_dict[COSMOFIT_PARNAME_w_sig]  = 0.07
-        values_dict[COSMOFIT_PARNAME_wa_sig] = .0
-        values_dict[COSMOFIT_PARNAME_omm]  = 0.30
-        values_dict[COSMOFIT_PARNAME_omm_sig] = .03
-        values_dict[COSMOFIT_PARNAME_FoM]  = 100
-        values_dict[COSMOFIT_PARNAME_rho_w0mm] = -0.5
+        values_dict[COSMOFIT_PARNAME_w]        = -1.
+        values_dict[COSMOFIT_PARNAME_wa]       = .0
+        values_dict[COSMOFIT_PARNAME_w_sig]    = 0.07
+        values_dict[COSMOFIT_PARNAME_wa_sig]   = .0
+        values_dict[COSMOFIT_PARNAME_omm]      = 0.30
+        values_dict[COSMOFIT_PARNAME_omm_sig]  = .03
+        values_dict[COSMOFIT_PARNAME_FoM]      = 100
+        values_dict[COSMOFIT_PARNAME_rho_womm] = -0.5
         values_dict[COSMOFIT_PARNAME_rho_w0wa] = -0.9
-        values_dict[COSMOFIT_PARNAME_chi2] = 22
-        values_dict[COSMOFIT_PARNAME_Ndof] = 22
-        values_dict[COSMOFIT_PARNAME_sigint] = 0
-        values_dict[COSMOFIT_PARNAME_nwarn] =0
-        values_dict[COSMOFIT_PARNAME_blind] =0
+        values_dict[COSMOFIT_PARNAME_chi2]     = 22
+        values_dict[COSMOFIT_PARNAME_Ndof]     = 22
+        values_dict[COSMOFIT_PARNAME_sigint]   = 0
+        values_dict[COSMOFIT_PARNAME_nwarn]    = 0
+        values_dict[COSMOFIT_PARNAME_blind]    = 0
 
         return values_dict
-                                                       
+        # end get_firecrown_values
 
     def write_wfit_summary_header(self,wfit_values_dict):
 

@@ -21596,4 +21596,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   submit_prog_cosmofit.py:
     + fix to handle comma-sep lists of HD and cov matrices.
 
+  SNANA_submit_tests.py:
+    + use submit_batch_jobs for create_cov stage
+
 END: 

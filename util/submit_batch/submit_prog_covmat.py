@@ -372,7 +372,7 @@ class create_covmat(Program):
 
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
-                f" STATE  BBCDIR  SUBDIR  COVMATOPT  NCOVMAT  CPU "
+                f" STATE  COVMATOPT  BBCDIR  SUBDIR  NCOVMAT  CPU "
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 

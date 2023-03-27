@@ -9,7 +9,7 @@
 # Aug 28 2022: wsig_hi -> wsig_up to match minimized wfit output (bug fix)
 # Sep 26 2022: in nrow_table_TEXT(), check for nan
 # Mar 18 2023: add gzip_list_by_chunks
-
+#
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath
@@ -77,147 +77,6 @@ def combine_csv_files(wildcard, combined_file, remove_flag=False):
 
     # end combine_csv_files
 
-def get_wfit_values(wfit_yaml):
-
-    # Created Aug 9 2021
-    # parse yaml for wfit values, allowing for legacy and 
-    # refactored (Aug 2021) wfit. 
-    # Also check for wsig_marg vs. wsig_lo/wsig_hi
-    # Sep 28 2021: check for wa and its uncertainty
-    # Oct 23 2021: check for Rho
-    # Feb 22 2022: check for NWARNINGS
-    # Aug 28 2022: wsig_hi -> wsig_up (bug fix)
-
-    key_list = [ 'w', 'w0' ]
-    for key in key_list:
-        if  key in wfit_yaml:
-            w  = wfit_yaml[key]  
-
-    key_list = [ 'w_sig', 'wsig_marg', 'wsig_lo', 
-                 'w0sig_marg', 'w0sig_lo' ]
-    w_sig    = -9.0
-    for key in key_list:
-        if key in wfit_yaml: 
-            w_sig = wfit_yaml[key]
-            if key == 'wsig_lo' :
-                w_sig_lo = wfit_yaml['wsig_lo'] 
-                w_sig_up = wfit_yaml['wsig_up'] 
-                w_sig    = 0.5*(w_sig_lo + w_sig_up)
-            if key == 'w0sig_lo' :
-                w_sig_lo = wfit_yaml['w0sig_lo'] 
-                w_sig_up = wfit_yaml['w0sig_up'] 
-                w_sig    = 0.5*(w_sig_lo + w_sig_up)
-
-
-    # - - - repeat for optoinal wa
-    key_list = [ 'wa' ]
-    wa       = 0.0
-    for key in key_list:
-        if  key in wfit_yaml:
-            wa  = wfit_yaml[key]  
-
-    key_list = [ 'wasig_marg', 'wasig_lo' ]
-    wa_sig   = 0.0
-    for key in key_list:
-        if key in wfit_yaml: 
-            wa_sig = wfit_yaml[key]
-            if key == 'wasig_lo' :
-                wa_sig_lo = wfit_yaml['wasig_lo'] 
-                wa_sig_up = wfit_yaml['wasig_up'] 
-                wa_sig    = 0.5*(wa_sig_lo + wa_sig_up)
-
-    # - - - OM - - - -
-    key_list = [ 'omm', 'OM' ]
-    OM = -9.0
-    for key in key_list:
-        if  key in wfit_yaml:
-            omm  = wfit_yaml[key]  
-
-    key_list = [ 'omm_sig', 'OMsig', 'OMsig_marg' ]
-    omm_sig = -9.0
-    for key in key_list:
-        if  key in wfit_yaml:
-            omm_sig  = wfit_yaml[key]  
-
-    # - - - repeat for FoM (for w0wa fit)
-    key_list = [ 'FoM' ]
-    FoM       = 0.0
-    for key in key_list:
-        if  key in wfit_yaml:
-            FoM  = wfit_yaml[key]  
-
-    # - - - repeat for reduced cov Rho(womm) - Sep 2022
-    key_list = [ 'rho_wOM', 'rho_womm' ]
-    rho_womm = 0.0
-    for key in key_list:
-        if  key in wfit_yaml:
-            rho_womm = wfit_yaml[key]  
-
-    # - - - repeat for reduced cov Rho(w0wa) - Oct 23 2021
-    key_list = [ 'Rho', 'rho_w0wa' ]
-    rho_w0wa = 0.0
-    for key in key_list:
-        if  key in wfit_yaml:
-            rho_w0wa = wfit_yaml[key]  
-
-    # - - - misc - - - - 
-    chi2    = wfit_yaml['chi2'] 
-    sigint  = wfit_yaml['sigint']
-
-    key_list = [ 'wrand', 'wran', 'w0ran' ]
-    w_ran = -9.0 
-    for key in key_list:
-        if key in wfit_yaml:
-            w_ran   = wfit_yaml[key]
-
-    key_list = [ 'warand', 'waran' ]
-    wa_ran   = 0
-    for key in key_list:
-        if key in wfit_yaml:
-            wa_ran   = wfit_yaml[key]
-
-    key_list = [ 'ommrand', 'ommran', 'OMran' ]
-    omm_ran = -9.0
-    for key in key_list:
-        if key in wfit_yaml:
-            omm_ran   = wfit_yaml[key]
-
-    key_list = [ 'BLIND', 'blind' ]
-    blind    = 0
-    for key in key_list:
-        if key in wfit_yaml:
-            blind = wfit_yaml[key]
-
-    key_list = [ 'NWARNINGS' ]
-    nwarn    = 0
-    for key in key_list:
-        if key in wfit_yaml:
-            nwarn = wfit_yaml[key]
-
-    wfit_values_dict = {
-        'w'        : w ,
-        'w_sig'    : w_sig ,
-        'omm'      : omm ,
-        'omm_sig'  : omm_sig ,
-        'chi2'     : chi2 ,
-        'sigint'   : sigint ,
-        'w_ran'    : w_ran,
-        'omm_ran'  : omm_ran,
-        'blind'    : blind ,
-        'nwarn'    : nwarn ,
-        # optional below
-        'wa'       : wa,
-        'wa_sig'   : wa_sig,
-        'wa_ran'   : wa_ran,
-        'FoM'      : FoM,
-        'rho_womm' : rho_womm,
-        'rho_w0wa' : rho_w0wa,
-        'PAD'  : 0
-    }
-
-    return wfit_values_dict
-
-    # end get_wfit_values
 
 def prep_jobopt_list(config_rows, string_jobopt, start_jobopt, key_arg_file):
 
@@ -1394,4 +1253,147 @@ def extract_yaml(input_file, key_start, key_end):
     #logging.info(f" YAML config loaded successfully from {input_file}")
     return config
     # end extract_yaml
+
+
+def get_wfit_values(wfit_yaml):
+
+    # Created Aug 9 2021
+    # parse yaml for wfit values, allowing for legacy and 
+    # refactored (Aug 2021) wfit. 
+    # Also check for wsig_marg vs. wsig_lo/wsig_hi
+    # Sep 28 2021: check for wa and its uncertainty
+    # Oct 23 2021: check for Rho
+    # Feb 22 2022: check for NWARNINGS
+    # Aug 28 2022: wsig_hi -> wsig_up (bug fix)
+
+    key_list = [ 'w', 'w0' ]
+    for key in key_list:
+        if  key in wfit_yaml:
+            w  = wfit_yaml[key]  
+
+    key_list = [ 'w_sig', 'wsig_marg', 'wsig_lo', 
+                 'w0sig_marg', 'w0sig_lo' ]
+    w_sig    = -9.0
+    for key in key_list:
+        if key in wfit_yaml: 
+            w_sig = wfit_yaml[key]
+            if key == 'wsig_lo' :
+                w_sig_lo = wfit_yaml['wsig_lo'] 
+                w_sig_up = wfit_yaml['wsig_up'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_up)
+            if key == 'w0sig_lo' :
+                w_sig_lo = wfit_yaml['w0sig_lo'] 
+                w_sig_up = wfit_yaml['w0sig_up'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_up)
+
+
+    # - - - repeat for optoinal wa
+    key_list = [ 'wa' ]
+    wa       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            wa  = wfit_yaml[key]  
+
+    key_list = [ 'wasig_marg', 'wasig_lo' ]
+    wa_sig   = 0.0
+    for key in key_list:
+        if key in wfit_yaml: 
+            wa_sig = wfit_yaml[key]
+            if key == 'wasig_lo' :
+                wa_sig_lo = wfit_yaml['wasig_lo'] 
+                wa_sig_up = wfit_yaml['wasig_up'] 
+                wa_sig    = 0.5*(wa_sig_lo + wa_sig_up)
+
+    # - - - OM - - - -
+    key_list = [ 'omm', 'OM' ]
+    OM = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            omm  = wfit_yaml[key]  
+
+    key_list = [ 'omm_sig', 'OMsig', 'OMsig_marg' ]
+    omm_sig = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            omm_sig  = wfit_yaml[key]  
+
+    # - - - repeat for FoM (for w0wa fit)
+    key_list = [ 'FoM' ]
+    FoM       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            FoM  = wfit_yaml[key]  
+
+    # - - - repeat for reduced cov Rho(womm) - Sep 2022
+    key_list = [ 'rho_wOM', 'rho_womm' ]
+    rho_womm = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            rho_womm = wfit_yaml[key]  
+
+    # - - - repeat for reduced cov Rho(w0wa) - Oct 23 2021
+    key_list = [ 'Rho', 'rho_w0wa' ]
+    rho_w0wa = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            rho_w0wa = wfit_yaml[key]  
+
+    # - - - misc - - - - 
+    chi2    = wfit_yaml['chi2'] 
+    sigint  = wfit_yaml['sigint']
+
+    key_list = [ 'wrand', 'wran', 'w0ran' ]
+    w_ran = -9.0 
+    for key in key_list:
+        if key in wfit_yaml:
+            w_ran   = wfit_yaml[key]
+
+    key_list = [ 'warand', 'waran' ]
+    wa_ran   = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            wa_ran   = wfit_yaml[key]
+
+    key_list = [ 'ommrand', 'ommran', 'OMran' ]
+    omm_ran = -9.0
+    for key in key_list:
+        if key in wfit_yaml:
+            omm_ran   = wfit_yaml[key]
+
+    key_list = [ 'BLIND', 'blind' ]
+    blind    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            blind = wfit_yaml[key]
+
+    key_list = [ 'NWARNINGS' ]
+    nwarn    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            nwarn = wfit_yaml[key]
+
+    wfit_values_dict = {
+        'w'        : w ,
+        'w_sig'    : w_sig ,
+        'omm'      : omm ,
+        'omm_sig'  : omm_sig ,
+        'chi2'     : chi2 ,
+        'sigint'   : sigint ,
+        'w_ran'    : w_ran,
+        'omm_ran'  : omm_ran,
+        'blind'    : blind ,
+        'nwarn'    : nwarn ,
+        # optional below
+        'wa'       : wa,
+        'wa_sig'   : wa_sig,
+        'wa_ran'   : wa_ran,
+        'FoM'      : FoM,
+        'rho_womm' : rho_womm,
+        'rho_w0wa' : rho_w0wa,
+        'PAD'  : 0
+    }
+
+    return wfit_values_dict
+
+    # end get_wfit_values
 

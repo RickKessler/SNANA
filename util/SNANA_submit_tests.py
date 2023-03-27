@@ -179,6 +179,7 @@ def run_submit(infile_list, outdir_list, INPUTS):
                               cwd=SNANA_TESTS_DIR,
                               capture_output=True, text=True )
         
+        time.sleep(1)
         check_file_exists(merge_file)
         check_file_exists(info_file)
         time.sleep(3)

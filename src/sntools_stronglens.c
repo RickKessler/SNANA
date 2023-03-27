@@ -240,7 +240,7 @@ void init_stronglens(char *MODEL_FILE) {
       get_PARSE_WORD(0,iwd,tmpWord);
 
       if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
-	{ sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.IDLENS[i]); }
+	{ sscanf(tmpWord, "%lld", &INPUTS_STRONGLENS.IDLENS[i]); }
 		
       else if ( iwd == INPUTS_STRONGLENS.ICOL_ZLENS ) 
 	{ sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.ZLENS[i]); }
@@ -369,7 +369,7 @@ void malloc_stronglens(int NLENS) {
 
   // ------------ BEGIN --------------
 
-  INPUTS_STRONGLENS.IDLENS            = (int  *) malloc(MEMI);
+  INPUTS_STRONGLENS.IDLENS            = (long long int  *) malloc(MEMI);
   INPUTS_STRONGLENS.ZLENS             = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.LOGMASS_LENS      = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.LOGMASS_ERR_LENS  = (float*) malloc(MEMF);
@@ -424,7 +424,8 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //
 
   int    NLENS_LIB = INPUTS_STRONGLENS.NLENS;
-  int    IDLENS_local, NIMG_local=0, img,i,j, numLens ;
+  int    NIMG_local=0, img,i,j, numLens ;
+  long long int IDLENS_local;
   double FlatRan, ZSRC, ZSRC_MINTOL, ZSRC_MAXTOL ;
   double zLENS_local, LOGMASS_local, LOGMASS_ERR_local, zSRC_local ;
 

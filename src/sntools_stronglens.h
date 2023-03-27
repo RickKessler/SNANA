@@ -9,7 +9,7 @@ struct {
 
   // contents from model file/library
   int   NLENS;     // number of lenses in library
-  int   *IDLENS;  // ID for each lens
+  long long int *IDLENS;  // ID for each lens
   float *ZLENS;  // lens redshift
   float *LOGMASS_LENS, *LOGMASS_ERR_LENS;
   float *ZSRC; //source redshift

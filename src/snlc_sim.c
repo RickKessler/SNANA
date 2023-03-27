@@ -13361,6 +13361,17 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.LENSDMU ;
   NVAR_SIMGEN_DUMP++ ;
 
+  //GENSL.LIBEVENT.IDLENS
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SL_IDLENS") ; // from strong lens
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT8 = &GENSL.LIBEVENT.IDLENS ;
+  NVAR_SIMGEN_DUMP++ ;
+  // ... or ...
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SL_LENSID") ; // from strong lens
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT8 = &GENSL.LIBEVENT.IDLENS ;
+  NVAR_SIMGEN_DUMP++ ;
+  
   // strong lens magnification 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"SL_MAGSHIFT") ; // from strong lens

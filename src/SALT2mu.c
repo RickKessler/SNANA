@@ -278,6 +278,8 @@ For help, run code with no arguments
  Mar 18 2023: replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
               min_per_cell_biascor
 
+ Mar 28 2023: if simfile_biascor=NONE, disable it -> allows command-line override.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -15883,9 +15885,16 @@ int ppar(char* item) {
       INPUTS.simFile_biasCor_arg = (char*) malloc(strlen(item)*sizeof(char));
       sprintf(INPUTS.simFile_biasCor_arg, "%s", &item[len]);
 
-      parse_commaSepList("SIMFILE_BIASCOR", &item[len], 
-			 MXFILE_BIASCOR, MXCHAR_FILENAME, 
-			 &INPUTS.nfile_biasCor, &INPUTS.simFile_biasCor );
+      if ( IGNOREFILE(&item[len]) ) {
+	// enable turning off bias cor with e.g., simfile_biascor=NONE
+	INPUTS.nfile_biasCor = 0 ;
+	INPUTS.opt_biasCor   = 0 ;
+      }
+      else {
+	parse_commaSepList("SIMFILE_BIASCOR", &item[len], 
+			   MXFILE_BIASCOR, MXCHAR_FILENAME, 
+			   &INPUTS.nfile_biasCor, &INPUTS.simFile_biasCor );
+      }
       return(1);
     }
   }

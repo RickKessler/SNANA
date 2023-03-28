@@ -15652,11 +15652,12 @@ void parse_parFile(char *parFile ) {
 
   while (fgets(line,MXCHAR_LINE,fdef)) {
 
-    // skip blank lines and lines starting with comment char (RK 4/23/2012)
     if ( strlen(line) < 3 )       { continue ; }  
     if ( !YAML && commentchar(line) == 1 ) { continue ; } // see sntools.c
 
-    remove_comment(line); // remove comment after key/value
+    // remove comment after key/value, but be careful not to remove
+    // #ENDYAML by checking hash starting at 3rd char.
+    remove_comment(&line[2]); 
 
     sptr = strtok(line,"\n");
     

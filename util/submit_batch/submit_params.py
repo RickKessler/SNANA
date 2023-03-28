@@ -43,9 +43,10 @@ PROGRAM_NAME_LCFIT   =  "snlc_fit.exe"
 PROGRAM_NAME_BBC     =  "SALT2mu.exe"
 PROGRAM_NAME_COVMAT  =  "create_covariance.py"
 PROGRAM_NAME_WFIT    =  "wfit.exe"
-PROGRAM_NAME_FIRECROWN    =  None  
+PROGRAM_NAME_FIRECROWN  =  None  
 PROGRAM_NAME_MKDATA  =  "makeDataFiles.sh"
 PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
+PROGRAM_NAME_CAT     = "sntable_cat.py" # utility used by BBC class
 
 SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"

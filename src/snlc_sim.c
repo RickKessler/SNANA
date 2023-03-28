@@ -937,7 +937,7 @@ void set_user_defaults(void) {
   INPUTS.GENMODEL_MSKOPT             = 0 ; 
   INPUTS.GENMODEL_ARGLIST[0]         = 0 ;
   INPUTS.GENMAG_SMEAR[0]             = 0.0 ;
-  INPUTS.GENMAG_SMEAR[1]             = 0.0 ;
+  INPUTS.GENMAG_SMEAR[1]             = 0.0 ; // optional asymmetric smear
   INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] = 0.0 ;
   INPUTS.GENMAG_SMEAR_ADDPHASECOR[1] = 0.0 ;
   INPUTS.GENSMEAR_RANGauss_FIX       = -999.0 ;
@@ -2293,6 +2293,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - 
   else if ( keyMatchSim(1, "GENPERFECT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPERFECT );
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_GENMODEL, fnam) ;
   }
   else if ( keyMatchSim(1, "MAGSHIFT_SPECEFF",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
@@ -7441,6 +7442,8 @@ void genperfect_override(void) {
 
   Oct 22, 2021: add GENPERFECT_HOSTLIB bit A Gagliano
 
+  Mar 28 2023: write comment to stdout for each GENPERFECT action
+
   ****/
 
   int NVAR, ifilt, MASK, OVP, bit, MSKTMP ;
@@ -7455,7 +7458,7 @@ void genperfect_override(void) {
 #define BITPERFECT_AV         4  // MASK=16: host-galaxy extinction
 #define BITPERFECT_HOSTLIB    5  // MASK=32: Hostlib A Gagliano 
 #define MSKPERFECT_ALL       63  // mask with all bits
-
+  
   char fnam[] = "genperfect_override" ;
 
   // ---------- BEGIN ---------------
@@ -7469,7 +7472,7 @@ void genperfect_override(void) {
   // it behaves as in previous versions.
 
   OVP = MASK & (1 <<  BITPERFECT_ALL ) ;
-  if ( OVP > 0 && MASK > 0 ) MASK = MSKPERFECT_ALL ;
+  if ( OVP > 0 && MASK > 0 ) { MASK = MSKPERFECT_ALL ; }
 
   // for negative mask, list bit-options and exit program.
 
@@ -7513,6 +7516,7 @@ void genperfect_override(void) {
   OVP = MASK & (1 <<  BITPERFECT_XTMW) ;
   if ( OVP > 0 ) {
 
+    printf("\t GENPERFECT: disable Galactic extinction \n");
     NVAR++ ;  iptr = &INPUTS.MWEBV_FLAG ;
     sprintf(GENPERFECT.parnam[NVAR], "MWEBV_FLAG" );
     GENPERFECT.parval[NVAR][0] = (float)*iptr ;
@@ -7539,6 +7543,7 @@ void genperfect_override(void) {
 
   OVP = MASK & (1 <<  BITPERFECT_EXPTIME ) ;
   if ( OVP > 0 ) {
+    printf("\t GENPERFECT: disable ZP smear \n");
     NVAR++ ;  iptr = &INPUTS.SMEARFLAG_ZEROPT ;
     sprintf(GENPERFECT.parnam[NVAR], "SMEARFLAG_ZEROPT" );
     GENPERFECT.parval[NVAR][0] = (float)*iptr ;
@@ -7546,6 +7551,7 @@ void genperfect_override(void) {
     GENPERFECT.parval[NVAR][1] = (float)*iptr ;
     GENPERFECT.partype[NVAR]   = 1 ;
 
+    printf("\t GENPERFECT: EXPOSURE_TIME *= 100000 \n");
     NVAR++ ;  fptr = &INPUTS.EXPOSURE_TIME ;
     sprintf(GENPERFECT.parnam[NVAR], "EXPOSURE_TIME" ) ;
     GENPERFECT.parval[NVAR][0] = *fptr ;
@@ -7563,6 +7569,7 @@ void genperfect_override(void) {
   OVP = MASK & (1 <<  BITPERFECT_AV ) ;
   if ( OVP > 0 ) {
 
+    printf("\t GENPERFECT: AV=0 \n");
     NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.EXP_TAU ;
     sprintf(GENPERFECT.parnam[NVAR], "GENEXPTAU_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
@@ -7583,6 +7590,7 @@ void genperfect_override(void) {
 
   OVP = MASK & (1 <<  BITPERFECT_MAGSMEAR ) ;
   if ( OVP > 0 ) {
+    printf("\t GENPERFECT: disable intrinsic scatter \n");
     NVAR++ ;  fptr = &INPUTS.GENMODEL_ERRSCALE ;
     sprintf(GENPERFECT.parnam[NVAR], "GENMODEL_ERRSCALE" ) ;
     GENPERFECT.parval[NVAR][0] = *fptr ;
@@ -7608,16 +7616,19 @@ void genperfect_override(void) {
   }
 
   OVP = MASK & (1 <<  BITPERFECT_HOSTLIB ) ;
-  if ( OVP > 0 ){
-   NVAR++ ;  iptr = &INPUTS.HOSTLIB_USE ;
-   sprintf(GENPERFECT.parnam[NVAR], "HOSTLIB_USE" );
-   GENPERFECT.parval[NVAR][0] = (float)*iptr ;
-   *iptr = 0 ;
-   GENPERFECT.parval[NVAR][1] = (float)*iptr ;
-   GENPERFECT.partype[NVAR]   = 1 ;
+  if ( OVP > 0 ) {
+    printf("\t GENPERFECT: disable HOSTLIB \n");
+    NVAR++ ;  iptr = &INPUTS.HOSTLIB_USE ;
+    sprintf(GENPERFECT.parnam[NVAR], "HOSTLIB_USE" );
+    GENPERFECT.parval[NVAR][0] = (float)*iptr ;
+    *iptr = 0 ;
+    GENPERFECT.parval[NVAR][1] = (float)*iptr ;
+    GENPERFECT.partype[NVAR]   = 1 ;
  }
 
   // now do the mandatory ones.
+
+  printf("\t GENPERFECT: z_err->0  vpec->0 \n");
 
   NVAR++ ;  dptr = &INPUTS.GENSIGMA_REDSHIFT ;
   sprintf(GENPERFECT.parnam[NVAR], "GENSIGMA_REDSHIFT");
@@ -7652,7 +7663,7 @@ void genperfect_override(void) {
   INPUTS.GENGAUSS_RV.SIGMA[0] = 0.0 ;  
   INPUTS.GENGAUSS_RV.SIGMA[1] = 0.0 ;  // do this just to be safe
 
-
+  fflush(stdout);
   GENPERFECT.NVAR = NVAR ;
 
 
@@ -29012,6 +29023,8 @@ void print_sim_help(void) {
     "GENMODEL:  <model>                #  SN model name (manual Sec 9)",
     "           # e.g., SALT2.[name]  SIMSED.[name]  NONIASED.[name] ... ",
     "GENMAG_SMEAR_MODELNAME:  <model>  # SNIa intrinsic scatter model name",
+    "GENMAG_SMEAR:  <smear>            # cohrent mag-smear",
+    "GENMAG_SMEAR:  <sig_lo,sig_hi>    # optional asymmetric Gauss smear",
     "",
     "# - - - - - - Instrumental inputs - - - - - ",
     "GENFILTERS: <filters>   # list of filter band; e.g, ugriz ",
@@ -29084,6 +29097,7 @@ void print_sim_help(void) {
     "DNDB: BPOLY    a0,a1,,,,aN   # poly coeffs for b distribution",
     "",
     "# - - - - - - - - Misc inputs - - - - - - - ",
+    "GENPERFECT:  <mask>     # ideal sim; grep BITPERFECT snlc_sim.c | grep define",
     "RANSEED:  128473        # random seed",
     "DEBUG_FLAG: 0           # use this for development",
     "",

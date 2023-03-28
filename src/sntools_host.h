@@ -485,7 +485,7 @@ typedef struct {
   double SQRADIUS; // Ixx + Iyy
   double ELLIPTICITY;
 
-  int GALID_UNIQUE; // see input HOSTLIB_GALID_UNIQUE_OFFSET (Oct 2021)
+  long long GALID_UNIQUE; // see input HOSTLIB_GALID_UNIQUE_OFFSET (Oct 2021)
 
 } SNHOSTGAL_DDLR_SORT_DEF ;
 
@@ -742,7 +742,7 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN, 
 				   double *ZPHOT, double *ZPHOT_ERR); 
-double snmagshift_salt2gamma_HOSTLIB(int GALID);
+double snmagshift_salt2gamma_HOSTLIB(long long int GALID);
 
 void   set_GALID_UNIQUE(int i);
 

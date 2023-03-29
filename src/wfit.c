@@ -131,6 +131,10 @@
  Mar 14 2023: begin prep for HDIBC method:
                  Hubble Diagram Interpolated with Bias-cor Cosmology
 
+ Mar 29 2023:
+   +  "-debug_flag 91"  to dump cospar comparison between wfit and sim
+   +  -muerr_ideal <value> to replace mu with mu_true + Gauss(0,muerr_ideal).
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -186,6 +190,7 @@ struct INPUTS {
   bool blind_auto; // automatically blind data and unblind sim
   int  blind_seed; // used to pick large random number for sin arg
   int  debug_flag ;
+  double muerr_ideal ; // flag to replace mu -> mu_true + Gauss(0,muerr_ideal)
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -319,6 +324,8 @@ typedef struct {
 } HD_DEF ;
 
 HD_DEF HD_LIST[2];
+
+Cosparam COSPAR_SIM ; // cosmo params from simulated data 
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
@@ -498,6 +505,7 @@ double trapint(double (*func)(double, Cosparam *),
 double trapezoid(double (*func)(double, Cosparam *), 
 		 double x1, double x2, int n, double s, Cosparam *vptr);
 
+void test_cospar(void);
 
 // =============================================
 // ================ MAIN =======================
@@ -525,6 +533,7 @@ int main(int argc,char *argv[]){
   // Parse command line args 
   parse_args(argc,argv);
 
+  if ( INPUTS.debug_flag == 91 ) { test_cospar(); }
 
   malloc_workspace(+1);
 
@@ -633,6 +642,7 @@ void init_stuff(void) {
 
   INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
   INPUTS.blind_seed = 48901 ;
+  INPUTS.muerr_ideal = 0.0;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
@@ -753,7 +763,9 @@ void print_wfit_help(void) {
     "   -mucovar\t\t [Legacy key for previous]",
     "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
-    "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick"
+    "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
+    "   -debug_flag 91\t compare calc mu(wfit) vs. mu(sim)",
+    "   -muerr_ideal \t replace all mu with mu_true + Gauss(0,muerr_ideal)",
     "\n",
     " Grid spacing:",
     " wCDM Fit:",
@@ -979,6 +991,9 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
+      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  
+	{ INPUTS.muerr_ideal = atof(argv[++iarg]);  } 
+
       else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)
 	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]); }      
 
@@ -1026,6 +1041,12 @@ void parse_args(int argc, char **argv) {
   }
   printf("---------------------------------------\n\n");
   fflush(stdout);
+
+  COSPAR_SIM.omm = INPUTS.OMEGA_MATTER_SIM ;
+  COSPAR_SIM.ome = 1.0 - INPUTS.OMEGA_MATTER_SIM ;
+  COSPAR_SIM.w0  = INPUTS.w0_SIM;
+  COSPAR_SIM.wa  = INPUTS.wa_SIM;
+  COSPAR_SIM.mushift  = 0.0 ;
 
   return;
 
@@ -1170,6 +1191,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
   int IVAR_zHD=-8, IVAR_zHDERR=-8, IVAR_NFIT=-8 ;
   int IFILETYPE, NVAR_ORIG, LEN, NROW, irow ;    
   int VBOSE = 1;
+  double rz, mu_cos;
   bool ISDATA_REAL = false ;
   char TBNAME[] = "HD" ;  // table name is Hubble diagram
   char fnam[] = "read_HD" ;
@@ -1259,30 +1281,6 @@ void read_HD(char *inFile, HD_DEF *HD) {
 
     HD->pass_cut[irow]  = PASSCUTS ;
 
-    /* xxx mark delete xxxxxx    
-    HD->pass_cut[irow]  = false; // always use original index
-
-    if ( PASSCUTS ) {
-      HD->pass_cut[irow]  = true;
-
-      sprintf(HD->cid[NROW2], "%s", HD->cid[irow] );
-      HD->mu[NROW2]       = HD->mu[irow];
-      HD->mu_sig[NROW2]   = HD->mu_sig[irow];
-      if ( INPUTS.muerr_force > 0.0 ) { HD->mu_sig[NROW2] = INPUTS.muerr_force; }
-
-      HD->z[NROW2]        = ztmp;
-      HD->logz[NROW2]     = log10(ztmp); // Apr 22 2022
-      HD->z_sig[NROW2]    = HD->z_sig[irow];
-      HD->mu_sqsig[NROW2] = HD->mu_sig[irow]*HD->mu_sig[irow];
-
-      if ( ztmp < HD->zmin ) { HD->zmin = ztmp; }
-      if ( ztmp > HD->zmax ) { HD->zmax = ztmp; }
-
-      NROW2++ ;
-
-    } // end PASSCUTS
-      xxxxxx end mark delete xxxxxxx */
-
   } // end irow
 
   // xxx mark  HD->NSN  = NROW2;
@@ -1291,6 +1289,24 @@ void read_HD(char *inFile, HD_DEF *HD) {
 
   printf("   Keep %d of %d z-bins with z cut\n", 
 	 HD->NSN, NROW);  
+
+  // - - - - - 
+  // Mar 29 2023: test with ideal mu and mu_err 
+  double muerr_ideal, gran ;
+  muerr_ideal = INPUTS.muerr_ideal ;
+  printf("\n TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", muerr_ideal);
+  if ( muerr_ideal > 0.0 ) {
+    init_random_seed(459087,1);
+    for(irow=0; irow < HD->NSN; irow++ ) {
+      ztmp    = HD->z[irow] ;
+      gran    = unix_getRan_Gauss(0);
+      rz                 = codist(ztmp, &COSPAR_SIM);
+      mu_cos             = get_mu_cos(ztmp, rz);
+      HD->mu[irow]       = mu_cos + (muerr_ideal * gran) ;
+      HD->mu_sig[irow]   = muerr_ideal;
+      HD->mu_sqsig[irow] = muerr_ideal * muerr_ideal ;
+    }
+  } // end muerr_ideal
 
   fflush(stdout);
   //  debugexit(fnam);
@@ -1315,11 +1331,11 @@ void read_HD(char *inFile, HD_DEF *HD) {
     read_cospar_biascor(info_yml_file, &HD->cospar_biasCor);
 
     // for each data event, store mu(z,cospar_biascor)
-    double rz;
     for(irow=0; irow < HD->NSN; irow++ ) {
       ztmp    = HD->z[irow] ;
       rz      = codist(ztmp, &HD->cospar_biasCor);
-      HD->mu_cospar_biascor[irow] = get_mu_cos(ztmp, rz);
+      mu_cos  = get_mu_cos(ztmp, rz);
+      HD->mu_cospar_biascor[irow] = mu_cos;
     }
   } // end HDIBC
 
@@ -1942,19 +1958,6 @@ void compute_MUCOV_FINAL(void) {
 void set_priors(void) {
 
   bool noprior = true;
-
-  double OM    = INPUTS.OMEGA_MATTER_SIM ;
-  double OE    = 1 - OM ;
-  double w0    = INPUTS.w0_SIM ;
-  double wa    = INPUTS.wa_SIM ;
-
-  Cosparam cparloc;
-  cparloc.omm = OM ;
-  cparloc.ome = OE ;
-  cparloc.w0  = w0 ;
-  cparloc.wa  = wa ; 
-  cparloc.mushift = 0.0 ;
-
   char fnam[]="set_priors";
 
   // =========== BEGIN ============
@@ -2023,14 +2026,7 @@ void init_cmb_prior(int OPT) {
   double OE = 1 - OM ;
   double w0 = INPUTS.w0_SIM ;
   double wa = INPUTS.wa_SIM ;
-
-  Cosparam cparloc;
-  cparloc.omm = OM ;
-  cparloc.ome = OE ;
-  cparloc.w0  = w0 ;
-  cparloc.wa  = wa ; 
-  cparloc.mushift = 0.0 ;
-
+  
   char *comment = CMB_PRIOR.comment;
   char fnam[] = "init_cmb_prior" ;
 
@@ -2093,19 +2089,6 @@ void init_bao_prior(int OPT) {
   // Mar 09 2022: remove LEGACY flag
 
   int iz;
-  double rz, tmp1, tmp2, z;
-  double OM = INPUTS.OMEGA_MATTER_SIM ;
-  double OE = 1 - OM ;
-  double w0 = INPUTS.w0_SIM ;
-  double wa = INPUTS.wa_SIM ;
-
-  Cosparam cparloc;
-  cparloc.omm = OM ;
-  cparloc.ome = OE ;
-  cparloc.w0  = w0 ;
-  cparloc.wa  = wa ; 
-  cparloc.mushift = 0.0 ;
-
   char *comment = BAO_PRIOR.comment;
   char fnam[] = "init_bao_prior" ;
 
@@ -2151,11 +2134,11 @@ void init_bao_prior(int OPT) {
   if ( INPUTS.use_bao == 2 ) { 
     double rd,z, DM, DH;
     HzFUN_INFO_DEF HzFUN;
-    rd = rd_bao_prior(&cparloc);
+    rd = rd_bao_prior(&COSPAR_SIM);
     for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
       z = BAO_PRIOR.z_sdss4[iz];
-      DM = DM_bao_prior(z, &cparloc);
-      DH = DH_bao_prior(z, &cparloc);
+      DM = DM_bao_prior(z, &COSPAR_SIM);
+      DH = DH_bao_prior(z, &COSPAR_SIM);
       BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ;
       BAO_PRIOR.DHrd_sdss4[iz] = DH/rd ;
     }
@@ -4610,6 +4593,79 @@ void write_output_chi2grid(void) {
   return;
 } // end write_output_chi2grid
 
+// ===========================
+void test_cospar(void) {
+
+  // Compare computed wfit distances against sim distances for 
+  // three cosmologies:
+  // w0,wa = {-1,0}  {-0.95, +0.15}  {-0.95,-0.15}
+
+#define NCOSPAR_TEST 3
+  double w0_test[NCOSPAR_TEST] = { -1.0, -0.95, -0.95 };
+  double wa_test[NCOSPAR_TEST] = {  0.0, +0.15, -0.15 };
+
+  Cosparam cpar;
+  HzFUN_INFO_DEF HzFUN;
+  ANISOTROPY_INFO_DEF ANISOTROPY;
+  double H0 = H0_SALT2;
+
+  FILE *fp;
+  double z, rz, mu_wfit[NCOSPAR_TEST], mu_sim[NCOSPAR_TEST];
+  int  icos, irow=0;  
+  char line[200];
+  char outFile[] = "cospar_comparison.txt";   
+  char fnam[] = "test_cospar";
+
+  // -------------- BEGIN -----------
+
+  printf("\n Open %s\n", outFile);
+  fp = fopen(outFile,"wt");
+  
+  for(icos=0; icos < NCOSPAR_TEST; icos++ ) {
+    fprintf(fp,"# om,w0,wa = %.4f %.4f %.4f for MU_fit%d and MU_sim%d \n",
+	    OMEGA_MATTER_DEFAULT, w0_test[icos], wa_test[icos],
+	    icos, icos);
+  }
+
+  fprintf(fp,"\n");
+
+  fprintf(fp,"VARNAMES: ROW zCMB   MU_wfit0 MU_wfit1 MU_wfit2   "
+	  "MU_sim0 MU_sim1 MU_sim2 \n");
+
+  ANISOTROPY.USE_FLAG = false;
+
+  for(z=0.01; z<2.0; z+=0.01) {
+
+    for(icos=0; icos < NCOSPAR_TEST; icos++ ) {
+
+      cpar.omm = OMEGA_MATTER_DEFAULT;
+      cpar.ome = 1.0 - cpar.omm ;
+      cpar.w0  = w0_test[icos];
+      cpar.wa  = wa_test[icos];
+      cpar.mushift = 0.0 ;
+      rz            =  codist( z, &cpar) ;
+      mu_wfit[icos] =  get_mu_cos(z,rz) ; 
+
+      set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, cpar.wa, &HzFUN);
+      mu_sim[icos] = dLmag(z,z, &HzFUN, &ANISOTROPY);
+    }
+
+    irow++ ;
+    sprintf(line,"ROW: %3d %.4f   "
+	    "%.5f %.5f %.5f   %.5f %.5f %.5f ",
+	    irow, z, 
+	    mu_wfit[0], mu_wfit[1], mu_wfit[2],
+	    mu_sim[0],  mu_sim[1],  mu_sim[2] );
+    fprintf(fp, "%s\n", line);
+
+  } // end z
+
+  fclose(fp);
+
+  debugexit(fnam);
+  return;
+
+} // end test_cospar
 
 // ==========================
 void CPU_summary(void) {

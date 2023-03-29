@@ -7590,7 +7590,7 @@ void genperfect_override(void) {
 
   OVP = MASK & (1 <<  BITPERFECT_MAGSMEAR ) ;
   if ( OVP > 0 ) {
-    printf("\t GENPERFECT: disable intrinsic scatter \n");
+    printf("\t GENPERFECT: disable intrinsic scatter and weak lensing\n");
     NVAR++ ;  fptr = &INPUTS.GENMODEL_ERRSCALE ;
     sprintf(GENPERFECT.parnam[NVAR], "GENMODEL_ERRSCALE" ) ;
     GENPERFECT.parval[NVAR][0] = *fptr ;
@@ -7613,6 +7613,7 @@ void genperfect_override(void) {
     GENPERFECT.partype[NVAR]   = 1 ;
 
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE");
+    sprintf(INPUTS.WEAKLENS_PROBMAP_FILE,  "NONE"); // Mar 2023
   }
 
   OVP = MASK & (1 <<  BITPERFECT_HOSTLIB ) ;

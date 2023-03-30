@@ -1293,17 +1293,22 @@ void read_HD(char *inFile, HD_DEF *HD) {
   // - - - - - 
   // Mar 29 2023: test with ideal mu and mu_err 
   double muerr_ideal, gran ;
+  int ISEED ;
+
   muerr_ideal = INPUTS.muerr_ideal ;
   if ( muerr_ideal > 0.0 ) {
 
+    ISEED = (int)(HD->mu_sig[0] * 224000.0);
+    init_random_seed(ISEED,1);
+ 
     printf("\n");
     printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n\n", 
+    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", 
 	   muerr_ideal);
-    printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printf("\t ISEED = %d \n");
+    printf("\n   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n");
 
-    init_random_seed(459087,1);
     for(irow=0; irow < HD->NSN; irow++ ) {
       ztmp    = HD->z[irow] ;
       gran    = unix_getRan_Gauss(0);

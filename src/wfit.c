@@ -1298,6 +1298,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
   muerr_ideal = INPUTS.muerr_ideal ;
   if ( muerr_ideal > 0.0 ) {
 
+    
     ISEED = (int)(HD->mu_sig[0] * 224000.0);
     init_random_seed(ISEED,1);
  
@@ -1305,7 +1306,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
     printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", 
 	   muerr_ideal);
-    printf("\t ISEED = %d \n");
+    printf("\t ISEED = %d \n", ISEED );
     printf("\n   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n");
 

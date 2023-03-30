@@ -1298,8 +1298,9 @@ void read_HD(char *inFile, HD_DEF *HD) {
   muerr_ideal = INPUTS.muerr_ideal ;
   if ( muerr_ideal > 0.0 ) {
 
-    
-    ISEED = (int)(HD->mu_sig[0] * 224000.0);
+    // compute SEED using first MU-uncertainty so that
+    // each data set has a unique randome seed.
+    ISEED = (int)(HD->mu_sig[0] * 8224532.0);
     init_random_seed(ISEED,1);
  
     printf("\n");

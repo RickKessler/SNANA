@@ -68,6 +68,8 @@
 #
 # Mar 18 2023 RK - gzip with new util.gzip_list_by_chunks() to gzip faster in parallel
 #
+# Mar 3 2023 RK - DOFAST_PREP_INPUT_FILES=True (devel_flag=-328 for False)
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -85,7 +87,7 @@ USE_INPDIR = True
 # for preparing catenated input fitres files using sntable_cat.py,
 # define number of interactice jobs to parallelize this slow task.
 NJOB_PREP_INPUT_FITRES     = 10
-DOFAST_PREP_INPUT_FILES    = False
+DOFAST_PREP_INPUT_FILES    = True
 
 PREFIX_SALT2mu           = "SALT2mu"
 PREFIX_PREP              = "PREP"
@@ -165,9 +167,9 @@ class BBC(Program):
 
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
-        if devel_flag == 328 :
+        if devel_flag == -328 :
             global DOFAST_PREP_INPUT_FILES
-            DOFAST_PREP_INPUT_FILES = True
+            DOFAST_PREP_INPUT_FILES = False
 
         # - - - - - - -
         # read C code inputs (not YAML block)

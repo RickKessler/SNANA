@@ -1151,7 +1151,7 @@ class BBC(Program):
                                      f"  -i {cat_file_list} \\\n" \
                                      f"  -o {cat_file_out} \\\n" \
                                      f"  {append_arg} \\\n" \
-                                     f'  2>/dev/null \n"
+                                     f"  2>/dev/null \n"
 
                     gzip_command   = f"gzip {cat_file_out}"
 

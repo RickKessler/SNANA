@@ -16403,7 +16403,6 @@ void parse_cat_only(char *string_cat_only) {
 
   if ( LDMP ) {
     //printf("xxx %s: ps=%d",fnam,(int)ps);
-    // print ps
     debugexit(fnam);
   }
 
@@ -18690,7 +18689,7 @@ void  prep_input_varname_missing(void) {
   }
 
   return ;
-} // end   prep_input_varname_missing
+} // end prep_input_varname_missing
 
 
 // **********************************************
@@ -19813,7 +19812,6 @@ void write_fitres_driver(char* fileName) {
 	( strcmp(KEY,"ROW:")    == 0 ) ||
 	( strcmp(KEY,"GAL:")    == 0 ) ;
       if ( !VALID_ROWKEY ) { continue ; }
-      // xxx mark      if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
 
       if ( cat_only ) {
 	// check prescale

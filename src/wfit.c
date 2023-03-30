@@ -1295,7 +1295,14 @@ void read_HD(char *inFile, HD_DEF *HD) {
   double muerr_ideal, gran ;
   muerr_ideal = INPUTS.muerr_ideal ;
   if ( muerr_ideal > 0.0 ) {
-    printf("\n TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", muerr_ideal);
+
+    printf("\n");
+    printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n\n", 
+	   muerr_ideal);
+    printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printf("\n");
+
     init_random_seed(459087,1);
     for(irow=0; irow < HD->NSN; irow++ ) {
       ztmp    = HD->z[irow] ;

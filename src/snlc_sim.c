@@ -25186,6 +25186,13 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
   else if ( INDEX_GENMODEL == MODEL_LCLIB ) {
     printf(" xxx LCLIB EVENT ID = %lld \n", LCLIB_EVENT.ID);
   }
+  else if ( IS_PySEDMODEL ) {
+    int ipar;
+    for( ipar=0 ; ipar < Event_PySEDMODEL.NPAR; ipar++ ) {
+      printf(" xxx PySEDMODEL par: %s = %f \n",
+	     Event_PySEDMODEL.PARNAME[ipar], Event_PySEDMODEL.PARVAL[ipar] );
+    }
+  }
 
   printf(" xxx \n");    fflush(stdout);
   // - - - - - - - - - - - -  

@@ -23047,7 +23047,7 @@ void init_genmodel(void) {
     char string_population_par[400] = "";
     sprintf(string_ranseed, "RANSEED %d ", INPUTS.ISEED);
     if ( INDEX_GENMODEL == MODEL_PYBAYESN ) {
-      sprintf(string_population_par,"GENPAR_PYBAYESN_THETA1 %f,%f,%f,%f,%f ", INPUTS.GENGAUSS_THETA.PEAK,
+      sprintf(string_population_par,"GENPAR_PYBAYESN_THETA %f,%f,%f,%f,%f ", INPUTS.GENGAUSS_THETA.PEAK,
                 INPUTS.GENGAUSS_THETA.RANGE[0],INPUTS.GENGAUSS_THETA.RANGE[1],
                 INPUTS.GENGAUSS_THETA.SIGMA[0],INPUTS.GENGAUSS_THETA.SIGMA[1]);
     }

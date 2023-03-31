@@ -27,7 +27,17 @@
 #     allows more flexibility in file names.
 #     See new method read_hd_info_file
 #
-# Oct 1 82022 RK - change class name from wFit to cosmofit (more general name)
+# Oct 1 2022 RK - change class name from wFit to cosmofit (more general name)
+#
+# Mar 14 2023 RK 
+#   + refactor to read option comma-sep list of directories for each
+#     INPDIR, which enables HDIBC in wfit. 
+#
+# Mar 20 2023: fix bug so that COVOPT works
+#
+# Mar 26 2023: 
+#  + add template method get_firecrown_values with hard-wired values
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -40,7 +50,7 @@ from submit_params    import *
 from submit_prog_base import Program
 
 # ------------------------------------------------
-# xxx mark delete PREFIX_wfit   = "wfit"
+
 COSMOFIT_CODE_WFIT = 'WFIT'
 COSMOFIT_CODE_FIRECROWN = 'FIRECROWN'
 
@@ -70,6 +80,26 @@ WFIT_SUMMARY_FILE     = "WFIT_SUMMARY.FITRES"
 WFIT_SUMMARY_AVG_FILE = "WFIT_SUMMARY_AVG.FITRES"
 WFIT_AVGTYPE_SINGLE   = "AVG_SINGLE"
 WFIT_AVGTYPE_DIFF     = "AVG_DIFF"
+
+
+COSMOFIT_PARNAME_w         = 'w'
+COSMOFIT_PARNAME_w0        = 'w0'
+COSMOFIT_PARNAME_w_sig     = 'w_sig'
+COSMOFIT_PARNAME_w0_sig    = 'w0_sig'
+COSMOFIT_PARNAME_wa        = 'wa'
+COSMOFIT_PARNAME_wa_sig    = 'wa_sig'
+COSMOFIT_PARNAME_FoM       = 'FoM'
+COSMOFIT_PARNAME_omm       = 'omm'
+COSMOFIT_PARNAME_omm_sig   = 'omm_sig'
+COSMOFIT_PARNAME_rho_womm  = 'rho_womm'
+COSMOFIT_PARNAME_rho_w0wa  = 'rho_w0wa'
+COSMOFIT_PARNAME_chi2      = 'chi2'
+COSMOFIT_PARNAME_Ndof      = 'Ndof'
+COSMOFIT_PARNAME_sigint    = 'sigint'
+COSMOFIT_PARNAME_blind     = 'blind'
+COSMOFIT_PARNAME_nwarn     = 'nwarn'
+COSMOFIT_PARNAME_w_ran     = 'w_ran'
+COSMOFIT_PARNAME_wa_ran    = 'wa_ran'
 
 # - - - - - - - - - - - - - - - - - - -  -
 class cosmofit(Program):
@@ -165,16 +195,23 @@ class cosmofit(Program):
             msgerr.append(f"Check {input_file}")
             self.log_assert(False, msgerr)
 
-        # expand inpdir for wildcards and ENVs 
+        # expand inpdir for wildcards and ENVs
+
         inpdir_list = []
         for inpdir_orig in inpdir_list_orig:
-            inpdir = os.path.expandvars(inpdir_orig)
+            inpdir = os.path.expandvars(inpdir_orig) # works on comma-sep list as well
             if '*' in inpdir_orig:
+                if ',' in inpdir: 
+                    msgerr = [f"wildcard not supported for INPDIR and HDIBC; " ,
+                              f"needs to be fixed for HDIBC with two HDs" ]
+                    self.log_assert(False, msgerr)
                 tmp_list = sorted(glob.glob(inpdir))
             else:
                 tmp_list = [ inpdir ]
+
             inpdir_list += tmp_list
 
+        
         # - - - - -
         isdata_list        = []
         hd_file_list       = []
@@ -189,14 +226,23 @@ class cosmofit(Program):
 
         for inpdir in inpdir_list:
 
-            if not os.path.exists(inpdir) :
-                msgerr.append(f"Cannot find input directory")
-                msgerr.append(f"  {inpdir}")       
-                self.log_assert(False, msgerr)            
-
+            inpdir_split = inpdir.split(',')
+            
             yaml_info, dict_info = \
-                self.read_hd_info_file(inpdir,covsys_select_list)
+                self.read_hd_info_file(inpdir_split[0],covsys_select_list)
 
+            # for HDIBC method using two HDs, make sure that yamp info is the same
+            if len(inpdir_split) == 2:
+                yaml_info2, dict_info2 = \
+		    self.read_hd_info_file(inpdir_split[1],covsys_select_list)
+                key_check_list = [ 'hd_file', 'covsys_file_list', 'covsys_num_list',
+                                   'isdata' ]
+                for key in key_check_list:
+                    same = ( dict_info[key] == dict_info2[key] )
+                    if not same:
+                        msgerr=[f"{key} name mismatch between {inpdir_list}" ]
+                        self.log_assert(False, msgerr)
+                
             hd_file           = dict_info['hd_file'] 
             covsys_file_list  = dict_info['covsys_file_list']
             covsys_num_list   = dict_info['covsys_num_list']
@@ -229,10 +275,11 @@ class cosmofit(Program):
         self.config_prep['isdata_list']        = isdata_list
         self.config_prep['covinfo_list']       = covinfo_list
 
-        self.wfit_error_check_input_list()
+        self.cosmofit_error_check_input_list()
 
         #print(f" isdata_list = {isdata_list}")
 
+        return
         # end cosmofit_prep_input_list
 
     def cosmofit_prep_wfitavg(self):
@@ -243,7 +290,7 @@ class cosmofit(Program):
 
         CONFIG      = self.config_yaml['CONFIG']
         inpdir_list = self.config_prep['inpdir_list']
-
+        
         KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
         if KEYNAME_WFITAVG is None: 
             return
@@ -348,7 +395,7 @@ class cosmofit(Program):
         # end cosmofit_prep_outdirs
 
         
-    def wfit_error_check_input_list(self):
+    def cosmofit_error_check_input_list(self):
 
         # loop over each inpdir and abort on problems such as
         # non-existing inpdir, n_covsys=0, etc ...
@@ -364,17 +411,19 @@ class cosmofit(Program):
         for inpdir, hd_base, covsys_file_list in \
             zip(inpdir_list, hd_file_list, covsys_file_list2d):
 
-            hd_file    = f"{inpdir}/{hd_base}"
-            n_covsys   = len(covsys_file_list)
-            if n_covsys == 0 :            
-                nerr += 1
-                msgerr.append(f"ERROR: cannot find covsys files in")
-                msgerr.append(f"   {inpdir}")  
+            for inp in inpdir.split(','):    # comma-sep list for HDIBC method
+            
+                hd_file    = f"{inp}/{hd_base}" 
+                n_covsys   = len(covsys_file_list)
+                if n_covsys == 0 :            
+                    nerr += 1
+                    msgerr.append(f"ERROR: cannot find covsys files in")
+                    msgerr.append(f"   {inpdir}")  
 
-            if not os.path.exists(hd_file):
-                nerr += 1
-                msgerr.append(f"ERROR: cannot find expected HD file:")
-                msgerr.append(f"   {hd_file}")       
+                if not os.path.exists(hd_file):
+                    nerr += 1
+                    msgerr.append(f"ERROR: cannot find expected HD file:")
+                    msgerr.append(f"   {hd_file}")       
         
         # - - - - - - -
         if nerr > 0 :
@@ -382,7 +431,7 @@ class cosmofit(Program):
             msgerr.append(f"See {nerr} ERROR messages above.")
             self.log_assert(False, msgerr)
 
-        # end wfit_error_check_input_list
+        # end cosmofit_error_check_input_list
 
 
         
@@ -414,7 +463,7 @@ class cosmofit(Program):
         INFO_KEYNAME_COVOPTS   = "COVOPTS"
         INFO_KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
         HD_BASENAME_LEGACY     = "hubble_diagram.txt" 
-
+        
         yaml_file = f"{inpdir}/{INFO_FILENAME}"
         yaml_info = util.extract_yaml(yaml_file, None, None )
 
@@ -428,7 +477,6 @@ class cosmofit(Program):
         else:
             hd_file = HD_BASENAME_LEGACY  # legacy hard wite
     
-
         # read flag indicating real data
         key     = INFO_KEYNAME_ISDATA
         if key in yaml_info:
@@ -464,7 +512,8 @@ class cosmofit(Program):
             covsys_num_list_select   = []
             for covsys_num_tmp, covsys_file_tmp in \
                 zip(COVOPTS_DICT, covsys_file_list):
-                covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp]
+                # mark delete RK: covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp]
+                covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp].split()[0]
 
                 if covsys_name_tmp in covsys_select_list:
                     covsys_file_list_select.append(covsys_file_tmp)
@@ -654,7 +703,6 @@ class cosmofit(Program):
 
         
     def write_command_file(self, icpu, f):
-        # Firecrown continue XYZ
         COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
         input_file         = self.config_yaml['args'].input_file 
         inpdir_list        = self.config_prep['inpdir_list']  
@@ -684,8 +732,9 @@ class cosmofit(Program):
             elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
                 job_info_cosmofit   = self.prep_JOB_INFO_firecrown(index_dict)
 
+                
             util.write_job_info(f, job_info_cosmofit, icpu)
-
+            
             
             job_info_merge = \
                 self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
@@ -713,11 +762,12 @@ class cosmofit(Program):
         cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
         hd_basename  = self.config_prep['hd_file_list'][idir]
         outdir_chi2grid = self.config_prep['outdir_chi2grid']
-
+        
         prefix = self.wfit_num_string(idir,icov,ifit)
 
-        covsys_file   = f"{inpdir}/{cov_basename}"
-        hd_file       = f"{inpdir}/{hd_basename}"
+        hd_file       = self.glue_inpdir_plus_filename(inpdir,hd_basename)
+        covsys_file   = self.glue_inpdir_plus_filename(inpdir,cov_basename)
+
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
@@ -755,6 +805,20 @@ class cosmofit(Program):
 
         # end prep_JOB_INFO_wfit
 
+    def glue_inpdir_plus_filename(self,inpdir,basename):
+        # If inpdir has no comma, return inpdir/basename.
+        # If inpddir = 'path0,path1' then return
+        #   path0/basename,path1/basename
+
+        flist = []
+        for inp in inpdir.split(','):
+            flist.append(f"{inp}/{basename}")
+
+        fstring = ",".join(flist)  # create comma-sep list
+        return fstring
+    
+        # end glue_inpdir_plus_filename
+        
     def prep_JOB_INFO_firecrown(self,index_dict):
 
         idir = index_dict['idir']
@@ -802,9 +866,12 @@ class cosmofit(Program):
 
         
         # define output YAML file to be parsed by submit-merge process
-        #arg_list.append(f"-cospar_yaml {prefix}.YAML")
-        # XYZ Need something analogous for Firecrown
+        arg_list.append(f"--summary {script_dir}/{prefix}.YAML")
 
+        # define output INFO file XXX AM 26/03/2023
+        # arg_list.append(f"--info {script_dir}/{prefix}.INFO")
+
+        
         JOB_INFO = {}
         JOB_INFO['program']       = program
         JOB_INFO['input_file']    = ""
@@ -819,24 +886,37 @@ class cosmofit(Program):
 
         # end prep_JOB_INFO_firecrown
 
+
+
+
         
 
         
     def wfit_num_string(self,idir,icov,ifit):
 
+        covsys_num_list2d = self.config_prep['covsys_num_list2d']
+
+        if idir >=0 and icov >=0 :
+            # usually icovnum = icov ... unless CONFIG['COVOPT'] key is used 
+            icovnum = covsys_num_list2d[idir][icov]
+        elif icov >= 0:
+            # idir < 0, so use idir=0 to get icovnum
+            icovnum = covsys_num_list2d[0][icov]
+
+        # - - - - - - 
         if idir >= 0 and icov < 0 and ifit < 0:
             string = f"DIROPT{idir:05d}"
 
         elif icov >= 0 and idir < 0 and ifit < 0 :
-            string = f"COVOPT{icov:03d}"
+            string = f"COVOPT{icovnum:03d}"
         elif ifit >= 0 and idir < 0 and icov < 0 :
             string = f"WFITOPT{ifit:03d}"
 
         elif idir < 0 and ifit>=0 and icov>=0 :
-            string = f"COVOPT{icov:03d}_WFITOPT{ifit:03d}"
+            string = f"COVOPT{icovnum:03d}_WFITOPT{ifit:03d}"
 
         elif idir >= 0 and ifit>=0 and icov>=0 :
-            string = f"DIROPT{idir:05d}_COVOPT{icov:03d}_WFITOPT{ifit:03d}"
+            string = f"DIROPT{idir:05d}_COVOPT{icovnum:03d}_WFITOPT{ifit:03d}"
         else:
             string = "ERROR"
 
@@ -1003,7 +1083,7 @@ class cosmofit(Program):
             STATE       = row[COLNUM_STATE]
             prefix      = self.cosmofit_prefix(row) 
             search_wildcard = f"{prefix}*"
-
+            
             # check if DONE or FAIL ; i.e., if Finished
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)
@@ -1086,6 +1166,7 @@ class cosmofit(Program):
     def make_wfit_summary(self):
 
         CONFIG           = self.config_yaml['CONFIG']
+        COSMOFIT_CODE    = self.config_prep['COSMOFIT_CODE']
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -1110,20 +1191,25 @@ class cosmofit(Program):
             covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
             wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
             prefix     = self.cosmofit_prefix(row)
-            YAML_FILE  = f"{script_dir}/{prefix}.YAML"
 
-            wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
-            wfit_values_dict = util.get_wfit_values(wfit_yaml)
+            if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:            
+                YAML_FILE  = f"{script_dir}/{prefix}.YAML"
+                wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
+                wfit_values_dict = util.get_wfit_values(wfit_yaml)
 
-            w        = wfit_values_dict['w']  
-            w_sig    = wfit_values_dict['w_sig']
-            omm      = wfit_values_dict['omm']  
-            omm_sig  = wfit_values_dict['omm_sig']
-            rho_womm = wfit_values_dict['rho_womm']
-            chi2     = wfit_values_dict['chi2'] 
-            sigint   = wfit_values_dict['sigint']
-            blind    = wfit_values_dict['blind']
-            nwarn    = wfit_values_dict['nwarn']
+            elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
+                wfit_values_dict = self.get_firecrown_values(script_dir)
+            
+                
+            w        = wfit_values_dict[COSMOFIT_PARNAME_w]  
+            w_sig    = wfit_values_dict[COSMOFIT_PARNAME_w_sig]
+            omm      = wfit_values_dict[COSMOFIT_PARNAME_omm]  
+            omm_sig  = wfit_values_dict[COSMOFIT_PARNAME_omm_sig]
+            rho_womm = wfit_values_dict[COSMOFIT_PARNAME_rho_womm]
+            chi2     = wfit_values_dict[COSMOFIT_PARNAME_chi2] 
+            sigint   = wfit_values_dict[COSMOFIT_PARNAME_sigint]
+            blind    = wfit_values_dict[COSMOFIT_PARNAME_blind]
+            nwarn    = wfit_values_dict[COSMOFIT_PARNAME_nwarn]
             if nwarn > 0 : nrow_warn += 1
 
             # extract user labels for cov and wfit
@@ -1133,18 +1219,15 @@ class cosmofit(Program):
             covopt_dict   = INPDIR_LIST[f'COVOPTS({str_diropt})']
             covopt_label  = covopt_dict[str_covopt]
             wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
-            
-            if wfitopt_label == "None" : 
+
+            if wfitopt_label is None : 
                 wfitopt_label = "NoLabel"
 
             if use_wa:
-                wa      = wfit_values_dict['wa']    
-                wa_sig  = wfit_values_dict['wa_sig']
-                FoM     = wfit_values_dict['FoM']
-                if 'Rho' in wfit_values_dict:
-                    rho_w0wa = wfit_values_dict['Rho']  # legacy name
-                else:
-                    rho_w0wa = wfit_values_dict['rho_w0wa']  # 9.27.2022      
+                wa      = wfit_values_dict[COSMOFIT_PARNAME_wa]    
+                wa_sig  = wfit_values_dict[COSMOFIT_PARNAME_wa_sig]
+                FoM     = wfit_values_dict[COSMOFIT_PARNAME_FoM]
+                rho_w0wa = wfit_values_dict[COSMOFIT_PARNAME_rho_w0wa]
             else:
                 wa       = 0
                 wa_sig   = 0
@@ -1155,15 +1238,18 @@ class cosmofit(Program):
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
                           'wfitnum': wfitnum, 
-                          'w':w, 'w_sig':w_sig, 
-                          'omm':omm, 'omm_sig':omm_sig, 
-                          'wa':wa, 'wa_sig': wa_sig,
-                          'rho_w0omm' : rho_womm,
-                          'rho_w0wa'  : rho_w0wa,
-                          'FoM':FoM, 
-                          'covopt_label':covopt_label,
-                          'wfitopt_label':wfitopt_label,
-                          'nwarn' : nwarn  # R.Kessler Feb 23 2022
+                          COSMOFIT_PARNAME_w       : w, 
+                          COSMOFIT_PARNAME_w_sig   : w_sig, 
+                          COSMOFIT_PARNAME_omm     : omm, 
+                          COSMOFIT_PARNAME_omm_sig : omm_sig, 
+                          COSMOFIT_PARNAME_wa      : wa, 
+                          COSMOFIT_PARNAME_wa_sig  : wa_sig,
+                          COSMOFIT_PARNAME_rho_womm  : rho_womm,
+                          COSMOFIT_PARNAME_rho_w0wa  : rho_w0wa,
+                          COSMOFIT_PARNAME_FoM       : FoM, 
+                          COSMOFIT_PARNAME_nwarn     : nwarn,
+                          'covopt_label'  : covopt_label,
+                          'wfitopt_label' : wfitopt_label
             }
 
             unique_key = dir_name + '_' + covnum + '_' + wfitnum 
@@ -1205,6 +1291,27 @@ class cosmofit(Program):
         self.config_prep['wfit_summary_table'] = wfit_summary_table
         # end make_wfit_summary
 
+    def get_firecrown_values(self,script_dir):
+        # Created March 2023
+        # returns firecrown parameter values  
+        values_dict = {}
+        values_dict[COSMOFIT_PARNAME_w]        = -1.
+        values_dict[COSMOFIT_PARNAME_wa]       = .0
+        values_dict[COSMOFIT_PARNAME_w_sig]    = 0.07
+        values_dict[COSMOFIT_PARNAME_wa_sig]   = .0
+        values_dict[COSMOFIT_PARNAME_omm]      = 0.30
+        values_dict[COSMOFIT_PARNAME_omm_sig]  = .03
+        values_dict[COSMOFIT_PARNAME_FoM]      = 100
+        values_dict[COSMOFIT_PARNAME_rho_womm] = -0.5
+        values_dict[COSMOFIT_PARNAME_rho_w0wa] = -0.9
+        values_dict[COSMOFIT_PARNAME_chi2]     = 22
+        values_dict[COSMOFIT_PARNAME_Ndof]     = 22
+        values_dict[COSMOFIT_PARNAME_sigint]   = 0
+        values_dict[COSMOFIT_PARNAME_nwarn]    = 0
+        values_dict[COSMOFIT_PARNAME_blind]    = 0
+
+        return values_dict
+        # end get_firecrown_values
 
     def write_wfit_summary_header(self,wfit_values_dict):
 

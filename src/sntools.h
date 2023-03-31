@@ -768,6 +768,7 @@ void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
 void split2floats(char *string, char *sep, float *fval) ;
 
+void remove_comment(char *string) ;
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;
 void extractstringopt_( char *string, char *stringOpt) ;

@@ -3853,7 +3853,7 @@ void runCheck_HOSTLIB_WGTMAP(void) {
 
 
 // ==============================================
-double snmagshift_salt2gamma_HOSTLIB(int GALID) {
+double snmagshift_salt2gamma_HOSTLIB(long long int GALID) {
 
   // Created Jun 25 2019
   // Randomaly assign gamma (magshift) as follows:
@@ -3861,6 +3861,8 @@ double snmagshift_salt2gamma_HOSTLIB(int GALID) {
   //    even GALID --> SALT2GAMA_GRID_MAX
   // Note that this function is used only to create a
   // biasCor sample for BBC/SALT2mu.
+  //
+  // Mar 28 2023: int GALID -> long long int
 
   double snmagshift = 0.0 ;
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
@@ -5822,7 +5824,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
     // if using same Galaxy with MJD-sep, just return so that
     // this event is rejected.
-    if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 9999 ) 
+    if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 99999 ) 
       { SNHOSTGAL.IGAL = IGAL_SELECT ; return ; }
 
     print_preAbort_banner(fnam);
@@ -5900,6 +5902,8 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.DEC_GAL_DEG       = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.RA_SN_DEG         = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.DEC_SN_DEG        = HOSTLIB_SNPAR_UNDEFINED ;
+
+  SNHOSTGAL.MAGOBS_ERR_SCALE  = 1.0 ;
 
   // always init GALMAG quantities to garbage
   int i, ifilt ;
@@ -8842,12 +8846,13 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   // is not specified in the hostlib, return PARVAL_ORIG
   // i.e., using the SN parameter from the HOSTLIB is optional.
 
-  // Input: PARVAL_ORIG = parameter selection in sim before HOSLOT
+  // Input: PARVAL_ORIG = parameter selection in sim before HOST
   // Input: PARNAME     = name of SN parameter
   //
   // Mar 23 2018: allow SNMAGSHIFT as well.
+  // Mar 28 2023: int GALID -> long long
 
-  int  GALID          = SNHOSTGAL.GALID ;
+  long long int GALID = SNHOSTGAL.GALID ;
   int  IGAL           = SNHOSTGAL.IGAL ;
   bool USE_GAMMA_GRID = HOSTLIB_WGTMAP.USE_SALT2GAMMA_GRID;
   int IVAR, USE1, USE2 ;

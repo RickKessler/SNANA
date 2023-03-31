@@ -275,6 +275,11 @@ For help, run code with no arguments
     write VERSION_PHOTOMETRY(type): <version>  to output tables for
     type = DATA, BIASCOR, CCPRIOR. See VERSION_PHOTOMETRY_EVENT_TYPE string.
 
+ Mar 18 2023: replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
+              min_per_cell_biascor
+
+ Mar 28 2023: if simfile_biascor=NONE, disable it -> allows command-line override.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -332,7 +337,7 @@ int     NCALL_SALT2mu_DRIVER_EXEC;
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
 #define MAXBIN_BIASCOR_GAMMADM 2  // for biasCor map
 #define MAXBIN_BIASCOR_1D  500000  // max on total 5D bins for {a,b,z,x1,c}
-#define MINPERCELL_BIASCOR    10  // min per cell for biasCor
+#define MINPERCELL_BIASCOR_RMS 10  // min per cell for biasCor RMS (not used)
 #define MINPERCELL_MUCOVSCALE  5  // min per cell for MUCOVSCALE
 
 // shorter names for local declarations
@@ -391,7 +396,7 @@ double  BIASCOR_MINVAL_LCFIT[3]  = {  5.0, -4.0, -0.30 } ;
 double  BIASCOR_MAXVAL_LCFIT[3]  = { 30.0, +4.0, +0.50 } ;
 double  BIASCOR_BINSIZE_LCFIT[3] = { 25.0,  0.5,  0.05 } ;
 char    BIASCOR_NAME_LCFIT[4][4] = { "mB", "x1", "c", "mu" } ;
-int     BIASCOR_MIN_PER_CELL     = 3  ; // at least this many per 5D cell
+//int     BIASCOR_MIN_PER_CELL     = 3  ; // at least this many per 5D cell
 int     BIASCOR_MINSUM           = 10 ; // at least this many summed in 3x3x3
 double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
@@ -412,7 +417,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define M0_DEFAULT -30.0   
 
 // options for uM0
-#define M0FITFLAG_CONSTANT     0 // global constant M0 (no floated)
+#define M0FITFLAG_CONSTANT     0 // global constant M0 (not floated)
 #define M0FITFLAG_ZBINS_FLAT   1 // float constant M0 in each zbin
 #define M0FITFLAG_ZBINS_INTERP 2 // idem, but interpolate between z-bins
 
@@ -964,6 +969,8 @@ struct INPUTS {
   int    force_realdata ;    // T -> treat SIM like real data
   double zspec_errmax_idsample; // used to create [SAMPLE]-zSPEC IDSAMPLE
   double zphot_shift;       // z-shift for photo-z subset (data only)
+
+  int min_per_cell_biasCor; // require this many per 5D/7D biasCor cell
 
   int interp_biascor_logmass;
   // ----------
@@ -4294,7 +4301,6 @@ double fcn_M0(int n, double *M0LIST) {
 
   // ----------- BEGIN ----------
 
-  // xxx mark delete Oct 28 2022   M0  = M0_DEFAULT ;
   M0      = INPUTS.M0 ;
 
   iz0     = INFO_DATA.TABLEVAR.IZBIN[n];
@@ -4949,6 +4955,8 @@ void set_defaults(void) {
   INPUTS.idsample_select[0] = 0 ;
   INPUTS.zspec_errmax_idsample = 0.0 ;
   INPUTS.zphot_shift    = 0.0 ;
+
+  INPUTS.min_per_cell_biasCor = 3; // Mar 2023: used to be BIASCOR_MIN_PER_CELL
 
   INPUTS.select_trueIa  = 0;
   INPUTS.force_realdata = 0 ;
@@ -9915,7 +9923,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
     // if too few events in cell, sum 3x3 nbr grid to get
     // better stats for RMS
     NJ1DNBR = 1;  J1DNBR_LIST[0] = J1D ;
-    if ( N < MINPERCELL_BIASCOR ) { 
+    if ( N < MINPERCELL_BIASCOR_RMS ) { 
       get_J1DNBR_LIST(IDSAMPLE, J1D, &NJ1DNBR, J1DNBR_LIST) ; 
       if ( NJ1DNBR >= MXJ1DNBR ) {
 	sprintf(c1err,"NJ1DNBR=%d exceeds bound of %d",
@@ -10360,11 +10368,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Make map of MUCOVSCALE, where MUCOVSCALE = RMS(MURES)/AVG(MUERR)
   // as a function of (z,x1,c,a,b).
   //
-  // To get better stats, the bias is just a function of z & c,
-  // but the 5D binning is still used so that the
-  // on-the-fly lookup is done the same way as other bias
-  // corrections.
-  //
+  // To get better stats, the bias is just a function of {z,c,m},
+  // but the 5D binning is still used so that the on-the-fly lookup is 
+  // done the same way as other bias corrections.
   //
   // Beware that the binning for alpha,beta,z is the same
   // for biasCor and sigmu-scale ... but the color bins 
@@ -10516,7 +10522,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
-    if ( CELL_BIASCOR->NperCell[J1D] < BIASCOR_MIN_PER_CELL ) 
+    if ( CELL_BIASCOR->NperCell[J1D] < INPUTS.min_per_cell_biasCor ) 
       { continue ; } 
 
     for(ia=0; ia<MXa; ia++ ) {
@@ -10841,7 +10847,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       J1D = J1D_biasCor(ievt,fnam);
       NperCell = CELL_BIASCOR->NperCell[J1D];
       i1d      = INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] ;
-      if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+      if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
       if ( i1d < 0 )                          { continue ; }
       if ( !CELL_MUCOVSCALE->USE[i1d] )       { continue; }
 
@@ -12545,7 +12551,7 @@ int get_fitParBias(char *cid,
 	
 	  j1d = CELLINFO_BIASCOR[ID].MAPCELL[ia][ib][ig][iz][im][ix1][ic];
 	  NperCell = CELLINFO_BIASCOR[ID].NperCell[j1d] ;
-	  if ( NperCell < BIASCOR_MIN_PER_CELL  ) { continue; }
+	  if ( NperCell < INPUTS.min_per_cell_biasCor  ) { continue; }
 
 	  avg_z  = CELLINFO_BIASCOR[IDSAMPLE].AVG_z[j1d] ;
 	  avg_m  = CELLINFO_BIASCOR[IDSAMPLE].AVG_m[j1d] ;
@@ -12621,7 +12627,7 @@ int get_fitParBias(char *cid,
 	
 	  // require something in a cell to use the bias estimate
 	  NperCell = CELLINFO_BIASCOR[ID].NperCell[j1d] ;
-	  if ( NperCell < BIASCOR_MIN_PER_CELL  ) { continue; }
+	  if ( NperCell < INPUTS.min_per_cell_biasCor  ) { continue; }
 	  
 	  if ( iz==IZ && im==IM && ix1==IX1 && ic==IC ) 
 	    { USE_CENTER_CELL = true ; }
@@ -13034,7 +13040,8 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
   CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
 
-  int NCELL  = CELLINFO_BIASCOR[IDSAMPLE].NCELL ;
+  // xxx mark delete Mar 2023  int NCELL  = CELLINFO_BIASCOR[IDSAMPLE].NCELL ;
+  int NCELL  = CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL ;
   FILE *fp;
   int  i1d, NperCell;
   bool USE;
@@ -13057,7 +13064,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
     NperCell = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d];
     USE      = CELLINFO_MUCOVSCALE[IDSAMPLE].USE[i1d] ;
 
-    if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+    if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
     if ( !USE ) { continue; }
 
     sprintf(line,"SN: "
@@ -13098,7 +13105,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
       // check if there is valid biasCor for this event
       J1D = J1D_biasCor(ievt,fnam);
       NperCell = CELL_BIASCOR->NperCell[J1D];
-      if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+      if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
 
       // check for valid muCov correction
       i1d      = INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] ;
@@ -15598,6 +15605,7 @@ void parse_parFile(char *parFile ) {
   //                   file names after a "FITOPT:" key.
   //
   // Apr 27 2021: remove SKIP on colon to allow colon in comment field
+  // Mar 27 2023: call remove_comment(line)
 
   FILE *fdef;
   bool YAML;  
@@ -15608,8 +15616,6 @@ void parse_parFile(char *parFile ) {
 
   if ( strstr(parFile,"cat_only") != NULL ) 
     { parse_cat_only(parFile); return; }
-
-
 
 #ifdef USE_SUBPROCESS
   if ( strcmp(parFile,"SUBPROCESS_HELP") == 0 )  { SUBPROCESS_HELP(); }
@@ -15648,9 +15654,12 @@ void parse_parFile(char *parFile ) {
 
   while (fgets(line,MXCHAR_LINE,fdef)) {
 
-    // skip blank lines and lines starting with comment char (RK 4/23/2012)
     if ( strlen(line) < 3 )       { continue ; }  
     if ( !YAML && commentchar(line) == 1 ) { continue ; } // see sntools.c
+
+    // remove comment after key/value, but be careful not to remove
+    // #ENDYAML by checking hash starting at 3rd char.
+    remove_comment(&line[2]); 
 
     sptr = strtok(line,"\n");
     
@@ -15876,9 +15885,16 @@ int ppar(char* item) {
       INPUTS.simFile_biasCor_arg = (char*) malloc(strlen(item)*sizeof(char));
       sprintf(INPUTS.simFile_biasCor_arg, "%s", &item[len]);
 
-      parse_commaSepList("SIMFILE_BIASCOR", &item[len], 
-			 MXFILE_BIASCOR, MXCHAR_FILENAME, 
-			 &INPUTS.nfile_biasCor, &INPUTS.simFile_biasCor );
+      if ( IGNOREFILE(&item[len]) ) {
+	// enable turning off bias cor with e.g., simfile_biascor=NONE
+	INPUTS.nfile_biasCor = 0 ;
+	INPUTS.opt_biasCor   = 0 ;
+      }
+      else {
+	parse_commaSepList("SIMFILE_BIASCOR", &item[len], 
+			   MXFILE_BIASCOR, MXCHAR_FILENAME, 
+			   &INPUTS.nfile_biasCor, &INPUTS.simFile_biasCor );
+      }
       return(1);
     }
   }
@@ -15933,6 +15949,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"sigma_cell_biascor=") ) 
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }
+
+  if ( uniqueOverlap(item,"min_per_cell_biascor=") ) 
+    { sscanf(&item[21],"%d", &INPUTS.min_per_cell_biasCor); return(1); }
   
   // -------- CC prior ------------
   if ( uniqueOverlap(item,"simfile_ccprior=") )   { 
@@ -16325,12 +16344,10 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_mucovadd_bug="))
     { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
   if ( uniqueOverlap(item,"restore_muzerr_bug="))
-    { sscanf(&item[24],"%d", &INPUTS.restore_muzerr_bug); return(1); }
+    { sscanf(&item[19],"%d", &INPUTS.restore_muzerr_bug); return(1); }
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
-    // xxx mark if ( INPUTS.debug_flag==401 ) { INPUTS.izbin_from_cidFile=1; } 
-    prep_debug_flag();
     return(1); 
   }
 
@@ -16386,7 +16403,6 @@ void parse_cat_only(char *string_cat_only) {
 
   if ( LDMP ) {
     //printf("xxx %s: ps=%d",fnam,(int)ps);
-    // print ps
     debugexit(fnam);
   }
 
@@ -17959,6 +17975,8 @@ void prep_input_driver(void) {
     VERSION_PHOTOMETRY_EVENT_TYPE[i][0] = 0 ;
   }
 
+  prep_debug_flag();
+
   // check option to select only true SNIA and ignore CC prior
   if ( INPUTS.select_trueIa ) { prep_input_trueIa(); }
 
@@ -18671,7 +18689,7 @@ void  prep_input_varname_missing(void) {
   }
 
   return ;
-} // end   prep_input_varname_missing
+} // end prep_input_varname_missing
 
 
 // **********************************************
@@ -19747,7 +19765,6 @@ void write_fitres_driver(char* fileName) {
   int NZwrite = 4; // include this many zM0 bins in COV dump
   printCOVMAT(fout, FITINP.NFITPAR_FLOAT, NZwrite);
 
-  // xxx mark delete   indx = NWR  = NLINE = 0;
   fflush(fout);
 
   // print contamination tables if CC prior is used
@@ -19795,7 +19812,6 @@ void write_fitres_driver(char* fileName) {
 	( strcmp(KEY,"ROW:")    == 0 ) ||
 	( strcmp(KEY,"GAL:")    == 0 ) ;
       if ( !VALID_ROWKEY ) { continue ; }
-      // xxx mark      if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
 
       if ( cat_only ) {
 	// check prescale
@@ -21275,7 +21291,8 @@ void print_SALT2mu_HELP(void) {
     "snrmin_sigint_biascor=60   # SNRMIN to compute siginit_biascor",
     "sigint_biascor=<sigint>    # set sigint_biascor instead of auto-compute",
     "",
-    "prescale_biascor=<subset>,<preScale>  ! select <subset> from <prescale>",
+    "prescale_biascor=<subset>,<prescale> ! select <subset> from <prescale>",
+    "                                     ! <subset> can be 0,1,2 .. <prescale>-1",
     "",
     "fieldGroup_biascor='shallow,medium,deep'     #  for biasCor & CCprior",
     "fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2' ",
@@ -21284,7 +21301,8 @@ void print_SALT2mu_HELP(void) {
     "surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' ",
-    "surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data",
+    "surveygroup_biascor_abortflag=1  # 0->allow survey(s) that are not in data",
+    "min_per_cell_biascor=3   # min number of biasCor events per cell",
     "",
     "  # NOTE: if OPT_PHOTOZ column exists in the input FITRES tables, ",
     "  #       then each biasCor group  is automatically split into ",
@@ -21453,12 +21471,12 @@ void print_SALT2mu_HELP(void) {
     "u22=1   # 0,1 --> fix/float parameter 22",
     "sigmb=0.11         # initial guess for sigint",
     "",
-    "uM0=1   # 0 --> fix M0 params to INPUTS.mag0",
-    "        # 1 --> float M0 in each z bin (default)",
-    "        # 2 --> float M0 as knot with interpolation",
+    "uM0=0   # fix M0 params to INPUTS.mag0",
+    "uM0=1   # float M0 in each z bin (default)",
+    "uM0=2   # float M0 as knot with interpolation",
     "",
     "fixpar_all=1 # internally set all float logicals to false, even those set ",
-    "             # true in input file. (i.e., uM0=0, u1=0, u2=0, etc ...)",
+    "             # true in input file. (i.e., force uM0=0, u1=0, u2=0, etc ...)",
     "             # This option turns BBC into a distance calculator.",
     "",
     " - - - - -  misc fit params and options - - - - - ",

@@ -1085,12 +1085,15 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //             (fix needed for G10 scatter model with BYOSED)
   //
   // Dec 28 2020: check for SALT3
+  // Mar 29 2023: flag crazy SIGMA values and abort.
 
   double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
   double COLOR_DISP_MAX = 5.0;
   double zmin = GENRANGE_REDSHIFT[0];
-  char dispFile[MXPATHLEN] ;  
+  int   NSIGMA_CRAZY = 0;
+  double SIGMA_CRAZY = 2.0 ;
+  char dispFile[MXPATHLEN], MSG_CRAZY[40] ;  
   char fnam[] = "init_genSmear_SALT2" ;
 
   // ----------------- BEGIN --------------
@@ -1258,8 +1261,14 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 			,GENSMEAR_SALT2.SIGMA
 			,fnam );    
 
-    printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f \n", 
-	   NNODE, LAM2, SIG );
+    MSG_CRAZY[0] = 0 ;
+    if ( SIG > SIGMA_CRAZY ) {
+      NSIGMA_CRAZY++ ;
+      sprintf(MSG_CRAZY,"<== flagged as crazy value");
+    }
+
+    printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f  %s\n", 
+	   NNODE, LAM2, SIG, MSG_CRAZY ); fflush(stdout);
 
     GENSMEAR_SALT2.LAM_NODE[NNODE] = LAM2 ; // lambda at each node
     GENSMEAR_SALT2.SIG_NODE[NNODE] = SIG  ; // sigma at each node.
@@ -1276,8 +1285,15 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
     if ( MAXLAM-LAM < DLAM  && LAM < SED_LAMMAX && !LAST )
       { LAST=1; DLAM = MAXLAM-LAM-.001; } // Sep 3 2019
 
-  } 
+  } // end LAM loop
+ 
   GENSMEAR_SALT2.NNODE = NNODE ;
+
+  if ( NSIGMA_CRAZY > 0 ) {
+    sprintf(c1err,"Found %d crazy SIGMA values", NSIGMA_CRAZY);
+    sprintf(c2err,"Either trim rest-frame wave range or fix model dispersion");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+  }
 
   // Aug 28 2019: make sure last node is covered by wavelength range
   double LAMCHECK = LAM2 * (1.0+zmin);

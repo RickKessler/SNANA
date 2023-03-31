@@ -1431,10 +1431,12 @@ def get_cospar_sim(sim_version):
 
     key_readme = "README_FILE:"
     if 'FATAL' in ret_stdout:
-        msgerr += f"  Cannot find biasCor sim-data folder {sim_version}\n"
-        msgerr += f"  May need to regenerate biasCor {sim_version}  \n"
-        msgerr += f"  Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
-        assert False, msgerr
+        msgerr  = f"Cannot find biasCor sim-data folder {sim_version}\n"
+        msgerr += f"\t May need to regenerate biasCor {sim_version}  \n"
+        msgerr += f"\t Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
+        logging.warning(msgerr)
+        return cospar_sim
+        #assert False, msgerr
 
     if key_readme not in ret_stdout:
         msgerr += f"  Cannot find {key_readme} key from command\n"

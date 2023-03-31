@@ -7892,6 +7892,9 @@ c -------------
         else if(MATCH_NMLKEY('USESIM_DLMAG', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) USESIM_DLMAG
 
+        else if(MATCH_NMLKEY('USESIM_REDSHIFT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_REDSHIFT
+
         else if(MATCH_NMLKEY('INIVAL_RV', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) INIVAL_RV
 

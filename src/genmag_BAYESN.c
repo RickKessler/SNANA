@@ -462,6 +462,7 @@ void genmag_BAYESN(
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
 
+    printf("XXXX z = %.6f; theta = %.6f\n", z, THETA);
 
     // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
     double *Trest_list   = malloc(sizeof(double)*Nobs);

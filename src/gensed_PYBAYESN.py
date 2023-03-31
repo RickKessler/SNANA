@@ -55,7 +55,8 @@ class gensed_PYBAYESN(gensed_base):
                     break
             if self.paramfile is None:
                 raise RuntimeError(f'param file not found! in {self.PATH_VERSION}. Looking for one of {param_files}')
-
+            print("wrong file??????", self.paramfile)
+            print("PATHVERSION {}; ARGLIST {}".format(PATH_VERSION, ARGLIST))
             self.params_file_contents = yaml.load(open(self.paramfile),
                                                   Loader=yaml.FullLoader)
 
@@ -200,7 +201,7 @@ class gensed_PYBAYESN(gensed_base):
             self.bayesn_distrib_params[key] = temp
         print('Parsed the following BayeSN distribution parameters')
         print(self.bayesn_distrib_params)
-
+        sys.stdout.flush()
 
     def setup_bayesn_param_distributions(self):
         """
@@ -344,6 +345,7 @@ class gensed_PYBAYESN(gensed_base):
 
         ########## NEW CODE FROM ST BELOW HERE (FOR GUIDANCE) ##########
 
+        print("XXXX z = {:.6f}; theta = {:.6f}".format(self.parameter_values["REDSHIFT"], self.parameter_values["THETA1"]))
 
         #ST: Computes matrices that do interpolation
         #    Probably can't be precomputed

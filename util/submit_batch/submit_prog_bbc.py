@@ -763,7 +763,7 @@ class BBC(Program):
         #print(f"\n xxx map = {fitopt_num_outlist_map} \n")
 
         # - - - - - - - - - 
-        print(f"\n Prepare output FITOPT list:")
+        logging.info(f"\n Prepare output FITOPT list:")
         for survey,n in zip(survey_inplist,n_fitopt_inplist):
             logging.info(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
 

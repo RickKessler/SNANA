@@ -201,11 +201,14 @@ class cosmofit(Program):
         for inpdir_orig in inpdir_list_orig:
             inpdir = os.path.expandvars(inpdir_orig) # works on comma-sep list as well
             if '*' in inpdir_orig:
-                msgerr = [f"wildcard no longer supported for INPDIR; " ,
-                          f"needs to be fixed for HDIBC with two HDs" ]
-                self.log_assert(False, msgerr)
+                if ',' in inpdir: 
+                    msgerr = [f"wildcard not supported for INPDIR and HDIBC; " ,
+                              f"needs to be fixed for HDIBC with two HDs" ]
+                    self.log_assert(False, msgerr)
+                tmp_list = sorted(glob.glob(inpdir))
             else:
                 tmp_list = [ inpdir ]
+
             inpdir_list += tmp_list
 
         

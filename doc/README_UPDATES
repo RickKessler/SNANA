@@ -21578,6 +21578,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + remove comments after key/val to avoid interference;
        see remove_comment(string) in sntools.c
 
+    + remove obsolete LEGACY_SELECT code
+   
+    + fix subtle bug with idsurvey_select so that biasCor group is
+      safely removed if idsurvey_select is not included. 
+      See function prepare_IDSAMPLE_biasCor().
+
   sntools_host.*
     + increase ZMAX_HOSTLIB = ZMAX_SNANA
     + int GALID -> long long int GALID in several places

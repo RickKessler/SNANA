@@ -278,7 +278,9 @@ For help, run code with no arguments
  Mar 18 2023: replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
               min_per_cell_biascor
 
- Mar 28 2023: if simfile_biascor=NONE, disable it -> allows command-line override.
+ Mar 28 2023: 
+   + if simfile_biascor=NONE, disable it -> allows command-line override.
+   + write biascor_nevt to output fitres file.
 
  ******************************************************/
 
@@ -534,6 +536,7 @@ double PIFAC;
 // ----------- TYPEDEF STRUCTURES -------------
 
 typedef struct {
+  int    NEVT_BIASCOR;
   double VAL[NLCPAR+1] ;     // bias value on mB,x1,c ... and mu
   double ERR[NLCPAR+1] ;     // error on above
   double RMS[NLCPAR+1] ;     // RMS spread of biasCor
@@ -720,12 +723,11 @@ typedef struct {
   double  BINSIZE_FITPAR[NLCPAR] ;
 
   int DOFLAG_SELECT ;  // 1 --> select this sample for fit (default=all)
-  int DOFLAG_BIASCOR ; // 1--> apply biasCor to this sample
+  int DOFLAG_BIASCOR ; // 1 --> apply biasCor to this sample
 
   int IFLAG_ORIGIN ; // see USERFLAG_XXX
 
   // WARNING: update copy_IDSAMPLE_biasCor for each new item
-
   
 } SAMPLE_INFO_DEF ;
 
@@ -739,6 +741,7 @@ struct {
   double *muCOVscale, *muCOVadd, *muBias, *muBiasErr, *muBias_zinterp; 
   double *chi2, *probcc_beams;
   double **fitParBias;
+  int *nevt_biascor; 
 
   bool *set_fitwgt0; // flag to set fit wgt=0 with MUERR -> large value
 
@@ -1034,12 +1037,14 @@ struct INPUTS {
   SELECT_LIST_DEF IDSURVEY_SELECT;
   SELECT_LIST_DEF SNTYPE_SELECT;
 
+  /*
   // xxxx Dec 2022 : mark obsolete ... to delete soon 
   char idsample_select[40];       // e.g., '0+3'
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
   char sntypeString[100]; // comma-separated string from input file
   // xxxxxxx end mark xxxxxxxxxx
+  */
 
   // CID select or reject for data only (data can be real or sim)
   int   ncidFile_data;  // number of cid-select files in comma-sep list
@@ -1122,10 +1127,6 @@ struct INPUTS {
   int debug_mucovscale; //write mucovscale info for every biascor event
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   char cidlist_debug_biascor[100];
-
-  
-  // set internal LEGACY and REFAC flags for development 
-  bool LEGACY_SELECT, REFAC_SELECT; // debug_flag=1207
 
 } INPUTS ;
 
@@ -1377,9 +1378,8 @@ void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT);
 bool select_IDLIST(int ID, SELECT_LIST_DEF *SELECT);
 bool select_FIELD(char *field); // return True if field passes cuts
 
-void parse_sntype(char *item);
-void parse_IDSAMPLE_SELECT(char *item); // mark obsolete
 void prep_IDSAMPLE_SELECT(SELECT_LIST_DEF *SELECT);
+void prep_IDSURVEY_SELECT(SELECT_LIST_DEF *SELECT);
 
 void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item, int wrflag);
@@ -1523,7 +1523,8 @@ void   get_muBias(char *NAME,
 		  double         (*MUCOVADD_ABGRID)[MXb][MXg],
 		  INTERPWGT_AlphaBetaGammaDM *INTERPWGT,  
 		  double *FITPARBIAS_INTERP, 
-		  double *muBias, double *muBiasErr, double *muCOVscale, double *muCOVadd ) ;
+		  double *muBias, double *muBiasErr, 
+		  double *muCOVscale, double *muCOVadd, int *nevt_biascor ) ;
 
 double get_gammadm_host(double z, double logmass, double *hostPar);
 
@@ -3544,6 +3545,7 @@ bool crazy_M0_errors(void) {
   int    N_CRAZYERR_SETFLAG = 3;
   
   char fnam[] = "crazy_M0_errors";
+
   // ----------- BEGIN -------------
 
   if ( SUBPROCESS.USE ) { return crazy_error_flag; }
@@ -3560,13 +3562,11 @@ bool crazy_M0_errors(void) {
 
     // now we have Mudif in a redshift bin
     iz    = INPUTS.izpar[n] ;
-    // zxx mark dleete  z = FITRESULT.zM0[iz]; // not yet computed
     z     = INPUTS.BININFO_z.avg[iz];
     NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin
-    if ( NEVT < 3 ) { continue; } 
+    if ( NEVT < 3 ) { continue; }  
 
     XN    = (double)NEVT;
-    // xxx mark delete  if ( XN < 1.0 ) { XN = 1.0; }
     ERRMIN_COMPUTE = sigint_ref / sqrt(XN);
     ERR            = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
 
@@ -3777,7 +3777,7 @@ void *MNCHI2FUN(void *thread) {
   double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
   int    n, nsnfit, nsnfit_truecc, ipar, ipar2 ;
   int    cutmask, idsample, SIM_NONIA_INDEX, IS_SIM ; 
-  int    ia, ib, ig, optmask_muerrsq ;
+  int    ia, ib, ig, optmask_muerrsq, nevt_biascor ;
   int    dumpFlag_muerrsq=0, DUMPFLAG=0 ;
   int    USE_CCPRIOR=0, USE_CCPRIOR_H11=0 ;
   bool   set_fitwgt0 = false ;
@@ -3909,6 +3909,8 @@ void *MNCHI2FUN(void *thread) {
 	    if (set_fitwgt0) { MUCOVSCALE_ALPHABETA[ia][ib][ig]=1.0; }
 	    if (set_fitwgt0) { MUCOVADD_ALPHABETA[ia][ib][ig]=1.0; }
 	    
+	    FITPARBIAS_ALPHABETA[ia][ib][ig].NEVT_BIASCOR =
+	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].NEVT_BIASCOR ; 
 	    for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
 	      FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
 		INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].VAL[ipar] ; 
@@ -3982,7 +3984,9 @@ void *MNCHI2FUN(void *thread) {
 		 &muBias,        // (O) interp bias on mu
 		 &muBiasErr,     // (O) stat-error on above
 		 &muCOVscale,   // (O) scale bias on muCOV  
-		 &muCOVadd );   // (O) add bias on muCOV     
+		 &muCOVadd,     // (O) add bias on muCOV
+		 &nevt_biascor  // (O) nevt used to compute biascor
+		 );
     }
     else if ( NDIM_BIASCOR == 1 ) {
       muBias  = muBias_zinterp ; 
@@ -4005,6 +4009,8 @@ void *MNCHI2FUN(void *thread) {
       INFO_DATA.muBias[n]     = muBias ;
       INFO_DATA.muBiasErr[n]  = muBiasErr ;
       INFO_DATA.muCOVscale[n] = muCOVscale ;
+      INFO_DATA.nevt_biascor[n] = nevt_biascor;
+
       if ( DO_COVADD ) {
 	INFO_DATA.muCOVadd[n] = muCOVadd ;
       }
@@ -4952,7 +4958,6 @@ void set_defaults(void) {
   INPUTS.use_surveyGroup_biasCor = 0 ;
 
   sprintf(INPUTS.surveyList_noBiasCor, "NONE" );
-  INPUTS.idsample_select[0] = 0 ;
   INPUTS.zspec_errmax_idsample = 0.0 ;
   INPUTS.zphot_shift    = 0.0 ;
 
@@ -5019,10 +5024,6 @@ void set_defaults(void) {
   INPUTS.IDSURVEY_SELECT.NID = 0;
   INPUTS.SNTYPE_SELECT.NID = 0;
 
-  // xxxxxx mark delete Dec 7 2022 xxxx
-  INPUTS.Nsntype = 0 ;
-  sprintf(INPUTS.sntypeString,"NULL");
-  // xxxxxx end mark xxxxx
 
   INPUTS.nmaxString[0]   = 0 ;
 
@@ -5187,8 +5188,6 @@ void set_defaults(void) {
   SUBPROCESS.NEVT_SIM_PRESCALE     = -9; 
 #endif
 
-  INPUTS.LEGACY_SELECT = false;
-  INPUTS.REFAC_SELECT  = true;
 
   return ;
 
@@ -5413,8 +5412,10 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   else  { 
     // start with 2 logmass bins for devel; later decide on either
     // biasCor logmass bins, or hard-wired bins such as for color
-    // xxx mark delete    NBINm = 2; mmin=5.0; mmax=15.0; mbin=5.0 ;  // refactor
-    NBINm = 2; mmin=INPUTS.logmass_min; mmax=INPUTS.logmass_max; mbin=(mmax-mmin)/(double)NBINm ;
+    NBINm = 2; 
+    mmin=INPUTS.logmass_min; 
+    mmax=INPUTS.logmass_max; 
+    mbin=(mmax-mmin)/(double)NBINm ;
   }
 
   // - - - - 
@@ -5551,6 +5552,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
       INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.set_fitwgt0    = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
+      INFO_DATA.nevt_biascor   = (int   *) malloc(MEMI); MEMTOT+=MEMI;
     }
 
     f_MEM[N_MEM] = (float)(MEMTOT/1.0E6);
@@ -5615,6 +5617,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     free(INFO_DATA.chi2);
     free(INFO_DATA.probcc_beams);
     free(INFO_DATA.set_fitwgt0);
+    free(INFO_DATA.nevt_biascor);
 
     malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, &INFO_DATA.fitParBias ); 
     malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
@@ -7232,8 +7235,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   if ( !IS_DATA ) {
     // beware that INPUTS.COSPAR are not always the same as SIM-COSPAR,
     // so be careful computing SIM_MU at zHD
-    dl_hd    = cosmodl(zhd,zhd,INPUTS.COSPAR);
-    dl_sim   = cosmodl(SIM_ZCMB,SIM_ZCMB,INPUTS.COSPAR);
+    dl_hd    = cosmodl(zhd,      zhd,      INPUTS.COSPAR);
+    dl_sim   = cosmodl(SIM_ZCMB, SIM_ZCMB, INPUTS.COSPAR);
     dl_ratio = dl_hd/dl_sim ;
     dmu = 5.0*log10(dl_ratio);
     SIM_MUz = SIM_MU + dmu ;
@@ -7705,8 +7708,6 @@ void store_output_varnames(void) {
       if ( ivar_match < 0  ) {
 	NDROP++ ;
 	catVarList_with_comma(OUTPUT_VARNAMES.DROPLIST,varName);
-	// xxx mark strcat(OUTPUT_VARNAMES.DROPLIST,varName);
-	// xxx mark strcat(OUTPUT_VARNAMES.DROPLIST," ");	
 	if ( LDMP) {
 	  printf(" xxx %s: DROP varName='%s'  match=%d (ifile=%d,ivar=%d)\n",
 		 fnam,  varName, ivar_match, ifile, ivar );
@@ -7803,13 +7804,15 @@ void prepare_IDSAMPLE_biasCor(void) {
   //   applying cuts and therefore FIELD cut is not applied.
   //   Below, select_FIELD is used to apply field cut for 
   //   determining IDSAMPLE.
+  //
+  // Apr 2 2023: check IDSURVEY_SELECT
 
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
 
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
-  bool IS_SPECZ, IS_PHOTOZ, SELECT_FIELD ;
+  bool IS_SPECZ, IS_PHOTOZ, SELECT_FIELD, SELECT_SURVEY ;
   double zhd ;
   char FIELD_TMP[MXCHAR_CCID],  FIELDGROUP[100],  *FIELDDEF=NULL;
   char SURVEYGROUP[100], SURVEYDEF[MXCHAR_CCID], zGROUP[20];
@@ -7904,16 +7907,18 @@ void prepare_IDSAMPLE_biasCor(void) {
     NAME_SN    = INFO_DATA.TABLEVAR.name[isn];
     zhd        = INFO_DATA.TABLEVAR.zhd[isn];
 
+    SELECT_FIELD = SELECT_SURVEY = true ;
+
     if( USE_FIELDGROUP) { 
       FIELDDEF     = INFO_DATA.TABLEVAR.field[isn]; 
       SELECT_FIELD = select_FIELD(FIELDDEF);
     }
-    else {
-      SELECT_FIELD = true;
-    }
-    
-    if ( !SELECT_FIELD ) { continue ; } 
-    if ( CUTMASK )       { continue ; } // obsolete since cuts are later
+
+    SELECT_SURVEY = select_IDLIST(IDSURVEY, &INPUTS.IDSURVEY_SELECT) ;
+
+    if ( !SELECT_FIELD  ) { continue ; } 
+    if ( !SELECT_SURVEY ) { continue ; } 
+    if ( CUTMASK )        { continue ; } // obsolete since cuts are later
 
     if ( IDSURVEY < 0 || IDSURVEY > MXIDSURVEY ) {
       sprintf(c1err,"Invalid IDSURVEY=%d for SNID=%s", IDSURVEY, NAME_SN);
@@ -8026,10 +8031,8 @@ void prepare_IDSAMPLE_biasCor(void) {
   sort_IDSAMPLE_biasCor();
 
   // check for user-specified IDSAMPLEs to select ...AFTER sorting.
-  if ( INPUTS.LEGACY_SELECT ) 
-    {  parse_IDSAMPLE_SELECT(INPUTS.idsample_select); }
-  else
-    {  prep_IDSAMPLE_SELECT(&INPUTS.IDSAMPLE_SELECT); }
+  prep_IDSAMPLE_SELECT(&INPUTS.IDSAMPLE_SELECT);
+  prep_IDSURVEY_SELECT(&INPUTS.IDSURVEY_SELECT);
 
   // ------- prepare z-bins for each sample -------------
   // default for each sample is user-input z-bins (zmin,zmax,nzbin)
@@ -9136,8 +9139,8 @@ void prepare_biasCor(void) {
     NAME_SAMPLE  = SAMPLE_BIASCOR[IDSAMPLE].NAME ; 
 
     SKIP = 0 ;
-    if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_SELECT  == 0 ) { SKIP=1; }
-    if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { SKIP=1; }
+    if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_SELECT  == 0 ) { SKIP = 1; }
+    if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { SKIP = 1; }
 
     if ( SKIP ) {
       fprintf(FP_STDOUT, "\t SKIP BIASCOR PREP for %s\n", NAME_SAMPLE);
@@ -9192,13 +9195,6 @@ void prepare_biasCor(void) {
 
   int DUMPFLAG = 0 ;
   int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
-
-  /* xxxx mark delete Apr 20 2022 xxxxxxxxxx
-  // user input ndump_nobiasCor is number of noBiasCor events to dump;
-  // however, dump at least 10 if user uses this input as a logic flag.
-  int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
-  if ( ndump_nobiasCor>0 && ndump_nobiasCor < 10 ) { ndump_nobiasCor=10; }
-  xxxxxxx end mark xxxxxx */
 
   for (n=0; n < NSN_DATA; ++n) {
 
@@ -9974,6 +9970,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 	   NEVT_USE, NEVT_SAMPLE, IDSAMPLE );
 
     if ( NEVT_USE == 0 ) {
+      print_preAbort_banner(fnam);
       print_eventStats(EVENT_TYPE_BIASCOR);
       sprintf(c1err,"No BiasCor events passed for %s", 
 	      SAMPLE_BIASCOR[IDSAMPLE].NAME );
@@ -10354,6 +10351,7 @@ void  J1D_invert_I(int IDSAMPLE, int J1D, int *ja, int *jb, int *jg,
 // ======================================================
 void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) {
   int ipar;
+  FITPARBIAS->NEVT_BIASCOR = 0 ;
   for(ipar=0; ipar < NLCPAR; ipar++ ) {
     FITPARBIAS->VAL[ipar] = 0.0 ;
     FITPARBIAS->ERR[ipar] = 0.0 ;
@@ -10394,7 +10392,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc, NperCell ;
   int    OPTMASK, DUMPFLAG = 0 ;
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
-  int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK ;
+  int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK, nevt_biascor ;
   double muErr, muErrsq, muErrsq_raw, muDif, muDifsq, pull, tmp1, tmp2  ;
   double muBias, muBiasErr, muCOVscale, muCOVadd, fitParBias[NLCPAR+1] ;
   double a, b, gDM, z, m, c ;
@@ -10582,7 +10580,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     get_INTERPWGT_abg(a,b,gDM, DUMPFLAG, &INTERPWGT, fnam );
     get_muBias(name, &BIASCORLIST, FITPARBIAS,MUCOVSCALE,MUCOVADD, &INTERPWGT,
-	       fitParBias, &muBias, &muBiasErr, &muCOVscale, &muCOVadd );  
+	       fitParBias, &muBias, &muBiasErr, &muCOVscale, &muCOVadd,
+	       &nevt_biascor);  
 
     // ----------------------------
     muDif   =  muresid_biasCor(ievt);  // mu - muTrue
@@ -11869,7 +11868,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
   SUM_m_5D    = (double*) malloc(MEMD) ;
   SUM_WGT_5D  = (double*) malloc(MEMD) ;
 
-  for(ipar=0; ipar < NLCPAR; ipar++ ) 
+  for(ipar=0; ipar < NLCPAR; ipar++ )
     { SUM_FITPAR_5D[ipar] = (double*) malloc(MEMD) ; }
 
   for(J1D = 0; J1D < NCELL; J1D++ ) {
@@ -12054,8 +12053,9 @@ void calc_zM0_data(void) {
 
   // store avg redshift for writing to M0 outFile
 
-  double muAvg, zM0, zAvg, cosPar[10];
+  double muAvg, zM0, zAvg ;
 
+  /* xxxxx mark delete 4/2/2023 xxxxxxxx
   // load reference cosmology params
   cosPar[0] = INPUTS.parval[IPAR_OL] ;  // OL
   cosPar[1] = INPUTS.parval[IPAR_Ok] ;  // Ok
@@ -12068,6 +12068,8 @@ void calc_zM0_data(void) {
 	   fnam, cosPar[0], cosPar[1], cosPar[2], cosPar[3] );
     fflush(stdout);
   }
+  xxxxxxxxxx end mark xxxxxxxxxx */
+
 
   for(iz=0; iz < NBINz; iz++ ) {
     WGT = SUM_WGT[iz] ;
@@ -12075,7 +12077,8 @@ void calc_zM0_data(void) {
     if ( WGT < 1.0E-9 ) { continue ; }
 
     muAvg = SUM_mumodel[iz]/WGT ;
-    zM0   = zmu_solve(muAvg,cosPar); 
+    // xxx mark delete Apr 2023  zM0   = zmu_solve(muAvg,cospar); 
+    zM0   = zmu_solve(muAvg,INPUTS.COSPAR); 
     FITRESULT.zM0[iz]      = zM0 ;
     FITRESULT.MUREF_M0[iz] = muAvg;
 
@@ -12460,8 +12463,8 @@ int get_fitParBias(char *cid,
 
   // init output
   if (REQUIRE_VALID_BIASCOR) {VAL_DEFAULT=666.0;}  else{VAL_DEFAULT=0.0;}
-  for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ )
-    { FITPARBIAS->VAL[ipar]  = VAL_DEFAULT ; }
+  for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) 
+    {  FITPARBIAS->VAL[ipar]  = VAL_DEFAULT ;  }
 
   // strip off local indices
   ia  = IBINFUN(a,   BININFO_SIM_ALPHA,    0, fnam );
@@ -12724,7 +12727,7 @@ int get_fitParBias(char *cid,
    if ( !USE_CENTER_CELL      ) { return(-10); } // 9.29.2020
 
    // require both z-bins to be used.
-   int ISKIP = 0 ;
+   int ISKIP = 0 ; 
    if ( IZMIN >=  0 ) { ISKIP = (USEZ[IZMIN]==0) ; }
    if ( IZMAX >=  0 ) { ISKIP = (USEZ[IZMAX]==0) ; }
 
@@ -12744,6 +12747,7 @@ int get_fitParBias(char *cid,
    if ( LDMP ) {
      printf(" xxx NSUM_Cell=%d  (cut=%d) OK=%d \n",
 	    NSUM_Cell, BIASCOR_MINSUM, OK); fflush(stdout);
+     fflush(stdout);
    }
 
    if ( OK == 0 ) { return(-12); }   
@@ -12794,7 +12798,9 @@ int get_fitParBias(char *cid,
     FITPARBIAS->RMS[ipar]  = sqrt(SUM_SQRMS[ipar]/SUM_WGT);
     if ( fabs( FITPARBIAS->VAL[ipar]) > 20.0 ) { BADBIAS=1; }
   } 
-  
+  FITPARBIAS->NEVT_BIASCOR = NSUM_Cell ; // Mar 31 2023
+  //  printf(" xxx %s: cid=%s  NSUM_cell=%d \n", fnam, cid, NSUM_Cell);
+
   if ( LDMP ) {
     printf("\n") ;
     for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
@@ -13040,7 +13046,6 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
   CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
 
-  // xxx mark delete Mar 2023  int NCELL  = CELLINFO_BIASCOR[IDSAMPLE].NCELL ;
   int NCELL  = CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL ;
   FILE *fp;
   int  i1d, NperCell;
@@ -13589,7 +13594,7 @@ void get_muBias(char *NAME,
 		INTERPWGT_AlphaBetaGammaDM *INTERPWGT,  
 		double *fitParBias,
 		double *muBias, double *muBiasErr, 
-		double *muCOVscale, double *muCOVadd ) { 
+		double *muCOVscale, double *muCOVadd, int *nevt_biascor ) { 
 
   
   // Created Jan 2016
@@ -13605,6 +13610,9 @@ void get_muBias(char *NAME,
   //  muBiasErr   = error on above (based on biasCor sim stats)
   //  muCOVscale  = scale bias to apply to muErr 
   //  muCOVadd    = floor to apply to muErr Aug 2 2021 Dillon
+  //  nevt_biascor = number of sim-biascor events used to make correction
+  //
+  // Mar 31 2023: add nevt_biascor arg.
 
   double alpha    = BIASCORLIST->alpha ;
   double beta     = BIASCORLIST->beta  ;
@@ -13614,10 +13622,11 @@ void get_muBias(char *NAME,
   double x1       = BIASCORLIST->FITPAR[INDEX_x1] ;
   double c        = BIASCORLIST->FITPAR[INDEX_c] ;
 
-  double muBias_local     = 0.0 ;
-  double muBiasErr_local  = 0.0 ;
-  double muCOVscale_local = 0.0 ;
-  double muCOVadd_local = 0.0 ;
+  double muBias_local       = 0.0 ;
+  double muBiasErr_local    = 0.0 ;
+  double muCOVscale_local   = 0.0 ;
+  double muCOVadd_local     = 0.0 ;
+  int    nevt_biascor_local = 0 ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
@@ -13659,10 +13668,13 @@ void get_muBias(char *NAME,
 		  ia, ib, ig, alpha, beta, gammadm, z );
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
 	}
-      
+
+	nevt_biascor_local += FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR;
+
 	for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX ; ipar++ ) {
 	  VAL = FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar];
 	  ERR = FITPARBIAS_ABGRID[ia][ib][ig].ERR[ipar];
+
 	  if ( VAL > 600.0 || isnan(ERR) ) {
 	    int IDSAMPLE = BIASCORLIST->idsample ;
 	    print_preAbort_banner(fnam);
@@ -13745,6 +13757,7 @@ void get_muBias(char *NAME,
   *muBiasErr  = muBiasErr_local ;
   *muCOVscale = muCOVscale_local ;
   *muCOVadd   = muCOVadd_local ;
+  *nevt_biascor = nevt_biascor_local;
 
   return ;
 
@@ -14220,7 +14233,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   //
   // This function is called for each fcn call, so no print statements !
   
-  int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample ;
+  int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample, nevt_biascor ;
   int NCC[MXz][MAXMUBIN], NCC_SUM[MXz]; 
   double SUM_DMU[MXz], SUMSQ_DMU[MXz];
   double z, c, x1, mB, dl, mu, mumodel, dmu, a, b, gDM, M0 ;
@@ -14327,7 +14340,8 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 		   &muBias,        // (O) interp bias on mu
 		   &muBiasErr,     // (O) stat-error on above
 		   &muCOVscale,  // (O) scale bias on muCOV (not used below) 
-		   &muCOVadd );  // (O) add bias on muCOV (not used below)
+		   &muCOVadd,  // (O) add bias on muCOV (not used below)
+		   &nevt_biascor );
       }
       else if ( NDIM_BIASCOR == 1 ) {
 	debugexit("CCPRIOR does NOT WORK WITH BBC-1D");  // Jun 19 2018
@@ -14712,13 +14726,14 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
   int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;  
 
-  //  char fnam[] = "load_FITPARBIAS_CCprior" ;
+  char fnam[] = "load_FITPARBIAS_CCprior" ;
 
   // -------- BEGIN ------------
   NBINa   = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   NBINb   = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   NBINg   = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
   
+  FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR = 0 ;
 
   for(ia=0; ia<NBINa; ia++ ) {
     for(ib=0; ib<NBINb; ib++ ) {
@@ -14736,7 +14751,9 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
       } //ig
     } // ib
   } //ia
-      
+  
+  return ;
+
 } // end load_FITPARBIAS_CCprior
 
 
@@ -15188,19 +15205,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); } 
   }
 
-  /* xxxxxxxx mark delete Dec 16 2022 RK xxxxxxxxxxx
-  int NFIELD = INPUTS.NFIELD ;
-  if ( NFIELD > 0 ) {
-    bool MATCH = false;
-    char *tmpField, *field = TABLEVAR->field[isn];  
-    for(icut=0; icut < NFIELD; icut++ ) {
-      tmpField = INPUTS.FIELDLIST[icut] ;
-      if ( strstr(field,tmpField) != NULL )   {  MATCH=true; }
-    }
-    if ( !MATCH ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); }
-  }
-  xxxxxxxxxxx end mark xxxxxxxxx */
-
   // -----------------------------------------
   // apply legacy cuts 
   // These cuts are redundant with above LCUTWIN to allow older inputs.
@@ -15245,7 +15249,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
 
 
-  //  printf(" xxx %s: LEGACY=%d \n", fnam, INPUTS.LEGACY_SELECT);
+  /* xxx mark delete Apr 2 2023 xxxx
   if ( INPUTS.LEGACY_SELECT ) {
     if ( TABLEVAR->IVAR_SNTYPE > 0 && INPUTS.Nsntype > 0 ) {
       sel = false ;
@@ -15255,33 +15259,30 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
       if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_sntype, TABLEVAR); }
     }
 
-    // xxx mark delete int CUT_IDSAMPLE=0;
     if ( idsample >= 0 ) {
       if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { 
-	//  xxx mark    CUT_IDSAMPLE = 1;
 	setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); 
       }
     }
   
   }
-  else {
-    // refac
-    sel = select_IDLIST(sntype, &INPUTS.SNTYPE_SELECT) ;
-    if ( !sel ) 
-      { setbit_CUTMASK(isn, CUTBIT_sntype, TABLEVAR); }
+  xxxxxxx end mark xxxxxx */
 
-    sel = select_IDLIST(idsurvey, &INPUTS.IDSURVEY_SELECT) ;
-    if ( !sel )
-      { setbit_CUTMASK(isn, CUTBIT_IDSURVEY, TABLEVAR); }
+  sel = select_IDLIST(sntype, &INPUTS.SNTYPE_SELECT) ;
+  if ( !sel ) 
+    { setbit_CUTMASK(isn, CUTBIT_sntype, TABLEVAR); }
+
+  sel = select_IDLIST(idsurvey, &INPUTS.IDSURVEY_SELECT) ;
+  if ( !sel )
+    { setbit_CUTMASK(isn, CUTBIT_IDSURVEY, TABLEVAR); }
     
-    // beware that idsample is not yet set here for real data; 
-    // the idsample data cut is applied implicitly because 
-    // valid-biasCor fails for rejected IDSAMPLE(s).
-    if ( idsample >=0 ) {
-      sel = select_IDLIST(idsample, &INPUTS.IDSAMPLE_SELECT);
-      if ( !sel ) 
-	{ setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR); }
-    }
+  // beware that idsample is not yet set here for real data; 
+  // the idsample data cut is applied implicitly because 
+  // valid-biasCor fails for rejected IDSAMPLE(s).
+  if ( idsample >=0 ) {
+    sel = select_IDLIST(idsample, &INPUTS.IDSAMPLE_SELECT);
+    if ( !sel ) 
+      { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR); }
   }
 
 
@@ -16130,41 +16131,29 @@ int ppar(char* item) {
   }
 
 
-  if ( INPUTS.LEGACY_SELECT ) {
-    if ( uniqueOverlap(item,"sntype=") ) 
-      { parse_sntype(&item[7]);   return(1); }
 
-    if ( uniqueOverlap(item,"idsample_select=") ) 
-      { sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
-
-    // legacy code has no idsurvey_select
-
+  if ( uniqueOverlap(item,"sntype=") ) {    // allow old name
+    parse_select_IDLIST("sntype", &item[7], 
+			&INPUTS.SNTYPE_SELECT) ; 
   }
 
-  if ( INPUTS.REFAC_SELECT ) {
-    if ( uniqueOverlap(item,"sntype=") ) {    // allow old name
-      parse_select_IDLIST("sntype", &item[7], 
-			  &INPUTS.SNTYPE_SELECT) ; 
-    }
-
-    if ( uniqueOverlap(item,"sntype_select=") ) { 
-      parse_select_IDLIST("sntype_select", &item[14], 
-			  &INPUTS.SNTYPE_SELECT) ; 
-      return(1);
-    }
+  if ( uniqueOverlap(item,"sntype_select=") ) { 
+    parse_select_IDLIST("sntype_select", &item[14], 
+			&INPUTS.SNTYPE_SELECT) ; 
+    return(1);
+  }
     
-    if ( uniqueOverlap(item,"idsurvey_select=") )  { 
-      parse_select_IDLIST("idsurvey_select", &item[16], 
-			  &INPUTS.IDSURVEY_SELECT) ;
-      return(1);
-    }
+  if ( uniqueOverlap(item,"idsurvey_select=") )  { 
+    parse_select_IDLIST("idsurvey_select", &item[16], 
+			&INPUTS.IDSURVEY_SELECT) ;
+    return(1);
+  }
 
-    if ( uniqueOverlap(item,"idsample_select=") )  { 
-      parse_select_IDLIST("idsample_select", &item[16], 
-			  &INPUTS.IDSAMPLE_SELECT) ;
-      return(1);
-    }
-  } // end REFAC
+  if ( uniqueOverlap(item,"idsample_select=") )  { 
+    parse_select_IDLIST("idsample_select", &item[16], 
+			&INPUTS.IDSAMPLE_SELECT) ;
+    return(1);
+  }
 
 
   if ( uniqueOverlap(item,"nmax=") ) {
@@ -16819,98 +16808,11 @@ void parse_prescale_biascor (char *item, int wrflag) {
 
 
 // **************************************************
-void parse_sntype (char *item) {
-
-  // May 23, 2012
-  // parse comma-separated list of types and load
-  // INPUTS.Nsntype and INPUTS.sntype[i].
-  // Input file example :
-  //   sntype= 120,105,104  ! no blank spaces
-
-  char *ptrtok, local_item[100] ;
-  int  ITYPE, N;
-  char fnam[] = "parse_sntype" ;
-
-  // --------------- BEGIN ---------------
-
-  sprintf(INPUTS.sntypeString, "%s", item);
-  sprintf(local_item,          "%s", item);
-
-  INPUTS.Nsntype = 0 ;
-
-  N = 0;
-  ptrtok = strtok(local_item,",");
-  while ( ptrtok != NULL  ) {
-    sscanf(ptrtok,"%d", &ITYPE);
-    INPUTS.sntype[N]   = ITYPE ;
-
-    if ( ITYPE == -1 ) { return ; } // flag to process all types.
-
-    N++ ;  
-    ptrtok = strtok(NULL, ",");
-  }
-
-
-  INPUTS.Nsntype = N ;
-  
-} // end of parse_sntype
-
-
-// **************************************************
-void parse_IDSAMPLE_SELECT(char *item) {
-
-  // Aug 31 2016
-  // parse plus-separated list of IDSAMPLEs to fit.
-  // Example:
-  //   item = '0+2' --> 
-  //
-
-  int  NTMP, i, ID ; 
-  char itemLocal[60], *ptrID[MXNUM_SAMPLE], strID[MXNUM_SAMPLE][4] ;
-  char fnam[] = "parse_IDSAMPLE_SELECT" ;
-
-  // --------- BEGIN -----------
-
-  if ( strlen(item) == 0 ) { return; }
-
-  sprintf(itemLocal, "%s", item );
-  for(i=0; i < MXNUM_SAMPLE; i++ ) { ptrID[i] = strID[i]; }
-
-  if ( strstr(itemLocal,",") != NULL ) {
-    sprintf(c1err,"Illegal comma delimeter in idsample_select key");
-    sprintf(c2err,"Try plus (+) delimeter instead.");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
-  splitString(itemLocal, PLUS, MXNUM_SAMPLE,      // inputs
-	      &NTMP, ptrID );                   // outputs
-
-  // reset all DOFLAGs to zero
-  for(ID=0; ID < MXNUM_SAMPLE; ID++ )  { 
-    SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 0; 
-    SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 0; 
-  }
-
-  for(i=0; i < NTMP; i++ ) {
-    sscanf(ptrID[i], "%d", &ID); 
-    SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 1; 
-    SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 1; 
-  }
-
-  fprintf(FP_STDOUT, "\t -> select %d IDSAMPLEs : %s \n",  NTMP,  itemLocal);
-  fflush(FP_STDOUT);
-
-  return ;
-
-} // end parse_IDSAMPLE_SELECT
-
-
-// **************************************************
 void prep_IDSAMPLE_SELECT(SELECT_LIST_DEF *SELECT) {
 
   // Created Dec 2022
   // Init a few things for selecting on IDSAMPLE
-  //
+  // 
 
   int  NID = SELECT->NID ;
   int  i, ID ; 
@@ -16918,24 +16820,59 @@ void prep_IDSAMPLE_SELECT(SELECT_LIST_DEF *SELECT) {
 
   // --------- BEGIN -----------
 
-  if ( SELECT->NID == 0 ) { return; }
+  if ( NID == 0 ) { return; }
 
   // reset all DOFLAGs to zero
   for(ID=0; ID < MXNUM_SAMPLE; ID++ )  { 
     SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 0; 
     SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 0; 
   }
-
+  
   for(i=0; i < NID; i++ ) {
     ID = SELECT->IDLIST[i];
     SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 1; 
     SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 1; 
   }
 
+  // check IDSURVEY_SELECT
+  
 
   return ;
 
-} // end parse_IDSAMPLE_SELECT
+} // end prep_IDSAMPLE_SELECT
+
+
+// **************************************************
+void prep_IDSURVEY_SELECT(SELECT_LIST_DEF *SELECT) {
+
+  // Created Apri 2023
+  // Init a few things for selecting on IDSURVEY ...
+  // Note that IDSAMPLE logicals are set.
+  // 
+
+  int  NIDSURVEY = SELECT->NID ;
+  int  i, IDSURVEY ; 
+  char fnam[] = "prep_IDSURVEY_SELECT" ;
+
+  // --------- BEGIN -----------
+
+  if ( NIDSURVEY == 0 ) { return; }
+
+  
+  for(i=0; i < NIDSURVEY; i++ ) {
+    IDSURVEY = SELECT->IDLIST[i];
+
+    
+    //    SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 1; 
+    // SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 1; 
+  }
+
+  // check IDSURVEY_SELECT
+  
+
+  return ;
+
+} // end prep_IDSURVEY_SELECT
 
 
 
@@ -17120,10 +17057,6 @@ void parse_sigint_fix(char *item) {
     
   }
 
-
-  // - - - - -
-  // turn off other sigint inputs
-  // xxx mark delete  INPUTS.sigmB = 0.0 ;  
   
   // ----------
   // print sigint_fix for each IDSAMPLE, and compute sqsigint_fix
@@ -18067,12 +18000,6 @@ void prep_input_driver(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
 
-  if ( INPUTS.LEGACY_SELECT ) {
-    if (INPUTS.Nsntype <= 0 ) 
-      { fprintf(FP_STDOUT, "SN selection type=ALL\n"); }
-    else 
-      { fprintf(FP_STDOUT, "SN selection sntype= %s\n", INPUTS.sntypeString); }
-  }
 
   fprintf(FP_STDOUT, "x1min/x1max = %.3f / %.3f \n", 
 	  INPUTS.x1min, INPUTS.x1max);
@@ -18386,8 +18313,6 @@ void prep_debug_flag(void) {
   }
 
   // - - - - - -
-  if ( INPUTS.debug_flag == -1207 )  { INPUTS.REFAC_SELECT = false; }
-  INPUTS.LEGACY_SELECT = !INPUTS.REFAC_SELECT;
 
   fflush(FP_STDOUT);
 
@@ -18588,12 +18513,6 @@ void  prep_input_gamma(void) {
   int  icut;
   bool FOUND_GAMMA = ( icut_CUTWIN(varname_gamma) >= 0 );
 
-  /* xxx mark delete Nov 17 2022 xxxxxxx
-  for(icut=0; icut < NCUTWIN; icut++ ) {
-    tmpName = INPUTS.CUTWIN_NAME[icut] ;
-    if ( strcmp(tmpName,varname_gamma) == 0 ) { FOUND_GAMMA=1; }
-  }
-  xxxxxxx end mark xxxxx*/
 
   if ( LDMP ) {
     if ( FOUND_GAMMA ) 
@@ -19159,14 +19078,6 @@ void write_yaml_info(char *fileName) {
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
-
-  /* xxx mark delete Mar 8 2023 ; see global xxxx
-  bool USE_DATA    = true ;
-  bool USE_BIASCOR = (INPUTS.nfile_biasCor > 0) ;
-  bool USE_CCPRIOR = (INPUTS.nfile_CCprior > 0) ;
-  bool USE_EVENT_TYPE[MXEVENT_TYPE] = 
-    { false, USE_DATA, USE_BIASCOR, USE_CCPRIOR }; // .xyz make global
-  xxxxxxxxx end mark xxxx */
 
   double t_cpu = (t_end_fit-t_start)/60.0 ;
 
@@ -19872,7 +19783,6 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   // ----------- BEGIN -----------
 
 
-  // xxx mark delete  sprintf(line_out,"SN: ");
   sprintf(line_out,"%s ", rowkey);
 
   for(ivar_tot=0; ivar_tot < NVAR_TOT; ivar_tot++ ) {
@@ -19998,6 +19908,7 @@ void define_varnames_append(void) {
 
 
   if ( NSN_BIASCOR  > 0 ) {
+    sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_nevt");     NVAR_APPEND++ ;  
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_mu");       NVAR_APPEND++ ;  
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCorErr_mu");    NVAR_APPEND++ ;  
 
@@ -20099,8 +20010,6 @@ void write_MUERR_INCLUDE(FILE *fp) {
   //  char fnam[] = "write_MUERR_INCLUDE";
 
   // --------------- BEGIN ----------------
-
-  // xxx mark delete   fprintf(fp, "# MUERR_INCLUDE: zERR \n" );  USE=1;
 
   tmpErr = INPUTS.zpecerr ;
   if ( tmpErr > 0.0 ) {
@@ -20411,6 +20320,8 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // Apr 22 2022: mu/mumodel/muerr -> %8.5f format instead of %7.4f
   //              Might be needed later for high-precision tests.
   //
+  // Mar 31 2023: add nevt_biascor
+
   bool DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool DO_COVSCALE   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
@@ -20419,7 +20330,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   double M0DIF, M0ERR ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0, muCOVadd=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
-  int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin;
+  int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin, nevt_biascor=0;
   char line[400], word[40] ;	 
   char fnam[] = "write_fitres_line_append" ;
 
@@ -20450,13 +20361,14 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
 
   if ( NSN_BIASCOR > 0 ) { 
+    nevt_biascor         = INFO_DATA.nevt_biascor[n] ;
     muBias               = INFO_DATA.muBias[n] ;
     muBiasErr            = INFO_DATA.muBiasErr[n] ;
     if ( DO_BIASCOR_MU == false ) {
       fitParBias[INDEX_mB] = INFO_DATA.fitParBias[n][INDEX_mB] ;
       fitParBias[INDEX_x1] = INFO_DATA.fitParBias[n][INDEX_x1] ;
       fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
-    }
+    } 
     muCOVscale  = INFO_DATA.muCOVscale[n]  ;
     if ( DO_COVADD ) {
       muCOVadd    = INFO_DATA.muCOVadd[n] ;
@@ -20496,6 +20408,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   }
 
   if ( NSN_BIASCOR > 0 ) {
+    sprintf(word, "%4d ",   nevt_biascor ); NWR++ ; strcat(line,word);
     sprintf(word, "%6.4f ", muBias );       NWR++ ; strcat(line,word);
     sprintf(word, "%6.3f ", muBiasErr );    NWR++ ; strcat(line,word);
     if ( DO_BIASCOR_MU == false ) {
@@ -23210,14 +23123,6 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
 	    NEVT, MURES_SUM, STD, STD_ROBUST);
     strcat(cLINE,cVAL0);
 
-    /* xxxxxxxxxxxxx mark delete Jan 20 2022 xxx
-    else {
-      sprintf(cVAL0," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
-      sprintf(cVAL1," %12.4le  %12.4le", SUM_WGT, MURES_SUM_WGT);
-      strcat(cLINE,cVAL0);
-      strcat(cLINE,cVAL1);
-    }
-    xxxxxxxxxx */
 
     fprintf(FP_OUT,"ROW: %4.4d %s\n", IBIN1D, cLINE);
 

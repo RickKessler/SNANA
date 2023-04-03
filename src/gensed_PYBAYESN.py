@@ -21,7 +21,7 @@ from gensed_base import gensed_base
 mask_bit_locations = {'verbose':1, 'dump':2, 'disable_scatter':3}
 DEFAULT_PYBAYESN_MODEL='M20'
 ALLOWED_PYBAYESN_MODEL=['M20', 'T21']
-ALLOWED_PYBAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
+ALLOWED_PYBAYESN_PARAMS=['THETA','DELTAM'] # I suppose we could allow EPSILON as well...
 ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE']
 PRODUCTS_DIR = os.getenv('SNDATA_ROOT')
 PYBAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
@@ -55,7 +55,8 @@ class gensed_PYBAYESN(gensed_base):
                     break
             if self.paramfile is None:
                 raise RuntimeError(f'param file not found! in {self.PATH_VERSION}. Looking for one of {param_files}')
-
+            print("wrong file??????", self.paramfile)
+            print("PATHVERSION {}; ARGLIST {}".format(PATH_VERSION, ARGLIST))
             self.params_file_contents = yaml.load(open(self.paramfile),
                                                   Loader=yaml.FullLoader)
 
@@ -73,7 +74,7 @@ class gensed_PYBAYESN(gensed_base):
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','TMAX', 'REDSHIFT']
+            self.parameter_names = ['THETA','AV','RV','DELTAM','TMAX', 'REDSHIFT']
             self.parameter_values = {key:0. for key in self.parameter_names}
             self.parameter_values['RV'] = 3.1 # make sure Rv has a sane default
 
@@ -200,7 +201,7 @@ class gensed_PYBAYESN(gensed_base):
             self.bayesn_distrib_params[key] = temp
         print('Parsed the following BayeSN distribution parameters')
         print(self.bayesn_distrib_params)
-
+        sys.stdout.flush()
 
     def setup_bayesn_param_distributions(self):
         """
@@ -344,15 +345,13 @@ class gensed_PYBAYESN(gensed_base):
 
         ########## NEW CODE FROM ST BELOW HERE (FOR GUIDANCE) ##########
 
+        print("XXXX z = {:.6f}; theta = {:.6f}".format(self.parameter_values["REDSHIFT"], self.parameter_values["THETA"]))
 
         #ST: Computes matrices that do interpolation
         #    Probably can't be precomputed
         #    Assumes that `trest` is a float, and `self.wave` is a 1D
         #    list or numpy array of rest frame wavelengths
         J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
-
-        print("J_tau matrix")
-        print(trest, J_t)
 
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package
@@ -366,13 +365,14 @@ class gensed_PYBAYESN(gensed_base):
         epsilon_matrix = np.zeros(self._bayesn_components["W0"].shape)
         epsilon_vector = [self.parameter_values[f'EPSILON{i:02d}'] for i in range(self._nepsilon)]
         epsilon_matrix[1:-1,:] = np.reshape(epsilon_vector, epsilon_matrix[1:-1,:].shape, order="F")
-        W = self._bayesn_components["W0"] + self.parameter_values["THETA1"]*self._bayesn_components["W1"] + epsilon_matrix
+        W = self._bayesn_components["W0"] + self.parameter_values["THETA"]*self._bayesn_components["W1"] + epsilon_matrix
 
         #ST: Interpolates to `trest` and `self.wave`
         #    If we have done this right, this should be the same length
         #    as `flux`
         JWJ = np.linalg.multi_dot([self.J_l, W, J_t]).squeeze()
-
+        dlam = self.wave[1:] - self.wave[:-1]
+        print(trest, min(dlam), max(dlam), self.wave[446], JWJ[446], 10**(-0.4*JWJ)[446], JWJ.shape)
 
         #ST: Multiplies correction into Hsiao fluxes
         #    Stilde is essentially the host-dust-extinguished
@@ -562,15 +562,15 @@ def main():
 
     fig = plt.figure(figsize=(10, 5))
     ax1 = fig.add_subplot(111)
-    mySED.setParVals(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
+    mySED.setParVals(THETA=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
     flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'g-')
 
-    mySED.setParVals(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
+    mySED.setParVals(THETA=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
     flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'r-')
 
-    mySED.setParVals(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
+    mySED.setParVals(THETA=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
     flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'b-')
 
@@ -582,15 +582,15 @@ def main():
     ind = (mySED.wave >= 3000) & (mySED.wave <= 7000)
     for trest in np.linspace(-10, 40, 20):
 
-        mySED.setParVals(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
+        mySED.setParVals(THETA=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
         flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'b-')
 
-        mySED.setParVals(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
+        mySED.setParVals(THETA=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
         flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'g-')
 
-        mySED.setParVals(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
+        mySED.setParVals(THETA=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
         flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'r-')
     fig2.savefig('phase_sequence.png')

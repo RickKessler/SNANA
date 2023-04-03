@@ -462,6 +462,7 @@ void genmag_BAYESN(
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
 
+    printf("XXXX z = %.6f; theta = %.6f\n", z, THETA);
 
     // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
     double *Trest_list   = malloc(sizeof(double)*Nobs);
@@ -490,27 +491,18 @@ void genmag_BAYESN(
 
     // project the model into the observer frame 
     // get the rest-frame model wavelengths that overlap with the filter 
-    i = 0;
-    while (z1*lam_model[i] <= lam_filt[0]) {
-        i++;
+    int ilam_blue = 0;
+    while (z1*lam_model[ilam_blue] <= lam_filt[0]) {
+        ilam_blue++;
     }
-    int j = nlam_model - 1;
-    while (z1*lam_model[j] >= lam_filt[FILTER_SEDMODEL[ifilt].NLAM-1]) {
-        j--;
+    int ilam_red = nlam_model - 1;
+    while (z1*lam_model[ilam_red] >= lam_filt[FILTER_SEDMODEL[ifilt].NLAM-1]) {
+        ilam_red--;
     }
 
     // compute the matrix for time interpolation
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
             Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
-
-
-
-    printf("XXX Tobs_list\n");
-    for(i=0;i<Nobs;i++)
-    {
-        printf("%.4f\n", Tobs_list[i]);
-    }
-
 
     printf("XXX J_tau\n");
     gsl_matrix_fprintf(stdout, J_tau, "%.2f");
@@ -529,7 +521,7 @@ void genmag_BAYESN(
     // interpolate the filter wavelengths on to the model in the observer frame
     // usually this is OK because the filters are more coarsely defined than the model
     // that may not be the case with future surveys and we should revisit
-    int    this_nlam = j - i + 1;
+    int    this_nlam = ilam_red - ilam_blue + 1;
     int    o, q;
     double *this_lam   = malloc(sizeof(double)*this_nlam);
     double *this_trans = malloc(sizeof(double)*this_nlam);
@@ -537,10 +529,10 @@ void genmag_BAYESN(
     double eW, S0_lam; //To store other SED  bits
     for (o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
     //printf("Interpolating %s\n",cfilt);
-    for(q=i; q<j; q++)
+    for(q=ilam_blue; q<ilam_red; q++)
       {
-        this_lam[q-i]   = lam_model[q]*z1;
-        this_trans[q-i] = interp_1DFUN(2, this_lam[q-i], nlam_filter, 
+        this_lam[q-ilam_blue]   = lam_model[q]*z1;
+        this_trans[q-ilam_blue] = interp_1DFUN(2, this_lam[q-ilam_blue], nlam_filter, 
 				       lam_filt, trans_filt, "DIE");
         //printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
 
@@ -559,19 +551,23 @@ void genmag_BAYESN(
         eA_lam_MW = 1.0; //MW extinction at this_lam[q-i]
         eA_lam_host = 1.0; //Host extinction at lam_model[q];
         //printf("THETA = %.3f\n", THETA);
-                        
+            
+        int q_hsiao;
         for (o = 0; o < Nobs; o++) {
+            float dummy = gsl_vector_get(jWJ, o);
             eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
+            printf("Trest %.3f, q %d, lam %.3f, jWJ %.3f, eW %.3e, dlam %.3f, lammin %.3f, lammax %.3f\n", Trest_list[o], q, this_lam[q-ilam_blue]/z1, dummy, eW, d_lam,lam_model[0], lam_model[nlam_model-1] );
             // Seek the first Hsiao timestep above the current obs time
-            int q_hsiao = 0;
-            while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Tobs_list[o]) { q_hsiao++; }
+            q_hsiao = 0;
+            while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
             double t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
             double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
             double f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
             double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
             // HACK HACK HACK throw Trest at this instead or Tobs
             S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
-            magobs_list[o] += this_trans[q-i]*this_lam[q-i]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+            //printf("Trest %.3f, lam %.3f, t0 %.3f, t1 %.3f, f0 %.3e, f1 %.3e, S0_lam %.3e\n", Trest_list[o], this_lam[q-ilam_blue], t0, t1, f0, f1, S0_lam);
+            magobs_list[o] += this_trans[q-ilam_blue]*this_lam[q-ilam_blue]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
             if (o == 0) {
                 //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
                 //printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);

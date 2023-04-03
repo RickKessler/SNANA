@@ -1453,7 +1453,7 @@ c note that mB is computed from fitpars, and does not float in fit
          PARNAME_STORE(IPAR_COLOR)  = 'AV'
          ERRMAX_BAD(IPAR_COLOR)     = 0.001
 
-         PARNAME_STORE(IPAR_SHAPE)  = 'THETA1'
+         PARNAME_STORE(IPAR_SHAPE)  = 'THETA'
          ERRMAX_BAD(IPAR_SHAPE)     =  0.001
 
          PARNAME_STORE(IPAR_DLMAG)         = 'DLMAG' 

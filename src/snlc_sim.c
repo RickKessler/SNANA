@@ -23043,8 +23043,18 @@ void init_genmodel(void) {
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
 
     ARGLIST_PySEDMODEL = (char*)malloc(400*sizeof(char) );
-    sprintf(ARGLIST_PySEDMODEL,"RANSEED %d  %s",
-	    INPUTS.ISEED, INPUTS.GENMODEL_ARGLIST );
+    char string_ranseed[200];
+    char string_population_par[400] = "";
+    sprintf(string_ranseed, "RANSEED %d ", INPUTS.ISEED);
+    if ( INDEX_GENMODEL == MODEL_PYBAYESN ) {
+      sprintf(string_population_par,"GENPAR_PYBAYESN_THETA %f,%f,%f,%f,%f ", INPUTS.GENGAUSS_THETA.PEAK,
+                INPUTS.GENGAUSS_THETA.RANGE[0],INPUTS.GENGAUSS_THETA.RANGE[1],
+                INPUTS.GENGAUSS_THETA.SIGMA[0],INPUTS.GENGAUSS_THETA.SIGMA[1]);
+    }
+    
+
+    sprintf(ARGLIST_PySEDMODEL,"%s %s %s",
+	    string_ranseed, string_population_par, INPUTS.GENMODEL_ARGLIST );
 
     int NPAR; char NAMES_HOSTPAR[200];  double VAL_HOSTPAR=0.0 ;
     NPAR = fetch_HOSTPAR_GENMODEL(1, NAMES_HOSTPAR, &VAL_HOSTPAR);

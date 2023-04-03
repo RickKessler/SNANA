@@ -15,6 +15,8 @@
 #define V_WAVELENGTH  5428.55  // idem
 #define R_WAVELENGTH  6500.
 
+#define COLOR_DISP_MAX_DEFAULT 2.0 // to avod crazyFLux abort (Apr 2023)
+
 // Sep 2020: define indices for values read after COLORCOR_PARAMS key
 #define ICLPAR_REFLAM_CL0  0  // aka, B_WAVE
 #define ICLPAR_REFLAM_CL1  1  // aka, V_WAVE

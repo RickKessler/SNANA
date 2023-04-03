@@ -1261,11 +1261,18 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 			,GENSMEAR_SALT2.SIGMA
 			,fnam );    
 
+    /* xxxxx mark delete Apr 2 2023 xxxxxxxxx
     MSG_CRAZY[0] = 0 ;
     if ( SIG > SIGMA_CRAZY ) {
       NSIGMA_CRAZY++ ;
       sprintf(MSG_CRAZY,"<== flagged as crazy value");
     }
+    xxxxxxxxxxxx end mark xxxxxxxxx */
+
+    if ( SIG > COLOR_DISP_MAX_DEFAULT ) {
+      SIG = COLOR_DISP_MAX_DEFAULT - 1.0E-8 ;
+    }
+
 
     printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f  %s\n", 
 	   NNODE, LAM2, SIG, MSG_CRAZY ); fflush(stdout);

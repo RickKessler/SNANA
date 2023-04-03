@@ -21528,7 +21528,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-        v11_05c ([tag-date]) 
+        v11_05c (April 2 2023) 
 
         ***** IMPORTANT(v11_05c) ***** 
 
@@ -21541,7 +21541,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    removed to resolve disk-quota crises.
 
    Mar 22 2023:
-   Fixed bug from KCOR refactor (v11_05) in which a small piece of code was 
+   Fixed bug from KCOR refactor (v11_05) in which a small piece of code was
    mistakenly removed from snana.car (in SNRECON). For details, see
       https://github.com/RickKessler/SNANA/issues/1106
 
@@ -21617,5 +21617,20 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
   SNANA_submit_tests.py:
     + use submit_batch_jobs for create_cov stage
+
+
+# =============================================================
+        v11_05d ([tag-date]) 
+
+        ***** IMPORTANT(v11_05d) ***** 
+
+        ***** USEFUL(v11_05d) ***** 
+
+        ***** MISCELLANEOUS(v11_05d) ***** 
+
+   SALT2.h
+     + define COLOR_DISP_MAX_DEFAULT=2 and use this to force
+       color_disor <=2 to avoid crazyFlux aborts.
+       Previous COLOR_DISP_MAX default was 5.0 mag.
 
 END: 

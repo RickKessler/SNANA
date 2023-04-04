@@ -22,7 +22,8 @@ mask_bit_locations = {'verbose':1, 'dump':2, 'disable_scatter':3}
 DEFAULT_PYBAYESN_MODEL='M20'
 ALLOWED_PYBAYESN_MODEL=['M20', 'T21']
 ALLOWED_PYBAYESN_PARAMS=['THETA','DELTAM'] # I suppose we could allow EPSILON as well...
-ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE']
+ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE', 'PAR'] # GN - 20230404 - allow "PAR" which is param that takes
+                                                                # 5 comma separated values combining peak/range/sigma
 PRODUCTS_DIR = os.getenv('SNDATA_ROOT')
 PYBAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
 PYBAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
@@ -46,7 +47,9 @@ class gensed_PYBAYESN(gensed_base):
             self.PATH_VERSION = os.path.expandvars(PATH_VERSION)
             self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
 
-            # check if a param file exists
+            # check if a default param file exists
+            # this lets us specify default parameters for the model
+            # if nothing is specified by the user in the input/include files to SNANA
             self.paramfile = None
             param_files = ['bayesn.params','BAYESN.PARAMS', 'BAYESN.params']
             for param_file in param_files:
@@ -55,8 +58,8 @@ class gensed_PYBAYESN(gensed_base):
                     break
             if self.paramfile is None:
                 raise RuntimeError(f'param file not found! in {self.PATH_VERSION}. Looking for one of {param_files}')
-            print("wrong file??????", self.paramfile)
-            print("PATHVERSION {}; ARGLIST {}".format(PATH_VERSION, ARGLIST))
+            print(f"Reading default parameters from {self.paramfile}")
+            print("Other parsed arguments\nPATHVERSION {}; ARGLIST {}".format(PATH_VERSION, ARGLIST))
             self.params_file_contents = yaml.load(open(self.paramfile),
                                                   Loader=yaml.FullLoader)
 
@@ -80,7 +83,7 @@ class gensed_PYBAYESN(gensed_base):
 
             ### SETUP THE PYBAYESN PARAMETER DISTRIBUTIONS
             ### THESE WILL BE SAMPLED TO UPDATE parameter_values AS NEEDED
-            self.parse_bayesn_param_keys()
+            self.parse_bayesn_param_keys(arglist=ARGLIST)
             self.setup_bayesn_param_distributions()
 
         except Exception as e:
@@ -140,6 +143,7 @@ class gensed_PYBAYESN(gensed_base):
         # however, unlike YAML, we get all the args in
         # a single arglist
         if arglist is not None:
+            self.bayesn_distrib_params = {}
             keyvals = re.split('(\w+):', arglist)[1:]
             # key vals come in pairs - even indices are keys
             # odd indices are vals
@@ -151,8 +155,10 @@ class gensed_PYBAYESN(gensed_base):
                                                 if key.startswith('GEN')}
 
         self.bayesn_param_config = {}
+        update_bayesn_distrib_params = self.bayesn_distrib_params.copy()
+
         # we need to do some input validating
-        for key, val in self.bayesn_distrib_params.items():
+        for key, val in update_bayesn_distrib_params.items():
 
             # check the keywords are valid
             if not key.startswith('GEN'):
@@ -173,35 +179,89 @@ class gensed_PYBAYESN(gensed_base):
                 message += f'Keys must specify a BayeSN light curve parameter f{ALLOWED_PYBAYESN_PARAMS}.'
                 raise RuntimeError(message)
 
-            # we need to keep a track of which distribution parameters are set
-            temp = self.bayesn_param_config.get(paramname, None)
-            if temp is None:
-                temp = []
-            temp.append(keysuffix)
-            self.bayesn_param_config[paramname] = temp
+            if keysuffix == "PAR":
+                vals = [x.strip() for x in val.split(',')]
+                # GENPAR is special in that you can specify the full distribution
+                # with a single parameter - this is purely for convenience
+                # if we get a GENPAR, we really have all of GENPEAK, GENRANGE and GENSIGMA
+                # together - we need to parse this below
+                replace_suffixes = ['PEAK','RANGE', 'SIGMA']
+                replace_inds = [0, 1, 3]
+                replace_len  = [1, 2, 2]
+                # add each of the "keys" in GENPAR to the dictionary
+                for rsuffix, start, length in zip(replace_suffixes, replace_inds, replace_len):
+                    rkey = f'GEN{rsuffix}_{paramname}'
+                    rval = ' '.join(vals[start:start+length])
+                    print(vals, start, start+length, rval)
+                    self.bookkeep_bayesn_param_key(paramname, rsuffix)
+                    temp = self.convert_bayesn_param_key_val(rkey, rsuffix, rval)
+                    self.bayesn_distrib_params[rkey] = temp
+                # and finally, remove the GENPAR convenience key
+                del self.bayesn_distrib_params[key]
+            else:
+                self.bookkeep_bayesn_param_key(paramname, keysuffix)
+                temp = self.convert_bayesn_param_key_val(key, keysuffix, val)
+                self.bayesn_distrib_params[key] = temp
 
-            # finally you either get a single float or a sequence of floats
-            # to specify the distributions for each parameter
-            try:
-                temp = float(val)
-                if paramname == 'RANGE':
-                    message = f'Key {key} specified but only found a single value.'
-                    raise RuntimeError(message)
-            except ValueError:
-                temp = [float(v) for v in val.split()]
-                if keysuffix != 'RANGE':
-                    message = f'Key {key} specified and has multiple values, but only accepts a single value.'
-                    raise RuntimeError(message)
-                if len(temp) !=2 :
-                    message = f'Range key {key} specified but can only have two values.'
-                    raise RuntimeError(message)
-                if temp[0] >= temp[1]:
-                    message = f'Range key {key} specified but lower limit is >= uppler limit.'
-                    raise RuntimeError(message)
-            self.bayesn_distrib_params[key] = temp
+        #endfor over params
         print('Parsed the following BayeSN distribution parameters')
         print(self.bayesn_distrib_params)
         sys.stdout.flush()
+
+
+    def bookkeep_bayesn_param_key(self, paramname, keysuffix):
+        """
+        Distributions are defined by peak (i.e. mean), sigma and range
+        but not all those keywords maybe supplied for each of the parameters
+        This changes the interpretation of the distribution
+        Only range = uniform
+        Only peak = delta function
+        Peak + sigma = Gaussian
+        Peak + sigma + range = Gaussian with limited range
+        """
+        # we need to keep a track of which distribution parameters are set
+        temp = self.bayesn_param_config.get(paramname, None)
+        if temp is None:
+            temp = []
+        if keysuffix not in temp:
+            temp.append(keysuffix)
+        self.bayesn_param_config[paramname] = temp
+
+
+    def convert_bayesn_param_key_val(self, key, keysuffix, val):
+        """
+        Parse the BayeSN parameter distributions specified in
+        bayesn.params or as a string in the ARGLIST in the SNANA .INPUT
+        file and converts strings to floats appropriately for
+        PEAK/RANGE/SIGMA/PAR
+        """
+        # finally you either get a single float or a sequence of floats
+        # to specify the distributions for each parameter
+        try:
+            temp = float(val)
+            if keysuffix == 'RANGE':
+                message = f'Key {key} specified but only found a single value.'
+                raise RuntimeError(message)
+        except ValueError:
+            temp = [float(v) for v in val.split()]
+            if keysuffix == 'SIGMA':
+                # HACK HACK HACK - Rick has a definition of an asymmetric Gaussian
+                # that's non-standard (har har) compared to a skewnormal
+                # I don't know what to do with it for now
+                # so I'm just going to take the larger of the two values
+                return np.abs(temp).max()
+
+            if keysuffix != 'RANGE':
+                message = f'Key {key} specified and has multiple values, but only accepts a single value.'
+                raise RuntimeError(message)
+            if len(temp) !=2 :
+                message = f'Range key {key} specified but can only have two values.'
+                raise RuntimeError(message)
+            if temp[0] >= temp[1]:
+                message = f'Range key {key} specified but lower limit is >= uppler limit.'
+                raise RuntimeError(message)
+        return temp
+
 
     def setup_bayesn_param_distributions(self):
         """

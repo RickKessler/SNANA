@@ -23039,20 +23039,42 @@ void init_genmodel(void) {
   }
 
   else if ( IS_PySEDMODEL ) {
-
+    // if we call a PySEDMODEL, snlc_sim by default sets RANSEED and passes that
+    // the assumption is that the PySEDMODEL does whatever it needs to internally
+    // to generate random parameters from distributions for the simulation
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
-
     ARGLIST_PySEDMODEL = (char*)malloc(400*sizeof(char) );
     char string_ranseed[200];
+
+    // it is possible that the PySEDMODEL authors also want to 
+    // allow user control over the random parameters simulated
+    // this can be done through string_population par
+    // where we pass specific parameters from the input/include files
+    // to the PySEDMODEL
     char string_population_par[400] = "";
     sprintf(string_ranseed, "RANSEED %d ", INPUTS.ISEED);
+
+    // in the specific case of PyBAYESN, the user can specify 
+    // parameters for THETA and DELTAM with the same conventions
+    // as SNANA uses - peak/sigma[2]/range[2] and PyBAYESN
+    // will sample from the appropriate distributions 
+    // by parsing the string_population_par
+    // and generating distribution objects appropriately to sample from
+    // the format is a single parameter name - GENPAR_PYBAYESN_[THETA|DELTAM]
+    // followed by a comma separated list of values with 
+    // PEAK, RANGE_LOWE, RANGE_UPPER, SIGMA_LOWER, SIGMA_UPPER
+    // other PySEDMODELs can use similar conventions but we recommend
+    // specifying the parameter name to make debugging tractable
     if ( INDEX_GENMODEL == MODEL_PYBAYESN ) {
-      sprintf(string_population_par,"GENPAR_PYBAYESN_THETA %f,%f,%f,%f,%f ", INPUTS.GENGAUSS_THETA.PEAK,
+      sprintf(string_population_par,"GENPAR_THETA: %f,%f,%f,%f,%f   GENPAR_DELTAM: %f,%f,%f,%f,%f", 
+                INPUTS.GENGAUSS_THETA.PEAK,
                 INPUTS.GENGAUSS_THETA.RANGE[0],INPUTS.GENGAUSS_THETA.RANGE[1],
-                INPUTS.GENGAUSS_THETA.SIGMA[0],INPUTS.GENGAUSS_THETA.SIGMA[1]);
+                INPUTS.GENGAUSS_THETA.SIGMA[0],INPUTS.GENGAUSS_THETA.SIGMA[1],
+                INPUTS.GENGAUSS_DELTAM.PEAK,
+                INPUTS.GENGAUSS_DELTAM.RANGE[0],INPUTS.GENGAUSS_DELTAM.RANGE[1],
+                INPUTS.GENGAUSS_DELTAM.SIGMA[0],INPUTS.GENGAUSS_DELTAM.SIGMA[1]);
     }
     
-
     sprintf(ARGLIST_PySEDMODEL,"%s %s %s",
 	    string_ranseed, string_population_par, INPUTS.GENMODEL_ARGLIST );
 

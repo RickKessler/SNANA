@@ -1093,7 +1093,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   double zmin = GENRANGE_REDSHIFT[0];
   int   NSIGMA_CRAZY = 0;
   double SIGMA_CRAZY = 2.0 ;
-  char dispFile[MXPATHLEN], MSG_CRAZY[40] ;  
+  char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
 
   // ----------------- BEGIN --------------
@@ -1274,8 +1274,8 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
     }
 
 
-    printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f  %s\n", 
-	   NNODE, LAM2, SIG, MSG_CRAZY ); fflush(stdout);
+    printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f \n", 
+	   NNODE, LAM2, SIG ); fflush(stdout);
 
     GENSMEAR_SALT2.LAM_NODE[NNODE] = LAM2 ; // lambda at each node
     GENSMEAR_SALT2.SIG_NODE[NNODE] = SIG  ; // sigma at each node.

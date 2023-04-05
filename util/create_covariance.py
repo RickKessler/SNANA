@@ -94,6 +94,8 @@
 #     - read cospar_biascor from sim-README
 #     - write above info to INFO.YML (to pass on to cosmology fitting codes)
 #
+# Apr 05 2023 M.Vincenzi: update -H [HELP] on how to remove one syst.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -281,13 +283,14 @@ VERSION:    <subDir under INPUT_DIR>
 #  [COVOPT-label]  [FITOPT-label,MUOPT-label,errSystScale]
 #   and no pad spaces allowed inside []
 COVOPTS:
-- '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst 
+- '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst
 - '[PS1CAL] [+PS1CAL,=DEFAULT]'  # PS1CAL syst only MUOPT=0
 - '[ALLCAL] [+CAL,=DEFAULT]'     # All syst with 'CAL' in name, MUOPT=0
 - '[SALT2]  [+SALT2,=DEFAULT]'   # SALT2 syst only, MUOPT=0
-- '[NOCAL]  [-CAL,=DEFAULT]'     # all syst except for calib, MUOPT=0
 - '[SCAT]   [=DEFAULT,+SCAT]     # FITOPT=0, MUOPTs with SCAT in label
-
+- '[NOCAL]  [-CAL,=DEFAULT]'     # all fitopt syst except calib, and only default MUOPT=0
+- '[NOCALONLY] [-CAL,]'          # all syst (i.e. all FITOPTS and MUOPTS ) except CAL systs
+- '[noFrag] [,-SCAT]'            # all syst (i.e. all FITOPTS and MUOPTS ) except SCAT systs
 # optional 3rd arg scales syst error
 - '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 2, and covSys*= 1.2^2
 - '[ALL]    [,,1.4]              # scale ALL errSys by 1.4, covSys*= 1.4^2

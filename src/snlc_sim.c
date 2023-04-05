@@ -791,6 +791,7 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DELTA,    zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DM15,     zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_THETA,    zero ); 
+  init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DELTAM,   zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH,  zero ); 
 
   INPUTS.DOGEN_AV       = 0 ;
@@ -2007,6 +2008,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_GENGAUSS("THETA", WORDS, keySource,
 			      &INPUTS.GENGAUSS_THETA );  
   }
+  else if ( strstr(WORDS[0],"DELTAM") != NULL ) {
+    N += parse_input_GENGAUSS("DELTAM", WORDS, keySource,
+			      &INPUTS.GENGAUSS_DELTAM );  
+  }
+
   else if ( strstr(WORDS[0],"STRETCH") != NULL ) {
     N += parse_input_GENGAUSS("STRETCH", WORDS, keySource,
 			      &INPUTS.GENGAUSS_STRETCH );  
@@ -23066,7 +23072,9 @@ void init_genmodel(void) {
     // other PySEDMODELs can use similar conventions but we recommend
     // specifying the parameter name to make debugging tractable
     if ( INDEX_GENMODEL == MODEL_PYBAYESN ) {
-      sprintf(string_population_par,"GENPAR_THETA: %f,%f,%f,%f,%f   GENPAR_DELTAM: %f,%f,%f,%f,%f", 
+      sprintf(string_population_par,
+	      "GENPAR_THETA: %f,%f,%f,%f,%f   "
+	      "GENPAR_DELTAM: %f,%f,%f,%f,%f", 
                 INPUTS.GENGAUSS_THETA.PEAK,
                 INPUTS.GENGAUSS_THETA.RANGE[0],INPUTS.GENGAUSS_THETA.RANGE[1],
                 INPUTS.GENGAUSS_THETA.SIGMA[0],INPUTS.GENGAUSS_THETA.SIGMA[1],

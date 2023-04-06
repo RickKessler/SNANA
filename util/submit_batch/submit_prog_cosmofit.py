@@ -38,6 +38,11 @@
 # Mar 26 2023: 
 #  + add template method get_firecrown_values with hard-wired values
 #
+# Apr 6 2023: refactor to replace many "wfit" names with "fit" or "cosmofit" in
+#             method names and variables that apply to both wfit and firecrown.
+#             "fit" and "cosmofit" are generic strings for any cosmology fitter.
+#             The "wfit" string should only be used for specific reference to wfit code.
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -55,31 +60,47 @@ COSMOFIT_CODE_WFIT = 'WFIT'
 COSMOFIT_CODE_FIRECROWN = 'FIRECROWN'
 
 # define columns for MERGE.LOG;  column 0 is always for STATE
-COLNUM_WFIT_MERGE_DIROPT       = 1
-COLNUM_WFIT_MERGE_COVOPT       = 2
-COLNUM_WFIT_MERGE_WFITOPT      = 3
-COLNUM_WFIT_MERGE_NDOF         = 4 
-COLNUM_WFIT_MERGE_CPU          = 5
+COLNUM_COSMOFIT_MERGE_DIROPT       = 1
+COLNUM_COSMOFIT_MERGE_COVOPT       = 2
+COLNUM_COSMOFIT_MERGE_FITOPT       = 3
+COLNUM_COSMOFIT_MERGE_NDOF         = 4 
+COLNUM_COSMOFIT_MERGE_CPU          = 5
 
 # define CONFIG key names
+
+
 KEYNAME_FITOPT_LIST  = {COSMOFIT_CODE_WFIT :      ["WFITOPT","WFITOPTS" ],
-                        COSMOFIT_CODE_FIRECROWN : ["FCOPT",  "FCOPTS"]}      # allow either key
-START_OPT_DICT        = {COSMOFIT_CODE_WFIT :0,
-                         COSMOFIT_CODE_FIRECROWN :1}    
+                        COSMOFIT_CODE_FIRECROWN : ["FCOPT",  "FCOPTS"   ]} 
+ 
+START_OPT_DICT        = {COSMOFIT_CODE_WFIT      : 0,
+                         COSMOFIT_CODE_FIRECROWN : 1  }
+
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
-KEYNAME_WFITAVG_LIST  = [ "WFITAVG", "WEIGHT_AVG" ]
-ARG_BLIND             = {COSMOFIT_CODE_WFIT : '-blind',
-                         COSMOFIT_CODE_FIRECROWN : ' '}# Works for wfit but not for firecrown 
+KEYNAME_FITAVG_LIST  = [ "FITAVG",   # new default, Apr 6 2023
+                         "WFITAVG", "WEIGHT_AVG" ]  # original "wfit" defaults
+
+# WARING: blind flag Works for wfit but not for firecrown 
+ARG_BLIND   = { COSMOFIT_CODE_WFIT       : '-blind',
+                COSMOFIT_CODE_FIRECROWN  : None }
 
 BLIND_DATA_DEFAULT = True
 BLIND_SIM_DEFAULT  = False
 
-WFIT_SUMMARY_FILE     = "WFIT_SUMMARY.FITRES"
-WFIT_SUMMARY_AVG_FILE = "WFIT_SUMMARY_AVG.FITRES"
-WFIT_AVGTYPE_SINGLE   = "AVG_SINGLE"
-WFIT_AVGTYPE_DIFF     = "AVG_DIFF"
+COSMOFIT_SUMMARY_FILE = { 
+    COSMOFIT_CODE_WFIT:      "WFIT_SUMMARY.FITRES",
+    COSMOFIT_CODE_FIRECROWN: "FIRECROWN_SUMMARY.FITRES" 
+}
+
+COSMOFIT_SUMMARY_AVG_FILE = { 
+    COSMOFIT_CODE_WFIT:      "WFIT_SUMMARY_AVG.FITRES",
+    COSMOFIT_CODE_FIRECROWN: "FIRECROWN_SUMMARY_AVG.FITRES" 
+}
+
+
+COSMOFIT_AVGTYPE_SINGLE   = "AVG_SINGLE"
+COSMOFIT_AVGTYPE_DIFF     = "AVG_DIFF"
 
 
 COSMOFIT_PARNAME_w         = 'w'
@@ -106,14 +127,14 @@ class cosmofit(Program):
     def __init__(self, config_yaml):
         CONFIG     = config_yaml['CONFIG']
         config_prep = {}
-        key_require_wfit = 'WFITOPT'
+        key_require_wfit      = 'WFITOPT'
         key_require_firecrown = 'FIRECROWN_INPUT_FILE'
         if key_require_wfit in CONFIG:
             config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_WFIT
-            config_prep['program'] = PROGRAM_NAME_WFIT
+            config_prep['program']       = PROGRAM_NAME_WFIT
         elif key_require_firecrown in CONFIG :
             config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_FIRECROWN
-            config_prep['program'] = PROGRAM_NAME_FIRECROWN
+            config_prep['program']       = PROGRAM_NAME_FIRECROWN
         else :
             msgerr=[]
             msgerr.append(f"Cannot determine program name")
@@ -160,8 +181,8 @@ class cosmofit(Program):
         # 3D loops
         self.cosmofit_prep_index_lists()
 
-        # prepare WFITAVG: mean and std err on mean
-        self.cosmofit_prep_wfitavg()
+        # prepare [W]FITAVG: mean and std err on mean
+        self.cosmofit_prep_fitavg()
 
         # copy input file to outdir
         self.cosmofit_prep_copy_input_files()
@@ -282,7 +303,7 @@ class cosmofit(Program):
         return
         # end cosmofit_prep_input_list
 
-    def cosmofit_prep_wfitavg(self):
+    def cosmofit_prep_fitavg(self):
 
         # parse WFITAVG key in CONFIG block.
         # Only do error checking at this point, no computation.
@@ -291,24 +312,24 @@ class cosmofit(Program):
         CONFIG      = self.config_yaml['CONFIG']
         inpdir_list = self.config_prep['inpdir_list']
         
-        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
-        if KEYNAME_WFITAVG is None: 
+        KEYNAME_FITAVG = self.get_keyname_cosmofit(KEYNAME_FITAVG_LIST)
+        if KEYNAME_FITAVG is None: 
             return
 
         # - - - - - - - 
         # check that each wildcard corresponds to at least 1 input directory
-        for wfitavg in CONFIG[KEYNAME_WFITAVG]:
-            wfitavg_dirs = wfitavg.replace(' ','').split('-')
-            for wildcard in wfitavg_dirs:
+        for fitavg in CONFIG[KEYNAME_FITAVG]:
+            fitavg_dirs = fitavg.replace(' ','').split('-')
+            for wildcard in fitavg_dirs:
                 matches = [f for f in inpdir_list if wildcard in f]
                 if len(matches)<1:
                     msgerr=[f'Found no matches for widlcard {wildcard}']
                     self.log_assert(False, msgerr)
 
-            if len(wfitavg_dirs) == 2:
+            if len(fitavg_dirs) == 2:
                 # check that both dirs have the same structure
-                wildcard1 = wfitavg_dirs[0]
-                wildcard2 = wfitavg_dirs[1]
+                wildcard1 = fitavg_dirs[0]
+                wildcard2 = fitavg_dirs[1]
                 suffixes1 = [f.replace(wildcard1,'*') \
                              for f in inpdir_list if wildcard1 in f]
                 suffixes2 = [f.replace(wildcard2,'*') \
@@ -335,7 +356,7 @@ class cosmofit(Program):
 
         # - - - - - 
         return
-        # end  cosmofit_prep_wfitavg
+        # end  cosmofit_prep_fitavg
 
     def cosmofit_prep_copy_input_files(self):
         
@@ -368,10 +389,10 @@ class cosmofit(Program):
 
     def cosmofit_prep_outdirs(self):
         COSMOFIT_CODE = self.config_prep['COSMOFIT_CODE']
-        output_dir   = self.config_prep['output_dir']
-        idir_list3 = self.config_prep['idir_list3']
-        icov_list3 = self.config_prep['icov_list3']
-        ifit_list3 = self.config_prep['ifit_list3']
+        output_dir    = self.config_prep['output_dir']
+        idir_list3    = self.config_prep['idir_list3']
+        icov_list3    = self.config_prep['icov_list3']
+        ifit_list3    = self.config_prep['ifit_list3']
 
         use_outdir = False
         if COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN :
@@ -380,7 +401,7 @@ class cosmofit(Program):
         outdir_list3 = []
         
         for idir,icov,ifit in zip(idir_list3,icov_list3,ifit_list3):
-            subdir = self.wfit_num_string(idir,icov,ifit)
+            subdir = self.cosmofit_num_string(idir,icov,ifit)
             outdir_name = f"{output_dir}/{subdir}"
             outdir_list3.append(outdir_name)
             if use_outdir :
@@ -549,55 +570,56 @@ class cosmofit(Program):
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
         output_dir      = self.config_prep['output_dir']
-        wfitopt_rows    = None
+        fitopt_rows    = None
 
         
         KEYNAME_LIST    = KEYNAME_FITOPT_LIST[COSMOFIT_CODE] 
         KEYNAME_DEFAULT = KEYNAME_LIST[0]
 
-        wfitopt_rows   = util.get_YAML_key_values(CONFIG,KEYNAME_LIST)
+        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYNAME_LIST)
 
         # Only wfit requires 'WFITOPT' key because there
         # is no input file for wfit
         # For firecrown there is an input file and
         # threfore FCOPT is optional (Just like FITOPT or SIM or LCFIT) 
         if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:        
-            if wfitopt_rows is None:
+            if fitopt_rows is None:
                 msgerr.append(f"Missing required CONFIG key ")
                 msgerr.append(f"   {KEYNAME_LIST} ")
                 msgerr.append(f"One of these keys must be in {input_file}")
                 self.log_assert(False, msgerr)
                 
         START_OPT = START_OPT_DICT[COSMOFIT_CODE]
-        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, KEYNAME_DEFAULT, START_OPT, None)
-        #sys.exit(f"XXX wfitopt_dic = {wfitopt_dict}")
-        n_wfitopt          = wfitopt_dict['n_jobopt']
-        wfitopt_arg_list   = wfitopt_dict['jobopt_arg_list']
-        wfitopt_num_list   = wfitopt_dict['jobopt_num_list']
-        wfitopt_label_list = wfitopt_dict['jobopt_label_list']
+        fitopt_dict = \
+            util.prep_jobopt_list(fitopt_rows, KEYNAME_DEFAULT, START_OPT, None)
 
-        logging.info(f"\n Store {n_wfitopt} wfit options from " \
+        n_fitopt          = fitopt_dict['n_jobopt']
+        fitopt_arg_list   = fitopt_dict['jobopt_arg_list']
+        fitopt_num_list   = fitopt_dict['jobopt_num_list']
+        fitopt_label_list = fitopt_dict['jobopt_label_list']
+
+        logging.info(f"\n Store {n_fitopt} cosmofit options from " \
                      f"{KEYNAME_DEFAULT} keys" )
 
-        self.config_prep['n_wfitopt']          = n_wfitopt
-        self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list
-        self.config_prep['wfitopt_num_list']   = wfitopt_num_list
-        self.config_prep['wfitopt_label_list'] = wfitopt_label_list
+        self.config_prep['n_fitopt']          = n_fitopt
+        self.config_prep['fitopt_arg_list']   = fitopt_arg_list
+        self.config_prep['fitopt_num_list']   = fitopt_num_list
+        self.config_prep['fitopt_label_list'] = fitopt_label_list
 
-        # check for global wfitopt
-        wfitopt_global = ""
+        # check for global fitopt; either WFITOPT_GLOBAL and FCOPT_GLOBAL
+        fitopt_global = ""
         for key_base in KEYNAME_LIST:
             key   = f"{key_base}_GLOBAL"            
             if key in CONFIG :
-                wfitopt_global = CONFIG[key]
+                fitopt_global = CONFIG[key]
         
-        self.config_prep['wfitopt_global'] = wfitopt_global
+        self.config_prep['fitopt_global'] = fitopt_global
 
         # - - - - - 
         # check for wa in fit
         use_wa          = False
         outdir_chi2grid = None
-        tmp_list = wfitopt_arg_list + [ wfitopt_global ]
+        tmp_list = fitopt_arg_list + [ fitopt_global ]
         for tmp in tmp_list:
             if '-wa'               in tmp : 
                 use_wa = True
@@ -615,7 +637,7 @@ class cosmofit(Program):
 
     def cosmofit_prep_blind(self):
 
-        CONFIG   = self.config_yaml['CONFIG']
+        CONFIG          = self.config_yaml['CONFIG']
         COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
         
         # if no user-override for blind optoin, set CONFIG to default
@@ -635,15 +657,15 @@ class cosmofit(Program):
         logging.info(f"\t BLIND SIM:  {blind_sim}")
         logging.info(f" ")
         
-        # abort if any WFITOPT has -blind ... to avoid interference
+        # abort if any FITOPT has -blind ... to avoid interference
         # with BLIND_DATA and BLIND_SIM yaml flags
         
-        wfitopt_list     = self.config_prep['wfitopt_arg_list']
-        wfitopt_global   = self.config_prep['wfitopt_global']
-        tmp_list = wfitopt_list + [ wfitopt_global ]
-        for wfitopt in tmp_list:
-            if "-blind" in wfitopt :
-                msgerr=[]
+        fitopt_list     = self.config_prep['fitopt_arg_list']
+        fitopt_global   = self.config_prep['fitopt_global']
+        tmp_list = fitopt_list + [ fitopt_global ]
+        for fitopt in tmp_list:
+            if "-blind" in fitopt :
+                msgerr = []
                 msgerr.append(f"Cannot use -blind arg in WFITOPT.")
                 msgerr.append(f"Control blinding in CONFIG with")
                 msgerr.append(f"  {KEYNAME_BLIND_DATA} and {KEYNAME_BLIND_SIM} keys")
@@ -671,10 +693,10 @@ class cosmofit(Program):
         inpdir_list        = self.config_prep['inpdir_list']  
         covsys_file_list2d = self.config_prep['covsys_file_list2d']
         covsys_num_list2d  = self.config_prep['covsys_num_list2d']
-        wfitopt_list       = self.config_prep['wfitopt_arg_list']
+        fitopt_list        = self.config_prep['fitopt_arg_list']
 
         n_inpdir         = self.config_prep['n_inpdir']
-        n_wfitopt        = self.config_prep['n_wfitopt']        
+        n_fitopt         = self.config_prep['n_fitopt']        
 
         # count total number of jobs, and beware that number
         # of covsys can be different in each inpdir.
@@ -685,7 +707,7 @@ class cosmofit(Program):
             covsys_file_list = covsys_file_list2d[idir]
             n_covsys         = len(covsys_file_list)
             for icov in range(0,n_covsys):
-                for ifit in range(0,n_wfitopt):
+                for ifit in range(0,n_fitopt):
                     n_job_tot += 1
                     idir_list3.append(idir)
                     icov_list3.append(icov)
@@ -703,11 +725,11 @@ class cosmofit(Program):
 
         
     def write_command_file(self, icpu, f):
-        COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
+        COSMOFIT_CODE      = self.config_prep['COSMOFIT_CODE']
         input_file         = self.config_yaml['args'].input_file 
         inpdir_list        = self.config_prep['inpdir_list']  
         covsys_file_list2d = self.config_prep['covsys_file_list2d']
-        wfitopt_list       = self.config_prep['wfitopt_arg_list']
+        fitopt_list        = self.config_prep['fitopt_arg_list']
         n_core             = self.config_prep['n_core']
 
         idir_list3 = self.config_prep['idir_list3'] 
@@ -757,13 +779,13 @@ class cosmofit(Program):
 
         inpdir       = self.config_prep['inpdir_list'][idir]
         arg_blind    = self.config_prep['arg_blind_list'][idir]
-        arg_string   = self.config_prep['wfitopt_arg_list'][ifit]
-        arg_global   = self.config_prep['wfitopt_global']
+        arg_string   = self.config_prep['fitopt_arg_list'][ifit]
+        arg_global   = self.config_prep['fitopt_global']
         cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
         hd_basename  = self.config_prep['hd_file_list'][idir]
         outdir_chi2grid = self.config_prep['outdir_chi2grid']
         
-        prefix = self.wfit_num_string(idir,icov,ifit)
+        prefix = self.cosmofit_num_string(idir,icov,ifit)
 
         hd_file       = self.glue_inpdir_plus_filename(inpdir,hd_basename)
         covsys_file   = self.glue_inpdir_plus_filename(inpdir,cov_basename)
@@ -833,13 +855,13 @@ class cosmofit(Program):
 
         inpdir       = self.config_prep['inpdir_list'][idir]
         arg_blind    = self.config_prep['arg_blind_list'][idir]
-        arg_string   = self.config_prep['wfitopt_arg_list'][ifit]
-        arg_global   = self.config_prep['wfitopt_global']
+        arg_string   = self.config_prep['fitopt_arg_list'][ifit]
+        arg_global   = self.config_prep['fitopt_global']
         cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
         hd_basename  = self.config_prep['hd_file_list'][idir]
         input_file   = self.config_yaml['CONFIG']["FIRECROWN_INPUT_FILE"]
         
-        prefix = self.wfit_num_string(idir,icov,ifit)
+        prefix = self.cosmofit_num_string(idir,icov,ifit)
 
         covsys_file   = f"{inpdir}/{cov_basename}"
         hd_file       = f"{inpdir}/{hd_basename}"
@@ -890,7 +912,7 @@ class cosmofit(Program):
         
 
         
-    def wfit_num_string(self,idir,icov,ifit):
+    def cosmofit_num_string(self,idir,icov,ifit):
 
         covsys_num_list2d = self.config_prep['covsys_num_list2d']
 
@@ -908,26 +930,26 @@ class cosmofit(Program):
         elif icov >= 0 and idir < 0 and ifit < 0 :
             string = f"COVOPT{icovnum:03d}"
         elif ifit >= 0 and idir < 0 and icov < 0 :
-            string = f"WFITOPT{ifit:03d}"
+            string = f"FITOPT{ifit:03d}"
 
         elif idir < 0 and ifit>=0 and icov>=0 :
-            string = f"COVOPT{icovnum:03d}_WFITOPT{ifit:03d}"
+            string = f"COVOPT{icovnum:03d}_FITOPT{ifit:03d}"
 
         elif idir >= 0 and ifit>=0 and icov>=0 :
-            string = f"DIROPT{idir:05d}_COVOPT{icovnum:03d}_WFITOPT{ifit:03d}"
+            string = f"DIROPT{idir:05d}_COVOPT{icovnum:03d}_FITOPT{ifit:03d}"
         else:
             string = "ERROR"
 
         return string
-        # end wfit_num_string
+        # end cosmofit_num_string
 
     def cosmofit_prefix(self,row):
         # parse input row passed from MERGE.LOG and construct
         # prefix for output files
-        dirnum  = row[COLNUM_WFIT_MERGE_DIROPT]  # e.g, DIROPT00003
-        covnum  = row[COLNUM_WFIT_MERGE_COVOPT]  # e.g, COVOPT002
-        wfitnum = row[COLNUM_WFIT_MERGE_WFITOPT] # e.g  WFITOPT001
-        prefix = f"{dirnum}_{covnum}_{wfitnum}"
+        dirnum  = row[COLNUM_COSMOFIT_MERGE_DIROPT]  # e.g, DIROPT00003
+        covnum  = row[COLNUM_COSMOFIT_MERGE_COVOPT]  # e.g, COVOPT002
+        fitnum  = row[COLNUM_COSMOFIT_MERGE_FITOPT]  # e.g  FITOPT001
+        prefix  = f"{dirnum}_{covnum}_{fitnum}"
         return prefix
 
         # end cosmofit_prefix
@@ -936,11 +958,11 @@ class cosmofit(Program):
         # append info to SUBMIT.INFO file
 
         CONFIG             = self.config_yaml['CONFIG']
-        n_wfitopt          = self.config_prep['n_wfitopt']
-        wfitopt_arg_list   = self.config_prep['wfitopt_arg_list'] 
-        wfitopt_num_list   = self.config_prep['wfitopt_num_list']
-        wfitopt_label_list = self.config_prep['wfitopt_label_list']
-        wfitopt_global     = self.config_prep['wfitopt_global']
+        n_fitopt           = self.config_prep['n_fitopt']
+        fitopt_arg_list    = self.config_prep['fitopt_arg_list'] 
+        fitopt_num_list    = self.config_prep['fitopt_num_list']
+        fitopt_label_list  = self.config_prep['fitopt_label_list']
+        fitopt_global      = self.config_prep['fitopt_global']
         inpdir_list        = self.config_prep['inpdir_list']
         covinfo_list       = self.config_prep['covinfo_list']
         use_wa             = self.config_prep['use_wa']
@@ -948,16 +970,16 @@ class cosmofit(Program):
         blind_data   = CONFIG[KEYNAME_BLIND_DATA] # T or F
         blind_sim    = CONFIG[KEYNAME_BLIND_SIM] # T or F
 
-        f.write(f"\n# wfit info\n")
+        f.write(f"\n# cosmofit info\n")
 
-        f.write(f"JOBFILE_WILDCARD:  'DIR*COVOPT*WFITOPT*' \n")
+        f.write(f"JOBFILE_WILDCARD:  'DIR*COVOPT*FITOPT*' \n")
 
         idir=-1
         f.write("\n")
         f.write(f"INPDIR_LIST: \n")
         for inpdir, covinfo in zip(inpdir_list, covinfo_list):
             idir += 1
-            diropt_num  = self.wfit_num_string(idir,-1,-1)
+            diropt_num  = self.cosmofit_num_string(idir,-1,-1)
             row         = [ diropt_num, inpdir ]
             f.write(f"  {diropt_num}: {inpdir} \n")
             #f.write(f"  - {row} \n")
@@ -968,7 +990,7 @@ class cosmofit(Program):
             n_covopt = len(COVOPTS)
             f.write(f"  COVOPTS({diropt_num}): \n")
             for icov in range(0,n_covopt):
-                covopt_num  = self.wfit_num_string(-1,icov,-1) 
+                covopt_num  = self.cosmofit_num_string(-1,icov,-1) 
                 covindx     = COVOPTS_keys[icov]  # original index
                 covopt      = COVOPTS[covindx]    # label  covFile
                 covopt_label = covopt.split()[0]  # just the label
@@ -979,20 +1001,20 @@ class cosmofit(Program):
         f.write(f"{KEYNAME_BLIND_SIM}:   {blind_sim}\n")
 
         f.write("\n")
-        f.write(f"N_WFITOPT:         {n_wfitopt}      " \
-                f"# number of wfit options\n")
+        f.write(f"N_FITOPT:         {n_fitopt}      " \
+                f"# number of cosmofit options\n")
         f.write(f"USE_wa:        {use_wa}   " \
-                f"# T if any WFITOPT uses waw0CDM model\n")
+                f"# T if any FITOPT uses waw0CDM model\n")
 
         f.write("\n")
-        f.write("WFITOPT_LIST:  " \
-                "# 'WFITOPTNUM'  'user_label'  'user_args'\n")
-        for num,arg,label in zip(wfitopt_num_list, wfitopt_arg_list,
-                                 wfitopt_label_list):
+        f.write("FITOPT_LIST:  " \
+                "# 'FITOPTNUM'  'user_label'  'user_args'\n")
+        for num,arg,label in zip(fitopt_num_list, fitopt_arg_list,
+                                 fitopt_label_list):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
-        f.write(f"WFITOPT_GLOBAL: {wfitopt_global} \n")
+        f.write(f"FITOPT_GLOBAL: {fitopt_global} \n")
 
         # end append_info_file  
 
@@ -1006,7 +1028,7 @@ class cosmofit(Program):
         
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
-                f" STATE  DIROPT  COVOPT  WFITOPT  NDOF CPU "
+                f" STATE  DIROPT  COVOPT  FITOPT  NDOF CPU "
         # xxx f" SPLITRAN"
 
         INFO_MERGE = { 
@@ -1018,16 +1040,16 @@ class cosmofit(Program):
         for idir,icov,ifit in \
             zip(idir_list3,icov_list3,ifit_list3):
 
-            diropt_num  = self.wfit_num_string(idir,-1,-1)
-            covopt_num  = self.wfit_num_string(-1,icov,-1)
-            wfitopt_num = self.wfit_num_string(-1,-1,ifit)
+            diropt_num  = self.cosmofit_num_string(idir,-1,-1)
+            covopt_num  = self.cosmofit_num_string(-1,icov,-1)
+            fitopt_num  = self.cosmofit_num_string(-1,-1,ifit)
 
             # ROW here is fragile in case columns are changed
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
             ROW_MERGE.append(diropt_num)
             ROW_MERGE.append(covopt_num)
-            ROW_MERGE.append(wfitopt_num)
+            ROW_MERGE.append(fitopt_num)
             ROW_MERGE.append(0)    # Ndof
             ROW_MERGE.append(0.0)  # CPU
             INFO_MERGE['row_list'].append(ROW_MERGE)  
@@ -1051,11 +1073,11 @@ class cosmofit(Program):
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
 
         COLNUM_STATE     = COLNUM_MERGE_STATE
-        COLNUM_DIROPT    = COLNUM_WFIT_MERGE_DIROPT
-        COLNUM_COVOPT    = COLNUM_WFIT_MERGE_COVOPT  
-        COLNUM_WFITOPT   = COLNUM_WFIT_MERGE_WFITOPT  
-        COLNUM_NDOF      = COLNUM_WFIT_MERGE_NDOF
-        COLNUM_CPU       = COLNUM_WFIT_MERGE_CPU
+        COLNUM_DIROPT    = COLNUM_COSMOFIT_MERGE_DIROPT
+        COLNUM_COVOPT    = COLNUM_COSMOFIT_MERGE_COVOPT  
+        COLNUM_FITOPT    = COLNUM_COSMOFIT_MERGE_FITOPT  
+        COLNUM_NDOF      = COLNUM_COSMOFIT_MERGE_NDOF
+        COLNUM_CPU       = COLNUM_COSMOFIT_MERGE_CPU
         NROW_DUMP   = 0
 
         key_ndof, key_ndof_sum, key_ndof_list = \
@@ -1103,18 +1125,18 @@ class cosmofit(Program):
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
                     
-                    wfit_stats = self.get_job_stats(script_dir,
-                                                    log_list, 
-                                                    yaml_list, 
-                                                    key_list)
+                    fit_stats = self.get_job_stats(script_dir,
+                                                   log_list, 
+                                                   yaml_list, 
+                                                   key_list)
                     
                     # check for failures in snlc_fit jobs.
-                    nfail = wfit_stats['nfail']
+                    nfail = fit_stats['nfail']
                     if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
                  
                     row[COLNUM_STATE]     = NEW_STATE
-                    row[COLNUM_NDOF]      = wfit_stats[key_ndof_sum]
-                    row[COLNUM_CPU]       = wfit_stats[key_cpu_sum]
+                    row[COLNUM_NDOF]      = fit_stats[key_ndof_sum]
+                    row[COLNUM_CPU]       = fit_stats[key_cpu_sum]
                     
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
@@ -1145,10 +1167,10 @@ class cosmofit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
-        script_subdir    = SUBDIR_SCRIPTS_WFIT
+        script_subdir    = SUBDIR_SCRIPTS_COSMOFIT
 
-        self.make_wfit_summary()
-        self.make_wfitavg_summary()
+        self.make_cosmofit_summary()
+        self.make_fitavg_summary()
 
         logging.info(f"  wfit cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
@@ -1161,7 +1183,7 @@ class cosmofit(Program):
 
         # end merge_cleanup_final
 
-    def make_wfit_summary(self):
+    def make_cosmofit_summary(self):
 
         CONFIG           = self.config_yaml['CONFIG']
         COSMOFIT_CODE    = self.config_prep['COSMOFIT_CODE']
@@ -1170,44 +1192,45 @@ class cosmofit(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wa           = submit_info_yaml['USE_wa']
         INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
-        WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
+        FITOPT_LIST      = submit_info_yaml['FITOPT_LIST']
+        summary_file     = COSMOFIT_SUMMARY_FILE[COSMOFIT_CODE]
+        SUMMARY_FILE     = f"{output_dir}/{summary_file}"
 
-        SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
-        logging.info(f"\t Writing wfit summary to {WFIT_SUMMARY_FILE}")
+        logging.info(f"\t Writing cosmofit summary to {SUMMARY_FILE}")
         out_lines_list = []
 
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS,comment_lines = \
                 util.read_merge_file(MERGE_LOG_PATHFILE)
 
-        dirnum_last = "xyz"
-        wfit_summary_table = {}
+        dirnum_last = "zzz"
+        cosmofit_summary_table = {}
         nrow = 0 ; nrow_warn = 0
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
-            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-5:] # e.g., DIROPT00000
-            covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
-            wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
+            dirnum     = row[COLNUM_COSMOFIT_MERGE_DIROPT][-5:] # e.g., DIROPT00000
+            covnum     = row[COLNUM_COSMOFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
+            fitnum     = row[COLNUM_COSMOFIT_MERGE_FITOPT][-3:] # idem
             prefix     = self.cosmofit_prefix(row)
 
             if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:            
                 YAML_FILE  = f"{script_dir}/{prefix}.YAML"
                 wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
-                wfit_values_dict = util.get_wfit_values(wfit_yaml)
+                fit_values_dict = util.get_wfit_values(wfit_yaml)
                 
             elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
-                wfit_values_dict = self.get_firecrown_values(script_dir)
+                fit_values_dict = self.get_firecrown_values(script_dir)
 
                 
-            w        = wfit_values_dict[COSMOFIT_PARNAME_w]  
-            w_sig    = wfit_values_dict[COSMOFIT_PARNAME_w_sig]
-            omm      = wfit_values_dict[COSMOFIT_PARNAME_omm]  
-            omm_sig  = wfit_values_dict[COSMOFIT_PARNAME_omm_sig]
-            rho_womm = wfit_values_dict[COSMOFIT_PARNAME_rho_womm]
-            chi2     = wfit_values_dict[COSMOFIT_PARNAME_chi2] 
-            sigint   = wfit_values_dict[COSMOFIT_PARNAME_sigint]
-            blind    = wfit_values_dict[COSMOFIT_PARNAME_blind]
-            nwarn    = wfit_values_dict[COSMOFIT_PARNAME_nwarn]
+            w        = fit_values_dict[COSMOFIT_PARNAME_w]  
+            w_sig    = fit_values_dict[COSMOFIT_PARNAME_w_sig]
+            omm      = fit_values_dict[COSMOFIT_PARNAME_omm]  
+            omm_sig  = fit_values_dict[COSMOFIT_PARNAME_omm_sig]
+            rho_womm = fit_values_dict[COSMOFIT_PARNAME_rho_womm]
+            chi2     = fit_values_dict[COSMOFIT_PARNAME_chi2] 
+            sigint   = fit_values_dict[COSMOFIT_PARNAME_sigint]
+            blind    = fit_values_dict[COSMOFIT_PARNAME_blind]
+            nwarn    = fit_values_dict[COSMOFIT_PARNAME_nwarn]
             if nwarn > 0 : nrow_warn += 1
 
             # extract user labels for cov and wfit
@@ -1216,16 +1239,16 @@ class cosmofit(Program):
             dir_name      = INPDIR_LIST[str_diropt]  # create_cov dir
             covopt_dict   = INPDIR_LIST[f'COVOPTS({str_diropt})']
             covopt_label  = covopt_dict[str_covopt]
-            wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
+            fitopt_label  = FITOPT_LIST[int(fitnum)][1]
 
-            if wfitopt_label is None : 
-                wfitopt_label = "NoLabel"
+            if fitopt_label is None : 
+                fitopt_label = "NoLabel"
 
             if use_wa:
-                wa      = wfit_values_dict[COSMOFIT_PARNAME_wa]    
-                wa_sig  = wfit_values_dict[COSMOFIT_PARNAME_wa_sig]
-                FoM     = wfit_values_dict[COSMOFIT_PARNAME_FoM]
-                rho_w0wa = wfit_values_dict[COSMOFIT_PARNAME_rho_w0wa]
+                wa       = fit_values_dict[COSMOFIT_PARNAME_wa]    
+                wa_sig   = fit_values_dict[COSMOFIT_PARNAME_wa_sig]
+                FoM      = fit_values_dict[COSMOFIT_PARNAME_FoM]
+                rho_w0wa = fit_values_dict[COSMOFIT_PARNAME_rho_w0wa]
             else:
                 wa       = 0
                 wa_sig   = 0
@@ -1235,7 +1258,7 @@ class cosmofit(Program):
             # load table for mean and std err on mean (table not used here)
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
-                          'wfitnum': wfitnum, 
+                          'fitnum': fitnum, 
                           COSMOFIT_PARNAME_w       : w, 
                           COSMOFIT_PARNAME_w_sig   : w_sig, 
                           COSMOFIT_PARNAME_omm     : omm, 
@@ -1247,20 +1270,20 @@ class cosmofit(Program):
                           COSMOFIT_PARNAME_FoM       : FoM, 
                           COSMOFIT_PARNAME_nwarn     : nwarn,
                           'covopt_label'  : covopt_label,
-                          'wfitopt_label' : wfitopt_label
+                          'fitopt_label'  : fitopt_label
             }
 
-            unique_key = dir_name + '_' + covnum + '_' + wfitnum 
-            wfit_summary_table[unique_key] = local_dict
+            unique_key = dir_name + '_' + covnum + '_' + fitnum 
+            cosmofit_summary_table[unique_key] = local_dict
             
             if nrow == 1:
                 out_lines_list += \
-                    self.write_wfit_summary_header(wfit_values_dict)
+                    self.write_cosmofit_summary_header(fit_values_dict)
                 
             if dirnum != dirnum_last:
                 out_lines_list.append(f"#\n# {str_diropt}={dir_name}")
 
-            str_nums    = f"{dirnum} {covnum} {wfitnum}"
+            str_nums    = f"{dirnum} {covnum} {fitnum}"
             if use_wa : 
                 str_results  = f"{w:.5f} {w_sig:.5f} "
                 str_results += f"{wa:7.5f} {wa_sig:7.5f} "
@@ -1272,22 +1295,22 @@ class cosmofit(Program):
                 str_results += f"{rho_womm:6.3f} "
 
             str_misc    = f"{chi2:6.1f} {blind} {nwarn} "
-            str_labels  = f"{covopt_label:<10} {wfitopt_label}"
+            str_labels  = f"{covopt_label:<10} {fitopt_label}"
             line = f"ROW: {nrow:3d} {str_nums} {str_results}" \
                                   f"{str_misc} {str_labels}"
             out_lines_list.append(f"{line}")
             dirnum_last = dirnum
 
         # - - - - - - - -
-        with open(SUMMARYF_FILE,"w") as f:
+        with open(SUMMARY_FILE,"w") as f:
             if nrow_warn > 0:
                 text_warn = f"WARNING: {nrow_warn} of {nrow} fits have warnings;"\
                             f" check nwarn column."
                 f.write(f"# {text_warn}\n\n")
             for line in out_lines_list:  f.write(f"{line}\n")
         
-        self.config_prep['wfit_summary_table'] = wfit_summary_table
-        # end make_wfit_summary
+        self.config_prep['cosmofit_summary_table'] = cosmofit_summary_table
+        # end make_cosmofit_summary
 
     def get_firecrown_values(self,script_dir):
         # Created March 2023
@@ -1319,7 +1342,7 @@ class cosmofit(Program):
         # end get_firecrown_values
         
 
-    def write_wfit_summary_header(self,wfit_values_dict):
+    def write_cosmofit_summary_header(self,fit_values_dict):
 
         # return lines with header info and VARNAMES for wfit-summary file
 
@@ -1333,12 +1356,12 @@ class cosmofit(Program):
             varnames_om = "omm omm_sig"
 
         VARNAMES_STRING = \
-            f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
-            f"{varnames_om} chi2 blind nwarn COVOPT WFITOPT"
+            f"ROW  iDIR iCOV iFIT {varnames_w} "  \
+            f"{varnames_om} chi2 blind nwarn COVOPT FITOPT"
 
-        w_ran   = int(wfit_values_dict['w_ran']) 
-        wa_ran  = int(wfit_values_dict['wa_ran'])
-        omm_ran = int(wfit_values_dict['omm_ran'])
+        w_ran   = int(fit_values_dict['w_ran']) 
+        wa_ran  = int(fit_values_dict['wa_ran'])
+        omm_ran = int(fit_values_dict['omm_ran'])
 
         lines_list = []
         if w_ran > 0 : 
@@ -1349,7 +1372,7 @@ class cosmofit(Program):
         lines_list.append(f"VARNAMES: {VARNAMES_STRING} ")
         return lines_list
 
-        # write_wfit_summary_header
+        # write_cosmofit_summary_header
 
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file  
@@ -1367,12 +1390,12 @@ class cosmofit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
-        script_subdir    = SUBDIR_SCRIPTS_WFIT
+        script_subdir    = SUBDIR_SCRIPTS_COSMOFIT
         fnam = "merge_reset"
 
         logging.info(f"   {fnam}: reset STATE and NEVT in {MERGE_LOG_FILE}")
         MERGE_LOG_PATHFILE = f"{output_dir}/{MERGE_LOG_FILE}"
-        colnum_zero_list = [ COLNUM_WFIT_MERGE_NDOF ]
+        colnum_zero_list = [ COLNUM_COSMOFIT_MERGE_NDOF ]
         util.merge_table_reset(MERGE_LOG_PATHFILE, TABLE_MERGE,  \
                                COLNUM_MERGE_STATE, colnum_zero_list)
 
@@ -1384,7 +1407,7 @@ class cosmofit(Program):
         return
         # end merge_reset
 
-    def get_keyname_wfit(self, KEYNAME_LIST):
+    def get_keyname_cosmofit(self, KEYNAME_LIST):
 
         # for list of possible key names in KEYNAME_LIST,
         # return the keyname that exists in CONFIG block.
@@ -1395,9 +1418,9 @@ class cosmofit(Program):
             if key in CONFIG: 
                 keyname = key
         return keyname
-        # end get_keyname_wfit
+        # end get_keyname_cosmofit
 
-    def make_wfitavg_lists(self):
+    def make_fitavg_lists(self):
 
         CONFIG           = self.config_yaml['CONFIG']
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -1406,31 +1429,32 @@ class cosmofit(Program):
         inpdirs_full_paths = [INPDIR_LIST[k] \
                             for k in INPDIR_LIST.keys() if k.startswith('DIROPT')]
 
-        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
+        KEYNAME_FITAVG = self.get_keyname_cosmofit(KEYNAME_FITAVG_LIST)
 
-        wfitavg_list = {}
-        for wfitavg in CONFIG[KEYNAME_WFITAVG]:
-            wfitavg_dirs = wfitavg.replace(' ','').split('-')
-            wildcard = wfitavg_dirs[0]
+        fitavg_list = {}
+        for fitavg in CONFIG[KEYNAME_FITAVG]:
+            fitavg_dirs = fitavg.replace(' ','').split('-')
+            wildcard    = fitavg_dirs[0]
             dirslist_fullpath = [f for f in inpdirs_full_paths if wildcard in f]
-            wfitavg_list[wfitavg] = {
-                    'avg_type' : WFIT_AVGTYPE_SINGLE,
+            fitavg_list[fitavg] = {
+                    'avg_type'  : COSMOFIT_AVGTYPE_SINGLE,
                     'wildcard1' : wildcard,
                     'wildcard2' : None,
                     'dirslist_fullpath1' : dirslist_fullpath,
                     'dirslist_fullpath2': None
             }
-            if len(wfitavg_dirs)==2: 
+            if len(fitavg_dirs)==2: 
                 # check first that dirs match
-                wildcard2 = wfitavg_dirs[1]
-                dirslist_fullpath2 = [f for f in inpdirs_full_paths if wildcard2 in f]
-                wfitavg_list[wfitavg]['avg_type'] = WFIT_AVGTYPE_DIFF
-                wfitavg_list[wfitavg]['wildcard2'] = wildcard2
-                wfitavg_list[wfitavg]['dirslist_fullpath2'] = dirslist_fullpath2
+                wildcard2 = fitavg_dirs[1]
+                dirslist_fullpath2 = \
+                    [f for f in inpdirs_full_paths if wildcard2 in f]
+                fitavg_list[fitavg]['avg_type']  = COSMOFIT_AVGTYPE_DIFF
+                fitavg_list[fitavg]['wildcard2'] = wildcard2
+                fitavg_list[fitavg]['dirslist_fullpath2'] = dirslist_fullpath2
 
-        self.config_prep['wfitavg_list'] = wfitavg_list
+        self.config_prep['fitavg_list'] = fitavg_list
 
-        # end make_wfitavg_lists                                                                                                                              
+        # end make_fitavg_lists                                                                                                                              
 
     def compute_average(self, fit_list):
         fit_array = np.array(fit_list)
@@ -1445,30 +1469,32 @@ class cosmofit(Program):
         return mean, std_of_mean
         # end compute_average
         
-    def make_wfitavg_summary(self):
+    def make_fitavg_summary(self):
 
         # Driver utility to compute means and std err on mean among directories
         # See MEAN_STDERRMEAN key in input CONFIG file
 
         CONFIG           = self.config_yaml['CONFIG']
+        COSMOFIT_CODE    = self.config_prep['COSMOFIT_CODE']
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wa           = submit_info_yaml['USE_wa']
         INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
-        WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
-        wfit_summary_table  = self.config_prep['wfit_summary_table']
+        FITOPT_LIST      = submit_info_yaml['FITOPT_LIST']
+        cosmofit_summary_table  = self.config_prep['cosmofit_summary_table']
 
-        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
-        if KEYNAME_WFITAVG is None: return
+        KEYNAME_FITAVG = self.get_keyname_cosmofit(KEYNAME_FITAVG_LIST)
+        if KEYNAME_FITAVG is None: return
 
         # load lists of files needed to comput avgs
-        self.make_wfitavg_lists()
-        wfitavg_list  = self.config_prep['wfitavg_list']
+        self.make_fitavg_lists()
+        fitavg_list  = self.config_prep['fitavg_list']
         
-        logging.info(f"\t Writing means summary to {WFIT_SUMMARY_AVG_FILE}")
+        avg_file = COSMOFIT_SUMMARY_AVG_FILE[COSMOFIT_CODE]
+        logging.info(f"\t Write avg/rms summary to {avg_file}")
 
-        AVG_FILE    = f"{output_dir}/{WFIT_SUMMARY_AVG_FILE}"
+        AVG_FILE    = f"{output_dir}/{avg_file}"
         f = open(AVG_FILE,"w")
         nrow = 0
         
@@ -1476,74 +1502,92 @@ class cosmofit(Program):
         else: VARNAME_FOM = "<w_sig> <w_sig>_sig"
 
         VARNAMES_STRING = \
-                          f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig  "  \
-                          f"<omm> <omm>_sig {VARNAME_FOM} N_DIRs COVOPT WFITOPT"
+                          f"ROW  iCOV iFIT <w> <w>_sig   <wa> <wa>_sig  "  \
+                          f"<omm> <omm>_sig {VARNAME_FOM} N_DIRs COVOPT FITOPT"
         f.write(f"VARNAMES: {VARNAMES_STRING} \n")
         
         avg_comment_dict = {
-            WFIT_AVGTYPE_SINGLE : ' (mean and std err on fitted values)',
-            WFIT_AVGTYPE_DIFF   : ' (mean and std err on differences in fitted values)'
+            COSMOFIT_AVGTYPE_SINGLE : ' (mean and std err on fitted values)',
+            COSMOFIT_AVGTYPE_DIFF   : ' (mean and std err on fit-val differences)'
         }
 
-        for wfitavg in wfitavg_list:
+        for fitavg in fitavg_list:
             # use the first directory in the list to find the set of 
             # unique covopts and unique wfitopts
-            dir_0 = wfitavg_list[wfitavg]['dirslist_fullpath1'][0]
-            unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
-                                                 for f in wfit_summary_table.keys()\
-                                                 if f[:-8]==dir_0])
-            unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
-                                                  for f in wfit_summary_table.keys()\
-                                                  if f[:-8]==dir_0])
-            f.write(f"#\n# Mean and std err on mean for option: " \
-                    f"{wfitavg} {avg_comment_dict[wfitavg_list[wfitavg]['avg_type']]}\n")
+            fitavg_list1 = fitavg_list[fitavg]['dirslist_fullpath1']
+            fitavg_list2 = fitavg_list[fitavg]['dirslist_fullpath2']
+
+            dir_0 = fitavg_list1[0]
+            unique_matching_covopts = \
+                np.unique([f.replace(dir_0,'')[1:4] \
+                           for f in cosmofit_summary_table.keys() if f[:-8]==dir_0])
+
+            unique_matching_fitopts = \
+                np.unique([f.replace(dir_0,'')[5:] \
+                           for f in cosmofit_summary_table.keys() if f[:-8]==dir_0])
+
+            avg_comment = avg_comment_dict[fitavg_list[fitavg]['avg_type']]
+            f.write(f"{fitavg} {avg_comment}\n")
 
             for covnum in unique_matching_covopts:
-                for wfitnum in unique_matching_wfitopts:
-                    omm_list = []; w_list = []; wa_list = []; wsig_list = []; FoM_list = []
-                    for dir_ in wfitavg_list[wfitavg]['dirslist_fullpath1']:
+                for wfitnum in unique_matching_fitopts:
+                    omm_list = []; w_list = []; wa_list = []
+                    wsig_list = []; FoM_list = []
+                    for dir_ in fitavg_list1:
                         unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
-                        omm_list.append(wfit_summary_table[unique_key]['omm'])
-                        w_list.append(wfit_summary_table[unique_key]['w'])
-                        wa_list.append(wfit_summary_table[unique_key]['wa'])
-                        wsig_list.append(wfit_summary_table[unique_key]['w_sig'])
-                        FoM_list.append(wfit_summary_table[unique_key]['FoM'])
-                    covopt_label  = wfit_summary_table[unique_key]['covopt_label']
-                    wfitopt_label = wfit_summary_table[unique_key]['wfitopt_label']
+                        summary_table = cosmofit_summary_table[unique_key]
+                        omm_list.append(summary_table['omm'])
+                        w_list.append(summary_table['w'])
+                        wa_list.append(summary_table['wa'])
+                        wsig_list.append(summary_table['w_sig'])
+                        FoM_list.append(summary_table['FoM'])
+                    covopt_label  = summary_table['covopt_label']
+                    fitopt_label  = summary_table['fitopt_label']
 
-                    if wfitavg_list[wfitavg]['dirslist_fullpath2'] is not None:
-                        omm_list2 = []; w_list2 = []; wa_list2 = []; wsig_list2 = []; FoM_list2 = []
-                        for dir2_ in wfitavg_list[wfitavg]['dirslist_fullpath2']:
+                    if fitavg_list2 is not None:
+                        omm_list2 = []; w_list2 = []; wa_list2 = []
+                        wsig_list2 = []; FoM_list2 = []
+                        # xxx for dir2_ in fitavg_list[fitavg]['dirslist_fullpath2']:
+                        for dir2_ in fitavg_list2:
                             unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
-                            omm_list2.append(wfit_summary_table[unique_key]['omm'])
-                            w_list2.append(wfit_summary_table[unique_key]['w'])
-                            wa_list2.append(wfit_summary_table[unique_key]['wa'])
-                            wsig_list2.append(wfit_summary_table[unique_key]['w_sig'])
-                            FoM_list2.append(wfit_summary_table[unique_key]['FoM'])
-                    else: # if theres no second set of dirs, it mean this is not a difference so just set x_list2 to zero 
-                        zero_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
-                        omm_list2 = zero_list2
-                        w_list2 = zero_list2
-                        wa_list2 = zero_list2
+                            summary_table = cosmofit_summary_table[unique_key]
+                            omm_list2.append(summary_table['omm'])
+                            w_list2.append(summary_table['w'])
+                            wa_list2.append(summary_table['wa'])
+                            wsig_list2.append(summary_table['w_sig'])
+                            FoM_list2.append(summary_table['FoM'])
+                    else: 
+                        # if theres no second set of dirs, this is not a 
+                        # difference so just set x_list2 to zero 
+                        
+                        zero_list2 = np.zeros(len(fitavg_list1))
+                        omm_list2  = zero_list2
+                        w_list2    = zero_list2
+                        wa_list2   = zero_list2
                         wsig_list2 = zero_list2
-                        FoM_list2 = zero_list2
+                        FoM_list2  = zero_list2
                     
                     ##compute mean and std err on mean
-                    logging.info(f"\t Compute averages for '{wfitopt_label}' " \
+                    logging.info(f"\t Compute averages for '{fitopt_label}' " \
                                  f"with COVOPT={covopt_label}")
 
-                    omm_avg, omm_avg_std = self.compute_average(np.array(omm_list)-np.array(omm_list2))
-                    w_avg, w_avg_std     = self.compute_average(np.array(w_list)-np.array(w_list2))
-                    wsig_avg, wsig_avg_std = self.compute_average(np.array(wsig_list)-np.array(wsig_list2))
+                    omm_avg, omm_avg_std = \
+                        self.compute_average(np.array(omm_list)-np.array(omm_list2))
+                    w_avg, w_avg_std = \
+                        self.compute_average(np.array(w_list)-np.array(w_list2))
+                    wsig_avg, wsig_avg_std = \
+                        self.compute_average(np.array(wsig_list)-np.array(wsig_list2))
                     if use_wa:
-                        wa_avg, wa_avg_std = self.compute_average(np.array(wa_list)-np.array(wa_list2))
-                        FoM_avg, FoM_avg_std = self.compute_average(np.array(FoM_list)-np.array(FoM_list2))
+                        wa_avg, wa_avg_std = \
+                            self.compute_average(np.array(wa_list)-np.array(wa_list2))
+                        FoM_avg, FoM_avg_std = \
+                            self.compute_average(np.array(FoM_list)-np.array(FoM_list2))
                     else:
                         wa_avg, wa_avg_std = 0.0, 0.0
                         FoM_avg, FoM_avg_std = 0.0, 0.0
 
-                    str_nums    = f"{covnum} {wfitnum} "
-                    str_results = f"{w_avg:7.4f} {w_avg_std:7.4f} "
+                    str_nums     = f"{covnum} {wfitnum} "
+                    str_results  = f"{w_avg:7.4f} {w_avg_std:7.4f} "
                     str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
                     str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
                     str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
@@ -1552,13 +1596,13 @@ class cosmofit(Program):
                         str_results += f"{FoM_avg:5.0f} {FoM_avg_std:5.0f}  "
 
                     str_misc    = f"{len(w_list)}"
-                    str_labels  = f"{covopt_label:<10} {wfitopt_label}"
+                    str_labels  = f"{covopt_label:<10} {fitopt_label}"
                     nrow +=1
                     f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
                                 f"{str_misc} {str_labels}\n")
 
         f.close()
 
-    # end make_wfitavg_summary
+    # end make_fitavg_summary
 
     # === END: ===

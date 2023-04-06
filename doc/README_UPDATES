@@ -21633,4 +21633,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        color_disor <=2 to avoid crazyFlux aborts.
        Previous COLOR_DISP_MAX default was 5.0 mag.
 
+   submit_prog_cosmofit.py:
+     + https://github.com/RickKessler/SNANA/issues/1126
+          (avoid confusion with "wfit" string name)
+
 END: 

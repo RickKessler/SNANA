@@ -78,8 +78,9 @@ START_OPT_DICT        = {COSMOFIT_CODE_WFIT      : 0,
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
-KEYNAME_FITAVG_LIST  = [ "FITAVG",   # new default, Apr 6 2023
-                         "WFITAVG", "WEIGHT_AVG" ]  # original "wfit" defaults
+KEYNAME_FITAVG_LIST  = [ "FITAVG",           # new default, Apr 6 2023
+                         "WFITAVG", "FCAVG", 
+                         "WEIGHT_AVG" ]      # legacy
 
 # WARING: blind flag Works for wfit but not for firecrown 
 ARG_BLIND   = { COSMOFIT_CODE_WFIT       : '-blind',

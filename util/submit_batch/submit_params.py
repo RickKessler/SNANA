@@ -473,11 +473,17 @@ HELP_CONFIG_COSMOFIT = f"""
   - /CMBpri/    -cmb_sim -sigma_Rcmb 0.007
   - /CMB+BAO/   -cmb_sim -sigma_Rcmb 0.007 -bao_sim
   - /w0wa+CMB/  -wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007
-
+      or
+  FCOPT:
+  - /label1/ <firecrown options> 
+  - /label2/ <firecrown options> 
+ 
   COVOPT:  ALL NOSYS  # select subset of cov systematics options
 
 # optional global wfit options appended to each WFITOPT above
-  WFITOPT_GLOBAL: "-hsteps 61 -wsteps 101 -omsteps 81"
+  WFITOPT_GLOBAL:  -hsteps 61 -wsteps 101 -omsteps 81
+       or
+  FCOPT_GLOBAL:  <firecrown options>
 
 # Default blind flag is set for data, but not for sim.
 # These defaults can be changed with
@@ -495,10 +501,10 @@ HELP_CONFIG_COSMOFIT = f"""
 # of the directory under 7_CREATE_COV,and sometimes /X is needed to ensure 
 # uniqueness.
 # 
-  WFITAVG:
-  - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC   # w diff
-  - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w diff 
-  - UNBIN5YR_5YR_IaCC  # w avg
+  FITAVG:  # also works with WFITAVG and FCAVG key
+  - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC    # w(wa) diff-avg
+  - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w(wa) diff-avg
+  - UNBIN5YR_5YR_IaCC                        # w(wa) avg
 
 """
 

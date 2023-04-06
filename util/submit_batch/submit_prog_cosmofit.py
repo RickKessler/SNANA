@@ -100,7 +100,7 @@ COSMOFIT_PARNAME_blind     = 'blind'
 COSMOFIT_PARNAME_nwarn     = 'nwarn'
 COSMOFIT_PARNAME_w_ran     = 'w_ran'
 COSMOFIT_PARNAME_wa_ran    = 'wa_ran'
-
+COSMOFIT_PARNAME_omm_ran   = 'omm_ran'
 # - - - - - - - - - - - - - - - - - - -  -
 class cosmofit(Program):
     def __init__(self, config_yaml):
@@ -868,8 +868,6 @@ class cosmofit(Program):
         # define output YAML file to be parsed by submit-merge process
         arg_list.append(f"--summary {script_dir}/{prefix}.YAML")
 
-        # define output INFO file XXX AM 26/03/2023
-        # arg_list.append(f"--info {script_dir}/{prefix}.INFO")
 
         
         JOB_INFO = {}
@@ -1196,10 +1194,10 @@ class cosmofit(Program):
                 YAML_FILE  = f"{script_dir}/{prefix}.YAML"
                 wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
                 wfit_values_dict = util.get_wfit_values(wfit_yaml)
-
+                
             elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
                 wfit_values_dict = self.get_firecrown_values(script_dir)
-            
+
                 
             w        = wfit_values_dict[COSMOFIT_PARNAME_w]  
             w_sig    = wfit_values_dict[COSMOFIT_PARNAME_w_sig]
@@ -1310,8 +1308,16 @@ class cosmofit(Program):
         values_dict[COSMOFIT_PARNAME_nwarn]    = 0
         values_dict[COSMOFIT_PARNAME_blind]    = 0
 
+
+        # Firecrown does not produce this random offsets for blinding yet
+        # But wfit does
+        values_dict[COSMOFIT_PARNAME_w_ran]   = 0
+        values_dict[COSMOFIT_PARNAME_wa_ran]  = 0
+        values_dict[COSMOFIT_PARNAME_omm_ran] = 0
+
         return values_dict
         # end get_firecrown_values
+        
 
     def write_wfit_summary_header(self,wfit_values_dict):
 

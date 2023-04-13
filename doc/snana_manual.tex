@@ -5031,7 +5031,8 @@ using the {\tt APPEND\_TABLE\_TEXT} feature in {\tt split\_and\_fit}.
 
 % ------------------------------------
    \clearpage
-   \subsubsection{Correlating SIMLIB and HOSTLIB with GROUPID}
+   \newcommand{\groupid}{{\tt GROUPID}}
+   \subsubsection{Correlating SIMLIB and HOSTLIB with {\groupid} }
    \label{sss:groupid}
 
 % ------------------------------------
@@ -5043,26 +5044,26 @@ because the host properties (e.g., peculiar velocity) may depend on
 sky location and thus the cadence and host properties are correlated.
 To efficiently connect the \simlib\ sky location to a host at the 
 same (within user tolerance) sky location, 
-use the {\tt GROUPID} feature.
+use the {\groupid} feature.
 
 For each \simlib\ entry, the header can include an optional 
-{\tt GROUPID} key such as
+{\groupid} key such as
 \begin{verbatim}
   LIBID: 24
-  GROUPID: 45,46
+  HOSTLIB_GROUPID: 45,46
   RA: <RA>      DEC: <DEC>
   etc ...
 \end{verbatim}
 %
-which instructs the simulation to select a host with GROUPID = 45 or 46.
-The \hostlib\ must include a {\tt GROUPID} column to use
+which instructs the simulation to select a host with {\groupid} = 45 or 46.
+The \hostlib\ must include a \groupid\ column to use
 this option of forcing an \{RA,DEC\}-match between the 
 \simlib\ and \hostlib.
-This {\tt GROUPID} feature is compatible with {\tt WGTMAP} so
+This \groupid\  feature is compatible with {\tt WGTMAP} so
 that host property distributions are preserved.
 
 Beware of defining an \{RA,DEC\}-match tolerance that is too strict, 
-otherwise a {\tt GROUPID} match will not be found and the 
+otherwise a \groupid\  match will not be found and the 
 simulation will abort. If the sim aborts with ``Unable to select GALID'',
 try one of the following: 
 i) create larger \hostlib,

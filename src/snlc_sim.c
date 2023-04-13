@@ -18693,7 +18693,8 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
   // Apr 2023: check for GROUPID
   if ( RDFLAG_GROUPID ) {
     // check to parse comma-sep list of HOSTLIB-GROUPIDs
-    if ( strcmp(KEY,"GROUPID:") == 0 ) {
+    if ( strcmp(KEY,"HOSTLIB_GROUPID:") == 0 || 
+	 strcmp(KEY,"GROUPID_HOSTLIB:") == 0   ) {
       char **ctmp_list;      int n_list, i ;
       parse_commaSepList("GROUPID", WDLIST[1], MXGROUPID_SIMLIB, 10, 
 			 &n_list, &ctmp_list ) ;

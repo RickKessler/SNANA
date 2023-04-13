@@ -4955,10 +4955,15 @@ with the same model using
 
 
 % ------------------------------------
-   \clearpage
-   \subsection{Simulating Mis-Matched Host Galaxy}
-   \label{subsec:sim_wronghost}
+%   \clearpage
+   \subsubsection{Simulating Mis-Matched Host Galaxy}
+   \label{sss:sim_wronghost}
 % ------------------------------------
+
+WARNING: the recommended mis-match method is to use \hostlib\ neighbors
+(\S\ref{sss:hostlib_NBR}) and DDLR matching. The {\tt WRONGHOST} method
+here pre-dates the {\tt +HOSTNBR} feature, 
+and should only be used for rapid testing.
 
 For surveys that do not have SN \spec\ confirmation and instead
 rely on a host galaxy \spec\ redshift, there is the issue of
@@ -5022,6 +5027,48 @@ show a tail from wrong-host matches.
 In the output tables (SNANA,FITRES) from snana-analysis,
 examine {\tt zCMB-SIM\_zCMB}, and extract {\tt SIM\_ZFLAG}
 using the {\tt APPEND\_TABLE\_TEXT} feature in {\tt split\_and\_fit}.
+
+
+% ------------------------------------
+   \clearpage
+   \subsubsection{Correlating SIMLIB and HOSTLIB with GROUPID}
+   \label{sss:groupid}
+
+% ------------------------------------
+
+The default use of \simlib\ and \hostlib\ libraries assumes no correlation
+between instrumental cadence and host properties. While this assumption
+is largely correct, it fails for simulating large scale structure (LSS)
+because the host properties (e.g., peculiar velocity) may depend on 
+sky location and thus the cadence and host properties are correlated.
+To efficiently connect the \simlib\ sky location to a host at the 
+same (within user tolerance) sky location, 
+use the {\tt GROUPID} feature.
+
+For each \simlib\ entry, the header can include an optional 
+{\tt GROUPID} key such as
+\begin{verbatim}
+  LIBID: 24
+  GROUPID: 45,46
+  RA: <RA>      DEC: <DEC>
+  etc ...
+\end{verbatim}
+%
+which instructs the simulation to select a host with GROUPID = 45 or 46.
+The \hostlib\ must include a {\tt GROUPID} column to use
+this option of forcing an \{RA,DEC\}-match between the 
+\simlib\ and \hostlib.
+This {\tt GROUPID} feature is compatible with {\tt WGTMAP} so
+that host property distributions are preserved.
+
+Beware of defining an \{RA,DEC\}-match tolerance that is too strict, 
+otherwise a {\tt GROUPID} match will not be found and the 
+simulation will abort. If the sim aborts with ``Unable to select GALID'',
+try one of the following: 
+i) create larger \hostlib,
+ii) relax \{RA,DEC\} match tolerance between \simlib\ and \hostlib, or
+iii) relax redshift match tolerance ({\tt see HOSTLIB\_DZTOL} key).
+
 
 % ------------------------------------
    \clearpage

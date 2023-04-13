@@ -58,36 +58,6 @@
           HISTORY
   ------------------------
 
-
-  Jan 14 2017: include "sntools_output.h"
-    
-  Dec 29 2017: speed up init, redGal_HOSTLIB and zptr_HOSTLIB
-
-  Dec 2018: ugly refactor to change all 1-N loops to 0 to N-1 loops.
-
-  Mar 20 2019: 
-    +read VARNAMES list from zHOST effic map and append STOREPAR_LIST.
-     See copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR()
-
-  Apr 06 2019: 
-    + fix aweful bug when SN coords are transferred to host;
-      CMB redshift was incorrectly computed from original SN
-      coords instead of from HOST coords. The crucial fix is
-      getting the right distance modulus since the smeared
-      redshift is computed correctly later in gen_zsmear().
-
-    + account for VPEC when SN coords are transferred to host.
-
- Nov 18 2019:
-   + fix problems generating SN position near galaxy.
-     1) fix bug computing SN coords from ANGLE and reduced_R
-     2) pick random ANGLE weighted by DLR^2 (no longer random over 0:2PI)
-        (see new function GEN_SNHOST_ANGLE)
-     WARNING: still need to visually verify 2D profile
-
- Jan 14 2020: 
-   + in GEN_SNHOST_DDLR(), a & b are wgted avg among Sersic terms.
-
  Jan 31 2020: little more work on DDLR_SORT:
     +  make sure sorted (total) host mags have extinction
          (but beware that GALMAG under SN is only from TRUE host)
@@ -118,6 +88,9 @@
  Nov 18 2021: allow WGTMAP to be missing SNMAGSHIFT column
 
  Dec 30 2021: refactor GEN_SNHOST_GALID() to use binary search for speed.
+
+ Apr 13 2023: implement GROUPID match between SIMLIB and HOSTLIB
+              (enable Large-scale structure)
 
 =========================================================== */
 
@@ -5703,7 +5676,12 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.IGAL_SELECT_RANGE[0] = igal_start ;
   SNHOSTGAL.IGAL_SELECT_RANGE[1] = igal_end ;
 
-  // now pick random igal between igal_start and igal_end
+  // - - - - - - - - - - - - - 
+  // Begin process of picking random-weighted igal between 
+  // igal_start and igal_end
+  // - - - - - - - - - - - - - - 
+
+
   if ( N_SNVAR > 0 ) {
     ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
     HOSTLIB_WGTMAP.ibin_SNVAR = ibin_SNVAR ;
@@ -5713,6 +5691,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
     ptrWGT     = HOSTLIB_WGTMAP.WGTSUM;
   }
 
+
+  // pick randomly from CDF between WGT_start and WGT_end
   WGT_start  = ptrWGT[igal_start];
   WGT_end    = ptrWGT[igal_end];    
   WGT_dif    = WGT_end - WGT_start ;
@@ -5753,8 +5733,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // ---------------------------------------------------
 
+  // perform binary search to restrict igal range to within a few galaxies
+  // that satisfy WGT_select. This loop is much faster than brute-force
+  // search when HOSTLIB is large.
 
-  // perform binary search to restrict igal range to within a few galaxies.
   bool CONVERGE = false;
   igal0 = igal_start;
   igal1 = igal_end;    
@@ -5762,6 +5744,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   
   while ( !CONVERGE ) {
     WGT = ptrWGT[igal_middle] ;
+
+    // check to avoid infinite loop
     NGAL_CHECK++ ;
     if ( NGAL_CHECK > NGAL_CHECK_ABORT ) {
       print_preAbort_banner(fnam);
@@ -5773,6 +5757,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
       sprintf(c2err,"NGAL_CHECK=%d", NGAL_CHECK );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
     }
+
     if ( WGT < WGT_select )
       {  igal0 = igal_middle ;  } // select upper half for next iter
     else 
@@ -5790,7 +5775,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
   } // end while not CONVERGE
 
-    // reset igal_start[end] for brute-force search below.
+  // reset igal_start[end] for brute-force search below.
+  int igal_start_orig = igal_start;
+  int igal_end_orig   = igal_end;
   igal_start = igal0;
   if ( !USEONCE ) { igal_end = igal1; }
 
@@ -5812,6 +5799,24 @@ void GEN_SNHOST_GALID(double ZGEN) {
     goto DONE_SELECT_GALID ;
     
   } // end igal loop
+
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - 
+  // abort if we get here (Apr 2023)
+  print_preAbort_banner(fnam);
+  printf("  ZGEN = %f \n", ZGEN);
+  printf("  RA, DEC = %f, %f \n", GENLC.RA, GENLC.DEC);
+  printf("  LIBID   = %d \n", GENLC.SIMLIB_ID);
+  printf("  WGT[start,select,end] = %f, %f, %f \n",
+	 WGT_start, WGT_select, WGT_end );
+  printf("  igal_[start,end]_orig = %d, %d (for fast binary search)\n",
+	 igal_start_orig, igal_end_orig);
+  printf("  igal_[start,end]_final = %d, %d (for brute-force search)\n",
+	 igal_start, igal_end);
+
+  sprintf(c1err,"Unable to select GALID");
+  sprintf(c2err,"See diagnostic info above (under pre-abort dump)");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
 
   // - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -5938,9 +5943,12 @@ int USEHOST_GALID(int IGAL) {
   // Returns 1 if this IGAL should be used.
   // Returns 0 if this IGAL should be rejected.
   //
-  // Based on user-inputs determining if a host
-  // can be re-used.
+  // Based on user-inputs determining 
+  //  + if a host can be re-used
+  //  + if host GROUPID matches request from SIMLIB (Apr 2023)
 
+  int NGROUPID_HOSTLIB = SIMLIB_HEADER.NGROUPID_HOSTLIB;
+  int GROUPID_HOSTLIB, GROUPID_SIMLIB, i;
   int retCode,  NUSE_PRIOR, NUSE, use;
   int MJD_STORE[MXUSE_SAMEGAL], BLOCK_STORE[MXUSE_SAMEGAL], BLOCKSUM;
   int DAY, DAYDIF, ABSDIF, PEAKDAY ;
@@ -5968,14 +5976,15 @@ int USEHOST_GALID(int IGAL) {
     retCode = 1 ;
   }
   else if ( SAMEHOST.REUSE_FLAG == 2 ) {
+    // Special option for re-use of host with PEAKMD-sep constraint;
+    // e.g., overaly KN on same bright host with at least 30 day sep.
     // Jan 2022 RK - there is a rare bug causing NUSE=0 ??
-    // option for re-use of host with PEAKMD-sep constraint
     BLOCKSUM = 0 ;
     MINDAYSEP = INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ;
     DAY = (int)SNHOSTGAL.PEAKMJD - SAMEHOST.PEAKMJD_STORE_OFFSET ;
 
-    // allocate memory for this IGAL on first usage
-    // Problem: if this IGAL is rejected, then malloc might happen again later??
+    // allocate memory for this IGAL on first usage.
+    // Problem: if IGAL is rejected, then malloc might happen again later??
     if ( NUSE_PRIOR == 0 ) {
       SAMEHOST.PEAKDAY_STORE[IGAL] = 
 	(unsigned short*)malloc( MXUSE_SAMEGAL*sizeof(unsigned short) ) ;
@@ -6010,6 +6019,29 @@ int USEHOST_GALID(int IGAL) {
     sprintf(c2err,"check function init_SAMEHOST()");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  // - - - - - - - - - 
+  // Apr 2023: check for GROUPID match if GROUPID appears in 
+  //  both SIMLIB header and HOSTLIB
+
+  if ( NGROUPID_HOSTLIB > 0  && retCode > 0 ) {
+
+    if ( HOSTLIB.IVAR_GROUPID < 0 ) {
+      sprintf(c1err,"Cannot require GROUPID from SIMLIB (LIBID=%d) because",
+	      GENLC.SIMLIB_ID );
+      sprintf(c2err,"GROUPID column does not exist in HOSTLIB");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    bool MATCH = false;
+    GROUPID_HOSTLIB = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,IGAL);
+    for(i=0; i < NGROUPID_HOSTLIB; i++ ) {
+      GROUPID_SIMLIB = SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i] ;
+      if ( GROUPID_HOSTLIB == GROUPID_SIMLIB )	{ MATCH = true; }
+    }
+    if ( !MATCH ) { retCode = 0 ; }
+  }
+  
 
   // --------------------------------------------
   // ----------------- DEBUG DUMP ---------------

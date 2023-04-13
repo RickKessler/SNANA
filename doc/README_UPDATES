@@ -21624,6 +21624,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05d) ***** 
 
+     SALT2mu.c :
+     + fix subtle zmax_biascor bug as explained in
+        https://github.com/RickKessler/SNANA/issues/1128
+
         ***** USEFUL(v11_05d) ***** 
 
         ***** MISCELLANEOUS(v11_05d) ***** 
@@ -21640,19 +21644,21 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_sim.c[h]:
      + add feature to read GROUPID: <groupid> from SIMLIB and
        select this groupid from HOSTLIB. Goal is to enable 
-       simulating large scale structure.
+       simulating large scale structure (see manual).
+       WARNING: waiting for HOSTLIB & SIMLIB to test feature.
 
 
    SALT2mu.c
      + fix subtle zmax_biascor bug as explained in
           https://github.com/RickKessler/SNANA/issues/1128
        Two of the 9 BBC regression-test jobs have very small change:
-       TASK100_SALT2mu_DES_BBC5D_noCC          :  mis-match (REF != TEST)
+
+       TASK100_SALT2mu_DES_BBC5D_noCC  :  mis-match (REF != TEST)
           ==> REF:  fit-Beta = 3.0278e+00 +/- 1.4856e-01
 	  ==> TEST: fit-Beta = 3.0274e+00 +/- 1.4904e-01
 
-       TASK103_SALT2mu_DESNN_BBC5D       :  mis-match (REF != TEST)
-            ==> REF:  fit-Beta = 3.0918e+00 +/- 6.1798e-02
-            ==> TEST: fit-Beta = 3.0909e+00 +/- 6.1762e-02
+       TASK103_SALT2mu_DESNN_BBC5D  :  mis-match (REF != TEST)
+          ==> REF:  fit-Beta = 3.0918e+00 +/- 6.1798e-02
+          ==> TEST: fit-Beta = 3.0909e+00 +/- 6.1762e-02
 
 END: 

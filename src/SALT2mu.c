@@ -1119,9 +1119,12 @@ struct INPUTS {
 
 
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
-  int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
-  int restore_mucovadd_bug ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
-  int restore_muzerr_bug ; // biasCor muerr calc excludes vpec err
+  int restore_bug_mucovscale ; // Sep 14 2021 allow restoring bug
+  int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
+  
+  int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
+  int restore_bug_zmax_biascor; // Apr 2023
+
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
@@ -4022,8 +4025,8 @@ void *MNCHI2FUN(void *thread) {
 
     APPLY_COVADD = ( DO_COVADD && muCOVadd > 0.0  );
                  
-    bool restore_mucovadd_bug =(INPUTS.restore_mucovadd_bug&2)>0;
-    if (restore_mucovadd_bug){
+    bool restore_bug_mucovadd =(INPUTS.restore_bug_mucovadd &2)>0;
+    if (restore_bug_mucovadd){
       APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
     }
     
@@ -5156,9 +5159,10 @@ void set_defaults(void) {
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
   INPUTS.nbinc_mucovscale  = 3 ;
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
-  INPUTS.restore_mucovscale_bug = 0 ;
-  INPUTS.restore_mucovadd_bug = 0 ;
-  INPUTS.restore_muzerr_bug = 0 ;
+  INPUTS.restore_bug_mucovscale = 0 ;
+  INPUTS.restore_bug_mucovadd   = 0 ;
+  INPUTS.restore_bug_muzerr     = 0 ;
+  INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
   INPUTS.cidlist_debug_biascor[0] = 0 ;
@@ -7249,8 +7253,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     if ( SIM_NONIA_INDEX == 0 && NBINb == 1 )
       { INFO_BIASCOR.DUST_FLAG=true; }
 
-    bool restore_mucovadd_bug =(INPUTS.restore_mucovadd_bug&1)>0;
-    if (restore_mucovadd_bug){ INFO_BIASCOR.DUST_FLAG=false; }
+    bool restore_bug_mucovadd =(INPUTS.restore_bug_mucovadd &1)>0;
+    if (restore_bug_mucovadd ) { INFO_BIASCOR.DUST_FLAG=false; }
 
     // Mainly for BS21 model:
     // Prepare option to bias-correct MU instead of correcting mB,x1,c 
@@ -10592,7 +10596,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // 2.10.2023: include vpec uncertainties in muerr computation
     USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; 
 
-    if ( INPUTS.restore_muzerr_bug )
+    if ( INPUTS.restore_bug_muzerr )
       { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
 
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
@@ -10690,7 +10694,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     if ( N < NperCell_min ) {       
       CELL_MUCOVSCALE->USE[i1d]             = false;
 
-      if ( INPUTS.restore_mucovscale_bug ) { 
+      if ( INPUTS.restore_bug_mucovscale ) { 
 	CELL_MUCOVSCALE->USE[i1d]=true;
       }
       else {
@@ -12932,7 +12936,7 @@ int get_muCOVcorr(char *cid,
     { IMMIN = IMMAX = IM; }  // do NOT interp logmass dimension
 
   USEBIN_CENTER = false;
-  if ( INPUTS.restore_mucovscale_bug ) { USEBIN_CENTER = true; }
+  if ( INPUTS.restore_bug_mucovscale ) { USEBIN_CENTER = true; }
 
   // - - - - - - 
 
@@ -13011,7 +13015,7 @@ int get_muCOVcorr(char *cid,
       muCOVadd_local = SUM_muCOVadd / SUM_WGT ;
     }
   }
-  else if ( !INPUTS.restore_mucovscale_bug ) {
+  else if ( !INPUTS.restore_bug_mucovscale ) {
     return(0); // 9.2021
   }
 
@@ -15209,9 +15213,16 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // apply legacy cuts 
   // These cuts are redundant with above LCUTWIN to allow older inputs.
   // (might have to always apply z-cut, even if DISABLE flag is set??)
+  // 
+  //.xyz
+  double zmin = INPUTS.zmin ;
+  double zmax = INPUTS.zmax ;
+  if ( IS_BIASCOR && !INPUTS.restore_bug_zmax_biascor ) 
+    { zmax += SAMPLE_BIASCOR[idsample].BINSIZE_REDSHIFT ; }
 
-  if ( (z < INPUTS.zmin) || ( z > INPUTS.zmax)) 
+  if ( (z < zmin) || ( z > zmax) ) 
     { setbit_CUTMASK(isn, CUTBIT_z, TABLEVAR);  }
+ 
 
   if ( (x1 < INPUTS.x1min) || (x1 > INPUTS.x1max)) 
     { setbit_CUTMASK(isn, CUTBIT_x1, TABLEVAR); }
@@ -16328,12 +16339,14 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_sigz=")) 
     { sscanf(&item[13],"%d", &INPUTS.restore_sigz); return(1); }
 
-  if ( uniqueOverlap(item,"restore_mucovscale_bug=")) 
-    { sscanf(&item[23],"%d", &INPUTS.restore_mucovscale_bug); return(1); }
-  if ( uniqueOverlap(item,"restore_mucovadd_bug="))
-    { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
-  if ( uniqueOverlap(item,"restore_muzerr_bug="))
-    { sscanf(&item[19],"%d", &INPUTS.restore_muzerr_bug); return(1); }
+  if ( uniqueOverlap(item,"restore_bug_mucovscale=")) 
+    { sscanf(&item[23],"%d", &INPUTS.restore_bug_mucovscale); return(1); }
+  if ( uniqueOverlap(item,"restore_bug_mucovadd="))
+    { sscanf(&item[21],"%d", &INPUTS.restore_bug_mucovadd); return(1); }
+  if ( uniqueOverlap(item,"restore_bug_muzerr="))
+    { sscanf(&item[19],"%d", &INPUTS.restore_bug_muzerr); return(1); }
+  if ( uniqueOverlap(item,"restore_bug_zmax_biascor="))
+    { sscanf(&item[25],"%d", &INPUTS.restore_bug_zmax_biascor); return(1); }
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
@@ -18292,18 +18305,22 @@ void prep_debug_flag(void) {
 
   char fnam[] = "prep_debug_flag";
 
-  if ( INPUTS.restore_mucovscale_bug ) {
-    printf("\n RESTORE mucovscale bug \n");
+  if ( INPUTS.restore_bug_mucovscale ) {
+    printf("\n RESTORE BUG for mucovscale\n");
     fflush(stdout);
   }
-  if ( INPUTS.restore_mucovadd_bug ) {
-    printf("\n RESTORE mucovadd bug (set to %d)\n", 
-	   INPUTS.restore_mucovadd_bug);
+  if ( INPUTS.restore_bug_mucovadd ) {
+    printf("\n RESTORE BUG for mucovadd (set to %d)\n", 
+	   INPUTS.restore_bug_mucovadd);
     fflush(stdout);
   }
-  if ( INPUTS.restore_muzerr_bug ) {
-    printf("\n RESTORE muzerr bug (set to %d)\n", 
-	   INPUTS.restore_muzerr_bug);
+  if ( INPUTS.restore_bug_muzerr ) {
+    printf("\n RESTORE BUG for muzerr in biasCor (set to %d)\n", 
+	   INPUTS.restore_bug_muzerr);
+    fflush(stdout);
+  }
+  if ( INPUTS.restore_bug_zmax_biascor ) {
+    printf("\n RESTORE BUG for zmax(biasCor)\n" );
     fflush(stdout);
   }
   
@@ -21454,8 +21471,11 @@ void print_SALT2mu_HELP(void) {
     "snid_mucovdump=5944   # after each fit iteration, full muCOV dump",
     "debug_mucovscale=44   # print info for j1d=44 (mucovscale cell), and also",
     "                      # write biasCor-fitres file with mucovScale info",
-    "restore_mucovscale_bug=1 # restore bug using undefined muCOVscale cells",
-    "restore_muzerr_bug=1     # restore bug excluding vpec err in biasCor",
+    "",
+    "# restore_bug options:",
+    "restore_bug_mucovscale=1    # use undefined muCOVscale cells",
+    "restore_bug_muzerr=1        # ignore vpec err in biasCor",
+    "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
     0
   } ;
 

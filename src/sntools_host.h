@@ -118,6 +118,7 @@
 #define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
 #define HOSTLIB_VARNAME_ELLIPTICITY  "ellipticity" // Sept 2021 Alex Gagliano
 #define HOSTLIB_VARNAME_GALID2       "GALID2"
+#define HOSTLIB_VARNAME_GROUPID      "GROUPID"
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
@@ -235,6 +236,7 @@ struct HOSTLIB_DEF {
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IGAL_NBR_LIST;              // AG 08/2021
   int IVAR_GALID2;                // AG 09/2021
+  int IVAR_GROUPID;               // RSK 4/2023
   int IVAR_ELLIPTICITY;
   int IVAR_SQRADIUS;
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
@@ -482,6 +484,7 @@ typedef struct {
   // Added for LSST but maybe of more general utility
   // Alex Gagliano 09/2021
   long long GALID2 ; // Second ID e.g., from external catalog
+  int       GROUPID; 
   double SQRADIUS; // Ixx + Iyy
   double ELLIPTICITY;
 

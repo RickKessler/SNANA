@@ -1036,7 +1036,8 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_MAGOBS   = 0;
   INPUTS.USE_SIMLIB_SPECTRA  = 0;
   INPUTS.USE_SIMLIB_SALT2    = 0;
-
+  INPUTS.USE_SIMLIB_GROUPID  = 0;
+  
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
 
@@ -3288,6 +3289,10 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "USE_SIMLIB_SALT2",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_SALT2 );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_GROUPID",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_GROUPID );
     INPUTS.USE_SIMLIB_GENOPT=1;
   }
   else if ( keyMatchSim(1, "SIMLIB_MSKOPT",  WORDS[0],keySource) ) {
@@ -16251,7 +16256,7 @@ double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
     {  SCALE = SIMLIB_FLUXERR_COR.SCALE[ifilt][0] ;    goto END;  }
 
   if ( LOGSNR > LOGSNR_MAX ) 
-    {  SCALE = SIMLIB_FLUXERR_COR.SCALE[ifilt][M-1] ;    goto END;  }
+    {  SCALE = SIMLIB_FLUXERR_COR.SCALE[ifilt][M-1] ;  goto END;  }
 
   // LOG(SNR) is defined by the map ... find nearest bin and
   // get error correction-scale (SCALE) from linear interpolation.
@@ -18436,7 +18441,8 @@ void init_SIMLIB_HEADER(void) {
   // Called for each event.
 
   int i;
-  //  char fnam[] = "init_SIMLIB_HEADER" ;
+  char fnam[] = "init_SIMLIB_HEADER" ;
+
   // ------------ BEGIN ------------
 
   SIMLIB_HEADER.REGEN_FLAG  = 0 ;
@@ -18454,7 +18460,8 @@ void init_SIMLIB_HEADER(void) {
   SIMLIB_HEADER.CUTWIN_REDSHIFT[0] = -9.0 ; // wide open
   SIMLIB_HEADER.CUTWIN_REDSHIFT[1] = 99.0 ;
 
-  
+  SIMLIB_HEADER.NGROUPID_HOSTLIB = 0 ;
+
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_PEAKMJD, (double)999. ) ;
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2x1, (double)999. ) ;
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2c,  (double)999. ) ;  
@@ -18548,6 +18555,7 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
   bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA );
   bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
+  bool RDFLAG_GROUPID   = (INPUTS.USE_SIMLIB_GROUPID  || USE_MODEL_SIMLIB);
   bool UPDATE_MJDrange = false;
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
@@ -18581,7 +18589,10 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
   if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
     sscanf(WDLIST[1], "%le", &dist);
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
-    TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO); // returns zCMB
+
+    // numerically compute zCMB(=TMPVAL) from distance
+    TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO, 
+			       &INPUTS.ANISOTROPY_INFO);
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
 
@@ -18678,6 +18689,19 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
     } 
   }  // end RDFLAG_SALT2
 
+
+  // Apr 2023: check for GROUPID
+  if ( RDFLAG_GROUPID ) {
+    // check to parse comma-sep list of HOSTLIB-GROUPIDs
+    if ( strcmp(KEY,"GROUPID:") == 0 ) {
+      char **ctmp_list;      int n_list, i ;
+      parse_commaSepList("GROUPID", WDLIST[1], MXGROUPID_SIMLIB, 10, 
+			 &n_list, &ctmp_list ) ;
+      SIMLIB_HEADER.NGROUPID_HOSTLIB = n_list ;
+      for(i=0; i < n_list; i++ ) 
+	{ sscanf(ctmp_list[i], "%d", &SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i]); }
+    }
+  } // end RDFLAG_GROUPID
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
@@ -24515,7 +24539,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 
-  // @@@@@@@@@@@@@@@@@ LEGACY ERRFUDGE @@@@@@@@@@@@@@@@@@@@@@@@@
+  // @@@@@@@@@@@@@@@@@ LEGACY ERRFUDGE from HOST-SB @@@@@@@@@@@@@@@@@@@@@@@@@
   // Aug 2014: anomolous host-subtraction noise (HOSTNOISE_FILE)
   //           Note the dependence on both band and field.
   //  Should use newer FLUXERRMODEL_FILE

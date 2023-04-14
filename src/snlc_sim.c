@@ -1998,8 +1998,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }  
   // - - - -  non-SALT2 SHAPE PDFs - - - - 
   else if ( strstr(WORDS[0],"DELTA") != NULL ) {
+
+    // check both MLCS-DELTA and BayeSN DELTAM
     N += parse_input_GENGAUSS("DELTA", WORDS, keySource,
 			      &INPUTS.GENGAUSS_DELTA );  
+    
+    N += parse_input_GENGAUSS("DELTAM", WORDS, keySource,
+			      &INPUTS.GENGAUSS_DELTAM );  
   }
   else if ( strstr(WORDS[0],"DM15") != NULL ) {
     N += parse_input_GENGAUSS("DM15", WORDS, keySource,
@@ -2009,11 +2014,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_GENGAUSS("THETA", WORDS, keySource,
 			      &INPUTS.GENGAUSS_THETA );  
   }
+  /* xxxxxx mark delete Apr 14 2023 by R.Kessler  xxxxxxxx
   else if ( strstr(WORDS[0],"DELTAM") != NULL ) {
     N += parse_input_GENGAUSS("DELTAM", WORDS, keySource,
 			      &INPUTS.GENGAUSS_DELTAM );  
   }
-
+  xxxxxx end mark xxxx */
   else if ( strstr(WORDS[0],"STRETCH") != NULL ) {
     N += parse_input_GENGAUSS("STRETCH", WORDS, keySource,
 			      &INPUTS.GENGAUSS_STRETCH );  

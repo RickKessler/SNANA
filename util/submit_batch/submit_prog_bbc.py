@@ -1190,14 +1190,25 @@ class BBC(Program):
             ret = subprocess.run( [ cmd_prep ], cwd=script_dir,
                                   shell=True, capture_output=False, text=True )
 
-            if njob_prep_run % NJOB_PREP_INPUT_FITRES == 0:
-                wait_file_spec = f"{output_dir}/**/INPUT*.FITRES.gz"
-                n_found = 0 
-                while n_found < nfit_prep_run:
-                    fitres_list    = glob.glob(wait_file_spec, recursive=True)
-                    n_found = len(fitres_list) 
-                    logging.info(f"\t\t Found {n_found} of {nfit_prep_run} "\
-                                 f"INPUT*.FITRES.gz files.")
+            check_gz = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
+                       (njob_prep_run < NJOB_PREP_INPUT_FITRES)
+            if check_gz:                
+                wait_filegz_spec = f"{output_dir}/**/INPUT*.FITRES.gz"
+                wait_file_spec   = f"{output_dir}/**/INPUT*.FITRES"
+                n_fitres_gz = 0 
+                n_fitres    = nfit_prep_run
+                while n_fitres_gz < nfit_prep_run or n_fitres > 0:
+                    fitres_gz_list = glob.glob(wait_filegz_spec, 
+                                               recursive=True)
+                    fitres_list = glob.glob(wait_file_spec, 
+                                            recursive=True)
+                    n_fitres_gz = len(fitres_gz_list) 
+                    n_fitres    = len(fitres_list) 
+                    msg = f"Found {n_fitres_gz} of {nfit_prep_run} " \
+                          f"INPUT*.FITRES.gz files " \
+                          f"(and {n_fitres} INPUT*FITRES)." 
+                    logging.info(f"\t\t{msg}")
+
                     time.sleep(5.0)
 
         # - - - - - - -

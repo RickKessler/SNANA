@@ -118,6 +118,9 @@
 #define  CMBapex_l  (double)264.031    // deg (galactic coords !!!)
 #define  CMBapex_b  (double)48.253     // deg
 #define  CMBapex_v  (double)369.82    // km/sec
+#define  COORDSYS_EQ    "eq"          // arg for zhelio_zcmb_translator
+#define  COORDSYS_GAL   "gal"
+#define  COORDSYS_J2000 "J2000"
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian
 #define TEN        (double)10.0

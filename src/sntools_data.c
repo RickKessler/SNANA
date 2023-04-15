@@ -1282,7 +1282,6 @@ void rd_override_zcalc(void) {
   
   double RA, DEC, zCMB, zHEL ;
   bool FOUND_z= ( RD_OVERRIDE.FOUND_zCMB || RD_OVERRIDE.FOUND_zHEL );
-  char eq[]   = "eq" ;
   char fnam[] = "rd_override_zcalc" ;
   // ---------- BEGIN -------------
 
@@ -1292,20 +1291,13 @@ void rd_override_zcalc(void) {
 
   if ( RD_OVERRIDE.FOUND_zCMB ) {
     zCMB = (double)SNDATA.REDSHIFT_FINAL;
-    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,eq,-1); 
+    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); 
     SNDATA.REDSHIFT_HELIO = (float)zHEL ;
   }
   else if ( RD_OVERRIDE.FOUND_zHEL ) {
     zHEL = (double)SNDATA.REDSHIFT_HELIO ;
-    zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
+    zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
     SNDATA.REDSHIFT_FINAL = (float)zCMB ;
-
-    /* xxx mark delete xxxxxxxx
-    if ( strcmp(SNDATA.CCID,"1032") == 0 ) {
-      printf(" xxx %s: ov zHEL=%.4f -> zCMB=%.4f (RA,DEC=%f,%f)\n",
-	     fnam, zHEL, zCMB, RA, DEC); fflush(stdout);
-    }
-    xxxxxx end mark xxx */
   }
 
   return ;

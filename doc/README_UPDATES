@@ -21624,29 +21624,27 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05d) ***** 
 
-     SALT2mu.c :
+   SALT2mu.c :
      + fix subtle zmax_biascor bug as explained in
         https://github.com/RickKessler/SNANA/issues/1128
 
         ***** USEFUL(v11_05d) ***** 
 
-        ***** MISCELLANEOUS(v11_05d) ***** 
+   snlc_sim.c[h]:
+     + add feature to read GROUPID: <groupid> from SIMLIB and
+       select this groupid from HOSTLIB. Goal is to enable 
+       simulating large scale structure (see manual).
 
-   SALT2.h
-     + define COLOR_DISP_MAX_DEFAULT=2 and use this to force
-       color_disor <=2 to avoid crazyFlux aborts.
-       Previous COLOR_DISP_MAX default was 5.0 mag.
+        ***** MISCELLANEOUS(v11_05d) ***** 
 
    submit_prog_cosmofit.py:
      + https://github.com/RickKessler/SNANA/issues/1126
           (avoid confusion with "wfit" string name)
 
-   snlc_sim.c[h]:
-     + add feature to read GROUPID: <groupid> from SIMLIB and
-       select this groupid from HOSTLIB. Goal is to enable 
-       simulating large scale structure (see manual).
-       WARNING: waiting for HOSTLIB & SIMLIB to test feature.
-
+   SALT2mu.h
+     + define COLOR_DISP_MAX_DEFAULT=2 and use this to force
+       color_disor <=2 to avoid crazyFlux aborts.
+       Previous COLOR_DISP_MAX default was 5.0 mag.
 
    SALT2mu.c
      + fix subtle zmax_biascor bug as explained in
@@ -21660,5 +21658,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        TASK103_SALT2mu_DESNN_BBC5D  :  mis-match (REF != TEST)
           ==> REF:  fit-Beta = 3.0918e+00 +/- 6.1798e-02
           ==> TEST: fit-Beta = 3.0909e+00 +/- 6.1762e-02
+
+    sntools_host.c[h]
+     + allow ZTRUE_CMB column instead of ZTRUE(helio); internally,
+       ZTRUE is computed from ZTRUE_CMB.
+
 
 END: 

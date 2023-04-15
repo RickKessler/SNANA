@@ -95,8 +95,9 @@
                              // with MINDAYSEP_SAMEGAL option
 
 // define required keys in the HOSTLIB
-#define HOSTLIB_VARNAME_GALID     "GALID"  // required 
-#define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"  // required
+#define HOSTLIB_VARNAME_GALID     "GALID"      // required 
+#define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"      // required true zhelio or
+#define HOSTLIB_VARNAME_ZTRUE_CMB "ZTRUE_CMB"  // required true zcmb
 
 // define optional keys
 #define HOSTLIB_VARNAME_TRUE_MATCH   "TRUE"
@@ -218,7 +219,8 @@ struct HOSTLIB_DEF {
   // pointers to stored variables
   int IVAR_GALID ;
   int IVAR_TRUE_MATCH ;  // optional column: 1->use for true match
-  int IVAR_ZTRUE  ;
+  int IVAR_ZTRUE  ;      // true zhelio
+  int IVAR_ZTRUE_CMB  ;  // or optional true zcmb
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
   int IVAR_ZPHOT_Q0; // index of first ZPHOT_Q (not necessarily 0th quantile)

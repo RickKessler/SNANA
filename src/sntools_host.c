@@ -2332,7 +2332,22 @@ void read_head_HOSTLIB(FILE *fp) {
   // abort on any mis-match.
 
   HOSTLIB.IVAR_GALID   = IVAR_HOSTLIB(HOSTLIB_VARNAME_GALID,1) ; // required
-  HOSTLIB.IVAR_ZTRUE   = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,1) ; // required 
+
+  // require either ZTRUE (zhelio) or ZTRUE_CMB
+  HOSTLIB.IVAR_ZTRUE     = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,    0) ; 
+  HOSTLIB.IVAR_ZTRUE_CMB = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE_CMB,0) ; 
+  if ( HOSTLIB.IVAR_ZTRUE < 0 && HOSTLIB.IVAR_ZTRUE_CMB < 0 ) {
+    sprintf(c1err,"Missing require ZTRUE column in HOSTLIB");
+    sprintf(c2err,"HOSTLIB must include either %s of %s column.",
+	    HOSTLIB_VARNAME_ZTRUE, HOSTLIB_VARNAME_ZTRUE_CMB);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // if ZTRUE_CMB column exists, but not ZTRUE(helio), then force
+  // ZTRUE_CMB back to ZTRUE
+  if ( HOSTLIB.IVAR_ZTRUE < 0 && HOSTLIB.IVAR_ZTRUE_CMB > 0 ) {
+    HOSTLIB.IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE_CMB;
+  }
 
   // optional
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
@@ -2617,6 +2632,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   int  NPRIORITY ;
   bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
+
   // ----------------- BEGIN -----------
 
   NVAR_STORE = HOSTLIB.NVAR_STORE;
@@ -3302,6 +3318,18 @@ void sortz_HOSTLIB(void) {
   // load ZSORT array
   for ( igal=0; igal < NGAL; igal++ ) {
     ZTRUE = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal]; 
+
+    // 4/2023: if ZTRUE_CMB column exists without ZTRUE, then
+    // translate ZTRUE_CMB back to ZTRUE(helio). 
+    // The logic here is a bit strange; IVAR_ZTRUE==IVAR_ZTRUE_CMB
+    // is a flag for ZTRUE_CMB existing without ZTRUE.
+    if ( HOSTLIB.IVAR_ZTRUE == HOSTLIB.IVAR_ZTRUE_CMB  ) {
+      //.xyz
+      double ZTRUE_CMB = ZTRUE;
+      ZTRUE = zhelio_zcmb_translator(ZTRUE_CMB,GENLC.RA,GENLC.DEC,
+				     COORDSYS_EQ,-1);
+    }
+
     ZSORT[igal] = ZTRUE ;
   }
 
@@ -3406,6 +3434,8 @@ void sortz_HOSTLIB(void) {
   if ( !(OPT_PLUSMAGS || OPT_PLUSNBR) ) {
     free(HOSTLIB.LIBINDEX_UNSORT);
   }
+
+  return ;
 
 } // end of sortz_HOSTLIB
 
@@ -5452,7 +5482,8 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 
   if ( ZGEN_HELIO < HOSTLIB.ZMIN || ZGEN_HELIO > HOSTLIB.ZMAX ) {
     double zCMB;
-    zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,"eq",+1);
+    zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,
+				  COORDSYS_EQ,+1);
     sprintf(c1err,"Invalid ZGEN(Helio,CMB)=%f,%f ", ZGEN_HELIO, zCMB );
     sprintf(c2err,"HOSTLIB z-range is %6.4f to %6.4f",
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
@@ -7308,13 +7339,6 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
     return; 
   }
 
-  /* xxx mark obsolete Nov 11 2022 xxx
-  if ( fixran > -1.0E-9 ) 
-    { SNHOSTGAL.FlatRan1_phi = fixran ; LEGACY=1; }
-
-  if ( LEGACY || INPUTS.RESTORE_HOSTLIB_BUGS ) 
-    { *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; return; }
-    xxxxxxxx  */
 
   if ( LDMP ) {  printf(" xxx ------------------------------- \n"); }
   
@@ -7441,7 +7465,7 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   } // end i loop over NNBR_READ
 
-  // - - - - - - - - - .xyz divide into NNBR and NNBR2
+  // - - - - - - - - - divide into NNBR and NNBR2
   SNHOSTGAL.NNBR_ALL = NNBR_STORE ;
  
   // - - - - - - - - - - - - - 
@@ -7701,7 +7725,7 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
     sprintf(c1err,"Crazy SN-galaxy sep = %.1f arcsec for i_nbr=%d", 
 	    SNSEP, i_nbr);
-    sprintf(c2err,"Likely a problem with NBR_LIST");  //.xyz
+    sprintf(c2err,"Likely a problem with NBR_LIST");  
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -7940,9 +7964,9 @@ void SORT_SNHOST_byDDLR(void) {
   if ( IVAR >= 0 && !LSN2GAL_Z ) {
     double HOST_DLMU, LENSDMU, zCMB, zHEL;
     zHEL = SNHOSTGAL.ZTRUE; 
-    zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, "eq",+1);
+    zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, COORDSYS_EQ, +1);
     gen_distanceMag(zCMB, zHEL,
-		    GENLC.GLON, GENLC.GLAT, // xxx check this more carefully
+		    GENLC.GLON, GENLC.GLAT,
 		    &HOST_DLMU, &LENSDMU ); // <== returned
     DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
 
@@ -8242,7 +8266,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   bool DO_SN2GAL_RADEC = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC) ;
 
   double zCMB, zHEL, zPEC ;
-  char eq[]           = "eq";
   char fnam[]         = "TRANSFER_SNHOST_REDSHIFT" ;
   int LDMP = 0; // ( GENLC.CID < -1010 ) ;
 
@@ -8252,7 +8275,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( !GENLC.CORRECT_HOSTMATCH) { return ; }
 
   // un-do zPEC to get zHEL without vPEC
-
   zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - 
@@ -8261,7 +8283,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( DO_SN2GAL_Z ) {
     zHEL = ZTRUE ;  // true host z
     if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
-      zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
+      zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
     }
     else {
       zCMB = zHEL ; 
@@ -8269,7 +8291,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL,
-		    GENLC.GLON, GENLC.GLAT, // xxx check this more carefully
+		    GENLC.GLON, GENLC.GLAT, 
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
   }
 
@@ -8280,12 +8302,12 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( DO_SN2GAL_RADEC && !DO_SN2GAL_Z ) {
     zCMB = GENLC.REDSHIFT_CMB  ; // preserve this
     if ( INPUTS.VEL_CMBAPEX > 1.0 ) 
-      { zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,eq,-1); }   
+      { zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); }   
     else 
       { zHEL = zCMB; }
 
     gen_distanceMag(zCMB, zHEL, 
-		    GENLC.GLON, GENLC.GLAT, // xxx check this more carefully
+		    GENLC.GLON, GENLC.GLAT,
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
 
   }

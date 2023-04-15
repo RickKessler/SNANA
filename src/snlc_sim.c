@@ -653,10 +653,11 @@ void set_user_defaults(void) {
   INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
 
-  INPUTS.RESTORE_DES3YR       = false; // Mar 2020
-  INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
-  INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
-  INPUTS.RESTORE_WRONG_VPEC   = false ; // Nov 2, 2020 (fix VPEC sign)
+  INPUTS.RESTORE_BUGS_DES3YR    = false; // Mar 2020
+  INPUTS.RESTORE_BUG_HOSTLIB    = false; // Nov 2019
+  INPUTS.RESTORE_BUG_FLUXERR    = false; // Jan 2020
+  INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
+  INPUTS.RESTORE_BUG_ZHEL       = true;
 
   NLINE_RATE_INFO   = 0;
 
@@ -1628,9 +1629,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPEND_SNID_SEDINDEX) ; 
   }
-  else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
+  else if ( keyMatchSim(1, "RESTORE_BUGS_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
-    if (ITMP) { INPUTS.RESTORE_DES3YR = true; }    
+    if (ITMP) { INPUTS.RESTORE_BUGS_DES3YR = true; }    
+  }
+  else if ( keyMatchSim(1, "RESTORE_BUG_ZHEL", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &ITMP);  
+    if (ITMP) { INPUTS.RESTORE_BUG_ZHEL = true; }    
   }
   else if ( keyMatchSim(1, "RESTORE_WRONG_VPEC", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -6566,9 +6571,9 @@ void prep_user_input(void) {
   }
 
   // - - - - - - - -
-  if ( INPUTS.RESTORE_DES3YR ) {
-    INPUTS.RESTORE_HOSTLIB_BUGS = true ;
-    INPUTS.RESTORE_FLUXERR_BUGS = true ;
+  if ( INPUTS.RESTORE_BUGS_DES3YR ) {
+    INPUTS.RESTORE_BUG_HOSTLIB = true ;
+    INPUTS.RESTORE_BUG_FLUXERR = true ;
     printf("\t Restore bugs for DES3YR analysis.\n");
   }
     
@@ -14373,7 +14378,7 @@ double gen_redshift_helio(void) {
   double DEC  = GENLC.DEC ;
   bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   double vpec, zhelio, dzpec ;
-  //  char fnam[] = "gen_redshift_helio" ;
+  char fnam[] = "gen_redshift_helio" ;
 
   // ----------- BEGIN ------------
 
@@ -14382,7 +14387,7 @@ double gen_redshift_helio(void) {
   if ( INPUTS.VEL_CMBAPEX < 1.0 ) 
     { zhelio = zCMB ; }  
   else 
-    { zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, "eq", -1); }
+    { zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, COORDSYS_EQ, -1); }
 
   // apply v_pec
   if ( USE_HOSTLIB_VPEC ) {
@@ -14420,7 +14425,7 @@ void gen_redshift_LCLIB(void) {
   double RA        = GENLC.RA;
   double DEC       = GENLC.DEC ;
   double ZCMB_TRUE = LCLIB_EVENT.REDSHIFT;  // see genmag_LCLIB.c
-  double ZHEL_TRUE = zhelio_zcmb_translator(ZCMB_TRUE, RA,DEC, "eq", -1);
+  double ZHEL_TRUE = zhelio_zcmb_translator(ZCMB_TRUE, RA,DEC, COORDSYS_EQ,-1);
   char fnam[] = "gen_redshift_LCLIB" ;
 
   // --------------- BEGIN --------------
@@ -14580,7 +14585,7 @@ void gen_zsmear(double zerr) {
     { GENLC.REDSHIFT_CMB_SMEAR = zhelio ; } // legacy option, ZCMB = ZHELIO
   else 
     { GENLC.REDSHIFT_CMB_SMEAR = 
-	zhelio_zcmb_translator(zhelio,RA,DEC, "eq", +1); 
+	zhelio_zcmb_translator(zhelio,RA,DEC, COORDSYS_EQ, +1); 
     }
 
  
@@ -21408,7 +21413,6 @@ void  setz_unconfirmed(void) {
 
   int    FOUND_zHOST ;
   int LDMP = 0 ;
-  char eq[]   = "eq" ;
   char fnam[] = "setz_unconfirmed" ;
 
   // ---------- BEGIN -------------
@@ -21434,7 +21438,7 @@ void  setz_unconfirmed(void) {
 
       if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
 	GENLC.REDSHIFT_CMB_SMEAR =  
-	  zhelio_zcmb_translator(ZHEL, RA,DEC,eq, +1);
+	  zhelio_zcmb_translator(ZHEL, RA,DEC,COORDSYS_EQ, +1);
       }
       else {
 	GENLC.REDSHIFT_CMB_SMEAR = ZHEL;
@@ -21467,7 +21471,7 @@ void  setz_unconfirmed(void) {
 
       GENLC.REDSHIFT_HELIO_SMEAR = ZPHOT ;
       GENLC.REDSHIFT_SMEAR_ERR   = ZPHOT_ERR ;
-      GENLC.REDSHIFT_CMB_SMEAR = zhelio_zcmb_translator(ZPHOT,RA,DEC,eq, +1);
+      GENLC.REDSHIFT_CMB_SMEAR = zhelio_zcmb_translator(ZPHOT,RA,DEC,COORDSYS_EQ, +1);
     }
   }
 
@@ -29077,6 +29081,7 @@ void DUMP_GENMAG_DRIVER(void) {
 
 // =============================
 void print_sim_help(void) {
+
 
   static char *help[] = {
     "\t ***** snlc_sim help menu *****",

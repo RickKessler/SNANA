@@ -1326,11 +1326,13 @@ int ICAST_for_textVar(char *varName) {
   // This ICAST function allows sloppy read-usage when the 
   // explicit cast is left out of SNTABLE_READPREP_VARDEF(..).
   //
-  // Nov 02 2014: use strcmp_ignoreCase instead of strcmp.
-  // Feb 17 2016: remove GALID from ICAST_C list
-  // Dec 04 2016: add VERSION to ICAST_C list
   // Aug 04 2017: allow for "CCID ROW" using strstr
   // Apr 29 2019: allow PARNAME
+  // Apr 16 2023: check partial match for GALID and OBJID
+
+  char fnam[] = "ICAST_for_textVar";
+
+  // ----------- BEGIN -------------
 
   // 1st-key identifiers  
   if ( strcmp_ignoreCase(varName,(char*)"CID"  )  == 0 ) 
@@ -1346,9 +1348,15 @@ int ICAST_for_textVar(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"STARID") == 0 ) 
     { return ICAST_C; }
 
-  // allow for things like "CCID ROW"
-  if ( strstr(varName,"CCID") != NULL ) { return ICAST_C; }
-  if ( strstr(varName,"ROW" ) != NULL ) { return ICAST_C; }
+  // allow for partial matches; e.g., things like 
+  // "CCID ROW" or "HOSTGAL_OBJID" 
+  if ( strstr(varName,"CCID"  ) != NULL ) { return ICAST_C; }
+  if ( strstr(varName,"ROW"   ) != NULL ) { return ICAST_C; }
+
+  // allow partial match for GALID or OBJID to avoid float truncation
+  // when these integer IDs are very large
+  if ( strstr(varName,"GALID" ) != NULL ) { return ICAST_C; }
+  if ( strstr(varName,"OBJID" ) != NULL ) { return ICAST_C; }
 
   // misc string-keys
   if ( strcmp_ignoreCase(varName,(char*)"FIELD")  == 0 ) 

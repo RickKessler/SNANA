@@ -21628,6 +21628,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + fix subtle zmax_biascor bug as explained in
         https://github.com/RickKessler/SNANA/issues/1128
 
+   sntools_output_text.c: 
+     + fix casting HOSTGAL_OBJID and SIM_HOSTLIB_GALID to be
+       string instead of int, so that very large int values
+       are not corrupted. 
+           https://github.com/RickKessler/SNANA/issues/1132
+
         ***** USEFUL(v11_05d) ***** 
 
    snlc_sim.c[h]:
@@ -21663,5 +21669,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + allow ZTRUE_CMB column instead of ZTRUE(helio); internally,
        ZTRUE is computed from ZTRUE_CMB.
 
-
+    
 END: 

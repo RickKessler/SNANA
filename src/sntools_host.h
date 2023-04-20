@@ -222,7 +222,7 @@ struct HOSTLIB_DEF {
   int IVAR_GALID ;
   int IVAR_TRUE_MATCH ;  // optional column: 1->use for true match
   int IVAR_ZTRUE  ;      // true zhelio (or true zcmb)
-  bool ISFRAME_ZTRUE;    // 
+  int FRAME_ZTRUE;    // = FRAME_ZTRUE_HEL(default) or FRAME_ZTRUE_CMB
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
   int IVAR_ZPHOT_Q0; // index of first ZPHOT_Q (not necessarily 0th quantile)

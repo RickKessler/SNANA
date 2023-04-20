@@ -232,7 +232,7 @@ void initvar_HOSTLIB(void) {
 
   NCALL_GEN_SNHOST_DRIVER = 0 ;
 
-  HOSTLIB.ISFRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_HEL;
+  HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_HEL;
   HOSTLIB.SORTFLAG     = 0 ;
   HOSTLIB.NGAL_READ    = 0 ;
   HOSTLIB.NGAL_STORE   = 0 ;
@@ -2562,7 +2562,7 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 
   if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
     sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
-    HOSTLIB.ISFRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
+    HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
   }
 
   for (j=0; j<N_HOSTGAL_PROPERTY; j++){
@@ -2774,7 +2774,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   }
   
   
-  if ( HOSTLIB.ISFRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB )
+  if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB )
     { printf("\t ZTRUE frame is CMB\n"); }
   else
     { printf("\t ZTRUE frame is Heliocentric\n"); }
@@ -3337,7 +3337,7 @@ void sortz_HOSTLIB(void) {
 
     // 4/2023: if ZTRUE_CMB column is in HOSTLIB, then
     // translate ZTRUE(CMB) back to ZTRUE(helio). 
-    if ( HOSTLIB.ISFRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
+    if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
       double ZTRUE_CMB = ZTRUE;
       ZTRUE = zhelio_zcmb_translator(ZTRUE_CMB,GENLC.RA,GENLC.DEC,
 				     COORDSYS_EQ,-1);

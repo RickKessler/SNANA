@@ -232,6 +232,7 @@ void initvar_HOSTLIB(void) {
 
   NCALL_GEN_SNHOST_DRIVER = 0 ;
 
+  HOSTLIB.ISFRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_HEL;
   HOSTLIB.SORTFLAG     = 0 ;
   HOSTLIB.NGAL_READ    = 0 ;
   HOSTLIB.NGAL_STORE   = 0 ;
@@ -2333,21 +2334,23 @@ void read_head_HOSTLIB(FILE *fp) {
 
   HOSTLIB.IVAR_GALID   = IVAR_HOSTLIB(HOSTLIB_VARNAME_GALID,1) ; // required
 
+
   // require either ZTRUE (zhelio) or ZTRUE_CMB
-  HOSTLIB.IVAR_ZTRUE     = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,    0) ; 
-  HOSTLIB.IVAR_ZTRUE_CMB = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE_CMB,0) ; 
-  if ( HOSTLIB.IVAR_ZTRUE < 0 && HOSTLIB.IVAR_ZTRUE_CMB < 0 ) {
-    sprintf(c1err,"Missing require ZTRUE column in HOSTLIB");
+  HOSTLIB.IVAR_ZTRUE     = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,  0) ; 
+  if ( HOSTLIB.IVAR_ZTRUE < 0  ) {
+    sprintf(c1err,"Missing required ZTRUE column in HOSTLIB;");
     sprintf(c2err,"HOSTLIB must include either %s of %s column.",
 	    HOSTLIB_VARNAME_ZTRUE, HOSTLIB_VARNAME_ZTRUE_CMB);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  /* xxxxxxxxxx mark delete xxxxxxxxxx
   // if ZTRUE_CMB column exists, but not ZTRUE(helio), then force
   // ZTRUE_CMB back to ZTRUE
   if ( HOSTLIB.IVAR_ZTRUE < 0 && HOSTLIB.IVAR_ZTRUE_CMB > 0 ) {
     HOSTLIB.IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE_CMB;
   }
+  xxxxxxxxxx end mark xxxxxxxxx*/
 
   // optional
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
@@ -2539,6 +2542,8 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   // If input varName matches an allowed [hard-wired] alternative,
   // reset varName to the official name.
   // Note that the input argument is modified !
+  //
+  // Apr 2023: check for VARNAME_ZTRUE_CMB
 
   char *BASENAME;
   int j;
@@ -2555,11 +2560,15 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"VPECERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
 
+  if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
+    sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
+    HOSTLIB.ISFRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
+  }
+
   for (j=0; j<N_HOSTGAL_PROPERTY; j++){
     BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
-    // printf ("xxxx 1  %s varName=%s \n",fnam, varName);
-    if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-    // printf ("xxxx 2  %s varName=%s \n",fnam, varName);
+    if ( strcmp(varName, BASENAME) == 0 ) 
+      { sprintf(varName,"%s_TRUE", BASENAME); }
   }
   
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
@@ -2625,13 +2634,14 @@ void read_gal_HOSTLIB(FILE *fp) {
   int  IVAR_FIELD    = HOSTLIB.IVAR_FIELD ;
   int  IVAR_NBR_LIST = HOSTLIB.IVAR_NBR_LIST ;
   char c_get[200], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
-  char fnam[] = "read_gal_HOSTLIB"  ;
   
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
   int  NPRIORITY ;
   bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
+
+  char fnam[] = "read_gal_HOSTLIB"  ;
 
   // ----------------- BEGIN -----------
 
@@ -2763,6 +2773,12 @@ void read_gal_HOSTLIB(FILE *fp) {
     INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] = HOSTLIB.ZMAX ;
   }
   
+  
+  if ( HOSTLIB.ISFRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB )
+    { printf("\t ZTRUE frame is CMB\n"); }
+  else
+    { printf("\t ZTRUE frame is Heliocentric\n"); }
+
   fflush(stdout);
 
   // check warning for stars (i.e, z ~ 0)
@@ -3319,12 +3335,9 @@ void sortz_HOSTLIB(void) {
   for ( igal=0; igal < NGAL; igal++ ) {
     ZTRUE = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal]; 
 
-    // 4/2023: if ZTRUE_CMB column exists without ZTRUE, then
-    // translate ZTRUE_CMB back to ZTRUE(helio). 
-    // The logic here is a bit strange; IVAR_ZTRUE==IVAR_ZTRUE_CMB
-    // is a flag for ZTRUE_CMB existing without ZTRUE.
-    if ( HOSTLIB.IVAR_ZTRUE == HOSTLIB.IVAR_ZTRUE_CMB  ) {
-      //.xyz
+    // 4/2023: if ZTRUE_CMB column is in HOSTLIB, then
+    // translate ZTRUE(CMB) back to ZTRUE(helio). 
+    if ( HOSTLIB.ISFRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
       double ZTRUE_CMB = ZTRUE;
       ZTRUE = zhelio_zcmb_translator(ZTRUE_CMB,GENLC.RA,GENLC.DEC,
 				     COORDSYS_EQ,-1);
@@ -5933,7 +5946,7 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.ZTRUE       = -9.0 ;
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
-
+  
   SNHOSTGAL.a_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.b_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.RA_SNGALSEP_ASEC  = HOSTLIB_SNPAR_UNDEFINED ;
@@ -6604,11 +6617,6 @@ void GEN_SNHOST_STRONGLENS(void) {
 
   IS_LOGMASS_LENS = ( LOGMASS_LENS > 2.0 );
 
-  /* xxx mark delete Sep 28 2022 xxxxxxx
-  // bail if there is no logmass in the LENS library
-  if ( LOGMASS_LENS < 2.0 ) { return; }
-  xxxxxxxxx  */
-
   // ABORT if there is no LOGMASS in the hostlib
   if ( IS_LOGMASS_LENS && IVAR_LOGMASS <= 0 ) { 
     sprintf(c1err,"IVAR_LOGMASS = %d", IVAR_LOGMASS );
@@ -7219,7 +7227,6 @@ void GEN_SNHOST_POS(int IGAL) {
     SNHOSTGAL.RA_SN_DEG   = GENLC.RA ; // SN coord already selected
     SNHOSTGAL.DEC_SN_DEG  = GENLC.DEC ;
     COSDEC                = GENLC.cosDEC ;
-    //xxx mark delete     COSDEC  = cos(SNHOSTGAL.DEC_SN_DEG*RAD) ; 
 
     DTMP    = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / COSDEC ;
     RA_GAL  = SNHOSTGAL.RA_SN_DEG  - DTMP ;
@@ -8389,7 +8396,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,RVMW = 3.1
     ;
   
-  // xxx mark delete  float lamavg4, lamrms4, lammin4, lammax4  ;
   double lamavg, lamrms, lammin, lammax ;
   int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame  ;
   char cfilt[2];

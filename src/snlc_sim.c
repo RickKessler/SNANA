@@ -2234,6 +2234,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
     README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
+  else if ( keyMatchSim(1, "ANISOTROPY_MODELNAME", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.ANISOTROPY_INFO.MODEL_NAME );
+    INPUTS.ANISOTROPY_INFO.USE_FLAG = true;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
+  }
   // - - - - - - - - 
   else if ( keyMatchSim(1, "FUDGE_SNRMAX", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.STRING_FUDGE_SNRMAX );
@@ -29102,6 +29107,7 @@ void print_sim_help(void) {
     "wa_LAMBDA:    <wa>        # see wa_DEFAULT",
     "HzFUN_FULE   <fileName>   # two column file of model DLMAG vs. z",
     "MUSHIFT:     <mushift>    # constant distance modulus shift (mag)",
+    "ANISTROPY_MODELNAME: xyz  # name of model for anisotropy",
     "",
     "#  - - - - - - Source model - - - - - - - ",
     "GENMODEL:  <model>                #  SN model name (manual Sec 9)",

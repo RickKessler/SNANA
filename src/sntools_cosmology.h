@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
   // Created Feb 2023 by A.Sha and R.Kessler
   bool   USE_FLAG ;
+  char   MODEL_NAME[60];
   double qm, qd, S, J0, S0; 
   double GLON, GLAT; 
 

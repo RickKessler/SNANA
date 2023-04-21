@@ -8224,17 +8224,24 @@ non-zero value such as 0.1. The use (or non-use) of the
 host-photoZ prior is controlled by the value of 
 {\tt PRIOR\_ZERRSCALE}.
 The parameter {\tt OPT\_PHOTOZ} controls the source of
-the redshift prior. 
-When you set {\tt DOFIT\_PHOTOZ=T}, 
+the redshift prior as follows:
+%
+\begin{verbatim}
+   OPT_PHOTOZ = 1  ! use host zPhot mean and Gauss sigma
+   OPT_PHOTOZ = 2  ! use best-z (spec or host photo-z) 
+   OPT_PHOTOZ = 4  ! use photo-z PDF unpacked from quantiles
+   OPT_PHOTOZ = 16 ! set initial zPhot=zSpec and skip grid search (for debug)
+\end{verbatim}
+%
+When {\tt DOFIT\_PHOTOZ=T}, 
 {\tt OPT\_PHOTOZ} is automatically set to 1 so that the
 host-photoZ prior is used.  
-If you set {\tt OPT\_PHOTOZ=2}, the spectroscopic redshift
-is used as a prior: this option is designed solely as a
-sanity check on the light curve fitter, and is not meant
-to use for science.
-If you set {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
-automatically set, and vice-versa: thus you can turn on the
-photoZ option with either namelist variable.
+{\tt OPT\_PHOTOZ=2} uses the best redshift (spec or photo-$z$)
+as a prior, and is useful for samples with a mix of spec-$z$ and 
+photo-$z$ redshifts.
+When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
+automatically set, and vice-versa: thus the
+photo-$z$ option can be enabled with either namelist variable.
 
 If {\tt PRIOR\_MUERRSCALE} is 100 or larger (the default),
 then there is no prior applied to the distance modulus ($\mu$).

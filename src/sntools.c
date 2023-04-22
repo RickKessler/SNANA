@@ -3265,6 +3265,7 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   int i;
   int MEMC = MXCHAR * sizeof(char);
   char fnam[] = "parse_commaSepList" ;
+  char fnam_plus_item_name[100];
 
   // ---------- BEGIN --------------
   // first allocate memory for file names 
@@ -3276,7 +3277,8 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   if ( strlen(item) == 0 ) { *n_item=0; return; }
 
   // split item string
-  splitString(item, COMMA, fnam, MAX_ITEM,    // inputs
+  sprintf(fnam_plus_item_name, "%s(%s)", fnam, item_name);
+  splitString(item, COMMA, fnam_plus_item_name, MAX_ITEM,    // inputs
 	      n_item, *arrayList );      // outputs 
   
   char *f0 = *arrayList[0];

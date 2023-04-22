@@ -18755,6 +18755,13 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
       char **ctmp_list;      int n_list, i ;
       parse_commaSepList("GROUPID", WDLIST[1], MXGROUPID_SIMLIB, 10, 
 			 &n_list, &ctmp_list ) ;
+
+      if ( n_list > MXGROUPID_SIMLIB ) {
+	sprintf(c1err,"NGROUPID=%d exceeds bound of %d", n_list, MXGROUPID_SIMLIB);
+	sprintf(c2err,"Increase MXGROUPID_SIMLIB or modify GROUPID in HOSTLIB");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+      }
+
       SIMLIB_HEADER.NGROUPID_HOSTLIB = n_list ;
       for(i=0; i < n_list; i++ ) 
 	{ sscanf(ctmp_list[i], "%d", &SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i]); }

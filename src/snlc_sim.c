@@ -15769,11 +15769,52 @@ void SIMLIB_prepGlobalHeader(void) {
   // [code moved/refactored from SIMLIB_read_fluxerrCor]
   SIMLIB_prep_fluxerrScale_LEGACY();
 
+  // Apr 2023: print info for SIMLIB_MSKOPT
+  print_SIMLIB_MSKOPT();
+
+  printf("\n"); fflush(stdout);
 
   return ;
 
 } // end SIMLIB_prepGlobalHeader
 
+// ===================================
+void  print_SIMLIB_MSKOPT(void) {
+  
+  int MSKOPT  = INPUTS.SIMLIB_MSKOPT;
+  char fnam[] = "print_SIMLIB_MSKOPT";
+
+  // ----------- BEGIN ----------
+
+  print_mask_comment(stdout, MSKOPT, 0, "SIMLIB_MSKOPT");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_REPEAT_UNTIL_ACCEPT,
+		     "repeat LIBID until event is accepted");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_QUIT_NOREWIND,
+		     "quit after one pass thru SIMLIB");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_RANDOM_TEMPLATENOISE,
+		     "add random template noise to SN flux uncertainty");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_IGNORE_TEMPLATENOISE,
+		     "ignore template coherence");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_IGNORE_FLUXERR_COR,
+		     "ignore FLUXERR_COR map in SIMLIB header");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_ENTIRE_SEASON,
+		     "keep entire SIMLIB season (not just transient range)");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_ENTIRE_SURVEY,
+		     "keep entire SIMLIB survey (e.g., for data challenge");
+
+  //  print_mask_comment(stdout, MSKOPT, 0, 		     "");
+  //  print_mask_comment(stdout, MSKOPT, 0, 		     "");
+
+  return;
+
+} //end print_SIMLIB_MSKOPT
 
 // *************************************************
 void  SIMLIB_prep_fluxerrScale_LEGACY(void) {

@@ -4437,6 +4437,34 @@ void print_KEYwarning(int ISEV, char *key_old, char *key_new) {
 
 } // end of print_KEYwarning
 
+void print_mask_comment(FILE *FP, int OPTIONS_MASK, int MASK, char *COMMENT) {
+  // Created Apr 23 2023
+  // generic util to print bit-mask information.
+  // Used for opt_biascor(SALT2mu), HOSTLIB_MSKOPT(sim), etc ...
+  //
+  // Inputs:
+  //   FP = file pointer to write comment
+  //   OPTIONS_MASK  : mask of bit options; e.g., 11 = 8+2+1
+  //   MASK          : mask for option corresponding to COMMENT (e.g., 2 or 4 or 8)
+  //   COMMENT       : name of user mask variable if MASK=0;
+  //                   description of MASK if MASK>0
+  //
+  char fnam[] = "print_mask_comment";
+
+  // ---------- BEGIN ---------
+  if ( MASK == 0 ) { 
+    // print header info
+    fprintf(FP,"\n  Bit-mask options for %s = %d \n", COMMENT, OPTIONS_MASK); 
+  }
+  else if ( OPTIONS_MASK & MASK ) {
+    fprintf(FP, "\t MASK=%6d -> %s \n", MASK, COMMENT); 
+  }
+
+  fflush(FP);
+  return;
+
+}  // end print_mask_comment
+
 
 // ***************************************************
 double SNR_calculator(double ZPT, double PSF, double SKYMAG, double MAG,

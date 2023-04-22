@@ -139,9 +139,10 @@ void INIT_HOSTLIB(void) {
 
   TIME_INIT_HOSTLIB[0]  = time(NULL);
 
-  sprintf(BANNER,"%s: Read host-galaxy library (MSKOPT=%d)",
-	  fnam, INPUTS.HOSTLIB_MSKOPT);
+  sprintf(BANNER,"%s: Read and init host-galaxy library", fnam);
   print_banner(BANNER);
+
+  print_HOSTLIB_MSKOPT();
 
   OPTMASK_OPENFILE_HOSTLIB = 0;
   if ( INPUTS.REQUIRE_DOCANA ) 
@@ -215,6 +216,73 @@ void INIT_HOSTLIB(void) {
 
 } // end of INIT_HOSTLIB
 
+// ==================================
+void print_HOSTLIB_MSKOPT(void) {
+
+  // Created Apr 23 2023
+  // print bit-mask options from
+  //    grep MSKOPT ~/SNANA/src/sntools_host.h | grep def
+  //
+  int MSKOPT = INPUTS.HOSTLIB_MSKOPT;
+
+  // ------------- BEGIN -----------
+
+  print_mask_comment(stdout, MSKOPT, 0, "HOSTLIB_MSKOPT");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USE, 
+		     "internally set if HOSTLIB_FILE != NULL");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_GALMAG, 
+		     "compute host mag & poisson noise in SN aperture");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SNMAGSHIFT,
+		     "adust SN mag from wgtmap (e.g., mass step)");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SN2GAL_RADEC,
+		     "transfer SN coords to galaxy coords");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SN2GAL_Z,
+		     "transfer zHEL(SN) to ZTRUE (preserve host zHEL)");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USEONCE,
+		     "use host galaxy only once" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USESNPAR,
+		     "use SN color & shape from HOSTLIB" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SWAPZPHOT,
+		     "swap ZTRUE with ZPHOT" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USEVPEC,
+		     "use VPEC & VPECERR from HOSTLIB" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_VERBOSE,
+		     "print extra info during init" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_DUMP,
+		     "screen-dump for each selected host (for debug)" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_DUMPROW,
+		     "DUMP one row per host for parsing" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_APPEND,
+		     "append columns from separate file" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_PLUSMAGS,
+		     "compute & add host mag columns from SED" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_PLUSNBR,
+		     "find nbr and append comma-sep list to HOSTLIB" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_ZPHOT_QGAUSS,
+		     "write Gauss quantiles for zPHOT (for debug)" );
+
+  //   print_mask_comment(stdout, MSKOPT, 0,		     "" );
+
+
+  printf("\n"); fflush(stdout);
+  return;
+} // end void   print_HOSTLIB_MSKOPT
 
 // ====================================
 void initvar_HOSTLIB(void) {

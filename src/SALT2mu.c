@@ -1444,7 +1444,6 @@ void   prepare_biasCor(void);
 void   prepare_biasCor_zinterp(void) ;
 void   init_COVINT_biasCor(void);
 void   print_biascor_options(void); 
-void   print_biascor_comment(int MASK,char *COMMENT);
 void   prepare_CCprior(void);
 
 void   get_INTERPWGT_abg(double alpha,double beta,double gammadm, int DUMPFLAG,
@@ -9271,49 +9270,54 @@ void print_biascor_options(void) {
 
   // -------- BEGIN ------
 
+  /* xxxxx mark delete Apr 2023
   sprintf(BANNER,"%s for input opt_biascor=%d", fnam, opt_biasCor);
   fprintf(FP_STDOUT,"\n\t%s\n", BANNER);
-
-  if ( opt_biasCor & MASK_BIASCOR_1DZAVG ) 
-    { print_biascor_comment(MASK_BIASCOR_1DZAVG,"Interp MUBIAS vs. z (1D), WGT=1"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_1DZWGT ) 
-    { print_biascor_comment(MASK_BIASCOR_1DZWGT,"Interp MUBIAS vs. z (1D), WGT=1/muerr^2"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_1DZ ) 
-    { print_biascor_comment(MASK_BIASCOR_1DZ,"Interp MUBIAS vs. z (1D)"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_1D5DCUT ) 
-    { print_biascor_comment(MASK_BIASCOR_1D5DCUT, "1DZWGT, but apply 5D cut (test)"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_5D ) 
-    { print_biascor_comment(MASK_BIASCOR_5D,"5D biasCor map"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_MUCOVSCALE ) 
-    { print_biascor_comment(MASK_BIASCOR_MUCOVSCALE,"MUCOVSCALE vs {z,c,m} "); }
-
-  if ( opt_biasCor & MASK_BIASCOR_SAMPLE ) 
-    { print_biascor_comment(MASK_BIASCOR_SAMPLE,"biasCor vs. IDSAMPLE"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_MU ) 
-    { print_biascor_comment(MASK_BIASCOR_MU,"Bias on MU instead of mB,x1,c"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_COVINT ) 
-    { print_biascor_comment(MASK_BIASCOR_COVINT,"biasCor-covint(3x3) x SCALE"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) 
-    { print_biascor_comment(MASK_BIASCOR_SIGINT_SAMPLE,"sigint(biasCor) vs. IDSAMPLE"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_noCUT ) 
-    { print_biascor_comment(MASK_BIASCOR_noCUT,"do NOT reject event if no biasCor"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_MAD ) 
-    { print_biascor_comment(MASK_BIASCOR_MAD,"median instead of rms in COV scale"); }
-
-  if ( opt_biasCor & MASK_BIASCOR_MUCOVADD ) 
-    { print_biascor_comment(MASK_BIASCOR_MUCOVADD,"add COVINT in z,c,m bins (expect sigint=0)"); }
+  xxx end mark */
 
   
+  print_mask_comment(FP_STDOUT, opt_biasCor, 0, "opt_biascor");
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_1DZAVG,
+		     "Interp MUBIAS vs. z (1D), WGT=1"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_1DZWGT,
+		     "Interp MUBIAS vs. z (1D), WGT=1/muerr^2"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_1DZ,
+		     "Interp MUBIAS vs. z (1D)"); 
+
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_1D5DCUT, 
+		     "1DZWGT, but apply 5D cut (test)"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_5D,
+		     "5D biasCor map"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_MUCOVSCALE,
+		     "MUCOVSCALE vs {z,c,m} "); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_SAMPLE,
+		     "biasCor vs. IDSAMPLE"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_MU,
+		     "Bias on MU instead of mB,x1,c"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_COVINT,
+		     "biasCor-covint(3x3) x SCALE");
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_SIGINT_SAMPLE,
+		     "sigint(biasCor) vs. IDSAMPLE"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_noCUT,
+		     "do NOT reject event if no biasCor"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_MAD,
+		     "median instead of rms in COV scale"); 
+
+  print_mask_comment(FP_STDOUT, opt_biasCor, MASK_BIASCOR_MUCOVADD,
+		     "add COVINT in z,c,m bins (expect sigint=0)"); 
+
   fprintf(FP_STDOUT,"\n");
   return;
 

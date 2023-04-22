@@ -1722,6 +1722,7 @@ void   SIMLIB_prepCadence(int REPEAT_CADENCE);
 void   SIMLIB_prepMJD_forSORT(int ISTORE);
 void   SIMLIB_sortbyMJD(void);
 void   SIMLIB_randomize_skyCoords(void);
+void   print_SIMLIB_MSKOPT(void) ;
 
 void   init_SIMLIB_HEADER(void);
 int    keep_SIMLIB_HEADER(void);

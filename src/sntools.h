@@ -513,6 +513,7 @@ bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_full_command(FILE *fp, int argc, char** argv);
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
+void print_mask_comment(FILE *FP, int OPTIONS_MASK, int MASK, char *COMMENT);
 
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE);

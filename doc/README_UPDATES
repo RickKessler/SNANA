@@ -21641,6 +21641,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        select this groupid from HOSTLIB. Goal is to enable 
        simulating large scale structure (see manual).
 
+     + use new sntools.c utility print_mask_comment(..) to print bit-mask
+       options for SIMLIB_MSKOPT and HOSTLIB_MSKOPT 
+        (also used for opt_biascor in SALT2mu)
+
         ***** MISCELLANEOUS(v11_05d) ***** 
 
    submit_prog_cosmofit.py:

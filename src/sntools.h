@@ -766,8 +766,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
 
-void splitString(char *string, char *sep, int MXsplit,
-		 int *Nsplit, char **ptrSplit);
+void splitString(char *string, char *sep, char *callFun, int MXsplit,
+		 int *Nsplit, char **ptrSplit );
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
 void split2floats(char *string, char *sep, float *fval) ;

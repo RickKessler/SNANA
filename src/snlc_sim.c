@@ -2902,8 +2902,8 @@ void parse_input_GENZPHOT_FUEGEMAP(char *string) {
 
   // each element is z:rms, so split each element by colon
   for ( iz=0; iz < NzBIN; iz++ ) {
-    splitString(split_string[iz], COLON, 2, 
-		&Nsplit2, split_string2);
+    splitString(split_string[iz], COLON, fnam, 2, 
+		&Nsplit2, split_string2 );
     sscanf(split_string2[0], "%le", &z);
     sscanf(split_string2[1], "%le", &rms);
     INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST[iz]   = z;
@@ -2955,8 +2955,8 @@ void  parse_input_GENZPHOT_OUTLIER(char *string) {
     *LOADPAR = 99.0 ;  // large sigma --> flat
     ptr_z[0] = string_zsplit[0]; 
     ptr_z[1] = string_zsplit[1]; 
-    splitString(string_z, colon, 3,  // inputs    
-		&NSPLIT, ptr_z );    // outputs             
+    splitString(string_z, colon, fnam, 3,     // inputs    
+		&NSPLIT, ptr_z);    // outputs             
 
     // load zphot outlier range 
     sscanf(ptr_z[0], "%f", &zrange[0] );
@@ -4321,7 +4321,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
     for(ivar=0; ivar < MXVAR; ivar++ ) 
       { ptrSplit[ivar] = INPUTS.VARNAME_SIMGEN_DUMP[ivar]; }
 
-    splitString(WORDS[N], COMMA, MXVAR, &NVAR, ptrSplit);
+    splitString(WORDS[N], COMMA, fnam, MXVAR, &NVAR, ptrSplit );
 
   } // end LRD_COMMA_SEP
 
@@ -4668,7 +4668,7 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
 
   sprintf(inString,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
 
-  splitString(inString, colon, 2,      // inputs               
+  splitString(inString, colon, fnam, 2,      // inputs               
 	      &NSPLIT, ptrSplit );      // outputs             
   
   sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "%s", ptrSplit[0] );
@@ -4903,7 +4903,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     for(i=0; i < 4; i++ ) 
       { ptrSplit[i] = strValues[i];    ptrRange[i] = -9.0 ; }
 
-    splitString(stringOpt, COLON, 4,      // inputs               
+    splitString(stringOpt, COLON, fnam, 4,      // inputs               
 		&NSPLIT, ptrSplit );      // outputs             
 
     if ( NSPLIT < 1 || NSPLIT > 3 ) {
@@ -4999,8 +4999,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     sprintf(stringTmp, "%s", string3);
     extractStringOpt(stringTmp,stringOpt); // return stringOpt
 
-    splitString(stringOpt, COLON, 5,      // inputs               
-		&NSPLIT, ptrSplit );      // outputs             
+    splitString(stringOpt, COLON, fnam, 5,      // inputs               
+		&NSPLIT, ptrSplit);      // outputs             
 
     if ( strcmp(stringTmp,"SNR_LAMREST") == 0 ||
 	 strcmp(stringTmp,"LAMREST_SNR") == 0 ) 
@@ -5351,7 +5351,7 @@ int parse_input_SIMSED_COV(char **WORDS, int keySource) {
   // break varList into two SIMSED varnames
   ptrName[0] = varNames[0] ;
   ptrName[1] = varNames[1] ;
-  splitString(varList, COMMA, MXNAME, &NNAME, ptrName);
+  splitString(varList, COMMA, fnam, MXNAME, &NNAME, ptrName);
 
   // find which IPAR
   for(ipar=0; ipar < INPUTS.NPAR_SIMSED ; ipar++ ) {
@@ -6923,7 +6923,7 @@ void  prep_GENPDF_FLAT(void) {
 
   ptrRange[0] = (char*) malloc(MEMC);
 
-  splitString(INPUTS.GENPDF_FLAT, COMMA, MXVAR_GENPDF, 
+  splitString(INPUTS.GENPDF_FLAT, COMMA, fnam, MXVAR_GENPDF, 
 	      &NVAR, ptrStringVar);  // <== output
 
   for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -6941,7 +6941,7 @@ void  prep_GENPDF_FLAT(void) {
 
     // if stringOpt is set, split it by colon to get range
     if ( strlen(stringOpt) > 0 ) {
-      splitString(stringOpt, COLON, MXVAR_GENPDF, 
+      splitString(stringOpt, COLON, fnam, MXVAR_GENPDF, 
 		  &NDUM, ptrRange);  // <== output      
       if ( NDUM != 2 ) {
 	sprintf(c1err,"Invalid NDUM=%d (should be 2)", NDUM);
@@ -18552,7 +18552,7 @@ void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
   int  IDTMP, NTMP, NRD;
   char star[] = "*" ;
   char WDLIST[2][20], *ptrWDLIST[2];
-  //  char fnam[] = "parse_SIMLIB_IDplusNEXPOSE" ;
+  char fnam[] = "parse_SIMLIB_IDplusNEXPOSE" ;
 
   // ----------- BEGIN ------------
 
@@ -18566,7 +18566,7 @@ void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
     // found star, read both ID and NEXPOSE
     ptrWDLIST[0] = WDLIST[0] ;
     ptrWDLIST[1] = WDLIST[1] ;
-    splitString(inString, star, 3,  &NRD, ptrWDLIST ); 
+    splitString(inString, star, fnam, 3,  &NRD, ptrWDLIST ); 
     sscanf( WDLIST[0] , "%d", &IDTMP ); 
     sscanf( WDLIST[1] , "%d", &NTMP ); 
   }
@@ -29164,6 +29164,8 @@ void print_sim_help(void) {
     "SIMLIB_FILE:  <name>    # file name of cadence library",
     "# for more SIMLIB options, ",
     "# see manual Section 4.7.1 SIMLIB Options in the Sim-Input File",
+    "USE_SIMLIB_[PEAKMJD,REDSHIFT,DISTANCE,MAGOBS,SPECTRA,SALT2,GROUPID]: ",
+    "        use this quantity from each LIBID header ",
     "",
     "SMEARFLAG_FLUX:   <opt> # 1->add Poisson noise",
     "SMEARFLAG_ZEROPT: <opt> # +=1->apply scatter, +=2->add to FLUXERRCAL",

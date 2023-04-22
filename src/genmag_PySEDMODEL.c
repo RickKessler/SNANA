@@ -195,7 +195,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   for(ipar=0; ipar < MXHOSTPAR_PySEDMODEL; ipar++ )
     { INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR[ipar] = (char*)malloc(60*MEMC);  }
 
-  splitString(NAMES_HOSTPAR, comma, MXHOSTPAR_PySEDMODEL,
+  splitString(NAMES_HOSTPAR, comma, fnam, MXHOSTPAR_PySEDMODEL,
 	      &NPAR, INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR );
 
   // - - - - - - - - - - -

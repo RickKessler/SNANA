@@ -400,7 +400,7 @@ void parse_PARNAMES_LCLIB(char *parNameString) {
     ptrSplit[ipar] = LCLIB_INFO.PARNAME_MODEL[ipar]; 
     LCLIB_EVENT.PARVAL_MODEL[ipar] = -999.0 ; 
   }
-  splitString(parNameString, ",", MXPAR_LCLIB, &NPAR, ptrSplit);
+  splitString(parNameString, ",", fnam, MXPAR_LCLIB, &NPAR, ptrSplit);
   LCLIB_INFO.NPAR_MODEL = NPAR ;
 
   // check for redshift 
@@ -481,7 +481,7 @@ void parse_TEMPLATE_EPOCHS_LCLIB(char *STRING_TEMPLATE_EPOCHS) {
   char tmpString[80];
   char *ptrSplit[MXOBS_TEMPLATE_LCLIB];
   char string_EPLIST[MXOBS_TEMPLATE_LCLIB][12];
-  //  char fnam[] = "parse_TEMPLATE_EPOCHS_LCLIB" ;
+  char fnam[] = "parse_TEMPLATE_EPOCHS_LCLIB" ;
 
   // ------------------- BEGIN --------------------
 
@@ -493,7 +493,7 @@ void parse_TEMPLATE_EPOCHS_LCLIB(char *STRING_TEMPLATE_EPOCHS) {
   // will be destroyed by splitString.
 
   sprintf(tmpString, "%s", STRING_TEMPLATE_EPOCHS);
-  splitString(tmpString, "+", MXEP, &NEP, ptrSplit);
+  splitString(tmpString, "+", fnam, MXEP, &NEP, ptrSplit);
 
   LCLIB_INFO.NEP_TEMPLATE = NEP ;
 

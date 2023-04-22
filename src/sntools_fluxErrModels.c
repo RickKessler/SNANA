@@ -461,7 +461,7 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
 
   // - - - - - - - -
   // split by blank space to get key & val
-  splitString(STRING, space, MXRED, &NKEYVAL, ptrSplit0);
+  splitString(STRING, space, fnam, MXRED, &NKEYVAL, ptrSplit0);
   NKEY = NKEYVAL/2; 
 
   int i2key=0, istat=0, NERR=0;
@@ -481,7 +481,7 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
     }
     
     // split by comma
-    splitString(ptrSplit0[i2key+1], comma, MXRED, &NITEM, ptrSplit1);
+    splitString(ptrSplit0[i2key+1], comma, fnam, MXRED, &NITEM, ptrSplit1);
     for(i=0; i < NITEM; i++ ) { 
       istat = load_REDCOV_FLUXERRMODEL(ptrSplit1[i],FIELD); 
       if ( istat != 0 ) { NERR++; }
@@ -532,7 +532,7 @@ int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   ptr_FIELDGRP   = COVINFO_FLUXERRMODEL[NREDCOV].FIELDGROUP ;
   ptr_FIELDLIST  = COVINFO_FLUXERRMODEL[NREDCOV].FIELDLIST ;
 
-  splitString(ITEM_REDCOV, COLON, 2, &N2, ptrSplit2);    
+  splitString(ITEM_REDCOV, COLON, fnam, 2, &N2, ptrSplit2);    
   sprintf(ptr_BANDSTRING,  "%s", ITEM_REDCOV );
   sprintf(ptr_BANDLIST,    "%s", ptrSplit2[0] );
   sprintf(ptr_FIELDGRP,    "%s", FIELD);
@@ -600,7 +600,7 @@ void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) {
   for(imap=0; imap < MXMAP; imap++ ) 
     { ptrMap[imap] = (char*) malloc ( 40 * sizeof(char) ) ;  }
 
-  splitString(MAPLIST_IGNORE_DATAERR, comma, MXMAP_FLUXERRMAP,
+  splitString(MAPLIST_IGNORE_DATAERR, comma, fnam, MXMAP_FLUXERRMAP,
 	      &NMAPNAME_IGNORE, ptrMap );
 
   printf("\t Found %d FLUXERRMAPs to ignore in data errors: \n",

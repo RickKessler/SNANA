@@ -1565,7 +1565,7 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
     if ( commentchar(ctmp) ) { continue; }
     
     // break line into words
-    splitString(ctmp, " ",MXSPLIT_mucov,  // (I)
+    splitString(ctmp, " ", fnam, MXSPLIT_mucov,  // (I)
 		&NSPLIT, ptrSplit);       // (O)
 
     if ( NROW_read == 0 ) {
@@ -1699,7 +1699,7 @@ void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
     if ( commentchar(ctmp) ) { continue; }
     
     // break line into words
-    splitString(ctmp, " ",MXSPLIT_mucov,  // (I)
+    splitString(ctmp, " ", fnam, MXSPLIT_mucov,  // (I)
 		&NSPLIT, ptrSplit);       // (O)
 
     if ( NROW_read == 0 ) {

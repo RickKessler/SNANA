@@ -632,7 +632,7 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
   for(i=0; i < MAXITEM; i++ )
     { ptr_ITEMLIST[i] = (char*)malloc(MEMC); }
 
-  splitString(STRING, sepKey, MAXITEM,         // inputs               
+  splitString(STRING, sepKey, fnam, MAXITEM,         // inputs               
 	      &NLIST, ptr_ITEMLIST );         // outputs             
 
   // load dictionary
@@ -2507,7 +2507,7 @@ void parse_multiplier(char *inString, char *key, double *multiplier) {
     // do the parsing; start by splitting string around *
     splitValues[0] = (char*)malloc(MEMC);  
     splitValues[1] = (char*)malloc(MEMC);
-    splitString(inString, star, 3,      // inputs
+    splitString(inString, star, fnam, 3,      // inputs
 		&NSPLIT, splitValues );      // outputs         
     
     if ( strcmp(splitValues[0],key) == 0 ) 
@@ -2589,7 +2589,7 @@ void parse_GENPOLY(char *stringPoly, char *varName,
   splitRange[0] = (char*)malloc( 40*MEMC);
   splitRange[1] = (char*)malloc( 40*MEMC);
 
-  splitString(stringPoly, comma, MXSPLIT,      // inputs
+  splitString(stringPoly, comma, fnam, MXSPLIT,      // inputs
               &NSPLIT, splitValue );      // outputs         
 
   ORDER = NSPLIT-1;
@@ -2602,7 +2602,7 @@ void parse_GENPOLY(char *stringPoly, char *varName,
       sscanf(tmpVal, "%le", &DVAL0 ); DVAL1=DVAL0;
     }
     else {
-      splitString(tmpVal, colon, 4,
+      splitString(tmpVal, colon, fnam, 4,
 		  &NRANGE, splitRange );  // outputs
       if ( NRANGE != 2 ) {
 	sprintf(c1err,"NRANGE=%d for order=%d. Expect 2 args"
@@ -2904,7 +2904,7 @@ void INIT_SNANA_DUMP(char *STRING) {
     wordList[i] = (char*) malloc ( MEMC ) ;
     ptrSplit[i] = wordList[i];
   }
-  splitString(STRING, BLANK, MXSPLIT,
+  splitString(STRING, BLANK, fnam, MXSPLIT,
 	      &Nsplit, ptrSplit) ;   // returned
 
   char *cwd0=wordList[0], *cwd1=wordList[0], *cwd2=wordList[0];
@@ -2932,7 +2932,7 @@ void INIT_SNANA_DUMP(char *STRING) {
     if ( strcmp(cwd0,"CID") ==0 || strcmp(cwd0,"CIDLIST")==0 ) { 
       char *ptrCCID[MXCID_DUMP],  comma[] = "," ;
       for(i=0;i<MXCID_DUMP;i++) {ptrCCID[i] = DUMP_STRING_INFO.CCIDLIST[i];}
-      splitString(cwd1, comma, MXCID_DUMP, &NCID, ptrCCID) ;  
+      splitString(cwd1, comma, fnam, MXCID_DUMP, &NCID, ptrCCID) ;  
       DUMP_STRING_INFO.NCID = NCID;
     }
 
@@ -3276,7 +3276,7 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   if ( strlen(item) == 0 ) { *n_item=0; return; }
 
   // split item string
-  splitString(item, COMMA, MAX_ITEM,    // inputs
+  splitString(item, COMMA, fnam, MAX_ITEM,    // inputs
 	      n_item, *arrayList );      // outputs 
   
   char *f0 = *arrayList[0];
@@ -5552,14 +5552,15 @@ int index_charString(char *c, char *s) {
 
 } // index_charString
 
-void splitString(char *string, char *sep, int MXsplit,
-		 int *Nsplit, char **ptrSplit) {
+void splitString(char *string, char *sep, char *callFun, int MXsplit,
+		 int *Nsplit, char **ptrSplit ) {
 
   // Created July 2016
   //
   // Inputs:
   //    *string  : string to split (preserved)
   //    *sep     : separator, e.g., ',' or ' ' or '+'
+  //    callFun  : name of calling function for abort message
   //    MXsplit  : abort if Nsplit >= MXsplit
   //
   // Output :
@@ -5568,6 +5569,8 @@ void splitString(char *string, char *sep, int MXsplit,
   //
   // Aug 18 2021
   //   remove termination char in case extra blank spaces + <CR> are included.
+  // Apr 22 2023: 
+  //   pass calling function *callFun for abort message
   // ---------------
 
   bool ISTERM;
@@ -5599,8 +5602,8 @@ void splitString(char *string, char *sep, int MXsplit,
     print_preAbort_banner(fnam);  
     printf("  string to split: '%s' \n", string);
     printf("  split separator: '%s' \n", sep);
-    sprintf(c1err,"Nsplit = %d ", N );
-    sprintf(c2err,"Exceeds bound MXsplit=%d", MXsplit);
+    sprintf(c1err, "Nsplit = %d  exceeds bound MXsplit=%d", N, MXsplit );
+    sprintf(c2err, "called by function", callFun);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 
@@ -5688,7 +5691,7 @@ void split2floats(char *string, char *sep, float *fval) {
   
 
   // split the string by the sep input
-  splitString(string, sep, 2, &Nsplit, cptr);
+  splitString(string, sep, fnam, 2, &Nsplit, cptr);
   if ( Nsplit != 2 ) {
     sprintf(c1err,"Invalid Nsplit=%d (expected 2)", Nsplit);
     sprintf(c2err,"Input string='%s'  sep='%s' ", string, sep);
@@ -7192,7 +7195,7 @@ int rd_sedFlux(
     //    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
     //		 &NRDWORD, ptrStringVal ) ;  // returned
 
-    splitString(line, space, MXWORDLINE_FLUX, 
+    splitString(line, space, fnam, MXWORDLINE_FLUX, 
 		&NRDWORD, ptrStringVal ) ;  // returned
    
     if ( NRDWORD < 3 ) {
@@ -8921,7 +8924,7 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
     { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
 
-  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+  splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, &PATH[1] ); // <== returned
 
   NPATH++; sprintf(PATH[0],"");
@@ -9139,7 +9142,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
     { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
 
-  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+  splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, PATH ); // <== returned
 
   for(ipath=0; ipath < NPATH; ipath++ ) {
@@ -9379,6 +9382,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   //#define MXPATH_CHECK 4
   int NPATH, ipath;
   char *PATH[MXPATH_CHECK], sepKey[] = " " ;
+  char fnam[] = "abort_openTextFile" ;
 
   // -------------- BEGIN ----------------
   print_preAbort_banner(funCall);
@@ -9391,7 +9395,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   getcwd(PATH[0],MXPATHLEN);
 
   // split string to get other paths
-  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+  splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	      &NPATH, &PATH[1] ); // <== returned
   
   printf("\n  The following paths were checked for input file read from"

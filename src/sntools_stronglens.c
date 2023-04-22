@@ -259,7 +259,7 @@ void init_stronglens(char *MODEL_FILE) {
       }
 
       else if ( iwd == INPUTS_STRONGLENS.ICOL_XIMG_SRC ) 	{ 
-	splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+	splitString(tmpWord, comma, fnam, MXIMG_STRONGLENS,&Nsplit,cptr);
 	if ( Nsplit != NIMG )  { 
 	  sprintf(c1err,"Found %d images but expected %d in line %d",
 		  Nsplit,NIMG,i);
@@ -274,7 +274,7 @@ void init_stronglens(char *MODEL_FILE) {
       }
 
       else if ( iwd == INPUTS_STRONGLENS.ICOL_YIMG_SRC )  { 
-	splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+	splitString(tmpWord, comma, fnam, MXIMG_STRONGLENS,&Nsplit,cptr);
 	if ( NIMG < 0 )  { 
 	  sprintf(c1err,"NIMG must be defined before variables with "
 		  "multiple images (e.g. MAGNIF, DELAY, etc.)");
@@ -295,7 +295,7 @@ void init_stronglens(char *MODEL_FILE) {
       }
 
       else if ( iwd == INPUTS_STRONGLENS.ICOL_MAGNIF )  { 
-	splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+	splitString(tmpWord, comma, fnam, MXIMG_STRONGLENS,&Nsplit,cptr);
 	if ( NIMG < 0 )  { 
 	  sprintf(c1err,"NIMG must be defined before variables with "
 		  "multiple images (e.g. MAGNIF, DELAY, etc.)");
@@ -316,7 +316,7 @@ void init_stronglens(char *MODEL_FILE) {
       }
       	
       else if ( iwd == INPUTS_STRONGLENS.ICOL_DELAY )  { 
-	splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+	splitString(tmpWord, comma, fnam, MXIMG_STRONGLENS,&Nsplit,cptr);
 	if ( NIMG < 0 )  { 
 	  sprintf(c1err,"NIMG must be defined before variables with "
 		  "multiple images (e.g. MAGNIF, DELAY, etc.)");

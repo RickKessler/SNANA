@@ -77,7 +77,7 @@ void parse_spectrograph_options(char *stringOpt) {
   char *ptrOpt[MXOPT_SPEC], s[MXOPT_SPEC][40];
   char *ptr2[MXOPT_SPEC], s2[2][40];
   char comma[]=",", equal[]="=" ;
-  //   char fnam[] = "parse_spectrograph_options" ;
+  char fnam[] = "parse_spectrograph_options" ;
 
   // ------------- BEGIN --------------
 
@@ -88,14 +88,14 @@ void parse_spectrograph_options(char *stringOpt) {
   // split by comma-separated values
   for(opt=0; opt < MXOPT_SPEC; opt++ )  { ptrOpt[opt] = s[opt] ; }
 
-  splitString(stringOpt, comma, MXOPT_SPEC,           // inputs               
+  splitString(stringOpt, comma, fnam, MXOPT_SPEC,           // inputs               
               &NOPT, ptrOpt );                        // outputs             
 
   // split each option by equal sign:  bla=val
   ptr2[0] = s2[0];
   ptr2[1] = s2[1];
   for(opt=0; opt < NOPT; opt++ ) {
-    splitString(s[opt], equal, MXOPT_SPEC, &NTMP, ptr2);
+    splitString(s[opt], equal, fnam, MXOPT_SPEC, &NTMP, ptr2);
 
     if ( strcmp(s2[0],"rebin")==0 ) {
       sscanf(s2[1] , "%d", &INPUTS_SPECTRO.NREBIN_LAM ); 

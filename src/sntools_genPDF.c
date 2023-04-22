@@ -181,7 +181,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     if ( commentchar(c_get) ) { continue; }
 
     sprintf(TMPLINE,"%s %s", c_get, LINE);
-    splitString(TMPLINE, " ", MXWD_TMPLINE,  // inputs             
+    splitString(TMPLINE, " ", fnam, MXWD_TMPLINE,  // inputs             
 		&NITEM, ptr_ITEMLIST );     // outputs
 
     IS_VARNAMES = (strcmp(c_get,"VARNAMES:") == 0 );

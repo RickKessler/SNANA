@@ -860,7 +860,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     // FILTCHAR_1D includes every observation; here we pick out subset
     // subset of FILTCHAR_1D that are on STORE_LIST
 
-    splitString(SNDATA.FILTCHAR_1D, COMMA, MXEPOCH,    // inputs    
+    splitString(SNDATA.FILTCHAR_1D, COMMA, fnam, MXEPOCH,    // inputs    
 		&NSPLIT, &SNDATA.FILTCHAR[1] );            // outputs 
 
     stringVal[0] = 0 ;
@@ -877,7 +877,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    splitString(SNDATA.FIELDNAME_1D, COMMA, MXEPOCH,    // inputs    
+    splitString(SNDATA.FIELDNAME_1D, COMMA, fnam, MXEPOCH,    // inputs    
 		&NSPLIT, &SNDATA.FIELDNAME[1] );            // outputs 
 
     stringVal[0] = 0 ;

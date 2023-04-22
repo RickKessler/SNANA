@@ -196,7 +196,7 @@ void init_genSmear_SCALE(char *SCALE_STRING) {
   cptr[0] = VARNAME;
   cptr[1] = cPOLY;
 
-  splitString(SCALE_STRING, space, 2, &NTMP, cptr);
+  splitString(SCALE_STRING, space, fnam, 2, &NTMP, cptr);
 
   // xxx  printf(" xxx VARNAME='%s'  cPOLY = '%s' \n", VARNAME, cPOLY);
 
@@ -1439,7 +1439,7 @@ void  parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG,
   for(ilam=0; ilam < MXLAMBIN_SIGCOH; ilam++ ) 
     { ptrSplit[ilam] = stringList[ilam]; }
 
-  splitString(stringLam, comma, MXLAMBIN_SIGCOH,
+  splitString(stringLam, comma, fnam, MXLAMBIN_SIGCOH,
 	      &NLAM, ptrSplit );          // <=== returned
   for(ilam=0; ilam < NLAM; ilam++ ) 
     { sscanf(ptrSplit[ilam], "%le", &SIGCOH_LAM->XVAL[ilam] ); }
@@ -1447,7 +1447,7 @@ void  parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG,
 
   // parse comma-separated SIGCOH values in KEYARG
   sprintf(stringArg, "%s", KEYARG);
-  splitString(stringArg, comma, MXLAMBIN_SIGCOH,
+  splitString(stringArg, comma, fnam, MXLAMBIN_SIGCOH,
 	      &NSIGCOH, ptrSplit );          // <=== returned
   for(ilam=0; ilam < NSIGCOH; ilam++ ) 
     { sscanf(ptrSplit[ilam], "%le", &SIGCOH_LAM->YVAL[ilam] ); }
@@ -2608,7 +2608,7 @@ void init_genSmear_COH(char *stringArg) {
     ptrSigma[0] = (char*) malloc(MEMC);
     ptrSigma[1] = (char*) malloc(MEMC);
 
-    splitString(stringSigma, plus, 2, &Nsigma, ptrSigma);
+    splitString(stringSigma, plus, fnam, 2, &Nsigma, ptrSigma);
     for(i=0; i < Nsigma; i++ ) 
       { sscanf(ptrSigma[i], "%le", &GENSMEAR_COH.MAGSIGMA[i])  ; }
 

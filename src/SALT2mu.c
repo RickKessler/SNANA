@@ -2389,7 +2389,7 @@ void setup_BININFO_userz(void) {
   print_debug_malloc(+1*debug_malloc,fnam);
   for(iz=0; iz < MXz; iz++ ) { ptr_z[iz] = (char*)malloc(MEMC); }
 
-  splitString(INPUTS.zbinuser, COMMA, MXz,    // inputs
+  splitString(INPUTS.zbinuser, COMMA, fnam, MXz,    // inputs
 	      &Nsplit, ptr_z );                    // outputs
   nzbin  = Nsplit-1 ;
 
@@ -8123,12 +8123,12 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   }
 
   // split by colon
-  splitString(STRINGOPT, colon, MXBINSTRING,            // inputs
+  splitString(STRINGOPT, colon, fnam, MXBINSTRING,            // inputs
 	      &NSPLIT_STRING, ptr_binString );           // outputs
   
   // split each binString by equal sing
   for(isplit=0; isplit < NSPLIT_STRING; isplit++ ) {
-    splitString(ptr_binString[isplit], equal, MXBINSTRING,   // inputs
+    splitString(ptr_binString[isplit], equal, fnam, MXBINSTRING,   // inputs
 		&NSPLIT_TMP, ptr_binVar );           // outputs
     if ( NSPLIT_TMP != 2 ) {
       sprintf(c1err,"Invalid NSPLIT_TMP=%d for '%s' (expect 2)", 
@@ -8203,7 +8203,7 @@ void set_FIELDGROUP_biasCor(void) {
   int i, NGRP;
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   char *ptrFIELD[MXNUM_SAMPLE] ;
-  //  char fnam[] = "set_FIELDGROUP_biasCor"; 
+  char fnam[] = "set_FIELDGROUP_biasCor"; 
 
   // ---------- BEGIN ----------
 
@@ -8214,7 +8214,7 @@ void set_FIELDGROUP_biasCor(void) {
   for(i=0; i < MXNUM_SAMPLE; i++ ) 
     { ptrFIELD[i] = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i] ; }
   
-  splitString(INPUTS.fieldGroup_biasCor, COMMA, MXNUM_SAMPLE, // inputs
+  splitString(INPUTS.fieldGroup_biasCor, COMMA, fnam, MXNUM_SAMPLE, // inputs
 	      &NGRP, ptrFIELD );   // outputs
 
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR = NGRP;
@@ -8259,7 +8259,7 @@ void  set_SURVEYGROUP_biasCor(void) {
     for(i=0; i < MXNUM_SAMPLE; i++ ) 
       { ptrSURVEY[i] = INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[i] ; }
 
-    splitString(INPUTS.surveyGroup_biasCor, COMMA, MXNUM_SAMPLE, // inputs
+    splitString(INPUTS.surveyGroup_biasCor, COMMA, fnam, MXNUM_SAMPLE, // inputs
 		&NGRP, ptrSURVEY ); // outputs
     INPUTS_SAMPLE_BIASCOR.NSURVEYGROUP_USR = NGRP ;
   }
@@ -8282,7 +8282,7 @@ void  set_SURVEYGROUP_biasCor(void) {
 		     INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_OPTLIST[i] ); 
 
     splitString(INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[i], 
-		PLUS, MXNUM_SAMPLE, // (I) 
+		PLUS, fnam, MXNUM_SAMPLE, // (I) 
 		&INPUTS_SAMPLE_BIASCOR.NSURVEY_PER_GROUP[i], ptrTmp ); // (O)
 
     // store integer IDSURVEY for each plus-separated SURVEY 
@@ -8712,7 +8712,7 @@ void match_fieldGroup(char *SNID, char *FIELD,
     char *ptrFlist[MXFIELD_OVERLAP];
     for(ifield=0; ifield<MXFIELD_OVERLAP; ifield++ ) 
       { ptrFlist[ifield] = fieldList[ifield] ;  } 
-    splitString(FIELD, "+", MXFIELD_OVERLAP, &NFIELD_OVP, ptrFlist ); 
+    splitString(FIELD, "+", fnam, MXFIELD_OVERLAP, &NFIELD_OVP, ptrFlist ); 
   }
   else {
     // just one field; no overlaps
@@ -16558,7 +16558,7 @@ void prep_input_nmax(char *item) {
 
   for(i=0; i < MXARG_nmax; i++ ) {  ptrArg[i] = stringArg[i]; }
 
-  splitString(item, COMMA, MXARG_nmax,    // inputs
+  splitString(item, COMMA, fnam, MXARG_nmax,    // inputs
 	      &NARG, ptrArg );            // outputs
 
 
@@ -16604,14 +16604,14 @@ void parse_powzbin(char *item) {
   int  NARG, MXARG=3;
   char stringArg[2][20];
   char *ptrArg[2] = { stringArg[0], stringArg[1] } ;
-  //  char fnam[] = "parse_powzbin" ;
+  char fnam[] = "parse_powzbin" ;
 
   // ------------- BEGIN ---------------
 
   INPUTS.powzbin =  0.0 ;  
   INPUTS.znhalf  = -9.0 ;
 
-  splitString(item, COMMA, MXARG,    // inputs
+  splitString(item, COMMA, fnam, MXARG,    // inputs
 	      &NARG, ptrArg );       // outputs
 
   sscanf(ptrArg[0], "%le", &INPUTS.powzbin); 
@@ -16760,7 +16760,7 @@ void parse_blindpar(char *item) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  splitString(item_local, COMMA, MXARG,    // inputs
+  splitString(item_local, COMMA, fnam, MXARG,    // inputs
 	      &NARG, ptrArg );            // outputs
 
   sscanf(ptrArg[0], "%le", &INPUTS.blind_cosinePar[ipar][0] ); 
@@ -16954,7 +16954,7 @@ void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT) {
   }
 
   // --- split the string ----
-  splitString(itemLocal, sep, MXID_SELECT,      // inputs
+  splitString(itemLocal, sep, fnam, MXID_SELECT,      // inputs
 	      &NTMP, ptrID );                   // outputs
 
 
@@ -17058,7 +17058,7 @@ void parse_sigint_fix(char *item) {
     // strip sigint for each IDSAMPLE
     for(i=0; i < MXNUM_SAMPLE; i++ ) { ptrSIG[i] = strSIG[i]; }
     sprintf(itemLocal,"%s", item);
-    splitString(itemLocal, COMMA, MXNUM_SAMPLE,      // inputs
+    splitString(itemLocal, COMMA, fnam, MXNUM_SAMPLE,      // inputs
 		&Nsigint, ptrSIG );                    // outputs
     if ( Nsigint != NSAMPLE ) {
       sprintf(c1err,"Nsiginit=%d != N_IDSAMPLE=%d", Nsigint, NSAMPLE);
@@ -17581,7 +17581,7 @@ void parse_FIELDLIST(char *item) {
   for(i=0; i < MXFIELD_OVERLAP; i++ ) 
     { INPUTS.FIELDLIST[i] = (char*) malloc(20*sizeof(char) ); }
 
-  splitString(item, COMMA, MXFIELD_OVERLAP,               // inputs
+  splitString(item, COMMA, fnam, MXFIELD_OVERLAP,               // inputs
 	      &INPUTS.NFIELD, INPUTS.FIELDLIST ); // outputs
   
   if ( LDMP ) {
@@ -18390,7 +18390,7 @@ void prep_input_probcc0(void) {
 
   // check TYPE from data header
   if ( LEN_type_list > 0 ) {
-    splitString(str_type_list, COMMA, MXPROBCC_ZERO,    // inputs
+    splitString(str_type_list, COMMA, fnam, MXPROBCC_ZERO,    // inputs
 		&nval, str_values ) ;                    // outputs    
     INPUTS_PROBCC_ZERO.ntype = nval ;
     for(i=0; i < nval; i++ ) {
@@ -18404,7 +18404,7 @@ void prep_input_probcc0(void) {
 
   // check survey ID from $SNDATA_ROOT/SURVEY.DEF
   if ( LEN_idsurvey_list > 0 ) {
-    splitString(str_idsurvey_list, COMMA, MXPROBCC_ZERO,    // inputs
+    splitString(str_idsurvey_list, COMMA, fnam, MXPROBCC_ZERO,    // inputs
 		&nval, str_values ) ;                    // outputs    
     INPUTS_PROBCC_ZERO.nidsurvey = nval ;
 
@@ -18604,7 +18604,7 @@ void  prep_input_varname_missing(void) {
   for(i=0; i < MXVAR; i++ ) 
     { INPUTS_VARNAME_MISSING.varname_list[i] = (char*)malloc(MEMC); }
 
-  splitString(varname_missing, COMMA, MXVAR,         // inputs
+  splitString(varname_missing, COMMA, fnam, MXVAR,         // inputs
 	      &INPUTS_VARNAME_MISSING.ndef,             //output
 	      INPUTS_VARNAME_MISSING.varname_list ) ;   //output
 
@@ -21614,7 +21614,7 @@ void  SUBPROCESS_INIT(void) {
   tmpFiles[0]   = SUBPROCESS.INPFILE ;
   tmpFiles[1]   = SUBPROCESS.OUTFILE ;
   tmpFiles[2]   = SUBPROCESS.STDOUT_FILE ;
-  splitString(SUBPROCESS.INPUT_FILES, ",", 3, &NSPLIT, tmpFiles);
+  splitString(SUBPROCESS.INPUT_FILES, ",", fnam, 3, &NSPLIT, tmpFiles);
   
   // open INPFILE in read mode, but only for sim data.
   // skip for real data since there is nothing to rewgt.
@@ -21784,7 +21784,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
     { ptrVarAll[ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char) ); }
 
-  splitString(VARNAMES_STRING, COMMA, MXVAR_GENPDF,    // inputs
+  splitString(VARNAMES_STRING, COMMA, fnam, MXVAR_GENPDF,    // inputs
 	      &NVAR_ALL, ptrVarAll );                  // outputs
 
   // - - - -- 
@@ -21992,7 +21992,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
       fgets(LINE,MXPATHLEN,finp); 
       sprintf(TMPLINE,"%s %s", c_get, LINE);
-      splitString(TMPLINE, " ", MXPATHLEN,          // inputs
+      splitString(TMPLINE, " ", fnam, MXPATHLEN,          // inputs
                   &NITEM, ptr_ITEMLIST );      // outputs
 
       if ( is_salt2 ) {
@@ -22476,7 +22476,7 @@ void SUBPROCESS_INIT_DUMP(void) {
     for(i=0; i < MXSPLIT; i++ ) 
       { ptrSNID[i] = (char*) malloc( 20*sizeof(char) ); }
     
-    splitString(string, COMMA, MXSPLIT,    // inputs
+    splitString(string, COMMA, fnam, MXSPLIT,    // inputs
 		&NSPLIT, ptrSNID );        // outputs
   }
 
@@ -22526,7 +22526,7 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
     { sprintf(DELIM,"%s", PERCENT); }
   else
     { sprintf(DELIM,"%s", STAR); }
-  splitString(TABLE_STRING, DELIM, MXVAR,       // inputs
+  splitString(TABLE_STRING, DELIM, fnam, MXVAR,       // inputs
 	      &NVAR, ptrVarDef );               // outputs
 
   // - - - - 
@@ -22585,7 +22585,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   }
 
   // split by comma to get nbin and xmin:xmax
-  splitString(stringOpt, COMMA, 2,       // inputs
+  splitString(stringOpt, COMMA, fnam, 2,       // inputs
 	      &NSPLIT, ptrSplit );        // outputs
 
   sscanf(ptrSplit[0], "%d", &nbin);
@@ -22598,7 +22598,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   }
 
   // split xmin:xmax by colon
-  splitString(ptrSplit[1], COLON, 2,       // inputs
+  splitString(ptrSplit[1], COLON, fnam, 2,       // inputs
 	      &NSPLIT, ptrRange );        // outputs
 
   sscanf(ptrRange[0], "%le", &xmin) ;

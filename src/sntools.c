@@ -5560,7 +5560,7 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
   // Inputs:
   //    *string  : string to split (preserved)
   //    *sep     : separator, e.g., ',' or ' ' or '+'
-  //    callFun  : name of calling function for abort message
+  //    *callFun : name of calling function for abort message
   //    MXsplit  : abort if Nsplit >= MXsplit
   //
   // Output :
@@ -5603,7 +5603,7 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
     printf("  string to split: '%s' \n", string);
     printf("  split separator: '%s' \n", sep);
     sprintf(c1err, "Nsplit = %d  exceeds bound MXsplit=%d", N, MXsplit );
-    sprintf(c2err, "called by function", callFun);
+    sprintf(c2err, "called by function  %s", callFun);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 

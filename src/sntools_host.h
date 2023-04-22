@@ -709,6 +709,8 @@ void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
+double transform_ZTRUE_HOSTLIB(int igal); 
+
 void   init_HOSTLIB_ZPHOTEFF(void);
 void   init_HOSTLIB_ZPHOT_QUANTILE(void);
 void   init_GALMAG_HOSTLIB(void);

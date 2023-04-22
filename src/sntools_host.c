@@ -2631,7 +2631,18 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
     sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
     HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
-  }
+
+    // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
+    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
+    if ( !SN2GAL ) {
+      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
+	      HOSTLIB_VARNAME_ZTRUE_CMB);
+      sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
+	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+  } // end HOSTLIB_VARNAME_ZTRUE_CMB if block
 
   for (j=0; j<N_HOSTGAL_PROPERTY; j++){
     BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
@@ -3402,17 +3413,19 @@ void sortz_HOSTLIB(void) {
   // load ZSORT array
   for ( igal=0; igal < NGAL; igal++ ) {
     ZTRUE = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal]; 
-
-    // 4/2023: if ZTRUE_CMB column is in HOSTLIB, then
-    // translate ZTRUE(CMB) back to ZTRUE(helio). 
-    if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
-      double ZTRUE_CMB = ZTRUE;
-      ZTRUE = zhelio_zcmb_translator(ZTRUE_CMB,GENLC.RA,GENLC.DEC,
-				     COORDSYS_EQ,-1);
-    }
-
     ZSORT[igal] = ZTRUE ;
-  }
+
+    // 4/2023: check if ZTRUE_CMB column is in HOSTLIB
+    if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
+      double ZTRUE_HEL = transform_ZTRUE_HOSTLIB(igal);
+
+      // update ZTRUE(helio) as if it were in the original HOSTLIB
+      ZSORT[igal] = ZTRUE_HEL ;
+      HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal] = ZTRUE_HEL ; 
+    }  // end CMB-frame option
+
+  } // end igal loop
+ 
 
   ORDER_SORT = +1 ;    // increasing order
   sortDouble( NGAL, ZSORT, ORDER_SORT, HOSTLIB.LIBINDEX_UNSORT ) ;
@@ -3520,6 +3533,55 @@ void sortz_HOSTLIB(void) {
 
 } // end of sortz_HOSTLIB
 
+
+// =============================================
+double transform_ZTRUE_HOSTLIB(int igal) {
+
+  // Created April 2023 by R.Kessler
+  //
+  // This function is called if ZTRUE_CMB column is found in HOSTLIB,
+  // and returns corresponding ZTRUE_HEL using HOSTLIB coordinates.
+  // If HOSTLIB coords (RA_GAL, DEC_GAL) do not exist, function aborts.
+
+  int IVAR_GALID = HOSTLIB.IVAR_GALID ;
+  int IVAR_RA    = HOSTLIB.IVAR_RA ;
+  int IVAR_DEC   = HOSTLIB.IVAR_DEC ;
+  int IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE ;
+  long long int GALID ;
+  double ZTRUE_CMB, ZTRUE_HEL, RA, DEC ;
+  char fnam[] = "transform_ZTRUE_HOSTLIB" ;
+
+  // ---------- BEGIN ----------
+
+  if ( IVAR_RA < 0 || IVAR_DEC < 0 ) {
+    sprintf(c1err,"required HOSTLIB coords (RA_GAL or DEC_GAL) not defined");
+    sprintf(c2err,"IVAR_RA=%d IVAR_DEC=%d", IVAR_RA, IVAR_DEC);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // strip off values read from HOSTLIB
+  ZTRUE_CMB = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal];
+  RA        = HOSTLIB.VALUE_UNSORTED[IVAR_RA][igal];
+  DEC       = HOSTLIB.VALUE_UNSORTED[IVAR_DEC][igal];
+
+  // transform back to heliocentric frame
+  ZTRUE_HEL = zhelio_zcmb_translator(ZTRUE_CMB, RA, DEC, COORDSYS_EQ, -1);
+
+  // dump option
+  if ( INPUTS.HOSTLIB_GALID_DUMP > 0 ) {
+    GALID = (long long int)HOSTLIB.VALUE_UNSORTED[IVAR_GALID][igal] ;
+    if ( GALID == INPUTS.HOSTLIB_GALID_DUMP ) {
+      printf(" xxx %s DUMP: GALID=%lld  ZTRUE_CMB=%f --> ZTRUE_HEL=%f \n",
+	     fnam, GALID, ZTRUE_CMB, ZTRUE_HEL);
+      printf(" xxx %s DUMP: GALID=%lld  RA=%.6f  DEC=%.6f \n",
+	     fnam, GALID, RA, DEC);
+    }
+  } // end DUMP
+  
+
+  return ZTRUE_HEL;
+
+} // end transform_ZTRUE_HOSTLIB
 
 // =======================================
 void zptr_HOSTLIB(void) {

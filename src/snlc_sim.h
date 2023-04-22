@@ -55,7 +55,7 @@
 #define  TABLEID_DUMP  7100   // for SNTABLE functions
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
-#define  MXGROUPID_SIMLIB  6      // max number of groupIDs per LIBID entry
+#define  MXGROUPID_SIMLIB 12      // max number of groupIDs per LIBID entry
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  15000    // max number of observ. per simlib
@@ -501,8 +501,10 @@ struct INPUTS {
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
-  int  HOSTLIB_GALID_PRIORITY[2] ;  // preferentially select this GALID range
   int  HOSTLIB_GALID_UNIQUE;         // flag to force unique galid
+  long long int HOSTLIB_GALID_PRIORITY[2] ;  // preferentially select this GALID range
+  long long int HOSTLIB_GALID_DUMP;  // print debug info for this GALID
+
   int  HOSTLIB_MINDAYSEP_SAMEGAL ;    // min DAYs before re-using host gal
   float  HOSTLIB_MNINTFLUX_SNPOS; // gen SNPOS greater than this flux-fraction (.00)
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)

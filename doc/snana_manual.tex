@@ -119,6 +119,9 @@
 \newcommand{\zsun}{z_{\odot}}
 \newcommand{\vpec}{{\rm v}_{\rm pec}}
 
+\newcommand{\ztruecmb}{{\tt ZTRUE\_CMB}}
+\newcommand{\ztrue}{{\tt ZTRUE}}
+
 \newcommand{\Nseason}{N_{\rm season}}
 
 \newcommand{\OM}{\Omega_M}
@@ -4000,16 +4003,18 @@ hereafter denoted ``{\hostlib}''. An example \hostlib\
 is shown in Fig.~\ref{fig:hostlib}.
 This self-documented file gives the number of variables
 describing each host ({\tt NVAR}) and a list of 
-descriptive ''{\tt VARNAMES}.''  There are two mandatory
-variables: {\tt GALID} and  {\tt ZTRUE}; the simulation
-will abort if either variable is missing. 
+descriptive ''{\tt VARNAMES}.''  
+There are two mandatory variables: {\tt GALID} and 
+true heliocentric redshift \ztrue\ 
+(or {\tt ZTRUE\_CMB};' see \S\ref{sss:ZTRUE_CMB}) ; 
+the simulation will abort if either variable is missing. 
 The integer {\tt GALID} must be the first element,
-but {\tt ZTRUE} can be anywhere on the {\tt VARNAMES} list.
-The library need not be sorted by {\tt ZTRUE} since
+but \ztrue\ can be anywhere on the {\tt VARNAMES} list.
+The library need not be sorted by \ztrue\ since
 the simulation internally sorts the library by redshift.
 
 In principle a \hostlib\ needs to contain only
-{\tt GALID} and {\tt ZTRUE}, but such a library would
+{\tt GALID} and \ztrue, but such a library would
 not be useful to simulate interesting effects.
 The remaining {\tt VARNAMES} in Fig.~\ref{fig:hostlib}
 are optional, and control what kinds of effects can
@@ -4294,7 +4299,7 @@ these 3 quantities are constrained by
 Although an exact solution exists for this quadratic equation,
 the solution for $\zpeak,\sigminus,\sigplus$ is found numerically.
 If {\tt ZPHOTERR/ZTRUE} ratio is too large, a solution cannot be found.
-In this case of no solution, the mean {\tt ZTRUE} is preserved while 
+In this case of no solution, the mean \ztrue\ is preserved while 
 the variance will be smaller than the requested {\tt ZPHOTERR}$^2$.
 The reported {\tt ZPHOTERR} reflects the calculated variance on
 the r.h.s of Eq.~\ref{eq:ZPHOTERR}.
@@ -4352,8 +4357,8 @@ viewed with the grep-command
       Generated distance ($\mu$) is also updated.
 %
 \item {\tt MSKOPT} += 16~: adjust the SN redshift, SN mags, and $\mu$ 
-      to galaxy redshift, {\tt ZTRUE}  (useful for image simulations).
-      $\zhelio=$~{\tt ZTRUE};  $\zcmb$ and $\mu$ are updated
+      to galaxy redshift, \ztrue\  (useful for image simulations).
+      $\zhelio=$~\ztrue;  $\zcmb$ and $\mu$ are updated
       to account for new $\zhelio$ and generated $\vpec$.
 %
 \item {\tt MSKOPT} += 32~: allow only one SN per host galaxy 
@@ -4774,6 +4779,23 @@ so that the \spec\ redshift is not available in the data file;
 this option is invoked by setting {\tt GENSIGMA\_REDSHIFT}$\ge 1$.
 If there is no host-galaxy photo-z, {\tt GENSIGMA\_REDSHIFT}$\ge 1$
 results in undefined {\tt REDSHIFT\_FINAL}$= -9 \pm -9$.
+
+
+% ---------------------------------------
+\label{sss:ZTRUE_CMB}
+\subsubsection{\ztruecmb\ Column instead of Heliocentric {\ztrue} }
+
+The \hostlib\ redshifts can be specified in the CMB frame using a
+\ztruecmb\ column instead of the default \ztrue\ column.
+For this \ztruecmb\ feature, the \hostlib\ coordinates 
+({\tt RA\_GAL}, {\tt DEC\_GAL}) are used to transform
+\ztruecmb\ back to heliocentric \ztrue\ during initialization.
+Therefore, this CMB-frame feature works only with the {\tt HOSTLIB\_MSKOPT += 8}
+option to use \hostlib\ coordinates intead of \simlib\ coordinates.
+If \ztruecmb\ is specified without also using the
+{\hostlib}-coordinate option, the simulation aborts.
+
+% ---------------------------------------
 
 
 % ---------------------------------------

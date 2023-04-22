@@ -1058,6 +1058,7 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_GALID_NULL      = -9;     // value for no host
   INPUTS.HOSTLIB_GALID_PRIORITY[0]  = 0 ;
   INPUTS.HOSTLIB_GALID_PRIORITY[1]  = 0 ;
+  INPUTS.HOSTLIB_GALID_DUMP         = 0 ;
   INPUTS.HOSTLIB_GALID_UNIQUE = 0;
   INPUTS.HOSTLIB_SBRADIUS           = 0.6*2.0 ; // arcsec
   INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL  = 9999999;  // default is never re-use host
@@ -3459,8 +3460,11 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_NULL ) ;
   }
   else if ( keyMatchSim(1, "HOSTLIB_GALID_PRIORITY",WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[0] ) ;
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[1] ) ;
+    N++;  sscanf(WORDS[N], "%lld", &INPUTS.HOSTLIB_GALID_PRIORITY[0] ) ;
+    N++;  sscanf(WORDS[N], "%lld", &INPUTS.HOSTLIB_GALID_PRIORITY[1] ) ;
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GALID_DUMP",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%lld", &INPUTS.HOSTLIB_GALID_DUMP ) ;
   }
   else if ( keyMatchSim(1, "HOSTLIB_GALID_UNIQUE", 
 			WORDS[0],keySource) ) {

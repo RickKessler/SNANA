@@ -249,13 +249,13 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_NOBS_UNDEFINED:  %d  \n", 
 	  SNDATA.SIM_NOBS_UNDEFINED );
 
-  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  \n",
+  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  # vpec not included\n",
 	  SNDATA.SIM_REDSHIFT_HELIO );
 
   fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n",
 	  SNDATA.SIM_REDSHIFT_CMB );
 
-  fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f  \n",
+  fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f \n",
 	  SNDATA.SIM_REDSHIFT_HOST );
 
   fprintf(fp,"SIM_REDSHIFT_FLAG:   %d  # %s\n", 

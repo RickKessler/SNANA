@@ -5717,6 +5717,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
 
+  int NGROUPID = SIMLIB_HEADER.NGROUPID_HOSTLIB;
+  if ( NGROUPID > 0 ) { IGAL_RANGE_CONVERGE = 500; } // ??
+
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
   int  igal0, igal1, igal_middle;
@@ -5961,62 +5964,42 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // - - - - - - - - - - - 
   // Brute force search, one igal at a time.
-
-  // store WGT and USEHOST in tmpList to use for abort dump
-  double *WGT_tmpList     = (double*) malloc( ngal_search * sizeof(double) );
-  int    *USEHOST_tmpList = (int   *) malloc( ngal_search * sizeof(int   ) );
+  double  WGTDIF, WGTDIF_MIN = 1.0E20;
+  bool   SKIP_WGT, MATCH_GROUPID ;
 
   for ( igal = igal_start; igal <= igal_end; igal++ ) {
     NGAL_CHECK++ ;
-
-    WGT_tmpList[NGAL_CHECK-1]     = -9.0 ;
-    USEHOST_tmpList[NGAL_CHECK-1] = -9 ;
-
     WGT     = ptrWGT[igal];
-    WGT_tmpList[NGAL_CHECK-1] = WGT;
-    if ( WGT <  WGT_select  )  
-      { NSKIP_WGT++; continue ; }
     
+    SKIP_WGT = false ;
+    if ( NGROUPID > 0 ) {
+      // find WGT closest to WGT_select that has GROUPID match
+      WGTDIF        = fabs(WGT-WGT_select);
+      MATCH_GROUPID = MATCH_GROUPID_HOSTLIB(igal);
+      if ( WGTDIF < WGTDIF_MIN && MATCH_GROUPID ) 
+	{ WGTDIF_MIN = WGTDIF;  }
+      else	                 
+	{ SKIP_WGT = true; }
+    }
+    else {
+      // LEGACY; find first WGT above WGT_select.
+      // At some point, should switch to finding WGT closest to WGT_select.
+      if ( WGT <  WGT_select  )  { SKIP_WGT = true; }
+    }
+
+    if ( SKIP_WGT ) { NSKIP_WGT++; continue; }
+
+
     USEHOST = USEHOST_GALID(igal);
-    USEHOST_tmpList[NGAL_CHECK-1] = USEHOST ;
     if ( !USEHOST  ) 
       { NSKIP_USED++ ; continue ; }
     
-    // select first igal with WGT > WGT_select
+    // select IGAL closest to WGT_select
     IGAL_SELECT = igal ;
     goto DONE_SELECT_GALID ;
     
   } // end igal loop
 
-
-  // - - - - - - - - - - - - - - - - - - - - - - - - 
-  // abort if we get here (Apr 2023)
-
-  /* xxxxxxx mark delete Apr 22 2023 xxxxxxx
-  print_preAbort_banner(fnam);
-  printf("  ZGEN = %f \n", ZGEN);
-  printf("  RA, DEC = %f, %f \n", GENLC.RA, GENLC.DEC);
-  printf("  LIBID   = %d \n", GENLC.SIMLIB_ID);
-  printf("  WGT[start,select,end] = %f, %f, %f \n",
-	 WGT_start, WGT_select, WGT_end );
-  printf("  igal_[start,end]_orig = %d, %d (for fast binary search)\n",
-	 igal_start_orig, igal_end_orig);
-  printf("  igal_[start,end]_final = %d, %d (for brute-force search)\n",
-	 igal_start, igal_end);
-
-  if ( SIMLIB_HEADER.NGROUPID_HOSTLIB > 0 ) {
-//    GROUPID_HOSTLIB = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,IGAL);
-  //  for(i=0; i < NGROUPID_HOSTLIB; i++ ) {
-    //  GROUPID_SIMLIB = SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i] ;
-     // if ( GROUPID_HOSTLIB == GROUPID_SIMLIB )	{ MATCH = true; }
-    }
-    
-  }
-
-  sprintf(c1err,"Unable to select GALID");
-  sprintf(c2err,"See diagnostic info above (under pre-abort dump)");
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
-   xxxxxxxx   end mark xxxxx */
 
   // - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -6034,43 +6017,32 @@ void GEN_SNHOST_GALID(double ZGEN) {
     // if using same Galaxy with MJD-sep, just return so that
     // this event is rejected.
     if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 99999 ) 
-      { SNHOSTGAL.IGAL = IGAL_SELECT ; goto CLEANUP ; }
+      { SNHOSTGAL.IGAL = IGAL_SELECT ; return ; }
 
     print_preAbort_banner(fnam);
 
     WGT_start  = ptrWGT[igal_start];
-    WGT_end    = ptrWGT[igal_end];   
+    WGT_end    = ptrWGT[igal_end]; 
     printf("\t NSKIP_WGT  = %d/%d \n", NSKIP_WGT,  NGAL_CHECK );
     printf("\t NSKIP_USED = %d/%d \n", NSKIP_USED, NGAL_CHECK );
-    printf("\t igal(start-end) = %d - %d\n", igal_start, igal_end);
-    printf("\t WGT(start-end)  = %f - %f\n",  WGT_start, WGT_end );
+
+    printf("  igal_[start,end]_orig = %d, %d (for fast binary search)\n",
+	   igal_start_orig, igal_end_orig);
+    printf("  igal_[start,end]_final = %d, %d (for brute-force search)\n",
+	   igal_start, igal_end);
+
+    printf("  WGT_[start,end]_orig = %f, %f (for fast binary search)\n",
+	   ptrWGT[igal_start_orig], ptrWGT[igal_end_orig]);
+    printf("  WGT_[start,end]_final = %f, %f (for brute-force search)\n",
+	   ptrWGT[igal_start], ptrWGT[igal_end] );
+
     printf("\t WGT_select      = %f \n", WGT_select);
     printf("\t SIMLIB LIBID    = %d \n", GENLC.SIMLIB_ID);
 
-    if ( SIMLIB_HEADER.NGROUPID_HOSTLIB > 0 ) {
-      printf("\t GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n\n",
-	     SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
-
-      int ngal=0, GROUPID;
-      double RA, DEC;
-      printf("    GALID      GROUPID       RA        DEC       "
-	     "WGT      USEHOST \n");
-      for ( igal = igal_start; igal <= igal_end; igal++ ) {
-	GALID   = (long long int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GALID,igal);
-	GROUPID = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,igal);
-	RA      =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,igal);
-	DEC     =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,igal);
-	WGT     =      WGT_tmpList[ngal];
-	USEHOST =      USEHOST_tmpList[ngal]; 
-	printf("  %10lld  %8d  %10.5f %10.5f  %.2f  %2d \n",
-	       GALID, GROUPID, RA, DEC, WGT,  USEHOST);
-	fflush(stdout);
-	ngal++ ;
-      }
-    } // end GROUPID dump
-
-
     DUMP_SNHOST();
+
+    if ( NGROUPID > 0 ) { DUMP_GROUPID(igal_start, igal_end );  } 
+
     fflush(stdout);
 
     sprintf(c1err,"Could not select HOSTLIB GALID  for ZGEN=%5.4f .", ZGEN);
@@ -6108,8 +6080,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   }
 
 
- CLEANUP:
-  free(WGT_tmpList); free(USEHOST_tmpList);
+
   return ;
 
 } // end of GEN_SNHOST_GALID
@@ -6177,8 +6148,7 @@ int USEHOST_GALID(int IGAL) {
   //  + if a host can be re-used
   //  + if host GROUPID matches request from SIMLIB (Apr 2023)
 
-  int NGROUPID_HOSTLIB = SIMLIB_HEADER.NGROUPID_HOSTLIB;
-  int GROUPID_HOSTLIB, GROUPID_SIMLIB, i;
+
   int retCode,  NUSE_PRIOR, NUSE, use;
   int MJD_STORE[MXUSE_SAMEGAL], BLOCK_STORE[MXUSE_SAMEGAL], BLOCKSUM;
   int DAY, DAYDIF, ABSDIF, PEAKDAY ;
@@ -6250,28 +6220,6 @@ int USEHOST_GALID(int IGAL) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  // - - - - - - - - - 
-  // Apr 2023: check for GROUPID match if GROUPID appears in 
-  //  both SIMLIB header and HOSTLIB
-
-  if ( NGROUPID_HOSTLIB > 0  && retCode > 0 ) {
-
-    if ( HOSTLIB.IVAR_GROUPID < 0 ) {
-      sprintf(c1err,"Cannot require GROUPID from SIMLIB (LIBID=%d) because",
-	      GENLC.SIMLIB_ID );
-      sprintf(c2err,"GROUPID column does not exist in HOSTLIB");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-    bool MATCH = false;
-    GROUPID_HOSTLIB = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,IGAL);
-    for(i=0; i < NGROUPID_HOSTLIB; i++ ) {
-      GROUPID_SIMLIB = SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i] ;
-      if ( GROUPID_HOSTLIB == GROUPID_SIMLIB )	{ MATCH = true; }
-    }
-    if ( !MATCH ) { retCode = 0 ; }
-  }
-  
 
   // --------------------------------------------
   // ----------------- DEBUG DUMP ---------------
@@ -6309,6 +6257,40 @@ int USEHOST_GALID(int IGAL) {
   return retCode;
 
 }  // end of USEHOST_GALID
+
+// =========================
+bool MATCH_GROUPID_HOSTLIB(int IGAL) {
+
+  // Apr 2023: check for GROUPID match if GROUPID appears in 
+  //  both SIMLIB header and HOSTLIB
+
+  int NGROUPID_HOSTLIB = SIMLIB_HEADER.NGROUPID_HOSTLIB;
+  int GROUPID_HOSTLIB, GROUPID_SIMLIB, i;
+  int IVAR_GROUPID     = HOSTLIB.IVAR_GROUPID ;
+  bool MATCH = false;
+  char fnam[] = "MATCH_GROUPID_HOSTLIB" ;
+
+  // ----------- BEGIN ----------
+
+  if ( NGROUPID_HOSTLIB <= 0 ) { return true; }
+
+  if ( IVAR_GROUPID < 0 ) {
+    sprintf(c1err,"Cannot require GROUPID from SIMLIB (LIBID=%d) because",
+	    GENLC.SIMLIB_ID );
+    sprintf(c2err,"GROUPID column does not exist in HOSTLIB");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  GROUPID_HOSTLIB = (int)get_VALUE_HOSTLIB(IVAR_GROUPID,IGAL);
+  for(i=0; i < NGROUPID_HOSTLIB; i++ ) {
+    GROUPID_SIMLIB = SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i] ;
+    if ( GROUPID_HOSTLIB == GROUPID_SIMLIB )	{ MATCH = true; }
+  }
+  
+
+  return MATCH ;
+
+} // end MATCH_GROUPID_HOSTLIB
 
 // =========================================
 void FREEHOST_GALID(int IGAL) {
@@ -9300,6 +9282,47 @@ void DUMP_SNHOST(void) {
   return ;
 
 } // end of DUMP_SNHOST
+
+// =========================================
+void DUMP_GROUPID(int igal_start, int igal_end ) {
+
+  // Dump GROUPID-related info for range of input igal 
+
+  int igal, ngal=0, GROUPID ;
+  long long int GALID ;
+  double  ZTRUE, RA, DEC, WGT, SEP ;
+  double *ptrWGT = HOSTLIB_WGTMAP.WGTSUM;
+  char fnam[] = "DUMP_GROUPID" ;
+
+  // ---------- BEGIN ----------
+
+  printf("# -------------------------------------------------------- \n");
+
+  printf(" %s for GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n\n",
+	 fnam, SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
+
+  printf("                                                  AngSep \n" );
+  printf("    GALID      GROUPID  ZTRUE       RA      DEC  (SN-Host)  WGT  \n");
+  for ( igal = igal_start; igal <= igal_end; igal++ ) {
+    GALID   = (long long int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GALID,igal);
+    GROUPID = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,igal);
+    ZTRUE   =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_ZTRUE,igal);
+    RA      =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,igal);
+    DEC     =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,igal);
+    WGT     =      ptrWGT[igal];
+
+    // compute angSep between SIMLIB coords and HOSTLIB coord.
+    SEP = angSep(GENLC.RA, GENLC.DEC, RA,DEC,  (double)1. );
+
+    printf("  %10lld  %8d  %7.5f  %7.2f %7.2f  %6.2f  %.1f \n",
+	   GALID, GROUPID, ZTRUE, RA, DEC, SEP, WGT);
+
+    fflush(stdout);
+    ngal++ ;
+  }
+  
+  return;
+} // end DUMP_GROUPID
 
 
 // ========================================

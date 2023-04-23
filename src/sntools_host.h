@@ -674,6 +674,7 @@ void   STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR);
 double modelPar_from_SNHOST(double parVal_orig, char *parName);
 void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
+void   DUMP_GROUPID(int igal_start, int igal_end );
 void   initvar_HOSTLIB(void);
 void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) ;
@@ -700,6 +701,8 @@ int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
 bool   match_varname_HOSTLIB(char *varName0, char *varName1);
+bool   MATCH_GROUPID_HOSTLIB(int IGAL);
+
 void   checkAlternateVarNames_HOSTLIB(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 

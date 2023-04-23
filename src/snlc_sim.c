@@ -18522,6 +18522,7 @@ void init_SIMLIB_HEADER(void) {
   SIMLIB_HEADER.CUTWIN_REDSHIFT[1] = 99.0 ;
 
   SIMLIB_HEADER.NGROUPID_HOSTLIB = 0 ;
+  SIMLIB_HEADER.GROUPID_HOSTLIB_STRING[0] = 0 ;
 
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_PEAKMJD, (double)999. ) ;
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2x1, (double)999. ) ;
@@ -18756,7 +18757,9 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
     // check to parse comma-sep list of HOSTLIB-GROUPIDs
     if ( strcmp(KEY,"HOSTLIB_GROUPID:") == 0 || 
 	 strcmp(KEY,"GROUPID_HOSTLIB:") == 0   ) {
-      char **ctmp_list;      int n_list, i ;
+
+      sprintf(SIMLIB_HEADER.GROUPID_HOSTLIB_STRING,"%s", WDLIST[1]);
+      char **ctmp_list;      int n_list, i ;      
       parse_commaSepList("GROUPID", WDLIST[1], MXGROUPID_SIMLIB, 10, 
 			 &n_list, &ctmp_list ) ;
 

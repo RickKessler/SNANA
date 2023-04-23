@@ -5721,7 +5721,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   int  IGAL_SELECT, igal_start, igal_end, igal;
   int  igal0, igal1, igal_middle;
   int  igal_start_init, igal_end_init ;
-  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9; 
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9, USEHOST; 
   long long GALID ;
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
   double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
@@ -5729,7 +5729,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
   char fnam[] = "GEN_SNHOST_GALID" ;
-  bool REFAC;
+
   // ---------- BEGIN ------------
 
   IGAL_SELECT = -9 ; 
@@ -5952,20 +5952,34 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // reset igal_start[end] for brute-force search below.
   int igal_start_orig = igal_start;
   int igal_end_orig   = igal_end;
+
+  NGAL_CHECK = 0 ;
   igal_start = igal0;
   if ( !USEONCE ) { igal_end = igal1; }
+
+  int ngal_search     = igal_end - igal_start + 1;
 
   // - - - - - - - - - - - 
   // Brute force search, one igal at a time.
 
+  // store WGT and USEHOST in tmpList to use for abort dump
+  double *WGT_tmpList     = (double*) malloc( ngal_search * sizeof(double) );
+  int    *USEHOST_tmpList = (int   *) malloc( ngal_search * sizeof(int   ) );
+
   for ( igal = igal_start; igal <= igal_end; igal++ ) {
     NGAL_CHECK++ ;
-    WGT = ptrWGT[igal];
 
+    WGT_tmpList[NGAL_CHECK-1]     = -9.0 ;
+    USEHOST_tmpList[NGAL_CHECK-1] = -9 ;
+
+    WGT     = ptrWGT[igal];
+    WGT_tmpList[NGAL_CHECK-1] = WGT;
     if ( WGT <  WGT_select  )  
       { NSKIP_WGT++; continue ; }
     
-    if ( USEHOST_GALID(igal) == 0 ) 
+    USEHOST = USEHOST_GALID(igal);
+    USEHOST_tmpList[NGAL_CHECK-1] = USEHOST ;
+    if ( !USEHOST  ) 
       { NSKIP_USED++ ; continue ; }
     
     // select first igal with WGT > WGT_select
@@ -5977,6 +5991,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // - - - - - - - - - - - - - - - - - - - - - - - - 
   // abort if we get here (Apr 2023)
+
+  /* xxxxxxx mark delete Apr 22 2023 xxxxxxx
   print_preAbort_banner(fnam);
   printf("  ZGEN = %f \n", ZGEN);
   printf("  RA, DEC = %f, %f \n", GENLC.RA, GENLC.DEC);
@@ -5988,9 +6004,19 @@ void GEN_SNHOST_GALID(double ZGEN) {
   printf("  igal_[start,end]_final = %d, %d (for brute-force search)\n",
 	 igal_start, igal_end);
 
+  if ( SIMLIB_HEADER.NGROUPID_HOSTLIB > 0 ) {
+//    GROUPID_HOSTLIB = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,IGAL);
+  //  for(i=0; i < NGROUPID_HOSTLIB; i++ ) {
+    //  GROUPID_SIMLIB = SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i] ;
+     // if ( GROUPID_HOSTLIB == GROUPID_SIMLIB )	{ MATCH = true; }
+    }
+    
+  }
+
   sprintf(c1err,"Unable to select GALID");
   sprintf(c2err,"See diagnostic info above (under pre-abort dump)");
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+   xxxxxxxx   end mark xxxxx */
 
   // - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -6008,19 +6034,46 @@ void GEN_SNHOST_GALID(double ZGEN) {
     // if using same Galaxy with MJD-sep, just return so that
     // this event is rejected.
     if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 99999 ) 
-      { SNHOSTGAL.IGAL = IGAL_SELECT ; return ; }
+      { SNHOSTGAL.IGAL = IGAL_SELECT ; goto CLEANUP ; }
 
     print_preAbort_banner(fnam);
+
+    WGT_start  = ptrWGT[igal_start];
+    WGT_end    = ptrWGT[igal_end];   
     printf("\t NSKIP_WGT  = %d/%d \n", NSKIP_WGT,  NGAL_CHECK );
     printf("\t NSKIP_USED = %d/%d \n", NSKIP_USED, NGAL_CHECK );
     printf("\t igal(start-end) = %d - %d\n", igal_start, igal_end);
     printf("\t WGT(start-end)  = %f - %f\n",  WGT_start, WGT_end );
     printf("\t WGT_select      = %f \n", WGT_select);
+    printf("\t SIMLIB LIBID    = %d \n", GENLC.SIMLIB_ID);
+
+    if ( SIMLIB_HEADER.NGROUPID_HOSTLIB > 0 ) {
+      printf("\t GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n\n",
+	     SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
+
+      int ngal=0, GROUPID;
+      double RA, DEC;
+      printf("    GALID      GROUPID       RA        DEC       "
+	     "WGT      USEHOST \n");
+      for ( igal = igal_start; igal <= igal_end; igal++ ) {
+	GALID   = (long long int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GALID,igal);
+	GROUPID = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,igal);
+	RA      =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,igal);
+	DEC     =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,igal);
+	WGT     =      WGT_tmpList[ngal];
+	USEHOST =      USEHOST_tmpList[ngal]; 
+	printf("  %10lld  %8d  %10.5f %10.5f  %.2f  %2d \n",
+	       GALID, GROUPID, RA, DEC, WGT,  USEHOST);
+	fflush(stdout);
+	ngal++ ;
+      }
+    } // end GROUPID dump
+
 
     DUMP_SNHOST();
     fflush(stdout);
 
-    sprintf(c1err,"Could not find HOSTLIB entry for ZGEN=%5.4f .", ZGEN);
+    sprintf(c1err,"Could not select HOSTLIB GALID  for ZGEN=%5.4f .", ZGEN);
     if ( USEONCE ) 
       { sprintf(c2err,"Each HOST used only once -> need larger library."); }
     else
@@ -6054,6 +6107,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+
+ CLEANUP:
+  free(WGT_tmpList); free(USEHOST_tmpList);
   return ;
 
 } // end of GEN_SNHOST_GALID

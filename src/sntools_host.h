@@ -550,6 +550,8 @@ struct SNHOSTGAL {
   double DLR ;          // directional light radius
   double DDLR;          // SNSEP/DLR (following Gupta 2016)
 
+  double ANGSEP_GROUPID ;
+
   // aperture-mag info
   double SB_MAG[MXFILTINDX] ;  // surface brightness mag in 1 sq-arcsec
   double SB_FLUXCAL[MXFILTINDX] ;

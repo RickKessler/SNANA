@@ -1151,6 +1151,7 @@ struct GENLC {
 
   MONITOR_REDCOV_FLUXNOISE_DEF MONITOR_REDCOV_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
 
+
   // xxxx -----------------------------------------------------
   // xxxxx legacy arrays to remove after GENFLUX_DRIVER refactor
   // noise contributions (in photoelectrons)
@@ -1168,6 +1169,7 @@ struct GENLC {
   double SNR_CALC[MXEPSIM] ;    // used for trigger effic (Aug 24 2014)
   double SNR_MON[MXEPSIM];      // calculated SNR for MAGMONITOR_SNR input
   //xxx ----------------------- end legacy ------------
+
 
   // Gaussian randoms for broadband measurement noise
   double RANGauss_NOISE_SEARCH[MXEPSIM];   // search noise, per epoch

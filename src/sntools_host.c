@@ -5717,8 +5717,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
 
+  // Apr 23 2023: this is a kluge to get GROUPID working without abort, 
+  // but still not clear it will respect WGTMAP ??
   int NGROUPID = SIMLIB_HEADER.NGROUPID_HOSTLIB;
-  if ( NGROUPID > 0 ) { IGAL_RANGE_CONVERGE = 500; } // ??
+  if ( NGROUPID > 0 ) { IGAL_RANGE_CONVERGE = 5000; } 
 
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
@@ -6065,6 +6067,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.ZDIF       = ZGEN - ZTRUE ; // zSN - zGAL (helio)
   if ( DO_SN2GAL_Z ) { SNHOSTGAL.ZDIF = 0.0 ; } // Sep 2 2022 bugfix
 
+  if ( NGROUPID > 0 ) {
+    // diagnostic: compute angSep between SIMLIB coords and HOSTLIB coord 
+    double RA   =  get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,IGAL_SELECT);
+    double DEC  =  get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,IGAL_SELECT);
+    SNHOSTGAL.ANGSEP_GROUPID = angSep(GENLC.RA, GENLC.DEC, RA,DEC,  (double)1. );
+  }
+
   if ( fabs(SNHOSTGAL.ZDIF) > dztol ) {
     print_preAbort_banner(fnam);
     printf("\t CID=%d  ZGEN(SN,GAL) = %.4f, %.4f \n",
@@ -6114,6 +6123,8 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.DEC_SN_DEG        = HOSTLIB_SNPAR_UNDEFINED ;
 
   SNHOSTGAL.MAGOBS_ERR_SCALE  = 1.0 ;
+
+  SNHOSTGAL.ANGSEP_GROUPID = -9.0 ;
 
   // always init GALMAG quantities to garbage
   int i, ifilt ;
@@ -9167,7 +9178,7 @@ void DUMP_SNHOST(void) {
 
   printf("# -------------------------------------------------------- \n");
   printf(" %s for CID = %d \n", fnam, GENLC.CID );
-  printf("    SN-GENERATED z=%.4f, RA=%.6f, DEC=%.6f deg (FIELD=%s).\n",
+  printf("    SN-GENERATED z=%.5f, RA=%.6f, DEC=%.6f deg (FIELD=%s).\n",
 	 SNHOSTGAL.ZGEN, GENLC.RA, GENLC.DEC, SIMLIB_HEADER.FIELD );
 
   printf("\t => IGAL-range=%d-%d  IGAL=%d  ran(GALID)=%4.3f \n"

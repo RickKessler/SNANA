@@ -276,6 +276,14 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp, "%-40.40s  %.3f %.3f \n", key, parval, parval2);
   }
 
+  // 4.23.2023: write this GROUPID diagnostic for text only ...
+  //   maybe later will add it to FITS format
+  if ( SNDATA.SIM_ANGSEP_GROUPID > 0.0 ) {
+    fprintf(fp,"SIM_HOSTLIB_ANGSEP_GROUPID: %.1f "
+	    "# angSep (deg) for GROUPID match between SIMLIB & HOSTLIB \n",
+	    SNDATA.SIM_ANGSEP_GROUPID);
+  }
+
   fprintf(fp, "SIM_DLMU:            %.4f   # mag   [ -5*log10(10pc/dL) ]\n", 
 	  SNDATA.SIM_DLMU );
 

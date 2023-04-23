@@ -22538,6 +22538,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   }
 
+  // - - - 
+  SNDATA.SIM_ANGSEP_GROUPID = SNHOSTGAL.ANGSEP_GROUPID ;
+
   return ;
 
 } // end of hostgal_to_SNDATA

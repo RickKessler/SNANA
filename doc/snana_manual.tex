@@ -5077,7 +5077,12 @@ For each \simlib\ entry, the header can include an optional
   etc ...
 \end{verbatim}
 %
-which instructs the simulation to select a host with {\groupid} = 45 or 46.
+With sim-input key 
+\begin{verbatim}
+   USE_SIMLIB_GROUPID: 1  # enable GROUPID feature 
+\end{verbatim}
+%
+the simulation selects a host with {\groupid} = 45 or 46.
 The \hostlib\ must include a \groupid\ column to use
 this option of forcing an \{RA,DEC\}-match between the 
 \simlib\ and \hostlib.

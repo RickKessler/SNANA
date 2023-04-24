@@ -55,7 +55,7 @@
 #define  TABLEID_DUMP  7100   // for SNTABLE functions
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
-#define  MXGROUPID_SIMLIB 12      // max number of groupIDs per LIBID entry
+#define  MXGROUPID_SIMLIB 20      // max number of groupIDs per LIBID entry
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  15000    // max number of observ. per simlib

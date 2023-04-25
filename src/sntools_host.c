@@ -9298,7 +9298,7 @@ void DUMP_GROUPID(int igal_start, int igal_end ) {
 
   // Dump GROUPID-related info for range of input igal 
 
-  double ANGSEP_MAX = 20.0; // dump only if AngSep < this (degrees)
+  double ANGSEP_MAX = 15.0; // dump only if AngSep < this (degrees)
   int igal, ngal=0, GROUPID ;
   long long int GALID ;
   double  ZTRUE, RA, DEC, WGT, SEP ;
@@ -9309,9 +9309,10 @@ void DUMP_GROUPID(int igal_start, int igal_end ) {
 
   printf("# -------------------------------------------------------- \n");
 
-  printf(" %s for GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n\n",
+  printf(" %s for GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n",
 	 fnam, SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
-  printf(" %s: print subset with AngSep < %.0f degrees\n", fnam, ANGSEP_MAX);
+  printf("\t print subset with AngSep < %.0f degrees\n", fnam, ANGSEP_MAX);
+  printf("\n");
 
   printf("                                                  AngSep \n" );
   printf("    GALID      GROUPID  ZTRUE       RA      DEC  (SN-Host)  WGT  \n");

@@ -5717,10 +5717,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
 
-  // Apr 23 2023: this is a kluge to get GROUPID working without abort, 
-  // but still not clear it will respect WGTMAP ??
   int NGROUPID = SIMLIB_HEADER.NGROUPID_HOSTLIB;
-  if ( NGROUPID > 0 ) { IGAL_RANGE_CONVERGE = 5000; } 
 
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
@@ -5917,6 +5914,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // search when HOSTLIB is large.
 
   bool CONVERGE = false;
+  if ( NGROUPID > 0 ) { CONVERGE = true; } // skip binary search
+ 
   igal0 = igal_start;
   igal1 = igal_end;    
   igal_middle = (int)( (igal0 + igal1)/2 );

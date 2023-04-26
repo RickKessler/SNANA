@@ -25,6 +25,7 @@
 
 #define PARNAME_REDSHIFT_LCLIB  "REDSHIFT"
 #define PARNAME_MWEBV_LCLIB     "MWEBV"
+#define PARNAME_PERIOD_LCLIB    "PERIOD"
 
 int LDUMP_EVENT_LCLIB ;
 
@@ -55,7 +56,8 @@ struct {
 
   char   PARNAME_MODEL[MXPAR_LCLIB][40] ; // list of modelPar names
   int    IPAR_REDSHIFT;    // non-zero for PARNAME=REDSHIFT
-  int    IPAR_MWEBV ;      // non-zero of MWEBV is a model param
+  int    IPAR_MWEBV ;      // non-zero if MWEBV is a model param
+  int    IPAR_PERIOD;      // non-zero if PERIOD is a model param
   double ZPHOTZ1ERR ;        // if REDSHIFT, Err[zphot/(1+z)] = 0.05
 
   // variables needed for setting photo-z

@@ -13623,6 +13623,14 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     NVAR_SIMGEN_DUMP++ ;
   }
 
+ 
+  // Apr 2026:  allow PERIOD for all types to enable same SIMGEN_DUMP columns
+  // for all events.
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"PERIOD" );
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PERIOD ;
+  NVAR_SIMGEN_DUMP++ ;
+ 
 
   if ( GENFRAME_OPT == GENFRAME_REST ) {
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_REST; ifilt++ ) {
@@ -25455,15 +25463,25 @@ void compute_lightCurveWidths(void) {
   // and store GENLC.WIDTH[ifilt_obs].
   // These quantities are for SIMGEN_DUMP file
   // (varNames WIDTH_[band] ).
+  // Apr 2023: also set PERIOD for Galactic recurring
+  //
 
   int ifilt, ifilt_obs, N, ep, NEP[MXFILTINDX], ERRFLAG ;
   int MEM = (GENLC.NEPOCH+1) * sizeof(double) ;
   int OPTMASK = 1 ;
+  int IPAR_PERIOD = LCLIB_INFO.IPAR_PERIOD ;
   double *TLIST[MXFILTINDX], *MAGLIST[MXFILTINDX] ;
   char FUNCALL[100], cfilt[2] ;
   char fnam[] = "compute_lightCurveWidths" ;
   
   // --------------- BEGIN -------------
+
+  GENLC.PERIOD = -9.0;
+  if ( LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_PERIODIC ) { 
+    // store explicit PERIOD variable
+    GENLC.PERIOD = LCLIB_EVENT.PARVAL_MODEL[LCLIB_INFO.IPAR_PERIOD];
+  }
+
 
   if ( GENLC.NWIDTH_SIMGEN_DUMP == 0 ) { return ; }
 

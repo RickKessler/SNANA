@@ -1216,6 +1216,7 @@ struct GENLC {
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
+  double  PERIOD;             // (days) for Galactic recurring only
 
   double AVwarp8[MXEPSIM];
   int    ifilt_AVwarp[MXEPSIM][2];

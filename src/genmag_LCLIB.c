@@ -239,6 +239,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 
   LCLIB_INFO.IPAR_REDSHIFT = -9;
   LCLIB_INFO.IPAR_MWEBV    = -9;
+  LCLIB_INFO.IPAR_PERIOD   = -9;
   LCLIB_INFO.REDSHIFT_RANGE[0] = 0.0 ; 
   LCLIB_INFO.REDSHIFT_RANGE[1] = 0.0 ;
 
@@ -396,6 +397,7 @@ void parse_PARNAMES_LCLIB(char *parNameString) {
 
   // -------------- BEGIN --------------
 
+
   for(ipar=0; ipar<MXPAR_LCLIB; ipar++ ) {
     ptrSplit[ipar] = LCLIB_INFO.PARNAME_MODEL[ipar]; 
     LCLIB_EVENT.PARVAL_MODEL[ipar] = -999.0 ; 
@@ -419,6 +421,11 @@ void parse_PARNAMES_LCLIB(char *parNameString) {
     if (strcmp_ignoreCase(parName, PARNAME_MWEBV_LCLIB) == 0) { 
       LCLIB_INFO.IPAR_MWEBV    = ipar;
       sprintf(parName,"%s_LCLIB", PARNAME_MWEBV_LCLIB); // avoid name conflict 
+    }
+
+    if (strcmp_ignoreCase(parName, PARNAME_PERIOD_LCLIB) == 0) { 
+      LCLIB_INFO.IPAR_PERIOD   = ipar;
+      sprintf(parName,"%s_LCLIB", PARNAME_PERIOD_LCLIB); // avoid name conflict 
     }
   }
   

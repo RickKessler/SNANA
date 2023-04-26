@@ -21275,7 +21275,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04n (  ) 
+         v11_04n (Oct 17 2022) 
 
          ***** IMPORTANT(v11_04n) ***** 
 
@@ -21293,7 +21293,14 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Add COVMAT class to submit_batch_jobs to run create_covariance.py.
    See new code submit_prog_covmat.py.
 
+   create_covariance.py: 
+     + change output format from 12.8f to 12.6e to get 7 digits of 
+        precision instead of 3 digits with 12.8f.
+     + in output INFO.YML, write HD file name and covsys file names
+
          ***** USEFUL(v11_04n) ***** 
+
+   Fix old refactor bug reading SIM_HOSTLIB_PARVAL (TEXT and FITS format)
 
          ***** MISCELLANEOUS(v11_04n) ***** 
 
@@ -21313,6 +21320,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + write rho_omm to WFIT_SUMMARY.FITRES for wOM model
          (AVG file is not updated)
      + add and test merge_reset() [standard method in base class]
+     + minor refac to read HD file name and covsys file names from INFO.YML
 
    sntools.c
      + fix evil bug in check_file_docana()
@@ -21343,4 +21351,329 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    combine_dataVersions.py:
      + replace output kcor_ prefix with calib_ prefix.
 
+   Begin genmag_BAYESN.c[h] and start integration into snlc_fit.car.
+
+   perl cleanup:
+    + Translate remove_locf_messages.pl to remove_locf_messages.py
+        [remove remove_locf_messages.pl later after being sure that .py works]
+    + Translate startSNANAversion.pl to startSNANAversion.py
+    + rm wait_for_files.pl NEARNBR_pipeline.pl translate_SALT2dictFile.pl
+
+
+# =============================================================
+        v11_04o (Nov 28 2022) 
+
+        ***** IMPORTANT(v11_04o) ***** 
+
+   Finished refactor of reading/implementing kcor/calib files 
+   from snlc_sim & snlc_fit; see sntools_calib.c[h]. 
+   Refactor flags still OFF by default. Follow progress on 
+   https://github.com/RickKessler/SNANA/issues/1059
+
+   SALT2mu.c and create_covariance.py:
+     + write consistent redshift name as zHD; see github issue 1052.
+
+   sntools_genSmear.c / genmag_SALT2.c
+     + read and apply COLOR_DISP_MAX from SALT3.INFO file
+
+        ***** USEFUL(v11_04o) ***** 
+
+        ***** MISCELLANEOUS(v11_04o) ***** 
+
+   update_data_files.py: 
+     + add option to remove filter bands
+
+   Continue development of genmag_BAYESN.c[h]
+
+   Split BAYESN models into PYBAYESN (python) and BAYESN (C-code)
+
+   kcor.c : allow comment lines in sed primary file
+
+   sntools_kcor.c[h]
+     + after 3 year break, continue translating fortran KCOR functions to C.
+
+   Remove GENLC.*SPECTROGRAPH* from snlc_sim.h[c], and define everything
+   we need in INPUTS_SPECTRO struct in sntools_spectrograph.h.
+
+   submit_batch: LCFIT class has on-the-fly compression to reduce file count;
+      see https://github.com/RickKessler/SNANA/issues/1054
+
+   new genmag_extinction.c[h] to compute host gal extinction vs.
+   { RVinv, Trest, ifilt_rest}; part of refactor where fortran
+   utils are translated to C code.
+
+
+# =============================================================
+        v11_05 (Dec 2 2022) 
+
+        ***** IMPORTANT(v11_05) ***** 
+
+   C and fortran codes write snana_version that includes tag+commit
+   (see https://github.com/RickKessler/SNANA/issues/1067)
+   Similar python code modification will be done next SNANA version.
+
+   Set USE_KCOR_REFACTOR flags = True in snlc_sim.c and snana.car
+    [see below for list of regression test changes]
+
+        ***** USEFUL(v11_05) ***** 
+
+        ***** MISCELLANEOUS(v11_05) ***** 
+
+  snlc_sim.c
+    + fix bug setting FIELD per epoch when there are overlaps.
+      Was writing header FIELD list (e.g., C2+C3) for each epoch
+      instead of just writing the field for each epoch.
+
+  make_fluxerr_model.py: bug fixes and misc updates
+
+  To test code without legacy/fortran kcor code:
+   - remove "+USE,KCOR" from snana.cra and snlc_fit.cra
+   - disable USE_KCOR_FORTRAN flag in sntools.h
+   - set USE_KCOR_REFACTOR=T in snana.car
+   - set USE_KCOR_REFACTOR=2 in snlc_sim.c
+   
+  Regression test changes with USE_KCOR_REFACTOR:
+
+TASK034_SIMFIT_MLCS_SDSS                :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-50015 = 40.611 +/- 0.1521
+	 ==> TEST: DLMAG-50015 = 40.614 +/- 0.1517
+TASK035_SIMFIT_MLCS_DES                 :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-70018 = 40.829 +/- 0.6371E-01(m)
+	 ==> TEST: DLMAG-70018 = 40.829 +/- 0.6370E-01(m)
+TASK041_SIMFIT_NON1ASED_DES             :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-21 = 38.096 +/- 0.8289E-01(P)
+	 ==> TEST: DLMAG-21 = 38.097 +/- 0.8286E-01(P)
+TASK064_LCFIT_MLCS_SDSS2                :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-1112 = 40.924 +/- 0.1413
+	 ==> TEST: DLMAG-1112 = 40.924 +/- 0.1348
+TASK066_LCFIT_MLCS_SNLS                 :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-03D1ew = 43.631 +/- 0.2658
+	 ==> TEST: DLMAG-03D1ew = 43.630 +/- 0.2647
+TASK072_LCFIT_SALT2_SNLS3               :  mis-match (REF != TEST)
+	 ==> REF:  x0-03D1aw = 0.85396E-05 +/- 0.2361E-06(P)
+	 ==> TEST: x0-03D1aw = 0.85375E-05 +/- 0.2370E-06(P)
+TASK077_ZPHOT_SDSSa_SALT2_noHOST_5PAR   :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.87284E-01 +/- 0.1156E-01(P)
+	 ==> TEST: ZPHOT-1032 = 0.87284E-01 +/- 0.1245E-01(P)
+TASK078_ZPHOT_SDSSb_SALT2_noHOST_5PAR   :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1285 = 0.28235 +/- 0.1326E-01(P)
+	 ==> TEST: ZPHOT-1285 = 0.28235 +/- 0.1357E-01(P)
+TASK079_ZPHOT_SDSS_MLCS_noHOST_4PAR     :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.11226 +/- 0.6223E-02(m)
+	 ==> TEST: ZPHOT-1032 = 0.11195 +/- 0.6075E-02(m)
+TASK080_ZPHOT_SDSS_MLCS_noHOST_5PAR     :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.77033E-01 +/- 0.2115E-01(m)
+	 ==> TEST: ZPHOT-1032 = 0.77063E-01 +/- 0.2082E-01(m)
+TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.11881 +/- 0.1313E-01(P)
+	 ==> TEST: ZPHOT-1032 = 0.11697 +/- 0.1390E-01(P)
+
+
+
+# =============================================================
+        v11_05b (Feb 13 2023) 
+
+        ***** IMPORTANT(v11_05b) ***** 
+
+    SALT2mu: fix nasty bug where vpec error was ignored in 
+             determining sigma_int for biasCor.
+
+    wfit: for redshift varname list (zHD zCMB), use first item instead
+          of last. This affects jobs running on BBC output because both
+          zHD and zCMB exist (should use zHD). No problems for output
+          of create_covariance that only write zhd.
+
+        ***** USEFUL(v11_05b) ***** 
+
+        ***** MISCELLANEOUS(v11_05b) ***** 
+
+    snana.car/snlc_fit.car
+     + call cast-specfic SNTABLE_ADDCOL_[int,flt,dbl,str] 
+       to avoid warnings with gcc version 10.
+
+    create_covariance.py
+      + fix bug in prep_config
+      + write SNANA_VERSION to INFO.YML file 
+    
+    SALT2mu.c
+      + refactor selection for sntype_select and idsample_select           
+         add idsurvey_select input  
+      + found a rare fit that had crazy-small M0-errors for both
+        fit attempts. Rather than changing alpha,beta shifts for
+        2nd fit, fixed subtle logic in prepNextFit so that it won't
+        force STOP_TOL=False on repeated fit.
+
+      + new sim-input keys CUTWIN_IDSAMPLE and CUTWIN_SURVEY (see HELP menu);
+        refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
+        real data.
+
+      + fix SUBPROCESS bug reading multiple data files with host info;
+         malloc host var only on IFILE==0
+
+    combine_dataVersions.py:
+       + fix to handle full filter names in pantheon+
+
+    update_data_files.py: 
+      + add --sntype input ; needed to force SNTYPE=1 for Pantheon+
+        since many data files had SNTYPE=0
+
+    Exclude fortran-KCOR code by commenting out pre-proc flags (Dec 12 2022)
+         snana.cra:c+USE,KCOR.
+         snlc_fit.cra:c+USE,KCOR.
+         snlc_fit_private.cra:c+USE,KCOR.
+         sntools.h: //#define USE_KCOR_FORTRAN
+    The old fortran code is still there, but not included in the compilation.
+
+    sntools_dataformat_*: read/write SIM_THETA for BayeSN model.
+
+
+# =============================================================
+        v11_05c (April 2 2023) 
+
+        ***** IMPORTANT(v11_05c) ***** 
+
+   Modified several codes to read VERSION_PHOTOMETRY at top of FITRES table,
+   and pass it on to subsequent output tables from combine_fitres, BBC, etc.
+   The goal is to write VERSION_PHOTOMETRY(DATA,BIASCOR,CCPRIOR) and
+   COSPAR_BIASCOR(OM,OL,wa,w0) to INFO.YML in the output of create_covariance.
+   A caveat is that the biasCor sim data folder must remain to read 
+   COSPAR_BIASCOR from the sim-README ... but sim data folders are sometimes 
+   removed to resolve disk-quota crises.
+
+   Mar 22 2023:
+   Fixed bug from KCOR refactor (v11_05) in which a small piece of code was
+   mistakenly removed from snana.car (in SNRECON). For details, see
+      https://github.com/RickKessler/SNANA/issues/1106
+
+        ***** USEFUL(v11_05c) ***** 
+ 
+        ***** MISCELLANEOUS(v11_05c) ***** 
+
+   sntools.c:
+     - subtle fix in get_SNANA_VERSION_FLOAT() to handle new tag
+       that has no dashes.
+     - new util read_yaml_vals(...)
+
+   snlc_sim, sntools_cosmology:
+     add typedef ANISOTROPY_INFO to pass these model params to dLmag.
+
+     To do? combine HzFUN_INFO and ANISOTROPY_INFO into a single
+     EXOTIC_MODEL_INFO struct so that we can easily add more model
+     params without adding a new typedef in many places.
+
+     fix bug to enable STRONGLENS without HOSTLIB
+
+     fix bug writing GENMODEL to output README so that only the
+     last GENMODEL value (from INCLUDE file) is written
+
+     add SL_IDLENS to SIMGEN_DUMP 
+
+  SALT2mu.c:
+    + new input muref_zpoly to replace LCDM mu-function with
+      polynominal function of z. For testing only.
+
+    + replace parameter BIASCOR_MIN_CELL_PER_BIASCOR user-input
+              min_cell_per_biascor
+
+    + remove comments after key/val to avoid interference;
+       see remove_comment(string) in sntools.c
+
+    + remove obsolete LEGACY_SELECT code
+   
+    + fix subtle bug with idsurvey_select so that biasCor group is
+      safely removed if idsurvey_select is not included. 
+      See function prepare_IDSAMPLE_biasCor().
+
+  sntools_host.*
+    + increase ZMAX_HOSTLIB = ZMAX_SNANA
+    + int GALID -> long long int GALID in several places
+
+  submit_prog_sim.py:
+    + write sim-input yaml info to final/merged README from sim
+
+  Remove all legacy KCOR code from snana.car and snlc_fit.car
+
+  create_covariance.py: read VERSION_PHOTOMETRY and cospar_biascor,
+     and write to INFO.YML output.
+
+  snana.car
+    + add &SNLCINP input SIM_HEADER_OVERRIDE_FILE 
+      (since HEADER_OVERRIDE_FILE works only for real data)
+
+  wfit.c
+    + add new input keys: w0_sim & wa_sim for priors, and muerr_force
+    + first attempt at HDIBC to interpolate Hubble diagrams using
+      biascor cosmology
+    +  "-debug_flag 91"  to dump cospar comparison between wfit and sim
+    +  -muerr_ideal <value> to replace mu with mu_true + Gauss(0,muerr_ideal).
+
+  submit_prog_cosmofit.py:
+    + fix to handle comma-sep lists of HD and cov matrices.
+
+  submit_prog_bbc.py:
+    + for prepping INPUT*FITRES files, use 10 interactive cores
+      instead of just 1 core ... run about x6 faster on task
+      that prepares 600 input files.
+
+  SNANA_submit_tests.py:
+    + use submit_batch_jobs for create_cov stage
+
+
+# =============================================================
+        v11_05d ([tag-date]) 
+
+        ***** IMPORTANT(v11_05d) ***** 
+
+   SALT2mu.c :
+     + fix subtle zmax_biascor bug as explained in
+        https://github.com/RickKessler/SNANA/issues/1128
+
+   sntools_output_text.c: 
+     + fix casting HOSTGAL_OBJID and SIM_HOSTLIB_GALID to be
+       string instead of int, so that very large int values
+       are not corrupted. 
+           https://github.com/RickKessler/SNANA/issues/1132
+
+        ***** USEFUL(v11_05d) ***** 
+
+   snlc_sim.c[h]:
+     + add feature to read GROUPID: <groupid> from SIMLIB and
+       select this groupid from HOSTLIB. Goal is to enable 
+       simulating large scale structure (see manual).
+
+     + use new sntools.c utility print_mask_comment(..) to print bit-mask
+       options for SIMLIB_MSKOPT and HOSTLIB_MSKOPT 
+        (also used for opt_biascor in SALT2mu)
+
+        ***** MISCELLANEOUS(v11_05d) ***** 
+
+   submit_prog_cosmofit.py:
+     + https://github.com/RickKessler/SNANA/issues/1126
+          (avoid confusion with "wfit" string name)
+
+   SALT2mu.h
+     + define COLOR_DISP_MAX_DEFAULT=2 and use this to force
+       color_disor <=2 to avoid crazyFlux aborts.
+       Previous COLOR_DISP_MAX default was 5.0 mag.
+
+   SALT2mu.c
+     + fix subtle zmax_biascor bug as explained in
+          https://github.com/RickKessler/SNANA/issues/1128
+       Two of the 9 BBC regression-test jobs have very small change:
+
+       TASK100_SALT2mu_DES_BBC5D_noCC  :  mis-match (REF != TEST)
+          ==> REF:  fit-Beta = 3.0278e+00 +/- 1.4856e-01
+	  ==> TEST: fit-Beta = 3.0274e+00 +/- 1.4904e-01
+
+       TASK103_SALT2mu_DESNN_BBC5D  :  mis-match (REF != TEST)
+          ==> REF:  fit-Beta = 3.0918e+00 +/- 6.1798e-02
+          ==> TEST: fit-Beta = 3.0909e+00 +/- 6.1762e-02
+
+    sntools_host.c[h]
+     + allow ZTRUE_CMB column instead of ZTRUE(helio); internally,
+       ZTRUE is computed from ZTRUE_CMB.
+
+    Everywhere: add callFun arg to splitString so that abort message
+                can be traced back to calling function.
+    
 END: 

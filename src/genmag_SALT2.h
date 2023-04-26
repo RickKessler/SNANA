@@ -15,6 +15,8 @@
 #define V_WAVELENGTH  5428.55  // idem
 #define R_WAVELENGTH  6500.
 
+#define COLOR_DISP_MAX_DEFAULT 2.0 // to avod crazyFLux abort (Apr 2023)
+
 // Sep 2020: define indices for values read after COLORCOR_PARAMS key
 #define ICLPAR_REFLAM_CL0  0  // aka, B_WAVE
 #define ICLPAR_REFLAM_CL1  1  // aka, V_WAVE
@@ -86,6 +88,7 @@ struct SALT2_ERRMAP {
 #define CALIB_SALT2_MAGSHIFT  1
 #define CALIB_SALT2_WAVESHIFT 2
 #define MXSHIFT_CALIB_SALT2 500
+
 typedef struct {
   int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
   char   SURVEY_STRING[60];  // e.g., 'CFA3,CFA3S,CFA3K'
@@ -102,6 +105,7 @@ struct INPUT_SALT2_INFO {
   int    NCOLORLAW_PARAMS ;
   double COLORLAW_PARAMS[MXCOLORPAR] ; // for IVER=1 (SALT2.Guy10,JLA-B14)
   double COLOR_OFFSET  ;   // separate from COLORLAW_PARAMS (Aug 2, 2010)
+  double COLOR_DISP_MAX;  // Oct 2022, 
 
   double MAG_OFFSET; // global mag offset (Nov 24, 2011)
 

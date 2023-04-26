@@ -9,24 +9,25 @@
 #
 # Apr 29 2019: replace USE_BYOSED ENV with SNANA_PYTHON_DIR
 # May 16 2019: use relative path instead of $SNANA_DIR to allow
-#              private/debug compile without overwriting 
+#              private/debug compile without overwriting
 #              official SNANA install.
 #
 # Sep 10 2020: minor refactor with BYOSED -> PySEDMODEL
 # Jun 10 2022: check VERSION_LIBPYTHON instead of SNANA_PYTHON_DIR
 #
 import os
-import sys 
+import sys
 
 # GLOBALS
 SNANA_DIR          = os.environ['SNANA_DIR']
 INCFILE_OUTPUT     = '../src/sntools_output.h'
 INCFILE_PySEDMODEL = '../src/genmag_PySEDMODEL.h'
+INCFILE_BAYESN     = '../src/genmag_BAYESN.h'
 
-LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
+LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON', 'USE_BAYESN' ]
 # xxx mark LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'SNANA_PYTHON_DIR' ]
-LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON' ] 
-LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL ]
+LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON' , 'YAML_DIR']
+LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL, INCFILE_BAYESN ]
 NCFLAG         = len(LIST_CFLAG)
 
 
@@ -40,7 +41,7 @@ def check_Cflag(iflag):
     INCFILE =   LIST_INCFILE[iflag]
 
     if ( ENV_val == None ):
-        SET_CFLAG = False 
+        SET_CFLAG = False
     else:
         SET_CFLAG = True
 
@@ -71,7 +72,7 @@ def check_Cflag(iflag):
     if ( not SET_CFLAG and not MATCH):
         print('\t %s not set -> return'%CFLAG)
         return
-        
+
     # if we get here, change the flag in the file
     if ( SET_CFLAG and not MATCH ) :
         print(' Set %s pre-processor flag'%CFLAG)
@@ -97,12 +98,12 @@ def check_Cflag(iflag):
 # =========================
 # ======= MAIN ============
 # =========================
-    
+
 if __name__ == "__main__":
 
     print('LIST_CFLAG = %s'%LIST_CFLAG )
     print('Number of C preproc flags: %s'%NCFLAG)
-    
+
     for i in range(NCFLAG):
         check_Cflag(i)
 

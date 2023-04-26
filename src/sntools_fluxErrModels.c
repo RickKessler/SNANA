@@ -425,6 +425,8 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
   //
   // Split input STRING and load contents into struct REDCOV_FLUXERRMAP.
   // Each band can be defined no more than once; otherwise abort.
+  //
+  // Nov 30 2022: abort on invalid RHO value(s)
 
   int MXRED   = MXREDCOV_FLUXERRMAP;
   int MEMC    = MXCHAR_STRING_REDCOV * sizeof(char) ;
@@ -459,10 +461,10 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
 
   // - - - - - - - -
   // split by blank space to get key & val
-  splitString(STRING, space, MXRED, &NKEYVAL, ptrSplit0);
+  splitString(STRING, space, fnam, MXRED, &NKEYVAL, ptrSplit0);
   NKEY = NKEYVAL/2; 
 
-  int i2key=0;
+  int i2key=0, istat=0, NERR=0;
   for(ikey=0; ikey < NKEY; ikey++ ) {
     i2key = 2*ikey;
 
@@ -479,14 +481,24 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
     }
     
     // split by comma
-    splitString(ptrSplit0[i2key+1], comma, MXRED, &NITEM, ptrSplit1);
-    for(i=0; i < NITEM; i++ ) 
-      {  load_REDCOV_FLUXERRMODEL(ptrSplit1[i],FIELD); }    
+    splitString(ptrSplit0[i2key+1], comma, fnam, MXRED, &NITEM, ptrSplit1);
+    for(i=0; i < NITEM; i++ ) { 
+      istat = load_REDCOV_FLUXERRMODEL(ptrSplit1[i],FIELD); 
+      if ( istat != 0 ) { NERR++; }
+    }    
 
   } // end ikey
-
+  
   // free local memory
   for(i=0; i < MXRED; i++ ) { free(ptrSplit0[i]); free(ptrSplit1[i]);  }
+
+
+  if ( NERR > 0 ) {
+    sprintf(c1err,"Found %d invalid reduced correlations (scroll up).",
+	    NERR);
+    sprintf(c2err,"Must modify or remove REDCOV key(s).");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   return ;
 
@@ -494,18 +506,20 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
 
 
 // ========================================
-void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
+int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
 
   // Input is argument item of REDCOV or FLUXERRMODEL_REDCOV
-  // If argument is g:0.2,r,0.3,i:0.4
-  // then ITEM_REDCOV is either g:0.2 or r:0.3 or i:0.4.
-   
+  // If sim-input argument is g:0.2,r,0.3,i:0.4
+  // then loca arg ITEM_REDCOV is either g:0.2 or r:0.3 or i:0.4.
+  //
+  // Function returns istat=0 on valid REDCOV;
+  // returns -1 if |REDCOV| > 1. 
+
   int  NREDCOV = NREDCOV_FLUXERRMODEL ;
-  int  N2, ifilt_obs, NBAND_TMP, iband, INDEX_CHECK ;
+  int  N2, ifilt_obs, NBAND_TMP, iband, INDEX_CHECK, istat=0 ;
   double REDCOV ;
   char *ptr_BANDSTRING, *ptr_BANDLIST, *ptrSplit2[2];
   char *ptr_FIELDGRP, *ptr_FIELDLIST, band[2] ;
-  char colon[] = ":" ;
   char fnam[]= "load_REDCOV_FLUXERRMODEL";
 
   // ------------- BEGIN ------------
@@ -518,11 +532,17 @@ void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   ptr_FIELDGRP   = COVINFO_FLUXERRMODEL[NREDCOV].FIELDGROUP ;
   ptr_FIELDLIST  = COVINFO_FLUXERRMODEL[NREDCOV].FIELDLIST ;
 
-  splitString(ITEM_REDCOV, colon, 2, &N2, ptrSplit2);    
+  splitString(ITEM_REDCOV, COLON, fnam, 2, &N2, ptrSplit2);    
   sprintf(ptr_BANDSTRING,  "%s", ITEM_REDCOV );
   sprintf(ptr_BANDLIST,    "%s", ptrSplit2[0] );
   sprintf(ptr_FIELDGRP,    "%s", FIELD);
   sscanf(ptrSplit2[1], "%le", &REDCOV );
+
+  if ( fabs(REDCOV) > 1.0000001 ) {
+    printf(" ERROR: Invalid REDCOV = %f for BAND=%s FIELDGRP=%s\n",
+	   REDCOV, ptr_BANDLIST, ptr_FIELDGRP ); fflush(stdout);
+    istat = -1;
+  }
 
   // set FIELDLIST based on FIELDGRP; 
   sprintf(ptr_FIELDLIST, "%s", ptr_FIELDGRP);
@@ -553,7 +573,7 @@ void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   free(ptrSplit2[0]);      free(ptrSplit2[1]);
   NREDCOV_FLUXERRMODEL++ ;
 
-  return ;
+  return istat ;
 
 } // end load_REDCOV_FLUXERRMODEL
 
@@ -580,7 +600,7 @@ void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) {
   for(imap=0; imap < MXMAP; imap++ ) 
     { ptrMap[imap] = (char*) malloc ( 40 * sizeof(char) ) ;  }
 
-  splitString(MAPLIST_IGNORE_DATAERR, comma, MXMAP_FLUXERRMAP,
+  splitString(MAPLIST_IGNORE_DATAERR, comma, fnam, MXMAP_FLUXERRMAP,
 	      &NMAPNAME_IGNORE, ptrMap );
 
   printf("\t Found %d FLUXERRMAPs to ignore in data errors: \n",

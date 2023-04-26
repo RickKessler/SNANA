@@ -109,7 +109,7 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
       continue ;
     }
 
-    splitString(tmpLine, " ", MXWD, &NWD, ptrWORD);
+    splitString(tmpLine, " ", fnam, MXWD, &NWD, ptrWORD);
     if ( NWD != 3 ) { continue; }
 
     /* xxxxxx

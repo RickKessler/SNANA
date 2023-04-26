@@ -4,7 +4,7 @@
 // Nov 11 2021: Add BayeSN
 
 // define pre-processor command to use python interface
-#define USE_PYTHONxxx  
+#define USE_PYTHONxxx      
 
 
 // ===========================================
@@ -16,7 +16,7 @@
 
 #define MODEL_NAME_BYOSED   "BYOSED"
 #define MODEL_NAME_SNEMO    "SNEMO"
-#define MODEL_NAME_BAYESN   "BAYESN"
+#define MODEL_NAME_PYBAYESN "PYBAYESN" // BayeSN has both C- and python versions
 #define MODEL_NAME_AGN      "AGN"
 #define NCHOICE_PySEDMODEL  4
 

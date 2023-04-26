@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Created July 2020 by R.Kessler & S. Hinton
+# Created July 2020 by R.Kessler & S. Hinton  
 #
 # Oct 29 2020: add SALT2train framework
 # Nov 24 2020: add --ncore arg
@@ -16,6 +16,8 @@
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
 # Apr 08 2022: add --merge_force arg for sync_evt option
 # Sep 30 2022: begin new create_covmat class (stat+syst covar matrix) 
+# Oct 18 2022: rename wfit class to cosmifit (more general name)
+# Feb 27 2023: undo hack that allowed missing f90nml for makeDataFiles
 #
 # - - - - - - - - - -
 
@@ -26,18 +28,21 @@ import submit_translate as tr
 
 from   submit_params      import *
 from   submit_prog_sim    import Simulation
+from   submit_prog_lcfit  import LightCurveFit
 
-try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
-    from   submit_prog_lcfit  import LightCurveFit
-except Exception as e:
-    print(f" WARNING: could not import LightCurveFit")
-    pass
+# xxxxxxxx mark delete Feb 27 2023 xxxxxxxxx
+#try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
+#    from   submit_prog_lcfit  import LightCurveFit
+#except Exception as e:
+#    print(f" WARNING: could not import LightCurveFit")
+#    pass
+# xxxxxxxxxxxxxx
 
-from   submit_prog_bbc    import BBC
-from   submit_prog_covmat import create_covmat
-from   submit_prog_wfit   import wFit
-from   submit_train_SALT2 import train_SALT2
-from   submit_train_SALT3 import train_SALT3
+from   submit_prog_bbc      import BBC
+from   submit_prog_covmat   import create_covmat
+from   submit_prog_cosmofit import cosmofit
+from   submit_train_SALT2   import train_SALT2
+from   submit_train_SALT3   import train_SALT3
 from   submit_makeDataFiles import MakeDataFiles
 from   argparse import Namespace
 
@@ -47,7 +52,7 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
-                        choices = ["SIM", "LCFIT", "BBC", "COVMAT", "WFIT",
+                        choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT",
                                    "TRAIN_SALT2", "TRAIN_SALT3",
                                    "TRANSLATE", "MERGE", "AIZ" ])
     msg = "name of input file"
@@ -126,6 +131,8 @@ def get_args():
     parser.add_argument("--force_crash_merge", help=msg, action="store_true")
     msg = (f"DEBUG MODE: force abort in merge ")
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
+    msg = (f"DEBUG MODE: force garbage argument for this job id") # not implemented yet ...
+    parser.add_argument("--jobid_force_bad_arg", help=msg, type=int, default=None )
 
     msg = (f"DEBUG MODE: run codes from private snana_dir ")
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
@@ -184,8 +191,11 @@ def which_program_class(config):
         program_class = BBC          # Beams with Bias Corr (KS17)
 
     elif "WFITOPT" in CONFIG :
-        program_class = wFit         # fast cosmology fitter "wfit"
+        program_class = cosmofit    # wfit ...
 
+    elif "FIRECROWN_INPUT_FILE" in CONFIG :
+        program_class = cosmofit    # firecrown/Cosmosis ...   
+        
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy
 

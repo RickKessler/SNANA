@@ -63,12 +63,18 @@
 #      --> ensures that FITOPT000 is always done first.
 #
 # Oct 01 2022 RK - minor refactor for merge_reset()
+# 
+# Nov 13 2022 RK - fix subtle bugs so that NSPLITRAN works with event-sync.
+#
+# Mar 18 2023 RK - gzip with new util.gzip_list_by_chunks() to gzip faster in parallel
+#
+# Mar 3 2023 RK - DOFAST_PREP_INPUT_FILES=True (devel_flag=-328 for False)
 #
 # ================================================================
 
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
-import datetime, time
+import datetime, time, subprocess
 import submit_util as util
 import numpy  as np
 import pandas as pd
@@ -78,7 +84,13 @@ from submit_prog_base import Program
 
 USE_INPDIR = True
 
+# for preparing catenated input fitres files using sntable_cat.py,
+# define number of interactice jobs to parallelize this slow task.
+NJOB_PREP_INPUT_FITRES     = 10
+DOFAST_PREP_INPUT_FILES    = True
+
 PREFIX_SALT2mu           = "SALT2mu"
+PREFIX_PREP              = "PREP"
 
 # define FIT column to extract FIT VERSION for FIT-MERGE.LOG
 COLNUM_FIT_MERGE_VERSION = 1  # same param in submit_prog_lcfit.py -> fragile
@@ -155,6 +167,9 @@ class BBC(Program):
 
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
+        if devel_flag == -328 :
+            global DOFAST_PREP_INPUT_FILES
+            DOFAST_PREP_INPUT_FILES = False
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -181,7 +196,10 @@ class BBC(Program):
         self.bbc_prep_mkdir()
 
         # copy & combine tables from INPDIR+ directories
-        self.bbc_prep_combine_tables()
+        if DOFAST_PREP_INPUT_FILES :
+            self.bbc_prep_input_tables_fast()  # refactored/parallel 
+        else:           
+            self.bbc_prep_input_tables_slow()  # original/slow code
 
         self.bbc_prep_copy_files()
 
@@ -267,6 +285,14 @@ class BBC(Program):
             self.bbc_prep_noINPDIR()
             return
 
+        # check BBC option to disable sync_evt from 2_LCFIT stage
+        preserve_sync_evt = True
+        for key in KEYLIST_SYNC_EVT:
+            if key in CONFIG:
+                if CONFIG[key] == 0 : 
+                    preserve_sync_evt = False
+                    logging.info(f"\t DISABLE SYNC-EVENT flag passed from 2_LCFIT")
+
         # - - - - - 
         for path_orig in config_inpdir_list: 
             logging.info(f"  Prepare INPDIR {path_orig}")
@@ -336,7 +362,9 @@ class BBC(Program):
                     sync_evt       = fit_info_yaml[key] > 0
                     KEY_SYNC_EVT   = key
 
-            if devel_flag == -20: sync_evt = False # disable event sync
+            # xxx if devel_flag == -20: sync_evt = False # disable event sync
+            if not preserve_sync_evt :
+                sync_evt = False 
 
             # - - - 
             n_fitopt       = len(fitopt_table)
@@ -735,7 +763,7 @@ class BBC(Program):
         #print(f"\n xxx map = {fitopt_num_outlist_map} \n")
 
         # - - - - - - - - - 
-        print(f"\n Prepare output FITOPT list:")
+        logging.info(f"\n Prepare output FITOPT list:")
         for survey,n in zip(survey_inplist,n_fitopt_inplist):
             logging.info(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
 
@@ -1054,12 +1082,154 @@ class BBC(Program):
 
         # end bbc_prep_outdirs
 
-    def bbc_prep_combine_tables(self):
+    def bbc_prep_input_tables_fast(self):
 
         # Catenate FITRES files from INPDIR+ so that each copied
-        # FITRES file includes multiple surveys
+        # FITRES file includes multiple survey.s
         # For NSPLITRAN, copy only to first split-dir to avoid
         # duplicate copies of input FITRES files.
+        # 
+        # Use 10 interactive cores for speed-up.
+        #
+
+        if not USE_INPDIR: return
+
+        output_dir         = self.config_prep['output_dir']  
+        script_dir         = self.config_prep['script_dir']
+        n_inpdir           = self.config_prep['n_inpdir']
+        n_version          = self.config_prep['n_version_out']    
+        v_out_list         = self.config_prep['version_out_sort_list2d']
+        iver_list2         = self.config_prep['iver_list2'] 
+        ifit_list2         = self.config_prep['ifit_list2']
+        fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
+        n_splitran         = self.config_prep['n_splitran']
+        USE_SPLITRAN       = n_splitran > 1
+        idir0              = 0  # some things just need first INPDIR index
+
+        t_start = time.time()
+        logging.info("\n  Prepare INPUT*FITRES files for " \
+                     f"{n_version} data versions")
+
+        prep_script_list = []
+        prep_log_list    = []
+        prep_nfit_list   = []
+
+        for iver in range(0,n_version):
+            # get ifit list for this version
+            ifit_list = []
+            for iver_tmp,ifit_tmp in zip(iver_list2, ifit_list2):
+                if iver_tmp == iver:
+                    ifit_list.append(ifit_tmp)
+
+            v_dir   = v_out_list[idir0][iver]
+            v_dir  += self.suffix_splitran(n_splitran,1)
+            V_DIR   = f"{output_dir}/{v_dir}"
+
+            prefix = f"{PREFIX_PREP}_{v_dir}"
+            PREP_SCRIPT = f"{script_dir}/{prefix}.sh"
+            prep_script = os.path.basename(PREP_SCRIPT)
+            prep_log    = f"{prefix}.LOG"
+
+            prep_script_list.append(prep_script)
+            prep_log_list.append(prep_log)
+            prep_nfit_list.append(len(ifit_list))
+
+            logging.info(f"\t Create {prep_script}")
+
+            with open(PREP_SCRIPT,"wt") as f:
+                f.write(f"echo 'Code to perform input-file catenation:' \n")
+                f.write(f"which {PROGRAM_NAME_CAT}\n")
+
+                for ifit in ifit_list:
+                    cat_file_list  = self.make_cat_fitres_list(iver,ifit)
+                    fitopt_num     = fitopt_num_outlist[ifit]
+                    ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
+                    input_ff       = "INPUT_" + ff
+                    cat_file_out   = f"../{v_dir}/{input_ff}"
+
+                    append_arg     = f"-a 'PROB*,zPRIOR*'"
+
+                    cat_command    = f"{PROGRAM_NAME_CAT} \\\n " \
+                                     f"  -i {cat_file_list} \\\n" \
+                                     f"  -o {cat_file_out} \\\n" \
+                                     f"  {append_arg} \\\n" \
+                                     f"  2>/dev/null \n"
+
+                    gzip_command   = f"gzip {cat_file_out}"
+
+                    line = '======================================='
+                    f.write(f"\n# {v_dir}/{input_ff} : \n")
+                    f.write(f"echo '# {line}' \n")
+                    f.write(f"echo '# {line}' \n")
+                    f.write(f"{cat_command}\n")
+                    f.write(f"{gzip_command}\n")
+                    f.write('\n')
+
+        # - - - - - - 
+        # set execute priv on all PREP files
+        cmd_x = f"cd {script_dir} ; chmod +x PREP*"
+        os.system(cmd_x)
+
+        # - - - - -
+        # next, run the PREP scripts interactively in ten groups
+        njob_prep_run = 0 
+        nfit_prep_run = 0
+        njob_prep_tot = len(prep_script_list)
+
+        logging.info(f"  Run PREP-INPUT*FITRES jobs interactively ... ")
+        for prep_script, prep_log, nfit in \
+            zip(prep_script_list, prep_log_list, prep_nfit_list) :
+
+            njob_prep_run += 1
+            nfit_prep_run += nfit  # expected total number of INPUT*FITRES.gz
+
+            logging.info(f"\t Run {prep_script} " \
+                         f"({njob_prep_run} of {njob_prep_tot})")
+
+            cmd_prep = f"cd {script_dir} ; ./{prep_script} > {prep_log} & "
+            ret = subprocess.run( [ cmd_prep ], cwd=script_dir,
+                                  shell=True, capture_output=False, text=True )
+
+            check_gz = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
+                       (njob_prep_run < NJOB_PREP_INPUT_FITRES)
+            if check_gz:                
+                wait_filegz_spec = f"{output_dir}/**/INPUT*.FITRES.gz"
+                wait_file_spec   = f"{output_dir}/**/INPUT*.FITRES"
+                n_fitres_gz = 0 
+                n_fitres    = nfit_prep_run
+                while n_fitres_gz < nfit_prep_run or n_fitres > 0:
+                    fitres_gz_list = glob.glob(wait_filegz_spec, 
+                                               recursive=True)
+                    fitres_list = glob.glob(wait_file_spec, 
+                                            recursive=True)
+                    n_fitres_gz = len(fitres_gz_list) 
+                    n_fitres    = len(fitres_list) 
+                    msg = f"Found {n_fitres_gz} of {nfit_prep_run} " \
+                          f"INPUT*.FITRES.gz files " \
+                          f"(and {n_fitres} INPUT*FITRES)." 
+                    logging.info(f"\t\t{msg}")
+
+                    time.sleep(5.0)
+
+        # - - - - - - -
+        t_end  = time.time()
+        t_prep = (t_end - t_start)
+
+        msg = f"Total time to prep {nfit_prep_run} INPUT*FITRES.gz files: "\
+              f"{t_prep:.0f} seconds."
+        logging.info(f"  {msg}")
+
+        return
+        # end bbc_prep_input_tables_fast
+    
+    def bbc_prep_input_tables_slow(self):
+
+        # Catenate FITRES files from INPDIR+ so that each copied
+        # FITRES file includes multiple surveys.
+        # For NSPLITRAN, copy only to first split-dir to avoid
+        # duplicate copies of input FITRES files.
+        # A single interactive core is used, and thus can take a 
+        # long time to prepare hundreds/thousands of INPUT*FITRES files.
 
         if not USE_INPDIR: return
 
@@ -1072,8 +1242,7 @@ class BBC(Program):
         n_splitran         = self.config_prep['n_splitran']
         USE_SPLITRAN       = n_splitran > 1
 
-        cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG"
-
+        t_start = time.time()
         logging.info("\n  Prepare input FITRES files")
         iver_last = -9
 
@@ -1097,6 +1266,7 @@ class BBC(Program):
             ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
             input_ff       = "INPUT_" + ff
             cat_file_out   = f"{V_DIR}/{input_ff}"
+            cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG" # always same
             nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
 
             if iver != iver_last : logging.info(f"    {v_dir}: ")
@@ -1106,15 +1276,27 @@ class BBC(Program):
                          f" -> {nrow} events ")
 
         # - - - - - 
-        logging.info("   gzip the catenated FITRES files.")
-        cmd_gzip = f"cd {output_dir}; gzip */INPUT_FITOPT*.{SUFFIX_FITRES}"
-        os.system(cmd_gzip)
+        wildcard = f"INPUT_FITOPT*.{SUFFIX_FITRES}"
+        logging.info(f"   gzip the catenated {wildcard} files.")
+        util.gzip_list_by_chunks(output_dir,wildcard,10) # Mar 2023
+        # xxx mark cmd_gzip = f"cd {output_dir}; gzip {wildcard}"
+        # xxx mark os.system(cmd_gzip)
 
         # remove cat log file
         rm_log = f"cd {output_dir}; rm {cat_file_log}"
         os.system(rm_log)
 
-        # end bbc_prep_combine_tables
+        t_end  = time.time()
+        t_prep = (t_end - t_start)
+
+        n = len(iver_list2)
+        msg = f"Total time to prep {n} INPUT*FITRES.gz files: "\
+              f"{t_prep:.0f} seconds."
+        logging.info(f"  {msg}")
+
+        return
+
+        # end bbc_prep_input_tables_slow
     
         
     def exec_cat_fitres(self,cat_list, cat_file_out, cat_file_log):
@@ -1145,9 +1327,9 @@ class BBC(Program):
         os.system(cmd_cat)
 
         # check number of rows
-        nrow = util.nrow_table_TEXT(cat_file_out, "SN:")
+        n_row, n_nan = util.nrow_table_TEXT(cat_file_out, "SN:")
 
-        return nrow
+        return n_row
 
         # end exec_cat_fitres
 
@@ -1401,6 +1583,7 @@ class BBC(Program):
         ifit      = index_dict['ifit']
         imu       = index_dict['imu'] 
         isplitran = index_dict['isplitran'] 
+        n_splitran   = self.config_prep['n_splitran']
 
         #print(f" xxx iver={iver}, ifit={ifit}, imu={imu} ", \
             #flush=True)
@@ -1415,10 +1598,10 @@ class BBC(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
         version      = self.config_prep['version_out_list'][iver]
+
         fitopt_num   = self.config_prep['fitopt_num_outlist'][ifit] #e.g FITOPT002
         muopt_num    = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
         muopt_arg    = self.config_prep['muopt_arg_list'][imu]
-        n_splitran   = self.config_prep['n_splitran']
         USE_SPLITRAN = n_splitran > 1
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
@@ -1479,6 +1662,7 @@ class BBC(Program):
             skip_sync   = FITOPT_STRING_NOREJECT in label
             wait_file   = None
             select_file = None
+            version_out = version + self.suffix_splitran(n_splitran,isplitran)
 
             # check logic for each iterations. 
             if skip_sync : 
@@ -1488,7 +1672,7 @@ class BBC(Program):
                 # process events from FITOPT000_MUOPT000
                 row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-                ff_file     = f"../{version}/{prefix_final}.{SUFFIX_FITRES}"
+                ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}"
                 wait_file   = f"{ff_file}.gz"
                 select_file = ff_file
 
@@ -1497,7 +1681,7 @@ class BBC(Program):
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
                 # xxx?? f" {STRING_SUCCESS}" # require SUCCESS in file
-                select_file  = f"{outdir_iter1}/{version}/{BBC_ACCEPT_SUMMARY_FILE}"
+                select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
                 JOB_INFO['wait_file'] = wait_file
@@ -1870,6 +2054,7 @@ class BBC(Program):
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
+
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
@@ -1887,13 +2072,30 @@ class BBC(Program):
             logging.info(f"  BBC cleanup: create {SPLITRAN_SUMMARY_FILE}")
             self.make_splitran_summary()
 
-        for vout in vout_list :
-            self.make_reject_summary(vout)
+        # for reject/accept summarys, read versions in MERGE.LOG so
+        # that it works for NSPLITRAN. 
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
+        MERGE_INFO_CONTENTS,comment_lines = \
+            util.read_merge_file(MERGE_LOG_PATHFILE)
+
+        # loop over every row in MERGE.LOG, but process each
+        # data version only once, regardless of how many FITOPT/MUOPT.
+        vout_proc_list = []
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+            vout    = row[COLNUM_BBC_MERGE_VERSION]
+            if vout not in vout_proc_list:
+                self.make_reject_summary(vout)
+                vout_proc_list.append(vout)
 
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
             wildcard = f"{jobfile_wildcard}*.{suffix}"
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
+
+        # Mar 2023: cleanup PREP files
+        devel_flag  = self.config_yaml['args'].devel_flag
+        if DOFAST_PREP_INPUT_FILES :
+            util.compress_files(+1, script_dir,"{PREFIX_PREP}*",PREFIX_PREP,"")
 
         logging.info("")
 
@@ -1912,9 +2114,12 @@ class BBC(Program):
         # only events that pass in all FITOPT and MUOPTs.
         #
         # Jan 12 2021: write ACCEPT file as well. Return if n_splitran>1
+        # Nov 23 2022: continue with n_splitran>1
 
-        n_splitran    = self.config_prep['n_splitran']
-        if n_splitran > 1 : return
+        # xxx mark delete xxx
+        # n_splitran    = self.config_prep['n_splitran']
+        # if n_splitran > 1 : return
+        # xxxxxxxxxxxxxxxx
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
@@ -2168,6 +2373,9 @@ class BBC(Program):
         fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
         fitres_list       = []
         NOREJECT_list     = []
+        
+        if FITOPT_OUT_LIST is None: 
+            FITOPT_OUT_LIST = []   # Dec 2022
 
         for row in FITOPT_OUT_LIST:
             fitnum = row[0]
@@ -2464,7 +2672,7 @@ class BBC(Program):
             version_base = version[0:len_base]
             sys.stdout.flush()
 
-            # get indices for summary file
+            # get original indices for summary file
             iver = vout_list.index(version_base)
             ifit = f"{fitopt_num[6:]}"
             imu  = f"{muopt_num[5:]}"
@@ -2665,19 +2873,6 @@ class BBC(Program):
 
         # xxx unpack_script_dir(scrippt_dir, jobfile_wildcard)
         util.untar_script_dir(script_dir)
-
-        # xxxxxxxxx mark delete Oct 1 2022 xxxxxx
-        #logging.info(f"  {fnam}: uncompress {script_subdir}/")
-        #util.compress_subdir(-1, f"{output_dir}/{script_subdir}" )
-
-        #logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
-        #for suffix in JOB_SUFFIX_TAR_LIST :
-        #    wildcard = f"{jobfile_wildcard}*.{suffix}"
-        #    util.compress_files(-1, script_dir, wildcard, suffix, "" )
-
-        #logging.info(f"  {fnam}: uncompress CPU* files")
-        #util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
-        # xxxxxxxxx end mark xxxxxxxx
 
         # - - - - - - - - - 
         logging.info(f"  {fnam}: restore {SUFFIX_MOVE_LIST} to {script_subdir}")

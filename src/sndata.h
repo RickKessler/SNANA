@@ -391,9 +391,11 @@ struct SNDATA {
   char  HOSTLIB_FILE[MXPATHLEN];       // name of hostlib file (Feb 2014)
   int   SIM_HOSTLIB_MSKOPT ;          // non-zero => simulate HOSTLIB
   int   NPAR_SIM_HOSTLIB;             // number of host params
-  char  SIM_HOSTLIB_KEYWORD[MXVAR_HOSTGAL][60]; // keyword for ascii
-  char  SIM_HOSTLIB_PARNAME[MXVAR_HOSTGAL][40]; // name of host params to store
-  float SIM_HOSTLIB_PARVAL[MXVAR_HOSTGAL][MXHOSTGAL];      // host param values per neighbor
+  char  SIM_HOSTLIB_KEYWORD[MXVAR_HOSTGAL][60];   // keyword for ascii
+  char  SIM_HOSTLIB_PARNAME[MXVAR_HOSTGAL][40];   // name of host params to store
+  float SIM_HOSTLIB_PARVAL[MXVAR_HOSTGAL][MXHOSTGAL];   // host param values per neighbo
+
+  float SIM_ANGSEP_GROUPID;  // ang-sep between SIMLIB and HOSTLIB coord (GROUPID only)
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
   //  float     SIM_HOSTLIB_DDLR  ; // true DDLR
@@ -405,9 +407,10 @@ struct SNDATA {
   float SIM_TRESTMAX ;
 
   // luminosity params
-  float SIM_STRETCH ; 
-  float SIM_DELTA ;    
-  float SIM_DM15 ;    
+  float SIM_STRETCH ;  // for history lesson
+  float SIM_DELTA ;    // for mlcs
+  float SIM_DM15 ;     // for Snoopy
+  float SIM_THETA ;    // for BayeSN
   float SIM_SALT2alpha ;
   float SIM_SALT2beta ;
   float SIM_SALT2gammaDM;    //  mag shift from host-SN correlations

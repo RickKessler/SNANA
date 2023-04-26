@@ -2750,7 +2750,7 @@ bool found_fluxerr_SEDMODEL(char *sedFile) {
     if ( strlen(line) < 2  ) { continue ; }
     if ( commentchar(line) ) { continue ; }
 
-    splitString(line, space, MXWORDLINE_FLUX,
+    splitString(line, space, fnam, MXWORDLINE_FLUX,
                 &NRDWORD, stringVal ) ;  // returned                         
 
     if ( NRDWORD >= 4 ) { found = true; }

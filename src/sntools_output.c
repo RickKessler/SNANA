@@ -129,6 +129,7 @@ void TABLEFILE_INIT(void) {
   int o,t ;
   char *s ;
   char U[] = "UNKNOWN" ;
+  char fnam[] = "TABLEFILE_INIT" ;
 
   // -------------- BEGIN --------------
 
@@ -160,7 +161,8 @@ void TABLEFILE_INIT(void) {
     }
   }
 
-  get_SNANA_VERSION(SNANA_VERSION); // Dec 10 2017
+  get_SNANA_VERSION(SNANA_VERSION);
+  SNTABLE_VERSION_PHOTOMETRY[0] = 0 ; 
 
   ADDCOL_VARLIST_LAST[0] = 0 ;
 
@@ -241,7 +243,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
   // STRINGOPT is a list of option-keys:
   // -  new   -> open and create new file for writing
-  // -  read  -> open and existing file for readonly
+  // -  read  -> open existing file for readonly
   // -  q     -> quiet mode; don't print anything to screen
   // -  root or hbook or text -> use explicit file type; ignore suffix.
   //
@@ -758,12 +760,50 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
     { SNTABLE_ADDCOL_TEXT(IDTABLE, PTRVAR, &ADDCOL_VARDEF); }
 #endif
 
-
+  return;
 } // end of SNTABLE_ADDCOL
 
+
+// Dec 2022:
+// These cast-specific STABLE_ADDCOL_[cast] function below are tehcnically
+// not necessary, but they avoid fortran compilation warnings with gcc v10.
+
+void SNTABLE_ADDCOL_int(int IDTABLE, char *BLOCK, int *I_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, I_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_flt(int IDTABLE, char *BLOCK, float *F_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, F_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_dbl(int IDTABLE, char *BLOCK, double *D_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, D_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_str(int IDTABLE, char *BLOCK, char *S_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, S_PTRVAR, VARLIST, USE4TEXT ); }
+
+// - - - 
 void sntable_addcol__(int *ID, char *BLOCK, void* PTRVAR, 
 		      char *VARLIST, int *USE4TEXT) {
   SNTABLE_ADDCOL(*ID, BLOCK, PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_int__(int *ID, char *BLOCK, int *I_PTRVAR, 
+			  char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL_int(*ID, BLOCK, I_PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_flt__(int *ID, char *BLOCK, float *F_PTRVAR, 
+		      char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL(*ID, BLOCK, F_PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_dbl__(int *ID, char *BLOCK, double *D_PTRVAR, 
+			  char *VARLIST, int *USE4TEXT) { 
+  SNTABLE_ADDCOL(*ID, BLOCK, D_PTRVAR, VARLIST, *USE4TEXT ); 
+} 
+void sntable_addcol_str__(int *ID, char *BLOCK, char *S_PTRVAR, 
+		      char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL(*ID, BLOCK, S_PTRVAR, VARLIST, *USE4TEXT );
 }
 
 // =====================================
@@ -1146,8 +1186,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   // Define and store pointer to read entire table column.
   // Check each element of *VARLIST to allow for ambiguous names;
   // e.g., VARLIST = 'z Z zcmb'.
-  // If multiple names are given, only one is allowed to exist,
-  // otherwise code aborts.
+  // If multiple names are given, select first one on the list.
   //
   // This function is just a shell to examine VARLIST, find the
   // defined VARNAME, and call sntable_readprep_vardef1() with the 
@@ -1160,7 +1199,10 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   //   - optMask: bit0 -> print for each var, bit1 -> abort on missing var
   //
   // Function returns absolute IVAR index.
-
+  //
+  // Feb 6 2023 RK - for multuple VARLIST names, select 1st on list 
+  //                 instead of last.
+  //
   int  istat, ISTAT,  NVAR_TOT, NVAR_FOUND, FLAG_VBOSE, FLAG_ABORT ;
   char VARLIST_LOCAL[MXCHAR_VARLIST], VARLIST_FOUND[MXCHAR_VARLIST];
   char VARNAME_withCast[MXCHAR_VARNAME]; 
@@ -1182,7 +1224,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   ptrtok = strtok(VARLIST_LOCAL," ");
   while ( ptrtok != NULL ) {
     sprintf(VARNAME_withCast,"%s", ptrtok);
-    istat=sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
+    istat = sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
 				     VARNAME_noCast );
 
     NVAR_TOT++ ;
@@ -1190,7 +1232,9 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
       ISTAT = istat ;  
       sprintf(VARLIST_FOUND, "%s %s", VARLIST_FOUND, VARNAME_withCast);
       NVAR_FOUND++ ; 
+      break; // Feb 2023
     }
+    
     ptrtok = strtok(NULL," " );
   }
 

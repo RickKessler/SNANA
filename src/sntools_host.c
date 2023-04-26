@@ -58,36 +58,6 @@
           HISTORY
   ------------------------
 
-
-  Jan 14 2017: include "sntools_output.h"
-    
-  Dec 29 2017: speed up init, redGal_HOSTLIB and zptr_HOSTLIB
-
-  Dec 2018: ugly refactor to change all 1-N loops to 0 to N-1 loops.
-
-  Mar 20 2019: 
-    +read VARNAMES list from zHOST effic map and append STOREPAR_LIST.
-     See copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR()
-
-  Apr 06 2019: 
-    + fix aweful bug when SN coords are transferred to host;
-      CMB redshift was incorrectly computed from original SN
-      coords instead of from HOST coords. The crucial fix is
-      getting the right distance modulus since the smeared
-      redshift is computed correctly later in gen_zsmear().
-
-    + account for VPEC when SN coords are transferred to host.
-
- Nov 18 2019:
-   + fix problems generating SN position near galaxy.
-     1) fix bug computing SN coords from ANGLE and reduced_R
-     2) pick random ANGLE weighted by DLR^2 (no longer random over 0:2PI)
-        (see new function GEN_SNHOST_ANGLE)
-     WARNING: still need to visually verify 2D profile
-
- Jan 14 2020: 
-   + in GEN_SNHOST_DDLR(), a & b are wgted avg among Sersic terms.
-
  Jan 31 2020: little more work on DDLR_SORT:
     +  make sure sorted (total) host mags have extinction
          (but beware that GALMAG under SN is only from TRUE host)
@@ -118,6 +88,9 @@
  Nov 18 2021: allow WGTMAP to be missing SNMAGSHIFT column
 
  Dec 30 2021: refactor GEN_SNHOST_GALID() to use binary search for speed.
+
+ Apr 13 2023: implement GROUPID match between SIMLIB and HOSTLIB
+              (enable Large-scale structure)
 
 =========================================================== */
 
@@ -166,9 +139,10 @@ void INIT_HOSTLIB(void) {
 
   TIME_INIT_HOSTLIB[0]  = time(NULL);
 
-  sprintf(BANNER,"%s: Read host-galaxy library (MSKOPT=%d)",
-	  fnam, INPUTS.HOSTLIB_MSKOPT);
+  sprintf(BANNER,"%s: Read and init host-galaxy library", fnam);
   print_banner(BANNER);
+
+  print_HOSTLIB_MSKOPT();
 
   OPTMASK_OPENFILE_HOSTLIB = 0;
   if ( INPUTS.REQUIRE_DOCANA ) 
@@ -242,6 +216,73 @@ void INIT_HOSTLIB(void) {
 
 } // end of INIT_HOSTLIB
 
+// ==================================
+void print_HOSTLIB_MSKOPT(void) {
+
+  // Created Apr 23 2023
+  // print bit-mask options from
+  //    grep MSKOPT ~/SNANA/src/sntools_host.h | grep def
+  //
+  int MSKOPT = INPUTS.HOSTLIB_MSKOPT;
+
+  // ------------- BEGIN -----------
+
+  print_mask_comment(stdout, MSKOPT, 0, "HOSTLIB_MSKOPT");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USE, 
+		     "internally set if HOSTLIB_FILE != NULL");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_GALMAG, 
+		     "compute host mag & poisson noise in SN aperture");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SNMAGSHIFT,
+		     "adust SN mag from wgtmap (e.g., mass step)");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SN2GAL_RADEC,
+		     "transfer SN coords to galaxy coords");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SN2GAL_Z,
+		     "transfer zHEL(SN) to ZTRUE (preserve host zHEL)");
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USEONCE,
+		     "use host galaxy only once" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USESNPAR,
+		     "use SN color & shape from HOSTLIB" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_SWAPZPHOT,
+		     "swap ZTRUE with ZPHOT" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_USEVPEC,
+		     "use VPEC & VPECERR from HOSTLIB" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_VERBOSE,
+		     "print extra info during init" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_DUMP,
+		     "screen-dump for each selected host (for debug)" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_DUMPROW,
+		     "DUMP one row per host for parsing" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_APPEND,
+		     "append columns from separate file" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_PLUSMAGS,
+		     "compute & add host mag columns from SED" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_PLUSNBR,
+		     "find nbr and append comma-sep list to HOSTLIB" );
+
+  print_mask_comment(stdout, MSKOPT, HOSTLIB_MSKOPT_ZPHOT_QGAUSS,
+		     "write Gauss quantiles for zPHOT (for debug)" );
+
+  //   print_mask_comment(stdout, MSKOPT, 0,		     "" );
+
+
+  printf("\n"); fflush(stdout);
+  return;
+} // end void   print_HOSTLIB_MSKOPT
 
 // ====================================
 void initvar_HOSTLIB(void) {
@@ -259,6 +300,7 @@ void initvar_HOSTLIB(void) {
 
   NCALL_GEN_SNHOST_DRIVER = 0 ;
 
+  HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_HEL;
   HOSTLIB.SORTFLAG     = 0 ;
   HOSTLIB.NGAL_READ    = 0 ;
   HOSTLIB.NGAL_STORE   = 0 ;
@@ -530,6 +572,9 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
+
+  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_GROUPID );
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_ELLIPTICITY );
@@ -2356,7 +2401,24 @@ void read_head_HOSTLIB(FILE *fp) {
   // abort on any mis-match.
 
   HOSTLIB.IVAR_GALID   = IVAR_HOSTLIB(HOSTLIB_VARNAME_GALID,1) ; // required
-  HOSTLIB.IVAR_ZTRUE   = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,1) ; // required 
+
+
+  // require either ZTRUE (zhelio) or ZTRUE_CMB
+  HOSTLIB.IVAR_ZTRUE     = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,  0) ; 
+  if ( HOSTLIB.IVAR_ZTRUE < 0  ) {
+    sprintf(c1err,"Missing required ZTRUE column in HOSTLIB;");
+    sprintf(c2err,"HOSTLIB must include either %s of %s column.",
+	    HOSTLIB_VARNAME_ZTRUE, HOSTLIB_VARNAME_ZTRUE_CMB);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  /* xxxxxxxxxx mark delete xxxxxxxxxx
+  // if ZTRUE_CMB column exists, but not ZTRUE(helio), then force
+  // ZTRUE_CMB back to ZTRUE
+  if ( HOSTLIB.IVAR_ZTRUE < 0 && HOSTLIB.IVAR_ZTRUE_CMB > 0 ) {
+    HOSTLIB.IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE_CMB;
+  }
+  xxxxxxxxxx end mark xxxxxxxxx*/
 
   // optional
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
@@ -2393,6 +2455,7 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_FIELD        = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
   HOSTLIB.IVAR_ELLIPTICITY  = IVAR_HOSTLIB(HOSTLIB_VARNAME_ELLIPTICITY,0) ;
   HOSTLIB.IVAR_GALID2       = IVAR_HOSTLIB(HOSTLIB_VARNAME_GALID2,0) ;
+  HOSTLIB.IVAR_GROUPID      = IVAR_HOSTLIB(HOSTLIB_VARNAME_GROUPID,0) ;
   HOSTLIB.IVAR_SQRADIUS     = IVAR_HOSTLIB(HOSTLIB_VARNAME_SQRADIUS,0) ;
   HOSTLIB.IVAR_NBR_LIST     = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
   HOSTLIB.IVAR_a_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_A_DLR, 0) ; 
@@ -2547,6 +2610,8 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   // If input varName matches an allowed [hard-wired] alternative,
   // reset varName to the official name.
   // Note that the input argument is modified !
+  //
+  // Apr 2023: check for VARNAME_ZTRUE_CMB
 
   char *BASENAME;
   int j;
@@ -2563,11 +2628,26 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"VPECERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
 
+  if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
+    sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
+    HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
+
+    // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
+    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
+    if ( !SN2GAL ) {
+      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
+	      HOSTLIB_VARNAME_ZTRUE_CMB);
+      sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
+	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+  } // end HOSTLIB_VARNAME_ZTRUE_CMB if block
+
   for (j=0; j<N_HOSTGAL_PROPERTY; j++){
     BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
-    // printf ("xxxx 1  %s varName=%s \n",fnam, varName);
-    if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-    // printf ("xxxx 2  %s varName=%s \n",fnam, varName);
+    if ( strcmp(varName, BASENAME) == 0 ) 
+      { sprintf(varName,"%s_TRUE", BASENAME); }
   }
   
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
@@ -2633,13 +2713,15 @@ void read_gal_HOSTLIB(FILE *fp) {
   int  IVAR_FIELD    = HOSTLIB.IVAR_FIELD ;
   int  IVAR_NBR_LIST = HOSTLIB.IVAR_NBR_LIST ;
   char c_get[200], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
-  char fnam[] = "read_gal_HOSTLIB"  ;
   
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
   int  NPRIORITY ;
   bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
+
+  char fnam[] = "read_gal_HOSTLIB"  ;
+
   // ----------------- BEGIN -----------
 
   NVAR_STORE = HOSTLIB.NVAR_STORE;
@@ -2770,6 +2852,12 @@ void read_gal_HOSTLIB(FILE *fp) {
     INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] = HOSTLIB.ZMAX ;
   }
   
+  
+  if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB )
+    { printf("\t ZTRUE frame is CMB\n"); }
+  else
+    { printf("\t ZTRUE frame is Heliocentric\n"); }
+
   fflush(stdout);
 
   // check warning for stars (i.e, z ~ 0)
@@ -2802,6 +2890,15 @@ void read_gal_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
+  if ( HOSTLIB.ZMAX > ZMAX_HOSTLIB ) {
+    print_preAbort_banner(fnam);
+    sprintf(c1err,"Actual HOSTLIB zMAX=%.3f exceeds ZMAX_HOSTLIB=%.3f",
+	    HOSTLIB.ZMAX, ZMAX_HOSTLIB );
+    sprintf(c2err,"Either increase ZMAX_HOSTLIB or truncation HOSTLIB z-range.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+
        
   // abort on NAN
   int NERR_NAN = HOSTLIB.NERR_NAN ;
@@ -3317,7 +3414,18 @@ void sortz_HOSTLIB(void) {
   for ( igal=0; igal < NGAL; igal++ ) {
     ZTRUE = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal]; 
     ZSORT[igal] = ZTRUE ;
-  }
+
+    // 4/2023: check if ZTRUE_CMB column is in HOSTLIB
+    if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
+      double ZTRUE_HEL = transform_ZTRUE_HOSTLIB(igal);
+
+      // update ZTRUE(helio) as if it were in the original HOSTLIB
+      ZSORT[igal] = ZTRUE_HEL ;
+      HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal] = ZTRUE_HEL ; 
+    }  // end CMB-frame option
+
+  } // end igal loop
+ 
 
   ORDER_SORT = +1 ;    // increasing order
   sortDouble( NGAL, ZSORT, ORDER_SORT, HOSTLIB.LIBINDEX_UNSORT ) ;
@@ -3421,8 +3529,59 @@ void sortz_HOSTLIB(void) {
     free(HOSTLIB.LIBINDEX_UNSORT);
   }
 
+  return ;
+
 } // end of sortz_HOSTLIB
 
+
+// =============================================
+double transform_ZTRUE_HOSTLIB(int igal) {
+
+  // Created April 2023 by R.Kessler
+  //
+  // This function is called if ZTRUE_CMB column is found in HOSTLIB,
+  // and returns corresponding ZTRUE_HEL using HOSTLIB coordinates.
+  // If HOSTLIB coords (RA_GAL, DEC_GAL) do not exist, function aborts.
+
+  int IVAR_GALID = HOSTLIB.IVAR_GALID ;
+  int IVAR_RA    = HOSTLIB.IVAR_RA ;
+  int IVAR_DEC   = HOSTLIB.IVAR_DEC ;
+  int IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE ;
+  long long int GALID ;
+  double ZTRUE_CMB, ZTRUE_HEL, RA, DEC ;
+  char fnam[] = "transform_ZTRUE_HOSTLIB" ;
+
+  // ---------- BEGIN ----------
+
+  if ( IVAR_RA < 0 || IVAR_DEC < 0 ) {
+    sprintf(c1err,"required HOSTLIB coords (RA_GAL or DEC_GAL) not defined");
+    sprintf(c2err,"IVAR_RA=%d IVAR_DEC=%d", IVAR_RA, IVAR_DEC);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // strip off values read from HOSTLIB
+  ZTRUE_CMB = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal];
+  RA        = HOSTLIB.VALUE_UNSORTED[IVAR_RA][igal];
+  DEC       = HOSTLIB.VALUE_UNSORTED[IVAR_DEC][igal];
+
+  // transform back to heliocentric frame
+  ZTRUE_HEL = zhelio_zcmb_translator(ZTRUE_CMB, RA, DEC, COORDSYS_EQ, -1);
+
+  // dump option
+  if ( INPUTS.HOSTLIB_GALID_DUMP > 0 ) {
+    GALID = (long long int)HOSTLIB.VALUE_UNSORTED[IVAR_GALID][igal] ;
+    if ( GALID == INPUTS.HOSTLIB_GALID_DUMP ) {
+      printf(" xxx %s DUMP: GALID=%lld  ZTRUE_CMB=%f --> ZTRUE_HEL=%f \n",
+	     fnam, GALID, ZTRUE_CMB, ZTRUE_HEL);
+      printf(" xxx %s DUMP: GALID=%lld  RA=%.6f  DEC=%.6f \n",
+	     fnam, GALID, RA, DEC);
+    }
+  } // end DUMP
+  
+
+  return ZTRUE_HEL;
+
+} // end transform_ZTRUE_HOSTLIB
 
 // =======================================
 void zptr_HOSTLIB(void) {
@@ -3844,7 +4003,7 @@ void runCheck_HOSTLIB_WGTMAP(void) {
 
 
 // ==============================================
-double snmagshift_salt2gamma_HOSTLIB(int GALID) {
+double snmagshift_salt2gamma_HOSTLIB(long long int GALID) {
 
   // Created Jun 25 2019
   // Randomaly assign gamma (magshift) as follows:
@@ -3852,6 +4011,8 @@ double snmagshift_salt2gamma_HOSTLIB(int GALID) {
   //    even GALID --> SALT2GAMA_GRID_MAX
   // Note that this function is used only to create a
   // biasCor sample for BBC/SALT2mu.
+  //
+  // Mar 28 2023: int GALID -> long long int
 
   double snmagshift = 0.0 ;
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
@@ -5464,7 +5625,8 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 
   if ( ZGEN_HELIO < HOSTLIB.ZMIN || ZGEN_HELIO > HOSTLIB.ZMAX ) {
     double zCMB;
-    zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,"eq",+1);
+    zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,
+				  COORDSYS_EQ,+1);
     sprintf(c1err,"Invalid ZGEN(Helio,CMB)=%f,%f ", ZGEN_HELIO, zCMB );
     sprintf(c2err,"HOSTLIB z-range is %6.4f to %6.4f",
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
@@ -5555,11 +5717,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
 
+  int NGROUPID = SIMLIB_HEADER.NGROUPID_HOSTLIB;
+
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
   int  igal0, igal1, igal_middle;
   int  igal_start_init, igal_end_init ;
-  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9; 
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9, USEHOST; 
   long long GALID ;
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
   double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
@@ -5567,7 +5731,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
   char fnam[] = "GEN_SNHOST_GALID" ;
-  bool REFAC;
+
   // ---------- BEGIN ------------
 
   IGAL_SELECT = -9 ; 
@@ -5688,7 +5852,12 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.IGAL_SELECT_RANGE[0] = igal_start ;
   SNHOSTGAL.IGAL_SELECT_RANGE[1] = igal_end ;
 
-  // now pick random igal between igal_start and igal_end
+  // - - - - - - - - - - - - - 
+  // Begin process of picking random-weighted igal between 
+  // igal_start and igal_end
+  // - - - - - - - - - - - - - - 
+
+
   if ( N_SNVAR > 0 ) {
     ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
     HOSTLIB_WGTMAP.ibin_SNVAR = ibin_SNVAR ;
@@ -5698,6 +5867,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
     ptrWGT     = HOSTLIB_WGTMAP.WGTSUM;
   }
 
+
+  // pick randomly from CDF between WGT_start and WGT_end
   WGT_start  = ptrWGT[igal_start];
   WGT_end    = ptrWGT[igal_end];    
   WGT_dif    = WGT_end - WGT_start ;
@@ -5738,15 +5909,21 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // ---------------------------------------------------
 
+  // perform binary search to restrict igal range to within a few galaxies
+  // that satisfy WGT_select. This loop is much faster than brute-force
+  // search when HOSTLIB is large.
 
-  // perform binary search to restrict igal range to within a few galaxies.
   bool CONVERGE = false;
+  if ( NGROUPID > 0 ) { CONVERGE = true; } // skip binary search
+ 
   igal0 = igal_start;
   igal1 = igal_end;    
   igal_middle = (int)( (igal0 + igal1)/2 );
   
   while ( !CONVERGE ) {
     WGT = ptrWGT[igal_middle] ;
+
+    // check to avoid infinite loop
     NGAL_CHECK++ ;
     if ( NGAL_CHECK > NGAL_CHECK_ABORT ) {
       print_preAbort_banner(fnam);
@@ -5758,6 +5935,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
       sprintf(c2err,"NGAL_CHECK=%d", NGAL_CHECK );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
     }
+
     if ( WGT < WGT_select )
       {  igal0 = igal_middle ;  } // select upper half for next iter
     else 
@@ -5775,28 +5953,54 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
   } // end while not CONVERGE
 
-    // reset igal_start[end] for brute-force search below.
+  // reset igal_start[end] for brute-force search below.
+  int igal_start_orig = igal_start;
+  int igal_end_orig   = igal_end;
+
+  NGAL_CHECK = 0 ;
   igal_start = igal0;
   if ( !USEONCE ) { igal_end = igal1; }
 
+  int ngal_search     = igal_end - igal_start + 1;
+
   // - - - - - - - - - - - 
   // Brute force search, one igal at a time.
+  double  WGTDIF, WGTDIF_MIN = 1.0E20;
+  bool   SKIP_WGT, MATCH_GROUPID ;
 
   for ( igal = igal_start; igal <= igal_end; igal++ ) {
     NGAL_CHECK++ ;
-    WGT = ptrWGT[igal];
-
-    if ( WGT <  WGT_select  )  
-      { NSKIP_WGT++; continue ; }
+    WGT     = ptrWGT[igal];
     
-    if ( USEHOST_GALID(igal) == 0 ) 
+    SKIP_WGT = false ;
+    if ( NGROUPID > 0 ) {
+      // find WGT closest to WGT_select that has GROUPID match
+      WGTDIF        = fabs(WGT-WGT_select);
+      MATCH_GROUPID = MATCH_GROUPID_HOSTLIB(igal);
+      if ( WGTDIF < WGTDIF_MIN && MATCH_GROUPID ) 
+	{ WGTDIF_MIN = WGTDIF;  }
+      else	                 
+	{ SKIP_WGT = true; }
+    }
+    else {
+      // LEGACY; find first WGT above WGT_select.
+      // At some point, should switch to finding WGT closest to WGT_select.
+      if ( WGT <  WGT_select  )  { SKIP_WGT = true; }
+    }
+
+    if ( SKIP_WGT ) { NSKIP_WGT++; continue; }
+
+
+    USEHOST = USEHOST_GALID(igal);
+    if ( !USEHOST  ) 
       { NSKIP_USED++ ; continue ; }
     
-    // select first igal with WGT > WGT_select
+    // select IGAL closest to WGT_select
     IGAL_SELECT = igal ;
     goto DONE_SELECT_GALID ;
     
   } // end igal loop
+
 
   // - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -5813,20 +6017,36 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
     // if using same Galaxy with MJD-sep, just return so that
     // this event is rejected.
-    if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 9999 ) 
+    if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 99999 ) 
       { SNHOSTGAL.IGAL = IGAL_SELECT ; return ; }
 
     print_preAbort_banner(fnam);
+
+    WGT_start  = ptrWGT[igal_start];
+    WGT_end    = ptrWGT[igal_end]; 
     printf("\t NSKIP_WGT  = %d/%d \n", NSKIP_WGT,  NGAL_CHECK );
     printf("\t NSKIP_USED = %d/%d \n", NSKIP_USED, NGAL_CHECK );
-    printf("\t igal(start-end) = %d - %d\n", igal_start, igal_end);
-    printf("\t WGT(start-end)  = %f - %f\n",  WGT_start, WGT_end );
+
+    printf("  igal_[start,end]_orig = %d, %d (for fast binary search)\n",
+	   igal_start_orig, igal_end_orig);
+    printf("  igal_[start,end]_final = %d, %d (for brute-force search)\n",
+	   igal_start, igal_end);
+
+    printf("  WGT_[start,end]_orig = %f, %f (for fast binary search)\n",
+	   ptrWGT[igal_start_orig], ptrWGT[igal_end_orig]);
+    printf("  WGT_[start,end]_final = %f, %f (for brute-force search)\n",
+	   ptrWGT[igal_start], ptrWGT[igal_end] );
+
     printf("\t WGT_select      = %f \n", WGT_select);
+    printf("\t SIMLIB LIBID    = %d \n", GENLC.SIMLIB_ID);
 
     DUMP_SNHOST();
+
+    if ( NGROUPID > 0 ) { DUMP_GROUPID(igal_start, igal_end );  } 
+
     fflush(stdout);
 
-    sprintf(c1err,"Could not find HOSTLIB entry for ZGEN=%5.4f .", ZGEN);
+    sprintf(c1err,"Could not select HOSTLIB GALID  for ZGEN=%5.4f .", ZGEN);
     if ( USEONCE ) 
       { sprintf(c2err,"Each HOST used only once -> need larger library."); }
     else
@@ -5846,6 +6066,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.ZDIF       = ZGEN - ZTRUE ; // zSN - zGAL (helio)
   if ( DO_SN2GAL_Z ) { SNHOSTGAL.ZDIF = 0.0 ; } // Sep 2 2022 bugfix
 
+  if ( NGROUPID > 0 ) {
+    // diagnostic: compute angSep between SIMLIB coords and HOSTLIB coord 
+    double RA   =  get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,IGAL_SELECT);
+    double DEC  =  get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,IGAL_SELECT);
+    SNHOSTGAL.ANGSEP_GROUPID = angSep(GENLC.RA, GENLC.DEC, RA,DEC,  (double)1. );
+  }
+
   if ( fabs(SNHOSTGAL.ZDIF) > dztol ) {
     print_preAbort_banner(fnam);
     printf("\t CID=%d  ZGEN(SN,GAL) = %.4f, %.4f \n",
@@ -5859,6 +6086,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
     sprintf(c2err,"CID=%d", GENLC.CID );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+
 
   return ;
 
@@ -5882,7 +6111,7 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.ZTRUE       = -9.0 ;
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
-
+  
   SNHOSTGAL.a_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.b_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.RA_SNGALSEP_ASEC  = HOSTLIB_SNPAR_UNDEFINED ;
@@ -5891,6 +6120,10 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.DEC_GAL_DEG       = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.RA_SN_DEG         = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.DEC_SN_DEG        = HOSTLIB_SNPAR_UNDEFINED ;
+
+  SNHOSTGAL.MAGOBS_ERR_SCALE  = 1.0 ;
+
+  SNHOSTGAL.ANGSEP_GROUPID = -9.0 ;
 
   // always init GALMAG quantities to garbage
   int i, ifilt ;
@@ -5921,8 +6154,10 @@ int USEHOST_GALID(int IGAL) {
   // Returns 1 if this IGAL should be used.
   // Returns 0 if this IGAL should be rejected.
   //
-  // Based on user-inputs determining if a host
-  // can be re-used.
+  // Based on user-inputs determining 
+  //  + if a host can be re-used
+  //  + if host GROUPID matches request from SIMLIB (Apr 2023)
+
 
   int retCode,  NUSE_PRIOR, NUSE, use;
   int MJD_STORE[MXUSE_SAMEGAL], BLOCK_STORE[MXUSE_SAMEGAL], BLOCKSUM;
@@ -5951,14 +6186,15 @@ int USEHOST_GALID(int IGAL) {
     retCode = 1 ;
   }
   else if ( SAMEHOST.REUSE_FLAG == 2 ) {
+    // Special option for re-use of host with PEAKMD-sep constraint;
+    // e.g., overaly KN on same bright host with at least 30 day sep.
     // Jan 2022 RK - there is a rare bug causing NUSE=0 ??
-    // option for re-use of host with PEAKMD-sep constraint
     BLOCKSUM = 0 ;
     MINDAYSEP = INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ;
     DAY = (int)SNHOSTGAL.PEAKMJD - SAMEHOST.PEAKMJD_STORE_OFFSET ;
 
-    // allocate memory for this IGAL on first usage
-    // Problem: if this IGAL is rejected, then malloc might happen again later??
+    // allocate memory for this IGAL on first usage.
+    // Problem: if IGAL is rejected, then malloc might happen again later??
     if ( NUSE_PRIOR == 0 ) {
       SAMEHOST.PEAKDAY_STORE[IGAL] = 
 	(unsigned short*)malloc( MXUSE_SAMEGAL*sizeof(unsigned short) ) ;
@@ -5993,6 +6229,7 @@ int USEHOST_GALID(int IGAL) {
     sprintf(c2err,"check function init_SAMEHOST()");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
 
   // --------------------------------------------
   // ----------------- DEBUG DUMP ---------------
@@ -6030,6 +6267,40 @@ int USEHOST_GALID(int IGAL) {
   return retCode;
 
 }  // end of USEHOST_GALID
+
+// =========================
+bool MATCH_GROUPID_HOSTLIB(int IGAL) {
+
+  // Apr 2023: check for GROUPID match if GROUPID appears in 
+  //  both SIMLIB header and HOSTLIB
+
+  int NGROUPID_HOSTLIB = SIMLIB_HEADER.NGROUPID_HOSTLIB;
+  int GROUPID_HOSTLIB, GROUPID_SIMLIB, i;
+  int IVAR_GROUPID     = HOSTLIB.IVAR_GROUPID ;
+  bool MATCH = false;
+  char fnam[] = "MATCH_GROUPID_HOSTLIB" ;
+
+  // ----------- BEGIN ----------
+
+  if ( NGROUPID_HOSTLIB <= 0 ) { return true; }
+
+  if ( IVAR_GROUPID < 0 ) {
+    sprintf(c1err,"Cannot require GROUPID from SIMLIB (LIBID=%d) because",
+	    GENLC.SIMLIB_ID );
+    sprintf(c2err,"GROUPID column does not exist in HOSTLIB");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  GROUPID_HOSTLIB = (int)get_VALUE_HOSTLIB(IVAR_GROUPID,IGAL);
+  for(i=0; i < NGROUPID_HOSTLIB; i++ ) {
+    GROUPID_SIMLIB = SIMLIB_HEADER.GROUPID_HOSTLIB_LIST[i] ;
+    if ( GROUPID_HOSTLIB == GROUPID_SIMLIB )	{ MATCH = true; }
+  }
+  
+
+  return MATCH ;
+
+} // end MATCH_GROUPID_HOSTLIB
 
 // =========================================
 void FREEHOST_GALID(int IGAL) {
@@ -6523,11 +6794,6 @@ void GEN_SNHOST_STRONGLENS(void) {
   HOSTLIB.IGAL_STRONGLENS = -9 ;
 
   IS_LOGMASS_LENS = ( LOGMASS_LENS > 2.0 );
-
-  /* xxx mark delete Sep 28 2022 xxxxxxx
-  // bail if there is no logmass in the LENS library
-  if ( LOGMASS_LENS < 2.0 ) { return; }
-  xxxxxxxxx  */
 
   // ABORT if there is no LOGMASS in the hostlib
   if ( IS_LOGMASS_LENS && IVAR_LOGMASS <= 0 ) { 
@@ -7101,11 +7367,6 @@ void GEN_SNHOST_POS(int IGAL) {
   a = reduced_R * (DLR * cphi) ;   // bug fix, Nov 15 2019
   b = reduced_R * (DLR * sphi) ;
 
-  if ( INPUTS.RESTORE_HOSTLIB_BUGS == true ) { // Nov 15 2019
-    a = reduced_R * (a_half * cphi) ;  // restore bug
-    b = reduced_R * (b_half * sphi) ;  // idem
-  }
-
   SNHOSTGAL.a_SNGALSEP_ASEC  =  a ;
   SNHOSTGAL.b_SNGALSEP_ASEC  =  b ;
   SNHOSTGAL.phi              =  phi ;
@@ -7144,7 +7405,6 @@ void GEN_SNHOST_POS(int IGAL) {
     SNHOSTGAL.RA_SN_DEG   = GENLC.RA ; // SN coord already selected
     SNHOSTGAL.DEC_SN_DEG  = GENLC.DEC ;
     COSDEC                = GENLC.cosDEC ;
-    //xxx mark delete     COSDEC  = cos(SNHOSTGAL.DEC_SN_DEG*RAD) ; 
 
     DTMP    = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / COSDEC ;
     RA_GAL  = SNHOSTGAL.RA_SN_DEG  - DTMP ;
@@ -7241,6 +7501,9 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   //  
   // Method 0 is optimal if there is an analytic form for the
   // integral. Here we go with method 2.
+  //
+  // Nov 11 2022: minor refactor to clarify usage of INPUTS.HOSTLIB_FIXRAN_PHI
+  //
 
   double asq    = a*a;
   double bsq    = b*b;
@@ -7255,11 +7518,11 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
 
   // check option to fix angle
   fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
-  if ( fixran > -1.0E-9 ) 
-    { SNHOSTGAL.FlatRan1_phi = fixran ; LEGACY=1; }
-
-  if ( LEGACY || INPUTS.RESTORE_HOSTLIB_BUGS ) 
-    { *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; return; }
+  if ( fixran > -1.0E-9 )  { 
+    SNHOSTGAL.FlatRan1_phi = fixran ; 
+    *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; 
+    return; 
+  }
 
 
   if ( LDMP ) {  printf(" xxx ------------------------------- \n"); }
@@ -7387,7 +7650,7 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   } // end i loop over NNBR_READ
 
-  // - - - - - - - - - .xyz divide into NNBR and NNBR2
+  // - - - - - - - - - divide into NNBR and NNBR2
   SNHOSTGAL.NNBR_ALL = NNBR_STORE ;
  
   // - - - - - - - - - - - - - 
@@ -7639,9 +7902,15 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
     printf("   Galaxy RA,DEC = %f , %f\n",  RA_GAL, DEC_GAL);
     printf("   SN     RA,DEC = %f , %f \n", RA_SN,  DEC_SN);
+    
+    if ( i_nbr > 1 ) {
+      printf("  i_nbr=0: SNSEP=%.3f   DDLR=%.3f \n",
+	     SNHOSTGAL.SNSEP_NBR_LIST[0], SNHOSTGAL.DDLR_NBR_LIST[0]);
+    }
+
     sprintf(c1err,"Crazy SN-galaxy sep = %.1f arcsec for i_nbr=%d", 
 	    SNSEP, i_nbr);
-    sprintf(c2err,"Likely a problem with NBR_LIST");  //.xyz
+    sprintf(c2err,"Likely a problem with NBR_LIST");  
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -7737,6 +8006,7 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
     SNHOSTGAL_DDLR_SORT[i].GALID2       = -9;
     SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = -9;
+    SNHOSTGAL_DDLR_SORT[i].GROUPID      = -9;
     SNHOSTGAL_DDLR_SORT[i].ELLIPTICITY  = 999.0;
     SNHOSTGAL_DDLR_SORT[i].SQRADIUS = 999.0;
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
@@ -7879,8 +8149,9 @@ void SORT_SNHOST_byDDLR(void) {
   if ( IVAR >= 0 && !LSN2GAL_Z ) {
     double HOST_DLMU, LENSDMU, zCMB, zHEL;
     zHEL = SNHOSTGAL.ZTRUE; 
-    zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, "eq",+1);
+    zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, COORDSYS_EQ, +1);
     gen_distanceMag(zCMB, zHEL,
+		    GENLC.GLON, GENLC.GLAT,
 		    &HOST_DLMU, &LENSDMU ); // <== returned
     DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
 
@@ -7985,6 +8256,10 @@ void SORT_SNHOST_byDDLR(void) {
     IVAR = HOSTLIB.IVAR_GALID2;
     if ( IVAR > 0 ) 
       { SNHOSTGAL_DDLR_SORT[i].GALID2 = get_VALUE_HOSTLIB(IVAR,IGAL); } 
+
+    IVAR = HOSTLIB.IVAR_GROUPID;
+    if ( IVAR > 0 ) 
+      { SNHOSTGAL_DDLR_SORT[i].GROUPID = get_VALUE_HOSTLIB(IVAR,IGAL); } 
 
     if ( INPUTS.HOSTLIB_GALID_UNIQUE ) {
       // compute GALID_UNIQUE from GALID (it's NOT read from hostlib)
@@ -8176,7 +8451,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   bool DO_SN2GAL_RADEC = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC) ;
 
   double zCMB, zHEL, zPEC ;
-  char eq[]           = "eq";
   char fnam[]         = "TRANSFER_SNHOST_REDSHIFT" ;
   int LDMP = 0; // ( GENLC.CID < -1010 ) ;
 
@@ -8186,7 +8460,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( !GENLC.CORRECT_HOSTMATCH) { return ; }
 
   // un-do zPEC to get zHEL without vPEC
-
   zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - 
@@ -8195,7 +8468,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( DO_SN2GAL_Z ) {
     zHEL = ZTRUE ;  // true host z
     if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
-      zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
+      zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
     }
     else {
       zCMB = zHEL ; 
@@ -8203,6 +8476,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL,
+		    GENLC.GLON, GENLC.GLAT, 
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
   }
 
@@ -8213,11 +8487,12 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( DO_SN2GAL_RADEC && !DO_SN2GAL_Z ) {
     zCMB = GENLC.REDSHIFT_CMB  ; // preserve this
     if ( INPUTS.VEL_CMBAPEX > 1.0 ) 
-      { zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,eq,-1); }   
+      { zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); }   
     else 
       { zHEL = zCMB; }
 
     gen_distanceMag(zCMB, zHEL, 
+		    GENLC.GLON, GENLC.GLAT,
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
 
   }
@@ -8282,6 +8557,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   // Nov 25 2019: protect dm for GALFRAC=0
   //
   // Jan 31 2020: refactor to load DDLR_SORT array for MAG.
+  // Nov 15 2022: float lam[abc] -> double lam[abc]
 
   int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2 ;
 
@@ -8297,8 +8573,8 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,AV, LAMOBS_AVG, MWXT[MXFILTINDX]
     ,RVMW = 3.1
     ;
-
-  float lamavg4, lamrms4, lammin4, lammax4  ;
+  
+  double lamavg, lamrms, lammin, lammax ;
   int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame  ;
   char cfilt[2];
   char fnam[] = "GEN_SNHOST_GALMAG" ;
@@ -8314,9 +8590,19 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   AV        = RVMW * GENLC.MWEBV_SMEAR ;
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs   = GENLC.IFILTMAP_OBS[ifilt];
-    get_filtlam__(&opt_frame, &ifilt_obs, 
-		  &lamavg4, &lamrms4, &lammin4, &lammax4 );
-    LAMOBS_AVG = (double)lamavg4 ;
+
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
+      get_filtlam__(&opt_frame, &ifilt_obs, 
+		    &lamavg, &lamrms, &lammin, &lammax );
+#endif
+    }
+    else {
+      get_calib_filtlam_stats(OPT_FRAME_OBS, ifilt_obs,  
+			      &lamavg, &lamrms, &lammin, &lammax);
+    }
+
+    LAMOBS_AVG = lamavg ;
     MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94 );
 
     // compute & store galaxy mag if they are defined
@@ -8807,12 +9093,13 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   // is not specified in the hostlib, return PARVAL_ORIG
   // i.e., using the SN parameter from the HOSTLIB is optional.
 
-  // Input: PARVAL_ORIG = parameter selection in sim before HOSLOT
+  // Input: PARVAL_ORIG = parameter selection in sim before HOST
   // Input: PARNAME     = name of SN parameter
   //
   // Mar 23 2018: allow SNMAGSHIFT as well.
+  // Mar 28 2023: int GALID -> long long
 
-  int  GALID          = SNHOSTGAL.GALID ;
+  long long int GALID = SNHOSTGAL.GALID ;
   int  IGAL           = SNHOSTGAL.IGAL ;
   bool USE_GAMMA_GRID = HOSTLIB_WGTMAP.USE_SALT2GAMMA_GRID;
   int IVAR, USE1, USE2 ;
@@ -8890,7 +9177,7 @@ void DUMP_SNHOST(void) {
 
   printf("# -------------------------------------------------------- \n");
   printf(" %s for CID = %d \n", fnam, GENLC.CID );
-  printf("    SN-GENERATED z=%.4f, RA=%.6f, DEC=%.6f deg (FIELD=%s).\n",
+  printf("    SN-GENERATED z=%.5f, RA=%.6f, DEC=%.6f deg (FIELD=%s).\n",
 	 SNHOSTGAL.ZGEN, GENLC.RA, GENLC.DEC, SIMLIB_HEADER.FIELD );
 
   printf("\t => IGAL-range=%d-%d  IGAL=%d  ran(GALID)=%4.3f \n"
@@ -9005,6 +9292,51 @@ void DUMP_SNHOST(void) {
   return ;
 
 } // end of DUMP_SNHOST
+
+// =========================================
+void DUMP_GROUPID(int igal_start, int igal_end ) {
+
+  // Dump GROUPID-related info for range of input igal 
+
+  double ANGSEP_MAX = 15.0; // dump only if AngSep < this (degrees)
+  int igal, ngal=0, GROUPID ;
+  long long int GALID ;
+  double  ZTRUE, RA, DEC, WGT, SEP ;
+  double *ptrWGT = HOSTLIB_WGTMAP.WGTSUM;
+  char fnam[] = "DUMP_GROUPID" ;
+
+  // ---------- BEGIN ----------
+
+  printf("# -------------------------------------------------------- \n");
+
+  printf(" %s for GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n",
+	 fnam, SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
+  printf("\t print subset with AngSep < %.0f degrees\n", fnam, ANGSEP_MAX);
+  printf("\n");
+
+  printf("                                                  AngSep \n" );
+  printf("    GALID      GROUPID  ZTRUE       RA      DEC  (SN-Host)  WGT  \n");
+  for ( igal = igal_start; igal <= igal_end; igal++ ) {
+    GALID   = (long long int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GALID,igal);
+    GROUPID = (int)get_VALUE_HOSTLIB(HOSTLIB.IVAR_GROUPID,igal);
+    ZTRUE   =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_ZTRUE,igal);
+    RA      =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,igal);
+    DEC     =      get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,igal);
+    WGT     =      ptrWGT[igal];
+
+    // compute angSep between SIMLIB coords and HOSTLIB coord.
+    SEP = angSep(GENLC.RA, GENLC.DEC, RA,DEC,  (double)1. );
+    if ( SEP > ANGSEP_MAX ) { continue; }
+
+    printf("  %10lld  %8d  %7.5f  %7.2f %7.2f  %6.2f  %.1f \n",
+	   GALID, GROUPID, ZTRUE, RA, DEC, SEP, WGT);
+
+    fflush(stdout);
+    ngal++ ;
+  }
+  
+  return;
+} // end DUMP_GROUPID
 
 
 // ========================================

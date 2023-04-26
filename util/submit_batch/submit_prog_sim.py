@@ -55,6 +55,9 @@
 #
 # Jul 05 2022: combine [VERSION].SL files, same as for [VERSION].DUMP files.
 #
+# Mar 2023: write sim-input keys to merged README so that we don't have to
+#           dig them out from misc.tar.gz ; see merge_write_readme()
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -87,7 +90,7 @@ MAX_SIMGEN_INFILE = 12
 
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
-KEY_INPUT_INCLUDE_FILE ='INPUT_INCLUDE_FILE' # Optional key
+KEY_INPUT_INCLUDE_FILE = 'INPUT_INCLUDE_FILE' # Optional key
 
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
@@ -1806,8 +1809,6 @@ class Simulation(Program):
             MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] )
 
-        #printf(" xxx force crash with C-like printf xxx \n")
-
         # end create_merge_table
 
     def genversion_expand_list(self,genversion_list,ranseed_key,n_job_split):
@@ -2333,6 +2334,8 @@ class Simulation(Program):
 
     def merge_write_readme(self, f, iver_all, MERGE_INFO_CONTENTS):
 
+        # Mar 2023: refactor to write sim-input keys for each model
+
         input_file          = self.config_yaml['args'].input_file
         submit_info_yaml    = self.config_prep['submit_info_yaml']
         infile_list2d       = self.config_prep['infile_list2d']
@@ -2350,10 +2353,10 @@ class Simulation(Program):
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
         iver            = row_list_merge[iver_all][COLNUM_SIM_MERGE_IVER]
 
-        nlc_gen   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
-        nlc_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
+        nlc_gen     = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
+        nlc_write   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
         nspec_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NSPEC_WRITE]
-        cpu    = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
+        cpu         = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
 
         IS_REPEAT =  'REPEAT' in ranseed_key
         IS_CHANGE =  'CHANGE' in ranseed_key
@@ -2367,19 +2370,31 @@ class Simulation(Program):
         f.write(f"  - {'TOTAL':<12}   {nlc_gen:8}   {nlc_write:8} " \
                 f" {nspec_write:8}        {cpu}\n")
 
+        # construct model_string for each row 
+        # (e.g., SNIaMODEL0, NONIaMODEL1 ...)
+        # and store model_strings in list
+        model_string_list = []
+        # xxx mark g0 = len("TMP_" + USER4) + len(genversion) + 2
+        for row in row_list_split :
+            TMP_GENV     = row[COLNUM_SIM_MERGE_GENVERSION]
+            jlast        = TMP_GENV.rindex('_'); 
+            model_string = TMP_GENV[jlast+1:] # e.g. SNIaMODEL0
+            
+            # xxx mark delete Mar 26 2023 xxx
+            #g1          = len(TMP_GENV)
+            #model_string= f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
+            # xxx end mark xxxx
+            model_string_list.append(model_string)
+
         # write out same info for each model ... only for RANSEED_REPEAT
         if IS_REPEAT :
-            g0 = len("TMP_" + USER4) + len(genversion) + 2
-            for row in row_list_split :
+            for row, model_string in zip(row_list_split, model_string_list) :
                 if iver == row[COLNUM_SIM_MERGE_IVER] :
-                    TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                    g1          = len(TMP_GENV)
-                    genv   = f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
-                    nlc_gen   = row[COLNUM_SIM_MERGE_NLC_GEN]
-                    nlc_write = row[COLNUM_SIM_MERGE_NLC_WRITE]
+                    nlc_gen     = row[COLNUM_SIM_MERGE_NLC_GEN]
+                    nlc_write   = row[COLNUM_SIM_MERGE_NLC_WRITE]
                     nspec_write = row[COLNUM_SIM_MERGE_NSPEC_WRITE]
-                    cpu       = row[COLNUM_SIM_MERGE_CPU]
-                    f.write(f"  - {genv:<12}   " \
+                    cpu         = row[COLNUM_SIM_MERGE_CPU]
+                    f.write(f"  - {model_string:<12}   " \
                             f"{nlc_gen:8}   {nlc_write:8}  {nspec_write:8} " \
                             f"       {cpu}\n")
         # - - - -
@@ -2396,10 +2411,53 @@ class Simulation(Program):
 
         f.write("\n")
         f.write(f"  SUBMIT_DIR:  {CWD}\n")
+
+        # - - - - - - - - -
+        # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
+        for row,model_string in zip(row_list_split,model_string_list) :
+            if iver == row[COLNUM_SIM_MERGE_IVER] :
+                TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
+                v_list      = glob.glob1(path_sndata_sim,f"{TMP_GENV}*")
+                v0          = v_list[0]  # pick first one from list
+                tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+                self.merge_write_input_keys(f, model_string, tmp_readme)
+
         f.write("DOCUMENTATION_END:\n")
 
         # end merge_write_readme
 
+    def merge_write_input_keys(self, f, model_string, tmp_readme):
+        # Created Mar 2023 by R.Kessler
+        # read sim input keys from tmp_readme file and write them to file pointer f
+        # that points to global read for merged sim version
+        # The tricky part is to skip the '# Output data' keys.
+
+        INPUT_KEYS_BASENAME  = "INPUT_KEYS"
+        INPUT_NOTES_BASENAME = "INPUT_NOTES"
+
+        KEYLIST_IGNORE = ['GENVERSION', 'NGENTOT_LC', 'NGEN_LC', 
+                          'CIDOFF', 'CIDRAN_MIN', 'CIDRAN_MAX' ]
+
+        input_keys_name = f"{INPUT_KEYS_BASENAME}_{model_string}"
+
+        f.write("\n# - - - - - - - - - - - - - - - - - - - - - - - - - - - - \n")
+        f.write(f"\n  {input_keys_name}: \n")
+        
+        found_input_keys = False
+        
+        with open(tmp_readme,"rt") as r:
+            for line in r :
+                if INPUT_NOTES_BASENAME in line: found_input_keys = False                
+                if found_input_keys : 
+                    wdlist = line.split()
+                    key    = wdlist[0][:-1]   # remove colon
+                    if key in KEYLIST_IGNORE: continue
+                    f.write(f"{line}")
+
+                if INPUT_KEYS_BASENAME  in line: found_input_keys = True
+
+        # end merge_write_input_keys
+        
     def merge_cleanup_final(self) :
 
         # Called after all tasks have complete (see -M arg);
@@ -2440,8 +2498,8 @@ class Simulation(Program):
             util.compress_files(+1, simlog_dir, "SIMnorm*",  "SIMnorm",  "" ) 
 
         # combine all of the BACKUP*.tar.gz files into one tar file
-        tar_file   = "SIMLOGS.tar"
-        tar_list   = "{BACKUP_PREFIX}_*.tar.gz"
+        tar_file   = f"SIMLOGS.tar"
+        tar_list   = f"{BACKUP_PREFIX}_*.tar.gz"
         cd_log     = f"cd {simlog_dir}"
         cmd_tar    = f"tar -cf {tar_file} {tar_list}"
         cmd_rm     = f"rm -rf {tar_list}"
@@ -2451,52 +2509,6 @@ class Simulation(Program):
         return
 
     # end merge_cleanup_final
-
-    def merge_cleanup_final_legacy(self) :
-
-        # Called after all tasks have complete (see -M arg);
-        # tar & gzip most of the contents of SIMLOGS;
-        # leave the following files outside tar file so that 
-        # they are always visible:
-        #    MERGE.LOG  SUBMIT.INFO  ALL.DONE
-        # Everything that gets tarred is also removed; therefore
-        # specify each item in tar_list and be careful wild cards.
-
-        submit_info_yaml   = self.config_prep['submit_info_yaml']
-        ngen_unit          = submit_info_yaml['NGEN_UNIT']
-        simlog_dir         = submit_info_yaml['SIMLOG_DIR']
-        
-        msg = "\n SIM Clean up SIMLOGS (tar+gzip)"
-        logging.info(msg)
-
-        tar_list  = ""
-        tar_list += "TMP_* "
-        tar_list += "CPU* "
-        if ngen_unit > 0 : tar_list += "SIMnorm* "
-
-        tar_list += f"{SIMGEN_INPUT_LISTFILE} "
-
-        if KEEP_EVERY_MERGELOG :
-            tar_list += f"{MERGE_LOG_FILE}_* "
-
-        # read list of sim-input files fom list file
-        list_file = f"{simlog_dir}/{SIMGEN_INPUT_LISTFILE}"
-        with open(list_file,"r") as f:
-            for infile in f.read().split():
-                infile.strip("\n")
-                tar_list += f"{infile} "
-     
-        tar_file   = "SIMLOGS.tar"
-        cd_log     = f"cd {simlog_dir}"
-        cmd_tar    = f"tar -cf {tar_file} {tar_list}"
-        cmd_gzip   = f"gzip {tar_file}"
-        cmd_rm     = f"rm -rf {tar_list} {tar_file}"
-        CMD        = f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} "
-        os.system(CMD)
-
-        return
-
-    # end merge_cleanup_final_legacy
 
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file.

@@ -99,6 +99,7 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   cosPar[ICOSPAR_HzFUN_wa] = 0.0 ;
   VBOSE = 1;
   init_HzFUN_INFO(VBOSE, cosPar, "", &PSNID_INPUTS.HzFUN_INFO);
+  PSNID_INPUTS.ANISOTROPY_INFO.USE_FLAG = false; // Feb 2023
 
   ivar++ ; dval = input_array[ivar];
   PSNID_INPUTS.DEBUG_FLAG = (int)dval ;

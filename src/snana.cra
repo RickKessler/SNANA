@@ -5,7 +5,7 @@ c --------------------------------------------------------
 +NAMES,8,6000,48000.
 +USE,LINUX.
 +USE,SNANA.
-+USE,R4KCOR.
+c+USE,KCOR.
 +USE,MINUIT.
 
 c +USE,TESTFUNS.

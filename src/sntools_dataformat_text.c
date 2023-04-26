@@ -31,6 +31,7 @@
 
  Sep 29 2022 RK - write extra digit of precision for FLUXCAL and FLUXCALERR
 
+ Feb 03 2023: read/write SIM_THETA for BayeSN model                             
 *************************************************/
 
 #include  "sntools.h"
@@ -248,13 +249,13 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_NOBS_UNDEFINED:  %d  \n", 
 	  SNDATA.SIM_NOBS_UNDEFINED );
 
-  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  \n",
+  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  # vpec not included\n",
 	  SNDATA.SIM_REDSHIFT_HELIO );
 
   fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n",
 	  SNDATA.SIM_REDSHIFT_CMB );
 
-  fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f  \n",
+  fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f \n",
 	  SNDATA.SIM_REDSHIFT_HOST );
 
   fprintf(fp,"SIM_REDSHIFT_FLAG:   %d  # %s\n", 
@@ -273,6 +274,14 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     parval  = SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ;
     parval2 = SNDATA.SIM_HOSTLIB_PARVAL[ipar][1] ; // kluge for now
     fprintf(fp, "%-40.40s  %.3f %.3f \n", key, parval, parval2);
+  }
+
+  // 4.23.2023: write this GROUPID diagnostic for text only ...
+  //   maybe later will add it to FITS format
+  if ( SNDATA.SIM_ANGSEP_GROUPID > 0.0 ) {
+    fprintf(fp,"SIM_HOSTLIB_ANGSEP_GROUPID: %.1f "
+	    "# angSep (deg) for GROUPID match between SIMLIB & HOSTLIB \n",
+	    SNDATA.SIM_ANGSEP_GROUPID);
   }
 
   fprintf(fp, "SIM_DLMU:            %.4f   # mag   [ -5*log10(10pc/dL) ]\n", 
@@ -327,6 +336,10 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   if ( SNDATA.SIM_DM15 != NULLFLOAT ) {
     fprintf(fp, "SIM_DM15:          %.3f    # DM15 lumi-par \n",
 	    SNDATA.SIM_DM15 ) ;
+  }
+  if ( SNDATA.SIM_THETA != NULLFLOAT ) {
+    fprintf(fp, "SIM_THETA:        %.3f    # BayeSN lumi-par\n",
+	    SNDATA.SIM_THETA ) ;
   }
 
   if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
@@ -648,24 +661,22 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     // if MAGOBS has been read for any filter, then write MAGOBS
     // for all filters.
 
-    // xxx mark if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
     if ( (SNDATA.HOSTGAL_USEMASK & 1) > 0 ) {
       fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
-	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
+	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
       }
       fprintf(fp,"# %s\n", filtlist) ;
     }
 
-    // xxx mark    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
     if ( (SNDATA.HOSTGAL_USEMASK & 2) > 0 ) {
       fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
-	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
+	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
       }
@@ -1677,8 +1688,8 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
   // ---------- BEGIN -------
 
   IVARSPEC_SNTEXTIO.LAMMIN = IVARSPEC_SNTEXTIO.LAMMAX = -9;
-  IVARSPEC_SNTEXTIO.LAMAVG = -9;
-  IVARSPEC_SNTEXTIO.LAMMIN = IVARSPEC_SNTEXTIO.FLAMERR = -9;
+  IVARSPEC_SNTEXTIO.LAMAVG = -9 ;
+  IVARSPEC_SNTEXTIO.FLAM   = IVARSPEC_SNTEXTIO.FLAMERR = -9;
   IVARSPEC_SNTEXTIO.SIM_GENFLAM = IVARSPEC_SNTEXTIO.SIM_GENMAG = -9;
 
   NVAR = SNTEXTIO_FILE_INFO.NVARSPEC ;
@@ -1706,7 +1717,7 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
       { IVARSPEC_SNTEXTIO.LAMMAX = ivar;  }
 
     else if ( strcmp(varName,"FLAM") == 0 ) 
-      { IVARSPEC_SNTEXTIO.FLAM = ivar; }
+      { IVARSPEC_SNTEXTIO.FLAM = ivar;   }
 
     else if ( strcmp(varName,"FLAMERR") == 0 ) 
       { IVARSPEC_SNTEXTIO.FLAMERR = ivar; }
@@ -2397,6 +2408,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     }
     else if ( strcmp(word0,"SIM_STRETCH:") == 0 ) {
       SNDATA.SIM_STRETCH = FVAL;
+    }
+    else if ( strcmp(word0,"SIM_THETA:") == 0 ) {
+      SNDATA.SIM_THETA = FVAL;
     }
     else if ( strncmp(word0,"SIMSED",6) == 0 ) {
       for(ipar=0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) { 

@@ -468,7 +468,8 @@ void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
   int  IDTMP, NTMP, NRD;
   char star[] = "*" ;
   char WDLIST[2][20], *ptrWDLIST[2];
-  //  char fnam[] = "parse_SIMLIB_IDplusNEXPOSE" ;     
+  char fnam[] = "parse_SIMLIB_IDplusNEXPOSE" ; 
+
   // ----------- BEGIN ------------ 
 
   NTMP = 1;  // default                                                        
@@ -480,7 +481,7 @@ void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
     // found star, read both ID and NEXPOSE  
     ptrWDLIST[0] = WDLIST[0] ;
     ptrWDLIST[1] = WDLIST[1] ;
-    splitString(inString, star, 3,  &NRD, ptrWDLIST );
+    splitString(inString, star, fnam, 3,  &NRD, ptrWDLIST );
     sscanf( WDLIST[0] , "%d", &IDTMP );
     sscanf( WDLIST[1] , "%d", &NTMP );
   }

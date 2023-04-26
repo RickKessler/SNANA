@@ -77,7 +77,7 @@ void parse_spectrograph_options(char *stringOpt) {
   char *ptrOpt[MXOPT_SPEC], s[MXOPT_SPEC][40];
   char *ptr2[MXOPT_SPEC], s2[2][40];
   char comma[]=",", equal[]="=" ;
-  //   char fnam[] = "parse_spectrograph_options" ;
+  char fnam[] = "parse_spectrograph_options" ;
 
   // ------------- BEGIN --------------
 
@@ -88,14 +88,14 @@ void parse_spectrograph_options(char *stringOpt) {
   // split by comma-separated values
   for(opt=0; opt < MXOPT_SPEC; opt++ )  { ptrOpt[opt] = s[opt] ; }
 
-  splitString(stringOpt, comma, MXOPT_SPEC,           // inputs               
+  splitString(stringOpt, comma, fnam, MXOPT_SPEC,           // inputs               
               &NOPT, ptrOpt );                        // outputs             
 
   // split each option by equal sign:  bla=val
   ptr2[0] = s2[0];
   ptr2[1] = s2[1];
   for(opt=0; opt < NOPT; opt++ ) {
-    splitString(s[opt], equal, MXOPT_SPEC, &NTMP, ptr2);
+    splitString(s[opt], equal, fnam, MXOPT_SPEC, &NTMP, ptr2);
 
     if ( strcmp(s2[0],"rebin")==0 ) {
       sscanf(s2[1] , "%d", &INPUTS_SPECTRO.NREBIN_LAM ); 
@@ -731,6 +731,17 @@ void  solve_spectrograph(void) {
 	check[iref] = fabs(SNR[iref]/SNR_check[iref]-1.0) ;
       }
 
+      if ( isinf(ZP) ) {
+	sprintf(c1err,"inf ZP for LAMAVG=%.3f", LAMAVG);
+	sprintf(c2err,"Check spectrograph table");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( isinf(SQSIGSKY) ) {
+	sprintf(c1err,"inf SQSIGSKY for LAMAVG=%.3f", LAMAVG );
+	sprintf(c2err,"Check spectrograph table");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
       if ( check[0] > 0.001  ||  check[1] > 0.001 ) {
 	print_preAbort_banner(fnam);
 	printf("   SNR0(input/check) = %f/%f = %f \n",
@@ -900,12 +911,13 @@ void read_spectrograph_fits(char *inFile) {
   // May 06 2020: default format is to format LAMMIN & LAMMAX 
   //  instead of just LAMCEN
   // Aug 20 2021: store LOGTEXPOSE_LIST
-
+  // Nov 15 2022: store NSYN_FILTER and SYN_IFILTDEF_LIST
+  //
   int istat, hdutype, extver, icol, anynul ;
   fitsfile *fp ;
 
   float  tmpVal_f  ;
-  int    NBL, NBT, l, t ;
+  int    NBL, NBT, l, t, ifilt, ifiltdef ;
   double L0, L1;
 
   char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
@@ -913,7 +925,15 @@ void read_spectrograph_fits(char *inFile) {
 
   // --------------- BEGIN -----------------
 
+  // init a few things
+
   SPECTROGRAPH_USEFLAG = 0;
+  INPUTS_SPECTRO.NSYN_FILTER = 0;
+
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+    {  INPUTS_SPECTRO.IS_SYN_FILTER[ifilt] = false; }
+  
+
 
   // open fits file
   istat = 0 ;
@@ -944,11 +964,16 @@ void read_spectrograph_fits(char *inFile) {
 
 
   sprintf(keyName, "%s", "SPECTROGRAPH_FILTERLIST" );
+  INPUTS_SPECTRO.SYN_FILTERLIST_BAND[0] = 0;
   fits_read_key(fp, TSTRING, keyName, &INPUTS_SPECTRO.SYN_FILTERLIST_BAND, 
 		comment, &istat );
 
-  printf("\n Read spectrograph instrument '%s' \n", 
+  printf("\n   Read spectrograph instrument '%s' \n", 
 	 INPUTS_SPECTRO.INSTRUMENT_NAME );
+
+  char *synlist = INPUTS_SPECTRO.SYN_FILTERLIST_BAND ;
+  printf("\t Found %d synthetic spectrograph filters (%s) \n",
+	 strlen(synlist), synlist );
   fflush(stdout);
 
   SPECTROGRAPH_USEFLAG = 1 ; // set global flag that spectrograph is defined.
@@ -964,13 +989,13 @@ void read_spectrograph_fits(char *inFile) {
   fits_read_key(fp, TINT, keyName, &NBL, comment, &istat );
   sprintf(c1err,"read number of lambda bins");
   snfitsio_errorCheck(c1err, istat);
-  printf("   Found %d wavelength bins \n", NBL);
+  printf("\t Found %d wavelength bins \n", NBL);
   
   sprintf(keyName, "%s", "NBT" );
   fits_read_key(fp, TINT, keyName, &NBT, comment, &istat );
   sprintf(c1err,"read number of TEXPOSE bins");
   snfitsio_errorCheck(c1err, istat);
-  printf("   Found %d TEXPOSE bins \n", NBT );
+  printf("\t Found %d TEXPOSE bins \n", NBT );
 
   fflush(stdout);
   INPUTS_SPECTRO.NBIN_LAM     = NBL ;
@@ -1014,7 +1039,7 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err,"read LAMMAX_LIST column" );
   snfitsio_errorCheck(c1err, istat);
 
-  printf("   Wavelength range stored: %.2f to %.2f A \n",
+  printf("\t Wavelength range stored: %.2f to %.2f A \n",
 	 INPUTS_SPECTRO.LAMMIN_LIST[0], INPUTS_SPECTRO.LAMMAX_LIST[NBL-1]);
 
   icol = 3 ;
@@ -1093,8 +1118,7 @@ void read_spectrograph_fits(char *inFile) {
   // ---------------------------------------------------
 
   float LAMMIN_f[MXFILTINDX], LAMMAX_f[MXFILTINDX];
-  int ifilt ;
-  char *cName[MXFILTINDX] ;
+  char *cName[MXFILTINDX], band[2] ;
 
   sprintf(TBLname, "SYN_FILTER_SPECTROGRAPH" );
 
@@ -1134,16 +1158,27 @@ void read_spectrograph_fits(char *inFile) {
   
   // note this is a sparse "ifilt" over SYN_FILTERLIST,
   // and not over all kcor filters.
+  INPUTS_SPECTRO.NSYN_FILTER = NROW;
+
   for(ifilt=0 ; ifilt < NROW; ifilt++ ) {
     INPUTS_SPECTRO.SYN_FILTERLIST_LAMMIN[ifilt] = LAMMIN_f[ifilt] ;
     INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] = LAMMAX_f[ifilt] ;
 
-    /*
-    printf(" xxx '%s' : LAMRANGE = %.1f to %.1f \n"
+    sprintf(band, "%c", INPUTS_SPECTRO.SYN_FILTERLIST_BAND[ifilt]);
+    ifiltdef = INTFILTER(band);
+    INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt]    = ifiltdef ;
+    INPUTS_SPECTRO.SYN_IFILTINV_LIST[ifiltdef] = ifilt ;
+    INPUTS_SPECTRO.IS_SYN_FILTER[ifiltdef] = true;
+    
+    /* xxxxxxxxx
+    printf(" xxx %s(%s:%2d) : LAMRANGE = %.1f to %.1f \n"	  
 	   ,INPUTS_SPECTRO.SYN_FILTERLIST_NAME[ifilt]
+	   ,band
+	   ,INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt] 
 	   ,INPUTS_SPECTRO.SYN_FILTERLIST_LAMMIN[ifilt]
-	   ,INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] );  */
-  }
+	   ,INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] );  fflush(stdout);
+    xxx */
+  } // end ifilt 
 
   // ------------------------------------------
   // close fits file
@@ -1153,6 +1188,8 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err, "Close Spectrograph FITS file"  );
   snfitsio_errorCheck(c1err, istat);
 
+
+  printf("\n"); fflush(stdout);
 
   return ;
 
@@ -1304,6 +1341,7 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
 
   int l, NBL = INPUTS_SPECTRO.NBIN_LAM ;  
   int t, NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;  
+  int NERR = 0;
   double LAMAVG, LAMBIN, LAMSIG, ZP, SIGSKY, VARSKY, SNR0, SNR1;
   bool   ISLAM_EXTEND ;
 
@@ -1311,7 +1349,7 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
 
   t=0;
   printf("\n DUMP SPECTROGRAPH TABLE: %s\n", comment);
-  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d] SIGSKY[%d] "
+  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d]     SIGSKY[%d] "
 	 "Extended\n", t, t);
 
   for(l=0; l < NBL; l++ ) {
@@ -1326,10 +1364,10 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
     VARSKY = INPUTS_SPECTRO.SQSIGSKY[l][t] ;
 
     if ( VARSKY > 0.0 ) { SIGSKY = sqrt(VARSKY); }
-    else                { SIGSKY = VARSKY; }
+    else                { SIGSKY = -sqrt(fabs(VARSKY)) ; }
 
     printf(" %6d  %9.2f  %6.2f  %4.1f  " 
-	   "%6.1f   %7.2f    %d\n",
+	   "%8.3f   %10.3e    %d\n",
 	   l, LAMAVG, LAMBIN, LAMSIG, 
 	   ZP, SIGSKY, ISLAM_EXTEND );
   }

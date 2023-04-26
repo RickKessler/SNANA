@@ -65,6 +65,8 @@
 
  Jul 21 2021: write PHOTFLAG_DETECT to global header
 
+ Feb 03 2023: read/write SIM_THETA for BayeSN model
+
 **************************************************/
 
 #include "fitsio.h"
@@ -478,6 +480,9 @@ void wr_snfitsio_init_head(void) {
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
       wr_snfitsio_addCol( "1E", "SIM_STRETCH"       , itype );
+    }
+    if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
+      wr_snfitsio_addCol( "1E", "SIM_THETA"       , itype );
     }
 
     
@@ -2082,6 +2087,12 @@ void wr_snfitsio_update_head(void) {
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRETCH", itype );
   }
 
+  if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_THETA ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_THETA", itype );
+  }
+
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_NON1ASED ||
        SNDATA.SIM_MODEL_INDEX  == MODEL_NON1AGRID ) {
@@ -3030,6 +3041,7 @@ int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 // ========================================================
 int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
 
+  // xxxxxxxxx MARK OBSOLETE OCT 11 2022 xxxxxxxxx
 
   // For input global *parName, return *parString.
   //
@@ -3209,7 +3221,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
 
 
-  // check optional SIMSED_HOSTLIB[ipar] 
+  // check optional SIM_HOSTLIB[ipar] 
   if ( SNDATA.NPAR_SIM_HOSTLIB > 0 ) {
     for ( ipar = 0; ipar <  SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
       sprintf(key,"SIM_HOSTLIB_PAR%2.2d", ipar);
@@ -3231,6 +3243,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   sprintf(parString,"%s", tmpString);
   return(SUCCESS) ;
 
+  // xxxxxxxxx MARK OBSOLETE OCT 11 2022 xxxxxxxxx
 
 } // end of RD_SNFITSIO_GLOBAL
 
@@ -3582,6 +3595,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
     SNDATA.SIM_HOSTLIB_GALID = (long long)D_OBJID ;
 
+    // Oct 11 2022 - read SIM_HOSTLIB_PARVAL (forgot in previous refac)
+    for ( ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.SIM_HOSTLIB_KEYWORD[ipar], 
+				 &SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;	
+    }
+
+
     j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_DLMU", &SNDATA.SIM_DLMU ,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
@@ -3638,6 +3659,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_STRETCH", &SNDATA.SIM_STRETCH ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
+    if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_THETA", &SNDATA.SIM_THETA ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
     }
   
@@ -4124,7 +4149,9 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // SUBSURVEY_FLAG=1, and this messes up re-writing data files
   // with header override. This hack can be removed when the nominal
   // SMP & DIFFIMG data files have SUBSURVEY_FLAG=0 in global header.
-  if ( strcmp(SNDATA.SURVEY_NAME,"DES")==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
+  // Dec 7 2022 - same hack for LSST (DC2)
+  if ( strcmp(SNDATA.SURVEY_NAME,"DES" )==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
+  if ( strcmp(SNDATA.SURVEY_NAME,"LSST")==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
   // xxxxxxxxxxxx END HACK xxxxxxxxxxxx
 
 

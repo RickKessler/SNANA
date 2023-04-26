@@ -9,7 +9,7 @@
   Each PySEDMODEL is associated with a separate gensed_[model].py :
      gensed_BYOSED.py : Build Your Own SED  (J.Pierel)
      gensed_SNEMO.py  : SNFactory model (Ben Rose)
-     gensed_BAYESN.py : BayeSN model (Gautham Narayan, Stephen Thorp, Kaisey Mandel)
+     gensed_PYBAYESN.py : BayeSN model (Gautham Narayan, Stephen Thorp, Kaisey Mandel)
      gensed_AGN.py : AGN model (Qifeng Cheng, Konstantin Malanchev)
 
   Initial motivation is to build underlying "true" SED model to
@@ -109,7 +109,7 @@ void load_PySEDMODEL_CHOICE_LIST(void) {
   // Used by sim, parsing, etc ...
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED ); N++ ;
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO  ); N++ ;
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BAYESN ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_PYBAYESN ); N++ ;
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_AGN    ); N++ ;
 
   if ( N != NCHOICE_PySEDMODEL ) {
@@ -195,12 +195,32 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   for(ipar=0; ipar < MXHOSTPAR_PySEDMODEL; ipar++ )
     { INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR[ipar] = (char*)malloc(60*MEMC);  }
 
-  splitString(NAMES_HOSTPAR, comma, MXHOSTPAR_PySEDMODEL,
+  splitString(NAMES_HOSTPAR, comma, fnam, MXHOSTPAR_PySEDMODEL,
 	      &NPAR, INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR );
 
   // - - - - - - - - - - -
   // print summary of filter info
   filtdump_SEDMODEL();
+
+  // Dec 2022: set SED and filtercen limits; here they are hard wired, 
+  //  but we should really call a python method to return the values  
+  // start with generi default ...
+  SEDMODEL.RESTLAMMIN_FILTERCEN =  2000.0 ;
+  SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
+  SEDMODEL.LAMMIN_ALL           =  1000.0 ;
+  SEDMODEL.LAMMAX_ALL           = 25000.0 ;
+  if ( strcmp(MODEL_NAME,MODEL_NAME_PYBAYESN) == 0 ) {
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  4000.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 16000.0 ;
+  }
+  printf("\n\t Hard-wired wavelength ranges: \n");
+  printf("\t   FILTERCEN: %.1f to %.1f \n", 
+	 SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN );
+  printf("\t   SED: %.1f to %.1f \n", 
+	 SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
+  fflush(stdout);
+
+
 
   // init a few C struct items
   Event_PySEDMODEL.LAST_EXTERNAL_ID = -9;
@@ -233,7 +253,8 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
 
 #ifdef USE_PYTHON
-  printf("\t Begin %s python-init from C code ... \n", PyMODEL_NAME );
+  printf("\n\t Begin %s python-init from C code ... \n", PyMODEL_NAME );   fflush(stdout);
+
   Py_Initialize();
   int nResult1 = PyRun_SimpleStringFlags("import numpy", NULL);
   int nResult2 = PyRun_SimpleStringFlags("import os", NULL);
@@ -252,7 +273,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   handle_python_exception(fnam, "importing numpy and getting numpy.empty & numpy.double");
   Py_DECREF(numpy);
 
-  printf("DEBUG", PyCLASS_NAME, "\n");
+  // xxx mark delete  printf("DEBUG", PyCLASS_NAME, "\n");
   genmod_base = PyImport_ImportModule("gensed_base");
   if (genmod_base == NULL) {
     handle_python_exception(fnam, "tried to import gensed_base");
@@ -298,6 +319,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   Py_DECREF(pargs);
 
   printf("\t Finished %s python-init from C code \n", PyMODEL_NAME );
+  fflush(stdout);
 #endif
 
   // -----------------------------------------------------
@@ -322,6 +344,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
   // - - - -
   printf("\n\t Done with %s \n", fnam);
+  fflush(stdout);
 
   return ;
 

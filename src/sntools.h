@@ -1,3 +1,4 @@
+
 /*******************************************************
      Created Jan 2005 by R.Kessler
 
@@ -66,9 +67,15 @@
 #include "sntools_genExpHalfGauss.h"
 
 // --------------------------------------------------
-#define  SNANA_VERSION_CURRENT  "v11_04m"         
+//#define  SNANA_VERSION_CURRENT  "v11_04p"   
+#define  SNANA_VERSION_CURRENT  GIT_SNANA_VERSION  // Dec 2 2022
+
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
+
+// Nov 28 2022 include: flag to include calls to legacy fortran code.
+//    This flag is to isolate code for future removal.
+//#define USE_KCOR_FORTRAN
 
 #define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
@@ -104,11 +111,16 @@
 #define PLUS       "+"
 #define STAR       "*"
 #define DOT        "."
+#define ALL        "ALL"
+#define ALLFIELDS  "ALLFIELDS"
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (galactic coords !!!)
 #define  CMBapex_b  (double)48.253     // deg
 #define  CMBapex_v  (double)369.82    // km/sec
+#define  COORDSYS_EQ    "eq"          // arg for zhelio_zcmb_translator
+#define  COORDSYS_GAL   "gal"
+#define  COORDSYS_J2000 "J2000"
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian
 #define TEN        (double)10.0
@@ -152,8 +164,9 @@
 #define MODEL_SIMSED   7  // set of SED sequences (e.g., sim-explosion models)
 #define MODEL_BYOSED   8  // build-your-own SED model
 #define MODEL_SNEMO    9  // SNEMO from SNFactory (Sep 2020)
-#define MODEL_BAYESN    13  // BayeSN (Nov 2021)
-#define MODEL_AGN       14  // AGN (Sep 2022)
+#define MODEL_BAYESN    13  // C-code BayeSN (Oct 2022)
+#define MODEL_PYBAYESN  14  // Python BayeSN (Nov 2021)
+#define MODEL_AGN       15  // AGN (Sep 2022)
 #define MODEL_NON1ASED   10  // obs-frame NONIA from SED
 #define MODEL_NON1AGRID  11  // obs-frame NONIA from mag-grid (Mar 2016)
 #define MODEL_LCLIB      12  // light curve library (July 2017)
@@ -169,7 +182,15 @@
 
 // keep this in sync with the fortran FILTDEF_STRING
 // Oct 22 2015: add 27 special chars to hack an IFU
-#define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx &"
+#define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx" //     ~!@#$%^&*()-_=+[]{}<>,|;`'"
+
+// [moved from sntools_kcor.h on Nov 17 2022]
+#define MASK_FRAME_REST 1
+#define MASK_FRAME_OBS  2
+#define OPT_FRAME_REST  0   // bit or index
+#define OPT_FRAME_OBS   1   // idem
+#define STRING_FRAME_OBS   "OBS"
+#define STRING_FRAME_REST  "REST"
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 
@@ -438,6 +459,9 @@ struct {
 //
 // ##############################################################
 
+
+double smooth_stepfun(double sep, double sepmax);
+
 void write_epoch_list_init(char *outFile);
 void write_epoch_list_addvar(char *varName, double *CUTWIN, char *CUTMODE);
 void write_epoch_list_exec(char *CID,double MJD,char *BAND, double *VALUES);
@@ -489,6 +513,7 @@ bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_full_command(FILE *fp, int argc, char** argv);
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
+void print_mask_comment(FILE *FP, int OPTIONS_MASK, int MASK, char *COMMENT);
 
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE);
@@ -561,6 +586,7 @@ void   parse_GENPOLY(char *stringPoly, char *varName,
 		     GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
 void   copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT);
+void   print_GENPOLY(GENPOLY_DEF *GENPOLY);
 
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
@@ -637,6 +663,11 @@ int   match_cid_hash__(char *cid, int *ilist, int *isn);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );
+
+void read_YAML_VALS(char *fileName, char *key_list, char *callFun, 
+		    double *val_list);
+void read_yaml_vals__(char *fileName, char *key_list, char *callFun, 
+		      double *val_list);
 
 unsigned int *CIDMASK_LIST;  int  MXCIDMASK, NCIDMASK_LIST ;
 int  exec_cidmask(int mode, int CID);
@@ -735,12 +766,13 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
 
-void splitString(char *string, char *sep, int MXsplit,
-		 int *Nsplit, char **ptrSplit);
+void splitString(char *string, char *sep, char *callFun, int MXsplit,
+		 int *Nsplit, char **ptrSplit );
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
 void split2floats(char *string, char *sep, float *fval) ;
 
+void remove_comment(char *string) ;
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;
 void extractstringopt_( char *string, char *stringOpt) ;
@@ -856,6 +888,7 @@ void sortLong(int NSORT, long long *ARRAY, int ORDER,
 	     int *INDEX_SORT) ;
 void reverse_INDEX_SORT(int NSORT, int *INDEX_SORT) ;
 
+void float2double(int N, float *flist, double *dlist);
 
 // mangled fortran functions
 void sortdouble_(int *NSORT, double *ARRAY, int *ORDER,
@@ -864,6 +897,7 @@ void sortfloat_(int *NSORT, float *ARRAY, int *ORDER,
 		int *INDEX_SORT);
 void sortint_(int *NSORT, int *ARRAY, int *ORDER,
 	      int *INDEX_SORT);
+void float2double_(int *N, float *flist, double *dlist);
 
 // invert matrix to replace CERNLIB functions
 void invertMatrix (int  N, int  n, double *Matrix ) ;
@@ -907,6 +941,7 @@ void reset_glob_file_list__(void);
 
 void  print_debug_malloc(int opt, char *comment);
 float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D );
+float malloc_double2D_contiguous(int opt, int LEN1, int LEN2, double ***array2D );
 float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
                       double ****array3D );
 float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,

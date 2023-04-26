@@ -42,9 +42,12 @@
      Vincenzi 2021 (2111.10382)  w-syst for SNCC contamination in DES
      Sanchez  2021 (2111.06858)  cosmology result for LSST-DC2-SNIa analysis
      Brout    2022 (2202.04077)  Pantheon+ systematics
-     Dai      2022 (in prep)     SALT3 training syst
-     Mitra    2022 (in prep)     SNIa cosmology with photo-z/PLASTICC
-     
+     Dai      2022 (2212.06879)  SALT3 training syst
+     Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
+     Armstron 2023 (in prep)     contraint validation
+     Kessler  2023 (in prep)     Binning-is-sinning redemption
+     Vincenzi 2023 (in prep)     DES5YR analysis & syst
+
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
     + include option to float wa in w0waCDM model
@@ -112,6 +115,25 @@
                   in EofZ, if arg < 0.01; arg=0.01 (to allow om<0)
 
  Sep 27 2022 RK - write rho_wom
+ Dec 6 2022 RK - remove obsolete fitswrite option
+
+ Jan 31 2023 RK 
+    - enable -outfile_resid feature 
+    - in write_output_chi2grid, add blind offsets
+
+ Feb 6 2023 - fix sntools_output.c to select 1st varname on list
+              instead of last. E.g., for 'zHD zCMB', use zHD instead of
+              zCMB.
+
+ Mar 13 2023: add inputs w0_sim and wa_sim to alter cmb prior in the same
+              way as om_sim input.
+
+ Mar 14 2023: begin prep for HDIBC method:
+                 Hubble Diagram Interpolated with Bias-cor Cosmology
+
+ Mar 29 2023:
+   +  "-debug_flag 91"  to dump cospar comparison between wfit and sim
+   +  -muerr_ideal <value> to replace mu with mu_true + Gauss(0,muerr_ideal).
 
 *****************************************************************************/
 
@@ -131,7 +153,6 @@
 // ======== global params ==========
 
 #define MXSN 100000 // max number of SN to read & fit
-#define MEMC_FILENAME 1000*sizeof(char)
 
 // bit-mask options for speed_flag_chio2
 #define SPEED_MASK_OFFDIAG 1  // skip off-diag calc if chi2(diag)>threshold
@@ -150,6 +171,15 @@
 
 #define  KEYNAME_ISDATA_REAL     "ISDATA_REAL:"
 
+// define INFO_YML file name and sim-keys to read cosmo params for biasCor sim
+#define INFO_YML_FILENAME     "INFO.YML"  // produced by create_covariance
+#define NSIMKEY_COSPAR         5
+#define SIMKEY_MUSHIFT        "MUSHIFT:"
+#define SIMKEY_OMEGA_LAMBDA   "OMEGA_LAMBDA:"
+#define SIMKEY_OMEGA_MATTER   "OMEGA_MATTER:"
+#define SIMKEY_w0_LAMBDA      "w0_LAMBDA:"
+#define SIMKEY_wa_LAMBDA      "wa_LAMBDA:"
+
 // ======== global structures ==========
 
 struct INPUTS {
@@ -160,6 +190,7 @@ struct INPUTS {
   bool blind_auto; // automatically blind data and unblind sim
   int  blind_seed; // used to pick large random number for sin arg
   int  debug_flag ;
+  double muerr_ideal ; // flag to replace mu -> mu_true + Gauss(0,muerr_ideal)
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -167,11 +198,15 @@ struct INPUTS {
 
   int fitnumber;   // default=1; legacy for iterative fit after sigint calc
 
-  char infile[1000];          // input hubble diagram in fitres format
-  char outFile_cospar[1000] ; // output name of cospar file
-  char outFile_resid[1000] ;
-  char outFile_chi2grid[1000];
-  char mucov_file[1000] ;  // input cov matrix; e.g., from create_covariance
+  char **HD_infile_list ;
+  bool USE_HDIBC;
+  int  NHD; // number of HDs; 1 or 2
+  char outFile_cospar[MXCHAR_FILENAME] ; // output name of cospar file
+  char outFile_resid[MXCHAR_FILENAME] ;
+  char outFile_chi2grid[MXCHAR_FILENAME];
+  char **mucov_file ;  // input cov matrix(es); e.g., produced by create_cov
+  int    NMUCOV ; // 1 or 2 cov matrices; 2 for HDIBC method
+  
   char label_cospar[40]  ;   // string label for cospar file.
   int  ndump_mucov ; // dump this many column/rows
   char varname_muerr[40] ; // name of muerr variable, default MUERR
@@ -196,8 +231,9 @@ struct INPUTS {
   // Gauss OM prior
   double omm_prior, omm_prior_sig; 
 
-  double snrms, sqsnrms;
-  double OMEGA_MATTER_SIM ;
+  double snrms, sqsnrms, muerr_force ;
+  double OMEGA_MATTER_SIM ; // for priors
+  double w0_SIM, wa_SIM ;   // idem
 
   // computed from user inputs
   double h_stepsize, omm_stepsize, w0_stepsize, wa_stepsize;
@@ -205,6 +241,13 @@ struct INPUTS {
 
 } INPUTS ;
 
+
+typedef struct COVMAT {
+  char    fileName[MXCHAR_FILENAME]; // file name that was read
+  double *ARRAY1D ;   // 1D representation of matrix
+  int     N_NONZERO ; // number of non-zero elements
+  int     NDIM ;      // dimension size  
+} COVMAT_DEF ;
 
 // define workspace
 struct  {
@@ -222,6 +265,7 @@ struct  {
 
   double   *snprob,     *extprob,      *snchi,      *extchi ;
   double ***snprob3d, ***extprob3d,  ***snchi3d,  ***extchi3d;
+  double *mu_dif;
 
   int    Ndof, Ndof_prior, Ndof_data;
   double sig_chi2min_naive; // sqrt(2*Ndof)
@@ -240,10 +284,10 @@ struct  {
   double omm_sig_marg, omm_sig_upper, omm_sig_lower;
   double cov_w0wa, cov_w0omm;
   double rho_w0wa, rho_w0omm; 
-  
-  double *MUCOV; // 1D array for cov matrix
-  int    NCOV_NONZERO ;
 
+  COVMAT_DEF MUCOV[2]; // up to two cov matrices
+  COVMAT_DEF MUCOV_FINAL ;
+  
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
   double sigmu_int, muoff_final, FoM_final ;
@@ -253,27 +297,35 @@ struct  {
 } WORKSPACE ;
 
 
-// define structure to hold hubble diagram (Oct 1 2021)
-struct {
-  int    NSN, NSN_ORIG ; // NSN after cuts, before cuts
-  char   **cid;
-  bool   *pass_cut;
-  double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
-  int    *nfit_perbin;  
-  double zmin, zmax;
-  bool   ISDATA_REAL; // Jul 2022
-} HD;
-
-
 typedef struct  {
   // Cosmological parameter structure used by codist.c 
   double omm;  // Omega_matter 
   double ome;  // Omega_energy
   double w0;   // equation of state of Dark Energy: 
   double wa;   //    w(z) = w0 + wa(1-a)  
+  double mushift;  // for HDIBC method only
 } Cosparam ;
 
 
+// define structure to hold hubble diagram (Oct 1 2021)
+typedef struct {
+  int    NSN, NSN_ORIG ; // NSN after cuts, before cuts
+  char   **cid;
+  bool   *pass_cut;
+  double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
+  int    *nfit_perbin;  
+  double zmin, zmax;
+  bool   ISDATA_REAL;
+
+  // for HDIBC method (Mar 2023)
+  Cosparam cospar_biasCor;
+  double *mu_cospar_biascor; // store distance(z_data) using biasCor cosmology
+
+} HD_DEF ;
+
+HD_DEF HD_LIST[2];
+
+Cosparam COSPAR_SIM ; // cosmo params from simulated data 
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
@@ -354,9 +406,6 @@ int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 int NCOVPAIR = 0 ;
 int NCOVSN   = 0 ; 
 
-int INDEX_COVSN_MAP[MXCOVSN];      // CIDLIST index vs. NCOVSN index
-int INDEX_COVSN_INVMAP[MXSN];      // NCOVSN index vs. CIDLIST
-
 // =========== function prototypes ================
 
 void print_wfit_help(void);
@@ -365,18 +414,25 @@ void parse_args(int argc, char **argv) ;
 int  compare_double_reverse (const void *, const void *);
 void writemodel(char*, float, float, float);
 void printerror( int status);
-void read_fitres(char *inFile);
-void read_ISDATA_REAL(char *inFile);
-void malloc_HDarrays(int opt, int NSN);
+void read_HD(char *inFile, HD_DEF *HD);
+bool read_ISDATA_REAL(char *inFile);
+void read_cospar_biascor(char *info_yml_file, Cosparam *cospar);
+void malloc_HDarrays(int opt, int NSN, HD_DEF *HD);
+void malloc_COVMAT(int opt, COVMAT_DEF *COV);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
-void read_mucov_sys(char *inFile);
-void dump_MUCOV(char *comment);
-void invert_mucovar(double sqmurms_add);
+void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *COV);
+void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *COV);
+int  applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD);
+int  applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
+void dump_MUCOV(COVMAT_DEF *COV, char *comment);
+void sync_HD_LIST(HD_DEF *HD_REF, HD_DEF *HD, COVMAT_DEF *MUCOV);
+void compute_MUCOV_FINAL();
+void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
 void set_stepsizes(void);
 void set_Ndof(void);
-void init_rz_interp(void);
+void init_rz_interp(HD_DEF *HD);
 void exec_rz_interp(int k, Cosparam *cospar, double *rz, double *dmu);
 void check_refit(void);
 
@@ -417,9 +473,8 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
 int  cidindex(char *cid);
 
 void WRITE_OUTPUT_DRIVER(void);
-void write_output_resid(int fitnum);
+void write_output_resid(void);
 void write_output_cospar(void);
-void write_output_fits_legacy(void);
 void write_output_chi2grid(void);
 
 void CPU_summary(void);
@@ -450,6 +505,7 @@ double trapint(double (*func)(double, Cosparam *),
 double trapezoid(double (*func)(double, Cosparam *), 
 		 double x1, double x2, int n, double s, Cosparam *vptr);
 
+void test_cospar(void);
 
 // =============================================
 // ================ MAIN =======================
@@ -457,7 +513,10 @@ double trapezoid(double (*func)(double, Cosparam *),
 
 int main(int argc,char *argv[]){
 
+  int f ;
   // ----------------- BEGIN MAIN ----------------
+
+  print_full_command(stdout, argc, argv);
 
   t_start = time(NULL);
 
@@ -474,7 +533,7 @@ int main(int argc,char *argv[]){
   // Parse command line args 
   parse_args(argc,argv);
 
-  if ( INPUTS.debug_flag == -10 ) { malloc_HDarrays(+1,MXSN); }  // legacy
+  if ( INPUTS.debug_flag == 91 ) { test_cospar(); }
 
   malloc_workspace(+1);
 
@@ -487,23 +546,40 @@ int main(int argc,char *argv[]){
     /*** Read in the data ***/
     /************************/
     
-    read_fitres(INPUTS.infile); 
+    read_HD(INPUTS.HD_infile_list[0], &HD_LIST[0]); 
+    if ( INPUTS.USE_HDIBC ) 
+      { read_HD(INPUTS.HD_infile_list[1], &HD_LIST[1]); }
 
     // for large samples, setup logz grid to interpolate rz(z)
-    init_rz_interp();
+    for(f=0; f < INPUTS.NHD; f++ )
+      { init_rz_interp(&HD_LIST[f]); }
 
     // Set BAO and CMB priors
     set_priors();
   
-    // read optional mu-cov matrix (e..g, Cov_syst)
-    read_mucov_sys(INPUTS.mucov_file);
-   
+    // read optional mu-covSys matrix
+    for(f=0; f < INPUTS.NMUCOV; f++ ) 
+      { read_mucov_sys(INPUTS.mucov_file[f], f, &WORKSPACE.MUCOV[f] ); }
+
+    // sync HD events and MUCOV if there are two HDs
+    if ( INPUTS.USE_HDIBC ) { 
+      sync_HD_LIST(&HD_LIST[0],
+		   &HD_LIST[1], &WORKSPACE.MUCOV[1] );  // <== modified
+
+      sync_HD_LIST(&HD_LIST[1],
+		   &HD_LIST[0], &WORKSPACE.MUCOV[0] );  // <== modified
+    }
+
+    if ( INPUTS.use_mucov ) {
+      compute_MUCOV_FINAL();
+      invert_mucovar(&WORKSPACE.MUCOV_FINAL, INPUTS.sqsnrms);
+    }
+    
     // compute grid step size per floated variable
     set_stepsizes();
 
     // compute number of degrees of freedom
     set_Ndof(); 
-
 
     t_end_init = time(NULL);
  
@@ -545,7 +621,7 @@ int main(int argc,char *argv[]){
 
   // ----------------------------
   // free memory
-  malloc_HDarrays(-1,0);
+  // ??  malloc_HDarrays(-1,0);
   malloc_workspace(-1);
   CPU_summary();
 
@@ -561,14 +637,20 @@ void init_stuff(void) {
 
   // ------------ BEGIN -----------
 
+  INPUTS.USE_HDIBC = false;
+  INPUTS.NHD       = 0 ;
+
   INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
   INPUTS.blind_seed = 48901 ;
+  INPUTS.muerr_ideal = 0.0;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
   INPUTS.OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
+  INPUTS.w0_SIM           = w0_DEFAULT ;
+  INPUTS.wa_SIM           = wa_DEFAULT ;
 
-  INPUTS.mucov_file[0]       = 0 ;
+  INPUTS.NMUCOV              = 0 ;
   INPUTS.ndump_mucov         = 0 ;
   INPUTS.outFile_cospar[0]   = 0 ;
   INPUTS.outFile_resid[0]    = 0 ;
@@ -602,7 +684,7 @@ void init_stuff(void) {
   INPUTS.zmin = 0.0;  INPUTS.zmax = 9.0;
 
   INPUTS.snrms  = INPUTS.sqsnrms = 0.0 ;
-
+  INPUTS.muerr_force = -9.0 ;
 
   // - - - - - - - - - - -  - -
   // init misc variables
@@ -615,6 +697,10 @@ void init_stuff(void) {
 
   // - - - - -
   // WORKSPACE
+
+  WORKSPACE.MUCOV[0].NDIM = 0;
+  WORKSPACE.MUCOV[1].NDIM = 0;
+
   WORKSPACE.snchi_min  = 1.0e20 ;
   WORKSPACE.extchi_min = 1.0e20 ;
 
@@ -644,6 +730,7 @@ void print_wfit_help(void) {
   static char *help[] = {		/* instructions */
     "",
     "WFIT - Usage: wfit [hubble diagram] (options)",
+    "WFIT - Usage: wfit [HD0,HD1] (options)   for HDIBC method",
     "",
     " Default for input file is 3 columns: z, mu, sigma_mu, but see below",
     "",
@@ -658,23 +745,27 @@ void print_wfit_help(void) {
     "   -cmb\t\tuse CMB prior from 5-year WMAP (2008)",
     "   -cmb_sim\tuse CMB prior with simulated cosmology and WMAP formalism",
     "   -om_sim\tOmega_M for cmb_sim (default from sntools.h)",
+    "   -w0_sim\tw0 for cmb_sim (default from sntools.h)",
+    "   -wa_sim\twa for cmb_sim (default from sntools.h)",
     "   -minchi2\tget w and OM from minchi2 instead of marginalizing",
     "   -marg\tget w and OM from marginalizing (default)",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
+    "   -muerr_force\tforce this mu_sig on all events",
     "   -zmin\tFit only data with z>zmin",
     "   -zmax\tFit only data with z<zmax",    
     "   -blind\tIf set, results are obscured with sin(large random) ",
     "   -blind_auto\tBlind data, unblind sim; requires ISDATA_REAL in HD file",
     "   -blind_seed\tSeed to pick large random numbers for sin arg ",
-    "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -mucovar\t\t [Legacy key for previous]",
     "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
-    "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick"
+    "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
+    "   -debug_flag 91\t compare calc mu(wfit) vs. mu(sim)",
+    "   -muerr_ideal \t replace all mu with mu_true + Gauss(0,muerr_ideal)",
     "\n",
     " Grid spacing:",
     " wCDM Fit:",
@@ -718,17 +809,19 @@ void parse_args(int argc, char **argv) {
 
   // Created Oct 1 2021 [code moved from main]
 
+  int N_HDfile ;
   int iarg;
   char fnam[] = "parse_args" ;
 
   // ------------ BEGIN ------------
 
-  // Aug 15 2020: print full command 
-  printf(" Full command: \n   ");
-  for(iarg=0; iarg < argc; iarg++ ) { printf(" %s", argv[iarg] );  }
-  printf("\n\n"); fflush(stdout);
+  // parse HD as 1st positional arg
+  parse_commaSepList("HD_infile", argv[1], 2, MXCHAR_FILENAME,
+		     &INPUTS.NHD, &INPUTS.HD_infile_list );
 
-  strcpy(INPUTS.infile,argv[1]); // positional arg is HD
+  if ( INPUTS.NHD == 2 ) { INPUTS.USE_HDIBC = true; }
+
+  // xxx mark  strcpy(INPUTS.HD_infile,argv[1]); // positional arg is HD
 
   for (iarg=2; iarg<argc; iarg++) {
     if (argv[iarg][0]=='-') {
@@ -764,9 +857,14 @@ void parse_args(int argc, char **argv) {
         INPUTS.use_cmb = 2 ;
 	INPUTS.omm_prior     = INPUTS.OMEGA_MATTER_SIM ;
 	INPUTS.omm_prior_sig = 0.9;  // turn off Gauss omm prior
+
       } else if (strcasecmp(argv[iarg]+1,"om_sim")==0) {
 	INPUTS.OMEGA_MATTER_SIM = atof(argv[++iarg]); 
 	INPUTS.omm_prior        = INPUTS.OMEGA_MATTER_SIM ;
+      } else if (strcasecmp(argv[iarg]+1,"w0_sim")==0) {
+	INPUTS.w0_SIM = atof(argv[++iarg]); 
+      } else if (strcasecmp(argv[iarg]+1,"wa_sim")==0) {
+	INPUTS.wa_SIM = atof(argv[++iarg]); 
 
       } else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
 	INPUTS.use_marg = 0 ;
@@ -776,6 +874,9 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1,"snrms")==0) { 
 	INPUTS.snrms = atof(argv[++iarg]);
 	INPUTS.sqsnrms = INPUTS.snrms * INPUTS.snrms ;
+
+      } else if (strcasecmp(argv[iarg]+1,"muerr_force")==0) { 
+	INPUTS.muerr_force = atof(argv[++iarg]); // March 2023
 
       } else if (strcasecmp(argv[iarg]+1,"refit")==0){
         INPUTS.fitnumber -= 1;  
@@ -798,12 +899,23 @@ void parse_args(int argc, char **argv) {
 	/* Output likelihoods as fits files & text files */
 	INPUTS.fitsflag = 1; 
 
-      } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {   
-  	strcpy(INPUTS.mucov_file,argv[++iarg]);
+      } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {
+
+	parse_commaSepList("mucov_file", argv[++iarg], 2, MXCHAR_FILENAME,
+			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
 	INPUTS.use_mucov =1 ;
-      } else if (strcasecmp(argv[iarg]+1,"mucovar")==0) {    // legacy key
-  	strcpy(INPUTS.mucov_file,argv[++iarg]);
-	INPUTS.use_mucov =1 ;
+	
+	/* xxxxxxxxx
+	// if mucov_file is comma-sep list, remove 2nd file name for now
+	// until we figure out how to deal with two cov matrices
+	if ( strchr(INPUTS.mucov_file,',') != NULL ) {
+	  char *e   = strchr(INPUTS.mucov_file,',') ;
+	  int  j    = (int)(e - INPUTS.mucov_file);
+	  INPUTS.mucov_file[j] = 0 ;
+	}
+	xxxxxxx */
+      
+
       } else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
         strcpy(INPUTS.varname_muerr,argv[++iarg]);
        
@@ -879,6 +991,9 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
+      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  
+	{ INPUTS.muerr_ideal = atof(argv[++iarg]);  } 
+
       else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)
 	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]); }      
 
@@ -927,6 +1042,12 @@ void parse_args(int argc, char **argv) {
   printf("---------------------------------------\n\n");
   fflush(stdout);
 
+  COSPAR_SIM.omm = INPUTS.OMEGA_MATTER_SIM ;
+  COSPAR_SIM.ome = 1.0 - INPUTS.OMEGA_MATTER_SIM ;
+  COSPAR_SIM.w0  = INPUTS.w0_SIM;
+  COSPAR_SIM.wa  = INPUTS.wa_SIM;
+  COSPAR_SIM.mushift  = 0.0 ;
+
   return;
 
 } // end parse_args
@@ -943,6 +1064,7 @@ void  malloc_workspace(int opt) {
   int i, kk, j;
   float f_mem;
   char fnam[] = "malloc_workspace" ;
+
   // ------------ BEGIN ------------
 
   if ( opt > 0 ) {
@@ -996,7 +1118,7 @@ void  malloc_workspace(int opt) {
 } // end malloc_workspace
 
 // ==================================
-void  malloc_HDarrays(int opt, int NSN) {
+void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
 
   // Created Oct 01 2021 by R.Kessler
   // malloc arrays to store Hubble diagram data
@@ -1007,66 +1129,90 @@ void  malloc_HDarrays(int opt, int NSN) {
   // --------- BEGIN --------
 
   if ( opt > 0 ) {
-    HD.cid = (char**) malloc( NSN * sizeof(char*) );
-    for(i=0; i < NSN; i++ ) { HD.cid[i] = (char*)malloc( 20*sizeof(char) ); }
+    HD->cid = (char**) malloc( NSN * sizeof(char*) );
+    for(i=0; i < NSN; i++ ) { HD->cid[i] = (char*)malloc( 20*sizeof(char) ); }
 
-    HD.pass_cut    = (bool *)calloc(NSN,sizeof(bool));
-    HD.mu          = (double *)calloc(NSN,sizeof(double));
-    HD.mu_sig      = (double *)calloc(NSN,sizeof(double));
-    HD.mu_ref      = (double *)calloc(NSN,sizeof(double));
-    HD.mu_sqsig    = (double *)calloc(NSN,sizeof(double));   
-    HD.z           = (double *)calloc(NSN,sizeof(double));
-    HD.logz        = (double *)calloc(NSN,sizeof(double));
-    HD.z_sig       = (double *)calloc(NSN,sizeof(double));
-    HD.nfit_perbin = (int*) calloc(NSN,sizeof(int));
+    HD->pass_cut    = (bool   *)calloc(NSN,sizeof(bool));
+    HD->mu          = (double *)calloc(NSN,sizeof(double));
+    HD->mu_sig      = (double *)calloc(NSN,sizeof(double));
+    HD->mu_ref      = (double *)calloc(NSN,sizeof(double));
+    HD->mu_sqsig    = (double *)calloc(NSN,sizeof(double));   
+    HD->z           = (double *)calloc(NSN,sizeof(double));
+    HD->logz        = (double *)calloc(NSN,sizeof(double));
+    HD->z_sig       = (double *)calloc(NSN,sizeof(double));
+    HD->nfit_perbin = (int    *)calloc(NSN,sizeof(int));
+    if ( INPUTS.USE_HDIBC ) 
+      { HD->mu_cospar_biascor = (double*)calloc(NSN,sizeof(double)); }
   }
   else {
-    free(HD.pass_cut);
-    free(HD.mu); 
-    free(HD.mu_sig); 
-    free(HD.mu_ref); 
-    free(HD.mu_sqsig); 
-    free(HD.z); 
-    free(HD.logz); 
-    free(HD.z_sig); 
-    free(HD.nfit_perbin); 
-    for(i=0; i < NSN; i++ ) { free(HD.cid[i]); } 
-    free(HD.cid);
+    free(HD->pass_cut);
+    free(HD->mu); 
+    free(HD->mu_sig); 
+    free(HD->mu_ref); 
+    free(HD->mu_sqsig); 
+    free(HD->z); 
+    free(HD->logz); 
+    free(HD->z_sig); 
+    free(HD->nfit_perbin); 
+    for(i=0; i < NSN; i++ ) { free(HD->cid[i]); } 
+    free(HD->cid);
+
+    if ( INPUTS.USE_HDIBC )  { free(HD->mu_cospar_biascor); }
   }
 
 } // end malloc_HDarrays
 
+// ==========================
+void malloc_COVMAT(int opt, COVMAT_DEF *COVMAT) {
+
+  int NDIM = COVMAT->NDIM ;
+  int MEMD = NDIM * NDIM * sizeof(double);
+  // ------------ BEGIN ------------
+
+  if ( opt > 0 )  {
+    COVMAT->ARRAY1D = (double*) malloc(MEMD);
+  }
+  else {
+    free(COVMAT->ARRAY1D);
+  }
+  
+  return ;
+} // end malloc_COVMAT
 
 // ==================================
-void read_fitres(char *inFile) {
+void read_HD(char *inFile, HD_DEF *HD) {
 
   // Created Oct 1 2021 by R.Kessler
   // Refactored routine to read Hubble diagram from fitres-formatted file
   // using SNANA read utilities.
+  // Mar 2023: refactor to pass HD struct to enable reading 1 or 2 HDs
 
   int IVAR_ROW=-8, IVAR_MU=-8, IVAR_MUERR=-8, IVAR_MUREF;
   int IVAR_zHD=-8, IVAR_zHDERR=-8, IVAR_NFIT=-8 ;
-  int IFILETYPE, NVAR_ORIG, LEN, NROW, irow ;  
+  int IFILETYPE, NVAR_ORIG, LEN, NROW, irow ;    
   int VBOSE = 1;
+  double rz, mu_cos;
+  bool ISDATA_REAL = false ;
   char TBNAME[] = "HD" ;  // table name is Hubble diagram
-  char fnam[] = "read_fitres" ;
+  char fnam[] = "read_HD" ;
 
   // --------------- BEGIN --------------
 
-  if ( INPUTS.blind_auto ) { read_ISDATA_REAL(inFile); }
+  if ( INPUTS.blind_auto ) { ISDATA_REAL = read_ISDATA_REAL(inFile); }
+  HD->ISDATA_REAL = ISDATA_REAL ;
 
   TABLEFILE_INIT();
   NROW = SNTABLE_NEVT(inFile,TBNAME);
   IFILETYPE = TABLEFILE_OPEN(inFile,"read");
   NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,TBNAME);
 
-  malloc_HDarrays(+1,NROW); 
+  malloc_HDarrays(+1, NROW, HD); 
 
   IVAR_ROW   = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_CID,
-				       HD.cid, NROW, VBOSE);
+				       HD->cid, NROW, VBOSE);
 
   IVAR_MU    = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_MU, 
-				       HD.mu,     NROW, VBOSE) ;
+				       HD->mu,  NROW, VBOSE) ;
 
   char STRING_MUERR[100] ;
   if ( strlen(INPUTS.varname_muerr) > 0 )  // command line override
@@ -1075,21 +1221,17 @@ void read_fitres(char *inFile) {
     { sprintf(STRING_MUERR,"%s", VARLIST_DEFAULT_MUERR) ;  }
 
   IVAR_MUERR = SNTABLE_READPREP_VARDEF(STRING_MUERR,
-                                       HD.mu_sig, NROW, VBOSE) ;
-  /* xxx mark delete
-  IVAR_MUERR = SNTABLE_READPREP_VARDEF("MUERR:D DLMAGERR:D MUDIFERR:D", 
-				       HD.mu_sig, NROW, VBOSE) ;
-  */
+                                       HD->mu_sig, NROW, VBOSE) ;
   
   IVAR_MUREF = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_MUREF,
-				       HD.mu_ref, NROW, VBOSE);
+				       HD->mu_ref, NROW, VBOSE);
   IVAR_NFIT  = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_NFIT,
-				       HD.nfit_perbin, NROW, VBOSE );
+				       HD->nfit_perbin, NROW, VBOSE );
   // - - - -
   IVAR_zHD    = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_zHD, 
-					HD.z,     NROW, VBOSE) ;
+					HD->z,     NROW, VBOSE) ;
   IVAR_zHDERR = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_zHDERR,
-					HD.z_sig, NROW, VBOSE) ;
+					HD->z_sig, NROW, VBOSE) ;
 
   // check for required elements
   if ( IVAR_MU < 0 ) {
@@ -1110,64 +1252,204 @@ void read_fitres(char *inFile) {
 
   // - - - - - - - - - 
   // read table ; note that HD.NSN_ORIG = NROW
-  HD.NSN_ORIG = SNTABLE_READ_EXEC();
+  HD->NSN_ORIG = SNTABLE_READ_EXEC();
+
 
   // for MUDIF output from BBC, MU is actually MUDIF,
   // so set MU += MUREF
   if ( IVAR_MUREF > 0 ) {
     printf("\t Input is MUDIF File: MU -> MU_REF + MUDIF \n");
-    for(irow=0; irow < NROW; irow++ ) { HD.mu[irow] += HD.mu_ref[irow]; }
+    for(irow=0; irow < NROW; irow++ ) { HD->mu[irow] += HD->mu_ref[irow]; }
   }
 
   // - - - - - -
 
   int    PASSCUTS,  NFIT, NROW2=0 ;  
   double ztmp;
-  HD.zmin = 99999.0;  HD.zmax = -9999.90 ;
+  HD->zmin = 99999.0;  HD->zmax = -9999.90 ;
 
   for(irow=0; irow < NROW; irow++ ) {
 
     NFIT = 999;
-    if( IVAR_NFIT > 0 ) { NFIT = HD.nfit_perbin[irow] ; }
+    if( IVAR_NFIT > 0 ) { NFIT = HD->nfit_perbin[irow] ; }
 
-    ztmp = HD.z[irow] ;
+    ztmp = HD->z[irow] ;
     PASSCUTS = 
       (ztmp >= INPUTS.zmin) &&
       (ztmp <= INPUTS.zmax) &&
       (NFIT > 1) ;
-    
-    HD.pass_cut[irow] = false;
-    if ( PASSCUTS ) {
-      HD.pass_cut[irow]  = true;
-      sprintf(HD.cid[NROW2], "%s", HD.cid[irow] );
-      HD.mu[NROW2]       = HD.mu[irow];
-      HD.mu_sig[NROW2]   = HD.mu_sig[irow];
-      HD.z[NROW2]        = ztmp;
-      HD.logz[NROW2]     = log10(ztmp); // Apr 22 2022
-      HD.z_sig[NROW2]    = HD.z_sig[irow];
-      HD.mu_sqsig[NROW2] = HD.mu_sig[irow]*HD.mu_sig[irow];
-      if ( ztmp < HD.zmin ) { HD.zmin = ztmp; }
-      if ( ztmp > HD.zmax ) { HD.zmax = ztmp; }
 
-      NROW2++ ;
+    HD->pass_cut[irow]  = PASSCUTS ;
 
-    } // end PASSCUTS
   } // end irow
 
-  HD.NSN  = NROW2;
+  // xxx mark  HD->NSN  = NROW2;
+
+  HD->NSN = applyCut_HD(HD->pass_cut, HD);
+
   printf("   Keep %d of %d z-bins with z cut\n", 
-	 HD.NSN, NROW);  
+	 HD->NSN, NROW);  
+
+  // - - - - - 
+  // Mar 29 2023: test with ideal mu and mu_err 
+  double muerr_ideal, gran ;
+  int ISEED ;
+
+  muerr_ideal = INPUTS.muerr_ideal ;
+  if ( muerr_ideal > 0.0 ) {
+
+    // compute SEED using first MU-uncertainty so that
+    // each data set has a unique randome seed.
+    ISEED = (int)(HD->mu_sig[0] * 8224532.0);
+    init_random_seed(ISEED,1);
+ 
+    printf("\n");
+    printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", 
+	   muerr_ideal);
+    printf("\t ISEED = %d \n", ISEED );
+    printf("\n   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printf("\n");
+
+    for(irow=0; irow < HD->NSN; irow++ ) {
+      ztmp    = HD->z[irow] ;
+      gran    = unix_getRan_Gauss(0);
+      rz                 = codist(ztmp, &COSPAR_SIM);
+      mu_cos             = get_mu_cos(ztmp, rz);
+      HD->mu[irow]       = mu_cos + (muerr_ideal * gran) ;
+      HD->mu_sig[irow]   = muerr_ideal;
+      HD->mu_sqsig[irow] = muerr_ideal * muerr_ideal ;
+    }
+  } // end muerr_ideal
 
   fflush(stdout);
   //  debugexit(fnam);
 
+  // - - - - - - 
+  // for HDIBC method, read cospar_biascor from INFO.YML in same
+  // directory as HD
+
+  if ( INPUTS.USE_HDIBC ) {
+    char *e, path[MXCHAR_FILENAME], info_yml_file[MXCHAR_FILENAME];
+    int  jslash = -9 ;
+    if ( strchr(inFile,'/') != NULL ) {
+      e      = strrchr(inFile, '/');
+      jslash = (int)(e - inFile);
+      sprintf(path,"%s", inFile); path[jslash] = 0;
+      sprintf(info_yml_file,"%s/%s", path, INFO_YML_FILENAME );
+    }
+    else {
+      sprintf(info_yml_file,"%s", INFO_YML_FILENAME);
+    }
+
+    read_cospar_biascor(info_yml_file, &HD->cospar_biasCor);
+
+    // for each data event, store mu(z,cospar_biascor)
+    for(irow=0; irow < HD->NSN; irow++ ) {
+      ztmp    = HD->z[irow] ;
+      rz      = codist(ztmp, &HD->cospar_biasCor);
+      mu_cos  = get_mu_cos(ztmp, rz);
+      HD->mu_cospar_biascor[irow] = mu_cos;
+    }
+  } // end HDIBC
+
+  printf("\n"); fflush(stdout);
+
   return;
 
-} // end read_fitres
+} // end read_HD
 
+// ==========================
+void read_cospar_biascor(char *info_yml_file, Cosparam *cospar) {
+
+  // Created Mar 2023
+  // Open and read info_yml_file, and scoop up cosmology parameters
+  // that were used to create biasCor sim; return cospar.
+
+  FILE *fp ;
+  char c_get[MXCHAR_FILENAME];
+  char SIMKEY_LIST[NSIMKEY_COSPAR][40] = {
+    SIMKEY_MUSHIFT, SIMKEY_OMEGA_MATTER, SIMKEY_OMEGA_LAMBDA,
+    SIMKEY_w0_LAMBDA, SIMKEY_wa_LAMBDA } ;
+  char SIMKEY_FOUND_STRING[100] = "" ;
+
+  char fnam[] = "read_cospar_biascor" ;
+
+  // --------------- BEGIN --------------
+
+  fp = fopen(info_yml_file,"rt");
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open INFO file") ;
+    sprintf(c2err,"%s", info_yml_file );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  printf("\n   Read cospar_biascor from \n\t %s \n", info_yml_file);
+  fflush(stdout);
+
+  cospar->omm = cospar->ome = cospar->w0 = cospar->wa = -9.0 ;
+  cospar->mushift = 0.0 ;
+
+  while( (fscanf(fp, "%s", c_get)) != EOF) {
+
+    if ( strcmp(c_get,SIMKEY_MUSHIFT) == 0 ) { 
+      fscanf(fp, "%le", &cospar->mushift ); 
+      catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_MUSHIFT);
+    }  
+
+    else if ( strcmp(c_get,SIMKEY_OMEGA_MATTER) == 0 ) {
+      fscanf(fp, "%le", &cospar->omm ); 
+      catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_OMEGA_MATTER);
+    }  
+
+    else if ( strcmp(c_get,SIMKEY_OMEGA_LAMBDA) == 0 ) {
+      fscanf(fp, "%le", &cospar->ome ); 
+      catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_OMEGA_LAMBDA);
+    }  
+
+    else if ( strcmp(c_get,SIMKEY_w0_LAMBDA) == 0 ) {
+      fscanf(fp, "%le", &cospar->w0 ); 
+      catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_w0_LAMBDA);
+    }  
+
+    else if ( strcmp(c_get,SIMKEY_wa_LAMBDA) == 0 ) {
+      fscanf(fp, "%le", &cospar->wa ); 
+      catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_wa_LAMBDA);
+    }  
+    
+  } // end while
+
+  fclose(fp);
+
+  printf("   Found cosmology parameters used to generate sim biasCor: \n");
+  printf("      OM,OL,w0,wa,mushift = %.3f %.3f %.3f %.3f %.3f \n",
+	 cospar->omm, cospar->ome, cospar->w0,  cospar->wa, cospar->mushift );
+  
+  // check for missing cospar
+  int j, NERR=0;
+  char *key ;
+  for(j=0; j < NSIMKEY_COSPAR; j++ ) {
+    key = SIMKEY_LIST[j];
+    if ( strstr(SIMKEY_FOUND_STRING,key) == NULL ) {
+      printf(" ERROR: missing required cospar key '%s' \n", key);
+      NERR++ ;
+    }
+  }
+
+  if ( NERR > 0 ) {
+    sprintf(c1err,"%d missing cospar keys; see above.", NERR) ;
+    sprintf(c2err,"check %s ", INFO_YML_FILENAME );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end read_cospar_biascor
 
 // ====================================
-void read_ISDATA_REAL(char *inFile) {
+bool read_ISDATA_REAL(char *inFile) {
   // Created July 19 2022 
   // read comment-header lines to search for
   //   # ISDATA_REAL: <val>
@@ -1175,7 +1457,7 @@ void read_ISDATA_REAL(char *inFile) {
 
   FILE *fp;
   int gzipFlag;
-  bool FOUND_KEY_ISDATA = false;
+  bool FOUND_KEY_ISDATA = false, ISDATA_REAL ;
   char locFile[MXPATHLEN];
   char fnam[] = "read_ISDATA_REAL" ;
 
@@ -1197,7 +1479,7 @@ void read_ISDATA_REAL(char *inFile) {
     if ( strcmp(c_get,"VARNAMES:") == 0 ) { break; }
 
     if ( strcmp(c_get,KEYNAME_ISDATA_REAL) == 0 )  { 
-      fscanf(fp, "%d", &HD.ISDATA_REAL);  
+      fscanf(fp, "%d", &ISDATA_REAL);  
       FOUND_KEY_ISDATA = true;
       break; 
     }
@@ -1207,13 +1489,13 @@ void read_ISDATA_REAL(char *inFile) {
   if ( FOUND_KEY_ISDATA ) {
     // adjust blind flag based on real or sim data
     char ctype[40];
-    if ( HD.ISDATA_REAL ) 
+    if ( ISDATA_REAL ) 
       { INPUTS.blind = true; sprintf(ctype,"blind REAL"); }
     else
       { INPUTS.blind = false; sprintf(ctype,"unblind SIM"); }
     
     printf("\t Found ISDATA_REAL = %d --> %s data\n", 
-	   HD.ISDATA_REAL, ctype);
+	   ISDATA_REAL, ctype);
   }
   else {
     sprintf(c1err,"Could not find required ISDATA_REAL in HD file.") ;
@@ -1223,21 +1505,26 @@ void read_ISDATA_REAL(char *inFile) {
 
   fclose(fp);
 
-  return;
+  return ISDATA_REAL;
 
 } // end read_ISDATA_REAL
 
-// ==================================
-void read_mucov_sys(char *inFile){
+// =================================================================
+void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // Created October 2021 by A.Mitra and R.Kessler
   // Read option Cov_syst matrix, and invert it.
-
+ 
 #define MXSPLIT_mucov 20
 
   int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
+  int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
+  int NDIM_STORE   = NSN_STORE ;
+  
   char ctmp[200], SN[2][12], locFile[1000] ;
-  int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NDIM_STORE = HD.NSN, NMAT_read=0,  NMAT_store = 0;
+  int NSPLIT, NROW_read=0, NDIM_ORIG = 0;
+  int NMAT_read=0,  NMAT_store = 0;
   float f_MEM;
   double cov;
   int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
@@ -1247,18 +1534,13 @@ void read_mucov_sys(char *inFile){
 
   // ---------- BEGIN ----------------
 
-  // init legacy INVMAP ... should be able to remove this
-  // after refactor.
-  for ( i=0; i<HD.NSN; i++ )  { INDEX_COVSN_INVMAP[i] = -9 ; }  
-
-  WORKSPACE.NCOV_NONZERO = 0;
-
-  // bail if there is no cov matrix to read
-  if ( !INPUTS.use_mucov  ) { return; }
+  MUCOV->N_NONZERO = 0;
 
   printf("\n# ======================================= \n");
   printf("  Process MUCOV systematic file  \n"); 
 
+  sprintf(MUCOV->fileName, "%s", inFile);
+  
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
   fp = snana_openTextFile(OPENMASK, "", inFile,
@@ -1283,7 +1565,7 @@ void read_mucov_sys(char *inFile){
     if ( commentchar(ctmp) ) { continue; }
     
     // break line into words
-    splitString(ctmp, " ",MXSPLIT_mucov,  // (I)
+    splitString(ctmp, " ", fnam, MXSPLIT_mucov,  // (I)
 		&NSPLIT, ptrSplit);       // (O)
 
     if ( NROW_read == 0 ) {
@@ -1291,29 +1573,21 @@ void read_mucov_sys(char *inFile){
       printf("\t Found COV dimension %d\n", NDIM_ORIG);
       printf("\t Store COV dimension %d\n", NDIM_STORE);
       
-      if ( NDIM_ORIG != HD.NSN_ORIG ) {
+      if ( NDIM_ORIG != HD_LIST[imat].NSN_ORIG ) {
 	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
-		NDIM_ORIG, HD.NSN_ORIG);
+		NDIM_ORIG, HD_LIST[imat].NSN_ORIG);
 	sprintf(c2err,"Above NDIM are before cuts.");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-      int MEMD = NDIM_STORE * NDIM_STORE * sizeof(double);
-      WORKSPACE.MUCOV = (double*) malloc(MEMD);
+      MUCOV->NDIM    = NDIM_ORIG; // read entire COV without cuts
+      malloc_COVMAT(+1,MUCOV);
     }
     else {
+      // store entire cov matrix (no cuts yet)
+      sscanf( ptrSplit[0],"%le",&cov);
+      MUCOV->ARRAY1D[NMAT_read] = cov;
       NMAT_read++ ;
-      sscanf( ptrSplit[0],"%le",&cov);      
-      if(HD.pass_cut[i0] && HD.pass_cut[i1] ) {
-	kk = k1*NDIM_STORE + k0;
-	WORKSPACE.MUCOV[kk] = cov;
-	if ( cov != 0.0 ) { WORKSPACE.NCOV_NONZERO++ ; }
-	NMAT_store += 1;
-	k0++;
-	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
-      }
-      i0++;
-      if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
     }
     
     NROW_read += 1 ;
@@ -1321,12 +1595,23 @@ void read_mucov_sys(char *inFile){
   } // end of read loop
 
 
-  printf("\t Read %d non-zero COV elements.\n", WORKSPACE.NCOV_NONZERO );
+  // - - - - - - - - - - -  -
+  // Trim cov matrix using pass_cuts; MUCOV->ARRAY1D gets overwritten
+  int NDIM_CHECK = applyCut_COVMAT(HD_LIST[imat].pass_cut, MUCOV);
+
+  NMAT_store = NDIM_STORE*NDIM_STORE;
+
+  printf("\t Read %d non-zero COV elements.\n", MUCOV->N_NONZERO );
   fflush(stdout);
 
   // if all COV elements are zero, this is a request for stat-only fit,
   // so disable cov
-  if ( WORKSPACE.NCOV_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
+  if ( MUCOV->N_NONZERO == 0 ) { 
+    printf("\t -> disable off-diag COV computations.\n"); //.xyz
+    INPUTS.use_mucov = 0; 
+    INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
+    return; 
+  }
 
   // - - - - - - - - - - - - - - - - -
   // sanify check
@@ -1346,34 +1631,247 @@ void read_mucov_sys(char *inFile){
 
   // Add diagonal errors from the Hubble diagram
   double COV_STAT ;
-  for ( i=0; i<HD.NSN; i++ )  {
+  for ( i=0; i<NDIM_STORE; i++ )  {
     kk = i*NDIM_STORE + i;
-    COV_STAT = HD.mu_sqsig[i] ;
-    WORKSPACE.MUCOV[kk] += COV_STAT ;
+    COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
+    MUCOV->ARRAY1D[kk] += COV_STAT ;
   }
 
-  int LDMP_MUCOV = (INPUTS.ndump_mucov>0);
-  if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV"); }
   
-  // - - - - -
-  // invert MUCOV matrix ... this will ovewrite WORKSPACE.MUCOV
-  // with its inverse.
-  invert_mucovar(INPUTS.sqsnrms);
-
-  if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV^-1"); }
-
   return ; 
 }
 // end of read_mucov_sys
 
 
-void dump_MUCOV(char *comment ) {
+// =================================================================
+void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
+
+  // Created October 2021 by A.Mitra and R.Kessler
+  // Read option Cov_syst matrix, and invert it.
+ 
+#define MXSPLIT_mucov 20
+
+  int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
+  int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
+  int NDIM_STORE   = NSN_STORE ;
+  
+  char ctmp[200], SN[2][12], locFile[1000] ;
+  int NSPLIT, NROW_read=0, NDIM_ORIG = 0;
+  int NMAT_read=0,  NMAT_store = 0;
+  float f_MEM;
+  double cov;
+  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
+  char  **ptrSplit;
+  FILE *fp;
+  char fnam[] = "read_mucov_sys_legacy" ;
+
+  // ---------- BEGIN ----------------
+
+  MUCOV->N_NONZERO = 0;
+
+  printf("\n# ======================================= \n");
+  printf("  Process MUCOV systematic file  \n"); 
+
+  sprintf(MUCOV->fileName, "%s", inFile);
+  
+  // Open File using the utility
+  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+			  locFile, &gzipFlag );
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open mucov_file") ;
+    sprintf(c2err,"%s", inFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // allocate strings to read each line ... in case there are comments
+  ptrSplit = (char **)malloc(MXSPLIT_mucov*sizeof(char*));
+  for(j=0;j<MXSPLIT_mucov;j++){
+    ptrSplit[j]=(char *)malloc(200*sizeof(char));
+  }
+  
+  i0 = i1 = 0 ;
+  k0 = k1 = 0 ;
+  while ( fgets(ctmp, 100, fp) != NULL ) {
+    // ignore comment lines 
+    if ( commentchar(ctmp) ) { continue; }
+    
+    // break line into words
+    splitString(ctmp, " ", fnam, MXSPLIT_mucov,  // (I)
+		&NSPLIT, ptrSplit);       // (O)
+
+    if ( NROW_read == 0 ) {
+      sscanf(ptrSplit[0],"%d",&NDIM_ORIG);
+      printf("\t Found COV dimension %d\n", NDIM_ORIG);
+      printf("\t Store COV dimension %d\n", NDIM_STORE);
+      
+      if ( NDIM_ORIG != HD_LIST[imat].NSN_ORIG ) {
+	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
+		NDIM_ORIG, HD_LIST[imat].NSN_ORIG);
+	sprintf(c2err,"Above NDIM are before cuts.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
+      MUCOV->NDIM    = NDIM_STORE;
+      malloc_COVMAT(+1,MUCOV);
+    }
+    else {
+      NMAT_read++ ;
+      sscanf( ptrSplit[0],"%le",&cov);      
+      if(HD_LIST[imat].pass_cut[i0] && HD_LIST[imat].pass_cut[i1] ) {
+	kk = k1*NDIM_STORE + k0;
+	MUCOV->ARRAY1D[kk] = cov;
+	if ( cov != 0.0 ) { MUCOV->N_NONZERO++ ; }
+	NMAT_store += 1;
+	k0++;
+	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
+      }
+      i0++;
+      if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
+    }
+    
+    NROW_read += 1 ;
+
+  } // end of read loop
+
+
+  printf("\t Read %d non-zero COV elements.\n", MUCOV->N_NONZERO );
+  fflush(stdout);
+
+  // if all COV elements are zero, this is a request for stat-only fit,
+  // so disable cov
+  if ( MUCOV->N_NONZERO == 0 ) { 
+    printf("\t -> disable off-diagnoal COV computations.");
+    INPUTS.USE_SPEED_OFFDIAG = false;
+    INPUTS.use_mucov = 0; 
+    fflush(stdout);
+    return; 
+  }
+
+  // - - - - - - - - - - - - - - - - -
+  // sanify check
+  if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
+    sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
+	    NMAT_read, NDIM_ORIG, NDIM_ORIG*NDIM_ORIG);
+    sprintf(c2err,"Check %s", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  if ( NMAT_store != NDIM_STORE*NDIM_STORE )  {
+    sprintf(c1err,"Store %d cov elements, but expected %d**2=%d",
+            NMAT_store, NDIM_STORE, NDIM_STORE*NDIM_STORE);
+    sprintf(c2err,"Check %s", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // Add diagonal errors from the Hubble diagram
+  double COV_STAT ;
+  for ( i=0; i<NDIM_STORE; i++ )  {
+    kk = i*NDIM_STORE + i;
+    COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
+    MUCOV->ARRAY1D[kk] += COV_STAT ;
+  }
+
+  
+  return ; 
+}
+// end of read_mucov_sys_legacy
+
+
+// ===================================
+int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
+
+  // Use PASS_CUT_LIST to update HD arrays for elements passing cuts.
+
+  int NSN_ORIG = HD->NSN_ORIG;
+  int irow, NSN_STORE=0;
+  double ztmp ;
+  char fnam[] = "applyCut_HD";
+
+  // ------------ BEGIN ------------
+
+  for(irow = 0; irow < NSN_ORIG; irow++ ) {
+
+    ztmp = HD->z[irow];
+
+    if ( !PASS_CUT_LIST[irow] ) { continue; }
+    
+    sprintf(HD->cid[NSN_STORE], "%s", HD->cid[irow] );
+    HD->mu[NSN_STORE]       = HD->mu[irow];
+    HD->mu_sig[NSN_STORE]   = HD->mu_sig[irow];
+    if ( INPUTS.muerr_force > 0.0 ) { HD->mu_sig[NSN_STORE] = INPUTS.muerr_force; }
+
+    HD->z[NSN_STORE]        = ztmp;
+    HD->logz[NSN_STORE]     = log10(ztmp); 
+    HD->z_sig[NSN_STORE]    = HD->z_sig[irow];
+    HD->mu_sqsig[NSN_STORE] = HD->mu_sig[irow]*HD->mu_sig[irow];
+
+    if ( ztmp < HD->zmin ) { HD->zmin = ztmp; }
+    if ( ztmp > HD->zmax ) { HD->zmax = ztmp; }
+
+    NSN_STORE++ ;
+  }
+
+
+  HD->NSN = NSN_STORE ;
+
+  return(NSN_STORE);
+
+} // end applyCut_HD
+
+// =========================================================
+int applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
+
+  // Created Mar 2023
+  // Overwrite input MUCOV->ARRAY1D with matrix containing only
+  // the elements passing 1D-array of cuts in PASS_CUT_LIST.
+  // Function Return final size of matrix = number of True elements in 
+  // PASS_CUT_LIST.
+
+  int  i0, i1, k0, k1, kk, j, NDIM_ORIG = MUCOV->NDIM;
+  int  NDIM_STORE = 0 ;
+  double cov;
+  char fnam[] = "applyCut_COVMAT" ;
+
+  // ----------- BEGIN --------------
+
+  i0 = i1 = k0 = k1 = 0 ;
+  MUCOV->N_NONZERO = 0 ;
+
+  // first find out how many pass cuts
+  for(j=0; j < NDIM_ORIG; j++ ) {
+    if ( PASS_CUT_LIST[j] ) { NDIM_STORE++ ; }
+  }
+
+  for(j=0; j < NDIM_ORIG*NDIM_ORIG; j++ ) {
+    cov = MUCOV->ARRAY1D[j];
+    if( PASS_CUT_LIST[i0] && PASS_CUT_LIST[i1] ) {
+	kk = k1*NDIM_STORE + k0;
+	MUCOV->ARRAY1D[kk] = cov;
+	if ( cov != 0.0 ) { MUCOV->N_NONZERO++ ; }
+	k0++;
+	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
+      }
+      i0++;
+      if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
+  }
+
+  MUCOV->NDIM = NDIM_STORE;
+  return(NDIM_STORE) ;
+
+} // end applyCut_COVMAT
+
+
+// ==================================
+void dump_MUCOV(COVMAT_DEF *MUCOV, char *comment ) {
 
   char fnam[]="dump_MUCOV";
   int i0, i1, NROW, kk ;
   int MAX_ROW = INPUTS.ndump_mucov ;
-  if(HD.NSN < MAX_ROW){NROW = HD.NSN;}
-  else{NROW= MAX_ROW;}
+  int NSN     = MUCOV->NDIM ;
+  if (NSN < MAX_ROW ) { NROW = NSN; }   else { NROW =  MAX_ROW; }
   
   // dump
   printf("\n DUMP %s \n", comment);
@@ -1381,32 +1879,99 @@ void dump_MUCOV(char *comment ) {
   for (i0=0; i0 < NROW; i0++)  {
       for(i1=0; i1 < NROW; i1++) {
 	kk = i0*NROW + i1;
-	printf("%9.5f ", WORKSPACE.MUCOV[kk] );
+	printf("%9.5f ", MUCOV->ARRAY1D[kk] );
       }
       printf("\n");
   }
-  printf("\n"); 
+  printf("\n");
+  fflush(stdout);
+  return;
 }// end of dump_MUCOV
 
+// ==================================
+void sync_HD_LIST(HD_DEF *HD_REF, 
+		  HD_DEF *HD,  COVMAT_DEF *MUCOV) {
 
+  // Created Mar 2023
+  // Called for HDIBC method where we have two HDs and possibly two COVMATs.
+  // Re-define HD and MUCOV to include only those elements in HD_REF.
+  //
+  // WARNING: NOT TESTED !!!
 
+  int NSN_REF = HD_REF->NSN ;
+  int MEMB    = sizeof(bool) * (NSN_REF + 100);
+  bool  *SYNC_LIST = (bool*) malloc(MEMB);
+  int ilist0 = 0, ilist1=1, NREMOVE=0 ;
+  int iref, i,  idum;
+  char *cid;
+  char fnam[] = "sync_HD_LIST" ;
+  
+  // ------------ BEGIN -----------
+
+  match_cid_hash("", -1,0); // reset hash table
+
+  for(iref=0; iref < NSN_REF; iref++ ) {
+    cid = HD_REF->cid[iref] ;
+    idum = match_cid_hash(cid,ilist0,iref);  // load hash table
+  }
+  
+  // loop over  HD and set SYNC_LIST
+  for(i=0; i < HD->NSN; i++ ) {
+    cid  = HD->cid[i] ;
+    iref = match_cid_hash(cid,ilist1,i);
+    SYNC_LIST[i] = false; 
+    if ( iref >= 0 )  { SYNC_LIST[i] = true; }
+    else              { NREMOVE++ ; }
+  }
+
+  printf("\t %s: remove %d SN from HD and MUCOV \n", fnam, NREMOVE);
+  fflush(stdout);
+
+  // update HD with CID selection ...
+  HD->NSN_ORIG = HD->NSN;
+  applyCut_HD(SYNC_LIST, HD);
+
+  // update MUCOV with CID selection ...
+  if ( MUCOV->NDIM > 0 ) 
+    { applyCut_COVMAT(SYNC_LIST, MUCOV); }
+
+  return ;
+} // end sync_HD_LIST
+
+// ===================================
+void compute_MUCOV_FINAL(void) {
+
+  // Ceated Mar 2023
+  // If there is just one COV, then MUCOV_FINAL = MUCOV[0].
+  // If there are two COVs, MUCOV_FINAL is the average for each element.
+ 
+  int  j, icov ;
+  int  NSN    = HD_LIST[0].NSN;
+  int  NMUCOV = INPUTS.NMUCOV; // 1 or 2
+  if ( NMUCOV == 0 ) { return; }
+  double fac = 1.0 / (double)NMUCOV ;
+  double covsum ;
+
+  // ---------- BEGIN ------------
+
+  WORKSPACE.MUCOV_FINAL.NDIM = NSN ;
+  malloc_COVMAT(+1, &WORKSPACE.MUCOV_FINAL);
+  
+  for(j=0; j < NSN*NSN; j++ ) {
+    covsum = 0.0 ;
+    for(icov = 0; icov < INPUTS.NMUCOV; icov++ )
+      { covsum += WORKSPACE.MUCOV[icov].ARRAY1D[j]; }
+
+    WORKSPACE.MUCOV_FINAL.ARRAY1D[j] = fac * covsum ;
+  }
+
+    return ;
+} // end compute_MUCOV_FINAL
 
 //===================================
 void set_priors(void) {
 
   bool noprior = true;
-
-  double OM    = INPUTS.OMEGA_MATTER_SIM ;
-  double OE    = 1 - OM ;
-  double w0    = w0_DEFAULT ;
-  double wa    = wa_DEFAULT ;
-
-  Cosparam cparloc;
-  cparloc.omm = OM ;
-  cparloc.ome = OE ;
-  cparloc.w0  = w0 ;
-  cparloc.wa  = wa ; 
-
   char fnam[]="set_priors";
 
   // =========== BEGIN ============
@@ -1447,7 +2012,12 @@ void set_priors(void) {
     printf("   %s\n", comment) ; 
   }
 
-  if ( noprior ) { printf("\t None.\n"); }
+  if ( noprior ) 
+    { printf("\t None.\n"); }
+  else {
+    printf("\t OM,w0,wa for priors: %.3f  %.3f  %.3f \n",
+	   INPUTS.OMEGA_MATTER_SIM, INPUTS.w0_SIM, INPUTS.wa_SIM );
+  }
 
   fflush(stdout);
 
@@ -1468,15 +2038,9 @@ void init_cmb_prior(int OPT) {
   double rz, a, z;
   double OM = INPUTS.OMEGA_MATTER_SIM ;
   double OE = 1 - OM ;
-  double w0 = w0_DEFAULT ;
-  double wa = wa_DEFAULT ;
-
-  Cosparam cparloc;
-  cparloc.omm = OM ;
-  cparloc.ome = OE ;
-  cparloc.w0  = w0 ;
-  cparloc.wa  = wa ; 
-
+  double w0 = INPUTS.w0_SIM ;
+  double wa = INPUTS.wa_SIM ;
+  
   char *comment = CMB_PRIOR.comment;
   char fnam[] = "init_cmb_prior" ;
 
@@ -1539,18 +2103,6 @@ void init_bao_prior(int OPT) {
   // Mar 09 2022: remove LEGACY flag
 
   int iz;
-  double rz, tmp1, tmp2, z;
-  double OM = INPUTS.OMEGA_MATTER_SIM ;
-  double OE = 1 - OM ;
-  double w0 = w0_DEFAULT ;
-  double wa = wa_DEFAULT ;
-
-  Cosparam cparloc;
-  cparloc.omm = OM ;
-  cparloc.ome = OE ;
-  cparloc.w0  = w0 ;
-  cparloc.wa  = wa ; 
-
   char *comment = BAO_PRIOR.comment;
   char fnam[] = "init_bao_prior" ;
 
@@ -1596,11 +2148,11 @@ void init_bao_prior(int OPT) {
   if ( INPUTS.use_bao == 2 ) { 
     double rd,z, DM, DH;
     HzFUN_INFO_DEF HzFUN;
-    rd = rd_bao_prior(&cparloc);
+    rd = rd_bao_prior(&COSPAR_SIM);
     for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
       z = BAO_PRIOR.z_sdss4[iz];
-      DM = DM_bao_prior(z, &cparloc);
-      DH = DH_bao_prior(z, &cparloc);
+      DM = DM_bao_prior(z, &COSPAR_SIM);
+      DH = DH_bao_prior(z, &COSPAR_SIM);
       BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ;
       BAO_PRIOR.DHrd_sdss4[iz] = DH/rd ;
     }
@@ -1699,7 +2251,8 @@ void set_stepsizes(void) {
   if (INPUTS.h_steps   > 1) 
     { INPUTS.h_stepsize   = (INPUTS.h_max-INPUTS.h_min)/(INPUTS.h_steps-1);}
   
-   
+
+  printf("\n");
   printf("   --------   Grid parameters   -------- \n");
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_w, varname_w, 
@@ -1713,9 +2266,12 @@ void set_stepsizes(void) {
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_omm, varname_omm, 
 	 INPUTS.omm_min, INPUTS.omm_max, INPUTS.omm_steps, INPUTS.omm_stepsize);
+
+  /* xxx mark delete Feb 2023 xxxxxx
   printf("  h_min:  %6.2f   h_max:  %6.2f  %5i steps of size %8.5f\n",
 	 INPUTS.h_min,  INPUTS.h_max,  INPUTS.h_steps,  INPUTS.h_stepsize);
-  
+  xxxxxxxx end mark xxxxxxxx */
+
   printf("   ------------------------------------\n");
 
   fflush(stdout);
@@ -1728,7 +2284,7 @@ void set_stepsizes(void) {
 void set_Ndof(void) {
   // Compute number of degrees of freedom for wfit
   int Ndof;
-  int Ndof_data = HD.NSN - 3 ; // h, w, om = 3 fitted parameters
+  int Ndof_data = HD_LIST[0].NSN - 3 ; // h, w, om = 3 fitted parameters
   int Ndof_prior = 0;
   if ( INPUTS.dofit_w0wa  ) { Ndof_data-- ; } 
   if ( INPUTS.use_bao     ) { Ndof_prior += 2*NZBIN_BAO_SDSS4 ; }
@@ -1752,13 +2308,13 @@ void set_Ndof(void) {
 
 
 // ==================================
-void init_rz_interp(void) {
+void init_rz_interp(HD_DEF *HD) {
 
   // Created Apr 22 2022
   // For large SN sample, initialize lists to interpolate rz(z) in chi2 fun.
-  double zmin = HD.zmin;
-  double zmax = HD.zmax;
-  int    NSN  = HD.NSN;
+  double zmin = HD->zmin;
+  double zmax = HD->zmax;
+  int    NSN  = HD->NSN;
   int MEMD, n_logz=0, nz_check=0;
   double logz_bin, logz_min, logz_max, logz, z ;
   char fnam[] = "init_rz_interp";
@@ -1825,16 +2381,17 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
   double logz, rz0, rz1, frac, mucos0, mucos1, rz_dif, rz_exact ;
   double rz_loc, mucos_loc;
   int  iz;
+  HD_DEF *HD0 = &HD_LIST[0];
   char fnam[] = "exec_rz_interp";
 
   // ----------------- BEGIN --------------
 
-  logz = HD.logz[k];
+  logz = HD0->logz[k];
   iz   = (int)((logz - logz_min)/logz_bin );
   if ( iz < 0 || iz >= n_logz ) {
     sprintf(c1err,"Invalid iz=%d (range is 0 to %d)", iz, n_logz);
     sprintf(c2err,"z=%f  logz=%f  for CID=%s", 
-	    HD.z[k], HD.logz[k], HD.cid[k] );
+	    HD0->z[k], HD0->logz[k], HD0->cid[k] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
@@ -1858,18 +2415,18 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
   *rz    = rz_loc;
   *mucos = mucos_loc;
 
-  if ( k == HD.NSN-1 ) { WORKSPACE.n_exec_interp++ ; }
+  if ( k == HD0->NSN-1 ) { WORKSPACE.n_exec_interp++ ; }
 
   // print diagnostic for first few events.
   int LDMP = (WORKSPACE.n_exec_interp < 5) ;
   if ( LDMP ) {
     if ( k==0 ) { WORKSPACE.rz_dif_max = 0.0 ; }    
-    rz_exact   = codist(HD.z[k], cparloc);
+    rz_exact   = codist(HD0->z[k], cparloc);
     rz_dif     = fabs(rz_loc / rz_exact - 1.0);
     if ( rz_dif > WORKSPACE.rz_dif_max ) 
       { WORKSPACE.rz_dif_max = rz_dif; }  
 
-    if ( k == HD.NSN-1 ) {
+    if ( k == HD0->NSN-1 ) {
       printf("\t    Diagnostic: max|rz(interp)/rz(exact) - 1| "
 	     "= %8.2le \n",  fnam, WORKSPACE.rz_dif_max); fflush(stdout);
     }
@@ -1944,6 +2501,7 @@ void wfit_minimize(void) {
 
     INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
     cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
+    cpar_fixed.mushift = 0.0 ;
     get_chi2wOM(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
 		&muoff_tmp, &snchi_tmp, &extchi_tmp ); 
     printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
@@ -1956,6 +2514,8 @@ void wfit_minimize(void) {
 
   // - - - - - - - - 
   time_t t0 = time(NULL);  // monitor time to build prob grid
+
+  cpar.mushift = 0.0;
 
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -2519,6 +3079,8 @@ void wfit_Covariance(void){
   
   // ----------- BEGIN --------------
   
+  cpar.mushift = 0.0 ;
+
   for( i=0; i < INPUTS.w0_steps; i++) {     
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
     for( kk=0; kk < INPUTS.wa_steps; kk++) { 
@@ -2611,7 +3173,8 @@ void wfit_final(void) {
   cpar.wa  = wa_final;
   cpar.omm = omm_final;
   cpar.ome = 1. - cpar.omm;
-  
+  cpar.mushift = 0.0 ;
+
   // add unknown offset if blind option 
   if ( INPUTS.blind ) {
     int dofit_wcdm = INPUTS.dofit_wcdm ;
@@ -2648,6 +3211,10 @@ void wfit_final(void) {
   WORKSPACE.sigmu_int = 0.0;
   if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
 
+  
+  // --------- xxx BEWARE: BELOW IS BROKEN xxx ---------------
+
+  /* xxxxxxxxxx mark delete Mar 15 2023 xxxxxxxx
   sigint_binsize = 0.01;
   printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
   fflush(stdout);
@@ -2655,7 +3222,7 @@ void wfit_final(void) {
   for ( i = 0; i< 20; i++ ) {
     sigmu_tmp   = (double)i * sigint_binsize ;
     sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(sqmusig_tmp);
+    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
     get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
 	  	  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
     
@@ -2673,7 +3240,7 @@ void wfit_final(void) {
   for ( i = -10; i < 10; i++ ) {
     sigmu_tmp   = sigmu_int1 + (double)i * sigint_binsize ;
     sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(sqmusig_tmp);
+    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
     
     get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
 		  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
@@ -2685,7 +3252,7 @@ void wfit_final(void) {
   }
  
   WORKSPACE.sigmu_int   = sigmu_int ;
-  
+  xxxxxxxxxxxx end mark xxxxxxxx */
 
   return;
 } // end wfit_final
@@ -2763,16 +3330,17 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
 } // end set_HzFUN_for_wfit
 
 // ==================================
-void invert_mucovar(double sqmurms_add) {
+void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
 
-  // May 20, 2009 + 04 OCt, 2021
-  // add diagonal elements to covariance matrix, then invert.
+  // Mar 2023 - refactor to pass COVMAT struct
   //
-  int  i, NSN = HD.NSN;
+  int  NSN    = MUCOV->NDIM ;
+  int  i;
   time_t t0, t1;
   bool check_inverse = (INPUTS.debug_flag == 1000);
   double *MUCOV_ORIG ;
-
+  int LDMP_MUCOV = INPUTS.ndump_mucov > 0 ;
+  
   // ---------------- BEGIN --------------
 
   printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
@@ -2781,26 +3349,31 @@ void invert_mucovar(double sqmurms_add) {
   if ( sqmurms_add != 0.0 ) 
     { printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n"); }
 
+  if ( LDMP_MUCOV ) { dump_MUCOV(MUCOV,"MUCOV"); }
+    
   fflush(stdout);
 
-  if ( INPUTS.use_mucov) {
-    t0 = time(NULL);
+  t0 = time(NULL);
 
-    if ( check_inverse ) {
-      int MEMD = NSN * NSN * sizeof(double);
-      MUCOV_ORIG = (double*) malloc(MEMD);
-      for(i=0; i < NSN*NSN; i++ ) { MUCOV_ORIG[i] = WORKSPACE.MUCOV[i]; }
-    }
-
-    invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
-    t1 = time(NULL);
-    double t_invert = (t1-t0);
-    printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
-
-    if ( check_inverse ) 
-      { check_invertMatrix(NSN,MUCOV_ORIG,WORKSPACE.MUCOV); }
-
+  if ( check_inverse ) {
+    int MEMD = NSN * NSN * sizeof(double);
+    MUCOV_ORIG = (double*) malloc(MEMD);
+    for(i=0; i < NSN*NSN; i++ ) { MUCOV_ORIG[i] = MUCOV->ARRAY1D[i]; }
   }
+  
+  invertMatrix( NSN, NSN, MUCOV->ARRAY1D ) ;
+  t1 = time(NULL);
+  double t_invert = (t1-t0);
+  printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
+  
+  if ( check_inverse ) {
+    check_invertMatrix(NSN,MUCOV_ORIG,MUCOV->ARRAY1D);
+    free(MUCOV_ORIG);
+  }
+
+
+  if ( LDMP_MUCOV ) { dump_MUCOV(MUCOV,"MUCOV^-1"); }
+  
   fflush(stdout);
 
   return ;
@@ -2870,7 +3443,7 @@ void get_chi2wOM (
   bool USE_SPEED_OFFDIAG = INPUTS.USE_SPEED_OFFDIAG ;
   bool USE_SPEED_INTERP  = INPUTS.USE_SPEED_INTERP ;
   int  use_mucov = INPUTS.use_mucov ;
-  int  NSN       = HD.NSN;
+  int  NSN       = HD_LIST[0].NSN;
   int  Ndof      = WORKSPACE.Ndof ;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
   double nsig_chi2min_skip = WORKSPACE.nsig_chi2min_skip;  
@@ -2878,13 +3451,19 @@ void get_chi2wOM (
 
   double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
   double nsig_chi2, chi_hat, chi_tmp ;
-  double dmu, dmu0, dmu1, mu_cos  ;
+  double dmu, dmu0, dmu1, mu_cos, mu_obs  ;
     
   double  chi2_prior = 0.0 ;
   double *rz_list  = (double*) malloc(NSN * sizeof(double) );
   double *dmu_list = (double*) malloc(NSN * sizeof(double) );
   Cosparam cparloc;
-  int k, k0, k1, N0, N1, k1min, n_count=0 ;
+  int k, k0, k1, N0, N1, k1min, n_count=0, LDMP=0 ;
+  
+  HD_DEF *HD0 = &HD_LIST[0];
+  HD_DEF *HD1 = &HD_LIST[1];
+
+  double mushift0 = HD0->cospar_biasCor.mushift ;
+  double mushift1 = HD1->cospar_biasCor.mushift ;
   
   // rz-interp variables
   int n_logz, iz;
@@ -2899,6 +3478,7 @@ void get_chi2wOM (
   cparloc.ome = OE ;
   cparloc.w0  = w0 ;
   cparloc.wa  = wa ;
+  cparloc.mushift = 0.0 ;
 
   Bsum = Csum = chi_hat = 0.0 ;
 
@@ -2918,23 +3498,54 @@ void get_chi2wOM (
   // avoid redundant calculations when using covariance matrix.
   for(k=0; k < NSN; k++ )  { 
 
+    z = HD0->z[k] ;
     if ( USE_SPEED_INTERP )  { 
       exec_rz_interp(k, &cparloc, &rz, &mu_cos); 
     }
     else { 
-      rz     = codist(HD.z[k], &cparloc);
-      mu_cos = get_mu_cos(HD.z[k], rz) ;
+      // brute force calculation of theory distance
+      rz     = codist(z, &cparloc);
+      mu_cos = get_mu_cos(z, rz) ;
     }
 
     rz_list[k]  = rz ;
-    dmu_list[k] = HD.mu[k] - mu_cos;
+
+
+    if ( INPUTS.USE_HDIBC ) {
+
+      // interpolate two HDs
+      double mu_bcor0 = HD0->mu_cospar_biascor[k] + mushift0 ;
+      double mu_bcor1 = HD1->mu_cospar_biascor[k] + mushift1 ;
+
+      // LDMP = ( fabs(OM-0.3) < 0.1 && fabs(w0+1.0)<0.5 && fabs(wa)<0.5 );
+      if ( LDMP ) {
+	printf(" xxx --------------------------------------------- \n");
+	printf(" xxx %s: z=%.3f  mu_cos=%.3f   mu_bcor = %.3f %.3f \n",
+	       fnam, z, mu_cos, mu_bcor0, mu_bcor1 ); 
+	printf(" xxx %s: cospar(fit) OM,OE,w0,wa = %.3f %.3f %.3f %.3f \n",
+	       fnam, OM, OE, w0, wa );
+	fflush(stdout);
+	debugexit(fnam);
+      }
+
+      double mu_obs0 = HD0->mu[k] ;
+      double mu_obs1 = HD1->mu[k] ;
+      double f_interp = (mu_cos - mu_bcor0) / (mu_bcor1 - mu_bcor0) ;
+      mu_obs = mu_obs0 + f_interp * ( mu_obs1 - mu_obs0 );
+    }
+    else {
+      // conventional : just one HD from one biasCor sim
+      mu_obs = HD0->mu[k];
+    }
+
+    dmu_list[k] = mu_obs - mu_cos; 
 
     n_count++ ;
     if ( use_mucov ) {
-      sqmusiginv = WORKSPACE.MUCOV[k*(NSN+1)]; 
+      sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k*(NSN+1)]; 
     }
     else {
-      sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
+      sqmusig     = HD0->mu_sqsig[k] + sqmurms_add ; // xxx INTERP?? xx
       sqmusiginv  = 1.0 / sqmusig ;
     }
 
@@ -2980,7 +3591,7 @@ void get_chi2wOM (
       k1min = k0 + 1;
       for ( k1=k1min; k1 < NSN; k1++)  {
 	k = k0*NSN + k1;
-	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
+	sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k]; // Inverse of the matrix 
 
 	dmu0     = dmu_list[k0];
 	dmu1     = dmu_list[k1];
@@ -2990,17 +3601,6 @@ void get_chi2wOM (
 	Bsum    += sqmusiginv*(dmu0+dmu1); // Eq. A.11 of Goliath 2001  
 	Csum    += (2.0*sqmusiginv);       // Eq. A.12 of Goliath 2001
 	chi_hat += (2.0*chi_tmp);
-
-	/* xxxx
-	Bsum    += (sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
-	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
-	chi_hat += chi_tmp ;
-
-	Bsum    += (sqmusiginv * dmu1) ;
-	Csum    += sqmusiginv ;
-	chi_hat += chi_tmp ; 
-	xxxx */
-
 	n_count++ ;
 
       } // end k1
@@ -3435,14 +4035,6 @@ double EofZ(double z, Cosparam *cptr){
   arg = arg_omm + arg_omk + arg_ome ;
   if ( omr > 0.0 )  { arg += arg_r; }
 
-  /* xxxxxxxxx mark delete Sep 12 2022 xxxxxx
-    omm * z1_pow3 + 
-    omk * z1_pow2 + 
-    ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
-    // xxx mark delete Sep 12 2022  if(omr>0.0) { arg += (omr * z1_pow4); }
-  xxxxxxx end mark xxxxxxxx */
-
-
   /* xxx
   if ( arg < 0.0 ) 
     { printf(" xxx z=%.3f, arg_omm=%.3f  arg_ome=%.3f  w0=%.3f\n", 
@@ -3580,6 +4172,8 @@ void test_codist() {
   cpar.ome  =  0.7;
   cpar.w0   = -1.0;
   cpar.wa   =  0.0;
+  cpar.mushift = 0.0 ;
+
   double H0 = H0_SALT2;
   HzFUN_INFO_DEF HzFUN;
   set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, cpar.wa, &HzFUN);
@@ -3640,8 +4234,8 @@ void getname(char *basename, char *tempname, int nrun) {
 int cidindex(char *cid) {
 
   int i;
-  for ( i=0; i < HD.NSN; i++ ) {
-    if ( strcmp(HD.cid[i],cid) == 0 ) return i;
+  for ( i=0; i < HD_LIST[0].NSN; i++ ) {
+    if ( strcmp(HD_LIST[0].cid[i],cid) == 0 ) return i;
   }
 
   return -1;
@@ -3663,7 +4257,7 @@ void WRITE_OUTPUT_DRIVER(void) {
   write_output_cospar();
 
   // Print residuals (not used for long time; beware)
-  write_output_resid(INPUTS.fitnumber);
+  write_output_resid();
  
   // write chi2 & prob maps to fits files;
   // not used for VERY long time ... beware.
@@ -3699,11 +4293,12 @@ void write_output_cospar(void) {
   char   VARNAMES_LIST[MXVAR_WRITE][20], LINE_STRING[200] ;
   char   ckey[40], cval[40];
   char sep[] = " " ;
+  char fnam[] = "write_output_cospar" ;
 
   // ----------- BEGIN -------------
 
   if ( strlen(outFile) == 0){
-    sprintf(outFile, "%s.cospar", INPUTS.infile);
+    sprintf(outFile, "%s.cospar", INPUTS.HD_infile_list[0]);
   } 
     
   printf("  Write cosmo params to %s \n", outFile);
@@ -3871,44 +4466,55 @@ void write_output_cospar(void) {
 
 
 // ********************************
-void write_output_resid(int fitnum) {
+void write_output_resid(void) {
+
+  // Jan 31 2023 R.Kessler
+  // resurrect to write MU-resids and chi2 per SN
 
   Cosparam cpar;
   FILE *fpresid;
-  char *tempfilename1 = (char*) malloc(MEMC_FILENAME);
-  char *residfile     = (char*) malloc(MEMC_FILENAME);
+  char *outFile = INPUTS.outFile_resid ;
   char fnam[] = "write_output_resid" ;
 
   // ----------- BEGIN -------------
 
-  if ( IGNOREFILE(INPUTS.outFile_resid) ) { return; }
+  if ( IGNOREFILE(outFile) ) { return; }
 
-  getname(INPUTS.outFile_resid, tempfilename1, fitnum);
-  strcpy(residfile, tempfilename1);
+  printf("  Write chi2 and MU-residuals to %s  \n", outFile);
+  fpresid = fopen(outFile, "wt");
+          
+  cpar.omm = WORKSPACE.omm_final ;
+  cpar.ome = 1.0 - cpar.omm ;
+  cpar.w0  = WORKSPACE.w0_final ;
+  cpar.wa  = WORKSPACE.wa_final ;
+  cpar.mushift = 0.0 ;
 
-  printf("Write MU-residuals to %s  \n",
-	 residfile );
-  fpresid=fopen(residfile, "w");
-      
-  if (fpresid == NULL) {
-    printf("ERROR: couldn't open %s\n",residfile);
-    exit(EXIT_ERRCODE_wfit);
-  }
-    
   int i;
-  double rz, ld_cos, mu_cos, mu_dif, sqmusig_tmp, musig_tmp;
+  char   *cid ;
+  double z, rz, ld_cos, mu_cos, mu_dif, mu_sig, chi2;
   double H0 = H0_SALT2;
-  fprintf(fpresid,"z, mu_dif,  mu_sig,  tel_id,  CID \n"); // csv format
-  for (i=0; i<HD.NSN; i++){
-    rz     = codist( HD.z[i], &cpar) ;
-    ld_cos = ( 1.0 + HD.z[i]) *  rz * c_light / H0;
-    mu_cos =  5.*log10(ld_cos) + 25. ;
-    mu_dif =  mu_cos - HD.mu[i];
-    sqmusig_tmp  =  HD.mu_sqsig[i] + INPUTS.sqsnrms ;
-    musig_tmp    = sqrt(sqmusig_tmp);
-	
-    fprintf(fpresid,"%7.4f %7.4f %7.4f  %6s \n",
-	    HD.z[i], mu_dif, musig_tmp, HD.cid[i]);
+
+  fprintf(fpresid,"# mu_res = mu - mu(bestFit model)\n");
+  fprintf(fpresid,"# chi2_diag = mu_res^2 / mu_sig^2 \n");
+  fprintf(fpresid,"\n");
+
+  fprintf(fpresid,"VARNAMES: " 
+	  "CID   zHD  mu_model  mu_res  mu_sig  chi2_diag\n");
+
+  for (i=0; i<HD_LIST[0].NSN; i++) {
+    cid    = HD_LIST[0].cid[i] ;
+    z      = HD_LIST[0].z[i] ;
+    rz           =  codist( z, &cpar) ;
+    mu_cos       =  get_mu_cos(z, rz) ; // best fit model mu
+    mu_dif       =  HD_LIST[0].mu[i] - mu_cos;  // muresid
+    mu_sig       =  HD_LIST[0].mu_sig[i];
+    chi2         =  (mu_dif*mu_dif) / ( mu_sig*mu_sig );
+
+    fprintf(fpresid,"SN: "
+	    "%-12s %7.4f %7.4f  %7.4f %7.4f %7.3f\n", 
+	    cid, z, mu_cos, mu_dif, mu_sig, chi2 );
+    fflush(fpresid);
+
   }
   fclose(fpresid);
 
@@ -3926,7 +4532,9 @@ void write_output_chi2grid(void) {
   // VARNAMES: w OM  chi2_sn chi2_tot
   //
   // where chi2_tot includes prior.
- 
+  //
+  // Jan 31 2023: add blind offsets
+  //
   char *outFile  = INPUTS.outFile_chi2grid;
   bool float_w0  = (INPUTS.w0_steps  > 1);
   bool float_wa  = (INPUTS.wa_steps  > 1);
@@ -3970,6 +4578,12 @@ void write_output_chi2grid(void) {
 	wa      = INPUTS.wa_min  + kk * INPUTS.wa_stepsize ;
 	omm     = INPUTS.omm_min + j  * INPUTS.omm_stepsize;
 
+	if ( INPUTS.blind ) {
+	  w0  += WORKSPACE.w0_ran ;
+	  wa  += WORKSPACE.wa_ran ;
+	  omm += WORKSPACE.omm_ran ;
+	}
+
 	cval[0][0] = cval[1][0] = cval[2][0] = 0;
 	if ( float_w0  )  { sprintf(cval[0],"%.4f", w0); }
 	if ( float_wa  )  { sprintf(cval[1],"%.4f", wa); }
@@ -3986,173 +4600,86 @@ void write_output_chi2grid(void) {
       }
     }
   }
-  
-  //.xyz
+ 
 
   fclose(fp);
 
   return;
 } // end write_output_chi2grid
 
-// =======================================
-void write_output_fits_legacy(void) {
+// ===========================
+void test_cospar(void) {
 
-  // Created Oct 2 2021
-  // Write to fits files.
-  // Ancient code moved out of main.
+  // Compare computed wfit distances against sim distances for 
+  // three cosmologies:
+  // w0,wa = {-1,0}  {-0.95, +0.15}  {-0.95,-0.15}
 
-  FILE *FILEPTR_TOT, *FILEPTR_SN ;
-  fitsfile *fptr;
-  char *snfitsname  = (char*) malloc(MEMC_FILENAME);
-  char *ommfitsname = (char*) malloc(MEMC_FILENAME);
-  char *snfitsstr   = (char*) malloc(MEMC_FILENAME);
-  char *ommfitsstr  = (char*) malloc(MEMC_FILENAME);
-  char *cosparfile  = (char*) malloc(MEMC_FILENAME);
-  char *residfile   = (char*) malloc(MEMC_FILENAME);
-  char *chi2gridfile= (char*) malloc(MEMC_FILENAME);
-  char *chi2gridfile_SN = (char*) malloc(MEMC_FILENAME);
-  char *tempfilename1   = (char*) malloc(MEMC_FILENAME);
-  char *tempfilename2   = (char*) malloc(MEMC_FILENAME);
+#define NCOSPAR_TEST 3
+  double w0_test[NCOSPAR_TEST] = { -1.0, -0.95, -0.95 };
+  double wa_test[NCOSPAR_TEST] = {  0.0, +0.15, -0.15 };
 
-  long naxis=2;
-  long fpixel[2], nelements, naxes[2];
-  int status, i, kk, j ;
+  Cosparam cpar;
+  HzFUN_INFO_DEF HzFUN;
+  ANISOTROPY_INFO_DEF ANISOTROPY;
+  double H0 = H0_SALT2;
 
-  // ----------- BEGIN -----------
+  FILE *fp;
+  double z, rz, mu_wfit[NCOSPAR_TEST], mu_sim[NCOSPAR_TEST];
+  int  icos, irow=0;  
+  char line[200];
+  char outFile[] = "cospar_comparison.txt";   
+  char fnam[] = "test_cospar";
 
-  naxes[0] = INPUTS.omm_steps;
-  naxes[1] = INPUTS.w0_steps;
-  status = 0;
-  nelements = naxes[0] * naxes[1];    /* number of pixels to write */
-  fpixel[0]=1;			/* first pixel to write */
-  fpixel[1]=1;
-      
-  int writechi=0; // ??
-  if (writechi) {
-    /* subtract off minchi from each, use prob arrays for storage */
-    for(i=0; i < INPUTS.w0_steps; i++){
-      for(kk=0; kk < INPUTS.wa_steps;kk++){
-	for(j=0; j < INPUTS.omm_steps; j++){
-	  WORKSPACE.snprob3d[j][kk][i] = 
-	    WORKSPACE.snchi3d[j][kk][i] - WORKSPACE.snchi_min;
-	  WORKSPACE.extprob3d[j][kk][i] = 
-	    WORKSPACE.extchi3d[j][kk][i] - WORKSPACE.extchi_min;
-	}
-      }
-    }
-      
-    strcpy(snfitsname,INPUTS.infile);
-    strcat(snfitsname,"_snchi.fits");
+  // -------------- BEGIN -----------
 
-    getname(snfitsname, tempfilename1, INPUTS.fitnumber);
-
-    strcpy(ommfitsname,INPUTS.infile);
-    strcat(ommfitsname,"_extchi.fits");
-
-    getname(ommfitsname, tempfilename2, INPUTS.fitnumber);
-
-    printf("writing out chi2 distributions:\n");
-    printf("  SNe only:      %s\n",tempfilename1);
-    printf("  SNe + Omega_m: %s\n",tempfilename2);
-
-  } else {
-    /* just write out probabilities */
-    strcpy(snfitsname,INPUTS.infile);
-    strcat(snfitsname,"_snprob.fits");
-
-    getname(snfitsname, tempfilename1, INPUTS.fitnumber);
-    
-    strcpy(ommfitsname,INPUTS.infile);
-    strcat(ommfitsname,"_extprob.fits");
-    
-    getname(ommfitsname, tempfilename2, INPUTS.fitnumber);
-    
-    printf("writing out prob distributions:\n");
-    printf("  SNe only:      %s\n",tempfilename1);
-    printf("  SNe + Omega_m: %s\n",tempfilename2);
-  }
-
-  // - - - -
-  /* prepend with "!" so cfitsio clobbers old files */
-  sprintf(snfitsstr,"!%s",tempfilename1);
-  sprintf(ommfitsstr,"!%s",tempfilename2);
-    
-  /* Write out SN-only distribution */
-  if (fits_create_file(&fptr, snfitsstr, &status))  
-    { printerror( status ); }
-
-  if (fits_create_img(fptr, FLOAT_IMG, naxis, naxes, &status)) 
-    { printerror( status ); }
-
-  if (fits_write_pix(fptr, TDOUBLE, fpixel, nelements, 
-		     WORKSPACE.snprob, &status))
-    { printerror( status ); }
-
-  if ( fits_close_file(fptr, &status))                /* close the file */
-    { printerror( status ); }           
-    
-  /* Write out SN+Omega_m distribution */
-  if (fits_create_file(&fptr, ommfitsstr, &status))  
-    { printerror( status ); }
-
-  if (fits_create_img(fptr, FLOAT_IMG, naxis, naxes, &status))
-    { printerror( status ); }
-
-  if (fits_write_pix(fptr, TDOUBLE, fpixel, nelements, 
-		     WORKSPACE.extprob, &status))
-    { printerror( status ); }
-
-  if ( fits_close_file(fptr, &status) )                /* close the file */
-    { printerror( status ); }           
-
-  // 6/10/2008 RK write chi2 to text file (like Andy's)
+  printf("\n Open %s\n", outFile);
+  fp = fopen(outFile,"wt");
   
-  if ( strlen(INPUTS.outFile_chi2grid) == 0 ) {
-    sprintf(INPUTS.outFile_chi2grid,"%s", INPUTS.infile);
+  for(icos=0; icos < NCOSPAR_TEST; icos++ ) {
+    fprintf(fp,"# om,w0,wa = %.4f %.4f %.4f for MU_fit%d and MU_sim%d \n",
+	    OMEGA_MATTER_DEFAULT, w0_test[icos], wa_test[icos],
+	    icos, icos);
   }
-  strcpy(chi2gridfile, INPUTS.outFile_chi2grid); 
-  strcat(chi2gridfile,".chi2grid");
-  sprintf(chi2gridfile_SN,"%s_SN", chi2gridfile);
-      
-  getname(chi2gridfile,    tempfilename1, INPUTS.fitnumber);
-  getname(chi2gridfile_SN, tempfilename2, INPUTS.fitnumber);
-      
-  printf("\n");
-  printf("\t CHI2GRID(total)   dump to: '%s' \n", tempfilename1 );
-  printf("\t CHI2GRID(SN-only) dump to: '%s' \n", tempfilename2 );
-  printf("\t CHI2GRID format : i_OM  i_w  OM  w  chi2 \n" );
 
-  int irow=0; char CVARDEF[100];
-  double w0, omm, chi2tot, chi2sn ;
-  FILEPTR_TOT = fopen(tempfilename1, "wt");
-  FILEPTR_SN  = fopen(tempfilename2, "wt");
+  fprintf(fp,"\n");
 
-  sprintf(CVARDEF,"NVAR: 6 \nVARNAMES: ROW iM iw OM w chi2\n");
-  fprintf(FILEPTR_TOT,"%s", CVARDEF);
-  fprintf(FILEPTR_SN, "%s", CVARDEF);
+  fprintf(fp,"VARNAMES: ROW zCMB   MU_wfit0 MU_wfit1 MU_wfit2   "
+	  "MU_sim0 MU_sim1 MU_sim2 \n");
 
-  for(i=0; i < INPUTS.w0_steps; i++){
-    for(j=0; j < INPUTS.omm_steps; j++){
-      w0      = INPUTS.w0_min  + i*INPUTS.w0_stepsize;
-      omm     = INPUTS.omm_min + j*INPUTS.omm_stepsize;
-      chi2tot = WORKSPACE.extchi[i*INPUTS.omm_steps+j] ;
-      chi2sn  = WORKSPACE.snchi[i*INPUTS.omm_steps+j] ;
+  ANISOTROPY.USE_FLAG = false;
 
-      irow++ ;
-      fprintf( FILEPTR_TOT, "ROW: %5d  %5d %5d  %8.4f  %8.4f  %14.6f \n",
-	       irow, j, i, omm, w0, chi2tot  );
+  for(z=0.01; z<2.0; z+=0.01) {
 
-      fprintf( FILEPTR_SN, "ROW: %5d  %5d %5d  %8.4f  %8.4f  %14.6f \n",
-	       irow, j, i, omm, w0, chi2sn  );
-      
+    for(icos=0; icos < NCOSPAR_TEST; icos++ ) {
+
+      cpar.omm = OMEGA_MATTER_DEFAULT;
+      cpar.ome = 1.0 - cpar.omm ;
+      cpar.w0  = w0_test[icos];
+      cpar.wa  = wa_test[icos];
+      cpar.mushift = 0.0 ;
+      rz            =  codist( z, &cpar) ;
+      mu_wfit[icos] =  get_mu_cos(z,rz) ; 
+
+      set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, cpar.wa, &HzFUN);
+      mu_sim[icos] = dLmag(z,z, &HzFUN, &ANISOTROPY);
     }
-  }
-  fclose(FILEPTR_TOT);
-  fclose(FILEPTR_SN);
 
+    irow++ ;
+    sprintf(line,"ROW: %3d %.4f   "
+	    "%.5f %.5f %.5f   %.5f %.5f %.5f ",
+	    irow, z, 
+	    mu_wfit[0], mu_wfit[1], mu_wfit[2],
+	    mu_sim[0],  mu_sim[1],  mu_sim[2] );
+    fprintf(fp, "%s\n", line);
+
+  } // end z
+
+  fclose(fp);
+
+  debugexit(fnam);
   return;
-} // end write_output_fits_legacy
 
+} // end test_cospar
 
 // ==========================
 void CPU_summary(void) {

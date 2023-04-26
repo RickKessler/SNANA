@@ -29,6 +29,14 @@
 #
 # Aug 31 2022 RK - set abort trap for VARNAMES mis-match among split jobs.
 #
+# Oct 15 2022 RK
+#   +  set varnames_ref to be first non-EMPTY varnames in
+#          case first varnames is empty.
+#   + replace remove_locf_messages.pl with remove_locf_messages.py
+#
+# Nov 15 2022 RK  implement NMAX_STATE_CHANGE = 10 to help distribute
+#                 merge tasks among more cores.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -70,6 +78,8 @@ COLNUM_FIT_MERGE_NEVT_ALL        = 3  # NEVT0
 COLNUM_FIT_MERGE_NEVT_SNANA_CUTS = 4  # NEVT1
 COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS = 5  # NEVT2
 COLNUM_FIT_MERGE_CPU             = 6
+
+NMAX_STATE_CHANGE = 10  # max number of state changes per merge task (Nov 15 2022)
 
 # hard-code option to validate each version; later pass as CONFIG arg
 # 1->weak check on README file, 2->strong check, run snana.exe job
@@ -518,7 +528,7 @@ class LightCurveFit(Program):
         else:
             # default: read FITOPT info
             KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
-            fitopt_rows   = (util.get_YAML_key_values(CONFIG,KEYLIST))
+            fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
 
         # check for OPT_SNCID_LIST ... just store it here for later
         # Check multiple key-options
@@ -560,64 +570,6 @@ class LightCurveFit(Program):
         self.config_prep['opt_sncid_list']      = opt_sncid_list
 
         # end fit_prep_FITOPT
-
-
-    def fit_prep_FITOPT_OBSOLETE(self) :
-
-        # read/store list of FITOPT options, along with 'fitnums'
-        # FITOPT000, FITOPT001, etc ... These fitnums are used 
-        # to create file names.
-        # If there is a lable in /LABEL/, strip it out and store it
-        # in SUBMIT_INFO, FITOPT.README along with fitopt and fitnum,
-
-        output_dir        = self.config_prep['output_dir']
-        CONFIG            = self.config_yaml['CONFIG']
-        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
-        KEYLIST           = [ 'FITOPT' ]    # key under CONFIG
-        fitopt_arg_list   = [ '' ]  # FITOPT000 is always blank
-
-        #    **** OBSOLETE ****
-        if not ignore_fitopt: 
-            fitopt_arg_list  += (util.get_YAML_key_values(CONFIG,KEYLIST))
-        n_fitopt          = len(fitopt_arg_list)
-        fitopt_num_list   = [ '' ] * n_fitopt
-        fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
-        link_FITOPT000_list = []
-
-        #    **** OBSOLETE ****
-
-        # prepare fitnum FITOPT[nnn]
-        for i in range(0,n_fitopt):
-            fitopt_num_list[i] = f"{FITOPT_STRING}{i:03d}"
-
-            # extract optional label
-            if i > 0 :
-                label,arg_list = \
-                    util.separate_label_from_arg(fitopt_arg_list[i])
-                fitopt_label_list[i] = label
-                fitopt_arg_list[i]   = arg_list
-
-            # update list for symbolic links to FITOPT000 [DEFAULT]
-            if self.is_sym_link(fitopt_arg_list[i]) :
-                link_FITOPT000_list.append(fitopt_num_list[i])
-
-
-        #    **** OBSOLETE ****
-
-        logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
-        logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
-
-        self.config_prep['n_fitopt']            = n_fitopt
-        self.config_prep['fitopt_num_list']     = fitopt_num_list
-        self.config_prep['fitopt_arg_list']     = fitopt_arg_list
-        self.config_prep['fitopt_label_list']   = fitopt_label_list
-        self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
-        self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
-
-        self.write_legacy_FITOPT_README()
-
-        # end fit_prep_FITOPT_OBSOLETE
-
 
     def fit_prep_index_lists(self):
 
@@ -979,34 +931,6 @@ class LightCurveFit(Program):
         return sym_link_list
         # end get_sym_link_list
 
-    def write_legacy_FITOPT_README(self):
-
-        # although SUBMIT_INFO contains the FITOPT info in YAML format,
-        # here the legacy FITOPT.README file is also created for 
-        # back-compatibility with dowstream scripts.
-
-        output_dir        = self.config_prep['output_dir']
-        n_fitopt          = self.config_prep['n_fitopt']
-        fitopt_arg_list   = self.config_prep['fitopt_arg_list']
-        fitopt_num_list   = self.config_prep['fitopt_num_list']
-        fitopt_label_list = self.config_prep['fitopt_label_list']
-
-        legacy_readme_file = f"{output_dir}/FITOPT.README"
-        with open(legacy_readme_file,"w") as f:
-            f.write(f"Legacy file for back-compatibility; " \
-                    f"please switch to using {SUBMIT_INFO_FILE}\n")
-            for i in range(0,n_fitopt):
-                num   = fitopt_num_list[i]    # FITOPnnn
-                label = fitopt_label_list[i]  # optional input
-                if label == 'None' :
-                    legacy_label = ''
-                else:
-                    legacy_label = f"[{label}]"
-                arg   = fitopt_arg_list[i]
-                f.write(f"{FITOPT_STRING}: {num[6:]} {legacy_label} {arg} \n")
-
-        # end write_legacy_FITOPT_README
-
 
     def append_info_file(self,f):
 
@@ -1120,9 +1044,10 @@ class LightCurveFit(Program):
         # n_state_change is always set > 0 if in RUN state,
         # even if there is not STATE change.
 
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR']
-        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+        MERGE_LAST          = self.config_yaml['args'].MERGE_LAST
+        submit_info_yaml    = self.config_prep['submit_info_yaml']
+        script_dir          = submit_info_yaml['SCRIPT_DIR']
+        n_job_split         = submit_info_yaml['N_JOB_SPLIT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         COLNUM_STATE   = COLNUM_FIT_MERGE_STATE 
         COLNUM_VERS    = COLNUM_FIT_MERGE_VERSION 
@@ -1148,8 +1073,16 @@ class LightCurveFit(Program):
         n_state_change     = 0
         row_list_merge_new = []
 
+        if MERGE_LAST:
+            nmax_state_change = 9999999
+        else:
+            nmax_state_change = NMAX_STATE_CHANGE
+
         #  - - - - -
         irow = 0
+        version_last  = "bla"
+        Finished_last = False
+ 
         for row in row_list_merge :
             row_list_merge_new.append(row) # default output is same as input
 
@@ -1163,7 +1096,15 @@ class LightCurveFit(Program):
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)
 
-            if not Finished :
+            do_check_state = (not Finished  and n_state_change < nmax_state_change)
+
+            # avoid checking FITOPT files that have no chance when last
+            # FITOPT didn't finish. Make sure to check again when version updates.
+            if version == version_last and not Finished_last and not MERGE_LAST:
+                do_check_state = False
+
+            # - - - - - - - - - - - -  -
+            if do_check_state :
                 NEW_STATE = STATE
 
                 # get list of LOG, DONE, and YAML files 
@@ -1200,7 +1141,10 @@ class LightCurveFit(Program):
                     n_state_change += 1             # assume nevt changes
 
             irow += 1
+            version_last  = version
+            Finished_last = Finished
 
+        # - - - - - - - 
         # first return arg (row_split) is null since there is 
         # no need for a SPLIT table
         row_list_dict = {
@@ -1290,12 +1234,44 @@ class LightCurveFit(Program):
         # move MERGE files, and remove 'MERGE_' prefix
         self.move_merge_table_files(version_fitopt_dict)
 
+        # Nov 15 2022
+        # compress this version_fitopt here to reduce file count for big jobs.
+        
+        n_job_split  = submit_info_yaml['N_JOB_SPLIT']
+        n_job_link   = submit_info_yaml['N_JOB_LINK']
+        do_compress = n_job_split > 3  and n_job_link == 0
+
+        if do_compress :
+            suffix_tar_list = self.get_suffix_tar_list_lcfit()
+            logging.info(f"  Compress {version_fitopt} for {suffix_tar_list}")
+            for suffix in suffix_tar_list :
+                wildcard = f"{version_fitopt}*SPLIT*.{suffix}"
+                tar_file = f"{version_fitopt}_SPLITALL_{suffix}.tar"
+                util.compress_files(+1, script_dir, wildcard, tar_file, "" )    
+ 
         logging.info("")
 
         if irow == 33333:
             sys.exit(f"\n\t xxxxx DEBUG DIE from fit wrapup ... xxxx ")
 
+        return
+
         # end merge_job_wrapup 
+
+    def get_suffix_tar_list_lcfit(self):
+
+        submit_info_yaml      = self.config_prep['submit_info_yaml']
+        use_table_format      = submit_info_yaml['USE_TABLE_FORMAT']
+
+        suffix_tar_list = JOB_SUFFIX_TAR_LIST.copy()
+        for itable in range(0,NTABLE_FORMAT):
+            use    = use_table_format[itable]
+            suffix = TABLE_SUFFIX_LIST[itable]
+            if use:
+                suffix_tar_list.append(suffix)
+
+        return suffix_tar_list
+        # end get_suffix_tar_list_lcfit
 
     def create_sym_link_tables(self, version, fitopt_num):
 
@@ -1463,7 +1439,14 @@ class LightCurveFit(Program):
             msgerr.append(f"varnames_list = \n\t{varnames_list}")
             self.log_assert(False,msgerr) 
             
-        varnames_ref = varnames_list[0] # this is a comma-sep string
+        # find varnames_ref to be first varnames that isn't empty
+        varnames_ref = None
+        for varnames in varnames_list:
+            if varnames != VARNAMES_EMPTY:
+                varnames_ref = varnames
+                break
+
+        # xxx mark varnames_ref = varnames_list[0] # this is a comma-sep string
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
             is_empty = (varnames == VARNAMES_EMPTY)
@@ -1699,7 +1682,8 @@ class LightCurveFit(Program):
         # for HBOOK, remove garbage from log file
         if itable == ITABLE_HBOOK :
             cmd_clean_log = \
-                f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET"
+                f"{cddir} ; remove_locf_messages.py {log_table_file} -q"
+                # xxx mark f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET"
             os.system(cmd_clean_log)
 
         # ?? check log file for success message ??
@@ -1880,19 +1864,14 @@ class LightCurveFit(Program):
             logging.info(f" FIT cleanup: all merged tables exist.")
 
         # if we get here, table-merging seems to have worked so tar and zip
+        # use *SPLIT*[suffix] so that it works on *SPLIT*.[suffix]
+        # and also on *SPLIT_[suffix].tar
 
-        logging.info(f" FIT cleanup: tar up files under {subdir}/")
-        util.compress_files(+1, script_dir, "*SPLIT*.LOG",  "LOG", "" )
-        util.compress_files(+1, script_dir, "*SPLIT*.YAML", "YAML", "" )
-        util.compress_files(+1, script_dir, "*SPLIT*.DONE", "DONE", "" )
-
-        for itable in range(0,NTABLE_FORMAT):
-            use    = use_table_format[itable]
-            suffix = TABLE_SUFFIX_LIST[itable]
-            if use :
-                wildcard = f"*SPLIT*.{suffix}"
-                util.compress_files(+1, script_dir, wildcard, suffix, "" )
-                # ?? at some point, should delete these since merged table is there ??
+        suffix_tar_list = self.get_suffix_tar_list_lcfit()
+        logging.info(f" LCFIT cleanup: tar {suffix_tar_list} under {subdir}/")
+        for suffix in suffix_tar_list :
+            wildcard = f"*SPLIT*{suffix}*"
+            util.compress_files(+1, script_dir, wildcard,  suffix, "" )    
 
         logging.info(f" FIT cleanup: gzip merged tables.")
         cmd_gzip = f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null"

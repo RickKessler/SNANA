@@ -4,11 +4,7 @@ C Top-level pre-processor commands to include psnid and snana fortran codes.
 C Psnid-dependent C code (psnid_BEST.c, psnid_toos.c[h]) is included in the 
 C Makefile link.
 C
-C Nov 30, 2012: Remove *SNUTIL and *CWNT patches and link to libsnana.a
-C Apr 02, 2013: add R4KCOR flag (need filter trans for MWEBV cor)
-C May 20, 2014: use *SNANA patch instead of just main; 
-c                 remove libsnana.a from Makefile link.
-c
+
 
 +NAMES,8,6000,48000.
 +USE,LINUX.

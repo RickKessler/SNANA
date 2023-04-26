@@ -65,6 +65,10 @@
 # Oct 11 2022 RK - change kcor_ prefix to calib_ prefix, but leave synmbolic
 #                  to kcor_xxx.fits .
 #
+# Dec 14 2022 RK - 
+#   because Pantheon+ includes full filter names (instad of single-char band),
+#   add new method append_filter_names to replace filter
+#
 # ====================================
 
 import os, sys, argparse
@@ -86,9 +90,12 @@ TOPDIR_DATA = SNDATA_ROOT + '/lcmerge'
 SUBDIR_DUPLICATES = "DUPLICATES"
 
 # define list of new characters for combined data
-FILTER_CHARLIST = 'abcdefghijklmnopqrstuvwxyz' + \
-                  'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
-                  '0123456789'
+FILTER_CHARLIST = "abcdefghijklmnopqrstuvwxyz" + \
+                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + \
+                  "0123456789" 
+    #"~!@#$%^&*()-_=+[]{}<>,|;`'"  # Mar 2023
+
+NMAX_FILTER_CHARLIST = len(FILTER_CHARLIST);
 
 # keys read from input file
 KEYNAME_VERSION        = "VERSION_LIST"     # for input data versions
@@ -197,6 +204,7 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
 
     # - - - - - 
     s = -1 
+
     for survey, filter_list, repeat_filt, repeat_survey in \
         zip(kcorInfo.SURVEY_LIST,
             kcorInfo.FILTER_LIST, 
@@ -221,7 +229,7 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
                 continue
 
             if new :
-                if CHANGE_FILTER_CHAR:
+                if CHANGE_FILTER_CHAR and N < NMAX_FILTER_CHARLIST:
                     filter_newChar = FILTER_CHARLIST[N]  # new char for filter
                 else:
                     filter_newChar = filter_oldChar
@@ -250,7 +258,7 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
         # - - - - - - - - 
         # if NEW filter list isn't set, search previous kcorInfo lists
         if len(kcorInfo.FILTER_CHARLIST_NEW) == 0:
-            OLD = kcorInfo.FILTER_CHARLIST_OLD  # OLD means original name            
+            OLD = kcorInfo.FILTER_CHARLIST_OLD  # OLD means original name 
             for kk in range(0,k):
                 old_kk = kcorInfo_list[kk].FILTER_CHARLIST_OLD
                 if old_kk == OLD :
@@ -266,6 +274,23 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
         
         print(f"    {survey:<28.28} bands: {tmp}   (new={new})")        
         sys.stdout.flush() 
+
+    # - - - - - - - -
+    # sanity checks
+    
+    # abort if more filters than available filter chars
+    NFTOT = versionInfo.NFILTER_TOT
+    if NFTOT >= NMAX_FILTER_CHARLIST :
+        msg = f"\nFATAL ERROR: NFILTER={NFTOT} exceeds \n" \
+              f"\t NMAX_FILTER_CHARLIST = {NMAX_FILTER_CHARLIST}"
+        sys.exit(msg)
+
+    # abort on any duplicates in new filter system
+    FILTER_CHARLIST_NEW = versionInfo.FILTER_CHARLIST_NEW
+    if  len(set(FILTER_CHARLIST_NEW)) != len(FILTER_CHARLIST_NEW) :
+        msg = f"\nFATAL ERROR: new filter string has duplicates \n" \
+              f"\t {FILTER_CHARLIST_NEW}"
+        sys.exit(msg)        
 
     #sys.exit("\n xxx DEBUG EXIT xxx \n")
     return
@@ -299,6 +324,8 @@ def write_kcor_inputFile(versionInfo, kcorInfo_list):
     # check all kcor files for primary(s)
     USE_BD17 = False ; USE_AB = False
     n_prim = 0
+    Lmin = 9999999.0
+    Lmax = 0.0
     for kcorInfo in kcorInfo_list :
         if ( len(kcorInfo.BD17_SED) > 0 and  not USE_BD17 ) :
             f.write(f"BD17_SED:     {kcorInfo.BD17_SED}\n")
@@ -310,10 +337,13 @@ def write_kcor_inputFile(versionInfo, kcorInfo_list):
             USE_AB = True
             n_prim += 1
 
+        L0 = float(kcorInfo.LAMRANGE[0])
+        L1 = float(kcorInfo.LAMRANGE[1])
+        if Lmin > L0 : Lmin = L0
+        if Lmax < L1 : Lmax = L1
+
     # - - - - -
-    L0 = kcorInfo_list[0].LAMRANGE[0]
-    L1 = kcorInfo_list[0].LAMRANGE[1] 
-    f.write(f"LAMBDA_RANGE: {L0} {L1} \n" )
+    f.write(f"LAMBDA_RANGE: {Lmin} {Lmax} \n" )
 
     
     # - - - - -
@@ -485,13 +515,6 @@ class VERSION_INFO:
         self.AUXFILE_README     = SOUT + '_TEXT.README'
         self.AUXFILE_IGNORE     = SOUT + '_TEXT.IGNORE'
         self.AUXFILE_LIST       = SOUT + '_TEXT.LIST'
-
-        
-        # xxxx mark delete Oct 11 2022 
-        #self.kcor_inFile  = 'kcor_' + SOUT + '.input'
-        #self.kcor_outFile = 'kcor_' + SOUT + '.fits'
-        #self.kcor_logFile = 'kcor_' + SOUT + '.log'
-        # xxxxxxxxx
 
         # Oct 1 2022 RK - use more sensible prefix
         self.kcor_inFile  = 'calib_' + SOUT + '.input'
@@ -703,13 +726,14 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # read FILTER string from first data file
     FILTERSTRING_OLD = parseLines(fileContents, 'FILTERS:', 1, 0)
     SURVEY           = parseLines(fileContents, 'SURVEY:',  1, 0)
-    VARLIST          = parseLines(fileContents, 'VARLIST:', 1, 0) # ??
+    VARLIST          = parseLines(fileContents, 'VARLIST:', 5, 0)
+    IVAR_BAND        = VARLIST.index('BAND')
 
     # get full filter lists from kcor file
     FILTERLIST_OLD = kcorInfo.FILTER_CHARLIST_OLD     # only this version
     FILTERLIST_NEW = kcorInfo.FILTER_CHARLIST_NEW     # only this version
     FILTERLIST_ALL = versionInfo.FILTER_CHARLIST_NEW  # all filters
-    FILTER_NEWNAME = kcorInfo.FILTER_NEWNAME
+    FILTERLIST_NEWNAME = kcorInfo.FILTER_NEWNAME
 
     print(f"\t {FILTERLIST_OLD} -> {FILTERLIST_NEW} " )
     sys.stdout.flush() 
@@ -729,25 +753,14 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     OLD2 = FILTERLIST_OLD    # from kcor file
     NEW  = FILTERLIST_NEW    # new kcor list
     ALL  = FILTERLIST_ALL    # all filters from all files
-    # xxx mark sedAdd = "-e 's/%s/%s  # %s -> %s/g' " % (OLD,ALL,OLD2,NEW) 
-    sedAdd  = f"-e 's/{OLD}/{ALL}  # {OLD2} -> {NEW}/g' " 
-    sedcmd += sedAdd
 
-    # Replace each single-char band with new full filter name
-    # Add '??' before each band to avoid removing new band
-    # that matches an old band. Then remove ?? separately.
+    # xxx mark delete Mar 2 2023: problem with speical filter chars xxxxxxx
+    #sedAdd  = f"-e 's/{OLD}/{ALL}  # {OLD2} -> {NEW}/g' " 
+    #sedcmd += sedAdd
+    # xxxxxxxxxxxxxx
 
-    for old, new, newname in \
-        zip(FILTERLIST_OLD, FILTERLIST_NEW, FILTER_NEWNAME):
-        filter_newname = newname.replace("/","\/") # new full name
-        sedAdd = f"-e 's/ {old} /  ??{filter_newname}  /g' "
-        sedcmd += sedAdd
-        
-    #sys.exit("\n xxx DEBUG STOP xxx \n")
+    #sys.exit("\n xxx DEBUG DIE xxx \n")
 
-    # remove the temporary '?s?'
-    sedcmd += "-e 's/??//g' "
-    
     # check for keys to remove
     input_config = versionInfo.input_config
     KEYLIST_REMOVE = input_config[KEYNAME_KEYLIST_REMOVE].split()
@@ -774,6 +787,9 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
             SEDCMD = f"{sedcmd} {FIN} > {FOUT}"
                     
         os.system(SEDCMD)
+        append_filter_names(FOUT, IVAR_BAND, FILTERLIST_ALL,
+                            FILTERLIST_OLD, FILTERLIST_NEWNAME )
+
         PTR_NEWLIST.write(f"{infile_base}\n")
         nfile += 1
 
@@ -800,7 +816,6 @@ def write_readme(versionInfo, kcorInfo_list):
     f.write(f"  PURPOSE:  combined data set for analysis\n")    
     f.write(f"  USAGE_KEY: VERSION_PHOTOMETRY\n")    
     f.write(f"  USAGE_CODE: snlc_fit.exe\n")    
-
     f.write(f"  FILTERMAP:  # VERSION_ORIG  FILT_ORIG FILT_NEW  NDATA \n")
 
     k = 0
@@ -811,6 +826,11 @@ def write_readme(versionInfo, kcorInfo_list):
         k += 1
         if not CHANGE_FILTER_CHAR: NEW = OLD
         f.write(f"  - {vname:<28} {OLD} {NEW}   {ndata_file}\n")
+
+
+    NF = len(versionInfo.FILTER_CHARLIST_NEW)
+    f.write(f"  FILTERS:  {versionInfo.FILTER_CHARLIST_NEW} \n")
+    f.write(f"  NFILTERS: {NF} \n")
 
     # - - - - - - - - 
     f.write(f"  NOTES:\n")    
@@ -837,6 +857,52 @@ def write_readme(versionInfo, kcorInfo_list):
 
     return
     # end write_readme
+
+def append_filter_names(file_name, IVAR_BAND, FILTERLIST_ALL,
+                        FILTERLIST_OLDCHAR, FILTERLIST_NEWNAME):
+
+    # Created Dec 14 2022 by R.Kessler
+    # open file data file and append filter names;
+    # e.g., 
+    #  u      -> CSP-u/a
+    #  CSP-u  -> CSP-u/a
+    #
+    # and update FILTERS: arg with FILTERLIST_ALL
+    #
+    # Cannot use sed to replace because the original filter name
+    # can be any string before the character; e.g., CFA41-V or CFA4p1-V
+    #
+    # Inputs:
+    #   file_name : name of data file to alter filter names
+    #   FILTERLIST_OLDCHAR: list of original char strings
+    #   FILTERLIST_NEWNAME: list of new filter names (full string)
+
+    with open(file_name,"rt") as f:
+        fileContents = f.readlines()
+
+    # re-write file and clobber original file
+    with open(file_name,"wt") as f:
+        for line in fileContents:
+            line_out = line
+            wdlist   = line.split()
+            if len(wdlist) < 1 :  continue
+
+            if wdlist[0] == 'OBS:' :
+                filter_orig = wdlist[IVAR_BAND+1]
+                band_orig   = filter_orig[-1]
+                j           = FILTERLIST_OLDCHAR.index(band_orig)
+                filter_new  = FILTERLIST_NEWNAME[j]
+                line_out    = line_out.replace(filter_orig,filter_new)
+            if wdlist[0] == 'FILTERS:' :
+                line_out = f"FILTERS: {FILTERLIST_ALL}\n"
+
+            f.write(f"{line_out}")
+
+    #sys.exit(f"\n xxx DEBUG DIE xxx \n")
+
+    return
+
+    # end append_filter_names
 
 def merge_duplicates(versionInfo):
 

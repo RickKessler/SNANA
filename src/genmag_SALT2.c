@@ -999,6 +999,7 @@ void read_SALT2colorDisp(void) {
   //   + start ERRMAP at ilam index=0 (not 1)
   //   + call check_lamRange_SALT2errmap(imap);
   //
+  // Oct 18 2022 RK - abort if all colorDisp values are zero
 
   int imap, NLAM, ilam, MXBIN ;
   char tmpFile[MXPATHLEN];
@@ -1014,6 +1015,8 @@ void read_SALT2colorDisp(void) {
   ;
 
   int i;
+
+  char fnam[] = "read_SALT2colorDisp";
 
   // ---------- BEGIN ------------
 
@@ -1044,6 +1047,22 @@ void read_SALT2colorDisp(void) {
 
   printf("\n  Read color-dispersion vs. lambda from %s \n",
 	 SALT2_ERRMAP_FILES[imap] );
+
+
+  // check that all cDisp values are non-zero, and set ceiling.
+  bool found_nonzero = false;
+  for (ilam=0; ilam < NLAM; ilam++ ) {
+    cDisp = SALT2_ERRMAP[imap].VALUE[ilam];
+    if ( cDisp > INPUT_SALT2_INFO.COLOR_DISP_MAX ) 
+      { SALT2_ERRMAP[imap].VALUE[ilam] = INPUT_SALT2_INFO.COLOR_DISP_MAX; }
+    if ( cDisp > 1.0E-12 ) { found_nonzero=true; } 
+  }
+  
+  if ( !found_nonzero ) {
+    sprintf(c1err,"All colorDisp elements are zero ");
+    sprintf(c2err,"Check training options." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   // if nothing was read, then assume we have the older
   // Guy07 model and use polynominal parametrization
@@ -1169,7 +1188,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT= 1 ; // 1=>ON (July 2020)
   INPUT_SALT2_INFO.COLORLAW_VERSION   = IVER = 0;
   INPUT_SALT2_INFO.NCOLORLAW_PARAMS   = 4;
-  INPUT_SALT2_INFO.COLOR_OFFSET       = 0.0 ;
+  INPUT_SALT2_INFO.COLOR_DISP_MAX     = COLOR_DISP_MAX_DEFAULT ;
   INPUT_SALT2_INFO.MAG_OFFSET         = 0.0 ;
 
   ptrpar = INPUT_SALT2_INFO.COLORLAW_PARAMS ;
@@ -1229,6 +1248,9 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
     }
     if ( strcmp(c_get, "COLOR_OFFSET:") == 0 ) {
       readdouble(fp, 1, &INPUT_SALT2_INFO.COLOR_OFFSET );
+    }
+    if ( strcmp(c_get, "COLOR_DISP_MAX:") == 0 ) {
+      readdouble(fp, 1, &INPUT_SALT2_INFO.COLOR_DISP_MAX );
     }
 
     if ( strcmp(c_get, "MAG_OFFSET:") == 0 ) {
@@ -1320,6 +1342,9 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
   printf("\t COLOR OFFSET:  %6.3f mag  \n", 
 	 INPUT_SALT2_INFO.COLOR_OFFSET ); 
+
+  printf("\t COLOR DISP_MAX:  %5.1f mag  \n", 
+	 INPUT_SALT2_INFO.COLOR_DISP_MAX ); 
 
   // dump colorlaw parameters based on version
   printf("\t COLORLAW PARAMS:  \n" );
@@ -3421,8 +3446,8 @@ void errorSummary_SALT2(void) {
   c = 1.0; // color value
 
   printf("\n");
-  printf("                               peak     color  \n" );
-  printf("            LAMBDA(A)  e^CL    dS0/S0   disp   \n" );
+  printf("                       e^CL     peak     color  \n" );
+  printf("            LAMBDA(A)  (c=1)    dS0/S0   disp   \n" );
   printf("  --------------------------------------------- \n" );
 
   for ( ilam = 1; ilam <= NLAM; ilam++ ) {
@@ -3575,7 +3600,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   Trest = Tobs/(1.0+z);
   if ( Trest < SALT2_TABLE.DAYMIN+0.1 ) { return ; }
   if ( Trest > SALT2_TABLE.DAYMAX-0.1 ) { return ; }
-	
+      
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs, 
 		   parList_SN, parList_HOST,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;

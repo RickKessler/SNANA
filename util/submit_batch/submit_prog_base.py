@@ -28,6 +28,8 @@
 # Dec 08 2021: write wall time and CPU sum in hours (no option for minutes)
 # Apr 12 2022: check for docker image in sbatch-file; if there, use shifter
 # Jul 18 2022: check new CONFIG option "BATCH_SINGLE_NODE: True"
+# Nov 15 2022: call merge_driver_exit() to write merge-process time
+# Dec 02 2022: write SNANA_VERSION to SUBMIT.INFO file
 #
 # ============================================
 
@@ -315,9 +317,10 @@ class Program:
         # ENV_HOST into the docker command to launch jobs.
         # For example NERSC machines define ENV_HOST:  $NERSC_HOST = Cori,
         # and they user shifter to launch jobs.
+        # Beware that shifter -> Podman at some point on Perlmutter
         docker_command_dict = {
             #  ENV_HOST      docker-command
-            'NERSC_HOST'  : 'shifter' ,
+            'NERSC_HOST'  : 'shifter --module=none ' ,
             'SLAC_HOST'   : 'singularity'  # ?? check if we ever use SLAC cluster
         }
 
@@ -979,6 +982,9 @@ class Program:
         f.write(f"FORCE_CRASH_PREP:    {force_crash_prep} \n")
         f.write(f"FORCE_CRASH_MERGE:   {force_crash_merge}\n")
         f.write(f"FORCE_ABORT_MERGE:   {force_abort_merge}\n")
+
+        snana_version = util.get_snana_version()
+        f.write(f"SNANA_VERSION:    {snana_version}\n")
   
         # append program-specific information
         f.write("\n")
@@ -1105,10 +1111,11 @@ class Program:
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
             CONFIG            = self.config_yaml['CONFIG']
-            if 'SNANA_LOGIN_SETUP' in CONFIG:
-                login_setup = f"{CONFIG['SNANA_LOGIN_SETUP']}"
-            else:
-                login_setup = ""
+            
+            login_setup = ''
+            for key in CONFIG_KEYLIST_SNANA_LOGIN_SETUP :
+                if key in CONFIG:
+                    login_setup = f"{CONFIG[key]}"
 
             logging.info(f"  login_setup (for ssh):  {login_setup} ")
             qq = '"'
@@ -1126,7 +1133,7 @@ class Program:
                                        stderr = subprocess.PIPE)
 
         # check to launch background merge process (Dec 2021)
-        if args.merge_background:
+        if args.merge_background :
             self.launch_merge_background()
 
         return
@@ -1255,27 +1262,34 @@ class Program:
         # The key function is 'merge_update_state', which figures
         # out which jobs have changed state, and also takes 
         # appropriate action such as moving and removing files.
-
+        #
+        # Nov 15 2022: add timer information
+        #
         # - - - - - -
         # collect time/date info to clearly mark updates in
         # CPU*.LOG file(s)
+
+        t_merge_start = time.time()
+
         Nsec     = seconds_since_midnight  # current Nsec, not from submit info
         time_now = datetime.datetime.now()
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam     = "merge_driver"
 
-        args         = self.config_yaml['args']
-        MERGE_LAST   = args.MERGE_LAST
+        args             = self.config_yaml['args']
+        MERGE_LAST       = args.MERGE_LAST
         nomerge          = args.nomerge
         merge_background = args.merge_background
-        cpunum       = args.cpunum[0]
-        check_abort  = args.check_abort 
-        verbose_flag = not check_abort
+        cpunum           = args.cpunum[0]
+        check_abort      = args.check_abort 
+        verbose_flag     = not check_abort
 
         if verbose_flag :
             logging.info(f"\n")
             logging.info(f"# =========================================== ")
-            logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")
+            logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")            
+            if MERGE_LAST:
+                logging.info(f"# {fnam}: MERGE_LAST = {MERGE_LAST}")
 
         # need to re-compute output_dir to find submit info file
         output_dir,script_subdir = self.set_output_dir_name()
@@ -1313,7 +1327,7 @@ class Program:
                 exit(0)
 
         # set busy lock file to prevent a simultaneous  merge task
-        self.set_merge_busy_lock(+1)
+        self.set_merge_busy_lock(+1,t_merge_start)
 
         # read status from MERGE file. There is one comment line above
         # each table to provide a human-readable header. The remaining
@@ -1453,9 +1467,44 @@ class Program:
                          f"Bye Bye" )
 
         # remove busy lock file
-        self.set_merge_busy_lock(-1)
-        
+        self.set_merge_busy_lock(-1,t_merge_start)
+    
+        self.merge_driver_exit(t_merge_start,False)
+        return
         # end merge_driver
+
+    def merge_driver_exit(self, t_merge_start, exit_flag):
+
+        # Created Nov 15 2022
+        # Write exit statement with timing info to enable 
+        # checking unusually long merge time.
+        #
+        # Inputs:
+        #   t_merge_start : time merge process started
+        #   exit_flag     : if True, cal exit(0)
+        #
+
+        fnam = 'merge_driver_exit'
+        t_merge_end = time.time()
+        
+        if t_merge_start is None:
+            t_merge = 0
+        else:
+            t_merge     = t_merge_end - t_merge_start
+
+        if exit_flag :
+            action = 'skipped'
+        else:
+            action = 'completed'
+
+        msg = f"{action} merge process after {t_merge:.2f} sec"
+        logging.info(f"# {fnam}: {msg}")
+
+        if exit_flag:  
+            exit(0)
+
+        return
+        # end merge_graceful_exit
 
     def merge_reset_driver(self):
 
@@ -1485,6 +1534,8 @@ class Program:
         sys.exit(f"\n Done with merge_reset. " \
                  f"Try merge again with -M option.")
 
+        return
+
         # end merge_reset_driver
 
     def force_merge_failure(self,submit_info_yaml):
@@ -1504,6 +1555,8 @@ class Program:
             msgerr.append(f" see --force_abort_merge argument")
             util.log_assert(False,msgerr)
 
+        return
+
         # end force_merge_failure
 
     def merge_last_wait(self):
@@ -1514,15 +1567,43 @@ class Program:
         #  + all DONE files to exist
         #  + no BUSY files from other merge process
         # 
+        # Nov 15 2022:
+        #  Adjust logic to count DONE files and DONE files contained
+        #  in already-compressed tar files.
 
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
         n_job_tot        = submit_info_yaml['N_JOB_TOT']
+        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
         n_done_tot       = submit_info_yaml['N_DONE_TOT']
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR'] 
-        done_wildcard    = f"{jobfile_wildcard}.DONE"
-        util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
+        done_file_wildcard    = f"{jobfile_wildcard}.DONE"
+        done_tar_wildcard     = f"{jobfile_wildcard}DONE.tar.gz"
 
+        #util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
+        wait_for_all_done = True
+        ntry = 0
+        while wait_for_all_done :
+            done_file_list  = glob.glob1(script_dir, done_file_wildcard)
+            done_tar_list   = glob.glob1(script_dir, done_tar_wildcard)
+            n_done_file     = len(done_file_list)
+            n_done_tar      = len(done_tar_list) * n_job_split
+            n_done          = n_done_file + n_done_tar
+            time_now        = datetime.datetime.now()
+            tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
+            msg = f"\t Found {n_done} of {n_done_tot} DONE files ({tstr})"
+            logging.info(msg)
+
+            ntry += 1
+            if n_done != n_done_tot :
+                if ntry > 1: time.sleep(20)
+            else:
+                msg = f"\t    ({n_done_file} from DONE files, " \
+                      f"{n_done_tar} from tar files)"
+                logging.info(msg)
+                wait_for_all_done = False
+                
+        # - - - - - - - - - -  -
         time.sleep(1)
 
         # sleep until there are no more busy files.
@@ -1531,6 +1612,9 @@ class Program:
             logging.info(f"\t Wait for {busy_list} to clear")
             time.sleep(5)
             n_busy,busy_list = self.get_busy_list()
+
+        logging.info("")
+        return
 
         # end merge_last_wait
 
@@ -1605,9 +1689,13 @@ class Program:
 
         # merge_cleanup_script_dir
 
-    def set_merge_busy_lock(self,flag):
-        # flag > 0 --> create BUSY LOCK file
-        # flag < 0 --> remove it
+    def set_merge_busy_lock(self,flag, t_merge_start):
+
+        # Inputs:
+        #   flag > 0 --> create BUSY LOCK file
+        #   flag < 0 --> remove it
+        #
+        #   t_merge_start : used to print process time upon exit
 
         Nsec  = seconds_since_midnight  # current Nsec, not from submit info
         t_msg = f"T_midnight={Nsec}"
@@ -1633,8 +1721,10 @@ class Program:
             # check for other busy files to avoid conflict
             if merge_normal and n_busy > 0 :
                 msg = f"\n# {fnam}: Found existing " \
-                      f"{busy_list[0]} --> exit merge process."
-                sys.exit(msg)  
+                      f"{busy_list[0]} --> skip merge process."
+                logging.info(msg)
+                self.merge_driver_exit(t_merge_start, True)
+                # xxx mark sys.exit(msg)  
             else: 
                 if merge_force :
                     while n_busy > 0:
@@ -1658,8 +1748,10 @@ class Program:
                     cmd_rm = f"rm {BUSY_FILE}"
                     os.system(cmd_rm)
                     msg = f"\n# {fnam}: Found simultaneous " \
-                          f"{busy_list[0]} --> exit merge process."
-                    sys.exit(msg)  
+                          f"{busy_list[0]} --> skip merge process."
+                    logging.info(msg)
+                    self.merge_driver_exit(t_merge_start, True)
+                    # xxx mark sys.exit(msg)  
 
         elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
             if verbose_flag:
@@ -2298,8 +2390,9 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
-            self.set_merge_busy_lock(-1)  # remove busy file Apr 24 2021
+            self.set_merge_busy_lock(-1, None)  # remove busy file Apr 24 2021
             util.log_assert(condition, msgerr)        
-            
+            return
+
 # ======= END OF FILE =========
 

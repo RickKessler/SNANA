@@ -2,27 +2,6 @@
   June, 2011  R.Kessler
   Separate snhost.h from the snhost.c file
 
-  Feb 5 2015: int GALID -> long long GALID
-       
-  Aug 18 2015
-    New struct HOSTLIB_ZPHOTEFF
-
-  Sep 28 2015:  increase array bounds for WFIRST studies:
-     NMAGPSF_HOSTLIB -> 8 (was 5)
-     MXVAR_HOSTLIB   -> 200 (was 100)
-
- Feb 21 2016:  MINLOGZ_HOSTLIB -> -2.3 (was -2.0)
-
- May 22 2017: NMAGPSF_HOSTLIB->9 (was 8)
-
- Dec 30 2017: MALLOCSIZE_HOSTLIB -> 40000 (was 10000)
-
- Jan 15 2018:  MINLOGZ_HOSTLIB -> -2.523 (was -2.3)
-
- May 10 2018:  extend max z from 3.16 to 4.0
-    NZPTR_HOSTLIB -> 320 (was 280)
-    MAXLOGZ_HOSTLIB -> 0.6 (was 0.3)
-
  Feb 4 2019: add DLR and d_DLR
 
  Sep 19 2019:
@@ -44,6 +23,9 @@
              100 zPHOT quantiles
 
  May 5 2022: MXCHAR_LINE_HOSTLIB->900
+
+ Feb 21 2023: increase ZMAX_HOSTLIB to be same as ZMAX_SNANA
+
 
 ==================================================== */
 
@@ -97,9 +79,12 @@
 // hard wire logarithmic z-bins
 #define DZPTR_HOSTLIB      0.01   // logz-binning for Z-pointers
 #define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
-#define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
+#define MAXLOGZ_HOSTLIB    log10(ZMAX_SNANA)     // Feb 21 2023
+// xxx mark delete #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
+
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
 #define ZMIN_HOSTLIB       pow(10.0,MINLOGZ_HOSTLIB)
+#define ZMAX_HOSTLIB       pow(10.0,MAXLOGZ_HOSTLIB)
 #define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
@@ -110,8 +95,11 @@
                              // with MINDAYSEP_SAMEGAL option
 
 // define required keys in the HOSTLIB
-#define HOSTLIB_VARNAME_GALID     "GALID"  // required 
-#define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"  // required
+#define HOSTLIB_VARNAME_GALID     "GALID"      // required 
+#define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"      // required true zhelio or
+#define HOSTLIB_VARNAME_ZTRUE_CMB "ZTRUE_CMB"  // required true zcmb
+#define HOSTLIB_FRAME_ZTRUE_HEL 1   
+#define HOSTLIB_FRAME_ZTRUE_CMB 2
 
 // define optional keys
 #define HOSTLIB_VARNAME_TRUE_MATCH   "TRUE"
@@ -133,6 +121,7 @@
 #define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
 #define HOSTLIB_VARNAME_ELLIPTICITY  "ellipticity" // Sept 2021 Alex Gagliano
 #define HOSTLIB_VARNAME_GALID2       "GALID2"
+#define HOSTLIB_VARNAME_GROUPID      "GROUPID"
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
@@ -232,7 +221,8 @@ struct HOSTLIB_DEF {
   // pointers to stored variables
   int IVAR_GALID ;
   int IVAR_TRUE_MATCH ;  // optional column: 1->use for true match
-  int IVAR_ZTRUE  ;
+  int IVAR_ZTRUE  ;      // true zhelio (or true zcmb)
+  int FRAME_ZTRUE;    // = FRAME_ZTRUE_HEL(default) or FRAME_ZTRUE_CMB
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
   int IVAR_ZPHOT_Q0; // index of first ZPHOT_Q (not necessarily 0th quantile)
@@ -250,6 +240,7 @@ struct HOSTLIB_DEF {
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IGAL_NBR_LIST;              // AG 08/2021
   int IVAR_GALID2;                // AG 09/2021
+  int IVAR_GROUPID;               // RSK 4/2023
   int IVAR_ELLIPTICITY;
   int IVAR_SQRADIUS;
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
@@ -497,10 +488,11 @@ typedef struct {
   // Added for LSST but maybe of more general utility
   // Alex Gagliano 09/2021
   long long GALID2 ; // Second ID e.g., from external catalog
+  int       GROUPID; 
   double SQRADIUS; // Ixx + Iyy
   double ELLIPTICITY;
 
-  int GALID_UNIQUE; // see input HOSTLIB_GALID_UNIQUE_OFFSET (Oct 2021)
+  long long GALID_UNIQUE; // see input HOSTLIB_GALID_UNIQUE_OFFSET (Oct 2021)
 
 } SNHOSTGAL_DDLR_SORT_DEF ;
 
@@ -557,6 +549,8 @@ struct SNHOSTGAL {
   double SNSEP ;        // SN-gal sep, arcsec
   double DLR ;          // directional light radius
   double DDLR;          // SNSEP/DLR (following Gupta 2016)
+
+  double ANGSEP_GROUPID ;
 
   // aperture-mag info
   double SB_MAG[MXFILTINDX] ;  // surface brightness mag in 1 sq-arcsec
@@ -649,6 +643,8 @@ time_t TIME_INIT_HOSTLIB[2];
 // =====================================
 
 void   INIT_HOSTLIB(void);  // one-time init
+void   print_HOSTLIB_MSKOPT(void);
+
 void   init_SNHOSTGAL(void);  // init each event
 void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
 void   GEN_SNHOST_GALID(double ZGEN);
@@ -680,6 +676,7 @@ void   STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR);
 double modelPar_from_SNHOST(double parVal_orig, char *parName);
 void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
+void   DUMP_GROUPID(int igal_start, int igal_end );
 void   initvar_HOSTLIB(void);
 void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) ;
@@ -706,6 +703,8 @@ int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
 bool   match_varname_HOSTLIB(char *varName0, char *varName1);
+bool   MATCH_GROUPID_HOSTLIB(int IGAL);
+
 void   checkAlternateVarNames_HOSTLIB(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
@@ -715,6 +714,8 @@ void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
+double transform_ZTRUE_HOSTLIB(int igal); 
+
 void   init_HOSTLIB_ZPHOTEFF(void);
 void   init_HOSTLIB_ZPHOT_QUANTILE(void);
 void   init_GALMAG_HOSTLIB(void);
@@ -757,7 +758,7 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN, 
 				   double *ZPHOT, double *ZPHOT_ERR); 
-double snmagshift_salt2gamma_HOSTLIB(int GALID);
+double snmagshift_salt2gamma_HOSTLIB(long long int GALID);
 
 void   set_GALID_UNIQUE(int i);
 
@@ -787,5 +788,10 @@ void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   rewrite_HOSTLIB_plusAppend(char *append_file);
 
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
+
+// copy from sntools_calib.h
+void get_calib_filtlam_stats(int opt_frame, int ifilt_obs,  
+			     double *lamavg, double *lamrms,
+			     double *lammin, double *lammax);
 
 // END

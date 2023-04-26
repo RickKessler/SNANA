@@ -18,14 +18,15 @@ import matplotlib.pyplot as plt
 from gensed_base import gensed_base
 
 
-mask_bit_locations = {'verbose':1,'dump':2}
-DEFAULT_BAYESN_MODEL='M20'
-ALLOWED_BAYESN_MODEL=['M20', 'T21']
-ALLOWED_BAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
-ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE']
+mask_bit_locations = {'verbose':1, 'dump':2, 'disable_scatter':3}
+DEFAULT_PYBAYESN_MODEL='M20'
+ALLOWED_PYBAYESN_MODEL=['M20', 'T21']
+ALLOWED_PYBAYESN_PARAMS=['THETA','DELTAM'] # I suppose we could allow EPSILON as well...
+ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE', 'PAR'] # GN - 20230404 - allow "PAR" which is param that takes
+                                                                # 5 comma separated values combining peak/range/sigma
 PRODUCTS_DIR = os.getenv('SNDATA_ROOT')
-BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
-BAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
+PYBAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
+PYBAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
 #ST: Computes a stupid nuisance factor
 GAMMA = np.log(10)/2.5
 
@@ -35,16 +36,20 @@ def print_err():
   raise RuntimeError
 
 
-class gensed_BAYESN(gensed_base):
+class gensed_PYBAYESN(gensed_base):
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
-
         try:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
-            self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
             self.dump = OPTMASK & (1 << mask_bit_locations['dump'])>0
+            self.disable_scatter = True #OPTMASK & (1 << mask_bit_locations['disable_scatter'])>0
+            print("PYBAYESN DISABLE SCATTER:", self.disable_scatter)
+            sys.stdout.flush()
             self.PATH_VERSION = os.path.expandvars(PATH_VERSION)
+            self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
 
-            # check if a param file exists
+            # check if a default param file exists
+            # this lets us specify default parameters for the model
+            # if nothing is specified by the user in the input/include files to SNANA
             self.paramfile = None
             param_files = ['bayesn.params','BAYESN.PARAMS', 'BAYESN.params']
             for param_file in param_files:
@@ -53,7 +58,8 @@ class gensed_BAYESN(gensed_base):
                     break
             if self.paramfile is None:
                 raise RuntimeError(f'param file not found! in {self.PATH_VERSION}. Looking for one of {param_files}')
-
+            print(f"Reading default parameters from {self.paramfile}")
+            print("Other parsed arguments\nPATHVERSION {}; ARGLIST {}".format(PATH_VERSION, ARGLIST))
             self.params_file_contents = yaml.load(open(self.paramfile),
                                                   Loader=yaml.FullLoader)
 
@@ -71,30 +77,30 @@ class gensed_BAYESN(gensed_base):
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','TMAX', 'REDSHIFT']
+            self.parameter_names = ['THETA','AV','RV','DELTAM','TMAX', 'REDSHIFT']
             self.parameter_values = {key:0. for key in self.parameter_names}
             self.parameter_values['RV'] = 3.1 # make sure Rv has a sane default
 
-            ### SETUP THE BAYESN PARAMETER DISTRIBUTIONS
+            ### SETUP THE PYBAYESN PARAMETER DISTRIBUTIONS
             ### THESE WILL BE SAMPLED TO UPDATE parameter_values AS NEEDED
-            self.parse_bayesn_param_keys()
+            self.parse_bayesn_param_keys(arglist=ARGLIST)
             self.setup_bayesn_param_distributions()
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             print('Python Error :',e)
-            print('gensed_BAYESN.py, line number: %i'%exc_tb.tb_lineno)
+            print('gensed_PYBAYESN.py, line number: %i'%exc_tb.tb_lineno)
             print_err()
 
         # load the bayesn model files
-        BAYESN_MODEL = self.params_file_contents.get('BAYESN_MODEL', DEFAULT_BAYESN_MODEL)
-        if BAYESN_MODEL not in ALLOWED_BAYESN_MODEL:
-            print(f'gensed_BAYESN.py: INVALID BAYESN_MODEL {BAYESN_MODEL} - must be one of {ALLOWED_BAYESN_MODEL}')
+        PYBAYESN_MODEL = self.params_file_contents.get('BAYESN_MODEL', DEFAULT_PYBAYESN_MODEL)
+        if PYBAYESN_MODEL not in ALLOWED_PYBAYESN_MODEL:
+            print(f'gensed_PYBAYESN.py: INVALID PYBAYESN_MODEL {PYBAYESN_MODEL} - must be one of {ALLOWED_PYBAYESN_MODEL}')
             print_err()
 
-        bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'BAYESN.{BAYESN_MODEL}')
+        bayesn_model_dir = os.path.join(PYBAYESN_MODEL_DIR, f'BAYESN.{PYBAYESN_MODEL}')
         self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir,\
-                                    f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
+                                    f'{comp}.txt')) for comp in PYBAYESN_MODEL_COMPONENTS}
 
         self._nepsilon = len(self._bayesn_components["L_Sigma_epsilon"])
 
@@ -137,6 +143,7 @@ class gensed_BAYESN(gensed_base):
         # however, unlike YAML, we get all the args in
         # a single arglist
         if arglist is not None:
+            self.bayesn_distrib_params = {}
             keyvals = re.split('(\w+):', arglist)[1:]
             # key vals come in pairs - even indices are keys
             # odd indices are vals
@@ -148,8 +155,10 @@ class gensed_BAYESN(gensed_base):
                                                 if key.startswith('GEN')}
 
         self.bayesn_param_config = {}
+        update_bayesn_distrib_params = self.bayesn_distrib_params.copy()
+
         # we need to do some input validating
-        for key, val in self.bayesn_distrib_params.items():
+        for key, val in update_bayesn_distrib_params.items():
 
             # check the keywords are valid
             if not key.startswith('GEN'):
@@ -165,39 +174,93 @@ class gensed_BAYESN(gensed_base):
                 raise RuntimeError(message)
 
             # next, the parameters have to be valid BAYESN params
-            if paramname not in ALLOWED_BAYESN_PARAMS:
+            if paramname not in ALLOWED_PYBAYESN_PARAMS:
                 message = f'Do not recognize key {key} in ARGLIST.\n'
-                message += f'Keys must specify a BayeSN light curve parameter f{ALLOWED_BAYESN_PARAMS}.'
+                message += f'Keys must specify a BayeSN light curve parameter f{ALLOWED_PYBAYESN_PARAMS}.'
                 raise RuntimeError(message)
 
-            # we need to keep a track of which distribution parameters are set
-            temp = self.bayesn_param_config.get(paramname, None)
-            if temp is None:
-                temp = []
-            temp.append(keysuffix)
-            self.bayesn_param_config[paramname] = temp
+            if keysuffix == "PAR":
+                vals = [x.strip() for x in val.split(',')]
+                # GENPAR is special in that you can specify the full distribution
+                # with a single parameter - this is purely for convenience
+                # if we get a GENPAR, we really have all of GENPEAK, GENRANGE and GENSIGMA
+                # together - we need to parse this below
+                replace_suffixes = ['PEAK','RANGE', 'SIGMA']
+                replace_inds = [0, 1, 3]
+                replace_len  = [1, 2, 2]
+                # add each of the "keys" in GENPAR to the dictionary
+                for rsuffix, start, length in zip(replace_suffixes, replace_inds, replace_len):
+                    rkey = f'GEN{rsuffix}_{paramname}'
+                    rval = ' '.join(vals[start:start+length])
+                    print(vals, start, start+length, rval)
+                    self.bookkeep_bayesn_param_key(paramname, rsuffix)
+                    temp = self.convert_bayesn_param_key_val(rkey, rsuffix, rval)
+                    self.bayesn_distrib_params[rkey] = temp
+                # and finally, remove the GENPAR convenience key
+                del self.bayesn_distrib_params[key]
+            else:
+                self.bookkeep_bayesn_param_key(paramname, keysuffix)
+                temp = self.convert_bayesn_param_key_val(key, keysuffix, val)
+                self.bayesn_distrib_params[key] = temp
 
-            # finally you either get a single float or a sequence of floats
-            # to specify the distributions for each parameter
-            try:
-                temp = float(val)
-                if paramname == 'RANGE':
-                    message = f'Key {key} specified but only found a single value.'
-                    raise RuntimeError(message)
-            except ValueError:
-                temp = [float(v) for v in val.split()]
-                if keysuffix != 'RANGE':
-                    message = f'Key {key} specified and has multiple values, but only accepts a single value.'
-                    raise RuntimeError(message)
-                if len(temp) !=2 :
-                    message = f'Range key {key} specified but can only have two values.'
-                    raise RuntimeError(message)
-                if temp[0] >= temp[1]:
-                    message = f'Range key {key} specified but lower limit is >= uppler limit.'
-                    raise RuntimeError(message)
-            self.bayesn_distrib_params[key] = temp
+        #endfor over params
         print('Parsed the following BayeSN distribution parameters')
         print(self.bayesn_distrib_params)
+        sys.stdout.flush()
+
+
+    def bookkeep_bayesn_param_key(self, paramname, keysuffix):
+        """
+        Distributions are defined by peak (i.e. mean), sigma and range
+        but not all those keywords maybe supplied for each of the parameters
+        This changes the interpretation of the distribution
+        Only range = uniform
+        Only peak = delta function
+        Peak + sigma = Gaussian
+        Peak + sigma + range = Gaussian with limited range
+        """
+        # we need to keep a track of which distribution parameters are set
+        temp = self.bayesn_param_config.get(paramname, None)
+        if temp is None:
+            temp = []
+        if keysuffix not in temp:
+            temp.append(keysuffix)
+        self.bayesn_param_config[paramname] = temp
+
+
+    def convert_bayesn_param_key_val(self, key, keysuffix, val):
+        """
+        Parse the BayeSN parameter distributions specified in
+        bayesn.params or as a string in the ARGLIST in the SNANA .INPUT
+        file and converts strings to floats appropriately for
+        PEAK/RANGE/SIGMA/PAR
+        """
+        # finally you either get a single float or a sequence of floats
+        # to specify the distributions for each parameter
+        try:
+            temp = float(val)
+            if keysuffix == 'RANGE':
+                message = f'Key {key} specified but only found a single value.'
+                raise RuntimeError(message)
+        except ValueError:
+            temp = [float(v) for v in val.split()]
+            if keysuffix == 'SIGMA':
+                # HACK HACK HACK - Rick has a definition of an asymmetric Gaussian
+                # that's non-standard (har har) compared to a skewnormal
+                # I don't know what to do with it for now
+                # so I'm just going to take the larger of the two values
+                return np.abs(temp).max()
+
+            if keysuffix != 'RANGE':
+                message = f'Key {key} specified and has multiple values, but only accepts a single value.'
+                raise RuntimeError(message)
+            if len(temp) !=2 :
+                message = f'Range key {key} specified but can only have two values.'
+                raise RuntimeError(message)
+            if temp[0] >= temp[1]:
+                message = f'Range key {key} specified but lower limit is >= uppler limit.'
+                raise RuntimeError(message)
+        return temp
 
 
     def setup_bayesn_param_distributions(self):
@@ -320,10 +383,15 @@ class gensed_BAYESN(gensed_base):
             for param, distrib in self.bayesn_distribs.items():
                 useful_pars[param] = distrib.rvs()
 
-            eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
-            epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
+            if self.disable_scatter:
+                epsilon_vec = np.zeros(len(self._bayesn_components["L_Sigma_epsilon"])) #FOR DEBUG ONLY
+                deltam = 0.
+            else:
+                eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
+                epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
             for i in range(self._nepsilon):
                 useful_pars[f'EPSILON{i:02d}'] = epsilon_vec[i]
+                useful_pars['DELTAM'] = deltam
             if self.verbose:
                 print(useful_pars, 'set')
 
@@ -337,6 +405,7 @@ class gensed_BAYESN(gensed_base):
 
         ########## NEW CODE FROM ST BELOW HERE (FOR GUIDANCE) ##########
 
+        print("XXXX z = {:.6f}; theta = {:.6f}".format(self.parameter_values["REDSHIFT"], self.parameter_values["THETA"]))
 
         #ST: Computes matrices that do interpolation
         #    Probably can't be precomputed
@@ -356,13 +425,14 @@ class gensed_BAYESN(gensed_base):
         epsilon_matrix = np.zeros(self._bayesn_components["W0"].shape)
         epsilon_vector = [self.parameter_values[f'EPSILON{i:02d}'] for i in range(self._nepsilon)]
         epsilon_matrix[1:-1,:] = np.reshape(epsilon_vector, epsilon_matrix[1:-1,:].shape, order="F")
-        W = self._bayesn_components["W0"] + self.parameter_values["THETA1"]*self._bayesn_components["W1"] + epsilon_matrix
+        W = self._bayesn_components["W0"] + self.parameter_values["THETA"]*self._bayesn_components["W1"] + epsilon_matrix
 
         #ST: Interpolates to `trest` and `self.wave`
         #    If we have done this right, this should be the same length
         #    as `flux`
         JWJ = np.linalg.multi_dot([self.J_l, W, J_t]).squeeze()
-
+        dlam = self.wave[1:] - self.wave[:-1]
+        print(trest, min(dlam), max(dlam), self.wave[446], JWJ[446], 10**(-0.4*JWJ)[446], JWJ.shape)
 
         #ST: Multiplies correction into Hsiao fluxes
         #    Stilde is essentially the host-dust-extinguished
@@ -371,7 +441,11 @@ class gensed_BAYESN(gensed_base):
         S_tilde = flux*np.exp(-GAMMA*(JWJ + R_host))
 
         #ST: Applies the constant (in time and wavelength) factors
-        flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
+        if self.disable_scatter:
+            DELTAM = 0 #FOR DEBUG ONLY
+        else:
+            DELTAM = self.parameter_values["DELTAM"]
+        flux = np.exp(-GAMMA*(self.M0 + DELTAM))*S_tilde
 
         ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
         return flux
@@ -544,19 +618,19 @@ def spline_coeffs_irr(x_int, x, invkd, allow_extrap=True):
 
 
 def main():
-    mySED=gensed_BAYESN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
+    mySED=gensed_PYBAYESN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
 
     fig = plt.figure(figsize=(10, 5))
     ax1 = fig.add_subplot(111)
-    mySED.setParVals(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
+    mySED.setParVals(THETA=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
     flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'g-')
 
-    mySED.setParVals(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
+    mySED.setParVals(THETA=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
     flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'r-')
 
-    mySED.setParVals(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
+    mySED.setParVals(THETA=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
     flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'b-')
 
@@ -568,15 +642,15 @@ def main():
     ind = (mySED.wave >= 3000) & (mySED.wave <= 7000)
     for trest in np.linspace(-10, 40, 20):
 
-        mySED.setParVals(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
+        mySED.setParVals(THETA=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
         flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'b-')
 
-        mySED.setParVals(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
+        mySED.setParVals(THETA=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
         flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'g-')
 
-        mySED.setParVals(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
+        mySED.setParVals(THETA=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
         flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'r-')
     fig2.savefig('phase_sequence.png')

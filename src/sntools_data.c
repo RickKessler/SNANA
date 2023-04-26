@@ -95,6 +95,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   //
   // Apr 24 2021: add SIM_BIASCOR_MASK
   // Oct 08 2021: add SIM_MODEL_INDEX
+  // Oct 11 2022: fix bug reading SIM_HOSTLIB params
 
   bool ISKEY_PRIVATE = ( strstr (key,"PRIVATE")   != NULL ) ;
   bool ISKEY_BYOSED  = ( strncmp(key,"BYOSED",6)  == 0 ) ;
@@ -218,9 +219,16 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       { copy_int(copyFlag, parVal, &SNDATA.NPAR_SIM_HOSTLIB ); }
 
     else if ( strncmp(key,"SIM_HOSTLIB_PAR",15) == 0 ) {
+
+      sscanf(&key[15], "%d", &ipar);
+      copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
+
+      /* xxxxxxx mark delete Oct 11 2022 xxxxxxxxxxxxxx
       for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
 	copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
       }
+      xxxxxxxxxxx end mark xxxxxx */
+
     }
     else if ( strcmp(key,"SIM_SL_FLAG") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_SL_FLAG ); }
@@ -536,11 +544,21 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       { copy_lli(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_GALID) ; }  
 
     else if ( strncmp(key,"SIM_HOSTLIB",11) == 0 ) {
+      igal = 0 ;
+      for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+	if ( strcmp(key,SNDATA.SIM_HOSTLIB_KEYWORD[ipar]) == 0 ) {
+	  copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]); 
+	}
+      }
+
+      /* xxxxxxxx mark delete Oct 11 2022 xxxxxxx
       for(igal=0; igal < MXHOSTGAL; igal++ ) {
       	for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-		copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]) ; 
+	  copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]) ; 
         }
       }
+      xxxxxxxx end mark xxxxxxx */
+
     }
     else if ( strcmp(key,"SIM_DLMU") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_DLMU) ; }  
@@ -842,7 +860,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     // FILTCHAR_1D includes every observation; here we pick out subset
     // subset of FILTCHAR_1D that are on STORE_LIST
 
-    splitString(SNDATA.FILTCHAR_1D, COMMA, MXEPOCH,    // inputs    
+    splitString(SNDATA.FILTCHAR_1D, COMMA, fnam, MXEPOCH,    // inputs    
 		&NSPLIT, &SNDATA.FILTCHAR[1] );            // outputs 
 
     stringVal[0] = 0 ;
@@ -859,7 +877,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    splitString(SNDATA.FIELDNAME_1D, COMMA, MXEPOCH,    // inputs    
+    splitString(SNDATA.FIELDNAME_1D, COMMA, fnam, MXEPOCH,    // inputs    
 		&NSPLIT, &SNDATA.FIELDNAME[1] );            // outputs 
 
     stringVal[0] = 0 ;
@@ -1264,7 +1282,6 @@ void rd_override_zcalc(void) {
   
   double RA, DEC, zCMB, zHEL ;
   bool FOUND_z= ( RD_OVERRIDE.FOUND_zCMB || RD_OVERRIDE.FOUND_zHEL );
-  char eq[]   = "eq" ;
   char fnam[] = "rd_override_zcalc" ;
   // ---------- BEGIN -------------
 
@@ -1274,20 +1291,13 @@ void rd_override_zcalc(void) {
 
   if ( RD_OVERRIDE.FOUND_zCMB ) {
     zCMB = (double)SNDATA.REDSHIFT_FINAL;
-    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,eq,-1); 
+    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); 
     SNDATA.REDSHIFT_HELIO = (float)zHEL ;
   }
   else if ( RD_OVERRIDE.FOUND_zHEL ) {
     zHEL = (double)SNDATA.REDSHIFT_HELIO ;
-    zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
+    zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
     SNDATA.REDSHIFT_FINAL = (float)zCMB ;
-
-    /* xxx mark delete xxxxxxxx
-    if ( strcmp(SNDATA.CCID,"1032") == 0 ) {
-      printf(" xxx %s: ov zHEL=%.4f -> zCMB=%.4f (RA,DEC=%f,%f)\n",
-	     fnam, zHEL, zCMB, RA, DEC); fflush(stdout);
-    }
-    xxxxxx end mark xxx */
   }
 
   return ;

@@ -26,19 +26,11 @@ c
 c into this file so that your private version over-rides
 c the official version.
 c
-c
-c Aug 2009: fix some stale code & patchy flags
-c Sep 24, 2009; include *SPLINE patch
-c Nov 12, 2009: include only SNMAIN, and use libsnana.a for the rest.
-c
-c Aug 1, 2011: pathcy flag KCOR -> R4KCOR and fix a few variable names
-c Dec 5, 2012: add dummy USRINI2
-c
 c --------------------------------------------------------
 
 +NAMES,8,6000,48000.
 +USE,LINUX.
-+USE,SNANA,R4KCOR.
++USE,SNANA,KCOR.
 
 +USE,P=*SNCOM.
 +USE,P=*SNMAIN,T=EXE.

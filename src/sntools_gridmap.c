@@ -233,18 +233,21 @@ void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE){
   // Created May 26 2021
   // OPT > 0 -> malloc
   // OPT < 0 -> free
+  //
+  // Nov 2022: sum and store MEMORY for MAPSIZE arrays.
 
   int ifun;
   int I4  = sizeof(int) ;
   int I8  = sizeof(double) ;
   int I8p = sizeof(double*) ;
+  float MEMORY = 0.0 ;
+  long long int MEMI, MEMD ;
   char string[40];
   char fnam[] = "malloc_GRIDMAP";
 
   // ---------------- BEGIN ----------- 
 
   if ( OPT > 0 ) {
-    sprintf(string,"allocate");
     gridmap->NBIN      = (int     *)malloc(I4*NDIM+I4);
     gridmap->VALMIN    = (double  *)malloc(I8*NDIM+I8);
     gridmap->VALMAX    = (double  *)malloc(I8*NDIM+I8);
@@ -252,11 +255,18 @@ void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE){
     gridmap->RANGE     = (double  *)malloc(I8*NDIM+I8);
     gridmap->FUNMIN    = (double  *)malloc(I8*NFUN);
     gridmap->FUNMAX    = (double  *)malloc(I8*NFUN);
-    gridmap->INVMAP    = (int     *)malloc(I4*MAPSIZE+I4);
+
+    MEMI = I4*MAPSIZE+I4 ; MEMORY += 1.0E-6 * (float)MEMI;
+    gridmap->INVMAP    = (int     *)malloc(MEMI);  
 
     gridmap->FUNVAL    = (double **)malloc(I8p*NFUN);
-    for(ifun=0; ifun < NFUN; ifun++ ) 
-      {  gridmap->FUNVAL[ifun] = (double *)malloc(I8*MAPSIZE);  }
+    for(ifun=0; ifun < NFUN; ifun++ )  {  
+      MEMD = I8*MAPSIZE ;   MEMORY += ( 1.0E-6 * (float)MEMD );
+      gridmap->FUNVAL[ifun] = (double *)malloc(MEMD);      
+    }
+
+    sprintf(string,"allocate %.1f MB for %d bins", MEMORY, MAPSIZE);
+    gridmap->MEMORY = MEMORY ;
   }
   else {
     sprintf(string,"free GRIDMAP %d ", gridmap->ID );

@@ -6,6 +6,8 @@
 #
 #  Default memory -> 4GB (was 2GB)
 #
+#  Mar 3 2023: improve -H TRAIN_SALT2/3
+#
 # ==============================================
 
 import os
@@ -33,7 +35,7 @@ SHELL            = os.environ['SHELL']
 PROGRAM_TYPE_SIM    = "SIM"    # simulation
 PROGRAM_TYPE_LCFIT  = "FIT"    # light curve fit (e.g., SALT2, PSNID, ...)
 PROGRAM_TYPE_BBC    = "BBC"    # BEAMS with bias corrections
-PROGRAM_TYPT_WFIT   = "WFIT"   # fast cosmology fitter
+PROGRAM_TYPE_COSMOFIT   = "COSMOFIT"   # cosmology fitter
 
 # default program names ... can be changed by user
 PROGRAM_NAME_SIM     =  "snlc_sim.exe"
@@ -41,8 +43,10 @@ PROGRAM_NAME_LCFIT   =  "snlc_fit.exe"
 PROGRAM_NAME_BBC     =  "SALT2mu.exe"
 PROGRAM_NAME_COVMAT  =  "create_covariance.py"
 PROGRAM_NAME_WFIT    =  "wfit.exe"
+PROGRAM_NAME_FIRECROWN  =  None  
 PROGRAM_NAME_MKDATA  =  "makeDataFiles.sh"
 PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
+PROGRAM_NAME_CAT     = "sntable_cat.py" # utility used by BBC class
 
 SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"
@@ -52,7 +56,7 @@ SUBDIR_SCRIPTS_SIM    = ""
 SUBDIR_SCRIPTS_LCFIT  = "SPLIT_JOBS_LCFIT"
 SUBDIR_SCRIPTS_BBC    = "SCRIPTS_BBCFIT"
 SUBDIR_SCRIPTS_COVMAT = "SCRIPTS_COVMAT"
-SUBDIR_SCRIPTS_WFIT   = "SCRIPTS_WFIT"
+SUBDIR_SCRIPTS_COSMOFIT   = "SCRIPTS_COSMOFIT"
 SUBDIR_SCRIPTS_TRAIN  = "SCRIPTS_TRAIN"
 SUBDIR_SCRIPTS_MKDATA = "SCRIPTS_MKDATA"
 
@@ -66,7 +70,7 @@ MODEL_NONIa = "NONIa"
 
 HOSTNAME = os.uname()[1].split('.')[0]
 
-BATCH_MEM_DEFAULT      = "4GB"       # default memory is 4GB (9.24.2022) ( was 2GB)
+BATCH_MEM_DEFAULT      = "4GB"       # default mem is 4GB (9.24.2022) 
 BATCH_WALLTIME_DEFAULT = '24:00:00'  # default wall time is 24hr
 BATCH_MAXJOB_DEFAULT   = 500         # max number of jobs allowed in queue
 BATCH_NTHREADS_DEFAULT = 1           # number of threads per job 08/apr/2022
@@ -134,6 +138,9 @@ DEFAULT_DONE_FILE = "ALL.DONE"  # default if DONE_STAMP not in CONFIG
 CONFIG_KEYNAME_ENV_REQUIRE  = "ENV_REQUIRE"  # name of key with required ENV
 ENV_SNANA_SETUP_COMMAND     = "SNANA_SETUP_COMMAND"
 ENV_SNANA_IMAGE_DOCKER      = "SNANA_IMAGE_DOCKER"
+
+CONFIG_KEYLIST_SNANA_LOGIN_SETUP = \
+        [ 'SNANA_LOGIN_SETUP', 'SNANA_SSHLOGIN_SETUP' ]
 
 # lok file for merge process
 BUSY_FILE_PREFIX = "BUSY_MERGE_CPU"
@@ -205,10 +212,13 @@ CONFIG:
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
 
   # option to force all jobs on single node
-  BATCH_SIGNLE_NODE: True
+  BATCH_SINGLE_NODE: True
 
   # optional list of required ENVs (aborts if any ENV is not defined)
   ENV_REQUIRE: SNANA_LSST_SIM  LSST_STACK_VERSION
+
+  # snana setup for SSH-login (not for batch)
+  SNANA_SSHLOGIN_SETUP: <SNANA setup command>
 
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere
@@ -436,8 +446,8 @@ HELP_CONFIG_LCFIT = f"""
 
 """
 
-HELP_CONFIG_WFIT = f"""
-   ***** HELP/MENU for wfit CONFIG-yaml Input *****
+HELP_CONFIG_COSMOFIT = f"""
+   ***** HELP/MENU for wfit or Firecrown CONFIG-yaml Input *****
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
@@ -463,11 +473,17 @@ HELP_CONFIG_WFIT = f"""
   - /CMBpri/    -cmb_sim -sigma_Rcmb 0.007
   - /CMB+BAO/   -cmb_sim -sigma_Rcmb 0.007 -bao_sim
   - /w0wa+CMB/  -wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007
-
+      or
+  FCOPT:
+  - /label1/ <firecrown options> 
+  - /label2/ <firecrown options> 
+ 
   COVOPT:  ALL NOSYS  # select subset of cov systematics options
 
 # optional global wfit options appended to each WFITOPT above
-  WFITOPT_GLOBAL: "-hsteps 61 -wsteps 101 -omsteps 81"
+  WFITOPT_GLOBAL:  -hsteps 61 -wsteps 101 -omsteps 81
+       or
+  FCOPT_GLOBAL:  <firecrown options>
 
 # Default blind flag is set for data, but not for sim.
 # These defaults can be changed with
@@ -485,10 +501,10 @@ HELP_CONFIG_WFIT = f"""
 # of the directory under 7_CREATE_COV,and sometimes /X is needed to ensure 
 # uniqueness.
 # 
-  WFITAVG:
-  - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC   # w diff
-  - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w diff 
-  - UNBIN5YR_5YR_IaCC  # w avg
+  FITAVG:  # also works with WFITAVG and FCAVG key
+  - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC    # w(wa) diff-avg
+  - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w(wa) diff-avg
+  - UNBIN5YR_5YR_IaCC                        # w(wa) avg
 
 """
 
@@ -594,6 +610,8 @@ HELP_CONFIG_BBC = f"""
  # feature with Pippin, put "FLAG_USE_SAME_EVENTS: 1" in the FITOPT.yml
  # file (same file where systematic variations are defined).
 
+ FLAG_USE_SAME_EVENTS: 0  # disable sync-event flag passed from 2_LCFIT stage
+
 #END_YAML
 
 """
@@ -651,15 +669,17 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   # input Instrument and MagSys (aka SALTPATH)
   PATH_INPUT_CALIB: [path]
 
-  # TRAINOPT args specify calibration systematics per band or group of bands.
-  # An independent training is done for each TRAINOPT argument.
+  # The nominal training with salt-input files is output as TRAINOPT000.
+  # For additional trainings with variations (e.g, calibration shifts,
+  # training options), use the TRAINOPT key as illustrated by the example
+  # below that produces TRAINOPT001 thru TRAINOPT007.  Remove TRAINOPT key
+  # to produce only TRAINOP000.
   # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
   # keys; <CR> are stripped so that contents can be distributed among
   # multiple lines for human readability. The explicit MAGSHIFT and
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
   # for a random calibration offset in every band.
-  # PATH_INPUT_CALIB key specifies a different calibration directory.
 
   TRAINOPT: # survey  band shift
   - MAGSHIFT  SDSS  g 0.01
@@ -699,15 +719,17 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
   TRAINOPT_GLOBAL: --resume_from_outputdir $SNTRAIN_ROOT/SALT3/SALT3.K21
 
 
-  # TRAINOPT args specify calibration systematics per band or group of bands.
-  # An independent training is done for each TRAINOPT argument.
+  # The nominal training with salt-input files is output as TRAINOPT000.
+  # For additional trainings with variations (e.g, calibration shifts, 
+  # training options), use the TRAINOPT key as illustrated by the example
+  # below that produces TRAINOPT001 thru TRAINOPT006.  Remove TRAINOPT key 
+  # to produce only TRAINOP000.                          
   # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
   # keys; <CR> are stripped so that contents can be distributed among
   # multiple lines for human readability. The explicit MAGSHIFT and
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
-  # for a random calibration offset in every band.
-  # PATH_INPUT_CALIB key specifies a different calibration directory.
+  # for a random/correlated calibration offset in every band.
 
   TRAINOPT:
   - MAGSHIFT  SDSS  g 0.01
@@ -877,7 +899,7 @@ HELP_MENU = {
     'LCFIT'       : HELP_CONFIG_LCFIT,
     'BBC'         : HELP_CONFIG_BBC,
     'COVMAT'      : HELP_CONFIG_COVMAT,
-    'WFIT'        : HELP_CONFIG_WFIT,
+    'COSMOFIT'    : HELP_CONFIG_COSMOFIT,
     'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
     'TRAIN_SALT3' : HELP_CONFIG_TRAIN_SALT3,
     'TRANSLATE'   : HELP_TRANSLATE,

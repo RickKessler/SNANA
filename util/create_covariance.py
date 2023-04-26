@@ -73,26 +73,49 @@
 #
 # Oct 10 2022 A.Mitra and R.K.
 #   + New input arguments --label_cov_rows with default = False.
+#
+# Oct 13 2022 RK 
+#   + for INFO.YAML, add HD file name and name of each covsys file.
+#   + change cov format from 12.8f to 12.6e to get 7 digits of 
+#     precision instead of only 3 or 4 digits using 12.8f
+#
+# Nov 9 2022 RK
+#   + replace zCMB with zHD in hubble_diagram.txt
+#   + for unbinned, write correct zHEL (no vpec correction)
+#   + write zHD and zHEL comments at top of hubble_diagram.txt
+#
+# Dec 7 2022 RK 
+#   + fix bug in prep_config(); affects pippin integration
+#   + write SNANA_VERSION to INFO.YML file
+#   + new --nosys arg
+#
+# Mar 08 2023 RK 
+#     - read VERSION_PHOTOMETRY from hubble diagram table header
+#     - read cospar_biascor from sim-README
+#     - write above info to INFO.YML (to pass on to cosmology fitting codes)
+#
+# Apr 05 2023 M.Vincenzi: update -H [HELP] on how to remove one syst.
+#
 # ===============================================
 
-import os, argparse, logging, shutil, time
+import os, argparse, logging, shutil, time, subprocess
 import re, yaml, sys, gzip, math
 import numpy  as np
 import pandas as pd
-from pathlib import Path
-from functools import reduce
-from sklearn.linear_model import LinearRegression
+from   pathlib import Path
+from   functools import reduce
+from   sklearn.linear_model import LinearRegression
 import seaborn as sb
 import matplotlib.pyplot as plt
 
 import astropy.units as u
-from astropy.cosmology import Planck13, z_at_value
-from astropy.cosmology import FlatLambdaCDM
+from   astropy.cosmology import Planck13, z_at_value
+from   astropy.cosmology import FlatLambdaCDM
 
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
 
-PREFIX_COVSYS  = "covsys"
+PREFIX_COVSYS     = "covsys"
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 
@@ -109,21 +132,33 @@ VARNAME_MUERR        = "MUERR"
 VARNAME_MUERR_VPEC   = "MUERR_VPEC"
 VARNAME_MUERR_RENORM = "MUERR_RENORM"
 VARNAME_MUERR_SYS    = "MUERR_SYS"
+VARNAME_zHD          = "zHD"
+VARNAME_zHEL         = "zHEL"
 
 VARNAME_iz     = "IZBIN"
-VARNAME_z      = "z"  # note that zHD is internally renamed z
+# xxx mark delete VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
 
 VARNAME_NEVT_BIN = 'NEVT'
 
 SUBDIR_COSMOMC = "cosmomc"
-KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
+
+# keys in header of FITRES and M0DIF tables output by SALT2mu
+KEYNAME_ISDATA             = "ISDATA_REAL" 
+KEYNAME_VERSION_PHOTOMETRY = "VERSION_PHOTOMETRY"
 
 KEYNAME_SYS_SCALE_FILE = "SYS_SCALE_FILE"
 
 m_REF = 0  # MUOPT reference number for cov
 f_REF = 0  # FITOPT reference number for cov
+
+
+# define list of sim-input keys for cosmology params; needed to recover biasCor cospar
+KEY_DOCANA    = "DOCUMENTATION"
+KEY_SIM_INPUT = "INPUT_KEYS_SNIaMODEL0"
+KEYLIST_COSPAR_SIM = [ 'OMEGA_MATTER', 'OMEGA_LAMBDA', 'w0_LAMBDA', 'wa_LAMBDA',
+                       'MUSHIFT' ]
 
 # ============================
 def setup_logging():
@@ -176,6 +211,9 @@ def get_args():
     msg = f"override {KEYNAME_SYS_SCALE_FILE} in the input file"
     parser.add_argument("--sys_scale_file", help=msg, 
                         nargs='?', type=str, default=None ) 
+
+    msg = f"no systematics (stat only)"
+    parser.add_argument("--nosys", help=msg, action="store_true")
 
     # xxx not yet ...
     #msg = "scale all systematics by this factor"
@@ -245,13 +283,14 @@ VERSION:    <subDir under INPUT_DIR>
 #  [COVOPT-label]  [FITOPT-label,MUOPT-label,errSystScale]
 #   and no pad spaces allowed inside []
 COVOPTS:
-- '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst 
+- '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst
 - '[PS1CAL] [+PS1CAL,=DEFAULT]'  # PS1CAL syst only MUOPT=0
 - '[ALLCAL] [+CAL,=DEFAULT]'     # All syst with 'CAL' in name, MUOPT=0
 - '[SALT2]  [+SALT2,=DEFAULT]'   # SALT2 syst only, MUOPT=0
-- '[NOCAL]  [-CAL,=DEFAULT]'     # all syst except for calib, MUOPT=0
 - '[SCAT]   [=DEFAULT,+SCAT]     # FITOPT=0, MUOPTs with SCAT in label
-
+- '[NOCAL]  [-CAL,=DEFAULT]'     # all fitopt syst except calib, and only default MUOPT=0
+- '[NOCALONLY] [-CAL,]'          # all syst (i.e. all FITOPTS and MUOPTS ) except CAL systs
+- '[noFrag] [,-SCAT]'            # all syst (i.e. all FITOPTS and MUOPTS ) except SCAT systs
 # optional 3rd arg scales syst error
 - '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 2, and covSys*= 1.2^2
 - '[ALL]    [,,1.4]              # scale ALL errSys by 1.4, covSys*= 1.4^2
@@ -282,15 +321,26 @@ COSMOMC_DATASET_FILE: <out file with cosmomc instructions>
 
     # end print_help_menu
 
+def get_snana_version():
+    # fetch snana version that includes tag + commit;
+    # e.g., v11_05-4-gd033611.
+    # Use same git command as in Makefile for C code
+    SNANA_DIR        = os.environ['SNANA_DIR']
+    cmd = f"cd {SNANA_DIR};  git describe --always --tags"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                      shell=True, capture_output=True, text=True )
+    snana_version = ret.stdout.replace('\n','')
+    return snana_version
 
-def check_isdata_real(hd_file):
+def read_header_info(hd_file):
 
     # Created oct 6 2021 by R.Kessler
     # read first few lines of hd_file and look for ISDATA_REAL  key
     # that is in a comment field ... hence read as yaml.
     # SALT2mu begain wriring ISDATA_REAL key on Oct 6 2021;
-    # Function returns ISDATA_REAL = 0 or 1 of key is found;
+    # Function returns ISDATA_REAL = 0 or 1 if key is found;
     # returns -1 (unknown) if key not found.
+    # Mar 2023: rename isdata_real to read_header_info
 
     with gzip.open(hd_file, 'r') as f:
         line_list = f.readlines()
@@ -298,24 +348,51 @@ def check_isdata_real(hd_file):
     isdata_real = -1  # init to unknonw
     maxline_read = 10 # bail after this many lines
     nline_read   = 0
+    isdata_real  = -1
+    header_info = {}  # define output dictionary
 
-    key = f"{KEYNAME_ISDATA}:" # include colon in brute force search
+    found_isdata   = False
+    found_ver_phot = False
 
     for line in line_list:
         line  = line.rstrip()  # remove trailing space and linefeed  
         line  = line.decode('utf-8')
         wd_list = line.split()
-        if key in wd_list:
-            j = wd_list.index(key)
-            isdata_real = int(wd_list[j+1])
-                        
+
+        # xxx mark delete: if key_isdata in wd_list:
+        if any(KEYNAME_ISDATA in s for s in wd_list):  
+            key_isdata     = f"{KEYNAME_ISDATA}:"
+            j              = wd_list.index(key_isdata)
+            if j > 0 :
+                isdata_real    = int(wd_list[j+1])            
+                found_isdata   = True
+
+        if any(KEYNAME_VERSION_PHOTOMETRY in s for s in wd_list):  
+            key = wd_list[1].replace(':','')  # item 0 is hash, item 1 is key
+            if len(wd_list) > 2 :
+                arg = wd_list[2].split(',')
+            else:
+                arg = [ "UNKNOWN" ]
+            header_info[key] = arg
+            found_ver_phot   = True
+
         nline_read += 1
         if nline_read == maxline_read or isdata_real>=0 : break
 
+    header_info[KEYNAME_ISDATA] = isdata_real
     logging.info(f"ISDATA_REAL = {isdata_real}")
-    return isdata_real
 
-    # end check_isdata_real
+    # - - - - - give warnings for key(s) not found - - - - - -
+    found_list = [ found_isdata, found_ver_phot ]
+    key_list   = [ KEYNAME_ISDATA, KEYNAME_VERSION_PHOTOMETRY ]
+
+    for found,key in zip(found_list,key_list):
+        if not found:
+            logging.warning(f"did not find {key} in table header")
+
+    return header_info
+
+    # end read_header_info
 
 def load_hubble_diagram(hd_file, args, config):
 
@@ -346,8 +423,9 @@ def load_hubble_diagram(hd_file, args, config):
     # --> ensure direct subtraction comparison
     if "CID" in df.columns:
         df["CID"] = df["CID"].astype(str)
-        df = df.sort_values(["zHD", "CID"])
-        df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
+        df = df.sort_values([ "CID"])
+        df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
+        # xxx mark df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {hd_file}"
@@ -367,9 +445,13 @@ def load_hubble_diagram(hd_file, args, config):
                          df['IDSURVEY'].astype(str)
         df = df.set_index("CIDindex")
 
-    elif VARNAME_z in df.columns:
+    elif 'z' in df.columns:  # for M0DIF file that has z instead of zHD
         # should not need z-sorting here for M0DIF, but what the heck
-        df = df.sort_values(VARNAME_z)
+        df = df.rename(columns={"z": VARNAME_zHD})  # Nov 9 2022
+        df = df.sort_values(VARNAME_zHD)
+    elif VARNAME_zHD in df.columns:
+        df = df.sort_values(VARNAME_zHD) # sort, but likely not needed
+        pass
 
     # - - - -  -
     
@@ -391,7 +473,6 @@ def get_hubble_diagrams(folder, args, config):
     infile_list = []
     label_list  = []
     first_load  = True
-    isdata_real = -1  # init to unknwon data or sim
 
     for infile in sorted(os.listdir(folder_expand)):
 
@@ -420,12 +501,14 @@ def get_hubble_diagrams(folder, args, config):
             hd_file = folder_expand/infile
             # grab contents of every M0DIF(binned) or FITRES(unbinned) file 
             HD_list[label] = load_hubble_diagram(hd_file, args, config)
-            if first_load:  isdata_real = check_isdata_real(hd_file)
+            if first_load:  
+                header_info = read_header_info(hd_file)
             first_load = False
 
     #sys.exit(f"\n xxx\n result = {result} \n")
 
-    config[KEYNAME_ISDATA] = isdata_real # Oct 6 2021, R.Kessler
+    config[KEYNAME_ISDATA] = header_info[KEYNAME_ISDATA]
+    config['header_info']  = header_info
 
     # - - - - -  -
     # for unbinned or rebin, select SNe that are common to all 
@@ -493,8 +576,8 @@ def get_rebin_info(config,HD):
 
     epsilon = 1.0E-6
 
-    zmin  = HD[VARNAME_z].min()   - epsilon 
-    zmax  = HD[VARNAME_z].max()   + epsilon 
+    zmin  = HD[VARNAME_zHD].min() - epsilon 
+    zmax  = HD[VARNAME_zHD].max() + epsilon 
     x1min = HD[VARNAME_x1].min()  - epsilon 
     x1max = HD[VARNAME_x1].max()  + epsilon
     cmin  = HD[VARNAME_c].min()   - epsilon
@@ -563,7 +646,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
     col_iHD      = HD_unbinned['iHD']
     col_c        = HD_unbinned[VARNAME_c]
-    col_z        = HD_unbinned[VARNAME_z]
+    col_z        = HD_unbinned[VARNAME_zHD]
     col_mures    = HD_unbinned[VARNAME_MURES]
     col_mudif    = HD_unbinned[VARNAME_M0DIF]
     col_muref    = HD_unbinned[VARNAME_MUREF]
@@ -571,7 +654,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_muerr    = HD_unbinned[VARNAME_MUERR]
     col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
     HD_rebin_dict = { VARNAME_ROW: [], 
-                      VARNAME_z: [], VARNAME_MU: [] , VARNAME_MUERR: [],
+                      VARNAME_zHD: [], VARNAME_MU: [] , VARNAME_MUERR: [],
                       VARNAME_MUREF: [], VARNAME_NEVT_BIN: [] }
 
     wgt0      = 1.0/(col_muerr*col_muerr)
@@ -607,7 +690,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
         #      f"{mu_wgtavg:7.4f} +_ {muerr_wgtavg:7.4f}")
 
         HD_rebin_dict[VARNAME_ROW].append(row_name)
-        HD_rebin_dict[VARNAME_z].append(z_invert)
+        HD_rebin_dict[VARNAME_zHD].append(z_invert)
         HD_rebin_dict[VARNAME_MU].append(mu_wgtavg)
         HD_rebin_dict[VARNAME_MUERR].append(muerr_wgtavg)
         HD_rebin_dict[VARNAME_MUREF].append(muref_wgtavg)
@@ -642,6 +725,9 @@ def get_name_from_fitopt_muopt(f, m):
 def get_fitopt_scales(lcfit_info, sys_scales):
     """ Returns a dict mapping FITOPT numbers to (label, scale) """
     fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
+
+    if fitopt_list is None: return None
+
     result = {}
     for number, _, label, _ in fitopt_list:
         if label != "DEFAULT" and label is not None:
@@ -675,7 +761,8 @@ def get_cov_from_diff(df1, df2, scale):
     weights = 1 / np.sqrt(0.003**2 + df1[VARNAME_MUERR].to_numpy()**2 \
                           + df2[VARNAME_MUERR].to_numpy()**2)
     mask = np.isfinite(weights)
-    reg.fit(df1.loc[mask, [VARNAME_z]], diff[mask], 
+
+    reg.fit(df1.loc[mask, [VARNAME_zHD]], diff[mask], 
             sample_weight=weights[mask])
     coef = reg.coef_[0]
 
@@ -781,8 +868,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     # Split covopt into two terms so that extra pad spaces don't
     # break findall command (RK May 14 2021)
     #
-    # .xyz 9.29.2022 RK - optional 3rd arg with sys scale ?
-    # .xyz        "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
+    # 9.29.2022 RK - optional 3rd arg with sys scale ?
+    #         "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
 
     
     covopt_list = covopt.split() # break into two terms
@@ -792,16 +879,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     bracket_content0 = re.findall(r"\[(.*)\]",  tmp0)[0]
     bracket_content1 = re.findall(r"\[(.*)\]",  tmp1)[0]
     bracket_content1_list = bracket_content1.split(',')
-
-    #print(f" xxx -------------------------- ")
-    #print(f" xxx bracket_content = {bracket_content0} | {bracket_content1}") 
-
-    # xxxxxxxx mark delete Sep 29 2022 RK xxxxxxxxx
-    #label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
-    #fitopt_filter, muopt_filter = re.findall(r"\[(.*),(.*)\]", tmp1)[0]
-    #print(f" xxx orig  fitopt_filter = '{fitopt_filter}' " \
-    #      f" muopt_filter = '{muopt_filter}'")
-    # xxxxxxxxx end mark xxxxxxxx
 
     #  Sep 29 2022 RK - refactor parsing to allow 2 or 3 comma-sep
     #  items in 2nd bracket.
@@ -883,7 +960,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         if flag2:
             logging.info(f"{label} Matrix is Positive-Definite")
         else :
-            logging.info(f"WARNING: {label} Matrix is not Positive-Definite")
+            logging.warning(f"{label} Matrix is not Positive-Definite")
         
         # check that COV is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon
@@ -914,7 +991,8 @@ def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
     # end is_pos_def
 
-def write_standard_output(config, args, covs, data, labels):
+def write_standard_output(config, args, covs, data, label_list):
+
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
     # e.g., wfit, CosmoSIS, firecrown ...
@@ -922,45 +1000,58 @@ def write_standard_output(config, args, covs, data, labels):
     # by write_cosmomc_output().
 
     # P. Armstrong 05 Aug 2022
-    # Allow the option to create hubble_diagram.txt for each systematic as well
+    # Add option to create hubble_diagram.txt for each systematic as well
 
     logging.info("")
     logging.info("   OUTPUT  ")
-    unbinned = args.unbinned
+    unbinned       = args.unbinned
     label_cov_rows = args.label_cov_rows
-    outdir = Path(config["OUTDIR"])
+    outdir         = Path(config["OUTDIR"])
     os.makedirs(outdir, exist_ok=True)
-
 
     # Apr 30 2022: get array of muerr_sys(ALL) for output
     muerr_sys_list = get_muerr_sys(covs)
             
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
-    for label in labels:
+    for label in label_list:
         base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
+
         # If creating HD for nominal, write to hubble_diagram.txt
         if label == base_name:
             data_file = outdir / HD_FILENAME
         else:
             data_file = outdir / f"{label}_{HD_FILENAME}"
+
         if unbinned :
             write_HD_unbinned(data_file, data[label], muerr_sys_list)
         else:
             write_HD_binned(data_file, data[label], muerr_sys_list)
 
-    # Create covariance matrices and datasets
+    
+    # write covariance matrices and datasets
     opt_cov = 0  
     if label_cov_rows: opt_cov+=1
     for i, (label, cov) in enumerate(covs):
-        base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
-        base_file  += '.gz'  # force gzip file, Apr 22 2022
+
+        # xxx mark delete Oct 2022
+        #base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
+        #base_file  += '.gz'  # force gzip file, Apr 22 2022
+
+        base_file   = get_covsys_filename(i)
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
         
     return
 
     # end write_standard_output
+
+def get_covsys_filename(i):
+    # Created Oct 13 2022 by R.Kessler: 
+    # return name of covsys file for systematic index i
+    covsys_file   = f"{PREFIX_COVSYS}_{i:03d}.txt.gz"
+    return covsys_file
+    # end get_covsys_filename
 
 def get_muerr_sys(covs):
 
@@ -1065,14 +1156,15 @@ def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 
     if not cosmomc_format:
         if unbinned:
-            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_zHD, 
+                       VARNAME_MU, VARNAME_MUERR]
         else:
-            varlist = [VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+            varlist = [VARNAME_zHD, VARNAME_MU, VARNAME_MUERR]
 
         base[varlist].to_csv(path, sep=" ", index=False, float_format="%.5f")
         return
 
-    zs   = base[VARNAME_z].to_numpy()
+    zs   = base[VARNAME_zHD].to_numpy()
     mu   = base[VARNAME_MU].to_numpy()
     mbs  = -19.36 + mu
     mbes = base[VARNAME_MUERR].to_numpy()
@@ -1099,16 +1191,20 @@ def write_HD_binned(path, base, muerr_sys_list):
 
     #if "CID" in df.columns:
 
+    unbinned = False
+
     logging.info(f"Write binned HD to {path}")
 
     wrflag_nevt   = (VARNAME_NEVT_BIN in base)
     wrflag_syserr = (muerr_sys_list is not None)
 
     keyname_row = f"{VARNAME_ROW}:"
-    varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
+    # xxx mark varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
+    varlist = f"{VARNAME_ROW} {VARNAME_zHD} {VARNAME_zHEL} " \
+              f"{VARNAME_MU} {VARNAME_MUERR}"
 
     name_list   = base[VARNAME_ROW].to_numpy()
-    z_list      = base[VARNAME_z].to_numpy()
+    zHD_list    = base[VARNAME_zHD].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
 
@@ -1125,10 +1221,10 @@ def write_HD_binned(path, base, muerr_sys_list):
         syserr_list = muerr_list # anything to allow zip loop
 
     with open(path, "w") as f:
-        write_HD_comments(f,wrflag_syserr)
+        write_HD_comments(f, unbinned, wrflag_syserr)
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr, nevt, syserr) in \
-            zip(name_list, z_list, mu_list, muerr_list, 
+            zip(name_list, zHD_list, mu_list, muerr_list, 
                 nevt_list, syserr_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
             if wrflag_nevt: val_list += f" {nevt} "
@@ -1147,6 +1243,7 @@ def write_HD_unbinned(path, base, muerr_sys_list):
 
     #if "CID" in df.columns:
 
+    unbinned = True
     logging.info(f"Write unbinned HD to {path}")
     
     #print(f"\n xxx base=\n{base} \n")
@@ -1155,12 +1252,14 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     keyname_row = "SN:"
 
     varlist = f"{varname_row} {VARNAME_IDSURVEY} " \
-              f"zCMB zHEL " \
+              f"{VARNAME_zHD} {VARNAME_zHEL} " \
               f"{VARNAME_MU} {VARNAME_MUERR}"
+              # xxx mark delete Nov 9 2022 f"zCMB zHEL " \
 
     name_list   = base[VARNAME_CID].to_numpy()
     idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
-    z_list      = base[VARNAME_z].to_numpy()
+    zHD_list    = base[VARNAME_zHD].to_numpy()
+    zHEL_list   = base[VARNAME_zHEL].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
 
@@ -1182,13 +1281,13 @@ def write_HD_unbinned(path, base, muerr_sys_list):
 
     # - - - - - - -
     with open(path, "w") as f:
-        write_HD_comments(f,found_muerr_sys)
+        write_HD_comments(f, unbinned, found_muerr_sys)
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, idsurv, z, mu, muerr, muerr2, syserr) in \
-            zip(name_list, idsurv_list, z_list, 
+        for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr) in \
+            zip(name_list, idsurv_list, zHD_list, zHEL_list,
                 mu_list, muerr_list, muerr2_list, syserr_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
-                       f"{z:6.5f} {z:6.5f} " \
+                       f"{zHD:6.5f} {zHEL:6.5f} " \
                        f"{mu:8.5f} {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
             if found_muerr_sys:  val_list += f" {syserr:8.5f}"
@@ -1197,7 +1296,16 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     return
     # end write_HD_unbinned
 
-def write_HD_comments(f,wrflag_syserr):
+def write_HD_comments(f, unbinned, wrflag_syserr):
+
+    f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
+
+    if unbinned:
+        txt_zHEL = "helio redshift (beware: no VPEC corr)"
+    else:
+        txt_zHEL = "zHD"
+    f.write(f"# zHEL      = {txt_zHEL} \n")
+
     f.write(f"# MU        = distance modulus corrected for bias and " \
             "contamination\n")
     f.write(f"# MUERR     = stat-uncertainty on MU \n")
@@ -1216,7 +1324,6 @@ def write_HD_comments(f,wrflag_syserr):
     # end write_HD_comments
 
 def write_covariance(path, cov, opt_cov):
-
     
     add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
@@ -1251,7 +1358,8 @@ def write_covariance(path, cov, opt_cov):
         if add_labels:            
             if colnum == 0 or colnum == rownum : 
                 label = f"# ({rownum},{colnum})"
-        f.write(f"{c:12.8f}  {label}\n")
+        f.write(f"{c:13.6e}  {label}\n")
+        # xxx mark delete f.write(f"{c:12.8f}  {label}\n")
 
     f.close()
 
@@ -1259,27 +1367,109 @@ def write_covariance(path, cov, opt_cov):
 
 def write_summary_output(config, covariances, base):
 
-    # write list of COVOPTs to be picked up by cosmology fitting progam
+    # write information to INFO.YAML that is intended to be 
+    # picked up by cosmology fitting progam. Info includes
+    # each covsys label & file, name of hubble diagram file.
+    # and ISDATA_REAL flag.
+    # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
 
     out  = Path(config["OUTDIR"])
-    info = {}
+    info = {} # init dictionary to dump to info file
+
+    info['HD'] = HD_FILENAME
+
     cov_info = {}
     for i, (label, cov) in enumerate(covariances):
-        cov_info[i] = label
+        covsys_file = get_covsys_filename(i)
+        cov_info[i] = f"{label:<20} {covsys_file}"
+        # xxx mark delete oct 13 2022 cov_info[i] = label
+
     info["COVOPTS"] = cov_info
+        
+    # xxx mark del Mar 2023:  info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
 
-    info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+    SNANA_VERSION = get_snana_version()
+    info['SNANA_VERSION'] = SNANA_VERSION
 
+    sim_version = None
+    for key,item in config['header_info'].items() :
+        info[key] = item     # store stuff from BBC table 
+        if 'BIASCOR' in key :  # fetch biasCor sim version
+            sim_version    = item[0]
+ 
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
-        yaml.safe_dump(info, f)
+        yaml.safe_dump(info, f )
+
+    # - - - - - - - - - - - - - 
+    # append cospar_biascor so that it's at the end, rather than 
+    # at the beginning with default alphabetical ordering
+    # Beware that this method of fetching cospar_biascor requries
+    # original biasCor sim folder to still exist on disk; if this folder
+    # is purged (e.g., to deal with quota crisis) then cospar will not
+    # be found using this method.
+
+    cospar_biascor = []
+    if sim_version is not None:
+        cospar_biascor = get_cospar_sim(sim_version)
+        with open(out / INFO_YML_FILENAME, "at") as f:
+            info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
+            yaml.safe_dump(info_cospar, f )
 
     # end write_summary_output
+
+def get_cospar_sim(sim_version):
+
+    # for input snana_folder 'sim_version', run snana.exe GETINFO folder 
+    # to extract name of README file, then parse README to get cosmo params
+
+    cospar_sim = {}  # init output dictionary
+    msgerr     = '\n'
+
+    cmd = f"snana.exe GETINFO {sim_version}"
+    
+    ret = subprocess.run( [cmd], shell=True,
+                          capture_output=True, text=True )
+    ret_stdout = ret.stdout.split()
+
+    key_readme = "README_FILE:"
+    if 'FATAL' in ret_stdout:
+        msgerr  = f"Cannot find biasCor sim-data folder {sim_version}\n"
+        msgerr += f"\t May need to regenerate biasCor {sim_version}  \n"
+        msgerr += f"\t Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
+        logging.warning(msgerr)
+        return cospar_sim
+        #assert False, msgerr
+
+    if key_readme not in ret_stdout:
+        msgerr += f"  Cannot find {key_readme} key from command\n"
+        msgerr += f"     {cmd}\n"
+        assert False, msgerr
+
+    k           = ret_stdout.index(key_readme)
+    readme_file = ret_stdout[k+1]
+
+    readme_contents = read_yaml(readme_file)
+    docana          = readme_contents[KEY_DOCANA] # DOCUMENTATION block
+    
+    if KEY_SIM_INPUT in docana :
+        sim_inputs      = docana[KEY_SIM_INPUT]
+    else :
+        sim_inputs = []  # allow for for older SNANA versions 
+        logging.warning(f"did not find {KEY_SIM_INPUT} in biasCor sim README")
+
+    for cospar in KEYLIST_COSPAR_SIM:
+        if cospar in sim_inputs :
+            cospar_sim[cospar] = sim_inputs[cospar]
+
+    return cospar_sim
+
+    # end get_cospar_sim
 
 def write_correlation(path, label, base_cov, diag, base):
     logging.debug(f"\tWrite out cov for COVOPT {label}")
 
-    zs = base[VARNAME_z].round(decimals=5)
+    zs = base[VARNAME_zHD].round(decimals=5)
     cov = diag + base_cov
 
     diag = np.sqrt(np.diag(cov))
@@ -1415,7 +1605,12 @@ def create_covariance(config, args):
     logging.info(f"Compute covariance for COVOPTS")
 
     # Add covopt to compute everything
-    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  
+    if args.nosys:
+        covopts_default = ["[=DEFAULT] [,=DEFAULT]"] # Dec 2022 
+    else:
+        covopts_default = ["[ALL] [,]"]
+
+    covopts = covopts_default + config.get("COVOPTS",[])  
 
     covariances = \
         [ get_cov_from_covopt(c, contributions, base, 
@@ -1424,13 +1619,13 @@ def create_covariance(config, args):
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
     if args.systematic_HD:
-        labels = list(data.keys())
+        label_list = list(data.keys())
     # Only create hubble_diagram.txt for the nominal
     else:
-        labels = [get_name_from_fitopt_muopt(f_REF, m_REF)]
+        label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
 
     # write standard output for cov(s) and hubble diagram (9.22.2021)
-    write_standard_output(config, args, covariances, data, labels)
+    write_standard_output(config, args, covariances, data, label_list)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :
@@ -1446,35 +1641,10 @@ def create_covariance(config, args):
 
 def prep_config(config,args):
 
-    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
-                  'COSMOMC_TEMPLATES_PATH' ]
-    
-    # 9.22.2021 RK - check legacy keys
-    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
-                        'SYSFILE' ]
-    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
-                        'SYS_SCALE_FILE' ]
+    # Dec 7 2022: fix bug setting override args at start of method instead 
+    #   of at the end.
 
-    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
-        if key_legacy in config:
-            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
-            logging.info(msg)
-            config[key_update] = config[key_legacy] 
-
-    for path in path_list:
-        if path in config:
-            config[path] = os.path.expandvars(config[path]) ;   
-
-    # check special/legacy features for cosmoMC/JLA
-    config['use_cosmomc'] = False
-    if 'COSMOMC_TEMPLATES_PATH' in config: 
-        config['use_cosmomc'] = True
-
-    # WARNING: later add option to read from input file
-    #sys.exit(f" xxx nbin(x1,c) = {args.nbin_x1} {args.nbin_c} ")
-    config['nbin_x1'] = args.nbin_x1
-    config['nbin_c']  = args.nbin_c
-
+    # - - - - -
     # check override args (RK, Feb 15 2021)
     if args.input_dir is not None :
         config["INPUT_DIR"] = args.input_dir
@@ -1496,6 +1666,35 @@ def prep_config(config,args):
     if args.muopt >= 0 :
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
+
+    # - - -  - -    
+
+    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
+                        'SYSFILE' ]
+    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
+                        'SYS_SCALE_FILE' ]
+
+    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
+        if key_legacy in config:
+            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
+            logging.info(msg)
+            config[key_update] = config[key_legacy] 
+
+    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
+                  'COSMOMC_TEMPLATES_PATH' ]
+    for path in path_list:
+        if path in config:
+            config[path] = os.path.expandvars(config[path]) ;   
+
+    # check special/legacy features for cosmoMC/JLA
+    config['use_cosmomc'] = False
+    if 'COSMOMC_TEMPLATES_PATH' in config: 
+        config['use_cosmomc'] = True
+
+    # WARNING: later add option to read from input file
+    config['nbin_x1'] = args.nbin_x1
+    config['nbin_c']  = args.nbin_c
+
         
     # end prep_config
 

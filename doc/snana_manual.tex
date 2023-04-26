@@ -119,6 +119,9 @@
 \newcommand{\zsun}{z_{\odot}}
 \newcommand{\vpec}{{\rm v}_{\rm pec}}
 
+\newcommand{\ztruecmb}{{\tt ZTRUE\_CMB}}
+\newcommand{\ztrue}{{\tt ZTRUE}}
+
 \newcommand{\Nseason}{N_{\rm season}}
 
 \newcommand{\OM}{\Omega_M}
@@ -4000,16 +4003,18 @@ hereafter denoted ``{\hostlib}''. An example \hostlib\
 is shown in Fig.~\ref{fig:hostlib}.
 This self-documented file gives the number of variables
 describing each host ({\tt NVAR}) and a list of 
-descriptive ''{\tt VARNAMES}.''  There are two mandatory
-variables: {\tt GALID} and  {\tt ZTRUE}; the simulation
-will abort if either variable is missing. 
+descriptive ''{\tt VARNAMES}.''  
+There are two mandatory variables: {\tt GALID} and 
+true heliocentric redshift \ztrue\ 
+(or {\tt ZTRUE\_CMB};' see \S\ref{sss:ZTRUE_CMB}) ; 
+the simulation will abort if either variable is missing. 
 The integer {\tt GALID} must be the first element,
-but {\tt ZTRUE} can be anywhere on the {\tt VARNAMES} list.
-The library need not be sorted by {\tt ZTRUE} since
+but \ztrue\ can be anywhere on the {\tt VARNAMES} list.
+The library need not be sorted by \ztrue\ since
 the simulation internally sorts the library by redshift.
 
 In principle a \hostlib\ needs to contain only
-{\tt GALID} and {\tt ZTRUE}, but such a library would
+{\tt GALID} and \ztrue, but such a library would
 not be useful to simulate interesting effects.
 The remaining {\tt VARNAMES} in Fig.~\ref{fig:hostlib}
 are optional, and control what kinds of effects can
@@ -4127,6 +4132,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_MXINTFLUX_SNPOS: .97       # default=0.99
    HOSTLIB_SNR_DETECT:   xxx          # default=0 SNR>xxx (see below)
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
+   HOSTLIB_MAXDDLR2:     xxx          # default=7 (for HOST_CONFUSION calculation)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
    HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
@@ -4293,7 +4299,7 @@ these 3 quantities are constrained by
 Although an exact solution exists for this quadratic equation,
 the solution for $\zpeak,\sigminus,\sigplus$ is found numerically.
 If {\tt ZPHOTERR/ZTRUE} ratio is too large, a solution cannot be found.
-In this case of no solution, the mean {\tt ZTRUE} is preserved while 
+In this case of no solution, the mean \ztrue\ is preserved while 
 the variance will be smaller than the requested {\tt ZPHOTERR}$^2$.
 The reported {\tt ZPHOTERR} reflects the calculated variance on
 the r.h.s of Eq.~\ref{eq:ZPHOTERR}.
@@ -4351,8 +4357,8 @@ viewed with the grep-command
       Generated distance ($\mu$) is also updated.
 %
 \item {\tt MSKOPT} += 16~: adjust the SN redshift, SN mags, and $\mu$ 
-      to galaxy redshift, {\tt ZTRUE}  (useful for image simulations).
-      $\zhelio=$~{\tt ZTRUE};  $\zcmb$ and $\mu$ are updated
+      to galaxy redshift, \ztrue\  (useful for image simulations).
+      $\zhelio=$~\ztrue;  $\zcmb$ and $\mu$ are updated
       to account for new $\zhelio$ and generated $\vpec$.
 %
 \item {\tt MSKOPT} += 32~: allow only one SN per host galaxy 
@@ -4776,6 +4782,23 @@ results in undefined {\tt REDSHIFT\_FINAL}$= -9 \pm -9$.
 
 
 % ---------------------------------------
+\label{sss:ZTRUE_CMB}
+\subsubsection{\ztruecmb\ Column instead of Heliocentric {\ztrue} }
+
+The \hostlib\ redshifts can be specified in the CMB frame using a
+\ztruecmb\ column instead of the default \ztrue\ column.
+For this \ztruecmb\ feature, the \hostlib\ coordinates 
+({\tt RA\_GAL}, {\tt DEC\_GAL}) are used to transform
+\ztruecmb\ back to heliocentric \ztrue\ during initialization.
+Therefore, this CMB-frame feature works only with the {\tt HOSTLIB\_MSKOPT += 8}
+option to use \hostlib\ coordinates intead of \simlib\ coordinates.
+If \ztruecmb\ is specified without also using the
+{\hostlib}-coordinate option, the simulation aborts.
+
+% ---------------------------------------
+
+
+% ---------------------------------------
 \clearpage
 \subsubsection{Connecting {\tt SIMGEN\_DUMP} to {\tt HOSTLIB} }
 \label{sss:dump_to_hostlib}
@@ -4954,10 +4977,15 @@ with the same model using
 
 
 % ------------------------------------
-   \clearpage
-   \subsection{Simulating Mis-Matched Host Galaxy}
-   \label{subsec:sim_wronghost}
+%   \clearpage
+   \subsubsection{Simulating Mis-Matched Host Galaxy}
+   \label{sss:sim_wronghost}
 % ------------------------------------
+
+WARNING: the recommended mis-match method is to use \hostlib\ neighbors
+(\S\ref{sss:hostlib_NBR}) and DDLR matching. The {\tt WRONGHOST} method
+here pre-dates the {\tt +HOSTNBR} feature, 
+and should only be used for rapid testing.
 
 For surveys that do not have SN \spec\ confirmation and instead
 rely on a host galaxy \spec\ redshift, there is the issue of
@@ -5021,6 +5049,54 @@ show a tail from wrong-host matches.
 In the output tables (SNANA,FITRES) from snana-analysis,
 examine {\tt zCMB-SIM\_zCMB}, and extract {\tt SIM\_ZFLAG}
 using the {\tt APPEND\_TABLE\_TEXT} feature in {\tt split\_and\_fit}.
+
+
+% ------------------------------------
+   \clearpage
+   \newcommand{\groupid}{{\tt GROUPID}}
+   \subsubsection{Correlating SIMLIB and HOSTLIB with {\groupid} }
+   \label{sss:groupid}
+
+% ------------------------------------
+
+The default use of \simlib\ and \hostlib\ libraries assumes no correlation
+between instrumental cadence and host properties. While this assumption
+is largely correct, it fails for simulating large scale structure (LSS)
+because the host properties (e.g., peculiar velocity) may depend on 
+sky location and thus the cadence and host properties are correlated.
+To efficiently connect the \simlib\ sky location to a host at the 
+same (within user tolerance) sky location, 
+use the {\groupid} feature.
+
+For each \simlib\ entry, the header can include an optional 
+{\groupid} key such as
+\begin{verbatim}
+  LIBID: 24
+  HOSTLIB_GROUPID: 45,46
+  RA: <RA>      DEC: <DEC>
+  etc ...
+\end{verbatim}
+%
+With sim-input key 
+\begin{verbatim}
+   USE_SIMLIB_GROUPID: 1  # enable GROUPID feature 
+\end{verbatim}
+%
+the simulation selects a host with {\groupid} = 45 or 46.
+The \hostlib\ must include a \groupid\ column to use
+this option of forcing an \{RA,DEC\}-match between the 
+\simlib\ and \hostlib.
+This \groupid\  feature is compatible with {\tt WGTMAP} so
+that host property distributions are preserved.
+
+Beware of defining an \{RA,DEC\}-match tolerance that is too strict, 
+otherwise a \groupid\  match will not be found and the 
+simulation will abort. If the sim aborts with ``Unable to select GALID'',
+try one of the following: 
+i) create larger \hostlib,
+ii) relax \{RA,DEC\} match tolerance between \simlib\ and \hostlib, or
+iii) relax redshift match tolerance ({\tt see HOSTLIB\_DZTOL} key).
+
 
 % ------------------------------------
    \clearpage
@@ -7945,7 +8021,7 @@ the file can contain one of two formats:
 For the {\tt FITRES} format, the fit-par columns (PKMJD, x1, c, zHD)
 are automatically used as initial values to the fit.
 Using the uncertainties as a prior requires a code update.
-% .xyz
+
 
 % ------------------------------------
    \subsection{Selecting an Efficiency Map for a Fitting Prior}
@@ -8175,17 +8251,24 @@ non-zero value such as 0.1. The use (or non-use) of the
 host-photoZ prior is controlled by the value of 
 {\tt PRIOR\_ZERRSCALE}.
 The parameter {\tt OPT\_PHOTOZ} controls the source of
-the redshift prior. 
-When you set {\tt DOFIT\_PHOTOZ=T}, 
+the redshift prior as follows:
+%
+\begin{verbatim}
+   OPT_PHOTOZ = 1  ! use host zPhot mean and Gauss sigma
+   OPT_PHOTOZ = 2  ! use best-z (spec or host photo-z) 
+   OPT_PHOTOZ = 4  ! use photo-z PDF unpacked from quantiles
+   OPT_PHOTOZ = 16 ! set initial zPhot=zSpec and skip grid search (for debug)
+\end{verbatim}
+%
+When {\tt DOFIT\_PHOTOZ=T}, 
 {\tt OPT\_PHOTOZ} is automatically set to 1 so that the
 host-photoZ prior is used.  
-If you set {\tt OPT\_PHOTOZ=2}, the spectroscopic redshift
-is used as a prior: this option is designed solely as a
-sanity check on the light curve fitter, and is not meant
-to use for science.
-If you set {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
-automatically set, and vice-versa: thus you can turn on the
-photoZ option with either namelist variable.
+{\tt OPT\_PHOTOZ=2} uses the best redshift (spec or photo-$z$)
+as a prior, and is useful for samples with a mix of spec-$z$ and 
+photo-$z$ redshifts.
+When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
+automatically set, and vice-versa: thus the
+photo-$z$ option can be enabled with either namelist variable.
 
 If {\tt PRIOR\_MUERRSCALE} is 100 or larger (the default),
 then there is no prior applied to the distance modulus ($\mu$).
@@ -9621,27 +9704,36 @@ for example, to label SNe confirmed by a particular telescope.
 \label{subsec:data_override}
 
 
-\subsubsection{Over-Riding Header Information}
+\subsubsection{Over-Riding Header Information: {\tt HEADER\_OVERRIDE\_FILE} }
 \label{sss:header_override}
 
-Here we describe how to over-ride header information in the
-data files without re-making the data files. This feature
-can be useful, for example, for systematics or optimization studies
+For \snana\ analysis programs 
+({\tt snana.exe}, {\tt snlc\_fit.exe}, {\tt psnid.exe}),
+here we describe how to over-ride header information in the
+data files without re-making the data files.
+This feature is useful to study the impact of data changes
+(e.g., redshifts and host matches) without altering a released
+data set. Beware that this feature is intended only for internal 
+use by analysis teams,
+and should not be part of a publicly released data set;
+see Sec.~\ref{sss:new_data_files} on updating data files with 
+override information.
+
 The header information includes host properties, peculiar
 velocities, redshifts, and Galactic extintion, all of which
-can be easily modified for a particular study. To see a complete
-list of options, search for 
-{\tt VARLIST\_ALL\_HEADER\_OVERRIDE} in {\tt snana.car}.
-
+can be modified for a particular study. 
+To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
 The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
-     HEADER_OVERRIDE_FILE = 'myUpdates.dat'
+     HEADER_OVERRIDE_FILE = 'myUpdates.dat'  ! real data only
          or
-     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat
+     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat  ! real data only
+         or
+     SIM_HEADER_OVERRIDE_FILE = 'sim_overrides.dat'  ! sim data only
 
 more myUpdates.dat
-VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR MWEBV
+VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV
 SN:  1346137      0.246  0.001    0.021
 SN:  1346387      0.533  0.0011   0.038
 etc ...
@@ -9655,25 +9747,38 @@ In the first example, three header values are updated:
 helio redshift, the uncertainty, and Galactic extintion.
 For SNe missing from the update file, the original values in the 
 data file header are used. This feature does {\tt NOT} work
-on epoch-dependent quantities.
+on epoch-dependent quantities, but mag and flux corrections can
+be applied as described below in Sec.~\ref{sss:magcor}.
 The second example illustrates a comma-separated list of table files;
 beware that the variables in each file must be unique (except for CID).
 
-The header-override list includes variables that are used later in 
+The header-override list may include variables that are used later in 
 BBC or cosmology fitting, but not used in light curve fitting;
 e.g., host-galaxy properties and peculiar velocity. To avoid 
 losing time re-running identical light curve fits for such variable changes,
 it can be more efficient to make substitutions at the 
-BBC/{\tt SALT2mu.exe} stage using input 
-\vspace{-0.4cm}
+BBC/{\tt SALT2mu.exe} stage using BBC-input 
+\vspace{-0.2cm}
 \begin{verbatim}
     datafile_override=over1.dat,over2.dat,etc
 \end{verbatim}
 Any variable in the input table (see {\tt datafile} arg) can be
 included in an override table.
 For {\tt VPEC} ({\tt VPEC\_ERR}) changes, the Hubble diagram 
-redshift ({\tt zHD}, {\tt zHDERR}) is re-computed by subtracting
+redshift ({\tt zHD}, {\tt zHDERR}) is internally re-computed by subtracting
 the original $\vpec$ and adding the override value.
+To update host matches, make sure to include the following variables
+in the header-override file:
+\vspace{-0.1cm}
+\begin{itemize}[noitemsep]
+   \item All of the {\tt HOSTGAL\_XXX},
+            except for {\tt HOSTGAL\_SB\_FLUXCAL\_[band]} \\
+     (because SB depends on SN coordinates rather than host-match)
+   \item All of the {\tt HOSTGAL2\_XXX}
+   \item {\tt REDSHIFT\_HELIO} and {\tt REDSHIFT\_HELIO\_ERR}
+   \item {\tt REDSHIFT\_FINAL} and {\tt REDSHIFT\_FINAL\_ERR}
+   \item possibly {\tt VPEC}
+\end{itemize}
 
 % ------------
 \clearpage
@@ -9735,16 +9840,32 @@ the corrections can be removed with
 where the minus sign in front is a command to subtract.
 This subtract option works only with the {\tt VERSION\_ADD} key.
 
-\medskip
+% xxxxx removed Dec 29 2022 xxxxxxxx
+%\medskip
+%Since these correction typically require an SED, the SALT2-fitted 
+%model SED can be extracted for each epoch and stored in a 
+%ROOT file with
+%\begin{verbatim}
+%  SNTABLE_LIST = 'MODELSPEC'
+%\end{verbatim}
+%and see \S\ref{subsec:anavar} for details.
+% xxxxxxxxxxxxxxxx
 
-Since these correction typically require an SED, the SALT2-fitted 
-model SED can be extracted for each epoch and stored in a 
-ROOT file with
-\begin{verbatim}
-  SNTABLE_LIST = 'MODELSPEC'
-\end{verbatim}
-and see \S\ref{subsec:anavar} for details.
-% 
+% - - - - - - - - 
+\subsubsection{Create New Data Files with {\tt OVERRIDE} Updates}
+\label{sss:new_data_files}
+
+While the data override features in 
+\S~\ref{sss:header_override} and \S~\ref{sss:magcor}
+are useful for quick testing, it is not always practical to 
+analyze data with multiple sets of data-override files,
+and public data releases should never use this feature.
+To update data files with the override information,
+use the OVERRIDE feature(s) above and also
+use the {\tt REFORMAT} feature in \S\ref{sss:text2fits}.
+Although reformatting is typically for translating TEXT to FITS
+(and vice-versa), it preserves the override values and
+it works for TEXT$\to$TEXT and FITS$\to$FITS. 
 
 % ------------------------------------------------
 \subsection{Peculiar Velocity Corrections }
@@ -11873,6 +11994,7 @@ END_EVENT:  <ID1>
      Note that a more accurate strategy is to create a 
      SIMLIB cadence library with the correct RA,DEC distribution
      (and {\tt GENMODEL\_MSKOPT=0}).
+  \item {\tt GENRANGE\_MJD: <MJDmin> <MJDmax>} : select MJD window
 \end{itemize}
 
 % ----------------------------------------------       
@@ -13415,6 +13537,7 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
   FUDGE_ZPTERR: 0.03             # add .03 ZPTERR to all epochs and bands
   FUDGE_ZPTERR_FILTER: g   .01   # add .01 ZPTERR to g-band 
   FUDGE_ZPTERR_FILTER: riz .02   # add .02 ZPTERR to riz bands
+  FUDGE_ZPTERR_FILTER: r,i,z  0.02,0.01,0.005 
 
 # 7. shift filter wavelength 
   FUDGESHIFT_LAM: 10.0                              # add 10 A to all bands

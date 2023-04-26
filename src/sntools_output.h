@@ -34,7 +34,7 @@
 
 
 // define flags for software packages
-#define USE_HBOOK                 
+#define USE_HBOOK   
 #define USE_ROOT      
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
@@ -354,7 +354,10 @@ struct LASTREAD_AUTOSTORE  {
 
 // generic strings for errmsg 
 char MSGERR1[200], MSGERR2[200] ;
-char SNANA_VERSION[20] ;
+char SNANA_VERSION[100] ;
+
+#define KEYNAME_VERSION_PHOTOMETRY "VERSION_PHOTOMETRY:"
+char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_FILENAME*2]; // beware it's a comma-sep list
 
 // -------------------------------------------------
 //                   FUNCTIONS
@@ -436,10 +439,28 @@ extern"C" {
   void sntable_fill__(int *TableID ) ;
 
 
-  void SNTABLE_ADDCOL  (int  TableID, char *BLOCK, void * PTRVAR, 
-			char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL(int  TableID, char *BLOCK, void *PTRVAR, 
+		      char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_int(int  TableID, char *BLOCK, int *I_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_flt(int  TableID, char *BLOCK, float *F_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_dbl(int  TableID, char *BLOCK, double *D_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_str(int  TableID, char *BLOCK, char *S_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+
   void sntable_addcol__(int *TableID, char *BLOCK, void* PTRVAR, 
 			char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_int__(int *TableID, char *BLOCK, int *I_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_flt__(int *TableID, char *BLOCK, float *F_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_dbl__(int *TableID, char *BLOCK, double *D_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_str__(int *TableID, char *BLOCK, char *S_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+
 
   void parse_ADDCOL_VARLIST(char *VARLIST,
 			    SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF); 

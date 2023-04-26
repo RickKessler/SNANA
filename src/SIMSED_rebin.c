@@ -226,7 +226,7 @@ void  parse_REBIN_DAY(char *string, int rebin) {
     // check specif day range for this rebin factor
     ptrSPLIT[0] = stringSPLIT[0];
     ptrSPLIT[1] = stringSPLIT[1];
-    splitString(stringDayRange, colon, 3,
+    splitString(stringDayRange, colon, fnam, 3,
 		&NSPLIT, ptrSPLIT);  // <== returned
     if ( NSPLIT != 2 ) {
       sprintf(c1err,"Expected 2 values in '%s'", stringDayRange);

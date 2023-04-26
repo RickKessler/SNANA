@@ -101,9 +101,6 @@ class train_SALT3(Program):
         # copy input files to script_dir
         self.train_prep_copy_files()
 
-        # scoop up TRAINOPT list from user CONFIG
-        # xxxx  self.train_prep_trainopt_list()
-
         # foreach training, prepare output paths 
         self.train_prep_paths()
 
@@ -176,15 +173,17 @@ class train_SALT3(Program):
         CONFIG   = self.config_yaml['CONFIG']
 
         trainopt_global = ""  # apply to each TRAINOPT
-        trainopt_rows   = []  # TRAINOT-specified commands
+        trainopt_rows   = []  # TRAINOPT-specified commands
 
         # start with global settings
         key = TRAINOPT_GLOBAL_STRING
-        if key in CONFIG:  trainopt_global = CONFIG[key]
+        if key in CONFIG:  
+            trainopt_global = CONFIG[key]
 
         # next, TRAINOPT per job
         key      = TRAINOPT_STRING
-        if key in CONFIG :  trainopt_rows = CONFIG[key]
+        if key in CONFIG :  
+            trainopt_rows = CONFIG[key]
 
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 

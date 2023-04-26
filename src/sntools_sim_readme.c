@@ -656,6 +656,10 @@ void readme_docana_genmodel(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "wa_LAMBDA:", noComment,
 		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
 
+  dval = (double)INPUTS.MUSHIFT ;
+  VERSION_INFO_load(&i, pad, "MUSHIFT:", noComment,
+		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
+
   // - - - - 
   // check extra cosmology keys
   if ( README_KEYS_COSMO.NKEY > 0 ) {
@@ -1172,7 +1176,7 @@ void  readme_docana_load_list(int *iline, char *pad,
   //   - ARG1
   //   etc ...
   // Each KEY_LIST item is assumed to include a colon.
-  // Beware that duplidates are assumed to be sequential in the list.
+  // Beware that duplicates are assumed to be sequential in the list.
   // Non-sequential duplicates will both be written as "KEY ARG".
   // 
 
@@ -1418,7 +1422,9 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   // Jan 11 2022: pass keySource arg, and check override only for
   //              command-line override.
   //
-
+  // Mar 26 2023: allow special override for GENMODEL key to appear
+  //              in two sim-input files.
+  //
   bool MALLOC1 = README_KEYS->MALLOC1 ;
   int  NKEY    = README_KEYS->NKEY;  
   int  MEMC1   = MXKEY * sizeof(char*);
@@ -1450,7 +1456,7 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   ARG = (char*) malloc(MEMC_ARG); ;  ARG[0]=0;
 
   // Store key in local variable
-  // if there is no colon after key, add it to work for command-line
+  // if there is no colon after key, add it to word for command-line
   // overrides without colon
   sprintf(KEY, "%s", WORDS[0]);
   if ( strchr(KEY,':') == NULL ) { strcat(KEY,COLON); }
@@ -1461,7 +1467,12 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   // printf(" xxx %s: check '%s' = '%s' \n", fnam, KEY, ARG); fflush(stdout);
 
   // For command-line override, check previous keys to override.
-  if ( keySource == KEYSOURCE_ARG ) {
+  // Mar 2023: special override allows GENMODEL key to appear in
+  //    main sim-input file, and to be overwritten in an INCLUDE file.
+  bool OVERRIDE_COMMAND = ( keySource == KEYSOURCE_ARG );
+  bool OVERRIDE_SPECIAL = ( strcmp(KEY,"GENMODEL:") == 0 ) ;
+
+  if ( OVERRIDE_COMMAND || OVERRIDE_SPECIAL ) {
     for(k=0; k < NKEY; k++ ) {
       KEY_TMP = README_KEYS->KEY_LIST[k];
       ARG_TMP = README_KEYS->ARG_LIST[k];

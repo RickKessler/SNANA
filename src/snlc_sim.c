@@ -25106,6 +25106,8 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   if ( INDEX_GENMODEL == MODEL_LCLIB ) 
     { crazyFlux *= 100.0; }  
 
+  if ( INDEX_GENMODEL == MODEL_AGN )
+     { crazyFlux *= 1e7; } // crazyflux with AGN (Apr 2023)
 
   // determine NEGATIVE crazy flux 
   crazyFlux_neg = -crazyFlux ; // Mar 20 2021

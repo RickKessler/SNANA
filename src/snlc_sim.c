@@ -25478,8 +25478,7 @@ void compute_lightCurveWidths(void) {
 
   GENLC.PERIOD = -9.0;
   if ( LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_PERIODIC ) { 
-    // store explicit PERIOD variable
-    GENLC.PERIOD = LCLIB_EVENT.PARVAL_MODEL[LCLIB_INFO.IPAR_PERIOD];
+    GENLC.PERIOD = LCLIB_EVENT.DAYCOVER_S ;
   }
 
 

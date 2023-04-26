@@ -21673,6 +21673,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + allow ZTRUE_CMB column instead of ZTRUE(helio); internally,
        ZTRUE is computed from ZTRUE_CMB.
 
+    snlc_sim.c[h]
+     + add PERIOD to SIMGEN_DUMP list; writes -9 for non-recurring models
+       and writes LCLIB's "PERIOD" value for recurring-periodic
+
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.
     

@@ -70,6 +70,10 @@ double dLmag ( double zCMB, double zHEL,
 double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
                      double *OM, double *OL, double *w0, double *wa);
 
+double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL,
+                          HzFUN_INFO_DEF *HzFUN_INFO,
+                          ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  );
+
 double zcmb_dLmag_invert(double MU, HzFUN_INFO_DEF *HzFUN_INFO, 
 			 ANISOTROPY_INFO_DEF *ANISOTROPY_INFO); 
 
@@ -77,5 +81,7 @@ double zhelio_zcmb_translator(double z_input, double RA, double DECL,
 			      char *coordSys, int OPT ) ;
 double zhelio_zcmb_translator__(double *z_input, double *RA, double *DECL, 
 				char *coordSys, int *OPT ) ;
+
+double q_dipole_V04(double zHEL, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO);
 
 // ============== END OF FILE =============

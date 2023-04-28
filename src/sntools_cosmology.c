@@ -529,6 +529,8 @@ double dLmag ( double zCMB, double zHEL,
   // Feb 2023: pass ANISOTROPY_INFO to enable anistropy models
 
   double rz, dl, arg, mu, zero=0.0 ;
+  char fnam[] = "dLmag";
+
   // ----------- BEGIN -----------
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
   rz    *= (1.0E6*PC_km);  // H -> 1/sec units
@@ -537,14 +539,77 @@ double dLmag ( double zCMB, double zHEL,
   mu     = 5.0 * log10( arg );
 
   if ( ANISOTROPY_INFO->USE_FLAG ) {
-    double GLON = ANISOTROPY_INFO->GLON;
-    double GLAT = ANISOTROPY_INFO->GLAT;
-    // xxx for S. Sah to complete
+    double mu_isotropic = mu ;
+    mu = dLmag_anisotropic ( mu_isotropic, zCMB,zHEL, HzFUN_INFO, ANISOTROPY_INFO );
   }
+
 
   return mu ;
 }  // end of dLmag
 
+
+// ===============================================
+double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL, 
+			  HzFUN_INFO_DEF *HzFUN_INFO, 
+			  ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  ) {
+
+  // Created Apr 2023 by R.Kessler
+  // driver to compute distance modulus with anisotropic model defined
+  // by sim-input key 
+  //      ANISOTROPY_MODELNAME: <modelname>
+  //
+  // First model (Visser 2004, https://ui.adsabs.harvard.edu/abs/2004CQGra..21.2603V)
+  // implemented by A.Sah
+
+  double mu, dl ;
+  char fnam[] = "dLmag_anisotropic";
+
+  // --------- BEGIN ----------
+
+  double GLON      = ANISOTROPY_INFO->GLON;
+  double GLAT      = ANISOTROPY_INFO->GLAT;
+  char *MODEL_NAME = ANISOTROPY_INFO->MODEL_NAME ;
+
+  if ( strcmp(MODEL_NAME,"V04") == 0 ) {
+    double H0     = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
+    double J0_dip = ANISOTROPY_INFO->J0;
+    double q_dip  = q_dipole_V04(zHEL,ANISOTROPY_INFO) ;
+    double az1    = 0.5*(1.0 - q_dip) ;
+    double az2    = -( 1.0 - q_dip - 3.0*q_dip*q_dip + J0_dip ) / 6.0 ;
+    dl = (LIGHT_km*zHEL/H0) * (1.0 +az1*zHEL +az2*zHEL*zHEL);
+    mu = 25.0 + 5.0 * log10( dl );
+  }
+  else {
+    sprintf(c1err,"Unknown ANISOTROPY_MODELNAME: %s ", MODEL_NAME);
+    sprintf(c2err,"check dLmag function in sntools_cosmology.c");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return mu ;
+
+} // end dLmag_anisotropic
+
+
+
+// ===================================
+double q_dipole_V04(double zHEL, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO){
+  double q;
+  double qd      = ANISOTROPY_INFO->qd;
+  double qm      = ANISOTROPY_INFO->qm;
+  double S_dip   = ANISOTROPY_INFO->S;
+  double GLON    = ANISOTROPY_INFO->GLON ; // deg
+  double GLAT    = ANISOTROPY_INFO->GLAT ; // deg
+  double CMB_LON = CMBapex_l ;  // deg
+  double CMB_LAT = CMBapex_b ;  // deg
+  double RAD     = RADIAN ;     // TWOPI/360
+
+  // get angle sep w.r.t. CMB, in radians
+  double sep    = angSep(CMB_LON, CMB_LAT,  GLON, GLAT, RAD);
+  double F_dip  = exp(-zHEL/S_dip);
+  q             = qm + qd * F_dip * cos(sep);
+
+  return q;
+}
 
 // ******************************************
 double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,

@@ -507,6 +507,7 @@ def main():
     """
     import matplotlib.pyplot as plt
     import astropy
+    from astropy.cosmology import Planck18
 
     mySED = gensed_AGN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
     trest = np.arange(1, 1000, 0.1)

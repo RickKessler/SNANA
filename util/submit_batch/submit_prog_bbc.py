@@ -2093,9 +2093,9 @@ class BBC(Program):
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         # Mar 2023: cleanup PREP files
-        devel_flag  = self.config_yaml['args'].devel_flag
         if DOFAST_PREP_INPUT_FILES :
-            util.compress_files(+1, script_dir,"{PREFIX_PREP}*",PREFIX_PREP,"")
+            wildcard = f"{PREFIX_PREP}*"
+            util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
 
         logging.info("")
 

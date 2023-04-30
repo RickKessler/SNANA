@@ -70,6 +70,8 @@
 #
 # Mar 3 2023 RK - DOFAST_PREP_INPUT_FILES=True (devel_flag=-328 for False)
 #
+# Apr 30 2023: add SIM_c,SIM_x1 to append_varname_missing 
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1147,7 +1149,7 @@ class BBC(Program):
                     input_ff       = "INPUT_" + ff
                     cat_file_out   = f"../{v_dir}/{input_ff}"
 
-                    append_arg     = f"-a 'PROB*,zPRIOR*'"
+                    append_arg     = f"-a 'PROB*,zPRIOR*,SIM_c,SIM_x1'"
 
                     cat_command    = f"{PROGRAM_NAME_CAT} \\\n " \
                                      f"  -i {cat_file_list} \\\n" \
@@ -1319,7 +1321,7 @@ class BBC(Program):
         cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
-                  f"append_varname_missing='PROB*,zPRIOR*'  " \
+                  f"append_varname_missing='PROB*,zPRIOR*,SIM_c,SIM_x1'  " \
                   f"catfile_out={cat_file_out}  " \
                   f" &> {cat_file_log}"
 

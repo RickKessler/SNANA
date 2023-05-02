@@ -1454,6 +1454,7 @@ def get_cospar_sim(sim_version):
     
     if KEY_SIM_INPUT in docana :
         sim_inputs      = docana[KEY_SIM_INPUT]
+        if sim_inputs is None: sim_inputs = [] # sim-readme bug protection (May 2023)
     else :
         sim_inputs = []  # allow for for older SNANA versions 
         logging.warning(f"did not find {KEY_SIM_INPUT} in biasCor sim README")

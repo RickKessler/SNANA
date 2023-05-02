@@ -1528,7 +1528,7 @@ class cosmofit(Program):
                            for f in cosmofit_summary_table.keys() if f[:-8]==dir_0])
 
             avg_comment = avg_comment_dict[fitavg_list[fitavg]['avg_type']]
-            f.write(f"{fitavg} {avg_comment}\n")
+            f.write(f"# {fitavg} {avg_comment}\n")
 
             for covnum in unique_matching_covopts:
                 for wfitnum in unique_matching_fitopts:

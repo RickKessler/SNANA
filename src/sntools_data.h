@@ -16,6 +16,7 @@ struct {
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.
   bool FOUND_zCMB, FOUND_zHEL;
+  bool NZPHOT_Q; // number of ZPHOT_Q[nnn] quantiles (May 2023)
 
 } RD_OVERRIDE;
 

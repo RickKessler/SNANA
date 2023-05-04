@@ -38,10 +38,14 @@
 # Mar 26 2023: 
 #  + add template method get_firecrown_values with hard-wired values
 #
-# Apr 6 2023: refactor to replace many "wfit" names with "fit" or "cosmofit" in
-#             method names and variables that apply to both wfit and firecrown.
-#             "fit" and "cosmofit" are generic strings for any cosmology fitter.
-#             The "wfit" string should only be used for specific reference to wfit code.
+# Apr 6 2023: 
+#   refactor to replace many "wfit" names with "fit" or "cosmofit" in
+#   method names and variables that apply to both wfit and firecrown.
+#   "fit" and "cosmofit" are generic strings for any cosmology fitter.
+#   The "wfit" string should only be used for specific reference to wfit code.
+#
+# May 4 2023: in WFIT_SUMMARY_AVG output, replace <w_sig>_sig with <wa_sig>
+#             to see avg uncertainty on wa.
 #
 # ====================================================================
 
@@ -1499,8 +1503,12 @@ class cosmofit(Program):
         f = open(AVG_FILE,"w")
         nrow = 0
         
-        if use_wa: VARNAME_FOM = "<w_sig> <w_sig>_sig FoM FoM_sig"
-        else: VARNAME_FOM = "<w_sig> <w_sig>_sig"
+        if use_wa: 
+            VARNAME_FOM = "<w_sig> <wa_sig> FoM FoM_sig"
+            # xxx mark May 2023: VARNAME_FOM = "<w_sig> <w_sig>_sig FoM FoM_sig"
+        else: 
+            # xxx mark delete : VARNAME_FOM = "<w_sig> <w_sig>_sig"
+            VARNAME_FOM = "<w_sig>"
 
         VARNAMES_STRING = \
                           f"ROW  iCOV iFIT <w> <w>_sig   <wa> <wa>_sig  "  \
@@ -1533,7 +1541,7 @@ class cosmofit(Program):
             for covnum in unique_matching_covopts:
                 for wfitnum in unique_matching_fitopts:
                     omm_list = []; w_list = []; wa_list = []
-                    wsig_list = []; FoM_list = []
+                    wsig_list = []; wasig_list = []; FoM_list = []
                     for dir_ in fitavg_list1:
                         unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
                         summary_table = cosmofit_summary_table[unique_key]
@@ -1541,14 +1549,15 @@ class cosmofit(Program):
                         w_list.append(summary_table['w'])
                         wa_list.append(summary_table['wa'])
                         wsig_list.append(summary_table['w_sig'])
+                        wasig_list.append(summary_table['wa_sig'])
                         FoM_list.append(summary_table['FoM'])
                     covopt_label  = summary_table['covopt_label']
                     fitopt_label  = summary_table['fitopt_label']
 
                     if fitavg_list2 is not None:
-                        omm_list2 = []; w_list2 = []; wa_list2 = []
-                        wsig_list2 = []; FoM_list2 = []
-                        # xxx for dir2_ in fitavg_list[fitavg]['dirslist_fullpath2']:
+                        omm_list2  = []; w_list2 = []; wa_list2 = []
+                        wsig_list2 = []; wasig_list2 = []; FoM_list2 = []
+
                         for dir2_ in fitavg_list2:
                             unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
                             summary_table = cosmofit_summary_table[unique_key]
@@ -1556,17 +1565,19 @@ class cosmofit(Program):
                             w_list2.append(summary_table['w'])
                             wa_list2.append(summary_table['wa'])
                             wsig_list2.append(summary_table['w_sig'])
+                            wasig_list2.append(summary_table['wa_sig'])
                             FoM_list2.append(summary_table['FoM'])
                     else: 
                         # if theres no second set of dirs, this is not a 
                         # difference so just set x_list2 to zero 
                         
-                        zero_list2 = np.zeros(len(fitavg_list1))
-                        omm_list2  = zero_list2
-                        w_list2    = zero_list2
-                        wa_list2   = zero_list2
-                        wsig_list2 = zero_list2
-                        FoM_list2  = zero_list2
+                        zero_list2  = np.zeros(len(fitavg_list1))
+                        omm_list2   = zero_list2
+                        w_list2     = zero_list2
+                        wa_list2    = zero_list2
+                        wsig_list2  = zero_list2
+                        wasig_list2 = zero_list2
+                        FoM_list2   = zero_list2
                     
                     ##compute mean and std err on mean
                     logging.info(f"\t Compute averages for '{fitopt_label}' " \
@@ -1581,20 +1592,24 @@ class cosmofit(Program):
                     if use_wa:
                         wa_avg, wa_avg_std = \
                             self.compute_average(np.array(wa_list)-np.array(wa_list2))
+                        wasig_avg, wasig_avg_std = \
+                            self.compute_average(np.array(wasig_list)-np.array(wasig_list2))
                         FoM_avg, FoM_avg_std = \
                             self.compute_average(np.array(FoM_list)-np.array(FoM_list2))
                     else:
-                        wa_avg, wa_avg_std = 0.0, 0.0
+                        wa_avg,  wa_avg_std  = 0.0, 0.0
                         FoM_avg, FoM_avg_std = 0.0, 0.0
 
                     str_nums     = f"{covnum} {wfitnum} "
                     str_results  = f"{w_avg:7.4f} {w_avg_std:7.4f} "
                     str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
                     str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
-                    str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
+                    str_results += f"{wsig_avg:7.4f}  "
+                    # xxx mark delete : str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
                     
                     if use_wa:
-                        str_results += f"{FoM_avg:5.0f} {FoM_avg_std:5.0f}  "
+                        str_FoM      = f"{FoM_avg:5.0f} {FoM_avg_std:5.0f} "
+                        str_results += f"{wasig_avg:7.4f}  {str_FoM}"
 
                     str_misc    = f"{len(w_list)}"
                     str_labels  = f"{covopt_label:<10} {fitopt_label}"

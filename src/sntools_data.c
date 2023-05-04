@@ -1141,8 +1141,10 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
 
   // - - - - - - - 
   // set z logicals in case zHEL <-> zCMB needs to be recomputed
-  RD_OVERRIDE.FOUND_zCMB = false;
-  RD_OVERRIDE.FOUND_zHEL = false;
+  RD_OVERRIDE.FOUND_zCMB = false ;
+  RD_OVERRIDE.FOUND_zHEL = false ; 
+  RD_OVERRIDE.NZPHOT_Q   = 0 ; // not implemented ... 
+
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_FINAL") ) 
     { RD_OVERRIDE.FOUND_zCMB = true; }
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_CMB") ) 

@@ -3053,8 +3053,8 @@ c Called once during global init stage.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER IVERS, INIT_NUM, LENF_DATA, LENF_SIM
-      CHARACTER TMP_FILE*(MXCHAR_FILENAME)
+      INTEGER IVERS, INIT_NUM
+
 C ------------ BEGIN -----------
 
 c one-time init for both FITS and TEXT (since we don't know format yet)   
@@ -3076,6 +3076,28 @@ c (SURVEY, FILTERS ..) needed for initialization
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
 c check header override option
+c xxx mark delete May 4 2023:      CALL INIT_READ_OVERRIDE()
+
+      RETURN
+      END    ! end INIT_READ_DATA
+
+C =============================== 
++DECK,INIT_READ_OVERRIDE.
+      SUBROUTINE INIT_READ_OVERRIDE()
+
+c Created May 2023
+c Wrapper to call C-function RD_OVERRIDE_INIT
+c
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+      INTEGER LENF_DATA, LENF_SIM
+      CHARACTER TMP_FILE*(MXCHAR_FILENAME)
+
+C ------------ BEGIN -----------
+
       LENF_DATA = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
       LENF_SIM = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1
       IF ( LENF_DATA > 0 .AND. LSIM_SNANA ) THEN
@@ -3093,10 +3115,10 @@ c check header override option
        TMP_FILE = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
        CALL RD_OVERRIDE_INIT(TMP_FILE)
       ENDIF
-
+     
       RETURN
-      END    ! end INIT_READ_DATA
- 
+      END
+
 C ==============================================
 +DECK,PREP_VERSION_SUBFOLDER.
       SUBROUTINE PREP_VERSION_SUBFOLDER()
@@ -3377,6 +3399,7 @@ c read global info and store in SNDATA struct in sndata.h
 
 c read SNDATA struct and tranfer global info to fortran variables
       if ( LRDFLAG_GLOBAL .OR. IVERS > 1 ) then
+         CALL INIT_READ_OVERRIDE()      ! May 2023
          CALL RDGLOBAL_DRIVER()
          CALL INIT_SURVEY(NSN_VERS)     ! init a few things
          IF ( LRDFLAG_GLOBAL ) RETURN
@@ -3670,14 +3693,6 @@ c     &     + OPTMASK_SNDATA_DUMP
 
       ISCORRECT_SIGN_VPEC = 
      &      correct_sign_vpec_data(SNANA_VERSION_DATA(1:LEN)//char(0))
-
-c xxxxxx mark delete xxx
-c      ISCORRECT_BUG =
-c     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
-c       print*,' xxx SNANA_VERSION_DATA = ', SNANA_VERSION_DATA(1:20)
-c       print*,' xxx ISCORRECT[BUG,FIX] = ', 
-c     &  ISCORRECT_BUG, ISCORRECT_SIGN_VPEC
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
      &        SURVEY_NAME, DARRAY, OPT)
@@ -4013,8 +4028,8 @@ c load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
 
 100   CONTINUE
 
-cc      print*,' xxx ZPHOT_PERCENTILE = ', SNHOST_ZPHOT_PERCENTILE(1:12)
-
+      write(6,40) SNHOST_NZPHOT_Q
+40    format(T5,'Found NZPHOT_Q = ', I3, ' quantiles for HOST-zPHOT')
       CALL FLUSH(6)
 
       RETURN
@@ -5479,7 +5494,7 @@ c print one-line summary
 
       IF ( .NOT. DO_GETINFO ) THEN
         write(6,500) CWORD(1:LK), CUTSTRING
- 500    format(T4,'Found ', A, T50,A)
+ 500    format(T5,'Found ', A, T50,A)
         call flush(6)
       ENDIF
 
@@ -7775,6 +7790,7 @@ c - - - -
          else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
      &             1, iArg, ARGLIST) ) then 
            SNCID_LIST_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
          else if ( MATCH_NMLKEY('OPT_SNCID_LIST',
      &             1, iArg, ARGLIST) ) then 
@@ -9459,6 +9475,7 @@ c check dump-option for SN that fail cuts.
       IF ( .not. LSNCUTS ) THEN
          if ( STDOUT_UPDATE ) write(6,41) SNLC_CCID
 41       format(T20,'SNANA cuts REJECT CID = ',A8, 2x,'=> SKIP ')
+	 CALL FLUSH(6)
          IF ( LDMP_SNFAIL ) CALL DMP_SNFAIL()
          CALL MON_SNANA(IFLAG_ANA)       ! update ntuples for rejected SN
          RETURN  ! skip this SN
@@ -11956,6 +11973,10 @@ c this match utility uses hash table for faster access.
       EXTERNAL MATCH_CIDLIST_INIT
 
 C ----------- BEGIN ------------     
+
+      IF ( SNCID_LIST_FILE(1:20) .EQ. 'HEADER_OVERRIDE_FILE' ) THEN
+          SNCID_LIST_FILE = HEADER_OVERRIDE_FILE
+      ENDIF
 
       cBLANK = ""//char(0)
 

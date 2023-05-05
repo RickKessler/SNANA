@@ -1426,7 +1426,7 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
 
   // --------- BEGIN ----------
 
-  fits_update_key(fp, TINT, "NZPHOT_Q", &SNDATA.HOSTGAL_NZPHOT_Q,
+  fits_update_key(fp, TINT, STRING_NZPHOT_Q, &SNDATA.HOSTGAL_NZPHOT_Q,
                   "number of Q zphot quantiles", &istat );
   sprintf(c1err,"Write NZPHOT_Q") ;
   snfitsio_errorCheck(c1err, istat) ;
@@ -2899,7 +2899,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
 
   NFILE_RD_SNFITSIO        = 0 ;
-  NSNLC_RD_SNFITSIO_TOT       = 0 ;
+  NSNLC_RD_SNFITSIO_TOT    = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
 
@@ -3091,7 +3091,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
     sprintf(tmpString,"%s", SNDATA.SNANA_VERSION );
   }
-  else if ( strcmp(parName,"NZPHOT_Q") == 0  ) {
+  else if ( strcmp(parName,STRING_NZPHOT_Q) == 0  ) {
     sprintf(tmpString,"%s", SNDATA.HOSTGAL_NZPHOT_Q ); 
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
@@ -4491,7 +4491,7 @@ void rd_snfitsio_zphot_q(void) {
   SNDATA.HOSTGAL_NZPHOT_Q = 0 ;
 
   istat = 0;
-  sprintf(keyname, "%s", "NZPHOT_Q" );
+  sprintf(keyname, "%s", STRING_NZPHOT_Q );
   sprintf(comment,"Read %s", keyname);
   fits_read_key(fp, TINT, keyname, &N_Q, comment, &istat );
 

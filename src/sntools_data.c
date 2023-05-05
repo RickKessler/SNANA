@@ -147,7 +147,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
 
   else if ( ISKEY_ZPHOT_Q ) {
 
-    if ( strcmp(key,"NZPHOT_Q") == 0 ) {
+    if ( strcmp(key,STRING_NZPHOT_Q) == 0 ) {
       copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NZPHOT_Q );
     }
     else if ( strstr(key,"PERCENTILE_ZPHOT_Q") != NULL ) {
@@ -1143,7 +1143,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
   // set z logicals in case zHEL <-> zCMB needs to be recomputed
   RD_OVERRIDE.FOUND_zCMB = false ;
   RD_OVERRIDE.FOUND_zHEL = false ; 
-  RD_OVERRIDE.NZPHOT_Q   = 0 ; // not implemented ... 
+  RD_OVERRIDE.NZPHOT_Q   = 0 ;
 
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_FINAL") ) 
     { RD_OVERRIDE.FOUND_zCMB = true; }
@@ -1152,6 +1152,10 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO") ) 
     { RD_OVERRIDE.FOUND_zHEL = true; }
 
+  if ( EXIST_VARNAME_AUTOSTORE(STRING_NZPHOT_Q) ) { // May 2023 
+    rd_override_zphot_q(1);
+  }  
+       
   // if both zCMB and zHEL are on header-override list,
   // turn them off since there is no need to recompute.
   if ( RD_OVERRIDE.FOUND_zCMB && RD_OVERRIDE.FOUND_zHEL ) 
@@ -1220,6 +1224,10 @@ void RD_OVERRIDE_POSTPROC(void) {
 
   // check for redshift_helio update that forces zcmb to also change.
   rd_override_zcalc();
+
+  // May 2023: check zPHOT quantile override when no such variables
+  //  exist in the data file
+  if ( RD_OVERRIDE.NZPHOT_Q > 0 )  { rd_override_zphot_q(2); }
 
   return ;
 
@@ -1305,6 +1313,81 @@ void rd_override_zcalc(void) {
   return ;
 
 } // end rd_override_zcalc
+
+
+// =============================================
+void rd_override_zphot_q(int OPT) {
+
+  // Input:
+  //  OPT=1 --> init by determining NZPHOT_Q and PERCENTILES
+  //  OPT=2 --> read zphot_q values
+
+  int  NZPHOT_Q, PCT, q, LEN_PREFIX ;
+  char PREFIX[60], *varName ;
+  char fnam[] = "rd_override_zphot_q" ;
+
+  // ------------- BEGIN -------------
+
+  if ( OPT == 1 ) {
+    char *VARSTRING = (char*) malloc(500*sizeof(char));
+    sprintf(PREFIX,"HOSTGAL_%s", PREFIX_ZPHOT_Q);
+    LEN_PREFIX = strlen(PREFIX);
+    NZPHOT_Q = NVAR_MATCH_AUTOSTORE(PREFIX, VARSTRING);
+    RD_OVERRIDE.NZPHOT_Q    = NZPHOT_Q ;
+    SNDATA.HOSTGAL_NZPHOT_Q = NZPHOT_Q ;
+
+    parse_commaSepList(fnam, VARSTRING, MXBIN_ZPHOT_Q, 60,
+		       &NZPHOT_Q, &RD_OVERRIDE.VARLIST_ZPHOT_Q ); // <== returned
+    free(VARSTRING);
+
+    printf("\n  Prepare HOST-zPHOT quantile override with NZPHOT_Q = %d\n", 
+	   NZPHOT_Q ); 
+    fflush(stdout);
+
+    for(q=0; q < NZPHOT_Q; q++ ) {
+      varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
+      sscanf(&varName[LEN_PREFIX], "%d", &PCT);
+      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] = PCT;
+      printf("\t Store Percentile = %d\n", PCT);
+      fflush(stdout);
+    }    
+
+  } 
+  else if ( OPT == 2 ) {
+    double zq, d_nzphot_q;
+    int    IGAL = 0, OVERRIDE_NZPHOT_Q ;
+    NZPHOT_Q = RD_OVERRIDE.NZPHOT_Q ;
+    SNDATA.HOSTGAL_NZPHOT_Q = NZPHOT_Q ;
+
+    // check if NZPHOT_Q in override file matches number of
+    // ZPHOT_Q[nnn] that were found
+    RD_OVERRIDE_FETCH(SNDATA.CCID, STRING_NZPHOT_Q, &d_nzphot_q) ;
+    OVERRIDE_NZPHOT_Q = (int)d_nzphot_q ;
+
+    /* xxx mark delete
+    if ( NZPHOT_Q != OVERRIDE_NZPHOT_Q ) {
+      sprintf(c1err,"Expected %d ZPHOT_Q[nnn] override variables", NZPHOT_Q);
+      sprintf(c2err,"but NZPHOT_Q=%d in override file (CID=%s)", 
+	      OVERRIDE_NZPHOT_Q, SNDATA.CCID );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    xxxxxxxx end mark xxxxxxxxx */
+
+    for(q=0; q < NZPHOT_Q; q++ ) {
+      zq = -9.0 ;
+      if ( OVERRIDE_NZPHOT_Q == NZPHOT_Q ) {
+	varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
+	RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &zq) ; // return zq
+      }
+      
+      SNDATA.HOSTGAL_ZPHOT_Q[IGAL][q] = zq ;
+    }
+
+  }
+
+  return ;
+
+} // end rd_override_zphot_q
 
 
 // - - - - - - - 

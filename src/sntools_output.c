@@ -2326,6 +2326,44 @@ int IVAR_VARNAME_AUTOSTORE(char *varName) {
 } // end   int IVAR_VARNAME_AUTOSTORE
 
 
+// =========================================================
+int NVAR_MATCH_AUTOSTORE(char *varString, char *varList) {
+
+  // Created May 2023
+  // For input *varString, return comma-sep *varList of AUTOSTORE
+  // varNames that contain *varString.
+  // Example: varString = "REDSHIFT" -> 
+  //  *varList = "REDSHIFT_CMB,REDSHIFT_CMB_ERR,REDSHIFT_HELIO,REDSHIFT_HELIO_ERR"
+  //
+  int NVAR_MATCH = 0 ;
+  int ivar, ifile, NVAR_USR ;
+  char *varName_autostore ;
+  char fnam[] = "NVAR_MATCH_AUTOSTORE" ;
+
+  // ----------- BEGIN ------------
+
+  varList[0] = 0 ;
+
+  for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
+    NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
+    for(ivar=0; ivar < NVAR_USR; ivar++ ) {
+      if ( !SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { continue; }
+
+      varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
+
+      if ( strstr(varName_autostore,varString) != NULL ) {
+	catVarList_with_comma(varList,varName_autostore);
+	NVAR_MATCH++ ;
+      }
+
+    } // end ivar
+  } // end ifile
+
+  return NVAR_MATCH ;
+
+} // end NVAR_MATCH_AUTOSTORE
+
+
 // ===========================================
 int IVAR_READTABLE_POINTER(char *varName) {
 

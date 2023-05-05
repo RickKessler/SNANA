@@ -540,8 +540,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
 
   if ( N_Q > 0 ) {
-    fprintf(fp, "%s_NZPHOT_Q:  %d  # number of photo-z quantiles\n",  
-	    PREFIX, N_Q );
+    fprintf(fp, "%s_%s:  %d  # number of photo-z quantiles\n",  
+	    PREFIX, STRING_NZPHOT_Q, N_Q );
   }
 
   // - - - - - -

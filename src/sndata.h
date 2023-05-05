@@ -102,6 +102,7 @@
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 
 #define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
+#define STRING_NZPHOT_Q "NZPHOT_Q"
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];

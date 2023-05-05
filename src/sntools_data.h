@@ -15,8 +15,9 @@ struct {
   int N_PER_VAR[MXVAR_OVERRIDE] ;
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.
-  bool FOUND_zCMB, FOUND_zHEL;
-  bool NZPHOT_Q; // number of ZPHOT_Q[nnn] quantiles (May 2023)
+  bool FOUND_zCMB, FOUND_zHEL ;
+  int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023)
+  char **VARLIST_ZPHOT_Q;
 
 } RD_OVERRIDE;
 
@@ -53,6 +54,7 @@ int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL);
 void RD_OVERRIDE_POSTPROC(void); 
 void rd_override_append(void);
 void rd_override_zcalc(void);
+void rd_override_zphot_q(int OPT);
 
 // mangled functions for fortran
 void copy_sndata_global__(int *copyFlag, char *key,

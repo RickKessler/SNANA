@@ -2282,7 +2282,7 @@ void read_head_HOSTLIB(FILE *fp) {
 	      char *VARNAME = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
 	      sscanf(&c_var[LEN_PREFIX_ZPHOT_Q], "%d", &percentile);   
 
-	      // HOSTLIB ZPHOT_Qnn may not include pad zeros, but outpu
+	      // HOSTLIB ZPHOT_Qnn may not include pad zeros, but output
 	      // VARNAME must include pad zeros.
 	      sprintf(VARNAME, "%s%3.3d", HOSTLIB_PREFIX_ZPHOT_Q, percentile);
 	      HOSTLIB.PERCENTILE_ZPHOT_Q[N_Q] = percentile ;

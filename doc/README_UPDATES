@@ -21649,6 +21649,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + add SIM_c,SIM_x1 to list of missing variables that are kept;
          https://github.com/RickKessler/SNANA/issues/1137
 
+   Analysis codes:
+     + fix override to work with quantiles, even if original data
+       files do not include quantiles.
+          https://github.com/RickKessler/SNANA/issues/1140
+    
         ***** MISCELLANEOUS(v11_05d) ***** 
 
    submit_prog_cosmofit.py:

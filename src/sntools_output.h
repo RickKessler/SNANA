@@ -507,6 +507,7 @@ extern"C" {
   int IVAR_VARNAME_AUTOSTORE(char *varName);
   int EXIST_VARNAME_AUTOSTORE(char *varName);
   int exist_varname_autostore__(char *varName);
+  int NVAR_MATCH_AUTOSTORE(char *varString, char *varList);
 
   int  UNIQUE_AUTOSTORE_VARNAME(int IFILE, char *VARNAME);
 

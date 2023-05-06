@@ -489,7 +489,7 @@ void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,
 
 // =========================================================
 void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
-		       double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
+		       double MJDOFF, double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		       int IFILT_OBS, int NOBS, double *TOBS_list,
 		       double *MAGOBS_list, double *MAG_TEMPLATE,
 		       double *MAGERR_list ) {
@@ -500,7 +500,8 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   //   EXTERNAL_ID  : set NEWEVT_FLAG logical when this changes
   //   zHEL         : helio redshift
   //   MU           : distance modulus
-  //   MWEBV        : E(B-V) for Milky Wat
+  //   MJDOFF       : MJD = MJDOFF + TOBS
+  //   MWEBV        : E(B-V) for Milky Way
   //   NHOSTPAR     : Number of host params in HOSTPAR_LIST
   //   HOSTPAR_LIST : RV, AV, LOGMASS, SFR ...
   //   IFILT_OBS    : absolute filter index
@@ -516,6 +517,8 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   //   + fix bug that was preventing call to fetchParVal_PySEDMODEL()
   // 
   // Sep 16 2022 RK - compute new output *MAG_TEMPLATE arg to handle AGN
+  //
+  // May 5 2023 RK - add MJDOFF arg (for defining AGN t_transition as MJD)
   //
 
   int   MXLAM      = MXLAM_PySEDMODEL;
@@ -745,7 +748,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   for(ipar=0; ipar < NPAR; ipar++ ) {
     pParVal  = PyObject_CallFunction(parvalmeth, "(s)", parNameList[ipar]);
     handle_python_exception(fnam, "fetching a parameter value");
-    val = PyFloat_AsDouble(pParVal);
+    val          = PyFloat_AsDouble(pParVal);
     parVal[ipar] = val;
     // printf("   PARVAL    = '%d' \n",  val);
   }

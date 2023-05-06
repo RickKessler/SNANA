@@ -62,8 +62,8 @@ void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zCMB,
 			  int NHOSTPAR, double *HOSTPAR_LIST,
                           int NOBS_ALL, double *TOBS_LIST);
 
-void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
-		       double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
+void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU, 
+		       double MJDOFF, double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		       int IFILT, int NOBS, double *TOBS_list,
 		       double *MAGOBS_list, double *MAG_TEMPLATE,
 		       double *MAGERR_list );

@@ -6017,6 +6017,22 @@ void prep_user_input(void) {
 
     GENFRAME_OPT   = GENFRAME_OBS;
 
+    if ( INDEX_GENMODEL == MODEL_AGN ) {
+      double MJDMIN = INPUTS.GENRANGE_MJD[0];
+      double MJDMAX = INPUTS.GENRANGE_MJD[1];
+      if ( MJDMIN < 20001.0 ) {
+	sprintf(c1err,"Must specify GENRANGE_MJD for AGMN model");
+	sprintf(c2err,"Check sim-input file.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+      }
+      // set PEAKMJD range to delta function
+      INPUTS.GENRANGE_PEAKMJD[0] =  MJDMIN ;
+      INPUTS.GENRANGE_PEAKMJD[1] =  MJDMIN ;
+
+      // force using cadence for entire survey
+      INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_ENTIRE_SURVEY;
+    }
+ 
   }
 
   else  if ( INDEX_GENMODEL  == MODEL_NON1ASED ) {    
@@ -6592,7 +6608,6 @@ void prep_user_input(void) {
   return ;
 
 } // end of prep_user_input().
-
 
 // ===================================
 void prep_user_cosmology(void) {
@@ -23186,7 +23201,7 @@ void init_genmodel(void) {
                 INPUTS.GENGAUSS_THETA.SIGMA[0],INPUTS.GENGAUSS_THETA.SIGMA[1],
                 INPUTS.GENGAUSS_DELTAM.PEAK,
                 INPUTS.GENGAUSS_DELTAM.RANGE[0],INPUTS.GENGAUSS_DELTAM.RANGE[1],
-                INPUTS.GENGAUSS_DELTAM.SIGMA[0],INPUTS.GENGAUSS_DELTAM.SIGMA[1]);
+                INPUTS.GENGAUSS_DELTAM.SIGMA[0],INPUTS.GENGAUSS_DELTAM.SIGMA[1] );
     }
     
     sprintf(ARGLIST_PySEDMODEL,"%s %s %s",
@@ -25855,6 +25870,7 @@ void genmodel(
 		      ,GENLC.REDSHIFT_HELIO  // (I) heliocentric redshift 
 		      ,GENLC.REDSHIFT_CMB    // (I) CMB redshift
 		      ,GENLC.DLMU            // (I) distance modulus
+		      ,GENLC.PEAKMJD         // (I) PKMJD or MJD-offset for recur
 		      ,mwebv               // (I) E(B-V) for Milky Way
 		      ,NHOSTPAR            // (I) number of host params to pass
 		      ,VAL_HOSTPAR         // (I) host property values

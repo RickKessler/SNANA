@@ -6031,6 +6031,10 @@ void prep_user_input(void) {
 
       // force using cadence for entire survey
       INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_ENTIRE_SURVEY;
+
+      // GENRANGE_TREST isn't needed, but set something to avoid abort               
+      INPUTS.GENRANGE_TREST[1] = INPUTS.GENRANGE_TREST[0] + 0.1;
+
     }
  
   }

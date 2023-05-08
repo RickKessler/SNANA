@@ -1217,14 +1217,15 @@ class cosmofit(Program):
             covnum     = row[COLNUM_COSMOFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
             fitnum     = row[COLNUM_COSMOFIT_MERGE_FITOPT][-3:] # idem
             prefix     = self.cosmofit_prefix(row)
-
+            YAML_FILE  = f"{script_dir}/{prefix}.YAML"
+            yaml_contents        = util.extract_yaml(YAML_FILE, None, None )
+               
             if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:            
-                YAML_FILE  = f"{script_dir}/{prefix}.YAML"
-                wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
-                fit_values_dict = util.get_wfit_values(wfit_yaml)
+                fit_values_dict = util.get_wfit_values(yaml_contents)
                 
             elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
-                fit_values_dict = self.get_firecrown_values(script_dir)
+                #fit_values_dict = self.get_firecrown_values(script_dir) # Maybe someday if needed ? 
+                fit_values_dict = util.get_wfit_values(yaml_contents) # Same extraction as for wfit
 
                 
             w        = fit_values_dict[COSMOFIT_PARNAME_w]  
@@ -1318,6 +1319,8 @@ class cosmofit(Program):
         # end make_cosmofit_summary
 
     def get_firecrown_values(self,script_dir):
+        # This method is not used now but
+        # might be used later
         # Created March 2023
         # returns firecrown parameter values  
         values_dict = {}

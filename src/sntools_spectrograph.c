@@ -1544,3 +1544,20 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   return(SNR);
 
 } // end getSNR_spectrograph
+
+
+// ===========================================
+void create_ideal_spectrograph(void) {
+
+  // Created May 2023
+  // Create IDEAL spectrograph with 10 A bins and SNR per bin = 1E4.
+  // This enables writing true SEDMODEL without the headache of
+  // creating a spectrograph table.
+  // This feature is invoked with sim-input key
+  //   SPECTROGRAPH_OPTMASK:  128
+
+  char fnam[] = "void create_ideal_spectrograph" ;
+
+  return;
+} // end void create_ideal_spectrograph
+

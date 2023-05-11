@@ -308,9 +308,8 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_noTEMPLATE 16  // no template noise
 #define SPECTROGRAPH_OPTMASK_onlyTNOISE 32  // only template noise
 #define SPECTROGRAPH_OPTMASK_TEXTRAP    64  // extrap TEXPOSE outside range
+#define SPECTROGRAPH_OPTMASK_SEDMODEL  128  // 10 A, no noise-->Flam=model SED
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
-#define SPECTROGRAPH_OPTMASK_FITS_REFAC 1024 // temp: refactor fits format
-#define SPECTROGRAPH_OPTMASK_FITS_LEGACY 4096 // later: preserve legacy format
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
 typedef struct {
@@ -411,9 +410,6 @@ typedef struct {
 // HELP_INPUTS_BEGIN SIM
 
 struct INPUTS {
-
-  int USE_KCOR_REFACTOR; // 1-> run both legacy and new; 2-> new only 
-  int USE_KCOR_LEGACY;   // use legacy fortran code to read & apply
   
   bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
   bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
@@ -1970,8 +1966,7 @@ void   init_simvar(void);        // one-time init of counters, etc ..
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
-void   init_kcor_legacy(char *kcorFile);
-void   init_kcor_refactor(void);
+void   init_read_calib_wrapper(void); // formerly called init_kcor
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
 void   init_zvariation(void);      // z-dependent sim parameters
 void   init_hostNoise(void) ;

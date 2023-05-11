@@ -197,13 +197,7 @@ int main(int argc, char **argv) {
   DASHBOARD_DRIVER();
 
   // initialize calib/kcor
-#ifdef USE_KCOR_FORTRAN
-  if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
-#endif
-
-  if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
-
-  //   if ( INPUTS.USE_KCOR_REFACTOR > 0 )    { test_kcor_utils(); }
+  init_read_calib_wrapper();
 
   // - - - - -
   // init option to generate populations from PDF
@@ -636,14 +630,6 @@ void set_user_defaults(void) {
   char fnam[] = "set_user_defaults" ;
   // --------------- BEGIN ---------------
 
-  /* xxx mark delete 
-  INPUTS.USE_KCOR_REFACTOR = 0 ;
-  INPUTS.USE_KCOR_LEGACY   = 1 ;
-  xxxxxx */
-
-  // permanently turn on refactor, Dec 2 2022
-  INPUTS.USE_KCOR_REFACTOR = 2 ; 
-  INPUTS.USE_KCOR_LEGACY   = 0 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
   INPUTS.README_DUMPFLAG    = false ;
@@ -1603,9 +1589,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-  }
-  else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
   }
 
   else if ( keyMatchSim(1, "DASHBOARD", WORDS[0], keySource) ) {
@@ -5748,16 +5731,6 @@ void prep_user_input(void) {
 
   // ---------- BEGIN ----------
 
-  if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
-
-#ifndef USE_KCOR_FORTRAN
-  if ( INPUTS.USE_KCOR_LEGACY ) {
-    sprintf(c1err,"Cannot use legacy/fortran KCOR code because");
-    sprintf(c2err,"#define USE_KCOR_FORTRAN is not set in sntools.h");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-#endif
-
   // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);
@@ -8980,12 +8953,22 @@ void  init_genSpec(void) {
   // Jul 12 2019: allow BYOSED
 
   char *modelName = GENMODEL_NAME[INDEX_GENMODEL][0] ; // generic model name
-  int OPTMASK     = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
+  int  OPTMASK     = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
+  bool DO_SEDMODEL = (OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE) > 0 ;
   char fnam[]     =  "init_genSpec" ;
 
   // -------------- BEGIN ----------------
 
-  if ( INPUTS.README_DUMPFLAG ) { return; }
+  if ( !SPECTROGRAPH_USEFLAG && DO_SEDMODEL ) {
+    // there is no spectrograph in kcor/calib file, so create an
+    // ideal spectrograph here that covers wavelength range of all bands.
+    // This enables writing true SEDMODEL without the headache of
+    // creating a spectrograph table.
+    create_ideal_spectrograph();
+    SPECTROGRAPH_USEFLAG = 1;
+  }
+
+  if ( INPUTS.README_DUMPFLAG    ) { return; }
   if ( SPECTROGRAPH_USEFLAG == 0 ) { return ; }
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 1 ;
 
@@ -11806,21 +11789,13 @@ void gen_filtmap(int ilc) {
 
     if ( GENFRAME_OPT  == GENFRAME_REST  ) {
 
-      if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-	for(irank=1; irank <=3; irank++ ) {
-	  ifilt_rest[irank] =
-	    nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4[irank]);
-	  lamdif[irank] = (double)lamdif4[irank] ;
-	}
-#endif
+
+      for(irank=1; irank <=3; irank++ ) {
+	ifilt_rest[irank] =
+	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, 
+				&lamdif[irank]);
       }
-      else {
-	for(irank=1; irank <=3; irank++ ) {
-	  ifilt_rest[irank] =
-	    nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, &lamdif[irank]);
-	}
-      }
+
 
       GENLC.IFILTMAP_REST1[ifilt_obs] = ifilt_rest[1] ;
       GENLC.IFILTMAP_REST2[ifilt_obs] = ifilt_rest[2] ;
@@ -12653,18 +12628,9 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     // note that both the SN and REF trans are returned,
     // but for simulations they are always the same.
 
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-      OPT_FRAME = GENFRAME_OBS ;
-      get_filttrans_legacy__(&OPT_FRAME, &ifilt_obs, surveyName, filtName,
-			     &magprim, &NLAM, lam, TransSN, TransREF, 80, 40 );
-#endif
-    }
-    else {
-      OPT_FRAME = GENFRAME_OBS - 1 ;  
-      get_calib_filterTrans(OPT_FRAME, ifilt_obs, surveyName, filtName,
-			    &magprim, &NLAM, lam, TransSN, TransREF);
-    }
+    OPT_FRAME = GENFRAME_OBS - 1 ;  
+    get_calib_filterTrans(OPT_FRAME, ifilt_obs, surveyName, filtName,
+			  &magprim, &NLAM, lam, TransSN, TransREF);
 
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
     sprintf(filtFile,"%s/%s.dat", PATH_FILTERS, cfilt );
@@ -20750,20 +20716,11 @@ int gen_cutwin(void) {
   // get lamrest for each observer filter
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];    
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-      // original/legacy fortran
-      opt_frame = OPT_FRAME_OBS + 1;
-      get_filtlam__(&opt_frame, &ifilt_obs,
-		    &lamobs,&lamrms,&lammin,&lammax);
-#endif
-    }
-    else {
-      // refactored
-      opt_frame = OPT_FRAME_OBS;
-      get_calib_filtlam_stats(opt_frame, ifilt_obs,
-			      &lamobs, &lamrms, &lammin, &lammax);
-    }
+  
+    opt_frame = OPT_FRAME_OBS;
+    get_calib_filtlam_stats(opt_frame, ifilt_obs,
+			    &lamobs, &lamrms, &lammin, &lammax);
+
     lamrest[ifilt_obs] = lamobs / z1 ;
   }
 
@@ -22684,19 +22641,10 @@ void genmag_boost(void) {
     ifilt_rest3 = GENLC.IFILTMAP_REST3[ifilt_obs];     
        
     // start with nearest filter; then 2nd nearest; then 3rd nearest
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-      x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
-      x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );   
-      x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
-#endif
-    }
-    else {
-      // refactored code
-      x[1] = genmag_extinction(ifilt_rest1, Trest, RV, AV);
-      x[2] = genmag_extinction(ifilt_rest2, Trest, RV, AV);
-      x[3] = genmag_extinction(ifilt_rest3, Trest, RV, AV);
-    }
+    x[1] = genmag_extinction(ifilt_rest1, Trest, RV, AV);
+    x[2] = genmag_extinction(ifilt_rest2, Trest, RV, AV);
+    x[3] = genmag_extinction(ifilt_rest3, Trest, RV, AV);
+    
 
     if ( epoch < -44444 ) {
       printf(" xxx %s: epoch=%d ifilt_rest=%d,%d,%d AV=%f RV=%f \n",
@@ -22740,17 +22688,9 @@ void genmag_boost(void) {
     mag[2]  = GENLC.genmag_rest2[epoch] ;    
     mag[3]  = GENLC.genmag_rest3[epoch] ;
 
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-      kcor = kcorfun8_(&ifilt_obs, &ifilt_rest_tmp[1], 
-		       &mag[1], &lamdif[1],  &Trest, &z, &AVwarp[1] );
-#endif
-    }
-    else {
-      // refactored
-      kcor = GET_KCOR_DRIVER(ifilt_obs, &ifilt_rest_tmp[1], &mag[1], &lamdif[1],
-			     Trest, z, &AVwarp[1] );
-    }
+    kcor = GET_KCOR_DRIVER(ifilt_obs, &ifilt_rest_tmp[1], &mag[1], &lamdif[1],
+			   Trest, z, &AVwarp[1] );
+
 
     /*
     printf(" xxx %s  kcor = %f for ifilt_obs=%d \n", fnam, kcor, ifilt_obs);
@@ -22896,16 +22836,8 @@ void genmag_MWXT_fromKcor(void) {
     Trest   = GENLC.epoch_rest[epoch]; 
 
     AVwarp  = GENLC.AVwarp8[epoch] ;
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-      MWXT = get_mwxt8__(&ifilt_obs,&Trest,&z,&AVwarp,&mwebv, &RV, &OPT);
-#endif
-    }
-    else {
-      // refactored
-      MWXT = eval_kcor_table_MWXT(ifilt_obs, Trest, z, AVwarp, mwebv, 
-				  RV, OPT);
-    }
+    MWXT = eval_kcor_table_MWXT(ifilt_obs, Trest, z, AVwarp, mwebv, 
+				RV, OPT);
       
     // increment observer-frame magnitude.
     GENLC.genmag_obs[epoch] += MWXT ;      
@@ -23398,26 +23330,8 @@ void init_genSEDMODEL(void) {
   // -----------
   sprintf(GENLC.primary,"%s", "NULL");
 
-  if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-    // legacy fortran get
-    get_primary_legacy__(GENLC.primary, &NLAM, 
-			 genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
-#endif
-  }
-  else {
-    // refactored C get
-    get_calib_primary_sed(GENLC.primary, &NLAM, 
-			  genSEDMODEL.lam, genSEDMODEL.primaryFlux );
-  }
-
-  /* xxxx
-  int ilam = 322;
-  printf(" xxx %s: (%s) ilam=%d/%d lam=%.1f flux=%le \n",
-	 fnam, GENLC.primary, ilam, NLAM,
-	 genSEDMODEL.lam[ilam], genSEDMODEL.primaryFlux[ilam] ); 
-  fflush(stdout);
-   xxxxxx */
+  get_calib_primary_sed(GENLC.primary, &NLAM, 
+			genSEDMODEL.lam, genSEDMODEL.primaryFlux );
 
   init_primary_SEDMODEL( GENLC.primary, NLAM, 
 			 genSEDMODEL.lam, genSEDMODEL.primaryFlux );
@@ -23488,40 +23402,18 @@ void init_genSEDMODEL(void) {
     sprintf(filtName,"NULL") ;
     sprintf(surveyName,"NULL") ;
 
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-      OPT_FRAME[ifilt]++ ; // add 1 for fortran index
-      get_filttrans_legacy__(&OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
-		      &ifilt_obs,            // (I) absolute filter index
-		      surveyName,            // (I) name(s) of survey (11.2020)
-		      filtName,              // (O) full name of filter
-		      &magprim,              // (O) mag of primary ref 
-		      &NLAM,                 // (O) Number of lambda bins
-		      genSEDMODEL.lam,       // (O) lambda array 
-		      genSEDMODEL.TransSN,   // (O) filter trans 
-		      genSEDMODEL.TransREF,  // (O) idem
-		      80,40 ); 
-#endif
-    }
-    else {
-      get_calib_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
-			    ifilt_obs,         // (I) absolute filter index
-			    surveyName,        // (I) name(s) of survey
-			    filtName,          // (O) full name of filter
-			    &magprim,          // (O) mag of primary ref 
-			    &NLAM,             // (O) Number of lambda bins
-			    genSEDMODEL.lam,     // (O) lambda array 
-			    genSEDMODEL.TransSN, // (O) filter trans 
-			    genSEDMODEL.TransREF // (O) idem
-			    ); 
-    }
 
-    /* xxxxx
-    int ilam=44;
-    printf(" xxx %s: ifilt_obs=%d ilam=44 lam=%.1f Trans=%.4f \n",
-	   fnam, ifilt_obs, ilam, 
-	   genSEDMODEL.lam[ilam], genSEDMODEL.TransSN[ilam] );
-	   xxxxx */
+    get_calib_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
+			  ifilt_obs,         // (I) absolute filter index
+			  surveyName,        // (I) name(s) of survey
+			  filtName,          // (O) full name of filter
+			  &magprim,          // (O) mag of primary ref 
+			  &NLAM,             // (O) Number of lambda bins
+			  genSEDMODEL.lam,     // (O) lambda array 
+			  genSEDMODEL.TransSN, // (O) filter trans 
+			  genSEDMODEL.TransREF // (O) idem
+			  ); 
+
 
     if ( NLAM > MXLAMSIM ) {
       sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] );
@@ -23627,168 +23519,9 @@ void check_model_default(int index_model ) {
 
 } // end of check_model_default
 
-// ******************************
-#ifdef USE_KCOR_FORTRAN
-void init_kcor_legacy(char *kcorFile) {
-
-  /********
-   Created May 18, 2008 by R.Kessler
-
-   Read K-corrections and filter transmissions (rdkcor).
-   We do not yet know GENFRAME_OPT ('rest' or 'obs'),
-   but always read the K-cors to be safe, since even
-   obs-frame models will likely need the filter transmissions.
-
-   Also do miscelaneous chores like fetching
-   AB (zeropoint) offets.
-
-   Sep 1, 2010: fix evil bug: tmpoff[20] -> tmpoff[MXFILTINDX]
-
-   May 13, 2013: few fixes for MODEL_FIXMAG.
-
-   Sep 22 2013: for rest-frame models call get_kcor_mwpar(RV,OPT_COLORLAW)
-
-   Jun 20 2017: pass FILTER_LAMSHIFT argument to set_survey_
-
-   Nov 2 2017: add AB offsets to user offsets; see tmpoff_kcor
-   Apr 24 2019: for FIXMAG model, return before doing rest-frame stuff.
-
-   Jul 26 2019: 
-     + get_kcor_mwpar() -> get_kcor_info(), and NKCOR is returned. 
-     + for rest-frame model, abort if NKCOR==0.
-
-   Sep 28 2020: 
-     + use new function find_pathfile(...) to find kcor_file by searching
-       current, SNDATA_ROOT and PATH_USER_INPUT.
-
-   Aug 18 2021: enable for FIXMAG model
-
-  *********/
-
-  int ISMODEL_FIXMAG = ( INDEX_GENMODEL == MODEL_FIXMAG );
-  int ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
-  int ierrstat, ifilt, ifilt_obs, OPT, NKCOR=0 ;
-  float tmpoff_kcor[MXFILTINDX] ;
-  char   copt[40], xtDir[MXPATHLEN], cfilt[4];
-  char fnam[] = "init_kcor_legacy" ;
-
-  // -------------- BEGIN --------------
-
-  // set fortran arrays needed for K-correction lookup
-  // The GENLC variables are set in SIMLIB_open
- 
-  set_survey__( GENLC.SURVEY_NAME  
-		,&GENLC.NFILTDEF_OBS
-		,GENLC.IFILTMAP_OBS
-		,INPUTS.TMPOFF_LAMFILT
-		,strlen(GENLC.SURVEY_NAME)   
-		);
-
-  rdkcor_(kcorFile, &ierrstat, strlen(kcorFile) );
-
-  if ( ierrstat != 0 ) {
-    sprintf(c1err, "Could not open kcor file: '%s'", kcorFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
-  } 
-
-
-  // get zeropoint (AB) offsets from kcor/calib file.
-  sprintf(copt,"ABOFF") ;
-  get_filtmap__(copt, tmpoff_kcor, strlen(copt) );
-
-
-  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-    ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt] ;
-
-    if ( !ISMODEL_FIXMAG ) 
-      { INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += tmpoff_kcor[ifilt];  }
-
-    // get mean and RMS of filter-wavelength 
-
-    if ( INPUTS.USE_KCOR_LEGACY ) {
-      // legacy fortran
-      OPT = OPT_FRAME_OBS + 1;
-      get_filtlam__(&OPT, &ifilt_obs
-		    ,&INPUTS.LAMAVG_OBS[ifilt_obs]
-		    ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
-		    ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
-		    ,&INPUTS.LAMMAX_OBS[ifilt_obs]   );
-    }
-    else {
-      // refactored C
-      OPT = OPT_FRAME_OBS ;
-      get_calib_filtlam_stats(OPT, ifilt_obs
-			      ,&INPUTS.LAMAVG_OBS[ifilt_obs]
-			     ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
-			      ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
-			      ,&INPUTS.LAMMAX_OBS[ifilt_obs]   );
-    }
-
-  }  // end ifilt loop
-
-
-  // misc. inits
-  for ( ifilt=0; ifilt<MXFILTINDX; ifilt++ ) { 
-    NAVWARP_OVERFLOW[ifilt] = 0; 
-  }
-
-  if ( ISMODEL_SIMLIB ) { return ; } // 11.22.2019
-
-  // init MW extinction (moved from end of init_genmodel on Aug 30 2010)
-  if ( GENFRAME_OPT == GENFRAME_REST )  {
-
-    // fetch kcor-info:
-    // Number of K-cor rables, and params used to compute MW extinct in 
-    // kcor files: needed to re-compute MWXT if RV is changed.
-    get_kcor_info__(&NKCOR, &GENLC.kcor_RVMW, &GENLC.kcor_OPT_MWCOLORLAW );
-
-    double RVDIF ;
-    RVDIF = fabs ( INPUTS.RV_MWCOLORLAW - GENLC.kcor_RVMW) ;
-    if ( RVDIF > 0.001 ) {
-      printf("\n");
-      printf("   User RVMW=%.3f != RVMW(kcorTable)=%.3f  \n",
-	     INPUTS.RV_MWCOLORLAW, GENLC.kcor_RVMW) ;
-      printf("   -> Compute MWXT correction with OPT_MWCOLORLAW=%d\n", 
-	     GENLC.kcor_OPT_MWCOLORLAW );
-      fflush(stdout);
-    }
-
-    if ( NKCOR == 0 ) {
-      sprintf(c1err,"zero k-correction tables found. ");
-      sprintf(c2err,"Rest-frame model requires valid k-cor tables.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-
-    if ( INPUTS.OPT_SNXT  == OPT_SNXT_CCM89 ) {
-      init_xthost__(&INPUTS.OPT_SNXT);
-    }
-    else if ( INPUTS.OPT_SNXT  == OPT_SNXT_SJPAR ) {
-      print_banner("Init HOST-GALAXY Extinction Parameters");
-      sprintf(xtDir, "%s ",INPUTS.MODELPATH); // leave blank space for fortran
-      rdxtpar_(xtDir, strlen(xtDir) );      
-    }
-
-  } // end rest-frame
-
-
-  // - - - - - - -
-  // check for optional spectrograph information 
-  read_spectrograph_fits(kcorFile) ;
-
-  if ( SPECTROGRAPH_USEFLAG ) {
-    dump_INPUTS_SPECTRO(4,"");
-    extend_spectrograph_lambins();
-  }
-
-
-  return ;
-
-} // end of init_kcor_legacy
-#endif
-
 
 // ********************************** 
-void init_kcor_refactor(void) {
+void init_read_calib_wrapper(void) {
 
   // Oct 2019
   // Begin translating fortran kcor-read codes into C.
@@ -23799,7 +23532,7 @@ void init_kcor_refactor(void) {
   int    ifilt, ifilt_obs, NBIN, NFILTDEF ;
   double MAGOBS_SHIFT[MXFILTINDX], MAGREST_SHIFT[MXFILTINDX];
   double ZPOFF;
-  char fnam[] = "init_kcor_refactor" ;
+  char fnam[] = "init_read_calib_wrapper" ;
 
   // ------------ BEGIN -------------
 
@@ -23875,7 +23608,7 @@ void init_kcor_refactor(void) {
 
   return ;
 
-} // end init_kcor_refactor
+} // end init_read_calib_wrapper
 
 // *********************************************
 int gen_TRIGGER_PEAKMAG_SPEC(void) {
@@ -26312,20 +26045,10 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     // the two cannot both be set.
     if ( USE_GENSMEAR_MODEL ) {
       // convert mean lambda of filter in obs frame to rest frame
-      if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-	// legacy fortran
-	opt_frame = OPT_FRAME_OBS + 1 ;
-	get_filtlam__(&opt_frame, &ifilt_obs, 
-		      &lamavg, &lamrms, &lammin, &lammax );
-#endif
-      }
-      else {
-	// refectoreed C
-	opt_frame = OPT_FRAME_OBS ;
-	get_calib_filtlam_stats(opt_frame, ifilt_obs, 
-				&lamavg, &lamrms, &lammin, &lammax );
-      }
+      
+      opt_frame = OPT_FRAME_OBS ;
+      get_calib_filtlam_stats(opt_frame, ifilt_obs, 
+			      &lamavg, &lamrms, &lammin, &lammax );
 
       lamrest = (double)lamavg / ( 1.0 + z );   
       
@@ -27328,7 +27051,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 
 
-    // Oct 14 2021 - check to set write-mask bit for spectra
+    /* xxxxxxxxx mark delete May 11 2023 xxxxxxxxx
     if ( SPECTROGRAPH_USEFLAG ) {
       int OPTMASK = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK;
       int REFAC  = (OPTMASK & SPECTROGRAPH_OPTMASK_FITS_REFAC); // default
@@ -27339,6 +27062,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
       else
 	{ INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
     } 
+    xxxxxxxx end mark xxxxxxxx */
+
+    if ( SPECTROGRAPH_USEFLAG ) { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
 
     // abort of any text-option is defined along with fits format
     if ( WRFLAG_TEXT  ) {
@@ -29055,38 +28781,19 @@ void DUMP_GENMAG_DRIVER(void) {
       colopt = INPUTS.KCORFLAG_COLOR ; 
       z4 = (float)GENLC.REDSHIFT_HELIO ;
 
-      if ( INPUTS.USE_KCOR_LEGACY ) {
-#ifdef USE_KCOR_FORTRAN
-	irank = 1;  
-	GENLC.IFILTMAP_REST1[ifilt_obs] = 
-	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
-	ifilt_rest = GENLC.IFILTMAP_REST1[ifilt_obs] ;
+      irank = 1;  
+      GENLC.IFILTMAP_REST1[ifilt_obs] = 
+	nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
+      ifilt_rest = GENLC.IFILTMAP_REST1[ifilt_obs] ;
+      
+      irank = 2;
+      GENLC.IFILTMAP_REST2[ifilt_obs] = 
+	nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
 	
-	irank = 2;  
-	GENLC.IFILTMAP_REST2[ifilt_obs] = 
-	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
-	
-	irank = 3;  
-	GENLC.IFILTMAP_REST3[ifilt_obs] = 
-	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
-#endif
-      }
-      else {
-	// refactored
-	irank = 1;  
-	GENLC.IFILTMAP_REST1[ifilt_obs] = 
-	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
-	ifilt_rest = GENLC.IFILTMAP_REST1[ifilt_obs] ;
-	
-	irank = 2;
-	GENLC.IFILTMAP_REST2[ifilt_obs] = 
-	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
-	
-	irank = 3;  
-	GENLC.IFILTMAP_REST3[ifilt_obs] = 
-	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
-      }
-
+      irank = 3;  
+      GENLC.IFILTMAP_REST3[ifilt_obs] = 
+	nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
+      
     }
 
     // try NSHAPEPAR shape/luminosity variations
@@ -29225,6 +28932,12 @@ void print_sim_help(void) {
     "",
     "SMEARFLAG_FLUX:   <opt> # 1->add Poisson noise",
     "SMEARFLAG_ZEROPT: <opt> # +=1->apply scatter, +=2->add to FLUXERRCAL",
+    "",
+    "",
+    "# - - - - - - SPECTROGRAPH inputs - - - - - ",
+    "TAKE_SPECTRUM:    [see manual for many options here]",
+    "SPECTROGRAPH_OPTMASK:  <optMask>     # see manual",
+    "SPECTROGRAPH_SCALE_TEXPOSE: <scale>  # scale all exposure times",
     "",
     "# - - - - - - - HOSTLIB - - - - - - - ",
     "HOSTLIB_FILE:  <name>    # file name of host-galaxy library",

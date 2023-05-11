@@ -21685,6 +21685,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c[h]
      + add PERIOD to SIMGEN_DUMP list; writes -9 for non-recurring models
        and writes LCLIB's "PERIOD" value for recurring-periodic
+     + remove all legacy kcor functions and remove use of
+       INPUTS.USE_KCOR_[LEGACY,REFAC]
 
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.

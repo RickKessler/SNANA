@@ -147,5 +147,7 @@ double getSNR_spectrograph(int ilam, double Texpose_S, double Texpose_T,
 
 void check_SNR_SPECTROGRAPH(int l, int t);
 
+void create_ideal_spectrograph(void);
+
 // === END === 
 

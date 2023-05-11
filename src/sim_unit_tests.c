@@ -77,16 +77,9 @@ void test_kcor_table_lcmag(void) {
 
     for ( AVwarp=-6.0; AVwarp <= 6.0; AVwarp+=3.0 ) {
 
-      if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
-	MAG = eval_kcor_table_LCMAG(ifiltdef_r, Trest, z, AVwarp) ;
-	text = TEST_REFAC ;
-      }
-      else {
-#ifdef USE_KCOR_FORTRAN
-	MAG   = get_maglc8__(&ifiltdef_r, &Trest, &z, &AVwarp );
-	text  = TEST_LEGACY ;
-#endif
-      }
+
+      MAG = eval_kcor_table_LCMAG(ifiltdef_r, Trest, z, AVwarp) ;
+      text = TEST_REFAC ;
       printf("  %6.1f  %6.3f  %12s  %7.4f  %d  (%s)\n",
              Trest, AVwarp, filtName_r, MAG, istat, text );
       fflush(stdout);
@@ -127,18 +120,11 @@ void test_kcor_table_mwxt(void) {
 
     for ( AVwarp=-1.087; AVwarp < 3.0; AVwarp+=1.6 ) {
 
-      if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
-	MWXT = eval_kcor_table_MWXT(ifiltdef_o, Trest, z, AVwarp, 
-			     MWEBV, RV, OPT_MWCOLORLAW) ;
-	text = TEST_REFAC ;
-      }
-      else {
-#ifdef USE_KCOR_FORTRAN
-	MWXT  = get_mwxt8__(&ifiltdef_o, &Trest, &z, &AVwarp, 
-			    &MWEBV, &RV, &OPT_MWCOLORLAW );
-	text  = TEST_LEGACY ;
-#endif
-      }
+
+      MWXT = eval_kcor_table_MWXT(ifiltdef_o, Trest, z, AVwarp, 
+				  MWEBV, RV, OPT_MWCOLORLAW) ;
+      text = TEST_REFAC ;
+
       printf("  %6.1f  %6.3f  %12s  %7.4f  %d  (%s)\n",
              Trest, AVwarp, filtName_o, MWXT, istat, text ); 
       fflush(stdout);
@@ -167,12 +153,7 @@ void test_kcor_nearfilt_rest(void) {
 
   // ----------- BEGIN ----------
 
-  if (INPUTS.USE_KCOR_REFACTOR==2 ) 
-    { TEXT= TEST_REFAC; }
-  else
-    { TEXT = TEST_LEGACY; }
-
-  printf("\n %s with z=%.3f (%s)\n", fnam, z, TEXT );
+  printf("\n %s with z=%.3f\n", fnam, z );
 
   printf("                                 nearest                     \n");
   printf("  rank  ifiltdef_obs:name   ifiltdef_rest:name    lamdif_min \n");
@@ -180,20 +161,8 @@ void test_kcor_nearfilt_rest(void) {
   for(irank=1; irank<=3; irank++ ) {
     for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
       ifiltdef = FILTERCAL_OBS->IFILTDEF[ifilt] ;
-
-      if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
-	ifiltdef_rest = nearest_ifiltdef_rest(OPT_REFAC, ifiltdef, irank, z,
-					      fnam, &lamdif_min );
-      }
-      else {
-#ifdef USE_KCOR_FORTRAN
-	float zf = (float)z ;
-	float  lamdif_min_f ;
-	ifiltdef_rest = nearest_ifilt_rest__(&OPT_LEGACY, &ifiltdef, &irank, 
-					     &zf, &lamdif_min_f);
-	lamdif_min = (double)lamdif_min_f ;
-#endif
-      }
+      ifiltdef_rest = nearest_ifiltdef_rest(OPT_REFAC, ifiltdef, irank, z,
+					    fnam, &lamdif_min );
 
       ifilt_r = FILTERCAL_REST->IFILTDEF_INV[ifiltdef_rest];
       filter_name_obs  = FILTERCAL_OBS->FILTER_NAME[ifilt];
@@ -264,22 +233,12 @@ void test_kcor_table_avwarp(void) {
     name_a     = FILTERCAL_REST->FILTER_NAME[ifilt_a];
     name_b     = FILTERCAL_REST->FILTER_NAME[ifilt_b];
 
-    if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
-      //  AVWARP = fit_AVWARP(ifiltdef_a, ifiltdef_b, Trest, C);
-      AVWARP = eval_kcor_table_AVWARP(ifiltdef_a, ifiltdef_b, mag_a, mag_b, Trest, &istat);
-      TEXT = TEST_REFAC;
-    }
-    else {  
-#ifdef USE_KCOR_FORTRAN
-      AVWARP = get_avwarp8__(&Trest, &z, &mag_a, &mag_b, 
-			     &ifiltdef_a, &ifiltdef_b, &istat);
-      TEXT = TEST_LEGACY ;
-#endif
-    }
+    AVWARP = eval_kcor_table_AVWARP(ifiltdef_a, ifiltdef_b, 
+				    mag_a, mag_b, Trest, &istat);
 
-    printf("  %2d:%-10s  %2d:%-10s  %7.3f, %8.4f  %2d (%s)\n",
+    printf("  %2d:%-10s  %2d:%-10s  %7.3f, %8.4f  %2d \n",
 	   ifiltdef_a, name_a,  ifiltdef_b, name_b, C, 
-	   AVWARP, istat, TEXT);
+	   AVWARP, istat );
     fflush(stdout);
   }
 
@@ -330,20 +289,11 @@ void test_kcor_table_kcor(void) {
     len_o   = strlen(name_o);
     len_r   = strlen(name_r);
 
-    if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
-      kcor = eval_kcor_table_KCOR(ifiltdef_r, ifiltdef_o, T, z, AV);
-      TEXT = TEST_REFAC ;
-    }
-    else {
-#ifdef USE_KCOR_FORTRAN
-      kcor = get_kcor8__(&ifiltdef_r, &ifiltdef_o, &T, &z, &AV);
-      TEXT = TEST_LEGACY ;
-#endif
-    }
+    kcor = eval_kcor_table_KCOR(ifiltdef_r, ifiltdef_o, T, z, AV);
 
     sprintf(kcor_sym, "K_%c%c", name_r[len_r-1], name_o[len_o-1] );
-    printf("KCOR:  %5.2f    %5.3f   %6.2f   %s   %7.4f  (%s) \n",
-	   T, z, AV, kcor_sym, kcor, TEXT);
+    printf("KCOR:  %5.2f    %5.3f   %6.2f   %s   %7.4f \n",
+	   T, z, AV, kcor_sym, kcor );
     fflush(stdout);
   }
 
@@ -393,21 +343,11 @@ void test_GET_KCOR_DRIVER(void) {
   }
 
   
-  if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
-    TEXT = TEST_REFAC;
-    kcor = GET_KCOR_DRIVER(IFILTDEF_OBS, IFILTDEF_REST_LIST, MAG_REST_LIST,
-			   LAMDIF, Trest, z, AVWARP_LIST );
-  }
-  else {
-#ifdef USE_KCOR_FORTRAN
-    kcor = kcorfun8_(&IFILTDEF_OBS, IFILTDEF_REST_LIST, MAG_REST_LIST,
-		     LAMDIF, &Trest, &z, AVWARP_LIST );
-    TEXT = TEST_LEGACY;
-#endif
-  }
+  kcor = GET_KCOR_DRIVER(IFILTDEF_OBS, IFILTDEF_REST_LIST, MAG_REST_LIST,
+			 LAMDIF, Trest, z, AVWARP_LIST );
 
-  printf("  %s  kcor=%.4f  AVwarp=%.4f \n",	
-	 TEXT, kcor, AVWARP_LIST[1] );
+  printf("   kcor=%.4f  AVwarp=%.4f \n",	
+	 kcor, AVWARP_LIST[1] );
 
   return ;
 

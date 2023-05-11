@@ -128,6 +128,7 @@ void init_spectrograph(char *inFile, char *stringOpt ) ;
 void parse_spectrograph_options(char *stringOpt) ;
 void read_spectrograph_text(char *inFile) ;
 void read_spectrograph_fits(char *inFile) ;
+void init_INPUTS_SPECTRO(void) ;
 void extend_spectrograph_lambins(void);
 void copy_INPUTS_SPECTRO(int ilam0, int ilam1);
 void dump_INPUTS_SPECTRO(int nbin_dump, char *comment);
@@ -147,7 +148,7 @@ double getSNR_spectrograph(int ilam, double Texpose_S, double Texpose_T,
 
 void check_SNR_SPECTROGRAPH(int l, int t);
 
-void create_ideal_spectrograph(void);
+void create_ideal_spectrograph(double lammin, double lammax);
 
 // === END === 
 

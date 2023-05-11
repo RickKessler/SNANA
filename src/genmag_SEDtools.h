@@ -340,6 +340,8 @@ void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
 void checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) ;
 void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC);
 
+void get_LAMRANGE_ALLFILTER(double *lammin, double *lammax);
+
 void pack_SEDBINARY(int OPT); // OP+1 => PACK;  OPT=-1 => UNPACK
 
 long int INDEX_SEDMODEL_FLUXTABLE(int ifilt, int iz, 

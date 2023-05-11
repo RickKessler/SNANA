@@ -143,22 +143,7 @@ void read_spectrograph_text(char *inFile) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
-  sprintf(INPUTS_SPECTRO.INFILE_NAME,      "inFile"  );
-  sprintf(INPUTS_SPECTRO.INSTRUMENT_NAME,  "UNKNOWN" );
-  INPUTS_SPECTRO.MAGREF_LIST[0] = 99. ;
-  INPUTS_SPECTRO.MAGREF_LIST[1] = 99. ;
-  INPUTS_SPECTRO.NBIN_TEXPOSE = 0 ;
-  INPUTS_SPECTRO.NBIN_LAM     = 0 ;
-  INPUTS_SPECTRO.NBIN_LAM_noREBIN = 0 ;  
-  INPUTS_SPECTRO.LAM_MIN     = INPUTS_SPECTRO.LAM_MAX     = -9.0 ;
-  INPUTS_SPECTRO.TEXPOSE_MIN = INPUTS_SPECTRO.TEXPOSE_MAX = -9.0 ;
-
-  INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF  = 5.0 ;
-  INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE = 1.2 ;
-  INPUTS_SPECTRO.MAGSNR_TOLERANCE_ABORT            = 0.001 ;
-
-  NERR_SNR_SPECTROGRAPH = 0 ;
-  NERR_BADSNR_SPECTROGRAPH = 0 ;
+  init_INPUTS_SPECTRO();
 
   NKEY_FOUND = DONE_MALLOC = 0 ;
   for(ikey=0; ikey < NKEY_REQ_SPECTROGRAPH; ikey++ ) 
@@ -288,6 +273,33 @@ void read_spectrograph_text(char *inFile) {
   return ;
 
 } // end read_spectrograph_text
+
+
+// ================================
+void init_INPUTS_SPECTRO(void) {
+  // Created May 2023
+  
+  // --------- BEGIN ----------
+
+  sprintf(INPUTS_SPECTRO.INFILE_NAME,      "inFile"  );
+  sprintf(INPUTS_SPECTRO.INSTRUMENT_NAME,  "UNKNOWN" );
+  INPUTS_SPECTRO.MAGREF_LIST[0] = 99. ;
+  INPUTS_SPECTRO.MAGREF_LIST[1] = 99. ;
+  INPUTS_SPECTRO.NBIN_TEXPOSE = 0 ;
+  INPUTS_SPECTRO.NBIN_LAM     = 0 ;
+  INPUTS_SPECTRO.NBIN_LAM_noREBIN = 0 ;  
+  INPUTS_SPECTRO.LAM_MIN     = INPUTS_SPECTRO.LAM_MAX     = -9.0 ;
+  INPUTS_SPECTRO.TEXPOSE_MIN = INPUTS_SPECTRO.TEXPOSE_MAX = -9.0 ;
+
+  INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF  = 5.0 ;
+  INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE = 1.2 ;
+  INPUTS_SPECTRO.MAGSNR_TOLERANCE_ABORT            = 0.001 ;
+
+  NERR_SNR_SPECTROGRAPH = 0 ;
+  NERR_BADSNR_SPECTROGRAPH = 0 ;
+
+  return;
+} // end   init_INPUTS_SPECTRO
 
 // ========================================================
 int read_SPECBIN_spectrograph(FILE *fp) {
@@ -645,8 +657,9 @@ void  solve_spectrograph(void) {
 
   // ------------- BEGIN ---------------
 
+
   sprintf(msg,"%s: solve for ZP and SQSIG for each LAMBDA and Texpose", fnam);
-  print_banner(msg);
+  //  print_banner(msg);
 
   for(iref=0; iref < 2; iref++ ) {
     MAGREF[iref] = INPUTS_SPECTRO.MAGREF_LIST[iref];
@@ -1547,16 +1560,90 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
 
 
 // ===========================================
-void create_ideal_spectrograph(void) {
+void create_ideal_spectrograph(double lammin, double lammax) {
 
-  // Created May 2023
+  // Created May 2023  
   // Create IDEAL spectrograph with 10 A bins and SNR per bin = 1E4.
   // This enables writing true SEDMODEL without the headache of
   // creating a spectrograph table.
   // This feature is invoked with sim-input key
   //   SPECTROGRAPH_OPTMASK:  128
+  //
+  // Inputs:
+  //   lammin, lamax : wavelength range to cover with ideal spectrograph
+  //
+  double BINSIZE_IDEAL = 10.0 ; // Angstrongs
+#define  NBIN_TEXPOSE_IDEAL  2
+  double TEXPOSE_LIST[NBIN_TEXPOSE_IDEAL] = { 10.0, 100.0 } ; // seconds
+  double SNR_LIST[NBIN_TEXPOSE_IDEAL]     = { 1.0E5, 3.0E5 } ;
 
-  char fnam[] = "void create_ideal_spectrograph" ;
+  int    ilam, NBIN_LAM, it ;  
+  double lavg, lmin, lmax, LAM_MIN, LAM_MAX ;
+  char fnam[] = "create_ideal_spectrograph" ;
+
+  // ------------ BEGIN ------------
+
+  sprintf(BANNER,"%s", fnam);
+  print_banner(BANNER);
+
+  init_INPUTS_SPECTRO();
+
+  sprintf(INPUTS_SPECTRO.INSTRUMENT_NAME,"IDEAL");
+
+  ilam = (int)(lammin / BINSIZE_IDEAL);
+  LAM_MIN = BINSIZE_IDEAL * (double)(ilam-2);
+
+  ilam = (int)(lammax / BINSIZE_IDEAL);
+  LAM_MAX = BINSIZE_IDEAL * (double)(ilam+3);
+
+  NBIN_LAM = (int)((LAM_MAX - LAM_MIN) / BINSIZE_IDEAL) + 1;
+
+  printf("\t %.1f < lam < %.1f,   BinSize=%.0f A, SNR ~ %.0f", 
+	 LAM_MIN, LAM_MAX, BINSIZE_IDEAL, SNR_LIST[0] );
+  fflush(stdout);
+
+  // - - - - - 
+  INPUTS_SPECTRO.FORMAT_MASK = 2; // store lammin & lammax per bin
+  INPUTS_SPECTRO.LAM_MIN = LAM_MIN ;
+  INPUTS_SPECTRO.LAM_MAX = LAM_MAX ;  
+  INPUTS_SPECTRO.NBIN_LAM = NBIN_LAM;
+
+  INPUTS_SPECTRO.NBIN_TEXPOSE = NBIN_TEXPOSE_IDEAL ;
+  malloc_spectrograph(+1, NBIN_LAM, INPUTS_SPECTRO.NBIN_TEXPOSE);
+  
+  for(it=0; it < NBIN_TEXPOSE_IDEAL; it++ ) 
+    { 
+      double T =  TEXPOSE_LIST[it];
+      INPUTS_SPECTRO.TEXPOSE_LIST[it]    = T;  
+      INPUTS_SPECTRO.LOGTEXPOSE_LIST[it] = log10(T);  
+    }
+  
+  for (ilam=0; ilam < NBIN_LAM; ilam++ ) {
+    lmin = LAM_MIN + BINSIZE_IDEAL * (double)ilam ;
+    lmax = lmin + BINSIZE_IDEAL;
+    lavg = 0.5*(lmin+lmax);
+
+    INPUTS_SPECTRO.LAMMIN_LIST[ilam] = lmin;
+    INPUTS_SPECTRO.LAMMAX_LIST[ilam] = lmax;
+    INPUTS_SPECTRO.LAMAVG_LIST[ilam] = lavg;
+    INPUTS_SPECTRO.LAMBIN_LIST[ilam] = BINSIZE_IDEAL ;
+    INPUTS_SPECTRO.LAMSIGMA_LIST[ilam] = 0.0 ;
+
+    for(it=0; it < NBIN_TEXPOSE_IDEAL; it++ ) {
+      INPUTS_SPECTRO.SNR0[ilam][it] = SNR_LIST[0];
+      INPUTS_SPECTRO.SNR1[ilam][it] = SNR_LIST[1];
+    }
+  }
+
+
+  INPUTS_SPECTRO.MAGREF_LIST[0] = 18.0;
+  INPUTS_SPECTRO.MAGREF_LIST[1] = 25.0;
+
+
+  // - - - - - - -
+  solve_spectrograph() ;
+
+  //  debugexit(fnam);
 
   return;
 } // end void create_ideal_spectrograph

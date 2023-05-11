@@ -5370,22 +5370,17 @@ the spectra are appended to the ascii file for each SN;
 search for ``{\tt SPECTRUM\_}'' keys.
 For FITS format ({\tt FORMAT\_MASK: 32}), 
 a separate {\tt *SPEC.FITS} file is created
-with three tables as follows:
+with two tables as follows:
 
 \begin{Verbatim}[frame=single]
      TableName     |Ncol|     column names 
   --------------------------------------------------------------------
-  SPECTRO_LAMINDEX | 3  | LAMINDEX LAMMIN LAMMAX
   SPECTRO_HEADER   | 9  | SNID MJD Texpose SNR_COMPUTE LAMMIN_SNR LAMMAX_SNR
                    |    | NBIN_LAM  PTRSPEC_MIN PTRSPEC_MAX
-  SPECTRO_FLUX     |4-5 | LAMINDEX FLAM FLAMERR  100*SIM_MAG  1000*SIM_WARP
+  SPECTRO_FLUX     |5-6 | LAMMIN LAMMAX FLAM FLAMERR  SIM_FLAM  SIM_WARP
 \end{Verbatim}
 %
-The first table ({\tt SPECTRO\_LAMINDEX}) is a map defining
-short-integer ``{\tt LAMINDEX}'' for each $\lambda$ bin,
-and it is used in the large {\tt SPECTRO\_FLUX}
-table to easily identify $\lambda$ bins.
-The second {\tt SPECTRO\_HEADER} table provides a one-row summary for 
+The {\tt SPECTRO\_HEADER} table provides a one-row summary for 
 each spectrum:
 1) {\tt SNID} is the object ID, 
 2) {\tt MJD} is the spectrum date, 
@@ -5400,22 +5395,20 @@ spectrum from the {\tt SPECTRO\_FLUX} table.
 
 The {\tt SPECTRO\_FLUX} table contains information for every spectral 
 bin for every SN: 
-$\lambda$ bin {\tt LAMINDEX},
+min and max wavelength,
 {\tt FLAM} ($\Flam$), 
 its \unc\ {\tt FLAMERR}, 
-and the generated (true) mag, {\tt SIM\_MAG}.
+and the generated (true) flux, {\tt SIM\_FLAM}.
 If a {\tt WARP\_SPECTRUM} key is used, 
-there is an extra {\tt SIM\_WARP} column.
-To save disk space, {\tt SIM\_MAG} is multplied by 100 and stored as
-a short integer; 
-similarly, {\tt SIM\_WARP} is multiplied by 1000 and stored as short int.
+there is an extra {\tt SIM\_WARP} column;
+it is multiplied by 1000 and stored as short int.
 After the last wavelength bin of a spectrum in the {\tt SPECTRO\_FLUX}
 table,  the next row is an end-of-spectrum marker containing
 ``{\tt 777  -777  -777  0}''; 
 this marker should be checked to ensure correct parsing.
 
-The first two tables are small, and should read quickly and 
-stored in memory for quick access. The 3rd ({\tt SPECTRO\_FLUX}) 
+The first table is small, and should read quickly and 
+stored in memory for quick access. The 2nd ({\tt SPECTRO\_FLUX}) 
 table can be very large (few GB), so beware of memory storage.
 To avoid memory issues, each spectrum can be read quickly
 from {\tt SPECTRO\_FLUX} table using pointers in the 
@@ -5745,6 +5738,27 @@ For example, if there are 8 SEDs, then setting
 If several spectra come from the same SN,
 each spectrum should be defined as a separate SED file.
 
+
+% ------------------------------------
+% \clearpage
+\subsubsection{Output Observer-Frame Model SED}
+\label{sss:modelSED}
+
+To output the true observer-frame model SED at each observation
+to the data files ({\tt TEXT} for {\tt FITS} format),
+set the following sim-input key
+\begin{verbatim}
+   SPECTROGRAPH_OPTMASK:  128 
+\end{verbatim}
+This {\tt OPTMASK} option is unique: 
+a spectrograph need NOT be defined in the kcor/calib file
+because the simulation internally defines a spectrograph with 10{\AA} bins
+and SNR${\sim}10^5$. The simulation creates an ideal spectrum,
+corresponding to the true SED, for each observation
+that occurs at least 1~hr later than the previous observation.
+
+
+% ------------------------------------
 
 
 % ------------------------------------

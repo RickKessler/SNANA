@@ -1935,6 +1935,7 @@ void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra
+void   GENSPEC_MJD_OBS(void); // list ideal spectrum for each obs
 bool   GENSPEC_PRESCALE_REJECT_SN(void) ;
 bool   DO_GENSPEC(int imjd);
 void   GENSPEC_INIT(int opt, int imjd);  // init arrays

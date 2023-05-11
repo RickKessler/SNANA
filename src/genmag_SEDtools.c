@@ -1771,6 +1771,29 @@ void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax) {
 } // end of get_LAMRANGE_SEDMODEL
 
 
+void get_LAMRANGE_ALLFILTER(double *lammin, double *lammax) {
+
+
+  // Created May 2023
+  // Return min/max wavelenth among all filters.
+
+  int ifilt;
+  double lmin, lmax;
+  // ----------- BEGIN ---------
+
+  *lammin  = 1.0E8;
+  *lammax = -1.0E8;
+
+  for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+    lmin = FILTER_SEDMODEL[ifilt].lammin;
+    lmax = FILTER_SEDMODEL[ifilt].lammax;
+    if ( lmax > *lammax ) { *lammax = lmax; }
+    if ( lmin < *lammin ) { *lammin = lmin; }
+  }
+
+  return;
+} // end get_LAMRANGE_ALLFILTER
+
 // *************************************
 void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
 

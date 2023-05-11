@@ -8954,17 +8954,19 @@ void  init_genSpec(void) {
 
   char *modelName = GENMODEL_NAME[INDEX_GENMODEL][0] ; // generic model name
   int  OPTMASK     = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
-  bool DO_SEDMODEL = (OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE) > 0 ;
+  bool DO_SEDMODEL = (OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL) > 0 ;
   char fnam[]     =  "init_genSpec" ;
 
   // -------------- BEGIN ----------------
-
+  
   if ( !SPECTROGRAPH_USEFLAG && DO_SEDMODEL ) {
     // there is no spectrograph in kcor/calib file, so create an
     // ideal spectrograph here that covers wavelength range of all bands.
     // This enables writing true SEDMODEL without the headache of
     // creating a spectrograph table.
-    create_ideal_spectrograph();
+    double lammin, lammax;
+    get_LAMRANGE_ALLFILTER(&lammin, &lammax); // min/max lambda among all bands
+    create_ideal_spectrograph(lammin, lammax);
     SPECTROGRAPH_USEFLAG = 1;
   }
 
@@ -9113,6 +9115,11 @@ void GENSPEC_DRIVER(void) {
   // Jan 14 2021: abort if NMJD>0 but there is no SPECTROGRAPH instrument.
   // Feb 24 2021: increment NMJD_PROC only if NBLAM_VALID > 0
   // May 24 2021: check prescale for SN spectra
+  // May 11 2023: check option for ideal spectra at each obs
+
+  int  OPTMASK     = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
+  bool DO_SEDMODEL = ( (OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL)>0 );
+  if ( DO_SEDMODEL ) { GENSPEC_MJD_OBS();  }
 
   int    NMJD = GENSPEC.NMJD_TOT  ;
   double MJD; 
@@ -9183,6 +9190,7 @@ void GENSPEC_DRIVER(void) {
       LAMMAX = SNR_LAMMAX ;
     }
     
+
     GENSPEC_INIT(2,imjd);   // 2-> event-dependent init
 
     // compute true GENMAG and FLUXGEN in each lambda bin
@@ -9203,6 +9211,7 @@ void GENSPEC_DRIVER(void) {
 
     // Feb 2 2017: convert flux to FLAM (dF/dlam)
     GENSPEC_FLAM(imjd) ;
+
 
     if ( GENSPEC.NBLAM_VALID[imjd] > 0 ) {
       GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
@@ -9487,6 +9496,54 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
 
 } // end GENSPEC_MJD_ORDER
 
+
+// *************************************************
+void GENSPEC_MJD_OBS(void) {
+
+  // Created May 2023
+  // Load MJD list containing every observation.
+  // Used only for special option SPECTROGRAPH_OPTMASK += 128.
+
+
+  double MJD_DIF = 0.05; // new spectrum for this difference in epoch
+  double TEXPOSE = 20.0;
+  double logTEXPOSE = log10(TEXPOSE);
+  int    NBIN_LAM   =  INPUTS_SPECTRO.NBIN_LAM;
+
+  double MJD, MJD_LAST = -9.0, Tobs ;
+  int ep, imjd, NMJD=0, NEP = GENLC.NEPOCH ;
+  char fnam[] = "GENSPEC_MJD_OBS" ;
+
+  // ------------ BEGIN -------------
+
+  for(ep=1; ep < NEP; ep++ ) {
+    MJD   = GENLC.MJD[ep] ;
+    Tobs  = MJD - GENLC.PEAKMJD ;  // for dump only
+
+    if ( (MJD - MJD_LAST) > MJD_DIF ) {
+      GENSPEC.NBLAM_TOT[NMJD]        = NBIN_LAM ;
+      GENSPEC.MJD_LIST[NMJD]         = MJD ;
+      GENSPEC.TOBS_LIST[NMJD]        = Tobs;
+      GENSPEC.TEXPOSE_LIST[NMJD]     = TEXPOSE;
+      GENSPEC.OPT_TEXPOSE_LIST[NMJD] = 1 ;    // user TEXPOSE above     
+      GENSPEC.INDEX_TAKE_SPECTRUM[NMJD] = NMJD ;
+      GENSPEC.INV_TAKE_SPECTRUM[NMJD]   = NMJD ;
+      GENSPEC.SKIP[NMJD] = false;
+
+      NMJD++ ;
+    }
+    MJD_LAST = MJD;
+
+  } // end ep loop
+
+  GENSPEC.NMJD_TOT      = NMJD;
+  NPEREVT_TAKE_SPECTRUM = NMJD;
+  GENSPEC.TEXPOSE_TEMPLATE = 0.0 ;
+
+  return ;
+
+} // end GENSPEC_MJD_OBS
+
 // *************************************************
 void GENSPEC_INIT(int OPT, int imjd) {
 
@@ -9496,7 +9553,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
 
   int  NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
   int  ilam ;
-  //  char fnam[] = "GENSPEC_INIT" ;
+  char fnam[] = "GENSPEC_INIT" ;
 
   // ------------ BEGIN ----------
 
@@ -10288,6 +10345,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   } // end ilam  
 
+
   if ( NBLAM_USE == 0 ) { goto DONE ; }
 
   // - - - - - - - - - - - - - - 
@@ -10308,6 +10366,14 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
     OBSFLUX       = GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
+
+    /* xxx mark delete xxx
+    if ( ilam < ILAM_MIN+4 ) {
+      printf("\t xxx %s: OBSFLUX = %le +_ %le  SNR_TRUE=%f \n",
+	     fnam, OBSFLUX,OBSFLUXERR, SNR_TRUE); fflush(stdout);
+      fflush(stdout);
+    }
+    xxxx */
 
     if ( OBSFLUXERR < 1.0E-50 ) { continue; }
 
@@ -10413,6 +10479,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux ) {
 
   // loop over neighbor bins to smear flux over lambda bins
   for(ilam2=ilam-NBIN2; ilam2 <= ilam+NBIN2; ilam2++ ) {
+
     if ( ilam2 <  0     ) { continue ; }
     if ( ilam2 >= NBLAM ) { continue ; }
     
@@ -17094,6 +17161,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = INPUTS_SPECTRO.NSYN_FILTER ;  
+  int OPTMASK  = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
   // xxx mark  int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  
 
   float Trest_min, Trest_max, Trest_pad ;
@@ -17104,6 +17172,9 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   // -------------- BEGIN -------------
 
   if ( NSPEC == 0 ) { return ; }
+
+ 
+  if ( (OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL) > 0 ) { return; }
 
   // in case of repeated cadence, reset NOBS to leave out 
   // previous TAKE_SPECTRUM obs.

@@ -21645,6 +21645,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        options for SIMLIB_MSKOPT and HOSTLIB_MSKOPT 
         (also used for opt_biascor in SALT2mu)
 
+     + "SPECTROGRAPH_OPTMASK: 128" writes model SED for each observation,
+        and no need to define a spectrograph instrument; see manual 4.25.7
+
    submit_prog_bbc.py :
      + add SIM_c,SIM_x1 to list of missing variables that are kept;
          https://github.com/RickKessler/SNANA/issues/1137

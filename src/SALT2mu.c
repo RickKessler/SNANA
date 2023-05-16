@@ -14728,6 +14728,9 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
   // load FITPARBIAS struct from global function of icc= CC index.
   // The global structure does not have the right form to pass
   // to get_muBias, so load FITPARBIAS that can be passed to get_muBias.
+  //
+  // May 16 2023: fix bug loading FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR
+  //   inside a,b,g loop instead of outside.
 
   int  NBINa, NBINb, NBINg, ia, ib, ig, ipar ;
 
@@ -14739,13 +14742,14 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
   // -------- BEGIN ------------
   NBINa   = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   NBINb   = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
-  NBINg   = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
-  
-  FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR = 0 ;
+  NBINg   = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ; 
 
   for(ia=0; ia<NBINa; ia++ ) {
     for(ib=0; ib<NBINb; ib++ ) {
       for(ig=0; ig<NBINg; ig++ ) {
+
+	FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR = 0 ;
+
 	for(ipar=ILCPAR_MIN; ipar<= ILCPAR_MAX; ipar++ ) {
 
 	  FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar] =

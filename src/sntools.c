@@ -3042,6 +3042,141 @@ void abort_snana_dump__(void) { ABORT_SNANA_DUMP(); }
 // ==========================================
 void read_SURVEYDEF(void) {
 
+  // Re-written May 2023 by R.Kessler
+  // Read SURVEY.DEF file and store ID for each survey.
+  // Also check for optional geo location, e.g.,
+  //    SURVEY:  LSST 12  geo:-30,-70
+  // that can be used to compute airmass.
+
+#define STRING_SURVEY "SURVEY:"
+
+  char SURVEYDEF_FILE[MXPATHLEN], cline[MXPATHLEN], nameTmp[40];
+  char sepKey[] = " " ;
+  char **ptr_wdlist;
+  int  MXWD_SURVEYDEF = 20;
+  int  idTmp, NWD, i ;
+  FILE *fp ;
+  char fnam[] = "read_SURVEYDEF" ;
+
+  bool LEGACY = false;
+
+  // ------------ BEGIN ------------
+
+  if ( LEGACY ) { read_SURVEYDEF_legacy(); return; }
+
+  sprintf(SURVEYDEF_FILE,"%s/SURVEY.DEF", PATH_SNDATA_ROOT);
+  fp = fopen(SURVEYDEF_FILE,"rt");
+  if ( !fp ) {
+    sprintf(c1err,"Could not open SURVEY.DEF file");
+    sprintf(c2err,"%s", SURVEYDEF_FILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // init each survey name to NULL
+  for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
+    sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
+    SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
+    SURVEY_INFO.geoLONG[idTmp] = 99999.0 ;
+  }
+
+
+  // malloc array of words to read for each line of SURVEY.DEF file
+  ptr_wdlist   = (char**) malloc( MXWD_SURVEYDEF * sizeof(char*) );
+  for(i=0; i < MXWD_SURVEYDEF; i++ ) 
+    { ptr_wdlist[i] = (char*)malloc( 40*sizeof(char)) ; } 
+
+
+  // read each line
+  while ( fgets(cline, MXPATHLEN, fp)  != NULL ) {
+    if ( commentchar(cline) ) { continue; }
+
+    for(i=0; i < MXWD_SURVEYDEF; i++ ) { ptr_wdlist[i][0] = 0; }
+
+    splitString(cline, sepKey, fnam, MXWD_SURVEYDEF,  // inputs 
+    		&NWD, ptr_wdlist );         // outputs
+    if ( NWD < 3 ) { continue; }
+
+    if ( strcmp(ptr_wdlist[0],STRING_SURVEY) == 0 ) {
+
+      sscanf(ptr_wdlist[1], "%s", nameTmp ); 
+      sscanf(ptr_wdlist[2], "%d", &idTmp );
+
+      if ( idTmp >= MXIDSURVEY ) {
+        sprintf(c1err,"IDSURVEY=%d(%s) exceeds MXIDSURVEY=%d",
+		idTmp, nameTmp, MXIDSURVEY);
+        sprintf(c2err,"check %s", SURVEYDEF_FILE);
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
+      sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"%s", nameTmp);
+
+      // check for optional geo location on Earth
+      if ( NWD >= 4 ) {	parse_geoSURVEYDEF(ptr_wdlist[3], idTmp);  } 
+
+    } // end if SURVEY key
+
+  } // end while
+
+  //.xyz
+
+  // free memory
+  for(i=0; i < MXWD_SURVEYDEF; i++ )     { free(ptr_wdlist[i]); }
+  free(ptr_wdlist);
+
+  return;
+
+} // end read_SURVEYDEF
+
+// =======================
+void parse_geoSURVEYDEF(char *string_geo, int ID) {
+
+  // Created May 16 2023 by R.Kessler
+  // parse string_geo = 'geo:lat,long' and extract lat and long;
+  // store lat and long for ID.
+
+#define STRING_geo    "geo:"
+
+  int LEN_STR_geo = strlen(STRING_geo);
+  int LDMP = 1 ;
+  int NWD;
+  char str_coords[40], *ptr_wdlist[2];
+  char fnam[] = "parse_geoSURVEYDEF" ;
+
+  // ------------ BEGIN ---------
+
+  // check for 'geo:' in string
+  if ( strstr(string_geo,STRING_geo) == NULL ) { return; }
+
+  ptr_wdlist[0] = (char*) malloc( 40*sizeof(char) );
+  ptr_wdlist[1] = (char*) malloc( 40*sizeof(char) );
+
+  sprintf(str_coords,"%s", &string_geo[LEN_STR_geo]); // eveything after 'geo:'
+  splitString(str_coords, COMMA, fnam, 2,  // inputs 
+	      &NWD, ptr_wdlist );    // outputs
+
+  double LAT, LONG;
+  sscanf(ptr_wdlist[0], "%le", &LAT );
+  sscanf(ptr_wdlist[1], "%le", &LONG );
+
+  SURVEY_INFO.geoLAT[ID] = LAT ;
+  SURVEY_INFO.geoLONG[ID]= LONG ;
+
+  if ( LDMP ) {
+    printf(" xxx %s: SURVEY=%s ID=%d LAT=%f LONG=%f \n",
+	   fnam, SURVEY_INFO.SURVEYDEF_LIST[ID], ID, LAT, LONG);
+    fflush(stdout);
+  }
+
+  free(ptr_wdlist[0]);
+  free(ptr_wdlist[1]);
+
+  return;
+
+} // // end parse_geoSURVEYDEF
+
+// ==========================================
+void read_SURVEYDEF_legacy(void) {
+
   // Created Aug 19 2016 [moved frmo SALT2mu.c on July 2017]
   // Read SURVEY.DEF file and store each defined survey name in
   // SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY].
@@ -3050,7 +3185,7 @@ void read_SURVEYDEF(void) {
   char SURVEYDEF_FILE[MXPATHLEN], c_get[60], nameTmp[40];
   int  idTmp ;
   FILE *fp ;
-  char fnam[] = "read_SURVEYDEF" ;
+  char fnam[] = "read_SURVEYDEF_legacy" ;
 
   // ------------ BEGIN -------------
 
@@ -3065,6 +3200,8 @@ void read_SURVEYDEF(void) {
   // init each survey name to NULL
   for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
     sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
+    SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
+    SURVEY_INFO.geoLONG[idTmp] = 99999.0 ;
   }
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
@@ -3084,7 +3221,7 @@ void read_SURVEYDEF(void) {
   fclose(fp);
   return ;
 
-} // end read_SURVEYDEF
+} // end read_SURVEYDEF_legacy
 
 // ==========================================                                   
 int get_IDSURVEY(char *SURVEY) {
@@ -3099,6 +3236,18 @@ int get_IDSURVEY(char *SURVEY) {
 
   return(-9);
 } // end get_IDSURVEY 
+
+void  get_geoSURVEY(int ID, double *LAT, double *LONG) {
+
+  char fnam[] = "get_geoSURVEY";
+
+  *LAT = *LONG = 999999.9 ;
+  if ( ID >= 0 ) {
+    *LAT  = SURVEY_INFO.geoLAT[ID];
+    *LONG = SURVEY_INFO.geoLONG[ID];
+  }
+
+} // end get_geoSURVEY
 
 // ============================================
 int  exec_cidmask(int mode, int CID) {

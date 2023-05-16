@@ -115,6 +115,7 @@ struct SURVEY_INFO_DEF {
   int  NSURVEYDEF ;  // number of surveys in SURVEY.DEF file
   char SURVEYDEF_LIST[MXIDSURVEY][40];  // SURVEY-string vs. IDSURVEY
   int  SURVEYFLAG[MXIDSURVEY]; // status of use in survey or field group.
+  double  geoLAT[MXIDSURVEY], geoLONG[MXIDSURVEY]; // instrument location on Earth
 } SURVEY_INFO ;
 
 

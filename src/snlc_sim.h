@@ -102,14 +102,15 @@
 #define  STRING_REDSHIFT_FLAG (char*[5]){ "NONE", "SNSPEC", "HOSTSPEC", "HOSTPHOT", "WRONGHOST" }
 
 // define write flags
-#define WRMASK_VBOSE     1   // legacy verbose output
-#define WRMASK_TEXT      2   // terse/text output: MJD FLUX etc ...
-#define WRMASK_MODEL     4   // dump obs model mag vs. Tobs
-#define WRMASK_BLINDTEST 8   // suppress SIM_XXX and other info
-#define WRMASK_CIDRAN   16   // use random CID (1-MXCID)
-#define WRMASK_FITS     32   // write to fits file instead of ascii
-#define WRMASK_COMPACT  64   // suppress non-essential PHOT output
-#define WRMASK_FILTERS  256  // write filterTrans files (Aug 2016)
+#define FORMAT_MASK_VBOSE     1   // legacy verbose output
+#define FORMAT_MASK_TEXT      2   // terse/text output: MJD FLUX etc ...
+#define FORMAT_MASK_MODEL     4   // dump obs model mag vs. Tobs
+#define FORMAT_MASK_BLINDTEST 8   // suppress SIM_XXX and other info
+#define FORMAT_MASK_CIDRAN   16   // use random CID (1-MXCID)
+#define FORMAT_MASK_FITS     32   // write to fits file instead of ascii
+#define FORMAT_MASK_COMPACT  64   // suppress non-essential PHOT output
+#define FORMAT_MASK_DCR      128  // write RA,DEC,AIRMASS per obs, for DCR corrections
+#define FORMAT_MASK_FILTERS  256  // write filterTrans files (Aug 2016)
 
 // xxx #define KEYSOURCE_FILE 1
 // xxx #define KEYSOURCE_ARG  2
@@ -130,6 +131,7 @@ int WRFLAG_BLINDTEST ;
 int WRFLAG_CIDRAN    ;
 int WRFLAG_FITS      ;
 int WRFLAG_FILTERS   ; // Aug 2016
+int WRFLAG_DCR       ; // May 2023
 int WRFLAG_COMPACT   ; // Jan 2018
 
 #define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
@@ -951,7 +953,6 @@ struct GENLC {
   int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)
   int  SIMLIB_ID;        // LIB ID from simlib
   int  SIMLIB_IDMAX;     // max ID in libraray
-  //  int  SIMLIB_NWRAP;     // number of library wrap-arounds
   int  SIMLIB_IDLOCK ;   // LIBID that is locked for all gen_event calls
   int  NGEN_SIMLIB_ID ;  // Nuse on same SIMLIB ID until event is accepted
 
@@ -959,9 +960,13 @@ struct GENLC {
 
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
-  double RA, DEC, cosDEC ;          // generated position
+  double RA, DEC, cosDEC ;    // true generated position
+  
+  // define random coord shifts to avoid exact coordinate repeats for
+  // data challenges. This is NOT related to measurement error.
   double random_shift_RA, random_shift_DEC;     // random coord shift
   double random_shift_RADIUS, random_shift_PHI;
+
   double GLON, GLAT;        // for LCLIB-galactic models
   double REDSHIFT_HELIO ;   // true Helio redshift of SN
   double REDSHIFT_CMB   ;   // true CMB   redshift of SN
@@ -1188,6 +1193,11 @@ struct GENLC {
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
+  double AIRMASS[MXEPSIM];
+  double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
+  double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS
+  double RA_SUM, DEC_SUM, RA_WGTSUM, DEC_WGTSUM;
+
   double  epoch_obs_range[2];   // min and max epoch, all bands
   double  epoch_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
   double  epoch_rest[MXEPSIM];      // rest epoch relative to peak, days
@@ -1932,6 +1942,8 @@ void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpCovMat_fluxNoise(int icov, int NOBS, double *COV);
 void   monitorCov_fluxNoise(void);
 void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
+void   gen_airmass(int ep);
+void   genSmear_coords(int ep);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra

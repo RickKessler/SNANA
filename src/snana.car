@@ -10439,7 +10439,7 @@ cc xxx     &       REFORMAT_VERSION(1:LEN_VER) // '_' //
          TEXTFILE_FULL = REFORMAT_VERSION(1:LEN_VER) // '/'  //
      &       textfile(1:len_txt) // char(0)
 
-         CALL WR_SNTEXTIO_DATAFILE(TEXTFILE_FULL)
+         CALL WR_SNTEXTIO_DATAFILE(TEXTFILE_FULL, 100)
          write(LUNLIST2, '(A)' ) TEXTFILE(1:len_txt)
 
          if ( N_SNLC_CUTS == MXWR_TEXT ) then

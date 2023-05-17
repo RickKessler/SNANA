@@ -21690,6 +21690,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        and writes LCLIB's "PERIOD" value for recurring-periodic
      + remove all legacy kcor functions and remove use of
        INPUTS.USE_KCOR_[LEGACY,REFAC]
+     + add new variables to store RA_OBS, DEC_OBS, AIRMASS per epoch,
+       and define dummy functions to compute them.
 
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.

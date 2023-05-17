@@ -6411,21 +6411,24 @@ void prep_user_input(void) {
   WRFLAG_FITS      = 0 ;
   WRFLAG_FILTERS   = 0 ;
   WRFLAG_COMPACT   = 0 ;
+  WRFLAG_DCR       = 0 ;
 
   // check for whether to write FULL, TERSE, FITS, etc ,
   // EXCEPT for the GRID-GEN option (for psnid ...), 
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) {
-    WRFLAG_VBOSE     = ( INPUTS.FORMAT_MASK  & WRMASK_VBOSE     ) ;
-    WRFLAG_TEXT      = ( INPUTS.FORMAT_MASK  & WRMASK_TEXT      ) ;
-    WRFLAG_MODEL     = ( INPUTS.FORMAT_MASK  & WRMASK_MODEL     ) ;
-    WRFLAG_BLINDTEST = ( INPUTS.FORMAT_MASK  & WRMASK_BLINDTEST ) ;
-    WRFLAG_CIDRAN    = ( INPUTS.FORMAT_MASK  & WRMASK_CIDRAN    ) ;
-    WRFLAG_FITS      = ( INPUTS.FORMAT_MASK  & WRMASK_FITS      ) ;
-    WRFLAG_FILTERS   = ( INPUTS.FORMAT_MASK  & WRMASK_FILTERS   ) ;
-    WRFLAG_COMPACT   = ( INPUTS.FORMAT_MASK  & WRMASK_COMPACT   ) ;
+    WRFLAG_VBOSE     = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_VBOSE     ) ;
+    WRFLAG_TEXT      = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_TEXT      ) ;
+    WRFLAG_MODEL     = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_MODEL     ) ;
+    WRFLAG_BLINDTEST = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_BLINDTEST ) ;
+    WRFLAG_CIDRAN    = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_CIDRAN    ) ;
+    WRFLAG_FITS      = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_FITS      ) ;
+    WRFLAG_FILTERS   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_FILTERS   ) ;
+    WRFLAG_COMPACT   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_COMPACT   ) ;
+    WRFLAG_DCR       = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_DCR       ) ;
   }
   if ( WRFLAG_BLINDTEST ) { INPUTS.WRITE_MASK  = WRITE_MASK_LCMERGE ; }
   if ( WRFLAG_COMPACT   ) { INPUTS.WRITE_MASK += WRITE_MASK_COMPACT ; }
+  if ( WRFLAG_DCR       ) { INPUTS.WRITE_MASK += WRITE_MASK_DCR; }
   if ( INPUTS.MAGMONITOR_SNR) { 
     SNDATA.MAGMONITOR_SNR = INPUTS.MAGMONITOR_SNR ;
     sprintf(SNDATA.VARNAME_SNRMON, "SIM_SNRMAG%2.2d", SNDATA.MAGMONITOR_SNR);
@@ -6434,6 +6437,7 @@ void prep_user_input(void) {
 
   if ( INPUTS.WRFLAG_MODELPAR ) 
     { INPUTS.WRITE_MASK += WRITE_MASK_SIM_MODELPAR; }
+
 
   // abort if no valid format is given
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM  && 
@@ -6445,11 +6449,11 @@ void prep_user_input(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    if ( !WRFLAG_TEXT  && !WRFLAG_FITS  ) {
+    if ( !WRFLAG_TEXT  && !WRFLAG_FITS ) {
       sprintf(c1err,"Invalid FORMAT_MASK=%d. Check manual. ", 
 	      INPUTS.FORMAT_MASK) ;
       sprintf(c2err,"Must specify TEXT (%d)  or FITS (%d)", 
-	      WRMASK_TEXT, WRMASK_FITS );
+	      FORMAT_MASK_TEXT, FORMAT_MASK_FITS );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   }
@@ -8513,8 +8517,14 @@ void  init_GENLC(void) {
     GENLC.SNR_CALC[epoch]    = 0.0 ;
     GENLC.SNR_MON[epoch]     = 0.0 ;
 
+    GENLC.RA_OBS[epoch]  = 999999.0 ;
+    GENLC.DEC_OBS[epoch] = 999999.0 ;
+    GENLC.AIRMASS[epoch] = NULLFLOAT ;
+
   } // end of epoch loop
   
+  GENLC.RA_AVG = GENLC.DEC_AVG = 999999.9 ;
+  GENLC.RA_SUM = GENLC.DEC_SUM = GENLC.RA_WGTSUM = GENLC.DEC_WGTSUM = 0.0 ;
 
   for ( i=0; i < MXZRAN; i++ )
     {  GENLC.REDSHIFT_RAN[i] = -9. ; }
@@ -14345,7 +14355,7 @@ double gen_peakmjd_smear(void) {
   double PEAKMJD_SMEAR = GENLC.PEAKMJD; // default
   double smear;
   int    o=-9, obs_atFLUXMAX[MXFILTINDX];
-  //  char fnam[] = "gen_peakmjd_smear" ;
+  char fnam[] = "gen_peakmjd_smear" ;
 
   // ----------------- BEGIN -----------------
 
@@ -16807,6 +16817,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // -> check for random RA,DEC shift
       // -> apply header cuts on ID, redshift, etc...
       if ( NOBS_FOUND_ALL == 1 ) { 
+
+	slaEqgal(SIMLIB_HEADER.RA, SIMLIB_HEADER.DEC,  // <== inputs
+		 &GENLC.GLON, &GENLC.GLAT ); // retur GLON, GLAT
+
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
 	if ( USEFLAG_LIBID != ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
@@ -16883,6 +16897,7 @@ void SIMLIB_randomize_skyCoords(void) {
   return ;
 
 } // end SIMLIB_randomize_skyCoords
+
 
 
 // ==============================================
@@ -16964,6 +16979,7 @@ int keep_SIMLIB_HEADER(void) {
   SIMLIB_HEADER.NFOUND_DEC++ ;    
 
 
+  
   // Check optional CUTWIN_REDSHIFT so that each LIBID
   // can have its own z-range (originally for WFIRST study)
   // Note that this is a cut, not a range to generate.
@@ -19116,10 +19132,12 @@ void set_SIMLIB_NREPEAT(void) {
 
   if ( INDEX_GENMODEL != MODEL_LCLIB   ) { return ; }
 
+  /* xxx mark delete May 16 2023 xxxxx
   RA  = SIMLIB_HEADER.RA ;
   DEC = SIMLIB_HEADER.DEC ;
   slaEqgal (RA, DEC,                    // input
 	    &GENLC.GLON, &GENLC.GLAT ); // output
+  xxxxx end mark xxxxxx */
 
   if ( INPUTS.SIMLIB_DUMP >= 0 ) 
     { SIMLIB_HEADER.NREPEAT = 1; return ; }
@@ -21775,7 +21793,6 @@ int npe_above_saturation ( int epoch, double flux_pe) {
 // **************************************
 void snlc_to_SNDATA(int FLAG) {
 
-
   // load SNDATA struct using info from GENLC structure.
   // FLAG = 0 => load everything.
   // FLAG = 1 => load header info only (for fits format)
@@ -21947,6 +21964,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.WRFLAG_BLINDTEST = (WRFLAG_BLINDTEST>0) ;
   SNDATA.WRFLAG_PHOTPROB  = INPUTS_SEARCHEFF.NMAP_PHOTPROB > 0 ;
   SNDATA.WRFLAG_SKYSIG_T  = SIMLIB_TEMPLATE.USEFLAG;
+  SNDATA.WRFLAG_DCR       = (WRFLAG_DCR>0);
 
   if ( GENLC.NEPOCH >= MXEPOCH ) {
     print_preAbort_banner(fnam);
@@ -21960,8 +21978,8 @@ void snlc_to_SNDATA(int FLAG) {
   }
 
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
-  SNDATA.RA            = GENLC.RA ;
-  SNDATA.DEC           = GENLC.DEC ;
+  SNDATA.RA            = GENLC.RA_AVG ;
+  SNDATA.DEC           = GENLC.DEC_AVG ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
   SNDATA.SIM_TYPE_INDEX  = GENLC.SIMTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME );
@@ -22100,12 +22118,7 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.HOSTGAL_NMATCH[1] = 1 ; 
     SNDATA.HOSTGAL_OBJID[0]   = SNHOSTGAL.GALID ; 
   }
-  // xxx mark delete Jul 30 2022 SNDATA.HOSTGAL_OBJID[0] = SNHOSTGAL.GALID ;
-  
-  /* xxx mark delete of redundant call, July 8 2022 
-  // set HOSTLIB variables
-  hostgal_to_SNDATA(FLAG,0);
-  xxxxxxxxxx end mark xxxxxxx */
+
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];  
@@ -22125,7 +22138,7 @@ void snlc_to_SNDATA(int FLAG) {
 
     hostgal_to_SNDATA(FLAG,ifilt_obs);
 
-  } // end of ifilt if-block
+  } // end of ifilt loop
 
 
 
@@ -22157,7 +22170,6 @@ void snlc_to_SNDATA(int FLAG) {
 
   // load epoch info
 
-
   for ( epoch = 1; epoch <= GENLC.NEPOCH ; epoch++ ) {
 
     SNDATA.OBSFLAG_WRITE[epoch] = GENLC.OBSFLAG_WRITE[epoch] ;
@@ -22180,6 +22192,9 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[epoch] = GENLC.NOISE_HOSTGAL_PHOT[epoch];
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
+    SNDATA.RA_OBS[epoch]       = GENLC.RA_OBS[epoch];
+    SNDATA.DEC_OBS[epoch]      = GENLC.DEC_OBS[epoch];
+    SNDATA.AIRMASS[epoch]      = GENLC.AIRMASS[epoch];
 
     sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
@@ -22287,6 +22302,7 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SKY_SIG_T[epoch]  = 
       SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[epoch] * SKYSIG_T_scale ;
 
+    
   } // end epoch loop
 
 
@@ -22294,6 +22310,7 @@ void snlc_to_SNDATA(int FLAG) {
   // estimate PEAKMJD after all of the FLUXCAL[ERR] are  evaluated.
   GENLC.PEAKMJD_SMEAR   = gen_peakmjd_smear(); 
   SNDATA.SEARCH_PEAKMJD = GENLC.PEAKMJD_SMEAR;
+
 
   return ;
 
@@ -22721,7 +22738,7 @@ void genmag_boost(void) {
       printf(" xxx %s: epoch=%d ifilt_rest=%d,%d,%d AV=%f RV=%f \n",
 	     fnam, epoch, ifilt_rest1, ifilt_rest2, ifilt_rest3, AV, RV);
       printf(" xxx %s: epoch=%d x= %f %f %f \n",
-	     fnam, epoch, x[1], x[2], x[3] );  //.xyz
+	     fnam, epoch, x[1], x[2], x[3] );  
     }
 
     GENLC.genmag_rest[epoch]  += x[1] ;    
@@ -22765,7 +22782,7 @@ void genmag_boost(void) {
 
     /*
     printf(" xxx %s  kcor = %f for ifilt_obs=%d \n", fnam, kcor, ifilt_obs);
-    debugexit(fnam);  //.xyz
+    debugexit(fnam); 
     */
 
     if ( isnan( AVwarp[2]) ) {
@@ -23933,7 +23950,7 @@ void GENFLUX_DRIVER(void) {
     if ( VBOSE_CALC ) 
       { dumpLine_fluxNoise("NEW", epoch, &GENLC.FLUXNOISE[epoch] );  }
 
-  }
+  } // end epoch loop
 
   // check for optional flux covariance in FLUXERRMODEL_FILE maps
   for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )
@@ -23945,6 +23962,12 @@ void GENFLUX_DRIVER(void) {
     if ( !GENLC.OBSFLAG_GEN[epoch]  )  { continue ; }
     gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
 
+    // May 16 2023: leverage epoch loop to also determine measured
+    // coordinates and airmass
+    gen_airmass(epoch);
+    genSmear_coords(epoch);
+
+    // set flags for saturation, undefined ...
     set_GENFLUX_FLAGS(epoch);
   }
 
@@ -23975,7 +23998,7 @@ void gen_fluxNoise_randoms(void) {
 
   double RAN1, RAN2;
   int ep, ifilt, ifilt_obs, ifield;
-  //  char fnam[] = "gen_fluxNoise_randoms" ;
+  char fnam[] = "gen_fluxNoise_randoms" ;
 
   // -------------- BEGIN --------------
 
@@ -24877,6 +24900,94 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
 
 } // end gen_fluxNoise_apply
+
+// ==========================================
+void gen_airmass(int epoch) {
+
+  // Created May 2023: 
+  // Compute airmass for this epoch
+  // 
+  double MJD      = GENLC.MJD[epoch];
+  double RA       = GENLC.RA ;  // true RA
+  double DEC      = GENLC.DEC ; // true DEC
+  double GLAT     = GENLC.GLAT;
+  double GLON     = GENLC.GLON ;
+  int    IDSURVEY = GENLC.IDSURVEY;
+  double geoLAT, geoLONG; // location of instrument on Earth
+  double airmass  = 1.11 ;
+  char fnam[] = "gen_airmass" ;
+
+  // ------------ BEGIN ------------
+
+  GENLC.AIRMASS[epoch] = -9.0 ;
+
+  get_geoSURVEY(IDSURVEY, &geoLAT, &geoLONG);
+
+  // if geo coords are not available, return
+  if ( geoLAT > 1000.0 || geoLONG > 1000.0 ) { return; }    
+
+  // .xyz compute airmass ...
+
+  GENLC.AIRMASS[epoch] = airmass;
+
+  return;
+} // end gen_airmass
+
+
+// ==================================
+void genSmear_coords(epoch) {
+
+  // Created May 2023: 
+  // determined measured RA,DEC for this epoch
+  // Start with silly model for testing ...
+
+  double SNR_REF          = 100.0;
+  double ANGRES_REF_mASEC = 0.010; // 10 milli-asec res for SNR_REF
+  double ANGRES_REF_DEG   = ANGRES_REF_mASEC/3600.0;
+  double cosDEC  = GENLC.cosDEC;
+  double trueSNR = GENLC.trueSNR[epoch] ;
+  if ( trueSNR < 0.01 ) { trueSNR = 0.01; }
+
+  double ANGRES, ran_RA, ran_DEC, WGT ;
+  char fnam[] = "genSmear_coords" ;
+
+  bool NEW_RADEC = ( (INPUTS.FORMAT_MASK & FORMAT_MASK_DCR ) > 0 );
+  bool OLD_RADEC = !NEW_RADEC ;
+  // ----------- BEGIN ---------
+
+  if ( OLD_RADEC ) {
+    // retore legacy RA,DEC(measured) = RA,DEC(true)
+    GENLC.RA_AVG      = GENLC.RA ;
+    GENLC.DEC_AVG     = GENLC.DEC ;
+    return ;
+  }
+
+  ran_RA  = getRan_Gauss(1);
+  ran_DEC = getRan_Gauss(1);
+
+  ANGRES = ANGRES_REF_DEG * sqrt(SNR_REF/trueSNR);
+
+  GENLC.RA_OBS[epoch]  = GENLC.RA  + (ANGRES * ran_RA)/cosDEC;
+  GENLC.DEC_OBS[epoch] = GENLC.DEC + (ANGRES * ran_DEC) ;
+
+  // ?? what about uncertainty ???
+
+  // update wgted-avg among all epochs
+  WGT = (ANGRES_REF_DEG*ANGRES_REF_DEG) / (ANGRES*ANGRES);
+  GENLC.RA_SUM     += WGT * GENLC.RA_OBS[epoch] ;
+  GENLC.DEC_SUM    += WGT * GENLC.DEC_OBS[epoch] ;
+  GENLC.RA_WGTSUM  += WGT ;
+  GENLC.DEC_WGTSUM += WGT ;
+
+  GENLC.RA_AVG      = GENLC.RA_SUM  / GENLC.RA_WGTSUM ;
+  GENLC.DEC_AVG     = GENLC.DEC_SUM / GENLC.DEC_WGTSUM ;
+
+  //  printf(" xxx %s: DEC_AVG -> %f for CID=%d \n",
+  //	 fnam, GENLC.DEC_AVG, GENLC.CID);
+
+  return;
+
+} // end genSmear_coords
 
 
 // ********************************************
@@ -27121,20 +27232,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 
-
-    /* xxxxxxxxx mark delete May 11 2023 xxxxxxxxx
-    if ( SPECTROGRAPH_USEFLAG ) {
-      int OPTMASK = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK;
-      int REFAC  = (OPTMASK & SPECTROGRAPH_OPTMASK_FITS_REFAC); // default
-      int LEGACY = (OPTMASK & SPECTROGRAPH_OPTMASK_FITS_LEGACY);
-
-      if ( LEGACY ) 
-	{ INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA_LEGACY ; } 
-      else
-	{ INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
-    } 
-    xxxxxxxx end mark xxxxxxxx */
-
     if ( SPECTROGRAPH_USEFLAG ) { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
 
     // abort of any text-option is defined along with fits format
@@ -27167,10 +27264,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 // ***********************************
 void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
-  // May 28, 2009: control output from here
-  // May 24, 2011: call snfitsio_update()
-  // Jan 23, 2014: remove call to append_SNDATA_MODEL();
-  //
   // May 27, 2019: 
   //  + call wr_SIMGEN_DUMP after snlc_to_SNDATA to allow for
   //    things like PEAKMJD_SMEAR
@@ -27216,12 +27309,12 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     return ;
   }
 
-  WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
+  if ( WRFLAG_TEXT ) {
+    WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
 
-  // below are the text-output options
-
-  // update LIST file
-  fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
+    // update LIST file
+    fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
+  }
 
   return ;
 

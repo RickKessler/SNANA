@@ -48,6 +48,7 @@ void WR_SNTEXTIO_DATAFILE(char *OUTFILE) {
   // Createed Feb 2021
   // Driver function to write single data file for single event.
   //
+  // May 2023: add WRITE_MASK as input arg.
 
   FILE *fp ;
   char fnam[] = "WR_SNTEXTIO_DATAFILE" ;
@@ -756,15 +757,18 @@ void wr_dataformat_text_PRIVATE(FILE *fp) {
 void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   // Created Feb 2021
-  // write photometry rows
+  //   write photometry rows
+  //
   // Oct 2021: add IMGNUM
   // Jan 23 2022: write MAG[ERR] for real data
+  // May 16 2023: check WRFLAG_DCR to write RA,DEC,AIRMASS per obs
 
   char OBSKEY[] = "OBS:" ;
   bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
   bool WRFLAG_BLINDTEST  = SNDATA.WRFLAG_BLINDTEST ;
   bool WRFLAG_PHOTPROB   = SNDATA.WRFLAG_PHOTPROB ;
   bool WRFLAG_PHOTFLAG   = true;
+  bool WRFLAG_DCR        = SNDATA.WRFLAG_DCR ;
   bool WRFLAG_SKYSIG_T   = SNDATA.WRFLAG_SKYSIG_T ; // template sky sig
   bool WRFLAG_SIM_MAGOBS = ( SNDATA.FAKE > 0 && !SNDATA.WRFLAG_BLINDTEST );
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
@@ -781,7 +785,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool FOUND_METADATA ;
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
-  char VARLIST[200], cvar[40], cval[40], LINE_EPOCH[200] ;
+  char VARLIST[200], cvar[60], cval[60], LINE_EPOCH[200] ;
   char fnam[] = "wr_dataformat_text_SNPHOT" ;
 
   // ------------ BEGIN -----------
@@ -828,6 +832,9 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     
     NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
     if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
+
+    if ( WRFLAG_DCR )
+      { NVAR += 3 ; strcat(VARLIST,"dRA dDEC AIRMASS ");  }
     
     if ( WRFLAG_SIM_MAGOBS )
       { NVAR++ ;  strcat(VARLIST,"SIM_MAGOBS "); }
@@ -919,6 +926,14 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       if ( WRFLAG_SKYSIG_T ) {
 	sprintf(cval, "%.3le ",  SNDATA.SKY_SIG_T[ep] ); 
 	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+      }
+
+      if ( WRFLAG_DCR ) {
+	double dRA     = (SNDATA.RA_OBS[ep]  - SNDATA.RA )*3600.0;
+	double dDEC    = (SNDATA.DEC_OBS[ep] - SNDATA.DEC)*3600.0;
+	double airmass = SNDATA.AIRMASS[ep];
+	sprintf(cval,"%6.3f %6.3f %.2f ", dRA, dDEC, airmass );
+	NVAR_WRITE += 3  ;    strcat(LINE_EPOCH,cval);
       }
 
       if ( WRFLAG_SIM_MAGOBS ) {

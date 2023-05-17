@@ -138,11 +138,14 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   OVP = ( writeFlag & WRITE_MASK_SPECTRA );
   if ( OVP > 0 ) { SNFITSIO_SPECTRA_FLAG = true; }
 
+  /* xxxx mark delete May 16 2023 xxxxxxxx
   OVP = ( writeFlag & WRITE_MASK_SPECTRA_LEGACY );
   if ( OVP > 0 ) { 
     SNFITSIO_SPECTRA_FLAG        = true; 
     SNFITSIO_SPECTRA_FLAG_LEGACY = true;  // compact using LAMINDEX
   }
+  xxxxxxx end mark xxxxxx */
+
 
   // check sim options
   OVP = ( writeFlag & WRITE_MASK_SIM_SNANA) ;

@@ -3247,6 +3247,7 @@ void  get_geoSURVEY(int ID, double *LAT, double *LONG) {
     *LONG = SURVEY_INFO.geoLONG[ID];
   }
 
+
 } // end get_geoSURVEY
 
 // ============================================
@@ -8042,6 +8043,9 @@ int init_SNDATA_EVENT(void) {
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
 
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
+    SNDATA.AIRMASS[i_epoch]      = NULLFLOAT;
+    SNDATA.RA_OBS[i_epoch]       = 9999999.0 ;
+    SNDATA.DEC_OBS[i_epoch]      = 9999999.0 ;
 
     SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
     SNDATA.IMGNUM[i_epoch]   = NULLINT ; // Oct 13 2021 

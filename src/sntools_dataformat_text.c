@@ -31,7 +31,10 @@
 
  Sep 29 2022 RK - write extra digit of precision for FLUXCAL and FLUXCALERR
 
- Feb 03 2023: read/write SIM_THETA for BayeSN model                             
+ Feb 03 2023: read/write SIM_THETA for BayeSN model 
+ 
+ May 16 2023: check WRFLAG_DCR to write RA,DEC,AIRMASS per obs
+
 *************************************************/
 
 #include  "sntools.h"

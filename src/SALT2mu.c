@@ -681,6 +681,7 @@ typedef struct {
   double  *AVG_LCFIT[NLCPAR];   // idem for mB,x1,c, vs. J1D
 
   double   **ABSPULL; //used only for MUCOVSCALE MAD option
+  double   **PULL ;   // May 2023 : allow std(PULL) instead of 1.48 * MAD(ABSPULL)
   double   **MURES; //used only for MUCOVSCALE MAD option
   double   **MUCOV; //used only for MUCOVSCALE MAD option
 
@@ -5380,7 +5381,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   float f_MEMORY = 0.0;
   int NCELL;
 
-  int NBINa,NBINb,NBINg,NBINm,NBINz,NBINc;
+  int NBINa,NBINb,NBINg,NBINm,NBINz,NBINc ;
   double cmin,cmax,cbin,c_lo,c_hi,c_avg;
   double mmin,mmax,mbin,m_lo,m_hi,m_avg;
   int ic,im,i1d;
@@ -5471,8 +5472,11 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   if (DO_MAD) {
     if (DO_COVSCALE || DO_COVADD) {
 	CELLINFO->ABSPULL =  (double **) malloc(sizeof(double*)*NCELL);
-	for (i1d=0; i1d<NCELL; i1d++){
-	  CELLINFO->ABSPULL[i1d] = (double *) malloc(sizeof(double)*NPERCELL_REALLOC);
+	CELLINFO->PULL    =  (double **) malloc(sizeof(double*)*NCELL);
+	int MEMD_REALLOC = sizeof(double)*NPERCELL_REALLOC ;
+	for (i1d=0; i1d<NCELL; i1d++) { 
+	  CELLINFO->ABSPULL[i1d] = (double *) malloc(MEMD_REALLOC);
+	  CELLINFO->PULL[i1d]    = (double *) malloc(MEMD_REALLOC);
 	}
     }
     if (DO_COVADD) {
@@ -5484,7 +5488,6 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
       }
     }
   }
-
 
 
   return f_MEMORY;
@@ -10656,6 +10659,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       int  newmem = (NperCell+1+NPERCELL_REALLOC) * sizeof(double);
       bool DO_REALLOC = (NperCell+1)%NPERCELL_REALLOC == 0 && NperCell > 0;
       CELL_MUCOVSCALE->ABSPULL[i1d][NperCell] = fabs(pull);
+      CELL_MUCOVSCALE->PULL[i1d][NperCell]    = pull ;
       if ( DO_COVADD ) {
 	CELL_MUCOVADD->MURES[i1d][NperCell] = muDif;
 	CELL_MUCOVADD->MUCOV[i1d][NperCell] = muErrsq;
@@ -10663,6 +10667,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       if ( DO_REALLOC ){
 	CELL_MUCOVSCALE->ABSPULL[i1d] = 
 	  (double *)realloc(CELL_MUCOVSCALE->ABSPULL[i1d], newmem);
+	CELL_MUCOVSCALE->PULL[i1d] = 
+	  (double *)realloc(CELL_MUCOVSCALE->PULL[i1d], newmem);
+
 	if (DO_COVADD) {
 	  CELL_MUCOVADD->MURES[i1d] = 
 	    (double *)realloc(CELL_MUCOVADD->MURES[i1d], newmem);
@@ -10730,9 +10737,17 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     SIG_PULL_STD[i1d] = sqrt(SQSTD);
 
     if ( DO_MAD ) {
-      // beware that MAD is meaningfill only for |PULL|; ignore AVG and STD
+      // beware that MAD is meaningfill only for |PULL|; ignore AVG and STD .xyz
       arrayStat( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
       SIG_PULL_MAD[i1d]   = 1.48 * MAD;
+
+      // RSK May 17 2023: try STD(pull) instead of 1.48*MAD
+      if ( INPUTS.debug_flag == 517 ) 	{ 
+	//arrayStat( N, CELL_MUCOVSCALE->PULL[i1d], &AVG, &STD, &MAD);
+	//SIG_PULL_MAD[i1d] = STD;
+	SIG_PULL_MAD[i1d] *= 0.8 ;
+      }
+
       ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_MAD[i1d]*SIG_PULL_MAD[i1d]) ;
     } 
     else {
@@ -10890,8 +10905,12 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   free(SUM_PULL);    free(SUM_SQPULL);
  
   if ( DO_MAD ) {
-    for (i1d=0; i1d<NCELL; i1d++) { free(CELL_MUCOVSCALE->ABSPULL[i1d]); }
+    for (i1d=0; i1d<NCELL; i1d++) { 
+      free(CELL_MUCOVSCALE->ABSPULL[i1d]); 
+      free(CELL_MUCOVSCALE->PULL[i1d]); 
+    }
     free(CELL_MUCOVSCALE->ABSPULL);
+    free(CELL_MUCOVSCALE->PULL);
   }
   return;
 
@@ -21325,9 +21344,10 @@ void print_SALT2mu_HELP(void) {
     "cmin=-0.3      # lower limit on color",
     "cmax=0.3       # upper limit on color",
     "",
-    "logmass_min=-20   # min cut on logmass",
-    "logmass_max=20    # max cut on logmass",
-    "nbin_logmass=1    # number of logmass bins for BBC7D",
+    "logmass_min=-20      # min cut on logmass",
+    "logmass_max=20       # max cut on logmass",
+    "nbin_logmass=1       # number of logmass bins for BBC7D",
+    "nbinc_mucovscale=3   # number of color bins for mucovscale ", 
     "",
     "sntype_select=120          # select type=120",
     "sntype_select=120,105,106  # select types 120,105,106",

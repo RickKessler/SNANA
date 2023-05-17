@@ -5246,11 +5246,6 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   int imed0, imed1, iHalf       = N/2;
   sortDouble(N, array, ORDER_SORT, INDEX_SORT );
 
-  // xxx mark delete 9.30 2021: imedian = INDEX_SORT[iHalf];
-  // xxx median  = array[imedian];
-
-  // xxx  printf(" xxx N=%d ihalf=%d \n", N, iHalf);
-
   if ( N%2 == 1 ) { 
     // odd number of elements -> use middle value
     imed0   = INDEX_SORT[iHalf];

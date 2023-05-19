@@ -1300,6 +1300,8 @@ void set_user_defaults(void) {
   set_user_defaults_SPECTROGRAPH();
   set_user_defaults_RANSYSTPAR();
 
+  INPUTS.ATMOSPHERE_OPTMASK = 0 ;
+
   return ;
 
 }  // end of set_user_defaults
@@ -1636,7 +1638,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
 
   else if ( keyMatchSim(1, "FLUXERRMODEL_REDCOV", WORDS[0],keySource) ) {
@@ -1654,8 +1657,16 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
+
+  else if ( keyMatchSim(1, "ATMOSPHERE_OPTMASK", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.ATMOSPHERE_OPTMASK );
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+			    &README_KEYS_FLUXERRMODEL,fnam) ;
+  }
+
   else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
   }
@@ -23962,10 +23973,11 @@ void GENFLUX_DRIVER(void) {
     gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
 
     // May 16 2023: leverage epoch loop to also determine measured
-    // coordinates and airmass
-    gen_airmass(epoch);
-    genSmear_coords(epoch);
-
+    // coordinates and airmass 
+    if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) {
+      gen_airmass(epoch);
+      genSmear_coords(epoch);
+    }
     // set flags for saturation, undefined ...
     set_GENFLUX_FLAGS(epoch);
   }
@@ -24906,36 +24918,70 @@ void gen_airmass(int epoch) {
   // Created May 2023: 
   // Compute airmass for this epoch
   // 
-  double MJD      = GENLC.MJD[epoch];
-  int    iMJD     = (int)MJD;     // MJD of previous midnight
-  double JD       = MJD + 2400000.5 ;
-  double JD0      = (double)iMJD + 2400000.5 ;
-  double D_UT     = JD0 - JD2000 ;
 
+  double MJD      = GENLC.MJD[epoch];
   double RA       = GENLC.RA ;  // true RA
   double DEC      = GENLC.DEC ; // true DEC
   int    IDSURVEY = GENLC.IDSURVEY;
 
-  double geoLAT, geoLONG;
+  double geoLAT, geoLON;
+  get_geoSURVEY(IDSURVEY, &geoLAT, &geoLON);
+
+  double RAD = RADIAN ;
   double airmass  = 1.11 ;
-  double sin_alt, ang_zenith_rad, ang_zenith_deg, h, COS_h ;
+  double sin_alt, ang_zenith_rad, ang_zenith_deg, h_hr, h_deg, COS_h ;
+
+  // test example from ESO calculator:
+  // https://www.eso.org/observing/etc/bin/gen/form?INS.MODE=swspectr+INS.NAME=SKYCALC
+  bool DO_TEST = true;
+  double test_geoLAT  = -29.257 ;    // La Silla
+  double test_geoLON  = -70.738 ;
+  double test_MJD    = 59583.2409 ; // from LSST minion simlib
+  double test_RA     = 149.;
+  double test_DEC    = 2.2 ;
+
   char fnam[] = "gen_airmass" ;
 
   // ------------ BEGIN ------------
 
   GENLC.AIRMASS[epoch] = -9.0 ;
 
-  get_geoSURVEY(IDSURVEY, &geoLAT, &geoLONG);
+
+  if ( DO_TEST ) {
+    double GLAT, GLON;
+    MJD       = test_MJD ;
+    geoLAT    = test_geoLAT ;
+    geoLON    = test_geoLON ;
+    RA  = GENLC.RA  = test_RA;
+    DEC = GENLC.DEC = test_DEC ;
+    slaEqgal(RA, DEC, &GLON, &GLAT ); // return GLON, GLAT in degrees
+    GENLC.SIN_GLON = sin(GLON*RAD);
+    GENLC.COS_GLON = cos(GLON*RAD);
+
+    SURVEY_INFO.sin_geoLAT[IDSURVEY] = sin(geoLAT*RAD) ;
+    SURVEY_INFO.cos_geoLAT[IDSURVEY] = cos(geoLAT*RAD) ;
+
+    printf("\n xxx %s: prep comparison with ESO calculator: \n", fnam);
+    printf("\t xxx geo(LAT,LON) = %f , %f \n", geoLAT, geoLON);
+    printf("\t xxx RA, DEC = %f , %f \n", RA, DEC);
+    printf("\t xxx MJD = %f \n", MJD);
+    fflush(stdout);
+  }
 
   // if geo coords are not available, return
-  if ( geoLAT > 1000.0 || geoLONG > 1000.0 ) { return; }    
+  if ( geoLAT > 1000.0 || geoLON > 1000.0 ) { return; }    
 
-  // compute h = hourAngle - Local Siderial Time (LST) - RA
-  h = 0.0 ;
+  int    iMJD     = (int)MJD;     // MJD of previous midnight
+  double JD       = MJD + 2400000.5 ;
+  double JD0      = (double)iMJD + 2400000.5 ;
+  double D_UT     = JD0 - JD2000 ;
+
+  // compute h = hourAngle = Local Siderial Time (LST) - RA
   double GMST_deg = fmod(18.697375 + 24.065709824279*D_UT, 24.0) * 360.0/24.0;
-  double LST      = (geoLAT - GMST_deg);
-  h     = LST - GENLC.RA ;
-  COS_h = cos(h) ;
+  double LST_deg  = (geoLAT - GMST_deg);
+  h_deg           = LST_deg - GENLC.RA ;
+  h_hr            = h_deg * 24.0/360.0 ;
+  COS_h           = cos(h_deg*RAD) ;
 
   // .xyz compute airmass ...
   double SIN_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
@@ -24948,11 +24994,30 @@ void gen_airmass(int epoch) {
     (COS_geoLAT * COS_DEC * COS_h);
 
   ang_zenith_rad = 0.25*TWOPI - asin(sin_alt) ; // zenight angle, radians
-  ang_zenith_deg = ang_zenith_rad / RADIAN ;
+  ang_zenith_deg = ang_zenith_rad / RAD ;
 
   airmass = 1.0/cos(ang_zenith_rad) ;
 
   GENLC.AIRMASS[epoch] = airmass;
+
+  if ( DO_TEST ) {
+
+    printf("\n xxx quantities computed by sim function %s: \n", fnam);
+    printf("\t xxx GMST, LST = %f , %f deg \n", GMST_deg, LST_deg);
+    printf("\t xxx hour angle h = %f deg = %f hr\n", h_deg, h_hr);
+    printf("\t xxx ang_zenith = %f deg / %f rad  (RADIAN=%f)\n", 
+	   ang_zenith_deg, ang_zenith_rad, RAD );
+    printf("\t xxx airmass = %f \n", airmass);
+
+    printf("\n xxx ESO calculator results:\n");
+    printf("\t xxx Hour Angle HA = 22:03:14\n");
+    printf("\t xxx Target az =  46°.66  alt =  47°.93 \n");
+    printf("\t xxx Zenith distance =  42°.07 \n");
+    printf("\t xxx Airmass =  1.347 \n");
+
+    fflush(stdout);
+    debugexit(fnam);
+  }
 
   return;
 } // end gen_airmass

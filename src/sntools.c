@@ -3076,7 +3076,7 @@ void read_SURVEYDEF(void) {
   for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
     sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
     SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
-    SURVEY_INFO.geoLONG[idTmp] = 99999.0 ;
+    SURVEY_INFO.geoLON[idTmp]  = 99999.0 ;
     SURVEY_INFO.sin_geoLAT[idTmp] = NULLFLOAT;
     SURVEY_INFO.cos_geoLAT[idTmp] = NULLFLOAT;
   }
@@ -3156,18 +3156,18 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
   splitString(str_coords, COMMA, fnam, 2,  // inputs 
 	      &NWD, ptr_wdlist );    // outputs
 
-  double LAT, LONG;
+  double LAT, LON;
   sscanf(ptr_wdlist[0], "%le", &LAT );
-  sscanf(ptr_wdlist[1], "%le", &LONG );
+  sscanf(ptr_wdlist[1], "%le", &LON );
 
   SURVEY_INFO.geoLAT[ID] = LAT ;
-  SURVEY_INFO.geoLONG[ID]= LONG ;
+  SURVEY_INFO.geoLON[ID] = LON ;
   SURVEY_INFO.sin_geoLAT[ID] = sin(LAT*RADIAN) ;
   SURVEY_INFO.cos_geoLAT[ID] = cos(LAT*RADIAN) ;
 
   if ( LDMP ) {
-    printf(" xxx %s: SURVEY=%s ID=%d LAT=%f LONG=%f \n",
-	   fnam, SURVEY_INFO.SURVEYDEF_LIST[ID], ID, LAT, LONG);
+    printf(" xxx %s: SURVEY=%s ID=%d LAT=%f LON=%f \n",
+	   fnam, SURVEY_INFO.SURVEYDEF_LIST[ID], ID, LAT, LON);
     fflush(stdout);
   }
 
@@ -3205,7 +3205,7 @@ void read_SURVEYDEF_legacy(void) {
   for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
     sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
     SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
-    SURVEY_INFO.geoLONG[idTmp] = 99999.0 ;
+    SURVEY_INFO.geoLON[idTmp]  = 99999.0 ;
   }
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
@@ -3241,14 +3241,14 @@ int get_IDSURVEY(char *SURVEY) {
   return(-9);
 } // end get_IDSURVEY 
 
-void  get_geoSURVEY(int ID, double *LAT, double *LONG) {
+void  get_geoSURVEY(int ID, double *LAT, double *LON) {
 
   char fnam[] = "get_geoSURVEY";
 
-  *LAT = *LONG = 999999.9 ;
+  *LAT = *LON = 999999.9 ;
   if ( ID >= 0 ) {
     *LAT  = SURVEY_INFO.geoLAT[ID];
-    *LONG = SURVEY_INFO.geoLONG[ID];
+    *LON  = SURVEY_INFO.geoLON[ID];
   }
 
 

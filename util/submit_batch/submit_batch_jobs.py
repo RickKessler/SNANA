@@ -18,13 +18,14 @@
 # Sep 30 2022: begin new create_covmat class (stat+syst covar matrix) 
 # Oct 18 2022: rename wfit class to cosmifit (more general name)
 # Feb 27 2023: undo hack that allowed missing f90nml for makeDataFiles
+# May 19 2023: remove obsolete translate class
 #
 # - - - - - - - - - -
 
 #import os
 import sys, yaml, argparse, subprocess, logging
 import submit_util      as util
-import submit_translate as tr
+
 
 from   submit_params      import *
 from   submit_prog_sim    import Simulation
@@ -54,7 +55,7 @@ def get_args():
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
                         choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT",
                                    "TRAIN_SALT2", "TRAIN_SALT3",
-                                   "TRANSLATE", "MERGE", "AIZ" ])
+                                   "MERGE", "AIZ" ])
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
@@ -104,11 +105,6 @@ def get_args():
 
     msg = "check for abort using interactive job for 300 events"
     parser.add_argument("--check_abort", help=msg, action="store_true")
-
-    msg = "+=1 -> new input file has REFAC_ prefix; " + \
-          "+=2 -> old input file has LEGACY_ prefix ; " + \
-          "+=4 -> continue submit with new file. "
-    parser.add_argument('--opt_translate' , help=msg, type=int, default=1 )
 
     msg = "abort on missing DOCANA keys in maps & libraries"
     parser.add_argument("--require_docana", help=msg, action="store_true")
@@ -242,7 +238,6 @@ def set_merge_flag(config):
 def check_input_file_name(args):
 
     input_file    = args.input_file
-    opt_translate = args.opt_translate
 
     # abort if path is included in the input file name.
     if '/' in input_file :
@@ -252,113 +247,8 @@ def check_input_file_name(args):
         msgerr.append(f"Must submit in same dir as input_file.")
         util.log_assert(False,msgerr)
 
-    # check to translate legacy input
-    args.input_file = check_legacy_input_file(input_file, opt_translate)
 
     #end check_input_file_name
-
-def check_legacy_input_file(input_file, opt_translate):
-
-    # if there is no 'CONFIG:' key, this is a legacy input file ;
-    # translate using file-name convention based on user input
-    # --opt_translate. See opt_translate details with
-    #   submit_batch_jobs.sh -H TRANSLATE
-    #
-    # Function returns name of input file ... original of already
-    # in correct YAML format, or translated.
-
-    exit_always = (opt_translate & 8 ) > 0 # exit for legacy or refac file
-
-    msgerr = []
-    with open(input_file,"r") as f:
-        flat_word_list=[word for line in f for word in line.split()]
-        #f_read = f.read()
-
-    if 'CONFIG:' in flat_word_list :
-        # check for obsolete keys that are not translated
-        for item in flat_word_list :
-            key = item.rstrip(':')
-            if key in OBSOLETE_CONFIG_KEYS :
-                comment = OBSOLETE_CONFIG_KEYS[key]
-                msgerr.append(f" Obsolete key '{key}' no longer valid.")
-                msgerr.append(f" Comment: {comment}")
-                util.log_assert(False,msgerr)
-
-        if exit_always :
-            sys.exit("\n Input file already translated; exit anyway.")
-
-        return input_file    # file ok, do nothing.
-
-    # - - - -  -
-
-    #if opt_translate is None:  opt_translate = 1
-
-    # prepare options
-    rename_refac_file    = (opt_translate & 1 ) > 0
-    rename_legacy_file   = (opt_translate & 2 ) > 0
-    exit_after_translate = (opt_translate & 4 ) == 0 # default is to exit
-
-    if '/' in input_file:
-        msgerr.append(f"Will not translate input file in another directory.")
-        msgerr.append(f"Recommend")
-        msgerr.append(f"  cd {os.path.dirname(input_file)}")
-        msgerr.append(f"  {os.path.basename(sys.argv[0])} " \
-                      f"{os.path.basename(input_file)}")
-        util.log_assert(False,msgerr)
-
-    if rename_refac_file :
-        legacy_input_file = input_file
-        refac_input_file  = (f"REFAC_{input_file}")
-    elif rename_legacy_file :
-        if input_file[0:7] == 'LEGACY_' :  # don't add another LEGACY prefix
-            legacy_input_file = input_file
-            refac_input_file  = input_file[7:]
-        else :
-            legacy_input_file = (f"LEGACY_{input_file}")
-            refac_input_file  = input_file
-            cmd_mv = (f"mv {input_file} {legacy_input_file}")
-            print(f" Save {input_file} as {legacy_input_file}")
-            os.system(cmd_mv)
-    else :
-        msgerr.append(f" Must invalid opt_transate = {opt_translate} ")
-        msgerr.append(f" Must have either ")
-        msgerr.append(f"     opt_translate & 1 (rename refac file) or ")
-        msgerr.append(f"     opt_translate & 2 (rename legacy file) ")
-        util.log_assert(False,msgerr)
-
-    msg_translate = (f"\n TRANSLATE LEGACY INPUT file for ")
-    print(f" opt_translate = {opt_translate}")
-
-    IS_SIM = False;   IS_FIT = False;  IS_BBC = False
-
-    if  'GENVERSION:' in flat_word_list :  IS_SIM = True
-    if  'VERSION:'    in flat_word_list :  IS_FIT = True
-    if  '&SNLCINP'    in flat_word_list :  IS_FIT = True
-    if  'u1='    in str(flat_word_list) :  IS_BBC = True
-
-    if  IS_SIM :
-        logging.info(f"{msg_translate} sim_SNmix.pl :")
-        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
-
-    elif IS_FIT :
-        logging.info(f"{msg_translate} split_and_fit.pl :")
-        tr.FIT_legacy_to_refac( legacy_input_file, refac_input_file )
-
-    elif IS_BBC :
-        logging.info(f"{msg_translate} SALT2mu_fit.pl: ")
-        tr.BBC_legacy_to_refac( legacy_input_file, refac_input_file )
-    #    program = BBC(config_yaml)
-    else:
-        msgerr = ['Unrecognized legacy input file:', input_file ]
-        util.log_assert(False,msgerr)
-
-    if exit_after_translate :
-        sys.exit("\n Exit after input file translation.")
-
-
-    return refac_input_file
-
-    # end check_legacy_input_file
 
 def print_submit_messages(config_yaml):
 
@@ -465,7 +355,7 @@ if __name__ == "__main__":
         purge_old_submit_output()
         sys.exit(' Done with purge: exiting Main.')
 
-    # check input file: does it have a path? Does it need to be translated?
+    # check input file: does it have a path?
     check_input_file_name(args)
 
     # Here we know there's a CONFIG block, so read the YAML input

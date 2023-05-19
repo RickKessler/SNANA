@@ -314,6 +314,9 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
+#define ATMOSPHERE_OPTMASK_DCR 1
+#define ATMOSPHERE_OPTMASK_PSF 1
+
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra
   int    OPTMASK;    // sim-input key SPECTROGRAPH_OPTMASK: <MASK>
@@ -547,6 +550,8 @@ struct INPUTS {
   char FLUXERRMAP_IGNORE_DATAERR[100]; // list of MAPNAMES to ignore in data error
   int  FLUXERRMODEL_OPTMASK ;
   char FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
+
+  int ATMOSPHERE_OPTMASK; // for DCR, PSF(SN-star) diff, etc ...
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.

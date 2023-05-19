@@ -17359,6 +17359,11 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   GENLC.DEC        = SIMLIB_HEADER.DEC ;
   GENLC.cosDEC     = cos(RAD*GENLC.DEC);
 
+  // default "measured" RA,DEC = exact RA,DEC ...
+  // See genSmear_coords() to add noise for atmoshpere effects.
+  GENLC.RA_AVG  = GENLC.RA ;
+  GENLC.DEC_AVG = GENLC.DEC ;
+
   if ( INPUTS.OPT_MWEBV == OPT_MWEBV_FILE ) 
     { GENLC.MWEBV = SIMLIB_HEADER.MWEBV ; }
 
@@ -25024,7 +25029,7 @@ void gen_airmass(int epoch) {
 
 
 // ==================================
-void genSmear_coords(epoch) {
+void genSmear_coords(int epoch) {
 
   // Created May 2023: 
   // determined measured RA,DEC for this epoch
@@ -25040,16 +25045,7 @@ void genSmear_coords(epoch) {
   double ANGRES, ran_RA, ran_DEC, WGT ;
   char fnam[] = "genSmear_coords" ;
 
-  bool NEW_RADEC = ( (INPUTS.FORMAT_MASK & FORMAT_MASK_DCR ) > 0 );
-  bool OLD_RADEC = !NEW_RADEC ;
   // ----------- BEGIN ---------
-
-  if ( OLD_RADEC ) {
-    // retore legacy RA,DEC(measured) = RA,DEC(true)
-    GENLC.RA_AVG      = GENLC.RA ;
-    GENLC.DEC_AVG     = GENLC.DEC ;
-    return ;
-  }
 
   ran_RA  = getRan_Gauss(1);
   ran_DEC = getRan_Gauss(1);

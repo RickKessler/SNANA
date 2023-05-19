@@ -967,7 +967,9 @@ struct GENLC {
   double random_shift_RA, random_shift_DEC;     // random coord shift
   double random_shift_RADIUS, random_shift_PHI;
 
-  double GLON, GLAT;        // for LCLIB-galactic models
+  double GLON, GLAT;        // for LCLIB-galactic models, airmass calc, ...
+  double SIN_GLAT, COS_GLAT;
+  double SIN_GLON, COS_GLON;
   double REDSHIFT_HELIO ;   // true Helio redshift of SN
   double REDSHIFT_CMB   ;   // true CMB   redshift of SN
   double REDSHIFT_HOST  ;   // true Helio redshift of host
@@ -1860,6 +1862,7 @@ void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
 void   compute_mjd_explode(void);
+void   compute_galactic_coords(void);
 
 void   prep_simpath(void);
 int    get_NON1A_MODELFLAG(char *GENVERSION) ;

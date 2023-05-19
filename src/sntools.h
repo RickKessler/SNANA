@@ -99,7 +99,7 @@
 #define PLANCK    6.6260755e-27     // Planck constant (erg s)
 #define hc        LIGHT_A * PLANCK
 #define PC_km     3.085678e13       // parsec (km)
-// #define TWOPI     6.28318530718
+
 #define TWOPI     2.0*3.141592653589793238462643383279
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
@@ -125,6 +125,8 @@
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian
 #define TEN        (double)10.0
 #define LNTEN      (double)2.30259  // ln(10)
+
+#define JD2000 2451545.0 // JD at Jan 1, noon, 2000
 
 #define REJECT_FLAG    -1
 #define ACCEPT_FLAG    +1

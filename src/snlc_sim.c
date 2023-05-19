@@ -16818,8 +16818,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // -> apply header cuts on ID, redshift, etc...
       if ( NOBS_FOUND_ALL == 1 ) { 
 
-	slaEqgal(SIMLIB_HEADER.RA, SIMLIB_HEADER.DEC,  // <== inputs
-		 &GENLC.GLON, &GENLC.GLAT ); // retur GLON, GLAT
+	compute_galactic_coords(); 
 
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
@@ -24908,13 +24907,18 @@ void gen_airmass(int epoch) {
   // Compute airmass for this epoch
   // 
   double MJD      = GENLC.MJD[epoch];
+  int    iMJD     = (int)MJD;     // MJD of previous midnight
+  double JD       = MJD + 2400000.5 ;
+  double JD0      = (double)iMJD + 2400000.5 ;
+  double D_UT     = JD0 - JD2000 ;
+
   double RA       = GENLC.RA ;  // true RA
   double DEC      = GENLC.DEC ; // true DEC
-  double GLAT     = GENLC.GLAT;
-  double GLON     = GENLC.GLON ;
   int    IDSURVEY = GENLC.IDSURVEY;
   double geoLAT, geoLONG; // location of instrument on Earth
+
   double airmass  = 1.11 ;
+  double sin_alt, ang_zenith_rad, ang_zenith_deg, h, COS_h ;
   char fnam[] = "gen_airmass" ;
 
   // ------------ BEGIN ------------
@@ -24926,7 +24930,28 @@ void gen_airmass(int epoch) {
   // if geo coords are not available, return
   if ( geoLAT > 1000.0 || geoLONG > 1000.0 ) { return; }    
 
+  // compute h = hourAngle - Local Siderial Time (LST) - RA
+  h = 0.0 ;
+  double GMST_deg = fmod(18.697375 + 24.065709824279*D_UT, 24.0) * 360.0/24.0;
+  double geoLAT   = SURVEY_INFO.geoLAT[IDSURVEY]  ;
+  double LST      = (geoLAT - GMST_deg);
+  h     = LST - GENLC.RA ;
+  COS_h = cos(h) ;
+
   // .xyz compute airmass ...
+  double SIN_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
+  double COS_geoLAT = SURVEY_INFO.cos_geoLAT[IDSURVEY];
+  double SIN_DEC    = GENLC.SIN_GLON ;
+  double COS_DEC    = GENLC.COS_GLON ;
+
+  sin_alt = 
+    (SIN_geoLAT * SIN_DEC) + 
+    (COS_geoLAT * COS_DEC * COS_h);
+
+  ang_zenith_rad = 0.25*TWOPI - asin(sin_alt) ; // zenight angle, radians
+  ang_zenith_deg = ang_zenith_rad / RADIAN ;
+
+  airmass = 1.0/cos(ang_zenith_rad) ;
 
   GENLC.AIRMASS[epoch] = airmass;
 
@@ -25465,6 +25490,38 @@ void compute_lightCurveWidths(void) {
   return ;
 
 } // end compute_lightCurveWidths
+
+
+// ****************************************
+void compute_galactic_coords(void) {
+
+  // Created May 2023
+  // using RA & DEC, compute and store galactic coords along with
+  // their sin & cosine.
+
+  double GLON, GLAT;
+  char fnam[] = "fnam" ;
+
+  // ---------- BEGIN -----------
+
+  slaEqgal(SIMLIB_HEADER.RA, SIMLIB_HEADER.DEC,  // <== inputs
+	   &GLON, &GLAT ); // return GLON, GLAT in degrees
+
+  GENLC.GLON = GLON ;
+  GENLC.GLAT = GLAT ;
+
+  GLON *= RADIAN ;
+  GLAT *= RADIAN ;
+
+  GENLC.SIN_GLON = sin(GLON);
+  GENLC.COS_GLON = cos(GLON);
+
+  GENLC.SIN_GLAT = sin(GLAT);
+  GENLC.COS_GLAT = cos(GLAT);
+
+  return ;
+
+} // end compute_galactic_coords
 
 
 // *********************************************

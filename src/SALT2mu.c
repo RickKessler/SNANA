@@ -10737,17 +10737,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     SIG_PULL_STD[i1d] = sqrt(SQSTD);
 
     if ( DO_MAD ) {
-      // beware that MAD is meaningfill only for |PULL|; ignore AVG and STD .xyz
+      // beware that MAD is meaningfull only for |PULL|; ignore AVG and STD 
       arrayStat( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
       SIG_PULL_MAD[i1d]   = 1.48 * MAD;
-
-      // RSK May 17 2023: try STD(pull) instead of 1.48*MAD
-      if ( INPUTS.debug_flag == 517 ) 	{ 
-	//arrayStat( N, CELL_MUCOVSCALE->PULL[i1d], &AVG, &STD, &MAD);
-	//SIG_PULL_MAD[i1d] = STD;
-	SIG_PULL_MAD[i1d] *= 0.8 ;
-      }
-
       ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_MAD[i1d]*SIG_PULL_MAD[i1d]) ;
     } 
     else {
@@ -10781,7 +10773,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
     }
   }  // end i1d loop
-  
+ 
  
   // -------------------------
   // print errBias info in z bins

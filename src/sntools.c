@@ -3077,6 +3077,8 @@ void read_SURVEYDEF(void) {
     sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
     SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
     SURVEY_INFO.geoLONG[idTmp] = 99999.0 ;
+    SURVEY_INFO.sin_geoLAT[idTmp] = NULLFLOAT;
+    SURVEY_INFO.cos_geoLAT[idTmp] = NULLFLOAT;
   }
 
 
@@ -3160,6 +3162,8 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
 
   SURVEY_INFO.geoLAT[ID] = LAT ;
   SURVEY_INFO.geoLONG[ID]= LONG ;
+  SURVEY_INFO.sin_geoLAT[ID] = sin(LAT*RADIAN) ;
+  SURVEY_INFO.cos_geoLAT[ID] = cos(LAT*RADIAN) ;
 
   if ( LDMP ) {
     printf(" xxx %s: SURVEY=%s ID=%d LAT=%f LONG=%f \n",

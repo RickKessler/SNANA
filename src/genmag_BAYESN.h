@@ -1,7 +1,7 @@
 #include "gsl/gsl_linalg.h"
 
 // define pre-processor command to use python interface
-#define USE_BAYESNxxx        
+#define USE_BAYESN         
 
 int init_genmag_BAYESN(char *MODEL_VERSION, int optmask);
 int init_genmag_bayesn__( char *version, int *optmask);
@@ -30,6 +30,8 @@ gsl_matrix *invKD_irr(int Nk, double *xk);
 gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);
 
 char BAYESN_MODELPATH[MXPATHLEN];
+int VERBOSE_BAYESN;
+#define OPTMASK_BAYESN_VERBOSE 128
 
 struct {
    int    n_lam_knots;

@@ -1011,7 +1011,8 @@ struct GENLC {
   double  STRETCH;
   double  DELTA;        // for MLCS2k2 model
   double  DM15;         // for DM15 model
-  double  THETA;        // for BAYESN
+  double  DELTAM;       // for BAYESN - offset parameter
+  double  THETA;        // for BAYESN - shape parameter
   double  SHAPEPAR ;
   double *ptr_SHAPEPAR ;
 

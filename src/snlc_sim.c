@@ -24915,8 +24915,8 @@ void gen_airmass(int epoch) {
   double RA       = GENLC.RA ;  // true RA
   double DEC      = GENLC.DEC ; // true DEC
   int    IDSURVEY = GENLC.IDSURVEY;
-  double geoLAT, geoLONG; // location of instrument on Earth
 
+  double geoLAT, geoLONG;
   double airmass  = 1.11 ;
   double sin_alt, ang_zenith_rad, ang_zenith_deg, h, COS_h ;
   char fnam[] = "gen_airmass" ;
@@ -24933,7 +24933,6 @@ void gen_airmass(int epoch) {
   // compute h = hourAngle - Local Siderial Time (LST) - RA
   h = 0.0 ;
   double GMST_deg = fmod(18.697375 + 24.065709824279*D_UT, 24.0) * 360.0/24.0;
-  double geoLAT   = SURVEY_INFO.geoLAT[IDSURVEY]  ;
   double LST      = (geoLAT - GMST_deg);
   h     = LST - GENLC.RA ;
   COS_h = cos(h) ;

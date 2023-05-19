@@ -6,24 +6,55 @@ The model needs time series provided by SNANA. The black hole mass, eddington ra
 The model will return flux at provided wavelength at each time moment.
 For debug purpose, you can run this model as python script without SNANA. See main() function for details.
 
+SNANA Inputs:
+cl_prob: probability that changing look behavior will happen within 1 year. Currently, changing look behavior happens
+        at most once in one AGN event.
+
 SNANA Outputs:
 Mi: characteristic i-band absolute magnitude K-corrected to z=2
 M_BH: Black hole mass in unit of solar mass
 edd_ratio: Eddington ratio
+edd_ratio2: Eddington ratio after t_transition for CLAGN. If it's regular AGN, edd_ratio2 is the same as edd_ratio.
+t_transition: rest frame time of changling look transition. We output this in both regular AGN and CLAGN cases.
+            But no transition takes place in regular AGN.
+            In oberver's frame, trasition date is PEAKMJD + t_transition * (1 + z)
 
 To get these outputs, you can simply add the following to .INPUT file:
-SIMGEN_DUMP:  14
+SIMGEN_DUMP:  17
 CID GENTYPE  SNTYPE  NON1A_INDEX  GENZ
 LIBID RA DECL MWEBV MU PEAKMJD
-M_BH Mi edd_ratio
+M_BH Mi edd_ratio edd_ratio2 t_transition cl_flag
 
+Input parameters are given by AGN.INFO, located at path given by "GENMODEL AGN PATH". Example of AGN.INFO file:
+CONFIG:
+  cl_prob: 1e-2
+You can overwrite parameters from AGN.INFO in input file using ARGLIST statement. 
+
+References:
+Mi derivation for AGN:
+    Shen et al., 2013
+    https://adsabs.harvard.edu/full/2013BASI...41...61S
+Standard Disk Model:
+    Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
+    DOI https://doi.org/10.1007/978-3-319-93009-1_1
+Time scale (tau) and SF_inf parameters:
+    Suberlak et al. 2021
+    DOI 10.3847/1538-4357/abc698
+Eddington ratio distribution:
+        https://github.com/burke86/imbh_forecast/blob/master/var.ipynb
+        https://ui.adsabs.harvard.edu/abs/2019ApJ...883..139S/abstract
+        parameters from this paper:
+        https://iopscience.iop.org/article/10.3847/1538-4357/aa803b/pdf
 """
-
+from pathlib import Path
 import numpy as np
 from astropy import constants, units
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline
+import re
 from gensed_base import gensed_base
+import yaml
+
 
 
 M_sun = constants.M_sun.cgs.value
@@ -33,11 +64,12 @@ G = constants.G.cgs.value
 sigma_sb = constants.sigma_sb.cgs.value
 h = constants.h.cgs.value
 k_B = constants.k_B.cgs.value
+year = units.year.to(units.day)
 
 
 def search_nearest(a, x):
     """Find index of element of `a` closest to x
-    
+
     Parameters
     ----------
     a : np.array
@@ -141,7 +173,7 @@ class AGN:
     Mi: float
         characteristic i-band absolute magnitude K-corrected to z=2
     M_BH: float
-        black hole mass
+        black hole mass, in unit of g
     lam: np.ndarray
         wavelength
     edd_ratio: float
@@ -170,7 +202,7 @@ class AGN:
     t: float
         current time moment for damped random walk model
     """
-    def __init__(self, t0: float, Mi: float, M_BH: float, lam: np.ndarray, edd_ratio: float, rng):
+    def __init__(self, t0: float, M_BH: float, lam: np.ndarray, edd_ratio: float, rng):
         self.lam = np.asarray(lam)
         self.t0 = t0
         self.rng = np.random.default_rng(rng)
@@ -179,8 +211,10 @@ class AGN:
         self.MBH_dot = self.find_MBH_dot(self.ME_dot, edd_ratio)
         self.Fnu_average = 2 * self.find_Fnu_average_standard_disk(self.MBH_dot, self.lam, M_BH) # quick fix to double the baseline Fnu
 
-        self.tau = self.find_tau_v(self.lam, Mi, M_BH)
-        self.sf_inf = self.find_sf_inf(self.lam, Mi, M_BH)
+        L_bol = self.find_L_bol(edd_ratio, M_BH)
+        self.Mi = self.find_Mi(L_bol)
+        self.tau = self.find_tau_v(self.lam, self.Mi, M_BH)
+        self.sf_inf = self.find_sf_inf(self.lam, self.Mi, M_BH)
 
         self.t = t0
         self.delta_m = self._random() * self.sf_inf
@@ -200,6 +234,24 @@ class AGN:
     def __call__(self, t):
         self.step(t)
         return self.Fnu
+
+    @staticmethod
+    def find_L_bol(edd_ratio, M_BH):
+        """
+        Input: M_BH in unit of g.
+        Return L_bol in erg/s
+        """
+        return edd_ratio * 1.26e38 * M_BH /M_sun
+
+    @staticmethod
+    def find_Mi(L_bol):
+        """
+        Input: L_bol in erg/s
+        Outbout: Mi
+        """
+        # from Shen et al., 2013
+        # https://adsabs.harvard.edu/full/2013BASI...41...61S
+        return 90 - 2.5 * np.log10(L_bol)
 
     @property
     def Fnu(self):
@@ -241,10 +293,10 @@ class AGN:
         r_in: the inner radius of the accretion disc
         output:
         T_0: Effective temperature at r0. Same as the maximum effective temperature at the disc surface (Tmax)
-
-        Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
-        DOI https://doi.org/10.1007/978-3-319-93009-1_1
         """
+        # Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
+        # DOI https://doi.org/10.1007/978-3-319-93009-1_1
+
         return (2 ** (3 / 4) * (3 / 7) ** (7 / 4) * (G * M * Mdot / (np.pi * sigma_sb * r_in ** 3)) ** (1 / 4))
 
     @staticmethod
@@ -254,10 +306,9 @@ class AGN:
 
         input: r_in: the inner radius of the accretion disc
         output: r0:  the initial radius of the ring
-
-        Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
-        DOI https://doi.org/10.1007/978-3-319-93009-1_1
         """
+        # Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
+        # DOI https://doi.org/10.1007/978-3-319-93009-1_1
 
         return ((7 / 6) ** 2 * r_in)
 
@@ -273,10 +324,9 @@ class AGN:
         r0: the initial radius of the ring
 
         return: variable of integration x
-
-        Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
-        DOI https://doi.org/10.1007/978-3-319-93009-1_1
         """
+        # Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
+        # DOI https://doi.org/10.1007/978-3-319-93009-1_1
         return (h * nu / (k_B * T0) * (r / r0) ** (3 / 4))
 
     def find_flux_standard_disk(self, Mdot, nu, rin, i, d, M):
@@ -292,10 +342,9 @@ class AGN:
         M: mass of the gravitating centre
         output:
         flux at given time step
-
-        Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
-        DOI https://doi.org/10.1007/978-3-319-93009-1_1
         """
+        # Lipunova, G., Malanchev, K., Shakura, N. (2018). Page 33 for the main equation
+        # DOI https://doi.org/10.1007/978-3-319-93009-1_1
         T0 = self.T_0(M, Mdot, rin)
         r0 = self.r_0(rin)
         fun_integr = lambda x: (x ** (5 / 3)) / (np.exp(x) - 1)
@@ -315,10 +364,9 @@ class AGN:
         Return timescale for DRW model.
         Input frequency v in Hz, i band magnitude (default is -23), Black hole mass in g (defalt is 10^9 solar mass).
         Return timescale in s.
-
-        Equation and parameters for A, B, C, D adopted from Suberlak et al. 2021
-        DOI 10.3847/1538-4357/abc698
         """
+        # Equation and parameters for A, B, C, D adopted from Suberlak et al. 2021
+        # DOI 10.3847/1538-4357/abc698
 
         A = 2.4
         B = 0.17
@@ -332,11 +380,9 @@ class AGN:
         """
         Return Structure Function at infinity in mag.
         Input frequency in Hz, i band magnitude (default is -23), Black hole mass in g (defalt is 10^9 solar mass).
-
-        Equation and parameters for A, B, C, D adopted from Suberlak et al. 2021
-        DOI 10.3847/1538-4357/abc698
         """
-
+        # Equation and parameters for A, B, C, D adopted from Suberlak et al. 2021
+        # DOI 10.3847/1538-4357/abc698
         A = -0.51
         B = -0.479
         C = 0.13
@@ -348,10 +394,19 @@ class AGN:
 
 class gensed_AGN(gensed_base):
     def __init__(self, PATH_VERSION, OPTMASK, ARGLIST, HOST_PARAM_NAMES):
-        self.agn = None
+        print('__init__', flush=True)
+        print(HOST_PARAM_NAMES)
+        print(PATH_VERSION)
+        self.agn1 = None
+        self.agn2 = None
         self.trest = None
+        self.t_transition = None
         self.sed = None
         self.sed_Fnu = None
+
+        self.parse_param(arglist=ARGLIST, path_version = PATH_VERSION)
+        self.cl_prob_event = None
+        self.cl_flag = False
 
         self.rng = np.random.default_rng(0)
 
@@ -359,6 +414,7 @@ class gensed_AGN(gensed_base):
         self.wave = np.logspace(np.log10(100e-8), np.log10(20000e-8), self.wavelen)
 
         self.edd_ratio = None
+        self.edd_ratio2 = None
 
         self.log_lambda_min = -8.5
         self.log_lambda_max = 0.5
@@ -372,22 +428,50 @@ class gensed_AGN(gensed_base):
         self.ERDF_spline = DistributionSampler(lambda_, xi_blue, rng=self.rng)
         print('gensed_AGN model initialized')
 
-    def _get_Flambda(self):
+    def parse_param(self, arglist, path_version):
+        path_version = Path(path_version)
+        if not path_version.exists():
+            raise ValueError(f'genmodel AGN path does not exist: {path_version}')
+        with open(path_version/'AGN.INFO') as file:
+            info = yaml.load(file, yaml.Loader)
+        config = info['CONFIG']
+
+        args = arglist.split()
+        if len(args) % 2 != 0:
+            raise ValueError(f'Invalid argument list, please provide key-value pairs instead: "ARGLIST:{arglist}"')
+        args = dict(zip(args[::2], args[1::2]))
+
+        config.update(args)
+
+        self.ranseed = int(config.pop('RANSEED', 0))
+        self.cl_prob = float(config.pop('cl_prob', 0.0))
+        if len(config) != 0:
+            raise ValueError(f'ARGLIST or {path_version/"AGN.INFO"} has unknown arguments: {" ".join(config)}')
+
+
+    def Fnu_to_Flamb(self, Fnu):
         """
         convert from Fnu [erg/s/cm^2/Hz] to Flamb[erg/s/cm^2/AA]
         """
-        return self.agn.Fnu * c / self.wave ** 2 * 1e-8
+        return Fnu * c / self.wave ** 2 * 1e-8
+
+    def Flamb_to_Fnu(self, Flamb):
+        """
+        convert from to Flamb[erg/s/cm^2/AA] to Fnu [erg/s/cm^2/Hz]
+        """
+        return Flamb * self.wave ** 2 * 1e8 / c
+
 
     @staticmethod
     def ERDF(lambda_Edd, galaxy_type='Blue', rng=None):
         """
         Eddington Ratio Distribution Function for blue galaxies (radiatively-efficient, less massive)
-        https://github.com/burke86/imbh_forecast/blob/master/var.ipynb
-
-        https://ui.adsabs.harvard.edu/abs/2019ApJ...883..139S/abstract
-        parameters from this paper:
-        https://iopscience.iop.org/article/10.3847/1538-4357/aa803b/pdf
         """
+        # https://github.com/burke86/imbh_forecast/blob/master/var.ipynb
+        #
+        # https://ui.adsabs.harvard.edu/abs/2019ApJ...883..139S/abstract
+        # parameters from this paper:
+        # https://iopscience.iop.org/article/10.3847/1538-4357/aa803b/pdf
         rng = np.random.default_rng(rng)
         # Lbr = 10**38.1 lambda_br M_BH_br
         # 10^41.67 = 10^38.1 * 10^x * 10^10.66
@@ -411,21 +495,6 @@ class gensed_AGN(gensed_base):
         logMBH_max = 9
         return 10 ** (rng.uniform(logMH_min, logMBH_max))
 
-    @staticmethod
-    def find_L_bol(edd_ratio, M_BH):
-        """
-        Input: M_BH in unit of M_sun.
-        Return L_bol in erg/s
-        """
-        return edd_ratio * 1.26e38 * M_BH
-
-    @staticmethod
-    def find_Mi(L_bol):
-        """
-        from Shen et al., 2013
-        https://adsabs.harvard.edu/full/2013BASI...41...61S
-        """
-        return 90 - 2.5 * np.log10(L_bol)
 
     def fetchSED_NLAM(self):
         """
@@ -435,46 +504,109 @@ class gensed_AGN(gensed_base):
         return self.wavelen
 
 
-
     def prepEvent(self, trest, external_id, hostparams):
         """
         generate the full event, saved to self.sed, and saved to self.trest
         """
-        self.trest = np.unique(trest)
-
         self.edd_ratio = self.ERDF_spline.inv_trans_sampling(sampling_size=1)
-
         self.M_BH = self.M_BH_sample(self.rng)  # M_BH in unit of M_sun
-        L_bol = self.find_L_bol(self.edd_ratio, self.M_BH)  # L_bol: in erg/s
-        self.Mi = self.find_Mi(L_bol)  # L_bol in erg/s
 
-        self.agn = AGN(t0=self.trest[0], Mi=self.Mi, M_BH=self.M_BH * M_sun, lam=self.wave, edd_ratio=self.edd_ratio,
+        self.trest = np.unique(trest)
+        duration = self.trest[-1] - self.trest[0]
+        self.cl_prob_event = 1 - (1-self.cl_prob)**(duration/year)
+        # select CL transition time moment. We use base AGN model for trest[0] to t_transition, and we use model
+        # with higher eddington ratio for t_transition to trest[-1]
+        self.t_transition = self.rng.uniform(trest[0], trest[-1])
+        trans_idx = np.searchsorted(self.trest, self.t_transition)
+        trest1 = trest[:trans_idx]
+        trest2 = trest[trans_idx:]
+
+        self.agn1 = AGN(t0=trest1[0], M_BH=self.M_BH * M_sun, lam=self.wave, edd_ratio=self.edd_ratio,
                        rng=self.rng)
-        
-        # SED for the first time moment
-        sed = [self._get_Flambda()]
-        for t in self.trest[1:]:
-            self.agn.step(t)
-            sed.append(self._get_Flambda())
-        self.sed = np.stack(sed)
+        self.Mi = self.agn1.Mi
+        if self.rng.random() < self.cl_prob_event:
+            self.edd_ratio2 = self.rng.uniform(5, 30) * self.edd_ratio
+            self.cl_flag = True
+            # print('CLAGN')
+        else:
+            self.edd_ratio2 = self.edd_ratio
+            self.cl_flag = False
+            # print('regular AGN')
+
+        self.agn2 = AGN(t0=self.t_transition, M_BH=self.M_BH * M_sun, lam=self.wave,
+                        edd_ratio=self.edd_ratio2, rng=self.rng)
+
+        # print(self.agn2.tau[0]/self.agn1.tau[0])
+        # print(self.agn2.sf_inf[0] / self.agn1.sf_inf[0])
+
+        # initial SED is randomly sampled.
+        sed_lam = [self.Fnu_to_Flamb(self.agn1.Fnu)]
+        # Do DRW stepping for AGN1
+        for t in trest1[1:]:
+            self.agn1.step(t)
+            sed_lam.append(self.Fnu_to_Flamb(self.agn1.Fnu))
+        # Do one more stepping for AGN1 for smooth transition to AGN2. We do not append this to F_lam intentionally.
+        self.agn1.step(self.t_transition)
+        # In AGN2 constructor, we initialize delta_m randomly.
+        # Here instead, we set it to produce the same Fnu as the last step of AGN1
+        self.agn2.delta_m = self.agn1.delta_m + 2.5 * np.log10(self.agn2.Fnu_average / self.agn1.Fnu_average)
+        # Do DRW stepping for ANG2
+        for t in trest2:
+            self.agn2.step(t)
+            sed_lam.append(self.Fnu_to_Flamb(self.agn2.Fnu))
+        self.sed = np.stack(sed_lam)
 
     def test_AGN_flux(self, trest):
         """
         for debug purpose. Only used in main() function.
         """
-        self.trest = trest
-        self.agn = AGN(t0=self.trest[0], Mi=self.Mi, M_BH=self.M_BH * M_sun, lam=self.wave, edd_ratio=self.edd_ratio,
-                       rng=self.rng)
+        self.trest = np.unique(trest)
+        duration = self.trest[-1] - self.trest[0]
+        self.cl_prob_event = 1 - (1-self.cl_prob)**(duration/year)
+        # select CL transition time moment. We use base AGN model for trest[0] to t_transition, and we use model
+        # with higher eddington ratio for t_transition to trest[-1]
+        self.t_transition = self.rng.uniform(trest[0], trest[-1])
+        trans_idx = np.searchsorted(self.trest, self.t_transition)
+        trest1 = trest[:trans_idx]
+        trest2 = trest[trans_idx:]
+        print(self.t_transition)
+        print(trest[trans_idx])
 
-        # SED for the first time moment
-        sed_lam = [self._get_Flambda()]
-        sed_nu = [self.agn.Fnu]
-        for t in self.trest[1:]:
-            self.agn.step(t)
-            sed_lam.append(self._get_Flambda())
-            sed_nu.append(self.agn.Fnu)
+        self.agn1 = AGN(t0=trest1[0], M_BH=self.M_BH * M_sun, lam=self.wave, edd_ratio=self.edd_ratio,
+                       rng=self.rng)
+        self.Mi = self.agn1.Mi
+        if self.rng.random() < self.cl_prob_event:
+            self.edd_ratio2 = self.rng.uniform(5, 30) * self.edd_ratio
+            self.cl_flag = True
+            print('CLAGN')
+        else:
+            self.edd_ratio2 = self.edd_ratio
+            self.cl_flag = False
+            print('regular AGN')
+
+        self.agn2 = AGN(t0=self.t_transition, M_BH=self.M_BH * M_sun, lam=self.wave,
+                        edd_ratio=self.edd_ratio2, rng=self.rng)
+
+        print(self.agn2.tau[0]/self.agn1.tau[0])
+        print(self.agn2.sf_inf[0] / self.agn1.sf_inf[0])
+
+        # initial SED is randomly sampled.
+        sed_lam = [self.Fnu_to_Flamb(self.agn1.Fnu)]
+        # Do DRW stepping for AGN1
+        for t in trest1[1:]:
+            self.agn1.step(t)
+            sed_lam.append(self.Fnu_to_Flamb(self.agn1.Fnu))
+        # Do one more stepping for AGN1 for smooth transition to AGN2. We do not append this to F_lam intentionally.
+        self.agn1.step(self.t_transition)
+        # In AGN2 constructor, we initialize delta_m randomly.
+        # Here instead, we set it to produce the same Fnu as the last step of AGN1
+        self.agn2.delta_m = self.agn1.delta_m + 2.5 * np.log10(self.agn2.Fnu_average / self.agn1.Fnu_average)
+        # Do DRW stepping for ANG2
+        for t in trest2:
+            self.agn2.step(t)
+            print(self.agn2.delta_m[61])
+            sed_lam.append(self.Fnu_to_Flamb(self.agn2.Fnu))
         self.sed = np.stack(sed_lam)
-        self.sed_Fnu = np.stack(sed_nu)
 
 
     def fetchSED_LAM(self):
@@ -495,7 +627,7 @@ class gensed_AGN(gensed_base):
         return self.sed[idx]
 
     def fetchParNames(self):
-        return ['M_BH', 'Mi', 'edd_ratio']
+        return ['M_BH', 'Mi', 'edd_ratio', 'edd_ratio2', 't_transition', 'cl_flag']
 
     def fetchParVals(self, varname):
         return getattr(self, varname)
@@ -509,7 +641,7 @@ def main():
     import astropy
     from astropy.cosmology import Planck18
 
-    mySED = gensed_AGN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
+    mySED = gensed_AGN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,'RANSEED 12345 cl_prob 0.99','z,AGE,ZCMB,METALLICITY')
     trest = np.arange(1, 1000, 0.1)
 
     # test set 1  for obj dbID=2534406
@@ -518,7 +650,7 @@ def main():
     mySED.M_BH = 10 ** (8.564795254)
     mySED.edd_ratio = L_bol/ (1.26e38 * mySED.M_BH)
     mySED.rng = np.random.default_rng(0)
-    mySED.Mi = mySED.find_Mi(L_bol)
+    # mySED.Mi = mySED.find_Mi(L_bol)
 
     ##test set 2 for obj dbID=8442
     ## z = 2.43
@@ -540,14 +672,15 @@ def main():
     ax1 = fig.add_subplot(111)
 
     flux_firstWave = []
-    sed_list = - 2.5 * np.log10(mySED.sed_Fnu) - 48.5
+    sed_list = - 2.5 * np.log10(mySED.Flamb_to_Fnu(mySED.sed)) - 48.5
     # sed_list = - 2.5 * np.log10(list(mySED.sed_Fnu.values())) - 48.5
     sed_list = sed_list + astropy.coordinates.Distance(z=0.805899978).distmod.value  # adjust z for test set 1 and 2
-    for i in range(len(mySED.sed_Fnu)):
-        flux_firstWave.append(sed_list[i][61])  #wave[61] closest to 4770/(1+ 0.805899978) armstrong(corrected SDSS g band)  dbID=2534406, comment out for test set 1
-        #flux_firstWave.append(sed_list[i][54])  #wave[54] closest to 6156/(1+2.43) armstrong(corrected ps1 r band), comment out for test set 2
-        #flux_firstWave.append(sed_list[i][82])  #wave[82] = 8000 armstrong(i-band), comment out for test set 3
 
+    flux_firstWave = sed_list[:, 61]  #wave[61] closest to 4770/(1+ 0.805899978) armstrong(corrected SDSS g band)  dbID=2534406, comment out for test set 1
+    #flux_firstWave.append(sed_list[:][54])  #wave[54] closest to 6156/(1+2.43) armstrong(corrected ps1 r band), comment out for test set 2
+    #flux_firstWave.append(sed_list[:][82])  #wave[82] = 8000 armstrong(i-band), comment out for test set 3
+    ax1.vlines(mySED.t_transition*(1+0.805899978), 19, 21)
+    print(mySED.agn1.tau[61])
 
     ax1.plot(trest*(1+0.805899978), flux_firstWave, 'g-')
     ax1.invert_yaxis()

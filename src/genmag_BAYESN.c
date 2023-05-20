@@ -233,7 +233,6 @@ void read_BAYESN_inputs(char *filename)
           if (datatype !=0 )
           {
               this_scalar = atof(event.data.scalar.value);
-              //printf("Got scalar (value %f) %d %d\n", this_scalar, row, col); 
     
               // if we read a scalar we're done with one read
               if (datatype == 1)
@@ -353,12 +352,19 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     // -------------- BEGIN --------------
 
     // extrac OPTMASK options
+    VERBOSE_BAYESN = optmask & OPTMASK_BAYESN_VERBOSE;
+    if (VERBOSE_BAYESN)
+    {
+        printf("DEBUG: VERBOSE_BAYESN flag is set\n");
+        printf("DEBUG: %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
+    }
+
+
     // GN - there is one of these further below but unsure yet how RK wants us to use these
 
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
     // HACK HACK HACK
     char version[60];
-    printf("XXXX %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
     extract_MODELNAME(MODEL_VERSION, BAYESN_MODELPATH, version);
     char yaml_file[MXPATHLEN];
     sprintf(yaml_file, "%s/BAYESN.YAML", BAYESN_MODELPATH);
@@ -393,9 +399,13 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     SEDMODEL.LAMMAX_ALL = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
     SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1200.0 ; // rest-frame central wavelength range
     SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1200.0 ;
-    printf("LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n", SEDMODEL.RESTLAMMIN_FILTERCEN
+
+    if (VERBOSE_BAYESN > 0)
+    {
+        printf("DEBUG: LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n", SEDMODEL.RESTLAMMIN_FILTERCEN
             , SEDMODEL.RESTLAMMAX_FILTERCEN);
-    printf("LIMITS OF SED WAVELENGTH: %.1f, %.1f\n", SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
+        printf("DEBUG: LIMITS OF SED WAVELENGTH: %.1f, %.1f\n", SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
+    }
 
     //compute the inverse KD matrices and J_lam (SHOULD THIS BE DONE HERE??)
     BAYESN_MODEL_INFO.KD_tau = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots,
@@ -455,14 +465,12 @@ void genmag_BAYESN(
 
     double mag;
     char fnam[] = "genmag_BAYESN";
-    //printf("HERE START %s\n", fnam);
 
     // ------- BEGIN -----------
     // translate absolute filter index into sparse index
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
 
-    printf("XXXX z = %.6f; theta = %.6f\n", z, THETA);
 
     // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
     double *Trest_list   = malloc(sizeof(double)*Nobs);
@@ -504,9 +512,6 @@ void genmag_BAYESN(
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
             Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
 
-    printf("XXX J_tau\n");
-    gsl_matrix_fprintf(stdout, J_tau, "%.2f");
-
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
     // also, this seems utterly unhinged as a way of computing this
     gsl_matrix_set_zero(W);
@@ -528,13 +533,11 @@ void genmag_BAYESN(
     double eA_lam_MW, eA_lam_host; //To store MW and host dust law evaluated at current wl
     double eW, S0_lam; //To store other SED  bits
     for (o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
-    //printf("Interpolating %s\n",cfilt);
     for(q=ilam_blue; q<ilam_red; q++)
       {
         this_lam[q-ilam_blue]   = lam_model[q]*z1;
         this_trans[q-ilam_blue] = interp_1DFUN(2, this_lam[q-ilam_blue], nlam_filter, 
 				       lam_filt, trans_filt, "DIE");
-        //printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
 
         // super weird computation
         // this finds a vector of length Nobs, giving the SED at the
@@ -550,13 +553,11 @@ void genmag_BAYESN(
 
         eA_lam_MW = 1.0; //MW extinction at this_lam[q-i]
         eA_lam_host = 1.0; //Host extinction at lam_model[q];
-        //printf("THETA = %.3f\n", THETA);
             
         int q_hsiao;
         for (o = 0; o < Nobs; o++) {
             float dummy = gsl_vector_get(jWJ, o);
             eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
-            printf("Trest %.3f, q %d, lam %.3f, jWJ %.3f, eW %.3e, dlam %.3f, lammin %.3f, lammax %.3f\n", Trest_list[o], q, this_lam[q-ilam_blue]/z1, dummy, eW, d_lam,lam_model[0], lam_model[nlam_model-1] );
             // Seek the first Hsiao timestep above the current obs time
             q_hsiao = 0;
             while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
@@ -566,11 +567,9 @@ void genmag_BAYESN(
             double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
             // HACK HACK HACK throw Trest at this instead or Tobs
             S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
-            //printf("Trest %.3f, lam %.3f, t0 %.3f, t1 %.3f, f0 %.3e, f1 %.3e, S0_lam %.3e\n", Trest_list[o], this_lam[q-ilam_blue], t0, t1, f0, f1, S0_lam);
             magobs_list[o] += this_trans[q-ilam_blue]*this_lam[q-ilam_blue]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
             if (o == 0) {
                 //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
-                //printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
             }
         }
     }
@@ -583,17 +582,13 @@ void genmag_BAYESN(
     gsl_matrix_free(W);
     gsl_matrix_free(WJ_tau);
     gsl_vector_free(jWJ);
-    //printf("XXXX %s %d %d what have we done??\n", fnam, i, j);
-    //printf("XXXX %s %.1f %.1f what have we done??\n", cfilt, lam_model[i], lam_model[j]);
 
     double zdum = 2.5*log10(1.0+z);
     for (o = 0; o < Nobs; o++) {
-      //printf("Tobs = %.3f; fobs = %.3f\n", Tobs_list[o], magobs_list[o]);
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG 
 	-2.5*log10(magobs_list[o]) + ZP;
 
       magerr_list[o] = 0.1;
-      //printf("Tobs = %.3f; Mobs = %.3f\n", Tobs_list[o], magobs_list[o]);
     }
 
     return;

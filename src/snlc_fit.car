@@ -1456,9 +1456,8 @@ c note that mB is computed from fitpars, and does not float in fit
          PARNAME_STORE(IPAR_SHAPE)  = 'THETA'
          ERRMAX_BAD(IPAR_SHAPE)     =  0.001
 
-         PARNAME_STORE(IPAR_DLMAG)         = 'DLMAG' 
-c We might have to review the above later - GN 
-         ERRMAX_BAD(IPAR_DLMAG)        = 0.0
+         PARNAME_STORE(IPAR_DLMAG)  = 'DLMAG' 
+         ERRMAX_BAD(IPAR_DLMAG)     = 0.0
 
          CALL SEDMODEL_INI(0,IERR)
 
@@ -1468,7 +1467,7 @@ c We might have to review the above later - GN
          LREST_FITMODEL = .FALSE.
          LSED_FITMODEL  = .TRUE.
 
-         PARNAME_STORE(IPAR_X0)         = 'MUDIF'
+         PARNAME_STORE(IPAR_X0)     = 'MUDIF'
          ERRMAX_BAD(IPAR_X0)        = 0.0
 
          CALL  SEDMODEL_INI(0,IERR)
@@ -5293,7 +5292,7 @@ c local args
      &  ,ifilt2_obs
      &  ,Nepoch
      &  ,VBOSE
-     &  ,LL, LPAR
+     &  ,LL, LPAR_SHAPE, LPAR_COLOR, LPAR_X0
      &  ,OPT, inear
      &  ,ISN, CID
      &  ,NFILT_FITMAP_REST
@@ -5303,7 +5302,7 @@ c local args
 
       INTEGER*8 MSKFILT8(2), MSKTMP8(2)
 
-      CHARACTER CPAR*20, CFILT*2, CTMP2*2, CCID*(MXCHAR_CCID)
+      CHARACTER CFILT*2, CTMP2*2, CCID*(MXCHAR_CCID)
       REAL*4 Z4, LAMDIF4(3)
 
 c KCORFUN8 args
@@ -5571,13 +5570,6 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
      &            , MAG_REST(ifilt_rest)       ! (O)
      &            , MAGERR_REST(ifilt_rest) )  ! (O)
 
-c xxxxxxxxxxxxxxxxx mark delete xxxxxxxxxxxx
-c             write(6,4444) ifilt_tmp, DELTA, Trest,
-c     &             ifilt_rest, MAG_REST(ifilt_rest)
-c4444         format(' xxx mlcs2k2: ifiltdef=',I2, 2x,'DELTA=',F5.2,
-c     &           2x,'Trest=',F6.2, 2x, 'm_rest(',I2,')=',F8.3 )
-c             call flush(6)
-c xxxxxxxxxxxx
           enddo
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
@@ -5951,15 +5943,6 @@ c => input argument for LANDOLOT_CONVERT below.
      &                  )
          endif
 
-c xxxxxxxx mark delete xxxxxxxxx
-c         print*,' xxx opt = ', opt
-c         print*,' xxx U(BESS) = ',
-c     &       MAG_BESSELL_OBS(IFILT_BESS_U:16)
-c         print*,' xxx U(LAND) = ',
-c     &       MAG_OBS_TMP(IFILT_BESS_U:16) 
-c         call flush(6); STOP
-c xxxxxxxxxxxxxx end mark xxxxxx
-
 c abort if Landolt correction makes more than 3 mag change.
 c Check only if SHAPE and COLOR have sane values,
 c and also require reasonable Trest.
@@ -6036,9 +6019,9 @@ c CHECK DUMP UTILITIES
         CID  = SNLC_CID
         MJD  = R8EP_MJD(IFITDATA_USRFUN) 
 
-        CPAR   = PARNAME_STORE(IPAR_SHAPE)
-        LPAR = index ( CPAR, ' ' ) - 1
-
+        LPAR_SHAPE = index(PARNAME_STORE(IPAR_SHAPE), ' ' ) - 1
+        LPAR_COLOR = index(PARNAME_STORE(IPAR_COLOR), ' ' ) - 1
+        LPAR_X0    = index(PARNAME_STORE(IPAR_X0), ' ' ) - 1
       ENDIF
 
       IF ( LDMP .and. LREST_FITMODEL ) THEN
@@ -6046,9 +6029,13 @@ c CHECK DUMP UTILITIES
 c write fit parameters
 
         print*,' - - -  - - - - - - - - - - - - - - - - - - - - -'
-        write(6,701) DIST, AVHOST, CPAR(1:LPAR), SHAPE(1), MJD, ZSN
+        write(6,701) 
+     &    PARNAME_STORE(IPAR_X0)(1:LPAR_X0), DIST, 
+     &    PARNAME_STORE(IPAR_COLOR)(1:LPAR_COLOR), AVHOST, 
+     &    PARNAME_STORE(IPAR_SHAPE)(1:LPAR_SHAPE), SHAPE(1), 
+     &    MJD, ZSN
 
-701     format(T2,'USRFUN: MU=',F7.3, 2x,'AV=',F7.4,2x,
+701     format(T2,'USRFUN: ',A,'=',F7.3, 2x,A,'=',F7.4,2x,
      &              A,'=',F7.4, 2x, 'MJD=',F9.3, 2x,'Z=',F7.5 )
 
         cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
@@ -6160,9 +6147,13 @@ c Now check dump for observer-frame model
 
         print*,' - - -  - - - - - - - - - - - - - - - - - - - - -'
 
-        write(6,751) DIST, AVHOST, CPAR(1:LPAR), SHAPE(1), MJD
+        write(6,751) 
+     &    PARNAME_STORE(IPAR_X0)(1:LPAR_X0), DIST, 
+     &    PARNAME_STORE(IPAR_COLOR)(1:LPAR_COLOR), AVHOST, 
+     &    PARNAME_STORE(IPAR_SHAPE)(1:LPAR_SHAPE), SHAPE(1), 
+     &    MJD
 
-751     format(T2,'USRFUN: x0=',G10.3, 2x,'c=',F6.3, 2x,
+751     format(T2,'USRFUN: ',A,'=',G10.3, 2x,A,'=',F6.3, 2x,
      &              A,'=',F6.3, 2x, 'MJD=',F9.3 )
 
         write(6,752) Tobs, Trest, Zsn
@@ -6195,12 +6186,8 @@ c Now check dump for observer-frame model
             write(6,812) cfilt(1:1), MAG_OBS, Trest, ITER
 812         format(T5,'MAG_OBS(', A, ')=', F9.4,' at Trest=',F7.2, 2x,
      &            'ITER=',I1)
-cc xxx           print*,'      MAG_OBS(',cfilt,') = ',MAG_OBS
-            print*,'      MAG_REST = ', MAG_REST(IFILT_OBS) 
-            print*,'      MAG_XTAV = ', MAG_XTAV_REST(ifilt_obs)
         ENDIF
  
-
         IF ( ABORT_ON_DMP ) THEN
           CALL MADABORT("USRFUN", c1err, c2err )   
         ENDIF
@@ -8352,6 +8339,24 @@ cc         INIBND(2,IPAR_COLOR) = +1.0
 
          INIBND(1,IPAR_SHAPE) = -5.0  ! x1
          INIBND(2,IPAR_SHAPE) = +5.0
+
+      ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
+         ! May 21 2023
+
+         INIVAL(IPAR_SHAPE)    =   0.1  ! THETA
+         INISTP(IPAR_SHAPE)    =   0.1
+
+         INIVAL(IPAR_COLOR)    =  INIVAL_AV
+         INISTP(IPAR_COLOR)    =  INISTP_AV
+
+c set bound on AV and DELTA
+
+         INIBND(1,IPAR_COLOR) = -3.0  ! AV
+         INIBND(2,IPAR_COLOR) =  5.0
+
+         INIBND(1,IPAR_SHAPE) = -0.1  ! THETA
+         INIBND(2,IPAR_SHAPE) = +0.4
+
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 

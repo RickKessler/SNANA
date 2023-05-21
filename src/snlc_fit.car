@@ -6103,7 +6103,7 @@ c write observer mag and flux
          write(6,706) filtdef_string(ifilt_obs:ifilt_obs),
      &                MAG_OBS, MAG_XTMW, FLUX
 706      format(T10,'m_obs(',A,')=',F8.4, 2x, 'm(XTMW)=',F7.4,  
-     &              2x, 'Flux=',G14.6 )
+     &              2x, 'Flux_obs=',G14.6 )
 
 c now write single line with CID keyword ;
 c grep "CID" > bla creates easy-to-read column-formatted file 
@@ -6161,7 +6161,7 @@ c Now check dump for observer-frame model
 
         cfilt = filtdef_string(ifilt_obs:ifilt_obs)
         write(6,754) cfilt, Flux, MAG_ERR
-754     format(T5,'Observer Flux(',A1,') = ', 
+754     format(T5,'model Flux_OBS(',A1,') = ', 
      &             G14.5, 3x,'MAG_ERR=', F8.5 )
 
         CALL FLUSH(6)
@@ -6176,7 +6176,7 @@ c Now check dump for observer-frame model
      &        (MAG_OBS_TMP(ifilt_tmp), 
      &          ifilt_tmp=IFILT_BESS_U, IFILT_BESS_BX)
 
-766        format(T5,'MAG_',A,'(UBVRIX)=', 6F9.4 )
+766        format(T5,'model MAG_',A,'(UBVRIX)=', 6F9.4 )
 
            print*, '      MAG_BESSELL(',cfilt,') = ',
      &     MAG_BESSELL_OBS(ifilt_obs),' -> ', MAG_OBS_TMP(ifilt_obs),
@@ -6184,8 +6184,8 @@ c Now check dump for observer-frame model
 
         ELSE
             write(6,812) cfilt(1:1), MAG_OBS, Trest, ITER
-812         format(T5,'MAG_OBS(', A, ')=', F9.4,' at Trest=',F7.2, 2x,
-     &            'ITER=',I1)
+812         format(T5,'model MAG_OBS(', A, ')=', F9.4,
+     &           ' at Trest=',F7.2, 2x, 'ITER=',I1)
         ENDIF
  
         IF ( ABORT_ON_DMP ) THEN

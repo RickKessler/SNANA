@@ -4,7 +4,7 @@
 # 
 # Jul 09 2021: 
 #   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
-#   to record extra surveys in SALT2.INFO file.      
+#   to record extra surveys in SALT3.INFO file.      
 #
 # Oct 6 2022; copy argument of loggingconfig to script_dir, 
 #             and also copy master input file
@@ -482,13 +482,14 @@ class train_SALT3(Program):
             f.write(f"  - {model_dir}\n")
         f.write("\n")
 
+
         for key in KEYS_SURVEY_LIST_SAME:
             if key in CONFIG :
                 f.write(f"{key}:  {CONFIG[key]} \n")
             else:
                 f.write(f"{key}:  [ ] \n")
 
-        # write keys for SALT2.INFO to be read by SNANA code 
+        # write keys for SALT3.INFO to be read by SNANA code 
         # each row is
         #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
         f.write(f"{KEY_SNANA_SALT3_INFO}: \n")
@@ -638,7 +639,7 @@ class train_SALT3(Program):
 
     def append_SALT3_INFO_FILE(self,trainopt,model_dir):
 
-        # append SALT2.INFO file with calib info;
+        # append SALT3.INFO file with calib info;
         # used by SNANA light curve fitting code to use same shift
         # as in the training.
 

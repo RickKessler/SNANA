@@ -19,7 +19,7 @@
 # Oct 18 2022: rename wfit class to cosmifit (more general name)
 # Feb 27 2023: undo hack that allowed missing f90nml for makeDataFiles
 # May 19 2023: remove obsolete translate class
-#
+# May 22 2023: add train_BAYESN class
 # - - - - - - - - - -
 
 #import os
@@ -44,6 +44,7 @@ from   submit_prog_covmat   import create_covmat
 from   submit_prog_cosmofit import cosmofit
 from   submit_train_SALT2   import train_SALT2
 from   submit_train_SALT3   import train_SALT3
+from   submit_train_BAYESN  import train_BAYESN
 from   submit_makeDataFiles import MakeDataFiles
 from   argparse import Namespace
 
@@ -54,7 +55,7 @@ def get_args():
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
                         choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT",
-                                   "TRAIN_SALT2", "TRAIN_SALT3",
+                                   "TRAIN_SALT2", "TRAIN_SALT3", "TRAIN_BAYESN",
                                    "MERGE", "AIZ" ])
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
@@ -201,6 +202,9 @@ def which_program_class(config):
     elif "SALT3_CONFIG_FILE" in CONFIG :
         program_class = train_SALT3  # saltshaker from D'Arcy & David
 
+    elif "BAYESN_CONFIG_FILE" in CONFIG :
+        program_class = train_BAYESN  # from Grayling, Thorp, Narayan, Mandel
+
     elif "MAKEDATAFILE_SOURCE" in CONFIG:
         program_class = MakeDataFiles
 
@@ -293,7 +297,6 @@ def print_nosubmit_messages(config_yaml):
     # end print_nosubmit_messages
 
 def purge_old_submit_output():
-
 
     # LC fitting
     util.find_and_remove(f"{SUBDIR_SCRIPTS_LCFIT}*")

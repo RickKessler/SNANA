@@ -610,6 +610,29 @@ HELP_CONFIG_COVMAT = f"""
 
 """
 
+HELP_TRAINOPT_GENERIC = f"""
+  # The nominal training with salt-input files is output as TRAINOPT000.
+  # For additional trainings with variations (e.g, calibration shifts,
+  # training options), use the TRAINOPT key as illustrated by the example
+  # below that produces TRAINOPT001 thru TRAINOPT007.  Remove TRAINOPT key
+  # to produce only TRAINOP000.
+  # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
+  # keys; <CR> are stripped so that contents can be distributed among
+  # multiple lines for human readability. The explicit MAGSHIFT and
+  # WAVESHIFT keys are intended for linear perturbations to measure
+  # derivatives for systematics; the SHIFTLIST_FILE feature is intended 
+  # for a random calibration offset in every band.
+
+  TRAINOPT: # survey  band shift
+  - MAGSHIFT  SDSS  g 0.01
+  - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
+  - WAVESHIFT CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
+  - SHIFTLIST_FILE  shifts_01.dat 
+  - SHIFTLIST_FILE  shifts_02.dat
+  - SHIFTLIST_FILE  shifts_03.dat"""
+
+
+
 HELP_CONFIG_TRAIN_SALT2 = f"""
     ***** HELP/MENU for TRAIN_SALT2 YAML Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
@@ -624,25 +647,7 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   # input Instrument and MagSys (aka SALTPATH)
   PATH_INPUT_CALIB: [path]
 
-  # The nominal training with salt-input files is output as TRAINOPT000.
-  # For additional trainings with variations (e.g, calibration shifts,
-  # training options), use the TRAINOPT key as illustrated by the example
-  # below that produces TRAINOPT001 thru TRAINOPT007.  Remove TRAINOPT key
-  # to produce only TRAINOP000.
-  # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
-  # keys; <CR> are stripped so that contents can be distributed among
-  # multiple lines for human readability. The explicit MAGSHIFT and
-  # WAVESHIFT keys are intended for linear perturbations to measure
-  # derivatives for systematics; the SHIFTLIST_FILE feature is intended
-  # for a random calibration offset in every band.
-
-  TRAINOPT: # survey  band shift
-  - MAGSHIFT  SDSS  g 0.01
-  - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
-  - WAVESHIFT CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
-  - SHIFTLIST_FILE  shifts_01.dat
-  - SHIFTLIST_FILE  shifts_02.dat
-  - SHIFTLIST_FILE  shifts_03.dat
+  {HELP_TRAINOPT_GENERIC}
   - PATH_INPUT_CALIB  $PATH/calib_different
 
   OUTDIR:   [outdir]   # all output goes here
@@ -658,7 +663,7 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
 
 HELP_CONFIG_TRAIN_SALT3 = f"""
     ***** HELP/MENU for TRAIN_SALT3 YAML Input *****
-  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  """  +  f"{HELP_CONFIG_GENERIC}" +  \
   f"""
   # Must specify name of training code (because it's outside SNANA)
   JOBNAME: [train_script_name]
@@ -673,26 +678,7 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
      e.g.,
   TRAINOPT_GLOBAL: --resume_from_outputdir $SNTRAIN_ROOT/SALT3/SALT3.K21
 
-
-  # The nominal training with salt-input files is output as TRAINOPT000.
-  # For additional trainings with variations (e.g, calibration shifts, 
-  # training options), use the TRAINOPT key as illustrated by the example
-  # below that produces TRAINOPT001 thru TRAINOPT006.  Remove TRAINOPT key 
-  # to produce only TRAINOP000.                          
-  # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
-  # keys; <CR> are stripped so that contents can be distributed among
-  # multiple lines for human readability. The explicit MAGSHIFT and
-  # WAVESHIFT keys are intended for linear perturbations to measure
-  # derivatives for systematics; the SHIFTLIST_FILE feature is intended
-  # for a random/correlated calibration offset in every band.
-
-  TRAINOPT:
-  - MAGSHIFT  SDSS  g 0.01
-  - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
-  - LAMSHIFT  CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
-  - SHIFTLIST_FILE  shifts_01.dat
-  - SHIFTLIST_FILE  shifts_02.dat
-  - SHIFTLIST_FILE  shifts_03.dat
+  {HELP_TRAINOPT_GENERIC}
 
   OUTDIR:   [outdir]   # all output goes here
 
@@ -701,6 +687,31 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
  # to the SALT3.INFO file in each SALT3.MODELnnn directory.
 
 """
+
+
+HELP_CONFIG_TRAIN_BAYESN = f"""
+    ***** HELP/MENU for TRAIN_BAYESN YAML Input *****
+  """  +  f"{HELP_CONFIG_GENERIC}" +  \
+  f"""
+  # Must specify name of training code (because it's outside SNANA)
+  JOBNAME: [train_script_name]
+
+  # top-level config input files
+  BAYESN_CONFIG_FILE:  <fileName> 
+
+  # global command-line options for all TRAINOPTs below
+  TRAINOPT_GLOBAL: <list of options>
+
+  {HELP_TRAINOPT_GENERIC}
+
+  OUTDIR:   [outdir]   # all output goes here
+
+ # The TRAINOPT-calibration shifts in the training are propagated to
+ # SNANA's light curve fitting via MAGSHIFT and LAMSHIFT keys written
+ # to the BAYESN.INFO file in each BAYESN.MODELnnn directory.
+
+"""
+
 
 
 HELP_MERGE = f"""
@@ -857,6 +868,7 @@ HELP_MENU = {
     'COSMOFIT'    : HELP_CONFIG_COSMOFIT,
     'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
     'TRAIN_SALT3' : HELP_CONFIG_TRAIN_SALT3,
+    'TRAIN_BAYESN': HELP_CONFIG_TRAIN_BAYESN,
     'MERGE'       : HELP_MERGE,
     'AIZ'         : HELP_AIZ     # ABORT_IF_ZERO
 }

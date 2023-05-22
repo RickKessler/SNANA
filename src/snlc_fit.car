@@ -6153,7 +6153,7 @@ c Now check dump for observer-frame model
      &    PARNAME_STORE(IPAR_SHAPE)(1:LPAR_SHAPE), SHAPE(1), 
      &    MJD
 
-751     format(T2,'USRFUN: ',A,'=',G10.3, 2x,A,'=',F6.3, 2x,
+751     format(T2,'USRFUN: ',A,'=',G10.5, 2x, A,'=',F6.3, 2x,
      &              A,'=',F6.3, 2x, 'MJD=',F9.3 )
 
         write(6,752) Tobs, Trest, Zsn

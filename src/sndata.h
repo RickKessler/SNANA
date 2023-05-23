@@ -67,7 +67,7 @@
 #define WRITE_MASK_SIM_MODELPAR 32  // write model par for SIMSED, LCLIB
 #define WRITE_MASK_COMPACT      64  // suppress non-essential PHOT output
 #define WRITE_MASK_SPECTRA     128  // write spectra (Oct 14 2021)
-#define WRITE_MASK_DCR         256  // write RA,DEC,AIRMASS per obs, for DCR cor
+#define WRITE_MASK_ATMOS       256  // write RA,DEC,AIRMASS per obs, for atmos cor
 // xxx mark #define WRITE_MASK_SPECTRA_LEGACY 4096  // legacy format with LAMINDEX
 
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
@@ -172,7 +172,7 @@ struct SNDATA {
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
   bool  WRFLAG_SKYSIG_T ;
-  bool  WRFLAG_DCR;       // include RA,DEC,AIRMASS per obs (May 2023)
+  bool  WRFLAG_ATMOS ;      // include RA,DEC,AIRMASS per obs (May 2023)
 
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]

@@ -33,7 +33,7 @@
 
  Feb 03 2023: read/write SIM_THETA for BayeSN model 
  
- May 16 2023: check WRFLAG_DCR to write RA,DEC,AIRMASS per obs
+ May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
 
 *************************************************/
 
@@ -764,14 +764,14 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   //
   // Oct 2021: add IMGNUM
   // Jan 23 2022: write MAG[ERR] for real data
-  // May 16 2023: check WRFLAG_DCR to write RA,DEC,AIRMASS per obs
+  // May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
 
   char OBSKEY[] = "OBS:" ;
   bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
   bool WRFLAG_BLINDTEST  = SNDATA.WRFLAG_BLINDTEST ;
   bool WRFLAG_PHOTPROB   = SNDATA.WRFLAG_PHOTPROB ;
   bool WRFLAG_PHOTFLAG   = true;
-  bool WRFLAG_DCR        = SNDATA.WRFLAG_DCR ;
+  bool WRFLAG_ATMOS      = SNDATA.WRFLAG_ATMOS;
   bool WRFLAG_SKYSIG_T   = SNDATA.WRFLAG_SKYSIG_T ; // template sky sig
   bool WRFLAG_SIM_MAGOBS = ( SNDATA.FAKE > 0 && !SNDATA.WRFLAG_BLINDTEST );
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
@@ -836,7 +836,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
     if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
 
-    if ( WRFLAG_DCR )
+    if ( WRFLAG_ATMOS )
       { NVAR += 3 ; strcat(VARLIST,"dRA dDEC AIRMASS ");  }
     
     if ( WRFLAG_SIM_MAGOBS )
@@ -931,7 +931,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
       }
 
-      if ( WRFLAG_DCR ) {
+      if ( WRFLAG_ATMOS ) {
 	double dRA     = (SNDATA.RA_OBS[ep]  - SNDATA.RA )*3600.0;
 	double dDEC    = (SNDATA.DEC_OBS[ep] - SNDATA.DEC)*3600.0;
 	double airmass = SNDATA.AIRMASS[ep];

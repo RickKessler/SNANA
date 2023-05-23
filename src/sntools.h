@@ -126,7 +126,7 @@
 #define TEN        (double)10.0
 #define LNTEN      (double)2.30259  // ln(10)
 
-#define JD2000 2451545.0 // JD at Jan 1, noon, 2000
+//#define JD2000 2451545.0 // JD at Jan 1, noon, 2000
 
 #define REJECT_FLAG    -1
 #define ACCEPT_FLAG    +1

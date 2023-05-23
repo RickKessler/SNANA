@@ -3869,7 +3869,7 @@ double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
 // longitude and latitude.  All in degrees and double precision.
 // All the subroutines needed are included below.
 // Usage: 
-//    slaEqgal ( double RA, double DEC, double *GalLat, double *GalLong );
+//    slaEqgal ( double RA, double DEC, doble *Lon, double *Lat );
 // ==============================================================
 
 void slaEqgal ( double dr, double dd, double *dl, double *db )

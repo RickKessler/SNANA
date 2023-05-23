@@ -109,7 +109,7 @@
 #define FORMAT_MASK_CIDRAN   16   // use random CID (1-MXCID)
 #define FORMAT_MASK_FITS     32   // write to fits file instead of ascii
 #define FORMAT_MASK_COMPACT  64   // suppress non-essential PHOT output
-#define FORMAT_MASK_DCR      128  // write RA,DEC,AIRMASS per obs, for DCR corrections
+#define FORMAT_MASK_ATMOS    128  // write RA,DEC,AIRMASS per obs, for atmos corrections
 #define FORMAT_MASK_FILTERS  256  // write filterTrans files (Aug 2016)
 
 // xxx #define KEYSOURCE_FILE 1
@@ -131,7 +131,7 @@ int WRFLAG_BLINDTEST ;
 int WRFLAG_CIDRAN    ;
 int WRFLAG_FITS      ;
 int WRFLAG_FILTERS   ; // Aug 2016
-int WRFLAG_DCR       ; // May 2023
+int WRFLAG_ATMOS    ; // May 2023
 int WRFLAG_COMPACT   ; // Jan 2018
 
 #define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
@@ -315,7 +315,7 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
 #define ATMOSPHERE_OPTMASK_DCR 1
-#define ATMOSPHERE_OPTMASK_PSF 1
+#define ATMOSPHERE_OPTMASK_PSF 2
 
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra

@@ -6413,6 +6413,9 @@ void prep_user_input(void) {
     sprintf(INPUTS.HOSTLIB_FILE,  "NONE" );  // no HOSTLIB
   }
 
+  // for atmosphere effects, set format option to write RA,DEC,AIRMASS per obs
+  if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) { INPUTS.FORMAT_MASK |=  FORMAT_MASK_ATMOS ; }
+
   // init all of the WRFLAGs to zero
   WRFLAG_VBOSE     = 0 ;
   WRFLAG_TEXT      = 0 ;
@@ -6422,7 +6425,7 @@ void prep_user_input(void) {
   WRFLAG_FITS      = 0 ;
   WRFLAG_FILTERS   = 0 ;
   WRFLAG_COMPACT   = 0 ;
-  WRFLAG_DCR       = 0 ;
+  WRFLAG_ATMOS     = 0 ;
 
   // check for whether to write FULL, TERSE, FITS, etc ,
   // EXCEPT for the GRID-GEN option (for psnid ...), 
@@ -6435,11 +6438,11 @@ void prep_user_input(void) {
     WRFLAG_FITS      = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_FITS      ) ;
     WRFLAG_FILTERS   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_FILTERS   ) ;
     WRFLAG_COMPACT   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_COMPACT   ) ;
-    WRFLAG_DCR       = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_DCR       ) ;
+    WRFLAG_ATMOS     = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_ATMOS     ) ;
   }
   if ( WRFLAG_BLINDTEST ) { INPUTS.WRITE_MASK  = WRITE_MASK_LCMERGE ; }
   if ( WRFLAG_COMPACT   ) { INPUTS.WRITE_MASK += WRITE_MASK_COMPACT ; }
-  if ( WRFLAG_DCR       ) { INPUTS.WRITE_MASK += WRITE_MASK_DCR; }
+  if ( WRFLAG_ATMOS     ) { INPUTS.WRITE_MASK += WRITE_MASK_ATMOS; }
   if ( INPUTS.MAGMONITOR_SNR) { 
     SNDATA.MAGMONITOR_SNR = INPUTS.MAGMONITOR_SNR ;
     sprintf(SNDATA.VARNAME_SNRMON, "SIM_SNRMAG%2.2d", SNDATA.MAGMONITOR_SNR);
@@ -19154,12 +19157,6 @@ void set_SIMLIB_NREPEAT(void) {
 
   if ( INDEX_GENMODEL != MODEL_LCLIB   ) { return ; }
 
-  /* xxx mark delete May 16 2023 xxxxx
-  RA  = SIMLIB_HEADER.RA ;
-  DEC = SIMLIB_HEADER.DEC ;
-  slaEqgal (RA, DEC,                    // input
-	    &GENLC.GLON, &GENLC.GLAT ); // output
-  xxxxx end mark xxxxxx */
 
   if ( INPUTS.SIMLIB_DUMP >= 0 ) 
     { SIMLIB_HEADER.NREPEAT = 1; return ; }
@@ -21986,7 +21983,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.WRFLAG_BLINDTEST = (WRFLAG_BLINDTEST>0) ;
   SNDATA.WRFLAG_PHOTPROB  = INPUTS_SEARCHEFF.NMAP_PHOTPROB > 0 ;
   SNDATA.WRFLAG_SKYSIG_T  = SIMLIB_TEMPLATE.USEFLAG;
-  SNDATA.WRFLAG_DCR       = (WRFLAG_DCR>0);
+  SNDATA.WRFLAG_ATMOS     = (WRFLAG_ATMOS>0);
 
   if ( GENLC.NEPOCH >= MXEPOCH ) {
     print_preAbort_banner(fnam);
@@ -24942,7 +24939,8 @@ void gen_airmass(int epoch) {
   double RAD = RADIAN ;
   double airmass  = 1.11 ;
   double sin_alt, ang_zenith_rad, ang_zenith_deg, h_hr, h_deg, COS_h ;
-
+  double GLAT, GLON;
+    
   // test example from ESO calculator:
   // https://www.eso.org/observing/etc/bin/gen/form?INS.MODE=swspectr+INS.NAME=SKYCALC
   bool DO_TEST = true;
@@ -24960,7 +24958,6 @@ void gen_airmass(int epoch) {
 
 
   if ( DO_TEST ) {
-    double GLAT, GLON;
     MJD       = test_MJD ;
     geoLAT    = test_geoLAT ;
     geoLON    = test_geoLON ;
@@ -24983,27 +24980,29 @@ void gen_airmass(int epoch) {
   // if geo coords are not available, return
   if ( geoLAT > 1000.0 || geoLON > 1000.0 ) { return; }    
 
-  int    iMJD     = (int)MJD;     // MJD of previous midnight
+  double JD2000   = 2451545.0;
+  int    iMJD     = (int)MJD;       // MJD of previous midnight
   double JD       = MJD + 2400000.5 ;
   double JD0      = (double)iMJD + 2400000.5 ;
   double D_UT     = JD0 - JD2000 ;
 
   // compute h = hourAngle = Local Siderial Time (LST) - RA
   double GMST_deg = fmod(18.697375 + 24.065709824279*D_UT, 24.0) * 360.0/24.0;
-  double LST_deg  = (geoLAT - GMST_deg);
+  double LST_deg  = (geoLAT + GMST_deg);
   h_deg           = LST_deg - GENLC.RA ;
+  //  h_deg = 330.0; // xxx REMOVE
   h_hr            = h_deg * 24.0/360.0 ;
   COS_h           = cos(h_deg*RAD) ;
 
   // .xyz compute airmass ...
   double SIN_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
   double COS_geoLAT = SURVEY_INFO.cos_geoLAT[IDSURVEY];
-  double SIN_DEC    = GENLC.SIN_GLON ;
-  double COS_DEC    = GENLC.COS_GLON ;
+  double SIN_LON    = GENLC.SIN_GLON ;
+  double COS_LON    = GENLC.COS_GLON ;
 
   sin_alt = 
-    (SIN_geoLAT * SIN_DEC) + 
-    (COS_geoLAT * COS_DEC * COS_h);
+    (SIN_geoLAT * SIN_LON) + 
+    (COS_geoLAT * COS_LON * COS_h);
 
   ang_zenith_rad = 0.25*TWOPI - asin(sin_alt) ; // zenight angle, radians
   ang_zenith_deg = ang_zenith_rad / RAD ;
@@ -25015,6 +25014,7 @@ void gen_airmass(int epoch) {
   if ( DO_TEST ) {
 
     printf("\n xxx quantities computed by sim function %s: \n", fnam);
+    printf("\t xxx GLON, GLAT = %f, %f \n", GLON, GLAT);
     printf("\t xxx GMST, LST = %f , %f deg \n", GMST_deg, LST_deg);
     printf("\t xxx hour angle h = %f deg = %f hr\n", h_deg, h_hr);
     printf("\t xxx ang_zenith = %f deg / %f rad  (RADIAN=%f)\n", 
@@ -25022,6 +25022,7 @@ void gen_airmass(int epoch) {
     printf("\t xxx airmass = %f \n", airmass);
 
     printf("\n xxx ESO calculator results:\n");
+    printf("\t xxx Galactic coords = 235°.94 ,  41°.21 \n");
     printf("\t xxx Hour Angle HA = 22:03:14\n");
     printf("\t xxx Target az =  46°.66  alt =  47°.93 \n");
     printf("\t xxx Zenith distance =  42°.07 \n");

@@ -21693,6 +21693,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + add new variables to store RA_OBS, DEC_OBS, AIRMASS per epoch,
        and define dummy functions to compute them.
 
+     + new sim-input ATMOSPHERE_OPTMASK: <mask>  controls these options,
+            #define ATMOSPHERE_OPTMASK_DCR 1
+            #define ATMOSPHERE_OPTMASK_PSF 2
+       ATMOSPHERE_OPTMASK > 0 invokes two new functions calls:
+          gen_airmass(epoch);     // STILL NEEDS DEBUGGING
+          genSmear_coords(epoch); // NEEDS UPDATED MODEL AND/OR SIM-INPUTS
+       and internally set format to write RA,DEC,AIRMASS per observations
+           [BEWARE: WORKING for TEXT FORMAT ONLY ...]
+
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.
     

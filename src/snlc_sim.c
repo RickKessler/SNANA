@@ -24921,10 +24921,12 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
 } // end gen_fluxNoise_apply
 
+
+
 // ==========================================
 void gen_airmass(int epoch) {
 
-  // Created May 2023: 
+  // Created May 2023 by R.Kessler and Jason Lee (U.Penn)
   // Compute airmass for this epoch
   // 
 
@@ -24966,6 +24968,8 @@ void gen_airmass(int epoch) {
     slaEqgal(RA, DEC, &GLON, &GLAT ); // return GLON, GLAT in degrees
     GENLC.SIN_GLON = sin(GLON*RAD);
     GENLC.COS_GLON = cos(GLON*RAD);
+    GENLC.SIN_DEC = sin(DEC*RAD);
+    GENLC.COS_DEC = cos(DEC*RAD);
 
     SURVEY_INFO.sin_geoLAT[IDSURVEY] = sin(geoLAT*RAD) ;
     SURVEY_INFO.cos_geoLAT[IDSURVEY] = cos(geoLAT*RAD) ;
@@ -24985,24 +24989,32 @@ void gen_airmass(int epoch) {
   double JD       = MJD + 2400000.5 ;
   double JD0      = (double)iMJD + 2400000.5 ;
   double D_UT     = JD0 - JD2000 ;
+  double T_U      = (JD - JD2000)/36525.0 ; //Number of Julian Centuries since J2000.0
 
   // compute h = hourAngle = Local Siderial Time (LST) - RA
-  double GMST_deg = fmod(18.697375 + 24.065709824279*D_UT, 24.0) * 360.0/24.0;
-  double LST_deg  = (geoLAT + GMST_deg);
+  // xxx double GMST_deg = fmod(18.697375 + 24.065709824279*D_UT, 24.0) * 360.0/24.0;
+  double GMST_deg = (fmod(24110.54841 + 8640184.812866 * T_U + 0.093104 * T_U * T_U, 86400.0)/86400.0 + 1.0027379 * fmod(MJD, 1.0) ) * 360.0 ; // Grabbed this from http://www.astro.sunysb.edu/metchev/AST443/times.html#:~:text=GAST%20(Greenwich%20Apparent%20Sidereal%20Time,%2B0.8%20to%20%2B1.2%20seconds - GMST equation + adding number of hours from 0h UT.
+  double LST_deg  = (geoLON + GMST_deg);
   h_deg           = LST_deg - GENLC.RA ;
-  //  h_deg = 330.0; // xxx REMOVE
   h_hr            = h_deg * 24.0/360.0 ;
   COS_h           = cos(h_deg*RAD) ;
 
-  // .xyz compute airmass ...
+  // compute airmass ...
   double SIN_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
   double COS_geoLAT = SURVEY_INFO.cos_geoLAT[IDSURVEY];
   double SIN_LON    = GENLC.SIN_GLON ;
   double COS_LON    = GENLC.COS_GLON ;
 
+  // xx  double SIN_DEC    = sin(DEC*RAD) ; // GENLC.SIN_DEC ;
+  // xx  double COS_DEC    = cos(DEC*RAD) ; // GENLC.COS_DEC ; 
+
+  // avoid re-computing trig functions for each obs
+  double SIN_DEC    = GENLC.SIN_DEC ;
+  double COS_DEC    = GENLC.COS_DEC ; 
+
   sin_alt = 
-    (SIN_geoLAT * SIN_LON) + 
-    (COS_geoLAT * COS_LON * COS_h);
+    (SIN_geoLAT * SIN_DEC) + 
+    (COS_geoLAT * COS_DEC * COS_h);
 
   ang_zenith_rad = 0.25*TWOPI - asin(sin_alt) ; // zenight angle, radians
   ang_zenith_deg = ang_zenith_rad / RAD ;
@@ -25034,6 +25046,7 @@ void gen_airmass(int epoch) {
 
   return;
 } // end gen_airmass
+
 
 
 // ==================================
@@ -25578,14 +25591,18 @@ void compute_galactic_coords(void) {
   GENLC.GLON = GLON ;
   GENLC.GLAT = GLAT ;
 
-  GLON *= RADIAN ;
-  GLAT *= RADIAN ;
+  double GLON_RAD  = GLON * RADIAN ;
+  double GLAT_RAD  = GLAT * RADIAN ;
 
-  GENLC.SIN_GLON = sin(GLON);
-  GENLC.COS_GLON = cos(GLON);
+  GENLC.SIN_GLON = sin(GLON_RAD);
+  GENLC.COS_GLON = cos(GLON_RAD);
 
-  GENLC.SIN_GLAT = sin(GLAT);
-  GENLC.COS_GLAT = cos(GLAT);
+  GENLC.SIN_GLAT = sin(GLAT_RAD);
+  GENLC.COS_GLAT = cos(GLAT_RAD);
+
+  double DEC_RAD = SIMLIB_HEADER.DEC*RADIAN ;
+  GENLC.SIN_DEC = sin(DEC_RAD);
+  GENLC.COS_DEC = cos(DEC_RAD);
 
   return ;
 

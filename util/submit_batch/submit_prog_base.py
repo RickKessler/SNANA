@@ -627,7 +627,7 @@ class Program:
 
         n_job_tot   = self.config_prep['n_job_tot']
         logging.info(f" BATCH DRIVER JOB COUNT SUMMARY: " \
-                     f"{n_job_tot} jobs on {n_core} cores")
+                     f"{n_job_tot} total jobs distributed on {n_core} cores")
 
         
         # check option to force crash (to test higher level pipelines)

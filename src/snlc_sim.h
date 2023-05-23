@@ -975,6 +975,7 @@ struct GENLC {
   double GLON, GLAT;        // for LCLIB-galactic models, airmass calc, ...
   double SIN_GLAT, COS_GLAT;
   double SIN_GLON, COS_GLON;
+  double SIN_DEC,  COS_DEC ;
   double REDSHIFT_HELIO ;   // true Helio redshift of SN
   double REDSHIFT_CMB   ;   // true CMB   redshift of SN
   double REDSHIFT_HOST  ;   // true Helio redshift of host

@@ -5673,7 +5673,7 @@ c from other filters used for Landolt color trans.
      &          , PARLIST_SN, MWEBV_MODEL
      &          , ZSN, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt_obs)       ! return arg
-     &          , MAGERR_OBS_TMP(ifilt_obs)  ) ! return arg 
+     &          , MAG_ERR                    ) ! return arg 
 
           GOTO 501  ! skip K-corrections and other rest-frame stuff
 

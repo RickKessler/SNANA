@@ -7343,7 +7343,7 @@ void genmag_offsets(void) {
   // May 20 2020: check IMGNUM >= 0 before add lens-mag offset
 
   int epoch, ifilt_obs, IMGNUM ;
-  double MAGOFF, genmag8 ;
+  double MAGOFF, genmag ;
   char fnam[] = "genmag_offsets";
 
   // ------------- begin -------------
@@ -7377,23 +7377,23 @@ void genmag_offsets(void) {
     // apply mag-offset to each epoch-mag, unless mag is
     // set to flag value (UNDEFINED or ZEROFLUX)
     // Note that mag=99 --> zero flux is well defined.
-    genmag8 = GENLC.genmag_obs[epoch];
+    genmag = GENLC.genmag_obs[epoch];
     
-    if ( genmag8 < 50.0 && genmag8 > -2.0 ) 
-      {  genmag8 = GENLC.genmag_obs[epoch] + MAGOFF ; }
+    if ( genmag < 50.0 && genmag > -2.0 ) 
+      {  genmag = GENLC.genmag_obs[epoch] + MAGOFF ; }
 
-    if ( genmag8 > 600.0 ) 
-      { genmag8 = MAG_UNDEFINED; } // avoid crazy values
+    if ( genmag > 600.0 ) 
+      { genmag = MAG_UNDEFINED; } // avoid crazy values
    
-    GENLC.genmag_obs[epoch] = genmag8 ;        // load global struct
+    GENLC.genmag_obs[epoch] = genmag ;        // load global struct
 
     // -----------------------------
     // keep peak mags separately (before smearing)
     if ( GENLC.OBSFLAG_PEAK[epoch]  )  
-      {  GENLC.peakmag_obs[ifilt_obs] = genmag8 ; }
+      {  GENLC.peakmag_obs[ifilt_obs] = genmag ; }
 
     if ( GENLC.OBSFLAG_TEMPLATE[epoch] ) 
-      { GENLC.genmag_obs_template[ifilt_obs] = genmag8; }
+      { GENLC.genmag_obs_template[ifilt_obs] = genmag; }
 
   } // end of epoch loop
 
@@ -23985,11 +23985,14 @@ void GENFLUX_DRIVER(void) {
     // coordinates and airmass 
     if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) {
       gen_airmass(epoch);
+      gen_dcr_coordShift(epoch);
       genSmear_coords(epoch);
     }
     // set flags for saturation, undefined ...
     set_GENFLUX_FLAGS(epoch);
   }
+
+  // ?? .xyz  gen_dcr_fluxShifts(ep?);
 
   // monitor covariance separately for S,T,F components, and each band.
   if ( (INPUTS.FLUXERRMODEL_OPTMASK & MASK_MONITORCOV_FLUXERRMODEL)>0 )
@@ -25021,8 +25024,8 @@ void gen_airmass(int epoch) {
 
   airmass = 1.0/cos(ang_zenith_rad) ;
 
-  GENLC.AIRMASS[epoch] = airmass;
-
+  GENLC.AIRMASS[epoch]    = airmass;
+  GENLC.ANG_ZENITH[epoch] = ang_zenith_deg ;
   if ( DO_TEST ) {
 
     printf("\n xxx quantities computed by sim function %s: \n", fnam);
@@ -25094,6 +25097,27 @@ void genSmear_coords(int epoch) {
   return;
 
 } // end genSmear_coords
+
+
+// ========================================
+void gen_dcr_coordShift(int ep) {
+
+  // Created May 2023
+  // Compute DCR astrometric shift for RA and DEC.
+
+  double AIRMASS    = GENLC.AIRMASS[ep];
+  double ANG_ZENITH = GENLC.ANG_ZENITH[ep];
+
+  char fnam[] = "gen_dcr_coordShift" ;
+
+  // -------------- BEGIN -----------
+
+  GENLC.RA_dcr_shift[ep] = 0.0 ;
+  GENLC.DEC_dcr_shift[ep] = 0.0 ;
+
+  return ;
+
+} // end gen_dcr_coordShift
 
 
 // ********************************************

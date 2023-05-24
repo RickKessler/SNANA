@@ -314,8 +314,9 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
-#define ATMOSPHERE_OPTMASK_DCR 1
-#define ATMOSPHERE_OPTMASK_PSF 2
+// DCR effects in Table 1 of arXiv:2304.01858
+#define ATMOSPHERE_OPTMASK_DCR_COORD    1
+#define ATMOSPHERE_OPTMASK_DCR_PSFSHAPE 2
 
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra
@@ -1203,6 +1204,7 @@ struct GENLC {
 
   // - - - - -
   double AIRMASS[MXEPSIM];
+  double ANG_ZENITH[MXEPSIM];
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
   double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS
   double RA_SUM, DEC_SUM, RA_WGTSUM, DEC_WGTSUM;
@@ -1214,6 +1216,10 @@ struct GENLC {
   double  generr_obs[MXEPSIM] ;     // obs mag err from model
   double  peakmag_obs[MXFILTINDX] ;
   double  genmag_obs_template[MXFILTINDX]; // for LCLIB model (stars)
+
+  double  mag_dcr_shift[MXEPSIM];      // DCR correction per obs (May 2023)
+  double  RA_dcr_shift[MXEPSIM];
+  double  DEC_dcr_shift[MXEPSIM];
 
   double  genmag_rest[MXEPSIM] ;    // idem, rest frame
   double  generr_rest[MXEPSIM] ;    // idem, rest frame
@@ -1954,6 +1960,7 @@ void   monitorCov_fluxNoise(void);
 void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   gen_airmass(int ep);
 void   genSmear_coords(int ep);
+void   gen_dcr_coordShift(int ep);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra

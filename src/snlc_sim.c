@@ -25886,15 +25886,16 @@ void genmodel(
 
   else if ( INDEX_GENMODEL  == MODEL_BAYESN ) {
 
-    double parList_SN[4]   = { 0., 0., 0., 0. } ;
+    double parList_SN[4] = { GENLC.DLMU, GENLC.THETA, GENLC.AV, GENLC.RV } ;
+
     genmag_BAYESN (
 		  OPTMASK         // (I) bit-mask options
 		  ,ifilt_obs      // (I) obs filter index 
-		  ,parList_SN     // (I) SN params: x0, x1, x1forERR, c
+		  ,parList_SN     // (I) SN params: MU, THETA, AV, RV
 		  ,mwebv          // (I) Galactic E(B-V)
-		  ,z            // (I) redshift, and z used for error
+		  ,z              // (I) redshift, and z used for error
 		  ,NEPFILT        // (I) number of epochs
-		  ,ptr_epoch         // (I) obs-frame time (days)
+		  ,ptr_epoch      // (I) obs-frame time (days)
 		  ,ptr_genmag        // (O) mag vs. Tobs
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    
@@ -29246,6 +29247,9 @@ void print_sim_help(void) {
     "#  - - - - - - Source model - - - - - - - ",
     "GENMODEL:  <model>                #  SN model name (manual Sec 9)",
     "           # e.g., SALT2.[name]  SIMSED.[name]  NONIASED.[name] ... ",
+    "GENMODEL_MSKOPT: <mask>        # model-dependent bit options (see code comments)",
+    "GENMODEL_ARGLIST: <string>     # model-dependent string args (see code comments)",
+    "",
     "GENMAG_SMEAR_MODELNAME:  <model>  # SNIa intrinsic scatter model name",
     "GENMAG_SMEAR:  <smear>            # cohrent mag-smear",
     "GENMAG_SMEAR:  <sig_lo,sig_hi>    # optional asymmetric Gauss smear",

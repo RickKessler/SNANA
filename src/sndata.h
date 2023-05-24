@@ -38,6 +38,7 @@
   Jun 04 2021: MXEPOCH -> 5000 (was 2000)
   Apr 24 2022: define HOSTGAL_PROPERTY_xxx [moved from sntools_host.h]
   May 19 2023: MXSPECTRA -> 500 (was 300)
+  May 24 2023: MXSPECTRA -> 1000 (was 500)
 *****************************************************/
 
 #define MXEPOCH  5000     // max number of epochs per SN
@@ -47,7 +48,7 @@
 #define MXFILT_COVAR  9  // max number of filters per obs.
 #define MXFILTINDX  100  // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
-#define MXSPECTRA  500   // max number of spectra in data files
+#define MXSPECTRA  1000   // max number of spectra in data files
 
 #define MXDOCLINE 1000    // max number of lines in README.DOC file
 #define MXTYPE    1000    // max TYPE id in data base

@@ -574,6 +574,7 @@ void genmag_BAYESN(
             // HACK HACK HACK throw Trest at this instead or Tobs
             S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
             magobs_list[o] += this_trans[q-ilam_blue]*this_lam[q-ilam_blue]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+
             if (o == 0) {
                 //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
             }
@@ -590,6 +591,7 @@ void genmag_BAYESN(
         printf("-----\n\n\n");
     }
 
+
     gsl_matrix_free(J_tau);
     gsl_matrix_free(W);
     gsl_matrix_free(WJ_tau);
@@ -605,6 +607,15 @@ void genmag_BAYESN(
 	-2.5*log10(magobs_list[o]) + ZP;
 
       magerr_list[o] = 0.1;
+    }
+    if (VERBOSE_BAYESN > 0)
+    {
+        printf("DEBUG: Printing lightcurve\n");
+        for (o = 0; o < Nobs; o++) 
+        { 
+            printf("%.2f  ",magobs_list[o]);
+        }
+        printf("\n-----\n\n\n");
     }
 
     return;

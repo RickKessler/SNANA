@@ -4,14 +4,16 @@
 
 ********************************************/
 
+#include "stdio.h"
+#include "stddef.h"
 #include "math.h"
 #include "gsl/gsl_linalg.h"
 #include "gsl/gsl_cblas.h"
+#include "gsl/gsl_matrix.h"
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"
 #include  "genmag_BAYESN.h"
-
 
 #ifdef USE_BAYESN
 #include "yaml.h"
@@ -237,6 +239,10 @@ void read_BAYESN_inputs(char *filename)
               // if we read a scalar we're done with one read
               if (datatype == 1)
               { 
+                  if (VERBOSE_BAYESN > 0)
+                  {
+                    printf("DEBUG: Read this scalar from yaml %.2f\n", this_scalar);
+                  }
                   // update the value of the variable that the pointer points to 
                   *bayesn_var_dptr = this_scalar;
                   datatype = 0; 
@@ -449,7 +455,7 @@ void genmag_BAYESN(
     double z1, meanlam_obs,  meanlam_rest, ZP; 
     char *cfilt;
     int ifilt = 0, i;
-
+    
     //SHOULD I BE DECLARING THESE HERE??
     gsl_matrix * J_tau; // for time interpolation
     gsl_matrix * W = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
@@ -568,6 +574,7 @@ void genmag_BAYESN(
             // HACK HACK HACK throw Trest at this instead or Tobs
             S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
             magobs_list[o] += this_trans[q-ilam_blue]*this_lam[q-ilam_blue]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+
             if (o == 0) {
                 //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
             }
@@ -577,6 +584,13 @@ void genmag_BAYESN(
     if (dumpsed) {
         fclose(sedfile);
     }
+    if (VERBOSE_BAYESN > 0)
+    {
+        printf("DEBUG: Printing J_tau matrix\n");
+        int crap = print_matrix(stdout, J_tau);
+        printf("-----\n\n\n");
+    }
+
 
     gsl_matrix_free(J_tau);
     gsl_matrix_free(W);
@@ -584,11 +598,24 @@ void genmag_BAYESN(
     gsl_vector_free(jWJ);
 
     double zdum = 2.5*log10(1.0+z);
+    if (VERBOSE_BAYESN > 0)
+    {
+        printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f   THETA: %.2f   AV: %.2f\n", BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
+    }
     for (o = 0; o < Nobs; o++) {
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG 
 	-2.5*log10(magobs_list[o]) + ZP;
 
       magerr_list[o] = 0.1;
+    }
+    if (VERBOSE_BAYESN > 0)
+    {
+        printf("DEBUG: Printing lightcurve\n");
+        for (o = 0; o < Nobs; o++) 
+        { 
+            printf("%.2f  ",magobs_list[o]);
+        }
+        printf("\n-----\n\n\n");
     }
 
     return;
@@ -707,4 +734,23 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 	}
 
 	return J;
+}
+
+int print_matrix(FILE *f, const gsl_matrix *m)
+{
+        int status, n = 0;
+
+        for (size_t i = 0; i < m->size1; i++) {
+                for (size_t j = 0; j < m->size2; j++) {
+                        if ((status = fprintf(f, "%g ", gsl_matrix_get(m, i, j))) < 0)
+                                return -1;
+                        n += status;
+                }
+
+                if ((status = fprintf(f, "\n")) < 0)
+                        return -1;
+                n += status;
+        }
+
+        return n;
 }

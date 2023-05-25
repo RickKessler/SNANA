@@ -17,7 +17,7 @@
 
 #ifdef USE_BAYESN
 #include "yaml.h"
-#endif
+#endif  // RK had to remove all code to compile (May 25 2023)
 
 
 // #include "sntools_modelgrid.h" 
@@ -587,7 +587,7 @@ void genmag_BAYESN(
     if (VERBOSE_BAYESN > 0)
     {
         printf("DEBUG: Printing J_tau matrix\n");
-        int crap = print_matrix(stdout, J_tau);
+	// xxx RK        int crap = print_matrix(stdout, J_tau);
         printf("-----\n\n\n");
     }
 
@@ -736,6 +736,7 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 	return J;
 }
 
+/* xxx does not compile 
 int print_matrix(FILE *f, const gsl_matrix *m)
 {
         int status, n = 0;
@@ -754,3 +755,5 @@ int print_matrix(FILE *f, const gsl_matrix *m)
 
         return n;
 }
+
+xxx */

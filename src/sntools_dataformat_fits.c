@@ -1282,7 +1282,7 @@ void wr_snfitsio_create(int itype ) {
   }  // SIMSED 
 
 
-  // idem for BYOSED,SNMEO params (Dec 10 2018)
+  // idem for PySEDMODEL params (Dec 10 2018)
   NPAR = SNDATA.NPAR_PySEDMODEL ;  
   if ( NPAR > 0 ) {
     sprintf(KEYNAME, "PySEDMODEL" );

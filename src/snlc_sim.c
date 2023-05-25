@@ -25107,12 +25107,24 @@ void gen_dcr_coordShift(int ep) {
 
   double AIRMASS    = GENLC.AIRMASS[ep];
   double ANG_ZENITH = GENLC.ANG_ZENITH[ep];
+  
+  double RA       = GENLC.RA ;  // true RA 
+  double DEC      = GENLC.DEC ; // true DEC   
+  double LON      = GENLC.GLON;
+  double LAT      = GENLC.GLAT ;
+  int    IDSURVEY = GENLC.IDSURVEY;
+  double geoLAT, geoLON;
+  get_geoSURVEY(IDSURVEY, &geoLAT, &geoLON);
+
+  // .xyz SN-SED top of atmosphere (not thru filter),
+  //    PSF ... effective <lambda> for SED !!!!
+  //  integral[ l*SED(l)*Filt(l) / integral[SED(l)*Filt(l)]
 
   char fnam[] = "gen_dcr_coordShift" ;
 
   // -------------- BEGIN -----------
 
-  GENLC.RA_dcr_shift[ep] = 0.0 ;
+  GENLC.RA_dcr_shift[ep]  = 0.0 ; // true shift; degrees
   GENLC.DEC_dcr_shift[ep] = 0.0 ;
 
   return ;

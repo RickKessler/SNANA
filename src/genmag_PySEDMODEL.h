@@ -14,15 +14,17 @@
 #define MXPAR_PySEDMODEL     100  // max number of params to describe SED
 #define MXHOSTPAR_PySEDMODEL 20  // max number of items in NAMES_HOSTPAR
 
+/* xxx mark delete May 25 2023 by R.K --- move model names to sndata.h
 #define MODEL_NAME_BYOSED   "BYOSED"
 #define MODEL_NAME_SNEMO    "SNEMO"
-#define MODEL_NAME_PYBAYESN "PYBAYESN" // BayeSN has both C- and python versions
+#define MODEL_NAME_PYBAYESN "PYBAYESN" // don't confuse with C code BAYESN
 #define MODEL_NAME_AGN      "AGN"
 #define NCHOICE_PySEDMODEL  4
+char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][12] ;
+xxxxxxxx end mark xxxxxxx */
 
 #define OPTMASK_ALLOW_C_ONLY 4096 // allow running C-code without python
 
-char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][12] ;
 
 // store inputs from init_genmag_PySEDMODEL
 struct {

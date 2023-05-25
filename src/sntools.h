@@ -164,11 +164,15 @@
 #define MODEL_SALT2    6  // SALT-II model
 #define MODEL_SALT3    9  // reserve index for SALT3 if needed
 #define MODEL_SIMSED   7  // set of SED sequences (e.g., sim-explosion models)
-#define MODEL_BYOSED   8  // build-your-own SED model
-#define MODEL_SNEMO    9  // SNEMO from SNFactory (Sep 2020)
-#define MODEL_BAYESN    13  // C-code BayeSN (Oct 2022)
+
+// for these python "PySEDMODEL" models, also need to update MODEL_NAME_XXX
+// in sndata.h (needed for I/O)
+#define MODEL_BYOSED     8  // python build-your-own SED model
+#define MODEL_SNEMO      9  // python SNEMO from SNFactory (Sep 2020)
+#define MODEL_BAYESN    13  // C-code BayeSN (Oct 2022) ... NOT python
 #define MODEL_PYBAYESN  14  // Python BayeSN (Nov 2021)
-#define MODEL_AGN       15  // AGN (Sep 2022)
+#define MODEL_AGN       15  // Python AGN (Sep 2022)
+
 #define MODEL_NON1ASED   10  // obs-frame NONIA from SED
 #define MODEL_NON1AGRID  11  // obs-frame NONIA from mag-grid (Mar 2016)
 #define MODEL_LCLIB      12  // light curve library (July 2017)
@@ -177,7 +181,6 @@
 #define MODEL_SIMLIB     22  // use MAGOBS column of SIMLIB
 #define MXMODEL_INDEX    40
 #define PATH_SNDATA_SIM_LIST  "PATH_SNDATA_SIM.LIST"
-
 
 #define KEYSOURCE_FILE 1 // moved from snlc_sim.h on June 24th 2021
 #define KEYSOURCE_ARG  2
@@ -675,6 +678,8 @@ unsigned int *CIDMASK_LIST;  int  MXCIDMASK, NCIDMASK_LIST ;
 int  exec_cidmask(int mode, int CID);
 int  exec_cidmask__(int *mode, int *CID);
 void test_cidmask(void) ;
+
+void load_PySEDMODEL_CHOICE_LIST(void) ;
 
 // parameters for errmsg utility
 #define SEV_INFO   1  // severity flag => give info

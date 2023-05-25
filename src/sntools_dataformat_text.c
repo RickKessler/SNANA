@@ -46,6 +46,7 @@
 #include  "sntools_spectrograph.h"
 
 
+
 void WR_SNTEXTIO_DATAFILE(char *OUTFILE) {
 
   // Createed Feb 2021
@@ -407,7 +408,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     }
   }
 
-  // PySEDMODEL info for BYOSED, SNEMO                                        
+  // PySEDMODEL info for BYOSED, SNEMO, BAYESN, AGN, ...
   if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
     fprintf(fp,"\n");
     fprintf(fp,"%s_NPAR:   %d \n",
@@ -1339,6 +1340,7 @@ void  rd_sntextio_global(void) {
   //
   // Oct 5 2021: read SIM_MODEL_INDEX for sim
   // Dec 10 2021: fix to work with SIM_HOSTLIB
+  // May 25 2023: use PySEDMODEL_CHOICE_LIST and remove hard-coded PySEDMODEL names
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1346,11 +1348,13 @@ void  rd_sntextio_global(void) {
   char *DATA_PATH  = SNTEXTIO_VERSION_INFO.DATA_PATH ;
   char FIRSTFILE[MXPATHLEN] ;
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
-  int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR ;
+  int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR, i ;
   bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM, FOUND_FAKEKEY=false ;
   bool IS_PRIVATE, IS_ZPHOT_Q;
-  bool IS_HOSTLIB, IS_SIMSED, IS_LCLIB, IS_BYOSED, IS_SNEMO ;
-  char word0[100], word1[100], word2[100];    
+  bool IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
+  int  ICHOICE_PySEDMODEL;
+  // xxx mark  bool IS_BYOSED, IS_SNEMO, IS_AGN ;
+  char word0[100], word1[100], word2[100], parName[40];    
   char fnam[] = "rd_sntextio_global" ;
   int  LDMP = 0 ;
   // ---------- BEGIN ----------
@@ -1361,6 +1365,8 @@ void  rd_sntextio_global(void) {
   if ( LDMP ) {
     printf(" xxx %s: store %d words from \n\t %s\n", fnam, NWD, FIRSTFILE);
   }
+
+  load_PySEDMODEL_CHOICE_LIST();
 
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(langC, iwd, word0 );
@@ -1373,8 +1379,20 @@ void  rd_sntextio_global(void) {
     IS_HOSTLIB   =  strstr(word0,"SIM_HOSTLIB")   != NULL && IS_TMP ;
     IS_SIMSED    =  strstr(word0,"SIMSED_")       != NULL && IS_TMP ;
     IS_LCLIB     =  strstr(word0,"LCLIB_PARAM")   != NULL && IS_TMP ;
+
+    ICHOICE_PySEDMODEL = -9;
+    if ( IS_TMP ) {
+      for(i=0; i < NCHOICE_PySEDMODEL; i++ ) {
+	sprintf(parName,"%s_PARAM", PySEDMODEL_CHOICE_LIST[i]);
+	if ( strstr(word0,parName)  != NULL )  { ICHOICE_PySEDMODEL=i; }
+      }
+    }
+
+    /* xxx mark delete May 25 2023 xxxxxxx
     IS_BYOSED    =  strstr(word0,"BYOSED_PARAM")  != NULL && IS_TMP ;
     IS_SNEMO     =  strstr(word0,"SNEMO_PARAM")   != NULL && IS_TMP ;
+    IS_AGN       =  strstr(word0,"AGN_PARAM")     != NULL && IS_TMP ;
+    xxxxxx end mark */
 
     IS_SIM       =  strncmp(word0,"SIM",3)   == 0    && HAS_COLON ;
 
@@ -1431,15 +1449,33 @@ void  rd_sntextio_global(void) {
       //      sprintf(SNDATA.LCLIB_KEYWORD[NPAR], "%s", word0);
       NPAR++ ;    SNDATA.NPAR_LCLIB = NPAR ;
     }
-    else if ( IS_BYOSED || IS_SNEMO ) {
+
+    else if ( ICHOICE_PySEDMODEL >= 0 ) {
+
+      // do not count [model]_NPAR as a PySEDMODEL parameter
+      if ( strstr(word0,"_NPAR") != NULL ) { continue ; }
+
+      NPAR = SNDATA.NPAR_PySEDMODEL ;
+      copy_keyword_nocolon(word0,SNDATA.PySEDMODEL_KEYWORD[NPAR]);
+      NPAR++ ;    SNDATA.NPAR_PySEDMODEL = NPAR ;
+      sprintf(SNDATA.PySEDMODEL_NAME, "%s",
+	      PySEDMODEL_CHOICE_LIST[ICHOICE_PySEDMODEL] );
+    } 
+
+    /* xxxxxxx mark delete May 25 2023 xxxxxxx
+    else if ( IS_BYOSED || IS_SNEMO || IS_AGN ) {
       NPAR = SNDATA.NPAR_PySEDMODEL ;
       if ( strcmp(word0,"BYOSED_NPAR:") == 0 ) { continue; }  
       if ( strcmp(word0,"SNEMO_NPAR:" ) == 0 ) { continue; }  
+      if ( strcmp(word0,"AGN_NPAR:"   ) == 0 ) { continue; }  
       copy_keyword_nocolon(word0,SNDATA.PySEDMODEL_KEYWORD[NPAR]);
       NPAR++ ;    SNDATA.NPAR_PySEDMODEL = NPAR ;
       if ( IS_BYOSED ) { sprintf(SNDATA.PySEDMODEL_NAME, "BYOSED"); }
       if ( IS_SNEMO  ) { sprintf(SNDATA.PySEDMODEL_NAME, "SNEMO" ); }
+      if ( IS_AGN    ) { sprintf(SNDATA.PySEDMODEL_NAME, "AGN"   ); }
     } 
+    xxxxxxxxxx end mark xxxxxxxxx */
+
 
     else if ( IS_SIM ) {
       if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {

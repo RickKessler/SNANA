@@ -21702,6 +21702,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        and internally set format to write RA,DEC,AIRMASS per observations
            [BEWARE: WORKING for TEXT FORMAT ONLY ...]
 
+     + MXSPECTRA -> 1000 (was 300)
+     + MXDOCLINE -> 2000 (was 1000) to handle lots of NON1A keys
+
+     + cleanup writing AGN parameters
+
+     + define PySEDMODEL names in sndata.h (instead of genmag_PySEDMODEL.h)
+       so that snana.exe and snlc_fit.exe can use these parameters for read-back
+       without linking to python code.
+
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.
     

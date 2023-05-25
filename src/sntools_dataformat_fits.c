@@ -505,15 +505,22 @@ void wr_snfitsio_init_head(void) {
     }
 
 
-    if ( SNDATA.SIM_MODEL_INDEX == MODEL_BYOSED ||
-	 SNDATA.SIM_MODEL_INDEX == MODEL_SNEMO ) {
-      for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
-	sprintf(parName,"%s", SNDATA.PySEDMODEL_KEYWORD[ipar] );
-	wr_snfitsio_addCol( "1E", parName  , itype );
-      }
-    }
+    /*  xxx mark delete May 25 2023 RK xxxxxxxxx
+    if ( SNDATA.SIM_MODEL_INDEX == MODEL_BYOSED   ||
+	 SNDATA.SIM_MODEL_INDEX == MODEL_SNEMO    ||
+	 SNDATA.SIM_MODEL_INDEX == MODEL_PYBAYESN ||
+	 SNDATA.SIM_MODEL_INDEX == MODEL_AGN
+	 ) {
+    xxxxxxx end mark xxxxx */
 
-    if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB && SNFITSIO_SIMFLAG_MODELPAR) {
+    for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
+      sprintf(parName,"%s", SNDATA.PySEDMODEL_KEYWORD[ipar] );
+      wr_snfitsio_addCol( "1E", parName  , itype );
+    }
+      // xxx mark    }
+
+    if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB && 
+	 SNFITSIO_SIMFLAG_MODELPAR) {
       for ( ipar=0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {
 	sprintf(parName,"%s", SNDATA.LCLIB_KEYWORD[ipar] );
 	wr_snfitsio_addCol( "1E", parName  , itype );
@@ -1278,7 +1285,6 @@ void wr_snfitsio_create(int itype ) {
   // idem for BYOSED,SNMEO params (Dec 10 2018)
   NPAR = SNDATA.NPAR_PySEDMODEL ;  
   if ( NPAR > 0 ) {
-    // xxxx    sprintf(KEYNAME, "%s_MODEL", SNDATA.SIM_MODEL_NAME);
     sprintf(KEYNAME, "PySEDMODEL" );
     fits_update_key(fp, TSTRING, KEYNAME, SNDATA.SIM_MODEL_NAME, 
 		    "Generation Model", &istat );
@@ -2116,14 +2122,15 @@ void wr_snfitsio_update_head(void) {
   }
 
 
+  /* xxxxxxx mark delete May 25 2023 xxxxxxx
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BYOSED ||
-       SNDATA.SIM_MODEL_INDEX  == MODEL_SNEMO ) {
-    for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL;  ipar++ ) {
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PySEDMODEL_PARVAL[ipar] ;
-      sprintf(parName,"%s" ,SNDATA.PySEDMODEL_KEYWORD[ipar] );
-      wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-    }
+  SNDATA.SIM_MODEL_INDEX  == MODEL_SNEMO ) {        xxx end mark */
+
+  for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL;  ipar++ ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PySEDMODEL_PARVAL[ipar] ;
+    sprintf(parName,"%s" ,SNDATA.PySEDMODEL_KEYWORD[ipar] );
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_LCLIB && SNFITSIO_SIMFLAG_MODELPAR) {
@@ -3041,6 +3048,11 @@ void rd_snfitsio_init__(int *init_num) { RD_SNFITSIO_INIT(*init_num); }
 int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 { return RD_SNFITSIO_PREP(*MSKOPT,PATH,version); }
 
+
+
+
+/* xxx mark delete May 25 2023 xxxxxxxx
+
 // ========================================================
 int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
 
@@ -3131,8 +3143,11 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
     sprintf(tmpString,"%d", SNDATA.NPAR_SIMSED );
   }
 
-  else if ( strcmp(parName,"BYOSED_NPAR") == 0  || 
-	    strcmp(parName,"SNEMO_NPAR" ) == 0  ) {   
+  else if ( strcmp(parName,"BYOSED_NPAR"   ) == 0  || 
+	    strcmp(parName,"SNEMO_NPAR"    ) == 0  ||
+	    strcmp(parName,"PYBAYESN_NPAR" ) == 0  ||
+	    strcmp(parName,"AGN_NPAR"      ) == 0  ) {
+    // to do : should use PySEDMODEL_CHOICE_LIST
     int NPAR = 0;
     if ( strstr(parName,SNDATA.PySEDMODEL_NAME) ) 
       { NPAR = SNDATA.NPAR_PySEDMODEL ; }
@@ -3252,6 +3267,10 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
 
 int rd_snfitsio_global__(char *parName, char *parString) 
 { return RD_SNFITSIO_GLOBAL(parName,parString); }
+
+xxxxxxx end mark xxxxxxxxx */
+
+
 
 
 // ==================================================
@@ -3677,14 +3696,15 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       }
     }
 
-    if ( SNDATA.SIM_MODEL_INDEX == MODEL_BYOSED ||
-	 SNDATA.SIM_MODEL_INDEX == MODEL_SNEMO ) {
-      for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
-	j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.PySEDMODEL_KEYWORD[ipar], 
-				   &SNDATA.PySEDMODEL_PARVAL[ipar] ,
-				   &SNFITSIO_READINDX_HEAD[j] ) ;	
-      }
+
+    //xxx mark delete    if ( SNDATA.SIM_MODEL_INDEX == MODEL_BYOSED ||
+    //xxx mark delete  SNDATA.SIM_MODEL_INDEX == MODEL_SNEMO ) {
+    for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.PySEDMODEL_KEYWORD[ipar], 
+				 &SNDATA.PySEDMODEL_PARVAL[ipar] ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;	
     }
+
 
     if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ) {
       for ( ipar=0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {
@@ -4409,10 +4429,10 @@ void rd_snfitsio_simkeys(void) {
 
   // - - - - - - - -
   // Check PySEDMODELs 
-  int NCHOICE=2, imodel; char tmpModel[40];
-  char PySEDMODEL_CHOICE_LIST[2][20] = { "BYOSED", "SNEMO" } ;
+  int imodel; char tmpModel[40];
   
-  for(imodel = 0; imodel < NCHOICE; imodel++ ) {
+  load_PySEDMODEL_CHOICE_LIST();
+  for(imodel = 0; imodel < NCHOICE_PySEDMODEL; imodel++ ) {
     sprintf(tmpModel, "%s", PySEDMODEL_CHOICE_LIST[imodel] );
     istat = NPAR = 0;
     sprintf(keyname, "%s_NPAR", tmpModel ); 

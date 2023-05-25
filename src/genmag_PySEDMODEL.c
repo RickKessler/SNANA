@@ -100,6 +100,7 @@ void handle_python_exception(char *fnam, const char *desc) {
 
 // ===============================================
 
+/* xxx mark delete May 25 2023 xxxxxx
 void load_PySEDMODEL_CHOICE_LIST(void) {
 
   int N=0;
@@ -118,6 +119,9 @@ void load_PySEDMODEL_CHOICE_LIST(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 } // end load_PySEDMODEL_CHOICE_LIST
+
+xxxxxxxx end mark xxxxxx*/
+
 
 
 // =========================================================

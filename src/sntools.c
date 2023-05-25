@@ -29,6 +29,33 @@
 **********************************************************
 **********************************************************/
 
+
+void load_PySEDMODEL_CHOICE_LIST(void) {
+  // May 2023:
+  // Moved from genmag_PySEDMODEL.c so that it is available
+  // to analysis codes (as well as sim)
+
+  int N=0;
+  char fnam[] = "load_PySEDMODEL_CHOICE_LIST" ;
+
+  // generic utility to store all possible PySEDMODEL names.
+  // Used by sim, parsing, etc ...
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO  ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_PYBAYESN ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_AGN    ); N++ ;
+
+  if ( N != NCHOICE_PySEDMODEL ) {
+    sprintf(c1err,"Expected %d PySEDMODEL choices");
+    sprintf(c2err,"but loaded %d", N);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return ;
+
+} // end load_PySEDMODEL_CHOICE_LIST
+
+// ==================================================
 double smooth_stepfun(double sep, double sepmax) {
 
   // Translated from fortran, Nov 2022

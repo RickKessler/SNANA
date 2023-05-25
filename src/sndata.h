@@ -97,6 +97,16 @@
 
 #define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
 
+// May 2023 define PySEDMODEL names here (instead of in genmag_PySEDMODEL.h)    
+//   so that both sim and analysis codes have access and the analysis           
+//   (LCFIT) code need not link to python   
+#define MODEL_NAME_BYOSED   "BYOSED"
+#define MODEL_NAME_SNEMO    "SNEMO"
+#define MODEL_NAME_PYBAYESN "PYBAYESN" // don't confuse with C code BAYESN
+#define MODEL_NAME_AGN      "AGN"
+#define NCHOICE_PySEDMODEL  4
+char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
+
 // ------------------------------------------
 
 //  disk pointers defined in init_SNDATA

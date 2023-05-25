@@ -21657,6 +21657,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        files do not include quantiles.
           https://github.com/RickKessler/SNANA/issues/1140
     
+   Ingest/create yaml.c[h] from https://github.com/yaml/libyaml
+   to avoid installing another library. Initial use is genmag_BAYESN.c
+
+
         ***** MISCELLANEOUS(v11_05d) ***** 
 
    submit_prog_cosmofit.py:

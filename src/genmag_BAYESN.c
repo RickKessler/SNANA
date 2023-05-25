@@ -17,7 +17,7 @@
 
 #ifdef USE_BAYESN
 #include "yaml.h"
-#endif  // RK had to remove all code to compile (May 25 2023)
+#endif 
 
 
 // #include "sntools_modelgrid.h" 
@@ -83,7 +83,7 @@ void read_BAYESN_inputs(char *filename)
     // and something to point to the current BayeSN variable being populated
     // this only works if datatype is in 1-3 (assumed double)
     double *bayesn_var_dptr = &this_scalar;
-
+    int i;
 
     sprintf(BANNER, "%s : Begin reading BAYESN model components from %s", fnam, filename);
     print_banner(BANNER);
@@ -181,7 +181,7 @@ void read_BAYESN_inputs(char *filename)
           {
               datatype = 2;
               BAYESN_MODEL_INFO.lam_knots = malloc(sizeof(double)*(int)N_LAM);
-              for(int i=0; i<(int)N_LAM; i++)
+              for(i=0; i<(int)N_LAM; i++)
               {
                   BAYESN_MODEL_INFO.lam_knots[i] = 0.0;
               }
@@ -192,7 +192,7 @@ void read_BAYESN_inputs(char *filename)
           {
               datatype = 2;
               BAYESN_MODEL_INFO.tau_knots = malloc(sizeof(double)*(int)N_TAU);
-              for(int i=0; i<(int)N_TAU; i++)
+              for(i=0; i<(int)N_TAU; i++)
               {
                   BAYESN_MODEL_INFO.tau_knots[i] = 0.0;
               }
@@ -318,19 +318,19 @@ void read_BAYESN_inputs(char *filename)
                                                          BAYESN_MODEL_INFO.n_sig_knots);
 
     // finally initalize the GSL matrices 
-    int k = 0;
-    for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
+    int k = 0, j;
+    for(i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
     {
-        for(int j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
+        for(j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
         {
             k = i*BAYESN_MODEL_INFO.n_tau_knots + j;
             gsl_matrix_set(BAYESN_MODEL_INFO.W0, i, j, W0[k]);
             gsl_matrix_set(BAYESN_MODEL_INFO.W1, i, j, W1[k]);
         }
     }
-    for(int i=0; i< BAYESN_MODEL_INFO.n_sig_knots; i++)
+    for(i=0; i< BAYESN_MODEL_INFO.n_sig_knots; i++)
     {
-        for(int j=0; j< BAYESN_MODEL_INFO.n_sig_knots; j++)
+        for(j=0; j< BAYESN_MODEL_INFO.n_sig_knots; j++)
         {
 
             k = i*BAYESN_MODEL_INFO.n_sig_knots + j;

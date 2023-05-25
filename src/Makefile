@@ -75,6 +75,8 @@
 # Nov 23 2022: add genmag_extinction
 # Nov 29 2022: remove kcordump
 # Dec 02 2022: append CFLAGS with snana git version
+# May 25 2023: incluce yaml.o ingested from github 
+#          (original need is genmag_BAYESN.c)
 #
 # ------------------------------------------------------------------------
 
@@ -132,13 +134,15 @@ ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
-ifndef YAML_DIR
-	LYAML = 
-	USE_BAYESN = 0
-else
-	LYAML = -lyaml
-	USE_BAYESN = 1
-endif 
+# xxxxxxxxxxxx mark delete May 25 2023 xxxxxxx
+#ifndef YAML_DIR
+#	LYAML = 
+#	USE_BAYESN = 0
+#else
+#	LYAML = -lyaml
+#	USE_BAYESN = 1
+#endif 
+# xxxxxxxxxxx
 
 # ------------------------------------------
 # default lib-subdir name is just 'lib'.
@@ -340,6 +344,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_calib.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
+	$(OBJ)/yaml.o	\
 	$(OBJ)/minuit.o		\
 	$(OBJ)/MWgaldust.o	\
 	$(OBJ)/sntools_cosmology.o \
@@ -447,9 +452,14 @@ $(BIN)/fcasplit : $(OBJ)/fcasplit.o
 	$(OBJ)/fcasplit.o 
 	(cd $(OBJ);  rm fcasplit.o ) 
 
+# -------------------------
 $(OBJ)/minuit.o :  minuit.F
 	(cd $(OBJ); \
 	$(FFC) $(SNFFLAGS) $(SRC)/minuit.F)
+
+# -------------------------
+$(OBJ)/yaml.o : $(SRC)/yaml.c $(SRC)/yaml.h
+	(cd $(OBJ); $(CC) $(SNCFLAGS)  $(SRC)/yaml.c )
 
 # -----------------------------------------------------
 #  cosmology fitter (from Alex Connelly, modified by G.Miknaitis & RK)
@@ -596,7 +606,7 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
 	$(OBJ_SNFIT) 	\
 	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm $(LYAML) $(CPPLIB)
+	$(LCERN)  $(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm snlc_fit.o )
 
 # -------------------------------------------------
@@ -962,7 +972,8 @@ $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 
 $(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_BAYESN.c
 	(cd $(OBJ); \
-	$(CC) $(LYAML) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
+#	$(CC) $(LYAML) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
 
 $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \
@@ -1019,7 +1030,7 @@ $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
 	$(OBJ_SIM)	  	\
 	$(LIB)/libsnana.a  	\
 	$(LCFITSIO) $(LGSL)  	\
-	$(LPY)  $(LCERN) $(LROOT)  -lm $(LYAML) $(CPPLIB)
+	$(LPY)  $(LCERN) $(LROOT)  -lm  $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
 # -------------------------------------------------

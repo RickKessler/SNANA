@@ -237,6 +237,10 @@ void read_BAYESN_inputs(char *filename)
               // if we read a scalar we're done with one read
               if (datatype == 1)
               { 
+                  if (VERBOSE_BAYESN > 0)
+                  {
+                    printf("DEBUG: Read this scalar from yaml %.2f\n", this_scalar);
+                  }
                   // update the value of the variable that the pointer points to 
                   *bayesn_var_dptr = this_scalar;
                   datatype = 0; 
@@ -449,7 +453,7 @@ void genmag_BAYESN(
     double z1, meanlam_obs,  meanlam_rest, ZP; 
     char *cfilt;
     int ifilt = 0, i;
-
+    
     //SHOULD I BE DECLARING THESE HERE??
     gsl_matrix * J_tau; // for time interpolation
     gsl_matrix * W = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
@@ -584,6 +588,10 @@ void genmag_BAYESN(
     gsl_vector_free(jWJ);
 
     double zdum = 2.5*log10(1.0+z);
+    if (VERBOSE_BAYESN > 0)
+    {
+        printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f   THETA: %.2f   AV: %.2f\n", BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
+    }
     for (o = 0; o < Nobs; o++) {
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG 
 	-2.5*log10(magobs_list[o]) + ZP;

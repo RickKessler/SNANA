@@ -39,6 +39,8 @@
   Apr 24 2022: define HOSTGAL_PROPERTY_xxx [moved from sntools_host.h]
   May 19 2023: MXSPECTRA -> 500 (was 300)
   May 24 2023: MXSPECTRA -> 1000 (was 500)
+  May 24 2023: MXDOCLINE -> 2000 (was 1000) to handle long list of NON1A keys
+
 *****************************************************/
 
 #define MXEPOCH  5000     // max number of epochs per SN
@@ -50,7 +52,7 @@
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
 #define MXSPECTRA  1000   // max number of spectra in data files
 
-#define MXDOCLINE 1000    // max number of lines in README.DOC file
+#define MXDOCLINE 2000    // max number of lines in README.DOC file
 #define MXTYPE    1000    // max TYPE id in data base
 #define MXBRIGHT  20     // max number of bright times (for MJD ranges)
 #define MXVAR_PRIVATE 40 // max number of private variables

@@ -90,6 +90,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     README_DOCANA_OVERVIEW(&i);
     README_DOCANA_INPUT_KEYS(&i);
     README_DOCANA_INPUT_NOTES(&i);
+
   }
   else {
     README_DOCANA_OUTPUT_SUMMARY(&i);
@@ -97,6 +98,13 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     i++; 
     sprintf(VERSION_INFO.README_DOC[i],"%s",KEYNAME2_DOCANA_REQUIRED); 
   }
+
+  if ( i > MXDOCLINE ) {    
+    sprintf(c1err,"%d DOCANA lines exceeds bound of MXDOCLINE=%d", i);
+    sprintf(c2err,"Consider increasing MXDOCLINE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
 
   VERSION_INFO.NLINE_README = i;  
   if ( iflag_readme == 1 ) 

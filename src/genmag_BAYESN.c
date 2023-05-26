@@ -587,7 +587,7 @@ void genmag_BAYESN(
     if (VERBOSE_BAYESN > 0)
     {
         printf("DEBUG: Printing J_tau matrix\n");
-	// xxx RK        int crap = print_matrix(stdout, J_tau);
+	    int crap = print_matrix(stdout, J_tau);
         printf("-----\n\n\n");
     }
 
@@ -736,13 +736,14 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 	return J;
 }
 
-/* xxx does not compile 
 int print_matrix(FILE *f, const gsl_matrix *m)
 {
         int status, n = 0;
+        size_t i=0;
+        size_t j=0;
 
-        for (size_t i = 0; i < m->size1; i++) {
-                for (size_t j = 0; j < m->size2; j++) {
+        for (i = 0; i < m->size1; i++) {
+                for (j = 0; j < m->size2; j++) {
                         if ((status = fprintf(f, "%g ", gsl_matrix_get(m, i, j))) < 0)
                                 return -1;
                         n += status;
@@ -756,4 +757,3 @@ int print_matrix(FILE *f, const gsl_matrix *m)
         return n;
 }
 
-xxx */

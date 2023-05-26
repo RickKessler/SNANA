@@ -192,7 +192,7 @@ class gensed_PYBAYESN(gensed_base):
                 for rsuffix, start, length in zip(replace_suffixes, replace_inds, replace_len):
                     rkey = f'GEN{rsuffix}_{paramname}'
                     rval = ' '.join(vals[start:start+length])
-                    print(vals, start, start+length, rval)
+                    #print(vals, start, start+length, rval)
                     self.bookkeep_bayesn_param_key(paramname, rsuffix)
                     temp = self.convert_bayesn_param_key_val(rkey, rsuffix, rval)
                     self.bayesn_distrib_params[rkey] = temp
@@ -405,13 +405,16 @@ class gensed_PYBAYESN(gensed_base):
 
         ########## NEW CODE FROM ST BELOW HERE (FOR GUIDANCE) ##########
 
-        print("XXXX z = {:.6f}; theta = {:.6f}".format(self.parameter_values["REDSHIFT"], self.parameter_values["THETA"]))
+        #print("XXXX z = {:.6f}; theta = {:.6f}".format(self.parameter_values["REDSHIFT"], self.parameter_values["THETA"]))
 
         #ST: Computes matrices that do interpolation
         #    Probably can't be precomputed
         #    Assumes that `trest` is a float, and `self.wave` is a 1D
         #    list or numpy array of rest frame wavelengths
         J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
+        print('DEBUG JT')
+        print(J_t)
+        print('-------------\n\n\n')
 
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package
@@ -432,7 +435,13 @@ class gensed_PYBAYESN(gensed_base):
         #    as `flux`
         JWJ = np.linalg.multi_dot([self.J_l, W, J_t]).squeeze()
         dlam = self.wave[1:] - self.wave[:-1]
-        print(trest, min(dlam), max(dlam), self.wave[446], JWJ[446], 10**(-0.4*JWJ)[446], JWJ.shape)
+        print('DEBUG JWJ')
+        for JWJ_i in JWJ:
+            print(JWJ_i)
+        print('-------------\n\n\n')
+
+
+        #print(trest, min(dlam), max(dlam), self.wave[446], JWJ[446], 10**(-0.4*JWJ)[446], JWJ.shape)
 
         #ST: Multiplies correction into Hsiao fluxes
         #    Stilde is essentially the host-dust-extinguished

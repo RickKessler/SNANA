@@ -1128,7 +1128,7 @@ struct INPUTS {
   
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
-  int restore_bug_sim_beta;     // May 25 2023
+  int restore_bug_sim_beta;     // May 25 2023 (harmless bug -> no impact)
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
@@ -4031,6 +4031,9 @@ void *MNCHI2FUN(void *thread) {
 
     APPLY_COVADD = ( DO_COVADD && muCOVadd > 0.0  );
                  
+    if ( INPUTS.debug_flag == 526 ) // May 26 debug hack
+      { APPLY_COVADD = ( DO_COVADD && (muCOVadd+muerrsq)>0.001  ); }
+
     bool restore_bug_mucovadd =(INPUTS.restore_bug_mucovadd &2)>0;
     if (restore_bug_mucovadd){
       APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
@@ -9444,7 +9447,6 @@ void set_DUST_FLAG_biasCor(void) {
     }
   }
  
-  //.xyz
   return ;
 
 } // end set_DUST_FLAG_biasCor
@@ -13117,6 +13119,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   // if debug_mucovscale is set, write two files:
   // Info per I1D mucov bin
   // Info per biasCor event.
+  // May 26 2023: include SNRMAX column
 
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
   CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
@@ -13171,7 +13174,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   sprintf(outfile,"%s_IDSAMPLE%d_BIASCOR.DAT", INPUTS.PREFIX, IDSAMPLE); 
   printf("DEBUG: Create diagnostic file %s\n", outfile);
   fp = fopen(outfile,"wt");
-  fprintf(fp,"VARNAMES: CID  BIN_MUCOV  zHD c "
+  fprintf(fp,"VARNAMES: CID  BIN_MUCOV  zHD c SNRMAX "
 	    "MUDIF  MUERR  MUCOVSCALE MUCOVADD\n");
 
   CELLINFO_DEF *CELL_BIASCOR  = &CELLINFO_BIASCOR[IDSAMPLE];
@@ -13195,13 +13198,14 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
       name = INFO_BIASCOR.TABLEVAR.name[ievt];
       sprintf(line,"SN: "
 	      "%8s %4d  "         // name bin 
-	      "%5.3f %6.3f "      // zHD, c
-	      "%6.3f %.3f "         // MUDIF MUERR 
+	      "%5.3f %6.3f %4.1f "   // zHD, c, SNRMAX
+	      "%6.3f %.3f "         // MUDIF MUERR
 	      "%7.3f %7.4f"         // MUCOVSCALE MUCOVADD	      
       	      ,INFO_BIASCOR.TABLEVAR.name[ievt]
 	      ,INFO_BIASCOR.TABLEVAR.IMUCOV[ievt]
 	      ,INFO_BIASCOR.TABLEVAR.zhd[ievt]
 	      ,INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt]
+	      ,INFO_BIASCOR.TABLEVAR.snrmax[ievt]
 	      ,muDif_list[ievt]
 	      ,muErr_list[ievt]
 	      ,INFO_BIASCOR.MUCOVSCALE[IDSAMPLE][i1d]

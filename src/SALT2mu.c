@@ -282,6 +282,9 @@ For help, run code with no arguments
    + if simfile_biascor=NONE, disable it -> allows command-line override.
    + write biascor_nevt to output fitres file.
 
+ May 25 2023: new function set_DUST_FLAT_biasCor() determines BS21 dust
+              model if SIM_AV > 0 
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -577,7 +580,7 @@ typedef struct {
   // SIM_[PROPERTY] read from table file
   short int *SIM_NONIA_INDEX, *SIM_ZFLAG ;
   float *SIM_ALPHA, *SIM_BETA, *SIM_GAMMADM;
-  float *SIM_X0, *SIM_FITPAR[NLCPAR+1]; 
+  float *SIM_X0, *SIM_FITPAR[NLCPAR+1], *SIM_AV; 
   float *SIM_ZCMB, *SIM_VPEC, *SIM_MU;
   float *SIM_MUz ; // calculated SIM_MU at observed redshift
 
@@ -1125,6 +1128,7 @@ struct INPUTS {
   
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
+  int restore_bug_sim_beta;     // May 25 2023
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
@@ -1509,6 +1513,8 @@ void   test_zmu_solve(void);
 int   storeDataBias(int n, int dumpFlag ) ;
 int   biasMapSelect(int i) ;
 void  read_simFile_biasCor(void);
+void  set_DUST_FLAG_biasCor(void) ;
+
 void  set_MAPCELL_biasCor(int IDSAMPLE) ;
 void  store_iaib_biasCor(void) ;
 
@@ -5163,6 +5169,7 @@ void set_defaults(void) {
   INPUTS.restore_bug_mucovadd   = 0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
+  INPUTS.restore_bug_sim_beta     = 0 ; // harmless bug; no effect
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
   INPUTS.cidlist_debug_biascor[0] = 0 ;
@@ -6289,6 +6296,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->SIM_BETA         = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_GAMMADM      = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_X0           = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->SIM_AV           = (float *) malloc(MEMF); MEMTOT+=MEMF;
 
     for (i=0; i < NLCPAR_LOCAL ; i++ ) 
       { TABLEVAR->SIM_FITPAR[i] = (float *) malloc(MEMF); MEMTOT+=MEMF; } 
@@ -6361,6 +6369,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->SIM_BETA);
     free(TABLEVAR->SIM_GAMMADM);
     free(TABLEVAR->SIM_X0);
+    free(TABLEVAR->SIM_AV);
 
     for (i=0; i < NLCPAR_LOCAL ; i++ )
       { free(TABLEVAR->SIM_FITPAR[i]); }
@@ -6675,6 +6684,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
     TABLEVAR->SIM_NONIA_INDEX[irow]  = -9 ;
     TABLEVAR->SIM_X0[irow]           = -9.0 ;
+    TABLEVAR->SIM_AV[irow]           =  0.0 ;
     TABLEVAR->SIM_FITPAR[0][irow]    = -9.0 ;
     TABLEVAR->SIM_FITPAR[1][irow]    = -9.0 ;
     TABLEVAR->SIM_FITPAR[2][irow]    = -9.0 ;
@@ -6873,7 +6883,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     // if the 64 blind-sim bit isn't set by xuser, set blindFlag=0
     if ( (INPUTS.blindFlag & BLINDMASK_SIM)==0 ) { INPUTS.blindFlag=0; }
   }
-  
+ 
   sprintf(vartmp,"SIMx0:F SIM_x0:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_X0[ISTART], 
 			  LEN, VBOSE);
@@ -6885,6 +6895,10 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 			  LEN, VBOSE);
   sprintf(vartmp,"SIMc:F SIM_c:F SIM_SALT2c:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
+			  LEN, VBOSE);
+
+  sprintf(vartmp,"SIM_AV:F" );
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_AV[ISTART], 
 			  LEN, VBOSE);
 
   sprintf(vartmp,"SIM_alpha:F SIMalpha:F" ) ;
@@ -7251,12 +7265,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
  
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
-    int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
-    if ( SIM_NONIA_INDEX == 0 && NBINb == 1 )
-      { INFO_BIASCOR.DUST_FLAG=true; }
 
-    bool restore_bug_mucovadd =(INPUTS.restore_bug_mucovadd &1)>0;
-    if (restore_bug_mucovadd ) { INFO_BIASCOR.DUST_FLAG=false; }
 
     // Mainly for BS21 model:
     // Prepare option to bias-correct MU instead of correcting mB,x1,c 
@@ -7267,36 +7276,26 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     x1      = (double)TABLEVAR->fitpar[INDEX_x1][ISN] ;
     c       = (double)TABLEVAR->fitpar[INDEX_c][ISN] ;
 
-    // 4/10/2020: temp hack;later should measure A,B from slopes of HR vs x1,c
-    // Maybe need option to use true A,B from sims ?
-    Alpha   = INPUTS.parval[IPAR_ALPHA0]; 
-    Beta    = INPUTS.parval[IPAR_BETA0]; 
+    Alpha   = TABLEVAR->SIM_ALPHA[ISN] ;
+    Beta    = TABLEVAR->SIM_BETA[ISN] ;
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
 
-    // Mar 3 2022: hack on hack; set sim_beta to user p2 ~ fitted beta,
-    //   and override the intrinsic beta. Needed in muerrsq_biasCor.
-    //   Still need to define a true Tripp-Beta for BS21 model
-    //   This fix helps fix the anomalously low chi2.
-    if ( INFO_BIASCOR.DUST_FLAG ) { 
-      // intended for for BS21 model
-      Alpha   = INPUTS.parval[IPAR_ALPHA0]; 
-      Beta    = INPUTS.parval[IPAR_BETA0]; 
-      GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
-      INFO_BIASCOR.TABLEVAR.SIM_BETA[ISN]  = Beta ; // overwrite !!!
-    }
-    else {
-      // non-BS21 models with single color law
-      Alpha   = TABLEVAR->SIM_ALPHA[ISN] ;
-      Beta    = TABLEVAR->SIM_BETA[ISN] ;
-      GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
-    }
-
-    /*
-    if ( ISN < -20 ) {
-      printf(" xxx %s: ISN=%2d zhd=%.3f SIM_ZCMB=%.3f dmu=%.3f \n",
-	     fnam, ISN, zhd, SIM_ZCMB, dmu );
-    }
-    */
+    if ( INPUTS.restore_bug_sim_beta ) {
+      // Mar 3 2022: hack on hack; set sim_beta to user p2 ~ fitted beta,
+      //   and override the intrinsic beta. Needed in muerrsq_biasCor.
+      //   Still need to define a true Tripp-Beta for BS21 model
+      //   This fix helps fix the anomalously low chi2.
+      int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
+      if ( SIM_NONIA_INDEX == 0 && NBINb == 1 )  { 
+	INFO_BIASCOR.DUST_FLAG=true; 
+	
+	// intended for for BS21 model
+	Alpha   = INPUTS.parval[IPAR_ALPHA0]; 
+	Beta    = INPUTS.parval[IPAR_BETA0]; 
+	GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
+	INFO_BIASCOR.TABLEVAR.SIM_BETA[ISN]  = Beta ; // overwrite !!!
+      }
+    } // end restore_bug
 
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
     TABLEVAR->fitpar[INDEX_mu][ISN]      = (float)mu_obs ; 
@@ -8999,6 +8998,9 @@ void prepare_biasCor(void) {
   // read biasCor file
   read_simFile_biasCor();
 
+  // check for BS21 model which has AV > 0
+  set_DUST_FLAG_biasCor();
+
   // setup 5D bins 
   if ( DOCOR_5D || DOCOR_1D5DCUT ) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
@@ -9392,6 +9394,60 @@ void  read_simFile_biasCor(void) {
   return ;
 } // end read_simFile_biasCor
 
+// =======================================
+void set_DUST_FLAG_biasCor(void) {
+
+  // Created May 25 2023 by R.Kessler
+  // Set DUST_FLAG=True if any SIM_AV > 0;
+  // if dust flag is set, overwrite SIM_BETA(intrinsic) 
+  // with p2 value which is the approximated fitted beta. 
+  // Beware that BS21 model does not predict a true SIM_BETA.
+
+  int SIM_NONIA_INDEX, isn, NSN_CHECK = 20, nav=0, nia=0 ;
+  double SIM_AV, Alpha, Beta ;
+  char fnam[] = "set_DUST_FLAG_biasCor" ;
+
+  // ------------ BEGIN -----------
+
+  if ( INPUTS.restore_bug_sim_beta ) { return; }
+
+  for ( isn=0; isn < NSN_CHECK; isn++ ) {
+
+    // ensure SNIa     
+    SIM_NONIA_INDEX = INFO_BIASCOR.TABLEVAR.SIM_NONIA_INDEX[isn];
+    if ( SIM_NONIA_INDEX != 0 ) { continue; }
+
+    nia++ ;
+    SIM_AV = INFO_BIASCOR.TABLEVAR.SIM_AV[isn];
+    if ( SIM_AV > 0 ) { nav++ ; }
+  }
+
+  if ( nia == 0 ) {
+    sprintf(c1err,"Found no SNIa in first %d BiasCor events", NSN_CHECK);
+    sprintf(c2err,"Unable to check for BS21 dust model.") ;
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  if ( nav > 0 ) {  
+    INFO_BIASCOR.DUST_FLAG = true; 
+    Alpha       = INPUTS.parval[IPAR_ALPHA0];
+    Beta        = INPUTS.parval[IPAR_BETA0];
+    fprintf(FP_STDOUT,"\n Detected BS21 Dust model for BiasCor\n");
+    fprintf(FP_STDOUT,"\t --> Force all SIM_ALPHA = p1 = %f \n", Alpha);
+    fprintf(FP_STDOUT,"\t --> Force all SIM_BETA  = p2 = %f \n", Beta);
+    fprintf(FP_STDOUT,"\n");
+    fflush(stdout);
+    int NSN_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL;
+    for ( isn=0; isn < NSN_ALL; isn++ ) {
+      INFO_BIASCOR.TABLEVAR.SIM_ALPHA[isn]  = Alpha ; // overwrite !!!
+      INFO_BIASCOR.TABLEVAR.SIM_BETA[isn]   = Beta ; // overwrite !!!
+    }
+  }
+ 
+  //.xyz
+  return ;
+
+} // end set_DUST_FLAG_biasCor
 
 // ================================================================
 void  prepare_biasCor_zinterp(void) {
@@ -16367,6 +16423,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_bug_zmax_biascor="))
     { sscanf(&item[25],"%d", &INPUTS.restore_bug_zmax_biascor); return(1); }
 
+  if ( uniqueOverlap(item,"restore_bug_sim_beta="))
+    { sscanf(&item[21],"%d", &INPUTS.restore_bug_sim_beta); return(1); }
+
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
     return(1); 
@@ -18338,8 +18397,14 @@ void prep_debug_flag(void) {
 	   INPUTS.restore_bug_muzerr);
     fflush(stdout);
   }
+
   if ( INPUTS.restore_bug_zmax_biascor ) {
     printf("\n RESTORE BUG for zmax(biasCor)\n" );
+    fflush(stdout);
+  }
+
+  if ( INPUTS.restore_bug_sim_beta ) {
+    printf("\n RESTORE BUG for BS21 setting SIM_BETA=p2 after beta binning\n");
     fflush(stdout);
   }
   

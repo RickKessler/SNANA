@@ -1946,7 +1946,7 @@ int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 void   GENMAG_DRIVER(void);    // driver to generate true mags
 void   DUMP_GENMAG_DRIVER(void);
 void   GENFLUX_DRIVER(void);   // driver to generate observed fluxes
-void   GENFLUX_DRIVER_LEGACY(void);   // driver to generate observed fluxes
+
 void   set_GENFLUX_FLAGS(int ep);
 void   gen_fluxNoise_randoms(void);
 void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
@@ -1958,9 +1958,6 @@ void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpCovMat_fluxNoise(int icov, int NOBS, double *COV);
 void   monitorCov_fluxNoise(void);
 void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
-void   gen_airmass(int ep);
-void   genSmear_coords(int ep);
-void   gen_dcr_coordShift(int ep);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra

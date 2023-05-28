@@ -21715,6 +21715,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        so that snana.exe and snlc_fit.exe can use these parameters for read-back
        without linking to python code.
 
+     + create sntools_sim_atmosphere.c[h] and update Makefile
+
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.
     

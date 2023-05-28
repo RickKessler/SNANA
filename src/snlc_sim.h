@@ -134,6 +134,7 @@ int WRFLAG_FILTERS   ; // Aug 2016
 int WRFLAG_ATMOS    ; // May 2023
 int WRFLAG_COMPACT   ; // Jan 2018
 
+
 #define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
 #define SIMLIB_PSF_ARCSEC_FWHM   "ARCSEC_FWHM"        // option
 #define SIMLIB_PSF_NEA_PIXEL     "NEA_PIXEL"          // option

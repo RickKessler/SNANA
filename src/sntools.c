@@ -3166,7 +3166,7 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
 #define STRING_geo    "geo:"
 
   int LEN_STR_geo = strlen(STRING_geo);
-  int LDMP = 1 ;
+  int LDMP = 0 ;
   int NWD;
   char str_coords[40], *ptr_wdlist[2];
   char fnam[] = "parse_geoSURVEYDEF" ;
@@ -7909,12 +7909,15 @@ int init_SNDATA_EVENT(void) {
   for ( i=0; i < 20; i++ ) 
     { sprintf(SNDATA.AUXHEADER_LINES[i],"GARBAGE AUXHEADER_LINE"); }
 
-  SNDATA.RA     = NULLFLOAT ;
-  SNDATA.DEC    = NULLFLOAT ;
-  SNDATA.FAKE   = NULLINT ;
-  SNDATA.MWEBV  = NULLFLOAT ;
+  SNDATA.RA_AVG  = NULLFLOAT ;
+  SNDATA.DEC_AVG = NULLFLOAT ;
+  SNDATA.FAKE    = NULLINT ;
+  SNDATA.MWEBV   = NULLFLOAT ;
   SNDATA.WRFLAG_BLINDTEST     = false ; 
   SNDATA.WRFLAG_PHOTPROB      = false ;
+  SNDATA.WRFLAG_ATMOS         = false ;
+  SNDATA.WRFLAG_SPECTRA       = true  ;
+
   SNDATA.SNTYPE = 0 ;
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
@@ -8070,8 +8073,8 @@ int init_SNDATA_EVENT(void) {
 
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
     SNDATA.AIRMASS[i_epoch]      = NULLFLOAT;
-    SNDATA.RA_OBS[i_epoch]       = 9999999.0 ;
-    SNDATA.DEC_OBS[i_epoch]      = 9999999.0 ;
+    SNDATA.RA[i_epoch]           = 9999999.0 ;
+    SNDATA.DEC[i_epoch]          = 9999999.0 ;
 
     SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
     SNDATA.IMGNUM[i_epoch]   = NULLINT ; // Oct 13 2021 
@@ -8123,6 +8126,10 @@ int init_SNDATA_EVENT(void) {
     SNDATA.SIMEPOCH_WARPCOLNAM[i_epoch][0] = 0 ;
     SNDATA.SIMEPOCH_KCORNAM[i_epoch][0]    = 0 ;
     SNDATA.SIMEPOCH_MAGSMEAR[i_epoch]      = 0.0 ;
+
+    SNDATA.SIMEPOCH_RA_DCR_SHIFT[i_epoch]  = 0.0 ;
+    SNDATA.SIMEPOCH_DEC_DCR_SHIFT[i_epoch] = 0.0 ;
+    SNDATA.SIMEPOCH_MAG_DCR_SHIFT[i_epoch] = 0.0 ;
 
   }  //  end i_epoch init loop
 

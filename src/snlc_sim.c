@@ -321,8 +321,6 @@ int main(int argc, char **argv) {
     // convert generated mags into observed fluxes
     GENFLUX_DRIVER(); 
 
-    // May 2023: check options to model atmosheric effects (e.g. DCR) 
-    GEN_ATMOSPHERE_DRIVER();
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("10", ilc) ; }
 
@@ -373,6 +371,11 @@ int main(int argc, char **argv) {
       gen_event_reject(&ilc, &SIMFILE_AUX, "CUTWIN");
       goto GENEFF;
     }
+
+    // May 2023: check options to model atmosheric effects (e.g. DCR) 
+    //    Call here is after trigger so that coordinate avg can be
+    //    made only for detections.
+    GEN_ATMOSPHERE_DRIVER();
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("12", ilc) ; }
 
@@ -8407,10 +8410,8 @@ void  init_GENLC(void) {
 	     fnam, GENSL.IMGNUM, GENSL.NIMG_GEN); fflush(stdout);
   */
   
- 
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-
 
   GENLC.METHOD_TYPE    = NULLINT ;
   GENLC.SNTYPE         = 0; 
@@ -8525,8 +8526,8 @@ void  init_GENLC(void) {
     GENLC.genmag_obs[epoch]   = NULLFLOAT ;
     GENLC.generr_obs[epoch]   = NULLFLOAT ; // Apr 2013
 
-    GENLC.genmag_rest[epoch]  = NULLFLOAT ;
-    GENLC.generr_rest[epoch]  = 0.000 ;
+    GENLC.genmag_rest[epoch]   = NULLFLOAT ;
+    GENLC.generr_rest[epoch]   = 0.000 ;
     GENLC.genmag_rest2[epoch]  = NULLFLOAT ;
     GENLC.generr_rest2[epoch]  = NULLFLOAT ;
 
@@ -8544,6 +8545,9 @@ void  init_GENLC(void) {
 
     GENLC.RA_OBS[epoch]  = 999999.0 ;
     GENLC.DEC_OBS[epoch] = 999999.0 ;
+    GENLC.RA_dcr_shift[epoch]  = 0.0 ;
+    GENLC.DEC_dcr_shift[epoch] = 0.0 ;
+    GENLC.mag_dcr_shift[epoch] = 0.0 ;
     GENLC.AIRMASS[epoch] = NULLFLOAT ;
 
   } // end of epoch loop
@@ -9002,6 +9006,9 @@ void  init_genSpec(void) {
     double lammin, lammax;
     get_LAMRANGE_ALLFILTER(&lammin, &lammax); // min/max lambda among all bands
     create_ideal_spectrograph(lammin, lammax);
+    lammin -= 50.0 ; lammax += 50.0 ; // allow slop for filter edges
+    printf(" xxx %s: lammin, lammax = %f , %f \n",
+	   fnam, lammin, lammax);
     SPECTROGRAPH_USEFLAG = 1;
   }
 
@@ -21994,6 +22001,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.WRFLAG_PHOTPROB  = INPUTS_SEARCHEFF.NMAP_PHOTPROB > 0 ;
   SNDATA.WRFLAG_SKYSIG_T  = SIMLIB_TEMPLATE.USEFLAG;
   SNDATA.WRFLAG_ATMOS     = (WRFLAG_ATMOS>0);
+  SNDATA.WRFLAG_SPECTRA   = (INPUTS.WRITE_MASK & WRITE_MASK_SPECTRA) >0 ;
 
   if ( GENLC.NEPOCH >= MXEPOCH ) {
     print_preAbort_banner(fnam);
@@ -22007,8 +22015,8 @@ void snlc_to_SNDATA(int FLAG) {
   }
 
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
-  SNDATA.RA            = GENLC.RA_AVG ;
-  SNDATA.DEC           = GENLC.DEC_AVG ;
+  SNDATA.RA_AVG        = GENLC.RA_AVG ;
+  SNDATA.DEC_AVG       = GENLC.DEC_AVG ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
   SNDATA.SIM_TYPE_INDEX  = GENLC.SIMTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME );
@@ -22221,8 +22229,8 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[epoch] = GENLC.NOISE_HOSTGAL_PHOT[epoch];
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
-    SNDATA.RA_OBS[epoch]       = GENLC.RA_OBS[epoch];
-    SNDATA.DEC_OBS[epoch]      = GENLC.DEC_OBS[epoch];
+    SNDATA.RA[epoch]           = GENLC.RA_OBS[epoch];
+    SNDATA.DEC[epoch]          = GENLC.DEC_OBS[epoch];
     SNDATA.AIRMASS[epoch]      = GENLC.AIRMASS[epoch];
 
     sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
@@ -22291,6 +22299,14 @@ void snlc_to_SNDATA(int FLAG) {
 
     // mar 18 2018: store SNR at fixed mag to monitor data quality 
     SNDATA.SIMEPOCH_SNRMON[epoch] = GENLC.SNR_MON[epoch];
+
+    // optional DCR shift
+    if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) {
+      double unit = 3600.0 ; // deg -> arcsec
+      SNDATA.SIMEPOCH_RA_DCR_SHIFT[epoch]  = unit*GENLC.RA_dcr_shift[epoch];
+      SNDATA.SIMEPOCH_DEC_DCR_SHIFT[epoch] = unit*GENLC.DEC_dcr_shift[epoch];
+      SNDATA.SIMEPOCH_MAG_DCR_SHIFT[epoch] = GENLC.mag_dcr_shift[epoch];
+    }
 
     // ----------------
 
@@ -25324,7 +25340,6 @@ void compute_mjd_explode(void) {
     //	   fnam, GENLC.CID, ISED, DAYMIN); fflush(stdout);
   }
 
-  // .xyz
   return;
 
 } // end compute_mjd_explode

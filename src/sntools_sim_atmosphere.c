@@ -14,9 +14,11 @@
 #include "sntools.h"
 #include "sntools_cosmology.h"  // clumsy to require this include
 #include "sntools_stronglens.h" // clumsy to ...
+#include "genmag_SEDtools.h"
 
 #include "snlc_sim.h"
 #include "sntools_sim_atmosphere.h"
+#include "sntools_spectrograph.h"
 
 // ***************************************
 void GEN_ATMOSPHERE_DRIVER(void) {
@@ -33,9 +35,16 @@ void GEN_ATMOSPHERE_DRIVER(void) {
   if ( INPUTS.ATMOSPHERE_OPTMASK == 0 ) { return; }
 
   for ( ep = 1; ep <= GENLC.NEPOCH; ep++ )  {  
+    if ( !GENLC.OBSFLAG_GEN[ep]  )  { continue ; }
     gen_airmass(ep);
     gen_dcr_coordShift(ep);
     genSmear_coords(ep);
+  }
+
+  // determine magShift after obs-weighted RA,DEC are determined.
+  for ( ep = 1; ep <= GENLC.NEPOCH; ep++ )  {  
+    if ( !GENLC.OBSFLAG_GEN[ep]  )  { continue ; }
+    gen_dcr_magShift(ep);
   }
   
   return;
@@ -203,8 +212,8 @@ void genSmear_coords(int epoch) {
   GENLC.RA_WGTSUM  += WGT ;
   GENLC.DEC_WGTSUM += WGT ;
 
-  GENLC.RA_AVG      = GENLC.RA_SUM  / GENLC.RA_WGTSUM ;
-  GENLC.DEC_AVG     = GENLC.DEC_SUM / GENLC.DEC_WGTSUM ;
+  GENLC.RA_AVG    = GENLC.RA_SUM  / GENLC.RA_WGTSUM ;
+  GENLC.DEC_AVG   = GENLC.DEC_SUM / GENLC.DEC_WGTSUM ;
 
   //  printf(" xxx %s: DEC_AVG -> %f for CID=%d \n",
   //	 fnam, GENLC.DEC_AVG, GENLC.CID);
@@ -231,19 +240,21 @@ void gen_dcr_coordShift(int ep) {
   double geoLAT, geoLON;
   get_geoSURVEY(IDSURVEY, &geoLAT, &geoLON);
 
-  // .xyz SN-SED top of atmosphere (not thru filter),
-  //    PSF ... effective <lambda> for SED !!!!
-  //  integral[ l*SED(l)*Filt(l) / integral[SED(l)*Filt(l)]
-
   double wave_sed_wgted;
   char fnam[] = "gen_dcr_coordShift" ;
 
   // -------------- BEGIN -----------
 
+  // compute <wave> = integeral[lam*SED*Trans] / integ[SED*Trans]
   wave_sed_wgted = gen_wave_sed_wgted(ep);
 
-  GENLC.RA_dcr_shift[ep]  = 0.0 ; // true shift; degrees
-  GENLC.DEC_dcr_shift[ep] = 0.0 ;
+  // set number of processed spectra (SEDs) to zero so that spectra
+  // are not written to data files. NMJD_PROC is reset next event.
+  GENSPEC.NMJD_PROC = 0 ;
+
+  // compute RA & DEC shifts ... 
+  GENLC.RA_dcr_shift[ep]  = 1.0E-6 ; // true shift; degrees
+  GENLC.DEC_dcr_shift[ep] = 2.0E-6 ;
 
   return ;
 
@@ -254,15 +265,101 @@ double gen_wave_sed_wgted(int ep) {
 
   // Created May 2023
   // Return mean wavelegnth in filter corresponding to epoch 'ep';
-  // use SED * FILTER_TRANS weight.
-  double wave = 0.0 ;
+  //    <wave> = integeral[lam*SED*Trans] / integ[SED*Trans]
+  //
 
+  double wave         = 0.0 ;
+  int    NMJD_TOT     = GENSPEC.NMJD_TOT ;
+  double MJD          = GENLC.MJD[ep];
+  double TOBS         = GENLC.epoch_obs[ep];
+  int    IFILT_OBS    = GENLC.IFILT_OBS[ep];
+  int    IFILT        = IFILTMAP_SEDMODEL[IFILT_OBS] ;
+  char   *FILTER_NAME = FILTER_SEDMODEL[IFILT].name ;
+  int    imjd, IMJD = -9;
+  
+  int    ilam, NLAM_FILT;
+  double MJD_SPEC, MJD_DIF_MIN, MJD_DIF ;
   char fnam[] = "gen_wave_sed_wgted";
-
+  int LDMP    = 0 ;
+ 
   // --------- BEGIN ---------
+
+  MJD_DIF_MIN = 1.0E9;
+  for(imjd = 0; imjd < NMJD_TOT; imjd++ ) {
+    MJD_SPEC = GENSPEC.MJD_LIST[imjd] ;
+    MJD_DIF  = fabs(MJD_SPEC-MJD);
+    if ( MJD_DIF < MJD_DIF_MIN ) {
+      IMJD = imjd;  MJD_DIF_MIN = MJD_DIF;
+    }
+  } // end imjd
+
+  if ( IMJD < 0 ) {
+    sprintf(c1err,"Unable to find SED IMJD for MJD=%f" );
+    sprintf(c2err,"ep=%d  MJD=%.4f  Tobs=%.2f", ep, MJD, TOBS);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  int    ifilt_obs_check;
+  ifilt_obs_check = FILTER_SEDMODEL[IFILT].ifilt_obs;
+  if ( ifilt_obs_check != IFILT_OBS ) {
+    sprintf(c1err,"filter index mis-match");
+    sprintf(c2err,"epoch IFILT_OBS=%d but FILTER_SEDMODEL(ifilt_obs)=%d",
+	    IFILT_OBS, ifilt_obs_check);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // - - - - - - - -
+  int NLAM_FILTER = FILTER_SEDMODEL[IFILT].NLAM;
+  int NLAM_SED    = INPUTS_SPECTRO.NBIN_LAM;
+  double lam, trans, sedFlux, ST ;
+  double *ptr_SEDFLUX = GENSPEC.GENFLUX_LIST[IMJD];
+  double *ptr_SEDLAM  = INPUTS_SPECTRO.LAMAVG_LIST;
+  double sum0=0.0, sum1=0.0 ;
+  for(ilam=0; ilam < NLAM_FILTER; ilam++ ) {
+    lam   = FILTER_SEDMODEL[IFILT].lam[ilam];
+    trans = FILTER_SEDMODEL[IFILT].transSN[ilam];
+    sedFlux = interp_1DFUN(1, lam, NLAM_SED, ptr_SEDLAM, ptr_SEDFLUX, fnam);
+    ST      = sedFlux * trans ;
+    sum0 += ( ST ) ;
+    sum1 += ( ST * lam );
+  }
+
+  if ( sum0 > 0.0 ) {  wave = sum1 / sum0; }
+  // .xyz
+
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------- \n");
+    printf(" xxx %s DUMP for CID=%d  NMJD_TOT=%d \n", 
+	   fnam, GENLC.CID, NMJD_TOT );
+
+    printf(" xxx MJD=%.3f  Tobs=%.3f  IFILTOBS=%d IFILT=%d"
+	   "(ep=%d IMJD=%d) \n",
+	   MJD, TOBS, IFILT_OBS, IFILT, ep, IMJD); fflush(stdout);
+    printf(" xxx NLAM[FILTER,SED] = %d, %d \n",
+	   NLAM_FILTER, NLAM_SED );
+    printf(" xxx %s <wave> = %f \n",
+	   FILTER_NAME, wave );
+    fflush(stdout);
+
+    if ( GENLC.CID > 2 ) { debugexit(fnam); }
+  }
+
 
   return wave;
 
 } // end gen_wave_sed_wgted
 
+
+// ========================================
+void gen_dcr_magShift(int ep) {
+
+  char fnam[] = "gen_dcr_magShift" ;
+
+  // ---------- BEGIN -------------
+
+  GENLC.mag_dcr_shift[ep] = 1.0E-4 ;
+
+  return;
+
+} // end gen_dcr_magShift
 

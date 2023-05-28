@@ -241,7 +241,7 @@ struct {
 } GENRAN_INFO ;
 
 
-// errmsg parameters
+// errsmsg parameters
 char c1err[200];   // for kcorerr utility
 char c2err[200];   // for kcorerr utility
 char BANNER[200];

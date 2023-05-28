@@ -321,9 +321,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_int(copyFlag, parVal, &SNDATA.MASK_FLUXCOR ); } 
 
   else if ( strcmp(key,"RA") == 0 ) 
-    { copy_dbl(copyFlag, parVal, &SNDATA.RA ); }
+    { copy_dbl(copyFlag, parVal, &SNDATA.RA_AVG ); }
   else if ( strcmp(key,"DEC") == 0 ) 
-    { copy_dbl(copyFlag, parVal, &SNDATA.DEC ); }
+    { copy_dbl(copyFlag, parVal, &SNDATA.DEC_AVG ); }
 
   else if ( strcmp(key,"PIXSIZE") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.PIXSIZE ); }
@@ -1296,8 +1296,8 @@ void rd_override_zcalc(void) {
   // ---------- BEGIN -------------
 
   if ( !FOUND_z ) { return; }
-  RA  = SNDATA.RA;  
-  DEC = SNDATA.DEC ;
+  RA  = SNDATA.RA_AVG;  
+  DEC = SNDATA.DEC_AVG ;
 
   if ( RD_OVERRIDE.FOUND_zCMB ) {
     zCMB = (double)SNDATA.REDSHIFT_FINAL;

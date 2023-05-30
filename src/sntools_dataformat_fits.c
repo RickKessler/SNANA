@@ -3323,7 +3323,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     //Apr 6 2021: check legacy DECL name ...
     if ( NRD == 0 ) {
-      j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DECL", &SNDATA.DEC, 
+      j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DECL", &SNDATA.DEC_AVG, 
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
     }
 

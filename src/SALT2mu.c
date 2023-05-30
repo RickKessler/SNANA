@@ -1125,6 +1125,7 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_bug_mucovscale ; // Sep 14 2021 allow restoring bug
   int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
+  int restore_bug2_mucovadd; // https://github.com/RickKessler/SNANA/issues/1154
   
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
@@ -5172,6 +5173,7 @@ void set_defaults(void) {
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_bug_mucovscale = 0 ;
   INPUTS.restore_bug_mucovadd   = 0 ;
+  INPUTS.restore_bug2_mucovadd  =  0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_sim_beta     = 0 ; // harmless bug; no effect
@@ -9125,11 +9127,7 @@ void prepare_biasCor(void) {
   // determine sigInt for biasCor sample BEFORE makeMap since
   // sigInt is needed for 1/muerr^2 weight
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ )  {  
-      if(INPUTS.debug_flag=530){
-         init_sigInt_biasCor_SNRCUT(IDSAMPLE);  
-      } 
-       else{
-          init_sigInt_biasCor_SNRCUT_legacy(IDSAMPLE);}
+    init_sigInt_biasCor_SNRCUT(IDSAMPLE);      
   } 
 
   // determine intrinsic scatter matrix on grid of
@@ -10505,10 +10503,12 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
-  if (DO_COVADD && INPUTS.debug_flag==530){
-    // zero out sigInt if you are applying the additive method. M.Vincenzi 5/30/2023
+  if ( DO_COVADD && !INPUTS.restore_bug2_mucovadd ) {
+    // zero out sigInt for COV-additive method. M.Vincenzi 5/30/2023
     LOAD_SIGINT_ABGRID(0.0, IDSAMPLE);
-    if (IDSAMPLE==0){fprintf(FP_STDOUT, " %s: set sigInt=0 for COVADD method (in INFO_BIASCOR.SIGINT_ABGRID and INFO_BIASCOR.SIGINT_AVG) \n", fnam);}
+    if ( IDSAMPLE == 0) {
+      fprintf(FP_STDOUT, " %s: set sigInt=0 for COVADD method\n", fnam);
+    }
   }
 
   if ( debug_mucovscale > 0 ) {
@@ -10671,13 +10671,19 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     // compute error with intrinsic scatter
     // 2.10.2023: include vpec uncertainties in muerr computation
-    if (DO_COVADD && INPUTS.debug_flag==530){
-      USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR; }
-    else{
-      USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
+    if ( DO_COVADD )
+      { USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR; }
+    else
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
 
+    // - - - -  restore bugs - - - - - -
     if ( INPUTS.restore_bug_muzerr )
       { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
+
+    if ( DO_COVADD && INPUTS.restore_bug2_mucovadd ) // May 30 2023
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
+
+    // - - - - - 
 
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
 
@@ -11608,6 +11614,10 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   //   + return immediately of 1D+5DCUT is set.
   //
   // July 25 2021: refactor to use sigint_muresid_list utility.
+  //
+  // May 30 2023: for fixed INPUTS.sigint_biasCor, remove special treatment
+  //              for MUCOVADD option.
+  //
 
   int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
   int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
@@ -11639,6 +11649,9 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   // ------------------- BEGIN -------------------
 
   if ( DOCOR_1D5DCUT ) { return ; }
+
+  if ( INPUTS.restore_bug2_mucovadd ) 
+    { init_sigInt_biasCor_SNRCUT_legacy(IDSAMPLE); return; }
 
   fprintf(FP_STDOUT,"\n");
 
@@ -16734,8 +16747,12 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"restore_bug_mucovscale=")) 
     { sscanf(&item[23],"%d", &INPUTS.restore_bug_mucovscale); return(1); }
+
   if ( uniqueOverlap(item,"restore_bug_mucovadd="))
     { sscanf(&item[21],"%d", &INPUTS.restore_bug_mucovadd); return(1); }
+  if ( uniqueOverlap(item,"restore_bug2_mucovadd="))
+    { sscanf(&item[22],"%d", &INPUTS.restore_bug2_mucovadd); return(1); }
+
   if ( uniqueOverlap(item,"restore_bug_muzerr="))
     { sscanf(&item[19],"%d", &INPUTS.restore_bug_muzerr); return(1); }
   if ( uniqueOverlap(item,"restore_bug_zmax_biascor="))
@@ -18705,11 +18722,18 @@ void prep_debug_flag(void) {
     printf("\n RESTORE BUG for mucovscale\n");
     fflush(stdout);
   }
+
   if ( INPUTS.restore_bug_mucovadd ) {
     printf("\n RESTORE BUG for mucovadd (set to %d)\n", 
 	   INPUTS.restore_bug_mucovadd);
     fflush(stdout);
   }
+
+  if ( INPUTS.restore_bug2_mucovadd ) {
+    printf("\n RESTORE 2nd BUG for mucovadd (missing sigint in 1/MUERR^2)\n" );
+    fflush(stdout);
+  }
+
   if ( INPUTS.restore_bug_muzerr ) {
     printf("\n RESTORE BUG for muzerr in biasCor (set to %d)\n", 
 	   INPUTS.restore_bug_muzerr);
@@ -21879,6 +21903,8 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_mucovscale=1    # use undefined muCOVscale cells",
     "restore_bug_muzerr=1        # ignore vpec err in biasCor",
     "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
+    "restore_bug_mucovadd=1      # use wrong beta for sim biasCor",
+    "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     0
   } ;
 

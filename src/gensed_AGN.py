@@ -56,7 +56,6 @@ from gensed_base import gensed_base
 import yaml
 
 
-
 M_sun = constants.M_sun.cgs.value
 c = constants.c.cgs.value
 pc = (1 * units.pc).to_value(units.cm)
@@ -518,8 +517,8 @@ class gensed_AGN(gensed_base):
         # with higher eddington ratio for t_transition to trest[-1]
         self.t_transition = self.rng.uniform(trest[0], trest[-1])
         trans_idx = np.searchsorted(self.trest, self.t_transition)
-        trest1 = trest[:trans_idx]
-        trest2 = trest[trans_idx:]
+        trest1 = self.trest[:trans_idx]
+        trest2 = self.trest[trans_idx:]
 
         self.agn1 = AGN(t0=trest1[0], M_BH=self.M_BH * M_sun, lam=self.wave, edd_ratio=self.edd_ratio,
                        rng=self.rng)

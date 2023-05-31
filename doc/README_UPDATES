@@ -21729,4 +21729,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.
     
+
+# =============================================================
+        v11_05e ([tag-date]) 
+
+        ***** IMPORTANT(v11_05e) ***** 
+
+        ***** USEFUL(v11_05e) ***** 
+
+        ***** MISCELLANEOUS(v11_05e) ***** 
+
 END: 

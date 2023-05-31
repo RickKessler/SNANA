@@ -5747,7 +5747,7 @@ each spectrum should be defined as a separate SED file.
 To output the true observer-frame model SED at each observation
 to the data files ({\tt TEXT} for {\tt FITS} format),
 set the following sim-input key
-\begin{verbatim}
+ \begin{verbatim}
    SPECTROGRAPH_OPTMASK:  128 
 \end{verbatim}
 This {\tt OPTMASK} option is unique: 
@@ -5760,7 +5760,6 @@ BEWARE to define reasonable {\tt GENRANGE\_TREST} and {\tt NGENTOT\_LC}
 to avoid excessively large output data files.
 
 % ------------------------------------
-
 
 % ------------------------------------
 %\clearpage
@@ -5784,6 +5783,57 @@ The rise-time adjustments can be used, for example,
 to generate a double-stretch model by simulating 
 two separate samples, each with a different 
 rise-time shift.
+
+
+
+% ------------------------------------
+\clearpage
+\subsection{Simulating Atmosphere Effects}
+\label{subsec:simAtmos}
+% ------------------------------------
+
+{\bf UNDER DEVELOPMENT ... NOT READY} \\
+
+The simulation of atmoshperic effects includes 
+differential chromatic refraction (DCR)
+and its effect on measured coordinates and magnitudes. The impact on spectra
+is not included. The DCR effects are enabled with sim-input
+ \begin{verbatim}
+   ATMOSPHERE_OPTMASK: 1  # simulate DCR effect on coordinates
+   ATMOSPHERE_OPTMASK: 2  # simulate DCR effect from PSF shape
+   ATMOSPHERE_OPTMASK: 3  # simulate both DCR effects
+   [astrom noise param(s) ??]
+\end{verbatim}
+%
+While the default simulation sets measured RA,DEC to their exact values
+without measurement noise, {\tt ATMOSPHERE\_OPTMASK}$>0$ changes the sim
+to determine a measured RA,DEC for each observation using a noise model
+based on ??, and including calculated DCR shifts. A weighted average 
+of RA,DEC measurements from all {\it detections} is reported in the
+data files as the measured location for the event. 
+Since the DCR effect shifts measured coordinates as a function of band pass, 
+a magnitude shift (calibration error) for each observations is 
+calculated assuming a PSF-fitted flux centered on the
+measured RA,DEC-average.
+
+The simulation of atmosphere effects automatically appends the following
+columns in the photometry table per observations:
+\begin{verbatim}
+ dRA             # RA - RA_AVG
+ dDEC            # DEC - DEC_AVG
+ AIRMASS         # uses telescope geo-location in SURVEY.DEF file
+ SIM_DCR_dRA     # calculated RA shift from DCR
+ SIM_DCR_dDEC    # calculated DEC shift from DCR
+ SIM_DCR_dMAGOBS # calculated mag shift from using RA_AVG and DEC_AVG for PSF fit
+\end{verbatim}
+%
+To compute {\tt AIRMASS}, the geo location of the telescope must be
+included in the {\tt \$SNDATA\_ROOT/SURVEY.DEF} file; e.g., 
+\begin{verbatim}
+   SURVEY:  LSST   12   geo:-30.244639,-70.749417 
+\end{verbatim}
+The sim aborts if {\tt ATMOSPHERE\_OPTMASK}$>0$ 
+and the geo-location is not provided.
 
 
 % ------------------------------------

@@ -346,8 +346,10 @@ class AGN:
         # DOI https://doi.org/10.1007/978-3-319-93009-1_1
         T0 = self.T_0(M, Mdot, rin)
         r0 = self.r_0(rin)
-        fun_integr = lambda x: (x ** (5 / 3)) / (np.exp(x) - 1)
-        integ, inte_err = integrate.quad(fun_integr, 0, np.inf)
+        # large x in exponetial causes overflow, but 1/inf is zero.
+        with np.errstate(over='ignore'):
+            fun_integr = lambda x: (x ** (5 / 3)) / np.expm1(x)
+            integ, inte_err = integrate.quad(fun_integr, 1e-6, np.inf)
 
         return ((16 * np.pi) / (3 * d ** 2) * np.cos(i) * (k_B * T0 / h) ** (8 / 3) * h * (nu ** (1 / 3)) / (c ** 2) * (
                 r0 ** 2) * integ)

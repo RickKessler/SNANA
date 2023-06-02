@@ -2983,7 +2983,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   }
   else if ( ISMODEL_SALT3 ) {
     // exclude x0 and MODELNORM; instead, normalize to per Angstrom
-    // following K20
+    // following K21
     *Finteg_errPar  = ( Finteg_forErr[0] + x1 * Finteg_forErr[1] );
     *Finteg_errPar /= Fnorm_SALT3 ;
   }

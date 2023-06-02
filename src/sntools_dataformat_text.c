@@ -117,8 +117,8 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp,"SNID:     %s\n", SNDATA.CCID);
   fprintf(fp,"IAUC:     %s\n", SNDATA.IAUC_NAME);
   fprintf(fp,"SNTYPE:   %d\n", SNDATA.SNTYPE);
-  fprintf(fp,"RA:       %.6f  # deg\n", SNDATA.RA);
-  fprintf(fp,"DEC:      %.6f  # deg\n", SNDATA.DEC);
+  fprintf(fp,"RA:       %.6f  # deg (avg among obs)\n", SNDATA.RA_AVG);
+  fprintf(fp,"DEC:      %.6f  # deg (avg among obs)\n", SNDATA.DEC_AVG);
   fprintf(fp,"FILTERS:  %s\n", SNDATA_FILTER.LIST);
 
   if ( SNDATA.PIXSIZE > 0.0 ) 
@@ -837,8 +837,10 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
     if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
 
-    if ( WRFLAG_ATMOS )
-      { NVAR += 3 ; strcat(VARLIST,"dRA dDEC AIRMASS ");  }
+    if ( WRFLAG_ATMOS ) { NVAR += 6 ; 
+      strcat(VARLIST,"dRA dDEC AIRMASS "
+	     "SIM_DCR_dRA SIM_DCR_dDEC SIM_DCR_dMAGOBS  ");
+    }
     
     if ( WRFLAG_SIM_MAGOBS )
       { NVAR++ ;  strcat(VARLIST,"SIM_MAGOBS "); }
@@ -859,6 +861,13 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   fprintf(fp,"\n\n# ============================================ \n");
   fprintf(fp,"# TEXT LIGHT CURVE OUTPUT: \n#\n");
+
+  if ( WRFLAG_ATMOS ) 
+    { fprintf(fp,
+	      "# dRA  = RA(obs)  - <RA>,  arcsec, \n"
+	      "# dDEC = DEC(obs) - <DEC>, arcsec  \n"
+	      "#\n") ;  }
+
   fprintf(fp,"NOBS: %d \n", SNDATA.NOBS  );
   fprintf(fp,"NVAR: %d \n", NVAR );
   fprintf(fp,"VARLIST: %s\n", VARLIST);
@@ -933,11 +942,23 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       }
 
       if ( WRFLAG_ATMOS ) {
-	double dRA     = (SNDATA.RA_OBS[ep]  - SNDATA.RA )*3600.0;
-	double dDEC    = (SNDATA.DEC_OBS[ep] - SNDATA.DEC)*3600.0;
-	double airmass = SNDATA.AIRMASS[ep];
-	sprintf(cval,"%6.3f %6.3f %.2f ", dRA, dDEC, airmass );
-	NVAR_WRITE += 3  ;    strcat(LINE_EPOCH,cval);
+	double dRA      = (SNDATA.RA[ep]  - SNDATA.RA_AVG )*3600.0;
+	double dDEC     = (SNDATA.DEC[ep] - SNDATA.DEC_AVG)*3600.0;
+	double airmass  = SNDATA.AIRMASS[ep];
+	double SIM_dRA  = SNDATA.SIMEPOCH_RA_DCR_SHIFT[ep];
+	double SIM_dDEC = SNDATA.SIMEPOCH_DEC_DCR_SHIFT[ep];
+	double SIM_dMAG = SNDATA.SIMEPOCH_MAG_DCR_SHIFT[ep];
+	char ctmp_dCoord[60];
+
+	// for true coord shift, use int for null (99) to make it easier to see.
+	sprintf(ctmp_dCoord,"%.4f %.4f", SIM_dRA, SIM_dDEC );
+	if ( SIM_dRA > 90.0 && SIM_dDEC > 90 ) 
+	  { sprintf(ctmp_dCoord,"%d %d", (int)SIM_dRA, (int)SIM_dDEC ); ; }
+
+	sprintf(cval,"%5.2f %5.2f %5.2f "
+		"%s %.5f ", 
+		dRA, dDEC, airmass,  ctmp_dCoord, SIM_dMAG );
+	NVAR_WRITE += 6  ;    strcat(LINE_EPOCH,cval);
       }
 
       if ( WRFLAG_SIM_MAGOBS ) {
@@ -989,6 +1010,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // Apr 02 2021: fix to work after reading spectra from FITS format
   //   (e..g, from sims)
   // Nov 10 2021: write SPECTRUM_LAMRANGE
+  // May 26 2023: check logical SNDATA.WRFLAG_SPECTRA
 
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
@@ -1005,6 +1027,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // ------------ BEGIN -----------
 
   if ( NMJD_PROC == 0 ) { return; }
+  //  if ( !SNDATA.WRFLAG_SPECTRA ) { return; }
 
   VARLIST[0] = NVAR = 0 ;
 
@@ -2086,11 +2109,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   }
 
   else if ( strcmp(word0,"RA:") == 0 ) {
-    SNDATA.RA = DVAL ;
+    SNDATA.RA_AVG = DVAL ;
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_RA] = true ;
   }
   else if ( strcmp(word0,"DEC:") == 0 || strcmp(word0,"DECL:") == 0 ) {
-    SNDATA.DEC = DVAL ;
+    SNDATA.DEC_AVG = DVAL ;
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_DEC] = true ;
   }
   else if ( strcmp(word0,"PIXSIZE:") == 0 ) {

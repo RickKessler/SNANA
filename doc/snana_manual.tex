@@ -141,7 +141,7 @@
 \newcommand{\wwwMINUIT}{http://wwwasdoc.web.cern.ch/wwwasdoc/minuit/minmain.html}
 \newcommand{\minuit}{{\sc minuit}}
 
-\newcommand{\sndump}{{\tt sntable\_dump.pl}}
+\newcommand{\sndump}{{\tt sntable\_dump.py}}
 \newcommand{\SNmix}{\tt sim\_SNmix.pl}
 \newcommand{\splitFit}{\tt split\_and\_fit.pl}
 \newcommand{\submit}{\tt submit\_batch\_jobs.sh}
@@ -2330,9 +2330,9 @@ in the light curve fitting program ({\tt snlc\_fitexe}).
 This feature produces information
 for each \obs\ in {\tt ROOT} or {\tt HBOOK} format.
 The epoch information can be extracted into {\tt TEXT} format
-using the {\tt sntable\_dump.pl} utulity (\S\ref{sss:sntable_dump}):
+using the {\tt sntable\_dump.py} utulity (\S\ref{sss:sntable_dump}):
 \begin{verbatim}
-   sntable_dump.pl  myFile.root  FITRES  obs
+   sntable_dump.py  myFile.root  FITRES  obs
 \end{verbatim}
 A few of the output variables must be converted for the
 {\tt FLUXERRMAP}:
@@ -5747,7 +5747,7 @@ each spectrum should be defined as a separate SED file.
 To output the true observer-frame model SED at each observation
 to the data files ({\tt TEXT} for {\tt FITS} format),
 set the following sim-input key
-\begin{verbatim}
+ \begin{verbatim}
    SPECTROGRAPH_OPTMASK:  128 
 \end{verbatim}
 This {\tt OPTMASK} option is unique: 
@@ -5760,7 +5760,6 @@ BEWARE to define reasonable {\tt GENRANGE\_TREST} and {\tt NGENTOT\_LC}
 to avoid excessively large output data files.
 
 % ------------------------------------
-
 
 % ------------------------------------
 %\clearpage
@@ -5784,6 +5783,57 @@ The rise-time adjustments can be used, for example,
 to generate a double-stretch model by simulating 
 two separate samples, each with a different 
 rise-time shift.
+
+
+
+% ------------------------------------
+\clearpage
+\subsection{Simulating Atmosphere Effects}
+\label{subsec:simAtmos}
+% ------------------------------------
+
+{\bf UNDER DEVELOPMENT ... NOT READY} \\
+
+The simulation of atmoshperic effects includes 
+differential chromatic refraction (DCR)
+and its effect on measured coordinates and magnitudes. The impact on spectra
+is not included. The DCR effects are enabled with sim-input
+ \begin{verbatim}
+   ATMOSPHERE_OPTMASK: 1  # simulate DCR effect on coordinates
+   ATMOSPHERE_OPTMASK: 2  # simulate DCR effect from PSF shape
+   ATMOSPHERE_OPTMASK: 3  # simulate both DCR effects
+   [astrom noise param(s) ??]
+\end{verbatim}
+%
+While the default simulation sets measured RA,DEC to their exact values
+without measurement noise, {\tt ATMOSPHERE\_OPTMASK}$>0$ changes the sim
+to determine a measured RA,DEC for each observation using a noise model
+based on ??, and including calculated DCR shifts. A weighted average 
+of RA,DEC measurements from all {\it detections} is reported in the
+data files as the measured location for the event. 
+Since the DCR effect shifts measured coordinates as a function of band pass, 
+a magnitude shift (calibration error) for each observations is 
+calculated assuming a PSF-fitted flux centered on the
+measured RA,DEC-average.
+
+The simulation of atmosphere effects automatically appends the following
+columns in the photometry table per observations:
+\begin{verbatim}
+ dRA             # RA - RA_AVG (arcsec)
+ dDEC            # DEC - DEC_AVG (arcsec)
+ AIRMASS         # uses telescope geo-location in SURVEY.DEF file
+ SIM_DCR_dRA     # calculated RA shift from DCR (arcsec)
+ SIM_DCR_dDEC    # calculated DEC shift from DCR (arcsec)
+ SIM_DCR_dMAGOBS # calculated mag shift from using RA_AVG and DEC_AVG for PSF fit
+\end{verbatim}
+%
+To compute {\tt AIRMASS}, the geo location of the telescope must be
+included in the {\tt \$SNDATA\_ROOT/SURVEY.DEF} file; e.g., 
+\begin{verbatim}
+   SURVEY:  LSST   12   geo:-30.244639,-70.749417 
+\end{verbatim}
+The sim aborts if {\tt ATMOSPHERE\_OPTMASK}$>0$ 
+and the geo-location is not provided.
 
 
 % ------------------------------------
@@ -8172,7 +8222,7 @@ variables
 %
 where this table is created with {\tt LTUP\_SNANA=T}
 (\S\ref{subsec:anavar}) and the variables can be
-extracted into text format using the {\tt sntable\_dump.pl}
+extracted into text format using the {\tt sntable\_dump.py}
 utility (\S\ref{sss:sntable_dump}).
 {\tt CUTFLAG\_SNANA}$=1$ means that the snana cut-requirements
 were satisfied, but the fit either failed or was not attempted.
@@ -12847,41 +12897,39 @@ analysis platform then {\sndump} can be used to
 extract table information into text format.
 
 The script usage is explained at the top of
-{\tt \&SNANA\_DIR/util/sntable\_dump.pl},
+{\tt \&SNANA\_DIR/util/sntable\_dump.py},
 and here we illustrate its basic features:
 \begin{enumerate}
   \item Print list of {\tt SNTABLE} variables: 
        \begin{verbatim}
-          sntable_dump.pl  myjob.hbook  SNANA
-          sntable_dump.pl  myjob.hbook  FITRES
-          sntable_dump.pl  myjob.root   SNANA
-          sntable_dump.pl  myjob.root   FITRES
+          sntable_dump.py  myjob.root   SNANA
+          sntable_dump.py  myjob.root   FITRES
        \end{verbatim}
 %
   \item For an arbitrary set of table variables, 
         extract SN values  into a fitres-formatted text file:
        \begin{verbatim}
-       sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r
-       sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r
+       sntable_dump.py  myjob.root  SNANA  -v RA,DEC,SNRMAX_r
+       sntable_dump.py  myjob.root  FITRES -v m0obs_g,m0obs_r
        \end{verbatim}
 %
   \item Append an existing text file with variables from a {\tt SNTABLE}:
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r -a MYJOB.FITRES
- sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r  -a MYJOB.FITRES
+ sntable_dump.py  myjob.root  SNANA  -v RA,DEC,SNRMAX_r  -a MYJOB.FITRES
+ sntable_dump.py  myjob.root  FITRES -v m0obs_g,m0obs_r  -a MYJOB.FITRES
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-fitFLux  outliers:
        \begin{verbatim}
- sntable_dump.pl  myjob.root   FITRES --outlier  3  99
- sntable_dump.pl  myjob.root   FITRES --outlier  3  99 -v FITPROB SNRMAX3
+ sntable_dump.py  myjob.root   FITRES --outlier  3  99
+ sntable_dump.py  myjob.root   FITRES --outlier  3  99 -v FITPROB,SNRMAX3
        (print epochs to ascii file with 3 < Nsigma < 99)
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-simFLux  outliers (sim only):
        \begin{verbatim}
- sntable_dump.pl  myjob.root   FITRES --outlier_sim  3  99
- sntable_dump.pl  myjob.root   FITRES --outlier_Sim  3  99 -v FITPROB SNRMAX3
+ sntable_dump.py  myjob.root   FITRES --outlier_sim  3  99
+ sntable_dump.py  myjob.root   FITRES --outlier_Sim  3  99 -v FITPROB,SNRMAX3
        (print epochs to ascii file with 3 < Nsigma < 99)
        \end{verbatim}
 %
@@ -12890,8 +12938,7 @@ and here we illustrate its basic features:
       where $\sigSIM$ is the calculated error and $\sigma_F$ is the 
       reported error.
        \begin{verbatim}
-   sntable_dump.pl  myjob.hbook  FITRES  obs
-   sntable_dump.pl  myjob.root   FITRES  obs
+   sntable_dump.py  myjob.root   FITRES  --OBS
        \end{verbatim}
 \end{enumerate}
 %

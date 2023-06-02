@@ -1125,6 +1125,7 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_bug_mucovscale ; // Sep 14 2021 allow restoring bug
   int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
+  int restore_bug2_mucovadd; // https://github.com/RickKessler/SNANA/issues/1154
   
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
@@ -1501,6 +1502,8 @@ void  makeMap_sigmu_biasCor(int ISAMPLE);
 void  vpec_biasCor(void);
 
 void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) ;
+void  init_sigInt_biasCor_SNRCUT_legacy(int IDSAMPLE) ;
+void  LOAD_SIGINT_ABGRID(double sigInt, int IDSAMPLE);
 
 void  makeMap_binavg_biasCor(int ISAMPLE);
 void  makeSparseList_biasCor(void);
@@ -1621,7 +1624,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name );
 void   test_muerrz(void);
 
 
-double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) ;
+double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov, char *msg) ;
 
 void   get_COVINT_model(int idsample, double (*COVINT)[NLCPAR] ); // returns COVINT
 void   get_COVINT_biasCor(int IDSAMPLE, double z, double alpha, double beta, 
@@ -5170,6 +5173,7 @@ void set_defaults(void) {
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_bug_mucovscale = 0 ;
   INPUTS.restore_bug_mucovadd   = 0 ;
+  INPUTS.restore_bug2_mucovadd  =  0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_sim_beta     = 0 ; // harmless bug; no effect
@@ -9123,7 +9127,7 @@ void prepare_biasCor(void) {
   // determine sigInt for biasCor sample BEFORE makeMap since
   // sigInt is needed for 1/muerr^2 weight
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ )  {  
-    init_sigInt_biasCor_SNRCUT(IDSAMPLE);
+    init_sigInt_biasCor_SNRCUT(IDSAMPLE);      
   } 
 
   // determine intrinsic scatter matrix on grid of
@@ -10172,7 +10176,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   
   // --------------- BEGIN -------------------
 
-  muerrsq  = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
+  muerrsq  = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
   WGT      = 1.0/muerrsq ;
 
   if ( opt == 1 ) { return(WGT); }
@@ -10499,6 +10503,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
+  if ( DO_COVADD && !INPUTS.restore_bug2_mucovadd ) {
+    // zero out sigInt for COV-additive method. M.Vincenzi 5/30/2023
+    LOAD_SIGINT_ABGRID(0.0, IDSAMPLE);
+    if ( IDSAMPLE == 0) {
+      fprintf(FP_STDOUT, " %s: set sigInt=0 for COVADD method\n", fnam);
+    }
+  }
+
   if ( debug_mucovscale > 0 ) {
     int memd   = sizeof(double) * NBIASCOR_ALL;
     int memi   = sizeof(int   ) * NBIASCOR_ALL;
@@ -10509,7 +10521,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muDif_list                = (double*) malloc(memd);
   }
 
-  fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) \n", fnam);
+  fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) for IDSAMPLE=%d\n", fnam, IDSAMPLE);
   fflush(FP_STDOUT);
 
   malloc_MUCOV(+1,IDSAMPLE, CELL_MUCOVSCALE );
@@ -10659,12 +10671,21 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     // compute error with intrinsic scatter
     // 2.10.2023: include vpec uncertainties in muerr computation
-    USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; 
+    if ( DO_COVADD )
+      { USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR; }
+    else
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
 
+    // - - - -  restore bugs - - - - - -
     if ( INPUTS.restore_bug_muzerr )
       { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
 
-    muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
+    if ( DO_COVADD && INPUTS.restore_bug2_mucovadd ) // May 30 2023
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
+
+    // - - - - - 
+
+    muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
 
     if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {
       print_preAbort_banner(fnam);
@@ -10701,7 +10722,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
       // store raw muErr (RK, 9.14.2021)
       USEMASK     = USEMASK_BIASCOR_COVFIT;
-      muErrsq_raw = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
+      muErrsq_raw = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
       muErr_raw_list[ievt] = sqrt(muErrsq_raw);
     }
 
@@ -11089,7 +11110,7 @@ double muresid_biasCor(int ievt ) {
 
 
 // ===============================================================
-double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
+double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov, char *msg) {
 
   // Created Sep 04 2017
   // Return squre of distance-modulus error for event "ievt"
@@ -11100,7 +11121,8 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   //   maskCov & 1 ==> include SALT2-fitted COV 
   //   maskCov & 2 ==> include intrinsic COV
   //   maskCov & 4 ==> include zMUERR from VPECERR  (Jun 8 2021)
-  //
+  //   msg = name of calling function fo diagnostic only
+  // 
   // Output:
   //   istat_cov is returned non-zero if the cov matrix was tweaked.
   //   Function returns square of error on distance modulus.
@@ -11120,7 +11142,8 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   int  j0, j1 ;
   char *name ;
   char fnam[] = "muerrsq_biasCor" ;
-  
+  int LDMP = (ievt<10);
+
   // ------------- BEGIN -----------
 
   IDSAMPLE = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[ievt] ;
@@ -11160,12 +11183,21 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
 
   muErrsq = fcn_muerrsq(name, a, b, gDM, COVTOT, zhd, zmuerr, 0 );
 
+  if (LDMP){
+    printf("xxxx ---- \n");
+    printf("xxxx %s dump for msg=%s\n", fnam,msg);
+    printf("xxxx maskCov=%d, ievt=%d, name=%s \n", maskCov, ievt, name);
+    printf("xxxx a=%.4f, b=%.4f, gDM=%.4f, COVTOT[0][0]=%f, COVTOT[1][1]=%f, COVTOT[0][1]=%f, zhd=%.4f, zmuerr=%.4f muErrsq=%f\n",
+	   a,b,gDM,COVTOT[0][0], COVTOT[1][1], COVTOT[0][1], zhd, zmuerr, muErrsq);
+    fflush(stdout);
+  }
+
   return(muErrsq);
 
 } // end muerrsq_biasCor
 
 
-// ===============================================================
+// ============================================================
 void get_COVINT_biasCor(int IDSAMPLE, double z, 
 			double alpha, double beta, double gammadm,
 			double (*COVINT)[NLCPAR] ) {
@@ -11582,6 +11614,10 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   //   + return immediately of 1D+5DCUT is set.
   //
   // July 25 2021: refactor to use sigint_muresid_list utility.
+  //
+  // May 30 2023: for fixed INPUTS.sigint_biasCor, remove special treatment
+  //              for MUCOVADD option.
+  //
 
   int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
   int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
@@ -11614,6 +11650,9 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
   if ( DOCOR_1D5DCUT ) { return ; }
 
+  if ( INPUTS.restore_bug2_mucovadd ) 
+    { init_sigInt_biasCor_SNRCUT_legacy(IDSAMPLE); return; }
+
   fprintf(FP_STDOUT,"\n");
 
   NROW_TOT     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
@@ -11627,27 +11666,23 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   // ---------------------------------------
   // check option for user to fix sigmb_biascor
   sigInt = INPUTS.sigint_biasCor ;
-  if ( sigInt >= 0.0 || DO_COVADD ) {
-    if ( DO_COVADD ) { // Aug 2 2021 Dillon
-      sigInt = 0.0 ;
-      fprintf(FP_STDOUT,
-	      " sigInt -> 0: for COV_ADD option IDSAMPLE=%d\n",IDSAMPLE);
-    }
-    else {
-      fprintf(FP_STDOUT,
-	      " sigInt -> %.3f from user input sigmb_biascor key IDSAMPLE=%d\n", 
-	      sigInt, IDSAMPLE);
-    }
+  if ( sigInt >= 0.0 ) {
+    fprintf(FP_STDOUT,
+	    " sigInt -> %.3f from user input sigmb_biascor key IDSAMPLE=%d\n", 
+	    sigInt, IDSAMPLE);
     fflush(FP_STDOUT);
     SIGINT_AVG = sigInt ;
+
     for(ia=0; ia < NBINa; ia++ ) {
       for(ib=0; ib < NBINb; ib++ ) {
-	for(ig=0; ig < NBINg; ig++ ) {
-	  SIGINT_ABGRID[ia][ib][ig] = sigInt ;
-	}  
-      }
-    }
+    	for(ig=0; ig < NBINg; ig++ ) {
+    	  SIGINT_ABGRID[ia][ib][ig] = sigInt ;
+   	}  
+       }
+     }
+
     goto  LOAD_GLOBALS ;
+
   }
 
 
@@ -11723,7 +11758,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
     // compute error with no intrinsic scatter (just use data COVFIT)
     USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR;
-    muErrsq = muerrsq_biasCor(i, USEMASK, &istat_cov) ;
+    muErrsq = muerrsq_biasCor(i, USEMASK, &istat_cov, fnam) ;
 
     if ( muErrsq < 0.0 ) {
       sprintf(c1err,"Invalid muErrsq[%d] = %f < 0  SNID=%s",
@@ -11830,6 +11865,298 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
 } // end init_sigInt_biasCor_SNRCUT
 
+
+void  init_sigInt_biasCor_SNRCUT_legacy(int IDSAMPLE) {
+
+  // Estimate sigInt for biasCor sample using very high SNR subset.
+  // Jun 17 2016: compute sigInt in each alpha & beta bin. 
+  // Jan 25,2018
+  //   + set SKIPZFLAG_BIASCOR flag
+  //   + abort if NUSE[ia][ib] < 10
+  // Oct 08 2018: 
+  //   + new input IDSAMPLE to allow option of sigint(IDSAMPLE)
+  //
+  // Jun 2 2019:
+  //   MUDIF and MUERSQ are now global instead of local in 
+  //   case they can take too much memory for local.
+  //
+  // Jul 16 2019: add gamma (ig) dimension
+  // Dec 11 2019: 
+  //   + abort if muErrsq < 0 or if NUSE exceeds bound.
+  //   + return immediately of 1D+5DCUT is set.
+  //
+  // July 25 2021: refactor to use sigint_muresid_list utility.
+
+  int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
+  int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
+  int  debug_malloc     = INPUTS.debug_malloc ;
+  int  MINEVT_SIGINT_COMPUTE = 50; // abort if fewer events in ia,ib,ig bin
+
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
+  int  NROW_TOT, NROW_malloc, istat_cov, NCOVFIX, MEMD, cutmask ;
+  int  i, ia, ib, ig ;
+  int  LDMP = 0 ;
+
+  double muErrsq,  muDif, SNRMAX, sigInt ;
+  int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, USEMASK, DOPRINT ;
+  int        *ptr_CUTMASK ;
+  short int  *ptr_IDSAMPLE ;
+  float      *ptr_SNRMAX;
+
+  int      NUSE[MXa][MXb][MXg];
+  double  *MUDIF[MXa][MXb][MXg];
+  double  *MUERRSQ[MXa][MXb][MXg];
+
+  double SIGINT_AVG, SIGINT_ABGRID[MXa][MXb][MXg] ; 
+
+  char *NAME, callFun[60];
+  char fnam[]   = "init_sigInt_biasCor_SNRCUT_legacy" ;
+
+  // ------------------- BEGIN -------------------
+
+  if ( DOCOR_1D5DCUT ) { return ; }
+
+  fprintf(FP_STDOUT,"\n");
+
+  NROW_TOT     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
+  NBINa        = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
+  NBINb        = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
+  NBINg        = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
+  ptr_CUTMASK  = INFO_BIASCOR.TABLEVAR.CUTMASK;
+  ptr_IDSAMPLE = INFO_BIASCOR.TABLEVAR.IDSAMPLE ;
+  ptr_SNRMAX   = INFO_BIASCOR.TABLEVAR.snrmax ;
+
+  // ---------------------------------------
+  // check option for user to fix sigmb_biascor
+  sigInt = INPUTS.sigint_biasCor ;
+  if ( sigInt >= 0.0 || DO_COVADD ) {
+    if ( DO_COVADD ) { // Aug 2 2021 Dillon
+      sigInt = 0.0 ;
+      fprintf(FP_STDOUT,
+	      " sigInt -> 0: for COV_ADD option IDSAMPLE=%d\n",IDSAMPLE);
+    }
+    else {
+      fprintf(FP_STDOUT,
+	      " sigInt -> %.3f from user input sigmb_biascor key IDSAMPLE=%d\n", 
+	      sigInt, IDSAMPLE);
+    }
+    fflush(FP_STDOUT);
+    SIGINT_AVG = sigInt ;
+
+    for(ia=0; ia < NBINa; ia++ ) {
+      for(ib=0; ib < NBINb; ib++ ) {
+    	for(ig=0; ig < NBINg; ig++ ) {
+    	  SIGINT_ABGRID[ia][ib][ig] = sigInt ;
+   	}  
+       }
+     }
+
+    goto  LOAD_GLOBALS ;
+
+  }
+
+
+  // ---------------------------------------
+  // check option to compute sigInt for each IDSAMPLE
+  if ( DO_SIGINT_SAMPLE ) {
+    fprintf(FP_STDOUT," %s for IDSAMPLE=%d (%s): \n",
+	   fnam, IDSAMPLE,  SAMPLE_BIASCOR[IDSAMPLE].NAME );
+  }
+  else if ( IDSAMPLE == 0 ) {
+    fprintf(FP_STDOUT, " %s for all IDSAMPLEs combined: \n", fnam);
+  }
+  else {
+    // do nothing
+  } 
+
+  fflush(FP_STDOUT) ;
+
+  // ---------------------------------------
+  // quick pass with SNR cut to estimate size for malloc  
+  NROW_malloc = 0 ;
+  for(i=0; i < NROW_TOT; i++ ) {
+
+    // apply selection without BIASCOR-z cut (but keep global z cut)
+    cutmask  = ptr_CUTMASK[i] ;
+    cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
+    if ( cutmask ) { continue; }
+
+    SNRMAX = (double)(ptr_SNRMAX[i]) ;
+    if ( SNRMAX < INPUTS.snrmin_sigint_biasCor) { continue ; }
+    NROW_malloc++ ;
+  }
+
+
+  NROW_malloc += 100; // safety margin
+  MEMD = NROW_malloc * sizeof(double) ;
+  print_debug_malloc(+1*debug_malloc,fnam);
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {
+      for(ig=0; ig < NBINg; ig++ ) {
+	MUDIF[ia][ib][ig]    = (double*) malloc ( MEMD );
+	MUERRSQ[ia][ib][ig]  = (double*) malloc ( MEMD ) ;
+	NUSE[ia][ib][ig]     = NCOVFIX = 0 ;
+      }
+    }
+  }
+
+  // skip z-cut to ensure events with SNR>60.
+  // This allows, for example, doing BBC fits only at high-z.
+
+  NSNRCUT=0;
+
+  for(i=0; i < NROW_TOT; i++ ) {
+
+    // get variables defining GRID map
+    SNRMAX = (double)(ptr_SNRMAX[i]) ;
+    if ( SNRMAX < INPUTS.snrmin_sigint_biasCor ) { continue ; }
+
+    // apply selection without BIASCOR-z cut (but keep global z cut)
+    cutmask  = ptr_CUTMASK[i] ;
+    cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
+
+    if ( cutmask ) { continue; }
+
+    // check option for IDSAMPLE-dependent sigint (Oct 2018)
+    if ( DO_SIGINT_SAMPLE && (IDSAMPLE != ptr_IDSAMPLE[i]) ) 
+      { continue ; }
+    
+
+    NSNRCUT++ ;
+    NAME   = INFO_BIASCOR.TABLEVAR.name[i] ;
+    muDif  = muresid_biasCor(i); 
+
+    // compute error with no intrinsic scatter (just use data COVFIT)
+    USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR;
+    muErrsq = muerrsq_biasCor(i, USEMASK, &istat_cov, fnam) ;
+
+    if ( muErrsq < 0.0 ) {
+      sprintf(c1err,"Invalid muErrsq[%d] = %f < 0  SNID=%s",
+	      i, muErrsq, NAME );
+      sprintf(c2err,"muDif=%le ", muDif);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
+    }
+
+    if ( isnan(muErrsq) || isnan(muDif) ) {
+      sprintf(c1err,"isnan trap for SNID = %s (irow=%d)", NAME, i);
+      sprintf(c2err,"muErrsq=%le, muDif=%le ", muErrsq, muDif);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
+    }
+
+
+    if ( istat_cov < 0 ) { NCOVFIX++ ; }    
+
+    ia = (int)INFO_BIASCOR.IA[i];
+    ib = (int)INFO_BIASCOR.IB[i];
+    ig = (int)INFO_BIASCOR.IG[i]; 
+
+    NTMP = NUSE[ia][ib][ig];
+    MUDIF[ia][ib][ig][NTMP]   = muDif ;
+    MUERRSQ[ia][ib][ig][NTMP] = muErrsq ;
+    NUSE[ia][ib][ig]++ ;
+
+    if ( NUSE[ia][ib][ig] >= NROW_malloc ) {
+      sprintf(c1err,"NUSE[ia,ib,ig=%d,%d,%d] = %d exceeds malloc size",
+	      ia, ib, ig, NUSE[ia][ib][ig] );
+      sprintf(c2err,"NROW_malloc = %d", NROW_malloc);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
+    }
+  
+  } // end loop over biasCor sample
+
+
+  // -------------------------------------------------
+  DOPRINT = ( IDSAMPLE==0 || DO_SIGINT_SAMPLE ) ;
+  SIGINT_AVG = 0.0 ;
+
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {    
+      for(ig=0; ig < NBINg; ig++ ) {
+	
+	NTMP     = NUSE[ia][ib][ig] ;
+	if ( NTMP < MINEVT_SIGINT_COMPUTE ) {
+	  sprintf(c1err,"NUSE[ia,ib,ig=%d,%d,%d] = %d < %d",
+		  ia, ib, ig, NTMP, MINEVT_SIGINT_COMPUTE );
+	  sprintf(c2err,"Check biasCor events with SNR> %.1f",
+		  INPUTS.snrmin_sigint_biasCor ) ;
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
+	}
+	
+	sprintf(callFun,"%s(ia,ib,ig=%d,%d,%d)", fnam, ia, ib, ig);
+	sigInt =
+	  sigint_muresid_list(NUSE[ia][ib][ig], MUDIF[ia][ib][ig],
+			      MUERRSQ[ia][ib][ig], 0, callFun );
+	
+	// load SIGINT value
+	SIGINT_ABGRID[ia][ib][ig] = sigInt ;
+	SIGINT_AVG               += sigInt ;
+
+	if ( DOPRINT ) {
+	  fprintf(FP_STDOUT,"    sigInt[ia,ib,ig=%d,%d,%d] = %.4f "
+		  "(%d evt with IDSAMPLE=%d & SNR>%.0f) \n", 
+		  ia, ib, ig, sigInt, NUSE[ia][ib][ig], 
+		  IDSAMPLE, INPUTS.snrmin_sigint_biasCor );
+	  fflush(FP_STDOUT);
+	}
+      
+      } // ig
+    } // ib
+  } // ia
+
+ 
+  SIGINT_AVG /= (double)( NBINa*NBINb*NBINg) ;
+
+  
+  // free memory
+  print_debug_malloc(-1*debug_malloc,fnam);
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {
+      for(ig=0; ig < NBINg; ig++ ) {
+	free(MUDIF[ia][ib][ig] )   ;
+	free(MUERRSQ[ia][ib][ig] ) ;  
+      }
+    }
+  } 
+ 
+
+ LOAD_GLOBALS:
+
+  INFO_BIASCOR.SIGINT_AVG = SIGINT_AVG;
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {
+      for(ig=0; ig < NBINg; ig++ ) {
+	INFO_BIASCOR.SIGINT_ABGRID[IDSAMPLE][ia][ib][ig] = 
+	  SIGINT_ABGRID[ia][ib][ig] ; 
+      }
+    }
+  }
+  
+  return ;
+
+} // end init_sigInt_biasCor_SNRCUT_legacy
+
+void LOAD_SIGINT_ABGRID(double sigInt, int IDSAMPLE){
+
+  // Loads the sigInt abgrid with a CONSTANT value only
+
+  int NBINa        = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
+  int NBINb        = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
+  int NBINg        = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
+  int ia,ib,ig;
+
+  INFO_BIASCOR.SIGINT_AVG = sigInt;
+
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {
+      for(ig=0; ig < NBINg; ig++ ) {
+        INFO_BIASCOR.SIGINT_ABGRID[IDSAMPLE][ia][ib][ig] = sigInt ;
+      }
+    }
+  }
+  return ;
+} // end LOAD_SIGINT_ABGRID
 
 // ===========================================
 void zero_COV(double (*COV)[NLCPAR] ) {
@@ -16420,8 +16747,12 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"restore_bug_mucovscale=")) 
     { sscanf(&item[23],"%d", &INPUTS.restore_bug_mucovscale); return(1); }
+
   if ( uniqueOverlap(item,"restore_bug_mucovadd="))
     { sscanf(&item[21],"%d", &INPUTS.restore_bug_mucovadd); return(1); }
+  if ( uniqueOverlap(item,"restore_bug2_mucovadd="))
+    { sscanf(&item[22],"%d", &INPUTS.restore_bug2_mucovadd); return(1); }
+
   if ( uniqueOverlap(item,"restore_bug_muzerr="))
     { sscanf(&item[19],"%d", &INPUTS.restore_bug_muzerr); return(1); }
   if ( uniqueOverlap(item,"restore_bug_zmax_biascor="))
@@ -18391,11 +18722,18 @@ void prep_debug_flag(void) {
     printf("\n RESTORE BUG for mucovscale\n");
     fflush(stdout);
   }
+
   if ( INPUTS.restore_bug_mucovadd ) {
     printf("\n RESTORE BUG for mucovadd (set to %d)\n", 
 	   INPUTS.restore_bug_mucovadd);
     fflush(stdout);
   }
+
+  if ( INPUTS.restore_bug2_mucovadd ) {
+    printf("\n RESTORE 2nd BUG for mucovadd (missing sigint in 1/MUERR^2)\n" );
+    fflush(stdout);
+  }
+
   if ( INPUTS.restore_bug_muzerr ) {
     printf("\n RESTORE BUG for muzerr in biasCor (set to %d)\n", 
 	   INPUTS.restore_bug_muzerr);
@@ -21565,6 +21903,8 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_mucovscale=1    # use undefined muCOVscale cells",
     "restore_bug_muzerr=1        # ignore vpec err in biasCor",
     "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
+    "restore_bug_mucovadd=1      # use wrong beta for sim biasCor",
+    "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     0
   } ;
 

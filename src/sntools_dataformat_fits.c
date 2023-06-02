@@ -138,15 +138,6 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   OVP = ( writeFlag & WRITE_MASK_SPECTRA );
   if ( OVP > 0 ) { SNFITSIO_SPECTRA_FLAG = true; }
 
-  /* xxxx mark delete May 16 2023 xxxxxxxx
-  OVP = ( writeFlag & WRITE_MASK_SPECTRA_LEGACY );
-  if ( OVP > 0 ) { 
-    SNFITSIO_SPECTRA_FLAG        = true; 
-    SNFITSIO_SPECTRA_FLAG_LEGACY = true;  // compact using LAMINDEX
-  }
-  xxxxxxx end mark xxxxxx */
-
-
   // check sim options
   OVP = ( writeFlag & WRITE_MASK_SIM_SNANA) ;
   if ( OVP > 0 )  {   // full SNANA sim
@@ -1589,11 +1580,11 @@ void wr_snfitsio_update_head(void) {
 
   // RA & DEC
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.RA ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.RA_AVG ;
   wr_snfitsio_fillTable ( ptrColnum, "RA", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.DEC ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.DEC_AVG ;
   wr_snfitsio_fillTable ( ptrColnum, "DEC", itype );
 
   // PIXEL size
@@ -3324,15 +3315,15 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     }
 
   
-    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "RA", &SNDATA.RA, 
+    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "RA", &SNDATA.RA_AVG, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
-    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DEC", &SNDATA.DEC, 
+    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DEC", &SNDATA.DEC_AVG, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
     //Apr 6 2021: check legacy DECL name ...
     if ( NRD == 0 ) {
-      j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DECL", &SNDATA.DEC, 
+      j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DECL", &SNDATA.DEC_AVG, 
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
     }
 

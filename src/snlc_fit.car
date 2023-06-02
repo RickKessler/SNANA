@@ -8787,7 +8787,7 @@ C ----------- BEGIN --------
      &     ,z, s, c, x0, d
 
  43   format(T5,'initial-',A, 2x, 
-     &         5(A,1x),'= ', 3F6.3, 1x, G8.2, 1x, F6.3 )
+     &         5(A,1x),'= ', 3F7.3, 1x, G8.2, 1x, F6.3 )
 
       write(6,44) STRING, CHI2         
  44   format(T5,'initial-',A, 2x, 'CHI2 = ',G12.4 )

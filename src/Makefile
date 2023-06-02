@@ -77,7 +77,7 @@
 # Dec 02 2022: append CFLAGS with snana git version
 # May 25 2023: incluce yaml.o ingested from github 
 #          (original need is genmag_BAYESN.c)
-#
+# May 26 2023: link sim to sntools_sim_atmosphere
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -390,6 +390,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_genSmear.o  \
 	$(OBJ)/sntools_devel.o  \
 	$(OBJ)/sntools_sim_readme.o \
+	$(OBJ)/sntools_sim_atmosphere.o \
 	$(OBJ)/sntools_trigger.o  \
 	$(OBJ)/sntools_modelgrid_gen.o  \
 	$(OBJ)/sntools_spectrograph.o \
@@ -841,6 +842,12 @@ $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 $(OBJ)/sntools_sim_readme.o : $(SRC)/sntools_sim_readme.c  $(SRC)/sntools_sim_readme.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_sim_readme.c )
+
+# --------------
+# compile sntools_sim_atmosphere (.o only)
+$(OBJ)/sntools_sim_atmosphere.o : $(SRC)/sntools_sim_atmosphere.c  $(SRC)/sntools_sim_atmosphere.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_sim_atmosphere.c )
 
 # -------------------------------------------------
 # compile sntools_weaklens (.o only)

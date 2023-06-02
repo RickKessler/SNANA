@@ -134,6 +134,7 @@ int WRFLAG_FILTERS   ; // Aug 2016
 int WRFLAG_ATMOS    ; // May 2023
 int WRFLAG_COMPACT   ; // Jan 2018
 
+
 #define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
 #define SIMLIB_PSF_ARCSEC_FWHM   "ARCSEC_FWHM"        // option
 #define SIMLIB_PSF_NEA_PIXEL     "NEA_PIXEL"          // option
@@ -974,9 +975,10 @@ struct GENLC {
   double random_shift_RADIUS, random_shift_PHI;
 
   double GLON, GLAT;        // for LCLIB-galactic models, airmass calc, ...
-  double SIN_GLAT, COS_GLAT;
-  double SIN_GLON, COS_GLON;
-  double SIN_DEC,  COS_DEC ;
+  double sin_GLAT, cos_GLAT;
+  double sin_GLON, cos_GLON;
+  double sin_DEC,  cos_DEC ;
+  
   double REDSHIFT_HELIO ;   // true Helio redshift of SN
   double REDSHIFT_CMB   ;   // true CMB   redshift of SN
   double REDSHIFT_HOST  ;   // true Helio redshift of host
@@ -1203,8 +1205,13 @@ struct GENLC {
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
-  double AIRMASS[MXEPSIM];
-  double ANG_ZENITH[MXEPSIM];
+  double AIRMASS[MXEPSIM];     // angle from zenith
+  double ALTITUDE[MXEPSIM];    // angle from horizon (90-zenith)
+  double sin_ALT[MXEPSIM];
+  double cos_ALT[MXEPSIM];
+  double ANG_ZENITH[MXEPSIM];  // degrees
+  double tan_ZENITH[MXEPSIM] ; // tan(zenith)
+  
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
   double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS
   double RA_SUM, DEC_SUM, RA_WGTSUM, DEC_WGTSUM;
@@ -1946,7 +1953,7 @@ int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 void   GENMAG_DRIVER(void);    // driver to generate true mags
 void   DUMP_GENMAG_DRIVER(void);
 void   GENFLUX_DRIVER(void);   // driver to generate observed fluxes
-void   GENFLUX_DRIVER_LEGACY(void);   // driver to generate observed fluxes
+
 void   set_GENFLUX_FLAGS(int ep);
 void   gen_fluxNoise_randoms(void);
 void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
@@ -1958,9 +1965,6 @@ void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpCovMat_fluxNoise(int icov, int NOBS, double *COV);
 void   monitorCov_fluxNoise(void);
 void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
-void   gen_airmass(int ep);
-void   genSmear_coords(int ep);
-void   gen_dcr_coordShift(int ep);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra

@@ -185,7 +185,8 @@ struct SNDATA {
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
   bool  WRFLAG_SKYSIG_T ;
-  bool  WRFLAG_ATMOS ;      // include RA,DEC,AIRMASS per obs (May 2023)
+  bool  WRFLAG_ATMOS ;         // include RA,DEC,AIRMASS per obs (May 2023)
+  bool  WRFLAG_SPECTRA ;       // write spectra
 
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
@@ -229,12 +230,9 @@ struct SNDATA {
   int  NEWMJD;                         // # epochs with NEW MJD 
   int  EPOCH_RANGE_NEWMJD[MXEPOCH][2];   // epoch-range for each NEW MJD
 
-  double RA;                      // SN RA, deg
-  double DEC;
-
   double AIRMASS[MXEPOCH];
-  double RA_OBS[MXEPOCH], DEC_OBS[MXEPOCH];
-  double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS                    
+  double RA[MXEPOCH], DEC[MXEPOCH];
+  double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
@@ -486,6 +484,10 @@ struct SNDATA {
   float SIMEPOCH_WARPCOLVAL[MXEPOCH] ;     // warp color value
   char  SIMEPOCH_WARPCOLNAM[MXEPOCH][8] ;  // warp color name (i.e, B-V)
   float SIMEPOCH_SNRMON[MXEPOCH];          // SNR of monitor mag
+
+  float SIMEPOCH_RA_DCR_SHIFT[MXEPOCH];    // milli-arcsec
+  float SIMEPOCH_DEC_DCR_SHIFT[MXEPOCH];    // milli-arcsec
+  float SIMEPOCH_MAG_DCR_SHIFT[MXEPOCH];  
   int   MAGMONITOR_SNR;            // transferred from INPUTS.MAGMONITOR
 
   // private variables (Nov 24, 2012)

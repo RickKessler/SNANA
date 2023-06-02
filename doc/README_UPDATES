@@ -21620,13 +21620,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-        v11_05d ([tag-date]) 
+        v11_05d (May 31 2023) 
 
         ***** IMPORTANT(v11_05d) ***** 
 
    SALT2mu.c :
      + fix subtle zmax_biascor bug as explained in
         https://github.com/RickKessler/SNANA/issues/1128
+     + fix subtle MUCOVADD bug:
+        https://github.com/RickKessler/SNANA/issues/1154
 
    sntools_output_text.c: 
      + fix casting HOSTGAL_OBJID and SIM_HOSTLIB_GALID to be
@@ -21637,36 +21639,38 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         ***** USEFUL(v11_05d) ***** 
 
    snlc_sim.c[h]:
-     + add feature to read GROUPID: <groupid> from SIMLIB and
+     + add feature to read "GROUPID: <groupid>" from SIMLIB and
        select this groupid from HOSTLIB. Goal is to enable 
-       simulating large scale structure (see manual).
+       simulating large scale structure. See snana manual section
+        "4.22.18 Correlating SIMLIB and HOSTLIB with GROUPID"
 
      + use new sntools.c utility print_mask_comment(..) to print bit-mask
        options for SIMLIB_MSKOPT and HOSTLIB_MSKOPT 
         (also used for opt_biascor in SALT2mu)
 
-     + "SPECTROGRAPH_OPTMASK: 128" writes model SED for each observation,
-        and no need to define a spectrograph instrument; see manual 4.25.7
+     + "SPECTROGRAPH_OPTMASK: 128" writes model SED for each observation
+        in the data files using SPECTRA format.
+        No need to define a spectrograph instrument; see manual 4.25.7
 
    submit_prog_bbc.py :
      + add SIM_c,SIM_x1 to list of missing variables that are kept;
          https://github.com/RickKessler/SNANA/issues/1137
 
    Analysis codes:
-     + fix override to work with quantiles, even if original data
-       files do not include quantiles.
+     + fix HEADER_OVERRIDE_FILE to work with quantiles, even if original 
+       data files do not include quantiles.
           https://github.com/RickKessler/SNANA/issues/1140
     
    Ingest/create yaml.c[h] from https://github.com/yaml/libyaml
    to avoid installing another library. Initial use is genmag_BAYESN.c
 
-
+   
         ***** MISCELLANEOUS(v11_05d) ***** 
 
-   submit_prog_cosmofit.py:
-     + https://github.com/RickKessler/SNANA/issues/1126
-          (avoid confusion with "wfit" string name)
-
+   submit_prog_cosmofit.py;
+     + Minor refactor to avoid confusion with "wfit" string name;
+         https://github.com/RickKessler/SNANA/issues/1126
+          
    SALT2mu.h
      + define COLOR_DISP_MAX_DEFAULT=2 and use this to force
        color_disor <=2 to avoid crazyFlux aborts.
@@ -21675,7 +21679,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu.c
      + fix subtle zmax_biascor bug as explained in
           https://github.com/RickKessler/SNANA/issues/1128
-       Two of the 9 BBC regression-test jobs have very small change:
+       This fix results in two of the 9 BBC regression-test jobs having
+       very small change:
 
        TASK100_SALT2mu_DES_BBC5D_noCC  :  mis-match (REF != TEST)
           ==> REF:  fit-Beta = 3.0278e+00 +/- 1.4856e-01
@@ -21692,30 +21697,46 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c[h]
      + add PERIOD to SIMGEN_DUMP list; writes -9 for non-recurring models
        and writes LCLIB's "PERIOD" value for recurring-periodic
+
      + remove all legacy kcor functions and remove use of
        INPUTS.USE_KCOR_[LEGACY,REFAC]
+
      + add new variables to store RA_OBS, DEC_OBS, AIRMASS per epoch,
        and define dummy functions to compute them.
 
      + new sim-input ATMOSPHERE_OPTMASK: <mask>  controls these options,
             #define ATMOSPHERE_OPTMASK_DCR 1
-            #define ATMOSPHERE_OPTMASK_PSF 2
+            #define ATMOSPHERE_OPTMASK_PSF 2       
        ATMOSPHERE_OPTMASK > 0 invokes two new functions calls:
           gen_airmass(epoch);     // STILL NEEDS DEBUGGING
           genSmear_coords(epoch); // NEEDS UPDATED MODEL AND/OR SIM-INPUTS
        and internally set format to write RA,DEC,AIRMASS per observations
            [BEWARE: WORKING for TEXT FORMAT ONLY ...]
+       New code files sntools_sim_atmosphere.c[h] and update Makefile.
+
+       Beware that ATMOSPHERE_OPTMASK isn't yet working and still under development.
 
      + MXSPECTRA -> 1000 (was 300)
      + MXDOCLINE -> 2000 (was 1000) to handle lots of NON1A keys
 
-     + cleanup writing AGN parameters
+     + cleanup writing AGN parametersm for new changing look AGN model
 
      + define PySEDMODEL names in sndata.h (instead of genmag_PySEDMODEL.h)
        so that snana.exe and snlc_fit.exe can use these parameters for read-back
        without linking to python code.
+       [previously the model names were hard-wired in two separate places]
 
     Everywhere: add callFun arg to splitString so that abort message
                 can be traced back to calling function.
     
+
+# =============================================================
+        v11_05e ([tag-date]) 
+
+        ***** IMPORTANT(v11_05e) ***** 
+
+        ***** USEFUL(v11_05e) ***** 
+
+        ***** MISCELLANEOUS(v11_05e) ***** 
+
 END: 

@@ -525,6 +525,19 @@ void genmag_BAYESN(
     gsl_matrix_scale(W, THETA);
     gsl_matrix_add(W, BAYESN_MODEL_INFO.W0);
 
+    int wx, wy;
+    printf("DEBUG: W matrix\n");
+    for(wx=0; wx< 9; wx++)
+    {
+        for(wy=0; wy < 6; wy++)
+        {
+            printf("%.3f  ",gsl_matrix_get(W, wx, wy));
+        }
+        printf("\n");
+    }
+    printf("-----------\n");
+
+
     // compute W * J_tau^T
     gsl_matrix_set_zero(WJ_tau);
     gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, W, J_tau, 0.0, WJ_tau);
@@ -555,6 +568,9 @@ void genmag_BAYESN(
         //
         gsl_vector_set_zero(jWJ);
         j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
+        
+        // GSN - 20230602 - J_lam matches - compare in restframe
+        //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam[q-ilam_blue], gsl_vector_get(&j_lam.vector, 0));
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
         eA_lam_MW = 1.0; //MW extinction at this_lam[q-i]
@@ -562,7 +578,9 @@ void genmag_BAYESN(
             
         int q_hsiao;
         for (o = 0; o < Nobs; o++) {
-            printf("DEBUG: Trest: %.2f    JWJ:   %.5f\n", Trest_list[o], gsl_vector_get(jWJ, o));
+            /*if (o < 20){
+                printf("DEBUG: Trest: %.2f    JWJ:   %.5f\n", Trest_list[o], gsl_vector_get(jWJ, o));
+            }*/
             eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
             // Seek the first Hsiao timestep above the current obs time
             q_hsiao = 0;
@@ -584,12 +602,14 @@ void genmag_BAYESN(
     if (dumpsed) {
         fclose(sedfile);
     }
-    if (VERBOSE_BAYESN > 0)
+
+    // GSN - 20230602 - J_tau matrix matches but JWJ does not - J_lam matches (look at rest-wavelengths)
+    /*if (VERBOSE_BAYESN > 0)
     {
         printf("DEBUG: Printing J_tau matrix\n");
 	    int crap = print_matrix(stdout, J_tau);
         printf("-----\n\n\n");
-    }
+    }*/
 
 
     gsl_matrix_free(J_tau);

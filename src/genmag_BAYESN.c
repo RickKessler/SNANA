@@ -562,7 +562,7 @@ void genmag_BAYESN(
             
         int q_hsiao;
         for (o = 0; o < Nobs; o++) {
-            float dummy = gsl_vector_get(jWJ, o);
+            printf("DEBUG: Trest: %.2f    JWJ:   %.5f\n", Trest_list[o], gsl_vector_get(jWJ, o));
             eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
             // Seek the first Hsiao timestep above the current obs time
             q_hsiao = 0;

@@ -711,7 +711,7 @@ void  read_SURVEYDEF_legacy(void);
 void  parse_geoSURVEYDEF(char *string_geo, int ID);
 
 int   get_IDSURVEY(char *SURVEY);
-void  get_geoSURVEY(int ID, double *LAT, double *LONG);
+void  get_geoSURVEY(int ID, double *geoLAT, double *geoLON);
 
 void  read_redshift(FILE *fp, float *redshift, float *redshift_err );
 int   gtchars(char *string, char **argv);

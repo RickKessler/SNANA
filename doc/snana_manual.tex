@@ -5819,11 +5819,11 @@ measured RA,DEC-average.
 The simulation of atmosphere effects automatically appends the following
 columns in the photometry table per observations:
 \begin{verbatim}
- dRA             # RA - RA_AVG
- dDEC            # DEC - DEC_AVG
+ dRA             # RA - RA_AVG (arcsec)
+ dDEC            # DEC - DEC_AVG (arcsec)
  AIRMASS         # uses telescope geo-location in SURVEY.DEF file
- SIM_DCR_dRA     # calculated RA shift from DCR
- SIM_DCR_dDEC    # calculated DEC shift from DCR
+ SIM_DCR_dRA     # calculated RA shift from DCR (arcsec)
+ SIM_DCR_dDEC    # calculated DEC shift from DCR (arcsec)
  SIM_DCR_dMAGOBS # calculated mag shift from using RA_AVG and DEC_AVG for PSF fit
 \end{verbatim}
 %
@@ -12902,8 +12902,6 @@ and here we illustrate its basic features:
 \begin{enumerate}
   \item Print list of {\tt SNTABLE} variables: 
        \begin{verbatim}
-          sntable_dump.pl  myjob.hbook  SNANA
-          sntable_dump.pl  myjob.hbook  FITRES
           sntable_dump.pl  myjob.root   SNANA
           sntable_dump.pl  myjob.root   FITRES
        \end{verbatim}
@@ -12911,14 +12909,14 @@ and here we illustrate its basic features:
   \item For an arbitrary set of table variables, 
         extract SN values  into a fitres-formatted text file:
        \begin{verbatim}
-       sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r
-       sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r
+       sntable_dump.pl  myjob.root  SNANA  -v RA DEC SNRMAX_r
+       sntable_dump.pl  myjob.root  FITRES -v m0obs_g m0obs_r
        \end{verbatim}
 %
   \item Append an existing text file with variables from a {\tt SNTABLE}:
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r -a MYJOB.FITRES
- sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r  -a MYJOB.FITRES
+ sntable_dump.pl  myjob.root  SNANA  -v RA DEC SNRMAX_r -a MYJOB.FITRES
+ sntable_dump.pl  myjob.root  FITRES -v m0obs_g m0obs_r  -a MYJOB.FITRES
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-fitFLux  outliers:
@@ -12940,7 +12938,6 @@ and here we illustrate its basic features:
       where $\sigSIM$ is the calculated error and $\sigma_F$ is the 
       reported error.
        \begin{verbatim}
-   sntable_dump.pl  myjob.hbook  FITRES  obs
    sntable_dump.pl  myjob.root   FITRES  obs
        \end{verbatim}
 \end{enumerate}

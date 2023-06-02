@@ -975,9 +975,10 @@ struct GENLC {
   double random_shift_RADIUS, random_shift_PHI;
 
   double GLON, GLAT;        // for LCLIB-galactic models, airmass calc, ...
-  double SIN_GLAT, COS_GLAT;
-  double SIN_GLON, COS_GLON;
-  double SIN_DEC,  COS_DEC ;
+  double sin_GLAT, cos_GLAT;
+  double sin_GLON, cos_GLON;
+  double sin_DEC,  cos_DEC ;
+  
   double REDSHIFT_HELIO ;   // true Helio redshift of SN
   double REDSHIFT_CMB   ;   // true CMB   redshift of SN
   double REDSHIFT_HOST  ;   // true Helio redshift of host
@@ -1204,8 +1205,13 @@ struct GENLC {
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
-  double AIRMASS[MXEPSIM];
-  double ANG_ZENITH[MXEPSIM];
+  double AIRMASS[MXEPSIM];     // angle from zenith
+  double ALTITUDE[MXEPSIM];    // angle from horizon (90-zenith)
+  double sin_ALT[MXEPSIM];
+  double cos_ALT[MXEPSIM];
+  double ANG_ZENITH[MXEPSIM];  // degrees
+  double tan_ZENITH[MXEPSIM] ; // tan(zenith)
+  
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
   double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS
   double RA_SUM, DEC_SUM, RA_WGTSUM, DEC_WGTSUM;

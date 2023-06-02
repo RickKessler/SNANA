@@ -948,9 +948,16 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 	double SIM_dRA  = SNDATA.SIMEPOCH_RA_DCR_SHIFT[ep];
 	double SIM_dDEC = SNDATA.SIMEPOCH_DEC_DCR_SHIFT[ep];
 	double SIM_dMAG = SNDATA.SIMEPOCH_MAG_DCR_SHIFT[ep];
+	char ctmp_dCoord[60];
+
+	// for true coord shift, use int for null (99) to make it easier to see.
+	sprintf(ctmp_dCoord,"%.4f %.4f", SIM_dRA, SIM_dDEC );
+	if ( SIM_dRA > 90.0 && SIM_dDEC > 90 ) 
+	  { sprintf(ctmp_dCoord,"%d %d", (int)SIM_dRA, (int)SIM_dDEC ); ; }
+
 	sprintf(cval,"%5.2f %5.2f %5.2f "
-		"%.4f %.4f %.5f ", 
-		dRA, dDEC, airmass,   SIM_dRA, SIM_dDEC, SIM_dMAG );
+		"%s %.5f ", 
+		dRA, dDEC, airmass,  ctmp_dCoord, SIM_dMAG );
 	NVAR_WRITE += 6  ;    strcat(LINE_EPOCH,cval);
       }
 

@@ -15722,6 +15722,7 @@ void SIMLIB_prepGlobalHeader(void) {
   // Mar 7 2018: replace filtindx_ with INTFILTER
   // Dec 1 2020: abort if GENLC.IDSURVEY < 0
 
+  double RAD = RADIAN ;
   int i, NTMP, ifilt, ifilt_obs ;
   char cfilt[4], *FILTERS, *TEL, *FIELD ;
   char *SURVEY, *SUBSURVEY_LIST ;
@@ -15747,6 +15748,7 @@ void SIMLIB_prepGlobalHeader(void) {
     sprintf(c2err,"Check valid SURVEY names in $SNDATA_ROOT/SURVEY.DEF" );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
 
   TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
   sprintf(GENLC.TELESCOPE[0], "%s", TEL );
@@ -25440,15 +25442,15 @@ void compute_galactic_coords(void) {
   double GLON_RAD  = GLON * RADIAN ;
   double GLAT_RAD  = GLAT * RADIAN ;
 
-  GENLC.SIN_GLON = sin(GLON_RAD);
-  GENLC.COS_GLON = cos(GLON_RAD);
+  GENLC.sin_GLON = sin(GLON_RAD);
+  GENLC.cos_GLON = cos(GLON_RAD);
 
-  GENLC.SIN_GLAT = sin(GLAT_RAD);
-  GENLC.COS_GLAT = cos(GLAT_RAD);
+  GENLC.sin_GLAT = sin(GLAT_RAD);
+  GENLC.cos_GLAT = cos(GLAT_RAD);
 
   double DEC_RAD = SIMLIB_HEADER.DEC*RADIAN ;
-  GENLC.SIN_DEC = sin(DEC_RAD);
-  GENLC.COS_DEC = cos(DEC_RAD);
+  GENLC.sin_DEC = sin(DEC_RAD);
+  GENLC.cos_DEC = cos(DEC_RAD);
 
   return ;
 
@@ -25772,6 +25774,9 @@ void genmodel(
 			   NHOSTPAR, VAL_HOSTPAR, 
 			   GENLC.NEPOCH, &GENLC.epoch_obs[1] );
     }
+
+    if ( INDEX_GENMODEL == MODEL_AGN ) 
+      { GENLC.TEMPLATE_INDEX = MODEL_AGN; } // anything non-zero means NOT-SNIa
 
     genmag_PySEDMODEL(
 		      GENLC.CID

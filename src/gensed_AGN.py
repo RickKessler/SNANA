@@ -27,7 +27,14 @@ M_BH Mi edd_ratio edd_ratio2 t_transition cl_flag
 
 Input parameters are given by AGN.INFO, located at path given by "GENMODEL AGN PATH". Example of AGN.INFO file:
 CONFIG:
-  cl_prob: 1e-2
+  cl_prob: 1e-3
+  log_bh_mass:
+    distribution: "uniform"
+    lower: 7.0
+    upper: 9.0
+  edd_ratio:
+    galaxy_type: "blue"
+
 You can overwrite parameters from AGN.INFO in input file using ARGLIST statement. 
 
 References:
@@ -49,7 +56,7 @@ Eddington ratio distribution:
 from pathlib import Path
 import numpy as np
 from astropy import constants, units
-from scipy import integrate
+from scipy import integrate, stats
 from scipy.interpolate import UnivariateSpline
 import re
 from gensed_base import gensed_base
@@ -346,8 +353,10 @@ class AGN:
         # DOI https://doi.org/10.1007/978-3-319-93009-1_1
         T0 = self.T_0(M, Mdot, rin)
         r0 = self.r_0(rin)
-        fun_integr = lambda x: (x ** (5 / 3)) / (np.exp(x) - 1)
-        integ, inte_err = integrate.quad(fun_integr, 0, np.inf)
+        # large x in exponetial causes overflow, but 1/inf is zero.
+        with np.errstate(over='ignore'):
+            fun_integr = lambda x: (x ** (5 / 3)) / np.expm1(x)
+            integ, inte_err = integrate.quad(fun_integr, 1e-6, np.inf)
 
         return ((16 * np.pi) / (3 * d ** 2) * np.cos(i) * (k_B * T0 / h) ** (8 / 3) * h * (nu ** (1 / 3)) / (c ** 2) * (
                 r0 ** 2) * integ)
@@ -443,9 +452,28 @@ class gensed_AGN(gensed_base):
         config.update(args)
 
         self.ranseed = int(config.pop('RANSEED', 0))
-        self.cl_prob = float(config.pop('cl_prob', 0.0))
+        try:
+            self.cl_prob = float(config.pop('cl_prob'))
+            self.M_BH_dist_log = self.parse_MBH_dist(config.pop('log_bh_mass'))
+        except KeyError as e:
+            raise ValueError(f'{path_version/"AGN.INFO"} must have parameters "{e.args[0]}"')
         if len(config) != 0:
             raise ValueError(f'ARGLIST or {path_version/"AGN.INFO"} has unknown arguments: {" ".join(config)}')
+
+    @staticmethod
+    def parse_MBH_dist(config):
+        name = config['distribution']
+        if name == 'uniform':
+            lower = config['lower']
+            upper = config['upper']
+            return stats.uniform(loc=lower, scale=upper-lower)
+        elif name == 'normal':
+            mu = config['mu']
+            sigma = config['sigma']
+            lower = config['lower']
+            upper = config['upper']
+            return stats.truncnorm(a=(lower - mu)/sigma, b=(upper - mu)/sigma, loc=mu, scale=sigma)
+        raise ValueError(f'log_bh_mass distribution "{name}" is not suppoerted')
 
 
     def Fnu_to_Flamb(self, Fnu):
@@ -488,11 +516,10 @@ class gensed_AGN(gensed_base):
 
         return xi * ((lambda_Edd / lambda_br) ** delta1 + (lambda_Edd / lambda_br) ** delta2) ** -1
 
-    @staticmethod
-    def M_BH_sample(rng):
-        logMH_min = 7
-        logMBH_max = 9
-        return 10 ** (rng.uniform(logMH_min, logMBH_max))
+
+    def M_BH_sample(self, rng):
+        rvs = self.M_BH_dist_log.rvs(random_state=rng)
+        return 10 ** rvs
 
 
     def fetchSED_NLAM(self):
@@ -554,6 +581,9 @@ class gensed_AGN(gensed_base):
             self.agn2.step(t)
             sed_lam.append(self.Fnu_to_Flamb(self.agn2.Fnu))
         self.sed = np.stack(sed_lam)
+
+        if self.cl_flag == False:
+            self.t_transition = 1e9
 
     def test_AGN_flux(self, trest):
         """

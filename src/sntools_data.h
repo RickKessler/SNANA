@@ -55,6 +55,7 @@ void RD_OVERRIDE_POSTPROC(void);
 void rd_override_append(void);
 void rd_override_zcalc(void);
 void rd_override_zphot_q(int OPT);
+void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
 
 // mangled functions for fortran
 void copy_sndata_global__(int *copyFlag, char *key,

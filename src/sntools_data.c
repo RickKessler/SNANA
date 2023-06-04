@@ -1152,6 +1152,16 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO") ) 
     { RD_OVERRIDE.FOUND_zHEL = true; }
 
+  // check for varname mistakes
+  rd_override_check_mistake("HOSTGAL_ZPHOT" ,    "HOSTGAL_PHOTOZ");
+  rd_override_check_mistake("HOSTGAL_ZPHOTERR" , "HOSTGAL_PHOTOZ_ERR");
+  rd_override_check_mistake("HOSTGAL_ZPHOT_ERR", "HOSTGAL_PHOTOZ_ERR");
+
+  rd_override_check_mistake("HOSTGAL_ZSPEC" ,    "HOSTGAL_SPECZ");
+  rd_override_check_mistake("HOSTGAL_ZSPECERR" , "HOSTGAL_SPECZ_ERR");
+  rd_override_check_mistake("HOSTGAL_ZSPEC_ERR", "HOSTGAL_SPECZ_ERR");
+
+
   if ( EXIST_VARNAME_AUTOSTORE(STRING_NZPHOT_Q) ) { // May 2023 
     rd_override_zphot_q(1);
   }  
@@ -1166,6 +1176,26 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
 
 } // end RD_OVERRIDE_INIT
 
+
+// ==================================================
+void rd_override_check_mistake(char *varname_mistake, char *varname_correct) {
+
+  char fnam[] = "rd_override_check_mistake";
+
+  // ------------ BEGIN ----------
+
+  if ( EXIST_VARNAME_AUTOSTORE(varname_mistake) )  {
+    sprintf(c1err,"Found invalid override varname = %s", varname_mistake);
+    sprintf(c2err,"try '%s' instead", varname_correct);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+  }
+
+  return;
+
+} // end rd_override_check_mistake
+
+
+// ==================================================
 int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
 
   // Created Dec 2021

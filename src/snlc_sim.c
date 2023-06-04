@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
 
+
     // prepare randome systematic shifts after reading SURVEY from SIMLIB,
     // but before init_RateModel
     prep_RANSYSTPAR() ;
@@ -213,6 +214,10 @@ int main(int argc, char **argv) {
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
 
+  // init atmosphere/DCR after we know survey ID from SIMLIB, and
+  // after filters are read fom kcor/calib file
+  if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) { INIT_ATMOSPHERE(); }
+
   // check options to rewrite hostlib and quit
   rewrite_HOSTLIB_DRIVER();
 
@@ -247,7 +252,7 @@ int main(int argc, char **argv) {
 
     if ( fudge_SNR() == 2 ) { goto GETMAGS ; }
 
-    init_GENLC();
+    init_event_GENLC();
 
     if ( INPUTS.TRACE_MAIN  ) { dmp_trace_main("02", ilc) ; }
 
@@ -5800,6 +5805,9 @@ void prep_user_input(void) {
   sprintf(GENLC.COLORPAR2_NAME,   "NULL");
   sprintf(GENLC.DISTANCE_NAME,    "NULL");
 
+  // read SURVEY.DEF file 
+  read_SURVEYDEF(); 
+
 
   // Now identify MODEL_INDEX
   for ( indx = 1; indx < MXMODEL_INDEX; indx++ ) {
@@ -7736,6 +7744,8 @@ void init_RateModel(void) {
 
   // -------------- BEGIN ---------------
 
+  print_banner(fnam);
+
   if ( INDEX_GENMODEL == MODEL_SIMLIB ) { return; } // Oct 2020
 
   if ( INPUTS.GENRANGE_REDSHIFT[1] > 1.0E-8 )     
@@ -8145,7 +8155,8 @@ void init_DNDB_Rate(void) {
 void init_simvar(void) {
 
   // One-time init of sim-variables; mostly counters.
-  // Nov 24, 2017: init GENLC.MWEBV[_ERR] here instead of in init_GENLC().
+  // Nov 24, 2017: init GENLC.MWEBV[_ERR] here instead of 
+  // in init_event_GENLC().
 
   int ifilt, type, N, i ;
   float xmb ;
@@ -8327,7 +8338,7 @@ void  set_GENMODEL_NAME(void) {
 
 
 // ************************************
-void  init_GENLC(void) {
+void  init_event_GENLC(void) {
 
   // called for each SN.
   // Oct    2011: return if SIMLIB_IDLOCK is set
@@ -8339,7 +8350,7 @@ void  init_GENLC(void) {
   // Jul 20 2019: add skip for repeated strong lens images
 
   int epoch, ifilt, ifilt_obs, i, obs, imjd, NEP_RESET ;
-  char fnam[] = "init_GENLC" ;
+  char fnam[] = "init_event_GENLC" ;
 
   // -------------- BEGIN ---------------
   GENLC.ACCEPTFLAG_LAST  = GENLC.ACCEPTFLAG ;
@@ -8552,9 +8563,8 @@ void  init_GENLC(void) {
 
   } // end of epoch loop
   
-  GENLC.RA_AVG = GENLC.DEC_AVG = 999999.9 ;
-  GENLC.RA_SUM = GENLC.DEC_SUM = GENLC.RA_WGTSUM = GENLC.DEC_WGTSUM = 0.0 ;
-
+  
+ 
   for ( i=0; i < MXZRAN; i++ )
     {  GENLC.REDSHIFT_RAN[i] = -9. ; }
 
@@ -8636,7 +8646,7 @@ void  init_GENLC(void) {
 
   return ;
  
-}  // end of init_GENLC
+}  // end of init_event_GENLC
 
 
 // ***********************************
@@ -9007,8 +9017,6 @@ void  init_genSpec(void) {
     get_LAMRANGE_ALLFILTER(&lammin, &lammax); // min/max lambda among all bands
     create_ideal_spectrograph(lammin, lammax);
     lammin -= 50.0 ; lammax += 50.0 ; // allow slop for filter edges
-    printf(" xxx %s: lammin, lammax = %f , %f \n",
-	   fnam, lammin, lammax);
     SPECTROGRAPH_USEFLAG = 1;
   }
 
@@ -10780,7 +10788,7 @@ int fudge_SNR ( void ) {
 
   if ( INPUTS.OPT_FUDGE_SNRMAX == 0 )     { return 0; }
 
-  GENLC.NOBS = 0;  // always reset NOBS since init_GENLC() may be skipped.
+  GENLC.NOBS = 0;  // always reset NOBS since init_event_GENLC() may be skipped.
 
   ITER1 = ITER2 = 0 ;
   NFILT = GENLC.NFILTDEF_OBS;
@@ -11249,6 +11257,7 @@ void gen_random_coord_shift(void) {
   // candidates. 
   // Initial motivation is to avoid spatial duplicates for
   // testing alert brokers in LSST.
+  // Note that this is NOT measurement noise.
   //
   // BEWARE: 
   //   + MXRADIUS is assumed to be very small (<<1 deg)
@@ -15741,13 +15750,13 @@ void SIMLIB_prepGlobalHeader(void) {
   printf("\t SIMLIB Survey    : %s \n", SURVEY );
 
   // get integer IDSURVEY from SURVEY string
-  read_SURVEYDEF();   
   GENLC.IDSURVEY = get_IDSURVEY(GENLC.SURVEY_NAME);
   if ( GENLC.IDSURVEY < 0 ) {
     sprintf(c1err,"Invalid 'SURVEY: %s' in SIMLIB header", GENLC.SURVEY_NAME);
     sprintf(c2err,"Check valid SURVEY names in $SNDATA_ROOT/SURVEY.DEF" );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+ 
 
 
   TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
@@ -17390,8 +17399,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   // default "measured" RA,DEC = exact RA,DEC ...
   // See genSmear_coords() to add noise for atmoshpere effects.
-  GENLC.RA_AVG  = GENLC.RA ;
-  GENLC.DEC_AVG = GENLC.DEC ;
+  GENLC.RA_OBS_AVG  = GENLC.RA ;
+  GENLC.DEC_OBS_AVG = GENLC.DEC ;
 
   if ( INPUTS.OPT_MWEBV == OPT_MWEBV_FILE ) 
     { GENLC.MWEBV = SIMLIB_HEADER.MWEBV ; }
@@ -19104,7 +19113,7 @@ int USE_SAME_SIMLIB_ID(int IFLAG) {
   // Return 0 otherwise to read another LIBID.
   //
   // IFLAG used for debug:
-  // IFLAG=1 if called from init_GENLC
+  // IFLAG=1 if called from init_event_GENLC
   // IFLAG=2 if called from SIMLIB_READ_DRIVER
   //
   // Apr 17 2017: fmodf -> fmod and XNTOT, XNUPD -> double
@@ -22017,8 +22026,6 @@ void snlc_to_SNDATA(int FLAG) {
   }
 
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
-  SNDATA.RA_AVG        = GENLC.RA_AVG ;
-  SNDATA.DEC_AVG       = GENLC.DEC_AVG ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
   SNDATA.SIM_TYPE_INDEX  = GENLC.SIMTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME );
@@ -22110,8 +22117,6 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_VPEC         = GENLC.VPEC ;
   SNDATA.SIM_DLMU         = GENLC.DLMU ; 
   SNDATA.SIM_LENSDMU      = GENLC.LENSDMU ;
-  SNDATA.SIM_RA           = GENLC.RA ;
-  SNDATA.SIM_DEC          = GENLC.DEC ;
   SNDATA.SIM_AVTAU        = GENLC.AVTAU ;
   SNDATA.SIM_MWEBV        = GENLC.MWEBV_SMEAR ; // use smeared MWEBV
   SNDATA.SIM_PEAKMJD      = GENLC.PEAKMJD ;
@@ -22231,9 +22236,6 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[epoch] = GENLC.NOISE_HOSTGAL_PHOT[epoch];
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
-    SNDATA.RA[epoch]           = GENLC.RA_OBS[epoch];
-    SNDATA.DEC[epoch]          = GENLC.DEC_OBS[epoch];
-    SNDATA.AIRMASS[epoch]      = GENLC.AIRMASS[epoch];
 
     sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
@@ -22302,14 +22304,6 @@ void snlc_to_SNDATA(int FLAG) {
     // mar 18 2018: store SNR at fixed mag to monitor data quality 
     SNDATA.SIMEPOCH_SNRMON[epoch] = GENLC.SNR_MON[epoch];
 
-    // optional DCR shift
-    if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) {
-      double unit = 3600.0 ; // deg -> arcsec
-      SNDATA.SIMEPOCH_RA_DCR_SHIFT[epoch]  = unit*GENLC.RA_dcr_shift[epoch];
-      SNDATA.SIMEPOCH_DEC_DCR_SHIFT[epoch] = unit*GENLC.DEC_dcr_shift[epoch];
-      SNDATA.SIMEPOCH_MAG_DCR_SHIFT[epoch] = GENLC.mag_dcr_shift[epoch];
-    }
-
     // ----------------
 
     SNDATA.NPE_ABOVE_SAT[epoch]     = GENLC.npe_above_sat[epoch];
@@ -22352,6 +22346,9 @@ void snlc_to_SNDATA(int FLAG) {
     
   } // end epoch loop
 
+  // JUn 2023
+  coords_to_SNDATA(FLAG); //
+
 
   // May 2019: 
   // estimate PEAKMJD after all of the FLUXCAL[ERR] are  evaluated.
@@ -22363,6 +22360,85 @@ void snlc_to_SNDATA(int FLAG) {
 
 }  // end of snlc_to_SNDATA
 
+
+// *********************************
+void coords_to_SNDATA(int FLAG) {
+
+  // Copy GENLC information to SNDATA struct for coordinates.
+  // Default treatment is trivial, but it's more tricky for 
+  // ATMOSPHERE_OPTMASK>0 when the coordinates are epoch dependent.
+  //
+  // FLAG = 0 => load everything.
+  // FLAG = 1 => load header info only (for fits format) <== not used
+
+  double unit_delta = 3600.0 ; // deg -> arcsec for dRA, dDEC
+  int ep, ifilt_obs ;
+  double RA_OBS, DEC_OBS, RA_TRUE, DEC_TRUE, RA_AVG_BAND, DEC_AVG_BAND ;
+  char fnam[] = "coords_to_SNDATA" ;
+
+  // ----------- BEGIN -----------
+
+  // Default/trivial part: always load global average among epochs.
+  // Without DCR effects, _AVG = true values.
+  SNDATA.RA_AVG        = GENLC.RA_OBS_AVG ;
+  SNDATA.DEC_AVG       = GENLC.DEC_OBS_AVG ;
+
+  SNDATA.SIM_RA        = GENLC.RA ;
+  SNDATA.SIM_DEC       = GENLC.DEC ;
+
+  // - - - - - - - - - - - 
+  if ( INPUTS.ATMOSPHERE_OPTMASK == 0 ) { return; }
+
+  // Here we load epoch-dependent information associated with
+  // atmospheric DCR effects.
+
+  for ( ep=1; ep < GENLC.NEPOCH; ep++ ) {
+
+    if ( !GENLC.OBSFLAG_GEN[ep] ) { continue; }
+
+    ifilt_obs    = GENLC.IFILT_OBS[ep];
+
+    // store coord per obs that includes measurement noise and DCR
+    RA_OBS               = GENLC.RA_OBS[ep] ;
+    DEC_OBS              = GENLC.DEC_OBS[ep] ;
+    RA_AVG_BAND          = ATMOS_INFO.COORD_RA.AVG_BAND[ifilt_obs];
+    DEC_AVG_BAND         = ATMOS_INFO.COORD_DEC.AVG_BAND[ifilt_obs];
+
+    SNDATA.RA[ep]        = RA_OBS;
+    SNDATA.DEC[ep]       = DEC_OBS ;
+    SNDATA.AIRMASS[ep]   = GENLC.AIRMASS[ep];
+
+    // For epoch-dependent coord shifts, follow SMP for DES and subtract
+    // wgted average coord by band.
+    // May need other options for other surveys.
+    SNDATA.dRA[ep]   = unit_delta * ( RA_OBS  - RA_AVG_BAND);
+    SNDATA.dDEC[ep]  = unit_delta * ( DEC_OBS - DEC_AVG_BAND);
+
+
+    // repeat for true dcr shifts
+    RA_TRUE              = GENLC.RA_TRUE[ep] ;
+    DEC_TRUE             = GENLC.DEC_TRUE[ep] ;
+    RA_AVG_BAND          = ATMOS_INFO.COORD_SIM_RA.AVG_BAND[ifilt_obs];
+    DEC_AVG_BAND         = ATMOS_INFO.COORD_SIM_DEC.AVG_BAND[ifilt_obs];
+
+    SNDATA.SIMEPOCH_dRA_DCR[ep]  = unit_delta*(RA_TRUE  - RA_AVG_BAND);
+    SNDATA.SIMEPOCH_dDEC_DCR[ep] = unit_delta*(DEC_TRUE - DEC_AVG_BAND);
+    SNDATA.SIMEPOCH_dMAG_DCR[ep] = GENLC.mag_dcr_shift[ep];
+
+    // if dRA ~ 99, set all deltas to 99.0 to make clear that
+    // it is a null value
+    if ( SNDATA.dRA[ep] > (COORD_SHIFT_NULL_ARCSEC - 5.0) ) {
+      SNDATA.dRA[ep]  = COORD_SHIFT_NULL_ARCSEC ;
+      SNDATA.dDEC[ep] = COORD_SHIFT_NULL_ARCSEC ;
+      SNDATA.SIMEPOCH_dRA_DCR[ep]  = COORD_SHIFT_NULL_ARCSEC;
+      SNDATA.SIMEPOCH_dDEC_DCR[ep] = COORD_SHIFT_NULL_ARCSEC;
+    }
+
+  } // end epoch loop
+
+  return;
+
+} // end coords_to_SNDATA
 
 // **************************************************
 void MWEBVfluxCor_to_SNDATA(int epoch) {
@@ -23818,7 +23894,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   LOAD_SEARCHEFF_DATA();
   LFIND_SPEC = gen_SEARCHEFF_SPEC(GENLC.CID, &EFF) ;  // return EFF 
     
-  GENLC.NEPOCH = GENLC_ORIG.NEPOCH ; // always needed for init_GENLC
+  GENLC.NEPOCH = GENLC_ORIG.NEPOCH ; // always needed for init_event_GENLC
 
   // check to restore ALL epochs
   if ( LFIND_SPEC ) {
@@ -27854,7 +27930,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   // store SIMLIB cuts to check
 
-  init_GENLC();
+  init_event_GENLC();
 
   icut=0;
   icut++;

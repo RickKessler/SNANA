@@ -1213,8 +1213,16 @@ struct GENLC {
   double tan_ZENITH[MXEPSIM] ; // tan(zenith)
   
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
-  double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS
+  double RA_TRUE[MXEPSIM], DEC_TRUE[MXEPSIM]; // includes true DCR shift
+  double RA_OBS_AVG, DEC_OBS_AVG;  // wgted-average among RA/DEC_OBS
+
+  /* xxx mark delete Jun 2023 xxx
   double RA_SUM, DEC_SUM, RA_WGTSUM, DEC_WGTSUM;
+  double RA_AVG_BAND[MXFILTINDX];   // wgted avg for each band
+  double DEC_AVG_BAND[MXFILTINDX];
+  double RA_SUM_BAND[MXFILTINDX], DEC_SUM_BAND[MXFILTINDX];
+  double RA_WGTSUM_BAND[MXFILTINDX], DEC_WGTSUM_BAND[MXFILTINDX];
+  xxx end mark xxxxx */
 
   double  epoch_obs_range[2];   // min and max epoch, all bands
   double  epoch_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
@@ -2042,7 +2050,7 @@ void interpEpochGrid(int NEP_LC, double *TList_LC, int NGRID,
                      double *TList, double *magList, double *magerrList );
 
 void   init_RANDOMsource(void);    // init stuff for randoms
-void   init_GENLC(void);
+void   init_event_GENLC(void);
 int    fudge_SNR(void);
 
 int    NEPFILT_GENLC(int opt, int ifilt_obs);
@@ -2052,6 +2060,8 @@ void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
+void   coords_to_SNDATA(int FLAG) ;
+
 void   check_SNDATA_HOSTGAL_SNSEP(int m);
 
 void   MWEBVfluxCor_to_SNDATA(int epoch) ;

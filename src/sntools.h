@@ -611,7 +611,8 @@ int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
 double asinhinv(double mag, int ifilt);
 
 
-float effective_aperture ( float PSF_sigma, int VBOSE ) ;
+//  xxx mark float effective_aperture ( float PSF_sigma, int VBOSE ) ;
+double pressure_atmos(double h);
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
@@ -712,6 +713,7 @@ void  parse_geoSURVEYDEF(char *string_geo, int ID);
 
 int   get_IDSURVEY(char *SURVEY);
 void  get_geoSURVEY(int ID, double *geoLAT, double *geoLON);
+void  print_SURVEY(int ID); // print info about survey
 
 void  read_redshift(FILE *fp, float *redshift, float *redshift_err );
 int   gtchars(char *string, char **argv);

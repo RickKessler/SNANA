@@ -30,6 +30,18 @@
 **********************************************************/
 
 
+double pressure_atmos(double h) {
+  // Created Jun 2023 by R.Kessler
+  // Return atmos pressu (mm Hg) at height = h (meters).
+  // Grab formula from Enginnering toolbox featuring an Etsy ad, 
+  // so be careful.
+  double P_0 = 760.0; // pressure at sea level, mm Hg
+  double P, tmp, EXPON = 5.25588 ;
+  tmp = (1 - h*2.25577E-5);
+  P = P_0 * pow(tmp,EXPON);
+  return P;
+}
+
 void load_PySEDMODEL_CHOICE_LIST(void) {
   // May 2023:
   // Moved from genmag_PySEDMODEL.c so that it is available
@@ -3102,8 +3114,9 @@ void read_SURVEYDEF(void) {
   // init each survey name to NULL
   for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
     sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
-    SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
-    SURVEY_INFO.geoLON[idTmp]  = 99999.0 ;
+    SURVEY_INFO.geoLAT[idTmp]     = 99999.0 ;
+    SURVEY_INFO.geoLON[idTmp]     = 99999.0 ;
+    SURVEY_INFO.geoALT[idTmp]     = 0.0 ;
     SURVEY_INFO.sin_geoLAT[idTmp] = NULLFLOAT;
     SURVEY_INFO.cos_geoLAT[idTmp] = NULLFLOAT;
   }
@@ -3164,11 +3177,12 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
   // store lat and long for ID.
 
 #define STRING_geo    "geo:"
-
+#define MXWD_GEO      3
   int LEN_STR_geo = strlen(STRING_geo);
   int LDMP = 0 ;
-  int NWD;
-  char str_coords[40], *ptr_wdlist[2];
+  int NWD, i ;
+  char str_coords[40], *ptr_wdlist[MXWD_GEO];
+  double LAT, LON, ALT = -9.0, RAD=RADIAN ;
   char fnam[] = "parse_geoSURVEYDEF" ;
 
   // ------------ BEGIN ---------
@@ -3176,21 +3190,34 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
   // check for 'geo:' in string
   if ( strstr(string_geo,STRING_geo) == NULL ) { return; }
 
-  ptr_wdlist[0] = (char*) malloc( 40*sizeof(char) );
-  ptr_wdlist[1] = (char*) malloc( 40*sizeof(char) );
+  for(i=0; i < MXWD_GEO; i++ ) 
+    { ptr_wdlist[i] = (char*) malloc( 40*sizeof(char) );  }
 
   sprintf(str_coords,"%s", &string_geo[LEN_STR_geo]); // eveything after 'geo:'
-  splitString(str_coords, COMMA, fnam, 2,  // inputs 
+  splitString(str_coords, COMMA, fnam, MXWD_GEO,  // inputs 
 	      &NWD, ptr_wdlist );    // outputs
 
-  double LAT, LON;
+  // read required lat and lon
   sscanf(ptr_wdlist[0], "%le", &LAT );
   sscanf(ptr_wdlist[1], "%le", &LON );
 
   SURVEY_INFO.geoLAT[ID] = LAT ;
   SURVEY_INFO.geoLON[ID] = LON ;
-  SURVEY_INFO.sin_geoLAT[ID] = sin(LAT*RADIAN) ;
-  SURVEY_INFO.cos_geoLAT[ID] = cos(LAT*RADIAN) ;
+  SURVEY_INFO.sin_geoLAT[ID] = sin(LAT*RAD) ;
+  SURVEY_INFO.cos_geoLAT[ID] = cos(LAT*RAD) ;
+
+  // read optional (but recommended) altitude (meters),
+  // and store rough average values for temperature, pressure, vapor pressure
+  // Ideally n(lambda) is computed for each observation and SIMLIB should be
+  // updated to include index-of-refrac column.
+  if ( NWD == 3 ) { 
+    sscanf(ptr_wdlist[2], "%le", &ALT ); 
+    SURVEY_INFO.geoALT[ID] = ALT;
+    SURVEY_INFO.temperature_atmos[ID] = 20.0 - 0.006*ALT ;     // Celsius
+    SURVEY_INFO.pressure_atmos[ID]    = pressure_atmos(ALT);   // mm Hg
+    SURVEY_INFO.pwv_atmos[ID]         = 3.0*exp(-ALT/2000.0);  // mm Hg
+  }
+
 
   if ( LDMP ) {
     printf(" xxx %s: SURVEY=%s ID=%d LAT=%f LON=%f \n",
@@ -3198,8 +3225,7 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
     fflush(stdout);
   }
 
-  free(ptr_wdlist[0]);
-  free(ptr_wdlist[1]);
+  for(i=0; i < MXWD_GEO; i++ ) { free(ptr_wdlist[i]) ; }
 
   return;
 
@@ -3280,6 +3306,35 @@ void  get_geoSURVEY(int ID, double *LAT, double *LON) {
 
 
 } // end get_geoSURVEY
+
+
+// =====================================
+void  print_SURVEY(int ID) {
+  // Created Jun 2023 
+  // print info about survey                                   
+
+  // ----------- BEGIN ---------
+
+  //  sprintf(BANNER,"SURVEY info:");
+  //  print_banner(BANNER);
+
+  printf("   Summary of SURVEY Site: \n");
+  printf("\t SNANA IDSURVEY: %d \n", ID);
+  printf("\t Instrument:     %s \n", SURVEY_INFO.SURVEYDEF_LIST[ID] );
+  if ( SURVEY_INFO.geoLAT[ID] < 1000.0 ) {
+    printf("\t geoLAT:       %f deg \n", SURVEY_INFO.geoLAT[ID] );
+    printf("\t geoLON:       %f deg \n", SURVEY_INFO.geoLON[ID] );
+    printf("\t geoALT:       %.0f meters \n", SURVEY_INFO.geoALT[ID] );
+    printf("\t Pressure:     %.1f mm Hg \n",   SURVEY_INFO.pressure_atmos[ID] );
+    printf("\t Temperature:  %.1f Celsius \n", SURVEY_INFO.temperature_atmos[ID] );
+    printf("\t PWV:          %.1f mm Hg \n",   SURVEY_INFO.pwv_atmos[ID] );
+  }
+
+  printf("\n");
+  fflush(stdout);
+
+  return;
+} // end print_SURVEY
 
 // ============================================
 int  exec_cidmask(int mode, int CID) {
@@ -8127,9 +8182,9 @@ int init_SNDATA_EVENT(void) {
     SNDATA.SIMEPOCH_KCORNAM[i_epoch][0]    = 0 ;
     SNDATA.SIMEPOCH_MAGSMEAR[i_epoch]      = 0.0 ;
 
-    SNDATA.SIMEPOCH_RA_DCR_SHIFT[i_epoch]  = 0.0 ;
-    SNDATA.SIMEPOCH_DEC_DCR_SHIFT[i_epoch] = 0.0 ;
-    SNDATA.SIMEPOCH_MAG_DCR_SHIFT[i_epoch] = 0.0 ;
+    SNDATA.SIMEPOCH_dRA_DCR[i_epoch]  = 0.0 ;
+    SNDATA.SIMEPOCH_dDEC_DCR[i_epoch] = 0.0 ;
+    SNDATA.SIMEPOCH_dMAG_DCR[i_epoch] = 0.0 ;
 
   }  //  end i_epoch init loop
 

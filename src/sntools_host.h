@@ -645,7 +645,7 @@ time_t TIME_INIT_HOSTLIB[2];
 void   INIT_HOSTLIB(void);  // one-time init
 void   print_HOSTLIB_MSKOPT(void);
 
-void   init_SNHOSTGAL(void);  // init each event
+void   init_event_SNHOSTGAL(void);  // init each event
 void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
 void   GEN_SNHOST_GALID(double ZGEN);
 void   GEN_SNHOST_POS(int IGAL);

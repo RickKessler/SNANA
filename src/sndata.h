@@ -130,7 +130,10 @@ struct SURVEY_INFO_DEF {
   char SURVEYDEF_LIST[MXIDSURVEY][40];  // SURVEY-string vs. IDSURVEY
   int  SURVEYFLAG[MXIDSURVEY]; // status of use in survey or field group.
   double  geoLAT[MXIDSURVEY], geoLON[MXIDSURVEY]; // instrument location on Earth
+  double  geoALT[MXIDSURVEY];                   // telescope altitude, meters
   double  sin_geoLAT[MXIDSURVEY], cos_geoLAT[MXIDSURVEY];
+  double  pressure_atmos[MXIDSURVEY], temperature_atmos[MXIDSURVEY];
+  double  pwv_atmos[MXIDSURVEY];
 } SURVEY_INFO ;
 
 
@@ -231,8 +234,9 @@ struct SNDATA {
   int  EPOCH_RANGE_NEWMJD[MXEPOCH][2];   // epoch-range for each NEW MJD
 
   double AIRMASS[MXEPOCH];
-  double RA[MXEPOCH], DEC[MXEPOCH];
-  double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC
+  double RA[MXEPOCH], DEC[MXEPOCH];   // coord per epoch, defrees
+  double dRA[MXEPOCH], dDEC[MXEPOCH]; // shift w.r.t. band-avg, arcsec
+  double RA_AVG, DEC_AVG;  // wgted-average among all RA/DEC
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
@@ -485,9 +489,9 @@ struct SNDATA {
   char  SIMEPOCH_WARPCOLNAM[MXEPOCH][8] ;  // warp color name (i.e, B-V)
   float SIMEPOCH_SNRMON[MXEPOCH];          // SNR of monitor mag
 
-  float SIMEPOCH_RA_DCR_SHIFT[MXEPOCH];    // milli-arcsec
-  float SIMEPOCH_DEC_DCR_SHIFT[MXEPOCH];    // milli-arcsec
-  float SIMEPOCH_MAG_DCR_SHIFT[MXEPOCH];  
+  float SIMEPOCH_dRA_DCR[MXEPOCH];    // milli-arcsec
+  float SIMEPOCH_dDEC_DCR[MXEPOCH];    // milli-arcsec
+  float SIMEPOCH_dMAG_DCR[MXEPOCH];  
   int   MAGMONITOR_SNR;            // transferred from INPUTS.MAGMONITOR
 
   // private variables (Nov 24, 2012)

@@ -1,4 +1,6 @@
 
+// Created Jun 2023
+
 #define COORD_SHIFT_NULL_ARCSEC 99.0
 #define COORD_SHIFT_NULL_DEG    99.0/3600.0 // 99 arcsec  
 
@@ -14,6 +16,8 @@ struct {
   double PRESSURE, TEMPERATURE, PWV;  // at telescope site location
   double LAMAVG_CALSTAR[MXFILTINDX]; // <lam> per band for calib stars 
   double n_CALSTAR[MXFILTINDX];      // index of refrac per band, calib stars
+
+  double SNRMIN; // min SNR to include in RA/DEC avg
 
   // info per event
 

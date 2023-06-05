@@ -1,4 +1,4 @@
-/**************************************** 
+/****************************************  
   Created May 2023 by R.Kessler
 
   Tools to simulate atmosphere effects such as DCR(coords) and 
@@ -51,6 +51,8 @@ void INIT_ATMOSPHERE(void) {
   ATMOS_INFO.PRESSURE    = SURVEY_INFO.pressure_atmos[ID] ;
   ATMOS_INFO.TEMPERATURE = SURVEY_INFO.temperature_atmos[ID] ;
   ATMOS_INFO.PWV         = SURVEY_INFO.pwv_atmos[ID] ;
+
+  ATMOS_INFO.SNRMIN = 3.0 ;
 
   // for avg stellar wave per band, start with mean filter wave
   // (flat SED) 
@@ -327,9 +329,11 @@ void genSmear_coords(int epoch) {
   double trueSNR = GENLC.trueSNR[epoch] ;
   if ( trueSNR < 0.01 ) { trueSNR = 0.01; }
 
+  double SNR_OBS = SEARCHEFF_DATA.SNR[epoch-1];
+
   int IFILT_OBS  = GENLC.IFILT_OBS[epoch];
   int detectFlag = SEARCHEFF_DATA.detectFlag[epoch-1] ; // regular C index
-  double SNR     = SEARCHEFF_DATA.SNR[epoch-1];
+
 
   bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[epoch] < COORD_SHIFT_NULL_DEG );
 
@@ -363,9 +367,13 @@ void genSmear_coords(int epoch) {
   // ?? what about uncertainty ???
   
   // update wgted-avg among all detctions
-  bool USE_OBS   = SNR > 3 ;
+  bool USE_OBS   = SNR_OBS > ATMOS_INFO.SNRMIN ;
   if ( USE_OBS ) {
-    WGT = (ANGRES_REF_DEG*ANGRES_REF_DEG) / (ANGRES*ANGRES); 
+
+    if ( ANGRES > 0.0 ) 
+      { WGT = (ANGRES_REF_DEG*ANGRES_REF_DEG) / (ANGRES*ANGRES); }
+    else
+      { WGT = 1.0E-20; }
 
     sum_COORD_AVG(&ATMOS_INFO.COORD_RA,  RA_OBS,  WGT, IFILT_OBS);
     sum_COORD_AVG(&ATMOS_INFO.COORD_DEC, DEC_OBS, WGT, IFILT_OBS);
@@ -420,6 +428,7 @@ void gen_dcr_coordShift(int ep) {
 
   // compute <wave> = integeral[lam*SED*Trans] / integ[SED*Trans]
   wave_sed_wgted = gen_wave_sed_wgted(ep);
+  GENLC.LAMAVG_SED_WGTED[ep] = wave_sed_wgted ;
 
   if ( wave_sed_wgted < 0.01 ) { return; } // no model SED --> bail
 

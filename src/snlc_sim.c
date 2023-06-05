@@ -11662,7 +11662,7 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   }
 
   if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(2,SIMFILE_AUX); }
-  if ( REJECT        ) {  wr_SIMGEN_SL_DUMP(2,SIMFILE_AUX); }
+  if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(2,SIMFILE_AUX); }
 
   int LDMP=0;
   if ( LDMP && *ILC != ilc ) {
@@ -13084,7 +13084,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 } // end of wr_SIMGEN_DUMP
 
 // ***********************************************
-void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
+void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // Created Jul 5 2022 
   // Write one row per Strong LENS that includes number of imaged
@@ -13098,21 +13098,21 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   int   ROWNUM, img, ivar ;
   FILE *fp;
   char *ptrFile, OUTLINE[MXPATHLEN], VARLIST[200], CTMP[40] ;
-  char fnam[] = "wr_SIMGEN_SL_DUMP" ;
+  char fnam[] = "wr_SIMGEN_DUMP_SL" ;
 
   // -------------- BEGIN --------------
 
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
 
-  ptrFile = SIMFILE_AUX->SLDUMP ;
+  ptrFile = SIMFILE_AUX->DUMP_SL ;
 
   if ( OPT_DUMP == 1 ) {
 
-    sprintf(BANNER,"Init SIMGEN_SL_DUMP file for strong lenses" );
+    sprintf(BANNER,"Init SIMGEN_DUMP_SL file for strong lenses" );
     print_banner(BANNER);
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_SLDUMP = fopen(ptrFile, "wt")) == NULL ) {       
+    if ( (SIMFILE_AUX->FP_DUMP_SL = fopen(ptrFile, "wt")) == NULL ) {       
       sprintf ( c1err, "Cannot open SIMGEN SL-dump file :" );
       sprintf ( c2err," '%s' ", ptrFile );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -13120,7 +13120,7 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
-    fp = SIMFILE_AUX->FP_SLDUMP ;
+    fp = SIMFILE_AUX->FP_DUMP_SL ;
 
     sprintf(VARLIST,
 	    "ROW GENTYPE zSRC PEAKMJD "  // unlensed info
@@ -13147,7 +13147,7 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   bool ACCEPT     = ( GENSL.NIMG_ACC > 0 ) ;
   if ( OPT_DUMP == 2 && LAST_IMG  &&  ACCEPT ) {
     
-    fp = SIMFILE_AUX->FP_SLDUMP ;
+    fp = SIMFILE_AUX->FP_DUMP_SL ;
     OUTLINE[0] = 0 ;
 
     // determine unique row number based on JOBID and NJOBTOT
@@ -13190,7 +13190,7 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // - - - - - - - -  -
   if ( OPT_DUMP == 3 ) {
-    fp = SIMFILE_AUX->FP_SLDUMP ;
+    fp = SIMFILE_AUX->FP_DUMP_SL ;
     int NLENS;
     fprintf(fp,"\n");
     fprintf(fp,"# NLENS_ACCn = number of lens systems with "
@@ -13201,14 +13201,123 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	{ fprintf(fp,"#\t NLENS_ACC%d = %d\n", img, NLENS); }
     }
 
-    fclose(SIMFILE_AUX->FP_SLDUMP);
+    fclose(SIMFILE_AUX->FP_DUMP_SL);
     printf("  %s\n", ptrFile ); fflush(stdout);
     return ;
   }
 
   return ;
 
-} // end wr_SIMGEN_SL_DUMP
+} // end wr_SIMGEN_DUMP_SL
+
+
+// ***********************************************
+void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
+
+  // Created Jul 5 2023 
+  // Write one row per observation with RA,DEC,mag shifts due to DCR.
+  //  OPT_DUMP =  1  => init file, write header
+  //  OPT_DUMP >  2  => update 
+  //  OPT_DUMP =  3  => close file (end of job)
+
+  int   OPTMASK = INPUTS.ATMOSPHERE_OPTMASK;
+  bool  DO_DUMP = (OPTMASK & ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR) > 0;
+  int   ep, ifilt_obs ;
+  FILE *fp;
+  char *ptrFile, OUTLINE[MXPATHLEN], VARLIST[200], band[2] ;
+  char fnam[] = "wr_SIMGEN_DUMP_DCR" ;
+
+  // -------------- BEGIN --------------
+
+  if ( !DO_DUMP ) { return; }
+
+  ptrFile = SIMFILE_AUX->DUMP_DCR ;
+
+  if ( OPT_DUMP == 1 ) {
+
+    sprintf(BANNER,"Init SIMGEN_DUMP_DCR file for DCR shifts per obs." );
+    print_banner(BANNER);
+
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_DCR = fopen(ptrFile, "wt")) == NULL ) {       
+      sprintf ( c1err, "Cannot open SIMGEN DCR-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_DCR ;
+
+    sprintf(VARLIST,
+	    "CID MJD BAND LAMAVG_SED_WGTED SNR_TRUE "
+	    "FLUXCAL TOBS AIRMASS dRA dDEC "
+	    "SIM_dRA SIM_dDEC SIM_dMAG" );
+
+    fprintf(fp,"# Simulation SUMMARY: one row per observation.\n");
+    fprintf(fp,"# RA,DEC in degrees\n");
+    fprintf(fp,"# dRA   = RA_OBS  - band-average RA_OBS  (arcsec)\n");
+    fprintf(fp,"# dDEC  = DEC_OBS - band-average DEC_OBS (arcsec)\n");
+    fprintf(fp,"#\n");
+
+    fprintf(fp,"VARNAMES: %s\n", VARLIST);
+    fflush(fp);
+
+  } // end OPT_DUMP==1
+
+  // - - - - - - - -  -
+
+  if ( OPT_DUMP == 2 ) {
+    
+    fp = SIMFILE_AUX->FP_DUMP_DCR ;
+
+    for(ep=1; ep <= GENLC.NEPOCH; ep++ ) {
+      ifilt_obs = GENLC.IFILT_OBS[ep];
+      sprintf(band,  "%c", FILTERSTRING[ifilt_obs] ); 
+    
+      OUTLINE[0] = 0 ;
+
+      if ( !GENLC.OBSFLAG_GEN[ep]             )  { continue ; }
+      if ( SNDATA.SIMEPOCH_dRA_DCR[ep] > 90.0 ) { continue ; }
+      if ( SEARCHEFF_DATA.SNR[ep-1] < ATMOS_INFO.SNRMIN ) { continue; }
+
+      sprintf(OUTLINE,"ROW: "
+	      "%6d %.4f %s %.1f "     // CID MHD BAND LAMAVG
+	      "%5.1f "               // trueSNR
+	      "%10.4le %5.1f  "       // FLUXCAL TOBS
+	      "%.2f  "                // AIRMASS
+	      "%7.4f %7.4f  "         // dRA dDEC          (arcsec)
+	      "%7.4f %7.4f "         // SIM_dRA SIM_dDEC  (arcsec)
+	      "%7.4f  "              // SIM_dMAG
+	      ,
+	      GENLC.CID, GENLC.MJD[ep], band, GENLC.LAMAVG_SED_WGTED[ep],
+	      GENLC.trueSNR[ep],
+	      SNDATA.FLUXCAL[ep], GENLC.epoch_obs[ep],
+	      GENLC.AIRMASS[ep],
+	      SNDATA.dRA[ep], SNDATA.dDEC[ep],
+	      SNDATA.SIMEPOCH_dRA_DCR[ep], SNDATA.SIMEPOCH_dDEC_DCR[ep],
+	      SNDATA.SIMEPOCH_dMAG_DCR[ep]
+	      );
+
+      fprintf(fp,"%s\n", OUTLINE);
+      fflush(fp);
+    } // end ep loop
+
+  }
+
+  // - - - - - - - -  -
+  if ( OPT_DUMP == 3 ) {
+    fp = SIMFILE_AUX->FP_DUMP_DCR ;
+
+    fclose(SIMFILE_AUX->FP_DUMP_DCR);
+    printf("  %s\n", ptrFile ); 
+    fflush(stdout);
+    return ;
+  }
+
+  return ;
+
+} // end wr_SIMGEN_DUMP_DCR
 
 // ******************************************
 int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
@@ -27265,7 +27374,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->DUMP,       "%s.DUMP",        prefix );
   sprintf(SIMFILE_AUX->ZVAR,       "%s.ZVARIATION",  prefix );
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );
-  sprintf(SIMFILE_AUX->SLDUMP,     "%s.SL",          prefix ); // July 2022
+  sprintf(SIMFILE_AUX->DUMP_SL,    "%s.SL",          prefix ); // July 2022
+  sprintf(SIMFILE_AUX->DUMP_DCR,   "%s.DCR",         prefix ); // Jun 2023
 
   // Aug 10 2020: for batch mode, write YAML file locally so that
   //              it is easily found by batch script.
@@ -27295,7 +27405,10 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   }
 
   // check option init SL dump file
-  wr_SIMGEN_SL_DUMP(1,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_SL(1,SIMFILE_AUX);
+
+  // check for DCR dump
+  wr_SIMGEN_DUMP_DCR(1,SIMFILE_AUX);
 
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
@@ -27377,7 +27490,10 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP(2,SIMFILE_AUX);
 
   // check SL dump (July 2022)
-  wr_SIMGEN_SL_DUMP(2,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_SL(2,SIMFILE_AUX);
+
+  // check DCR dump
+  wr_SIMGEN_DUMP_DCR(2,SIMFILE_AUX);
 
 
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
@@ -27459,7 +27575,10 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     { wr_SIMGEN_DUMP(3,SIMFILE_AUX);  }
 
   if ( INPUTS_STRONGLENS.USE_FLAG ) 
-    { wr_SIMGEN_SL_DUMP(3,SIMFILE_AUX); }
+    { wr_SIMGEN_DUMP_SL(3,SIMFILE_AUX); }
+
+  if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) 
+    { wr_SIMGEN_DUMP_DCR(3,SIMFILE_AUX); }
 
   // copy ZVARATION file to SIM/[VERSION]
   if ( USE_ZVAR_FILE ) {

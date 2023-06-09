@@ -21739,4 +21739,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** MISCELLANEOUS(v11_05e) ***** 
 
+   sntools_data.c
+     + for override file, HOSTGAL_ZPHOT[ERR] is easlily confused
+       with the correct name HOSTGAL_PHOTOZ[_ERR], so added a
+       "mistake trap" to warn user with abort message.
+
+   simulation:
+     + more DCR development.
+
 END: 

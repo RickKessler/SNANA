@@ -864,8 +864,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   if ( WRFLAG_ATMOS ) 
     { fprintf(fp,
-	      "# dRA  = RA(obs)  - <RA>,  arcsec, \n"
-	      "# dDEC = DEC(obs) - <DEC>, arcsec  \n"
+	      "# dRA  = RA(obs)  - <RA_BAND>,  arcsec, \n"
+	      "# dDEC = DEC(obs) - <DEC_BAND>, arcsec  \n"
 	      "#\n") ;  }
 
   fprintf(fp,"NOBS: %d \n", SNDATA.NOBS  );
@@ -942,27 +942,36 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       }
 
       if ( WRFLAG_ATMOS ) {
-	double dRA      = (SNDATA.RA[ep]  - SNDATA.RA_AVG )*3600.0;
-	double dDEC     = (SNDATA.DEC[ep] - SNDATA.DEC_AVG)*3600.0;
+	double dRA      = SNDATA.dRA[ep] ;  // arcsec
+	double dDEC     = SNDATA.dDEC[ep] ; // arcsec
 	double airmass  = SNDATA.AIRMASS[ep];
-	double SIM_dRA  = SNDATA.SIMEPOCH_RA_DCR_SHIFT[ep];
-	double SIM_dDEC = SNDATA.SIMEPOCH_DEC_DCR_SHIFT[ep];
-	double SIM_dMAG = SNDATA.SIMEPOCH_MAG_DCR_SHIFT[ep];
+	double SIM_dRA  = SNDATA.SIMEPOCH_dRA_DCR[ep];
+	double SIM_dDEC = SNDATA.SIMEPOCH_dDEC_DCR[ep];
+	double SIM_dMAG = SNDATA.SIMEPOCH_dMAG_DCR[ep];
 	char ctmp_dCoord[60];
+	char ctmp_SIM_dCoord[60];
 
-	// for true coord shift, use int for null (99) to make it easier to see.
-	sprintf(ctmp_dCoord,"%.4f %.4f", SIM_dRA, SIM_dDEC );
-	if ( SIM_dRA > 90.0 && SIM_dDEC > 90 ) 
-	  { sprintf(ctmp_dCoord,"%d %d", (int)SIM_dRA, (int)SIM_dDEC ); ; }
+	// for undefined shifts, use int for null (99) to make it 
+	// easier to see.
+	sprintf(ctmp_dCoord,"%.4f %.4f", dRA, dDEC );
+	if ( dRA > 90.0 && dDEC > 90.0 ) 
+	  { sprintf(ctmp_dCoord,"%d %d", (int)dRA, (int)dDEC ); ; }
 
-	sprintf(cval,"%5.2f %5.2f %5.2f "
-		"%s %.5f ", 
-		dRA, dDEC, airmass,  ctmp_dCoord, SIM_dMAG );
+	sprintf(ctmp_SIM_dCoord,"%.4f %.4f %5f", 
+		SIM_dRA, SIM_dDEC, SIM_dMAG );
+	if ( SIM_dRA > 90.0 && SIM_dDEC > 90.0 ) 
+	  { sprintf(ctmp_SIM_dCoord,"%d %d %d", 
+		    (int)SIM_dRA, (int)SIM_dDEC, (int)SIM_dMAG ); ; }
+
+	sprintf(cval,"%s %5.2f %s ", 
+		ctmp_dCoord, airmass,  ctmp_SIM_dCoord, SIM_dMAG );
 	NVAR_WRITE += 6  ;    strcat(LINE_EPOCH,cval);
       }
 
       if ( WRFLAG_SIM_MAGOBS ) {
-	sprintf(cval, "%8.4f ",  SNDATA.SIMEPOCH_MAG[ep] ); 
+	double MAG = SNDATA.SIMEPOCH_MAG[ep] ;
+	sprintf(cval, "%8.4f ",  MAG ); 
+	if ( MAG > 90.0 ) { sprintf(cval, "%d ",  (int)MAG ); }
 	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
       }
 

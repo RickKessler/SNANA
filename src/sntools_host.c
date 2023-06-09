@@ -5613,7 +5613,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // ------------------------------------------------
   // init SNHOSTGAL values
 
-  init_SNHOSTGAL();
+  init_event_SNHOSTGAL();
 
   SNHOSTGAL.ZGEN              = ZGEN_HELIO ; 
   SNHOSTGAL.ZSPEC             = ZGEN_HELIO ;
@@ -6095,7 +6095,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
 
 // ===============================
-void init_SNHOSTGAL(void) {
+void init_event_SNHOSTGAL(void) {
 
   // init elements of SNHOSTGAL struct; called for each event.
 
@@ -6144,7 +6144,7 @@ void init_SNHOSTGAL(void) {
 
   return ;
 
-} // end init_SNHOSTGAL
+} // end init_event_SNHOSTGAL
 
 
 // ===============================

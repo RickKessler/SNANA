@@ -170,10 +170,13 @@ typedef struct {
   // required outputs
   FILE *FP_LIST;    char  LIST[MXPATHLEN] ;
   FILE *FP_README;  char  README[MXPATHLEN] ;
-  FILE *FP_IGNORE;  char  IGNORE[MXPATHLEN] ;
-  FILE *FP_DUMP;    char  DUMP[MXPATHLEN] ;
-  FILE *FP_SLDUMP;  char  SLDUMP[MXPATHLEN] ;
-  FILE *FP_YAML;    char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
+
+  // optional outputs
+  FILE *FP_DUMP;     char  DUMP[MXPATHLEN] ;
+  FILE *FP_IGNORE;   char  IGNORE[MXPATHLEN] ;
+  FILE *FP_DUMP_SL;  char  DUMP_SL[MXPATHLEN] ;
+  FILE *FP_DUMP_DCR; char  DUMP_DCR[MXPATHLEN] ;
+  FILE *FP_YAML;     char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
   // optional outputs (just filename, not pointer)
@@ -316,8 +319,9 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
 // DCR effects in Table 1 of arXiv:2304.01858
-#define ATMOSPHERE_OPTMASK_DCR_COORD    1
-#define ATMOSPHERE_OPTMASK_DCR_PSFSHAPE 2
+#define ATMOSPHERE_OPTMASK_DCR_COORD         1
+#define ATMOSPHERE_OPTMASK_DCR_PSFSHAPE      2
+#define ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR   512 // write DCR SIMGEN DUMPfile
 
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra
@@ -1211,10 +1215,10 @@ struct GENLC {
   double cos_ALT[MXEPSIM];
   double ANG_ZENITH[MXEPSIM];  // degrees
   double tan_ZENITH[MXEPSIM] ; // tan(zenith)
-  
+  double LAMAVG_SED_WGTED[MXEPSIM];
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
-  double RA_AVG, DEC_AVG;  // wgted-average among RA/DEC_OBS
-  double RA_SUM, DEC_SUM, RA_WGTSUM, DEC_WGTSUM;
+  double RA_TRUE[MXEPSIM], DEC_TRUE[MXEPSIM]; // includes true DCR shift
+  double RA_OBS_AVG, DEC_OBS_AVG;  // wgted-average among RA/DEC_OBS
 
   double  epoch_obs_range[2];   // min and max epoch, all bands
   double  epoch_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
@@ -2042,7 +2046,7 @@ void interpEpochGrid(int NEP_LC, double *TList_LC, int NGRID,
                      double *TList, double *magList, double *magerrList );
 
 void   init_RANDOMsource(void);    // init stuff for randoms
-void   init_GENLC(void);
+void   init_event_GENLC(void);
 int    fudge_SNR(void);
 
 int    NEPFILT_GENLC(int opt, int ifilt_obs);
@@ -2052,6 +2056,8 @@ void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
+void   coords_to_SNDATA(int FLAG) ;
+
 void   check_SNDATA_HOSTGAL_SNSEP(int m);
 
 void   MWEBVfluxCor_to_SNDATA(int epoch) ;
@@ -2083,8 +2089,10 @@ void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
+
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
-void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);

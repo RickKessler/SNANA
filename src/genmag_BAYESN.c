@@ -525,7 +525,7 @@ void genmag_BAYESN(
     gsl_matrix_scale(W, THETA);
     gsl_matrix_add(W, BAYESN_MODEL_INFO.W0);
 
-    int wx, wy;
+    /* int wx, wy;
     printf("DEBUG: W matrix\n");
     for(wx=0; wx< 9; wx++)
     {
@@ -535,7 +535,7 @@ void genmag_BAYESN(
         }
         printf("\n");
     }
-    printf("-----------\n");
+    printf("-----------\n"); */
 
 
     // compute W * J_tau^T
@@ -547,15 +547,15 @@ void genmag_BAYESN(
     // that may not be the case with future surveys and we should revisit
     int    this_nlam = ilam_red - ilam_blue + 1;
     int    o, q;
-    double *this_lam   = malloc(sizeof(double)*this_nlam);
-    double *this_trans = malloc(sizeof(double)*this_nlam);
+    double this_lam;
+    double this_trans;
     double eA_lam_MW, eA_lam_host; //To store MW and host dust law evaluated at current wl
     double eW, S0_lam; //To store other SED  bits
     for (o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
     for(q=ilam_blue; q<ilam_red; q++)
       {
-        this_lam[q-ilam_blue]   = lam_model[q]*z1;
-        this_trans[q-ilam_blue] = interp_1DFUN(2, this_lam[q-ilam_blue], nlam_filter, 
+        this_lam   = lam_model[q]*z1;
+        this_trans = interp_1DFUN(2, this_lam, nlam_filter, 
 				       lam_filt, trans_filt, "DIE");
 
         // super weird computation
@@ -585,13 +585,21 @@ void genmag_BAYESN(
             // Seek the first Hsiao timestep above the current obs time
             q_hsiao = 0;
             while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
+            if (q_hsiao < 1 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY) {
+                sprintf(c1err,"Time index outside of template range." );
+                sprintf(c2err,"Invalid q_hsiao index %d. Valid range is [%d, %d]", q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
+                errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+            }
             double t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
             double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
             double f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
             double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
             // HACK HACK HACK throw Trest at this instead or Tobs
             S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
-            magobs_list[o] += this_trans[q-ilam_blue]*this_lam[q-ilam_blue]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+            if (o == 0 && q == ilam_blue + 10) {
+                printf("XXX DEBUG Trest %.3f; q %d; this_trans %.6f; this_lam %.3f; d_lam %.3f; eA_lam_MW %.3f; eA_lam_host %.3f; eW %.3f; S0_lam %le\n", Trest_list[o], q, this_trans, this_lam, d_lam, eA_lam_MW, eA_lam_host, eW, S0_lam);
+            }
+            magobs_list[o] += this_trans*this_lam*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
 
             if (o == 0) {
                 //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
@@ -622,9 +630,10 @@ void genmag_BAYESN(
     {
         printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f   THETA: %.2f   AV: %.2f\n", BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
     }
+    double hc_local = hc;
     for (o = 0; o < Nobs; o++) {
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG 
-	-2.5*log10(magobs_list[o]) + ZP;
+	-2.5*log10(magobs_list[o]/hc_local) + ZP; //WE SHOULD CHECK THE ZERO POINTS
 
       magerr_list[o] = 0.1;
     }

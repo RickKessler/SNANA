@@ -412,9 +412,16 @@ class gensed_PYBAYESN(gensed_base):
         #    Assumes that `trest` is a float, and `self.wave` is a 1D
         #    list or numpy array of rest frame wavelengths
         J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
-        print('DEBUG JT')
-        print(J_t)
-        print('-------------\n\n\n')
+
+        # GSN - 20230602 - J_t matches
+        #print('DEBUG JT')
+        #print(J_t)
+        #print('-------------\n\n\n')
+
+        # GSN - 20230602 - J_lam matches - make sure to compare rest wavelengths
+        #print(self.wave)
+        #ind = (self.wave > 4770.9) & (self.wave < 6546)
+        #print(self.J_l[ind,0])
 
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package
@@ -430,15 +437,23 @@ class gensed_PYBAYESN(gensed_base):
         epsilon_matrix[1:-1,:] = np.reshape(epsilon_vector, epsilon_matrix[1:-1,:].shape, order="F")
         W = self._bayesn_components["W0"] + self.parameter_values["THETA"]*self._bayesn_components["W1"] + epsilon_matrix
 
+        # 20230602 - W0 and W1 match
+        print("DEBUG: W: ",W)
+
         #ST: Interpolates to `trest` and `self.wave`
         #    If we have done this right, this should be the same length
         #    as `flux`
         JWJ = np.linalg.multi_dot([self.J_l, W, J_t]).squeeze()
         dlam = self.wave[1:] - self.wave[:-1]
-        print('DEBUG JWJ')
-        for JWJ_i in JWJ:
-            print(JWJ_i)
-        print('-------------\n\n\n')
+
+        #if (trest - (-4.17) < 0.2):
+        #    print(trest)
+        #    print('DEBUG epsilon matrix', epsilon_matrix)
+        #    print('DEBUG THETA', self.parameter_values['THETA'])
+        #    print('DEBUG JWJ')
+        #    print(JWJ.shape)
+        #    print(JWJ[0:20])
+        #    print('-------------\n\n\n')
 
 
         #print(trest, min(dlam), max(dlam), self.wave[446], JWJ[446], 10**(-0.4*JWJ)[446], JWJ.shape)

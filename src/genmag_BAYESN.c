@@ -596,9 +596,9 @@ void genmag_BAYESN(
             double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
             // HACK HACK HACK throw Trest at this instead or Tobs
             S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
-            if (o == 0 && q == ilam_blue + 10) {
+            /*if (o == 0 && q == ilam_blue + 10) {
                 printf("XXX DEBUG Trest %.3f; q %d; this_trans %.6f; this_lam %.3f; d_lam %.3f; eA_lam_MW %.3f; eA_lam_host %.3f; eW %.3f; S0_lam %le\n", Trest_list[o], q, this_trans, this_lam, d_lam, eA_lam_MW, eA_lam_host, eW, S0_lam);
-            }
+            }*/
             magobs_list[o] += this_trans*this_lam*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
 
             if (o == 0) {

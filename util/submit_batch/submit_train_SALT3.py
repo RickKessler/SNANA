@@ -10,43 +10,22 @@
 #             and also copy master input file
 #
 # Oct 10 2022: fix indentation bug in merge_update_state().
-
+#
+# Jun 15 2023: move some utilities into submit_train_util.py to share
+#              methods with BayeSN training.
+#
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
 import  datetime, time, subprocess
-import  submit_util as util
-from    submit_params    import *
-from    submit_prog_base import Program
+import  submit_util        as util
+import  submit_train_util  as train_util
+
+from    submit_train_util  import *
+from    submit_params      import *
+from    submit_prog_base   import Program
 
 # define key for main trainsalt config file
 KEY_CONFIG_FILE = 'SALT3_CONFIG_FILE'
-
-TRAINOPT_STRING        = "TRAINOPT"
-TRAINOPT_GLOBAL_STRING = "TRAINOPT_GLOBAL"
-
-# Define suffix for output model used by LC fitters: 
-#    SALT2.[MODEL_SUFFIX][nnn]
-# Default output dirs are SALT3.MODEL000, SALT3.MODEL001, ...
-MODEL_SUFFIX_DEFAULT = "MODEL"
-
-# Define columns in MERGE.LOG. Column 0 is always the STATE.                   
-COLNUM_TRAIN_MERGE_TRAINOPT    = 1
-COLNUM_TRAIN_MERGE_NLC         = 2
-COLNUM_TRAIN_MERGE_NSPEC       = 3
-COLNUM_TRAIN_MERGE_CPU         = 4
-
-
-# config keys for calibration shifts (same as for train_SALT2)
-KEY_MAGSHIFT       = "MAGSHIFT"
-KEY_WAVESHIFT      = "WAVESHIFT"
-KEY_LAMSHIFT       = "LAMSHIFT"
-KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
-KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
-
-KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
-
-# define prefix for files with calib shifts.
-PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"  
 
 # define command-line override key to specify file with calibration shifts
 KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
@@ -89,11 +68,17 @@ class train_SALT3(Program):
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
+        script_dir   = self.config_prep['script_dir']
 
         # scoop up and store TRAINOPT list from user CONFIG.
         # This is before prepping input files in case TRAINOPT
         # have additional input files.
-        self.train_prep_trainopt_list()
+        # xxx mark delete:  self.train_prep_trainopt_list()
+        config_prep_trainopt = \
+            train_util.train_prep_trainopt_list(METHOD_TRAIN_SALT3,
+                                                CONFIG, script_dir)
+        self.config_prep.update(config_prep_trainopt)
+    
 
         # get input config files
         self.train_prep_input_files()
@@ -101,7 +86,7 @@ class train_SALT3(Program):
         # copy input files to script_dir
         self.train_prep_copy_files()
 
-        # foreach training, prepare output paths 
+        # foreach training, prepare output paths
         self.train_prep_paths()
 
         sys.stdout.flush()
@@ -160,15 +145,19 @@ class train_SALT3(Program):
                     j = item_list.index(key_override)                    
                     input_file = item_list[j+1]
                     input_file_list.append(input_file)
-
-        #sys.exit(f"\n xxx trainopt_all = \n{trainopt_all}")
         
         # store list of all input files
         self.config_prep['input_file_list'] = input_file_list
 
         # end train_prep_input_files
 
+
+
     def train_prep_trainopt_list(self):
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         CONFIG   = self.config_yaml['CONFIG']
 
@@ -213,15 +202,35 @@ class train_SALT3(Program):
             arg_replace_list.append(arg_replace)
             calib_shift_list.append(calib_shift)  # list of lists
 
-        self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = arg_replace_list
-        self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
-        self.config_prep['trainopt_num_list']   = trainopt_num_list
-        self.config_prep['trainopt_label_list'] = trainopt_label_list
-        self.config_prep['trainopt_shift_file'] = trainopt_shift_file
-        self.config_prep['trainopt_global']     = trainopt_global
-        self.config_prep['use_arg_file']        = use_arg_file
-        self.config_prep['calib_shift_list']    = calib_shift_list
+        config_prep_local = {
+            'n_trainopt' : n_trainopt ,
+            'trainopt_arg_list' : arg_replace_list,
+            'trainopt_ARG_list' : trainopt_ARG_list,
+            'trainopt_num_list' : trainopt_num_list,
+            'trainopt_label_list' : trainopt_label_list,
+            'trainopt_shift_file' : trainopt_shift_file,
+            'trainopt_global'     : trainopt_global,
+            'use_arg_file'        : use_arg_file,
+            'calib_shift_list'    : calib_shift_list
+        }
+
+        self.config_prep.update(config_prep_local)
+
+        # xxx mark delete Jun 15 2023 xxxxxxx
+        #self.config_prep['n_trainopt']          = n_trainopt
+        #self.config_prep['trainopt_arg_list']   = arg_replace_list
+        #self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
+        #self.config_prep['trainopt_num_list']   = trainopt_num_list
+        #self.config_prep['trainopt_label_list'] = trainopt_label_list
+        #self.config_prep['trainopt_shift_file'] = trainopt_shift_file
+        #self.config_prep['trainopt_global']     = trainopt_global
+        #self.config_prep['use_arg_file']        = use_arg_file
+        #self.config_prep['calib_shift_list']    = calib_shift_list
+        # xxx end mark xxxx
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         print('')
 
@@ -229,8 +238,13 @@ class train_SALT3(Program):
 
     def make_calib_shift_file(self,num,arg):
 
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
         # if arg contains MAGSHIFT or WAVESHIFT key, write them out
-        # calib-shift file.
+        # in a calib-shift file.
         # Example:
         #  num = TRAINOPT003
         #  arg = WAVESHIFT CfA3  r,i 10,8     MAGSHIFT CfA3 U .01
@@ -245,7 +259,7 @@ class train_SALT3(Program):
         #    "calibrationshiftsfile = CALIB_SHIFT_TRAINOPT003.DAT"
         # and also returns calib_shift for SUBMIT.INFO file
         #
-        # Make sure that arg_replace retains non-calib optoins
+        # Make sure that arg_replace retains non-calib options
         # to allow mixing calib and non-calib arguments.
 
         script_dir      = self.config_prep['script_dir']
@@ -295,6 +309,10 @@ class train_SALT3(Program):
         arg_replace += f"{KEY_SALTshaker_CALIBSHIFT_FILE} {calib_shift_file} "
 
         return arg_replace, calib_shift_list
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         # end make_calshift_file
 

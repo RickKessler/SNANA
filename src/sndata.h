@@ -489,8 +489,9 @@ struct SNDATA {
   char  SIMEPOCH_WARPCOLNAM[MXEPOCH][8] ;  // warp color name (i.e, B-V)
   float SIMEPOCH_SNRMON[MXEPOCH];          // SNR of monitor mag
 
-  float SIMEPOCH_dRA_DCR[MXEPOCH];    // milli-arcsec
-  float SIMEPOCH_dDEC_DCR[MXEPOCH];    // milli-arcsec
+  float SIMEPOCH_DCR[MXEPOCH];        // arcsec
+  float SIMEPOCH_dRA_DCR[MXEPOCH];    // arcsec
+  float SIMEPOCH_dDEC_DCR[MXEPOCH];   // arcsec
   float SIMEPOCH_dMAG_DCR[MXEPOCH];  
   int   MAGMONITOR_SNR;            // transferred from INPUTS.MAGMONITOR
 

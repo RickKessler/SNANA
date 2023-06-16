@@ -4,51 +4,17 @@ import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
 import  datetime, time, subprocess
 import  submit_util as util
+import  submit_train_util  as train_util
+
+from    submit_train_util  import *
 from    submit_params    import *
 from    submit_prog_base import Program
 
 # define key for main trainsalt config file
 KEY_CONFIG_FILE = 'BAYESN_CONFIG_FILE'
 
-TRAINOPT_STRING        = "TRAINOPT"
-TRAINOPT_GLOBAL_STRING = "TRAINOPT_GLOBAL"
-
-# Define suffix for output model used by LC fitters: 
-#    SALT2.[MODEL_SUFFIX][nnn]
-# Default output dirs are BAYESN.MODEL000, BAYESN.MODEL001, ...
-MODEL_SUFFIX_DEFAULT = "MODEL"
-
-# Define columns in MERGE.LOG. Column 0 is always the STATE.                   
-COLNUM_TRAIN_MERGE_TRAINOPT    = 1
-COLNUM_TRAIN_MERGE_NLC         = 2
-COLNUM_TRAIN_MERGE_NSPEC       = 3
-COLNUM_TRAIN_MERGE_CPU         = 4
-
-
-# config keys for calibration shifts (same as for train_SALT2)
-KEY_MAGSHIFT       = "MAGSHIFT"
-KEY_WAVESHIFT      = "WAVESHIFT"
-KEY_LAMSHIFT       = "LAMSHIFT"
-KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
-KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
-
-KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
-
-# define prefix for files with calib shifts.
-PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"  
-
-# define command-line override key to specify file with calibration shifts
-KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
-
-# define key for SALT3.INFO read by SNANA codes.
-KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
-
-# create list of config keys whose argument is a file that
-# gets copied to script_dir
-# ... to be modified later for BayeSN
-SECTION_FILE_COPY  = 'iodata'
-KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist', 
-                       'loggingconfig' ]
+# define keys that point to other files to copy
+KEY_LIST_FILE_COPY = []
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -79,20 +45,32 @@ class train_BAYESN(Program):
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
+        script_dir   = self.config_prep['script_dir']
+        output_dir   = self.config_prep['output_dir']
 
         # scoop up and store TRAINOPT list from user CONFIG.
         # This is before prepping input files in case TRAINOPT
         # have additional input files.
-        self.train_prep_trainopt_list()
+        config_prep_trainopt = \
+            train_util.train_prep_trainopt_list(METHOD_TRAIN_SALT3,
+                                                CONFIG, script_dir)
+        self.config_prep.update(config_prep_trainopt)
+ 
 
         # get input config files
         self.train_prep_input_files()
 
         # copy input files to script_dir
-        self.train_prep_copy_files()
+        input_file_list = self.train_prep_input_files()
+        self.config_prep['input_file_list'] = input_file_list
+        util.copy_input_files(input_file_list, script_dir, TRAIN_INPUT_FILENAMES)
 
         # foreach training, prepare output paths 
-        self.train_prep_paths()
+        trainopt_num_list = self.config_prep['trainopt_num_list']
+        outdir_model_list = \
+            train_util.prep_model_paths(METHOD_TRAIN_BAYESN, trainopt_num_list,
+                        output_dir )
+        self.config_prep['outdir_model_list'] = outdir_model_list
 
         sys.stdout.flush()
 
@@ -116,18 +94,6 @@ class train_BAYESN(Program):
         config_file = CONFIG[KEY_CONFIG_FILE]
         input_file_list.append(config_file)
 
-        print(f"\n Check other input files inside main config file: " \
-              f"{config_file}")
-
-        # parse config_file to get other potential input files
-        config = configparser.ConfigParser(inline_comment_prefixes='#')
-        config.read(config_file)
-
-        for key in KEY_LIST_FILE_COPY :
-            if key in config[SECTION_FILE_COPY]:
-                input_file = config[SECTION_FILE_COPY][key]
-                input_file_list.append(input_file)
-
         for input_file in input_file_list:
             if not os.path.exists(input_file):
                 msgerr.append(f"Input file {input_file}")
@@ -135,205 +101,13 @@ class train_BAYESN(Program):
                 msgerr.append(f"Check '{key}' arg in {input_master_file}")
                 util.log_assert(False,msgerr) # just abort, no done stamp
                 
-        # - - - - - 
-        # check for additional input files in the TRAINOPT
         
-        trainopt_global   = self.config_prep['trainopt_global']
-        trainopt_arg_list = self.config_prep['trainopt_arg_list']
-        trainopt_all      = trainopt_arg_list + [ trainopt_global ]
+        input_file_list += [ input_master_file ]
 
-        for item in trainopt_all:
-            item_list = item.split()
-            for key in KEY_LIST_FILE_COPY :
-                key_override = f"--{key}"
-                if key_override in item_list:
-                    j = item_list.index(key_override)                    
-                    input_file = item_list[j+1]
-                    input_file_list.append(input_file)
-
-        #sys.exit(f"\n xxx trainopt_all = \n{trainopt_all}")
-        
-        # store list of all input files
-        self.config_prep['input_file_list'] = input_file_list
+        # return list of all input files
+        return input_file_list
 
         # end train_prep_input_files
-
-    def train_prep_trainopt_list(self):
-
-        CONFIG   = self.config_yaml['CONFIG']
-
-        trainopt_global = ""  # apply to each TRAINOPT
-        trainopt_rows   = []  # TRAINOPT-specified commands
-
-        # start with global settings
-        key = TRAINOPT_GLOBAL_STRING
-        if key in CONFIG:  
-            trainopt_global = CONFIG[key]
-
-        # next, TRAINOPT per job
-        key      = TRAINOPT_STRING
-        if key in CONFIG :  
-            trainopt_rows = CONFIG[key]
-
-        # - - - - - 
-        trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
-                                              TRAINOPT_STRING, 1,
-                                              KEY_SHIFTLIST_FILE )
-
-        n_trainopt          = trainopt_dict['n_jobopt']
-        trainopt_arg_list   = trainopt_dict['jobopt_arg_list']
-        trainopt_ARG_list   = trainopt_dict['jobopt_ARG_list']
-        trainopt_num_list   = trainopt_dict['jobopt_num_list']  
-        trainopt_label_list = trainopt_dict['jobopt_label_list']
-        trainopt_shift_file = trainopt_dict['jobopt_file_list']
-        use_arg_file        = trainopt_dict['use_arg_file']
-
-        logging.info(f" Store {n_trainopt-1} TRAIN-SALT3 options " \
-                     f"from {TRAINOPT_STRING} keys")
-
-        # for MAGSHIFT and./or WAVESHIFT, create calibration file
-        # in script_dir. The returned calib_shift_file has each
-        # calib arg unpacked so that each row has only 1 shift.
-        # arg_replace = arg, but calibration shifts are replaced
-        # with command to read calib-shift file.
-        arg_replace_list = []
-        calib_shift_list = []
-        for num,arg in zip(trainopt_num_list,trainopt_arg_list):
-            arg_replace, calib_shift = self.make_calib_shift_file(num,arg)
-            arg_replace_list.append(arg_replace)
-            calib_shift_list.append(calib_shift)  # list of lists
-
-        self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = arg_replace_list
-        self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
-        self.config_prep['trainopt_num_list']   = trainopt_num_list
-        self.config_prep['trainopt_label_list'] = trainopt_label_list
-        self.config_prep['trainopt_shift_file'] = trainopt_shift_file
-        self.config_prep['trainopt_global']     = trainopt_global
-        self.config_prep['use_arg_file']        = use_arg_file
-        self.config_prep['calib_shift_list']    = calib_shift_list
-
-        print('')
-
-        # end train_prep_trainopt_list
-
-    def make_calib_shift_file(self,num,arg):
-
-        # if arg contains MAGSHIFT or WAVESHIFT key, write them out
-        # calib-shift file.
-        # Example:
-        #  num = TRAINOPT003
-        #  arg = WAVESHIFT CfA3  r,i 10,8     MAGSHIFT CfA3 U .01
-        #
-        # ==> write the following  to CALIB_SHIFT_TRAINOPT003.DAT:
-        #
-        # WAVESHIFT CfA3  r 10
-        # WAVESHIFT CfA3  i  8
-        # MAGSHFIT  cfA3  U 0.01
-        #
-        # and function returns arg_replace = 
-        #    "calibrationshiftsfile = CALIB_SHIFT_TRAINOPT003.DAT"
-        # and also returns calib_shift for SUBMIT.INFO file
-        #
-        # Make sure that arg_replace retains non-calib optoins
-        # to allow mixing calib and non-calib arguments.
-
-        script_dir      = self.config_prep['script_dir']
-
-        # first check if any calib shift key is in this arg
-        found_calshift = False
-        for key in KEY_CALIBSHIFT_LIST :
-            if key in arg: found_calshift = True
-        if not found_calshift : return arg, []
-
-        # if we get here, there is at least one valid calib-shift key,
-        # so unpack arg and write calib-shift file for SALTshaker.
-
-        calib_shift_file = f"{PREFIX_CALIB_SHIFT}_{num}.DAT"
-        CALIB_SHIFT_FILE = f"{script_dir}/{calib_shift_file}"
-        f = open(CALIB_SHIFT_FILE,"wt")
-
-        print(f"\t Create {calib_shift_file}")
-        arg_list = arg.split()
-        arg_replace = "" 
-        n_arg       = len(arg_list)
-        use_list    = [ False ] * n_arg
-        calib_shift_list = []
-
-        for iarg in range(0,n_arg):            
-            item = arg_list[iarg]
-            if item not in KEY_CALIBSHIFT_LIST :  continue 
-            key       = arg_list[iarg+0]
-            survey    = arg_list[iarg+1]
-            band_list = arg_list[iarg+2].split(',')
-            val_list  = arg_list[iarg+3].split(',')
-            use_list[iarg:iarg+4] = [True] * 4
-
-            for band,val in zip(band_list,val_list):
-                line = f"{key} {survey} {band} {val}"
-                f.write(f"{line}\n")
-                calib_shift_list.append(line)
-
-        f.close()
-
-        # - - - - 
-        # store un-used arguments in arg_replace
-        for item,use in zip(arg_list,use_list):
-            if not use : arg_replace += f"{item} " 
-
-        # tack on calibshift file
-        arg_replace += f"{KEY_SALTshaker_CALIBSHIFT_FILE} {calib_shift_file} "
-
-        return arg_replace, calib_shift_list
-
-        # end make_calshift_file
-
-    def train_prep_paths(self):
-
-        # for each TRAINOPT, create path for SALTPATH and for training output
-
-        output_dir        = self.config_prep['output_dir']
-        trainopt_num_list = self.config_prep['trainopt_num_list']
-        n_trainopt        = self.config_prep['n_trainopt']
-        model_suffix      = MODEL_SUFFIX_DEFAULT  
-        outdir_model_list  = []
-        outdir_model_list_base  = []
-
-        print(f" Create {n_trainopt} output model directories:")
-        for trainopt_num in trainopt_num_list:
-            nnn           = trainopt_num[-3:]
-            sdir_model    = f"SALT3.{model_suffix}{nnn}"
-            outdir_model  = f"{output_dir}/{sdir_model}"
-            print(f"\t Create {sdir_model}")
-            outdir_model_list.append(outdir_model)
-            outdir_model_list_base.append(sdir_model)
-            os.mkdir(outdir_model)
-
-        sys.stdout.flush()
-        self.config_prep['outdir_model_list']  =  outdir_model_list
-        self.config_prep['outdir_model_list_base'] = outdir_model_list_base
-        # end train_prep_paths
-
-    def train_prep_copy_files(self):
-
-        # copy input files to script_dir, but only those which don't
-        # have full path ... to avoid clobbering same input tile names
-        # in different directories
-
-        input_master_file = self.config_yaml['args'].input_file
-
-        input_file_list = self.config_prep['input_file_list']
-        script_dir      = self.config_prep['script_dir']
-
-        local_list = [ input_master_file ] + input_file_list
-
-        for input_file in local_list:
-            if '/' not in input_file:
-                print(f"\t Copy input file: {input_file}")
-                os.system(f"cp {input_file} {script_dir}/")
-
-        print('')
-        # end train_prep_copy_files
 
     def write_command_file(self, icpu, f):
         # For this icpu, write full set of sim commands to
@@ -445,48 +219,20 @@ class train_BAYESN(Program):
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
-        CONFIG       = self.config_yaml['CONFIG']
-        n_trainopt   = self.config_prep['n_trainopt'] 
-        num_list     = self.config_prep['trainopt_num_list']
-        arg_list     = self.config_prep['trainopt_arg_list'] 
-        ARG_list     = self.config_prep['trainopt_ARG_list'] 
-        label_list   = self.config_prep['trainopt_label_list']
-        calib_shift_list = self.config_prep['calib_shift_list']
-        outdir_model_list_base = self.config_prep['outdir_model_list_base']
+        append_info_dict = {
+            'METHOD'      : METHOD_TRAIN_BAYESN,
+            'CONFIG'      : self.config_yaml['CONFIG'],
+            'n_trainopt'  : self.config_prep['n_trainopt'],
+            'num_list'    : self.config_prep['trainopt_num_list'],
+            'arg_list'    : self.config_prep['trainopt_arg_list'],
+            'ARG_list'    : self.config_prep['trainopt_ARG_list'],
+            'label_list'  : self.config_prep['trainopt_label_list'],
+            'calib_shift_list'  : self.config_prep['calib_shift_list'],
+            'outdir_model_list' : self.config_prep['outdir_model_list']
+        }
 
-        f.write(f"# train_SALT2 info \n")
-        f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
-
-        f.write(f"\n")
-        f.write(f"TRAINOPT_OUT_LIST:  " \
-                f"# 'TRAINOPTNUM'  'user_label'  'user_args'\n")
-        # use original ARG_list instead of arg_list; the latter may
-        # include contents of shiftlist_file.
-        for num, arg, label in zip(num_list, ARG_list, label_list):
-            row   = [ num, label, arg ]
-            f.write(f"  - {row} \n")
-        f.write("\n")
-
-        f.write("MODELDIR_LIST:\n")
-        for model_dir in outdir_model_list_base :
-            f.write(f"  - {model_dir}\n")
-        f.write("\n")
-
-        for key in KEYS_SURVEY_LIST_SAME:
-            if key in CONFIG :
-                f.write(f"{key}:  {CONFIG[key]} \n")
-            else:
-                f.write(f"{key}:  [ ] \n")
-
-        # write keys for SALT2.INFO to be read by SNANA code 
-        # each row is
-        #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
-        f.write(f"{KEY_SNANA_SALT3_INFO}: \n")
-        for num, item_list in zip(num_list,calib_shift_list) :
-            for item in item_list:
-                row = [ num ] + item.split()
-                f.write(f"  - {row} \n")
-        f.write("\n")
+        train_util.append_info_file(f, append_info_dict)
+        return
 
         # end append_info_file
 

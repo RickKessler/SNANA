@@ -14,6 +14,8 @@
 # Jun 15 2023: move some utilities into submit_train_util.py to share
 #              methods with BayeSN training.
 #
+# ------------
+
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
 import  datetime, time, subprocess
@@ -24,14 +26,14 @@ from    submit_train_util  import *
 from    submit_params      import *
 from    submit_prog_base   import Program
 
-# define key for main trainsalt config file
+# define key in submit-input confif file, for main trainsalt config file
 KEY_CONFIG_FILE = 'SALT3_CONFIG_FILE'
 
 # define command-line override key to specify file with calibration shifts
-KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
+#xxx martk KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
 
 # define key for SALT3.INFO read by SNANA codes.
-KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
+# xxx mark KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
 
 # create list of config keys whose argument is a file that
 # gets copied to script_dir
@@ -69,6 +71,7 @@ class train_SALT3(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
         script_dir   = self.config_prep['script_dir']
+        output_dir   = self.config_prep['output_dir']
 
         # scoop up and store TRAINOPT list from user CONFIG.
         # This is before prepping input files in case TRAINOPT
@@ -81,13 +84,20 @@ class train_SALT3(Program):
     
 
         # get input config files
-        self.train_prep_input_files()
+        input_file_list = self.train_prep_input_files()
+        self.config_prep['input_file_list'] = input_file_list
 
         # copy input files to script_dir
-        self.train_prep_copy_files()
+        # xxx mark xxx     self.train_prep_copy_files()
+        util.copy_input_files(input_file_list, script_dir, TRAIN_INPUT_FILENAMES)
 
         # foreach training, prepare output paths
-        self.train_prep_paths()
+        # xxx mark xxx self.train_prep_paths()
+        trainopt_num_list = self.config_prep['trainopt_num_list']
+        outdir_model_list = \
+            train_util.prep_model_paths(METHOD_TRAIN_SALT3, trainopt_num_list, 
+                                        output_dir )
+        self.config_prep['outdir_model_list'] = outdir_model_list
 
         sys.stdout.flush()
 
@@ -145,10 +155,14 @@ class train_SALT3(Program):
                     j = item_list.index(key_override)                    
                     input_file = item_list[j+1]
                     input_file_list.append(input_file)
-        
-        # store list of all input files
-        self.config_prep['input_file_list'] = input_file_list
 
+        input_file_list += [ input_master_file ]  # Jun 16 2023        
+
+        # warning: may need to remove duplicate input file names
+        # in different directories at some point (e.g., override confusion)
+
+        # return list of all input files
+        return input_file_list 
         # end train_prep_input_files
 
 
@@ -306,7 +320,7 @@ class train_SALT3(Program):
             if not use : arg_replace += f"{item} " 
 
         # tack on calibshift file
-        arg_replace += f"{KEY_SALTshaker_CALIBSHIFT_FILE} {calib_shift_file} "
+        # xxxarg_replace += f"{KEY_SALTshaker_CALIBSHIFT_FILE} {calib_shift_file} "
 
         return arg_replace, calib_shift_list
 
@@ -316,7 +330,11 @@ class train_SALT3(Program):
 
         # end make_calshift_file
 
-    def train_prep_paths(self):
+    def train_prep_paths_obsolete(self):
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         # for each TRAINOPT, create path for SALTPATH and for training output
 
@@ -338,30 +356,46 @@ class train_SALT3(Program):
             os.mkdir(outdir_model)
 
         sys.stdout.flush()
-        self.config_prep['outdir_model_list']  =  outdir_model_list
+        self.config_prep['outdir_model_list']      =  outdir_model_list
         self.config_prep['outdir_model_list_base'] = outdir_model_list_base
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+        
         # end train_prep_paths
 
-    def train_prep_copy_files(self):
+    def train_prep_copy_files_obsolete(self):
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         # copy input files to script_dir, but only those which don't
         # have full path ... to avoid clobbering same input tile names
         # in different directories
 
-        input_master_file = self.config_yaml['args'].input_file
+        # xxx mark input_master_file = self.config_yaml['args'].input_file
 
         input_file_list = self.config_prep['input_file_list']
         script_dir      = self.config_prep['script_dir']
 
-        local_list = [ input_master_file ] + input_file_list
+        # xxx mark local_list = [ input_master_file ] + input_file_list
 
-        for input_file in local_list:
+        # xxx mark for input_file in local_list:
+        for input_file in input_file_list:
             if '/' not in input_file:
                 print(f"\t Copy input file: {input_file}")
                 os.system(f"cp {input_file} {script_dir}/")
 
         print('')
-        # end train_prep_copy_files
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+        # end train_prep_copy_files_obsolete
 
     def write_command_file(self, icpu, f):
         # For this icpu, write full set of sim commands to
@@ -470,6 +504,30 @@ class train_SALT3(Program):
         # end create_merge_table
 
     def append_info_file(self,f):
+        # append info to SUBMIT.INFO file; use passed file pointer f
+
+        append_info_dict = {
+            'METHOD'      : METHOD_TRAIN_SALT3,
+            'CONFIG'      : self.config_yaml['CONFIG'],
+            'n_trainopt'  : self.config_prep['n_trainopt'],
+            'num_list'    : self.config_prep['trainopt_num_list'],
+            'arg_list'    : self.config_prep['trainopt_arg_list'],
+            'ARG_list'    : self.config_prep['trainopt_ARG_list'],
+            'label_list'  : self.config_prep['trainopt_label_list'],
+            'calib_shift_list'  : self.config_prep['calib_shift_list'],
+            'outdir_model_list' : self.config_prep['outdir_model_list']
+        }
+
+        train_util.append_info_file(f, append_info_dict)
+        return
+
+        # end append_info_file
+
+    def append_info_file_obsolete(self,f):
+
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
@@ -480,7 +538,7 @@ class train_SALT3(Program):
         ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
         calib_shift_list = self.config_prep['calib_shift_list']
-        outdir_model_list_base = self.config_prep['outdir_model_list_base']
+        outdir_model_list = self.config_prep['outdir_model_list']
 
         f.write(f"# train_SALT2 info \n")
         f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
@@ -496,8 +554,9 @@ class train_SALT3(Program):
         f.write("\n")
 
         f.write("MODELDIR_LIST:\n")
-        for model_dir in outdir_model_list_base :
-            f.write(f"  - {model_dir}\n")
+        for model_dir in outdir_model_list :
+            model_dir_base = os.path.basename(model_dir)
+            f.write(f"  - {model_dir_base}\n")
         f.write("\n")
 
 
@@ -510,14 +569,19 @@ class train_SALT3(Program):
         # write keys for SALT3.INFO to be read by SNANA code 
         # each row is
         #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
-        f.write(f"{KEY_SNANA_SALT3_INFO}: \n")
+        f.write(f"{KEY_SNANA_CALIB_INFO}: \n")
         for num, item_list in zip(num_list,calib_shift_list) :
             for item in item_list:
                 row = [ num ] + item.split()
                 f.write(f"  - {row} \n")
         f.write("\n")
 
-        # end append_info_file
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        return
+
+        # end append_info_file_obsolete
 
     def merge_config_prep(self,output_dir):
         pass
@@ -670,7 +734,8 @@ class train_SALT3(Program):
 
         # read SNANA_SALT3_INFO from SUBMIT.INFO; this includes
         # info for all trainopts.
-        SNANA_INFO         = submit_info_yaml[KEY_SNANA_SALT3_INFO]
+        # xxx mark delete SNANA_INFO  = submit_info_yaml[KEY_SNANA_SALT3_INFO]
+        SNANA_CALIB_INFO   = submit_info_yaml[KEY_SNANA_CALIB_INFO]
 
         SALT3_INFO_FILE = f"{model_dir}/SALT3.INFO"
         print(f"\t Append calib info to {SALT3_INFO_FILE}")
@@ -678,7 +743,7 @@ class train_SALT3(Program):
         f = open(SALT3_INFO_FILE,"at")
         f.write(f"\n\n# Calibration shifts used in SALTshaker Training\n")
 
-        for row in SNANA_INFO:
+        for row in SNANA_CALIB_INFO:
             if row[0] == trainopt: 
                 key    = row[1]
                 survey = row[2]

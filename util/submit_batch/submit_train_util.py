@@ -34,15 +34,21 @@ KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
 
 KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
 
+# define calib key for SUBMIT.INFO file that passes to snana 
+# LC fit via model output
+KEY_SNANA_CALIB_INFO  = "SNANA_CALIB_INFO" 
+
 # define prefix for files with calib shifts.
 PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"  
-
 
 KEYDICT_CALIBSHIFT_FILE = {
     METHOD_TRAIN_SALT3  : '--calibrationshiftfile' ,
     METHOD_TRAIN_BAYESN : '--calibrationshiftfile' 
 }
 
+
+# name of file with list of input files
+TRAIN_INPUT_FILENAMES = "INPUT_FILE.LIST" 
 
 #KEY_SALTshaker_CALIBSHIFT_FILE
 
@@ -53,7 +59,16 @@ KEYDICT_CALIBSHIFT_FILE = {
 
 def train_prep_trainopt_list(METHOD,CONFIG,script_dir):
 
-    # return dictionary of trainopt info
+    # Created Jun 15 2023 [Moved from submit_train_SALT3.py]
+    # Read TRAINOPT keys, extract calib shifts, create input
+    # calib-shift file(s), and return dictionary of trainopt info.
+    #
+    # Inputs:
+    #  METHOD = METHOD_TRAIN_SALT3 or METHOD_TRAIN_BAYESN
+    #  CONFIG = CONFIG block from submit-config-input file
+    #  script_dir = location for writing calib-shift files (if needed)
+    #
+
 
     trainopt_global = ""  # apply to each TRAINOPT
     trainopt_rows   = []  # TRAINOPT-specified commands
@@ -188,6 +203,91 @@ def make_calib_shift_file(num, arg, METHOD, script_dir):
     # end make_calshift_file
 
 
+def prep_model_paths(METHOD, trainopt_num_list, output_dir ):
+
+    # Created Jun 16 2023
+    # for each TRAINOPT, create path for SALTPATH and for training output
+    # Inputs:
+    #   METHOD ;  TRAIN_SALT3 or TRAIN_BAYESN or ....
+    #   trainopt_num_list: e.g., 000, 001, 002 ...
+    #   outpout_dir: create [METHOD].[SUFFIX][nnn] directories here
+    #     e.g., SALT3.MODEL001, SALT3.MODEL002, etc ...
+    #
+    #  Return list of created directories 
+
+    model_suffix      = MODEL_SUFFIX_DEFAULT  
+    outdir_model_list  = []
+    n_trainopt = len(trainopt_num_list)
+
+    print(f" Create {n_trainopt} output model directories:")
+    for trainopt_num in trainopt_num_list:
+        nnn           = trainopt_num[-3:]
+        sdir_model    = f"{METHOD}.{model_suffix}{nnn}"
+        outdir_model  = f"{output_dir}/{sdir_model}"
+        print(f"\t Create {sdir_model}")
+        outdir_model_list.append(outdir_model)
+        os.mkdir(outdir_model)
+
+    sys.stdout.flush()
+    return outdir_model_list
+
+    # end prep_model_paths
+
+
+def append_info_file(f, append_info_dict):
+
+    # append training info to SUBMIT.INFO file with pointer f.
+    
+    METHOD       = append_info_dict['METHOD']  # SALT3 or BAYESN ...
+    CONFIG       = append_info_dict['CONFIG']
+    n_trainopt   = append_info_dict['n_trainopt'] 
+    num_list     = append_info_dict['num_list']
+    arg_list     = append_info_dict['arg_list'] 
+    ARG_list     = append_info_dict['ARG_list'] 
+    label_list   = append_info_dict['label_list']
+    calib_shift_list  = append_info_dict['calib_shift_list']
+    outdir_model_list = append_info_dict['outdir_model_list']
+    
+    f.write(f"# train_{METHOD} info \n")
+    f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
+
+    f.write(f"\n")
+    f.write(f"TRAINOPT_OUT_LIST:  " \
+            f"# 'TRAINOPTNUM'  'user_label'  'user_args'\n")
+    # use original ARG_list instead of arg_list; the latter may
+    # include contents of shiftlist_file.
+    for num, arg, label in zip(num_list, ARG_list, label_list):
+        row   = [ num, label, arg ]
+        f.write(f"  - {row} \n")
+    f.write("\n")
+
+    f.write("MODELDIR_LIST:\n")
+    for model_dir in outdir_model_list :
+        model_dir_base = os.path.basename(model_dir)
+        f.write(f"  - {model_dir_base}\n")
+    f.write("\n")
+    
+    for key in KEYS_SURVEY_LIST_SAME:
+        if key in CONFIG :
+            f.write(f"{key}:  {CONFIG[key]} \n")
+        else:
+            f.write(f"{key}:  [ ] \n")
+
+    # - - - - - 
+    # write keys for SALT3.INFO to be read by SNANA code 
+    # each row is
+    #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
+    f.write(f"{KEY_SNANA_CALIB_INFO}: \n")
+    for num, item_list in zip(num_list,calib_shift_list) :
+        for item in item_list:
+            row = [ num ] + item.split()
+            f.write(f"  - {row} \n")
+    f.write("\n")
+
+    return
+
+    # end append_info_file
+    
 # =========== END: =======
 
 

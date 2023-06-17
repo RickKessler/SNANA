@@ -14,6 +14,7 @@
 #include "sntools.h"
 #include "genmag_SEDtools.h"
 #include  "genmag_BAYESN.h"
+#include "MWgaldust.h"
 
 #ifdef USE_BAYESN
 #include "yaml.h"
@@ -440,13 +441,14 @@ void genmag_BAYESN(
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
 
-    bool dumpsed = false;
+    //bool dumpsed = false;
     bool enable_scatter = false;
 
+    /*
     FILE * sedfile;
     if (dumpsed) {
         sedfile = fopen("sed_dump.txt", "w");
-    }
+    }*/
     
     double DLMAG = parList_SN[0];
     double THETA = parList_SN[1];
@@ -570,12 +572,13 @@ void genmag_BAYESN(
         j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
         
         // GSN - 20230602 - J_lam matches - compare in restframe
-        //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam[q-ilam_blue], gsl_vector_get(&j_lam.vector, 0));
+        //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam, gsl_vector_get(&j_lam.vector, 0));
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
-        eA_lam_MW = 1.0; //MW extinction at this_lam[q-i]
-        eA_lam_host = 1.0; //Host extinction at lam_model[q];
-            
+        //GSN - 20230617 - get the right extinction
+        eA_lam_MW = GALextinct(3.1, 3.1*mwebv, this_lam, 99);
+        eA_lam_host = GALextinct(RV, AV, lam_model[q], 99);
+
         int q_hsiao;
         for (o = 0; o < Nobs; o++) {
             /*if (o < 20){
@@ -607,9 +610,9 @@ void genmag_BAYESN(
         }
     }
 
-    if (dumpsed) {
+    /*if (dumpsed) {
         fclose(sedfile);
-    }
+    }*/
 
     // GSN - 20230602 - J_tau matrix matches but JWJ does not - J_lam matches (look at rest-wavelengths)
     /*if (VERBOSE_BAYESN > 0)

@@ -576,8 +576,12 @@ void genmag_BAYESN(
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
         //GSN - 20230617 - get the right extinction
-        eA_lam_MW = GALextinct(3.1, 3.1*mwebv, this_lam, 99);
-        eA_lam_host = GALextinct(RV, AV, lam_model[q], 99);
+        eA_lam_MW = pow(10.0, -0.4*GALextinct(3.1, 3.1*mwebv, this_lam, 99));
+        eA_lam_host = pow(10.0, -0.4*GALextinct(RV, AV, lam_model[q], 99));
+        /*if (VERBOSE_BAYESN > 0)
+        {
+            printf("DEBUG: eA_lam_MW: %.3f     eA_lam_host: %.3f\n", eA_lam_MW, eA_lam_host);
+        }*/
 
         int q_hsiao;
         for (o = 0; o < Nobs; o++) {

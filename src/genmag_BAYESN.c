@@ -593,9 +593,12 @@ void genmag_BAYESN(
             q_hsiao = 0;
             while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
             if (q_hsiao < 0 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY) {
-                sprintf(c1err,"Time index outside of template range." );
-                sprintf(c2err,"Invalid q_hsiao index %d. Valid range is [%d, %d]", q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
-                errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	      sprintf(c1err,"Invalid q_hsiao index %d. Valid range is [%d, %d]",
+		      q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
+	      sprintf(c2err,"z=%.3f Trest=%.1f filt=%s",
+		      z, Trest_list[o], cfilt );
+
+	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
             }
             double t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
             double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];

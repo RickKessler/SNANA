@@ -6187,7 +6187,8 @@ c Now check dump for observer-frame model
 812         format(T5,'model MAG_OBS(', A, ')=', F9.4,
      &           ' at Trest=',F7.2, 2x, 'ITER=',I1)
         ENDIF
- 
+        call FLUSH(6)
+
         IF ( ABORT_ON_DMP ) THEN
           CALL MADABORT("USRFUN", c1err, c2err )   
         ENDIF
@@ -8356,7 +8357,6 @@ c set bound on AV and DELTA
 
          INIBND(1,IPAR_SHAPE) = -0.1  ! THETA
          INIBND(2,IPAR_SHAPE) = +0.4
-
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 

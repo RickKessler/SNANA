@@ -2701,7 +2701,7 @@ void print_GENPOLY(GENPOLY_DEF *GENPOLY) {
 
   // -------- BEGIN --------
 
-  printf(" %s: %s defined with ORDER=%d polynominal (input string=%s) \n",
+  printf(" %s: %s is ORDER=%d polyFun (input string=%s) \n",
 	 fnam, GENPOLY->VARNAME, ORDER, GENPOLY->STRING);
   fflush(stdout);
 
@@ -3173,8 +3173,8 @@ void read_SURVEYDEF(void) {
 void parse_geoSURVEYDEF(char *string_geo, int ID) {
 
   // Created May 16 2023 by R.Kessler
-  // parse string_geo = 'geo:lat,long' and extract lat and long;
-  // store lat and long for ID.
+  // parse string_geo = 'geo:lat,lon:alt',
+  // extract lat, long, and altidue (meters), and store for ID.
 
 #define STRING_geo    "geo:"
 #define MXWD_GEO      3
@@ -3187,7 +3187,7 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
 
   // ------------ BEGIN ---------
 
-  // check for 'geo:' in string
+  // check for 'geo:' in strings
   if ( strstr(string_geo,STRING_geo) == NULL ) { return; }
 
   for(i=0; i < MXWD_GEO; i++ ) 

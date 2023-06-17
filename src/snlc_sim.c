@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
 
   // init atmosphere/DCR after we know survey ID from SIMLIB, and
   // after filters are read fom kcor/calib file
-  if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) { INIT_ATMOSPHERE(); }
+  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) { INIT_ATMOSPHERE(); }
 
   // check options to rewrite hostlib and quit
   rewrite_HOSTLIB_DRIVER();
@@ -1311,12 +1311,23 @@ void set_user_defaults(void) {
 
   set_user_defaults_SPECTROGRAPH();
   set_user_defaults_RANSYSTPAR();
-
-  INPUTS.ATMOSPHERE_OPTMASK = 0 ;
+  set_user_defaults_ATMOSPHERE();
 
   return ;
 
 }  // end of set_user_defaults
+
+void set_user_defaults_ATMOSPHERE(void) {
+
+  INPUTS_ATMOSPHERE.OPTMASK = 0 ;
+  init_GENPOLY(&INPUTS_ATMOSPHERE.COORD_RESPOLY);
+  init_GENPOLY(&INPUTS_ATMOSPHERE.COORD_MAGPOLY);
+
+  INPUTS_ATMOSPHERE.SIGMA_SITE_TEMP = 0.0 ;
+  INPUTS_ATMOSPHERE.SIGMA_SITE_BP   = 0.0 ;
+  INPUTS_ATMOSPHERE.SIGMA_SITE_PWV  = 0.0 ;
+
+} // end set_user_defaults_ATMOSPHERE
 
 // *******************************************
 void set_user_defaults_SPECTROGRAPH(void) {
@@ -1524,7 +1535,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
-  bool ISKEY_CID, ISKEY_RANSYSTPAR;
+  bool ISKEY_CID, ISKEY_RANSYSTPAR, ISKEY_ATMOS ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
@@ -1578,6 +1589,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 		  WORDS[0], keySource) ||
       keyMatchSim(MXINPUT_FILE_SIM-1, "INPUT_INCLUDE_FILE",
 		  WORDS[0], keySource)    );
+
+  ISKEY_ATMOS = (strstr(WORDS[0],"ATMOSPHERE_")    != NULL );
 
   // - - - - - - -
 
@@ -1645,12 +1658,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - -
   else if ( keyMatchSim(1, "FLUXERRMODEL_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMODEL_FILE );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+    README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
 			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
   else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+    README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
 			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
 
@@ -1658,7 +1671,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], 200);
     char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
     N++; sscanf(WORDS[N], "%s", ctmp);
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+    README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
 			    &README_KEYS_FLUXERRMODEL,fnam) ;
     strcat(STR_REDCOV,WORDS[0] );   // store key name 
     strcat(STR_REDCOV," ");         // blank space 
@@ -1669,15 +1682,16 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+    README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
 			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
 
-  else if ( keyMatchSim(1, "ATMOSPHERE_OPTMASK", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.ATMOSPHERE_OPTMASK );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
-			    &README_KEYS_FLUXERRMODEL,fnam) ;
+  // - - - - -
+  else if ( ISKEY_ATMOS ) {
+    N += parse_input_ATMOSPHERE(WORDS, keySource);
   }
+
+  // - - - - -
 
   else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
@@ -4692,6 +4706,60 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
 
 } // end parse_GENMAG_SMEAR_MODELNAME
 
+// ============================
+int parse_input_ATMOSPHERE(char **WORDS, int keySource) {
+
+  int N=0, NVAL ;
+  char strTmp[60], **strList;
+  char fnam[] = "parse_input_ATMOSPHERE" ;
+
+  // ------------- BEGIN ---------
+
+  if ( keyMatchSim(1, "ATMOSPHERE_OPTMASK", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_ATMOSPHERE.OPTMASK );
+  }
+
+  else if ( keyMatchSim(1, "ATMOSPHERE_SEDSTAR_FILE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", &INPUTS_ATMOSPHERE.SEDSTAR_FILE );
+  }
+
+  else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_COORD_RESPOLY, WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", strTmp);
+    parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_COORD_RESPOLY, 
+		  &INPUTS_ATMOSPHERE.COORD_RESPOLY, fnam);
+  }
+  else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_COORD_MAGPOLY, WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", strTmp);
+    parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_COORD_MAGPOLY, 
+		  &INPUTS_ATMOSPHERE.COORD_MAGPOLY, fnam);
+  }
+
+  else if ( keyMatchSim(1, "ATMOSPHERE_SITE_SIGMAS", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", strTmp);
+    int NVAL_EXPECT = 3 ; // Gauss sigmas for temperature, pressure, pwv
+    parse_commaSepList(fnam, strTmp, NVAL_EXPECT, 40, &NVAL, &strList);
+    if ( NVAL != NVAL_EXPECT ) {
+      sprintf(c1err, "ATMOSPHERE_SITE_SIGMAS arg has %d values", NVAL);
+      sprintf(c2err, "But expected %d sigma values for Temperature,BP,PWV.",
+	      NVAL_EXPECT );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    sscanf(strList[0], "%le", &INPUTS_ATMOSPHERE.SIGMA_SITE_TEMP);
+    sscanf(strList[1], "%le", &INPUTS_ATMOSPHERE.SIGMA_SITE_BP);
+    sscanf(strList[2], "%le", &INPUTS_ATMOSPHERE.SIGMA_SITE_PWV);
+  }
+
+
+  // load README
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(20, N, WORDS, keySource,
+			    &README_KEYS_FLUXERRMODEL, fnam) ;
+  }
+
+
+  return N;
+} // end parse_input_ATMOSPHERE
+
 // =====================================================
 int parse_input_SPECTRUM(char **WORDS, int keySource) {
 
@@ -6432,7 +6500,7 @@ void prep_user_input(void) {
   // + set format option to write RA,DEC,AIRMASS, SIM_[truth] per obs
   // + set SPECTROGRAPH_OPTMASK_SEDMODEL to leverage existing
   //   utility to generate true SED for each epoch
-  if ( INPUTS.ATMOSPHERE_OPTMASK > 0 )  { 
+  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 )  { 
     INPUTS.FORMAT_MASK |=  FORMAT_MASK_ATMOS ; 
     INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK = SPECTROGRAPH_OPTMASK_SEDMODEL ;
   }
@@ -8556,10 +8624,11 @@ void  init_event_GENLC(void) {
 
     GENLC.RA_OBS[epoch]  = 999999.0 ;
     GENLC.DEC_OBS[epoch] = 999999.0 ;
+    GENLC.dcr_shift[epoch]     = 0.0 ;
     GENLC.RA_dcr_shift[epoch]  = 0.0 ;
     GENLC.DEC_dcr_shift[epoch] = 0.0 ;
     GENLC.mag_dcr_shift[epoch] = 0.0 ;
-    GENLC.AIRMASS[epoch] = NULLFLOAT ;
+    GENLC.AIRMASS[epoch]       = NULLFLOAT ;
 
   } // end of epoch loop
   
@@ -13220,7 +13289,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //  OPT_DUMP >  2  => update 
   //  OPT_DUMP =  3  => close file (end of job)
 
-  int   OPTMASK = INPUTS.ATMOSPHERE_OPTMASK;
+  int   OPTMASK = INPUTS_ATMOSPHERE.OPTMASK;
   bool  DO_DUMP = (OPTMASK & ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR) > 0;
   int   ep, ifilt_obs ;
   FILE *fp;
@@ -13252,7 +13321,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     sprintf(VARLIST,
 	    "CID MJD BAND LAMAVG_SED_WGTED SNR_TRUE "
 	    "FLUXCAL TOBS AIRMASS dRA dDEC "
-	    "SIM_dRA SIM_dDEC SIM_dMAG" );
+	    "SIM_DCR SIM_dRA SIM_dDEC SIM_dMAG" );
 
     fprintf(fp,"# Simulation SUMMARY: one row per observation.\n");
     fprintf(fp,"# RA,DEC in degrees\n");
@@ -13287,7 +13356,8 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	      "%10.4le %5.1f  "       // FLUXCAL TOBS
 	      "%.2f  "                // AIRMASS
 	      "%7.4f %7.4f  "         // dRA dDEC          (arcsec)
-	      "%7.4f %7.4f "         // SIM_dRA SIM_dDEC  (arcsec)
+	      "%7.4f "                // SIM_DCR (arcsec)
+	      "%7.4f %7.4f "          // SIM_dRA SIM_dDEC  (arcsec)
 	      "%7.4f  "              // SIM_dMAG
 	      ,
 	      GENLC.CID, GENLC.MJD[ep], band, GENLC.LAMAVG_SED_WGTED[ep],
@@ -13295,6 +13365,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	      SNDATA.FLUXCAL[ep], GENLC.epoch_obs[ep],
 	      GENLC.AIRMASS[ep],
 	      SNDATA.dRA[ep], SNDATA.dDEC[ep],
+	      SNDATA.SIMEPOCH_DCR[ep],
 	      SNDATA.SIMEPOCH_dRA_DCR[ep], SNDATA.SIMEPOCH_dDEC_DCR[ep],
 	      SNDATA.SIMEPOCH_dMAG_DCR[ep]
 	      );
@@ -22496,7 +22567,7 @@ void coords_to_SNDATA(int FLAG) {
   SNDATA.SIM_DEC       = GENLC.DEC ;
 
   // - - - - - - - - - - - 
-  if ( INPUTS.ATMOSPHERE_OPTMASK == 0 ) { return; }
+  if ( INPUTS_ATMOSPHERE.OPTMASK == 0 ) { return; }
 
   // Here we load epoch-dependent information associated with
   // atmospheric DCR effects.
@@ -22530,6 +22601,7 @@ void coords_to_SNDATA(int FLAG) {
     RA_AVG_BAND          = ATMOS_INFO.COORD_SIM_RA.AVG_BAND[ifilt_obs];
     DEC_AVG_BAND         = ATMOS_INFO.COORD_SIM_DEC.AVG_BAND[ifilt_obs];
 
+    SNDATA.SIMEPOCH_DCR[ep]      = unit_delta*GENLC.dcr_shift[ep];
     SNDATA.SIMEPOCH_dRA_DCR[ep]  = unit_delta*(RA_TRUE  - RA_AVG_BAND);
     SNDATA.SIMEPOCH_dDEC_DCR[ep] = unit_delta*(DEC_TRUE - DEC_AVG_BAND);
     SNDATA.SIMEPOCH_dMAG_DCR[ep] = GENLC.mag_dcr_shift[ep];
@@ -22539,8 +22611,9 @@ void coords_to_SNDATA(int FLAG) {
     if ( SNDATA.dRA[ep] > (COORD_SHIFT_NULL_ARCSEC - 5.0) ) {
       SNDATA.dRA[ep]  = COORD_SHIFT_NULL_ARCSEC ;
       SNDATA.dDEC[ep] = COORD_SHIFT_NULL_ARCSEC ;
-      SNDATA.SIMEPOCH_dRA_DCR[ep]  = COORD_SHIFT_NULL_ARCSEC;
-      SNDATA.SIMEPOCH_dDEC_DCR[ep] = COORD_SHIFT_NULL_ARCSEC;
+      SNDATA.SIMEPOCH_DCR[ep]      = COORD_SHIFT_NULL_ARCSEC ;
+      SNDATA.SIMEPOCH_dRA_DCR[ep]  = COORD_SHIFT_NULL_ARCSEC ;
+      SNDATA.SIMEPOCH_dDEC_DCR[ep] = COORD_SHIFT_NULL_ARCSEC ;
     }
 
   } // end epoch loop
@@ -23427,14 +23500,13 @@ void init_genmodel(void) {
     // to generate random parameters from distributions for the simulation
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
     ARGLIST_PySEDMODEL = (char*)malloc(400*sizeof(char) );
-    char string_ranseed[200];
 
     // it is possible that the PySEDMODEL authors also want to 
     // allow user control over the random parameters simulated
     // this can be done through string_population par
     // where we pass specific parameters from the input/include files
     // to the PySEDMODEL
-    char string_population_par[400] = "";
+    char string_ranseed[200];
     sprintf(string_ranseed, "RANSEED %d ", INPUTS.ISEED);
 
     // in the specific case of PyBAYESN, the user can specify 
@@ -23448,6 +23520,7 @@ void init_genmodel(void) {
     // PEAK, RANGE_LOWE, RANGE_UPPER, SIGMA_LOWER, SIGMA_UPPER
     // other PySEDMODELs can use similar conventions but we recommend
     // specifying the parameter name to make debugging tractable
+    char string_population_par[400] = "";
     if ( INDEX_GENMODEL == MODEL_PYBAYESN ) {
       sprintf(string_population_par,
 	      "GENPAR_THETA: %f,%f,%f,%f,%f   "
@@ -27420,7 +27493,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     // atmosphere effects that leverage SPECTROGRAPH infrastructure
     // to get true SED.
     bool WRITE_SPECTRA = 
-      (SPECTROGRAPH_USEFLAG && INPUTS.ATMOSPHERE_OPTMASK==0);
+      (SPECTROGRAPH_USEFLAG && INPUTS_ATMOSPHERE.OPTMASK==0);
 
     if ( WRITE_SPECTRA ) 
       { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
@@ -27577,7 +27650,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( INPUTS_STRONGLENS.USE_FLAG ) 
     { wr_SIMGEN_DUMP_SL(3,SIMFILE_AUX); }
 
-  if ( INPUTS.ATMOSPHERE_OPTMASK > 0 ) 
+  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) 
     { wr_SIMGEN_DUMP_DCR(3,SIMFILE_AUX); }
 
   // copy ZVARATION file to SIM/[VERSION]

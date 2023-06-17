@@ -318,10 +318,13 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
+/* xxx mark delete 
 // DCR effects in Table 1 of arXiv:2304.01858
 #define ATMOSPHERE_OPTMASK_DCR_COORD         1
 #define ATMOSPHERE_OPTMASK_DCR_PSFSHAPE      2
 #define ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR   512 // write DCR SIMGEN DUMPfile
+xxx */
+
 
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra
@@ -557,7 +560,7 @@ struct INPUTS {
   int  FLUXERRMODEL_OPTMASK ;
   char FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
 
-  int ATMOSPHERE_OPTMASK; // for DCR, PSF(SN-star) diff, etc ...
+  // xxxx   int ATMOSPHERE_OPTMASK; // for DCR, PSF(SN-star) diff, etc ...
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
@@ -1228,9 +1231,10 @@ struct GENLC {
   double  peakmag_obs[MXFILTINDX] ;
   double  genmag_obs_template[MXFILTINDX]; // for LCLIB model (stars)
 
-  double  mag_dcr_shift[MXEPSIM];      // DCR correction per obs (May 2023)
-  double  RA_dcr_shift[MXEPSIM];
+  double  dcr_shift[MXEPSIM];      // angle shift from DCR
+  double  RA_dcr_shift[MXEPSIM];   // projection of DCR shift into RA
   double  DEC_dcr_shift[MXEPSIM];
+  double  mag_dcr_shift[MXEPSIM];      // DCR correction per obs (May 2023)
 
   double  genmag_rest[MXEPSIM] ;    // idem, rest frame
   double  generr_rest[MXEPSIM] ;    // idem, rest frame
@@ -1816,6 +1820,7 @@ void   get_user_input(void);       // top function to get user inputs
 void   set_user_defaults(void);    // set INPUTS.xxx defaults
 void   set_user_defaults_SPECTROGRAPH(void);
 void   set_user_defaults_RANSYSTPAR(void);
+void   set_user_defaults_ATMOSPHERE(void);
 void   set_GENMODEL_NAME(void);
 int    read_input_file(char *inFile, int keySource);    
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
@@ -1859,11 +1864,10 @@ int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
 int    parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource );
 int    parse_input_CID(char **WORDS, int keySource );
 
-// xxx to do ...
 int    parse_input_MWEBV(char **WORDS, int keySource );
 int    parse_input_GENMAG_OFF(char **WORDS, int keySource );
 int    parse_input_GENMAG_SMEAR(char **WORDS, int keySource );
-// xxxx
+int    parse_input_ATMOSPHERE(char **WORDS, int keySource );
 
 void   parse_input_OBSOLETE(char **WORDS, int keySource );
 bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );

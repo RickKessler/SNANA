@@ -9,6 +9,12 @@
   in snlc_sim.h, so these tools are not easily plugged into
   other codes.
 
+  To DO:
+  - determine reference wavelength from calib stars;
+    computation or input numbers in the sim-input file ?
+  - fluctuations in pressure, temperature, pwv 
+  - noise model for RA,DEC precision
+
  ****************************************/
 
 #include "sntools.h"
@@ -35,54 +41,199 @@ void INIT_ATMOSPHERE(void) {
   // coordinates and PSF-fitted mags.
 
   int  ID = GENLC.IDSURVEY ;
-
+  int  OPTMASK = INPUTS_ATMOSPHERE.OPTMASK;
   int ifilt, ifilt_obs ;
-  double lamavg, n_calstar;
+  double lamavg_flat, lamavg_calstar, n_calstar;
   char *cfilt ;
   char fnam[] = "INIT_ATMOSPHERE" ;
 
   // ------------ BEGIN ------------
 
-  sprintf(BANNER,"%s to model DCR effects on RA, DEC, MAG \n", fnam);
+  sprintf(BANNER,"%s to model DCR effects on RA, DEC, MAG", fnam);
   print_banner(BANNER);
+
+  INPUTS_ATMOSPHERE.DO_DCR_COORD    = (OPTMASK & ATMOSPHERE_OPTMASK_DCR_COORD) > 0;
+  INPUTS_ATMOSPHERE.DO_DCR_PSFSHAPE = (OPTMASK & ATMOSPHERE_OPTMASK_DCR_PSFSHAPE) > 0;
+
+  printf("\t DO_DCR_COORD    = %d \n", INPUTS_ATMOSPHERE.DO_DCR_COORD);
+  printf("\t DO_DCR_PSFSHAPE = %d \n", INPUTS_ATMOSPHERE.DO_DCR_PSFSHAPE);
+  fflush(stdout);
 
   print_SURVEY(ID);
 
-  ATMOS_INFO.PRESSURE    = SURVEY_INFO.pressure_atmos[ID] ;
-  ATMOS_INFO.TEMPERATURE = SURVEY_INFO.temperature_atmos[ID] ;
-  ATMOS_INFO.PWV         = SURVEY_INFO.pwv_atmos[ID] ;
+  ATMOS_INFO.PRESSURE_AVG    = SURVEY_INFO.pressure_atmos[ID] ;
+  ATMOS_INFO.TEMPERATURE_AVG = SURVEY_INFO.temperature_atmos[ID] ;
+  ATMOS_INFO.PWV_AVG         = SURVEY_INFO.pwv_atmos[ID] ;
 
   ATMOS_INFO.SNRMIN = 3.0 ;
+
+  printf("\t Sigma(temperature/Pressure/PWV) = %.1f C / %.1f mmHg / %.1f mmHg\n\n",
+	 INPUTS_ATMOSPHERE.SIGMA_SITE_TEMP,
+	 INPUTS_ATMOSPHERE.SIGMA_SITE_BP,
+	 INPUTS_ATMOSPHERE.SIGMA_SITE_PWV ); fflush(stdout);
+  INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE = 
+    ( INPUTS_ATMOSPHERE.SIGMA_SITE_TEMP > 0.0 ||
+      INPUTS_ATMOSPHERE.SIGMA_SITE_BP   > 0.0 ||
+      INPUTS_ATMOSPHERE.SIGMA_SITE_PWV  > 0.0 );
+
+
+  read_stellar_sed_atmos();
 
   // for avg stellar wave per band, start with mean filter wave
   // (flat SED) 
 
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) { 
     ATMOS_INFO.LAMAVG_CALSTAR[ifilt] = -9.0; 
-    ATMOS_INFO.n_CALSTAR[ifilt] = -9.0; 
+    ATMOS_INFO.n_CALSTAR_AVG[ifilt]  = -9.0; 
   }
 
 
-  printf("   Mean wavelength & index of refraction per band:\n");
+  printf("\t                              mean   \n");
+  printf("\t         flatSED  calStar    calStar \n");
+  printf("\t  band    <lam>    <lam>      <n-1>  \n");
+  printf("\t# ------------------------------------------------- \n");
+
   // ifilt=0 is reserved for spectrograph, so passband ifilt starts at 1
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
     cfilt     = FILTER_SEDMODEL[ifilt].name ;
     ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
-    lamavg    = FILTER_SEDMODEL[ifilt].mean ;
-    n_calstar = compute_index_refrac_atmos(lamavg, 0);
 
-    ATMOS_INFO.LAMAVG_CALSTAR[ifilt_obs] = lamavg;
-    ATMOS_INFO.n_CALSTAR[ifilt_obs] = n_calstar;
+    lamavg_flat       = FILTER_SEDMODEL[ifilt].mean ;
+    lamavg_calstar    = lamavg_stellar_sed_atmos(ifilt_obs);
+    n_calstar         = compute_index_refrac_atmos(lamavg_calstar, 0);
 
-    printf("\t CalStar(%s) : <lam>=%7.1f A   <n-1>=%le\n",
-	   cfilt, lamavg, n_calstar-1.0 );
+    ATMOS_INFO.LAMAVG_CALSTAR[ifilt_obs] = lamavg_calstar;
+    ATMOS_INFO.n_CALSTAR_AVG[ifilt_obs]  = n_calstar ;
+
+    printf("\t %s   %7.1f  %7.1f  %le\n",
+	   cfilt, lamavg_flat, lamavg_calstar, n_calstar-1.0 );
     fflush(stdout);
   }
+
+
+  // - - - - - - -
+  // check polynomial functions to characterize a few things,
+  // and print some values to stdout for visual inspection.
+
+  bool REQUIRE_RESPOLY = INPUTS_ATMOSPHERE.DO_DCR_COORD ;
+  bool REQUIRE_MAGPOLY = INPUTS_ATMOSPHERE.DO_DCR_COORD ;
+
+  if ( REQUIRE_RESPOLY ) { 
+
+    double SNR, ANGRES;
+    GENPOLY_DEF *RESPOLY = &INPUTS_ATMOSPHERE.COORD_RESPOLY;
+
+    if ( RESPOLY->ORDER < 0 ) {
+      sprintf(c1err,"Missing required coord res vs. 1/sqrt(SNR)");
+      sprintf(c2err,"Set sim-input key %s", KEYNAME_ATMOSPHERE_COORD_RESPOLY );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    }
+
+    // summarize polyFun to describe astrometry resolution vs. 1/sqrt(SNR)
+    printf("\n");
+    print_GENPOLY(RESPOLY); 
+    for (SNR=10.0; SNR <= 100.0; SNR+= 30.0 ) {
+      double x = 1.0/sqrt(SNR);
+      ANGRES = eval_GENPOLY(x, RESPOLY, fnam);
+      printf("\t ANGRES = %7.4f arcsec for SNR = %4.0f \n", 
+	     ANGRES, SNR); fflush(stdout);
+    }
+  }  // end REQUIRE_RESPOLY
+
+  if ( REQUIRE_MAGPOLY ) {
+
+    double fracPSF, mag_shift;
+    GENPOLY_DEF *MAGPOLY = &INPUTS_ATMOSPHERE.COORD_MAGPOLY;
+    if ( MAGPOLY->ORDER < 0 ) {
+      sprintf(c1err,"Missing required coord mag vs. PSF-shift-fraction.");
+      sprintf(c2err,"Set sim-input key %s", KEYNAME_ATMOSPHERE_COORD_MAGPOLY );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    }
+
+    // summarize polyFun to describe mag offset vs. PSF-fraction-shift
+    printf("\n");
+    print_GENPOLY(MAGPOLY);
+    for(fracPSF = 0.0; fracPSF <= 0.2; fracPSF += 0.04 ) {
+      mag_shift = eval_GENPOLY(fracPSF, MAGPOLY, fnam);
+      printf("\t mag_shift = %7.4f mag for PSFshift/PSF = %.4f \n", 
+	     mag_shift, fracPSF); fflush(stdout);
+      
+    }
+  } // end REQUIRE_MAGPOLY
+
+
+
+  printf("\n\t Finished %s \n", fnam); fflush(stdout);
 
   //  debugexit(fnam);
   return;
 
 } // end INIT_ATMOSPHERE
+
+// ********************************************
+void  read_stellar_sed_atmos(void) {
+
+  // Created JUn 2023
+  // open stellar SED file and read/store contents
+
+  char *ptrFile = INPUTS_ATMOSPHERE.SEDSTAR_FILE;
+  int    MEMD = sizeof(double);
+  char fnam[] = "read_stellar_sed_atmos" ;
+
+  // ----------- BEGIN -----------
+
+  printf("   Read average calStar SED from : %s\n", ptrFile);
+
+  ENVreplace(ptrFile, fnam, 1);
+
+  ATMOS_INFO.LAM_ARRAY_CALSTAR  = (double*) malloc(MXBIN_LAMSED_SEDMODEL * MEMD);
+  ATMOS_INFO.FLUX_ARRAY_CALSTAR = (double*) malloc(MXBIN_LAMSED_SEDMODEL * MEMD);
+
+  rd2columnFile(ptrFile, MXBIN_LAMSED_SEDMODEL, &ATMOS_INFO.NBINLAM_CALSTAR,
+		ATMOS_INFO.LAM_ARRAY_CALSTAR, ATMOS_INFO.FLUX_ARRAY_CALSTAR );
+
+  int NB = ATMOS_INFO.NBINLAM_CALSTAR ;
+  printf("\t Found %d wave bins from %.0f to %.0f A \n",  NB,
+	 ATMOS_INFO.LAM_ARRAY_CALSTAR[0],
+	 ATMOS_INFO.LAM_ARRAY_CALSTAR[NB-1] );
+
+  printf("\n");
+  fflush(stdout);
+
+  return;
+
+} // end read_stellar_sed_atmos
+
+// ********************************************
+double lamavg_stellar_sed_atmos(int ifilt_obs) {
+  
+  int    ifilt       = IFILTMAP_SEDMODEL[ifilt_obs];
+  int    NLAM_FILTER = FILTER_SEDMODEL[ifilt].NLAM;
+  int    NLAM_CALSTAR = ATMOS_INFO.NBINLAM_CALSTAR ;
+  int ilam;
+  double lamavg, lam, trans, flux_star, sum0=0.0, sum1=0.0 ;
+  char fnam[] = "lamavg_stellar_sed_atmos" ;
+
+  // ---------- BEGIN ----------
+
+  lamavg = 0.0 ;
+
+  for(ilam=0; ilam < NLAM_FILTER; ilam++ ) {
+    lam   = FILTER_SEDMODEL[ifilt].lam[ilam];
+    trans = FILTER_SEDMODEL[ifilt].transSN[ilam];
+    flux_star = interp_1DFUN(1, lam, NLAM_CALSTAR,
+			     ATMOS_INFO.LAM_ARRAY_CALSTAR,
+			     ATMOS_INFO.FLUX_ARRAY_CALSTAR, fnam);
+
+    sum0 += (flux_star * trans);
+    sum1 += (flux_star * trans * lam);
+  }
+
+  lamavg = sum1/sum0;
+
+  return lamavg;
+
+} // end lamavg_stellar_sed_atmos
 
 // ***************************************
 void GEN_ATMOSPHERE_DRIVER(void) {
@@ -96,7 +247,7 @@ void GEN_ATMOSPHERE_DRIVER(void) {
 
   // ------------ BEGIN ----------
 
-  if ( INPUTS.ATMOSPHERE_OPTMASK == 0 ) { return; }
+  if ( INPUTS_ATMOSPHERE.OPTMASK == 0 ) { return; }
 
   if ( UNIT_TEST_COMPUTE_DCR ) { test_compute_dcr(); }
 
@@ -321,10 +472,6 @@ void genSmear_coords(int epoch) {
   // determined measured RA,DEC for this epoch
   // Start with silly model for testing ...
 
-  double SNR_REF          = 100.0;
-  double ANGRES_REF_mASEC = 0.010; // 10 milli-asec res for SNR_REF
-  double ANGRES_REF_DEG   = ANGRES_REF_mASEC/3600.0;
-
   double cosDEC  = GENLC.cosDEC;
   double trueSNR = GENLC.trueSNR[epoch] ;
   if ( trueSNR < 0.01 ) { trueSNR = 0.01; }
@@ -338,7 +485,7 @@ void genSmear_coords(int epoch) {
   bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[epoch] < COORD_SHIFT_NULL_DEG );
 
   double RA_OBS, DEC_OBS, RA_TRUE, DEC_TRUE ;
-  double ANGRES, ran_RA, ran_DEC, WGT ;
+  double ANGRES_asec, ANGRES_deg, ran_RA, ran_DEC, WGT ;
   char fnam[] = "genSmear_coords" ;
 
   // ----------- BEGIN ---------
@@ -346,16 +493,21 @@ void genSmear_coords(int epoch) {
   ran_RA  = getRan_Gauss(1);
   ran_DEC = getRan_Gauss(1);
 
-  ANGRES = ANGRES_REF_DEG * sqrt(SNR_REF/trueSNR);
-  if ( !VALID_DCR_SHIFT ) { ANGRES = 0.0; } // nothing to smear
+  double x = 1.0/sqrt(trueSNR);
+  ANGRES_asec = eval_GENPOLY(x, &INPUTS_ATMOSPHERE.COORD_RESPOLY, fnam);
+  if ( !VALID_DCR_SHIFT ) { ANGRES_asec = 0.0; } // nothing to smear
+
+  // convert ANGRES to degrees and divide by sqrt(2) for 
+  // projected resolution on separate RA and DEC coords.
+  ANGRES_deg = ANGRES_asec / 3600.0 / 1.4142 ;
 
   // get true coords with DCR shift
   RA_TRUE  = GENLC.RA  + GENLC.RA_dcr_shift[epoch];
   DEC_TRUE = GENLC.DEC + GENLC.DEC_dcr_shift[epoch];
   
   // apply random smear to get observed coords
-  RA_OBS  = RA_TRUE  + (ANGRES * ran_RA)/cosDEC;
-  DEC_OBS = DEC_TRUE + (ANGRES * ran_DEC) ;
+  RA_OBS  = RA_TRUE  + (ANGRES_deg * ran_RA)/cosDEC;
+  DEC_OBS = DEC_TRUE + (ANGRES_deg * ran_DEC) ;
 
   // store observed and true coords
   GENLC.RA_OBS[epoch]  = RA_OBS;
@@ -370,8 +522,8 @@ void genSmear_coords(int epoch) {
   bool USE_OBS   = SNR_OBS > ATMOS_INFO.SNRMIN ;
   if ( USE_OBS ) {
 
-    if ( ANGRES > 0.0 ) 
-      { WGT = (ANGRES_REF_DEG*ANGRES_REF_DEG) / (ANGRES*ANGRES); }
+    if ( ANGRES_deg > 0.0 ) 
+      { WGT = 1.0E-6 / (ANGRES_deg*ANGRES_deg); }
     else
       { WGT = 1.0E-20; }
 
@@ -381,7 +533,6 @@ void genSmear_coords(int epoch) {
     sum_COORD_AVG(&ATMOS_INFO.COORD_SIM_RA,  RA_TRUE,  WGT, IFILT_OBS);
     sum_COORD_AVG(&ATMOS_INFO.COORD_SIM_DEC, DEC_TRUE, WGT, IFILT_OBS);
   }
-
 
   return;
 
@@ -393,6 +544,9 @@ void gen_dcr_coordShift(int ep) {
 
   // Created May 2023
   // Compute DCR astrometric shift for RA and DEC.
+
+  int  OPTMASK      = INPUTS_ATMOSPHERE.OPTMASK;
+  bool DO_DCR_COORD = (OPTMASK & ATMOSPHERE_OPTMASK_DCR_COORD) > 0 ;
 
   double ALTITUDE   = GENLC.ALTITUDE[ep];
   double AIRMASS    = GENLC.AIRMASS[ep];
@@ -423,6 +577,15 @@ void gen_dcr_coordShift(int ep) {
 
   // -------------- BEGIN -----------
 
+  if ( !DO_DCR_COORD ) {
+    GENLC.dcr_shift[ep]     = 0.0 ;
+    GENLC.RA_dcr_shift[ep]  = 0.0 ;
+    GENLC.DEC_dcr_shift[ep] = 0.0 ;
+    return ;
+  }
+
+  // init dcr coord shifts to crazy value to indicate SED model not available.
+  GENLC.dcr_shift[ep]     = SHIFT_NULL ;
   GENLC.RA_dcr_shift[ep]  = SHIFT_NULL ;
   GENLC.DEC_dcr_shift[ep] = SHIFT_NULL ;
 
@@ -459,6 +622,7 @@ void gen_dcr_coordShift(int ep) {
   sin_q   = sin(q);
 
   // take projection for RA and DEC shifts in degrees
+  GENLC.dcr_shift[ep]     = DCR_deg ;
   GENLC.RA_dcr_shift[ep]  = DCR_deg * sin_q ;
   GENLC.DEC_dcr_shift[ep] = DCR_deg * cos_q ;
 
@@ -569,12 +733,18 @@ double compute_DCR_angle(double LAM, double tan_ZENITH, int IFILT_OBS, int DUMPF
   //  DUMPFLAG   : optional dump flag
 
   double DCR = 0.0 ;
-  double n_ref = ATMOS_INFO.n_CALSTAR[IFILT_OBS];
+  double lamavg_calstar = ATMOS_INFO.LAMAVG_CALSTAR[IFILT_OBS];
+  double n_ref          = ATMOS_INFO.n_CALSTAR_AVG[IFILT_OBS];
   double n_tele ;  // index of refrac for transient
 
   char fnam[] = "compute_DCR_angle" ;
 
   // ------------ BEGIN ----------
+
+  if ( INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE ) {
+    // re-compute calib star n_ref if site conditions change each obs
+    n_ref  = compute_index_refrac_atmos(lamavg_calstar, 0);
+  }
 
   n_tele = compute_index_refrac_atmos(LAM, DUMPFLAG);
   
@@ -652,25 +822,39 @@ double compute_index_refrac_atmos(double LAM, int DUMPFLAG) {
 
   // hard-code telescope altitude of 2km, but maybe later
   // need to add altitude argument to geo key in SURVEY.DEF
-  double P_tele   = ATMOS_INFO.PRESSURE; // atmos pressure, mm Hg 
-  double T_tele   = ATMOS_INFO.TEMPERATURE;   // temperature, Celsius
-  double PWV_tele = ATMOS_INFO.PWV ;   // water vapor pressure, mm Hg
+  double TEMP_tele   = ATMOS_INFO.TEMPERATURE_AVG;   // temperature, Celsius
+  double BP_tele     = ATMOS_INFO.PRESSURE_AVG; // atmos pressure, mm Hg 
+  double PWV_tele   = ATMOS_INFO.PWV_AVG ;   // water vapor pressure, mm Hg
 
-  double denom_T  = 1.0 + 0.003661*T_tele ;
-  double tmp0, tmp1, tmp2;
+  double denom_T, tmp0, tmp1, tmp2, r ;
   double ONE = 1.0;
   char fnam[] = "compute_index_refrac_atmos" ;
 
   // ---------- BEGIN ----------
 
-  tmp0 = 64.328;
+  // This site condition model is way too extreme because it doesn't
+  // account for weather correlations.
+  if ( INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE ) {
+    r = getRan_GaussClip(1,-3.0, 3.0);
+    TEMP_tele += r * INPUTS_ATMOSPHERE.SIGMA_SITE_TEMP ;
+
+    r = getRan_GaussClip(1,-3.0, 3.0);
+    BP_tele += r * INPUTS_ATMOSPHERE.SIGMA_SITE_BP ;
+
+    r = getRan_GaussClip(1,-3.0, 3.0);
+    PWV_tele += r * INPUTS_ATMOSPHERE.SIGMA_SITE_PWV ;
+  }
+
+  denom_T  = 1.0 + 0.003661*TEMP_tele ;
+
+  tmp0 = 64.328 ;
   tmp1 = 29498.1 / ( 146.0 - INVLAMSQ );
   tmp2 = 255.4 / (41.0 - INVLAMSQ);
   n_0  = ONE + (tmp0 + tmp1 + tmp2) * 1.0E-6 ;
 
   // correct for telescope altitude
   tmp0 = ( n_0 - ONE ) ;
-  tmp1 = P_tele * (ONE + (1.049-0.0157*T_tele)*1.0E-6*P_tele);
+  tmp1 = BP_tele * (ONE + (1.049-0.0157*TEMP_tele)*1.0E-6*BP_tele);
   tmp2 = 720.883 * denom_T;
   n_1 = ONE + tmp0 * (tmp1/tmp2);
 
@@ -695,10 +879,15 @@ double compute_index_refrac_atmos(double LAM, int DUMPFLAG) {
 // ========================================
 void gen_dcr_magShift(int ep) {
 
-  // Compute mag shift for PSF-fitted flux where PSF centerl location
+  // Compute mag shift for PSF-fitted flux where PSF center location
   // is offset from the band-average center.
 
-  bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[ep] < COORD_SHIFT_NULL_DEG );
+  double dcr_shift_deg  = GENLC.dcr_shift[ep]; 
+  double dcr_shift_asec = dcr_shift_deg*3600.0 ;
+  bool VALID_DCR_SHIFT  = (  dcr_shift_deg < COORD_SHIFT_NULL_DEG );
+
+  int    LDMP = ( GENLC.CID == -2 ) ;
+  double fracPSF, PSF_FWHM, mag_shift ;
   char fnam[] = "gen_dcr_magShift" ;
 
   // ---------- BEGIN -------------
@@ -706,8 +895,30 @@ void gen_dcr_magShift(int ep) {
   GENLC.mag_dcr_shift[ep] = 0.0 ;
   if ( !VALID_DCR_SHIFT ) { return; }
 
-  // - - - - 
-  GENLC.mag_dcr_shift[ep] = 1.0E-4 ;
+  // - - - - - - - - - - - -
+  //  PSF_FWHM = SNDATA.PSF_SIG1[ep] * 2.355;
+  double PSFSIG1 = SIMLIB_OBS_GEN.PSFSIG1[ep]; // effective Gauss sigma, pixels
+  double PIXSIZE = SIMLIB_OBS_GEN.PIXSIZE[1];
+  PSF_FWHM = PSFSIG1 * PIXSIZE * 2.355; // convert to arcsec
+  fracPSF  = fabs(dcr_shift_asec) / PSF_FWHM ;
+
+  if ( INPUTS_ATMOSPHERE.DO_DCR_COORD ) {
+    // compute mag shift from polynominal fit to PSF-fitted flux using galsim.
+    GENPOLY_DEF *MAGPOLY = &INPUTS_ATMOSPHERE.COORD_MAGPOLY;
+    mag_shift            = eval_GENPOLY(fracPSF, MAGPOLY, fnam);
+    GENLC.mag_dcr_shift[ep] += mag_shift ; // store global
+  }
+
+  if ( LDMP ) {
+    int    IFILT_OBS      = GENLC.IFILT_OBS[ep];
+    double MJD            = GENLC.MJD[ep];
+    printf(" xxx ---------------------- \n");
+    printf(" xxx %s: CID=%d  MJD=%.4f  IFILTOBS=%d  SIG1=%.3f\n",
+	   fnam, GENLC.CID, MJD, IFILT_OBS, PSFSIG1 );
+    printf("\t xxx PSF_FWHM=%5.3f  dcr_shift=%7.4f  frac=%.4f  magShift=%.4f\n",
+	   PSF_FWHM, dcr_shift_asec, fracPSF, mag_shift);
+    fflush(stdout);
+  }
 
   return;
 

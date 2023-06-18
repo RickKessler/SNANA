@@ -527,18 +527,21 @@ void genmag_BAYESN(
     gsl_matrix_scale(W, THETA);
     gsl_matrix_add(W, BAYESN_MODEL_INFO.W0);
 
-    /* int wx, wy;
-    printf("DEBUG: W matrix\n");
-    for(wx=0; wx< 9; wx++)
-    {
-        for(wy=0; wy < 6; wy++)
-        {
-            printf("%.3f  ",gsl_matrix_get(W, wx, wy));
-        }
-        printf("\n");
+    /* xxx RK Jun 18 2023 - the above gsl_matrix commands is inefficient
+       because there are 4 explicit matrix loops. The code here does the
+       same computation with 1 matrix loop:
+    int wx, wy;
+    int nx = BAYESN_MODEL_INFO.n_lam_knots;
+    int ny = BAYESN_MODEL_INFO.n_tau_knots;
+    for(wx=0; wx < nx; wx++)    {
+      for(wy=0; wy < ny; wy++)   {
+        double W0_val = gsl_matrix_get(BAYESN_MODEL_INFO.W0, wx, wy) ;
+        double W1_val = gsl_matrix_get(BAYESN_MODEL_INFO.W1, wx, wy) ;
+	double W_val  = W0_val + THETA * W1_val;
+        gsl_matrix_set(W, wx,wy, W_val);
+      }
     }
-    printf("-----------\n"); */
-
+    xxxxxx */
 
     // compute W * J_tau^T
     gsl_matrix_set_zero(WJ_tau);

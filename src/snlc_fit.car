@@ -8344,7 +8344,7 @@ cc         INIBND(2,IPAR_COLOR) = +1.0
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
          ! May 21 2023
 
-         INIVAL(IPAR_SHAPE)    =   0.1  ! THETA
+         INIVAL(IPAR_SHAPE)    =   0.1  ! THETA 
          INISTP(IPAR_SHAPE)    =   0.1
 
          INIVAL(IPAR_COLOR)    =  INIVAL_AV
@@ -8355,8 +8355,8 @@ c set bound on AV and DELTA
          INIBND(1,IPAR_COLOR) = -3.0  ! AV
          INIBND(2,IPAR_COLOR) =  5.0
 
-         INIBND(1,IPAR_SHAPE) = -0.1  ! THETA
-         INIBND(2,IPAR_SHAPE) = +0.4
+         INIBND(1,IPAR_SHAPE) = -1.4  ! THETA min
+         INIBND(2,IPAR_SHAPE) = +2.7  ! THETA max
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 

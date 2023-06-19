@@ -442,21 +442,19 @@ void genmag_BAYESN(
 		  ) {
 
     //bool dumpsed = false;
-    bool enable_scatter = false;
-
-    /*
-    FILE * sedfile;
-    if (dumpsed) {
-        sedfile = fopen("sed_dump.txt", "w");
-    }*/
-    
+    bool enable_scatter = false;    
     double DLMAG = parList_SN[0];
     double THETA = parList_SN[1];
     double AV    = parList_SN[2];
     double RV    = parList_SN[3];
+
     double z1, meanlam_obs,  meanlam_rest, ZP; 
+    double t0, t1, f0, f1, flux;
+    double *flux_list  = malloc(sizeof(double)*Nobs); // RK
+    double *Trest_list = malloc(sizeof(double)*Nobs); 
+    int    *extrap_flag = malloc(sizeof(int)*Nobs); 
     char *cfilt;
-    int ifilt = 0, i;
+    int ifilt = 0, i; 
     
     //SHOULD I BE DECLARING THESE HERE??
     gsl_matrix * J_tau; // for time interpolation
@@ -470,8 +468,7 @@ void genmag_BAYESN(
     double *lam_filt;
     double *trans_filt;
     double *lam_model;
-
-    double mag;
+    double mag ;
     char fnam[] = "genmag_BAYESN";
 
     // ------- BEGIN -----------
@@ -481,7 +478,6 @@ void genmag_BAYESN(
 
 
     // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
-    double *Trest_list   = malloc(sizeof(double)*Nobs);
     for(i=0;i<Nobs;i++)
     {
         Trest_list[i] = Tobs_list[i]/z1;
@@ -494,6 +490,10 @@ void genmag_BAYESN(
     meanlam_rest = meanlam_obs/z1 ;
     // make sure filter-lambda range is valid
     checkLamRange_SEDMODEL(ifilt,z,fnam);
+
+    // store info for Galactic & host extinction    
+    //    fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); // RK
+    //    fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);             // RK
 
     // get the filter wavelengths
     int nlam_filter = FILTER_SEDMODEL[ifilt].NLAM;
@@ -520,16 +520,18 @@ void genmag_BAYESN(
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
             Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
 
+    /* xxx mark delete Jun 19 2023 RK
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
     // also, this seems utterly unhinged as a way of computing this
     gsl_matrix_set_zero(W);
     gsl_matrix_add(W, BAYESN_MODEL_INFO.W1);
     gsl_matrix_scale(W, THETA);
     gsl_matrix_add(W, BAYESN_MODEL_INFO.W0);
+    xxxx end mark xxxx */
 
-    /* xxx RK Jun 18 2023 - the above gsl_matrix commands is inefficient
-       because there are 4 explicit matrix loops. The code here does the
-       same computation with 1 matrix loop:
+    // xxx RK Jun 18 2023 - the above gsl_matrix commands is inefficient
+    //       because there are 4 explicit matrix loops. The code here does the
+    //       same computation with 1 matrix loop:
     int wx, wy;
     int nx = BAYESN_MODEL_INFO.n_lam_knots;
     int ny = BAYESN_MODEL_INFO.n_tau_knots;
@@ -541,7 +543,7 @@ void genmag_BAYESN(
         gsl_matrix_set(W, wx,wy, W_val);
       }
     }
-    xxxxxx */
+    //    xxxxxx */
 
     // compute W * J_tau^T
     gsl_matrix_set_zero(WJ_tau);
@@ -551,74 +553,99 @@ void genmag_BAYESN(
     // usually this is OK because the filters are more coarsely defined than the model
     // that may not be the case with future surveys and we should revisit
     int    this_nlam = ilam_red - ilam_blue + 1;
-    int    o, q;
+    int    o, q, q_hsiao;
     double this_lam;
     double this_trans;
-    double eA_lam_MW, eA_lam_host; //To store MW and host dust law evaluated at current wl
+    double eA_lam_MW, eA_lam_host; // store MW and host dust law at current wl
     double eW, S0_lam; //To store other SED  bits
-    for (o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
-    for(q=ilam_blue; q<ilam_red; q++)
-      {
-        this_lam   = lam_model[q]*z1;
-        this_trans = interp_1DFUN(2, this_lam, nlam_filter, 
-				       lam_filt, trans_filt, "DIE");
 
-        // super weird computation
-        // this finds a vector of length Nobs, giving the SED at the
-        // current wavelength for all observations
-        // basically j_lam * W * J_tau^T
-        //
-        // GN - 20230203 - Why the setting jWJ to zero here - we set it earlier
-        // See enable_scatter
-        //
-        gsl_vector_set_zero(jWJ);
-        j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
+    for (o = 0; o < Nobs; o++) { 
+      flux_list[o]   = 0.0 ;
+      magobs_list[o] = MAG_UNDEFINED ;  //Set magnitudes to undefined
+      extrap_flag[o] = false;
+    }
+
+
+    for(q=ilam_blue; q<ilam_red; q++) {
+      this_lam   = lam_model[q]*z1;
+      this_trans = interp_1DFUN(2, this_lam, nlam_filter, 
+				lam_filt, trans_filt, "DIE");
+
+      // super weird computation
+      // this finds a vector of length Nobs, giving the SED at the
+      // current wavelength for all observations
+      // basically j_lam * W * J_tau^T
+      //
+      // GN - 20230203 - Why the setting jWJ to zero here - we set it earlier
+      // See enable_scatter
+      //
+      gsl_vector_set_zero(jWJ);
+      j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
         
-        // GSN - 20230602 - J_lam matches - compare in restframe
-        //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam, gsl_vector_get(&j_lam.vector, 0));
-        gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
+      // GSN - 20230602 - J_lam matches - compare in restframe
+      //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam, gsl_vector_get(&j_lam.vector, 0));
+      gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
-        //GSN - 20230617 - get the right extinction
-        eA_lam_MW = pow(10.0, -0.4*GALextinct(3.1, 3.1*mwebv, this_lam, 99));
-        eA_lam_host = pow(10.0, -0.4*GALextinct(RV, AV, lam_model[q], 99));
-        /*if (VERBOSE_BAYESN > 0)
+      //GSN - 20230617 - get the right extinction
+      eA_lam_MW = pow(10.0, -0.4*GALextinct(3.1, 3.1*mwebv, this_lam, 99));
+      eA_lam_host = pow(10.0, -0.4*GALextinct(RV, AV, lam_model[q], 99));
+
+      /* xxx RK use lookup table for speed
+      eA_lam_MW   = SEDMODEL_TABLE_MWXT_FRAC[ifilt][q] ; // RK
+      eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][q]; // RK
+      xxx */
+
+      /*if (VERBOSE_BAYESN > 0)
         {
-            printf("DEBUG: eA_lam_MW: %.3f     eA_lam_host: %.3f\n", eA_lam_MW, eA_lam_host);
+	printf("DEBUG: eA_lam_MW: %.3f     eA_lam_host: %.3f\n", eA_lam_MW, eA_lam_host);
         }*/
 
-        int q_hsiao;
-        for (o = 0; o < Nobs; o++) {
+      for (o = 0; o < Nobs; o++) {
             /*if (o < 20){
-                printf("DEBUG: Trest: %.2f    JWJ:   %.5f\n", Trest_list[o], gsl_vector_get(jWJ, o));
-            }*/
-            eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
-            // Seek the first Hsiao timestep above the current obs time
-            q_hsiao = 0;
-            while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
-            if (q_hsiao < 0 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY) {
-	      sprintf(c1err,"Invalid q_hsiao index %d. Valid range is [%d, %d]",
-		      q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
-	      sprintf(c2err,"z=%.3f Trest=%.1f filt=%s",
-		      z, Trest_list[o], cfilt );
+	      printf("DEBUG: Trest: %.2f    JWJ:   %.5f\n", Trest_list[o], gsl_vector_get(jWJ, o));
+	      }*/
+	eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
+	// Seek the first Hsiao timestep above the current obs time
+	q_hsiao = 0;
+	while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
 
-	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-            }
-            double t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
-            double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
-            double f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
-            double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
-            // HACK HACK HACK throw Trest at this instead or Tobs
-            S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
-            /*if (o == 0 && q == ilam_blue + 10) {
-                printf("XXX DEBUG Trest %.3f; q %d; this_trans %.6f; this_lam %.3f; d_lam %.3f; eA_lam_MW %.3f; eA_lam_host %.3f; eW %.3f; S0_lam %le\n", Trest_list[o], q, this_trans, this_lam, d_lam, eA_lam_MW, eA_lam_host, eW, S0_lam);
-            }*/
-            magobs_list[o] += this_trans*this_lam*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+	// xxx mark delete RK if (q_hsiao < 0 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY) {
+	if (q_hsiao < 0 ) {
+	  sprintf(c1err,"Invalid q_hsiao index %d. Valid range is [%d, %d]",
+		  q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
+	  sprintf(c2err,"z=%.3f Trest=%.1f filt=%s",
+		  z, Trest_list[o], cfilt );
+	  
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	}
 
-            /*if (o == 0) {
-                dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
+	if ( q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY ) { // RK
+	  q_hsiao = BAYESN_MODEL_INFO.S0.NDAY-1; 
+	  extrap_flag[o] = true;
+	}
+
+	t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
+	t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
+	f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
+	f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
+	// HACK HACK HACK throw Trest at this instead or Tobs
+	S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
+	flux = this_trans*this_lam*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+	
+	flux_list[o] += flux ;
+
+	/*if (o == 0 && q == ilam_blue + 10) {
+	  printf("XXX DEBUG Trest %.3f; q %d; this_trans %.6f; this_lam %.3f; d_lam %.3f; eA_lam_MW %.3f; eA_lam_host %.3f; eW %.3f; S0_lam %le\n", Trest_list[o], q, this_trans, this_lam, d_lam, eA_lam_MW, eA_lam_host, eW, S0_lam);
             }*/
-        }
-    }
+	
+	/*if (o == 0) {
+	  dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
+            }*/
+
+      } // end o loop over Nobs bins
+    } // end q loop over lam bins
+
+    // - - - - - - - - - -  - -
 
     /*if (dumpsed) {
         fclose(sedfile);
@@ -645,24 +672,47 @@ void genmag_BAYESN(
     }
     double hc_local = hc;
     for (o = 0; o < Nobs; o++) {
-      magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG 
-	-2.5*log10(magobs_list[o]/hc_local) + ZP; //WE SHOULD CHECK THE ZERO POINTS
 
-      magerr_list[o] = 0.1;
+      // RK - check extrap flag to allow slop in fitted PEAKMJD
+      if ( extrap_flag[o] ) {
+	double Trest_edge = 40.0; // (days) compute this edge more formally
+	double flux_edge  = flux_list[o];
+	double slope_flux = 0.03; // mag/day, should be computed from last few days
+	int    EXTRAPFLAG_DMP = 0 ;
+	flux = modelflux_extrap( Trest_list[o], Trest_edge, 
+				 flux_edge, slope_flux, EXTRAPFLAG_DMP ) ; 
+	flux_list[o] = flux;
+      } // end extrap
+      
+
+      magobs_list[o] = 
+	BAYESN_MODEL_INFO.M0 +
+	DLMAG -
+	2.5*log10(flux_list[o]/hc_local) +  // RK
+	ZP; 
+
+      magerr_list[o] = 0.01; // RK 0.1 is too big for LCfit
+
     }
-    if (VERBOSE_BAYESN > 0)
-    {
-        printf("DEBUG: Printing lightcurve\n");
-        for (o = 0; o < Nobs; o++) 
-        { 
-            printf("%.2f  ",magobs_list[o]);
-        }
-        printf("\n-----\n\n\n");
+
+
+    if (VERBOSE_BAYESN > 0)    {
+      printf("DEBUG: Printing lightcurve\n");
+      for (o = 0; o < Nobs; o++)         { 
+	printf("%.2f  ",magobs_list[o]);
+      }
+      printf("\n-----\n\n\n");
     }
+    
+    // free memory (RK)
+    free(Trest_list); free(flux_list); free(extrap_flag) ; 
 
     return;
 
 } //End of genmag_BAYESN
+
+
+// =================================
  
 void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	       	double *mwebv, double *z, int *Nobs,

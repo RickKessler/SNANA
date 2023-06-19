@@ -465,10 +465,11 @@ void genmag_BAYESN(
     gsl_vector_view j_lam; //to store a row of J_lam
     gsl_vector * jWJ = gsl_vector_alloc(Nobs); 
 
-    double *lam_filt;
-    double *trans_filt;
-    double *lam_model;
-    double mag ;
+    int nlam_filt, ilam_filt, nlam_model ;
+    double *lam_filt_array, lamstep_filt ;
+    double *trans_filt_array;
+    double *lam_model_array;
+    double mag, d_lam ;
     char fnam[] = "genmag_BAYESN";
 
     // ------- BEGIN -----------
@@ -491,28 +492,34 @@ void genmag_BAYESN(
     // make sure filter-lambda range is valid
     checkLamRange_SEDMODEL(ifilt,z,fnam);
 
+    /* xxx ?? RK xxx
     // store info for Galactic & host extinction    
-    //    fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); // RK
-    //    fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);             // RK
+    SEDMODEL_MWEBV_LAST     = -999.   ;
+    SEDMODEL_HOSTXT_LAST.AV = -999.   ;
+    SEDMODEL_HOSTXT_LAST.z  = -999.   ;
+    fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); // RK
+    fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);             // RK
+    xxxxxx */
 
     // get the filter wavelengths
-    int nlam_filter = FILTER_SEDMODEL[ifilt].NLAM;
-    lam_filt   = FILTER_SEDMODEL[ifilt].lam;
-    trans_filt = FILTER_SEDMODEL[ifilt].transSN;
+    nlam_filt        = FILTER_SEDMODEL[ifilt].NLAM;
+    lam_filt_array   = FILTER_SEDMODEL[ifilt].lam;
+    trans_filt_array = FILTER_SEDMODEL[ifilt].transSN;
+    lamstep_filt     = FILTER_SEDMODEL[ifilt].lamstep;
 
     // get the hsiao wavelengths
-    int nlam_model = BAYESN_MODEL_INFO.S0.NLAM;
-    lam_model      = BAYESN_MODEL_INFO.S0.LAM;
-    double d_lam   = lam_model[1] - lam_model[0];
+    nlam_model  = BAYESN_MODEL_INFO.S0.NLAM;
+    lam_model_array = BAYESN_MODEL_INFO.S0.LAM;
+    d_lam    = lam_model_array[1] - lam_model_array[0];
 
     // project the model into the observer frame 
     // get the rest-frame model wavelengths that overlap with the filter 
     int ilam_blue = 0;
-    while (z1*lam_model[ilam_blue] <= lam_filt[0]) {
+    while (z1*lam_model_array[ilam_blue] <= lam_filt_array[0]) {
         ilam_blue++;
     }
     int ilam_red = nlam_model - 1;
-    while (z1*lam_model[ilam_red] >= lam_filt[FILTER_SEDMODEL[ifilt].NLAM-1]) {
+    while (z1*lam_model_array[ilam_red] >= lam_filt_array[nlam_filt-1]) {
         ilam_red--;
     }
 
@@ -567,9 +574,9 @@ void genmag_BAYESN(
 
 
     for(q=ilam_blue; q<ilam_red; q++) {
-      this_lam   = lam_model[q]*z1;
-      this_trans = interp_1DFUN(2, this_lam, nlam_filter, 
-				lam_filt, trans_filt, "DIE");
+      this_lam   = lam_model_array[q]*z1;
+      this_trans = interp_1DFUN(2, this_lam, nlam_filt, 
+				lam_filt_array, trans_filt_array, fnam);
 
       // super weird computation
       // this finds a vector of length Nobs, giving the SED at the
@@ -588,12 +595,13 @@ void genmag_BAYESN(
 
       //GSN - 20230617 - get the right extinction
       eA_lam_MW = pow(10.0, -0.4*GALextinct(3.1, 3.1*mwebv, this_lam, 99));
-      eA_lam_host = pow(10.0, -0.4*GALextinct(RV, AV, lam_model[q], 99));
+      eA_lam_host = pow(10.0, -0.4*GALextinct(RV, AV, lam_model_array[q], 99));
 
       /* xxx RK use lookup table for speed
-      eA_lam_MW   = SEDMODEL_TABLE_MWXT_FRAC[ifilt][q] ; // RK
-      eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][q]; // RK
-      xxx */
+      ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
+      eA_lam_MW   = SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam_filt] ; // RK
+      eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
+      */
 
       /*if (VERBOSE_BAYESN > 0)
         {

@@ -2354,8 +2354,7 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
   int  NLAMFILT, NBSPEC, ilam, I8, I8p, ifilt, ifilt_min ;
   int  OPT_COLORLAW ;
   double LAMOBS, AV, XT_MAG, XT_FRAC, arg    ;
-
-  //  char fnam[] = "fill_TABLE_MWXT_SEDMODEL";
+  char fnam[] = "fill_TABLE_MWXT_SEDMODEL";
   
   // ------------- BEGIN ------------------
 

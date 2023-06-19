@@ -10902,7 +10902,9 @@ c - - - - - -  -
 c now turn on prior(s) specific to model
 
       IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 .or. 
-     &     FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
+     &     FITMODEL_INDEX .EQ. MODEL_SNOOPY  .or. 
+     &     FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
+
         CALL FITINI_AVPRIOR(LSTAT)
         IF ( LSTAT ) THEN
            NPRIOR = NPRIOR + 1
@@ -10917,7 +10919,7 @@ c now turn on prior(s) specific to model
            USE_PRIOR(IPAR)   = .TRUE.
         ENDIF
 
-      ENDIF  ! end of MLCS-specific priors
+      ENDIF  ! end of AV-specific priors
 
 
       ipar = IPAR_SHAPE

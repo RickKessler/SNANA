@@ -16,10 +16,9 @@
 #include  "genmag_BAYESN.h"
 #include "MWgaldust.h"
 
-#ifdef USE_BAYESN
+// xxx mark #ifdef USE_BAYESN
 #include "yaml.h"
-#endif 
-
+   // xxx mark  #endif 
 
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019
@@ -50,7 +49,7 @@ void read_BAYESN_inputs(char *filename)
     char fnam[] = "read_BAYESN_inputs";
 
     // -------------- BEGIN -------------
-#ifdef USE_BAYESN
+    // xxx mark #ifdef USE_BAYESN
     FILE *fh = fopen(filename, "r");
 
     // declare YAML parser and event instances
@@ -338,14 +337,18 @@ void read_BAYESN_inputs(char *filename)
             gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[k]);
         }
     }
-#endif
+    // xxx #endif
 
-#ifndef USE_BAYESN
+
+    /* xxxxxxxx mark #ifndef USE_BAYESN
       sprintf(c1err,"genmag_BAYESN.o compiled without libyaml." );
       sprintf(c2err,"Install libyaml, set env YAML_DIR to a non-null string, make clean; make; try again.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-#endif
-}
+   xxxxxxxxx */
+
+    return ;
+
+} // end read_BAYESN_inputs
 
 int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
@@ -377,8 +380,12 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     sprintf(yaml_file, "%s/BAYESN.YAML", BAYESN_MODELPATH);
     read_BAYESN_inputs(yaml_file);
 
-    // HACK HACK HACK 
-    char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
+    // HACK HACK HACK  (RK - at least allow it to work on any cluster using
+    // $SNDATA_ROOT path)
+        // xxx mark  char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
+    char SED_filepath[MXPATHLEN];
+    sprintf(SED_filepath,"%s/snsed/Hsiao07.dat", getenv("SNDATA_ROOT") );
+
     int istat;
     SEDMODEL_FLUX_DEF *S0 = &BAYESN_MODEL_INFO.S0;
     malloc_SEDFLUX_SEDMODEL(S0,0,0,0);
@@ -422,6 +429,12 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     BAYESN_MODEL_INFO.J_lam = spline_coeffs_irr(BAYESN_MODEL_INFO.S0.NLAM,
             BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.S0.LAM,
             BAYESN_MODEL_INFO.lam_knots, BAYESN_MODEL_INFO.KD_lam);
+
+
+    // init _LAST variables for extinction storage
+    SEDMODEL_MWEBV_LAST     = -999.   ;
+    SEDMODEL_HOSTXT_LAST.AV = -999.   ;
+    SEDMODEL_HOSTXT_LAST.z  = -999.   ;
 
     //debugexit(fnam);
     fflush(stdout);
@@ -470,6 +483,7 @@ void genmag_BAYESN(
     double *trans_filt_array;
     double *lam_model_array;
     double mag, d_lam ;
+    bool   USE_EXTINCTION_TABLE = false ;
     char fnam[] = "genmag_BAYESN";
 
     // ------- BEGIN -----------
@@ -492,14 +506,11 @@ void genmag_BAYESN(
     // make sure filter-lambda range is valid
     checkLamRange_SEDMODEL(ifilt,z,fnam);
 
-    /* xxx ?? RK xxx
     // store info for Galactic & host extinction    
-    SEDMODEL_MWEBV_LAST     = -999.   ;
-    SEDMODEL_HOSTXT_LAST.AV = -999.   ;
-    SEDMODEL_HOSTXT_LAST.z  = -999.   ;
-    fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); // RK
-    fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);             // RK
-    xxxxxx */
+    if ( USE_EXTINCTION_TABLE ) {  // RK
+      fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); 
+      fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);           
+    }
 
     // get the filter wavelengths
     nlam_filt        = FILTER_SEDMODEL[ifilt].NLAM;
@@ -593,15 +604,29 @@ void genmag_BAYESN(
       //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam, gsl_vector_get(&j_lam.vector, 0));
       gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
-      //GSN - 20230617 - get the right extinction
-      eA_lam_MW = pow(10.0, -0.4*GALextinct(3.1, 3.1*mwebv, this_lam, 99));
-      eA_lam_host = pow(10.0, -0.4*GALextinct(RV, AV, lam_model_array[q], 99));
+      if ( USE_EXTINCTION_TABLE ) {
+	// RK use lookup table for speed
+	ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
+	if ( ilam_filt < 0 || ilam_filt >= nlam_filt ) {
+	  sprintf(c1err,"Invalid ilam_filt=%d", ilam_filt);
+	  sprintf(c2err,"Nlam_filt=%d for %s lam=%f ", 
+		  nlam_filt, cfilt, this_lam);
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	}
+	eA_lam_MW   = SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam_filt] ; // RK
+	eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
 
-      /* xxx RK use lookup table for speed
-      ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
-      eA_lam_MW   = SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam_filt] ; // RK
-      eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
-      */
+      } else {
+	//GSN - 20230617 - get the right extinction
+	double RV_MW = MWXT_SEDMODEL.RV;
+	double AV_MW = RV_MW * mwebv;
+	// problem: the 99 arg (colorlaw) is hard-wired ??
+	double XTMAG_MW   = GALextinct(RV_MW, AV_MW, this_lam, 99);
+	double XTMAG_host = GALextinct(RV, AV, lam_model_array[q], 99);
+	eA_lam_MW   = pow(10.0, -0.4*XTMAG_MW);
+	eA_lam_host = pow(10.0, -0.4*XTMAG_host);
+      }
+      
 
       /*if (VERBOSE_BAYESN > 0)
         {

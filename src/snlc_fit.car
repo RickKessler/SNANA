@@ -11309,10 +11309,11 @@ c and then has guassian roll-off.
 c Fills PRIOR_CHI2GRID array so that chi2-contribution
 c can be looked up via interpolation in CHI2_PRIOR function.
 c
-c Works for DELTA, PHOTOZ and RV
+c Works for DELTA, PHOTOZ, RV
 c
 c Apr  2 2018: check PRIOR_COLOR_RANGE
 c Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
+c Jun 19 2023: check BAYESN model
 c 
 c ------------------------
 
@@ -11345,6 +11346,7 @@ c ------------------------
       character comment_prior*60
       LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
       LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT, IS_SNOOPY
+      LOGICAL IS_BAYESN, IS_ANY
 
 C -------------- BEGIN ---------------
 
@@ -11352,11 +11354,14 @@ C -------------- BEGIN ---------------
       comment_prior = ' '
       LFLAT = .TRUE.  ! default is flat between Guass-rolls
 
-      IS_SALT2 = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
+      IS_SALT2  = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
       IS_SNOOPY = ( FITMODEL_INDEX .EQ. MODEL_SNOOPY )
-      IS_COLOR = ( IPAR .EQ. IPAR_COLOR ) ! SALT2 c or AV
-      IS_SHAPE = ( IPAR .EQ. IPAR_SHAPE )
-      IS_zPHOT = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
+      IS_BAYESN = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
+      IS_ANY    = ( IS_SALT2 .or. IS_SNOOPY )
+
+      IS_COLOR  = ( IPAR .EQ. IPAR_COLOR ) ! SALT2 c or AV
+      IS_SHAPE  = ( IPAR .EQ. IPAR_SHAPE )
+      IS_zPHOT  = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
 
       DO_DELTA_PROFILE = IPAR .EQ. IPAR_SHAPE 
      &             .and. FITMODEL_INDEX .EQ. MODEL_MLCS2k2
@@ -11374,7 +11379,7 @@ C -------------- BEGIN ---------------
             LFLAT = .FALSE.
           endif
 
-      ELSE IF ( IS_COLOR .and. (IS_SALT2 .or. IS_SNOOPY) ) THEN  ! Apr 2 2018
+      ELSE IF ( IS_COLOR .and. IS_ANY ) THEN  ! Apr 2 2018
           RANGE(1) = PRIOR_COLOR_RANGE(1)
           RANGE(2) = PRIOR_COLOR_RANGE(2)
           SIGMA    = PRIOR_COLOR_SIGMA
@@ -11396,8 +11401,8 @@ C -------------- BEGIN ---------------
             SIGMA    = 0.1
           endif
       ELSE IF ( IS_zPHOT ) THEN
-            RANGE(1) = PHOTOZ_RANGE_KCOR(1)
-            RANGE(2) = PHOTOZ_RANGE_KCOR(2)
+          RANGE(1) = PHOTOZ_RANGE_KCOR(1)
+          RANGE(2) = PHOTOZ_RANGE_KCOR(2)
           SIGMA    = 0.2
       ELSE
           RETURN
@@ -11499,7 +11504,7 @@ c allow non-trivial priors to multiply flat prior
       LSTAT    = .TRUE.
 
       RETURN
-      END
+      END   ! end FITINI_FLATPRIOR
 
 
 C ==========================================

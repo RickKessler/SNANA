@@ -134,15 +134,6 @@ ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
-# xxxxxxxxxxxx mark delete May 25 2023 xxxxxxx
-#ifndef YAML_DIR
-#	LYAML = 
-#	USE_BAYESN = 0
-#else
-#	LYAML = -lyaml
-#	USE_BAYESN = 1
-#endif 
-# xxxxxxxxxxx
 
 # ------------------------------------------
 # default lib-subdir name is just 'lib'.

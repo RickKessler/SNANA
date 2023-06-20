@@ -1,6 +1,26 @@
 /**********************************************
 
-  July 1 2022 G. Narayan
+  July 1 2022 G. Narayan, S.Thorp, R.Kessler
+
+  CPU profile with -pg (Jun 19 2023):
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  Ts/call  Ts/call  name    
+ 27.46     13.24    13.24                             quickBinSearch
+ 25.99     25.77    12.53                             cblas_dgemv
+  9.11     30.16     4.39                             genmag_BAYESN
+  8.57     34.29     4.13                             quadInterp
+  4.69     36.55     2.26                             gsl_matrix_row
+  3.96     38.46     1.91                             interp_1DFUN
+  2.49     39.66     1.20                             interp_GRIDMAP
+  2.29     40.77     1.11                             gsl_blas_dgemv
+  1.78     41.63     0.86                             GALextinct
+  1.45     42.33     0.70                             inflate_fast
+  1.22     42.92     0.59                             usrfun_
+  1.16     43.48     0.56                             init_interp_GRIDMAP
+  1.04     43.98     0.50                             gsl_vector_get
+  1.00     44.46     0.48                             gsl_vector_set_zero
+  0.97     44.93     0.47                             gsl_matrix_get
 
 ********************************************/
 
@@ -432,9 +452,9 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
 
     // init _LAST variables for extinction storage
-    SEDMODEL_MWEBV_LAST     = -999.   ;
-    SEDMODEL_HOSTXT_LAST.RV = -999.   ;
-    SEDMODEL_HOSTXT_LAST.AV = -999.   ;
+    SEDMODEL_MWEBV_LAST     = -999.   ; // Galactic
+    SEDMODEL_HOSTXT_LAST.RV = -999.   ; // host extinction
+    SEDMODEL_HOSTXT_LAST.AV = -999.   ; // idem
     SEDMODEL_HOSTXT_LAST.z  = -999.   ;
 
     //debugexit(fnam);
@@ -462,13 +482,17 @@ void genmag_BAYESN(
     double AV    = parList_SN[2];
     double RV    = parList_SN[3];
 
+    int    OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW;
     double z1, meanlam_obs,  meanlam_rest, ZP; 
-    double t0, t1, f0, f1, flux;
-    double *flux_list  = malloc(sizeof(double)*Nobs); // RK
-    double *Trest_list = malloc(sizeof(double)*Nobs); 
-    int    *extrap_flag = malloc(sizeof(int)*Nobs); 
+    double t0, t1, f0, f1, flux ;
+
+    int MEMD = sizeof(double)*Nobs ;
+    double *flux_list  = malloc(MEMD); // RK
+    double *Trest_list = malloc(MEMD); 
+    int    *extrap_flag = malloc(MEMD); 
+
     char *cfilt;
-    int ifilt = 0, i; 
+    int ifilt = 0, i, o ; 
     
     //SHOULD I BE DECLARING THESE HERE??
     gsl_matrix * J_tau; // for time interpolation
@@ -479,7 +503,7 @@ void genmag_BAYESN(
     gsl_vector_view j_lam; //to store a row of J_lam
     gsl_vector * jWJ = gsl_vector_alloc(Nobs); 
 
-    int nlam_filt, ilam_filt, nlam_model, ilam_blue, ilam_red ;
+    int nlam_filt, ilam_filt, nlam_model, ilam_model_blue, ilam_model_red ;
     double *lam_filt_array, lamstep_filt ;
     double *trans_filt_array;
     double *lam_model_array, *day_model_array;
@@ -493,11 +517,12 @@ void genmag_BAYESN(
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
 
-
-    // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
-    for(i=0;i<Nobs;i++)
-    {
-        Trest_list[i] = Tobs_list[i]/z1;
+    // init a few things for each obs
+    for(o=0; o<Nobs; o++)  {  
+      Trest_list[o]  = Tobs_list[o]/z1;  
+      flux_list[o]   = 0.0 ;
+      magobs_list[o] = MAG_UNDEFINED ;  //Set magnitudes to undefined
+      extrap_flag[o] = false ;
     }
 
     // filter info for this "ifilt"
@@ -505,11 +530,12 @@ void genmag_BAYESN(
     ZP           = FILTER_SEDMODEL[ifilt].ZP ;
     cfilt        = FILTER_SEDMODEL[ifilt].name ;
     meanlam_rest = meanlam_obs/z1 ;
+
     // make sure filter-lambda range is valid
     checkLamRange_SEDMODEL(ifilt,z,fnam);
 
-    // store info for Galactic & host extinction    
-    if ( USE_TABLE_XTMW )  // RK
+    // store table look-up for Galactic & host extinction (RK)
+    if ( USE_TABLE_XTMW )  
       { fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);  }
     if ( USE_TABLE_XThost ) 
       { fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);  }
@@ -520,13 +546,12 @@ void genmag_BAYESN(
     trans_filt_array = FILTER_SEDMODEL[ifilt].transSN;
     lamstep_filt     = FILTER_SEDMODEL[ifilt].lamstep;
 
-    // get the hsiao wavelengths
+    // get the SN-model wavelengths
     nlam_model       = BAYESN_MODEL_INFO.S0.NLAM;
     lam_model_array  = BAYESN_MODEL_INFO.S0.LAM;
     day_model_array  = BAYESN_MODEL_INFO.S0.DAY;
     lamstep_model    = BAYESN_MODEL_INFO.S0.LAMSTEP; // RK
     daystep_model    = BAYESN_MODEL_INFO.S0.DAYSTEP; // RK
-    // xxx RK mark delete  d_lam    = lam_model_array[1] - lam_model_array[0];
 
     /* xxx RK mark delete slow code
     // project the model into the observer frame 
@@ -539,16 +564,18 @@ void genmag_BAYESN(
        { ilam_red--;    }
        xxxxxxx end mark xxxxxx */
 
-    // compute ilam_blue[red] instead of brute-force search (RK)
+    // compute ilam_model_blue[red] instead of brute-force search (RK)
     dlam_tmp = lam_filt_array[0] - z1*lam_model_array[0];
-    ilam_blue = (int)( dlam_tmp / (z1*lamstep_model) ) + 1 ; // RK
+    ilam_model_blue = (int)( dlam_tmp / (z1*lamstep_model) ) + 1 ; // RK
 
     dlam_tmp = lam_filt_array[nlam_filt-1] - z1*lam_model_array[0];
-    ilam_red = (int)( dlam_tmp / (z1*lamstep_model) ) ; // RK
+    ilam_model_red = (int)( dlam_tmp / (z1*lamstep_model) ) ; // RK
 
+    // - - - - - - - -
     // compute the matrix for time interpolation
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
             Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+
 
     /* xxx mark delete Jun 19 2023 RK
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
@@ -575,6 +602,7 @@ void genmag_BAYESN(
     }
     //    xxxxxx */
 
+    // - - - - - - - - - - - - - - 
     // compute W * J_tau^T
     gsl_matrix_set_zero(WJ_tau);
     gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, W, J_tau, 0.0, WJ_tau);
@@ -582,24 +610,18 @@ void genmag_BAYESN(
     // interpolate the filter wavelengths on to the model in the observer frame
     // usually this is OK because the filters are more coarsely defined than the model
     // that may not be the case with future surveys and we should revisit
-    int    this_nlam = ilam_red - ilam_blue + 1;
-    int    o, q, q_hsiao;
-    double this_lam;
-    double this_trans;
+    int    this_nlam = ilam_model_red - ilam_model_blue + 1;
+    int    OPT_INTERP = 1; // 1=linear, 2=quadratic
+    int    q_lam, q_day;
+    double this_lam, lam_model ;
+    double this_trans, tr0, tr1, frac ;
     double eA_lam_MW, eA_lam_host; // store MW and host dust law at current wl
     double eW, S0_lam; //To store other SED  bits
 
-    for (o = 0; o < Nobs; o++) { 
-      flux_list[o]   = 0.0 ;
-      magobs_list[o] = MAG_UNDEFINED ;  //Set magnitudes to undefined
-      extrap_flag[o] = false;
-    }
+    for(q_lam = ilam_model_blue; q_lam < ilam_model_red; q_lam++) {
 
-
-    for(q=ilam_blue; q<ilam_red; q++) {
-      this_lam   = lam_model_array[q]*z1;
-      this_trans = interp_1DFUN(2, this_lam, nlam_filt, 
-				lam_filt_array, trans_filt_array, fnam);
+      lam_model  = lam_model_array[q_lam]; // rest-frame model lam
+      this_lam   = lam_model_array[q_lam]*z1; // obs-frame
 
       // RK - get lam-index for filter
       ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
@@ -610,6 +632,27 @@ void genmag_BAYESN(
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
 
+
+      // for filter transmission, take advantage of fixed lamstep and 
+      // do explicit interpolation that is much faster than interp_1DFUN util
+      // (for slight speed improvement, create this_trans_map[ifilt][q_lam]
+      //  in init_genmag_BAYESN)
+      if ( ilam_filt < nlam_filt-1 ) {
+	tr0  = trans_filt_array[ilam_filt];
+	tr1  = trans_filt_array[ilam_filt+1];
+	frac = ( this_lam - lam_filt_array[ilam_filt] ) / lamstep_filt;
+	this_trans = tr0 + frac*(tr1-tr0);
+      }
+      else {
+	this_trans = trans_filt_array[ilam_filt];
+      }
+      /* xxxxxxxxx RK: mark delete [too slow] xxxxxxxxxxxx
+            this_trans = interp_1DFUN(OPT_INTERP, this_lam, nlam_filt, 
+      			lam_filt_array, trans_filt_array, fnam);
+      xxxxxxxx end mark xxxxxx */
+
+
+
       // super weird computation
       // this finds a vector of length Nobs, giving the SED at the
       // current wavelength for all observations
@@ -619,7 +662,7 @@ void genmag_BAYESN(
       // See enable_scatter
       //
       gsl_vector_set_zero(jWJ);
-      j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
+      j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q_lam);
         
       // GSN - 20230602 - J_lam matches - compare in restframe
       //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam, gsl_vector_get(&j_lam.vector, 0));
@@ -633,14 +676,15 @@ void genmag_BAYESN(
 	double RV_MW = MWXT_SEDMODEL.RV;
 	double AV_MW = RV_MW * mwebv;
 	// problem: the 99 arg (colorlaw) is hard-wired ??
-	double XTMAG_MW   = GALextinct(RV_MW, AV_MW, this_lam, 99);
+	double XTMAG_MW = GALextinct(RV_MW, AV_MW, this_lam, OPT_COLORLAW);
 	eA_lam_MW   = pow(10.0, -0.4*XTMAG_MW);
       }
 	
       if ( USE_TABLE_XThost ) {
 	eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
       } else {
-	double XTMAG_host = GALextinct(RV, AV, lam_model_array[q], 99);
+	
+	double XTMAG_host = GALextinct(RV, AV, lam_model, OPT_COLORLAW );
 	eA_lam_host = pow(10.0, -0.4*XTMAG_host);
       }
       
@@ -665,29 +709,29 @@ void genmag_BAYESN(
 	// compute day index instead of brute force search (RK)
 	dday_tmp = Trest_list[o] - day_model_array[0] ;
 	if ( dday_tmp >= 0.0 ) 
-	  { q_hsiao = (int)( dday_tmp / daystep_model) + 1; }
+	  { q_day = (int)( dday_tmp / daystep_model) + 1; }
 	else 
-	  { q_hsiao = 0; } // not sure this old logic is correct ??
+	  { q_day = 0; } // not sure this old logic is correct ??
 
 	// xxx mark delete RK if (q_hsiao < 0 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY){
-	if (q_hsiao < 0 ) {
-	  sprintf(c1err,"Invalid q_hsiao index %d. Valid range is [%d, %d]",
-		  q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
+	if (q_day < 0 ) {
+	  sprintf(c1err,"Invalid q_day index %d. Valid range is [%d, %d]",
+		  q_day, 0, BAYESN_MODEL_INFO.S0.NDAY);
 	  sprintf(c2err,"z=%.3f Trest=%.1f filt=%s",
 		  z, Trest_list[o], cfilt );
 	  
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
 
-	if ( q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY ) { // RK
-	  q_hsiao = BAYESN_MODEL_INFO.S0.NDAY-1; 
+	if ( q_day >= BAYESN_MODEL_INFO.S0.NDAY ) { // RK
+	  q_day = BAYESN_MODEL_INFO.S0.NDAY-1; 
 	  extrap_flag[o] = true;
 	}
 
-	t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
-	t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
-	f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
-	f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
+	t1 = BAYESN_MODEL_INFO.S0.DAY[q_day];
+	t0 = BAYESN_MODEL_INFO.S0.DAY[q_day-1];
+	f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_day + q_lam];
+	f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_day-1) + q_lam];
 
 	// HACK HACK HACK throw Trest at this instead or Tobs
 	S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
@@ -839,76 +883,96 @@ gsl_matrix *invKD_irr(int Nk, double *xk) {
 	return M;
 }
 
-gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD) {
-	gsl_matrix * J = gsl_matrix_alloc(N, Nk);
-	gsl_matrix_set_zero(J);
+// =======================================
+gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, 
+			      gsl_matrix *invKD) {
 
-	int i, j, q;
-	double h, a, b, c, d, f;
-	for (i=0; i<N; i++) {
-		if (x[i] > xk[Nk-1]) {
-			h = xk[Nk-1] - xk[Nk-2];
-			a = (xk[Nk-1] - x[i])/h;
-			b = 1.0 - a;
-			f = (x[i] - xk[Nk-1])*h/6.0;
+  gsl_matrix * J = gsl_matrix_alloc(N, Nk); 
+  gsl_matrix_set_zero(J);
 
-			gsl_matrix_set(J, i, Nk-2, a);
-			gsl_matrix_set(J, i, Nk-1, b);
-			//FIXME I can probably do this by accessing a row and modifying
-			for (j=0; j<Nk; j++) {
-				gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j) + f*gsl_matrix_get(invKD, Nk-2, j));
-			}
-		}
-		else if (x[i] < xk[0]) {
-			h = xk[1] - xk[0];
-			b = (x[i] - xk[0])/h;
-			a = 1.0 - b;
-			f = (x[i] - xk[0])*h/6.0;
+  int i, j, q;
+  double h, a, b, c, d, f, h2, a3, b3;
+  for (i=0; i<N; i++) {
+    if (x[i] > xk[Nk-1]) {
+      h = xk[Nk-1] - xk[Nk-2];
+      a = (xk[Nk-1] - x[i])/h;
+      b = 1.0 - a;
+      f = (x[i] - xk[Nk-1])*h/6.0;
+      
+      gsl_matrix_set(J, i, Nk-2, a);
+      gsl_matrix_set(J, i, Nk-1, b);
+      //FIXME I can probably do this by accessing a row and modifying
+      for (j=0; j<Nk; j++) {
+	gsl_matrix_set(J, i, j, 
+		       gsl_matrix_get(J, i, j) + f*gsl_matrix_get(invKD, Nk-2, j) );
+      }
+    }
+    else if (x[i] < xk[0]) {
+      h = xk[1] - xk[0];
+      b = (x[i] - xk[0])/h;
+      a = 1.0 - b;
+      f = (x[i] - xk[0])*h/6.0;
+      
+      gsl_matrix_set(J, i, 0, a);
+      gsl_matrix_set(J, i, 1, b);
+      for (j=0; j<Nk; j++) {
+	gsl_matrix_set(J, i, j, 
+		       gsl_matrix_get(J, i, j) - f*gsl_matrix_get(invKD, 1, j) );
+      }
+    }
+    else {
+      q = 0;
+      while (q < Nk-2 && xk[q+1] <= x[i]) { q++; }
+      h = xk[q+1] - xk[q];
+      a = (xk[q+1] - x[i])/h;
+      b = 1.0 - a;
 
-			gsl_matrix_set(J, i, 0, a);
-			gsl_matrix_set(J, i, 1, b);
-			for (j=0; j<Nk; j++) {
-				gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j) - f*gsl_matrix_get(invKD, 1, j));
-			}
-		}
-		else {
-			q = 0;
-			while (q < Nk-2 && xk[q+1] <= x[i]) { q++; }
-			h = xk[q+1] - xk[q];
-			a = (xk[q+1] - x[i])/h;
-			b = 1.0 - a;
-			c = ((pow(a, 3) - a)/6.0)*h*h;
-			d = ((pow(b, 3) - b)/6.0)*h*h;
+      // RK - replace pow with explicity multiplication (for speed)
+      a3 = a * a * a ;
+      b3 = b * b * b ;
+      h2 = h * h ;
+      c = ( (a3 - a)/6.0) * h2 ; 
+      d = ( (b3 - b)/6.0) * h2 ; 
 
-			gsl_matrix_set(J, i, q, a);
-			gsl_matrix_set(J, i, q+1, b);
-			for (j=0; j<Nk; j++) {
-				gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j) + c*gsl_matrix_get(invKD, q, j) + d*gsl_matrix_get(invKD, q+1, j));
-			}
-		}
-	}
+      /* xxxxxxx beware that pow function is very slow xxxxxxxxxx
+      // xxx RK mark delete c = ((pow(a, 3) - a)/6.0)*h*h; 
+      // xxx RK mark delete d = ((pow(b, 3) - b)/6.0)*h*h;
+      xxxxxxxxx */
 
-	return J;
-}
+      gsl_matrix_set(J, i, q,   a);
+      gsl_matrix_set(J, i, q+1, b);
+      for (j=0; j<Nk; j++) {
+	gsl_matrix_set(J, i, j, 
+		       gsl_matrix_get(J, i, j) + 
+		       c*gsl_matrix_get(invKD, q,   j) + 
+		       d*gsl_matrix_get(invKD, q+1, j) );
+      }
+    }
+  }
+  
+  return J;
 
-int print_matrix(FILE *f, const gsl_matrix *m)
-{
-        int status, n = 0;
-        size_t i=0;
-        size_t j=0;
+} // end spline_coeffs_irr 
 
-        for (i = 0; i < m->size1; i++) {
-                for (j = 0; j < m->size2; j++) {
-                        if ((status = fprintf(f, "%g ", gsl_matrix_get(m, i, j))) < 0)
-                                return -1;
-                        n += status;
-                }
+// =================================================
+int print_matrix(FILE *f, const gsl_matrix *m) {
 
-                if ((status = fprintf(f, "\n")) < 0)
-                        return -1;
-                n += status;
-        }
+  int status, n = 0;
+  size_t i=0;
+  size_t j=0;
 
-        return n;
-}
+  for (i = 0; i < m->size1; i++) {
+    for (j = 0; j < m->size2; j++) {
+      if ( (status = fprintf(f, "%g ", gsl_matrix_get(m, i, j))) < 0 )
+	{ return -1; }
+      n += status;
+    }
+
+    if ((status = fprintf(f, "\n")) < 0)
+      { return -1 ; }
+    n += status;
+  }
+  
+  return n;
+} // end print_matrix
 

@@ -433,6 +433,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
     // init _LAST variables for extinction storage
     SEDMODEL_MWEBV_LAST     = -999.   ;
+    SEDMODEL_HOSTXT_LAST.RV = -999.   ;
     SEDMODEL_HOSTXT_LAST.AV = -999.   ;
     SEDMODEL_HOSTXT_LAST.z  = -999.   ;
 
@@ -478,12 +479,13 @@ void genmag_BAYESN(
     gsl_vector_view j_lam; //to store a row of J_lam
     gsl_vector * jWJ = gsl_vector_alloc(Nobs); 
 
-    int nlam_filt, ilam_filt, nlam_model ;
+    int nlam_filt, ilam_filt, nlam_model, ilam_blue, ilam_red ;
     double *lam_filt_array, lamstep_filt ;
     double *trans_filt_array;
-    double *lam_model_array;
-    double mag, d_lam ;
-    bool   USE_EXTINCTION_TABLE = false ;
+    double *lam_model_array, *day_model_array;
+    double mag, lamstep_model, daystep_model, dlam_tmp, dday_tmp;
+    bool   USE_TABLE_XTMW   = true ;
+    bool   USE_TABLE_XThost = true ;
     char fnam[] = "genmag_BAYESN";
 
     // ------- BEGIN -----------
@@ -507,10 +509,10 @@ void genmag_BAYESN(
     checkLamRange_SEDMODEL(ifilt,z,fnam);
 
     // store info for Galactic & host extinction    
-    if ( USE_EXTINCTION_TABLE ) {  // RK
-      fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); 
-      fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);           
-    }
+    if ( USE_TABLE_XTMW )  // RK
+      { fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);  }
+    if ( USE_TABLE_XThost ) 
+      { fill_TABLE_HOSTXT_SEDMODEL(RV, AV, z);  }
 
     // get the filter wavelengths
     nlam_filt        = FILTER_SEDMODEL[ifilt].NLAM;
@@ -519,20 +521,30 @@ void genmag_BAYESN(
     lamstep_filt     = FILTER_SEDMODEL[ifilt].lamstep;
 
     // get the hsiao wavelengths
-    nlam_model  = BAYESN_MODEL_INFO.S0.NLAM;
-    lam_model_array = BAYESN_MODEL_INFO.S0.LAM;
-    d_lam    = lam_model_array[1] - lam_model_array[0];
+    nlam_model       = BAYESN_MODEL_INFO.S0.NLAM;
+    lam_model_array  = BAYESN_MODEL_INFO.S0.LAM;
+    day_model_array  = BAYESN_MODEL_INFO.S0.DAY;
+    lamstep_model    = BAYESN_MODEL_INFO.S0.LAMSTEP; // RK
+    daystep_model    = BAYESN_MODEL_INFO.S0.DAYSTEP; // RK
+    // xxx RK mark delete  d_lam    = lam_model_array[1] - lam_model_array[0];
 
+    /* xxx RK mark delete slow code
     // project the model into the observer frame 
     // get the rest-frame model wavelengths that overlap with the filter 
-    int ilam_blue = 0;
-    while (z1*lam_model_array[ilam_blue] <= lam_filt_array[0]) {
-        ilam_blue++;
-    }
-    int ilam_red = nlam_model - 1;
-    while (z1*lam_model_array[ilam_red] >= lam_filt_array[nlam_filt-1]) {
-        ilam_red--;
-    }
+    ilam_blue = 0;
+    while (z1*lam_model_array[ilam_blue] <= lam_filt_array[0])
+       { ilam_blue++;    }
+    ilam_red = nlam_model - 1;
+    while (z1*lam_model_array[ilam_red] >= lam_filt_array[nlam_filt-1]) 
+       { ilam_red--;    }
+       xxxxxxx end mark xxxxxx */
+
+    // compute ilam_blue[red] instead of brute-force search (RK)
+    dlam_tmp = lam_filt_array[0] - z1*lam_model_array[0];
+    ilam_blue = (int)( dlam_tmp / (z1*lamstep_model) ) + 1 ; // RK
+
+    dlam_tmp = lam_filt_array[nlam_filt-1] - z1*lam_model_array[0];
+    ilam_red = (int)( dlam_tmp / (z1*lamstep_model) ) ; // RK
 
     // compute the matrix for time interpolation
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
@@ -589,6 +601,15 @@ void genmag_BAYESN(
       this_trans = interp_1DFUN(2, this_lam, nlam_filt, 
 				lam_filt_array, trans_filt_array, fnam);
 
+      // RK - get lam-index for filter
+      ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
+      if ( ilam_filt < 0 || ilam_filt >= nlam_filt ) {
+	sprintf(c1err,"Invalid ilam_filt=%d", ilam_filt);
+	sprintf(c2err,"Nlam_filt=%d for %s lam=%f ", 
+		nlam_filt, cfilt, this_lam);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
       // super weird computation
       // this finds a vector of length Nobs, giving the SED at the
       // current wavelength for all observations
@@ -604,26 +625,22 @@ void genmag_BAYESN(
       //printf("DEBUG lam_model: %.2f     lam filt: %.2f     j_lam: %.5f\n",lam_model[q], this_lam, gsl_vector_get(&j_lam.vector, 0));
       gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
-      if ( USE_EXTINCTION_TABLE ) {
-	// RK use lookup table for speed
-	ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
-	if ( ilam_filt < 0 || ilam_filt >= nlam_filt ) {
-	  sprintf(c1err,"Invalid ilam_filt=%d", ilam_filt);
-	  sprintf(c2err,"Nlam_filt=%d for %s lam=%f ", 
-		  nlam_filt, cfilt, this_lam);
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-	}
+      if ( USE_TABLE_XTMW  ) {
 	eA_lam_MW   = SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam_filt] ; // RK
-	eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
-
-      } else {
+      }
+      else {
 	//GSN - 20230617 - get the right extinction
 	double RV_MW = MWXT_SEDMODEL.RV;
 	double AV_MW = RV_MW * mwebv;
 	// problem: the 99 arg (colorlaw) is hard-wired ??
 	double XTMAG_MW   = GALextinct(RV_MW, AV_MW, this_lam, 99);
-	double XTMAG_host = GALextinct(RV, AV, lam_model_array[q], 99);
 	eA_lam_MW   = pow(10.0, -0.4*XTMAG_MW);
+      }
+	
+      if ( USE_TABLE_XThost ) {
+	eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
+      } else {
+	double XTMAG_host = GALextinct(RV, AV, lam_model_array[q], 99);
 	eA_lam_host = pow(10.0, -0.4*XTMAG_host);
       }
       
@@ -638,11 +655,21 @@ void genmag_BAYESN(
 	      printf("DEBUG: Trest: %.2f    JWJ:   %.5f\n", Trest_list[o], gsl_vector_get(jWJ, o));
 	      }*/
 	eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
+
+	/* xxx mark delete RK 
 	// Seek the first Hsiao timestep above the current obs time
 	q_hsiao = 0;
-	while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
+	while (day_model_array[q_hsiao] <= Trest_list[o]) { q_hsiao++; }
+	xxxxxxx */
 
-	// xxx mark delete RK if (q_hsiao < 0 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY) {
+	// compute day index instead of brute force search (RK)
+	dday_tmp = Trest_list[o] - day_model_array[0] ;
+	if ( dday_tmp >= 0.0 ) 
+	  { q_hsiao = (int)( dday_tmp / daystep_model) + 1; }
+	else 
+	  { q_hsiao = 0; } // not sure this old logic is correct ??
+
+	// xxx mark delete RK if (q_hsiao < 0 || q_hsiao >= BAYESN_MODEL_INFO.S0.NDAY){
 	if (q_hsiao < 0 ) {
 	  sprintf(c1err,"Invalid q_hsiao index %d. Valid range is [%d, %d]",
 		  q_hsiao, 0, BAYESN_MODEL_INFO.S0.NDAY);
@@ -661,14 +688,17 @@ void genmag_BAYESN(
 	t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
 	f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
 	f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
+
 	// HACK HACK HACK throw Trest at this instead or Tobs
 	S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
-	flux = this_trans*this_lam*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+
+	//Increment flux with contribution from this wl
+	flux = this_trans * this_lam * lamstep_model * eA_lam_MW * eA_lam_host * eW * S0_lam; 
 	
 	flux_list[o] += flux ;
 
 	/*if (o == 0 && q == ilam_blue + 10) {
-	  printf("XXX DEBUG Trest %.3f; q %d; this_trans %.6f; this_lam %.3f; d_lam %.3f; eA_lam_MW %.3f; eA_lam_host %.3f; eW %.3f; S0_lam %le\n", Trest_list[o], q, this_trans, this_lam, d_lam, eA_lam_MW, eA_lam_host, eW, S0_lam);
+	  printf("XXX DEBUG Trest %.3f; q %d; this_trans %.6f; this_lam %.3f; d_lam %.3f; eA_lam_MW %.3f; eA_lam_host %.3f; eW %.3f; S0_lam %le\n", Trest_list[o], q, this_trans, this_lam, lamstep_model, eA_lam_MW, eA_lam_host, eW, S0_lam);
             }*/
 	
 	/*if (o == 0) {

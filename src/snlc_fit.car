@@ -1554,7 +1554,7 @@ c abort if more than 3 model filters are not defined.
 c This is bit arbitrary, but it allows ignoring some 
 c model-wavelength ranges such as the IR.
 
-      IF ( NF > 3 ) THEN  ! 30 -> 3 Nov 28 2022 .xyz
+      IF ( NF > 3 ) THEN  ! 30 -> 3 Nov 28 2022
          write(C1ERR,651) NF, CFILT_UNDEFINED(1:NF)
 651      format(I3,' undefined rest-frame model filters (',A,')' )
          c2err = 'Check KCOR/CALIB input file for rest-frame filters'
@@ -2010,7 +2010,7 @@ c set USE_FILT based on user-request, existence,
 c and valid rest-frame filter.
 
          USE_FILT(ifilt_obs) = 
-     &      LFITFUN_FILT(ifilt_obs,Z8TEST) ! .xyz
+     &      LFITFUN_FILT(ifilt_obs,Z8TEST) 
 
          NOMATCH  = 
      &     USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs) 
@@ -5060,14 +5060,18 @@ c Jul 25, 2011: prior for simulated efficiency
 
 
 c =================================================
-cc      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888
-      IF ( LOBS_FITMODEL ) GOTO 888  ! Jul 25, 2011
+      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888 ! restore 6/19/23
+cc      IF ( LOBS_FITMODEL ) GOTO 888  ! xxx mark delete Jun 19 2023
 c =================================================
 
 c Prior on AV
       IF ( INISTP_AV .NE. 0.0 ) then
         CHI2PRIOR(IPAR_AV)      
      &          = CHI2_PRIOR(ipar_av,COLOR)
+
+c        print*, ' xxx COLOR, CHI2PRIOR = ',
+c     &       COLOR, CHI2PRIOR(IPAR_AV) ; call flush(6) ! .xyz
+
         CHI2PRIOR(IPAR_RV)      
      &          = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
       ENDIF
@@ -5080,7 +5084,8 @@ c sum all the pieces
       ENDDO
 
       RETURN
-      END
+      END  ! end FCNCHI2_PRIOR
+
 
 C ==============================================
 +DECK,DUMP_ZPHOT_PRIOR.
@@ -11346,7 +11351,7 @@ c ------------------------
       character comment_prior*60
       LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
       LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT, IS_SNOOPY
-      LOGICAL IS_BAYESN, IS_ANY
+      LOGICAL IS_BAYESN, IS_MODEL_FLATCOLOR
 
 C -------------- BEGIN ---------------
 
@@ -11357,7 +11362,7 @@ C -------------- BEGIN ---------------
       IS_SALT2  = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
       IS_SNOOPY = ( FITMODEL_INDEX .EQ. MODEL_SNOOPY )
       IS_BAYESN = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
-      IS_ANY    = ( IS_SALT2 .or. IS_SNOOPY )
+      IS_MODEL_FLATCOLOR   = ( IS_SALT2 .or. IS_SNOOPY  )
 
       IS_COLOR  = ( IPAR .EQ. IPAR_COLOR ) ! SALT2 c or AV
       IS_SHAPE  = ( IPAR .EQ. IPAR_SHAPE )
@@ -11379,7 +11384,7 @@ C -------------- BEGIN ---------------
             LFLAT = .FALSE.
           endif
 
-      ELSE IF ( IS_COLOR .and. IS_ANY ) THEN  ! Apr 2 2018
+      ELSE IF ( IS_COLOR .and. IS_MODEL_FLATCOLOR ) THEN  ! Apr 2 2018
           RANGE(1) = PRIOR_COLOR_RANGE(1)
           RANGE(2) = PRIOR_COLOR_RANGE(2)
           SIGMA    = PRIOR_COLOR_SIGMA

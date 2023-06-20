@@ -14,6 +14,7 @@
 #
 # Sep 10 2020: minor refactor with BYOSED -> PySEDMODEL
 # Jun 10 2022: check VERSION_LIBPYTHON instead of SNANA_PYTHON_DIR
+# Jun 20 2023: remove USE_BAYESN/YAML_DIR/INCFILE_BAYESN from lists
 #
 import os
 import sys
@@ -24,12 +25,10 @@ INCFILE_OUTPUT     = '../src/sntools_output.h'
 INCFILE_PySEDMODEL = '../src/genmag_PySEDMODEL.h'
 INCFILE_BAYESN     = '../src/genmag_BAYESN.h'
 
-LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON', 'USE_BAYESN' ]
-# xxx mark LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'SNANA_PYTHON_DIR' ]
-LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON' , 'YAML_DIR']
-LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL, INCFILE_BAYESN ]
+LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
+LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON' ]
+LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL ]
 NCFLAG         = len(LIST_CFLAG)
-
 
 def check_Cflag(iflag):
 

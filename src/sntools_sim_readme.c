@@ -40,6 +40,8 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   // The iflag_readme scheme enables viewing most of the README
   // while job is running; e.g., can check INPUT_KEYS before 
   // long job finishes.
+  //
+  // Jun 21 2023: abort if any README_DOC line is too long
 
   int i;
   char fnam[] = "README_DOCANA_DRIVER";
@@ -109,6 +111,23 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   VERSION_INFO.NLINE_README = i;  
   if ( iflag_readme == 1 ) 
     { VERSION_INFO.NLINE_README_INIT = i; }
+
+
+  // - - - - - - - - - - -                                                      
+  // abort if any string length is too long (Jun 2023) 
+  char *line; int len;
+  for(i=0; i < VERSION_INFO.NLINE_README; i++ ) {
+    line = VERSION_INFO.README_DOC[i];
+    len  = strlen(line);
+    if ( len > MXPATHLEN ) {
+      print_preAbort_banner(fnam);
+      printf(" README_DOC line =\n\t '%s' \n", line );
+      sprintf(c1err,"DOCANA line len=%d exceeds bound of MXPATHLEN=%d",
+              len, MXPATHLEN);
+      sprintf(c2err,"Reduce line len or increase MXPATHLEN");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
+    }
+  }
 
   return;
 

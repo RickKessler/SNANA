@@ -40,6 +40,7 @@
   May 19 2023: MXSPECTRA -> 500 (was 300)
   May 24 2023: MXSPECTRA -> 1000 (was 500)
   May 24 2023: MXDOCLINE -> 2000 (was 1000) to handle long list of NON1A keys
+  Jun 21 2023: MXPATHLEN -> 400 (was 300)
 
 *****************************************************/
 
@@ -111,7 +112,7 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 //  disk pointers defined in init_SNDATA
 
-#define MXPATHLEN            300  // max length of path of full file-name
+#define MXPATHLEN            400  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 

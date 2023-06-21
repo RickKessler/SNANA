@@ -1842,6 +1842,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   if ( keyMatchSim(1, "PATH_NON1ASED PATH_NONIASED", WORDS[0], keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
     return(N);
   }
   else if ( 

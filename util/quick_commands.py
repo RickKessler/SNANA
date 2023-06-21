@@ -471,6 +471,8 @@ def extract_sim_input_file(args):
     # read INPUT_KEYS from DOCUMENTATION in VERSION.README,
     # and create a sim-input file. Modify the GENVERSION
     # to be {version}_REPEAT to avoid clobbering orginal output.
+    # Command to implement this feature:
+    #   quick_commands.py -v [version] --extract_sim_input                             
 
     version_orig   = args.version
     version_repeat = f"{version_orig}_REPEAT"

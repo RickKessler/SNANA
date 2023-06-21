@@ -21746,6 +21746,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    simulation:
      + more DCR development.
+     + MXPATHLEN -> 400 (was 300) to handle SIMGEN_DUMP line
+   sntools_sim_readme.c
+     + abort if any README_DOC line is too long
 
    submit_train_util.py:
      + new util file to be used by both SALT3 and BayeSN

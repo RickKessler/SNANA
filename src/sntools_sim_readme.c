@@ -119,11 +119,11 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   for(i=0; i < VERSION_INFO.NLINE_README; i++ ) {
     line = VERSION_INFO.README_DOC[i];
     len  = strlen(line);
-    if ( len > MXPATHLEN ) {
+    if ( len > 2*MXPATHLEN ) {
       print_preAbort_banner(fnam);
       printf(" README_DOC line =\n\t '%s' \n", line );
-      sprintf(c1err,"DOCANA line len=%d exceeds bound of MXPATHLEN=%d",
-              len, MXPATHLEN);
+      sprintf(c1err,"DOCANA line len=%d exceeds bound of 2*MXPATHLEN=%d",
+              len, 2*MXPATHLEN);
       sprintf(c2err,"Reduce line len or increase MXPATHLEN");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
     }

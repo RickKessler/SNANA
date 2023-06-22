@@ -6969,6 +6969,21 @@ void prep_dustFlags(void) {
   if ( IDMAP_GENPDF(PARNAME_EBV,&LOGPARAM ) >= 0 ) { DO_AV +=4; }
   INPUTS.DOGEN_AV = DO_AV ; // store global for gen_modelPar_dust()
 
+  // Jun 2023 - require dust sim for MLCS,snoopy,BayeSN
+  if ( INDEX_GENMODEL == MODEL_MLCS2k2 ||
+       INDEX_GENMODEL == MODEL_SNOOPY  ||
+       INDEX_GENMODEL == MODEL_BAYESN ) {
+    
+    if ( !(INPUTS.DOGEN_AV && INPUTS.GENGAUSS_RV.USE ) ) {
+      print_preAbort_banner(fnam);
+      printf("   GENMODEL:  %s\n", INPUTS.GENMODEL);
+      sprintf(c1err,"DOGEN_AV=%d DOGEN_RV=%d", 
+	      INPUTS.DOGEN_AV, INPUTS.GENGAUSS_RV.USE);
+      sprintf(c2err,"Must simulate AV,RV for GENMODEL list above");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+
   // make sure that AV and RV are each defined once and only once.
   if ( DO_AV == 3 || DO_AV == 5 ) {
     sprintf(c1err,"AV/EBV profile defined twice (expFun and GENPDF_FILE)");
@@ -24758,6 +24773,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 
     // to be consistent with legacy code, SNR_CALC here must
     // include sqadderr_pe
+
     double SNR_CALC = SNR_CALC_ST * sqrt(SQSIG_ST_ORIG/SQSIG_ST_NEW);
     SCALE     = get_SIMLIB_fluxerrScale_LEGACY(ifilt_obs, SNR_CALC);    
     SQSCALE   = SCALE * SCALE ;

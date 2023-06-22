@@ -477,10 +477,10 @@ void genmag_BAYESN(
 
     //bool dumpsed = false;
     bool enable_scatter = false;    
-    double DLMAG = parList_SN[0];
-    double THETA = parList_SN[1];
-    double AV    = parList_SN[2];
-    double RV    = parList_SN[3];
+    double DLMAG = parList_SN[0] ;
+    double THETA = parList_SN[1] ;
+    double AV    = parList_SN[2] ;
+    double RV    = parList_SN[3] ;
 
     int    OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW;
     double z1, meanlam_obs,  meanlam_rest, ZP; 
@@ -516,6 +516,7 @@ void genmag_BAYESN(
     // translate absolute filter index into sparse index
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
+
 
     // init a few things for each obs
     for(o=0; o<Nobs; o++)  {  
@@ -777,14 +778,16 @@ void genmag_BAYESN(
     {
         printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f   THETA: %.2f   AV: %.2f\n", BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
     }
+
+
     double hc_local = hc;
+    double Trest_edge = 40.0, flux_edge = -9.0, slope_flux ; // RK HACK
     for (o = 0; o < Nobs; o++) {
 
       // RK - check extrap flag to allow slop in fitted PEAKMJD
       if ( extrap_flag[o] ) {
-	double Trest_edge = 40.0; // (days) compute this edge more formally
-	double flux_edge  = flux_list[o];
-	double slope_flux = 0.03; // mag/day, should be computed from last few days
+	flux_edge  = flux_list[o];
+	slope_flux = -flux_edge * 0.05; // dF/dt hack
 	int    EXTRAPFLAG_DMP = 0 ;
 	flux = modelflux_extrap( Trest_list[o], Trest_edge, 
 				 flux_edge, slope_flux, EXTRAPFLAG_DMP ) ; 
@@ -797,6 +800,11 @@ void genmag_BAYESN(
 	DLMAG -
 	2.5*log10(flux_list[o]/hc_local) +  // RK
 	ZP; 
+
+      /* xxx
+      printf(" xxx %s: o=%d Trest=%f  flux=%le  flux_edge=%le\n", 
+	     fnam, o, Trest_list[o], flux_list[o], flux_edge);
+      xxxx */
 
       magerr_list[o] = 0.01; // RK 0.1 is too big for LCfit
 

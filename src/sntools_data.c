@@ -608,6 +608,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_DELTA") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_DELTA) ; }  
 
+    else if ( strcmp(key,"SIM_THETA") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_THETA) ; }  // Jun 2023
+
     else if ( strcmp(key,"SIM_STRETCH") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_STRETCH) ; }  
 

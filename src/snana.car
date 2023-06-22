@@ -4949,6 +4949,13 @@ c - - -  shape params - - - -
          SIMNAME_SHAPEPAR = 'SIM_DELTA'
       ENDIF
 
+c   Jun 2023 - check for THETA for BayeSN model
+      CALL FETCH_SNDATA_WRAPPER("SIM_THETA", ONE, STRING, DARRAY, OPT)
+      IF ( DARRAY(1) > -8.0 ) THEN
+         SIM_SHAPEPAR     = SNGL(DARRAY(1))
+         SIMNAME_SHAPEPAR = 'SIM_THETA'
+      ENDIF
+
       CALL FETCH_SNDATA_WRAPPER("SIM_DM15", ONE, STRING, DARRAY, OPT)
       IF ( DARRAY(1) > -8.0 ) THEN
          SIM_SHAPEPAR     = SNGL(DARRAY(1))

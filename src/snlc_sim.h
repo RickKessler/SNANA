@@ -318,13 +318,6 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
-/* xxx mark delete 
-// DCR effects in Table 1 of arXiv:2304.01858
-#define ATMOSPHERE_OPTMASK_DCR_COORD         1
-#define ATMOSPHERE_OPTMASK_DCR_PSFSHAPE      2
-#define ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR   512 // write DCR SIMGEN DUMPfile
-xxx */
-
 
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra

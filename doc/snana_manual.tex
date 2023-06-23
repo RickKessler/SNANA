@@ -6898,6 +6898,17 @@ to {\tt SIMGEN\_DUMPALL} via command line arg, use the
    snlc_sim.exe  mysim.input  SIMGEN_DUMPALL SWITCH
 \end{verbatim}
 
+
+\bigskip
+To append dump variables on the command line 
+(or {\tt GENOPT} using {\tt submit\_batch\_jobs}),
+\begin{verbatim}                                                                    
+   snlc_sim.exe  mysim.input  SIMGEN_DUMPADD SALT2c,SALT2x1  
+\end{verbatim}
+%
+The ADD-list argument must be a comma-separated list,
+and using this key in the sim-input file will trigger an abort.
+
 % ------------------------------------
    \subsubsection{ Model Dump }
    \label{sssec:model_dump}

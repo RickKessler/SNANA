@@ -21737,6 +21737,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** USEFUL(v11_05e) ***** 
 
+    new sim-input override
+        SIMGEN_DUMPADD 'SALT2c,SALT2x1'
+    to append SIMGEN_DUMP variables to already existing list in the
+    sim-input file
+
         ***** MISCELLANEOUS(v11_05e) ***** 
 
    sntools_data.c

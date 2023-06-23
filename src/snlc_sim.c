@@ -4277,10 +4277,18 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   // Read/parse SIMGEN_DUMP[ALL] info
   //
   // Apr 16 2021: check SIMGEN_DUMPALL SWITCH 
+  // Jun 23 2023: check LRD_ADD
 
   int  ivar, NVAR=0, N=0 ;
   bool LRD = false, LRD_COMMA_SEP=false, LRD_SPACE_SEP=false ;
+  bool LRD_ADD = false;
   char *varName ;
+
+  // local var to parse comma-sep list
+  char *ptrSplit[MXSIMGEN_DUMP];
+  int MXCHARWD = MXCHARWORD_PARSE_WORDS;
+  int MXVAR    = MXSIMGEN_DUMP ;
+
   char fnam[] = "parse_input_SIMGEN_DUMP";
 
   // ------------- BEGIN ------------
@@ -4291,6 +4299,18 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP", WORDS[0], keySource) ) {
     LRD = true ;
+  }
+  else if ( keyMatchSim(1, "SIMGEN_DUMPADD", WORDS[0], keySource) ) {
+    // Jun 2023: new option to add a few variables to avoid re-writing
+    //   entire list. E..g, SIMGEN_DUMPADD SALT2c,SALT2x1.
+    //   Only comma-sep list allowed here
+    LRD = LRD_ADD = true ;
+    if ( keySource == KEYSOURCE_FILE ) {
+      sprintf(c1err,"SIMGEN_DUMPADD key not allowed in sim-input file;");
+      sprintf(c2err,"SIMGEN_DUMPADD allowed only as command-line override");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+        
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMPALL", WORDS[0], keySource) ) {
     LRD = true ;
@@ -4305,6 +4325,22 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // - - - - - - - 
 
+  // check option to add a few variables via command line override
+  if ( LRD_ADD ) {
+    // be careful to ADD variables, not clobber existing variables.
+    N++ ;
+    int NVAR_ADD;
+    NVAR = INPUTS.NVAR_SIMGEN_DUMP ;
+    for(ivar=NVAR; ivar < MXVAR; ivar++ ) 
+      { ptrSplit[ivar] = INPUTS.VARNAME_SIMGEN_DUMP[ivar]; }
+
+    splitString(WORDS[N], COMMA, fnam, MXVAR, &NVAR_ADD, &ptrSplit[NVAR] );
+    INPUTS.NVAR_SIMGEN_DUMP += NVAR_ADD ;
+    goto README_LOAD ;    
+  } // end LRD_ADD
+
+
+  // - - - - 
   if ( !LRD ) { goto README_LOAD ; }
 
   for(ivar=0; ivar < MXSIMGEN_DUMP; ivar++ ) {
@@ -4336,11 +4372,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   if ( LRD_COMMA_SEP ) {
     // Apr 2021: optional comma-sep list that doesn't need NVAR
     // e.g., SIMGEN_DUMP: CID,ZCMB,RA,DEC
-
-    char *ptrSplit[MXSIMGEN_DUMP];
-    int MXCHARWD = MXCHARWORD_PARSE_WORDS;
-    int MXVAR    = MXSIMGEN_DUMP ;
-      
+     
     N++ ;
 
     for(ivar=0; ivar < MXVAR; ivar++ ) 
@@ -14174,11 +14206,15 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   NVAR_SIMGEN_DUMP++ ;
 
   // - - - - - -
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"NON1A_INDEX") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_ind[3][20] = { "SIM_TEMPLATE_INDEX", "NON1A_INDEX", "NONIA_INDEX" };
+  for ( i=0; i < 3; i++ )  {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    cptr = strList_ind[i];
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
+  /* xxxxxxxx mark delete Jun 23 2023 RK xxxxxxx
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"NONIA_INDEX") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
@@ -14188,6 +14224,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   sprintf(cptr,"SIM_TEMPLATE_INDEX") ; // matches data file key
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
   NVAR_SIMGEN_DUMP++ ;
+  xxxxxxxxx end mark xxxxxxxx */
 
   // - - - - -
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;

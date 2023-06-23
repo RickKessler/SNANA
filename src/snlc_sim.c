@@ -14209,7 +14209,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_ind[3][20] = { "SIM_TEMPLATE_INDEX", "NON1A_INDEX", "NONIA_INDEX" };
   for ( i=0; i < 3; i++ )  {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    cptr = strList_ind[i];
+    sprintf(cptr,strList_ind[i]);
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
     NVAR_SIMGEN_DUMP++ ;
   }

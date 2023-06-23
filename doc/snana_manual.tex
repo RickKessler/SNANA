@@ -5792,49 +5792,69 @@ rise-time shift.
 \label{subsec:simAtmos}
 % ------------------------------------
 
-{\bf UNDER DEVELOPMENT ... NOT READY} \\
+%{\bf UNDER DEVELOPMENT ... NOT READY} \\
 
 The simulation of atmoshperic effects includes 
 differential chromatic refraction (DCR)
 and its effect on measured coordinates and magnitudes. The impact on spectra
-is not included. The DCR effects are enabled with sim-input
+is not included. The DCR effects are enabled with sim-inputs
  \begin{verbatim}
    ATMOSPHERE_OPTMASK: 1  # simulate DCR effect on coordinates
    ATMOSPHERE_OPTMASK: 2  # simulate DCR effect from PSF shape
    ATMOSPHERE_OPTMASK: 3  # simulate both DCR effects
-   [astrom noise param(s) ??]
+   ATMOSPHERE_OPTMASK: 513 # 1+512: 512-> write [VERSION].DCR summary file
+
+   ATMOSPHERE_SEDSTAR_FILE:   [sed_fileName]
+   ATMOSPHERE_DCR_COORDRES_POLY: a0,a1,...  # poly for coordRes(asec) vs. PSF_FWHM/SNR
+   ATMOSPHERE_DCR_MAGSHIFT_POLY: a0,a1,a2,. # poly for magShift vs. fracPSF shift
+racPSF
 \end{verbatim}
 %
-While the default simulation sets measured RA,DEC to their exact values
+The geo-location (degrees) and mountain elevation (meters w.r.t. sea level) 
+of the instrument must be specified 
+in the {\tt \$SNDATA\_ROOT/SURVEY.DEF} file; e.g., 
+\begin{verbatim}
+   SURVEY:  LSST   12   geo:-30.244639,-70.749417,2647  # lat,long,elevation
+\end{verbatim}
+The sim aborts if {\tt ATMOSPHERE\_OPTMASK}$>0$ 
+and the geolocation is not provided.
+
+
+While the default simulation defines the measured RA,DEC to be their exact values
 without measurement noise, {\tt ATMOSPHERE\_OPTMASK}$>0$ changes the sim
-to determine a measured RA,DEC for each observation using a noise model
-based on ??, and including calculated DCR shifts. A weighted average 
-of RA,DEC measurements from all {\it detections} is reported in the
-data files as the measured location for the event. 
-Since the DCR effect shifts measured coordinates as a function of band pass, 
-a magnitude shift (calibration error) for each observations is 
-calculated assuming a PSF-fitted flux centered on the
-measured RA,DEC-average.
+to determine the following for each observation:
+i) measured RA,DEC using coordinate-smear based on a polynomial function of 
+{\tt PSF\_FWHM/SNR} ({\tt ATMOSPHERE\_DCR\_COORDRES\_POLY}),  and 
+ii) calculated mag-shift based on a polynomial function of fractional PSF-shift
+({\tt ATMOSPHERE\_DCR\_MAGSHIFT\_POLY}).
+These polynomial functions are computed externally from \snana,
+such as from studies using {\tt GALSIM.}
+
+
+\newcommand{\lamrefStar}{$\bar{\lambda}_{\rm refStar}$}
+The average reference star SED ({\tt ATMOSPHERE\_SEDSTAR\_FILE}) is used to
+compute a reference SED-weighted wavelength in each filter band (\lamrefStar), 
+and DCR coordinate shifts are defined as the shift-difference between 
+the SN SED-weighted wavelength and \lamrefStar.
+The RA,DEC shift for each observation is defined w.r.t.
+the filter-averaged RA,DEC over all observations with {\tt SNR>3}.
 
 The simulation of atmosphere effects automatically appends the following
 columns in the photometry table per observations:
 \begin{verbatim}
- dRA             # RA - RA_AVG (arcsec)
- dDEC            # DEC - DEC_AVG (arcsec)
+ dRA             # RA  - RA_AVG_FILTER (arcsec)
+ dDEC            # DEC - DEC_AVG_FILTER (arcsec)
  AIRMASS         # uses telescope geo-location in SURVEY.DEF file
- SIM_DCR_dRA     # calculated RA shift from DCR (arcsec)
+ SIM_DCR_dRA     # calculated RA  shift from DCR (arcsec)
  SIM_DCR_dDEC    # calculated DEC shift from DCR (arcsec)
- SIM_DCR_dMAGOBS # calculated mag shift from using RA_AVG and DEC_AVG for PSF fit
+ SIM_DCR_dMAGOBS # calculated mag shift from fractional PSF-shift
 \end{verbatim}
 %
-To compute {\tt AIRMASS}, the geo location of the telescope must be
-included in the {\tt \$SNDATA\_ROOT/SURVEY.DEF} file; e.g., 
-\begin{verbatim}
-   SURVEY:  LSST   12   geo:-30.244639,-70.749417 
-\end{verbatim}
-The sim aborts if {\tt ATMOSPHERE\_OPTMASK}$>0$ 
-and the geo-location is not provided.
 
+The 512-bit of {\tt ATMOSPHERE\_OPTMASK} results in writing
+an extra auxillary table file, {\tt [VERSION].DCR}, that contains a
+summary for each observation of DCR-related information that is easier 
+to access compared to data files.
 
 % ------------------------------------
 \clearpage

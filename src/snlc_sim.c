@@ -1320,8 +1320,8 @@ void set_user_defaults(void) {
 void set_user_defaults_ATMOSPHERE(void) {
 
   INPUTS_ATMOSPHERE.OPTMASK = 0 ;
-  init_GENPOLY(&INPUTS_ATMOSPHERE.COORD_RESPOLY);
-  init_GENPOLY(&INPUTS_ATMOSPHERE.COORD_MAGPOLY);
+  init_GENPOLY(&INPUTS_ATMOSPHERE.DCR_COORDRES_POLY);
+  init_GENPOLY(&INPUTS_ATMOSPHERE.DCR_MAGSHIFT_POLY);
 
   INPUTS_ATMOSPHERE.SIGMA_SITE_TEMP = 0.0 ;
   INPUTS_ATMOSPHERE.SIGMA_SITE_BP   = 0.0 ;
@@ -4724,15 +4724,15 @@ int parse_input_ATMOSPHERE(char **WORDS, int keySource) {
     N++;  sscanf(WORDS[N], "%s", &INPUTS_ATMOSPHERE.SEDSTAR_FILE );
   }
 
-  else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_COORD_RESPOLY, WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_DCR_COORDRES_POLY, WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", strTmp);
-    parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_COORD_RESPOLY, 
-		  &INPUTS_ATMOSPHERE.COORD_RESPOLY, fnam);
+    parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_DCR_COORDRES_POLY, 
+		  &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY, fnam);
   }
-  else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_COORD_MAGPOLY, WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY, WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", strTmp);
-    parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_COORD_MAGPOLY, 
-		  &INPUTS_ATMOSPHERE.COORD_MAGPOLY, fnam);
+    parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY, 
+		  &INPUTS_ATMOSPHERE.DCR_MAGSHIFT_POLY, fnam);
   }
 
   else if ( keyMatchSim(1, "ATMOSPHERE_SITE_SIGMAS", WORDS[0],keySource) ) {
@@ -8712,6 +8712,7 @@ void  init_event_GENLC(void) {
     SIMLIB_OBS_GEN.PSFSIG1[i]    = -99. ;
     SIMLIB_OBS_GEN.PSFSIG2[i]    = -99. ;
     SIMLIB_OBS_GEN.PSFRATIO[i]   = -99. ;
+    SIMLIB_OBS_GEN.PSF_FWHM[i]   = -99. ;
     SIMLIB_OBS_GEN.NEA[i]        = -99. ; // Feb 2021
     SIMLIB_OBS_GEN.ZPTADU[i]     = -99. ;
     SIMLIB_OBS_GEN.ZPTERR[i]     = -99. ;
@@ -13725,6 +13726,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SL_MAGSHIFT ;
   NVAR_SIMGEN_DUMP++ ;
   
+  // - - - - - 
   // host Z stuff
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALNMATCH") ;  // Jun 2022
@@ -13787,6 +13789,18 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNDDLR") ;   //2/2019:  d_DLR = SNSEP/DLR
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].DDLR ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  // Jun 2023: allow random number used to generate radius and phi;
+  //  enables exact event regeneration using HOSTLIB_FIXRAN_RADIUS[PHI]
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"GALRANDOM_RADIUS") ;  // 0-1 (Jun 2023)
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.FlatRan1_radius[1];
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"GALRANDOM_PHI") ;  // 0-1 (Jun 2023)
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.FlatRan1_phi ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -17378,6 +17392,7 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       SIMLIB_OBS_RAW.PSFSIG2[ISTORE]    = -9.0 ;
       SIMLIB_OBS_RAW.PSFRATIO[ISTORE]   = -9.0 ;
       SIMLIB_OBS_RAW.NEA[ISTORE]        = -9.0 ;
+      SIMLIB_OBS_RAW.PSF_FWHM[ISTORE]   = -9.0 ;
       SIMLIB_OBS_RAW.ZPTADU[ISTORE]     = -9.0 ;
       SIMLIB_OBS_RAW.ZPTERR[ISTORE]     = -9.0 ;
       SIMLIB_OBS_RAW.MAG[ISTORE]        = 99.0 ;
@@ -17572,7 +17587,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int ISTORE,  OPTLINE, OBSRAW ;
   double RAD = RADIAN;
-  double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], TREST ;
+  double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], PSF_FWHM, TREST ;
   double z1       = 1.0 + GENLC.REDSHIFT_CMB ;
   bool IS_SPECTRO, BAD_MJD;
   char *UNIT, *BAND, *SUBSURVEY ;  
@@ -17672,7 +17687,11 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 	SIMLIB_OBS_RAW.NEA[ISTORE] = NEA ; // pixels
       }
       
-      // 3b. check for optional units of SKYSIG
+      // 3b. Jun 2023 compute PSF_FWHM(arcsec)
+      PSF_FWHM = PSF[0] * PIXSIZE * 2.355 ;
+      SIMLIB_OBS_RAW.PSF_FWHM[ISTORE] = PSF_FWHM ;
+
+      // 4. check for optional units of SKYSIG
       UNIT = SIMLIB_GLOBAL_HEADER.SKYSIG_UNIT ;
       if ( strcmp(UNIT,SIMLIB_SKYSIG_SQASEC ) == 0 ) {
 	// convert SKYSIG per sqrt(asec^2) back into pixel
@@ -17730,6 +17749,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     PSF[0]     = SIMLIB_OBS_RAW.PSFSIG1[OBSRAW] ;
     PSF[1]     = SIMLIB_OBS_RAW.PSFSIG2[OBSRAW] ;
     PSF[2]     = SIMLIB_OBS_RAW.PSFRATIO[OBSRAW] ;
+    PSF_FWHM   = SIMLIB_OBS_RAW.PSF_FWHM[OBSRAW] ;
     NEA        = SIMLIB_OBS_RAW.NEA[OBSRAW] ;
     ZPT[0]     = SIMLIB_OBS_RAW.ZPTADU[OBSRAW] ;
     ZPT[1]     = SIMLIB_OBS_RAW.ZPTERR[OBSRAW] ;
@@ -17833,6 +17853,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.PSFSIG1[NEP]     = PSF[0] * SCALE_PSF ;
     SIMLIB_OBS_GEN.PSFSIG2[NEP]     = PSF[1] * SCALE_PSF ;
     SIMLIB_OBS_GEN.PSFRATIO[NEP]    = PSF[2] ;    // ratio         
+    SIMLIB_OBS_GEN.PSF_FWHM[NEP]    = PSF_FWHM * SCALE_PSF;
     SIMLIB_OBS_GEN.NEA[NEP]         = NEA * (SCALE_PSF*SCALE_PSF); // Feb 2021
     SIMLIB_OBS_GEN.ZPTADU[NEP]      = ZPT[0] + SHIFT_ZPT ;
     SIMLIB_OBS_GEN.ZPTERR[NEP]      = ZPT[1] ;

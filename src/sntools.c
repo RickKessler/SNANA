@@ -7582,7 +7582,8 @@ int rd_sedFlux(
   // more error checking related to tabs in SED file:
   if ( *NDAY == 0 || *NLAM == 0 ) {
     sprintf(c1err, "Invalid NDAY=%d and NLAM=%d", *NDAY, *NLAM);
-    sprintf(c2err, "Check sed file (make sure there are no tabs)");
+    sprintf(c2err, "Check sed file for tabs; DAYrange=%.1f to %.1f",
+	    DAYrange[0], DAYrange[1] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 

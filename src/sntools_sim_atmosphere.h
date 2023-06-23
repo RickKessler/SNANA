@@ -9,9 +9,10 @@
 #define ATMOSPHERE_OPTMASK_DCR_PSFSHAPE      2
 #define ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR   512 // write DCR SIMGEN DUMPfile                                 
 
-#define KEYNAME_ATMOSPHERE_COORD_RESPOLY   "ATMOSPHERE_COORD_RESPOLY"
-#define KEYNAME_ATMOSPHERE_COORD_MAGPOLY   "ATMOSPHERE_COORD_MAGPOLY"
- 
+#define KEYNAME_ATMOSPHERE_DCR_COORDRES_POLY   "ATMOSPHERE_DCR_COORDRES_POLY"
+#define KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY   "ATMOSPHERE_DCR_MAGSHIFT_POLY"
+
+
 // define inputs read from sim-input file
 struct {
   int OPTMASK;
@@ -19,8 +20,8 @@ struct {
   bool DO_DCR_PSFSHAPE ;
 
   char SEDSTAR_FILE[MXPATHLEN]; // stellar SED to compute <lam> in each passband
-  GENPOLY_DEF  COORD_RESPOLY; // poly fun for astrometry resolution vs. SNR
-  GENPOLY_DEF  COORD_MAGPOLY; // poly fun for mag shift vs. PSF-fraction shift
+  GENPOLY_DEF  DCR_COORDRES_POLY; // poly fun for astrometry resolution vs. PSF/SNR
+  GENPOLY_DEF  DCR_MAGSHIFT_POLY; // poly fun for mag shift vs. PSF-fraction shift
 
   // define Gaussian variations in T,BH,PWV that impact index of refraction
   double SIGMA_SITE_TEMP; // Gauss sigma for site temperaure variation (Celsius)
@@ -58,6 +59,8 @@ struct {
   COORD_AVG_DEF COORD_DEC;
   COORD_AVG_DEF COORD_SIM_RA;
   COORD_AVG_DEF COORD_SIM_DEC;
+
+  double COORDRES; // computed coord resolution (asec) from measured SNR
 
 } ATMOS_INFO ;
 

@@ -236,6 +236,7 @@ struct SNDATA {
   double AIRMASS[MXEPOCH];
   double RA[MXEPOCH], DEC[MXEPOCH];   // coord per epoch, defrees
   double dRA[MXEPOCH], dDEC[MXEPOCH]; // shift w.r.t. band-avg, arcsec
+  double COORDRES[MXEPOCH];           // for both RA & DEC, arcsec
   double RA_AVG, DEC_AVG;  // wgted-average among all RA/DEC
 
   float PIXSIZE;                 // pixel size, arcsec

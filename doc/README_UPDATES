@@ -21747,6 +21747,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    simulation:
      + more DCR development.
      + MXPATHLEN -> 400 (was 300) to handle SIMGEN_DUMP line
+     + define SIMLIB_OBS_GEN.PSF_FWHM[ep] (arcsec) to avoid redundant computations
+
    sntools_sim_readme.c
      + abort if any README_DOC line is too long
 

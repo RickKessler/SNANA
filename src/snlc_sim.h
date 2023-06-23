@@ -1521,7 +1521,6 @@ struct SIMLIB_HEADER {
 } SIMLIB_HEADER ;
 
 
-
 // Define SIMLIB  struct for reading
 // Allocate for writing/reading entire array.
 typedef struct  {
@@ -1542,9 +1541,10 @@ typedef struct  {
   double  CCDGAIN[MXOBS_SIMLIB];
   double  READNOISE[MXOBS_SIMLIB];
   double  SKYSIG[MXOBS_SIMLIB];
-  double  PSFSIG1[MXOBS_SIMLIB];
-  double  PSFSIG2[MXOBS_SIMLIB];
-  double  PSFRATIO[MXOBS_SIMLIB];
+  double  PSFSIG1[MXOBS_SIMLIB];   // Gauss sigma core, pixels
+  double  PSFSIG2[MXOBS_SIMLIB];   // optional 2nd Gauss, pixels
+  double  PSFRATIO[MXOBS_SIMLIB];  // Gauss ratio at center
+  double  PSF_FWHM[MXOBS_SIMLIB];  // Gauss FWHM, arcsec (Jun 2023)
   double  NEA[MXOBS_SIMLIB];
   double  ZPTADU[MXOBS_SIMLIB];    // ZPT in ADU for entire exposure
   double  ZPTERR[MXOBS_SIMLIB];    // ZPT error

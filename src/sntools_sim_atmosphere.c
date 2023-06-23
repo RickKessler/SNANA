@@ -121,11 +121,11 @@ void INIT_ATMOSPHERE(void) {
   if ( REQUIRE_RESPOLY ) { 
 
     double SNR, ANGRES;
-    GENPOLY_DEF *RESPOLY = &INPUTS_ATMOSPHERE.COORD_RESPOLY;
+    GENPOLY_DEF *RESPOLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
 
     if ( RESPOLY->ORDER < 0 ) {
-      sprintf(c1err,"Missing required coord res vs. 1/sqrt(SNR)");
-      sprintf(c2err,"Set sim-input key %s", KEYNAME_ATMOSPHERE_COORD_RESPOLY );
+      sprintf(c1err,"Missing required coord res vs. PSF/SNR");
+      sprintf(c2err,"Set sim-input key %s", KEYNAME_ATMOSPHERE_DCR_COORDRES_POLY );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
     }
 
@@ -133,20 +133,21 @@ void INIT_ATMOSPHERE(void) {
     printf("\n");
     print_GENPOLY(RESPOLY); 
     for (SNR=10.0; SNR <= 100.0; SNR+= 30.0 ) {
-      double x = 1.0/sqrt(SNR);
+      double PSF_FWHM = 1.0 ; // arcsec
+      double x = PSF_FWHM/SNR;
       ANGRES = eval_GENPOLY(x, RESPOLY, fnam);
-      printf("\t ANGRES = %7.4f arcsec for SNR = %4.0f \n", 
-	     ANGRES, SNR); fflush(stdout);
+      printf("\t ANGRES = %7.4f arcsec for SNR = %4.0f (PSF_FWHM=%.1f asec)\n", 
+	     ANGRES, SNR, PSF_FWHM); fflush(stdout);
     }
   }  // end REQUIRE_RESPOLY
 
   if ( REQUIRE_MAGPOLY ) {
 
     double fracPSF, mag_shift;
-    GENPOLY_DEF *MAGPOLY = &INPUTS_ATMOSPHERE.COORD_MAGPOLY;
+    GENPOLY_DEF *MAGPOLY = &INPUTS_ATMOSPHERE.DCR_MAGSHIFT_POLY;
     if ( MAGPOLY->ORDER < 0 ) {
       sprintf(c1err,"Missing required coord mag vs. PSF-shift-fraction.");
-      sprintf(c2err,"Set sim-input key %s", KEYNAME_ATMOSPHERE_COORD_MAGPOLY );
+      sprintf(c2err,"Set sim-input key %s", KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
     }
 
@@ -469,14 +470,14 @@ void gen_airmass(int epoch) {
 void genSmear_coords(int epoch) {
 
   // Created May 2023: 
-  // determined measured RA,DEC for this epoch
-  // Start with silly model for testing ...
+  // Determine measured RA,DEC for this epoch, using coord-smear 
+  // resolution defined by sim-input key ATMOSPHERE_DCR_COORDRES_POLY.
 
   double cosDEC  = GENLC.cosDEC;
   double trueSNR = GENLC.trueSNR[epoch] ;
   if ( trueSNR < 0.01 ) { trueSNR = 0.01; }
-
-  double SNR_OBS = SEARCHEFF_DATA.SNR[epoch-1];
+  double SNR_OBS  = SEARCHEFF_DATA.SNR[epoch-1];
+  double PSF_FWHM = SIMLIB_OBS_GEN.PSF_FWHM[epoch];
 
   int IFILT_OBS  = GENLC.IFILT_OBS[epoch];
   int detectFlag = SEARCHEFF_DATA.detectFlag[epoch-1] ; // regular C index
@@ -484,8 +485,10 @@ void genSmear_coords(int epoch) {
 
   bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[epoch] < COORD_SHIFT_NULL_DEG );
 
+  GENPOLY_DEF  *DCR_COORDRES_POLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
   double RA_OBS, DEC_OBS, RA_TRUE, DEC_TRUE ;
-  double ANGRES_asec, ANGRES_deg, ran_RA, ran_DEC, WGT ;
+  double ANGRES_TRUE_asec, ANGRES_TRUE_deg, ran_RA, ran_DEC, WGT ;
+  double ANGRES_OBS_asec,  ANGRES_OBS_deg;
   char fnam[] = "genSmear_coords" ;
 
   // ----------- BEGIN ---------
@@ -493,21 +496,26 @@ void genSmear_coords(int epoch) {
   ran_RA  = getRan_Gauss(1);
   ran_DEC = getRan_Gauss(1);
 
-  double x = 1.0/sqrt(trueSNR);
-  ANGRES_asec = eval_GENPOLY(x, &INPUTS_ATMOSPHERE.COORD_RESPOLY, fnam);
-  if ( !VALID_DCR_SHIFT ) { ANGRES_asec = 0.0; } // nothing to smear
+
+  double x_TRUE = PSF_FWHM/trueSNR;
+  double x_OBS  = PSF_FWHM/SNR_OBS;
+  ANGRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
+  ANGRES_OBS_asec  = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
+  if ( !VALID_DCR_SHIFT ) { ANGRES_TRUE_asec = 0.0; } // nothing to smear
 
   // convert ANGRES to degrees and divide by sqrt(2) for 
   // projected resolution on separate RA and DEC coords.
-  ANGRES_deg = ANGRES_asec / 3600.0 / 1.4142 ;
+  double unit_convert = 1.0 / (3600.0*1.4142);
+  ANGRES_TRUE_deg = ANGRES_TRUE_asec * unit_convert;
+  ANGRES_OBS_deg  = ANGRES_OBS_asec  * unit_convert;
 
   // get true coords with DCR shift
   RA_TRUE  = GENLC.RA  + GENLC.RA_dcr_shift[epoch];
   DEC_TRUE = GENLC.DEC + GENLC.DEC_dcr_shift[epoch];
   
   // apply random smear to get observed coords
-  RA_OBS  = RA_TRUE  + (ANGRES_deg * ran_RA)/cosDEC;
-  DEC_OBS = DEC_TRUE + (ANGRES_deg * ran_DEC) ;
+  RA_OBS  = RA_TRUE  + (ANGRES_TRUE_deg * ran_RA)/cosDEC;
+  DEC_OBS = DEC_TRUE + (ANGRES_TRUE_deg * ran_DEC) ;
 
   // store observed and true coords
   GENLC.RA_OBS[epoch]  = RA_OBS;
@@ -522,10 +530,12 @@ void genSmear_coords(int epoch) {
   bool USE_OBS   = SNR_OBS > ATMOS_INFO.SNRMIN ;
   if ( USE_OBS ) {
 
-    if ( ANGRES_deg > 0.0 ) 
-      { WGT = 1.0E-6 / (ANGRES_deg*ANGRES_deg); }
+    if ( ANGRES_TRUE_deg > 0.0 ) 
+      { WGT = 1.0E-6 / (ANGRES_OBS_deg*ANGRES_OBS_deg); }
     else
       { WGT = 1.0E-20; }
+
+    ATMOS_INFO.COORDRES = ANGRES_OBS_asec;
 
     sum_COORD_AVG(&ATMOS_INFO.COORD_RA,  RA_OBS,  WGT, IFILT_OBS);
     sum_COORD_AVG(&ATMOS_INFO.COORD_DEC, DEC_OBS, WGT, IFILT_OBS);
@@ -896,15 +906,12 @@ void gen_dcr_magShift(int ep) {
   if ( !VALID_DCR_SHIFT ) { return; }
 
   // - - - - - - - - - - - -
-  //  PSF_FWHM = SNDATA.PSF_SIG1[ep] * 2.355;
-  double PSFSIG1 = SIMLIB_OBS_GEN.PSFSIG1[ep]; // effective Gauss sigma, pixels
-  double PIXSIZE = SIMLIB_OBS_GEN.PIXSIZE[1];
-  PSF_FWHM = PSFSIG1 * PIXSIZE * 2.355; // convert to arcsec
+  PSF_FWHM = SIMLIB_OBS_GEN.PSF_FWHM[ep];
   fracPSF  = fabs(dcr_shift_asec) / PSF_FWHM ;
 
   if ( INPUTS_ATMOSPHERE.DO_DCR_COORD ) {
     // compute mag shift from polynominal fit to PSF-fitted flux using galsim.
-    GENPOLY_DEF *MAGPOLY = &INPUTS_ATMOSPHERE.COORD_MAGPOLY;
+    GENPOLY_DEF *MAGPOLY = &INPUTS_ATMOSPHERE.DCR_MAGSHIFT_POLY;
     mag_shift            = eval_GENPOLY(fracPSF, MAGPOLY, fnam);
     GENLC.mag_dcr_shift[ep] += mag_shift ; // store global
   }
@@ -913,8 +920,8 @@ void gen_dcr_magShift(int ep) {
     int    IFILT_OBS      = GENLC.IFILT_OBS[ep];
     double MJD            = GENLC.MJD[ep];
     printf(" xxx ---------------------- \n");
-    printf(" xxx %s: CID=%d  MJD=%.4f  IFILTOBS=%d  SIG1=%.3f\n",
-	   fnam, GENLC.CID, MJD, IFILT_OBS, PSFSIG1 );
+    printf(" xxx %s: CID=%d  MJD=%.4f  IFILTOBS=%d  PSF_FWHM=%.3f asec\n",
+	   fnam, GENLC.CID, MJD, IFILT_OBS, PSF_FWHM );
     printf("\t xxx PSF_FWHM=%5.3f  dcr_shift=%7.4f  frac=%.4f  magShift=%.4f\n",
 	   PSF_FWHM, dcr_shift_asec, fracPSF, mag_shift);
     fflush(stdout);

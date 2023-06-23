@@ -271,8 +271,9 @@ struct {
   // obs-dependent quantities
   double MJD[MXOBS_TRIGGER];
   double MAG[MXOBS_TRIGGER];  // mag for each obs
-  double SNR[MXOBS_TRIGGER];  // signal-to-noise for each obs
-  double FLUX[MXOBS_TRIGGER]; // flux in ADU, or errmsg only
+  double SNR_CALC[MXOBS_TRIGGER];  // calculated signal-to-noise for each obs
+  double SNR_OBS[MXOBS_TRIGGER];   // meaured flux/fluxerr
+  double FLUX[MXOBS_TRIGGER];      // flux in ADU, or errmsg only
   double FLUXERR[MXOBS_TRIGGER];
   int    IFILTOBS[MXOBS_TRIGGER];  // absolute filter index. each obs
   int    NPE_SAT[MXOBS_TRIGGER];   // Npe above sat (negative --> ok)

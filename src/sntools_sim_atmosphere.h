@@ -60,7 +60,7 @@ struct {
   COORD_AVG_DEF COORD_SIM_RA;
   COORD_AVG_DEF COORD_SIM_DEC;
 
-  double COORDRES; // computed coord resolution (asec) from measured SNR
+  double COORDRES[MXEPSIM]; // computed coord resolution (asec) from measured SNR
 
 } ATMOS_INFO ;
 

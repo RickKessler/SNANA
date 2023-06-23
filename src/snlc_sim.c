@@ -8502,7 +8502,8 @@ void  init_event_GENLC(void) {
     SEARCHEFF_DATA.IFILTOBS[obs]    = -9   ;
     SEARCHEFF_DATA.MJD[obs]         = -9.0 ;
     SEARCHEFF_DATA.MAG[obs]         =  MAG_UNDEFINED ;
-    SEARCHEFF_DATA.SNR[obs]         = -9.0 ;
+    SEARCHEFF_DATA.SNR_CALC[obs]    = -9.0 ;
+    SEARCHEFF_DATA.SNR_OBS[obs]     = -9.0 ;
     SEARCHEFF_DATA.FLUX[obs]        = -999.0 ;
     SEARCHEFF_DATA.FLUXERR[obs]     = -999.0 ;
     SEARCHEFF_DATA.detectFlag[obs]  =  0   ;
@@ -13342,6 +13343,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   bool  DO_DUMP = (OPTMASK & ATMOSPHERE_OPTMASK_SIMGEN_DUMP_DCR) > 0;
   int   ep, ifilt_obs ;
   FILE *fp;
+  double SNR, FLUXCAL, FLUXCALERR;
   char *ptrFile, OUTLINE[MXPATHLEN], VARLIST[200], band[2] ;
   char fnam[] = "wr_SIMGEN_DUMP_DCR" ;
 
@@ -13368,14 +13370,15 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fp = SIMFILE_AUX->FP_DUMP_DCR ;
 
     sprintf(VARLIST,
-	    "CID MJD BAND LAMAVG_SED_WGTED SNR_TRUE "
-	    "FLUXCAL TOBS AIRMASS dRA dDEC "
-	    "SIM_DCR SIM_dRA SIM_dDEC SIM_dMAG" );
+	    "CID MJD BAND LAMAVG_SED_WGTED SNR PSF_FWHM "
+	    "FLUXCAL TOBS AIRMASS dRA dDEC COORDRES "
+	    "SIM_SNR_TRUE SIM_DCR SIM_dRA SIM_dDEC SIM_dMAG" );
 
     fprintf(fp,"# Simulation SUMMARY: one row per observation.\n");
     fprintf(fp,"# RA,DEC in degrees\n");
     fprintf(fp,"# dRA   = RA_OBS  - band-average RA_OBS  (arcsec)\n");
     fprintf(fp,"# dDEC  = DEC_OBS - band-average DEC_OBS (arcsec)\n");
+    fprintf(fp,"# COORDRES = computed RA,DEC resolution (asec)( from PSF/SNR\n");
     fprintf(fp,"#\n");
 
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
@@ -13394,26 +13397,32 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       sprintf(band,  "%c", FILTERSTRING[ifilt_obs] ); 
     
       OUTLINE[0] = 0 ;
-
+      SNR = SEARCHEFF_DATA.SNR_OBS[ep-1];
       if ( !GENLC.OBSFLAG_GEN[ep]             )  { continue ; }
       if ( SNDATA.SIMEPOCH_dRA_DCR[ep] > 90.0 ) { continue ; }
-      if ( SEARCHEFF_DATA.SNR[ep-1] < ATMOS_INFO.SNRMIN ) { continue; }
+      if ( SNR < ATMOS_INFO.SNRMIN            ) { continue; }
+      
+
 
       sprintf(OUTLINE,"ROW: "
 	      "%6d %.4f %s %.1f "     // CID MHD BAND LAMAVG
-	      "%5.1f "               // trueSNR
+	      "%5.1f %5.3f "          // measured SNR,  PSF
 	      "%10.4le %5.1f  "       // FLUXCAL TOBS
 	      "%.2f  "                // AIRMASS
 	      "%7.4f %7.4f  "         // dRA dDEC          (arcsec)
+	      "%5.3f "                // COORDRES (asec)
+	      "%5.1f "                // SIM_SNR_TRUE
 	      "%7.4f "                // SIM_DCR (arcsec)
 	      "%7.4f %7.4f "          // SIM_dRA SIM_dDEC  (arcsec)
 	      "%7.4f  "              // SIM_dMAG
 	      ,
 	      GENLC.CID, GENLC.MJD[ep], band, GENLC.LAMAVG_SED_WGTED[ep],
-	      GENLC.trueSNR[ep],
+	      SNR,  SIMLIB_OBS_GEN.PSF_FWHM[ep],
 	      SNDATA.FLUXCAL[ep], GENLC.epoch_obs[ep],
 	      GENLC.AIRMASS[ep],
 	      SNDATA.dRA[ep], SNDATA.dDEC[ep],
+	      SNDATA.COORDRES[ep],
+	      GENLC.trueSNR[ep],
 	      SNDATA.SIMEPOCH_DCR[ep],
 	      SNDATA.SIMEPOCH_dRA_DCR[ep], SNDATA.SIMEPOCH_dDEC_DCR[ep],
 	      SNDATA.SIMEPOCH_dMAG_DCR[ep]
@@ -16320,6 +16329,9 @@ void SIMLIB_findStart(void) {
   //
   // Dec 09 2020: return immediately if QUIT_REWIND option is set to
   //     read SIMLIB once and stop. See SIMLIB_MSKOPT += 4.
+  //
+  // Jun 23 2023: inside while(NREAD < NSKIP_LIBID), make a few adjustments
+  //              to search SIMLIB about x2 faster than before.
 
   int IDSTART  = INPUTS.SIMLIB_IDSTART ;
   int IDLOCK   = INPUTS.SIMLIB_IDLOCK ;
@@ -16335,7 +16347,7 @@ void SIMLIB_findStart(void) {
   int DOSKIP, NREAD, NREPEAT, MXREPEAT, NTMP, NLIBID_EXTRA ;
   time_t t0=time(NULL), t1=time(NULL); 
   double XSKIP, XTMP, flatRan ;
-  char LINE[100];
+  char LINE[MXPATHLEN];
   char fnam[] = "SIMLIB_findStart" ;
 
   // -------------------- BEGIN -------------
@@ -16370,7 +16382,7 @@ void SIMLIB_findStart(void) {
 
     DOSKIP = 1;
     printf("\t SIMLIB BATCH-MODE START at %d of %d LIBIDs ", 
-	   NSKIP_LIBID, NLIBID ); 
+	   NSKIP_LIBID, NLIBID ); fflush(stdout); 
   }
 
 
@@ -16412,10 +16424,16 @@ void SIMLIB_findStart(void) {
   MXREPEAT = INPUTS.SIMLIB_MXREPEAT ; INPUTS.SIMLIB_MXREPEAT = 1 ;
   fflush(stdout);
 
-  
+ 
+
   // skip fixed number of LIBIDs
+  // Jun 23 2023: few speed-ups:
+  //   + Reading all MXPATHLEN chars is faster than reading only 40 !
+  //   + check first char only (=='E') before using strstr to check key match.
   while ( NREAD < NSKIP_LIBID ) {
-    fgets(LINE, 40, fp_SIMLIB) ;
+    // xxx mark delete fgets(LINE, 40, fp_SIMLIB) ;
+    fgets(LINE, MXPATHLEN, fp_SIMLIB) ;
+    if ( LINE[0] != 'E' ) { continue; }  //quick reject (Jun 2023)
     if ( strstr(LINE,"END_LIBID:") != NULL ) { NREAD++; }
   }
   
@@ -16444,7 +16462,6 @@ void SIMLIB_findStart(void) {
   INPUTS.SIMLIB_MXREPEAT = MXREPEAT ;
 
   GENLC.SIMLIB_IDLOCK = INPUTS.SIMLIB_IDLOCK ; // set lock on LIBID
-
 
   return ;
 
@@ -21616,7 +21633,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
 
   int ep, NOBS,  NRANTMP=0;
-  double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan ;
+  double flux, flux_err, SNR_CALC, SNR_OBS, SNR, oldRan ;
   char fnam[] = "LOAD_SEARCHEFF_DATA";
 
   // --------------- BEGIN ----------------
@@ -21655,20 +21672,20 @@ void  LOAD_SEARCHEFF_DATA(void) {
 
     flux      = GENLC.flux[ep] ;
     flux_err  = GENLC.fluxerr_data[ep] ;
-    SNR_MEAS  = -9.0 ;
-    if ( flux_err > 0.0 ) { SNR_MEAS = flux / flux_err ; }
+    SNR_OBS  = -9.0 ;
+    if ( flux_err > 0.0 ) { SNR_OBS = flux / flux_err ; }
    
-    SNR = SNR_CALC ;
-      
+    SNR = SNR_CALC ;  
     // for SDSS, continue using wrong SNR based on measured flux
     // so that the spec-efficiency function is still correct.
-    if ( strcmp(GENLC.SURVEY_NAME,"SDSS") == 0 ) { SNR = SNR_MEAS; }
+    if ( strcmp(GENLC.SURVEY_NAME,"SDSS") == 0 ) { SNR = SNR_OBS; }
     
     NOBS = ep-1; // Dec 22 2019
     SEARCHEFF_DATA.IFILTOBS[NOBS]  = GENLC.IFILT_OBS[ep] ;     
     SEARCHEFF_DATA.MJD[NOBS]       = GENLC.MJD[ep] ;
     SEARCHEFF_DATA.MAG[NOBS]       = GENLC.genmag_obs[ep] ; 
-    SEARCHEFF_DATA.SNR[NOBS]       = SNR ;
+    SEARCHEFF_DATA.SNR_CALC[NOBS]  = SNR ;
+    SEARCHEFF_DATA.SNR_OBS[NOBS]   = SNR_OBS ;
     SEARCHEFF_DATA.FLUX[NOBS]      = flux ;
     SEARCHEFF_DATA.FLUXERR[NOBS]   = flux_err ;
     SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
@@ -22667,7 +22684,7 @@ void coords_to_SNDATA(int FLAG) {
     // May need other options for other surveys.
     SNDATA.dRA[ep]   = unit_delta * ( RA_OBS  - RA_AVG_BAND);
     SNDATA.dDEC[ep]  = unit_delta * ( DEC_OBS - DEC_AVG_BAND);
-
+    SNDATA.COORDRES[ep] = ATMOS_INFO.COORDRES[ep]; 
 
     // repeat for true dcr shifts
     RA_TRUE              = GENLC.RA_TRUE[ep] ;
@@ -22679,6 +22696,7 @@ void coords_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_dRA_DCR[ep]  = unit_delta*(RA_TRUE  - RA_AVG_BAND);
     SNDATA.SIMEPOCH_dDEC_DCR[ep] = unit_delta*(DEC_TRUE - DEC_AVG_BAND);
     SNDATA.SIMEPOCH_dMAG_DCR[ep] = GENLC.mag_dcr_shift[ep];
+
 
     // if dRA ~ 99, set all deltas to 99.0 to make clear that
     // it is a null value

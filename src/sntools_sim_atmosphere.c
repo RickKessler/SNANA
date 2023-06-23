@@ -474,9 +474,9 @@ void genSmear_coords(int epoch) {
   // resolution defined by sim-input key ATMOSPHERE_DCR_COORDRES_POLY.
 
   double cosDEC  = GENLC.cosDEC;
-  double trueSNR = GENLC.trueSNR[epoch] ;
-  if ( trueSNR < 0.01 ) { trueSNR = 0.01; }
-  double SNR_OBS  = SEARCHEFF_DATA.SNR[epoch-1];
+  double SNR_TRUE = SEARCHEFF_DATA.SNR_CALC[epoch-1];
+  if ( SNR_TRUE < 0.01 ) { SNR_TRUE = 0.01; }
+  double SNR_OBS  = SEARCHEFF_DATA.SNR_OBS[epoch-1];
   double PSF_FWHM = SIMLIB_OBS_GEN.PSF_FWHM[epoch];
 
   int IFILT_OBS  = GENLC.IFILT_OBS[epoch];
@@ -497,7 +497,7 @@ void genSmear_coords(int epoch) {
   ran_DEC = getRan_Gauss(1);
 
 
-  double x_TRUE = PSF_FWHM/trueSNR;
+  double x_TRUE = PSF_FWHM/SNR_TRUE;
   double x_OBS  = PSF_FWHM/SNR_OBS;
   ANGRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
   ANGRES_OBS_asec  = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
@@ -535,7 +535,7 @@ void genSmear_coords(int epoch) {
     else
       { WGT = 1.0E-20; }
 
-    ATMOS_INFO.COORDRES = ANGRES_OBS_asec;
+    ATMOS_INFO.COORDRES[epoch] = ANGRES_OBS_asec;
 
     sum_COORD_AVG(&ATMOS_INFO.COORD_RA,  RA_OBS,  WGT, IFILT_OBS);
     sum_COORD_AVG(&ATMOS_INFO.COORD_DEC, DEC_OBS, WGT, IFILT_OBS);

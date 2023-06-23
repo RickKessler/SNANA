@@ -21738,7 +21738,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         ***** USEFUL(v11_05e) ***** 
 
     new sim-input override
-        SIMGEN_DUMPADD 'SALT2c,SALT2x1'
+        SIMGEN_DUMPADD  SALT2c,SALT2x1,SALT2x0
     to append SIMGEN_DUMP variables to already existing list in the
     sim-input file
 
@@ -21750,7 +21750,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        "mistake trap" to warn user with abort message.
 
    simulation:
-     + more DCR development.
+     + more DCR development. TO-DO: add COORDRES into data file.
      + MXPATHLEN -> 400 (was 300) to handle SIMGEN_DUMP line
      + define SIMLIB_OBS_GEN.PSF_FWHM[ep] (arcsec) to avoid redundant computations
 

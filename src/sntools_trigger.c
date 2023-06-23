@@ -1920,7 +1920,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
 
   for(obs = 0 ; obs < SEARCHEFF_DATA.NOBS; obs++ ) {
 
-    SNR      = SEARCHEFF_DATA.SNR[obs] ;
+    SNR      = SEARCHEFF_DATA.SNR_CALC[obs] ;
     MAG      = SEARCHEFF_DATA.MAG[obs] ;
 
     if ( MAG == MAG_UNDEFINED ) { continue ; }
@@ -2101,7 +2101,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
 
   CID       = SEARCHEFF_DATA.CID ;
   NBIN_EFF  = SEARCHEFF_DETECT[IMAP].NBIN;
-  SNR       = SEARCHEFF_DATA.SNR[obs] ;
+  SNR       = SEARCHEFF_DATA.SNR_CALC[obs] ;
   MAG       = SEARCHEFF_DATA.MAG[obs] ;
   MJD       = SEARCHEFF_DATA.MJD[obs] ;
   NPE_SAT   = SEARCHEFF_DATA.NPE_SAT[obs] ; // Npe above saturation
@@ -2409,7 +2409,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
   int    NFUN      = SEARCHEFF_PHOTPROB[IMAP].NFUN_CDF ;
   int    CID       = SEARCHEFF_DATA.CID ;
   int    IFILTOBS  = SEARCHEFF_DATA.IFILTOBS[obs] ;
-  double SNR       = SEARCHEFF_DATA.SNR[obs] ;
+  double SNR       = SEARCHEFF_DATA.SNR_CALC[obs] ;
   double SBMAG     = SEARCHEFF_DATA.SBMAG[IFILTOBS] ;  
   //  double GALMAG    = SEARCHEFF_DATA.HOSTMAG[IFILTOBS] ;  
   double MJD       = SEARCHEFF_DATA.MJD[obs] ;
@@ -2442,7 +2442,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
   PHOTPROB = interp_1DFUN(1, RANCDF, NFUN+1, ptrCDF, ptrVAL, fnam);
 
 
-  LDMP = 0 ; // ( fabs(SEARCHEFF_DATA.SNR[obs]-8.0) < 0.1 );
+  LDMP = 0 ; // ( fabs(SEARCHEFF_DATA.SNR_CALC[obs]-8.0) < 0.1 );
   if ( LDMP ) {
     sprintf(cFILT, "%c", FILTERSTRING[IFILTOBS] );
     printf("\n xxx ------------------------------------------ \n");
@@ -2871,7 +2871,7 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
   double safety  = 1.0E-9*(VALMAX-VALMIN);
 
   int    IFILTOBS = SEARCHEFF_DATA.IFILTOBS[OBS] ;
-  double SNR      = SEARCHEFF_DATA.SNR[OBS]; 
+  double SNR      = SEARCHEFF_DATA.SNR_CALC[OBS]; 
   double SBMAG    = SEARCHEFF_DATA.SBMAG[IFILTOBS]; 
   double GALMAG   = SEARCHEFF_DATA.HOSTMAG[IFILTOBS]; 
   double REDSHIFT = SEARCHEFF_DATA.REDSHIFT ; 

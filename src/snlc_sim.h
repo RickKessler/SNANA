@@ -619,6 +619,7 @@ struct INPUTS {
   float  GENSIGMA_VPEC ;        // Gaussian sigma on Vpec, km/sec (default=0)
   double VEL_CMBAPEX ;          // CMB dipole vel; =0 --> zhelio = zcmb
   float  VPEC_ERR;              // error for vpec in data file
+  float  VPEC_FORCE;            // force this vpec (km/sec); 1E8->ignore
 
   char   WRONGHOST_FILE[MXPATHLEN];
 

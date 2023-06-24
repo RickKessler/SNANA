@@ -750,6 +750,7 @@ void set_user_defaults(void) {
   INPUTS.GENBIAS_REDSHIFT     = 0.0 ;
   INPUTS.GENSIGMA_VPEC        = 0.0 ;
   INPUTS.VPEC_ERR             = 0.0 ;
+  INPUTS.VPEC_FORCE           = 1.0E9 ;
   INPUTS.VEL_CMBAPEX          = CMBapex_v ; // CMB dipole velocity
 
 
@@ -1957,6 +1958,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1,"VPEC_ERR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.VPEC_ERR );
+  }
+  else if ( keyMatchSim(1,"VPEC_FORCE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.VPEC_FORCE );
   }
   else if ( keyMatchSim(1,"VEL_CMBAPEX", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.VEL_CMBAPEX );
@@ -7911,6 +7915,8 @@ void init_DNDZ_Rate(void) {
   Mar  12 2021: abort of NGENTOT_LC > MXCID_SIM
   Jul  05 2022: move init_stronglens from main to here so that it gets
                 used to weight rate model
+  Jun 24 2023: check special case for CL AGN model
+	       
   *****/
 
   double Z0, Z1, Z_AVG, ZVtmp[2], ZVint[2], ZVOL, VT;
@@ -7923,6 +7929,13 @@ void init_DNDZ_Rate(void) {
   char fnam[] = "init_DNDZ_Rate" ;
 
   // ----------- BEGIN ------------
+
+  // Jun 2023: there is no rate model for AGN, so user must define how
+  // many to generate with NGENTOT_LC
+  if ( INDEX_GENMODEL == MODEL_AGN )  { 
+    INPUTS.RATEPAR.SEASON_COUNT = (double)INPUTS.NGENTOT_LC ; 
+    return ; 
+  }
 
   sprintf(key_model_rate,"MODEL_RATE");
 
@@ -14781,6 +14794,7 @@ double gen_redshift_helio(void) {
     vpec = ((double)INPUTS.GENSIGMA_VPEC) * getRan_Gauss(2) ;    
   }
 
+  // .xyz force VPEC_FORCE ??
 
   GENLC.VPEC = vpec; 
   if ( vpec != 0.0 ) {

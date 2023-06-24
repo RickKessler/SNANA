@@ -6136,10 +6136,15 @@ void prep_user_input(void) {
       // force using cadence for entire survey
       INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_ENTIRE_SURVEY;
 
-      // GENRANGE_TREST isn't needed, but set something to avoid abort               
-      INPUTS.GENRANGE_TREST[1] = INPUTS.GENRANGE_TREST[0] + 0.1;
+      // disable ENTIRE_SEASON bit if it is set (Jun 24 2023)
+      if ( (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_ENTIRE_SEASON) > 0 )
+        { INPUTS.SIMLIB_MSKOPT -= SIMLIB_MSKOPT_ENTIRE_SEASON; }
 
-    }
+      // set GENRANGE_TREST to be wide open
+      INPUTS.GENRANGE_TREST[0] = 0.0 ;
+      INPUTS.GENRANGE_TREST[1] = MJDMAX- MJDMIN ;
+
+    } // end MODEL_AGN
  
   }
 

@@ -90,13 +90,13 @@ bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
 bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
 bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
 bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
+bool  SNFITSIO_SIMFLAG_TEMPLATEMAG; // write template mags (LCLIB,AGN ..)
 // xxx bool  SNFITSIO_SIMFLAG_NBR_LIST;  // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
 bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
-
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
 typedef struct {

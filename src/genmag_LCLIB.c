@@ -702,7 +702,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   double AV_MW, XT_MW;
   int obs, ifilt, NEXT_SIMEVENT, NEXT_LCLIBEVENT ;
   double Tobs, Tobs_shifted, mag_S ;
-  //  char fnam[] = "genmag_LCLIB" ;
+  char fnam[] = "genmag_LCLIB" ;
 
   // ------------ BEGIN ------------
   

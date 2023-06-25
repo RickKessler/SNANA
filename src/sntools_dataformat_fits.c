@@ -126,6 +126,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
   SNFITSIO_SIMFLAG_SNRMON       = false ;
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
+  SNFITSIO_SIMFLAG_TEMPLATEMAG  = false ;
   SNFITSIO_HOSTGAL2_FLAG        = true  ; // include HOSTGAL2 info
   SNFITSIO_COMPACT_FLAG         = false ; 
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
@@ -163,6 +164,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   OVP = ( writeFlag & WRITE_MASK_SIM_MODELPAR ) ;
   if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = true ; }
+
+  OVP = ( writeFlag & WRITE_MASK_SIM_TEMPLATEMAG ) ;
+  if ( OVP > 0 ) { SNFITSIO_SIMFLAG_TEMPLATEMAG = true ; }
 
   IFILE_WR_SNFITSIO = 1;     // only one file written here.
 
@@ -529,7 +533,7 @@ void wr_snfitsio_init_head(void) {
     }
 
     // TEMPLATE MAG for LCLIB model
-    if ( SNDATA.SIM_MODEL_INDEX  == MODEL_LCLIB ) {
+    if ( SNFITSIO_SIMFLAG_TEMPLATEMAG ) {
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(parName,"SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs] );
@@ -2146,7 +2150,7 @@ void wr_snfitsio_update_head(void) {
   }
 
   // TEMPLATE MAG for LCLIB model only
-  if ( SNDATA.SIM_MODEL_INDEX  == MODEL_LCLIB ) {
+  if ( SNFITSIO_SIMFLAG_TEMPLATEMAG ) {
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
       sprintf(parName,"SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs] );
@@ -3703,6 +3707,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.LCLIB_PARVAL[ipar],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;	
       }
+
+      // beware: not read for AGN model ??
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY, "SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs] );

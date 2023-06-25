@@ -6583,6 +6583,8 @@ void prep_user_input(void) {
   if ( INPUTS.WRFLAG_MODELPAR ) 
     { INPUTS.WRITE_MASK += WRITE_MASK_SIM_MODELPAR; }
 
+  if ( INDEX_GENMODEL == MODEL_LCLIB | INDEX_GENMODEL == MODEL_AGN ) 
+    { INPUTS.WRITE_MASK += WRITE_MASK_SIM_TEMPLATEMAG; }  // Jun 25 2023
 
   // abort if no valid format is given
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM  && 
@@ -21562,6 +21564,8 @@ int gen_cutwin_PEAKMAG(int OPT, int ifilt_obs) {
   float  peakmag       = (float)GENLC.peakmag_obs[ifilt_obs] ;
   float  mag_T         = (float)GENLC.genmag_obs_template[ifilt_obs];
 
+  char fnam[] = "gen_cutwin_PEAKMAG" ;
+
 // ------------- BEGIN ---------------
 
   // correct MWCOR if option is set. Default MCOR is 0
@@ -24142,7 +24146,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   } GENLC_ORIG ;
 
 
-  //  char fnam[] = "gen_TRIGGER_PEAKMAG_SPEC" ;
+  char fnam[] = "gen_TRIGGER_PEAKMAG_SPEC" ;
 
   // -------------- BEGIN ----------------
 
@@ -28672,7 +28676,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   if ( INDEX_GENMODEL == MODEL_LCLIB ) {
     double avgwgt = wgtsum_LCLIB / (double)NREAD;
     printf("\t Average LCLIB-wgt = %f/%d = %f \n",
-	   wgtsum_LCLIB, NREAD, avgwgt);
+	   wgtsum_LCLIB, NREAD, avgwgt);    fflush(stdout);
   }
 
   // ============

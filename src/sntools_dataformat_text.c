@@ -52,7 +52,6 @@ void WR_SNTEXTIO_DATAFILE(char *OUTFILE) {
   // Createed Feb 2021
   // Driver function to write single data file for single event.
   //
-  // May 2023: add WRITE_MASK as input arg.
 
   FILE *fp ;
   char fnam[] = "WR_SNTEXTIO_DATAFILE" ;
@@ -484,7 +483,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   }
   fprintf(fp,"  # \n");
 
-  if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ) {
+  bool WR_TEMPLATEMAG = ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ||
+			  SNDATA.SIM_MODEL_INDEX == MODEL_AGN ) ;
+  if ( WR_TEMPLATEMAG ) {
     fprintf(fp, "SIM_TEMPLATEMAG: "); NTMP=0;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs = SNDATA_FILTER.MAP[ifilt];

@@ -16353,17 +16353,22 @@ void SIMLIB_findStart(void) {
   //
   // Jun 23 2023: inside while(NREAD < NSKIP_LIBID), make a few adjustments
   //              to search SIMLIB about x2 faster than before.
-
+  //
+  // Jun 25 2023: see logic using JOBID_SHIFT to distribute SIMLIB-read-skip
+  //               load among GENTYPEs/models.
+  
   int IDSTART  = INPUTS.SIMLIB_IDSTART ;
   int IDLOCK   = INPUTS.SIMLIB_IDLOCK ;
   int NLIBID   = SIMLIB_GLOBAL_HEADER.NLIBID ;
   int JOBID    = INPUTS.JOBID ; // batch JOBID
   int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
+  int GENTYPE  = INPUTS.GENTYPE_SPEC;
 
   int  MSKOPT = INPUTS.SIMLIB_MSKOPT ;
   bool QUIT_NOREWIND = ( (MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0 );
   if ( QUIT_NOREWIND ) { return; }
 
+  int JOBID_SHIFT;
   int NOPT, IDSEEK, MAXRANSTART, NSKIP_LIBID=-9, NSKIP_EXTRA=0 ;
   int DOSKIP, NREAD, NREPEAT, MXREPEAT, NTMP, NLIBID_EXTRA ;
   time_t t0=time(NULL), t1=time(NULL); 
@@ -16399,7 +16404,21 @@ void SIMLIB_findStart(void) {
       NSKIP_EXTRA = (int)( flatRan * (double)NLIBID_EXTRA );
     }
  
-    NSKIP_LIBID = (JOBID-1) * (int)XTMP  + NSKIP_EXTRA;
+  
+    if ( GENTYPE > 0  ) {
+      // Each JOBID reading same part of SIMLIB can cause init-time delays.
+      // E.g., if last JOBID reads 98% of SIMLIB to start sim for every model, then
+      // then last CPU[nnn] task always suffers this long init. Adding GENTYPE
+      // distributes the SIMLIB-read load to different JOBIDs for different models.
+      JOBID_SHIFT = (JOBID + (GENTYPE-1)) % NJOBTOT + 1 ; // 1 to NJOBTOT
+      printf(" xxx %s: GENTYPE=%d  JOBID[orig,shifted] = %d, %d \n", 
+	     fnam, GENTYPE, JOBID, JOBID_SHIFT ); fflush(stdout);
+    }
+    else {
+      JOBID_SHIFT = JOBID; // default
+    }
+
+    NSKIP_LIBID = (JOBID_SHIFT-1) * (int)XTMP  + NSKIP_EXTRA;
 
     DOSKIP = 1;
     printf("\t SIMLIB BATCH-MODE START at %d of %d LIBIDs ", 

@@ -21752,7 +21752,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    simulation:
      + more DCR development. TO-DO: add COORDRES into data file.
      + MXPATHLEN -> 400 (was 300) to handle SIMGEN_DUMP line
-     + define SIMLIB_OBS_GEN.PSF_FWHM[ep] (arcsec) to avoid redundant computations
+     + define SIMLIB_OBS_GEN.PSF_FWHM[ep] (arcsec) to avoid 
+        redundant computations
+     + in function SIMLIB_findStart, see logic using JOBID_SHIFT to 
+         distribute SIMLIB-read-skip load among GENTYPsE/models.
+         Affects first LIBID for batch jobs.
 
    sntools_sim_readme.c
      + abort if any README_DOC line is too long

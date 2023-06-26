@@ -21764,4 +21764,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_train_util.py:
      + new util file to be used by both SALT3 and BayeSN
 
+   snlc_fit.car
+     + new &FITINP input NFIT_VERBOSE=20 (default), but can
+       be increased to get more information from batch jobs.
+
 END: 

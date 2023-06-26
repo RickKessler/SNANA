@@ -49,7 +49,7 @@ c parameters used by snana code
      &  ,OPT_FILTUPD_EACHSN, OPT_FILTUPD_MAP, OPT_FILTUPD_SAMEFILT
      &  ,OPT_FILTOBS, OPT_FILTREST
      &  ,ISTAT_READAGAIN, ISTAT_SKIP
-     &  ,IDTABLE_MCMC, NFIT_VERBOSE
+     &  ,IDTABLE_MCMC
      &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_OUTLIER
      &  ,ITABLE_SNLCPAK, ITABLE_SPECPAK
      &  ,ITABLE_MODELSPEC, ITABLE_MARZ, MXTABLE
@@ -118,7 +118,6 @@ c
      &  ,MXVERS        = 50         ! max number of versions to read
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
-     &  ,NFIT_VERBOSE  = 20         ! Number of fits for verbose printouts
      &  ,MXSNLC        = 8000000    ! max number of SNe (fits format)
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
@@ -1506,17 +1505,16 @@ c stuff for hbook
 c define namelist cuts
 
       INTEGER 
-     &   SNTYPE_LIST(MXLISTNML)    ! (I) user list of types to select
-     &  ,SNTYPE_IGNORE(MXLISTNML)  ! (I) types to ignore
-     &  ,SNCID_LIST(MXLISTNML)     ! (I) user-list of integer CIDs
-     &  ,MXEVT_PROCESS             ! (I) quit after processing this many
-     &  ,MXEVT_CUTS                ! (I) quit after Nevt passing cuts
-     &  ,CCDNUM_LIST(MXLISTNML)    ! (I) user-list of CCDNUMs (Dec 2017)
+     &   SNTYPE_LIST(MXLISTNML)    ! I: user list of types to select
+     &  ,SNTYPE_IGNORE(MXLISTNML)  ! I: types to ignore
+     &  ,SNCID_LIST(MXLISTNML)     ! I: user-list of integer CIDs
+     &  ,MXEVT_PROCESS             ! I: quit after processing this many
+     &  ,MXEVT_CUTS                ! I: quit after Nevt passing cuts
+     &  ,CCDNUM_LIST(MXLISTNML)    ! I: user-list of CCDNUMs (Dec 2017)
      &  ,SIM_TEMPLATE_INDEX_LIST(MXLISTNML)
-     &  ,SNCID_IGNORE(MXLISTNML)   ! (I) list of CIDs to ignore
-     &  ,PHOTFLAG_MSKREJ(5)        ! (I) PHOTFLAG mask-bits to reject
-     &                             !     1,2 => logical OR,AND
-     &  ,PHOTFLAG_BITLIST_REJECT(MXBIT_PHOTFLAG)  ! Mar 31, 2021
+     &  ,SNCID_IGNORE(MXLISTNML)   ! I: list of CIDs to ignore
+     &  ,PHOTFLAG_MSKREJ(5)        ! I: PHOTFLAG mask-bits to reject, 1,2 => logical OR,AND
+     &  ,PHOTFLAG_BITLIST_REJECT(MXBIT_PHOTFLAG)  ! I: bits to reject
      &  ,IDTEL_LIST(MXLISTNML)     ! computed from SNTEL_LIST
      &  ,IDFIELD_LIST(MXLISTNML)   ! 
      &  ,NIDTEL_LIST               ! size of list
@@ -1534,10 +1532,10 @@ c define namelist cuts
 
       character 
      &    SNTEL_LIST(MXLISTNML)*20    ! (I) list of telescopes (or ALL)
-     &   ,SNFIELD_LIST(MXLISTNML)*60  ! (I) list of fields to use (or 'ALL')
-     &   ,SNCCID_LIST(MXLISTNML)*(MXCHAR_CCID)   ! (I) list of CIDs to process
-     &   ,SNCCID_IGNORE(MXLISTNML)*(MXCHAR_CCID) ! (I) list of CIDs to ignore
-     &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME) ! (I) file with CIDs to ignore
+     &   ,SNFIELD_LIST(MXLISTNML)*60  ! I:  list of fields to use (or 'ALL')
+     &   ,SNCCID_LIST(MXLISTNML)*(MXCHAR_CCID)   ! I: list of CIDs to process
+     &   ,SNCCID_IGNORE(MXLISTNML)*(MXCHAR_CCID) ! I: list of CIDs to ignore
+     &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME)    ! I: file with CIDs to ignore
      &   ,SNCCID_IGNORE_ALL(MXIGNORE_LIST)*(MXCHAR_CCID)
 
 c# -----------  SN-dependent cut-window  ! I: --------------------------------

@@ -15,6 +15,8 @@
 #              truncate output version name to fit in max allowed string len
 #              for snana.exe.
 #
+# Jun 26 2022: add --diff_data option 
+#
 # =========================
 
 import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
@@ -25,10 +27,15 @@ import gzip
 # ----------------
 snana_program          = "snana.exe"
 combine_fitres_program = "combine_fitres.exe"
+combine_fitres_file    = "combine_fitres.text"
 
 LOG_FILE = "quick_command.log"
 MXCHAR_VERSION = 72 # should match same parameter in snana.car
 
+ISTYPE_DIFF_DICT = {
+    "FITRES" : "file",
+    "DATA"  : "folder"
+}
 
 HELP_COMMANDS = f"""
 # translate TEXT format (from $SNDATA_ROOT/lcmerge) to FITS format
@@ -100,6 +107,9 @@ def get_args():
     msg = "CID list to extract into text format"
     parser.add_argument("--cidlist_text",help=msg,type=str,default="")
 
+    msg = "TYPE list to extract into text format (e.g., 118,119,120)"
+    parser.add_argument("--typelist_text",help=msg,type=str,default="")
+
     msg = "CID list to make table of redshifts and vpec"
     parser.add_argument("--cidlist_ztable", help=msg, type=str, default="")
 
@@ -120,6 +130,10 @@ def get_args():
 
     msg = "two fitres files to analyse stat difference for SALT2 fit params"
     parser.add_argument("-d", "--diff_fitres", nargs='+', 
+                        help=msg, type=str,default=None)
+
+    msg = "two data folders (full paths) to analyse stat difference of contents"
+    parser.add_argument("-D", "--diff_data", nargs='+', 
                         help=msg, type=str,default=None)
 
 # SIMLIB_OUT ...
@@ -154,11 +168,12 @@ def reformat_fits(args):
 
 def make_ztable(args):
     cidlist     = args.cidlist_ztable
+    typelist    = ""
     prefix_temp = "OUT_TEMP_SNANA"
     command = snana_command_plus_version(args)
     command += f"SNTABLE_LIST SNANA "
     command += f"TEXTFILE_PREFIX {prefix_temp} "
-    command += arg_cidlist(cidlist)
+    command += arg_cidlist(cidlist,typelist)
 
     # extract info from SNANA table and present in human-readable form
     table_script = "get_fitres_values.py"
@@ -174,17 +189,17 @@ def make_ztable(args):
 
 def extract_text_format(args):
 
-    vin     = args.version
-    vout    = create_vout_string(vin,"TEXT")
-    cidlist = args.cidlist_text
-                
+    vin      = args.version
+    vout     = create_vout_string(vin,"TEXT")
+    cidlist  = args.cidlist_text
+    typelist = args.typelist_text
     rmdir_check(vout)
         
     print(f"\n Create new data folder: {vout}")
 
     command = snana_command_plus_version(args)
     command += f"VERSION_REFORMAT_TEXT {vout} "
-    command += arg_cidlist(cidlist)
+    command += arg_cidlist(cidlist,typelist)
     exec_command(command,args,0)
     # end extract_text_format
 
@@ -244,14 +259,20 @@ def make_sntable(args):
 
     # end make_sntable
 
-def arg_cidlist(cidlist):
+def arg_cidlist(cidlist,typelist):
     # return snana.exe args for cidlist
+    arg_string = ''
+
     if cidlist == "TEN" :
-        arg_list = f"MXEVT_PROCESS 10 "
-    else:
-        arg_list = f"SNCCID_LIST {cidlist} "
+        arg_string = f"MXEVT_PROCESS 10 "
+    elif len(cidlist) > 0 :
+        arg_string = f"SNCCID_LIST {cidlist} "
         
-    return arg_list
+    if len(typelist) > 0:
+        arg_string += f"SNTYPE_LIST {typelist} "
+
+    return arg_string
+
     # end arg_cidlist
 
 def get_info_photometry(args):
@@ -487,7 +508,263 @@ def extract_sim_input_file(args):
 
     # end extract_sim_input_file
 
+
+def util_analyze_diff_INIT(diff_list, WHAT):
+    
+    # Generic init util for --diff_fitres or --diff_data
+    # inputs:
+    #   diff_list = list of fitres files, or list of data folders
+    #   WHAT      = "FITRES" or "DATA"
+
+    # suppress strange pandas warnings
+    pd.options.mode.chained_assignment = None 
+
+    # local variables with names of fitres files
+    f_ref  = os.path.expandvars(diff_list[0])
+    f_test = os.path.expandvars(diff_list[1])
+
+    istype = ISTYPE_DIFF_DICT[WHAT]  # "file" or "folder"
+    what_type = f"{WHAT} {istype}"
+
+    if not os.path.exists(f_ref):
+        msgerr = f"Could not find REF-input {what_type}: \n\t {f_ref}"
+        assert False, msgerr
+
+    if not os.path.exists(f_test):
+        msgerr = f"Could not find TEST-input {what_type}: \n\t {f_test}"
+        assert False, msgerr
+
+    print(f"\n Analyze statistical differences between")
+    print(f"   REF  {what_type}: {f_ref}")
+    print(f"   TEST {what_type}: {f_test}")
+    print(f"\t Definition: dif_X = X(TEST) - X(REF)")
+    print(f"")
+
+    diff_list_expand = [ f_ref, f_test]
+    return diff_list_expand
+
+    sys.stdout.flush()
+    
+    # end util_analyze_diff_INIT
+
+def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional):
+
+    # Inputs
+    #   diff_list : list of two FITRES-formatted table files (REF and TEST)
+    #   var_list_require : required list of variables to check
+    #   var_list_optional : optional list of variables to check (if they exist)
+
+    ff_ref  = diff_list[0]
+    ff_test = diff_list[1]
+
+    print(f"\n  Execute analyze_diff on:")
+    print(f"   Required var_list = {var_list_require}")
+    print(f"   Optional var_list = {var_list_optional}")
+    sys.stdout.flush()
+
+    cmd = f"{combine_fitres_program} "
+    cmd += f"{ff_ref} {ff_test} "
+    cmd += f"t "    # only text output; no HBOOK or ROOT
+    
+
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+
+    if not os.path.exists(combine_fitres_file):
+        msgerr = f"Could not find combined fitres file: {combine_fitres_file}"
+        assert False, msgerr
+
+    df  = pd.read_csv(combine_fitres_file, comment="#", delim_whitespace=True)
+    df["CID"] = df["CID"].astype(str)
+
+    # define ref variables to check; test var name is {var}_2
+    var_check_list = var_list_require
+
+    var_list_missing = []
+    for var_name in var_list_require:
+        if var_name not in df:
+            print(f"ERROR: required varname = {var_name} is not in table.")
+            var_list_missing.append(var_name)
+        
+    if len(var_list_missing) > 0:
+        msgerr = f"Missing varnames in table {ff_ref}: \n  {var_list_missing}"
+        assert False, msgerr
+
+    # tack on optional varialbes
+    for var_name in var_list_optional:
+        if var_name in df:
+            var_check_list.append(var_name)
+
+    # define dfsel = table rows where both ref and test are defined
+    ISTABLE_HEAD = False; ISTABLE_PHOT = False
+    if 'zHD_2' in df:
+        # regular FITRES file with one row per SN (header info)
+        dfsel        = df.loc[df['zHD_2']>-8.0]
+        dfcut        = df.loc[df['zHD_2']<-8.0]
+        ISTABLE_HEAD = True
+    elif 'MJD' in df:
+        # LCPLOT file with one row per observation (phot info)
+        ISTABLE_PHOT = True
+        dfsel        = df.loc[df['MJD_2']>-8.0]
+        dfcut        = df.loc[df['MJD_2']<-8.0]        
+
+
+    len_tot = len(df)
+    len_sel = len(dfsel)
+
+    if ISTABLE_HEAD:
+
+        CID_lost_list = dfcut['CID'].to_numpy()
+
+        print(f" TEST table contains {len_sel} of {len_tot} REF events ")
+        print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
+
+    # - - - - - 
+    print("")
+    print("   quantity          avg       median      std          " \
+          f"min/max      CIDmin/CIDmax")
+    print("# --------------------------------------------------" \
+          "--------------------------- ")
+    for var in var_check_list:
+        var_2   = f"{var}_2"
+        var_dif = f"dif_{var}"
+        dfsel[var_dif] = dfsel[var_2] - dfsel[var]
+        mean  = dfsel[var_dif].mean()
+        med   = dfsel[var_dif].median()
+        std = 0.0
+        if len_sel > 1: std   = dfsel[var_dif].std()
+        mn    = dfsel[var_dif].min()
+        mx    = dfsel[var_dif].max()
+
+        CIDmin = None ; CIDmax=None
+        if mn < 0.0 :
+            CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
+            if ISTABLE_PHOT:
+                MJDmin = dfsel.loc[dfsel[var_dif].idxmin()]['MJD']   
+                CIDmin += f"({MJDmin})"
+        if mx > 0.0 :
+            CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
+            if ISTABLE_PHOT:
+                MJDmax = dfsel.loc[dfsel[var_dif].idxmax()]['MJD']   
+                CIDmax += f"({MJDmax})"
+
+        print(f"  {var_dif:16} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
+              f" {mn:8.5f}/{mx:8.5f}  {CIDmin}/{CIDmax}")
+
+        sys.stdout.flush()        
+    
+    # end util_analyze_diff_EXEC
+    
+def analyze_diff_data(args):
+
+    folder_expand_list = util_analyze_diff_INIT(args.diff_data,"DATA")
+    
+    # construct snana command to produce SNANA+LCPLOT table for
+    # each data foloder
+
+    outname_list = [ 'REF', 'TEST' ]
+    snana_table_list = []
+    phot_table_list  = []
+    snana_log_list   = []
+    out_prefix_list  = []
+
+    # get list of filters to show photometry results by band
+    cmd = f"{snana_program} GETINFO {folder_expand_list[0]}"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+    ret_list = (ret.stdout).split()
+    j = ret_list.index('FILTERS:')
+    filter_string = ret_list[j+1]
+    filter_list   = [ *filter_string ]
+
+    for data_folder, outname in zip(folder_expand_list,outname_list):
+
+        data_dir         = os.path.dirname(data_folder)
+        version          = os.path.basename(data_folder)
+        out_prefix       = f"OUT_TABLE_{version}_{outname}"
+        out_prefix_list.append(out_prefix)
+
+        snana_log_file   = f"{out_prefix}.LOG"
+        snana_table_file = f"{out_prefix}.SNANA.TEXT"
+        phot_table_file  = f"{out_prefix}.LCPLOT.TEXT"
+        snana_table_list.append(snana_table_file)
+        phot_table_list.append(phot_table_file)
+        snana_log_list.append(snana_log_file)
+
+        # remove existing table file to avoid process stale file if
+        # snana job fails.
+        if os.path.exists(snana_table_file):
+            os.remove(snana_table_file)
+        if os.path.exists(phot_table_file):
+            os.remove(phot_table_file)
+
+        print(f"  Extract SNANA tables for {version} ... ")
+        sys.stdout.flush()
+
+        cmd  = f"{snana_program} NOFILE " \
+               f"PRIVATE_DATA_PATH {data_dir} " \
+               f"VERSION_PHOTOMETRY {version} " \
+               f"SNTABLE_LIST 'SNANA(text:key,text:host) LCPLOT(text:key)' "\
+               f"TEXTFILE_PREFIX {out_prefix} "
+        
+        arg_select =  arg_cidlist(args.cidlist_text, args.typelist_text)
+        if len(arg_select) > 0 :
+            cmd += f"{arg_select} "
+        #sys.exit(f"\n arg_select = {arg_select}  [cidlist_text={args.cidlist_text}")
+
+        cmd += f" > {snana_log_file} "
+
+        ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                              shell=True, capture_output=True, text=True )
+        
+        if not os.path.exists(snana_table_file):
+            msgerr = f"Could not find expected output table {snana_table_file}\n" \
+                     f"Check {snana_log_file}" 
+            assert False, msgerr
+
+    # - - - - - - - - - - - - - - - 
+    # analyze snana table
+    var_list_require  = [ 'zHD', 'zHDERR', 'VPEC', 'VPECERR', 'MWEBV',
+                          'SNRMAX1', 'SNRMAX3',
+                          'HOST_ZPHOT', 'HOST_DDLR' 
+    ]  
+    var_list_optional = [ ]
+    util_analyze_diff_EXEC(snana_table_list, var_list_require, var_list_optional)
+    
+    # analyze LCPLOT(PHOT) table for each band
+    var_list_require = [ 'MJD', 'FLUXCAL', 'FLUXCAL_ERR' ]
+    var_list_optional = [ ]
+    util_analyze_diff_EXEC(phot_table_list, var_list_require, var_list_optional)
+
+
+    # - - - - - -  - -
+    # clean up mess
+    CLEAN = False
+    if CLEAN:
+        print(f" Remove temporary snana output files.")
+        os.remove(combine_fitres_file)
+        for out_prefix in out_prefix_list:
+            os.system(f"rm {out_prefix}*")
+
+    # end analyze_diff_data
+
 def analyze_diff_fitres(args):
+
+    diff_fitres_expand = util_analyze_diff_INIT(args.diff_fitres,"FITRES")
+
+    # remove pre-existing combine-fitres file to avoid confusion
+    # if new file fails to be created.
+    if os.path.exists(combine_fitres_file):
+        os.remove(combine_fitres_file)
+
+    var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
+    var_list_optional = [ 'MU', 'MUERR' ]
+
+    util_analyze_diff_EXEC(diff_fitres_expand, var_list_require, var_list_optional)
+
+    # end analyze_diff_fitres
+
+def analyze_diff_fitres_legacy(args):
 
     # suppress strange pandas warnings
     pd.options.mode.chained_assignment = None 
@@ -510,12 +787,10 @@ def analyze_diff_fitres(args):
     print(f"\t Definition: dif_X = X(TEST) - X(REF)")
     sys.stdout.flush()
 
-    fitres_combine_file = "combine_fitres.text"
-
     # remove pre-existing combine-fitres file to avoid confusion
     # if new file fails to be created.
-    if os.path.exists(fitres_combine_file):
-        os.remove(fitres_combine_file)
+    if os.path.exists(combine_fitres_file):
+        os.remove(combine_fitres_file)
 
     cmd = f"{combine_fitres_program} "
     cmd += f"{ff_ref} {ff_test} "
@@ -524,11 +799,11 @@ def analyze_diff_fitres(args):
     ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
                           shell=True, capture_output=True, text=True )
 
-    if not os.path.exists(fitres_combine_file):
-        msgerr = f"Could not find combined fitres file: {fitres_combine_file}"
+    if not os.path.exists(combine_fitres_file):
+        msgerr = f"Could not find combined fitres file: {combine_fitres_file}"
         assert False, msgerr
 
-    df  = pd.read_csv(fitres_combine_file, comment="#", delim_whitespace=True)
+    df  = pd.read_csv(combine_fitres_file, comment="#", delim_whitespace=True)
     df["CID"] = df["CID"].astype(str)
 
     # define ref variables to check; test var name is {var}_2
@@ -552,7 +827,7 @@ def analyze_diff_fitres(args):
     print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
 
     print("")
-    print("   quantity    avg       median      std          " \
+    print("   quantity          avg       median      std          " \
           f"min/max      CIDmin/CIDmax")
     print("# --------------------------------------------------" \
           "--------------------------- ")
@@ -572,12 +847,12 @@ def analyze_diff_fitres(args):
         if mx > 0.0 :
             CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
 
-        print(f"  {var_dif:10} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
+        print(f"  {var_dif:16} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
               f" {mn:8.5f}/{mx:8.5f}  {CIDmin}/{CIDmax}")
         sys.stdout.flush()
 
     return
-    # end analyze_diff_fitres
+    # end analyze_diff_fitres_legacy
 
 def rewrite_cov_file(args):
 
@@ -694,7 +969,11 @@ if __name__ == "__main__":
         extract_sim_input_file(args)
 
     if args.diff_fitres :
+        #analyze_diff_fitres_legacy(args)
         analyze_diff_fitres(args)
+
+    if args.diff_data :
+        analyze_diff_data(args)
 
     # END main
 

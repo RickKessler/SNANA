@@ -14774,12 +14774,15 @@ double gen_redshift_helio(void) {
   //
   // Jan 27 2021: fix to use exact zpec formula instead of approximation.
   // Feb 15 2021: if VEL_CMBAPEX==0, continue instead of returning zCMB
+  // Jun 26 2023: check VPEC_FORCE (not tested)
 
-  double zCMB = GENLC.REDSHIFT_CMB ;
-  double RA   = GENLC.RA;
-  double DEC  = GENLC.DEC ;
+  double zCMB       = GENLC.REDSHIFT_CMB ;
+  double RA         = GENLC.RA;
+  double DEC        = GENLC.DEC ;
+  double SIG_VPEC   = (double)INPUTS.GENSIGMA_VPEC ;
+  double VPEC_FORCE = (double)INPUTS.VPEC_FORCE ;
   bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
-  double vpec, zhelio, dzpec ;
+  double vpec, zhelio, dzpec, r ;
   char fnam[] = "gen_redshift_helio" ;
 
   // ----------- BEGIN ------------
@@ -14792,16 +14795,18 @@ double gen_redshift_helio(void) {
     { zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, COORDSYS_EQ, -1); }
 
   // apply v_pec
-  if ( USE_HOSTLIB_VPEC ) {
+  if ( VPEC_FORCE < 1.0E8 ) {
+    vpec = VPEC_FORCE; // force VPEC value set by user input
+  }
+  else if ( USE_HOSTLIB_VPEC ) {
     // May 2020: do nothing; will be done later in HOSTLIB call.
     vpec = 0.0;  
   }
   else {
     // pick random vpec
-    vpec = ((double)INPUTS.GENSIGMA_VPEC) * getRan_Gauss(2) ;    
+    r = getRan_Gauss(2) ; // Gauss random number
+    vpec = SIG_VPEC * r ;
   }
-
-  // .xyz force VPEC_FORCE ??
 
   GENLC.VPEC = vpec; 
   if ( vpec != 0.0 ) {

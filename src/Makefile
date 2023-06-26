@@ -12,46 +12,6 @@
 #  HISTORY 
 # -----------------------------------
 #
-# May 31 2018: add SIMSED_rebin
-# Jul 28 2018: remove SIMSED_prep.exe, and add SIMSED_check.exe
-# Sep 16 2018: include new BYOSED model
-# Dec 05 2018: define LPY and IPY to comile/link sim with python code
-#              Add *.py to list of install files.
-#
-# Jan 11, 2019: add -lstdc++ into link for SALT2mu
-#
-# Apr 5 2019: replace defineOutputFlags.pl with  set_Cpreproc_flags.py
-#             (includes check on USE_BYOSED ENV)
-#
-# Apr 11 2019: fix LPY to work on Midway using miniConda
-# Apr 30 2019: 
-#   + add -lpython3.7m to LPY
-#   + genmag_BYOSED linked only to sim (not to fitter)
-#
-# May 3 2019: create blank subDirs (OBJ,LIB,BIN) that are not in Git.
-# Jun 19 2019: include psnid_BEST2.c
-# Jul 27 2019: compile to inoue_igm.c (to correct spectral flux for igm)
-# Oct 22 2019: compile with -O2 to speed sim with genSmear Cholesky stuff.
-#               (-O3 doesn't help)
-#
-# Mar 20 2020: added sntools_genExpHalfGauss (DJB)
-# Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
-# Apr 25 2020: include lCint for LROOT only of libCint.so exists
-# Jun 12 2020: add sntools_genPDF
-# Sep 10 2020: BYOSED renamed to more generic PySEDMODEL
-#
-# Sep 22 2020:
-#     +  CC = cc -> gcc
-#     +  add -ltbb for root 6.0
-#     +  specify EXTRA_FLAGS for gcc v10 or higher
-#     +  remove "ar r" commands to put C functions in libsnana.a
-#          (libsnana.a is now just fortran code)
-#
-# Sep 28 2020: 
-#   refactor EXTRA_FLAGS into EXTRA_FLAGS_FORTRAN and EXTRA_FLAGS_C
-#   Difference matters for gcc version 10
-#        
-# Oct 15 2020: add sntools_cosmology
 # Feb 05 2021: rename sntools_fitsio.c[h] -> sntools_dataformat_fits.c[h]
 #
 # Mar 16 2021: 

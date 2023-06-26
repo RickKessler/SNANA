@@ -711,6 +711,7 @@ c
      &  ,CONTOUR_LIST(4,20)  ! I: define contour plots: CID,IPAR1,IPAR2,NPT
      &  ,OPT_SALT2FIT  ! I: fit 0=> fit x0;  1=> fit log10(x0); 2=> fit delta-mu
      &  ,IPAR_PLOTCHI2 ! I: HFUNMIN only for this parameter
+     &  ,NFIT_VERBOSE  ! I: number of verbose printouts (avoid huge logs)
 
 C ----------------------
 c define all of the PHOTOZ options here in one place
@@ -828,7 +829,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE
      &   ,MINOS_ERR_DLMAG, MINOS_ERR_REQALL0, MINOS_ERR_REQALL1
      &   ,MINOS_ERRMAX_BAD
-     &   ,CONTOUR_LIST, LTRACE, LPLOTCHI2, IPAR_PLOTCHI2
+     &   ,CONTOUR_LIST, LTRACE, LPLOTCHI2, IPAR_PLOTCHI2, NFIT_VERBOSE
      &   ,FUDGE_FITERR_MAXFRAC, FUDGE_FITERR_TREST
      &   ,FUDGE_FITERR_PASSBANDS, DOFUDGE_FITERR, USE_FUDGE_FITERR
      &   ,FUDGE_FITERR_RESTLAM, FUDGE_MAGERR_MODEL, FUDGE_FITERR_MAXITER
@@ -899,7 +900,7 @@ c ------
      &   ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE
      &   ,MINOS_ERR_DLMAG, MINOS_ERR_REQALL0, MINOS_ERR_REQALL1
      &   ,MINOS_ERRMAX_BAD
-     &   ,CONTOUR_LIST, LTRACE, LPLOTCHI2, IPAR_PLOTCHI2
+     &   ,CONTOUR_LIST, LTRACE, LPLOTCHI2, IPAR_PLOTCHI2, NFIT_VERBOSE
      &   ,FUDGE_FITERR_MAXFRAC, FUDGE_FITERR_TREST
      &   ,FUDGE_FITERR_PASSBANDS
      &   ,FUDGE_FITERR_RESTLAM, FUDGE_MAGERR_MODEL,FUDGE_FITERR_MAXITER
@@ -6965,6 +6966,7 @@ C ------------------- BEGIN ---------------------
       LTRACE = .FALSE.
       LPLOTCHI2 = .FALSE.
       IPAR_PLOTCHI2 = 0
+      NFIT_VERBOSE  = 20
 
 c init namelist defaults
 

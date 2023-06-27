@@ -58,6 +58,8 @@
 # Mar 2023: write sim-input keys to merged README so that we don't have to
 #           dig them out from misc.tar.gz ; see merge_write_readme()
 #
+# Jun 27 2023: merge optional SIMGEN-DCR dump files
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -2075,6 +2077,7 @@ class Simulation(Program):
         # to quickly check for FAIL.
         #
         # Dec 20 2021: gzip FITS if not already gzipped.
+        # Jun 27 2023: include optional .DCR files
 
         args             = self.config_yaml['args']
         if args.check_abort: return
@@ -2091,21 +2094,26 @@ class Simulation(Program):
         logging.info(msg)
 
         dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
-        sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL") # strong lens
+        sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL")  # strong lens
+        dcr_split_list      = glob.glob(f"{from_dir}/TMP*.DCR") # DCR
 
         merge_simgen_dump = len(dump_split_list)
         merge_simgen_sl   = len(sl_split_list)
+        merge_simgen_dcr  = len(dcr_split_list)
 
         # define aux files for combined version
         dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
-        sl_file       = f"{target_dir}/{genversion_combine}.SL"
         readme_file   = f"{target_dir}/{genversion_combine}.README"
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
+        sl_file       = f"{target_dir}/{genversion_combine}.SL"
+        dcr_file      = f"{target_dir}/{genversion_combine}.DCR"
 
         if merge_simgen_dump :
             logging.info("\t Merge SIMGEN-DUMP files")
         if merge_simgen_sl :
             logging.info("\t Merge SIMGEN-SL files")
+        if merge_simgen_dcr :
+            logging.info("\t Merge SIMGEN-DCR files")
 
         # if target dir does NOT exist, create target dir along
         # with aux files.
@@ -2129,6 +2137,11 @@ class Simulation(Program):
             if merge_simgen_sl > 0 :
                 sl_file_template = sl_split_list[0]
                 self.create_simgen_dump_file(sl_file_template,sl_file)
+
+            # June 27 2023: repeat for DCR dump
+            if merge_simgen_dcr > 0 :
+                dcr_file_template = dcr_split_list[0]
+                self.create_simgen_dump_file(dcr_file_template,dcr_file)
 
         # if there were failures, return
         if nfail > 0 : 
@@ -2170,6 +2183,10 @@ class Simulation(Program):
         # repeat for strong lens dump (if they exist)
         for sl_split_file in sl_split_list :
             self.append_merge_dump_file(sl_split_file,sl_file)
+
+        # repeat for DCR dump (if they exist)
+        for dcr_split_file in dcr_split_list :
+            self.append_merge_dump_file(dcr_split_file,dcr_file)
 
 
         # end move_sim_data_files

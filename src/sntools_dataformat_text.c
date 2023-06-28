@@ -1020,7 +1020,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // Apr 02 2021: fix to work after reading spectra from FITS format
   //   (e..g, from sims)
   // Nov 10 2021: write SPECTRUM_LAMRANGE
-  // May 26 2023: check logical SNDATA.WRFLAG_SPECTRA
+  // May 26 2023: check NMJD_PROC
 
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
@@ -1037,7 +1037,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // ------------ BEGIN -----------
 
   if ( NMJD_PROC == 0 ) { return; }
-  //  if ( !SNDATA.WRFLAG_SPECTRA ) { return; }
 
   VARLIST[0] = NVAR = 0 ;
 

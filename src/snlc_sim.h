@@ -322,6 +322,7 @@ typedef struct {
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra
   int    OPTMASK;    // sim-input key SPECTROGRAPH_OPTMASK: <MASK>
+  int    OPTMASK_ORIG; // original user-input OPTMASK before internal modifications
   double NLAMSIGMA ; // how far out to smear flux in lambda bins
 
   // below are for tests & debugging, based on OPTMASK

@@ -606,8 +606,10 @@ void gen_dcr_coordShift(int ep) {
   if ( wave_sed_wgted < 0.01 ) { return; } // no model SED --> bail
 
   // set number of processed spectra (SEDs) to zero so that spectra/SED
-  // are not written to data files. NMJD_PROC is reset next event.
-  GENSPEC.NMJD_PROC = 0 ;
+  // are not written to data files ... unless sim-input explicitly
+  // requests SED output. NMJD_PROC is reset next event.
+  if ( (INPUTS.WRITE_MASK & WRITE_MASK_SPECTRA) == 0 ) 
+    { GENSPEC.NMJD_PROC = 0 ; }
 
   // - - - - - - - - - - - - - - 
   // begin computatin of RA & DEC shifts

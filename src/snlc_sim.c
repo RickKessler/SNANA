@@ -1337,6 +1337,7 @@ void set_user_defaults_SPECTROGRAPH(void) {
 
   // set default spectrograph options
   INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK         =  0 ;
+  INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK_ORIG    =  0 ;
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC     =  0 ;
   INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA       =  3.0;
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_LAMSIGMA  =  1. ;
@@ -4811,6 +4812,7 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
 
   if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
+    INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK_ORIG = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK;
   }
   else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
@@ -10078,10 +10080,6 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
     FSUM_PEAK = FSUM_HOST = 0.0 ;
     for(ilam=0; ilam < NBLAM; ilam++ ) {
       LAMAVG      = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
-
-      // if ( LAMAVG < LAMMIN_SPEC ) { continue; } // ?? .xyz
-      // if ( LAMAVG > LAMMAX_SPEC ) { continue; }
-
       FLAM_PEAK   = GENSPEC.GENFLUX_PEAK[ilam];
       FLAM_HOST   = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
 
@@ -27626,17 +27624,24 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
 
+
+  // Check writing spectra.
+  // Default behavior is to disable SED output if atmos-DCR is enabled because
+  // DCR leverages SPECTROGRAPH infrastructure. However, if original user input
+  // requests SED output, then do it.
+  bool WRITE_SPECTRA = SPECTROGRAPH_USEFLAG;
+  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) {
+    int OPTMASK_ORIG = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK_ORIG; // original user intent
+    if ( (OPTMASK_ORIG & SPECTROGRAPH_OPTMASK_SEDMODEL) == 0 ) 
+      { WRITE_SPECTRA = false; }
+  }
+  if ( WRITE_SPECTRA )  { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
+
+
+
+  // - - - - 
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 
-
-    // write spectra if spectrograph is defined and NOT doing
-    // atmosphere effects that leverage SPECTROGRAPH infrastructure
-    // to get true SED.
-    bool WRITE_SPECTRA = 
-      (SPECTROGRAPH_USEFLAG && INPUTS_ATMOSPHERE.OPTMASK==0);
-
-    if ( WRITE_SPECTRA ) 
-      { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
 
     // abort of any text-option is defined along with fits format
     if ( WRFLAG_TEXT  ) {

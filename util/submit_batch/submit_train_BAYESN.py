@@ -167,7 +167,7 @@ class train_BAYESN(Program):
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
 
-        arg_list.append(f"--configfile {config_file}")
+        arg_list.append(f"--input {config_file}")
         arg_list.append(f"--outputdir {outdir_model}")
         arg_list.append(f"--yamloutputfile {yaml_file}")
         arg_list.append(f"{trainopt_arg}")

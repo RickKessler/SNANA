@@ -21768,4 +21768,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + new &FITINP input NFIT_VERBOSE=20 (default), but can
        be increased to get more information from batch jobs.
 
+   sntools.c angSept_dotprod()
+     + for AGN model, found cases where DOTPROD = 1 + 2.2E-16, 
+       resulting in NaN for GALSEP. Fixed with more robust logic
+       to trap |DOTPROD| > 1.
+
 END: 

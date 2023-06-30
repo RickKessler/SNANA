@@ -3923,10 +3923,14 @@ double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
   // for input coords of point 1 (RA1,DEC1) and point 2 (RA2,DEC2),
   // return angular separation. Inputs are in degrees.
   // Legacy calc using acos(dot product)
+  //
+  // Jun 30 2023: need more robust logic to prevent |DOTPROD| < 1
 
   double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
   double RAD = RADIAN ;
-  bool REFAC = true ;
+  double tiny = 1.0E-35;
+  char fnam[] = "angSep_dotprod" ;
+
   // ------------- BEGIN ------------------
 
   X1 = cos(RA1*RAD) * cos(DEC1*RAD);
@@ -3937,7 +3941,12 @@ double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
   Y2 = sin(RA2*RAD) * cos(DEC2*RAD);
   Z2 = sin(DEC2*RAD);
   
-  DOTPROD = (1.0-1.0E-35)*(X1*X2 + Y1*Y2 + Z1*Z2);
+  // xxx mark  DOTPROD = (1.0-1.0E-35)*(X1*X2 + Y1*Y2 + Z1*Z2);
+
+  DOTPROD = (X1*X2 + Y1*Y2 + Z1*Z2);
+  if ( DOTPROD > +1.0 ) { DOTPROD = +1.0 - tiny; }
+  if ( DOTPROD < -1.0 ) { DOTPROD = -1.0 + tiny; }
+
   sep = acos(DOTPROD)/RAD ; // angular sep, degrees
 
   return (sep) ;

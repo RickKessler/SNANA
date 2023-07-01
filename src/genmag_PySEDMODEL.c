@@ -98,32 +98,6 @@ void handle_python_exception(char *fnam, const char *desc) {
 
 // ===============================================
 
-// ===============================================
-
-/* xxx mark delete May 25 2023 xxxxxx
-void load_PySEDMODEL_CHOICE_LIST(void) {
-
-  int N=0;
-  char fnam[] = "load_PySEDMODEL_CHOICE_LIST" ;
-
-  // generic utility to store all possible PySEDMODEL names.
-  // Used by sim, parsing, etc ...
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED ); N++ ;
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO  ); N++ ;
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_PYBAYESN ); N++ ;
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_AGN    ); N++ ;
-
-  if ( N != NCHOICE_PySEDMODEL ) {
-    sprintf(c1err,"Expected %d PySEDMODEL choices");
-    sprintf(c2err,"but loaded %d", N);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-} // end load_PySEDMODEL_CHOICE_LIST
-
-xxxxxxxx end mark xxxxxx*/
-
-
-
 // =========================================================
 void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 			    char *ARGLIST, char *NAMES_HOSTPAR  ) {
@@ -213,10 +187,19 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
   SEDMODEL.LAMMIN_ALL           =  1000.0 ;
   SEDMODEL.LAMMAX_ALL           = 25000.0 ;
-  if ( strcmp(MODEL_NAME,MODEL_NAME_PYBAYESN) == 0 ) {
+
+  // special cases ...                                                                          
+  if ( strcmp(MODEL_NAME,MODEL_NAME_AGN) == 0 ) { // Jun 30 2023
+    SEDMODEL.LAMMIN_ALL           =  100.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  500.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
+  }
+
+  if ( strcmp(MODEL_NAME,MODEL_NAME_PYBAYESN) == 0 ) { 
     SEDMODEL.RESTLAMMIN_FILTERCEN =  4000.0 ;
     SEDMODEL.RESTLAMMAX_FILTERCEN = 16000.0 ;
   }
+
   printf("\n\t Hard-wired wavelength ranges: \n");
   printf("\t   FILTERCEN: %.1f to %.1f \n", 
 	 SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN );
@@ -277,7 +260,6 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   handle_python_exception(fnam, "importing numpy and getting numpy.empty & numpy.double");
   Py_DECREF(numpy);
 
-  // xxx mark delete  printf("DEBUG", PyCLASS_NAME, "\n");
   genmod_base = PyImport_ImportModule("gensed_base");
   if (genmod_base == NULL) {
     handle_python_exception(fnam, "tried to import gensed_base");
@@ -1085,7 +1067,6 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 
       // check option to smear flux with intrinsic scatter (Apr 11 2019)
       if ( ISTAT_SMEAR ) {
-	// xxx mark delete arg     =  -0.4*magSmear[ilamobs] ;
 	arg     = -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs];
 	FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	FTMP   *=  FSMEAR;                // adjust flux for smearing

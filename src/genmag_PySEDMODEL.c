@@ -49,6 +49,11 @@
      all Tobs before calling fetch functions.
    + prep MODEL_NAME_AGN; python code to be added later.
 
+  July 1 2023
+    + new function set_lamRanges_PySEDMODEL sets wavelength ranges for each
+      model, and aborts if MODEL_NAME is not found. This forces a human
+      check for new PySEDMODELs.
+
  *****************************************/
 
 #include  <stdio.h>
@@ -129,7 +134,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   PyObject *genmod, *genclass, *genmod_base, *gensed_base, *pargs;
 #endif
 
-  char *PyMODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char *PyMODEL_NAME   = INPUTS_PySEDMODEL.MODEL_NAME ;
   char *PyCLASS_NAME   = INPUTS_PySEDMODEL.PyCLASS_NAME ;
   int  L, ipar, NPAR ;
   int  MEMD   = sizeof(double);
@@ -142,7 +147,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   sprintf(BANNER, "%s", fnam);
   print_banner(BANNER);
 
-  sprintf(PyMODEL_NAME, "%s",      MODEL_NAME);
+  sprintf(PyMODEL_NAME, "%s",        MODEL_NAME);
   sprintf(PyCLASS_NAME, "gensed_%s", PyMODEL_NAME) ;
 
   printf("   %s PATH    = '%s' \n",  PyMODEL_NAME, PATH_VERSION);
@@ -180,6 +185,10 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   // print summary of filter info
   filtdump_SEDMODEL();
 
+  // set wavelength range
+  set_lamRanges_PySEDMODEL(MODEL_NAME);
+
+  /* xxx mark delete July 1 2023 xxxxxxx
   // Dec 2022: set SED and filtercen limits; here they are hard wired, 
   //  but we should really call a python method to return the values  
   // start with generi default ...
@@ -187,26 +196,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
   SEDMODEL.LAMMIN_ALL           =  1000.0 ;
   SEDMODEL.LAMMAX_ALL           = 25000.0 ;
-
-  // special cases ...                                                                          
-  if ( strcmp(MODEL_NAME,MODEL_NAME_AGN) == 0 ) { // Jun 30 2023
-    SEDMODEL.LAMMIN_ALL           =  100.0 ;
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  500.0 ;
-    SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
-  }
-
-  if ( strcmp(MODEL_NAME,MODEL_NAME_PYBAYESN) == 0 ) { 
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  4000.0 ;
-    SEDMODEL.RESTLAMMAX_FILTERCEN = 16000.0 ;
-  }
-
-  printf("\n\t Hard-wired wavelength ranges: \n");
-  printf("\t   FILTERCEN: %.1f to %.1f \n", 
-	 SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN );
-  printf("\t   SED: %.1f to %.1f \n", 
-	 SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
-  fflush(stdout);
-
+  xxxxxxx end mark xxxxxxxxx */
 
 
   // init a few C struct items
@@ -336,6 +326,9 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
 } // end init_genmag_PySEDMODEL
 
+
+
+/* xxxxxxxxxxxxx mark delete July 1 2023 xxxxxxxx
 // =========================================================
 void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
 
@@ -363,7 +356,64 @@ void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
 
   return;
 } // end get_MODEL_NAME
+xxxxxxxxx end mark xxxxxxxx */
 
+
+
+// ===================================================
+void set_lamRanges_PySEDMODEL(char *MODEL_NAME) {
+
+  // Created July 1 2023
+  // set wavelengh range for center of filter, and for SED
+  
+  char fnam[] = "set_lamRanges_PySEDMODEL";
+
+  // ----------- BEGIN ---------
+
+  if ( strcmp(MODEL_NAME,MODEL_NAME_AGN) == 0 ) {
+    SEDMODEL.LAMMIN_ALL           =  100.0 ;
+    SEDMODEL.LAMMAX_ALL           = 25000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  500.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
+  }
+
+  else if ( strcmp(MODEL_NAME,MODEL_NAME_PYBAYESN) == 0 ) { 
+    SEDMODEL.LAMMIN_ALL           =  2000.0 ;
+    SEDMODEL.LAMMAX_ALL           = 20000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  4000.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 16000.0 ;
+  }
+
+  else if ( strcmp(MODEL_NAME,MODEL_NAME_BYOSED) == 0 ) { 
+    SEDMODEL.LAMMIN_ALL           =  1000.0 ;
+    SEDMODEL.LAMMAX_ALL           = 25000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  2000.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
+  }
+
+  else if ( strcmp(MODEL_NAME,MODEL_NAME_SNEMO) == 0 ) { 
+    SEDMODEL.LAMMIN_ALL           =  1000.0 ;
+    SEDMODEL.LAMMAX_ALL           = 25000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  2000.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
+  }
+
+  else {
+    sprintf(c1err,"Cannot set wavelength ranges for MODEL_NAME=%s", MODEL_NAME);    
+    sprintf(c2err,"Check MODEL_NAME");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  printf("\n\t Hard-wired wavelength ranges for %s: \n", MODEL_NAME);
+  printf("\t   FILTERCEN: %.1f to %.1f A\n", 
+	 SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN );
+  printf("\t   SED: %.1f to %.1f A\n", 
+	 SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
+  fflush(stdout);
+
+  return;
+
+} // end set_lamRanges_PySEDMODEL
 
 // =========================================================
 void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,

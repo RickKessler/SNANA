@@ -1838,20 +1838,21 @@ void print_calib_summary(void)  {
 
   // - - - - - KCORs - - - - -
   int NKCOR = CALIB_INFO.NKCOR_STORE ;
-  int ifiltdef_o, ifiltdef_r, ifilt_o, ifilt_r;
-  char *name_o, *name_r;
+  int ifiltdef_o, ifiltdef_r, ifilt_o, ifilt_r, k_orig;
+  char *kcorsym, *name_o, *name_r;
   if ( NKCOR == 0 ) { return; }
   printf("\n KCOR SUMMARY (%d tables)\n", NKCOR);
   for(k=0; k < NKCOR; k++ ) {
+    k_orig     = CALIB_INFO.k_index[k];
     ifiltdef_o = CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][k] ;
     ifiltdef_r = CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][k] ;
     ifilt_o    = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[ifiltdef_o];
     ifilt_r    = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_r];
+    kcorsym    = CALIB_INFO.STRING_KCORSYM[k_orig];
     name_o     = CALIB_INFO.FILTERCAL_OBS.FILTER_NAME[ifilt_o];
     name_r     = CALIB_INFO.FILTERCAL_REST.FILTER_NAME[ifilt_r];
     printf("     %3d Found %s table    (%d -> %d : %s -> %s)\n",
-	   k, CALIB_INFO.STRING_KCORSYM[k], ifiltdef_r, ifiltdef_o,
-	   name_r, name_o);
+	   k, kcorsym, ifiltdef_r, ifiltdef_o, name_r, name_o);
   }
 
   fflush(stdout);

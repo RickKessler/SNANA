@@ -21767,6 +21767,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_fit.car
      + new &FITINP input NFIT_VERBOSE=20 (default), but can
        be increased to get more information from batch jobs.
+     + remove unnecessary abort for number of rest-frame filters;
+          https://github.com/RickKessler/SNANA/issues/1172
 
    sntools.c angSept_dotprod()
      + for AGN model, found cases where DOTPROD = 1 + 2.2E-16, 

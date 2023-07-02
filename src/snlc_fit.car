@@ -1185,7 +1185,8 @@ c local var
      &  ,LEN_VERS, LEN_NAME
 
 c variables for PARSE_FILTSTRING:
-      INTEGER IAFILT(MXFILT_OBS), ifiltdef, ifiltr, NF
+      INTEGER IAFILT(MXFILT_OBS), ifiltdef, ifiltr
+      INTEGER NF_UNDEF, NF_DEF, NF_ABORT
       REAL    XAFILT(MXFILT_OBS)
       REAL    ERRMAX
 
@@ -1193,6 +1194,7 @@ c variables for PARSE_FILTSTRING:
      &   snsed_file*(MXCHAR_FILENAME)
      &  ,cfilt*2
      &  ,cfilt_rest*(MXFILT_REST)
+     &  ,cfilt_defined*(MXFILT_ALL)
      &  ,cfilt_undefined*(MXFILT_ALL)
      &  ,covFile*(MXCHAR_FILENAME)
      &  ,tmpName*(MXCHAR_FILENAME)
@@ -1341,8 +1343,8 @@ c Parse filter lambda-shifts;
 c OPT=0 to NOT error-check filter because Bessell-B 
 c is usually not an observer-frame filter.
 
-      CALL PARSE_FILTSTRING(0, FILTLAM_SHIFT, NF, iafilt, xafilt )
-      DO i = 1, NF
+      CALL PARSE_FILTSTRING(0, FILTLAM_SHIFT, NF_DEF, iafilt, xafilt )
+      DO i = 1, NF_DEF
          ifiltdef            = IAFILT(i)
          FILTOBS_LAMSHIFT(ifiltdef) = xafilt(i)  ! global R*4 storage
       ENDDO
@@ -1536,8 +1538,10 @@ c Mar 2013: abort if model filter is not defined in kcor table.
       ENDDO
       NFILT_MODEL = INDEX(FILTLIST_MODEL, ' ' ) - 2 ! subtract 2 for char(0)
       CFILT = ''
+      CFILT_DEFINED = ''
       CFILT_UNDEFINED = ''
-      NF = 0  ! number of undefined filters
+      NF_UNDEF = 0  ! number of undefined filters
+      NF_DEF   = 0
       DO i       = 1, NFILT_MODEL
         CFILT    = FILTLIST_MODEL(i:i) 
         ifiltdef = FILTINDX(cfilt)   ! absolute index of model filter
@@ -1546,21 +1550,39 @@ c Mar 2013: abort if model filter is not defined in kcor table.
 
         ifiltr  = IFILTDEF_INVMAP_REST(IFILTDEF)
         IF ( ifiltr < 0 ) then
-           NF = NF + 1
-           CFILT_UNDEFINED = CFILT_UNDEFINED(1:NF-1) // CFILT(1:1)
+           NF_UNDEF = NF_UNDEF + 1
+           CFILT_UNDEFINED = CFILT_UNDEFINED(1:NF_UNDEF-1) // CFILT(1:1)
+        ELSE
+           NF_DEF = NF_DEF + 1
+           CFILT_DEFINED = CFILT_DEFINED(1:NF_DEF-1) // CFILT(1:1)
         ENDIF
       ENDDO
 
++SELF,IF=DELETE.
+c xxxx mark delete Jul 2 2023
+c xxxx  to allow fitting only two of the 9 CSP bands xxxx
+c
 c abort if more than 3 model filters are not defined.
 c This is bit arbitrary, but it allows ignoring some 
 c model-wavelength ranges such as the IR.
+      NF_ABORT = 4
+      IF ( NF_UNDEF .GE. NF_ABORT ) THEN 
+         CALL PRINT_PREABORT_BANNER("FITPAR_INI"//CHAR(0), 40)
+	 
+         write(6,651) NF_DEF, 'DEFINED', 
+     &                CFILT_DEFINED(1:NF_DEF)
+         write(6,651) NF_UNDEF, 'UNDEFINED', 
+     &                CFILT_UNDEFINED(1:NF_UNDEF)
+651      format(I3,2x, A,' rest-frame model filters (',A,')' )
 
-      IF ( NF > 3 ) THEN  ! 30 -> 3 Nov 28 2022
-         write(C1ERR,651) NF, CFILT_UNDEFINED(1:NF)
-651      format(I3,' undefined rest-frame model filters (',A,')' )
+         write(C1ERR,652) NF_UNDEF, NF_ABORT
+652      format(I3,' undefined rest-frame filters exceeds bound=',I3)
          c2err = 'Check KCOR/CALIB input file for rest-frame filters'
          CALL MADABORT("FITPAR_INI", c1err, c2err )
       ENDIF
+c xxxxxxxxx end mark xxxxxxxx
++SELF.
+
 c -----------
 c set optional filter-dependent cuts on TREST
       CALL SETCUTS_FITWIN_TREST

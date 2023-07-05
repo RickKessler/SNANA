@@ -16377,7 +16377,9 @@ void SIMLIB_findStart(void) {
   //
   // Jun 25 2023: see logic using JOBID_SHIFT to distribute SIMLIB-read-skip
   //               load among GENTYPEs/models.
-  
+  //
+  // Jul 5 2023: fix IDSEEK to stop 1 before LIBID to avoid SIMLIB wrap-around.
+  //
   int IDSTART  = INPUTS.SIMLIB_IDSTART ;
   int IDLOCK   = INPUTS.SIMLIB_IDLOCK ;
   int NLIBID   = SIMLIB_GLOBAL_HEADER.NLIBID ;
@@ -16499,8 +16501,11 @@ void SIMLIB_findStart(void) {
   }
   
 
-  // search for specific LIBID
-  while ( IDSEEK > SIMLIB_HEADER.LIBID ) {   
+  // search for specific LIBID; stop 1 short of IDSEEK to allow
+  // advancing 1 more without doing a full wrap-around.
+
+  // xx xmark delete Jul 5 2023: while ( IDSEEK > SIMLIB_HEADER.LIBID ) {   
+  while (SIMLIB_HEADER.LIBID < IDSEEK-1 ) {
     SIMLIB_READ_DRIVER();
     if ( SIMLIB_HEADER.NWRAP > 0 ) {
       sprintf(c1err,"Wrapped around SIMLIB without finding start.");
@@ -16804,6 +16809,7 @@ void SIMLIB_READ_DRIVER(void) {
   GENLC.NGEN_SIMLIB_ID++ ;
   REPEAT = USE_SAME_SIMLIB_ID(2);
 
+
   if ( !REPEAT ) {  // process next cadence
 
     // read next cadence from SIMLIB/Cadence file (any format)
@@ -16944,6 +16950,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // check SIMLIB after 5 passes to avoid infinite loop
       ENDSIMLIB_check();
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
+	printf(" xxx %s: rewind with FOUND_ENDKEY=%d  EOF=%d \n",
+	       fnam, FOUND_ENDKEY, FOUND_EOF); fflush(stdout);
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
 		     INPUTS.SIMLIB_GZIPFLAG);
 	SIMLIB_HEADER.NWRAP++ ; 
@@ -19782,6 +19790,7 @@ void ENDSIMLIB_check(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
+  return ;
 
 } // end of ENDSIMLIB_check
 

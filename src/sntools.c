@@ -9308,6 +9308,8 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
   // --------------- BEGIN ----------------
 
+  //  printf(" xxx %s: rewind %s \n", fnam, FILENAME); fflush(stdout);
+
   if ( GZIPFLAG == 0 ) {
     rewind(fp);
   }

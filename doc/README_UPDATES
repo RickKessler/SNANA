@@ -21735,6 +21735,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05e) ***** 
 
+   
         ***** USEFUL(v11_05e) ***** 
 
     new sim-input override
@@ -21774,5 +21775,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for AGN model, found cases where DOTPROD = 1 + 2.2E-16, 
        resulting in NaN for GALSEP. Fixed with more robust logic
        to trap |DOTPROD| > 1.
+
+   SALT2mu:
+     + for LSST analysis, still getting occasional "Crazy ERR" even
+       after 2nd fit iteration. Turn on MINOS on this case in addition
+       to shifting initial alpha and beta.
 
 END: 

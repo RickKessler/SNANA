@@ -2108,8 +2108,9 @@ int SALT2mu_DRIVER_SUMMARY(void) {
     double delta_beta  = 0.01;
     INPUTS.parval[IPAR_ALPHA0] += delta_alpha ;
     INPUTS.parval[IPAR_BETA0]  += delta_beta  ;
+    INPUTS.minos     = 1;  // JUly 5 2023
     FITINP.NFITPAR_FLOAT = 0 ;
-    printf("\t Repeat BBC fit with initial alpha += %.5f and beta += %.5f\n",
+    printf("\t Repeat BBC fit with initial alpha += %.5f,  beta += %.5f, MINOS\n",
 	   delta_alpha, delta_beta); fflush(stdout);
     return(FLAG_EXEC_REPEAT); 
   }
@@ -11142,7 +11143,7 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov, char *msg) {
   int  j0, j1 ;
   char *name ;
   char fnam[] = "muerrsq_biasCor" ;
-  int LDMP = (ievt<10);
+  int LDMP = 0; // (ievt<10);
 
   // ------------- BEGIN -----------
 

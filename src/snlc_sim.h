@@ -612,7 +612,7 @@ struct INPUTS {
   double GENRANGE_DEC[2];       // idem for DEC
   double GENRANGE_b[2];        // for Galactic events
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
-  float MXRADIUS_RANDOM_SHIFT; // random coord shift within MXRADIUS, deg
+  float MXRADIUS_RANDOM_SHIFT; // 0: random coord shift within MXRADIUS, deg
 
   double GENRANGE_REDSHIFT[2];  // generated zCMB range
   double GENSIGMA_REDSHIFT;     // smear reported redshift
@@ -1896,6 +1896,8 @@ void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
 void   gen_event_stronglens(int ilc, int istage);
 void   gen_random_coord_shift(void);
+void   apply_RA_convention(double*RA);
+
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);
 void   gen_modelPar_SALT2(int OPT_FRAME);

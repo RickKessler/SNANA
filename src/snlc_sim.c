@@ -11431,6 +11431,7 @@ void gen_random_coord_shift(void) {
   shift_RA    = r * cos(phi) / COSDEC ;
   shift_DEC   = r * sin(phi) ;
 
+
   // load globals for SIMGEN_DUMP file
   GENLC.random_shift_RA     = shift_RA;
   GENLC.random_shift_DEC    = shift_DEC;
@@ -11443,11 +11444,13 @@ void gen_random_coord_shift(void) {
   // start with SN ...
   GENLC.RA  += shift_RA;  
   GENLC.DEC += shift_DEC;
- 
+  apply_RA_convention(&GENLC.RA);
+
   // now the host(s)
   for(m=0; m < SNHOSTGAL.NNBR_ALL; m++ ) {
     SNHOSTGAL_DDLR_SORT[m].RA  += shift_RA ;
     SNHOSTGAL_DDLR_SORT[m].DEC += shift_DEC ;
+    apply_RA_convention(&SNHOSTGAL_DDLR_SORT[m].RA);
   }
 
   if ( CHECK_ANGSEP ) {
@@ -11474,6 +11477,21 @@ void gen_random_coord_shift(void) {
   return;
 
 } // end gen_random_coord_shift
+
+void apply_RA_convention(double *RA) {
+
+  // Created July 5 2023 
+  // If input *RA is outside GENRANGE_RA, add or subtract 360 deg
+  // to maintatain conventionof either -180:180 or 0360 deg.
+  // Beware that input *RA can be modified.
+  
+  if ( INPUTS.DEBUG_FLAG == 705 ) { 
+    if ( *RA < INPUTS.GENRANGE_RA[0] ) { *RA += 360.0 ; }
+    if ( *RA > INPUTS.GENRANGE_RA[1] ) { *RA -= 360.0 ; }
+  }
+
+  return;
+} // end apply_RA_convention
 
 // *******************************************
 void gen_event_stronglens(int ilc, int istage) {

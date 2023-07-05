@@ -11446,6 +11446,9 @@ void gen_random_coord_shift(void) {
   GENLC.DEC += shift_DEC;
   apply_RA_convention(&GENLC.RA);
 
+  GENLC.RA_OBS_AVG  = GENLC.RA ;
+  GENLC.DEC_OBS_AVG = GENLC.DEC ;
+
   // now the host(s)
   for(m=0; m < SNHOSTGAL.NNBR_ALL; m++ ) {
     SNHOSTGAL_DDLR_SORT[m].RA  += shift_RA ;
@@ -11485,10 +11488,11 @@ void apply_RA_convention(double *RA) {
   // to maintatain conventionof either -180:180 or 0360 deg.
   // Beware that input *RA can be modified.
   
-  if ( INPUTS.DEBUG_FLAG == 705 ) { 
-    if ( *RA < INPUTS.GENRANGE_RA[0] ) { *RA += 360.0 ; }
-    if ( *RA > INPUTS.GENRANGE_RA[1] ) { *RA -= 360.0 ; }
-  }
+  if ( INPUTS.DEBUG_FLAG == -705 ) { return ; }  // disable this function
+
+  if ( *RA < INPUTS.GENRANGE_RA[0] ) { *RA += 360.0 ; }
+  if ( *RA > INPUTS.GENRANGE_RA[1] ) { *RA -= 360.0 ; }
+ 
 
   return;
 } // end apply_RA_convention

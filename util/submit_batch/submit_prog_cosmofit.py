@@ -47,6 +47,8 @@
 # May 4 2023: in WFIT_SUMMARY_AVG output, replace <w_sig>_sig with <wa_sig>
 #             to see avg uncertainty on wa.
 #
+# Jul 5 2023: for avg summary, remove samples with nwarn > 0; see nwarn_dict
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1462,6 +1464,8 @@ class cosmofit(Program):
 
         self.config_prep['fitavg_list'] = fitavg_list
 
+        return
+
         # end make_fitavg_lists                                                                                                                              
 
     def compute_average(self, fit_list):
@@ -1481,6 +1485,7 @@ class cosmofit(Program):
 
         # Driver utility to compute means and std err on mean among directories
         # See MEAN_STDERRMEAN key in input CONFIG file
+        # July 5 2023: exclude results with nwarn > 0
 
         CONFIG           = self.config_yaml['CONFIG']
         COSMOFIT_CODE    = self.config_prep['COSMOFIT_CODE']
@@ -1491,7 +1496,7 @@ class cosmofit(Program):
         INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
         FITOPT_LIST      = submit_info_yaml['FITOPT_LIST']
         cosmofit_summary_table  = self.config_prep['cosmofit_summary_table']
-
+        PARNAME_nwarn  = COSMOFIT_PARNAME_nwarn
         KEYNAME_FITAVG = self.get_keyname_cosmofit(KEYNAME_FITAVG_LIST)
         if KEYNAME_FITAVG is None: return
 
@@ -1508,9 +1513,7 @@ class cosmofit(Program):
         
         if use_wa: 
             VARNAME_FOM = "<w_sig> <wa_sig> FoM FoM_sig"
-            # xxx mark May 2023: VARNAME_FOM = "<w_sig> <w_sig>_sig FoM FoM_sig"
         else: 
-            # xxx mark delete : VARNAME_FOM = "<w_sig> <w_sig>_sig"
             VARNAME_FOM = "<w_sig>"
 
         VARNAMES_STRING = \
@@ -1543,11 +1546,37 @@ class cosmofit(Program):
 
             for covnum in unique_matching_covopts:
                 for wfitnum in unique_matching_fitopts:
+                    str_covnum_wfitnum = f"{covnum}_{wfitnum}"  # .xyz
+                    nwarn_dict = {}
+                    idir = 0
+                    dir2_ = 'blank'
+
+                    # July 5 2023 RK - check for nwarn > 0
+                    for dir_ in fitavg_list1:
+                            unique_key     = f"{dir_}_{str_covnum_wfitnum}"
+                            summary_table  = cosmofit_summary_table[unique_key]
+                            nwarn_tot      = summary_table[PARNAME_nwarn]
+                            if fitavg_list2 is not None:
+                                dir2_          = fitavg_list2[idir]
+                                unique_key2    = f"{dir2_}_{str_covnum_wfitnum}"
+                                summary_table2 = cosmofit_summary_table[unique_key2]
+                                nwarn_tot     += summary_table2[PARNAME_nwarn]
+
+                            nwarn_dict[dir_]  = nwarn_tot
+                            nwarn_dict[dir2_] = nwarn_tot
+                            idir += 1
+                    # - - -
                     omm_list = []; w_list = []; wa_list = []
                     wsig_list = []; wasig_list = []; FoM_list = []
+                    unique_key_list = []
+
                     for dir_ in fitavg_list1:
-                        unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
+                        if nwarn_dict[dir_] > 0 : continue
+                        # xxx mark unique_key    = dir_+'_%s_%s'%(covnum,wfitnum)
+                        unique_key    = f"{dir_}_{str_covnum_wfitnum}"
                         summary_table = cosmofit_summary_table[unique_key]
+
+                        unique_key_list.append(unique_key)
                         omm_list.append(summary_table['omm'])
                         w_list.append(summary_table['w'])
                         wa_list.append(summary_table['wa'])
@@ -1562,7 +1591,9 @@ class cosmofit(Program):
                         wsig_list2 = []; wasig_list2 = []; FoM_list2 = []
 
                         for dir2_ in fitavg_list2:
-                            unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
+                            if nwarn_dict[dir2_] > 0 : continue
+                            # xxx mark unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
+                            unique_key2   = f"{dir2_}_{str_covnum_wfitnum}"
                             summary_table = cosmofit_summary_table[unique_key]
                             omm_list2.append(summary_table['omm'])
                             w_list2.append(summary_table['w'])
@@ -1574,7 +1605,8 @@ class cosmofit(Program):
                         # if theres no second set of dirs, this is not a 
                         # difference so just set x_list2 to zero 
                         
-                        zero_list2  = np.zeros(len(fitavg_list1))
+                        # xxx mark delete zero_list2  = np.zeros(len(fitavg_list1))
+                        zero_list2  = np.zeros(len(w_list))
                         omm_list2   = zero_list2
                         w_list2     = zero_list2
                         wa_list2    = zero_list2

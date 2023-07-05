@@ -21735,6 +21735,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05e) ***** 
 
+   submit_prog_cosmofit.py:
+      summary-avg calculations exclude fits with nwarn>0;
+      see https://github.com/RickKessler/SNANA/issues/1173
    
         ***** USEFUL(v11_05e) ***** 
 

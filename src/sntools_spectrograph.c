@@ -1628,6 +1628,7 @@ void create_ideal_spectrograph(double lammin, double lammax) {
     INPUTS_SPECTRO.LAMAVG_LIST[ilam] = lavg;
     INPUTS_SPECTRO.LAMBIN_LIST[ilam] = BINSIZE_IDEAL ;
     INPUTS_SPECTRO.LAMSIGMA_LIST[ilam] = 0.0 ;
+    INPUTS_SPECTRO.ISLAM_EXTEND_LIST[ilam] = false;
 
     for(it=0; it < NBIN_TEXPOSE_IDEAL; it++ ) {
       INPUTS_SPECTRO.SNR0[ilam][it] = SNR_LIST[0];

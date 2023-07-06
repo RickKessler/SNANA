@@ -19762,7 +19762,7 @@
         to return LAM and TRANS for filter or spectrograph.
 
     snlc_sim.c
-      + new option "GENMODEL_MSKOPT: 16" to force neg Flam to Flam=0
+      + new option "GENMODEL_MSKOPT: 16" to force negative Flam to Flam=0
       + new options BIASCOR_SALT2ALPHA[BETA]_GRID to replace entering
         PEAK, RANGE and SIGMA, NGRID (see manual sec 9.3.1)
       + new feature TAKE_SPECTRUM MJD([min]:[max]) ...

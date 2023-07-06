@@ -6547,6 +6547,7 @@ void prep_user_input(void) {
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 )  { 
     INPUTS.FORMAT_MASK |=  FORMAT_MASK_ATMOS ; 
     INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK = SPECTROGRAPH_OPTMASK_SEDMODEL ;
+    INPUTS.GENMODEL_MSKOPT += GENMODEL_MSKOPT_SALT2_NONEGFLUX; 
   }
 
   // init all of the WRFLAGs to zero
@@ -10489,6 +10490,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
+  bool DO_SEDMODEL   = ( (OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL)>0 );
+
   bool IS_HOST       = GENSPEC.IS_HOST[imjd];
   char   fnam[] = "GENSPEC_SMEAR" ;
 
@@ -10518,9 +10521,17 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     if ( GENMAG  > 600.0 ) { continue ; } // Mar 2019
 
     // get true SNR in this lambda bin
-    SNR_TRUE =
-      getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, ALLOW_TEXTRAP, GENMAG,
-			  &ERRFRAC_T);  // template frac of error
+    if ( DO_SEDMODEL ) {
+      // special case with ideal SNR for true SED (HOSTLIB_OPTMASK=128)
+      SNR_TRUE = 1000.0 ; 
+      ERRFRAC_T = 0.0 ;
+    }
+    else {
+      // nominal usage
+      SNR_TRUE =
+	getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, ALLOW_TEXTRAP, GENMAG,
+			    &ERRFRAC_T);  // template frac of error
+    }
 
     SNR_TRUE_LIST[ilam]  = SNR_TRUE ;
     ERRFRAC_T_LIST[ilam] = ERRFRAC_T ;

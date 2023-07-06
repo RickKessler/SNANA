@@ -6064,7 +6064,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.GALID      = GALID ;
   SNHOSTGAL.ZTRUE      = ZTRUE  ;  
   SNHOSTGAL.ZDIF       = ZGEN - ZTRUE ; // zSN - zGAL (helio)
-  if ( DO_SN2GAL_Z ) { SNHOSTGAL.ZDIF = 0.0 ; } // Sep 2 2022 bugfix
+  SNHOSTGAL.ZRATIO     = ZGEN/ZTRUE;    // zSN/zGAL
+
+  if ( DO_SN2GAL_Z ) { SNHOSTGAL.ZDIF = 0.0 ; SNHOSTGAL.ZRATIO=1.0; } 
 
   if ( NGROUPID > 0 ) {
     // diagnostic: compute angSep between SIMLIB coords and HOSTLIB coord 
@@ -8368,7 +8370,8 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
     zq  = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
   }
 
-  zq += SNHOSTGAL.ZDIF; // shift is  zSN - zGAL
+  // xxx mark delete   zq += SNHOSTGAL.ZDIF; // shift is  zSN - zGAL
+  zq *= SNHOSTGAL.ZRATIO; // zSN/zGAL  July 2023 
 
   return zq;
 

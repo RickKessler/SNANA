@@ -514,6 +514,7 @@ struct SNHOSTGAL {
   double ZGEN  ;     // saved ZSN passed to driver
   double ZTRUE ;     // host galaxy redshift 
   double ZDIF ;      // zSN(orig) - zGAL, Nov 2015
+  double ZRATIO;     // zSN(orig)/zGAL July 2023
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZPHOT_Q[MXBIN_ZPHOT_Q];
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host

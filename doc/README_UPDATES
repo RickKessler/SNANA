@@ -21761,6 +21761,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + in function SIMLIB_findStart, see logic using JOBID_SHIFT to 
          distribute SIMLIB-read-skip load among GENTYPsE/models.
          Affects first LIBID for batch jobs.
+     + zquantile *= ZRATIO instead of +- ZDIF to avoid negative zphot_q.
 
    sntools_sim_readme.c
      + abort if any README_DOC line is too long
@@ -21783,5 +21784,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for LSST analysis, still getting occasional "Crazy ERR" even
        after 2nd fit iteration. Turn on MINOS on this case in addition
        to shifting initial alpha and beta.
+
+   wfit.c:
+     + increment NWARN if sig_prodcut=0 and rho cannot be computed.
 
 END: 

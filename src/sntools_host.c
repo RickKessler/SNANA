@@ -8338,6 +8338,9 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
   // Default method is to return value from HOSTLIB.
   // If HOSTLIB_MSKOPT_ZPHOT_QGAUSS bit of HOSTLIB_MSKOPT is set,
   // then compute quantile from Gaussian using sigma=ZPHOT_ERR .
+  //
+  // July 6 2023: zq *= zSN/zGal instead of zq += zSN-zGAL
+  //             (to avoid negative zq)
 
   int   USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
   int   IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;

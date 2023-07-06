@@ -3107,12 +3107,26 @@ void wfit_Covariance(void){
   // Compute cov and reduced covariances
   sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.omm_sig_marg);
   cov_w0omm /= probsum;
-  rho_w0omm = cov_w0omm / sig_product;
+  if ( sig_product > 0.0 ) 
+    { rho_w0omm = cov_w0omm / sig_product; }
+  else {
+    rho_w0omm = 0.0; 
+    WORKSPACE.NWARN++ ; 
+    printf(" WARNING: cannot compute rho_w0omm because w0_sig=omm_sig=0\n");
+    fflush(stdout);
+  }
 
   if( dofit_w0wa ) { 
     sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg) ;
     cov_w0wa  /= probsum ;
-    rho_w0wa = cov_w0wa / sig_product ;
+    if ( sig_product > 0.0 ) 
+      { rho_w0wa = cov_w0wa / sig_product ; }
+    else {
+      rho_w0wa = 0.0 ; 
+      WORKSPACE.NWARN++ ;
+      printf(" WARNING: cannot compute rho_w0wa because w0_sig=wa_sig=0\n");
+      fflush(stdout);
+    }
   }
 
   WORKSPACE.cov_w0omm  = cov_w0omm ;

@@ -33,6 +33,8 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 char BAYESN_MODELPATH[MXPATHLEN];
 int VERBOSE_BAYESN;
 #define OPTMASK_BAYESN_VERBOSE 128
+int ENABLE_SCATTER_BAYESN;
+#define OPTMASK_BAYESN_NOSCATTER 1024 // disable intrinsic scatter
 
 struct {
    int    n_lam_knots;

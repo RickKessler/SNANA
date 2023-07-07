@@ -7655,9 +7655,10 @@ void genperfect_override(void) {
 
   // ---------- BEGIN ---------------
 
+  GENPERFECT.enable_intrinsic_scatter = true;
+
   MASK = INPUTS.GENPERFECT ;
   if ( MASK == 0 )  return ;
-
 
   // check option to set all bits.  
   // Passing argument 1 sets all bits so that
@@ -7782,6 +7783,8 @@ void genperfect_override(void) {
 
   OVP = MASK & (1 <<  BITPERFECT_MAGSMEAR ) ;
   if ( OVP > 0 ) {
+
+    GENPERFECT.enable_intrinsic_scatter = false;
     printf("\t GENPERFECT: disable intrinsic scatter and weak lensing\n");
     NVAR++ ;  fptr = &INPUTS.GENMODEL_ERRSCALE ;
     sprintf(GENPERFECT.parnam[NVAR], "GENMODEL_ERRSCALE" ) ;
@@ -23630,7 +23633,10 @@ void init_genmodel(void) {
 
     // model-specific init
     OPTMASK = INPUTS.GENMODEL_MSKOPT;
-
+    if (INPUTS.GENPERFECT > 0 && !GENPERFECT.enable_intrinsic_scatter)
+    {
+        OPTMASK += OPTMASK_BAYESN_NOSCATTER; // BEWARE NOT TESTED - GN 20230707
+    }
     istat = init_genmag_BAYESN(GENMODEL, OPTMASK) ;
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
 

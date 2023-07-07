@@ -380,6 +380,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     char fnam[] = "init_genmag_BAYESN";
 
     // -------------- BEGIN --------------
+    print_banner(fnam);
 
     // extrac OPTMASK options
     VERBOSE_BAYESN = optmask & OPTMASK_BAYESN_VERBOSE;
@@ -389,6 +390,14 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
         printf("DEBUG: %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
     }
 
+    // intrinsic scatter is enabled by default
+    // but is disabled if OPTMASK bit is set explicitly - usually only with GENPERFECT
+    ENABLE_SCATTER_BAYESN = (optmask & OPTMASK_BAYESN_NOSCATTER) == 0;
+    // HACK HACK HACK
+    // REMOVE THIS - hardcoding ENABLE_SCATTER_BAYESN for now
+    ENABLE_SCATTER_BAYESN = 0; //XXXREMOVEME
+    printf("ENABLE_SCATTER_BAYESN flag is %d\n", ENABLE_SCATTER_BAYESN);
+    
 
     // GN - there is one of these further below but unsure yet how RK wants us to use these
 
@@ -476,7 +485,6 @@ void genmag_BAYESN(
 		  ) {
 
     //bool dumpsed = false;
-    bool enable_scatter = false;    
     double DLMAG = parList_SN[0] ;
     double THETA = parList_SN[1] ;
     double AV    = parList_SN[2] ;
@@ -659,10 +667,15 @@ void genmag_BAYESN(
       // current wavelength for all observations
       // basically j_lam * W * J_tau^T
       //
-      // GN - 20230203 - Why the setting jWJ to zero here - we set it earlier
-      // See enable_scatter
-      //
+      
       gsl_vector_set_zero(jWJ);
+      if (ENABLE_SCATTER_BAYESN)
+      {
+	      sprintf(c1err,"ENABLE_SCATTER_BAYESN is not yet implmented" );
+	      sprintf(c2err,"DISABLE INTRINSIC SCATTER or fix the code" );
+	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      
       j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q_lam);
         
       // GSN - 20230602 - J_lam matches - compare in restframe

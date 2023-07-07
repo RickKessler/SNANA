@@ -1660,6 +1660,7 @@ struct GENPERFECT {
   char  parnam[20][40];   // name modified INPUTS var
   float parval[20][2];    // orig[0] and modified[1] par value
   int   partype[20];          // 1=int ; 2=float
+  bool enable_intrinsic_scatter; // enable intrinsic scatter for models 
 } GENPERFECT ;
 
 

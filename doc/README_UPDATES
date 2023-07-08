@@ -21739,6 +21739,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       summary-avg calculations exclude fits with nwarn>0;
       see https://github.com/RickKessler/SNANA/issues/1173
    
+   SALT2mu.c:
+     + begin refactor to process BAYESN fit params that have DLMAG.
+       See new optional input model_lcfit=SALT2 (default) or BAYESN.
+       
         ***** USEFUL(v11_05e) ***** 
 
     new sim-input override

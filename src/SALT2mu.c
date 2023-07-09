@@ -2210,10 +2210,11 @@ void exec_mnparm(void) {
 
   //Setup M0(z) paramters for Minuit
 
-  M0min= M0_DEFAULT-10.0;  M0max = M0_DEFAULT+10.0;
+  M0min= M0_DEFAULT-5.0;  M0max = M0_DEFAULT+5.0;
 
   if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 )  
-    { M0min=-40.0;  M0max=-20.0; }
+    { M0min = M0_DEFAULT-10.0; ;  M0max = M0_DEFAULT+10.0;; }
+
   if ( INPUTS.uM0 == M0FITFLAG_CONSTANT ) 
     { M0min= M0_DEFAULT-0.001; M0max=M0_DEFAULT+.001; }
 
@@ -4039,7 +4040,7 @@ void *MNCHI2FUN(void *thread) {
 
     // load muBias info into globals
 
-    if ( NDIM_BIASCOR ) {
+    if ( NDIM_BIASCOR > 0 ) {
       INFO_DATA.muBias[n]     = muBias ;
       INFO_DATA.muBiasErr[n]  = muBiasErr ;
       INFO_DATA.muCOVscale[n] = muCOVscale ;
@@ -9670,7 +9671,7 @@ void  prepare_biasCor_zinterp(void) {
   double MUBIAS_SIM[MXNUM_SAMPLE][MXz];
   double SUMWGT[MXNUM_SAMPLE][MXz];
   double SUMWGT_HISNR, MUBIAS_SIM_HISNR ;
-  double muerrsq, muerrLens, SNRMAX, *ptr_zM0 ;
+  double muerrsq, SNRMAX, *ptr_zM0 ;
   char  *name ;
 
   int ndata[MXNUM_SAMPLE], ndata_reject[MXNUM_SAMPLE];
@@ -9741,6 +9742,8 @@ void  prepare_biasCor_zinterp(void) {
 
     NCUTS++ ; 
 
+    mu_true   = (double)INFO_BIASCOR.TABLEVAR.SIM_MUz[ievt];  // at zHD
+
     if ( ISMODEL_LCFIT_SALT2 ) {
       mB_fit    = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_mB][ievt] ;
       x1_fit    = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_x1][ievt] ;
@@ -9753,11 +9756,9 @@ void  prepare_biasCor_zinterp(void) {
     }
     else if ( ISMODEL_LCFIT_BAYESN ) {
       mu_fit    = (double)INFO_BIASCOR.TABLEVAR.mu[ievt];
-      mu_sim    = mu_fit; // ??
+      mu_sim    = mu_true ;
     }
 
-    mu_true   = (double)INFO_BIASCOR.TABLEVAR.SIM_MUz[ievt];  // at zHD
-    muerrLens = ( z * INPUTS.lensing_zpar ) ;
 
     iz = (int)( (z-zMIN[idsample]) / zbinSize[idsample] ) ;
     
@@ -9892,7 +9893,6 @@ void  prepare_biasCor_zinterp(void) {
       { setbit_CUTMASK(ievt, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); }
 
     z        = INFO_DATA.TABLEVAR.zhd[ievt] ;
-    //    mB       = INFO_DATA.TABLEVAR.fitpar[INDEX_mB][ievt];
     izmin    = IZMIN[idsample];
     izmax    = IZMAX[idsample];
     
@@ -9919,14 +9919,12 @@ void  prepare_biasCor_zinterp(void) {
 			    &MUBIAS_FIT[idsample][izmin], fnam);
     } 
 
-
     INFO_DATA.muBias_zinterp[ievt] = muBias ;
 
     // xxxxxxxxxxxxxxxxxxxx
-    if ( ievt < -20 ) {
+    if ( ievt < -10 ) {
       printf(" xxx ievt=%3d : z=%.3f --> muBias=%6.3f \n",
-	     ievt, z, muBias);
-      fflush(stdout);
+	     ievt, z, muBias);      fflush(stdout);
     }
     // xxxxxxxxxxxxxxxxxxxx
 
@@ -21395,6 +21393,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
     nevt_biascor         = INFO_DATA.nevt_biascor[n] ;
     muBias               = INFO_DATA.muBias[n] ;
     muBiasErr            = INFO_DATA.muBiasErr[n] ;
+
     if ( DO_BIASCOR_MU == false ) {
       fitParBias[INDEX_mB] = INFO_DATA.fitParBias[n][INDEX_mB] ;
       fitParBias[INDEX_x1] = INFO_DATA.fitParBias[n][INDEX_x1] ;
@@ -21439,6 +21438,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   }
 
   if ( NSN_BIASCOR > 0 ) {
+
     sprintf(word, "%4d ",   nevt_biascor ); NWR++ ; strcat(line,word);
     sprintf(word, "%6.4f ", muBias );       NWR++ ; strcat(line,word);
     sprintf(word, "%6.3f ", muBiasErr );    NWR++ ; strcat(line,word);

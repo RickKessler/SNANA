@@ -21731,7 +21731,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     
 
 # =============================================================
-        v11_05e ([tag-date]) 
+        v11_05e (July 9 2023) 
 
         ***** IMPORTANT(v11_05e) ***** 
 
@@ -21742,7 +21742,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu.c:
      + begin refactor to process BAYESN fit params that have DLMAG.
        See new optional input model_lcfit=SALT2 (default) or BAYESN.
-       
+       Seems to work for BBC1D ... work on BBC3D (z,theta,AV) 
+       for next code version.
+
         ***** USEFUL(v11_05e) ***** 
 
     new sim-input override
@@ -21791,5 +21793,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    wfit.c:
      + increment NWARN if sig_prodcut=0 and rho cannot be computed.
+
+
+# =============================================================
+        v11_05f ([tag-date]) 
+
+        ***** IMPORTANT(v11_05f) ***** 
+
+        ***** USEFUL(v11_05f) ***** 
+
+        ***** MISCELLANEOUS(v11_05f) ***** 
 
 END: 

@@ -16968,8 +16968,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // check SIMLIB after 5 passes to avoid infinite loop
       ENDSIMLIB_check();
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
-	printf(" xxx %s: rewind with FOUND_ENDKEY=%d  EOF=%d \n",
-	       fnam, FOUND_ENDKEY, FOUND_EOF); fflush(stdout);
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
 		     INPUTS.SIMLIB_GZIPFLAG);
 	SIMLIB_HEADER.NWRAP++ ; 

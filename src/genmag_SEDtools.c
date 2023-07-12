@@ -3210,7 +3210,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
     printf("\t Primary wave range: %.1f to %.1f \n",
            LAMMIN_PRIM, LAMMAX_PRIM);
     sprintf(c1err,"Primary SED wave range does not cover spectrograph.");
-    sprintf(c2err,"Check KCOR-input, and allow for extended spectro bins.");
+    sprintf(c2err,"Check LAMBDA_RANGE args in KCOR-input.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 

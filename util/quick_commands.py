@@ -469,8 +469,17 @@ def write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat):
         msgerr = f"\n ERROR: could not find {key} key in \n {sim_input_file} "
         assert False, msgerr 
 
+    # make list of special keys that will cause sim-abort or other problems.
+    KEYLIST_SUPPRESS = [ 'SIMGEN_DUMPADD' ]
+
     with open(sim_input_file,"wt") as f :
         for key, val_orig in INPUT_KEYS.items() :
+
+            SKIP_KEY = False
+            for key_tmp in KEYLIST_SUPPRESS:
+                if key == key_tmp: SKIP_KEY = True
+            if SKIP_KEY: continue
+
             key_plus_colon = key + ':'
             val_out = val_orig
             if key == "GENVERSION" : val_out = version_repeat

@@ -2382,11 +2382,14 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
   double rz_loc, mucos_loc;
   int  iz;
   HD_DEF *HD0 = &HD_LIST[0];
+  HD_DEF *HD1 = &HD_LIST[1];
   char fnam[] = "exec_rz_interp";
 
   // ----------------- BEGIN --------------
 
-  logz = HD0->logz[k];
+  logz = HD0->logz[k]; 
+  if ( INPUTS.USE_HDIBC ) { logz = 0.5*(HD0->logz[k] + HD1->logz[k]); }
+
   iz   = (int)((logz - logz_min)/logz_bin );
   if ( iz < 0 || iz >= n_logz ) {
     sprintf(c1err,"Invalid iz=%d (range is 0 to %d)", iz, n_logz);
@@ -3513,6 +3516,8 @@ void get_chi2wOM (
   for(k=0; k < NSN; k++ )  { 
 
     z = HD0->z[k] ;
+    if ( INPUTS.USE_HDIBC ) { z = 0.5*(HD0->z[k] + HD1->z[k]); }
+
     if ( USE_SPEED_INTERP )  { 
       exec_rz_interp(k, &cparloc, &rz, &mu_cos); 
     }
@@ -3523,7 +3528,6 @@ void get_chi2wOM (
     }
 
     rz_list[k]  = rz ;
-
 
     if ( INPUTS.USE_HDIBC ) {
 
@@ -3545,6 +3549,11 @@ void get_chi2wOM (
       double mu_obs0 = HD0->mu[k] ;
       double mu_obs1 = HD1->mu[k] ;
       double f_interp = (mu_cos - mu_bcor0) / (mu_bcor1 - mu_bcor0) ;
+
+      // avoid too much extrapolation
+      if ( f_interp < -0.5 ) { f_interp = -0.5; }
+      if ( f_interp >  1.5 ) { f_interp =  1.5; }
+
       mu_obs = mu_obs0 + f_interp * ( mu_obs1 - mu_obs0 );
     }
     else {
@@ -3796,8 +3805,6 @@ double get_mu_cos(double z, double rz)  {
   // Output :
   //   Function returns mu_cos
   
-  //  double z      = HD.z[k];
-  //  double mu_obs = HD.mu[k] ;
   double H0     = H0_SALT2 ;
   double ld_cos, mu_cos ;
   

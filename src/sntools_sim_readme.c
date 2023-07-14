@@ -413,7 +413,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sCPU_MINUTES:       %.1f  ",  pad, t_gen/60.);
+  sprintf(cptr,"%sCPU_MINUTES:       %.2f  ",  pad, t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 

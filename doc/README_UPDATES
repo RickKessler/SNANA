@@ -21800,6 +21800,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05f) ***** 
 
+    submit_prog_base.py:
+      + more robust logic to check pid for each slurm job. Should avoid aborts
+        for fast jobs that complete before all slurm jobs are launched.
+
         ***** USEFUL(v11_05f) ***** 
 
         ***** MISCELLANEOUS(v11_05f) ***** 

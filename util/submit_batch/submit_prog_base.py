@@ -30,6 +30,8 @@
 # Jul 18 2022: check new CONFIG option "BATCH_SINGLE_NODE: True"
 # Nov 15 2022: call merge_driver_exit() to write merge-process time
 # Dec 02 2022: write SNANA_VERSION to SUBMIT.INFO file
+# Jul 14 2023: fix pid-check logic to avoid jobs finishing before all
+#               jobs are launched. See update_slurm_pid_list().
 #
 # ============================================
 
@@ -518,12 +520,12 @@ class Program:
                 ii        = f"iter{submit_iter}"
                 job_name  = f"{input_file}_{ii}-{cpu_name}"
 
-            # compute small (0.1s) delay per core to avoid first jobs
+            # compute small delay per core to avoid first jobs
             # finishing before all are submitted, then failing
             # the pid-submit check. Delay is largest for core 0, 
             # then is reduced by 0.2 sec per core. For 100 cores,
             # first delay is 20 sec.
-            delay = float(n_core - icpu)/5.0
+            delay = 0.2 * float(n_core - icpu)
 
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
@@ -1082,7 +1084,7 @@ class Program:
         submit_mode    = self.config_prep['submit_mode']
         script_dir     = self.config_prep['script_dir']
         cddir          = f"cd {script_dir}"
-
+        
         if check_abort :
             command_file_list = self.config_prep['command_file_list']
             command_file      = './' + command_file_list[0]
@@ -1091,18 +1093,33 @@ class Program:
                                   capture_output=False, text=True )
             sys.exit("\n Done with abort check.")
 
+        
         elif submit_mode == SUBMIT_MODE_BATCH :
             batch_command    = self.config_prep['batch_command'] 
             batch_file_list  = self.config_prep['batch_file_list']
+            nslurm_submit    = 0
+            slurm_pid_list = [] ; slurm_job_name_list = []
             for batch_file in batch_file_list :
                 batch_command_list = batch_command.split()
                 batch_command_list.append(batch_file)
-
+                logging.info(f"\t Launch {batch_file} ... ")
                 #ret = subprocess.run( [ batch_command, batch_file], 
                 ret = subprocess.run( batch_command_list, 
                                       cwd=script_dir,
                                       capture_output=True, text=True )
-            self.fetch_slurm_pid_list()
+
+                # update slurm pid list every 10 submits in case some
+                # tasks finish before all jobs are launched.
+                nslurm_submit += 1
+                if (nslurm_submit % 10) == 0 :
+                    slurm_pid_list, slurm_job_name_list = \
+                        self.update_slurm_pid_list(slurm_pid_list, slurm_job_name_list)
+                    len_pid = len(slurm_pid_list)
+                    logging.info(f"\t   [ len(slurm_pid_list) = {len_pid} ]")
+
+            # - - - -
+            self.examine_slurm_pid_list(slurm_pid_list, slurm_job_name_list)
+            #self.fetch_slurm_pid_list_obsolete()
 
         elif submit_mode == SUBMIT_MODE_SSH :
             # SSH
@@ -1191,7 +1208,76 @@ class Program:
 
         # end launch_jobs_iter2
 
-    def fetch_slurm_pid_list(self):
+    def update_slurm_pid_list(self, slurm_pid_list, slurm_job_name_list):
+
+        # for sbatch, fetch process id for each CPU; otherwise do nothing.
+
+        batch_command     = self.config_prep['batch_command']
+        script_dir        = self.config_prep['script_dir']
+
+        msgerr = []
+        if batch_command != 'sbatch' : return
+
+        # prep squeue command with format: i=pid, j=jobname            
+        cmd = f"squeue -u {USERNAME} -h -o '%i %j' "
+        ret = subprocess.run( [cmd], shell=True, 
+                              capture_output=True, text=True )
+        pid_all = ret.stdout.split()  # list of [ pid, jobname, pid, jobname, etc ...]
+
+        n = len(pid_all)
+        for i in range(0,n,2):
+            pid      = pid_all[i]
+            job_name = pid_all[i+1]
+            #logging.info(f" xxx found pid={pid}  jobname={jobname}")
+            if job_name not in slurm_job_name_list:
+                slurm_pid_list.append(pid)
+                slurm_job_name_list.append(job_name)
+
+        return slurm_pid_list, slurm_job_name_list
+
+        # end update_slurm_pid_list
+
+    def examine_slurm_pid_list(self, slurm_pid_list, slurm_job_name_list):
+
+        # Created July 14 2023
+        # examine pid_list and job_name_list and abort if any jobs
+        # were/are not in the slurm queue.
+
+        output_dir       = self.config_prep['output_dir']
+        job_name_list    = self.config_prep['job_name_list']
+
+        INFO_PATHFILE  = f"{output_dir}/{SUBMIT_INFO_FILE}"
+        f = open(INFO_PATHFILE, 'a') 
+        f.write(f"\nSBATCH_LIST:  # [CPU, PID, JOB_NAME] \n")
+
+        npid_fail = 0 ; njob_tot = len(job_name_list)
+        for job_name in job_name_list :
+            if job_name in slurm_job_name_list:
+                j_job    = slurm_job_name_list.index(job_name)
+                pid      = slurm_pid_list[j_job]
+                cpunum   = int(job_name[-4:])
+                logging.info(f"\t pid = {pid} for {job_name}")
+                f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
+            else:
+                npid_fail += 1
+                logging.info(f" ERROR: cannot find pid for job = {job_name}")
+                continue
+
+        f.close()
+        
+        if npid_fail > 0 :
+            msgerr = []
+            msgerr.append(f"{npid_fail} of {njob_tot} jobs NOT in queue.")
+            msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
+            self.log_assert(False, msgerr)
+
+        return
+
+        return
+
+        # end examine_slurm_pid_list
+
+    def fetch_slurm_pid_list_obsolete(self):
 
         # for sbatch, fetch process id for each CPU; otherwise do nothing.
         # Nov 25 2020: list all pid failures before aborting.
@@ -1207,7 +1293,7 @@ class Program:
 
         # for single-node option, there is only one pid to check
         if batch_single_node:
-            job_name0 = job_name_list[0]
+            job_name0     = job_name_list[0]
             job_name_list = [ job_name0 ]
 
         # prep squeue command with format: i=pid, j=jobname            
@@ -1215,7 +1301,7 @@ class Program:
         ret = subprocess.run( [cmd], shell=True, 
                               capture_output=True, text=True )
         pid_all = ret.stdout.split()
-        
+
         INFO_PATHFILE  = f"{output_dir}/{SUBMIT_INFO_FILE}"
         f = open(INFO_PATHFILE, 'a') 
         f.write(f"\nSBATCH_LIST:  # [CPU,PID,JOB_NAME] \n")
@@ -1240,7 +1326,9 @@ class Program:
             msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
             self.log_assert(False, msgerr)
 
-        # end fetch_slurm_pid_list
+        return
+
+        # end fetch_slurm_pid_list_obsolete
 
     def merge_driver(self):
 

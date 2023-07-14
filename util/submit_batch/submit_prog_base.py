@@ -1099,6 +1099,8 @@ class Program:
             batch_file_list  = self.config_prep['batch_file_list']
             nslurm_submit    = 0
             slurm_pid_list = [] ; slurm_job_name_list = []
+            nbatch  = len(batch_file_list)
+
             for batch_file in batch_file_list :
                 batch_command_list = batch_command.split()
                 batch_command_list.append(batch_file)
@@ -1111,7 +1113,7 @@ class Program:
                 # update slurm pid list every 10 submits in case some
                 # tasks finish before all jobs are launched.
                 nslurm_submit += 1
-                if (nslurm_submit % 10) == 0 :
+                if (nslurm_submit % 10 == 0 or nslurm_submit == nbatch ) :
                     slurm_pid_list, slurm_job_name_list = \
                         self.update_slurm_pid_list(slurm_pid_list, slurm_job_name_list)
                     len_pid = len(slurm_pid_list)

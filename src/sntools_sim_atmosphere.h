@@ -43,12 +43,13 @@ typedef struct {
 struct {
 
   int    NBINLAM_CALSTAR;
-  double *LAM_ARRAY_CALSTAR, *FLUX_ARRAY_CALSTAR ;
+  double *LAM_ARRAY_CALSTAR, *FLUX_ARRAY_CALSTAR ; // full SED
+  double  LAMAVG_CALSTAR[MXFILTINDX];  // <lam> per band for calib stars 
+  double *FLUX_CALSTAR[MXFILTINDX];    // flux-vs-lam on filter-lam grid
+  double  n_CALSTAR_AVG[MXFILTINDX];   // index of refrac per band, calib stars
 
-  // fixed info that doesn't change
   double PRESSURE_AVG, TEMPERATURE_AVG, PWV_AVG;  // at telescope site location
-  double LAMAVG_CALSTAR[MXFILTINDX]; // <lam> per band for calib stars 
-  double n_CALSTAR_AVG[MXFILTINDX];      // index of refrac per band, calib stars
+
 
   double SNRMIN; // min SNR to include in RA/DEC avg
 
@@ -71,7 +72,7 @@ void  INIT_ATMOSPHERE(void);
 void  INIT_EVENT_ATMOSPHERE(void) ;
 
 void   read_stellar_sed_atmos(void) ;
-double lamavg_stellar_sed_atmos(int ifilt_obs) ;
+void   init_stellar_sed_atmos(int ifilt_obs) ;
 
 void reset_COORD_AVG(COORD_AVG_DEF *COORD);
 void sum_COORD_AVG(COORD_AVG_DEF *COORD,
@@ -82,10 +83,13 @@ void  genSmear_coords(int ep);
 void  gen_dcr_coordShift(int ep);
 
 void  gen_dcr_magShift(int ep);
-double gen_wave_sed_wgted(int ep);
 
-double compute_DCR_angle(double LAM, double tan_ZENITH, 
-			 int IFILT_OBS, int DUMPFLAG);
+double compute_DCR_angle_approx(double LAM, double tan_ZENITH, 
+				int IFILT_OBS, int DUMPFLAG); // xxx mark delete
+
+double compute_DCR_angle(int ep, int DUMPFLAG);
+
 double compute_index_refrac_atmos(double LAM, int DUMPFLAG) ;
+
 void   test_compute_dcr(void);
 

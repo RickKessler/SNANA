@@ -148,6 +148,8 @@ double getSNR_spectrograph(int ilam, double Texpose_S, double Texpose_T,
 
 void check_SNR_SPECTROGRAPH(int l, int t);
 
+int  IMJD_GENSPEC(double MJD); // return IMJD index such that MJD_LIST[IMJD] = MJD
+
 void create_ideal_spectrograph(double lammin, double lammax);
 
 // === END === 

@@ -1,5 +1,5 @@
 /****************************************  
-  Created May 2023 by R.Kessler
+  Created May 2023 by R.Kessler 
 
   Tools to simulate atmosphere effects such as DCR(coords) and 
   DCR(PSF-shape) ; 
@@ -61,6 +61,13 @@ void INIT_ATMOSPHERE(void) {
 
   print_SURVEY(ID);
 
+
+  if ( SURVEY_INFO.geoALT[ID] < 0.001 ) {
+    sprintf(c1err,"Survey ID=%d missing geoLat:geoLONG:ALT", ID);
+    sprintf(c2err,"See SURVEY.DEF file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );          
+  }
+
   ATMOS_INFO.PRESSURE_AVG    = SURVEY_INFO.pressure_atmos[ID] ;
   ATMOS_INFO.TEMPERATURE_AVG = SURVEY_INFO.temperature_atmos[ID] ;
   ATMOS_INFO.PWV_AVG         = SURVEY_INFO.pwv_atmos[ID] ;
@@ -98,11 +105,12 @@ void INIT_ATMOSPHERE(void) {
     cfilt     = FILTER_SEDMODEL[ifilt].name ;
     ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
 
-    lamavg_flat       = FILTER_SEDMODEL[ifilt].mean ;
-    lamavg_calstar    = lamavg_stellar_sed_atmos(ifilt_obs);
+    init_stellar_sed_atmos(ifilt_obs);
+
+    lamavg_flat       = FILTER_SEDMODEL[ifilt].mean ;    
+    lamavg_calstar    = ATMOS_INFO.LAMAVG_CALSTAR[ifilt_obs] ;
     n_calstar         = compute_index_refrac_atmos(lamavg_calstar, 0);
 
-    ATMOS_INFO.LAMAVG_CALSTAR[ifilt_obs] = lamavg_calstar;
     ATMOS_INFO.n_CALSTAR_AVG[ifilt_obs]  = n_calstar ;
 
     printf("\t %s   %7.1f  %7.1f  %le\n",
@@ -206,18 +214,24 @@ void  read_stellar_sed_atmos(void) {
 } // end read_stellar_sed_atmos
 
 // ********************************************
-double lamavg_stellar_sed_atmos(int ifilt_obs) {
+void init_stellar_sed_atmos(int ifilt_obs) {
   
-  int    ifilt       = IFILTMAP_SEDMODEL[ifilt_obs];
-  int    NLAM_FILTER = FILTER_SEDMODEL[ifilt].NLAM;
+  // store FLUX-vs-lam on filter-lam grid to speed up integrals.
+  // Also store diagnostic info such as <lam>.
+
+  int    ifilt        = IFILTMAP_SEDMODEL[ifilt_obs];
+  int    NLAM_FILTER  = FILTER_SEDMODEL[ifilt].NLAM;
   int    NLAM_CALSTAR = ATMOS_INFO.NBINLAM_CALSTAR ;
+  int    MEMD         = NLAM_FILTER * sizeof(double);
   int ilam;
   double lamavg, lam, trans, flux_star, sum0=0.0, sum1=0.0 ;
-  char fnam[] = "lamavg_stellar_sed_atmos" ;
+  char fnam[] = "init_stellar_sed_atmos" ;
 
   // ---------- BEGIN ----------
 
   lamavg = 0.0 ;
+
+  ATMOS_INFO.FLUX_CALSTAR[ifilt_obs] = (double*) malloc(MEMD);
 
   for(ilam=0; ilam < NLAM_FILTER; ilam++ ) {
     lam   = FILTER_SEDMODEL[ifilt].lam[ilam];
@@ -226,15 +240,19 @@ double lamavg_stellar_sed_atmos(int ifilt_obs) {
 			     ATMOS_INFO.LAM_ARRAY_CALSTAR,
 			     ATMOS_INFO.FLUX_ARRAY_CALSTAR, fnam);
 
+    ATMOS_INFO.FLUX_CALSTAR[ifilt_obs][ilam] = flux_star;
+
     sum0 += (flux_star * trans);
     sum1 += (flux_star * trans * lam);
   }
 
   lamavg = sum1/sum0;
 
-  return lamavg;
+  ATMOS_INFO.LAMAVG_CALSTAR[ifilt_obs] = lamavg;
 
-} // end lamavg_stellar_sed_atmos
+  return ;
+
+} // end init_stellar_sed_atmos
 
 // ***************************************
 void GEN_ATMOSPHERE_DRIVER(void) {
@@ -599,17 +617,6 @@ void gen_dcr_coordShift(int ep) {
   GENLC.RA_dcr_shift[ep]  = SHIFT_NULL ;
   GENLC.DEC_dcr_shift[ep] = SHIFT_NULL ;
 
-  // compute <wave> = integeral[lam*SED*Trans] / integ[SED*Trans]
-  wave_sed_wgted = gen_wave_sed_wgted(ep);
-  GENLC.LAMAVG_SED_WGTED[ep] = wave_sed_wgted ;
-
-  if ( wave_sed_wgted < 0.01 ) { return; } // no model SED --> bail
-
-  // set number of processed spectra (SEDs) to zero so that spectra/SED
-  // are not written to data files ... unless sim-input explicitly
-  // requests SED output. NMJD_PROC is reset next event.
-  if ( (INPUTS.WRITE_MASK & WRITE_MASK_SPECTRA) == 0 ) 
-    { GENSPEC.NMJD_PROC = 0 ; }
 
   // - - - - - - - - - - - - - - 
   // begin computatin of RA & DEC shifts
@@ -617,8 +624,10 @@ void gen_dcr_coordShift(int ep) {
   int DUMPFLAG = 0 ;
 
   // start with DCR angle shift in arcsec
-  DCR = compute_DCR_angle(wave_sed_wgted, tan_ZENITH, IFILT_OBS, DUMPFLAG);
+  DCR = compute_DCR_angle(ep, DUMPFLAG);
   DCR_deg = DCR / 3600.0 ;
+
+  if ( DCR >=  999.0 ) { return; }
 
   // compute cos and sin of paralatic angle
   sin_ALT = GENLC.sin_ALT[ep];
@@ -638,42 +647,52 @@ void gen_dcr_coordShift(int ep) {
   GENLC.RA_dcr_shift[ep]  = DCR_deg * sin_q ;
   GENLC.DEC_dcr_shift[ep] = DCR_deg * cos_q ;
 
+  // set number of processed spectra (SEDs) to zero so that spectra/SED
+  // are not written to data files ... unless sim-input explicitly
+  // requests SED output. NMJD_PROC is reset next event.
+  if ( (INPUTS.WRITE_MASK & WRITE_MASK_SPECTRA) == 0 ) 
+    { GENSPEC.NMJD_PROC = 0 ; }
+
   return ;
 
 } // end gen_dcr_coordShift
 
-// ================================
-double gen_wave_sed_wgted(int ep) {
 
-  // Created May 2023
-  // Return mean wavelegnth in filter corresponding to epoch 'ep';
-  //    <wave> = integeral[lam*SED*Trans] / integ[SED*Trans]
+
+// =======================================
+double compute_DCR_angle(int ep, int DUMPFLAG) {
+
+  // Created Jun 2023
+  // Compute DCR from Eq 4 in Fillipenko 1982,
+  //   https://articles.adsabs.harvard.edu/full/1982PASP...94..715F
+  // and integrate over filter wavelengths as in Eq 1 of 
+  //   Plazas & Bernstein 2012,
+  //   https://iopscience.iop.org/article/10.1086/668294/meta
   //
+  // Inputs:
+  //  ep         : epoch index
+  //  DUMPFLAG   : optional dump flag
 
-  double wave         = 0.0 ;
-  int    NMJD_TOT     = GENSPEC.NMJD_TOT ;
-  double MJD          = GENLC.MJD[ep];
-  double TOBS         = GENLC.epoch_obs[ep];
-  int    IFILT_OBS    = GENLC.IFILT_OBS[ep];
-  int    IFILT        = IFILTMAP_SEDMODEL[IFILT_OBS] ;
-  char   *FILTER_NAME = FILTER_SEDMODEL[IFILT].name ;
-  int    imjd, IMJD = -9;
-  
-  int    ilam, NLAM_FILT;
-  double MJD_SPEC, MJD_DIF_MIN, MJD_DIF ;
-  char fnam[] = "gen_wave_sed_wgted";
-  int LDMP    = 0 ;
- 
-  // --------- BEGIN ---------
+  double DCR_SED_WGTED    = 999.0 ; // init output
+  double LAMAVG_SED_WGTED =   0.0 ; // init output
 
-  MJD_DIF_MIN = 1.0E9;
-  for(imjd = 0; imjd < NMJD_TOT; imjd++ ) {
-    MJD_SPEC = GENSPEC.MJD_LIST[imjd] ;
-    MJD_DIF  = fabs(MJD_SPEC-MJD);
-    if ( MJD_DIF < MJD_DIF_MIN ) {
-      IMJD = imjd;  MJD_DIF_MIN = MJD_DIF;
-    }
-  } // end imjd
+  int    IFILT_OBS      = GENLC.IFILT_OBS[ep];
+  int    IFILT          = IFILTMAP_SEDMODEL[IFILT_OBS] ;
+  int    NMJD_TOT       = GENSPEC.NMJD_TOT ;
+  double MJD            = GENLC.MJD[ep];
+  double TOBS           = GENLC.epoch_obs[ep];
+  double tan_ZENITH     = GENLC.tan_ZENITH[ep];
+  double FAC_DCR        = 206265.0;
+
+  int    IMJD ;
+  double n_tele;  // index of refrac 
+
+  char fnam[] = "compute_DCR_angle" ;
+
+  // ------------ BEGIN ----------
+
+  // determine which SED based on MJD matching
+  IMJD = IMJD_GENSPEC(MJD);
 
   if ( IMJD < 0 ) {
     sprintf(c1err,"Unable to find SED IMJD for MJD=%f" );
@@ -690,50 +709,72 @@ double gen_wave_sed_wgted(int ep) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  // - - - - - - - -
   int NLAM_FILTER = FILTER_SEDMODEL[IFILT].NLAM;
   int NLAM_SED    = INPUTS_SPECTRO.NBIN_LAM;
-  double lam, trans, sedFlux, ST ;
-  double *ptr_SEDFLUX = GENSPEC.GENFLUX_LIST[IMJD];
-  double *ptr_SEDLAM  = INPUTS_SPECTRO.LAMAVG_LIST;
-  double sum0=0.0, sum1=0.0 ;
+  double *ptrFLUXSED    = GENSPEC.GENFLUX_LIST[IMJD];   // transient SED
+  double *ptrLAMSED     = INPUTS_SPECTRO.LAMAVG_LIST;
+  double sum0_SED=0.0, sum1_SED=0.0 ;
+  double sum0_CAL=0.0, sum1_CAL=0.0 ;
+  double sum0_LAM=0.0, sum1_LAM=0.0 ;
+  double lam, trans, sedFlux, calFlux, ST, DCR_lam; 
+  int    ilam ;
   for(ilam=0; ilam < NLAM_FILTER; ilam++ ) {
     lam   = FILTER_SEDMODEL[IFILT].lam[ilam];
     trans = FILTER_SEDMODEL[IFILT].transSN[ilam];
-    sedFlux = interp_1DFUN(1, lam, NLAM_SED, ptr_SEDLAM, ptr_SEDFLUX, fnam);
+
+    // interpolate SED flux 
+    sedFlux = interp_1DFUN(1, lam, NLAM_SED, ptrLAMSED, ptrFLUXSED, fnam);
+
+    // calstar flux already interpolated and stored on filter-lam grid
+    calFlux = ATMOS_INFO.FLUX_CALSTAR[IFILT_OBS][ilam]; 
+
+    n_tele = compute_index_refrac_atmos(lam, DUMPFLAG);
+    DCR_lam = FAC_DCR * (n_tele-1.0) * tan_ZENITH ; // arcsec
+
     ST      = sedFlux * trans ;
-    sum0 += ( ST ) ;
-    sum1 += ( ST * lam );
+    sum0_SED += ( ST ) ;
+    sum1_SED += ( ST * DCR_lam );
+    sum0_LAM += ( ST );
+    sum1_LAM += ( ST * lam);
+
+    ST      = calFlux * trans ;
+    sum0_CAL += ( ST ) ;
+    sum1_CAL += ( ST * DCR_lam );
+  }
+  
+  if ( sum0_SED > 0.0 && sum0_CAL > 0.0 ) { 
+    double DCR_SED    = sum1_SED/sum0_SED ;
+    double DCR_CAL    = sum1_CAL/sum0_CAL;
+    DCR_SED_WGTED     = DCR_SED - DCR_CAL ;
+    LAMAVG_SED_WGTED  = sum1_LAM / sum0_LAM ;
+
+    /* xxx
+    printf(" xxx %s: DCR[SED,CAL,net] = %f %f %f  \n",
+	   fnam, DCR_SED, DCR_CAL, DCR ); fflush(stdout);
+    debugexit(fnam);
+    */
   }
 
-  if ( sum0 > 0.0 ) {  wave = sum1 / sum0; }
 
-  if ( LDMP ) {
-    printf(" xxx ---------------------------------- \n");
-    printf(" xxx %s DUMP for CID=%d  NMJD_TOT=%d \n", 
-	   fnam, GENLC.CID, NMJD_TOT );
-
-    printf(" xxx MJD=%.3f  Tobs=%.3f  IFILTOBS=%d IFILT=%d"
-	   "(ep=%d IMJD=%d) \n",
-	   MJD, TOBS, IFILT_OBS, IFILT, ep, IMJD); fflush(stdout);
-    printf(" xxx NLAM[FILTER,SED] = %d, %d \n",
-	   NLAM_FILTER, NLAM_SED );
-    printf(" xxx %s <wave> = %f \n",
-	   FILTER_NAME, wave );
+  if ( DUMPFLAG ) {
+    double z = atan(tan_ZENITH);
+    double airmass = 1.0/cos(z);
+    printf(" xxx %s: DCR = %f  (airmass=%f  tan_ZENITH = %.3f)\n", 
+	   fnam, DCR_SED_WGTED, airmass, tan_ZENITH);
     fflush(stdout);
-
-    if ( GENLC.CID > 2 ) { debugexit(fnam); }
   }
 
+  GENLC.LAMAVG_SED_WGTED[ep] = LAMAVG_SED_WGTED ;// diagnostic; not used for calc.
+  return DCR_SED_WGTED ; // arcsec
 
-  return wave;
-
-} // end gen_wave_sed_wgted
+} // end compute_DCR_angle
 
 
 // =======================================
-double compute_DCR_angle(double LAM, double tan_ZENITH, int IFILT_OBS, int DUMPFLAG) {
+double compute_DCR_angle_approx(double LAM, double tan_ZENITH, int IFILT_OBS, int DUMPFLAG) {
 
+  // xxxxxxxxx MARK OBSOLETE xxxxxxxxx
+  //
   // Created Jun 2023
   // Compute DCR from Eq 4 in Fillipenko 1982,
   //   https://articles.adsabs.harvard.edu/full/1982PASP...94..715F
@@ -749,9 +790,11 @@ double compute_DCR_angle(double LAM, double tan_ZENITH, int IFILT_OBS, int DUMPF
   double n_ref          = ATMOS_INFO.n_CALSTAR_AVG[IFILT_OBS];
   double n_tele ;  // index of refrac for transient
 
-  char fnam[] = "compute_DCR_angle" ;
+  char fnam[] = "compute_DCR_angle_approx" ;
 
   // ------------ BEGIN ----------
+
+  // xxxxxxxxx MARK OBSOLETE xxxxxxxxx
 
   if ( INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE ) {
     // re-compute calib star n_ref if site conditions change each obs
@@ -770,9 +813,11 @@ double compute_DCR_angle(double LAM, double tan_ZENITH, int IFILT_OBS, int DUMPF
     fflush(stdout);
   }
 
+  // xxxxxxxxx MARK OBSOLETE xxxxxxxxx
+
   return DCR; // arcsec
 
-} // end compute_DCR_angle
+} // end compute_DCR_angle_approx
 
 
 // ==========================
@@ -806,7 +851,8 @@ void test_compute_dcr(void) {
     printf(" %6.3f    ", airmass);
 
     for(lam=LAMMIN_TEST ; lam < LAMMAX_TEST; lam+=LAMBIN_TEST ) {
-      dcr = compute_DCR_angle(lam, tanz, 2, DUMPFLAG);
+      //      dcr = compute_DCR_angle(ep, DUMPFLAG); // what is ep ??
+      dcr = -9.0 ;
       printf(" %6.3f ", dcr); fflush(stdout);
     }
     printf("\n");
@@ -832,17 +878,17 @@ double compute_index_refrac_atmos(double LAM, int DUMPFLAG) {
   double INVLAMSQ = 1.0E8/(LAM*LAM); // convert to inverse micron^2
   double n_0, n_1, n_tele;  // index of refrac at sea level, 2km height, +water
 
-  // hard-code telescope altitude of 2km, but maybe later
-  // need to add altitude argument to geo key in SURVEY.DEF
+  // Telescope params
   double TEMP_tele   = ATMOS_INFO.TEMPERATURE_AVG;   // temperature, Celsius
   double BP_tele     = ATMOS_INFO.PRESSURE_AVG; // atmos pressure, mm Hg 
-  double PWV_tele   = ATMOS_INFO.PWV_AVG ;   // water vapor pressure, mm Hg
+  double PWV_tele    = ATMOS_INFO.PWV_AVG ;   // water vapor pressure, mm Hg
 
   double denom_T, tmp0, tmp1, tmp2, r ;
   double ONE = 1.0;
   char fnam[] = "compute_index_refrac_atmos" ;
 
   // ---------- BEGIN ----------
+
 
   // This site condition model is way too extreme because it doesn't
   // account for weather correlations.

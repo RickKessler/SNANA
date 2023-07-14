@@ -21804,4 +21804,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** MISCELLANEOUS(v11_05f) ***** 
 
+   sntools_sim_atmoshpere.c[h]:
+     + update DCR calculation to integrate over passband instead of
+       making computation at effective wavelength of passband. 
+       Mainly impacts u & g bands.
+
 END: 

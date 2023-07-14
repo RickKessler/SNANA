@@ -1559,6 +1559,32 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
 } // end getSNR_spectrograph
 
 
+int IMJD_GENSPEC(double MJD) {
+  // Created July 2023
+  // return IMJD index such that MJD_LIST[IMJD] = MJD       
+
+  int    NMJD_TOT     = GENSPEC.NMJD_TOT ;
+
+  int    imjd, IMJD = -9 ;
+  double MJD_SPEC, MJD_DIF_MIN, MJD_DIF ;
+  char fnam[] = "IMJD_GENSPEC" ;
+
+  // ----------- BEGIN ----------
+
+  MJD_DIF_MIN = 1.0E9;
+  for(imjd = 0; imjd < NMJD_TOT; imjd++ ) {
+    MJD_SPEC = GENSPEC.MJD_LIST[imjd] ;
+    MJD_DIF  = fabs(MJD_SPEC-MJD);
+    if ( MJD_DIF < MJD_DIF_MIN ) {
+      IMJD = imjd;  MJD_DIF_MIN = MJD_DIF;
+    }
+  } // end imjd
+  
+
+  return IMJD ;
+
+} // end IMJD_GENSPEC
+
 // ===========================================
 void create_ideal_spectrograph(double lammin, double lammax) {
 

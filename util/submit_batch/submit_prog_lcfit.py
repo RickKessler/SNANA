@@ -97,7 +97,6 @@ KEY_APPEND_TABLE_TEXTFILE = "APPEND_TABLE_TEXTFILE"
 PREFIX_TEMP_SNANA = "TEMP_SNANA"
 
 # define script to dump number of events in table (for hbook & root)
-#SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"
 SCRIPT_SNTABLE_DUMP    = "sntable_dump.py"   # Mar 17 2021
 
 # define program to merge text-fitres files

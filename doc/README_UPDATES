@@ -21813,4 +21813,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + write atmos variables (dRA,dDEC,AIRMASS) to PHOT-FITS format;
      + fix snana to read these variables, and enable FITS -> TEXT
        with these variables.
+
+    sntable_dump.py
+     + avoif writing useless ROOT file for append mode.
+
 END: 

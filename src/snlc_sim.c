@@ -13453,7 +13453,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       OUTLINE[0] = 0 ;
       SNR = SEARCHEFF_DATA.SNR_OBS[ep-1];
       if ( !GENLC.OBSFLAG_GEN[ep]             )  { continue ; }
-      if ( SNDATA.SIMEPOCH_dRA_DCR[ep] > 90.0 ) { continue ; }
+      if ( SNDATA.SIMEPOCH_DCR_dRA[ep] > 90.0 ) { continue ; }
       if ( SNR < ATMOS_INFO.SNRMIN            ) { continue; }
       
 
@@ -13478,8 +13478,8 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	      SNDATA.COORDRES[ep],
 	      GENLC.trueSNR[ep],
 	      SNDATA.SIMEPOCH_DCR[ep],
-	      SNDATA.SIMEPOCH_dRA_DCR[ep], SNDATA.SIMEPOCH_dDEC_DCR[ep],
-	      SNDATA.SIMEPOCH_dMAG_DCR[ep]
+	      SNDATA.SIMEPOCH_DCR_dRA[ep], SNDATA.SIMEPOCH_DCR_dDEC[ep],
+	      SNDATA.SIMEPOCH_DCR_dMAG[ep]
 	      );
 
       fprintf(fp,"%s\n", OUTLINE);
@@ -22781,9 +22781,9 @@ void coords_to_SNDATA(int FLAG) {
     DEC_AVG_BAND         = ATMOS_INFO.COORD_SIM_DEC.AVG_BAND[ifilt_obs];
 
     SNDATA.SIMEPOCH_DCR[ep]      = unit_delta*GENLC.dcr_shift[ep];
-    SNDATA.SIMEPOCH_dRA_DCR[ep]  = unit_delta*(RA_TRUE  - RA_AVG_BAND);
-    SNDATA.SIMEPOCH_dDEC_DCR[ep] = unit_delta*(DEC_TRUE - DEC_AVG_BAND);
-    SNDATA.SIMEPOCH_dMAG_DCR[ep] = GENLC.mag_dcr_shift[ep];
+    SNDATA.SIMEPOCH_DCR_dRA[ep]  = unit_delta*(RA_TRUE  - RA_AVG_BAND);
+    SNDATA.SIMEPOCH_DCR_dDEC[ep] = unit_delta*(DEC_TRUE - DEC_AVG_BAND);
+    SNDATA.SIMEPOCH_DCR_dMAG[ep] = GENLC.mag_dcr_shift[ep];
 
 
     // if dRA ~ 99, set all deltas to 99.0 to make clear that
@@ -22792,8 +22792,8 @@ void coords_to_SNDATA(int FLAG) {
       SNDATA.dRA[ep]  = COORD_SHIFT_NULL_ARCSEC ;
       SNDATA.dDEC[ep] = COORD_SHIFT_NULL_ARCSEC ;
       SNDATA.SIMEPOCH_DCR[ep]      = COORD_SHIFT_NULL_ARCSEC ;
-      SNDATA.SIMEPOCH_dRA_DCR[ep]  = COORD_SHIFT_NULL_ARCSEC ;
-      SNDATA.SIMEPOCH_dDEC_DCR[ep] = COORD_SHIFT_NULL_ARCSEC ;
+      SNDATA.SIMEPOCH_DCR_dRA[ep]  = COORD_SHIFT_NULL_ARCSEC ;
+      SNDATA.SIMEPOCH_DCR_dDEC[ep] = COORD_SHIFT_NULL_ARCSEC ;
     }
 
   } // end epoch loop

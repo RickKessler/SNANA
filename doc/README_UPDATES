@@ -21809,4 +21809,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        making computation at effective wavelength of passband. 
        Mainly impacts u & g bands.
 
+   sntools_data*
+     + write atmos variables (dRA,dDEC,AIRMASS) to PHOT-FITS format;
+     + fix snana to read these variables, and enable FITS -> TEXT
+       with these variables.
 END: 

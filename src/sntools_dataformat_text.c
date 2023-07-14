@@ -790,7 +790,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool FOUND_METADATA ;
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
-  char VARLIST[200], cvar[60], cval[60], LINE_EPOCH[200] ;
+  char VARLIST[200], cvar[60], cval[100], LINE_EPOCH[200] ;
   char fnam[] = "wr_dataformat_text_SNPHOT" ;
 
   // ------------ BEGIN -----------
@@ -838,10 +838,15 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
     if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
 
-    if ( WRFLAG_ATMOS ) { NVAR += 6 ; 
-      strcat(VARLIST,"dRA dDEC AIRMASS "
-	     "SIM_DCR_dRA SIM_DCR_dDEC SIM_DCR_dMAGOBS  ");
-    }
+    if ( WRFLAG_ATMOS ) { 
+      NVAR += 3 ; 
+      strcat(VARLIST,"dRA dDEC AIRMASS ");
+
+      if ( WRFLAG_SIM_MAGOBS ) {
+	NVAR += 3 ; 
+	strcat(VARLIST,"SIM_DCR_dRA SIM_DCR_dDEC SIM_DCR_dMAG  ");
+      }
+    } // end WRFLAG_ATMOS
     
     if ( WRFLAG_SIM_MAGOBS )
       { NVAR++ ;  strcat(VARLIST,"SIM_MAGOBS "); }
@@ -943,32 +948,34 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       }
 
       if ( WRFLAG_ATMOS ) {
+	// warning: need to separate data-like output from SIM_ output
+	// so that we get something for real data.
 	double dRA      = SNDATA.dRA[ep] ;  // arcsec
 	double dDEC     = SNDATA.dDEC[ep] ; // arcsec
 	double airmass  = SNDATA.AIRMASS[ep];
-	double SIM_dRA  = SNDATA.SIMEPOCH_dRA_DCR[ep];
-	double SIM_dDEC = SNDATA.SIMEPOCH_dDEC_DCR[ep];
-	double SIM_dMAG = SNDATA.SIMEPOCH_dMAG_DCR[ep];
-	char ctmp_dCoord[60];
-	char ctmp_SIM_dCoord[60];
+	double SIM_dRA  = SNDATA.SIMEPOCH_DCR_dRA[ep];
+	double SIM_dDEC = SNDATA.SIMEPOCH_DCR_dDEC[ep];
+	double SIM_dMAG = SNDATA.SIMEPOCH_DCR_dMAG[ep];
+	char ctmp_atmos[60];
 
 	// for undefined shifts, use int for null (99) to make it 
 	// easier to see.
-	sprintf(ctmp_dCoord,"%.4f %.4f", dRA, dDEC );
+	sprintf(ctmp_atmos," %.4f %.4f %5.2f ", dRA, dDEC, airmass );
 	if ( dRA > 90.0 && dDEC > 90.0 ) 
-	  { sprintf(ctmp_dCoord,"%d %d", (int)dRA, (int)dDEC ); ; }
+	  { sprintf(ctmp_atmos," %d %d %5.2f ", (int)dRA, (int)dDEC, airmass ); }
+	NVAR_WRITE += 3 ;   strcat(LINE_EPOCH,ctmp_atmos);
 
-	sprintf(ctmp_SIM_dCoord,"%.4f %.4f %5f", 
-		SIM_dRA, SIM_dDEC, SIM_dMAG );
-	if ( SIM_dRA > 90.0 && SIM_dDEC > 90.0 ) 
-	  { sprintf(ctmp_SIM_dCoord,"%d %d %d", 
-		    (int)SIM_dRA, (int)SIM_dDEC, (int)SIM_dMAG ); ; }
+	// - - -
+	if ( WRFLAG_SIM_MAGOBS ) {
+	  sprintf(ctmp_atmos,"%.4f %.4f %.5f ",  SIM_dRA, SIM_dDEC, SIM_dMAG );
+	  if ( SIM_dRA > 90.0 && SIM_dDEC > 90.0 ) 
+	    { sprintf(ctmp_atmos,"%d %d %d ", 
+		      (int)SIM_dRA, (int)SIM_dDEC, (int)SIM_dMAG ); ; }	  
+	  NVAR_WRITE += 3  ;    strcat(LINE_EPOCH,ctmp_atmos);
+	}
+      } // end ATMOS
 
-	sprintf(cval,"%s %5.2f %s ", 
-		ctmp_dCoord, airmass,  ctmp_SIM_dCoord, SIM_dMAG );
-	NVAR_WRITE += 6  ;    strcat(LINE_EPOCH,cval);
-      }
-
+      // - - - - -
       if ( WRFLAG_SIM_MAGOBS ) {
 	double MAG = SNDATA.SIMEPOCH_MAG[ep] ;
 	sprintf(cval, "%8.4f ",  MAG ); 
@@ -1591,8 +1598,13 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   IVAROBS_SNTEXTIO.PHOTFLAG = IVAROBS_SNTEXTIO.PHOTPROB = -9 ;
   IVAROBS_SNTEXTIO.XPIX = IVAROBS_SNTEXTIO.YPIX = -9;
   IVAROBS_SNTEXTIO.CCDNUM = IVAROBS_SNTEXTIO.IMGNUM = -9;
-  IVAROBS_SNTEXTIO.SIMEPOCH_MAG -9 ;
+  IVAROBS_SNTEXTIO.dRA = IVAROBS_SNTEXTIO.dDEC = IVAROBS_SNTEXTIO.AIRMASS = -9;
 
+  IVAROBS_SNTEXTIO.SIMEPOCH_MAG      = -9 ;
+  IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dRA  = -9 ;
+  IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dDEC = -9 ;
+  IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dMAG = -9 ;
+  
   NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   if ( NVAR < 5 || NVAR >= MXVAROBS_TEXT ) {
     sprintf(c1err,"Invalid NVAR=%d (MXVAROBS_TEXT=%d)", 
@@ -1674,6 +1686,24 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
       { IVAROBS_SNTEXTIO.SIMEPOCH_MAG = ivar; }  
 
+    // - - - atmos/dcr - - - 
+    else if ( strcmp(varName,"dRA") == 0 ) 
+      { IVAROBS_SNTEXTIO.dRA = ivar; }  
+    else if ( strcmp(varName,"dDEC") == 0 ) 
+      { IVAROBS_SNTEXTIO.dDEC = ivar; }  
+    else if ( strcmp(varName,"AIRMASS") == 0 ) 
+      { IVAROBS_SNTEXTIO.AIRMASS = ivar; }  
+
+    else if ( strcmp(varName,"SIM_DCR_dRA") == 0 ) 
+      { IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dRA = ivar; }  
+
+    else if ( strcmp(varName,"SIM_DCR_dDEC") == 0 ) 
+      { IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dDEC = ivar; }  
+
+    else if ( strcmp(varName,"SIM_DCR_dMAG") == 0 ) 
+      { IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dMAG = ivar; }  
+
+    // - - - 
     else if ( allow_but_ignore_sntextio(OPTMASK_TEXT_OBS,varName) ) {
       // do nothing; 
       // printf(" xxx %s: do nothing for varName = %s \n", fnam, varName);
@@ -2894,7 +2924,36 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
       sscanf(str, "%d", &SNDATA.IMGNUM[ep] );
     }
 
-    // - - -
+    // - - - Atmos/DCR variables - - - 
+    if ( IVAROBS_SNTEXTIO.dRA >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.dRA] ;
+      sscanf(str, "%f", &SNDATA.dRA[ep] );
+    }
+    if ( IVAROBS_SNTEXTIO.dDEC >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.dDEC] ;
+      sscanf(str, "%f", &SNDATA.dDEC[ep] );
+    }
+    if ( IVAROBS_SNTEXTIO.AIRMASS >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.AIRMASS] ;
+      sscanf(str, "%f", &SNDATA.AIRMASS[ep] );
+    }
+
+    if ( IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dRA >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dRA] ;
+      sscanf(str, "%f", &SNDATA.SIMEPOCH_DCR_dRA[ep] );
+    }
+    if ( IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dDEC >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dDEC] ;
+      sscanf(str, "%f", &SNDATA.SIMEPOCH_DCR_dDEC[ep] );
+    }
+    if ( IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dMAG >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dMAG] ;
+      sscanf(str, "%f", &SNDATA.SIMEPOCH_DCR_dMAG[ep] );
+    }
+    
+
+
+    // - - - -
     if ( IVAROBS_SNTEXTIO.SIMEPOCH_MAG >= 0 ) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SIMEPOCH_MAG] ;
       sscanf(str, "%f", &SNDATA.SIMEPOCH_MAG[ep] );

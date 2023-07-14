@@ -127,6 +127,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"DATATYPE") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.DATATYPE );  }
 
+  //  else if ( strcmp(key,"ATMOS_FLAG") == 0 ) 
+  //{ copy_int(copyFlag, stringVal, SNDATA.WRFLAG_ATMOS );  }
+
   else if ( strcmp(key,"PySEDMODEL") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.PySEDMODEL_NAME );  }
 
@@ -995,6 +998,51 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_flt(copyFlag, &parVal[obs], &SNDATA.YPIX[OBS]) ; 
     }  
   }
+
+  // - - - -  Atmos/DCR variables - - - - -
+  else if ( strcmp(key,"dRA") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.dRA[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"dDEC") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.dDEC[OBS]) ; 
+    }  
+  }
+
+  else if ( strcmp(key,"AIRMASS") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.AIRMASS[OBS]) ; 
+    }  
+  }
+
+  else if ( strcmp(key,"SIM_DCR_dRA") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_DCR_dRA[OBS]) ; 
+    }  
+  }
+
+  else if ( strcmp(key,"SIM_DCR_dDEC") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_DCR_dDEC[OBS]) ; 
+    }  
+  }
+
+  else if ( strcmp(key,"SIM_DCR_dMAG") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_DCR_dMAG[OBS]) ; 
+    }  
+  }
+
+  // - - - - 
+
   else if ( strcmp(key,"SIM_MAGOBS") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
       OBS = SNDATA.OBS_STORE_LIST[obs];  

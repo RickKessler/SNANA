@@ -233,11 +233,11 @@ struct SNDATA {
   int  NEWMJD;                         // # epochs with NEW MJD 
   int  EPOCH_RANGE_NEWMJD[MXEPOCH][2];   // epoch-range for each NEW MJD
 
-  double AIRMASS[MXEPOCH];
-  double RA[MXEPOCH], DEC[MXEPOCH];   // coord per epoch, defrees
-  double dRA[MXEPOCH], dDEC[MXEPOCH]; // shift w.r.t. band-avg, arcsec
-  double COORDRES[MXEPOCH];           // for both RA & DEC, arcsec
-  double RA_AVG, DEC_AVG;  // wgted-average among all RA/DEC
+  float  AIRMASS[MXEPOCH];
+  float  RA[MXEPOCH], DEC[MXEPOCH];   // coord per epoch, defrees
+  float  dRA[MXEPOCH], dDEC[MXEPOCH]; // shift w.r.t. band-avg, arcsec
+  float  COORDRES[MXEPOCH];           // for both RA & DEC, arcsec
+  double RA_AVG, DEC_AVG;  // wgted-average among all RA/DEC (need double precision)
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
@@ -491,9 +491,9 @@ struct SNDATA {
   float SIMEPOCH_SNRMON[MXEPOCH];          // SNR of monitor mag
 
   float SIMEPOCH_DCR[MXEPOCH];        // arcsec
-  float SIMEPOCH_dRA_DCR[MXEPOCH];    // arcsec
-  float SIMEPOCH_dDEC_DCR[MXEPOCH];   // arcsec
-  float SIMEPOCH_dMAG_DCR[MXEPOCH];  
+  float SIMEPOCH_DCR_dRA[MXEPOCH];    // arcsec
+  float SIMEPOCH_DCR_dDEC[MXEPOCH];   // arcsec
+  float SIMEPOCH_DCR_dMAG[MXEPOCH];   // mag shift
   int   MAGMONITOR_SNR;            // transferred from INPUTS.MAGMONITOR
 
   // private variables (Nov 24, 2012)

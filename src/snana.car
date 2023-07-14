@@ -444,7 +444,7 @@ c
      &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
      &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
      &  ,UNIT_PSF_NEA          ! T => read NEA from data; else it's PSF
-
+     &  ,FOUND_ATMOS           ! T=> found atmos variables (dRA,dDEC,AIRMASS)
 
       CHARACTER
      &    SNANA_VERSION*60        ! e.g., v11_04h-[commit-id]
@@ -538,7 +538,7 @@ c global survey info
      &    ,DOzSHIFT
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
      &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
-     &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA
+     &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA, FOUND_ATMOS
      &    ,EXIT_ERRCODE
 
 c logical *1 stuff
@@ -861,6 +861,9 @@ c
      &  ,SNLC_YPIX(MXEPOCH)      ! pixel location
      &  ,SNLC_AREAFRAC(MXEPOCH)  ! area-frac contained by XPIX,YPIX
      &  ,SNLC_AREAFRAC_AVG       ! average over epochs (May 2020)
+     &  ,SNLC_dRA(MXEPOCH)       ! RA(obs) - RA_AVG(band)
+     &  ,SNLC_dDEC(MXEPOCH)
+     &  ,SNLC_AIRMASS(MXEPOCH)
      &  ,SNLC_MWEBV              ! Milky Way Galactic E(B-V)
      &  ,SNLC_MWEBV_ERR          ! error on above
      &  ,SNLC_SKYSIG(MXEPOCH)    ! sigma on above
@@ -943,6 +946,7 @@ c
      &    ,SNLC_MWEBV, SNLC_MWEBV_ERR
      &    ,SNLC_XPIX, SNLC_YPIX, SNLC_PIXSIZE, SNLC_NXPIX, SNLC_NYPIX
      &    ,SNLC_AREAFRAC_AVG, SNLC_AREAFRAC
+     &    ,SNLC_dRA, SNLC_dDEC, SNLC_AIRMASS
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
      &    ,SNLC_PSF_NEA, SNLC_PSF_FWHM_ARCSEC
@@ -1087,6 +1091,10 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_EPFLUXCAL_HOSTERR(MXEPOCH) ! true error from host noise
      &  ,SIM_EPCHI2FLUX(MXEPOCH)    ! data-sim chi2 per epoch
      &  ,SIM_EPPULL(MXEPOCH)        ! pull per epoch (F-Ftrue)/sig)
+     &  ,SIM_EPdRA(MXEPOCH)
+     &  ,SIM_EPdDEC(MXEPOCH)
+     &  ,SIM_EPdMAG(MXEPOCH)
+c
      &  ,SIMSED_PARVAL(MXPAR_SIMSED)
      &  ,PySEDMODEL_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
@@ -1160,6 +1168,7 @@ c
      &  ,SIM_NOBS_UNDEFINED, SIM_NSUBSAMPLE_MARK, SIM_SUBSAMPLE_INDEX
      &  ,SIM_PEAKMAG, SIM_EPMAGOBS, SIM_EPFLUXCAL, NEP_SIM_MAGOBS
      &  ,SIM_EPSNRMON, SIM_EPCHI2FLUX, SIM_EPPULL, SIM_EPFLUXCAL_HOSTERR
+     &  ,SIM_EPdRA, SIM_EPdDEC, SIM_EPdMAG
      &  ,SIMNAME_SHAPEPAR,  SIMNAME_SHAPELAW
      &  ,SIMNAME_COLORPAR,  SIMNAME_COLORLAW, SIMNAME_SNRMON
      &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT, SIM_BIASCOR_MASK
@@ -5150,6 +5159,26 @@ c - - - - -
      &        NOBS_STORE, STRING, DARRAY, OPT)
          DO o=1,NOBS_STORE; SNLC_YPIX(o)=SNGL(DARRAY(o)); ENDDO
       ENDIF
+
+c read optional variables for Atmos/DCR (Jul 2023)
+      FOUND_ATMOS = .FALSE.
+      CALL FETCH_SNDATA_WRAPPER("AIRMASS",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE
+          SNLC_AIRMASS(o)=SNGL(DARRAY(o))
+          if ( SNLC_AIRMASS(o) > .9 ) FOUND_ATMOS = .true.
+      ENDDO
+
+      IF ( FOUND_ATMOS ) THEN
+        CALL FETCH_SNDATA_WRAPPER("dRA",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+        DO o=1,NOBS_STORE; SNLC_dRA(o)=SNGL(DARRAY(o)); ENDDO
+
+        CALL FETCH_SNDATA_WRAPPER("dDEC",  
+     &          NOBS_STORE, STRING, DARRAY, OPT)
+        DO o=1,NOBS_STORE; SNLC_dDEC(o)=SNGL(DARRAY(o)); ENDDO
+      ENDIF
+
 
 c ----------------------------------------------
 c ----------- SIM QUANTITIES BELOW -------------
@@ -10090,12 +10119,13 @@ c to see flags in C code, "grep WRITE_MASK sndata.h"
          WRITE_FLAG = 8   ! Jan 23 2018
       ELSE IF ( LSIM_SNANA ) THEN 
          WRITE_FLAG = 4   ! Jan 23 2018
-         if ( .NOT. REFORMAT_SIMTRUTH ) WRITE_FLAG = 2 + 256 ! Mar 2022
+         if ( .NOT. REFORMAT_SIMTRUTH ) WRITE_FLAG = 2 ! Mar 2022
       ELSE
          WRITE_FLAG = 2
       ENDIF
       
       if ( REFORMAT_SPECTRA ) WRITE_FLAG = WRITE_FLAG + 128
+      if ( FOUND_ATMOS      ) WRITE_FLAG = WRITE_FLAG + 256
 
 c -----------------------
       CALL WR_SNFITSIO_INIT(cPATH, cVERSION, cPREFIX, WRITE_FLAG

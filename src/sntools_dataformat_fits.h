@@ -85,6 +85,7 @@ int MXOBS_SNFITSIO ;     // max NOBS among SNe (to allocate memory)
 int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
 
 bool  SNFITSIO_DATAFLAG ;       // true -> real data (not sim, not fakes)
+bool  SNFITSIO_ATMOS ;          // write atmos/DCR per obs for data [and sim]
 bool  SNFITSIO_SIMFLAG_SNANA ;  // SNANA sim
 bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
 bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
@@ -252,7 +253,7 @@ void malloc_rd_snfitsFiles(int opt, int ifile);
 // Now the readback routines
 void  RD_SNFITSIO_INIT(int init_num);
 int   RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version);
-int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
+// xxx mark int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
 int   RD_SNFITSIO_EVENT(int OPT, int isn); // read/store event (Feb 2021)
 
 void  RD_SNFITSIO_CLOSE(char *version);

@@ -8192,9 +8192,12 @@ int init_SNDATA_EVENT(void) {
     SNDATA.SIMEPOCH_KCORNAM[i_epoch][0]    = 0 ;
     SNDATA.SIMEPOCH_MAGSMEAR[i_epoch]      = 0.0 ;
 
-    SNDATA.SIMEPOCH_dRA_DCR[i_epoch]  = 0.0 ;
-    SNDATA.SIMEPOCH_dDEC_DCR[i_epoch] = 0.0 ;
-    SNDATA.SIMEPOCH_dMAG_DCR[i_epoch] = 0.0 ;
+    SNDATA.dRA[i_epoch]     = 0.0 ;
+    SNDATA.dDEC[i_epoch]    = 0.0 ;
+    SNDATA.AIRMASS[i_epoch] = 0.0 ;
+    SNDATA.SIMEPOCH_DCR_dRA[i_epoch]  = 0.0 ;
+    SNDATA.SIMEPOCH_DCR_dDEC[i_epoch] = 0.0 ;
+    SNDATA.SIMEPOCH_DCR_dMAG[i_epoch] = 0.0 ;
 
   }  //  end i_epoch init loop
 

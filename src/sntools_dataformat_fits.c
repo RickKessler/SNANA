@@ -120,6 +120,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   // set global logical for SIM
   SNFITSIO_DATAFLAG             = false ;
+  SNFITSIO_ATMOS                = false ;
   SNFITSIO_SIMFLAG_SNANA        = false ;
   SNFITSIO_SIMFLAG_MAGOBS       = false ; 
 
@@ -167,6 +168,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   OVP = ( writeFlag & WRITE_MASK_SIM_TEMPLATEMAG ) ;
   if ( OVP > 0 ) { SNFITSIO_SIMFLAG_TEMPLATEMAG = true ; }
+
+  OVP = ( writeFlag & WRITE_MASK_ATMOS ) ;
+  if ( OVP > 0 ) { SNFITSIO_ATMOS = true; } // July 2023
 
   IFILE_WR_SNFITSIO = 1;     // only one file written here.
 
@@ -732,6 +736,17 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
     wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
 
+    if ( SNFITSIO_ATMOS ) {  // July 2023
+      wr_snfitsio_addCol( "1E" , "dRA" ,     itype ) ; // RA(obs) - RA_AVG(band)
+      wr_snfitsio_addCol( "1E" , "dDEC" ,    itype ) ; // same for DEC
+      wr_snfitsio_addCol( "1E" , "AIRMASS" , itype ) ;
+      if ( SNFITSIO_SIMFLAG_SNANA ) {
+	wr_snfitsio_addCol( "1E" , "SIM_DCR_dRA" ,     itype ) ;
+	wr_snfitsio_addCol( "1E" , "SIM_DCR_dDEC" ,    itype ) ;
+	wr_snfitsio_addCol( "1E" , "SIM_DCR_dMAG" ,    itype ) ;
+      }
+    }
+
     if ( SNFITSIO_SIMFLAG_SNANA ) {
       wr_snfitsio_addCol( "1E" , "SIM_FLUXCAL_HOSTERR" , itype ) ;
     }
@@ -745,6 +760,7 @@ void wr_snfitsio_init_phot(void) {
   if ( SNFITSIO_SIMFLAG_SNRMON ) {
     wr_snfitsio_addCol( "1E" , SNDATA.VARNAME_SNRMON, itype ) ; 
   }
+
 
   // create header table. 
   ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
@@ -1081,7 +1097,9 @@ void wr_snfitsio_create(int itype ) {
   //  + write SIM_MODEL_INDEX to header  
   //  + enable writing sim without truth (see OPT_REFORMAT_FITS in manual)
   //  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
-  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
+  //  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
+  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
+
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
@@ -1107,6 +1125,10 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",  // July 2018
 		  &SNDATA.APPLYFLAG_MWEBV,
 		  "1 -> Apply MWEBV cor to FLUXCAL", &istat );
+
+  fits_update_key(fp, TINT, "ATMOS_FLAG",  // July 2023
+		  &SNFITSIO_ATMOS,
+		  "1 -> dRA,dDEC,dMAG per obs (for DCR)", &istat );
 
   fits_update_key(fp, TINT, "PHOTFLAG_DETECT", // July 2022
 		  &SNDATA.PHOTFLAG_DETECT,
@@ -2453,6 +2475,36 @@ void wr_snfitsio_update_phot(int ep) {
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.YPIX[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
 
+    // check writing atmos/DCR information (July 2023)
+    if ( SNFITSIO_ATMOS ) {  
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.dRA[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "dRA", itype );
+
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.dDEC[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "dDEC", itype );
+
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.AIRMASS[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "AIRMASS", itype );
+      
+      if ( SNFITSIO_SIMFLAG_SNANA ) {
+	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_DCR_dRA[ep] ;
+	wr_snfitsio_fillTable ( ptrColnum, "SIM_DCR_dRA", itype );
+
+	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_DCR_dDEC[ep] ;
+	wr_snfitsio_fillTable ( ptrColnum, "SIM_DCR_dDEC", itype );
+
+	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_DCR_dMAG[ep] ;
+	wr_snfitsio_fillTable ( ptrColnum, "SIM_DCR_dMAG", itype );
+      }
+
+    } // end ATMOS/DCR
+
     if ( SNFITSIO_SIMFLAG_SNANA ) {  
       LOC++ ; 
       ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3046,228 +3098,6 @@ int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 
 
 
-/* xxx mark delete May 25 2023 xxxxxxxx
-
-// ========================================================
-int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
-
-  // xxxxxxxxx MARK OBSOLETE OCT 11 2022 xxxxxxxxx
-
-  // For input global *parName, return *parString.
-  //
-  // These globals have already been read from the image-0 header 
-  // and here they are transferred to *parString.
-  // These globals describe the entire data sample such as 
-  // SURVEY-NAME, filter-list, etc ...
-  // Note that *parName must match one of the hard-wired
-  // names below; if not then it aborts.
-  //
-  // Dec 31, 2011: add a few more for SIMSED model
-  // Nov 25, 2012: check optional PRIVATE_VAR
-  // Feb 13, 2014: check SIM_HOSTLIB_NPAR
-  // Dec 27, 2015: add SIMLIB_MSKOPT
-  // Feb 17, 2017: add SUBSURVEY_FLAG
-  // Dec 26, 2018: check for CODE_IVERSION
-  // Oct 26, 2020: check for SNANA_VERSION in FITS header
-  // Feb 10, 2021: check for SIM_SL_FLAG (strong lens)
-  //
-
-  int ipar, ivar, q ;
-  char key[60], tmpString[60];
-  char fnam[] = "RD_SNFITSIO_GLOBAL" ;
-
-  // --------------- BEGIN ----------------
-
-  sprintf(tmpString,"NULL");
-
-  if ( strcmp(parName,"SURVEY") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.SURVEY_NAME );
-  }
-  else if ( strcmp(parName,"SUBSURVEY_FLAG") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SUBSURVEY_FLAG );
-  }
-  else if ( strcmp(parName,"FILTERS") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA_FILTER.LIST );
-  }
-  else if ( strcmp(parName,"SPECFILE") == 0 ) {
-    sprintf(tmpString,"%s", rd_snfitsFile[1][ITYPE_SNFITSIO_SPEC]);
-  }
-  else if ( strcmp(parName,"DATATYPE") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.DATATYPE );
-  }
-  else if ( strcmp(parName,"CODE_IVERSION") == 0 ) {
-    sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); 
-  }
-  else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
-    sprintf(tmpString,"%s", SNDATA.SNANA_VERSION );
-  }
-  else if ( strcmp(parName,STRING_NZPHOT_Q) == 0  ) {
-    sprintf(tmpString,"%s", SNDATA.HOSTGAL_NZPHOT_Q ); 
-  }
-  else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
-  }
-  else if ( strcmp(parName,"SIM_MODEL_INDEX") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIM_MODEL_INDEX );
-  }
-  else if ( strcmp(parName,"SIM_TYPE_INDEX") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIM_TYPE_INDEX );
-  }
-  else if ( strcmp(parName,"SIMLIB") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.SIMLIB_FILE );
-  }
-  else if ( strcmp(parName,"SIMLIB_FILE") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.SIMLIB_FILE );
-  }
-  else if ( strcmp(parName,"SIMLIB_MSKOPT") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIMLIB_MSKOPT );
-  }
-  else if ( strcmp(parName,"SIM_MODEL_INDEX") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIM_MODEL_INDEX );
-  }
-  else if ( strcmp(parName,"SIMOPT_MWCOLORLAW") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIMOPT_MWCOLORLAW );
-  }
-  else if ( strcmp(parName,"SIM_MWRV") == 0 ) {
-    sprintf(tmpString,"%f", SNDATA.SIM_MWRV );
-  }
-  else if ( strcmp(parName,"SIMOPT_MWEBV") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIMOPT_MWEBV );
-  }
-  else if ( strcmp(parName,"SIMSED_NPAR") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.NPAR_SIMSED );
-  }
-
-  else if ( strcmp(parName,"BYOSED_NPAR"   ) == 0  || 
-	    strcmp(parName,"SNEMO_NPAR"    ) == 0  ||
-	    strcmp(parName,"PYBAYESN_NPAR" ) == 0  ||
-	    strcmp(parName,"AGN_NPAR"      ) == 0  ) {
-    // to do : should use PySEDMODEL_CHOICE_LIST
-    int NPAR = 0;
-    if ( strstr(parName,SNDATA.PySEDMODEL_NAME) ) 
-      { NPAR = SNDATA.NPAR_PySEDMODEL ; }
-    sprintf(tmpString,"%d", NPAR );
-  }
-
-  else if ( strcmp(parName,"LCLIB_NPAR") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.NPAR_LCLIB );
-  }
-  else if ( strcmp(parName,"HOSTLIB_FILE") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.HOSTLIB_FILE );
-  }
-  else if ( strcmp(parName,"SIM_HOSTLIB_NPAR") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.NPAR_SIM_HOSTLIB );
-  }
-  else if ( strcmp(parName,"SIM_NSUBSAMPLE_MARK") == 0 ) {
-    sprintf(tmpString,"%d", SNFITSIO_NSUBSAMPLE_MARK ); 
-  }
-  else if ( strcmp(parName,"SIM_VARNAME_SNRMON") == 0 ) {
-    sprintf(tmpString,"%s", SNDATA.VARNAME_SNRMON ); 
-    if (strlen(SNDATA.VARNAME_SNRMON) > 0 ) 
-      { SNFITSIO_SIMFLAG_SNRMON = true ; }
-  }
-  else if ( strcmp(parName,"SIM_SL_FLAG") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIM_SL_FLAG); 
-  }
-  else if ( strcmp(parName,"SIM_BIASCOR_MASK") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.SIM_BIASCOR_MASK ); 
-  }
-  else if ( strcmp(parName,"NPRIVATE") == 0 ) {
-    sprintf(tmpString,"%d", SNDATA.NVAR_PRIVATE );
-  }
-
-  // ------------------------------------------
-  // check optional PRIVATE_VAR 
-  if ( SNDATA.NVAR_PRIVATE > 0 ) {
-    for ( ivar = 1; ivar <=  SNDATA.NVAR_PRIVATE; ivar++ ) {
-      sprintf(key,"PRIVATE%d", ivar);
-      if ( strcmp(parName,key) == 0 ) 
-	{  sprintf(tmpString,"%s", SNDATA.PRIVATE_KEYWORD[ivar] );  }
-    }
-  }
-
-  // check optional PERCENTILES for photo-z quantiles
-  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {
-    for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
-      sprintf(key,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, q);
-      if ( strcmp(parName,key) == 0 ) 
-	{ sprintf(tmpString,"%s", SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ); }
-    }
-  }
-
-  // ------------------------------------------
-  // check optional SIMSED_PAR[ipar] (sim model)
-  // Dec 26 2018: note loop is 0 to N to allow legady 1-N labels.
-  if ( SNDATA.NPAR_SIMSED > 0  && strstr(parName,"SIMSED")!= NULL ) {
-
-    int NPAR = SNDATA.NPAR_SIMSED;
-    int IPAR_START=0, IPAR_END=NPAR-1; // Default as of Dec 26 2018
-    if ( SNFITSIO_CODE_IVERSION < 8 ) 
-      { IPAR_START=1, IPAR_END=NPAR; } // legacy
-
-
-    for ( ipar = IPAR_START; ipar <= IPAR_END; ipar++ ) {
-      sprintf(key,"SIMSED_PAR%2.2d", ipar);
-      if ( strcmp(parName,key) == 0 ) 
-	{  sprintf(tmpString, "%s", SNDATA.SIMSED_KEYWORD[ipar] );  }
-    }
-  }
-
-  // ------------------------------------------
-  // Dec 2018: check optional PySEDMODEL_PAR[ipar] 
-  if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
-    for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL ; ipar++ ) {
-      sprintf(key,"%s_PAR%2.2d", SNDATA.PySEDMODEL_NAME, ipar); 
-      if ( strcmp(parName,key) == 0 ) 
-	{  sprintf(tmpString,"%s", SNDATA.PySEDMODEL_KEYWORD[ipar] );  }
-    }
-  }
-
-  // ------------------------------------------
-  // check optional LCLIB_PAR[ipar] 
-  if ( SNDATA.NPAR_LCLIB > 0 ) {
-    for ( ipar = 0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {
-      sprintf(key,"LCLIB_PAR%2.2d", ipar);
-      if ( strcmp(parName,key) == 0 ) 
-	{  sprintf(tmpString,"%s", SNDATA.LCLIB_KEYWORD[ipar] );  }
-    }
-  }
-
-
-  // check optional SIM_HOSTLIB[ipar] 
-  if ( SNDATA.NPAR_SIM_HOSTLIB > 0 ) {
-    for ( ipar = 0; ipar <  SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-      sprintf(key,"SIM_HOSTLIB_PAR%2.2d", ipar);
-      if ( strcmp(parName,key) == 0 ) 
-	{  sprintf(tmpString,"%s", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] ); }
-    }
-  }
-  
-  // ------------------------------------------
-  if ( strcmp(tmpString,"NULL") == 0 ) {
-    sprintf(c1err,"Unknown GLOBAL key '%s' ", parName) ;
-    sprintf(c2err,"%s", "Check fits header for list of valid keys.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    return(ERROR) ;
-  }
-
-
-  // if we get here then set output *parString
-  sprintf(parString,"%s", tmpString);
-  return(SUCCESS) ;
-
-  // xxxxxxxxx MARK OBSOLETE OCT 11 2022 xxxxxxxxx
-
-} // end of RD_SNFITSIO_GLOBAL
-
-int rd_snfitsio_global__(char *parName, char *parString) 
-{ return RD_SNFITSIO_GLOBAL(parName,parString); }
-
-xxxxxxx end mark xxxxxxxxx */
-
-
-
-
 // ==================================================
 int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
@@ -3848,6 +3678,29 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
     }
 
+    // - - - - read atmos/DCR variables - - - - 
+    if ( SNFITSIO_ATMOS ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, "dRA", &SNDATA.dRA[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+      j++; NRD = RD_SNFITSIO_FLT(isn, "dDEC", &SNDATA.dDEC[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+      j++; NRD = RD_SNFITSIO_FLT(isn, "AIRMASS", &SNDATA.AIRMASS[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+      if ( SNFITSIO_SIMFLAG_SNANA ) {
+	j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_DCR_dRA", &SNDATA.SIMEPOCH_DCR_dRA[ep0], 
+				   &SNFITSIO_READINDX_PHOT[j] ) ;
+	j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_DCR_dDEC", &SNDATA.SIMEPOCH_DCR_dDEC[ep0], 
+				   &SNFITSIO_READINDX_PHOT[j] ) ;
+	j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_DCR_dMAG", &SNDATA.SIMEPOCH_DCR_dMAG[ep0], 
+				   &SNFITSIO_READINDX_PHOT[j] ) ;
+
+      }
+
+    } // end SNFITSIO_ATMOS
+
+    // - - - - - -
+
     if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS )  {
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_MAGOBS", &SNDATA.SIMEPOCH_MAG[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
@@ -4104,7 +3957,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   //                unzip and gzip files exist.
 
   fitsfile *fp ;
-  int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1  ;
+  int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1, FLAG  ;
   char keyname[60], comment[200], *ptrFile ;
   char fnam[] = "rd_snfitsio_open" ;
 
@@ -4177,7 +4030,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // read list of filters
   char filter_list[MXFILTINDX];
-  sprintf(keyname, "%s", "FILTERS" );
+  sprintf(keyname, "FILTERS" );
   fits_read_key(fp, TSTRING, keyname, 
 		&filter_list, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
@@ -4187,7 +4040,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   set_SNDATA_FILTER(filter_list);  // Feb 15 2021 
 
   // read data type
-  sprintf(keyname, "%s", "DATATYPE" );
+  sprintf(keyname, "DATATYPE" );
   fits_read_key(fp, TSTRING, keyname, 
 		&SNDATA.DATATYPE, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
@@ -4209,9 +4062,18 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     }
   }
 
+
+  // July 2023: read optional flag to indicate extra PHOT colums for DCR:
+  //   dRA, dDEC, AIRMASS
+  sprintf(keyname, "ATMOS_FLAG" ); 
+  fits_read_key(fp, TINT, keyname,
+                &FLAG, comment, &istat );
+  if ( istat == 0 && FLAG ) { SNFITSIO_ATMOS = SNDATA.WRFLAG_ATMOS = true; }
+  istat = 0 ;
+
   // read name of PHOTOMETRY file from HEADER file
   itype = ITYPE_SNFITSIO_PHOT ;  
-  sprintf(keyname, "%s", "PHOTFILE" );
+  sprintf(keyname, "PHOTFILE" );
   fits_read_key(fp, TSTRING, keyname, 
 		rd_snfitsFile[ifile][itype], comment, &istat );
   sprintf(c1err, "read %s key", keyname);
@@ -4224,7 +4086,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // read name of optional SPEC file from HEADER file (Apri 2019)
   itype = ITYPE_SNFITSIO_SPEC ;  istat_spec=0;
-  sprintf(keyname, "%s", "SPECFILE" );
+  sprintf(keyname, "SPECFILE" );
   fits_read_key(fp, TSTRING, keyname,
 		rd_snfitsFile[ifile][itype], comment, &istat_spec );
   if ( istat_spec == 0 ) {

@@ -17,8 +17,9 @@
 # The sed command is
 #  sed -e '/locf/d' -e '/crash/d' -e '/!!!!!!/d' $INFILE 
 #
+# Jul 15 2023: replace os.system with subprocess.run
 
-import os, sys, argparse
+import os, sys, argparse, subprocess, datetime
 
 # =================================================== 
 def get_args():
@@ -43,6 +44,8 @@ if __name__ == "__main__":
     args = get_args()
     input_file = args.input_file
 
+    t0 = datetime.datetime.now()
+
     tmp_file = f"{input_file}.TEMP" ;
 
     cmd = f"sed " \
@@ -53,9 +56,13 @@ if __name__ == "__main__":
           f"{tmp_file} ; " \
           f"mv {tmp_file}  {input_file} "
 
-    os.system(cmd)
-
+    # xxx mark delete 7/15/2023 os.system(cmd)
+    
+    ret = subprocess.run( [ cmd ], shell=True,
+                          capture_output=False, text=True )
     if not args.quiet :
-        print(f"  locf messages removed from {input_file}")
+        t1 = datetime.datetime.now()
+        dt = (t1-t0).total_seconds()
+        print(f"  locf messages removed from {input_file} ({dt} seconds)")
 
 # END

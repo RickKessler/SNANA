@@ -526,7 +526,7 @@ class Program:
             # the pid-submit check. Delay is largest for core 0, 
             # then is reduced by 0.2 sec per core. For 100 cores,
             # first delay is 20 sec.
-            delay = 0.2 * float(n_core - icpu)
+            delay = float(n_core - icpu)/5
 
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)

@@ -77,6 +77,7 @@ class Program:
 
         # - - - - -
         program = config_prep['program']
+        logging.info(f" Submit host;  {HOSTNAME}")
         logging.info(f" Program name: {program}")
 
         if program == PROGRAM_NAME_UNKNOWN :

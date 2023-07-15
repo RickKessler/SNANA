@@ -48,6 +48,7 @@ struct {
   double *FLUX_CALSTAR[MXFILTINDX];    // flux-vs-lam on filter-lam grid
   double  n_CALSTAR_AVG[MXFILTINDX];   // index of refrac per band, calib stars
 
+  double *n_SITE_LIST[MXFILTINDX];  // n[ifilt][lam] for avg Temp,BP,PWV values
   double PRESSURE_AVG, TEMPERATURE_AVG, PWV_AVG;  // at telescope site location
 
 

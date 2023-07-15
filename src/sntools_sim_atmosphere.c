@@ -42,8 +42,8 @@ void INIT_ATMOSPHERE(void) {
 
   int  ID = GENLC.IDSURVEY ;
   int  OPTMASK = INPUTS_ATMOSPHERE.OPTMASK;
-  int ifilt, ifilt_obs ;
-  double lamavg_flat, lamavg_calstar, n_calstar;
+  int ifilt, ifilt_obs, NLAM, ilam, MEMD ;
+  double lamavg_flat, lamavg_calstar, n_calstar, lam, n_site;
   char *cfilt ;
   char fnam[] = "INIT_ATMOSPHERE" ;
 
@@ -116,7 +116,22 @@ void INIT_ATMOSPHERE(void) {
     printf("\t %s   %7.1f  %7.1f  %le\n",
 	   cfilt, lamavg_flat, lamavg_calstar, n_calstar-1.0 );
     fflush(stdout);
-  }
+
+    // if there are no site fluctuations, store n_site[ifilt_obs][ilam]    
+    if ( !INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE ) {
+      NLAM = FILTER_SEDMODEL[ifilt].NLAM;
+      MEMD = NLAM * sizeof(double);
+      ATMOS_INFO.n_SITE_LIST[ifilt_obs] = (double*)malloc(MEMD);
+      // xxx printf("\t xxx Store n(lam) for %s-band \n", cfilt); fflush(stdout);
+      for(ilam=0; ilam < NLAM; ilam++ ) {
+	lam    = FILTER_SEDMODEL[ifilt].lam[ilam];
+	n_site = compute_index_refrac_atmos(lam, 0);    
+	ATMOS_INFO.n_SITE_LIST[ifilt_obs][ilam] = n_site;
+      }
+    }
+
+  } // end ifilt
+
 
 
   // - - - - - - -
@@ -685,7 +700,7 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
   double FAC_DCR        = 206265.0;
 
   int    IMJD ;
-  double n_tele;  // index of refrac 
+  double n_site;  // index of refrac at site
 
   char fnam[] = "compute_DCR_angle" ;
 
@@ -713,11 +728,14 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
   int NLAM_SED    = INPUTS_SPECTRO.NBIN_LAM;
   double *ptrFLUXSED    = GENSPEC.GENFLUX_LIST[IMJD];   // transient SED
   double *ptrLAMSED     = INPUTS_SPECTRO.LAMAVG_LIST;
+  double  LAMSED_BINSIZE = INPUTS_SPECTRO.LAMBIN_LIST[0];
+
   double sum0_SED=0.0, sum1_SED=0.0 ;
   double sum0_CAL=0.0, sum1_CAL=0.0 ;
   double sum0_LAM=0.0, sum1_LAM=0.0 ;
   double lam, trans, sedFlux, calFlux, ST, DCR_lam; 
   int    ilam ;
+
   for(ilam=0; ilam < NLAM_FILTER; ilam++ ) {
     lam   = FILTER_SEDMODEL[IFILT].lam[ilam];
     trans = FILTER_SEDMODEL[IFILT].transSN[ilam];
@@ -728,24 +746,30 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
     // calstar flux already interpolated and stored on filter-lam grid
     calFlux = ATMOS_INFO.FLUX_CALSTAR[IFILT_OBS][ilam]; 
 
-    n_tele = compute_index_refrac_atmos(lam, DUMPFLAG);
-    DCR_lam = FAC_DCR * (n_tele-1.0) * tan_ZENITH ; // arcsec
+    if ( INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE ) 
+      { n_site = compute_index_refrac_atmos(lam, DUMPFLAG);  }
+    else
+      { n_site = ATMOS_INFO.n_SITE_LIST[IFILT_OBS][ilam] ; }
+
+    DCR_lam = FAC_DCR * (n_site-1.0) * tan_ZENITH ; // arcsec
 
     ST      = sedFlux * trans ;
     sum0_SED += ( ST ) ;
     sum1_SED += ( ST * DCR_lam );
+
     sum0_LAM += ( ST );
     sum1_LAM += ( ST * lam);
 
     ST      = calFlux * trans ;
     sum0_CAL += ( ST ) ;
     sum1_CAL += ( ST * DCR_lam );
-  }
+
+  } // end ilam loop
   
   if ( sum0_SED > 0.0 && sum0_CAL > 0.0 ) { 
-    double DCR_SED    = sum1_SED/sum0_SED ;
-    double DCR_CAL    = sum1_CAL/sum0_CAL;
-    DCR_SED_WGTED     = DCR_SED - DCR_CAL ;
+    double DCR_SED    = sum1_SED/sum0_SED ;  // transient 
+    double DCR_CAL    = sum1_CAL/sum0_CAL;   // avg calib star
+    DCR_SED_WGTED     = DCR_SED - DCR_CAL ; 
     LAMAVG_SED_WGTED  = sum1_LAM / sum0_LAM ;
 
     /* xxx
@@ -768,56 +792,6 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
   return DCR_SED_WGTED ; // arcsec
 
 } // end compute_DCR_angle
-
-
-// =======================================
-double compute_DCR_angle_approx(double LAM, double tan_ZENITH, int IFILT_OBS, int DUMPFLAG) {
-
-  // xxxxxxxxx MARK OBSOLETE xxxxxxxxx
-  //
-  // Created Jun 2023
-  // Compute DCR from Eq 4 in Fillipenko 1982,
-  //   https://articles.adsabs.harvard.edu/full/1982PASP...94..715F
-  //
-  // Inputs:
-  //  LAM        : mean SED-weighted wavelength in passband
-  //  tan_ZENITH :  tan(zenith angle)
-  //  IFILT_OBS  : absolute passband index, used to find reference n-1
-  //  DUMPFLAG   : optional dump flag
-
-  double DCR = 0.0 ;
-  double lamavg_calstar = ATMOS_INFO.LAMAVG_CALSTAR[IFILT_OBS];
-  double n_ref          = ATMOS_INFO.n_CALSTAR_AVG[IFILT_OBS];
-  double n_tele ;  // index of refrac for transient
-
-  char fnam[] = "compute_DCR_angle_approx" ;
-
-  // ------------ BEGIN ----------
-
-  // xxxxxxxxx MARK OBSOLETE xxxxxxxxx
-
-  if ( INPUTS_ATMOSPHERE.APPLY_SIGMA_SITE ) {
-    // re-compute calib star n_ref if site conditions change each obs
-    n_ref  = compute_index_refrac_atmos(lamavg_calstar, 0);
-  }
-
-  n_tele = compute_index_refrac_atmos(LAM, DUMPFLAG);
-  
-  DCR = 206265.0 * ( n_tele - n_ref ) * tan_ZENITH ; // arcsec
-
-  if ( DUMPFLAG ) {
-    double z = atan(tan_ZENITH);
-    double airmass = 1.0/cos(z);
-    printf(" xxx %s: DCR = %f  (airmass=%f  tan_ZENITH = %.3f)\n", 
-	   fnam, DCR, airmass, tan_ZENITH);
-    fflush(stdout);
-  }
-
-  // xxxxxxxxx MARK OBSOLETE xxxxxxxxx
-
-  return DCR; // arcsec
-
-} // end compute_DCR_angle_approx
 
 
 // ==========================

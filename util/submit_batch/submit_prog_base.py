@@ -1116,7 +1116,8 @@ class Program:
                 nslurm_submit += 1
                 if (nslurm_submit % 10 == 0 or nslurm_submit == nbatch ) :
                     slurm_pid_list, slurm_job_name_list = \
-                        self.update_slurm_pid_list(slurm_pid_list, slurm_job_name_list)
+                        self.update_slurm_pid_list(slurm_pid_list, 
+                                                   slurm_job_name_list)
                     len_pid = len(slurm_pid_list)
                     logging.info(f"\t   [ len(slurm_pid_list) = {len_pid} ]")
 

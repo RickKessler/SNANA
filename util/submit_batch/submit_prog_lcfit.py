@@ -37,6 +37,9 @@
 # Nov 15 2022 RK  implement NMAX_STATE_CHANGE = 10 to help distribute
 #                 merge tasks among more cores.
 #
+# Jul 15 2023 RK - add print_elapse_time calls in merge process to help
+#                   identify slow post-process steps.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -1366,8 +1369,10 @@ class LightCurveFit(Program):
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
+            tref = datetime.datetime.now()
             cmd_all = f"{cmd_cat} ; {cmd_awk}"
             os.system(f"{cddir} ; {cmd_all}")
+            util.print_elapse_time(tref,f"merge {n_job_split} table files")
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
@@ -1552,7 +1557,8 @@ class LightCurveFit(Program):
         append_log_file = f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.log"
         append_out_file = f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.text"
 
-        logging.info(f"\t Append TEXT table from {full_table_file} ")
+        tref = datetime.datetime.now()
+        logging.info(f"   Append TEXT table from {full_table_file} ")
 
         cddir = f"cd {script_dir}"
         cmd_append = f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
@@ -1560,6 +1566,7 @@ class LightCurveFit(Program):
                      f"-v '{varlist_append}' " \
                      f"-a {text_table_file} > {append_log_file} 2>/dev/null"
         istat = os.system(f"{cddir} ; {cmd_append} ")
+        util.print_elapse_time(tref,SCRIPT_SNTABLE_DUMP)
 
         if istat != 0 :
             msgerr.append(f"Failed to apppend variables with command")
@@ -1570,6 +1577,7 @@ class LightCurveFit(Program):
         # replace FITRES file with append file, 
         # and remove sntable* junk files
 
+        tref = datetime.datetime.now()
         if os.path.isfile(f"{script_dir}/{append_out_file}") :
             cmd_mv = f"mv {append_out_file} {text_table_file}"
             cmd_rm = f"rm sntable_*"
@@ -1593,6 +1601,8 @@ class LightCurveFit(Program):
         self.nevt_table_check(nevt_expect, nevt_find, text_table_file,
                               cmd_append )
                   
+        util.print_elapse_time(tref,"append cleanup & validate")
+
         # end append_table_varlist
 
     def append_table_textfile(self,version_fitopt_dict) :
@@ -1652,6 +1662,7 @@ class LightCurveFit(Program):
         suffix           = TABLE_SUFFIX_LIST[itable]
         prefix           = PREFIX_MERGE
         msgerr           = []
+        tref = datetime.datetime.now()
 
         # check debug option to force merge-table failure
         flag_force_fail = self.flag_force_merge_table_fail(itable,version_fitopt)
@@ -1682,11 +1693,15 @@ class LightCurveFit(Program):
         if itable == ITABLE_HBOOK :
             cmd_clean_log = \
                 f"{cddir} ; remove_locf_messages.py {log_table_file} -q"
-                # xxx mark f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET"
             os.system(cmd_clean_log)
 
-        # ?? check log file for success message ??
+        # - - - -
+        util.print_elapse_time(tref,f"merge {n_job_split} table files")
         
+
+        # ?? check log file for success message ??
+        tref = datetime.datetime.now()
+
         # extract number of events in final HBOOK/ROOT file
         NTRY_MAX = 2; ntry=0; nevt_find = -9
         while nevt_find < 0 and ntry < NTRY_MAX :
@@ -1714,6 +1729,8 @@ class LightCurveFit(Program):
         # store merge table file for append_table_text()
         merge_table_file_list =  self.config_prep['merge_table_file_list']
         merge_table_file_list[itable] = out_table_file
+
+        util.print_elapse_time(tref,f"validate NEVT in merge table(s)")
 
         # end merge_table_CERN
 

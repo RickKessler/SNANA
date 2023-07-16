@@ -19,6 +19,11 @@ from   submit_params import *
 
 # =================================================
 
+def print_elapse_time(t0,comment):
+    dt_sec = (datetime.datetime.now() - t0).total_seconds()
+    logging.info(f"\t elapse time: {dt_sec} sec for: {comment}")
+    # ----
+
 def get_snana_version():
 
     # fetch snana version that includes tag + commit;

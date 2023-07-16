@@ -1977,6 +1977,7 @@ void SALT2mu_DRIVER_EXEC(void) {
   char fnam[] = "SALT2mu_DRIVER_EXEC" ;
 
   // -------------- BEGIN ---------------
+
   t_start_fit = time(NULL);
 
   sprintf(BANNER,"%s NCALL=%d", fnam, NCALL_SALT2mu_DRIVER_EXEC);

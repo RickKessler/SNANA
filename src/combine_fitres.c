@@ -141,6 +141,9 @@
 
  Sep 1 2022: if no args, call print_combine_fitres_help()
 
+ Jul 15 2023: call print_elapsed_time() in a few places to help trace
+              slow performance in batch mode.
+
 ******************************/
 
 #include <stdio.h>
@@ -313,6 +316,8 @@ int  NEVT_COMMON;   // number of events common to all FITRES files
 int  NEVT_READ[MXFFILE];    // NEVT read from each file
 int  NEVT_MISSING[MXFFILE]; // NEVT missing w.r.t. 1st FITRES file
 
+time_t t_start ;
+
 // =========================================
 int main(int argc, char **argv) {
 
@@ -327,6 +332,7 @@ int main(int argc, char **argv) {
   sprintf(BANNER,"Begin execution of combine_fitres.exe \n" );
   print_banner(BANNER);
 
+  t_start = time(NULL);
   set_EXIT_ERRCODE(EXIT_ERRCODE_combine_fitres);
 
   init_misc();
@@ -335,6 +341,8 @@ int main(int argc, char **argv) {
 
   INIT_TABLEVAR();
 
+  print_elapsed_time(t_start, "INIT", UNIT_TIME_SECONDS );
+
   print_banner("Begin Reading Fitres Files.\n");
 
   TABLEFILE_INIT(); // Oct 27 2014
@@ -342,6 +350,8 @@ int main(int argc, char **argv) {
   for ( ifile = 0; ifile < INPUTS.NFFILE; ifile++ ) {
     ADD_FITRES(ifile);
   }
+
+  print_elapsed_time(t_start, "read input tables", UNIT_TIME_SECONDS );
 
   if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) 
     { match_CID_hash_local(-1,0); } // remove hash table
@@ -352,6 +362,8 @@ int main(int argc, char **argv) {
   // ---------------
 
   WRITE_SNTABLE() ;
+
+  print_elapsed_time(t_start, "write output tables", UNIT_TIME_SECONDS );
 
   printf("   Done writing %d events. \n", NWRITE_SNTABLE );
   fflush(stdout);

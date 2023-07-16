@@ -61,6 +61,7 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_sort.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 // include C code
 #include "SNcadenceFoM.c"
@@ -12902,8 +12903,10 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
 	  PATH_SNDATA_SIM, INPUTS.GENVERSION );
   
 
-  sprintf(cmd,"mkdir -m g+wr %s", PATH_FILTERS );
-  isys = system(cmd) ;
+  // xxx mark  sprintf(cmd,"mkdir -m g+wr %s", PATH_FILTERS );
+  // xxx mark isys = system(cmd) ;
+  isys = mkdir(PATH_FILTERS, S_IRWXU | S_IRWXG );
+
   printf("    mkdir %s\n", PATH_FILTERS );
   fflush(stdout);
 
@@ -12959,10 +12962,14 @@ void set_TIMERS(int flag) {
     TIMERS.t_update_last = TIMERS.t_end_init;
     TIMERS.NGENTOT_LAST  = 0 ;
 
-    double dt_init = TIMERS.t_end_init - TIMERS.t_start ;
     print_banner(fnam);
-    printf("\t Sim-init time: %.1f sec \n", dt_init);
-    fflush(stdout);
+    print_elapsed_time(TIMERS.t_start, "sim-init", UNIT_TIME_SECONDS);
+
+    /* xxx mark delete Ju; 15 2023 xxxx
+       double dt_init = TIMERS.t_end_init - TIMERS.t_start ;
+       mark   printf("\t Sim-init time: %.1f sec \n", dt_init);
+       fflush(stdout);
+    xxxxxxx */
   } 
   else if ( flag == 2 ) {
     TIMERS.t_end = time(NULL);
@@ -27615,8 +27622,11 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // create new subdir for simulated SNDATA files.
   // Note that -p is not used to avoid bad behavior.
-  sprintf(cmd,"mkdir -m g+wr %s", PATH_SNDATA_SIM );
-  isys = system(cmd);
+  // Jul 15 2023: replace system call with native mkdir.
+  // xxx mark ??  sprintf(cmd,"mkdir -m g+wr %s", PATH_SNDATA_SIM );
+  // xxx   isys = system(cmd);
+
+  isys = mkdir(PATH_SNDATA_SIM, S_IRWXU | S_IRWXG );
 
 
   // create full names for auxilliary files,

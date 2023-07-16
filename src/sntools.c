@@ -29,6 +29,41 @@
 **********************************************************
 **********************************************************/
 
+void print_elapsed_time(time_t t0, char *comment, char *unit_time) {
+
+  // Created July 15 2023
+  // utility to print elapsed time since t0, along with comment.
+
+  time_t t = time(NULL);
+  double dt = t - t0;
+  double scale;
+  char fnam[] = "print_elapsed_time" ;
+
+  // ----------- BEGIN ----------
+  
+  if ( strcmp(unit_time,UNIT_TIME_SECONDS) == 0 ) 
+    { scale = 1.0 ; }
+  else if ( strcmp(unit_time,UNIT_TIME_MINUTES) == 0 ) 
+    { scale = 1.0/60.0 ; }
+  else if ( strcmp(unit_time,UNIT_TIME_HOURS) == 0 ) 
+    { scale = 1.0/3600.0 ; }
+  else {
+    sprintf(c1err,"Invalid unit_time = '%s' ", unit_time);
+    sprintf(c2err,"Valid units: %s  %s  %s", 
+	    UNIT_TIME_SECONDS, UNIT_TIME_MINUTES, UNIT_TIME_HOURS);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  dt *= scale;
+
+  char msg[100];
+  sprintf(msg,"Elapsed time = %.3f %s for: %s", dt, unit_time, comment);
+  printf("\t %s\n", msg);
+  fflush(stdout);
+
+  return ;
+
+} // end print_elapsed_time
 
 double pressure_atmos(double h) {
   // Created Jun 2023 by R.Kessler

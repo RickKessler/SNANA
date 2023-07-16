@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #include "sntools.h"
@@ -60,6 +61,7 @@ int main(int argc, char **argv) {
   int NF, i ;
   char *inF[MXFILE_MERGE], *outF ;
   char  fnam[] = "merge_root" ;
+  time_t t_start = time(NULL);
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_merge_root);
 
@@ -75,8 +77,11 @@ int main(int argc, char **argv) {
   printf(" Begin %s \n", fnam ); fflush(stdout);
   parse_args(argc,argv);
 
+  print_elapsed_time(t_start,"INIT", UNIT_TIME_SECONDS);
+
   // do lots of sanity checks
   checkFiles();
+  print_elapsed_time(t_start,"checkFiles", UNIT_TIME_SECONDS);
 
   NF   = INPUTS.NFILE_IN ;
   outF = INPUTS.OUTFILE ;
@@ -86,6 +91,8 @@ int main(int argc, char **argv) {
   MERGE_ROOT(NF,inF,outF); 
   fflush(stdout);
 #endif
+
+  print_elapsed_time(t_start,"MERGE COMPLETION", UNIT_TIME_SECONDS);
 
   return(0);
 

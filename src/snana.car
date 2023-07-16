@@ -2839,7 +2839,7 @@ c
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
 
-      INTEGER   IERR, IVERS, NFIT_PER_SN
+      INTEGER   IERR, IVERS, NFIT_PER_SN, JDIFF
 
 c funtions
 
@@ -3012,6 +3012,9 @@ c ######################################################
 
 c ------------------------------
       JTIME_LOOPSTART = TIME()
+      JDIFF = JTIME_LOOPSTART - JTIME_START
+      print*,'   FINISHED INIT after ', JDIFF,' seconds '
+      call flush(6)
 c ------------------------------
 
       DO ivers = 1, N_VERSION

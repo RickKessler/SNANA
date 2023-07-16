@@ -203,6 +203,11 @@
 #define PARNAME_AV  "AV"
 #define PARNAME_RV  "RV"
 
+// define time-unit strings for print_elapsed_time()
+#define UNIT_TIME_SECONDS  "seconds"
+#define UNIT_TIME_MINUTES  "minutes"
+#define UNIT_TIME_HOURS    "hours"
+
 char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list
@@ -464,6 +469,8 @@ struct {
 //
 // ##############################################################
 
+
+void  print_elapsed_time(time_t t0, char *comment, char *unit);
 
 double smooth_stepfun(double sep, double sepmax);
 

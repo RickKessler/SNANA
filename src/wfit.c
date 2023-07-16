@@ -2552,11 +2552,15 @@ void wfit_minimize(void) {
 	else
 	  { UPDATE_STDOUT = ( NB % 10000 == 0 ); }
 
-	if ( UPDATE_STDOUT ) {
-	  time_t t_update = time(NULL);
-	  double dt = t_update - t0 ;
-	  printf("\t finished chi2 bin %8d of %8d  (%.0f sec)\n",
-		 NB, NBTOT, dt); fflush(stdout) ;
+	if ( UPDATE_STDOUT || NB==NBTOT ) {
+	  // xxx time_t t_update = time(NULL);
+	  // xxx double dt = t_update - t0 ;
+	  // xxx printf("\t finished chi2 bin %8d of %8d  (%.0f sec)\n",
+	  // xxx NB, NBTOT, dt); fflush(stdout) ;
+
+	  char comment[60];
+	  sprintf(comment, "chi2 bin %8d of %8d", NB, NBTOT); 
+	  print_elapsed_time(t0, comment, UNIT_TIME_SECONDS);
 	}
 
 
@@ -3379,10 +3383,15 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   }
   
   invertMatrix( NSN, NSN, MUCOV->ARRAY1D ) ;
+
+  print_elapsed_time(t0, "invert matrix", UNIT_TIME_SECONDS);
+
+  /* xxx mark delete 
   t1 = time(NULL);
   double t_invert = (t1-t0);
   printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
-  
+  xxxx */
+
   if ( check_inverse ) {
     check_invertMatrix(NSN,MUCOV_ORIG,MUCOV->ARRAY1D);
     free(MUCOV_ORIG);

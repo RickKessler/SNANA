@@ -21827,5 +21827,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    remove_minuit_stdout.py & remove_locf_messages.py
      + replace os.system() with subprocess.run, and print execution time
 
+   snlc_fit.car:
+     + apply LVBOSE flag in a few more places to reduce stdout size.
 
 END: 

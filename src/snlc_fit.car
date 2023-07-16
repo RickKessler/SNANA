@@ -12395,9 +12395,11 @@ C ----------------- BEGIN ----------------
       CCID = SNLC_CCID
       LCID = ISNLC_LENCCID  ! INDEX(CCID,' ')
 
-      write(BANNER,20) CCID(1:LCID)
-20    format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
-      CALL PRBANNER(BANNER)
+      if ( LVBOSE ) then
+         write(BANNER,20) CCID(1:LCID)
+20       format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
+         CALL PRBANNER(BANNER)
+      endif
 
       LCUTS = .TRUE.  ! init output argument
 
@@ -12501,7 +12503,7 @@ c - - - -
            write(CLINE,161) 'FITWIN_TREST(max)', xval, 'FAILED'
            LCUTS = .FALSE.
         endif
-        IF ( LVBOSE ) print*, CLINE       
+        IF ( LVBOSE ) print*, CLINE 
 
 c - - - -
 c  Dec 18 2017: add TRESTRANGE cut 
@@ -12734,12 +12736,14 @@ c require that DLMAG has MINOS-error (if requested)
 
 c ===================
 
-      IF ( LCUTS ) THEN
-         write(6,801) CCID(1:LCID)
- 801     format(T5,'CID ',A,'  PASSES FIT-CUTS ' ,/ )
-      ELSE
-         write(6,901) CCID(1:LCID)
- 901     format(T5,'CID ',A,'  FAILED FIT-CUTS => SKIP ', / )
+      IF  ( LVBOSE ) THEN
+        IF ( LCUTS ) THEN
+           write(6,801) CCID(1:LCID)
+ 801       format(T5,'CID ',A,'  PASSES FIT-CUTS ' ,/ )
+        ELSE
+           write(6,901) CCID(1:LCID)
+ 901       format(T5,'CID ',A,'  FAILED FIT-CUTS => SKIP ', / )
+        ENDIF
       ENDIF
 
       CALL FLUSH(6)

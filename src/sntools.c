@@ -3194,7 +3194,6 @@ void read_SURVEYDEF(void) {
 
   } // end while
 
-  //.xyz
 
   // free memory
   for(i=0; i < MXWD_SURVEYDEF; i++ )     { free(ptr_wdlist[i]); }
@@ -5000,20 +4999,11 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   // Do NOT change DATADIR in this case. If DATADIR=='', then set
   // to default $SNDATA_ROOT/lcmerge or path in PATH_SNDATA_SIM.DAT
   //
+  // If DATADIR matches a standard path, set DATADIR='' which is equivalent
+  // to setting PRIVATE_DATA_DIR=''.
+  //
   // Function return argument is SUCCESS or ERROR
   // 
-  // Dec 2 2012: rename function, 
-  //   getInfo_SNANA_VERSION -> getInfo_PHOTOMETRY_VERSION
-  //   to avoid confusion with snana version (i.e, v10_19)
-  //
-  // Nov 11 2014: allow data to be in a folder under lcmerge/[VERSION]
-  // Feb 10, 2015: same fix for DATADIR and DATADIR/[VERSION]
-  // Feb 26, 2015: for datadir, also check SNDATA_ROOT/SIM
-  //
-  // Nov 18 2017: 
-  //  + check for user-define sim-paths to be compatible with
-  //    sim-input option PATH_SNDATA_SIM.. See PATHLIST below.
-  //    
   // Sep 19 2018: 
   //  remove local & obsolete MXDIR_CHECK and instead use global
   //  MXPATH_SNDATA_SIM. Abort if NDIR_CHECK >= MXPATH_SNDATA_SIM .
@@ -5024,6 +5014,9 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   // Apr 20 2021
   //  To auto-find sub-folders under $SNDATA_ROOT/lmerge,
   //  if VERSION = PREFIX_SUFFIX, also check lcmerge/PREFIX/PREFIX_SUFFIX
+  //
+  // Jul 19 2023: if DATADIR matches an already standard path, do NOT abort.
+  //   Instead, set DATADIR=''. 
   //
 
   char 
@@ -5037,7 +5030,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   int idir, ifound, NFOUND, NDIR_CHECK, j_ ;
   int idirFOUND[MXPATH_SNDATA_SIM];
-  int LDMP = 0;
+  int LDMP = 0 ;
   FILE *fp ;
 
   // ---------- BEGIN -----------
@@ -5060,6 +5053,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   sprintf(SNDATA_ROOT, "%s", getenv(SNDATA_ENV) ) ;
 
 
+  // - - - - - - - - -
   // define list of directories to check for data
   idir=0;
 
@@ -5116,34 +5110,39 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   for(ipath = 0 ; ipath < NPATH; ipath++ ) {
 
-    if ( idir < MXPATH_SNDATA_SIM ) {
-      sprintf(tmpDir[idir],  "%s/%s" , PATHLIST[ipath],  VERSION );
-      sprintf(tmpFile[idir], "%s/%s.LIST", tmpDir[idir], VERSION  );
+    if ( idir >= MXPATH_SNDATA_SIM ) { continue; }
 
-      if ( LDMP) {
-	printf(" xxx check PATHLIST[%d] = '%s' \n", ipath, PATHLIST[ipath] );
-	fflush(stdout); 
-      }
+    if ( strcmp(DATADIR,PATHLIST[ipath])== 0 )
+      { DATADIR[0] = 0 ;   continue ;    } // Jul 19 2023
 
-      // Sep 12 2019: abort if DATADIR corresponds to any SIM path
-      if ( strcmp(DATADIR,PATHLIST[ipath])== 0 ) {
-	print_preAbort_banner(fnam);    
-	printf("\t PRIVATE_DATA_PATH = '%s' \n", DATADIR);
+    sprintf(tmpDir[idir],  "%s/%s" , PATHLIST[ipath],  VERSION );
+    sprintf(tmpFile[idir], "%s/%s.LIST", tmpDir[idir], VERSION  );
 
-	if ( ipath == IPATH_SIM_DEFAULT ) {
-	  sprintf(c1err,"PRIVATE_DATA_PATH cannot be the same as");
-	  sprintf(c2err,"$SNDATA_ROOT/SIM");
-	}
-	else {
-	  sprintf(c1err,"PRIVATE_DATA_PATH cannot match any path in");
-	  sprintf(c2err,"$SNDATA_ROOT/SIM/%s", PATH_SNDATA_SIM_LIST );
-	}
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-      }
-
+    if ( LDMP) {
+      printf(" xxx check PATHLIST[%d] = '%s' \n", ipath, PATHLIST[ipath] );
+      fflush(stdout); 
     }
+
+    /* xxx mark delete Jul 19 2023 xxxxxx
+    // Sep 12 2019: abort if DATADIR corresponds to any SIM path
+    if ( strcmp(DATADIR,PATHLIST[ipath])== 0 ) {
+      print_preAbort_banner(fnam);    
+      printf("\t PRIVATE_DATA_PATH = '%s' \n", DATADIR);
+      
+      if ( ipath == IPATH_SIM_DEFAULT ) {
+	sprintf(c1err,"PRIVATE_DATA_PATH cannot be the same as");
+	sprintf(c2err,"$SNDATA_ROOT/SIM");
+      }
+      else {
+	sprintf(c1err,"PRIVATE_DATA_PATH cannot match any path in");
+	sprintf(c2err,"$SNDATA_ROOT/SIM/%s", PATH_SNDATA_SIM_LIST );
+      }
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+    xxxxxxx end mark xxxxx */
+    
     idir++ ;
-  }
+  } // end ipath loop
 
   for(ipath=0; ipath < MXPATH_SNDATA_SIM; ipath++ ) 
     { free(PATHLIST[ipath]) ; }

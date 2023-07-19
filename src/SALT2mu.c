@@ -11408,7 +11408,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	    } // im
 	    printf("\n");     fflush(stdout);
 	  } // iz
-	  printf("\n");     fflush(stdout);
+	  // xxx mark	  printf("\n");     fflush(stdout);
 	} // ig
       } // ib
     } // ia
@@ -12636,6 +12636,7 @@ void  init_sigInt_biasCor_SNRCUT_legacy(int IDSAMPLE) {
 
 } // end init_sigInt_biasCor_SNRCUT_legacy
 
+// =====================================================
 void LOAD_SIGINT_ABGRID(double sigInt, int IDSAMPLE){
 
   // Loads the sigInt abgrid with a CONSTANT value only
@@ -19221,7 +19222,7 @@ void  prep_fitpar(void) {
   set_fitPar( 11,  val[11], 0.1,  -3.00, 1.00, ipar[11] ); // w0
   set_fitPar( 12,  val[12], 0.5,  -8.00, 8.00, ipar[12] ); // wa
   set_fitPar( 13,  val[13], 0.05, -0.10,15.00, ipar[13] ); // scale_PCC
-  set_fitPar( 14,  val[14], 0.01,  0.02, 0.50, ipar[14] ); // sigint
+  set_fitPar( 14,  val[14], 0.01,  0.00, 0.50, ipar[14] ); // sigint
   set_fitPar( 15,  val[15], 0.02, -0.50, 0.50, ipar[15] ); // dAlpha/dlogMhost
   set_fitPar( 16,  val[16], 0.10, -3.00, 3.00, ipar[16] ); // dBeta/dlogMhost
 

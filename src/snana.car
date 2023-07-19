@@ -433,7 +433,8 @@ c
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
      &  ,REFORMAT_SAVE_BADEPOCHS ! include reject epochs (default=F)
-     &  ,REFORMAT_SPECTRA        ! include spectra (default=F)
+     &  ,REFORMAT_SPECTRA_INCLUDE ! include spectra in data reformat (default=F)
+     &  ,REFORMAT_SPECTRA_ONLY    ! reformat only spectra (OPT_REFORMAT_SPECTRA>0)
      &  ,REFORMAT_PRIVATE      ! T-> include private variables (default=T)
      &  ,REFORMAT_SIMTRUTH     ! T -> include SIM truth (default=T)
      &  ,STDOUT_UPDATE         ! T => update event to screen
@@ -531,7 +532,8 @@ c global survey info
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,ABSO_OFFSET, ABSO_INDEX
-     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA, REFORMAT_PRIVATE
+     &    ,REFORMAT, REFORMAT_SPECTRA_INCLUDE, REFORMAT_SPECTRA_ONLY
+     &    ,REFORMAT_SNANA, REFORMAT_PRIVATE
      &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
      &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
@@ -1849,9 +1851,10 @@ c
      &  ,INTERP_OPT           ! I:  interp option (see INTERP_XXX params)
      &  ,NLINE_ARGS       
      &  ,OPT_YAML             ! I: 1=> write YAML out even if not batch job
-     &  ,OPT_REFORMAT_TEXT    ! I: 1=> re-write SNDATA files in text format
-     &  ,OPT_REFORMAT_FITS    ! I: 1=> re-write  in FITSformat (data only)
+     &  ,OPT_REFORMAT_TEXT    ! I: 1=> re-write SNDATA files in text format; see manual options
+     &  ,OPT_REFORMAT_FITS    ! I: 1=> re-write in FITSformat (data only); see manual options
      &  ,OPT_REFORMAT_SALT2   ! I: 1=> re-write SNDATA files in SALT2 format
+     &  ,OPT_REFORMAT_SPECTRA ! I: 1=> 3-col text: lam, Flam, Flamerr (ignore photometry)
      &  ,OPTSIM_LCWIDTH       ! I: 1=> option to compute LC width
      &  ,DEBUG_FLAG           ! I: for internal debug
      &  ,JOBSPLIT(2)          ! I: for batch; process (1)-range of (2)=TOTAL
@@ -1965,7 +1968,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
      &    , FILTER_REPLACE, FILTLIST_LAMSHIFT
      &    , OPT_YAML
-     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TEXT
+     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
@@ -2021,7 +2024,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , FILTER_REPLACE, FILTLIST_LAMSHIFT
      &    , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT
      &    , OPT_YAML
-     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TEXT
+     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -5908,10 +5911,12 @@ c set namelist defaults
       OPT_REFORMAT_SALT2    = 0 
       OPT_REFORMAT_TEXT     = 0
       OPT_REFORMAT_FITS     = 0 
-      REFORMAT_SAVE_BADEPOCHS = .FALSE.
-      REFORMAT_SPECTRA        = .FALSE.
-      REFORMAT_PRIVATE        = .TRUE.
-      REFORMAT_SIMTRUTH       = .TRUE.
+      OPT_REFORMAT_SPECTRA  = 0
+      REFORMAT_SAVE_BADEPOCHS  = .FALSE.
+      REFORMAT_SPECTRA_INCLUDE = .FALSE.
+      REFORMAT_SPECTRA_ONLY    = .FALSE.
+      REFORMAT_PRIVATE         = .TRUE.
+      REFORMAT_SIMTRUTH        = .TRUE.
       REFORMAT_KEYS     = 'NULL'
 
       NONSURVEY_FILTERS = ''
@@ -7518,6 +7523,10 @@ c ------------- BEGIN -------------
      &              1, iArg, ARGLIST) ) then
              READ(ARGLIST(1),*) OPT_REFORMAT_TEXT
 
+         else if ( MATCH_NMLKEY('OPT_REFORMAT_SPECTRA',
+     &             1, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) OPT_REFORMAT_SPECTRA
+
          else if ( MATCH_NMLKEY('OPT_REFORMAT_SALT2',
      &              1, iArg, ARGLIST) ) then
              READ(ARGLIST(1),*) OPT_REFORMAT_SALT2
@@ -7822,6 +7831,12 @@ c - - - -
            if ( ARGLIST(1) .NE. 'NONE' ) then
               CALL PARSE_COMMASEP_LIST('SNCCID_LIST', ARGLIST(1))
               CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+           endif
+
+         else if ( MATCH_NMLKEY('SNCCID_IGNORE',  ! July 2023
+     &             1, iArg, ARGLIST) ) then 
+           if ( ARGLIST(1) .NE. 'NONE' ) then
+              CALL PARSE_COMMASEP_LIST('SNCCID_IGNORE', ARGLIST(1))
            endif
 
          else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
@@ -9935,10 +9950,13 @@ C =============================
 c
 c Create Feb 7 2021;
 c Initialize option to reformat data
-c Input OPT=1 -> set bits
-c Input OPT=2 -> call INIT_REFORMAT_[FITS,TEXT]
+c Input OPT=1 -> Auto-set bits
+c Input OPT=2 -> call INIT_REFORMAT_[FITS,TEXT,SPECTRA]
 c
-c OPT_REFORMAT bits:
+c Note that REFORMAT_FITS[TEXT] operates on all of the data: header, photometry,spectra;
+c however, REFORMAT_SPECTRA operates only on the spectra and ignores header & photometry
+c
+c OPT_REFORMAT_FITS[TEXT] bits:
 c  lsb   mask  comment
 c   0     1    write fits; 
 c   1     2    include rejected epochs
@@ -9950,6 +9968,15 @@ c   6    64    exclude private variables
 c   7   128    include spectra
 c   8   256    exclude SIM-truth so that output looks like real data
 c   9   512     SPARE
+c
+c
+c OPT_REFORMAT_SPECTRA bits:
+c   0    1    3-column text format: lam, Flam, Flamerr
+c
+c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+c
+c       HISTORY
+c July 2023: check OPT_REFORMAT_SPECTRA
 c
 c -------------------------
       IMPLICIT NONE
@@ -9999,7 +10026,7 @@ c request reformatting spectra. MASK=128 -> bit 7
 c 
       IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
      &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
-         REFORMAT_SPECTRA = .TRUE.
+         REFORMAT_SPECTRA_INCLUDE = .TRUE.
       ENDIF
 
 c check option to exclude SIM truth; MASK += 256
@@ -10010,6 +10037,7 @@ c check option to exclude SIM truth; MASK += 256
 
 c - - - - - - - - - - - - - - - - - -
 c check for reformat option using SNANA format
+
       REFORMAT_SNANA = (OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0)
 
       IF ( REFORMAT_SNANA ) THEN
@@ -10045,6 +10073,9 @@ c open aux files and leave them open
 
       REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0 
      &      .or. OPT_REFORMAT_SALT2>0
+
+      REFORMAT_SPECTRA_ONLY = (OPT_REFORMAT_SPECTRA > 0 ) 
+
 c - - - - -
 c print info 
     
@@ -10053,12 +10084,23 @@ c print info
          print*,'   INIT_REFORMAT options: '
          print*,'     OPT_REFORMAT_[FITS,TEXT] = ',
      &              OPT_REFORMAT_FITS, OPT_REFORMAT_TEXT
-         print*,'     REFORMAT_BADEPOCHS    = ', REFORMAT_SAVE_BADEPOCHS
-         print*,'     REFORMAT_SPECTRA      = ', REFORMAT_SPECTRA
-         print*,'     REFORMAT_PRIVATE      = ', REFORMAT_PRIVATE         
-         print*,'     REFORMAT_SIMTRUTH     = ', REFORMAT_SIMTRUTH
-         call flush(6)
+         print*,'     REFORMAT_BADEPOCHS       = ', 
+     &                 REFORMAT_SAVE_BADEPOCHS
+         print*,'     REFORMAT_SPECTRA_INCLUDE = ', 
+     &                REFORMAT_SPECTRA_INCLUDE
+         print*,'     REFORMAT_PRIVATE         = ', 
+     &                REFORMAT_PRIVATE         
+         print*,'     REFORMAT_SIMTRUTH        = ', 
+     &                REFORMAT_SIMTRUTH
       ENDIF
+
+      IF ( REFORMAT_SPECTRA_ONLY ) THEN
+         print*,' '
+         print*,'   INIT_REFORMAT options: '
+         print*,'     OPT_REFORMAT_SPECTRA  = ', OPT_REFORMAT_SPECTRA
+      ENDIF
+
+         call flush(6)
 
       RETURN
 c - - - - - - - - - -
@@ -10074,7 +10116,11 @@ c - - - - - - - - - -
       ENDIF        
 
       IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
-         CALL INIT_REFORMAT_SALT2
+         CALL INIT_REFORMAT_SALT2()
+      ENDIF
+
+      IF ( OPT_REFORMAT_SPECTRA > 0 ) THEN
+         CALL INIT_REFORMAT_SPECTRA_ONLY()
       ENDIF
 
       RETURN
@@ -10127,8 +10173,8 @@ c to see flags in C code, "grep WRITE_MASK sndata.h"
          WRITE_FLAG = 2
       ENDIF
       
-      if ( REFORMAT_SPECTRA ) WRITE_FLAG = WRITE_FLAG + 128
-      if ( FOUND_ATMOS      ) WRITE_FLAG = WRITE_FLAG + 256
+      if ( REFORMAT_SPECTRA_INCLUDE ) WRITE_FLAG = WRITE_FLAG + 128
+      if ( FOUND_ATMOS              ) WRITE_FLAG = WRITE_FLAG + 256
 
 c -----------------------
       CALL WR_SNFITSIO_INIT(cPATH, cVERSION, cPREFIX, WRITE_FLAG
@@ -10400,6 +10446,27 @@ c write cut-def file, then close it.
       RETURN
       END    ! end INIT_REFORMAT_SALT2
 
+C ====================================
++DECK,INIT_REFORMAT_SPECTRA.
+      SUBROUTINE INIT_REFORMAT_SPECTRA_ONLY()
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+C --------------- BEGIN ------------
+
+c  For now do nothing (no new folder) and write spec files in cwd.
+c  The idea is that organization of folders is done by code calling
+c  snana.exe with OPT_REFORMAT_SPECTRA option.
+c
+c  file name = [version]_snid[snid]-mjd[mjd].spec
+
+      RETURN
+      END   ! end INIT_REFORMAT_SPECTRA_ONLY
+
+
 C ================================================
 +DECK,OPEN_REFORMAT_FILE.
       SUBROUTINE OPEN_REFORMAT_FILE(LUN, SUFFIX, REFORMAT_FILE)
@@ -10434,6 +10501,7 @@ c  + append FITS files for FITS output
 c  + write new TEXT file for TEXT output
 c
 c Jan 20 2022: move copy_SNDATA_MISC() to work for either TEXT for FITS.
+c Jul 18 2023: check OPT_REFORMAT_SPECTRA
 c -------------
 
       IMPLICIT NONE
@@ -10451,7 +10519,7 @@ c -------------
       
 C ---------- BEGIN ----------
 
-      if ( .NOT. REFORMAT ) RETURN
+      if ( .NOT. ( REFORMAT .or. REFORMAT_SPECTRA_ONLY)  ) RETURN
 
       IF ( REFORMAT_SNANA ) THEN 
          CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
@@ -10489,7 +10557,13 @@ cc xxx     &       REFORMAT_VERSION(1:LEN_VER) // '_' //
       ENDIF
 
 c check Julien's original SALT2 format (not SNANA format)
-      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL WRSALT2_2()
+      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
+         CALL WRSALT2_2()
+      ENDIF
+
+      IF ( REFORMAT_SPECTRA_ONLY ) THEN
+        CALL WR_SPECTRA()
+      ENDIF
 
       RETURN
       END     ! end EXEC_REFORMAT
@@ -10646,6 +10720,71 @@ C ----------- BEGIN ----------
 
       RETURN
       END  ! end of WRITE_REFORMAT_IGNORE
+
+
+C ===============================
++DECK,WR_SPECTRA.
+      SUBROUTINE WR_SPECTRA()
+
+c Created July 2023
+c For each spectrum, re-write using format based on OPT_REFORMAT_SPECTRA.
+c File name is
+c   [version]-snid[snid]-mjd[mjd].spec
+c
+c Iniitial code writes only one format, but later this could be expanded
+c to write different formats.
+c
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SPECCOM.
+  
+      INTEGER LENV, LENC, ispec, NLAMBIN, ilam
+      REAL*8  MJD, LAM, FLAM, FLAMERR
+      CHARACTER SPEC_FILE*(MXCHAR_FILENAME)
+
+C ------------- BEGIN -----------
+
+      LENV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
+      LENC = ISNLC_LENCCID
+
+c     &    MJD_SPECTRUM(MXSPECTRUM) c
+c     &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM)
+c     &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM)
+c     &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM)
+c     &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM)
+
+      DO 400 ispec = 1, NSPECTRUM
+
+         CALL RDSPEC_DRIVER(ispec)  ! load LAM and FLAM arrays
+
+         MJD     = MJD_SPECTRUM(ispec)
+         NLAMBIN = NLAMBIN_SPECTRUM(ispec)
+
+         WRITE(SPEC_FILE,40) 
+     &       VERSION_PHOTOMETRY(1)(1:LENV), SNLC_CCID(1:LENC), MJD
+40       format(A,'_',A,'_', F9.3, '.SPEC' )
+
+         OPEN(UNIT= LUNTMP, FILE=SPEC_FILE, STATUS='UNKNOWN' )
+
+         DO 401 ilam = 1, NLAMBIN
+           LAM = 0.5* ( LAMMIN_SPECTRUM(ilam) + LAMMAX_SPECTRUM(ilam) )
+           FLAM = FLAM_SPECTRUM(ilam)
+           FLAMERR = FLAMERR_SPECTRUM(ilam)
+
+           WRITE(LUNTMP,440) LAM, FLAM, FLAMERR
+440        format(F8.2, 3x, 2E14.5 )
+
+401      CONTINUE         
+         
+         CLOSE(LUNTMP)  ! close spec file
+
+c .xyz
+400   CONTINUE
+
+      RETURN
+      END
 
 C ===============================
 +DECK,END_REFORMAT.
@@ -14738,6 +14877,10 @@ C --------------- BEGIN ------------
          if ( KEY .EQ. 'SNCCID_LIST' ) then
             CALL get_PARSE_WORD_fortran(iwd,
      &                   SNCCID_LIST(iwd), LL)
+
+         else if ( KEY .EQ. 'SNCCID_IGNORE' ) then
+            CALL get_PARSE_WORD_fortran(iwd,
+     &                   SNCCID_IGNORE(iwd), LL)
 
          else if ( KEY .EQ. 'VERSION_PHOTOMETRY' ) then
             CALL get_PARSE_WORD_fortran(iwd,
@@ -20024,7 +20167,7 @@ C ----------- BEGIN --------
  222  CONTINUE
 
       RETURN
-      END
+      END  ! WRITE_SIMLIB_SPECTRUM
 
 C ================================================
 +DECK,DBLE2STRING_NOSPACE.
@@ -22599,7 +22742,7 @@ c write out spectrum to TEXT table (HBOOK,ROOT not enabled)
       ENDIF
 
       RETURN
-      END
+      END  ! SPECPLOT
 
 
 C ==============================================

@@ -21806,6 +21806,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** USEFUL(v11_05f) ***** 
 
+    new &SNLCINP input OPT_REFORMAT_SPECTRA; see manual
+
         ***** MISCELLANEOUS(v11_05f) ***** 
 
    snlc_sim.c

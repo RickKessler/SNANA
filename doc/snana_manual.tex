@@ -13884,6 +13884,8 @@ Additional reformat options can be specified using {\tt SNLCINP} input mask
     OPT_REFORMAT_FITS = 64  ! exclude private variables
     OPT_REFORMAT_FITS = 128 ! include spectra
     OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
+
+    OPT_REFORMAT_SPECTRA = 1 ! re-write only the spectra in text: lam Flam Flamerr
 \end{verbatim}
 %
 Here is an example command to convert a simulation into a data-like
@@ -13911,6 +13913,12 @@ options can be used as well.
 The output data folder contains no sim-truth which
 is useful for i) data challenges, and ii) test analysis codes
 to ensure they don't cheat using sim-truth.
+
+{\tt OPT\_REFORMAT\_FITS[TEXT]} applies to the entire event (header, photometry, spectra),
+while {\tt OPT\_REFORMAT\_SPECTRA} applies only to spectra with the goal of re-formatting
+for spectral-analysis codes. This spectral-reformat writes a single file per spectrum in 
+the cwd (i.e., does not create an output folder); the calling code should organize
+a folder structure.
 
 % --------------------------------------
   \clearpage

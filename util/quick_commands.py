@@ -17,9 +17,11 @@
 #
 # Jun 26 2022: add --diff_data option 
 #
+# Jul 19 2023: --extract_spectra_format
+#
 # =========================
 
-import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
+import os, sys, argparse, subprocess, yaml, tarfile, fnmatch, glob
 import pandas as pd
 import numpy as np
 import gzip
@@ -37,12 +39,18 @@ ISTYPE_DIFF_DICT = {
     "DATA"  : "folder"
 }
 
+SPECTRA_FORMAT_ASTRODASH = "astrodash"
+SPECTRA_FORMAT_SNID      = "snid"
+
+SNDATA_ROOT = os.getenv('SNDATA_ROOT')
+
+
 HELP_COMMANDS = f"""
 # translate TEXT format (from $SNDATA_ROOT/lcmerge) to FITS format
  quick_commands.py -v CFA3_KEPLERCAM --version_reformat_fits CFA3_FITS
 
 # translate TEXT format from local dir to FITS format:
-  quick_commands.py -v DES-SN3YR_LOWZ  -p ./  \
+  quick_commands.py -v DES-SN3YR_LOWZ  -p ./  \\
   --version_reformat_fits LOWZ_FITS
 
 # extract a few events from FITS format back to TEXT format:
@@ -50,8 +58,8 @@ HELP_COMMANDS = f"""
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN
 
 # create SIMLIB file from LOWZ data
- quick_commands.py -v DES-SN3YR_LOWZ \
-   -k $SNDATA_ROOT/kcor/DES/DES-SN3YR/kcor_LOWZ.fits \
+ quick_commands.py -v DES-SN3YR_LOWZ \\
+   -k $SNDATA_ROOT/kcor/DES/DES-SN3YR/kcor_LOWZ.fits \\
    --simlib_outfile DES-SN3YR_LOWZ.SIMLIB
 
 # make human-readable table of redshifts and vpec for list of CIDs
@@ -61,7 +69,7 @@ HELP_COMMANDS = f"""
 # make SNANA-formatted table(s)
  quick_commands.py -v DES-SN3YR_LOWZ --sntable_list SNANA
  quick_commands.py -v DES-SN3YR_LOWZ --sntable_list 'SNANA(text:host)'
- quick_commands.py -v DESY1_forcePhoto_fake_snana_fits -p $DES_ROOT/lcmerge \
+ quick_commands.py -v DESY1_forcePhoto_fake_snana_fits -p $DES_ROOT/lcmerge \\
     --sntable_list 'SNANA OUTLIER(nsig:10)'
 
 # extract info about a photometry version
@@ -69,6 +77,10 @@ HELP_COMMANDS = f"""
 
 # extract info about SNANA code
   quick_commands.py --get_info_code
+
+# extract spectra from SALT3-K21-Frag (astrodash format with lam Flam Flamerr):
+  quick_commands.py --extract_spectra_format astrodash \\
+                    -v $SNDATA_ROOT/lcmerge/SALT3TRAIN_K21-Frag/SAL\*
 
 # analyze stat differences (z,mB,x1,c) between two fitres files
 # run on same events (e.g., to validate updated data set);
@@ -125,8 +137,11 @@ def get_args():
     msg = "convert this simgen_dump file to fitres file for SALT2mu"
     parser.add_argument("--simgen_dump_file", help=msg, type=str, default="")
 
-    msg = "extract sim-input file from sim VERSION.README"
+    msg = "extract sim-input file from sim VERSION.README (-v arg)"
     parser.add_argument("--extract_sim_input", help=msg, action="store_true")
+
+    msg = "format/code to extract spectra from data VERSION(s); astrodash, ..."
+    parser.add_argument("--extract_spectra_format", help=msg, type=str, default=None)
 
     msg = "two fitres files to analyse stat difference for SALT2 fit params"
     parser.add_argument("-d", "--diff_fitres", nargs='+', 
@@ -515,8 +530,47 @@ def extract_sim_input_file(args):
         print(f" Create sim-input file: {sim_input_file}")       
         write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat)
 
+    return
+
     # end extract_sim_input_file
 
+def extract_spectra(args):
+
+    fmt = args.extract_spectra_format
+
+
+    if args.path :
+        input_data_path = f"{args.path}/{args.version}"
+    else:
+        input_data_path = f"{SNDATA_ROOT}/lcmerage/{args.version}"
+
+
+    data_path_list = glob.glob(input_data_path)
+
+    if fmt == SPECTRA_FORMAT_ASTRODASH:
+        cmd_fmt = f"OPT_REFORMAT_SPECTRA 1  "
+    else:
+        msg = f" '{fmt}' is invalid format for --extract_spectra_format argument"
+        assert False, msg
+
+    for data_path in data_path_list:
+        version           = os.path.basename(data_path)
+        private_data_path = os.path.dirname(data_path)
+        log_file          = f"EXTRACT_SPECTRA_{version}.log"
+        cmd_snana         = f"{snana_program} NOFILE VERSION_PHOTOMETRY {version}  "
+        if len(private_data_path) > 2:
+            cmd_snana += f"PRIVATE_DATA_PATH {private_data_path}  "
+
+        cmd_snana += cmd_fmt
+        cmd_snana += f"> {log_file}"
+
+        print(f" Extract spectra from data version {version} ... ")
+        os.system(cmd_snana)
+
+
+
+    return
+    # end extract_spectra
 
 def util_analyze_diff_INIT(diff_list, WHAT):
     
@@ -976,6 +1030,9 @@ if __name__ == "__main__":
 
     if args.extract_sim_input :
         extract_sim_input_file(args)
+
+    if args.extract_spectra_format :
+        extract_spectra(args)
 
     if args.diff_fitres :
         #analyze_diff_fitres_legacy(args)

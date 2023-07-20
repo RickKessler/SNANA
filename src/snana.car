@@ -10742,7 +10742,7 @@ c
   
       INTEGER LENV, LENC, ispec, NLAMBIN, ilam
       REAL*8  MJD, LAM, FLAM, FLAMERR
-      CHARACTER SPEC_FILE*(MXCHAR_FILENAME)
+      CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80
 
 C ------------- BEGIN -----------
 
@@ -10768,19 +10768,36 @@ c     &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM)
 
          OPEN(UNIT= LUNTMP, FILE=SPEC_FILE, STATUS='UNKNOWN' )
 
+c write comments
+
+         MSG = 'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:LENV)
+	 write(LUNTMP,300) MSG
+
+         write(MSG,301) MJD
+301      format('MJD:      ', F9.3)
+	 write(LUNTMP,300) MSG
+
+         write(MSG,302) NLAMBIN
+302      format('NLAMBIN: ', I5)
+	 write(LUNTMP,300) MSG
+
+         write(LUNTMP,300) ' ' 
+
+         MSG = 'WAVE FLAM FLAMERR'
+	 write(LUNTMP,300) MSG
+300      format('# ', A)
+
+c write spectrum
          DO 401 ilam = 1, NLAMBIN
            LAM = 0.5* ( LAMMIN_SPECTRUM(ilam) + LAMMAX_SPECTRUM(ilam) )
            FLAM = FLAM_SPECTRUM(ilam)
            FLAMERR = FLAMERR_SPECTRUM(ilam)
-
            WRITE(LUNTMP,440) LAM, FLAM, FLAMERR
 440        format(F8.2, 3x, 2E14.5 )
 
 401      CONTINUE         
          
          CLOSE(LUNTMP)  ! close spec file
-
-c .xyz
 400   CONTINUE
 
       RETURN

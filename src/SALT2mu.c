@@ -4793,7 +4793,7 @@ double fcn_muerrz(int OPT, double z, double zerr) {
   double zerrtot, zlo, zhi, muerr = 0.0 ;
   double FAC   = 5.0/LOGTEN ;  
   double *cosPar = &INPUTS.parval[IPAR_OL] ;
-  //  char fnam[]  = "fcn_muerrz" ;
+  char fnam[]  = "fcn_muerrz" ;
 
   // --------------- BEGIN --------------
 
@@ -4840,7 +4840,7 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11,
   int NSAMPLE = NSAMPLE_BIASCOR ;
   int i, idsample ;
   double cosPar[10];
-  //  char fnam[] = "fcn_ccprior_muzmap";
+  char fnam[] = "fcn_ccprior_muzmap";
 
   // ----------- BEGIN ------------
 
@@ -4848,10 +4848,19 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11,
   MUZMAP->beta  = xval[IPAR_BETA0];
   MUZMAP->M0    = INPUTS.M0;
 
-  cosPar[0] = xval[IPAR_OL] ;
+  cosPar[0] = xval[IPAR_OL] ; // ?? might be incorrect for blinded cosmology params (7/20/2023)
   cosPar[1] = xval[IPAR_Ok] ;
   cosPar[2] = xval[IPAR_w0] ;
   cosPar[3] = xval[IPAR_wa] ;
+
+  if ( INPUTS.debug_flag == 720 ) {
+    // avoid using blinded cosmology params for CC prior (July 20 2023)
+    cosPar[0] = OMEGA_LAMBDA_DEFAULT ;
+    cosPar[1] = 0.0;
+    cosPar[2] = w0_DEFAULT ;
+    cosPar[3] = wa_DEFAULT ;
+  }
+
   for(i=0; i < NCOSPAR ; i++ ) { MUZMAP->cosPar[i] = cosPar[i] ; } 
   
   for(idsample=0; idsample < NSAMPLE; idsample++ ) {
@@ -5227,7 +5236,7 @@ void set_defaults(void) {
   // ======== misc ======
   INPUTS.NDUMPLOG = 1000 ;
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
-  INPUTS.debug_flag        = 0 ;
+  INPUTS.debug_flag        = 0 ; 
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
   INPUTS.nbinc_mucovscale  = 3 ;
@@ -5243,8 +5252,13 @@ void set_defaults(void) {
   INPUTS.cidlist_debug_biascor[0] = 0 ;
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
+  for(ipar=0; ipar < MAXPAR; ipar++ )  {   
+    INPUTS.blind_cosinePar[ipar][0] = 0.0 ;
+    INPUTS.blind_cosinePar[ipar][1] = 0.0 ;
+  }
+
   ISDATA_REAL = 1 ;
-  INPUTS.blind_cosinePar[IPAR_OL][0] = 0.06; 
+  INPUTS.blind_cosinePar[IPAR_OL][0] = 0.06;   
   INPUTS.blind_cosinePar[IPAR_OL][1] = 23434. ;
 
   INPUTS.blind_cosinePar[IPAR_w0][0] = 0.20 ; 
@@ -5326,8 +5340,11 @@ void set_fitPar(int ipar, double val, double step,
   INPUTS.ipar[ipar]      = use ;
   INPUTS.izpar[ipar]     = -9; // init
 
+  /* xxx mark delete Jul 20 2023
   INPUTS.blind_cosinePar[ipar][0] = 0.0 ;
   INPUTS.blind_cosinePar[ipar][1] = 0.0 ;
+  xxxxxxx end mark xxx */
+
   sprintf(INPUTS.blindString[ipar], "UNDEFINED");
 }
 
@@ -15090,6 +15107,13 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
   MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
     
+  if ( INPUTS.debug_flag == 720 ) {
+    MUZMAP->cosPar[0] = OMEGA_LAMBDA_DEFAULT ;
+    MUZMAP->cosPar[1] = 0.0 ;
+    MUZMAP->cosPar[2] = w0_DEFAULT ;
+    MUZMAP->cosPar[3] = wa_DEFAULT ;
+  }
+
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
   // starts alpha,beta way off.

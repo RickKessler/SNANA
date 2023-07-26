@@ -138,6 +138,8 @@
 
  Mar 2 2023: abort on invalide filter char; see call to INTFILTER()
 
+ July 2023: write CWD into header (to help find kcor-input file)
+
 ****************************************************/
 
 
@@ -4687,7 +4689,7 @@ void wr_fits_HEAD(fitsfile *fp) {
   // Nov 15 2020: write SURVEY=%s in comment field for each filter.
 
   int istat, iprim, ifilt, ikcor, N, jbinsize, IVER ;
-  char  KEYNAME[40], KEYVAL[80], MSG[200] ;
+  char  KEYNAME[40], KEYVAL[MXPATHLEN], MSG[200] ;
   char  fnam[] = "wr_fits_HEAD" ;
 
   // ------------ BEGIN -----------
@@ -4712,6 +4714,14 @@ void wr_fits_HEAD(fitsfile *fp) {
   sprintf(KEYVAL,"%s", INPUTS.inFile_input);
   fits_update_key(fp, TSTRING, KEYNAME, KEYVAL,
 		  "Name of kcor-input file", &istat ); 
+
+  // July 2023: write cwd as well
+  istat = 0 ;
+  sprintf(KEYNAME,"CWD");
+  getcwd(KEYVAL,MXPATHLEN);
+  //  sprintf(KEYVAL,"%s", INPUTS.inFile_input);
+  fits_update_key(fp, TSTRING, KEYNAME, KEYVAL,
+		  "current work dir", &istat ); 
 
   // -----------------------------
   // write names of primary refs

@@ -21831,5 +21831,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    snlc_fit.car:
      + apply LVBOSE flag in a few more places to reduce stdout size.
+     + for snoppy model, extend AV range from -2,6 -> -3,10 (for 2002cv)
+
+   kcor.c: write CWD into header.
 
 END: 

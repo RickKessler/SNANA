@@ -2094,7 +2094,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 
   fprintf(FP_STDOUT, "\n**********Fit summary**************\n");
 
-  fprintf(FP_STDOUT, "MNFIT status=%i (%s)\n", 
+  fprintf(FP_STDOUT, "MNCOV status=%i (%s)\n", 
 	  MNSTAT, COMMENT_MNSTAT[MNSTAT] );
 
   double redChi2 = FITRESULT.CHI2SUM_MIN/(double)FITRESULT.NDOF ;

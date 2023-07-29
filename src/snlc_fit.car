@@ -8181,12 +8181,14 @@ c continue below on 1st iteration only.
       INIVAL(IPAR)   = DBLE(N_SNLC_FIT+1) ! changed from ISN, Dec 2013
       INISTP(IPAR)   = 0.0
 
+c - - -  AV - - - - 
       ipar            =  IPAR_AV
       INIVAL(IPAR)    =  0.1
       INISTP(IPAR)    =  INISTP_AV
       INIBND(1,IPAR)  =  -2.0
       INIBND(2,IPAR)  =  +6.0
 
+c - - - - RV - - - - 
       ipar            =  IPAR_RV
       if ( INISTP_AVRV .GT. 0.0 ) THEN
         INIVAL(IPAR)    =  INIVAL(IPAR_AV) / RV_MWCOLORLAW
@@ -8200,6 +8202,7 @@ c continue below on 1st iteration only.
         INIBND(2,IPAR)  =   20.0
       ENDIF
 
+c - - - - PKMJD - - - 
       ipar            =  IPAR_PEAKMJD
       PEAKMJD         =  SNLC_SEARCH_PEAKMJD    ! approx peak MJD
       INIVAL(IPAR)    =  PEAKMJD - MJDOFF
@@ -8214,6 +8217,7 @@ c continue below on 1st iteration only.
       ENDIF
       FITVAL(IPAR,0)  =  INIVAL(IPAR) 
 
+c - - - - - DLMAG - - - - - 
       ipar            =  IPAR_DLMAG
       INIVAL(IPAR)    =  SNLC_DLMAG
       INISTP(IPAR)    =  INISTP_DLMAG         ! initial step size, mag
@@ -8233,12 +8237,14 @@ c  Jun 2021: set tiny z errors too
          SNLC_ZHD_ERR      = 1.0E-4
       endif
 
+c - - - -  zPHOT - - - - -
       ipar            =  IPAR_zPHOT
       INISTP(IPAR)    =  INISTP_PHOTOZ         ! initial step size
       INIVAL(IPAR)    =  SNLC_REDSHIFT
       INIBND(1,IPAR)  =  -1.0
       INIBND(2,IPAR)  =  +4.0
 
+c - - - - shape/stretch - - - - 
 c note that INIVAL(IPAR_SHAPE,IPAR_SHAPE2) depend
 c on the model and are evaluated below.
       ipar            =  IPAR_SHAPE
@@ -8246,6 +8252,7 @@ c on the model and are evaluated below.
       INIBND(1,IPAR)  =  -20.0
       INIBND(2,IPAR)  =  +20.0
 
+c -------------------------------------------
 c check for valid model and set model-dependent parameters
 
       IF (  FITMODEL_INDEX .EQ. MODEL_STRETCH 
@@ -8286,6 +8293,10 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
          INISTP(IPAR_SHAPE)    =  INISTP_SHAPE
          INIVAL(IPAR_COLOR)    =  INIVAL_AV
          INISTP(IPAR_COLOR)    =  INISTP_AV
+
+         INIBND(1,IPAR_COLOR) =  -3.0   ! AV (July 2023)
+         INIBND(2,IPAR_COLOR) =  10.0   ! extend for events like 2002cv
+
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 

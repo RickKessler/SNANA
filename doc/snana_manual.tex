@@ -5750,17 +5750,21 @@ To output the true observer-frame model SED at each observation
 to the data files ({\tt TEXT} for {\tt FITS} format),
 set the following sim-input key
  \begin{verbatim}
-   SPECTROGRAPH_OPTMASK:  128 
+   LAMBIN_SED_TRUE:  10  # wavelength bin size (A) for true SED output
 \end{verbatim}
-This {\tt OPTMASK} option is unique: 
-a spectrograph need NOT be defined in the kcor/calib file
-because the simulation internally defines a spectrograph with 10{\AA} bins
-and SNR${\sim}10^5$. The simulation creates an ideal spectrum,
+%
+This option is unique because
+a spectrograph need NOT be defined in the kcor/calib file.
+The simulation internally defines a spectrograph with 
+{\tt LAMBIN\_SED\_TRUE}~{\AA} bin size and SNR${\sim}10^5$. 
+The simulation creates an ideal spectrum,
 corresponding to the true SED, for each observation
 that occurs at least 1~hr later than the previous observation.
-BEWARE to define reasonable {\tt GENRANGE\_TREST} and {\tt NGENTOT\_LC} 
-to avoid excessively large output data files.
+BEWARE: to avoid excessively large output data files,
+define reasonable {\tt GENRANGE\_TREST}, {\tt NGENTOT\_LC},
+and {\tt LAMBIN\_SED\_TRUE}.
 
+%   SPECTROGRAPH_OPTMASK:  128 
 % ------------------------------------
 
 % ------------------------------------

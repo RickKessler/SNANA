@@ -1345,7 +1345,8 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE   =  1. ;  // scale Texpose
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
-
+  INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE = -9.0 ; // true SED option
+  
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
   INPUTS.TAKE_SPECTRUM_DUMPCID    = -9 ;
   INPUTS.TAKE_SPECTRUM_HOSTFRAC   =  0.0 ;
@@ -2392,6 +2393,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - -  specrtrograph - - - -
   else if ( ISKEY_SPEC ) {
     N += parse_input_SPECTRUM(WORDS,keySource);
+  }
+  else if ( keyMatchSim(1, "LAMBIN_SED_TRUE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE );
+    INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK += SPECTROGRAPH_OPTMASK_SEDMODEL;
   }
 
 #ifdef MODELGRID_GEN
@@ -9160,9 +9165,11 @@ void  init_genSpec(void) {
     // This enables writing true SEDMODEL without the headache of
     // creating a spectrograph table.
     double lammin, lammax;
+    double lambin = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
     get_LAMRANGE_ALLFILTER(&lammin, &lammax); // min/max lambda among all bands
-    create_ideal_spectrograph(lammin, lammax);
-    lammin -= 50.0 ; lammax += 50.0 ; // allow slop for filter edges
+    // xxx mark lammin -= 50.0 ; lammax += 50.0 ; // allow slop for filter edges
+
+    create_ideal_spectrograph(lammin, lammax, lambin );
     SPECTROGRAPH_USEFLAG = 1;
   }
 

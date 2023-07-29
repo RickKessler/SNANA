@@ -36,6 +36,9 @@
 #
 # Aug 17 2021: add arguments --nosubmit and --ncpu
 #
+# July 29 2023: write HOSTNAME in RUNJOB_CPU[nnn].LOG files
+#               to help diagnose problems.
+#
 
 import os, sys, datetime, shutil, time, glob
 import subprocess, argparse
@@ -47,6 +50,7 @@ import subprocess, argparse
 
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNANA_TESTS_DIR  = os.environ['SNANA_TESTS']
+HOSTNAME         = os.uname()[1]  
 TASK_DIR         = f"{SNANA_TESTS_DIR}/tasks"
 INPUT_DIR        = f"{SNANA_TESTS_DIR}/inputs"
 LOG_TOPDIR       = f"{SNANA_TESTS_DIR}/logs"
@@ -399,6 +403,7 @@ def parse_listfile(INPUTS, RESULTS_INFO_REF):
         }
 
     return CONTENTS
+    # end parse_listfile
 
 # ============================================
 def parse_taskfile(TASKFILE):
@@ -765,6 +770,8 @@ def runTasks_driver(INPUTS):
     NDONE_REQ     = 0
 
     print(f" Begin execution of {NTASK_REQ} tasks for CPUNUM={CPUNUM_REQ}")
+    print(f" HOSTNAME: {HOSTNAME}")
+
     sys.stdout.flush()
 
     while NDONE_REQ < NTASK_REQ :
@@ -1118,7 +1125,7 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     # July 2021: write login HOST in case we forget later
     host_info_file = f"{LOGDIR}/HOST_MONITOR.INFO"
-    HOSTNAME         = os.environ['HOSTNAME']
+    # xxx mark HOSTNAME         = os.environ['HOSTNAME']
     with open(host_info_file,"wt") as f:
         f.write(f"HOST: {HOSTNAME}    # monitor task runs here\n")
 

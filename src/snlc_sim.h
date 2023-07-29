@@ -314,22 +314,25 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_noTEMPLATE 16  // no template noise
 #define SPECTROGRAPH_OPTMASK_onlyTNOISE 32  // only template noise
 #define SPECTROGRAPH_OPTMASK_TEXTRAP    64  // extrap TEXPOSE outside range
-#define SPECTROGRAPH_OPTMASK_SEDMODEL  128  // 10 A, no noise-->Flam=model SED
+#define SPECTROGRAPH_OPTMASK_SEDMODEL  128  // no noise-->Flam=model SED
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
 
 typedef struct {
   int    DOFLAG_SPEC ; // logical flag for spectra
-  int    OPTMASK;    // sim-input key SPECTROGRAPH_OPTMASK: <MASK>
+  int    OPTMASK;      // sim-input key SPECTROGRAPH_OPTMASK: <MASK>
   int    OPTMASK_ORIG; // original user-input OPTMASK before internal modifications
-  double NLAMSIGMA ; // how far out to smear flux in lambda bins
+  double NLAMSIGMA ;   // how far out to smear flux in lambda bins
 
   // below are for tests & debugging, based on OPTMASK
   int    ILAM_SPIKE ;     // set by OPTMASK
   double SCALE_LAMSIGMA ; // set by OPTMASK
   double SCALE_SNR ;      // set by OPTMASK
   double SCALE_TEXPOSE ;  // from user input SPECTROGRAPH_SCALE_TEXPOSE
+
+  // option to enable true SED option, and to define lambda bin size (A)
+  double LAMBIN_SED_TRUE;
 
 } SPECTROGRAPH_OPTIONS_DEF;
 

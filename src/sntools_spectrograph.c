@@ -1586,7 +1586,7 @@ int IMJD_GENSPEC(double MJD) {
 } // end IMJD_GENSPEC
 
 // ===========================================
-void create_ideal_spectrograph(double lammin, double lammax) {
+void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
 
   // Created May 2023  
   // Create IDEAL spectrograph with 10 A bins and SNR per bin = 1E4.
@@ -1596,9 +1596,12 @@ void create_ideal_spectrograph(double lammin, double lammax) {
   //   SPECTROGRAPH_OPTMASK:  128
   //
   // Inputs:
-  //   lammin, lamax : wavelength range to cover with ideal spectrograph
-  //
-  double BINSIZE_IDEAL = 10.0 ; // Angstrongs
+  //   lammin, lamax : wavelength range (A) to cover with ideal spectrograph
+  //   lambin        : wavelenth bin size (A)
+
+
+  double LAMBIN_IDEAL    = lambin ;
+
 #define  NBIN_TEXPOSE_IDEAL  2
   double TEXPOSE_LIST[NBIN_TEXPOSE_IDEAL] = { 10.0, 100.0 } ; // seconds
   double SNR_LIST[NBIN_TEXPOSE_IDEAL]     = { 1.0E5, 3.0E5 } ;
@@ -1612,20 +1615,26 @@ void create_ideal_spectrograph(double lammin, double lammax) {
   sprintf(BANNER,"%s", fnam);
   print_banner(BANNER);
 
+  if ( LAMBIN_IDEAL < 0.0 ) {
+    sprintf(c1err,"Invalid LAMBIN_IDEAL = %f ;", LAMBIN_IDEAL);
+    sprintf(c2err,"Check sim-input LAMBIN_SED_TRUE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
+  }
+
   init_INPUTS_SPECTRO();
 
   sprintf(INPUTS_SPECTRO.INSTRUMENT_NAME,"IDEAL");
 
-  ilam = (int)(lammin / BINSIZE_IDEAL);
-  LAM_MIN = BINSIZE_IDEAL * (double)(ilam-2);
+  ilam = (int)(lammin / LAMBIN_IDEAL);
+  LAM_MIN = LAMBIN_IDEAL * (double)(ilam-2);
 
-  ilam = (int)(lammax / BINSIZE_IDEAL);
-  LAM_MAX = BINSIZE_IDEAL * (double)(ilam+3);
+  ilam = (int)(lammax / LAMBIN_IDEAL);
+  LAM_MAX = LAMBIN_IDEAL * (double)(ilam+3);
 
-  NBIN_LAM = (int)((LAM_MAX - LAM_MIN) / BINSIZE_IDEAL) + 1;
+  NBIN_LAM = (int)((LAM_MAX - LAM_MIN) / LAMBIN_IDEAL) + 1;
 
   printf("\t %.1f < lam < %.1f,   BinSize=%.0f A, SNR ~ %.0f\n", 
-	 LAM_MIN, LAM_MAX, BINSIZE_IDEAL, SNR_LIST[0] );
+	 LAM_MIN, LAM_MAX, LAMBIN_IDEAL, SNR_LIST[0] );
   fflush(stdout);
 
   // - - - - - 
@@ -1645,14 +1654,14 @@ void create_ideal_spectrograph(double lammin, double lammax) {
     }
   
   for (ilam=0; ilam < NBIN_LAM; ilam++ ) {
-    lmin = LAM_MIN + BINSIZE_IDEAL * (double)ilam ;
-    lmax = lmin + BINSIZE_IDEAL;
+    lmin = LAM_MIN + LAMBIN_IDEAL * (double)ilam ;
+    lmax = lmin + LAMBIN_IDEAL;
     lavg = 0.5*(lmin+lmax);
 
     INPUTS_SPECTRO.LAMMIN_LIST[ilam] = lmin;
     INPUTS_SPECTRO.LAMMAX_LIST[ilam] = lmax;
     INPUTS_SPECTRO.LAMAVG_LIST[ilam] = lavg;
-    INPUTS_SPECTRO.LAMBIN_LIST[ilam] = BINSIZE_IDEAL ;
+    INPUTS_SPECTRO.LAMBIN_LIST[ilam] = LAMBIN_IDEAL ;
     INPUTS_SPECTRO.LAMSIGMA_LIST[ilam] = 0.0 ;
     INPUTS_SPECTRO.ISLAM_EXTEND_LIST[ilam] = false;
 

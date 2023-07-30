@@ -784,7 +784,7 @@ void wr_snfitsio_init_spec(void) {
   // Table 1 is a one-row summary per spec.
   // Table 2 is to store spectra:  LAMMIN LAMMAX FLUX FLUXERR SIM_MAG*100
   //
-  // July 29 2023: see new use of FORMAT_DEFAULT[SED_TRUE]
+  // July 29 2023: see new use of logicals FORMAT_DEFAULT[SED_TRUE]
 
   int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
   int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
@@ -818,12 +818,22 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
   wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
 
-  if ( SNFITSIO_SIMFLAG_SNANA ) {
+  if ( SNFITSIO_SIMFLAG_SNANA && FORMAT_DEFAULT ) {
     wr_snfitsio_addCol( "1E",  "Texpose",     itype   ) ; 
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "SCALE_HOST_CONTAM",  itype   ) ; 
+  }
+
+  if ( FORMAT_SED_TRUE ) {
+    // Store LAMMIN/LAMMAX/LAMBIN to avoid re-writing same lambda grid for
+    // each true SED. LAMMIN to LAMMAX are histogram min/max and
+    // NBIN_LAM = (LAMMAX - LAMMIN)/LAMBIN
+
+    wr_snfitsio_addCol( "1I",  "LAMMIN",    itype   ) ;
+    wr_snfitsio_addCol( "1I",  "LAMMAX",    itype   ) ;
+    wr_snfitsio_addCol( "1I",  "LAMBIN",    itype   ) ;
   }
 
   wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 
@@ -2399,7 +2409,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
-
+ 
   int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
   int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
   int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
@@ -2434,7 +2444,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.MJD_LIST[imjd] ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
 
-  if ( SNFITSIO_SIMFLAG_SNANA ) {
+  if ( SNFITSIO_SIMFLAG_SNANA && FORMAT_DEFAULT ) {
     // Texpose
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
@@ -2461,6 +2471,25 @@ void  wr_snfitsio_update_spec(int imjd)  {
   }
 
   // - - - - 
+
+  if ( FORMAT_SED_TRUE ) {
+    double LAMMIN = INPUTS_SPECTRO.LAM_MIN;
+    double LAMMAX = INPUTS_SPECTRO.LAM_MAX;
+    double LAMBIN = INPUTS_SPECTRO.LAMBIN_LIST[0]; // all bin sizes are equal
+ 
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMIN ;
+    wr_snfitsio_fillTable ( ptrColnum, "LAMMIN", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMAX ;
+    wr_snfitsio_fillTable ( ptrColnum, "LAMMAX", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMBIN ;
+    wr_snfitsio_fillTable ( ptrColnum, "LAMBIN", itype );
+  }
+
   // NBLAM
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = NBLAM_WR ;
@@ -2531,22 +2560,19 @@ void  wr_snfitsio_update_spec(int imjd)  {
       wr_snfitsio_fillTable ( ptrColnum, "FLAMERR", itype );  
     }
     else if ( FORMAT_SED_TRUE ) {
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMAVG ;
-      wr_snfitsio_fillTable ( ptrColnum, "LAM", itype );  
+      // July 30 2023
+      // no LAM info for SED_TRUE because header info gives LAM-grid info
+      // that is the same for SED at each epoch.
+      // No FLAM[ERR] info either because there is no 'meaured' spectrum 
+      // for true SED. Only info per LAM bin is true SIM_FLAM; see below
     }
 
     
     if ( SNFITSIO_SIMFLAG_SNANA ) {
+      // always write true SIM_FLAM for all formats
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = GENFLAM ;
       wr_snfitsio_fillTable ( ptrColnum, "SIM_FLAM", itype );  
-
-      /*
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1I = (int)(GENMAG*100.0 + 0.5) ;
-      wr_snfitsio_fillTable ( ptrColnum, "SIM_MAG", itype );  
-      */
     }
 
     if ( GENSPEC.USE_WARP ) {

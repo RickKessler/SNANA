@@ -868,9 +868,7 @@ void wr_snfitsio_init_spec(void) {
     wr_snfitsio_addCol( "1E", "FLAMERR",     itype   ) ;  
   }
   else if ( FORMAT_SED_TRUE ) {
-    // for true SED, only write LAM. There is no observed FLAM[ERR];
-    // see SIM_FLAM below
-    wr_snfitsio_addCol( "1E", "LAM",      itype   ) ;
+    // no LAM or FLAM info for true SED;  see SIM_FLAM below
   }
   else {
     sprintf(c1err,"Invalid INPUTS_SPECTRO.FORMAT_MASK = %d", FORMAT_MASK);

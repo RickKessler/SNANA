@@ -837,10 +837,9 @@ void wr_snfitsio_init_spec(void) {
     // Store LAMMIN/LAMMAX/LAMBIN to avoid re-writing same lambda grid for
     // each true SED. LAMMIN to LAMMAX are histogram min/max and
     // NBIN_LAM = (LAMMAX - LAMMIN)/LAMBIN
-
-    wr_snfitsio_addCol( "1I",  "LAMMIN",    itype   ) ;
-    wr_snfitsio_addCol( "1I",  "LAMMAX",    itype   ) ;
-    wr_snfitsio_addCol( "1I",  "LAMBIN",    itype   ) ;
+    wr_snfitsio_addCol( "1E",  "LAMMIN",    itype   ) ;
+    wr_snfitsio_addCol( "1E",  "LAMMAX",    itype   ) ;
+    wr_snfitsio_addCol( "1E",  "LAMBIN",    itype   ) ;
   }
 
   wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 

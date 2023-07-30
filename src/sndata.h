@@ -69,9 +69,11 @@
 #define WRITE_MASK_SIM_SNRMON   16  // write SNR(MAGMONITOR)
 #define WRITE_MASK_SIM_MODELPAR 32  // write model par for SIMSED, LCLIB
 #define WRITE_MASK_SIM_TEMPLATEMAG 512 // write template mags for recurring events
-#define WRITE_MASK_COMPACT      64  // suppress non-essential PHOT output
 #define WRITE_MASK_SPECTRA     128  // write spectra (Oct 14 2021)
 #define WRITE_MASK_ATMOS       256  // write RA,DEC,AIRMASS per obs, for atmos cor
+
+#define WRITE_MASK_COMPACT      64  // suppress non-essential PHOT output
+#define WRITE_MASK_COMPACT_noFLUXCAL  4096 // internally set if SMEARFLAG_FLUX=0
 
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
 #define OPT_ZPTSIG_SRUN  2   // idem for search run

@@ -106,6 +106,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   // May 14 2020: set SNFITSIO_DATAFLAG
   // Sep 10 2020: begin refactor with BYOSED -> PySEDMODEL
   // Oct 14 2021: change simFlag to writeFlag that has spectra bit
+  // Jul 30 2023: check WRITE_MASK_COMPACT_noFLUXCAL to suppress FLUXCAL[ERR]
 
   int  MEMC = MXPATHLEN * sizeof(char);
   int  itype, ipar, OVP, lenpath, lenfile, lentot ;
@@ -130,6 +131,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_SIMFLAG_TEMPLATEMAG  = false ;
   SNFITSIO_HOSTGAL2_FLAG        = true  ; // include HOSTGAL2 info
   SNFITSIO_COMPACT_FLAG         = false ; 
+  SNFITSIO_COMPACT_noFLUXCAL_FLAG = false;
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
   NSNLC_WR_SNFITSIO_TOT = 0 ;
@@ -162,6 +164,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   OVP = ( writeFlag & WRITE_MASK_COMPACT ) ; // Jan 23 2018
   if ( OVP > 0  ) { SNFITSIO_COMPACT_FLAG = true ; }
+
+  OVP = ( writeFlag & WRITE_MASK_COMPACT_noFLUXCAL ) ; // Jul 2023
+  if ( OVP > 0  ) { SNFITSIO_COMPACT_noFLUXCAL_FLAG = true ; }
 
   OVP = ( writeFlag & WRITE_MASK_SIM_MODELPAR ) ;
   if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = true ; }
@@ -707,8 +712,10 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E",  "PHOTPROB"    , itype ) ; 
   } // end WRFULL
 
-  wr_snfitsio_addCol( "1E" , "FLUXCAL"     , itype ) ;  
-  wr_snfitsio_addCol( "1E" , "FLUXCALERR"  , itype ) ;
+  if ( !SNFITSIO_COMPACT_noFLUXCAL_FLAG ) {
+    wr_snfitsio_addCol( "1E" , "FLUXCAL"     , itype ) ;  
+    wr_snfitsio_addCol( "1E" , "FLUXCALERR"  , itype ) ;
+  }
 
   if ( WRFULL ) {
     if ( SNDATA.NEA_PSF_UNIT ) {
@@ -2272,13 +2279,15 @@ void wr_snfitsio_update_phot(int ep) {
 
 
   // FLUXCAL and its error
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "FLUXCAL", itype );
+  if ( !SNFITSIO_COMPACT_noFLUXCAL_FLAG ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "FLUXCAL", itype );
 
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL_ERRTOT[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "FLUXCALERR", itype );
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL_ERRTOT[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "FLUXCALERR", itype );
+  }
 
   if ( WRFULL ){
     if ( SNDATA.NEA_PSF_UNIT ) {

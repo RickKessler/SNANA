@@ -230,12 +230,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   if ( SNFITSIO_SPECTRA_FLAG ) {
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPEC    ) ; 
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPECTMP ) ; 
-
-    if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
-      { wr_snfitsio_init_spec_legacy(); }
-    else
-      { wr_snfitsio_init_spec(); } // refac, Oct 15 2021
-
+    wr_snfitsio_init_spec();      
   }
 
   return ;
@@ -789,11 +784,15 @@ void wr_snfitsio_init_spec(void) {
   // Table 1 is a one-row summary per spec.
   // Table 2 is to store spectra:  LAMMIN LAMMAX FLUX FLUXERR SIM_MAG*100
   //
+  // July 29 2023: see new use of FORMAT_DEFAULT[SED_TRUE]
 
+  int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
+  int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
+  int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
 
   long  NROW = 0 ;
   int itype, ncol, istat, ipar ;
-  int FORMAT_LAMCEN  = ( INPUTS_SPECTRO.FORMAT_MASK & 1 );
+
   fitsfile *fp;
   char TBLname[40] ;
   char fnam[] = "wr_snfitsio_init_spec" ;
@@ -851,10 +850,23 @@ void wr_snfitsio_init_spec(void) {
   fp    = fp_wr_snfitsio[itype];
 
   sprintf(TBLname, "%s", "SPECTRO_FLUX" );
-  wr_snfitsio_addCol( "1E", "LAMMIN",      itype   ) ; 
-  wr_snfitsio_addCol( "1E", "LAMMAX",      itype   ) ; 
-  wr_snfitsio_addCol( "1E", "FLAM",        itype   ) ;  
-  wr_snfitsio_addCol( "1E", "FLAMERR",     itype   ) ;  
+
+  if ( FORMAT_DEFAULT ) {
+    wr_snfitsio_addCol( "1E", "LAMMIN",      itype   ) ; 
+    wr_snfitsio_addCol( "1E", "LAMMAX",      itype   ) ; 
+    wr_snfitsio_addCol( "1E", "FLAM",        itype   ) ;  
+    wr_snfitsio_addCol( "1E", "FLAMERR",     itype   ) ;  
+  }
+  else if ( FORMAT_SED_TRUE ) {
+    // for true SED, only write LAM. There is no observed FLAM[ERR];
+    // see SIM_FLAM below
+    wr_snfitsio_addCol( "1E", "LAM",      itype   ) ;
+  }
+  else {
+    sprintf(c1err,"Invalid INPUTS_SPECTRO.FORMAT_MASK = %d", FORMAT_MASK);
+    sprintf(c2err,"grep FORMAT_MASK sntools_spectrograph.h | grep define");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     wr_snfitsio_addCol( "1E", "SIM_FLAM",    itype   ) ; 
@@ -875,166 +887,6 @@ void wr_snfitsio_init_spec(void) {
   return ;
 
 } // end wr_snfitsio_init_spec
-
-
-// ========================================
-void wr_snfitsio_init_spec_legacy(void) {
-
-  // Created Aug 2016
-  // Init tables for simulated spectra (SPECTROGRAPH feature)
-  //
-  // 
-  // Table 0 has  3 columns which are filled here
-  //                 LAMINDEX LAMMIN LAMMAX
-  //         --> can use I*2 index in 2nd table.
-  //
-  // Table 1 is a one-row summary per spec.
-  //
-  // Table 2 is to store spectra:  ILAM FLUX FLUXERR SIM_MAG*100
-  //
-  // Mar 24 2019: include optional WARP*1000
-  // Mar 25 2019: add SNR_COMPUTE and LAMOBS_SNR to table.
-  //
-
-  long  NROW = 0 ;
-  int itype, ncol, istat, ipar ;
-  int FORMAT_LAMCEN  = ( INPUTS_SPECTRO.FORMAT_MASK & 1 );
-  fitsfile *fp;
-  char TBLname[40] ;
-  char fnam[] = "wr_snfitsio_init_spec_legacy" ;
-
-  // --------------- BEGIN ---------------
-
-  itype = ITYPE_SNFITSIO_SPEC ;
-  fp    = fp_wr_snfitsio[itype];
-
-  // ---------------------------------------------------
-  // ------------------- Table 0 -----------------------
-  // ---------------------------------------------------
-  // first create & write table 1 mapping LAMINDEX to wavelength range.
-  sprintf(TBLname, "%s", "SPECTRO_LAMINDEX" );
-  wr_snfitsio_addCol( "1J",  "LAMINDEX" , itype ) ; 
-
-  if ( FORMAT_LAMCEN ) {
-    wr_snfitsio_addCol( "1E" , "LAMCEN"   , itype ) ;  
-  }
-  else {
-    wr_snfitsio_addCol( "1E" , "LAMMIN"   , itype ) ;  
-    wr_snfitsio_addCol( "1E" , "LAMMAX"   , itype ) ;  
-  }
-
-  // create header table. 
-  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
-  fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
-		  ,TBLname, &istat ) ;
-
-  sprintf(BANNER,"fits_create_tbl for %s", TBLname );
-  snfitsio_errorCheck(BANNER, istat) ;
-
-
-  // file LAMBDA-map table right here
-  int ilam, LOC, *ptrColnum ;
-  int NBIN_LAM = INPUTS_SPECTRO.NBIN_LAM ;
-
-  for( ilam=0; ilam < NBIN_LAM ; ilam++ ) {
-    WR_SNFITSIO_TABLEVAL[itype].NROW++ ;
-    LOC = 0;
-
-    // ilam
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1J = ilam ;
-    wr_snfitsio_fillTable ( ptrColnum, "LAMINDEX", itype );
-    
-    // min & max lambda in this wavelength bin
-    if ( FORMAT_LAMCEN  ) {
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
-      wr_snfitsio_fillTable ( ptrColnum, "LAMCEN", itype );
-    }
-    else {
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = INPUTS_SPECTRO.LAMMIN_LIST[ilam] ;
-      wr_snfitsio_fillTable ( ptrColnum, "LAMMIN", itype );
-    
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = INPUTS_SPECTRO.LAMMAX_LIST[ilam] ;
-      wr_snfitsio_fillTable ( ptrColnum, "LAMMAX", itype ); 
-    }
-
-  }
-
-
-  // ---------------------------------------------------
-  // ------------------- Table 1 -----------------------
-  // ---------------------------------------------------
-  // delete Table 1 LAMBDA-MAP, and create spec-summary table.
-  // --> One row summary per spectrum.
-  NPAR_WR_SNFITSIO[itype] = 0;
-  WR_SNFITSIO_TABLEVAL[itype].NROW = 0 ;
-  for ( ipar=0; ipar < MXPAR_SNFITSIO ; ipar++ ) 
-    { WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[ipar] = -1 ; }
-  
-  // -----------------
-  // create table for spectra fluxes 
-  sprintf(TBLname, "%s", "SPECTRO_HEADER" );
-  wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
-  wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
-  wr_snfitsio_addCol( "1E",  "Texpose",     itype   ) ; 
-  wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
-  wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
-  wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 
-
-  wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 
-  wr_snfitsio_addCol( "1J",  "PTRSPEC_MIN", itype   ) ; 
-  wr_snfitsio_addCol( "1J",  "PTRSPEC_MAX", itype   ) ; 
-
-  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
-  fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
-		  ,TBLname, &istat ) ;
-
-  sprintf(BANNER,"fits_create_tbl for %s", TBLname );
-  snfitsio_errorCheck(BANNER, istat) ;
-
-
-  // ---------------------------------------------------
-  // ------------------- Table 2 -----------------------
-  // ---------------------------------------------------
-
-  // flux table; this could be HUUUUUGE.
-  itype = ITYPE_SNFITSIO_SPECTMP ;
-  fp    = fp_wr_snfitsio[itype];
-
-  sprintf(TBLname, "%s", "SPECTRO_FLUX" );
-  wr_snfitsio_addCol( "1I", "LAMINDEX",    itype   ) ; 
-  wr_snfitsio_addCol( "1E", "FLAM",        itype   ) ;  
-  wr_snfitsio_addCol( "1E", "FLAMERR",     itype   ) ;  
-
-  if ( SNFITSIO_SIMFLAG_SNANA ) {
-    wr_snfitsio_addCol( "1E", "SIM_FLAM",    itype   ) ;  // Feb 2021
-    //    wr_snfitsio_addCol( "1I", "SIM_MAG",     itype   ) ; 
-  }
-  if ( GENSPEC.USE_WARP ) 
-    { wr_snfitsio_addCol( "1I", "SIM_WARP",  itype   ) ; }
-  
-  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
-  fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
-		  ,TBLname, &istat ) ;
-
-  sprintf(BANNER,"fits_create_tbl for %s", TBLname );
-  snfitsio_errorCheck(BANNER, istat) ;
-
-  return ;
-
-} // end wr_snfitsio_init_spec_legacy
 
 
 // ==================================
@@ -2547,6 +2399,11 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
+
+  int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
+  int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
+  int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
+
   int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX   ;
   char fnam[] = "wr_snfitsio_update_spec" ;
 
@@ -2623,7 +2480,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // update spectrum table
   int    ilam, ILAM ;
-  double LAMMIN, LAMMAX, GENFLAM, GENMAG, FLAM, FLAMERR, WARP ;
+  double LAMMIN, LAMMAX, LAMAVG, GENFLAM, GENMAG, FLAM, FLAMERR, WARP ;
 
   itype = ITYPE_SNFITSIO_SPECTMP ;
   
@@ -2634,6 +2491,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
       ILAM = ilam ;
       LAMMIN     = GENSPEC.LAMMIN_LIST[imjd][ilam];
       LAMMAX     = GENSPEC.LAMMAX_LIST[imjd][ilam];
+      LAMAVG     = 0.5*(LAMMIN+LAMMAX);
       GENFLAM    = GENSPEC.GENFLAM_LIST[imjd][ilam];
       GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
       FLAM       = GENSPEC.FLAM_LIST[imjd][ilam];
@@ -2653,13 +2511,8 @@ void  wr_snfitsio_update_spec(int imjd)  {
     LOC=0;
     WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW++ ;
 
-    if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) {
-      // legacy with compact format using lamindex
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1I = ILAM ;
-      wr_snfitsio_fillTable ( ptrColnum, "LAMINDEX", itype );  
-    }
-    else {
+
+    if ( FORMAT_DEFAULT ) {
       // refactored Oct 2021
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMIN ;
@@ -2669,16 +2522,21 @@ void  wr_snfitsio_update_spec(int imjd)  {
       WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMAX ;
       wr_snfitsio_fillTable ( ptrColnum, "LAMMAX", itype );  
 
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAM ;
+      wr_snfitsio_fillTable ( ptrColnum, "FLAM", itype );  
+   
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAMERR ;
+      wr_snfitsio_fillTable ( ptrColnum, "FLAMERR", itype );  
+    }
+    else if ( FORMAT_SED_TRUE ) {
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMAVG ;
+      wr_snfitsio_fillTable ( ptrColnum, "LAM", itype );  
     }
 
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAM ;
-    wr_snfitsio_fillTable ( ptrColnum, "FLAM", itype );  
-   
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAMERR ;
-    wr_snfitsio_fillTable ( ptrColnum, "FLAMERR", itype );  
-
+    
     if ( SNFITSIO_SIMFLAG_SNANA ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = GENFLAM ;
@@ -4973,7 +4831,6 @@ void  rd_snfitsio_specFile( int ifile ) {
   // Open SPECTROGRAPH file and read first two tables
   // to prepare for reading arbitrary spectrum from 3rd table.
 
-  bool LEGACY = (SNFITSIO_CODE_IVERSION < 20 );
   int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
@@ -4999,7 +4856,6 @@ void  rd_snfitsio_specFile( int ifile ) {
   printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); 
 
   // - - - - - - - - - - - - - - - - - - - - - - -
-  if ( LEGACY ) { rd_snfitsio_specLam_legacy(ifile,fp); }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // read and store one-row-per spectrum; note that 
@@ -5064,51 +4920,6 @@ void  rd_snfitsio_specFile( int ifile ) {
 } // end rd_snfitsio_specFile
 
 
-
-// ==================================================
-void rd_snfitsio_specLam_legacy(int ifile, fitsfile *fp) {
-
-  int itype = ITYPE_SNFITSIO_SPEC ;
-  int istat, hdutype, icol, anynul, MEMD, ilam ;
-  int nmove=1;
-  long FIRSTROW=1, FIRSTELEM=1, NROW ;
-  char keyName[40], comment[200] ;
-  char fnam[] = "rd_snfitsio_specLam_legacy" ;
-
-  // ------------ BEGIN -------------
-  // move to table with wave binning
-
-
-  fits_movrel_hdu( fp, nmove, &hdutype, &istat );
-  sprintf(c1err,"movrel to %s table", snfitsType[itype] ) ;
-  snfitsio_errorCheck(c1err, istat);
-
-  if ( ifile==1 ) {
-    // read number of lambda bins on first file only
-    sprintf(keyName, "%s", "NAXIS2" ) ;
-    fits_read_key(fp, TLONG, keyName,  &NROW, comment, &istat );
-    printf("   %s: Read %ld wavelength bins.\n", fnam, NROW ); fflush(stdout);
-    RDSPEC_SNFITSIO_LAMINDEX.NLAMBIN = NROW ;
-  
-    // malloc lam arrays
-    MEMD = NROW * sizeof(double);
-    RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST = (double*) malloc(MEMD);
-    RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST = (double*) malloc(MEMD);   
-  
-    icol=2;
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		      RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST, 
-		      &anynul, &istat );    
-    icol=3;
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		      RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST,
-		      &anynul, &istat );  
-  } // end ifile=1
-
-  return;
-
-} // end rd_snfitsio_specLam_legacy
-
 // ====================================
 int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX)  { 
 
@@ -5167,7 +4978,6 @@ void RD_SNFITSIO_SPECDATA(int irow,
   // For sim, also return true GENFLAM
   // Oct 15 2021: check legacy vs. refac FITS format
 
-  bool LEGACY = (SNFITSIO_CODE_IVERSION < 20 );
   char fnam[] = "RD_SNFITSIO_SPECDATA";
   if ( irow < 0 ) {
     sprintf(c1err,"Invalid irow = %d", irow);
@@ -5194,42 +5004,22 @@ void RD_SNFITSIO_SPECDATA(int irow,
     printf(" 1. xxx %s ROW=%d \n", fnam, irow );
   }
 
-  if ( LEGACY ) {
-    // legacy/compact format with lamindex array
-    //  -> works for sim, but NOT for data.
+  
+  // refac FITS format with explicit LAMMIN and LAMMAX colums
+  // --> works for data and sim
+  icol++ ; ;  
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		    LAMMIN, &anynul, &istat ); 
+  sprintf(c1err,"Read LAMMIN for spectrum", snfitsType[itype] ) ;
+  snfitsio_errorCheck(c1err, istat);
+  
+  icol++ ; ;  
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		    LAMMAX, &anynul, &istat ); 
+  sprintf(c1err,"Read LAMMAX for spectrum", snfitsType[itype] ) ;
+  snfitsio_errorCheck(c1err, istat);    
 
-    // allocate LAMINDEX array
-    int MEMI = NLAM * sizeof(int);    
-    int *LAMINDEX = (int*) malloc(MEMI);
-
-    icol++ ; ;  
-    fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
-		      LAMINDEX, &anynul, &istat ); 
-    sprintf(c1err,"Read LAMINDEX for spectra", snfitsType[itype] ) ;
-    snfitsio_errorCheck(c1err, istat);
-    for(ilam=0; ilam < NLAM; ilam++ ) {
-      ILAM         = LAMINDEX[ilam];
-      LAMMIN[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST[ILAM] ;
-      LAMMAX[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST[ILAM] ;
-    }
-    free(LAMINDEX);
-  }
-  else {
-    // refac FITS format with explicit LAMMIN and LAMMAX colums
-    // --> works for data and sim
-    icol++ ; ;  
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		      LAMMIN, &anynul, &istat ); 
-    sprintf(c1err,"Read LAMMIN for spectrum", snfitsType[itype] ) ;
-    snfitsio_errorCheck(c1err, istat);
-
-    icol++ ; ;  
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		      LAMMAX, &anynul, &istat ); 
-    sprintf(c1err,"Read LAMMAX for spectrum", snfitsType[itype] ) ;
-    snfitsio_errorCheck(c1err, istat);    
-  }
-
+  // - - - -
 
   icol++ ;  istat=0;
   fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,

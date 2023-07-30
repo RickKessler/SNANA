@@ -21814,6 +21814,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for mkdir of output folder, replacey system() call with native mkdir().
      + specify true SED with LAMBIN_SED_TRUE (no longer SPECTROGRAPH_OPTMASK: 128);
         see manual.
+     + for true SED option, write only LAM and SIM_FLAM to SPEC.FITS file
+       (suppress LAMMIN, LAMMAX, FLAM, FLAMERR)
 
    sntools_sim_atmoshpere.c[h]:
      + update DCR calculation to integrate over passband instead of
@@ -21835,9 +21837,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + apply LVBOSE flag in a few more places to reduce stdout size.
      + for snoppy model, extend AV range from -2,6 -> -3,10 (for 2002cv)
 
-   kcor.c: write CWD into header.
+   kcor.c: write CWD into header to help find kcor-input file.
 
    SNANA_code_tests.py:
      + write HOSTNAME in the RUNJOB_CPU[nnn].LOG files
+
+   SALT2mu.c: more refactor for BAYESN.
 
 END: 

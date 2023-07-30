@@ -13067,6 +13067,8 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ****/
 
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
+
   int   NVAR, ivar, IDSPEC, imjd, index, FIRST ; 
 
   long long i8, ir8 ;
@@ -13184,7 +13186,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     // on first event, write comment info for TAKE_SPECTRUM keys.
     // Can't do this during init because GENSPEC arrays not fille until now.
-    if ( FIRST ) {
+    if ( FIRST && LAMBIN_SED_TRUE < 0.0 ) { 
       for(imjd=0; imjd < NPEREVT_TAKE_SPECTRUM; imjd++ ) {
 	//	if ( imjd == 0 ) { fprintf(fp,"\n"); }
 	IDSPEC = imjd + 1 ; // fortran-like index for ID

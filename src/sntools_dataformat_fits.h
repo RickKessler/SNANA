@@ -96,7 +96,7 @@ bool  SNFITSIO_SIMFLAG_TEMPLATEMAG; // write template mags (LCLIB,AGN ..)
 bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
-bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
+// xxx mark bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
@@ -228,7 +228,6 @@ void wr_snfitsio_SET_SUBSURVEY_FLAG(void);
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
-void wr_snfitsio_init_spec_legacy(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
 void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix, int itype);
 
@@ -275,7 +274,6 @@ void  rd_snfitsio_tblpar(int ifile, int itype);
 void  rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow);
 
 void  rd_snfitsio_specFile(int ifile); 
-void  rd_snfitsio_specLam_legacy(int ifile, fitsfile *fp);
 void  rd_snfitsio_mallocSpec(int opt);
 
 int RD_SNFITSIO_PARVAL(int isn, char *parName, 
@@ -290,9 +288,6 @@ int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
 void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR, double *GENFLAM);
 
-void RD_SNFITSIO_SPECDATA_LEGACY(int irow, double *METADATA, int *NLAMBIN,
-				 double *LAMMIN, double *LAMMAX, 
-				 double *FLAM, double *FLAMERR);
 
 void  check_required_headkeys(int OPTMASK) ; 
 int   formIndex_snfitsio(char *form) ;
@@ -321,9 +316,7 @@ int rd_snfitsio_dbl__(int *isn,  char *parName, double *parLIST, int *iptr) ;
 
 void set_rdmask_snfitsio__(int *N, int *mask) ;
 void rd_snfitsio_specrows__(char *SNID, int *ROWMIN, int *ROWMAX );
-void rd_snfitsio_specdata_legacy__(int *irow, double *METADATA, int *NLAMBIN,
-				   double *LAMMIN, double *LAMMAX, 
-				   double *FLAM, double *FLAMERR);
+
 // mangled write funs
 
 void wr_snfitsio_update__(void) ;

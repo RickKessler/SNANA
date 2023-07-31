@@ -395,7 +395,6 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     ENABLE_SCATTER_BAYESN = (optmask & OPTMASK_BAYESN_NOSCATTER) == 0;
     // HACK HACK HACK
     // REMOVE THIS - hardcoding ENABLE_SCATTER_BAYESN for now
-    ENABLE_SCATTER_BAYESN = 0; //XXXREMOVEME
     printf("ENABLE_SCATTER_BAYESN flag is %d\n", ENABLE_SCATTER_BAYESN);
     
 
@@ -505,11 +504,11 @@ void genmag_BAYESN(
     //SHOULD I BE DECLARING THESE HERE??
     gsl_matrix * J_tau; // for time interpolation
     gsl_matrix * W = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
-            BAYESN_MODEL_INFO.n_tau_knots); // for W0 + THETA*W1
+            BAYESN_MODEL_INFO.n_tau_knots); // for W0 + THETA*W1 + EPSILON
     gsl_matrix * WJ_tau = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
             Nobs); //to store matrix product W * J_tau
     gsl_vector_view j_lam; //to store a row of J_lam
-    gsl_vector * jWJ = gsl_vector_alloc(Nobs); 
+    gsl_vector * jWJ = gsl_vector_alloc(Nobs);
 
     int nlam_filt, ilam_filt, nlam_model, ilam_model_blue, ilam_model_red ;
     double *lam_filt_array, lamstep_filt ;
@@ -585,6 +584,17 @@ void genmag_BAYESN(
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
             Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
 
+    // deal with epsilon
+    gsl_matrix * EPSILON = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
+            BAYESN_MODEL_INFO.n_tau_knots);
+    gsl_matrix_set_zero(EPSILON);
+    if (ENABLE_SCATTER_BAYESN) {
+        gsl_vector * nu = sample_nu(BAYESN_MODEL_INFO.n_lam_knots,
+                BAYESN_MODEL_INFO.n_tau_knots);
+        EPSILON = sample_epsilon(BAYESN_MODEL_INFO.n_lam_knots,
+                BAYESN_MODEL_INFO.n_tau_knots, nu, BAYESN_MODEL_INFO.L_Sigma_epsilon);
+        gsl_vector_free(nu);
+    }
 
     /* xxx mark delete Jun 19 2023 RK
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
@@ -601,13 +611,14 @@ void genmag_BAYESN(
     int wx, wy;
     int nx = BAYESN_MODEL_INFO.n_lam_knots;
     int ny = BAYESN_MODEL_INFO.n_tau_knots;
-    for(wx=0; wx < nx; wx++)    {
-      for(wy=0; wy < ny; wy++)   {
-        double W0_val = gsl_matrix_get(BAYESN_MODEL_INFO.W0, wx, wy) ;
-        double W1_val = gsl_matrix_get(BAYESN_MODEL_INFO.W1, wx, wy) ;
-	double W_val  = W0_val + THETA * W1_val;
-        gsl_matrix_set(W, wx,wy, W_val);
-      }
+    for (wx=0; wx < nx; wx++)    {
+        for (wy=0; wy < ny; wy++)   {
+            double W0_val = gsl_matrix_get(BAYESN_MODEL_INFO.W0, wx, wy) ;
+            double W1_val = gsl_matrix_get(BAYESN_MODEL_INFO.W1, wx, wy) ;
+            double EP_val = gsl_matrix_get(EPSILON, wx, wy);
+	        double W_val  = W0_val + THETA * W1_val + EP_val;
+            gsl_matrix_set(W, wx,wy, W_val);
+         }
     }
     //    xxxxxx */
 
@@ -669,12 +680,6 @@ void genmag_BAYESN(
       //
       
       gsl_vector_set_zero(jWJ);
-      if (ENABLE_SCATTER_BAYESN)
-      {
-	      sprintf(c1err,"ENABLE_SCATTER_BAYESN is not yet implmented" );
-	      sprintf(c2err,"DISABLE INTRINSIC SCATTER or fix the code" );
-	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
       
       j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q_lam);
         
@@ -785,6 +790,7 @@ void genmag_BAYESN(
     gsl_matrix_free(W);
     gsl_matrix_free(WJ_tau);
     gsl_vector_free(jWJ);
+    gsl_matrix_free(EPSILON);
 
     double zdum = 2.5*log10(1.0+z);
     if (VERBOSE_BAYESN > 0)
@@ -974,6 +980,43 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk,
   return J;
 
 } // end spline_coeffs_irr 
+
+// =================================================
+// This function creates a vector of N(0,1) draws
+gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots) {
+    int n_knots = (n_lam_knots-2)*n_tau_knots;
+    gsl_vector * nu = gsl_vector_alloc(n_knots);
+    for (int i=0; i<n_knots; i++) {
+        gsl_vector_set(nu, i, getRan_Gauss(1));
+    }
+
+    return nu;
+} // end sample_nu
+
+// This function translates a vector of N(0,1) draws into epsilon
+gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gsl_matrix * L_Sigma_epsilon) {
+	gsl_vector * epsilon_vec = gsl_vector_alloc((n_lam_knots-2)*n_tau_knots);
+	gsl_matrix * epsilon_mat = gsl_matrix_alloc(n_lam_knots, n_tau_knots);
+
+	gsl_vector_set_zero(epsilon_vec);
+	gsl_matrix_set_zero(epsilon_mat);
+
+    // Multiply by Cholesky factor
+    gsl_blas_dgemv(CblasNoTrans, 1.0, L_Sigma_epsilon, nu, 0.0, epsilon_vec);
+
+	int i, j, k;
+	k = 0;
+	for (j=0; j<n_tau_knots; j++) {
+		for (i=1; i<n_lam_knots-1; i++) {
+			gsl_matrix_set(epsilon_mat, i, j, gsl_vector_get(epsilon_vec, k));
+			k++;
+		}
+	}
+
+	gsl_vector_free(epsilon_vec);
+
+	return epsilon_mat;
+} // end sample_epsilon
 
 // =================================================
 int print_matrix(FILE *f, const gsl_matrix *m) {

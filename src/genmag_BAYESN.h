@@ -1,4 +1,6 @@
 #include "gsl/gsl_linalg.h"
+#include "gsl/gsl_rng.h"
+#include "gsl/gsl_randist.h"
 
 // define pre-processor command to use python interface
 // xxx mark delete (RK) #define USE_BAYESNxxx
@@ -29,6 +31,8 @@ int print_matrix(FILE *f, const gsl_matrix *m);
 
 gsl_matrix *invKD_irr(int Nk, double *xk);
 gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);
+gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots);
+gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gsl_matrix * L_Sigma_epsilon);
 
 char BAYESN_MODELPATH[MXPATHLEN];
 int VERBOSE_BAYESN;

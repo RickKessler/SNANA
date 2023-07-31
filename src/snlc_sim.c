@@ -10483,6 +10483,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
 
 } // end GENSPEC_TEXPOSE_TAKE_SPECTRUM
 
+
 // *************************************************
 double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   
@@ -10536,9 +10537,17 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     GENFLUX = GENSPEC.GENFLUX_LIST[imjd][ilam] ;
     GENMAG  = GENSPEC.GENMAG_LIST[imjd][ilam] ;
 
-    // skip unphysical fluxes
-    if ( GENFLUX <= 0.0  ) { continue ; }
-    if ( GENMAG  > 600.0 ) { continue ; } // Mar 2019
+    /* xxxxxxx
+    if ( GENFLUX <= 0.0 || GENMAG >= 600 ) {
+      printf(" xxx %s: ilam=%3d LAMAVG=%.0f GEN[FLUX,MAG] = %le , %f \n",
+	     fnam, ilam, LAMAVG, GENFLUX, GENMAG);
+      fflush(stdout);
+    }
+    xxxxx */
+
+    // skip unphysical fluxes for real spectra
+    if ( !DO_SEDMODEL && GENFLUX <= 0.0  ) { continue ; }
+    if ( !DO_SEDMODEL && GENMAG  > 600.0 ) { continue ; } // Mar 2019
 
     // get true SNR in this lambda bin
     if ( DO_SEDMODEL ) {
@@ -10562,7 +10571,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     NBLAM_USE++ ;
 
   } // end ilam  
-
+ 
 
   if ( NBLAM_USE == 0 ) { goto DONE ; }
 
@@ -10571,7 +10580,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   // and apply Poisson noise.
 
   double OBSFLUX, OBSFLUX_SMEAR, OBSFLUXERR, OBSFLUXERR_T, *GAURAN_T;
-  double ERRSQ, SUM_FLUX, SUM_ERRSQ, SUM_ERR ;
+  double ERRSQ, SUM_FLUX, SUM_ERRSQ, SUM_ERR, TOBS ;
+
   SUM_FLUX = SUM_ERRSQ = SNR_SPEC = 0.0 ;
 
   for(ilam = ILAM_MIN; ilam <= ILAM_MAX ; ilam++ ) {
@@ -10586,13 +10596,18 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
 
     /* xxx mark delete xxx
-    if ( ilam < ILAM_MIN+4 ) {
-      printf("\t xxx %s: OBSFLUX = %le +_ %le  SNR_TRUE=%f \n",
-	     fnam, OBSFLUX,OBSFLUXERR, SNR_TRUE); fflush(stdout);
-      fflush(stdout);
+    if ( OBSFLUX < 0.0 ) {
+      LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+      TOBS   = GENSPEC.TOBS_LIST[imjd];
+      printf(" xxx %s: CID=%d  z=%.3f imjd=%d  TOBS=%.1f  "
+	     "LAM=%.0f  ilam=%d OBSFLUX = %.2le  \n",
+	     fnam, GENLC.CID, GENLC.REDSHIFT_CMB, imjd, TOBS, 
+	     LAMAVG, ilam, OBSFLUX ); 
+      fflush(stdout); // .xyz
     }
-    xxxx */
+     xxxx */
 
+    // xx mark delet    if ( !DO_SEDMODEL && OBSFLUXERR < 1.0E-50 ) { continue; }
     if ( OBSFLUXERR < 1.0E-50 ) { continue; }
 
     // compute random flucution of spectrograph flux
@@ -10758,10 +10773,11 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
   // MJD nearest peak; then re-used for other SN spectra.
   // If ERRFRAC_T = 0, *GAURAN_T is set to zero.
 
-  int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
-  int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
-  int noTNOISE   = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
-  int noNOISE    = ( OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE    ) ;
+  int OPTMASK      = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
+  int onlyTNOISE   = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
+  int noTNOISE     = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
+  int noNOISE      = ( OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE    ) ;
+  int DO_SEDMODEL  = ( OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL   ) ;
 
   int NSTREAM      = GENRAN_INFO.NSTREAM ;
   int ISTREAM_RAN  = ISTREAM_RANDOM_SPECTROGRAPH ;
@@ -10777,8 +10793,12 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 
   // ---------- BEGIN ----------
 
+  if ( DO_SEDMODEL ) { return 0.0; } // July 30 2023
+
+
   if ( noNOISE ) {
-    RanFlux_S = RanFlux_T = 0.0 ; 
+    // although noise is zero, continue to burn randoms
+    RanFlux_S = RanFlux_T = 0.0 ;     
   }
   else {
 

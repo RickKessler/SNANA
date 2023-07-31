@@ -1029,6 +1029,10 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // Nov 10 2021: write SPECTRUM_LAMRANGE
   // May 26 2023: check NMJD_PROC
 
+  int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
+  int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT  );
+  int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
+
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
   int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
@@ -1127,7 +1131,10 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
       FLAM       = GENSPEC.FLAM_LIST[imjd][ilam];
       FLAMERR    = GENSPEC.FLAMERR_LIST[imjd][ilam];
 
-      if ( FLAMERR <= 0.0 ) { continue ; } // skip unphysical values   
+      // skip unphysical values for real spectra (default);
+      // do not skip for true SED
+      if ( FORMAT_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
+
       L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
       L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
       LCEN    = 0.5*(L0+L1);
@@ -1153,7 +1160,11 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
 	// write SNR only for sim in TEXT format
 	// xxx mark delete SNR  = FLAM/FLAMERR ;
-	SNR  = GENFLAM/FLAMERR ; // true SNR to avoid fluct (Aug 19 2021)
+	if ( FLAMERR > 0.0 ) 
+	  { SNR  = GENFLAM/FLAMERR ; }// true SNR to avoid fluct (Aug 19 2021)
+	else
+	  { SNR = 0.0 ; }
+
 	sprintf(cval, " %.2f ", SNR);   NVAR++ ; strcat(tmpLine,cval);
 
       } // end WRFLAG_SIM
@@ -1165,7 +1176,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   
     fprintf(fp,"SPECTRUM_END:  \n\n" );
   
-    if ( NBLAM_WR != NBLAM_VALID ) {
+    if ( FORMAT_DEFAULT && NBLAM_WR != NBLAM_VALID ) {
       sprintf(c1err,"Wrote %d lamBins, but expected %d",
 	      NBLAM_WR, NBLAM_VALID);
       sprintf(c2err,"CID=%s  SpecID=%d MJD=%.3f",

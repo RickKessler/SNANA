@@ -1631,7 +1631,7 @@ void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
   ilam = (int)(lammax / LAMBIN_IDEAL);
   LAM_MAX = LAMBIN_IDEAL * (double)(ilam+3);
 
-  NBIN_LAM = (int)((LAM_MAX - LAM_MIN) / LAMBIN_IDEAL) + 1;
+  NBIN_LAM = (int)((LAM_MAX - LAM_MIN + 0.00001 ) / LAMBIN_IDEAL);
 
   printf("\t %.1f < lam < %.1f,   BinSize=%.0f A, SNR ~ %.0f\n", 
 	 LAM_MIN, LAM_MAX, LAMBIN_IDEAL, SNR_LIST[0] );

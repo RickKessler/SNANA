@@ -221,7 +221,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   for ( itype=0 ; itype < MXTYPE_SNFITSIO; itype++ ) {
     NPAR_WR_SNFITSIO[itype] = 0;
-    WR_SNFITSIO_TABLEVAL[itype].NROW = 0 ;
+    WR_SNFITSIO_TABLEVAL[itype].NROW  = 0 ;
     for ( ipar=0; ipar < MXPAR_SNFITSIO ; ipar++ ) 
       { WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[ipar] = -1 ; }
   }
@@ -815,7 +815,7 @@ void wr_snfitsio_init_spec(void) {
   // and create spec-summary table.
   // --> One row summary per spectrum.
   NPAR_WR_SNFITSIO[itype] = 0;
-  WR_SNFITSIO_TABLEVAL[itype].NROW = 0 ;
+  WR_SNFITSIO_TABLEVAL[itype].NROW  = 0 ;
   for ( ipar=0; ipar < MXPAR_SNFITSIO ; ipar++ ) 
     { WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[ipar] = -1 ; }
   
@@ -2413,17 +2413,22 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // Feb 2021: write GENFLAM for sim
   // Oct 2021: check for legacy vs. refac table
 
-  int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
-  int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
- 
   int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
   int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
   int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
 
+  int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
+  int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
+  if ( FORMAT_SED_TRUE ) { NBLAM_WR = NBLAM_TOT; }
+
+  bool EOE;
   int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX   ;
   char fnam[] = "wr_snfitsio_update_spec" ;
 
   // ----------- BEGIN ------------
+
+  //  printf(" xxx %s imjd=%2d  SKIP=%d \n",
+  //	 fnam, imjd, GENSPEC.SKIP[imjd] ); fflush(stdout);
 
   // Bail if no spectrum (e.g, sim outside Trest range)
   if ( GENSPEC.SKIP[imjd] ) { return; }
@@ -2440,6 +2445,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   LOC = 0 ;
   WR_SNFITSIO_TABLEVAL[itype].NROW++ ;
 
+
   // SNID 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.CCID ;
@@ -2449,6 +2455,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.MJD_LIST[imjd] ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
+
 
   if ( SNFITSIO_SIMFLAG_SNANA && FORMAT_DEFAULT ) {
     // Texpose
@@ -2522,6 +2529,8 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // loop over all lambda bins, but only write out ones with defined flux.
   for(ilam=0; ilam <= NBLAM_TOT; ilam++ ) {
 
+    EOE = false;
+
     if ( ilam < NBLAM_TOT ) {
       ILAM = ilam ;
       LAMMIN     = GENSPEC.LAMMIN_LIST[imjd][ilam];
@@ -2537,15 +2546,17 @@ void  wr_snfitsio_update_spec(int imjd)  {
     else {
       // end-of-event marker
       ILAM = 777 ;
-      GENFLAM = 1.0; GENMAG=0.0; WARP=1.0;
-      LAMMIN = LAMMAX = FLAM = FLAMERR = SNFITSIO_EOE_MARKER ;
+      GENMAG=0.0; WARP=1.0;
+      LAMMIN = LAMMAX = FLAM = FLAMERR = GENFLAM = SNFITSIO_EOE_MARKER ;
+      EOE = true ;
     }
 
-    if ( FLAMERR <= 0.0 ) { continue ; } // skip unphysical values  
+    // skip unphysical values  
+    if ( !EOE && FORMAT_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
 
-    LOC=0;
+    LOC=0 ;
     WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW++ ;
-
+    
 
     if ( FORMAT_DEFAULT ) {
       // refactored Oct 2021

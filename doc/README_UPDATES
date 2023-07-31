@@ -21816,6 +21816,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         see manual.
      + for true SED option, write only LAM and SIM_FLAM to SPEC.FITS file
        (suppress LAMMIN, LAMMAX, FLAM, FLAMERR)
+     + for SPEC.FITS file, fix harmless bug so that end-of-spectrum marker (-777)
+         is written to allow for read-back check.
 
    sntools_sim_atmoshpere.c[h]:
      + update DCR calculation to integrate over passband instead of

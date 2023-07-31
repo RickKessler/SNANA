@@ -131,7 +131,7 @@ struct {
   unsigned int   value_1V ;  // 4-byte unsigned int
   long long      value_1K ;  // 8 bytte long long int (May 2013)
   
-  int NROW ; // increment numver of rows written
+  int NROW ; // increment number of rows written
 
   // index used to speed search for header-param column during update
   // Note that the index is local and NOT NWR_SNFITSIO

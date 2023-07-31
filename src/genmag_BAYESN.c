@@ -984,12 +984,12 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk,
 // =================================================
 // This function creates a vector of N(0,1) draws
 gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots) {
-    int n_knots = (n_lam_knots-2)*n_tau_knots;
-    gsl_vector * nu = gsl_vector_alloc(n_knots);
-    for (int i=0; i<n_knots; i++) {
-        gsl_vector_set(nu, i, getRan_Gauss(1));
-    }
-
+  int i;
+  int n_knots = (n_lam_knots-2)*n_tau_knots;
+  gsl_vector * nu = gsl_vector_alloc(n_knots);
+  for (i=0; i<n_knots; i++) {
+    gsl_vector_set(nu, i, getRan_Gauss(1));
+  }
     return nu;
 } // end sample_nu
 

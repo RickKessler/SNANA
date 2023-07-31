@@ -3292,11 +3292,8 @@ c unless user specifically sets OPT_COVAR=0
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
-c              BAYESN BLOCK created Nov 2022
-        OPTMASK = 0
-c        IF ( REQUIRE_DOCANA > 0 )          OPTMASK = OPTMASK + 2
-c        IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024
-
+c       BAYESN BLOCK created Nov 2022
+        OPTMASK = 1024  ! disable intrinsic scatter
         ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, BLANK, OPTMASK, 
      &            LEN_NAME, 40 )
 

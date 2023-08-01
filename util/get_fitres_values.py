@@ -22,8 +22,9 @@
 #     Put plotext import under try to avoid abort if not installed.
 #
 # Aug 21 2022 RK - fix bug counting lines before VARNAMES key
-            
-import os, sys, argparse, gzip
+# Jul 31 2023 RK - new option --reformat
+#
+import os, sys, argparse, gzip, math
 import numpy as np
 import pandas as pd
 
@@ -33,6 +34,11 @@ except ImportError:
     pass
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
+
+STRING_FORMAT_EAZY  = "eazy"
+ZP_nJy              = 31.4
+ZP_SNANA            = 27.5
+MAGERR_DEFAULT      = 0.05
 
 # =====================================
 def get_args():
@@ -58,6 +64,10 @@ def get_args():
 
     msg = "comma seperated list of functions (mean, min, or max)"
     parser.add_argument("--func", help=msg, type=str, default=None)
+
+    msg = "format to re-write fitres/hostlib file " \
+          "(e.g, eazy*10 -> split into 10 files)"
+    parser.add_argument("--reformat", help=msg, type=str, default=None)
 
     msg = "type of plot. Options include hist (histogram of each variable), and scatter (scatter plot, must specify 2 variables)"
     parser.add_argument("--plot", help=msg, type=str, default=None)
@@ -100,12 +110,15 @@ def parse_inputs(args):
     exist_plot = args.plot is not None
     msgerr_cid     = "If --func or --plot are not defined, must get cid list using --cid, --nrow, or --sel arg"
 
-    exist_var_list = args.varname is not None
+    exist_var_list = args.varname is not None or args.reformat is not None
     msgerr_var     = "Must specify varnames using -v arg"
 
+    
     assert exist_ff,       msgerr_ff
-    assert exist_cid_list or exist_func or exist_plot, msgerr_cid
     assert exist_var_list, msgerr_var
+
+    exist_tmp = exist_cid_list or exist_func or exist_plot or args.reformat
+    assert exist_tmp, msgerr_cid
 
     if exist_func:
         # Check func is min, max, or mean
@@ -113,7 +126,10 @@ def parse_inputs(args):
         msgerr_func = f"--func must be either min, mean, or max, not {args.func}"
         assert correct_func, msgerr_func 
 
-    var_list   = args.varname.split(",")
+    if args.reformat is None:
+        var_list   = args.varname.split(",")
+    else:
+        var_list = []
 
     if exist_plot:
         # Check plot is hist or scatter 
@@ -168,7 +184,7 @@ def parse_inputs(args):
 
     # end parse_inputs
 
-def read_fitres_file(info_fitres):
+def read_fitres_file(info_fitres, reformat_option):
 
     # strip inputs
     ff         = info_fitres['fitres_file']  # fitres file or hostlib
@@ -202,11 +218,9 @@ def read_fitres_file(info_fitres):
             continue
 
         if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
-        # xxx if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
         if isrow_docana : 
             nrow_skip   += 1
             nrow_docana += 1
-            #continue
 
         if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
 
@@ -218,12 +232,24 @@ def read_fitres_file(info_fitres):
                 print(f"\t (skipped {nrow_docana} DOCANA rows)")
 
             info_fitres['keyname_id'] = keyname_id
+            VARLIST_ALL = wdlist[2:]
             break
 
     f.close()
     # - - - - - - 
 
+    # check reformat option(s) that require specific HOSTLIB variables
+    if STRING_FORMAT_EAZY in reformat_option:
+        var_list = []
+        for var in VARLIST_ALL:
+            if '_obs' in var:
+                var_list.append(var)
+        info_fitres['var_list'] = var_list
+
+    # - - - -
     var_list_local =  [ keyname_id ] + var_list
+
+    # - - - - 
     if info_fitres['nrow'] > 0:
         df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
                           skiprows=nrow_skip,
@@ -322,6 +348,112 @@ def print_info(info_fitres):
 
     # end print_info
 
+def reformat(reformat, info_fitres):
+
+    # reformat = eazy -> write entire hostlib in eazy format.
+    # reformat = eazy*10 -> split output into 10 files
+
+    ff         = info_fitres['fitres_file']  # fitres file or hostlib
+    df         = info_fitres['df']
+    id_list    = info_fitres['id_list']
+    nrow       = info_fitres['nrow']
+    var_list   = info_fitres['var_list']
+    keyname_id = info_fitres['keyname_id']
+    
+    nrow_df = len(df)
+
+    reformat_split = reformat.split('*')
+    format_string  = reformat_split[0]
+    if len(reformat_split) == 1 :
+        nfile_split = 1
+    else:
+        nfile_split = int(reformat_split[1])
+    
+    print(f"\n Reformat {nrow_df} rows into " \
+          f"{nfile_split} {format_string} files." )
+
+    # - - - -
+
+    info_fitres['nfile_split'] = nfile_split
+    info_fitres['zp']          = ZP_nJy
+    print(f"\n xxx df = \n{df}\n")
+
+    basename = os.path.basename(ff)
+    for i in range(0,nfile_split):
+        outfile = f"{format_string}{i:02d}_{basename}"
+        info_fitres['isplit']  = i
+        info_fitres['outfile'] = outfile
+        print(f"  Create {outfile} ")
+        if format_string == STRING_FORMAT_EAZY :
+            if i==0 :
+                add_fluxcal_lists(info_fitres)
+            reformat_eazy(info_fitres)
+        
+    return
+    # end reformat
+
+def reformat_eazy(info_fitres):
+
+    # write gal id and fluxcal in format usable by eazy code.
+
+    outfile     = info_fitres['outfile']
+    isplit      = info_fitres['isplit']
+    nfile_split = info_fitres['nfile_split']
+    varname_fluxcal_list   = info_fitres['varname_fluxcal_list'] 
+    varname_fluxcal_string = info_fitres['varname_fluxcal_string'] 
+    
+    nrow = len(info_fitres['GALID'])
+
+    with open(outfile,"wt") as f:
+        f.write(f"# id {varname_fluxcal_string}\n")
+        for i in range(0,nrow):
+            if (i % nfile_split) != isplit : continue
+            GALID = info_fitres['GALID'][i]
+            line  = str(GALID) + ' ' 
+            for var in varname_fluxcal_list:
+                val = info_fitres[var][i]
+                line += f"{val:.3e} "
+            f.write(f"{line}\n")
+
+    return
+    # end reformat_eazy
+
+def add_fluxcal_lists(info_fitres):
+    
+    df       = info_fitres['df']
+    zp       = info_fitres['zp']
+    var_list = info_fitres['var_list']
+    get_fluxcal_vectorized = np.vectorize(get_fluxcal)
+
+    info_fitres['GALID'] = df['GALID'].to_numpy()
+    info_fitres['varname_fluxcal_list']   = []
+    info_fitres['varname_fluxcal_string'] = ''
+
+    for var_mag in var_list:
+        if 'err' in var_mag: continue        
+        band = var_mag[0]
+        var_flux    = 'f_'    + band # e.g., g_obs -> FLUXCAL_g
+        var_fluxerr = 'e_'     + band
+        info_fitres[var_flux] = get_fluxcal_vectorized(zp,df['g_obs'])
+        info_fitres[var_fluxerr] = info_fitres[var_flux] * MAGERR_DEFAULT
+
+        info_fitres['varname_fluxcal_list'].append(var_flux)
+        info_fitres['varname_fluxcal_list'].append(var_fluxerr)
+
+        info_fitres['varname_fluxcal_string'] += f"{var_flux} "
+        info_fitres['varname_fluxcal_string'] += f"{var_fluxerr} "
+
+        print(f"\t compute {var_flux} list")
+
+    return
+    # end add_fluxcal_columns
+
+def get_fluxcal(zp,mag):
+    arg = -0.4*(mag-zp)
+    fluxcal = math.pow(10,arg)
+    return fluxcal
+    # end
+
 # =============================================
 if __name__ == "__main__":
 
@@ -329,14 +461,15 @@ if __name__ == "__main__":
     args  = get_args()
 
     info_fitres = parse_inputs(args)
-    # parse comma-sep lists
-    ## xxx ff, id_list, nrow, var_list = parse_inputs(args)
 
     # read fitres file, tack on info_fitres['df']
-    read_fitres_file(info_fitres)
+    read_fitres_file(info_fitres, args.reformat)
 
     # print requested info
-    print_info(info_fitres)
+    if args.reformat:
+        reformat(args.reformat,info_fitres)
+    else:
+        print_info(info_fitres)
 
     # end main
 

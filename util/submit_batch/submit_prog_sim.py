@@ -59,6 +59,9 @@
 #           dig them out from misc.tar.gz ; see merge_write_readme()
 #
 # Jun 27 2023: merge optional SIMGEN-DCR dump files
+# 
+# Aug 01 2023: add CIDOFF_GLOBAL to all CIDs; allows user to control CIDOFF
+#              range for a sequence of separate submit-batch jobs.
 #
 # ==========================================
 
@@ -907,6 +910,7 @@ class Simulation(Program):
         cidran_min      =    0
         cidran_max      =    0
         reset_cidoff    =    0
+        cidoff_global   =    0 
 
         # check for optional min CIDOFF = CIDRAN_MIN
         key = 'CIDRAN_MIN'
@@ -917,6 +921,11 @@ class Simulation(Program):
         key = 'RESET_CIDOFF'
         if key in CONFIG :
             reset_cidoff = CONFIG[key]
+
+        # - - - - - 
+        key = 'CIDOFF_GLOBAL'
+        if key in CONFIG :
+            cidoff_global = CONFIG[key] # Aug 1 2023
 
         # check for auto-settings of reset_cidoff based on other user options
 
@@ -929,7 +938,6 @@ class Simulation(Program):
              reset_cidoff = 1
 
         # - - - - - 
-        # xxx ngentot_sum = 0
         cidoff        = cidran_min
         for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
 
@@ -940,7 +948,7 @@ class Simulation(Program):
                 cidoff = util.roundup_first_digit(cidoff) # 
             # note: for reset_cidoff=2, cidoff never resets
 
-            cidoff_list3d[iver][ifile][isplit] = cidoff
+            cidoff_list3d[iver][ifile][isplit] = cidoff + cidoff_global
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
             if reset_cidoff > 0 :
@@ -1047,7 +1055,7 @@ class Simulation(Program):
                 print(f" {str_genv} {str_model} {str_cidoff}")
 
         print(f"# -------------------------------------------------- ")
-        print(f"  RESET_CIDOFF        = {reset_cidoff} ")
+        print(f"  RESET_CIDOFF       = {reset_cidoff} ")
         print(f"  CIDRAN_MIN        = {cidran_min}")
         print(f"  CIDRAN_MAX(genver)= {cidran_max_list}")
         print(f"  Sum of NGENTOT_LC = {ngentot_sum} x {n_job_split} " \
@@ -1611,10 +1619,22 @@ class Simulation(Program):
 
         if reset_cidoff > 0 :
             cidoff = cidoff_list3d[iver][ifile][isplit]
+            str0   = f"CIDOFF {cidoff}"
+            arg_list.append(f"    {str0}")
+
+        if reset_cidoff == 2:
             str1   = f"CIDRAN_MIN {cidran_min}"
             str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
-            str3   = f"CIDOFF {cidoff}"
-            arg_list.append(f"    {str1}    {str2}    {str3}")
+            arg_list.append(f"    {str1}    {str2}")
+
+        # xxx mark delete Aug 1 2023 xxxxxx
+        #if reset_cidoff > 0 :
+        #    cidoff = cidoff_list3d[iver][ifile][isplit]
+        #    str1   = f"CIDRAN_MIN {cidran_min}"
+        #    str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
+        #    str3   = f"CIDOFF {cidoff}"
+        #    arg_list.append(f"    {str1}    {str2}    {str3}")
+        # xxxxxx end mark xxxxxx
 
         arg_list.append(f"    JOBID {isplit1}     NJOBTOT {n_job_split}")
         arg_list.append(f"    WRFLAG_MODELPAR  0") # disable model-par output

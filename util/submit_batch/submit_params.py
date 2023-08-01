@@ -242,9 +242,10 @@ HELP_CONFIG_SIM =  f"""
        or
   RANSEED_CHANGE: 4 34212  # split into 4 jobs, do NOT merge
 
-  FORMAT_MASK: 48    # +32=FITS, +16=random CID (TEXT not allowed)
-  RESET_CIDOFF: 1    # unique CID within each GENVERSION
-  RESET_CIDOFF: 2    # unique CID among all GENVERSIONs
+  FORMAT_MASK: 48        # +32=FITS, +16=random CID (TEXT not allowed)
+  RESET_CIDOFF: 1        # unique CID within each GENVERSION
+  RESET_CIDOFF: 2        # unique CID among all GENVERSIONs
+  CIDOFF_GLOBAL:  100000 # add this offset to all CIDOFF
 
   NGEN_UNIT:   0.5   # 0.5 x NGENTOT_LC computed from
   RANGE(z,PKMJD) \n\t\t\t and SOLID_ANGLE

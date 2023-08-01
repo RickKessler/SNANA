@@ -21846,4 +21846,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    SALT2mu.c: more refactor for BAYESN.
 
+   submit_batch_jobs.py:
+    + for sim, new CONFIG input CIDOFF_GLOBAL to enable unique CIDs
+      among multiple submit-batch input files.
+
 END: 

@@ -377,9 +377,14 @@ def reformat(reformat, info_fitres):
 
     info_fitres['nfile_split'] = nfile_split
     info_fitres['zp']          = ZP_nJy
-    print(f"\n xxx df = \n{df}\n")
+    #print(f"\n xxx df = \n{df}\n")
 
     basename = os.path.basename(ff)
+
+    # make sure basename has .gz extension
+    if '.gz' not in basename:
+        basename += '.gz'
+
     for i in range(0,nfile_split):
         outfile = f"{format_string}{i:02d}_{basename}"
         info_fitres['isplit']  = i
@@ -405,7 +410,7 @@ def reformat_eazy(info_fitres):
     
     nrow = len(info_fitres['GALID'])
 
-    with open(outfile,"wt") as f:
+    with gzip.open(outfile,"wt") as f:
         f.write(f"# id {varname_fluxcal_string}\n")
         for i in range(0,nrow):
             if (i % nfile_split) != isplit : continue
@@ -472,8 +477,8 @@ def get_fluxcal(zp,mag):
 
 def get_fluxerr_frac(magerr):
     # return fluxerr/flux corresponding to input magerr
+
     if magerr > 10.0 : magerr = 10.0
-#        sys.exit(f" xxx abort on magerr = {magerr}")
 
     arg  = 0.4*magerr
     frac = math.pow(10.0,arg) - 1.0

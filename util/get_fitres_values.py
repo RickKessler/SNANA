@@ -239,12 +239,13 @@ def read_fitres_file(info_fitres, reformat_option):
     # - - - - - - 
 
     # check reformat option(s) that require specific HOSTLIB variables
-    if STRING_FORMAT_EAZY in reformat_option:
-        var_list = []
-        for var in VARLIST_ALL:
-            if '_obs' in var:
-                var_list.append(var)
-        info_fitres['var_list'] = var_list
+    if reformat_option:
+        if STRING_FORMAT_EAZY in reformat_option:
+            var_list = []
+            for var in VARLIST_ALL:
+                if '_obs' in var:
+                    var_list.append(var)
+            info_fitres['var_list'] = var_list
 
     # - - - -
     var_list_local =  [ keyname_id ] + var_list
@@ -423,19 +424,34 @@ def add_fluxcal_lists(info_fitres):
     df       = info_fitres['df']
     zp       = info_fitres['zp']
     var_list = info_fitres['var_list']
-    get_fluxcal_vectorized = np.vectorize(get_fluxcal)
+    get_fluxcal_vectorized      = np.vectorize(get_fluxcal)
+    get_fluxerr_frac_vectorized = np.vectorize(get_fluxerr_frac)
 
     info_fitres['GALID'] = df['GALID'].to_numpy()
     info_fitres['varname_fluxcal_list']   = []
     info_fitres['varname_fluxcal_string'] = ''
 
     for var_mag in var_list:
-        if 'err' in var_mag: continue        
-        band = var_mag[0]
-        var_flux    = 'f_'    + band # e.g., g_obs -> FLUXCAL_g
-        var_fluxerr = 'e_'     + band
-        info_fitres[var_flux] = get_fluxcal_vectorized(zp,df['g_obs'])
-        info_fitres[var_fluxerr] = info_fitres[var_flux] * MAGERR_DEFAULT
+        if 'err' in var_mag: continue 
+
+        # check if mag_err column exists
+        var_magerr   = var_mag + '_err'
+        exist_magerr = var_magerr in var_list
+
+        band        = var_mag[0]
+        var_flux    = 'fluxcal_'        + band # e.g., g_obs -> fluxcal_g
+        var_fluxerr = 'fluxcalerr_'     + band
+        info_fitres[var_flux]    = get_fluxcal_vectorized(zp,df[var_mag])
+
+        if exist_magerr:
+            info_fitres['fluxerr_frac'] = \
+                get_fluxerr_frac_vectorized(df[var_magerr])
+            info_fitres[var_fluxerr] = \
+                    np.multiply(info_fitres[var_flux],
+                                info_fitres['fluxerr_frac'] )
+        else:
+            # if there are no errors provided, use a default
+            info_fitres[var_fluxerr] = info_fitres[var_flux] * MAGERR_DEFAULT
 
         info_fitres['varname_fluxcal_list'].append(var_flux)
         info_fitres['varname_fluxcal_list'].append(var_fluxerr)
@@ -450,8 +466,18 @@ def add_fluxcal_lists(info_fitres):
 
 def get_fluxcal(zp,mag):
     arg = -0.4*(mag-zp)
-    fluxcal = math.pow(10,arg)
+    fluxcal = math.pow(10.0,arg)
     return fluxcal
+    # end
+
+def get_fluxerr_frac(magerr):
+    # return fluxerr/flux corresponding to input magerr
+    if magerr > 10.0 : magerr = 10.0
+#        sys.exit(f" xxx abort on magerr = {magerr}")
+
+    arg  = 0.4*magerr
+    frac = math.pow(10.0,arg) - 1.0
+    return frac
     # end
 
 # =============================================
@@ -466,11 +492,10 @@ if __name__ == "__main__":
     read_fitres_file(info_fitres, args.reformat)
 
     # print requested info
-    if args.reformat:
+    if args.reformat is not None:
         reformat(args.reformat,info_fitres)
     else:
         print_info(info_fitres)
-
     # end main
 
 

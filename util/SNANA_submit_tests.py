@@ -18,6 +18,7 @@ import os, sys, datetime, shutil, subprocess, time, glob, yaml, argparse
 import getpass
 
 USERNAME         = getpass.getuser()
+HOSTNAME         = os.uname()[1]
 CWD              = os.getcwd()
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNANA_TESTS_DIR  = os.environ['SNANA_TESTS'] + '/inputs_submit_batch'
@@ -65,9 +66,11 @@ def parse_args():
     if args.snana_dir is not None :
         args.jobname = f"{args.snana_dir}/util/{SUBMIT_JOB_NAME}"
 
+    
     print(f" Inputs: ")
     print(f"   SNANA_DIR       = {args.snana_dir} ")
     print(f"   SUBMIT_JOB_NAME = {args.jobname}")
+    print(f" Submit-HOSTNAME: {HOSTNAME} ")
 
     return args
 

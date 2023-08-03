@@ -12,6 +12,8 @@
 # Mar 27 2023: disable manual run for create_cov and use submit_batch
 #               like all other jobs
 #
+# Aug 3 2023: redirect submit_batch_jobs stdout to submit_logs/out_[prefix].log
+#
 # ==================================================
 
 import os, sys, datetime, shutil, subprocess, time, glob, yaml, argparse
@@ -20,14 +22,17 @@ import getpass
 USERNAME         = getpass.getuser()
 HOSTNAME         = os.uname()[1]
 CWD              = os.getcwd()
+SNANA_TESTS      = os.environ['SNANA_TESTS']
 SNANA_DIR        = os.environ['SNANA_DIR']
-SNANA_TESTS_DIR  = os.environ['SNANA_TESTS'] + '/inputs_submit_batch'
+SNANA_TESTS_DIR  = SNANA_TESTS + '/inputs_submit_batch'
+SUBMIT_LOG_DIR   = SNANA_TESTS + '/inputs_submit_batch/submit_logs'
 
 SUBMIT_LIST_FILE_DEFAULT = f"{SNANA_TESTS_DIR}/SNANA_submit_tests.LIST"
 
 KEY_SUBMIT_LIST = 'SUBMIT_LIST'
 
 SUBMIT_JOB_NAME     = "submit_batch_jobs.sh"
+
 
 MERGE_LOG_FILE     = "MERGE.LOG"
 SUBMIT_INFO_FILE   = "SUBMIT.INFO"
@@ -173,14 +178,26 @@ def run_submit(infile_list, outdir_list, INPUTS):
         print(f" submit {infile}  -> {outdir}")
         sys.stdout.flush()
 
-        arg_list = [ infile ]
+        arg_list   = [ infile ]
+        arg_string = infile
         if snana_dir != SNANA_DIR:  
-            arg_list = [ infile, f"--snana_dir", f"{snana_dir}" ]
+            arg_list   = [ infile, f"--snana_dir", f"{snana_dir}" ]
+            arg_string = f"{infile} --snana_dir {snana_dir}"
 
-        cmd_list = [ SUBMIT_JOB_NAME] + arg_list
-        ret = subprocess.run( cmd_list, 
-                              cwd=SNANA_TESTS_DIR,
-                              capture_output=True, text=True )
+        prefix          = infile.split('.')[0]
+        submit_log_file = f"{SUBMIT_LOG_DIR}/out_{prefix}.log"
+
+        cmd_list   = [ SUBMIT_JOB_NAME ] + arg_list
+        cmd_string = f"{SUBMIT_JOB_NAME} {arg_string} >& {submit_log_file} "
+
+        ret = subprocess.run( [cmd_string], cwd=SNANA_TESTS_DIR,
+                              shell=True, capture_output=True, text=True )
+                              
+        #capture_output=True, text=True )
+
+        #ret = subprocess.run( cmd_list, 
+        #                      cwd=SNANA_TESTS_DIR,
+        #                      capture_output=True, text=True )
         
         time.sleep(1)
         check_file_exists(merge_file)

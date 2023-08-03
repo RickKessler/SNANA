@@ -73,7 +73,7 @@ def exec_salt2mu(INPUTS):
 #                % (arg_cat, inpfile_list, outfile_cat, append_varname) )
 
     command = f"{jobname} {arg_list}"
-    print(f" Execute os.system command = \n  '{command}' \n")
+    print(f" {argv[0]}: executes os.system command = \n  '{command}' \n")
     sys.stdout.flush()
 
     os.system(command)

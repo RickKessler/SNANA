@@ -499,6 +499,9 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // after all SN are generated, wrap up.
 
+  time_t t_end_init = TIMERS.t_end_init ;
+  char str_cputime[60];
+
   char fnam[] = "simEnd" ;
 
   // --------- BEGIN -------------
@@ -509,8 +512,19 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   printf("\t (%d lightcurves requested => %d were written) \n",
 	 INPUTS.NGEN, NGENLC_WRITE );
 
+  // Aug 2023: write CPUTIME (proc all and per event)
+
+  print_cputime(t_end_init, STRING_CPUTIME_PROC_ALL,  UNIT_TIME_MINUTE, 0);
+
+  sprintf(str_cputime,"%s(GEN)", STRING_CPUTIME_PROC_RATE);
+  print_cputime(t_end_init, str_cputime, UNIT_TIME_SECOND, NGENLC_TOT);
+
+  sprintf(str_cputime,"%s(ACC)", STRING_CPUTIME_PROC_RATE);
+  print_cputime(t_end_init, str_cputime, UNIT_TIME_SECOND, NGENLC_WRITE);
+
   fflush(stdout);
 
+  // - - - - 
   if ( NGEN_ALLSKIP >= INPUTS.NGEN ) {
     sprintf(c1err,"No generated observations because of invalid passbands.");
     sprintf(c2err,"Check wavelength ranges for filters and %s",
@@ -12999,13 +13013,9 @@ void set_TIMERS(int flag) {
     TIMERS.NGENTOT_LAST  = 0 ;
 
     print_banner(fnam);
-    print_elapsed_time(TIMERS.t_start, "sim-init", UNIT_TIME_SECONDS);
+    // xxx mark print_elapsed_time(TIMERS.t_start, "sim-init", UNIT_TIME_SECONDS);
+    print_cputime(TIMERS.t_start, STRING_CPUTIME_INIT, UNIT_TIME_SECOND, 0);
 
-    /* xxx mark delete Ju; 15 2023 xxxx
-       double dt_init = TIMERS.t_end_init - TIMERS.t_start ;
-       mark   printf("\t Sim-init time: %.1f sec \n", dt_init);
-       fflush(stdout);
-    xxxxxxx */
   } 
   else if ( flag == 2 ) {
     TIMERS.t_end = time(NULL);

@@ -404,9 +404,6 @@ c control variables and counters.
      &  ,NACCEPT_Z             ! idem with valid redshift
      &  ,NACCEPT_ZERR          ! idem with valid redshift error
 c
-     &  ,JTIME_START
-     &  ,JTIME_LOOPSTART        ! time at start of fits with TIME()
-     &  ,JTIME_LOOPEND          ! time and end
      &  ,NCALL_SNANA_DRIVER  
 c
      &  ,NPASSCUT_INCREMENT(-1:MXTYPE,100)  ! 100 > NCUTBIT_SNLC 
@@ -417,6 +414,11 @@ c
      &  ,SIGN_MAGCOR           ! add or subtract
      &  ,FORCEMASK_FLUXCOR   ! mask to force fluxCor, even if already applied  
      &  ,EXIT_ERRCODE        ! used for abort
+
+      INTEGER*8
+     &   JTIME_START
+     &  ,JTIME_LOOPSTART        ! time at start of fits with TIME()
+     &  ,JTIME_LOOPEND          ! time and end
 
       LOGICAL 
      &   DO_FIT
@@ -538,10 +540,11 @@ c global survey info
      &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,DOzSHIFT
-     &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
      &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
      &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA, FOUND_ATMOS
      &    ,EXIT_ERRCODE
+
+      COMMON / CTRLCOM8 / JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
 
 c logical *1 stuff
 
@@ -2854,6 +2857,8 @@ c funtions
       INTEGER PSNID_GET_NFIT
 +SELF.
 
+      EXTERNAL PRINT_CPUTIME
+
 C ------------------- BEGIN -------------------
 
       JTIME_START = TIME()
@@ -3016,7 +3021,11 @@ c ######################################################
 c ------------------------------
       JTIME_LOOPSTART = TIME()
       JDIFF = JTIME_LOOPSTART - JTIME_START
-      print*,'   FINISHED INIT after ', JDIFF,' seconds '
+c xxx mark    print*,'   FINISHED INIT after ', JDIFF,' seconds '
+
+      CALL PRINT_CPUTIME(JTIME_START, "CPUTIME_INIT"//char(0), 
+     &            "second"//char(0), 0, 20,20)
+
       call flush(6)
 c ------------------------------
 
@@ -9057,6 +9066,7 @@ c Apr 26, 2017: I6 -> I7 in format 48.
       LOGICAL LTEST, LFAIL
      
       REAL Tsn, Ttot, f_dupl
+      EXTERNAL PRINT_CPUTIME
 
 C ------------ BEGIN --------------
 
@@ -9145,6 +9155,17 @@ cc      write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_USE
 c -------------------------------------------------
 c print out processing time, and process time per SN.
 
+
+      CALL PRINT_CPUTIME(JTIME_LOOPSTART, 
+     &        "CPUTIME_PROCESS_ALL"//char(0), 
+     &        "minute"//char(0), 0,    20,20)
+
+      CALL PRINT_CPUTIME(JTIME_LOOPSTART, 
+     &        "CPUTIME_PROCESS_RATE"//char(0), 
+     &        "second"//char(0), N_SNLC_CUTS,    20,20)
+
++SELF,IF=XYZDEL.
+c xxx mark delete Aug 3 2023 xxxxxxxxxxxxxxxxxxxxxx
       JDIFF = JTIME_LOOPSTART - JTIME_START
       print*,'   TOTAL  INIT   TIME : ', JDIFF,' seconds '
 
@@ -9159,9 +9180,10 @@ c print out processing time, and process time per SN.
       write(6,30) Ttot, Tsn
 30    format(T5,'TOTAL PROCESS TIME : ',F7.2,' minutes ',4x,
      &      '(',F6.2,' sec per SN)' )
-
-         print*,' '
+      print*,' '
       CALL FLUSH(6)
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
++SELF.
 
 c --------------------------
 c print DUPLICATE-CID WARNING

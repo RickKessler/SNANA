@@ -204,9 +204,13 @@
 #define PARNAME_RV  "RV"
 
 // define time-unit strings for print_elapsed_time()
-#define UNIT_TIME_SECONDS  "seconds"
-#define UNIT_TIME_MINUTES  "minutes"
-#define UNIT_TIME_HOURS    "hours"
+#define UNIT_TIME_SECOND  "second"
+#define UNIT_TIME_MINUTE  "minute"
+#define UNIT_TIME_HOUR    "hour"
+
+#define STRING_CPUTIME_INIT        "CPUTIME_INITIALIZE"
+#define STRING_CPUTIME_PROC_ALL    "CPUTIME_PROCESS_ALL"
+#define STRING_CPUTIME_PROC_RATE   "CPUTIME_PROCESS_RATE"
 
 char FILTERSTRING[MXFILTINDX] ;
 
@@ -471,6 +475,8 @@ struct {
 
 
 void  print_elapsed_time(time_t t0, char *comment, char *unit);
+void  print_cputime(time_t t0, char *comment, char *unit, int nevt);
+void  print_cputime__(long long int *t0, char *comment, char *unit, int *nevt);
 
 double smooth_stepfun(double sep, double sepmax);
 

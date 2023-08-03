@@ -77,11 +77,12 @@ int main(int argc, char **argv) {
   printf(" Begin %s \n", fnam ); fflush(stdout);
   parse_args(argc,argv);
 
-  print_elapsed_time(t_start,"INIT", UNIT_TIME_SECONDS);
+  // xxx mark  print_elapsed_time(t_start,"INIT", UNIT_TIME_SECOND) ;
 
   // do lots of sanity checks
   checkFiles();
-  print_elapsed_time(t_start,"checkFiles", UNIT_TIME_SECONDS);
+  // xxx mark print_elapsed_time(t_start,"checkFiles", UNIT_TIME_SECOND);
+  print_cputime(t_start, STRING_CPUTIME_INIT,  UNIT_TIME_SECOND, 0);
 
   NF   = INPUTS.NFILE_IN ;
   outF = INPUTS.OUTFILE ;
@@ -92,7 +93,8 @@ int main(int argc, char **argv) {
   fflush(stdout);
 #endif
 
-  print_elapsed_time(t_start,"MERGE COMPLETION", UNIT_TIME_SECONDS);
+  // xxx print_elapsed_time(t_start,"MERGE COMPLETION", UNIT_TIME_SECOND );
+  print_cputime(t_start, STRING_CPUTIME_PROC_ALL,  UNIT_TIME_SECOND, 0);
 
   return(0);
 

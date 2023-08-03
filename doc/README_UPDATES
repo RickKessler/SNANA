@@ -21850,4 +21850,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + for sim, new CONFIG input CIDOFF_GLOBAL to enable unique CIDs
       among multiple submit-batch input files.
 
+   sntools.c:
+     + new print_cputime(..) utility to ensure uniform CPUTIME_ prefix
+       for all CPU time measurements in any code.  Integrated into
+         snlc_sim, SALT2mu, combine_fitres, merge_root, ...
+
 END: 

@@ -143,6 +143,7 @@
 
  Jul 15 2023: call print_elapsed_time() in a few places to help trace
               slow performance in batch mode.
+ Aug 03 2023: switch print_elapsed_time -> print_cputime(..)
 
 ******************************/
 
@@ -322,7 +323,8 @@ time_t t_start ;
 int main(int argc, char **argv) {
 
   int ifile ;
-  //  char fnam[] = "main" ;
+  char str_cputime[60];
+  char fnam[] = "main" ;
 
   // ----------------- BEGIN --------
 
@@ -341,7 +343,9 @@ int main(int argc, char **argv) {
 
   INIT_TABLEVAR();
 
-  print_elapsed_time(t_start, "INIT", UNIT_TIME_SECONDS );
+  // xxx mark print_elapsed_time(t_start, "INIT", UNIT_TIME_SECONDS );
+  sprintf(str_cputime,"%s(INIT_TABLEVAR)", STRING_CPUTIME_INIT);
+  print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
 
   print_banner("Begin Reading Fitres Files.\n");
 
@@ -351,7 +355,9 @@ int main(int argc, char **argv) {
     ADD_FITRES(ifile);
   }
 
-  print_elapsed_time(t_start, "read input tables", UNIT_TIME_SECONDS );
+  sprintf(str_cputime,"%s(read_input_tables)", STRING_CPUTIME_INIT);
+  print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
+  // xxx mark  print_elapsed_time(t_start, "read input tables", UNIT_TIME_SECONDS );
 
   if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) 
     { match_CID_hash_local(-1,0); } // remove hash table
@@ -363,7 +369,9 @@ int main(int argc, char **argv) {
 
   WRITE_SNTABLE() ;
 
-  print_elapsed_time(t_start, "write output tables", UNIT_TIME_SECONDS );
+  sprintf(str_cputime,"%s(write_output_tables)", STRING_CPUTIME_PROC_ALL);
+  print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
+  // xxx mark print_elapsed_time(t_start, "write output tables", UNIT_TIME_SECONDS );
 
   printf("   Done writing %d events. \n", NWRITE_SNTABLE );
   fflush(stdout);

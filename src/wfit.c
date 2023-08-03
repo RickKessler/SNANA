@@ -44,8 +44,8 @@
      Brout    2022 (2202.04077)  Pantheon+ systematics
      Dai      2022 (2212.06879)  SALT3 training syst
      Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
-     Armstron 2023 (in prep)     contraint validation
-     Kessler  2023 (in prep)     Binning-is-sinning redemption
+     Armstron 2023 (2307.13862)  contraint validation
+     Kessler  2023 (2306.05819)  Binning-is-sinning redemption
      Vincenzi 2023 (in prep)     DES5YR analysis & syst
 
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
@@ -134,6 +134,9 @@
  Mar 29 2023:
    +  "-debug_flag 91"  to dump cospar comparison between wfit and sim
    +  -muerr_ideal <value> to replace mu with mu_true + Gauss(0,muerr_ideal).
+
+ Aug 03 2023: 
+   + use print_cputime(..) utility to grep stdout for standard CPUTIME string.
 
 *****************************************************************************/
 
@@ -581,6 +584,8 @@ int main(int argc,char *argv[]){
     // compute number of degrees of freedom
     set_Ndof(); 
 
+    printf("\n# ======================================= \n");
+    print_cputime(t_start, STRING_CPUTIME_INIT, UNIT_TIME_SECOND, 0);
     t_end_init = time(NULL);
  
     // minimize chi2 on a grid
@@ -2560,7 +2565,7 @@ void wfit_minimize(void) {
 
 	  char comment[60];
 	  sprintf(comment, "chi2 bin %8d of %8d", NB, NBTOT); 
-	  print_elapsed_time(t0, comment, UNIT_TIME_SECONDS);
+	  print_elapsed_time(t0, comment, UNIT_TIME_SECOND);
 	}
 
 
@@ -3384,7 +3389,7 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   
   invertMatrix( NSN, NSN, MUCOV->ARRAY1D ) ;
 
-  print_elapsed_time(t0, "invert matrix", UNIT_TIME_SECONDS);
+  print_elapsed_time(t0, "invert matrix", UNIT_TIME_SECOND);
 
   /* xxx mark delete 
   t1 = time(NULL);
@@ -4714,15 +4719,18 @@ void test_cospar(void) {
 // ==========================
 void CPU_summary(void) {
 
-  double dt_init = (double)(t_end_init - t_start)   / 60.0 ;
-  double dt_fit  = (double)(t_end_fit  - t_end_init)/ 60.0 ;
-
   // ----------- BEGIN -----------
 
   printf("# =================================== \n");
   printf(" CPU Summary \n");
+  print_cputime(t_end_init, STRING_CPUTIME_PROC_ALL, UNIT_TIME_SECOND, 0);
+
+  /* xxx mark delete xxx
+    double dt_init = (double)(t_end_init - t_start)   / 60.0 ;
+  double dt_fit  = (double)(t_end_fit  - t_end_init)/ 60.0 ;
   printf("\t init/fit: %.2f / %.2f minutes \n",	 dt_init, dt_fit);
   fflush(stdout);
+  xxx end mark xxx */
 
   return;
 } // end CPU_summary

@@ -29,6 +29,57 @@
 **********************************************************
 **********************************************************/
 
+void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
+
+  // Created July 15 2023
+  // utility to print elapsed time since t0, along with comment.
+
+  time_t t = time(NULL);
+  double dt = t - t0;
+  double scale;
+  char fnam[] = "print_elapsed_time" ;
+
+  // ----------- BEGIN ----------
+  
+  if ( strcmp(unit_time,UNIT_TIME_SECOND) == 0 ) 
+    { scale = 1.0 ; }
+  else if ( strcmp(unit_time,UNIT_TIME_MINUTE) == 0 ) 
+    { scale = 1.0/60.0 ; }
+  else if ( strcmp(unit_time,UNIT_TIME_HOUR) == 0 ) 
+    { scale = 1.0/3600.0 ; }
+  else {
+    sprintf(c1err,"Invalid unit_time = '%s' ", unit_time);
+    sprintf(c2err,"Valid units: %s  %s  %s", 
+	    UNIT_TIME_SECOND, UNIT_TIME_MINUTE, UNIT_TIME_HOUR);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  dt *= scale;
+
+  // check option to report time per event
+  char str_rate[60] = "" ;
+  char msg[100];
+  double rate = 0.0 ;
+  if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
+    if ( dt > 0.0 )  { rate = (double)nevt / dt ; }
+    sprintf(msg,"%-20s = %.3f evt/%s", key_cputime, rate, unit_time);
+  }
+  else {
+    sprintf(msg,"%-20s = %.3f %s", key_cputime, dt, unit_time);
+  }
+  printf("\t %s\n", msg);
+  fflush(stdout);
+
+  return ;
+
+} // end print_cputime
+
+void print_cputime__(long long int *t0, char *comment, char *unit, int *nevt) {
+  print_cputime(*t0, comment, unit, *nevt);
+} // end print_cputime__
+
+
+
 void print_elapsed_time(time_t t0, char *comment, char *unit_time) {
 
   // Created July 15 2023
@@ -41,16 +92,16 @@ void print_elapsed_time(time_t t0, char *comment, char *unit_time) {
 
   // ----------- BEGIN ----------
   
-  if ( strcmp(unit_time,UNIT_TIME_SECONDS) == 0 ) 
+  if ( strcmp(unit_time,UNIT_TIME_SECOND) == 0 ) 
     { scale = 1.0 ; }
-  else if ( strcmp(unit_time,UNIT_TIME_MINUTES) == 0 ) 
+  else if ( strcmp(unit_time,UNIT_TIME_MINUTE) == 0 ) 
     { scale = 1.0/60.0 ; }
-  else if ( strcmp(unit_time,UNIT_TIME_HOURS) == 0 ) 
+  else if ( strcmp(unit_time,UNIT_TIME_HOUR) == 0 ) 
     { scale = 1.0/3600.0 ; }
   else {
     sprintf(c1err,"Invalid unit_time = '%s' ", unit_time);
     sprintf(c2err,"Valid units: %s  %s  %s", 
-	    UNIT_TIME_SECONDS, UNIT_TIME_MINUTES, UNIT_TIME_HOURS);
+	    UNIT_TIME_SECOND, UNIT_TIME_MINUTE, UNIT_TIME_HOUR);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 

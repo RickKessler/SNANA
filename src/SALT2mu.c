@@ -286,6 +286,7 @@ For help, run code with no arguments
               model if SIM_AV > 0 
 
  Jul 09 2023: begin refactoring to enable input model_lcfit=BAYESN
+ Aug 03 2023: display CPUTIME_XXX with print_cputime() utility.
 
  ******************************************************/
 
@@ -1953,6 +1954,10 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 #endif
 
   t_end_init = time(NULL);
+
+  char str_cputime[60];
+  sprintf(str_cputime,"%s(ALL)", STRING_CPUTIME_INIT);
+  print_cputime(t_start, str_cputime, UNIT_TIME_MINUTE, 0);
 
   return ;
 
@@ -9474,6 +9479,12 @@ void prepare_biasCor(void) {
   INFO_BIASCOR.NDIM = NDIM_BIASCOR ;
 
 
+  // print prep time AFTER reading biasCor
+  char str_cputime[60];
+  sprintf(str_cputime,"%s(prep_BIASCOR)", STRING_CPUTIME_INIT);
+  print_cputime(t_read_biasCor[1], str_cputime, UNIT_TIME_MINUTE, 0);
+
+
   return ;
 
 } // end prepare_biasCor
@@ -9601,7 +9612,11 @@ void  read_simFile_biasCor(void) {
 	  SNTABLE_VERSION_PHOTOMETRY);
 
   t_read_biasCor[1] = time(NULL); 
-  
+
+  char str_cputime[60];
+  sprintf(str_cputime,"%s(read_BIASCOR)", STRING_CPUTIME_INIT);
+  print_cputime(t_read_biasCor[0], str_cputime, UNIT_TIME_MINUTE, 0);
+
 
   return ;
 } // end read_simFile_biasCor
@@ -18656,6 +18671,14 @@ void  CPU_SUMMARY(void) {
   // Created Nov 22 2017
   fprintf(FP_STDOUT, "\n PROCESS-TIME SUMMARY: \n");
 
+  char str_cputime[60];
+  sprintf(str_cputime,"%s(FIT)", STRING_CPUTIME_PROC_ALL);
+  print_cputime(t_end_init, str_cputime, UNIT_TIME_MINUTE, 0);
+
+  sprintf(str_cputime,"%s(INIT+FIT)", STRING_CPUTIME_PROC_ALL);
+  print_cputime(t_start, str_cputime, UNIT_TIME_MINUTE, 0);
+
+  /* xxx mark delete 
   fprintf(FP_STDOUT, "   Ini-time:  %.2f minutes \n",
 	 (t_end_init-t_start)/60.0 ) ;
 
@@ -18666,6 +18689,7 @@ void  CPU_SUMMARY(void) {
 
   fprintf(FP_STDOUT, "   Fit-time:  %.2f minutes \n",
 	 (t_end_fit-t_end_init)/60.0 ) ;
+  xxx end mark */
 
   fprintf(FP_STDOUT, "\n");
   fflush(FP_STDOUT);

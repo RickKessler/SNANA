@@ -1618,11 +1618,12 @@ class Simulation(Program):
         arg_list.append(f"    FORMAT_MASK {format_mask}")
         
 
-        if reset_cidoff > 0 :
+        if reset_cidoff >= 0 :  # always write cidoff
             cidoff = cidoff_list3d[iver][ifile][isplit]
             str0   = f"CIDOFF {cidoff}"
             arg_list.append(f"    {str0}")
 
+        if reset_cidoff > 0 :  # write CIDRAN_MIN/MAX for random CIDs
             str1   = f"CIDRAN_MIN {cidran_min}"
             str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
             arg_list.append(f"    {str1}    {str2}")

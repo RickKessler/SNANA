@@ -236,10 +236,12 @@ struct SNDATA {
   int  EPOCH_RANGE_NEWMJD[MXEPOCH][2];   // epoch-range for each NEW MJD
 
   float  AIRMASS[MXEPOCH];
-  float  RA[MXEPOCH], DEC[MXEPOCH];   // coord per epoch, defrees
+  float  RA[MXEPOCH], DEC[MXEPOCH];   // coord per epoch, degrees
   float  dRA[MXEPOCH], dDEC[MXEPOCH]; // shift w.r.t. band-avg, arcsec
   float  COORDRES[MXEPOCH];           // for both RA & DEC, arcsec
   double RA_AVG, DEC_AVG;  // wgted-average among all RA/DEC (need double precision)
+  double RA_AVG_BAND[MXFILTINDX];  // coord-AVG among each band
+  double DEC_AVG_BAND[MXFILTINDX];
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;

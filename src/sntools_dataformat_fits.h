@@ -230,6 +230,7 @@ void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
+void wr_snfitsio_addCol_filters(char *prefix, int itype); 
 void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix, int itype);
 
 void WR_SNFITSIO_UPDATE(void);
@@ -237,6 +238,8 @@ void wr_snfitsio_update_head(void);
 void wr_snfitsio_update_phot(int ep);
 void wr_snfitsio_update_spec(int imjd);
 void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype );
+void wr_snfitsio_fillTable_filters (int *COLNUM_INDX, char *PREFIX, int ITYPE, float *VAL) ;
+void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, double *VAL) ;
 
 void WR_SNFITSIO_END(int OPTMASK);
 

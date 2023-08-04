@@ -8191,6 +8191,9 @@ int init_SNDATA_EVENT(void) {
   SNDATA.SIM_HOSTLIB_GALID = -9 ;
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+
+    SNDATA.RA_AVG_BAND[ifilt]      = NULLFLOAT ;
+    SNDATA.DEC_AVG_BAND[ifilt]     = NULLFLOAT ;
     SNDATA.SIM_PEAKMAG[ifilt]      = NULLFLOAT ;
     SNDATA.SIM_TEMPLATEMAG[ifilt]  = NULLFLOAT ;
     SNDATA.SIM_GALFRAC[ifilt]      = NULLFLOAT ;

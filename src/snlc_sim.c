@@ -1,5 +1,5 @@
 
-/*******************************************
+/******************************************* 
   snlc_sim:  Mar 2006: Created by R.Kessler
              Apr 2007: Remove SQL dependencies for public usage. 
              Feb 2009: add nonIa option
@@ -6568,6 +6568,9 @@ void prep_user_input(void) {
     INPUTS.FORMAT_MASK |=  FORMAT_MASK_ATMOS ; 
     INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK = SPECTROGRAPH_OPTMASK_SEDMODEL ;
     INPUTS.GENMODEL_MSKOPT += GENMODEL_MSKOPT_SALT2_NONEGFLUX; 
+
+    if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE < 0.0  ) 
+      { INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE = 10.0 ; }
   }
 
   // init all of the WRFLAGs to zero
@@ -22852,6 +22855,15 @@ void coords_to_SNDATA(int FLAG) {
     }
 
   } // end epoch loop
+
+
+  // load filter-dependent averages
+  int ifilt;
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];  
+    SNDATA.RA_AVG_BAND[ifilt_obs]  = ATMOS_INFO.COORD_SIM_RA.AVG_BAND[ifilt_obs];
+    SNDATA.DEC_AVG_BAND[ifilt_obs] = ATMOS_INFO.COORD_SIM_DEC.AVG_BAND[ifilt_obs];
+  }
 
   return;
 

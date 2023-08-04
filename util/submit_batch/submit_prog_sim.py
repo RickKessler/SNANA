@@ -959,13 +959,14 @@ class Simulation(Program):
                 cidoff += ngentot
                 
             if isplit == n_job_split-1 :
+                cidran_max += int(0.1*cidran_max) # add safety margin here (Aug 4 2023)
                 cidran_max_list[iver] = cidran_max
 
         # for unique CIDs everywhere, cidran_max must be the
         # same for all jobs
         if reset_cidoff == 2 :
-            cidran_safety  = int(0.1*cidran_max)
-            cidran_max    += cidran_safety # safety for very large CIDRAN
+            # xxx mark cidran_safety  = int(0.1*cidran_max)
+            # xxx mark cidran_max    += cidran_safety # safety for very large CIDRAN
             cidran_max_list = [cidran_max] * n_genversion
 
 
@@ -1622,7 +1623,6 @@ class Simulation(Program):
             str0   = f"CIDOFF {cidoff}"
             arg_list.append(f"    {str0}")
 
-        if reset_cidoff == 2:
             str1   = f"CIDRAN_MIN {cidran_min}"
             str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
             arg_list.append(f"    {str1}    {str2}")

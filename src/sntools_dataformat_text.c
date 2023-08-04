@@ -118,6 +118,14 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp,"SNTYPE:   %d\n", SNDATA.SNTYPE);
   fprintf(fp,"RA:       %.6f  # deg (avg among obs)\n", SNDATA.RA_AVG);
   fprintf(fp,"DEC:      %.6f  # deg (avg among obs)\n", SNDATA.DEC_AVG);
+
+  if ( SNDATA.WRFLAG_ATMOS ) { 
+    wr_dataformat_text_FILTERPAR_D(fp, "RA_AVG", "avg per band", 
+				   "%.5f", SNDATA.RA_AVG_BAND);
+    wr_dataformat_text_FILTERPAR_D(fp, "DEC_AVG", "avg per band", 
+				   "%.5f", SNDATA.DEC_AVG_BAND);
+  } 
+
   fprintf(fp,"FILTERS:  %s\n", SNDATA_FILTER.LIST);
 
   if ( SNDATA.PIXSIZE > 0.0 ) 
@@ -464,6 +472,26 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp,"\n");
   fprintf(fp,"# %s filter-dependent quantities vs. \n", SNDATA_FILTER.LIST);
 
+  wr_dataformat_text_FILTERPAR(fp, "SIM_GALFRAC", "F_gal/F_SNpeak for PSF=1''", 
+			       "%6.3f", SNDATA.SIM_GALFRAC); 
+
+
+  wr_dataformat_text_FILTERPAR(fp, "SIM_PEAKMAG", "", 
+			       "%6.3f", SNDATA.SIM_PEAKMAG); 
+
+  bool WR_TEMPLATEMAG = ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ||
+			  SNDATA.SIM_MODEL_INDEX == MODEL_AGN ) ;
+  if ( WR_TEMPLATEMAG ) {
+    wr_dataformat_text_FILTERPAR(fp, "SIM_TEMPLATEMAG", "", 
+				 "%6.3f", SNDATA.SIM_TEMPLATEMAG);
+  }
+  
+
+  wr_dataformat_text_FILTERPAR(fp, "SIM_EXPOSURE", "", 
+			       "%6.1f", SNDATA.SIM_EXPOSURE_TIME);
+
+
+  /* xxxx mark delete Aug 4 2023 xxxxxxxx
   // gal/SN flux-fraction                                                     
   fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -483,6 +511,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   }
   fprintf(fp,"  # \n");
 
+
   bool WR_TEMPLATEMAG = ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ||
 			  SNDATA.SIM_MODEL_INDEX == MODEL_AGN ) ;
   if ( WR_TEMPLATEMAG ) {
@@ -495,6 +524,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     }
     fprintf(fp,"  # \n");
   }
+  
 
   fprintf(fp, "SIM_EXPOSURE: ");  NTMP=0;
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -505,10 +535,61 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   }
   fprintf(fp,"  # \n");
 
+  xxxxxxxxx end mark xxxxx */
+
   return ;
 
 } // end wr_dataformat_text_SIMPAR
 
+
+
+// ================================================
+void wr_dataformat_text_FILTERPAR(FILE *fp, char *KEY, char *COMMENT, 
+				  char *FORMAT, float *VAL) {
+
+  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=10;
+  char FORMAT_LOCAL[40];
+  char fnam[] = "wr_dataformat_text_FILTERPAR" ;
+
+  // ------------ BEGIN ---------
+
+  sprintf(FORMAT_LOCAL," %s", FORMAT); // add pad space
+  fprintf(fp, "%s: ", KEY);  NTMP=0;
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+    fprintf(fp, FORMAT_LOCAL, VAL[ifilt_obs] ) ;
+    NTMP++ ;
+    if ( NTMP == MXVAL_PER_LINE ) { fprintf(fp,"\n    ");  NTMP=0; }
+  }
+  fprintf(fp,"  # %s\n", COMMENT);
+  return;
+} // end wr_dataformat_text_FILTERPAR
+
+// ================================================
+void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT, 
+				    char *FORMAT, double *DVAL) {
+
+  // same as wr_dataformat_text_FILTERPAR, except last arg (DVAL) is double 
+  // instead of float.
+
+  char FORMAT_LOCAL[40];
+  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=10;
+  char fnam[] = "wr_dataformat_text_FILTERPAR" ;
+
+  // ------------ BEGIN ---------
+
+  sprintf(FORMAT_LOCAL," %s", FORMAT); // add pad space
+  fprintf(fp, "%s: ", KEY);  NTMP=0;
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+    fprintf(fp, FORMAT_LOCAL, DVAL[ifilt_obs] ) ;
+    NTMP++ ;
+    if ( NTMP == MXVAL_PER_LINE ) { fprintf(fp,"\n    ");  NTMP=0; }
+  }
+  fprintf(fp,"  # %s\n", COMMENT);
+  return;
+
+} // end wr_dataformat_text_FILTERPAR_D
 
 // ===================================
 void wr_dataformat_text_HOSTGAL(FILE *fp) {

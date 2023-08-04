@@ -80,6 +80,11 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) ;
 void wr_dataformat_text_PRIVATE(FILE *fp) ;
 
 void wr_dataformat_text_SIMPAR(FILE *fp ) ;
+
+void wr_dataformat_text_FILTERPAR(FILE *fp, char *KEY, char *COMMENT, 
+				  char *FORMAT, float *VAL);
+void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT, 
+				    char *FORMAT, double *DVAL);
 void wr_dataformat_text_SNPHOT(FILE *fp ) ;
 void wr_dataformat_text_SNSPEC(FILE *fp ) ;
 

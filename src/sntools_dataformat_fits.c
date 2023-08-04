@@ -294,6 +294,14 @@ void wr_snfitsio_init_head(void) {
 
   wr_snfitsio_addCol( "1D" , "RA"  ,    itype   ) ;  
   wr_snfitsio_addCol( "1D" , "DEC",     itype   ) ;
+
+  // include band-avg RA & DEC if using atmosphere effects.
+  if ( SNFITSIO_ATMOS ) { 
+    wr_snfitsio_addCol_filters("RA_AVG", itype);   // avg per band
+    wr_snfitsio_addCol_filters("DEC_AVG", itype); 
+  }
+
+
   wr_snfitsio_addCol( "1E" , "PIXSIZE", itype ) ;
   wr_snfitsio_addCol( "1I" , "NXPIX",   itype ) ;
   wr_snfitsio_addCol( "1I" , "NYPIX",   itype ) ;
@@ -504,19 +512,11 @@ void wr_snfitsio_init_head(void) {
     }
 
 
-    /*  xxx mark delete May 25 2023 RK xxxxxxxxx
-    if ( SNDATA.SIM_MODEL_INDEX == MODEL_BYOSED   ||
-	 SNDATA.SIM_MODEL_INDEX == MODEL_SNEMO    ||
-	 SNDATA.SIM_MODEL_INDEX == MODEL_PYBAYESN ||
-	 SNDATA.SIM_MODEL_INDEX == MODEL_AGN
-	 ) {
-    xxxxxxx end mark xxxxx */
-
     for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
       sprintf(parName,"%s", SNDATA.PySEDMODEL_KEYWORD[ipar] );
       wr_snfitsio_addCol( "1E", parName  , itype );
     }
-      // xxx mark    }
+     
 
     if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB && 
 	 SNFITSIO_SIMFLAG_MODELPAR) {
@@ -529,6 +529,16 @@ void wr_snfitsio_init_head(void) {
 
     // now do filter-dependent stuf
 
+    wr_snfitsio_addCol_filters("SIM_PEAKMAG",  itype);
+    wr_snfitsio_addCol_filters("SIM_EXPOSURE", itype);
+
+    if ( SNFITSIO_SIMFLAG_TEMPLATEMAG )
+      { wr_snfitsio_addCol_filters("SIM_TEMPLATEMAG", itype); }
+
+    if ( SNDATA.SIM_HOSTLIB_MSKOPT ) 
+      { wr_snfitsio_addCol_filters("SIM_GALFRAC", itype); }
+
+    /* xxxxxx mark delete Aug 4 2023 xxxxxxxx
     // PEAKMAG
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
@@ -561,6 +571,9 @@ void wr_snfitsio_init_head(void) {
 	wr_snfitsio_addCol( "1E", parName, itype );
       }
     }
+
+    xxxxxxx end mark xxxxxxxx */
+
 
     // strong lens info (Julu 2019)
     if ( SNDATA.SIM_SL_FLAG ) {
@@ -645,6 +658,24 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   return;
 
 } // end of wr_snfitsio_addCol
+
+
+void wr_snfitsio_addCol_filters(char *prefix, int itype ) {
+
+  // Created Aug 4 2023
+  // Utility to create NFILTER columns (float) with name PREFIX_[band]
+
+  int ifilt, ifilt_obs;
+  char parName[80] ;
+  char fnam[] = "wr_snfitsio_addCol_filters" ;
+  // ------------- BEGIN -----------
+
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+    sprintf(parName,"%s_%c", prefix, FILTERSTRING[ifilt_obs] );
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
+} // end wr_snfitsio_addCol_filters
 
 // =============================
 void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
@@ -1424,6 +1455,9 @@ void wr_snfitsio_update__(void) {
 void wr_snfitsio_update_head(void) {
 
   // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
+  //
+  // Aug 04 2023: use wr_snfitsio_fillTable_filters(..) utility and
+  //              write SIM_RA_[band], SIM_DEC_[band]
 
   int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iq ;
   int  PTROBS_MIN, PTROBS_MAX;
@@ -1478,6 +1512,11 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.DEC_AVG ;
   wr_snfitsio_fillTable ( ptrColnum, "DEC", itype );
+
+  if ( SNFITSIO_ATMOS ) {
+    wr_snfitsio_fillTable_filtersD(&LOC, "RA_AVG",  itype, SNDATA.RA_AVG_BAND);
+    wr_snfitsio_fillTable_filtersD(&LOC, "DEC_AVG", itype, SNDATA.DEC_AVG_BAND);
+  }
 
   // PIXEL size
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2005,10 +2044,6 @@ void wr_snfitsio_update_head(void) {
   }
 
 
-  /* xxxxxxx mark delete May 25 2023 xxxxxxx
-  if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BYOSED ||
-  SNDATA.SIM_MODEL_INDEX  == MODEL_SNEMO ) {        xxx end mark */
-
   for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL;  ipar++ ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PySEDMODEL_PARVAL[ipar] ;
@@ -2026,8 +2061,22 @@ void wr_snfitsio_update_head(void) {
   }
 
 
-  // now do filter-dependent stuf
+  // write filter-dependent stuff. All arrays are vs. [ifilt_obs] (not sparse ifilt)
 
+  wr_snfitsio_fillTable_filters(&LOC, "SIM_PEAKMAG", itype, SNDATA.SIM_PEAKMAG);
+
+  wr_snfitsio_fillTable_filters(&LOC, "SIM_EXPOSURE", itype, SNDATA.SIM_EXPOSURE_TIME);
+
+  if ( SNFITSIO_SIMFLAG_TEMPLATEMAG ) {
+    wr_snfitsio_fillTable_filters(&LOC, "SIM_TEMPLATEMAG", itype, SNDATA.SIM_TEMPLATEMAG);
+  }
+
+  if ( SNDATA.SIM_HOSTLIB_MSKOPT ) {
+    wr_snfitsio_fillTable_filters(&LOC, "SIM_GALFRAC", itype, SNDATA.SIM_GALFRAC);
+  }
+     
+
+  /* xxxxxxxxxxxx mark delete Aug 4 2023 xxxxxxx
   // PEAKMAG
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) { 
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
@@ -2057,6 +2106,7 @@ void wr_snfitsio_update_head(void) {
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
 
+
   // GALFRAC
   if ( SNDATA.SIM_HOSTLIB_MSKOPT ) {
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -2067,6 +2117,8 @@ void wr_snfitsio_update_head(void) {
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
   }
+
+  xxxxxxxxx end mark xxxxxxxxx */
 
 
   // strong lens params (Jul 2019)
@@ -2113,7 +2165,6 @@ void wr_snfitsio_update_head(void) {
   }
 
 
-  //  if ( SNFITSIO_NSUBSAMPLE_MARK > 1 ) {
   sprintf(parName,"SIM_SUBSAMPLE_INDEX");
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SUBSAMPLE_INDEX ;
@@ -2125,6 +2176,7 @@ void wr_snfitsio_update_head(void) {
   return ;
 
 } // end of wr_snfitsio_update_head
+
 
 
 // =======================
@@ -2224,6 +2276,62 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 } //  end of wr_snfitsio_fillTable
 
 
+void wr_snfitsio_fillTable_filters(int *COLNUM_INDX, char *PREFIX, int ITYPE, float *VAL) {
+
+  // Created Aug 4 2023
+  // utility to write VAL[ifilt_obs] to table.  
+  // Note that input *LOC is incremented here.
+
+  int LOC = *COLNUM_INDX;
+  int ifilt, ifilt_obs, *ptrColnum;
+  char parName[80];
+  char fnam[] = "wr_snfitsio_fillTable_filters" ;
+
+  // ----------- BEGIN ---------
+
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+    sprintf(parName,"%s_%c", PREFIX, FILTERSTRING[ifilt_obs] );      
+    LOC++ ;
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[ITYPE].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[ITYPE].value_1E = VAL[ifilt_obs] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, ITYPE );
+  }
+
+  *COLNUM_INDX = LOC ;
+
+  return ;
+
+} // end wr_snfitsio_fillTable_filters
+
+
+void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, double *DVAL) {
+
+  // Created Aug 4 2023
+  // Double precision version of wr_snfitsio_fillTable_filters
+  // Note that input *LOC is incremented here.
+
+  int LOC = *COLNUM_INDX;
+  int ifilt, ifilt_obs, *ptrColnum;
+  char parName[80];
+  char fnam[] = "wr_snfitsio_fillTable_filtersD" ;
+
+  // ----------- BEGIN ---------
+
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+    sprintf(parName,"%s_%c", PREFIX, FILTERSTRING[ifilt_obs] );      
+    LOC++ ;
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[ITYPE].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[ITYPE].value_1D = DVAL[ifilt_obs] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, ITYPE );
+  }
+
+  *COLNUM_INDX = LOC;
+
+  return ;
+
+} // end wr_snfitsio_fillTable_filtersD
 
 // ====================================
 void wr_snfitsio_update_phot(int ep) {
@@ -3423,8 +3531,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     }
 
 
-    //xxx mark delete    if ( SNDATA.SIM_MODEL_INDEX == MODEL_BYOSED ||
-    //xxx mark delete  SNDATA.SIM_MODEL_INDEX == MODEL_SNEMO ) {
     for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.PySEDMODEL_KEYWORD[ipar], 
 				 &SNDATA.PySEDMODEL_PARVAL[ipar] ,
@@ -4883,7 +4989,6 @@ void  rd_snfitsio_specFile( int ifile ) {
   // ------------ BEGIN -------------
 
   if ( !SNFITSIO_SPECTRA_FLAG ) { return ; }
-  // xxx mark delete if ( !SNFITSIO_SIMFLAG_SPECTROGRAPH ) { return; }
   
   istat = 0;
   itype   = ITYPE_SNFITSIO_SPEC ;

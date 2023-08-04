@@ -34,6 +34,7 @@
  Feb 03 2023: read/write SIM_THETA for BayeSN model 
  
  May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
+ Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band]
 
 *************************************************/
 

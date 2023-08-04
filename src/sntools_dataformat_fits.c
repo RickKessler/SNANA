@@ -66,6 +66,7 @@
  Jul 21 2021: write PHOTFLAG_DETECT to global header
 
  Feb 03 2023: read/write SIM_THETA for BayeSN model
+ Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band] for ATMOS
 
 **************************************************/
 
@@ -1457,7 +1458,7 @@ void wr_snfitsio_update_head(void) {
   // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
   //
   // Aug 04 2023: use wr_snfitsio_fillTable_filters(..) utility and
-  //              write SIM_RA_[band], SIM_DEC_[band]
+  //              write RA_[band], DEC_[band]
 
   int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iq ;
   int  PTROBS_MIN, PTROBS_MAX;

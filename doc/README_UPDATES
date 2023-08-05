@@ -21855,4 +21855,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        for all CPU time measurements in any code.  Integrated into
          snlc_sim, SALT2mu, combine_fitres, merge_root, ...
 
+   MXEPOCH = 5000 -> 15000  (for Roman+LSST catalog prep for ImSim)
+     size snlc_sim.exe = 160.6 MB -> 175.4
+     size snlc_fit.exe = 283.1 MB -> 313.3
+     size snana.exe    =  85.7 MB -> 107.5
+
 END: 

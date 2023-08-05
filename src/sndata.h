@@ -40,10 +40,11 @@
   May 19 2023: MXSPECTRA -> 500 (was 300)
   May 24 2023: MXSPECTRA -> 1000 (was 500)
   May 24 2023: MXDOCLINE -> 2000 (was 1000) to handle long list of NON1A keys
+  Aug 05 2023: MXEPOCH -> 15000 (was 5000) for Roman+LSST catalog sim
 
 *****************************************************/
 
-#define MXEPOCH  5000     // max number of epochs per SN
+#define MXEPOCH  15000   // max no. of epochs per SN (must match MXEPOCH in snana.car)
 #define MXEPCOV  112     // max epochs to store in covariance matrix
 
 #define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)

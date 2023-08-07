@@ -230,7 +230,7 @@ void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
-void wr_snfitsio_addCol_filters(char *prefix, int itype); 
+void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype); 
 void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix, int itype);
 
 void WR_SNFITSIO_UPDATE(void);

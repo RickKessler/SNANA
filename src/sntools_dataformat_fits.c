@@ -298,8 +298,8 @@ void wr_snfitsio_init_head(void) {
 
   // include band-avg RA & DEC if using atmosphere effects.
   if ( SNFITSIO_ATMOS ) { 
-    wr_snfitsio_addCol_filters("RA_AVG", itype);   // avg per band
-    wr_snfitsio_addCol_filters("DEC_AVG", itype); 
+    wr_snfitsio_addCol_filters("1D", "RA_AVG",  itype);   // avg per band
+    wr_snfitsio_addCol_filters("1D", "DEC_AVG", itype); 
   }
 
 
@@ -530,14 +530,14 @@ void wr_snfitsio_init_head(void) {
 
     // now do filter-dependent stuf
 
-    wr_snfitsio_addCol_filters("SIM_PEAKMAG",  itype);
-    wr_snfitsio_addCol_filters("SIM_EXPOSURE", itype);
+    wr_snfitsio_addCol_filters("1E", "SIM_PEAKMAG",  itype);
+    wr_snfitsio_addCol_filters("1E", "SIM_EXPOSURE", itype);
 
     if ( SNFITSIO_SIMFLAG_TEMPLATEMAG )
-      { wr_snfitsio_addCol_filters("SIM_TEMPLATEMAG", itype); }
+      { wr_snfitsio_addCol_filters("1E", "SIM_TEMPLATEMAG", itype); }
 
     if ( SNDATA.SIM_HOSTLIB_MSKOPT ) 
-      { wr_snfitsio_addCol_filters("SIM_GALFRAC", itype); }
+      { wr_snfitsio_addCol_filters("1E", "SIM_GALFRAC", itype); }
 
     /* xxxxxx mark delete Aug 4 2023 xxxxxxxx
     // PEAKMAG
@@ -661,11 +661,15 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
 } // end of wr_snfitsio_addCol
 
 
-void wr_snfitsio_addCol_filters(char *prefix, int itype ) {
+void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ) {
 
   // Created Aug 4 2023
   // Utility to create NFILTER columns (float) with name PREFIX_[band]
-
+  // Inputs:
+  //   cast:    1E (float) or 1D (double)
+  //   prefix : each variable name is [prefix]_[band]
+  //   itype  : refers to HEAD, PHOT, SPEC files
+  //
   int ifilt, ifilt_obs;
   char parName[80] ;
   char fnam[] = "wr_snfitsio_addCol_filters" ;
@@ -674,7 +678,7 @@ void wr_snfitsio_addCol_filters(char *prefix, int itype ) {
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
     sprintf(parName,"%s_%c", prefix, FILTERSTRING[ifilt_obs] );
-    wr_snfitsio_addCol( "1E", parName, itype );
+    wr_snfitsio_addCol( cast, parName, itype );
   }
 } // end wr_snfitsio_addCol_filters
 

@@ -9715,7 +9715,8 @@ void  prepare_biasCor_zinterp(void) {
 
   if ( INPUTS.debug_flag == -709 ) { prepare_biasCor_zinterp_legacy(); return; }
 
-  INFO_BIASCOR.SIGINT_AVG = .11 ;  
+  // xxx mark delete   INFO_BIASCOR.SIGINT_AVG = .11 ;  
+  INFO_BIASCOR.SIGINT_AVG = INPUTS.sigmB;
   NSN_DATA     = INFO_DATA.TABLEVAR.NSN_ALL ;
   NSN_BIASCOR  = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   ptr_zM0      = INFO_BIASCOR.zM0;
@@ -9827,7 +9828,8 @@ void  prepare_biasCor_zinterp(void) {
 
     if ( SNRMAX > INPUTS.snrmin_sigint_biasCor  ) {
       SUMWGT_HISNR     += WGT ;
-      MUBIAS_SIM_HISNR += (mu_sim - mu_true) ;
+      MUBIAS_SIM_HISNR += WGT*(mu_fit - mu_true) ;
+      // xxx mark Aug 7 2023 MUBIAS_SIM_HISNR += (mu_sim - mu_true) ;
     }
 
     // get izusr = iz bin for user z bins ... can be different

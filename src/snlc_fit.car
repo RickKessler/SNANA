@@ -3294,8 +3294,8 @@ c unless user specifically sets OPT_COVAR=0
 
 c       BAYESN BLOCK created Nov 2022
         OPTMASK = 1024  ! disable intrinsic scatter
-        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, BLANK, OPTMASK, 
-     &            LEN_NAME, 40 )
+        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, OPTMASK,
+     &            LEN_NAME )
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0

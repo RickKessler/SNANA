@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 #
+# Convert to SIMSED.XXX model into NON1ASED.XXX model because the latter can
+# be used with TAKE_SPECTRUM and true SED options. SIMSED.XXX model works
+# with pre-computed mags on a grid of redshift and filters, and thus the
+# underlying SEDs are not available to produce spectra or true SEDs.
+#
 # Usage:
 #  convert_SIMSED_to_NON1ASED.py --simsed_path <path> --model_name <short_name>
 #

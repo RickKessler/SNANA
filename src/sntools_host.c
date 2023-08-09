@@ -2997,8 +2997,6 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   if ( (pos=strchr(tmpLine,'\n') ) != NULL )  { *pos = '\0' ; }
 
   // split string into words
-  //xx  for(ival=0; ival < NVAL; ival++ ) { ptrWDLIST[ival] = WDLIST[ival]; }
-  //xx  splitString2(tmpLine, sepKey, MXWD, &NWD, ptrWDLIST);
   splitString2(tmpLine, sepKey, MXWD, &NWD, TMPWORD_HOSTLIB);
 
   // abort if too few columns, but allow extra columns

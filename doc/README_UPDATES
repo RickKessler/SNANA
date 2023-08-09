@@ -21808,6 +21808,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     new &SNLCINP input OPT_REFORMAT_SPECTRA; see manual
 
+    new script convert_SIMSED_to_NON1ASED.py
+
         ***** MISCELLANEOUS(v11_05f) ***** 
 
    snlc_sim.c

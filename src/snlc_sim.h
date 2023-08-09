@@ -48,7 +48,7 @@
 #define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
 #define  MXCUTWIN_PEAKMJD_BYFIELD 10
-#define  MXNON1A_TYPE 1000     // max number of non1a types/indices
+#define  MXNON1A_TYPE 1200     // max number of non1a types/indices
 #define  MXNON1A_KEY  10      // max number of non1a keys
 #define  MXCHAR_FIELDNAME 20
 #define  MXSIMGEN_DUMP 600    // max number of variables to dump

@@ -21821,6 +21821,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for SPEC.FITS file, fix harmless bug so that end-of-spectrum marker (-777)
          is written to allow for read-back check.
      + MXNON1A_TYPE = 1000 -> 1200 to handel SIMSED converted to NON1ASED model
+     + MXROW_HOSTLIB -> 40M (was 10M)
 
    sntools_sim_atmoshpere.c[h]:
      + update DCR calculation to integrate over passband instead of

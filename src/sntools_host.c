@@ -387,7 +387,8 @@ void initvar_HOSTLIB(void) {
   HOSTLIB_WGTMAP.N_SNVAR      =  0 ;
   HOSTLIB_WGTMAP.NBTOT_SNVAR  =  1 ; // at least 1 dummy bin of no WGTMAP
   HOSTLIB_WGTMAP.ibin_SNVAR   = -9 ; 
-  HOSTLIB_WGTMAP.OPT_EXTRAP   =  0 ;
+  // xxx mark  HOSTLIB_WGTMAP.OPT_EXTRAP   =  0 ;
+
   for ( ivar=0; ivar < MXVAR_WGTMAP_HOSTLIB; ivar++ ) {  
     sprintf(HOSTLIB_WGTMAP.VARNAME[ivar], "%s", NULLSTRING );
     HOSTLIB_WGTMAP.NB1D_SNVAR[ivar] = 0 ;

@@ -287,6 +287,7 @@ For help, run code with no arguments
 
  Jul 09 2023: begin refactoring to enable input model_lcfit=BAYESN
  Aug 03 2023: display CPUTIME_XXX with print_cputime() utility.
+ Aug 14 2023: abort on missing varname_pIa if simfile_CCprior is set
 
  ******************************************************/
 
@@ -19081,6 +19082,12 @@ void prep_input_driver(void) {
     INPUTS.ipar[IPAR_scalePCC] = 0 ; // do NOT float scalePCC   
   }
   else {
+    if ( strlen(varname_pIa) == 0 ) {
+      sprintf(c1err,"missing required varname_pIa with CC prior.", varname_pIa);
+      sprintf(c2err,"Must set varname_pIa with simfile_ccprior");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
+    }
+
     INPUTS.ipar[IPAR_COVINT_PARAM] = 0 ;  // do not float sigint
     INPUTS.parval[IPAR_COVINT_PARAM] = INPUTS.sigmB; 
     prep_input_probcc0();
@@ -19132,7 +19139,7 @@ void prep_input_driver(void) {
 	if ( INPUTS.ipar[IPAR] == 0 ) { INPUTS.parval[IPAR]=0.0; }	
       }
     }
-  }
+  } // end USE_CCPRIOR_H11
 
 
   // ----------------------------------------
@@ -19153,8 +19160,6 @@ void prep_input_driver(void) {
   INFO_BIASCOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLY_CUTWIN_pIa ;
   INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLY_CUTWIN_pIa ;
 
-  // prepare stuff related to gamma = HR step
-  // xxx mark delete  prep_input_gamma();
 
   // sanity checks on fitting for GAMMA0 (mag step across host logmass)
   if ( INPUTS.USE_GAMMA0 ) {

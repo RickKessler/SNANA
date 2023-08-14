@@ -3975,7 +3975,7 @@ package designed to model the following effects:
 \begin{itemize}
 %
   \item select host galaxy based on arbitrary user-function
-        of host properties; see {\tt WGTMAP}.
+        of host properties; see {\tt WGTMAP} (\S\ref{sss:hostlib_wgtmap}).
 %
   \item Generate SN propertes (e.g., stretch \& color) correlated
         with host properties; see {\tt VARNAMES list}.
@@ -4001,10 +4001,8 @@ package designed to model the following effects:
 The host-galaxy information is stored in a library,
 hereafter denoted ``{\hostlib}''. An example \hostlib\
 is shown in Fig.~\ref{fig:hostlib}.
-This self-documented file gives the number of variables
-describing each host ({\tt NVAR}) and a list of 
-descriptive ''{\tt VARNAMES}.''  
-There are two mandatory variables: {\tt GALID} and 
+This self-documented file contains a list of ''{\tt VARNAMES},''  
+and there are two mandatory variables: {\tt GALID} and 
 true heliocentric redshift \ztrue\ 
 (or {\tt ZTRUE\_CMB};' see \S\ref{sss:ZTRUE_CMB}) ; 
 the simulation will abort if either variable is missing. 
@@ -4017,11 +4015,11 @@ In principle a \hostlib\ needs to contain only
 {\tt GALID} and \ztrue, but such a library would
 not be useful to simulate interesting effects.
 The remaining {\tt VARNAMES} in Fig.~\ref{fig:hostlib}
-are optional, and control what kinds of effects can
-be simulated.  The {\tt ZPHOT} and {\tt ZPHOTERR} keys
-give the externally-computed photometric redshift,
+are optional, and enable different effects based on {\tt HOSTLIB\_MSKOPT}.
+The {\tt ZPHOT} and {\tt ZPHOTERR} specify 
+an externally-computed photometric redshift, 
 and ``[filt]\_obs'' are the observer-frame galaxy
-magnitudes needed to compute the noise.
+magnitudes needed to compute the Poisson noise.
 The coordinate variable names can be {\tt RA, RA\_GAL or RA\_HOST},
 and similarly for {\tt DEC}; one of the latter two is recommended
 to avoid potential conflict with the RA,DEC of the SN in one of the
@@ -4045,6 +4043,8 @@ There are two options for defining the the Sersic index
 to allow a different Sersic index for each host galaxy, and 
 2) define a fixed Sersic index for all host galaxies using 
 a key after the {\tt VARNAMES} list as shown in Fig.~\ref{fig:hostlib}.
+The first Sersic-index method is recommended because the 
+2nd method may break python readers.
 Commonly used Sersic indices are $n=0.5, 1, 4$ 
 for Gaussian, exponential and  deVaucouleurs,
 respectively. 
@@ -4060,12 +4060,7 @@ is the rotation angle (in degrees) of the major axis  w.r.t.
 the +RA coordinate.  If North is up and East is to the right, 
 {\tt a\_rot} is measured clockwise, from the East toward the South.
 
-\clearpage
-The next set of keys in Fig.~\ref{fig:hostlib} describes
-an optional weight map (WGTMAP). In this example, galaxies are
-weighted by the absolute r-band magnitude, and the
-SN brightness is also adjusted using the same map.
-See \S\ref{sss:hostlib_wgtmap} for details about the WGTMAP.
+%\clearpage
 
 
 % ----------------
@@ -4081,15 +4076,6 @@ n0_Sersic: 0.5    # optional: fix sersic index for each host
                   # Note that n0_Sersic can be defined only once;
                   # either among the VARNAMES or here.
 
-OPT_EXTRAP_WGTMAP: 1  # option to bring out-of-range values to grid edge
-VARNAMES_WGTMAP: r_ABS  WGT  SNMAGSHIFT
-WGT:  -25.0  1.2  -0.05
-WGT:  -23.0  1.0  -0.05
-WGT:  -21.0  0.8  -0.05
-WGT:  -19.0  0.6  +0.05
-WGT:  -17.0  0.4  +0.05
-WGT:  -15.0  0.2  +0.05
-
 GAL:   2940448741  52.67432  -27.17716   0.3964    0.0828    99  
        22.06580    20.99990  20.65600  20.33090  -21.43 0.50  0.99290  
        0.73811  154.40625  1
@@ -4101,9 +4087,10 @@ etc ...
 \end{center}
 \end{figure}
 
-\clearpage
 The host-galaxy selection starts by finding a ``near-$z$''
-subset of host galaxies within $\pm 0.01$ of the SN redshift.
+subset of host galaxies, where sim-input {\tt HOSTLIB\_DZTOL} 
+(\S\ref{sss:hostlib_options})
+defines the zSN-zGAL tolerance.
 A random host among this near-$z$ subset is 
 picked based on the weight map.
 A \hostlib\ should have adequate statistics to densely
@@ -4112,6 +4099,7 @@ the weight map.
 
 
 % ------------------------------------
+\clearpage
 \subsubsection{{\hostlib} Options}
 \label{sss:hostlib_options}
 % ------------------------------------
@@ -4124,6 +4112,7 @@ the sim-input file (or via command-line override):
 # optional
    HOSTLIB_MSKOPT:       8            # default=0
    HOSTLIB_WGTMAP_FILE:   xxxx        # default=none
+   HOSTLIB_WGTMAP_EXTRAP: 1           # decault=0
    HOSTLIB_ZPHOTEFF_FILE: xxxx        # default=none
    HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_SPECDATA_FILE:  xxxx       # default=none
@@ -4476,6 +4465,14 @@ so that the simulation runs more efficiently. For example,
 consider a {\tt WGTMAP} color grid from $-0.3$ to $+0.5$ in bins of 0.1;
 for a generated color of $c=0.12$, the weight is the pre-computed value
 at the grid point $c=0.1$. 
+
+If a {\tt HOSTLIB} value is beyond the defined range of the {\tt WGTMAP},
+the simulation aborts by default. To avoid the abort and fix out-of-range
+values to the {\tt WGTMAP} edge, 
+\begin{verbatim}
+    HOSTLIB_WGTMAP_EXTRAP: 1
+\end{verbatim}
+
 
 {\bf MEMORY WARNING}: 
 To maintain simulation speed, the {\tt WGT} and {\tt SNMAGSHIFT} are 

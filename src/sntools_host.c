@@ -2632,7 +2632,7 @@ void checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST,
 
   int i, M;
   bool MATCH = false;
-  char str_i[2], str_list[40] = "" ;
+  char str_i[4], str_list[40] ;
   char fnam[] = "checkModel_HOSTLIB_WGTMAP" ;
 
   // ---------- BEGIN -----------
@@ -2642,11 +2642,11 @@ void checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST,
 
   for(i=0; i < NMODEL ; i++ ) {
     M = MODEL_LIST[i] ;
-    sprintf(str_i,"%d",i);
+    sprintf(str_i,"%d ",i);
     if ( i == 0 ) 
-      { sprintf(str_list,"%s ", str_i); }
+      { sprintf(str_list,"%s",str_i); }
     else
-      { sprintf(str_list,"or %s ", str_i); }
+      { strcat(str_list," or "); strcat(str_list,str_i); }
 
     if ( INDEX_GENMODEL == M ) { MATCH = true; }
   }

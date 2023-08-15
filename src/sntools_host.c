@@ -2573,21 +2573,40 @@ bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {
   //   varName = variable name
 
   int N = HOSTLIB_WGTMAP.N_SNVAR;
+  int NMODEL;
   bool IS_SNVAR = false;
+  char fnam[] = "checkSNvar_HOSTLIB_WGTMAP" ;
 
   // ---------------- BEGIN --------------
 
   if ( strcmp(varName,"x1")      == 0 ||
-       strcmp(varName,"SALT2x1") == 0 ||
-       strcmp(varName,"DM15")    == 0 ||
-       strcmp(varName,"DELTA")   == 0  ) {
+       strcmp(varName,"SALT2x1") == 0 ) {
     IS_SNVAR = true ; 
     HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = GENLC.ptr_SHAPEPAR;
+    int MODEL_LIST[2] = { MODEL_SALT2, MODEL_SALT3 } ;    NMODEL = 2;
+    checkModel_HOSTLIB_WGTMAP(NMODEL, MODEL_LIST, varName, fnam);
+  }
+
+  if ( strcmp(varName,"DELTA")   == 0  ) {
+    IS_SNVAR = true ; 
+    HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = GENLC.ptr_SHAPEPAR;
+    int MODEL_LIST = MODEL_MLCS2k2; NMODEL=1;
+    checkModel_HOSTLIB_WGTMAP(1, &MODEL_LIST, varName, fnam);
+  }
+
+  if ( strcmp(varName,"DM15")    == 0 ) {
+    IS_SNVAR = true ; 
+    HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = GENLC.ptr_SHAPEPAR;
+    int MODEL_LIST = MODEL_SNOOPY;    NMODEL = 1;
+    checkModel_HOSTLIB_WGTMAP(NMODEL, &MODEL_LIST, varName, fnam);
   }
 
   if ( strcmp(varName,"c") == 0  || strcmp(varName,"SALT2c")==0 ) { 
     IS_SNVAR = true ; 
     HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = &GENLC.SALT2c ;
+    int MODEL_LIST[2] = { MODEL_SALT2, MODEL_SALT3 } ;    NMODEL = 2;
+    checkModel_HOSTLIB_WGTMAP(NMODEL, MODEL_LIST, varName, fnam);
+
   }
 
   if ( strcmp(varName,"AV") == 0 ) { 
@@ -2602,8 +2621,48 @@ bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {
 
   return(IS_SNVAR);
 
-} // end checkSNvarNames_HOSTLIB(int OPT, char *varName) {
+} // end checkSNvar_HOSTLIB_WGTMAP
  
+
+void checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST, 
+				char *varName, char *funCall) {
+
+  // Created Aug 2023
+  // Abort if INDEX_GENMODEL is not on MODEL_LIST.
+
+  int i, M;
+  bool MATCH = false;
+  char str_i[2], str_list[40] = "" ;
+  char fnam[] = "checkModel_HOSTLIB_WGTMAP" ;
+
+  // ---------- BEGIN -----------
+
+  // temp debug flag -814 can skip abort check
+  if ( INPUTS.DEBUG_FLAG == -814 ) { return; }
+
+  for(i=0; i < NMODEL ; i++ ) {
+    M = MODEL_LIST[i] ;
+    sprintf(str_i,"%d",i);
+    if ( i == 0 ) 
+      { sprintf(str_list,"%s ", str_i); }
+    else
+      { sprintf(str_list,"or %s ", str_i); }
+
+    if ( INDEX_GENMODEL == M ) { MATCH = true; }
+  }
+
+  if ( ! MATCH ) {
+    sprintf(c1err,"varname='%s' requires INDEX_MODEL = %s", 
+	    varName, str_list);
+    sprintf(c2err,"INDEX_MODEL=%d  (Called by fun= %s)", 
+	    INDEX_GENMODEL, funCall);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return;
+
+} // end checkModel_HOSTLIB_WGTMAP
+
 // =====================================
 void  checkAlternateVarNames_HOSTLIB(char *varName) {
 
@@ -3912,25 +3971,24 @@ void malloc_HOSTLIB_WGTMAP(void) {
 
   int  ibin ;
   double MEMTOT = 0.0 ;
-  //  char fnam[] = "malloc_HOSTLIB_WGTMAP" ;
+  char fnam[] = "malloc_HOSTLIB_WGTMAP" ;
 
   // --------------- BEGIN -----------
 
-  
   if ( N_SNVAR > 0 ) { 
 
-    HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double**) malloc(MEMDD);
+    HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double    **) malloc(MEMDD);
     HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR = (short int **) malloc(MEMSS);
-
+    
     for(ibin=0; ibin < NBTOT_SNVAR; ibin++ ) {
-      HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]       = (double*) malloc(MEMD2);
+      HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]       = (double   *) malloc(MEMD2);
       HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin] = (short int*) malloc(MEMS2);
       MEMTOT += (double)(MEMD2 + MEMS2);
     }
   }
   else {
     // HOSTLIB vars only
-    HOSTLIB_WGTMAP.WGTSUM       = (double *)malloc(MEMD2);
+    HOSTLIB_WGTMAP.WGTSUM       = (double    *)malloc(MEMD2);
     HOSTLIB_WGTMAP.I2SNMAGSHIFT = (short int *)malloc(MEMS2);
     MEMTOT += (double)(MEMD2 + MEMS2) ;
   }

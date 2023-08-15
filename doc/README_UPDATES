@@ -21823,6 +21823,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + MXNON1A_TYPE = 1000 -> 1200 to handel SIMSED converted to NON1ASED model
      + MXROW_HOSTLIB -> 40M (was 10M)
 
+  sntools_host.c
+     + abort if x1,c is in WGTMAP but model is not SALT2 or SALT3
+   
    sntools_sim_atmoshpere.c[h]:
      + update DCR calculation to integrate over passband instead of
        making computation at effective wavelength of passband. 

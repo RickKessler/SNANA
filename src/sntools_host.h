@@ -693,6 +693,9 @@ void   read_HOSTLIB_WGTMAP(void);
 void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
 int    read_VARNAMES_WGTMAP(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
+void   checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST, char *varName, 
+				 char *funCall);
+
 void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 
 void   malloc_HOSTGAL_PROPERTY(void);

@@ -1395,6 +1395,7 @@ The {\tt SIMLIB\_MSKOPT} options are
    \item {\tt MSKOPT} += 256~: include every MJD in survey, 
       regardless of $\Trest$-range.
 %
+   \item {\tt MSKOPT} += 512~:  see\S\ref{sssec:IDEAL_GRID}
 \end{itemize}
 
 \medskip
@@ -1639,6 +1640,44 @@ If {\tt SIM\_SNRMAG\#\#} exists, it is automatically read
 by the analysis programs and included in output tables with epoch columns:
 in particular, the tables {\tt SNANA+EPOCHS} and {\tt FITRES+RESIDUALS}.
 
+
+% ------------------------------------------------
+\subsubsection{Ideal Cadence with fixed MJD Grid}
+\label{sssec:IDEAL_GRID}
+
+This option ({\tt SIMLIB\_MSKOPT | 512}) is designed to reduce the necessary
+size of an ideal \simlib\ cadence that 
+i) has fixed MJD grid, ii) has no seasonal gaps, and iii) has the same
+SKYSIG/ZP/PSF for every epoch. An ideal cadence is useful to generate model
+magnitides (and SEDs) without instrumental signatures. 
+
+To illustrate the potential problem, consider an ideal 0.1 day cadence for
+a fast transient such as Kilonova, 10 passbands, and a 5 year (1825 day)
+survey duration in which we want to randomly generate model light curves.
+The size of the ideal \simlib\ cadence is $10\times 1825/0.1$ = 182,500 rows,
+which vastly exceeds the default {MXOBS\_SIMLIB = 15,000}.
+
+A practical solution is to define an ideal \simlib\ with an MJD range
+that covers the min-to-max $\Tobs$ range of the model, and shift the resulting
+light curve to an MJD range outside of the \simlib\ range. This strategy is
+implemented by settig the 512-bit of {\tt SIMLIB\_MSKOPT}. More specifically,
+this option does the following:
+\begin{itemize}
+   \item defines required MJD range to be \\
+        ~~~~~{\tt ( GENRANGE\_TREST[1] - GENRANGE\_TREST[0] ) * (1+GENRANGE\_REDSHIFT[1])} \\
+        The sim aborts if the \simlib\
+        MJD-range is smaller than the required MJD range.
+% 
+   \item after picking a random peak-MJD ({\tt PEAKMJD\_SURVEY})
+         within {\tt GENRANGE\_PEAKMJD}, a temporary {\tt PEAKMJD\_TMP} is selected
+         inside the \simlib\ cadence such that 
+          (i) {\tt TRESTMIN(1+z)} to {\tt TRESTMAX*(1+z)} is contained, and 
+         (ii) the MJD-difference, \\
+         ~~~~~{\tt MJD\_SHIFT} = {\tt PEAKMJD\_SURVEY - PEAKMJD\_TMP}, \\
+         is an integer multiple of the MJD grid size.
+% 
+   \item After reading and storing the cadence, all MJDs are shifted by {\tt MJD\_SHIFT}.
+\end{itemize}
 
 % ----------------------------------------------------------
 %   \clearpage

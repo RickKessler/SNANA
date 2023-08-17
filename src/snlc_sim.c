@@ -8417,6 +8417,8 @@ void init_simvar(void) {
   SIMLIB_HEADER.NFOUND_FIELD = 0 ;
   SIMLIB_HEADER.NFOUND_GENCUTS = 0 ;
 
+  SIMLIB_IDEAL_GRID.USE = false;
+
   SIMLIB_OBS_GEN.PIXSIZE[0] = -9.0 ; // ?? why is this here
 
   // init strong lens struct.
@@ -14724,7 +14726,9 @@ double gen_peakmjd(void) {
   //              just return current PEAKMJD in case SIMLIB_NREPEAT
   //              key is set.
   //
+  // Aug 17 2023: check SIMLIB_MSKOPT_IDEAL_GRID option
 
+  int USE_IDEAL_GRID  = INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IDEAL_GRID;
   double PKMJD=-9.0 , MJD[2];
   int    NSKIP_RANGE, NSKIP_MJD, i ;
   char   fnam[] = "gen_peakmjd" ;
@@ -14760,10 +14764,52 @@ double gen_peakmjd(void) {
   }
 
   GENLC.ISOURCE_PEAKMJD = ISOURCE_PEAKMJD_RANDOM ;
+
+  if ( USE_IDEAL_GRID ) { 
+    SIMLIB_IDEAL_GRID.PEAKMJD_SURVEY = PKMJD ; // store to re-store later
+    PKMJD = gen_peakmjd_IDEAL_GRID(); 
+  }
+
   return PKMJD ;
 
 }   // end of gen_peakmjd
 
+
+double gen_peakmjd_IDEAL_GRID(void) {
+
+  // Created Aug 2023
+  // for input PEAKMJD_SURVEY, return PEAKMJD_TMP that is inside the ideal grid.
+
+  double PEAKMJD_SURVEY = SIMLIB_IDEAL_GRID.PEAKMJD_SURVEY ;
+  double PEAKMJD_FIX    = SIMLIB_IDEAL_GRID.PEAKMJD_FIX ; // approx PEAKMJD_TMP
+  double MJD_GRIDSIZE   = SIMLIB_IDEAL_GRID.MJD_GRIDSIZE ;
+
+  double PEAKMJD_TMP = 0.0 ;
+  char fnam[] = "gen_peakmjd_IDEAL_GRID";
+
+  // ----------- BEGIN ----------
+
+  // PEAKMJD_FIX is an approximate (fixed) PEAKMJD that ensure TRESTMIN-TRESTMAX
+  // is covered by the SIMLIB cadence. Here we shift it a little so that
+  // PEAKMJD_TMP and PEAKMJD_SURVEY differ by in integer multiple of MJD_GRIDSIZE.
+  // This difference ensures that all shifted MJDs remain on the same grid.
+
+  double diff_ratio = (PEAKMJD_SURVEY - PEAKMJD_FIX + 0.5*MJD_GRIDSIZE)/MJD_GRIDSIZE ;
+  int    nbin       = (int)diff_ratio;
+  PEAKMJD_TMP       = PEAKMJD_SURVEY - MJD_GRIDSIZE*(double)nbin;
+
+  // store MJD shift to apply after reading SIMLIB entry
+  SIMLIB_IDEAL_GRID.MJD_SHIFT     = PEAKMJD_SURVEY - PEAKMJD_TMP;
+  SIMLIB_IDEAL_GRID.PEAKMJD_TMP   = PEAKMJD_TMP;
+
+  /* xxx
+     printf(" xxx %s: PEAKMJD[SURVEY,FIX,TMP] = %.3f, %.3f, %.3f \n", 
+	 fnam, PEAKMJD_SURVEY, PEAKMJD_FIX, PEAKMJD_TMP ); fflush(stdout);
+  xxx */
+
+  return PEAKMJD_TMP ;
+
+}  // end gen_peakmjd_IDEAL_GRID
 
 double gen_peakmjd_smear(void) {
 
@@ -15882,21 +15928,21 @@ void init_RANDOMsource(void) {
 // *************************************************
 void SIMLIB_INIT_DRIVER(void) {
 
-  // Jan 31 2021: 
-  //   for INIT_ONLY flag, return after initGlobalHeader in case
-  //   the global header has rate info such as SOLID_ANGLE.
+  // Read & process global header
+  // For INIT_ONLY flag (to compute rates and quit). return after 
+  // initGlobalHeader in case the global header has rate info such as SOLID_ANGLE.
   
   char fnam[] = "SIMLIB_INIT_DRIVER" ;
 
   // --------------- BEGIN --------------
 
-  // xxx  if ( INPUTS.INIT_ONLY == 1 ) { return; } // July 30 2020
-
-  SIMLIB_initGlobalHeader();        // generic init of SIMLIB_GLOBAL_HEADER
+  SIMLIB_initGlobalHeader();        // generic init of SIMLIB_GLOBAL_HEADER struct
 
   SIMLIB_readGlobalHeader_TEXT();   // open and read global header
 
-  SIMLIB_prepGlobalHeader();   
+  SIMLIB_prepGlobalHeader();  
+
+  SIMLIB_INIT_IDEAL_GRID(); // 512-bit of SIMLIB_MSKOPT
 
   if ( INPUTS.INIT_ONLY == 1 ) { return; } 
 
@@ -16280,6 +16326,102 @@ void SIMLIB_prepGlobalHeader(void) {
 
 } // end SIMLIB_prepGlobalHeader
 
+
+// =======================================
+void SIMLIB_INIT_IDEAL_GRID(void) {
+
+  // Created Aug 2023 by R.Kessler
+  // Initialize SIMLIB with IDEAL_GRID, meaning 
+  //   + fixed MJD spacing
+  //   + fixed GAIN/SKYSIG/PSF/ZP
+  //   + no seasonal gaps
+  //   
+  // If IDEAL_GRID option is set (SIMLIB_MSKOPT | 512), use GENRANGE_TREST 
+  // to auto-compute a fixed PEAKMJD value inside SIMLIB so that IDEAL_GRID 
+  // covers entire Tobs range at highest redshift. Also check that max MJD
+  // in simlib covers GENRANGE_TREST[1] * ( 1+zmax) ... if not, abort.
+  // 
+  // Read entire SIMLIB entry to get MJD range ... then rewind
+  // for nominal usage.
+
+  int USE          = INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IDEAL_GRID;
+  double zMAX      = INPUTS.GENRANGE_REDSHIFT[1];
+  double z1        = 1.0 + zMAX;
+  double TRESTMIN  = INPUTS.GENRANGE_TREST[0];
+  double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
+
+  double MJD, MJD_MIN, MJD_MAX, MJD_GRIDSIZE = -9.0 , MJD_LAST = -9.0 ;
+  char c_get[MXPATHLEN];
+  char fnam[] = "SIMLIB_INIT_IDEAL_GRID" ;
+
+  // ----------- BEGIN ---------
+
+  if ( !USE ) { return ; }
+
+  print_banner(fnam);
+
+  MJD_MIN  =  1.0E9 ;
+  MJD_MAX  = -1.0E9 ;
+
+  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
+
+    if ( strcmp(c_get,"S:") == 0 ) {
+      readdouble(fp_SIMLIB, 1, &MJD );
+      if ( MJD < MJD_MIN )  { MJD_MIN = MJD; }
+      if ( MJD > MJD_MAX )  { MJD_MAX = MJD; }
+
+      if ( MJD_LAST > 0.0 && MJD > MJD_LAST && MJD_GRIDSIZE < 0.0 ) 
+	{ MJD_GRIDSIZE = MJD - MJD_LAST; 	}
+
+      MJD_LAST = MJD;
+
+      // read rest of line to avoid fscanf per word
+      fgets(c_get, MXPATHLEN, fp_SIMLIB) ;
+    }
+
+  } // end while
+
+
+  // - - - - - 
+  double MJD_PAD   = 2.0*MJD_GRIDSIZE;
+  double PEAKMJD_FIX , MJD_MAX_REQUIRE;
+  int    iPEAKMJD_FIX;
+
+  iPEAKMJD_FIX    = (int)(MJD_MIN + MJD_PAD + fabs(TRESTMIN)*z1) ;
+  PEAKMJD_FIX     = (double)iPEAKMJD_FIX;
+  MJD_MAX_REQUIRE = MJD_MIN + 2.0*MJD_PAD + (TRESTMAX-TRESTMIN)*z1;
+
+  printf("\t SIMLIB MJD RANGE: %.1f to %.1f in %.1f-day steps\n",
+	 MJD_MIN, MJD_MAX, MJD_GRIDSIZE );
+  printf("\t PEAKMJD_FIX:     %.0f \n", PEAKMJD_FIX);
+  printf("\t MJD_MAX_REQUIRE: %.0f (for zMAX=%.3f and GENRANGE_TREST= %0.f to %0.f)\n", 
+	 MJD_MAX_REQUIRE, zMAX, TRESTMIN, TRESTMAX);
+  fflush(stdout);
+  
+  if ( MJD_MAX_REQUIRE > MJD_MAX ) {
+    double MJD_ADD = MJD_MAX_REQUIRE - MJD_MAX ;
+    sprintf(c1err,"IDEAL SIMLIB MJD range does not cover GENRANGE_TREST*(1+zmax)");
+    sprintf(c2err,"Need to extend SIMLIB MJD range by %.0f days \n", MJD_ADD);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;     
+  }
+
+  // load info into globals
+  SIMLIB_IDEAL_GRID.MJD_MIN         = MJD_MIN;
+  SIMLIB_IDEAL_GRID.MJD_MAX         = MJD_MAX;
+  SIMLIB_IDEAL_GRID.MJD_GRIDSIZE    = MJD_GRIDSIZE ;
+  SIMLIB_IDEAL_GRID.PEAKMJD_FIX     = PEAKMJD_FIX;
+  SIMLIB_IDEAL_GRID.MJD_MAX_REQUIRE = MJD_MAX_REQUIRE;
+
+  // rewind SIMLIB
+  snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
+	       INPUTS.SIMLIB_GZIPFLAG);
+
+  //  debugexit(fnam);
+
+  return ;
+
+} // end SIMLIB_INIT_IDEAL_GRID
+
 // ===================================
 void  print_SIMLIB_MSKOPT(void) {
   
@@ -16310,6 +16452,9 @@ void  print_SIMLIB_MSKOPT(void) {
 
   print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_ENTIRE_SURVEY,
 		     "keep entire SIMLIB survey (e.g., for data challenge");
+
+  print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_IDEAL_GRID,
+		     "IDEAL GRID; compute PEAKMJD_FIX");
 
   //  print_mask_comment(stdout, MSKOPT, 0, 		     "");
   //  print_mask_comment(stdout, MSKOPT, 0, 		     "");
@@ -16575,7 +16720,6 @@ void SIMLIB_findStart(void) {
   //   + Reading all MXPATHLEN chars is faster than reading only 40 !
   //   + check first char only (=='E') before using strstr to check key match.
   while ( NREAD < NSKIP_LIBID ) {
-    // xxx mark delete fgets(LINE, 40, fp_SIMLIB) ;
     fgets(LINE, MXPATHLEN, fp_SIMLIB) ;
     if ( LINE[0] != 'E' ) { continue; }  //quick reject (Jun 2023)
     if ( strstr(LINE,"END_LIBID:") != NULL ) { NREAD++; }
@@ -16585,7 +16729,6 @@ void SIMLIB_findStart(void) {
   // search for specific LIBID; stop 1 short of IDSEEK to allow
   // advancing 1 more without doing a full wrap-around.
 
-  // xx xmark delete Jul 5 2023: while ( IDSEEK > SIMLIB_HEADER.LIBID ) {   
   while (SIMLIB_HEADER.LIBID < IDSEEK-1 ) {
     SIMLIB_READ_DRIVER();
     if ( SIMLIB_HEADER.NWRAP > 0 ) {
@@ -17784,9 +17927,11 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Dec 08 2020: increase max PSF limit fro 9.9 to 20 (for LSST)
   // Feb 28 2021: check PSF_UNIT for NEA 
   // Jan 14 2022: transfer SUBSURVEY info to GENLC; compute SUBSURVEY_ID
+  // Aug 17 2023: check IDEAL_GRID option
 
   int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // xxx SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
+  int USE_IDEAL_GRID  = INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IDEAL_GRID;
   int ISTORE,  OPTLINE, OBSRAW ;
   double RAD = RADIAN;
   double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], PSF_FWHM, TREST ;
@@ -17834,10 +17979,20 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   }
   NGENLC_TOT_SUBSURVEY[GENLC.SUBSURVEY_ID]++ ; 
 
+
+  // Aug 2023: for IDEAL_GRID, shift all MJDs to match PEAKMJD_SURVEY
+  //           as if SIMLIB MJD range covered larger MJD range
+  if ( USE_IDEAL_GRID ) {
+    double MJD_SHIFT =  SIMLIB_IDEAL_GRID.MJD_SHIFT;
+    GENLC.PEAKMJD += MJD_SHIFT;
+    for(ISTORE=0; ISTORE < NOBS_RAW ; ISTORE++ ) 
+      { SIMLIB_OBS_RAW.MJD[ISTORE] += MJD_SHIFT; } 
+  }
+
   // --------------------------------------------------------------
   // do a few things for a NEW cadence, 
   // but not for a repeated/re-used cadence
-  //   1) prepare duplicate MJDs for sorting
+  //   1) prepare duplicate MJD for sorting
   //   2) sanity checks on values
   //   3) check change of units for PSF and SKYSIG
 
@@ -18918,7 +19073,7 @@ void SIMLIB_prepMJD_forSORT(int ISTORE) {
   // sorting will preserve order.
 
   double MJD, MJD_DIF, MJD_LAST;
-  //  char fnam[] = "SIMLIB_prepMJD_forSORT" ;
+  char fnam[] = "SIMLIB_prepMJD_forSORT" ;
 
   // --------------BEGIN --------------
 

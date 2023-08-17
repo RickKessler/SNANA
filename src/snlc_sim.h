@@ -152,6 +152,7 @@ int WRFLAG_COMPACT   ; // Jan 2018
 #define SIMLIB_MSKOPT_IGNORE_FLUXERR_COR      32 // ignore FLUXERR_COR map
 #define SIMLIB_MSKOPT_ENTIRE_SEASON          128 // keep entire SIMLIB season
 #define SIMLIB_MSKOPT_ENTIRE_SURVEY          256 // keep entire SIMLIB survey
+#define SIMLIB_MSKOPT_IDEAL_GRID             512 // allows shorter simlib; see manual
 
 #define METHOD_TYPE_SPEC 1    // spec id
 #define METHOD_TYPE_PHOT 2    // phot id
@@ -995,7 +996,6 @@ struct GENLC {
 
   double PEAKMJD;
   double MJD_RANGE[2];       // MJD range to accept in SIMLIB
-  double MJD_RANGE_LC[2];    // MJD range of lightcurve withing GENRANGE_TREST
   int    ISOURCE_PEAKMJD;    // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;       // explosion time for NON1A or SIMSED
   double DTSEASON_PEAK;      // |PEAKMJD-MJD_seasonEdge|
@@ -1457,6 +1457,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char   FLUXERR_ADD_FILTERS[MXFILTINDX];
   double FLUXERR_ADD_VALUES[MXFILTINDX]; // values to add in quadrature
 
+
   // LEGACY: error scales vs. filter and LOG10(SNR)
   int    NFLUXERR_COR ;
   char   FLUXERR_COR_FILTERS[MXFLUXERR_COR_SIMLIB][MXFILTINDX];
@@ -1464,6 +1465,26 @@ struct SIMLIB_GLOBAL_HEADER {
   float  FLUXERR_COR_SCALE[MXFLUXERR_COR_SIMLIB][MXFILTINDX];
 
 } SIMLIB_GLOBAL_HEADER ;
+
+
+struct {
+  bool USE;
+
+  // temp PEAKMJD inside IDEAL MJD range
+  double PEAKMJD_FIX ;
+  double PEAKMJD_TMP ; // = MJD_MIN + |Trestmin|*(1+zmax) + pad; 
+
+  double MJD_MIN ;
+  double MJD_MAX ;          // actual MJD_MAX in ideal simlib
+  double MJD_MAX_REQUIRE;   // required MJD_MAX to accomodate GENRANGE_TREST & zmax
+  double MJD_GRIDSIZE;      // step size (days) of IDEAL simlib
+
+  // for each event, store actual PEAKMJD in the survey so that it can be
+  // restored after reading SIMLIB that has restricted MJD range
+  double PEAKMJD_SURVEY ;
+  double MJD_SHIFT ;    // PEAKMJD_SURVEY - PEAKMJD_TMP
+
+} SIMLIB_IDEAL_GRID ;
 
 
 struct SIMLIB_HEADER {
@@ -1755,6 +1776,7 @@ void   SIMLIB_readGlobalHeader_TEXT(void);
 void   SIMLIB_prepGlobalHeader(void);
 void   SIMLIB_prep_fluxerrScale_LEGACY(void);
 void   SIMLIB_findStart(void);
+void   SIMLIB_INIT_IDEAL_GRID(void);
 
 void   SIMLIB_READ_DRIVER(void);
 void   SIMLIB_readNextCadence_TEXT(void);
@@ -1924,6 +1946,7 @@ void   gen_redshift_LCLIB(void);
 
 double gen_peakmjd(void);
 double gen_peakmjd_smear(void);
+double gen_peakmjd_IDEAL_GRID(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 

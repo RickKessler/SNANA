@@ -4784,6 +4784,7 @@ void print_mask_comment(FILE *FP, int OPTIONS_MASK, int MASK, char *COMMENT) {
   char fnam[] = "print_mask_comment";
 
   // ---------- BEGIN ---------
+
   if ( MASK == 0 ) { 
     // print header info
     fprintf(FP,"\n  Bit-mask options for %s = %d \n", COMMENT, OPTIONS_MASK); 

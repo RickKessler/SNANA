@@ -21810,6 +21810,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     new script convert_SIMSED_to_NON1ASED.py
 
+    new sim-input option SIMLIB_MSKOPT += 512; see Sec 4.7.7 of manual
+
         ***** MISCELLANEOUS(v11_05f) ***** 
 
    snlc_sim.c

@@ -36,7 +36,7 @@ def make_simblib_ideal(survey='LSST', filters='ugrizY', zpt=35., zpterr=0.,\
             outf.write('\n')
         outf.write('END_LIBID: 1 \n')
         outf.write('END_OF_SIMLIB: \n')
-    print(f'Wrote {nobs} exposures, check: {idexpt-10000-1}')
+    print(f'Wrote {nobs} exposures for {mjd_step}-day cadence , check: {idexpt-10000-1}')
     return
 
 

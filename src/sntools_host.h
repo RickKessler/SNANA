@@ -277,8 +277,10 @@ struct HOSTLIB_DEF {
   int  *IZPTR;            // pointers to nearest z-bin with .01 bin-size
   int   MINiz, MAXiz ;    // min,max valid iz arg for IZPTR
 
+  /* xxx mark delete Aug 2023
   int NLINE_COMMENT ;
   char COMMENT[MXCOMMENT_HOSTLIB][120] ; // comment lines for README file.
+  xxxx */
 
   // PSF-aperture info
   double Aperture_Radius[NMAGPSF_HOSTLIB+1]; // integ. radius for each PSF
@@ -739,7 +741,6 @@ void   LOAD_OUTVAR_HOSTLIB(int IGAL) ;
 void   append_HOSTLIB_STOREPAR(void);
 bool   QstringMatch(char *varName0, char *varName1);
 
-void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
 int    IVAR_HOSTLIB_PREFIX(char *prefix, int ABORTFLAG);

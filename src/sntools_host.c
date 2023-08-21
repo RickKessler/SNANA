@@ -204,9 +204,6 @@ void INIT_HOSTLIB(void) {
   // init parameters and Gauss2d integrals for galaxy aperture mag
   init_GALMAG_HOSTLIB();
 
-  // prepare comments for README file and/or screen dump
-  readme_HOSTLIB();
-
   TIME_INIT_HOSTLIB[1]  = time(NULL);
   double dT = (TIME_INIT_HOSTLIB[1]-TIME_INIT_HOSTLIB[0]);
   printf("\t HOSTLIB Init time: %.2f seconds \n", dT );
@@ -336,8 +333,6 @@ void initvar_HOSTLIB(void) {
   HOSTLIB.ZGAPAVG       =   0.0 ;
   HOSTLIB.ZMAX          = -99.0 ; 
   HOSTLIB.ZMIN          = +99.0 ; 
-
-  HOSTLIB.NLINE_COMMENT = 0;
 
   SERSIC_PROFILE.NFIX    = 0;
   SERSIC_PROFILE.NPROF   = 0 ; 
@@ -5219,213 +5214,6 @@ void  init_SAMEHOST(void) {
 
 } // end of  init_SAMEGAL_HOSTLIB
 
-// =============================================
-void readme_HOSTLIB(void) {
-
-  // prepare comments for README file.
-
-  bool DO_GALMAG       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_GALMAG);
-  bool DO_SN2GAL_Z     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
-  bool DO_SN2GAL_COORD = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
-  bool DO_SWAPZPHOT    = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
-  bool DO_VPEC         = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
-
-  int    NTMP, ivar, NVAR, NROW, j ;
-  double RAD, fixran, *fixab, SCALE ;
-  char *cptr,  copt[40],  ctmp[20], ZNAME[40] ;
-  char fnam[] = "readme_HOSTLIB" ;
-
-  // -------- BEGIN ---------
-
-  RAD = RADIAN ;
-  NTMP = 0;
-
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr, "Read %d total HOSTLIB entries from", HOSTLIB.NGAL_READ );
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr, "  %s ", HOSTLIB.FILENAME );
-
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(ZNAME,"%s", "GENRANGE_REDSHIFT");
-  sprintf(cptr, "Stored & z-sorted %d entries in %s= %5.3f - %5.3f"
-          , HOSTLIB.NGAL_STORE, ZNAME
-          , INPUTS.GENRANGE_REDSHIFT[0]
-          , INPUTS.GENRANGE_REDSHIFT[1] );
-
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr, "HOSTLIB Z-RANGE = %6.4f - %6.4f" , 
-	  HOSTLIB.ZMIN, HOSTLIB.ZMAX );
-
-  if ( INPUTS.HOSTLIB_GENRANGE_RA[1] < 361.0 ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "HOSTLIB RA-RANGE = %8.4f - %8.4f"
-	    ,INPUTS.HOSTLIB_GENRANGE_RA[0]
-	    ,INPUTS.HOSTLIB_GENRANGE_RA[1] );
-
-    
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "HOSTLIB DEC-RANGE = %8.4f - %8.4f"
-	    ,INPUTS.HOSTLIB_GENRANGE_DEC[0]
-	    ,INPUTS.HOSTLIB_GENRANGE_DEC[1] );
-  }
-
-
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr, "HOSTLIB ZGAPMAX = %6.4f (%6.4f-%6.4f)  <ZGAP>=%10.3le",
-          HOSTLIB.ZGAPMAX, HOSTLIB.Z_ATGAPMAX[0], HOSTLIB.Z_ATGAPMAX[1],
-	  HOSTLIB.ZGAPAVG );
-  
-  // --------------------------------------
-  // check HOSTLIB options and abort on inconsistencies.
-
-  sprintf(copt,"HOSTLIB Opt: ");
-
-  if ( DO_GALMAG ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "%s compute host-noise contribution to SN noise", copt );    
-  }
-
-  if ( DO_SN2GAL_Z ) {
-    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-    sprintf(cptr, "%s change SN redshift to host redshift", copt );    
-  }
-
-  if ( DO_SN2GAL_COORD ) {
-    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-    sprintf(cptr, "%s change SN position to host-SN pos.", copt );    
-
-    if ( HOSTLIB.IVAR_RA < 0 || HOSTLIB.IVAR_DEC < 0 ) {
-      sprintf(c1err ,"%s", "User requested SN pos -> host-SN pos");
-      sprintf(c2err ,"%s", "but RA and/or DEC are missing from HOSTLIB.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-  }
-
-  if ( DO_SWAPZPHOT ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "%s set ZTRUE = ZPHOT ", copt);
-  }
-
-  if ( DO_VPEC ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "%s Use VPEC (RMS=%.0f  min/max=%.0f/%.0f km/sec)", 
-	    copt, HOSTLIB.VPEC_RMS, HOSTLIB.VPEC_MIN, HOSTLIB.VPEC_MAX);
-  }
-
-  // - - - - -
-  SCALE = INPUTS.HOSTLIB_SCALE_SERSIC_SIZE;
-  if ( fabs(SCALE-1.0) > 0.00001 ) {
-    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-    sprintf(cptr, "\t Scale Sersic size by %.3f ", SCALE);
-  }
-  SCALE = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
-  if ( fabs(SCALE-1.0) > 0.00001 ) {
-    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-    sprintf(cptr, "\t Scale LOGMASS_ERR by %.3f ", SCALE);
-  }
-
-  fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
-  if ( fixran > -0.0000001 && fixran < 1.000001 ) {  
-    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-    sprintf(cptr, "\t DEBUG OPT -> "
-	    "Fix random number for reduced radius to %5.3f", fixran);       
-  }
-  
-  fixran = INPUTS.HOSTLIB_FIXRAN_PHI ;
-  if ( fixran > -0.0000001 && fixran < 1.000001 ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "\t DEBUG OPT -> "
-	    "Fix random number for rotation angle to %5.3f", fixran );       
-  }
-
-  fixab = INPUTS.HOSTLIB_FIXSERSIC ;
-  if ( fixab[0] > 0.000001 || fixab[1]>0.0001 || fixab[2]>-998.0 ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "\t DEBUG OPT -> "
-	    "Fix Sersic a,b,n = %.2f,%.2f,%.2f  a_rot=%.1f deg \n", 
-	    fixab[0], fixab[1], fixab[2], fixab[3] );
-  }
-
-  // check for analytica ZPHOT model
-  if ( INPUTS.USE_HOSTLIB_GENZPHOT ) {
-      cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-      sprintf(cptr, "\t Use analytic ZPHOT[ERR] model " );      
-  }
-
-  // ---------------------
-  // now store WGTMAP info
-
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr,"Weight MAP variables: " ); 
-  NVAR = HOSTLIB_WGTMAP.GRIDMAP.NDIM ; 
-  NROW = HOSTLIB_WGTMAP.GRIDMAP.NROW ; 
-  if ( NVAR == 0 ) 
-    { strcat(cptr,"none"); }
-  else {
-    for(ivar=0; ivar < NVAR; ivar++ ) {
-      strcat(cptr,HOSTLIB_WGTMAP.VARNAME[ivar] );
-    }
-  }
-
-  if ( NVAR > 0 ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr,"Weight MAP size : %d ", NROW );
-  }
-
-
-  // summarize Sersic profiles
-  for ( j=0; j < SERSIC_PROFILE.NPROF; j++ ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr,"GALSHAPE profile : %s %s"
-	    ,SERSIC_PROFILE.VARNAME_a[j]
-	    ,SERSIC_PROFILE.VARNAME_b[j] );
-  }
-
-  cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr,"GALPOS generated with %5.4f -- %5.4f of total flux.",
-	  INPUTS.HOSTLIB_MNINTFLUX_SNPOS, INPUTS.HOSTLIB_MXINTFLUX_SNPOS);
-
-
-  // print out list of aperture radii
-  if ( DO_GALMAG ) {
-    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-    sprintf(cptr, "GALMAG %s interp-grid for PSFSIG(asec) = ",
-	    HOSTLIB.filterList );
-    for ( j=1; j <= NMAGPSF_HOSTLIB; j++ ) { 
-      sprintf(ctmp, "%4.3f ", HOSTLIB.Aperture_PSFSIG[j] );
-      strcat(cptr,ctmp);
-      //  sprintf(cptr, "%s%4.3f ", cptr, HOSTLIB.Aperture_PSFSIG[j] );
-    }
-
-
-    cptr = HOSTLIB.COMMENT[NTMP] ; NTMP++ ; 
-    sprintf(cptr,"%s", "GALMAG aperture integration bins: " );
-
-    cptr = HOSTLIB.COMMENT[NTMP] ; NTMP++ ; 
-    sprintf(cptr,"\t %3d x %6.3f arcsec radial bins.", 
-	    NRBIN_GALMAG, HOSTLIB.Aperture_Rbin );
-
-    cptr = HOSTLIB.COMMENT[NTMP] ; NTMP++ ; 
-    sprintf(cptr,"\t %3d x %6.3f degree azimuthal bins.", 
-	    NTHBIN_GALMAG, HOSTLIB.Aperture_THbin/RAD );
-
-  } // end of LGALMAG if-block
-
-
-  // store total number of comment/readme lines
-  if ( NTMP >= MXCOMMENT_HOSTLIB ) {
-    sprintf(c1err,"Number of HOSTLIB-comment lines=%d", NTMP);
-    sprintf(c2err,"exceeds bound of MXCOMMENT_HOSTLIB = %d", 
-	    MXCOMMENT_HOSTLIB);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  HOSTLIB.NLINE_COMMENT = NTMP;
-
-  return ;
-
-} // end of readme_HOSTLIB
-
 
 // ========================================
 double get_ZTRUE_HOSTLIB(int igal) {
@@ -7250,6 +7038,9 @@ void GEN_SNHOST_POS(int IGAL) {
   // Jan 17 2022
   //   if RanInteg=0, set reduced_R=0 explicitly (e.g., AGN)
   //
+  // Aug 21 2023:
+  //   for LSN2GAL_RADEC, also set GENLC.RA[DEC]_OBS_AVG
+  //
 
   // strip off user options passed via sim-input file
   int LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
@@ -7483,8 +7274,8 @@ void GEN_SNHOST_POS(int IGAL) {
   // Likely use is for input to Image sim where the
   // SN coords must correspond to the galaxy location.
   if ( LSN2GAL ) {
-    GENLC.RA   = SNHOSTGAL.RA_SN_DEG ;
-    GENLC.DEC  = SNHOSTGAL.DEC_SN_DEG ;
+    GENLC.RA   = GENLC.RA_OBS_AVG =  SNHOSTGAL.RA_SN_DEG ;
+    GENLC.DEC  = GENLC.DEC_OBS_AVG = SNHOSTGAL.DEC_SN_DEG ;
 
     // compute MWEBV with SN coords (was skipped in snlc_sim)
     // Note that return MWEBV is not used here.

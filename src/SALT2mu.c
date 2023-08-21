@@ -21265,12 +21265,75 @@ void write_fitres_misc(FILE *fout) {
 // ================================
 void write_cat_info(FILE *fout) {
 
+  // Write header info at top of file. If there is a DOCANA block
+  // copy it and write new info in same YAML format.
+
   int NFILE = INPUTS.nfile_data; 
-  int ifile;
+  int ifile, GZIPFLAG, FOUND_DOCANA = 0, FOUND_DOCANA_END=0 ;
+  FILE *finp ;
+  char line[MXPATHLEN], nline_read=0,  KEY[100];
   char fnam[] = "write_cat_info" ;
 
-  // write cat info to fout file header.
+  // --------- BEGIN --------
 
+  // check for DOCUMENTATION block (Aug 21 2023)
+  finp  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); 
+  while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
+
+    if ( strlen(line) > 0 ) {
+      store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);
+      nline_read++ ;
+      // skip if first wd of line is not a valid row key
+      get_PARSE_WORD(0, 0, KEY);
+
+      if ( strcmp(KEY,KEYNAME_DOCANA_REQUIRED)==0 )  { FOUND_DOCANA = 1; }
+
+      if ( strcmp(KEY,KEYNAME2_DOCANA_REQUIRED)==0 ) { FOUND_DOCANA_END = 1; }
+    }
+
+    // print DOCANA line
+    if ( FOUND_DOCANA   && !FOUND_DOCANA_END ) { fprintf(fout,"%s", line); }
+
+    // just before end of DOCANA, embed cat-file notes into DOCANA block 
+    if ( FOUND_DOCANA_END ) { 
+
+      char pad[4] = "    "; // need to compute pad spacing from PURPOSE indentation
+      fprintf(fout,"\n");
+      fprintf(fout,"%sCAT_FILE_NOTES:\n", pad);
+      fprintf(fout,"%s%sSNANA_VERSION: %s\n", pad, pad, SNANA_VERSION_CURRENT);
+
+      if ( INPUTS.cat_prescale <= 1 ) {
+	fprintf(fout,"%s%sCOLUMN_APPEND:  %s \n", pad, pad, 
+		INPUTS.append_varname_missing);
+	fprintf(fout,"%s%sCOLUMN_DROP:    %s \n", pad, pad, 
+		OUTPUT_VARNAMES.DROPLIST );
+      }
+      else {
+	fprintf(fout,"%s%sPRESCALE: %d\n",  pad, pad, INPUTS.cat_prescale);
+      }
+
+      fprintf(fout,"%s%sINPUT_CAT_FILES: \n", pad, pad);
+      for(ifile=0; ifile < NFILE; ifile++ ) {
+	fprintf(fout,"%s%s - %s \n", pad, pad, INPUTS.dataFile[ifile] );
+      }
+
+      fprintf(fout,"%s\n\n", line); 
+      break;
+    }
+
+    if (nline_read > 0 && !FOUND_DOCANA ) { break; }
+    
+  } // end while
+
+  printf(" xxx %s: nline_read = %d \n", fnam, nline_read); fflush(stdout);
+
+  fclose(finp);
+
+  if ( FOUND_DOCANA ) { return; }
+
+  // - - - - -
+  // if we get here there is no DOCANA, so just write comment notes 
+  // at top of file.
   if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 )  { 
     fprintf(fout,"# %s %s \n", 
 	    KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY);
@@ -21283,12 +21346,13 @@ void write_cat_info(FILE *fout) {
     fprintf(fout,"#   + %s \n", INPUTS.dataFile[ifile] );
   }
   
-  fprintf(fout,"# Appended columns: %s \n", 
-	  INPUTS.append_varname_missing);
-  fprintf(fout,"# Dropped columns: %s \n", 
-	  OUTPUT_VARNAMES.DROPLIST );
-
-  if (INPUTS.cat_prescale > 1) {
+  if ( INPUTS.cat_prescale <= 1 ) {
+    fprintf(fout,"# Appended columns: %s \n", 
+	    INPUTS.append_varname_missing);
+    fprintf(fout,"# Dropped columns: %s \n", 
+	    OUTPUT_VARNAMES.DROPLIST );
+  }
+  else {
     fprintf(fout,"# PRESCALE = %d\n",
 	    INPUTS.cat_prescale);
   }

@@ -2506,6 +2506,7 @@ class BBC(Program):
                                                   NEVT_CCPRIOR_bySAMPLE) :
                     key = f"{sample}:"
                     f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
+                    f.flush()
 
             # - - - - -
             nrej = NEVT_REJECT_BIASCOR
@@ -2513,17 +2514,10 @@ class BBC(Program):
                 comment = f"{nrej} evts have no biasCor at ITER2; check ITER1"
             else:
                 comment = f"{nrej} evts have no biasCor "
-            f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
 
-# - - - - - - - fix YAML output before doing frac-by-sample - - - - - 
-#            f.write(f"    REJECT_FRAC_BIASCOR_bySAMPLE:\n"
-# XYZ            for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
-#                                                  NEVT_DATA_bySAMPLE,
-#                                                  NEVT_BIASCOR_bySAMPLE,
-#                                                  NEVT_CCPRIOR_bySAMPLE) :
-#                    key = f"{sample}:"
-#                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
-# - - - - - - - - - - - 
+            f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
+            f.flush()
+
 
             # - - - - 
             for result in BBCFIT_RESULTS:
@@ -2534,8 +2528,6 @@ class BBC(Program):
                     KEY = f"{key}:"
                     f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8} \n")
 
-            #f.write(f" \n")
-            #f.write(f" \n")
         f.close()
 
         #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")

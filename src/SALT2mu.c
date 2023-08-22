@@ -20161,6 +20161,7 @@ void write_yaml_info(char *fileName) {
   // Sep 18 2021: write stats_bySAMPLE
   // Oct 06 2021: write ISDATA_REAL
   // Sep 21 2022: write NWARN_CRAZYERR
+  // Aug 22 2023: replace -12.12s format with -20s to avoid truncation from long varnames
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -20259,10 +20260,10 @@ void write_yaml_info(char *fileName) {
   fprintf(fp,"BBCFIT_RESULTS:\n") ;
 
   int SIG_NSNFIT = (int)(sqrt(FITRESULT.NSNFIT)+0.5);
-  fprintf(fp,"  - NSNFIT:       %5d     %d\n",   
+  fprintf(fp,"  - NSNFIT:            %5d     %d\n",   
 	  FITRESULT.NSNFIT, SIG_NSNFIT ) ;
 
-  fprintf(fp,"  - SIGINT:       %.5f    0.0\n", 
+  fprintf(fp,"  - SIGINT:            %.5f    0.0\n", 
 	  FITINP.COVINT_PARAM_FIX ) ;
 
   //fprintf(fp,"\n") ;
@@ -20281,7 +20282,7 @@ void write_yaml_info(char *fileName) {
     sprintf(tmpName, "%s", FITRESULT.PARNAME[n]);
     trim_blank_spaces(tmpName);       strcat(tmpName,":") ;
     
-    fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
+    fprintf(fp,"  - %-20s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
     fflush(fp);
   }
 
@@ -20289,7 +20290,7 @@ void write_yaml_info(char *fileName) {
   if ( INFO_CCPRIOR.USE ) {
     VAL = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A;
     ERR = 0.0 ;
-    fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", "CONTAM_DATA:", VAL, ERR ) ;
+    fprintf(fp,"  - %-20s  %.5f  %.5f \n", "CONTAM_DATA:", VAL, ERR ) ;
     // xxx fprintf(fp,"  - CONTAM_DATA:  %.4f  0.000 \n", contam_data);
   }
 

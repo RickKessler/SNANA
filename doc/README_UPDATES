@@ -21853,7 +21853,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SNANA_code_tests.py:
      + write HOSTNAME in the RUNJOB_CPU[nnn].LOG files
 
-   SALT2mu.c: more refactor for BAYESN.
+   SALT2mu.c: 
+     + more refactor for BAYESN.
+     + fix bug writing to output YAML file
 
    submit_batch_jobs.py:
     + for sim, new CONFIG input CIDOFF_GLOBAL to enable unique CIDs

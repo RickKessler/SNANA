@@ -237,8 +237,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 	     getenv("SNDATA_ROOT"), IMODEL_SALT, version );
   }
 
-  RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
-
 
   // set defaults for two surfaces (nominal SALT2)
   SEDMODEL.NSURFACE   = 2 ;
@@ -281,12 +279,16 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 	    MODEL_EXTRAP_LATETIME); 
   }
 
+
+  // xxx  RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
+  RELAX_IDIOT_CHECK_SALT2 = (INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN > 12000.0);
+
   // ============================
   // set extreme ranges to read anything
   Trange[0] = -20. ;
   Trange[1] = 200. ;
-  Lrange[0] = LAMMIN_SEDMODEL ;
-  Lrange[1] = LAMMAX_SEDMODEL ;
+  Lrange[0] = (double)LAMMIN_SEDMODEL ;
+  Lrange[1] = (double)LAMMAX_SEDMODEL ;
 
   SEDMODEL_MWEBV_LAST     = -999.   ;
   SEDMODEL_HOSTXT_LAST.AV = -999.   ;
@@ -633,8 +635,14 @@ void fill_SALT2_TABLE_SED(int ISED) {
     for ( ILAM_ORIG=1; ILAM_ORIG < NLAM_ORIG; ILAM_ORIG++ ) {
 
       EDGE = 0;
+
+      /* xxx mark delete Aug 21 2023
       if ( IDAY_ORIG == 0 || IDAY_ORIG == NDAY_ORIG-1 ) { EDGE = 1 ; }
       if ( ILAM_ORIG == 0 || ILAM_ORIG == NLAM_ORIG-1 ) { EDGE = 1 ; }
+      xxxxx end mark */
+
+      if ( IDAY_ORIG <=1 || IDAY_ORIG >= NDAY_ORIG-2 ) { EDGE = 1 ; }
+      if ( ILAM_ORIG <=1 || ILAM_ORIG >= NLAM_ORIG-2 ) { EDGE = 1 ; }
 
       // make looser check at edge-boundary where the interpolation
       // may be a little off.

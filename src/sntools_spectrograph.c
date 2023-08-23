@@ -46,6 +46,7 @@
 
 #include "fitsio.h"
 #include "sntools.h"
+#include "genmag_SEDtools.h"
 #include "sntools_spectrograph.h"
 #include "sntools_dataformat_fits.h"
 

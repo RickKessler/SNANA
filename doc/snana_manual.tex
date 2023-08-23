@@ -5786,7 +5786,8 @@ To output the true observer-frame model SED at each observation
 to the data files ({\tt TEXT} for {\tt FITS} format),
 set the following sim-input key
  \begin{verbatim}
-   LAMBIN_SED_TRUE:  10  # wavelength bin size (A) for true SED output
+   LAMBIN_SED_TRUE:    10                 # wavelength bin size (A) for true SED output
+   LAMRANGE_SED_TRUE:  <lammin> <lammax>  # optional; defaults explained below
 \end{verbatim}
 %
 This option is unique because
@@ -5799,6 +5800,11 @@ that occurs at least 1~hr later than the previous observation.
 BEWARE: to avoid excessively large output data files,
 define reasonable {\tt GENRANGE\_TREST}, {\tt NGENTOT\_LC},
 and {\tt LAMBIN\_SED\_TRUE}.
+
+The default true-SED wavelength range is as follows. Min-wave is minimum
+of blue edge for bluest filter or model-SED. 
+Max-wave is maximum of red edge for reddest filter or model-SED.
+The default range can be overwritten by sim-input key {\tt LAMRANGE\_SED\_TRUE}.
 
 %   SPECTROGRAPH_OPTMASK:  128 
 % ------------------------------------

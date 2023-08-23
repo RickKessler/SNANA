@@ -9197,9 +9197,18 @@ void  init_genSpec(void) {
     // ideal spectrograph here that covers wavelength range of all bands.
     // This enables writing true SEDMODEL without the headache of
     // creating a spectrograph table.
-    double lammin, lammax;
+    double lammin, lammax, lmin_flt, lmax_flt, lmin_sed, lmax_sed; 
     double lambin = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
-    get_LAMRANGE_ALLFILTER(&lammin, &lammax); // min/max lambda among all bands
+    get_LAMRANGE_ALLFILTER(&lmin_flt, &lmax_flt); // min/max lambda among all bands
+    get_LAMRANGE_SEDMODEL( 2, &lmin_sed, &lmax_sed );
+
+    lammin = fminf(lmin_flt, lmin_sed);
+    lammax = fmaxf(lmax_flt, lmax_sed);
+
+    //    printf(" xxx %s: lammin/max(SEDMODEL) = %.0f to %.0f \n",
+    //	   fnam, lammin, lammax); fflush(stdout);
+
+
     // xxx mark lammin -= 50.0 ; lammax += 50.0 ; // allow slop for filter edges
 
     create_ideal_spectrograph(lammin, lammax, lambin );

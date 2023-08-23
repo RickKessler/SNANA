@@ -5804,7 +5804,11 @@ and {\tt LAMBIN\_SED\_TRUE}.
 The default true-SED wavelength range is as follows. Min-wave is minimum
 of blue edge for bluest filter or model-SED. 
 Max-wave is maximum of red edge for reddest filter or model-SED.
-The default range can be overwritten by sim-input key {\tt LAMRANGE\_SED\_TRUE}.
+The default range can be overwritten by sim-input key {\tt LAMRANGE\_SED\_TRUE},
+and this range can only extend the wavelength range beyond that defined
+by the bluest \& reddest filter edge; if {\tt LAMRANGE\_SED\_TRUE}
+defines a more strict wavelength range, the sim will abort.
+
 
 %   SPECTROGRAPH_OPTMASK:  128 
 % ------------------------------------

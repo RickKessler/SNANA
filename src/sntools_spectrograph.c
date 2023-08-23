@@ -1631,13 +1631,28 @@ void create_ideal_spectrograph(double lammin_user, double lammax_user,
 
 
   double lammin, lammax, lmin_flt, lmax_flt, lmin_sed, lmax_sed;  
+  get_LAMRANGE_ALLFILTER(&lmin_flt, &lmax_flt); // min/max lambda among all bands  
+  get_LAMRANGE_SEDMODEL( 2, &lmin_sed, &lmax_sed ); // min/max for SED model
+
   if ( lammin_user > 0.01 && lammax_user > 0.01 ) {
     lammin = lammin_user;
     lammax = lammax_user;
+
+    // user lamrange can extend range beyond filters, but cannot reduce it.
+    if ( lammin > lmin_flt ) {
+      sprintf(c1err,"Invalid LAMRANGE_SED_TRUE[0] = %.0f > bluest filter lam=%.0f",
+	      lammin, lmin_flt);
+      sprintf(c2err,"Sim-inpu LAMRANGE_SED_TRUE can extend wave range, not reduce it");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
+    }
+    if ( lammax < lmax_flt ) {
+      sprintf(c1err,"Invalid LAMRANGE_SED_TRUE[1] = %.0f < reddest filter lam=%.0f",
+	      lammax, lmax_flt);
+      sprintf(c2err,"User LAMRANGE_SED_TRUE can extend wave range, not reduce it");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
+    }
   }
   else {
-    get_LAMRANGE_ALLFILTER(&lmin_flt, &lmax_flt); // min/max lambda among all bands  
-    get_LAMRANGE_SEDMODEL( 2, &lmin_sed, &lmax_sed ); // min/max for SED model
     lammin = fminf(lmin_flt, lmin_sed);           
     lammax = fmaxf(lmax_flt, lmax_sed);  
   }

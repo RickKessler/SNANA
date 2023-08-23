@@ -1586,21 +1586,29 @@ int IMJD_GENSPEC(double MJD) {
 } // end IMJD_GENSPEC
 
 // ===========================================
-void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
+void create_ideal_spectrograph(double lammin_user, double lammax_user, 
+			       double lambin_user ) {
 
   // Created May 2023  
-  // Create IDEAL spectrograph with 10 A bins and SNR per bin = 1E4.
-  // This enables writing true SEDMODEL without the headache of
-  // creating a spectrograph table.
+  // Create IDEAL spectrograph with "lambin_user" wide bins and SNR = 1E4 per bin.
+  // This function enables writing true SEDMODEL without the headache of creating 
+  // a seperate spectrograph table.
   // This feature is invoked with sim-input key
-  //   SPECTROGRAPH_OPTMASK:  128
+  //   LAMBIN_SED_TRUE:  <binSize(A)>
   //
   // Inputs:
-  //   lammin, lamax : wavelength range (A) to cover with ideal spectrograph
-  //   lambin        : wavelenth bin size (A)
+  //   lammin_user, lamax_user :
+  //        user-defined wavelength range (A) to cover with ideal spectrograph
+  //        (see sim-input key LAMRANGE_SED_TRUE)
+  //        If values are zero (i.e, not specified in sim-input), override with
+  //             min(lammin_sedmodel,lammin_filter)
+  //             max(lammax_sedmodel,lammax_filter)
+  //
+  //   lambin_user : wavelenth bin size (A).
+  //                 This value must be > 0 or code aborts (no default value) 
+  //
 
-
-  double LAMBIN_IDEAL    = lambin ;
+  double LAMBIN_IDEAL    = lambin_user ;
 
 #define  NBIN_TEXPOSE_IDEAL  2
   double TEXPOSE_LIST[NBIN_TEXPOSE_IDEAL] = { 10.0, 100.0 } ; // seconds
@@ -1620,6 +1628,20 @@ void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
     sprintf(c2err,"Check sim-input LAMBIN_SED_TRUE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
   }
+
+
+  double lammin, lammax, lmin_flt, lmax_flt, lmin_sed, lmax_sed;  
+  if ( lammin_user > 0.01 && lammax_user > 0.01 ) {
+    lammin = lammin_user;
+    lammax = lammax_user;
+  }
+  else {
+    get_LAMRANGE_ALLFILTER(&lmin_flt, &lmax_flt); // min/max lambda among all bands  
+    get_LAMRANGE_SEDMODEL( 2, &lmin_sed, &lmax_sed ); // min/max for SED model
+    lammin = fminf(lmin_flt, lmin_sed);           
+    lammax = fmaxf(lmax_flt, lmax_sed);  
+  }
+  
 
   init_INPUTS_SPECTRO();
 

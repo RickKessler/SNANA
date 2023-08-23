@@ -334,6 +334,7 @@ typedef struct {
 
   // option to enable true SED option, and to define lambda bin size (A)
   double LAMBIN_SED_TRUE;
+  double LAMRANGE_SED_TRUE[2]; // specify wavelength range of SED_TRUE 
 
 } SPECTROGRAPH_OPTIONS_DEF;
 

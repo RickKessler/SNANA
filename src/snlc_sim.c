@@ -1361,7 +1361,9 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE   =  1. ;  // scale Texpose
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
   INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE = -9.0 ; // true SED option
-  
+  INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[0] = 0.0 ;
+  INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[1] = 0.0 ;
+
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
   INPUTS.TAKE_SPECTRUM_DUMPCID    = -9 ;
   INPUTS.TAKE_SPECTRUM_HOSTFRAC   =  0.0 ;
@@ -2405,13 +2407,22 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "EFFERR_STOPGEN",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.EFFERR_STOPGEN );
   }
-  // - - -  specrtrograph - - - -
+  // - - -  spectrograph - - - -
   else if ( ISKEY_SPEC ) {
     N += parse_input_SPECTRUM(WORDS,keySource);
   }
+
   else if ( keyMatchSim(1, "LAMBIN_SED_TRUE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE );
     INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK += SPECTROGRAPH_OPTMASK_SEDMODEL;
+    README_KEYPLUSARGS_load(MXSPECTRA, 1, WORDS, keySource,
+			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
+  }
+  else if ( keyMatchSim(1, "LAMRANGE_SED_TRUE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[1] );
+    README_KEYPLUSARGS_load(MXSPECTRA, 2, WORDS, keySource,
+			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
   }
 
 #ifdef MODELGRID_GEN
@@ -9197,23 +9208,13 @@ void  init_genSpec(void) {
     // ideal spectrograph here that covers wavelength range of all bands.
     // This enables writing true SEDMODEL without the headache of
     // creating a spectrograph table.
-    double lammin, lammax, lmin_flt, lmax_flt, lmin_sed, lmax_sed; 
-    double lambin = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
-    get_LAMRANGE_ALLFILTER(&lmin_flt, &lmax_flt); // min/max lambda among all bands
-    get_LAMRANGE_SEDMODEL( 2, &lmin_sed, &lmax_sed );
-
-    lammin = fminf(lmin_flt, lmin_sed);
-    lammax = fmaxf(lmax_flt, lmax_sed);
-
-    //    printf(" xxx %s: lammin/max(SEDMODEL) = %.0f to %.0f \n",
-    //	   fnam, lammin, lammax); fflush(stdout);
-
-
-    // xxx mark lammin -= 50.0 ; lammax += 50.0 ; // allow slop for filter edges
-
+    double lambin   = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE ;
+    double lammin   = INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[0] ;
+    double lammax   = INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[1] ;
     create_ideal_spectrograph(lammin, lammax, lambin );
     SPECTROGRAPH_USEFLAG = 1;
   }
+
 
   if ( INPUTS.README_DUMPFLAG    ) { return; }
   if ( SPECTROGRAPH_USEFLAG == 0 ) { return ; }

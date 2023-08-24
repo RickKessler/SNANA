@@ -46,7 +46,7 @@
 
 #include "fitsio.h"
 #include "sntools.h"
-#include "genmag_SEDtools.h"
+//#include "genmag_SEDtools.h"
 #include "sntools_spectrograph.h"
 #include "sntools_dataformat_fits.h"
 
@@ -1587,8 +1587,7 @@ int IMJD_GENSPEC(double MJD) {
 } // end IMJD_GENSPEC
 
 // ===========================================
-void create_ideal_spectrograph(double lammin_user, double lammax_user, 
-			       double lambin_user ) {
+void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
 
   // Created May 2023  
   // Create IDEAL spectrograph with "lambin_user" wide bins and SNR = 1E4 per bin.
@@ -1598,18 +1597,14 @@ void create_ideal_spectrograph(double lammin_user, double lammax_user,
   //   LAMBIN_SED_TRUE:  <binSize(A)>
   //
   // Inputs:
-  //   lammin_user, lamax_user :
-  //        user-defined wavelength range (A) to cover with ideal spectrograph
-  //        (see sim-input key LAMRANGE_SED_TRUE)
-  //        If values are zero (i.e, not specified in sim-input), override with
-  //             min(lammin_sedmodel,lammin_filter)
-  //             max(lammax_sedmodel,lammax_filter)
+  //   lammin, lammax
+  //      wavelength range for SED_TRUER
   //
-  //   lambin_user : wavelenth bin size (A).
-  //                 This value must be > 0 or code aborts (no default value) 
+  //   lambin : wavelenth bin size (A).
+  //            This value must be > 0 or code aborts (no default value) 
   //
 
-  double LAMBIN_IDEAL    = lambin_user ;
+  double LAMBIN_IDEAL    = lambin ;
 
 #define  NBIN_TEXPOSE_IDEAL  2
   double TEXPOSE_LIST[NBIN_TEXPOSE_IDEAL] = { 10.0, 100.0 } ; // seconds
@@ -1628,34 +1623,6 @@ void create_ideal_spectrograph(double lammin_user, double lammax_user,
     sprintf(c1err,"Invalid LAMBIN_IDEAL = %f ;", LAMBIN_IDEAL);
     sprintf(c2err,"Check sim-input LAMBIN_SED_TRUE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
-  }
-
-
-  double lammin, lammax, lmin_flt, lmax_flt, lmin_sed, lmax_sed;  
-  get_LAMRANGE_ALLFILTER(&lmin_flt, &lmax_flt); // min/max lambda among all bands  
-  get_LAMRANGE_SEDMODEL( 2, &lmin_sed, &lmax_sed ); // min/max for SED model
-
-  if ( lammin_user > 0.01 && lammax_user > 0.01 ) {
-    lammin = lammin_user;
-    lammax = lammax_user;
-
-    // user lamrange can extend range beyond filters, but cannot reduce it.
-    if ( lammin > lmin_flt ) {
-      sprintf(c1err,"Invalid LAMRANGE_SED_TRUE[0] = %.0f > bluest filter lam=%.0f",
-	      lammin, lmin_flt);
-      sprintf(c2err,"Sim-inpu LAMRANGE_SED_TRUE can extend wave range, not reduce it");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
-    }
-    if ( lammax < lmax_flt ) {
-      sprintf(c1err,"Invalid LAMRANGE_SED_TRUE[1] = %.0f < reddest filter lam=%.0f",
-	      lammax, lmax_flt);
-      sprintf(c2err,"User LAMRANGE_SED_TRUE can extend wave range, not reduce it");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
-    }
-  }
-  else {
-    lammin = fminf(lmin_flt, lmin_sed);           
-    lammax = fmaxf(lmax_flt, lmax_sed);  
   }
   
 

@@ -9208,10 +9208,16 @@ void  init_genSpec(void) {
     // ideal spectrograph here that covers wavelength range of all bands.
     // This enables writing true SEDMODEL without the headache of
     // creating a spectrograph table.
-    double lambin   = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE ;
-    double lammin   = INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[0] ;
-    double lammax   = INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[1] ;
+    double lambin         = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE ;
+    double *lamrange_user = INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE;
+    double lammin, lammax;
+
+    // return lammin and lammax for SED_TRYE
+    get_LAMRANGE_SED_TRUE(lamrange_user, &lammin, &lammax); // return lammin & lammax
+
+    // create internal/artificial spectrograph with SNR>>>>1 to produce true SED
     create_ideal_spectrograph(lammin, lammax, lambin );
+
     SPECTROGRAPH_USEFLAG = 1;
   }
 

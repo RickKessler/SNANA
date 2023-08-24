@@ -337,6 +337,9 @@ void get_DAYRANGE_SEDMODEL(int ISED, double *DAYMIN, double *DAYMAX);
 void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS);
 
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
+
+void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax);
+
 void checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) ;
 void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC);
 

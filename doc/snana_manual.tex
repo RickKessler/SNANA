@@ -11396,10 +11396,10 @@ characterizing the object.
 \SIMSED\ models can be derived from specialized explosion-model 
 codes (e.g., FLASH, Sedona, Pheonix),
 or determined from high-resolution spectroscopic data.
-Currently the {\SIMSED} model is implemented only in the \snana\
-simulation. These simulated models can be fit with \snana\
-fitting codes ({\tt snlc\_fit.exe, psnid.exe}), but \snana\
-does not include programs to explicitly fit with the \SIMSED\ model.
+The {\SIMSED} model is implemented in the \snana\
+simulation, but is not included in a fitting code. 
+However, simulated data using \SIMSED\ can be fit with \snana\
+fitting codes ({\tt snlc\_fit.exe, psnid.exe}) the same way as for real data.
 A few examples in the pulic \sndataroot\ are here,
 %
 \begin{verbatim}
@@ -11620,6 +11620,25 @@ be switched off with
 Finally, host-galaxy extinction parameters (for AV,RV) 
 are optional from \S\ref{subsec:host_extinct}.
 
+\subsubsection{How to generate Spectra and True SED with {\SIMSED} }
+\label{sss:SIMSED_Spectra}
+
+The \SIMSED\ model class pre-computes flux-integrals for each passband, phase and redshift,
+and does not hold the SEDs in memory. The advantage is that all of the model fluxes can be
+stored in memory, enabling more flexible selection algorithms among the SED templates.
+The disadvantage is that spectra and true SEDs cannot be generated.
+
+For generating spectra or true SEDs for a {\tt SIMSED} class, a simple work-around is
+to transform a {\tt SIMSED} model into a \NONIA\ model (\ref{subsec:NON1A})
+using utility
+\begin{verbatim}
+    convert_SIMSED_to_NON1ASED.py -h
+\end{verbatim}
+which uses the same SEDs to define model class for both {\tt SIMSED} and {\NONIA},
+the latter of which can be used to generate spectra and true SEDs.
+Beware that the {\NONIA} model does not read the physical parameters and thus
+selection criteria is more limited compared to the original {\tt SIMSED} model.
+
 % ------------------------
 \clearpage
 \subsection{\NONIA}
@@ -11630,13 +11649,13 @@ While the Type Ia light curve models are based on
 a parametric equation or photometric templates, 
 the ``{\NONIA}'' models are based on smoothed 
 light curves and spectral templates.  
-A spectral template corresponds to a particular (well-observed)
+A spectral template time-series corresponds to a particular (well-observed)
 SN where a composite spectrum is warped to match
 the observed photometry.
 In addition to non-Ia SNe, this feature can be used to
-simulate peculiar Ia, theoretical models, AGN, or any
-transient object.
+simulate peculiar Ia, theoretical models, or any transient object.
 
+% .xyz
 
 The observer-frame ``{\NONIA}'' model assumes that each
 rest-frame SED has been warped to match the photometry of the
@@ -11650,26 +11669,29 @@ $\bar\lamobs/(1+z)$, where $\bar\lamobs$ is the central wavelength
 of each filter;
 this approximation is numerically accurate to about 0.01 mag.
 The distribution of $R_V$ and $A_V$ is controlled by the
-same parameters as for {\mlcs} in \S\ref{subsec:mlcs}.
+parameters described in \S\ref{subsec:host_extinct} and \S\ref{subsec:mlcs}.
 
 
 
-A list of available {\NONIA} templates is given in \\
-\indent\indent {\tt \$SNDATA\_ROOT/snsed/NON1A/NON1A.LIST}~. \\
+Publicly available {\NONIA} templates are given in 
+{\tt \$SNDATA\_ROOT/models/NON1ASED}~.
+Each {\tt NON1ASED.XYZ} directory contains a {\tt NON1A.LIST} file,
+and a sample {\tt SIMGEN\_INCLUDE\_NON1A.INPUT} file that lists
+properties for each {\tt NON1ASED} as described below. 
+You can include this file as-is using the
+{\tt INPUT\_FILE\_INCLUDE} key, or copy it locally and make modifications.
 
 \medskip
 As explained below, the user selects {\NONIA} templates 
-using the integer indices in the {NON1A.LIST} file.
+using the integer indices in the {\tt NON1A.LIST} file.
 As more {\NONIA} templates become available, 
-the {\tt NON1A.LIST} file will be updated by the relevant experts.
+the {\tt NON1A.LIST} files should be updated by the relevant experts.
 The \NONIA\ model is specified with the following sim-input keys,
 %
 \begin{Verbatim}[frame=single]
-  NGENTOT_LC: 1000
+  GENMODEL: $SNDATA_ROOT/models/NON1ASED/NON1ASED.V19_CC+HostXT
 
-  GENMODEL:   NON1ASED     # or NON1A or NONIA or NONIASED
-  PATH_NON1ASED:   <path>  # optional: default is $SNDATA_ROOT/snsed/NON1A
-     or
+  #  or more generally for any path
   GENMODEL: $PATH/NON1ASED.[XYZ]
 
   NON1ASED_KEYS: 5 INDEX  WGT  MAGOFF  MAGSMEAR  SNTYPE
@@ -11679,36 +11701,28 @@ The \NONIA\ model is specified with the following sim-input keys,
   etc ...
 \end{Verbatim}
 % $
-There are two ways to specify model location. First is to specify
-a private {\tt \$PATH} and {\tt GENMODEL} separately. 
-Second is to include path in the {\tt GENMODEL} key. 
-The latter option may be more convenient because it defines path and model
-in one key, but the sub-directory name must be of the form 
-``NON1ASED.[XYZ]'' where XYZ is an arbitrary suffix.
-
-Following the model specification, each SED template gets an aribtrary
-weight (for rate), mag-offset ({\tt MAGOFF}), and Gaussian mag-smear
+The {\tt GENMODEL} base directory name must be of the form {\tt NON1ASED.[XYZ]}
+where XYZ is an arbitrary suffix.
+Following the {\tt GENMODEL} specification, each SED template is assigned a
+weight (for relative rate), mag-offset ({\tt MAGOFF}), and Gaussian mag-smear
 ({\tt MAGSMEAR}).
 The legacy keys ``{\tt NON1A}'' and ``{\tt NON1A\_KEYS}''
 have the same meaning as {\tt NON1ASED} and {\tt NON1ASED\_KEYS},''
 respectively.
-Inside each generated light curve file, the \NONIA\ \indx\ is 
-specified by ``{\tt SIM\_TEMPLATE\_INDEX: INDEX}'';
-the corresponding \snana\ variable is {\tt SIM\_TEMPLATE\_INDEX},
-and the fitres-table variable is ``{\tt SIM\_TEMPLATE\_INDEX}.''
-The default \NONIA\ files are located in two locations
-\begin{verbatim}
-   $SNDATA_ROOT/snsed/NON1A                   # older legacy path
-   $SNDATA_ROOT/models/NON1ASED/NON1ASED.*    # current path
-\end{verbatim}
-and it is recommended to use the current default paths.
-Each {\tt NON1ASED.XYZ} directory contains a {\tt NON1A.LIST} file,
-and also a default {SIMGEN\_INCLUDE\_NON1A.INPUT} file that lists
-each NON1ASED. You can include this file as-is using the
-{\tt INPUT\_FILE\_INCLUDE} key, or copy it locally and make modifications.
+The SED index is specified by ``{\tt SIM\_TEMPLATE\_INDEX}'' in the data files and
+fitres-tables.
 
 
-%\clearpage
+To process all SEDs with the same weight, magoff and mag-smear,
+set the first index to zero as follows:
+\begin{Verbatim}[frame=single]
+  NON1ASED_KEYS: 5 INDEX  WGT  MAGOFF  MAGSMEAR  SNTYPE
+  NON1ASED:         0     1.0   0.0     0.5        2
+\end{Verbatim}
+%
+which automatically loops over all SEDs in the {\tt NON1A.LIST} file.
+
+\clearpage
 \medskip
 The {\tt NON1ASED\_KEYS} are used to specify additional parameters 
 that depend on \NONIA\ type. 
@@ -11720,12 +11734,6 @@ that depend on \NONIA\ type.
    the first 1/4 of the generated SNe will use \indx\ $=2$,
    the second 1/4 will use \indx\ $=3$,
    and the latter 1/2 will use \indx\ $=4$.
-   The keyword {\tt NGENTOT\_LC} specifies the total number
-   to generate, which is different from {\tt NGEN\_LC} that
-   specifies the number passing trigger \& cuts and that are
-   written out to SNDATA files.  The relative {\tt WGT} factors
-   make physical sense only if {\tt NGENTOT\_LC} is used to specify
-   the statistics.  
 %
   \item {\tt\bf MAGOFF} is a global magnitude offset applied to
      all passbands 
@@ -11755,8 +11763,8 @@ that depend on \NONIA\ type.
 \end{itemize}
 
 
-SNe with the same \indx\ are generated sequentially,
-and then the next \indx\ is generated;
+Each \indx\ is generated sequentially based on a pre-computed number
+of events per \indx:
 {\it i.e., the \NONIA\ indices are NOT randomly mixed.}
 The sequential generation by \indx\ is done for speed,
 and avoids re-initializing templates multiple times.
@@ -11768,8 +11776,8 @@ random SNIDs can be assigned as described in
 \S\ref{subsec:sim_formats}. With random SNIDs,
 any subset of the simulation is a truly random subset.
 
-Finally, note that host-galaxy extinction parameters (for AV,RV) 
-are optional from \S\ref{subsec:host_extinct}.
+Since the SEDs are read into memory, this model class is compatiable
+with {\tt TAKE\_SPECTRUM} keys (\S\ref{subsec:sim_spec}).
 
 % -----------------------------------------
 \subsubsection{Peculiar SNIa}

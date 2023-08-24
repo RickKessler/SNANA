@@ -88,7 +88,7 @@ def check_file_exists(file_name):
     # abort if file does not exist
     exist = os.path.isfile(file_name)
     if not exist:
-        msgerr = (f"\n ERROR: Cannot find required file: \n\t {file_name}\n")
+        msgerr = f"\n ERROR: Cannot find required file: \n\t {file_name}\n"
         print(f"{msgerr}")
         scancel_all_jobs()
         sys.exit(f"\n ABORT {sys.argv[0]}")
@@ -105,7 +105,7 @@ def check_done_file(done_file):
             line = f.read() ;  status = line.rstrip("\n")
             if status != STRING_SUCCESS :
                 scancel_all_jobs()
-                msgerr = (f"\n ERROR: found {status} in \n\t {done_file}\n")
+                msgerr = f"\n ERROR: found {status} in \n\t {done_file}\n"
                 sys.exit(msgerr)
         return True
     else:
@@ -114,7 +114,7 @@ def check_done_file(done_file):
     # end check_done_file
             
 def extract_yaml(input_file):
-    msgerr = [(f"Cannot find the input yaml file:\n   {input_file}")]
+
     exist  = os.path.isfile(input_file)
 
     lines = []
@@ -168,6 +168,10 @@ def run_submit(infile_list, outdir_list, INPUTS):
     # to launch with submit_batch_jobs
     SUBMIT_JOB_NAME = os.path.expandvars(INPUTS.jobname)
     snana_dir       = INPUTS.snana_dir
+
+    if not os.path.exists(SUBMIT_LOG_DIR):
+        msgerr = f"\n ERROR: SUBMIT_LOG_DIR = {SUBMIT_LOG_DIR}\n\t does not exist"
+        sys.exit(msgerr)        
 
     done_file_list = []
     for infile,outdir in zip(infile_list,outdir_list) :

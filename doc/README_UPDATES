@@ -21796,7 +21796,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-        v11_05f ([tag-date]) 
+        v11_05f (Aug 25 2023) 
 
         ***** IMPORTANT(v11_05f) ***** 
 
@@ -21809,13 +21809,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     new &SNLCINP input OPT_REFORMAT_SPECTRA; see manual
 
     new script convert_SIMSED_to_NON1ASED.py
+         [since NON1SED models can be used to simulate spectra or true SED]
 
     new sim-input option SIMLIB_MSKOPT += 512; see Sec 4.7.7 of manual
+
+    grep "CPUTIME" from any log file to see time for init and processing.
 
         ***** MISCELLANEOUS(v11_05f) ***** 
 
    snlc_sim.c
-     + for mkdir of output folder, replacey system() call with native mkdir().
+     + for mkdir of output folder, replace system() call with native mkdir().
      + specify true SED with LAMBIN_SED_TRUE (no longer SPECTROGRAPH_OPTMASK: 128);
         see manual.
      + for true SED option, write only LAM and SIM_FLAM to SPEC.FITS file
@@ -21826,9 +21829,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + MXROW_HOSTLIB -> 40M (was 10M)
 
   sntools_host.c
-     + abort if x1,c is in WGTMAP but model is not SALT2 or SALT3
-   
-   sntools_sim_atmoshpere.c[h]:
+     + abort if x1,c is in WGTMAP but model is not SALT2 or SALT3.
+       
+   sntools_sim_atmoshpere.c[h]:   
      + update DCR calculation to integrate over passband instead of
        making computation at effective wavelength of passband. 
        Mainly impacts u & g bands.
@@ -21839,7 +21842,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        with these variables.
 
     sntable_dump.py
-     + avoif writing useless ROOT file for append mode.
+     + avoid writing useless ROOT file for append mode.
 
    remove_minuit_stdout.py & remove_locf_messages.py
      + replace os.system() with subprocess.run, and print execution time

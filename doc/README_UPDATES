@@ -21874,4 +21874,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      size snlc_fit.exe = 283.1 MB -> 313.3
      size snana.exe    =  85.7 MB -> 107.5
 
+
+# =============================================================
+        v11_05g ([tag-date]) 
+
+        ***** IMPORTANT(v11_05g) ***** 
+
+        ***** USEFUL(v11_05g) ***** 
+
+        ***** MISCELLANEOUS(v11_05g) ***** 
+
 END: 

@@ -4543,23 +4543,24 @@ Host spectra are generated with the {\tt SPECTROGRAPH} feature,
 and with several inputs as follows:
 \begin{itemize}
   \item {\tt HOSTLIB\_SPECBASIS\_FILE} points to a file with spectral basis
-         such as PCA. The header keys must include {\tt wavelength}, 
-         {\tt specbasis02}, {\tt specbasis01}, etc ...
+         such as PCA. The header keys must include \\
+         {\tt VARNAMES: ROW  WAVELENGTH  SPECBASIS00 SPECBASIS01 SPECBASIS02 ... etc}, \\
+         where each vertical {\tt SPECBASIS} column is an SED basis.
          Optional keys before the header are:
           \vspace{-0.5cm}
      \begin{verbatim}
          FLAM_SCALE: 1.55E-30    # global flux norm.
-         FLAM_SCALE_POWZ1: -2    # z-norm: (1+z)^-2
+         FLAM_SCALE_POWZ1: -2    # z-norm: 1/(1+z)**2
      \end{verbatim}  \vspace{-1.0cm}
 %
   \item {\tt HOSTLIB\_SPECDATA\_FILE} points to a file with spectral data.
-         The header keys must include {\tt wavelength}, 
-         {\tt specdata00}, {\tt specdata01}, etc ..., where each 
-         vertical column is a spectrum.
+         The header keys must include \\
+         {\tt VARNAMES: ROW  WAVELENGTH  SPECDATA00 SPECDATA01 ... etc },  \\
+         where each vertical column is an SED.
          Optional keys before the header are the same as for {\tt SPECBASIS}.
 %
   \item {\tt HOSTLIB\_FILE} that includes columns 
-          {\tt coeff\_specbasis01}, {\tt coeff\_specbasis02}, etc..
+          {\tt COEFF\_SPECBASIS00}, {\tt COEFF\_SPECBASIS01}, etc..
           or for specdata there is a single {\tt IDSPECDATA} column
           to pick a specific {\tt specdata} column from the
           {\tt SPECDATA\_FILE}.

@@ -513,17 +513,18 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 // ==========================
 void wr_dataformat_text_KEYVAL(FILE *fp, char *KEY, double DVAL) {
   // Created Aug 30 2023
-  // Write KEY: <DVAL> where DVAL format is %f of %e.4 depending
+  // Write KEY: <DVAL> where DVAL format is %f of %.4e depending
   // on DVAL.
 
+  double abs_dval = fabs(DVAL);
   char fnam[] = "wr_dataformat_text_KEYVAL";
 
   // --------- BEGIN ---------
 
-  if ( DVAL < 1.0E5 && DVAL > 1.0E-4 ) 
+  if ( abs_dval < 1.0E5 && abs_dval > 1.0E-4 ) 
     { fprintf(fp,"%s:    %f \n", KEY, DVAL ); }
   else
-    { fprintf(fp,"%s:    %e.4f \n", KEY, DVAL ); }
+    { fprintf(fp,"%s:    %.4e \n", KEY, DVAL ); }
 
   fflush(fp);
 

@@ -88,6 +88,8 @@ void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT,
 void wr_dataformat_text_SNPHOT(FILE *fp ) ;
 void wr_dataformat_text_SNSPEC(FILE *fp ) ;
 
+void wr_dataformat_text_KEYVAL(FILE *fp, char *KEY, double DVAL);
+
 void RD_SNTEXTIO_INIT(int init_num); // one-time init
 void rd_sntextio_init__(int *init_num);
 

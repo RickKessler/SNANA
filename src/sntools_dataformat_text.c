@@ -410,9 +410,13 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp,"\n");
     fprintf(fp,"SIMSED_NPAR:   %d \n", SNDATA.NPAR_SIMSED );
     for ( ipar = 0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) {
+
+      wr_dataformat_text_KEYVAL(fp, SNDATA.SIMSED_KEYWORD[ipar],
+				(double)SNDATA.SIMSED_PARVAL[ipar] );
+      /* xxx mark delete 
       fprintf(fp,"%s:    %f\n"
 	      ,SNDATA.SIMSED_KEYWORD[ipar]
-	      ,SNDATA.SIMSED_PARVAL[ipar] );
+	      ,SNDATA.SIMSED_PARVAL[ipar] ); xxxxxx */
     }
   }
 
@@ -422,9 +426,14 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp,"%s_NPAR:   %d \n",
 	    SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL );
     for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
+
+      wr_dataformat_text_KEYVAL(fp, SNDATA.PySEDMODEL_KEYWORD[ipar],
+				(double)SNDATA.PySEDMODEL_PARVAL[ipar]  );
+
+      /* xxxxx mark 
       fprintf(fp,"%s:    %f \n"
 	      ,SNDATA.PySEDMODEL_KEYWORD[ipar]
-	      ,SNDATA.PySEDMODEL_PARVAL[ipar] );
+	      ,SNDATA.PySEDMODEL_PARVAL[ipar] ); xxxxx */
     }
   }
 
@@ -432,10 +441,14 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   if ( SNDATA.NPAR_LCLIB > 0 ) {
     fprintf(fp,"\n");
     fprintf(fp,"LCLIB_NPAR:   %d \n", SNDATA.NPAR_LCLIB );
-    for ( ipar = 0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {      
+    for ( ipar = 0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {
+
+      wr_dataformat_text_KEYVAL(fp, SNDATA.LCLIB_KEYWORD[ipar],
+				(double)SNDATA.LCLIB_PARVAL[ipar] );
+      /* xxx mark 
       fprintf(fp,"%s:    %f \n"
 	      ,SNDATA.LCLIB_KEYWORD[ipar]
-	      ,SNDATA.LCLIB_PARVAL[ipar] );
+	      ,SNDATA.LCLIB_PARVAL[ipar] ); xxxx */
     }
   }
 
@@ -487,61 +500,36 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 				 "%6.3f", SNDATA.SIM_TEMPLATEMAG);
   }
   
-
   wr_dataformat_text_FILTERPAR(fp, "SIM_EXPOSURE", "", 
 			       "%6.1f", SNDATA.SIM_EXPOSURE_TIME);
 
 
-  /* xxxx mark delete Aug 4 2023 xxxxxxxx
-  // gal/SN flux-fraction                                                     
-  fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-    fprintf(fp," %6.3f", SNDATA.SIM_GALFRAC[ifilt_obs] ) ;
-    NTMP++ ;
-    if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-  }
-  fprintf(fp,"  # F_gal/F_SNpeak for PSF=1''\n");
-
-  fprintf(fp, "SIM_PEAKMAG: "); NTMP=0;
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-    fprintf(fp," %6.2f",SNDATA.SIM_PEAKMAG[ifilt_obs] ) ;
-    NTMP++ ;
-    if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-  }
-  fprintf(fp,"  # \n");
-
-
-  bool WR_TEMPLATEMAG = ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ||
-			  SNDATA.SIM_MODEL_INDEX == MODEL_AGN ) ;
-  if ( WR_TEMPLATEMAG ) {
-    fprintf(fp, "SIM_TEMPLATEMAG: "); NTMP=0;
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f", SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ) ;
-      NTMP++ ;
-      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-    }
-    fprintf(fp,"  # \n");
-  }
-  
-
-  fprintf(fp, "SIM_EXPOSURE: ");  NTMP=0;
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-    fprintf(fp," %6.1f",SNDATA.SIM_EXPOSURE_TIME[ifilt_obs] ) ;
-    NTMP++ ;
-    if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-  }
-  fprintf(fp,"  # \n");
-
-  xxxxxxxxx end mark xxxxx */
 
   return ;
 
 } // end wr_dataformat_text_SIMPAR
 
+
+// ==========================
+void wr_dataformat_text_KEYVAL(FILE *fp, char *KEY, double DVAL) {
+  // Created Aug 30 2023
+  // Write KEY: <DVAL> where DVAL format is %f of %e.4 depending
+  // on DVAL.
+
+  char fnam[] = "wr_dataformat_text_KEYVAL";
+
+  // --------- BEGIN ---------
+
+  if ( DVAL < 1.0E5 && DVAL > 1.0E-4 ) 
+    { fprintf(fp,"%s:    %f \n", KEY, DVAL ); }
+  else
+    { fprintf(fp,"%s:    %e.4f \n", KEY, DVAL ); }
+
+  fflush(fp);
+
+  return;
+
+} // end wr_dataformat_text_KEYVAL
 
 
 // ================================================

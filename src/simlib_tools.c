@@ -290,7 +290,7 @@ void simlib_add_header(
 
   if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
     istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, 100000. );
-    istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, 3000.   );
+    istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, 30000.  );
     istat = CHECK_SIMLIB_VAL("RA",      RA,           -200., 400.0  );
     istat = CHECK_SIMLIB_VAL("DEC",     DEC,          -200., 400.0  );
     istat = CHECK_SIMLIB_VAL("MWEBV",   MWEBV,         0.0, 2.0     );

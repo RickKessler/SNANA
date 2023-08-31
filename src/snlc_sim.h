@@ -42,7 +42,7 @@
 
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
-#define  MXEPSIM_PERFILT  2500       //
+#define  MXEPSIM_PERFILT  4000       //
 #define  MXEPSIM       15000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN       20
@@ -485,6 +485,7 @@ struct INPUTS {
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
+  int  SIMLIB_REFAC ; // temporary to apply GENRANGE_MJD on simlib read
 
   // ---- end simlib inputs -----
 

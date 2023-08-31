@@ -663,6 +663,7 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
+  INPUTS.SIMLIB_REFAC = 1;
   INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
 
@@ -3372,6 +3373,10 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_MSKOPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MSKOPT );
+  }
+
+  else if ( keyMatchSim(1, "SIMLIB_REFAC",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_REFAC );
   }
 
   if ( N > 0 ) {
@@ -8833,8 +8838,8 @@ void  init_event_GENLC(void) {
 
     // init a few SIMLIB_OBS_RAW quantities
     SIMLIB_OBS_RAW.APPEND_PHOTFLAG[i] = 0 ;
-    SIMLIB_OBS_RAW.PTR_FIELDNAME[i] = SIMLIB_OBS_RAW.FIELDNAME[i] ;
-    SIMLIB_OBS_RAW.PTR_BAND[i]      = SIMLIB_OBS_RAW.BAND[i] ;
+    SIMLIB_OBS_RAW.PTR_FIELDNAME[i] = SIMLIB_OBS_RAW.FIELDNAME[i]  ;
+    SIMLIB_OBS_RAW.PTR_BAND[i]      = SIMLIB_OBS_RAW.BAND[i]  ;
     SIMLIB_OBS_RAW.FIELDNAME[i][0] = 0 ;
     SIMLIB_OBS_RAW.BAND[i][0] = 0 ;
   }
@@ -10635,19 +10640,6 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     OBSFLUX       = GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
 
-    /* xxx mark delete xxx
-    if ( OBSFLUX < 0.0 ) {
-      LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
-      TOBS   = GENSPEC.TOBS_LIST[imjd];
-      printf(" xxx %s: CID=%d  z=%.3f imjd=%d  TOBS=%.1f  "
-	     "LAM=%.0f  ilam=%d OBSFLUX = %.2le  \n",
-	     fnam, GENLC.CID, GENLC.REDSHIFT_CMB, imjd, TOBS, 
-	     LAMAVG, ilam, OBSFLUX ); 
-      fflush(stdout); // .xyz
-    }
-     xxxx */
-
-    // xx mark delet    if ( !DO_SEDMODEL && OBSFLUXERR < 1.0E-50 ) { continue; }
     if ( OBSFLUXERR < 1.0E-50 ) { continue; }
 
     // compute random flucution of spectrograph flux
@@ -17123,8 +17115,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
   double TEXPOSE, TSCALE ;
-  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, SKIP_MJD, FOUND_LIBID ;
-  bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE;
+  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, FOUND_LIBID ;
+  bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE, KEEP_MJD ;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
   char WDLIST[MXWDLIST_SIMLIB][200], *ptrWDLIST[MXWDLIST_SIMLIB];
@@ -17281,14 +17273,17 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       if ( strcmp(wd0,"NOBS:") == 0 )   {  
 	sscanf(wd1, "%d", &NOBS_EXPECT ); 
 	SIMLIB_HEADER.NOBS = NOBS_EXPECT ;
-	
-	if ( NOBS_EXPECT >= MXOBS_SIMLIB ) {
+       
+	// xxx remove this abort trap for SIMLIB_REFAC
+	if ( NOBS_EXPECT >= MXOBS_SIMLIB && !INPUTS.SIMLIB_REFAC ) {
 	  sprintf(c1err,"NOBS=%d exceeds bound for LIBID=%d.", 
 		  NOBS_EXPECT, ID);
 	  sprintf(c2err,"Check bound: MXOBS_SIMLIB = %d", 
 		  MXOBS_SIMLIB );
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
 	}
+	// xxxxxxxxx
+
 	iwd++; continue ;
       }
     
@@ -17325,6 +17320,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S; }
       }
     
+
       FOUND_SPECTROGRAPH = 
 	( SPECTROGRAPH_USEFLAG && strcmp(wd0,"SPECTROGRAPH:")==0 );
       if ( FOUND_SPECTROGRAPH && USEFLAG_LIBID==ACCEPT_FLAG )
@@ -17335,15 +17331,15 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 			 SKIP_FIELD || SKIP_APPEND ) ;
 
       if ( OPTLINE && OPTLINE_REJECT )  {    
-	// xxx MJD line in already rejected LIBID --> read rest of line 
 	if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
-	NOBS_FOUND++ ; 	IWD = iwd;  SKIP_MJD = false;
+	NOBS_FOUND++ ; 	IWD = iwd;  
+	// xxx mark delete SKIP_MJD = false;
 
 	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
 
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE]);
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE]  );
 
 	IWD++; sscanf(WDLIST[IWD], "%s", ctmp );
 	parse_SIMLIB_IDplusNEXPOSE(ctmp, 
@@ -17400,6 +17396,15 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[ISTORE]   = -9 ; 
 
 	ISTORE++ ;
+
+	if ( INPUTS.SIMLIB_REFAC ) {
+	  ISTORE-- ;
+	  MJD = SIMLIB_OBS_RAW.MJD[ISTORE];
+	  KEEP_MJD = 
+	    (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
+	  if ( KEEP_MJD ) { ISTORE++; } 
+	}
+
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
 	
@@ -17427,6 +17432,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       } // end OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH
 
+      // if ( !KEEP_MJD ) { continue; } // .xyz
+
       // check APPEND_PHOTFLAG to NOT sort this MJD (Jan 2018)
       if ( OPTLINE && (OPTLINE_REJECT==0) )  {    
 	if ( APPEND_PHOTFLAG > 0 ) { SIMLIB_HEADER.NOBS_APPEND++ ; }
@@ -17442,6 +17449,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
+
+	/* xxx mark delete
+	if ( SIMLIB_HEADER.LIBID == 69  ) 
+	  { printf(" xxx %s: USEFLAG_LIBID=%d ISTORE=%d\n", 
+		   fnam, USEFLAG_LIBID, ISTORE ); 
+	    fflush(stdout); }
+	xxx */
+
 	if ( USEFLAG_LIBID != ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
 	  { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }	
       }
@@ -17945,7 +17960,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Jan 14 2022: transfer SUBSURVEY info to GENLC; compute SUBSURVEY_ID
   // Aug 17 2023: check IDEAL_GRID option
 
-  int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // xxx SIMLIB_HEADER.NOBS ;
+  int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int USE_IDEAL_GRID  = INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IDEAL_GRID;
   int ISTORE,  OPTLINE, OBSRAW ;
@@ -18185,8 +18200,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.NEPOCH = NEP ;
 
     if ( NEP >= MXEPSIM ) {
-      sprintf(c1err, "NEPOCH = %d exceeds array bound at LIBID=%d", 
-	      NEP, GENLC.SIMLIB_ID );
+      sprintf(c1err, "NEPOCH = %d exceeds array bound of %d at LIBID=%d", 
+	      NEP, MXEPSIM, GENLC.SIMLIB_ID );
       sprintf(c2err, "Either increase MXEPSIM or reduce library size.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
@@ -18622,7 +18637,7 @@ int keep_SIMLIB_OBS(int isort) {
   int  KEEP=1, NOKEEP=0; 
   int  ifilt, ifilt_obs, OBS ;
   int  LTRACE= 0 ; 
-  double  MJD, MJDrange[2];
+  double  MJD; 
   char *FIELD ;
   char fnam[] = "keep_SIMLIB_OBS" ;
 
@@ -23678,7 +23693,7 @@ int NEPFILT_GENLC(
   // can be passed to genmag_xxx functions.
 
   bool ISFRAME_REST =   ( GENFRAME_OPT  == GENFRAME_REST  );
-  int  epoch, ifilt_tmp, NEP ;
+  int  epoch, ifilt_tmp, NEP, NERR=0 ;
   double Trest1, Trest2, Tdif;
 
   char fnam[] = "NEPFILT_GENLC" ;
@@ -23694,12 +23709,7 @@ int NEPFILT_GENLC(
     if ( ifilt_tmp == ifilt_obs ) {
       NEP++ ;
 
-      if ( NEP >= MXEPSIM_PERFILT ) {
-	sprintf(c1err,"NEP=%d exceeds bound for ifilt_obs=%d(%c).",  
-		NEP, ifilt_obs, FILTERSTRING[ifilt_obs] );
-	sprintf(c2err,"%s", "Check MXEPSIM_PERFILT");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
+      if ( NEP >= MXEPSIM_PERFILT ) { NERR++; continue ; }
 
       if ( opt == +1 ) {
 
@@ -23748,6 +23758,18 @@ int NEPFILT_GENLC(
       }
     }
 
+  }
+
+  // - - - - - 
+  if ( NERR > 0 ) {
+    char cfilt[2];
+    sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs]);
+
+    sprintf(c1err,"NEP(%s)=%d > MXEPSIM_PERFILT=%d", 
+	    cfilt, NEP, MXEPSIM_PERFILT);
+    sprintf(c2err,"ifilt_obs=%d(%s), LIBID=%d  NOBS(tot)=%d",
+	    ifilt_obs, cfilt, SIMLIB_HEADER.LIBID, SIMLIB_HEADER.NOBS );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   return NEP ;

@@ -8417,7 +8417,7 @@ void init_simvar(void) {
 
   // set all intrinsic scatter elements to zero
   ZERO_COVMAT_SCATTER();
-  GENLC.TELESCOPE[0][0] = 0 ;
+  // xxx mark  GENLC.TELESCOPE[0][0] = 0 ;
 
   NGEN_ALLSKIP = 0 ;
 
@@ -16193,7 +16193,7 @@ void SIMLIB_prepGlobalHeader(void) {
 
 
   TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
-  sprintf(GENLC.TELESCOPE[0], "%s", TEL );
+  // xxz  sprintf(GENLC.TELESCOPE[0], "%s", TEL );
   if ( !IGNOREFILE(TEL) )
     { printf("\t SIMLIB telescope : %s \n", TEL ); }
 
@@ -17386,7 +17386,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	// update few header items for each epoch since
 	// these item can be changed at any epoch.
 	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
-	sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
+	// xxx mark	sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
 	PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 	SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
 
@@ -17752,7 +17752,7 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       
       SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
       sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
-      sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
+      // xxx mark sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
 
       if ( APP > 0 ) { SIMLIB_HEADER.NOBS_APPEND++ ; }
       SIMLIB_OBS_RAW.APPEND_PHOTFLAG[ISTORE] = APP ;
@@ -17910,8 +17910,9 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 	sprintf(SIMLIB_OBS_RAW.FIELDNAME[OBSRAW],"%s", 
 		SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
 	
+	/* xxx mark
 	sprintf(SIMLIB_OBS_RAW.TELESCOPE[OBSRAW], "%s", 
-		INPUTS_SPECTRO.INSTRUMENT_NAME );
+	INPUTS_SPECTRO.INSTRUMENT_NAME ); ***/
       }
 
       OBSRAW++ ;   NOBS_ADD++ ;	
@@ -17997,7 +17998,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   GENLC.SIMLIB_ID  = SIMLIB_HEADER.LIBID ;
 
   sprintf(GENLC.FIELDNAME[0], "%s", SIMLIB_HEADER.FIELD);
-  sprintf(GENLC.TELESCOPE[0], "%s", SIMLIB_HEADER.TELESCOPE);
+  // xxx mark  sprintf(GENLC.TELESCOPE[0], "%s", SIMLIB_HEADER.TELESCOPE);
 
   // load  optionalsubsurvey info (Jan 2022)
   SUBSURVEY = SIMLIB_HEADER.SUBSURVEY_NAME;
@@ -18106,7 +18107,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
   double SHIFT_ZPT, SCALE_SKYSIG, SCALE_SKYSIG_T, SCALE_RDNOISE, SCALE_PSF ;
   double MJD_DIF, MJD_LAST_KEEP, DT, DUMMY_STORE[3] ;
-  char   *TEL, *FIELD, cfilt[2];
+  char   *FIELD, cfilt[2];
+  // xxx mark  char   *TEL;
 
   set_SIMLIB_MJDrange(2,GENLC.MJD_RANGE); // 9.03.2021 refac
 
@@ -18147,7 +18149,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
     BAND       = SIMLIB_OBS_RAW.BAND[OBSRAW];
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
-    TEL        = SIMLIB_OBS_RAW.TELESCOPE[OBSRAW];   
+    // xxx mark    TEL        = SIMLIB_OBS_RAW.TELESCOPE[OBSRAW];   
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
 
     RDNOISE_T  = SIMLIB_OBS_RAW.TEMPLATE_READNOISE[OBSRAW] ;
@@ -18222,7 +18224,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.MJD[NEP]           = MJD ;
     GENLC.NEXPOSE[NEP]       = NEXPOSE; // June 2022
     sprintf( GENLC.FIELDNAME[NEP], "%s", FIELD );
-    sprintf( GENLC.TELESCOPE[NEP], "%s", TEL   );
+    // xxx mark    sprintf( GENLC.TELESCOPE[NEP], "%s", TEL   );
 
     // store min/max TREST (Apr 2021) for efficiency studies.
     // If event is accepted, TRESTMIN/MAX are overwritten in gen_cutwin(),
@@ -18249,7 +18251,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.NEXPOSE[NEP]     = NEXPOSE ;
     SIMLIB_OBS_GEN.ISTORE_RAW[NEP]  = OBSRAW ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[NEP] = APP ;
-    sprintf(SIMLIB_OBS_GEN.TELESCOPE[NEP], "%s", TEL   );
+    // xxx mark sprintf(SIMLIB_OBS_GEN.TELESCOPE[NEP], "%s", TEL   );
     sprintf(SIMLIB_OBS_GEN.FIELDNAME[NEP], "%s", FIELD );
 
     SIMLIB_OBS_GEN.TEXPOSE_SPECTROGRAPH[NEP] =
@@ -22845,7 +22847,7 @@ void snlc_to_SNDATA(int FLAG) {
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
-    sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
+    // xxx mark sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
 
     SNDATA.GAIN[epoch]      =  SIMLIB_OBS_GEN.CCDGAIN[epoch] ;

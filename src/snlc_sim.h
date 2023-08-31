@@ -1077,14 +1077,6 @@ struct GENLC {
   int IFILTMAP_REST2[MXFILTINDX]; // 2nd near rest-filt index vs. sparse index
   int IFILTMAP_REST3[MXFILTINDX]; // 3rd nearest
 
-  /* xxx mark delete Nov 15 2022 
-  int  NFILTDEF_SPECTROGRAPH ;
-  int  IFILTDEF_SPECTROGRAPH[MXFILTINDX];     // vs. sparse synth spectro bands
-  int  IFILTINV_SPECTROGRAPH[MXFILTINDX];     // vs. absolute ifilt_obs
-  char FILTERLIST_SPECTROGRAPH[MXFILTINDX] ;  // idem
-  int  IFLAG_SYNFILT_SPECTROGRAPH[MXFILTINDX] ;  // vs. ifilt_obs
-  xxxx */
-
   double LAMDIF_REST1[MXFILTINDX];
   double LAMDIF_REST2[MXFILTINDX];
   double LAMDIF_REST3[MXFILTINDX];
@@ -1150,7 +1142,7 @@ struct GENLC {
   int NEWMJD ;
   int EPOCH_RANGE_NEWMJD[MXEPSIM][2];
 
-  char  TELESCOPE[MXEPSIM][40];   // name of telescope
+  // xxx mark  char  TELESCOPE[MXEPSIM][40];   // name of telescope
   char  FIELDNAME[MXEPSIM][MXCHAR_FIELDNAME] ;  // name of field for each obs
   int   IFLAG_GENSOURCE ;     // specifies GENSOURCE
 
@@ -1574,7 +1566,7 @@ typedef struct  {
 
   char    *PTR_FIELDNAME[MXOBS_SIMLIB];
   char    FIELDNAME[MXOBS_SIMLIB][MXCHAR_FIELDNAME];
-  char    TELESCOPE[MXOBS_SIMLIB][40];
+  // xxx mark  char    TELESCOPE[MXOBS_SIMLIB][40];
   int     APPEND_PHOTFLAG[MXOBS_SIMLIB];  // Jan 201
 
   double  TEMPLATE_SKYSIG[MXOBS_SIMLIB] ;
@@ -1673,8 +1665,9 @@ xxxxx */
 #define ALLBIT_CUTMASK    4095   // 2^(maxbit+1)-1
 
 // define strings to contain info about simulated volume & time
+#define MXLINE_RATE_INFO 100
 int  NLINE_RATE_INFO;
-char LINE_RATE_INFO[MXEPSIM][80];
+char LINE_RATE_INFO[MXLINE_RATE_INFO][80];
 
 
 // define up to four allowed names for each model (e.g., 'mlcs2k2', 'mlcs')

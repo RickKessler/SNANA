@@ -2174,9 +2174,10 @@ c define external C functions to read from fits files
 
 c max length of catenated strings from all epochs;
 c e.g., FIELD, TELESCOPE ...
+c Aug 31 2023: 40k -> 80k
 
       INTEGER MXLEN_EPSTRING
-      PARAMETER (MXLEN_EPSTRING = 40000 ) 
+      PARAMETER (MXLEN_EPSTRING = 80000 ) 
 
       INTEGER  
      &   RD_SNFITSIO_PREP
@@ -3832,13 +3833,14 @@ c function args
 c local args
       INTEGER   LEN_KEY, LEN_STR, LEN_WHAT, COPYFLAG
       LOGICAL   L_GLOBAL, L_HEAD, L_OBS, L_DUMP, L_REQUIRE
-      CHARACTER cSTRING*(MXLEN_EPSTRING)
+      CHARACTER cSTRING*(MXLEN_EPSTRING), FNAM*22
       CHARACTER cKEY*60, c1err*80, c2err*80, WHAT*8
       EXTERNAL  COPY_SNDATA_GLOBAL, COPY_SNDATA_HEAD
       EXTERNAL  COPY_SNDATA_OBS
 
 c ------------ BEGIN ----------
 
+      FNAM = 'FETCH_SNDATA_WRAPPER'
       L_GLOBAL  = ( IAND(OPT,OPTMASK_SNDATA_GLOBAL)   > 0 ) 
       L_HEAD    = ( IAND(OPT,OPTMASK_SNDATA_HEAD)     > 0 ) 
       L_OBS     = ( IAND(OPT,OPTMASK_SNDATA_OBS )     > 0 ) 
@@ -3867,7 +3869,7 @@ c ------------ BEGIN ----------
       ELSE 
          write(C1ERR, '("Invalid OPT=",I6)' ) OPT
          C2ERR = 'KEY = ' // KEY
-         CALL MADABORT("FETCH_SNDATA_WRAPPER", C1ERR, C2ERR)
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
       ENDIF   
 cc      print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
 
@@ -3875,6 +3877,15 @@ cc      print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
       LEN_STR   = INDEX(cSTRING,char(0)) - 1
       STRINGVAL = cSTRING(1:LEN_STR) 
       LEN_WHAT  = INDEX(WHAT,' ') - 1
+
+      if ( LEN_STR < 0 ) then
+         LEN_STR   = INDEX(cSTRING//' ', ' ') - 1
+         write(C1ERR,161) LEN_STR, MXLEN_EPSTRING
+161      format('Returned strlen=', I6,' ~=  MXLEN_EPSTRING=', I6)
+	 write(C2ERR,162) KEY, NARG
+162      format('KEY=',A, 4x, 'NARG=', I6)
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
+      endif
 
       if ( L_DUMP ) then
          write(6,66) WHAT(1:LEN_WHAT), KEY(1:LEN_KEY), 
@@ -14126,12 +14137,15 @@ cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
       NWD    = STORE_PARSE_WORDS(MSKOPT, STRING(1:LENS)//char(0),LENS)
 
       IF  ( NWD .NE. NVAL ) THEN
-        LK = INDEX(KEYNAME,' ') -1   ! - 2
+        LK = INDEX(KEYNAME//' ' ,' ') -1 
         CALL PRINT_PREABORT_BANNER("UNPACK_SNFITSIO_STR"//char(0),40)
         print*,'   NWD, NVAL = ', NWD, NVAL
         print*,'   SNLC_CCID = ', SNLC_CCID
-        print*,'   KEYNAME   = ', KEYNAME(1:LK)
-        print*,'   STRING    = ', STRING(1:1000)
+        print*,'   KEYNAME   = ', KEYNAME,'      LENKEY=', LK
+	print*,'   ISVAR_[FLT,FIELD,TEL] = ', 
+     &         LVAR_FLT, LVAR_FIELD, LVAR_TEL
+        print*,'   LEN(STRING) = ', LENS
+        print*,'   STRING = ', STRING(1:1000)
         call flush(6)
 
         write(c1err,61) NWD, NVAL
@@ -14140,7 +14154,7 @@ cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
      &       SNLC_CCID(1:ISNLC_LENCCID)
      &      ,KEYNAME(1:LK)
 
-61      format('NWD=',I3,' substrings, but expected NVAL=',I4)
+61      format('NWD=',I5,' substrings, but expected NVAL=',I6)
 62      format('CID=',A, 2x, 'KEYNAME=',A )
         CALL MADABORT('UNPACK_SNFITSIO_STR', c1err,c2err)
 

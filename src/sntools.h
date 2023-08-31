@@ -389,6 +389,7 @@ struct {
   int   BUFSIZE ;
   int   NWD;
   char **WDLIST;
+  bool  DEBUG_FLAG;
 } PARSE_WORDS ;
 
 
@@ -576,7 +577,7 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 			int *istat_cov ) ;
 
 int  store_PARSE_WORDS(int OPT, char *FILENAME);
-void malloc_PARSE_WORDS(void);
+void malloc_PARSE_WORDS(int NWD);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
 void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);

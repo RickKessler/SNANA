@@ -1412,7 +1412,7 @@ void WR_SNFITSIO_UPDATE(void) {
   SNDATA.FLUXCAL_ERRTOT[ep] = SNFITSIO_EOE_MARKER ;
   sprintf(SNDATA.FILTCHAR[ep],  "%s", "-");
   sprintf(SNDATA.FIELDNAME[ep], "%s", "XXXX" ) ;
-  sprintf(SNDATA.TELESCOPE[ep], "%s", "XXXX" ) ;
+  // xxx mark  sprintf(SNDATA.TELESCOPE[ep], "%s", "XXXX" ) ;
 
   // loop over epochs and fill fits table.
   NUSE_EPOCH = 0;

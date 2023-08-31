@@ -21882,7 +21882,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     Refactor SIMLIB-reader to immediately reject obs outside GENRANGE_MJD;
     enables using cadences with NOBS > MXOBS_SIMLIB.
-    Disable refactor with sim-input "SIMLIB_REFAC: 0"
+    In case of problem, disable refactor with sim-input "SIMLIB_REFAC: 0"
+
+    snlc_sim: remove obsolete TELESCOPE[MXEP][charlen] strings.
 
         ***** USEFUL(v11_05g) ***** 
 

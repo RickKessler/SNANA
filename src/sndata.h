@@ -257,7 +257,7 @@ struct SNDATA {
   char  MAGREF[20];    // VEGA or AB
 
   int  SNTYPE;                     // user-defined integer type 
-  char TELESCOPE[MXEPOCH][20];     // name of telescope at each epoch
+  // xxx  char TELESCOPE[MXEPOCH][20];     // name of telescope at each epoch
   int  IDTEL[MXEPOCH];             // integer telescope id
 
   int   FILTINDX[MXEPOCH];        // integer filter indx

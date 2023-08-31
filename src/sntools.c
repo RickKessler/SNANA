@@ -2317,7 +2317,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Aug 26 2020: new FIRSTLINE option to read only 1st line of file.
   // Feb 26 2021: for FIRSTLINE, read 5 lines for safety.
   // Feb 18 2022: read 2 lines for FIRSTLINE
-
+  // Aug 31 2023: minor refactor to handle strlen > 10k (see NWD_APPROX)
+  //
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
   bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
@@ -2325,10 +2326,13 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   bool FIRSTLINE       = ( (OPT & MSKOPT_PARSE_WORDS_FIRSTLINE) > 0 );
   int LENF = strlen(FILENAME);
   int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd, nline ;
+  int NWD_APPROX, i;
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
-  int LDMP =  0 ;  
+
+  PARSE_WORDS.DEBUG_FLAG = (LENF > 6665000);
+  int LDMP =  PARSE_WORDS.DEBUG_FLAG ;
   // ------------- BEGIN --------------------
 
   if ( LENF == 0  ) { PARSE_WORDS.NWD = 0 ; return(0); }
@@ -2340,11 +2344,12 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     { return(PARSE_WORDS.NWD); }
 
   if ( LDMP ) {
+    printf("\n");
     printf(" xxx %s: -----------------------------------------------\n",
 	   fnam );
     printf(" xxx %s: OPT=%2d  BUFSIZE=%d  LEN(FILENAME)=%d  \n", 
 	   fnam, OPT, PARSE_WORDS.BUFSIZE, LENF ); 
-    printf(" xxx %s: FILENAME='%s'\n", 	
+    printf(" xxx %s: FILENAME='%200.200s'\n", 	
 	   fnam, FILENAME ); 
 
     printf(" xxx %s: DO[STRING,FILE]=%d,%d  CHECK_COMMA=%d \n",
@@ -2369,12 +2374,31 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     if ( CHECK_COMMA && strchr(tmpLine,COMMA[0]) != NULL ) 
       { sprintf(sepKey,"%s", COMMA); }
 
-    malloc_PARSE_WORDS() ;    MXWD = PARSE_WORDS.BUFSIZE ;
+    // check number of anticipated words (Aug 31 2023).
+    // For sepKey=' ', NWD_APPROX could be an over-estimate if some
+    // words are separated by multiple spaces.
+    // For sepKey=',', NWD_APPROX is exact NWD.
+    NWD_APPROX= 1; // even with no keySep there is first word
+    for (i=0; tmpLine[i]; i++)  { NWD_APPROX += (tmpLine[i] == sepKey[0] ); }
+
+    malloc_PARSE_WORDS(NWD_APPROX) ;    MXWD = PARSE_WORDS.BUFSIZE ;
 
     splitString2(tmpLine, sepKey, MXWD,
 		 &NWD, &PARSE_WORDS.WDLIST[0] ); // <== returned
+
     PARSE_WORDS.NWD = NWD ;
-    
+
+    if ( NWD >= MXWD ) {
+      sprintf(c1err,"NWD=%d exceeds bound of  MXWD=%d", NWD, MXWD);
+      sprintf(c2err,"NWD_APPROX=%d", NWD_APPROX);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  
+    if ( LDMP ) 
+      { printf(" xxx %s NWD=%d  MXWD=%d  LENF=%d\n", 
+	       fnam, NWD, MXWD, LENF);     fflush(stdout);
+      }
+
     // check that string lengths don't overwrite bounds (July 2020)
     for(iwd=0; iwd < NWD; iwd++ ) {
       int lwd = strlen(PARSE_WORDS.WDLIST[iwd]);
@@ -2389,11 +2413,6 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
       }
     }
     
-    if ( NWD >= MXWD ) {
-      sprintf(c1err,"NWD=%d exceeds bound.", NWD);
-      sprintf(c2err,"Check PARSE_WORDS.BUFSIZE=%d", MXWD);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
     free(tmpLine);
   }
   else if ( DO_FILE ) {
@@ -2408,7 +2427,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
       if ( strlen(LINE) == 0 ) { continue; }
       nline++ ;
-      malloc_PARSE_WORDS();
+      malloc_PARSE_WORDS(MXWORDLINE_PARSE_WORDS);
       if ( (pos=strchr(LINE,'\n') ) != NULL )  { *pos = '\0' ; }
       if ( PARSE_WORDS.NWD < MXWORDFILE_PARSE_WORDS ) 
 	{ iwdStart = PARSE_WORDS.NWD; }
@@ -2478,18 +2497,24 @@ int store_parse_words__(int *OPT, char *FILENAME)
 { return store_PARSE_WORDS(*OPT, FILENAME); }
 
 
-void malloc_PARSE_WORDS(void) {
-  int ADDBUF    = ADDBUF_PARSE_WORDS ;
+void malloc_PARSE_WORDS(int NWD) {
+  int ADDBUF    = ADDBUF_PARSE_WORDS ;  // number of words to store or add
   int MXCHARWD  = MXCHARWORD_PARSE_WORDS ;
-  int NWD       = PARSE_WORDS.NWD ;
+  // xxx mark  int NWD       = PARSE_WORDS.NWD ;
   int iwd, WD0, WD1, BUFSIZE, IFLAG=0 ;
-  //  char fnam[] = "malloc_PARSE_WORDS" ;
+  char fnam[] = "malloc_PARSE_WORDS" ;
 
   // ------------- BEGIN ----------------
 
   /*
   printf(" xxx %s: BUFSIZE = %d  (NWD=%d) \n", 
   fnam, PARSE_WORDS.BUFSIZE, NWD ); */
+
+  if ( PARSE_WORDS.DEBUG_FLAG ) {
+    printf(" xxx %s: NWD=%d  BUFFSIZE=%d MXWORDLINE_PARSE_WORDS=%d \n",
+	   fnam, NWD, PARSE_WORDS.BUFSIZE, MXWORDLINE_PARSE_WORDS);
+    fflush(stdout);
+  }
 
   if ( PARSE_WORDS.BUFSIZE == 0 ) {
     PARSE_WORDS.WDLIST    = (char**) malloc( ADDBUF*sizeof(char*) );
@@ -2503,6 +2528,12 @@ void malloc_PARSE_WORDS(void) {
     WD1                   = PARSE_WORDS.BUFSIZE ;
 
     BUFSIZE               = PARSE_WORDS.BUFSIZE ;
+
+    if ( PARSE_WORDS.DEBUG_FLAG ) {
+      printf(" xxx %s: realloc WDLIST with BUFFSIZE=%d \n",
+	     fnam, BUFSIZE); fflush(stdout);
+    }
+
     PARSE_WORDS.WDLIST    = 
       (char**) realloc(PARSE_WORDS.WDLIST, BUFSIZE*sizeof(char*) );
     IFLAG=2;    
@@ -8238,7 +8269,7 @@ int init_SNDATA_EVENT(void) {
     sprintf ( SNDATA.FIELDNAME[i_epoch], FIELD_NONAME );
 
     SNDATA.IDTEL[i_epoch] = NULLINT ;
-    sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );
+    //xxx mark    sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );
 
 
     SNDATA.FILTINDX[i_epoch]       = NULLINT ;

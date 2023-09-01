@@ -57,7 +57,8 @@
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
 #define DETECT_MASK_PHOTPROB    4  // detect mask for PHOTPROB
 
-#define MXOBS_TRIGGER 10*MXEPOCH 
+// xxx mark delete Sep 1 2023   #define MXOBS_TRIGGER 10*MXEPOCH 
+#define MXOBS_TRIGGER  MXEPOCH 
 
 // define allowed variables to use in PHOTPROB map
 #define IVARABS_PHOTPROB_SNR       0

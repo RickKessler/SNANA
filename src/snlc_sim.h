@@ -42,8 +42,8 @@
 
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
-#define  MXEPSIM_PERFILT  10000       //
-#define  MXEPSIM       30000  // really big for sntools_grid
+#define  MXEPSIM_PERFILT MXEPOCH/2       //
+#define  MXEPSIM       MXEPOCH  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
@@ -58,7 +58,7 @@
 #define  MXGROUPID_SIMLIB 20      // max number of groupIDs per LIBID entry
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
-#define  MXOBS_SIMLIB  30000    // max number of observ. per simlib
+#define  MXOBS_SIMLIB  MXEPOCH    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10
@@ -1162,25 +1162,6 @@ struct GENLC {
   FLUXNOISE_DEF *FLUXNOISE;    // Dec 27 2019 - refactor for noise cov.
 
   MONITOR_REDCOV_FLUXNOISE_DEF MONITOR_REDCOV_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
-
-
-  /* xxxxx 
-  // xxxx -----------------------------------------------------
-  // xxxxx legacy arrays to remove after GENFLUX_DRIVER refactor
-  // noise contributions (in photoelectrons)
-  double NOISE_SN[MXEPSIM] ;
-  double NOISE_SKY[MXEPSIM] ;
-  double NOISE_TEMPLATE[MXEPSIM] ; //correlated noise from TEMPLATE_SKY[CCD]SIG
-  double NOISE_CCD[MXEPSIM];
-  double NOISE_HOSTGAL_PHOT[MXEPSIM] ;  // galaxy shot noise
-  double NOISE_HOSTGAL_IMAGE[MXEPSIM] ; // anomalous noise from HOSTNOISE_FILE
-  double NOISE_TOTAL[MXEPSIM] ;
-
-  double NOISE_AREA[MXFILTINDX]; // effective area for sky noise
-  double NOISE_PSF[MXFILTINDX];  // effective PSF = sqrt[ AREA/(4*PI) ]
-  //xxx ----------------------- end legacy ------------
-  xxxxxx */
-
 
   double SNR_CALC[MXEPSIM] ;    // used for trigger effic (Aug 24 2014)
   double SNR_MON[MXEPSIM];      // calculated SNR for MAGMONITOR_SNR input

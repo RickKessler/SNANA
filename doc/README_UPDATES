@@ -21894,7 +21894,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         ***** MISCELLANEOUS(v11_05g) ***** 
 
     snlc_sim:
-      new function malloc_GENLC() to malloc many arrays that depend 
-      on MXEPSIM based on user args. This reduces static allocation.
+     + new function malloc_GENLC() to malloc many arrays that depend 
+       on MXEPSIM based on user args. This reduces static allocation.
+
+     + tie MXEPSIM and MXOBS_SIMLIB to MXEPOCH (in sndata.h) so that
+       only one param (MXEPOCH) needs to be modified.
 
 END: 

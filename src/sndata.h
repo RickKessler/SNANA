@@ -44,7 +44,8 @@
 
 *****************************************************/
 
-#define MXEPOCH  15000   // max no. of epochs per SN (must match MXEPOCH in snana.car)
+#define MXEPOCH  30000   // max Nepoch for data & simlib
+
 #define MXEPCOV  112     // max epochs to store in covariance matrix
 
 #define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)

@@ -219,15 +219,17 @@ int ISED_MATCH(double *parval);
 #define ZFLUXVAL 1e-20 // use to compute fluxerror when flux is zero
 #define MXCHAR_LINE 600 // max length of EPOCHFILE lines
 
+#define MXEPOCH_SIMSED 2000
+
 struct INPUTS {
   char   SIMSED_VERSION[200];
 
   int    NEPOCH ;
   int    ISEED ;
-  double EPOCH[MXEPOCH];
+  double EPOCH[MXEPOCH_SIMSED];
   double MINEPOCH, MAXEPOCH ;
   char   EPOCHFILE[200];  // optional file with list of epochs
-  char   char_EPOCH[MXEPOCH][40] ;  // used to create specFile name
+  char   char_EPOCH[MXEPOCH_SIMSED][40] ;  // used to create specFile name
 
   char   GALFILE[200]; // optional galaxy file
 
@@ -236,15 +238,15 @@ struct INPUTS {
 
   double LAM_RANGE[2];
 
-  double specLAMinit_rest[MXEPOCH];
-  double specLAMfinal_rest[MXEPOCH];
-  double specLAMinit_obs[MXEPOCH];
-  double specLAMfinal_obs[MXEPOCH];
+  double specLAMinit_rest[MXEPOCH_SIMSED];
+  double specLAMfinal_rest[MXEPOCH_SIMSED];
+  double specLAMinit_obs[MXEPOCH_SIMSED];
+  double specLAMfinal_obs[MXEPOCH_SIMSED];
 
-  double specSNR[MXEPOCH][NXSNR]; 
-  double specSNRLAMBIN[MXEPOCH];
+  double specSNR[MXEPOCH_SIMSED][NXSNR]; 
+  double specSNRLAMBIN[MXEPOCH_SIMSED];
 
-  char   specFile[MXEPOCH][200];
+  char   specFile[MXEPOCH_SIMSED][200];
   char   TYPE[20];
   char   ZFLUX[20];
   double REDSHIFT, DLMAG, SNR, SNRLAMBIN;
@@ -374,7 +376,7 @@ void init_inputs(void) {
 
   sprintf(INPUTS.GALFILE, "%s", "NULL");
 
-  for ( ep=0; ep < MXEPOCH; ep++ ) {
+  for ( ep=0; ep < MXEPOCH_SIMSED; ep++ ) {
     INPUTS.EPOCH[ep] = -999. ; 
     sprintf(INPUTS.specFile[ep], "%s", "NULL" );
   }
@@ -391,7 +393,7 @@ void init_inputs(void) {
 
   INPUTS.DEBUG = 0 ;
 
-  for ( ep=0; ep < MXEPOCH; ep++ ) {
+  for ( ep=0; ep < MXEPOCH_SIMSED; ep++ ) {
     INPUTS.specLAMinit_rest[ep]  = INPUTS.LAM_RANGE[0];
     INPUTS.specLAMfinal_rest[ep] = INPUTS.LAM_RANGE[1];
     for ( iSNR=0; iSNR < NXSNR; iSNR++) {

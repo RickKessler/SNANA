@@ -1064,7 +1064,7 @@ void read_spectrograph_fits(char *inFile) {
 
   // compute LAMAVG & LAMBIN
   double LBIN, LASTBIN=0.0 ;
-  INPUTS_SPECTRO.FORMAT_MASK = FORMAT_MASK_SPEC_DEFAULT; 
+  INPUTS_SPECTRO.WRITE_MASK = WRITE_MASK_SPEC_DEFAULT; 
   for(l=0; l <NBL; l++ ) {
     L0 = INPUTS_SPECTRO.LAMMIN_LIST[l] ;
     L1 = INPUTS_SPECTRO.LAMMAX_LIST[l] ;
@@ -1643,7 +1643,7 @@ void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
   fflush(stdout);
 
   // - - - - - 
-  INPUTS_SPECTRO.FORMAT_MASK = FORMAT_MASK_SPEC_SED_TRUE; 
+  INPUTS_SPECTRO.WRITE_MASK = WRITE_MASK_SPEC_SED_TRUE; 
   INPUTS_SPECTRO.LAM_MIN = LAM_MIN ;
   INPUTS_SPECTRO.LAM_MAX = LAM_MAX ;  
   INPUTS_SPECTRO.NBIN_LAM = NBIN_LAM;

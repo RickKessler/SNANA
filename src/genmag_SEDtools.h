@@ -69,7 +69,6 @@
 #define MXPAR_SEDMODEL         100      // max NPAR describing SEDs
 #define MXLAMPOW_SEDMODEL 4   // max power of lambda for pre-computed integrals
 
-
 #define LAMMIN_SEDMODEL 100     // global min Lambda for reading SED model
 #define LAMMAX_SEDMODEL 30000   // global max Lambda
 
@@ -82,6 +81,12 @@
 #define OPTMASK_FLUXERR_SEDMODEL 1  // mask to read flux errros
 #define OPTMASK_DAYLIST_SEDMODEL 2  // mask to allow non-uniform DAY array
 #define OPTMASK_T0SHIFT_PEAKMAG  4  // shift T=0 to peak
+
+#define GENMODEL_MSKOPT_SEDMODEL_ZERO_NEGFLAM 16 // force negative Flam -> 0
+struct {
+  bool ALLOW;       // default=T -> allow neg SED Flam
+  int  N ;          // total number of negative Flam
+} NEGFLAM_SEDMODEL ; 
 
 typedef struct REDSHIFT_SEDMODEL_TYPE {
   double  ZMIN,    ZMAX;  
@@ -321,6 +326,8 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) ;
 void init_FINEBIN_SEDMODEL(int ised);
 void init_flux_SEDMODEL( int ifilt_obs, int ised );
 void zero_flux_SEDMODEL(void);
+void init_NEGFLAM_SEDMODEL(int OPTMASK);
+bool zero_NEGFLAM_SEDMODEL(int INDEX_SED, double LAM, double Trest, double FLAM);
 
 double interp_flux_SEDMODEL(int ISED, int ilampower, int ifilt_obs, 
 			    double z, double Trest );

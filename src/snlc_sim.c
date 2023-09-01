@@ -783,7 +783,8 @@ void set_user_defaults(void) {
   INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE  = -9   ;
   INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX         = -9.0 ;
   INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE  = 0.0 ;
-  
+  NEGFLAM_SEDMODEL.ALLOW = true;
+
   INPUTS.OPT_SETPKMJD      = OPTMASK_SETPKMJD_FLUXMAX2; // May 2019
   INPUTS.MJDWIN_SETPKMJD   = 60.0;  // for default Fmax-clump method
   INPUTS.SNRCUT_SETPKMJD   =  5.0;   // idem
@@ -6588,7 +6589,7 @@ void prep_user_input(void) {
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 )  { 
     INPUTS.FORMAT_MASK |=  FORMAT_MASK_ATMOS ; 
     INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK = SPECTROGRAPH_OPTMASK_SEDMODEL ;
-    INPUTS.GENMODEL_MSKOPT += GENMODEL_MSKOPT_SALT2_NONEGFLUX; 
+    INPUTS.GENMODEL_MSKOPT += GENMODEL_MSKOPT_SEDMODEL_ZERO_NEGFLAM; 
 
     if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE < 0.0  ) 
       { INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE = 10.0 ; }
@@ -12733,7 +12734,7 @@ void pick_NON1ASED(int ilc,
     GEN_NON1ASED->CIDRANGE[ispgen][0] = GENLC.CID;
     GEN_NON1ASED->CIDRANGE[ispgen][1] = GENLC.CID;
 
-    init_genmag_NON1ASED( ispgen, INP_NON1ASED);
+    init_genmag_NON1ASED( ispgen, INP_NON1ASED, 0 ); // last arg is ignored
 
     printf("   Changes for %s : \n", name);
     
@@ -24009,7 +24010,10 @@ void init_genmodel(void) {
     prep_NON1ASED( &INPUTS.NON1ASED, &GENLC.NON1ASED );
 
     init_genSEDMODEL();       // pass filters and primary ref
-    init_genmag_NON1ASED(-9,&INPUTS.NON1ASED); // do one-time inits for SEDs
+
+    // do one-time inits for SEDs
+    OPTMASK = INPUTS.GENMODEL_MSKOPT; 
+    init_genmag_NON1ASED(-9, &INPUTS.NON1ASED, OPTMASK); 
 
     // May 2022:
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );

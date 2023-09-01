@@ -650,6 +650,69 @@ void zero_flux_SEDMODEL(void) {
 } // endof zero_flux_SEDMODEL
 
 
+// ********************************
+void init_NEGFLAM_SEDMODEL(int OPTMASK) {
+
+  // Created Aug 31 2023
+  // Set global ALLOW_NEGFLAM_SEDMODEL for SALT2, NON1ASED, SIMSED models.
+
+  char fnam[] = "init_NEGFLAM_SEDMODEL";
+
+  // -------- BEGIN ---------
+
+  NEGFLAM_SEDMODEL.ALLOW = true; // default
+  NEGFLAM_SEDMODEL.N     =  0 ;
+
+  if ( OPTMASK & GENMODEL_MSKOPT_SEDMODEL_ZERO_NEGFLAM ) {
+    NEGFLAM_SEDMODEL.ALLOW = false;
+    printf("\t OPTMASK=%d -> if SED Flam<0, force Flam=0\n", OPTMASK);
+  }
+  else {
+    printf("\t Allow SED Flam < 0 \n");
+  }
+
+  fflush(stdout);
+  return ;
+
+} // end init_NEGFLAM_SEDMODEL
+
+
+// **********
+bool zero_NEGFLAM_SEDMODEL(int INDEX_SED, double LAMREST, double TREST, 
+			   double FLAM) {
+
+  // Created Aug 31 2023
+  // Return True if FLAM<0 and option is set to set it to zero.
+  //
+  // Inputs:
+  //   INDEX_SED : integer SED index (for warning msg)
+  //   LAMREST   : rest-frame wavelenvth (for warning msg)
+  //   TREST     : rest-frame phase, days (for warning msg)
+  //   FLAM      : FLAM to check if negative
+
+  int MXWARN = 50;
+
+  // -------- BEGIN ---------
+  
+  // if neg Flam are allowed, return false (to NOT zero Flam)
+  if ( NEGFLAM_SEDMODEL.ALLOW ) { return false; }
+
+  // if Flam < 0, print warning and return true
+  if ( FLAM < 0.0 ) {
+    NEGFLAM_SEDMODEL.N++ ;
+    if ( NEGFLAM_SEDMODEL.N < MXWARN ) {
+      printf(" SED WARNING: FLAM=%.3le < 0 for LAM=%.1f T=%.1f (INDEX=%d)  "
+	     "-> Force FLAM=0\n", 
+	     FLAM, LAMREST, TREST, INDEX_SED );
+      fflush(stdout);
+    }
+    return true ;
+  }
+  else {
+    return false;
+  }
+
+} // end  zero_NEGFLAM_SEDMODEL
 
 // ********************************
 int NSED_SEDMODEL(void) {
@@ -1064,13 +1127,13 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   double LAMDIF, LAMDIF2, LAMSED, TREST, z1 ;
   int    ilamsed, i, iep, jflux, ONEDAY ;
   int    NLAMSED = TEMP_SEDMODEL.N_FINEBIN ;
-  char   fnam[] = "getFluxLam_SEDMODEL" ;
 
   double DAYMIN  = TEMP_SEDMODEL.DAYMIN ;
   double DAYMAX  = TEMP_SEDMODEL.DAYMAX ;
   double DAYSTEP = TEMP_SEDMODEL.DAYSTEP ; 
   int    NDAY    = TEMP_SEDMODEL.NDAY ; 
 
+  char   fnam[] = "getFluxLam_SEDMODEL" ;
   //  int LDMP = ( fabs(TOBS)<.1 ) ;
   // ----------- BEGIN ------------
 
@@ -1150,6 +1213,10 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 
   // interpolate in lambda space
   FLUX  = FLUXTMP[0] + FRAC_INTERP_LAM*(FLUXTMP[1] - FLUXTMP[0]) ; 
+
+  // if GENMODEL_MSKOPT & 16, force Flam<0 to zero  
+  bool zero_NEGFLAM = zero_NEGFLAM_SEDMODEL(ISED, LAMSED, TREST, FLUX);
+  if ( zero_NEGFLAM ) { FLUX = 0.0 ; }
 
   return(FLUX);
 
@@ -1350,6 +1417,7 @@ double get_flux_SEDMODEL( int ISED, int ilampow, int ifilt_obs,
       Tlist[ilist] = T ;
       Flist[ilist] = F ;
       Mlist[ilist] = 99.0 ;
+
       if ( F > 1.0E-80 ) {
 	m            = 30.0 - 2.5*log10(F); // ZP=30 is arbitrary
 	Mlist[ilist] = m ;

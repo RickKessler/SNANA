@@ -43,7 +43,8 @@
 #define MODELGRID_GEN
 
 // *************************************
-void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
+void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
+			  int OPTMASK ) {
 
   // Init SED for NON1ASED model.
   // Note that prep_NON1SED is called earlier.
@@ -51,7 +52,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   // Inputs:
   //   isparse      = sparse index for template
   //   INP_NON1ASED = structure with all input information
-  // 
+  //   OPTMASK      = bit-mask of options (16 -> force Flam >= 0)
+  //
   // May 15 2018: 
   //  + check option to call T0shiftExplode_SEDMODEL
   //  + new default is to call T0shiftPeak_SEDMODEL, so that t=0 at peak
@@ -63,6 +65,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   //     to check for FLUXERR column in SED file.
   // 
   // Sep 5 2022: call print_ranges_SEDMODEL() to see Trest coverage warnings 
+  // Aug 31 2023: pass OPTMASK argument
 
   double UVLAM     = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
   int   DO_GENGRID = ( INP_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
@@ -112,6 +115,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
     // malloc DAY array (Aug 2017)
     int MEM = MXBIN_DAYSED_SEDMODEL * sizeof(double) ;
     SEDMODEL.DAY[ISED_NON1A] = (double*) malloc(MEM) ;
+
+    init_NEGFLAM_SEDMODEL(OPTMASK);
 
     return;
   }
@@ -190,7 +195,7 @@ void genmag_NON1ASED (
   double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
   double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magerr, magobs;
   char *cfilt;
-  //  char fnam[] = "genmag_NON1ASED" ;
+  char fnam[] = "genmag_NON1ASED" ;
 
   // --------- BEGIN ----------
 

@@ -188,8 +188,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // -------------- BEGIN --------------
 
   // extrac OPTMASK options
-
-
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
  
@@ -202,12 +200,17 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   ABORT_on_LAMRANGE_ERROR = ( OPTMASK & GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE ) ; 
 
+  init_NEGFLAM_SEDMODEL(OPTMASK);
+
+  /* xxxxxx mark delete Aug 31 2023 xxxxxxxx
   ALLOW_NEGFLUX_SALT2 = true;      // default
   if ( OPTMASK & GENMODEL_MSKOPT_SALT2_NONEGFLUX ) {
     // Mar 24 2021: if "GENMODEL_MSKOPT: 16"
     ALLOW_NEGFLUX_SALT2 = false ;    
     printf("\t OPTMASK=%d -> Force neg Flam to Flam=0\n", OPTMASK);
   }
+  xxxxxx end mark xxxxxxx */
+
   DEBUG_SALT2 = ( OPTMASK & GENMODEL_MSKOPT_SALT2_DEBUG );
 
   // summarize filter info
@@ -2683,6 +2686,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //   + check ALLOW_NEGFLUX_SALT2 to allow or avoid negative spectral flux.
   //
   // May 31 2021: refactor to pass parList_SN and parList_HOST
+  // Aug 31 2023: use zero_NEGFLAM_SEDMODEL() util
 
 
   // strip of SN and HOST params
@@ -2712,6 +2716,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
     ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList_genSmear[10]
     ,hc8 = (double)hc ;
+
+  bool zero_FLAM;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
 
@@ -2952,6 +2958,14 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
 
       // check option to force negative flux to zero
+      Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
+      zero_FLAM = zero_NEGFLAM_SEDMODEL(0, LAMSED, Trest, Fcheck);
+      if ( zero_FLAM ) {
+	Flam_filter[0] = Flam_filter[1] = 0.0 ;
+	Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
+      }
+
+      /* xxxxxx mark delete Aug 31 2023 xxxxxxxx
       if ( !ALLOW_NEGFLUX_SALT2 ) {
 	Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
 	if ( Fcheck < 0.0 ) { 
@@ -2959,6 +2973,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	  Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
 	}
       }
+      xxxxxxxxx end mark xxxxxxxx */
 
       for(ised=0; ised <2; ised++ ) {
 	Finteg_filter[ised]  +=  Flam_filter[ised];

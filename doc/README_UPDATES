@@ -21886,6 +21886,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_sim: remove obsolete TELESCOPE[MXEP][charlen] strings.
 
+    "GENMODEL_OPTMASK: 16" works on SNIa and NON1ASED (FLAM<0 -> FLAM=0);
+    Also prints warnings to get diagnostics on Flam<0.
+
         ***** USEFUL(v11_05g) ***** 
 
         ***** MISCELLANEOUS(v11_05g) ***** 

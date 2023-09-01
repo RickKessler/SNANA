@@ -13,8 +13,8 @@
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
 #define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
 
-#define FORMAT_MASK_SPEC_DEFAULT  2  // lammin lammax Flam FlamERR SIM_FLAM
-#define FORMAT_MASK_SPEC_SED_TRUE 4  // <lam> and SIM_FLAM only 
+#define WRITE_MASK_SPEC_DEFAULT  2  // lammin lammax Flam FlamERR SIM_FLAM
+#define WRITE_MASK_SPEC_SED_TRUE 4  // <lam> and SIM_FLAM only 
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;
@@ -44,7 +44,7 @@ struct {
   double **SNR0, **SNR1  ;  // per spectro bin & expTime
   bool   *ISLAM_EXTEND_LIST; // True -> extended lam bin for lam-resulution
 
-  int FORMAT_MASK ;  // 1=>LAMCEN only, 2=LAMMIN and LAMMAX
+  int WRITE_MASK ; 
 
   // computed from table inputs
   double **ZP, **SQSIGSKY ; // per spectro & expTime bin

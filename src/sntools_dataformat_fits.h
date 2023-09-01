@@ -46,7 +46,6 @@
 
 fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
 fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
-// xxx mark delete fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
 #define  snfitsType  (char*[MXTYPE_SNFITSIO]) { "HEAD", "PHOT", "SPEC", "SPECTMP"  }
 
 // name of FITS file without/with path
@@ -56,6 +55,9 @@ char  *wr_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];
 char  *wr_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; //[MXPATHLEN]; 
 
 int   SNFITSIO_CODE_IVERSION  ; // internal: for back-compatibility
+int   SNFITSIO_WRITE_MASK_HEAD ;
+int   SNFITSIO_WRITE_MASK_PHOT ;
+int   SNFITSIO_WRITE_MASK_SPEC ;
 
 char  SNFITSIO_DATA_PATH[MXPATHLEN];
 char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
@@ -92,14 +94,14 @@ bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
 bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
 bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_TEMPLATEMAG; // write template mags (LCLIB,AGN ..)
-// xxx bool  SNFITSIO_SIMFLAG_NBR_LIST;  // HOSTLIB has NBR_LIST (Feb 2020)
+
 bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;            // Jan 2018
 bool  SNFITSIO_COMPACT_noFLUXCAL_FLAG ;  // Jul 2023
 bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
-// xxx mark bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
+
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
-int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
+int   SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
 typedef struct {
   // name of each header paramater (SNID, REDSHIFT, etc ...)
@@ -256,7 +258,6 @@ void malloc_rd_snfitsFiles(int opt, int ifile);
 // Now the readback routines
 void  RD_SNFITSIO_INIT(int init_num);
 int   RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version);
-// xxx mark int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
 int   RD_SNFITSIO_EVENT(int OPT, int isn); // read/store event (Feb 2021)
 
 void  RD_SNFITSIO_CLOSE(char *version);

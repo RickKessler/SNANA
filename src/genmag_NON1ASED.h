@@ -19,7 +19,8 @@ void copy_NON1ASED(int i1, int i2,
                    INPUTS_NON1ASED_DEF *NON1ASED1,
                    INPUTS_NON1ASED_DEF *NON1ASED2 ) ;
 			
-void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED);
+void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
+			  int OPTMASK );
 
 void genmag_NON1ASED ( int index, int ifilt_obs, 
 		       double mwebv,  double z, double x0,

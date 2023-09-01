@@ -1100,9 +1100,9 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // Nov 10 2021: write SPECTRUM_LAMRANGE
   // May 26 2023: check NMJD_PROC
 
-  int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
-  int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT  );
-  int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
+  int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT  );
+  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
 
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
@@ -1204,7 +1204,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
       // skip unphysical values for real spectra (default);
       // do not skip for true SED
-      if ( FORMAT_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
+      if ( WRITE_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
 
       L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
       L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
@@ -1247,7 +1247,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   
     fprintf(fp,"SPECTRUM_END:  \n\n" );
   
-    if ( FORMAT_DEFAULT && NBLAM_WR != NBLAM_VALID ) {
+    if ( WRITE_DEFAULT && NBLAM_WR != NBLAM_VALID ) {
       sprintf(c1err,"Wrote %d lamBins, but expected %d",
 	      NBLAM_WR, NBLAM_VALID);
       sprintf(c2err,"CID=%s  SpecID=%d MJD=%.3f",

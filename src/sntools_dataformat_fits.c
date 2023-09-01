@@ -138,6 +138,11 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   NSNLC_WR_SNFITSIO_TOT = 0 ;
   NSPEC_WR_SNFITSIO_TOT = 0 ;
 
+  // Aug 2023: write format mask info, mainly to check for COMPACT output
+  SNFITSIO_WRITE_MASK_HEAD = writeFlag ;
+  SNFITSIO_WRITE_MASK_PHOT = writeFlag ;
+  SNFITSIO_WRITE_MASK_SPEC = INPUTS_SPECTRO.WRITE_MASK ;
+
   // - - - -
   // Check option to write spectra
   OVP = ( writeFlag & WRITE_MASK_SPECTRA );
@@ -211,7 +216,6 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
     ptrFile2 = wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] ;
     sprintf(ptrFile2, "%s/%s", path, ptrFile );
-   
   }
 
   // load output argument: name of header file
@@ -539,43 +543,6 @@ void wr_snfitsio_init_head(void) {
     if ( SNDATA.SIM_HOSTLIB_MSKOPT ) 
       { wr_snfitsio_addCol_filters("1E", "SIM_GALFRAC", itype); }
 
-    /* xxxxxx mark delete Aug 4 2023 xxxxxxxx
-    // PEAKMAG
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-      sprintf(parName,"SIM_PEAKMAG_%c", FILTERSTRING[ifilt_obs] );
-      wr_snfitsio_addCol( "1E", parName, itype );
-    }
-
-    // TEMPLATE MAG for LCLIB model
-    if ( SNFITSIO_SIMFLAG_TEMPLATEMAG ) {
-      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-	sprintf(parName,"SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs] );
-	wr_snfitsio_addCol( "1E", parName, itype );
-      }      
-    }
-
-    // EXPOSURE times
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-      sprintf(parName,"SIM_EXPOSURE_%c", FILTERSTRING[ifilt_obs] );
-      wr_snfitsio_addCol( "1E", parName, itype );
-    }
-
-    
-    // GALFRAC    
-    if ( SNDATA.SIM_HOSTLIB_MSKOPT ) {
-      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-	sprintf(parName,"SIM_GALFRAC_%c", FILTERSTRING[ifilt_obs] );
-	wr_snfitsio_addCol( "1E", parName, itype );
-      }
-    }
-
-    xxxxxxx end mark xxxxxxxx */
-
-
     // strong lens info (Julu 2019)
     if ( SNDATA.SIM_SL_FLAG ) {
       wr_snfitsio_addCol( "1J",  "SIM_STRONGLENS_IDLENS"   , itype );
@@ -827,11 +794,11 @@ void wr_snfitsio_init_spec(void) {
   // Table 1 is a one-row summary per spec.
   // Table 2 is to store spectra:  LAMMIN LAMMAX FLUX FLUXERR SIM_MAG*100
   //
-  // July 29 2023: see new use of logicals FORMAT_DEFAULT[SED_TRUE]
+  // July 29 2023: see new use of logicals WRITE_DEFAULT[SED_TRUE]
 
-  int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
-  int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
-  int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
+  int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
+  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
 
   long  NROW = 0 ;
   int itype, ncol, istat, ipar ;
@@ -861,7 +828,7 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
   wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
 
-  if ( SNFITSIO_SIMFLAG_SNANA && FORMAT_DEFAULT ) {
+  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
     wr_snfitsio_addCol( "1E",  "Texpose",     itype   ) ; 
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
@@ -869,7 +836,7 @@ void wr_snfitsio_init_spec(void) {
     wr_snfitsio_addCol( "1E",  "SCALE_HOST_CONTAM",  itype   ) ; 
   }
 
-  if ( FORMAT_SED_TRUE ) {
+  if ( WRITE_SED_TRUE ) {
     // Store LAMMIN/LAMMAX/LAMBIN to avoid re-writing same lambda grid for
     // each true SED. LAMMIN to LAMMAX are histogram min/max and
     // NBIN_LAM = (LAMMAX - LAMMIN)/LAMBIN
@@ -903,18 +870,18 @@ void wr_snfitsio_init_spec(void) {
 
   sprintf(TBLname, "%s", "SPECTRO_FLUX" );
 
-  if ( FORMAT_DEFAULT ) {
+  if ( WRITE_DEFAULT ) {
     wr_snfitsio_addCol( "1E", "LAMMIN",      itype   ) ; 
     wr_snfitsio_addCol( "1E", "LAMMAX",      itype   ) ; 
     wr_snfitsio_addCol( "1E", "FLAM",        itype   ) ;  
     wr_snfitsio_addCol( "1E", "FLAMERR",     itype   ) ;  
   }
-  else if ( FORMAT_SED_TRUE ) {
+  else if ( WRITE_SED_TRUE ) {
     // no LAM or FLAM info for true SED;  see SIM_FLAM below
   }
   else {
-    sprintf(c1err,"Invalid INPUTS_SPECTRO.FORMAT_MASK = %d", FORMAT_MASK);
-    sprintf(c2err,"grep FORMAT_MASK sntools_spectrograph.h | grep define");
+    sprintf(c1err,"Invalid INPUTS_SPECTRO.WRITE_MASK = %d", WRITE_MASK);
+    sprintf(c2err,"grep WRITE_MASK sntools_spectrograph.h | grep define");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -988,24 +955,21 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 9; // Feb  8 2019: more HOSTGAL stuff
   //  SNFITSIO_CODE_IVERSION = 10 ;//Sep 10 2020: PySEDMODEL
 
-  /* xxxxx
-  if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
-    { SNFITSIO_CODE_IVERSION = 11 ; } // Oct 13 2021: add IMGNUM to phot table
-  else
-    { SNFITSIO_CODE_IVERSION = 20 ; } // identify refactored FITS format
-  xxx */
-
   // Mar 08 2022:
   //  + write SIM_MODEL_INDEX to header  
   //  + enable writing sim without truth (see OPT_REFORMAT_FITS in manual)
   //  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
   //  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
-  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
+  //  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
 
+  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
+
+  // - - - - - - - 
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
 
+  // - - - - - -
   // SNANA_PATH  
   fits_update_key(fp, TSTRING, "SNANA_PATH",
                   PATH_SNANA_DIR, "SNANA code directory", &istat );
@@ -1270,6 +1234,17 @@ void wr_snfitsio_create(int itype ) {
   // Apr 24 2021: write mask of biasCor features
   fits_update_key(fp, TINT, "SIM_BIASCOR_MASK", &SNDATA.SIM_BIASCOR_MASK,
 		  "biasCor mask", &istat );  
+
+  // - - - -
+  // Aug 31 2023: write WRITE_MASK info, mainly to handle COMPACT options
+  fits_update_key(fp, TINT, "WRITE_MASK_HEAD", &SNFITSIO_WRITE_MASK_HEAD,
+                  "Internal write for header & phot", &istat );
+  fits_update_key(fp, TINT, "WRITE_MASK_PHOT", &SNFITSIO_WRITE_MASK_PHOT,
+                  "Internal write for header & phot", &istat );
+  if ( SNFITSIO_SPECTRA_FLAG ) {
+    fits_update_key(fp, TINT, "WRITE_MASK_SPEC", &SNFITSIO_WRITE_MASK_SPEC,
+		    "Internal write for spec", &istat );
+  }
 
   return ;
 
@@ -2081,51 +2056,6 @@ void wr_snfitsio_update_head(void) {
   }
      
 
-  /* xxxxxxxxxxxx mark delete Aug 4 2023 xxxxxxx
-  // PEAKMAG
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) { 
-    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-    sprintf(parName,"SIM_PEAKMAG_%c", FILTERSTRING[ifilt_obs] );
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_PEAKMAG[ifilt_obs] ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-  }
-
-  // TEMPLATE MAG for LCLIB model only
-  if ( SNFITSIO_SIMFLAG_TEMPLATEMAG ) {
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-      sprintf(parName,"SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs] );
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_TEMPLATEMAG[ifilt_obs];
-      wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-    }
-  }
-
-  // EXPOSURE times
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-    sprintf(parName,"SIM_EXPOSURE_%c", FILTERSTRING[ifilt_obs] );
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_EXPOSURE_TIME[ifilt_obs];
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-  }
-
-
-  // GALFRAC
-  if ( SNDATA.SIM_HOSTLIB_MSKOPT ) {
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-      sprintf(parName,"SIM_GALFRAC_%c", FILTERSTRING[ifilt_obs] );      
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_GALFRAC[ifilt_obs] ;
-      wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-    }
-  }
-
-  xxxxxxxxx end mark xxxxxxxxx */
-
-
   // strong lens params (Jul 2019)
   if ( SNDATA.SIM_SL_FLAG ) { 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2526,13 +2456,13 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // Feb 2021: write GENFLAM for sim
   // Oct 2021: check for legacy vs. refac table
 
-  int FORMAT_MASK     =  INPUTS_SPECTRO.FORMAT_MASK;
-  int FORMAT_DEFAULT  = ( FORMAT_MASK & FORMAT_MASK_SPEC_DEFAULT);
-  int FORMAT_SED_TRUE = ( FORMAT_MASK & FORMAT_MASK_SPEC_SED_TRUE );
+  int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
+  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
 
   int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
-  if ( FORMAT_SED_TRUE ) { NBLAM_WR = NBLAM_TOT; }
+  if ( WRITE_SED_TRUE ) { NBLAM_WR = NBLAM_TOT; }
 
   bool EOE;
   int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX   ;
@@ -2545,8 +2475,6 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // Bail if no spectrum (e.g, sim outside Trest range)
   if ( GENSPEC.SKIP[imjd] ) { return; }
-
-  // xxx  if ( NBLAM_WR == 0 ) { return ; } 
 
   // calculate obs-pointer for photometry fits file.
   PTRSPEC_MIN = WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW+1 ;
@@ -2570,7 +2498,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
 
 
-  if ( SNFITSIO_SIMFLAG_SNANA && FORMAT_DEFAULT ) {
+  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
     // Texpose
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
@@ -2598,7 +2526,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // - - - - 
 
-  if ( FORMAT_SED_TRUE ) {
+  if ( WRITE_SED_TRUE ) {
     double LAMMIN = INPUTS_SPECTRO.LAM_MIN;
     double LAMMAX = INPUTS_SPECTRO.LAM_MAX;
     double LAMBIN = INPUTS_SPECTRO.LAMBIN_LIST[0]; // all bin sizes are equal
@@ -2665,13 +2593,13 @@ void  wr_snfitsio_update_spec(int imjd)  {
     }
 
     // skip unphysical values  
-    if ( !EOE && FORMAT_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
+    if ( !EOE && WRITE_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
 
     LOC=0 ;
     WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW++ ;
     
 
-    if ( FORMAT_DEFAULT ) {
+    if ( WRITE_DEFAULT ) {
       // refactored Oct 2021
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMIN ;
@@ -2689,7 +2617,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
       WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAMERR ;
       wr_snfitsio_fillTable ( ptrColnum, "FLAMERR", itype );  
     }
-    else if ( FORMAT_SED_TRUE ) {
+    else if ( WRITE_SED_TRUE ) {
       // July 30 2023
       // no LAM info for SED_TRUE because header info gives LAM-grid info
       // that is the same for SED at each epoch.
@@ -2697,7 +2625,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
       // for true SED. Only info per LAM bin is true SIM_FLAM; see below
     }
 
-    
+
     if ( SNFITSIO_SIMFLAG_SNANA ) {
       // always write true SIM_FLAM for all formats
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -4101,6 +4029,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(keyname, "SPECFILE" );
   fits_read_key(fp, TSTRING, keyname,
 		rd_snfitsFile[ifile][itype], comment, &istat_spec );
+  //  istat_spec = -9; // xxx REMOVE
   if ( istat_spec == 0 ) {
     SNFITSIO_SPECTRA_FLAG = true ;
     sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
@@ -4360,6 +4289,21 @@ void rd_snfitsio_simkeys(void) {
   istat = 0 ;
   sprintf(keyname,"SIM_BIASCOR_MASK");
   fits_read_key(fp, TINT, keyname, &SNDATA.SIM_BIASCOR_MASK, comment, &istat );
+
+  if ( SNFITSIO_CODE_IVERSION >= 24 ) {
+    // read WRITE_MASK flags about how information was written; e.g. COMPACT
+    // To view bit-mask definitions,
+    //        grep WRITE_MASK  $SNANA_DIR/src/*.h | grep define 
+    istat = 0 ;
+    sprintf(keyname,"WRITE_MASK_HEAD");
+    fits_read_key(fp, TINT, keyname, &SNFITSIO_WRITE_MASK_HEAD, comment, &istat );
+
+    sprintf(keyname,"WRITE_MASK_PHOT");
+    fits_read_key(fp, TINT, keyname, &SNFITSIO_WRITE_MASK_PHOT, comment, &istat );
+
+    sprintf(keyname,"WRITE_MASK_SPEC");
+    fits_read_key(fp, TINT, keyname, &SNFITSIO_WRITE_MASK_SPEC, comment, &istat );
+  }
 
   return ;
 

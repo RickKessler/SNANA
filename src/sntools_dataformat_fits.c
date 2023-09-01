@@ -752,9 +752,11 @@ void wr_snfitsio_init_phot(void) {
       }
     }
 
+    /* xxx mark delete
     if ( SNFITSIO_SIMFLAG_SNANA ) {
       wr_snfitsio_addCol( "1E" , "SIM_FLUXCAL_HOSTERR" , itype ) ;
     }
+    xxxx end mark xxx */
 
   }  //end WRFULL
 
@@ -2416,12 +2418,14 @@ void wr_snfitsio_update_phot(int ep) {
 
     } // end ATMOS/DCR
 
+    /* xxx mark delete xxx
     if ( SNFITSIO_SIMFLAG_SNANA ) {  
       LOC++ ; 
       ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[ep];
       wr_snfitsio_fillTable ( ptrColnum, "SIM_FLUXCAL_HOSTERR", itype );
     }
+    xxxxxx end mark xxxx */
     
   } // end WRFULL
 
@@ -3646,11 +3650,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
     }
 
+    /* xxx mark delete xxx
     if ( SNFITSIO_SIMFLAG_SNANA ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_FLUXCAL_HOSTERR", 
 				 &SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
     }
+    xxxxxx end mark xxxxx */
+
     if ( SNFITSIO_SIMFLAG_SNRMON ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.VARNAME_SNRMON,
 				 &SNDATA.SIMEPOCH_SNRMON[ep0], 

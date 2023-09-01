@@ -124,7 +124,6 @@ int main(int argc, char **argv) {
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
 
-
     // prepare randome systematic shifts after reading SURVEY from SIMLIB,
     // but before init_RateModel
     prep_RANSYSTPAR() ;
@@ -6310,10 +6309,10 @@ void prep_user_input(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  // - - - - - - - - - - - - 
   // construct mapping between sparse filter index and obs-filter index.
 
   GENLC.NFILTDEF_OBS = INPUTS.NFILTDEF_OBS ;
-
   for ( ifilt  = 0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = INPUTS.IFILTMAP_OBS[ifilt];
     GENLC.IFILTMAP_OBS[ifilt]         = ifilt_obs ;  
@@ -6325,6 +6324,7 @@ void prep_user_input(void) {
   // This allows leaving SIMSED parameter defs in the sim-input
   // file when switching to other models.
   if ( INDEX_GENMODEL != MODEL_SIMSED ) { INPUTS.NPAR_SIMSED = 0 ; }
+
 
   // ===========================================
   
@@ -6787,6 +6787,9 @@ void prep_user_input(void) {
     printf("\t Restore bugs for DES3YR analysis.\n");
   }
     
+
+  // malloc GENLC arrays based on user options
+  malloc_GENLC();
 
   printf("\n");
 
@@ -8736,16 +8739,18 @@ void  init_event_GENLC(void) {
     GENLC.genmag_obs[epoch]   = NULLFLOAT ;
     GENLC.generr_obs[epoch]   = NULLFLOAT ; // Apr 2013
 
-    GENLC.genmag_rest[epoch]   = NULLFLOAT ;
-    GENLC.generr_rest[epoch]   = 0.000 ;
-    GENLC.genmag_rest2[epoch]  = NULLFLOAT ;
-    GENLC.generr_rest2[epoch]  = NULLFLOAT ;
-
-    GENLC.kcorval8[epoch]     = NULLFLOAT ;
-    GENLC.warpcolval8[epoch]  = NULLFLOAT ;
-    GENLC.AVwarp8[epoch]      = NULLFLOAT ;
-    sprintf(GENLC.kcornam[epoch],    "NULL" );
-    sprintf(GENLC.warpcolnam[epoch], "NULL" );
+    if ( GENFRAME_OPT == GENFRAME_REST ) {
+      GENLC.genmag_rest[epoch]   = NULLFLOAT ;
+      GENLC.generr_rest[epoch]   = 0.000 ;
+      GENLC.genmag_rest2[epoch]  = NULLFLOAT ;
+      GENLC.generr_rest2[epoch]  = NULLFLOAT ;
+      
+      GENLC.kcorval8[epoch]     = NULLFLOAT ;
+      GENLC.warpcolval8[epoch]  = NULLFLOAT ;
+      GENLC.AVwarp8[epoch]      = NULLFLOAT ;
+      sprintf(GENLC.kcornam[epoch],    "NULL" );
+      sprintf(GENLC.warpcolnam[epoch], "NULL" );
+    }
 
     GENLC.OBSFLAG_GEN[epoch] = true ; // default is to generate all obs
     GENLC.OBSFLAG_PEAK[epoch]      = false ;    
@@ -8755,11 +8760,14 @@ void  init_event_GENLC(void) {
 
     GENLC.RA_OBS[epoch]  = 999999.0 ;
     GENLC.DEC_OBS[epoch] = 999999.0 ;
-    GENLC.dcr_shift[epoch]     = 0.0 ;
-    GENLC.RA_dcr_shift[epoch]  = 0.0 ;
-    GENLC.DEC_dcr_shift[epoch] = 0.0 ;
-    GENLC.mag_dcr_shift[epoch] = 0.0 ;
-    GENLC.AIRMASS[epoch]       = NULLFLOAT ;
+
+    if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) {
+      GENLC.dcr_shift[epoch]     = 0.0 ;
+      GENLC.RA_dcr_shift[epoch]  = 0.0 ;
+      GENLC.DEC_dcr_shift[epoch] = 0.0 ;
+      GENLC.mag_dcr_shift[epoch] = 0.0 ;
+      GENLC.AIRMASS[epoch]       = NULLFLOAT ;
+    }
 
   } // end of epoch loop
   
@@ -8848,6 +8856,63 @@ void  init_event_GENLC(void) {
   return ;
  
 }  // end of init_event_GENLC
+
+
+// ***********************************
+void malloc_GENLC(void) {
+
+  // Created Aug 31 2023
+  // malloc GENLC.xxx[MXEPSIM] arrays that depend on options such as 
+  // rest-frame model with k-corrections. This reduces static declarations 
+  // that consume extra memory 
+
+  int ep;
+  int MEMD  = MXEPSIM * sizeof(double);
+  int MEMC2 = MXEPSIM * sizeof(char*);
+  int MEMC;
+  // --------- BEGIN --------
+
+  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) {
+    GENLC.dcr_shift     = (double*) malloc(MEMD);
+    GENLC.RA_dcr_shift  = (double*) malloc(MEMD);
+    GENLC.DEC_dcr_shift = (double*) malloc(MEMD);
+    GENLC.mag_dcr_shift = (double*) malloc(MEMD);
+
+    GENLC.AIRMASS      = (double*) malloc(MEMD);
+    GENLC.ALTITUDE     = (double*) malloc(MEMD);
+    GENLC.sin_ALT      = (double*) malloc(MEMD);
+    GENLC.cos_ALT      = (double*) malloc(MEMD);
+
+    GENLC.ANG_ZENITH   = (double*) malloc(MEMD);
+    GENLC.tan_ZENITH   = (double*) malloc(MEMD);
+    GENLC.LAMAVG_SED_WGTED  = (double*) malloc(MEMD);
+  }
+
+  if ( GENFRAME_OPT == GENFRAME_REST ) {
+    GENLC.genmag_rest   = (double*) malloc(MEMD);
+    GENLC.generr_rest   = (double*) malloc(MEMD);
+    GENLC.genmag_rest2  = (double*) malloc(MEMD);
+    GENLC.generr_rest2  = (double*) malloc(MEMD);
+    GENLC.genmag_rest3  = (double*) malloc(MEMD);
+    GENLC.generr_rest3  = (double*) malloc(MEMD);
+
+    GENLC.AVwarp8       = (double*) malloc(MEMD);
+    GENLC.kcorval8      = (double*) malloc(MEMD);
+    GENLC.warpcolval8   = (double*) malloc(MEMD);
+
+    GENLC.kcornam      = (char**) malloc(MEMC2);
+    GENLC.warpcolnam   = (char**) malloc(MEMC2);
+    MEMC = 8 * sizeof(char);
+    for(ep=0; ep < MXEPSIM; ep++ ) {
+      GENLC.kcornam[ep] = (char*) malloc(MEMC);
+      GENLC.warpcolnam[ep] = (char*) malloc(MEMC);
+    }
+
+  }
+
+  return ;
+
+} // end malloc_GENLC
 
 
 // ***********************************
@@ -17451,13 +17516,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
 
-	/* xxx mark delete
-	if ( SIMLIB_HEADER.LIBID == 69  ) 
-	  { printf(" xxx %s: USEFLAG_LIBID=%d ISTORE=%d\n", 
-		   fnam, USEFLAG_LIBID, ISTORE ); 
-	    fflush(stdout); }
-	xxx */
-
 	if ( USEFLAG_LIBID != ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
 	  { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }	
       }
@@ -17484,6 +17542,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   if ( INPUTS.SIMLIB_FIELDSKIP_FLAG==0 && ( NOBS_EXPECT==NOBS_SKIP) ) 
     { goto START ; }
 
+
+  if ( ISTORE > MXOBS_SIMLIB ) {
+    sprintf(c1err,"Selected %d obs from %d total in LIBID=%d", 
+	    ISTORE, SIMLIB_HEADER.NOBS, SIMLIB_HEADER.LIBID );
+    sprintf(c2err,"MXOBS_SIMLIB=%d -> array bound overflow", 
+	    MXOBS_SIMLIB);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+  }
 
   SIMLIB_OBS_RAW.NOBS      = ISTORE ;      // can change with SPECTROGRAPH
   SIMLIB_OBS_RAW.NOBS_READ = ISTORE ;  // won't change for this cadence
@@ -18028,6 +18094,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   //   1) prepare duplicate MJD for sorting
   //   2) sanity checks on values
   //   3) check change of units for PSF and SKYSIG
+
 
   if ( NEW_CADENCE ) { 
 
@@ -22842,9 +22909,7 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_TREST[epoch]  = GENLC.epoch_rest[epoch] ;
     SNDATA.SIMEPOCH_TOBS[epoch]   = GENLC.epoch_obs[epoch] ;
     SNDATA.SIMEPOCH_MAG[epoch]    = GENLC.genmag_obs[epoch] - MCOR_TRUE_MW ;
-    SNDATA.SIMEPOCH_MODELMAGERR[epoch] = GENLC.generr_rest[epoch] ;
     SNDATA.SIMEPOCH_MAGSMEAR[epoch] = GENLC.magsmear8[epoch] ;
-    SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[epoch] = GENLC.NOISE_HOSTGAL_PHOT[epoch];
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
@@ -22925,15 +22990,17 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.MAG[epoch]          = GENLC.mag[epoch];
     SNDATA.MAG_ERR[epoch]      = GENLC.mag_err[epoch];
 
-    SNDATA.SIMEPOCH_WARPCOLVAL[epoch]  = GENLC.warpcolval8[epoch] ;
+    if ( GENFRAME_OPT == GENFRAME_REST ) {
+      SNDATA.SIMEPOCH_WARPCOLVAL[epoch]  = GENLC.warpcolval8[epoch] ;
 
-    sprintf(SNDATA.SIMEPOCH_WARPCOLNAM[epoch], "%s",
-	    GENLC.warpcolnam[epoch] ) ;
+      sprintf(SNDATA.SIMEPOCH_WARPCOLNAM[epoch], "%s",
+	      GENLC.warpcolnam[epoch] ) ;
 
-    SNDATA.SIMEPOCH_AVWARP[epoch]   = GENLC.AVwarp8[epoch] ;
-    SNDATA.SIMEPOCH_KCORVAL[epoch]  = GENLC.kcorval8[epoch] ;
-    sprintf(SNDATA.SIMEPOCH_KCORNAM[epoch], "%s",
-	    GENLC.kcornam[epoch] ) ;
+      SNDATA.SIMEPOCH_AVWARP[epoch]   = GENLC.AVwarp8[epoch] ;
+      SNDATA.SIMEPOCH_KCORVAL[epoch]  = GENLC.kcorval8[epoch] ;
+      sprintf(SNDATA.SIMEPOCH_KCORNAM[epoch], "%s",
+	      GENLC.kcornam[epoch] ) ;
+    }
     
     // --> fill SNDATA.FLUXCAL
     int OPT_ZPERR = 2; // --> do NOT add ZP_sig since it's already added

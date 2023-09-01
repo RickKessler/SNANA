@@ -5222,9 +5222,11 @@ c the rest is for SNANA sim only ...
 
       if ( .NOT. LSIM_SNANA ) GOTO 800
 
-      CALL FETCH_SNDATA_WRAPPER("SIM_FLUXCAL_HOSTERR",  
-     &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE; SIM_EPFLUXCAL_HOSTERR(o)=SNGL(DARRAY(o)); ENDDO
+c xxxxxx mark delete Aug 31 2023 xxxxxxx
+c      CALL FETCH_SNDATA_WRAPPER("SIM_FLUXCAL_HOSTERR",  
+c     &      NOBS_STORE, STRING, DARRAY, OPT)
+c      DO o=1,NOBS_STORE; SIM_EPFLUXCAL_HOSTERR(o)=SNGL(DARRAY(o)); ENDDO
+c xxxxxxx end mark xxxxxxxxxx
 
       LENTMP = INDEX(SIMNAME_SNRMON,' ') - 1
       IF ( LENTMP > 2 ) THEN

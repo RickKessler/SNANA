@@ -485,8 +485,6 @@ struct SNDATA {
   float SIMEPOCH_TREST[MXEPOCH] ;       // Trest - Tpeak, days
   float SIMEPOCH_TOBS[MXEPOCH] ;        // Tobs - Tpeak, days
   float SIMEPOCH_MAG[MXEPOCH] ;         // generated obs mag
-  float SIMEPOCH_FLUXCAL_HOSTERR[MXEPOCH] ; // true error from host noise
-  float SIMEPOCH_MODELMAGERR[MXEPOCH] ; // model mag error
   float SIMEPOCH_MAGSMEAR[MXEPOCH] ;    // intrinsic mag-smear
   float SIMEPOCH_AVWARP[MXEPOCH] ;      // AVwarp parameter
   float SIMEPOCH_KCORVAL[MXEPOCH] ;     // KCOR value

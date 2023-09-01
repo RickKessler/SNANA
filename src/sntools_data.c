@@ -1049,12 +1049,6 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_MAG[OBS]) ; 
     }  
   }
-  else if ( strcmp(key,"SIM_FLUXCAL_HOSTERR") == 0 ) {
-    for(obs=0; obs < NOBS_STORE; obs++ ) {
-      OBS = SNDATA.OBS_STORE_LIST[obs];  
-      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[OBS]) ; 
-    }  
-  }
 
   else if ( strcmp(key,SNDATA.VARNAME_SNRMON) == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {

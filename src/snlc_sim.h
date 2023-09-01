@@ -43,7 +43,7 @@
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  4000       //
-#define  MXEPSIM       15000  // really big for sntools_grid
+#define  MXEPSIM       30000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
@@ -58,7 +58,7 @@
 #define  MXGROUPID_SIMLIB 20      // max number of groupIDs per LIBID entry
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
-#define  MXOBS_SIMLIB  15000    // max number of observ. per simlib
+#define  MXOBS_SIMLIB  30000    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10
@@ -1164,6 +1164,7 @@ struct GENLC {
   MONITOR_REDCOV_FLUXNOISE_DEF MONITOR_REDCOV_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
 
 
+  /* xxxxx 
   // xxxx -----------------------------------------------------
   // xxxxx legacy arrays to remove after GENFLUX_DRIVER refactor
   // noise contributions (in photoelectrons)
@@ -1177,10 +1178,12 @@ struct GENLC {
 
   double NOISE_AREA[MXFILTINDX]; // effective area for sky noise
   double NOISE_PSF[MXFILTINDX];  // effective PSF = sqrt[ AREA/(4*PI) ]
+  //xxx ----------------------- end legacy ------------
+  xxxxxx */
+
 
   double SNR_CALC[MXEPSIM] ;    // used for trigger effic (Aug 24 2014)
   double SNR_MON[MXEPSIM];      // calculated SNR for MAGMONITOR_SNR input
-  //xxx ----------------------- end legacy ------------
 
 
   // Gaussian randoms for broadband measurement noise
@@ -1204,40 +1207,41 @@ struct GENLC {
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
-  double AIRMASS[MXEPSIM];     // angle from zenith
-  double ALTITUDE[MXEPSIM];    // angle from horizon (90-zenith)
-  double sin_ALT[MXEPSIM];
-  double cos_ALT[MXEPSIM];
-  double ANG_ZENITH[MXEPSIM];  // degrees
-  double tan_ZENITH[MXEPSIM] ; // tan(zenith)
-  double LAMAVG_SED_WGTED[MXEPSIM];
+  double *AIRMASS  ;     // angle from zenith
+  double *ALTITUDE ;    // angle from horizon (90-zenith)
+  double *sin_ALT ;
+  double *cos_ALT ;
+  double *ANG_ZENITH ;  // degrees
+  double *tan_ZENITH  ; // tan(zenith)
+  double *LAMAVG_SED_WGTED ;
+
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];
   double RA_TRUE[MXEPSIM], DEC_TRUE[MXEPSIM]; // includes true DCR shift
   double RA_OBS_AVG, DEC_OBS_AVG;  // wgted-average among RA/DEC_OBS
 
   double  epoch_obs_range[2];   // min and max epoch, all bands
   double  epoch_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
-  double  epoch_rest[MXEPSIM];      // rest epoch relative to peak, days
+  double  epoch_rest[MXEPSIM] ;      // rest epoch relative to peak, days
   double  genmag_obs[MXEPSIM] ;     // generated obs  magnitude
   double  generr_obs[MXEPSIM] ;     // obs mag err from model
   double  peakmag_obs[MXFILTINDX] ;
   double  genmag_obs_template[MXFILTINDX]; // for LCLIB model (stars)
 
-  double  dcr_shift[MXEPSIM];      // angle shift from DCR
-  double  RA_dcr_shift[MXEPSIM];   // projection of DCR shift into RA
-  double  DEC_dcr_shift[MXEPSIM];
-  double  mag_dcr_shift[MXEPSIM];      // DCR correction per obs (May 2023)
+  double  *dcr_shift;      // angle shift from DCR
+  double  *RA_dcr_shift ;   // projection of DCR shift into RA
+  double  *DEC_dcr_shift;
+  double  *mag_dcr_shift;      // DCR correction per obs (May 2023)
 
-  double  genmag_rest[MXEPSIM] ;    // idem, rest frame
-  double  generr_rest[MXEPSIM] ;    // idem, rest frame
-  double  peakmag_rest[MXFILTINDX] ;
+  double  *genmag_rest   ;    // idem, rest frame
+  double  *generr_rest   ;    // idem, rest frame
+  double   peakmag_rest[MXFILTINDX] ;
 
-  double  genmag_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  generr_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  *genmag_rest2 ;    // 2nd nearest rest-frame mag.
+  double  *generr_rest2  ;    // 2nd nearest rest-frame mag.
   double  peakmag_rest2[MXFILTINDX] ;
 
-  double  genmag_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  generr_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double *genmag_rest3 ;    // 2nd nearest rest-frame mag.
+  double *generr_rest3 ;    // 2nd nearest rest-frame mag.
   double  peakmag_rest3[MXFILTINDX] ;
 
   int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
@@ -1246,13 +1250,13 @@ struct GENLC {
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
   double  PERIOD;             // (days) for Galactic recurring only
 
-  double AVwarp8[MXEPSIM];
+  double *AVwarp8;
   int    ifilt_AVwarp[MXEPSIM][2];
 
-  double kcorval8[MXEPSIM];    // store kcor for archive
-  char   kcornam[MXEPSIM][8] ; // kcor name
-  double warpcolval8[MXEPSIM];    // store rest color used for warping
-  char   warpcolnam[MXEPSIM][8] ;  // color used for warping
+  double *kcorval8 ;    // store kcor for archive
+  char   **kcornam;   // [MXEPSIM][8] ; // kcor name
+  double *warpcolval8;    // store rest color used for warping
+  char   **warpcolnam; // [MXEPSIM][8] ;  // color used for warping
 
   double kcor_RVMW ;
   int    kcor_OPT_MWCOLORLAW ;
@@ -2070,6 +2074,7 @@ void interpEpochGrid(int NEP_LC, double *TList_LC, int NGRID,
 
 void   init_RANDOMsource(void);    // init stuff for randoms
 void   init_event_GENLC(void);
+void   malloc_GENLC(void);
 int    fudge_SNR(void);
 
 int    NEPFILT_GENLC(int opt, int ifilt_obs);

@@ -16734,8 +16734,6 @@ void SIMLIB_findStart(void) {
       // then last CPU[nnn] task always suffers this long init. Adding GENTYPE
       // distributes the SIMLIB-read load to different JOBIDs for different models.
       JOBID_SHIFT = (JOBID + (GENTYPE-1)) % NJOBTOT + 1 ; // 1 to NJOBTOT
-      printf(" xxx %s: GENTYPE=%d  JOBID[orig,shifted] = %d, %d \n", 
-	     fnam, GENTYPE, JOBID, JOBID_SHIFT ); fflush(stdout);
     }
     else {
       JOBID_SHIFT = JOBID; // default

@@ -2372,6 +2372,7 @@ class Simulation(Program):
 
     def merge_write_readme(self, f, iver_all, MERGE_INFO_CONTENTS):
 
+        # Write global summary in yaml format in [VERSION].README file.
         # Mar 2023: refactor to write sim-input keys for each model
 
         input_file          = self.config_yaml['args'].input_file
@@ -2383,6 +2384,7 @@ class Simulation(Program):
         ranseed_key         = submit_info_yaml['RANSEED_KEY'] 
         cleanup_flag        = submit_info_yaml['CLEANUP_FLAG']
         Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC'] 
+        snana_version       = submit_info_yaml['SNANA_VERSION'] 
 
         Nsec_now  = seconds_since_midnight # current time since midnight
 
@@ -2412,16 +2414,10 @@ class Simulation(Program):
         # (e.g., SNIaMODEL0, NONIaMODEL1 ...)
         # and store model_strings in list
         model_string_list = []
-        # xxx mark g0 = len("TMP_" + USER4) + len(genversion) + 2
         for row in row_list_split :
             TMP_GENV     = row[COLNUM_SIM_MERGE_GENVERSION]
             jlast        = TMP_GENV.rindex('_'); 
-            model_string = TMP_GENV[jlast+1:] # e.g. SNIaMODEL0
-            
-            # xxx mark delete Mar 26 2023 xxx
-            #g1          = len(TMP_GENV)
-            #model_string= f"{TMP_GENV[g0:g1]}" # e.g. SNIaMODEL0
-            # xxx end mark xxxx
+            model_string = TMP_GENV[jlast+1:] # e.g. SNIaMODEL0            
             model_string_list.append(model_string)
 
         # write out same info for each model ... only for RANSEED_REPEAT
@@ -2449,6 +2445,7 @@ class Simulation(Program):
 
         f.write("\n")
         f.write(f"  SUBMIT_DIR:  {CWD}\n")
+        f.write(f"  SNANA_VERSION:  {snana_version}\n")
 
         # - - - - - - - - -
         # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
@@ -2465,9 +2462,11 @@ class Simulation(Program):
         # end merge_write_readme
 
     def merge_write_input_keys(self, f, model_string, tmp_readme):
+
         # Created Mar 2023 by R.Kessler
-        # read sim input keys from tmp_readme file and write them to file pointer f
-        # that points to global read for merged sim version
+        # read sim input keys from tmp_readme file and
+        # write this info to file pointer f that points to global read 
+        # for merged sim version.
         # The tricky part is to skip the '# Output data' keys.
 
         INPUT_KEYS_BASENAME  = "INPUT_KEYS"

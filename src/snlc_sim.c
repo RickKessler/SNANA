@@ -451,8 +451,6 @@ void init_commandLine_simargs(int argc, char **argv) {
 
   ENVreplace("init", fnam, 1);
 
-  // xxx mark  printf("   Full command: ");
-
   if ( argc >= 2 ) {
     sprintf(inFile, "%s", argv[1] );
     NARGV_LIST = argc ;
@@ -469,7 +467,6 @@ void init_commandLine_simargs(int argc, char **argv) {
       ARGV_LIST[i] = (char*) malloc( LENARG*sizeof(char) );
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
-      // xxx mark delete printf("%s ", argv[i]);
     }
     USE_ARGV_LIST[0] = 1;  // program name
     USE_ARGV_LIST[1] = 1;  // input file
@@ -2066,12 +2063,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_GENGAUSS("THETA", WORDS, keySource,
 			      &INPUTS.GENGAUSS_THETA );  
   }
-  /* xxxxxx mark delete Apr 14 2023 by R.Kessler  xxxxxxxx
-  else if ( strstr(WORDS[0],"DELTAM") != NULL ) {
-    N += parse_input_GENGAUSS("DELTAM", WORDS, keySource,
-			      &INPUTS.GENGAUSS_DELTAM );  
-  }
-  xxxxxx end mark xxxx */
   else if ( strstr(WORDS[0],"STRETCH") != NULL ) {
     N += parse_input_GENGAUSS("STRETCH", WORDS, keySource,
 			      &INPUTS.GENGAUSS_STRETCH );  
@@ -8421,7 +8412,6 @@ void init_simvar(void) {
 
   // set all intrinsic scatter elements to zero
   ZERO_COVMAT_SCATTER();
-  // xxx mark  GENLC.TELESCOPE[0][0] = 0 ;
 
   NGEN_ALLSKIP = 0 ;
 
@@ -10536,7 +10526,6 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   // Jun 19 2017: 
   // use computed TEXPOSE to update ZPT and SKYSIG for SYNTHETIC filters.
 
-  // xxx mark  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 ) { return ; }
   if ( INPUTS_SPECTRO.NSYN_FILTER == 0 ) { return ; }
   
   // first find SIMLIB epoch matching this MJD
@@ -10549,7 +10538,6 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
     if ( SIMLIB_OBS_GEN.INDX_TAKE_SPECTRUM[ep] != INDX ) { continue ; }
 
     ifilt_obs  = SIMLIB_OBS_GEN.IFILT_OBS[ep] ;
-    // xxx mark ifilt      = GENLC.IFILTINV_SPECTROGRAPH[ifilt_obs] ; 
     ifilt      = INPUTS_SPECTRO.SYN_IFILTINV_LIST[ifilt_obs] ; 
     if ( ifilt_obs < 0 ) { continue ; }
 
@@ -11636,8 +11624,6 @@ void apply_RA_convention(double *RA) {
   // If input *RA is outside GENRANGE_RA, add or subtract 360 deg
   // to maintatain conventionof either -180:180 or 0360 deg.
   // Beware that input *RA can be modified.
-  
-  if ( INPUTS.DEBUG_FLAG == -705 ) { return ; }  // disable this function
 
   if ( *RA < INPUTS.GENRANGE_RA[0] ) { *RA += 360.0 ; }
   if ( *RA > INPUTS.GENRANGE_RA[1] ) { *RA -= 360.0 ; }
@@ -13037,8 +13023,6 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
 	  PATH_SNDATA_SIM, INPUTS.GENVERSION );
   
 
-  // xxx mark  sprintf(cmd,"mkdir -m g+wr %s", PATH_FILTERS );
-  // xxx mark isys = system(cmd) ;
   isys = mkdir(PATH_FILTERS, S_IRWXU | S_IRWXG );
 
   printf("    mkdir %s\n", PATH_FILTERS );
@@ -13097,7 +13081,6 @@ void set_TIMERS(int flag) {
     TIMERS.NGENTOT_LAST  = 0 ;
 
     print_banner(fnam);
-    // xxx mark print_elapsed_time(TIMERS.t_start, "sim-init", UNIT_TIME_SECONDS);
     print_cputime(TIMERS.t_start, STRING_CPUTIME_INIT, UNIT_TIME_SECOND, 0);
 
   } 
@@ -14415,18 +14398,6 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
     NVAR_SIMGEN_DUMP++ ;
   }
-
-  /* xxxxxxxx mark delete Jun 23 2023 RK xxxxxxx
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"NONIA_INDEX") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SIM_TEMPLATE_INDEX") ; // matches data file key
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
-  NVAR_SIMGEN_DUMP++ ;
-  xxxxxxxxx end mark xxxxxxxx */
 
   // - - - - -
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -17399,7 +17370,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
 	NOBS_FOUND++ ; 	IWD = iwd;  
-	// xxx mark delete SKIP_MJD = false;
 
 	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
 
@@ -17450,7 +17420,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	// update few header items for each epoch since
 	// these item can be changed at any epoch.
 	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
-	// xxx mark	sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
 	PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 	SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
 
@@ -17496,7 +17465,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       } // end OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH
 
-      // if ( !KEEP_MJD ) { continue; } // .xyz
 
       // check APPEND_PHOTFLAG to NOT sort this MJD (Jan 2018)
       if ( OPTLINE && (OPTLINE_REJECT==0) )  {    
@@ -17770,7 +17738,6 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
   int NOBS       = SIMLIB_OBS_RAW.NOBS ;
   int NOBS_SPEC  = SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH ;
   int NFILT_SPEC = INPUTS_SPECTRO.NSYN_FILTER  ; // Nsynthetic filters
-  // xxx mark  int NFILT_SPEC = GENLC.NFILTDEF_SPECTROGRAPH  ; // 
   int ifilt, ispec, OBSRAW, ISTORE, NOBS_ADD, APP ;
   double MJD, TEXPOSE, PIXSIZE ;
   char *FIELD, *TEL ;
@@ -17817,7 +17784,6 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       
       SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
       sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
-      // xxx mark sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
 
       if ( APP > 0 ) { SIMLIB_HEADER.NOBS_APPEND++ ; }
       SIMLIB_OBS_RAW.APPEND_PHOTFLAG[ISTORE] = APP ;
@@ -17878,7 +17844,6 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = INPUTS_SPECTRO.NSYN_FILTER ;  
   int OPTMASK  = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
-  // xxx mark  int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  
 
   float Trest_min, Trest_max, Trest_pad ;
   double EPOCH[2], MJD_REF;
@@ -17975,9 +17940,6 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 	sprintf(SIMLIB_OBS_RAW.FIELDNAME[OBSRAW],"%s", 
 		SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
 	
-	/* xxx mark
-	sprintf(SIMLIB_OBS_RAW.TELESCOPE[OBSRAW], "%s", 
-	INPUTS_SPECTRO.INSTRUMENT_NAME ); ***/
       }
 
       OBSRAW++ ;   NOBS_ADD++ ;	
@@ -18063,7 +18025,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   GENLC.SIMLIB_ID  = SIMLIB_HEADER.LIBID ;
 
   sprintf(GENLC.FIELDNAME[0], "%s", SIMLIB_HEADER.FIELD);
-  // xxx mark  sprintf(GENLC.TELESCOPE[0], "%s", SIMLIB_HEADER.TELESCOPE);
 
   // load  optionalsubsurvey info (Jan 2022)
   SUBSURVEY = SIMLIB_HEADER.SUBSURVEY_NAME;
@@ -18174,7 +18135,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   double SHIFT_ZPT, SCALE_SKYSIG, SCALE_SKYSIG_T, SCALE_RDNOISE, SCALE_PSF ;
   double MJD_DIF, MJD_LAST_KEEP, DT, DUMMY_STORE[3] ;
   char   *FIELD, cfilt[2];
-  // xxx mark  char   *TEL;
 
   set_SIMLIB_MJDrange(2,GENLC.MJD_RANGE); // 9.03.2021 refac
 
@@ -18215,7 +18175,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
     BAND       = SIMLIB_OBS_RAW.BAND[OBSRAW];
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
-    // xxx mark    TEL        = SIMLIB_OBS_RAW.TELESCOPE[OBSRAW];   
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
 
     RDNOISE_T  = SIMLIB_OBS_RAW.TEMPLATE_READNOISE[OBSRAW] ;
@@ -18290,7 +18249,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.MJD[NEP]           = MJD ;
     GENLC.NEXPOSE[NEP]       = NEXPOSE; // June 2022
     sprintf( GENLC.FIELDNAME[NEP], "%s", FIELD );
-    // xxx mark    sprintf( GENLC.TELESCOPE[NEP], "%s", TEL   );
 
     // store min/max TREST (Apr 2021) for efficiency studies.
     // If event is accepted, TRESTMIN/MAX are overwritten in gen_cutwin(),
@@ -18317,7 +18275,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.NEXPOSE[NEP]     = NEXPOSE ;
     SIMLIB_OBS_GEN.ISTORE_RAW[NEP]  = OBSRAW ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[NEP] = APP ;
-    // xxx mark sprintf(SIMLIB_OBS_GEN.TELESCOPE[NEP], "%s", TEL   );
     sprintf(SIMLIB_OBS_GEN.FIELDNAME[NEP], "%s", FIELD );
 
     SIMLIB_OBS_GEN.TEXPOSE_SPECTROGRAPH[NEP] =
@@ -18485,11 +18442,9 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
   }
 
   // bail if no synthetic filters.
-  // xxx mark  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 )
   if ( INPUTS_SPECTRO.NSYN_FILTER == 0 ) 
     { SIMLIB_OBS_RAW.IFILT_OBS[ISTORE]  = 0;  return ; }
 
-  // xxx mark ifilt_obs = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
   ifilt_obs = INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt];
   sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] ) ;
 
@@ -18497,7 +18452,6 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
   if ( TEXPOSE_S < 0.0 ) 
     { SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs;  return ; }
 
-  // xxx mark  if ( GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] == 0 ) {
   if ( !INPUTS_SPECTRO.IS_SYN_FILTER[ifilt_obs] ) {
     sprintf(c1err,"Invalid %s-filter is not a SYN-FILTER ?", cfilt );  
     sprintf(c2err,"Check SYN-FILTERs in kcor input file.");
@@ -18563,7 +18517,6 @@ void get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
   double LAMMAX  = INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] ;
   double MJD     = SIMLIB_OBS_RAW.MJD[OBSRAW]; // for debug
   double PIXSIZE = SIMLIB_OBS_RAW.PIXSIZE[OBSRAW]; 
-  // xxx mark  int ifilt_obs  = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
   int ifilt_obs  = INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt];
   int NBT        = INPUTS_SPECTRO.NBIN_TEXPOSE ;
   int IFLAG_TEMPLATE = ( TEXPOSE_T > 0.01 ) ;
@@ -21451,7 +21404,6 @@ int gen_cutwin(void) {
     ,NTLIST, USE_TGAP, USE_T0GAP, LDMP, opt_frame, MEM
     ;
 
-  // xxx mark  float 
   double 
     SNR, trueSNR
     ,SNRMAX_FILT[MXCUTWIN_SNRMAX][MXFILTINDX] 
@@ -21747,7 +21699,6 @@ int gen_cutwin(void) {
     // INDEX_SORT is returned from CERNLIB function sortzv_
 
     ORDER_SORT = +1; // increasing order
-    // xxx mark sortFloat(NTLIST, &TLIST[1], ORDER_SORT, &INDEX_SORT[1] );
     sortDouble(NTLIST, &TLIST[1], ORDER_SORT, &INDEX_SORT[1] );
 
     Tlast = -999999. ;
@@ -22911,7 +22862,6 @@ void snlc_to_SNDATA(int FLAG) {
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
-    // xxx mark sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
 
     SNDATA.GAIN[epoch]      =  SIMLIB_OBS_GEN.CCDGAIN[epoch] ;
@@ -24755,9 +24705,10 @@ void GENFLUX_DRIVER(void) {
   // Avoid calling randoms twice when running both legacy gen_smearFlux
   // and refactored code here.
   gen_fluxNoise_randoms(); 
-
+  
   for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )
     { COVINFO_FLUXERRMODEL[icov].NOBS = 0 ; }
+
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
 
@@ -24776,11 +24727,11 @@ void GENFLUX_DRIVER(void) {
 
   } // end epoch loop
 
+
   // check for optional flux covariance in FLUXERRMODEL_FILE maps
-  for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )
-    { gen_fluxNoise_fudge_cov(icov); }
+  gen_fluxNoise_driver_cov();
 
-
+  
   // apply random noise to each flux
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
     if ( !GENLC.OBSFLAG_GEN[epoch]  )  { continue ; }
@@ -25353,8 +25304,236 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 
 } // end gen_fluxNoise_fudge_diag
 
+
+// *********************************
+void gen_fluxNoise_driver_cov(void) {
+
+  // Created Sep 2023
+  // loop over icov subsets and measure time to flag warnings
+  // for excessive CPU time.
+
+  double T_ELAPSE_WARN = 3.0 ; // give warning if elapsed time > this
+  int icov;
+  clock_t t0, t1; double t_sec;
+  char fnam[] = "gen_fluxNoise_driver_cov";
+
+  // ------------ BEGIN ----------
+
+  if ( NREDCOV_FLUXERRMODEL == 0 ) { return; }
+
+  t0 = clock();
+
+  for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )  { 
+
+    if ( INPUTS.DEBUG_FLAG == -903 ) 
+      { gen_fluxNoise_fudge_cov_legacy(icov); }
+    else
+      { gen_fluxNoise_fudge_cov(icov); }
+  }
+
+  t1 = clock();
+
+  t_sec = (double)(t1 - t0) / CLOCKS_PER_SEC ;
+
+  if ( t_sec > T_ELAPSE_WARN ) {
+    NREDCOV_CPUWARN++ ;
+
+    if ( NREDCOV_CPUWARN < 20 ) {
+      printf("\n# ----------------------------------------------------- \n");
+      printf(" CPU-WARNING in %s: \n", fnam );
+
+      printf("\t T_proc = %.2f sec  for  CID=%d, LIBID=%d \n",
+	     t_sec, GENLC.CID, SIMLIB_HEADER.LIBID) ;
+      
+      for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ ) {
+	int NOBS       = COVINFO_FLUXERRMODEL[icov].NOBS;
+	char *BANDSTRING = COVINFO_FLUXERRMODEL[icov].BANDSTRING ;
+	printf("\t NOBS = %5d for %s \n", NOBS, BANDSTRING);
+	fflush(stdout);
+      }
+      printf("# --------------------------------------- \n\n");
+      fflush(stdout);
+    } // end NREDCOV_CPUWARN 
+
+  } // end t_sec > T_ELAPSE_WARN
+
+
+  return;
+
+} // end gen_fluxNoise_driver_cov
+
 // ******************************
 void gen_fluxNoise_fudge_cov(int icov) {
+
+  // Created Jan 10 2020
+  // Compute correlated randoms among epochs in "icov" group.
+  // Modify GAURAN_F = GENLC.RANGauss_NOISE_FUDGE[epoch] so that
+  //     GAURAN_F * sqrt(SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_F])
+  //
+  // is the correlated flux-shift.
+  //
+  // Beware that epochs in "icov" group are a subset of the
+  // GENLC.NEPOCH total epochs, so watch indices.
+  //
+  // Sep 3 2023: make sparse list of epochs for speed.
+
+  int  NOBS = COVINFO_FLUXERRMODEL[icov].NOBS ;
+  int  MEMD0 = NOBS*sizeof(double);
+  int  MEMD1 = NOBS*sizeof(double*);
+  int  NEPOCH  = GENLC.NEPOCH ;
+  int  TYPE_F  = TYPE_FLUXNOISE_F ;  // fudge noise
+
+  int  ep, iep0, iep1, indx_1D, IFILT_OBS, INDEX_REDCOV, NEPOCH_USE=0 ;
+  int  obs0, obs1, o, *epMAP;
+  double *covFlux_1D, **covCholesky_2D ;
+  double SQSIG_FUDGE[2] ;
+  double SIGxSIG, REDCOV, COV ;
+  int LDMP = 0 ; 
+  char fnam[] = "gen_fluxNoise_fudge_cov" ;
+
+  // --------- BEGIN --------
+
+  if ( NOBS <= 1 ) { return ; }
+
+  if ( LDMP ) 
+    { printf("\n xxx ------------- DUMP on for %s --------------- \n", fnam); }
+
+  // create matrix for each cov matrix
+
+  epMAP          = (int   *) malloc( NOBS * sizeof(int) );
+  covFlux_1D     = (double*) malloc (NOBS*NOBS * sizeof(double) ) ;
+  covCholesky_2D = (double**)malloc(MEMD1) ;
+  for(o=0; o < NOBS; o++ ) { covCholesky_2D[o] = (double*) malloc(MEMD0); }
+
+
+  // make sparse list epMAP of epochs to process
+  for(iep0=1; iep0 <= NEPOCH; iep0++ ) {
+    if ( !GENLC.OBSFLAG_GEN[iep0]  ) { continue ; }
+    IFILT_OBS    = GENLC.IFILT_OBS[iep0] ;
+    INDEX_REDCOV = GENLC.FLUXNOISE[iep0].INDEX_REDCOV;
+    if ( INDEX_REDCOV != icov ) { continue; }
+    epMAP[NEPOCH_USE] = iep0 ; // preserve mapping between GENLC and COV arrays
+    NEPOCH_USE++ ;
+  }
+
+  // - - - - - - - - 
+  // sanity checks
+  if ( NEPOCH_USE != NOBS ) {
+    sprintf(c1err,"Invalid %d x %d matrix; expected %d^2 ",
+	    NEPOCH_USE, NEPOCH_USE, NOBS);
+    sprintf(c2err,"CID=%d  NEPOCH=%d  icov=%d(%s)",
+	    GENLC.CID, GENLC.NEPOCH, 
+	    icov, COVINFO_FLUXERRMODEL[icov].BANDSTRING);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  /* xxx
+  if ( SIMLIB_HEADER.LIBID == 1273 ) {
+    printf(" xxx %s: NEP_USE=%d for LIBID=%d \n",
+	   fnam, NEPOCH_USE, SIMLIB_HEADER.LIBID ); fflush(stdout);
+  }
+  */
+
+  // - - - - - - 
+  for(obs0=0; obs0 < NOBS; obs0++ ) {
+
+    iep0 = epMAP[obs0] ; // iep0 is original GENLC epoch index
+
+    for(obs1=0; obs1 <= obs0; obs1++ ) {
+
+      iep1 = epMAP[obs1];
+
+      REDCOV  = COVINFO_FLUXERRMODEL[icov].REDCOV;
+      if ( obs0 == obs1 ) { REDCOV = 1.0 ; }
+
+      SQSIG_FUDGE[0] = GENLC.FLUXNOISE[iep0].SQSIG_FINAL_TRUE[TYPE_F];
+      SQSIG_FUDGE[1] = GENLC.FLUXNOISE[iep1].SQSIG_FINAL_TRUE[TYPE_F];
+      SIGxSIG  = sqrt(SQSIG_FUDGE[0] * SQSIG_FUDGE[1]) ;
+      COV      = SIGxSIG * REDCOV ;
+            
+      indx_1D = obs1*NOBS + obs0 ;
+      covFlux_1D[indx_1D] = COV;
+
+      indx_1D = obs0*NOBS + obs1 ;
+      covFlux_1D[indx_1D] = COV;
+
+      if ( LDMP ) {
+	printf(" xxx iep[0,1]=%2d,%2d  obs[0,1]=%2d,%2d  indx_1D=%3d  "
+	       "COV=%.1f\n",
+	       iep0, iep1, obs0, obs1, indx_1D, COV); fflush(stdout);
+	fflush(stdout);
+      }
+
+
+    }  // end obs1
+  }  // end obs0
+
+
+  if(LDMP) { dumpCovMat_fluxNoise(icov, NOBS, covFlux_1D); }
+
+  // - - - - - - - - - - - - - - - - - - - - -
+  // do Cholesky decomp ...
+  double *flux_scatter, GAURAN, GAURAN_ORIG, GAURAN_NEW, SIG_F ;
+  gsl_matrix_view chk;
+
+  flux_scatter = (double*) malloc( MEMD0 );
+  chk  = gsl_matrix_view_array ( covFlux_1D, NOBS, NOBS); 
+  gsl_linalg_cholesky_decomp ( &chk.matrix )  ; // <== slowest step, beware
+  
+  for(obs0=0; obs0 < NOBS; obs0++ ) {  
+    flux_scatter[obs0] = 0.0 ;
+
+    for(obs1=0; obs1 < NOBS; obs1++ ) {
+      covCholesky_2D[obs0][obs1] = 0.0 ;
+      if ( obs0 <= obs1 ) {
+	covCholesky_2D[obs0][obs1] = gsl_matrix_get(&chk.matrix,obs0,obs1); 
+      }
+
+      covCholesky_2D[obs1][obs0] = 0.0 ;
+      if ( obs1 <= obs0 ) {
+	covCholesky_2D[obs1][obs0] = gsl_matrix_get(&chk.matrix,obs1,obs0); 
+      }
+     
+      ep = epMAP[obs1];  GAURAN  = GENLC.RANGauss_NOISE_FUDGE[ep] ; 
+      flux_scatter[obs0] += (GAURAN * covCholesky_2D[obs1][obs0]) ;
+    }
+  }
+
+  
+  // modify independent RANGauss_FUDGE
+  for(o=0; o < NOBS; o++ ) {
+    ep             = epMAP[o];
+    SIG_F          = sqrt(GENLC.FLUXNOISE[ep].SQSIG_FINAL_TRUE[TYPE_F]);
+    GAURAN_ORIG    = GENLC.RANGauss_NOISE_FUDGE[ep] ; 
+    GAURAN_NEW     = flux_scatter[o]/SIG_F ;
+    GENLC.RANGauss_NOISE_FUDGE[ep] = GAURAN_NEW ;
+  } // end o loop
+
+
+  /* xxxxxx
+  for (i = 0 ; i < 3 ; i++) {
+    for (j = 0 ; j < 3 ; j++) {
+      double tmp = INPUTS.COVMAT_CHOLESKY_SCATTER[j][i]; 
+      SCATTER_VALUES[i] += tmp * normalvector[j];      
+    }
+  }
+  xxxxxxxxx*/
+
+  // free matrix memory.
+  free(covFlux_1D);
+
+  for(o=0; o < NOBS; o++ ) { free(covCholesky_2D[o]); }
+  free(covCholesky_2D);
+
+  free(epMAP);  free(flux_scatter);
+
+  return ;
+
+} // end of  gen_fluxNoise_fudge_cov
+
+
+// ******************************
+void gen_fluxNoise_fudge_cov_legacy(int icov) {
 
   // Created Jan 10 2020
   // Compute correlated randoms among epochs in "icov" group.
@@ -25380,7 +25559,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
   double SQSIG_FUDGE[2] ;
   double SIGxSIG, REDCOV, COV ;
   int LDMP = 0 ; 
-  char fnam[] = "gen_fluxNoise_fudge_cov" ;
+  char fnam[] = "gen_fluxNoise_fudge_cov_legacy" ;
 
   // --------- BEGIN --------
 
@@ -25516,7 +25695,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
 
   return ;
 
-} // end of  gen_fluxNoise_fudge_cov
+} // end of  gen_fluxNoise_fudge_cov_legacy
 
 // *********************a****************
 void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
@@ -26892,7 +27071,6 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     ,Tep, Tpeak, Trest, lamrest, Z1, parList[10]
     ;
 
-  // xxx mark delete float lamavg4, lamrms4, lammin4, lammax4 ;
   double lamavg, lamrms, lammin, lammax ;
   bool  USE_SMEARSIG = false;
   char cfilt[2];
@@ -27883,7 +28061,6 @@ void update_hostmatch_counters(void) {
   } // end first-event init
 
   // bail for normal single-host match
-  // xxx mark delete Sep 2 2022  if ( SNHOSTGAL.NNBR == 1 ) { return; }
 
   // find redshift bin "IZ" for this event
   z  = GENLC.REDSHIFT_CMB;
@@ -27952,8 +28129,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // create new subdir for simulated SNDATA files.
   // Note that -p is not used to avoid bad behavior.
   // Jul 15 2023: replace system call with native mkdir.
-  // xxx mark ??  sprintf(cmd,"mkdir -m g+wr %s", PATH_SNDATA_SIM );
-  // xxx   isys = system(cmd);
 
   isys = mkdir(PATH_SNDATA_SIM, S_IRWXU | S_IRWXG );
 

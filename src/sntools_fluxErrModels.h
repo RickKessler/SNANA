@@ -73,7 +73,7 @@ int NROW_DUMP_FLUXERRMAP;
 // define optional covariances for fudged errors
 
 int NREDCOV_FLUXERRMODEL ;
-// xxx int INDEX_REDCOV_FLUXERRM[MXFILTINDX];
+int NREDCOV_CPUWARN;
 struct { 
 
   // variables to init

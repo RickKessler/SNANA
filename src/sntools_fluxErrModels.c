@@ -79,6 +79,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   FLUXERR_FIELDGROUP.NDEFINE = 0 ;  
   NINDEX_SPARSE_FLUXERRMAP   = 0 ;
   NREDCOV_FLUXERRMODEL       = 0 ;
+  NREDCOV_CPUWARN            = 0 ;
 
   if ( IGNOREFILE(fileName) ) { return ; }
 

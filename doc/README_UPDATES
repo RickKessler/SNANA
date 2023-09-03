@@ -21899,5 +21899,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
      + tie MXEPSIM and MXOBS_SIMLIB to MXEPOCH (in sndata.h) so that
        only one param (MXEPOCH) needs to be modified.
+  
+     + refactor gen_fluxNoise_fudge_cov() to use sparse indices;
+       beware that cholesky decomp is slowest part.
 
 END: 

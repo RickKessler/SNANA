@@ -560,8 +560,6 @@ struct INPUTS {
   int  FLUXERRMODEL_OPTMASK ;
   char FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
 
-  // xxxx   int ATMOSPHERE_OPTMASK; // for DCR, PSF(SN-star) diff, etc ...
-
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
   char HOSTNOISE_FILE[MXPATHLEN];
@@ -1142,7 +1140,6 @@ struct GENLC {
   int NEWMJD ;
   int EPOCH_RANGE_NEWMJD[MXEPSIM][2];
 
-  // xxx mark  char  TELESCOPE[MXEPSIM][40];   // name of telescope
   char  FIELDNAME[MXEPSIM][MXCHAR_FIELDNAME] ;  // name of field for each obs
   int   IFLAG_GENSOURCE ;     // specifies GENSOURCE
 
@@ -1551,7 +1548,6 @@ typedef struct  {
 
   char    *PTR_FIELDNAME[MXOBS_SIMLIB];
   char    FIELDNAME[MXOBS_SIMLIB][MXCHAR_FIELDNAME];
-  // xxx mark  char    TELESCOPE[MXOBS_SIMLIB][40];
   int     APPEND_PHOTFLAG[MXOBS_SIMLIB];  // Jan 201
 
   double  TEMPLATE_SKYSIG[MXOBS_SIMLIB] ;
@@ -1628,11 +1624,6 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 
 #define  IFLAG_GENRANDOM   1
 #define  IFLAG_GENGRID     4
-
-/* xxxx mark delete Nov 23 2022 xxx
-#define OPT_SNXT_CCM89  1  // use exact CCM89 model to apply host extinc
-#define OPT_SNXT_SJPAR  2  // use Saurabh alpha,beta,zeta paramitrization
-xxxxx */
 
 #define CUTBIT_TRESTMAX     0   // (1)
 #define CUTBIT_TRESTMIN     1   // (2)
@@ -1971,6 +1962,8 @@ void   gen_fluxNoise_randoms(void);
 void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   gen_fluxNoise_fudge_diag(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   gen_fluxNoise_fudge_cov(int icov);
+void   gen_fluxNoise_fudge_cov_legacy(int icov);
+void   gen_fluxNoise_driver_cov(void);
 void   gen_fluxNoise_apply(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpLine_fluxNoise(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);

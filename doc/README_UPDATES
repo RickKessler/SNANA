@@ -21903,4 +21903,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + refactor gen_fluxNoise_fudge_cov() to use sparse indices;
        beware that cholesky decomp is slowest part.
 
+     + disable INPUTS.FLUXERRMODEL_REDCOV for LCLIB models (Galactic transients)
+       to avoid slow Cholesky decomps for large NOBS.
+
 END: 

@@ -2278,7 +2278,13 @@ Just as multiple {\tt REDCOV} keys are allowed in the
 multiple {\tt FLUXERRMODEL\_REDCOV} keys are allowed
 in the sim-input file, or as command line overrides.
 
-
+With very dense sampling over a long survey time, 
+the Cholesky decomposition for the resulting large covariance matrix 
+can be very slow because the decomposition time scales as $N_{\rm obs}^3$.
+To avoid this potentional CPU bottleneck,
+1) the covariance is applied among the subset with SNR$>2$, and
+2) the {\tt REDCOV} feature is automatically disabled for {\tt LCLIB} (Galactic)
+models.
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 \clearpage

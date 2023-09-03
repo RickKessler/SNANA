@@ -6209,6 +6209,7 @@ void prep_user_input(void) {
     INPUTS.MJD_EXPLODE   = 0.0 ;
     INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE = -9 ;
     sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE, "NONE" );
+    INPUTS.FLUXERRMODEL_REDCOV[0] = 0; // Sep 2023
 
     for(j=0; j<2; j++ ) {
       INPUTS.GENRANGE_REDSHIFT[j] = 0.0 ;
@@ -24706,8 +24707,10 @@ void GENFLUX_DRIVER(void) {
   // and refactored code here.
   gen_fluxNoise_randoms(); 
   
-  for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )
-    { COVINFO_FLUXERRMODEL[icov].NOBS = 0 ; }
+  for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )  { 
+    COVINFO_FLUXERRMODEL[icov].NOBS       = 0 ; 
+    COVINFO_FLUXERRMODEL[icov].NOBS_NOCUT = 0 ; 
+  }
 
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
@@ -25064,7 +25067,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   // Apr 14 2021: abort of SQSIG_F<0 (happens if err scale < 1)
 
   int    ifilt_obs  = GENLC.IFILT_OBS[epoch] ;
-  char   *FIELD     = GENLC.FIELDNAME[epoch];
+  char   *FIELD     = GENLC.FIELDNAME[epoch] ;
 
   double  MJD       = SIMLIB_OBS_GEN.MJD[epoch] ;
   double  SKYSIG    = SIMLIB_OBS_GEN.SKYSIG[epoch] ;
@@ -25091,7 +25094,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   double GALMAG_NEA         = FLUXNOISE->GALMAG_NEA ;
 
   int    NTYPE = NTYPE_FLUXNOISE;
-  int    OVP, itype ;
+  int    OVP, itype, ICOV ;
   double SCALE, SQSCALE, magerr_tmp, fluxErr_tmp ;
   double SQSIG_TRUE[NTYPE_FLUXNOISE];
   double SQSIG_DATA, SQSIG_TMP, SNR_MON, SQSIG_SCALED, SQSIG_F ;
@@ -25193,7 +25196,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     // keep track of NOBS per covariance matrix
     FLUXNOISE->INDEX_REDCOV = -9 ;
     if ( NREDCOV_FLUXERRMODEL > 0 ) {
-      int ICOV = INDEX_REDCOV_FLUXERRMODEL(BAND,FIELD,2,fnam);      
+      ICOV = INDEX_REDCOV_FLUXERRMODEL(BAND,FIELD,2,fnam);      
       COVINFO_FLUXERRMODEL[ICOV].NOBS++ ;
       FLUXNOISE->INDEX_REDCOV = ICOV;
     }
@@ -25347,11 +25350,13 @@ void gen_fluxNoise_driver_cov(void) {
       
       for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ ) {
 	int NOBS       = COVINFO_FLUXERRMODEL[icov].NOBS;
+	int NOBS_NOCUT = COVINFO_FLUXERRMODEL[icov].NOBS_NOCUT;
 	char *BANDSTRING = COVINFO_FLUXERRMODEL[icov].BANDSTRING ;
-	printf("\t NOBS = %5d for %s \n", NOBS, BANDSTRING);
+	printf("\t NOBS(cut,nocut) = %5d,%5d for %s \n",
+	       NOBS, NOBS_NOCUT, BANDSTRING);
 	fflush(stdout);
       }
-      printf("# --------------------------------------- \n\n");
+      printf("# ------------------------------------------------------- \n\n");
       fflush(stdout);
     } // end NREDCOV_CPUWARN 
 
@@ -25387,11 +25392,14 @@ void gen_fluxNoise_fudge_cov(int icov) {
   int  obs0, obs1, o, *epMAP;
   double *covFlux_1D, **covCholesky_2D ;
   double SQSIG_FUDGE[2] ;
-  double SIGxSIG, REDCOV, COV ;
+  double SIGxSIG, REDCOV, COV, SNR ;
   int LDMP = 0 ; 
   char fnam[] = "gen_fluxNoise_fudge_cov" ;
 
   // --------- BEGIN --------
+
+  // save original number of obs before SNR cut; NOBS will be modified below
+  COVINFO_FLUXERRMODEL[icov].NOBS_NOCUT = NOBS;
 
   if ( NOBS <= 1 ) { return ; }
 
@@ -25401,10 +25409,6 @@ void gen_fluxNoise_fudge_cov(int icov) {
   // create matrix for each cov matrix
 
   epMAP          = (int   *) malloc( NOBS * sizeof(int) );
-  covFlux_1D     = (double*) malloc (NOBS*NOBS * sizeof(double) ) ;
-  covCholesky_2D = (double**)malloc(MEMD1) ;
-  for(o=0; o < NOBS; o++ ) { covCholesky_2D[o] = (double*) malloc(MEMD0); }
-
 
   // make sparse list epMAP of epochs to process
   for(iep0=1; iep0 <= NEPOCH; iep0++ ) {
@@ -25412,20 +25416,17 @@ void gen_fluxNoise_fudge_cov(int icov) {
     IFILT_OBS    = GENLC.IFILT_OBS[iep0] ;
     INDEX_REDCOV = GENLC.FLUXNOISE[iep0].INDEX_REDCOV;
     if ( INDEX_REDCOV != icov ) { continue; }
+
+    // apply SNR>2 cut to reduce size/CPU of Chol. decomp
+    SNR = GENLC.FLUXNOISE[iep0].SNR_CALC_ST;
+    if ( SNR < SNRMIN_REDCOV ) { continue; } 
+
     epMAP[NEPOCH_USE] = iep0 ; // preserve mapping between GENLC and COV arrays
     NEPOCH_USE++ ;
   }
 
-  // - - - - - - - - 
-  // sanity checks
-  if ( NEPOCH_USE != NOBS ) {
-    sprintf(c1err,"Invalid %d x %d matrix; expected %d^2 ",
-	    NEPOCH_USE, NEPOCH_USE, NOBS);
-    sprintf(c2err,"CID=%d  NEPOCH=%d  icov=%d(%s)",
-	    GENLC.CID, GENLC.NEPOCH, 
-	    icov, COVINFO_FLUXERRMODEL[icov].BANDSTRING);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
+  // reset NOBS based on NEP passing SNR cut
+  NOBS = COVINFO_FLUXERRMODEL[icov].NOBS = NEPOCH_USE;
 
   /* xxx
   if ( SIMLIB_HEADER.LIBID == 1273 ) {
@@ -25433,6 +25434,10 @@ void gen_fluxNoise_fudge_cov(int icov) {
 	   fnam, NEPOCH_USE, SIMLIB_HEADER.LIBID ); fflush(stdout);
   }
   */
+
+  covFlux_1D     = (double*) malloc (NOBS*NOBS * sizeof(double) ) ;
+  covCholesky_2D = (double**)malloc(MEMD1) ;
+  for(o=0; o < NOBS; o++ ) { covCholesky_2D[o] = (double*) malloc(MEMD0); }
 
   // - - - - - - 
   for(obs0=0; obs0 < NOBS; obs0++ ) {
@@ -25500,7 +25505,10 @@ void gen_fluxNoise_fudge_cov(int icov) {
   }
 
   
-  // modify independent RANGauss_FUDGE
+  // modify independent RANGauss_FUDGE. 
+  // Obs with SNR<2 are left with diag cov that is not correlated with 
+  // other observations.
+  
   for(o=0; o < NOBS; o++ ) {
     ep             = epMAP[o];
     SIG_F          = sqrt(GENLC.FLUXNOISE[ep].SQSIG_FINAL_TRUE[TYPE_F]);
@@ -25510,14 +25518,6 @@ void gen_fluxNoise_fudge_cov(int icov) {
   } // end o loop
 
 
-  /* xxxxxx
-  for (i = 0 ; i < 3 ; i++) {
-    for (j = 0 ; j < 3 ; j++) {
-      double tmp = INPUTS.COVMAT_CHOLESKY_SCATTER[j][i]; 
-      SCATTER_VALUES[i] += tmp * normalvector[j];      
-    }
-  }
-  xxxxxxxxx*/
 
   // free matrix memory.
   free(covFlux_1D);

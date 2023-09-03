@@ -74,6 +74,7 @@ int NROW_DUMP_FLUXERRMAP;
 
 int NREDCOV_FLUXERRMODEL ;
 int NREDCOV_CPUWARN;
+#define SNRMIN_REDCOV 2.0  // REDCOV on SNR>2 to avoid slow Cholesky decomp       
 struct { 
 
   // variables to init
@@ -86,8 +87,9 @@ struct {
   bool   ALL_FIELD ; // flag for FIELD = 'ALL'
 
   // variables for each event
-  int NOBS;    // number of obs for this covariance matrix
-  
+  int NOBS   ;       // number of obs for this covariance matrix (with cuts)
+  int NOBS_NOCUT;    // no SNR cut
+
 } COVINFO_FLUXERRMODEL[MXREDCOV_FLUXERRMAP];
 
 

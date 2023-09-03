@@ -21904,6 +21904,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        beware that cholesky decomp is slowest part.
 
      + disable INPUTS.FLUXERRMODEL_REDCOV for LCLIB models (Galactic transients)
-       to avoid slow Cholesky decomps for large NOBS.
+       to avoid slow Cholesky decomps for large NOBS. 
+       Also, covariance is applied for SNR>2 subset.
 
 END: 

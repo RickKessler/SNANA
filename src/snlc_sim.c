@@ -6178,6 +6178,8 @@ void prep_user_input(void) {
       INPUTS.GENRANGE_TREST[0] = 0.0 ;
       INPUTS.GENRANGE_TREST[1] = MJDMAX- MJDMIN ;
 
+      INPUTS.FLUXERRMODEL_REDCOV[0] = 0; // avoid slow Chol decomp, Sep 2023
+
     } // end MODEL_AGN
  
   }
@@ -6209,7 +6211,7 @@ void prep_user_input(void) {
     INPUTS.MJD_EXPLODE   = 0.0 ;
     INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE = -9 ;
     sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE, "NONE" );
-    INPUTS.FLUXERRMODEL_REDCOV[0] = 0; // Sep 2023
+    INPUTS.FLUXERRMODEL_REDCOV[0] = 0; // avoid slow Chol decomp, Sep 2023
 
     for(j=0; j<2; j++ ) {
       INPUTS.GENRANGE_REDSHIFT[j] = 0.0 ;

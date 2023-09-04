@@ -1701,7 +1701,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
 
   else if ( keyMatchSim(1, "FLUXERRMODEL_SNRMIN_REDCOV", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_SNRMIN_REDCOV );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.FLUXERRMODEL_SNRMIN_REDCOV );
     README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
 			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }

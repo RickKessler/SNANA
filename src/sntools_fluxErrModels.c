@@ -13,14 +13,6 @@
 
 ****************************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-*/
 
 #include "sntools.h"
 #include "sntools_fluxErrModels.h"
@@ -64,7 +56,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   FILE *fp;
   int  OPENMASK, gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar ;
   int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ;
-  int  USE_REDCOV=1, USE_REDCOV_OVERRIDE=0;
+  int  USE_REDCOV_FILE=1, USE_REDCOV_OVERRIDE=0;
   bool HAS_COLON;
   char PATH[2*MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
@@ -127,8 +119,8 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   }
 
   // check user-option to disable REDCOV
-  if ( IGNOREFILE(STRING_REDCOV)  ) { USE_REDCOV = 0 ; }
-  if ( strlen(STRING_REDCOV) == 0 ) { USE_REDCOV = 1 ; }
+  if ( IGNOREFILE(STRING_REDCOV)  ) { USE_REDCOV_FILE = 0 ; }
+  if ( strlen(STRING_REDCOV) == 0 ) { USE_REDCOV_FILE = 1 ; }
  
   // check user-option to override REDCOV in FLUXERRMODEL_FILE
   if ( strlen(STRING_REDCOV) > 0 ) { USE_REDCOV_OVERRIDE =  1; }
@@ -155,7 +147,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
       FLUXERR_FIELDGROUP.NDEFINE++ ;
     }
 
-    if ( USE_REDCOV && !USE_REDCOV_OVERRIDE && HAS_COLON ) {
+    if ( USE_REDCOV_FILE && !USE_REDCOV_OVERRIDE && HAS_COLON ) {
       
       if ( strstr(c_get,"REDCOV") || strstr(c_get,"REDCOR") ) {
 	readchar(fp, TMP_STRING);
@@ -172,8 +164,8 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
       name = FLUXERRMAP[NMAP].NAME ;
       readchar(fp, name ) ;
       FLUXERRMAP[NMAP].NVAR = NVAR  = 0 ;
-      FLUXERRMAP[NMAP].MAP.VARLIST[0]   = 0 ;
-      FLUXERRMAP[NMAP].MASK_APPLY   = 3;    // SIM & DATA by default 
+      FLUXERRMAP[NMAP].MAP.VARLIST[0]     = 0 ;
+      FLUXERRMAP[NMAP].MASK_APPLY         = 3;    // SIM & DATA by default 
       FLUXERRMAP[NMAP].SCALE_FLUXERR_TRUE = 1.0 ;
       FLUXERRMAP[NMAP].SCALE_FLUXERR_DATA = 1.0 ;
 
@@ -228,7 +220,6 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
       fgets(LINE,100,fp);
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
       FLUXERRMAP[NMAP].NVAR = NVAR ;
-      //      malloc_ROWDATA_FLUXERRMAP(+1,NVAR);
 
       for(ivar=0; ivar < NVAR; ivar++ ) { 
 	get_PARSE_WORD(0,ivar,TMP_STRING);
@@ -799,7 +790,6 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
       VARNAMES  = FLUXERRMAP[imap].VARNAMES[ivar] ;
       sprintf(tmpString,"%s=%.3f ",  VARNAMES, parList[ivar] ); 
       strcat(cparList,tmpString);
-      // xxx sprintf(cparList,"%s %s=%.3f", cparList,VARNAMES,parList[ivar]); 
     }
     printf(" xxx imap=%2d  %s(%s-%s)  MJD=%.3f  FLUXERR_IN=%.3f\n", 
 	   imap, FLUXERRMAP[imap].NAME, FIELD, BAND,

@@ -1120,8 +1120,9 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_FIXSERSIC[2]  = -999.0 ; // n
   INPUTS.HOSTLIB_FIXSERSIC[3]  = -999.0 ; // a_rot, deg
 
-  INPUTS.FLUXERRMODEL_OPTMASK = 0 ;
-  INPUTS.FLUXERRMODEL_REDCOV[0] = 0;
+  INPUTS.FLUXERRMODEL_OPTMASK       = 0 ;
+  INPUTS.FLUXERRMODEL_REDCOV[0]     = 0;
+  INPUTS.FLUXERRMODEL_SNRMIN_REDCOV = 2.0; // to avoid slow Chol. decomp.
   sprintf(INPUTS.FLUXERRMODEL_FILE,          "NONE" ); 
   sprintf(INPUTS.FLUXERRMAP_IGNORE_DATAERR,  "NONE" );
   sprintf(INPUTS.HOSTNOISE_FILE,             "NONE" ); 
@@ -1697,6 +1698,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     strcat(STR_REDCOV,ctmp );   // store argument
     strcat(STR_REDCOV," ");         // blank space  
     if ( IGNOREFILE(ctmp) ) { sprintf(STR_REDCOV,"NONE"); }
+  }
+
+  else if ( keyMatchSim(1, "FLUXERRMODEL_SNRMIN_REDCOV", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_SNRMIN_REDCOV );
+    README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
+			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
 
   else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
@@ -25421,7 +25428,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
 
     // apply SNR>2 cut to reduce size/CPU of Chol. decomp
     SNR = GENLC.FLUXNOISE[iep0].SNR_CALC_ST;
-    if ( SNR < SNRMIN_REDCOV ) { continue; } 
+    if ( SNR < INPUTS.FLUXERRMODEL_SNRMIN_REDCOV ) { continue; } 
 
     epMAP[NEPOCH_USE] = iep0 ; // preserve mapping between GENLC and COV arrays
     NEPOCH_USE++ ;

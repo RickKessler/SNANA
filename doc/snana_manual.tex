@@ -2264,6 +2264,8 @@ use the following sim-input keys;
    FLUXERRMODEL_REDCOV(DEEP): griz:0.6
      or 
    FLUXERRMODEL_REDCOV: NONE  # disable flux covariances.
+  
+   FLUXERRMODEL_SNRMIN_REDCOV:  2.0  # default to avoid slow Cholesky decomp
 \end{Verbatim}
 For command line overrides and {\tt GENOPT} options for {\submit},
 remove the colon. The parenetheses are properly handled by
@@ -2281,10 +2283,11 @@ in the sim-input file, or as command line overrides.
 With very dense sampling over a long survey time, 
 the Cholesky decomposition for the resulting large covariance matrix 
 can be very slow because the decomposition time scales as $N_{\rm obs}^3$.
-To avoid this potentional CPU bottleneck,
-1) the covariance is applied among the subset with SNR$>2$, and
-2) the {\tt REDCOV} feature is automatically disabled for {\tt LCLIB} (Galactic)
-models.
+To avoid this potentional CPU bottleneck, and
+1) covariance is applied among subset with SNR$>2$
+(change default with {FLUXERRMODEL\_SNRMIN\_REDCOV}), and
+2) the {\tt REDCOV} feature is disabled for {\tt LCLIB} (Galactic)
+and AGN models.
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 \clearpage

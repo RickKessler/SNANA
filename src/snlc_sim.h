@@ -555,10 +555,11 @@ struct INPUTS {
   double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi
   double HOSTLIB_FIXSERSIC[4];    // fix sersic a,b,n,a_rot
 
-  char FLUXERRMODEL_FILE[MXPATHLEN];   // input err-scale map(s)
-  char FLUXERRMAP_IGNORE_DATAERR[100]; // list of MAPNAMES to ignore in data error
-  int  FLUXERRMODEL_OPTMASK ;
-  char FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
+  char   FLUXERRMODEL_FILE[MXPATHLEN];   // input err-scale map(s)
+  char   FLUXERRMAP_IGNORE_DATAERR[100]; // list of MAPNAMES to ignore in data error
+  int    FLUXERRMODEL_OPTMASK ;
+  char   FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
+  double FLUXERRMODEL_SNRMIN_REDCOV; // default = 2
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.

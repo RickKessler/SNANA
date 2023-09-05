@@ -2427,10 +2427,14 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
       if ( strlen(LINE) == 0 ) { continue; }
       nline++ ;
-      malloc_PARSE_WORDS(MXWORDLINE_PARSE_WORDS);
+      // xxx mark delete malloc_PARSE_WORDS(MXWORDLINE_PARSE_WORDS);
+      malloc_PARSE_WORDS(PARSE_WORDS.NWD);
+
       if ( (pos=strchr(LINE,'\n') ) != NULL )  { *pos = '\0' ; }
+
       if ( PARSE_WORDS.NWD < MXWORDFILE_PARSE_WORDS ) 
 	{ iwdStart = PARSE_WORDS.NWD; }
+
       splitString2(LINE, sepKey, MXWORDLINE_PARSE_WORDS, 
 		   &NWD, &PARSE_WORDS.WDLIST[iwdStart] ); // <== returned
 

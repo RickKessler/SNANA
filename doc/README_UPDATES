@@ -21889,6 +21889,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     "GENMODEL_OPTMASK: 16" works on SNIa and NON1ASED (FLAM<0 -> FLAM=0);
     Also prints warnings to get diagnostics on Flam<0.
 
+    Ouput root table now include HOST_XXX and HOST2_XXX for 2nd best host match.
+    To write both hosts to text table, SNTABLE_LIST='SNANA(text:host2)'
+
         ***** USEFUL(v11_05g) ***** 
 
         ***** MISCELLANEOUS(v11_05g) ***** 

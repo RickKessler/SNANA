@@ -12771,8 +12771,9 @@ A few other miscellaneous table options are
   SNTABLE_LIST = 'SNANA(PS:10) FITRES'   # pre-scale SNANA table by 10
   SNTABLE_LIST = 'FITRES NOZPHOT'        # suppress ZPHOT variables
   SNTABLE_LIST = 'SNANA(text:host)'      # include HOSTGAL info in text tables
+  SNTABLE_LIST = 'SNANA(text:host2)'     # include HOSTGAL & HOSTGAL2 in text table
   SNTABLE_LIST = 'SNANA(text:key,text:host)' # same, with format spec
-  SNTABLE_LIST = 'OUTLIER(nsig:4)'       # table with >4sig outlers (default is 3sig)
+  SNTABLE_LIST = 'OUTLIER(nsig:4)'       # table with >4sig outlers (default: 3sig)
   SNTABLE_LIST = 'OUTLIER(nsig:4,ftrue:0.0)'   # include obs with Ftrue=0
 \end{verbatim}
 %

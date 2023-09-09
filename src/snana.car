@@ -561,7 +561,8 @@ c SNTABLE control variables (May 2014)
      &  ,WRTABLEFILE_IAUC     ! T-> SNID -> IAUC (for writing tables)
      &  ,WRTABLEFILE_SIMVAR   ! T-> include SIM_XXX vars for simulation
      &  ,WRTABLEFILE_ZPHOT    ! T-> include ZPHOT info for PHOTOZ fit
-     &  ,WRTABLEFILE_HOST_TEXT! T-> add HOST info in SNNA TEXT table 
+     &  ,WRTABLEFILE_HOST_TEXT  ! T-> add HOST info in SNANA TEXT table 
+     &  ,WRTABLEFILE_HOST2_TEXT ! T-> add HOST and HOST2 info in SNANA TEXT table 
      &  ,WRTABLEFILE_ERRCALC_TEXT! T-> add ERRCALC info in LCPLOT TEXT table 
 
       INTEGER
@@ -588,7 +589,8 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
      &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE_MARZ, USE_TABLEFILE
      &    ,OPT_TABLE, TEXTFORMAT_TABLE
      &    ,CUTMASK_SNANA_TABLE, WRTABLEFILE_IAUC, WRTABLEFILE_SIMVAR
-     &    ,WRTABLEFILE_ZPHOT, WRTABLEFILE_HOST_TEXT
+     &    ,WRTABLEFILE_ZPHOT
+     &    ,WRTABLEFILE_HOST_TEXT, WRTABLEFILE_HOST2_TEXT
      &    ,WRTABLEFILE_ERRCALC_TEXT 
 c
      &    ,NFILT_REMAP_TABLE, IFILTLIST_REMAP_TABLE
@@ -6224,7 +6226,8 @@ c set LTEST logicals to false.
       SNTABLE_FILTER_REMAP  = ''
       WRTABLEFILE_SIMVAR    = .TRUE.     ! Jul 17 2016
       WRTABLEFILE_ZPHOT     = .TRUE.     ! Mar 19 2018
-      WRTABLEFILE_HOST_TEXT = .FALSE.    ! May 23 2019
+      WRTABLEFILE_HOST_TEXT  = .FALSE.    ! May 23 2019
+      WRTABLEFILE_HOST2_TEXT = .FALSE.    ! Sep 2023
       WRTABLEFILE_ERRCALC_TEXT = .FALSE. ! Oct 30 2019
 
       SNTABLE_APPEND_VARNAME = ''
@@ -6993,7 +6996,8 @@ c by default, ZPHOT[ERR] and ZPHOT-covariances are included
       WRTABLEFILE_ZPHOT  = .TRUE.
 
 c for TEXT format, exclude HOSTGAL info by default
-      WRTABLEFILE_HOST_TEXT = .FALSE.
+      WRTABLEFILE_HOST_TEXT  = .FALSE.
+      WRTABLEFILE_HOST2_TEXT = .FALSE.
 
 c --------------------------------------
 c bail of there is nothing to do.
@@ -7105,7 +7109,9 @@ c check for options inside ()
             MATCH= ( copt(1:5) .EQ. 'text:' )
             if ( MATCH ) then
                cTMPOPT = copt(6:LENOPT) // ' '
-               if( cTMPOPT(1:4) .EQ. 'host' ) then
+               if( cTMPOPT(1:5) .EQ. 'host2' ) then
+                  WRTABLEFILE_HOST2_TEXT = .TRUE.  ! for SNANA table  
+               else if( cTMPOPT(1:4) .EQ. 'host' ) then
                   WRTABLEFILE_HOST_TEXT = .TRUE.  ! for SNANA table  
                else if ( cTMPOPT(1:7) .EQ. 'errcalc' ) then
                   WRTABLEFILE_ERRCALC_TEXT = .TRUE.  ! for LCPLOT table
@@ -7199,7 +7205,10 @@ c summarize
 51    format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )
 
       if ( WRTABLEFILE_HOST_TEXT ) then
-         print*,'   Include HOSTGAL info in TEXT tables.'
+         print*,'   Include best-match HOSTGAL info in TEXT tables.'
+      endif
+      if ( WRTABLEFILE_HOST2_TEXT ) then
+         print*,'   Include  HOSTGAL & HOSTGAL2 info in TEXT tables.'
       endif
 
       if ( WRTABLEFILE_IAUC ) then
@@ -23697,6 +23706,7 @@ c May 14 2020: add zFLAG
 c Mar 14 2021: always include PKMJDINI in TEXT output
 c Mar 19 2021: add NEP_OUTLIER if OUTLIER table is defined
 c Aug 13 2021: include HOST_SBMAG, and HOST_SB -> HOST_SBFLUXCAL
+c Sep 09 2023: update to write 2nd HOST match.
 c
 c -------------------------------------------------------------
 
@@ -23720,7 +23730,7 @@ c local var
 +CDE,TRUECHI2COM.
 
       INTEGER 
-     &   IFILT, IFILT_OBS, ITEXT
+     &   IFILT, IFILT_OBS, ITEXT, ITEXT2, IGAL
      &  ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
 
       LOGICAL LTMP, ADDCOL_SETPKMJD
@@ -23920,7 +23930,10 @@ c Feb 6 2020: write MWEBV to TEXT (but not the error)
 
 c - - - - - - HOST GALAXY - - - - 
       ITEXT = 0
-      if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
+      if ( WRTABLEFILE_HOST_TEXT .or. WRTABLEFILE_HOST2_TEXT ) ITEXT=1
+
+      ITEXT2 = 0
+      if ( WRTABLEFILE_HOST2_TEXT ) ITEXT2=1  ! for 2nd host only
 
       VARLIST =  'HOST_NMATCH:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH, 
@@ -23929,14 +23942,19 @@ c - - - - - - HOST GALAXY - - - -
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH2, 
      &              VARLIST,ITEXT,    LENBLOCK, 20 )
 
-c      VARLIST =  'HOST_OBJID:L' // char(0)
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK_L, SNHOST_OBJID, VARLIST,0, 
-c     &     LENBLOCK_L, 20)
+      IGAL = 1
+      CALL INIT_TABLE_HOSTVAR(ID, IGAL, ITEXT, BLOCK)
 
+      IGAL = 2
+      CALL INIT_TABLE_HOSTVAR(ID, IGAL, ITEXT2, BLOCK)
+
+c xxxxxxx mark delete Sep 9 2023 xxxxxxxx
++SELF,IF=REMOVE.
 c store HOST_OBJID as double precision because
 c  * root tree supports Long64_t, but does not read back correctly
 c  * hbook cwnt does not support long long int.
 c  * sntable_dump extraction will write real*8 as integer.
+
 
       VARLIST =  'HOST_OBJID:D' // char(0)
       CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(1), 
@@ -24018,6 +24036,10 @@ c always write LOGMASS and SFR
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
+
++SELF.
+c xxxxxxxxxx end mark xxxxxxxxxx
+
 
 c Apr 2022
 c store host surface brightness if SB exists or host-mag exists.
@@ -24321,6 +24343,141 @@ c --- Sep 23 2017: user variables --------
       RETURN
       END   !  end of INIT_TABLE_SNANAVAR
 
+
+C ======================================
++DECK,INIT_TBHOSTVAR.
+      SUBROUTINE INIT_TABLE_HOSTVAR(ID, IGAL, ITEXT, BLOCK)
+
+c Created Sep 2023
+c init table column for HOST_XXX (igal=1) or HOST2_XXX (igal=2)
+c
+c  Inputs
+c   ID   : table ID
+c   IGAL : 1 for best match, >1 for other matches
+c   ITEXT: 1 -> write to text also
+
+      IMPLICIT NONE
+
+c subroutine args
+      INTEGER ID, IGAL, ITEXT   ! (I) 
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
+
+c local var
+      CHARACTER PREFIX*8, VARLIST*60, CBLOCK*40
+      INTEGER   LP, LENLIST, LENBLOCK, ITEXT_LOCAL
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
+c ------------- BEGIN ----------
+
+      if ( IGAL == 1 ) then
+        PREFIX = 'HOST_'
+        LP     = 5
+      else 
+        write(PREFIX,20) IGAL
+        LP = 6
+20      format('HOST',I1,'_')
+      endif
+
+      LENBLOCK     = INDEX(BLOCK//' ',' ') - 1
+      CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
+      LENLIST      = 40
+
+c store HOST_OBJID as double precision because
+c  * root tree supports Long64_t, but does not read back correctly
+c  * hbook cwnt does not support long long int.
+c  * sntable_dump extraction will write real*8 as integer.
+
+      VARLIST =  PREFIX(1:LP) // 'OBJID:D' // char(0)
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(1), 
+     &             VARLIST,ITEXT,     LENBLOCK, 20 )
+
+      VARLIST =  PREFIX(1:LP) // 'ZPHOT:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(1), 
+     &             VARLIST,ITEXT,    LENBLOCK, 40 )
+      VARLIST =  PREFIX(1:LP) // 'ZPHOTERR:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(1), 
+     &               VARLIST,ITEXT,    LENBLOCK, 40 )
+
+      VARLIST =  PREFIX(1:LP) // 'ZSPEC:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(1), 
+     &             VARLIST,ITEXT,    LENBLOCK, 40 )
+      VARLIST =  PREFIX(1:LP) // 'ZSPECERR:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC_ERR(1), 
+     &              VARLIST,ITEXT,  LENBLOCK, 40 )
+
+      VARLIST = PREFIX(1:LP) // 'RA:D'  // char(0)
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_RA(1), 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
+      VARLIST = PREFIX(1:LP) // 'DEC:D'  // char(0)
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_DEC(1), 
+     &          VARLIST,ITEXT,   LENBLOCK, 20 )
+
+      VARLIST = PREFIX(1:LP) // 'ANGSEP:F'  // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ANGSEP(1), 
+     &         VARLIST,ITEXT,   LENBLOCK, 20 )
+
+      VARLIST = PREFIX(1:LP) // 'DDLR:F'  // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_DDLR(1), 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
+
+      if ( igal == 1 ) then  
+        VARLIST = 'HOST_CONFUSION:F'  // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_CONFUSION, 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
+      endif
+
+c physical properties
+      ITEXT_LOCAL = 1  ! always write properties to text format
+      if ( IGAL > 1 ) ITEXT_LOCAL = ITEXT  ! optional for other host matches
+
+      IF ( EXIST_SNHOST_LOGMASS ) THEN
+        VARLIST =  PREFIX(1:LP) // 'LOGMASS:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS(1), 
+     &          VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
+        VARLIST =  PREFIX(1:LP) // 'LOGMASS_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS_ERR(1), 
+     &          VARLIST, ITEXT_LOCAL,     LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_LOGSFR ) THEN
+        VARLIST =  PREFIX(1:LP) // 'LOGSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR(1), 
+     &            VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
+        VARLIST =  PREFIX(1:LP) // 'LOGSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR_ERR(1), 
+     &            VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_LOGsSFR ) THEN
+        VARLIST =  PREFIX(1:LP) // 'LOGsSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR(1), 
+     &            VARLIST, ITEXT_LOCAL,   LENBLOCK, 40 )
+        VARLIST =  PREFIX(1:LP) // 'LOGsSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR_ERR(1), 
+     &           VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_COLOR ) THEN
+        VARLIST =  PREFIX(1:LP) // 'COLOR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR(1), 
+     &             VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
+        VARLIST =  PREFIX(1:LP) // 'COLOR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR_ERR(1), 
+     &           VARLIST, ITEXT_LOCAL,     LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_MAGOBS .and. IGAL == 1 ) THEN    ! host mags
+        CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
+     &           VARLIST, LENLIST)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
+     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+      ENDIF
+
+      RETURN
+      END    ! INIT_TABLE_HOSTVAR
 
 C =============================================
 +DECK,TBOBSVAR.

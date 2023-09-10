@@ -8015,7 +8015,7 @@ int init_SNDATA_GLOBAL(void) {
   int ifilt, ep, j ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
-  // ---------------- BEGIN -------------
+  // ---------------- BEGINN -------------
 
   printf("\n  %s: \n", fnam); fflush(stdout);
 

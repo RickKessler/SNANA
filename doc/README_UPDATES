@@ -21894,6 +21894,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** USEFUL(v11_05g) ***** 
 
+    snana.car:
+       + new input PRIVATE_VARNAME_READLIST to select subset of PRIVATE
+         variables to read ... intended for REFORMAT options.
+
+
         ***** MISCELLANEOUS(v11_05g) ***** 
 
     snlc_sim:

@@ -1137,6 +1137,83 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
 
 }  // end copy_GENSPEC
 
+// ==========================================
+void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST) {
+
+  // Created Sep 2023
+  // if input PRIVATE_VARNAME_LIST, parse this comma-sep list of
+  // private variable names to keep, and re-make list of private vars
+  // to read from data file. 
+  // Initial goal here is to enable REFORMAT option to write out 
+  // subset of PRIVATE variables.
+
+  int NVAR_ORIG = SNDATA.NVAR_PRIVATE;
+  int i0, i1, NVAR_LIST=0, NVAR_MATCH=0 ;
+  int MEMC = sizeof(char)*40;
+  char **ptr_VARNAME_LIST;
+  char fnam[] = "RD_PRIVATE_INIT" ;
+
+  // --------- BEGIN --------
+
+  if ( NVAR_ORIG == 0 ) { return ;}
+  if ( strlen(PRIVATE_VARNAME_LIST) == 0 ) { return; }
+
+  // allocate memory for each VARNAME
+  ptr_VARNAME_LIST = (char**)malloc( MXVAR_PRIVATE*sizeof(char*));
+  for(i0=0; i0 < MXVAR_PRIVATE; i0++ )
+    { ptr_VARNAME_LIST[i0] = (char*)malloc(MEMC); }
+
+  splitString(PRIVATE_VARNAME_LIST, COMMA, fnam, MXVAR_PRIVATE,    // inputs  
+	      &NVAR_LIST, ptr_VARNAME_LIST );       // outputs             
+
+
+  char *ptr_KEYWORD0, *ptr_VARNAME, KEYWORD1[100];
+  bool MATCH ;
+
+  for(i0=1; i0 <= NVAR_ORIG; i0++ ) {
+    ptr_KEYWORD0 = SNDATA.PRIVATE_KEYWORD[i0];
+    MATCH       = false;
+    for ( i1=0; i1 < NVAR_LIST; i1++ ) {
+      sprintf(KEYWORD1,"PRIVATE(%s)", ptr_VARNAME_LIST[i1]);
+      if ( strcmp(ptr_KEYWORD0,KEYWORD1) == 0 ) 
+	{ ptr_VARNAME = ptr_VARNAME_LIST[i1]; MATCH = true;  }
+    }
+    
+    if ( MATCH ) {
+      NVAR_MATCH++ ; 
+      sprintf(SNDATA.PRIVATE_KEYWORD[NVAR_MATCH],"%s", ptr_KEYWORD0);
+      sprintf(SNDATA.PRIVATE_VARNAME[NVAR_MATCH],"%s", ptr_VARNAME);
+    }
+
+    /* xxx mark    
+    printf(" xxx %s: ivar=%2d MATCH=%d  KEYWORD = %s \n",
+	   fnam, i0, MATCH, ptr_KEYWORD0 );
+    fflush(stdout);
+    xxxx */
+
+  } // end i0
+
+  if ( NVAR_MATCH != NVAR_LIST ) {
+    print_preAbort_banner(fnam);
+    printf("\t PRIVATE_VARNAME_LIST = %s \n", PRIVATE_VARNAME_LIST);
+    for(i0=1; i0 <= NVAR_MATCH; i0++ ) {
+      printf("\t Found match for %s \n", SNDATA.PRIVATE_KEYWORD[i0]);
+    }
+
+    sprintf(c1err,"expected to find NVAR_LIST=%d private-var matches", NVAR_LIST);
+    sprintf(c2err,"but found %d matches.", NVAR_MATCH);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
+  SNDATA.NVAR_PRIVATE = NVAR_MATCH;
+
+  printf("\n %s: select %d of %d original PRIVATE variables. \n",
+	 fnam, NVAR_MATCH, NVAR_ORIG); fflush(stdout);
+
+  return ;
+
+} // end RD_PRIVATE_INIT
+
 // ==============================================
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
 
@@ -1485,3 +1562,6 @@ void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal )
 
 void rd_override_init__(char *override_file)
 { RD_OVERRIDE_INIT(override_file); }
+
+void rd_private_init__(char *PRIVATE_VARNAME_LIST)
+{ RD_PRIVATE_INIT(PRIVATE_VARNAME_LIST); }

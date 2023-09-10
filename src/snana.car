@@ -1845,6 +1845,7 @@ c
      &  ,FILTER_REPLACE*(MXFILT_ALL)      ! I: e.g., 'UGRIZ -> ugriz' 
      &  ,FILTLIST_LAMSHIFT*(MXFILT_ALL)   ! I: list of lam-shifted filters
      &  ,PRIVATE_CUTWIN_STRING(MXCUT_PRIVATE)*(MXCHAR_CUTNAME) ! I: cut on privat variables
+     &  ,PRIVATE_VARNAME_READLIST*200   ! I: list of private vars to read (default=ALL)
      &  ,SIMVAR_CUTWIN_STRING*(MXCHAR_CUTNAME) ! I: cuts on SIM_XXX
      &  ,EARLYLC_STRING*(MXCHAR_CUTNAME)       ! I: see manual
      &  ,REQUIRE_EPOCHS_STRING*100  ! I: e.g., 'riz 10 7 20' uses CUTWIN_SNRMAX
@@ -2007,7 +2008,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
      &    , EPCUT_SNRMIN, EPCUT_SKYSIG, EPCUT_PSFSIG
      &    , CUTWIN_LAMREST, CUTWIN_LAMOBS, cutwin_snr_nodetect
-     &    , PRIVATE_CUTWIN_STRING, SIMVAR_CUTWIN_STRING
+     &    , PRIVATE_CUTWIN_STRING, PRIVATE_VARNAME_READLIST
+     &    , SIMVAR_CUTWIN_STRING
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT
@@ -2094,7 +2096,8 @@ c
      &   ,cutwin_trest2, cutwin_nfilt_trest2
      &   ,cutwin_restlam, cutwin_lamrest, cutwin_lamobs
      &   ,cutwin_snr_nodetect
-     &   ,PRIVATE_CUTWIN_STRING, SIMVAR_CUTWIN_STRING
+     &   ,PRIVATE_CUTWIN_STRING, PRIVATE_VARNAME_READLIST
+     &   ,SIMVAR_CUTWIN_STRING
      &   ,EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
 c
      &   ,SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
@@ -3100,9 +3103,6 @@ c (SURVEY, FILTERS ..) needed for initialization
 
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
-c check header override option
-c xxx mark delete May 4 2023:      CALL INIT_READ_OVERRIDE()
-
       RETURN
       END    ! end INIT_READ_DATA
 
@@ -3118,13 +3118,13 @@ c
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-      INTEGER LENF_DATA, LENF_SIM
-      CHARACTER TMP_FILE*(MXCHAR_FILENAME)
+      INTEGER LENF_DATA, LENF_SIM, LEN_PRIV
+      CHARACTER STR_TMP*(MXCHAR_FILENAME)
 
 C ------------ BEGIN -----------
 
       LENF_DATA = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-      LENF_SIM = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1
+      LENF_SIM  = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1
       IF ( LENF_DATA > 0 .AND. LSIM_SNANA ) THEN
           print*,' '
           print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
@@ -3133,16 +3133,22 @@ C ------------ BEGIN -----------
           print*,' '
       ENDIF
       IF ( LENF_DATA > 0 ) THEN
-       TMP_FILE = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
-       CALL RD_OVERRIDE_INIT(TMP_FILE)
+       STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
+       CALL RD_OVERRIDE_INIT(STR_TMP,LENF_DATA)
       ENDIF
       IF ( LENF_SIM > 0 ) THEN
-       TMP_FILE = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
-       CALL RD_OVERRIDE_INIT(TMP_FILE)
+        STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
+        CALL RD_OVERRIDE_INIT(STR_TMP,LENF_SIM)
       ENDIF
      
+      LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
+      IF ( LEN_PRIV > 0 ) THEN
+         STR_TMP = PRIVATE_VARNAME_READLIST(1:LEN_PRIV)//char(0)
+         CALL RD_PRIVATE_INIT(STR_TMP,LEN_PRIV)
+      ENDIF
+
       RETURN
-      END
+      END   ! end INIT_READ_OVERRIDE
 
 C ==============================================
 +DECK,PREP_VERSION_SUBFOLDER.
@@ -3424,7 +3430,7 @@ c read global info and store in SNDATA struct in sndata.h
 
 c read SNDATA struct and tranfer global info to fortran variables
       if ( LRDFLAG_GLOBAL .OR. IVERS > 1 ) then
-         CALL INIT_READ_OVERRIDE()      ! May 2023
+         CALL INIT_READ_OVERRIDE()      ! May 2023         
          CALL RDGLOBAL_DRIVER()
          CALL INIT_SURVEY(NSN_VERS)     ! init a few things
          IF ( LRDFLAG_GLOBAL ) RETURN
@@ -3964,10 +3970,14 @@ c
 +CDE,PRIVCOM.
 
 
-      INTEGER   IVAR
+      INTEGER   IVAR, LEN
       REAL*8    DARRAY(MXVAR_PRIVATE)
       CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*60
+      CHARACTER VARNAME(20)*60
+      LOGICAL   MATCH_VARNAME 
 
+c functions
+      INTEGER  STORE_PARSE_WORDS
 C -------------- BEGIN ---------------
 
       CALL FETCH_SNDATA_WRAPPER("NVAR_PRIVATE", 
@@ -4007,6 +4017,7 @@ c ----------------------------------------------
 
       RETURN
       END  ! end of RDGLOBAL_PRIVATE
+
 
 C =================================
 +DECK,RDGLOB_ZPHOT_Q.
@@ -5436,8 +5447,6 @@ C =======================
 c For input CWORD = 'PRIVATE($VARNAME)', strip out the $VARNAME
 c and load PRIVATE_VARNAME(IVAR_PRIVATE) = $VARNAME
 c
-c Jul 23 2015: check PRIVATE_REDSHIFT_CMB key
-c Jul 25 2020: remove obsolete PRIVATE_REDSHIFT_CMB
 c Apr 27 2021: check veto option with VARNAME != VALUE
 c
       IMPLICIT NONE
@@ -7574,6 +7583,10 @@ c ------------- BEGIN -------------
      &            1, iArg, ARGLIST) ) then 
             PRIVATE_CUTWIN_STRING = ARGLIST(1)(1:MXCHAR_CUTNAME)
 
+         else if ( MATCH_NMLKEY('PRIVATE_VARNAME_READLIST',
+     &            1, iArg, ARGLIST) ) then 
+            PRIVATE_VARNAME_READLIST = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
          else if ( MATCH_NMLKEY('EARLYLC_STRING',
      &             1, iArg, ARGLIST) ) then 
            EARLYLC_STRING = ARGLIST(1)(1:MXCHAR_CUTNAME)
@@ -9370,7 +9383,7 @@ c for fit, write number passing fit cuts.
       END
 
 C ==================================
-+DECK,PRSPLIT_OUT.
++DECK,PRINT_JOBSPLIT_OUT.
       SUBROUTINE PRINT_JOBSPLIT_OUT()
 
 c Created Aug 7 2020
@@ -11654,6 +11667,7 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
          PRIVATE_CUTWIN_STRING(i) = ''
          USE_PRIVATE_CUTWIN(i)    = 0
       ENDDO
+      PRIVATE_VARNAME_READLIST = ''
 
       SIMVAR_CUTWIN_STRING  = ''
       NSIMVAR_CUTWIN        = 0 

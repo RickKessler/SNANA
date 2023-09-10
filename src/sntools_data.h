@@ -57,6 +57,8 @@ void rd_override_zcalc(void);
 void rd_override_zphot_q(int OPT);
 void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
 
+void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST); 
+
 // mangled functions for fortran
 void copy_sndata_global__(int *copyFlag, char *key,
                           int *NVAL, char *stringVal,double *parVal);

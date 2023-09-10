@@ -3324,6 +3324,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;          
 
     // optional private var
+
     for ( ivar=1; ivar <= SNDATA.NVAR_PRIVATE; ivar++ ) {
       j++ ;  NRD = RD_SNFITSIO_DBL(isn, SNDATA.PRIVATE_KEYWORD[ivar],
 				   &SNDATA.PRIVATE_VALUE[ivar],
@@ -3912,7 +3913,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   init_SNDATA_EVENT();
 
-
   istat = 0;
   itype   = ITYPE_SNFITSIO_HEAD ;
   ptrFile = rd_snfitsFile_plusPath[ifile][itype];
@@ -4046,6 +4046,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     SNFITSIO_SPECTRA_FLAG = false ;
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
+
+  
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
@@ -4333,7 +4335,9 @@ void rd_snfitsio_zphot_q(void) {
 
   itype   = ITYPE_SNFITSIO_HEAD ;
   fp      = fp_rd_snfitsio[itype] ;
-  SNDATA.HOSTGAL_NZPHOT_Q = 0 ;
+
+  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) { return; } // Sep 2023
+  // xxx mark delete SNDATA.HOSTGAL_NZPHOT_Q = 0 ;
 
   istat = 0;
   sprintf(keyname, "%s", STRING_NZPHOT_Q );
@@ -4376,13 +4380,15 @@ void rd_snfitsio_zphot_q(void) {
 void rd_snfitsio_private(void) {
 
   fitsfile *fp ;
-  int itype, istat, NVAR, ivar ;
+  int itype, istat, NVAR=0, ivar ;
   char keyname[60], comment[200], *cptr ;
   char fnam[] = "rd_snfitsio_private" ;
 
   // ------------ BEGIN ------------
 
-  SNDATA.NVAR_PRIVATE = 0;
+  if ( SNDATA.NVAR_PRIVATE > 0 ) { return ; } // Sep 2023
+
+  // xxx mark delete  SNDATA.NVAR_PRIVATE = 0;
 
   itype   = ITYPE_SNFITSIO_HEAD ;
   fp      = fp_rd_snfitsio[itype] ;
@@ -4394,9 +4400,9 @@ void rd_snfitsio_private(void) {
   if ( istat != 0 ) { return ; }
   SNDATA.NVAR_PRIVATE = NVAR ;
   
-  /*
-  printf(" xxx fits_read:  istat = %d and NVAR_PRIVATE = %d \n",
-	 istat, NVAR);
+  /* 
+  printf(" xxx %s:  istat = %d and NVAR_PRIVATE = %d \n",
+	 fnam, istat, NVAR); fflush(stdout);
   */
 
   if ( NVAR > 0 ) {

@@ -4379,6 +4379,14 @@ void rd_snfitsio_zphot_q(void) {
 // ==========================
 void rd_snfitsio_private(void) {
 
+  // read NPRIVATE and PRIVATE([varname]) keys from global header.
+  //
+  // Sep 9 2023:
+  //   + bail if SNDATA.NVAR_PRIVATE>0 to allow for RD_PRIVATE_INIT
+  //     to select a subset and not have the subset clobbered here
+  //     by re-reading the entire list if private variables.
+  //     Note that SNDATA.NVAR_PRIVATE=0 in init_SNDATA_GLOBAL().
+  //
   fitsfile *fp ;
   int itype, istat, NVAR=0, ivar ;
   char keyname[60], comment[200], *cptr ;

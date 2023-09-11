@@ -45,7 +45,13 @@ struct {
    int    n_tau_knots;
    int    n_sig_knots;
 
-   // variables read from BayeSN model director
+   // variables read from BayeSN model directory
+   // variables that control the range of validity of the SED
+   double l_filter_cen_min;
+   double l_filter_cen_max;
+   
+   
+   // variables that define the SED 
    // scalars
    double M0;
    double sigma0;

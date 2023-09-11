@@ -21915,4 +21915,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        to avoid slow Cholesky decomps for large NOBS. 
        Also, covariance is applied for SNR>2 subset.
 
+    snana.car
+       read/write MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST.
+       If these variables are computed using PHOTFLAG_TRIGGER, PHOTFLAG_DETECT,
+       then update SNDATA structure so that REFORMAT data files include
+       these values computed from PHOTFLAG.
+
 END: 

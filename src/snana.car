@@ -823,6 +823,8 @@ c
      &  ,SNLC8_MJDMIN        !   min MJD among all measurements
      &  ,SNLC8_MJDMAX        !   max MJD ...
      &  ,SNLC8_MJD_TRIGGER   ! MJD of trigger bit (see PHOTFLAG_TRIGGER)
+     &  ,SNLC8_MJD_DETECT_FIRST
+     &  ,SNLC8_MJD_DETECT_LAST
      &  ,SNLC8_FLUXCAL(MXEPOCH) ! to call functions requiring double
      &  ,SNLC8_FLUXCAL_ERRTOT(MXEPOCH)
      
@@ -925,9 +927,10 @@ c
      &  ,SNLC_FIELDLIST*(MXCHAR_FIELDNAME) ! e.g., '82S', '82N+82S'
 
       COMMON / SNLC8COM /
-     &    SNLC8_RA, SNLC8_DEC
-     &  , SNLC8_MJD, SNLC8_MJDMIN, SNLC8_MJDMAX, SNLC8_MJD_TRIGGER
-     &  , SNLC8_FLUXCAL, SNLC8_FLUXCAL_ERRTOT
+     &   SNLC8_RA, SNLC8_DEC
+     &  ,SNLC8_MJD, SNLC8_MJDMIN, SNLC8_MJDMAX
+     &  ,SNLC8_MJD_TRIGGER,SNLC8_MJD_DETECT_FIRST,SNLC8_MJD_DETECT_LAST
+     &  ,SNLC8_FLUXCAL, SNLC8_FLUXCAL_ERRTOT
 
       COMMON / SNLCCOM /
      &     SNLC_CID, SNLC_CCID,  SNLC_CASTCID, SNLC_IAUC
@@ -2739,7 +2742,6 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      & ,OPTBIT_SETPKMJD_FLUXMAX = 3  ! (=8) PEAKMJD=MJD(maxFlux) like JG
      & ,OPTBIT_SETPKMJD_FLUXMAX2= 4  ! (=16) PKMJD for Fmax clump
      & ,OPTBIT_SETPKMJD_FLUXMAX3= 5  ! (=32) idem, but log10(SNR) weight
-c xxx     & ,OPTBIT_SETPKMJD_TRIGGER = 5  ! (=32) PKMJD = MJD_TRIGGER 
      & ,OPTBIT_SETPKMJD_TRIGGER = 6  ! (=64) PKMJD = MJD_TRIGGER 
      & ,OPTBIT_SETPKMJD_SAVEPAR = 9  ! (=512) save fit params to SNANA table
      & ,OPTBIT_SETPKMJD_DUMP    =10  !(=1024) extra screen dump per SN/filter
@@ -3144,7 +3146,7 @@ C ------------ BEGIN -----------
       LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
       IF ( LEN_PRIV > 0 ) THEN
          STR_TMP = PRIVATE_VARNAME_READLIST(1:LEN_PRIV)//char(0)
-         CALL RD_PRIVATE_INIT(STR_TMP,LEN_PRIV)
+         CALL RD_PRIVATE_INIT(STR_TMP,LEN_PRIV) ! Sep 2023
       ENDIF
 
       RETURN
@@ -4452,8 +4454,24 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
          SNLC_MWEBV_ERR = SNGL(DARRAY(1))  ! override default error
       ENDIF
 
+c - - - - - 
+c read MJD-related variables (PEAK, trigger, first & last detection)
       CALL FETCH_SNDATA_WRAPPER("PEAKMJD", ONE, STRING, DARRAY, OPT)
       SNLC_SEARCH_PEAKMJD = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("MJD_TRIGGER", 
+     &        ONE, STRING, DARRAY, OPT)
+      SNLC8_MJD_TRIGGER = DARRAY(1)
+
+      CALL FETCH_SNDATA_WRAPPER("MJD_DETECT_FIRST", 
+     &        ONE, STRING, DARRAY, OPT)
+      SNLC8_MJD_DETECT_FIRST = DARRAY(1)
+
+      CALL FETCH_SNDATA_WRAPPER("MJD_DETECT_LAST", 
+     &        ONE, STRING, DARRAY, OPT)
+      SNLC8_MJD_DETECT_LAST = DARRAY(1)
+
+c - - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("NOBS", ONE, STRING, DARRAY, OPT)
       ISNLC_NEWMJD_FOUND = INT(DARRAY(1)) 
@@ -10639,10 +10657,14 @@ c   + VPEC[_ERR]
 c   + NPRIVATE               set to 0 OPT_REFORMAT_PRIVATE=F (Jan 2022)
 c   + HOSTGAL_LOGMASS[_ERR]  ??? TO DO (how to handle mutliple hosts?)
 c   + HOSTGAL_sSFR[_ERR]     ??? TO DO (idem)
-c
+c 
 c   + FLUXCAL      # if MAGCOR_INFILE is set  (Dec 2021)
 c   + FLUXCALERR   # if FLUXMODELERR_FILE is set (Dec 2021)
-
+c
+c   + MJD_TRIGGER        # if PHOTFLAG_TRIGGER > 0
+c   + MJD_DETECT_FIRST   # if PHOTFLAG_DETECT > 0
+c   + MJD_DETECT_LAST    # idem
+c
 c -------------
 
       IMPLICIT NONE
@@ -10720,7 +10742,7 @@ c VPEC
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-c check option to excluded PRIVATE variables from output.
+c check option to exclude PRIVATE variables from output.
 c Do NOT modify NVAR_PRIVATE.
       IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
         cKEY     = "NVAR_PRIVATE"  // char(0)        
@@ -10745,6 +10767,25 @@ c ------
          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF
+
+c Sep 2023: update MJD_TRIGGER and MJD_DETECT_XYZ variables
+c           if they have been computed from PHOTFLAG .xyz
+
+      if ( PHOTFLAG_TRIGGER > 0 ) then
+         cKEY = "MJD_TRIGGER" // char(0)
+         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NOBS,
+     &         cSTRING, SNLC8_MJD_TRIGGER, LEN_KEY, LEN_STR)
+      endif
+
+      if ( PHOTFLAG_DETECT > 0 ) then
+         cKEY = "MJD_DETECT_FIRST" // char(0)
+         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NOBS,
+     &         cSTRING, SNLC8_MJD_DETECT_FIRST, LEN_KEY, LEN_STR)
+
+         cKEY = "MJD_DETECT_LAST" // char(0)
+         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NOBS,
+     &         cSTRING, SNLC8_MJD_DETECT_LAST, LEN_KEY, LEN_STR)
+      endif
 
       RETURN 
       END
@@ -15598,9 +15639,11 @@ c ------------- BEGIN -------------
       ISNLC_NFILT_TRESTMAX =  0
       ISNLC_NFILT_TREST2   =  0  
 
-      ISNLC_NEPOCH_DETECT =  0 
-      SNLC_TLIVE_DETECT   = -9.0
-      SNLC8_MJD_TRIGGER   = -99.0
+      ISNLC_NEPOCH_DETECT    =  0 
+      SNLC_TLIVE_DETECT      = -9.0
+      SNLC8_MJD_TRIGGER      = -99.0
+      SNLC8_MJD_DETECT_FIRST = -99.0 
+      SNLC8_MJD_DETECT_LAST  = -99.0
 
       NEPOCH_BADPHOT      =   0
       ISNLC_FAKE          =   0  ! Feb 2021: default is real data
@@ -17534,7 +17577,7 @@ c local var
      &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SUM_AREAFRAC
 
       REAL*8  MJD8, EBV8, EBVERR8
-      REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
+      REAL*8  MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
       REAL*8  MU_OLD, MU_NEW, z8
       LOGICAL 
      &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD
@@ -17890,12 +17933,14 @@ c check PHOTPROB (Mar 2018)
              ISNLC_NEPOCH_PHOTPROB = ISNLC_NEPOCH_PHOTPROB + 1
           endif
 
-c check for detection bit in PHOTFLAG (set by survey)
+c if PHOTFLAG detection bit is set by user, compute MJD of first & last detection
           PHOTFLAG = ISNLC_PHOTFLAG(ep)
           if ( IAND(PHOTFLAG,PHOTFLAG_DETECT) > 0 ) then
              ISNLC_NEPOCH_DETECT = ISNLC_NEPOCH_DETECT + 1
-             if ( ISNLC_NEPOCH_DETECT == 1 ) MJD8_FIRSTDETECT=MJD8
-             SNLC_TLIVE_DETECT = SNGL(MJD8 - MJD8_FIRSTDETECT)
+             if ( ISNLC_NEPOCH_DETECT == 1 ) then
+                SNLC8_MJD_DETECT_FIRST = MJD8
+             endif
+             SNLC8_MJD_DETECT_LAST = MJD8
           endif
 
 c check for trigger bit set by survey (5.2019)          
@@ -17912,10 +17957,12 @@ c check for trigger bit set by survey (5.2019)
 
 201     CONTINUE     ! come here of LSIG fails
 
-          
 200   CONTINUE  ! NEWMJD
 
 c - - - - - -  -
+
+      SNLC_TLIVE_DETECT = 
+     &   SNGL(SNLC8_MJD_DETECT_LAST - SNLC8_MJD_DETECT_FIRST)
 
       ISNLC_NFILT_SNRMAX    = NBAND_SNRMAX
       ISNLC_NFILT_SNRMAX2   = NBAND_SNRMAX2
@@ -23832,11 +23879,6 @@ c bit1 -> passed FIT cuts (i.e, valid fit + re-applied snana cuts)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
      &                   LENBLOCK, 20)
 
-      if ( PHOTFLAG_TRIGGER > 0 ) then
-         VARLIST = 'MJD_TRIGGER:D' // char(0)
-         CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_TRIGGER, 
-     &            VARLIST,1,    LENBLOCK, 20)           
-      endif
 c -------------------------------------------
 c ERRFLAG_FIT = -9 -> no fit, just SNANA job
 c ERRFLAG_FIT =  0 -> no fitting errors.
@@ -24174,10 +24216,21 @@ c ... and for each individual band
 
       ENDIF
 
-c - - - - -  min and max MJD (Aug 5 2013)
+c - - - - -  min and max MJD 
       VARLIST = 'MJDMIN:D,MJDMAX:D' // char(0)
       CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJDMIN, 
      &                VARLIST, 0,   LENBLOCK, 20 )
+
+c - - - - - MJD_DETECT and MJD_TRIGGER (Sep 2023) - - - - -
+
+      VARLIST = 'MJD_TRIGGER:D' // char(0)
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_TRIGGER, 
+     &                VARLIST, 0,   LENBLOCK, 20 )
+
+      VARLIST = 'MJD_DETECT_FIRST:D,MJD_DETECT_LAST:D' // char(0)
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_DETECT_FIRST, 
+     &                VARLIST, 0,   LENBLOCK, 20 )
+
 
 c - - - -  multi-season variability - - - -
       IF( MULTISEASON_OPTMASK > 0 ) THEN

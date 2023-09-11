@@ -169,6 +169,22 @@ void read_BAYESN_inputs(char *filename)
               bayesn_var_dptr = &N_SIG;
               break;
           }
+
+          // 20230911 - GSN - need to get the wavelengths from the file
+          if (strcmp(event.data.scalar.value, "L_FILTER_CEN_MIN")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.l_filter_cen_min;
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "L_FILTER_CEN_MAX")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.l_filter_cen_max;
+              break;
+          }
+
+
     
           // next we'll define how to handle the scalars
           if (strcmp(event.data.scalar.value, "M0")==0)
@@ -439,8 +455,12 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
     SEDMODEL.LAMMIN_ALL = BAYESN_MODEL_INFO.lam_knots[0] ;  // rest-frame SED range
     SEDMODEL.LAMMAX_ALL = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1200.0 ; // rest-frame central wavelength range
-    SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1200.0 ;
+    
+    // 20230911 - GSN - update filter centers to be defined by the YAML files, rather than use this heuristic
+    // SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1200.0 ; // rest-frame central wavelength range
+    // SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1200.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_min ; // rest-frame central wavelength range
+    SEDMODEL.RESTLAMMAX_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_max ;
 
     if (VERBOSE_BAYESN > 0)
     {

@@ -10773,18 +10773,21 @@ c           if they have been computed from PHOTFLAG .xyz
 
       if ( PHOTFLAG_TRIGGER > 0 ) then
          cKEY = "MJD_TRIGGER" // char(0)
-         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NOBS,
-     &         cSTRING, SNLC8_MJD_TRIGGER, LEN_KEY, LEN_STR)
+         DVAL(1) = SNLC8_MJD_TRIGGER
+         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,
+     &         cSTRING, DVAL, LEN_KEY, LEN_STR)
       endif
 
       if ( PHOTFLAG_DETECT > 0 ) then
          cKEY = "MJD_DETECT_FIRST" // char(0)
-         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NOBS,
-     &         cSTRING, SNLC8_MJD_DETECT_FIRST, LEN_KEY, LEN_STR)
+         DVAL(1) = SNLC8_MJD_DETECT_FIRST
+         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,
+     &         cSTRING, DVAL, LEN_KEY, LEN_STR)
 
          cKEY = "MJD_DETECT_LAST" // char(0)
-         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NOBS,
-     &         cSTRING, SNLC8_MJD_DETECT_LAST, LEN_KEY, LEN_STR)
+         DVAL(1) = SNLC8_MJD_DETECT_LAST
+         CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,
+     &         cSTRING, DVAL, LEN_KEY, LEN_STR)
       endif
 
       RETURN 

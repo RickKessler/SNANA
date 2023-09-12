@@ -1903,8 +1903,17 @@ void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax
     }
   }
   else {
-    lammin_local = fminf(lmin_flt, lmin_sed);           
-    lammax_local = fmaxf(lmax_flt, lmax_sed);  
+
+    // beware that NON1ASED model does not yet define SED range
+    if ( lmin_sed > 0.01 ) {
+      lammin_local = fminf(lmin_flt, lmin_sed);
+      lammax_local = fmaxf(lmax_flt, lmax_sed);
+    }
+    else {      
+      lammin_local = lmin_flt;
+      lammax_local = lmax_flt;
+    }
+
   }
 
   *lammin = lammin_local;

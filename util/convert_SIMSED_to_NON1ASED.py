@@ -17,6 +17,10 @@ SED_INFO_FILE_BASENAME   = "SED.INFO"
 
 PREFIX_NON1ASED = "NON1ASED"
 
+KEY_SED        = "SED:"
+KEY_NON1A      = "NON1A:"
+KEY_FLUX_SCALE = "FLUX_SCALE:"
+
 # =====================================
 def get_args():
 
@@ -80,10 +84,15 @@ def write_NON1A_LIST_FILE(args):
         words = line.split()
         if len(words) == 0 : continue
 
-        if words[0] == "SED:" :
+        if words[0] == KEY_FLUX_SCALE :
+            flux_scale = words[1]
+            line_out   = f"{KEY_FLUX_SCALE} {flux_scale}"
+            fp_non1a.write(f"{line_out}\n")
+
+        if words[0] == KEY_SED :
             sed_file = words[1]
             nsed += 1
-            line_out = f"NON1A:  {nsed:3d}  {args.model_name}  {sed_file}"
+            line_out = f"{KEY_NON1A}  {nsed:3d}  {args.model_name}  {sed_file}"
             fp_non1a.write(f"{line_out}\n")
 
     fp_sed.close()

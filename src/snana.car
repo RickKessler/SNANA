@@ -24436,7 +24436,7 @@ c subroutine args
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
 
 c local var
-      CHARACTER PREFIX*8, VARLIST*60, CBLOCK*40
+      CHARACTER PREFIX*8, VARLIST*400, CBLOCK*40
       INTEGER   LP, LENLIST, LENBLOCK, ITEXT_LOCAL
 
 +CDE,SNDATCOM.
@@ -24456,7 +24456,7 @@ c ------------- BEGIN ----------
 
       LENBLOCK     = INDEX(BLOCK//' ',' ') - 1
       CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
-      LENLIST      = 40
+      LENLIST      = LEN(VARLIST)
 
 c store HOST_OBJID as double precision because
 c  * root tree supports Long64_t, but does not read back correctly

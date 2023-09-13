@@ -25437,6 +25437,8 @@ void gen_fluxNoise_fudge_cov(int icov) {
   // reset NOBS based on NEP passing SNR cut
   NOBS = COVINFO_FLUXERRMODEL[icov].NOBS = NEPOCH_USE;
 
+  if ( NOBS == 0 ) { free(epMAP); return; } // avoid crash on zero-size matrix below
+
   /* xxx
   if ( SIMLIB_HEADER.LIBID == 1273 ) {
     printf(" xxx %s: NEP_USE=%d for LIBID=%d \n",

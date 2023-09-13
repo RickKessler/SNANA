@@ -21913,12 +21913,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
      + disable INPUTS.FLUXERRMODEL_REDCOV for LCLIB models (Galactic transients)
        to avoid slow Cholesky decomps for large NOBS. 
-       Also, covariance is applied for SNR>2 subset.
+       For additional speed, covariance is applied only for SNR>2 subset.
 
     snana.car
        read/write MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST.
        If these variables are computed using PHOTFLAG_TRIGGER, PHOTFLAG_DETECT,
        then update SNDATA structure so that REFORMAT data files include
        these values computed from PHOTFLAG.
+       Initialize CUTWIN_SNR_NODETECT to wide open ... to avoid accidental cuts
+       when using PHOTFLAG_DETECT input.
 
 END: 

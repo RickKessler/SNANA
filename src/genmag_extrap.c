@@ -97,19 +97,16 @@ double modelflux_extrap(
 
 
 // ==========================================================
-void init_extrap_latetime_Ia(void) {
+void init_extrap_latetime_Ia(char *fileName) {
 
   // Created June 25 2018
   // Init optional mag-extrapolation for epochs later than
-  // what is defined in SALT2 model. 
-  // Note that default extrapolation is in SED-flux space,
-  // extrapolation last few days, but this extrap can have
-  // large errors.
+  // what is defined in SNIa model. 
+  // Note that default extrapolation (see modelflux_extrap) is in 
+  // SED-flux space, which extrapolates last few days, but this 
+  // naive extrapolation can have large errors.
   //
-  // Input: model_extrap_latetime --> fileName with model info
-
-  char *fileName = INPUT_EXTRAP_LATETIME_Ia.FILENAME ;
-  char fnam[] = "init_extrap_latetime_Ia" ;
+  // Input: fileName --> name of file with late-time extrap model info
 
   int    ipar, ilam, NLAMBIN=0;
   int    NPAR_READ = NPAR_EXTRAP_LATETIME_Ia ;
@@ -119,9 +116,9 @@ void init_extrap_latetime_Ia(void) {
   FILE *fp;
   char c_get[60];
 
-  // -------------- BEGIN ----------
+  char fnam[] = "init_extrap_latetime_Ia" ;
 
-  // xxxx  printf(" xxx %s: filename = %s \n", fnam, fileName); fflush(stdout);
+  // -------------- BEGIN ----------
 
   INPUT_EXTRAP_LATETIME_Ia.NLAMBIN = 0 ;
 
@@ -139,6 +136,7 @@ void init_extrap_latetime_Ia(void) {
   printf("\t %s \n", fileName);
   fflush(stdout);
 
+  sprintf(INPUT_EXTRAP_LATETIME_Ia.FILENAME, "%s", fileName); // store for err msg
   INPUT_EXTRAP_LATETIME_Ia.NLAMBIN   = 1 ;
   INPUT_EXTRAP_LATETIME_Ia.DAYMIN    = 0.0 ;
 

@@ -269,12 +269,13 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   }
   read_SALT2_INFO_FILE(OPTMASK);  
 
+  /* xxx mark delete Sep 2023 xxxxx
   // check option to override late-time extrap model from sim-input file
-  if ( strlen(MODEL_EXTRAP_LATETIME) > 0 ) { 
+  if ( !IGNOREFILE(MODEL_EXTRAP_LATETIME)  ) { 
     sprintf(INPUT_EXTRAP_LATETIME.FILENAME,    "%s", MODEL_EXTRAP_LATETIME); 
     sprintf(INPUT_EXTRAP_LATETIME_Ia.FILENAME, "%s", MODEL_EXTRAP_LATETIME); 
   }
-
+  xxxxxx end mark xxxxxx */
 
   // xxx  RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
   RELAX_IDIOT_CHECK_SALT2 = (INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN > 12000.0);
@@ -355,9 +356,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   errorSummary_SALT2();
   
   if ( DEBUG_SALT2 ) 
-    { init_extrap_latetime_Ia(); }   // refactored
+    { init_extrap_latetime_Ia(MODEL_EXTRAP_LATETIME); }   // refactored
   else
-    { init_extrap_latetime_SALT2(); } // legacy
+    { init_extrap_latetime_SALT2(MODEL_EXTRAP_LATETIME); } // legacy
 
   init_calib_shift_SALT2train(); // Nov 2020
 
@@ -1703,7 +1704,7 @@ void  check_BADVAL_SALT2errmap(int imap) {
 } // end check_BADVAL_SALT2errmap
 
 // ==========================================================
-void init_extrap_latetime_SALT2(void) {
+void init_extrap_latetime_SALT2(char *fileName) {
 
   // Created June 25 2018
   // Init optional mag-extrapolation for epochs later than
@@ -1714,7 +1715,7 @@ void init_extrap_latetime_SALT2(void) {
   //
   // Input: model_extrap_latetime --> fileName with model info
 
-  char *fileName = INPUT_EXTRAP_LATETIME.FILENAME ;
+  // xxx mark   char *fileName = INPUT_EXTRAP_LATETIME.FILENAME ;
   char fnam[] = "init_extrap_latetime_SALT2" ;
 
   int    ipar, ilam, NLAMBIN=0;
@@ -2329,7 +2330,6 @@ void genmag_SALT2(
 	EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
 	EXTRAPFLAG_MAG     = 1 ;
       }
-
     }
     else {
       // legacy

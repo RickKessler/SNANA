@@ -227,7 +227,7 @@ void genmag_SALT2(int OPTMASK, int ifilt,
 
 
 // xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
-void init_extrap_latetime_SALT2(void);
+void   init_extrap_latetime_SALT2(char *fileName);
 double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
 double FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
 			       double ratio);

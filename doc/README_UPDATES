@@ -21930,8 +21930,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     legacy code is init_extrap_latetime_SALT2(). Invoke refactored code
     with "GENMODEL_MSKOPT: 1024" that sets SALT2 debug flag. Tested to
     verify exact same data files with/without refactor.
-    To do: pass GENMODEL_EXTRAP_LATETIME file to init_BAYESN, either as
-    function arg (same as init_SALT2), or remove function arg and check
-    global INPUTS_EXTRAP_LATETIME.
+    To do: 
+      - pass GENMODEL_EXTRAP_LATETIME file to init_BAYESN, either as
+        function arg (same as init_SALT2), or remove function arg and 
+        check global INPUTS_EXTRAP_LATETIME. 
+      - switch to refactored LATETIME code as default, and remove legacy code
 
 END: 

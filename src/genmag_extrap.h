@@ -33,7 +33,7 @@ struct {
 // ========= function prototypes ============
 
 // SNIa-specific
-void   init_extrap_latetime_Ia(void);
+void   init_extrap_latetime_Ia(char *fileName);
 double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam);
 double FLUXFUN_EXTRAP_LATETIME_Ia(double t, double tau1, double tau2, double ratio);
 

@@ -616,10 +616,11 @@ void check_EOF(FILE *fp, char *file_name, char *fun_name, int nline_read) ;
 double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, double PSFratio);
 double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);
 
-double modelmag_extrap(double T, double Tref,
-		       double magref, double magslope, int LDMP);
+
+/* xxxxxxx mark delete Sep 2023 xxxxx
 double modelflux_extrap(double T, double Tref,
 			double fluxref, double fluxslope, int LDMP);
+xxxxxxx */
 
 int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
 double asinhinv(double mag, int ifilt);

@@ -48,6 +48,7 @@
 #include "sntools_spectrograph.h"
 #include "sntools_devel.h"
 #include "genmag_SEDtools.h"
+#include "genmag_extrap.h"
 #include "genmag_SALT2.h" 
 #include "MWgaldust.h"
 
@@ -202,14 +203,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   init_NEGFLAM_SEDMODEL(OPTMASK);
 
-  /* xxxxxx mark delete Aug 31 2023 xxxxxxxx
-  ALLOW_NEGFLUX_SALT2 = true;      // default
-  if ( OPTMASK & GENMODEL_MSKOPT_SALT2_NONEGFLUX ) {
-    // Mar 24 2021: if "GENMODEL_MSKOPT: 16"
-    ALLOW_NEGFLUX_SALT2 = false ;    
-    printf("\t OPTMASK=%d -> Force neg Flam to Flam=0\n", OPTMASK);
-  }
-  xxxxxx end mark xxxxxxx */
 
   DEBUG_SALT2 = ( OPTMASK & GENMODEL_MSKOPT_SALT2_DEBUG );
 
@@ -278,8 +271,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // check option to override late-time extrap model from sim-input file
   if ( strlen(MODEL_EXTRAP_LATETIME) > 0 ) { 
-    sprintf(INPUT_EXTRAP_LATETIME.FILENAME, "%s", 
-	    MODEL_EXTRAP_LATETIME); 
+    sprintf(INPUT_EXTRAP_LATETIME.FILENAME,    "%s", MODEL_EXTRAP_LATETIME); 
+    sprintf(INPUT_EXTRAP_LATETIME_Ia.FILENAME, "%s", MODEL_EXTRAP_LATETIME); 
   }
 
 
@@ -360,8 +353,11 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // Summarize CL and errors vs. lambda for Trest = x1 = 0.
   errorSummary_SALT2();
-
-  init_extrap_latetime_SALT2();
+  
+  if ( DEBUG_SALT2 ) 
+    { init_extrap_latetime_Ia(); }   // refactored
+  else
+    { init_extrap_latetime_SALT2(); } // legacy
 
   init_calib_shift_SALT2train(); // Nov 2020
 
@@ -1743,7 +1739,7 @@ void init_extrap_latetime_SALT2(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  printf("\n   Read EXTRAP_LATETIME parameters from :\n");
+  printf("\n   LEGACY Read EXTRAP_LATETIME parameters from :\n");
   printf("\t %s \n", fileName);
   fflush(stdout);
 
@@ -2260,7 +2256,7 @@ void genmag_SALT2(
     meanlam_obs,  meanlam_rest, ZP, z1
     ,Tobs, Tobs_interp, Trest, Trest_interp, flux, flux_interp
     ,arg, magerr, Finteg, Finteg_errPar, FspecDum[10]
-    ,lamrest_forErr, Trest_forErr, z1_forErr, magobs
+    ,lamrest_forErr, Trest_forErr, z1_forErr, magobs_tmp, magobs
     ;
 
   double
@@ -2324,11 +2320,25 @@ void genmag_SALT2(
 
 
     // check mag-extrap option for late times (June 25 2018)
-    if ( INPUT_EXTRAP_LATETIME.NLAMBIN && 
-	 Trest > INPUT_EXTRAP_LATETIME.DAYMIN ) { 
-      Trest_interp = INPUT_EXTRAP_LATETIME.DAYMIN ;
-      EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
-      EXTRAPFLAG_MAG     = 1 ;
+    if ( DEBUG_SALT2 ) {
+      // refac
+      int NLAMBIN   = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN;
+      double DAYMIN = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
+      if ( NLAMBIN > 0 && Trest > DAYMIN ) { 
+	Trest_interp       = DAYMIN ;
+	EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
+	EXTRAPFLAG_MAG     = 1 ;
+      }
+
+    }
+    else {
+      // legacy
+      if ( INPUT_EXTRAP_LATETIME.NLAMBIN && 
+	   Trest > INPUT_EXTRAP_LATETIME.DAYMIN ) { 
+	Trest_interp = INPUT_EXTRAP_LATETIME.DAYMIN ;
+	EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
+	EXTRAPFLAG_MAG     = 1 ;
+      }
     }
    
 
@@ -2385,7 +2395,17 @@ void genmag_SALT2(
     else{
       magobs = ZP - 2.5*log10(flux) + INPUT_SALT2_INFO.MAG_OFFSET ;
       if ( EXTRAPFLAG_MAG ) {
-	magobs = genmag_extrap_latetime_SALT2(magobs,Trest,meanlam_rest);
+	magobs_tmp = magobs;
+
+	if ( DEBUG_SALT2 ) {
+	  // refactored
+	  magobs = genmag_extrap_latetime_Ia(magobs_tmp,Trest,meanlam_rest); 
+	}
+	else {
+	  // legacy
+	  magobs = genmag_extrap_latetime_SALT2(magobs_tmp,Trest,meanlam_rest);
+	}
+
       }
     }
     

@@ -2997,12 +2997,12 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   // Created May 21 2018
   //
-  // For inputs UV wavelenth "UVLAM" (Angstroms), extrapolate SEDFLUX 
+  // For inputs UV wavelenth "UVLAM" (Angstroms), extrapolate input *SEDFLUX 
   // down to UVLAM. This routine is called from sim-input key
   //  UVLAM_EXTRAPFLUX:  <UVLAM>
   //
   // Note that SEDFLUX structure is modified.
-  // Extrapolted flux is linear starting at LAMMIN_ORIG,
+  // Extrapolated flux is linear starting at LAMMIN_ORIG,
   // and going down to zero ad LAMMIN_NEW.
   //
   // If flux=0 at LAMMIN_ORIG, then find smallest MINLAM with non-zero

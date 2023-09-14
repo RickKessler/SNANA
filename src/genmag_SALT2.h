@@ -5,7 +5,6 @@
 #define X0SCALE_SALT2   1.0E-12        // arbitrary normalization
 
 // define bounds for filter and SED arrays
-// xxx #define MXBIN_VAR_SALT2   120000 // Jul 5 2013 -> 120k (was 20k)
 #define MXBIN_VAR_SALT2   200000 // Apr 2022 -> 200k for IR (was 120k)
 
 // wavelengths used for color correction
@@ -36,9 +35,8 @@
 #define GENMODEL_MSKOPT_SALT2_REQUIRE_DOCANA      OPENMASK_REQUIRE_DOCANA  // =2
 #define GENMODEL_MSKOPT_SALT2_DISABLE_MAGSHIFT    4  // disable MAGSHIFT keys
 #define GENMODEL_MSKOPT_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
-// xxx #define GENMODEL_MSKOPT_SALT2_NONEGFLUX  16  // flux<0 -> 0 (as in DC2)
 #define GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE   64  // abort on bad model-LAMRANGE
-#define GENMODEL_MSKOPT_SALT2_DEBUG   1024  // Refactor for developer only
+#define GENMODEL_MSKOPT_SALT2_DEBUG   1024    // Refactor for developer only
 
 
 int  DEBUG_SALT2;
@@ -46,8 +44,6 @@ int  NCALL_DBUG_SALT2 ;
 int  RELAX_IDIOT_CHECK_SALT2;
 int  IMODEL_SALT ; // 2 or 3
 bool ISMODEL_SALT2, ISMODEL_SALT3 ;
-
-// xxx mark delete:   bool ALLOW_NEGFLUX_SALT2;
 
 /**********************************************
   Init Information
@@ -57,7 +53,6 @@ char SALT2_MODELPATH[MXPATHLEN] ;
 char SALT2_INFO_FILE[20]     ;
 char SALT2_VERSION[100];  // store version passed to init_genmag_SALT2
 char SALT2_PREFIX_FILENAME[20]; // e.g., "salt2", "salt3", etc ...
-// xxx char SALT2_SURVEY[60];          // store name of survey (Nov 2020)
 
 double RVMW_SALT2 ;
 
@@ -141,6 +136,8 @@ struct INPUT_SALT3_INFO {
 
 } INPUT_SALT3_INFO;
 
+
+// xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
 // define model parameter for late-time mag-extrapolation
 #define MXLAMBIN_EXTRAP_LATETIME 20
 #define MXPAR_EXTRAP_LATETIME    10 // includes computer params
@@ -163,9 +160,9 @@ struct {
   //                 ipar                    ilambin
   double PARLIST[MXPAR_EXTRAP_LATETIME][MXLAMBIN_EXTRAP_LATETIME] ;
 
-
 } INPUT_EXTRAP_LATETIME ;
 
+// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
 struct SALT2_SPLINE_ARGS {  
@@ -189,8 +186,6 @@ int  NERRMAP_BADVALUE_SALT2 ; // bad map value: nan or crazy value
 // 4/30/2011: define SALT2 tables on same lambda grid as SED templates
 // These table-lookups are used to speed the integrations.
 // All tables are allocated dynamically when the size is known.
-
-
 struct SALT2_TABLE {
   double **COLORLAW   ;   // color law table [color][lambda]
   double **XTMW_FRAC  ;   // XTMW table [ifilt][lambda]
@@ -230,10 +225,13 @@ void genmag_SALT2(int OPTMASK, int ifilt,
 		  double z, double z_forErr, int nobs, double *Tobs_list, 
 		  double *magobs_list, double *magerr_list );
 
+
+// xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
 void init_extrap_latetime_SALT2(void);
 double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
 double FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
 			       double ratio);
+// xxxxxxxxxx
 
 void colordump_SALT2(double lam, double c, char *cfilt);
 void errorSummary_SALT2(void) ;
@@ -292,11 +290,6 @@ int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs,
 		   double z, double *parList_SN, double *parList_HOST, 
 		   double mwebv, double *covar );
 
-/* xxxxxxx
-int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
-		   double z, double x0, double x1, double c, double mwebv, 
-		   double RV_host, double AV_host, double *covar );
-		  xxxxxxxxx */
 
 // ----------------------------------------------------
 // ---------- SPECTROGRAPH FUNCTIONS ------------------
@@ -319,8 +312,6 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs, float z,
 // colorlaw1 - version 1 from Guy 2010
 double SALT2colorlaw0(double lam_rest, double c, double *colorPar );
 double SALT2colorlaw1(double lam_rest, double c, double *colorPar );
-// xxx double SALT3colorlaw(double lam_rest, double c, 
-// xxx SALT3_COLORPAR_DEF *COLORPAR3 );
 
 double SALT2colorfun_dpol(const double rl, int nparams,
                           const double *params, const double alpha);

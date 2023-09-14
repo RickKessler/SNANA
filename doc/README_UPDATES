@@ -21923,4 +21923,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        Initialize CUTWIN_SNR_NODETECT to wide open ... to avoid accidental cuts
        when using PHOTFLAG_DETECT input.
 
+    To use late-time mag-extrapolation for both SALT2 and BayeSN, create new 
+    genmag_extrap.c[h] to contain 1) modelflux_extrap(...) that is no longer 
+    in sntools.c[h], and 2) SNIa-specific latetime extrapolation.
+    Refactored code is init_extrap_latetime_Ia() and same for genmag_xxx;
+    legacy code is init_extrap_latetime_SALT2(). Invoke refactored code
+    with "GENMODEL_MSKOPT: 1024" that sets SALT2 debug flag. Tested to
+    verify exact same data files with/without refactor.
+    To do: pass GENMODEL_EXTRAP_LATETIME file to init_BAYESN, either as
+    function arg (same as init_SALT2), or remove function arg and check
+    global INPUTS_EXTRAP_LATETIME.
+
 END: 

@@ -94,6 +94,7 @@
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"
+// xxx #include "genmag_extrap.h"
 #include "genmag_SALT2.h"
 #include "sntools_genSmear.h"
 #include "sntools_devel.h"

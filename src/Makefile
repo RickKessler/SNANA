@@ -38,6 +38,7 @@
 # May 25 2023: incluce yaml.o ingested from github 
 #          (original need is genmag_BAYESN.c)
 # May 26 2023: link sim to sntools_sim_atmosphere
+# Sep 14 2023: add genmag_extrap
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -272,7 +273,8 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_S11DM15.o	\
 	$(OBJ)/genmag_SIMSED.o	\
 	$(OBJ)/genmag_SEDtools.o \
-	$(OBJ)/genmag_extinction.o
+	$(OBJ)/genmag_extinction.o \
+	$(OBJ)/genmag_extrap.o
 
 OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
@@ -965,6 +967,10 @@ $(OBJ)/genmag_extinction.o : $(SRC)/genmag_extinction.c  $(SRC)/sntools.h $(SRC)
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_extinction.c )
 
+$(OBJ)/genmag_extrap.o : $(SRC)/genmag_extrap.c  $(SRC)/sntools.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_extrap.c )
+
 # -------------------------------------------------
 # Generic Lightcurve simulator 
 # $(SRC)/sntools_genPDF.c
@@ -1062,6 +1068,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ_SNTOOLS_DATA) 		\
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_SIMSED.o   \
+	$(OBJ)/genmag_extrap.o   \
 	$(OBJ)/genmag_SALT2.o   \
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o \

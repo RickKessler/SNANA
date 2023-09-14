@@ -33,12 +33,11 @@ Each sample counts as 0.01 seconds.
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"
-#include  "genmag_BAYESN.h"
+#include "genmag_extrap.h"  // RK Sep 14 2023
+#include "genmag_BAYESN.h"
 #include "MWgaldust.h"
 
-// xxx mark #ifdef USE_BAYESN
 #include "yaml.h"
-   // xxx mark  #endif 
 
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019

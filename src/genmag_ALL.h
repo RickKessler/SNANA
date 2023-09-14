@@ -19,5 +19,6 @@
 #include "genmag_SALT2.h"
 #include "genmag_BAYESN.h"
 #include "genmag_extinction.h"
+#include "genmag_extrap.h"
 
 // END

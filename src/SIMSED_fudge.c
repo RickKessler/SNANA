@@ -204,12 +204,12 @@
 #include <math.h>
 
 #include "sntools.h"
-//#include "sntools_cosmology.h"
 #include "sntools_genSmear.h"
 #include "MWgaldust.h"
 
 #include "genmag_SIMSED.h"
 #include "genmag_SEDtools.h"
+#include "genmag_extrap.h"
 #include "genmag_SALT2.h" 
 
 // =========== DECLARE FUNCTIONS ==================

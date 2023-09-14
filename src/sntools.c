@@ -7274,48 +7274,9 @@ double polyEval(int N, double *coef, double x) {
 } // end of polyEval
 
 
-// ***************************************************
-double modelmag_extrap(
-		       double T          // Time to extrapolate to
-		       ,double Tref      // nearest time with model mag
-		       ,double magref   // mag at Tref
-		       ,double magslope  // dmag/dT  at Tref
-		       ,int LDMP         // print to screen if true
-		       ) {
-
-  /****
-    Created Apr 12, 2009 by R.Kessler
-
-    Extrapolates model magnitide from Tref to time T
-    (obs or rest-frame), where T is outside range of model.
-    Note that T < Tref assumes on the rise, and T > Tref 
-    assumes on the fall.
-    
-    Aug 7, 2014: fix bug and return extrapolated mag 
-  ****/
-
-  double mag, arg ;
-
-  // -------- BEGIN ----------
-
-  if ( T > Tref ) {
-
-    // linear extrap at late times
-    mag = magref + (T-Tref)*magslope ;
-  }
-  else {
-
-    // exponential fall for early times
-    arg = (T - Tref) * magslope/magref ;
-    mag = magref * exp(arg);
-  }
-
-  return mag ; // Aug 7 2014
-
-} // end of modelmag_extrap
 
 
-// ***************************************************
+/* xxxxxxxxxx mark delete Sep 2023 [moved to genmag_extrap.c] xxxxxx
 double modelflux_extrap(
 		       double T          // (I) Time to extrapolate to
 		       ,double Tref      // (I) nearest time with model flux
@@ -7324,7 +7285,6 @@ double modelflux_extrap(
 		       ,int LDMP         // (I) print to screen if true
 		       ) {
 
-  /****
     Created Apr 12, 2009 by R.Kessler
 
     Extrapolates model flux from Tref to time T
@@ -7341,13 +7301,12 @@ double modelflux_extrap(
                 then just hard-wire flux=1E-30 since model
                 is unphysical and extrapolation makes no sense.
   
-  ****/
 
   double flux, slope, arg, F0, FP, T1 ;
   double DTref0, SQDTref0, CUBEDTref0 ,DT0, DT1 ;
   double T0  = -20.0 ; // time of explosion, wher T=0 at peak
 
-  //  char fnam[] = "modelflux_extrap" ;
+  char fnam[] = "modelflux_extrap" ;
 
   // -------- BEGIN ----------
 
@@ -7392,7 +7351,7 @@ double modelflux_extrap(
   return flux ;
 
 } // end of modelflux_extrap
-
+xxxxxxxxxxxxxxxxxxxxxxxxx */
 
 
 // ====================================================

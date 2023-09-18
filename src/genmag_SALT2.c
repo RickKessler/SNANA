@@ -173,6 +173,8 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Apr 27 2021: minor refactor to set default SALT2 or SALT3 model location.
 
  Feb 22 2022: set DEBUG_SALT2 with OPTMASK += 1024
+ Sep 18 2023: DEBUG_SALT2 -> use legacy latetime_SALT2 code
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -355,10 +357,10 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // Summarize CL and errors vs. lambda for Trest = x1 = 0.
   errorSummary_SALT2();
   
-  if ( DEBUG_SALT2 ) 
-    { init_extrap_latetime_Ia(MODEL_EXTRAP_LATETIME); }   // refactored
-  else
+  if ( DEBUG_SALT2 )
     { init_extrap_latetime_SALT2(MODEL_EXTRAP_LATETIME); } // legacy
+  else
+    { init_extrap_latetime_Ia(MODEL_EXTRAP_LATETIME); }   // refactored
 
   init_calib_shift_SALT2train(); // Nov 2020
 
@@ -2321,7 +2323,7 @@ void genmag_SALT2(
 
 
     // check mag-extrap option for late times (June 25 2018)
-    if ( DEBUG_SALT2 ) {
+    if ( !DEBUG_SALT2 ) {
       // refac
       int NLAMBIN   = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN;
       double DAYMIN = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
@@ -2397,7 +2399,7 @@ void genmag_SALT2(
       if ( EXTRAPFLAG_MAG ) {
 	magobs_tmp = magobs;
 
-	if ( DEBUG_SALT2 ) {
+	if ( !DEBUG_SALT2 ) {
 	  // refactored
 	  magobs = genmag_extrap_latetime_Ia(magobs_tmp,Trest,meanlam_rest); 
 	}

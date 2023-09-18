@@ -5,8 +5,8 @@
 // define pre-processor command to use python interface
 // xxx mark delete (RK) #define USE_BAYESNxxx
 
-int init_genmag_BAYESN(char *MODEL_VERSION, int optmask);
-int init_genmag_bayesn__( char *version, int *optmask);
+int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask);
+int init_genmag_bayesn__( char *model_version, char *model_extrap, int *optmask);
 void read_BAYESN_inputs(char *filename);
 
 void genmag_BAYESN(

@@ -1655,7 +1655,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
-    if ( INPUTS.DEBUG_FLAG == 711 ) { INPUTS.DEBUG_SNSEP=true; }
   }
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPEND_SNID_SEDINDEX) ; 
@@ -23928,7 +23927,7 @@ void init_genmodel(void) {
     {
         OPTMASK += OPTMASK_BAYESN_NOSCATTER; // BEWARE NOT TESTED - GN 20230707
     }
-    istat = init_genmag_BAYESN(GENMODEL, OPTMASK) ;
+    istat = init_genmag_BAYESN(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
 
     if ( istat != 0 ) {

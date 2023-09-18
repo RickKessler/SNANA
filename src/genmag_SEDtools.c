@@ -1100,16 +1100,17 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 			   double z, char *funCall ) {
 
   // Nov 2016
-  // Return rest-frame SED Flam for inputs
-  //  ised = SED index
-  //  iep  = epoch index (if >= 0 )
-  //  Tobs = T - Tpeak (if iep<0)
-  //  lamobs  = observer wavelength (A)
+  // Return rest-frame SED Flam, interpolated to TOBS and LAMOBS.
+  // Function inputs:
+  //  ISED = SED index
+  //  IEP  = epoch index (if >= 0 )
+  //  TOBS = T - Tpeak (if iep<0)
+  //  LAMOBS  = observer wavelength (A)
   //  funCall = call function, and used only for abort message.
   // 
-  // Note that the epoch can be input as an index (iep)
-  // or a double Tobs (if iep<0). If Tobs is input, then nearest
-  // iep index is used (no Tobs interpolation).
+  // Note that the epoch can be input as an index (IEP)
+  // or a double TOBS (if IEP<0). If IEP is input, then
+  // there is no phase interpolation.
   //
   // This function is part of refactor needed so that NON1ASED
   // model can return a spectrum for the SPECTROGRAPH option.

@@ -125,7 +125,7 @@ void INIT_HOSTLIB(void) {
   char fnam[] = "INIT_HOSTLIB" ;
 
   // M. Vincenzi Feb 2022
-  REFAC_HOSTLIB = false; // ( INPUTS.DEBUG_FLAG == 203 );
+  REFAC_HOSTLIB = false; 
 
   // ---------------- BEGIN -------------
 
@@ -2631,9 +2631,6 @@ void checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST,
   char fnam[] = "checkModel_HOSTLIB_WGTMAP" ;
 
   // ---------- BEGIN -----------
-
-  // temp debug flag -814 can skip abort check
-  if ( INPUTS.DEBUG_FLAG == -814 ) { return; }
 
   for(i=0; i < NMODEL ; i++ ) {
     M = MODEL_LIST[i] ;

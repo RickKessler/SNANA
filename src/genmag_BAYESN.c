@@ -44,23 +44,11 @@ Each sample counts as 0.01 seconds.
 
 // ============ MANGLED FORTRAN FUNCTIONS =============
 // GN - I think we will likely need these - copied from bayesn
-int init_genmag_bayesn__( char *version, int *optmask) {
+int init_genmag_bayesn__( char *model_version, char *model_extrap, int *optmask) {
   int istat;
-  istat = init_genmag_BAYESN ( version, *optmask) ;
+  istat = init_genmag_BAYESN ( model_version, model_extrap, *optmask) ;
   return istat;
 }
-
-/* int genmag_bayesn__(int *ifilt, double *stretch, int *nobs, 
-		  double *Trest, double *rest_mags, double *rest_magerrs ) {
-  int istat;
-  istat = genmag_bayesn(*ifilt, *stretch, *nobs, 
-			Trest, rest_mags, rest_magerrs ) ;
-  return istat;
-} */
-
-// void get_lamrange_bayesn__(double *lammin, double *lammax) {
-//  get_LAMRANGE_bayesn(lammin,lammax);
-// }
 
 
 void read_BAYESN_inputs(char *filename)
@@ -68,7 +56,6 @@ void read_BAYESN_inputs(char *filename)
     char fnam[] = "read_BAYESN_inputs";
 
     // -------------- BEGIN -------------
-    // xxx mark #ifdef USE_BAYESN
     FILE *fh = fopen(filename, "r");
 
     // declare YAML parser and event instances
@@ -372,26 +359,30 @@ void read_BAYESN_inputs(char *filename)
             gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[k]);
         }
     }
-    // xxx #endif
-
-
-    /* xxxxxxxx mark #ifndef USE_BAYESN
-      sprintf(c1err,"genmag_BAYESN.o compiled without libyaml." );
-      sprintf(c2err,"Install libyaml, set env YAML_DIR to a non-null string, make clean; make; try again.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-   xxxxxxxxx */
 
     return ;
 
 } // end read_BAYESN_inputs
 
-int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
+int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
+
+  // Created by. S.Thorp and G.Narayan
+  // Read & initialize BAYESN model.
+  //
+  //  HISTORY
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Sep 18 2023: 
+  //     RK - add MODEL_EXTRAP argument. 
+
+  // To Do:
+  // -  Implement MODEL_EXTRAP following logic in genmag_SALT2.c
+  // -  make sure that default modelflux_extrap(...) is called correctly.
+  //
 
     int  ised;
     int  retval = 0   ;
     int  ABORT_on_LAMRANGE_ERROR = 0;
     int  ABORT_on_BADVALUE_ERROR = 1;
-    //char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
     char fnam[] = "init_genmag_BAYESN";
 
     // -------------- BEGIN --------------

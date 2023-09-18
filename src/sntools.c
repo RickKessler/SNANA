@@ -2331,7 +2331,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
 
-  PARSE_WORDS.DEBUG_FLAG = (LENF > 6665000);
+  PARSE_WORDS.DEBUG_FLAG = 0; // (LENF > 6665000);
   int LDMP =  PARSE_WORDS.DEBUG_FLAG ;
   // ------------- BEGIN --------------------
 

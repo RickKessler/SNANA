@@ -267,8 +267,8 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
     if ( lam < ptrLam[0] ) {
       VAL = ptrVal[0];
     }
-    else if ( lam > ptrLam[NLAMBIN-1] ) {
-      VAL = ptrVal[NLAMBIN-1];
+    else if ( lam > ptrLam[NLAMBIN-1] ) { 
+      VAL = ptrVal[NLAMBIN-1];  // beware of too-simple extrap here !!!
     }
     else {
       VAL = interp_1DFUN(OPT_INTERP, lam, 

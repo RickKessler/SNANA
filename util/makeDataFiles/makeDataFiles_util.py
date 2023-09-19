@@ -500,11 +500,6 @@ def cmb_to_helio(z, ra, dec):
 
 
 # ========================================
-#  Jan 10 2022:
-#  These snana-reader utilities are outside the READ_SNANA_FOLDER class
-#  so that legacy option works in same code version as --refac 110.
-#  After legacy code is removed, these snana-reader utilities should be
-#  moved inside the READ_SNANA_FOLDER class.
 #
 def open_fits(file_name):
     # check file_name and file_name.gz, and open the file that exists.

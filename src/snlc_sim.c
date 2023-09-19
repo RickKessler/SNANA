@@ -9756,7 +9756,7 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
   // be processed first in order to determine 
   // TEXPOSE(TEMPLATE) for all other epochs.
   //
-  // Always process HOST spectra first to allow for host 
+  // Always process HOST spectrum first to allow for host 
   // contamination in the SN spectra.
   //
   //
@@ -9841,6 +9841,8 @@ void GENSPEC_MJD_OBS(void) {
   for(ep=1; ep < NEP; ep++ ) {
     MJD   = GENLC.MJD[ep] ;
     Tobs  = MJD - GENLC.PEAKMJD ;  // for dump only
+
+    // .xyz store mag or ep to use at GENSPEC_VERIFY_MAG
 
     if ( (MJD - MJD_LAST) > MJD_DIF ) {
       GENSPEC.NBLAM_TOT[NMJD]        = NBIN_LAM ;
@@ -9988,7 +9990,7 @@ void GENSPEC_TRUE(int imjd) {
     return;
   }
 
-  // below is a SN spectrum, so check which model.
+  // check which model below to fetch transient spectrum.
 
   if ( INDEX_GENMODEL == MODEL_SALT2 )  {
     genSpec_SALT2(parList_SN, parList_HOST,
@@ -10077,31 +10079,50 @@ void GENSPEC_TRUE(int imjd) {
 
   // Aug 2021: check option to integrate flux within each band
   //            and check peak mags.
+  // .xyz
 
-  int VERIFY_PEAKMAG = 0 ;
-  int ifilt, ifilt_obs;
-  double PEAKMAG ;
-  if ( TOBS == 0.0 && VERIFY_PEAKMAG ) {
-    printf("\n %s: Verify PEAKMAGs for CID=%d  z=%.4f: \n", 
-	   fnam, GENLC.CID, GENLC.REDSHIFT_CMB);
-    for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-      GENSPEC_VERIFY_PEAKMAG(ifilt_obs, ptrGENFLUX);
+  bool   CHECK_VERIFY_MAG = (INPUTS.DEBUG_FLAG == 918 ) ; 
+  bool   DO_VERIFY = false; // set below for each event
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
+  int    ifilt, ifilt_obs;
+
+  if ( CHECK_VERIFY_MAG ) {
+    
+    if ( TOBS == 0.0  ) {
+      DO_VERIFY = true ;
+      printf("\n %s: Verify PEAKMAGs for CID=%d  z=%.4f: \n", 
+	     fnam, GENLC.CID, GENLC.REDSHIFT_CMB);
     }
-  }
+    if ( LAMBIN_SED_TRUE > 0.01 ) {
+      DO_VERIFY = true ;
+      printf("\n %s: verify MAG for CID=%d z=%.4f TOBS=%.1f \n",
+	     fnam, GENLC.CID, GENLC.REDSHIFT_CMB, TOBS);
+    }
+
+    if ( DO_VERIFY ) {
+      for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+	ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+	GENSPEC_VERIFY_MAG(ifilt_obs, TOBS, ptrGENFLUX);
+      }
+    }
+    
+
+  } // end VERIFY_PEAKMAG
 
   return ;
 
 } // end GENSPEC_TRUE
 
 // ==================================
-void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) {
+void GENSPEC_VERIFY_MAG(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
 
   // Created Aug 26 2021
   // Diagnostic:
   // Convert ptr_GENMAG in each wave bin to flux, sum flux
   // over filter transmission, then convert back to broadband mag.
   // Compare with already-computed PEAKMAG.
+  //
+  // Sep 2023: pass TOBS as argument; used only for true SED.
 
   int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
@@ -10110,16 +10131,40 @@ void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) {
   double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;
   double hc8    = (double)hc ;
   double z1     = 1.0 + GENLC.REDSHIFT_CMB;
-  double PEAKMAG, PEAKMAG_VERIFY, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
+  double MAG, MAG_VERIFY, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
   double *FLAM_LIST, lamstep, lambin, ZP ; 
-  int  ifilt, NLAMFILT, ilam;
+  int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
   char *cfilt;
   int  OPT_INTERP = 1; // linear
-  char fnam[] = "GENSPEC_VERIFY_PEAKMAG";
+  char fnam[] = "GENSPEC_VERIFY_MAG";
 
   // --------- BEGIN ------------
-  PEAKMAG = GENLC.peakmag_obs[ifilt_obs] ;
-  if ( PEAKMAG < 1.0 || PEAKMAG > 30.0 )  { return ; }
+
+  if ( TOBS == 0.0 ) {
+    MAG = GENLC.peakmag_obs[ifilt_obs] ;
+    NFIND_MAG++ ;
+  }
+  else {
+    int ep, ifilt_obs_tmp ;
+    double TOBS_tmp;
+    for(ep=1; ep < GENLC.NEPOCH; ep++ ) {
+      TOBS_tmp      = GENLC.MJD[ep] - GENLC.PEAKMJD;
+      ifilt_obs_tmp = GENLC.IFILT_OBS[ep];
+      if ( fabs(TOBS-TOBS_tmp) < 0.01 && ifilt_obs_tmp==ifilt_obs ) {
+	MAG = GENLC.genmag_obs[ep];
+	NFIND_MAG++ ;
+      }
+    } // end ep
+
+  }
+
+  if ( NFIND_MAG != 1 ) {
+    sprintf(c1err,"NFIND_MAG=%d but expeced 1", NFIND_MAG);
+    sprintf(c2err,"ifilt_obs=%d  TOBS=%.2f ", ifilt_obs, TOBS);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( MAG < 1.0 || MAG > 30.0 )  { return ; }
 
   // compute true Flam in each spectrograph bin
   FLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
@@ -10148,17 +10193,17 @@ void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) {
   } // end ilam
 
   flux_sum *= (lamstep/hc8) ;
-  PEAKMAG_VERIFY = ZP - 2.5*log10(flux_sum);
+  MAG_VERIFY = ZP - 2.5*log10(flux_sum);
 
-  printf(" %s: Peakmag(%s) = %.3f / %.3f (orig/specVerify) \n",
-	 fnam, cfilt, PEAKMAG, PEAKMAG_VERIFY );
+  printf(" %s: mag(%s) = %.3f / %.3f (orig/specVerify) \n",
+	 fnam, cfilt, MAG, MAG_VERIFY );
   fflush(stdout);
 
   free(FLAM_LIST);
 
   return ;
 
-} // end GENSPEC_VERIFY_PEAKMAG
+} // end GENSPEC_VERIFY_MAG
 
 // *****************************************
 void GENSPEC_HOST_CONTAMINATION(int imjd) {
@@ -26799,11 +26844,11 @@ void genmodel(
 		  ,mwebv               // (I) Galactic E(B-V)
 		  ,z                   // (I) redshift
 		  ,GENLC.DLMU          // (I) distance modulus
-		  ,RV, AV             // (I) RV and AV of host
+		  ,RV, AV              // (I) RV and AV of host
 		  ,NEPFILT             // (I) number of epochs
 		  ,ptr_epoch           // (I) Tobs (days)
 		  ,ptr_genmag          // (O) obs mags
-		  ,ptr_generr          // (O) obs mag-errs
+	 	  ,ptr_generr          // (O) obs mag-errs
 		  );
   }
   else if (  INDEX_GENMODEL  == MODEL_NON1AGRID ) {  // Mar 2016

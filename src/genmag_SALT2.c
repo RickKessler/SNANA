@@ -271,14 +271,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   }
   read_SALT2_INFO_FILE(OPTMASK);  
 
-  /* xxx mark delete Sep 2023 xxxxx
-  // check option to override late-time extrap model from sim-input file
-  if ( !IGNOREFILE(MODEL_EXTRAP_LATETIME)  ) { 
-    sprintf(INPUT_EXTRAP_LATETIME.FILENAME,    "%s", MODEL_EXTRAP_LATETIME); 
-    sprintf(INPUT_EXTRAP_LATETIME_Ia.FILENAME, "%s", MODEL_EXTRAP_LATETIME); 
-  }
-  xxxxxx end mark xxxxxx */
-
   // xxx  RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
   RELAX_IDIOT_CHECK_SALT2 = (INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN > 12000.0);
 
@@ -485,7 +477,6 @@ void fill_SALT2_TABLE_SED(int ISED) {
   // ----------
   // check for uniform binning (July 2016)
   check_uniform_bins(NDAY_ORIG, TEMP_SEDMODEL.DAY, "DayGrid(SALT2)");
-  //  check_uniform_bins(NLAM_ORIG, TEMP_SEDMODEL.LAM, "LamGrid(SALT2)");
 
   // ----------
   if ( INTERP_OPT == SALT2_INTERP_SPLINE ) {
@@ -2375,6 +2366,7 @@ void genmag_SALT2(
       // extrapolate model
       flux = modelflux_extrap( Trest, Trest_edge, 
 			       flux_edge, slope_flux, EXTRAPFLAG_DMP ) ;
+
     }
 
     // -------------------
@@ -3622,15 +3614,29 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   // Mar 29 2019: apply MAG_OFFSET to GENFLUX_LIST
   //
   // Mar 23 2021: call fill_TABLE_MWXT_SEDMODEL
+  //
+  // Sep 18 2023: check option to allow extrapolation past DAYMAX;
+  //              see local EXTRAP_LATETIME bool.
+  //
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double MAG_OFFSET = INPUT_SALT2_INFO.MAG_OFFSET ;  
+  bool   ALLOW_EXTRAP = ( INPUT_EXTRAP_LATETIME_Ia.NLAMBIN > 0 );
 
   int ilam ;  
-  double Trest, Finteg, Finteg_errPar;
-  double FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
+  bool   DEFINED, EXTRAP_LATETIME = false; 
+  double DAYMIN_SALT2  = SALT2_TABLE.DAYMIN+0.01 ;
+  double DAYMAX_SALT2  = SALT2_TABLE.DAYMAX-0.01 ;
+  double DAYMIN_EXTRAP = INPUT_EXTRAP_LATETIME_Ia.DAYMIN;
+
+  double Tobs_SED = Tobs; // Tobs to fetch SED
+
+  double Trest, Finteg, Finteg_errPar ;
+  double FTMP, GENFLUX, ZP, MAG, LAM, LAMREST, z1, FSCALE_ZP;
+  double FTMP_DAYMAX, MAG_DAYMAX ;
   double hc8 = (double)hc ;
+  int    LDMP;
   char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
@@ -3642,11 +3648,22 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   // init entire spectum to zero.
   for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }
 
-  Trest = Tobs/(1.0+z);
-  if ( Trest < SALT2_TABLE.DAYMIN+0.1 ) { return ; }
-  if ( Trest > SALT2_TABLE.DAYMAX-0.1 ) { return ; }
+  Trest = Tobs / (1.0+z) ;
+
+  if ( Trest < DAYMIN_SALT2 ) { return ; }
+
+  if ( Trest > DAYMAX_SALT2 && !ALLOW_EXTRAP ) { return; }
+
+  // note that DAYMIN_EXTRAP ~ 45 days, which is inside the nominal
+  // SALT2 DAYMAX ~ 50 days.
+  if ( ALLOW_EXTRAP && Trest > DAYMIN_EXTRAP ) {
+      Tobs_SED        = DAYMIN_EXTRAP * (1.0+z); 
+      EXTRAP_LATETIME = true;
+  } 
+  
+  // - - - - -  
       
-  INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs, 
+  INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, 
 		   parList_SN, parList_HOST,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;
 
@@ -3666,10 +3683,33 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 	   fnam, ilam, LAM, ZP, GENFLUX); fflush(stdout);
     */
 
-    if ( ZP > 0.0 && FTMP > 0.0 )   { 
+    DEFINED = ( ZP > 0.0 && FTMP > 0.0 ) ;
+
+    if ( DEFINED && EXTRAP_LATETIME ) {
+      MAG_DAYMAX  = -2.5*log10(FTMP) + ZP; 
+      FTMP_DAYMAX = FTMP ;
+      LAMREST     = LAM/(1.0+z);
+      MAG  = genmag_extrap_latetime_Ia(MAG_DAYMAX, Trest, LAMREST);
+      FTMP = pow(10.0,0.4*(ZP-MAG)) ;
+      GENFLUX_LIST[ilam] *= ( FTMP/FTMP_DAYMAX );
+
+      LDMP = fabs(Tobs-9999994.543) < 0.001 && fabs(LAM-8050)<10.0 ;
+      if ( LDMP) {
+        printf(" xxx ----------------- \n");
+        printf(" xxx %s: Tobs=%.3f z=%.3f  LAMREST = %.1f  \n",
+               fnam, Tobs, z, LAMREST);
+        printf(" xxx %s:    FTMP(edge,extrap) = %le  %le \n",
+               fnam, FTMP_DAYMAX, FTMP);
+        printf(" xxx %s:    MAG(edge,extrap)= %.3f %.3f \n",
+               fnam, MAG_DAYMAX, MAG );
+        fflush(stdout);
+      } 
+
+    }
+    else if ( DEFINED ) {
       MAG = -2.5*log10(FTMP) + ZP; 
     }
-    else  { 
+    else { 
       MAG = MAG_UNDEFINED ;  // model undefined
     }
 

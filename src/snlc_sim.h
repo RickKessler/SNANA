@@ -1192,6 +1192,7 @@ struct GENLC {
   double *cos_ALT ;
   double *ANG_ZENITH ;  // degrees
   double *tan_ZENITH  ; // tan(zenith)
+  double *sin_h       ; // sin(hour_angle)
   double *LAMAVG_SED_WGTED ;
 
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];

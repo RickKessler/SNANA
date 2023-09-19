@@ -387,7 +387,7 @@ void gen_airmass(int epoch) {
   double RAD = RADIAN ;
   double airmass  = 0.01 ;
   double alt_rad, sin_alt, ang_zenith_rad, ang_zenith_deg;
-  double h_hr, h_deg, cos_h ;
+  double h_hr, h_deg, cos_h, sin_h ;
   double GLAT, GLON;
     
   // test example from ESO calculator:
@@ -445,6 +445,7 @@ void gen_airmass(int epoch) {
   h_deg           = LST_deg - GENLC.RA ;
   h_hr            = h_deg * 24.0/360.0 ;
   cos_h           = cos(h_deg*RAD) ;
+  sin_h           = sin(h_deg*RAD) ;
 
   // compute airmass ...
   double sin_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
@@ -474,6 +475,7 @@ void gen_airmass(int epoch) {
   GENLC.AIRMASS[epoch]    = airmass;
   GENLC.ANG_ZENITH[epoch] = ang_zenith_deg ;
   GENLC.tan_ZENITH[epoch] = tan(ang_zenith_rad); // needed for DCR calc later
+  GENLC.sin_h[epoch]      = sin_h; // needed for ALT shift to RA shift later
 
   if ( DO_TEST ) {
 
@@ -603,6 +605,7 @@ void gen_dcr_coordShift(int ep) {
   double LAT        = GENLC.GLAT ;
   double sin_DEC    = GENLC.sin_DEC;
   double cos_DEC    = GENLC.cos_DEC ;
+  double sin_h      = GENLC.sin_h[ep];
 
   int IDSURVEY      = GENLC.IDSURVEY ;
   double geoLAT     = SURVEY_INFO.geoLAT[IDSURVEY];  // telescope geo coord
@@ -635,7 +638,7 @@ void gen_dcr_coordShift(int ep) {
 
   // - - - - - - - - - - - - - - 
   // begin computatin of RA & DEC shifts
-  double DCR, DCR_deg, sin_ALT, cos_ALT, q, cos_q, sin_q, cos_product;
+  double DCR, DCR_deg, sin_ALT, cos_ALT, cos_q, sin_q, cos_product, sin_AZ;
   int DUMPFLAG = 0 ;
 
   // start with DCR angle shift in arcsec
@@ -648,14 +651,21 @@ void gen_dcr_coordShift(int ep) {
   sin_ALT = GENLC.sin_ALT[ep];
   cos_ALT = GENLC.cos_ALT[ep];
 
+  if ( cos_ALT != 0.0 )
+    { sin_AZ   = (-sin_h*cos_DEC) / cos_ALT; }
+  else
+    { sin_AZ   = 0.0 ; }
+
+  if ( cos_DEC != 0.0 )
+    { sin_q   = (-cos_geoLAT*sin_AZ) / cos_DEC; }
+  else
+    { sin_q   = 0.0 ; }
+
   cos_product = cos_DEC*cos_ALT ;
   if ( cos_product != 0.0 ) 
     { cos_q   = (sin_geoLAT - sin_DEC*sin_ALT) / cos_product; }
   else
     { cos_q   = 0.0 ; }
-
-  q       = acos(cos_q);
-  sin_q   = sin(q);
 
   // take projection for RA and DEC shifts in degrees
   GENLC.dcr_shift[ep]     = DCR_deg ;

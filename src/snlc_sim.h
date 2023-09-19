@@ -335,6 +335,7 @@ typedef struct {
   // option to enable true SED option, and to define lambda bin size (A)
   double LAMBIN_SED_TRUE;
   double LAMRANGE_SED_TRUE[2]; // specify wavelength range of SED_TRUE 
+  int    VERIFY_SED_TRUE;      // integrate true SED and compare with true mag
 
 } SPECTROGRAPH_OPTIONS_DEF;
 
@@ -1192,7 +1193,7 @@ struct GENLC {
   double *cos_ALT ;
   double *ANG_ZENITH ;  // degrees
   double *tan_ZENITH  ; // tan(zenith)
-  double *sin_h       ; // sin(hour_angle)
+  double *sin_h       ; // sin(hour_angle), J.Lee, Sep 2023
   double *LAMAVG_SED_WGTED ;
 
   double RA_OBS[MXEPSIM], DEC_OBS[MXEPSIM];

@@ -1359,10 +1359,11 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE   =  1. ;  // scale Texpose
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
-  INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE = -9.0 ; // true SED option
+  INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE      = -9.0 ; // true SED option
   INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[0] = 0.0 ;
   INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[1] = 0.0 ;
-
+  INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE      = 0 ;
+  
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
   INPUTS.TAKE_SPECTRUM_DUMPCID    = -9 ;
   INPUTS.TAKE_SPECTRUM_HOSTFRAC   =  0.0 ;
@@ -2420,6 +2421,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE[1] );
     README_KEYPLUSARGS_load(MXSPECTRA, 2, WORDS, keySource,
+			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
+  }
+
+  else if ( keyMatchSim(1, "VERIFY_SED_TRUE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE );
+    README_KEYPLUSARGS_load(MXSPECTRA, 1, WORDS, keySource,
 			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
   }
 
@@ -8884,6 +8891,7 @@ void malloc_GENLC(void) {
 
     GENLC.ANG_ZENITH   = (double*) malloc(MEMD);
     GENLC.tan_ZENITH   = (double*) malloc(MEMD);
+    GENLC.sin_h        = (double*) malloc(MEMD); 
     GENLC.LAMAVG_SED_WGTED  = (double*) malloc(MEMD);
   }
 
@@ -9842,8 +9850,6 @@ void GENSPEC_MJD_OBS(void) {
     MJD   = GENLC.MJD[ep] ;
     Tobs  = MJD - GENLC.PEAKMJD ;  // for dump only
 
-    // .xyz store mag or ep to use at GENSPEC_VERIFY_MAG
-
     if ( (MJD - MJD_LAST) > MJD_DIF ) {
       GENSPEC.NBLAM_TOT[NMJD]        = NBIN_LAM ;
       GENSPEC.MJD_LIST[NMJD]         = MJD ;
@@ -10077,36 +10083,16 @@ void GENSPEC_TRUE(int imjd) {
   }
 
 
-  // Aug 2021: check option to integrate flux within each band
-  //            and check peak mags.
-  // .xyz
+  // check option to integrate flux within each band and compare against true mag
 
-  bool   CHECK_VERIFY_MAG = (INPUTS.DEBUG_FLAG == 918 ) ; 
-  bool   DO_VERIFY = false; // set below for each event
-  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
+  int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   int    ifilt, ifilt_obs;
 
-  if ( CHECK_VERIFY_MAG ) {
-    
-    if ( TOBS == 0.0  ) {
-      DO_VERIFY = true ;
-      printf("\n %s: Verify PEAKMAGs for CID=%d  z=%.4f: \n", 
-	     fnam, GENLC.CID, GENLC.REDSHIFT_CMB);
+  if ( VERIFY_SED_TRUE ) {
+    for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+      GENSPEC_VERIFY_MAG(ifilt_obs, TOBS, ptrGENFLUX);
     }
-    if ( LAMBIN_SED_TRUE > 0.01 ) {
-      DO_VERIFY = true ;
-      printf("\n %s: verify MAG for CID=%d z=%.4f TOBS=%.1f \n",
-	     fnam, GENLC.CID, GENLC.REDSHIFT_CMB, TOBS);
-    }
-
-    if ( DO_VERIFY ) {
-      for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-	ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-	GENSPEC_VERIFY_MAG(ifilt_obs, TOBS, ptrGENFLUX);
-      }
-    }
-    
-
   } // end VERIFY_PEAKMAG
 
   return ;

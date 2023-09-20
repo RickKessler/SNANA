@@ -226,12 +226,12 @@ void genmag_SALT2(int OPTMASK, int ifilt,
 		  double *magobs_list, double *magerr_list );
 
 
-// xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
-void   init_extrap_latetime_SALT2(char *fileName);
-double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
-double FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
-			       double ratio);
-// xxxxxxxxxx
+/* xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
+// xxx void   init_extrap_latetime_SALT2(char *fileName);
+// xxx mark double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
+// xxxdouble FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
+// xxx			       double ratio);
+xxxxx end mark xxxx */
 
 void colordump_SALT2(double lam, double c, char *cfilt);
 void errorSummary_SALT2(void) ;

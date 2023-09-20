@@ -173,7 +173,6 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Apr 27 2021: minor refactor to set default SALT2 or SALT3 model location.
 
  Feb 22 2022: set DEBUG_SALT2 with OPTMASK += 1024
- Sep 18 2023: DEBUG_SALT2 -> use legacy latetime_SALT2 code
 
 ****************************************************************/
 
@@ -349,10 +348,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // Summarize CL and errors vs. lambda for Trest = x1 = 0.
   errorSummary_SALT2();
   
-  if ( DEBUG_SALT2 )
-    { init_extrap_latetime_SALT2(MODEL_EXTRAP_LATETIME); } // legacy
-  else
-    { init_extrap_latetime_Ia(MODEL_EXTRAP_LATETIME); }   // refactored
+  init_extrap_latetime_Ia(MODEL_EXTRAP_LATETIME);
 
   init_calib_shift_SALT2train(); // Nov 2020
 
@@ -1696,243 +1692,6 @@ void  check_BADVAL_SALT2errmap(int imap) {
   return;
 } // end check_BADVAL_SALT2errmap
 
-// ==========================================================
-void init_extrap_latetime_SALT2(char *fileName) {
-
-  // Created June 25 2018
-  // Init optional mag-extrapolation for epochs later than
-  // what is defined in SALT2 model. 
-  // Note that default extrapolation is in SED-flux space,
-  // extrapolation last few days, but this extrap can have
-  // large errors.
-  //
-  // Input: model_extrap_latetime --> fileName with model info
-
-  // xxx mark   char *fileName = INPUT_EXTRAP_LATETIME.FILENAME ;
-  char fnam[] = "init_extrap_latetime_SALT2" ;
-
-  int    ipar, ilam, NLAMBIN=0;
-  int    NPAR_READ = NPAR_EXTRAP_LATETIME ;
-  double DAYMIN, LAM, TAU1, TAU2, EXPRATIO, MAGSLOPE1, MAGSLOPE2, DAYPIVOT;
-  double TMPVAL[10];
-
-  FILE *fp;
-  char c_get[60];
-
-  // -------------- BEGIN ----------
-
-  INPUT_EXTRAP_LATETIME.NLAMBIN = 0 ;
-
-  if ( IGNOREFILE(fileName) ) { return ; }
-  ENVreplace(fileName,fnam,1);
-
-  fp = fopen(fileName,"rt");
-  if ( !fp ) {
-    sprintf(c1err,"Could not open MODEL_EXTRAP_LATETIME:");
-    sprintf(c2err,"%s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  printf("\n   LEGACY Read EXTRAP_LATETIME parameters from :\n");
-  printf("\t %s \n", fileName);
-  fflush(stdout);
-
-  INPUT_EXTRAP_LATETIME.NLAMBIN   = 1 ;
-  INPUT_EXTRAP_LATETIME.DAYMIN    = 0.0 ;
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-
-    if ( strcmp(c_get,"EXTRAP_DAYMIN:") == 0 ) 
-      { readdouble(fp, 1, &INPUT_EXTRAP_LATETIME.DAYMIN ); }
-
-    if ( strcmp(c_get,"EXTRAP_PARLIST:") == 0 ) { 
-      readdouble(fp, NPAR_READ, TMPVAL );
-      if ( NLAMBIN < MXLAMBIN_EXTRAP_LATETIME ) {
-	for(ipar=0; ipar < NPAR_READ; ipar++ ) 
-	  { INPUT_EXTRAP_LATETIME.PARLIST[ipar][NLAMBIN] = TMPVAL[ipar]; } 
-      }
-      NLAMBIN++ ;
-      INPUT_EXTRAP_LATETIME.NLAMBIN = NLAMBIN ;
-    }
-
-  }
-
-  fclose(fp);
-
-  if ( NLAMBIN >= MXLAMBIN_EXTRAP_LATETIME ) {
-    sprintf(c1err,"NLAMBIN=%d exceeds bound of %d", 
-	    NLAMBIN, MXLAMBIN_EXTRAP_LATETIME);
-    sprintf(c2err,"Check MXLAMBIN_EXTRAP_LATETIME = %d",
-	    MXLAMBIN_EXTRAP_LATETIME);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 	
-  }
-
-  // -----------------------------------------------------
-  // prep/check stuff stuff
-
-
-  NLAMBIN = INPUT_EXTRAP_LATETIME.NLAMBIN ;
-  DAYMIN  = INPUT_EXTRAP_LATETIME.DAYMIN  ;
-
-  if ( DAYMIN < 10.0 ) { 
-    sprintf(c1err,"Invalid DAYMIN=%.2f (too small)", DAYMIN);
-    sprintf(c2err,"Check EXTRAP_DAYMIN key");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  // compute a few quantities and print info for each lambin
-
-  printf("\t DAYMIN_EXTRAP = %.1f \n", DAYMIN );
-  printf("\n\t FLUX_EXTRAP(t) ~ [ exp(t/TAU1) + RATIO*exp(t/TAU2) ] \n");
-
-  printf("                                TAU1     TAU2     DAY when\n");
-  printf("   LAM    TAU1   TAU2   RATIO  mag/day  mag/day    F1=F2 \n");
-  printf("   --------------------------------------------------------\n");
-
-  for(ilam=0; ilam < NLAMBIN; ilam++ ) {  
-    LAM  = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_LAM][ilam] ;
-    TAU1 = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_TAU1][ilam] ;
-    TAU2 = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_TAU2][ilam] ;
-
-    if ( TAU2 < TAU1 ) {
-      sprintf(c1err,"Invalid TAU2(%.2f) < TAU1(%.2f)", TAU2, TAU1);
-      sprintf(c2err,"Check EXTRAP_PARLIST with lam=%.1f", LAM);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-
-    EXPRATIO = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_EXPRATIO][ilam] ;
-
-    MAGSLOPE1 = 1.086/TAU1;
-    MAGSLOPE2 = 1.086/TAU2;
-    if ( EXPRATIO > 1.0E-9 && TAU1 > 0.0 && TAU2 > 0.0 ) 
-      { DAYPIVOT  = log(1.0/EXPRATIO) / (1.0/TAU1 - 1.0/TAU2); }
-    else
-      { DAYPIVOT  = 1.0E4; }
-
-    INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_MAGSLOPE1][ilam] = MAGSLOPE1;
-    INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_MAGSLOPE2][ilam] = MAGSLOPE2;
-    INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_DAYPIVOT][ilam]  = DAYPIVOT;
-
-    printf(" %7.1f %6.2f %6.2f %6.4f  %6.3f   %6.3f     %.0f \n",
-	   LAM, TAU1, TAU2, EXPRATIO,    MAGSLOPE1, MAGSLOPE2, DAYPIVOT);
-    fflush(stdout);
-  }
-  printf("   --------------------------------------------------------\n");
-
-
-  return ;
-
-} // end init_extrap_latetime_SALT2
-
-
-// ===============================================
-double genmag_extrap_latetime_SALT2(double mag_daymin, double day,
-				    double lam ) {
-
-  // Created Jun 25 2018
-  // for input mag_daymin, return extrapolated magnitude.
-  //
-  // Inputs:
-  //   mag_daymin = mag (obs or rest) to extrapolate from 'day' 
-  //   day        = rest-frame day (day=0 at peak brightness)
-  //   lam        = rest-frame wavelength of filter
-  //
-
-  int    NLAMBIN = INPUT_EXTRAP_LATETIME.NLAMBIN ;  
-  double DAYMIN  = INPUT_EXTRAP_LATETIME.DAYMIN ;  
-  double mag_extrap = mag_daymin;
-
-  double arg, F_DAYMIN, F_EXTRAP, VAL, PARLIST[MXPAR_EXTRAP_LATETIME];
-  double *ptrLam, *ptrVal;
-  int    ipar;
-  int    NPAR = NPAR_EXTRAP_LATETIME ;
-  int    OPT_INTERP = 1; // linear
-  int    LDMP = 0, ABORT=0 ;
-  char   fnam[] = "genmag_extrap_latetime_SALT2" ;
-
-  // ----------- BEGIN ---------
-
-  if ( day < DAYMIN ) {
-    sprintf(c1err,"Invalid day=%.2f is < DAYMIN=%.2f", day, DAYMIN);
-    sprintf(c2err,"day must be > DAYMIN");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  // compute flux at daymin
-  arg      = 0.4*(mag_daymin - ZEROPOINT_FLUXCAL_DEFAULT);
-  F_DAYMIN = pow(10.0,-arg);
-
-  // interpolate each extrap parameter vs. wavelength
-  for(ipar=1; ipar < NPAR; ipar++ ) { // skip LAM parameter
-   
-    ptrLam = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_LAM] ;
-    ptrVal = INPUT_EXTRAP_LATETIME.PARLIST[ipar] ;
-    if ( lam < ptrLam[0] ) {
-      VAL = ptrVal[0];
-    }
-    else if ( lam > ptrLam[NLAMBIN-1] ) {
-      VAL = ptrVal[NLAMBIN-1];
-    }
-    else {
-      VAL = interp_1DFUN(OPT_INTERP, lam, 
-			 NLAMBIN, ptrLam, ptrVal, fnam );
-    }
-    PARLIST[ipar] = VAL ;
-  }
-
-
-  // ----------
-  
-  double TAU1  = PARLIST[IPAR_EXTRAP_TAU1] ;
-  double TAU2  = PARLIST[IPAR_EXTRAP_TAU2] ;
-  double RATIO = PARLIST[IPAR_EXTRAP_EXPRATIO] ;
-  double DAYDIF = 0.0 ;
-  double FTMP, FNORM ;
-
-  // get reference extrap flux at DAYDIF = DAY-DAYMIN =0
-  FTMP  = FLUXFUN_EXTRAP_LATETIME(DAYDIF,TAU1,TAU2,RATIO);
-  FNORM = F_DAYMIN / FTMP;
-
-  DAYDIF   = day - DAYMIN ;
-  F_EXTRAP = FNORM * FLUXFUN_EXTRAP_LATETIME(DAYDIF,TAU1,TAU2,RATIO);
-
-  mag_extrap = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*log10(F_EXTRAP);
-
-  if ( mag_extrap > 40.0 ) { mag_extrap = MAG_ZEROFLUX; }
-
-  if ( mag_extrap < 0.0 || mag_extrap > 99. ) { ABORT=1; }
-  if ( LDMP || ABORT ) {
-    printf(" xxx \n");
-    printf(" xxx -------- DUMP   %s  ---------- \n", fnam);
-    printf(" xxx INPUTS: mag_daymin=%.3f  day=%.3f  lam=%.1f \n",
-	   mag_daymin, day, lam);
-    printf(" xxx TAU1=%.3f  TAU2=%.3f  RATIO=%.5f \n", 
-	   TAU1, TAU2, RATIO );
-    printf(" xxx F_DAYMIN = %f   FLUXFUN_EXTRAP(0)=%f \n",
-	   F_DAYMIN, FTMP);
-    printf(" xxx DAYDIF=%.2f  F_EXTRAP=%f  --> mag_extrap=%.3f \n",
-	   DAYDIF, F_EXTRAP, mag_extrap);
-
-    if ( ABORT ) {
-      sprintf(c1err,"Crazy mag_extrap = %le", mag_extrap);
-      sprintf(c2err,"Check above DUMP");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
-    }
-
-  }
-
-  return(mag_extrap);
-
-} // end genmag_extrap_latetime_SALT2
-
-
-double FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
-			       double ratio) {
-  double F1 = exp(-t/tau1);
-  double F2 = ratio * exp(-t/tau2);
-  double F  = F1 + F2;
-  return(F);
-} 
 
 
 // =========================================
@@ -2389,16 +2148,7 @@ void genmag_SALT2(
       magobs = ZP - 2.5*log10(flux) + INPUT_SALT2_INFO.MAG_OFFSET ;
       if ( EXTRAPFLAG_MAG ) {
 	magobs_tmp = magobs;
-
-	if ( !DEBUG_SALT2 ) {
-	  // refactored
-	  magobs = genmag_extrap_latetime_Ia(magobs_tmp,Trest,meanlam_rest); 
-	}
-	else {
-	  // legacy
-	  magobs = genmag_extrap_latetime_SALT2(magobs_tmp,Trest,meanlam_rest);
-	}
-
+	magobs = genmag_extrap_latetime_Ia(magobs_tmp,Trest,meanlam_rest); 
       }
     }
     

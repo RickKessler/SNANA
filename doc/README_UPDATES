@@ -21943,4 +21943,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     before computing model mag, so that phase-extrapolated synthetic mags match 
     extrapolated model mags.
 
+
+# =============================================================
+        v11_05h ([tag-date]) 
+
+        ***** IMPORTANT(v11_05h) ***** 
+
+        ***** USEFUL(v11_05h) ***** 
+
+        ***** MISCELLANEOUS(v11_05h) ***** 
+
+   genmag_SALT2.c:
+     + remove legacy [init_]extrap_latetime_SALT2() and associated DEBUG_FLAG
+
 END: 

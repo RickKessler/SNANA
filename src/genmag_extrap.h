@@ -17,6 +17,13 @@
 #define IPAR_EXTRAP_MAGSLOPE2_Ia 5  // computed magslope for tau2
 #define IPAR_EXTRAP_DAYPIVOT_Ia  6  // day when each flux is the same
 
+// define parameters to flag method for extrapolating late-time model flux/mag vs. phase
+int     EXTRAP_PHASE_METHOD;     // generic flag for SED models to use
+#define EXTRAP_PHASE_SEDFLUX  1  // extrapolate band-integrated flux
+#define EXTRAP_PHASE_MAG      2  // extrapolate broadband mag
+#define EXTRAP_PHASE_FLAM     3  // extrapolate FLAM in each SED lambda bin
+
+
 struct {
   char   FILENAME[MXPATHLEN];
   double DAYMIN ; 
@@ -43,3 +50,7 @@ double FLUXFUN_EXTRAP_LATETIME_Ia(double t, double tau1, double tau2, double rat
 double modelflux_extrap(double T, double Tref,
 			double fluxref, double fluxslope, int LDMP);
 
+
+void set_METHOD_EXTRAP_PHASE(int EXTRAP_METHOD_PREFER);
+
+// === END  ===

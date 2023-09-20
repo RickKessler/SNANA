@@ -122,6 +122,7 @@ void init_extrap_latetime_Ia(char *fileName) {
 
 
   INPUT_EXTRAP_LATETIME_Ia.NLAMBIN = 0 ;
+  INPUT_EXTRAP_LATETIME_Ia.DAYMIN  = 9999999. ;
 
   if ( IGNOREFILE(fileName) ) { return ; }
   ENVreplace(fileName,fnam,1);
@@ -491,3 +492,52 @@ double FLUXFUN_EXTRAP_LATETIME_Ia(double t, double tau1, double tau2,
   double F  = F1 + F2;
   return(F);
 } 
+
+
+// =============================================================
+void set_METHOD_EXTRAP_PHASE(int EXTRAP_PHASE_METHOD_PREFER) {
+
+  // Created Sep 2023
+  // Set global flag EXTRAP_PHASE_METHOD to define the phase-extrapolation method, 
+  // and print comment to stdout.
+  // Input EXTRAP_PHASE_METHOD_PREFER is the preferred method requested by 
+  // the calling function; the preferred method overrides default method 
+  // of naive SEDFLUX extrapolation.
+  //
+  // Beware that genmag_[SNIamodel].c[h] is responsible for actual implementation
+  // of the settings set here. This utility promotes, but does not enforce, 
+  // uniform extrapolation methods among the SNIa models (e.g., SALT2, SALT3, BayeSN).
+  //
+
+  char msg[200];
+  char fnam[] = "set_METHOD_EXTRAP_PHASE" ;
+
+  // ------------ BEGIN -------------
+
+  EXTRAP_PHASE_METHOD = EXTRAP_PHASE_SEDFLUX; // default if no user input
+
+  // check user input model
+  if ( INPUT_EXTRAP_LATETIME_Ia.NLAMBIN > 0 ) {   
+    EXTRAP_PHASE_METHOD = EXTRAP_PHASE_METHOD_PREFER; 
+  } 
+ 
+  
+  if ( EXTRAP_PHASE_METHOD == EXTRAP_PHASE_SEDFLUX ) {
+    sprintf(msg,"naive SEDFLUX extrap");
+  }
+  else if ( EXTRAP_PHASE_METHOD == EXTRAP_PHASE_MAG ) {
+    sprintf(msg,"mag-extrap based on user-input model and <lam>/(1+z)");
+  }
+  else if ( EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM ) {
+    sprintf(msg,"FLAM-extrap in each wave bin; based on user-input model");
+  }
+  else {
+    sprintf(c1err,"Undefined phase-extrapolation model");
+    sprintf(c2err,"EXTRAP_PHASE_METHOD_PREFER = %d", EXTRAP_PHASE_METHOD_PREFER);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+  }
+
+  printf("\n PHASE-EXTRAP METHOD: %s\n", msg);
+  fflush(stdout);
+
+} // end set_METHOD_EXTRAP_PHASE

@@ -1158,12 +1158,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // read dispersion vs. lambda : 
   // Use already-determine filename that allows for salt2 or salt3
 
-
-  /* xxx Dec 7 2020: doesn't work for BYOSED
-  sprintf(dispFile, "%s/%s", 
-	  versionSALT2, SALT2_ERRMAP_FILES[INDEX_ERRMAP_COLORDISP]);
-  xxx */
-
   read_genSmear_SALT2disp(dispFile, COLOR_DISP_MAX) ;
 
   // ----
@@ -1261,14 +1255,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 			,GENSMEAR_SALT2.LAM 
 			,GENSMEAR_SALT2.SIGMA
 			,fnam );    
-
-    /* xxxxx mark delete Apr 2 2023 xxxxxxxxx
-    MSG_CRAZY[0] = 0 ;
-    if ( SIG > SIGMA_CRAZY ) {
-      NSIGMA_CRAZY++ ;
-      sprintf(MSG_CRAZY,"<== flagged as crazy value");
-    }
-    xxxxxxxxxxxx end mark xxxxxxxxx */
 
     if ( SIG > COLOR_DISP_MAX_DEFAULT ) {
       SIG = COLOR_DISP_MAX_DEFAULT - 1.0E-8 ;
@@ -1596,11 +1582,6 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
     }
 
     magSmear[ilam] = SMEAR0 ;
-
-    /* xxx mark delete Oct 18 2022 RK xxxxxx
-    if ( lam <= MINLAM ) { continue ; }
-    if ( lam >= MAXLAM ) { continue ; }
-    xxxxxxxxx end mark xxxxxxxx */
 
     if ( lam <= (MINLAM+0.001) ) { continue ; }
     if ( lam >= (MAXLAM-0.001) ) { continue ; }

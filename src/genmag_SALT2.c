@@ -352,6 +352,12 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   init_calib_shift_SALT2train(); // Nov 2020
 
+  // determine method to extrapolate in phase (RK, Sep 2023)
+  int EXTRAP_METHOD_PREFER = EXTRAP_PHASE_FLAM; 
+  if ( DEBUG_SALT2 ) { EXTRAP_METHOD_PREFER = EXTRAP_PHASE_MAG; } // plasticc legacy
+  set_METHOD_EXTRAP_PHASE(EXTRAP_METHOD_PREFER);
+
+
   fflush(stdout) ;
 
 
@@ -381,10 +387,11 @@ void setFlags_ISMODEL_SALT2(char *version) {
   //
   // Mar 16 2021: abort on null version
   // Apr 27 2021: set IMODEL_SALT = 2 or 3
+  // Sep 20 2023: extend version_near_dot array from 60 to MXPATHLEN [fix crash]
 
   int  index_dot, set=0 ;
   int  LENSALT2 = strlen("SALT2");
-  char *dot, version_near_dot[60];
+  char *dot, version_near_dot[MXPATHLEN];
   char fnam[] = "setFlags_ISMODEL_SALT2" ;
 
   // ------------- BEGIN ------------
@@ -624,11 +631,6 @@ void fill_SALT2_TABLE_SED(int ISED) {
     for ( ILAM_ORIG=1; ILAM_ORIG < NLAM_ORIG; ILAM_ORIG++ ) {
 
       EDGE = 0;
-
-      /* xxx mark delete Aug 21 2023
-      if ( IDAY_ORIG == 0 || IDAY_ORIG == NDAY_ORIG-1 ) { EDGE = 1 ; }
-      if ( ILAM_ORIG == 0 || ILAM_ORIG == NLAM_ORIG-1 ) { EDGE = 1 ; }
-      xxxxx end mark */
 
       if ( IDAY_ORIG <=1 || IDAY_ORIG >= NDAY_ORIG-2 ) { EDGE = 1 ; }
       if ( ILAM_ORIG <=1 || ILAM_ORIG >= NLAM_ORIG-2 ) { EDGE = 1 ; }
@@ -1856,7 +1858,6 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
   }
   free(survey_genmag_list);
 
-  // xxx mark  MATCH_SURVEY = ( strcmp(survey_calib,survey_genmag) == 0 ) ;
 
   if ( !MATCH_SURVEY ) { return MATCH_SURVEY; }
 
@@ -2018,10 +2019,14 @@ void genmag_SALT2(
     ;
 
   char *cfilt;
-  int  ifilt, epobs, EXTRAPFLAG_SEDFLUX, EXTRAPFLAG_DMP = 0 ;
-  int  EXTRAPFLAG_MAG ;
+  int  ifilt, epobs, EXTRAPFLAG_DMP = 0;
   int  LDMP_DEBUG,OPT_PRINT_BADFLUX, OPT_RETURN_MAG ;
   int  OPT_RETURN_FLUX, OPT_DOERR ;    
+
+  bool DO_EXTRAP_LOCAL       = false;
+  bool EXTRAP_METHOD_MAG     = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_MAG );
+  bool EXTRAP_METHOD_SEDFLUX = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_SEDFLUX );
+  bool EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
 
   char fnam[] = "genmag_SALT2" ;
 
@@ -2063,24 +2068,25 @@ void genmag_SALT2(
     Tobs = Tobs_list[epobs];
     Trest = Tobs / z1 ;
 
-    EXTRAPFLAG_MAG = EXTRAPFLAG_SEDFLUX = 0 ; 
+    DO_EXTRAP_LOCAL = false;
     Trest_interp = Trest; 
 
+    // - - - - - -
+    // check for phase extrapolation
     if ( Trest <= SALT2_TABLE.DAYMIN+epsT )
-      { EXTRAPFLAG_SEDFLUX = -1;  Trest_interp = SALT2_TABLE.DAYMIN+epsT ; }
-    else if ( Trest >= SALT2_TABLE.DAYMAX-epsT ) 
-      { EXTRAPFLAG_SEDFLUX = +1;  Trest_interp = SALT2_TABLE.DAYMAX-epsT ; }
+      { DO_EXTRAP_LOCAL = true;  Trest_interp = SALT2_TABLE.DAYMIN+epsT ; }
 
+    // FLAM extrapolation is done in INTEG_zSED (not here);
+    // if !EXTRAP_METHOD_FLAM then enable local extrapolation
+    if ( Trest >= SALT2_TABLE.DAYMAX-epsT && !EXTRAP_METHOD_FLAM ) 
+      { DO_EXTRAP_LOCAL = true;  Trest_interp = SALT2_TABLE.DAYMAX-epsT ; }
 
     // check mag-extrap option for late times (June 25 2018)
-    int NLAMBIN   = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN;
-    double DAYMIN = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
-    if ( NLAMBIN > 0 && Trest > DAYMIN ) { 
-      Trest_interp       = DAYMIN ;
-      EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
-      EXTRAPFLAG_MAG     = 1 ;
-    }
+    double DAYMIN_EXTRAP = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
+    if ( EXTRAP_METHOD_MAG && Trest > DAYMIN_EXTRAP  )    // legacy method
+      { DO_EXTRAP_LOCAL = true; Trest_interp = DAYMIN_EXTRAP ; }
 
+    // - - - - - - -
 
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;
@@ -2088,23 +2094,25 @@ void genmag_SALT2(
 		     &Finteg, &Finteg_errPar, FspecDum); // returned
     flux_interp = Finteg ;
 
-    // ------------------------
+    flux = flux_interp;
 
-    if ( EXTRAPFLAG_SEDFLUX == 0 ) { 
-      flux = flux_interp ;
-    }
-    else {
-      // SED flux extrapolation
+    // ------------------------
+   
+    // for Trest < 0, always do SEDFLUX-extrap method. For Trest > 0, check option.
+    bool DO_EXTRAP_METHOD_SEDFLUX = ( Trest < 0.0 || EXTRAP_METHOD_SEDFLUX );
+    if ( DO_EXTRAP_LOCAL && DO_EXTRAP_METHOD_SEDFLUX ) {
+      // default is SED flux extrapolation
       double Trest_edge, Trest_tmp, flux_edge, flux_tmp, Tobs_tmp ;
-      double slope_flux ;
-      double nday_slope  = 3.*(double)EXTRAPFLAG_SEDFLUX ;
+      double slope_flux, nday_slope = 0.0 ;
+
+      if ( Trest != 0.0 ) { nday_slope  = 3.0 * Trest / fabs(Trest); }
 
       // measure slope dTrest/dFlux using last nday_slope days of model
       Trest_edge = Trest_interp ;
       Trest_tmp  = Trest_edge - nday_slope ;
       flux_edge  = flux_interp ;
       Tobs_tmp   = Trest_tmp * z1 ;
-      INTEG_zSED_SALT2(0,ifilt_obs,z,Tobs_tmp, parList_SN, parList_HOST,
+      INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_tmp, parList_SN, parList_HOST,
 		       &Finteg, &Finteg_errPar, FspecDum); // return
       flux_tmp = Finteg;
       
@@ -2125,18 +2133,21 @@ void genmag_SALT2(
     // ------------------------
     if ( flux <= fluxmin || isnan(flux) ) {
 
+      magobs = MAG_ZEROFLUX ;
+
       if ( OPT_PRINT_BADFLUX ) {
 	printf("  genmag_SALT2 Warning:");
-	printf(" Flux(%s)<0 at Trest = %6.2f => return mag=99 \n",
-	     cfilt, Trest );
+	printf(" Flux(%s)<%le at Trest = %6.2f => return mag=%.0f \n",
+	       cfilt, fluxmin, Trest, MAG_ZEROFLUX );
       }
-      magobs = MAG_ZEROFLUX ;
     }
     else{
       magobs = ZP - 2.5*log10(flux) + INPUT_SALT2_INFO.MAG_OFFSET ;
-      if ( EXTRAPFLAG_MAG ) {
-	magobs_tmp = magobs;
-	magobs = genmag_extrap_latetime_Ia(magobs_tmp,Trest,meanlam_rest); 
+
+      if ( DO_EXTRAP_LOCAL && EXTRAP_METHOD_MAG && Trest > 0.0 ) { 
+	// legacy method from original PLASTICC 2018
+	magobs_tmp = magobs ;
+	magobs = genmag_extrap_latetime_Ia(magobs_tmp, Trest, meanlam_rest); 
       }
     }
     
@@ -2458,19 +2469,23 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   double
     LAMOBS, LAMSED, z1, LAMDIF, LAMSED_MIN, LAMSED_MAX
     ,LAMFILT_STEP, LAMSED_STEP, LAMSPEC_STEP, LAMRATIO
-    ,DAYSTEP, DAYMIN, DAYDIF, Trest
+    ,DAYSTEP, DAYMIN, DAYDIF, Trest, Trest_model
     ,MWXT_FRAC, HOSTXT_FRAC, CCOR, CCOR_LAM0, CCOR_LAM1, CDIF, CNEAR
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
-    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
+    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck, Ftmp
     ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList_genSmear[10]
     ,hc8 = (double)hc ;
 
   bool zero_FLAM;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
+
+  bool   DO_EXTRAP_LOCAL       = false;
+  bool   EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
+  double DAYMIN_EXTRAP         = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
 
   char *cfilt ;
   char fnam[] = "INTEG_zSED_SALT2" ;
@@ -2490,6 +2505,13 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   cfilt     = FILTER_SEDMODEL[ifilt].name ;
   z1        = 1. + z ;
   Trest     = Tobs/z1 ;
+  Trest_model = Trest ; // use this for SALT2 model flux
+
+  if ( EXTRAP_METHOD_FLAM ) { // Sep 20, 2023
+    if ( Trest > DAYMIN_EXTRAP ) 
+      { DO_EXTRAP_LOCAL = true ; Trest_model = DAYMIN_EXTRAP ; }
+  }
+
 
   LAMFILT_STEP = FILTER_SEDMODEL[ifilt].lamstep; 
   LAMSED_STEP  = SALT2_TABLE.LAMSTEP ;    // step size of SALT2 model
@@ -2504,10 +2526,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // interpolate SED in TREST-space.
   DAYSTEP = SALT2_TABLE.DAYSTEP ;
   DAYMIN  = SALT2_TABLE.DAY[0]  ;
-  DAYDIF  = Trest - DAYMIN ;
+  DAYDIF  = Trest_model - DAYMIN ;
   IDAY    = (int)(DAYDIF/DAYSTEP);  
   NDAY    = SALT2_TABLE.NDAY ;
-  DAYDIF  = Trest - SALT2_TABLE.DAY[IDAY] ;
+  DAYDIF  = Trest_model - SALT2_TABLE.DAY[IDAY] ;
 
   nday    = 2 ; 
   FRAC_INTERP_DAY = DAYDIF/DAYSTEP ;
@@ -2539,7 +2561,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
 
-    parList_genSmear[0] = Trest;
+    parList_genSmear[0] = Trest_model;
     parList_genSmear[1] = x1;
     parList_genSmear[2] = c;
     parList_genSmear[3] = m_host ; 
@@ -2618,7 +2640,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	printf(" xxx LAMOBS=%.1f  LAMSED=%.2f \n", LAMOBS, LAMSED ); 
 	printf(" xxx FRAC_INTERP_[CCOR,LAMSED] = %.3f , %.3f \n",	       
 	       FRAC_INTERP_COLOR , FRAC_INTERP_LAMSED ); 
-	printf(" xxx Tobs=%.3f  Trest=%.3f \n", Tobs, Trest);
+	printf(" xxx Tobs=%.3f  Trest_model=%.3f \n", Tobs, Trest_model);
 	fflush(stdout);
       }
       
@@ -2634,7 +2656,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	       LAMSED_STEP, SALT2_TABLE.LAMMIN );
 	printf("\t ilamobs=%d   ilamsed = %d \n", 	     
 	       ilamobs, ilamsed );
-	printf("\t Tobs=%f  Trest=%f \n", Tobs, Trest);
+	printf("\t Tobs=%f  Trest=%f  Trest_model=%f \n", Tobs, Trest, Trest_model);
 	printf("\t <LAMFILT(%s)> = %7.2f(OBS)  %7.2f(REST) \n", 
 	       cfilt, mean, mean/z1);
 	for( jlam=ilamsed-2; jlam <= ilamsed+2; jlam++ ) {
@@ -2685,9 +2707,16 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	// update integral for each SED surface
 	Fbin_forFlux = (FTMP * CCOR * HOSTXT_FRAC*MWXT_FRAC * LAMSED*TRANS);
 	Fbin_forSpec = (FTMP * CCOR * HOSTXT_FRAC*MWXT_FRAC );
-
+	
 	// .xyz extrapolate past 45 days here ??
+	if ( DO_EXTRAP_LOCAL ) {
+	  Ftmp = Fbin_forFlux;
+	  Fbin_forFlux = genflux_extrap_latetime_Ia(Ftmp, Trest, LAMSED);
 
+	  Ftmp = Fbin_forSpec;
+	  Fbin_forSpec = genflux_extrap_latetime_Ia(Ftmp, Trest, LAMSED);
+	}
+	
 	if ( OPT_SPEC ) { 
 	  LAMSPEC_STEP = LAMFILT_STEP ; // default for filters
 
@@ -2717,16 +2746,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	Flam_filter[0] = Flam_filter[1] = 0.0 ;
 	Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
       }
-
-      /* xxxxxx mark delete Aug 31 2023 xxxxxxxx
-      if ( !ALLOW_NEGFLUX_SALT2 ) {
-	Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
-	if ( Fcheck < 0.0 ) { 
-	  Flam_filter[0] = Flam_filter[1] = 0.0 ;
-	  Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
-	}
-      }
-      xxxxxxxxx end mark xxxxxxxx */
 
       for(ised=0; ised <2; ised++ ) {
 	Finteg_filter[ised]  +=  Flam_filter[ised];
@@ -3361,13 +3380,17 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double MAG_OFFSET = INPUT_SALT2_INFO.MAG_OFFSET ;  
-  bool   ALLOW_EXTRAP = ( INPUT_EXTRAP_LATETIME_Ia.NLAMBIN > 0 );
 
   int ilam ;  
-  bool   DEFINED, EXTRAP_LATETIME = false; 
+  bool   DEFINED;
   double DAYMIN_SALT2  = SALT2_TABLE.DAYMIN+0.01 ;
   double DAYMAX_SALT2  = SALT2_TABLE.DAYMAX-0.01 ;
   double DAYMIN_EXTRAP = INPUT_EXTRAP_LATETIME_Ia.DAYMIN;
+
+  bool DO_EXTRAP_LOCAL = false; 
+  bool EXTRAP_METHOD_MAG     = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_MAG );
+  bool EXTRAP_METHOD_SEDFLUX = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_SEDFLUX );
+  bool EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
 
   double Tobs_SED = Tobs; // Tobs to fetch SED
 
@@ -3391,15 +3414,23 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
   if ( Trest < DAYMIN_SALT2 ) { return ; }
 
-  if ( Trest > DAYMAX_SALT2 && !ALLOW_EXTRAP ) { return; }
+  // bail for generic SEDFLUX-extrap that does not work on spectra/SED
+  if ( Trest > DAYMAX_SALT2 && EXTRAP_METHOD_SEDFLUX ) { return; }
 
   // note that DAYMIN_EXTRAP ~ 45 days, which is inside the nominal
   // SALT2 DAYMAX ~ 50 days.
-  if ( ALLOW_EXTRAP && Trest > DAYMIN_EXTRAP ) {
+  if ( EXTRAP_METHOD_MAG && Trest > DAYMIN_EXTRAP ) { // legacy; should be deleted
       Tobs_SED        = DAYMIN_EXTRAP * (1.0+z); 
-      EXTRAP_LATETIME = true;
+      DO_EXTRAP_LOCAL = true;
   } 
   
+  /* xxx
+  if ( Trest > 40.0 ) {
+    printf(" xxx %s: Trest=%.1f  DO_EXTRAP_LOCAL=%d\n", 
+	   fnam, Trest, DO_EXTRAP_LOCAL); fflush(stdout);
+  }
+  xxx */
+
   // - - - - -  
       
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, 
@@ -3424,7 +3455,8 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
     DEFINED = ( ZP > 0.0 && FTMP > 0.0 ) ;
 
-    if ( DEFINED && EXTRAP_LATETIME ) {
+    // xxxxxxx mark: this extrap should be deleted when FLAM method is well tested
+    if ( DEFINED && DO_EXTRAP_LOCAL ) {
       MAG_DAYMAX  = -2.5*log10(FTMP) + ZP; 
       FTMP_DAYMAX = FTMP ;
       LAMREST     = LAM/(1.0+z);
@@ -3443,6 +3475,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
                fnam, MAG_DAYMAX, MAG );
         fflush(stdout);
       } 
+      // xxxxxxxx end mark xxxxxxxxx
 
     }
     else if ( DEFINED ) {
@@ -3467,6 +3500,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
 		       float *LAMLIST_f, float *FLUXLIST_f) {
 
   // Created Nov 2016
+  // Special utility used by LC fit program:
   // Return spectrum in band 'ifilt_obs' with passed SALT2 params.
   // Spectrum is returned as LAMLIST_f and FLUXLIST_f.
   // Note that all function args are float, but local 
@@ -3490,7 +3524,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   double parList_SN[3]   = { x0, x1, c };
   double parList_HOST[3] = { RV_host, AV_host, m_host } ;
 
-  //   char fnam[] = "getSpec_band_SALT2" ;
+  char fnam[] = "getSpec_band_SALT2" ;
 
   // ------------- BEGIN ---------------
 
@@ -3691,34 +3725,6 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
 
 } // end of SALT2colorlaw1
 
-/* xxxxxxxx NOT USED YET ... MAYBE SOMEDAY xxxxxxx
-// ===================================================
-double SALT3colorlaw(double lam_rest, double c, 
-		     SALT3_COLORPAR_DEF *COLORPAR ) {
-
-  // Created Sep 17 2020 by R.Kessler .
-  // Returns 10^[.4*c*C(lambda)] as defined in 
-  // python SALT3 training code written by D.Kenworthy and D.Jones.
-  //   ?? Maybe someday ??
-
-  double REFLAM_CL0   = COLORPAR->REFLAM_CL0 ;     // CL=0 at roughly B_WAVE
-  double REFLAM_CL1   = COLORPAR->REFLAM_CL1 ;     // CL=1 at roughly C_WAVE
-  double LAM_MIN      = COLORPAR->LAMCEN_RANGE[0]; // min UV lam of filter
-  double LAM_MAX      = COLORPAR->LAMCEN_RANGE[1]; // max IR lam of filter
-  GENPOLY_DEF LAMPOLY_CL  = COLORPAR->LAMPOLY_CL ;
-  char fnam[] = "SALT3colorlaw" ;
-
-  // compute reduced wavelengths
-  double REFLAM_DIF = REFLAM_CL1 - REFLAM_CL0 ;
-  double rl    = (lam_rest - REFLAM_CL0) / REFLAM_DIF ;
-  double rlmin = (LAM_MIN  - REFLAM_CL0) / REFLAM_DIF ;
-  double rlmax = (LAM_MAX  - REFLAM_CL0) / REFLAM_DIF ;
-  double CL = 0.0 ;
-
-  // ------------- BEGIN --------------
-  return(CL);
-} // end SALT3colorlaw
-xxxxxxxxxxx end mark xxxxxxxx*/
 
 
 double SALT2colorfun_dpol(const double rl, int nparams, 

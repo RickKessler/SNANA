@@ -2366,7 +2366,6 @@ void genmag_SALT2(
       // extrapolate model
       flux = modelflux_extrap( Trest, Trest_edge, 
 			       flux_edge, slope_flux, EXTRAPFLAG_DMP ) ;
-
     }
 
     // -------------------
@@ -2948,6 +2947,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	// update integral for each SED surface
 	Fbin_forFlux = (FTMP * CCOR * HOSTXT_FRAC*MWXT_FRAC * LAMSED*TRANS);
 	Fbin_forSpec = (FTMP * CCOR * HOSTXT_FRAC*MWXT_FRAC );
+
+	// .xyz extrapolate past 45 days here ??
 
 	if ( OPT_SPEC ) { 
 	  LAMSPEC_STEP = LAMFILT_STEP ; // default for filters

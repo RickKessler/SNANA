@@ -21876,7 +21876,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-        v11_05g ([tag-date]) 
+        v11_05g (Sep 19 2023) 
 
         ***** IMPORTANT(v11_05g) ***** 
 
@@ -21915,6 +21915,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        to avoid slow Cholesky decomps for large NOBS. 
        For additional speed, covariance is applied only for SNR>2 subset.
 
+     + new sim input "VERIFY_SED_TRUE: 1" creates output table with mag
+       and synthetic mag (works only with LAMBIN_SED_TRUE > 0)
+
     snana.car
        read/write MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST.
        If these variables are computed using PHOTFLAG_TRIGGER, PHOTFLAG_DETECT,
@@ -21932,6 +21935,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     verify exact same data files with/without refactor.
    
     Fix genSpec_SALT2 to extrapolate SED flux (Trest>45d) the same way as 
-    broadband flux is extrapolated.
+    broadband flux is extrapolated. CRAP ... mags are extrapolated at central
+    wavelength but SED is extrapolated at each wavelength --> synthetic mags
+    do not match extrapolated mags.
+
+    Tag this SNANA version; next version will need to extrapolate SALT2-SED flux
+    before computing model mag, so that phase-extrapolated synthetic mags match 
+    extrapolated model mags.
 
 END: 

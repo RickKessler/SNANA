@@ -335,9 +335,13 @@ typedef struct {
   // option to enable true SED option, and to define lambda bin size (A)
   double LAMBIN_SED_TRUE;
   double LAMRANGE_SED_TRUE[2]; // specify wavelength range of SED_TRUE 
+
+  // option to validate SED_TRUE integral and compare with mag.
   int    VERIFY_SED_TRUE;      // integrate true SED and compare with true mag
+  FILE   *FP_VERIFY_SED_TRUE; // internal use of VERIFY_SED_TRUE = true
 
 } SPECTROGRAPH_OPTIONS_DEF;
+
 
 
 #define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
@@ -1995,7 +1999,7 @@ void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
-void   GENSPEC_VERIFY_MAG(int ifilt_obs, double TOBS, double *GENFLUX_LIST) ;
+void   wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) ;
 
 void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
 void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,

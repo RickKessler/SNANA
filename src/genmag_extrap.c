@@ -230,20 +230,20 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   // for input mag_daymin, return extrapolated magnitude.
   //
   // Inputs:
-  //   mag_daymin = mag (obs or rest) to extrapolate from 'day' 
-  //   day        = rest-frame day (day=0 at peak brightness)
+  //   mag_daymin = mag (obs or rest) at DAYMIN of extrap model (45 days)
+  //   day        = rest-frame day (day=0 at peak brightness); must be > DAYMIN
   //   lam        = rest-frame wavelength of filter
   //
 
   int    NLAMBIN = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN ;  
   double DAYMIN  = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;  
-  double mag_extrap = mag_daymin;
+  double mag_extrap = mag_daymin ;
 
   double arg, F_DAYMIN, F_EXTRAP, VAL, PARLIST[MXPAR_EXTRAP_LATETIME_Ia];
   double *ptrLam, *ptrVal;
   int    ipar;
   int    NPAR = NPAR_EXTRAP_LATETIME_Ia ;
-  int    OPT_INTERP = 1; // linear
+  int    OPT_INTERP = 1;        // 1=linear
   int    LDMP = 0, ABORT=0 ;
   char   fnam[] = "genmag_extrap_latetime_Ia" ;
 
@@ -282,12 +282,12 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   double TAU1  = PARLIST[IPAR_EXTRAP_TAU1_Ia] ;
   double TAU2  = PARLIST[IPAR_EXTRAP_TAU2_Ia] ;
   double RATIO = PARLIST[IPAR_EXTRAP_EXPRATIO_Ia] ;
-  double DAYDIF = 0.0 ;
-  double FTMP, FNORM ;
+  double DAYDIF, F_DAYDIF0, FNORM ;
 
   // get reference extrap flux at DAYDIF = DAY-DAYMIN =0
-  FTMP  = FLUXFUN_EXTRAP_LATETIME_Ia(DAYDIF,TAU1,TAU2,RATIO);
-  FNORM = F_DAYMIN / FTMP;
+  DAYDIF = 0.0 ;
+  F_DAYDIF0  = FLUXFUN_EXTRAP_LATETIME_Ia(DAYDIF,TAU1,TAU2,RATIO);
+  FNORM      = F_DAYMIN / F_DAYDIF0;
 
   DAYDIF   = day - DAYMIN ;
   F_EXTRAP = FNORM * FLUXFUN_EXTRAP_LATETIME_Ia(DAYDIF,TAU1,TAU2,RATIO);
@@ -305,7 +305,7 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
     printf(" xxx TAU1=%.3f  TAU2=%.3f  RATIO=%.5f \n", 
 	   TAU1, TAU2, RATIO );
     printf(" xxx F_DAYMIN = %f   FLUXFUN_EXTRAP(0)=%f \n",
-	   F_DAYMIN, FTMP);
+	   F_DAYMIN, F_DAYDIF0);
     printf(" xxx DAYDIF=%.2f  F_EXTRAP=%f  --> mag_extrap=%.3f \n",
 	   DAYDIF, F_EXTRAP, mag_extrap);
 
@@ -321,6 +321,102 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
 
 } // end genmag_extrap_latetime_Ia
 
+
+// ===============================================
+double genflux_extrap_latetime_Ia(double flux_daymin, double day, double lam ) {
+
+  // Created Sep 20 2023
+  // for input flux_daymin, return extrapolated magnitude.
+  //  [not used yet ... for next SNANA version]
+  //
+  // Inputs:
+  //   flux_daymin = flux (obs or rest) at DAYMIN of extrap model (45 days)
+  //   day         = rest-frame day (day=0 at peak brightness); must be > DAYMIN
+  //   lam         = rest-frame wavelength of filter
+  //
+
+  int    NLAMBIN = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN ;  
+  double DAYMIN  = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;  
+  double flux_extrap = flux_daymin ;
+
+  double VAL, PARLIST[MXPAR_EXTRAP_LATETIME_Ia];
+  double *ptrLam, *ptrVal;
+  int    ipar;
+  int    NPAR = NPAR_EXTRAP_LATETIME_Ia ;
+  int    OPT_INTERP = 1;        // 1=linear
+  int    LDMP = 0, ABORT=0 ;
+  char   fnam[] = "genflux_extrap_latetime_Ia" ;
+
+  // ----------- BEGIN ---------
+
+  if ( day < DAYMIN ) {
+    sprintf(c1err,"Invalid day=%.2f is < DAYMIN=%.2f", day, DAYMIN);
+    sprintf(c2err,"day must be > DAYMIN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
+  // interpolate each extrap parameter vs. wavelength
+  for(ipar=1; ipar < NPAR; ipar++ ) { // skip LAM parameter
+   
+    ptrLam = INPUT_EXTRAP_LATETIME_Ia.PARLIST[IPAR_EXTRAP_LAM_Ia] ;
+    ptrVal = INPUT_EXTRAP_LATETIME_Ia.PARLIST[ipar] ;
+    if ( lam < ptrLam[0] ) {
+      VAL = ptrVal[0];
+    }
+    else if ( lam > ptrLam[NLAMBIN-1] ) { 
+      VAL = ptrVal[NLAMBIN-1];  // beware of too-simple extrap here !!!
+    }
+    else {
+      VAL = interp_1DFUN(OPT_INTERP, lam, 
+			 NLAMBIN, ptrLam, ptrVal, fnam );
+    }
+    PARLIST[ipar] = VAL ;
+  }
+
+  // ----------
+  
+  double TAU1  = PARLIST[IPAR_EXTRAP_TAU1_Ia] ;
+  double TAU2  = PARLIST[IPAR_EXTRAP_TAU2_Ia] ;
+  double RATIO = PARLIST[IPAR_EXTRAP_EXPRATIO_Ia] ;
+  double DAYDIF, F_DAYDIF0, FNORM ;
+
+  // get reference extrap flux at DAYDIF = DAY-DAYMIN =0
+  DAYDIF = 0.0 ;
+  F_DAYDIF0  = FLUXFUN_EXTRAP_LATETIME_Ia(DAYDIF,TAU1,TAU2,RATIO);
+  FNORM      = flux_daymin / F_DAYDIF0;
+
+  DAYDIF   = day - DAYMIN ;
+  flux_extrap = FNORM * FLUXFUN_EXTRAP_LATETIME_Ia(DAYDIF,TAU1,TAU2,RATIO);
+
+  // ??  if ( flux_extrap < 0.0 || flux_extrap > 99. ) { ABORT=1; }
+
+  if ( LDMP || ABORT ) {
+    printf(" xxx \n");
+    printf(" xxx -------- DUMP   %s  ---------- \n", fnam);
+    printf(" xxx INPUTS: flux_daymin=%le  day=%.3f  lam=%.1f \n",
+	   flux_daymin, day, lam);
+    printf(" xxx TAU1=%.3f  TAU2=%.3f  RATIO=%.5f \n", 
+	   TAU1, TAU2, RATIO );
+    printf(" xxx FLUXFUN_EXTRAP(0)=%f \n",
+	   F_DAYDIF0);
+    printf(" xxx DAYDIF=%.2f  flux_extrap=%f \n",
+	   DAYDIF, flux_extrap);
+
+    if ( ABORT ) {
+      sprintf(c1err,"Crazy flux_extrap = %le", flux_extrap);
+      sprintf(c2err,"Check above DUMP");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+    }
+
+  }
+
+  return(flux_extrap);
+
+} // end genflux_extrap_latetime_Ia
+
+
+// ===================================
 double FLUXFUN_EXTRAP_LATETIME_Ia(double t, double tau1, double tau2, 
 				  double ratio) {
   double F1 = exp(-t/tau1);

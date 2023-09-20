@@ -120,6 +120,7 @@ void init_extrap_latetime_Ia(char *fileName) {
 
   // -------------- BEGIN ----------
 
+
   INPUT_EXTRAP_LATETIME_Ia.NLAMBIN = 0 ;
 
   if ( IGNOREFILE(fileName) ) { return ; }
@@ -247,6 +248,66 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   int    LDMP = 0, ABORT=0 ;
   char   fnam[] = "genmag_extrap_latetime_Ia" ;
 
+  int LEGACY = 0;
+  // ----------- BEGIN ---------
+
+  if ( LEGACY ) {
+    mag_extrap = genmag_extrap_latetime_legacy(mag_daymin, day, lam );
+    return(mag_extrap);
+  }
+
+  if ( day < DAYMIN ) {
+    sprintf(c1err,"Invalid day=%.2f is < DAYMIN=%.2f", day, DAYMIN);
+    sprintf(c2err,"day must be > DAYMIN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // compute flux at daymin
+  arg      = 0.4*(mag_daymin - ZEROPOINT_FLUXCAL_DEFAULT);
+  F_DAYMIN = pow(10.0,-arg);
+
+  // extrapolate flux
+  F_EXTRAP = genflux_extrap_latetime_Ia(F_DAYMIN, day, lam);
+
+  // convert extrapolated flux back to mag
+  mag_extrap = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*log10(F_EXTRAP);
+  
+  // - - - -
+  if ( mag_extrap > 60.0 ) { mag_extrap = MAG_ZEROFLUX; }
+
+  return(mag_extrap);
+
+} // end genmag_extrap_latetime_Ia
+
+
+// ===============================================
+double genmag_extrap_latetime_legacy(double mag_daymin, double day, double lam ) {
+
+  // Created Jun 25 2018
+  // for input mag_daymin, return extrapolated magnitude.
+  //
+  // Inputs:
+  //   mag_daymin = mag (obs or rest) at DAYMIN of extrap model (45 days)
+  //   day        = rest-frame day (day=0 at peak brightness); must be > DAYMIN
+  //   lam        = rest-frame wavelength of filter
+  //
+  //
+  //  ****** OBSOLETE ********
+
+  int    NLAMBIN = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN ;  
+  double DAYMIN  = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;  
+  double mag_extrap = mag_daymin ;
+
+  double arg, F_DAYMIN, F_EXTRAP, VAL, PARLIST[MXPAR_EXTRAP_LATETIME_Ia];
+  double *ptrLam, *ptrVal;
+  int    ipar;
+  int    NPAR = NPAR_EXTRAP_LATETIME_Ia ;
+  int    OPT_INTERP = 1;        // 1=linear
+  int    LDMP = 0, ABORT=0 ;
+  char   fnam[] = "genmag_extrap_latetime_legacy" ;
+
+  //  ****** OBSOLETE ********
+
   // ----------- BEGIN ---------
 
   if ( day < DAYMIN ) {
@@ -258,6 +319,8 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   // compute flux at daymin
   arg      = 0.4*(mag_daymin - ZEROPOINT_FLUXCAL_DEFAULT);
   F_DAYMIN = pow(10.0,-arg);
+
+  //  ****** OBSOLETE ********
 
   // interpolate each extrap parameter vs. wavelength
   for(ipar=1; ipar < NPAR; ipar++ ) { // skip LAM parameter
@@ -277,6 +340,8 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
     PARLIST[ipar] = VAL ;
   }
 
+  //  ****** OBSOLETE ********
+
   // ----------
   
   double TAU1  = PARLIST[IPAR_EXTRAP_TAU1_Ia] ;
@@ -295,6 +360,8 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   mag_extrap = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*log10(F_EXTRAP);
 
   if ( mag_extrap > 40.0 ) { mag_extrap = MAG_ZEROFLUX; }
+
+  //  ****** OBSOLETE ********
 
   if ( mag_extrap < 0.0 || mag_extrap > 99. ) { ABORT=1; }
   if ( LDMP || ABORT ) {
@@ -319,7 +386,7 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
 
   return(mag_extrap);
 
-} // end genmag_extrap_latetime_Ia
+} // end genmag_extrap_latetime_legacy
 
 
 // ===============================================
@@ -389,7 +456,7 @@ double genflux_extrap_latetime_Ia(double flux_daymin, double day, double lam ) {
   DAYDIF   = day - DAYMIN ;
   flux_extrap = FNORM * FLUXFUN_EXTRAP_LATETIME_Ia(DAYDIF,TAU1,TAU2,RATIO);
 
-  // ??  if ( flux_extrap < 0.0 || flux_extrap > 99. ) { ABORT=1; }
+  // ??  if ( flux_extrap < 1.0E-20 || flux_extrap > 99. ) { ABORT=1; }
 
   if ( LDMP || ABORT ) {
     printf(" xxx \n");

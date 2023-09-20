@@ -2073,26 +2073,14 @@ void genmag_SALT2(
 
 
     // check mag-extrap option for late times (June 25 2018)
-    if ( !DEBUG_SALT2 ) {
-      // refac
-      int NLAMBIN   = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN;
-      double DAYMIN = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
-      if ( NLAMBIN > 0 && Trest > DAYMIN ) { 
-	Trest_interp       = DAYMIN ;
-	EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
-	EXTRAPFLAG_MAG     = 1 ;
-      }
+    int NLAMBIN   = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN;
+    double DAYMIN = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
+    if ( NLAMBIN > 0 && Trest > DAYMIN ) { 
+      Trest_interp       = DAYMIN ;
+      EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
+      EXTRAPFLAG_MAG     = 1 ;
     }
-    else {
-      // legacy
-      if ( INPUT_EXTRAP_LATETIME.NLAMBIN && 
-	   Trest > INPUT_EXTRAP_LATETIME.DAYMIN ) { 
-	Trest_interp = INPUT_EXTRAP_LATETIME.DAYMIN ;
-	EXTRAPFLAG_SEDFLUX = 0 ; // turn off SEDFLUX extrapolation
-	EXTRAPFLAG_MAG     = 1 ;
-      }
-    }
-   
+
 
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;

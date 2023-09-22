@@ -10123,16 +10123,19 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
   double z      = GENLC.REDSHIFT_CMB;
   double z1     = 1.0 + z;
   double MJD    = TOBS + GENLC.PEAKMJD ;
+  double TREST  = TOBS/z1;
 
-  double MAG=0.0, MAG_VERIFY, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
-  double *FLAM_LIST, lamstep, lambin, ZP ; 
+  double MAG=0.0, MAG_VERIFY, LAMOBS, LAMREST_CEN, TRANS, flam, flux, flux_sum=0.0 ;
+  double *FLAM_LIST, lamstep, lamstep_rebin, LAMOBS_REBIN, lambin, ZP ; 
   int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
-  char *cfilt;
+  char cfilt[4];
   int  OPT_INTERP = 1;     // linear
   FILE *FP ;
   int  VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   char VERFIY_FILE_NAME[MXPATHLEN], VARLIST[MXPATHLEN] ;
   char fnam[] = "wr_VERIFY_SED_TRUE" ;
+
+  int LDMP = 0;
 
   // --------- BEGIN ------------
 
@@ -10141,7 +10144,7 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
   if ( ifilt_obs == 0 ) {
     // open output table file
     sprintf(VERFIY_FILE_NAME,"%s_VERFIY_SED_TRUE.DAT", INPUTS.GENVERSION);
-    sprintf(VARLIST,"CID z MJD TOBS BAND MAG MAG_VERIFY MAG_DIF");
+    sprintf(VARLIST,"CID z MJD TREST LAMREST BAND MAG MAG_VERIFY MAG_DIF");
     printf("\n %s: open output %s \n", fnam, VERFIY_FILE_NAME);
     fflush(stdout);
     INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE = fopen(VERFIY_FILE_NAME,"wt");
@@ -10155,16 +10158,17 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
 
   if ( ifilt_obs > 900 ) {  fclose(FP); return;   }
 
-  ifilt     = IFILTMAP_SEDMODEL[ifilt_obs] ;
-  NLAMFILT  = FILTER_SEDMODEL[ifilt].NLAM ;
-  cfilt     = FILTER_SEDMODEL[ifilt].name ;
+  ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
+  lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
+  ZP          = FILTER_SEDMODEL[ifilt].ZP ;
+  LAMREST_CEN = FILTER_SEDMODEL[ifilt].mean / z1;
+
   sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
-  lamstep   = FILTER_SEDMODEL[ifilt].lamstep ;
-  ZP        = FILTER_SEDMODEL[ifilt].ZP ;
 
   // -----------------------
   // find already-computed observer-frame mag for { TOBS,ifilt_obs}
-  int ep, ifilt_obs_tmp ;
+  int    ep, ifilt_obs_tmp ;
   double TOBS_tmp;
   for(ep=1; ep < GENLC.NEPOCH; ep++ ) {
     TOBS_tmp      = GENLC.MJD[ep] - GENLC.PEAKMJD;
@@ -10183,7 +10187,16 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  if ( MAG < 1.0 || MAG > 30.0 )  { return ; }
+  if ( MAG < 1.0 || MAG > 60.0 )  { return ; }
+
+  LDMP = ( GENLC.CID==16 && fabs(TOBS)<3.0 && ifilt_obs==1 ) ; // xxx
+
+  if ( LDMP ) {
+    printf(" xxx --------------- CID=%d -------------------------------- \n",
+	   GENLC.CID);
+    fflush(stdout);
+  }
+
 
   // compute true Flam in each spectrograph bin
   FLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
@@ -10192,18 +10205,40 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
     lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
     flam   = flux / lambin ;
     FLAM_LIST[ilam] = flam ;
+
+    /* xxxxxx mark xxxx
+    double lamavg = LAMAVG_LIST[ilam];
+    if ( LDMP && lamavg < 5000.0 ) {
+      printf(" xxx %s: true SED LAM=%.0f FLAM = %le/%.0f = %le\n",
+	     fnam, lamavg, flux, lambin, flam); fflush(stdout);
+    }
+    xxxx */
   }
+
+  /* xxxxx ??
+  int ilam_rebin, nlam_rebin = 10; // split each bin into 10 bins for precision
+  lamstep_rebin = lamstep / (double)nlam_rebin;
+  xxxx */
 
 
   // loop over filter wave bins
+  flux_sum = 0.0 ;
   for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
-    get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS );
-    if ( TRANS < 1.0E-12 ) { continue; }
 
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, 
+			  &LAMOBS, &TRANS );  // <== returned
+    if ( TRANS < 1.0E-12 ) { continue; }
+      
     flam = interp_1DFUN(OPT_INTERP, LAMOBS, NLAMSPEC,
 			LAMAVG_LIST, FLAM_LIST, fnam );
 
+    if ( LDMP ) {
+      printf("   xxx %s: LAMOBS=%.0f Tr=%.4f flam=%le\n",
+	     fnam, LAMOBS, TRANS, flam); fflush(stdout);
+    }
+			 
     flux_sum += ( flam * LAMOBS * TRANS );
+
   } // end ilam
 
   flux_sum *= (lamstep/hc8) ;
@@ -10212,10 +10247,25 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
   // - - - - - - - - - - - - - - - - - - - -
   FP    = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
   double MAG_DIF = MAG_VERIFY - MAG ;
-  fprintf(FP,"SN: %8d  %.3f  %.3f  %6.2f  %s   "
+  fprintf(FP,"SN: %8d  %.3f  %.3f  %6.2f  %6.0f  %s   "
 	  "%.5f %.5f %8.5f\n",
-	  GENLC.CID, z, MJD, TOBS, cfilt, 
+	  GENLC.CID, z, MJD, TREST, LAMREST_CEN, cfilt, 
 	  MAG, MAG_VERIFY, MAG_DIF );
+
+  //  LDMP = fabs(MAG_DIF) > 0.15 && fabs(TOBS)<3.0;
+  if ( LDMP ) {
+    printf(" xxx \n");
+    printf(" xxx %s: CID=%d MJD=%.1f  Tobs=%.1f  filt=%s  MAG_DIF=%f\n",
+	   fnam, GENLC.CID, MJD, TOBS, cfilt, MAG_DIF);
+
+    printf(" xxx \t MAG[gen,verify] = %.4f, %.4f   ZP=%.4f\n", 
+	   MAG, MAG_VERIFY, ZP ); 
+
+    printf(" xxx \t NLAMSPEC=%d LAMSED=%.0f to %.0f \n",
+	   NLAMSPEC, LAMAVG_LIST[0], LAMAVG_LIST[NLAMSPEC-1] ); 
+
+    fflush(stdout);
+  }
 
   fflush(FP);
 

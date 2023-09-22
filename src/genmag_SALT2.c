@@ -3424,13 +3424,6 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
       DO_EXTRAP_LOCAL = true;
   } 
   
-  /* xxx
-  if ( Trest > 40.0 ) {
-    printf(" xxx %s: Trest=%.1f  DO_EXTRAP_LOCAL=%d\n", 
-	   fnam, Trest, DO_EXTRAP_LOCAL); fflush(stdout);
-  }
-  xxx */
-
   // - - - - -  
       
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, 

@@ -6727,6 +6727,9 @@ c May 02 2020: begin MARZFILE_OUT (to store WFIRST host spectra for MARZ)
 c
 c Mar 19 2021: use IGNOREFILE to check usage; e.g., allows
 c                ROOTFILE_OUT NONE
+c
+c Sep 21 2023: fix mistaken 1:40 truncation of VER_PHOT_forC
+c
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -6751,7 +6754,7 @@ c ------------------------------------------------------
      &  ,VER_SNANA_forC*40
      &  ,FILTERS_forC*(MXFILT_OBS)
      &  ,TEXTFMT_forC*20
-     &  ,COMMENT_forC*72
+     &  ,COMMENT_forC*(MXCHAR_VERSION)
 
 c function
       INTEGER  IGNOREFILE, TABLEFILE_OPEN
@@ -6881,14 +6884,10 @@ c MARZ (host spectra only)
 c ----------------------------------------
 c Oct 23, 2014: store global comments
 
-      LENC = 72
+c xxx mark      LENC = 72
+      LENC = MXCHAR_VERSION
 
-c xxxxxxxxxx mark delete Dec 2 2022 since SNANA_VERSION is already written
-c      COMMENT_forC = 'VERSION_SNANA      = ' //  VER_SNANA_forC 
-c      CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
-c xxxxxxx end mark xxxxxxxxxxx
-
-      COMMENT_forC = 'VERSION_PHOTOMETRY:  ' //  VER_PHOT_forC(1:40)
+      COMMENT_forC = 'VERSION_PHOTOMETRY:  '//VER_PHOT_forC(1:LENC)
       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
 
 c ----------------------------------------

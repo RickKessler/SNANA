@@ -548,7 +548,8 @@ def extract_spectra(args):
     data_path_list = glob.glob(input_data_path)
 
     if fmt == SPECTRA_FORMAT_ASTRODASH:
-        cmd_fmt = f"OPT_REFORMAT_SPECTRA 1  "
+#        cmd_fmt = f"OPT_REFORMAT_SPECTRA 1  " # lam flam
+        cmd_fmt = f"OPT_REFORMAT_SPECTRA 2  "  # lam flux
     else:
         msg = f" '{fmt}' is invalid format for --extract_spectra_format argument"
         assert False, msg

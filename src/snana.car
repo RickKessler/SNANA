@@ -10048,7 +10048,9 @@ c   9   512     SPARE
 c
 c
 c OPT_REFORMAT_SPECTRA bits:
-c   0    1    3-column text format: lam, Flam, Flamerr
+c  lsb  mask 
+c   0    1      3-column text format: lam, Flam, Flam_err
+c   1    2      3-column text format: lam, Flux, Flux_err 
 c
 c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 c
@@ -10771,7 +10773,7 @@ c ------
       ENDIF
 
 c Sep 2023: update MJD_TRIGGER and MJD_DETECT_XYZ variables
-c           if they have been computed from PHOTFLAG .xyz
+c           if they have been computed from PHOTFLAG .
 
       if ( PHOTFLAG_TRIGGER > 0 ) then
          cKEY = "MJD_TRIGGER" // char(0)
@@ -10844,19 +10846,16 @@ c
 +CDE,SPECCOM.
   
       INTEGER LENV, LENC, ispec, NLAMBIN, ilam
-      REAL*8  MJD, LAM, FLAM, FLAMERR
+      REAL*8  MJD, LAM, LAMBIN, F, FERR
       CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80
-
+      LOGICAL WR_FLAM, WR_FLUX
 C ------------- BEGIN -----------
 
       LENV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
       LENC = ISNLC_LENCCID
 
-c     &    MJD_SPECTRUM(MXSPECTRUM) c
-c     &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM)
-c     &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM)
-c     &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM)
-c     &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM)
+      WR_FLAM = BTEST(OPT_REFORMAT_SPECTRA,0)
+      WR_FLUX = BTEST(OPT_REFORMAT_SPECTRA,1)
 
       DO 400 ispec = 1, NSPECTRUM
 
@@ -10886,16 +10885,26 @@ c write comments
 
          write(LUNTMP,300) ' ' 
 
-         MSG = 'WAVE FLAM FLAMERR'
+         if ( WR_FLAM ) then ! .xyz
+              MSG = 'WAVE FLAM FLAMERR'
+         else 
+              MSG = 'WAVE FLUX FLUXERR'
+         endif
+
 	 write(LUNTMP,300) MSG
 300      format('# ', A)
 
 c write spectrum
          DO 401 ilam = 1, NLAMBIN
            LAM = 0.5* ( LAMMIN_SPECTRUM(ilam) + LAMMAX_SPECTRUM(ilam) )
-           FLAM = FLAM_SPECTRUM(ilam)
-           FLAMERR = FLAMERR_SPECTRUM(ilam)
-           WRITE(LUNTMP,440) LAM, FLAM, FLAMERR
+           LAMBIN = LAMMAX_SPECTRUM(ilam) - LAMMIN_SPECTRUM(ilam)
+           F      = FLAM_SPECTRUM(ilam)
+           FERR   = FLAMERR_SPECTRUM(ilam)
+           if ( WR_FLUX ) then
+              F    = F * LAMBIN
+              FERR = FERR * LAMBIN
+           endif
+           WRITE(LUNTMP,440) LAM, F, FERR
 440        format(F8.2, 3x, 2E14.5 )
 
 401      CONTINUE         
@@ -10904,7 +10913,7 @@ c write spectrum
 400   CONTINUE
 
       RETURN
-      END
+      END   ! end WR_SPECTRA
 
 C ===============================
 +DECK,END_REFORMAT.
@@ -20829,8 +20838,8 @@ c define parameters for theory plots
      &   OM(NPL)  / 0.3, 0.3,  0.3,  0.3,  0.0,  0.0,  1.0,  0.3 /
      &  ,OL(NPL)  / 0.7, 0.7,  0.7,  0.0,  0.0,  1.0,  0.0,  0.7 /
      &  ,OR(NPL)  / 0.0, 0.0,  0.0,  0.0,  0.0,  1.0,  0.0,  1.2E-5/
-     &  ,W(NPL)   /-1.0,-0.9, -0.88, 0.0,  0.0, -1.0, -1.0, -1.0 /
-     &  ,DWDZ(NPL)/ 0.0, 0.0,  0.45, 0.0,  0.0,  0.0,  0.0,  0.0 / 
+     &  ,w0(NPL)  /-1.0,-0.95,-0.95, 0.0,  0.0, -1.0, -1.0, -1.0 /
+     &  ,wa(NPL)  / 0.0,-0.15, 0.15, 0.0,  0.0,  0.0,  0.0,  0.0 / 
 
 c     &  ,W(NPL)   /-1.0,-0.9, -0.84, 0.0,  0.0, -1.0, -1.0, -1.0 /
 c     &  ,DWDZ(NPL)/ 0.0, 0.0,  0.65, 0.0,  0.0,  0.0,  0.0,  0.0 / 
@@ -20862,11 +20871,11 @@ c book histos
 
       DO iplot = 1, NPL
          write(chis,20) OM(iplot), OL(iplot), 
-     &                  OR(iplot)/1.0E-5, w(iplot) 
-20       format('MU  vs. z (OM,OL,Or/E5 =', 3(F5.3,',') , ')',
-     &            2x, 'w = ',F5.2, ')'  )
+     &                  OR(iplot)/1.0E-5, w0(iplot), wa(iplot)
+20       format('MU vs. z (OM,OL,Or*E5 =', 3(F5.3,',') , ')',
+     &            2x, 'w0,wa = ',2F6.2, ')'  )
          hid = 400 + iplot
-         chis = chis(1:40) // char(0)
+         chis = chis(1:70) // char(0)
          CALL SNHIST_INIT(NDIM, hid, chis, NBZ, zlim(1), zlim(2), 
      &                      LENTIT )
       END DO
@@ -20880,7 +20889,7 @@ c comput Mag vs. Z and fill histograms
 c use H0_DEFAULT instead of namelist H0_REF so that plot is always the same.
         
         DLMAG = DLMAG_fortC(z0,z0, H0_DEFAULT,
-     &    OM(iplot), OL(iplot), W(iplot), dWdz(iplot) )
+     &    OM(iplot), OL(iplot), w0(iplot), wa(iplot) )
 
         HID = 400 + iplot
         Z0arg(1) = z0  ! use array to aboif gcc 10 warning

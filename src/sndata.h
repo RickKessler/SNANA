@@ -41,6 +41,7 @@
   May 24 2023: MXSPECTRA -> 1000 (was 500)
   May 24 2023: MXDOCLINE -> 2000 (was 1000) to handle long list of NON1A keys
   Aug 05 2023: MXEPOCH -> 15000 (was 5000) for Roman+LSST catalog sim
+  Sep 30 2023: MXSPECTRA -> 2000 (was 1000); for Roman+LSST SED TRUE
 
 *****************************************************/
 
@@ -52,7 +53,7 @@
 #define MXFILT_COVAR  9  // max number of filters per obs.
 #define MXFILTINDX  100  // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
-#define MXSPECTRA  1000   // max number of spectra in data files
+#define MXSPECTRA  2000   // max number of spectra in data files
 
 #define MXDOCLINE 2000    // max number of lines in README.DOC file
 #define MXTYPE    1000    // max TYPE id in data base

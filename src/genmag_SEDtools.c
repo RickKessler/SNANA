@@ -2696,8 +2696,8 @@ void T0shiftPeak_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX, int vboseFlag) {
   // + change fun name:  shiftPeakDay_SEDMODEL -> T0shiftPeak_SEDMODEL
   // + pass SEDFLUX struct as arg instead of modifying global struct.
   //
-  // July 10 2018: set SEDFLUX->TSHIFT
-  // Aug 17 2022: set SEDFLUX->TEXPLODE .xyz
+  // Jul 10 2018: set SEDFLUX->TSHIFT
+  // Aug 17 2022: set SEDFLUX->TEXPLODE 
 
   int iday, ilam, NDAY, NLAM, IDAY_PEAK, jflux ;
   double FLUXTMP, FLUXSUM, FLUXSUM_MAX, Tshift ;

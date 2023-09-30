@@ -21956,4 +21956,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    genmag_SALT2.c:
      + remove legacy [init_]extrap_latetime_SALT2() and associated DEBUG_FLAG
 
+   snana.car:
+     + OPT_REFORMAT_SPECTRA=2 writes FLUX instead of FLAM (for astrodash format)
+
 END: 

@@ -9460,6 +9460,13 @@ void GENSPEC_DRIVER(void) {
 
   // ------------ BEGIN ------------
 
+  if ( GENSPEC.NMJD_TOT >= MXSPEC ) {
+    sprintf(c1err,"GENSPEC.NMJD_TOT=%d exceeds bound MXSPECTRA=%d",
+            GENSPEC.NMJD_TOT, MXSPEC);
+    sprintf(c2err,"Reduce number of generated spectra or increase MXSPECTRA");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
   GENSPEC.NMJD_PROC = 0;
 
   // bail if no  spectra are requested

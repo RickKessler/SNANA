@@ -11427,7 +11427,7 @@ An example of an {\tt SED.INFO} file is as follows:
 # optional keys:
 FLUX_SCALE:        1.000         # global flux scale (e.g., to fix units)
 RESTLAMBDA_RANGE:  2500  15000   # valid range of <lamObs>/(1+z)
-OPTFLAG_T0SHIFT_PEAKMAG: 0       # do NOT time-shift PEAKMAG to DAY=0
+OPTMASK_T0SHIFT_PEAKMAG: 0       # do NOT time-shift PEAKMAG to DAY=0
 MAG_ERR:                 0.1     # not used
 MINSLOPE_EXTRAP_LATE:   0.05     # force min mag/day slope for late-time extrap
 LOGZBIN: 0.05                    # force logz bins to reduce storage
@@ -11457,7 +11457,7 @@ and this rest-frame epoch corresponds to {\tt PEAKMJD} in the data header.
 In cases where the explosion time is well defined 
 (e.g., triggered event from LIGO or ICECUBE),
 it may be useful to leave the original $T=0$ definition in each
-SED file by specifying   ``{\tt OPTFLAG\_T0SHIFT\_PEAKMAG: 0}'' 
+SED file by specifying   ``{\tt OPTMASK\_T0SHIFT\_PEAKMAG: 0}'' 
 in the {\tt SED.INFO} file.  With this option,
 beware that input {\tt GENRANGE\_PEAKMJD} and output {\tt PEAKMJD} 
 correspond to the explosion time, not the time of maximum brightness.

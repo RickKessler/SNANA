@@ -61,7 +61,7 @@
 #define MXSEDMODEL          8000   // max number of SED surfaces
 #define MXFILT_SEDMODEL     MXFILTINDX     // max internal filter index
 #define MXBIN_LAMFILT_SEDMODEL 2400   // length of largest filter file
-#define MXBIN_LAMSED_SEDMODEL  5000   // max # lambda bins for SED
+#define MXBIN_LAMSED_SEDMODEL  8000   // max # lambda bins for SED
 #define MXBIN_DAYSED_SEDMODEL   400 // max # epoch (day) bins for SED
 #define MXBIN_SED_SEDMODEL     MXBIN_LAMSED_SEDMODEL*MXBIN_DAYSED_SEDMODEL 
 #define MXBIN_PRIMARY_SEDMODEL  5000

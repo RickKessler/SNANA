@@ -1042,7 +1042,8 @@ void set_user_defaults(void) {
   INPUTS.SIMLIB_IDLOCK   = -9 ;
   INPUTS.SIMLIB_MINOBS   =  1 ; 
   INPUTS.SIMLIB_DUMP     = -9 ;
-  INPUTS.SIMLIB_NSKIPMJD =  0 ;
+  INPUTS.SIMLIB_NSKIPMJD_STRING[0] = 0 ;
+
   INPUTS.SIMLIB_NREPEAT  =  1 ;
   INPUTS.NSKIP_SIMLIB    =  0 ;
   INPUTS.SIMLIB_MINSEASON = 0.0 ;
@@ -3348,7 +3349,7 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_NREPEAT );
   }
   else if ( keyMatchSim(1, "SIMLIB_NSKIPMJD",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_NSKIPMJD );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_NSKIPMJD_STRING );
   }
   else if ( keyMatchSim(1, "SIMLIB_IDSKIP",  WORDS[0],keySource) ) {
     int NSKIP = INPUTS.NSKIP_SIMLIB;
@@ -5409,6 +5410,78 @@ int parse_input_SIMSED_PARAM(char **WORDS) {
 } // end of parse_input_SIMSED_PARAM
 
 
+// **************************************************
+void  parse_input_SIMLIB_NSKIPMJD(char *STRING) {
+
+  // Created Oct 1 2023
+  // Parse input STRING and set SIMLIB_NSKIPMJD structure elements.
+  // Example STRING = 2(50),4(100) which means to read every 2nd MJD in 
+  // SIMLIB for TREST>50 days, and every 4th MJD for TREST > 100 days.
+  // 
+  // Note that Prescale (PS) and TRESTMIN must be integer
+
+  int  N, i ;
+  int   TRESTMIN, PS;
+  char **ptrSplit, str_trestmin[40];
+  char fnam[] = "parse_input_SIMLIB_NSKIPMJD" ;
+
+  // ----------- BEGIN -----------
+
+  SIMLIB_NSKIPMJD.NTREST = SIMLIB_NSKIPMJD.STRING[0] = 0 ;
+
+  if ( IGNOREFILE(STRING) ) { return; }
+
+  // do not apply for LCLIB/Galactic models since Trest is not well defined.
+  if ( INDEX_GENMODEL == MODEL_LCLIB ) { return; }
+
+  print_banner(fnam);
+
+  // parse user input STRING
+  parse_commaSepList(fnam, STRING, 10, 20,
+		     &N, &ptrSplit) ; // <== returned
+
+  // for each item, extract optional TRESTMIN in ()
+  for (i=0; i < N; i++ ) {
+    str_trestmin[0] =  0;
+    extractStringOpt(ptrSplit[i], str_trestmin);
+    PS=1; TRESTMIN = -999999 ;
+
+    sscanf(ptrSplit[i], "%d", &PS);
+    if ( strlen(str_trestmin) > 0 ) { sscanf(str_trestmin, "%d", &TRESTMIN);  }
+
+    SIMLIB_NSKIPMJD.PRESCALE[i] = PS ;
+    SIMLIB_NSKIPMJD.TRESTMIN[i] = TRESTMIN ;
+    
+    // abort if TRESTMIN do not monotonically increase
+    if ( i > 0 ) {
+      double TRESTMIN_LAST = SIMLIB_NSKIPMJD.TRESTMIN[i-1] ;
+      if ( TRESTMIN <= TRESTMIN_LAST ) {
+
+	print_preAbort_banner(fnam);
+	printf(" User input SIMLIB_NSKIPMJD: %s \n", STRING);
+
+	sprintf(c1err,"Invalid TRESTMIN=%d for SIMLIB-MJD Prescale=%d.",
+		TRESTMIN, PS);
+	sprintf(c2err,"TRESTMIN must increase with each Prescale.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 	
+      }
+    }
+
+    printf("\t NSKIPMJD = %2d for TRESTMIN >= %d days\n", PS, TRESTMIN);
+    fflush(stdout);
+
+  } // end i loop over prescales
+
+
+  SIMLIB_NSKIPMJD.NTREST = N;
+  sprintf(SIMLIB_NSKIPMJD.STRING, "%s", STRING);
+
+  //  debugexit(fnam);
+
+  return;
+
+} // end parse_input_SIMLIB_NSKIPMJD
+
 // *******************************************      
 void parse_input_SIMSED_SUBSET(char *parName, char *stringOpt) {
 
@@ -6770,6 +6843,9 @@ void prep_user_input(void) {
       { INPUTS.FLUXERRMODEL_OPTMASK += MASK_REQUIRE_DOCANA_FLUXERRMAP; }
     */
   }
+
+  // Oct 1 2023: check TREST-dependent prescale of SIMLIB-MJDs
+  parse_input_SIMLIB_NSKIPMJD(INPUTS.SIMLIB_NSKIPMJD_STRING);
 
   // Nov 15 2021
   // check GENZPHOT_FUDGEMAP, and abort if z-range does not cover
@@ -18193,6 +18269,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
       { SIMLIB_OBS_RAW.MJD[ISTORE] += MJD_SHIFT; } 
   }
 
+  SIMLIB_NSKIPMJD.NMJD_EVENT_UNIQUE = 0;
+
   // --------------------------------------------------------------
   // do a few things for a NEW cadence, 
   // but not for a repeated/re-used cadence
@@ -18274,7 +18352,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   store_SIMLIB_SEASONS();
 
   // - - - - - - -
-  int isort, ifilt, IFILT_OBS, NEXPOSE, KEEP, NEP, NEP_NEWMJD ;
+  bool KEEP;
+  int isort, ifilt, IFILT_OBS, NEXPOSE, NEP, NEP_NEWMJD ;
   int  IFLAG_SYNFILT, IFLAG_TEMPLATE, IFIELD, APP ;
   double MJD, CCDGAIN, RDNOISE, SKYSIG, ZPT[2], MAG ;
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
@@ -18357,9 +18436,9 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     //      {  ABORT_SIMLIB_FILTER(OPTLINE,MJD,cfilt);  }
 
     // check if this MJD is kept.
-    KEEP = keep_SIMLIB_OBS(isort);
+    KEEP = keep_SIMLIB_OBS(OBSRAW);
 
-    if ( KEEP == 0 ) { continue ; }
+    if ( !KEEP ) { continue ; }
 
     // mark this filter as 'used'
     GENLC.SIMLIB_USEFILT_ENTRY[IFILT_OBS] = 1;
@@ -18789,20 +18868,20 @@ void get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
 
 
 // =================================================
-int keep_SIMLIB_OBS(int isort) {
+bool keep_SIMLIB_OBS(int OBS) {
 
   // Created Aug 2017
   // Return 1 of this raw-OBS is kept.
   // Return 0 to reject this OBS.
   //
   // Inputs:
-  //   OBS      = MJD-sort index; needed to get absolute OBS index
+  //   OBS  = absolute OBS index
   //
   // Sep 24 2017: check field.
   // Sep 02 2021: remove obsolete REPEAT arg
 
-  int  KEEP=1, NOKEEP=0; 
-  int  ifilt, ifilt_obs, OBS ;
+  int  KEEP=true, NOKEEP=false; 
+  int  ifilt, ifilt_obs ;
   int  LTRACE= 0 ; 
   double  MJD; 
   char *FIELD ;
@@ -18813,9 +18892,8 @@ int keep_SIMLIB_OBS(int isort) {
   
   if (LTRACE) {
     printf(" xxx ---------------------------- \n");
-    printf(" xxx 0 isort=%d  \n",isort); 
+    printf(" xxx 0 OBS = %d  \n", OBS); 
   }
-  OBS  = SIMLIB_LIST_forSORT.INDEX_SORT[isort] ; // absolute OBS_RAW index
 
   FIELD = SIMLIB_OBS_RAW.FIELDNAME[OBS] ;
   MJD   = SIMLIB_OBS_RAW.MJD[OBS] ;
@@ -18825,6 +18903,10 @@ int keep_SIMLIB_OBS(int isort) {
   if ( MJD > GENLC.MJD_RANGE[1] ) { return(NOKEEP); }
 
   if (LTRACE) {printf(" xxx 1 \n"); fflush(stdout); }
+
+  if ( !keep_SIMLIB_MJD(OBS) ) { return(NOKEEP); }
+
+  /* xxxxxxxxxx mark delete Oct 1 2023 xxxxxxxxx
   // check option to skip MJDs
   if ( INPUTS.SIMLIB_NSKIPMJD > 0 ) {
     float xskip = (float)(INPUTS.SIMLIB_NSKIPMJD+1) ;
@@ -18832,7 +18914,7 @@ int keep_SIMLIB_OBS(int isort) {
     float xmod  = fmodf(xline,xskip);
     if ( xmod > 0.0 ) { return(NOKEEP); }
   }
-
+  xxxxxxxxxxxxxx */
 
   // check option to skip field 
   if ( SKIP_SIMLIB_FIELD(FIELD) ) { return(NOKEEP); }
@@ -18874,6 +18956,54 @@ int keep_SIMLIB_OBS(int isort) {
   return(KEEP);
 
 } // end keep_SIMLIB_OBS
+
+// ==============================================
+bool keep_SIMLIB_MJD(int OBS) {
+
+  // Created Oct 1 2023
+  // Check prescale to select MJDs
+
+  int    NMJD    = SIMLIB_NSKIPMJD.NMJD_EVENT_UNIQUE;
+  int    NTREST  = SIMLIB_NSKIPMJD.NTREST ; 
+  double zCMB    = GENLC.REDSHIFT_CMB ;
+  double PEAKMJD = GENLC.PEAKMJD ;
+
+  int    i, PRESCALE;
+  double MJD, MJD_LAST, TRESTMIN, TREST;
+  char fnam[] = "keep_SIMLIB_MJD" ;
+
+  // ---------- BEGIN -----------
+
+  if ( NTREST == 0 ) { return true; } // no prescale -> bail
+  if ( OBS    == 0 ) { return true; } // always keep first obs
+
+  MJD_LAST  = SIMLIB_OBS_RAW.MJD[OBS-1] ;
+  MJD       = SIMLIB_OBS_RAW.MJD[OBS] ;
+  TREST     = (MJD - PEAKMJD) / ( 1.0 + zCMB );
+
+  // increment number of unique MJDs
+  if ( MJD - MJD_LAST > 1.0E-6 ) 
+    {  NMJD++ ; SIMLIB_NSKIPMJD.NMJD_EVENT_UNIQUE = NMJD; }
+
+  PRESCALE = 1;
+  for(i=0; i < NTREST; i++ ) {
+    TRESTMIN = (double)SIMLIB_NSKIPMJD.TRESTMIN[i];
+    if ( TREST >= TRESTMIN ) { PRESCALE = SIMLIB_NSKIPMJD.PRESCALE[i]; }
+  }
+
+  if ( PRESCALE == 1 ) 
+    { return true; }
+  else {
+    bool KEEP = (NMJD % PRESCALE) == 0 ;
+
+    /* xxx
+    printf(" xxx %s: NMJD=%d PS=%d  MJD=%.3f->%.3f  z=%.2f  Trest=%.1f \n", 
+	   fnam, NMJD, PRESCALE, MJD_LAST, MJD, zCMB, TREST); fflush(stdout);
+    xxx */
+    return KEEP;
+  }
+
+} // end keep_SIMLIB_MJD
 
 // ==============================================
 void set_SIMLIB_MJDrange(int OPT, double *MJDrange) {

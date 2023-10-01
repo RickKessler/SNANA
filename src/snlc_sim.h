@@ -424,6 +424,19 @@ typedef struct {
   double RMS_LIST[100] ;
 } HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
 
+// Oct 1 2023: create sim-input structure to prescale simlib-mjds vs. Trest.
+// See manual for key SIMLIB_NSKIPMJD
+struct {
+  // initialized variables
+  char   STRING[100];     // e.g. 2(50),4(100)
+  int    NTREST;          // number of Trest ranges
+  int    PRESCALE[10];    // SIMLIB-MJD PRESCALE per TREST range
+  int    TRESTMIN[10];    // min TREST (days) for each Trest range
+
+  // variables used for each event
+  int    NMJD_EVENT_UNIQUE; // local counter needed to compute prescale
+} SIMLIB_NSKIPMJD;
+
 // -------------------------------------
 // HELP_INPUTS_BEGIN SIM
 
@@ -473,13 +486,14 @@ struct INPUTS {
   int  SIMLIB_MXREPEAT ; // used only with BPOLY Galactic rate model
   double SIMLIB_MINSEASON ; // min season length (days); default=0
 
-  int    SIMLIB_NSKIPMJD ;  // number of MJDs to skip to change cadence
   int    SIMLIB_IDSKIP[MXREAD_SIMLIB]; // list of SIMLIB IDs to skip
   int    NSKIP_SIMLIB ;       // number of SIMLIB_IDSKIP values read
 
   int    SIMLIB_DUMP;  // dump this simlib id, then quit (0=all)
   float  SIMLIB_CADENCEFOM_ANGSEP; // controls calc of cadence FoM
   double SIMLIB_CADENCEFOM_PARLIST[10] ; // optional *parList for SNcadenceFoM
+
+  char SIMLIB_NSKIPMJD_STRING[100] ; // e.g., 2(50),4(100)
 
   int  USE_SIMLIB_GENOPT ;    // use some optional gen-keys in simlib header
   int  USE_SIMLIB_REDSHIFT ;  // 1 => use redshift in LIB (if it's there)
@@ -1767,7 +1781,8 @@ void   print_SIMLIB_MSKOPT(void) ;
 
 void   init_SIMLIB_HEADER(void);
 int    keep_SIMLIB_HEADER(void);
-int    keep_SIMLIB_OBS(int isort);
+bool   keep_SIMLIB_OBS(int obs);
+bool   keep_SIMLIB_MJD(int obs);
 
 int    SIMLIB_read_templateNoise(char *field, char *whatNoise, char **wdlist);
 void   SIMLIB_TAKE_SPECTRUM(void) ;
@@ -1848,6 +1863,7 @@ int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
 int    parse_input_SIMSED_COV(char **WORDS, int keySource );
+void   parse_input_SIMLIB_NSKIPMJD(char *STRING);
 void   parse_input_SIMSED_SUBSET(char *PARNAME, char *STRINGOPT);
 
 bool   keyContains_SIMSED_PARAM(char *KEYNAME);

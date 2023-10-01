@@ -21966,4 +21966,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for true SED option, reject pre-explosion epochs with modelflux=0 ... 
        but keep late-time epochs with extrapolated flux and no SED model.
 
+     + SIMLIB_NSKIPMJD updated to implement Trest-dependent prescale for SIMLIB-MJDs.
+       See manual.
+
 END: 

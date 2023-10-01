@@ -1123,8 +1123,8 @@ struct GENLC {
   // variables used for cuts
   int   NOBS_MJDDIF ;   // NOBS passing MJD dif cut
   int   NOBS_SNR ;      // NOBS passing SNR cut
-  int   NOBS ;          // real obs only
-  int   NOBS_FILTER[MXFILTINDX]; // NOBS per band
+  int   NOBS_MODELFLUX ;          // NEP where transient model flux is defined
+  int   NOBS_MODELFLUX_FILTER[MXFILTINDX]; // NOBS per band
   int   NOBS_UNDEFINED;   // suppresed NOBS because model is undefined
   int   NOBS_SATURATE[2]; // 0=unsatured, 1=saturated
   int   NOBS_SATURATE_FILTER[2][MXFILTINDX]; // idem, filter-dependent

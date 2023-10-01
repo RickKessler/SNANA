@@ -21959,4 +21959,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snana.car:
      + OPT_REFORMAT_SPECTRA=2 writes FLUX instead of FLAM (for astrodash format)
 
+   snlc_sim.c:
+     + in main after GENFLUX_DRIVER, bail if GENLC.NOBS_MODELFLUX == 0;
+       avoids writing events that have no model flux overlapping MJD window.
+
+     + for true SED option, reject pre-explosion epochs with modelflux=0 ... 
+       but keep late-time epochs with extrapolated flux and no SED model.
+
 END: 

@@ -262,10 +262,10 @@ int main(int argc, char **argv) {
     gen_event_driver(ilc); 
 
     if ( GENLC.STOPGEN_FLAG ) { NGENLC_TOT--;  goto ENDLOOP ; }
-
+    
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
       gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
-      goto GENEFF;
+      goto GENEFF; 
     }
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("03", ilc) ; }
@@ -326,6 +326,14 @@ int main(int argc, char **argv) {
     // convert generated mags into observed fluxes
     GENFLUX_DRIVER(); 
 
+    // Oct 1 2023
+    // bail of there are no observations to write out; e.g., pre-explosion 
+    // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
+    // model is not defined.
+    if ( GENLC.NOBS_MODELFLUX == 0 ) {
+      gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
+      goto GENEFF;
+    }
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("10", ilc) ; }
 
@@ -335,7 +343,7 @@ int main(int argc, char **argv) {
     // event has actually been discarded.
     if ( GENLC.NGEN_SIMLIB_ID >= SIMLIB_MXGEN_LIBID )  { 
       GENLC.ACCEPTFLAG_FORCE = 1;
-      GENLC.NOBS = GENLC.NEPOCH = 0; 
+      GENLC.NOBS_MODELFLUX = GENLC.NEPOCH = 0; 
     }
 
     // check if search finds this SN:
@@ -8569,8 +8577,8 @@ void  init_event_GENLC(void) {
   GENLC.SEARCHEFF_zHOST= 0.0 ;
   GENLC.CUTBIT_MASK    = 0 ;
 
-  GENLC.NOBS           = 0 ;
-  GENLC.NOBS_UNDEFINED = 0 ;
+  GENLC.NOBS_MODELFLUX    = 0 ;
+  GENLC.NOBS_UNDEFINED    = 0 ;
   GENLC.NOBS_SATURATE[0]  = 0 ; // NOBS NOT saturated
   GENLC.NOBS_SATURATE[1]  = 0 ; // NOBS saturated
 
@@ -8704,7 +8712,7 @@ void  init_event_GENLC(void) {
 
     SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt_obs] = -9.0 ;
 
-    GENLC.NOBS_FILTER[ifilt_obs] = 0 ;
+    GENLC.NOBS_MODELFLUX_FILTER[ifilt_obs] = 0 ;
     GENLC.NOBS_SATURATE_FILTER[0][ifilt_obs] = 0 ;
     GENLC.NOBS_SATURATE_FILTER[1][ifilt_obs] = 0 ;
 
@@ -11199,7 +11207,8 @@ int fudge_SNR ( void ) {
 
   if ( INPUTS.OPT_FUDGE_SNRMAX == 0 )     { return 0; }
 
-  GENLC.NOBS = 0;  // always reset NOBS since init_event_GENLC() may be skipped.
+  // always reset NOBS since init_event_GENLC() may be skipped.
+  GENLC.NOBS_MODELFLUX = 0;  
 
   ITER1 = ITER2 = 0 ;
   NFILT = GENLC.NFILTDEF_OBS;
@@ -14539,7 +14548,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // - - - - -
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"NOBS") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.NOBS ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.NOBS_MODELFLUX ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -15023,7 +15032,7 @@ double gen_peakmjd_smear(void) {
   // Note that get_obs_atFLUXMAX is also used by fitting
   // programs.
   if ( INPUTS.OPT_SETPKMJD > 0 ) {
-    int NOBS = GENLC.NOBS ;
+    int NOBS = GENLC.NOBS_MODELFLUX ;
     get_obs_atFLUXMAX(SNDATA.CCID, NOBS, 
 		      &SNDATA.FLUXCAL[1], &SNDATA.FLUXCAL_ERRTOT[1],
 		      &SNDATA.MJD[1], &GENLC.IFILT_OBS[1],
@@ -21950,7 +21959,7 @@ int gen_cutwin(void) {
 			      IFILTOBS_LIST ); // <== returned      
       for ( i=0; i < NFCUT; i++ ) {
 	ifilt_obs = IFILTOBS_LIST[i] ;
-	NOBS_TOT  = GENLC.NOBS_FILTER[ifilt_obs] ;
+	NOBS_TOT  = GENLC.NOBS_MODELFLUX_FILTER[ifilt_obs] ;
 
 	// require enough NOBS_TOT in this band in case
 	// the model is undefined and we have NOBS_TOT=0.
@@ -22819,7 +22828,7 @@ void snlc_to_SNDATA(int FLAG) {
       { SNDATA.SNTYPE = SNDATA.SEARCH_TYPE ; }
   }
 
-  SNDATA.NOBS                = GENLC.NOBS ; // 5/26/2011
+  SNDATA.NOBS                = GENLC.NOBS_MODELFLUX ; // 5/26/2011
 
   SNDATA.REDSHIFT_FINAL      = GENLC.REDSHIFT_CMB_SMEAR ;
   SNDATA.REDSHIFT_HELIO      = GENLC.REDSHIFT_HELIO_SMEAR ;
@@ -23814,7 +23823,7 @@ void genmag_MWXT_fromKcor(void) {
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {  
 
     // don't bother with really large mags that have ~ zero flux
-    if ( GENLC.genmag_obs[epoch]  > 30.0 ) { continue ; }
+    if ( GENLC.genmag_obs[epoch]  > 40.0 ) { continue ; }
 
     ifilt_obs  = GENLC.IFILT_OBS[epoch];
     if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
@@ -24822,6 +24831,7 @@ void GENFLUX_DRIVER(void) {
   // Dec 2019: begin refactor to allow off-diagonal covariances;
   //           e.g., correlations for anomalous host noise.
   //
+  // Oct 1 2023: for GENGRID, set  GENLC.NOBS_MODELFLUX = GENLC.NEPOCH
 
   int NEPOCH = GENLC.NEPOCH ;
   int MEM    = (NEPOCH+1)*sizeof(FLUXNOISE_DEF);
@@ -24833,7 +24843,8 @@ void GENFLUX_DRIVER(void) {
 
   // -------------- BEGIN ---------------
 
-  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return; }
+  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
+    { GENLC.NOBS_MODELFLUX = GENLC.NEPOCH; return; }
 
   GENLC.FLUXNOISE = (FLUXNOISE_DEF*) malloc(MEM);
   NGENFLUX_DRIVER++ ;
@@ -26390,15 +26401,21 @@ void set_GENFLUX_FLAGS(int epoch) {
   IS_UNDEFINED = (genmag == MAG_UNDEFINED) ; // model undefined
   IS_SATURATE  = (obsmag == MAG_SATURATE ) ;    
 
+  // Oct 1 2023: for option to store SED_TRUE, zero flux is undefined since
+  // there is no SED here.
+  if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0.01 ) {
+    if ( genmag == MAG_ZEROFLUX ) { IS_UNDEFINED = true; }
+  }
 
+  
   if ( IS_UNDEFINED ) 
     { GENLC.NOBS_UNDEFINED++ ; } // model is undefined 
   
   if ( IS_ERRPOS ) {
     if ( !IS_UNDEFINED ) { 
       GENLC.OBSFLAG_WRITE[epoch] = true ; 
-      GENLC.NOBS++ ;
-      GENLC.NOBS_FILTER[ifilt_obs]++ ;
+      GENLC.NOBS_MODELFLUX++ ;
+      GENLC.NOBS_MODELFLUX_FILTER[ifilt_obs]++ ;
     }
     
     if ( IS_SATURATE ) 
@@ -27260,6 +27277,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     GENLC.MAGSMEAR_COH[0] = magSmear ;  // store global
 
     for ( iep = 1; iep <= NEPFILT; iep++ )   { 
+      if ( ptr_genmag[iep-1] >= MAG_ZEROFLUX ) { continue; }
       ptr_genmag[iep-1]                    += magSmear ;
       GENFILT.genmag_smear[ifilt_obs][iep] += magSmear ;
     }
@@ -27293,6 +27311,8 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   // loop over epochs and apply same mag-smear 
 
   for ( iep=1; iep <= NEPFILT; iep++ ) {
+
+    if ( ptr_genmag[iep-1] >= MAG_ZEROFLUX ) { continue; }
 
     magSmear = smearsig_model = 0.0 ;
     Tep   = ptr_epoch[iep - 1] ; // rest or obs.

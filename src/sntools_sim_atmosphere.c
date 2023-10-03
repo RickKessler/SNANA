@@ -667,9 +667,9 @@ void gen_dcr_coordShift(int ep) {
   else
     { cos_q   = 0.0 ; }
 
-  // take projection for RA and DEC shifts in degrees
+  // take projection for RA and DEC shifts in degrees, update 10/3/2023 J.L. dividing RA shift by cos_DEC
   GENLC.dcr_shift[ep]     = DCR_deg ;
-  GENLC.RA_dcr_shift[ep]  = DCR_deg * sin_q ;
+  GENLC.RA_dcr_shift[ep]  = DCR_deg * sin_q / cos_DEC ;
   GENLC.DEC_dcr_shift[ep] = DCR_deg * cos_q ;
 
   // set number of processed spectra (SEDs) to zero so that spectra/SED

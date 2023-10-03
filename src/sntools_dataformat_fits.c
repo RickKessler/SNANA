@@ -914,8 +914,6 @@ void wr_snfitsio_create(int itype ) {
   // create fits file of 'itype' (HEAD or PHOT or SPEC)
   // and write global header info.
   //
-  // Jun 16 2017: write NSUBSAMPLE_MARK for simulation
-  // Dec 26 2018: increment SNFITSIO_CODE_IVERSION for SIMSED ipar
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
   // Mar 07 2022: fix bug setting SUBSURVEY_FLAG when SUBSURVEY = ''
 

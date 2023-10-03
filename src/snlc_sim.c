@@ -4573,6 +4573,8 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
 // =======================================================
 int parse_input_GENMAG_OFF(char **WORDS, int keySource ) {
 
+  // Oct 3 2023: fix old refactor bug reading TMPOFF_ZP and TMPOFF_MODEL
+
   int N=0;
   int  NFILTDEF, j ;
   char fnam[] = "parse_input_GENMAG_OFF" ;
@@ -4587,7 +4589,7 @@ int parse_input_GENMAG_OFF(char **WORDS, int keySource ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
     for(j=0; j < NFILTDEF; j++ ) 
-      { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_ZP[j] ); }
+      { N++;  sscanf(WORDS[N], "%f", &INPUTS.TMPOFF_ZP[j] ); }
   }
 
   else if ( keyMatchSim(1, "GENMAG_OFF_GLOBAL", WORDS[0],keySource) ) {
@@ -4605,7 +4607,7 @@ int parse_input_GENMAG_OFF(char **WORDS, int keySource ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
     for(j=0; j < NFILTDEF; j++ ) 
-      { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_MODEL[j] ); }
+      { N++;  sscanf(WORDS[N], "%f", &INPUTS.TMPOFF_MODEL[j] ); }
   }
 
 

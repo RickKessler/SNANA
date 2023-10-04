@@ -49,7 +49,7 @@ void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 
 bool IS_SIMKEY_SNDATA(char *key);
 
-void RD_OVERRIDE_INIT(char *OVERRIDE_FILE);
+void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
 int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL);
 void RD_OVERRIDE_POSTPROC(void); 
 void rd_override_append(void);
@@ -71,6 +71,6 @@ void host_property_list_sndata__(char *HOST_PROPERTY_LIST);
 
 void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
 
-void rd_override_init__(char *OVERRIDE_FILE);
+void rd_override_init__(char *OVERRIDE_FILE, int *REQUIRE_DOCANA);
 
 // end 

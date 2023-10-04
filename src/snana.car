@@ -1828,7 +1828,7 @@ c
      &  ,SIM_MAGCOR_FILE       ! I: idem, SIM only
 
       CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)
-     &    HEADER_OVERRIDE_FILE  ! I: comma-sep list of files with CID VAR
+     &    HEADER_OVERRIDE_FILE       ! I: comma-sep list of files with CID VAR
      &    ,SIM_HEADER_OVERRIDE_FILE  ! I: same, but for sims
 
       CHARACTER  ! versions
@@ -3115,12 +3115,14 @@ C ===============================
 c Created May 2023
 c Wrapper to call C-function RD_OVERRIDE_INIT
 c
+c Oct 2023: pass REQ_DOC=1 to require DOCANA.
+c
 
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-      INTEGER LENF_DATA, LENF_SIM, LEN_PRIV
+      INTEGER LENF_DATA, LENF_SIM, LEN_PRIV, REQ_DOC
       CHARACTER STR_TMP*(MXCHAR_FILENAME)
 
 C ------------ BEGIN -----------
@@ -3134,19 +3136,22 @@ C ------------ BEGIN -----------
           print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
           print*,' '
       ENDIF
+
+      REQ_DOC = 1  ! require DOCANA
+
       IF ( LENF_DATA > 0 ) THEN
        STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
-       CALL RD_OVERRIDE_INIT(STR_TMP,LENF_DATA)
+       CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_DATA)
       ENDIF
       IF ( LENF_SIM > 0 ) THEN
         STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
-        CALL RD_OVERRIDE_INIT(STR_TMP,LENF_SIM)
+        CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_SIM)
       ENDIF
      
       LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
       IF ( LEN_PRIV > 0 ) THEN
          STR_TMP = PRIVATE_VARNAME_READLIST(1:LEN_PRIV)//char(0)
-         CALL RD_PRIVATE_INIT(STR_TMP,LEN_PRIV) ! Sep 2023
+         CALL RD_PRIVATE_INIT(STR_TMP, REQ_DOC, LEN_PRIV) ! Sep 2023
       ENDIF
 
       RETURN

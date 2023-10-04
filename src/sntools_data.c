@@ -1215,12 +1215,15 @@ void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST) {
 } // end RD_PRIVATE_INIT
 
 // ==============================================
-void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
+void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   // read and store columns from comma-sep list of  override files 
   // to override values in data headers (not photometry).
   // Allows float/double/int, but not strings
   // (e.g., cannot override SNID, FIELD, .. )
+  //
+  // Oct 3 2023: add input REQUIRE_DOCANA
+  //
 
   int NROW, ivar, ifile, NFILE = 0;
   int OPTMASK_SNTABLE = 4; // append next file
@@ -1235,6 +1238,16 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
   if ( IGNOREFILE(OVERRIDE_FILE) ) { return; }
 
   print_banner(fnam);
+
+  if ( REQUIRE_DOCANA ) {
+    int OPTMASK_OPEN = OPENMASK_REQUIRE_DOCANA ;
+    int gzipFlag ;
+    char fullName[MXPATHLEN], PATH_LIST[] = "" ;
+    FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, OVERRIDE_FILE, 
+				   fullName, &gzipFlag );
+    fclose(fp);
+  }
+  //.xyz
 
   // split comma-sep OVERRIDE_FILE 
   parse_commaSepList(fnam, OVERRIDE_FILE, MXFILE_OVERRIDE, MXPATHLEN,
@@ -1560,8 +1573,8 @@ void copy_sndata_obs__(int *copyFlag, char *key, int *NVAL,
 void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) 
 { copy_GENSPEC(*copyFlag, key, *ispec, parVal); }
 
-void rd_override_init__(char *override_file)
-{ RD_OVERRIDE_INIT(override_file); }
+void rd_override_init__(char *override_file, int *REQUIRE_DOCANA)
+{ RD_OVERRIDE_INIT(override_file,*REQUIRE_DOCANA); }
 
 void rd_private_init__(char *PRIVATE_VARNAME_LIST)
 { RD_PRIVATE_INIT(PRIVATE_VARNAME_LIST); }

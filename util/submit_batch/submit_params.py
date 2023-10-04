@@ -253,7 +253,9 @@ HELP_CONFIG_SIM =  f"""
   GENPREFIX:    DES  # out_file name prefix (please keep it short)
                      # and default log dir is SIMLOGS_[GENPREFIX]
   LOGDIR:   MY_LOGS  # override default SIMLOGS_[GENPREFIX]
-  CLEANUP_FLAG:  0   # turn off default cleanup (for debug)
+  CLEANUP_FLAG:  0       # turn off default SIMLOGS cleanup (for debug)
+  NOGZIP_DATA_FILES:     # turn off default gzip of output FITS data files
+                         # (only if there is a very good reason)
 
   SIMGEN_INFILE_SNIa:  # default SNIa input file(s) for all GENVERSIONs
   - SIMGEN_SNIa-SALT2+G10.input

@@ -21949,6 +21949,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05h) ***** 
 
+   HEADER_OVERRIDEF_FILE must have DOCUMENTATION block at top of file.
+
         ***** USEFUL(v11_05h) ***** 
 
         ***** MISCELLANEOUS(v11_05h) ***** 
@@ -21968,5 +21970,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
      + SIMLIB_NSKIPMJD updated to implement Trest-dependent prescale for SIMLIB-MJDs.
        See manual.
+
+   sntools_data.c[h]:
+     + pass REQUIRE_DOCANA flag to RD_OVERRIDE_INIT
+   snana.car
+     + pass REQUIRE_DOCANA=1 (true) to RD_OVERRIDE_INIT
+
+   Add option to NOT gzip sim data files:
+     + sim-input key GZIP_DATA_FILES (default=1)
+     + submit_batch_jobs CONFIG input NOGZIP_DATA_FILES
 
 END: 

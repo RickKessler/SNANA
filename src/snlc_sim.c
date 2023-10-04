@@ -727,6 +727,7 @@ void set_user_defaults(void) {
   INPUTS.CIDRAN_MIN = 0 ;
   INPUTS.NCIDRAN_SKIPLIST = 0 ;
   
+  INPUTS.GZIP_DATA_FILES = 1;
   INPUTS.JOBID      = 0;         // for batch only
   INPUTS.NJOBTOT    = 0;         // for batch only
   INPUTS.NSUBSAMPLE_MARK = 0 ;
@@ -2457,6 +2458,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     // total number of batch jobs
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NJOBTOT );
   }
+  else if ( keyMatchSim(1, "GZIP_DATA_FILES",  WORDS[0],keySource) ) {
+    // optoin to turn off default gzipping of data files
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GZIP_DATA_FILES );
+  }
+
   // - - - - ABORT ON OBSOLETE KEYS - - - - 
   else {
     parse_input_OBSOLETE(WORDS,keySource);
@@ -10282,7 +10288,7 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
 
   if ( MAG < 1.0 || MAG > 60.0 )  { return ; }
 
-  LDMP = ( GENLC.CID==16 && fabs(TOBS)<3.0 && ifilt_obs==1 ) ; // xxx
+  //  LDMP = ( GENLC.CID==16 && fabs(TOBS)<3.0 && ifilt_obs==1 ) ; // xxx
 
   if ( LDMP ) {
     printf(" xxx --------------- CID=%d -------------------------------- \n",
@@ -10298,23 +10304,9 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
     lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
     flam   = flux / lambin ;
     FLAM_LIST[ilam] = flam ;
-
-    /* xxxxxx mark xxxx
-    double lamavg = LAMAVG_LIST[ilam];
-    if ( LDMP && lamavg < 5000.0 ) {
-      printf(" xxx %s: true SED LAM=%.0f FLAM = %le/%.0f = %le\n",
-	     fnam, lamavg, flux, lambin, flam); fflush(stdout);
-    }
-    xxxx */
   }
 
-  /* xxxxx ??
-  int ilam_rebin, nlam_rebin = 10; // split each bin into 10 bins for precision
-  lamstep_rebin = lamstep / (double)nlam_rebin;
-  xxxx */
-
-
-  // loop over filter wave bins
+  // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
   flux_sum = 0.0 ;
   for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
 
@@ -10324,15 +10316,11 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
       
     flam = interp_1DFUN(OPT_INTERP, LAMOBS, NLAMSPEC,
 			LAMAVG_LIST, FLAM_LIST, fnam );
-
-    if ( LDMP ) {
-      printf("   xxx %s: LAMOBS=%.0f Tr=%.4f flam=%le\n",
-	     fnam, LAMOBS, TRANS, flam); fflush(stdout);
-    }
 			 
     flux_sum += ( flam * LAMOBS * TRANS );
 
   } // end ilam
+
 
   flux_sum *= (lamstep/hc8) ;
   MAG_VERIFY = ZP - 2.5*log10(flux_sum);
@@ -10362,11 +10350,6 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
 
   fflush(FP);
 
-  /* xxx mark delete xxxxxx
-  printf(" %s: mag(%s) = %.3f / %.3f (orig/specVerify) \n",
-	 fnam, cfilt, MAG, MAG_VERIFY );
-  fflush(stdout);
-  xxxxxxx end mark xxxxxxx */
 
   free(FLAM_LIST);
 
@@ -11090,7 +11073,7 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 
   int NSTREAM      = GENRAN_INFO.NSTREAM ;
   int ISTREAM_RAN  = ISTREAM_RANDOM_SPECTROGRAPH ;
-  int ILIST_RAN    = ILIST_RANDOM_SPECTROGRAPH ; // mark obsolete, Jun 4 2020
+  int ILIST_RAN    = ILIST_RANDOM_SPECTROGRAPH ; 
 
   int IMJD_NEARPEAK = GENSPEC.IMJD_NEARPEAK ;
 
@@ -17474,6 +17457,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       if ( strcmp(wd0,"RA:") == 0 ) 
 	{ sscanf(wd1, "%le", &SIMLIB_HEADER.RA );  iwd++ ; continue; }
+
       else if ( strcmp(wd0,"DEC:") == 0 ) 
 	{ sscanf(wd1, "%le", &SIMLIB_HEADER.DEC ); iwd++ ; continue; }
       else if ( strcmp(wd0,"DECL:") == 0 ) 
@@ -17504,9 +17488,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"PIXSIZE:") == 0 )  
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.PIXSIZE ); iwd++; continue;}
       
+      /* xxx mark delete Oct 4 2023 xxxxx
       else if ( strcmp(wd0,"TELESCOPE:") == 0 ) 
 	{ sscanf(wd1,"%s",SIMLIB_HEADER.TELESCOPE ); iwd++; continue;}
-  
+	xxxx end mark */
+
       else if ( strcmp(wd0,"MWEBV:") == 0  )
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.MWEBV ); iwd++ ; continue; }
 
@@ -18442,7 +18428,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     if ( !KEEP ) { continue ; }
 
-    // mark this filter as 'used'
+    // flag this filter as 'used'
     GENLC.SIMLIB_USEFILT_ENTRY[IFILT_OBS] = 1;
 
     // get optional fudge scales
@@ -18908,15 +18894,6 @@ bool keep_SIMLIB_OBS(int OBS) {
 
   if ( !keep_SIMLIB_MJD(OBS) ) { return(NOKEEP); }
 
-  /* xxxxxxxxxx mark delete Oct 1 2023 xxxxxxxxx
-  // check option to skip MJDs
-  if ( INPUTS.SIMLIB_NSKIPMJD > 0 ) {
-    float xskip = (float)(INPUTS.SIMLIB_NSKIPMJD+1) ;
-    float xline = (float)isort ;
-    float xmod  = fmodf(xline,xskip);
-    if ( xmod > 0.0 ) { return(NOKEEP); }
-  }
-  xxxxxxxxxxxxxx */
 
   // check option to skip field 
   if ( SKIP_SIMLIB_FIELD(FIELD) ) { return(NOKEEP); }
@@ -28595,8 +28572,10 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // close out auxiliary simfiles, and leave 1-line 
   // summary to stdout for each aux file.
   //
-  // May 14, 2019: add call to wr_SIMGEN_DUMP(3,SIMFILE_AUX);
-  // Dec 20, 2021: pass gzip flag for batch mode and fits files.
+  // May 14 2019: add call to wr_SIMGEN_DUMP(3,SIMFILE_AUX);
+  // Dec 20 2021: pass gzip flag for batch mode and fits files.
+  // Oct 04 2023: check user-option INPUTS.GZIP_DATA_FILES to enable NOT
+  //               gzipping
 
   double dum=0.0 ;
   int i, N1, N2, OPTMASK=0 ;
@@ -28675,7 +28654,8 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   fflush(stdout);
   if ( WRFLAG_FITS) { 
-    if ( INPUTS.JOBID > 0 ) { OPTMASK = OPTMASK_SNFITSIO_END_GZIP; }
+    if ( INPUTS.JOBID > 0 && INPUTS.GZIP_DATA_FILES ) 
+      { OPTMASK = OPTMASK_SNFITSIO_END_GZIP; }
     WR_SNFITSIO_END(OPTMASK); 
   }
 

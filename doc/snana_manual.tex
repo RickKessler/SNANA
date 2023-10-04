@@ -1098,26 +1098,23 @@ the keyword
     SIMLIB_FILE: SDSS2005_ugriz.SIMLIB
 \end{verbatim}
 %
-The simulation will first
-check YOUR current working directory for this file; 
-if it's not there, then \simexe\ will check the public directory
-\$\sndataroot/{\tt simlib}.
 
 A \simlib\ file is created by someone with knowledge of the
-telescope and \obs\ conditions. There is a convenient utility, 
+telescope and \obs\ conditions. There is a C-code utility, 
 \snanadir/{\tt src/simlib\_tools.c}, 
-that you can use to create the \simlib\ file in the correct format.
-This utility has a lot of error checking to prevent you from
-accidentally writing absurd values like a negative PSF.
+that can be used to create the \simlib\ file in the correct format.
+This utility has a lot of error checking to avoid
+accidentally writing absurd values such as negative PSF.
 In principle, a \simlib\ file need be created only once per survey,
 although systematic studies may require multiple \simlib s.
 If there are several exposures per filter per night,
 the utility {\tt simlib\_coadd.exe} (\S\ref{sss:simlib_coadd})
-will re-make a \simlib\ with all exposures per filter combined
+re-makes a \simlib\ file with all exposures per filter combined
 into a single effective exposure per night.
 
-The \simlib\ file begins with a global header with the following
-keys:
+The \simlib\ file begins with a required {\tt DOCUMENTATION} block
+(\S\ref{sss:DOCANA}).
+Next is a global header with the following keys:
 \begin{verbatim}
 # Required keys:
   SURVEY:  <SURVEY>     # must find match in $SNDATA_ROOT/SURVEY.DEF
@@ -1129,14 +1126,9 @@ keys:
   PSF_UNIT:    NEA_PIXEL        # give Noise-Equiv-Area instead of PSF1,PSF2,PSFRATIO
   NPE_PIXEL_SATURATE: <VAL>     # pixel-flux Saturation, photo-electrons
   PHOTFLAG_SATURATE:  <MASK>    # saturation mask in output PHOTFLAG column
-  NLIBID:             <VAL>     # Number of obs-sequence (LIBIDs) in file
+  NLIBID:             <VAL>     # Number of obs-sequences (LIBIDs) in file
   PIXSIZE:            <VAL>     # size of pixel, arcSec
-  SOLID_ANGLE:        <VAL>     # sr, used of SOLID_ANGLE=0 in input file
-
-  USER:    <NAME>               # user who created SIMLIB file
-  HOST:    <NAME>               # host computer where SIMLIB was created
-  COMMENT:  <comment string>
-  COMMENT:  <comment string>
+  SOLID_ANGLE:        <VAL>     # sr, used if SOLID_ANGLE=0 in input file
 \end{verbatim} 
 %
 For batch jobs submitted with {\submit} script,
@@ -1156,17 +1148,18 @@ Each sequence starts with a header as follows:
 # Optional
   MWEBV:   <VAL>    # MW E(B-V). If zero, use software options.
   PIXSIZE: <VAL>    # pixel size, arcSec
-  FIELD:   <NAME>   # name of FIELD
+  FIELD:   <NAME>   # name of FIELDl e.g., DEEP, WIDE, etc
   CCDNUM:  <VAL>    # CCD number (to locate on focal plane)
 \end{verbatim}
 %
 For a non-overlapping field, the ``{\tt FIELD:}'' header should appear
 only once per MJD-sequence. For overlapping fields, 
 the {\tt FIELD} key appears more than once as indicated
-in Fig.~\ref{fig:simlib}.  You can repeatedly toggle between two fields, 
+in Fig.~\ref{fig:simlib}.  
+Different {\tt FIELD} names can be repeatedly toggled withing a LIBID,
 or simply list all the MJDs for one field (i.e, 82N) followed by all 
-of the MJDs for the other field (i.e., 82S);
-the MJDs need not be chronological in the \simlib, as the simulation
+of the MJDs for the other field (i.e., 82S).
+The MJDs need not be chronological in the \simlib, as the simulation
 will sort them internally. You can ignore the {\tt FIELD} key in the
 \simlib\ as well, in which case the SNDATA files and analysis lose
 track of the field.

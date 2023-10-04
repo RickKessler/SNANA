@@ -517,7 +517,8 @@ struct INPUTS {
   char CIDRAN_SKIPLIST_STRING[200]; // for writing to readme
 
   int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
-  int  NJOBTOT;     // idem, for submit_batch_jobs.py
+  int  NJOBTOT;     // id em, for submit_batch_jobs.py
+  int  GZIP_DATA_FILES ;  // flag to gzip FITS files  (default=1/true)
 
   int  HOSTLIB_USE ;            // 1=> used; 0 => not used, 2=>rewrite HOSTLIB
   char HOSTLIB_PLUS_COMMAND[60];        //e.g., +HOSTMAGS, +HOSTNBR, +HOSTAPPEND

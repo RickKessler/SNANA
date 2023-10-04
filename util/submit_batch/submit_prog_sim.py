@@ -97,6 +97,8 @@ RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
 KEY_INPUT_INCLUDE_FILE = 'INPUT_INCLUDE_FILE' # Optional key
 
+KEY_NOGZIP_DATA_FILES = 'NOGZIP_DATA_FILES'
+
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
@@ -965,8 +967,6 @@ class Simulation(Program):
         # for unique CIDs everywhere, cidran_max must be the
         # same for all jobs
         if reset_cidoff == 2 :
-            # xxx mark cidran_safety  = int(0.1*cidran_max)
-            # xxx mark cidran_max    += cidran_safety # safety for very large CIDRAN
             cidran_max_list = [cidran_max] * n_genversion
 
 
@@ -1628,18 +1628,12 @@ class Simulation(Program):
             str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
             arg_list.append(f"    {str1}    {str2}")
 
-        # xxx mark delete Aug 1 2023 xxxxxx
-        #if reset_cidoff > 0 :
-        #    cidoff = cidoff_list3d[iver][ifile][isplit]
-        #    str1   = f"CIDRAN_MIN {cidran_min}"
-        #    str2   = f"CIDRAN_MAX {cidran_max_list[iver]}"
-        #    str3   = f"CIDOFF {cidoff}"
-        #    arg_list.append(f"    {str1}    {str2}    {str3}")
-        # xxxxxx end mark xxxxxx
-
         arg_list.append(f"    JOBID {isplit1}     NJOBTOT {n_job_split}")
         arg_list.append(f"    WRFLAG_MODELPAR  0") # disable model-par output
         arg_list.append(f"    WRFLAG_YAML_FILE 1") # enable YAML output
+
+        if KEY_NOGZIP_DATA_FILES in CONFIG:
+            arg_list.append(f"    GZIP_DATA_FILES 0")  # disable gzip 
 
         # check for user-option to require DOCANA
         if self.config_yaml['args'].require_docana :
@@ -1745,6 +1739,11 @@ class Simulation(Program):
         f.write(f"RANSEED_KEY:          {ranseed_key}  \n")
 
         f.write(f"FORMAT_MASK:          {format_mask} \n")
+
+        gzip_flag = True
+        if 'NOGZIP_DATA_FILES' in CONFIG:
+            gzip_flag = False
+        f.write(f"GZIP_DATA_FILES:      {gzip_flag}\n")
 
         # - - - - - - - 
         f.write("\n# Computed from original input \n")
@@ -2099,6 +2098,7 @@ class Simulation(Program):
         #
         # Dec 20 2021: gzip FITS if not already gzipped.
         # Jun 27 2023: include optional .DCR files
+        # Oct 04 2023: check option to gzip data files
 
         args             = self.config_yaml['args']
         if args.check_abort: return
@@ -2107,6 +2107,7 @@ class Simulation(Program):
         simlog_dir       = submit_info_yaml['SIMLOG_DIR']
         path_sndata_sim  = submit_info_yaml['PATH_SNDATA_SIM']    
         Nsec_time_stamp  = submit_info_yaml['TIME_STAMP_NSEC']
+        GZIP_DATA_FILES  = submit_info_yaml['GZIP_DATA_FILES']
 
         from_dir   = f"{path_sndata_sim}/{genversion_split}"  
         target_dir = f"{path_sndata_sim}/{genversion_combine}"
@@ -2191,10 +2192,12 @@ class Simulation(Program):
 
         cmd     = f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz} "
 
-        # gzip FITS files if not already gzipped. 
-        fits_list = glob.glob1(target_dir,"*.FITS")
-        if len(fits_list) > 0 :  cmd += "; gzip *.FITS"
+        # gzip FITS files if not already gzipped.
+        if GZIP_DATA_FILES: 
+            fits_list = glob.glob1(target_dir,"*.FITS")
+            if len(fits_list) > 0 :  cmd += "; gzip *.FITS"
 
+        # - - - -
         os.system(cmd)
 
         # loop over TMP_*DUMP files and append combined DUMP file

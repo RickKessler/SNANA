@@ -926,7 +926,7 @@ class Program:
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
-            cleanup_flag = CONFIG['CLEANUP_FLAG']  # override deault
+            cleanup_flag = CONFIG['CLEANUP_FLAG']  # override default
 
         logging.info(f"  Create {SUBMIT_INFO_FILE}")
         INFO_PATHFILE  = f"{output_dir}/{SUBMIT_INFO_FILE}"
@@ -958,7 +958,7 @@ class Program:
         
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
-        f.write(f"CLEANUP_FLAG:     {cleanup_flag} \n")
+        f.write(f"CLEANUP_FLAG:     {cleanup_flag}   # flag to compress run-job dir\n")
 
         comment = "total number of jobs (excludes sym links)"
         f.write(f"N_JOB_TOT:        {n_job_tot}     # {comment}\n")

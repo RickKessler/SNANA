@@ -7586,6 +7586,9 @@ bool snr_detect_HOSTLIB(int IGAL) {
         MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
 	MAG_ERR *= SNHOSTGAL.MAGOBS_ERR_SCALE;
 
+	// Oct 5 2023: set crazy MAG_ERR to 9.0
+	if ( MAG_ERR < 0.0 || MAG_ERR > MAGERR_UNDEFINED ) { MAG_ERR = MAGERR_UNDEFINED; }
+
 	if ( MAG_ERR > 0.0 ) {
 	  SNR  = (2.5/LNTEN) / MAG_ERR ;
 	}

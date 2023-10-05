@@ -21971,10 +21971,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + SIMLIB_NSKIPMJD updated to implement Trest-dependent prescale for SIMLIB-MJDs.
        See manual.
 
+     + compute and store synthetic mags for each spectrum or true SED.
+       Write synmags to data files.
+
    sntools_data.c[h]:
      + pass REQUIRE_DOCANA flag to RD_OVERRIDE_INIT
    snana.car
      + pass REQUIRE_DOCANA=1 (true) to RD_OVERRIDE_INIT
+
+   sntools_host.c
+     + replace crazy host MAG_ERR value with 9.0
 
    Add option to NOT gzip sim data files:
      + sim-input key GZIP_DATA_FILES (default=1)

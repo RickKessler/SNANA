@@ -851,6 +851,10 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MIN", itype   ) ; 
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MAX", itype   ) ; 
 
+  // Oct 5 2023: write synthetic mag vs filter (sim only) .xyz
+  if ( SNFITSIO_SIMFLAG_SNANA ) 
+    { wr_snfitsio_addCol_filters("1E", "SIM_SYNMAG",  itype);  }
+
   ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
 		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
@@ -889,10 +893,12 @@ void wr_snfitsio_init_spec(void) {
 
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     wr_snfitsio_addCol( "1E", "SIM_FLAM",    itype   ) ; 
+    
+    if ( GENSPEC.USE_WARP ) 
+      { wr_snfitsio_addCol( "1I", "SIM_WARP",  itype   ) ; }    
   }
-  if ( GENSPEC.USE_WARP ) 
-    { wr_snfitsio_addCol( "1I", "SIM_WARP",  itype   ) ; }
-  
+
+  // - - - - - - 
   ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
 		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
@@ -2467,7 +2473,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   if ( WRITE_SED_TRUE ) { NBLAM_WR = NBLAM_TOT; }
 
   bool EOE;
-  int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX   ;
+  int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX, ifilt, ifilt_obs   ;
   char fnam[] = "wr_snfitsio_update_spec" ;
 
   // ----------- BEGIN ------------
@@ -2561,6 +2567,16 @@ void  wr_snfitsio_update_spec(int imjd)  {
   WR_SNFITSIO_TABLEVAL[itype].value_1J = PTRSPEC_MAX ;
   wr_snfitsio_fillTable ( ptrColnum, "PTRSPEC_MAX", itype );
 
+
+  // Oct 5 2023: write synthetic mag per band (sim only) .xyz
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
+    float GENMAG_SYNFILT_F[MXFILTINDX];
+    for(ifilt=0; ifilt < SNDATA_FILTER.NDEF ; ifilt++ ) {
+      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+      GENMAG_SYNFILT_F[ifilt_obs] = GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs];
+    }
+    wr_snfitsio_fillTable_filters(&LOC, "SIM_SYNMAG",  itype, GENMAG_SYNFILT_F );    
+  }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // update spectrum table

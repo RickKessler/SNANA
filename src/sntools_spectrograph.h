@@ -106,11 +106,13 @@ struct {
   double  *OBSFLUXERR_LIST[MXSPEC] ;  // measured error
   double  *OBSFLUXERRSQ_LIST[MXSPEC]; // square of error
 
-  double  *GENFLAM_LIST[MXSPEC] ; // true dF/dlam
+  double  *GENFLAM_LIST[MXSPEC] ; // true dF/dlam [ispec][ilam]
   double  *FLAM_LIST[MXSPEC];     // measured dF/dlam
   double  *FLAMERR_LIST[MXSPEC];  // error on above
   double  *FLAMWARP_LIST[MXSPEC]; // warp applied to FLAM
   int      USE_WARP;
+
+  double  GENMAG_SYNFILT[MXSPEC][MXFILTINDX]; // true synthetic mag per filter
 
   // items below are used for read utils (not used for sim)
   int     ID_LIST[MXSPEC] ;

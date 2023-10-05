@@ -2002,7 +2002,8 @@ bool   GENSPEC_PRESCALE_REJECT_SN(void) ;
 bool   DO_GENSPEC(int imjd);
 void   GENSPEC_INIT(int opt, int imjd);  // init arrays
 void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
-void   GENSPEC_TRUE(int imjd);  // generate true MAGs and FLUXes
+void   GENSPEC_TRUE(int imjd);  
+double GENSPEC_SYNMAG(int ifilt_obs, double *FLAM_LIST);  
 void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
 double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX );
@@ -2016,7 +2017,7 @@ void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
-void   wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) ;
+void   wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) ;
 
 void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
 void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,

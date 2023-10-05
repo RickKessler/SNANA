@@ -8186,6 +8186,7 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
   //
   // July 6 2023: zq *= zSN/zGal instead of zq += zSN-zGAL
   //             (to avoid negative zq)
+  // Oct 4 2023: skip correction of zq<0 (to avoid confusion)
 
   int   USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
   int   IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
@@ -8219,7 +8220,11 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
   }
 
   // xxx mark delete   zq += SNHOSTGAL.ZDIF; // shift is  zSN - zGAL
-  zq *= SNHOSTGAL.ZRATIO; // zSN/zGAL  July 2023 
+
+  // Correct for zSN/zGAL ratio, but don't bother correcting 
+  // if zq=-9 (no match)
+  if ( zq > 0.0 )
+    {  zq *= SNHOSTGAL.ZRATIO; } // zSN/zGAL  July 2023
 
   return zq;
 

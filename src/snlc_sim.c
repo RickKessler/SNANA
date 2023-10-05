@@ -10051,15 +10051,16 @@ void GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) {
 // *************************************************
 void GENSPEC_TRUE(int imjd) {
 
-  // Load true GENMAG and FLUXGEN for each lambda bin at this
-  // "imjd".
+  // Load true GENMAG and FLUXGEN for each lambda bin at this "imjd".
   // Fill arrays
   //    GENSPEC.GENMAG_LIST[imjd][ilam] 
   //    GENSPEC.GENFLUX_LIST[imjd][ilam]
+  //    GENSPEC.GENMAG_SYNFILT[imjd][ifilt]  # synthetic mag per band
   //
   // Dec 04 2018: call genSpec_BYOSED
   // Jun 28 2019: call genSpec_HOST if IS_HOST is true
   // Mar 02 2021: generate PEAK spectrum if imjd == ISPEC_PEAK
+  // Oct 05 2023: compute and store synthetic mag per band
 
   int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   double TOBS, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
@@ -10074,6 +10075,7 @@ void GENSPEC_TRUE(int imjd) {
 
   double parList_SN[4]   = { x0, x1, c, x1 } ;
   double parList_HOST[3] = { RV, AV, logMass } ;
+  bool GOT_SNSPEC = false;
   int IS_HOST, ilam ;
   int DUMPFLAG=0;
   char fnam[] = "GENSPEC_TRUE" ;
@@ -10113,6 +10115,7 @@ void GENSPEC_TRUE(int imjd) {
 		  ptrGENFLUX,        // (O) fluxGen per bin (erg/s/cm^2)
 		  ptrGENMAG          // (O) magGen per bin
 		  );
+    GOT_SNSPEC = true;
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG )  {
     for(ilam=0; ilam < NBLAM; ilam++ ) {
@@ -10124,6 +10127,7 @@ void GENSPEC_TRUE(int imjd) {
       ptrGENMAG[ilam]  = GENMAG ;
       ptrGENFLUX[ilam] = FLUXGEN ;  // FLUXCAL units
     }
+    GOT_SNSPEC = true;
   }
   else  if ( INDEX_GENMODEL  == MODEL_NON1ASED ) {    
     // works with NON1ASED, but NOT with NON1AGRID
@@ -10138,7 +10142,7 @@ void GENSPEC_TRUE(int imjd) {
 		     ptrGENFLUX,           // (O) fluxGen per bin 
 		     ptrGENMAG             // (O) magGen per bin
 		     ); 
-
+    GOT_SNSPEC = true;
   }
   else  if ( INDEX_GENMODEL  == MODEL_NON1AGRID ) {    
     sprintf(c1err,"Spectrograph option not available for NON1AGRID;");    
@@ -10180,7 +10184,7 @@ void GENSPEC_TRUE(int imjd) {
 		       ptrGENFLUX,      // (O) fluxGen per bin 
 		       ptrGENMAG        // (O) magGen per bin
 		       );		
-   
+    GOT_SNSPEC = true;
   }
   else { 
     /*  don't abort since init_genSpec gives warning.  
@@ -10191,48 +10195,132 @@ void GENSPEC_TRUE(int imjd) {
   }
 
 
-  // check option to integrate flux within each band and compare against true mag
+  if ( !GOT_SNSPEC ) { return; }
 
-  int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
+  // - - - - - - - - - - -
   int    ifilt, ifilt_obs;
+  int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
+  double SYNMAG, flux, lambin, flam ;
 
-  if ( VERIFY_SED_TRUE ) {
-    for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-      wr_VERIFY_SED_TRUE(ifilt_obs, TOBS, ptrGENFLUX);
-    }
-  } // end VERIFY_PEAKMAG
+  // to compute synmags, first compute true Flam in each spectrograph bin.
+  // Note that global GENSPEC.GENFLAM_LIST has not been filled yet, and thus
+  // local GENFLAM_LIST is computed here.
+  int     NLAMSPEC     = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  double *GENFLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
+  double *LAMMAX_LIST  = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
+  double *LAMMIN_LIST  = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
+  for(ilam=0; ilam < NLAMSPEC; ilam++ ) {
+    flux   = ptrGENFLUX[ilam] ;
+    lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
+    GENFLAM_LIST[ilam] = flux / lambin ;
+  }
+
+  // compute true synthetic mag per band
+  for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    SYNMAG    = GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST); // compute synthetic mag
+    GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs] = SYNMAG;    // store it
+
+    // for true SED, check option to write genmag and synmag to diagnostic table file
+    if ( VERIFY_SED_TRUE )  { wr_VERIFY_SED_TRUE(ifilt_obs, TOBS, SYNMAG); }
+  }
+
+  free(GENFLAM_LIST);
 
   return ;
 
 } // end GENSPEC_TRUE
 
 // ==================================
-void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
+double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
+
+  // Created Oct 2023
+  // Compute true synthetic mag for ifilt_obs using flux per wave bin
+  // pass as input *GENFLUX_LIST.
+  //
+
+  int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
+  // xx double *LAMMAX_LIST = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
+  // xx double *LAMMIN_LIST = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
+  double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;  
+  double hc8    = (double)hc ;
+
+
+  double SYNMAG = 99.0, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
+  double lamstep, lambin, ZP ; 
+  int  ifilt, NLAMFILT, ilam, NFLAM_DEFINED = 0 ; 
+  char cfilt[4];
+  int  OPT_INTERP = 1;     // linear
+  char fnam[] = "GENSPEC_SYNMAG" ;
+
+  // --------- BEGIN ------------
+
+  ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
+  lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
+  ZP          = FILTER_SEDMODEL[ifilt].ZP ;
+
+  // sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
+
+  /* xxx mark delete xxx
+  // compute true Flam in each spectrograph bin
+  FLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
+  for(ilam=0; ilam < NLAMSPEC; ilam++ ) {
+    flux   = GENFLUX_LIST[ilam] ;
+    lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
+    flam   = flux / lambin ;
+    FLAM_LIST[ilam] = flam ;
+  }
+  xxxx 
+*/
+
+  // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
+  flux_sum = 0.0 ;
+  for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
+
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, 
+			  &LAMOBS, &TRANS );  // <== returned
+    if ( TRANS < 1.0E-12 ) { continue; }
+      
+    flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
+			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );
+			 
+    flux_sum += ( flam * LAMOBS * TRANS );
+
+  } // end ilam
+
+
+  if ( flux_sum > 0.0 ) {
+    flux_sum *= (lamstep/hc8) ;
+    SYNMAG = ZP - 2.5*log10(flux_sum);
+  }
+  else {
+    SYNMAG = MAG_ZEROFLUX ;
+  }
+    
+  // xxx mark free(FLAM_LIST);
+
+  return(SYNMAG) ;
+
+} // end GENSPEC_SYNMAG
+
+
+// ==================================
+void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) {
 
   // Created Aug 26 2021
   // Updated Sep 2023 to write SED_TRUE & MAG info to table file,
   // which enables plotting diagnostics.
   //
-  // Diagnostic:
-  // Convert ptr_GENMAG in each wave bin to flux, sum flux
-  // over filter transmission, then convert back to broadband mag.
-  // Compare with already-computed MAG.
   //
 
-  int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
-  double *LAMMAX_LIST = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
-  double *LAMMIN_LIST = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
-  double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;  
-  double hc8    = (double)hc ;
   double z      = GENLC.REDSHIFT_CMB;
   double z1     = 1.0 + z;
   double MJD    = TOBS + GENLC.PEAKMJD ;
   double TREST  = TOBS/z1;
 
-  double MAG=0.0, MAG_VERIFY, LAMOBS, LAMREST_CEN, TRANS, flam, flux, flux_sum=0.0 ;
-  double *FLAM_LIST, lamstep, lamstep_rebin, LAMOBS_REBIN, lambin, ZP ; 
+  double MAG=0.0, LAMREST_CEN, lamstep, TRANS;
   int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
   char cfilt[4];
   int  OPT_INTERP = 1;     // linear
@@ -10267,7 +10355,6 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
   lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
-  ZP          = FILTER_SEDMODEL[ifilt].ZP ;
   LAMREST_CEN = FILTER_SEDMODEL[ifilt].mean / z1;
 
   sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
@@ -10304,6 +10391,140 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
   }
 
 
+  // - - - - - - - - - - - - - - - - - - - -
+  FP    = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+  double MAG_DIF = MAG_VERIFY - MAG ;
+  fprintf(FP,"SN: %8d  %.3f  %.3f  %6.2f  %6.0f  %s   "
+	  "%.5f %.5f %8.5f\n",
+	  GENLC.CID, z, MJD, TREST, LAMREST_CEN, cfilt, 
+	  MAG, MAG_VERIFY, MAG_DIF );
+
+  //  LDMP = fabs(MAG_DIF) > 0.15 && fabs(TOBS)<3.0;
+  if ( LDMP ) {
+    printf(" xxx \n");
+    printf(" xxx %s: CID=%d MJD=%.1f  Tobs=%.1f  filt=%s  MAG_DIF=%f\n",
+	   fnam, GENLC.CID, MJD, TOBS, cfilt, MAG_DIF);
+
+    printf(" xxx \t MAG[gen,verify] = %.4f, %.4f  \n", 
+	   MAG, MAG_VERIFY ); 
+
+    fflush(stdout);
+  }
+
+  fflush(FP);
+
+
+  return ;
+
+} // end wr_VERIFY_SED_TRUE
+
+
+// ==================================
+void wr_VERIFY_SED_TRUE_LEGACY(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
+
+  // Created Aug 26 2021
+  // Updated Sep 2023 to write SED_TRUE & MAG info to table file,
+  // which enables plotting diagnostics.
+  //
+  // Diagnostic:
+  // Convert ptr_GENMAG in each wave bin to flux, sum flux
+  // over filter transmission, then convert back to broadband mag.
+  // Compare with already-computed MAG.
+  //
+  //
+  // xxxxxxx mark delete for this entire function xxxxxxxxxxx
+  //
+  // ********* OBSOLETE *********
+
+  int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
+  double *LAMMAX_LIST = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
+  double *LAMMIN_LIST = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
+  double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;  
+  double hc8    = (double)hc ;
+  double z      = GENLC.REDSHIFT_CMB;
+  double z1     = 1.0 + z;
+  double MJD    = TOBS + GENLC.PEAKMJD ;
+  double TREST  = TOBS/z1;
+
+  double MAG=0.0, MAG_VERIFY, LAMOBS, LAMREST_CEN, TRANS, flam, flux, flux_sum=0.0 ;
+  double *FLAM_LIST, lamstep, lamstep_rebin, LAMOBS_REBIN, lambin, ZP ; 
+  int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
+  char cfilt[4];
+  int  OPT_INTERP = 1;     // linear
+  FILE *FP ;
+  int  VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
+  char VERFIY_FILE_NAME[MXPATHLEN], VARLIST[MXPATHLEN] ;
+  char fnam[] = "wr_VERIFY_SED_TRUE_LEGACY" ;
+
+  int LDMP = 0;
+
+  // ********* OBSOLETE *********
+
+  // --------- BEGIN ------------
+
+  if ( !VERIFY_SED_TRUE ) { return; }
+
+  if ( ifilt_obs == 0 ) {
+    // open output table file
+    sprintf(VERFIY_FILE_NAME,"%s_VERFIY_SED_TRUE.DAT", INPUTS.GENVERSION);
+    sprintf(VARLIST,"CID z MJD TREST LAMREST BAND MAG MAG_VERIFY MAG_DIF");
+    printf("\n %s: open output %s \n", fnam, VERFIY_FILE_NAME);
+    fflush(stdout);
+    INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE = fopen(VERFIY_FILE_NAME,"wt");
+    FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+    fprintf(FP,"VARNAMES: %s\n", VARLIST);
+    return ;
+  }
+
+
+  // ********* OBSOLETE *********
+
+  FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+
+  if ( ifilt_obs > 900 ) {  fclose(FP); return;   }
+
+  ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
+  lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
+  ZP          = FILTER_SEDMODEL[ifilt].ZP ;
+  LAMREST_CEN = FILTER_SEDMODEL[ifilt].mean / z1;
+
+  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
+
+  // -----------------------
+  // find already-computed observer-frame mag for { TOBS,ifilt_obs}
+  int    ep, ifilt_obs_tmp ;
+  double TOBS_tmp;
+  for(ep=1; ep < GENLC.NEPOCH; ep++ ) {
+    TOBS_tmp      = GENLC.MJD[ep] - GENLC.PEAKMJD;
+    ifilt_obs_tmp = GENLC.IFILT_OBS[ep];
+    if ( fabs(TOBS-TOBS_tmp) < 0.01 && ifilt_obs_tmp==ifilt_obs ) {
+      MAG = GENLC.genmag_obs[ep];
+      NFIND_MAG++ ;
+    }
+  } // end ep
+  
+  // ********* OBSOLETE *********
+
+  if ( NFIND_MAG != 1 ) {
+    sprintf(c1err,"NFIND_MAG=%d  but expeced 1", NFIND_MAG);
+    sprintf(c2err,"ifilt_obs=%d(%s)  ifilt=%d  TOBS=%.2f  MJD=%.3f", 
+	    ifilt_obs, cfilt, ifilt, TOBS, MJD );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( MAG < 1.0 || MAG > 60.0 )  { return ; }
+
+  //  LDMP = ( GENLC.CID==16 && fabs(TOBS)<3.0 && ifilt_obs==1 ) ; // xxx
+
+  if ( LDMP ) {
+    printf(" xxx --------------- CID=%d -------------------------------- \n",
+	   GENLC.CID);
+    fflush(stdout);
+  }
+
+
   // compute true Flam in each spectrograph bin
   FLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
   for(ilam=0; ilam < NLAMSPEC; ilam++ ) {
@@ -10312,6 +10533,8 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
     flam   = flux / lambin ;
     FLAM_LIST[ilam] = flam ;
   }
+
+  // ********* OBSOLETE *********
 
   // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
   flux_sum = 0.0 ;
@@ -10331,6 +10554,8 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
 
   flux_sum *= (lamstep/hc8) ;
   MAG_VERIFY = ZP - 2.5*log10(flux_sum);
+
+  // ********* OBSOLETE *********
 
   // - - - - - - - - - - - - - - - - - - - -
   FP    = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
@@ -10360,9 +10585,11 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double *GENFLUX_LIST) {
 
   free(FLAM_LIST);
 
+  // ********* OBSOLETE *********
+
   return ;
 
-} // end GENSPEC_VERIFY_MAG
+} // end GENSPEC_VERIFY_MAG_LEGACY
 
 // *****************************************
 void GENSPEC_HOST_CONTAMINATION(int imjd) {
@@ -11227,10 +11454,11 @@ void  GENSPEC_FLAM(int imjd) {
 
     GENSPEC.LAMMIN_LIST[imjd][ilam]   = LAMMIN ;  // Apr 2 2021
     GENSPEC.LAMMAX_LIST[imjd][ilam]   = LAMMAX ;
-    GENSPEC.FLAM_LIST[imjd][ilam]     = FLAM * WARP ;
+    GENSPEC.FLAM_LIST[imjd][ilam]     = FLAM * WARP ;  // measured FLAM
     GENSPEC.FLAMERR_LIST[imjd][ilam]  = FLAMERR ;
-    GENSPEC.GENFLAM_LIST[imjd][ilam]  = GENFLUX/LAMBIN ;
     GENSPEC.FLAMWARP_LIST[imjd][ilam] = WARP ;
+
+    GENSPEC.GENFLAM_LIST[imjd][ilam]  = GENFLUX/LAMBIN ; // true FLAM
   }
   
 
@@ -28457,7 +28685,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // check for dump to check SED_TRUE
   double dum = 0.0 ;
-  wr_VERIFY_SED_TRUE(0, dum, &dum);
+  wr_VERIFY_SED_TRUE(0, dum, dum );
 
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
@@ -28641,7 +28869,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     { wr_SIMGEN_DUMP_DCR(3,SIMFILE_AUX); }
 
   if ( INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE > 0 ) 
-    { wr_VERIFY_SED_TRUE(999, dum, &dum); }
+    { wr_VERIFY_SED_TRUE(999, dum, dum); }
 
   // copy ZVARATION file to SIM/[VERSION]
   if ( USE_ZVAR_FILE ) {

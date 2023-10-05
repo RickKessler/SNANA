@@ -565,7 +565,7 @@ void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT,
   // instead of float.
 
   char FORMAT_LOCAL[40];
-  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=10;
+  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=12;
   char fnam[] = "wr_dataformat_text_FILTERPAR" ;
 
   // ------------ BEGIN ---------
@@ -1098,7 +1098,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   // Write spectra in TEXT format.
   
   // Apr 02 2021: fix to work after reading spectra from FITS format
-  //   (e..g, from sims)
+  //   (e..g, from sim)
   // Nov 10 2021: write SPECTRUM_LAMRANGE
   // May 26 2023: check NMJD_PROC
 
@@ -1111,7 +1111,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
   
   int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
-  int  imjd, ilam ;
+  int  imjd, ilam, ifilt, ifilt_obs ;
   double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
   double SCALE;
 
@@ -1188,6 +1188,11 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
             "# Number of wave bins: VALID  TOTAL\n",
             NBLAM_VALID, NBLAM_TOT );
 
+    if ( WRFLAG_SIM ) {
+      wr_dataformat_text_FILTERPAR_D(fp, "SIM_SYNMAG", SNDATA_FILTER.LIST, 
+				     "%8.4f", GENSPEC.GENMAG_SYNFILT[imjd] );
+    }
+
     /* ??
     if ( INPUTS.NHOST_TAKE_SPECTRUM > 0 && !IS_HOST ) {
       fprintf(fp,"SPECTRUM_HOSTFRAC:   %.2f               "
@@ -1195,6 +1200,8 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
               INPUTS.TAKE_SPECTRUM_HOSTFRAC );
     }
     xxx*/
+
+    fflush(fp); 
 
     NBLAM_WR = 0 ;
     NVAR_EXPECT = NVAR ;

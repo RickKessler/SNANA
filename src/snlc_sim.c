@@ -3604,7 +3604,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SBRADIUS );
   }
   else if ( keyMatchSim(1, "HOSTLIB_GALID_FORCE", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_FORCE );
+    N++;  sscanf(WORDS[N], "%lld", &INPUTS.HOSTLIB_GALID_FORCE );
   }
   else if ( keyMatchSim(1, "HOSTLIB_ABMAG_FORCE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_ABMAG_FORCE );

@@ -569,7 +569,7 @@ struct INPUTS {
   char   HOSTLIB_STOREPAR_LIST[2*MXPATHLEN]; // (I) comma-sep list
 
   // debug options
-  int    HOSTLIB_GALID_FORCE ;    // force this GALID
+  long long HOSTLIB_GALID_FORCE ;    // force this GALID
   double HOSTLIB_ABMAG_FORCE ;    // for ABmag on galmag and gal spec
   double HOSTLIB_FIXRAN_RADIUS ;  // fix random number of radius
   double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi

@@ -10090,7 +10090,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // 
   // Oct 2023
   //   Refactor to use hash util for much faster CID matching.
-  //   
+  //   See match_cidlist_xxx utils.
 
   int NGAL        = HOSTLIB.NGAL_STORE;
   int MXCHAR      = MXCHAR_LINE_HOSTLIB ;
@@ -10107,7 +10107,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   // ------------- BEGIN -------------
 
-  if ( INPUTS.DEBUG_FLAG != 1009 ) 
+  if ( INPUTS.DEBUG_FLAG == -1009 ) 
     { rewrite_HOSTLIB_plusAppend_legacy(append_file);  return; }
 
   print_banner(fnam);
@@ -10116,13 +10116,6 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // that does not include GALID.
   SNTABLE_VARNAMES(append_file, tmp_varname_string);
  
-
-  /* xxx mark delete xxxx
-  // Note that parse_commaSepList works for either comma-sep or
-  // space-sep string.
-  // parse_commaSepList(fnam, append_varname_string, 20, MXCHAR_VARNAME,
-  //		     &NVAR_APPEND, &append_varname_list );
-  xxxxxx */
 
   // convert space-sep append_varlist into individual varname list,
   // and toss out varName(s) that already exist in HOSTLIB
@@ -10134,13 +10127,14 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   for (ivar=0; ivar < NVAR_TOT; ivar++ ) {
     get_PARSE_WORD(0, ivar, tmp_varName);
     if ( IVAR_HOSTLIB(tmp_varName,0) > 0 ) { 
-      printf("\t WARNING: reject duplicate varname '%s' from append list\n",
+      printf("\t WARNING: remove duplicate varname '%s' from append list\n",
 	     tmp_varName); fflush(stdout) ;
       continue; 
     }
 
+    // append both the string of VARNAMES and the python-like list.
     append_varname_list[NVAR_APPEND] = (char*)malloc( MEMC);
-    sprintf(append_varname_list[NVAR_APPEND], "%s", tmp_varName);
+    sprintf(append_varname_list[NVAR_APPEND], "%s", tmp_varName); // list
     strcat(append_varname_string, " ");
     strcat(append_varname_string, tmp_varName);
     NVAR_APPEND++ ;

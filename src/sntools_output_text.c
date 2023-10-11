@@ -174,7 +174,7 @@ extern"C" {
 
   int  SNTABLE_NEVT_TEXT(char *FILENAME);
   int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
-  void SNTABLE_VARLIST_TEXT(char *FILENAME, char *SEP, char *VARLIST);
+  void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES);
 
   int  SNTABLE_READPREP_TEXT(void);
   int  SNTABLE_READ_EXEC_TEXT(void);
@@ -1070,7 +1070,7 @@ int SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR) {
 
 
 // ==========================================
-void SNTABLE_VARLIST_TEXT(char *FILENAME, char *SEP, char *VARLIST) {
+void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
 
   // Created Oct 2023
   // read FILENAME, find VARNAMES key, and return argument after
@@ -1080,20 +1080,20 @@ void SNTABLE_VARLIST_TEXT(char *FILENAME, char *SEP, char *VARLIST) {
   //    VARNAMES: GALID ZTRUE RA_GAL DEC_GAL
   // and SEP = ','
   // then this function returns
-  //    VARLIST = "ZTRUE,RA_GAL,DEC_GAL"
+  //    VARNAMES = "ZTRUE,RA_GAL,DEC_GAL"
   //
 
   FILE *fp;
   int  GZIPFLAG, NVAR, ivar, NWD=0, NWD_ABORT=1000;
   int  MXCHAR_LINE_VARNAMES = 400;
   bool FOUND_KEY_VARNAMES = false;
-  char c_get[200], VARLIST_ORIG[300], varname[40];
+  char c_get[200];
   char KEY_VARNAMES[] = "VARNAMES:" ;
   char fnam[]         = "SNTABLE_VARLIST_TEXT" ;
 
   // ---------- BEGIN ----------
 
-  VARLIST[0] = 0 ;
+  VARNAMES[0] = 0 ;
   print_banner(fnam);
 
   fp = open_TEXTgz(FILENAME, "rt", &GZIPFLAG ) ;
@@ -1109,16 +1109,8 @@ void SNTABLE_VARLIST_TEXT(char *FILENAME, char *SEP, char *VARLIST) {
     //.xyz
     if (strcmp(c_get,KEY_VARNAMES) == 0 ) {
       fscanf(fp, "%s", c_get); // skip key that identifies CID or GALID
-      fgets(VARLIST_ORIG, MXCHAR_LINE_VARNAMES, fp );  
-      int len = strlen(VARLIST_ORIG); VARLIST_ORIG[len-1] = 0; // remove <CR>
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARLIST_ORIG);
-     
-      for(ivar=0; ivar < NVAR; ivar++ ) {
-	get_PARSE_WORD(0,ivar,varname);
-	if ( ivar > 0 ) { strcat(VARLIST,SEP); }
-	strcat(VARLIST,varname);
-      }
-
+      fgets(VARNAMES, MXCHAR_LINE_VARNAMES, fp );  
+      int len = strlen(VARNAMES); VARNAMES[len-1] = 0; // remove <CR>
       goto DONE;
     }
   }

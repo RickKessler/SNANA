@@ -10112,18 +10112,20 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   print_banner(fnam);
 
-  // read varnames from header and return space-sep append_varname_string 
+  // read varnames from header and return space-sep tmp_varname_string 
   // that does not include GALID.
-  char sepKey[] = " " ;
-  SNTABLE_VARLIST_TEXT(append_file, sepKey, tmp_varname_string);
+  SNTABLE_VARNAMES(append_file, tmp_varname_string);
  
-  // convert space-sep append_varlist into individual varname list.
+
+  /* xxx mark delete xxxx
   // Note that parse_commaSepList works for either comma-sep or
   // space-sep string.
   // parse_commaSepList(fnam, append_varname_string, 20, MXCHAR_VARNAME,
   //		     &NVAR_APPEND, &append_varname_list );
+  xxxxxx */
 
-
+  // convert space-sep append_varlist into individual varname list,
+  // and toss out varName(s) that already exist in HOSTLIB
   OPTMASK = MSKOPT_PARSE_WORDS_STRING;  
   NVAR_TOT = store_PARSE_WORDS(OPTMASK, tmp_varname_string);
   NVAR_APPEND = append_varname_string[0] = 0 ;

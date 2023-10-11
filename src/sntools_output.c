@@ -2523,6 +2523,31 @@ void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid)
 { fetch_autostore_ccid(*ifile, *isn, ccid); }
 
 
+// ==================================================
+void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES) {
+
+  // Created Oct 2023
+  // Return space-sep string of VARNAMES in table, EXCLUDING
+  // CID/GALID.
+  // Beware: works only for TEXT format
+
+  int  ISOPEN_DEJA, ISTYPE_HBOOK, ISTYPE_ROOT, ISTYPE_TEXT ;
+  char fnam[] = "SNTABLE_VARNAMES";
+
+  // ------- BEGIN ---------
+
+#ifdef USE_TEXT
+  ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT] ;
+  ISTYPE_TEXT = ISFILE_TEXT(FILENAME); 
+  if ( ISOPEN_DEJA || ISTYPE_TEXT ) {
+    SNTABLE_VARNAMES_TEXT(FILENAME, VARNAMES);
+    return ;
+  }
+#endif
+
+  return;
+
+} // end end SNTABLE_VARLIST
 
 // ========================================
 int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {

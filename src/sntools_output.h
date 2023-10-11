@@ -427,6 +427,8 @@ extern"C" {
   int  SNTABLE_NEVT  (char *FILENAME, char *TABLENAME); 
   int  sntable_nevt__(char *FILENAME, char *TABLENAME);
 
+  void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES);
+
   void SNTABLE_DEBUG_DUMP  (char *fnam, int idump);
   void sntable_debug_dump__(char *fnam, int *idump);
 

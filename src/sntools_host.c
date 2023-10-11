@@ -9379,10 +9379,11 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // - - - - - 
 
   // - - - - - - - - - - - - - - - - - 
-  // read each original line
-
+  // read each original line; then write original line plus appended line.
   long long GALID, GALID_orig ;
-  int   igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0;
+  int igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0;
+  int MSKOPT_PARSE=MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int NDUMP = 6;
   char *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
 
   LINE_APPEND  = (char*) malloc ( sizeof(char) * MXCHAR_LINE_APPEND );
@@ -9392,7 +9393,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   igal_unsort = 0;
   while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
 
-    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE,LINE);
     LINE_APPEND[0] = 0 ;
 
     if ( NWD_LINE > 2 ) {
@@ -9405,9 +9406,14 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 	NLINE_GAL++ ;
 
 	// make sure GALID matches
-	ivar       = HOSTLIB.IVAR_GALID ;
 	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort] ;
+	ivar       = HOSTLIB.IVAR_GALID ;
 	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
+
+	if ( igal_unsort < NDUMP ) {
+	  printf(" xxx %s: igal_unsort=%2d GALID=%lld \n",
+		 fnam, igal_unsort, GALID); fflush(stdout);
+	}
 
 	get_PARSE_WORD(0, 1, NEXTWORD);    // read GALID
 	sscanf(NEXTWORD, "%lld", &GALID_orig);
@@ -10082,16 +10088,152 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // May 4 2021
   // Read columns in *append_file, and append to original HOSTLIB.
   // 
+  // Oct 2023
+  //   Refactor to use hash util for much faster CID matching.
+  //   
+
+  int NGAL        = HOSTLIB.NGAL_STORE;
+  int MXCHAR      = MXCHAR_LINE_HOSTLIB ;
+
+  HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
+  int  NROW, NVAR_APPEND, ivar,  OPTMASK ; 
+  int  NMISSING      = 0 ;
+
+  char *varName, *LINE_APPEND, **append_varname_list ;
+  char *append_varname_string = (char*) malloc( MXCHAR*sizeof(char) );
+  char fnam[]      = "rewrite_HOSTLIB_plusAppend" ;
+
+  // ------------- BEGIN -------------
+
+  if ( INPUTS.DEBUG_FLAG != 1009 ) 
+    { rewrite_HOSTLIB_plusAppend_legacy(append_file);  return; }
+
+  print_banner(fnam);
+
+  // read varnames from header and return blank-sep append_varname_string 
+  // that does not include GALID.
+  char sepKey[] = " " ;
+  SNTABLE_VARLIST_TEXT(append_file, sepKey, append_varname_string);
+ 
+
+  // convert space-sep append_varlist into individual varname list.
+  // Note that parse_commaSepList works for either comma-sep or
+  // space-sep string.
+  parse_commaSepList(fnam, append_varname_string, 20, MXCHAR_VARNAME,
+		     &NVAR_APPEND, &append_varname_list );
+
+  // .xyz
+  // - - - -
+  OPTMASK = 0 ;
+  match_cidlist_init(BLANK_STRING, &OPTMASK, BLANK_STRING);
+
+  OPTMASK = 0 ;
+  NROW = match_cidlist_init(append_file, &OPTMASK, append_varname_string); 
+
+  // - - - -
+  malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
+  LINE_APPEND = (char*) malloc (MXCHAR_LINE_APPEND * sizeof(char) ) ;
+
+  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "%s", append_varname_string);
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+APPEND");
+
+  
+  int  NDUMP = 6;
+  int  igal_unsort, igal_zsort, isn_match ;
+  long long GALID;
+  char cGALID[40], cVAL[40];
+  double dVAL ;
+
+  printf("\t Begin matching ... \n"); fflush(stdout);
+
+  for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
+    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+    ivar  = HOSTLIB.IVAR_GALID;
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
+    sprintf(cGALID,"%lld", GALID);
+
+    if ( igal_unsort < NDUMP ) {
+      printf(" xxx %s: igal_unsort=%2d GALID=%lld \n",
+	     fnam, igal_unsort, GALID); fflush(stdout);
+    }
+
+    isn_match = match_cidlist_exec(cGALID);
+
+    LINE_APPEND[0] = 0;
+    for( ivar = 0 ; ivar < NVAR_APPEND; ivar++ ) {
+      varName = append_varname_list[ivar];
+      dVAL = match_cidlist_parval(isn_match, varName, 1);
+
+      if ( isn_match >= 0  ) {
+	if ( dVAL == 0.0 ) 
+	  { sprintf(cVAL, "0 "); }
+	else if ( fabs(dVAL) > 1.0E6 || fabs(dVAL) < 1.0E-5 ) 
+	  { sprintf(cVAL, "%.3le ", dVAL); }
+	else
+	  { sprintf(cVAL, "%.5f ", dVAL); }
+      }
+      else {
+	dVAL = -9.0 ;  if ( ivar==0 ) { NMISSING++ ; }
+	sprintf(cVAL, "-9.0 ");
+      }
+      strcat(LINE_APPEND,cVAL);
+    }
+
+    sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
+
+  } // end igal
+
+  printf("\t Done matching. \n"); fflush(stdout);
+
+  char MSG[200]; 
+  sprintf(MSG,"%s appended %d variables (%s)", 
+	  getenv("USER"), NVAR_APPEND, append_varname_string);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  sprintf(MSG,"Append file is %s", append_file);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  sprintf(MSG,"Found   %7d GALID matches in append file.", NGAL-NMISSING);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  sprintf(MSG,"Missing %7d GALID matches in append file.", NMISSING);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  // execute re-write
+  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+ 
+  free(LINE_APPEND);
+
+  if ( NMISSING > 0 ) {
+    printf("\t WARNING: Missing %5d GALIDs (wrote -9 for %s)\n",
+	   NMISSING, append_varname_string ); 
+  }
+
+  printf("  Done. \n");     fflush(stdout);
+
+  exit(0);
+
+  return ;
+
+} // end rewrite_HOSTLIB_plusAppend
+
+
+// **************************************************
+void rewrite_HOSTLIB_plusAppend_legacy(char *append_file) {
+
+  // May 4 2021
+  // Read columns in *append_file, and append to original HOSTLIB.
+  // 
 
   int NGAL        = HOSTLIB.NGAL_STORE;
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
   int  NROW, NVAR_APPEND, ivar ;
-  int  optMask       = 1 ;
+  int  optMask       = 1 ; // 1=print info
   int  NMISSING      = 0;
   char tableName[]   = "HOSTLIB" ;
   char KEY_ALLVAR[]  = "ALL" ;
   char *varName, varList[100], *LINE_APPEND ;
-  char fnam[]      = "rewrite_HOSTLIB_plusAppend" ;
+  char fnam[]      = "rewrite_HOSTLIB_plusAppend_legacy" ;
 
   // ------------- BEGIN -------------
 
@@ -10165,12 +10307,15 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   if ( NMISSING > 0 ) {
     printf("\t WARNING: Missing %5d GALIDs (wrote -9 for %s)\n",
 	   NMISSING, varList ); 
-    fflush(stdout);
   }
+
+  printf(" Done with legacy append. \n");
+
+  fflush(stdout);
 
   exit(0);
 
   return ;
 
-} // end rewrite_HOSTLIB_plusAppend
+} // end rewrite_HOSTLIB_plusAppend_legacy
 

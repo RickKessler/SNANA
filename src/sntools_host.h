@@ -793,6 +793,7 @@ void   rewrite_HOSTLIB_plusMags(void);
 void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 
 void   rewrite_HOSTLIB_plusAppend(char *append_file);
+void   rewrite_HOSTLIB_plusAppend_legacy(char *append_file);
 
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 

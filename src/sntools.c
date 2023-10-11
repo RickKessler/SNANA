@@ -316,7 +316,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       // loop over words on this line     
       for ( iwd = 0; iwd < NWD; iwd++ ) {
 	get_PARSE_WORD(langC, iwd, CCID);
-	// xxx mark delete May 26 2022 match_cid_hash(STRINGID, ILIST, NCID);
 	match_cid_hash(CCID, ILIST, NCID);
 	NCID++ ;
         if ( strstr(CCID,COMMA) != NULL || strstr(CCID,COLON) != NULL ||
@@ -362,7 +361,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     // check for additional columns to store (Apr 29 2022)
     if ( !IGNOREFILE(varList_store) ) {
       if ( IFILE == 0 ) {
-	parse_commaSepList(fnam, varList_store, 10,60, 
+	parse_commaSepList(fnam, varList_store, 20,60, 
 			   &HASH_STORAGE.NVAR, &HASH_STORAGE.VARNAME_LIST);
 	NVAR = HASH_STORAGE.NVAR ;
 	MEMD = NCID * sizeof(double);
@@ -384,6 +383,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	}
       } // end of 1st file init
       else {
+	// additional files ...
 	NVAR = HASH_STORAGE.NVAR ;
 	MEMD = (ISNOFF+NCID) * sizeof(double);
 	// beware: realloc is not tested ...
@@ -3605,8 +3605,8 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
 			int *n_item, char ***arrayList ) {
 
   // Created Oct 2020
-  // Utility to split comma-sep string *item and return number of 
-  // items (n_item) and char arrayList[i]
+  // Utility to split comma-sep (or space-sep) string *item and return number 
+  // of items (n_item) and char arrayList[i]
   //  Inputs:
   //    *item_name : descriptor (for error message)
   //    *item      : comma-sep list
@@ -3617,9 +3617,12 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   //    *n_item   : number of items in *item
   //    arrayList : array of individual items
   //
+  // Oct 2023: update to work for space-sep or comma sep strings
+  //
   // - - - -
   int i;
   int MEMC = MXCHAR * sizeof(char);
+  char sep[40];
   char fnam[] = "parse_commaSepList" ;
   char fnam_plus_item_name[100];
 
@@ -3633,9 +3636,14 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   if ( strlen(item) == 0 ) { *n_item=0; return; }
 
   // split item string
+  if ( strstr(item,COMMA) != NULL ) 
+    { sprintf(sep,"%s",COMMA); }
+  else
+    { sprintf(sep," "); }
+
   sprintf(fnam_plus_item_name, "%s(%s)", fnam, item_name);
-  splitString(item, COMMA, fnam_plus_item_name, MAX_ITEM,    // inputs
-	      n_item, *arrayList );      // outputs 
+  splitString(item, sep, fnam_plus_item_name, MAX_ITEM,    // inputs
+	      n_item, *arrayList );                         // outputs 
   
   char *f0 = *arrayList[0];
   if ( IGNOREFILE(f0) ) { *n_item = 0 ; }
@@ -5855,7 +5863,7 @@ void trim_blank_spaces(char *string) {
 
   int MXchar, i, FOUNDCHAR, ISCHAR, ISBLANK, ISTERM ;
   char *tmpString, c1[2] ;
-  //  char fnam[] = "trim_blank_spaces" ;
+  char fnam[] = "trim_blank_spaces" ;
 
   // -------------- BEGIN ---------
 
@@ -8793,8 +8801,6 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
     } 
     if ( n_key_found == n_key ) { break; }
   }
-
-  //.xyz
 
   fclose(fp);
   for( k=0; k < n_key; k++ ) { free(key_list[k]) ; }

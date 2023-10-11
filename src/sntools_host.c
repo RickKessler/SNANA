@@ -9383,7 +9383,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   long long GALID, GALID_orig ;
   int igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0;
   int MSKOPT_PARSE=MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
-  int NDUMP = 6;
+  int NDUMP = -6;
   char *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
 
   LINE_APPEND  = (char*) malloc ( sizeof(char) * MXCHAR_LINE_APPEND );
@@ -10096,11 +10096,13 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   int MXCHAR      = MXCHAR_LINE_HOSTLIB ;
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
-  int  NROW, NVAR_APPEND, ivar,  OPTMASK ; 
+  int  NROW, NVAR_APPEND, NVAR_TOT, ivar,  OPTMASK ; 
   int  NMISSING      = 0 ;
 
-  char *varName, *LINE_APPEND, **append_varname_list ;
+  char *varName, *LINE_APPEND, **append_varname_list;
+  char tmp_varName[MXCHAR_VARNAME] ;
   char *append_varname_string = (char*) malloc( MXCHAR*sizeof(char) );
+  char *tmp_varname_string    = (char*) malloc( MXCHAR*sizeof(char) );
   char fnam[]      = "rewrite_HOSTLIB_plusAppend" ;
 
   // ------------- BEGIN -------------
@@ -10110,17 +10112,37 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   print_banner(fnam);
 
-  // read varnames from header and return blank-sep append_varname_string 
+  // read varnames from header and return space-sep append_varname_string 
   // that does not include GALID.
   char sepKey[] = " " ;
-  SNTABLE_VARLIST_TEXT(append_file, sepKey, append_varname_string);
+  SNTABLE_VARLIST_TEXT(append_file, sepKey, tmp_varname_string);
  
-
   // convert space-sep append_varlist into individual varname list.
   // Note that parse_commaSepList works for either comma-sep or
   // space-sep string.
-  parse_commaSepList(fnam, append_varname_string, 20, MXCHAR_VARNAME,
-		     &NVAR_APPEND, &append_varname_list );
+  // parse_commaSepList(fnam, append_varname_string, 20, MXCHAR_VARNAME,
+  //		     &NVAR_APPEND, &append_varname_list );
+
+
+  OPTMASK = MSKOPT_PARSE_WORDS_STRING;  
+  NVAR_TOT = store_PARSE_WORDS(OPTMASK, tmp_varname_string);
+  NVAR_APPEND = append_varname_string[0] = 0 ;
+  append_varname_list = (char**) malloc( NVAR_TOT* sizeof(char*) );
+  int MEMC = MXCHAR_VARNAME * sizeof(char);
+  for (ivar=0; ivar < NVAR_TOT; ivar++ ) {
+    get_PARSE_WORD(0, ivar, tmp_varName);
+    if ( IVAR_HOSTLIB(tmp_varName,0) > 0 ) { 
+      printf("\t WARNING: reject duplicate varname '%s' from append list\n",
+	     tmp_varName); fflush(stdout) ;
+      continue; 
+    }
+
+    append_varname_list[NVAR_APPEND] = (char*)malloc( MEMC);
+    sprintf(append_varname_list[NVAR_APPEND], "%s", tmp_varName);
+    strcat(append_varname_string, " ");
+    strcat(append_varname_string, tmp_varName);
+    NVAR_APPEND++ ;
+  }
 
   // .xyz
   // - - - -
@@ -10138,7 +10160,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+APPEND");
 
   
-  int  NDUMP = 6;
+  int  NDUMP = -6;
   int  igal_unsort, igal_zsort, isn_match ;
   long long GALID;
   char cGALID[40], cVAL[40];

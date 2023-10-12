@@ -2458,6 +2458,8 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_b_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_B_DLR, 0) ; 
   HOSTLIB.IVAR_WEAKLENS_DMU = IVAR_HOSTLIB(HOSTLIB_VARNAME_WEAKLENS_DMU, 0) ;
 
+  if ( INPUTS.DEBUG_FLAG == -1012 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
+
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
   IVAR_RA[0]   = IVAR_HOSTLIB(HOSTLIB_VARNAME_RA,0);
@@ -10066,14 +10068,14 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     for(nnbr=0; nnbr <= HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX; nnbr++ ) {
       NGAL_TMP = HOSTLIB_NBR_WRITE.NGAL_PER_NNBR[nnbr];
       frac     = (float)NGAL_TMP / (float)NGAL;
-      sprintf(MSG, "\t HOSTLIB fraction with %2d NBR: %8.3f %% ",
+      sprintf(MSG, "    HOSTLIB fraction with %2d NBR: %8.3f %% ",
 	     nnbr, 100.0*frac ); 
       printf("%s\n", MSG); fflush(stdout);
       addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);
     }
 
     frac = (float)HOSTLIB_NBR_WRITE.NGAL_TRUNCATE / (float)NGAL ;
-    sprintf(MSG,"\t Truncated fraction with > %d NBR: %8.3f %% ",
+    sprintf(MSG,"       Truncated fraction with > %d NBR: %8.3f %% ",
 	   HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, 100.*frac); 
     printf("%s\n", MSG); fflush(stdout);
     addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);

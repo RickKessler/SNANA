@@ -21274,7 +21274,7 @@ void write_cat_info(FILE *fout) {
   // copy it and write new info in same YAML format.
 
   int NFILE = INPUTS.nfile_data; 
-  int ifile, GZIPFLAG, FOUND_DOCANA = 0, FOUND_DOCANA_END=0 ;
+  int ifile, NWD, GZIPFLAG, FOUND_DOCANA = 0, FOUND_DOCANA_END=0 ;
   FILE *finp ;
   bool skip_line ;
   int  MEMC = MXCHAR_LINE * sizeof(char) ;
@@ -21284,21 +21284,18 @@ void write_cat_info(FILE *fout) {
 
   // --------- BEGIN --------
 
-  printf(" 1 xxx %s:  \n", fnam); fflush(stdout);
-
   // check for DOCUMENTATION block (Aug 21 2023)
   finp  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); 
   while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
-    ptrCR = strchr(line,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
-    
-    skip_line = ( strlen(line)==0 );
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);    
+    skip_line = ( NWD == 0 || strlen(line)==0 );
 
-    //    printf(" 2 xxx %s: skip=%d  line='%s' \n",   // .xyz
-    //	   fnam, skip_line, line); fflush(stdout);
+    //    printf(" 2 xxx %s: NWD=%d  skip=%d  line='%s' \n",   // .xyz
+    //	   fnam, NWD, skip_line, line); fflush(stdout);
 
     if ( !skip_line ) {
-      store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);
+
       nline_read++ ;
       // skip if first wd of line is not a valid row key
       get_PARSE_WORD(0, 0, KEY);
@@ -21314,7 +21311,7 @@ void write_cat_info(FILE *fout) {
     // just before end of DOCANA, embed cat-file notes into DOCANA block 
     if ( FOUND_DOCANA_END ) { 
 
-      char pad[4] = "    "; // need to compute pad spacing from PURPOSE indentation
+      char pad[] = "    "; // need to compute pad spacing from PURPOSE indentation
       fprintf(fout,"\n");
       fprintf(fout,"%sCAT_FILE_NOTES:\n", pad);
       fprintf(fout,"%s%sSNANA_VERSION: %s\n", pad, pad, SNANA_VERSION_CURRENT);
@@ -21341,8 +21338,6 @@ void write_cat_info(FILE *fout) {
     if (nline_read > 0 && !FOUND_DOCANA ) { break; }
     
   } // end while
-
-  printf(" xxx %s: nline_read = %d \n", fnam, nline_read); fflush(stdout);
 
   fclose(finp);
 

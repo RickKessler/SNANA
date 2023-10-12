@@ -21954,6 +21954,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         ***** IMPORTANT(v11_05h) ***** 
 
    HEADER_OVERRIDEF_FILE must have DOCUMENTATION block at top of file.
+ 
+   sim: for UVLAM_EXTRAP, improved SNIa computation of RESTLAMMIN_FILTERCEN;
+     See https://github.com/RickKessler/SNANA/issues/1213
 
         ***** USEFUL(v11_05h) ***** 
 

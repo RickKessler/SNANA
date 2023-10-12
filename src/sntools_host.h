@@ -611,9 +611,9 @@ struct {
   int  NSPECDATA, IDSPECDATA  ; 
 
   int  NBIN_WAVE;  // number of wavelength bins
-  int  ICOL_WAVE;  // table column with wavelength
+  // xxx mark delete  int  ICOL_WAVE;  // table column with wavelength
   int  ICOL_SPECTABLE[MXSPECBASIS_HOSTLIB]; // colum for each template
-  int  NUM_SPECBASIS[MXSPECBASIS_HOSTLIB];  // number for each template
+  // xxx mark  int  NUM_SPECBASIS[MXSPECBASIS_HOSTLIB];  // number for each template
   char VARNAME_SPECBASIS[MXSPECBASIS_HOSTLIB][28];
 
   int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
@@ -773,12 +773,17 @@ bool snr_detect_HOSTLIB(int IGAL);
 void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
 
 // SPECBASIS functions
+void   read_specTable_HOSTLIB_legacy(void);
 void   read_specTable_HOSTLIB(void);
+void   read_specTable_SNANA(char *spec_file,  char *VARNAME_PREFIX);
+void   read_specTable_EAZY(char *spec_file);
 void   match_specTable_HOSTVAR(void);
 void   checkVarName_specbasis(char *varName);
 int    ICOL_SPECTABLE(char *varname, int ABORTFLAG) ;
 void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
+
+void malloc_HOSTSPEC(int NBIN_WAVE, int ISPEC);
 
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);

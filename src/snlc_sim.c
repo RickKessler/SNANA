@@ -10248,7 +10248,7 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
 
 
   double SYNMAG = 99.0, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
-  double lamstep, lambin, ZP ; 
+  double lamstep, lambin, ZP, lammin, lammax ; 
   int  ifilt, NLAMFILT, ilam, NFLAM_DEFINED = 0 ; 
   char cfilt[4];
   int  OPT_INTERP = 1;     // linear
@@ -10259,21 +10259,15 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
   lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
+  lammin      = FILTER_SEDMODEL[ifilt].lammin ;
+  lammax      = FILTER_SEDMODEL[ifilt].lammax ;
   ZP          = FILTER_SEDMODEL[ifilt].ZP ;
 
   // sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
 
-  /* xxx mark delete xxx
-  // compute true Flam in each spectrograph bin
-  FLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
-  for(ilam=0; ilam < NLAMSPEC; ilam++ ) {
-    flux   = GENFLUX_LIST[ilam] ;
-    lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
-    flam   = flux / lambin ;
-    FLAM_LIST[ilam] = flam ;
+  if ( LAMAVG_LIST[0] > lammin || LAMAVG_LIST[NLAMSPEC-1] < lammax ) {
+    return MAG_ZEROFLUX ; // spectrum does not cover filter
   }
-  xxxx 
-*/
 
   // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
   flux_sum = 0.0 ;

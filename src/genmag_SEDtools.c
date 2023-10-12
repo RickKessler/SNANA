@@ -2993,6 +2993,44 @@ void print_ranges_SEDMODEL(char *NAME, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
 } // end  print_ranges_SEDMODEL
 
+double UVLAM_EXTRAP_RESTLAMMIN_FILTERCEN(double UVLAM_EXTRAP) {
+
+  // Created Oct 12 2023
+  // For input  wavelength UVLAM_EXTRAP, return minimum rest-frame 
+  // filter-center wavelength that does not result in blue filter edge
+  // going below UVLAM_EXTRAP..
+  // See https://github.com/RickKessler/SNANA/issues/1213
+  //
+  double lamrest = 0.0, lammin_edge, lammin_mean, lammin, mean, zmax ;
+  int ifilt;
+  char fnam[] = "UVLAM_EXTRAP_RESTLAMMIN_FILTER";
+
+  // ----------- BEGIN ---------
+
+  // loop over all filters to find the bluest 
+  lammin_edge = lammin_mean = 999999.0 ;
+  for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+    lammin = FILTER_SEDMODEL[ifilt].lammin;
+    mean   = FILTER_SEDMODEL[ifilt].mean ;
+
+    if ( lammin < lammin_edge ) {
+      lammin_edge = lammin ;  // obs frame
+      lammin_mean = mean ;    // obs frame
+    }
+  }
+
+  // compute max redshift where blue filter edge hits UVLAM_EXTRAP
+  zmax = lammin_edge / UVLAM_EXTRAP - 1.0;
+
+  // compute min filter center (rest-frame) at this zmax.
+  lamrest  = lammin_mean / ( 1.0 + zmax );
+
+  lamrest += 10.0 ; // add a little safety margin
+
+  return lamrest;
+
+} // end UVLAM_EXTRAP_RESTLAMMIN_FILTER
+
 // ======================================================
 void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 

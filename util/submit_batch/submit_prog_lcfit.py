@@ -40,6 +40,8 @@
 # Jul 15 2023 RK - add print_elapse_time calls in merge process to help
 #                   identify slow post-process steps.
 #
+# Oct 12 2023 RK - begin refactor/update to allow stand-alone BayeSN-python LCFIT code.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -52,6 +54,14 @@ import pandas as pd
 from   submit_params import *
 from   submit_prog_base import Program
 
+# =======================================
+
+LCFIT_SNANA  = "SNANA"    # default uses SNANA's snlc_fit.exe
+LCFIT_BAYESN = "BAYESN"   # begin integratoin, Oct 2023
+LCFIT_SALT3  = "SALT3"    # placeholder for future ??
+LCFIT_SUBCLASS  = LCFIT_SNANA  # one of the above: determined from program name
+
+# - - - - - 
 # define output table-format info
 ITABLE_TEXT  = 0
 ITABLE_HBOOK = 1
@@ -146,16 +156,23 @@ class LightCurveFit(Program):
         # end set_output_dir_name
 
     def submit_prepare_driver(self):
-
+        
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
-        # read/store &SNLCINP namelist
-        nml = f90nml.read(input_file)
-        self.config_prep['snlcinp'] = nml['snlcinp']
+        # check which subclass/code-type (SNANA, BayeSN, SALT3
+        self.fit_prep_subclass()
+
+        # read/store &SNLCINP namelist (for SNANA subclass only
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            nml = f90nml.read(input_file)
+            self.config_prep['snlcinp'] = nml['snlcinp']
+        else:
+            self.config_prep['snlcinp'] = None
 
         # abort immediately if particular snlcinp options are/aren't set
-        self.fit_prep_check_SNLCINP()
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            self.fit_prep_check_SNLCINP()
 
         # assemble list all possible paths where data/sim could be
         self.fit_prep_path_list()
@@ -180,7 +197,27 @@ class LightCurveFit(Program):
 
         # end submit_prepare_driver
 
-    # - - - - - - - - - 
+        return
+    # end submit_prepare_driver
+
+    def fit_prep_subclass(self):
+        # Created Oct 2023
+        # Default LCFIT_SUBCLASS = LCFIT_SNANA;
+        # here check program name for bayesn and salt3 subclass.
+        
+        program_name = self.config_prep['program'].lower()
+        global LCFIT_SUBCLASS
+        
+        if 'bayesn' in program_name :
+            LCFIT_SUBCLASS = LCFIT_BAYESN  # begin integration Oct 2023
+
+        if 'salt3' in program_name :
+            LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future
+
+        msg = f"\n\t !!!! LCFIT_SUBCLASS = {LCFIT_SUBCLASS} !!!! \n"
+        logging.info(msg)
+        return
+        # - - - - - - - - - 
 
     def fit_prep_same_sncid(self):
 
@@ -292,7 +329,10 @@ class LightCurveFit(Program):
 
         # find all possible paths where data or sim could be
         # Store array path_check_list
-        snlcinp             = self.config_prep['snlcinp']
+        #
+        # Oct 12 2023: 
+        #   refactor to find private_data_path with aribtrary SUBCLASS.
+
         path_sim_default    = f"{SNDATA_ROOT}/SIM"
         path_data_default   = f"{SNDATA_ROOT}/lcmerge"
         path_sim_list_file  = f"{path_sim_default}/PATH_SNDATA_SIM.LIST"
@@ -301,19 +341,34 @@ class LightCurveFit(Program):
         path_check_list.append(path_data_default)
         path_check_list.append(path_sim_default)
 
-        key = 'private_data_path'
-        self.config_prep[key] = None
-        if key in snlcinp :
-            self.config_prep[key] = snlcinp[key] # store before expanding ENV
-            path = os.path.expandvars(snlcinp[key])
-            skip_path = False 
-            if path == path_data_default: skip_path=True # allow user mistake
-            if not skip_path : path_check_list.append(path) 
+        # check private_data_path, and beware that input is based on LCFIT_SUBCLASS        
+        key      = 'private_data_path'
+        private_data_path       = None
 
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            snlcinp  = self.config_prep['snlcinp']
+            if key in snlcinp :
+                private_data_path = snlcinp[key] # keep env in path name
+
+        elif LCFIT_SUBCLASS == LCFIT_BAYESN :
+            pass  # MG: finish this
+        
+        elif LCFIT_SUBCLASS == LCFIT_SALT3 :
+            pass        
+
+        # add private path to list if not accidentally re-defining default path
+        # (i.e., ignore mistake to specify PRIVATE_DATA_PATH = SNDATA_ROOT/lcmerge)
+        self.config_prep[key] = private_data_path
+        if private_data_path is not None:
+            path_expand = os.path.expandvars(private_data_path)
+            if path_expand != path_data_default: 
+                path_check_list.append(path_expand)
+
+        # - - - - 
         with open(path_sim_list_file,"r") as f :
             for line in f:
-                path = os.path.expandvars(line.rstrip("\n"))
-                path_check_list.append(path)
+                path_expand = os.path.expandvars(line.rstrip("\n"))
+                path_check_list.append(path_expand)
                 
         #print(f" xxx path_check_list = {path_check_list} ")
 
@@ -670,7 +725,7 @@ class LightCurveFit(Program):
         use_table_format[ITABLE_TEXT] = True  # always force this format
 
         for fmt in range(0,NTABLE_FORMAT) :
-            key = TABLE_SNLCINP_LIST[fmt]
+            key    = TABLE_SNLCINP_LIST[fmt]
             suffix = TABLE_SUFFIX_LIST[fmt]
             if key in snlcinp :
                 use_table_format[fmt] = True

@@ -39,7 +39,7 @@ PROGRAM_TYPE_COSMOFIT   = "COSMOFIT"   # cosmology fitter
 
 # default program names ... can be changed by user
 PROGRAM_NAME_SIM     =  "snlc_sim.exe"
-PROGRAM_NAME_LCFIT   =  "snlc_fit.exe"
+PROGRAM_NAME_LCFIT   =  "snlc_fit.exe" 
 PROGRAM_NAME_BBC     =  "SALT2mu.exe"
 PROGRAM_NAME_COVMAT  =  "create_covariance.py"
 PROGRAM_NAME_WFIT    =  "wfit.exe"

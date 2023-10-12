@@ -20617,6 +20617,7 @@ void write_fitres_driver(char* fileName) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
+
   if ( cat_only ) {
     write_cat_info(fout); // write cat info to output file header
   }
@@ -20634,6 +20635,7 @@ void write_fitres_driver(char* fileName) {
   }
 
   // - - - - -
+
 
   if ( INPUTS.cutmask_write != -9 ) { 
     // write standard header keys
@@ -20782,6 +20784,7 @@ void write_fitres_driver(char* fileName) {
 
  WRITE_TABLE_ROWS:
 
+  
   // ignore comma in case sntable_cat.py utility is used for HOSTLIB
   // that can have commas in the NBR_LIST column.
   MSKOPT_PARSE_WORDS = 
@@ -20841,6 +20844,7 @@ void write_fitres_driver(char* fileName) {
 	   NWR, FITRESULT.NSNFIT , NSN_DATA );
   }
   fflush(FP_STDOUT);
+
 
   return ;
 
@@ -21272,16 +21276,28 @@ void write_cat_info(FILE *fout) {
   int NFILE = INPUTS.nfile_data; 
   int ifile, GZIPFLAG, FOUND_DOCANA = 0, FOUND_DOCANA_END=0 ;
   FILE *finp ;
-  char line[MXPATHLEN], nline_read=0,  KEY[100];
+  bool skip_line ;
+  int  MEMC = MXCHAR_LINE * sizeof(char) ;
+  char *line = (char*) malloc(MEMC);
+  char nline_read=0,  KEY[100], *ptrCR ;
   char fnam[] = "write_cat_info" ;
 
   // --------- BEGIN --------
+
+  printf(" 1 xxx %s:  \n", fnam); fflush(stdout);
 
   // check for DOCUMENTATION block (Aug 21 2023)
   finp  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); 
   while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
-    if ( strlen(line) > 0 ) {
+    ptrCR = strchr(line,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
+    
+    skip_line = ( strlen(line)==0 );
+
+    //    printf(" 2 xxx %s: skip=%d  line='%s' \n",   // .xyz
+    //	   fnam, skip_line, line); fflush(stdout);
+
+    if ( !skip_line ) {
       store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);
       nline_read++ ;
       // skip if first wd of line is not a valid row key

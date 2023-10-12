@@ -65,7 +65,7 @@ class Program:
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
-
+            
         # default is 1 submit, so iter is None
         # (bbc might change this to 1 and 2) 
         config_prep['submit_iter'] = None  # May 24 2021

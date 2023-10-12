@@ -9828,6 +9828,10 @@
 
          ***** IMPORTANT(v10_44l) ***** 
 
+    submit_batch_jobs:
+       + Begin integrating BAYESN fitting subclass into LCFIT class
+          (to run stand-alone python-BayeSN LCFIT program)
+
          ***** USEFUL(v10_44l) ***** 
 
      snlc_sim.c:  

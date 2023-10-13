@@ -291,7 +291,7 @@ class LightCurveFit(Program):
         #  + make sure that it exists (abort if not)
         #  + copy to SPLIT_JOBS_LCFIT where split-jobs run
         #
-        # If ignore null strings so that things like
+        # Ignore null strings so that things like
         #    MY_WHATEVER_FILE = ''
         # are ignored and doesn't abort.
         #
@@ -300,16 +300,45 @@ class LightCurveFit(Program):
         # For testing, however, it may be convenient to work with
         # local files; in this case, such files are copied to 
         # SPLIT_JOBS_LCFIT where the split-jobs are run.
+        #
+        # Oct 13 2023: update to select copy files based on subclass
 
         script_dir  = self.config_prep['script_dir']
-        snlcinp     = self.config_prep['snlcinp']
         input_file  = self.config_yaml['args'].input_file 
 
         # always copy primary input file
         shutil.copy(input_file,script_dir)
 
-        msgerr = []
-        copy_list_string = ""  # arg of cp
+        # fetch list of files to copy based on sub-class
+
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            copy_list = self.get_copy_file_list_SNANA()
+
+        elif LCFIT_SUBCLASS == LCFIT_BAYESN:
+            copy_list = self.get_copy_file_list_BAYESN()
+
+        elif LCFIT_SUBCLASS == LCFIT_SALT3:
+            copy_list = self.get_copy_file_list_SALT3()
+
+
+        if len(copy_list) > 0 :
+            copy_list_string = " ".join(copy_list)
+            msg = f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
+                  f"   {copy_list_string} \n"
+            logging.info(msg)
+            os.system(f"cp {copy_list_string} {script_dir}/")
+
+        # fit_prep_copy_files
+
+    def get_copy_file_list_SNANA(self):
+
+        # return list of files to copy into script_dir.
+        # These are files with no path; files with a full path
+        # are not copied (because they can be large)
+
+        snlcinp     = self.config_prep['snlcinp']
+        msgerr      = []
+        copy_list   = []
         for key_infile in COPY_SNLCINP_FILES :
             if key_infile in snlcinp :
                 infile     = snlcinp[key_infile]
@@ -320,16 +349,20 @@ class LightCurveFit(Program):
                                       f"{key_infile} = '{infile}'")
                         msgerr.append(f"Check &SNLCINP in {input_file}")
                         self.log_assert(False,msgerr)
-                    copy_list_string += f"{infile} "
+                    copy_list.append(infile)
+        return copy_list
 
-        if len(copy_list_string) > 0 :
-            msg = f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
-                  f"   {copy_list_string} \n"
-            logging.info(msg)
-            os.system(f"cp {copy_list_string} {script_dir}/")
+        # end get_copy_file_list_SNANA
 
-        # fit_prep_copy_files
+    def get_copy_file_list_BAYESN(self):
+        return []
+        # end get_copy_file_list_BAYESN
 
+    def get_copy_file_list_SALT3(self):
+        return []
+        # end get_copy_file_list_SALT3
+
+        
     def fit_prep_check_SNLCINP(self):
 
         # Abort on particulare SNLCINP inputs that are not allowed

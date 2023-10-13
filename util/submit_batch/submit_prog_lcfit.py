@@ -41,6 +41,7 @@
 #                   identify slow post-process steps.
 #
 # Oct 12 2023 RK - begin refactor/update to allow stand-alone BayeSN-python LCFIT code.
+#                  See dependence on LCFIT_SUBCLASS.
 #
 # - - - - - - - - - -
 
@@ -67,9 +68,21 @@ ITABLE_TEXT  = 0
 ITABLE_HBOOK = 1
 ITABLE_ROOT  = 2
 TABLE_NAME_LIST    = [SUFFIX_FITRES, 'SNANA', 'LCPLOT'] # for TEXT format only
-TABLE_SUFFIX_LIST  = [ 'TEXT', 'HBOOK', 'ROOT' ]
-TABLE_SNLCINP_LIST = [ 'TEXTFILE_PREFIX', 'HFILE_OUT', 'ROOTFILE_OUT' ]
-NTABLE_FORMAT = len(TABLE_SUFFIX_LIST)
+
+FORMAT_TEXT  = 'TEXT'
+FORMAT_HBOOK = 'HBOOK'
+FORMAT_ROOT  = 'ROOT'
+
+# xxxx mark delete xxxxxxxx
+#TABLE_SUFFIX_LIST  = [ 'TEXT', 'HBOOK', 'ROOT' ]
+#TABLE_SNLCINP_LIST = [ 'TEXTFILE_PREFIX', 'HFILE_OUT', 'ROOTFILE_OUT' ]
+#NTABLE_FORMAT = len(TABLE_SUFFIX_LIST)
+# xxxxxxxxxxxxxxxxxxxxxxxx
+
+# these globals will be updated in prep_subclass
+TABLE_INPKEY_LIST  = []   # input key per format
+TABLE_FORMAT_LIST  = []   # format is used as suffix for file names
+NTABLE_FORMAT      = 0 
 
 
 # list of supplemental file inputs to copy IF no path is specified.
@@ -204,16 +217,27 @@ class LightCurveFit(Program):
         # Created Oct 2023
         # Default LCFIT_SUBCLASS = LCFIT_SNANA;
         # here check program name for bayesn and salt3 subclass.
-        
+
         program_name = self.config_prep['program'].lower()
-        global LCFIT_SUBCLASS
+        global LCFIT_SUBCLASS, TABLE_FORMAT_LIST, NTABLE_FORMAT, TABLE_INPKEY_LIST
         
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS = LCFIT_BAYESN  # begin integration Oct 2023
-
-        if 'salt3' in program_name :
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT ] # remove HBOOK and ROOT options
+            TABLE_INPKEY_LIST = [ '--fitres_output_file' ]
+            
+        elif 'salt3' in program_name :
             LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT ] # remove HBOOK and ROOT options
+            
+        else :
+            # default is SNANA lcfit
+            LCFIT_SUBCLASS = LCFIT_SNANA
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT,       FORMAT_HBOOK,  FORMAT_ROOT ] 
+            TABLE_INPKEY_LIST = [ 'TEXTFILE_PREFIX', 'HFILE_OUT',   'ROOTFILE_OUT' ]
 
+        NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
+        
         msg = f"\n\t !!!! LCFIT_SUBCLASS = {LCFIT_SUBCLASS} !!!! \n"
         logging.info(msg)
         return
@@ -722,27 +746,75 @@ class LightCurveFit(Program):
 
         self.config_prep['use_table_format'] = [ False ] * NTABLE_FORMAT
         use_table_format = self.config_prep['use_table_format']
-        use_table_format[ITABLE_TEXT] = True  # always force this format
+        # xxx mark use_table_format[ITABLE_TEXT] = True  # always force this format
 
-        for fmt in range(0,NTABLE_FORMAT) :
-            key    = TABLE_SNLCINP_LIST[fmt]
-            suffix = TABLE_SUFFIX_LIST[fmt]
-            if key in snlcinp :
-                use_table_format[fmt] = True
+        use_table_format = []
+        for key, fmt in zip(TABLE_INPKEY_LIST, TABLE_FORMAT_LIST):
+            if fmt == FORMAT_TEXT:
+                use = True  # always force this to be true
+            else:
+                use = False
 
-            logging.info(f"  Write {suffix:6s} output table : " \
-                         f"{use_table_format[fmt]}")
+            if LCFIT_SUBCLASS == LCFIT_SNANA :
+                if key in snlcinp :  # snana selects among TEXT, ROOT, HBOOK   
+                    use = True
+
+            use_table_format.append(use)
+            logging.info(f"  Write {fmt:6s} output table : {use}")
+
+        self.config_prep['use_table_format'] = use_table_format
+
+        # xxxxxxx mark delete xxxxxxx Oct 12 2023 xxxxxxx
+        #for i in range(0,NTABLE_FORMAT) :
+        #    key    = TABLE_INPKEY_LIST[i]
+        #    fmt    = TABLE_FORMAT_LIST[i]
+        #    if LCFIT_SUBCLASS == LCFIT_SNANA :
+        #        if key in snlcinp :  # snana selects among TEXT, ROOT, HBOOK
+        #            use_table_format[i] = True
+        #    else:
+        #        use_table_format[i] = True  # BayeSN, SALT3 only do TEXT output ... for now
+        # xxxxxxxx end mark xxxxxxx
+
+
 
         # get list of tables in SNTABLE_LIST
-        sntable_string = snlcinp['sntable_list']
-        sntable_list   = []
-        #print(f" xxx sntable_string = {sntable_string}")
 
-        for string in sntable_string.split() :
-            sntable_list.append(string)
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            # SNANA tables include SNANA, FITRES, LCPLOT, OUTLIER,  ...
+            sntable_string = snlcinp['sntable_list'] 
+        else:
+            # only one kind of table for non-SNANA fitters?
+            sntable_string = 'FITRES'
+
+        sntable_list = sntable_string.split()
+
+        # xxxx mark delete xxx
+        #sntable_list   = []
+        #for string in sntable_string.split() :
+        #    sntable_list.append(string)
+        # xxxx
 
         logging.info(f"  SNTABLE_LIST = {sntable_list} ")
 
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            self.check_options_SNANA_table()
+
+        logging.info("")
+
+        return
+        # end fit_prep_table_options
+
+    def check_options_SNANA_table(self):
+
+        # Created Oct 2023
+        # sanity checks for SNANA tables
+
+        script_dir       = self.config_prep['script_dir']
+        use_table_format = self.config_prep['use_table_format']
+
+        #sys.exit(f"\n xxx use_table_format = {use_table_format}  ITABLE_ROOT={ITABLE_ROOT}\n")
+
+        msgerr = []
         # if appending variables to FITRES file, make sure
         # that either HBOOK or ROOT is specified
         CONFIG    = self.config_yaml['CONFIG']
@@ -755,9 +827,10 @@ class LightCurveFit(Program):
                 require = True
             if not require:
                 msgerr.append(f" {key} found in CONFIG input")
-                msgerr.append(f" but could not find HBOOK or ROOT. ")
+                msgerr.append(f" but could not find {FORMAT_HBOOK} or {FORMAT_ROOT}. ")
                 self.log_assert(False,msgerr)
             
+        # for LCFIT_SNANA
         # if APPEND_TABLE_TEXTFILE is defined, make sure that it exists
         # and that it has a full path.
         key = KEY_APPEND_TABLE_TEXTFILE
@@ -778,10 +851,9 @@ class LightCurveFit(Program):
                 if '/' not in text_file :
                     shutil.copy(text_file,script_dir)
 
-            logging.info("")
 
-        # end fit_prep_table_options
-
+        return
+        # end check_options_SNANA_table
 
     def write_command_file(self,icpu,f):
         # For this icpu, write full set of sim commands to
@@ -907,11 +979,11 @@ class LightCurveFit(Program):
         # include suffix in TEXTFILE_PREFIX argument
         for itab in range(0,NTABLE_FORMAT) :
             if use_table_format[itab] :
-                key    = TABLE_SNLCINP_LIST[itab].upper()
-                suffix = TABLE_SUFFIX_LIST[itab]
+                key    = TABLE_INPKEY_LIST[itab].upper()
+                fmt    = TABLE_FORMAT_LIST[itab]
                 arg    = f"{key:<16} {prefix}"
-                if suffix != TABLE_SUFFIX_LIST[ITABLE_TEXT] :
-                    arg += f".{suffix}"
+                if fmt != TABLE_FORMAT_LIST[ITABLE_TEXT] :
+                    arg += f".{fmt}"  # format is suffix
                 arg_list.append(f"  {arg}")
 
         
@@ -1012,7 +1084,7 @@ class LightCurveFit(Program):
         f.write(f"N_JOB_LINK:          {n_job_link}   " \
                 f"# Njob with link to FITOPT000\n")
         f.write(f"JOBFILE_WILDCARD:    '*SPLIT*' \n")
-        f.write(f"TABLE_FORMATS:       {TABLE_SUFFIX_LIST} \n")
+        f.write(f"TABLE_FORMAT_LIST:   {TABLE_FORMAT_LIST} \n")
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
         f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
         f.write(f"PRIVATE_DATA_PATH:   {private_data_path} \n")
@@ -1089,6 +1161,12 @@ class LightCurveFit(Program):
 
         # fit-specific settings to config_prep that are needed later.
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
+
+        # restore list of possible table formats for this subclass (Oct 2023)
+        global TABLE_FORMAT_LIST, NTABLE_FORMAT
+        TABLE_FORMAT_LIST = submit_info_yaml['TABLE_FORMAT_LIST']
+        NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
+
         ## self.config_prep['output_dir']   = output_dir 
 
         # end merge_config_prep
@@ -1254,9 +1332,11 @@ class LightCurveFit(Program):
         # - - - - -
         # make sure we have correct number of files to merge
         for itable in range(0,NTABLE_FORMAT):
-            suffix         =  TABLE_SUFFIX_LIST[itable]
+            fmt         =  TABLE_FORMAT_LIST[itable]
             if itable == ITABLE_TEXT :
-                suffix = f"{SUFFIX_FITRES}.{suffix}"  # special case for TEXT
+                suffix = f"{SUFFIX_FITRES}.{fmt}"  # special case for TEXT
+            else:
+                suffix = fmt
             use_format     =  use_table_format[itable] 
             f_wildcard     =  f"{script_dir}/{version_fitopt}*{suffix}"
             if use_format :
@@ -1321,11 +1401,17 @@ class LightCurveFit(Program):
         use_table_format      = submit_info_yaml['USE_TABLE_FORMAT']
 
         suffix_tar_list = JOB_SUFFIX_TAR_LIST.copy()
-        for itable in range(0,NTABLE_FORMAT):
-            use    = use_table_format[itable]
-            suffix = TABLE_SUFFIX_LIST[itable]
+        for use, suffix in zip(use_table_format,TABLE_FORMAT_LIST):
             if use:
                 suffix_tar_list.append(suffix)
+
+        # xxxxxxxxxx mark delete Oct 12 2023 xxxxxx
+        #for itable in range(0,NTABLE_FORMAT):
+        #    use    = use_table_format[itable]
+        #    suffix = TABLE_FORMAT_LIST[itable]
+        #    if use:
+        #        suffix_tar_list.append(suffix)
+        # xxxxxxx end mark xxxxxxxx
 
         return suffix_tar_list
         # end get_suffix_tar_list_lcfit
@@ -1351,15 +1437,14 @@ class LightCurveFit(Program):
 
             for itab in range(0,NTABLE_FORMAT):
                 if not use_table_format[itab] : continue
-
-                suf   =  TABLE_SUFFIX_LIST[itab]
-                if itab == ITABLE_TEXT :
-                    suf  = f"{SUFFIX_FITRES}"  # special case
+                suf   =  TABLE_FORMAT_LIST[itab]
+                if itab == ITABLE_TEXT :   suf  = f"{SUFFIX_FITRES}"  # special case
 
                 suf += '.gz'
                 cmd_link = f"ln -s {fitopt_ref}.{suf} {fitopt_num}.{suf} ; "
                 cmd_link_all += cmd_link
                 logging.info(f"   create sym-link to {fitopt_ref}.{suf}")
+
             cmd = f"{cdv} ; {cmd_link_all}"
             create_links = True
             os.system(cmd)
@@ -1386,7 +1471,7 @@ class LightCurveFit(Program):
         nevt_expect      = version_fitopt_dict['nevt_expect']
 
         itable           = ITABLE_TEXT
-        suffix           = TABLE_SUFFIX_LIST[itable]
+        suffix           = TABLE_FORMAT_LIST[itable]
         prefix           = PREFIX_MERGE  
         table_wildcard  = f"{version_fitopt}*{table_name}.TEXT"
 
@@ -1714,7 +1799,7 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
-        suffix           = TABLE_SUFFIX_LIST[itable]
+        suffix           = TABLE_FORMAT_LIST[itable]
         prefix           = PREFIX_MERGE
         msgerr           = []
         tref = datetime.datetime.now()
@@ -1920,7 +2005,7 @@ class LightCurveFit(Program):
 
             for itable in range(0,NTABLE_FORMAT):
                 use    = use_table_format[itable]
-                suffix = TABLE_SUFFIX_LIST[itable]
+                suffix = TABLE_FORMAT_LIST[itable]
                 if itable == ITABLE_TEXT:
                     suffix = SUFFIX_FITRES  # special case here
                 table_file = f"{version}/{fitopt}.{suffix}"
@@ -2050,7 +2135,7 @@ class LightCurveFit(Program):
         #if 'FORCE' not in CONFIG :
         #    return flag
 
-        suffix = TABLE_SUFFIX_LIST[itable]
+        suffix = TABLE_FORMAT_LIST[itable]
 
         key_list = [ f"FORCE_MERGE_TABLE_MISSING({suffix}", 
                      f"FORCE_MERGE_TABLE_CORRUPT({suffix}" ]

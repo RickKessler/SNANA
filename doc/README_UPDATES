@@ -21988,9 +21988,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    sntools_host.c
      + replace crazy host MAG_ERR value with 9.0
+     + add option to read host SED templates directly from EAZY repo; see manual
 
    Add option to NOT gzip sim data files:
      + sim-input key GZIP_DATA_FILES (default=1)
      + submit_batch_jobs CONFIG input NOGZIP_DATA_FILES
+
+   submit_prog_lcfit.py:
+     + refactor to treat sub-classes for SNANA, BayeSN, SALT3.
+       The sub-class is identified by JOBNAME.
 
 END: 

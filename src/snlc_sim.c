@@ -9648,7 +9648,6 @@ void GENSPEC_DRIVER(void) {
     // Feb 2 2017: convert flux to FLAM (dF/dlam)
     GENSPEC_FLAM(imjd) ;
 
-
     if ( GENSPEC.NBLAM_VALID[imjd] > 0 ) {
       GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
       NGENSPEC_TOT++ ;      // total NSpec over all Light curve
@@ -10103,12 +10102,11 @@ void GENSPEC_TRUE(int imjd) {
 		    DUMPFLAG,                     // (I)
 		    ptrGENFLUX,       // (O) true fluxGen per bin 
 		    ptrGENMAG );      // (O) magGen per bin
-    return;
+    GOT_SNSPEC = true;
   }
 
   // check which model below to fetch transient spectrum.
-
-  if ( INDEX_GENMODEL == MODEL_SALT2 )  {
+  else if ( INDEX_GENMODEL == MODEL_SALT2 )  {
     genSpec_SALT2(parList_SN, parList_HOST,
 		  GENLC.MWEBV,             // Galactic		 
 		  GENLC.REDSHIFT_HELIO, TOBS,

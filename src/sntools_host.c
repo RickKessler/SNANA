@@ -702,7 +702,7 @@ void init_REQUIRED_HOSTVAR(void) {
 
   int NVAR,  LOAD, i ;
   char *cptr, *varName ;
-  //  char fnam[] = "init_REQUIRED_HOSTVAR" ;
+  char fnam[] = "init_REQUIRED_HOSTVAR" ;
 
   // ----------- BEGIN -----------
 
@@ -1736,7 +1736,7 @@ void  read_specTable_HOSTLIB(void) {
   else
     { NSPEC = HOSTSPEC.NSPECDATA ; }
 
-  printf("    Found %d spectral %s templates and stored %d of %d wavelength bins\n",
+  printf("    Found %d spectral %s templates and stored %d of %d wavelength bins\n\n",
 	 NSPEC, HOSTSPEC.TABLENAME, NBIN_WAVE_KEEP, NBIN_WAVE_ORIG );
   fflush(stdout);
 
@@ -1755,7 +1755,7 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
   // and store in HOSTSPEC structure.
 
   int NBIN_WAVE=0, NBIN_READ=0, NVAR, MEMD, NUM, IFILETYPE, LEN_PREFIX ;
-  int ICOL_WAVE, NVAR_WAVE=0, ivar,  OPT_VARDEF,  NSPEC;
+  int ICOL_WAVE, NVAR_WAVE=0, ivar,  OPT_VARDEF=0,  NSPEC;
   char *varName, varName_tmp[100] ;
   char TBLNAME[] = "HOSTSPEC";
   char fnam[] = "read_specTable_SNANA" ;
@@ -1790,16 +1790,8 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
     if ( ICOL_WAVE == ivar ) {
       NVAR_WAVE++ ;
       if ( NVAR_WAVE == 1 ) { 
-	malloc_HOSTSPEC(NBIN_WAVE, -1);
-	  
-	/* xxx mark delete 
-	HOSTSPEC.WAVE_CEN     = (double*) malloc(MEMD);
-	HOSTSPEC.WAVE_MIN     = (double*) malloc(MEMD);
-	HOSTSPEC.WAVE_MAX     = (double*) malloc(MEMD);
-	HOSTSPEC.WAVE_BINSIZE = (double*) malloc(MEMD);
-	xxx end mark */
-	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE_CEN, NBIN_WAVE, 
-				OPT_VARDEF); 
+	malloc_HOSTSPEC(NBIN_WAVE, -1);	  
+	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE_CEN, NBIN_WAVE, OPT_VARDEF); 
       }
     }  
 
@@ -1811,11 +1803,9 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
       if ( NSPEC < MXSPECBASIS_HOSTLIB ) {
 	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
 
-	HOSTSPEC.ICOL_SPECTABLE[NSPEC] = ivar; // xxx mark delete
-	// xx mark 	HOSTSPEC.NUM_SPECBASIS[N]  = NUM;  // xxx mark delete
+	HOSTSPEC.ICOL_SPECTABLE[NSPEC] = ivar; 
 	sprintf(HOSTSPEC.VARNAME_SPECBASIS[NSPEC],"%s", varName);
-
-	// xxx mark	HOSTSPEC.FLAM_BASIS[N] = (double*) malloc(MEMD);
+	
 	malloc_HOSTSPEC(NBIN_WAVE,NSPEC);
 	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.FLAM_BASIS[NSPEC],
 				NBIN_WAVE, OPT_VARDEF);
@@ -1825,8 +1815,6 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
   
   } // end ivar loop
 
-
-  // xxx mark  HOSTSPEC.FLAM_EVT = (double*) malloc(MEMD);
 
   // - - - - - - - - - - - - - -
   // abort tests
@@ -1849,9 +1837,8 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 	
-  // xxx mark   HOSTSPEC.ICOL_WAVE = ICOL_WAVE ;
 
-
+  // - - - - - -
   // read the entire table, and close it.
   NBIN_READ = SNTABLE_READ_EXEC();
 
@@ -1959,6 +1946,10 @@ void read_specTable_EAZY(char *spec_list_file) {
     // read lam and flam from spec file
     rd2columnFile(fileName_spec, MXLAM, &NBIN_WAVE, 
 		  HOSTSPEC.WAVE_CEN, HOSTSPEC.FLAM_BASIS[NSPEC] );
+
+
+    // store column variable name as if it were read from a single SNANA-style table.
+    sprintf(HOSTSPEC.VARNAME_SPECBASIS[NSPEC],"%s%2.2d", PREFIX_SPECBASIS, NSPEC);
 
     NSPEC++ ;
   }
@@ -2530,7 +2521,6 @@ void read_head_HOSTLIB(FILE *fp) {
     // Feb 2014 -> case insensitive check
     MATCH = 0;
     for( ivar=0; ivar < HOSTLIB.NVAR_ALL; ivar++ ) {
-      // xxxx if ( strcmp_ignoreCase(c_var,HOSTLIB.VARNAME_ALL[ivar])==0){ 
       if ( match_varname_HOSTLIB(c_var,HOSTLIB.VARNAME_ALL[ivar]) ) { 
 	MATCH = 1 ; 
 	HOSTLIB.IVAR_ALL[IVAR_STORE] = ivar ;

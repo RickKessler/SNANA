@@ -57,10 +57,10 @@ from   submit_prog_base import Program
 
 # =======================================
 
-LCFIT_SNANA  = "SNANA"    # default uses SNANA's snlc_fit.exe
-LCFIT_BAYESN = "BAYESN"   # begin integratoin, Oct 2023
-LCFIT_SALT3  = "SALT3"    # placeholder for future ??
-LCFIT_SUBCLASS  = LCFIT_SNANA  # one of the above: determined from program name
+LCFIT_SNANA  = 'SNANA'    # default uses SNANA's snlc_fit.exe
+LCFIT_BAYESN = 'BAYESN'   # begin integratoin, Oct 2023
+LCFIT_SALT3  = 'SALT3'    # placeholder for future ??
+LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 
 # - - - - - 
 # define output table-format info
@@ -84,7 +84,48 @@ TABLE_INPKEY_LIST  = []   # input key per format
 TABLE_FORMAT_LIST  = []   # format is used as suffix for file names
 NTABLE_FORMAT      = 0 
 
+KEY_SUBCLASS_DICT = {
+    'version_photometry' :  {  # key for folder name for real or sim data 
+        LCFIT_SNANA  : 'VERSION_PHOTOMETRY',
+        LCFIT_BAYESN : '--version_photometry',
+        LCFIT_SALT3  : None
+    },
 
+    'jobsplit' :  {   # used to internal select independent subsets
+        LCFIT_SNANA  : 'JOBSPLIT',
+        LCFIT_BAYESN : '--jobsplit',
+        LCFIT_SALT3  : None
+    },    
+        
+    'sim_prescale' : {   # optional prescale based on --fast or --faster command line input
+        LCFIT_SNANA  : 'SIM_PRESCALE',
+        LCFIT_BAYESN : '--sim_prescale',
+        LCFIT_SALT3  : None
+    },
+
+    # outfile specifications
+    'outfile_prefix' :  {
+        LCFIT_SNANA  : 'TEXTFILE_PREFIX',
+        LCFIT_BAYESN : '--outfile_prefix',
+        LCFIT_SALT3  : None
+    },
+    'outfile_hbook' :  {
+        LCFIT_SNANA  : 'HFILE_OUT',
+        LCFIT_BAYESN : None,
+        LCFIT_SALT3  : None
+    },
+    'outfile_root' :  {
+        LCFIT_SNANA  : 'ROOTFILE_OUT',
+        LCFIT_BAYESN : None,
+        LCFIT_SALT3  : None
+    },
+
+    'dummy_nocomma' : None
+}
+
+# - - - - - - - 
+# here are a few things for SNANA &SNLCINP namelist,
+# but NOT for other sub-classes.
 # list of supplemental file inputs to copy IF no path is specified.
 COPY_SNLCINP_FILES = \
     [ "KCOR_FILE", "FLUXERRMODEL_FILE", "HEADER_OVERRIDE_FILE", \
@@ -96,6 +137,7 @@ ABORT_ON_SNLCINP_INPUTS =  \
   [ "OUT_EPOCH_IGNORE_FILE",  "SNMJD_LIST_FILE", "SNMJD_OUT_FILE", \
     "SIMLIB_OUT", "SIMLIB_OUTFILE", "MARZFILE_OUT" ]
 
+# - - - - - - -
 # define columns in merge file
 COLNUM_FIT_MERGE_STATE           = 0  # STATE required in col=0
 COLNUM_FIT_MERGE_VERSION         = 1
@@ -180,12 +222,10 @@ class LightCurveFit(Program):
         if LCFIT_SUBCLASS == LCFIT_SNANA:
             nml = f90nml.read(input_file)
             self.config_prep['snlcinp'] = nml['snlcinp']
+            self.fit_prep_check_SNLCINP()
         else:
             self.config_prep['snlcinp'] = None
 
-        # abort immediately if particular snlcinp options are/aren't set
-        if LCFIT_SUBCLASS == LCFIT_SNANA:
-            self.fit_prep_check_SNLCINP()
 
         # assemble list all possible paths where data/sim could be
         self.fit_prep_path_list()
@@ -224,20 +264,26 @@ class LightCurveFit(Program):
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS = LCFIT_BAYESN  # begin integration Oct 2023
             TABLE_FORMAT_LIST = [ FORMAT_TEXT ] # remove HBOOK and ROOT options
-            TABLE_INPKEY_LIST = [ '--fitres_output_file' ]
             
         elif 'salt3' in program_name :
             LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT ] # remove HBOOK and ROOT options
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT ] 
             
         else :
             # default is SNANA lcfit
             LCFIT_SUBCLASS = LCFIT_SNANA
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT,       FORMAT_HBOOK,  FORMAT_ROOT ] 
-            TABLE_INPKEY_LIST = [ 'TEXTFILE_PREFIX', 'HFILE_OUT',   'ROOTFILE_OUT' ]
-
-        NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_HBOOK,  FORMAT_ROOT ] 
         
+        NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
+
+        # load input key(s) TABLE_INPKEY_LIST for each format
+        key_dict_list = [ 'outfile_prefix', 'outfile_hbook', 'outfile_root' ] # internal only
+        TABLE_INPKEY_LIST = []
+        for itable in range(0,NTABLE_FORMAT):
+            key_dict = key_dict_list[itable]  # internal key for dictionary
+            key_input_file = KEY_SUBCLASS_DICT[key_dict][LCFIT_SUBCLASS] # key in fit-input file
+            TABLE_INPKEY_LIST.append(key_input_file) # key per defined out-table format
+
         msg = f"\n\t !!!! LCFIT_SUBCLASS = {LCFIT_SUBCLASS} !!!! \n"
         logging.info(msg)
         return
@@ -998,13 +1044,18 @@ class LightCurveFit(Program):
         JOB_INFO['check_abort']   = check_abort
 
         # set command line arguments
-        arg_list.append(f"  VERSION_PHOTOMETRY {version}")
-        arg_list.append(f"  JOBSPLIT {isplit} {n_job_split}")
 
+        key = KEY_SUBCLASS_DICT['version_photometry'][LCFIT_SUBCLASS]
+        arg_list.append(f"  {key} {version}")
+
+        key = KEY_SUBCLASS_DICT['jobsplit'][LCFIT_SUBCLASS]
+        arg_list.append(f"  {key} {isplit} {n_job_split}")
+            
         # check fast option to prescale sims by 10 (data never pre-scaled)
         if args.prescale > 1 :
-            arg_list.append(f"  SIM_PRESCALE {args.prescale}")
-
+            key = KEY_SUBCLASS_DICT['sim_prescale'][LCFIT_SUBCLASS]
+            arg_list.append(f"  {key} {args.prescale}")
+            
         if args.require_docana :
             arg_list.append(f"  REQUIRE_DOCANA 1")
 
@@ -1012,7 +1063,7 @@ class LightCurveFit(Program):
         # include suffix in TEXTFILE_PREFIX argument
         for itab in range(0,NTABLE_FORMAT) :
             if use_table_format[itab] :
-                key    = TABLE_INPKEY_LIST[itab].upper()
+                key    = TABLE_INPKEY_LIST[itab]  # xxx mark delete .upper()
                 fmt    = TABLE_FORMAT_LIST[itab]
                 arg    = f"{key:<16} {prefix}"
                 if fmt != TABLE_FORMAT_LIST[ITABLE_TEXT] :

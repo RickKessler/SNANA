@@ -4538,27 +4538,34 @@ Check memory usage in the stdout from this output:
 \newcommand{\Sn}{{\cal S}_{n}}
 
 % ------------------------------------
+
+\clearpage
 \subsubsection{Generating Host Spectra}
 \label{sss:hostlib_spectra}
 % ------------------------------------
 
 Host spectra are generated with the {\tt SPECTROGRAPH} feature,
 and with several inputs as follows:
-\begin{itemize}
+\begin{itemize}[noitemsep]
   \item {\tt HOSTLIB\_SPECBASIS\_FILE} points to a file with spectral basis
          such as PCA. The header keys must include \\
          {\tt VARNAMES: ROW  WAVELENGTH  SPECBASIS00 SPECBASIS01 SPECBASIS02 ... etc}, \\
-         where each vertical {\tt SPECBASIS} column is an SED basis.
+         where each vertical {\tt SPECBASIS} column is an SED basis. Following {\tt VARNAMES},
+         a {\tt ROW:} key specifies $\lambda$ and $\Flam$ for each wavelength bin. \\
          Optional keys before the header are:
           \vspace{-0.5cm}
      \begin{verbatim}
          FLAM_SCALE: 1.55E-30    # global flux norm.
          FLAM_SCALE_POWZ1: -2    # z-norm: 1/(1+z)**2
      \end{verbatim}  \vspace{-1.0cm}
+    If using {\tt EAZY} SED templates, reformatting to SNANA-table format can be avoided with
+    key ``{\tt EAZY\_TEMPLATES\_LIST\_FILE: <list\_file>}'' that points to the template-list file
+    in the {\tt EAZY} repository. With this {\tt EAZY}-direct read, 
+    leave out the {\tt VARNAMES} and {\tt ROW} keys.
 %
   \item {\tt HOSTLIB\_SPECDATA\_FILE} points to a file with spectral data.
          The header keys must include \\
-         {\tt VARNAMES: ROW  WAVELENGTH  SPECDATA00 SPECDATA01 ... etc },  \\
+         {\tt VARNAMES: ROW  WAVELENGTH  SPECDATA00 SPECDATA01 ... etc}, 
          where each vertical column is an SED.
          Optional keys before the header are the same as for {\tt SPECBASIS}.
 %
@@ -4590,7 +4597,7 @@ There are two approximate methods to account for PSF smearing
 in the DLR computation:
 %
 \newcommand{\absmear}{ab_{\rm smear}}
-\begin{enumerate}
+\begin{enumerate}[noitemsep]
    \item define \hostlib\ columns {\tt a\_DLR} and {\tt b\_DLR} based
        on measured half-light radii. These quanitieis are used only
        to compute DLR, but are not used to overlay a true SN location.

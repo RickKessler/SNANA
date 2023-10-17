@@ -1602,7 +1602,7 @@ void  read_specTable_HOSTLIB(void) {
   // --------------- BEGIN -----------------
 
 
-  if ( INPUTS.DEBUG_FLAG != 1012 ) { read_specTable_HOSTLIB_legacy(); return; }
+  if ( INPUTS.DEBUG_FLAG == -1012 ) { read_specTable_HOSTLIB_legacy(); return; }
 
   // DEBUG_FLSG = 1012 so continue with refactored code
 

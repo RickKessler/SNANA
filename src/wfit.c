@@ -2171,11 +2171,11 @@ int ISEED_UNIQUE(void) {
   // --------- BEGIN --------
 
   k = 0 ;
-  while ( NUSE < NUSE_MAX ) {
+  while ( NUSE < NUSE_MAX &&  k < HD->NSN-1 ) {
 
-    // make sure that z-bin has a real value and not zero
+    // make sure that z-bin has a real MU value 
     if ( HD->mu_sig[k] < 8.0 ) {
-      product *= ( HD->mu[k]/40.0 ) ;
+      product *= ( HD->mu[k]/40.0 ) ;  // ~ unity 
       NUSE++ ;
     }
     k++ ;

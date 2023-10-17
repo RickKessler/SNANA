@@ -1040,6 +1040,8 @@ void readme_docana_misc(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMAG:", noComment, 
 		    lenkey, false, nval2,dptr, 0.0,40.0, -999.0); 
 
+  readme_docana_load_list(&i, pad, &README_KEYS_CID);
+
   readme_docana_load_list(&i, pad, &README_KEYS_RANSYSTPAR);
 
   readme_docana_load_list(&i, pad, &README_KEYS_ZVARIATION);

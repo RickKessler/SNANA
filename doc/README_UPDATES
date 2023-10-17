@@ -21989,6 +21989,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools_host.c
      + replace crazy host MAG_ERR value with 9.0
      + add option to read host SED templates directly from EAZY repo; see manual
+       Beware of major refactor for host-galaxy spectra.
+       Go back to legacy code with  "DEBUG_FLAG 1012"
 
    Add option to NOT gzip sim data files:
      + sim-input key GZIP_DATA_FILES (default=1)
@@ -21997,5 +21999,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_prog_lcfit.py:
      + refactor to treat sub-classes for SNANA, BayeSN, SALT3.
        The sub-class is identified by JOBNAME.
+
+   wfit.c:
+     + new option ranseed_Rcmb to fluctuate Rcmb value 
+       (intended for error validation on many sim-data samples)
 
 END: 

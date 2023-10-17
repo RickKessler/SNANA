@@ -45,9 +45,9 @@
      Dai      2022 (2212.06879)  SALT3 training syst
      Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
      Armstron 2023 (2307.13862)  contraint validation
-     Kessler  2023 (2306.05819)  Binning-is-sinning redemption
+     Kessler  2023 (2306.05819)  Binning-is-sinning redemption     
      Vincenzi 2023 (in prep)     DES5YR analysis & syst
-
+    
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
     + include option to float wa in w0waCDM model
@@ -137,6 +137,10 @@
 
  Aug 03 2023: 
    + use print_cputime(..) utility to grep stdout for standard CPUTIME string.
+
+ Oct 17 2023: 
+   + new option ranseed_Rcmb to fluctuate Rcmb value 
+     (intended for error validation on many sim-data samples)
 
 *****************************************************************************/
 
@@ -332,9 +336,10 @@ Cosparam COSPAR_SIM ; // cosmo params from simulated data
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
-  int ranseed_R;     // random seed used to fluctuate R 
   double z, a ;      // redshift and 1/(1+z)
   char comment[200];
+
+  int ranseed_R;     // random seed used to fluctuate R (1->internally compute)
 } CMB_PRIOR;
 
 
@@ -468,8 +473,11 @@ double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
 
 void   init_cmb_prior(int OPT) ;
+double get_Rcmb_ranshift(void) ;
 double chi2_bao_prior(Cosparam *cpar);
 double chi2_cmb_prior(Cosparam *cpar);
+
+int    ISEED_UNIQUE(void);
 
 void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
                         HzFUN_INFO_DEF *HzFUN ) ;
@@ -495,7 +503,6 @@ double one_over_EofA(double a, Cosparam *cptr);
 double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
-
 #define EPS_CONVERGE_POSomm  1.0e-6
 #define EPS_CONVERGE_NEGomm  1.0e-3
 #define JMAX 20
@@ -757,7 +764,7 @@ void print_wfit_help(void) {
     "   -marg\tget w and OM from marginalizing (default)",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
-    "   -ranseed_Rcmb\t random seed to flutuate Rcmb",
+    "   -ranseed_Rcmb random seed to fluctuate Rcmb (1-> internally compute seed)",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
     "   -muerr_force\tforce this mu_sig on all events",
     "   -zmin\tFit only data with z>zmin",
@@ -848,7 +855,7 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
 	CMB_PRIOR.sigR = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1, "ranseed_Rcmb")==0) {
-        CMB_PRIOR.ranseed_R = atoi(argv[++iarg]);	
+	CMB_PRIOR.ranseed_R = atoi(argv[++iarg]);
 
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	INPUTS.use_cmb = 1;
@@ -1309,7 +1316,8 @@ void read_HD(char *inFile, HD_DEF *HD) {
 
     // compute SEED using first MU-uncertainty so that
     // each data set has a unique randome seed.
-    ISEED = (int)(HD->mu_sig[0] * 8224532.0);
+    // xxx mark delete     ISEED = (int)(HD->mu_sig[0] * 8224532.0);
+    ISEED = ISEED_UNIQUE();
     init_random_seed(ISEED,1);
  
     printf("\n");
@@ -2078,23 +2086,20 @@ void init_cmb_prior(int OPT) {
   else if ( INPUTS.use_cmb == 2 ) {
     //recompute R from sim
     HzFUN_INFO_DEF HzFUN ;
+    double Rcmb_ranshift = get_Rcmb_ranshift();
+    char str_ranshift[40]; str_ranshift[0] = 0 ;
+
     a = CMB_PRIOR.a ;  // 1/(1+z)
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( a, ONE, &HzFUN ) / LIGHT_km;
     CMB_PRIOR.R = sqrt(OM) * rz ;
 
-    char str_gran[40]; str_gran[0] = 0 ; 
-    
-    if (CMB_PRIOR.ranseed_R > 0) {
-      int istream = 1; 
-      init_random_seed(CMB_PRIOR.ranseed_R, istream);
-      double  gran    = unix_getRan_Gauss(0);
-      CMB_PRIOR.R += gran * CMB_PRIOR.sigR;
-      sprintf(str_gran, "(gran=%.3f)",gran ); 
+    if ( Rcmb_ranshift != 0.0 ) {
+      CMB_PRIOR.R += Rcmb_ranshift;
+      sprintf(str_ranshift,"(Rcmb_ranshift=%.4f)", Rcmb_ranshift);
     }
-    
-    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f %s " ,
-	    CMB_PRIOR.R, CMB_PRIOR.sigR, str_gran);
+    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f  %s" ,
+	    CMB_PRIOR.R, CMB_PRIOR.sigR, str_ranshift );
   }
 
   
@@ -2109,6 +2114,79 @@ void init_cmb_prior(int OPT) {
   return;
 
 } // end init_cmb_prior
+
+
+// ==============================
+double get_Rcmb_ranshift(void) {
+
+  // Created Oct 17 2023
+  // Return random Rcmb shift (if user-selects this option)
+  // The final Rcmb is determined externally from this function.
+  
+  int NSTREAM = 1, istream=0 ;
+  int iseed;
+  double gran, ranshift = 0.0 ;
+  char fnam[] = "get_Rcmb_ranshift";
+
+  // ---------- BEGIN -------------
+
+  if (CMB_PRIOR.ranseed_R <= 0) { return ranshift; }
+
+  if ( CMB_PRIOR.ranseed_R == 1 ) {
+    // internally compute unique seed based on HD values
+    iseed = ISEED_UNIQUE();
+  }
+  else {
+    // seed is explicitly passed by user
+    iseed = CMB_PRIOR.ranseed_R; 
+  }
+
+  init_random_seed(iseed, NSTREAM);
+  gran      = unix_getRan_Gauss(istream);
+  ranshift  = gran * CMB_PRIOR.sigR;
+
+  printf(" %s: random Rcmb shift = %.4f (ISEED=%d, Gaussran=%.4f)\n",
+	 fnam, iseed, ranshift, iseed, gran); fflush(stdout);
+
+  return ranshift;
+
+} // end get_Rcmb_ranshift
+
+
+// ===============================
+int ISEED_UNIQUE(void) {
+
+  // Created Oct 17 2023.
+  // return ISEED that is unique for each data set.
+  // Used for user-input options:
+  //   -ranseed_Rcmb 1
+  //   -muerr_ideal <muerr>
+  //
+  HD_DEF *HD = &HD_LIST[0];
+  int ISEED  = 0 ;
+  int k, NUSE=0, NUSE_MAX = 5;
+  double product = 1.0 ;
+  char fnam[] = "ISEED_UNIQUE" ;
+
+  // --------- BEGIN --------
+
+  k = 0 ;
+  while ( NUSE < NUSE_MAX ) {
+
+    // make sure that z-bin has a real value and not zero
+    if ( HD->mu_sig[k] < 8.0 ) {
+      product *= ( HD->mu[k]/40.0 ) ;
+      NUSE++ ;
+    }
+    k++ ;
+  }
+
+  // product is of order unity, so multiply by a very big number
+  ISEED = (int)(product * 8224532.0);
+  
+  return ISEED;
+
+} // end ISEED_UNIQUE
 
 // =========================================
 void init_bao_prior(int OPT) {

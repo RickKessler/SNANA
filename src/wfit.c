@@ -332,6 +332,7 @@ Cosparam COSPAR_SIM ; // cosmo params from simulated data
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
+  int ranseed_R;     // random seed used to fluctuate R 
   double z, a ;      // redshift and 1/(1+z)
   char comment[200];
 } CMB_PRIOR;
@@ -756,6 +757,7 @@ void print_wfit_help(void) {
     "   -marg\tget w and OM from marginalizing (default)",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
+    "   -ranseed_Rcmb\t random seed to flutuate Rcmb",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
     "   -muerr_force\tforce this mu_sig on all events",
     "   -zmin\tFit only data with z>zmin",
@@ -845,6 +847,8 @@ void parse_args(int argc, char **argv) {
 	CMB_PRIOR.R = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
 	CMB_PRIOR.sigR = atof(argv[++iarg]);
+      } else if (strcasecmp(argv[iarg]+1, "ranseed_Rcmb")==0) {
+        CMB_PRIOR.ranseed_R = atoi(argv[++iarg]);	
 
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	INPUTS.use_cmb = 1;
@@ -2056,6 +2060,7 @@ void init_cmb_prior(int OPT) {
     CMB_PRIOR.a      = 1.0/(1.0 + CMB_PRIOR.z) ;
     CMB_PRIOR.R      = -9.0 ;
     CMB_PRIOR.sigR   = .019 ;
+    CMB_PRIOR.ranseed_R = 0 ;
     comment[0]       =  0;
     return ;
   }
@@ -2077,10 +2082,22 @@ void init_cmb_prior(int OPT) {
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( a, ONE, &HzFUN ) / LIGHT_km;
     CMB_PRIOR.R = sqrt(OM) * rz ;
-    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f " ,
-	    CMB_PRIOR.R, CMB_PRIOR.sigR);
+
+    char str_gran[40]; str_gran[0] = 0 ; 
+    
+    if (CMB_PRIOR.ranseed_R > 0) {
+      int istream = 1; 
+      init_random_seed(CMB_PRIOR.ranseed_R, istream);
+      double  gran    = unix_getRan_Gauss(0);
+      CMB_PRIOR.R += gran * CMB_PRIOR.sigR;
+      sprintf(str_gran, "(gran=%.3f)",gran ); 
+    }
+    
+    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f %s " ,
+	    CMB_PRIOR.R, CMB_PRIOR.sigR, str_gran);
   }
 
+  
   if ( INPUTS.omm_min < 0.0 ) {
     sprintf(c1err,"Negative omm (ommin=%.3f) not allowed with CMB prior",
 	    INPUTS.omm_min);

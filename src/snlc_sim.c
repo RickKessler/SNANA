@@ -9938,21 +9938,33 @@ void GENSPEC_MJD_OBS(void) {
   // Created May 2023
   // Load MJD list containing every observation.
   // Used only for special option SPECTROGRAPH_OPTMASK += 128.
+  // 
+  // Oct 17 2023: fix to include optional HOST spectrum
 
   double MJD_DIF = 0.05; // new spectrum for this difference in epoch
   double TEXPOSE = 20.0;
   double logTEXPOSE = log10(TEXPOSE);
   int    NBIN_LAM   =  INPUTS_SPECTRO.NBIN_LAM;
 
-  double MJD, MJD_LAST = -9.0, Tobs ;
+  bool DO_HOSTSPEC = ( HOSTSPEC.NSPECBASIS > 0 ) ;
+  double MJD, MJD_LAST = -99.0, Tobs ;
   int ep, imjd, NMJD=0, NEP = GENLC.NEPOCH ;
   char fnam[] = "GENSPEC_MJD_OBS" ;
 
   // ------------ BEGIN -------------
 
-  for(ep=1; ep < NEP; ep++ ) {
+  for(ep=0; ep < NEP; ep++ ) {
     MJD   = GENLC.MJD[ep] ;
     Tobs  = MJD - GENLC.PEAKMJD ;  // for dump only
+
+    // on ep=0. check for host SED
+    if ( ep == 0 && !DO_HOSTSPEC ) 
+      { continue; }
+
+    if ( ep == 0 &&  DO_HOSTSPEC ) {
+      MJD = Tobs = -9.0; 
+      GENSPEC.IS_HOST[NMJD] = true;
+    }
 
     // avoid spectrum at artifical peak epoch
     if ( GENLC.OBSFLAG_PEAK[ep] ) { continue; }  // Sep 2023

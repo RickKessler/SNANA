@@ -1217,7 +1217,8 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 
   // if GENMODEL_MSKOPT & 16, force Flam<0 to zero  
   bool zero_NEGFLAM = zero_NEGFLAM_SEDMODEL(ISED, LAMSED, TREST, FLUX);
-  if ( zero_NEGFLAM ) { FLUX = 0.0 ; }
+  // xxx mark delete   if ( zero_NEGFLAM ) { FLUX = 0.0 ; }
+  if ( zero_NEGFLAM ) { FLUX = 1.0E-20 ; }
 
   return(FLUX);
 

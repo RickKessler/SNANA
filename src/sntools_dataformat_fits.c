@@ -2919,6 +2919,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   NSNLC_RD_SNFITSIO_TOT    = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
+  malloc_GENSPEC(0, 0,0) ;
 
   if ( init_num == 1 ) {
     init_SNDATA_GLOBAL();

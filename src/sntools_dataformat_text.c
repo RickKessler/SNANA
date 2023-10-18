@@ -1293,12 +1293,14 @@ void RD_SNTEXTIO_INIT(int init_num) {
   SNTEXTIO_VERSION_INFO.PHOT_VERSION[0] = 0 ;
   SNTEXTIO_VERSION_INFO.DATA_PATH[0]    = 0 ;
   check_head_sntextio(0);
+  malloc_GENSPEC(0, 0,0); 
 
   if ( init_num == 1 ) {
     init_SNDATA_GLOBAL();
     init_SNDATA_EVENT();
     init_GENSPEC_GLOBAL();
   }
+
 
   DEBUG_FLAG_SNTEXTIO = false ;
   RD_OVERRIDE.USE     = false ;

@@ -9900,7 +9900,7 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
 
     // find epoch closest to peak
     double TREST, TRESTmin=99999.0 ;
-    int ntmp, imjd_nearPeak=-9,  nhost=0, IS_HOST[MXSPEC] ;
+    int ntmp=0, imjd_nearPeak=-9,  nhost=0, IS_HOST[MXSPEC] ;
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
 
       IS_HOST[imjd] = 0;
@@ -9914,12 +9914,13 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
     }
 
     // set nearest-peak as first SN spectrum.
-    imjd_order[nhost] = imjd_nearPeak ;  ntmp=nhost ;
+    // xxx mark Oct 2023    imjd_order[nhost] = imjd_nearPeak ;  
+    ntmp = nhost ;
     GENSPEC.IMJD_NEARPEAK = imjd_nearPeak ;
 
     // store remaining spectra
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
-      if ( imjd == imjd_nearPeak ) { continue; }
+      // xxx mark      if ( imjd == imjd_nearPeak ) { continue; }
       if ( IS_HOST[imjd]         ) { continue; }
       ntmp++ ; imjd_order[ntmp] = imjd;
     }
@@ -9953,7 +9954,7 @@ void GENSPEC_MJD_OBS(void) {
 
   // ------------ BEGIN -------------
 
-  for(ep=0; ep < NEP; ep++ ) {
+  for(ep=0; ep <= NEP; ep++ ) {
     MJD   = GENLC.MJD[ep] ;
     Tobs  = MJD - GENLC.PEAKMJD ;  // for dump only
 
@@ -9973,6 +9974,7 @@ void GENSPEC_MJD_OBS(void) {
       GENSPEC.NBLAM_TOT[NMJD]           = NBIN_LAM ;
       GENSPEC.MJD_LIST[NMJD]            = MJD ;
       GENSPEC.TOBS_LIST[NMJD]           = Tobs;
+      GENSPEC.TREST_LIST[NMJD]          = Tobs / ( 1.0 + GENLC.REDSHIFT_CMB);
       GENSPEC.TEXPOSE_LIST[NMJD]        = TEXPOSE;
       GENSPEC.OPT_TEXPOSE_LIST[NMJD]    = 1 ;    // user TEXPOSE above     
       GENSPEC.INDEX_TAKE_SPECTRUM[NMJD] = NMJD ;

@@ -8318,27 +8318,19 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
   if  ( ispec < 0 ) { init_GENSPEC_GLOBAL(); return; }
   
+  /* xxx
   if ( GENSPEC.NBLAM_VALID[ispec] > 0 ) {
-    free(GENSPEC.LAMMIN_LIST[ispec])  ;
-    free(GENSPEC.LAMMAX_LIST[ispec])  ;
-    free(GENSPEC.LAMAVG_LIST[ispec])  ;
-    free(GENSPEC.FLAM_LIST[ispec])    ;
-    free(GENSPEC.FLAMERR_LIST[ispec]) ;
-    free(GENSPEC.FLAMWARP_LIST[ispec]) ; // Apr 2 2021
-    free(GENSPEC.GENFLAM_LIST[ispec]) ;
-    free(GENSPEC.GENMAG_LIST[ispec])  ;
+    malloc_GENSPEC(-1, 0);
   }
+  xxx */
 
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
-  int MEMD = NBLAM * sizeof(double) ;
-  GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
-  GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
-  GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
-  GENSPEC.FLAM_LIST[ispec]     = (double*) malloc(MEMD);
-  GENSPEC.FLAMERR_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.FLAMWARP_LIST[ispec] = (double*) malloc(MEMD);
-  GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);
+  // xxx mark   int MEMD = NBLAM * sizeof(double) ;
+
+  if ( GENSPEC.IS_MALLOC[ispec] ) { malloc_GENSPEC(-1, ispec, 0); }
+
+  // always re-malloc in case NBLAM changes
+  malloc_GENSPEC(+1, ispec, NBLAM);
   
   // Jul 1 2021: init wave-dependent arrays in case they aren't filled
   int ilam;
@@ -8352,6 +8344,53 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
 } // end init_GENSPEC_EVENT
 
+
+// ============================
+void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
+
+  // Created Oct 2023
+  // opt = -1 --> free GENSPEC
+  // opt =  0 --> one-time init of IS_MALLOC[ispec] = false
+  // opt = +1 --> malloc with length NBLAM
+  //
+  // The GENSPEC malloc is tricky because arrays need to be re-malloced
+  // each event because real data has different size spectra arrays.
+
+  int i;
+  char fnam[] = "malloc_GENSPEC" ;
+
+  // --------- BEGIN ------------
+  if ( opt == 0 ) {
+    for(i=0; i < MXSPEC; i++ ) 
+      { GENSPEC.IS_MALLOC[i] = false; }
+  }
+  else if ( opt < 0 ) {
+    free(GENSPEC.LAMMIN_LIST[ispec])  ;
+    free(GENSPEC.LAMMAX_LIST[ispec])  ;
+    free(GENSPEC.LAMAVG_LIST[ispec])  ;
+    free(GENSPEC.FLAM_LIST[ispec])    ;
+    free(GENSPEC.FLAMERR_LIST[ispec]) ;
+    free(GENSPEC.FLAMWARP_LIST[ispec]) ; // Apr 2 2021
+    free(GENSPEC.GENFLAM_LIST[ispec]) ;
+    free(GENSPEC.GENMAG_LIST[ispec])  ;
+    GENSPEC.IS_MALLOC[ispec] = false;
+  }
+  else if ( opt > 0 ) {
+    int MEMD = NBLAM * sizeof(double);
+    GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
+    GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
+    GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
+    GENSPEC.FLAM_LIST[ispec]     = (double*) malloc(MEMD);
+    GENSPEC.FLAMERR_LIST[ispec]  = (double*) malloc(MEMD);
+    GENSPEC.FLAMWARP_LIST[ispec] = (double*) malloc(MEMD);
+    GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
+    GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);    
+    GENSPEC.IS_MALLOC[ispec]     = true;
+  }
+
+  return ;
+
+} // end malloc_GENSPEC
 
 // =====================================
 void set_SNDATA_FILTER(char *filter_list) {

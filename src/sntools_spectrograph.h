@@ -123,6 +123,8 @@ struct {
   // define array of Gaussian randoms for noise
   double *RANGauss_NOISE_TEMPLATE ; 
 
+  bool IS_MALLOC[MXSPEC] ;
+
 } GENSPEC ;
 
 // =============================================

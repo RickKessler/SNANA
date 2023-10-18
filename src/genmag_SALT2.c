@@ -2751,8 +2751,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
       zero_FLAM = zero_NEGFLAM_SEDMODEL(0, LAMSED, Trest, Fcheck);
       if ( zero_FLAM ) {
-	Flam_filter[0] = Flam_filter[1] = 0.0 ;
-	Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
+	Flam_filter[0] = Flam_filter[1] = 1.0E-20 ; // set very small
+	Flam_spec[0]   = Flam_spec[1]   = 1.0E-20 ;
       }
 
       for(ised=0; ised <2; ised++ ) {

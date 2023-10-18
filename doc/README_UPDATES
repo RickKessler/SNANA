@@ -22004,4 +22004,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + new option ranseed_Rcmb to fluctuate Rcmb value 
        (intended for error validation on many sim-data samples)
 
+   several codes:
+     + fix subtle bugs reading back spectra
+
+
 END: 

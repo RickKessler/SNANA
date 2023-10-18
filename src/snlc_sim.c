@@ -9922,7 +9922,8 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
       // xxx mark      if ( imjd == imjd_nearPeak ) { continue; }
       if ( IS_HOST[imjd]         ) { continue; }
-      ntmp++ ; imjd_order[ntmp] = imjd;
+      // xxx mark delete ntmp++ ; imjd_order[ntmp] = imjd;
+      imjd_order[ntmp] = imjd; ntmp++ ;
     }
 
   } // end if block

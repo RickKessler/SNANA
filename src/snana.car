@@ -10869,9 +10869,15 @@ C ------------- BEGIN -----------
          MJD     = MJD_SPECTRUM(ispec)
          NLAMBIN = NLAMBIN_SPECTRUM(ispec)
 
-         WRITE(SPEC_FILE,40) 
+         if ( MJD > 0.0 ) THEN
+             WRITE(SPEC_FILE,40) 
      &       VERSION_PHOTOMETRY(1)(1:LENV), SNLC_CCID(1:LENC), MJD
-40       format(A,'_',A,'_', F9.3, '.SPEC' )
+40          format(A,'_',A,'_', F9.3, '.SPEC' )
+         ELSE
+             WRITE(SPEC_FILE,41) 
+     &       VERSION_PHOTOMETRY(1)(1:LENV), SNLC_CCID(1:LENC), "HOST"
+41          format(A,'_',A,'_', A, '.SPEC' )
+         ENDIF
 
          OPEN(UNIT= LUNTMP, FILE=SPEC_FILE, STATUS='UNKNOWN' )
 

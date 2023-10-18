@@ -8376,7 +8376,7 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
     GENSPEC.IS_MALLOC[ispec] = false;
   }
   else if ( opt > 0 ) {
-    int MEMD = NBLAM * sizeof(double);
+    int MEMD = (NBLAM+100) * sizeof(double); 
     GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);

@@ -56,6 +56,7 @@ HELP_COMMANDS = f"""
 # extract a few events from FITS format back to TEXT format:
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text 1032,5944
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN
+ quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN --nospec
 
 # create SIMLIB file from LOWZ data
  quick_commands.py -v DES-SN3YR_LOWZ \\
@@ -118,6 +119,9 @@ def get_args():
 
     msg = "CID list to extract into text format"
     parser.add_argument("--cidlist_text",help=msg,type=str,default="")
+
+    msg = "suppress reading/reformattig spectra"
+    parser.add_argument("--nospectra", help=msg, action="store_true")
 
     msg = "TYPE list to extract into text format (e.g., 118,119,120)"
     parser.add_argument("--typelist_text",help=msg,type=str,default="")
@@ -215,6 +219,10 @@ def extract_text_format(args):
     command = snana_command_plus_version(args)
     command += f"VERSION_REFORMAT_TEXT {vout} "
     command += arg_cidlist(cidlist,typelist)
+
+    if args.nospec :
+        command += ' DEBUG_FLAG -333'
+
     exec_command(command,args,0)
     # end extract_text_format
 

@@ -21958,6 +21958,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sim: for UVLAM_EXTRAP, improved SNIa computation of RESTLAMMIN_FILTERCEN;
      See https://github.com/RickKessler/SNANA/issues/1213
 
+   BEWARE malloc_GENSPEC allocates and frees each ispec. However, when
+     allocating a larger  spectrum for, e.g. ISPEC=2, it can overwrite contents
+     of previous ISPEC=3 and cause a crash.
+
         ***** USEFUL(v11_05h) ***** 
 
         ***** MISCELLANEOUS(v11_05h) ***** 
@@ -22007,5 +22011,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    several codes:
      + fix subtle bugs reading back spectra
 
+   quick_commands.py: add --nospec option to ignore spectra for reformat
 
 END: 

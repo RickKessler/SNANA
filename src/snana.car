@@ -3372,6 +3372,8 @@ c Use logicals FORMAT_FITS and FORMAT_TEXT for format-specific
 c function calls.
 c This subroutine replaces legacy RDVERSION_FITS & RDVERSION_TEXT
 c
+c Oct 17 2023: read spectra only if using a REFORMAT option.
+c
 c ------
 
       IMPLICIT NONE
@@ -3387,7 +3389,7 @@ c local var
 
       INTEGER   NSN_VERS, LEN_VERS, LEN_PATH, OPTRD
       INTEGER   IJOB, NJOBTOT, ISN, ISTAT
-      LOGICAL   LRDFLAG_GLOBAL, LRDFLAG_ALL
+      LOGICAL   LRDFLAG_GLOBAL, LRDFLAG_ALL, LRDFLAG_SPEC
       CHARACTER cVERSION*(MXCHAR_VERSION), cPATH*(MXCHAR_PATH)
       CHARACTER FNAM*16
 
@@ -3400,6 +3402,8 @@ C --------------- BEGIN -----------
       FNAM = 'EXEC_READ_DATA'
       LRDFLAG_GLOBAL = ( OPTMASK .EQ. OPTMASK_SNDATA_GLOBAL)
       LRDFLAG_ALL    = ( OPTMASK .EQ. OPTMASK_SNDATA_ALL   )
+      LRDFLAG_SPEC   = (REFORMAT_SNANA .or. REFORMAT_SPECTRA_ONLY)
+     &                 .and. (DEBUG_FLAG .NE. -333)  ! -333 suppresses reading SPEC
 
       ISNLC_VERSION    = IVERS
 
@@ -3480,22 +3484,28 @@ c transfer from C struct to global fortran variables
 
         if ( ISTAT < 0 ) GOTO 100    ! failed cut on header var/CID
  
+
+
 c Read observations for event and load SNDATA C-struct.
 c Read optional SPECTRA and load GENSPEC C-struct.
 c All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
         IF ( FORMAT_FITS ) THEN
            CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_OBS,ISN)
-           CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_SPEC,ISN)
+           IF ( LRDFLAG_SPEC ) THEN
+              CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_SPEC,ISN)
+           ENDIF
         ELSE IF ( FORMAT_TEXT ) THEN
            CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_OBS, ISN) 
-           CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_SPEC,ISN) 
+           IF ( LRDFLAG_SPEC ) THEN
+              CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_SPEC,ISN) 
+           ENDIF
         ENDIF
 
 c transfer variables from C struct to fortran global variables
 
         CALL RDOBS_DRIVER()  
 
-        CALL RDSPEC_DRIVER(0)  
+        IF ( LRDFLAG_SPEC ) CALL RDSPEC_DRIVER(0)  
 
 c ---------------------------------------------------------------
 
@@ -14366,10 +14376,6 @@ c determine STDOUT_UPDATE logical to dump info
       ENDIF
 
       STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
-
-      IF ( DEBUG_FLAG == 100 ) THEN
-         STDOUT_UPDATE = (N_SNLC_PROC < 100) ! xxx REMOVE
-      ENDIF
 
       if ( .NOT. STDOUT_UPDATE ) RETURN
 

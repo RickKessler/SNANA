@@ -8079,6 +8079,16 @@ c - - - -
           READ(ARGLIST(1),*) CUTWIN_TOBSMAX(1)
           READ(ARGLIST(2),*) CUTWIN_TOBSMAX(2)
 
+        else if ( MATCH_NMLKEY('CUTWIN_RA',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_RA(1)
+          READ(ARGLIST(2),*) CUTWIN_RA(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_DEC',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_DEC(1)
+          READ(ARGLIST(2),*) CUTWIN_DEC(2)
+
         else if ( MATCH_NMLKEY('CUTWIN_PEAKMJD',
      &            2, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) CUTWIN_PEAKMJD(1)

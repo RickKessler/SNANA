@@ -22013,4 +22013,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    quick_commands.py: add --nospec option to ignore spectra for reformat
 
+   snana.car:
+     + spectra read only if reformatting
+     + DEBUG_FLAG -333 suppresses reading spectra, even if reformatting.
+     
 END: 

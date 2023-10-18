@@ -56,7 +56,7 @@ HELP_COMMANDS = f"""
 # extract a few events from FITS format back to TEXT format:
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text 1032,5944
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN
- quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN --nospec
+ quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN --nospectra
 
 # create SIMLIB file from LOWZ data
  quick_commands.py -v DES-SN3YR_LOWZ \\
@@ -220,7 +220,7 @@ def extract_text_format(args):
     command += f"VERSION_REFORMAT_TEXT {vout} "
     command += arg_cidlist(cidlist,typelist)
 
-    if args.nospec :
+    if args.nospectra :
         command += ' DEBUG_FLAG -333'
 
     exec_command(command,args,0)

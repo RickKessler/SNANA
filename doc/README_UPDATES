@@ -21962,6 +21962,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      allocating a larger  spectrum for, e.g. ISPEC=2, it can overwrite contents
      of previous ISPEC=3 and cause a crash.
 
+   genmag_SEDtools.c: 
+     + in genSpec_SEDMODEL(), fix missing 1/z1 factor for outputing
+        spectra using NON1ASED model. Fix results in SYNMAM = MAG.
+       
         ***** USEFUL(v11_05h) ***** 
 
         ***** MISCELLANEOUS(v11_05h) ***** 
@@ -21971,6 +21975,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    snana.car:
      + OPT_REFORMAT_SPECTRA=2 writes FLUX instead of FLAM (for astrodash format)
+     + spectra read only if reformatting
+     + DEBUG_FLAG -333 suppresses reading spectra, even if reformatting.
 
    snlc_sim.c:
      + in main after GENFLUX_DRIVER, bail if GENLC.NOBS_MODELFLUX == 0;
@@ -22013,8 +22019,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    quick_commands.py: add --nospec option to ignore spectra for reformat
 
-   snana.car:
-     + spectra read only if reformatting
-     + DEBUG_FLAG -333 suppresses reading spectra, even if reformatting.
-     
+ 
 END: 

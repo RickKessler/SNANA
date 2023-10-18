@@ -403,7 +403,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
 
 double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX, int DUMPFLAG);
 
-void getSpec_SEDMODEL(int ised, 
+void genSpec_SEDMODEL(int ised, 
 		      double MWEBV, double RV_host, double AV_host,
 		      double z, double MU, double Tobs, double MAGOFF,
 		      double *FLUXGEN_LIST, double *GENMAG_LIST ) ;

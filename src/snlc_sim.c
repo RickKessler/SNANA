@@ -10147,7 +10147,7 @@ void GENSPEC_TRUE(int imjd) {
     MAGOFF = 
       GENLC.GENMAG_OFF_GLOBAL + GENLC.MAGSMEAR_COH[0] + GENLC.MAGSMEAR_COH[1];
 
-    getSpec_SEDMODEL(ISED_NON1A,
+    genSpec_SEDMODEL(ISED_NON1A,
 		     GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)   
 		     GENLC.REDSHIFT_HELIO,            // (I) redshift
 		     GENLC.DLMU,                      // (I) dist mod
@@ -10173,7 +10173,7 @@ void GENSPEC_TRUE(int imjd) {
     
 
     MAGOFF = GENLC.GENMAG_OFF_GLOBAL ;
-    getSpec_SEDMODEL(ISED_SEDMODEL,
+    genSpec_SEDMODEL(ISED_SEDMODEL,
 		     GENLC.MWEBV, GENLC.RV, GENLC.AV,  // (I)  
 		     GENLC.REDSHIFT_HELIO,        // (I) redshift
 		     GENLC.DLMU,

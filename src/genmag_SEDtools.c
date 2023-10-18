@@ -3431,7 +3431,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
 } // end getZP_SPECTROGRAPH_SEDMODEL
 
 // *****************************************************
-void getSpec_SEDMODEL(int ised,
+void genSpec_SEDMODEL(int ised,
 		      double MWEBV, double RV_host, double AV_host,
 		      double z, double MU, double Tobs, double MAGOFF,
 		      double *GENFLUX_LIST, double *GENMAG_LIST ) {
@@ -3446,22 +3446,25 @@ void getSpec_SEDMODEL(int ised,
   // Mar  6 2017: pass extinction arguments MWEBV,RV_host,AV_host
   // Dec 12 2018: replace x0 argument with MU; compute x0 below.
   // Mar 29 2019: SEDMODELNORM is separate for MAG and SPEC (hc factor)
+  // Oct 18 2023: missing 1/z1 for spec ... not clear why but it 
+  //               results in SYNMAG = MAG
+  //
 
   double x0     = pow(TEN,-0.4*MU);
   double hc8    = (double)hc;
   double LAMBIN = 10.0 ;  // Angstromgs, integration binsize
   int    IFILT  = JFILT_SPECTROGRAPH ;
   int    NBSPEC = FILTER_SEDMODEL[IFILT].NLAM ;
-
+  double z1     = 1.0 + z ;
   double LAMTMP_OBS, LAMTMP_REST, LAM0, LAM1, LAMAVG, lamBin, lam ;
   double ZP, MAG, FLUXGEN_forSPEC, FLUXGEN_forMAG;
-  double FTMP, MWXT_FRAC, z1, x0fac ;
+  double FTMP, MWXT_FRAC, x0fac ;
   double SEDNORM_forSPEC, SEDNORM_forMAG;
   int    ispec, NBLAM ;
   int    NDMP_SKIP=0;
   int    LDMP  = ( fabs(Tobs) < -5.0 ) ; 
 
-  char   fnam[] = "getSpec_SEDMODEL" ;
+  char   fnam[] = "genSpec_SEDMODEL" ;
 
   // --------------- BEGIN ---------------
 
@@ -3473,8 +3476,9 @@ void getSpec_SEDMODEL(int ised,
 
 
   SEDNORM_forMAG  = SEDMODEL.FLUXSCALE / hc8 ;
-  SEDNORM_forSPEC = SEDMODEL.FLUXSCALE ;
-  z1 = 1.0 + z ;
+  // xxx mark delete SEDNORM_forSPEC = SEDMODEL.FLUXSCALE ;
+  SEDNORM_forSPEC = SEDMODEL.FLUXSCALE / z1 ; // to fix SYNMAG to match mag
+
 
   if ( LDMP ) {
     printf("\n xxx %s DUMP for ised=%d z=%.3f Tobs=%.2f  NBSPEC=%d \n",
@@ -3540,6 +3544,7 @@ void getSpec_SEDMODEL(int ised,
 
   double MAGOFF_XT, FRAC, FRAC_XT, LAM ;
   int  DOXT = ( AV_host > 1.0E-9 ) ;
+
   // check before removing: int NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
 
   if ( MAGOFF == 0.0  &&  DOXT==0 ) { return ; }
@@ -3566,4 +3571,4 @@ void getSpec_SEDMODEL(int ised,
 
   return ;
 
-}  // getSpec_SEDMODEL
+}  // genSpec_SEDMODEL

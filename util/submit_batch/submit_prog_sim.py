@@ -2387,6 +2387,7 @@ class Simulation(Program):
         ranseed_key         = submit_info_yaml['RANSEED_KEY'] 
         cleanup_flag        = submit_info_yaml['CLEANUP_FLAG']
         Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC'] 
+        TIME_STAMP_SUBMIT   = submit_info_yaml['TIME_STAMP_SUBMIT'] 
         snana_version       = submit_info_yaml['SNANA_VERSION'] 
 
         Nsec_now  = seconds_since_midnight # current time since midnight
@@ -2449,6 +2450,10 @@ class Simulation(Program):
         f.write("\n")
         f.write(f"  SUBMIT_DIR:  {CWD}\n")
         f.write(f"  SNANA_VERSION:  {snana_version}\n")
+
+        time_now   = datetime.datetime.now()
+        tstr       = time_now.strftime("%Y-%m-%d_%H:%M") 
+        f.write(f"  TIME_STAMP_SUBMIT:  {TIME_STAMP_SUBMIT} \n")
 
         # - - - - - - - - -
         # Mar 2023 - write sim-input keys for each model (SPLIT001 only)

@@ -538,7 +538,7 @@ void wr_dataformat_text_FILTERPAR(FILE *fp, char *KEY, char *COMMENT,
 				  char *FORMAT, float *VAL) {
 
   // Oct 4 2023: MXVAL_PER_LINE -> 12 (was 10)
-  int  MXVAL_PER_LINE=12;
+  int  MXVAL_PER_LINE=14;
   int ifilt, ifilt_obs, NTMP;
   char FORMAT_LOCAL[40];
   char fnam[] = "wr_dataformat_text_FILTERPAR" ;
@@ -565,7 +565,7 @@ void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT,
   // instead of float.
 
   char FORMAT_LOCAL[40];
-  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=12;
+  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=14;
   char fnam[] = "wr_dataformat_text_FILTERPAR" ;
 
   // ------------ BEGIN ---------

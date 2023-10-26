@@ -92,9 +92,10 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     README_DOCANA_OVERVIEW(&i);
     README_DOCANA_INPUT_KEYS(&i);
     README_DOCANA_INPUT_NOTES(&i);
-
   }
   else {
+    README_DOCANA_SED_TRUE(&i); // write mag-diff warnings
+
     README_DOCANA_OUTPUT_SUMMARY(&i);
 
     i++; 
@@ -367,6 +368,58 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
   *iline = i;
   return;
 } // end README_DOCANA_INPUT_NOTES
+
+
+// =========================================
+void README_DOCANA_SED_TRUE(int *iline) {
+
+  // Created Oct 2023
+  // For option to generate true SED for each observation (sim-input LAMBIN_SED_TRUE),
+  // write out alarm values to readme; fraction of observations (per band) in which
+  // synthetic mag from SED is discrepant from original genmag using fine-binned SED.
+
+  int  OVP, j, i = *iline;
+  int    ifilt, ifilt_obs, N0, N1;
+  double frac;
+
+  double magdif_alarm = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[0];
+  double mag_alarm    = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[1];
+
+  char cfilt[2];
+  char *cptr, pad[] = "  " ;
+  char fnam[] = "README_DOCANA_SED_TRUE";
+
+  // ----------- BEGIN ------------
+
+  if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE < 0.01 ) { return; }
+
+  readme_docana_comment(&i, "");
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sWARNINGS_SED_TRUE:   "
+	  "# fraction of genmag<%.1f with |synmag-genmag|>%.2f", 
+	  pad, mag_alarm, magdif_alarm );  
+
+  for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
+    N0 =  INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt_obs][0];
+    N1 =  INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt_obs][1];
+    sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
+
+    if ( N0 > 0 ) 
+      { frac = (double)N1 / (double)N0; }
+    else
+      { frac = 0.0 ; }
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s  %s:  %8.5f   #  %6d / %6d", pad, cfilt, frac, N1, N0);
+    
+  }
+ 
+  *iline = i;
+  return;
+
+} // end README_DOCANA_SED_TRUE
 
 
 // ========================================

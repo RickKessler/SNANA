@@ -9395,6 +9395,8 @@ void  init_genSpec(void) {
     // create internal/artificial spectrograph with SNR>>>>1 to produce true SED
     create_ideal_spectrograph(lammin, lammax, lambin );
 
+    set_ALARM_SED_TRUE(0, 0.0, 0.0); // init alarms
+
     SPECTROGRAPH_USEFLAG = 1;
   }
 
@@ -10213,7 +10215,8 @@ void GENSPEC_TRUE(int imjd) {
   // - - - - - - - - - - -
   int    ifilt, ifilt_obs;
   int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
-  double SYNMAG, flux, lambin, flam ;
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
+  double SYNMAG, genmag_obs, flux, lambin, flam, MJD ;
 
   // to compute synmags, first compute true Flam in each spectrograph bin.
   // Note that global GENSPEC.GENFLAM_LIST has not been filled yet, and thus
@@ -10234,15 +10237,68 @@ void GENSPEC_TRUE(int imjd) {
     SYNMAG    = GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST); // compute synthetic mag
     GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs] = SYNMAG;    // store it
 
-    // for true SED, check option to write genmag and synmag to diagnostic table file
-    if ( VERIFY_SED_TRUE )  { wr_VERIFY_SED_TRUE(ifilt_obs, TOBS, SYNMAG); }
-  }
+    if ( LAMBIN_SED_TRUE > 0.01 ) {
+      // find original genmag at this filter and MJD
+      MJD        = TOBS + GENLC.PEAKMJD;
+      genmag_obs = find_genmag_obs(ifilt_obs,MJD);
+
+      set_ALARM_SED_TRUE(ifilt_obs, genmag_obs, SYNMAG);
+
+      // for true SED, check option to write genmag and synmag to diagnostic table file
+      if ( VERIFY_SED_TRUE )  
+	{ wr_VERIFY_SED_TRUE(ifilt_obs, MJD, genmag_obs, SYNMAG); }
+    }
+
+  } // end ifilt
 
   free(GENFLAM_LIST);
 
   return ;
 
 } // end GENSPEC_TRUE
+
+
+
+// =============================
+double find_genmag_obs(int ifilt_obs, double MJD) {
+
+  // Created Oct 2023
+  // Search stored genmags that have ifilt_obs and MJD matching function inputs.
+
+  double genmag = 99.0 ;
+  int    ep, ifilt_obs_tmp, NFIND_MAG=0 ;
+  double MJD_tmp;
+  bool   MATCH_FILT, MATCH_OBS;
+  char   cfilt[2];
+  char fnam[] = "find_genmag_obs";
+
+  // ------------ BEGIN ----------
+
+  // find already-computed observer-frame mag 
+
+  for(ep=1; ep < GENLC.NEPOCH; ep++ ) {
+    MJD_tmp       = GENLC.MJD[ep];
+    ifilt_obs_tmp = GENLC.IFILT_OBS[ep];
+    MATCH_OBS     = ( fabs(MJD-MJD_tmp) < 0.01 );
+    MATCH_FILT    = ( ifilt_obs == ifilt_obs_tmp ); 
+    if ( MATCH_OBS && MATCH_FILT ) {
+      genmag = GENLC.genmag_obs[ep];
+      NFIND_MAG++ ;
+    }
+  } // end ep
+  
+
+  if ( NFIND_MAG != 1 ) {
+    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
+    sprintf(c1err,"NFIND_MAG=%d  but expeced 1", NFIND_MAG);
+    sprintf(c2err,"ifilt_obs=%d(%s)  MJD=%.3f", 
+	    ifilt_obs, cfilt, MJD );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return genmag;
+
+} // end find_genmag_obs
 
 // ==================================
 double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
@@ -10311,8 +10367,47 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
 } // end GENSPEC_SYNMAG
 
 
+// ==================================================
+void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
+
+  // Created Oct 2023
+  // Init alarm params for ifilt_obs == 0.
+  // Increment alarm counters for ifilt+obs > 0.
+  // Alarm fractions are printed to output README.
+
+  int ifilt;
+  double magdif_alarm = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[0];
+  double mag_alarm    = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[1];
+  bool   WARN;
+  char fnam[] = "set_ALARM_SED_TRUE";
+
+  // ----------- BEGIN ----------
+
+  if ( ifilt_obs <= 0 ) {
+    // one-time init
+    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+      INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt][0] = 0 ;
+      INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt][1] = 0 ;
+    }
+    INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[0] = 0.05  ; // synmag-genmag
+    INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[1] = 27.0 ; // mag < this
+  }
+  else if ( genmag_obs < mag_alarm ) {
+    // count big discrepancies betweeen synmag and original genmag
+    INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt_obs][0]++ ;
+
+    WARN   = fabs(genmag_obs-synmag_obs) > magdif_alarm ;
+    if ( WARN )
+      { INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt_obs][1]++ ; }
+
+  }
+
+  return;
+} // end set_ALARM_SED_TRUE
+
 // ==================================
-void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) {
+void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
+			double synmag_obs ) {
 
   // Created Aug 26 2021
   // Updated Sep 2023 to write SED_TRUE & MAG info to table file,
@@ -10321,7 +10416,7 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) {
 
   double z      = GENLC.REDSHIFT_CMB;
   double z1     = 1.0 + z;
-  double MJD    = TOBS + GENLC.PEAKMJD ;
+  double TOBS   = MJD - GENLC.PEAKMJD ;
   double TREST  = TOBS/z1;
 
   double MAG=0.0, LAMREST_CEN, lamstep, TRANS;
@@ -10354,7 +10449,98 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) {
 
   FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
 
-  if ( ifilt_obs > 900 ) {  fclose(FP); return;   }
+  if ( ifilt_obs > 900 ) {  fclose(FP); return;   } // end of sim
+
+  ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
+  lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
+  LAMREST_CEN = FILTER_SEDMODEL[ifilt].mean / z1;
+
+  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
+  
+  if ( genmag_obs < 1.0 || genmag_obs > 60.0 )  { return ; }
+
+  //  LDMP = ( GENLC.CID==16 && fabs(TOBS)<3.0 && ifilt_obs==1 ) ; // xxx
+
+  if ( LDMP ) {
+    printf(" xxx --------------- CID=%d -------------------------------- \n",
+	   GENLC.CID);
+    fflush(stdout);
+  }
+
+
+  // - - - - - - - - - - - - - - - - - - - -
+  FP    = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+  double MAG_DIF = synmag_obs - genmag_obs ;
+  fprintf(FP,"SN: %8d  %.3f  %.3f  %6.2f  %6.0f  %s   "
+	  "%.5f %.5f %8.5f\n",
+	  GENLC.CID, z, MJD, TREST, LAMREST_CEN, cfilt, 
+	  genmag_obs, synmag_obs, MAG_DIF );
+
+  //  LDMP = fabs(MAG_DIF) > 0.15 && fabs(TOBS)<3.0;
+  if ( LDMP ) {
+    printf(" xxx \n");
+    printf(" xxx %s: CID=%d MJD=%.1f  Tobs=%.1f  filt=%s  MAG_DIF=%f\n",
+	   fnam, GENLC.CID, MJD, TOBS, cfilt, MAG_DIF);
+
+    printf(" xxx \t MAG[gen,syn] = %.4f, %.4f  \n", 
+	   genmag_obs, synmag_obs );
+
+    fflush(stdout);
+  }
+
+  fflush(FP);
+
+
+  return ;
+
+} // end wr_VERIFY_SED_TRUE
+
+
+// ==================================
+void wr_VERIFY_SED_TRUE_LEGACY(int ifilt_obs, double TOBS, double MAG_VERIFY) {
+
+  // Created Aug 26 2021
+  // Updated Sep 2023 to write SED_TRUE & MAG info to table file,
+  // which enables plotting diagnostics.
+  //
+
+  double z      = GENLC.REDSHIFT_CMB;
+  double z1     = 1.0 + z;
+  double MJD    = TOBS + GENLC.PEAKMJD ;
+  double TREST  = TOBS/z1;
+
+  double MAG=0.0, LAMREST_CEN, lamstep, TRANS;
+  int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
+  char cfilt[4];
+  int  OPT_INTERP = 1;     // linear
+  FILE *FP ;
+  int  VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
+  char VERFIY_FILE_NAME[MXPATHLEN], VARLIST[MXPATHLEN] ;
+  char fnam[] = "wr_VERIFY_SED_TRUE_LEGACY" ;
+
+  int LDMP = 0;
+
+  // --------- BEGIN ------------
+
+  if ( !VERIFY_SED_TRUE ) { return; }
+
+  if ( ifilt_obs == 0 ) {
+    // open output table file
+    sprintf(VERFIY_FILE_NAME,"%s_VERFIY_SED_TRUE.DAT", INPUTS.GENVERSION);
+    sprintf(VARLIST,"CID z MJD TREST LAMREST BAND MAG MAG_VERIFY MAG_DIF");
+    printf("\n %s: open output %s \n", fnam, VERFIY_FILE_NAME);
+    fflush(stdout);
+    INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE = fopen(VERFIY_FILE_NAME,"wt");
+    FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+    fprintf(FP,"VARNAMES: %s\n", VARLIST);
+    return ;
+  }
+
+
+  FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+
+  if ( ifilt_obs > 900 ) {  fclose(FP); return;   } // end of sim
 
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -10423,7 +10609,7 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) {
 
   return ;
 
-} // end wr_VERIFY_SED_TRUE
+} // end wr_VERIFY_SED_TRUE_LEGACY
 
 
 // *****************************************
@@ -28520,7 +28706,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // check for dump to check SED_TRUE
   double dum = 0.0 ;
-  wr_VERIFY_SED_TRUE(0, dum, dum );
+  wr_VERIFY_SED_TRUE(0, dum, dum, dum );
 
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
@@ -28704,7 +28890,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     { wr_SIMGEN_DUMP_DCR(3,SIMFILE_AUX); }
 
   if ( INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE > 0 ) 
-    { wr_VERIFY_SED_TRUE(999, dum, dum); }
+    { wr_VERIFY_SED_TRUE(999, dum, dum, dum); }
 
   // copy ZVARATION file to SIM/[VERSION]
   if ( USE_ZVAR_FILE ) {

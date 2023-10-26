@@ -335,6 +335,8 @@ typedef struct {
   // option to enable true SED option, and to define lambda bin size (A)
   double LAMBIN_SED_TRUE;
   double LAMRANGE_SED_TRUE[2]; // specify wavelength range of SED_TRUE 
+  int    N_ALARM_SED_TRUE[MXFILTINDX][2]; // 0=all, 1=alarm
+  double ALARM_PAR_SED_TRUE[2]; // mag dif and magmax
 
   // option to validate SED_TRUE integral and compare with mag.
   int    VERIFY_SED_TRUE;      // integrate true SED and compare with true mag
@@ -2017,7 +2019,11 @@ void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
-void   wr_VERIFY_SED_TRUE(int ifilt_obs, double TOBS, double MAG_VERIFY) ;
+void   set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) ;
+void   wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs, 
+			  double synmag_obs) ;
+void   wr_VERIFY_SED_TRUE_LEGACY(int ifilt_obs, double TOBS, double MAG_VERIFY) ;
+double find_genmag_obs(int ifilt_obs, double MJD);
 
 void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
 void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,

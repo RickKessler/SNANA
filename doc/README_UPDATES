@@ -21991,6 +21991,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + compute and store synthetic mags for each spectrum or true SED.
        Write synmags to data files.
 
+     + for LAMBIN_SED_TRUE, write alarm values to output README;
+       genmag < 27 and |genmag-synmag| > 0.05
+
+
    sntools_data.c[h]:
      + pass REQUIRE_DOCANA flag to RD_OVERRIDE_INIT
    snana.car

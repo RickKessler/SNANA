@@ -15371,6 +15371,9 @@ void  setup_contam_CCprior(char *which, CONTAM_INFO_DEF *CONTAM_INFO) {
 
 void zero_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO) {
 
+  // Set CONTAM_INFO values to zero.
+  // Oct 27 2023: zero sumProb_ratio[i] that was mistakenly left out
+
   int i;
   int nbin = MXz;
 
@@ -15385,6 +15388,7 @@ void zero_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO) {
   for(i=0; i < nbin; i++ ) {
     CONTAM_INFO->sumProb_Ia[i] = 0.0 ;
     CONTAM_INFO->sumProb_cc[i] = 0.0 ;
+    CONTAM_INFO->sumProb_ratio[i] = 0.0; 
     CONTAM_INFO->ntrue_Ia[i]   = 0 ;
     CONTAM_INFO->ntrue_cc[i]   = 0 ;
     CONTAM_INFO->true_ratio[i] = 0.0 ;
@@ -15510,6 +15514,7 @@ void print_contam_CCprior(FILE *fp) {
 
 void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO) {
 
+  // print contamination info to file *fp.
 
   bool IS_SIM   = INFO_DATA.TABLEVAR.IS_SIM ;
   int  nbin     = CONTAM_INFO->BININFO.nbin ;
@@ -15517,8 +15522,10 @@ void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO) {
   int    ntrue_Ia, ntrue_cc, i ;
   char *varName = CONTAM_INFO->BININFO.varName;
   char cRange[40], str_contam_data[80], str_contam_true[80];
+  char fnam[] = "print_table_CONTAM_INFO" ;
 
-  // - - - - - -
+  // - - - - - - BEGIN - - - - - - -
+
   fprintf(fp,"\n# CC Contamination vs. %s \n", varName);
 
   fprintf(fp,"#  %8s Range     CC/TOT(SUMPROB)         CC/TOT(TRUE) \n", 

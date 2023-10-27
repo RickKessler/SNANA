@@ -15397,11 +15397,13 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
   // Sep 26 2019:
   // Increment histogram of CC contamination vs. xhisto (mures,z, etc ...)
+  //
+  // Oct 27 2023: protect against divide-by-zero
 
   int    ibin;
   bool   IS_SIM  =  INFO_DATA.TABLEVAR.IS_SIM ;
   double Prob_CC = 1.0 - Prob_Ia ;
-  double sum_Ia, sum_cc, ratio ;
+  double sum_Ia, sum_cc, sum, ratio ;
   char fnam[] = "sum_contam_CCprior";
 
   // -------------- BEGIN ----------------
@@ -15411,7 +15413,8 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
   CONTAM_INFO->SUMPROB_TOT_CC   += Prob_CC ;
   sum_Ia = CONTAM_INFO->SUMPROB_TOT_IA;
   sum_cc = CONTAM_INFO->SUMPROB_TOT_CC;
-  ratio  = sum_cc/(sum_Ia+sum_cc);
+  sum    = sum_Ia + sum_cc ;
+  if ( sum > 0.0 ) { ratio = sum_cc/sum; }    else { ratio = 0.0 ; }
   CONTAM_INFO->SUMPROB_TOT_RATIO = ratio;
 
   
@@ -15421,7 +15424,8 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
   CONTAM_INFO->sumProb_cc[ibin] += Prob_CC ;
   sum_Ia = CONTAM_INFO->sumProb_Ia[ibin];
   sum_cc = CONTAM_INFO->sumProb_cc[ibin];
-  ratio  = sum_cc/(sum_Ia+sum_cc); 
+  sum    = sum_Ia + sum_cc ;
+  if ( sum > 0.0 ) { ratio = sum_cc/sum; }     else { ratio = 0.0 ; }
   CONTAM_INFO->sumProb_ratio[ibin] = ratio;
 
   
@@ -15439,16 +15443,17 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
     sum_Ia = (double)CONTAM_INFO->NTRUE_TOT_IA;
     sum_cc = (double)CONTAM_INFO->NTRUE_TOT_CC;
-    ratio  = sum_cc/(sum_Ia+sum_cc); 
+    sum    = sum_Ia + sum_cc ;
+    if ( sum > 0.0 ) { ratio = sum_cc/sum; }     else { ratio = 0.0 ; }
     CONTAM_INFO->TRUE_TOT_RATIO = ratio;
 
     sum_Ia = (double)CONTAM_INFO->ntrue_Ia[ibin];
     sum_cc = (double)CONTAM_INFO->ntrue_cc[ibin];
-    ratio  = sum_cc/(sum_Ia+sum_cc); 
+    sum    = sum_Ia + sum_cc ;
+    if ( sum > 0.0 ) { ratio = sum_cc/sum; }     else { ratio = 0.0 ; }
     CONTAM_INFO->true_ratio[ibin] = ratio;
 
   } // end of IS_SIM
-  
 
   return ;
 
@@ -15474,7 +15479,7 @@ void print_contam_CCprior(FILE *fp) {
 
   int   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ; 
   int   i, SIM_NONIA_INDEX;
-  //  char fnam[] = "print_contam_CCprior";
+  char fnam[] = "print_contam_CCprior";
 
   // -------------- BEGIN --------------
 

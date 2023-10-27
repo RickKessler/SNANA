@@ -22520,6 +22520,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
     "restore_bug_mucovadd=1      # use wrong beta for sim biasCor",
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
+    "restore_bug_WGTabg=1        # restore WGTabg bug in get_muBias",
     0
   } ;
 

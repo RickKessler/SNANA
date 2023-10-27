@@ -447,7 +447,10 @@ void wr_snfitsio_init_head(void) {
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     wr_snfitsio_addCol( "32A", "SIM_MODEL_NAME"     , itype );
     wr_snfitsio_addCol( "1I",  "SIM_MODEL_INDEX"    , itype );
-    wr_snfitsio_addCol( "1I",  "SIM_TYPE_INDEX"     , itype );
+
+    wr_snfitsio_addCol( "1I",  "SIM_GENTYPE"     , itype );
+    wr_snfitsio_addCol( "1I",  "SIM_TYPE_INDEX", itype ); // legacy duplicate
+
     wr_snfitsio_addCol( "8A",  "SIM_TYPE_NAME"      , itype );
 
     wr_snfitsio_addCol( "1J",  "SIM_TEMPLATE_INDEX" , itype );
@@ -1826,9 +1829,14 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_MODEL_INDEX ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MODEL_INDEX", itype );
 
-  // SIM_TYPE index (added Jun 9 2013)
+  // SIM_GENTYPE index
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_TYPE_INDEX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_GENTYPE ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_GENTYPE", itype );
+
+  // write legacy GENTYPE name .... for a while
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_GENTYPE ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_TYPE_INDEX", itype );
 
   // SIM_TYPE name  (Ia, Ib, II ...)
@@ -3360,7 +3368,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_STR(isn, "SIM_TYPE_NAME", SNDATA.SIM_TYPE_NAME,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
-    j++; NRD = RD_SNFITSIO_INT(isn, "SIM_TYPE_INDEX", &SNDATA.SIM_TYPE_INDEX,
+    j++; NRD = RD_SNFITSIO_INT(isn, "SIM_GENTYPE", &SNDATA.SIM_GENTYPE,
+			       &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    // Oct 26 2023: check legacy key name for GENTYPE
+    j++; NRD = RD_SNFITSIO_INT(isn, "SIM_TYPE_INDEX", &SNDATA.SIM_GENTYPE,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_INT(isn, "SIM_SUBSAMPLE_INDEX", 

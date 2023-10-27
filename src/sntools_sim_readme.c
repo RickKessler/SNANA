@@ -1202,7 +1202,7 @@ void readme_docana_output(int *iline, char *pad) {
 		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
 
   // - - - -- types - - - - -
-  dval = (double)GENLC.SIMTYPE ;
+  dval = (double)GENLC.SIM_GENTYPE ;
   VERSION_INFO_load(&i, pad, "GENTYPE:", "true type", 
 		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
 

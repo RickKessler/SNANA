@@ -1292,7 +1292,7 @@ struct GENLC {
   double RISETIME_SHIFT;  // shift in rise-time, days
   double FALLTIME_SHIFT;  // shift in 15-day fall-time, days
 
-  int   SIMTYPE;              // always set; SNTYPE not always set
+  int   SIM_GENTYPE;          // always set; SNTYPE not always set
   int   SNTYPE;               // user index-tag (see 'SNTYPE' non1a key)
   int   TEMPLATE_INDEX ;    // template index for NONA1SED, SIMSED, LCLIB
 

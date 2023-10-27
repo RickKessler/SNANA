@@ -22023,5 +22023,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    quick_commands.py: add --nospec option to ignore spectra for reformat
 
- 
+   SALT2mu:
+     + add protections for CCprior init for spec-confirmed subsets.
+       Avoid dividing by RMS=0, and skip get_mubias for zero CCPRIOR events.
+
 END: 

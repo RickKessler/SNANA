@@ -13184,7 +13184,7 @@ void pick_NON1ASED(int ilc,
   Aug 26 2017:  use already determined SED_FILE[ispgen] rather
                 than re-constructing sedFile string.
 
-  Jan 2019: set GENLC.SIMTYPE= user GENTYPE if specified in input file.
+  Jan 2019: set GENLC.SIM_GENTYPE= user GENTYPE if specified in input file.
 
   ******/
 
@@ -13228,8 +13228,8 @@ void pick_NON1ASED(int ilc,
 
   GEN_NON1ASED->ISPARSE = ispgen ;
   GEN_NON1ASED->NGENTOT[ispgen]++ ;
-  GENLC.SIMTYPE        = INP_NON1ASED->SNTAG[ispgen]; 
-  if ( INPUTS.GENTYPE_SPEC > 0 ) { GENLC.SIMTYPE = INPUTS.GENTYPE_SPEC; }
+  GENLC.SIM_GENTYPE        = INP_NON1ASED->SNTAG[ispgen]; 
+  if ( INPUTS.GENTYPE_SPEC > 0 ) { GENLC.SIM_GENTYPE = INPUTS.GENTYPE_SPEC; }
   GENLC.TEMPLATE_INDEX = INP_NON1ASED->INDEX[ispgen]; 
   name   = INP_NON1ASED->LIST_NAME[GENLC.TEMPLATE_INDEX] ;
 
@@ -14840,7 +14840,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // typings
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GENTYPE") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.SIMTYPE ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.SIM_GENTYPE ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -23165,7 +23165,7 @@ void snlc_to_SNDATA(int FLAG) {
 
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
-  SNDATA.SIM_TYPE_INDEX  = GENLC.SIMTYPE ;
+  SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME );
   
   if ( WRFLAG_BLINDTEST ) 
@@ -24316,7 +24316,7 @@ void init_genmodel(void) {
 
  Nov 23 2020: pass SURVEY arg to init_genmag_SALT2.
 
- Feb 21 2022: minor refactor to set LGEN_SNIA and GENLC.SIMTYPE
+ Feb 21 2022: minor refactor to set LGEN_SNIA and GENLC.SIM_GENTYPE
               before the MODEL if-block so that README_DUMPFLAG
               can return without time-consuming model init.
 
@@ -24354,8 +24354,8 @@ void init_genmodel(void) {
     (INDEX_GENMODEL == MODEL_S11DM15 ) ;
 
   // - - - - - - - - - - - -
-  if ( LGEN_SNIA )  { GENLC.SIMTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
-  if ( INPUTS.GENTYPE_SPEC > 0 )  { GENLC.SIMTYPE  = INPUTS.GENTYPE_SPEC ; }
+  if ( LGEN_SNIA )  { GENLC.SIM_GENTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
+  if ( INPUTS.GENTYPE_SPEC > 0 )  { GENLC.SIM_GENTYPE = INPUTS.GENTYPE_SPEC;}
 
   if ( INPUTS.README_DUMPFLAG ) { return; }
 
@@ -24367,7 +24367,7 @@ void init_genmodel(void) {
   }
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
-    GENLC.SIMTYPE  = MODEL_FIXMAG ;
+    GENLC.SIM_GENTYPE  = MODEL_FIXMAG ;
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
     printf("\n Read SIM_MAGOBS from SIMLIB file. \n");

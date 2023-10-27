@@ -384,7 +384,8 @@ struct SNDATA {
   int  SIM_MODEL_INDEX;      //integer id for model or class
   int  SIM_TEMPLATE_INDEX ;  // template index for NON1ASED, SIMSED, LCLIB ...
   char SIM_COMMENT[200]; 
-  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
+  // xxx mark  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
+  int  SIM_GENTYPE;          // same as SNTYPE (if set).
   char SIM_TYPE_NAME[12];    // Ia, Ib, II, etc ...
 
   int   SIM_LIBID;

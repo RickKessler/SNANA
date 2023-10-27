@@ -511,8 +511,10 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_MODEL_INDEX) ; }  
 
-    else if ( strcmp(key,"SIM_TYPE_INDEX") == 0 ) 
-      { copy_int(copyFlag, parVal, &SNDATA.SIM_TYPE_INDEX) ; }  
+    else if ( strcmp(key,"SIM_GENTYPE") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_GENTYPE) ; }  
+    else if ( strcmp(key,"SIM_TYPE_INDEX") == 0 )  // legacy var name
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_GENTYPE) ; }  
 
     else if ( strcmp(key,"SIM_TEMPLATE_INDEX") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_TEMPLATE_INDEX) ; }  

@@ -235,8 +235,13 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_MODEL_INDEX:     %d  # grep MODEL_ sntools.h | grep def\n",
 	  SNDATA.SIM_MODEL_INDEX  ) ;
 
+  /* xxx mark delete Oct 26 2023 xxx
   fprintf(fp, "SIM_TYPE_INDEX:      %d  # true GENTYPE \n",
 	  SNDATA.SIM_TYPE_INDEX );
+  xxxxxxx */
+
+  fprintf(fp, "SIM_GENTYPE:         %d  # true GENTYPE \n",
+	  SNDATA.SIM_GENTYPE );
 
   fprintf(fp, "SIM_TYPE_NAME:       %s \n",
 	  SNDATA.SIM_TYPE_NAME );
@@ -2488,9 +2493,14 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {
       SNDATA.SIM_MODEL_INDEX = IVAL;
     }
-    else if ( strcmp(word0,"SIM_TYPE_INDEX:") == 0 ) {
-      SNDATA.SIM_TYPE_INDEX = IVAL;
+
+    else if ( strcmp(word0,"SIM_GENTYPE:") == 0 ) { // updated Oct 26 2023
+      SNDATA.SIM_GENTYPE = IVAL; 
     }
+    else if ( strcmp(word0,"SIM_TYPE_INDEX:") == 0 ) { // legacy
+      SNDATA.SIM_GENTYPE = IVAL;
+    }
+
     else if ( strcmp(word0,"SIM_TEMPLATE_INDEX:") == 0 ) {
       SNDATA.SIM_TEMPLATE_INDEX = IVAL;
     }

@@ -21994,6 +21994,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for LAMBIN_SED_TRUE, write alarm values to output README;
        genmag < 27 and |genmag-synmag| > 0.05
 
+     + for FIXMAG or fixmag model, fix genSpec to return sensible AB spectrum
+       such that SYNMAG = FIXMAG.
 
    sntools_data.c[h]:
      + pass REQUIRE_DOCANA flag to RD_OVERRIDE_INIT

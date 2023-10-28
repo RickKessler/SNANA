@@ -10276,7 +10276,7 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
   // Search stored genmags that have ifilt_obs and MJD matching function inputs.
 
   double genmag = 99.0 ;
-  int    ep, ifilt_obs_tmp, NFIND_MAG=0 ;
+  int    ep, ifilt_obs_tmp, NFIND_MAG=0, ep_match_list[10] ;
   double MJD_tmp;
   bool   MATCH_FILT, MATCH_OBS;
   char   cfilt[2];
@@ -10293,16 +10293,26 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
     MATCH_FILT    = ( ifilt_obs == ifilt_obs_tmp ); 
     if ( MATCH_OBS && MATCH_FILT ) {
       genmag = GENLC.genmag_obs[ep];
+      ep_match_list[NFIND_MAG] = ep;
       NFIND_MAG++ ;
     }
   } // end ep
   
 
   if ( NFIND_MAG != 1 ) {
+    
+    print_preAbort_banner(fnam);
+    int i;
+    for(i=0; i < NFIND_MAG; i++ ) {
+      ep = ep_match_list[i];
+      printf(" MATCH-%d: ep=%2d  ifilt_obs=%d  MJD=%.4f mag=%.3f \n",
+	     i, ep, GENLC.IFILT_OBS[ep], GENLC.MJD[ep], GENLC.genmag_obs[ep] );
+    }
+    
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
     sprintf(c1err,"NFIND_MAG=%d  but expeced 1", NFIND_MAG);
-    sprintf(c2err,"ifilt_obs=%d(%s)  MJD=%.3f", 
-	    ifilt_obs, cfilt, MJD );
+    sprintf(c2err,"ifilt_obs=%d(%s)  MJD=%.3f  TOBS=%.1f  z=%.3f", 
+	    ifilt_obs, cfilt, MJD, MJD-GENLC.PEAKMJD, GENLC.REDSHIFT_CMB );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 

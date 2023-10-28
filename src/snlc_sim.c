@@ -24378,7 +24378,8 @@ void init_genmodel(void) {
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
 
-    init_genSEDMODEL(); // needed for spectra
+    if ( INPUTS.GENRANGE_REDSHIFT[0] > 0.005 ) 
+      { init_genSEDMODEL(); } // needed for spectra
     GENLC.SIM_GENTYPE  = MODEL_FIXMAG ;
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
@@ -24733,7 +24734,7 @@ void init_genSEDMODEL(void) {
   zmin     = INPUTS.GENRANGE_REDSHIFT[0] - dz*z1min ;
   zmax     = INPUTS.GENRANGE_REDSHIFT[1] + dz*z1max ;
 
-  if ( zmin <= 1.0E-9 ) {
+  if ( zmin <= 1.0E-9  ) {
     sprintf(c1err, "Invalid zmin=%le (must be > 0); dz=%le", zmin, dz);
     sprintf(c2err, "Check GENRANGE_REDSHIFT key in sim-input file." );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

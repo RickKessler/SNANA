@@ -10287,6 +10287,7 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
   // find already-computed observer-frame mag 
 
   for(ep=1; ep < GENLC.NEPOCH; ep++ ) {
+    if ( GENLC.OBSFLAG_PEAK[ep] ) { continue; }
     MJD_tmp       = GENLC.MJD[ep];
     ifilt_obs_tmp = GENLC.IFILT_OBS[ep];
     MATCH_OBS     = ( fabs(MJD-MJD_tmp) < 0.01 );
@@ -10515,122 +10516,6 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
   return ;
 
 } // end wr_VERIFY_SED_TRUE
-
-
-// ==================================
-void wr_VERIFY_SED_TRUE_LEGACY(int ifilt_obs, double TOBS, double MAG_VERIFY) {
-
-  // Created Aug 26 2021
-  // Updated Sep 2023 to write SED_TRUE & MAG info to table file,
-  // which enables plotting diagnostics.
-  //
-
-  double z      = GENLC.REDSHIFT_CMB;
-  double z1     = 1.0 + z;
-  double MJD    = TOBS + GENLC.PEAKMJD ;
-  double TREST  = TOBS/z1;
-
-  double MAG=0.0, LAMREST_CEN, lamstep, TRANS;
-  int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
-  char cfilt[4];
-  int  OPT_INTERP = 1;     // linear
-  FILE *FP ;
-  int  VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
-  char VERFIY_FILE_NAME[MXPATHLEN], VARLIST[MXPATHLEN] ;
-  char fnam[] = "wr_VERIFY_SED_TRUE_LEGACY" ;
-
-  int LDMP = 0;
-
-  // --------- BEGIN ------------
-
-  if ( !VERIFY_SED_TRUE ) { return; }
-
-  if ( ifilt_obs == 0 ) {
-    // open output table file
-    sprintf(VERFIY_FILE_NAME,"%s_VERFIY_SED_TRUE.DAT", INPUTS.GENVERSION);
-    sprintf(VARLIST,"CID z MJD TREST LAMREST BAND MAG MAG_VERIFY MAG_DIF");
-    printf("\n %s: open output %s \n", fnam, VERFIY_FILE_NAME);
-    fflush(stdout);
-    INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE = fopen(VERFIY_FILE_NAME,"wt");
-    FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
-    fprintf(FP,"VARNAMES: %s\n", VARLIST);
-    return ;
-  }
-
-
-  FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
-
-  if ( ifilt_obs > 900 ) {  fclose(FP); return;   } // end of sim
-
-  ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
-  NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
-  lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
-  LAMREST_CEN = FILTER_SEDMODEL[ifilt].mean / z1;
-
-  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
-
-  // -----------------------
-  // find already-computed observer-frame mag for { TOBS,ifilt_obs}
-  int    ep, ifilt_obs_tmp ;
-  double TOBS_tmp;
-  bool   MATCH_FILT, MATCH_OBS;
-  for(ep=1; ep < GENLC.NEPOCH; ep++ ) {
-    TOBS_tmp      = GENLC.MJD[ep] - GENLC.PEAKMJD;
-    ifilt_obs_tmp = GENLC.IFILT_OBS[ep];
-    MATCH_OBS     = ( fabs(TOBS-TOBS_tmp) < 0.01 );
-    MATCH_FILT    = ( ifilt_obs == ifilt_obs_tmp ); 
-    if ( MATCH_OBS && MATCH_FILT ) {
-      MAG = GENLC.genmag_obs[ep];
-      NFIND_MAG++ ;
-    }
-  } // end ep
-  
-
-  if ( NFIND_MAG != 1 ) {
-    sprintf(c1err,"NFIND_MAG=%d  but expeced 1", NFIND_MAG);
-    sprintf(c2err,"ifilt_obs=%d(%s)  ifilt=%d  TOBS=%.2f  MJD=%.3f", 
-	    ifilt_obs, cfilt, ifilt, TOBS, MJD );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( MAG < 1.0 || MAG > 60.0 )  { return ; }
-
-  //  LDMP = ( GENLC.CID==16 && fabs(TOBS)<3.0 && ifilt_obs==1 ) ; // xxx
-
-  if ( LDMP ) {
-    printf(" xxx --------------- CID=%d -------------------------------- \n",
-	   GENLC.CID);
-    fflush(stdout);
-  }
-
-
-  // - - - - - - - - - - - - - - - - - - - -
-  FP    = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
-  double MAG_DIF = MAG_VERIFY - MAG ;
-  fprintf(FP,"SN: %8d  %.3f  %.3f  %6.2f  %6.0f  %s   "
-	  "%.5f %.5f %8.5f\n",
-	  GENLC.CID, z, MJD, TREST, LAMREST_CEN, cfilt, 
-	  MAG, MAG_VERIFY, MAG_DIF );
-
-  //  LDMP = fabs(MAG_DIF) > 0.15 && fabs(TOBS)<3.0;
-  if ( LDMP ) {
-    printf(" xxx \n");
-    printf(" xxx %s: CID=%d MJD=%.1f  Tobs=%.1f  filt=%s  MAG_DIF=%f\n",
-	   fnam, GENLC.CID, MJD, TOBS, cfilt, MAG_DIF);
-
-    printf(" xxx \t MAG[gen,verify] = %.4f, %.4f  \n", 
-	   MAG, MAG_VERIFY ); 
-
-    fflush(stdout);
-  }
-
-  fflush(FP);
-
-
-  return ;
-
-} // end wr_VERIFY_SED_TRUE_LEGACY
-
 
 // *****************************************
 void GENSPEC_HOST_CONTAMINATION(int imjd) {

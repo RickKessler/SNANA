@@ -2022,7 +2022,6 @@ void   GENSPEC_FUDGES(int imjd);
 void   set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) ;
 void   wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs, 
 			  double synmag_obs) ;
-void   wr_VERIFY_SED_TRUE_LEGACY(int ifilt_obs, double TOBS, double MAG_VERIFY) ;
 double find_genmag_obs(int ifilt_obs, double MJD);
 
 void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags

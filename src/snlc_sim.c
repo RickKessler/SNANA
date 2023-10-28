@@ -10290,7 +10290,7 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
     if ( GENLC.OBSFLAG_PEAK[ep] ) { continue; }
     MJD_tmp       = GENLC.MJD[ep];
     ifilt_obs_tmp = GENLC.IFILT_OBS[ep];
-    MATCH_OBS     = ( fabs(MJD-MJD_tmp) < 0.01 );
+    MATCH_OBS     = ( fabs(MJD-MJD_tmp) < 0.001 );
     MATCH_FILT    = ( ifilt_obs == ifilt_obs_tmp ); 
     if ( MATCH_OBS && MATCH_FILT ) {
       genmag = GENLC.genmag_obs[ep];

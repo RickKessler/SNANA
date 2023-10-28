@@ -2169,7 +2169,8 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     // May 2021: check force ABMAG (constant, NOT z-dependent)
     if ( DO_ABMAG_FORCE ) {
-      FLAM_SUM = 3.631E-20 * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
+      // xxx mark      FLAM_SUM = 3.631E-20 * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
+      FLAM_SUM = FNU_AB * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
       HOSTSPEC.FLAM_EVT[ilam_basis] = FLAM_SUM * ABMAG_SCALE ;
     }
 

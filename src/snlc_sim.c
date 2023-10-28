@@ -6369,6 +6369,7 @@ void prep_user_input(void) {
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
 
 
+    /* xxx mark delete4 Oct 27 2023 xxxxxxx
     if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_OBS ) {
       // set redshift to 0 for obs-frame to avoid adding DLMAG
       INPUTS.GENRANGE_REDSHIFT[0] = 0.0 ;
@@ -6383,6 +6384,8 @@ void prep_user_input(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
     }
+    xxxxxxxx end mark xxxxxxx */
+
 
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
@@ -9389,10 +9392,11 @@ void  init_genSpec(void) {
     double *lamrange_user = INPUTS.SPECTROGRAPH_OPTIONS.LAMRANGE_SED_TRUE;
     double lammin, lammax;
 
-    // return lammin and lammax for SED_TRYE
-    get_LAMRANGE_SED_TRUE(lamrange_user, &lammin, &lammax); // return lammin & lammax
+    // return lammin and lammax for SED_TRUE
+    get_LAMRANGE_SED_TRUE(lamrange_user, &lammin, &lammax); 
 
-    // create internal/artificial spectrograph with SNR>>>>1 to produce true SED
+    // create internal/artificial spectrograph with SNR>>>>1 
+    // to produce true SED
     create_ideal_spectrograph(lammin, lammax, lambin );
 
     set_ALARM_SED_TRUE(0, 0.0, 0.0); // init alarms
@@ -9412,6 +9416,7 @@ void  init_genSpec(void) {
   if ( INDEX_GENMODEL == MODEL_SALT2     ||
        INDEX_GENMODEL == MODEL_NON1ASED  ||
        INDEX_GENMODEL == MODEL_SIMSED    || 
+       INDEX_GENMODEL == MODEL_FIXMAG    || 
        IS_PySEDMODEL         ) {
     int     NB = INPUTS_SPECTRO.NBIN_LAM ;
     double *L0 = INPUTS_SPECTRO.LAMMIN_LIST ;
@@ -10133,14 +10138,19 @@ void GENSPEC_TRUE(int imjd) {
     GOT_SNSPEC = true;
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG )  {
+    // finally fix this part using AB spectrum, Oct 27 2023  .xyz
+    double LAM, LAMSTEP ; 
     for(ilam=0; ilam < NBLAM; ilam++ ) {
+      LAM     = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+      LAMSTEP = INPUTS_SPECTRO.LAMBIN_LIST[ilam] ;
       GENMAG  = GENLC.FIXMAG ;   
-      ZP      = ZEROPOINT_FLUXCAL_DEFAULT ;
-      ARG     = -0.4*(GENMAG-ZP);
-      FLUXGEN = pow(TEN,ARG);
-      
-      ptrGENMAG[ilam]  = GENMAG ;
-      ptrGENFLUX[ilam] = FLUXGEN ;  // FLUXCAL units
+
+      ARG     = -0.4*GENMAG;
+      FLUXGEN = pow(TEN,ARG) ;
+      FLUXGEN *= (FNU_AB * LIGHT_A * LAMSTEP /(LAM*LAM) ) ;
+
+      ptrGENMAG[ilam]  = GENMAG ; 
+      ptrGENFLUX[ilam] = FLUXGEN ; 
     }
     GOT_SNSPEC = true;
   }
@@ -24367,6 +24377,8 @@ void init_genmodel(void) {
   }
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
+
+    init_genSEDMODEL(); // needed for spectra
     GENLC.SIM_GENTYPE  = MODEL_FIXMAG ;
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
@@ -24722,7 +24734,7 @@ void init_genSEDMODEL(void) {
   zmax     = INPUTS.GENRANGE_REDSHIFT[1] + dz*z1max ;
 
   if ( zmin <= 1.0E-9 ) {
-    sprintf(c1err, "Invalid zmin=%le (must be > 0)", zmin);
+    sprintf(c1err, "Invalid zmin=%le (must be > 0); dz=%le", zmin, dz);
     sprintf(c2err, "Check GENRANGE_REDSHIFT key in sim-input file." );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }

@@ -21959,13 +21959,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      See https://github.com/RickKessler/SNANA/issues/1213
 
    BEWARE malloc_GENSPEC allocates and frees each ispec. However, when
-     allocating a larger  spectrum for, e.g. ISPEC=2, it can overwrite contents
-     of previous ISPEC=3 and cause a crash.
+     allocating a larger  spectrum for, e.g. ISPEC=2, it can overwrite 
+     contents of previous ISPEC=3 and cause a crash.
 
    genmag_SEDtools.c: 
      + in genSpec_SEDMODEL(), fix missing 1/z1 factor for outputing
         spectra using NON1ASED model. Fix results in SYNMAM = MAG.
        
+   genmag_NON1ASED.c:
+     + verify existance of all SED files in NON1A.LIST;
+       https://github.com/RickKessler/SNANA/issues/1222
+
         ***** USEFUL(v11_05h) ***** 
 
         ***** MISCELLANEOUS(v11_05h) ***** 

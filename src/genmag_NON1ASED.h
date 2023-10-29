@@ -7,7 +7,7 @@
 void  prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED, 
 		    GENLC_NON1ASED_DEF *GEN_NON1ASED);
 
-void getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName);
+bool getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName);
 
 void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED );
 int  count_NON1A_LIST(char *PATHMODEL);

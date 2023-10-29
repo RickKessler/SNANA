@@ -2480,8 +2480,10 @@ class Simulation(Program):
         INPUT_KEYS_BASENAME  = "INPUT_KEYS"
         INPUT_NOTES_BASENAME = "INPUT_NOTES"
 
+        # define keys to ignore in global readme because these keys
+        # only make sense for job in specific core.
         KEYLIST_IGNORE = ['GENVERSION', 'NGENTOT_LC', 'NGEN_LC', 
-                          'CIDOFF', 'CIDRAN_MIN', 'CIDRAN_MAX' ]
+                          'CIDRAN_MIN', 'CIDRAN_MAX' ]
 
         input_keys_name = f"{INPUT_KEYS_BASENAME}_{model_string}"
 

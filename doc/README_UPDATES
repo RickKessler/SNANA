@@ -21970,6 +21970,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + verify existance of all SED files in NON1A.LIST;
        https://github.com/RickKessler/SNANA/issues/1222
 
+     + fix bug for index=0 --> all indices with equal weight;
+       set high-side mag smear to MAGSMEAR instead of default -9 that
+       caused crazy-large mags.
+
         ***** USEFUL(v11_05h) ***** 
 
         ***** MISCELLANEOUS(v11_05h) ***** 

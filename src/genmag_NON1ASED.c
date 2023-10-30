@@ -656,7 +656,6 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
 
-      //.xyz
       EXIST_SED = getName_SED_FILE_NON1ASED(INP_NON1ASED->PATH, file_name, 
 					    FILE_NAME);  // <= returned
       if ( !EXIST_SED ) {
@@ -690,6 +689,7 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 	INP_NON1ASED->KEYVAL[NINDEX][2]    = 1.0 ; // 2nd key is WGT
 	INP_NON1ASED->MAGOFF[NINDEX]       = MAGOFF_ALLNON1A ;
 	INP_NON1ASED->MAGSMEAR[NINDEX][0]  = MAGSMEAR_ALLNON1A ;
+	INP_NON1ASED->MAGSMEAR[NINDEX][1]  = MAGSMEAR_ALLNON1A ; // bugfix Oct 29 2023
 	INP_NON1ASED->SNTAG[NINDEX]        = SNTAG_ALLNON1A ;
 	sprintf(INP_NON1ASED->SED_FILE[NINDEX],"%s", file_name ) ;
       }

@@ -3449,6 +3449,11 @@ void genSpec_SEDMODEL(int ised,
   // Oct 18 2023: missing 1/z1 for spec ... not clear why but it 
   //               results in SYNMAG = MAG
   //
+  // Oct 30 2023: fix awful bug; had passed lam-obs instead of lam-rest
+  //              to GALextinct(....) for host. Also refactored code
+  //              so that there is only one spectrograph-wavelength loop
+  //              instead of a 2nd loop for host extinction.
+  //
 
   double x0     = pow(TEN,-0.4*MU);
   double hc8    = (double)hc;
@@ -3456,9 +3461,12 @@ void genSpec_SEDMODEL(int ised,
   int    IFILT  = JFILT_SPECTROGRAPH ;
   int    NBSPEC = FILTER_SEDMODEL[IFILT].NLAM ;
   double z1     = 1.0 + z ;
+  bool   DOXT = ( AV_host > 1.0E-9 ) ;
+
   double LAMTMP_OBS, LAMTMP_REST, LAM0, LAM1, LAMAVG, lamBin, lam ;
   double ZP, MAG, FLUXGEN_forSPEC, FLUXGEN_forMAG;
   double FTMP, MWXT_FRAC, x0fac ;
+  double HOSTXT_MAGOFF, GLOBAL_FRAC, HOSTXT_FRAC ;
   double SEDNORM_forSPEC, SEDNORM_forMAG;
   int    ispec, NBLAM ;
   int    NDMP_SKIP=0;
@@ -3487,6 +3495,9 @@ void genSpec_SEDMODEL(int ised,
 	   SEDMODEL.FLUXSCALE, SEDNORM_forMAG, x0 );
   }
 
+  GLOBAL_FRAC = 1.0;
+  if ( MAGOFF != 0.0 )  { GLOBAL_FRAC = pow(TEN, -0.4*MAGOFF) ; }
+
 
   // loop over spectrograph wavelength bins
   for ( ispec=0; ispec< NBSPEC; ispec++ ) {
@@ -3513,15 +3524,29 @@ void genSpec_SEDMODEL(int ised,
       FLUXGEN_forMAG  += (FTMP * lamBin * LAMTMP_REST); 
       FLUXGEN_forSPEC += (FTMP * lamBin );
     }
+    x0fac = x0;
+
+    // correct for galactic extinction, host extinction, magoff
 
     MWXT_FRAC   = SEDMODEL_TABLE_MWXT_FRAC[IFILT][ispec] ;
-    x0fac       = (x0 *MWXT_FRAC) ;
+
+    HOSTXT_FRAC = 1.0; 
+    if ( DOXT ) { // host
+      LAMTMP_REST = LAMAVG/z1 ;
+      HOSTXT_MAGOFF = GALextinct ( RV_host, AV_host, LAMTMP_REST, 94 ); 
+      HOSTXT_FRAC   = pow(TEN, -0.4*HOSTXT_MAGOFF);
+    }
+
+    x0fac      *= (MWXT_FRAC * HOSTXT_FRAC * GLOBAL_FRAC);
+
     FLUXGEN_forSPEC  *= (x0fac*SEDNORM_forSPEC) ;
     FLUXGEN_forMAG   *= (x0fac*SEDNORM_forMAG ) ; 
+
 
     MAG  = MAG_UNDEFINED ;
     if ( ZP > 0.0 && FLUXGEN_forMAG > 1.0E-50 ) 
       { MAG = ZP - 2.5*log10(FLUXGEN_forMAG) ; }
+
 
     // load function output 
     GENFLUX_LIST[ispec] = FLUXGEN_forSPEC ;
@@ -3542,18 +3567,11 @@ void genSpec_SEDMODEL(int ised,
   // ------------------------------------------------
   // ------- apply host galaxy extinction -----------
 
-  double MAGOFF_XT, FRAC, FRAC_XT, LAM ;
-  int  DOXT = ( AV_host > 1.0E-9 ) ;
 
+  /* xxx mark xxxxxxxxx
   // check before removing: int NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-
   if ( MAGOFF == 0.0  &&  DOXT==0 ) { return ; }
-
-  FRAC = pow(TEN, -0.4*MAGOFF);
-  MAGOFF_XT=0.0 ; FRAC_XT=1.0 ;
-
-  for(ispec=0; ispec < NBSPEC; ispec++ ) {
-  
+  for(ispec=0; ispec < NBSPEC; ispec++ ) {  
     // get extinction from host in rest-frame (Jan 15, 2012)
     if ( DOXT ) {
       LAM       = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ispec] ;
@@ -3564,7 +3582,7 @@ void genSpec_SEDMODEL(int ised,
     GENMAG_LIST[ispec]  += ( MAGOFF + MAGOFF_XT ) ;
     GENFLUX_LIST[ispec] *= ( FRAC * FRAC_XT );
   }
-
+  xxxx  end mark xxxxx */
 
   // - - - - - - - - - - - - - - - -  
   if ( LDMP ) { debugexit(fnam); }

@@ -21964,8 +21964,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    genmag_SEDtools.c: 
      + in genSpec_SEDMODEL(), fix missing 1/z1 factor for outputing
-        spectra using NON1ASED model. Fix results in SYNMAM = MAG.
-       
+        spectra using NON1ASED model. Fixes crosscheck: SYNMAM = MAG.       
+     + also fix bug in GALextinct() argument; pass LAMREST intead of LAMOBS
+
    genmag_NON1ASED.c:
      + verify existance of all SED files in NON1A.LIST;
        https://github.com/RickKessler/SNANA/issues/1222

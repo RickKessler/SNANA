@@ -1345,6 +1345,7 @@ void set_user_defaults(void) {
 void set_user_defaults_ATMOSPHERE(void) {
 
   INPUTS_ATMOSPHERE.OPTMASK = 0 ;
+  INPUTS_ATMOSPHERE.DCR_COORDRES_FLOOR = 0.0 ;
   init_GENPOLY(&INPUTS_ATMOSPHERE.DCR_COORDRES_POLY);
   init_GENPOLY(&INPUTS_ATMOSPHERE.DCR_MAGSHIFT_POLY);
 
@@ -4820,6 +4821,10 @@ int parse_input_ATMOSPHERE(char **WORDS, int keySource) {
     parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_DCR_COORDRES_POLY, 
 		  &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY, fnam);
   }
+  else if ( keyMatchSim(1, "ATMOSPHERE_COORDRES_FLOOR", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS_ATMOSPHERE.DCR_COORDRES_FLOOR );
+  }
+
   else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY, WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", strTmp);
     parse_GENPOLY(strTmp, KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY, 

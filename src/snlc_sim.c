@@ -1073,8 +1073,9 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
   INPUTS.HOSTLIB_PLUS_COMMAND[0]  = 0 ;
 
-  INPUTS.HOSTLIB_USE    = 0;
-  INPUTS.HOSTLIB_MSKOPT = 0;
+  INPUTS.HOSTLIB_USE         = 0;
+  INPUTS.HOSTLIB_MSKOPT      = 0;
+  INPUTS.HOSTLIB_MSKOPT_ADD  = 0;
   INPUTS.HOSTLIB_MAXREAD     = MXROW_HOSTLIB;
   INPUTS.HOSTLIB_MNINTFLUX_SNPOS = 0.00 ;  // use 0% as the minimum limit for SNPOS
   INPUTS.HOSTLIB_MXINTFLUX_SNPOS = 0.99 ;  // use 99% of total flux for SNPOS
@@ -3470,14 +3471,30 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
     // restore special HOSTLIB_MSKOPT flags that might have been
     // set before overriding MSKOPT
-    if ( (MSKOPT_OLD & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
-      { INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS; }
-    if ( (MSKOPT_OLD & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
-      { INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR; }
+    if ( (MSKOPT_OLD & HOSTLIB_MSKOPT_PLUSMAGS) > 0 ) 
+      { INPUTS.HOSTLIB_MSKOPT |= HOSTLIB_MSKOPT_PLUSMAGS; }
+
+    if ( (MSKOPT_OLD & HOSTLIB_MSKOPT_PLUSNBR) > 0 ) 
+      { INPUTS.HOSTLIB_MSKOPT |= HOSTLIB_MSKOPT_PLUSNBR; }
 
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
   }
 
+  else if ( keyMatchSim(1, "HOSTLIB_MSKOPT_ADD", WORDS[0], keySource) ) {
+    MSKOPT_OLD = INPUTS.HOSTLIB_MSKOPT ; 
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT_ADD);
+    if ( keySource == KEYSOURCE_FILE ) {
+      sprintf(c1err, "input key '%s' is for command-line only.", WORDS[0]);
+      sprintf(c2err, "Remove %s from sin-input file.", WORDS[0]);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+    }
+    if ( MSKOPT_OLD == 0 ) {
+      sprintf(c1err, "input key '%s' is forbidden if HOSTLIB_MSKOPT=0.", WORDS[0]);
+      sprintf(c2err, "Add HOSTLIB_MSKOPT key or remove '%s'.", WORDS[0]);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+    }
+    INPUTS.HOSTLIB_MSKOPT |= INPUTS.HOSTLIB_MSKOPT_ADD ;
+  }
   else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ; // add synth mags
     N += FLAG_NWD_ZERO; // flag that key has no argument 
@@ -30469,10 +30486,8 @@ void DUMP_GENMAG_DRIVER(void) {
 }  // end of DUMP_GENMAG_DRIVER
 
 
-
 // =============================
 void print_sim_help(void) {
-
 
   static char *help[] = {
     "\t ***** snlc_sim help menu *****",
@@ -30527,9 +30542,14 @@ void print_sim_help(void) {
     "SPECTROGRAPH_OPTMASK:  <optMask>     # see manual",
     "SPECTROGRAPH_SCALE_TEXPOSE: <scale>  # scale all exposure times",
     "",
+    "LAMBIN_SED_TRUE <lambin>    # for each obs, write true SED with this bin size (A)",
+    "LAMRANGE_SED_TRUE <lammin>  <lammax>  # write true SED with this wavelength range (A)",
+    "",
     "# - - - - - - - HOSTLIB - - - - - - - ",
-    "HOSTLIB_FILE:  <name>    # file name of host-galaxy library",
-    "HOSTLIB_MSKOPT: <mask>   # bit-mask of options (see manual)",
+    "HOSTLIB_FILE:       <name>      # file name of host-galaxy library",
+    "HOSTLIB_MSKOPT:     <mask>      # bit-mask of options (see manual)",
+    "HOSTLIB_MSKOPT_ADD: <addMask>   # add to HOSTLIB_MSKOPT, command-line only",
+    "",
     "# for more HOSTLIB options, ",
     "# see manual Section 4.22.1 hostlib Options",
     "",

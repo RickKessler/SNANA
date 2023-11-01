@@ -531,6 +531,7 @@ struct INPUTS {
   char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
   char HOSTLIB_SPECDATA_FILE[MXPATHLEN]; // spec data for host spec
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
+  int  HOSTLIB_MSKOPT_ADD ;     // add to HOSTLIB_MSKOPT (command-line only)
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
   int  HOSTLIB_GALID_UNIQUE;         // flag to force unique galid

@@ -506,7 +506,7 @@ void genSmear_coords(int epoch) {
 
   // Created May 2023: 
   // Determine measured RA,DEC for this epoch, using coord-smear 
-  // resolution defined by sim-input key ATMOSPHERE_DCR_COORDRES_POLY.
+  // resolution defined by sim-input key ATMOSPHERE_DCR_COORDRES_POLY and ATMOSPHERE_DCR_COORDRES_FLOOR
 
   double cosDEC  = GENLC.cosDEC;
   double SNR_TRUE = SEARCHEFF_DATA.SNR_CALC[epoch-1];
@@ -521,7 +521,9 @@ void genSmear_coords(int epoch) {
   bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[epoch] < COORD_SHIFT_NULL_DEG );
 
   GENPOLY_DEF  *DCR_COORDRES_POLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
+  double DCR_COORDRES_FLOOR = INPUTS_ATMOSPHERE.DCR_COORDRES_FLOOR;
   double RA_OBS, DEC_OBS, RA_TRUE, DEC_TRUE ;
+  double STATRES_TRUE_asec, STATRES_OBS_asec;
   double ANGRES_TRUE_asec, ANGRES_TRUE_deg, ran_RA, ran_DEC, WGT ;
   double ANGRES_OBS_asec,  ANGRES_OBS_deg;
   char fnam[] = "genSmear_coords" ;
@@ -534,8 +536,11 @@ void genSmear_coords(int epoch) {
 
   double x_TRUE = PSF_FWHM/SNR_TRUE;
   double x_OBS  = PSF_FWHM/SNR_OBS;
-  ANGRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
-  ANGRES_OBS_asec  = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
+
+  STATRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
+  STATRES_OBS_asec = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
+  ANGRES_TRUE_asec = pow(pow(STATRES_TRUE_asec, 2) + pow(DCR_COORDRES_FLOOR, 2), 0.5); //sqrt(sigma_syst**2 + sigma_stat**2)
+  ANGRES_OBS_asec  = pow(pow(STATRES_OBS_asec, 2) + pow(DCR_COORDRES_FLOOR, 2), 0.5);
   if ( !VALID_DCR_SHIFT ) { ANGRES_TRUE_asec = 0.0; } // nothing to smear
 
   // convert ANGRES to degrees and divide by sqrt(2) for 

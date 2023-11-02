@@ -6017,6 +6017,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   if ( IGAL_SELECT < 0 ) {
     
+    // .xyz 
     // if using same Galaxy with MJD-sep, just return so that
     // this event is rejected.
     if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 99999 ) 

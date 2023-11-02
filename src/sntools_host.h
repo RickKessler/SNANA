@@ -95,6 +95,7 @@
 
 #define MXUSE_SAMEGAL 50     // max number of times to re-use hostGal
                              // with MINDAYSEP_SAMEGAL option
+#define MXREJECT_USEONCE 2   // reject up to 2 events that fail USEONCE opt
 
 // define required keys in the HOSTLIB
 #define HOSTLIB_VARNAME_GALID     "GALID"      // required 

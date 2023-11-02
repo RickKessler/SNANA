@@ -10414,12 +10414,15 @@ void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
   // Alarm fractions are printed to output README.
 
   int ifilt;
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
   double magdif_alarm = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[0];
   double mag_alarm    = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[1];
   bool   WARN;
   char fnam[] = "set_ALARM_SED_TRUE";
 
   // ----------- BEGIN ----------
+
+  if ( LAMBIN_SED_TRUE < 0.01 ) { return; }
 
   if ( ifilt_obs <= 0 ) {
     // one-time init

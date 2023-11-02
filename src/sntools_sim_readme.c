@@ -382,6 +382,7 @@ void README_DOCANA_SED_TRUE(int *iline) {
   int    ifilt, ifilt_obs, N0, N1;
   double frac;
 
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
   double magdif_alarm = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[0];
   double mag_alarm    = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[1];
 
@@ -391,7 +392,7 @@ void README_DOCANA_SED_TRUE(int *iline) {
 
   // ----------- BEGIN ------------
 
-  if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE < 0.01 ) { return; }
+  if ( LAMBIN_SED_TRUE < 0.01 ) { return; }
 
   readme_docana_comment(&i, "");
   

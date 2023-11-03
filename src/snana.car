@@ -4,7 +4,6 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c  
 
 +PATCH,*SNCOM.
 

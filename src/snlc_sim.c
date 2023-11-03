@@ -24598,29 +24598,17 @@ void init_genSEDMODEL(void) {
   // Read K-cor files to fetch primary SED and filter-responses.
   // Note  that the K-corrections tables are NOT used.
   //
-  // Dec 19, 2011: abort if zmin <= 1.E-9
-  // Dec 14, 2013: include safety margin on zmin,zmax to allow for
-  //               zcmb -> zhelio because we generate zcmb, but
-  //               generate with zhelio.
   //
-  // Jan 23, 2014: call extraFilters_4genSmear( ...) to determine
-  //               extra filters needed by genSmear functions.
-  //               See NFILT_extra and IFILTOBS_extra.
-  //
+  // Nov 4 2023: ensure that NZBIN >= 2
   // --------------------
-  char  fnam[] = "init_genSEDMODEL" ;
-  char   filtName[40], surveyName[80], cfilt[2]    ;
 
-  int 
-    ifilt, ifilt_obs
-    ,NLAM, NFILT, NZBIN, NFILT_extra, LEN=40
-    ,DONEFILT[MXFILTINDX]
-    ,IFILTLOCAL[MXFILTINDX]
-    ,IFILTOBS_extra[MXFILTINDX]
-    ,OPT_FRAME[MXFILTINDX]      
-    ;
-  
+  int ifilt, ifilt_obs, NLAM, NFILT, NZBIN, NFILT_extra, LEN=40;
+  int DONEFILT[MXFILTINDX], IFILTLOCAL[MXFILTINDX], IFILTOBS_extra[MXFILTINDX];
+  int OPT_FRAME[MXFILTINDX]    ; 
   double  lamshift, magprim, zmin, zmax, dz, z1min, z1max,logzdif  ;
+
+  char   filtName[40], surveyName[80], cfilt[2]    ;
+  char  fnam[] = "init_genSEDMODEL" ;
 
   // ------------ BEGIN -------------
 
@@ -24662,6 +24650,8 @@ void init_genSEDMODEL(void) {
 
   logzdif =  log10(zmax) - log10(zmin) ;
   NZBIN = (int)( 50. * logzdif ) + 1 ;
+  if ( NZBIN <= 1 ) { NZBIN = 2; } // avoid divide-by-zero in init_redshift_SEDMODEL
+
   init_redshift_SEDMODEL(NZBIN, zmin, zmax);
 
   NFILT = INPUTS.NFILTDEF_OBS ;
@@ -24745,6 +24735,8 @@ void init_genSEDMODEL(void) {
   free(genSEDMODEL.primaryFlux);
   free(genSEDMODEL.TransSN);
   free(genSEDMODEL.TransREF);
+
+  return ;
 
 } // end of init_genSEDMODEL
 

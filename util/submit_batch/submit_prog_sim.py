@@ -63,6 +63,8 @@
 # Aug 01 2023: add CIDOFF_GLOBAL to all CIDs; allows user to control CIDOFF
 #              range for a sequence of separate submit-batch jobs.
 #
+# Nov 03 2023: replace a bunch of print(f"") with logging.info()
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -315,7 +317,7 @@ class Simulation(Program):
             n_file         = len(infile_list2d[iver])
 
             if verbose :
-                print(f" sim_prep_GENOPT({GENVERSION}) ")
+                logging.info(f" sim_prep_GENOPT({GENVERSION}) ")
 
             # catenate the GENOPTs into one long GENOPT_FINAL string
             genopt_list = []  # list for this GENVERSION
@@ -350,7 +352,7 @@ class Simulation(Program):
                         genopt_list2d[iver][ifile] += genopt
 
                 if verbose:
-                    print(f"\t GENOPT({infile}): {genopt_list2d[iver][ifile]}")
+                    logging.info(f"\t GENOPT({infile}): {genopt_list2d[iver][ifile]}")
 
             iver += 1
 
@@ -554,7 +556,7 @@ class Simulation(Program):
 
         include_list = [f for f in open_file.split("\n") if f != ""] # Assumed each line is ONLY a file name.
         n_include_list = len(include_list)
-        print(f"Found {n_include_list} include files from {include_list_file}")
+        logging.info(f"Found {n_include_list} include files from {include_list_file}")
 
         if n_include_list < n_job_split:
             msgerr.append(f"n_job_split = {n_job_split}, n_include_list = {n_include_list}")
@@ -807,7 +809,7 @@ class Simulation(Program):
             msgerr += cmd_stdout
             self.log_assert(False,msgerr)
             
-        print(f"  Compute NGENTOT={ngentot:6d} for {prefix}")
+        logging.info(f"  Compute NGENTOT={ngentot:6d} for {prefix}")
 
         return ngentot
         # end get_ngentot_from_rate
@@ -858,7 +860,7 @@ class Simulation(Program):
             msgerr.append(f"FORMAT_MASK must include either {strtmp}")
             self.log_assert( False , msgerr)
 
-        print(f"  FORMAT_MASK = {format_mask} ({format}) ")
+        logging.info(f"  FORMAT_MASK = {format_mask} ({format}) ")
 
         # check option for random CIDs
         do_cidran  = (format_mask & FORMAT_MASK_CIDRAN) > 0
@@ -1029,9 +1031,10 @@ class Simulation(Program):
         
         msgerr = []
 
-        print(f"")
-        print(f"     GENVERSION        MODEL        CIDOFF(GENVERSION)")
-        print(f"# -------------------------------------------------- ")
+
+        logging.info(f"")
+        logging.info(f"     GENVERSION        MODEL        CIDOFF(GENVERSION)")
+        logging.info(f"# ----------------------------------------------------")
 
         for iver in range(0,n_genversion) :
             genv = genversion_list[iver]
@@ -1053,15 +1056,15 @@ class Simulation(Program):
                 else:
                     str_cidoff = f"{cidoff_list[0:2]} ... {cidoff_list[len_list-2:len_list]}"
 
-                print(f" {str_genv} {str_model} {str_cidoff}")
+                logging.info(f" {str_genv} {str_model} {str_cidoff}")
 
-        print(f"# -------------------------------------------------- ")
-        print(f"  RESET_CIDOFF       = {reset_cidoff} ")
-        print(f"  CIDRAN_MIN        = {cidran_min}")
-        print(f"  CIDRAN_MAX(genver)= {cidran_max_list}")
-        print(f"  Sum of NGENTOT_LC = {ngentot_sum} x {n_job_split} " \
+        logging.info(f"# -------------------------------------------------- ")
+        logging.info(f"  RESET_CIDOFF       = {reset_cidoff} ")
+        logging.info(f"  CIDRAN_MIN        = {cidran_min}")
+        logging.info(f"  CIDRAN_MAX(genver)= {cidran_max_list}")
+        logging.info(f"  Sum of NGENTOT_LC = {ngentot_sum} x {n_job_split} " \
               f"(distribute among {n_job_tot} jobs)")
-        print(f"")
+        logging.info(f"")
 
         # end sim_prep_dump_cidoff
 
@@ -1322,11 +1325,11 @@ class Simulation(Program):
                 inc_file_list.append(inc_file)
 
         if do_dump:
-            print(f" 1.xxx ------------------------- ")
-            print(f" 1.xxx read keys from {infile}")
-            print(f" 1.xxx nlines(infile) = {len(input_lines)}")
-            print(f" 1.xxx INCLUDE key indices = {index_inc_list} ")
-            print(f" 1.xxx inc_file_list = {inc_file_list} ")
+            logging.info(f" 1.xxx ------------------------- ")
+            logging.info(f" 1.xxx read keys from {infile}")
+            logging.info(f" 1.xxx nlines(infile) = {len(input_lines)}")
+            logging.info(f" 1.xxx INCLUDE key indices = {index_inc_list} ")
+            logging.info(f" 1.xxx inc_file_list = {inc_file_list} ")
 
         # check for INCLUDE file in GENOPT
         GENOPT_GLOBAL = self.config_prep['genopt_global'].split()
@@ -1359,8 +1362,8 @@ class Simulation(Program):
                 input_dict[key] = input2_yaml[key]
 
         if do_dump:
-            print(f" 2.xxx include file = {inc_file_list}" )
-            print(f" 2.xxx nlines(infile+include) = {len(input_lines)}")
+            logging.info(f" 2.xxx include file = {inc_file_list}" )
+            logging.info(f" 2.xxx nlines(infile+include) = {len(input_lines)}")
             sys.exit("\n xxx DEBUG DIE xxx \n")
 
         return input_dict, inc_file_list
@@ -1702,8 +1705,8 @@ class Simulation(Program):
             str_orig      = str(ranseed_orig)
             str_split     = str(ranseed_split)
             genopt_out    = genopt.replace(str_orig,str_split)
-            print(f"\t ransystpar_ranseed_syst -> {ranseed_split}" \
-                  f" for ISPLIT={isplit1}")
+            logging.info(f"\t ransystpar_ranseed_syst -> {ranseed_split}" \
+                         f" for ISPLIT={isplit1}")
             
         return genopt_out
         

@@ -22006,6 +22006,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for FIXMAG or fixmag model, fix genSpec to return sensible AB spectrum
        such that SYNMAG = FIXMAG.
 
+     + inside init_genSEDODEL(), make sure that NZBIN >= 2 because
+       NZbin=1 causes divide-by-zero in init_redshift_SEDMODEL().
+
    sntools_data.c[h]:
      + pass REQUIRE_DOCANA flag to RD_OVERRIDE_INIT
    snana.car

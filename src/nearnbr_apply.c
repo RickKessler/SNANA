@@ -417,7 +417,7 @@ void  open_outFile(void) {
   // ------------ BEGIN ----------
 
   TABLEFILE_OPEN(INPUTS.outFile, "new");
-  CDTOPDIR_OUTPUT();
+  CDTOPDIR_OUTPUT(1);
 
   SNTABLE_CREATE(OUT_TABLEID, OUT_TABLENAME, textFormat );
 

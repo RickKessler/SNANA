@@ -536,8 +536,8 @@ extern"C" {
   void MAKEDIR_OUTPUT(char *CCID, int CID ) ;
   void makedir_output__(char *CCID, int *CID ) ;
   
-  void CDTOPDIR_OUTPUT(void) ;
-  void cdtopdir_output__ (void) ;
+  void CDTOPDIR_OUTPUT(int VBOSE) ;
+  void cdtopdir_output__ (int *VOBSE) ;
 
 
   // SNLCPAK functions

@@ -94,7 +94,7 @@ extern"C" {
   void SNHIST_RDCONT_HBOOK(int NDIM, int ID, int NBIN, double *CONTENTS);
 
   void MAKEDIR_HBOOK(char *CCID, int CID) ;
-  void CDTOPDIR_HBOOK(void);
+  void CDTOPDIR_HBOOK(int VBOSE);
   
   void SNLCPAK_SURVEY_HBOOK(void);
 
@@ -1505,7 +1505,7 @@ void MAKEDIR_HBOOK(char *CCID, int CID) {
 
 
 // --------------------------------------------------
-void CDTOPDIR_HBOOK(void) {
+void CDTOPDIR_HBOOK(int VBOSE) {
 
   char fnam[] = "CDTOPDIR_HBOOK" ;
   char *topDir ;
@@ -1516,8 +1516,11 @@ void CDTOPDIR_HBOOK(void) {
   topDir = HBOOK_TOPDIR_NEWFILE ; 
   hcdir_( PAWC,  blank, strlen(PAWC), strlen(blank) ) ;
   hcdir_( topDir, blank, strlen(topDir), strlen(blank)  ) ;
-  printf("\t %s: return to %s \n", fnam, topDir ) ;
-  fflush(stdout) ;
+
+  if ( VBOSE ) {
+    printf("\t %s: return to %s \n", fnam, topDir ) ;
+    fflush(stdout) ;
+  }
 
 } // end of CDTOPDIR_HBOOK
 

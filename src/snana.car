@@ -2990,7 +2990,7 @@ c initialize fitter before SN are selected
          IF ( IERR .NE. 0 ) GOTO 666 
 +SELF.
 
-      CALL CDTOPDIR_OUTPUT()  ! climb out of MONINIT subdir (Mar 2013)
+      CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! climb out of MONINIT subdir (Mar 2013)
 
 +SELF,IF=PSNID.
       CALL PRBANNER ( "CALL PSNIDINI" )
@@ -9820,7 +9820,7 @@ c Aug 16, 2009 : check for 1st-iteration cuts,
 c such as from filter dropouts  in photoZ fit.
 
       if ( .NOT.LAST_ITER .and.  ERRFLAG .GT. 0) then  
-         write(6,441) SNLC_CCID
+         if ( STDOUT_UPDATE ) write(6,441) SNLC_CCID
  441     format(T4,'MNFIT_DRIVER: ', 
      &        'CUTS AFTER 1st FIT-ITER REJECT CID ', A8,' => SKIP')
          CALL MON_SNANA(IFLAG_ANA) ! update ntuples for failed fit
@@ -12070,7 +12070,7 @@ c Dec 6 2014: skip any on the ignore list
 c --------------------------------------
 c 2nd init after passing all info
 
-      CALL CDTOPDIR_OUTPUT()  ! climb out of MONINIT 
+      CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! climb out of MONINIT 
       
 c set ISPLIT so that certain plots are made only on first split-job
       ISPLIT = MAX(JOBSPLIT(1),JOBSPLIT_EXTERNAL(1))
@@ -14386,7 +14386,6 @@ c determine STDOUT_UPDATE logical to dump info
       ENDIF
 
       STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
-
       if ( .NOT. STDOUT_UPDATE ) RETURN
 
       print*,' *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-' //
@@ -22840,7 +22839,7 @@ c fill output structure with above; here iy goes to a disk file.
       CALL SNLCPAK_FILL(CCID, LENCCID)
 
 c back to topdir
-      CALL CDTOPDIR_OUTPUT()
+      CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)
 
 c set global flag.
       MADE_LCPLOT = .TRUE.

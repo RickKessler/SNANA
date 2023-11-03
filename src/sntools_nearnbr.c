@@ -622,8 +622,7 @@ void nearnbr_read_trainLib(int ifile) {
   // read table file and increment total number of entries 
 
   NROW  = SNTABLE_READ_EXEC();
-  // xxx obolete  TABLEFILE_CLOSE(INFILE_FULL) ; // close TABLE file
-  CDTOPDIR_OUTPUT();
+  CDTOPDIR_OUTPUT(1);
 
 
   // Apr 6 2019: check option to use only ODD CID 

@@ -274,7 +274,7 @@ void openFile_combine(void) {
 
   sprintf(openOpt,"new");
   OUTPUT.IFILETYPE = TABLEFILE_OPEN(INPUTS.OUTFILE,openOpt);
-  CDTOPDIR_OUTPUT();
+  CDTOPDIR_OUTPUT(1);
 
 
   return ;

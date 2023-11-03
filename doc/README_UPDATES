@@ -22040,5 +22040,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu:
      + add protections for CCprior init for spec-confirmed subsets.
        Avoid dividing by RMS=0, and skip get_mubias for zero CCPRIOR events.
+   
+   many codes: pass VBOSE flag to CDTOPDIR to supporess output in batch mode.
 
 END: 

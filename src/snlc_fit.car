@@ -2039,7 +2039,7 @@ c and valid rest-frame filter.
      &     USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs) 
 
 c print message if observer-filter is dropped or added on 2nd iteration
-         if ( NEXT_ITER .and. NOMATCH ) THEN
+         if ( NEXT_ITER .and. NOMATCH .and. STDOUT_UPDATE ) THEN
 
              if ( USE_FILT_ITER1(ifilt_obs) ) then
                 write(6,24) CCID(1:LCHAR), 'DROPPED', cfilt
@@ -2464,7 +2464,7 @@ c on last iteration, check if fit is OK
 
       IF ( ERRFLAG .NE. 0 ) THEN
 c back to topdir
-          CALL CDTOPDIR_OUTPUT()
+          CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)
           RETURN
       ENDIF
 
@@ -2486,7 +2486,7 @@ c book plots for this SN; all plots are vs. relative epoch
 
         IF ( LPLOTCHI2 ) CALL HFUNMIN()    ! plot fun near minium
 
-        CALL CDTOPDIR_OUTPUT()  ! back to topdir
+        CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
 
       ENDIF
 
@@ -3706,11 +3706,13 @@ c tighter (final) cuts.
            CFILT1 = cfiltadd
         ENDIF
 
-        LENF = index(CFILT1,' ') - 1
-        write(6,190) VERB, CCID(1:LCID), cfilt1(1:LENF)
-190     format(T8, A, 2x, A,'-', A, 
-     &             ' : retest Trest-related cuts: ', $ )
-        call flush(6)
+        if ( STDOUT_UPDATE ) then
+          LENF = index(CFILT1,' ') - 1
+          write(6,190) VERB, CCID(1:LCID), cfilt1(1:LENF)
+190       format(T8, A, 2x, A,'-', A, 
+     &               ' : retest Trest-related cuts: ', $ )
+          call flush(6)
+        endif
 
         PEAKMJD = FITVAL(IPAR_PEAKMJD,iter) 
         Z1      = FITVAL(IPAR_ZPHOT,iter)  + 1.0
@@ -9586,9 +9588,11 @@ c if final chi2 is worse, then switch back to initial parameters
 c and minimized PEAKMJD
 
       IF ( CHI8END .GT. CHI8INI ) THEN
-        print*,' '
-        print*,'  WARNING: ADJUSTED CHI2 is WORSE => '
-        print*,'           SWITCH BACK TO ORIGINAL INIVAL '
+        if ( STDOUT_UPDATE ) then
+          print*,' '
+          print*,'  WARNING: ADJUSTED CHI2 is WORSE => '
+          print*,'           SWITCH BACK TO ORIGINAL INIVAL '
+        endif
 
         DO ipar = 1, IPAR_MAX
           INIVAL(ipar) = INIVAL_START(ipar) 
@@ -15382,7 +15386,7 @@ c ----
          CALL MAKEDIR_OUTPUT(CCID,SNLC_CID,LCID)
          CALL FITANA_STORE()
          CALL SNLCPLOT()   
-         CALL CDTOPDIR_OUTPUT()  ! back to topdir
+         CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
       ENDIF
 
 c after both fits, compute mag difference & error.
@@ -15830,7 +15834,7 @@ c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
       CALL READ_CALIB_WRAPPER(IERR)
 
-      CALL CDTOPDIR_OUTPUT  ! back to topdir
+      CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
 
 c check that added filter(s) are all in the KCOR file.
 c Abort if any filter is missing.
@@ -16568,7 +16572,7 @@ c          to NFUNPLOT plots ???
          CALL MAKEDIR_OUTPUT(CCID, SNLC_CID, LCHAR_CCID)
          CALL FITANA_STORE()
          CALL SNLCPLOT()   
-         CALL CDTOPDIR_OUTPUT()  ! back to topdir
+         CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
       ENDIF
 
       RETURN
@@ -16905,7 +16909,7 @@ c then add it to the SURVEY_FILTERS list and call RDKCOR again.
 
          CALL READ_CALIB_WRAPPER(ISTAT)
 
-         CALL CDTOPDIR_OUTPUT  ! back to topdir (to be safe)
+         CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir (to be safe)
 
       ENDIF
 

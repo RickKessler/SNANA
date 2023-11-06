@@ -10274,7 +10274,8 @@ void GENSPEC_TRUE(int imjd) {
       // find original genmag at this filter and MJD
       MJD        = TOBS + GENLC.PEAKMJD;
       genmag_obs = find_genmag_obs(ifilt_obs,MJD);
-      if (genmag_obs == MAG_UNDEFINED) {continue;}
+      if (genmag_obs == MAG_UNDEFINED) { continue; }
+
       set_ALARM_SED_TRUE(ifilt_obs, genmag_obs, SYNMAG);
 
       // for true SED, check option to write genmag and synmag to diagnostic table file
@@ -30497,7 +30498,7 @@ void print_sim_help(void) {
     "snlc_sim.exe <inputFile>   <keyopt1=arg1> <keyopt2=arg2> etc ...",    
     "",
     "INPUT_INCLUDE_FILE: <include_file>   # up to 2 inc files with sim-input keys",
-    "",
+    "",  
     "#  - - - - - Output data - - - - - ",
     "GENVERSION: <name>        #  name of output data folder",
     "NGENTOT_LC:  <ngen>       #  number of events to generate",

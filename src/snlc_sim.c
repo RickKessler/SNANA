@@ -10266,6 +10266,7 @@ void GENSPEC_TRUE(int imjd) {
   // compute true synthetic mag per band
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    if (!GENLC.DOFILT[ifilt_obs]) {continue;}
     SYNMAG    = GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST); // compute synthetic mag
     GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs] = SYNMAG;    // store it
 
@@ -10273,7 +10274,7 @@ void GENSPEC_TRUE(int imjd) {
       // find original genmag at this filter and MJD
       MJD        = TOBS + GENLC.PEAKMJD;
       genmag_obs = find_genmag_obs(ifilt_obs,MJD);
-
+      if (genmag_obs == MAG_UNDEFINED) {continue;}
       set_ALARM_SED_TRUE(ifilt_obs, genmag_obs, SYNMAG);
 
       // for true SED, check option to write genmag and synmag to diagnostic table file
@@ -10321,6 +10322,7 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
     }
   } // end ep
   
+  if ( NFIND_MAG == 0 ) {return MAG_UNDEFINED;}
 
   if ( NFIND_MAG != 1 ) {
     
@@ -10334,8 +10336,8 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
     
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
     sprintf(c1err,"NFIND_MAG=%d  but expeced 1", NFIND_MAG);
-    sprintf(c2err,"ifilt_obs=%d(%s)  MJD=%.3f  TOBS=%.1f  z=%.3f", 
-	    ifilt_obs, cfilt, MJD, MJD-GENLC.PEAKMJD, GENLC.REDSHIFT_CMB );
+    sprintf(c2err,"ifilt_obs=%d(%s)  MJD=%f  TOBS=%.1f  z=%.3f  LIBID=%d", 
+	    ifilt_obs, cfilt, MJD, MJD-GENLC.PEAKMJD, GENLC.REDSHIFT_CMB, GENLC.SIMLIB_ID);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -10431,6 +10433,7 @@ void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
 
   if ( ifilt_obs <= 0 ) {
     // one-time init
+    printf("xxx %s\n", fnam);
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
       INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt][0] = 0 ;
       INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt][1] = 0 ;

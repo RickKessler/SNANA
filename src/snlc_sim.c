@@ -30496,6 +30496,8 @@ void print_sim_help(void) {
     "\t ***** snlc_sim help menu *****",
     "snlc_sim.exe <inputFile>   <keyopt1=arg1> <keyopt2=arg2> etc ...",    
     "",
+    "INPUT_INCLUDE_FILE: <include_file>   # up to 2 inc files with sim-input keys",
+    "",
     "#  - - - - - Output data - - - - - ",
     "GENVERSION: <name>        #  name of output data folder",
     "NGENTOT_LC:  <ngen>       #  number of events to generate",

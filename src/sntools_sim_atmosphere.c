@@ -143,7 +143,7 @@ void INIT_ATMOSPHERE(void) {
 
   if ( REQUIRE_RESPOLY ) { 
 
-    double SNR, ANGRES;
+    double SNR, ANGRES, STATRES;
     GENPOLY_DEF *RESPOLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
 
     if ( RESPOLY->ORDER < 0 ) {
@@ -158,9 +158,9 @@ void INIT_ATMOSPHERE(void) {
     for (SNR=10.0; SNR <= 100.0; SNR+= 30.0 ) {
       double PSF_FWHM = 1.0 ; // arcsec
       double x = PSF_FWHM/SNR;
-      ANGRES = eval_GENPOLY(x, RESPOLY, fnam);
-      printf("\t ANGRES = %7.4f arcsec for SNR = %4.0f (PSF_FWHM=%.1f asec)\n", 
-	     ANGRES, SNR, PSF_FWHM); fflush(stdout);
+      STATRES = eval_GENPOLY(x, RESPOLY, fnam);
+      printf("\t STATRES = %7.4f arcsec for SNR = %4.0f (PSF_FWHM=%.1f asec)\n", 
+	     STATRES, SNR, PSF_FWHM); fflush(stdout);
     }
   }  // end REQUIRE_RESPOLY
 
@@ -539,8 +539,8 @@ void genSmear_coords(int epoch) {
 
   STATRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
   STATRES_OBS_asec = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
-  ANGRES_TRUE_asec = pow(pow(STATRES_TRUE_asec, 2) + pow(DCR_COORDRES_FLOOR, 2), 0.5); //sqrt(sigma_syst**2 + sigma_stat**2)
-  ANGRES_OBS_asec  = pow(pow(STATRES_OBS_asec, 2) + pow(DCR_COORDRES_FLOOR, 2), 0.5);
+  ANGRES_TRUE_asec = sqrt(pow(STATRES_TRUE_asec, 2) + pow(DCR_COORDRES_FLOOR, 2)); //sqrt(sigma_syst**2 + sigma_stat**2)
+  ANGRES_OBS_asec  = sqrt(pow(STATRES_OBS_asec, 2) + pow(DCR_COORDRES_FLOOR, 2));
   if ( !VALID_DCR_SHIFT ) { ANGRES_TRUE_asec = 0.0; } // nothing to smear
 
   // convert ANGRES to degrees and divide by sqrt(2) for 

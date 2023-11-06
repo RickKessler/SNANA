@@ -4658,6 +4658,44 @@ to reduce the galaxy SNR by a factor of $\sqrt{1/4}=1/2$.
 An optional PEAKMJD-dependent {\tt SNR\_SCALE} can be given
 by providing PEAKMJD-ranges as parenthetical arguments.
 
+%\clearpage
+\subsubsection{Generating Host Galaxy Photometric Redshifts}
+\label{sss:quantiles}
+
+Photometric redshifts are read from the {\tt HOSTLIB}.
+The $\Zphot$ values are not used in the simulation for calculations,
+but are simply written to the data files for analysis.
+There are two ways to provide photo-z information into the {\tt HOSTLIB}.
+First, provide {\tt ZPHOT} and {\tt ZPHOTERR} columns.
+The second method is to provide 11 quantile redshift columns 
+corresponding to integrated (CDF) probabilities of 
+0, 10\%, 20\%, ... 100\%:
+\begin{verbatim}
+    ZPHOT_Q000  ZPHOT_Q010   ZPHOT_Q020   ZPHOT_Q030 ... ZPHOT_Q100
+\end{verbatim}
+One or both methods may be provided in the same {\tt HOSTLIB}.
+A more general framework for arbitrary quantiles may be developed in the
+future. 
+The corresponding output data variables are
+\begin{verbatim} 
+    HOSTGAL_ZPHOT_Q000  HOSTGAL_ZPHOT_Q010   
+    HOSTGAL_ZPHOT_Q020  HOSTGAL_ZPHOT_Q030 ... HOSTGAL_ZPHOT_Q100 
+    NZPHOT_Q
+\end{verbatim}
+%
+where {\tt NZPHOT\_Q=11}.
+
+To select photo-$z$ in the light curve fitting program,
+set {\&FITINP} namelist variable {\tt OPT\_PHOTOZ=4}
+(\S\ref{subsec:photoz}). To override photo-$z$ information
+in the data files (real or sim), 
+see (\S\ref{sss:header_override}).
+Note that quantile overrides are unique because they can
+be appended even if the original data files do not have
+quantile data.
+
+
+% .xyz
 % ------------------------------------
 \clearpage
 \subsubsection{Compute Synthetic \hostlib\ Magnitudes ({\tt +HOSTMAGS})}
@@ -9880,8 +9918,8 @@ see Sec.~\ref{sss:new_data_files} on updating data files with
 override information.
 
 The header information includes host properties, peculiar
-velocities, redshifts, and Galactic extintion, all of which
-can be modified for a particular study. 
+velocities, redshifts (spec-$z$ and photo-$z$), 
+and Galactic extintion, all of which can be modified for a particular study. 
 To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
 The input key for the analysis programs is
 \begin{verbatim}
@@ -9894,8 +9932,8 @@ The input key for the analysis programs is
 
 more myUpdates.dat
 VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV
-SN:  1346137      0.246  0.001    0.021
-SN:  1346387      0.533  0.0011   0.038
+SN:   1346137      0.246        0.001              0.021
+SN:   1346387      0.533        0.0011             0.038
 etc ...
 \end{verbatim}
 %
@@ -9903,14 +9941,27 @@ etc ...
 %SN:  1346137    78.4 150.0   10.87  0.21
 %SN:  1346387   -63.0 150.0    9.44  0.33
 
-In the first example, three header values are updated:
+In the first example ({\tt muUpdates.dat}), three header values are updated:
 helio redshift, the uncertainty, and Galactic extintion.
 For SNe missing from the update file, the original values in the 
-data file header are used. This feature does {\tt NOT} work
+data file header are preserved. This override feature does {\tt NOT} work
 on epoch-dependent quantities, but mag and flux corrections can
 be applied as described below in Sec.~\ref{sss:magcor}.
 The second example illustrates a comma-separated list of table files;
-beware that the variables in each file must be unique (except for CID).
+beware that the variables in each override file must be unique (except for CID).
+
+Data-override variables must exist in the original data file,
+with the exception of photo-$z$ quantiles (\S\ref{sss:quantiles}).
+Thus quantiles can be overwritten if they already exist in the
+original data files, 
+or appended if the original data files
+do not include quantile information. For quantile overrides using
+{\tt HOSTGAL\_ZPHOT\_Qppp} (where {\tt ppp=000, 010, ... 100}), 
+make sure to also include an {\tt NZPHOT\_Q} column with each value set to 11.
+
+
+%.xyz
+\clearpage
 
 The header-override list may include variables that are used later in 
 BBC or cosmology fitting, but not used in light curve fitting;

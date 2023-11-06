@@ -10434,7 +10434,6 @@ void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
 
   if ( ifilt_obs <= 0 ) {
     // one-time init
-    printf("xxx %s\n", fnam);
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
       INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt][0] = 0 ;
       INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt][1] = 0 ;

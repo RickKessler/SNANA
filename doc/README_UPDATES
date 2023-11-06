@@ -21975,6 +21975,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        set high-side mag smear to MAGSMEAR instead of default -9 that
        caused crazy-large mags.
 
+   genSpec_XXX functions:
+     + fix bug where MWXT_FRAC = 1.0 because wavelength grid for
+       IFILT=0 (spectrograph) was not initialized. This bug likely
+       impacted the SALT3 papers that used simulated training samples.
+
         ***** USEFUL(v11_05h) ***** 
 
         ***** MISCELLANEOUS(v11_05h) ***** 
@@ -21983,7 +21988,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + remove legacy [init_]extrap_latetime_SALT2() and associated DEBUG_FLAG
 
    snana.car:
-     + OPT_REFORMAT_SPECTRA=2 writes FLUX instead of FLAM (for astrodash format)
+     + OPT_REFORMAT_SPECTRA=2 writes FLUX instead of FLAM 
+         (for astrodash format)
      + spectra read only if reformatting
      + DEBUG_FLAG -333 suppresses reading spectra, even if reformatting.
 
@@ -21994,8 +22000,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for true SED option, reject pre-explosion epochs with modelflux=0 ... 
        but keep late-time epochs with extrapolated flux and no SED model.
 
-     + SIMLIB_NSKIPMJD updated to implement Trest-dependent prescale for SIMLIB-MJDs.
-       See manual.
+     + SIMLIB_NSKIPMJD updated to implement Trest-dependent prescale for 
+        SIMLIB-MJDs. See manual.
 
      + compute and store synthetic mags for each spectrum or true SED.
        Write synmags to data files.

@@ -3384,6 +3384,9 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   // Sep 18 2023: check option to allow extrapolation past DAYMAX;
   //              see local EXTRAP_LATETIME bool.
   //
+  // Nov 6 2023: fix bug in which MWXT_FRAC had been ignored.
+  //             This bug was probably in the SALT3 training papers.
+  //
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -3402,7 +3405,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
   double Tobs_SED = Tobs; // Tobs to fetch SED
 
-  double Trest, Finteg, Finteg_errPar ;
+  double Trest, Finteg, Finteg_errPar, MWXT_FRAC ;
   double FTMP, GENFLUX, ZP, MAG, LAM, LAMREST, z1, FSCALE_ZP;
   double FTMP_DAYMAX, MAG_DAYMAX ;
   double hc8 = (double)hc ;
@@ -3411,7 +3414,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
   // -------------- BEGIN --------------
 
-  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
+  // xxx mark  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
 
   z1 = 1.0 + z;
 
@@ -3444,10 +3447,11 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   for(ilam=0; ilam < NBLAM; ilam++ ) { 
     GENFLUX_LIST[ilam] *= FSCALE_ZP ;  // Mar 29 2019
 
+    MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[JFILT_SPECTROGRAPH][ilam] ;
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP    = (LAM/hc8) * GENFLUX;
+    FTMP    = (LAM/hc8) * GENFLUX * MWXT_FRAC;
 
     /*xxxx
     printf(" xxx %s: ilam=%d LAM=%.1f ZP=%.3f  GENFLUX=%le\n",

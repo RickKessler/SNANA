@@ -3217,6 +3217,9 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // Jul 12 2019: 
   //  + store FILTER_SEDMODEL[IFILT].lammin/lammax (for BYOSED)
   //
+  // Nov 6 2023: store FILTER_SEDMODEL[IFILT].lam[ilam] 
+  //     to fix bug where MWXT_FRA=1.0 for spectra
+  //
 
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
@@ -3249,6 +3252,8 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     DUMPFLAG_ZP = 0; // ( fabs(L0-4210.0) < 2.0 ) ;
     SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
       = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
+
+    FILTER_SEDMODEL[IFILT].lam[ilam] = LAVG; // Nov 2023  
   }
 
 

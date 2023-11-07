@@ -21949,7 +21949,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-        v11_05h ([tag-date]) 
+        v11_05h (Nov 6 2023) 
 
         ***** IMPORTANT(v11_05h) ***** 
 
@@ -21964,21 +21964,20 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    genmag_SEDtools.c: 
      + in genSpec_SEDMODEL(), fix missing 1/z1 factor for outputing
-        spectra using NON1ASED model. Fixes crosscheck: SYNMAM = MAG.       
-     + also fix bug in GALextinct() argument; pass LAMREST intead of LAMOBS
+        spectra using NON1ASED model. Fixes crosscheck for SYNMAM = GENMAG.
+     + fix bug in host GALextinct() argument; pass LAMREST intead of LAMOBS
 
    genmag_NON1ASED.c:
      + verify existance of all SED files in NON1A.LIST;
-       https://github.com/RickKessler/SNANA/issues/1222
+         https://github.com/RickKessler/SNANA/issues/1222
 
      + fix bug for index=0 --> all indices with equal weight;
        set high-side mag smear to MAGSMEAR instead of default -9 that
        caused crazy-large mags.
 
    genSpec_XXX functions:
-     + fix bug where MWXT_FRAC = 1.0 because wavelength grid for
-       IFILT=0 (spectrograph) was not initialized. This bug likely
-       impacted the SALT3 papers that used simulated training samples.
+      Fix bug applying MW galactic extinction to spectra:
+      https://github.com/RickKessler/SNANA/issues/1229
 
         ***** USEFUL(v11_05h) ***** 
 
@@ -21990,7 +21989,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snana.car:
      + OPT_REFORMAT_SPECTRA=2 writes FLUX instead of FLAM 
          (for astrodash format)
-     + spectra read only if reformatting
+     + spectra are read only if reformatting
      + DEBUG_FLAG -333 suppresses reading spectra, even if reformatting.
 
    snlc_sim.c:
@@ -22046,7 +22045,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu:
      + add protections for CCprior init for spec-confirmed subsets.
        Avoid dividing by RMS=0, and skip get_mubias for zero CCPRIOR events.
-   
+     
    many codes: pass VBOSE flag to CDTOPDIR to supporess output in batch mode.
+
+# =============================================================
+         v11_05i ([tag-date])
+
+         *****  IMPORTANT(v11_05i) *****
+
+         *****  USEFUL(v11_05i) *****
+
+         *****  MISCELLANEOUS(v11_05i) *****
+
+    genmag_SIMSED.c: abort in missing required key in SED.INFO file
 
 END: 

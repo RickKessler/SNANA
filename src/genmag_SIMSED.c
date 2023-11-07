@@ -738,10 +738,19 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // Apr 28 2019: set Lrange_SIMSED when reading "RESTLAMBDA_RANGE:" key.
   //
   // Jun 6 2022: if PARVAL range > 1E6, write %le format
+  //
+  // Nov 7 2023: abort on missing required key
 
   char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[80] ;
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
+
+#define NKEY_REQUIRE_SIMSED 3
+  int  IPAR_PARNAMES = 0, IPAR_RESTLAM=1, IPAR_SED=2;
+  char KEYNAME_REQUIRE_LIST[NKEY_REQUIRE_SIMSED][20] = 
+    { "PARNAMES", "RESTLAMBDA_RANGE", "SED" };
+  bool FOUND_REQUIRE_LIST[NKEY_REQUIRE_SIMSED] = 
+    { false, false, false } ;
 
   FILE *fp;
   char fnam[] = "read_SIMSED_INFO" ;
@@ -803,6 +812,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     
 
     if ( strcmp(c_get,"RESTLAMBDA_RANGE:") == 0 ) {
+      FOUND_REQUIRE_LIST[IPAR_RESTLAM] = true;
       readdouble(fp, 1, &SEDMODEL.RESTLAMMIN_FILTERCEN );
       readdouble(fp, 1, &SEDMODEL.RESTLAMMAX_FILTERCEN );
       
@@ -818,6 +828,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       {  readint(fp, 1, &SEDMODEL.NPAR ); }
 
     if ( strcmp(c_get,"PARNAMES:") == 0 ) {
+      FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
       if ( SEDMODEL.NPAR < 0 ) {
 	sprintf(c1err,"PARNAMES key specified before NPAR key");
 	sprintf(c2err,"Check %s", ptrFile );
@@ -834,6 +845,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
     if ( strcmp(c_get,"SED:") == 0 ) {
 
+      FOUND_REQUIRE_LIST[IPAR_SED] = true;
       SEDMODEL.NSURFACE++ ;  NSED = SEDMODEL.NSURFACE ;
       readchar(fp, SEDMODEL.FILENAME[NSED] );
       NPAR = SEDMODEL.NPAR ;
@@ -883,6 +895,28 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   printf("\n Finished reading parameters for %d SEDs \n", NSED );
   fflush(stdout);
+
+  // - - - - -
+  // abort if missing a required key
+  int k, NKEY_MISSING = 0 ;
+  char *key, keyname_missing[100] = "";
+  for(k=0; k < NKEY_REQUIRE_SIMSED; k++ ) {
+    if ( !FOUND_REQUIRE_LIST[k] ) {
+      key = KEYNAME_REQUIRE_LIST[k] ;
+      printf(" ERROR: SED.INFO missing require key %s\n", key)/
+	fflush(stdout);
+      catVarList_with_comma(keyname_missing,key);
+      NKEY_MISSING++ ;
+    }
+    if ( NKEY_MISSING > 0 ) {
+      sprintf(c1err,"SED.INFO file missing required keys %s", keyname_missing);
+      sprintf(c2err,"Check %s",  ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    
+    }
+  }
+
+  // - - -  -
 
   return(SEDMODEL.NSURFACE) ;
 

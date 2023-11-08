@@ -1315,7 +1315,7 @@ c - - - - - - - - -
 
          ENDIF
 
-         CALL CDTOPDIR_OUTPUT() 
+         CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE) 
  3000 CONTINUE
 
       MADE_LCPLOT = .TRUE.  ! global flag

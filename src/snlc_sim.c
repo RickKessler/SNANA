@@ -3225,9 +3225,10 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
     int isp_force = 1; // stupid fortran-like index
     int NN_FORCE = -9;
     for ( NN = 1; NN <= NON1ASED->NINDEX; NN++ ) {
-      if ( NON1ASED->INDEX[NN] == NON1A_INDEX_FORCE ) {
+      if ( NON1ASED->INDEX[NN] == NON1A_INDEX_FORCE ||
+	   NON1ASED->INDEX[NN] == 0 ) {
 	NN_FORCE = NN ;
-	NON1ASED->INDEX[isp_force]  = NON1ASED->INDEX[NN];
+	NON1ASED->INDEX[isp_force]  = NON1A_INDEX_FORCE ;
 	NON1ASED->WGT[isp_force]    = 1.0 ;
 	NON1ASED->MAGOFF[isp_force] = NON1ASED->MAGOFF[NN];
 	NON1ASED->MAGSMEAR[isp_force][0] = NON1ASED->MAGSMEAR[NN][0] ;

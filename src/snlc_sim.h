@@ -213,6 +213,9 @@ typedef struct {
   int   NPEC1A ;                // number of PEC1A SED templates
   int   STOP ;                  //  flag to stop reading NON1a
 
+  // command-line override (Nov 2023)
+  int NON1A_INDEX_FORCE ; // force processing only this one index
+
   // computed from NON1ASED inputs
   int   NINDEX;                   // number of NON1A indices to simulate
   int   NGEN[MXNON1A_TYPE] ;      // NGEN per NON1ASED index

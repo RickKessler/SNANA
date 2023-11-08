@@ -8,18 +8,6 @@
     HISTORY
    ~~~~~~~~~
 
-  Mar 14 2016: include prep_NON1ASED and pick_NON1ASED here,
-               along with include snlc_sim.h .
-               Need more refactoring to define NON1ASED structure
-               in genmag_NON1ASED.h so that snlc_sim.h reference
-               can be removed.
-
-  Aug 28 2017: new function getName_SED_FILE_NON1ASED()
-
-  Jul 20 2018: 
-    + replace interp_flux_SEDMODEL with get_flux_SEDMODEL to take
-      care of late-time extrapolation. Expect no change here,
-      but uses same utility as genmag_SIMSED.
 
   May 4 2019
     + read and apply index-dependent FLUXSCALE_NON1ASED (default SCALE=1)

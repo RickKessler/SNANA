@@ -11789,29 +11789,22 @@ which automatically loops over all SEDs in the {\tt NON1A.LIST} file.
 \medskip
 The {\tt NON1ASED\_KEYS} are used to specify additional parameters 
 that depend on \NONIA\ type. 
-\begin{itemize}
+\begin{itemize}[noitemsep]
  \item {\tt\bf INDEX} is the index in the {\tt NON1A.LIST} file.
 %
- \item {\tt\bf WGT} are the relative rates.
+ \item {\tt\bf WGT} are relative rates.
    Since the weights are re-normalized to sum to unity,
-   the first 1/4 of the generated SNe will use \indx\ $=2$,
-   the second 1/4 will use \indx\ $=3$,
-   and the latter 1/2 will use \indx\ $=4$.
+   the first 1/4 of the generated SNe use \indx\ $=2$,
+   the second 1/4 use \indx\ $=3$,
+   and the latter 1/2 use \indx\ $=4$.
 %
-  \item {\tt\bf MAGOFF} is a global magnitude offset applied to
-     all passbands 
-     (i.e, equivalent to the \\ {\tt GENMAG\_OFF\_MODEL} keyword), 
-     and is used to adjust the average brightness of each \NONIA\ type.
-     For SEDs that are normalized to have a peak mag of zero
-     (i.e., the Nugent templates) rather than to physical units
-     (erg/s/\AA/cm$^2$), {\tt MAGOFF} must be used for the 
-     {\tt NONIA} option to get meaningful results.
+  \item {\tt\bf MAGOFF} is a magnitude offset applied to all passbands, 
+      and enables adjusting the luminosity function to match data.    
 %
-   \item {\tt\bf MAGSMEAR} is a Gaussian $\sigma$ for global coherent 
-        magnitude fluctuations (i.e, equivalent to \\
-       {\tt GENMAG\_SMEAR} for SNIa),
-       and is used to simulate intrinsic brightness variations.
-       The generated random value is stored in the data file
+   \item {\tt\bf MAGSMEAR} is a Gaussian $\sigma$ to generate coherent 
+       intinsic mag fluctuations 
+       (i.e, equivalent to {\tt GENMAG\_SMEAR} for SNIa).
+       Each random mag shift is stored in the data file
        ({\tt SIM\_MAGSMEAR\_COH} key) and in the SNTABLEs.
        Comma-separated values specify two sigmas for bifurcated Gaussian;
        {\tt MAGOFF} is the distribution peak, not the mean.
@@ -11820,9 +11813,8 @@ that depend on \NONIA\ type.
        after the {\tt SNTYPE} keyword in the 
        SNDATA files (see \S\ref{subsec:sim_sntype} for SNTYPE details).
        In the above example, \NONIA\ indices 2 \& 3 are both 
-       type II SNe, so they both get {\tt SNTYPE=2}.
-       \NONIA\ index 3 is a different SN type, so it gets a different
-       {\tt SNTYPE} value.  
+       assigned {\tt SNTYPE=2};
+       \NONIA\ index 4 is assigned  {\tt SNTYPE=3}.  
 \end{itemize}
 
 
@@ -11853,7 +11845,7 @@ the rate-vs-redshift for peculiar Ia is different than
 for NON1A (core collapse).
 There are three input modifications for peculiar Ia:
 %
-\begin{enumerate}
+\begin{enumerate}[noitemsep]
    \item In the sim-input file, the `{\tt NON1ASED:}' keys are replaced
          with `{\tt PEC1ASED:}' (or `{\tt PEC1A:}') 
    \item In the {\tt NON1A.LIST} file, the `{\tt NON1A:}' keys are 
@@ -11867,7 +11859,23 @@ There are three input modifications for peculiar Ia:
 \end{enumerate}
 
 
+% ----------------------------------------------
+\subsubsection{Force Single NON1ASED Index}
+\label{sss:NON1A_INDEX_FORCE}
+
+To select a specific NON1ASED index without modifying the sim-input file,
+\begin{verbatim}
+    snlc_sim.exe <inputFile>  NON1A_INDEX_FORCE 4  NGENTOT_LC 3
+\end{verbatim}
+%
+which will generate 3 events using only NON1A index 4.
+The {\tt NON1A\_INDEX\_FORCE} key is allowed only as command-line override;
+if this key is found in a sim-input file, the simulation will abort.
+
 % -----------------------------------------
+
+% -----------------------------------------
+\clearpage
 \subsection{\tt NON1AGRID}
 \label{subsec:NON1AGRID}
 % -----------------------------------------

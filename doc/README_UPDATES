@@ -22055,6 +22055,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v11_05i) *****
 
+    snlc_sim.c: 
+       + new command-line override NON1A_INDEX_FORCE (see manual sectdion 9.6.2)
+
          *****  MISCELLANEOUS(v11_05i) *****
 
     genmag_SIMSED.c: abort in missing required key in SED.INFO file

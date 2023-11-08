@@ -1291,6 +1291,7 @@ void set_user_defaults(void) {
   INPUTS.NON1ASED.NKEY   = 2;
   INPUTS.NON1ASED.NNON1A = 0 ;
   INPUTS.NON1ASED.NPEC1A = 0 ;
+  INPUTS.NON1ASED.NON1A_INDEX_FORCE = -9 ;
   sprintf ( INPUTS.NON1ASED.KEYLIST[1], "INDEX" );
   sprintf ( INPUTS.NON1ASED.KEYLIST[2], "WGT"   );
   for ( i=0; i < MXNON1A_TYPE; i++ ) {
@@ -3070,6 +3071,7 @@ void  parse_input_GENZPHOT_OUTLIER(char *string) {
 // =========================================
 int parse_input_NON1ASED(char **WORDS, int keySource) { 
 
+  INPUTS_NON1ASED_DEF *NON1ASED = &INPUTS.NON1ASED;
   int  NKEY, key, N=0, NN;
   float sigTmp[2] ;
   bool IS_NON1AKEY, IS_PEC1AKEY, FOUND_KEY[4], DO_NEXT_READ ; 
@@ -3104,24 +3106,24 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
       sprintf(c1err,"Check sim-input file." );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-    INPUTS.NON1ASED.NKEY = NKEY;
+    NON1ASED->NKEY = NKEY;
     for ( key = 1; key <= NKEY; key++ ) {
       N++; sscanf(WORDS[N], "%s", ckey) ;
-      sprintf(INPUTS.NON1ASED.KEYLIST[key], "%s", ckey );
+      sprintf(NON1ASED->KEYLIST[key], "%s", ckey );
     }
 
     // check required keys
-    FOUND_KEY[1] = (strcmp(INPUTS.NON1ASED.KEYLIST[1],"INDEX")==0 );
-    FOUND_KEY[2] = (strcmp(INPUTS.NON1ASED.KEYLIST[2],"WGT"  )==0 ) ;
+    FOUND_KEY[1] = (strcmp(NON1ASED->KEYLIST[1],"INDEX")==0 );
+    FOUND_KEY[2] = (strcmp(NON1ASED->KEYLIST[2],"WGT"  )==0 ) ;
     if ( !FOUND_KEY[1] ) {
       sprintf(c1err,"First NON1ASED_KEY is '%s' , but must be 'INDEX' ",
-	      INPUTS.NON1ASED.KEYLIST[1] ) ;
+	      NON1ASED->KEYLIST[1] ) ;
       sprintf(c2err,"Check sim-input file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
     if ( !FOUND_KEY[2] ) {
       sprintf(c1err,"Second NON1ASED_KEY is '%s' , but must be 'WGT' ", 
-	      INPUTS.NON1ASED.KEYLIST[2]) ;
+	      NON1ASED->KEYLIST[2]) ;
       sprintf(c2err,"Check sim-input file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
@@ -3134,7 +3136,7 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
 
   if ( NstringMatch(1,WORDS[0],"NON1A_STOP:") ||
        NstringMatch(1,WORDS[0],"NON1ASED_STOP:") ) 
-    { INPUTS.NON1ASED.STOP = 1 ;  return(N); }
+    { NON1ASED->STOP = 1 ;  return(N); }
 
   // check for individual NONIA[SED] keys for each template
 
@@ -3151,52 +3153,52 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
     NstringMatch(MXNON1A_TYPE,WORDS[0],"PEC1ASED:") ;
 
 
-  DO_NEXT_READ = ( (IS_NON1AKEY || IS_PEC1AKEY) && !INPUTS.NON1ASED.STOP ) ;
+  DO_NEXT_READ = ( (IS_NON1AKEY || IS_PEC1AKEY) && !NON1ASED->STOP ) ;
 
     
   if ( DO_NEXT_READ ) { 
 
-      INPUTS.NON1ASED.NINDEX++ ; NN = INPUTS.NON1ASED.NINDEX;
+      NON1ASED->NINDEX++ ; NN = NON1ASED->NINDEX;
       if ( IS_PEC1AKEY ) { 
-	INPUTS.NON1ASED.NPEC1A++ ;
-	INPUTS.NON1ASED.ISPEC1A[NN] = 1; 
+	NON1ASED->NPEC1A++ ;
+	NON1ASED->ISPEC1A[NN] = 1; 
       }
       else { 
-	INPUTS.NON1ASED.NNON1A++ ; 
-	if ( INPUTS.NON1ASED.NPEC1A > 0 ) {
+	NON1ASED->NNON1A++ ; 
+	if ( NON1ASED->NPEC1A > 0 ) {
 	  sprintf(c1err, "All NON1A keys must appear before PEC1A keys");
 	  sprintf(c2err, "Check sim-input file (and INCLUDE file)");
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
 	}
       }
 
-      for ( key=1; key <= INPUTS.NON1ASED.NKEY ; key++ ) {
+      for ( key=1; key <= NON1ASED->NKEY ; key++ ) {
 
-	sprintf(ckey, "%s", INPUTS.NON1ASED.KEYLIST[key] );
+	sprintf(ckey, "%s", NON1ASED->KEYLIST[key] );
 	N++; sscanf(WORDS[N], "%s", ctmp);
 
 	// store float value for README file
-	sscanf(ctmp,"%f", &INPUTS.NON1ASED.KEYVAL[NN][key] );
+	sscanf(ctmp,"%f", &NON1ASED->KEYVAL[NN][key] );
 
 	if ( strcmp(ckey, "INDEX") == 0 ) 
-	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.INDEX[NN]); }
+	  { sscanf(ctmp, "%d", &NON1ASED->INDEX[NN]); }
 	else if ( strcmp(ckey, "WGT") == 0 ) 
-	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.WGT[NN]); }
+	  { sscanf(ctmp, "%f", &NON1ASED->WGT[NN]); }
 	else if ( strcmp(ckey, "MAGOFF") == 0 ) 
-	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.MAGOFF[NN]); }
+	  { sscanf(ctmp, "%f", &NON1ASED->MAGOFF[NN]); }
 	else if ( strcmp(ckey, "MAGSMEAR") == 0 ) {
 	  split2floats(ctmp, COMMA, sigTmp ); 
-	  INPUTS.NON1ASED.MAGSMEAR[NN][0] = sigTmp[0] ;
-	  INPUTS.NON1ASED.MAGSMEAR[NN][1] = sigTmp[1] ;
+	  NON1ASED->MAGSMEAR[NN][0] = sigTmp[0] ;
+	  NON1ASED->MAGSMEAR[NN][1] = sigTmp[1] ;
 	  // if non1a magsmear is nonzero, then set global GENMAG_SMEAR
 	  // so that random numbers are generated for smearing.
 	  if ( sigTmp[0] > 0.0  &&  INPUTS.GENMAG_SMEAR[0] == 0.0 ) 
 	    { INPUTS.GENMAG_SMEAR[0] = INPUTS.GENMAG_SMEAR[1] = 0.001; }
 	}
 	else if ( strcmp(ckey, "SNTYPE") == 0 ) 
-	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[NN]); }
+	  { sscanf(ctmp, "%d", &NON1ASED->SNTAG[NN]); }
 	else if ( strcmp(ckey, "SNTAG") == 0 )   // same as SNTYPE
-	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[NN]); }
+	  { sscanf(ctmp, "%d", &NON1ASED->SNTAG[NN]); }
 	else {
 	  sprintf(c1err, "Invalid NON1A key: '%s'", ckey );
 	  sprintf(c2err, "Valid keys are INDEX WGT MAGOFF MAGSMEAR" );
@@ -3205,7 +3207,48 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
       }
   }
 
+  // - - - - - - - - - 
+  // Nov 2023: check option to force a single index via command-line override
+  char KEY_STRINGS[] = "NON1A_INDEX_FORCE NONIA_INDEX_FORCE";
+  bool FORCE_INDEX = keyMatchSim(1,KEY_STRINGS, WORDS[0], keySource);
+  int  NON1A_INDEX_FORCE = -9;
+  if ( FORCE_INDEX )  {
+    if ( keySource == KEYSOURCE_FILE ) {
+      sprintf(c1err, "Cannot use %s key in sim-input file.", WORDS[0]);
+      sprintf(c2err, "%s key is allowed only as command-line override.",
+	      WORDS[0]);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    N++;  sscanf(WORDS[N], "%d", &NON1A_INDEX_FORCE );
 
+    // overwrite inputs as if only one index was specified
+    int isp_force = 1; // stupid fortran-like index
+    int NN_FORCE = -9;
+    for ( NN = 1; NN <= NON1ASED->NINDEX; NN++ ) {
+      if ( NON1ASED->INDEX[NN] == NON1A_INDEX_FORCE ) {
+	NN_FORCE = NN ;
+	NON1ASED->INDEX[isp_force]  = NON1ASED->INDEX[NN];
+	NON1ASED->WGT[isp_force]    = 1.0 ;
+	NON1ASED->MAGOFF[isp_force] = NON1ASED->MAGOFF[NN];
+	NON1ASED->MAGSMEAR[isp_force][0] = NON1ASED->MAGSMEAR[NN][0] ;
+	NON1ASED->MAGSMEAR[isp_force][1] = NON1ASED->MAGSMEAR[NN][1] ;
+	NON1ASED->SNTAG[isp_force]       = NON1ASED->SNTAG[NN];
+      }
+    } 
+
+    NON1ASED->NON1A_INDEX_FORCE = NON1A_INDEX_FORCE;
+    NON1ASED->NINDEX = 1;
+
+    if ( NN_FORCE < 0 ) {
+      sprintf(c1err, "Invalid input value:  %s %d", WORDS[0], NON1A_INDEX_FORCE);
+      sprintf(c2err, "Check NON1A.LIST file for valid NON1ASED indices.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    }
+
+  } // end FORCE_INDEX
+
+
+  // - - - - - -
  README_LOAD:
   if ( N > 0 ) { 
     README_KEYPLUSARGS_load(MXNON1A_TYPE, N, WORDS, keySource,

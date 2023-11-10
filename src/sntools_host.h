@@ -57,7 +57,7 @@
 #define MXVAR_HOSTLIB       400  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
-#define MXROW_HOSTLIB     60000000  // max number or rows in HOSTLIB
+#define MXROW_HOSTLIB     80000000  // max number or rows in HOSTLIB
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file

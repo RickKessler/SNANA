@@ -1771,7 +1771,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "NGENTOT_LC",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NGENTOT_LC );
   }
-  else if ( keyMatchSim(1, "NGEN_SEASON",  WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "NGEN_SEASON NGEN_UNIT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.NGEN_SEASON );
   }
   else if ( keyMatchSim(1, "NGEN_SCALE",  WORDS[0],keySource) ) {

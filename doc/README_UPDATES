@@ -22058,6 +22058,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c: 
        + new command-line override NON1A_INDEX_FORCE (see manual sectdion 9.6.2)
 
+    snlc_sim.c/snana.car:
+       + write MWXT_MAG per band to text data file (for visual diagnostic)
+
          *****  MISCELLANEOUS(v11_05i) *****
 
     genmag_SIMSED.c: abort in missing required key in SED.INFO file

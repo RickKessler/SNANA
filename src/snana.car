@@ -10676,7 +10676,7 @@ C =====================================
       SUBROUTINE copy_SNDATA_MISC()
 
 c Created Mar 14 2021
-c Update the following SNDATA struct variables for FITS format:
+c Update the following SNDATA struct variables for FITS or TEXT format:
 c   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
@@ -10692,7 +10692,8 @@ c
 c   + MJD_TRIGGER        # if PHOTFLAG_TRIGGER > 0
 c   + MJD_DETECT_FIRST   # if PHOTFLAG_DETECT > 0
 c   + MJD_DETECT_LAST    # idem
-c
+c   
+c   + MWMAGCOR_[band]  # Nov 2023 
 c -------------
 
       IMPLICIT NONE
@@ -10700,10 +10701,12 @@ c -------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
++CDE,FILTCOM.
 
       INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
+      INTEGER IFILT, IFILT_OBS
       REAL*8 DVAL(MXEPOCH)
-      CHARACTER cKEY*20, cSTRING*20
+      CHARACTER cKEY*20, cSTRING*20, cfilt*2
       EXTERNAL COPY_SNDATA_HEAD
 
 C -------------- BEGIN ----------
@@ -10732,7 +10735,18 @@ C -------------- BEGIN ----------
         DVAL(1)  = DBLE(SNLC_MWEBV_ERR)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
-      ENDIF
+
+c write MWXT mag as diagnostic (not used)
+        do ifilt     = 1, NFILTDEF_SURVEY
+           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)        
+           cfilt     = filtdef_string(ifilt_obs:ifilt_obs) 
+           cKEY      = 'MWXT_MAG_' // cfilt(1:1) // char(0)
+           DVAL(1)   = SNLC_MWXT_MAG(ifilt)
+           CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &           cSTRING, DVAL, LEN_KEY, LEN_STR)
+        end do
+
+      ENDIF  ! .xyz
 
 c always update redshift and vpec info in case of header-override
 c or other calculated update.
@@ -10915,7 +10929,7 @@ c write comments
 
          write(LUNTMP,300) ' ' 
 
-         if ( WR_FLAM ) then ! .xyz
+         if ( WR_FLAM ) then 
               MSG = 'WAVE FLAM FLAMERR'
          else 
               MSG = 'WAVE FLUX FLUXERR'
@@ -16223,6 +16237,7 @@ C ------------ BEGIN -------------
          SNLC_MWEBV     = SIM_MWEBV
          SNLC_MWEBV_ERR = 0.0
       ENDIF
+
 
 c determin MW extinction in each passband
 

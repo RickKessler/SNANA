@@ -315,6 +315,7 @@ struct SNDATA {
   bool  NEA_PSF_UNIT; 
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
+  float MWXT_MAG[MXFILTINDX];      // MWXT mag at mean wave of band
 
   int     HOSTGAL_USEMASK ;  // bits 0,1,2,3 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)

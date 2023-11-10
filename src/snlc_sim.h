@@ -1089,9 +1089,12 @@ struct GENLC {
   double MWEBV ;             // E(B-V) from Shlagel maps
   double MWEBV_SMEAR;        // smeared E(B-V) applied to SN mag.
   double MWEBV_ERR ;         // assigned error (for fitting unc.)
-  double FLUXCOR_MWEBV_MAP[MXFILTINDX]; // analysis flux-cor per filter
-  double MAGCOR_MWEBV_MAP[MXFILTINDX];  // analysis mag-cor per filter
+
+  double MWXT_MAG[MXFILTINDX];          // MW XT mag (not used; it's for diagnostic)
+  double FLUXCOR_MWEBV_MAP[MXFILTINDX]; // analysis flux-cor per filter (for PLASTICC)
+  double MAGCOR_MWEBV_MAP[MXFILTINDX];  // analysis mag-cor per filter  (for PLASTICC)
   double MAGCOR_MWEBV_TRUE[MXFILTINDX];
+
   double RA_LAST, DEC_LAST;  // re-compute MWEBV only if RA,DEC change
 
   int NFILTDEF_OBS;     // number of user-defined observer filters

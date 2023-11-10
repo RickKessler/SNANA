@@ -12532,32 +12532,34 @@ double gen_MWEBV(double RA, double DEC) {
   // Jul 21 2018: checking option to compute MWEBV-FLUXCOR for each band.
   //   Used to correct output fluxes for MWEBV (e..g, for public challenge)
 
-  if ( INPUTS.APPLYFLAG_MWEBV ) {
+  int ifilt, ifilt_obs ;
+  double MCOR_MAP, MCOR_TRUE, FCOR_MAP, LAMOBS;
+  double RV       = INPUTS.RV_MWCOLORLAW ;
+  double AV_MAP   = RV * GENLC.MWEBV;        // reported from map
+  double AV_TRUE  = RV * GENLC.MWEBV_SMEAR ; // yes, smear=true
+  OPT      = INPUTS.OPT_MWCOLORLAW ;
+  
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
+    LAMOBS     = (double)INPUTS.LAMAVG_OBS[ifilt_obs];
+    MCOR_MAP   = GALextinct( RV, AV_MAP,  LAMOBS, OPT );
+    MCOR_TRUE  = GALextinct( RV, AV_TRUE, LAMOBS, OPT );
+    GENLC.MWXT_MAG[ifilt_obs] = MCOR_TRUE ; // Nov 2023
 
-    int ifilt, ifilt_obs ;
-    double MCOR_MAP, MCOR_TRUE, FCOR_MAP, LAMOBS;
-    double RV       = INPUTS.RV_MWCOLORLAW ;
-    double AV_MAP   = RV * GENLC.MWEBV;        // reported from map
-    double AV_TRUE  = RV * GENLC.MWEBV_SMEAR ; // yes, smear=true
-    int    OPT      = INPUTS.OPT_MWCOLORLAW ;
-    
-    for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-      ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
-      LAMOBS     = (double)INPUTS.LAMAVG_OBS[ifilt_obs];
-      MCOR_MAP   = GALextinct( RV, AV_MAP,  LAMOBS, OPT );
-      MCOR_TRUE  = GALextinct( RV, AV_TRUE, LAMOBS, OPT );
+    // check PLASTICC option to actually correct fluxes for MW
+    if ( INPUTS.APPLYFLAG_MWEBV ) {
       FCOR_MAP   = pow(TEN,0.4*MCOR_MAP); // note that FCOR > 1
-
       GENLC.MAGCOR_MWEBV_TRUE[ifilt_obs]   = MCOR_TRUE;
       GENLC.MAGCOR_MWEBV_MAP[ifilt_obs]    = MCOR_MAP;
       GENLC.FLUXCOR_MWEBV_MAP[ifilt_obs]   = FCOR_MAP ;
-
-      if ( LDMP ) {
-	printf(" xxx ifilt_obs=%d --> MAGCOR[MAP,TRUE]=%5.3f,%5.3f \n",
-	       ifilt_obs, MCOR_MAP, MCOR_TRUE ); fflush(stdout);
-      }
+    }
+    
+    if ( LDMP ) {
+      printf(" xxx ifilt_obs=%d --> MAGCOR[MAP,TRUE]=%5.3f,%5.3f \n",
+	     ifilt_obs, MCOR_MAP, MCOR_TRUE ); fflush(stdout);
     }
   }
+ 
 
   // - - - - - - - - - - - 
   // Jun 3 2022
@@ -23282,6 +23284,8 @@ void snlc_to_SNDATA(int FLAG) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];  
 
+    SNDATA.MWXT_MAG[ifilt_obs] = GENLC.MWXT_MAG[ifilt_obs]; // Nov 2023
+
     MCOR_TRUE_MW  = GENLC.MAGCOR_MWEBV_TRUE[ifilt_obs]; 
     MCOR_MAP_MW   = GENLC.MAGCOR_MWEBV_MAP[ifilt_obs];
 
@@ -24149,7 +24153,7 @@ void genmag_MWXT_fromKcor(void) {
 
   double  z, Trest, mwebv, AVwarp, MWXT, RV    ;
   int  epoch, ifilt_obs, OPT ;
-  //  char fnam[] = "genmag_MWXT_fromKcor" ;
+  char fnam[] = "genmag_MWXT_fromKcor" ;
 
   // ---------- BEGIN -----------
 

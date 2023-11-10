@@ -126,6 +126,9 @@ def get_args():
     msg = "TYPE list to extract into text format (e.g., 118,119,120)"
     parser.add_argument("--typelist_text",help=msg,type=str,default="")
 
+    msg = "extra snana.exe args for reformatting (e.g., OPT_MWEBV, ...)"
+    parser.add_argument("--reformat_args", help=msg, type=str,default="")
+
     msg = "CID list to make table of redshifts and vpec"
     parser.add_argument("--cidlist_ztable", help=msg, type=str, default="")
 
@@ -212,6 +215,7 @@ def extract_text_format(args):
     vout     = create_vout_string(vin,"TEXT")
     cidlist  = args.cidlist_text
     typelist = args.typelist_text
+    reformat_args = args.reformat_args  # Nov 2023
     rmdir_check(vout)
         
     print(f"\n Create new data folder: {vout}")
@@ -219,6 +223,7 @@ def extract_text_format(args):
     command = snana_command_plus_version(args)
     command += f"VERSION_REFORMAT_TEXT {vout} "
     command += arg_cidlist(cidlist,typelist)
+    command += f"{reformat_args} "
 
     if args.nospectra :
         command += ' DEBUG_FLAG -333'

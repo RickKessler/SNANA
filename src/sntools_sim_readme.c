@@ -1212,9 +1212,11 @@ void readme_docana_output(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "SNTYPE:", "spec Type, photID type", 
 		    lenkey, true, nval2, dval_list, 0.0,2000.0, -1.0); 
 
+  /* xxx mark delete Nov 12 2023 (check below under Misc) xxxx
   dval = (double)INPUTS.CIDOFF ;
   VERSION_INFO_load(&i, pad, "CIDOFF:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+  xxx */
 
   dval = (double)INPUTS.CIDRAN_MIN ;
   VERSION_INFO_load(&i, pad, "CIDRAN_MIN:", noComment, 

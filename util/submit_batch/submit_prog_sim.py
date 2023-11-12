@@ -1059,7 +1059,7 @@ class Simulation(Program):
                 logging.info(f" {str_genv} {str_model} {str_cidoff}")
 
         logging.info(f"# -------------------------------------------------- ")
-        logging.info(f"  RESET_CIDOFF       = {reset_cidoff} ")
+        logging.info(f"  RESET_CIDOFF      = {reset_cidoff} ")
         logging.info(f"  CIDRAN_MIN        = {cidran_min}")
         logging.info(f"  CIDRAN_MAX(genver)= {cidran_max_list}")
         logging.info(f"  Sum of NGENTOT_LC = {ngentot_sum} x {n_job_split} " \
@@ -2463,7 +2463,7 @@ class Simulation(Program):
         for row,model_string in zip(row_list_split,model_string_list) :
             if iver == row[COLNUM_SIM_MERGE_IVER] :
                 TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                v_list      = glob.glob1(path_sndata_sim,f"{TMP_GENV}*")
+                v_list      = sorted(glob.glob1(path_sndata_sim,f"{TMP_GENV}*"))
                 v0          = v_list[0]  # pick first one from list
                 tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
                 self.merge_write_input_keys(f, model_string, tmp_readme)

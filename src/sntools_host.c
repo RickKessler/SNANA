@@ -3464,7 +3464,6 @@ void check_duplicate_GALID(void) {
   // Sort hostlib by GALID, then abort if any 
   // [GALID,ZTRUE] pair appears more than once.
   //
-  // Jan 2013: replace CERNLIB sortzv with sortInt wrapper.
   //
 
   long long GALID, GALID_LAST ;

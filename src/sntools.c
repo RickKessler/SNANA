@@ -29,6 +29,16 @@
 **********************************************************
 **********************************************************/
 
+void system_pmap(char *code_name, char *call_fun) {
+  char cmd[100];
+  printf("\n xxx Function %s calling unix pmap :\n", call_fun);
+  fflush(stdout);
+  sprintf(cmd,"pmap `pidof %s` | tail -1", code_name );
+  system(cmd);
+  printf("\n");
+  fflush(stdout);
+}
+
 void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
 
   // Created July 15 2023

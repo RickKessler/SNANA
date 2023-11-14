@@ -22053,6 +22053,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05i) *****
 
+   genmag_SEDtools.c: fix subtle interpolation bug for NON1ASED models;
+     See https://github.com/RickKessler/SNANA/issues/1237
+
          *****  USEFUL(v11_05i) *****
 
     snlc_sim.c: 

@@ -16892,6 +16892,13 @@ void SIMLIB_INIT_IDEAL_GRID(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;     
   }
 
+  if ( INPUTS.GENRANGE_MJD[0] > MJD_MIN ) {
+    sprintf(c1err,"GENRANGE_MJD[0] = %.1f > SIMLIB_MJD[0]=%.1f",
+            INPUTS.GENRANGE_MJD[0], MJD_MIN);
+    sprintf(c2err,"SIMLIB_MJD[0] must start after input GENRANGE_MJD[0]");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+  }
+
   // load info into globals
   SIMLIB_IDEAL_GRID.MJD_MIN         = MJD_MIN;
   SIMLIB_IDEAL_GRID.MJD_MAX         = MJD_MAX;

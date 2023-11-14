@@ -1494,7 +1494,12 @@ double interp_flux_SEDMODEL(
   // July 19 2018: 
   //   + replace quadInterp with linear interp to avoid pathological
   //     parabolic interp that can result in negative flux
-  //             
+  //    
+  // Nov 14 2023:
+  //   for interpolating SZTMP vs. logz, replace quad interp with linear;
+  //   avoids far-UV pathology where SZTMP vs. logz varies willdly and 
+  //   results in negative flux from quadratic assumption.
+  //
   int 
     ifilt, NDAY, EPMAX, index, LDMP, NZBIN, IZLO, EPLO, ep, iz, NZTMP
     ,NBIN_SPLINE = 3
@@ -1505,13 +1510,10 @@ double interp_flux_SEDMODEL(
     ( (SEDMODEL.OPTMASK & OPTMASK_DAYLIST_SEDMODEL)==0 );
 
   double 
-    logz
-    ,DAYMIN, DAYSTEP, DAYMAX
-    ,DAYLIST_INTERP[4]
+    logz, DAYMIN, DAYSTEP, DAYMAX, DAYLIST_INTERP[4]
     ,LOGZMIN, LOGZMAX, LOGZBIN, FRAC, LOGZ_TMP
     ,S2DTMP[10][10]  // [iz][iday]
-    ,SZTMP[10], S, LAMOBS_MIN, LAMOBS_MAX
-    ,*ptr_EP, *ptr_LOGZ    
+    ,SZTMP[10], S, LAMOBS_MIN, LAMOBS_MAX, *ptr_EP, *ptr_LOGZ    
     ,z1 = 1.0 + z
     ;
 
@@ -1640,9 +1642,9 @@ double interp_flux_SEDMODEL(
 
     // interpolate across epoch to get SZ
     if ( NDAY > 1 ) {
-	// linear interp to avoid crazy parabolic fits
+      // linear interp to avoid crazy parabolic fits
       SZTMP[iz] = interp_1DFUN (1, Trest,
-				  NBIN_SPLINE, ptr_EP, S2DTMP[iz], fnam ) ;
+				NBIN_SPLINE, ptr_EP, S2DTMP[iz], fnam ) ;
     }
     else
       { SZTMP[iz] = S2DTMP[iz][0] ; }  // no interp of just 1 spectrum
@@ -1651,10 +1653,14 @@ double interp_flux_SEDMODEL(
 
   // Now interpolate across LOGZ
 
-  if ( NZBIN == 1 ) 
-    { S = SZTMP[0]; } // 1 z-bin => no interp needed.
-  else 
-    { S = quadInterp( logz, ptr_LOGZ, SZTMP, fnam ); }
+  if ( NZBIN == 1 )  { 
+    S = SZTMP[0];  // 1 z-bin => no interp needed.
+  }
+  else { 
+    S = interp_1DFUN(1, logz, 
+		     NBIN_SPLINE, ptr_LOGZ, SZTMP, fnam);   
+    // xxx mark delete Nov 2023: S = quadInterp( logz, ptr_LOGZ, SZTMP, fnam ); 
+  }
 
   LDMP = ( EPLO == 20 &&  ifilt_obs == -2  ) ;
   if ( LDMP ) {
@@ -1672,7 +1678,7 @@ double interp_flux_SEDMODEL(
 	   S2DTMP[0][0], S2DTMP[0][1], S2DTMP[0][2] );
     printf(" SSSS SZTMP = %le, %le, %le \n",
 	   SZTMP[0], SZTMP[1], SZTMP[2] );
-    printf(" SSSS Z=%le \n", S );
+    printf(" SSSS S=%le \n", S );
 
     //    debugexit("interp_SEDMODEL"); // xxxxxxxx
   } // end of LDMP

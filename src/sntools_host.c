@@ -148,6 +148,8 @@ void INIT_HOSTLIB(void) {
   if ( INPUTS.REQUIRE_DOCANA ) 
     { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
 
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+
   // check for spectral templates to determin host spectrum
   read_specTable_HOSTLIB();
 
@@ -157,6 +159,8 @@ void INIT_HOSTLIB(void) {
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_HOSTLIB_WGTMAP();
 
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+
   // open hostlib and start reading
   open_HOSTLIB(&fp_hostlib);     // open and return file pointer
   read_head_HOSTLIB(fp_hostlib); // read header info: VARNAMES, ...
@@ -165,11 +169,22 @@ void INIT_HOSTLIB(void) {
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
 
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+      
+
   // re-open hostlib for GAL keys so that it works for gzipped files.
   // (cannot rewind gzip file, so close and re-open is only way)
   open_HOSTLIB(&fp_hostlib);     // re-open
+
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+
   read_gal_HOSTLIB(fp_hostlib);  // read "GAL:" keys
+
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+
   close_HOSTLIB(fp_hostlib);     // close HOSTLIB
+
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
 
   // summarize SNPARams that were/weren't found
   summary_snpar_HOSTLIB();
@@ -178,7 +193,12 @@ void INIT_HOSTLIB(void) {
   sortz_HOSTLIB();
 
   // abort if any GALID+ZTRUE pair appears more than once
+
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+
   check_duplicate_GALID();
+
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
   
   // set redshift pointers for faster lookup
   zptr_HOSTLIB();
@@ -201,8 +221,12 @@ void INIT_HOSTLIB(void) {
   // init options for re-using same host
   init_SAMEHOST();
 
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
+
   // init parameters and Gauss2d integrals for galaxy aperture mag
   init_GALMAG_HOSTLIB();
+
+  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
 
   TIME_INIT_HOSTLIB[1]  = time(NULL);
   double dT = (TIME_INIT_HOSTLIB[1]-TIME_INIT_HOSTLIB[0]);
@@ -4054,7 +4078,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       
       // print first 3 weights and last wgt
       if ( VBOSE && ibin==0 && (igal <= 1 || igal == NGAL-1) ) {
-	printf("\t   WGT(igal=%d,GALID=%lld) = %f -> WGTSUM = %f \n", 
+	printf("\t   WGT(igal=%d,GALID=%lld) = %le -> WGTSUM = %le \n", 
 	       igal, GALID, WGT, WGTSUM ); 
 	fflush(stdout);
       }

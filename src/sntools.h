@@ -958,6 +958,8 @@ void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
 
+void system_pmap(char *code_name, char *call_fun);
+
 // glob functions
 int  glob_file_list(char *wildcard, char ***file_list); // underlying util
 int  store_glob_file_list(char *wildcard) ; 

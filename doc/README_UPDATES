@@ -22056,6 +22056,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    genmag_SEDtools.c: fix subtle interpolation bug for NON1ASED models;
      See https://github.com/RickKessler/SNANA/issues/1237
 
+   rd_sedFlux() in sntools.c:
+      added new abort trap to ensure that NLAM is the same for each phase.
+
          *****  USEFUL(v11_05i) *****
 
     snlc_sim.c: 

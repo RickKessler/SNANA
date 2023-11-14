@@ -7447,6 +7447,8 @@ int rd_sedFlux(
     + abort if line length is too long (to avoid corruption)
     + abort if fewer than 3 words are read
 
+  Nov 13 2023: increment NLAM_PER_DAY, and set abort trap if any
+               NLAM differs for a pareticular day.
 
   **********/
 
@@ -7461,6 +7463,8 @@ int rd_sedFlux(
   int iep, ilam, iflux, ival, LAMFILLED, OKBOUND_LAM, OKBOUND_DAY, NBIN ;
   int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX, LEN ;
   bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
+
+  int *NLAM_PER_DAY = (int*)malloc ( MXDAY * sizeof(int) );
 
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
@@ -7507,6 +7511,8 @@ int rd_sedFlux(
   LAMFILLED = NRDLINE = NONZEROFLUX = FIRST_NONZEROFLUX = 0;
   daystep_last = daystep=-9.0;  day_last = -999999. ;
   lamstep_last = lamstep=-9.0;  lam_last = -999999. ;
+
+  NLAM_PER_DAY[iep] = 0 ;
 
   for(ival=0; ival < MXWORDLINE_FLUX; ival++ ) 
     { ptrStringVal[ival] = StringVal[ival];   }
@@ -7593,6 +7599,7 @@ int rd_sedFlux(
       }
 
       iep++ ; *NDAY = iep ;  NONZEROFLUX = 0 ; 
+      NLAM_PER_DAY[iep] = 0  ;
 
     /* xxx not now
       // do NOT increment this day if all fluxes are zero.
@@ -7666,6 +7673,7 @@ int rd_sedFlux(
       iflux++ ;  
     }
 
+    NLAM_PER_DAY[iep-1]++ ;
     day_last = day;
     lam_last = lam;
 
@@ -7694,6 +7702,25 @@ int rd_sedFlux(
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
+  // - - - - - -
+  // check that all NLAM_PER_DAY are the same (Nov 2023)
+  int NLAM_REF = NLAM_PER_DAY[0];
+  int NLAM_TEST, NERR=0;
+  for ( iep=1; iep < *NDAY; iep++ ) {
+    NLAM_TEST = NLAM_PER_DAY[iep];
+    if ( NLAM_TEST != NLAM_REF ) {
+      printf(" ERROR: NLAM=%d at DAY=%.2f but NLAM=%d at DAY=%.2f \n",
+	     NLAM_REF,  DAY_LIST[0], 
+	     NLAM_TEST, DAY_LIST[iep] ); fflush(stdout);
+      NERR++ ;
+    }
+  }
+  if ( NERR > 0 ) {
+    sprintf(c1err, "%d phases have invalid NLAM", NERR);
+    sprintf(c2err, "Wavelength grid must be the same for each day.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
   // - - - - - - - - - 
   NBIN = *NDAY;
   if ( NBIN > 1 ) {
@@ -7712,11 +7739,13 @@ int rd_sedFlux(
   else
     { *LAM_STEP = 0.0 ; }
 
+  free(NLAM_PER_DAY);
 
   if ( GZIPFLAG==0 ) 
     { fclose(fpsed); } // normal file stream
   else
     { pclose(fpsed); } // for gzip file
+
 
   return SUCCESS ;
 

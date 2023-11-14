@@ -543,6 +543,7 @@ int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
 
 int strcmp_ignoreCase(char *str1, char *str2) ;
+int strcmp_ignoregz(char *str1, char *str2) ;
 
 
 // data functions

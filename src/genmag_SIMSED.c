@@ -694,7 +694,8 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   // read name of kcor file form binary, and check for match of full path
   if ( BINARYFLAG_KCORFILENAME ) {
     fread(kcorFile_tmp, MXPATHLEN, 1, fp );
-    if ( strcmp(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
+    // xxx mark if ( strcmp(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
+    if ( strcmp_ignoregz(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
       sprintf(c1err,"Binary file KCOR_FILE: '%s' ", kcorFile_tmp);
       sprintf(c2err,"but current KCOR_FILE: '%s' ", SIMSED_KCORFILE);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 

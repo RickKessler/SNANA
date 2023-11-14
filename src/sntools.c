@@ -4556,12 +4556,14 @@ int strcmp_ignoreCase(char *str1, char *str2) {
   //
   // return strcmp on lower-case comparison.
 
-  int len1, len2, j ;
-  char str1_lc[100], str2_lc[100];
+  int len1 = strlen(str1) ;
+  int len2 = strlen(str2) ;
+  int j ;
+  char *str1_lc = (char*) malloc ( len1 * sizeof(char) + 10 );
+  char *str2_lc = (char*) malloc ( len2 * sizeof(char) + 10 );
 
   // --------- BEGIN ----------
-  len1 = strlen(str1) ;
-  len2 = strlen(str2) ;
+
   if ( len1 != len2 ) { return -1 ; }
 
   for(j=0; j<len1; j++ ) { str1_lc[j] = tolower ( str1[j] ) ;  }
@@ -4570,9 +4572,39 @@ int strcmp_ignoreCase(char *str1, char *str2) {
   str1_lc[len1] = '\0' ;
   str2_lc[len2] = '\0' ;
 
-  return strcmp(str1_lc,str2_lc) ;
+  int jcmp = strcmp(str1_lc,str2_lc) ;
+  free(str1_lc); free(str2_lc);
+  return jcmp;
   
 } // end of strcmp_ignoreCase
+
+
+// ==================================================
+int strcmp_ignoregz(char *str1, char *str2) {
+
+  // Nov 2023: compare strings after stripping out possible .gz extension.
+
+  int len1 = strlen(str1) ;
+  int len2 = strlen(str2) ;
+  int j ;
+  char *str1_nogz = (char*) malloc ( len1 * sizeof(char) + 10 );
+  char *str2_nogz = (char*) malloc ( len2 * sizeof(char) + 10 );
+
+  // --------- BEGIN ----------
+
+  sprintf(str1_nogz,"%s", str1);
+  sprintf(str2_nogz,"%s", str2);
+
+  if ( strstr(str1_nogz,".gz") != NULL )  { str1_nogz[len1-3] = 0; }
+  if ( strstr(str2_nogz,".gz") != NULL )  { str2_nogz[len2-3] = 0; }
+
+  int jcmp = strcmp(str1_nogz,str2_nogz) ;
+
+  free(str1_nogz); free(str2_nogz);
+
+  return jcmp;
+  
+} // end of strcmp_ignoregz
 
 // ==================================================
 void invertMatrix(int N, int n, double *Matrix ) {

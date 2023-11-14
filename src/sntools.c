@@ -7437,7 +7437,8 @@ int rd_sedFlux(
 
    OPTMASK += 1 --> read FLUXERR (4th column of SEDFILE)
    OPTMASK += 2 --> allow non-uniform DAY bins 
-   
+   OPTMASK += 1024 --> do NOT abort on NLAM_PER_DAY (temporary)
+
    The return-arg lengths are
      - DAY_LIST has length NDAY
      - LAM_LIST has length NLAM and 
@@ -7497,11 +7498,12 @@ int rd_sedFlux(
   bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
   int *NLAM_PER_DAY = (int*)malloc ( MXDAY * sizeof(int) );
+  bool OPT_ABORT_NLAM_PER_DAY;
 
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
   double LAMSTEP_TOL = 0.01;   // tolerance on LAMSTEP uniformity
-
+ 
   char fnam[]  = "rd_sedFlux" ;
 
   // ------------- BEGIN -------------
@@ -7524,9 +7526,11 @@ int rd_sedFlux(
   // check OPTMASK args
   OPT_READ_FLUXERR = false ;      // default: ignore fluxerr column
   OPT_FIX_DAYSTEP  = true;     // default => require fixed bin size
+  OPT_ABORT_NLAM_PER_DAY = true;
 
   if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = true ; }
   if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = false ; }
+  if ( (OPTMASK & 1024)>0) { OPT_ABORT_NLAM_PER_DAY = false; }
 
   if ( OPT_READ_FLUXERR  ) 
     { sprintf(txterr, "and errors"); }
@@ -7747,7 +7751,7 @@ int rd_sedFlux(
       NERR++ ;
     }
   }
-  if ( NERR > 0 ) {
+  if ( NERR > 0 && OPT_ABORT_NLAM_PER_DAY ) {
     sprintf(c1err, "%d phases have invalid NLAM", NERR);
     sprintf(c2err, "Wavelength grid must be the same for each day.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );

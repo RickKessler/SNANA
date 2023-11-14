@@ -81,6 +81,11 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
       OPTMASK_T0SHIFT_PEAKMAG      // shift T=0 to be at peakmag
       ;
 
+    // xxxxxxxx
+    // temp debug option to disable abort on NLAM_PER_DAY
+    if ( INPUTS.DEBUG_FLAG == -1113 ) { SEDMODEL.OPTMASK += 1024 ; } 
+    // xxxxxxxxxxx
+
     // if error column exists in first SED file, 
     // add read-err flag to OPTMASK 
     if ( DO_GENGRID ) {
@@ -437,13 +442,15 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     }
 
     // check that NONIA and PECIA are not mixed up (Aug 2016)
-    int ISPEC1A_USER = INP_NON1ASED->ISPEC1A[isp] ;
-    int ISPEC1A_LIST = INP_NON1ASED->LIST_ISPEC1A[index] ;
-    if ( ISPEC1A_USER != ISPEC1A_LIST ) {
-      sprintf(c1err, "ISPEC1A(USER)=%d but ISPEC1A(NON1A_LIST)=%d",
-	      ISPEC1A_USER, ISPEC1A_LIST );
-      sprintf(c2err,"for %s (index=%d)", name, index );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
+    if ( !INP_NON1ASED->ALL_NON1A ) {
+      int ISPEC1A_USER = INP_NON1ASED->ISPEC1A[isp] ;
+      int ISPEC1A_LIST = INP_NON1ASED->LIST_ISPEC1A[index] ;
+      if ( ISPEC1A_USER != ISPEC1A_LIST ) {
+	sprintf(c1err, "ISPEC1A(USER)=%d but ISPEC1A(NON1A_LIST)=%d",
+		ISPEC1A_USER, ISPEC1A_LIST );
+	sprintf(c2err,"for %s (index=%d)", name, index );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
+      }
     }
 
   } // isp
@@ -607,6 +614,7 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
     MAGOFF_ALLNON1A   = INP_NON1ASED->MAGOFF[1];
     MAGSMEAR_ALLNON1A = INP_NON1ASED->MAGSMEAR[1][0];
     SNTAG_ALLNON1A    = INP_NON1ASED->SNTAG[1];
+    INP_NON1ASED->ALL_NON1A = true; // set global flag
   }
   else { 
     ALLNON1A_FLAG = 0; 

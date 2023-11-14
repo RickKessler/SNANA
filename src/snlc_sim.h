@@ -213,6 +213,8 @@ typedef struct {
   int   NPEC1A ;                // number of PEC1A SED templates
   int   STOP ;                  //  flag to stop reading NON1a
 
+  bool ALL_NON1A;         // option to process all NON1A with equal weight.
+
   // command-line override (Nov 2023)
   int NON1A_INDEX_FORCE ; // force processing only this one index
 

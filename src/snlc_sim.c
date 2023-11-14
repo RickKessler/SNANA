@@ -1292,6 +1292,7 @@ void set_user_defaults(void) {
   INPUTS.NON1ASED.NNON1A = 0 ;
   INPUTS.NON1ASED.NPEC1A = 0 ;
   INPUTS.NON1ASED.NON1A_INDEX_FORCE = -9 ;
+  INPUTS.NON1ASED.ALL_NON1A = false ;
   sprintf ( INPUTS.NON1ASED.KEYLIST[1], "INDEX" );
   sprintf ( INPUTS.NON1ASED.KEYLIST[2], "WGT"   );
   for ( i=0; i < MXNON1A_TYPE; i++ ) {

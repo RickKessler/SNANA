@@ -22058,6 +22058,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    rd_sedFlux() in sntools.c:
       added new abort trap to ensure that NLAM is the same for each phase.
+      Disable new NLAM abort with snlc_sim.exe <inpFile> DEBUG_FLAG -1113
 
          *****  USEFUL(v11_05i) *****
 

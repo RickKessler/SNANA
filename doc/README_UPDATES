@@ -22072,4 +22072,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     genmag_SIMSED.c: abort in missing required key in SED.INFO file
 
+   size(snana.exe, snlc_fit.exe, snlc_sim.exe) 
+       = 103, 315, 182 MB (MXPEOCH = 15,000)
+      -> 114  338, 182 MB (MXEPOCH = 30,000)
+
 END: 

@@ -1312,6 +1312,8 @@ void readme_docana_load_asymGauss(int *iline, char *pad,
 				 GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   // Utility to load asymGauss params for DOCANA
+  // Nov 2023: noprint range for GENSIGMA -> 1E9 (was 1E4)
+
   int i = *iline ;
   int nval1=1, nval2=2, lenkey=24 ;
   bool USE      = GENGAUSS->USE ;
@@ -1336,7 +1338,7 @@ void readme_docana_load_asymGauss(int *iline, char *pad,
   dptr = GENGAUSS->SIGMA ;
   VERSION_INFO_load(&i, pad, keyName, 
   		    noComment, lenkey, false, 
-		    nval2, dptr, -1.E4,1.E4, -9.0); // val,min,max noprint
+		    nval2, dptr, -1.E9,1.E9, -9.0); // val,min,max noprint
 
   sprintf(keyName,"GENRANGE_%s:", VARNAME);
   dptr = GENGAUSS->RANGE ;

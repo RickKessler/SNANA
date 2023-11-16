@@ -121,7 +121,7 @@ c
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
-     &  ,MXEPOCH     = 15000      ! max number of filter-epochs per SN
+     &  ,MXEPOCH     = 30000      ! max number of filter-epochs per SN
      &  ,MXEP_MODELGRID = 200     ! max model grid for SNANA+SIM_MAGOBS table
      &  ,MXIDTEL     = 200        ! max telescope ID in SURVEY.DEF
      &  ,MXIDFIELD   = 200        ! max FIELD ID in SURVEY.DEF
@@ -5128,6 +5128,13 @@ c check to refine window around approx peakmjd
       endif
 
       NOBS_STORE = SELECT_MJD_SNDATA(MJD_WINDOW)  ! C function
+
+      if ( NOBS_STORE > MXEPOCH ) then
+         write(C1ERR,660) NOBS_STORE, MXEPOCH
+660      format('NOBS_STORE = ', I6, ' exceeds MXEPOCH=', I6)
+         C2ERR = 'Need to increase MXEPOCH in snana.car'
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
+      endif
 
       ISNLC_NEWMJD_STORE = NOBS_STORE  ! store in global
       ISNLC_NEPOCH_STORE = NOBS_STORE

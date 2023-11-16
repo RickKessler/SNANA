@@ -741,8 +741,12 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // Jun 6 2022: if PARVAL range > 1E6, write %le format
   //
   // Nov 7 2023: abort on missing required key
-
-  char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[80] ;
+  //
+  // Nov 15 2023: ignore NPAR key and compute NPAR from PARNAMES line
+  //       (remove LEGACY_NPAR stuff later)
+  //
+  char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[100] ;
+  char  string_parnames[200];
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
 
@@ -752,6 +756,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     { "PARNAMES", "RESTLAMBDA_RANGE", "SED" };
   bool FOUND_REQUIRE_LIST[NKEY_REQUIRE_SIMSED] = 
     { false, false, false } ;
+
+  bool LEGACY_NPAR = false  ; // T -> read explcit NPAR key (legacy)
 
   FILE *fp;
   char fnam[] = "read_SIMSED_INFO" ;
@@ -825,22 +831,42 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
     }
 
-    if ( strcmp(c_get,"NPAR:") == 0 ) 
+    // xxxxxx mark delete xxxxxxx
+    if ( LEGACY_NPAR && strcmp(c_get,"NPAR:") == 0 ) 
       {  readint(fp, 1, &SEDMODEL.NPAR ); }
+    // xxxxxxxx end mark xxxxxxxxxxx
 
     if ( strcmp(c_get,"PARNAMES:") == 0 ) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
-      if ( SEDMODEL.NPAR < 0 ) {
-	sprintf(c1err,"PARNAMES key specified before NPAR key");
-	sprintf(c2err,"Check %s", ptrFile );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+
+      if ( !LEGACY_NPAR ) { //.xyz
+	fgets(string_parnames, 200, fp);
+	NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames);
+	SEDMODEL.NPAR = NPAR;
+	for(ipar=0; ipar < NPAR; ipar++ ) {
+	  get_PARSE_WORD(0, ipar, tmpName);
+	  sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
+	  if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }	  
+	}
       }
-      for ( ipar=0; ipar < SEDMODEL.NPAR; ipar++ ) {
-	readchar(fp, tmpName);
-	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
-	if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }
-      }
-    }
+
+      // xxxxxxxxxx mark delete xxxxxxxx
+      if ( LEGACY_NPAR ) {
+	if ( SEDMODEL.NPAR < 0 ) {
+	  sprintf(c1err,"PARNAMES key specified before NPAR key");
+	  sprintf(c2err,"Check %s", ptrFile );
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}
+	
+	for ( ipar=0; ipar < SEDMODEL.NPAR; ipar++ ) {
+	  readchar(fp, tmpName);
+	  sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
+	  if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }
+	}
+      } // end LEGACY
+      // xxxxxxx end mark xxxxxxx
+
+    } // end PARNAMES
 
     // ------------
 

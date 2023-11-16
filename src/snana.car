@@ -2182,10 +2182,10 @@ c define external C functions to read from fits files
 c max length of catenated strings from all epochs;
 c e.g., FIELD, TELESCOPE ...
 c Aug 31 2023: 40k -> 80k
-c Nov 16 2023: 80k -> 120k
+c Nov 16 2023: 80k -> 160k
 
       INTEGER MXLEN_EPSTRING
-      PARAMETER (MXLEN_EPSTRING = 120000 ) 
+      PARAMETER (MXLEN_EPSTRING = 160000 ) 
 
       INTEGER  
      &   RD_SNFITSIO_PREP

@@ -369,7 +369,7 @@ struct {
 } OLD_INPUTS;
 
 
-#define ADDBUF_PARSE_WORDS 10000
+#define ADDBUF_PARSE_WORDS     15000
 #define MXCHARWORD_PARSE_WORDS MXPATHLEN+200 // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700      // max words per line

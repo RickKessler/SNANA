@@ -102,7 +102,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   while ( READ_NEXTLINE ) {
     LINE[0] = 0 ;
     fgets(LINE,200,fp);  NLINE++ ;
-    NWD = store_PARSE_WORDS(MSKOPT,LINE);
+    NWD = store_PARSE_WORDS(MSKOPT,LINE, fnam);
 
     // abort if we read too many lines without finding any valid row keys
     if ( NLINE > 20 && NROW_READ==0 ) {

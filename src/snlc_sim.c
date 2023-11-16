@@ -1487,7 +1487,7 @@ int read_input_file(char *input_file, int keySource ) {
 
  READ_FILE:
   NTRY++ ;
-  NWD_FILE = store_PARSE_WORDS(MSKOPT,input_file);
+  NWD_FILE = store_PARSE_WORDS(MSKOPT,input_file, fnam);
 
   printf("  Read %d words from user input file %d: \n\t %s \n", 
 	 NWD_FILE, INPUTS.NREAD_INPUT_FILE, input_file );
@@ -1495,7 +1495,7 @@ int read_input_file(char *input_file, int keySource ) {
 
   // Dec 28 2021: try to fix issue on Cori where file isn't read properly
   if ( NWD_FILE==0 && NTRY <= 2 ) { 
-    int N = store_PARSE_WORDS(-1,""); // re-init everything
+    int N = store_PARSE_WORDS(-1,"", fnam); // re-init everything
     sleep(3.0);  // wait few seconds before trying to read file again
     printf("\t (try reading file again after 3 second delay)\n");
     fflush(stdout) ;
@@ -5829,7 +5829,7 @@ void  parse_input_GENPOP_ASYMGAUSS(void) {
   printf("  Read GENPOP_ASYMGAUSS model '%s' from \n     %s\n",
 	 ptrModel, ptrFile); fflush(stdout);
 
-  NWD_TOT = store_PARSE_WORDS(MSKOPT_PARSE, ptrFile);
+  NWD_TOT = store_PARSE_WORDS(MSKOPT_PARSE, ptrFile, fnam );
 
   // transfer store_PARSSE_WORDS to local list to avoid
   // conflict with other parsing functions that use store_PARSE_WORDS
@@ -8539,7 +8539,7 @@ void init_simvar(void) {
 
   // ----------- BEGIN -----------
  
-  N = store_PARSE_WORDS(-1,""); // May 26 2021
+  N = store_PARSE_WORDS(-1,"", fnam ); // May 26 2021
   set_GENMODEL_NAME();
 
   init_GaussIntegral();

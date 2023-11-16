@@ -4982,7 +4982,7 @@ void set_defaults(void) {
   // ---------------- BEGIN -----------------
   
   set_EXIT_ERRCODE(EXIT_ERRCODE_SALT2mu);
-  N = store_PARSE_WORDS(-1,""); // May 26 2021                                               
+  N = store_PARSE_WORDS(-1,"", fnam); // May 26 2021                                               
   sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
 
   INPUTS.ISMODEL_LCFIT_SALT2  = false  ;
@@ -20711,7 +20711,7 @@ void write_fitres_driver(char* fileName) {
       if ( strlen(line) < 3  ) { continue ; }
       if ( commentchar(line) ) { continue; }
 
-      store_PARSE_WORDS(MSKOPT_PARSE_WORDS,line);
+      store_PARSE_WORDS(MSKOPT_PARSE_WORDS,line, fnam);
 
       // skip if first wd of line is not a valid row key
       get_PARSE_WORD(0, IWD_KEY, KEY);
@@ -21195,7 +21195,7 @@ void write_cat_info(FILE *fout) {
   finp  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); 
   while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);    
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line, fnam);    
     skip_line = ( NWD == 0 || strlen(line)==0 );
 
     if ( !skip_line ) {
@@ -23723,7 +23723,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   else {
     //    debugexit(VARNAME_VALID_LIST);
     char VARNAME_VALID_TMP[60];
-    NVAR_VALID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARNAME_VALID_LIST);
+    NVAR_VALID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARNAME_VALID_LIST, fnam);
     for(ivar=0; ivar < NVAR_VALID; ivar++ ) {
       get_PARSE_WORD(0, ivar, VARNAME_VALID_TMP);
       if ( strcmp(VARNAME,VARNAME_VALID_TMP) == 0  ) 

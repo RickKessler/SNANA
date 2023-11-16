@@ -443,7 +443,8 @@ void malloc_HOSTGAL_PROPERTY(void) {
   char fnam[] = "malloc_HOSTGAL_PROPERTY";
   // ------------ BEGIN ------------
 
-  N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_NAME_LIST);
+  N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, 
+			     HOSTGAL_PROPERTY_NAME_LIST, fnam );
 
   // set a global variable 
   N_HOSTGAL_PROPERTY = N_PROP;
@@ -986,7 +987,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   NVAR_REQ = HOSTLIB.NVAR_REQUIRED ;
 
   // split VARLIST_ALL into individual var names
-  NVAR_STOREPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST_ALL);
+  NVAR_STOREPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST_ALL, fnam);
 
   for(ivar=0; ivar < NVAR_STOREPAR; ivar++ ) {
 
@@ -1223,7 +1224,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   if ( !FOUND_VARNAMES) { return ; }
  
   fgets(LINE,100,fp);
-  NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+  NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
 
   NFUN = 1;    // WGT is required fun-val
   if ( HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT )  { NFUN++; }
@@ -1377,7 +1378,7 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
     if ( strcmp(c_get,KEY_VARNAMES) == 0 ) {
       STOP_READ = true ;
       fgets(LINE, MXCHAR, fp);
-      NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam);
      
       for(ivar=0; ivar < NWD; ivar++ ) {
 	get_PARSE_WORD(0,ivar,VARNAME);
@@ -1951,7 +1952,7 @@ void read_specTable_EAZY(char *spec_list_file) {
 
   // - - - -
   while ( fgets(line, MXPATHLEN, fp_list) != NULL ) {
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line,fnam);
     get_PARSE_WORD(0, ICOL_FILENAME, fileName_tmp);
     basename = strrchr(fileName_tmp, '/'); // basename include slash
     printf("\t Read & store  EAZY template %s \n",
@@ -2403,7 +2404,7 @@ void read_head_HOSTLIB(FILE *fp) {
         errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
       }
 
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE); 
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam); 
       HOSTLIB.NVAR_ALL = NVAR;
       if ( NVAR < HOSTLIB.NVAR_REQUIRED || NVAR > MXVAR_HOSTLIB ) {
         sprintf(c1err, "NVAR= %d  is invalid (MXVAR_HOSTLIB=%d)",
@@ -9577,7 +9578,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   igal_unsort = 0;
   while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
 
-    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE,LINE);
+    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE,LINE,fnam);
     LINE_APPEND[0] = 0 ;
 
     if ( NWD_LINE > 2 ) {
@@ -10304,7 +10305,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // convert space-sep append_varlist into individual varname list,
   // and toss out varName(s) that already exist in HOSTLIB
   OPTMASK = MSKOPT_PARSE_WORDS_STRING;  
-  NVAR_TOT = store_PARSE_WORDS(OPTMASK, tmp_varname_string);
+  NVAR_TOT = store_PARSE_WORDS(OPTMASK, tmp_varname_string,fnam);
   NVAR_APPEND = append_varname_string[0] = 0 ;
   append_varname_list = (char**) malloc( NVAR_TOT* sizeof(char*) );
   int MEMC = MXCHAR_VARNAME * sizeof(char);

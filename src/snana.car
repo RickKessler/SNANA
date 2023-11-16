@@ -3993,8 +3993,6 @@ c
       CHARACTER VARNAME(20)*60
       LOGICAL   MATCH_VARNAME 
 
-c functions
-      INTEGER  STORE_PARSE_WORDS
 C -------------- BEGIN ---------------
 
       CALL FETCH_SNDATA_WRAPPER("NVAR_PRIVATE", 
@@ -5503,7 +5501,7 @@ c local args
       INTEGER J1, J2, LK, IVAR, LEN_NAME, NMATCH, icut
       INTEGER NWD, LWD1, LWD2, LWD3, MSKOPT
       CHARACTER VARNAME*60, STR*(MXCHAR_CUTNAME), CUTSTRING*30
-      CHARACTER CWD1*60, CWD2*60, CWD3*60
+      CHARACTER CWD1*60, CWD2*60, CWD3*60, FNAM*30
 
       LOGICAL LCUTWIN
       REAL*8 CUTWIN(2)
@@ -5515,6 +5513,8 @@ c function
       EXTERNAL STORE_PARSE_WORDS
 
 C --------------- BEGIN --------------
+
+      FNAM = 'PARSE_PRIVATE_KEYWORD'
 
 c store keyword WITHOUT the ':' on the end.
       LK = INDEX( CWORD , ':' ) - 1
@@ -5572,7 +5572,8 @@ c        skip if already found
 
 c break up string into pieces
          MSKOPT = MSKOPT_PARSE_WORDS_STRING
-         NWD = STORE_PARSE_WORDS(MSKOPT,STR//' '//char(0), 60)
+         NWD = STORE_PARSE_WORDS(MSKOPT,STR//' '//char(0), 
+     &        FNAM//char(0), 60, 30)
          call get_PARSE_WORD_fortran(1,CWD1,LWD1)
 
          if ( VARNAME .EQ. CWD1 ) then
@@ -6691,18 +6692,20 @@ c local variables
 +CDE,SNPAR.
 
       INTEGER   JCOMMA, NWD, LEN, MSKOPT
-      CHARACTER MSG1*72, MSG2*72
+      CHARACTER MSG1*72, MSG2*72, FNAM*30
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
 
 C ------------- BEGIN -----------------
 
+      FNAM = 'NMLCHECK_SNCCID'
       JCOMMA   = INDEX(CCID,',')
 
       LEN      = INDEX(CCID,' ' ) - 1
       MSKOPT   = MSKOPT_PARSE_WORDS_STRING
-      NWD      = STORE_PARSE_WORDS(MSKOPT,CCID(1:LEN)//char(0),LEN)
+      NWD      = STORE_PARSE_WORDS(MSKOPT,CCID(1:LEN)//char(0),
+     &               FNAM//char(0), LEN, 30)
 
       IF ( JCOMMA > 0 .or. NWD > 1 ) THEN
          MSG1 = 'Invalid nml variable ' 
@@ -7068,7 +7071,8 @@ c parse SNTABLE_LIST string
       C_ARG = SNTABLE_LIST(1:LENTB) // char(0)
 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA
-      NWD   = STORE_PARSE_WORDS(MSKOPT, C_ARG, MXCHAR_FILENAME) 
+      NWD   = STORE_PARSE_WORDS(MSKOPT, C_ARG, 
+     &            FNAM//char(0), MXCHAR_FILENAME, 30) 
 
       DO 100 iwd = 1, NWD
 
@@ -9016,7 +9020,7 @@ C ------------- BEGIN ---------
       cFILE     = SNCID_IGNORE_FILE(1:LENFILE)//char(0)
       MSKOPT    = MSKOPT_PARSE_WORDS_FILE 
      &          + MSKOPT_PARSE_WORDS_IGNORECOMMENT 
-      NWD = STORE_PARSE_WORDS(MSKOPT, cFILE, LENFILE) 
+      NWD = STORE_PARSE_WORDS(MSKOPT, cFILE, FNAM//char(0), LENFILE, 12) 
 
       LENCID = INDEX(CCID,' ')-1
 
@@ -10356,6 +10360,7 @@ c ------------------------------
      &  ,cfilt(2)*2, cfilt1*1
      &  ,cutvar_file*(MXCHAR_FILENAME)
      &  ,list_file*(MXCHAR_FILENAME)
+     &  ,FNAM*30
 
 c function
       INTEGER FILTINDX
@@ -10364,11 +10369,13 @@ c function
       EXTERNAL STORE_PARSE_WORDS
 C -------------------- BEGIN -------------------
 
+      FNAM = 'INIT_REFORMAT_SALT2'
       CALL PRBANNER("INI_WRSALT2: Translate SNANA -> SALT2 format")
 
       LL = INDEX(REFORMAT_KEYS,' ') -1
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD = STORE_PARSE_WORDS(MSKOPT, REFORMAT_KEYS(1:LL)//char(0),LL)
+      NWD = STORE_PARSE_WORDS(MSKOPT, REFORMAT_KEYS(1:LL)//char(0),
+     &         FNAM//char(0), LL, 30)
 
       NAMEof_SURVEY        = 'NULL'      
       NAMEof_INSTRUMENT    = 'NULL'
@@ -11810,7 +11817,7 @@ c misc.
 
       CALL FLUSH(6)
 
-      NWD = STORE_PARSE_WORDS(-1,""//char(0), 2 );
+      NWD = STORE_PARSE_WORDS(-1, ""//char(0), FNAM//char(0), 2, 12);
 
       RDFLAG_SPECTRUM = .FALSE.
 
@@ -11961,7 +11968,8 @@ c get list of sepmax variables to IGNORE
       IF ( NEARNBR_SEPMAX_IGNORE .NE. ' ' ) THEN
          LSTR      = INDEX(NEARNBR_SEPMAX_IGNORE,' ') -1 
          NAME_forC = NEARNBR_SEPMAX_IGNORE(1:LSTR)//char(0)
-         N_IGNORE = STORE_PARSE_WORDS(MSKOPT,NAME_forC,LSTR)
+         N_IGNORE = STORE_PARSE_WORDS(MSKOPT,NAME_forC,
+     &                 FNAM//char(0), LSTR, 24)
          do jskip = 1, N_IGNORE
             CALL get_PARSE_WORD_fortran(jskip,
      &           VARLIST_IGNORE(jskip),LSTR)  ! returned
@@ -11984,7 +11992,8 @@ c variables with FITOPT option in split_and_fit.
 
       LSTR = INDEX(NEARNBR_SEPMAX_VARDEF,' ', BACK=.TRUE.) - 1
       NAME_forC = NEARNBR_SEPMAX_VARDEF(1:LSTR)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT,NAME_forC,LSTR) 
+      NWD = STORE_PARSE_WORDS(MSKOPT,NAME_forC,
+     &                 FNAM//char(0), LSTR, 24)
 c --------------------------------------------------------------
 c check which words are variables names (i.e., strings) or values;
 c check is based on first char of each word. Fill INPUT_XXX arrays.
@@ -12516,7 +12525,8 @@ c init arrays
 
  
       NAME_ForC = SNMJD_LIST_FILE(1:LEN)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LEN) 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,
+     &         FNAM//char(0), LEN, 18 ) 
 
       DO 100 iwd = 1, NWD-1, 2
  
@@ -13089,7 +13099,8 @@ c  IDFIELD
 
       LL        = INDEX(SURVEYFILE,' ')-1
       NAME_forC = SURVEYFILE(1:LL)//char(0)
-      NWD  = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
+      NWD  = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,
+     &           FNAM//char(0), LL, 12)
 
       DO 110 iwd = 1, NWD-3
 
@@ -13319,7 +13330,8 @@ C ------------- BEGIN ------------
 
         LF        = INDEX(FILTER_REPLACE,' ', BACK=.TRUE.) - 1
         NAME_forC = FILTER_REPLACE(1:LF) // char(0)
-        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,NAME_forC,LF)
+        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,NAME_forC,
+     &             FNAM//char(0), LF, 20)
         
         CALL get_PARSE_WORD_fortran(1, FILTLIST1, NF1)
         CALL get_PARSE_WORD_fortran(2, ARROW,     NFARROW)
@@ -13553,11 +13565,14 @@ c local var
      &  ,ccid*(MXCHAR_CCID)
      &  ,ccid_last*(MXCHAR_CCID)
      &  ,STRING_BITLIST*60
+     &  ,FNAM*30
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
 
 C ------------- BEGIN ----------
+
+      FNAM = 'READ_EPIGNORE_FILE'
 
       LUN = LUNTMP
 
@@ -13605,7 +13620,8 @@ c Now start reading file
       LL = INDEX( LOCAL_FILENAME, ' ' ) - 1
       NAME_forC = LOCAL_FILENAME(1:LL)//char(0)
 
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,
+     &         FNAM//char(0), LL, 30)
       
       write(6,50) LOCAL_FILENAME(1:LL)
 50    format(T5,'Read epochs to ignore from: ', /, T5, A)
@@ -13679,7 +13695,7 @@ c parse BITLIST after reading IGNORE file to avoid parse_WORD conflicts
          PHOTFLAG_MSKREJ(1) = 0 
          LL = INDEX(STRING_BITLIST,' ') - 1
          NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
-     &            STRING_BITLIST(1:LL)//char(0),LL)
+     &            STRING_BITLIST(1:LL)//char(0), FNAM//char(0), LL, 30)
          do iwd = 1, NWD
             CALL get_PARSE_WORD_fortran(iwd,cwd_tmp,LL1)
             read(cwd_tmp,*) BIT
@@ -14230,7 +14246,7 @@ c -----------------------------
 +CDE,SNLCINP.
 
       INTEGER iwd, LWD, NWD, LK, LENS, MSKOPT
-      CHARACTER  CWD*80
+      CHARACTER  CWD*80, FNAM*30
       LOGICAL LVAR_FLT, LVAR_FIELD, LVAR_TEL
 
 c functions
@@ -14242,6 +14258,8 @@ c functions
 C ----------------- BEGIN --------------
 
       IF ( NVAL .LT. 0 ) RETURN  ! all epochs fail cut (May 16, 2012)
+
+      FNAM = 'UNPACK_SNFITSIO_STR'
 
 c determine variable type from KEYNAME
 
@@ -14266,7 +14284,8 @@ c break up STRING into substrings
       LENS   = INDEX(STRING//' ',' ' ) - 1  ! Feb 2021
 
 cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
-      NWD    = STORE_PARSE_WORDS(MSKOPT, STRING(1:LENS)//char(0),LENS)
+      NWD    = STORE_PARSE_WORDS(MSKOPT, STRING(1:LENS)//char(0),
+     &            FNAM//char(0), LENS, 30 )
 
       IF  ( NWD .NE. NVAL ) THEN
         LK = INDEX(KEYNAME//' ' ,' ') -1 
@@ -14898,7 +14917,7 @@ c local var
 
       INTEGER iwd, NWD, ifilt_tmp, LEN, NFILT_TMP, NFILT_LAST, i
       INTEGER MSKOPT
-      CHARACTER cwd*(MXCHAR_FILEWORD), band*2
+      CHARACTER cwd*(MXCHAR_FILEWORD), band*2, FNAM*30
       REAL VAL
       LOGICAL LERR
 
@@ -14911,8 +14930,10 @@ c --------------- BEGIN ------------
       NFILT = 0
       IFILT_TMP = 0
      
+      FNAM = 'PARSE_FILTSTRING'
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD = STORE_PARSE_WORDS(MSKOPT,STRING//char(0), 80)
+      NWD = STORE_PARSE_WORDS(MSKOPT,STRING//char(0), 
+     &          FNAM//char(0), 80, 30)
 
       DO i = 1, MXFILT_OBS
         IFILTDEF(i) = 0
@@ -14995,14 +15016,16 @@ c
 c local arg
 
       INTEGER iwd, NWD, LEN, MSKOPT
-      CHARACTER CWD*60, C1ERR*72, C2ERR*72
+      CHARACTER CWD*60, C1ERR*72, C2ERR*72, FNAM*30
 C function
       INTEGER STORE_PARSE_WORDS
 
 C ---------------- BEGIN ----------------
+      FNAM   = 'PARSE_INTLIST'
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
       LEN    = INDEX(STRING_INLIST,' ') - 1
-      NWD    = STORE_PARSE_WORDS(MSKOPT,STRING_INLIST//char(0),LEN)
+      NWD    = STORE_PARSE_WORDS(MSKOPT,STRING_INLIST//char(0),
+     &            FNAM//char(0), LEN, 30)
 
       IF ( NWD > MXINT ) THEN
          write(c1err,61) NWD, MXINT
@@ -15043,14 +15066,16 @@ c
 
       INTEGER  MSKOPT, NWD, iwd, LL
       INTEGER  STORE_PARSE_WORDS
-      CHARACTER WDTMP*60
+      CHARACTER WDTMP*60, FNAM*30
       EXTERNAL STORE_PARSE_WORDS
 
 C --------------- BEGIN ------------
 
+      FNAM = 'PARSE_COMMASEP_LIST'
       LL = INDEX(LINE,' ') - 1  
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD    = STORE_PARSE_WORDS(MSKOPT,LINE(1:LL)//char(0),LL)
+      NWD    = STORE_PARSE_WORDS(MSKOPT,LINE(1:LL)//char(0),
+     &             FNAM//char(0), LL, 30)
 
       DO iwd = 1, NWD
 
@@ -15111,13 +15136,15 @@ c +CDE,PARSECOM.
 
 c local var
 
-      CHARACTER STRLIST_LOCAL(MXLISTNML)*(NCHAR)
+      CHARACTER STRLIST_LOCAL(MXLISTNML)*(NCHAR), FNAM*30
       INTEGER i, j, NLIST, iwd, NWD, LL, MSKOPT
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
       
 C ------------- BEGIN ------------
+
+      FNAM = 'PARSE_NML_STRINGLIST'
 
       NLIST = 0 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
@@ -15137,7 +15164,8 @@ c remove optional '+' symbols between strings, and substitute blank.
            endif
          ENDDO
          
-         NWD = STORE_PARSE_WORDS(MSKOPT,STRLIST_LOCAL(i)//char(0),100)
+         NWD = STORE_PARSE_WORDS(MSKOPT,STRLIST_LOCAL(i)//char(0),
+     &            FNAM//char(0), 100, 30 )
        
          DO iwd = 1, NWD
             NLIST = NLIST + 1
@@ -16357,6 +16385,7 @@ c --------------------
      &  ,CKEY*(MXCHAR_CCID)
      &  ,CCID*(MXCHAR_CCID)
      &  ,NAME_ForC*(MXCHAR_FILENAME)
+     &  ,FNAM*30
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -16366,6 +16395,8 @@ C ------------- BEGIN ----------------
       N_USERTAGS    = 0
 
       IF ( USERTAGS_FILE .EQ. ' ' ) RETURN
+
+      FNAM = 'RDFILE_USERTAGS'
 
       LEN = INDEX(USERTAGS_FILE,' ') - 1
 
@@ -16380,7 +16411,8 @@ c init all tags to zero
       print*,'  Read user tags to identify subsets. '
 
       NAME_ForC = USERTAGS_FILE(1:LEN)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,LEN) 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,
+     &          FNAM//char(0), LEN, 30 ) 
 
       DO 100 iwd = 1, NWD-1
 
@@ -16790,7 +16822,8 @@ c set defaults
       
       IF ( EARLYLC_STRING .EQ. '' ) RETURN
 
-      NWD = STORE_PARSE_WORDS(MSKOPT, EARLYLC_STRING//char(0), 100)
+      NWD = STORE_PARSE_WORDS(MSKOPT, EARLYLC_STRING//char(0), 
+     &         FNAM//char(0), 100, 30)
 
       DO iwd = 1, NWD
          USEWD(iwd) = .FALSE.
@@ -17111,7 +17144,8 @@ c set defaults
 
       IF ( REQUIRE_EPOCHS_STRING .EQ. '' ) RETURN
 
-      NWD = STORE_PARSE_WORDS(MSKOPT,REQUIRE_EPOCHS_STRING//char(0),100)
+      NWD = STORE_PARSE_WORDS(MSKOPT,REQUIRE_EPOCHS_STRING//char(0),
+     &          FNAM//char(0), 100, 22 )
 
       LEGACY = ( NWD .EQ. 4 ) 
 
@@ -17358,7 +17392,8 @@ c keep reading until first ROW key is found
             CALL MADABORT(FNAM,C1ERR,C2ERR)   
          endif
 
-         NWD = STORE_PARSE_WORDS(MSKOPT, LINE//char(0), 200)
+         NWD = STORE_PARSE_WORDS(MSKOPT, LINE//char(0), 
+     &            FNAM//char(0), 200, 22)
 
          if ( NWD < 2 ) goto 200
 
@@ -18453,7 +18488,7 @@ C --------- BEGIN ---------
       NTMP = 0 
       LWD = MXCHAR_CUTNAME-2
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
-     &     SIMVAR_CUTWIN_STRING(1:LWD)//char(0), LWD) 
+     &     SIMVAR_CUTWIN_STRING(1:LWD)//char(0), FNAM//char(0), LWD, 20) 
 
       DO i = 1, NWD, 3
          NTMP = NTMP + 1
@@ -19082,7 +19117,7 @@ c - - - - - -
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME)
+      CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME), FNAM*30
       INTEGER iwd, NWD, LENFILE,MSKOPT
 
       LOGICAL  IGNOREFILE_fortran
@@ -19093,10 +19128,12 @@ C ---------------- BEGIN --------------
 
       if ( IGNOREFILE_fortran(INFILE) ) RETURN  ! Apr 7 2022
 
+      FNAM      = 'SETFORCE_FLUXCOR_SNANA'
       MSKOPT    = MSKOPT_PARSE_WORDS_STRING
       LENFILE   = INDEX(INFILE,' ') + 10 ! allow FORCE key after space
       NAME_forC = INFILE(1:LENFILE-1)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT, NAME_forC, LENFILE)
+      NWD = STORE_PARSE_WORDS(MSKOPT, NAME_forC, 
+     &         FNAM//char(0), LENFILE, 30)
 
       IF ( NWD <= 1 ) RETURN
 
@@ -26748,7 +26785,7 @@ c local var
       character 
      &   FILTINFO_FILE*(MXCHAR_FILENAME)
      &  ,NAME_forC*(MXCHAR_FILENAME)
-     &  ,cwd*60, cwd_next*60, msg*100
+     &  ,cwd*60, cwd_next*60, msg*100, FNAM*30
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -26756,6 +26793,7 @@ c local var
 C --------------- BEGIN -------------
 
       IERR = 0
+      FNAM = 'FILTER_UPDATE_INIT'
 
       OPT_FILTER_UPDATE    = 0
       DO ifilt=1, MXFILT_ALL
@@ -26811,7 +26849,8 @@ c try absolute path
       print*,' ', FILTINFO_FILE(1:L1)
 
       NAME_forC = FILTINFO_FILE(1:L1)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,L1)
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,
+     &         FNAM//char(0), L1, 30 )
 
 
 c parse enough to know which type of FILTER.INFO file we have;

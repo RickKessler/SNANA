@@ -579,7 +579,7 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 			double (*covMat)[*MATSIZE], double *EIGMIN,
 			int *istat_cov ) ;
 
-int  store_PARSE_WORDS(int OPT, char *FILENAME);
+int  store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun);
 void malloc_PARSE_WORDS(int NWD);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);

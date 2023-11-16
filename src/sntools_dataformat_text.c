@@ -1395,7 +1395,7 @@ int rd_sntextio_list(void) {
 
   // ------------- BEGIN --------------
 
-  NFILE = store_PARSE_WORDS(MSKOPT, LIST_FILE);
+  NFILE = store_PARSE_WORDS(MSKOPT, LIST_FILE, fnam );
 
   // read first file
   iwd=0;  get_PARSE_WORD(langC, iwd, firstFile);
@@ -1482,7 +1482,7 @@ void  rd_sntextio_global(void) {
   // ---------- BEGIN ----------
 
   sprintf(FIRSTFILE, "%s/%s", DATA_PATH, firstFile);	 
-  NWD = store_PARSE_WORDS(MSKOPT,FIRSTFILE);
+  NWD = store_PARSE_WORDS(MSKOPT,FIRSTFILE, fnam );
   
   if ( LDMP ) {
     printf(" xxx %s: store %d words from \n\t %s\n", fnam, NWD, FIRSTFILE);
@@ -1974,7 +1974,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
 
   if ( LRD_HEAD ) {
     sprintf(FILENAME, "%s/%s", DATA_PATH, fileName);
-    NWD = store_PARSE_WORDS(MSKOPT,FILENAME);
+    NWD = store_PARSE_WORDS(MSKOPT,FILENAME, fnam );
 
     SNTEXTIO_FILE_INFO.NWD_TOT    = NWD ;
     SNTEXTIO_FILE_INFO.IPTR_READ  = 0 ;

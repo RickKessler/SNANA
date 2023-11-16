@@ -186,7 +186,7 @@ extern"C" {
   void  readint(FILE *fp, int nint, int *list) ;
   void  readchar(FILE *fp, char *clist) ;
   FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG);
-  int   store_PARSE_WORDS(int OPT, char *FILENAME);
+  int   store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun );
   void  get_PARSE_WORD(int langFlag, int iwd, char *word);
   void  trim_blank_spaces(char *string);
   void  debugexit(char *string);
@@ -1156,7 +1156,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       MATCH = ( strstr(VARLIST,KEYNAME_VERSION_PHOTOMETRY) != NULL ) ;
       if ( MATCH ) {
 	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
-	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST);
+	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST, fnam);
 	iwd=1;   get_PARSE_WORD(0, iwd, vtmp) ; 
 	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
       } // end MATCH
@@ -1168,7 +1168,7 @@ int  SNTABLE_READPREP_TEXT(void) {
     if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
       FOUNDKEY = 1;
       fgets(VARLIST, MXCHAR_LINE, FP );
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST, fnam );
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
 	get_PARSE_WORD(0,ivar,VARNAME);
@@ -1774,7 +1774,7 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
 
   // ----------- BEGIN ------------
 
-  NVAR_SPECPLOT = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARPLOT_KEY);
+  NVAR_SPECPLOT = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARPLOT_KEY, fnam );
 
   if ( OPT_FORMAT == OPT_FORMAT_COL ) {
     return ; // do nothing 

@@ -841,7 +841,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
       if ( !LEGACY_NPAR ) { //.xyz
 	fgets(string_parnames, 200, fp);
-	NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames);
+	NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
 	SEDMODEL.NPAR = NPAR;
 	for(ipar=0; ipar < NPAR; ipar++ ) {
 	  get_PARSE_WORD(0, ipar, tmpName);

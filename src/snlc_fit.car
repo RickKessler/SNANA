@@ -3036,7 +3036,7 @@ c ------------
 
       INTEGER ifilt_obs, iwd, NWD, NFILT, ifilt, LEN, MSKOPT
       REAL    TMIN, TMAX
-      CHARACTER CFILT*(MXFILT_ALL), CFILT1*2, CWD*60
+      CHARACTER CFILT*(MXFILT_ALL), CFILT1*2, CWD*60, FNAM*24
 
 c function
       INTEGER FILTINDX
@@ -3045,6 +3045,8 @@ c function
       EXTERNAL STORE_PARSE_WORDS
 
 C ------------ BEGIN -----------
+
+      FNAM = 'SETCUTS_FITWIN_TREST'
 
 c first set each filter-Trest window to the global default.
 ccc   DO ifilt_obs = 1, MXFILT_OBS !!! aweful bug fixed May 2012
@@ -3057,7 +3059,8 @@ c count how many FITWIN_TREST_FILTER cuts have been  specified.
       IF ( FITWIN_TREST_FILTER .EQ. ' ' ) RETURN   
 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD = STORE_PARSE_WORDS(MSKOPT, FITWIN_TREST_FILTER//char(0),80)  
+      NWD = STORE_PARSE_WORDS(MSKOPT, FITWIN_TREST_FILTER//char(0), 
+     &    FNAM//char(0), 80, 24)  
 
 c make sure that number of elements is a multiple of 
 c three (filters, TMIN, TMAX)
@@ -12240,7 +12243,7 @@ c local var
       INTEGER   L1, L2, ivar, ipar, NWD, MSKOPT
       CHARACTER 
      &   VARNAMES*200, NAME*(MXCHAR_FILEWORD)
-     &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME)
+     &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME), FNAM*32
 
       LOGICAL USE_SIMEFF
 
@@ -12251,6 +12254,8 @@ c function
 C ------------------- BEGIN ---------------
 
       IF ( OPT_PRIOR    .EQ. 0 ) RETURN
+
+      FNAM = 'INIT_PRIOR_SIMEFF'
 
       USE_SIMEFF = SIMEFF_FILE .NE. ' '
 
@@ -12277,7 +12282,8 @@ c translate VARNAMES string into variable names and fill
 c IPAR_SIMEFF array for faster lookups.
 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD = STORE_PARSE_WORDS(MSKOPT, VARNAMES//char(0), 200 )
+      NWD = STORE_PARSE_WORDS(MSKOPT, VARNAMES//char(0), 
+     &        FNAM//char(0), 200, 32 )
 
       IF ( NPAR_SIMEFF .NE. NWD ) THEN
         write(c1err,601) NPAR_SIMEFF

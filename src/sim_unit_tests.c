@@ -413,16 +413,16 @@ void test_PARSE_WORDS(void) {
   char tmpWord[80];
   int NWD, iwd;
 
-  store_PARSE_WORDS(-1,"");
+  store_PARSE_WORDS(-1,"", fnam);
 
-  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,dumFile);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,dumFile, fnam);
 
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(0,iwd,tmpWord);
     printf(" xxx word[%2d] = '%s' \n", iwd, tmpWord);
   }
 
-  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,dumString);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,dumString, fnam);
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(0,iwd,tmpWord);
     printf(" xxx word[%2d] = '%s' \n", iwd, tmpWord);

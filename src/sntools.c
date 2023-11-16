@@ -290,7 +290,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   else {
     // parse string
     MSKOPT  = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
-    NCID    = store_PARSE_WORDS(MSKOPT,fileName);
+    NCID    = store_PARSE_WORDS(MSKOPT,fileName, fnam);
     for(iwd = 0; iwd < NCID; iwd++ ) {
       get_PARSE_WORD(langC, iwd, CCID);
       match_cid_hash(CCID, ILIST, iwd);
@@ -320,7 +320,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
       if ( tmpLine[0] == '#' ) { continue ; }
       // parse words on this line  
-      NWD = store_PARSE_WORDS(MSKOPT,tmpLine);
+      NWD = store_PARSE_WORDS(MSKOPT,tmpLine, fnam);
       if ( NWD == 0 ) { continue ; }
 
       // loop over words on this line     
@@ -1710,7 +1710,7 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   char fnam[] = "keyMatchSim";
 
   // ------------ BEGIN --------------                                          
-  NKEY = store_PARSE_WORDS(MSKOPT,KEY);
+  NKEY = store_PARSE_WORDS(MSKOPT,KEY, fnam);
   for(ikey=0; ikey < NKEY; ikey++ ) {
     get_PARSE_WORD(0, ikey, tmpKey);
     if ( IS_FILE ) {
@@ -2306,7 +2306,7 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 
 
 // *******************************************************
-int store_PARSE_WORDS(int OPT, char *FILENAME) {
+int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
 
   // Read FILENAME (ascii) and store each word to be fetched later
   // with next_PARSE_WORDS.
@@ -2328,7 +2328,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Feb 26 2021: for FIRSTLINE, read 5 lines for safety.
   // Feb 18 2022: read 2 lines for FIRSTLINE
   // Aug 31 2023: minor refactor to handle strlen > 10k (see NWD_APPROX)
-  //
+  // Nov 16 2023: pass callFun arg for abort message
+
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
   bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
@@ -2400,7 +2401,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
     if ( NWD >= MXWD ) {
       sprintf(c1err,"NWD=%d exceeds bound of  MXWD=%d", NWD, MXWD);
-      sprintf(c2err,"NWD_APPROX=%d", NWD_APPROX);
+      sprintf(c2err,"NWD_APPROX=%d (called from %s)", NWD_APPROX, callFun);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
   
@@ -2417,8 +2418,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	printf("  split tmpLine = \n '%s' \n", tmpLine);
 	sprintf(c1err,"split string len = %d for iwd=%d " 
 		"(see tmpLine above)",	 lwd, iwd);
-	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d", 
-		MXCHARWORD_PARSE_WORDS);
+	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d (called from %s)", 
+		MXCHARWORD_PARSE_WORDS, callFun);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
     }
@@ -2429,7 +2430,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     // read text file
     fp = open_TEXTgz(FILENAME,"rt", &GZIPFLAG );
     if ( !fp ) {
-      sprintf(c1err,"Could not open text file");
+      sprintf(c1err,"Could not open text file (called from %s)", callFun);
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -2468,14 +2469,14 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   }
   else {
     sprintf(c1err,"Invalid OPT=%d with FILENAME='%s'", OPT, FILENAME);
-    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c");
+    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c (%s)", callFun);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
 
   if ( NWD >= MXWORDFILE_PARSE_WORDS ) {
-    sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d",
-	    NWD, MXWORDFILE_PARSE_WORDS );
+    sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d (%s)",
+	    NWD, MXWORDFILE_PARSE_WORDS, callFun );
     sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -2485,7 +2486,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   for(iwd=0; iwd < NWD; iwd++ ) 
     {  if ( PARSE_WORDS.WDLIST[iwd][0] == '\t' ) { NTAB++ ; }   }
   if ( NTAB > 0 ) {
-    sprintf(c1err,"Found %d invalid tabs.", NTAB);
+    sprintf(c1err,"Found %d invalid tabs. (called from %s)", NTAB, callFun);
     sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
@@ -2507,8 +2508,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
 } // end store_PARSE_WORDS
 
-int store_parse_words__(int *OPT, char *FILENAME) 
-{ return store_PARSE_WORDS(*OPT, FILENAME); }
+int store_parse_words__(int *OPT, char *FILENAME, char *callFun) 
+{ return store_PARSE_WORDS(*OPT, FILENAME, callFun); }
 
 
 void malloc_PARSE_WORDS(int NWD) {
@@ -8801,7 +8802,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
     if ( FOUND_VARNAMES ) {
       NKEY_LOCAL++ ;
       fgets(LINE, 100, fp ); // scoop up varnames
-      NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
       
       ivar_start = 0; ivar_end = NVAR_TMP;
       if ( NVAR_SKIP < 0 ) { ivar_start -= NVAR_SKIP; }
@@ -9703,7 +9704,7 @@ int colnum_in_table(char *fileName, char *varName) {
     if ( strcmp(c_get,KEY) == 0 ) { 
       colnum = -3;
       fgets(VARNAME_STRING, MXPATHLEN, fp);
-      nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING);
+      nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING, fnam);
       for(ivar=0; ivar < nvar; ivar++ ) {
 	get_PARSE_WORD(0, ivar, c_get);
 	if ( strcmp(varName,c_get) == 0 ) { colnum = ivar; }
@@ -9770,7 +9771,7 @@ void check_file_docana(int optmask, char *fileName) {
   char fnam[] = "check_file_docana";
   // ------------- BEGIN --------
 
-  NWD = store_PARSE_WORDS(MSKOPT, fileName);
+  NWD = store_PARSE_WORDS(MSKOPT, fileName, fnam );
 
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(langFlag, iwd, key);

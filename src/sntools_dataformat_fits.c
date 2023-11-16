@@ -662,9 +662,13 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
   // HOSTGAL_LOGMASS and HOSTGALL_LOGMASS_ERR.
   //
 
-  int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_NAME_LIST);
   int i;
   char KEY[80], KEY_ERR[80], PROPERTY[40] ;
+  char fnam[] = "wr_snfitsio_addCol_HOSTGAL_PROERTIES"; 
+
+  int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, 
+				 HOSTGAL_PROPERTY_NAME_LIST, fnam);
+
   // -------------- BEGIN ------------
 
   for(i=0; i < N_PROP; i++ ) {

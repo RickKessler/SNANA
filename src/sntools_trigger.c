@@ -1150,7 +1150,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
     if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_SPEC ) {
       fgets(LINE, 100, fp ); // scoop up varnames
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
       sprintf(SEARCHEFF_SPEC[NMAP].FIELDLIST,"%s", FIELDLIST );
 
       for ( ivar=0; ivar < NVAR; ivar++ ) {
@@ -1492,7 +1492,7 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
 
   varNameList[0] = 0 ;
 
-  NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+  NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
   for ( ivar=0; ivar < NVAR; ivar++ ) {
     varName_H = varName_HOSTLIB[ivar];
     ivar_H    = &ivar_HOSTLIB[ivar];

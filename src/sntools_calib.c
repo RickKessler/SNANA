@@ -1047,7 +1047,7 @@ void parse_KCOR_STRING(char *STRING,
 
   strKcor[0] = cfilt_rest[0] = cfilt_obs[0] = 0;
 
-  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, STRING);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, STRING, fnam);
 
   for(iwd=0; iwd < NWD-1; iwd++ ) {
 

@@ -3390,6 +3390,7 @@ c local var
       INTEGER   NSN_VERS, LEN_VERS, LEN_PATH, OPTRD
       INTEGER   IJOB, NJOBTOT, ISN, ISTAT
       LOGICAL   LRDFLAG_GLOBAL, LRDFLAG_ALL, LRDFLAG_SPEC
+      LOGICAL   REFORMAT_LOCAL
       CHARACTER cVERSION*(MXCHAR_VERSION), cPATH*(MXCHAR_PATH)
       CHARACTER FNAM*16
 
@@ -3402,7 +3403,9 @@ C --------------- BEGIN -----------
       FNAM = 'EXEC_READ_DATA'
       LRDFLAG_GLOBAL = ( OPTMASK .EQ. OPTMASK_SNDATA_GLOBAL)
       LRDFLAG_ALL    = ( OPTMASK .EQ. OPTMASK_SNDATA_ALL   )
-      LRDFLAG_SPEC   = (REFORMAT_SNANA .or. REFORMAT_SPECTRA_ONLY)
+
+      REFORMAT_LOCAL = (REFORMAT_SNANA .or. REFORMAT_SPECTRA_ONLY)
+      LRDFLAG_SPEC   = (REFORMAT_LOCAL .or. USE_TABLEFILE_MARZ)
      &                 .and. (DEBUG_FLAG .NE. -333)  ! -333 suppresses reading SPEC
 
       ISNLC_VERSION    = IVERS
@@ -4929,7 +4932,8 @@ C ----------- BEGIN ----------
       CALL FETCH_SNDATA_WRAPPER("SIM_HOSTLIB_GALID",
      &    ONE, STRING, DARRAY, OPT)
       DSIM_HOSTLIB_GALID = DARRAY(1)
-      SIM_HOSTLIB_GALID  = int(DSIM_HOSTLIB_GALID)
+      SIM_HOSTLIB_GALID  = DSIM_HOSTLIB_GALID
+c xxx mark del Nov 16 2023   SIM_HOSTLIB_GALID  = int(DSIM_HOSTLIB_GALID)
 
       do ipar = 1, NPAR_SIM_HOSTLIB
          CALL FETCH_SNDATA_WRAPPER(SIM_HOSTLIB_KEYWORD(ipar),
@@ -25566,7 +25570,7 @@ c Created May 2020 by R.Kessler
 c Driver for MARZ table with host-galaxy spectra.
 c
 c May 3 2021: include GALID as part of NAME
-c
+c Nov 16 2023: update text to handle 12 digit GALID instead of 9 digits
 c ------------------------------
       IMPLICIT NONE
 +CDE,SNPAR.
@@ -25586,7 +25590,7 @@ c local var
       LOGICAL   DO_FILL
       INTEGER   LENNAME, LENFMT, ISPEC, LENCCID, LENz, LENGALID
       CHARACTER FNAM*12, NAME*40, TEXTFMT*20, TEXTFMT_forC*20
-      CHARACTER CCID_forC*32, cGALID*20, cz*20
+      CHARACTER CCID_forC*40, cGALID*24, cz*20
       REAL      z
       INTEGER*8 GALID
       EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, SPECPAK_DATA
@@ -25628,7 +25632,7 @@ c fill table.
  41         format('z=',F5.3)
             if ( SIM_HOSTLIB_GALID > 0 ) then
                write(cGALID,44) SIM_HOSTLIB_GALID
- 44            format('GALID=', I9.9 )
+ 44            format('GALID=', I12.12 )
             endif
 
             LENz     = INDEX(cz,' ') - 1

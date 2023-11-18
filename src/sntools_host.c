@@ -6041,7 +6041,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   if ( IGAL_SELECT < 0 ) {
     
-    // .xyz 
     // if using same Galaxy with MJD-sep, just return so that
     // this event is rejected.
     if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 99999 ) 
@@ -6081,6 +6080,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
+  if ( INPUTS.HOSTLIB_GALID_FORCE > 0 && HOSTLIB.IGAL_FORCE < 0 ) {
+    sprintf(c1err,"Unable to force GALID = %lld", INPUTS.HOSTLIB_GALID_FORCE);
+    sprintf(c2err,"Check sim-input key HOSTLIB_GALID_FORCE"); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    //.xyz
+  }
+
   // -----------------------------------------
 
   GALID  = get_GALID_HOSTLIB(IGAL_SELECT);

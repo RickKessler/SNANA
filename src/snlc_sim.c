@@ -21697,9 +21697,11 @@ int GENRANGE_CUT(void) {
   //
   // Aug 22 2018: skip REDSHIFT cut for LCLIB model.
   // Jul 24 2022: check gal lat cut GENRANGE_b
-
+  // Nov 18 2023: include GENRANGE window for each trace-print
+  
   int LTRACE = 0; 
   int istat ;
+  double *GENRANGE;
   char fnam[] = "GENRANGE_CUT" ;
 
   // ----------- BEGIN ------------
@@ -21715,30 +21717,51 @@ int GENRANGE_CUT(void) {
 	   fnam, GENLC.CID, GENLC.SIMLIB_ID ); fflush(stdout);
   }
 
-  if(LTRACE) { printf(" xxx %s: 0 check RA=%f \n", fnam, GENLC.RA); }
-  if ( GENLC.RA < INPUTS.GENRANGE_RA[0] ) { return istat; }
-  if ( GENLC.RA > INPUTS.GENRANGE_RA[1] ) { return istat; }
+  GENRANGE = INPUTS.GENRANGE_RA; 
+  if(LTRACE) { 
+    printf(" xxx %s: 0 check RA=%f in {%f to %f}\n",
+	   fnam, GENLC.RA, GENRANGE[0], GENRANGE[1] );  fflush(stdout);
+  }
+  if ( GENLC.RA < GENRANGE[0] ) { return istat; }
+  if ( GENLC.RA > GENRANGE[1] ) { return istat; }
 
-  if(LTRACE) { printf(" xxx %s: 1 check DEC=%f \n", fnam, GENLC.DEC); }
-  if ( GENLC.DEC < INPUTS.GENRANGE_DEC[0] )  { return istat; }
-  if ( GENLC.DEC > INPUTS.GENRANGE_DEC[1] )  { return istat; }
+
+  GENRANGE = INPUTS.GENRANGE_DEC ;
+  if(LTRACE) { 
+    printf(" xxx %s: 1 check DEC=%f in {%f to %f}\n", 
+	   fnam, GENLC.DEC, GENRANGE[0], GENRANGE[1] );  fflush(stdout);
+  }
+  if ( GENLC.DEC < GENRANGE[0] )  { return istat; }
+  if ( GENLC.DEC > GENRANGE[1] )  { return istat; }
 
   
-  if(LTRACE) { printf(" xxx %s: 1b check GalLat=%f \n", fnam, GENLC.GLAT); }
-  if ( GENLC.GLAT < INPUTS.GENRANGE_b[0] )  { return istat; }
-  if ( GENLC.GLAT > INPUTS.GENRANGE_b[1] )  { return istat; }
+  GENRANGE = INPUTS.GENRANGE_b;
+  if(LTRACE) { 
+    printf(" xxx %s: 1b check GalLat=%.3f in {%.3f to %.3f}\n", 
+	   fnam, GENLC.GLAT, GENRANGE[0], GENRANGE[1] );  fflush(stdout);
+  }
+  if ( GENLC.GLAT < GENRANGE[0] )  { return istat; }
+  if ( GENLC.GLAT > GENRANGE[1] )  { return istat; }
  
 
   if ( INDEX_GENMODEL != MODEL_LCLIB ) {
-    if(LTRACE) {printf(" xxx %s: 2 check zCMB=%f \n",
-		       fnam, GENLC.REDSHIFT_CMB);}
-    if ( GENLC.REDSHIFT_CMB < INPUTS.GENRANGE_REDSHIFT[0] ) { return istat; }
-    if ( GENLC.REDSHIFT_CMB > INPUTS.GENRANGE_REDSHIFT[1] ) { return istat; }
+    GENRANGE = INPUTS.GENRANGE_REDSHIFT;
+    if(LTRACE) {
+      printf(" xxx %s: 2 check zCMB=%f in {%f to %f}\n",
+	     fnam, GENLC.REDSHIFT_CMB, GENRANGE[0], GENRANGE[1] ); fflush(stdout);
+    }
+    if ( GENLC.REDSHIFT_CMB < GENRANGE[0] ) { return istat; }
+    if ( GENLC.REDSHIFT_CMB > GENRANGE[1] ) { return istat; }
   }
 
-  if(LTRACE) { printf(" xxx %s: 3 check PEAKMJD=%f \n", fnam, GENLC.PEAKMJD); }
-  if ( GENLC.PEAKMJD < INPUTS.GENRANGE_PEAKMJD[0] )  { return istat; }
-  if ( GENLC.PEAKMJD > INPUTS.GENRANGE_PEAKMJD[1] )  { return istat; }
+
+  GENRANGE = INPUTS.GENRANGE_PEAKMJD ;
+  if(LTRACE) { 
+    printf(" xxx %s: 3 check PEAKMJD=%.4f in {%.4f to %.4f}\n", 
+	   fnam, GENLC.PEAKMJD, GENRANGE[0], GENRANGE[1] ); fflush(stdout);
+  }
+  if ( GENLC.PEAKMJD < GENRANGE[0] )  { return istat; }
+  if ( GENLC.PEAKMJD > GENRANGE[1] )  { return istat; }
 
   if ( INPUTS.HOSTLIB_USE && SNHOSTGAL.ZTRUE < 0.0 )  {  
     // if number of missing host-gals exceeds NGEN, then abort
@@ -21761,7 +21784,7 @@ int GENRANGE_CUT(void) {
   
   if ( INPUTS_STRONGLENS.USE_FLAG ) {
     if(LTRACE) { printf(" xxx %s: 4 check Strong LENS NIMG=%d \n", 
-			fnam, GENSL.NIMG_GEN); }
+			fnam, GENSL.NIMG_GEN); fflush(stdout); }
     if ( GENSL.NIMG_GEN <= 0 ) { return istat; }
   }
 

@@ -1444,12 +1444,15 @@ int read_input_file(char *input_file, int keySource ) {
   //  + use same key-parsing for file and command-line overrides
   //  + allow command-line overrids keys to have optional colon
   //     (to match YAML syntax for refactored submit script)
+  //
+  // Nov 19 2023: fix array size for tmpWord MXPATHLEN -> MXCHARWORD_PARSE_WORDS
+  //
 
   int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT ;
   int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING, NTRY=0 ;
   FILE *fp;
   bool DO_STRINGMATCH_INIT;
-  char tmpWord[MXPATHLEN];  
+  char tmpWord[MXCHARWORD_PARSE_WORDS];  
   char stringSource[] = "sim-input file" ;
   char fnam[] = "read_input_file" ;
 

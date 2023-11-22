@@ -291,7 +291,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     sprintf(key,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
     parval  = SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ;
     parval2 = SNDATA.SIM_HOSTLIB_PARVAL[ipar][1] ; // kluge for now
-    fprintf(fp, "%-40.40s  %.3f %.3f \n", key, parval, parval2);
+    fprintf(fp, "%-40.40s  %.3f  %.3f    # true host & nearest nbr\n", 
+	    key, parval, parval2);
   }
 
   // 4.23.2023: write this GROUPID diagnostic for text only ...
@@ -495,8 +496,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   wr_dataformat_text_FILTERPAR(fp, "SIM_EXPOSURE", "", 
 			       "%6.1f", SNDATA.SIM_EXPOSURE_TIME);
 
-
-
+  fflush(fp); 
   return ;
 
 } // end wr_dataformat_text_SIMPAR

@@ -22068,6 +22068,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c/snana.car:
        + write MWXT_MAG per band to text data file (for visual diagnostic)
 
+    New util plot_peakmag_redshift.py (from B.Rose)
+
          *****  MISCELLANEOUS(v11_05i) *****
 
     genmag_SIMSED.c: abort in missing required key in SED.INFO file
@@ -22079,4 +22081,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     all codes: add fnam arg to store_PARSE_WORDS(...) so that error message
        includes callFun.
 
+   
 END: 

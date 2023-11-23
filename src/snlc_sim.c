@@ -6439,24 +6439,6 @@ void prep_user_input(void) {
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
 
 
-    /* xxx mark delete4 Oct 27 2023 xxxxxxx
-    if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_OBS ) {
-      // set redshift to 0 for obs-frame to avoid adding DLMAG
-      INPUTS.GENRANGE_REDSHIFT[0] = 0.0 ;
-      INPUTS.GENRANGE_REDSHIFT[1] = 0.0 ;
-      INPUTS.GENSIGMA_REDSHIFT    = 0.0 ; // Apr 20 2018
-    }
-    else {
-      // abort if redshift range not specified
-      if ( INPUTS.GENRANGE_REDSHIFT[1] == 0.0 ) {
-	sprintf(c1err,"Must specify GENRANGE_REDSHIFT");
-	sprintf(c2err,"for GENMODEL: %s", INPUTS.GENMODEL);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-    }
-    xxxxxxxx end mark xxxxxxx */
-
-
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
     INPUTS.GENMAG_OFF_NON1A  = 0.0 ;
@@ -10208,7 +10190,7 @@ void GENSPEC_TRUE(int imjd) {
     GOT_SNSPEC = true;
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG )  {
-    // finally fix this part using AB spectrum, Oct 27 2023  .xyz
+    // finally fix this part using AB spectrum, Oct 27 2023 
     double LAM, LAMSTEP ; 
     for(ilam=0; ilam < NBLAM; ilam++ ) {
       LAM     = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
@@ -22648,7 +22630,8 @@ void gen_spectype(void) {
   //
   //
   // Jun 2 2018: if IFLAG_SPEC_EFFZERO, then set PHOTID flag
-
+  // Nov 22 2023: for FIXMAG, hard-wire SNTYPE only if it's not already set.
+  
   int L_PHOTID, ispgen ;
   char fnam[] = "gen_spectype" ;
 
@@ -22670,8 +22653,9 @@ void gen_spectype(void) {
   
   // set SNTYPE 
 
-  if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
-    GENLC.SNTYPE   = MODEL_FIXMAG ;
+  if ( INDEX_GENMODEL == MODEL_FIXMAG ) { //.xyz
+    GENLC.SNTYPE = MODEL_FIXMAG ;
+    // xxx mark     if ( GENLC.SNTYPE <= 0 ) { GENLC.SNTYPE = MODEL_FIXMAG ; }
   }
   else if ( LGEN_SNIA )  { 
     GENLC.SNTYPE   = INPUTS.SNTYPE_Ia_SPEC ; 
@@ -22680,6 +22664,7 @@ void gen_spectype(void) {
     GENLC.SNTYPE = INPUTS.NON1ASED.SNTAG[ispgen];
   }
 
+  
   // user-defined GENTYPE over-rides any other type (Apr 11 2017)
   if ( INPUTS.GENTYPE_SPEC > 0 ) {
     GENLC.SNTYPE = INPUTS.GENTYPE_SPEC ; 
@@ -24369,8 +24354,11 @@ void init_genmodel(void) {
     (INDEX_GENMODEL == MODEL_S11DM15 ) ;
 
   // - - - - - - - - - - - -
-  if ( LGEN_SNIA )  { GENLC.SIM_GENTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
-  if ( INPUTS.GENTYPE_SPEC > 0 )  { GENLC.SIM_GENTYPE = INPUTS.GENTYPE_SPEC;}
+  if ( LGEN_SNIA )  
+    { GENLC.SIM_GENTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
+
+  if ( INPUTS.GENTYPE_SPEC > 0 ) 
+    { GENLC.SIM_GENTYPE = INPUTS.GENTYPE_SPEC;}
 
   if ( INPUTS.README_DUMPFLAG ) { return; }
 
@@ -24385,7 +24373,8 @@ void init_genmodel(void) {
 
     if ( INPUTS.GENRANGE_REDSHIFT[0] > 0.005 ) 
       { init_genSEDMODEL(); } // needed for spectra
-    GENLC.SIM_GENTYPE  = MODEL_FIXMAG ;
+
+    if ( INPUTS.GENTYPE_SPEC < 0 ) { GENLC.SIM_GENTYPE  = MODEL_FIXMAG ; }
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
     printf("\n Read SIM_MAGOBS from SIMLIB file. \n");

@@ -29,7 +29,7 @@ def parse_args():
     parser.add_option('-o',help=msg,action='store',type='string',
                       dest='outfile_cat',default=None)
 
-    msg = 'list of column names to append if missing'
+    msg = 'list of column names to append if missing (wildcard allowed, e.g., PROB*)'
     parser.add_option('-a',help=msg,action='store',type='string',
                       dest='append_varname_missing',default='PROB*,zPRIOR*')
 

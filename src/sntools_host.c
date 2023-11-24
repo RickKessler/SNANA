@@ -1,6 +1,6 @@
 /* =================================================
 
-  March, 2011  R.Kessler
+  March, 2011  R.Kessler  
 
   Inlcude this file in the simulation to  
  
@@ -2591,13 +2591,6 @@ void read_head_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  /* xxxxxxxxxx mark delete xxxxxxxxxx
-  // if ZTRUE_CMB column exists, but not ZTRUE(helio), then force
-  // ZTRUE_CMB back to ZTRUE
-  if ( HOSTLIB.IVAR_ZTRUE < 0 && HOSTLIB.IVAR_ZTRUE_CMB > 0 ) {
-    HOSTLIB.IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE_CMB;
-  }
-  xxxxxxxxxx end mark xxxxxxxxx*/
 
   // optional
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
@@ -3776,6 +3769,8 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   // This function is called if ZTRUE_CMB column is found in HOSTLIB,
   // and returns corresponding ZTRUE_HEL using HOSTLIB coordinates.
   // If HOSTLIB coords (RA_GAL, DEC_GAL) do not exist, function aborts.
+  //
+  // Nov 25 2023: return ZTRUE_CMB if vel_cmbapex=0
 
   int IVAR_GALID = HOSTLIB.IVAR_GALID ;
   int IVAR_RA    = HOSTLIB.IVAR_RA ;
@@ -3797,6 +3792,9 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   ZTRUE_CMB = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal];
   RA        = HOSTLIB.VALUE_UNSORTED[IVAR_RA][igal];
   DEC       = HOSTLIB.VALUE_UNSORTED[IVAR_DEC][igal];
+
+  // skip transformation of vec_cmbapex = 0
+  if ( INPUTS.VEL_CMBAPEX  == 0.0 ) { return ZTRUE_CMB; }
 
   // transform back to heliocentric frame
   ZTRUE_HEL = zhelio_zcmb_translator(ZTRUE_CMB, RA, DEC, COORDSYS_EQ, -1);
@@ -8191,6 +8189,8 @@ void SORT_SNHOST_byDDLR(void) {
     double HOST_DLMU, LENSDMU, zCMB, zHEL;
     zHEL = SNHOSTGAL.ZTRUE; 
     zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, COORDSYS_EQ, +1);
+    if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zCMB = zHEL; }
+
     gen_distanceMag(zCMB, zHEL,
 		    GENLC.GLON, GENLC.GLAT,
 		    &HOST_DLMU, &LENSDMU ); // <== returned
@@ -8517,12 +8517,8 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
     zHEL = ZTRUE ;  // true host z
-    if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
-      zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
-    }
-    else {
-      zCMB = zHEL ; 
-    }
+    zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);   
+    if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zCMB = zHEL ; }
 
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL,
@@ -8536,10 +8532,8 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
   if ( DO_SN2GAL_RADEC && !DO_SN2GAL_Z ) {
     zCMB = GENLC.REDSHIFT_CMB  ; // preserve this
-    if ( INPUTS.VEL_CMBAPEX > 1.0 ) 
-      { zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); }   
-    else 
-      { zHEL = zCMB; }
+    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); 
+    if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zHEL = zCMB; }
 
     gen_distanceMag(zCMB, zHEL, 
 		    GENLC.GLON, GENLC.GLAT,

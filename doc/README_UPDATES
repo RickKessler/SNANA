@@ -22081,5 +22081,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     all codes: add fnam arg to store_PARSE_WORDS(...) so that error message
        includes callFun.
 
-   
+    sntools_host.c:
+       when INPUTS.VEL_CMBAPEX==0, avoid zCMB<->zHEL translator 
+       in a few places that were previously missed.
+
 END: 

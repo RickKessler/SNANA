@@ -267,7 +267,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_NOBS_UNDEFINED:  %d  \n", 
 	  SNDATA.SIM_NOBS_UNDEFINED );
 
-  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  # vpec not included\n",
+  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f \n", 
 	  SNDATA.SIM_REDSHIFT_HELIO );
 
   fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n",
@@ -634,7 +634,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	    PREFIX, SNDATA.HOSTGAL_FLAG[igal] );
     
     if ( !RDTEXT || SNDATA.HOSTGAL_PHOTOZ[igal] > 0.0 ) {
-      fprintf(fp, "%s_PHOTOZ:      %.4f  +- %.4f \n", PREFIX,
+      fprintf(fp, "%s_PHOTOZ:      %.5f  +- %.5f \n", PREFIX,
 	      SNDATA.HOSTGAL_PHOTOZ[igal], 
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
@@ -655,7 +655,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     }
 
     if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {
-      fprintf(fp, "%s_SPECZ:       %.4f  +- %.4f \n", PREFIX,
+      fprintf(fp, "%s_SPECZ:       %.5f  +- %.5f \n", PREFIX,
 	      SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 
     }
 

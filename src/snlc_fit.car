@@ -735,8 +735,8 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,PHOTOZ_BOUND(2)       ! I: MINUIT bound for photoz fit
      &  ,PHOTODZ_REJECT        ! I: reject filters in photoZ fit (see code)
      &  ,PHOTODZ1Z_REJECT      ! I: idem for dz/(1+z)     
-     &  ,PRIOR_ZERRSCALE       ! I: scale hostZ-error for prior in photoZ fits
-     &  ,PRIOR_MUERRSCALE      ! I: scale MU-error for prior in photoZ fits
+     &  ,PRIOR_ZERRSCALE       ! I: scale hostZ-error for z-prior in photoZ fits
+     &  ,PRIOR_MUERRSCALE      ! I: scale MU-error for x0-prior in photoZ fits
      &  ,SNMAGRMS_for_PHOTOZ   ! I: compute PHOTOZ error from SNMAGRMS
      &  ,PARLIST_MCMC_PHOTOZ(5) ! params for MCMC burn-in
 

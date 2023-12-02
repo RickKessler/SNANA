@@ -22085,4 +22085,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        when INPUTS.VEL_CMBAPEX==0, avoid zCMB<->zHEL translator 
        in a few places that were previously missed.
 
+    SALT2mu.c
+     + restore_bug_mumodel_zhel=0 uses 1+zhel in mumodel calc instead of 1+zHD.
+       Current default is restore_bug_mumodel_zhel=1 to preserve the bug until
+       more testing is done. Note that this was an intentional bug, not a mistake.
+
 END: 

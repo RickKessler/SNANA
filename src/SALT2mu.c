@@ -1132,6 +1132,7 @@ struct INPUTS {
   int restore_bug_zmax_biascor; // Apr 2023
   // xxx int restore_bug_sim_beta;  // May 25 2023 (harmless bug -> no impact)
   int restore_bug_WGTabg ; 
+  int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
@@ -1407,7 +1408,6 @@ void  prep_debug_flag(void);
 void  prep_fitpar(void);
 
 int   force_probcc0(int itype, int idsurvey);
-void  prep_cosmodl_lookup(void);
 int   ppar(char* string);
 void  read_data(void);
 void  read_data_override(void);
@@ -3051,7 +3051,7 @@ void check_vpec_sign(void) {
       else 
 	{ zHD_tmp += (sgn_flip*2.0*zpec); } // flip vpec sign
 
-      dl = cosmodl_forFit(zHD_tmp, zHD_tmp, INPUTS.COSPAR);
+      dl = cosmodl_forFit(zHD_tmp, zHD_tmp, INPUTS.COSPAR); // zhel not needed here
       mumodel        = 5.0*log10(dl) + 25.0 ;
       mures          = mB  + alpha*x1 - beta*c - M0_DEFAULT - mumodel;
       SUM_MURES[i]   += mures ;
@@ -3265,7 +3265,6 @@ void check_duplicate_SNID(void) {
   }
 
   fflush(stdout);
-  //  debugexit(fnam); // xxx REMOVE
 
   // - - - - - - -
   fflush(FP_STDOUT);
@@ -3977,7 +3976,7 @@ void *MNCHI2FUN(void *thread) {
     // compute distance modulus from cosmology params
     if ( INPUTS.FLOAT_COSPAR ) {
       // not tested, so beware !!!
-      dl       = cosmodl_forFit(z, z, cosPar) ;
+      dl       = cosmodl_forFit(z, z, cosPar) ; // not used, so no need to fix zhel
       mumodel  = 5.0*log10(dl) + 25.0 ;
     }
     else {
@@ -4804,10 +4803,10 @@ double fcn_muerrz(int OPT, double z, double zerr) {
     double dl, mu1, mu2 ;
     zlo    = z-zerr;  zhi = z+zerr;
 
-    dl     = cosmodl(zlo,zlo,cosPar);
+    dl     = cosmodl(zlo,zlo,cosPar); // zhel not needed here
     mu1    = 5.0*log10(dl) + 25.0 ;
 
-    dl     = cosmodl(zhi,zhi,cosPar);
+    dl     = cosmodl(zhi,zhi,cosPar); // zhel not needed here
     mu2    = 5.0*log10(dl) + 25.0 ;
     muerr  = (mu2-mu1)/2.0 ;
   }
@@ -5206,6 +5205,8 @@ void set_defaults(void) {
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_WGTabg     = 0 ;
+  INPUTS.restore_bug_mumodel_zhel = 1; // leave bug until more testing is done
+
   // xxx  INPUTS.restore_bug_sim_beta     = 0 ; // harmless bug; no effect
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
@@ -5963,7 +5964,7 @@ void read_data_override(void) {
 	// if zhd is modified, update zhel & mumodel.
 	if ( override_zhd ) {
 	  zhel_over = zhel_orig + (zhd_over - zhd_orig);
-	  dl = cosmodl_forFit(zhel_over,zhd_over,INPUTS.COSPAR); 
+	  dl = cosmodl_forFit(zhel_over, zhd_over,INPUTS.COSPAR);  // orig zhel usage is correct
 	  INFO_DATA.TABLEVAR.mumodel[isn] = (float)(5.0*log10(dl) + 25.0);
 	}
        
@@ -7114,7 +7115,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double zhel      = (double)TABLEVAR->zhel[ISN];   
   double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
 
-  double SIM_X0, SIM_ZCMB, SIM_MU, SIM_MUz;
+  double SIM_X0, SIM_ZCMB,  SIM_MU, SIM_MUz;
   int    SIM_NONIA_INDEX;
 
   double x0, x0err, x1, x1err, c, cerr, COV_x0x1, COV_x0c, COV_x1c;
@@ -7154,8 +7155,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
     // beware that INPUTS.COSPAR are not always the same as SIM-COSPAR,
     // so be careful computing SIM_MU at zHD
-    dl_hd    = cosmodl(zhd,      zhd,      INPUTS.COSPAR);
-    dl_sim   = cosmodl(SIM_ZCMB, SIM_ZCMB, INPUTS.COSPAR);
+    // zhel -> zHD ok here because cosmodl error mostly drops out in dl-ratio
+
+    dl_hd    = cosmodl(zhd,      zhd,      INPUTS.COSPAR); // zhel not needed here
+    dl_sim   = cosmodl(SIM_ZCMB, SIM_ZCMB, INPUTS.COSPAR); // idem
     dl_ratio = dl_hd/dl_sim ;
     dmu = 5.0*log10(dl_ratio);
     SIM_MUz = SIM_MU + dmu ;
@@ -7334,8 +7337,11 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
     // if cosmo params are fixed, then store mumodel for each event.
     if ( INPUTS.FLOAT_COSPAR == 0 ) { 
-      dl = cosmodl_forFit(zhd,zhd,INPUTS.COSPAR);     // approx zhd  = zhel
-      // dl = cosmodl_forFit(zhel,zhd,INPUTS.COSPAR); // exact if we have zhel
+      if ( INPUTS.restore_bug_mumodel_zhel ) 
+	{ dl = cosmodl_forFit(zhd,zhd,INPUTS.COSPAR); }   // orig approx zhd  = zhel
+      else
+	{ dl = cosmodl_forFit(zhel,zhd,INPUTS.COSPAR); }  // zhel fix, Dec 1 2023
+
       TABLEVAR->mumodel[ISN] = (float)(5.0*log10(dl) + 25.0);
     }
 
@@ -11526,10 +11532,10 @@ double muresid_biasCor(int ievt ) {
   // and COSPAR_BBC are the BBC-input cosmology params
 
   // get d_l for measured redshift 
-  dlz      = cosmodl_forFit(z, z, INPUTS.COSPAR); 
+  dlz      = cosmodl_forFit(z, z, INPUTS.COSPAR);  // zhel approx ok here
 
   // get d_l for true redshift
-  dlzTrue  = cosmodl_forFit(zTrue, zTrue, INPUTS.COSPAR); 
+  dlzTrue  = cosmodl_forFit(zTrue, zTrue, INPUTS.COSPAR); // zhel approx ok here
 
   dmu    = 5.0*log10(dlz/dlzTrue) ;
   muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
@@ -12934,6 +12940,11 @@ double zmu_solve(double mu, double *cosPar) {
   // For input distance modulus (mu) and cosmology parameters (cospar),
   // return redshift.
   // cosPar = OL,ok,w0,wa
+  //
+  // Dec 1 2023 comment: 
+  //   zhel->zhd approx in cosmodl_forFit is forced because this is a z-binned
+  //   distance that has undefined zhel. 
+  //        
 
   int    NITER=0;
   double z, dmu, DMU, dl, mutmp ;
@@ -12944,7 +12955,7 @@ double zmu_solve(double mu, double *cosPar) {
   DMU = 9999.0 ;
   z   = 0.5 ;
   while ( DMU > DMU_CONVERGE ) {    
-    dl     = cosmodl_forFit(z,z,cosPar);
+    dl     = cosmodl_forFit(z,z,cosPar); // zhel undefined so must do zhel=zhd
     mutmp  = 5.0*log10(dl) + 25.0 ;
     dmu    = mutmp - mu ;
     DMU    = fabs(dmu);
@@ -15208,7 +15219,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     
 
     // compute mucos for each SIM CC event
-    dl       = cosmodl_forFit(z, z, MUZMAP->cosPar) ;
+    dl       = cosmodl_forFit(z, z, MUZMAP->cosPar) ; // zhel approx ok here for CC
     mumodel  = 5.0*log10(dl) + 25.0 ;
     mumodel += muBias ;     // add bias
     dmu      = mu - mumodel ;
@@ -17224,6 +17235,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"restore_bug_WGTabg="))
     { sscanf(&item[19],"%d", &INPUTS.restore_bug_WGTabg); return(1); }
+
+  if ( uniqueOverlap(item,"restore_bug_mumodel_zhel="))
+    { sscanf(&item[25],"%d", &INPUTS.restore_bug_mumodel_zhel); return(1); }
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
@@ -19267,41 +19281,49 @@ void prep_debug_flag(void) {
 
   char fnam[] = "prep_debug_flag";
 
+  // --------- BEGIN -----------
+
   if ( INPUTS.restore_bug_mucovscale ) {
     printf("\n RESTORE BUG for mucovscale\n");
-    fflush(stdout);
   }
 
   if ( INPUTS.restore_bug_mucovadd ) {
     printf("\n RESTORE BUG for mucovadd (set to %d)\n", 
 	   INPUTS.restore_bug_mucovadd);
-    fflush(stdout);
   }
 
   if ( INPUTS.restore_bug2_mucovadd ) {
     printf("\n RESTORE 2nd BUG for mucovadd (missing sigint in 1/MUERR^2)\n" );
-    fflush(stdout);
   }
 
   if ( INPUTS.restore_bug_muzerr ) {
     printf("\n RESTORE BUG for muzerr in biasCor (set to %d)\n", 
 	   INPUTS.restore_bug_muzerr);
-    fflush(stdout);
+    fflush(FP_STDOUT);
   }
 
   if ( INPUTS.restore_bug_zmax_biascor ) {
     printf("\n RESTORE BUG for zmax(biasCor)\n" );
-    fflush(stdout);
+    fflush(FP_STDOUT);
   }
 
   if ( INPUTS.restore_bug_WGTabg ) {
     printf("\n RESTORE BUG for WGTabg in get_muBias() \n" );
-    fflush(stdout);
+    fflush(FP_STDOUT);
+  }
+
+  if ( INPUTS.restore_bug_mumodel_zhel  ) {
+    printf("\n RESTORE BUG for using 1+zHD instead of 1+zhel in mumodel calc\n");
+    fflush(FP_STDOUT);
+  }
+  else {
+    printf("\n APPLY BUG-FIX using 1+zhel in mumodel calc.\n");
+    fflush(FP_STDOUT);
   }
 
   if ( INPUTS.debug_flag!=0) {
     printf("\n debug flag set to %d\n", INPUTS.debug_flag);
-    fflush(stdout);
+    fflush(FP_STDOUT);
   }
 
   // - - - - - -
@@ -19603,57 +19625,6 @@ void  prep_input_varname_missing(void) {
   return ;
 } // end prep_input_varname_missing
 
-
-// **********************************************
-void  prep_cosmodl_lookup(void) {
-
-  // Nov 22 2017
-  // If all cosmo params are fixed, then make binned
-  // dl vs, z lookup for faster computation.
-
-  int debug_malloc = INPUTS.debug_malloc ;
-  int NBZ, iz ;
-  double ZMIN, ZMAX, ZBIN, z, di, dl ;
-  char fnam[] = "prep_cosmodl_lookup" ;
-
-  // ------------ BEGIN --------------
-
-  COSMODL_LOOKUP.USE = 0 ;
-  if ( INPUTS.FLOAT_COSPAR ) { return ; }
-
-  ZMIN = INPUTS.zmin - 0.002 ;
-  ZMAX = INPUTS.zmax + 0.100 ;
-
-  NBZ  = (int)( 1000.0*(ZMAX - ZMIN) ) ;
-  ZBIN = (ZMAX - ZMIN)/ (double)NBZ ;
-
-  fprintf(FP_STDOUT, 
-	  " Create cosmdl-vs-z lookup: %d z-bins from %.4f to %.4f \n",
-	 NBZ, ZMIN, ZMAX);
-
-  int MEMD = NBZ * sizeof(double) ;
-  COSMODL_LOOKUP.NBZ  = NBZ;  
-  COSMODL_LOOKUP.ZMIN = ZMIN ;
-  COSMODL_LOOKUP.ZMAX = ZMAX ;
-  COSMODL_LOOKUP.ZBIN = ZBIN ;
-
-  print_debug_malloc(+1*debug_malloc,fnam);
-  COSMODL_LOOKUP.z   = (double*) malloc(MEMD);
-  COSMODL_LOOKUP.dl  = (double*) malloc(MEMD);
-
-  for(iz=0; iz < NBZ; iz++ ) {
-    di = (double)iz + 0.5 ;
-    z  = ZMIN + (ZBIN * di) ;
-    dl = cosmodl_forFit(z,z,INPUTS.COSPAR);
-    COSMODL_LOOKUP.z[iz]  = z;
-    COSMODL_LOOKUP.dl[iz] = dl;
-  }
-
-  COSMODL_LOOKUP.USE = 1 ;
-  //  debugexit(fnam);
-  return ;
-
-} // end prep_cosmodl_lookup
 
 // *******************************
 void  printmsg_fitStart(FILE *fp) {
@@ -20307,7 +20278,7 @@ void  write_M0_fitres(char *fileName) {
     }  
     else {
       z = INPUTS.BININFO_z.avg[iz] ;
-      dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ;
+      dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ; // must use zhel->zhd approx for binned z
       MUREF = 5.0*log10(dl) + 25.0 ;
     }
 
@@ -20340,6 +20311,10 @@ void  write_M0_csv(char *fileName) {
   // Created Dec 4 2020
   // write M0 vs. z to csv file ; formatted for input to CosmoMC
   //
+  // Dec 1 2023 comment: 
+  //   this routine should be obsolete since we use cosmoSIS and wfit,
+  //   and no longer use CosmoMC.
+  //             
 
   int iz ;
   double z, M0DIF, M0ERR, dl, MUREF, MU, MUERR, zerr=0.0 ;
@@ -20376,7 +20351,7 @@ void  write_M0_csv(char *fileName) {
 
     M0DIF   = FITRESULT.M0DIF[iz];
     M0ERR   = FITRESULT.M0ERR[iz];
-    dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ;
+    dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ; // must use zhel->zhd approx for binned z
     MUREF = 5.0*log10(dl) + 25.0 ;
     
     MU    = MUREF + M0DIF;
@@ -21860,14 +21835,14 @@ double cosmodl_forFit(double zhel, double zcmb, double *cosPar) {
 
     for(i=0; i <2; i++ ) {
       cosPar_local[IPAR_OL] = OL_extrap[i] ;
-      DL[i] = cosmodl(zhel,zcmb,cosPar_local);
+      DL[i] = cosmodl(zhel,zcmb,cosPar_local); // orig zhel treatment correct here
     }
 
     slp = (DL[1] - DL[0]) / (OL_extrap[1] - OL_extrap[0]) ;
     dl  = DL[0] + ( OL - OL_extrap[0] )*slp ;
   }
   else {
-    dl = cosmodl(zhel,zcmb,cosPar);
+    dl = cosmodl(zhel,zcmb,cosPar);  // orig zhel treatment correct here
   }
 
   /*

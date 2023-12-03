@@ -202,6 +202,7 @@ struct INPUTS {
   int  debug_flag ;
 
   GENPOLY_DEF zpoly_muerr_ideal; // define muerr = polynom(z)
+  char string_muerr_ideal[100];
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -661,6 +662,7 @@ void init_stuff(void) {
   INPUTS.blind_seed = 48901 ;
 
   init_GENPOLY(&INPUTS.zpoly_muerr_ideal);
+  INPUTS.string_muerr_ideal[0] = 0 ;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
@@ -785,8 +787,9 @@ void print_wfit_help(void) {
     "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
     "   -debug_flag 91\t compare calc mu(wfit) vs. mu(sim)",
     "   -muerr_ideal  replace all mu with mu_true + Gauss(0,muerr);",
-    "                 e.g.,  muerr_ideal=0.1,0.01,0.05 -> "
+    "                 e.g.,  muerr_ideal 0.1,0.01,0.05 -> "
     "muerr = .1 + .01*z + .05*z^2",
+    "                 e.g.,  muerr_ideal muerr -> use original muerr from data",
     "\n",
     " Grid spacing:",
     " wCDM Fit:",
@@ -1014,15 +1017,17 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
-      //      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  
-      //	{ INPUTS.muerr_ideal = atof(argv[++iarg]);  } 
-
       else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  { 
-	char tmpString[100];
-	strcpy(tmpString,argv[++iarg]); 
-	parse_GENPOLY(tmpString, "zpoly_muerr_ideal",
-		      &INPUTS.zpoly_muerr_ideal, fnam ) ;
-      }  
+	char *string_muerr_ideal = INPUTS.string_muerr_ideal;
+	strcpy(string_muerr_ideal,argv[++iarg]); 
+	if ( strcmp(string_muerr_ideal,"muerr") == 0 ) {   
+	  INPUTS.zpoly_muerr_ideal.ORDER = 100; // flag to use data muerr
+	}
+	else {
+	  parse_GENPOLY(string_muerr_ideal, "zpoly_muerr_ideal",
+			&INPUTS.zpoly_muerr_ideal, fnam ) ;
+	}  
+      }
 
       else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)
 	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]); }      
@@ -1221,7 +1226,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
   int IVAR_zHD=-8, IVAR_zHDERR=-8, IVAR_NFIT=-8 ;
   int IFILETYPE, NVAR_ORIG, LEN, NROW, irow ;    
   int VBOSE = 1;
-  double rz, mu_cos;
+  double rz, mu_cos, ztmp, sigtmp ;
   bool ISDATA_REAL = false ;
   char TBNAME[] = "HD" ;  // table name is Hubble diagram
   char fnam[] = "read_HD" ;
@@ -1295,7 +1300,6 @@ void read_HD(char *inFile, HD_DEF *HD) {
   // - - - - - -
 
   int    PASSCUTS,  NFIT, NROW2=0 ;  
-  double ztmp;
   HD->zmin = 99999.0;  HD->zmax = -9999.90 ;
 
   for(irow=0; irow < NROW; irow++ ) {
@@ -1324,9 +1328,10 @@ void read_HD(char *inFile, HD_DEF *HD) {
   // Mar 29 2023: test with ideal mu and mu_err 
   double muerr_ideal, gran ;
   GENPOLY_DEF *zpoly_muerr_ideal = &INPUTS.zpoly_muerr_ideal;
+  int         ORDER              = zpoly_muerr_ideal->ORDER ;
   int ISEED ;
 
-  if ( zpoly_muerr_ideal->ORDER >= 0.0 ) {
+  if ( ORDER >= 0.0 ) {
 
     // compute SEED using first MU-uncertainty so that
     // each data set has a unique randome seed.
@@ -1336,17 +1341,28 @@ void read_HD(char *inFile, HD_DEF *HD) {
     printf("\n");
     printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n\t TEST: Replace MU -> MU_SIM + N(0,muerr) \n");
-    print_GENPOLY(zpoly_muerr_ideal);
+
+    if ( ORDER < 10 )
+	{ print_GENPOLY(zpoly_muerr_ideal); }
+    else
+      { printf("\t\t muerr = original muerr\n"); }
+	  
     printf("\t ISEED = %d \n", ISEED );
     printf("\n   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n");
 
     for(irow=0; irow < HD->NSN; irow++ ) {
       ztmp               = HD->z[irow] ;
+      sigtmp             = HD->mu_sig[irow];
       gran               = unix_getRan_Gauss(0);
       rz                 = codist(ztmp, &COSPAR_SIM);
       mu_cos             = get_mu_cos(ztmp, rz);
-      muerr_ideal        = eval_GENPOLY(ztmp, zpoly_muerr_ideal, fnam);
+
+      if ( ORDER < 10 ) 
+	{ muerr_ideal  = eval_GENPOLY(ztmp, zpoly_muerr_ideal, fnam); }
+      else
+	{ muerr_ideal = sigtmp; } // use original muerr
+
       HD->mu[irow]       = mu_cos + (muerr_ideal * gran) ;
       HD->mu_sig[irow]   = muerr_ideal;
       HD->mu_sqsig[irow] = muerr_ideal * muerr_ideal ;

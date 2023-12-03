@@ -22508,6 +22508,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_mucovadd=1      # use wrong beta for sim biasCor",
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_WGTabg=1        # restore WGTabg bug in get_muBias",
+    "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
     0
   } ;
 

@@ -142,6 +142,9 @@
    + new option ranseed_Rcmb to fluctuate Rcmb value 
      (intended for error validation on many sim-data samples)
 
+ Dec 3 2023: replace fixed muerr_ideal with polyFun(z); 
+             e.g., muerr_ideal = .11,0.01,0.07
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -197,7 +200,8 @@ struct INPUTS {
   bool blind_auto; // automatically blind data and unblind sim
   int  blind_seed; // used to pick large random number for sin arg
   int  debug_flag ;
-  double muerr_ideal ; // flag to replace mu -> mu_true + Gauss(0,muerr_ideal)
+
+  GENPOLY_DEF zpoly_muerr_ideal; // define muerr = polynom(z)
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -655,7 +659,8 @@ void init_stuff(void) {
 
   INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
   INPUTS.blind_seed = 48901 ;
-  INPUTS.muerr_ideal = 0.0;
+
+  init_GENPOLY(&INPUTS.zpoly_muerr_ideal);
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
@@ -779,7 +784,9 @@ void print_wfit_help(void) {
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
     "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
     "   -debug_flag 91\t compare calc mu(wfit) vs. mu(sim)",
-    "   -muerr_ideal \t replace all mu with mu_true + Gauss(0,muerr_ideal)",
+    "   -muerr_ideal  replace all mu with mu_true + Gauss(0,muerr);",
+    "                 e.g.,  muerr_ideal=0.1,0.01,0.05 -> "
+    "muerr = .1 + .01*z + .05*z^2",
     "\n",
     " Grid spacing:",
     " wCDM Fit:",
@@ -1007,8 +1014,15 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
-      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  
-	{ INPUTS.muerr_ideal = atof(argv[++iarg]);  } 
+      //      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  
+      //	{ INPUTS.muerr_ideal = atof(argv[++iarg]);  } 
+
+      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  { 
+	char tmpString[100];
+	strcpy(tmpString,argv[++iarg]); 
+	parse_GENPOLY(tmpString, "zpoly_muerr_ideal",
+		      &INPUTS.zpoly_muerr_ideal, fnam ) ;
+      }  
 
       else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)
 	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]); }      
@@ -1309,30 +1323,30 @@ void read_HD(char *inFile, HD_DEF *HD) {
   // - - - - - 
   // Mar 29 2023: test with ideal mu and mu_err 
   double muerr_ideal, gran ;
+  GENPOLY_DEF *zpoly_muerr_ideal = &INPUTS.zpoly_muerr_ideal;
   int ISEED ;
 
-  muerr_ideal = INPUTS.muerr_ideal ;
-  if ( muerr_ideal > 0.0 ) {
+  if ( zpoly_muerr_ideal->ORDER >= 0.0 ) {
 
     // compute SEED using first MU-uncertainty so that
     // each data set has a unique randome seed.
-    // xxx mark delete     ISEED = (int)(HD->mu_sig[0] * 8224532.0);
     ISEED = ISEED_UNIQUE();
     init_random_seed(ISEED,1);
  
     printf("\n");
     printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", 
-	   muerr_ideal);
+    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,muerr) \n");
+    print_GENPOLY(zpoly_muerr_ideal);
     printf("\t ISEED = %d \n", ISEED );
     printf("\n   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n");
 
     for(irow=0; irow < HD->NSN; irow++ ) {
-      ztmp    = HD->z[irow] ;
-      gran    = unix_getRan_Gauss(0);
+      ztmp               = HD->z[irow] ;
+      gran               = unix_getRan_Gauss(0);
       rz                 = codist(ztmp, &COSPAR_SIM);
       mu_cos             = get_mu_cos(ztmp, rz);
+      muerr_ideal        = eval_GENPOLY(ztmp, zpoly_muerr_ideal, fnam);
       HD->mu[irow]       = mu_cos + (muerr_ideal * gran) ;
       HD->mu_sig[irow]   = muerr_ideal;
       HD->mu_sqsig[irow] = muerr_ideal * muerr_ideal ;
@@ -3157,7 +3171,7 @@ void wfit_uncertainty(void) {
   printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	 varname_w, WORKSPACE.w0_sig_lower, WORKSPACE.w0_sig_upper);
   if ( INPUTS.dofit_w0wa ) {
-    printf("Prob %s-err estimates: lower = %f, upper = %f\n", 
+    printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	   varname_wa, WORKSPACE.wa_sig_lower, WORKSPACE.wa_sig_upper);
   }
   

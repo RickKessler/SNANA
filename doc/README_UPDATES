@@ -22090,4 +22090,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        Current default is restore_bug_mumodel_zhel=1 to preserve the bug until
        more testing is done. Note that this was an intentional bug, not a mistake.
 
+   wfit.c:
+     muerr_ideal can now be polyFun(z) instead of fixed number; e.g.
+     muerr_ideal=0.1,0.01,0.05 -> muerr=.1 + .01*z + .05*z^2
+
 END: 

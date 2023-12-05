@@ -22089,6 +22089,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + restore_bug_mumodel_zhel=0 uses 1+zhel in mumodel calc instead of 1+zHD.
        Current default is restore_bug_mumodel_zhel=1 to preserve the bug until
        more testing is done. Note that this was an intentional bug, not a mistake.
+     + new option check_duplicates_biascor=1 
 
    wfit.c:
      muerr_ideal can now be polyFun(z) instead of fixed number; e.g.

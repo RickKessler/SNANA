@@ -384,7 +384,8 @@ int     NCALL_SALT2mu_DRIVER_EXEC;
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
-#define MXSTORE_DUPLICATE    800  // abort if more than this many
+#define MXSTORE_DUPLICATE   800  // abort if more than this many
+#define MXSET_DUPLICATE     20   // abort if more than this many per dupl set
 
 #define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
 #define STRING_FITWGT0 "FITWGT0"
@@ -1138,6 +1139,9 @@ struct INPUTS {
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
+
+  int  check_duplicates_biasCor; // if enabled, check z & c duplicates then quit.
+
   char cidlist_debug_biascor[100];
 
 } INPUTS ;
@@ -1337,6 +1341,7 @@ time_t t_start, t_end_init, t_start_fit, t_end_fit, t_read_biasCor[3] ;
 #define BLINDMASK_FIXPAR  2  // blind fixed params (OL,w)
 #define BLINDMASK_SIM    64  // blind applies to simulation
 
+
 //Main function definitions
 
 void print_SALT2mu_HELP(void);
@@ -1345,7 +1350,8 @@ void SALT2mu_DRIVER_EXEC(void);
 int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
-void check_duplicate_SNID(void);
+void check_duplicates_LEGACY(void);
+void check_duplicates_util(int EVENT_TYPE);
 void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
@@ -1920,7 +1926,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
     { write_fitres_driver(INPUTS.cat_file_out);  exit(0); }
 
   // check for duplicate SNIDs and take action based on iflag_duplicate
-  check_duplicate_SNID();
+  if ( !INFO_DATA.TABLEVAR.IS_SIM )  { check_duplicates_util(EVENT_TYPE_DATA); }
 
   // misc redshift checks
   check_redshifts();
@@ -3119,8 +3125,287 @@ void check_zhel(void) {
 
 } // end check_zhel
 
+
+
+
 // ******************************************
-void check_duplicate_SNID(void) {
+void check_duplicates_util(int EVENT_TYPE) {
+
+  // Created Dec 2023
+  // Use sorted redshift and its error to flag duplicates.
+  // For data, check iflag_duplicates for what to do:
+  //   0 -> nothing
+  //   1 -> abort
+  //   2 -> merge fitparams and cov into one LC
+  //
+  // For BIASCOR, exit program after reporting status
+  //  (i.e., check for biasCor is interactive only)
+  //
+
+  char *STRTYPE     = STRING_EVENT_TYPE[EVENT_TYPE];
+  bool IS_DATA      = EVENT_TYPE == EVENT_TYPE_DATA ;
+  bool IS_BIASCOR   = EVENT_TYPE == EVENT_TYPE_BIASCOR ;
+  int  MXSTORE      = MXSTORE_DUPLICATE ;
+  int  debug_malloc = INPUTS.debug_malloc ;
+
+  int  isn, isn2, nsn, MEMD, MEMI, MEMB, IDSURVEY ;
+  int  unsort, unsort2, *unsortList, ORDER_SORT   ;
+  bool IS_SIM ;
+  double *zList, *cList, *xList, z, x, c  ;
+  bool   *IS_DUPL;
+  TABLEVAR_DEF *TABLEVAR;
+  char string_match_varlist[60], str_SIM_prefix[12], str_SIM_ab[40];
+  char fnam[] = "check_duplicates_util" ;
+  
+  // ----------- BEGIN -----------
+
+  if ( INPUTS.debug_flag == -1204 ) { check_duplicates_LEGACY(); return; }
+
+  sprintf(BANNER,"Begin %s for %s", fnam, STRTYPE);
+  fprint_banner(FP_STDOUT,BANNER);
+
+  // assign TABLEVAR based on event tyope
+  if ( IS_DATA )  { 
+    TABLEVAR = &INFO_DATA.TABLEVAR; 
+    sprintf(string_match_varlist,"SNID"); // for print-dump only
+    str_SIM_prefix[0] = str_SIM_ab[0] = 0;
+  } 
+  else if ( IS_BIASCOR ) { 
+    TABLEVAR = &INFO_BIASCOR.TABLEVAR; 
+    sprintf(string_match_varlist,"SIM_[z,c,x]"); // for print-dump only
+    sprintf(str_SIM_prefix,"SIM_");
+  }
+
+  print_debug_malloc(+1*debug_malloc,fnam);
+  nsn     = TABLEVAR->NSN_ALL ;
+  MEMD = (nsn+1) * sizeof(double)  ;
+  MEMI = (nsn+1) * sizeof(int)     ;
+  MEMB = (nsn+1) * sizeof(bool)    ;
+  zList      = (double *)malloc(MEMD); // allocate list of variables to sort
+  cList      = (double *)malloc(MEMD);
+  xList      = (double *)malloc(MEMD); 
+  
+  unsortList = (int    *)malloc(MEMI); // allocate sorted list
+  IS_DUPL    = (bool   *)malloc(MEMB);
+
+  for(isn=0; isn<nsn; isn++)  {
+
+    if ( IS_DATA ) {
+      z = (double)TABLEVAR->zhd[isn]; 
+      c = (double)TABLEVAR->fitpar[INDEX_c][isn]; 
+      x = (double)TABLEVAR->fitpar[INDEX_x1][isn]; 
+    }
+    else {
+      // biasCor -> use true values
+      z = (double)TABLEVAR->SIM_ZCMB[isn];
+      c = (double)TABLEVAR->SIM_FITPAR[INDEX_c][isn]; 
+      x = (double)TABLEVAR->SIM_FITPAR[INDEX_x1][isn]; 
+    }
+
+
+    zList[isn] = z;
+    cList[isn] = c;
+    xList[isn] = x;
+
+    IS_DUPL[isn] = false;
+  }
+  
+
+  ORDER_SORT = + 1 ; // increasing order
+  sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
+
+  bool  SAME, FOUND_DUPL ;
+  int   NTMP, idup, evt ;
+  double x2, c2, z2 ;
+  char *snid, *snid2, *survey, snid_plus_survey[60] ;
+  int  **UNSORT_DUPL;
+  int  *NDUPL_LIST; // how many duplicates per set
+  int  NDUPL_SET ; // number of duplicate sets
+  int  NDUPL_TOT ; // includes those beyone storage capacity
+  int  NDUPL_SN  ; // total number of SN controbuting to duplicates
+  int  MXDUPL_PER_SET = 0, NDUPL_PER_SET = 0 ;
+  int  N_UNIQUE = 0 ;
+
+  MEMI = MXSTORE_DUPLICATE * sizeof(int);
+  NDUPL_LIST  = (int*)  malloc(MEMI);
+  UNSORT_DUPL = (int**) malloc( MXSTORE * sizeof(int*) );
+
+  for(idup=0; idup < MXSTORE; idup++ )  {  
+    NDUPL_LIST[idup] = 0 ; 
+    UNSORT_DUPL[idup] = (int*) malloc(MXSET_DUPLICATE*sizeof(int)) ;
+  }
+  NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
+
+  // - - - - 
+
+  for ( isn=0; isn < nsn-1; isn++ ) {
+    unsort  = unsortList[isn];
+
+    z = zList[unsort];
+    c = cList[unsort]; 
+    x = xList[unsort]; 
+    snid   = TABLEVAR->name[unsort];    
+
+    NDUPL_PER_SET = 0 ;
+
+    if ( IS_DUPL[isn] ) { continue; }  else { N_UNIQUE++ ; }
+
+    isn2 = isn  ;      z2 = z; c2=c; x2=x;   FOUND_DUPL=false;
+
+    while ( z == z2 && isn2 < nsn-1 ) {
+      isn2++ ;
+      unsort2    = unsortList[isn2];
+      z2         = zList[unsort2];
+      c2         = cList[unsort2];
+      x2         = xList[unsort2];
+      snid2      = TABLEVAR->name[unsort2];
+
+      if ( IS_DATA ) 
+	{ SAME  = ( strcmp(snid,snid2) == 0 ); }
+      else if ( IS_BIASCOR ) 
+	{ SAME  = ( z==z2 && c == c2 && x2==x ); }
+
+      if ( IS_DUPL[isn2] ) { continue; }
+      if ( !SAME         ) { continue; }
+
+      // we have a duplicate
+      NDUPL_TOT++ ; 
+      IS_DUPL[isn] = IS_DUPL[isn2] = true; 
+
+      // store this duplicate
+      if ( !FOUND_DUPL ) {
+	// first duplicate for isn; store isn info
+	FOUND_DUPL = true;
+	NDUPL_SET++ ;  // increment number of duplicate sets
+	NDUPL_SN++ ;
+	NDUPL_PER_SET++ ;
+	if ( NDUPL_SET <= MXSTORE ) {
+	  NTMP = NDUPL_LIST[NDUPL_SET-1] ;
+	  UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ;
+	  NDUPL_LIST[NDUPL_SET-1]++ ;
+	}
+      }
+
+      // always store isn2 info
+      NDUPL_PER_SET++ ;
+      if ( NDUPL_SET <= MXSTORE ) {
+	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
+	if( NTMP < MXSET_DUPLICATE ) 
+	  { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
+	NDUPL_LIST[NDUPL_SET-1]++ ;
+      }
+      NDUPL_SN++ ;
+     
+    }  // end z==z2 (isn2 loop)
+    if ( NDUPL_PER_SET > MXDUPL_PER_SET ) { MXDUPL_PER_SET = NDUPL_PER_SET; }
+
+  } // end loop over isn
+
+  // - - - - -
+  if ( NDUPL_SET == 0 ) 
+    { fprintf(FP_STDOUT, "\t No %s duplicates found. \n", STRTYPE ); goto DONE; }
+  
+  fprintf(FP_STDOUT, "   Found %d sets of %s duplicates from %d input events: \n", 
+	  NDUPL_SET, STRTYPE, NDUPL_SN );  fflush(FP_STDOUT);
+
+  int NDUPL_PRINT = 0;
+  for(idup=0; idup < NDUPL_SET ; idup++ ) {
+
+    if ( idup >= MXSTORE ) { continue; }
+
+    NTMP   = NDUPL_LIST[idup] ;
+
+    NDUPL_PRINT++ ;
+    fprintf(FP_STDOUT, "  -> DUPL-%3.3d: %2d events with %s match: \n", 
+	    idup, NTMP, string_match_varlist); 
+
+    // print info for each event
+    for(evt=0; evt < NTMP; evt++ ) {
+      if ( evt >= MXSET_DUPLICATE ) { continue; }
+      unsort   = UNSORT_DUPL[idup][evt] ; 
+      snid     = TABLEVAR->name[unsort]; 
+      IDSURVEY = TABLEVAR->IDSURVEY[unsort]; 
+      survey   = SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY] ;
+      sprintf(snid_plus_survey,"%s(%s)", snid, survey);
+      z      = zList[unsort]; 
+      c      = cList[unsort]; 
+      x      = xList[unsort];   
+
+      if ( IS_BIASCOR ) {
+	sprintf(str_SIM_ab,"SIM_[a,b] = %.3f %.3f", 
+		TABLEVAR->SIM_ALPHA[unsort], TABLEVAR->SIM_BETA[unsort] );
+      }
+
+      fprintf(FP_STDOUT,"\t SNID=%-20.20s %sz,c,x1 = %.5f %7.4f %7.4f  %s\n",
+	      snid_plus_survey, str_SIM_prefix, z, c, x, str_SIM_ab); 
+    }   
+
+    fflush(FP_STDOUT);
+  }
+
+  fprintf(FP_STDOUT,"  Finished printing %d of %d sets of %s duplicates "
+	  "(increase MXSTORE_DUPLICATE to see more)\n", 
+	  NDUPL_PRINT, NDUPL_SET, STRTYPE ); 
+  fprintf(FP_STDOUT,"  Max number of %s duplicates in one set: %d\n", 
+	  STRTYPE, MXDUPL_PER_SET);
+  fprintf(FP_STDOUT,"  Number of unique %s events: %d (of %d) \n",
+	  STRTYPE, N_UNIQUE, nsn);
+  // .xyz
+  // - - - - - - -
+  fflush(FP_STDOUT);
+
+  if ( IS_DATA ) {
+    // check user iflag_duplicate to decide what to do with duplciates
+
+    int  iflag   = INPUTS.iflag_duplicate; 
+    if ( NDUPL_SET >= MXSTORE  && iflag>0 ) {
+      sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
+	      NDUPL_TOT, MXSTORE );
+      sprintf(c2err,"Check duplicates");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+
+ 
+    fprintf(FP_STDOUT, "\n  iflag_duplicate = %d --> ", iflag);
+    if ( iflag == IFLAG_DUPLICATE_IGNORE ) {
+      fprintf(FP_STDOUT, " do nothing.\n");
+    }
+    else if ( iflag == IFLAG_DUPLICATE_ABORT ) {
+      sprintf(c1err,"Duplicates not allowed.");
+      sprintf(c2err,"Check input FITRES file.");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+    else if ( iflag == IFLAG_DUPLICATE_AVG ) {
+      fprintf(FP_STDOUT, " merge duplicates.\n");
+      for(idup=0; idup < NDUPL_SET ; idup++ ) 
+	{ merge_duplicates(NDUPL_LIST[idup], UNSORT_DUPL[idup] ); }
+    }
+    else {
+      sprintf(c1err,"Invalid iflag_duplicate=%d", INPUTS.iflag_duplicate );
+      sprintf(c2err,"grep IFLAG_DUPLICATE  SALT2mu.c");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+  } // end EVENT_TYPE_DATA
+
+
+ DONE:
+  print_debug_malloc(-1*debug_malloc,fnam);
+  free(zList); free(cList); free(xList);
+  free(unsortList); free(IS_DUPL);
+  
+  free(NDUPL_LIST);
+  for(idup=0; idup < MXSTORE; idup++ )  { free(UNSORT_DUPL[idup]); }
+  free(UNSORT_DUPL);
+
+  if ( IS_BIASCOR ) {  debugexit(fnam);  }
+
+  return;
+
+} // end of check_duplicates_util
+
+
+// ******************************************
+void check_duplicates_LEGACY(void) {
 
   // Sep 2016:
   // Use sorted redshift and its error to flag duplicates.
@@ -3132,7 +3417,7 @@ void check_duplicate_SNID(void) {
   // Sep 24 2021: malloc local UNSORT_DUPL and NDUPL_LIST
   //              Introduce 2nd dimension MXSET_DUPLICATE
 
-#define MXSET_DUPLICATE 10 // abort if more than this many per dupl set
+
 
   int  iflag   = INPUTS.iflag_duplicate;
   int  MXSTORE = MXSTORE_DUPLICATE ;
@@ -3143,7 +3428,7 @@ void check_duplicate_SNID(void) {
   bool IS_SIM ;
   double *zList ;
   bool   *IS_DUPL;
-  char fnam[] = "check_duplicate_SNID" ;
+  char fnam[] = "check_duplicates_LEGACY" ;
 
   // ----------- BEGIN -----------
 
@@ -3169,6 +3454,7 @@ void check_duplicate_SNID(void) {
     IS_DUPL[isn] = false;
   }
   
+  // ******* LEGACY *********
 
   ORDER_SORT = + 1 ; // increasing order
   sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
@@ -3180,7 +3466,7 @@ void check_duplicate_SNID(void) {
   int  **UNSORT_DUPL;
   int  *NDUPL_LIST; // how many duplicates per set
   int  NDUPL_SET ; // number of duplicate sets
-  int  NDUPL_TOT ; // includes those beyone storage capacity
+  int  NDUPL_TOT ; // includes those beyond storage capacity
   int  NDUPL_SN  ; // total number of SN controbuting to duplicates
 
   MEMI = MXSTORE_DUPLICATE * sizeof(int);
@@ -3193,6 +3479,7 @@ void check_duplicate_SNID(void) {
   }
   NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
 
+  // ******* LEGACY *********
   // - - - - 
 
   for ( isn=0; isn < nsn-1; isn++ ) {
@@ -3217,6 +3504,8 @@ void check_duplicate_SNID(void) {
       NDUPL_TOT++ ; 
       IS_DUPL[isn] = IS_DUPL[isn2] = true; 
 
+      // ******* LEGACY *********
+
       /* xxx
       if ( isn < 10 ) {
 	printf(" xxx %s: compare %s/%s  %d/%d  FOUND=%d\n", 
@@ -3232,6 +3521,8 @@ void check_duplicate_SNID(void) {
 	FOUND_DUPL = true;
 	NDUPL_SET++ ;  // increment number of duplicate sets
 	NDUPL_SN++ ;
+
+
 	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
 	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ;
 	NDUPL_LIST[NDUPL_SET-1]++ ;
@@ -3241,13 +3532,15 @@ void check_duplicate_SNID(void) {
       NTMP = NDUPL_LIST[NDUPL_SET-1] ;
       if( NTMP < MXSET_DUPLICATE ) 
 	{ UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
-      NDUPL_LIST[NDUPL_SET-1]++ ;
+      NDUPL_LIST[NDUPL_SET-1]++ ;      
       NDUPL_SN++ ;
       
     }  // end z==z2 (isn2 loop)
   } // end loop over isn
 
-  // - - - - -
+  // ******* LEGACY *********
+
+  // - - - - - 
   if ( NDUPL_SET == 0 ) 
     { fprintf(FP_STDOUT, "\t No duplicates found. \n"); goto DONE; }
   
@@ -3302,15 +3595,19 @@ void check_duplicate_SNID(void) {
   print_debug_malloc(-1*debug_malloc,fnam);
   free(zList);  free(unsortList); free(IS_DUPL);
   
+  // ******* LEGACY *********
+
   free(NDUPL_LIST);
   for(idup=0; idup < MXSTORE; idup++ )  { free(UNSORT_DUPL[idup]); }
   free(UNSORT_DUPL);
 
   return;
 
-} // end of check_duplicate_SNID
+} // end of check_duplicates_LEGACY
 
 
+
+// =============================================
 void merge_duplicates(int NDUPL, int *isnList) {
 
   // First entry in duplicate list has its SALT2 parameters
@@ -5071,6 +5368,8 @@ void set_defaults(void) {
   INPUTS.cmin  = -0.3; 
   INPUTS.cmax  = +0.3;
 
+  INPUTS.nbinc_mucovscale  = 3 ;
+
   INPUTS.logmass_min  = -20.0 ;
   INPUTS.logmass_max  = +20.0 ;
   INPUTS.nbin_logmass =  1 ; 
@@ -5197,7 +5496,8 @@ void set_defaults(void) {
   INPUTS.debug_flag        = 0 ; 
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
-  INPUTS.nbinc_mucovscale  = 3 ;
+  INPUTS.check_duplicates_biasCor = 0 ;
+
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_bug_mucovscale = 0 ;
   INPUTS.restore_bug_mucovadd   = 0 ;
@@ -9525,6 +9825,8 @@ void  read_simFile_biasCor(void) {
   sprintf(str_cputime,"%s(read_BIASCOR)", STRING_CPUTIME_INIT);
   print_cputime(t_read_biasCor[0], str_cputime, UNIT_TIME_MINUTE, 0);
 
+  
+  if ( INPUTS.check_duplicates_biasCor ) {   check_duplicates_util(EVENT_TYPE_BIASCOR); }
 
   return ;
 } // end read_simFile_biasCor
@@ -13928,6 +14230,9 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   sprintf(outfile,"%s_IDSAMPLE%d_BIASCOR.DAT", INPUTS.PREFIX, IDSAMPLE); 
   printf("DEBUG: Create diagnostic file %s\n", outfile);
   fp = fopen(outfile,"wt");
+
+  fprintf(fp, "# each CID is biasCor event for IDSAMPLE=%d\n", IDSAMPLE);
+
   fprintf(fp,"VARNAMES: CID  BIN_MUCOV  zHD c SNRMAX "
 	    "MUDIF  MUERR  MUCOVSCALE MUCOVADD\n");
 
@@ -17249,6 +17554,9 @@ int ppar(char* item) {
     INPUTS.debug_malloc *= 2;  // must be >1 to take effect
     return(1); 
   }
+
+  if ( uniqueOverlap(item,"check_duplicates_biascor=")) 
+    { sscanf(&item[25],"%d", &INPUTS.check_duplicates_biasCor ); return(1); }
 
   if ( uniqueOverlap(item,"debug_mucovscale=")) 
     { sscanf(&item[17],"%d", &INPUTS.debug_mucovscale); return(1); }
@@ -22500,6 +22808,7 @@ void print_SALT2mu_HELP(void) {
     "snid_mucovdump=5944   # after each fit iteration, full muCOV dump",
     "debug_mucovscale=44   # print info for j1d=44 (mucovscale cell), and also",
     "                      # write biasCor-fitres file with mucovScale info",
+    "check_duplicates_biascor=1  # check SIM_z + SIM_c biasCor duplicates, allowing different SNID",
     "",
     "# restore_bug options:",
     "restore_bug_mucovscale=1    # use undefined muCOVscale cells",

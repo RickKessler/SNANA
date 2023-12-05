@@ -217,7 +217,8 @@ char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list
 #define MXLIST_RAN      4  // max number of lists for stream0
-#define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+// xxx mark #define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+#define MXSTORE_RAN  1001  // size of RANLIST per event; avoid harmonics with submit_batch
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 

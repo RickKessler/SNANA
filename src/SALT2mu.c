@@ -5505,7 +5505,7 @@ void set_defaults(void) {
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_WGTabg     = 0 ;
-  INPUTS.restore_bug_mumodel_zhel = 1; // leave bug until more testing is done
+  INPUTS.restore_bug_mumodel_zhel = 0; // leave bug until more testing is done
 
   // xxx  INPUTS.restore_bug_sim_beta     = 0 ; // harmless bug; no effect
   INPUTS.nthread           = 1 ; // 1 -> no thread

@@ -22098,4 +22098,23 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      muerr_ideal can now be polyFun(z) instead of fixed number; e.g.
      muerr_ideal=0.1,0.01,0.05 -> muerr=.1 + .01*z + .05*z^2
 
+
+# =============================================================
+         v11_05j ([tag-date])
+
+         *****  IMPORTANT(v11_05i) *****
+
+
+         *****  USEFUL(v11_05i) *****
+
+
+         *****  MISCELLANEOUS(v11_05i) *****
+
+     snana.car
+       + filter update option (SNLS3) can read gzipped or unzipped filter-trans files.
+
+     sntools.c
+       + add OPT arg to rd2columnn to pass option of NOT aborting on missing
+         file and instead return ERROR.
+
 END: 

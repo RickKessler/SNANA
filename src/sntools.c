@@ -6209,12 +6209,15 @@ int nrow_read(char *file, char *callFun) {
 
 } // end nrow_read
 
+
+
 // =====================================
 int rd2columnFile(
 		   char *file   // (I) file to read
 		   , int MXROW  // (I) max size of column arrays
 		   , int *Nrow  // (O) number of rows read from file
 		   , double *column1, double *column2 // (O) column data
+		   , int OPT
 		   ) {
 
   // open  *file and read/return 2 data columns.
@@ -6222,9 +6225,11 @@ int rd2columnFile(
   // Returns SUCCESS flag upon completion
   // Skips rows that have comments starting with #, !, %
   //
+  // OPT |= 1 --> do NOT abort on missing file; return ERROR instead
+  //
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
   // Oct 17 2020: skip optional DOCUMENTATION lines
-
+  // Dec 05 2023: add OPT arg
   FILE *fp ;
   int  n, GZIPFLAG, IS_DOCANA=0 ;
   double tmp1, tmp2;  
@@ -6236,9 +6241,14 @@ int rd2columnFile(
 
   fp = open_TEXTgz(file, "rt", &GZIPFLAG );
   if ( fp == NULL ) {
-    sprintf(c1err,"Could not open file");
-    sprintf(c2err,"%s", file);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    if ( (OPT & 1) > 0 ) {
+      return ERROR;
+    }
+    else {
+      sprintf(c1err,"Could not open file");
+      sprintf(c2err,"%s", file);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
   }
 
   *Nrow =  n = 0;
@@ -6295,8 +6305,8 @@ int rd2columnFile(
 
 // define mangle routine for fortran
 int rd2columnfile_(char *file, int *MXROW, int *Nrow,
-		   double *col1, double *col2) {
-  return rd2columnFile(file,*MXROW, Nrow, col1, col2);
+		   double *col1, double *col2, int *OPT) {
+  return rd2columnFile(file,*MXROW, Nrow, col1, col2, *OPT);
 }
 
 

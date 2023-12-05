@@ -2334,7 +2334,7 @@ int rd_filter ( int ifilt ) {
      fclose(fp);
      rd2columnFile(FILTFILE_FULLNAME, MXLAM_FILT, &NBIN 
 		   ,&FILTER[ifilt].LAMBDA[1]
-		   ,&FILTER[ifilt].TRANS[1] );
+		   ,&FILTER[ifilt].TRANS[1], 0 );
 
      sprintf(txtFilter,"Filter");
    }

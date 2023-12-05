@@ -1502,7 +1502,7 @@ void read_genSmear_SALT2disp(char *smearFile, double COLOR_DISP_MAX ) {
   rd2columnFile( GENSMEAR_SALT2.FILE,  MXLAM_GENSMEAR_SALT2 // input
 		 ,&NLAM                       // returned
 		 ,GENSMEAR_SALT2.LAM        // returned
-		 ,GENSMEAR_SALT2.SIGMA  );  // returned
+		 ,GENSMEAR_SALT2.SIGMA, 0  );  // returned
 
   GENSMEAR_SALT2.NLAM   = NLAM;  
   GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];
@@ -1929,7 +1929,7 @@ void read_VCR_VSI(void) {
   rd2columnFile(GENSMEAR_VCR.VSI_FILE, MAXLEN, 
 		&GENSMEAR_VCR.NBIN_VSI,  // return number of bins read
 		GENSMEAR_VCR.VSI,        // return v_Si axis
-		GENSMEAR_VCR.PROB );     // return prob axis
+		GENSMEAR_VCR.PROB, 0 );     // return prob axis
   
   NBVSI = GENSMEAR_VCR.NBIN_VSI;
 

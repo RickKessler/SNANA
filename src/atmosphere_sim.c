@@ -976,7 +976,7 @@ void replace_modtran(int ireplace ) {
 	 component, imod, transFile );
 
   rd2columnFile(transFile, MXLAM_MODTRAN, 
-		&Nrow, 	TMP_LAM, TMP_TRANS ); // returned
+		&Nrow, 	TMP_LAM, TMP_TRANS, 0 ); // returned
 
   // convert lambda from nm to A
   for ( ilam=0 ; ilam < Nrow; ilam++ ) {

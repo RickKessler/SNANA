@@ -65,6 +65,9 @@
 #
 # Nov 03 2023: replace a bunch of print(f"") with logging.info()
 #
+# Dec 05 2023: CIDOFF safety margin -> 1013 (instead of 1000) to help avoid
+#              bad luck numbers that result in repeated random sequences
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -956,7 +959,8 @@ class Simulation(Program):
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
             if reset_cidoff > 0 :
-                cidadd       = int(ngentot*1.1)+1000   # leave safety margin
+                # xxx mark cidadd       = int(ngentot*1.1)+1000   # leave safety margin
+                cidadd       = int(ngentot*1.1) + 1013   # leave safety margin
                 cidoff      += cidadd        # for random CIDs in snlc_sim
                 cidran_max   = cidoff
             else:

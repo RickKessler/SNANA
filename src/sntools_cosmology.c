@@ -58,7 +58,7 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
     HzFUN_INFO->zCMB_MAP  = (double*) malloc(MEMD);
     HzFUN_INFO->HzFUN_MAP = (double*) malloc(MEMD);
     rd2columnFile(fileName, MXMAP_HzFUN, &HzFUN_INFO->Nzbin_MAP,
-		  HzFUN_INFO->zCMB_MAP, HzFUN_INFO->HzFUN_MAP  );
+		  HzFUN_INFO->zCMB_MAP, HzFUN_INFO->HzFUN_MAP, 0  );
 
     int Nzbin   = HzFUN_INFO->Nzbin_MAP;
     double zmin = HzFUN_INFO->zCMB_MAP[0]  ;

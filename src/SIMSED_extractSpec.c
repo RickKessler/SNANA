@@ -1138,7 +1138,7 @@ void prep_gal(void) {
   }
 
   // Get galaxy SED
-  rd2columnFile(INPUTS.GALFILE, MXBIN_LAMSED_SEDMODEL, &NBIN_GALLAM , GALLAM , GALFLUX );
+  rd2columnFile(INPUTS.GALFILE, MXBIN_LAMSED_SEDMODEL, &NBIN_GALLAM , GALLAM , GALFLUX, 0 );
   printf(" Read %d rows of galaxy SED \n\n", NBIN_GALLAM );
 
   // Get peak SN spectrum

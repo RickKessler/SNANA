@@ -761,9 +761,10 @@ void fillbins(int OPT, char *name, int NBIN, float *RANGE,
 
 int commentchar(char *str);
 int rd2columnFile(char *file, int MXROW, int *Nrow,
-		   double *column1, double *column2 );
+		  double *column1, double *column2, int opt );
 int rd2columnfile_(char *file, int *MXROW, int *Nrow,
-		   double *column1, double *column2 );
+		   double *column1, double *column2, int *opt );
+
 
 int nrow_read(char *file, char *callFun) ;
 

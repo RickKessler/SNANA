@@ -1970,7 +1970,7 @@ void read_specTable_EAZY(char *spec_list_file) {
 
     // read lam and flam from spec file
     rd2columnFile(fileName_spec, MXLAM, &NBIN_WAVE, 
-		  HOSTSPEC.WAVE_CEN, HOSTSPEC.FLAM_BASIS[NSPEC] );
+		  HOSTSPEC.WAVE_CEN, HOSTSPEC.FLAM_BASIS[NSPEC], 0 );
 
 
     // store column variable name as if it were read from a single SNANA-style table.
@@ -4379,7 +4379,7 @@ void init_HOSTLIB_ZPHOTEFF(void) {
   rd2columnFile(ptrFile, MXBIN_ZPHOTEFF, 
 		&HOSTLIB_ZPHOTEFF.NZBIN,
 		HOSTLIB_ZPHOTEFF.ZTRUE,
-		HOSTLIB_ZPHOTEFF.EFF );
+		HOSTLIB_ZPHOTEFF.EFF, 0 );
 
   printf("\t Read EFF(zPHOT) vs. ZTRUE (%d bins) from \n\t\t %s\n",
 	 HOSTLIB_ZPHOTEFF.NZBIN, ptrFile);
@@ -4903,7 +4903,7 @@ void read_Sersic_bn(void) {
   MXROW = MXBIN_SERSIC_bn ;
   rd2columnFile(fileName, MXROW, 
 		&Nrow,     // return number of rows in file
-		SERSIC_TABLE.grid_n, SERSIC_TABLE.grid_bn ); // output
+		SERSIC_TABLE.grid_n, SERSIC_TABLE.grid_bn, 0 ); // output
 
   SERSIC_TABLE.Ngrid_bn = Nrow ;
 

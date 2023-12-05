@@ -1038,9 +1038,9 @@ void read_SALT2colorDisp(void) {
 
 
   rd2columnFile( tmpFile, MXBIN
-		,&SALT2_ERRMAP[imap].NLAM
-		,SALT2_ERRMAP[imap].LAM
-		,SALT2_ERRMAP[imap].VALUE   );
+		 ,&SALT2_ERRMAP[imap].NLAM
+		 ,SALT2_ERRMAP[imap].LAM
+		 ,SALT2_ERRMAP[imap].VALUE, 0   );
 
   NLAM = SALT2_ERRMAP[imap].NLAM ;
 

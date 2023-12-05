@@ -2798,7 +2798,7 @@ void  sedSynMag(int ised, int ifilt) {
 
 
   // read filter trans vs. wavelength
-  rd2columnFile(transFile, MXLAM_FILT, &NLAM_FILT, LAM_FILT, TRANS_FILT);
+  rd2columnFile(transFile, MXLAM_FILT, &NLAM_FILT, LAM_FILT, TRANS_FILT, 0);
 
   LAMMIN_FILT = LAM_FILT[0];
   LAMMAX_FILT = LAM_FILT[NLAM_FILT-1];

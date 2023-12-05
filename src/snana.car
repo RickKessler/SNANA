@@ -26101,6 +26101,7 @@ c can be different since it gets interpolated to the
 c original grid.
 c
 c Nov 2022: refactor to use new & old kcor/calib code.
+c Dec 2023: remove fortran OPEN and rely on rd2column to read gzipped or unzipped files.
 c
 
       IMPLICIT NONE
@@ -26119,9 +26120,9 @@ c subroutine args
 c local var
 
       INTEGER 
-     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
+     &   IFILT_OBS, L0, LCC, LREF, LSN, LDIR, LTMPF, LCOM
      &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
-     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME
+     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME, OPT_RD2COL
 
       CHARACTER 
      &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
@@ -26142,6 +26143,295 @@ c local var
      &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
      &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
 
+      LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
+
+c define utilities from sntools.c
+      INTEGER  RD2COLUMNFILE 
+      EXTERNAL RD2COLUMNFILE 
+  
+      REAL*8   INTERP_1DFUN
+      EXTERNAL INTERP_1DFUN
+      EXTERNAL LOAD_FILTERTRANS_CALIB, GET_CALIB_FILTERLAM
+
+C ---------------- BEGIN --------------
+
+      UPD_DUMP = .FALSE.  ! internal dump logical
+
+      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+      cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
+      LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
+      CCID      = SNLC_CCID(1:LCC)
+
+
+       OPT_FRAME = OPT_FILTOBS - 1
+       CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
+     &                      NLAM_STORE, FLAM_STORE)
+
+
+c - - - - - 
+      if (UPD_DUMP) then
+        print*,' '
+        print*, 'XXXXXX ----------------------------------------- '
+        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
+     &       CCID(1:LCC),'-', cfilt
+        call flush(6)
+      end if 
+
+      OPT_INTERP = 1   ! 1=linear;  2=quadratic
+
+      comment = CCID(1:LCC) // '-filter-update' // char(0)
+      LCOM    = INDEX(comment,' ') - 1
+
+c     get string lengths for file name
+
+      LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
+      LSSN  = INDEX(SUFFIX_UPD_TRANSSN,' ') -1 
+
+      LPREF = INDEX(PREFIX_UPD_TRANSREF,' ') -1 
+      LSREF = INDEX(SUFFIX_UPD_TRANSREF,' ') -1 
+
+      L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
+      LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
+
+c construct full filename of SN and REF-transmission files.
+
+      TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
+     &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
+      LTMPF = INDEX(TMPFILE,' ') - 1
+      FILTFILE_SN = FILTER_UPDATE_DIR(1:LDIR)  
+     &                 // '/' // TMPFILE(1:LTMPF) 
+
+      TMPFILE = PREFIX_UPD_TRANSREF(1:LPREF)   
+     &          // cfilt // SUFFIX_UPD_TRANSREF(1:LSREF)
+      LTMPF = INDEX(TMPFILE,' ') - 1
+      FILTFILE_REF = FILTER_UPDATE_DIR(1:LDIR)  
+     &          // '/' // TMPFILE(1:LTMPF) 
+
+
+      if ( UPD_DUMP ) then
+        print*, '++++ UPDATING FILTER ' 
+     &          ,'IFILT = ', ifilt_obs,' '
+     &         , cfilt(1:1), ' with NLAM '
+     &         , NLAM_STORE , ' for SN ', CCID
+        call flush(6)
+       end if
+
+
+c Use IOSTAT option to figure out which of the files
+c FILTFILE_REF  and FILTFILE_SN exist
+
+      OPT_RD2COL = 1  ! rd2columun does NOT abort on missing file
+
+c     check if FILTFILE_REF exists?
+
+
+      MXLAM   = MXLAMBIN_FILT
+      LREF    = INDEX(FILTFILE_REF,' ') - 1
+      TMPFILE = FILTFILE_REF(1:LREF) // char(0)
+      istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD,
+     &                 FLAM_UPD, FTRANS_UPD, OPT_RD2COL, LREF)  ! (out)
+      LEXIST_REF = (istat > 0 ) 
+
+      if (UPD_DUMP) then 
+        print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
+        call flush(6)
+      end if
+
+c - - - - - -
+c    now interpolate to the original grid
+c    for files which exist
+
+      IF ( LEXIST_REF ) THEN
+        DO 20 ilam = 1, NLAM_STORE
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
+ 
+            LAM = FLAM_STORE(ilam)
+            FTRANSREF_STORE(ilam) = 0.0 
+
+            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
+            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
+ 
+            Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
+     &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
+
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSREF_STORE(ilam)  = Trans_upd
+
+20      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, "REF interp done"
+          call flush(6)
+        end if 
+
+      ENDIF  ! end LEXIST_REF
+
+
+c ------------------------------------
+c     FILTFILE_SN exists?
+
+      LSN     = INDEX(FILTFILE_SN,' ') - 1
+      MXLAM   = MXLAMBIN_FILT
+      TMPFILE = FILTFILE_SN(1:LSN) // char(0)
+      istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD,
+     &                 FLAM_UPD, FTRANS_UPD, OPT_RD2COL, LSN)  ! (out)
+      LEXIST_SN = (istat > 0 )
+
+c - - - - - - - 
+c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
+
+      IF (LEXIST_SN) THEN
+cc      print*, ' Interpolate SN file', NLAM_STORE
+        DO 70 ilam = 1, NLAM_STORE
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
+
+            LAM = FLAM_STORE(ilam)
+            FTRANSSN_STORE(ilam) = 0.0 
+
+            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
+            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
+ 
+            Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
+     &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
+
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSSN_STORE(ilam) = Trans_upd
+
+70      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, 'SN Interp done for', NLAM_STORE, CCID
+          call flush(6)
+        end if
+      ENDIF
+
+
+c    If neither file exists, abort program
+
+
+      if (.NOT.( LEXIST_REF .OR. LEXIST_SN) ) then        
+        c1err = 'Could not update filter-trans for CID = ' 
+     &       // CCID(1:LCC) // '-' // cfilt
+        c2err = 'FILTDIR=' // FILTER_UPDATE_DIR(1:LDIR)
+        CALL MADABORT('FILTER_UPDATE_EACHSN', c1err, c2err )
+      endif
+
+c     IF either SN or REF file does not exist, copy the other 
+c     file for the transmission functions
+
+
+c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
+c                             IF REF file does not exist, SN trans undef
+c                             but should have been aborted above
+
+      if (.NOT. LEXIST_SN ) then 
+        DO 170 ilam = 1, NLAM_STORE
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
+     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
+
+            FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
+170     CONTINUE  ! ILAM loop over original lambda binning
+      end if
+
+
+c - - - - - - - - -
+c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
+c                             IF SN file does not exist, Ref trans undef
+c                             but should have been aborted above
+      IF (.NOT. LEXIST_REF ) THEN
+        DO 270 ilam = 1, NLAM_STORE
+            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) =
+     &      FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
+
+            FTRANSREF_STORE(ilam) = FTRANSSN_STORE(ilam)
+270      CONTINUE  ! ILAM loop over original lambda binning
+      ENDIF
+
+      if ( USE_KCOR_REFACTOR ) then
+         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
+     &         FLAM_STORE, FTRANSSN_STORE )
+      endif
+
+c -----------------------------
+      if ( UPD_DUMP ) then 
+        print*, '%%%% ', NLAM_STORE
+        if (mod(NLAM_STORE,2).EQ.0) then
+           ilam = NLAM_STORE/2
+        else
+         ilam = (NLAM_STORE+1)/2
+        end if
+        LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
+        print*, 'xxxxx', NLAM_STORE 
+     &        , sngl(FTRANSSN_STORE(ilam))
+     &        , sngl(FTRANSREF_STORE(ilam))
+
+        print*, 'xxxx SN =' , CCID
+        print*, 'xxxx LEXIST_REF =', LEXIST_REF
+        print*, 'xxxx LEXIST_SN  =', LEXIST_SN
+        print*, 'xxxx FILE_REF   =', FILTFILE_REF
+        print*, 'xxxx FILE_SN    =', FILTFILE_SN
+
+        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
+        call flush(6)
+      endif
+
+
+      RETURN
+      END   ! end FILTER_UPDATE_EACHSN
+
+
+C ================================================
++DECK,FUPD_EACHSN_LEGACY.
+      SUBROUTINE FILTER_UPDATE_EACHSN_LEGACY(ifilt)
+
+c Nov 8, 2010
+c Read/update filter response for this sparse 'ifilt'
+c Store in FILTOBS_TRANS_UPD array using same lambda 
+c binning as in KCOR file. Updated lambda binning 
+c can be different since it gets interpolated to the 
+c original grid.
+c
+c Nov 2022: refactor to use new & old kcor/calib code.
+c
+
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c +CDE,PARSECOM.
+
+c subroutine args
+      INTEGER IFILT     ! (I) sparse indices
+
+c local var
+
+      INTEGER 
+     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
+     &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
+     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME, OPT_RD2COL
+
+      CHARACTER 
+     &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
+     &  ,FILTFILE_REF*(MXCHAR_FILENAME)  ! idem for primary ref
+     &  ,TMPFILE*(MXCHAR_FILENAME)
+     &  ,CCID*(MXCHAR_CCID)
+     &  ,cfilt*1
+     &  ,c1err*80
+     &  ,c2err*80
+     &  ,comment*40 
+
+      REAL*8
+     &   LAM
+     &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
+     &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
+     &  ,Trans_upd
+     &  ,FLAM_STORE(MXLAMBIN_FILT) ! store trans on this lam array
+     &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
+     &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
+     
       LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
 
 c define utilities from sntools.c
@@ -26224,6 +26514,8 @@ c construct full filename of SN and REF-transmission files.
        end if
 
 
+      OPT_RD2COL = 1
+
 c Use IOSTAT option to figure out which of the files
 c FILTFILE_REF  and FILTFILE_SN exist
 
@@ -26241,7 +26533,7 @@ c     check if FILTFILE_REF exists?
          MXLAM   = MXLAMBIN_FILT
          TMPFILE = FILTFILE_REF(1:LL) // char(0)
          istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &            ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
+     &            ,FLAM_UPD, FTRANS_UPD, OPT_RD2COL, LL)  ! (out)
 
       else 
           LEXIST_REF = .false.
@@ -26285,6 +26577,7 @@ c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
 c ------------------------------------
 c     FILTFILE_SN exists?
 
+
       istat=1
       LL = INDEX(FILTFILE_SN,' ') - 1
       TMPFILE =FILTFILE_SN(1:LL)
@@ -26297,7 +26590,7 @@ c        readsnfile
          MXLAM   = MXLAMBIN_FILT
          TMPFILE = FILTFILE_SN(1:LL) // char(0)
          istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &            ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
+     &            ,FLAM_UPD, FTRANS_UPD, OPT_RD2COL, LL)  ! (out)
       else 
          LEXIST_SN = .false.
       endif 
@@ -26405,7 +26698,7 @@ c -----------------------------
 
 
       RETURN
-      END   ! end FILTER_UPDATE_EACHSN
+      END   ! end FILTER_UPDATE_EACHSN_LEGACY
 
 
 C =======================================

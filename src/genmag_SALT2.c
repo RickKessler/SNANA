@@ -180,7 +180,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 		      int OPTMASK) {
 
   double Trange[2], Lrange[2];
-  int  ised;
+  int  ised, nflux_nan;
   int  retval = 0   ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
@@ -303,9 +303,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
 	       ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	       ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	       ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );
-
-
+	       ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	       ,&nflux_nan );
+    
     // July 18 2018: check for UV extrap to avoid filter dropouts
     double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
     if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM,&TEMP_SEDMODEL); }
@@ -799,7 +799,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   // Jul 23 2020: for SALT3, remove _relative from file names
   // Apr 27 2021: skip reading ERRSCAL map for SALT3
 
-  int imap, NDAY, NLAM, NBTOT;
+  int imap, NDAY, NLAM, NBTOT, nflux_nan ;
   double DUMMY[20];
 
   char tmpFile[200], sedcomment[80], lc_string[20] ;
@@ -854,7 +854,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 	       ,SALT2_ERRMAP[imap].LAM
 	       ,&SALT2_ERRMAP[imap].LAMSTEP
 	       ,SALT2_ERRMAP[imap].VALUE 
-	       ,DUMMY
+	       ,DUMMY, &nflux_nan
 	       );
 
     NLAM = SALT2_ERRMAP[imap].NLAM ;

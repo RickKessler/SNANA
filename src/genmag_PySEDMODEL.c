@@ -1233,6 +1233,7 @@ void  read_SALT2_template0(void) {
   char sedcomment[80] ;
   char SALT2_tempate0_file[MXPATHLEN];
 
+  int nflux_nan;
   double Trange[2] = { -40.0,  100.0   } ;
   double Lrange[2] = { 2000.0, 9200.0  } ;
   char   MODELNAME_SALT2[] = "SALT2.JLA-B14" ;
@@ -1251,7 +1252,8 @@ void  read_SALT2_template0(void) {
 	     ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
 	     ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );
+	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	     ,&nflux_nan );
 
   return ;
 

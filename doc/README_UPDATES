@@ -22117,4 +22117,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + add OPT arg to rd2columnn to pass option of NOT aborting on missing
          file and instead return ERROR.
 
+      + in function rd_sedFlux, compute nflux_nan and
+          * return nflux_nan 
+          * print warning to stdout
+          * replace flux = nan -> 0 to avoid downstream corruption.
+        Slowly over time, the calling functions need updates to react.
 END: 

@@ -7432,6 +7432,7 @@ int rd_sedFlux(
 	     ,double *LAM_STEP     // (O) lambda-step
 	     ,double *FLUX_LIST    // (O) flux list
 	     ,double *FLUXERR_LIST // (O) flux error list
+	     ,int    *nflux_nan    // (O) number of nan fluxes
 	    ) {
 
   /***************
@@ -7494,6 +7495,8 @@ int rd_sedFlux(
   Nov 13 2023: increment NLAM_PER_DAY, and set abort trap if any
                NLAM differs for a pareticular day.
 
+  Dec 5 2023: return nflux_nan.
+
   **********/
 
   FILE *fpsed;
@@ -7520,7 +7523,7 @@ int rd_sedFlux(
   // ------------- BEGIN -------------
 
   // init return args
-  *NDAY = *NLAM = 0 ;
+  *NDAY = *NLAM = *nflux_nan = 0 ;
 
   // set flags that *NDAY and *NLAM are within bounds
   OKBOUND_DAY = OKBOUND_LAM = 1; 
@@ -7604,6 +7607,9 @@ int rd_sedFlux(
     sscanf(StringVal[0], "%le" , &day  ) ;
     sscanf(StringVal[1], "%le" , &lam  ) ;
     sscanf(StringVal[2], "%le" , &flux ) ;
+
+    // protect against nan and increment number of nans
+    if ( isnan(flux) ) { flux = 0.0;  (*nflux_nan)++ ; }
 
     sprintf(lastLine, "%s", line);
 
@@ -7712,6 +7718,7 @@ int rd_sedFlux(
 
     ilam++ ; 
 
+
     // load flux after OKBOUND arrays are set
     if( OKBOUND_DAY && OKBOUND_LAM )  { 
       FLUX_LIST[iflux] = flux ;  
@@ -7729,6 +7736,12 @@ int rd_sedFlux(
 
   // - - - - - - - - - 
   // error checking
+
+  if ( *nflux_nan > 0 ) 
+    { printf("\n   >>>>>> WARNING: %s SED contains %d flux=nan values <<<<<<<\n\n", 
+	     sedcomment, *nflux_nan); 
+    }
+
   if ( OKBOUND_DAY == 0 ) {
     sprintf(c1err,"NDAY=%d exceeds bound of MXDAY=%d", *NDAY, MXDAY );
     sprintf(c2err,"%s", "Increase EPOCH  binsize or increase MXDAY");

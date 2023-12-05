@@ -1172,7 +1172,7 @@ void read_simsed(void) {
   // This function needs modification to propery interpolate
   // from SIMSED parameters
 
-  int ised, icorner ;
+  int ised, icorner, nflux_nan ;
 
   double TREST_RANGE[2] ;
 
@@ -1216,7 +1216,8 @@ void read_simsed(void) {
 	       ,SEDMODEL.OPTMASK
 	       ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	       ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	       ,CORNER.FLUX[icorner], CORNER.FLUXERR[icorner] );
+	       ,CORNER.FLUX[icorner], CORNER.FLUXERR[icorner]
+	       ,&nflux_nan);
   }
 
   

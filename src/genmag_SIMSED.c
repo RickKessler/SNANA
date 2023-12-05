@@ -555,6 +555,8 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   //
   // Aug 12 2017: replace SEDMODEL.FLUX_ERRFLAG argument with OPTMASK
   //
+
+  int nflux_nan;
   char fnam[] = "read_SIMSED_flux";
 
   // -------------- BEGIN -----------------
@@ -566,7 +568,8 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
 	     ,SEDMODEL.OPTMASK
 	     ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );  
+	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	     ,&nflux_nan );  
 
   int NDAY = TEMP_SEDMODEL.NDAY;
   int NLAM = TEMP_SEDMODEL.NLAM;

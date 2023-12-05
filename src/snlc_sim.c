@@ -10136,7 +10136,7 @@ void GENSPEC_TRUE(int imjd) {
   // Oct 05 2023: compute and store synthetic mag per band
 
   int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
-  double TOBS, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
+  double TOBS, MJD, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
   double *ptrGENFLUX, *ptrGENMAG ;
 
   double x0 = GENLC.SALT2x0 ;
@@ -10157,12 +10157,14 @@ void GENSPEC_TRUE(int imjd) {
 
   if ( imjd == ISPEC_PEAK ) {
     TOBS       = 0.0 ;  
+    MJD        = GENLC.PEAKMJD ;
     IS_HOST    = 0 ;
     ptrGENFLUX = GENSPEC.GENFLUX_PEAK ;
     ptrGENMAG  = GENSPEC.GENMAG_PEAK ;
   }
   else {
     TOBS       = GENSPEC.TOBS_LIST[imjd] ;
+    MJD        = GENSPEC.MJD_LIST[imjd] ;
     IS_HOST    = GENSPEC.IS_HOST[imjd] ;
     ptrGENFLUX = GENSPEC.GENFLUX_LIST[imjd] ;
     ptrGENMAG  = GENSPEC.GENMAG_LIST[imjd] ;
@@ -10278,7 +10280,7 @@ void GENSPEC_TRUE(int imjd) {
   int    ifilt, ifilt_obs;
   int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
-  double SYNMAG, genmag_obs, flux, lambin, flam, MJD ;
+  double SYNMAG, genmag_obs, flux, lamavg, lambin, flam ;
 
   // to compute synmags, first compute true Flam in each spectrograph bin.
   // Note that global GENSPEC.GENFLAM_LIST has not been filled yet, and thus
@@ -10287,9 +10289,21 @@ void GENSPEC_TRUE(int imjd) {
   double *GENFLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
   double *LAMMAX_LIST  = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
   double *LAMMIN_LIST  = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
+  double *LAMAVG_LIST  = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
+
   for(ilam=0; ilam < NLAMSPEC; ilam++ ) {
     flux   = ptrGENFLUX[ilam] ;
     lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
+    lamavg = LAMAVG_LIST[ilam];
+    if ( isnan(flux) ) {
+      char   msg[100], cfilt[4];
+      sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
+      sprintf(msg," WARNING: flam=NaN->0 for CID=%d lam=%.0f (%s) MJD=%.3f Tobs=%6.1f", 
+	      GENLC.CID, lamavg, cfilt,  MJD, TOBS );
+      flux = ptrGENFLUX[ilam] = 0.0 ;
+      printf("%s\n", msg); fflush(stdout);
+    }
+
     GENFLAM_LIST[ilam] = flux / lambin ;
   }
 
@@ -10377,20 +10391,16 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
 } // end find_genmag_obs
 
 // ==================================
-double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
+double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
 
   // Created Oct 2023
   // Compute true synthetic mag for ifilt_obs using flux per wave bin
   // pass as input *GENFLUX_LIST.
-  //
 
   int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
-  // xx double *LAMMAX_LIST = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
-  // xx double *LAMMIN_LIST = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
   double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;  
   double hc8    = (double)hc ;
-
 
   double SYNMAG = 99.0, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
   double lamstep, lambin, ZP, lammin, lammax ; 
@@ -10408,7 +10418,6 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
   lammax      = FILTER_SEDMODEL[ifilt].lammax ;
   ZP          = FILTER_SEDMODEL[ifilt].ZP ;
 
-  // sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs]);
 
   if ( LAMAVG_LIST[0] > lammin || LAMAVG_LIST[NLAMSPEC-1] < lammax ) {
     return MAG_ZEROFLUX ; // spectrum does not cover filter
@@ -10424,7 +10433,7 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST) {
       
     flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
 			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );
-			 
+
     flux_sum += ( flam * LAMOBS * TRANS );
 
   } // end ilam

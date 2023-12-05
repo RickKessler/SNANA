@@ -57,7 +57,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
 
   double UVLAM     = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
   int   DO_GENGRID = ( INP_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
-  int ifilt, ifilt_obs, NZBIN, NON1A_INDEX ;
+  int ifilt, ifilt_obs, NZBIN, NON1A_INDEX, nflux_nan ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40], *sedFile ;
   char fnam[] = "init_genmag_NON1ASED"  ;
@@ -129,7 +129,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
 	     ,SEDMODEL.OPTMASK
 	     ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );
+	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	     ,&nflux_nan );
 
   if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); } 
 

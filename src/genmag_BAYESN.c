@@ -420,7 +420,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
     char SED_filepath[MXPATHLEN];
     sprintf(SED_filepath,"%s/snsed/Hsiao07.dat", getenv("SNDATA_ROOT") );
 
-    int istat;
+    int istat, nflux_nan;
     SEDMODEL_FLUX_DEF *S0 = &BAYESN_MODEL_INFO.S0;
     malloc_SEDFLUX_SEDMODEL(S0,0,0,0);
     double Trange[2] = {BAYESN_MODEL_INFO.tau_knots[0], 
@@ -429,10 +429,11 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
                         BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1]};
     
     istat = rd_sedFlux(SED_filepath, "Hsiao Template", Trange, Lrange
-	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
-	       ,&S0->NDAY, S0->DAY, &S0->DAYSTEP
-	       ,&S0->NLAM, S0->LAM, &S0->LAMSTEP
-	       ,S0->FLUX,  S0->FLUXERR );
+		       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
+		       ,&S0->NDAY, S0->DAY, &S0->DAYSTEP
+		       ,&S0->NLAM, S0->LAM, &S0->LAMSTEP
+		       ,S0->FLUX,  S0->FLUXERR
+		       ,&nflux_nan);
 
     if ( NFILT_SEDMODEL == 0 ) {
       sprintf(c1err,"No filters defined ?!?!?!? " );

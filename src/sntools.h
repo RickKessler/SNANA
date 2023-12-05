@@ -570,7 +570,7 @@ int rd_sedFlux( char *sedFile, char *sedcomment,
 		int MXDAY, int MXLAM, int OPTMASK,
 		int *NDAY, double *DAY_LIST, double *DAY_STEP,
 		int *NLAM, double *LAM_LIST, double *LAM_STEP,
-		double *FLUX_LIST, double *FLUXERR_LIST );
+		double *FLUX_LIST, double *FLUXERR_LIST, int *nflux_nan );
 
 int  PARSE_FILTLIST(char *filtlist_string, int *filtlist_array );
 

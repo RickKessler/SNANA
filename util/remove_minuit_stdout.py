@@ -6,6 +6,9 @@
 # Jul 15 2023: replace os.system with subprocess.run to hopefully
 #       get better performance on batch core.
 #
+# Dec 5 2023: re-write script to brute-force write stdout file
+#      instead of using subprocess ... hopefully less hangup.
+#
 
 import os, sys, subprocess, datetime
 
@@ -18,19 +21,21 @@ if __name__ == "__main__":
     t0 = datetime.datetime.now()
 
     stdout_file = sys.argv[1]
-    tmp_file    = f"TMP_{stdout_file}"
 
-    cmd_sed = "sed "
-    for string in STRING_REMOVE_LIST:
-        cmd_sed += f"'-e /{string}/d' "
+    with open(stdout_file,"rt") as f:
+        lineList = f.readlines() 
 
-    cmd_mv   = f"mv {tmp_file} {stdout_file}"
-    cmd_sed += f"{stdout_file} > {tmp_file} ; {cmd_mv}"
+    # re-write stdout file excluding some lines
+    f =  open(stdout_file,"wt") 
+    for line in lineList:
+        keep = True
+        for str in STRING_REMOVE_LIST:
+            if str in line: 
+                keep = False
+        if keep:
+            f.write(f"{line}")
 
-    # xxx mark delete 7/15/2023 os.system(cmd_sed)
-
-    ret = subprocess.run( [ cmd_sed ], shell=True,
-                          capture_output=False, text=True )
+    f.close()
 
     t1 = datetime.datetime.now()
     dt = (t1-t0).total_seconds()

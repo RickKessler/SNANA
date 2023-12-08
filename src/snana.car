@@ -285,7 +285,7 @@ c
      &  ,MXCHAR_MODELNAME  = 72   ! max len of model name
      &  ,MXCHAR_FIELDNAME  = 20   ! max len of field name
      &  ,MXCHAR_PARNAME    = 20   ! max len of parameter name
-     &  ,MXCHAR_CUTNAME    = 160  ! to define cut names
+     &  ,MXCHAR_CUTNAME    = 300  ! to define cut names
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
      &  ,MXCHAR_ARG        = 800  ! max lenth of command line arg
      &  ,MXFILE_LIST       =  10  ! max number of files in input list

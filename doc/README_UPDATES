@@ -22112,6 +22112,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
      snana.car
        + filter update option (SNLS3) can read gzipped or unzipped filter-trans files.
+       + MXCHAR_CUTNAME -> 300 (was 160) to allow for longer input strings
+          (see git issue 1249)
 
      sntools.c
        + add OPT arg to rd2columnn to pass option of NOT aborting on missing

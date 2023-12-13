@@ -113,25 +113,22 @@ def get_args():
     msg = "run merge as background process instead of via batch"
     parser.add_argument("--merge_background", help=msg, action="store_true")
 
+    # - - - - - DEBUG options - - - - 
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
-
-    msg = (f"DEBUG MODE: reset (undo) merge process ")
+    msg = f"DEBUG MODE: reset (undo) merge process "
     parser.add_argument("--merge_reset", help=msg, action="store_true")
-
-    msg = (f"DEBUG MODE: developer flag to avoid conflicts. ")
+    msg = f"DEBUG MODE: developer flag to avoid conflicts. "
     parser.add_argument("--devel_flag", help=msg, type=int, default=0 )
-
-    msg = (f"DEBUG MODE: force crash in batch-prep ")
+    msg = f"DEBUG MODE: force crash in batch-prep "
     parser.add_argument("--force_crash_prep", help=msg, action="store_true")
-    msg = (f"DEBUG MODE: force crash in merge ")
+    msg = f"DEBUG MODE: force crash in merge "
     parser.add_argument("--force_crash_merge", help=msg, action="store_true")
-    msg = (f"DEBUG MODE: force abort in merge ")
+    msg = f"DEBUG MODE: force abort in merge "
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
-    msg = (f"DEBUG MODE: force garbage argument for this job id") # not implemented yet ...
+    msg = f"DEBUG MODE: force garbage argument for this job id"  # not implemented yet ...
     parser.add_argument("--jobid_force_bad_arg", help=msg, type=int, default=None )
-
-    msg = (f"DEBUG MODE: run codes from private snana_dir ")
+    msg = f"DEBUG MODE: run codes from private snana_dir "
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
 
     # args passed internally from command files

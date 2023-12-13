@@ -22124,4 +22124,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           * print warning to stdout
           * replace flux = nan -> 0 to avoid downstream corruption.
         Slowly over time, the calling functions need updates to react.
+
+     SALT2mu.c: 
+       + fix print_eventStats() bug when there is no biasCor (git issue 1250)
+
+
 END: 

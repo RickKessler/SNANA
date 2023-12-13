@@ -554,12 +554,13 @@ class Program:
                 f.write(f"sleep {delay} \n")
 
                 if command_docker is not None:
-                    f.write(f"echo ' ' \n")
-                    f.write(f"echo 'Setup SNANA for docker' \n")
                     SNANA_SETUP_COMMAND = \
                         self.config_prep[ENV_SNANA_SETUP_COMMAND]
-                    f.write(f"{SNANA_SETUP_COMMAND}\n")
-
+                    f.write(f"echo ' ' \n")
+                    f.write(f"echo 'Setup SNANA for docker using command:' \n")
+                    f.write(f"echo '   {SNANA_SETUP_COMMAND}' \n")  # <= print setup command
+                    f.write(f"{SNANA_SETUP_COMMAND}\n")             # <= do snana setup
+                    
                 f.write(f"echo ' ' \n")
 
                 f.write(f"echo 'Begin {command_file}' \n\n")
@@ -570,6 +571,7 @@ class Program:
                     f.write(f"export PATH={path_list}\n" )
 
                 f.write(f"echo SNANA_DIR = $SNANA_DIR \n")
+                f.write(f"python --version \n")  # Dec 2023
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 

@@ -13586,7 +13586,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   [VERSION]_SIMGEN.DUMP
 
   OPT_DUMP =  1  => init file, write header
-  OPT_DUMP >  2  => update 
+  OPT_DUMP =  2  => update 
   OPT_DUMP =  3  => close file (end of job)
 
        HISTORY
@@ -13728,7 +13728,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fp = SIMFILE_AUX->FP_DUMP ;
 
     // on first event, write comment info for TAKE_SPECTRUM keys.
-    // Can't do this during init because GENSPEC arrays not fille until now.
+    // Can't do this during init because GENSPEC arrays not filled until now.
     if ( FIRST && LAMBIN_SED_TRUE < 0.0 ) { 
       for(imjd=0; imjd < NPEREVT_TAKE_SPECTRUM; imjd++ ) {
 	//	if ( imjd == 0 ) { fprintf(fp,"\n"); }
@@ -30695,6 +30695,9 @@ void print_sim_help(void) {
     "GENPERFECT:  <mask>     # ideal sim; grep BITPERFECT snlc_sim.c | grep define",
     "RANSEED:  128473        # random seed",
     "DEBUG_FLAG: 0           # use this for development",
+    "",
+    "# - - - - - -  CUTWIN - - - - - ",
+    "APPLY_CUTWIN_OPT: 1   # apply cuts; see EPCUTWIN_ & CUTWIN_ in snana manual",
     "",
     "#  One-row per accepted-SN dump to <GENVERSION>.DUMP",
     "#  If any var name is not valid, sim aborts and prints list of valid DUMP variables",

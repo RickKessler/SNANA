@@ -1087,14 +1087,16 @@ c for option to fit peakMag in rest-frame filter
       INTEGER SIMFIT_IDEAL_DEBUG
       PARAMETER (SIMFIT_IDEAL_DEBUG=777)   ! do nominal fit twice
 
-      LOGICAL DOFIT_IDEAL
-      INTEGER NFIT_ITERATION_ORIG 
+      LOGICAL DOFIT_IDEAL_EVENT ! refers to both ideal and nominal fit for this event
+      LOGICAL DOFIT_IDEAL       ! =T for ideal fit, =F for nominal fit that follows
+      INTEGER NFIT_ITERATION_ORIG, NFIT_ITERATION_IDEAL 
       REAL*4  
      &    SAVE_FLUXCAL(MXEPOCH), SAVE_MWEBV, SAVE_MWEBV_ERR
      &   ,FITPAR_IDEAL(20) 
       COMMON / FITIDEALCOM / 
-     &   DOFIT_IDEAL, NFIT_ITERATION_ORIG, SAVE_FLUXCAL
-     &  ,SAVE_MWEBV, SAVE_MWEBV_ERR, FITPAR_IDEAL
+     &   DOFIT_IDEAL_EVENT, DOFIT_IDEAL
+     &  ,NFIT_ITERATION_ORIG, NFIT_ITERATION_IDEAL 
+     &  ,SAVE_FLUXCAL, SAVE_MWEBV, SAVE_MWEBV_ERR, FITPAR_IDEAL
 
 +KEEP,VMAXCOM. 
 
@@ -2607,7 +2609,7 @@ c last fit iteration
       CRAZYFITERR = .FALSE.
 
       RETURN
-      END
+      END   ! end CRAZYFITERR
 
 C =====================================
 +DECK,FIRST_ITERATION.
@@ -2628,134 +2630,14 @@ C ---------------- BEGIN ---------------
 
       FIRST_ITERATION = (ITER .EQ. 1) ! .and. (.not. LREPEAT_ITER)
 
-      IF ( DOFIT_IDEAL .and. ITER.EQ.NFIT_ITERATION_ORIG+1 ) then
+      IF ( DOFIT_IDEAL_EVENT .and. ITER.EQ.NFIT_ITERATION_IDEAL+1) then
          FIRST_ITERATION = .TRUE.
       ENDIF
 
       RETURN
-      END
+      END    ! end  FIRST_ITERATION
 
 
-C ===============================
-+DECK,ADD_FITPARERR_FROMz.
-      SUBROUTINE ADD_FITPARERR_FROMz(ITER)
-c
-c ****** BAD IDEA ... MARK DELETE *****
-c
-c Created Jun 30 2020
-c If not photo-z fit, estimate color error from redshift error
-c and increment fitted color error. Make sure to remove incorrect
-c (du/dz)*zerr from Hubble fit error (e.g., BBC)
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
-+CDE,SNFITCOM.
-
-      INTEGER ITER ! (I) iteration
-
-c local var
-      REAL*8  CHI2, CHI2MIN, VAL(MXFITPAR), GRAD(MXFITPAR)
-      REAL*8  CHI2_REF, z_REF, z_PLUSERR, MU_REF, MU_PLUSERR
-      REAL*8  c_REF, c_tmp, c_dif, cmax_dif, c_bin, c_atMIN
-      REAL*8  c_err, c_err_add, c_err_ref
-      INTEGER IFLAG, ipar, ic, NBINc, ic_atMIN
-      LOGICAL LDMP
-
-c functions
-      REAL*8   USRFUN, DLMAG8_REF
-      EXTERNAL USRFUN
-C ----------- BEGIN ------------
-
-      IF ( .NOT. ADD_SALT2ERR_FROMz )        RETURN
-      IF ( OPT_PHOTOZ > 0           )        RETURN
-      IF ( FITMODEL_INDEX .NE. MODEL_SALT2 ) RETURN
-      IF ( ITER < NFIT_ITERATION )           RETURN
-
-cc      LDMP = .TRUE.
-      LDMP = .FALSE.
-
-      DO IPAR = 1, NFITPAR_MN 
-         VAL(ipar)  = FITVAL(ipar,ITER) ;    GRAD(ipar) = 0.0 
-      ENDDO
-c if we get here, fit model is SALT2 and redshift was fixed in fit.
-
-      IFLAG     = FCNFLAG_USER       ! flag for FCNSNLC
-      c_REF     = VAL(IPAR_COLOR)
-      z_REF     = VAL(IPAR_zPHOT)
-      z_PLUSERR = z_REF + SNLC_REDSHIFT_ERR
-      MU_REF      = DLMAG8_REF(z_REF)
-      MU_PLUSERR  = DLMAG8_REF(z_PLUSERR)
-      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2_REF, VAL, IFLAG, USRFUN)
-
-      cmax_dif = 0.6 * (MU_PLUSERR - MU_REF)/SALT2beta
-      NBINc    = 20
-      c_bin    = cmax_dif / dble(NBINc)
-
-      if ( LDMP ) then
-        print*,' xxx -------- DUMP ADD_FITPARERR_FROMz ----------- '
-        print*,' xxx CCID     = ', SNLC_CCID(1:10), '   ITER=',ITER
-        print*,' xxx z_REF    = ', sngl(z_REF), 
-     &             ' +_ ', SNLC_REDSHIFT_ERR
-        print*,' xxx c_REF    = ', sngl(c_REF)        
-        print*,' xxx CHI2_REF = ', sngl(CHI2_REF)
-        print*,' xxx MU       = ', SNGL(MU_REF),' -> ', SNGL(MU_PLUSERR)
-        print*,' xxx cmax_dif = ', sngl(cmax_dif)
-        print*,' xxx c_bin    = ', sngl(c_bin)
-        print*,' xxx NBINc    = ', NBINc
-      endif
-
-      VAL(IPAR_zPHOT) = z_PLUSERR
-      CHI2MIN = 1.0E9
-      c_atMIN = 999. ; ic_atMIN = -9
-      DO 100 ic = 1, NBINc
-         c_dif = -c_bin * dble(ic)
-         c_tmp = c_REF + c_dif
-         VAL(IPAR_COLOR) = c_tmp
-         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, VAL, IFLAG, USRFUN)
-         if ( CHI2 < CHI2MIN ) then
-            CHI2MIN = CHI2
-            c_atMIN = c_tmp
-            ic_atMIN = ic
-         endif
-         if ( LDMP ) then
-            write(6,44) c_dif, chi2
- 44         format(' xxx c_dif = ', F8.4, ' -> CHI2 = ', F9.2 )
-            call flush(6)
-         endif
- 100  CONTINUE
-
-c update fit color error (plus & minus) to include redshift uncertainty
-      c_err_add = abs(c_atmin - c_ref) 
-
-      c_err_ref = FITERR_PLUS(IPAR_COLOR,ITER)
-      c_err     = sqrt(c_err_add**2 + c_err_ref**2)
-      FITERR_PLUS(IPAR_COLOR,ITER)  = c_err
-
-      c_err_ref = FITERR_MINUS(IPAR_COLOR,ITER)
-      c_err     = sqrt(c_err_add**2 + c_err_ref**2)
-      FITERR_MINUS(IPAR_COLOR,ITER)  = -c_err
-
-      if ( LDMP ) then
-         print*,' xxx c_err_add = ', SNGL(c_err_add)
-         print*,' xxx c_err(-) = ', sngl(c_err_ref),' -> ', sngl(c_err)
-      endif
-
-c print warning if min c is at edge of grid
-      if ( ic_atMIN == 1 .or. ic_atMIN == NBINc ) then
-         write(6,660) SNLC_CCID(1:ISNLC_LENCCID), ic_atMIN, NBINc
- 660     format(' WARNING(',A,'): min ic=',I2,'/', I2,
-     &       'c_err(ADD) = ', F6.2 )
-      endif
-
-c restore best-fit values
-      VAL(IPAR_zPHOT) = z_REF
-      VAL(IPAR_COLOR) = c_REF
-
-      RETURN
-      END
 C ===============================
 +DECK,SIMSED_RECON.
       SUBROUTINE SIMSED_RECON()
@@ -4494,7 +4376,7 @@ c set local dump logicals = namelist flag .and. (debug option)
          LDMPFCN_LOC = LDMPFCN(ifilt_obs) 
      &        .and. LFITDATA  ! .and. FIRST_ITERATION(ITER) 
   
-         if(DOFIT_IDEAL .and. ITER<3 ) LDMPFCN_LOC = .FALSE. ! xxx DEBUG ONLY
+         if(DOFIT_IDEAL_EVENT .and. DOFIT_IDEAL ) LDMPFCN_LOC = .FALSE. ! xxx DEBUG ONLY
  
          LDMPFUN_LOC = LDMPFUN(ifilt_obs) 
      &           .and. Trest .GE. TREST_DMPFUN(1)
@@ -8462,9 +8344,12 @@ c so allow one or the other.
 c May 2022: check option to set all of the INIVAL to sim-values
 c    Note that fit floats all params
 
-      IF ( USESIM_INIVAL ) THEN
+      IF ( USESIM_INIVAL .or. DOFIT_IDEAL ) THEN
+
          if ( STDOUT_UPDATE ) then
-            print*,'   Set INIVAL = SIM value'
+	    write(6,420) USESIM_INIVAL, DOFIT_IDEAL
+420         format('   Set INIVAL = SIM value (USESIM_INIVAL=',L2,
+     &           '  DOFIT_IDEAL=',L2,')' )
             call flush(6)
          endif
          INIVAL(IPAR_PEAKMJD)  = SIM_PEAKMJD
@@ -9339,7 +9224,8 @@ c process only 1st fit iteration
 
       IF ( .NOT. FIRST_ITER ) RETURN  
       IF ( LFIXPAR_ALL      ) RETURN  
-      IF ( USESIM_INIVAL    ) RETURN ! May 2022
+      IF ( USESIM_INIVAL    ) RETURN  ! May 2022
+      IF ( DOFIT_IDEAL      ) RETURN  ! Dec 2023
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
 
@@ -15475,14 +15361,15 @@ c+CDE,SNANAFIT.
 
 C ---------- BEGIN --------------
 
-      DOFIT_IDEAL = .FALSE. 
-      NFIT_ITERATION_ORIG = NFIT_ITERATION
+      DOFIT_IDEAL_EVENT = .FALSE. 
+      NFIT_ITERATION_ORIG  = NFIT_ITERATION
+      NFIT_ITERATION_IDEAL = MIN(NFIT_ITERATION,2) ! no more than 2 iter for IDEAL fit
 
       IF ( .NOT. LSIM_SNANA ) SIMFIT_IDEAL_PRESCALE = 0
       IF ( SIMFIT_IDEAL_PRESCALE == 0 ) RETURN
 
       global_banner = 
-     &    'SIMFIT_IDEAL_INI: include IDEAL fit with TRYEFLUX'
+     &    'SIMFIT_IDEAL_INI: include IDEAL fit using TRUEFLUX'
       CALL PRBANNER ( GLOBAL_BANNER(1:60) )
       print*,'   SIMFIT IDEAL PRESCALE = ', SIMFIT_IDEAL_PRESCALE
 
@@ -15498,7 +15385,8 @@ c Called for each event before fit; prepare to add IDEAL fit.
 c
 c ITER=0 --> before fitting begings
 c ITER>0 --> before fit iteration ITER
-
+c
+c
       IMPLICIT NONE
 
 +CDE,SNDATCOM.  from snana.car
@@ -15525,26 +15413,30 @@ c check pre-scale on ITER=0 (before fitting begins)
 c check debug flag to NOT change fluxes, but still run the
 c fit twice to see if we get the same results.
         IF ( SIMFIT_IDEAL_PRESCALE .EQ. SIMFIT_IDEAL_DEBUG ) THEN
-           DOFIT_IDEAL = .TRUE.
-           NFIT_ITERATION = NFIT_ITERATION_ORIG * 2
+           DOFIT_IDEAL_EVENT = .TRUE.
+           NFIT_ITERATION = NFIT_ITERATION_ORIG + NFIT_ITERATION_IDEAL
            RETURN
         ENDIF
 
         PS = DBLE(SIMFIT_IDEAL_PRESCALE)
         IF ( REJECT_PRESCALE(NCALL_SNANA_DRIVER,PS) ) THEN
-           DOFIT_IDEAL = .FALSE.
+           DOFIT_IDEAL_EVENT = .FALSE.
            NFIT_ITERATION = NFIT_ITERATION_ORIG
         ELSE
-           DOFIT_IDEAL = .TRUE.
-           NFIT_ITERATION = NFIT_ITERATION_ORIG * 2
+           DOFIT_IDEAL_EVENT = .TRUE.
+           NFIT_ITERATION = NFIT_ITERATION_ORIG + NFIT_ITERATION_IDEAL
            CALL SET_IDEAL_FLUXCAL(+1)  ! set FLUXCAL = TRUEFLUX
         ENDIF
 
         RETURN
-      ENDIF
+      ENDIF   ! end ITER == 0
+
+c - - - - - - - 
+
+      DOFIT_IDEAL = (ITER <= NFIT_ITERATION_IDEAL) ! Dec 2023
 
 c check to restore nominal FLUXCAL for normal fit with Poisson fluctuations
-      IF ( ITER .EQ. NFIT_ITERATION_ORIG+1 ) THEN
+      IF ( ITER .EQ. NFIT_ITERATION_IDEAL+1 ) THEN
         IF ( SIMFIT_IDEAL_PRESCALE .NE. SIMFIT_IDEAL_DEBUG ) THEN
           CALL SET_IDEAL_FLUXCAL(-1)  ! restore SNLC_FLUXCAL
         ENDIF
@@ -15664,7 +15556,7 @@ C -------------- BEGIN ---------------
       ENDIF
 
 c check when to store results of IDEAL fit
-      IF ( DOFIT_IDEAL .and. ITER .EQ. NFIT_ITERATION_ORIG) THEN
+      IF ( DOFIT_IDEAL_EVENT .and. ITER .EQ. NFIT_ITERATION_IDEAL) THEN
         DO ipar = 1, NFITPAR_MN
            FITPAR_IDEAL(ipar) = FITVAL(IPAR,ITER)
         ENDDO 

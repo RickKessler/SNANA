@@ -31246,11 +31246,7 @@ c function
 C -------------- BEGIN ------------------
 
       IERR = 0   ! set output flag to OK
- 
-+SELF,IF=MINUIT.
-      CALL ADD_FITPARERR_FROMz(ITER)    ! Jun 2020
-+SELF.
-   
+    
 c store chi2
 
       FITCHI2_STORE(1)     = FITCHI2_MIN ! total chi2

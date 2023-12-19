@@ -315,6 +315,7 @@ void initvar_HOSTLIB(void) {
 
   // ----------- BEGIN -------------
 
+
   sprintf(PATH_DEFAULT_HOSTLIB, "%s %s/simlib", 
 	  PATH_USER_INPUT, PATH_SNDATA_ROOT ); // Jul 14 2020
  
@@ -350,6 +351,7 @@ void initvar_HOSTLIB(void) {
   
   
   malloc_HOSTGAL_PROPERTY();
+
 
   HOSTLIB.ZGAPMAX       = -9. ;
   HOSTLIB.Z_ATGAPMAX[0] = -9. ;
@@ -394,8 +396,10 @@ void initvar_HOSTLIB(void) {
   // set array of required and optional keys
   init_REQUIRED_HOSTVAR();
 
+
   // now the optional keys
   init_OPTIONAL_HOSTVAR();
+
 
   HOSTLIB_WGTMAP.GRIDMAP.NDIM = 0;
   HOSTLIB_WGTMAP.GRIDMAP.NFUN = 0;
@@ -406,7 +410,6 @@ void initvar_HOSTLIB(void) {
   HOSTLIB_WGTMAP.N_SNVAR      =  0 ;
   HOSTLIB_WGTMAP.NBTOT_SNVAR  =  1 ; // at least 1 dummy bin of no WGTMAP
   HOSTLIB_WGTMAP.ibin_SNVAR   = -9 ; 
-  // xxx mark  HOSTLIB_WGTMAP.OPT_EXTRAP   =  0 ;
 
   for ( ivar=0; ivar < MXVAR_WGTMAP_HOSTLIB; ivar++ ) {  
     sprintf(HOSTLIB_WGTMAP.VARNAME[ivar], "%s", NULLSTRING );
@@ -416,6 +419,7 @@ void initvar_HOSTLIB(void) {
     HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar] = -9 ;
   }
 
+  
   for ( igal = 0; igal < MXCHECK_WGTMAP ; igal++ ) 
     { HOSTLIB_WGTMAP.CHECKLIST_IGAL[igal] = -9 ;  }
    
@@ -740,7 +744,6 @@ void init_REQUIRED_HOSTVAR(void) {
   cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++; 
   sprintf(cptr, "%s", HOSTLIB_VARNAME_ZTRUE );
   LOAD = load_VARNAME_STORE(cptr) ;
-
 
   // check for required specTemplate coefficients
   for(i = 0; i < HOSTSPEC.NSPECBASIS; i++ ) {
@@ -1184,6 +1187,15 @@ void  read_HOSTLIB_WGTMAP(void) {
   else
     { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
 
+
+  int NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
+  if ( NVAR_WGTMAP == 0 ) {
+    sprintf(c1err, "Found no VARNAMES_WGTMAP key in HOSTLIB_WGTMAP_FILE ;");
+    sprintf(c2err, "Check argument of HOSTLIB_WGTMAP_FILE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return;
 
 } // end of read_HOSTLIB_WGTMAP
 
@@ -6082,7 +6094,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
     sprintf(c1err,"Unable to force GALID = %lld", INPUTS.HOSTLIB_GALID_FORCE);
     sprintf(c2err,"Check sim-input key HOSTLIB_GALID_FORCE"); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    //.xyz
   }
 
   // -----------------------------------------

@@ -441,6 +441,7 @@ int  applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD);
 int  applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
 void dump_MUCOV(COVMAT_DEF *COV, char *comment);
 void sync_HD_LIST(HD_DEF *HD_REF, HD_DEF *HD, COVMAT_DEF *MUCOV);
+void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) ;
 void compute_MUCOV_FINAL();
 void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
@@ -567,9 +568,13 @@ int main(int argc,char *argv[]){
       { read_HD(INPUTS.HD_infile_list[1], &HD_LIST[1]); }
 
     // for large samples, setup logz grid to interpolate rz(z)
+    init_rz_interp(&HD_LIST[0]);
+
+    /* xxx mark delete Dec 18 2023 xxxxxx
     for(f=0; f < INPUTS.NHD; f++ )
       { init_rz_interp(&HD_LIST[f]); }
-
+    xxxx xxxx */
+    
     // Set BAO and CMB priors
     set_priors();
   
@@ -584,6 +589,8 @@ int main(int argc,char *argv[]){
 
       sync_HD_LIST(&HD_LIST[1],
 		   &HD_LIST[0], &WORKSPACE.MUCOV[0] );  // <== modified
+
+      sync_HD_redshifts(&HD_LIST[0], &HD_LIST[1]); 
     }
 
     if ( INPUTS.use_mucov ) {
@@ -1317,7 +1324,6 @@ void read_HD(char *inFile, HD_DEF *HD) {
 
   } // end irow
 
-  // xxx mark  HD->NSN  = NROW2;
 
   HD->NSN = applyCut_HD(HD->pass_cut, HD);
 
@@ -1943,7 +1949,6 @@ void sync_HD_LIST(HD_DEF *HD_REF,
   // Called for HDIBC method where we have two HDs and possibly two COVMATs.
   // Re-define HD and MUCOV to include only those elements in HD_REF.
   //
-  // WARNING: NOT TESTED !!!
 
   int NSN_REF = HD_REF->NSN ;
   int MEMB    = sizeof(bool) * (NSN_REF + 100);
@@ -1984,6 +1989,82 @@ void sync_HD_LIST(HD_DEF *HD_REF,
 
   return ;
 } // end sync_HD_LIST
+
+// ===================================================
+void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
+
+  // Created Dec 18 2023
+  // For binned HD, the redshifts for each HD can be very
+  // slightly different because of how BBC computes <z> in each bin.
+  // This function forces HD1 redshifts to match those in HD0,
+  // and make a slight MU-correction to distance.
+  // Report average diff and abort on crazy-large average.
+  
+  int NSN = HD0->NSN;
+  int MEMD = NSN * sizeof(double);
+  
+  int i, NDIF = 0 ;
+  double z0, z1, zdif, zdif_sum=0, zdif_max=0.0, zdif_avg ;
+  double rz1_orig, rz1_new, mu1_dif, mu1_orig;
+  double *zdif_list   = (double*)malloc(MEMD);
+  double *mu1dif_list = (double*)malloc(MEMD);
+  
+  char fnam[] = "sync_HD_redshifts" ;
+
+  // ------------- BEGIN ----------
+
+  if ( NSN > 100 ) { return; } // bail on unbinned HD
+  
+  print_banner(fnam);
+  
+  for(i=0; i < NSN; i++ ) {
+    z0 = HD0->z[i];
+    z1 = HD1->z[i];
+    zdif = z1 - z0 ;
+
+    if ( zdif == 0.0 ) { continue; }
+    NDIF++ ;
+    
+    zdif_sum += zdif;
+    if ( fabs(zdif) > fabs(zdif_max) ) { zdif_max = zdif; }
+
+    // compute Mu1 shift corresponding to z1 shift
+    rz1_orig     = codist(z1, &HD1->cospar_biasCor);
+    rz1_new      = codist(z0, &HD1->cospar_biasCor);
+    mu1_orig     = HD1->mu[i];
+    
+    mu1_dif = -(get_mu_cos(z0, rz1_new) - get_mu_cos(z1, rz1_orig) ) ;
+    
+    HD1->z[i]   = z0;  // force same redshift
+    HD1->mu[i] += mu1_dif;
+
+    zdif_list[i]   = zdif;
+    mu1dif_list[i] = mu1_dif;
+    
+    //.xyz
+  }
+
+  // - - - - - - - - - 
+  // print z & mu change for each redshift
+  if ( NDIF > 0 ) {
+    for(i=0; i < NSN; i++ ) {
+      z0 = HD0->z[i];
+      printf("\t z=%.5f: dz1 = %9.6f -> mu1 += %8.5f\n",
+	     z0, zdif_list[i], mu1dif_list[i] );
+      fflush(stdout);
+    }
+  } // end NDIF
+  
+  zdif_avg = zdif_sum / (double)NSN;
+  printf("\t <zdif>= %le  zdif_max=%le\n", fnam, zdif_avg, zdif_max);
+  fflush(stdout);
+
+  free(zdif_list); free(mu1dif_list);
+  
+  //  debugexit(fnam);
+  
+  return;
+} // sync_HD_redshifts
 
 // ===================================
 void compute_MUCOV_FINAL(void) {
@@ -2540,7 +2621,7 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
     mucos_loc = mucos0 + frac*(mucos1-mucos0); 
   }
   else {
-    rz_loc    = WORKSPACE.rz_list_interp[iz]; // last z-bin
+    rz_loc    = WORKSPACE.rz_list_interp[iz];    // last z-bin
     mucos_loc = WORKSPACE.mucos_list_interp[iz]; // last z-bin
   }
   
@@ -3362,49 +3443,7 @@ void wfit_final(void) {
   WORKSPACE.sigmu_int = 0.0;
   if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
 
-  
-  // --------- xxx BEWARE: BELOW IS BROKEN xxx ---------------
-
-  /* xxxxxxxxxx mark delete Mar 15 2023 xxxxxxxx
-  sigint_binsize = 0.01;
-  printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
-  fflush(stdout);
-  mindif = 999999.;
-  for ( i = 0; i< 20; i++ ) {
-    sigmu_tmp   = (double)i * sigint_binsize ;
-    sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
-    get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
-	  	  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
-    
-    dif = chi2_tmp/(double)Ndof - 1.0 ;
-    if ( fabsf(dif) < mindif ) {
-      sigmu_int1 = sigmu_tmp ; mindif = dif;
-    }
-  } // end i loop
-
-  // search again in .001 sigmu_int bins
-  sigint_binsize = 0.0002;
-  printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
-  fflush(stdout);
-  mindif = 9999999. ;
-  for ( i = -10; i < 10; i++ ) {
-    sigmu_tmp   = sigmu_int1 + (double)i * sigint_binsize ;
-    sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
-    
-    get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
-		  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
-    
-    dif = chi2_tmp/(double)Ndof - 1.0 ;
-    if ( fabsf(dif) < mindif ) {
-      sigmu_int = sigmu_tmp ; mindif = dif;
-    }
-  }
  
-  WORKSPACE.sigmu_int   = sigmu_int ;
-  xxxxxxxxxxxx end mark xxxxxxxx */
-
   return;
 } // end wfit_final
 

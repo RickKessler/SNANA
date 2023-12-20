@@ -11,6 +11,8 @@
 
 // ================================================
 
+void unit_test_driver(char *UNIT_TEST_NAME);
+
 void test_kcor_utils(void);
 void test_kcor_table_lcmag(void);
 void test_kcor_table_mwxt(void);
@@ -25,11 +27,38 @@ void test_ran(void);
 void test_PARSE_WORDS(void);
 void test_zcmb_dLmag_invert(void);
 
+void test_getRan_funVal(void);
+
 char TEST_REFAC[]  = "REFAC";
 char TEST_LEGACY[] = "LEGACY";
 
 // ************************
 
+
+void unit_test_driver(char *UNIT_TEST_NAME) {
+
+  char fnam[] = "unit_test_driver" ;
+
+  // ------ BEGIN ----------
+
+  if ( strlen(UNIT_TEST_NAME) == 0 ) { return; }
+
+  if ( strcmp(UNIT_TEST_NAME,"IGM") == 0 ) 
+    { test_igm(); }
+
+  else if ( strcmp(UNIT_TEST_NAME,"GETRAN_FUNVAL") == 0 ) 
+    { test_getRan_funVal(); }
+
+  else {
+    sprintf(c1err,"Undefined UNIT_TEST: %s", UNIT_TEST_NAME);
+    sprintf(c2err,"Check UNIT_TEST key in sim-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+} // end unit_test_driver
+
+
+// =====================================
 void test_kcor_utils(void) {
   
   // Created Nov 2022
@@ -495,3 +524,36 @@ void test_igm(void) {
 } // end test_igm 
 
 
+// ===============================
+void test_getRan_funVal(void) {
+
+  // Created Dec 2023
+  // Test asymGauss and expHalf by generating randoms from
+  // distribution and comparing random distribution to 
+  // funVal-computed distribution
+
+  double peak      = 0.0 ;
+  double sig[2]    = { 0.2, 0.3 } ;
+  double range[2]  = {-1.0, 2.0 } ;
+  double range_tot = range[1] - range[0];
+
+  double prob2    = 0.3;
+  double peak2    = 1.0;
+  double sig2[2]  = { 0.4, 0.5} ;
+
+  int  NRANGEN = 10000;
+  int  NBIN_HIST = 50;
+  double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
+
+  char fnam[] = "test_getRan_funVal" ;
+
+  // ----------- BEGIN ---------
+
+  print_banner(fnam);
+
+
+  // .xyz
+  debugexit(fnam);
+
+  return;
+} // end test_funVal

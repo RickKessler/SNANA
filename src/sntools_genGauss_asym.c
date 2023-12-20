@@ -4,6 +4,8 @@
 //  Jun 12 2020: remove obsolete/unused skewnormal code
 //  Jun 24 2021: dillon added parse_input_gengauss,checkVal_GENGAUSS
 //               from snlc_sim.c to use in SALT2mu subprocess
+//  Dec 20 2023: implement PROB_EXPON_REWGT
+//
 // =============================
 
 #include <stdio.h>
@@ -55,6 +57,8 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   genGauss->RMS       = 0.0 ;
 
+  genGauss->PROB_EXPON_REWGT = 1.0;
+
   genGauss->INDEX     = -999 ;
 
   genGauss->KEYSOURCE = -9;
@@ -92,6 +96,7 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   genGauss2->SIGMA2[1]  =  genGauss1->SIGMA2[1] ;
 
   genGauss2->RMS        =  genGauss1->RMS ;
+  genGauss2->PROB_EXPON_REWGT = genGauss1->PROB_EXPON_REWGT;
 
   genGauss2->INDEX      = genGauss1->INDEX ; 
 
@@ -108,7 +113,7 @@ void set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
 
   // July 2020
   // Utility to set Asymmetric Gauss params of genGauss.
-  // Does not set 2nd peak, nor skew.
+  // Does not set 2nd peak, nor skew, nor PROB_EXPON_REWGT.
 
   genGauss->USE      = true ;
   genGauss->PEAK     = peak;
@@ -163,26 +168,46 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
   // Created July 12 2021
   // Warning! Works only for a single peaked Gaussian! 
 
-  double peak = genGauss->PEAK ;
-  double siglo = genGauss->SIGMA[0] ; 
-  double sighi = genGauss->SIGMA[1] ;
-  double *peakrange = genGauss->PEAKRANGE ; 
-  double prob2 = genGauss->PROB2 ;
-  double funVal = NULLDOUBLE ;
-  double arg, tmp ;
+  double peak             = genGauss->PEAK ;
+  double siglo            = genGauss->SIGMA[0] ; 
+  double sighi            = genGauss->SIGMA[1] ;
+  double *peakrange       = genGauss->PEAKRANGE ; 
+  double funVal           = NULLDOUBLE ;
+
+  double funVal2          = 0.0 ;
+  double prob2            = genGauss->PROB2 ;
+  double peak2            = genGauss->PEAK2;
+  double siglo2           = genGauss->SIGMA2[0] ; 
+  double sighi2           = genGauss->SIGMA2[1] ;
+
+  double PROB_EXPON_REWGT = genGauss->PROB_EXPON_REWGT;
+
+  double arg, tmp_nsig, tmp_sig ;
   char *NAME  = genGauss->NAME;
   char fnam[] = "funVal_GENGAUSS_ASYM";
 
   // ----------- BEGIN ---------------
-  if (prob2 > 0) {
+
+  /* xxx mark delete Dec 2023 xxxxxx
+  if (prob2 > 0) {    
     sprintf(c1err,"Second peak not supported for function='%s'", NAME);
     sprintf(c2err, "Remove PROB2 or fix code") ; 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
+  xxxxxxx end */
 
+  if ( PROB_EXPON_REWGT != 1.0 ) {
+    double rewgt_sig   = 1.0/sqrt(PROB_EXPON_REWGT);
+    siglo    *= rewgt_sig ;
+    sighi    *= rewgt_sig ;
+    siglo2   *= rewgt_sig ;
+    sighi2   *= rewgt_sig ;
+  }
+
+  // - - - - - 
   if (x < peakrange[0]) {
-    tmp = (x - peakrange[0]) / siglo ;
-    arg = .5 * tmp * tmp ;
+    tmp_nsig = (x - peakrange[0]) / siglo ;
+    arg = .5 * tmp_nsig * tmp_nsig ;
     funVal = exp(-arg) ; //note funVal=1 when x = peakrange[0]
   }
 
@@ -191,9 +216,28 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
   }
 
   else {
-    tmp = (x - peakrange[1]) / sighi ;
-    arg = .5 * tmp * tmp ;
+    tmp_nsig = (x - peakrange[1]) / sighi ;
+    arg = .5 * tmp_nsig * tmp_nsig ;
     funVal = exp(-arg) ; //note funVal=1 when x = peakrange[1]
+  }
+
+  // - - - - - -
+  // check 2nd Gaussian; Dec 2023
+  if ( prob2 > 0.0 ) {
+    if ( x < peak2 )
+      { tmp_sig = siglo2; }
+    else
+      { tmp_sig = sighi2; }
+
+    
+    tmp_nsig = (x - peak2) / tmp_sig ;
+    arg = .5 * tmp_nsig * tmp_nsig ;
+    funVal2 = prob2 * exp(-arg) ;   
+  }
+
+  // - - - - -
+  if ( PROB_EXPON_REWGT != 1.0 )  { 
+    funVal = pow(funVal,PROB_EXPON_REWGT); 
   }
 
   if (funVal < 0.) {
@@ -231,7 +275,7 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   //  + rename exec_GENGAUSS_ASYM -> getRan_GENGAUSS_ASYM
   //
   double peak, peakrange[2], lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
-  double gridsize, grid0;
+  double gridsize, grid0, prob_expon_rewgt;
   int NTRY, DO_SKEWSIGMA, DO_GRID, DO_PEAKRANGE;
   int NGRID, FUNINDEX, j ;
   int USE_PEAK1=1, MXTRY = 1000, LDMP=0 ;
@@ -248,38 +292,39 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   if ( !genGauss->USE ) {  return(ranval);  }
 
-  /*
-  if ( !genGauss->USE ) {  
-    printf(" xxx %s: undefined '%s' PEAK=%f  RANGE = %f to %f\n", 
-    	   fnam, NAME, genGauss->PEAK,
-	   genGauss->RANGE[0], genGauss->RANGE[1] ); 
-    return(ranval); 
-  }
-  */
-
   // check optional 2nd peak (Mar 2017)
   PROB2 = genGauss->PROB2 ;
   if ( PROB2 > 0.0000001 ) {
     ran2 = getRan_Flat1(1) ;
     if ( ran2 < PROB2 ) {
-      peak        = genGauss->PEAK2 ;
+      peak         = genGauss->PEAK2 ;
       peakrange[0] = peak ;
       peakrange[1] = peak ; 
-      siglo       = genGauss->SIGMA2[0] ;
-      sighi       = genGauss->SIGMA2[1] ;
+      siglo        = genGauss->SIGMA2[0] ;
+      sighi        = genGauss->SIGMA2[1] ;
       skewlo = skewhi = 0.0 ;
-      USE_PEAK1   = 0;
+      USE_PEAK1       = 0;
     }
   }
 
   if ( USE_PEAK1 ) {
-    peak        = genGauss->PEAK ;
+    peak           = genGauss->PEAK ;
     peakrange[0]   = genGauss->PEAKRANGE[0] ; 
     peakrange[1]   = genGauss->PEAKRANGE[1] ;
-    siglo       = genGauss->SIGMA[0] ;
-    sighi       = genGauss->SIGMA[1] ;
-    skewlo      = genGauss->SKEW[0] ;
-    skewhi      = genGauss->SKEW[1] ;
+    siglo          = genGauss->SIGMA[0] ;
+    sighi          = genGauss->SIGMA[1] ;
+    skewlo         = genGauss->SKEW[0] ;
+    skewhi         = genGauss->SKEW[1] ;
+  }
+
+  // Dec 2023: check option to rewgt prob by adjust sigma
+  prob_expon_rewgt = genGauss->PROB_EXPON_REWGT;
+  if ( prob_expon_rewgt != 1.0 ) {
+    double rewgt = 1.0/sqrt(prob_expon_rewgt) ;
+    siglo  *= rewgt ;
+    sighi  *= rewgt ;
+    skewlo *= rewgt ;
+    skewhi *= rewgt ;
   }
 
   lo          = genGauss->RANGE[0] ;
@@ -295,10 +340,10 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     printf("\t peak = %f \n", peak);
     printf("\t range(lo,hi) = %f, %f \n", lo, hi );
     printf("\t sigma(lo,hi) = %f, %f \n", siglo, sighi );
+    printf("\t prob_expon_rewgt = %f \n", prob_expon_rewgt);
     sprintf(c1err,"Crazy NGRID=%d", NGRID );
     errmsg(SEV_FATAL, 0, fnam, c1err, "" );
   }
-
 
   gridsize = grid0 = -9.0 ;
   DO_GRID = ( NGRID >=2 && hi>lo && siglo>0.0 && sighi>0.0 );
@@ -417,6 +462,11 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   ptrVal = genGauss->SIGMA; 
   printf("\t SIGMA(-/+) = %.3f / %.3f \n", ptrVal[0], ptrVal[1] );
 	  
+  double prob_expon_rewgt = genGauss->PROB_EXPON_REWGT;
+  if ( prob_expon_rewgt != 1.0 ) {
+    printf("\t PROB_EXPON_REWGT = %.3f \n", prob_expon_rewgt);
+  }
+
   printf(" END %s \n", fnam );
   printf("# ------------------------------------------- \n");
 
@@ -435,6 +485,9 @@ int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
   // Utility to read GENGAUSS struct from WORDS array. 
   // WORDS[0] is compared against [VARNAME]_XXX where 
   // XXX is GENSIGMA, GENPEAK, etc ...
+  //
+  // Dec 2023: Beware that PROB_EXPON_REWGT is set in code and
+  //           not parsed via input file.
 
   int  N = 0 ;
   char KEYNAME[80];

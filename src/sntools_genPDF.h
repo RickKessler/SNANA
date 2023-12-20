@@ -48,12 +48,15 @@ void   init_genPDF(int OPTMASK, FILE *fp, char *fileName, char *ignore);
 void   init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS);
 void   assign_VARNAME_GENPDF(int imap, int ivar, char *varName) ;
 void   checkAbort_VARNAME_GENPDF(char *varName);
-double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
-void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE, int dumpFlag);
+double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
+double funVal_genPDF(char *parName, double *xval, GENGAUSS_ASYM_DEF *GENGAUSS); 
+void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE, 
+			    int dumpFlag);
 void   free_memory_genPDF(void); // release memory of all genPDF maps
 
 int  IDMAP_GENPDF(char *parName, bool *LOGPARAM);
 void iter_summary_genPDF(void);
-bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS);
+
+// xxx mark bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS);
 
 // END

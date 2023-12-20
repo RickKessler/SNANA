@@ -24,8 +24,11 @@ typedef struct  {
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index
   double RMS;  // RMS of asym Gaussian 
 
+  // Dec 2023: option to rewgt prob
+  double PROB_EXPON_REWGT; // PROB -> PROB^PROB_EXPON_REWGT
+
   int KEYSOURCE ; // 1=FILE, 2=ARG; used for prioritization
-  int INDEX; // Generic index for internal use (not part of function)
+  int INDEX;      // Generic index for internal use (not part of function)
 
 } GENGAUSS_ASYM_DEF ;
 

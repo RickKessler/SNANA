@@ -22131,4 +22131,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      sntools_host.c
        + abort if VARNAMES_WGTMAP is not found
 
+
+    # - - - - - - - -    
+    getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) ->
+    getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double *prob)
+
+    getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS) ->
+    getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double *prob);
+
+    getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) ->
+    getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, double *prob);
+
+    For each getRan feature, add element FUDGE_POWER to fudge 
+    PROB -> PROB**FUDGE_POWER; problem doing double Gauss and EXP+HalfGauss.
+
 END: 

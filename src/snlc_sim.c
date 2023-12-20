@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   // one-time init of sim-variables
   init_simvar();
 
-  //  test_igm(); // xxxx
+  unit_test_driver(INPUTS.UNIT_TEST);
 
   // read user input file for directions
   get_user_input();
@@ -664,6 +664,7 @@ void set_user_defaults(void) {
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
   INPUTS.README_DUMPFLAG    = false ;
+  INPUTS.UNIT_TEST[0]       = 0 ;
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
@@ -1663,6 +1664,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "README", WORDS[0], keySource) ) {
     INPUTS.README_DUMPFLAG = true ;
     N++ ; // no arg, but increment word count to avoid command-line abort
+  }
+
+  else if ( keyMatchSim(1, "UNIT_TEST", WORDS[0], keySource) ) {
+    N++ ; sprintf(INPUTS.UNIT_TEST, "%s", WORDS[N] ) ;
   }
 
   else if ( keyMatchSim(1, "TIME_START", WORDS[0], keySource) ) {
@@ -12750,8 +12755,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Jul 23 2020: DOSHAPE = F for LCLIB model.
   Aug 31 2020: DOSHAPE = F for BYOSED model
-  Oct 20 2020: skip get_random_genPDF for SIMLIB model
-  Dec 23 2020: skip get_random_genPDF if x1 is from HOSTLIB (ISx1_HOSTLIB)
+  Oct 20 2020: skip getRan_genPDF for SIMLIB model
+  Dec 23 2020: skip getRan_genPDF if x1 is from HOSTLIB (ISx1_HOSTLIB)
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -12792,8 +12797,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB, snam, &INPUTS.GENGAUSS_SHAPEPAR);
 
-    // pick random shape value from populatoin at this redshift
-    shape = get_random_genPDF(snam, &GENGAUSS_ZVAR);
+    // pick random shape value from population at this redshift
+    shape = getRan_genPDF(snam, &GENGAUSS_ZVAR);
 
     // load shape value into global GENLC struct
     GENLC.SHAPEPAR      = shape ; 
@@ -12847,7 +12852,7 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
   // Created Feb 26 2018
   // Generated c, x1, alpha, beta
   // Mar 11 2020: pass OPT_FRAME argument.
-  // Nov 03 2021: call get_random_genPDF for alpha and beta
+  // Nov 03 2021: call getRan_genPDF for alpha and beta
 
   bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
@@ -12872,18 +12877,18 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 	get_zvariation_GENGAUSS(ZCMB,"SALT2c",&INPUTS.GENGAUSS_SALT2c);
 
       GENLC.SALT2c = 
-	get_random_genPDF("SALT2c", &GENGAUSS_ZVAR );
+	getRan_genPDF("SALT2c", &GENGAUSS_ZVAR );
     }
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
     GENLC.SALT2alpha =    // Nov 3 2021
-      get_random_genPDF("SALT2ALPHA", &GENGAUSS_ZVAR );
+      getRan_genPDF("SALT2ALPHA", &GENGAUSS_ZVAR );
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
     GENLC.SALT2beta =    // Nov 3 2021
-      get_random_genPDF("SALT2BETA", &GENGAUSS_ZVAR );
+      getRan_genPDF("SALT2BETA", &GENGAUSS_ZVAR );
 
     // 2/29/2016: optional  beta(c) polynomial 
     // 3/23/2020: refactor using GENPOLY tools
@@ -16296,11 +16301,11 @@ double gen_AV(void) {
   // Jun 2020: check for map in GENPDF_FILE
   if ( INPUTS.DOGEN_AV == 2 ) {   // flag to get AV from map
     GENGAUSS_NULL.USE = false ;
-    AV = get_random_genPDF(PARNAME_AV, &GENGAUSS_NULL); 
+    AV = getRan_genPDF(PARNAME_AV, &GENGAUSS_NULL); 
   }
   if ( INPUTS.DOGEN_AV == 4 ) {  // flag to get EBV from map
     GENGAUSS_NULL.USE = false ;
-    EBV_HOST = get_random_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
+    EBV_HOST = getRan_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
     AV       = EBV_HOST * RV ;
   }
 
@@ -16384,7 +16389,7 @@ double gen_RV(void) {
   GENGAUSS_ZVAR = 
     get_zvariation_GENGAUSS(ZCMB, PARNAME_RV, &INPUTS.GENGAUSS_RV); 
 
-  RV = get_random_genPDF(PARNAME_RV, &GENGAUSS_ZVAR); 
+  RV = getRan_genPDF(PARNAME_RV, &GENGAUSS_ZVAR); 
 
   return RV ;
 

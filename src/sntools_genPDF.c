@@ -428,8 +428,46 @@ void checkAbort_VARNAME_GENPDF(char *varName) {
 
 #ifndef USE_SUBPROCESS
 
+
+// ===================================
+double funVal_genPDF(char *parName, double *xval, GENGAUSS_ASYM_DEF *GENGAUSS) {
+
+  // Created Dec 19 2023
+  // For input parName and par-values *xval, return genPDF function value
+  // For multi-dim genPDF map, make sure that *xval array is properly loaded.
+  // For GENGAUSS option, only xval[0] is used.
+  //
+  // BEWARE: un-tested.
+
+  int IDMAP, istat ;
+  double prob = -9.0 ;
+  bool IS_LOGPARAM;
+  char fnam[] = "funVal_genPDF" ;
+
+  // -------------- BEGIN ------------
+
+  if ( NMAP_GENPDF > 0 ) {
+    IDMAP = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
+    istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, xval, &prob);
+  }
+
+  if  ( GENGAUSS->USE ) {
+    prob = funVal_GENGAUSS_ASYM(xval[0], GENGAUSS);
+  }
+
+  if ( prob < -1.0E-6 || prob > 1.0000000001 ) {
+    sprintf(c1err,"Invalid prob = %le for parName=%s (IDMAP=%d)", 
+	    prob, parName, IDMAP);
+    sprintf(c2err,"Need either GENPDF map or GENGAUSS");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return;
+
+} // end funVal_genPDF
+
 // =====================================================
-double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
+double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 			 
   int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
   int    IGAL = SNHOSTGAL.IGAL;
@@ -441,10 +479,9 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   double VAL_RANGE[2], FUNMAX, prob_ratio ;
   int    LDMP = 0 ;
   bool   DO_GENGAUSS; 
-  // xx  bool   matchVar    = false ; // true -> both GENPDF and GENGAUSS provided
   bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
   char   *MAPNAME, *VARNAME ;
-  char fnam[] = "get_random_genPDF";
+  char fnam[] = "getRan_genPDF";
   
   // ------------- BEGIN -----------
 
@@ -458,11 +495,6 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       FUNMAX        = GENPDF[IDMAP].GRIDMAP.FUNMAX[0] ;
       NDIM          = GENPDF[IDMAP].GRIDMAP.NDIM ;
       prob_ref=1.0; prob=0.0;
-
-      /* xxx mark 
-      if ( matchVar_GENPDF_GENGAUSS(VARNAME,GENGAUSS->NAME) ) 
-	{ matchVar = true; }
-      */
 
       // tack on optional dependence on HOSTLIB
       // Leave var_inputs[0] to be filled below inside while loop
@@ -565,8 +597,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // check explicit asymGauss function 
   DO_GENGAUSS = GENGAUSS->USE ;
 
-
-  if  ( DO_GENGAUSS ) {   
+  if  ( GENGAUSS->USE ) {
     N_EVAL++ ;
     r = getRan_GENGAUSS_ASYM(GENGAUSS) ;
   }
@@ -585,8 +616,11 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   return(r);
 
-} // end get_random_genPDF
+} // end getRan_genPDF
 
+
+
+/* xxxx mark delete Dec 19 2023 xxxxxx
 // ========================================================
 bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS) {
   // Created Aug 10 2021 by R.Kessler
@@ -598,6 +632,8 @@ bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS) {
 
   return false ;
 } // end matchVar_GENPDF_GENGAUSS
+xxxxxx end mark xxxxxx*/
+
 
 // ========================================================
 void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, 
@@ -686,7 +722,7 @@ int IDMAP_GENPDF(char *parName, bool *FOUND_LOGPARAM) {
 
   // return IDMAP for this input parName.
   // Match against first varName in each map.
-  // Mar 26 2021: of LOGparName exists, return LOGPARAM=True.
+  // Mar 26 2021: if LOGparName exists, return LOGPARAM=True.
 
   int ID=-9, imap;
   char *tmpName, LOGparName[60];

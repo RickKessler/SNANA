@@ -452,6 +452,7 @@ struct INPUTS {
   bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
   bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
   bool README_DUMPFLAG;      // dump readme and stop (Feb 2022)
+  char UNIT_TEST[60];        // name of unit test to run
 
   // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names

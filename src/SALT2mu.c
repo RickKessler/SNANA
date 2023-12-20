@@ -289,6 +289,8 @@ For help, run code with no arguments
  Aug 03 2023: display CPUTIME_XXX with print_cputime() utility.
  Aug 14 2023: abort on missing varname_pIa if simfile_CCprior is set
 
+ Dec 19 2023: begin refactor to integrate new WGT_biasCor_population() function
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -686,6 +688,7 @@ typedef struct {
   // define arrays which depend on SURVEYGROUP/FIELDGROUP sub-sample
   bool    *USE;                 // T -> enough events in cell to use
   int     *NperCell ;           // Number of events in each cell, vs. J1D
+  double  *WperCell;            // population-weighted sum per cell (Dec 2023)
   double  *AVG_z;               // wgt-avg z in each cell, vs J1D
   double  *AVG_m;
   double  *AVG_LCFIT[NLCPAR];   // idem for mB,x1,c, vs. J1D
@@ -1648,6 +1651,7 @@ void   J1D_invert_I(int IDSAMPLE, int J1D, int *ia, int *ib, int *ig,
 		    int *iz, int *im, int *ix1, int *ic);
 void   get_J1DNBR_LIST(int IDSAMPLE, int J1D, int *NJ1DNBR, int *J1DNBR_LIST) ;
 double WGT_biasCor(int opt, int ievt, char *msg);
+double WGT_biasCor_population(int ievt, char *msg);
 
 int validRowKey_TEXT(char *string) ; // see sntools_output_text.c
 
@@ -5813,6 +5817,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   // allocate redshift bins
   CELLINFO->USE      =  (bool   *) malloc(MEMB);
   CELLINFO->NperCell =  (int    *) malloc(MEMI);
+  CELLINFO->WperCell =  (double *) malloc(MEMI);
   CELLINFO->AVG_z    =  (double *) malloc(MEMD);
   CELLINFO->AVG_m    =  (double *) malloc(MEMD);
   CELLINFO->AVG_LCFIT[INDEX_c] = (double *) malloc(MEMD);
@@ -10299,6 +10304,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
 
   print_debug_malloc(+1*debug_malloc,fnam);
   CELLINFO_BIASCOR[IDSAMPLE].NperCell = (int   *) malloc(MEMI0);
+  CELLINFO_BIASCOR[IDSAMPLE].WperCell = (double*) malloc(MEMD0);
   CELLINFO_BIASCOR[IDSAMPLE].AVG_z    = (double*) malloc(MEMD0);
   CELLINFO_BIASCOR[IDSAMPLE].AVG_m    = (double*) malloc(MEMD0);
 
@@ -10351,7 +10357,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   int J1DNBR_LIST[MXJ1DNBR], NJ1DNBR ;
 
   double fit_val, sim_val, biasVal, sim_gammadm ;
-  double WGT, VAL, ERR, RMS, SQRMS, XN, XNLIST, tmp1, tmp2 ;
+  double WGT, VAL, ERR, RMS, SQRMS, WN, XNLIST, tmp1, tmp2, WGT_pop ;
   double *SUMBIAS, *SUMWGT, *sum, *sumsq ;
 
   float *ptr_fitpar, *ptr_simpar, *ptr_gammadm;
@@ -10383,6 +10389,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
     INFO_BIASCOR.FITPARBIAS[IDSAMPLE][J1D].ERR[ipar_LCFIT] = 999. ;
     INFO_BIASCOR.FITPARBIAS[IDSAMPLE][J1D].RMS[ipar_LCFIT] = 999. ;    
     CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D]  = 0 ;
+    CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D]  = 0.0 ;
 
     // init local arrays
     SUMBIAS[J1D] = SUMWGT[J1D] = 0.0 ;
@@ -10414,34 +10421,39 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 
     biasVal = fit_val - sim_val ; 
 
-    WGT = WGT_biasCor(2,ievt,fnam) ;  // WGT=1/muerr^2 for wgted average
-    J1D = J1D_biasCor(ievt,fnam);     // 1D index
+    WGT     = WGT_biasCor(2,ievt,fnam) ;  // WGT= WGT_pop * 1/muerr^2 for wgted average
+    WGT_pop = WGT_biasCor_population(ievt,fnam) ;
+    J1D     = J1D_biasCor(ievt,fnam);     // 1D index
 
     SUMBIAS[J1D]  += (WGT * biasVal) ;
     SUMWGT[J1D]   += WGT ;
 
     // increment unweighted sums to get RMS and bias-error
-    sum[J1D]   += (biasVal) ;
-    sumsq[J1D] += (biasVal * biasVal) ;  
+    sum[J1D]   += WGT_pop * (biasVal) ;
+    sumsq[J1D] += WGT_pop * (biasVal * biasVal) ;  
 
     // -----------------
     NEVT_USE++ ;
     CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D]++ ;
+
+    //.xyz Total WGT or just WGT_pop ??
+    CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D] += WGT_pop ; 
   }
 
   // convert sums in each IZ,LCFIT bin into mean bias,
   
   int    NMAP_TOT = 0 ;
   int    NMAP_USE = 0 ;
-  double sumsq_nbr, sum_nbr ;
-  int    Nsum_nbr, J1D_nbr, inbr ;
+  double sumsq_nbr, sum_nbr, Wsum_nbr ;
+  // xxx mark  int    Nsum_nbr=0;
+  int    J1D_nbr, inbr ;
   int    NgetList = 0 ;
 
   for(J1D=0; J1D < NCELL; J1D++ ) {
 
     NMAP_TOT++ ;  
     N   = CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D] ;
-    XN  = (double)N ;
+    WN  = CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D] ;
 
     if ( N < 1 ) { continue ; }
 	
@@ -10464,7 +10476,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
       NgetList++ ;
     }
 
-    sumsq_nbr = sum_nbr = 0.0 ;  Nsum_nbr=0;
+    sumsq_nbr = sum_nbr = Wsum_nbr = 0.0 ; 
     for(inbr=0; inbr < NJ1DNBR; inbr++ ) {
       J1D_nbr  = J1DNBR_LIST[inbr] ;
       
@@ -10475,15 +10487,17 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
       }
       sumsq_nbr += sumsq[J1D_nbr] ;
       sum_nbr   += sum[J1D_nbr] ;
-      Nsum_nbr  += CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D_nbr] ;
+      // xxx mark delete Nsum_nbr  += CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D_nbr] ;
+      Wsum_nbr  += CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D_nbr] ;
     }
-    XNLIST = (double)Nsum_nbr ;
+    // xxx mark delete     XNLIST = (double)Nsum_nbr ;
+    XNLIST = Wsum_nbr ;
 
     tmp1   = sum_nbr/XNLIST;   tmp2=sumsq_nbr/XNLIST ;
     SQRMS  = tmp2 - tmp1*tmp1 ;
 
     RMS    = sqrt( fabs(SQRMS) ); // protect against -epsilon (Nov 18 2016)
-    ERR    = RMS/sqrt(XN);   // note denom uses XN, not XNLIST
+    ERR    = RMS/sqrt(WN);   // note denom uses XN, not XNLIST
     if ( ERR == 0.0 ) { ERR = 1.0E-12; } // avoid nan = 1/ERR^2
     INFO_BIASCOR.FITPARBIAS[IDSAMPLE][J1D].VAL[ipar_LCFIT] = VAL ;
     INFO_BIASCOR.FITPARBIAS[IDSAMPLE][J1D].ERR[ipar_LCFIT] = ERR ;
@@ -10637,8 +10651,10 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   
   // --------------- BEGIN -------------------
 
+  WGT = WGT_biasCor_population(ievt,msg); // Dec 2023
+
   muerrsq  = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
-  WGT      = 1.0/muerrsq ;
+  WGT     *= 1.0/muerrsq ;
 
   if ( opt == 1 ) { return(WGT); }
 
@@ -10684,6 +10700,27 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   return(WGT);
 
 } // end WGT_biasCor
+
+// =====================================================
+double WGT_biasCor_population(int ievt, char *msg) {
+
+  // Created Dec 19 2023
+  // Placeholder to weight by c,x1 population if sim-biasCor was
+  // generated with flat c & x1 distribution in order to better 
+  // sample the low-prob regions.
+  //
+  // Inputs:
+  //   ievt : biasCor event index
+  //   msg  : error message for abort.
+
+  double WGT = 1.0 ;
+  char fnam[] = "WGT_biasCor_population";
+
+  // ------------ BEGIN ------------
+
+  return WGT;
+
+} // end WGT_biasCor_population
 
 // ===========================
 int J1D_biasCor(int ievt, char *msg ) {
@@ -12090,7 +12127,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   int  i, ia, ib, ig ;
   int  LDMP = 0 ;
 
-  double muErrsq,  muDif, SNRMAX, sigInt ;
+  double muErrsq,  muDif, SNRMAX, sigInt, WGT, WGTSUM ;
   int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, USEMASK, DOPRINT ;
   int        *ptr_CUTMASK ;
   short int  *ptr_IDSAMPLE ;
@@ -12257,6 +12294,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   // -------------------------------------------------
   DOPRINT = ( IDSAMPLE==0 || DO_SIGINT_SAMPLE ) ;
   SIGINT_AVG = 0.0 ;
+  WGTSUM     = 0.0 ;
 
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {    
@@ -12277,8 +12315,8 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 			      MUERRSQ[ia][ib][ig], 0, callFun );
 	
 	// load SIGINT value
-	SIGINT_ABGRID[ia][ib][ig] = sigInt ;
-	SIGINT_AVG               += sigInt ;
+	SIGINT_ABGRID[ia][ib][ig] = sigInt  ;
+	SIGINT_AVG               += sigInt  ;
 
 	if ( DOPRINT ) {
 	  fprintf(FP_STDOUT,"    sigInt[ia,ib,ig=%d,%d,%d] = %.4f "
@@ -12753,9 +12791,10 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
 
     irow = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
 
-    WGT = WGT_biasCor(1,irow,fnam) ;  // WGT=1/muerr^2
+    WGT = WGT_biasCor(1,irow,fnam) ;  // WGT = WGT_population 1/muerr^2
+
     J1D = J1D_biasCor(irow,fnam);     // 1D index
-    NperCell[J1D]++ ;
+    NperCell[J1D]++ ; // not used ??
     SUM_WGT_5D[J1D] += WGT ;
 
     z   = (double)ptr_z[irow] ;
@@ -12827,7 +12866,7 @@ void calc_zM0_biasCor(void) {
     CUTMASK = ptr_CUTMASK[i] ;
     if ( CUTMASK ) { continue; }
 
-    WGT = WGT_biasCor(1,i,fnam) ;  // WGT=1/muerr^2
+    WGT = WGT_biasCor(1,i,fnam) ;  // WGT = WGT_population * 1/muerr^2
 
     z   = (double)(ptr_z[i]) ;
     iz  = IBINFUN(z,  &INPUTS.BININFO_z, 0, "" );
@@ -22328,7 +22367,7 @@ void print_SALT2mu_HELP(void) {
     "",
     "varname_pIa=name      # fitres column name containing pIa",
     "force_pIa=forced      # force fixed pIa value for every event",
-    "force_pIa='perfect'   # force pIa = 1/0 for true Ia/CC (sim only)",
+    "force_pIa=perfect     # force pIa = 1/0 for true Ia/CC (sim only)",
     "",
     "#  Several optoins to force P(SNIa)=1 and P(CC)=0 for ",
     "#  spectroscopic-confirmed subset:",
@@ -22971,7 +23010,7 @@ void  SUBPROCESS_INIT_RANFLAT(int iter) {
     r1 = unix_getRan_Flat1(1);
     r2 = unix_getRan_Flat1(1);
 
-    SUBPROCESS.RANFLAT_REWGT[isn] = (float)r1; 
+    SUBPROCESS.RANFLAT_REWGT[isn]    = (float)r1; 
     SUBPROCESS.RANFLAT_PRESCALE[isn] = (float)r2; 
     if ( isn < 4 )   { 
       printf("%s\t RANFLAT[%d] = %8.5f %8.5f\n", 
@@ -23004,12 +23043,12 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   bool is_salt2, is_rv, is_ebv ; 
   char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST;
   char LINE[MXPATHLEN], TMPLINE[MXPATHLEN] ; 
-  char varlist[40] = "";
+  char varlist[80] = "";
   char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
 
   // ---------- BEGIN -------------
 
-  // init optional profiles for REMREF bounding function
+  // init optional profiles for SIMREF bounding function
   init_GENGAUSS_ASYM(GENGAUSS_SALT2c,  0.0 );
   init_GENGAUSS_ASYM(GENGAUSS_SALT2x1, 0.0 );
   init_GENGAUSS_ASYM(GENGAUSS_RV,      0.0 );
@@ -23045,7 +23084,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
 
   while (fscanf(finp, "%s", c_get) != EOF ) {
-    is_salt2  = ( strstr(c_get,"SALT2")  != NULL ) ; 
+    is_salt2   = ( strstr(c_get,"SALT2")  != NULL ) ; 
     is_rv      = ( strstr(c_get,"RV")      != NULL ) ;
     is_ebv     = ( strstr(c_get,"EBV")     != NULL ) ;
 
@@ -23086,16 +23125,15 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
   fclose(finp) ; 
 
-  if ( GENGAUSS_SALT2x1->USE ) { catVarList_with_comma(varlist,"SALT2x1"); }
-  if ( GENGAUSS_SALT2c->USE  ) { catVarList_with_comma(varlist,"SALT2c");  }
-  if ( GENGAUSS_RV->USE      ) { catVarList_with_comma(varlist,"RV");      }
-  if ( EXP_EBV->USE          ) { catVarList_with_comma(varlist,"EBV") ;    }
-  if ( GENGAUSS_SALT2BETA->USE ) { catVarList_with_comma(varlist,"SALT2BETA"); }
+  if ( GENGAUSS_SALT2x1->USE    ) { catVarList_with_comma(varlist,"SALT2x1"); }
+  if ( GENGAUSS_SALT2c->USE     ) { catVarList_with_comma(varlist,"SALT2c");  }
+  if ( GENGAUSS_RV->USE         ) { catVarList_with_comma(varlist,"RV");      }
+  if ( EXP_EBV->USE             ) { catVarList_with_comma(varlist,"EBV") ;    }
+  if ( GENGAUSS_SALT2BETA->USE  ) { catVarList_with_comma(varlist,"SALT2BETA"); }
   if ( GENGAUSS_SALT2ALPHA->USE ) { catVarList_with_comma(varlist,"SALT2ALPHA"); }
 
   printf("\t Stored bounding functions for '%s' \n", varlist);
   fflush(stdout);
-
 
   int LDMP = 0;
   if ( LDMP ) {
@@ -23109,6 +23147,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
   //debugexit(fnam) ; 
   return ; 
+
 } //END SUBPROCESS_READ_SIMREF_INPUTS
 
 

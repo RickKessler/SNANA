@@ -75,7 +75,6 @@ void test_kcor_utils(void) {
   test_kcor_table_kcor();
   test_GET_KCOR_DRIVER();
 
-  //.xyz
   debugexit(fnam);
   return;
 
@@ -533,23 +532,128 @@ void test_getRan_funVal(void) {
   // funVal-computed distribution
 
   double peak      = 0.0 ;
-  double sig[2]    = { 0.2, 0.3 } ;
-  double range[2]  = {-1.0, 2.0 } ;
+  double sig[2]    = {  0.2, 0.4 } ;
+  double range[2]  = { -1.0, 3.0 } ;
   double range_tot = range[1] - range[0];
 
-  double prob2    = 0.3;
-  double peak2    = 1.0;
-  double sig2[2]  = { 0.4, 0.5} ;
+  double prob2    = 0.3 ;
+  double peak2    = 1.0 ;
+  double sig2[2]  = { 0.1, 0.3 } ;
 
-  int  NRANGEN = 10000;
-  int  NBIN_HIST = 50;
-  double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
+  double prob_expon_rewgt = 1.0 ;
+
+  GENGAUSS_ASYM_DEF GENGAUSS;
 
   char fnam[] = "test_getRan_funVal" ;
 
   // ----------- BEGIN ---------
 
   print_banner(fnam);
+
+  init_GENGAUSS_ASYM(&GENGAUSS, (double)0.0 ); 
+
+  GENGAUSS.USE      = true;
+
+  GENGAUSS.PEAK     = peak;
+  GENGAUSS.SIGMA[0] = sig[0];
+  GENGAUSS.SIGMA[1] = sig[1];
+  GENGAUSS.RANGE[0] = range[0];
+  GENGAUSS.RANGE[1] = range[1];
+
+  GENGAUSS.PROB2     = prob2;
+  GENGAUSS.PEAK2     = peak2;
+  GENGAUSS.SIGMA2[0] = sig2[0];
+  GENGAUSS.SIGMA2[1] = sig2[1];
+
+  GENGAUSS.PROB_EXPON_REWGT = prob_expon_rewgt;
+
+  dump_GENGAUSS_ASYM(&GENGAUSS);
+
+  // ----------
+  int  NRANGEN = 5000000;
+  int  NBIN_HIST = 600;
+  double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
+  double r, x, xmin, xmax, funVal, genVal, genVal_err, nsig;
+  double funVal_edge[2], funVal_integral=0.0 ;
+
+  int MEMD = NBIN_HIST * sizeof(double);
+  int MEMI = NBIN_HIST * sizeof(int);
+  double *funVal_PER_BIN = (double *) malloc(MEMD) ;
+  double *x_PER_BIN      = (double *) malloc(MEMD) ;
+  int    *NGEN_PER_BIN   = (int    *) malloc(MEMI) ;
+  int i, bin, MX_PER_BIN=0, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
+
+  printf("\t generate %d random numbers from genGauss_asym:\n",
+	 NRANGEN);
+
+  printf("\t GENRAN_INFO.NLIST_RAN = %d \n", GENRAN_INFO.NLIST_RAN);
+  fflush(stdout);
+
+  for(bin=0; bin < NBIN_HIST; bin++ ) { 
+    NGEN_PER_BIN[bin] = 0 ; 
+    x_PER_BIN[bin] = range[0] + ((double)bin + 0.5) * BINSIZE_HIST; // bin center
+  }
+
+
+  for(i=0; i < NRANGEN; i++ ) {
+    if ( i % 200 == 0 ) { fill_RANLISTs(); }
+    r   = getRan_GENGAUSS_ASYM(&GENGAUSS);
+    bin = (int)( (r - range[0])/BINSIZE_HIST );
+    NGEN_PER_BIN[bin]++;
+    if ( i < -20 ) {
+      printf(" xxx i=%2d r=%f bin=%d \n", i, r, bin);
+    }
+  }
+
+  // - - - - - 
+  // get funVal and integral 
+  for(bin=0; bin < NBIN_HIST; bin++ ) {
+    x      = x_PER_BIN[bin];
+    xmin   = x - 0.5*BINSIZE_HIST ;
+    xmax   = x + 0.5*BINSIZE_HIST ;
+    funVal_edge[0] = funVal_GENGAUSS_ASYM(xmin, &GENGAUSS) ;
+    funVal_edge[1] = funVal_GENGAUSS_ASYM(xmax, &GENGAUSS) ;
+    funVal         = 0.5 * ( funVal_edge[0] + funVal_edge[1] );
+    funVal_integral    += funVal ;
+    funVal_PER_BIN[bin] = funVal ;
+  }
+
+
+  // - - - - - 
+  double XNORM = funVal_integral / (double)NRANGEN;
+  printf("\t XNORM(funVal_integral / %d) = %le \n", NRANGEN, XNORM);
+
+  printf("\n");
+  printf("#    x      funVal      genVal  \n");
+  for(bin=0; bin < NBIN_HIST; bin++ ) {
+    x      = x_PER_BIN[bin];
+    funVal = funVal_PER_BIN[bin];
+    genVal = (double)NGEN_PER_BIN[bin] * XNORM ;
+
+    genVal_err = nsig = 0.0 ;
+    bool USE = ( funVal > 0.01 );
+    if ( USE ) {      
+      genVal_err = sqrt(funVal/XNORM) * XNORM; // use model to get error
+      nsig       = fabs(genVal-funVal) / genVal_err ;
+      NBIN_NONZERO++ ;
+      if ( nsig > 2.0 ) { N2SIG++ ; }
+      if ( nsig > 3.0 ) { N3SIG++ ; }
+    }
+
+    if ( USE ) {
+      printf("   %6.3f   %8.5f  %8.5f +_ %8.5f  (%4.2f sigma) \n", 
+	     x, funVal, genVal, genVal_err, nsig );
+    }
+    fflush(stdout);
+    // N_PER_BIN[bin] = 0 ;
+  }
+  
+  // - - - - -
+  printf("\n");
+  printf(" Number of 2-sigma outliers: %d of %d \n",
+	 N2SIG, NBIN_NONZERO );
+  printf(" Number of 3-sigma outliers: %d of %d \n",
+	 N3SIG, NBIN_NONZERO );
 
 
   // .xyz

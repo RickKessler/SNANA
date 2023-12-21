@@ -4,7 +4,7 @@
 //  Jun 12 2020: remove obsolete/unused skewnormal code
 //  Jun 24 2021: dillon added parse_input_gengauss,checkVal_GENGAUSS
 //               from snlc_sim.c to use in SALT2mu subprocess
-//  Dec 20 2023: implement PROB_EXPON_REWGT
+//  Dec 20 2023: implement PROB_EXPON_REWGT  
 //
 // =============================
 
@@ -166,7 +166,7 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
 // **********************************
 double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
   // Created July 12 2021
-  // Warning! Works only for a single peaked Gaussian! 
+  // Dec 2023: fixed to work for double-Gaussian.
 
   double peak             = genGauss->PEAK ;
   double siglo            = genGauss->SIGMA[0] ; 
@@ -228,25 +228,32 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
       { tmp_sig = siglo2; }
     else
       { tmp_sig = sighi2; }
-
     
     tmp_nsig = (x - peak2) / tmp_sig ;
     arg = .5 * tmp_nsig * tmp_nsig ;
-    funVal2 = prob2 * exp(-arg) ;   
+    funVal2 = exp(-arg) ;   
   }
 
   // - - - - -
-  if ( PROB_EXPON_REWGT != 1.0 )  { 
-    funVal = pow(funVal,PROB_EXPON_REWGT); 
-  }
-
+  
   if (funVal < 0.) {
     sprintf(c1err,"Invalid funVal = %f for x = %f", funVal, x);
     sprintf(c2err, "Something crazy happened for function='%s'", NAME) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   } 
 
-  return funVal;
+  double funVal_tot, sig_ratio = 1.0;
+  
+  if ( prob2 == 0.0 ) {
+    funVal_tot = funVal ;
+  }
+  else {
+    sig_ratio  = (sighi+siglo) / (sighi2+siglo2) ; // account for Gauss norms
+    funVal_tot = (1.0-prob2)*funVal + prob2 * funVal2 * sig_ratio ;
+  }
+
+  return funVal_tot;
+
 
 } // end funVal_GENGAUSS_ASYM
 
@@ -462,6 +469,13 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   ptrVal = genGauss->SIGMA; 
   printf("\t SIGMA(-/+) = %.3f / %.3f \n", ptrVal[0], ptrVal[1] );
 	  
+  if ( genGauss->PROB2 > 0.0 ) {
+    printf("\t PROB2       = %.3f  \n", genGauss->PROB2 );
+    printf("\t PEAK2       = %.3f  \n", genGauss->PEAK2 );
+    printf("\t SIGMA2(-/+) = %.3f / %.3f\n", 
+	   genGauss->SIGMA2[0], genGauss->SIGMA2[1] );
+  }
+
   double prob_expon_rewgt = genGauss->PROB_EXPON_REWGT;
   if ( prob_expon_rewgt != 1.0 ) {
     printf("\t PROB_EXPON_REWGT = %.3f \n", prob_expon_rewgt);

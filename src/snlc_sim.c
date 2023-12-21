@@ -104,8 +104,6 @@ int main(int argc, char **argv) {
   // one-time init of sim-variables
   init_simvar();
 
-  unit_test_driver(INPUTS.UNIT_TEST);
-
   // read user input file for directions
   get_user_input();
 
@@ -116,6 +114,8 @@ int main(int argc, char **argv) {
   // prepare user input after init_random_seed to allow 
   // random systematic shifts.
   prep_user_input();
+
+  unit_test_driver(INPUTS.UNIT_TEST);
 
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();

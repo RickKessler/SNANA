@@ -630,15 +630,13 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     x_PER_BIN[bin] = range[0] + ((double)bin + 0.5) * BINSIZE_HIST; // bin center
   }
 
-  int NWRAP, NWRAP_LAST = -9;
+  int NWRAP, NWRAP_LAST = -9,  N_fill_RANLISTs=0;
 
   for(i=0; i < NRANGEN; i++ ) {
 
     NWRAP = GENRAN_INFO.NWRAP[1] ;
-    if ( NWRAP != NWRAP_LAST ) { printf("\t xxx increment NWRAP=%d\n", NWRAP); }
-    NWRAP_LAST = NWRAP ;
-
-    if ( i % 200 == 0 ) { fill_RANLISTs(); }
+    if ( NWRAP == 1 )  { fill_RANLISTs();  }
+    //    NWRAP_LAST = NWRAP ;
 
     if ( GENGAUSS.USE ) 
       { r   = getRan_GENGAUSS_ASYM(&GENGAUSS) ; }
@@ -717,6 +715,11 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   printf("\n");
   frac2 = (double)N2SIG / (double)(NBIN_NONZERO);
   frac3 = (double)N3SIG / (double)(NBIN_NONZERO);
+
+  printf(" Number of fill_RANLISTs calls: %d \n", 
+	 GENRAN_INFO.NCALL_fill_RANSTATs);
+  printf(" Number of generated randoms  : %d \n", NRANGEN);
+
   printf(" Number of 2-sigma outliers: %d of %d  (frac = %.3f)\n",
 	 N2SIG, NBIN_NONZERO, frac2 );
   printf(" Number of 3-sigma outliers: %d of %d  (frac = %.3f)\n",

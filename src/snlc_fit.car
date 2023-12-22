@@ -10449,12 +10449,7 @@ c increment number of epochs (fit + rejected)
 
         N = N + 1 
     
-        IF ( N > MXFIT_DATA ) THEN
-           write(c1err,670) MXFIT_DATA
- 670       format('Number of fitted data points exceeds MXFIT_DATA=',I4)
-           c2err = 'Check MXFIT_DATA'
-           CALL MADABORT("LOAD_EPALL", c1err, c2err )
-        ENDIF
+        IF ( N > MXFIT_DATA ) GOTO 102 
 
         EPLIST_FIT(N) = ep  ! allows FCN to quickly find useful epochs
 
@@ -10568,6 +10563,14 @@ c set error on MilkyWay Galactic extinction
 102   CONTINUE   ! end of EPMIN,EPMAX loop
 101   CONTINUE   ! end of IMJD loop
 200   CONTINUE   ! end of IREJ loop
+
+c - - - - - -
+      IF ( N > MXFIT_DATA ) THEN
+           write(c1err,670) N, MXFIT_DATA
+ 670       format('NFIT_DATA=',I4, '  exceeds MXFIT_DATA=',I4)
+           c2err = 'Check param MXFIT_DATA'
+           CALL MADABORT("LOAD_EPALL", c1err, c2err )
+        ENDIF
 
       RETURN
       END      ! end of LOAD_EPALL

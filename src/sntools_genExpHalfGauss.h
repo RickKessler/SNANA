@@ -8,7 +8,7 @@ typedef struct {
   double RATIO ;       // Gauss(0)/Expon(0)
   double RANGE[2] ;    // generate random value in this RANGE
 
-  double PROB_EXPON_REWGT ;
+  double PROB_EXPON_REWGT, SQRT_PROB_EXPON_REWGT ;
 
   int INDEX; // Generic index for internal use (not part of function)
   int KEYSOURCE ;  // 1=FILE, 2=command line ; used to set priority

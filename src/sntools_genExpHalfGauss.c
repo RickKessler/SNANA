@@ -31,7 +31,8 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   gen_EXP_HALFGAUSS->INDEX     = -999;
   gen_EXP_HALFGAUSS->KEYSOURCE = -9;
 
-  gen_EXP_HALFGAUSS->PROB_EXPON_REWGT = 1.0 ;
+  gen_EXP_HALFGAUSS->PROB_EXPON_REWGT      = 1.0 ;
+  gen_EXP_HALFGAUSS->SQRT_PROB_EXPON_REWGT = 1.0 ;
 
 } //  end init_GEN_EXP_HALFGAUSS
 
@@ -83,7 +84,6 @@ void dump_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *genExp) {
 
   printf(" END %s \n", fnam );
   printf("# ------------------------------------------- \n");
-
 
   fflush(stdout);
 
@@ -152,6 +152,9 @@ double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAU
 
   // ------------ BEGIN -----------
 
+  tau   /= gen_EXP_HALFGAUSS->PROB_EXPON_REWGT;
+  sigma /= gen_EXP_HALFGAUSS->SQRT_PROB_EXPON_REWGT;
+
   funVal_exp = exp(-x/tau) ; 
   funVal     = funVal_exp ;
 
@@ -187,6 +190,9 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   // Dec 2023: 
   //  + fix awful bug with WGT_EXPON and WGT_GAUSS ... each was inverse.
   //    Set RESTORE_BUG=true to restore bug. Only affected mixed EXP+Gauss.
+  //    WV07 AV flag was never refectored to use this function, so this
+  //    might be a harmless bug.
+  //
   //  + For mixed EXPON+half-Gaussian, fix WGT_EXPON (integral) to account
   //    for truncation in RANGE.
   //
@@ -197,6 +203,9 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   double ratio  = gen_EXP_HALFGAUSS->RATIO;//ratio GAUSS/EXP at zero
   double *range = gen_EXP_HALFGAUSS->RANGE;//generate random within this range
   char *name    = gen_EXP_HALFGAUSS->NAME;
+
+  tau /= gen_EXP_HALFGAUSS->PROB_EXPON_REWGT;
+  sig /= gen_EXP_HALFGAUSS->SQRT_PROB_EXPON_REWGT;
 
   bool LDMP = false;
   
@@ -251,7 +260,7 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
 
     WGT_EXPON = tau;
     WGT_EXPON *= ( exp(-range[0]/tau) - exp(-range[1]/tau) ); // Dec 2023 fix
-    WGT_GAUSS = 0.5*ratio * sqrt(TWOPI * sig*sig) ;
+    WGT_GAUSS = 0.5*ratio * sqrt(TWOPI * sig*sig ) ;
 
     if ( RESTORE_BUG ) {
       WGT_EXPON = 1.0 / tau ;

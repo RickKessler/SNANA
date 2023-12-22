@@ -26,6 +26,7 @@ typedef struct  {
 
   // Dec 2023: option to rewgt prob
   double PROB_EXPON_REWGT; // PROB -> PROB^PROB_EXPON_REWGT
+  double SQRT_PROB_EXPON_REWGT; 
 
   int KEYSOURCE ; // 1=FILE, 2=ARG; used for prioritization
   int INDEX;      // Generic index for internal use (not part of function)

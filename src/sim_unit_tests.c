@@ -672,8 +672,6 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   printf(" Number of 3-sigma outliers: %d of %d \n",
 	 N3SIG, NBIN_NONZERO );
 
-
-  // .xyz
   debugexit(fnam);
 
   return;
@@ -703,7 +701,9 @@ void load_test_GENGAUSS(GENGAUSS_ASYM_DEF *GENGAUSS ) {
   GENGAUSS->SIGMA2[0] = 0.1 ;
   GENGAUSS->SIGMA2[1] = 0.3 ;
 
-  GENGAUSS->PROB_EXPON_REWGT = 0.5;
+  double prob_expon_rewgt         = 0.5 ;
+  GENGAUSS->PROB_EXPON_REWGT      = prob_expon_rewgt;
+  GENGAUSS->SQRT_PROB_EXPON_REWGT = sqrt(prob_expon_rewgt) ;
 
   dump_GENGAUSS_ASYM(GENGAUSS);
 
@@ -727,10 +727,14 @@ void load_test_GENEXP(GEN_EXP_HALFGAUSS_DEF *GENEXP) {
   // define half-Gaussian core
   bool DO_GAUSS = true ;
   if ( DO_GAUSS ) {
-    GENEXP->RATIO = 0.3 ;  // .xyz
+    GENEXP->RATIO = 0.3 ;  
     GENEXP->PEAK  = 0.0 ;
     GENEXP->SIGMA = 0.05 ;
   }
+
+  double prob_expon_rewgt       = 0.5 ;
+  GENEXP->PROB_EXPON_REWGT      = prob_expon_rewgt ;
+  GENEXP->SQRT_PROB_EXPON_REWGT = sqrt(prob_expon_rewgt) ;
 
   dump_GEN_EXP_HALFGAUSS(GENEXP);
 

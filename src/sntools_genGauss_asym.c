@@ -57,7 +57,8 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   genGauss->RMS       = 0.0 ;
 
-  genGauss->PROB_EXPON_REWGT = 1.0;
+  genGauss->PROB_EXPON_REWGT      = 1.0;
+  genGauss->SQRT_PROB_EXPON_REWGT = 1.0;
 
   genGauss->INDEX     = -999 ;
 
@@ -96,7 +97,9 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   genGauss2->SIGMA2[1]  =  genGauss1->SIGMA2[1] ;
 
   genGauss2->RMS        =  genGauss1->RMS ;
-  genGauss2->PROB_EXPON_REWGT = genGauss1->PROB_EXPON_REWGT;
+
+  genGauss2->PROB_EXPON_REWGT      = genGauss1->PROB_EXPON_REWGT;
+  genGauss2->SQRT_PROB_EXPON_REWGT = genGauss1->SQRT_PROB_EXPON_REWGT;
 
   genGauss2->INDEX      = genGauss1->INDEX ; 
 
@@ -180,7 +183,8 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
   double siglo2           = genGauss->SIGMA2[0] ; 
   double sighi2           = genGauss->SIGMA2[1] ;
 
-  double PROB_EXPON_REWGT = genGauss->PROB_EXPON_REWGT;
+  double SQRT_PROB_EXPON_REWGT = genGauss->SQRT_PROB_EXPON_REWGT;
+  double rewgt_sig   = 1.0/SQRT_PROB_EXPON_REWGT ;
 
   double arg, tmp_nsig, tmp_sig ;
   char *NAME  = genGauss->NAME;
@@ -188,13 +192,10 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
 
   // ----------- BEGIN ---------------
 
-  if ( PROB_EXPON_REWGT != 1.0 ) {
-    double rewgt_sig   = 1.0/sqrt(PROB_EXPON_REWGT);
-    siglo    *= rewgt_sig ;
-    sighi    *= rewgt_sig ;
-    siglo2   *= rewgt_sig ;
-    sighi2   *= rewgt_sig ;
-  }
+  siglo    *= rewgt_sig ;
+  sighi    *= rewgt_sig ;
+  siglo2   *= rewgt_sig ;
+  sighi2   *= rewgt_sig ;
 
   // - - - - - 
   if (x < peakrange[0]) {
@@ -478,8 +479,7 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   if ( !genGauss->USE ) {  return(ranval);  }
 
-  prob_expon_rewgt = genGauss->PROB_EXPON_REWGT;
-  rewgt_sig = 1.0/sqrt(prob_expon_rewgt) ;
+  rewgt_sig = 1.0/genGauss->SQRT_PROB_EXPON_REWGT ;
 
   lo          = genGauss->RANGE[0] ;
   hi          = genGauss->RANGE[1] ;
@@ -493,7 +493,7 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     printf("\t peak = %f \n", peak);
     printf("\t range(lo,hi) = %f, %f \n", lo, hi );
     printf("\t sigma(lo,hi) = %f, %f \n", siglo, sighi );
-    printf("\t prob_expon_rewgt = %f \n", prob_expon_rewgt);
+    printf("\t prob_expon_rewgt = %f \n", genGauss->PROB_EXPON_REWGT );
     sprintf(c1err,"Crazy NGRID=%d", NGRID );
     errmsg(SEV_FATAL, 0, fnam, c1err, "" );
   }

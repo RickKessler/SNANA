@@ -23297,7 +23297,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // re-init uniqueOverlap in case a key is parsed again
   uniqueOverlap(STRINGMATCH_INIT,"SUBPROCESS"); 
 
-  init_genPDF(OPTMASK, FP_INP, INPFILE, "");
+  init_genPDF(OPTMASK, FP_INP, INPFILE, BLANK_STRING);
 
   // over-write CUTBIT_SPLITRAN 
   sprintf(CUTSTRING_LIST[CUTBIT_SPLITRAN],  "GENPDF rewgt");

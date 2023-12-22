@@ -204,9 +204,9 @@ int main(int argc, char **argv) {
   // - - - - -
   // init option to generate populations from PDF
   if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
-    { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
-  init_genPDF(INPUTS.GENPDF_OPTMASK, NULL,
-	      INPUTS.GENPDF_FILE, INPUTS.GENPDF_IGNORE ) ;
+    { INPUTS.GENPDF.OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
+  init_genPDF(INPUTS.GENPDF.OPTMASK, NULL,
+	      INPUTS.GENPDF.MAP_FILE, INPUTS.GENPDF.MAP_IGNORE ) ;
   prioritize_genPDF_ASYMGAUSS();
 
   // - - - - 
@@ -949,11 +949,13 @@ void set_user_defaults(void) {
   INPUTS.GENMODEL[0] = 0 ;
   INPUTS.MODELPATH[0] = 0 ;
 
-  INPUTS.GENPDF_FILE[0]   = 0 ;
-  INPUTS.GENPDF_IGNORE[0] = 0 ;
-  INPUTS.GENPDF_FLAT[0]   = 0 ;
-  INPUTS.GENPDF_OPTMASK   = 0;
-  KEYSOURCE_GENPDF        = -9 ;
+  INPUTS.GENPDF.MAP_FILE[0]     = 0 ;
+  INPUTS.GENPDF.MAP_IGNORE[0]   = 0 ;
+  INPUTS.GENPDF.VARLIST_FLAT[0] = 0 ;
+  INPUTS.GENPDF.OPTMASK         = 0;
+  INPUTS.GENPDF.EXPON_REWGT     = 1.0; // default is no rewgt
+
+  KEYSOURCE_GENPDF              = -9 ;
 
   INPUTS.GENMODEL_ERRSCALE     = 0.00 ; // .001 -> 0 (Jun 20 2016) 
   INPUTS.GENMODEL_ERRSCALE_OPT = 1;   // use peak error at all epochs
@@ -1862,22 +1864,27 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   // - - - -
   else if ( keyMatchSim(1, "GENPDF_FILE",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FILE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF.MAP_FILE );
     KEYSOURCE_GENPDF = keySource ; // for prioritization w.r.t. asymGauss
     README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1, "GENPDF_IGNORE",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_IGNORE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF.MAP_IGNORE );
     README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1, "GENPDF_FLAT",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FLAT );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF.VARLIST_FLAT );
     README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1, "GENPDF_OPTMASK",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPDF_OPTMASK );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPDF.OPTMASK );
     README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
+  else if ( keyMatchSim(1, "GENPDF_EXPON_REWGT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPDF.EXPON_REWGT );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
+  }
+
   // - - - - - PATHs  - - - -
   else if ( keyMatchSim(1, "PATH_USER_INPUT",  WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
@@ -6097,7 +6104,7 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.LCLIB_FILE,fnam,1);
   ENVreplace(INPUTS.MODELPATH,fnam,1);
   ENVreplace(PATH_USER_INPUT,fnam,1);
-  ENVreplace(INPUTS.GENPDF_FILE,fnam,1);
+  ENVreplace(INPUTS.GENPDF.MAP_FILE,fnam,1);
 
   if ( strlen(INPUTS.PATH_SNDATA_SIM) > 0 ) {
 
@@ -7298,12 +7305,13 @@ void  prep_GENPDF_FLAT(void) {
   double SIGMA_FLAT[2] = { 1.0E6, 1.0E6 }, TAU_FLAT=1.0E6 ;
   bool   USE_RANGE ;
   int  MEMC = 40*sizeof(char);
+  INPUTS_GENPDF_DEF *GENPDF = &INPUTS.GENPDF;
   char fnam[] = "prep_GENPDF_FLAT" ;
 
   // ------------ BEGIN -------------
 
   //  for FLAT distributions, put on the GENPDF_IGNORE list
-  if ( strlen(INPUTS.GENPDF_FLAT) == 0 ) { return; }
+  if ( strlen(GENPDF->VARLIST_FLAT) == 0 ) { return; }
   
   // split comma-sep GENPDF_FLAT string 
   for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
@@ -7311,7 +7319,7 @@ void  prep_GENPDF_FLAT(void) {
 
   ptrRange[0] = (char*) malloc(MEMC);
 
-  splitString(INPUTS.GENPDF_FLAT, COMMA, fnam, MXVAR_GENPDF, 
+  splitString(GENPDF->VARLIST_FLAT, COMMA, fnam, MXVAR_GENPDF, 
 	      &NVAR, ptrStringVar);  // <== output
 
   for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -7325,7 +7333,7 @@ void  prep_GENPDF_FLAT(void) {
     varName = stringVar;
 
     // add varName to ignore list
-    catVarList_with_comma(INPUTS.GENPDF_IGNORE,varName);
+    catVarList_with_comma(GENPDF->MAP_IGNORE,varName);
 
     // if stringOpt is set, split it by colon to get range
     if ( strlen(stringOpt) > 0 ) {
@@ -7334,7 +7342,7 @@ void  prep_GENPDF_FLAT(void) {
       if ( NDUM != 2 ) {
 	sprintf(c1err,"Invalid NDUM=%d (should be 2)", NDUM);
 	sprintf(c2err,"Check '%s' in GENPDF_FLAT = '%s' ",
-		ptrStringVar[ivar], INPUTS.GENPDF_FLAT);
+		ptrStringVar[ivar], GENPDF->VARLIST_FLAT);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       sscanf(ptrRange[0], "%le", &RANGE[0] );
@@ -7346,7 +7354,7 @@ void  prep_GENPDF_FLAT(void) {
     if ( !USE_RANGE ) {
       sprintf(c1err,"Must provide gen-range for '%s'", varName);
       sprintf(c2err,"Check '%s' in GENPDF_FLAT = '%s' ",
-	      ptrStringVar[ivar], INPUTS.GENPDF_FLAT);
+	      ptrStringVar[ivar], GENPDF->VARLIST_FLAT);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -7467,11 +7475,13 @@ void  prep_RANSYSTPAR(void) {
   // check wild card files
   wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD; 
   if ( strlen(wildcard) > 0 ) 
-    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENMODEL_WILDCARD", INPUTS.GENMODEL); }
+    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENMODEL_WILDCARD", 
+				INPUTS.GENMODEL); }
 
   wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
   if ( strlen(wildcard) > 0 ) 
-    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENPDF_FILE_WILDCARD", INPUTS.GENPDF_FILE); }
+    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENPDF_FILE_WILDCARD", 
+				INPUTS.GENPDF.MAP_FILE); }
 
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;

@@ -236,7 +236,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       GENPDF[NMAP].N_CALL      = 0 ;
       GENPDF[NMAP].N_ITER_SUM  = 0 ;
       GENPDF[NMAP].N_ITER_MAX  = 0 ;
-
+      GENPDF[NMAP].PROB_EXPON_REWGT = 1.0 ; // default is no rewgt 
       /*
       int NROW = GENPDF[NMAP].GRIDMAP.NROW;
       char *VARLIST = GENPDF[NMAP].GRIDMAP.VARLIST ;
@@ -446,10 +446,11 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   if ( NMAP_GENPDF > 0 ) {
     int    istat, NDIM, ivar, IVAR_HOSTLIB;
-    double xval[MXVAR_GENPDF];
-    IDMAP = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
-    NDIM  = GENPDF[IDMAP].GRIDMAP.NDIM ;
-    
+    double xval[MXVAR_GENPDF], EXPON_REWGT ;
+    IDMAP       = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
+    NDIM        = GENPDF[IDMAP].GRIDMAP.NDIM ;
+    EXPON_REWGT = GENPDF[IDMAP].PROB_EXPON_REWGT ;
+
     xval[0] = x;
     for(ivar=1; ivar < NDIM ; ivar++ ) {
       IVAR_HOSTLIB   = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
@@ -457,6 +458,8 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
     }
 
     istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, xval, &prob);
+
+    if ( EXPON_REWGT != 1.0 )  { prob = pow(prob,EXPON_REWGT); }
   }
 
   if  ( GENGAUSS->USE ) {
@@ -479,7 +482,9 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	
   // Return random number from GENPDF map corresponding to input *parName.
   // If *parName does not match a GENPDF map, use input *GENGAUSS instead.
-  
+  // 
+  // Dec 2023: implement PROB_EXPON_REWGT
+
   int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
   int    IGAL               = SNHOSTGAL.IGAL;
 
@@ -487,7 +492,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   int    N_ITER=0, MAX_ITER  = MXITER_GENPDF ;
   int    N_EVAL = 0, IDMAP, ivar, NDIM, istat, itmp, IVAR_HOSTLIB;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
-  double VAL_RANGE[2], FUNMAX, prob_ratio ;
+  double VAL_RANGE[2], FUNMAX, EXPON_REWGT, prob_ratio ;
   int    LDMP = 0 ;
   bool   DO_GENGAUSS; 
   bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
@@ -505,6 +510,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       VARNAME       = GENPDF[IDMAP].VARNAMES[0] ;
       FUNMAX        = GENPDF[IDMAP].GRIDMAP.FUNMAX[0] ;
       NDIM          = GENPDF[IDMAP].GRIDMAP.NDIM ;
+      EXPON_REWGT   = GENPDF[IDMAP].PROB_EXPON_REWGT ; 
       prob_ref=1.0; prob=0.0;
 
       // tack on optional dependence on HOSTLIB
@@ -539,6 +545,8 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	val_inputs[0] = r ;  
 
 	istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
+	if ( EXPON_REWGT != 1.0 )  { prob = pow(prob,EXPON_REWGT); }
+
 	if ( istat != SUCCESS ) {
 	  print_preAbort_banner(fnam);
 	  for(ivar=0; ivar < NDIM; ivar++ ) {

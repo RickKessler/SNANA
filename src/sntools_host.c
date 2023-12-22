@@ -897,7 +897,7 @@ void append_HOSTLIB_STOREPAR(void) {
   // - - - - - - - 
   // check PDF maps for populations
 
-  fp = fopen(INPUTS.GENPDF_FILE,"rt");
+  fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
   if ( fp ) {
     int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
     char **VARNAMES;

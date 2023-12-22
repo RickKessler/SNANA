@@ -862,7 +862,7 @@ void readme_docana_modelPar(int *iline, char *pad) {
 
   readme_docana_comment(&i, "Population and rate-model params");
 
-  s = INPUTS.GENPDF_FILE;
+  s = INPUTS.GENPDF.MAP_FILE;
   if ( !IGNOREFILE(s) ) {
     ENVrestore(s,ORIG_FILE_README);
     i++; cptr = VERSION_INFO.README_DOC[i] ;

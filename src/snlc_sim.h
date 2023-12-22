@@ -165,8 +165,9 @@ struct {
   int    NGENTOT_LAST ;
 } TIMERS ;
 
+
 // define auxillary files produced with data files.
-typedef struct {
+typedef struct { // SIMFILE_AUX_DEF
 
   // required outputs
   FILE *FP_LIST;    char  LIST[MXPATHLEN] ;
@@ -192,7 +193,7 @@ typedef struct {
 
 
 // Mar 2016: create typedefs for NON1A
-typedef struct {
+typedef struct {  //INPUTS_NON1ASED_DEF
 
   int IFLAG_GEN;
 
@@ -244,7 +245,7 @@ typedef struct {
 // parameters to define random systematic shifts at start of sim;
 // thus changing RANSEED alone results in random systematic shifts
 // for all parameters without user specifying each random shift externally.
-typedef struct {
+typedef struct { // INPUTS_RANSYSTPAR_DEF
   int   USE ;
 
   int  IDSURVEY;    // override true IDSURVEY for survey-dependent randoms
@@ -271,7 +272,7 @@ typedef struct {
 } INPUTS_RANSYSTPAR_DEF ;
 
 
-typedef struct  {
+typedef struct  {   // GENLC_NON1ASED_DEF
   int   IFLAG_GEN ;               // indicates RANDOM or GRID
   int   ISPARSE;                  // current sparse index
   int   NGENWR[MXNON1A_TYPE];     // actual # written per index
@@ -282,9 +283,9 @@ typedef struct  {
 } GENLC_NON1ASED_DEF ;
 
 
-typedef struct {
-  char   NAME[40] ;           // filled internally
+typedef struct {  // RATEPAR_DEF
 
+  char   NAME[40] ;           // filled internally
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   double DNDZ_ZPOLY_REWGT_LEGACY[4]; // xxx legacy var
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
@@ -424,13 +425,28 @@ typedef struct {
 
 // Nov 2021: define struct for interpolating host photo-z resolution vs z
 //   Sim input key is HOSTLIB_GENZPHOT_FUDGEMAP: <STRING>
-typedef struct {
+typedef struct {    // HOSTLIB_GENZPHOT_FUDGEMAP_DEF
   char STRING[200]; // e.g., 'z0:RMS0,z1:RMS1,z2:RMS2,etc...'
   int    NzBIN; 
   double z_LIST[100]  ;
   double RMS_LIST[100] ;
 } HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
 
+
+typedef struct { // INPUTS_GENPDF_DEF
+
+  char MAP_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
+  char MAP_IGNORE[MXPATHLEN];   // comma-sep list of maps to ignore
+  int  OPTMASK;                // bit-mask of options
+  char VARLIST_FLAT[100];      // varlist to force flat PDF; e.g., SALT2x1,SALT2c,RV
+
+  // reweight population: PROB->PROB^GENPDF_EXPON_REWGT;
+  // applies to GENPDF and GENGAUS(x1,c,Delta), even if GENPDF MAP_FILE
+  // is not defined.
+  double EXPON_REWGT; 
+                      
+} INPUTS_GENPDF_DEF ;
+ 
 // Oct 1 2023: create sim-input structure to prescale simlib-mjds vs. Trest.
 // See manual for key SIMLIB_NSKIPMJD
 struct {
@@ -616,10 +632,16 @@ struct INPUTS {
   char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
   char MODELNAME[100];       // stripped from GENMODEL
 
+  INPUTS_GENPDF_DEF GENPDF;
+  /* xxx mark delete xxxxxx
   char GENPDF_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
   char GENPDF_IGNORE[MXPATHLEN];
   int  GENPDF_OPTMASK;           // bit-mask of options
-  char GENPDF_FLAT[100];         // force flat PDF; e.g., SALT2x1,SALT2c,RV
+  char GENPDF_FLAT[100];         // varlist to force flat PDF; e.g., SALT2x1,SALT2c,RV
+
+  double GENPDF_EXPON_REWGT; // reweight population: PROB->PROB^GENPDF_EXPON_REWGT;
+        // applies to GENPDF and GENGAUS(x1,c,Delta...)
+	xxxxxxxx end mark xxxxx */
 
   char GENMODEL_EXTRAP_LATETIME[MXPATHLEN];
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR

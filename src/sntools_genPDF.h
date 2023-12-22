@@ -34,6 +34,9 @@ struct {
   int N_CALL ;
   int N_ITER_SUM,  N_ITER_MAX ;
   
+  // option to rewgot PROB -> PROB^PROB_EXPON_REWGT
+  double PROB_EXPON_REWGT;
+
 } GENPDF[MXMAP_GENPDF] ;
 
 float TMPSTORE_PROB_REF_GENPDF[MXITER_GENPDF];

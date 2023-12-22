@@ -115,7 +115,6 @@ int main(int argc, char **argv) {
   // random systematic shifts.
   prep_user_input();
 
-  unit_test_driver(INPUTS.UNIT_TEST);
 
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
@@ -169,6 +168,7 @@ int main(int argc, char **argv) {
     init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
   }
 
+  unit_test_driver(INPUTS.UNIT_TEST) ;
 
   // init model fudges for flux-errors (Feb 2018)
   INIT_FLUXERRMODEL(INPUTS.FLUXERRMODEL_OPTMASK,  

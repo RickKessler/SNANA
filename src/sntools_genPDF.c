@@ -468,7 +468,8 @@ double funVal_genPDF(char *parName, double *xval, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
 // =====================================================
 double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
-			 
+	
+  
   int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
   int    IGAL = SNHOSTGAL.IGAL;
 
@@ -499,7 +500,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       // tack on optional dependence on HOSTLIB
       // Leave var_inputs[0] to be filled below inside while loop
       for(ivar=1; ivar < NDIM; ivar++ ) {
-	IVAR_HOSTLIB = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+	IVAR_HOSTLIB     = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
 	val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
       }
 

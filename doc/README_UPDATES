@@ -22131,6 +22131,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      sntools_host.c
        + abort if VARNAMES_WGTMAP is not found
 
+    sntools_genGauss_asym.c:
+       https://github.com/RickKessler/SNANA/issues/1255
+
 
     # - - - - - - - -    
     getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) ->

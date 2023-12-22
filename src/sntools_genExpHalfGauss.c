@@ -1,5 +1,5 @@
 // =============================
-//   sntools_genExpHalfGauss.h
+//   sntools_genExpHalfGauss.h 
 // =============================
 
 #include <stdio.h>
@@ -11,7 +11,6 @@
 #include <ctype.h>
 
 #include "sntools.h"
-//#include "sntools_genExpHalfGauss.h"
 
 
 // ******************************
@@ -32,6 +31,8 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   gen_EXP_HALFGAUSS->INDEX     = -999;
   gen_EXP_HALFGAUSS->KEYSOURCE = -9;
 
+  gen_EXP_HALFGAUSS->PROB_EXPON_REWGT = 1.0 ;
+
 } //  end init_GEN_EXP_HALFGAUSS
 
 void set_GEN_EXPON(double tau, double *range,
@@ -50,6 +51,44 @@ void set_GEN_EXPON(double tau, double *range,
   gen_EXP_HALFGAUSS->RATIO    = 0.0 ;
 }
 
+
+void dump_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *genExp) {
+
+  // Created Dec 21 2023
+
+  char fnam[] = "dump_GEN_EXP_HALFGAUSS" ;
+
+  // --------- BEGIN --------
+
+  printf("\n");
+  printf("# ------------------------------------------- \n");
+  printf(" START %s  for '%s' (INDEX=%d, USE=%d) \n",
+	 fnam, genExp->NAME, genExp->INDEX, genExp->USE );
+
+
+  printf("\t EXP_TAU    = %.4f \n", genExp->EXP_TAU );
+  printf("\t RANGE      = %.3f to %.3f \n", genExp->RANGE[0], genExp->RANGE[1]);
+
+  if ( genExp->RATIO > 0.0 ) {
+    printf("\n     Half-Gaussian core: \n");
+    printf("\t RATIO         = %.4f   # Gauss(0)/Expon(0)\n", genExp->RATIO );
+    printf("\t PEAK          = %.4f \n", genExp->PEAK );
+    printf("\t SIGMA         = %.4f \n", genExp->SIGMA );
+  }
+
+  double prob_expon_rewgt = genExp->PROB_EXPON_REWGT;
+  if ( prob_expon_rewgt != 1.0 ) {
+    printf("\t PROB_EXPON_REWGT = %.3f \n", prob_expon_rewgt);
+  }
+
+  printf(" END %s \n", fnam );
+  printf("# ------------------------------------------- \n");
+
+
+  fflush(stdout);
+
+  return;
+} // end dump_GEN_EXP_HALFGAUSS
 
 void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, GEN_EXP_HALFGAUSS_DEF *out_EXP_HALFGAUSS){
   out_EXP_HALFGAUSS->USE = inp_EXP_HALFGAUSS->USE;
@@ -98,20 +137,37 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
 // ************************************************************
 double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
 
-  //WARNING!! Half Gaussian not yet coded!
-  double tau = gen_EXP_HALFGAUSS->EXP_TAU ;
+  // Dec 2023:
+  // Finally fix this to include half-Gaussian core.
+
+  double tau    = gen_EXP_HALFGAUSS->EXP_TAU ;
+  double ratio  = gen_EXP_HALFGAUSS->RATIO ; // Gauss(0)/Exp(0)
+  double peak   = gen_EXP_HALFGAUSS->PEAK ;  // Gauss peak
+  double sigma  = gen_EXP_HALFGAUSS->SIGMA ; // Gauss sigma
+  double *range = gen_EXP_HALFGAUSS->RANGE ; // range of expon+Gauss (for relative norm)
   double funVal = NULLDOUBLE ;
-  double sigma = gen_EXP_HALFGAUSS->SIGMA ; 
+  double funVal_exp=0.0, funVal_gauss = 0.0 ;
+
   char fnam[] = "funVal_GEN_EXP_HALFGAUSS";
 
-  if (sigma > 0.) {
-    sprintf(c1err,"Half Gaussian not yet implemented!");
-    sprintf(c2err,"TAU = %f, SIGMA = %f", tau, sigma);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+  // ------------ BEGIN -----------
+
+  funVal_exp = exp(-x/tau) ; 
+  funVal     = funVal_exp ;
+
+  if ( ratio > 0.0 ) {
+    double nsig, arg, wgt_exp, wgt_gauss;
+    nsig = (x-peak)/sigma ;
+    arg  = 0.5 * nsig * nsig ;
+    funVal_gauss = exp(-arg);
+    funVal       = funVal_exp  +  ratio*funVal_gauss ;
+
+    /* xxx mark  xxx
+    wgt_exp    = (1.0/tau) * ( exp(-range[0]/tau) - exp(-range[1]/tau) );
+    wgt_gauss  = 0.5 * ratio / sqrt(TWOPI * sigma*sigma);
+    funVal     = funVal_exp  +  funVal_gauss * ( wgt_gauss/wgt_exp );
+    xxx */
   }
-
-  funVal = exp(-x/tau) ; 
-
 
   return funVal;
 
@@ -119,13 +175,22 @@ double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAU
 
 // ************************************************************
 double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
+
   // March 20 2020
   // generate a random value following profile consisting of 
-  // EXP & Half Gaussian
+  // EXP & Half Gaussian.
+  // For mixed EXPON+half-Gaussian, the assumption is that 
+  // half-Gaussian is fully contained in RANGE, while truncation
+  // of the EXPON distribution is accounted for.
   // TO DO: z dependence of parameters.
+  //
+  // Dec 2023: 
+  //  + fix awful bug with WGT_EXPON and WGT_GAUSS ... each was inverse.
+  //    Set RESTORE_BUG=true to restore bug. Only affected mixed EXP+Gauss.
+  //  + For mixed EXPON+half-Gaussian, fix WGT_EXPON (integral) to account
+  //    for truncation in RANGE.
+  //
 
-  char fnam[] = "getRan_GEN_EXP_HALFGAUSS";
-  
   double sig    = gen_EXP_HALFGAUSS->SIGMA ;//half gaussian sigma
   double peak   = gen_EXP_HALFGAUSS->PEAK ; //half gaussian peak
   double tau    = gen_EXP_HALFGAUSS->EXP_TAU;//exponential
@@ -138,14 +203,16 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   bool DOFUN_EXPON = false;
   bool DOFUN_GAUSS = false;
 
-  // always burn randoms to stay synced.                                                                                        
+  bool RESTORE_BUG = false ;
+
+  // always burn randoms to stay synced.
   double ran_EXPON = getRan_Flat1(1) ;                                 
-  double ran_GAUSS = getRan_Gauss(1);
-  double ran_WGT   = getRan_Flat1(1) ;  
+  double ran_GAUSS = getRan_Gauss(1) ;
+  double ran_WGT   = getRan_Flat1(1) ; 
   double epsilon = 1.0E-14;
   double ranval = -9.0 ; //output random value
 
-  // saveforlater if(INPUTS.WV07_GENAV_FLAG) { AV=GENAV_WV07();return(AV); }
+  char fnam[] = "getRan_GEN_EXP_HALFGAUSS";
 
   // ----- BEGIN ---------------------
 
@@ -161,8 +228,11 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   if (LDMP) { 
     printf("xxx ----------------------------------------------\n");
     printf("xxx %s DUMP\n",fnam); 
-    printf("xxx %s tau=%f sig=%f peak=%f ratio=%f\n",fnam,tau,sig,peak,ratio);
-    printf("xxx %s ran_EXPON=%f ran_GAUSS=%f ran_WGT=%f\n",fnam,ran_EXPON,ran_GAUSS,ran_WGT);
+    printf("xxx %s tau=%f sig=%f peak=%f ratio=%f\n", 
+	   fnam, tau, sig, peak, ratio);
+    printf("xxx %s ran_EXPON=%f ran_GAUSS=%f ran_WGT=%f\n", 
+	   fnam, ran_EXPON, ran_GAUSS, ran_WGT);
+    debugexit(fnam);
   }
   
   if ( range[0] == range[1] )       // delta-function
@@ -178,9 +248,21 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   // check for mixed. 
   if ( tau > epsilon && sig > epsilon && ratio > epsilon ) {
     double WGT_EXPON, WGT_GAUSS, WGT_SUM ;
-    WGT_EXPON = 1.0 / tau ;
-    WGT_GAUSS = 0.5*ratio / sqrt(TWOPI * sig*sig);
+
+    WGT_EXPON = tau;
+    WGT_EXPON *= ( exp(-range[0]/tau) - exp(-range[1]/tau) ); // Dec 2023 fix
+    WGT_GAUSS = 0.5*ratio * sqrt(TWOPI * sig*sig) ;
+
+    if ( RESTORE_BUG ) {
+      WGT_EXPON = 1.0 / tau ;
+      WGT_GAUSS = 0.5*ratio / sqrt(TWOPI * sig*sig) ;
+    }
+
     WGT_SUM   = WGT_EXPON + WGT_GAUSS ;
+
+    //    printf(" xxx %s: WGT[exp,gauss] = %f %f  \n", fnam, WGT_EXPON, WGT_GAUSS);
+    //    debugexit(fnam); // xxxx
+
     if ( ran_WGT < WGT_EXPON/WGT_SUM )
       { DOFUN_EXPON = true; DOFUN_GAUSS = false ;}
     else
@@ -189,14 +271,14 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
 
   if (DOFUN_EXPON && DOFUN_GAUSS) { 
     sprintf(c1err,"Can't have DOFUN_EXPON=T and DOFUN_GAUSS=T\n");     
-    sprintf(c2err,"Code logic problem for %s\n",name);                                                              
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);                                                                             
+    sprintf(c2err,"Code logic problem for %s\n",name);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
   }
 
-  // pure exponential                                                                                           
+  // pure exponential
   if ( DOFUN_EXPON ) {
     double expmin,expmax,expdif;
-    expmin = expf(-range[0]/tau) ;  // note that expmin > expmax !!!                       
+    expmin = expf(-range[0]/tau) ;  // note that expmin > expmax !!!  
     expmax = expf(-range[1]/tau) ;
     expdif = expmin - expmax ;
     ranval = -tau * log( expmin - expdif*ran_EXPON ) ;
@@ -207,9 +289,9 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   }
 
 
-  // pure Guassian (AV > 0 only)                                                                                                                                                                                                              
+  // pure Guassian (AV > 0 only)
   if ( DOFUN_GAUSS ) {
-    int MAXTRY_ABORT = 10000  ;  // abort after this many tries                                                                                                                                                                               
+    int MAXTRY_ABORT = 10000  ;  // abort after this many tries
     int itry = 0 ;
     ranval = -9999.0 ;
     while ( ranval < range[0] || ranval > range[1] ) {
@@ -219,18 +301,21 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
         sprintf(c2err,"after %d tries (sigma=%.2f)\n", itry, sig );
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
+
       if ( itry  > 1 ) { ran_GAUSS = getRan_Gauss(1); }
+
       if (peak > 0.0001 )
-        { ranval = sig * ran_GAUSS + peak; }
+        { ranval = sig * ran_GAUSS + peak; } // allow either side of peak
       else
-        { ranval = sig * fabs(ran_GAUSS); }
+        { ranval = sig * fabs(ran_GAUSS); } // only positive side if peak=0
       itry++ ;
     }
     goto DONE ;
-  }
+  } // end DOFUN_GUASS
 
 
-  // if we get here then abort on confusion.                                                                                                                                                                                                  
+  // - - - - - - 
+  // if we get here then abort on confusion. 
   sprintf(c1err,"Could not determine %s from Expon. or Gaussian ??", name);
   sprintf(c2err,"tau=%f  sig=%f  ratio=%f", tau, sig, ratio);
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;

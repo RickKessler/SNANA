@@ -8,6 +8,8 @@ typedef struct {
   double RATIO ;       // Gauss(0)/Expon(0)
   double RANGE[2] ;    // generate random value in this RANGE
 
+  double PROB_EXPON_REWGT ;
+
   int INDEX; // Generic index for internal use (not part of function)
   int KEYSOURCE ;  // 1=FILE, 2=command line ; used to set priority
 
@@ -30,6 +32,8 @@ double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAU
 
 void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, 
 			    GEN_EXP_HALFGAUSS_DEF *out_EXP_HALFGAUSS);
+
+void dump_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
 
 int parse_input_EXP_HALFGAUSS(char *VARNAME, char **WORDS, int keySource,
 			      GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS );

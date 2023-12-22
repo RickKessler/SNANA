@@ -27,10 +27,16 @@ void test_ran(void);
 void test_PARSE_WORDS(void);
 void test_zcmb_dLmag_invert(void);
 
-void test_getRan_funVal(void);
+void test_getRan_funVal(char *FUNVAL_NAME);
+void load_test_GENGAUSS(GENGAUSS_ASYM_DEF *GENGAUSS );
+void load_test_GENEXP(GEN_EXP_HALFGAUSS_DEF *GENEXP);
 
 char TEST_REFAC[]  = "REFAC";
 char TEST_LEGACY[] = "LEGACY";
+
+#define STRING_FUNVAL_GENGAUSS     "FUNVAL_GENGAUSS"
+#define STRING_FUNVAL_GENEXP       "FUNVAL_GENEXP"
+#define STRING_FUNVAL_GENPDF       "FUNVAL_GENPDF"
 
 // ************************
 
@@ -46,8 +52,8 @@ void unit_test_driver(char *UNIT_TEST_NAME) {
   if ( strcmp(UNIT_TEST_NAME,"IGM") == 0 ) 
     { test_igm(); }
 
-  else if ( strcmp(UNIT_TEST_NAME,"GETRAN_FUNVAL") == 0 ) 
-    { test_getRan_funVal(); }
+  else if ( strstr(UNIT_TEST_NAME,"FUNVAL") != NULL ) 
+    { test_getRan_funVal(UNIT_TEST_NAME); }
 
   else {
     sprintf(c1err,"Undefined UNIT_TEST: %s", UNIT_TEST_NAME);
@@ -524,25 +530,16 @@ void test_igm(void) {
 
 
 // ===============================
-void test_getRan_funVal(void) {
+void test_getRan_funVal(char *FUNVAL_NAME) {
 
   // Created Dec 2023
   // Test asymGauss and expHalf by generating randoms from
   // distribution and comparing random distribution to 
   // funVal-computed distribution
 
-  double peak      = 0.0 ;
-  double sig[2]    = {  0.2, 0.4 } ;
-  double range[2]  = { -1.0, 3.0 } ;
-  double range_tot = range[1] - range[0];
-
-  double prob2    = 0.3 ;
-  double peak2    = 1.0 ;
-  double sig2[2]  = { 0.1, 0.3 } ;
-
-  double prob_expon_rewgt = 1.0 ;
-
-  GENGAUSS_ASYM_DEF GENGAUSS;
+  double *range;
+  GENGAUSS_ASYM_DEF     GENGAUSS ;
+  GEN_EXP_HALFGAUSS_DEF GENEXP   ;
 
   char fnam[] = "test_getRan_funVal" ;
 
@@ -550,28 +547,36 @@ void test_getRan_funVal(void) {
 
   print_banner(fnam);
 
-  init_GENGAUSS_ASYM(&GENGAUSS, (double)0.0 ); 
+  GENGAUSS.USE = GENEXP.USE = false;
 
-  GENGAUSS.USE      = true;
+  if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENGAUSS) == 0 ) { 
+    load_test_GENGAUSS(&GENGAUSS );
+    range  = GENGAUSS.RANGE ;
+  }
+  else if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENEXP) == 0 ) {
+    load_test_GENEXP(&GENEXP);
+    range  = GENEXP.RANGE ;
+  }
+  else if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENPDF) == 0 ) {
 
-  GENGAUSS.PEAK     = peak;
-  GENGAUSS.SIGMA[0] = sig[0];
-  GENGAUSS.SIGMA[1] = sig[1];
-  GENGAUSS.RANGE[0] = range[0];
-  GENGAUSS.RANGE[1] = range[1];
+  }
+  else {
+    print_preAbort_banner(fnam);
+    printf("  Valid FUNVAL names for UNIT_TEST argument: \n");
+    printf("\t %s\n", STRING_FUNVAL_GENGAUSS);
+    printf("\t %s\n", STRING_FUNVAL_GENEXP);
+    printf("\t %s\n", STRING_FUNVAL_GENPDF);
 
-  GENGAUSS.PROB2     = prob2;
-  GENGAUSS.PEAK2     = peak2;
-  GENGAUSS.SIGMA2[0] = sig2[0];
-  GENGAUSS.SIGMA2[1] = sig2[1];
+    sprintf(c1err,"Undefined FUNVAL_NAME = '%s' ", FUNVAL_NAME);
+    sprintf(c2err,"Check valid FUNVAL unit test names above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
 
-  GENGAUSS.PROB_EXPON_REWGT = prob_expon_rewgt;
 
-  dump_GENGAUSS_ASYM(&GENGAUSS);
-
-  // ----------
-  int  NRANGEN = 5000000;
-  int  NBIN_HIST = 600;
+  // ---------------------------------
+  int    NRANGEN = 5000000;
+  int    NBIN_HIST = 600; //600;
+  double range_tot = range[1] - range[0];
   double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
   double r, x, xmin, xmax, funVal, genVal, genVal_err, nsig;
   double funVal_edge[2], funVal_integral=0.0 ;
@@ -583,10 +588,9 @@ void test_getRan_funVal(void) {
   int    *NGEN_PER_BIN   = (int    *) malloc(MEMI) ;
   int i, bin, MX_PER_BIN=0, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
 
-  printf("\t generate %d random numbers from genGauss_asym:\n",
-	 NRANGEN);
+  printf("\t Generate %d random numbers from %s:\n",
+	 NRANGEN, FUNVAL_NAME);
 
-  printf("\t GENRAN_INFO.NLIST_RAN = %d \n", GENRAN_INFO.NLIST_RAN);
   fflush(stdout);
 
   for(bin=0; bin < NBIN_HIST; bin++ ) { 
@@ -597,7 +601,12 @@ void test_getRan_funVal(void) {
 
   for(i=0; i < NRANGEN; i++ ) {
     if ( i % 200 == 0 ) { fill_RANLISTs(); }
-    r   = getRan_GENGAUSS_ASYM(&GENGAUSS);
+
+    if ( GENGAUSS.USE ) 
+      { r   = getRan_GENGAUSS_ASYM(&GENGAUSS) ; }
+    else if ( GENEXP.USE ) 
+      { r   = getRan_GEN_EXP_HALFGAUSS(&GENEXP) ; }
+
     bin = (int)( (r - range[0])/BINSIZE_HIST );
     NGEN_PER_BIN[bin]++;
     if ( i < -20 ) {
@@ -611,8 +620,16 @@ void test_getRan_funVal(void) {
     x      = x_PER_BIN[bin];
     xmin   = x - 0.5*BINSIZE_HIST ;
     xmax   = x + 0.5*BINSIZE_HIST ;
-    funVal_edge[0] = funVal_GENGAUSS_ASYM(xmin, &GENGAUSS) ;
-    funVal_edge[1] = funVal_GENGAUSS_ASYM(xmax, &GENGAUSS) ;
+
+    if ( GENGAUSS.USE ) {
+      funVal_edge[0] = funVal_GENGAUSS_ASYM(xmin, &GENGAUSS) ;
+      funVal_edge[1] = funVal_GENGAUSS_ASYM(xmax, &GENGAUSS) ;
+    }
+    else if ( GENEXP.USE ) {
+      funVal_edge[0] = funVal_GEN_EXP_HALFGAUSS(xmin, &GENEXP) ;
+      funVal_edge[1] = funVal_GEN_EXP_HALFGAUSS(xmax, &GENEXP) ;
+    }
+
     funVal         = 0.5 * ( funVal_edge[0] + funVal_edge[1] );
     funVal_integral    += funVal ;
     funVal_PER_BIN[bin] = funVal ;
@@ -660,4 +677,63 @@ void test_getRan_funVal(void) {
   debugexit(fnam);
 
   return;
-} // end test_funVal
+} // end test_getRan_funVal
+
+
+// =========
+void load_test_GENGAUSS(GENGAUSS_ASYM_DEF *GENGAUSS ) {
+
+  // Created Dec 2023:
+  // hard-wire test values into GENGAUSS structure.
+
+  // --------- BEGIN ----------
+
+  init_GENGAUSS_ASYM(GENGAUSS, (double)0.0 ); 
+  GENGAUSS->USE      = true;
+  sprintf(GENGAUSS->NAME,"UNIT_TEST");
+
+  GENGAUSS->PEAK     =  0.0;
+  GENGAUSS->SIGMA[0] =  0.2; 
+  GENGAUSS->SIGMA[1] =  0.4 ;
+  GENGAUSS->RANGE[0] = -1.0 ;
+  GENGAUSS->RANGE[1] =  3.0 ;  // check 1.4 and 3
+
+  GENGAUSS->PROB2     = 0.3 ;
+  GENGAUSS->PEAK2     = 1.0 ; 
+  GENGAUSS->SIGMA2[0] = 0.1 ;
+  GENGAUSS->SIGMA2[1] = 0.3 ;
+
+  GENGAUSS->PROB_EXPON_REWGT = 0.5;
+
+  dump_GENGAUSS_ASYM(GENGAUSS);
+
+  return ;
+
+} // end load_test_GENGAUSS
+
+
+void load_test_GENEXP(GEN_EXP_HALFGAUSS_DEF *GENEXP) {
+
+  double tau = 0.3;
+  double range[2] = { 0.0, 2.0 } ;
+
+  // --------- BEGIN ----------
+
+  init_GEN_EXP_HALFGAUSS(GENEXP, (double)0.0 );
+
+  sprintf(GENEXP->NAME,"UNIT_TEST");  
+  set_GEN_EXPON(tau, range, GENEXP);
+
+  // define half-Gaussian core
+  bool DO_GAUSS = true ;
+  if ( DO_GAUSS ) {
+    GENEXP->RATIO = 0.3 ;  // .xyz
+    GENEXP->PEAK  = 0.0 ;
+    GENEXP->SIGMA = 0.05 ;
+  }
+
+  dump_GEN_EXP_HALFGAUSS(GENEXP);
+
+  return ;
+
+} // end load_test_GENEXP

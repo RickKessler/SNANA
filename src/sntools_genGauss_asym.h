@@ -38,7 +38,9 @@ GENGAUSS_ASYM_DEF  GENGAUSS_ASYM_LIST[MXGENGAUSS] ;
 // ========= FUNCTION PROTOTYPES ==================
 
 void   init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL );
+
 double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
+double getRan_GENGAUSS_ASYM_bug(GENGAUSS_ASYM_DEF *genGauss);
 double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss);
 void   copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
                           GENGAUSS_ASYM_DEF *genGauss2) ;

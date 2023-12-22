@@ -537,7 +537,10 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   // distribution and comparing random distribution to 
   // funVal-computed distribution
 
-  double *range;
+  double range[2], xval[10];
+  char   parName[40], parName2[40] ;
+  int    IDMAP ;
+  bool IS_LOGPARAM;
   GENGAUSS_ASYM_DEF     GENGAUSS ;
   GEN_EXP_HALFGAUSS_DEF GENEXP   ;
 
@@ -551,13 +554,33 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
 
   if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENGAUSS) == 0 ) { 
     load_test_GENGAUSS(&GENGAUSS );
-    range  = GENGAUSS.RANGE ;
+    range[0]  = GENGAUSS.RANGE[0] ;
+    range[1]  = GENGAUSS.RANGE[1] ;
   }
   else if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENEXP) == 0 ) {
     load_test_GENEXP(&GENEXP);
-    range  = GENEXP.RANGE ;
+    range[0]  = GENEXP.RANGE[0] ;
+    range[1]  = GENEXP.RANGE[1] ;
   }
   else if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENPDF) == 0 ) {
+    int  GENPDF_OPTMASK   = 1 ;
+    char GENPDF_FILE[200] = 
+      "$DES5YR/populations/FINAL_forDES5yr/DES5YR_S3W22N21_GENPDF.DAT"; 
+    ENVreplace(GENPDF_FILE, fnam, 1);
+    init_genPDF(GENPDF_OPTMASK, NULL, GENPDF_FILE, BLANK_STRING) ;
+
+    // sprintf(parName,"SALT2x1"); 
+    // sprintf(parName,"SALT2c"); 
+    sprintf(parName,"EBV"); 
+    SNHOSTGAL.IGAL = 20;   
+    IDMAP          = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
+    range[0]       = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
+    range[1]       = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ; 
+
+    // restrict range to make better use of binned results below 
+    // SALT2x1 range is ok
+    if ( strcmp(parName,"SALT2c") == 0 ) { range[0] = -0.3; range[1] = 0.3; }
+    if ( strcmp(parName,"EBV")    == 0 ) { range[0] =  0.0; range[1] = 0.9; }
 
   }
   else {
@@ -572,9 +595,18 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
+  printf("\n - - -  Done with UNIT_TEST init - - - - \n");
 
+  printf("\t Range is %.3f to %.3f \n", 
+	 range[0], range[1]); fflush(stdout);
+
+  if ( NMAP_GENPDF > 0 ) {
+    printf("\t Select GENPDF map for %s (IDMAP=%d) \n",
+	   parName, IDMAP);
+
+  }
   // ---------------------------------
-  int    NRANGEN = 5000000;
+  int    NRANGEN = 500000;
   int    NBIN_HIST = 600; //600;
   double range_tot = range[1] - range[0];
   double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
@@ -598,14 +630,24 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     x_PER_BIN[bin] = range[0] + ((double)bin + 0.5) * BINSIZE_HIST; // bin center
   }
 
+  int NWRAP, NWRAP_LAST = -9;
 
   for(i=0; i < NRANGEN; i++ ) {
+
+    NWRAP = GENRAN_INFO.NWRAP[1] ;
+    if ( NWRAP != NWRAP_LAST ) { printf("\t xxx increment NWRAP=%d\n", NWRAP); }
+    NWRAP_LAST = NWRAP ;
+
     if ( i % 200 == 0 ) { fill_RANLISTs(); }
 
     if ( GENGAUSS.USE ) 
       { r   = getRan_GENGAUSS_ASYM(&GENGAUSS) ; }
     else if ( GENEXP.USE ) 
       { r   = getRan_GEN_EXP_HALFGAUSS(&GENEXP) ; }
+    else if ( NMAP_GENPDF > 0 ) 
+      { r = getRan_genPDF(parName, &GENGAUSS); }
+
+    if ( r < range[0] || r > range[1] ) { continue; }
 
     bin = (int)( (r - range[0])/BINSIZE_HIST );
     NGEN_PER_BIN[bin]++;
@@ -629,12 +671,17 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
       funVal_edge[0] = funVal_GEN_EXP_HALFGAUSS(xmin, &GENEXP) ;
       funVal_edge[1] = funVal_GEN_EXP_HALFGAUSS(xmax, &GENEXP) ;
     }
+    else if ( NMAP_GENPDF > 0 ) {
+      xval[0] = xmin; 
+      funVal_edge[0] = funVal_genPDF(parName, xmin, &GENGAUSS) ;
+      xval[0] = xmax; 
+      funVal_edge[1] = funVal_genPDF(parName, xmax, &GENGAUSS) ;
+    }
 
     funVal         = 0.5 * ( funVal_edge[0] + funVal_edge[1] );
     funVal_integral    += funVal ;
     funVal_PER_BIN[bin] = funVal ;
   }
-
 
   // - - - - - 
   double XNORM = funVal_integral / (double)NRANGEN;
@@ -666,11 +713,34 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   }
   
   // - - - - -
+  double frac2, frac3;
   printf("\n");
-  printf(" Number of 2-sigma outliers: %d of %d \n",
-	 N2SIG, NBIN_NONZERO );
-  printf(" Number of 3-sigma outliers: %d of %d \n",
-	 N3SIG, NBIN_NONZERO );
+  frac2 = (double)N2SIG / (double)(NBIN_NONZERO);
+  frac3 = (double)N3SIG / (double)(NBIN_NONZERO);
+  printf(" Number of 2-sigma outliers: %d of %d  (frac = %.3f)\n",
+	 N2SIG, NBIN_NONZERO, frac2 );
+  printf(" Number of 3-sigma outliers: %d of %d  (frac = %.3f)\n",
+	 N3SIG, NBIN_NONZERO, frac3 );
+
+  fflush(stdout);
+
+  // summarize variables for GENPDF
+  if ( NMAP_GENPDF ) {
+    int IVAR_HOSTLIB, ivar;
+    int IGAL = SNHOSTGAL.IGAL ;
+    long long GALID = get_GALID_HOSTLIB(IGAL);;
+    char *tmpName;
+    printf("\n    GENPDF varname: %s  from MAP=%s  (IDMAP=%d)\n", 
+	   parName, GENPDF[IDMAP].MAPNAME, IDMAP);
+    printf("\t GALID = %lld   (IGAL = %d)\n", GALID, IGAL);
+    for(ivar=1; ivar < GENPDF[IDMAP].GRIDMAP.NDIM ; ivar++ ) {
+      IVAR_HOSTLIB   = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+      x              = get_VALUE_HOSTLIB(IVAR_HOSTLIB, IGAL);
+      tmpName        = GENPDF[IDMAP].VARNAMES[ivar];
+      printf("\t %-12s = %f \n", tmpName, x);
+      fflush(stdout);
+    }
+  }
 
   debugexit(fnam);
 

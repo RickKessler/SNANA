@@ -428,50 +428,60 @@ void checkAbort_VARNAME_GENPDF(char *varName) {
 
 #ifndef USE_SUBPROCESS
 
-
 // ===================================
-double funVal_genPDF(char *parName, double *xval, GENGAUSS_ASYM_DEF *GENGAUSS) {
+double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   // Created Dec 19 2023
-  // For input parName and par-values *xval, return genPDF function value
-  // For multi-dim genPDF map, make sure that *xval array is properly loaded.
-  // For GENGAUSS option, only xval[0] is used.
+  // For input parName and value x, return genPDF function value.
+  // For multi-dim genPDF map, additional HOSTLIB-dependent values
+  // are internally included.
   //
-  // BEWARE: un-tested.
 
-  int IDMAP, istat ;
-  double prob = -9.0 ;
-  bool IS_LOGPARAM;
+  int    IDMAP = -9 ;
+  double prob  = -9.0 ;
+  bool   IS_LOGPARAM = false ;
   char fnam[] = "funVal_genPDF" ;
 
   // -------------- BEGIN ------------
 
   if ( NMAP_GENPDF > 0 ) {
+    int    istat, NDIM, ivar, IVAR_HOSTLIB;
+    double xval[MXVAR_GENPDF];
     IDMAP = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
+    NDIM  = GENPDF[IDMAP].GRIDMAP.NDIM ;
+    
+    xval[0] = x;
+    for(ivar=1; ivar < NDIM ; ivar++ ) {
+      IVAR_HOSTLIB   = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+      xval[ivar]     = get_VALUE_HOSTLIB(IVAR_HOSTLIB, SNHOSTGAL.IGAL);
+    }
+
     istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, xval, &prob);
   }
 
   if  ( GENGAUSS->USE ) {
-    prob = funVal_GENGAUSS_ASYM(xval[0], GENGAUSS);
+    prob = funVal_GENGAUSS_ASYM(x, GENGAUSS);
   }
 
   if ( prob < -1.0E-6 || prob > 1.0000000001 ) {
-    sprintf(c1err,"Invalid prob = %le for parName=%s (IDMAP=%d)", 
-	    prob, parName, IDMAP);
+    sprintf(c1err,"Invalid prob = %le for x=%f  parName=%s (IDMAP=%d)", 
+	    prob, x, parName, IDMAP);
     sprintf(c2err,"Need either GENPDF map or GENGAUSS");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  return;
+  return prob ;
 
 } // end funVal_genPDF
 
 // =====================================================
 double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	
+  // Return random number from GENPDF map corresponding to input *parName.
+  // If *parName does not match a GENPDF map, use input *GENGAUSS instead.
   
   int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
-  int    IGAL = SNHOSTGAL.IGAL;
+  int    IGAL               = SNHOSTGAL.IGAL;
 
   int    ILIST_RAN = 1;
   int    N_ITER=0, MAX_ITER  = MXITER_GENPDF ;
@@ -541,7 +551,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	  sprintf(c1err,"interp_GRIDMAP returned istat=%d", istat);
 	  sprintf(c2err,"Value probably outside GENPDF map range");
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-	}
+	} // end abort check
 
 	prob /= FUNMAX; // normalize to max prob = 1.0
 
@@ -580,7 +590,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 		  N_ITER, prob_ref );
 	  sprintf(c2err,"Check %s or increase MXITER_GENPDF", MAPNAME );
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-	}
+	} // end abort check
 
       } // end while loop over prob
 

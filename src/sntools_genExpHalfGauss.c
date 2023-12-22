@@ -218,9 +218,9 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   bool RESTORE_BUG = false ;
 
   // always burn randoms to stay synced.
-  double ran_EXPON = getRan_Flat1(1) ;                                 
-  double ran_GAUSS = getRan_Gauss(1) ;
-  double ran_WGT   = getRan_Flat1(1) ; 
+  double ran_EXPON = getRan_Flat1(ILIST_GETRAN_GENEXP) ;   
+  double ran_GAUSS = getRan_Gauss(ILIST_GETRAN_GENEXP) ;
+  double ran_WGT   = getRan_Flat1(ILIST_GETRAN_GENEXP) ; 
   double epsilon = 1.0E-14;
   double ranval = -9.0 ; //output random value
 
@@ -314,7 +314,7 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-      if ( itry  > 1 ) { ran_GAUSS = getRan_Gauss(1); }
+      if ( itry  > 1 ) { ran_GAUSS = getRan_Gauss(ILIST_GETRAN_GENEXP); }
 
       if (peak > 0.0001 )
         { ranval = sig * ran_GAUSS + peak; } // allow either side of peak

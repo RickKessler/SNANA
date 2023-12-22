@@ -1,4 +1,6 @@
 
+#define ILIST_GETRAN_GENEXP 1  // use this random list
+
 // March 20 2020: Generic struct for exponential and half gaussian. 
 typedef struct {
   bool   USE;          // T => values are set 

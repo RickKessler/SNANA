@@ -3,6 +3,7 @@
 
 // ========= GLOBAL DECLARATIONS =================
 
+#define ILIST_GETRAN_GENGAUSS 1
 #define MXGENGAUSS 100
 int NFUN_GENGAUSS_ASYM ; // used in conjunction with FUNINDEX       
 

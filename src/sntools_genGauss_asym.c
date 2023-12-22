@@ -289,7 +289,7 @@ double getRan_GENGAUSS_ASYM_bug(GENGAUSS_ASYM_DEF *genGauss) {
   //  LDMP = (strstr(NAME,"SALT2") != NULL ); // xxx REMOVE
 
   // always burn random to stay synced.
-  ran1 = getRan_Flat1(1) ;
+  ran1 = getRan_Flat1(ILIST_GETRAN_GENGAUSS) ;
 
   if ( !genGauss->USE ) {  return(ranval);  }
 
@@ -299,7 +299,7 @@ double getRan_GENGAUSS_ASYM_bug(GENGAUSS_ASYM_DEF *genGauss) {
   // check optional 2nd peak (Mar 2017)
   PROB2 = genGauss->PROB2 ;
   if ( PROB2 > 0.0000001 ) {
-    ran2 = getRan_Flat1(1) ;
+    ran2 = getRan_Flat1(ILIST_GETRAN_GENGAUSS) ;
     if ( ran2 < PROB2 ) {
       peak         = genGauss->PEAK2 ;
       peakrange[0] = peak ;
@@ -475,7 +475,7 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   if ( RESTORE_BUG ) { return getRan_GENGAUSS_ASYM(genGauss); }
 
   // always burn random to stay synced.
-  ran1 = getRan_Flat1(1) ;
+  ran1 = getRan_Flat1(ILIST_GETRAN_GENGAUSS) ;
 
   if ( !genGauss->USE ) {  return(ranval);  }
 
@@ -509,7 +509,7 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   // check optional 2nd peak 
   PROB2 = genGauss->PROB2 ;
   if ( PROB2 > 0.0000001 ) {
-    ran2 = getRan_Flat1(1) ;
+    ran2 = getRan_Flat1(ILIST_GETRAN_GENGAUSS) ;
     if ( ran2 < PROB2 ) {
       USE_PEAK2  = 1;
       USE_PEAK1  = 0;

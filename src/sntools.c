@@ -6896,13 +6896,15 @@ double getRan_GaussClip(int ilist, double ranGmin, double ranGmax ) {
 // *********************************
 double getRan_Flat1(int ilist) {
 
+  // return random number between 0 and 1
+  // Feb 2013: pass argument 'ilist' to pick random list.
+
   int  N ;
   double   x8;
   int  NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
   char fnam[] = "getRan_Flat1" ;
 
-  // return random number between 0 and 1
-  // Feb 2013: pass argument 'ilist' to pick random list.
+  // ----------- BEGIN -------------
 
   if ( ilist < 1 || ilist > NLIST_RAN ) {
     sprintf(c1err,"Invalid ilist = %d", ilist);

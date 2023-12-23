@@ -633,15 +633,6 @@ struct INPUTS {
   char MODELNAME[100];       // stripped from GENMODEL
 
   INPUTS_GENPDF_DEF GENPDF;
-  /* xxx mark delete xxxxxx
-  char GENPDF_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
-  char GENPDF_IGNORE[MXPATHLEN];
-  int  GENPDF_OPTMASK;           // bit-mask of options
-  char GENPDF_FLAT[100];         // varlist to force flat PDF; e.g., SALT2x1,SALT2c,RV
-
-  double GENPDF_EXPON_REWGT; // reweight population: PROB->PROB^GENPDF_EXPON_REWGT;
-        // applies to GENPDF and GENGAUS(x1,c,Delta...)
-	xxxxxxxx end mark xxxxx */
 
   char GENMODEL_EXTRAP_LATETIME[MXPATHLEN];
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR
@@ -1066,6 +1057,8 @@ struct GENLC {
   double PEAKMJD_RANGauss ;
 
   double RESTLAM_MODEL[2]; // rest-frame wavelength range of model
+
+  double  WGT_POPULATION ; // product of population wgts
 
   double  NOSHAPE ;     // undefined, such as nonIa or FIXMAG
   double  FIXMAG ;      // for FIXMAG model only
@@ -1938,6 +1931,10 @@ void   prep_RANSYSTPAR(void);
 void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
+void   rewgt_genPDF(int OPT);
+double wgt_population_event(void);
+void   set_population_expon_rewgt(double EXPON_REWGT) ;
+
 void   compute_lightCurveWidths(void);
 void   compute_mjd_explode(void);
 void   compute_galactic_coords(void);

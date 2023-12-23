@@ -136,6 +136,12 @@ void set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
 
 } // end set_GENGAUSS_ASYM
 
+void set_GENGAUSS_ASYM_REWGT(double expon_rewgt, GENGAUSS_ASYM_DEF *genGauss) {
+  genGauss->PROB_EXPON_REWGT      = expon_rewgt ;
+  genGauss->SQRT_PROB_EXPON_REWGT = sqrt(expon_rewgt);
+  return ;
+} 
+
 // ======================================
 void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
 

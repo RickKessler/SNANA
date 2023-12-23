@@ -67,6 +67,7 @@
 
  Feb 03 2023: read/write SIM_THETA for BayeSN model
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band] for ATMOS
+ Dec 22 2023: write SIM_WGT_POPULATION
 
 **************************************************/
 
@@ -480,6 +481,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E",  "SIM_MJD_EXPLODE"    , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MAGSMEAR_COH"   , itype );      
   
+    wr_snfitsio_addCol( "1E", "SIM_WGT_POPULATION"  , itype );  // Dec 2023
+
     // always write SIM_AV,RV
     wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
     wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
@@ -506,8 +509,7 @@ void wr_snfitsio_init_head(void) {
     
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_NON1ASED ||
 	 SNDATA.SIM_MODEL_INDEX  == MODEL_NON1AGRID ) {
-      // wr_snfitsio_addCol( "1E", "SIM_AV"            , itype );
-      // wr_snfitsio_addCol( "1E", "SIM_RV"            , itype );
+
     }
 
     if ( SNDATA.SIM_MODEL_INDEX == MODEL_SIMSED && 
@@ -1961,6 +1963,11 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MAGSMEAR_COH ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGSMEAR_COH", itype );
 
+
+  // Dec 22 2023: write SIM_WGT for population
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_WGT_POPULATION ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_WGT_POPULATION", itype );
 
   // Ju 16 2016: always write SIM_RV & SIM_AV
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3449,6 +3456,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_FLT(isn,"SIM_MAGSMEAR_COH",&SNDATA.SIM_MAGSMEAR_COH,
+			       &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_WGT_POPULATION", &SNDATA.SIM_WGT_POPULATION,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_AV", &SNDATA.SIM_AV ,

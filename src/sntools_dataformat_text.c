@@ -35,6 +35,7 @@
  
  May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band]
+ Dec 22 2023: write SIM_WGT_POPULATION 
 
 *************************************************/
 
@@ -325,6 +326,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
   fprintf(fp, "SIMOPT_MWEBV:        %d   # MWEBV option \n",
 	  SNDATA.SIMOPT_MWEBV ) ;
+
+  fprintf(fp, "SIM_WGT_POPULATION:  %.5f  # stretch x color * AV\n", 
+	  SNDATA.SIM_WGT_POPULATION);
 
   if ( SNDATA.SIM_AV != NULLFLOAT ) {
 

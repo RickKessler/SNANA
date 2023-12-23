@@ -511,6 +511,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       FUNMAX        = GENPDF[IDMAP].GRIDMAP.FUNMAX[0] ;
       NDIM          = GENPDF[IDMAP].GRIDMAP.NDIM ;
       EXPON_REWGT   = GENPDF[IDMAP].PROB_EXPON_REWGT ; 
+      if ( EXPON_REWGT != 1.0 ) { FUNMAX = pow(FUNMAX,EXPON_REWGT); }
       prob_ref=1.0; prob=0.0;
 
       // tack on optional dependence on HOSTLIB

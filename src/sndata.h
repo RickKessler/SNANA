@@ -440,6 +440,8 @@ struct SNDATA {
   float SIM_TRESTMIN ;
   float SIM_TRESTMAX ;
 
+  float SIM_WGT_POPULATION; // product of population wgts (color x stretch x AV)
+
   // luminosity params
   float SIM_STRETCH ;  // for history lesson
   float SIM_DELTA ;    // for mlcs

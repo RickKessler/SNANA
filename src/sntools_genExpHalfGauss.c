@@ -50,7 +50,16 @@ void set_GEN_EXPON(double tau, double *range,
   gen_EXP_HALFGAUSS->PEAK     = 0.0 ;
   gen_EXP_HALFGAUSS->SIGMA    = 0.0 ;
   gen_EXP_HALFGAUSS->RATIO    = 0.0 ;
-}
+
+  return;
+} // end set_GEN_EXPON
+
+
+void set_GEN_EXPON_REWGT(double expon_rewgt, GEN_EXP_HALFGAUSS_DEF *genEXP) {
+  genEXP->PROB_EXPON_REWGT      = expon_rewgt ;
+  genEXP->SQRT_PROB_EXPON_REWGT = sqrt(expon_rewgt);
+  return;
+} // end set_GEN_EXPON_REWGT
 
 
 void dump_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *genExp) {

@@ -574,14 +574,22 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     sprintf(parName,"EBV"); 
     SNHOSTGAL.IGAL = 20;   
     IDMAP          = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
-    range[0]       = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
-    range[1]       = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ; 
 
     // restrict range to make better use of binned results below 
     // SALT2x1 range is ok
-    if ( strcmp(parName,"SALT2c") == 0 ) { range[0] = -0.3; range[1] = 0.3; }
-    if ( strcmp(parName,"EBV")    == 0 ) { range[0] =  0.0; range[1] = 0.9; }
+    if ( strcmp(parName,"SALT2c") == 0 ) { 
+      GENPDF[IDMAP].GRIDMAP.VALMIN[0] = -0.3;
+      GENPDF[IDMAP].GRIDMAP.VALMAX[0] =  0.3;
+    }
+    else if ( strcmp(parName,"EBV")    == 0 ) { 
+      GENPDF[IDMAP].GRIDMAP.VALMIN[0] = 0.0 ;
+      GENPDF[IDMAP].GRIDMAP.VALMAX[0] = 0.9 ;
+    }
 
+    range[0]       = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
+    range[1]       = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ; 
+
+    GENPDF[IDMAP].PROB_EXPON_REWGT = 1.0 ;
   }
   else {
     print_preAbort_banner(fnam);

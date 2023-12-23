@@ -209,6 +209,8 @@ int main(int argc, char **argv) {
 	      INPUTS.GENPDF.MAP_FILE, INPUTS.GENPDF.MAP_IGNORE ) ;
   prioritize_genPDF_ASYMGAUSS();
 
+  rewgt_genPDF(+1); // option to rewgt (intended for BiasCor)
+
   // - - - - 
   init_genmodel();
   init_modelSmear(); 
@@ -8816,6 +8818,8 @@ void  init_event_GENLC(void) {
   // init shape-par pameters to NULLFLOAT;
   // only the selected model will get over-written
 
+  GENLC.WGT_POPULATION = 1.0 ;
+
   GENLC.STRETCH    = NULLFLOAT ;
   GENLC.DELTA      = NULLFLOAT ;
   GENLC.DELTAM     = NULLFLOAT ;
@@ -14675,6 +14679,12 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     NVAR_SIMGEN_DUMP++ ;
   }
 
+  // - - - -
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"WGT_POPULATION") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.WGT_POPULATION ;
+  NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,PARNAME_AV) ;
@@ -16290,6 +16300,7 @@ double gen_AV(void) {
     
   }
  
+
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,
 			   &GENLC.GENPROFILE_EBV_HOST);
@@ -22677,7 +22688,7 @@ void gen_spectype(void) {
   
   // set SNTYPE 
 
-  if ( INDEX_GENMODEL == MODEL_FIXMAG ) { //.xyz
+  if ( INDEX_GENMODEL == MODEL_FIXMAG ) { 
     GENLC.SNTYPE = MODEL_FIXMAG ;
     // xxx mark     if ( GENLC.SNTYPE <= 0 ) { GENLC.SNTYPE = MODEL_FIXMAG ; }
   }
@@ -23286,6 +23297,9 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.CCDNUM[0]        = SIMLIB_HEADER.CCDNUM ;
   SNDATA.SIM_AV           = GENLC.AV ;
   SNDATA.SIM_RV           = GENLC.RV ;
+
+  rewgt_genPDF(2); // compute WGT_POPULATION for this event
+  SNDATA.SIM_WGT_POPULATION = GENLC.WGT_POPULATION; // Dec 2023
 
   if ( INDEX_GENMODEL == MODEL_STRETCH ) 
     {  SNDATA.SIM_STRETCH  = GENLC.STRETCH ; }
@@ -29183,6 +29197,147 @@ void prioritize_genPDF_ASYMGAUSS(void) {
 
 } // end prioritize_genPDF_ASYMGAUSS
 
+
+// ==========================================================
+void rewgt_genPDF(int OPT) {
+
+  // Created Dec 22 2023
+  // 
+  // OPT = 1 ->
+  //   Apply user-input EXPON_REWGT (arg of GENPDF_EXPON_REWGT key) 
+  //   to population distrbutions for stretch (x1), color (AV), and/or AV/EBV.
+  //
+  // OPT = 2 ->
+  //   Compute WGT = PROB(nominal)/PROB(rewgt) to be stored in data file,
+  //   where PROB(nominal) has EXPON_REWGT restored to default value of 1.0.
+  //   Make sure to restore EXPON_REWGT for next event.
+  //   Meaning of WGT is weight needed to apply to output sim events
+  //   to get back to physical rate. 
+  //
+  // This option is intended for BiasCor sims to reduce/remove BBC loss
+  // from indefined biasCor in sparsely populated regios of color and stretch.
+  // There is no protection to prevent use on sim-data, so be careful
+  // to use this option only for biasCor.
+
+  double EXPON_REWGT = INPUTS.GENPDF.EXPON_REWGT;
+  double SQRT_EXPON_REWGT;
+
+  double ONE = 1.0 ;
+  double prob_rewgt, prob_wgt1,  wgt_event ;
+  char fnam[] = "rewgt_genPDF" ;
+
+  // ------------ BEGIN -------------
+
+  if ( EXPON_REWGT == 1.0 ) { return; }
+  // SQRT_EXPON_REWGT = sqrt(EXPON_REWGT);
+
+  if ( OPT == 1 ) {
+    print_banner(fnam);
+    printf("\t Reweight stretch & color population prob -> prob^%.2f \n", 
+	   EXPON_REWGT);
+    set_population_expon_rewgt(EXPON_REWGT);
+  }
+
+  // - - - - - - -
+  // compute weight for this event ; needed to get physical distribution
+  if ( OPT == 2   ) {
+
+    prob_rewgt = wgt_population_event(); 
+
+    set_population_expon_rewgt(ONE);     // back to physical wgt
+    prob_wgt1 = wgt_population_event();  // prob from physical population
+
+    set_population_expon_rewgt(EXPON_REWGT); // restore wgted population
+
+    wgt_event = prob_wgt1 / prob_rewgt ;
+    GENLC.WGT_POPULATION = wgt_event ;
+
+    // .xyz need to store wgt_event in GENLC, then write to data file header
+  }
+
+
+  return;
+
+} // end rewgt_genPDF
+
+
+// =====================================================
+void set_population_expon_rewgt(double EXPON_REWGT) {
+
+  bool ISMODEL_SALT2 = ( INDEX_GENMODEL == MODEL_SALT2  );
+  char fnam[] = "set_population_expon_rewgt" ;
+
+  // ------------ BEGIN ------------
+
+  set_GENGAUSS_ASYM_REWGT(EXPON_REWGT, &INPUTS.GENGAUSS_SHAPEPAR) ;
+
+  if ( ISMODEL_SALT2 ) {
+    set_GENGAUSS_ASYM_REWGT(EXPON_REWGT, &INPUTS.GENGAUSS_SALT2x1) ;
+    set_GENGAUSS_ASYM_REWGT(EXPON_REWGT, &INPUTS.GENGAUSS_SALT2c)  ;
+  }
+  else {
+    // other models ??
+  }
+
+  if ( INPUTS.DOGEN_AV ) {
+    set_GEN_EXPON_REWGT(EXPON_REWGT, &INPUTS.GENPROFILE_EBV_HOST) ;
+    set_GEN_EXPON_REWGT(EXPON_REWGT, &INPUTS.GENPROFILE_AV)  ;
+  }
+
+  return;
+} // end set_population_expon_rewgt
+ 
+// ===========================================
+double wgt_population_event(void) {
+
+  // Created Dec 22 2023
+  // Return product of population weights,
+  //   wgt = wgt_stretch x wgt_color x wgt_AV
+
+  bool ISMODEL_SALT2 = ( INDEX_GENMODEL == MODEL_SALT2  );
+  GENGAUSS_ASYM_DEF  GENGAUSS_NULL ;  GENGAUSS_NULL.USE = false ;
+
+  double wgt = 1.0;
+  char fnam[] = "wgt_population_event" ;
+
+  // ------------ BEGIN ------------
+
+  wgt = 1.0 ;
+
+  if ( ISMODEL_SALT2 ) {
+    wgt *= funVal_genPDF("SALT2x1", GENLC.SALT2x1, &INPUTS.GENGAUSS_SALT2x1);
+    wgt *= funVal_genPDF("SALT2c",  GENLC.SALT2c,  &INPUTS.GENGAUSS_SALT2c );
+  }
+  else {
+    // other models ??
+  }
+
+  // - - - - -
+  // host extinction wgt is either function of AV or EBV
+
+  if ( INPUTS.DOGEN_AV ) {
+    double EBV = GENLC.AV / GENLC.RV ;
+
+    if ( INPUTS.GENPROFILE_AV.USE ) {  
+      wgt *= funVal_GEN_EXP_HALFGAUSS(GENLC.AV, &GENLC.GENPROFILE_AV);
+    }
+    if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
+      wgt *= funVal_GEN_EXP_HALFGAUSS(EBV, &GENLC.GENPROFILE_EBV_HOST);
+    }
+
+    
+    if ( INPUTS.DOGEN_AV == 2 ) {
+      wgt *= funVal_genPDF("AV", GENLC.AV, &GENGAUSS_NULL);
+    }
+    if ( INPUTS.DOGEN_AV == 4 ) {
+      wgt *= funVal_genPDF("EBV", EBV, &GENGAUSS_NULL);
+    }
+  } // end AV
+  
+  return wgt ;
+
+} // end wgt_population_event
+ 
 // ***********************************
 void DASHBOARD_DRIVER(void) {
 
@@ -30696,6 +30851,9 @@ void print_sim_help(void) {
     "GENPEAK_SALT2BETA:                    # idem",
     "GENSIGMA_SALT2BETA:                   # idem ",
     "GENRANGE_SALT2BETA:                   # idem",
+    "",
+    "GENPDF_FILE: <map_file>        # see manual",
+    "GENPDF_EXPON_REWGT: <rewgt>    # rewgt all population prob->prob^rewgt",
     "",
     "DNDZ: POWERLAW <a> <b>                # R(z) = a(1+z)^b", 
     "",

@@ -22104,6 +22104,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05i) *****
 
+     sim: implement user input GENPDF_EXPON_REWGT to reweight population;
+          write SIM_WGT_POPULATIO to data files. 
+          See https://github.com/RickKessler/SNANA/issues/1254 .
 
          *****  USEFUL(v11_05i) *****
 

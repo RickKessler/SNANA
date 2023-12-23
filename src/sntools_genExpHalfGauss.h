@@ -29,6 +29,9 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS,
 void set_GEN_EXPON(double tau, double *range, 
 		   GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
 
+void set_GEN_EXPON_REWGT(double expon_rewgt,
+			 GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
+
 double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
 double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
 

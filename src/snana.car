@@ -1086,6 +1086,8 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_LENSDMU
      &  ,SIM_MWEBV
      &  ,SIM_MWRV
+c
+     &  ,SIM_WGT_POPULATION     ! Dec 2023: for biasCor sims only
      &  ,SIM_SALT2x0
      &  ,SIM_SALT2mb
      &  ,SIM_COLORPAR, SIM_COLORLAW, SIM_AV, SIM_RV
@@ -1167,7 +1169,8 @@ c
       COMMON / SNSIMCOM / SIMNAME_MODEL, SIM_MODEL_INDEX
      &  ,SIM_REDSHIFT_HELIO, SIM_REDSHIFT_CMB, SIM_REDSHIFT_HOST
      &  ,SIM_REDSHIFT_FLAG
-     &  ,SIM_VPEC, SIM_DLMAG, SIM_LENSDMU, SIM_SALT2x0, SIM_SALT2mb
+     &  ,SIM_VPEC, SIM_DLMAG, SIM_LENSDMU
+     &  ,SIM_WGT_POPULATION, SIM_SALT2x0, SIM_SALT2mb
      &  ,SIM_COLORPAR, SIM_COLORLAW, SIM_AV, SIM_RV
      &  ,SIM_SHAPEPAR, SIM_SHAPELAW, SIM_PEAKMJD, SIM_MJD_EXPLODE
      &  ,SIM_MWEBV,SIM_MWRV
@@ -4966,6 +4969,10 @@ c - - - - model params - - - - -
       CALL FETCH_SNDATA_WRAPPER("SIM_MAGSMEAR_COH",
      &    ONE, STRING, DARRAY, OPT)
       SIM_MAGSMEAR_COH = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_WGT_POPULATION",
+     &    ONE, STRING, DARRAY, OPT)
+      SIM_WGT_POPULATION = SNGL(DARRAY(1))
 
       CALL FETCH_SNDATA_WRAPPER("SIM_SALT2x0",
      &    ONE, STRING, DARRAY, OPT)
@@ -15840,6 +15847,8 @@ c --------
       SIM_COLORLAW    = -9.
       SIM_DLMAG       = -9.
       SIM_LENSDMU     = -9.
+
+      SIM_WGT_POPULATION = 1.0
       SIM_SHAPEPAR    = -9.
       SIM_SHAPELAW    = -9.
       SIM_COLORPAR    = -9.
@@ -24990,7 +24999,7 @@ c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
 c Dec 28, 2020: write SIM_gammaDM to TEXT file if non-zero
 c Dec     2022: remove SIM_TYPE_INDEX
 c Jan  8  2023: restore SIM_TYPE_INDEX (forgot why it was removed)
-c
+c Dec 23  2023: add SIM_WGT_POPULATION
 c
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -25105,6 +25114,11 @@ cc      ENDIF
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MJD_EXPLODE,  
      &                VARLIST, 1,    LENBLOCK, LENLIST)
       endif
+
+c - - 
+      VARLIST = 'SIM_WGT_POP' // ':F'   // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_WGT_POPULATION,
+     &               VARLIST, 1,     LENBLOCK, LENLIST)  
 
       LENTMP = INDEX(SIMNAME_SHAPEPAR,' ') - 1  ! x1, delta, dm15
       VARLIST = SIMNAME_SHAPEPAR(1:LENTMP) // ':F'   // char(0)

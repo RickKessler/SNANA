@@ -584,6 +584,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_MAGSMEAR_COH") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_MAGSMEAR_COH) ; }  
 
+    else if ( strcmp(key,"SIM_WGT_POPULATION") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_WGT_POPULATION) ; }  
+
     else if ( strcmp(key,"SIM_AV") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_AV) ; }  
     else if ( strcmp(key,"SIM_RV") == 0 ) 

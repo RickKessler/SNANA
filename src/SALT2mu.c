@@ -589,6 +589,7 @@ typedef struct {
   // SIM_[PROPERTY] read from table file
   short int *SIM_NONIA_INDEX, *SIM_ZFLAG ;
   float *SIM_ALPHA, *SIM_BETA, *SIM_GAMMADM;
+  float *SIM_WGT_POPULATION ;
   float *SIM_X0, *SIM_FITPAR[NLCPAR+1], *SIM_AV; 
   float *SIM_ZCMB, *SIM_VPEC, *SIM_MU;
   float *SIM_MUz ; // calculated SIM_MU at observed redshift
@@ -1752,6 +1753,7 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
 #define VARNAME_SIM_AV   "SIM_AV"
 #define VARNAME_SIM_RV   "SIM_RV"
 #define VARNAME_SIM_EBV  "SIM_EBV"
+#define VARNAME_SIM_WGT  "SIM_WGT_POP"
 
 typedef struct {
 
@@ -6671,6 +6673,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->SIM_MU           = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_MUz          = (float *) malloc(MEMF); MEMTOT+=MEMF;
 
+    TABLEVAR->SIM_WGT_POPULATION = (float *) malloc(MEMF); MEMTOT+=MEMF;
+
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
       TABLEVAR->SIM_ALPHA        = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->SIM_BETA         = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -6762,6 +6766,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     }
     free(TABLEVAR->SIM_GAMMADM);
     free(TABLEVAR->SIM_AV);
+    free(TABLEVAR->SIM_WGT_POPULATION);
 
     if ( REQUIRE_pIa ) { free(TABLEVAR->pIa); }
 
@@ -7072,6 +7077,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     if ( INPUTS.zspec_errmax_idsample > 0.0 ) 
       { TABLEVAR->zprior[irow]  = TABLEVAR->zpriorerr[irow]  = -9.0 ; }
 
+    TABLEVAR->SIM_WGT_POPULATION[irow]  =  1.0 ;
     TABLEVAR->SIM_NONIA_INDEX[irow]  = -9 ;
     TABLEVAR->SIM_AV[irow]           =  0.0 ;
     TABLEVAR->SIM_GAMMADM[irow]      =  0.0 ; // allow missing gammadm
@@ -7306,6 +7312,10 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     if ( (INPUTS.blindFlag & BLINDMASK_SIM)==0 ) { INPUTS.blindFlag=0; }
   }
  
+  sprintf(vartmp,"SIM_WGT_POP:F" );
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_WGT_POPULATION[ISTART], 
+			  LEN, VBOSE);
+
   if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
 
     sprintf(vartmp,"SIMx0:F SIM_x0:F" );
@@ -10704,11 +10714,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
 // =====================================================
 double WGT_biasCor_population(int ievt, char *msg) {
 
-  // Created Dec 19 2023
-  // Placeholder to weight by c,x1 population if sim-biasCor was
-  // generated with flat c & x1 distribution in order to better 
-  // sample the low-prob regions.
-  //
+  // Created Dec 2023
   // Inputs:
   //   ievt : biasCor event index
   //   msg  : error message for abort.
@@ -10717,7 +10723,7 @@ double WGT_biasCor_population(int ievt, char *msg) {
   char fnam[] = "WGT_biasCor_population";
 
   // ------------ BEGIN ------------
-
+  WGT = INFO_BIASCOR.TABLEVAR.SIM_WGT_POPULATION[ievt];
   return WGT;
 
 } // end WGT_biasCor_population

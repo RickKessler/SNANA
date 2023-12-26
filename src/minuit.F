@@ -5,51 +5,11 @@
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:28  mclareni
-* Minuit
 *
 *
       SUBROUTINE MINUIT(FCN,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -57,28 +17,6 @@ C ************ DOUBLE PRECISION VERSION *************
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506cm.inc
 *
@@ -254,51 +192,10 @@ C  ......................entry to set unit numbers  - - - - - - - - - -
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:28  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNAMIN(FCN,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -310,28 +207,6 @@ CC        parameter values if Print Flag value is high enough.
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506cm.inc
 *
@@ -386,51 +261,10 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:28  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNBINS(A1,A2,NAA,BL,BH,NB,BWID)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -495,51 +329,10 @@ C          REQUEST FOR ONE BIN IS DIFFICULT CASE
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:28  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNCALF(FCN,PVEC,YCALF,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -551,29 +344,7 @@ CC        minima.    Calculates  ycalf = (f-fmin)/(x-xmin)*v*(x-xmin)
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
+**
 * d506cm.inc
 *
       PARAMETER (MNE=100 , MNI=110)
@@ -643,52 +414,11 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:28  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNCLER
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
+**
 * d506dp.inc
 *
 C ************ DOUBLE PRECISION VERSION *************
@@ -697,28 +427,6 @@ CC        Called from MINUIT and by option from MNEXCM
 CC        Resets the parameter list to UNDEFINED
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506cm.inc
 *
@@ -782,52 +490,11 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:28  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNCNTR(FCN,KE1,KE2,IERRF,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
+**
 * d506dp.inc
 *
 C ************ DOUBLE PRECISION VERSION *************
@@ -836,29 +503,7 @@ CC       to print function contours in two variables, on line printer
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
+**
 * d506cm.inc
 *
       PARAMETER (MNE=100 , MNI=110)
@@ -1043,52 +688,11 @@ C                 finished.  reset input values
       END
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:29  mclareni
-* Minuit
-*
+**
 *
       SUBROUTINE MNCOMD(FCN,CRDBIN,ICONDN,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -1114,29 +718,6 @@ CC             12: RETURN command
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
 * d506cm.inc
 *
       PARAMETER (MNE=100 , MNI=110)
@@ -1251,52 +832,10 @@ C
       END
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:29  mclareni
-* Minuit
-*
-*
+**
       SUBROUTINE MNCONT(FCN,KE1,KE2,NPTU,XPTU,YPTU,IERRF,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -1314,28 +853,6 @@ CC     n>3  if only n points can be found (n < NPTU)
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506cm.inc
 *
@@ -1642,55 +1159,13 @@ C                                     Error returns
       END
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:29  mclareni
-* Minuit
-*
+**
 *
       SUBROUTINE MNCRCK(CRDBUF,MAXCWD,COMAND,LNC,
      +                         MXP,   PLIST, LLIST,IERR,ISYSWR)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
-* d506dp.inc
 *
 C ************ DOUBLE PRECISION VERSION *************
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
@@ -6591,62 +6066,24 @@ C         used by MNPINT to set variables "near" the physical limits
       VLIMLO = -PIBY2 + DISTNN
       CALL MNCLER
 
-      if ( ISYSWR > 0 ) then
-         WRITE (ISYSWR,'(3A,I3,A,I3,A,E10.2)')  
-     +     '  MINUIT RELEASE ',CVRSN,
-     +     ' INITIALIZED.   DIMENSIONS ',MNE,'/',MNI,'  EPSMAC=',EPSMAC
-      endif
+c xxxxxxxxxxxx
+c RSK - comment this out (Dec 2023
+c      if ( ISYSWR > 0 ) then
+c         WRITE (ISYSWR,'(3A,I3,A,I3,A,E10.2)')  
+c     +     '  MINUIT RELEASE ',CVRSN,
+c     +     ' INITIALIZED.   DIMENSIONS ',MNE,'/',MNI,'  EPSMAC=',EPSMAC
+c      endif
+c xxxxxxxxxxxx
 
       RETURN
       END
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:30  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNINPU(IUNIT,IERR)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -6659,28 +6096,6 @@ CC      open files and rewinding, all that is the responsibility
 CC      of the user and cannot be fixed interactively.
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506cm.inc
 *
@@ -6750,51 +6165,10 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:30  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNINTR(FCN,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *
@@ -6805,28 +6179,6 @@ CC       easily from Fortran-callable to interactive mode.
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506cm.inc
 *
@@ -6876,21 +6228,7 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
+
 *
 * Revision 1.2  1996/03/15 18:02:48  james
 *     Modified Files:
@@ -6915,28 +6253,6 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
-*
 * d506dp.inc
 *
 C ************ DOUBLE PRECISION VERSION *************
@@ -6946,22 +6262,6 @@ CC       Interprets the SET LIM command, to reset the parameter limits
 CC
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
 *
 * Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
 * Minuit
@@ -7105,51 +6405,10 @@ C
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:30  mclareni
-* Minuit
-*
 *
       SUBROUTINE MNLINE(FCN,START,FSTART,STEP,SLOPE,TOLER,FUTIL)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
-*
-* $Log: minuit.F,v $
-* Revision 1.5  2017/09/11 22:25:21  rkessler
-* *** empty log message ***
-*
-* Revision 1.4  2017/07/02 21:43:23  rkessler
-* *** empty log message ***
-*
-* Revision 1.3  2017/06/27 12:44:57  rkessler
-* *** empty log message ***
-*
-* Revision 1.2  2015/03/16 03:40:18  rkessler
-* *** empty log message ***
-*
-* Revision 1.1  2015/02/19 19:55:24  rkessler
-* *** empty log message ***
-*
-* Revision 1.1.1.1  1996/03/07 14:31:32  mclareni
-* Minuit
-*
-*
-*
 *
 * d506dp.inc
 *

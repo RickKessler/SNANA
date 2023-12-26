@@ -5819,7 +5819,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   // allocate redshift bins
   CELLINFO->USE      =  (bool   *) malloc(MEMB);
   CELLINFO->NperCell =  (int    *) malloc(MEMI);
-  CELLINFO->WperCell =  (double *) malloc(MEMI);
+  CELLINFO->WperCell =  (double *) malloc(MEMD);
   CELLINFO->AVG_z    =  (double *) malloc(MEMD);
   CELLINFO->AVG_m    =  (double *) malloc(MEMD);
   CELLINFO->AVG_LCFIT[INDEX_c] = (double *) malloc(MEMD);
@@ -10446,7 +10446,6 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
     NEVT_USE++ ;
     CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D]++ ;
 
-    //.xyz Total WGT or just WGT_pop ??
     CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D] += WGT_pop ; 
   }
 
@@ -10497,7 +10496,6 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
       }
       sumsq_nbr += sumsq[J1D_nbr] ;
       sum_nbr   += sum[J1D_nbr] ;
-      // xxx mark delete Nsum_nbr  += CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D_nbr] ;
       Wsum_nbr  += CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D_nbr] ;
     }
     // xxx mark delete     XNLIST = (double)Nsum_nbr ;
@@ -10969,10 +10967,10 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc, NperCell ;
   int    OPTMASK, DUMPFLAG = 0 ;
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
-  int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK, nevt_biascor ;
+  int    ievt, istat_cov, istat_bias, J1D, ipar, USEMASK, nevt_biascor ;
   double muErr, muErrsq, muErrsq_raw, muDif, muDifsq, pull, tmp1, tmp2  ;
   double muBias, muBiasErr, muCOVscale, muCOVadd, fitParBias[NLCPAR+1] ;
-  double a, b, gDM, z, m, c ;
+  double a, b, gDM, z, m, c, WGT_POP ;
   double *SUM_MUERR, *SUM_SQMUERR;
   double *SUM_MUDIF, *SUM_SQMUDIF ;
   double *SQMUERR,   *SQMUSTD ;
@@ -11077,6 +11075,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
 	      ptr_MUCOVSCALE[N1D] = 1.0 ;
 	      CELL_MUCOVSCALE->NperCell[N1D]  = 0 ;
+	      CELL_MUCOVSCALE->WperCell[N1D]  = 0.0 ;
 	      CELL_MUCOVSCALE->AVG_z[N1D]     = 0.0 ;
 	      CELL_MUCOVSCALE->AVG_m[N1D]     = 0.0 ;
 	      CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
@@ -11084,6 +11083,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
 	      ptr_MUCOVADD[N1D] = 1.0e-12 ;
 	      CELL_MUCOVADD->NperCell[N1D]  = 0 ;
+	      CELL_MUCOVADD->WperCell[N1D]  = 0.0 ;
 	      CELL_MUCOVADD->AVG_z[N1D]     = 0.0 ;
 	      CELL_MUCOVADD->AVG_m[N1D]     = 0.0 ;
 	      CELL_MUCOVADD->AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
@@ -11100,6 +11100,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
+    WGT_POP = WGT_biasCor_population(ievt,fnam);
 
     if ( debug_mucovscale > 0 ) { INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] = -9;  }
 
@@ -11230,12 +11231,12 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       muErr_raw_list[ievt] = sqrt(muErrsq_raw);
     }
 
-    SUM_PULL[i1d]    += pull ;
-    SUM_SQPULL[i1d]  += (pull*pull) ;
-    SUM_SQMUDIF[i1d] +=  muDifsq ;
-    SUM_MUDIF[i1d]   +=  muDif ;
-    SUM_SQMUERR[i1d] +=  muErrsq ;
-    SUM_MUERR[i1d]   +=  muErr ;
+    SUM_PULL[i1d]    += WGT_POP * pull ;
+    SUM_SQPULL[i1d]  += WGT_POP * (pull*pull) ;
+    SUM_SQMUDIF[i1d] += WGT_POP *  muDifsq ;
+    SUM_MUDIF[i1d]   += WGT_POP *  muDif ;
+    SUM_SQMUERR[i1d] += WGT_POP *  muErrsq ;
+    SUM_MUERR[i1d]   += WGT_POP *  muErr ;
 
     if (DO_MAD) {
       NperCell = CELL_MUCOVSCALE->NperCell[i1d];
@@ -11265,28 +11266,36 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
 
     // increment sums to get average in each cell   
-    CELL_MUCOVSCALE->NperCell[i1d]++ ;
-    CELL_MUCOVSCALE->AVG_z[i1d]              += z ;
-    CELL_MUCOVSCALE->AVG_m[i1d]              += m ;
-    CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] += c ;
+    CELL_MUCOVSCALE->NperCell[i1d]           += 1 ;
+    CELL_MUCOVSCALE->WperCell[i1d]           += WGT_POP;
+    CELL_MUCOVSCALE->AVG_z[i1d]              += (z * WGT_POP) ;
+    CELL_MUCOVSCALE->AVG_m[i1d]              += (m * WGT_POP) ;
+    CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] += (c * WGT_POP) ;
+
+    /* xxx mark delete  xxxxxx
+    printf(" xxx %s: WGT_POP = %f WperCell = %f \n", 
+	   fnam, WGT_POP, CELL_MUCOVSCALE->WperCell[i1d] );
+    debugexit(fnam);
+    xxxx */
 
   } // end ievt
 
   //printf("xxx N_REALLOC=%d\n",N_REALLOC);
 
   // -------------------------------------------------
-  double XN, SQSTD, AVG=-9.0, STD=-9.0, MAD=-9.0 ;
-  
+  double WN, SQSTD, AVG=-9.0, STD=-9.0, MAD=-9.0 ;
+  int N;
+
   for(i1d=0; i1d < NCELL; i1d++ ) {
 
     SQMUSTD[i1d] = 0.0 ;
     SQMUERR[i1d] = 0.0 ;
     
     N  = CELL_MUCOVSCALE->NperCell[i1d] ;
-    XN = (double)N ;
+    WN = CELL_MUCOVSCALE->WperCell[i1d] ;
 
     if ( N < NperCell_min ) {       
-      CELL_MUCOVSCALE->USE[i1d]             = false;
+      CELL_MUCOVSCALE->USE[i1d]   = false;
 
       if ( INPUTS.restore_bug_mucovscale ) { 
 	CELL_MUCOVSCALE->USE[i1d]=true;
@@ -11300,21 +11309,21 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     }
     
     CELL_MUCOVSCALE->USE[i1d]                 = true;
-    CELL_MUCOVSCALE->AVG_z[i1d]              /= XN ;
-    CELL_MUCOVSCALE->AVG_m[i1d]              /= XN ;
-    CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] /= XN ;
+    CELL_MUCOVSCALE->AVG_z[i1d]              /= WN ;
+    CELL_MUCOVSCALE->AVG_m[i1d]              /= WN ;
+    CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] /= WN ;
 
-    tmp1= SUM_MUDIF[i1d]/XN ;    tmp2= SUM_SQMUDIF[i1d]/XN ;
+    tmp1= SUM_MUDIF[i1d]/WN ;    tmp2= SUM_SQMUDIF[i1d]/WN ;
     SQSTD = tmp2 - tmp1*tmp1 ;
     SQMUSTD[i1d] = SQSTD ;
 
     // average calculated muErrsq
-    muErr        = SUM_MUERR[i1d]/XN ;
+    muErr        = SUM_MUERR[i1d]/WN ;
     muErrsq      = muErr*muErr  ;
     SQMUERR[i1d] = muErrsq ;
     
     // RMS of pull
-    tmp1= SUM_PULL[i1d]/XN;  tmp2=SUM_SQPULL[i1d]/XN ;
+    tmp1= SUM_PULL[i1d]/WN;  tmp2=SUM_SQPULL[i1d]/WN ;
     SQSTD = tmp2 - tmp1*tmp1 ;
 
     SIG_PULL_STD[i1d] = sqrt(SQSTD);
@@ -11985,7 +11994,7 @@ void init_COVINT_biasCor(void) {
   // - - - - - - - - - - - - - - - - - - - - - - - - - 
   // - - - - - - - - - - - - - - - - - - - - - - - - - 
   // If we get here, compute full COV matrix in bins of 
-  // IDSAMPLE, z, a, b  # .xyz ?? add color & mass indice im, ic ??
+  // IDSAMPLE, z, a, b  
   //   COV(x,y) = sum[(x-xtrue)*(y-ytrue) ] / N
 
   int NBIASCOR_IDEAL=0, NBIASCOR_CUTS=0 ;

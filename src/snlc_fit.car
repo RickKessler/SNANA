@@ -250,8 +250,8 @@ c Oct 15 2021: add IEP_CCDNUN, IEP_IMGNUM
       PARAMETER ( MXVAR_R4=60, MXVAR_I4=12 )
       
       REAL*4 
-     &   R4EP_ALL(MXFIT_DATA,MXVAR_R4) !vs. absolute epoch; fixed each iter
-     &  ,R4EP_FIT(MXFIT_DATA,MXVAR_R4) !sparse subset in fit; changes each iter
+     &   R4EP_ALL(MXFIT_DATA,MXVAR_R4)  !vs. absolute epoch; fixed each iter
+     &  ,R4EP_FIT(MXFIT_DATA,MXVAR_R4)  !sparse subset in fit; changes each iter
      &  ,R4EP_LAST(MXFIT_DATA,MXVAR_R4) ! store R4EP_ALL for previous fit-iter
 
       INTEGER
@@ -269,14 +269,14 @@ c Oct 15 2021: add IEP_CCDNUN, IEP_IMGNUM
 
 c define index for each variable.
 
-c variable indices for I4EP_
+c variable indices for integer I4EP_
       INTEGER
      &   IEP_IMJD, IEP_EPOCH, IEP_IDTEL
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
      &  ,IEP_REJECT, IEP_REJECT2
      &  ,IEP_CCDNUM, IEP_IMGNUM
 
-c variable indices for R4EP_
+c variable indices for real R4EP_
       INTEGER   
      &   JEP_MJD, JEP_TOBS, JEP_TREST
      &  ,JEP_DATAFLUX,  JEP_DATAFLUX_ERR
@@ -424,6 +424,7 @@ c
      &   ,R4SN_FFSUM_CROSS    !  sum F_data*F_model/sigma^2
      &   ,R4SN_FFSUM_WGT
      &   ,R4SN_FFSUM_RATIO
+     &   ,RADIUS_POP   ! e.g., sqrt [  (x1/3)^2 + (c/0.3)^2 ]
 
 c define covariance matrices for SN model correlations (NOT for fit)
 
@@ -460,7 +461,7 @@ c
      &  ,R4BAND_SNRMAX_FIT, R4BAND_SNRMAX_RAW
      &  ,R4SN_TEARLY, R4SN_TLATE, R4SN_MJDmin, R4SN_MJDmax
      &  ,R4SN_FFSUM_DATA, R4SN_FFSUM_MODEL, R4SN_FFSUM_CROSS
-     &  ,R4SN_FFSUM_WGT, R4SN_FFSUM_RATIO
+     &  ,R4SN_FFSUM_WGT, R4SN_FFSUM_RATIO, RADIUS_POP
 c
      &  ,PEAKMAG_OBS_MODEL,   PEAKMAG_OBS_MODEL_ERR
      &  ,PEAKMAG_REST_MODEL,  PEAKMAG_REST_MODEL_ERR
@@ -1430,6 +1431,9 @@ c set rest-frame filter ranges.
 
          PARNAME_STORE(IPAR_SHAPE)  = 'x1'
          ERRMAX_BAD(IPAR_SHAPE)     =  0.001
+
+         PARNAME_STORE(IPAR_SHAPE2)  = 'x2'    ! Dec 2023
+         ERRMAX_BAD(IPAR_SHAPE2)     =  0.0001
 
          if ( OPT_SALT2FIT .EQ. 0 .or. OPT_SALT2FIT .EQ. 4) then   !default
            PARNAME_STORE(IPAR_X0)         = 'x0'
@@ -2404,7 +2408,6 @@ c check for special variable computation for SIMSED models;
 
 c ------------------------------------------------------
 c compute SIMCHI2 on last iteration 
-
 cc      IF ( LSIM_SNANA .and. LAST ) then  
 cc 4.22.2019: disable because of problem with wrong host redshift
 cc         CALL GET_SIMCHI2_CHEAT()  
@@ -3166,7 +3169,7 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
         IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
         IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
         IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
-        IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024 ! PantheonPlus arxiv number includes 04077
+        IF ( DEBUG_FLAG == 1024 ) OPTMASK = OPTMASK + 1024 ! SALT2 debug flag
 
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
      &            LEN_NAME, 40 )
@@ -4977,8 +4980,6 @@ c Prior on AV
         CHI2PRIOR(IPAR_AV)      
      &          = CHI2_PRIOR(ipar_av,COLOR)
 
-c        print*, ' xxx COLOR, CHI2PRIOR = ',
-c     &       COLOR, CHI2PRIOR(IPAR_AV) ; call flush(6) ! .xyz
 
         CHI2PRIOR(IPAR_RV)      
      &          = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
@@ -5257,7 +5258,7 @@ c     &  ,FILTINDX
      &  ,GALextinct    ! returns approx MW extinction
      &  ,KCORFUN8
      &  ,DLMAG8_REF
-     &  ,SALT2x0calc, SALT2xx1, SALT2zz
+     &  ,SALT2x0calc, SALT2xx1, SALT2zz, SALT2x2
      &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
 c ------------- BEGIN ------------
@@ -5511,6 +5512,7 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
 
           MSKSALT2  = 0   ! bit0 => nominal, return flux 
           SALT2x1 = SHAPE(1)
+          SALT2x2 = SHAPE(2)    ! Dec 2023
           SALT2c  = AVHOST
           xx1     = SALT2xx1(ITER,SALT2x1)  ! x1 used in model-err calc
           zz      = SALT2zz(ITER,ZSN)       ! z  used in model-err calc
@@ -5548,6 +5550,7 @@ c multiple filters are needed for Landolot color transf.
           PARLIST_SN(2) = SALT2x1
           PARLIST_SN(3) = SALT2c
           PARLIST_SN(4) = xx1
+          PARLIST_SN(5) = SALT2x2
           PARLIST_HOST(1) = RVDUM
           PARLIST_HOST(2) = AVDUM
           PARLIST_HOST(3) = -9.0   ! logMass
@@ -5559,7 +5562,7 @@ c multiple filters are needed for Landolot color transf.
              if ( LTMP ) then
                CALL genmag_salt2( MSKSALT2, ifilt2_obs
      &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
-     &          , ZSN,ZZ, Nepoch, Tobs
+     &          , ZSN, ZZ, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt2_obs)       ! return arg
      &          , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg 
 
@@ -8003,7 +8006,7 @@ c ----------------------------------------
 
 c local var
 
-      INTEGER  NPAR, ipar, ITER_LAST
+      INTEGER  NPAR, ipar, ITER_LAST, NSURFACE
       REAL*8   PEAKMJD, VALTMP, ERRTMP
       LOGICAL  FIRST_ITER, JG
     
@@ -8012,8 +8015,10 @@ c SALT2 stuff
 
 c functions
       REAL*8  SALT2x0calc, SALT2mBcalc  ! functions
+      INTEGER get_NSURFACE_SEDMODEL
       LOGICAL FIRST_ITERATION
 
+      EXTERNAL get_NSURFACE_SEDMODEL
 C ---------- BEGIN -------------
 
       FIRST_ITER = FIRST_ITERATION(ITER) .and. (.not. LREPEAT_ITER)
@@ -8137,6 +8142,12 @@ c on the model and are evaluated below.
       INIBND(1,IPAR)  =  -20.0
       INIBND(2,IPAR)  =  +20.0
 
+      ipar            =  IPAR_SHAPE2
+      INIVAL(IPAR)    =  0.0
+      INISTP(IPAR)    =  0.0
+      INIBND(1,IPAR)  =  -20.0
+      INIBND(2,IPAR)  =  +20.0
+
 c -------------------------------------------
 c check for valid model and set model-dependent parameters
 
@@ -8144,13 +8155,11 @@ c check for valid model and set model-dependent parameters
      & .or. FITMODEL_INDEX .EQ. MODEL_STRETCH2 ) THEN
 
          INIVAL(IPAR_SHAPE)    =  1.0
-cc         INISTP(IPAR_SHAPE)    =  0.1
-
          INIBND(1,IPAR_SHAPE)  =   0.0
          INIBND(2,IPAR_SHAPE)  =  +3.0
 
          IF (  FITMODEL_INDEX .EQ. MODEL_STRETCH2 ) THEN
-            INIVAL(IPAR_SHAPE2)    =  1.0 
+            INIVAL(IPAR_SHAPE2)    =  1.0
             INISTP(IPAR_SHAPE2)    =  0.1
             INIBND(1,IPAR_SHAPE2)  =  0.0
             INIBND(2,IPAR_SHAPE2)  = +3.0
@@ -8190,6 +8199,15 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
          
          INIVAL(IPAR_COLOR)    =  INIVAL_COLOR
          INISTP(IPAR_COLOR)    =  INISTP_COLOR
+
+c Dec 2023: check for M2 component 
+         NSURFACE = get_NSURFACE_SEDMODEL()
+         if ( NSURFACE .GE. 3 ) then
+           INISTP(IPAR_SHAPE2)   = 0.05
+           INIVAL(IPAR_SHAPE2)   = 0.01
+           INIBND(1,IPAR_SHAPE2) = -4.0
+           INIBND(2,IPAR_SHAPE2) =  4.0
+         endif
 
 c for SALT2, DLMAG is replaced by x0:
 
@@ -8260,7 +8278,6 @@ c Dec 5 2013: reduce max color frmo +2 to +1.
 c Aug 30 2021: max color -> 2 to fit redder events
 
          INIBND(1,IPAR_COLOR) = -1.6  ! c
-cc         INIBND(2,IPAR_COLOR) = +1.0 
          INIBND(2,IPAR_COLOR) = +2.0 
 
          INIBND(1,IPAR_SHAPE) = -5.0  ! x1
@@ -9711,6 +9728,10 @@ c --- now the fit-probs
       NPLOTPAR        =  NPLOTPAR + 1
       PARNAME_STORE(NPLOTPAR) = 'FITPROB_NOPRIOR'    ! excludes prior
 
+      NPLOTPAR        =  NPLOTPAR + 1
+      PARNAME_STORE(NPLOTPAR) = 'RADIUS_POP'  ! Jan 2024
+      PAROPT_STORE(NPLOTPAR)  = 1
+
 c init everything, even for unused filters.
 
       DO 555 i = 1, NFILTOBS_TABLE  ! loop over observer-frame filters
@@ -9845,7 +9866,7 @@ c Dec 5, 2006: extra Z plots for PHOTOZ fits.
       endif
 
       RETURN
-      END
+      END      ! end FITINI_TABLEVAR
 
 C =====================================
 +DECK,FINI_PRKCOR.
@@ -9902,7 +9923,7 @@ C -------------- BEGIN -------------
 700   CONTINUE
 
       RETURN
-      END
+      END   ! FITINI_PRKCOR
 
 
 C =====================================
@@ -12818,17 +12839,17 @@ c are not counted in NFILT_SNRMAX_FIT.
 
 c fill SNRMAX_SORT_FIT to get sorted SNRMAX for fitted bands.
 
-
       ORDER =  -1  ! -1, 0 descending,increasing order
       CALL SORTFLOAT( NFILTDEF_SURVEY, R4BAND_SNRMAX_FIT, ORDER, 
      &                 INDEX_SORT);
-
 
       DO isort  = 1, NFILTDEF_SURVEY
          ifilt  = INDEX_SORT(isort)
          SNRMAX_SORT_FIT(isort) = R4BAND_SNRMAX_FIT(ifilt)  ! for CWNT
          SNRMAX_FILT_FIT(ifilt) = R4BAND_SNRMAX_FIT(ifilt)  ! for CWNT
       ENDDO
+
+      CALL RADIUS_CALC() ! compute RADIUS_POP
 
 c -----------------------------------------------
 c store extra info in FITVAL_STORE array so that
@@ -12880,6 +12901,10 @@ c now the fit-probs ...
       NPAR = NPAR + 1  ! prob(chi2) excluding prior
       FITVAL_STORE(NPAR) = FITPROBCHI2_STORE(2)  
       LCVAL_STORE(NPAR)  = LCPROBCHI2_STORE(2)
+
+      NPAR = NPAR + 1      ! RADIUS_POP (Jan 2024) .xyz
+      FITVAL_STORE(NPAR) = RADIUS_POP
+      LCVAL_STORE(NPAR)  = RADIUS_POP
 
 c --------------------------------------
 
@@ -14093,7 +14118,45 @@ c adjust all of the FPKRAT values.
       ENDIF
 
       RETURN
-      END
+      END  ! FPKRAT
+
+C =====================================
++DECK,RADIUS_CALC.
+      SUBROUTINE RADIUS_CALC()
+
+c Created Jan 2024
+c Compute population radius RADIUS_POP in space of stretch and color.
+c This variable is useful to reduce non-SNIa contamination.
+
+      IMPLICIT NONE
+
+      INTEGER i
+      REAL s, c, s_scale, c_scale
+    
+c local var
+
++CDE,SNDATCOM.  from snana.car
++CDE,SNANAFIT.  from snana.cars
++CDE,SNFITCOM.
+c+CDE,FILTCOM. 
+
+C ------------ BEGIN -------------
+
+      RADIUS_POP = -9.0  ! init to undefined
+      s = LCVAL_STORE(IPAR_SHAPE)
+      c = LCVAL_STORE(IPAR_COLOR)
+
+      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
+          s_scale = 3.0
+          c_scale = 0.3
+      ELSE
+          RETURN
+      ENDIF
+
+      RADIUS_POP = sqrt( (s/s_scale)**2 + (c/c_scale)**2 )
+
+      RETURN
+      END   ! RADIUS_CALC
 
 C ======================================
 +DECK,MODELMAG_CALC.
@@ -14265,7 +14328,7 @@ c+SELF.
       END   ! end of MODELMAG_CALC
 
 C ======================================
-+DECK,PKMAG_CALC.
++DECK,PEAKMAG_CALC.
       SUBROUTINE PEAKMAG_CALC ( IFILTDEF, CFRAME )
 c
 c Created Jan, 2008
@@ -14315,7 +14378,7 @@ C ----------------- BEGIN --------------
       ENDIF
 
       RETURN
-      END
+      END  ! end PEAKMAG_CALC
 
 C =====================================
 +DECK,COVFLUXFUN.
@@ -16501,6 +16564,7 @@ c ---------------------
 c subroutine args
       INTEGER IFILTREST      ! (I) absolute value of rest-frame filter
       REAL*8  SHAPE, COLOR   ! (I) 
+      REAL*8  SHAPE2
 
 c local args
 
@@ -16516,7 +16580,7 @@ c local args
 
       REAL*8  
      &   z1, ZSN, LAMREST, LAMDIF1, LAMDIF2, LAMDIF
-     &  ,x0, x1, xx1, c, MWEBV, PKMJD
+     &  ,x0, x1, xx1, c, x2, MWEBV, PKMJD
      &  ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR
      &  ,KCOR, MAGOBS, MAGREST, FLUX_REST, ARG
      &  ,RV, AV,  PARLIST_SN(10), PARLIST_HOST(10)
@@ -16555,6 +16619,7 @@ C Note that the rest-frame filter is defined as an obs-filter.
       x1       = SHAPE
       xx1      = SHAPE
       c        = COLOR
+      x2       = 0.0  ! ?? Dec 2023
       NEP      = 1
       PKMJD    = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
       RV=0.0 ;   AV=0.0
@@ -16563,6 +16628,7 @@ C Note that the rest-frame filter is defined as an obs-filter.
       PARLIST_SN(2) = x1
       PARLIST_SN(3) = xx1
       PARLIST_SN(4) = c
+      PARLIST_SN(5) = x2
 
       PARLIST_HOST(1) = RV
       PARLIST_HOST(2) = AV

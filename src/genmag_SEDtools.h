@@ -347,6 +347,8 @@ void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
 
 void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax);
 
+int get_NSURFACE_SEDMODEL(void);
+
 void checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) ;
 void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC);
 
@@ -429,6 +431,8 @@ void init_redshift_sedmodel__(int *NZbin, double *Zmin,  double *Zmax) ;
 void init_mwxt_sedmodel__(int *OPT_COLORLAW, double *RV) ;
 
 void get_lamrange_sedmodel__(int *opt, double *lammin, double *lammax);
+
+int get_nsurface_sedmodel__(void);
 
 int fetch_parinfo_sedmodel__(int *ipar,char *parname,int *NBIN,double *range); 
 void fetch_parval_sedmodel__(int *ISED, int *IPAR, double *PARVAL);

@@ -5238,7 +5238,7 @@ c - - - - -
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SNLC_GAIN(o)=SNGL(DARRAY(o)); ENDDO
 
-      IF ( SNLC_NXPIX > 0 ) THEN
+      IF ( SNLC_NXPIX > 0.0 ) THEN
          CALL FETCH_SNDATA_WRAPPER("XPIX",  
      &        NOBS_STORE, STRING, DARRAY, OPT)
          DO o=1,NOBS_STORE; SNLC_XPIX(o)=SNGL(DARRAY(o)); ENDDO
@@ -20828,7 +20828,9 @@ c --------------
 C ------------- BEGIN -------
 
       SNLC_AREAFRAC(ep) = -9.0 ;
-      if ( SNLC_NXPIX < 0.0 ) RETURN
+      if ( SNLC_NXPIX .LE. 0.0 .or. SNLC_NYPIX .LE. 0.0 ) RETURN
+
+c      print*,' xxx NXPIX,NYPIX = ', SNLC_NXPIX, SNLC_NYPIX
 
       XCEN   = SNLC_NXPIX/2.0
       YCEN   = SNLC_NYPIX/2.0

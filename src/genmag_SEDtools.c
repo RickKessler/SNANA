@@ -1930,6 +1930,13 @@ void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax
   return;
 } // end get_LAMRANGE_SED_TRUE
 
+int get_NSURFACE_SEDMODEL(void) {
+  return SEDMODEL.NSURFACE;
+}
+int get_nsurface_sedmodel__(void) {
+  return get_NSURFACE_SEDMODEL();
+}
+
 // *************************************
 void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
 

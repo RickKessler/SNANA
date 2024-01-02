@@ -8828,6 +8828,7 @@ void  init_event_GENLC(void) {
 
   GENLC.SALT2x0    = NULLFLOAT ;
   GENLC.SALT2x1    = NULLFLOAT ;
+  GENLC.SALT2x2    = 0.0       ;
   GENLC.SALT2c     = NULLFLOAT ;
   GENLC.SALT2beta  = NULLFLOAT ;
   GENLC.SALT2alpha = NULLFLOAT ;
@@ -10153,6 +10154,7 @@ void GENSPEC_TRUE(int imjd) {
   // Jun 28 2019: call genSpec_HOST if IS_HOST is true
   // Mar 02 2021: generate PEAK spectrum if imjd == ISPEC_PEAK
   // Oct 05 2023: compute and store synthetic mag per band
+  // Dec 28 2023: include x2 component (non-zero only if M2 component exists)
 
   int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   double TOBS, MJD, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
@@ -10161,11 +10163,12 @@ void GENSPEC_TRUE(int imjd) {
   double x0 = GENLC.SALT2x0 ;
   double x1 = GENLC.SALT2x1 ;
   double c  = GENLC.SALT2c ;
+  double x2 = GENLC.SALT2x2 ; 
   double RV = GENLC.RV;
   double AV = GENLC.AV ;
   double  logMass  = -9.0 ;
 
-  double parList_SN[4]   = { x0, x1, c, x1 } ;
+  double parList_SN[5]   = { x0, x1, c, x1, x2 } ;
   double parList_HOST[3] = { RV, AV, logMass } ;
   bool GOT_SNSPEC = false;
   int IS_HOST, ilam ;
@@ -30853,7 +30856,8 @@ void print_sim_help(void) {
     "GENRANGE_SALT2BETA:                   # idem",
     "",
     "GENPDF_FILE: <map_file>        # see manual",
-    "GENPDF_EXPON_REWGT: <rewgt>    # rewgt all population prob->prob^rewgt",
+    "GENPDF_EXPON_REWGT: <rewgt>    # rewgt all population prob->prob^rewgt;",
+    "                               # SALT2mu uses this rewgt.",
     "",
     "DNDZ: POWERLAW <a> <b>                # R(z) = a(1+z)^b", 
     "",

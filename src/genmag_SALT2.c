@@ -173,6 +173,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Apr 27 2021: minor refactor to set default SALT2 or SALT3 model location.
 
  Feb 22 2022: set DEBUG_SALT2 with OPTMASK += 1024
+ Dec    2023: integrate 2nd component.
 
 ****************************************************************/
 
@@ -206,6 +207,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
 
   DEBUG_SALT2 = ( OPTMASK & GENMODEL_MSKOPT_SALT2_DEBUG );
+  //  DEBUG_SALT2 = 1; // xxx REMOVE
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -218,7 +220,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 		    SALT2_MODELPATH, version); // returned
 
   // parse version string to check if SALT2 or SALT3
-  setFlags_ISMODEL_SALT2(version); // set ISMODEL_SALT3 and ISMODEL_SALT3
+  setFlags_ISMODEL_SALT2(version); // set ISMODEL_SALT2 and ISMODEL_SALT3
   sprintf(SALT2_PREFIX_FILENAME,"salt%d", IMODEL_SALT);
   
   if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
@@ -234,9 +236,20 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 	     getenv("SNDATA_ROOT"), IMODEL_SALT, version );
   }
 
+  // Mar 24 2020 INFO file depends on SALT2 or SALT3
+  if ( ISMODEL_SALT2 ) 
+    { sprintf(SALT2_INFO_FILE,  "SALT2.INFO" ); }
+  else if ( ISMODEL_SALT3 ) 
+    { sprintf(SALT2_INFO_FILE,  "SALT3.INFO" ); }
+  else {
+    sprintf(c1err,"Unknown model; expecting SALT2 or SALT3");
+    sprintf(c2err,"Check SALT2.INFO/SALT3.INFO") ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
 
   // set defaults for two surfaces (nominal SALT2)
-  SEDMODEL.NSURFACE   = 2 ;
+  SEDMODEL.NSURFACE   = NSURFACE_SALT2();
   SEDMODEL.FLUXSCALE  = X0SCALE_SALT2; 
   SEDMODEL.MAGERR_FIX = -9.0 ;        // => use calculated errors
 
@@ -258,19 +271,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // ============================
 
-  // Mar 24 2020 INFO file depends on SALT2 or SALT3
-  if ( ISMODEL_SALT2 ) 
-    { sprintf(SALT2_INFO_FILE,  "SALT2.INFO" ); }
-  else if ( ISMODEL_SALT3 ) 
-    { sprintf(SALT2_INFO_FILE,  "SALT3.INFO" ); }
-  else {
-    sprintf(c1err,"Unknown model; expecting SALT2 or SALT3");
-    sprintf(c2err,"Check SALT2.INFO/SALT3.INFO") ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
-  }
   read_SALT2_INFO_FILE(OPTMASK);  
 
-  // xxx  RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
   RELAX_IDIOT_CHECK_SALT2 = (INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN > 12000.0);
 
   // ============================
@@ -297,7 +299,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
     //  printf("  Read Template file: \n\t %s \n", tmpFile);
 
-    sprintf(sedcomment,"SALT2-%d", ised);
+    sprintf(sedcomment,"SALT%d-%d", IMODEL_SALT, ised);
 
     rd_sedFlux(tmpFile, sedcomment, Trange, Lrange
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
@@ -320,6 +322,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     fill_SALT2_TABLE_SED(ised);
 
   } //  end loop over SED templates
+
 
 
   load_mBoff_SALT2();
@@ -354,7 +357,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // determine method to extrapolate in phase (RK, Sep 2023)
   int EXTRAP_METHOD_PREFER = EXTRAP_PHASE_FLAM; 
-  if ( DEBUG_SALT2 ) { EXTRAP_METHOD_PREFER = EXTRAP_PHASE_MAG; } // plasticc legacy
   set_METHOD_EXTRAP_PHASE(EXTRAP_METHOD_PREFER);
 
 
@@ -364,6 +366,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   //  test_SALT2colorlaw1();
 
   // ===========================================
+
 
   printf("\n  %s : Done. \n", fnam );
 
@@ -430,6 +433,35 @@ void setFlags_ISMODEL_SALT2(char *version) {
 
 } // end setFlags_ISMODEL_SALT2
 
+// ==============================
+int NSURFACE_SALT2(void) {
+  
+  // Created Dec 2023
+  // Return number of SALT2 surfaces. Original model has 2,
+  // but there can be 3 for x2 * M2.
+
+  char template_file[200];
+  int  gzipFlag, i, N = 0 ;
+  FILE *fp;
+  char fnam[] = "NSURFACE_SALT2";
+
+  // ------------ BEGIN -------------
+
+  if ( DEBUG_SALT2 == 0 ) { return 2; } // legacy
+
+  for(i=0; i < 3; i++ ) {
+    sprintf(template_file, "%s/%s_template_%d.dat", 
+	    SALT2_MODELPATH, SALT2_PREFIX_FILENAME, i);
+    fp = open_TEXTgz(template_file, "rt", &gzipFlag );
+    if ( fp != NULL ) { N++; fclose(fp); }
+  }
+
+  // xxx printf(" xxx %s: return NSURFACE = %d \n", fnam, N);
+  
+  return N;
+
+} // NSURFACE_SALT2
+
 // ***********************************************
 void fill_SALT2_TABLE_SED(int ISED) {
 
@@ -465,7 +497,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
     ;
 
   char 
-     cmsg1[40], cmsg2[40]
+     cmsg1[60], cmsg2[60]
     ,fnam[]   = "fill_SALT2_TABLE_SED" 
     ,tagLAM[] = "interp-LAM"
     ,tagDAY[] = "interp-DAY"
@@ -499,6 +531,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
   I8p = sizeof(double*);
 
   if ( ISED == 0 ) {
+
     // load SEDMODEL struct for IFILTSTAT function
     SEDMODEL.LAMMIN_ALL = TEMP_SEDMODEL.LAM[0] ;
     SEDMODEL.LAMMAX_ALL = TEMP_SEDMODEL.LAM[NLAM_ORIG-1] ;
@@ -528,6 +561,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
     }
   }
 
+
   sprintf(cmsg1,"LAM(MIN,MAX,STEP)=%4.0f,%4.0f,%1.0f",
 	  SALT2_TABLE.LAMMIN, SALT2_TABLE.LAMMAX, SALT2_TABLE.LAMSTEP );
   sprintf(cmsg2,"DAY(MIN,MAX,STEP)=%2.0f,%2.0f,%2.1f",
@@ -538,12 +572,14 @@ void fill_SALT2_TABLE_SED(int ISED) {
   DAYSTEP_ORIG = TEMP_SEDMODEL.DAYSTEP ;
   LAMSTEP_ORIG = TEMP_SEDMODEL.LAMSTEP ;
 
+
   // --------------------------------------
   // allocate memory for SED surface
   SALT2_TABLE.SEDFLUX[ISED] = (double**)malloc(I8p*NDAY_TABLE);
   for ( IDAY=0; IDAY < NDAY_TABLE; IDAY++ ) {
     SALT2_TABLE.SEDFLUX[ISED][IDAY] = (double*)malloc(I8*NLAM_TABLE); 
   }
+
 
   // --------------------------------------
   // store SED table.
@@ -622,6 +658,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
   } // IDAY
 
 
+
   // Now an idiot check.
   // Loop over original grid (nodes) and make sure that
   // the finer grid agrees at the nodes.
@@ -642,8 +679,6 @@ void fill_SALT2_TABLE_SED(int ISED) {
       else
 	{ FRATIO_CHECK = 1.0E-5 ; } // Aug 28 2019: E-6 -> E-5
 
-       
-
       IDAY = IDAY_ORIG * NREBIN_DAY ;
       ILAM = ILAM_ORIG * NREBIN_LAM ;
 
@@ -659,7 +694,6 @@ void fill_SALT2_TABLE_SED(int ISED) {
 	{ FRATIO = FDIF / FSUM ; }
       else
 	{ FRATIO = 0.0 ; }
-
 	    
       if ( fabs(FRATIO) > FRATIO_CHECK ) {
 	print_preAbort_banner(fnam);
@@ -696,6 +730,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
       }
     }
   }
+
   
   /*
   IDAY = 12;  ILAM = 40; 
@@ -707,6 +742,8 @@ void fill_SALT2_TABLE_SED(int ISED) {
 	 ISED, SALT2_TABLE.SEDFLUX[ISED][IDAY][ILAM] );
   if ( ISED == 1 )  { debugexit("store SED"); } 
   */
+
+  return ;
 
 } // end of fill_SALT2_TABLE_SED
 
@@ -798,17 +835,24 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
   // Jul 23 2020: for SALT3, remove _relative from file names
   // Apr 27 2021: skip reading ERRSCAL map for SALT3
+  //
+  // Dec 2023: refactor to read covariances for up to NSURFACE surfaces
+  //    (no longer hard-wired for 2 surfaces)
 
+  int NSED = SEDMODEL.NSURFACE ;
   int imap, NDAY, NLAM, NBTOT, nflux_nan ;
   double DUMMY[20];
 
+  bool LEGACY = (DEBUG_SALT2 == 0 ) ;
   char tmpFile[200], sedcomment[80], lc_string[20] ;
   char *prefix = SALT2_PREFIX_FILENAME ;
   char fnam[] = "read_SALT2errmaps" ;
 
   // ----------- BEGIN -----------    
 
-  printf("\n Read SALT2 ERROR MAPS: \n");
+  if ( LEGACY ) { read_SALT2errmaps_legacy(Trange,Lrange); return; }
+
+  printf("\n Read SALT%d ERROR MAPS: \n", IMODEL_SALT );
   fflush(stdout);
 
   NERRMAP_BADRANGE_SALT2 = 0 ;
@@ -820,30 +864,68 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   else if ( ISMODEL_SALT3 ) 
     { sprintf(lc_string,"lc"); }
 
-  sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
-  sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
-  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix,lc_string);
-  sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
-  sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
+  int NERRMAP_COV =  (NSED*NSED - NSED)/2 ;
+  NERRMAP_SALT2 = 
+    NSED +                    // Number of variance maps
+    NERRMAP_COV +             // Number of cov maps
+    2;                        // scaling and disp map
 
-  sprintf(SALT2_ERRMAP_COMMENT[0],  "VAR0" );
-  sprintf(SALT2_ERRMAP_COMMENT[1],  "VAR1" );
-  sprintf(SALT2_ERRMAP_COMMENT[2],  "COVAR" );
-  sprintf(SALT2_ERRMAP_COMMENT[3],  "ERRSCALE" );
-  sprintf(SALT2_ERRMAP_COMMENT[4],  "COLOR-DISP" ); // 10 chars long
+  if ( NERRMAP_SALT2 >= MXERRMAP_SALT2 ) {
+    sprintf(c1err,"NERRMAP_SALT2=%d exceeds bound MXERRMAP_SALT2=%d",
+	    NERRMAP_SALT2, MXERRMAP_SALT2 );
+    sprintf(c2err,"NSED = %d ", NSED);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // define file name, comment, and index for each error map
+  int ised, ised0=0, ised1=0, icov=0 ;
+  for(imap=0; imap < NERRMAP_SALT2; imap++ ) {
+    if ( imap < NSED ) {
+      ised = imap;
+      INDEX_SALT2_ERRMAP.VAR[ised] = imap;
+      sprintf(SALT2_ERRMAP_FILES[imap], "%s_%s_variance_%d.dat", 
+	      prefix, lc_string, ised );
+      sprintf(SALT2_ERRMAP_COMMENT[imap],  "VAR%d", ised );
+    }
+    else if ( imap < NSED + NERRMAP_COV ) {
+      ised0++ ;
+      if ( ised0 == NSED ) { ised0--; ised1++; }
+      icov++ ;
+      INDEX_SALT2_ERRMAP.COVAR[ised0][ised1] = imap;
+      INDEX_SALT2_ERRMAP.COVAR[ised1][ised0] = imap;
+      sprintf(SALT2_ERRMAP_FILES[imap], "%s_%s_covariance_%d%d.dat", 
+	      prefix,lc_string, ised1, ised0 );   
+      sprintf(SALT2_ERRMAP_COMMENT[imap],  "COVAR%d%d", ised1, ised0 );
+    }
+    else if ( imap == NSED + NERRMAP_COV ) {
+      sprintf(SALT2_ERRMAP_FILES[imap], "%s_lc_dispersion_scaling.dat", prefix );
+      sprintf(SALT2_ERRMAP_COMMENT[imap],  "ERRSCALE" );
+      INDEX_SALT2_ERRMAP.ERRSCALE = imap;
+    }
+
+    else if ( imap == NSED + NERRMAP_COV + 1 ) {
+      sprintf(SALT2_ERRMAP_FILES[imap], "%s_color_dispersion.dat",      prefix );
+      sprintf(SALT2_ERRMAP_COMMENT[imap],  "COLOR-DISP" ); 
+      INDEX_SALT2_ERRMAP.COLORDISP = imap;
+    }
+
+    printf("  Define error map %2d(%s): %s \n",
+	   imap, SALT2_ERRMAP_COMMENT[imap], SALT2_ERRMAP_FILES[imap] );
+    fflush(stdout);
+    
+  } // end imap
 
   
-  for ( imap=0; imap < NERRMAP; imap++ ) {
+  for ( imap=0; imap < NERRMAP_SALT2; imap++ ) {
 
     init_BADVAL_SALT2errmap(imap);
      
-    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; } // read elsewhere
+    if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; } // read elsewhere
 
-    if ( ISMODEL_SALT3 && imap==INDEX_ERRMAP_SCAL ) { continue; }
+    if ( ISMODEL_SALT3 && imap == INDEX_SALT2_ERRMAP.ERRSCALE ) { continue; }
 
     sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
-    sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
-
+    sprintf(sedcomment, "SALT%d-%s", IMODEL_SALT, SALT2_ERRMAP_COMMENT[imap] );
 
     rd_sedFlux(tmpFile, sedcomment, Trange, Lrange
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0   // inputs
@@ -884,8 +966,127 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   }   //  imap
 
+  //  if ( DEBUG_SALT2 ) { debugexit(fnam); }
 
 } // end of read_SALT2errmaps
+
+
+// ***********************************************
+void read_SALT2errmaps_legacy(double Trange[2], double Lrange[2] ) {
+  // Mar 2011
+  // Read error maps that depend on Trest vs. lambda
+  // (move code from init_genmag_SALT2).
+  //
+  // May 2011: check array bound
+  // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
+  // Jul 23 2020: for SALT3, remove _relative from file names
+  // Apr 27 2021: skip reading ERRSCAL map for SALT3
+  //
+  int imap, NDAY, NLAM, NBTOT, nflux_nan ;
+  double DUMMY[20];
+
+  char tmpFile[200], sedcomment[80], lc_string[20] ;
+  char *prefix = SALT2_PREFIX_FILENAME ;
+  char fnam[] = "read_SALT2errmaps_legacy" ;
+
+  // ----------- BEGIN -----------    
+
+  printf("\n Read SALT2 ERROR MAPS: \n");
+  fflush(stdout);
+
+  NERRMAP_BADRANGE_SALT2 = 0 ;
+  NERRMAP_BADVALUE_SALT2 = 0 ; // July 2020
+
+  // ****** LEGACY *********
+
+  // hard-wire filenames for error maps
+  if ( ISMODEL_SALT2 ) 
+    { sprintf(lc_string,"lc_relative"); }
+  else if ( ISMODEL_SALT3 ) 
+    { sprintf(lc_string,"lc"); }
+
+  // ****** LEGACY *********
+
+  INDEX_SALT2_ERRMAP.VAR[0]       = 0;
+  INDEX_SALT2_ERRMAP.VAR[1]       = 1;
+  INDEX_SALT2_ERRMAP.COVAR[0][1]  = 2 ;
+  INDEX_SALT2_ERRMAP.COVAR[1][0]  = 2 ;
+  INDEX_SALT2_ERRMAP.ERRSCALE     = 3 ;
+  INDEX_SALT2_ERRMAP.COLORDISP    = 4 ;
+  NERRMAP_SALT2 = 5; // hard wired
+
+  sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix,lc_string);
+  sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
+  sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
+
+  sprintf(SALT2_ERRMAP_COMMENT[0],  "VAR0" );
+  sprintf(SALT2_ERRMAP_COMMENT[1],  "VAR1" );
+  sprintf(SALT2_ERRMAP_COMMENT[2],  "COVAR" );
+  sprintf(SALT2_ERRMAP_COMMENT[3],  "ERRSCALE" );
+  sprintf(SALT2_ERRMAP_COMMENT[4],  "COLOR-DISP" ); // 10 chars long
+
+  // ****** LEGACY *********
+  
+  for ( imap=0; imap < NERRMAP_SALT2; imap++ ) {
+
+    init_BADVAL_SALT2errmap_legacy(imap);
+     
+    if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; } // read elsewhere
+
+    if ( ISMODEL_SALT3 && imap==INDEX_SALT2_ERRMAP.ERRSCALE ) { continue; }
+
+    sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
+    sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
+    // ****** LEGACY *********
+
+    rd_sedFlux(tmpFile, sedcomment, Trange, Lrange
+	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0   // inputs
+	       ,&SALT2_ERRMAP[imap].NDAY    // outputs
+	       ,SALT2_ERRMAP[imap].DAY      // idem ...
+	       ,&SALT2_ERRMAP[imap].DAYSTEP
+	       ,&SALT2_ERRMAP[imap].NLAM
+	       ,SALT2_ERRMAP[imap].LAM
+	       ,&SALT2_ERRMAP[imap].LAMSTEP
+	       ,SALT2_ERRMAP[imap].VALUE 
+	       ,DUMMY, &nflux_nan
+	       );
+
+    NLAM = SALT2_ERRMAP[imap].NLAM ;
+    SALT2_ERRMAP[imap].LAMMIN  = SALT2_ERRMAP[imap].LAM[0] ;
+    SALT2_ERRMAP[imap].LAMMAX  = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
+
+    // ****** LEGACY *********
+
+    NDAY = SALT2_ERRMAP[imap].NDAY ;
+    SALT2_ERRMAP[imap].DAYMIN  = SALT2_ERRMAP[imap].DAY[0] ;
+    SALT2_ERRMAP[imap].DAYMAX  = SALT2_ERRMAP[imap].DAY[NDAY-1] ;
+
+    NBTOT = NLAM*NDAY ;
+    if ( NBTOT >= MXBIN_VAR_SALT2 ) {
+      sprintf(c1err,"NLAM*NDAY=%d*%d = %d exceeds bound of "
+	      "MXBIN_VAR_SALT2=%d",
+	      NLAM, NDAY, NBTOT, MXBIN_VAR_SALT2);
+      sprintf(c2err,"See '%s'", tmpFile);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    // ****** LEGACY *********
+
+    // Sep 2019: make sure wave range covers SED wave range
+    check_lamRange_SALT2errmap(imap);
+    check_dayRange_SALT2errmap(imap);
+    check_BADVAL_SALT2errmap(imap);
+
+    fflush(stdout);
+
+  }   //  imap
+
+  // ****** LEGACY *********  
+  return; 
+
+} // end of read_SALT2errmaps_legacy
 
 
 // ***************************************
@@ -921,9 +1122,9 @@ void init_SALT2interp_ERRMAP(void) {
   OPT = INPUT_SALT2_INFO.ERRMAP_INTERP_OPT ;
   if ( OPT != SALT2_INTERP_SPLINE ) { return ; }
 
-  for ( imap=0; imap < NERRMAP; imap++ ) {
+  for ( imap=0; imap < NERRMAP_SALT2; imap++ ) {
 
-    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
+    if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; }
 
       ispline = SALT2_TABLE.INDEX_SPLINE[1] + imap + 1 ; 
       SALT2_ERRMAP[imap].INDEX_SPLINE = ispline ; 
@@ -977,7 +1178,10 @@ void init_SALT2interp_ERRMAP(void) {
 
 // **************************************
 void getFileName_SALT2colorDisp(char *fileName) {
-  int imap = INDEX_ERRMAP_COLORDISP ;
+
+  int imap;
+
+  imap = INDEX_SALT2_ERRMAP.COLORDISP;
   sprintf(fileName, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
 } 
 
@@ -1019,7 +1223,8 @@ void read_SALT2colorDisp(void) {
 
   // ---------- BEGIN ------------
 
-  imap = INDEX_ERRMAP_COLORDISP ;
+  imap = INDEX_SALT2_ERRMAP.COLORDISP ;   // refac Dec 2023
+
   SALT2_ERRMAP[imap].NLAM   = 0 ;  // init to nothing
   SALT2_ERRMAP[imap].LAMMIN = 0.0 ;
   SALT2_ERRMAP[imap].LAMMAX = 0.0 ;
@@ -1220,7 +1425,6 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 	printf("\t RESTLAMMIN_FILTERCEN = %.0f --> %.0f for UVLAM_EXTRAP=%.0f A\n",
 	       RESTLAMMIN_FILTERCEN_ORIG, RESTLAMMIN_FILTERCEN_NEW, UVLAM);
 	fflush(stdout);
-	// xxx mark delete INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN = UVLAM + 700.; 
       }
     }
 
@@ -1541,10 +1745,9 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // Init stuff to count bad values in error maps.
   // Goal is to quickly catch retraining pathologies.
   //
-  // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
-  // Oct 18 2021: extend valid COVAR range to -30 (was -10)
-  //
+  int i,i2,  NSED = SEDMODEL.NSURFACE ;
   // --------------- BEGIN ------------
+
   SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
   SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
   SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
@@ -1553,24 +1756,27 @@ void  init_BADVAL_SALT2errmap(int imap) {
   SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E5 ;
 
   // - - - - - - - - 
+  for(i=0; i < NSED; i++ ) {
   // set valid ranges for SALT2
-  if ( imap == INDEX_ERRMAP_VAR0 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -10.0 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =   500.0 ;
+    if ( imap == INDEX_SALT2_ERRMAP.VAR[i] ) {
+      SALT2_ERRMAP[imap].RANGE_VALID[0] =  -10.0 ; 
+      SALT2_ERRMAP[imap].RANGE_VALID[1] =   500.0 ;
+    }
+
+    for(i2=0; i2 < NSED; i2++ ) {
+      if ( imap == INDEX_SALT2_ERRMAP.COVAR[i][i2] ) {
+	SALT2_ERRMAP[imap].RANGE_VALID[0] = -30.0 ; 
+	SALT2_ERRMAP[imap].RANGE_VALID[1] =  100.0 ;
+      } 
+    }
   }
-  else if ( imap == INDEX_ERRMAP_VAR1 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -10.0 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  500.0 ;
-  }
-  else if ( imap == INDEX_ERRMAP_COVAR01 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -30.0 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  100.0 ;
-  }
-  else if ( imap == INDEX_ERRMAP_SCAL ) {
+
+  // - - - -
+  if ( imap == INDEX_SALT2_ERRMAP.ERRSCALE ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
     SALT2_ERRMAP[imap].RANGE_VALID[1] =  200. ;
   }
-  else if ( imap == INDEX_ERRMAP_COLORDISP ) {
+  if ( imap == INDEX_SALT2_ERRMAP.COLORDISP ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
     SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
   }
@@ -1584,6 +1790,63 @@ void  init_BADVAL_SALT2errmap(int imap) {
   return ;
 
 } // end init_check_BADVAL_SALT2errmap 
+
+// ==========================================================
+void  init_BADVAL_SALT2errmap_legacy(int imap) {
+
+  // ******* LEGACY *********
+  // Created July 26 2020
+  // Init stuff to count bad values in error maps.
+  // Goal is to quickly catch retraining pathologies.
+  //
+  // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
+  // Oct 18 2021: extend valid COVAR range to -30 (was -10)
+  //
+  // ****** Dec 28 2023: will soon be OBSOLETE ********
+  // --------------- BEGIN ------------
+
+  SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
+  SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
+  SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
+  SALT2_ERRMAP[imap].RANGE_FOUND[1] = -1.0E8 ;
+  SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E5 ; 
+  SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E5 ;
+
+  // ******* LEGACY *********
+
+  // - - - - - - - - 
+  // set valid ranges for SALT2
+  if ( imap == INDEX_SALT2_ERRMAP.VAR[0] ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -10.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =   500.0 ;
+  }
+  else if ( imap == INDEX_SALT2_ERRMAP.VAR[1] ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -10.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  500.0 ;
+  }
+  else if ( imap == INDEX_SALT2_ERRMAP.COVAR[0][1] ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -30.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  100.0 ;
+  }
+  else if ( imap == INDEX_SALT2_ERRMAP.ERRSCALE ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  200. ;
+  }
+  else if ( imap == INDEX_SALT2_ERRMAP.COLORDISP ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
+  }
+
+  // - - - - - - - - 
+  // make valid range adjustments for SALT3 
+  if ( ISMODEL_SALT3 ) { 
+    // for D'Arcy, David, Mi ??
+  }
+
+  // ******* LEGACY *********
+  return ;
+
+} // end init_check_BADVAL_SALT2errmap_legacy
 
 // ==========================================================
 void  check_BADVAL_SALT2errmap(int imap) {
@@ -1622,7 +1885,7 @@ void  check_BADVAL_SALT2errmap(int imap) {
 	   "---------------------------------\n");
 
     int NBAD_NAN, NBAD_CRAZY;  char *COMMENT;
-    for(jtmp = 0; jtmp < NERRMAP; jtmp++ ) {
+    for(jtmp = 0; jtmp < NERRMAP_SALT2; jtmp++ ) {
       NBAD_NAN    = SALT2_ERRMAP[jtmp].NBADVAL_NAN; 
       NBAD_CRAZY  = SALT2_ERRMAP[jtmp].NBADVAL_CRAZY; 
       COMMENT     = SALT2_ERRMAP_COMMENT[jtmp];
@@ -1654,7 +1917,8 @@ void  check_BADVAL_SALT2errmap(int imap) {
   // - - - - -
   NDAY = SALT2_ERRMAP[imap].NDAY ;
   NLAM = SALT2_ERRMAP[imap].NLAM ; 
-  if  (imap == INDEX_ERRMAP_COLORDISP) { NDAY=1; } // only wave bins
+
+  if  (imap == INDEX_SALT2_ERRMAP.COLORDISP) { NDAY=1; } // only wave bins
 
   for ( iday=0; iday <  NDAY ; iday++ ) {
     for ( ilam=0; ilam < NLAM ; ilam++ ) {
@@ -1961,7 +2225,7 @@ double SALT2colorCor(double lam_rest, double c ) {
 void genmag_SALT2(
 		  int OPTMASK     // (I) bit-mask of options (LSB=0)
 		  ,int ifilt_obs  // (I) absolute filter index
-		  ,double *parList_SN   // x0, x1, x1_forErr, c
+		  ,double *parList_SN   // x0, x1, x1_forErr, c, x2
 		  ,double *parList_HOST // RV, AV, logMass
 		  ,double mwebv   // (I) Galactic extinction: E(B-V)
 		  ,double z       // (I) Supernova redshift
@@ -2003,12 +2267,15 @@ void genmag_SALT2(
 
  May 31 2021: refactor to receive parList_SN[HOST]
 
+ Dec 28 2023: pass x2 = parlist_SN[4] if SALT3 model includes M2 component.
+
   ***/
 
   double x0        = parList_SN[0];
   double x1        = parList_SN[1];
   double c         = parList_SN[2];
   double x1_forErr = parList_SN[3];
+  double x2        = parList_SN[4]; // Dec 2023
 
   double RV_host      = parList_HOST[0];
   double AV_host      = parList_HOST[1];
@@ -2079,6 +2346,8 @@ void genmag_SALT2(
     DO_EXTRAP_LOCAL = false;
     Trest_interp = Trest; 
 
+    flux = FLUX_UNDEFINED ;
+
     // - - - - - -
     // check for phase extrapolation
     if ( Trest <= SALT2_TABLE.DAYMIN+epsT )
@@ -2139,6 +2408,13 @@ void genmag_SALT2(
     }
 
     // ------------------------
+
+    if ( flux == FLUX_UNDEFINED ) {
+      sprintf(c1err,"Undefined flux at Tobs(%s)=%.2f z=%f", cfilt, Tobs, z);
+      sprintf(c2err,"x0=%le x1=%.3f x2=%.2f c=%.3f \n", x0, x1, x2, c);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     if ( flux <= fluxmin || isnan(flux) ) {
 
       magobs = MAG_ZEROFLUX ;
@@ -2193,7 +2469,7 @@ void genmag_SALT2(
       Trest_forErr   = Tobs / z1_forErr ;
       lamrest_forErr = meanlam_obs / z1_forErr ;
       magerr = SALT2magerr(Trest_forErr, lamrest_forErr, z_forErr,
-			   x1_forErr, Finteg_errPar, LDMP_DEBUG);
+			   x1_forErr, x2, Finteg_errPar, LDMP_DEBUG);
     }
     else
       { magerr = 0.0 ; }
@@ -2212,7 +2488,185 @@ void genmag_SALT2(
 
 // *****************************************
 double SALT2magerr(double Trest, double lamRest, double z,
-		   double x1, double Finteg_errPar, int LDMP ) {
+		   double x1, double x2, double Finteg_errPar, int LDMP ) {
+
+
+  // Created Jun 2011 by R.Kessler
+  // return mag-error for this epoch and rest-frame <lamRest>.
+  //
+  // Inputs:
+  //   - Trest   : rest-frame epoch relative to peak brightness (days)
+  //   - lamRest : <lamObs>/(1+z) = mean wavelength in rest-frame
+  //   - z       : redshift
+  //   - x1      : stretch parameter, multiplies M1
+  //   - x2      : multiplies optional M2
+  //
+  //   - Finteg_errPar 
+  //         : for SALT2, Finteg[1] / Finteg[0]
+  //         : for SALT3, (M0 + x1*M1) 
+  //
+  //
+  //   - LDMP : dump-and-exit flag
+  //
+  // Nov 7 2019: for SALT3 (retraining), set relx1=0. We don't understand
+  //             the origin of this term, so scrap it for SALT3.
+  // 
+  // Oct 16 2020: vartot 
+  //   + pass new arg Finteg_noMW
+  //   + vartot_flux for SALT3 (relative for SALT2)
+  //
+  // Oct 01 2021: no longer set magerr=5.0 to avoid discontinuity in LC fit.
+
+  int NSED = SEDMODEL.NSURFACE;
+  int i, i2 ;
+  double 
+     ERRMAP[MXERRMAP_SALT2], Trest_tmp
+    ,vartot_rel, vartot_flux, var[10], relsig0, relsig1
+    ,covar[6][6], covtmp, rho, errscale, fracerr_snake, fracerr_kcor, fracerr_TOT
+    ,magerr_model, magerr, lamObs
+    ,ONE = 1.0, relx1=0.0 ;
+    ;
+
+  char fnam[] = "SALT2magerr" ;
+
+  // ---------------- BEGIN ---------------
+  
+  if ( !DEBUG_SALT2 ) {
+    // legacy magerr for only 2 components
+    SALT2magerr_legacy(Trest, lamRest, z, x1, Finteg_errPar, LDMP );
+    return ;
+  }
+
+  lamObs = lamRest * ( 1. + z );
+
+  // Make sure that Trest is within range of map.
+
+  if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
+    { Trest_tmp = SALT2_ERRMAP[0].DAYMAX ; }
+  else if ( Trest < SALT2_ERRMAP[0].DAYMIN ) 
+    { Trest_tmp = SALT2_ERRMAP[0].DAYMIN ; }
+  else
+    { Trest_tmp = Trest ; }
+
+  get_SALT2_ERRMAP(Trest_tmp, lamRest, ERRMAP ) ;
+
+  // strip off the goodies
+  for(i=0; i < NSED; i++ ) {
+    var[i]    = ERRMAP[INDEX_SALT2_ERRMAP.VAR[i]] ;  // sigma(Si)/S0
+    for(i2=i; i2 < NSED; i2++ ) {
+      if ( i == i2 ) 
+	{ covar[i][i] = var[i]; }
+      else {
+	covtmp = ERRMAP[INDEX_SALT2_ERRMAP.COVAR[i][i2]] ;
+        covar[i][i2]  =	 covar[i2][i]  = covtmp ;
+	}
+    } 
+  }
+
+  errscale = ERRMAP[INDEX_SALT2_ERRMAP.ERRSCALE] ;  // error fudge  
+
+  vartot_rel = vartot_flux = 0.0 ;
+
+  if ( ISMODEL_SALT2 ) {
+    // SALT2: fractional error as in  Guy's ModelRelativeError function
+    double Fratio = Finteg_errPar;    // Finteg[1]/Finteg[0], no MW 
+    relx1         = x1 * Fratio ;
+    vartot_rel    = var[0] + var[1]*x1*x1 + (2.0 * x1* covar[0][1] ) ;
+    if ( vartot_rel < 0 ) { vartot_rel = 0.01*0.01 ; } // 7/2013: follow JG 
+    fracerr_snake = errscale * sqrt(vartot_rel) / fabs(ONE + relx1) ;   
+  }
+  else if ( ISMODEL_SALT3 ) {
+    // Dave and D'Arcy's vartot has flux units (M0 + x1*M1), not relative units
+    double flux_train   = Finteg_errPar ;  // M0 + x1*M1; no Gal extinc and c=0    
+
+    if ( DEBUG_SALT2 ) {
+      double x_loop[3]    = { 1.0, x1, x2 };
+      vartot_flux = 0.0 ;
+      for(i=0; i < NSED; i++ ) {
+	for(i2=i; i2 < NSED; i2++ ) {
+	  covtmp = x_loop[i] * x_loop[i2] * covar[i][i2] ;
+	  vartot_flux += covtmp;
+	  if ( i != i2 ) { vartot_flux += covtmp; } // add other off-diag element
+	}
+      }
+    } // end DEBUG_SALT2
+
+    /*   xxxxxxxxxxxxxx mark
+    double vartot_flux_new = vartot_flux;
+    double vartot_flux_old = var[0] + var[1]*x1*x1 + (2.0 * x1 * covar[0][1]) ;
+    vartot_flux = vartot_flux_old; // xxx REMOVE
+    double ratio = vartot_flux_new/vartot_flux_old ;
+    if ( ratio != 1.0 ) {
+      printf(" xxx %s: vartot(new/old) = %.2f  COV01=(%lef,%le) \n", 
+	     fnam, ratio,
+	     covar[0][1], covar[1][0] ); fflush(stdout);
+    }
+    xxxx end mark */
+
+    if ( !DEBUG_SALT2 ) 
+      { vartot_flux = var[0] + var[1]*x1*x1 + (2.0 * x1 * covar[0][1]) ; } // legacy
+
+    if ( vartot_flux < 0   ) { vartot_flux = -vartot_flux ; }  // W.A.G
+    if ( flux_train  < 0.0 ) { flux_train  = -flux_train  ; }  // W.A.G
+    fracerr_snake = sqrt(vartot_flux) / flux_train ;
+  }
+
+  // kcor/color error is the same for SALT2,SALT3
+  fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
+
+  // get total fractional  error.
+  fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
+
+  // convert frac-error to mag-error, and load return array
+  magerr_model  = (2.5/LNTEN) * fracerr_TOT ;   // exact
+
+  // check for error fudges
+  magerr = magerrFudge_SALT2(magerr_model, lamObs, lamRest );
+
+
+  // ------------- DEBUG DUMP ONLY ------------------
+  if ( LDMP ) {
+    relsig0 = sqrt(var[0]);
+    relsig1 = sqrt(var[1]);
+    rho = covar[0][1] / (relsig0*relsig1) ;
+
+    // printf("\n xxxx ================================================= \n");
+    printf(" xxxx \t SALT2magerr dump \n" );
+
+    printf(" xxxx Trest=%6.2f  lamRest = %6.0f   z=%6.4f\n", 
+	   Trest, lamRest, z );
+
+    printf(" xxx Finteg_errPar = %le \n",
+	   Finteg_errPar );
+
+    printf(" xxxx var0=%le  var1=%le  vartot_[rel,flux]=%le,%le  \n", 
+	   var[0], var[1], vartot_rel, vartot_flux );
+
+    printf(" xxxx relsig0=%f  relsig1=%f  rho=%f  scale=%f\n", 
+	   relsig0, relsig1, rho, errscale );
+
+    printf(" xxxx fracerr[snake,kcor] = %f , %f \n", 
+	   fracerr_snake, fracerr_kcor );
+
+    printf(" xxxx fracerr_TOT=%f   x1*S1/S0=%f \n", 
+	   fracerr_TOT, relx1 );
+    printf(" xxxx magerr(model,final) = %7.3f , %7.3f \n", 
+	   magerr_model, magerr );
+
+    //    debugexit("SALT2 MODEL DUMP");
+
+  }
+
+  // -------- END OF DEBUG DUMP  ------------
+
+  return magerr ;
+
+} // end of SALT2magerr
+
+
+// *****************************************
+double SALT2magerr_legacy(double Trest, double lamRest, double z,
+			  double x1, double Finteg_errPar, int LDMP ) {
 
 
   // Created Jun 2011 by R.Kessler
@@ -2240,18 +2694,20 @@ double SALT2magerr(double Trest, double lamRest, double z,
   // Oct 01 2021: no longer set magerr=5.0 to avoid discontinuity in LC fit.
 
   double 
-     ERRMAP[NERRMAP], Trest_tmp
+     ERRMAP[MXERRMAP_SALT2], Trest_tmp
     ,vartot_rel, vartot_flux, var0, var1, relsig0, relsig1
     ,covar01, rho, errscale, fracerr_snake, fracerr_kcor, fracerr_TOT
     ,magerr_model, magerr, lamObs
     ,ONE = 1.0, relx1=0.0 ;
     ;
 
-  char fnam[] = "SALT2magerr" ;
+  char fnam[] = "SALT2magerr_legacy" ;
 
   // ---------------- BEGIN ---------------
   
   lamObs = lamRest * ( 1. + z );
+
+  // ********* LEGACY **********
 
   // Make sure that Trest is within range of map.
 
@@ -2265,12 +2721,14 @@ double SALT2magerr(double Trest, double lamRest, double z,
   get_SALT2_ERRMAP(Trest_tmp, lamRest, ERRMAP ) ;
 
   // strip off the goodies
-  var0     = ERRMAP[INDEX_ERRMAP_VAR0] ;  // sigma(S0)/S0
-  var1     = ERRMAP[INDEX_ERRMAP_VAR1] ;  // sigma(S1)/S0
-  covar01  = ERRMAP[INDEX_ERRMAP_COVAR01] ;  // 
-  errscale = ERRMAP[INDEX_ERRMAP_SCAL] ;  // error fudge  
+  var0     = ERRMAP[INDEX_SALT2_ERRMAP.VAR[0]] ;  // sigma(S0)/S0
+  var1     = ERRMAP[INDEX_SALT2_ERRMAP.VAR[1]] ;  // sigma(S1)/S0
+  covar01  = ERRMAP[INDEX_SALT2_ERRMAP.COVAR[0][1]] ;  // 
+  errscale = ERRMAP[INDEX_SALT2_ERRMAP.ERRSCALE] ;  // error fudge  
 
   vartot_rel = vartot_flux = 0.0 ;
+
+  // ********* LEGACY **********
 
   if ( ISMODEL_SALT2 ) {
     // SALT2: fractional error as in  Guy's ModelRelativeError function
@@ -2290,6 +2748,8 @@ double SALT2magerr(double Trest, double lamRest, double z,
     fracerr_snake = sqrt(vartot_flux) / flux_train ;
   }
 
+  // ********* LEGACY **********
+
   // kcor/color error is the same for SALT2,SALT3
   fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
 
@@ -2302,6 +2762,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   // check for error fudges
   magerr = magerrFudge_SALT2(magerr_model, lamObs, lamRest );
 
+  // ********* LEGACY **********
 
   // ------------- DEBUG DUMP ONLY ------------------
   if ( LDMP ) {
@@ -2332,6 +2793,8 @@ double SALT2magerr(double Trest, double lamRest, double z,
     printf(" xxxx magerr(model,final) = %7.3f , %7.3f \n", 
 	   magerr_model, magerr );
 
+  // ********* LEGACY **********
+
     //    debugexit("SALT2 MODEL DUMP");
 
   }
@@ -2339,7 +2802,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
 
   return magerr ;
 
-} // end of SALT2magerr
+} // end of SALT2magerr_legacy
 
 
 // **********************************************
@@ -2415,34 +2878,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //
   // ------------ HISTORY --------------
   //
-  // Jul 25 2013:   Inside ilamobs loop, if ( TRANS < 1.0E-12 ) { continue ; }
-  // Jan 21, 2014: fix sign error for instrinsic smear;
-  //               no effect for symmetric models, but might affect
-  //               asymmetric smearing models. See FSMEAR
-  //
-  // May 2014: return Fratio used for error calc (without MWEBV)
-  // Jul 2016: 
-  //   +remove un-used mwebv argument, and add RV_host & AV_host args.
-  //   +Compute XTHOST_FRAC = host-galaxy extinction.
-  //   + refactor to apply x0 & x1 to comput total flux.
-  //     The two SED fluxe,  Finteg[2], are now replaced with
-  //       Finteg = x0*(Finteg_old[0] + x1 * Finteg[1])
-  //     Fratio still has the same meaning as before.
-  //  
-  // Nov 10 2016: fix DO_SPEC bug that is probably benign.
-  // Nov 19 2016: add OPT_SPEC input
-  // Dec 21 2016: bugfix for OPT_SPEC; TRANS=1 for Finteg_spec,
-  //              not for Finteg_filter. Should not affect returned
-  //              spectrum, but only affects local Finteg 
-  //
-  // Jan 16 2017: 
-  //   +  remove LAMSED factor from spectrum 
-  //   + little refactor with Fbin_forFlux and Fbin_forSpec
-  //
-  // Mar 29 2019: fix Fspec normalization factor of hc
-  //
-  // Apr 23 2019: remove buggy z1 factor inside OPT_SPEC
-  //              (caught by D.Jones)
   //
   // Jan 19 2020:
   //   replace local magSmear[ilam] with global GENSMEAR.MAGSMEAR_LIST
@@ -2457,13 +2892,17 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //
   // May 31 2021: refactor to pass parList_SN and parList_HOST
   // Aug 31 2023: use zero_NEGFLAM_SEDMODEL() util
+  // Dec 28 2023: implement x2 component
 
+  int NSED = SEDMODEL.NSURFACE;
 
   // strip of SN and HOST params
   double x0   = parList_SN[0];
   double x1   = parList_SN[1];
   double c    = parList_SN[2];
-  
+  double x2   = parList_SN[4];  // note that skipped [3] element is xx1
+  double x_loop[3] = { 1.0, x1, x2 } ; // enable looping over SED-dependent arrays
+
   double RV_host   = parList_HOST[0];
   double AV_host   = parList_HOST[1];
   double m_host    = parList_HOST[2];
@@ -2471,7 +2910,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
     ,IDAY, NDAY, nday, iday, ised, ic
-    ,ISTAT_GENSMEAR, LABORT, LDMP
+    ,ISTAT_GENSMEAR, LABORT_ILAM, LABORT_FRAC, LDMP
     ;
 
   double
@@ -2480,11 +2919,11 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,DAYSTEP, DAYMIN, DAYDIF, Trest, Trest_model
     ,MWXT_FRAC, HOSTXT_FRAC, CCOR, CCOR_LAM0, CCOR_LAM1, CDIF, CNEAR
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
-    ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
+    ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[4][4] 
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
-    ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
+    ,Finteg_filter[4], Finteg_forErr[4], Finteg_spec[4]
     ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck, Ftmp
-    ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList_genSmear[10]
+    ,Flam_filter[4], Flam_err[4], Flam_spec[4], parList_genSmear[10]
     ,hc8 = (double)hc ;
 
   bool zero_FLAM;
@@ -2503,8 +2942,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   *Finteg = *Finteg_errPar = 0.0 ;
   Fspec[0] = 0.0 ; // init only first element
 
-  for(ised=0; ised<2; ised++ ) 
-    { Finteg_filter[ised]  = Finteg_forErr[ised] = 0.0 ;  }
+  for(ised=0; ised < 3; ised++ )  { 
+    Finteg_filter[ised]  = Finteg_forErr[ised] = 0.0 ;  
+    Flam_filter[ised] = Flam_spec[ised] =  Flam_err[ised] = 0.0 ;
+  }
 
   Fnorm_SALT3 = 0.0 ; // for SALT3
 
@@ -2555,7 +2996,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   FRAC_INTERP_COLOR = (c - CNEAR)/SALT2_TABLE.CSTEP ;
 
   // get rest-frame SED pointers
-  for(ised=0; ised<=1; ised++ ) {
+  for(ised=0; ised < NSED ; ised++ ) {
     for ( iday=0; iday<nday; iday++ ) {
       ptr_FLUXSED[ised][iday] = SALT2_TABLE.SEDFLUX[ised][IDAY+iday] ;
     }
@@ -2610,7 +3051,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     else 
       { HOSTXT_FRAC = 1.0 ; } // standard SALT2 model has no host extinction
 
-    // xxx    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
     LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
     LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
 
@@ -2639,9 +3079,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
       // get rest-frame lambda index and interp-fraction for SED space
       LAMDIF  = LAMSED - SALT2_TABLE.LAMMIN ;
-      ilamsed = (int)(LAMDIF/LAMSED_STEP);
+      ilamsed = (int)(LAMDIF/LAMSED_STEP); 
       LAMDIF  = LAMSED - SALT2_TABLE.LAMSED[ilamsed] ;
       FRAC_INTERP_LAMSED = LAMDIF / LAMSED_STEP ; // 0-1
+
 
       if ( LDMP ) { 
 	printf(" xxx -------------- %s DUMP ------------- \n", fnam ); 
@@ -2651,18 +3092,21 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	printf(" xxx Tobs=%.3f  Trest_model=%.3f \n", Tobs, Trest_model);
 	fflush(stdout);
       }
-      
-      LABORT = ( FRAC_INTERP_LAMSED < -1.0E-8 || 
-		 FRAC_INTERP_LAMSED > 1.0000000001 ) ;
 
-      if ( LABORT ) {
+      LABORT_ILAM = ( ilamsed < 0 || ilamsed >= SALT2_TABLE.NLAMSED );     
+      LABORT_FRAC = ( FRAC_INTERP_LAMSED < -1.0E-8 || 
+		      FRAC_INTERP_LAMSED > 1.0000000001 ) ;
+
+      if ( LABORT_ILAM || LABORT_FRAC ) {
 	mean = FILTER_SEDMODEL[ifilt].mean ;
 	print_preAbort_banner(fnam);
+	printf("\t IS_ABORT(FRAC_INTERP)=%d  IS_ABORT(ilamsed)=%d \n",
+	       LABORT_FRAC, LABORT_ILAM);
 	printf("\t LAMOBS = %7.2f  LAMDIF=%7.2f\n",  LAMOBS, LAMDIF);
 	printf("\t LAMSED = LAMOBS/(1+z) = %7.2f \n", LAMSED );
 	printf("\t LAMSTEP=%4.1f  LAMMIN=%6.1f \n", 
 	       LAMSED_STEP, SALT2_TABLE.LAMMIN );
-	printf("\t ilamobs=%d   ilamsed = %d \n", 	     
+	printf("\t ilamobs=%d   ilamsed= %d \n", 	     
 	       ilamobs, ilamsed );
 	printf("\t Tobs=%f  Trest=%f  Trest_model=%f \n", Tobs, Trest, Trest_model);
 	printf("\t <LAMFILT(%s)> = %7.2f(OBS)  %7.2f(REST) \n", 
@@ -2671,10 +3115,17 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	  printf("\t SALT2_TABLE.LAMSED[ilamsed=%d] = %f\n", 
 		 jlam, SALT2_TABLE.LAMSED[jlam] ); 
 	}
-	sprintf(c1err,"Invalid FRAC_INTERP_LAMSED=%le ", 
-		FRAC_INTERP_LAMSED );
-	sprintf(c2err,"check Tobs(%s)=%6.2f at z=%5.3f  c=%6.3f",
-		cfilt, Tobs, z, c);
+	fflush(stdout);
+	if ( LABORT_FRAC )  { 
+	  sprintf(c1err,"Invalid FRAC_INTERP_LAMSED=%le ", 
+		  FRAC_INTERP_LAMSED ); 
+	}
+	else if ( LABORT_ILAM ) {
+	  sprintf(c1err,"Invalid ilamsed=%d (NLAMSED=%d)", 
+		    ilamsed, SALT2_TABLE.NLAMSED);
+	}
+	sprintf(c2err,"Tobs(%s) = %6.2f at z=%5.3f x1=%.2f  c=%6.3f",
+		cfilt, Tobs, z, x1, c);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
 
@@ -2690,7 +3141,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       CCOR = CCOR_LAM0 + (CCOR_LAM1-CCOR_LAM0)*FRAC_INTERP_LAMSED ;
 
       // interpolate SED Fluxes to LAMSED
-      for(ised=0; ised<=1; ised++ ) {
+      for(ised=0; ised < NSED; ised++ ) {
 	for ( iday=0; iday<nday; iday++ ) {
 	  
 	  VAL0 = ptr_FLUXSED[ised][iday][ilamsed+0] ;
@@ -2716,7 +3167,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	Fbin_forFlux = (FTMP * CCOR * HOSTXT_FRAC*MWXT_FRAC * LAMSED*TRANS);
 	Fbin_forSpec = (FTMP * CCOR * HOSTXT_FRAC*MWXT_FRAC );
 	
-	// .xyz extrapolate past 45 days here ??
+	// extrapolate past 45 days here ??
 	if ( DO_EXTRAP_LOCAL ) {
 	  Ftmp = Fbin_forFlux;
 	  Fbin_forFlux = genflux_extrap_latetime_Ia(Ftmp, Trest, LAMSED);
@@ -2748,14 +3199,17 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
 
       // check option to force negative flux to zero
-      Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
+      Fcheck = 0.0 ;
+      for(ised=0; ised < NSED; ised++ )
+	{ Fcheck += x_loop[ised] * Flam_filter[ised] ; }
+
       zero_FLAM = zero_NEGFLAM_SEDMODEL(0, LAMSED, Trest, Fcheck);
       if ( zero_FLAM ) {
-	Flam_filter[0] = 1.0E-15; Flam_filter[1] = 0.0 ; // set very small
-	Flam_spec[0]   = 1.0E-15; Flam_spec[1]   = 0.0 ;
+	Flam_filter[0] = 1.0E-15; Flam_filter[1] = Flam_filter[2] = 0.0 ; // very small
+	Flam_spec[0]   = 1.0E-15; Flam_spec[1]   = Flam_spec[2]   = 0.0 ;
       }
 
-      for(ised=0; ised <2; ised++ ) {
+      for(ised=0; ised < NSED; ised++ ) {
 	Finteg_filter[ised]  +=  Flam_filter[ised];
 	Finteg_forErr[ised]  +=  Flam_err[ised];
 	if(OPT_SPEC) { Finteg_spec[ised] +=  Flam_spec[ised]; }
@@ -2764,18 +3218,24 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     } // end LAMSED loop 
 
     if ( OPT_SPEC ) {
-      Fspec[ilamobs]  = x0 * ( Finteg_spec[0] + x1*Finteg_spec[1] );
-      Fspec[ilamobs] *= MODELNORM_Fspec ;
+      Fspec[ilamobs]  = 0.0 ;
+      for(ised=0; ised < NSED; ised++ ) 
+	{ Fspec[ilamobs]  += (x_loop[ised] * Finteg_spec[ised]) ; }
+      Fspec[ilamobs] *= x0;
+      Fspec[ilamobs] *=  (MODELNORM_Fspec) ;
     }
    
     Fnorm_SALT3  += (TRANS * LAMOBS ); 
 
   } // end ilamobs loop over obs filter
 
+ 
   // - - - - - - - - - - 
   // compute total flux in filter
-  *Finteg  = x0 * ( Finteg_filter[0] + x1 * Finteg_filter[1] );
-  *Finteg *= MODELNORM_Finteg ;
+  for(ised=0; ised < NSED; ised++ ) 
+    { *Finteg  +=  ( x_loop[ised] * Finteg_filter[ised]) ; }
+  *Finteg *= x0 ;
+  *Finteg *= (MODELNORM_Finteg) ;
 
   // - - - - - - -
   // determine Finteg_errPar based on model
@@ -2787,7 +3247,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   else if ( ISMODEL_SALT3 ) {
     // exclude x0 and MODELNORM; instead, normalize to per Angstrom
     // following K21
-    *Finteg_errPar  = ( Finteg_forErr[0] + x1 * Finteg_forErr[1] );
+    for(ised=0; ised < NSED; ised++ )
+      { *Finteg_errPar  += ( x_loop[ised] * Finteg_forErr[ised] ); }
     *Finteg_errPar /= Fnorm_SALT3 ;
   }
 
@@ -2872,7 +3333,7 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
    return error values from each of the NERRMAP maps.
    Trest         :  (I) rest-frame epoch (days,  T=0 at peak)
    Lrest         :  (I) rest-frame wavelength (A)
-   SALT2modelerr :  (O) error-map values: var0, var1, covar01, scale
+   *ERRMAP       :  (O) error-map values: var0, var1, covar01, scale
 
    Aug 27, 2009: 
       interpolate in both Trest & lambda (instead of just lambda).
@@ -2896,16 +3357,16 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
   double val, val0, val1, valdif, val_linear, val_spline, tmp;
   double LMIN, LSTEP, LDIF, TMIN, TSTEP, TDIF, val_atlammin, val_atlammax ;
 
-  //  char fnam[] = "get_SALT2_ERRMAP";
+  char fnam[] = "get_SALT2_ERRMAP";
 
   // ------------ BEGIN --------
 
-  for ( imap=0; imap < NERRMAP; imap++ ) {
+  for ( imap=0; imap < NERRMAP_SALT2; imap++ ) {
 
-    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
+    if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; }
 
     // 4.2021: there is no error-scale map for SALT3, so hard wired scale=1
-    if ( ISMODEL_SALT3 && imap == INDEX_ERRMAP_SCAL )
+    if ( ISMODEL_SALT3 && imap == INDEX_SALT2_ERRMAP.ERRSCALE )
       { ERRMAP[imap] = 1.0 ; continue ; }
 
     LMIN  = SALT2_ERRMAP[imap].LAMMIN ;
@@ -3010,6 +3471,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   int ISDIAG, LDMP ;
 
   double x1    = parList_SN[1] ;
+  double x2    = parList_SN[4] ;
   double z1    = 1.0 + z;
   double invZ1 = 1.0/z1;
 
@@ -3092,7 +3554,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, parList_SN, parList_HOST, // (I)
 			 &Finteg, &Finteg_errPar, FspecDum); // returned
 
-	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, 
+	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, x2, 
 			     Finteg_errPar, LDMP );
 	COV_DIAG = magerr*magerr ;
 	COV_TMP = COV_DIAG ;
@@ -3152,7 +3614,7 @@ double SALT2colorDisp(double lam, char *callFun) {
   // ------------ BEGIN --------------
 
   // strip off goodies into local variables
-  imap    = INDEX_ERRMAP_COLORDISP ;
+  imap    = INDEX_SALT2_ERRMAP.COLORDISP ;
   NLAM    = SALT2_ERRMAP[imap].NLAM ;
   LAMMIN  = SALT2_ERRMAP[imap].LAMMIN ;
   LAMMAX  = SALT2_ERRMAP[imap].LAMMAX ;
@@ -3217,7 +3679,7 @@ void errorSummary_SALT2(void) {
   // summarize errors and CL(lambda) in a list vs. lambda.
 
   int NLAM, ilam, imap, LLAM ;
-  double LAMLIST[100], lam, Trest, ERRMAP[NERRMAP] ;
+  double LAMLIST[100], lam, Trest, ERRMAP[MXERRMAP_SALT2] ;
   double var0, var1, covar01, errscale, S0fracErr, colorCor, c, colorDisp ;   
   char cCor[20];
   //  char fnam[] = "errorSummary_SALT2" ;
@@ -3266,14 +3728,14 @@ void errorSummary_SALT2(void) {
 
     // fractional flux error with x1=0
     get_SALT2_ERRMAP ( Trest, lam, ERRMAP );
-    var0       = ERRMAP[0] ;  // sigma(S0)/S0
-    var1       = ERRMAP[1] ;  // sigma(S1)/S0
-    covar01    = ERRMAP[2] ;  // 
-    errscale   = ERRMAP[3] ;  // error fudge
+    var0       = ERRMAP[INDEX_SALT2_ERRMAP.VAR[0]] ;  // sigma(S0)/S0
+    var1       = ERRMAP[INDEX_SALT2_ERRMAP.VAR[1]] ;  // sigma(S1)/S0
+    covar01    = ERRMAP[INDEX_SALT2_ERRMAP.COVAR[0][1]] ;  // 
+    errscale   = ERRMAP[INDEX_SALT2_ERRMAP.ERRSCALE] ;  // error fudge
     S0fracErr  = errscale * sqrt(var0);         // dF/F with x1=0
 	   
     // color dispersion
-    imap = INDEX_ERRMAP_COLORDISP ;
+    imap = INDEX_SALT2_ERRMAP.COLORDISP ;
     if ( lam >= SALT2_ERRMAP[imap].LAMMIN &&
 	 lam <= SALT2_ERRMAP[imap].LAMMAX ) {
       
@@ -3413,8 +3875,6 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
-
-  // xxx mark  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
 
   z1 = 1.0 + z;
 

@@ -2533,8 +2533,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   
   if ( !DEBUG_SALT2 ) {
     // legacy magerr for only 2 components
-    SALT2magerr_legacy(Trest, lamRest, z, x1, Finteg_errPar, LDMP );
-    return ;
+    return SALT2magerr_legacy(Trest, lamRest, z, x1, Finteg_errPar, LDMP );
   }
 
   lamObs = lamRest * ( 1. + z );

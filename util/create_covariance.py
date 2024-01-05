@@ -100,6 +100,7 @@
 #   - write PROBIA_BEAMS to hubble diagram (for diagnostic)
 #   - new input option --skip_invert_check
 #   - break up python function(function) for matrices to avoid core dumps
+#   - write cov with single write instead of separate f.write per element
 #
 # ===============================================
 
@@ -1076,7 +1077,7 @@ def write_standard_output(config, args, covs, data, label_list):
 
     
     # write covariance matrices and datasets
-    opt_cov = 0  
+    opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
     for i, (label, cov) in enumerate(covs):
         base_file   = get_covsys_filename(i)
@@ -1388,7 +1389,7 @@ def write_covariance(path, cov, opt_cov):
     logging.info(f"Write cov to {path}")
 
     # RK - write diagnostic to check if anything changes
-    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:.5e}")
+    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:13.6e}")
     sys.stdout.flush() 
 
     # - - - - -
@@ -1401,18 +1402,25 @@ def write_covariance(path, cov, opt_cov):
         f = open(path,"wt") 
 
     f.write(f"{nrow}\n")
-    for c in cov.flatten():
-        nwr += 1
-        is_new_row = False
-        if (nwr-1) % nrow == 0 : 
-            is_new_row = True ; rownum += 1 ; colnum = -1
-        colnum += 1
 
-        label = ""
-        if add_labels:            
+    
+    if add_labels:  
+        # might be slower with f.write for each cov element
+        for c in cov.flatten():
+            nwr += 1
+            is_new_row = False
+            if (nwr-1) % nrow == 0 : 
+                is_new_row = True ; rownum += 1 ; colnum = -1
+                colnum += 1
             if colnum == 0 or colnum == rownum : 
                 label = f"# ({rownum},{colnum})"
+            else:
+                label = ""
         f.write(f"{c:13.6e}  {label}\n")
+    else:
+        # write cov without an labels
+        str_cov = '\n'.join([str(f"{x:13.6e}") for x in cov.flatten() ] )
+        f.write(f"{str_cov}\n")
 
     f.close()
 

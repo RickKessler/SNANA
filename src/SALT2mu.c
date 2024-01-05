@@ -21675,15 +21675,13 @@ void muerr_renorm(void) {
   //
   //    sum [1/muerr_renorm^2] = 1/M0DIFERR^2
   //
-  // Use constant scale within each redshift bin until somebody
-  // figures out a better recipe.
+  // Include BEAMS prob 1/sqrt(PIa_BEAMS) for each event and 
+  // constant scale within each redshift bin.
   // 
   // As a diagnostic crosscheck:
   // For each z-bin, use unbinned values to compute weighted 
   // M0DIF-mean and M0DIF-error; flag discrepancies > 0.001 mag.
   //
-  // May 25 2021: write to FP_STDOUT
-  // Nov 22 2021: include missing factor of 1/sqrt(pia)
   // Oct 17 2022: avoid pia=0 for WGT computation
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  

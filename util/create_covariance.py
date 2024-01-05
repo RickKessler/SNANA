@@ -96,6 +96,11 @@
 #
 # Apr 05 2023 M.Vincenzi: update -H [HELP] on how to remove one syst.
 #
+# Jan 05 2024 RK 
+#   - write PROBIA_BEAMS to hubble diagram (for diagnostic)
+#   - new input option --skip_invert_check
+#   - break up python function(function) for matrices to avoid core dumps
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -130,13 +135,14 @@ VARNAME_MUREF        = "MUREF"
 VARNAME_MURES        = "MURES"
 VARNAME_MUERR        = "MUERR"
 VARNAME_MUERR_VPEC   = "MUERR_VPEC"
-VARNAME_MUERR_RENORM = "MUERR_RENORM"
+VARNAME_MUERR_RENORM = "MUERR_RENORM"  # accounts for P_BEAMS
+VARNAME_PROBCC_BEAMS = "PROBCC_BEAMS"  # diagnostic for HD (used in BBC, not used here)
+VARNAME_PROBIA_BEAMS = "PROBIA_BEAMS"  # varname output in HD (diagnostic
 VARNAME_MUERR_SYS    = "MUERR_SYS"
 VARNAME_zHD          = "zHD"
 VARNAME_zHEL         = "zHEL"
 
 VARNAME_iz     = "IZBIN"
-# xxx mark delete VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
 
@@ -244,6 +250,9 @@ def get_args():
 
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
+
+    msg = "Skip check of COV invertibility (for speed in debugging)"
+    parser.add_argument("--skip_invert_check", help=msg, action="store_true")
 
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 
@@ -359,7 +368,6 @@ def read_header_info(hd_file):
         line  = line.decode('utf-8')
         wd_list = line.split()
 
-        # xxx mark delete: if key_isdata in wd_list:
         if any(KEYNAME_ISDATA in s for s in wd_list):  
             key_isdata     = f"{KEYNAME_ISDATA}:"
             j              = wd_list.index(key_isdata)
@@ -425,7 +433,7 @@ def load_hubble_diagram(hd_file, args, config):
         df["CID"] = df["CID"].astype(str)
         df = df.sort_values([ "CID"])
         df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
-        # xxx mark df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
+
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {hd_file}"
@@ -559,9 +567,17 @@ def get_common_set_of_sne(datadict):
     return datadict
 
 def update_MUERR(HDs):
+    # replace MUERR with MUERR_RENORM (both in SALT2mu/BBC output table),
+    # where the latter includes 1/sqrt(PIa_BEAMS) term and a scale
+    # to preserve binned M0DIF uncertainties.
     for label,df in HDs.items():
         if VARNAME_MUERR_RENORM in df.columns:
             HDs[label][VARNAME_MUERR] =  df[VARNAME_MUERR_RENORM]
+
+        # Jan 5 2024: scoop up beams-prob to write out as diagnostic
+        if VARNAME_PROBCC_BEAMS in df.columns:
+            HDs[label][VARNAME_PROBCC_BEAMS] =  df[VARNAME_PROBCC_BEAMS]
+
     return HDs
 
 def get_rebin_info(config,HD):
@@ -870,7 +886,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     #
     # 9.29.2022 RK - optional 3rd arg with sys scale ?
     #         "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
-
+    # 
     
     covopt_list = covopt.split() # break into two terms
     tmp0 = covopt_list[0]
@@ -886,6 +902,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     fitopt_filter = bracket_content1_list[0]
     muopt_filter  = bracket_content1_list[1]
     covopt_scale     = 1.0
+    logging.info(f"    compute cov for {label}")
+
     if len(bracket_content1_list) > 2 :  # err_scale (3rd item) is optional
         sig_scale    = float(bracket_content1_list[2])
         covopt_scale = sig_scale * sig_scale
@@ -896,7 +914,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         f"'{fitopt_filter}' / {muopt_filter} | " \
         f" covopt_scale={covopt_scale}"
 
-    # xxx mark delete  print(f" xxx refac {msg_content1}")
 
     fitopt_filter = fitopt_filter.strip()
     muopt_filter  = muopt_filter.strip()
@@ -920,7 +937,9 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
         if apply_fitopt and apply_muopt :
             if final_cov is None:
-                final_cov = cov.copy()*0
+                # xxx mark core dump on RCC: final_cov = cov.copy()*0
+                final_cov = cov.copy()
+                final_cov *= 0.0
             if True:
                 # If calibrators and  VPEC term, filter out calib
                 if calibrators and (apply_vpec or apply_zshift):
@@ -929,19 +948,30 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                     cov2 = cov.copy()
                     cov2[mask_calib, :] = 0
                     cov2[:, mask_calib] = 0
-                    # xxx mark delete final_cov += cov2
                     final_cov += cov2 * covopt_scale
                 else:
-                    # xxx mark delete final_cov += cov
                     final_cov += cov * covopt_scale
 
     assert final_cov is not None,  f"No syst matches {msg_content1} " 
 
-    # Validate that the final_cov is invertible
+
+    return label, final_cov
+    # end get_cov_from_covopt
+
+
+def check_cov_invertible(label, cov_sys,muerr_stat_list):
+    
+    # Created Jan 5 2024 by R.Kessler
+    # move this code out of get_cov_from_covopt() so that a flag
+    # can be easily put around calling this method.
+
     try:
         # CosmoMC will add the diag terms, 
         # so lets do it here and make sure its all good
-        effective_cov = final_cov + np.diag(base[VARNAME_MUERR] ** 2)
+        diag_muerr_cov = np.diag(muerr_stat_list**2)
+        effective_cov  = cov_sys + diag_muerr_cov
+
+        # xxx mark core dump: effective_cov=final_cov + np.diag(base[VARNAME_MUERR]**2)
 
         # First just try and invert it to catch singular matrix errors
         precision = np.linalg.inv(effective_cov)
@@ -972,16 +1002,32 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
         raise ex
 
-    return label, final_cov
+    return
+    # end check_cov_invertible
+                
 
 def is_unitary(matrix: np.ndarray) -> bool:
     # Created May 2022 by A.Mitra
     # Return true if input matrix is unitary
     unitary = True
     n = len(matrix)
-    error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
-    if not(error < np.finfo(matrix.dtype).eps * 10.0 *n):
+
+    # xxxxx mark delete Jan 2024 xxxxxx
+    # Jan 2024: RK -
+    # this one-line error calc causes core dump on RCC-midway, so break it
+    # into smaller pieces
+    #error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
+    # xxxxxx end mark xxxxxxxx
+
+    tmp1 = np.eye(n)
+    tmp2 = matrix.dot( matrix.transpose().conjugate())
+    tmpdif = tmp1 - tmp2
+    error  = np.linalg.norm(tmpdif)
+
+    error_max = np.finfo(matrix.dtype).eps * 10.0 * n
+    if not(error < error_max ):
         unitary = False
+
     return unitary
     # end is_unitary
 
@@ -1033,11 +1079,6 @@ def write_standard_output(config, args, covs, data, label_list):
     opt_cov = 0  
     if label_cov_rows: opt_cov+=1
     for i, (label, cov) in enumerate(covs):
-
-        # xxx mark delete Oct 2022
-        #base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
-        #base_file  += '.gz'  # force gzip file, Apr 22 2022
-
         base_file   = get_covsys_filename(i)
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
@@ -1199,7 +1240,6 @@ def write_HD_binned(path, base, muerr_sys_list):
     wrflag_syserr = (muerr_sys_list is not None)
 
     keyname_row = f"{VARNAME_ROW}:"
-    # xxx mark varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
     varlist = f"{VARNAME_ROW} {VARNAME_zHD} {VARNAME_zHEL} " \
               f"{VARNAME_MU} {VARNAME_MUERR}"
 
@@ -1221,7 +1261,7 @@ def write_HD_binned(path, base, muerr_sys_list):
         syserr_list = muerr_list # anything to allow zip loop
 
     with open(path, "w") as f:
-        write_HD_comments(f, unbinned, wrflag_syserr)
+        write_HD_comments(f, unbinned, wrflag_syserr, False )
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr, nevt, syserr) in \
             zip(name_list, zHD_list, mu_list, muerr_list, 
@@ -1254,7 +1294,6 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     varlist = f"{varname_row} {VARNAME_IDSURVEY} " \
               f"{VARNAME_zHD} {VARNAME_zHEL} " \
               f"{VARNAME_MU} {VARNAME_MUERR}"
-              # xxx mark delete Nov 9 2022 f"zCMB zHEL " \
 
     name_list   = base[VARNAME_CID].to_numpy()
     idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
@@ -1262,11 +1301,12 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     zHEL_list   = base[VARNAME_zHEL].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
-
+    
     # check for optional quantities that may not exist in older files
-    found_muerr_vpec = VARNAME_MUERR_VPEC in base
-    found_muerr_sys  = muerr_sys_list is not None
-
+    found_muerr_vpec   = VARNAME_MUERR_VPEC in base
+    found_muerr_sys    = muerr_sys_list is not None
+    found_pbeams       = VARNAME_PROBCC_BEAMS in base  # Jan 2024
+ 
     if found_muerr_vpec :   
         varlist += f" {VARNAME_MUERR_VPEC}"
         muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
@@ -1279,24 +1319,34 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     else:
         syserr_list = muerr_list # anything for zip command
 
+    if found_pbeams:
+        varlist += f" {VARNAME_PROBIA_BEAMS}"
+        pbeams_list = base[VARNAME_PROBCC_BEAMS].to_numpy()
+        pbeams_list = 1.0 - pbeams_list # convert to Ia prob (instead of CC prob)
+    else:
+        pbeams_list = muerr_list # anything for zip command
+
+        # .xyz
+
     # - - - - - - -
     with open(path, "w") as f:
-        write_HD_comments(f, unbinned, found_muerr_sys)
+        write_HD_comments(f, unbinned, found_muerr_sys, found_pbeams )
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr) in \
+        for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr, pbeams) in \
             zip(name_list, idsurv_list, zHD_list, zHEL_list,
-                mu_list, muerr_list, muerr2_list, syserr_list ):
+                mu_list, muerr_list, muerr2_list, syserr_list, pbeams_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
                        f"{zHD:6.5f} {zHEL:6.5f} " \
                        f"{mu:8.5f} {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
             if found_muerr_sys:  val_list += f" {syserr:8.5f}"
+            if found_pbeams:     val_list += f" {pbeams:8.5f}"
 
             f.write(f"{keyname_row} {val_list}\n")
     return
     # end write_HD_unbinned
 
-def write_HD_comments(f, unbinned, wrflag_syserr):
+def write_HD_comments(f, unbinned, wrflag_syserr, wrflag_pbeams):
 
     f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
 
@@ -1313,6 +1363,10 @@ def write_HD_comments(f, unbinned, wrflag_syserr):
     if wrflag_syserr:
         f.write(f"# MUERR_SYS = sqrt(COVSYS_DIAG) for 'ALL' sys " \
                 "(diagnostic)\n")
+
+    if wrflag_pbeams:
+        f.write(f"# PROB1A_BEAMS = SNIa BEAMS probability from BBC " \
+            "(diagnostic)\n")
 
     # write ISDATA flag as comment in HD 
     ISDATA = config[KEYNAME_ISDATA]
@@ -1359,7 +1413,6 @@ def write_covariance(path, cov, opt_cov):
             if colnum == 0 or colnum == rownum : 
                 label = f"# ({rownum},{colnum})"
         f.write(f"{c:13.6e}  {label}\n")
-        # xxx mark delete f.write(f"{c:12.8f}  {label}\n")
 
     f.close()
 
@@ -1382,11 +1435,9 @@ def write_summary_output(config, covariances, base):
     for i, (label, cov) in enumerate(covariances):
         covsys_file = get_covsys_filename(i)
         cov_info[i] = f"{label:<20} {covsys_file}"
-        # xxx mark delete oct 13 2022 cov_info[i] = label
 
     info["COVOPTS"] = cov_info
-        
-    # xxx mark del Mar 2023:  info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+    
 
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
@@ -1613,10 +1664,24 @@ def create_covariance(config, args):
 
     covopts = covopts_default + config.get("COVOPTS",[])  
 
-    covariances = \
-        [ get_cov_from_covopt(c, contributions, base, 
-                              config.get("CALIBRATORS")) for c in covopts]
-    
+    covariances = []
+    for c in covopts:
+        label, cov = get_cov_from_covopt(c, contributions, base,
+                                         config.get("CALIBRATORS") )
+        covariances.append( (label, cov) )
+        
+        # Validate that the final_cov is invertible
+        if not args.skip_invert_check:
+            check_cov_invertible(label, cov,base[VARNAME_MUERR])
+
+    # xxx mark delet Jan 5 2024 xxxx
+    #covariances = \
+    #    [ get_cov_from_covopt(c, contributions, base, 
+    #                          config.get("CALIBRATORS")) for c in covopts]
+    # xxx end mark xxxx
+
+
+
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
     if args.systematic_HD:

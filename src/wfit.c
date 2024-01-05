@@ -839,7 +839,7 @@ void print_wfit_help(void) {
 void parse_args(int argc, char **argv) {
 
   // Created Oct 1 2021 [code moved from main]
-
+  // 
   int N_HDfile ;
   int iarg;
   char fnam[] = "parse_args" ;
@@ -847,7 +847,7 @@ void parse_args(int argc, char **argv) {
   // ------------ BEGIN ------------
 
   // parse HD as 1st positional arg
-  parse_commaSepList("HD_infile", argv[1], 2, MXCHAR_FILENAME,
+  parse_commaSepList("HD_infile", argv[1], 2, 2*MXCHAR_FILENAME,
 		     &INPUTS.NHD, &INPUTS.HD_infile_list );
 
   if ( INPUTS.NHD == 2 ) { INPUTS.USE_HDIBC = true; }

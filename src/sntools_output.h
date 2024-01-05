@@ -30,6 +30,8 @@
  May 02 2020: add spectra format for MARZ (FITS with particular extensions)
  May 30 2020: MXSPEC_SPECPAK -> MXSPECTRA from sndata.h
 
+ Jan 05 2023: MXCHAR_FILENAME-> 300 (was 240)
+
 *******************************************/
 
 
@@ -49,7 +51,7 @@
 #define IFILETYPE_MARZ   4
 #define MXTABLEFILETYPE  5
 
-#define MXCHAR_FILENAME  240
+#define MXCHAR_FILENAME  300
 #define MXCHAR_VARLIST   2000  
 #define MXCHAR_VARNAME   60
 #define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car

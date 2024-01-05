@@ -934,7 +934,7 @@ void parse_args(int argc, char **argv) {
 
       } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {
 
-	parse_commaSepList("mucov_file", argv[++iarg], 2, MXCHAR_FILENAME,
+	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
 			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
 	INPUTS.use_mucov =1 ;
 	

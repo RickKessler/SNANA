@@ -101,6 +101,7 @@
 #   - new input option --skip_invert_check
 #   - break up python function(function) for matrices to avoid core dumps
 #   - write cov with single write instead of separate f.write per element
+#     [pand use compresslevel=6 for faster write]
 #
 # ===============================================
 
@@ -1049,8 +1050,7 @@ def write_standard_output(config, args, covs, data, label_list):
     # P. Armstrong 05 Aug 2022
     # Add option to create hubble_diagram.txt for each systematic as well
 
-    logging.info("")
-    logging.info("   OUTPUT  ")
+
     unbinned       = args.unbinned
     label_cov_rows = args.label_cov_rows
     outdir         = Path(config["OUTDIR"])
@@ -1397,7 +1397,7 @@ def write_covariance(path, cov, opt_cov):
     nwr = 0 ; rownum = -1; colnum=-1
 
     if '.gz' in str(path):
-        f = gzip.open(path,"wt")
+        f = gzip.open(path,"wt", compresslevel=6 )
     else:
         f = open(path,"wt") 
 
@@ -1662,7 +1662,8 @@ def create_covariance(config, args):
                                                extracovdict)
 
     # find contributions which match to construct covs for each COVOPT
-    logging.info(f"Compute covariance for COVOPTS")
+    logging.info("")
+    logging.info(f"# ============ Compute covariance for COVOPTS ===========")
 
     # Add covopt to compute everything
     if args.nosys:
@@ -1672,22 +1673,29 @@ def create_covariance(config, args):
 
     covopts = covopts_default + config.get("COVOPTS",[])  
 
+    args.tstart_cov = time.time()
     covariances = []
     for c in covopts:
         label, cov = get_cov_from_covopt(c, contributions, base,
                                          config.get("CALIBRATORS") )
         covariances.append( (label, cov) )
         
-        # Validate that the final_cov is invertible
-        if not args.skip_invert_check:
+    args.tend_cov = time.time()
+
+    # Validate that the final_cov is invertible
+    if not args.skip_invert_check:
+        logging.info("")
+        logging.info("# ========== check invertibility ===============")
+        for (label, cov) in covariances:
             check_cov_invertible(label, cov,base[VARNAME_MUERR])
+
+        args.tend_check_cov_invert = time.time()
 
     # xxx mark delet Jan 5 2024 xxxx
     #covariances = \
     #    [ get_cov_from_covopt(c, contributions, base, 
     #                          config.get("CALIBRATORS")) for c in covopts]
     # xxx end mark xxxx
-
 
 
     # P. Armstrong 05 Aug 2022
@@ -1698,6 +1706,11 @@ def create_covariance(config, args):
     else:
         label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
 
+    args.tstart_write = time.time()
+
+    logging.info("")
+    logging.info("# ================  OUTPUT ================= ")
+
     # write standard output for cov(s) and hubble diagram (9.22.2021)
     write_standard_output(config, args, covariances, data, label_list)
 
@@ -1707,7 +1720,11 @@ def create_covariance(config, args):
 
     write_summary_output(config, covariances, base)
 
-    # Sep 30 2022 RK - submit_batch_jobs needs output yaml to communicate
+    args.tend_write = time.time()
+
+    args.tend_all = time.time()
+
+    # write YAML output to communicate with submit_batch_jobs
     if args.yaml_file is not None:
         write_yaml(args, len(covariances) )
 
@@ -1772,16 +1789,34 @@ def prep_config(config,args):
         
     # end prep_config
 
+def loginfo_cpu_summary(args):
+
+    cpu_minutes = (args.tstart_cov - args.tstart_all)/60.0
+    logging.info(f"CPUTIME_INITIALIZE   = {cpu_minutes:.3f} minutes")
+
+    cpu_minutes = (args.tend_cov - args.tstart_cov)/60.0
+    logging.info(f"CPUTIME_COV_COMPUTE  = {cpu_minutes:.3f} minutes")
+
+    if not args.skip_invert_check:
+        cpu_minutes = (args.tend_check_cov_invert - args.tend_cov)/60.0
+        logging.info(f"CPUTIME_CHECK_INVERT = {cpu_minutes:.3f} minutes")
+
+    cpu_minutes = (args.tend_write - args.tstart_write)/60.0
+    logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")
+
+    cpu_minutes = (args.tend_all - args.tstart_all)/60.0
+    logging.info(f"CPUTIME_PROCESS_ALL  = {cpu_minutes:.3f} minutes")
+
+    # end loginfo_cpu_summary
+
 def write_yaml(args, n_cov):
 
-    start_time = args.start_time
-    end_time   = time.time()
-    cpu_min    = (end_time - start_time)/60.0
+    cpu_minutes  = (args.tend_all - args.tstart_all)/60.0
 
     with open(args.yaml_file,"wt") as y:
         y.write(f"N_COVMAT:       {n_cov}\n")
         y.write(f"ABORT_IF_ZERO:  {n_cov}    # same as N_COVMAT\n")
-        y.write(f"CPU_MINUTES:    {cpu_min:.3f} \n")
+        y.write(f"CPU_MINUTES:    {cpu_minutes:.3f} \n")
 
     return
     # end write_yaml
@@ -1796,13 +1831,17 @@ if __name__ == "__main__":
 
         command = " ".join(sys.argv)
         logging.info(f"# Command: {command}")
-        
-        args   = get_args()
-        args.start_time = time.time()
-        config = read_yaml(args.input_file)
+        sys.stdout.flush()
+
+        args            = get_args()
+        args.tstart_all = time.time()
+        config          = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...
         create_covariance(config, args)
+        loginfo_cpu_summary(args)
 
     except Exception as e:
         logging.exception(e)
         raise e
+
+    # end main

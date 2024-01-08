@@ -22100,12 +22100,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-         v11_05j ([tag-date])
+         v11_05j (Jan 7 2024)
 
          *****  IMPORTANT(v11_05i) *****
 
      sim: implement user input GENPDF_EXPON_REWGT to reweight population;
-          write SIM_WGT_POPULATIO to data files. 
+          write SIM_WGT_POPULATION to data files. 
           See https://github.com/RickKessler/SNANA/issues/1254 .
 
          *****  USEFUL(v11_05i) *****
@@ -22114,7 +22114,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  MISCELLANEOUS(v11_05i) *****
 
      snana.car
-       + filter update option (SNLS3) can read gzipped or unzipped filter-trans files.
+       + filter update option (SNLS3) can read gzipped or unzipped
+           filter-trans files.
        + MXCHAR_CUTNAME -> 300 (was 160) to allow for longer input strings
           (see git issue 1249)
 
@@ -22122,7 +22123,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + add OPT arg to rd2columnn to pass option of NOT aborting on missing
          file and instead return ERROR.
 
-      + in function rd_sedFlux, compute nflux_nan and
+      + in function rd_sedFlux, compute number of NaNs (nflux_nan) and
           * return nflux_nan 
           * print warning to stdout
           * replace flux = nan -> 0 to avoid downstream corruption.
@@ -22132,23 +22133,25 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + fix print_eventStats() bug when there is no biasCor (git issue 1250)
 
      sntools_host.c
-       + abort if VARNAMES_WGTMAP is not found
+       + abort if VARNAMES_WGTMAP is not found in HOSTLIB_WGTMAP_FILE.
 
     sntools_genGauss_asym.c:
        https://github.com/RickKessler/SNANA/issues/1255
 
     genmag_SALT2.c[h]
       + begin refactor to implement x2 x M2 component in SALT3.
+        Works for snlc_fit.exe, but still needs more testing w.r.t. SALTshaker.
+        Does NOT yet work in sim because there is no x2-population input.
 
     snlc_fit.car
-      + output new table vartiable 
+      + output new FITRES table variable:
            RADIUS_POP = sqrt [ (x1/3)**2 + (c/0.3)**2 ]
-        Can be used with  BBC's CUTWIN utility to reduce
-        contamination with explict cut instead of relying
-        on implicit cut from events that don't have valid
-        biasCor.
+        Can be used with  BBC's CUTWIN utility to reduce contamination with 
+        explict cut instead of relying on implicit cut from events that 
+        don't have valid biasCor.
 
     create_covariance.py:
       + write PROBIA_BEAMS to output Hubble diagram and few other fixes;
         see https://github.com/RickKessler/SNANA/issues/1259
+
 END: 

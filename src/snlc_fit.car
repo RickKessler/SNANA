@@ -13585,7 +13585,7 @@ c local var
 
       REAL*8  MU8(2), Z8(2), DZ8, DZDMU, MUREF
 
-      character CZPRIOR*6
+      character CZPRIOR*12
 
 c functions
 
@@ -13603,12 +13603,17 @@ c extract fit photoZ and determine total error.
       if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then 
         zhost    =  SNHOST_ZPHOT(1)
         zhosterr =  SNHOST_ZPHOT_ERR(1)
-        czprior  = 'SNGAL'   ! for screen dump comment
+        czprior  = 'HOST-Gauss'   ! for screen dump comment
 
       else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
         zhost    = SNLC_REDSHIFT     ! for testing only
         zhosterr = SNLC_REDSHIFT_ERR
-        czprior  = 'SPECZ'   ! for screen dump comment
+        czprior  = 'zBEST-Gauss'   ! for screen dump comment
+
+      else if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then ! Jan 2024
+        zhost    = 0.0
+        zhosterr = 0.0
+        czprior  = 'QUANTILES'   ! for screen dump comment
       endif
 
 c scale the error by user-scale:

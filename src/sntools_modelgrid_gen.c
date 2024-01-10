@@ -509,7 +509,7 @@ void gen_GRIDevent(int ilc) {
   logz = SNGRID_WRITE.VALUE[IPAR][indx] ;   
   GENLC.REDSHIFT_CMB = pow(10.0,logz);
 
-  gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB,
+  gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB, GENLC.VPEC,
 		  GENLC.GLON, GENLC.GLAT,
 		  &GENLC.DLMU, &GENLC.LENSDMU );
 

@@ -520,13 +520,14 @@ double Hzfun_interp(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
 } // end Hzfun_interp
 
 // ******************************************
-double dLmag ( double zCMB, double zHEL, 
+double dLmag ( double zCMB, double zHEL, double vPEC,
 	       HzFUN_INFO_DEF *HzFUN_INFO, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  ) {
 	       	       
   // returns luminosity distance in mags:
   //   dLmag = 5 * log10(DL/10pc)
   //
   // Feb 2023: pass ANISOTROPY_INFO to enable anistropy models
+  // Jan 2024: add vPEC relativistic beaming
 
   double rz, dl, arg, mu, zero=0.0 ;
   char fnam[] = "dLmag";
@@ -534,22 +535,22 @@ double dLmag ( double zCMB, double zHEL,
   // ----------- BEGIN -----------
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
   rz    *= (1.0E6*PC_km);  // H -> 1/sec units
-  dl     = ( 1.0 + zHEL ) * rz ;
+  //XXX dl     = ( 1.0 + zHEL ) * rz ; 
+  dl     = ( 1.0 + zHEL ) * (1 + vPEC/LIGHT_km) * rz ; // 01/10/2024 B. Carreres 
   arg    = dl / (10.0 * PC_km);
   mu     = 5.0 * log10( arg );
 
   if ( ANISOTROPY_INFO->USE_FLAG ) {
     double mu_isotropic = mu ;
-    mu = dLmag_anisotropic ( mu_isotropic, zCMB,zHEL, HzFUN_INFO, ANISOTROPY_INFO );
+    mu = dLmag_anisotropic ( mu_isotropic, zCMB,zHEL, vPEC, HzFUN_INFO, ANISOTROPY_INFO );
   }
-
 
   return mu ;
 }  // end of dLmag
 
 
 // ===============================================
-double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL, 
+double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL, double vPEC,
 			  HzFUN_INFO_DEF *HzFUN_INFO, 
 			  ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  ) {
 
@@ -612,7 +613,7 @@ double q_dipole_V04(double zHEL, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO){
 }
 
 // ******************************************
-double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
+double dlmag_fortc__(double *zCMB, double *zHEL, double *vPEC, double *H0,
 		     double *OM, double *OL, double *w0, double *wa) {
 	       	     
   // C interface to fortran;
@@ -632,7 +633,7 @@ double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
   HzFUN_INFO.USE_MAP = false ;
 
   ANISOTROPY_INFO.USE_FLAG = false;
-  mu = dLmag(*zCMB, *zHEL, &HzFUN_INFO, &ANISOTROPY_INFO );
+  mu = dLmag(*zCMB, *zHEL, *vPEC, &HzFUN_INFO, &ANISOTROPY_INFO );
 
   /* xxx
   printf(" xxx dlmag_fortc: z=%.3f/%.3f,  H0=%.2f OM,OL=%.3f,%.3f \n",
@@ -652,6 +653,7 @@ double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO,
   // for input distance modulus (MU), solve for zCMB.
 
   double zCMB, zCMB_start, dmu, DMU, mutmp, DL ;
+  double vPEC = 0.0 ;
   double DMU_CONVERGE = 1.0E-4 ;
   int    NITER=0;
   char fnam[] = "zcmb_dLmag_invert" ;
@@ -666,7 +668,7 @@ double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO,
   zCMB = zCMB_start ;
   DMU = 9999.0 ;
   while ( DMU > DMU_CONVERGE ) {
-    mutmp  = dLmag(zCMB, zCMB, HzFUN_INFO, ANISOTROPY_INFO ); // MU for trial zCMB
+    mutmp  = dLmag(zCMB, zCMB, vPEC, HzFUN_INFO, ANISOTROPY_INFO ); // MU for trial zCMB
     dmu    = mutmp - MU ;             // error on mu
     DMU    = fabs(dmu);
     zCMB  *= exp(-dmu/2.0); 

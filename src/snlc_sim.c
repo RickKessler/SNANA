@@ -11753,7 +11753,7 @@ void gen_event_driver(int ilc) {
     GENLC.REDSHIFT_HELIO = gen_redshift_helio(); // needs RA,DEC from SIMLIB
 
     gen_distanceMag( GENLC.REDSHIFT_CMB,            // input
-		     GENLC.REDSHIFT_HELIO,          // input 
+		     GENLC.REDSHIFT_HELIO, GENLC.VPEC,         // input 
 		     GENLC.GLON, GENLC.GLAT,        // input
 		     &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
 
@@ -15530,7 +15530,7 @@ void gen_redshift_LCLIB(void) {
   // used for anything, so this is just to avoid crazy
   // MU-vs-ZCMB in the output.
   gen_distanceMag( GENLC.REDSHIFT_CMB,            // input
-		   GENLC.REDSHIFT_HELIO,          // input 
+		   GENLC.REDSHIFT_HELIO, GENLC.VPEC,          // input 
 		   GENLC.GLON, GENLC.GLAT,        // input
 		   &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
 
@@ -15684,7 +15684,7 @@ void gen_zsmear(double zerr) {
 
 
 // =====================================================
-void gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
+void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT,
 		     double *MU, double *LENSDMU) {
 
   // Created Apr 2017
@@ -15735,7 +15735,7 @@ void gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
   lensDMU *= INPUTS.WEAKLENS_DMUSCALE ; // user-scale
 
   // load return args
-  *MU      = gen_dLmag(zCMB,zHEL, GLON, GLAT);
+  *MU      = gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);
   *LENSDMU = lensDMU ;
 
   return;
@@ -15743,7 +15743,7 @@ void gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
 } // end gen_distanceMag
 
 // ********************************
-double gen_dLmag(double zCMB, double zHEL, double GLON, double GLAT ) {
+double gen_dLmag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT ) {
 
   // Returns lumi-distance mag with input cosmology
   // Note that INPUTS.H0 ~ 70 km/s/Mpc, and H0 -> ~2E-18
@@ -15756,7 +15756,7 @@ double gen_dLmag(double zCMB, double zHEL, double GLON, double GLAT ) {
     INPUTS.ANISOTROPY_INFO.GLAT = GLAT;
   }
 
-  mu = dLmag (zCMB, zHEL, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
+  mu = dLmag (zCMB, zHEL, vPEC, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
 
   return(mu) ;
 
@@ -20151,7 +20151,7 @@ int regen_SIMLIB_GENRANGES(void) {
     if ( tmpVal < INPUTS.GENRANGE_REDSHIFT[0] ) { return(REJECT); }
     if ( tmpVal > INPUTS.GENRANGE_REDSHIFT[1] ) { return(REJECT); }
     GENLC.REDSHIFT_CMB     = tmpVal ;
-    gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB, // to fix later
+    gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB, GENLC.VPEC, // to fix later
 		    GENLC.GLON, GENLC.GLAT,
 		    &GENLC.DLMU, &GENLC.LENSDMU);
   }
@@ -30537,7 +30537,7 @@ void DUMP_GENMAG_DRIVER(void) {
   GENLC.REDSHIFT_HELIO = GENLC.REDSHIFT_CMB ;
   zz = 1.0 + GENLC.REDSHIFT_CMB ;
 
-  gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO,
+  gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO, GENLC.VPEC,
 		  GENLC.GLON, GENLC.GLAT,
 		  &GENLC.DLMU, &GENLC.LENSDMU);
 

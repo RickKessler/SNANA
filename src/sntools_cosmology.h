@@ -64,13 +64,13 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO);
 double Hzfun ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
 double Hzfun_wCDM ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
 double Hzfun_interp ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
-double dLmag ( double zCMB, double zHEL, 
+double dLmag ( double zCMB, double zHEL, double vPEC, 
 	       HzFUN_INFO_DEF *HzFUN_INFO, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  ); 
 
-double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
+double dlmag_fortc__(double *zCMB, double *zHEL, double *vPEC, double *H0,
                      double *OM, double *OL, double *w0, double *wa);
 
-double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL,
+double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL, double vPEC,
                           HzFUN_INFO_DEF *HzFUN_INFO,
                           ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  );
 

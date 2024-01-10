@@ -4824,6 +4824,7 @@ void test_cospar(void) {
 
   FILE *fp;
   double z, rz, mu_wfit[NCOSPAR_TEST], mu_sim[NCOSPAR_TEST];
+  double vpec=0.0 ;
   int  icos, irow=0;  
   char line[200];
   char outFile[] = "cospar_comparison.txt";   
@@ -4860,7 +4861,7 @@ void test_cospar(void) {
       mu_wfit[icos] =  get_mu_cos(z,rz) ; 
 
       set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, cpar.wa, &HzFUN);
-      mu_sim[icos] = dLmag(z,z, &HzFUN, &ANISOTROPY);
+      mu_sim[icos] = dLmag(z,z, vpec, &HzFUN, &ANISOTROPY);
     }
 
     irow++ ;

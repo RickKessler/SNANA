@@ -22118,6 +22118,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
            filter-trans files.
        + MXCHAR_CUTNAME -> 300 (was 160) to allow for longer input strings
           (see git issue 1249)
+       + remove &SNLCINP inoput  RESTORE_DES3YR [restore few bugs frmo 2019]
 
      sntools.c
        + add OPT arg to rd2columnn to pass option of NOT aborting on missing
@@ -22149,6 +22150,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         Can be used with  BBC's CUTWIN utility to reduce contamination with 
         explict cut instead of relying on implicit cut from events that 
         don't have valid biasCor.
+
+    sntools_zPDF_spline.c[h]:
+       Normlize pdf /= pdf_max;
+       see https://github.com/RickKessler/SNANA/issues/1260
 
     create_covariance.py:
       + write PROBIA_BEAMS to output Hubble diagram and few other fixes;

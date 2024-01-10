@@ -4484,7 +4484,7 @@ c always evaluate simple chi2 ignoring covariance
                 
         delchi2         = sqdif * inv_sqsig
         delchi2_nofudge = sqdif/sqsig_nofudge
-        IF ( RESTORE_DES3YR ) delchi2_nofudge = delchi2
+cc xxx mark        IF ( RESTORE_DES3YR ) delchi2_nofudge = delchi2
 
         IF ( LFLAG_SIGMA_ONLY ) THEN
           delchi2         = 0.0
@@ -4924,7 +4924,7 @@ c -----------------------------------------
 c Prior on photoZ
 
       IF ( DOFIT_PHOTOZ ) THEN
-        
+
         if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
           ! get the probability at this redshift
           PROBZ = eval_zPDF_spline(ZSN)
@@ -8454,6 +8454,7 @@ c  + call INIPAR_PHOTOZ_COURSEGRID(..)
 c
 c Oct 10 2019: abort if USE_SNHOST_ZPHOT=T
 c
+c Jan 2024: wrap Quantile debug prints under LDMP_Q flag
 c --------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -8472,8 +8473,8 @@ c local var
       INTEGER  IPAR, NZBIN, NCBIN, NSBIN
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2
       REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
-      LOGICAL LPRINT
-      CHARACTER BANNER*60, CZTMP*20
+      LOGICAL LPRINT, LDMP_Q
+      CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
 c FCNSNLC args
 
@@ -8489,7 +8490,7 @@ c FCNSNLC args
 C --------------- BEGIN -----------------
 
       LPRINT = STDOUT_UPDATE
-
+      CCID_forC = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
 
       IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
@@ -8585,7 +8586,12 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
         endif
       
       ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
-c        Print *, 'xxx Start of quantiles code'
+
+         LDMP_Q = .false.  ! RK - control debug dump with  flag
+
+        if ( LDMP_Q ) then
+            Print *, ' xxx Start prep for init_zPDF_quantile'
+        endif
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
             c2err = 'but there are no zPDF quantiles in the data.'
@@ -8593,14 +8599,21 @@ c        Print *, 'xxx Start of quantiles code'
         endif
         do q = 1, SNHOST_NZPHOT_Q
             ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
-            ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
-c            Print *, ZPHOT_PROB(q)
-c            Print *, ZPHOT_Q(q)
+            ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
+            if ( LDMP_Q ) THEN
+              print*,' xxx   PROB=', sngl(ZPHOT_PROB(q)),
+     &                ' for ZPHOT=', sngl(ZPHOT_Q(q))
+              call flush(6)
+            endif
         enddo
-c          Print *, 'xxx Calling init_zPDF_spline'
-          CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
-     &                          ZPHOT_PROB, ZPHOT_Q)
-c          Print *, 'xxx Spline initialized successfully' 
+        CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,
+     &              CCID_forC, ISNLC_LENCCID )
+
+        if ( LDMP_Q ) then
+           Print *, ' xxx Finished init_zPDF_spline' 
+           call flush(6)
+        endif
+
 c     initialize at Q50
           INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)
           LZDONE       = .TRUE.

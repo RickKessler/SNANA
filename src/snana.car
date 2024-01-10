@@ -1911,7 +1911,6 @@ c
      &  ,USESIM_SNCC         ! I: default True -> process simulated SNCC
      &  ,USESIM_TRUEFLUX     ! I: SNLC_FLUXCAL -> SIM_FLUXCAL 
      &  ,LPROB_TRUEFLUX      ! I: T=> compute F-Ftrue chi2 and PROB
-     &  ,RESTORE_DES3YR      ! I: restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
      &  ,RESTORE_MWEBV_ERR_BUG ! I: bug used MWEBV/6 if MWEBV_ERR < 0.001
@@ -2002,7 +2001,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
-     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
+     &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
@@ -2056,7 +2055,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
-     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
+     &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
@@ -6217,7 +6216,6 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX  = .FALSE.
 
       LPROB_TRUEFLUX     = .FALSE.  
-      RESTORE_DES3YR     = .FALSE.
       RESTORE_WRONG_VPEC = .FALSE.    ! Nov 3 2020
       RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
@@ -7867,10 +7865,6 @@ c - - - - -
          else if ( MATCH_NMLKEY('USESIM_TRUEFLUX',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USESIM_TRUEFLUX
-
-         else if ( MATCH_NMLKEY('RESTORE_DES3YR',
-     &             1, iArg, ARGLIST) ) then 
-           READ(ARGLIST(1),*) RESTORE_DES3YR
 
          else if ( MATCH_NMLKEY('RESTORE_MWEBV_ERR_BUG',
      &             1, iArg, ARGLIST) ) then 
@@ -14048,7 +14042,7 @@ c July 11 2020
 c  Check cuts on PSF and ZP ... doesn't change analysis,
 c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
 
-      IF( RESTORE_DES3YR ) GOTO 600 ! skip ZP and PSF cut for DES3YR
+c xxx      IF( RESTORE_DES3YR ) GOTO 600 ! skip ZP and PSF cut for DES3YR
 
       IF ( ZP < CUTWIN_ZP(1)   ) REJECT = .TRUE.
       IF ( ZP > CUTWIN_ZP(2)   ) REJECT = .TRUE.
@@ -17856,9 +17850,8 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
            CALL CHECK_DUPLICATE_MJDBAND(ep) ! Jun 13 2017
 
 c Feb 6 2020: fudge errors here before SNRMAX is computed
-           if ( .NOT. RESTORE_DES3YR ) then
-             CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
-           endif
+
+           CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
 
            CALL SET_MAG(ep)  ! Jan 23 2018
 
@@ -17889,9 +17882,11 @@ c strip off local variables.
 c Jan 3 2018: skip saturated mags
           if ( FLUXCAL_ERR .GE. 0.9E8 .AND. LSIM_SNANA ) GOTO 201
 
-          if ( RESTORE_DES3YR ) then
-             CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
-          endif
+c xxxxxxxx mark delete Jan 8 2024 xxxx
+c          if ( RESTORE_DES3YR ) then
+c             CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
+c          endif
+c xxxxxxxx end mark xxxxxxxxxx
 
 c convert sim-mag to SIM_FLUXCA
           IF ( ISJOB_SIM ) THEN
@@ -18973,10 +18968,12 @@ c - - - - - - - - - - - - - -
       ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
       ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
 
-      if ( RESTORE_DES3YR ) then  ! Mar 2020
-         ERR3 = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL_BUG
-         FLUXCAL_BUG = DBLE( SNLC_FLUXCAL(ep) ) 
-      endif
+c xxxxxxxxx mark delete Jan 2024 xxxxxx
+c      if ( RESTORE_DES3YR ) then  ! Mar 2020
+c         ERR3 = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL_BUG
+c         FLUXCAL_BUG = DBLE( SNLC_FLUXCAL(ep) ) 
+c      endif
+c xxxxxxxxxxxxx end mark xxxxxxxxx
 
       SQERR1     = ERR1  * ERR1
       SQERR2a    = ERR2a * ERR2a
@@ -31275,15 +31272,11 @@ c get prior-chi2 using special flag
 +SELF.
 
 c determine effective Ndof for prior.
-
-      if ( RESTORE_DES3YR ) then
-         ! do not reset NDOF_PRIOR to restore bug
-      else 
-         NDOF_PRIOR = 0      ! bug fix, Feb 22 2020
-      endif
    
       if ( CHI8 .GT. 0.01 ) then
         NDOF_PRIOR = 1
+      else
+        NDOF_PRIOR = 0
       endif
 
       FITCHI2_STORE(3) = CHI8  ! prior chi2

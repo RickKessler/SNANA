@@ -1977,8 +1977,8 @@ double gen_peakmjd_IDEAL_GRID(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 
-double gen_dLmag (double zCMB, double zHEL, double GLON, double GLAT );
-void   gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
+double gen_dLmag (double zCMB, double zHEL, double vPEC, double GLON, double GLAT );
+void   gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT,
 		       double *MU, double *lensDMU);
 
 double genz_hubble(double zmin, double zmax, RATEPAR_DEF *RATEPAR );

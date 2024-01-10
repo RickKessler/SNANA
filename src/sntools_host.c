@@ -8185,6 +8185,7 @@ void SORT_SNHOST_byDDLR(void) {
   double RA_GAL_HOSTLIB, DEC_GAL_HOSTLIB ;
   double RA_SN, DEC_SN, RA_SHIFT, DEC_SHIFT, cosDEC_SN, cosDEC_GAL ;
   double DMUCOR = 0.0 ;
+  double vPEC = 0.0 ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
   // ------------- BEGIN ---------------
@@ -8202,7 +8203,7 @@ void SORT_SNHOST_byDDLR(void) {
     zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, COORDSYS_EQ, +1);
     if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zCMB = zHEL; }
 
-    gen_distanceMag(zCMB, zHEL,
+    gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT,
 		    &HOST_DLMU, &LENSDMU ); // <== returned
     DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
@@ -8500,6 +8501,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // May 25 2020: add vpec
 
   double ZTRUE         = SNHOSTGAL.ZTRUE ;     // helio redshift
+  double vPEC ;
   double zPEC_GAUSIG   = GENLC.VPEC/LIGHT_km ; // from GENSIGMA_VPEC key
   double zPEC_HOSTLIB  = SNHOSTGAL.VPEC/LIGHT_km; // from hostlib
 
@@ -8523,6 +8525,17 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // un-do zPEC to get zHEL without vPEC
   zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
+  // - - - - - - - - - 
+  // May 25 2020 add zPEC to zHEL
+  if ( DO_VPEC ) 
+    { zPEC = zPEC_HOSTLIB ; 
+      vPEC = SNHOSTGAL.VPEC ;
+    }  // from VPEC key in HOSTLIB
+  else
+    { zPEC = zPEC_GAUSIG ; 
+      vPEC = GENLC.VPEC ;
+    }  // from sim-input GENSIGMA_VPEC key
+
   // - - - - - - - - - - - - - - - - - - - - - 
   // check for transferring SN redshift to host redshift.
   // Here zHEL & zCMB both change
@@ -8532,7 +8545,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zCMB = zHEL ; }
 
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
-    gen_distanceMag(zCMB, zHEL,
+    gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT, 
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
   }
@@ -8546,18 +8559,12 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); 
     if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zHEL = zCMB; }
 
-    gen_distanceMag(zCMB, zHEL, 
+    gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT,
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
 
   }
 
-  // - - - - - - - - - 
-  // May 25 2020 add zPEC to zHEL
-  if ( DO_VPEC ) 
-    { zPEC = zPEC_HOSTLIB; }  // from VPEC key in HOSTLIB
-  else
-    { zPEC = zPEC_GAUSIG ; }  // from sim-input GENSIGMA_VPEC key
 
   double zHEL_ORIG = GENLC.REDSHIFT_HELIO ;
   GENLC.VPEC = zPEC * LIGHT_km;

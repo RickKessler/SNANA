@@ -19523,7 +19523,7 @@ c Oct 23 2020: refactor DLMAG function to use sntools_cosmology.c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
       REAL*8 Z8             ! input redshift
-      REAL*8 zCMB, zHEL, H0, OM, OL, w0, wa
+      REAL*8 zCMB, zHEL, vPEC, H0, OM, OL, w0, wa
 
       REAL*8   DLMAG_fortC    ! C function in sntools_cosmology.c
       EXTERNAL DLMAG_fortC
@@ -19537,8 +19537,8 @@ C ------- BEGIN -------
       wa   = DWDA_REF(1)
       zCMB = z8
       zHEL = z8
-
-      DLMAG8_REF = DLMAG_fortC(zCMB, zHEL, H0, OM, OL, w0, wa)
+      vPEC = 0.0 
+      DLMAG8_REF = DLMAG_fortC(zCMB, zHEL, vPEC, H0, OM, OL, w0, wa)
       RETURN
       END           ! end DLMAG8_REF
 
@@ -20923,7 +20923,7 @@ c Oct 23, 2020: use DLMAG_fortC to get DLMAG
 c local var
 
       INTEGER iz, NBZ(2), iplot, hid, LENTIT
-      REAL*8  Z0, Z0arg(2), zbinsize, ZLIM(2), DLMAG
+      REAL*8  Z0, vPEC, Z0arg(2), zbinsize, ZLIM(2), DLMAG
       character chis*80
 
 c define parameters for theory plots
@@ -20978,6 +20978,7 @@ c book histos
       END DO
 
 c comput Mag vs. Z and fill histograms
+      vPEC = 0.0 
 
       DO 100 iz    = 1, NBZ(1)
         Z0 = zbinsize * ( float(iz)-0.5 )
@@ -20985,7 +20986,7 @@ c comput Mag vs. Z and fill histograms
  
 c use H0_DEFAULT instead of namelist H0_REF so that plot is always the same.
         
-        DLMAG = DLMAG_fortC(z0,z0, H0_DEFAULT,
+        DLMAG = DLMAG_fortC(z0,z0, vPEC, H0_DEFAULT,
      &    OM(iplot), OL(iplot), w0(iplot), wa(iplot) )
 
         HID = 400 + iplot

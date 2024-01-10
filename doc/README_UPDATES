@@ -22108,6 +22108,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           write SIM_WGT_POPULATION to data files. 
           See https://github.com/RickKessler/SNANA/issues/1254 .
 
+     dLmag() funcction updated to include vPEC arg and to correct mu
+         for vPEC-beaming affect (B.Carreres)
+
          *****  USEFUL(v11_05i) *****
 
 

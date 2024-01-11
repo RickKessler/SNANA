@@ -22100,9 +22100,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-         v11_05j (Jan 7 2024)
+         v11_05j (Jan 10 2024)
 
-         *****  IMPORTANT(v11_05i) *****
+         *****  IMPORTANT(v11_05j) *****
 
      sim: implement user input GENPDF_EXPON_REWGT to reweight population;
           write SIM_WGT_POPULATION to data files. 
@@ -22111,10 +22111,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      dLmag() funcction updated to include vPEC arg and to correct mu
          for vPEC-beaming affect (B.Carreres)
 
-         *****  USEFUL(v11_05i) *****
+         *****  USEFUL(v11_05j) *****
 
 
-         *****  MISCELLANEOUS(v11_05i) *****
+         *****  MISCELLANEOUS(v11_05j) *****
 
      snana.car
        + filter update option (SNLS3) can read gzipped or unzipped

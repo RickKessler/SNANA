@@ -1382,14 +1382,15 @@ def write_covariance(path, cov, opt_cov):
     
     add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
-    covdet         = np.linalg.det(cov)
     nrow           = cov.shape[0]
 
     logging.info("")
-    logging.info(f"Write cov to {path}")
+    logging.info(f"Write cov to {file_base}")
 
-    # RK - write diagnostic to check if anything changes
-    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:13.6e}")
+    # RK - write diagnostic to stdout for regression test
+    (sgn, logcovdet)  = np.linalg.slogdet(cov)
+    logging.info(f"    {file_base}: size={nrow}  " \
+                 f"log|det(cov)| = {logcovdet:.1f}")
     sys.stdout.flush() 
 
     # - - - - -

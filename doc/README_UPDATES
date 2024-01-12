@@ -22162,4 +22162,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + write PROBIA_BEAMS to output Hubble diagram and few other fixes;
         see https://github.com/RickKessler/SNANA/issues/1259
 
+
+# =============================================================
+         v11_05k ([tag date])
+
+         *****  IMPORTANT(v11_05k) *****
+
+
+         *****  USEFUL(v11_05k) *****
+
+
+         *****  MISCELLANEOUS(v11_05k) *****
+
+
+
 END: 

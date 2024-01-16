@@ -929,6 +929,8 @@ struct {
   bool   wildcard[MXVARNAME_MISSING];
 } INPUTS_VARNAME_MISSING; // extracted from input append_varname_missing='xxx'
 
+
+
 #define ORDER_ZPOLY_COVMAT 3   // 3rd order polynom for intrinsic scatter cov.
 #define MXSURVEY_ZPOLY_COVMAT 10 
 
@@ -1381,6 +1383,8 @@ void parse_ZPOLY_COVMAT(char *item);
 void load_ZPOLY_COVMAT(int IDSURVEY, double Z ) ;
 double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 
+double hack_covint_scale(double z);
+
 void parse_CUTWIN(char *item);
 void parse_FIELDLIST(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
@@ -1635,7 +1639,8 @@ void   test_muerrz(void);
 
 double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov, char *msg) ;
 
-void   get_COVINT_model(int idsample, double (*COVINT)[NLCPAR] ); // returns COVINT
+void   get_COVINT_model(int idsample, double z, 
+			double (*COVINT)[NLCPAR] ); // returns COVINT
 void   get_COVINT_biasCor(int IDSAMPLE, double z, double alpha, double beta, 
 			  double gammadm, 
 			  double (*COVINT)[NLCPAR] ); // returns COVINT
@@ -3707,7 +3712,7 @@ void merge_duplicates(int NDUPL, int *isnList) {
     } // loop over mB,x1,c
   }
 
-  get_COVINT_model(-1,COVINT);
+  get_COVINT_model(-1, 0.0, COVINT);
 
   for(ipar=0; ipar < NLCPAR; ipar++ ) { 
     fitpar[ipar] /= wgtsum[ipar] ;
@@ -7555,7 +7560,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
 
     // estimate covmat_tot = covmat_fit + covmat_intrinsic
-    get_COVINT_model(-1,covmat8_int); // just adds COV00 = sigmb^2
+    get_COVINT_model(-1, 0.0, covmat8_int); // just adds COV00 = sigmb^2
     for (i=0; i<NLCPAR; i++) {
       for (i2=0; i2<NLCPAR; i2++) {
 	covtmp8 = covmat8_fit[i][i2] + covmat8_int[i][i2];
@@ -18725,7 +18730,6 @@ void parse_ZPOLY_COVMAT(char *item) {
 
   // ----------- BEGIN ----------
 
-
   sprintf(local_item,"%s", item);
   ptrtok = strtok(local_item," ");
 
@@ -18810,7 +18814,7 @@ void  load_ZPOLY_COVMAT(int IDSURVEY, double Z ) {
 
   double sigmB, sigx1, sigc, xi01, xi0c, xi1c ;
   int i, l,m, ISP_SURVEY;
-  //  char fnam[] = "load_ZPOLY_COVMAT" ;
+  char fnam[] = "load_ZPOLY_COVMAT" ;
 
   // ------------ BEGIN -----------
 
@@ -18858,7 +18862,7 @@ void  load_ZPOLY_COVMAT(int IDSURVEY, double Z ) {
 double sum_ZPOLY_COVMAT(double Z, double *polyPar) {
   int i;
   double xi, sum, par ;
-  //  char fnam[] = "sum_ZPOLY_COVMAT" ;
+  char fnam[] = "sum_ZPOLY_COVMAT" ;
   // ----------- BEGIN -----------------
 
   sum = 0.0 ;
@@ -19750,7 +19754,7 @@ void  printmsg_fitStart(FILE *fp) {
 
 
 // =================================================
-void get_COVINT_model(int IDSAMPLE, double (*COVINT)[NLCPAR] ) {
+void get_COVINT_model(int IDSAMPLE, double z, double (*COVINT)[NLCPAR] ) {
 
   // Created Jan 26 2018
   // Return intrinsic scatter matrix based on user model.
@@ -19782,20 +19786,53 @@ void get_COVINT_model(int IDSAMPLE, double (*COVINT)[NLCPAR] ) {
     SQSIGINT = INPUTS.sigmB * INPUTS.sigmB;
   }
   else if ( USE_SIGINT_FIX ) {
-    // user inputs * iteratve scale to have chi2/dof=1
+    // user input * iteratve scale to have chi2/dof=1
     SQSIGINT = SNDATA_INFO.sqsigint_fix[IDSAMPLE] * COVINT_PARAM ;
   }
   else {
-    // interative sigint to have chi2/dof=1
+    // iterative sigint to have chi2/dof=1
     SQSIGINT    = (COVINT_PARAM * COVINT_PARAM ) ;
   }
 
   COVINT[0][0] += SQSIGINT ;
 
+  if ( INPUTS.debug_flag == 116 ) { COVINT[0][0] *= hack_covint_scale(z); }
+
   return ;
 
 }  // end get_COVINT_model
 
+// ==========================================
+double hack_covint_scale(double z) {
+
+  // Created Jan 2024
+  // play with intrinsic cov scales.
+  // This function is called only with debug_flag option ...
+  // never use this for default analysis.
+  //
+  // Initial hack is based on fitting perfect LSST sim using G10 
+  // intrinsic scatter model, and then using SALT2mu to fit for
+  // sigint in redshift bins of 0.3 width. LCFIT uses SALT3 model,
+  // which is why the covint scale decreases with redshift.
+  
+#define NZBIN_HACK_COVINT_SCALE 5
+  double hack_z_list[NZBIN_HACK_COVINT_SCALE] = 
+    { 0.15, 0.45, 0.75, 1.05, 1.35};
+  double hack_scale_list[NZBIN_HACK_COVINT_SCALE] = 
+    { 1.000, 0.977, 0.866, 0.780, 0.0 } ;
+  int OPT_INTERP = 1;
+
+  double scale = 1.0 ;
+  char fnam[] = "hack_covint_scale" ;
+
+  // ---------- BEGIN ---------------
+
+  scale = interp_1DFUN(OPT_INTERP, z, NZBIN_HACK_COVINT_SCALE,
+		       hack_z_list, hack_scale_list, fnam);
+
+  return scale;
+
+} // end hack_covint_scale
 
 // ******************************************
 void recalc_dataCov(void) {
@@ -19851,11 +19888,11 @@ void recalc_dataCov(void) {
 
     // fetch COVINT depending on method
     if ( USE_IDEAL_COVINT ) {
-      get_COVINT_biasCor(idsample,z,a,b,g,  COVMAT_INT); 
+      get_COVINT_biasCor(idsample, z, a,b,g,  COVMAT_INT); 
     }
     else {
       // traditional
-      get_COVINT_model(idsample,COVMAT_INT); 
+      get_COVINT_model(idsample, z, COVMAT_INT); 
     }
 
     //Add intrinsic scatter to error matrix

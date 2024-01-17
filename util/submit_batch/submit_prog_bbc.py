@@ -107,6 +107,7 @@ COLNUM_BBC_MERGE_NEVT_BIASCOR = 5
 COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
 COLNUM_BBC_MERGE_CPU          = 7  # added Jan 2024
 COLNUM_BBC_MERGE_SPLITRAN     = 8
+NCOL_BBC_MERGE = 9
 
 # list used in wrapup, cleanup, and merge_reset
 SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
@@ -1612,7 +1613,7 @@ class BBC(Program):
 
         # construct row mimicking MERGE.LOG
         
-        row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
+        row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
         input_ff      = f"INPUT_{fitopt_num}.{SUFFIX_FITRES}"
         log_file      = f"{prefix_orig}.LOG"
@@ -1674,7 +1675,7 @@ class BBC(Program):
 
             elif iter1 and ifit > 0 :
                 # process events from FITOPT000_MUOPT000
-                row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0,  0 ]
+                row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0, 0.0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
                 ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}"
                 wait_file   = f"{ff_file}.gz"
@@ -1716,7 +1717,7 @@ class BBC(Program):
         fitopt_num    = self.config_prep['fitopt_num_outlist'][ifit] 
         muopt_num     = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
 
-        row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
+        row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_bbc_orig,  prefix_bbc_final  = self.bbc_prefix("bbc",  row)
         prefix_wfit_orig, prefix_wfit_final = self.bbc_prefix("wfit", row)
     
@@ -2484,6 +2485,8 @@ class BBC(Program):
             f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
                     f"        # DATA, BIASCOR, CCPRIOR\n")
 
+            f.flush()
+
             # - - - - - - - - -
             # check for NEVT by sample (9.19.2021)
             if 'SAMPLE_LIST' in bbc_yaml :
@@ -2525,7 +2528,6 @@ class BBC(Program):
             f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
             f.flush()
 
-
             # - - - - 
             for result in BBCFIT_RESULTS:
                 #print(f" xxx result = {result}  key = {result.keys()} ")
@@ -2534,7 +2536,7 @@ class BBC(Program):
                     err = str(result[key].split()[1])
                     KEY = f"{key}:"
                     f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8} \n")
-
+                    f.flush()
         f.close()
 
         #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
@@ -2919,6 +2921,13 @@ class BBC(Program):
         # Function returns 
         #    prefix_orig  (includes version_ )
         #    prefix_final (does not include version_
+
+        lenrow = len(row)
+        if lenrow != NCOL_BBC_MERGE :
+            msgerr = [ f'BBC merge-row has {lenrow} elements, ' \
+                       f'but expected {NCOL_BBC_MERGE}' , 
+                       f'row = {row}' ]
+            self.log_assert(False,msgerr)
 
         version       = row[COLNUM_BBC_MERGE_VERSION]
         fitopt_num    = row[COLNUM_BBC_MERGE_FITOPT]

@@ -207,7 +207,6 @@ void INIT_HOSTLIB(void) {
   int IGAL_START = 0,  IGAL_END = HOSTLIB.NGAL_STORE-1;
   init_HOSTLIB_WGTMAP(1, IGAL_START, IGAL_END);
   
-  
   // read optional EFF(zPHOT) vs. ZTRUE (Aug 2015)
   init_HOSTLIB_ZPHOTEFF();
 

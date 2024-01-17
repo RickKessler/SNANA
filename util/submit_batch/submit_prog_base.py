@@ -1960,6 +1960,7 @@ class Program:
         # Each info line is of the form
         #   "KEY: VALUE"
 
+        args                = self.config_yaml['args']
         output_dir          = self.config_prep['output_dir']
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         
@@ -1967,6 +1968,10 @@ class Program:
 
         #  append to bottom of MERGE.LOG
         with open(MERGE_LOG_PATHFILE,"a") as f:
+            # write class name (Jan 2024)
+            f.write(f"PROGRAM_CLASS:  {args.program_class}\n")
+
+            # write class-specific information
             for line in info_list:  f.write(f"{line} \n")
 
         # end append_merge_file

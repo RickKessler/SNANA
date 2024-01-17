@@ -1346,7 +1346,6 @@ class LightCurveFit(Program):
                     nfail = job_stats['nfail']
                     if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
                 
-                    # xxx sum_stats=self.split_sum_stats(False,log_list,yaml_list)
                     row[COLNUM_STATE]  = NEW_STATE
                     row[COLNUM_NEVT0]  = job_stats[key_tot_sum]
                     row[COLNUM_NEVT1]  = job_stats[key_snana_sum]

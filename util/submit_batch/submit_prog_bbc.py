@@ -71,6 +71,7 @@
 # Mar 3 2023 RK - DOFAST_PREP_INPUT_FILES=True (devel_flag=-328 for False)
 #
 # Apr 30 2023: add SIM_c,SIM_x1 to append_varname_missing 
+# Jan 17 2024: add CPU column in MERGE.LOG
 #
 # ================================================================
 
@@ -104,7 +105,8 @@ COLNUM_BBC_MERGE_MUOPT        = 3
 COLNUM_BBC_MERGE_NEVT_DATA    = 4
 COLNUM_BBC_MERGE_NEVT_BIASCOR = 5
 COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
-COLNUM_BBC_MERGE_SPLITRAN     = 7
+COLNUM_BBC_MERGE_CPU          = 7  # added Jan 2024
+COLNUM_BBC_MERGE_SPLITRAN     = 8
 
 # list used in wrapup, cleanup, and merge_reset
 SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
@@ -1841,10 +1843,9 @@ class BBC(Program):
         USE_SPLITRAN    = n_splitran > 1
 
         # create only MERGE table ... no need for SPLIT table
-
         header_line_merge = \
             f" STATE   VERSION  FITOPT  MUOPT " \
-            f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  SPLITRAN"
+            f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  CPU  SPLITRAN"
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -1869,6 +1870,7 @@ class BBC(Program):
             ROW_MERGE.append(0)    # NEVT_DATA
             ROW_MERGE.append(0)    # NEVT_BIASCOR
             ROW_MERGE.append(0)    # NEVT_CCPRIOR
+            ROW_MERGE.append(0.0)  # CPU (Jan 2024)
             if USE_SPLITRAN :
                 ROW_MERGE.append(isplitran)
             else:
@@ -1909,6 +1911,7 @@ class BBC(Program):
         COLNUM_NDATA     = COLNUM_BBC_MERGE_NEVT_DATA
         COLNUM_NBIASCOR  = COLNUM_BBC_MERGE_NEVT_BIASCOR
         COLNUM_NCCPRIOR  = COLNUM_BBC_MERGE_NEVT_CCPRIOR
+        COLNUM_CPU       = COLNUM_BBC_MERGE_CPU
         NROW_DUMP   = 0
 
         # keynames_for_job_stats returns 3 keynames : 
@@ -1919,7 +1922,10 @@ class BBC(Program):
                  self.keynames_for_job_stats('NEVT_BIASCOR')
         key_nccprior, key_nccprior_sum, key_nccprior_list = \
                  self.keynames_for_job_stats('NEVT_CCPRIOR')
-        key_list = [ key_ndata, key_nbiascor, key_nccprior  ] 
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                    self.keynames_for_job_stats('CPU_MINUTES')
+
+        key_list = [ key_ndata, key_nbiascor, key_nccprior, key_cpu  ] 
 
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
@@ -1980,7 +1986,8 @@ class BBC(Program):
                     row[COLNUM_NDATA]     = bbc_stats[key_ndata_sum]
                     row[COLNUM_NBIASCOR]  = bbc_stats[key_nbiascor_sum]
                     row[COLNUM_NCCPRIOR]  = bbc_stats[key_nccprior_sum]
-                    
+                    row[COLNUM_CPU]       = bbc_stats[key_cpu_sum]
+
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
 
@@ -2953,6 +2960,7 @@ class BBC(Program):
         # end get_misc_merge_info 
 
     def get_merge_COLNUM_CPU(self):
-        return -9  # there is no CPU column
+        return COLNUM_BBC_MERGE_CPU
+
 
 

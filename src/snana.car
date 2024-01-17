@@ -9519,7 +9519,7 @@ c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
       write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
 19    format(A, A)
 20    format(A, I8)
-21    format(A, F8.1)
+21    format(A, F8.2)
 
 c check options for ABORT_IF_ZERO (AIZ)
 

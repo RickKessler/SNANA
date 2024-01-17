@@ -19815,11 +19815,11 @@ double hack_covint_scale(double z) {
   // sigint in redshift bins of 0.3 width. LCFIT uses SALT3 model,
   // which is why the covint scale decreases with redshift.
   
-#define NZBIN_HACK_COVINT_SCALE 5
+#define NZBIN_HACK_COVINT_SCALE 9
   double hack_z_list[NZBIN_HACK_COVINT_SCALE] = 
-    { 0.15, 0.45, 0.75, 1.05, 1.35};
+    { -0.15, 0.15, 0.45, 0.75, 0.95, 1.10, 1.25, 1.40, 2.00 };
   double hack_scale_list[NZBIN_HACK_COVINT_SCALE] = 
-    { 1.000, 0.977, 0.866, 0.780, 0.0 } ;
+    { 1.000, 1.00, 0.98, 0.87, 0.84, 0.74, 0.49, 0.45, 0.30 } ;
   int OPT_INTERP = 1;
 
   double scale = 1.0 ;

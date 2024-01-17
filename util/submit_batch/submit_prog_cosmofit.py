@@ -1036,7 +1036,6 @@ class cosmofit(Program):
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
                 f" STATE  DIROPT  COVOPT  FITOPT  NDOF CPU "
-        # xxx f" SPLITRAN"
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -1392,7 +1391,7 @@ class cosmofit(Program):
         # end get_misc_merge_info 
 
     def get_merge_COLNUM_CPU(self):
-        return -9  # there is no CPU column
+        return COLNUM_COSMOFIT_MERGE_CPU
 
     def merge_reset(self,output_dir):
 

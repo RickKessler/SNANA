@@ -22174,6 +22174,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v11_05k) *****
 
+    submit_batch_jobs.py --topdir_cpu_sum <dirName>
+        finds all MERGE.LOG files, extracts CPU_SUM, and reports summary.
+        + add CPU_SUM to MERGE.LOG for BBC and COSMOFIT
+        + write class name to MERGE.LOG so that CPU can be
+           broken down by class.
 
 
 END: 

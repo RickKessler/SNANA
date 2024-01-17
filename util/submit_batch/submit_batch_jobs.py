@@ -128,8 +128,12 @@ def get_args():
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
     msg = f"DEBUG MODE: force garbage argument for this job id"  # not implemented yet ...
     parser.add_argument("--jobid_force_bad_arg", help=msg, type=int, default=None )
+
     msg = f"DEBUG MODE: run codes from private snana_dir "
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
+
+    msg = f"Diagnostic: Sum all CPU under this topdir"
+    parser.add_argument("--topdir_cpu_sum", help=msg, type=str, default=None )
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process (if no BUSY file)"
@@ -370,6 +374,7 @@ if __name__ == "__main__":
     # - - - - - -
     # determine which program class (sim, fit, bbc, train ...)
     program_class = which_program_class(config_yaml)
+    args.program_class = f"{program_class.__name__}"
 
     # run the class
     program = program_class(config_yaml)  # calls __init only

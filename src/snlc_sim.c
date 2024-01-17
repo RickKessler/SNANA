@@ -15626,8 +15626,7 @@ void gen_zsmear(double zerr) {
   zsmear += INPUTS.GENBIAS_REDSHIFT ;   // add user-defined bias
   GENLC.REDSHIFT_HELIO_SMEAR  = GENLC.REDSHIFT_HELIO + zsmear ;
   GENLC.REDSHIFT_SMEAR_ERR    = zerr ;
-
-  // Dec 18 2015: set zspec for host
+https://stanford.zoom.us/j/903652385?pwd=TUkwd2NVVjcrTGFSbnVreDUzZG02QT09
   SNHOSTGAL.ZSPEC     += zsmear ;  // smear redshift 
   SNHOSTGAL.ZSPEC_ERR  = zerr ;
   

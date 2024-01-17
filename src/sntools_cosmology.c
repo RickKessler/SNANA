@@ -532,13 +532,14 @@ double dLmag ( double zCMB, double zHEL, double vPEC,
   bool  DO_VPEC_COR = true; // default should be true
   double rz, dl, arg, mu, zero=0.0 ;
   char fnam[] = "dLmag";
-
+  
   // ----------- BEGIN -----------
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
   rz    *= (1.0E6*PC_km);  // H -> 1/sec units
   dl     = ( 1.0 + zHEL ) * rz ; 
-  if ( DO_VPEC_COR ) { dl *= (1 + vPEC/LIGHT_km); } // Jan 2024: B.Carreras
-  // xxx mark delete  dl  = ( 1.0 + zHEL ) * (1 + vPEC/LIGHT_km) * rz ; // 01/10/2024 B. Carreres 
+
+  if ( DO_VPEC_COR ) { dl *= (1 + vPEC/LIGHT_km); } // Jan 2024: B.Carreres
+
   arg    = dl / (10.0 * PC_km);
   mu     = 5.0 * log10( arg );
 

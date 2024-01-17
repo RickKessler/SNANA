@@ -3656,7 +3656,7 @@ void sortz_HOSTLIB(void) {
 
     // 4/2023: check if ZTRUE_CMB column is in HOSTLIB
     if ( HOSTLIB.FRAME_ZTRUE == HOSTLIB_FRAME_ZTRUE_CMB ) {
-      double ZTRUE_HEL = transform_ZTRUE_HOSTLIB(igal);
+      double ZTRUE_HEL = transform_ZTRUE_HOSTLIB(igal); // TO_CHECK
 
       // update ZTRUE(helio) as if it were in the original HOSTLIB
       ZSORT[igal] = ZTRUE_HEL ;
@@ -3783,6 +3783,7 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   // If HOSTLIB coords (RA_GAL, DEC_GAL) do not exist, function aborts.
   //
   // Nov 25 2023: return ZTRUE_CMB if vel_cmbapex=0
+  // Jan 16 2024: Add VPEC to ZHEL
 
   int IVAR_GALID = HOSTLIB.IVAR_GALID ;
   int IVAR_RA    = HOSTLIB.IVAR_RA ;
@@ -3790,6 +3791,7 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   int IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE ;
   long long int GALID ;
   double ZTRUE_CMB, ZTRUE_HEL, RA, DEC ;
+  double ZPEC = GENLC.VPEC / LIGHT_km ; // works for both random and hostlib vpec
   char fnam[] = "transform_ZTRUE_HOSTLIB" ;
 
   // ---------- BEGIN ----------
@@ -3805,12 +3807,17 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   RA        = HOSTLIB.VALUE_UNSORTED[IVAR_RA][igal];
   DEC       = HOSTLIB.VALUE_UNSORTED[IVAR_DEC][igal];
 
-  // skip transformation of vec_cmbapex = 0
-  if ( INPUTS.VEL_CMBAPEX  == 0.0 ) { return ZTRUE_CMB; }
+  if ( INPUTS.VEL_CMBAPEX  == 0.0 ) { 
+    // skip transformation of vec_cmbapex = 0
+    ZTRUE_HEL = ZTRUE_CMB; 
+  }
+  else {
+    // transform back to heliocentric frame
+    ZTRUE_HEL = zhelio_zcmb_translator(ZTRUE_CMB, RA, DEC, COORDSYS_EQ, -1);
+  }
+  printf("ZHEL = %.4f , ZPEC = %.4f ", ZTRUE_HEL, ZPEC);
 
-  // transform back to heliocentric frame
-  ZTRUE_HEL = zhelio_zcmb_translator(ZTRUE_CMB, RA, DEC, COORDSYS_EQ, -1);
-
+  ZTRUE_HEL = ( 1. + ZTRUE_HEL ) * ( 1. + ZPEC ) - 1. ; 
   // dump option
   if ( INPUTS.HOSTLIB_GALID_DUMP > 0 ) {
     GALID = (long long int)HOSTLIB.VALUE_UNSORTED[IVAR_GALID][igal] ;
@@ -3821,7 +3828,7 @@ double transform_ZTRUE_HOSTLIB(int igal) {
 	     fnam, GALID, RA, DEC);
     }
   } // end DUMP
-  
+
 
   return ZTRUE_HEL;
 
@@ -7084,6 +7091,7 @@ void  GEN_SNHOST_VPEC(int IGAL) {
 
   if ( DO_VPEC ) {
     VPEC  = get_VALUE_HOSTLIB(IVAR_VPEC,IGAL); 
+    GENLC.VPEC = VPEC ; // 01/16/2024 B. Carreres
     if ( IVAR_VPEC_ERR > 0 ) 
       { ERR = get_VALUE_HOSTLIB(IVAR_VPEC_ERR,IGAL);  }
     else
@@ -8501,19 +8509,20 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // May 25 2020: add vpec
 
   double ZTRUE         = SNHOSTGAL.ZTRUE ;     // helio redshift
-  double vPEC ;
-  double zPEC_GAUSIG   = GENLC.VPEC/LIGHT_km ; // from GENSIGMA_VPEC key
-  double zPEC_HOSTLIB  = SNHOSTGAL.VPEC/LIGHT_km; // from hostlib
+  double vPEC = GENLC.VPEC; 
+  double zPEC = vPEC / LIGHT_km ;
+  // xxx delete double zPEC_GAUSIG   = GENLC.VPEC/LIGHT_km ; // from GENSIGMA_VPEC key 
+  // xxx delete double zPEC_HOSTLIB  = SNHOSTGAL.VPEC/LIGHT_km; // from hostlib
 
   double RA            = GENLC.RA ;
   double DEC           = GENLC.DEC ;
- 
+
   int  MSKOPT          = INPUTS.HOSTLIB_MSKOPT ;
   bool DO_VPEC         = (MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   bool DO_SN2GAL_Z     = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
   bool DO_SN2GAL_RADEC = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC) ;
 
-  double zCMB, zHEL, zPEC ;
+  double zCMB, zHEL;
   char fnam[]         = "TRANSFER_SNHOST_REDSHIFT" ;
   int LDMP = 0; // ( GENLC.CID < -1010 ) ;
 
@@ -8522,9 +8531,18 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // if wrong host (based on mag), bail
   if ( !GENLC.CORRECT_HOSTMATCH) { return ; }
 
-  // un-do zPEC to get zHEL without vPEC
-  zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
+  if ( DO_VPEC ){
+    // VPEC has not been applied to redshift yet (VPEC = 0)
+    zHEL = GENLC.REDSHIFT_HELIO ;
+  }
+  else {
+    // un-do zPEC from gaussian random option to get zHEL without vPEC
+    // VPEC will be re-applied below
+    zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC) - 1.0 ;   
+  }
 
+
+  /* xxx mark delete
   // - - - - - - - - - 
   // May 25 2020 add zPEC to zHEL
   if ( DO_VPEC ) 
@@ -8535,12 +8553,13 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     { zPEC = zPEC_GAUSIG ; 
       vPEC = GENLC.VPEC ;
     }  // from sim-input GENSIGMA_VPEC key
+  xx delete */
 
   // - - - - - - - - - - - - - - - - - - - - - 
   // check for transferring SN redshift to host redshift.
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
-    zHEL = ZTRUE ;  // true host z
+    zHEL = ZTRUE ;  // true host z include vpec and no need to add vpec
     zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);   
     if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zCMB = zHEL ; }
 
@@ -8556,8 +8575,14 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
   if ( DO_SN2GAL_RADEC && !DO_SN2GAL_Z ) {
     zCMB = GENLC.REDSHIFT_CMB  ; // preserve this
-    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1); 
-    if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zHEL = zCMB; }
+    if ( INPUTS.VEL_CMBAPEX == 0.0 ) { 
+      zHEL = zCMB; 
+    }
+    else {
+      zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,COORDSYS_EQ,-1);
+    }
+
+    zHEL = ( 1 + zHEL ) * ( 1 + zPEC ) - 1. ; // 01/16/2024 B. Carreres
 
     gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT,
@@ -8578,8 +8603,8 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     printf(" xxx %s  DUMP for CID = %d \n", fnam, GENLC.CID);
     printf(" xxx DO[VPEC,SN2GAL_Z,SN2GAL_RADEC = %d %d %d \n",
 	   DO_VPEC, DO_SN2GAL_Z, DO_SN2GAL_RADEC );
-    printf(" xxx zPEC(Gauss,HOSTLIB->FINAL) = %f, %f -> %f\n",
-	   zPEC_GAUSIG, zPEC_HOSTLIB, zPEC );
+    // printf(" xxx zPEC(Gauss,HOSTLIB->FINAL) = %f, %f -> %f\n",
+	  // zPEC_GAUSIG, zPEC_HOSTLIB, zPEC );
     printf(" xxx zHEL = %f -> %f \n", zHEL_ORIG, zHEL );
     fflush(stdout);
   }

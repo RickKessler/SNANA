@@ -378,7 +378,9 @@ def print_cpu_sum():
 
     logging.info("")
     for program_class, cpu in cpu_dict.items():
-        logging.info(f"  CPU-sum of {program_class:16s} :  {cpu:8.2f} hr")
+        percent = 100.0 * (cpu / cpu_sum_total)
+        logging.info(f"  CPU-sum of {program_class:16s} :  {cpu:8.2f} hr   " \
+                     f"({percent:6.1f} %)")
 
     if NMISSING_KEY_CPU_SUM > 0 :
         logging.info(f"\n WARNING: {NMISSING_KEY_CPU_SUM} " \

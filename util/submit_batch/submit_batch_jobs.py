@@ -20,6 +20,7 @@
 # Feb 27 2023: undo hack that allowed missing f90nml for makeDataFiles
 # May 19 2023: remove obsolete translate class
 # May 22 2023: add train_BAYESN class
+# Jan 17 2023: new option --cpu_sum
 # - - - - - - - - - -
 
 #import os
@@ -93,6 +94,9 @@ def get_args():
     msg = "Use 'find' to locate and remove non-essential output."
     parser.add_argument("--purge", help=msg, action="store_true")
 
+    msg = f"Diagnostic: Sum all CPU under current dir"
+    parser.add_argument("--cpu_sum", help=msg, action="store_true")
+
     # - - -
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
@@ -131,9 +135,6 @@ def get_args():
 
     msg = f"DEBUG MODE: run codes from private snana_dir "
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
-
-    msg = f"Diagnostic: Sum all CPU under this topdir"
-    parser.add_argument("--topdir_cpu_sum", help=msg, type=str, default=None )
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process (if no BUSY file)"
@@ -318,6 +319,76 @@ def purge_old_submit_output():
 
     # end purge_old_submit_output
 
+def print_cpu_sum():
+    
+    # Created Jan 17 2024 (Perlmutter down for maintenance)
+    # Find all MERGE.LOG files in current pwd;
+    # sum CPU by class; print CPU_SUM by class, and total CPU.
+    # This task is strictly diaganostic to help track CPU needs.
+    # This task does not submit or process jobs.
+
+    logging.info(f"\n Sum CPU in {MERGE_LOG_FILE} files ... ")
+
+    merge_log_list = []
+    cmd_find     = f"find . -name {MERGE_LOG_FILE} " + "-exec du -mc {} +"
+    find_list    = subprocess.check_output(cmd_find, shell=True)
+    find_list    = (find_list.rstrip()).decode('utf-8')
+    find_list    = find_list.split()
+
+    merge_log_list += find_list[1::2]  # every other elment if file or dir  
+
+    # remove last element for 'total'
+    merge_log_list = merge_log_list[:-1]
+
+    # define expected keys in MERGE.LOG
+    KEY_PROGRAM_CLASS     = 'PROGRAM_CLASS'
+    KEY_CPU_SUM           = 'CPU_SUM'
+
+    # PROGRAM_CLASS key does not exist before about mid-Jan 2024,
+    # so substitute "UnknownClass" in this case
+    PROGRAM_CLASS_UNKNOWN = "UnknownClass"
+
+    cpu_dict = {}
+    cpu_sum_total = 0.0 
+    NMISSING_KEY_CPU_SUM = 0
+
+    for merge_log in merge_log_list:
+        yaml_contents ,comment_lines = util.read_merge_file(merge_log)
+        logging.info(f" Read {merge_log}")
+        if KEY_PROGRAM_CLASS in yaml_contents:
+            program_class = yaml_contents[KEY_PROGRAM_CLASS]
+        else:
+            program_class = PROGRAM_CLASS_UNKNOWN
+
+        if KEY_CPU_SUM in yaml_contents:
+            cpu  =  float(yaml_contents[KEY_CPU_SUM])
+        else:
+            cpu = 0.0
+            NMISSING_KEY_CPU_SUM += 1
+            logging.info(f" **** WARNING **** Missing required {KEY_CPU_SUM} key.")
+
+        cpu_sum_total += cpu
+        logging.info(f"\t CPU = {cpu} hr for program class {program_class}")
+        if program_class not in cpu_dict:
+            cpu_dict[program_class] = 0.0
+        cpu_dict[program_class] += cpu
+          
+    CLASS_TOTAL = "*** TOTAL ***"
+    cpu_dict[CLASS_TOTAL] = cpu_sum_total
+
+    logging.info("")
+    for program_class, cpu in cpu_dict.items():
+        logging.info(f"  CPU-sum of {program_class:16s} :  {cpu:8.2f} hr")
+
+    if NMISSING_KEY_CPU_SUM > 0 :
+        logging.info(f"\n WARNING: {NMISSING_KEY_CPU_SUM} " \
+                     f"{MERGE_LOG_FILE} files are missing {KEY_CPU_SUM} key.")
+
+    logging.info("")
+    # .xyz
+    return
+    # end print_cpu_sum
+
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
@@ -358,6 +429,10 @@ if __name__ == "__main__":
     if args.purge :
         purge_old_submit_output()
         sys.exit(' Done with purge: exiting Main.')
+
+    if args.cpu_sum :
+        print_cpu_sum()
+        sys.exit(' Done with summing CPU times.')
 
     # check input file: does it have a path?
     check_input_file_name(args)

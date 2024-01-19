@@ -15627,7 +15627,7 @@ void gen_zsmear(double zerr) {
   GENLC.REDSHIFT_HELIO_SMEAR  = GENLC.REDSHIFT_HELIO + zsmear ;
   GENLC.REDSHIFT_SMEAR_ERR    = zerr ;
 
-// Dec 18 2015: set zspec for host
+ // Dec 18 2015: set zspec for host
   SNHOSTGAL.ZSPEC     += zsmear ;  // smear redshift 
   SNHOSTGAL.ZSPEC_ERR  = zerr ;
   

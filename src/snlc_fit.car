@@ -673,6 +673,8 @@ c
      &  ,PRIOR_MJDSIG     ! I: add chi2 = [(MJD - MJDINI)/MJDSIG]^2
      &  ,PRIOR_SHAPE_RANGE(2)  ! I: min,max for FLAT SHAPE prior
      &  ,PRIOR_SHAPE_SIGMA     ! I: sigma for guassian roll-off on FLAT prior
+     &  ,PRIOR_SHAPE2_RANGE(2) ! I: min,max for FLAT SHAPE2 prior
+     &  ,PRIOR_SHAPE2_SIGMA    ! I: sigma for guassian roll-off on FLAT prior
      &  ,PRIOR_COLOR_RANGE(2)  ! I: min,max for FLAT SHAPE prior
      &  ,PRIOR_COLOR_SIGMA     ! I: sigma for guassian roll-off on FLAT prior
      &  ,PRIOR_LUMIPAR_RANGE(2)  ! I: idem, legacy variable
@@ -824,6 +826,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,PRIOR_ZERRSCALE, PRIOR_MUERRSCALE, DOPRIOR_DLMAG
      &   ,PRIOR_COLOR_RANGE,   PRIOR_COLOR_SIGMA
      &   ,PRIOR_SHAPE_RANGE,   PRIOR_SHAPE_SIGMA
+     &   ,PRIOR_SHAPE2_RANGE,  PRIOR_SHAPE2_SIGMA
      &   ,PRIOR_LUMIPAR_RANGE, PRIOR_LUMIPAR_SIGMA  ! legacy 
      &   ,PRIOR_DELTA_PROFILE
      &   ,OPT_PRIOR, OPT_PRIOR_AV, OPT_PRIOR_SIMEFF, OPT_SIMEFF
@@ -895,6 +898,7 @@ c ------
      &   ,PRIOR_ZERRSCALE, PRIOR_MUERRSCALE, DOPRIOR_DLMAG
      &   ,PRIOR_COLOR_RANGE, PRIOR_COLOR_SIGMA
      &   ,PRIOR_SHAPE_RANGE, PRIOR_SHAPE_SIGMA
+     &   ,PRIOR_SHAPE2_RANGE, PRIOR_SHAPE2_SIGMA
      &   ,PRIOR_LUMIPAR_RANGE, PRIOR_LUMIPAR_SIGMA  ! legacy 
      &   ,PRIOR_DELTA_PROFILE
      &   ,OPT_PRIOR, OPT_PRIOR_AV, OPT_SIMEFF
@@ -1189,7 +1193,7 @@ c local var
 
 c variables for PARSE_FILTSTRING:
       INTEGER IAFILT(MXFILT_OBS), ifiltdef, ifiltr
-      INTEGER NF_UNDEF, NF_DEF, NF_ABORT
+      INTEGER NF_UNDEF, NF_DEF, NF_ABORT, NSURFACE
       REAL    XAFILT(MXFILT_OBS)
       REAL    ERRMAX
 
@@ -1219,6 +1223,7 @@ c define functions
      &  ,INIT_GENMAG_MLCS2k2
      &  ,INIT_GENMAG_SNOOPY
      &  ,SNANA_NEARNBR_RDINPUT
+     &  ,get_NSURFACE_SEDMODEL
 
       EXTERNAL 
      &   INIT_GENMAG_STRETCH2
@@ -1453,6 +1458,9 @@ c note that mB is computed from fitpars, and does not float in fit
          PARNAME_STORE(IPAR_MB)         = 'mB'
 
          CALL SEDMODEL_INI(0,IERR)
+
+         NSURFACE = get_NSURFACE_SEDMODEL()
+         if ( NSURFACE == 3 ) NSHAPEPAR = 2 
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
@@ -3084,7 +3092,6 @@ c init primary spectrum
 
       CALL GET_CALIB_PRIMARY_SED(tmpname, NLAM, LAM, VALa, 20)
       ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
-
 
       RVMW = DBLE(RV_MWCOLORLAW)
       CALL init_MWXT_SEDMODEL( OPT_MWCOLORLAW, RVMW ) ;
@@ -4780,6 +4787,7 @@ c
 c Apr 3 2018: include color-prior chi2
 c
 c Jun 2022: check option to use zphot quantiles
+c Jan 2024: check prior for IPAR_SHAPE2 (2nd SHAPE param)
 c
 c --------------
 
@@ -4953,6 +4961,12 @@ c prior on shape
       CHI2PRIOR(IPAR_SHAPE) 
      &          = CHI2_PRIOR(IPAR_SHAPE,SHAPE(1))
 
+c prior on 2nd shape par
+      IF ( NSHAPEPAR > 1 ) THEN
+        CHI2PRIOR(IPAR_SHAPE2) 
+     &          = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
+      ENDIF
+
 c ----------------------
 c prior on SALT2 color (Apr 2018)
 
@@ -4979,7 +4993,6 @@ c Prior on AV
       IF ( INISTP_AV .NE. 0.0 ) then
         CHI2PRIOR(IPAR_AV)      
      &          = CHI2_PRIOR(ipar_av,COLOR)
-
 
         CHI2PRIOR(IPAR_RV)      
      &          = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
@@ -7114,11 +7127,15 @@ c init to wide open
 
       PRIOR_SHAPE_RANGE(1) = -9.0  ! LUMIPAR -> SHAPE (Apr 2013)
       PRIOR_SHAPE_RANGE(2) = +9.0
-      PRIOR_SHAPE_SIGMA    =  0.1
+      PRIOR_SHAPE_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
 
-      PRIOR_COLOR_RANGE(1) = -9.0  ! LUMIPAR -> SHAPE (Apr 2013)
+      PRIOR_SHAPE2_RANGE(1) = -9.0  ! 
+      PRIOR_SHAPE2_RANGE(2) = +9.0
+      PRIOR_SHAPE2_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
+
+      PRIOR_COLOR_RANGE(1) = -9.0
       PRIOR_COLOR_RANGE(2) = +9.0
-      PRIOR_COLOR_SIGMA    =  0.01
+      PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior
 
 c Aug 17 2015: from snlc_sim.defaults since this is no longer read
       PRIOR_DELTA_PROFILE(1) =  0.23  ! sigma(low)
@@ -7231,6 +7248,8 @@ c check option to turn off all priors.
         PRIOR_AVEXP(2)         = -1.0
         PRIOR_SHAPE_RANGE(1)   = -8.0
         PRIOR_SHAPE_RANGE(2)   = +8.0
+        PRIOR_SHAPE2_RANGE(1)   = -8.0
+        PRIOR_SHAPE2_RANGE(2)   = +8.0
         PRIOR_COLOR_RANGE(1)   = -8.0
         PRIOR_COLOR_RANGE(2)   = +8.0
         PRIOR_DELTA_PROFILE(4) =  1.0
@@ -7707,6 +7726,14 @@ c -------------------------
         else if (MATCH_NMLKEY('PRIOR_SHAPE_SIGMA', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) PRIOR_SHAPE_SIGMA
 
+c - - -
+        else if (MATCH_NMLKEY('PRIOR_SHAPE2_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_SHAPE2_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_SHAPE2_RANGE(2)
+
+        else if (MATCH_NMLKEY('PRIOR_SHAPE2_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_SHAPE2_SIGMA
+
         else if (MATCH_NMLKEY('PRIOR_DELTA_PROFILE', 4,i,ARGLIST)) then
             READ(ARGLIST(1),*) PRIOR_DELTA_PROFILE(1)
             READ(ARGLIST(2),*) PRIOR_DELTA_PROFILE(2)
@@ -8006,7 +8033,7 @@ c ----------------------------------------
 
 c local var
 
-      INTEGER  NPAR, ipar, ITER_LAST, NSURFACE
+      INTEGER  NPAR, ipar, ITER_LAST
       REAL*8   PEAKMJD, VALTMP, ERRTMP
       LOGICAL  FIRST_ITER, JG
     
@@ -8015,10 +8042,8 @@ c SALT2 stuff
 
 c functions
       REAL*8  SALT2x0calc, SALT2mBcalc  ! functions
-      INTEGER get_NSURFACE_SEDMODEL
       LOGICAL FIRST_ITERATION
 
-      EXTERNAL get_NSURFACE_SEDMODEL
 C ---------- BEGIN -------------
 
       FIRST_ITER = FIRST_ITERATION(ITER) .and. (.not. LREPEAT_ITER)
@@ -8201,8 +8226,7 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
          INISTP(IPAR_COLOR)    =  INISTP_COLOR
 
 c Dec 2023: check for M2 component 
-         NSURFACE = get_NSURFACE_SEDMODEL()
-         if ( NSURFACE .GE. 3 ) then
+         if ( NSHAPEPAR > 1 ) then
            INISTP(IPAR_SHAPE2)   = 0.05
            INIVAL(IPAR_SHAPE2)   = 0.01
            INIBND(1,IPAR_SHAPE2) = -4.0
@@ -10766,7 +10790,7 @@ c check options that depend on TREST, LAMREST and filter
       END
 
 C ==========================================
-+DECK,FINI_PRIOR.
++DECK,FITINI_PRIOR.
       SUBROUTINE FITINI_PRIORS
 c
 c Initialize -2 * ln(prob) for prior on each fit variable.
@@ -10899,6 +10923,16 @@ c now turn on prior(s) specific to model
          USE_PRIOR(IPAR)   = .TRUE.
       ENDIF
 
+      
+      IF ( NSHAPEPAR > 1 ) THEN
+        ipar = IPAR_SHAPE2
+        CALL FITINI_FLATPRIOR(IPAR,LSTAT)
+        IF ( LSTAT ) THEN
+           NPRIOR = NPRIOR + 1
+           USE_PRIOR(IPAR)   = .TRUE.
+        ENDIF
+      ENDIF
+
       ipar = IPAR_COLOR
       CALL FITINI_FLATPRIOR(IPAR,LSTAT)
       IF ( LSTAT ) THEN
@@ -10962,7 +10996,6 @@ c make plot with very fine binning to check interpolation
 
 51    CONTINUE
 50    CONTINUE
-
 
       RETURN 
       END    ! end of FITINI_PRIORS
@@ -11284,7 +11317,8 @@ c
 c Apr  2 2018: check PRIOR_COLOR_RANGE
 c Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
 c Jun 19 2023: check BAYESN model
-c 
+c Jan 19 2024: check IPAR_SHAPE2
+c
 c ------------------------
 
       IMPLICIT NONE
@@ -11315,7 +11349,8 @@ c ------------------------
 
       character comment_prior*60
       LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
-      LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT, IS_SNOOPY
+      LOGICAL IS_SALT2,  IS_SNOOPY
+      LOGICAL IS_SHAPE, IS_SHAPE2, IS_COLOR, IS_zPHOT
       LOGICAL IS_BAYESN, IS_MODEL_FLATCOLOR
 
 C -------------- BEGIN ---------------
@@ -11329,8 +11364,9 @@ C -------------- BEGIN ---------------
       IS_BAYESN = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
       IS_MODEL_FLATCOLOR   = ( IS_SALT2 .or. IS_SNOOPY  )
 
-      IS_COLOR  = ( IPAR .EQ. IPAR_COLOR ) ! SALT2 c or AV
-      IS_SHAPE  = ( IPAR .EQ. IPAR_SHAPE )
+      IS_COLOR  = ( IPAR .EQ. IPAR_COLOR  ) ! SALT2 c or AV
+      IS_SHAPE  = ( IPAR .EQ. IPAR_SHAPE  )
+      IS_SHAPE2 = ( IPAR .EQ. IPAR_SHAPE2 )
       IS_zPHOT  = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
 
       DO_DELTA_PROFILE = IPAR .EQ. IPAR_SHAPE 
@@ -11348,6 +11384,11 @@ C -------------- BEGIN ---------------
      &       ', peak=',F5.2,', minProb=',F4.2)
             LFLAT = .FALSE.
           endif
+
+      ELSE IF ( IS_SHAPE2 ) THEN  ! Jan 2024 (for D'Arcy's SALT2 x2 component
+          RANGE(1) = PRIOR_SHAPE2_RANGE(1)
+          RANGE(2) = PRIOR_SHAPE2_RANGE(2)
+          SIGMA    = PRIOR_SHAPE2_SIGMA
 
       ELSE IF ( IS_COLOR .and. IS_MODEL_FLATCOLOR ) THEN  ! Apr 2 2018
           RANGE(1) = PRIOR_COLOR_RANGE(1)

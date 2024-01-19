@@ -331,11 +331,17 @@ def print_cpu_sum():
 
     merge_log_list = []
     cmd_find     = f"find . -name {MERGE_LOG_FILE} " + "-exec du -mc {} +"
-    find_list    = subprocess.check_output(cmd_find, shell=True)
-    find_list    = (find_list.rstrip()).decode('utf-8')
-    find_list    = find_list.split()
 
-    merge_log_list += find_list[1::2]  # every other elment if file or dir  
+    OPT_FIND = 'run'  # or 'check_output'
+
+    if OPT_FIND == 'check_output' :
+        find_list    = subprocess.check_output(cmd_find, shell=True)
+        find_list    = (find_list.rstrip()).decode('utf-8')
+    elif OPT_FIND == 'run' :
+        find_list  = subprocess.run( cmd_find.split(), cwd='./' ,
+                                     capture_output=True, text=True ).stdout
+
+    merge_log_list += find_list.split()[1::2]  # every other elment if file or dir  
 
     # remove last element for 'total'
     merge_log_list = merge_log_list[:-1]
@@ -351,8 +357,13 @@ def print_cpu_sum():
     cpu_dict = {}
     cpu_sum_total = 0.0 
     NMISSING_KEY_CPU_SUM = 0
+    N_PERMISSION_DENIED  = 0
 
     for merge_log in merge_log_list:
+        if 'denied' in merge_log:
+            N_PERMISSION_DENIED += 1
+            continue
+
         yaml_contents ,comment_lines = util.read_merge_file(merge_log)
         logging.info(f" Read {merge_log}")
         if KEY_PROGRAM_CLASS in yaml_contents:
@@ -386,8 +397,11 @@ def print_cpu_sum():
         logging.info(f"\n WARNING: {NMISSING_KEY_CPU_SUM} " \
                      f"{MERGE_LOG_FILE} files are missing {KEY_CPU_SUM} key.")
 
+    if N_PERMISSION_DENIED > 0 :
+        logging.info(f"\n WARNING: {N_PERMISSION_DENIED} permission denied ")
+        
     logging.info("")
-    # .xyz
+
     return
     # end print_cpu_sum
 

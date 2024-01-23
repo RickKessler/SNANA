@@ -3848,6 +3848,9 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   // Nov 6 2023: fix bug in which MWXT_FRAC had been ignored.
   //             This bug was probably in the SALT3 training papers.
   //
+  // Jan 2024: call fill_TABLE_MWXT_SEDMODEL() in case genmag_SALT2 isn't called
+  //        because all bands are outside model wavelength range
+  //
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -3876,6 +3879,8 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   // -------------- BEGIN --------------
 
   z1 = 1.0 + z;
+
+  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); 
 
   // init entire spectum to zero.
   for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }

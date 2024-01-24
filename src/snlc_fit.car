@@ -9454,7 +9454,7 @@ c an estimator for peakmag(data)-peakmag(model).
 
          IPAR_ADJUST         = IPAR_X0
 
-         if ( OPT_SALT2FIT .EQ. 0 ) then
+         if ( OPT_SALT2FIT .EQ. 0 ) then   ! nominal SALT2 fit
            INIVAL(IPAR_ADJUST) = INIVAL(IPAR_ADJUST) 
      &                         * RATIO_FLUX_AVG
 

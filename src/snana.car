@@ -1958,12 +1958,12 @@ c define reference cosmological parameters (double precision!)
 c Aug 7, 2009: each parameter has dimension 2 for value & error
 
       REAL*8
-     &   H0_REF(2)    ! reference H0  (70 => 70 km/s/MPc)
-     &  ,OLAM_REF(2)  ! omega_matter
-     &  ,OMAT_REF(2)  ! omega_lamgda
-     &  ,ORAD_REF(2)  ! omega_rad
-     &  ,W0_REF(2)    ! w = p/rho
-     &  ,DWDA_REF(2)  ! dw/da [a = 1/(1+z)]
+     &   H0_REF(2)    ! I: reference H0  (70 => 70 km/s/MPc)
+     &  ,OLAM_REF(2)  ! I: OMEGA_LAMBDA & uncertainty (for x0 prior)
+     &  ,OMAT_REF(2)  ! I: OMEGA_MATTER & uncertainty (for x0 prior)
+     &  ,ORAD_REF(2)  ! I: OMEGA_RAD & uncertainty (for x0 prior)
+     &  ,W0_REF(2)    ! I: DE eq stat w = p/rho & uncertainty (for x0 prior)
+     &  ,DWDA_REF(2)  ! I: DE dw/da [a = 1/(1+z)] & uncertainty
 
       INTEGER   NSIMVAR_CUTWIN
       REAL      SIMVAR_CUTWIN(2,MXCUT_PRIVATE)

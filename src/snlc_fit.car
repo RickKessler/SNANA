@@ -12956,7 +12956,7 @@ c now the fit-probs ...
       FITVAL_STORE(NPAR) = FITPROBCHI2_STORE(2)  
       LCVAL_STORE(NPAR)  = LCPROBCHI2_STORE(2)
 
-      NPAR = NPAR + 1      ! RADIUS_POP (Jan 2024) .xyz
+      NPAR = NPAR + 1      ! RADIUS_POP (Jan 2024)
       FITVAL_STORE(NPAR) = RADIUS_POP
       LCVAL_STORE(NPAR)  = RADIUS_POP
 
@@ -18944,6 +18944,8 @@ C =====================================
 c Created Mar 2018
 c Return TRUE if this variable should be suppressed
 c from table output.
+c
+c Jan 2024: check x2
 
       IMPLICIT NONE
       CHARACTER VARNAME*(*)  ! (I) name of fitpar variable to check
@@ -18960,13 +18962,15 @@ c ------------- BEGIN -------------
       IF ( VARNAME(1:5) .EQ. 'BIDON'    ) SKIP = .TRUE.
       IF ( VARNAME(1:8) .EQ. 'REDSHIFT' ) SKIP = .TRUE.
 
+      IF ( VARNAME(1:2) .EQ. 'x2' .and. NSHAPEPAR==1) SKIP = .TRUE.  
+
       IF ( VARNAME(1:5) .EQ. 'zPHOT' ) THEN
         IF ( DOFIT_PHOTOZ .and. (.not.WRTABLEFILE_ZPHOT) )then
            SKIP = .TRUE.
         ENDIF
       ENDIF
 
-       SKIPTABLE_FITPAR = SKIP
+      SKIPTABLE_FITPAR = SKIP
       RETURN
       END
 

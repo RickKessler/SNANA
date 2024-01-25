@@ -7432,10 +7432,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   bool IS_SIM      = TABLEVAR->IS_SIM ; // data are sim
   bool REQUIRE_pIa = TABLEVAR->REQUIRE_pIa;
 
-  //  int IS_CCPRIOR  = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
   bool IDEAL       = (INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool FIRST_EVENT = (ISN == 0) ;
-  //  bool LAST_EVENT  = (ISN == TABLEVAR->NSN_ALL-1 );
   char *STRTYPE   = STRING_EVENT_TYPE[EVENT_TYPE];  
 
   bool  DO_BIASCOR_SAMPLE = (INPUTS.opt_biasCor & MASK_BIASCOR_SAMPLE);
@@ -12025,7 +12023,6 @@ void init_COVINT_biasCor(void) {
       INFO_BIASCOR.TABLEVAR.fitpar_ideal[INDEX_mB][ievt] -
       INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_mB][ievt] ;
     if ( fabs(tmpVal) > 1.0 ) { continue ; }
-
 
     idsample = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[ievt];
     ia       = (int)INFO_BIASCOR.IA[ievt] ; // true alpha index

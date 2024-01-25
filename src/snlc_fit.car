@@ -1745,7 +1745,6 @@ c Created May 2012 by R.Kessler
 c One-time Initialization after 1st event is read
 c but before the fit is performed.
 c
-c Sep 30, 2012: init FLOATPAR(ipar)
 c
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -1778,8 +1777,12 @@ c not yet been filled.
         if (INISTP_RV     .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
       IPAR = IPAR_ZPHOT
         if (INISTP_PHOTOZ .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
+
       IPAR = IPAR_SHAPE
-        if (INISTP_SHAPE.EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
+        if (INISTP_SHAPE.  EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
+      IPAR = IPAR_SHAPE2
+        if (INISTP_SHAPE2. EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
+
       IPAR = IPAR_DLMAG
         if (INISTP_DLMAG  .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
 
@@ -6960,8 +6963,8 @@ c to reject crazy fits
       INISTP_COLOR     = 0.03   ! Mar 17 2018 (was 0.2)
       INISTP_RV        = 0.0
       INISTP_AVRV      = 0.0
-      INISTP_SHAPE   = 0.3
-      INISTP_SHAPE2  = 0.0
+      INISTP_SHAPE     = 0.3
+      INISTP_SHAPE2    = 0.0
       INISTP_DLMAG     = 0.5
       INISTP_X0        = 1.0E-5
       INISTP_PHOTOZ    = 0.0
@@ -6974,8 +6977,8 @@ c to reject crazy fits
       INIVAL_COLOR     = 0.01
       INIVAL_DLMAG     = NULLVAL
       INIVAL_X0        = NULLVAL
-      INIVAL_SHAPE   = NULLVAL
-      INIVAL_SHAPE2  = NULLVAL
+      INIVAL_SHAPE     = NULLVAL
+      INIVAL_SHAPE2    = NULLVAL
       INIVAL_PHOTOZ    = NULLVAL
       INIVAL_SHIFT_ERRFRAC = 0.0
       FRACERRDIF_REPEATFIT = 1.0E9
@@ -8227,8 +8230,10 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
 
 c Dec 2023: check for M2 component 
          if ( NSHAPEPAR > 1 ) then
-           INISTP(IPAR_SHAPE2)   = 0.05
-           INIVAL(IPAR_SHAPE2)   = 0.01
+           INISTP_SHAPE2 = 0.1
+           INIVAL_SHAPE2 = 0.01
+           INISTP(IPAR_SHAPE2)   = INISTP_SHAPE2
+           INIVAL(IPAR_SHAPE2)   = INIVAL_SHAPE2
            INIBND(1,IPAR_SHAPE2) = -4.0
            INIBND(2,IPAR_SHAPE2) =  4.0
          endif

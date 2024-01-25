@@ -1460,7 +1460,11 @@ c note that mB is computed from fitpars, and does not float in fit
          CALL SEDMODEL_INI(0,IERR)
 
          NSURFACE = get_NSURFACE_SEDMODEL()
-         if ( NSURFACE == 3 ) NSHAPEPAR = 2 
+         if ( NSURFACE == 3 ) THEN
+             NSHAPEPAR = 2 
+             INISTP_SHAPE2 = 0.1
+             INIVAL_SHAPE2 = 0.01
+         endif
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
@@ -8230,8 +8234,6 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
 
 c Dec 2023: check for M2 component 
          if ( NSHAPEPAR > 1 ) then
-           INISTP_SHAPE2 = 0.1
-           INIVAL_SHAPE2 = 0.01
            INISTP(IPAR_SHAPE2)   = INISTP_SHAPE2
            INIVAL(IPAR_SHAPE2)   = INIVAL_SHAPE2
            INIBND(1,IPAR_SHAPE2) = -4.0

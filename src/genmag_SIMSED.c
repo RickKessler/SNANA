@@ -748,10 +748,16 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // Nov 15 2023: ignore NPAR key and compute NPAR from PARNAMES line
   //       (remove LEGACY_NPAR stuff later)
   //
+  // Jan 25 2024: 
+  //   abort on tabs (see NTAB); 
+  //   abort on more than 1 PARNAME with INDEX or index
+  //
+
   char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[100] ;
-  char  string_parnames[200];
+  char  string_parnames[200], tmpName_index[200];
   double PARLIM[2], DIF, XN;
-  int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
+  int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG, NTAB=0, len, i ;
+  int NPAR_INDEX = 0 ;
 
 #define NKEY_REQUIRE_SIMSED 3
   int  IPAR_PARNAMES = 0, IPAR_RESTLAM=1, IPAR_SED=2;
@@ -759,8 +765,6 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     { "PARNAMES", "RESTLAMBDA_RANGE", "SED" };
   bool FOUND_REQUIRE_LIST[NKEY_REQUIRE_SIMSED] = 
     { false, false, false } ;
-
-  bool LEGACY_NPAR = false  ; // T -> read explcit NPAR key (legacy)
 
   FILE *fp;
   char fnam[] = "read_SIMSED_INFO" ;
@@ -771,7 +775,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   ptrFile = SIMSED_INFO_FILENAME_FULL ;
   sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
-  SEDMODEL.IPAR_NON1A_INDEX = -9;
+  SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
@@ -783,7 +787,10 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   NPAR = NSED = SEDMODEL.NSURFACE = 0 ;
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
-
+    
+    len = strlen(c_get);
+    for(i=0; i < len; i++ )  { if ( c_get[i] == '\t' ) { NTAB++; } } // doesn't work?
+    
     if ( strcmp(c_get,"FLUX_SCALE:") == 0 ) 
       { readdouble(fp, 1, &SEDMODEL.FLUXSCALE ); }
 
@@ -834,41 +841,29 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
     }
 
-    // xxxxxx mark delete xxxxxxx
-    if ( LEGACY_NPAR && strcmp(c_get,"NPAR:") == 0 ) 
-      {  readint(fp, 1, &SEDMODEL.NPAR ); }
-    // xxxxxxxx end mark xxxxxxxxxxx
 
     if ( strcmp(c_get,"PARNAMES:") == 0 ) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
-
-      if ( !LEGACY_NPAR ) { //.xyz
-	fgets(string_parnames, 200, fp);
-	NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
-	SEDMODEL.NPAR = NPAR;
-	for(ipar=0; ipar < NPAR; ipar++ ) {
-	  get_PARSE_WORD(0, ipar, tmpName);
-	  sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
-	  if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }	  
-	}
+      fgets(string_parnames, 200, fp);
+      NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
+      SEDMODEL.NPAR = NPAR;
+      tmpName_index[0] = 0 ;
+      for(ipar=0; ipar < NPAR; ipar++ ) {
+	get_PARSE_WORD(0, ipar, tmpName);
+	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
+	if ( IS_INDEX_SIMSED(tmpName) ) { 
+	  NPAR_INDEX++ ; 
+	  catVarList_with_comma(tmpName_index,tmpName);
+	  SEDMODEL.IPAR_TEMPLATE_INDEX = ipar; 
+	}  
       }
 
-      // xxxxxxxxxx mark delete xxxxxxxx
-      if ( LEGACY_NPAR ) {
-	if ( SEDMODEL.NPAR < 0 ) {
-	  sprintf(c1err,"PARNAMES key specified before NPAR key");
-	  sprintf(c2err,"Check %s", ptrFile );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-	}
-	
-	for ( ipar=0; ipar < SEDMODEL.NPAR; ipar++ ) {
-	  readchar(fp, tmpName);
-	  sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
-	  if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }
-	}
-      } // end LEGACY
-      // xxxxxxx end mark xxxxxxx
-
+      if ( NPAR_INDEX > 1 ) {
+	sprintf(c1err,"Found %d PARNAMES with INDEX or index; only 1 allowed",
+		NPAR_INDEX);
+	sprintf(c2err,"ambiguous PARNAMES: '%s' ", tmpName_index);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
     } // end PARNAMES
 
     // ------------
@@ -893,6 +888,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
 
   fclose(fp);
+
+  tabs_ABORT(NTAB, ptrFile, fnam); // Jan 2024
 
   // for each SIMSED parameter, get NBIN, MIN and MAX,
   // and print summary info.
@@ -1411,13 +1408,14 @@ void genmag_SIMSED(
 
   // if any SIMSED parameter looks or smells like an index,
   // return this value as *index_sed.
-  int IPAR = SEDMODEL.IPAR_NON1A_INDEX;
+  int IPAR = SEDMODEL.IPAR_TEMPLATE_INDEX;
   if ( IPAR >= 0 ) {
     tmpPar = SEDMODEL.PARVAL[ISED_SEDMODEL][IPAR] + 0.01 ;
     *index_sed = (int)(tmpPar);
   }
   else
     { *index_sed = -9; }
+
 
 } // end of genmag_SIMSED
 

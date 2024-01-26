@@ -163,7 +163,8 @@ struct SEDMODEL {
   double PARVAL_MIN[MXPAR_SEDMODEL] ;
   double PARVAL_MAX[MXPAR_SEDMODEL] ;
   double PARVAL_BIN[MXPAR_SEDMODEL] ; // bin size
-  int    IPAR_NON1A_INDEX ;   // ipar to use to fill SIM_xNON1A_INDEX
+  int    IPAR_TEMPLATE_INDEX ;   // ipar to use to fill SIM_TEMPLATE_INDEX
+  // xxx mark   int    IPAR_NON1A_INDEX ;   // ipar to use to fill SIM_xNON1A_INDEX
 
   char   FILENAME[MXSEDMODEL][80]; // NSURFACE of them
 

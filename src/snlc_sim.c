@@ -13114,7 +13114,7 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
     // pick random index from user-defined subset;
     // SIMSED_GRIDONLY:  INDEX_NAME(a,b,c,...)
     nsed = INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY ; 
-    if ( ipar_model != SEDMODEL.IPAR_NON1A_INDEX ) {
+    if ( ipar_model != SEDMODEL.IPAR_TEMPLATE_INDEX ) {
       char *parName = SEDMODEL.PARNAMES[ipar_model];
       sprintf(c1err,"Cannot select GRIDONLY subset for %s", parName) ;
       sprintf(c2err,"Check SIMSED_XXX keys in sim-input file.");
@@ -17906,11 +17906,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	ISTORE++ ;
 
-	if ( INPUTS.SIMLIB_REFAC ) {
+	if ( INPUTS.SIMLIB_REFAC ) {  //.xyz
 	  ISTORE-- ;
 	  MJD = SIMLIB_OBS_RAW.MJD[ISTORE];
 	  KEEP_MJD = 
 	    (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
+	  if ( INPUTS.SIMLIB_DUMP ) { KEEP_MJD = 1; } 
 	  if ( KEEP_MJD ) { ISTORE++; } 
 	}
 

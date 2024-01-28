@@ -491,7 +491,8 @@ def get_hubble_diagrams(folder, args, config):
     for infile in sorted(os.listdir(folder_expand)):
 
         skip = False
-        for s in str_skip_list :   if s in infile : skip = True
+        for s in str_skip_list : 
+            if s in infile : skip = True
         if skip: continue
 
         is_M0DIF    = f".{SUFFIX_M0DIF}"  in infile

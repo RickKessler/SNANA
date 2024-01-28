@@ -103,6 +103,9 @@
 #   - write cov with single write instead of separate f.write per element
 #     [pand use compresslevel=6 for faster write]
 #
+# Jan 28 2024 RK
+#   - skip tilde files and skip wfit_ files.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -483,8 +486,13 @@ def get_hubble_diagrams(folder, args, config):
     infile_list = []
     label_list  = []
     first_load  = True
+    str_skip_list = [ '~', 'wfit_' ]
 
     for infile in sorted(os.listdir(folder_expand)):
+
+        skip = False
+        for s in str_skip_list :   if s in infile : skip = True
+        if skip: continue
 
         is_M0DIF    = f".{SUFFIX_M0DIF}"  in infile
         is_FITRES   = f".{SUFFIX_FITRES}" in infile and "MUOPT" in infile

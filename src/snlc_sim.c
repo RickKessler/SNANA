@@ -9993,15 +9993,12 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
     }
 
     // set nearest-peak as first SN spectrum.
-    // xxx mark Oct 2023    imjd_order[nhost] = imjd_nearPeak ;  
     ntmp = nhost ;
     GENSPEC.IMJD_NEARPEAK = imjd_nearPeak ;
 
     // store remaining spectra
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
-      // xxx mark      if ( imjd == imjd_nearPeak ) { continue; }
       if ( IS_HOST[imjd]         ) { continue; }
-      // xxx mark delete ntmp++ ; imjd_order[ntmp] = imjd;
       imjd_order[ntmp] = imjd; ntmp++ ;
     }
 
@@ -15551,6 +15548,8 @@ void gen_zsmear(double zerr) {
   // Note that randoms are generated to stay synced.
   // Also generate smeared vpec -> GENLC.VPEC_SMEAR.
   //
+  // Input zerr = INPUTS.GENSIGMA_REDSHIFT (user-defined smearing)
+  //
   // Sep 23, 2011: float -> double
   // Apr 26 2017: 
   // + skip zerr calc if zerr>0.999 to avoid abort on ZGEN_MIN
@@ -15590,9 +15589,24 @@ void gen_zsmear(double zerr) {
   }
 
 
-  if ( zerr == 0.0 || zerr > 0.999 ) {
+  // xxxxxx flag to use legacy/buggy code  
+  if ( INPUTS.DEBUG_FLAG == -128 ) {
+    if ( zerr == 0.0 || zerr > 0.999 ) { 
+      GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
+      GENLC.REDSHIFT_SMEAR_ERR     = zerr ;
+      goto ZCMB_SMEAR ;
+    }
+  }
+  // xxxxxx end flag xxxxxx
+
+  if ( zerr == 0.0 ) { 
     GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
     GENLC.REDSHIFT_SMEAR_ERR     = zerr ;
+    goto ZCMB_SMEAR ;
+  }
+  if ( zerr > 0.999 ) {  // user flag to use zPHOT_HOST
+    GENLC.REDSHIFT_HELIO_SMEAR   = SNHOSTGAL.ZPHOT ;
+    GENLC.REDSHIFT_SMEAR_ERR     = SNHOSTGAL.ZPHOT_ERR ;
     goto ZCMB_SMEAR ;
   }
 
@@ -15603,6 +15617,7 @@ void gen_zsmear(double zerr) {
     { zerr_loc = GENLC.REDSHIFT_CMB ; }
 
   NZRAN= 0;
+
 
  ZSMEAR:
   if ( NZRAN >= MXZRAN ) {
@@ -17754,11 +17769,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"PIXSIZE:") == 0 )  
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.PIXSIZE ); iwd++; continue;}
       
-      /* xxx mark delete Oct 4 2023 xxxxx
-      else if ( strcmp(wd0,"TELESCOPE:") == 0 ) 
-	{ sscanf(wd1,"%s",SIMLIB_HEADER.TELESCOPE ); iwd++; continue;}
-	xxxx end mark */
-
       else if ( strcmp(wd0,"MWEBV:") == 0  )
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.MWEBV ); iwd++ ; continue; }
 
@@ -17906,7 +17916,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	ISTORE++ ;
 
-	if ( INPUTS.SIMLIB_REFAC ) {  //.xyz
+	if ( INPUTS.SIMLIB_REFAC ) { 
 	  ISTORE-- ;
 	  MJD = SIMLIB_OBS_RAW.MJD[ISTORE];
 	  KEEP_MJD = 
@@ -22694,7 +22704,6 @@ void gen_spectype(void) {
 
   if ( INDEX_GENMODEL == MODEL_FIXMAG ) { 
     GENLC.SNTYPE = MODEL_FIXMAG ;
-    // xxx mark     if ( GENLC.SNTYPE <= 0 ) { GENLC.SNTYPE = MODEL_FIXMAG ; }
   }
   else if ( LGEN_SNIA )  { 
     GENLC.SNTYPE   = INPUTS.SNTYPE_Ia_SPEC ; 
@@ -23244,14 +23253,20 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SEARCHEFF_SPEC  = GENLC.SEARCHEFF_SPEC ;
   SNDATA.SIM_SEARCHEFF_zHOST = GENLC.SEARCHEFF_zHOST ;
 
+  // xxx mark delete Jan 28 2024 (taken care of properly in gen_zsmear)
+     
   // assign photoz to REDSHIFT_FINAL if Zspec error is >= 1
-  if ( GENLC.REDSHIFT_SMEAR_ERR > 0.999  ) {
+  if ( INPUTS.DEBUG_FLAG == -128 && GENLC.REDSHIFT_SMEAR_ERR > 0.999 ) {
+
+    // beware that REDSHIFT_FINAL = REDSHIFT_CMB is not transformed,
+    // and thus snlc_fit will abort on zTOL check.
     SNDATA.REDSHIFT_FINAL      = SNHOSTGAL.ZPHOT ;
     SNDATA.REDSHIFT_FINAL_ERR  = SNHOSTGAL.ZPHOT_ERR ;
 
     SNDATA.REDSHIFT_HELIO      = SNHOSTGAL.ZPHOT ;
     SNDATA.REDSHIFT_HELIO_ERR  = SNHOSTGAL.ZPHOT_ERR ;
   }
+  // xxxxxxxxxxx end mark xxxxxxx
 
   if ( INPUTS.NGENTOT_LC > 1000000 || 
        INPUTS.NGEN_LC    > 1000000 || 
@@ -29255,8 +29270,6 @@ void rewgt_genPDF(int OPT) {
 
     wgt_event = prob_wgt1 / prob_rewgt ;
     GENLC.WGT_POPULATION = wgt_event ;
-
-    // .xyz need to store wgt_event in GENLC, then write to data file header
   }
 
 

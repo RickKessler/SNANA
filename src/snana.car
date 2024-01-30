@@ -18161,6 +18161,9 @@ c     crosscheck here using zTOL_HELIO2CMB test on dz/z
 c 
 c Mar 15 2021: if zCMB < 0 for text format, use computed value.
 c Jun 07 2022: do not abort on bad tolerance if REFORMAT_SNANA=T
+c Jan 28 2024: do NOT check zTOL if zERR > 1.0 due to sim artifact
+c              from GENSIGMA_REDSHIFT option;
+c                https://github.com/RickKessler/SNANA/issues/1265
 c
 c ---------
 
@@ -18172,7 +18175,7 @@ c ---------
       INTEGER OPT
       CHARACTER EQ*4, FNAM*12
       REAL*8  ZHEL8, ZCMB8, DZ8, zRATIO8
-      LOGICAL BADz
+      LOGICAL BADz, SKIP_BADz
 
       REAL*8 zhelio_zcmb_translator ! function
 
@@ -18205,8 +18208,10 @@ c allows quick/sloppy makeDataFiles with real data.
          zRATIO8 = zCMB8/DBLE(SNLC_zCMB)
          DZ8     = abs(1.0 - zRATIO8)
 
-         BADz = ( SNLC_zCMB > 0.0 .and. DZ8 > zTOL_HELIO2CMB )
-         if ( BADz .and. .NOT.REFORMAT_SNANA ) THEN
+         BADz      = ( SNLC_zCMB > 0.0 .and. DZ8 > zTOL_HELIO2CMB )
+         SKIP_BADz = REFORMAT_SNANA .or. (SNLC_ZHELIO_ERR .GE. 0.9999)
+
+         if ( BADz .and. .NOT.SKIP_BADz ) THEN
             CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0),12)
             print*,' zHEL(dataFile) = ', SNLC_ZHELIO
             print*,' zCMB(dataFile) = ', SNLC_ZCMB

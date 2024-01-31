@@ -757,6 +757,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   char  string_parnames[200], tmpName_index[200];
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG, NTAB=0, len, i ;
+  int NROW_FILE ;
   int NPAR_INDEX = 0 ;
 
 #define NKEY_REQUIRE_SIMSED 3
@@ -777,11 +778,15 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
   SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
 
+  // read number of rows to use for malloc (Jan 2024)
+  NROW_FILE = nrow_read(ptrFile, fnam);
+
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
     sprintf(c2err,"%s", ptrFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+
   printf("\n Read list of SEDs and parameters from \n  %s \n", ptrFile);
 
   NPAR = NSED = SEDMODEL.NSURFACE = 0 ;
@@ -789,7 +794,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     
     len = strlen(c_get);
-    for(i=0; i < len; i++ )  { if ( c_get[i] == '\t' ) { NTAB++; } } // doesn't work?
+    for(i=0; i < len; i++ ) 
+      { if ( c_get[i] == '\t' ) { NTAB++; } } // doesn't work?
     
     if ( strcmp(c_get,"FLUX_SCALE:") == 0 ) 
       { readdouble(fp, 1, &SEDMODEL.FLUXSCALE ); }
@@ -846,6 +852,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
       fgets(string_parnames, 200, fp);
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
+      malloc_MXSEDMODEL(NROW_FILE, NPAR); // Jan 2024
+
       SEDMODEL.NPAR = NPAR;
       tmpName_index[0] = 0 ;
       for(ipar=0; ipar < NPAR; ipar++ ) {

@@ -253,6 +253,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   SEDMODEL.FLUXSCALE  = X0SCALE_SALT2; 
   SEDMODEL.MAGERR_FIX = -9.0 ;        // => use calculated errors
 
+
   // May 2013:
   // if re-reading the same SALT2 version, then skip re-reading the files.
   // WARNING: SALT2_VERSION is not set on first pass, so it may give
@@ -288,6 +289,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   SPECTROGRAPH_SEDMODEL.NBLAM_TOT = 0 ; // spectrograph option
 
+  malloc_MXSEDMODEL(SEDMODEL.NSURFACE, 0); 
   malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
 
   // ------- Now read the spectral templates -----------

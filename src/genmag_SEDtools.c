@@ -485,6 +485,64 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
 
 } // end of init_redshift_SEDMODEL
 
+void malloc_MXSEDMODEL(int NSED, int NPAR) {
+
+  // Created Jan 31 2024
+  // malloc SEDMODEL struct arrays that depend on 
+  // number of SED surfaces and number of SED parameters.
+  // 
+  int ised, ipar;
+  int MEMC_PARVAL_SED = NSED * sizeof(char**) ;
+  int MEMC_PARVAL_PAR = NPAR * sizeof(char*) ;
+  int MEMC_PARVAL_LEN = 32   * sizeof(char) ;
+
+  int  MEMD_PARVAL_SED = NSED * sizeof(double**);
+  int  MEMD_PARVAL_PAR = NPAR * sizeof(double*);
+
+  int  MEMD_1D_SED     = NSED * sizeof(double);
+  int  MEMI_1D_SED     = NSED * sizeof(int);
+
+  int  MEMC_FNAM_SED = NSED * sizeof(char*) ;
+  int  MEMC_FNAM_LEN = 80   * sizeof(char);
+  char fnam[] = "malloc_MXSEDMODEL" ;
+
+  // -------- BEGIN ----------
+
+  printf("\t %s for NSED=%d and NPAR=%d\n", fnam, NSED, NPAR);
+  fflush(stdout);
+
+  SEDMODEL.PARVAL        = (double**) malloc ( MEMD_PARVAL_SED );
+  SEDMODEL.PARVAL_STRING = (char ***) malloc ( MEMC_PARVAL_SED );
+  SEDMODEL.FILENAME      = (char  **) malloc ( MEMC_FNAM_SED );
+  
+  for(ised = 0; ised < NSED; ised++ ) {
+    SEDMODEL.PARVAL[ised]        = (double *) malloc ( MEMD_PARVAL_PAR );
+    SEDMODEL.PARVAL_STRING[ised] = (char  **) malloc ( MEMC_PARVAL_PAR );
+    SEDMODEL.FILENAME[ised]      = (char   *) malloc ( MEMC_FNAM_LEN );
+
+    SEDMODEL.NLAM    = (int*) malloc ( MEMI_1D_SED);
+    SEDMODEL.LAMMIN  = (double*) malloc ( MEMD_1D_SED );
+    SEDMODEL.LAMMAX  = (double*) malloc ( MEMD_1D_SED );
+    SEDMODEL.LAMSTEP = (double*) malloc ( MEMD_1D_SED );
+
+    SEDMODEL.NDAY    = (int*) malloc ( MEMI_1D_SED);
+    SEDMODEL.DAYMIN  = (double*) malloc ( MEMD_1D_SED );
+    SEDMODEL.DAYMAX  = (double*) malloc ( MEMD_1D_SED );
+    SEDMODEL.DAYSTEP = (double*) malloc ( MEMD_1D_SED );
+    SEDMODEL.DAY     = (double**) malloc ( NSED * sizeof(double*) );
+    //    int *NDAY, *NLAM;
+    //    double *LAMMIN, *LAMMAX, *LAMSTEP;
+    //    double *DAYMIN, *DAYMAX, *DAYSTEP, **DAY;
+
+    for(ipar=0; ipar < NPAR; ipar++ ) {
+      SEDMODEL.PARVAL_STRING[ised][ipar] = (char*) malloc ( MEMC_PARVAL_LEN );
+    }
+  }
+
+  return ;
+
+} // end malloc_MXSEDMODEL
+
 // ******************************************
 void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW, 
 				int NDAY, int NSED ) {

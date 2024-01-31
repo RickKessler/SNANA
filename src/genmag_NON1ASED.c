@@ -99,7 +99,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
       }
     }
 
-
+    malloc_MXSEDMODEL(1,0); // allocate 1 SED surface
     malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
 
     malloc_FLUXTABLE_SEDMODEL ( NFILT_SEDMODEL, NZBIN, NLAMPOW_SEDMODEL, 

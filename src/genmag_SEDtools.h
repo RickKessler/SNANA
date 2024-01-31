@@ -4,47 +4,6 @@
  Global variables used for SED-based models
  such as SALT2 or SN-explosion models. 
 
- Jun 24, 2010: MXLAMPOW -> MXLAMPOW_SEDMODEL = 2 (instead of 0) 
-               and define new variable NLAMPOW_SEDMODEL
-
-               Add 'ilampower' argument to interp_flux_SEDMODEL
-
- Jul 02, 2010: add SIMSED.PARVAL_STRING[ised]
- Jul 16, 2010: add FLUX_ERRFLAG
- Jul 19, 2010: increase MXFILT_SEDMODEL from 10 to 12
- Aug 31, 2010: increase MXFILT_SEDMODEL from 10 to MXFILTINDX
- Sep 02, 2010: declare zero_flux_SEDMODEL
-
- Apr 04, 2011: increase MXZBIN_SEDMODEL -> 500 (was 300)
-
- May 15, 2011: increase MXBIN_LAMSED_SEDMODEL from 2100 -> 5000
-
- Jun 09, 2011: define SEDMODEL.LAMMIN_ALL and SEDMODEL.MAXLAM_ALL
-
- Jun 20, 2011  increase MXPAR_SEDMODEL  from 10 -> 100
-
- Nov 1, 2011: MXBIN_DAYSED_SEDMODEL -> 200 (was 130)
-
- Nov 11, 2011: MXBIN_LAMFILT_SEDMODEL -> 800 (was 600)
- Feb 20, 2013: MXBIN_LAMFILT_SEDMODEL -> 900 (was 800)
- Mar 16, 2014: MXSEDMODEL -> 8000 (was 5000)
-
- Apr 26, 2014: MXFILT_SEDMODEL[20] -> MXFILT_SEDMODEL[MXFILT_SEDMODEL]
-                 (fixes crash with jpas)
-
- Aug 05, 2015: MXBIN_LAMFILT_SEDMODEL -> 1500 (was 900) for WFIRST W band
-
- Aug 11, 2015: define void  shiftPeakDay_SEDMODEL();
-
- July 24 2016: define stuff for SPECTROGRAPH
-
- Jul 26, 2016: MXBIN_LAMFILT_SEDMODEL -> 2000 (was 1500)
-
- Jul 30 2016: define SPECTROGRAPH_SEDMODEL struct and a few 
-              SPECTROGRAPH functions.
-
- Mar 6 2017: declare ISED_SEDMODEL
-
  Apr 17 2018: MXBIN_DAYSED_SEDMODEL -> 400 (was 250)
 
  May 21 2018: define struct INPUTS_SEDMODEL
@@ -54,6 +13,10 @@
    + new fortran-mangles for fetch_parinfo_sedmodel__ & fetch_parval_sedmodel__
 
  Aug 23 2019: MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
+
+ Jan 31 2024: replace many [MXSEDMODEL]-dependent arrays with pointers that
+              are allocated in malloc_MXSEDMODEL. This enables much larger
+              MXSEDMODEL without increasing static program size.
 
 ********************************************/
 
@@ -157,8 +120,13 @@ struct SEDMODEL {
 
   int    NPAR ;        // Npar describing SEDs
   char   PARNAMES[MXPAR_SEDMODEL][40];
-  double PARVAL[MXSEDMODEL][MXPAR_SEDMODEL];
-  char   PARVAL_STRING[MXSEDMODEL][MXPAR_SEDMODEL][20]; // parval string to preserve format
+
+  double **PARVAL;
+  // xxx mark del Jan 31 2024L: double PARVAL[MXSEDMODEL][MXPAR_SEDMODEL];
+
+  char ***PARVAL_STRING; // string to preserve format for each SED and param
+  // xxx mark  char PARVAL_STRING[MXSEDMODEL][MXPAR_SEDMODEL][20]; 
+
   int    NBIN_PARVAL[MXPAR_SEDMODEL] ; // Number of bins per par val
   double PARVAL_MIN[MXPAR_SEDMODEL] ;
   double PARVAL_MAX[MXPAR_SEDMODEL] ;
@@ -166,7 +134,8 @@ struct SEDMODEL {
   int    IPAR_TEMPLATE_INDEX ;   // ipar to use to fill SIM_TEMPLATE_INDEX
   // xxx mark   int    IPAR_NON1A_INDEX ;   // ipar to use to fill SIM_xNON1A_INDEX
 
-  char   FILENAME[MXSEDMODEL][80]; // NSURFACE of them
+  char   **FILENAME ; // NSURFACE of them
+  // xxx mark delete   char   FILENAME[MXSEDMODEL][80]; // NSURFACE of them
 
   double RESTLAMMIN_FILTERCEN;  // min-lambda for <lamfilt>/(1+z) 
   double RESTLAMMAX_FILTERCEN;  // max-lambda for <lamfilt>/(1+z)
@@ -175,10 +144,16 @@ struct SEDMODEL {
   double LAMMAX_ALL ;  // max LAM covered by all SEDs
 
   // define DAY and LAM binning for each SED
+  int *NDAY, *NLAM;
+  double *LAMMIN, *LAMMAX, *LAMSTEP;
+  double *DAYMIN, *DAYMAX, *DAYSTEP, **DAY;
+
+  /* xxx mark delete Jan 2024 xxx
   int    NDAY[MXSEDMODEL],   NLAM[MXSEDMODEL] ;
   double LAMMIN[MXSEDMODEL], LAMMAX[MXSEDMODEL], LAMSTEP[MXSEDMODEL];
   double DAYMIN[MXSEDMODEL], DAYMAX[MXSEDMODEL], DAYSTEP[MXSEDMODEL];
   double *DAY[MXSEDMODEL];  // Aug 2017 - allows non-uniform DAY bins
+  xxxxx end mark xxxx */
 
   double DAYMIN_ALL, DAYMAX_ALL; // min & max day among all SEDs
 
@@ -317,6 +292,7 @@ void init_MWXT_SEDMODEL(int OPT_COLORLAW, double RV) ;
 double interp_primaryFlux_SEDMODEL(double lam) ;
 double interp_primaryMag_SEDMODEL(double lam) ;  // for SPECTROGRAPH bins
 
+void malloc_MXSEDMODEL(int NSED, int NPAR);
 void malloc_FLUXTABLE_SEDMODEL(int NFILT, int NZBIN, int NLAMPOW, 
 			       int NDAY, int NSED);
 void malloc_SEDFLUX_SEDMODEL (SEDMODEL_FLUX_DEF *SEDMODEL, 

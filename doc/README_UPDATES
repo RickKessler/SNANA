@@ -22180,7 +22180,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         + write class name to MERGE.LOG so that CPU can be
            broken down by class.
 
-    genmag_SIMSED.c
+    genmag_SIMSED.c[h]
        + abort if more than one PARNAME has INDEX or index in name.
+       + replace many [MXSEDMODEL]-dependent arrays with pointers that
+         are allocated in malloc_MXSEDMODEL. This enables much larger
+         MXSEDMODEL without increasing static program size.
 
 END: 

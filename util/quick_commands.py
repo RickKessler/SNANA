@@ -18,6 +18,7 @@
 # Jun 26 2022: add --diff_data option 
 #
 # Jul 19 2023: --extract_spectra_format
+# Jan 31 2024: fix bug finding DOCANA keys for --extract_sim_input  option
 #
 # =========================
 
@@ -489,12 +490,19 @@ def get_README_contents(version):
 
 def write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat):
     nkey_write = 0
-    key = 'INPUT_KEYS'
+
+    key_list = [ 'INPUT_KEYS', 'INPUT_KEYS_SNIaMODEL0', 'INPUT_KEYS_NONIaMODEL0' ]
+    # xxx makr key = 'INPUT_KEYS'  # INPUT_KEYS_SNIaMODEL0  INPUT_KEYS_NONIaMODEL0
+
     DOCANA = sim_readme_yaml['DOCUMENTATION']
-    if key in DOCANA:
-        INPUT_KEYS = DOCANA[key]
-    else:
-        msgerr = f"\n ERROR: could not find {key} key in \n {sim_input_file} "
+    INPUT_KEYS = None
+
+    for key in key_list:
+        if key in DOCANA:
+            INPUT_KEYS = DOCANA[key]
+
+    if INPUT_KEYS is None:
+        msgerr = f"\n ERROR: could not find {key_list} key in README "
         assert False, msgerr 
 
     # make list of special keys that will cause sim-abort or other problems.

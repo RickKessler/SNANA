@@ -492,17 +492,18 @@ void malloc_MXSEDMODEL(int NSED, int NPAR) {
   // number of SED surfaces and number of SED parameters.
   // 
   int ised, ipar;
-  int MEMC_PARVAL_SED = NSED * sizeof(char**) ;
+  int NSED_malloc = NSED + 1 ;
+  int MEMC_PARVAL_SED = NSED_malloc * sizeof(char**) ;
   int MEMC_PARVAL_PAR = NPAR * sizeof(char*) ;
   int MEMC_PARVAL_LEN = 32   * sizeof(char) ;
 
-  int  MEMD_PARVAL_SED = NSED * sizeof(double**);
+  int  MEMD_PARVAL_SED = (NSED_malloc) * sizeof(double**);
   int  MEMD_PARVAL_PAR = NPAR * sizeof(double*);
 
-  int  MEMD_1D_SED     = NSED * sizeof(double);
-  int  MEMI_1D_SED     = NSED * sizeof(int);
+  int  MEMD_1D_SED     = NSED_malloc  * sizeof(double);
+  int  MEMI_1D_SED     = NSED_malloc  * sizeof(int);
 
-  int  MEMC_FNAM_SED = NSED * sizeof(char*) ;
+  int  MEMC_FNAM_SED = NSED_malloc * sizeof(char*) ;
   int  MEMC_FNAM_LEN = 80   * sizeof(char);
   char fnam[] = "malloc_MXSEDMODEL" ;
 
@@ -515,7 +516,7 @@ void malloc_MXSEDMODEL(int NSED, int NPAR) {
   SEDMODEL.PARVAL_STRING = (char ***) malloc ( MEMC_PARVAL_SED );
   SEDMODEL.FILENAME      = (char  **) malloc ( MEMC_FNAM_SED );
   
-  for(ised = 0; ised < NSED; ised++ ) {
+  for(ised = 0; ised < NSED_malloc ; ised++ ) {
     SEDMODEL.PARVAL[ised]        = (double *) malloc ( MEMD_PARVAL_PAR );
     SEDMODEL.PARVAL_STRING[ised] = (char  **) malloc ( MEMC_PARVAL_PAR );
     SEDMODEL.FILENAME[ised]      = (char   *) malloc ( MEMC_FNAM_LEN );
@@ -529,7 +530,7 @@ void malloc_MXSEDMODEL(int NSED, int NPAR) {
     SEDMODEL.DAYMIN  = (double*) malloc ( MEMD_1D_SED );
     SEDMODEL.DAYMAX  = (double*) malloc ( MEMD_1D_SED );
     SEDMODEL.DAYSTEP = (double*) malloc ( MEMD_1D_SED );
-    SEDMODEL.DAY     = (double**) malloc ( NSED * sizeof(double*) );
+    SEDMODEL.DAY     = (double**) malloc ( NSED_malloc * sizeof(double*) );
     //    int *NDAY, *NLAM;
     //    double *LAMMIN, *LAMMAX, *LAMSTEP;
     //    double *DAYMIN, *DAYMAX, *DAYSTEP, **DAY;
@@ -565,7 +566,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   }
 
   if ( NZBIN <= 0 || NZBIN > MXZBIN_SEDMODEL ) {
-    sprintf(c1err,"NZBIN=%d  is invalid.",  NZBIN );
+    sprintf(c1err,"NZBIN=%d (MXZBIN_SEDMODEL=%d)",  NZBIN, MXZBIN_SEDMODEL );
     sprintf(c2err,"Check redshift bins");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -583,7 +584,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   }
 
   if ( NSED <=0 || NSED > MXSEDMODEL ) {
-    sprintf(c1err,"NSED=%d  is invalid.",  NSED );
+    sprintf(c1err,"NSED=%d (MXSEDMODEL=%d)",  NSED, MXSEDMODEL );
     sprintf(c2err,"Check number of SEDs");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }

@@ -757,7 +757,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   char  string_parnames[200], tmpName_index[200];
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG, NTAB=0, len, i ;
-  int NROW_FILE ;
+  int NSED_COUNT ;
   int NPAR_INDEX = 0 ;
 
 #define NKEY_REQUIRE_SIMSED 3
@@ -779,7 +779,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
 
   // read number of rows to use for malloc (Jan 2024)
-  NROW_FILE = nrow_read(ptrFile, fnam);
+  NSED_COUNT = count_SIMSED_INFO(PATHMODEL);
+  // xxxx  NROW_FILE = nrow_read(ptrFile, fnam);
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
@@ -852,7 +853,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
       fgets(string_parnames, 200, fp);
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
-      malloc_MXSEDMODEL(NROW_FILE, NPAR); // Jan 2024
+      malloc_MXSEDMODEL(NSED_COUNT, NPAR); // Jan 2024
 
       SEDMODEL.NPAR = NPAR;
       tmpName_index[0] = 0 ;
@@ -880,6 +881,9 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
       FOUND_REQUIRE_LIST[IPAR_SED] = true;
       SEDMODEL.NSURFACE++ ;  NSED = SEDMODEL.NSURFACE ;
+
+      if ( NSED >= MXSEDMODEL ) { continue; }
+
       readchar(fp, SEDMODEL.FILENAME[NSED] );
       NPAR = SEDMODEL.NPAR ;
 
@@ -894,10 +898,16 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   } // end of reading info file
 
-
+  // - - - - 
   fclose(fp);
 
   tabs_ABORT(NTAB, ptrFile, fnam); // Jan 2024
+
+  if ( NSED >= MXSEDMODEL ) { 
+    sprintf(c1err,"NSED=%d exceeds bound MXSEDMODEL=%d", NSED, MXSEDMODEL);
+    sprintf(c2err,"Either reduce NSED or increase MXSEDMODEL");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   // for each SIMSED parameter, get NBIN, MIN and MAX,
   // and print summary info.
@@ -947,7 +957,6 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       sprintf(c1err,"SED.INFO file missing required keys %s", keyname_missing);
       sprintf(c2err,"Check %s",  ptrFile );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    
     }
   }
 
@@ -988,7 +997,7 @@ int count_SIMSED_INFO(char *PATHMODEL ) {
 
   // ---------------- BEGIN --------------
 
-  sprintf(FILENAME, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
+  sprintf(FILENAME, "%s/%s", PATHMODEL, SIMSED_INFO_FILENAME);
 
   if (( fp = fopen(FILENAME,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");

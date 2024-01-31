@@ -65,10 +65,10 @@ def get_args():
 
 
 
-def find_dump_file(cid, prefix):
+def find_dump_file(cid, simfolder):
     #find and return dump file for a given cid
-    exp_var = os.path.expandvars(prefix)
-    all_dump_files = exp_var+'*/*DUMP'
+    exp_var = os.path.expandvars(simfolder)
+    all_dump_files = exp_var+'/*DUMP'
     list_dumps = glob.glob(all_dump_files)
     counter = 0
     for dump in list_dumps:
@@ -105,10 +105,10 @@ def is_it_Ia(lines):
 
     return(result)
 
-def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor):
+def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir):
     #edit input file for a given cid and mjd
     #returns path of new input file
-
+    
     version = file_name[file_name.find('WFD_')+4:file_name.find('_MODEL0')]  #change to be more general for SNANA, WFD_ is for wide fast deep
 
     ACTION_CHANGE = 'CHANGE'
@@ -244,11 +244,12 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     if verbose==False:
         print('Keys have been changed, removed, and added as needed.')
 
-    subdir = "store_inputs"  # name of the sub-directory 
+    
+
     filename = version+"_cid"+str(cid)+'_mjd'+str(mjd)+"_new.input"   # name of the file to create 
-    print('Final input file name stored in "store_inputs" directory: ', filename)
+    print('Final input file name stored in ',outdir, filename)
     #join the sub-directory and filename using os.path.join() 
-    path = os.path.join(subdir, filename) 
+    path = os.path.join(outdir, filename) 
     # create the file using the built-in open() function 
     
     with open(path, 'w') as f: 
@@ -268,17 +269,25 @@ def process_cid(cid,mjds,config_dic):
 
     #creates input file and runs simulation (unless no_resim flag is raised)
 
-    prefix = config_dic['PREFIX_SIMFOLDER']
+    simfolder = config_dic['SIMFOLDER']
     kcor = config_dic['KCOR_PATH']
     simgen_eazy = config_dic['SIMGEN_EAZY']
     hostlib_file = config_dic['HOSTLIB_FILE']
+    if 'OUTDIR_SIM_INPUT' in config_dic:
+        outdir = config_dic['OUTDIR_SIM_INPUT']
+    else:
+        outdir = 'store_inputs'
+
+    if outdir == 'store_inputs' and not os.path.exists(outdir):
+            os.makedirs(outdir)
+
     if verbose==True:
-        print('Prefix of simfolder:  ', prefix)
+        print('Simfolder:  ', simfolder)
         print('kcor file: ', kcor)
         print('simgen_eazy file: ', simgen_eazy)
         print('hostlib file: ', hostlib_file)
 
-    dump_file_path = find_dump_file(cid, prefix)
+    dump_file_path = find_dump_file(cid, simfolder)
     #store z and peak_mjd
     zcmb = retrieve_values_from_dump(dump_file_path,cid,'ZCMB')
     if verbose==True:
@@ -306,16 +315,23 @@ def process_cid(cid,mjds,config_dic):
         gen = (((dump_file_path.split("/"))[-1]).split("."))[0]
 
         command = f"quick_commands.py -v {gen} --extract_sim_input"
-        subprocess.run([command], capture_output=True, text=True, shell=True, cwd = cwd+ "/store_inputs")
-        if verbose==True:
-            print('Run the following command in the store_input directory: ', command)
 
-        file_name = cwd+"/store_inputs/sim_input_"+gen+"_MODEL0.input"
+        if outdir == 'store_inputs':
+            subprocess.run([command], capture_output=True, text=True, shell=True, cwd = cwd+ "/store_inputs")
+            file_name = cwd+"/store_inputs/sim_input_"+gen+"_MODEL0.input"
+        else:
+            subprocess.run([command], capture_output=True, text=True, shell=True, cwd = outdir)
+            file_name = outdir+"/sim_input_"+gen+"_MODEL0.input"
+        
+        if verbose==True:
+            print('Run the following command in ', outdir, command)
+
+        
         print('Input file to edit: ', file_name)
         #edit input file
         if verbose==True:
             print('Create edited input file.')
-        path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor) #final path of input file to resimulate
+        path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir) #final path of input file to resimulate
 
         if no_resim==False:
             #run sim
@@ -323,7 +339,10 @@ def process_cid(cid,mjds,config_dic):
             command = f"snlc_sim.exe "+path.split('/')[1]
             print('PATH:', path)
             print('Run the following command: ', command)
-            subprocess.run([command], text=True, shell=True, cwd = cwd+ "/store_inputs")
+            if outdir == 'store_inputs':
+                subprocess.run([command], text=True, shell=True, cwd = cwd+ "/store_inputs")
+            else:
+                subprocess.run([command], text=True, shell=True, cwd = outdir)
         else:
             print("No resim flag was raised, so not resimulating.")
 
@@ -334,10 +353,11 @@ def print_help():
     print("  - CID1 MJD1 peak ... MJDn   #can also include 'peak' to substitute true peak mjd")
     print("  - CID2 MJD1 MJD2 ... MJDn \n    . \n    . \n    .")
     print("  - CIDn MJD1 MJD2 ... MJDn")
-    print("PREFIX_SIMFOLDER: /path/to/simfolder")
+    print("SIMFOLDER: /path/to/simfolder   #add a wildcard to use multiple folders with the same prefix") 
     print("KCOR_PATH: /path/to/kcor")
     print("SIMGEN_EAZY: simgen_eazy_templates_file.INPUT")
     print("HOSTLIB_FILE: /path/to/hostlib")
+    print("OUTDIR_SIM_INPUT: /path/to/store_inputs #optional OUTDIR for new inputs, otherwise create 'store inputs' folder in current dir" )
     print("")
 
 def print_verbose_main(config_dic, cids_mjd_rows):

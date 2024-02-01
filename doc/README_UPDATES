@@ -22189,6 +22189,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     genmag_SEDtools.c:
       + abort if total size of flattened 1D flux array is larger
-        than 2 billion; see NBTOT_DBL.
+        than 2 billion; see NBTOT_DBL. Initial use was for
+        Gagliano's 32,000 SEDs to model pre-explosion.
 
 END: 

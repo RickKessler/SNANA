@@ -557,7 +557,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   // Nov 24, 2008: allocate flux-integral memory for NSED & NZBIN
   // Jan 30, 2010: switch from fancy 5-dim pointer to 1d pointer
   // Dec 15, 2021: fix isize=sizeof(float) instead of pointer size.
-
+  // Feb 01, 2024: abort if max pointer size (NBTOT_DBL) exceeds 2 billion
   int isize;
   char fnam[] = "malloc_FLUXTABLE_SEDMODEL" ;
 
@@ -601,6 +601,20 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   NBIN_SEDMODEL_FLUXTABLE[IDIM_SEDMODEL_LAMPOW]   = NLAMPOW ;
   NBIN_SEDMODEL_FLUXTABLE[IDIM_SEDMODEL_DAY]      = NDAY ;
   NBIN_SEDMODEL_FLUXTABLE[IDIM_SEDMODEL_SED]      = NSED ;
+
+  // abort if flattened 1D size exceeds 4-byte pointer size of 2 billion.
+  // Make sure to use long (8-byte) integers for local computation.
+  // xxx mark  NSED=32300; NDAY=206; NZBIN=185; NFILT=6; // xxx REMOVE
+  long long int NBTMP1 = (NSED+1) * (NDAY+1) * (NLAMPOW+1) ;
+  long long int NBTMP2 = (NZBIN+1) * (NFILT+1) ;
+  long long int NBTOT_DBL = NBTMP1 * NBTMP2 ;
+
+  if ( NBTOT_DBL > 2147000000 ) {
+    print_preAbort_banner(fnam);
+    sprintf(c1err,"Total number of flattened 1D bins = %lld", NBTOT_DBL);
+    sprintf(c2err,"exceeds 4-byte pointer size of 2^31 = 2.147 billion");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
 
   N1DBINOFF_SEDMODEL_FLUXTABLE[0] = 
     (NSED+1) * (NDAY+1) * (NLAMPOW+1) * (NZBIN+1) * (NFILT+1) ;

@@ -1675,7 +1675,7 @@ void  read_specTable_HOSTLIB(void) {
 			  PATH_USER_INPUT, ptrFile,
 			  fileName_full, &gzipFlag );  // <== returned
   if ( !fp ) {
-    sprintf(varName_tmp,"HOSTLIB_SPEC%_FILE", HOSTSPEC.TABLENAME );
+    sprintf(varName_tmp,"HOSTLIB_SPEC%s_FILE", HOSTSPEC.TABLENAME );
     abort_openTextFile(varName_tmp, PATH_USER_INPUT, ptrFile, fnam);
   }
 
@@ -10658,7 +10658,7 @@ void  read_specTable_HOSTLIB_legacy(void) {
 			  PATH_USER_INPUT, ptrFile,
 			  fileName_full, &gzipFlag );  // <== returned
   if ( !fp ) {
-    sprintf(varName_tmp,"HOSTLIB_SPEC%_FILE", HOSTSPEC.TABLENAME );
+    sprintf(varName_tmp,"HOSTLIB_SPEC%s_FILE", HOSTSPEC.TABLENAME );
     abort_openTextFile(varName_tmp, PATH_USER_INPUT, ptrFile, fnam);
   }
 

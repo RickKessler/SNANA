@@ -289,7 +289,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   SPECTROGRAPH_SEDMODEL.NBLAM_TOT = 0 ; // spectrograph option
 
-  malloc_MXSEDMODEL(SEDMODEL.NSURFACE, 0); 
+  malloc_METADATA_SEDMODEL(SEDMODEL.NSURFACE, 0); 
   malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
 
   // ------- Now read the spectral templates -----------

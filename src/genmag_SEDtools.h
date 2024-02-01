@@ -15,9 +15,9 @@
  Aug 23 2019: MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
 
  Jan 31 2024: replace many [MXSEDMODEL]-dependent arrays with pointers that
-              are allocated in malloc_MXSEDMODEL. This enables much larger
-              MXSEDMODEL without increasing static program size.
-              MXSEDMODEL -> 40k (was 8k)
+              are allocated in malloc_METADATA_SEDMODEL. 
+              This enables much larger MXSEDMODEL without increasing 
+              static program size. MXSEDMODEL -> 40k (was 8k)
 
 ********************************************/
 
@@ -293,7 +293,7 @@ void init_MWXT_SEDMODEL(int OPT_COLORLAW, double RV) ;
 double interp_primaryFlux_SEDMODEL(double lam) ;
 double interp_primaryMag_SEDMODEL(double lam) ;  // for SPECTROGRAPH bins
 
-void malloc_MXSEDMODEL(int NSED, int NPAR);
+void malloc_METADATA_SEDMODEL(int NSED, int NPAR);
 void malloc_FLUXTABLE_SEDMODEL(int NFILT, int NZBIN, int NLAMPOW, 
 			       int NDAY, int NSED);
 void malloc_SEDFLUX_SEDMODEL (SEDMODEL_FLUX_DEF *SEDMODEL, 

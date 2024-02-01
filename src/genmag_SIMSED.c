@@ -853,7 +853,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
       fgets(string_parnames, 200, fp);
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
-      malloc_MXSEDMODEL(NSED_COUNT, NPAR); // Jan 2024
+      malloc_METADATA_SEDMODEL(NSED_COUNT, NPAR); // Jan 2024
 
       SEDMODEL.NPAR = NPAR;
       tmpName_index[0] = 0 ;

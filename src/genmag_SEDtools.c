@@ -485,12 +485,14 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
 
 } // end of init_redshift_SEDMODEL
 
-void malloc_MXSEDMODEL(int NSED, int NPAR) {
+// ==================================================
+void malloc_METADATA_SEDMODEL(int NSED, int NPAR) {
 
   // Created Jan 31 2024
-  // malloc SEDMODEL struct arrays that depend on 
+  // malloc meta data arrays in SEDMODEL struct that depend on 
   // number of SED surfaces and number of SED parameters.
-  // 
+  // This includes param values, day-binning, and wave-binning.
+  //
   int ised, ipar;
   int NSED_malloc = NSED + 1 ;
   int MEMC_PARVAL_SED = NSED_malloc * sizeof(char**) ;
@@ -505,7 +507,7 @@ void malloc_MXSEDMODEL(int NSED, int NPAR) {
 
   int  MEMC_FNAM_SED = NSED_malloc * sizeof(char*) ;
   int  MEMC_FNAM_LEN = 80   * sizeof(char);
-  char fnam[] = "malloc_MXSEDMODEL" ;
+  char fnam[] = "malloc_METADATA_SEDMODEL" ;
 
   // -------- BEGIN ----------
 
@@ -521,15 +523,15 @@ void malloc_MXSEDMODEL(int NSED, int NPAR) {
     SEDMODEL.PARVAL_STRING[ised] = (char  **) malloc ( MEMC_PARVAL_PAR );
     SEDMODEL.FILENAME[ised]      = (char   *) malloc ( MEMC_FNAM_LEN );
 
-    SEDMODEL.NLAM    = (int*) malloc ( MEMI_1D_SED);
+    SEDMODEL.NLAM    = (int   *) malloc ( MEMI_1D_SED);
     SEDMODEL.LAMMIN  = (double*) malloc ( MEMD_1D_SED );
     SEDMODEL.LAMMAX  = (double*) malloc ( MEMD_1D_SED );
     SEDMODEL.LAMSTEP = (double*) malloc ( MEMD_1D_SED );
 
-    SEDMODEL.NDAY    = (int*) malloc ( MEMI_1D_SED);
-    SEDMODEL.DAYMIN  = (double*) malloc ( MEMD_1D_SED );
-    SEDMODEL.DAYMAX  = (double*) malloc ( MEMD_1D_SED );
-    SEDMODEL.DAYSTEP = (double*) malloc ( MEMD_1D_SED );
+    SEDMODEL.NDAY    = (int    *) malloc ( MEMI_1D_SED);
+    SEDMODEL.DAYMIN  = (double *) malloc ( MEMD_1D_SED );
+    SEDMODEL.DAYMAX  = (double *) malloc ( MEMD_1D_SED );
+    SEDMODEL.DAYSTEP = (double *) malloc ( MEMD_1D_SED );
     SEDMODEL.DAY     = (double**) malloc ( NSED_malloc * sizeof(double*) );
     //    int *NDAY, *NLAM;
     //    double *LAMMIN, *LAMMAX, *LAMSTEP;
@@ -542,12 +544,16 @@ void malloc_MXSEDMODEL(int NSED, int NPAR) {
 
   return ;
 
-} // end malloc_MXSEDMODEL
+} // end malloc_METADATA_SEDMODEL
 
 // ******************************************
 void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW, 
 				int NDAY, int NSED ) {
 
+  // Created 2008
+  // Allocate flattened 5D arrays vs {Filter, redshift, LAMPOW, day, sed};
+  // to store flux for each SED time series.
+  //
   // Nov 24, 2008: allocate flux-integral memory for NSED & NZBIN
   // Jan 30, 2010: switch from fancy 5-dim pointer to 1d pointer
   // Dec 15, 2021: fix isize=sizeof(float) instead of pointer size.
@@ -663,6 +669,8 @@ void malloc_SEDFLUX_SEDMODEL(SEDMODEL_FLUX_DEF *SEDMODEL_FLUX,
 			     int NBIN_SED_USER ) {
 
   // Created Mar 7 2017
+  // Allocate arrays for SEDMODEL_FLUX structure that is passed as argument.
+  //
   // May 2018: 
   //  + if any input NBIN > 0, use it instead of default
   //  + pass structure to modify instead of operating on TEMP_SEDMODEL

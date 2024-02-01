@@ -105,13 +105,19 @@ def is_it_Ia(lines):
 
     return(result)
 
+def get_genversion(dump_file_path):
+    # extract genversion string from simgen-dump file path (RK)
+    genversion = (((dump_file_path.split("/"))[-1]).split("."))[0]
+    return genversion
+    # end get_genversion
+
 def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir):
     #edit input file for a given cid and mjd
     #returns path of new input file
-    begin_id = 'sim_input_'
-    end_id = '_MODEL0.input'
-    version = file_name[file_name.find(begin_id)+len(begin_id):file_name.find(end_id)]  ####This makes the final file name too long
-   
+
+    version = get_genversion(dump_file_path)
+    # xxx mark delete RK version = file_name[file_name.find('WFD_')+4:file_name.find('_MODEL0')]  #change to be more general for SNANA, WFD_ is for wide fast deep
+
     ACTION_CHANGE = 'CHANGE'
     ACTION_REMOVE = 'REMOVE'
     ACTION_ADD = 'ADD'
@@ -251,6 +257,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     filename = version+"_cid"+str(cid)+'_mjd'+str(mjd)+"_new.input"   # name of the file to create 
     print('Final input file name stored in ',outdir,'/', filename)
     #join the sub-directory and filename using os.path.join() 
+
     path = os.path.join(outdir, filename) 
     # create the file using the built-in open() function 
     
@@ -314,16 +321,20 @@ def process_cid(cid,mjds,config_dic):
 
         #create input file
         cwd = os.getcwd()
-        gen = (((dump_file_path.split("/"))[-1]).split("."))[0]
 
-        command = f"quick_commands.py -v {gen} --extract_sim_input"
+        # extract version string from simgen-dump file
+        genversion = get_genversion(dump_file_path)
 
-        if outdir == 'store_inputs':
-            subprocess.run([command], capture_output=True, text=True, shell=True, cwd = cwd+ "/store_inputs")
-            file_name = cwd+"/store_inputs/sim_input_"+gen+"_MODEL0.input"
+        command = f"quick_commands.py -v {genversion} --extract_sim_input"
+
+        if outdir == 'store_inputs' :
+            subprocess.run([command], capture_output=True, text=True, shell=True, 
+                           cwd = cwd+ "/store_inputs")
+            file_name = cwd+"/store_inputs/sim_input_"+genversion+"_MODEL0.input"
         else:
-            subprocess.run([command], capture_output=True, text=True, shell=True, cwd = outdir)
-            file_name = outdir+"/sim_input_"+gen+"_MODEL0.input"
+            subprocess.run([command], capture_output=True, text=True, shell=True, 
+                           cwd = outdir)
+            file_name = outdir+ "/sim_input_" + genversion + "_MODEL0.input"
         
         if verbose==True:
             print('Run the following command in ', outdir, command)
@@ -333,7 +344,8 @@ def process_cid(cid,mjds,config_dic):
         #edit input file
         if verbose==True:
             print('Create edited input file.')
-        path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir) #final path of input file to resimulate
+
+        path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir) 
 
         if no_resim==False:
             #run sim

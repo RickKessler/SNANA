@@ -17,11 +17,12 @@
  Jan 31 2024: replace many [MXSEDMODEL]-dependent arrays with pointers that
               are allocated in malloc_MXSEDMODEL. This enables much larger
               MXSEDMODEL without increasing static program size.
+              MXSEDMODEL -> 40k (was 8k)
 
 ********************************************/
 
 // define bounds for filter and SED arrays
-#define MXSEDMODEL          8000   // max number of SED surfaces
+#define MXSEDMODEL          40000   // max number of SED surfaces
 #define MXFILT_SEDMODEL     MXFILTINDX     // max internal filter index
 #define MXBIN_LAMFILT_SEDMODEL 2400   // length of largest filter file
 #define MXBIN_LAMSED_SEDMODEL  8000   // max # lambda bins for SED

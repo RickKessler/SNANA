@@ -22185,5 +22185,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + replace many [MXSEDMODEL]-dependent arrays with pointers that
          are allocated in malloc_MXSEDMODEL. This enables much larger
          MXSEDMODEL without increasing static program size.
+       + MXSEDMODEL -> 40k (was 8k)
 
 END: 

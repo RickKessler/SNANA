@@ -144,7 +144,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
             'HOSTLIB_GALID_FORCE:'         :    [ 'GALID',            ACTION_ADD,      None,                           False],
             'GENMAG_OFF_GLOBAL:'           :    [ 'MAGSMEAR_COH',     ACTION_ADD,      None,                           False],
             'HOSTLIB_SPECBASIS_FILE:'      :    [  None,              ACTION_ADD,      SIMGEN_EAZY,                    False],
-            'GENPREFIX:'                   :    [  None,              ACTION_ADD,      'ADD_SPEC',                     False], #Testing this
+            'GENPREFIX:'                   :    [  None,              ACTION_ADD,      'ADD_SPEC',                     False], 
             'GENVERSION:'                  :    [  None,              ACTION_CHANGE,   GENVERSION_VALUE,               False],
             'NGENTOT_LC:'                  :    [  None,              ACTION_CHANGE,   '1',                            False],
             'FORMAT_MASK:'                 :    [  None,              ACTION_CHANGE,   '2',                            False],

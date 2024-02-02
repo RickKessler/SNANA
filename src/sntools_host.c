@@ -148,8 +148,6 @@ void INIT_HOSTLIB(void) {
   if ( INPUTS.REQUIRE_DOCANA ) 
     { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-
   // check for spectral templates to determin host spectrum
   read_specTable_HOSTLIB();
 
@@ -159,8 +157,6 @@ void INIT_HOSTLIB(void) {
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_HOSTLIB_WGTMAP();
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-
   // open hostlib and start reading
   open_HOSTLIB(&fp_hostlib);     // open and return file pointer
   read_head_HOSTLIB(fp_hostlib); // read header info: VARNAMES, ...
@@ -169,22 +165,13 @@ void INIT_HOSTLIB(void) {
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-      
-
   // re-open hostlib for GAL keys so that it works for gzipped files.
   // (cannot rewind gzip file, so close and re-open is only way)
   open_HOSTLIB(&fp_hostlib);     // re-open
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-
   read_gal_HOSTLIB(fp_hostlib);  // read "GAL:" keys
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-
   close_HOSTLIB(fp_hostlib);     // close HOSTLIB
-
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
 
   // summarize SNPARams that were/weren't found
   summary_snpar_HOSTLIB();
@@ -194,11 +181,7 @@ void INIT_HOSTLIB(void) {
 
   // abort if any GALID+ZTRUE pair appears more than once
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-
   check_duplicate_GALID();
-
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
   
   // set redshift pointers for faster lookup
   zptr_HOSTLIB();
@@ -220,12 +203,8 @@ void INIT_HOSTLIB(void) {
   // init options for re-using same host
   init_SAMEHOST();
 
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
-
   // init parameters and Gauss2d integrals for galaxy aperture mag
   init_GALMAG_HOSTLIB();
-
-  if ( INPUTS.DEBUG_FLAG == 1112 )  { system_pmap("snlc_sim.exe", fnam); }
 
   TIME_INIT_HOSTLIB[1]  = time(NULL);
   double dT = (TIME_INIT_HOSTLIB[1]-TIME_INIT_HOSTLIB[0]);
@@ -1637,11 +1616,6 @@ void  read_specTable_HOSTLIB(void) {
   
   // --------------- BEGIN -----------------
 
-
-  if ( INPUTS.DEBUG_FLAG == -1012 ) { read_specTable_HOSTLIB_legacy(); return; }
-
-  // DEBUG_FLSG = 1012 so continue with refactored code
-
   HOSTSPEC.ITABLE       = -9 ; // BASIS or DATA
   HOSTSPEC.TABLENAME[0] =  0 ;
   HOSTSPEC.NSPECBASIS   =  0 ;
@@ -2645,6 +2619,7 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_b_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_B_DLR, 0) ; 
   HOSTLIB.IVAR_WEAKLENS_DMU = IVAR_HOSTLIB(HOSTLIB_VARNAME_WEAKLENS_DMU, 0) ;
 
+  // keep this debug flag to disable host NBR
   if ( INPUTS.DEBUG_FLAG == 1012 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
@@ -10360,9 +10335,6 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   // ------------- BEGIN -------------
 
-  if ( INPUTS.DEBUG_FLAG == -1009 ) 
-    { rewrite_HOSTLIB_plusAppend_legacy(append_file);  return; }
-
   print_banner(fnam);
 
   // read varnames from header and return space-sep tmp_varname_string 
@@ -10489,349 +10461,6 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 } // end rewrite_HOSTLIB_plusAppend
 
 
-// **************************************************
-void rewrite_HOSTLIB_plusAppend_legacy(char *append_file) {
-
-  // May 4 2021
-  // Read columns in *append_file, and append to original HOSTLIB.
-  // 
-
-  int NGAL        = HOSTLIB.NGAL_STORE;
-  HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
-  int  NROW, NVAR_APPEND, ivar ;
-  int  optMask       = 1 ; // 1=print info
-  int  NMISSING      = 0;
-  char tableName[]   = "HOSTLIB" ;
-  char KEY_ALLVAR[]  = "ALL" ;
-  char *varName, varList[100], *LINE_APPEND ;
-  char fnam[]      = "rewrite_HOSTLIB_plusAppend_legacy" ;
-
-  // ------------- BEGIN -------------
-
-  print_banner(fnam);
-
-  // read append file
-  NROW = SNTABLE_AUTOSTORE_INIT(append_file, tableName, KEY_ALLVAR, optMask);
-  NVAR_APPEND = READTABLE_POINTERS.NVAR_TOT; 
-
-  malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
-  LINE_APPEND = (char*) malloc (MXCHAR_LINE_APPEND * sizeof(char) ) ;
-
-  varList[0] = 0;
-  for( ivar = 1 ; ivar < NVAR_APPEND; ivar++ ) {
-    varName = READTABLE_POINTERS.VARNAME[ivar];
-    strcat(varList,varName);
-    strcat(varList," ");
-  }
-
-
-  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "%s", varList);
-  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+APPEND");
-  
-  int  igal_unsort, igal_zsort, istat_read;
-  long long GALID;
-  char cGALID[40], cVAL[40];
-  double dVAL ;
-
-
-  for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
-    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
-    ivar  = HOSTLIB.IVAR_GALID;
-    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
-    sprintf(cGALID,"%lld", GALID);
-    
-    LINE_APPEND[0] = 0;
-    for( ivar = 1 ; ivar < NVAR_APPEND; ivar++ ) {
-      varName = READTABLE_POINTERS.VARNAME[ivar];
-      SNTABLE_AUTOSTORE_READ(cGALID, varName, &istat_read, &dVAL, cVAL); 
-      if ( istat_read == 0 ) {
-	sprintf(cVAL, "%.5f ", dVAL);
-      }
-      else {
-	dVAL = -9.0 ;  if ( ivar==1 ) { NMISSING++ ; }
-	sprintf(cVAL, "-9.0 ");
-      }
-      strcat(LINE_APPEND,cVAL);
-    }
-
-    sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
-
-  } // end igal
-
-
-  char MSG[200]; 
-  sprintf(MSG,"%s appended %d variables (%s)", 
-	  getenv("USER"), NVAR_APPEND, varList);
-  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
-
-  sprintf(MSG,"Append file is %s", append_file);
-  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
-
-  sprintf(MSG,"Missing %d GALIDs in append file.", NMISSING);
-  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
-
-  // execute re-write
-  rewrite_HOSTLIB(&HOSTLIB_APPEND);
- 
-  free(LINE_APPEND);
-
-  if ( NMISSING > 0 ) {
-    printf("\t WARNING: Missing %5d GALIDs (wrote -9 for %s)\n",
-	   NMISSING, varList ); 
-  }
-
-  printf(" Done with legacy append. \n");
-
-  fflush(stdout);
-
-  exit(0);
-
-  return ;
-
-} // end rewrite_HOSTLIB_plusAppend_legacy
-
-
-// ====================================
-void  read_specTable_HOSTLIB_legacy(void) {
-
-  // Created Jun 28 2019 by R.Kessler
-  // Read supplemental file of spectral templates, used later
-  // to construct Host spectrum for each event.
-  // This read must be done before reading the HOSTLIB,
-  // so that the template names can be matched between
-  // this specTemplate file and the VARNAMES in the HOSTLIB.
-  //
-  // May 22 2020: abort if VARNAMES key not found
-  // Feb 12 2021: adapt to also work for SPECDATA 
-
-  FILE *fp;
-  int  NBIN_WAVE, NBIN_READ, IFILETYPE;
-  int  NVAR, ivar, ICOL_WAVE, MEMD, NUM, gzipFlag, ifile ;
-  int  NVAR_WAVE  = 0 ;
-  int  OPT_VARDEF = 0 ;
-  int  LEN_PREFIX,  *NSPEC ;
-  char *ptrFile_list[2], *ptrFile ;
-  char *varName, varName_tmp[100], VARNAME_PREFIX[20];
-  char c_get[60], fileName_full[MXPATHLEN] ;  
-  char TABLENAME_LIST[2][12] = { "BASIS", "DATA" } ;
-  char PREFIX_LIST[2][12]    = { PREFIX_SPECBASIS, PREFIX_SPECDATA } ;
-  char TBLNAME[20];
-  char fnam[] = "read_specTable_HOSTLIB_legacy";
-  
-  // --------------- BEGIN -----------------
-
-  HOSTSPEC.ITABLE       = -9 ; // BASIS or DATA
-  HOSTSPEC.TABLENAME[0] =  0 ;
-  HOSTSPEC.NSPECBASIS   =  0 ;
-  HOSTSPEC.NSPECDATA    =  0 ;
-  HOSTSPEC.IDSPECDATA   = -9 ;
-  HOSTSPEC.NBIN_WAVE    =  0 ;
-  HOSTSPEC.FLAM_SCALE        = 1.0 ;
-  HOSTSPEC.FLAM_SCALE_POWZ1  = 0.0 ;
-
-  // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-  ptrFile_list[ITABLE_SPECBASIS] = INPUTS.HOSTLIB_SPECBASIS_FILE ;
-  ptrFile_list[ITABLE_SPECDATA]  = INPUTS.HOSTLIB_SPECDATA_FILE ;
-  for(ifile = 0; ifile < 2; ifile++ ) {
-    if ( !IGNOREFILE(ptrFile_list[ifile]) ) {
-      HOSTSPEC.ITABLE = ifile;
-      sprintf(HOSTSPEC.TABLENAME, "%s", TABLENAME_LIST[ifile] );
-      sprintf(VARNAME_PREFIX,"%s", PREFIX_LIST[ifile]);
-      LEN_PREFIX = strlen(VARNAME_PREFIX);
-      ptrFile = ptrFile_list[ifile];
-      sprintf(TBLNAME,"%s", HOSTSPEC.TABLENAME);
-    }
-  }
-
-  if ( HOSTSPEC.ITABLE < 0 ) { return; } // nothing to do here
-
-  printf("\n\t Read SPEC-%s from supplemental file:\n", HOSTSPEC.TABLENAME );
-  fflush(stdout);
-
-  // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-  // - - - - - - - - - - - - - -
-  // read until VARNAMES key in case there are supplemental keys
-
-  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
-			  PATH_USER_INPUT, ptrFile,
-			  fileName_full, &gzipFlag );  // <== returned
-  if ( !fp ) {
-    sprintf(varName_tmp,"HOSTLIB_SPEC%s_FILE", HOSTSPEC.TABLENAME );
-    abort_openTextFile(varName_tmp, PATH_USER_INPUT, ptrFile, fnam);
-  }
-
-  if ( HOSTSPEC.ITABLE == ITABLE_SPECBASIS )
-    { NSPEC = &HOSTSPEC.NSPECBASIS ; }
-  else
-    { NSPEC = &HOSTSPEC.NSPECDATA ; }
-
-
-  bool FOUND_VARNAMES = false ;
-  while( !FOUND_VARNAMES  && (fscanf(fp, "%s", c_get)) != EOF) {
-    if ( strcmp(c_get,"VARNAMES:") == 0 ) { FOUND_VARNAMES=true ; }
-
-    if ( strcmp(c_get,"FLAM_SCALE:") == 0 ) 
-      { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE); }    
-
-    if ( strcmp(c_get,"FLAM_SCALE_POWZ1:") == 0 ) 
-      { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE_POWZ1); }    
-  }
-
-  // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-  if ( gzipFlag ) { pclose(fp); }  else {  fclose(fp); }
-
-  if ( !FOUND_VARNAMES ) {
-    sprintf(c1err,"Could not find VARNAMES in header of");
-    sprintf(c2err,"HOSTLIB_SPEC%s_FILE", TBLNAME );
-    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
-  }
-
-  // - - - - - - - - - - - - - -
-  // now read spec-table with standard routines
-  TABLEFILE_INIT();
-  NBIN_WAVE   = SNTABLE_NEVT(ptrFile,TBLNAME);
-  IFILETYPE   = TABLEFILE_OPEN(ptrFile,"read");
-  NVAR        = SNTABLE_READPREP(IFILETYPE,TBLNAME);
-  MEMD        = (NBIN_WAVE+100) * sizeof(double);
-
-  if ( NBIN_WAVE > MXBIN_SPECBASIS ) {
-    sprintf(c1err,"NBIN_WAVE=%d exceeds bound of %d",
-	    NBIN_WAVE, MXBIN_SPECBASIS );
-    sprintf(c2err,"Reduce NBIN_WAVE or increase MXBIN_SPECBASIS");
-    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
-  }
-
-  // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-  // examine VARNAMES list to make sure that there is a wavelength column,
-  // and count how many template[nn] colummns
-  ICOL_WAVE = -9;  *NSPEC=0 ;
-  for(ivar=0; ivar < NVAR; ivar++ ) {
-    varName = READTABLE_POINTERS.VARNAME[ivar];
-    if ( strstr(varName,"wave") != NULL ) { ICOL_WAVE = ivar; }
-    if ( strstr(varName,"WAVE") != NULL ) { ICOL_WAVE = ivar; }
-    if ( strstr(varName,"lam" ) != NULL ) { ICOL_WAVE = ivar; }
-    if ( strstr(varName,"LAM" ) != NULL ) { ICOL_WAVE = ivar; }
-
-    if ( ICOL_WAVE == ivar ) {
-      NVAR_WAVE++ ;
-      if ( NVAR_WAVE == 1 ) { 
-	HOSTSPEC.WAVE_CEN     = (double*) malloc(MEMD);
-	HOSTSPEC.WAVE_MIN     = (double*) malloc(MEMD);
-	HOSTSPEC.WAVE_MAX     = (double*) malloc(MEMD);
-	HOSTSPEC.WAVE_BINSIZE = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE_CEN, NBIN_WAVE, 
-				OPT_VARDEF); 
-      }
-    }  
-
-    // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-    sprintf(varName_tmp,"%s", varName);
-    varName_tmp[LEN_PREFIX] = 0;
-
-    if ( strcmp_ignoreCase(varName_tmp,VARNAME_PREFIX) == 0 ) {
-      int N = *NSPEC;
-      if ( N < MXSPECBASIS_HOSTLIB ) {
-	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
-
-	HOSTSPEC.ICOL_SPECTABLE[N] = ivar;
-	// xxx mark	HOSTSPEC.NUM_SPECBASIS[N]  = NUM; // store template NUM
-	sprintf(HOSTSPEC.VARNAME_SPECBASIS[N],"%s", varName);
-
-	HOSTSPEC.FLAM_BASIS[N] = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName,HOSTSPEC.FLAM_BASIS[N],
-				NBIN_WAVE, OPT_VARDEF);
-      }
-      (*NSPEC)++ ; // always increment number of templates or data 
-    }
-  
-  } // end ivar loop
-
-  // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-  HOSTSPEC.FLAM_EVT = (double*) malloc(MEMD);
-
-  // - - - - - - - - - - - - - -
-  // abort tests
-  if ( ICOL_WAVE < 0 ) {
-    sprintf(c1err,"Could not find wavelength column");
-    sprintf(c2err,"Check VARNAMES");
-    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
-  }
-
-  if ( NVAR_WAVE != 1 ) {
-    sprintf(c1err,"Found %d wavelength columns; expect 1", NVAR_WAVE);
-    sprintf(c2err,"Check VARNAMES");
-    errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
-  }
-
-  if ( *NSPEC >= MXSPECBASIS_HOSTLIB ) {
-    sprintf(c1err,"NSPEC%s=%d exceeds bound of %d", 
-	    TBLNAME, *NSPEC, MXSPECBASIS_HOSTLIB ) ;
-    sprintf(c2err,"Remove templates or increase MXSPECBASIS_HOSTLIB");
-    errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
-  }
-	
-  // xxx mark   HOSTSPEC.ICOL_WAVE = ICOL_WAVE ;
-
-  // read the entire table, and close it.
-  NBIN_READ = SNTABLE_READ_EXEC();
-
-  // !!!!!!! mark delete read_specTable_HOSTLIB_legacy !!!!
-
-  // Loop over wave bins and
-  // + determine WAVE_BINSIZE for each wave bin
-  // + truncate NBIN_WAVE so that lam < MAXLAM_SEDMODEL
-  double WAVE_BINSIZE, WAVE_MIN, WAVE_MAX, LAM ;
-  double LAM_LAST=0.0, LAM_NEXT=0.0;
-  int FIRST, LAST, ilam, NBIN_KEEP=0 ;
-  for(ilam=0; ilam < NBIN_WAVE; ilam++ ) {
-
-    FIRST = ( ilam == 0 ) ;
-    LAST  = ( ilam == NBIN_WAVE-1 ) ;
-
-    LAM  = HOSTSPEC.WAVE_CEN[ilam];
-    if ( LAM > LAMMAX_SEDMODEL ) { continue; }
-
-    if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE_CEN[ilam-1]; }
-    if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE_CEN[ilam+1]; }
-
-    if ( FIRST ) { LAM_LAST = LAM - (LAM_NEXT-LAM) ; }
-    if ( LAST  ) { LAM_NEXT = LAM + (LAM-LAM_LAST) ; }
-
-    WAVE_MIN     = LAM - (LAM - LAM_LAST)/2.0;
-    WAVE_MAX     = LAM + (LAM_NEXT - LAM)/2.0;
-    WAVE_BINSIZE = WAVE_MAX - WAVE_MIN;
-
-    HOSTSPEC.WAVE_MIN[ilam]     = WAVE_MIN ;
-    HOSTSPEC.WAVE_MAX[ilam]     = WAVE_MAX ;
-    HOSTSPEC.WAVE_BINSIZE[ilam] = WAVE_BINSIZE;
-
-    NBIN_KEEP++ ;
-
-    if ( (ilam < -10) ) {
-      printf(" xxx : ilam=%d: LAM[-1,0,+1] = %6.1f , %6.1f, %6.1f  "
-	     "BINSIZE=%.1f \n",
-	     ilam, LAM_LAST, LAM, LAM_NEXT, WAVE_BINSIZE);
-      fflush(stdout);
-    }
-
-  } // end ilam loop
-
-  NBIN_WAVE = NBIN_KEEP;
-  HOSTSPEC.NBIN_WAVE  = NBIN_WAVE;
-
-  printf("\t Found %d spectral %s vectors and %d wavelength bins\n",
-	 *NSPEC, HOSTSPEC.TABLENAME, NBIN_WAVE);
-  fflush(stdout);
-
-  return;
-
-} // end read_specTable_HOSTLIB_legacy
 
 
 

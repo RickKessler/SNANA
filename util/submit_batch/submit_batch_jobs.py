@@ -32,13 +32,6 @@ from   submit_params      import *
 from   submit_prog_sim    import Simulation
 from   submit_prog_lcfit  import LightCurveFit
 
-# xxxxxxxx mark delete Feb 27 2023 xxxxxxxxx
-#try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
-#    from   submit_prog_lcfit  import LightCurveFit
-#except Exception as e:
-#    print(f" WARNING: could not import LightCurveFit")
-#    pass
-# xxxxxxxxxxxxxx
 
 from   submit_prog_bbc      import BBC
 from   submit_prog_covmat   import create_covmat
@@ -357,11 +350,17 @@ def print_cpu_sum():
     cpu_dict = {}
     cpu_sum_total = 0.0 
     NMISSING_KEY_CPU_SUM = 0
-    N_PERMISSION_DENIED  = 0
+    N_SKIP               = 0
+
+    SKIP_LIST = [ '5_MERGE', 'denied' ] # skip these duplicates
 
     for merge_log in merge_log_list:
-        if 'denied' in merge_log:
-            N_PERMISSION_DENIED += 1
+
+        do_skip = False
+        for str_skip in SKIP_LIST :
+            if str_skip in merge_log: do_skip = True
+        if do_skip:
+            N_SKIP += 1
             continue
 
         yaml_contents ,comment_lines = util.read_merge_file(merge_log)
@@ -397,8 +396,8 @@ def print_cpu_sum():
         logging.info(f"\n WARNING: {NMISSING_KEY_CPU_SUM} " \
                      f"{MERGE_LOG_FILE} files are missing {KEY_CPU_SUM} key.")
 
-    if N_PERMISSION_DENIED > 0 :
-        logging.info(f"\n WARNING: {N_PERMISSION_DENIED} permission denied ")
+    if N_SKIP > 0 :
+        logging.info(f"\n WARNING: {N_SKIP} skipped files containing {SKIP_LIST}")
         
     logging.info("")
 

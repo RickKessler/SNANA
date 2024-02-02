@@ -21,6 +21,7 @@ def parse_yaml(args):
         except yaml.YAMLError as exc:
             
             print(exc)
+            sys.stdout.flush()
     return(config_dic)
 
 def get_args():
@@ -33,11 +34,13 @@ def get_args():
     msg2 = "increase output verbosity"
     msg3 = "turn off noise in spectra"
     msg4 = "print help menu for config parameters"
-    parser.add_argument("-f", "--file_name", help=msg, type=str, default='')
+    msg5 = "extra sim args to append to snlc_sim.exe"
+    parser.add_argument("file_name", help=msg, type=str, default='')
     parser.add_argument("-n", "--no_resim", help=msg1, action='store_true', default=False)
     parser.add_argument("-v", "--verbose", help=msg2, action="store_true", default=False)
     parser.add_argument("-p", "--perfect", help=msg3, action="store_true", default=False)
     parser.add_argument("-H", "--help_config", help=msg4, action="store_true", default=False)
+    parser.add_argument("-e", "--extra_sim_args",help=msg5, type=str, default='')
     
     args = parser.parse_args()
     Help = args.help_config
@@ -48,11 +51,13 @@ def get_args():
     file = args.file_name
     if file == '':
         print('ERROR: No yaml file name given.')
+        sys.stdout.flush()
         sys.exit()
 
     no_resim = args.no_resim
     verbose = args.verbose
     perfect = args.perfect
+    extra_sim_args = args.extra_sim_args
     config_dic = parse_yaml(args)
 
     if len(sys.argv) == 1:
@@ -60,8 +65,9 @@ def get_args():
         
     if verbose==True:
         print('Retrieved arguments.')
+        sys.stdout.flush()
     
-    return no_resim, verbose, perfect, config_dic, Help
+    return no_resim, verbose, perfect, config_dic, Help, extra_sim_args
 
 
 
@@ -80,6 +86,7 @@ def find_dump_file(cid, simfolder):
                 counter += 1
     if counter !=1:
         print('ERROR: Number of dump files found with the cid is expected 1, but is: ', counter)
+        sys.stdout.flush()
         sys.exit()
 
     return(dump_path)
@@ -88,9 +95,11 @@ def retrieve_values_from_dump(dump_file_path, cid, dump_key):
     #retrieve and return values from dump file for a given cid and key
     if verbose == True:
         print('Accessing dump file: ', dump_file_path)
+        sys.stdout.flush()
     command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key
     if verbose == True:
         print('Getting fitres values using command: ', command)
+        sys.stdout.flush()
     hold = subprocess.run([command],  capture_output=True, text=True, shell=True)
     hold = str(hold)
     hold = hold.split('\\n')[-2]
@@ -134,7 +143,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     KEY_CHANGE_DICT = {
             # sim-input key                  simgen dump key        action           value                          only for Ia?
             'CIDRAN_MIN:'                  :    [  None,              ACTION_REMOVE,   None,                           False],
-            'CIDRAN_MrAX:'                 :    [  None,              ACTION_REMOVE,   None,                           False],
+            'CIDRAN_MAX:'                 :    [  None,              ACTION_REMOVE,   None,                           False],
             'GENMAG_SMEAR_MODELNAME:'      :    [  None,              ACTION_REMOVE,   None,                           False],
             'LENSING_PROBMAP_FILE:'        :    [  None,              ACTION_REMOVE,   None,                           False],
             'SIMLIB_NREPEAT:'              :    [  None,              ACTION_REMOVE,   None,                           False],
@@ -168,6 +177,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     if perfect==True:
         KEY_CHANGE_DICT['SPECTROGRAPH_OPTMASK:'] = [  None,              ACTION_ADD,      '32768',                        False]
         print('Perfect flag was raised, so turn off noise in spectrum.')
+        sys.stdout.flush()
 
 
     lines = []
@@ -193,6 +203,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
                     new_string = "#"+ key+" REMOVED BY SCRIPT"
                     if verbose==True:
                         print('REMOVED BY SCRIPT: ', key[0:-1])
+                        sys.stdout.flush()
                 #if the action is change
                 elif KEY_CHANGE_DICT[key][1] == ACTION_CHANGE:
                     #if the key is associated with a value and the SN is Ia, input the SALT values into the line
@@ -200,11 +211,13 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
                         new_string = new_string + KEY_CHANGE_DICT[key][2] + "   # CHANGED BY SCRIPT"
                         if verbose==True:
                             print('CHANGED BY SCRIPT: ', key[0:-1])
+                            sys.stdout.flush()
                     #if the key is associated with a value, input that into the line
                     elif KEY_CHANGE_DICT[key][0] == None and KEY_CHANGE_DICT[key][3]==False:
                         new_string = new_string + KEY_CHANGE_DICT[key][2] + "   # CHANGED BY SCRIPT"
                         if verbose==True:
-                            print('CHANGED BY SCRIPT: ', key[0:-1])                   
+                            print('CHANGED BY SCRIPT: ', key[0:-1])      
+                            sys.stdout.flush()             
                     #otherwise the key is associated with a dump file key, so retrieve that value from the dump file
                     #SALT values if Ia and then the rest
                     elif KEY_CHANGE_DICT[key][3]==is_Ia:
@@ -212,11 +225,13 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
                         new_string = new_string + from_dump + "   # CHANGED BY SCRIPT"
                         if verbose==True:
                             print('CHANGED BY SCRIPT: ', key[0:-1]) 
+                            sys.stdout.flush()
                     else:
                         from_dump = retrieve_values_from_dump(dump_file_path,cid,KEY_CHANGE_DICT[key][0])
                         new_string = new_string + from_dump + "   # CHANGED BY SCRIPT"
                         if verbose==True:
-                            print('CHANGED BY SCRIPT: ', key[0:-1])    
+                            print('CHANGED BY SCRIPT: ', key[0:-1])   
+                            sys.stdout.flush() 
         final_lines.append(new_string)
     
     #add the action change keys
@@ -227,12 +242,14 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
                 new_string = key + '  ' + value[2] + "   # ADDED BY SCRIPT"
                 if verbose==True:
                     print('ADDED BY SCRIPT: ', key)
+                    sys.stdout.flush()
                 final_lines.append(new_string)
             else:
                 from_dump = retrieve_values_from_dump(dump_file_path,cid,KEY_CHANGE_DICT[key][0])
                 new_string = key + ': ' + from_dump + "   # ADDED BY SCRIPT"
                 if verbose==True:
                     print('ADDED BY SCRIPT: ', key)
+                    sys.stdout.flush()
                 final_lines.append(new_string)
     
     #add the nonIa keys
@@ -248,14 +265,17 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
         final_lines.append(new_string)
         if verbose==True:
             print('ADDED BY SCRIPT: NON1A_KEYS, NON1A')
+            sys.stdout.flush()
 
     if verbose==False:
         print('Keys have been changed, removed, and added as needed.')
+        sys.stdout.flush()
 
     
 
     filename = version+"_cid"+str(cid)+'_mjd'+str(mjd)+"_new.input"   # name of the file to create 
     print('Final input file name stored in ',outdir,'/', filename)
+    sys.stdout.flush()
     #join the sub-directory and filename using os.path.join() 
 
     path = os.path.join(outdir, filename) 
@@ -285,25 +305,31 @@ def process_cid(cid,mjds,config_dic):
     if 'OUTDIR_SIM_INPUT' in config_dic:
         outdir = config_dic['OUTDIR_SIM_INPUT']
     else:
-        outdir = 'store_inputs'
+        outdir = 'store_resim_inputs'
 
-    if outdir == 'store_inputs' and not os.path.exists(outdir):
+    if outdir == 'store_resim_inputs' and not os.path.exists(outdir):
             os.makedirs(outdir)
 
     if verbose==True:
         print('Simfolder:  ', simfolder)
+        sys.stdout.flush()
         print('kcor file: ', kcor)
+        sys.stdout.flush()
         print('simgen_eazy file: ', simgen_eazy)
+        sys.stdout.flush()
         print('hostlib file: ', hostlib_file)
+        sys.stdout.flush()
 
     dump_file_path = find_dump_file(cid, simfolder)
     #store z and peak_mjd
     zcmb = retrieve_values_from_dump(dump_file_path,cid,'ZCMB')
     if verbose==True:
         print('ZCMB is: ', zcmb)
+        sys.stdout.flush()
     peak_mjd = retrieve_values_from_dump(dump_file_path,cid,'PEAKMJD')
     if verbose==True:
         print('Peak MJD is: ', peak_mjd)
+        sys.stdout.flush()
 
     #convert string 'peak' to peak_mjd
     if 'peak' in mjds:
@@ -311,10 +337,11 @@ def process_cid(cid,mjds,config_dic):
         mjds.append(peak_mjd)
 
     print('Processing for CID: ', cid)
+    sys.stdout.flush()
     mjds = [float(i) for i in mjds]
     cid = int(cid)
     print('Processing for the following MJDs: ', mjds)
-    sys.stdout.flush()  # RK 
+    sys.stdout.flush()
 
     for date in mjds:
         #create file for each date
@@ -328,10 +355,10 @@ def process_cid(cid,mjds,config_dic):
 
         command = f"quick_commands.py -v {genversion} --extract_sim_input"
 
-        if outdir == 'store_inputs' :
+        if outdir == 'store_resim_inputs' :
             subprocess.run([command], capture_output=True, text=True, shell=True, 
-                           cwd = cwd+ "/store_inputs")
-            file_name = cwd+"/store_inputs/sim_input_"+genversion+"_MODEL0.input"
+                           cwd = cwd+ "/store_resim_inputs")
+            file_name = cwd+"/store_resim_inputs/sim_input_"+genversion+"_MODEL0.input"
         else:
             subprocess.run([command], capture_output=True, text=True, shell=True, 
                            cwd = outdir)
@@ -339,52 +366,72 @@ def process_cid(cid,mjds,config_dic):
         
         if verbose==True:
             print('Run the following command in ', outdir, command)
+            sys.stdout.flush()
 
         
         print('Input file to edit: ', file_name)
+        sys.stdout.flush()
         #edit input file
         if verbose==True:
             print('Create edited input file.')
+            sys.stdout.flush()
 
         path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir) 
 
         if no_resim==False:
             #run sim
             print('Running simulation.')
-            command = f"snlc_sim.exe "+path.split('/')[1]
+            sys.stdout.flush()
+            command = f"snlc_sim.exe "+path.split('/')[1]+extra_sim_args
             print('PATH:', path)
+            sys.stdout.flush()
             print('Run the following command: ', command)
-            if outdir == 'store_inputs':
-                subprocess.run([command], text=True, shell=True, cwd = cwd+ "/store_inputs")
+            sys.stdout.flush()
+            if outdir == 'store_resim_inputs':
+                subprocess.run([command], text=True, shell=True, cwd = cwd+ "/store_resim_inputs")
             else:
                 subprocess.run([command], text=True, shell=True, cwd = outdir)
         else:
             print("No resim flag was raised, so not resimulating.")
+            sys.stdout.flush()
 
 def print_help():
     #print help menu for config parameters
     print("\nConfig File Set Up: \n ")
+    sys.stdout.flush()
     print("CID_MJD_LIST: ")
+    sys.stdout.flush()
     print("  - CID1 MJD1 peak ... MJDn   #can also include 'peak' to substitute true peak mjd")
+    sys.stdout.flush()
     print("  - CID2 MJD1 MJD2 ... MJDn \n    . \n    . \n    .")
+    sys.stdout.flush()
     print("  - CIDn MJD1 MJD2 ... MJDn")
+    sys.stdout.flush()
     print("SIMFOLDER: /path/to/simfolder   #add a wildcard to use multiple folders with the same prefix") 
+    sys.stdout.flush()
     print("KCOR_PATH: /path/to/kcor")
+    sys.stdout.flush()
     print("SIMGEN_EAZY: simgen_eazy_templates_file.INPUT")
+    sys.stdout.flush()
     print("HOSTLIB_FILE: /path/to/hostlib")
-    print("OUTDIR_SIM_INPUT: /path/to/store_inputs #optional OUTDIR for new inputs, otherwise create 'store inputs' folder in current dir" )
+    sys.stdout.flush()
+    print("OUTDIR_SIM_INPUT: /path/to/store_resim_inputs #optional OUTDIR for new inputs, otherwise create 'store inputs' folder in current dir" )
+    sys.stdout.flush()
     print("")
+    sys.stdout.flush()
 
 def print_verbose_main(config_dic, cids_mjd_rows):
     #print all verbose statements in main method
     print('YAML contained: ', config_dic)
+    sys.stdout.flush()
     print('CIDS + mjds are: ', cids_mjd_rows)
+    sys.stdout.flush()
 
 # =============================================
 #       MAIN
 # =============================================
 if __name__ == "__main__":
-    no_resim, verbose, perfect, config_dic, Help = get_args()
+    no_resim, verbose, perfect, config_dic, Help, extra_sim_args = get_args()
     cid_mjd_rows = config_dic['CID_MJD_LIST'] 
 
     if verbose==True:

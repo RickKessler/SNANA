@@ -114,9 +114,8 @@ def get_genversion(dump_file_path):
 def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir):
     #edit input file for a given cid and mjd
     #returns path of new input file
-    
-    version = get_genversion(dump_file_path)
 
+    version = get_genversion(dump_file_path)
     # xxx mark delete RK version = file_name[file_name.find('WFD_')+4:file_name.find('_MODEL0')]  #change to be more general for SNANA, WFD_ is for wide fast deep
 
     ACTION_CHANGE = 'CHANGE'
@@ -125,7 +124,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     KCOR = kcor
     TAKE_SPECTRUM_VALUE = 'MJD('+str(mjd)+':'+str(mjd+2)+') TEXPOSE_ZPOLY(1200)'
     TAKE_HOST = 'HOST                     TEXPOSE_ZPOLY(1200)'
-    GENVERSION_VALUE = 'ADD_SPEC_'+version+'_cid'+str(cid)+'_mjd'+str(mjd)
+    GENVERSION_VALUE = 'ADD_SPEC_'+version+'_cid'+str(cid)+'_mjd'+str(mjd)    
     CIDOFF_VALUE = str(cid-1) 
     GENRANGE_REDSHIFT_VALUE = str(zcmb)+' '+str(zcmb)
     GENRANGE_PEAKMJD_VALUE = str(peak_mjd)+' '+str(peak_mjd)
@@ -151,6 +150,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
             'HOSTLIB_GALID_FORCE:'         :    [ 'GALID',            ACTION_ADD,      None,                           False],
             'GENMAG_OFF_GLOBAL:'           :    [ 'MAGSMEAR_COH',     ACTION_ADD,      None,                           False],
             'HOSTLIB_SPECBASIS_FILE:'      :    [  None,              ACTION_ADD,      SIMGEN_EAZY,                    False],
+            'GENPREFIX:'                   :    [  None,              ACTION_ADD,      'ADD_SPEC',                     False], 
             'GENVERSION:'                  :    [  None,              ACTION_CHANGE,   GENVERSION_VALUE,               False],
             'NGENTOT_LC:'                  :    [  None,              ACTION_CHANGE,   '1',                            False],
             'FORMAT_MASK:'                 :    [  None,              ACTION_CHANGE,   '2',                            False],
@@ -255,7 +255,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     
 
     filename = version+"_cid"+str(cid)+'_mjd'+str(mjd)+"_new.input"   # name of the file to create 
-    print('Final input file name stored in ',outdir, filename)
+    print('Final input file name stored in ',outdir,'/', filename)
     #join the sub-directory and filename using os.path.join() 
 
     path = os.path.join(outdir, filename) 

@@ -143,7 +143,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     KEY_CHANGE_DICT = {
             # sim-input key                  simgen dump key        action           value                          only for Ia?
             'CIDRAN_MIN:'                  :    [  None,              ACTION_REMOVE,   None,                           False],
-            'CIDRAN_MrAX:'                 :    [  None,              ACTION_REMOVE,   None,                           False],
+            'CIDRAN_MAX:'                 :    [  None,              ACTION_REMOVE,   None,                           False],
             'GENMAG_SMEAR_MODELNAME:'      :    [  None,              ACTION_REMOVE,   None,                           False],
             'LENSING_PROBMAP_FILE:'        :    [  None,              ACTION_REMOVE,   None,                           False],
             'SIMLIB_NREPEAT:'              :    [  None,              ACTION_REMOVE,   None,                           False],

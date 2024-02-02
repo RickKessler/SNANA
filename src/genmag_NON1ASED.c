@@ -81,11 +81,6 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
       OPTMASK_T0SHIFT_PEAKMAG      // shift T=0 to be at peakmag
       ;
 
-    // xxxxxxxx
-    // temp debug option to disable abort on NLAM_PER_DAY
-    if ( INPUTS.DEBUG_FLAG == -1113 ) { SEDMODEL.OPTMASK += 1024 ; } 
-    // xxxxxxxxxxx
-
     // if error column exists in first SED file, 
     // add read-err flag to OPTMASK 
     if ( DO_GENGRID ) {

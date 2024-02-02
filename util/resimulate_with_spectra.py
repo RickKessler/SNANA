@@ -314,6 +314,7 @@ def process_cid(cid,mjds,config_dic):
     mjds = [float(i) for i in mjds]
     cid = int(cid)
     print('Processing for the following MJDs: ', mjds)
+    sys.stdout.flush()  # RK 
 
     for date in mjds:
         #create file for each date

@@ -2018,7 +2018,6 @@ void   gen_fluxNoise_randoms(void);
 void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   gen_fluxNoise_fudge_diag(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   gen_fluxNoise_fudge_cov(int icov);
-void   gen_fluxNoise_fudge_cov_legacy(int icov);
 void   gen_fluxNoise_driver_cov(void);
 void   gen_fluxNoise_apply(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpLine_fluxNoise(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);

@@ -774,7 +774,6 @@ bool snr_detect_HOSTLIB(int IGAL);
 void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
 
 // SPECBASIS functions
-void   read_specTable_HOSTLIB_legacy(void);
 void   read_specTable_HOSTLIB(void);
 void   read_specTable_SNANA(char *spec_file,  char *VARNAME_PREFIX);
 void   read_specTable_EAZY(char *spec_file);
@@ -797,11 +796,10 @@ void   rewrite_HOSTLIB_plusNbr(void) ;
 void   get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND);
 void   rewrite_HOSTLIB_plusMags(void);
 void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
-
-void   rewrite_HOSTLIB_plusAppend(char *append_file);
-void   rewrite_HOSTLIB_plusAppend_legacy(char *append_file);
-
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
+void   rewrite_HOSTLIB_plusAppend(char *append_file);
+
+
 
 // copy from sntools_calib.h
 void get_calib_filtlam_stats(int opt_frame, int ifilt_obs,  

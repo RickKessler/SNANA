@@ -22192,4 +22192,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         than 2 billion; see NBTOT_DBL. Initial use was for
         Gagliano's 32,000 SEDs to model pre-explosion.
 
+    get_fitres_values.py:
+       + improve stdout appearanc
+       + new --outfile option
 END: 

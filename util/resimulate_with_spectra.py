@@ -102,14 +102,9 @@ def retrieve_values_from_dump(dump_file_path, cid, dump_key):
         sys.stdout.flush()
     os.system(command) 
     df = pd.read_csv('out_simgen_resim.dump', comment='#', delim_whitespace=True)
-    row = df[df['CID']==cid]
-    print(row)
-    sys.exit()
-    with open('temp_resim.log', 'r') as f:
-        hold = f.read()
-    hold = hold.split('\n')[-2]
-    hold = hold.split()[-1]
-    return(hold)
+    row = df.loc[df['CID'] == int(cid)]
+    value = str(row[dump_key].values[0])
+    return(value)
 
 def is_it_Ia(lines):
     #check if the input file is for a Ia. Returns true if it is, false if it isn't

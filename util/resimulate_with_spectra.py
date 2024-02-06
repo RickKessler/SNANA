@@ -96,7 +96,7 @@ def retrieve_values_from_dump(dump_file_path, cid, dump_key):
     if verbose == True:
         print('Accessing dump file: ', dump_file_path)
         sys.stdout.flush()
-    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+"- o out_simgen_resim.dump"
+    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+" -o out_simgen_resim.dump"
     if verbose == True:
         print('Getting fitres values using command: ', command)
         sys.stdout.flush()

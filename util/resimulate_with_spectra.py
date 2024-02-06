@@ -8,7 +8,7 @@
 #          for a specific MJD utilizing the original dump file and input file.
 #
 
-import argparse, yaml, sys, os, re, glob
+import argparse, yaml, sys, os, re, glob, pandas as pd
 
 def parse_yaml(args):
     # parse yaml file, return dictionary of values
@@ -96,11 +96,15 @@ def retrieve_values_from_dump(dump_file_path, cid, dump_key):
     if verbose == True:
         print('Accessing dump file: ', dump_file_path)
         sys.stdout.flush()
-    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+">& temp_resim.log"
+    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+"- o out_simgen_resim.dump"
     if verbose == True:
         print('Getting fitres values using command: ', command)
         sys.stdout.flush()
     os.system(command) 
+    df = pd.read_csv('out_simgen_resim.dump', comment='#', delim_whitespace=True)
+    row = df[df['CID']==cid]
+    print(row)
+    sys.exit()
     with open('temp_resim.log', 'r') as f:
         hold = f.read()
     hold = hold.split('\n')[-2]

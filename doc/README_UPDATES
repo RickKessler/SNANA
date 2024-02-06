@@ -22186,10 +22186,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          are allocated in malloc_METADATA_SEDMODEL. This enables much 
          larger MXSEDMODEL without increasing static program size.
        + MXSEDMODEL -> 40k (was 8k)
+       + abort if SIMSED_PATH_BINARY is a file instead of a directory
 
     genmag_SEDtools.c:
       + abort if total size of flattened 1D flux array is larger
         than 2 billion; see NBTOT_DBL. Initial use was for
         Gagliano's 32,000 SEDs to model pre-explosion.
 
+    get_fitres_values.py:
+       + improve stdout appearanc
+       + new --outfile option
 END: 

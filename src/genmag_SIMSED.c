@@ -149,8 +149,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // Aug 18 2020: check kcor file with .gz
   // Dec 14 2021: new OPTMASK 2 and 4
   // Mar 02 2022: check UVLAM_EXTRAP
+  // Feb 05 2024: abort if PATH_BINARY is not a directory.
 
-  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat;
+  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR;
   int retval = SUCCESS ;
 
   bool USE_BINARY=false, USE_TESTMODE=false;
@@ -264,13 +265,22 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     IVERSION_SIMSED_BINARY = WRVERSION_SIMSED_BINARY ;
 
-    // make sure that PATH_BINARY exists, and copy it to global
+    // make sure that PATH_BINARY exists, and copy path name it to global
     sprintf(SIMSED_BINARY_INFO.PATH, "%s", PATH_BINARY);
     istat = stat(PATH_BINARY, &statbuf);
+
     if ( istat != 0 ) {
-      sprintf(c1err,"PATH_BINARY='%s'", PATH_BINARY);
+      sprintf(c1err,"SIMSED_PATH_BINARY='%s'", PATH_BINARY);
       sprintf(c2err,"does not exist.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    // make sure that binary is a directory, not a file name
+    IS_DIR = S_ISDIR(statbuf.st_mode);
+    if ( !IS_DIR ) {
+      sprintf(c1err,"SIMSED_PATH_BINARY=%s", PATH_BINARY);
+      sprintf(c2err,"must be directory, not a file.");     
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     sprintf(bin1File, "%s/%s", SIMSED_PATHMODEL, SIMSED_BINARY_FILENAME );

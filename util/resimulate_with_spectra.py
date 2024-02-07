@@ -76,6 +76,10 @@ def find_dump_file(cid, simfolder):
     exp_var = os.path.expandvars(simfolder)
     all_dump_files = exp_var+'/*DUMP'
     list_dumps = glob.glob(all_dump_files)
+    if len(list_dumps)==0:
+        print('ERROR: No dump files found in ', exp_var)
+        sys.stdout.flush()
+        sys.exit()
     counter = 0
     for dump in list_dumps:
         if "REPEAT" not in dump:

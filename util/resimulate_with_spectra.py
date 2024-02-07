@@ -8,7 +8,7 @@
 #          for a specific MJD utilizing the original dump file and input file.
 #
 
-import argparse, yaml, sys, os, shutil, gzip, re, glob, subprocess
+import argparse, yaml, sys, os, re, glob, pandas as pd
 
 def parse_yaml(args):
     # parse yaml file, return dictionary of values
@@ -96,15 +96,15 @@ def retrieve_values_from_dump(dump_file_path, cid, dump_key):
     if verbose == True:
         print('Accessing dump file: ', dump_file_path)
         sys.stdout.flush()
-    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key
+    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+" -o out_simgen_resim.dump"
     if verbose == True:
         print('Getting fitres values using command: ', command)
         sys.stdout.flush()
-    hold = subprocess.run([command],  capture_output=True, text=True, shell=True)
-    hold = str(hold)
-    hold = hold.split('\\n')[-2]
-    hold = hold.split()[-1]
-    return(hold)
+    os.system(command) 
+    df = pd.read_csv('out_simgen_resim.dump', comment='#', delim_whitespace=True)
+    row = df.loc[df['CID'] == int(cid)]
+    value = str(row[dump_key].values[0])
+    return(value)
 
 def is_it_Ia(lines):
     #check if the input file is for a Ia. Returns true if it is, false if it isn't
@@ -143,7 +143,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
     KEY_CHANGE_DICT = {
             # sim-input key                  simgen dump key        action           value                          only for Ia?
             'CIDRAN_MIN:'                  :    [  None,              ACTION_REMOVE,   None,                           False],
-            'CIDRAN_MAX:'                 :    [  None,              ACTION_REMOVE,   None,                           False],
+            'CIDRAN_MAX:'                  :    [  None,              ACTION_REMOVE,   None,                           False],
             'GENMAG_SMEAR_MODELNAME:'      :    [  None,              ACTION_REMOVE,   None,                           False],
             'LENSING_PROBMAP_FILE:'        :    [  None,              ACTION_REMOVE,   None,                           False],
             'SIMLIB_NREPEAT:'              :    [  None,              ACTION_REMOVE,   None,                           False],
@@ -246,7 +246,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
                 final_lines.append(new_string)
             else:
                 from_dump = retrieve_values_from_dump(dump_file_path,cid,KEY_CHANGE_DICT[key][0])
-                new_string = key + ': ' + from_dump + "   # ADDED BY SCRIPT"
+                new_string = key + ' ' + from_dump + "   # ADDED BY SCRIPT"
                 if verbose==True:
                     print('ADDED BY SCRIPT: ', key)
                     sys.stdout.flush()
@@ -356,12 +356,14 @@ def process_cid(cid,mjds,config_dic):
         command = f"quick_commands.py -v {genversion} --extract_sim_input"
 
         if outdir == 'store_resim_inputs' :
-            subprocess.run([command], capture_output=True, text=True, shell=True, 
-                           cwd = cwd+ "/store_resim_inputs")
+            os.chdir(cwd+ "/store_resim_inputs")
+            os.system(command)
+            os.chdir(cwd)
             file_name = cwd+"/store_resim_inputs/sim_input_"+genversion+"_MODEL0.input"
         else:
-            subprocess.run([command], capture_output=True, text=True, shell=True, 
-                           cwd = outdir)
+            os.chdir(outdir)
+            os.system(command)
+            os.chdir(cwd)
             file_name = outdir+ "/sim_input_" + genversion + "_MODEL0.input"
         
         if verbose==True:
@@ -388,9 +390,13 @@ def process_cid(cid,mjds,config_dic):
             print('Run the following command: ', command)
             sys.stdout.flush()
             if outdir == 'store_resim_inputs':
-                subprocess.run([command], text=True, shell=True, cwd = cwd+ "/store_resim_inputs")
+                os.chdir(cwd+ "/store_resim_inputs")
+                os.system(command)
+                os.chdir(cwd)
             else:
-                subprocess.run([command], text=True, shell=True, cwd = outdir)
+                os.chdir(outdir)
+                os.system(command)
+                os.chdir(cwd)
         else:
             print("No resim flag was raised, so not resimulating.")
             sys.stdout.flush()

@@ -3092,7 +3092,7 @@ void check_vpec_sign(void) {
   fflush(stdout);
 
   if ( rms[1] < rms[0] ) {
-    sprintf(c1err,"RMS(MURES) is smaller with vpec sign-flip.");
+    sprintf(c1err,"RMS(MURES) is smaller with sign-flip of vpec");
     sprintf(c2err,"See RMS(MURES) values above.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }

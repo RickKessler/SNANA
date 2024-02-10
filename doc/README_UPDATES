@@ -22108,7 +22108,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           write SIM_WGT_POPULATION to data files. 
           See https://github.com/RickKessler/SNANA/issues/1254 .
 
-     dLmag() funcction updated to include vPEC arg and to correct mu
+     dLmag() function updated to include vPEC arg and to correct mu
          for vPEC-beaming affect (B.Carreres)
 
          *****  USEFUL(v11_05j) *****
@@ -22196,4 +22196,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     get_fitres_values.py:
        + improve stdout appearanc
        + new --outfile option
+ 
+    sntools_host.c:
+      fix bug in TRANSFER_SNHOST_REDSHIFT() that was introduced mid-Jan 2024
+      when VPEC (from HOSTLIB) was updated to allow for ZTRUE_CMB in HOSTLIB.
+
+
 END: 

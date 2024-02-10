@@ -1126,7 +1126,8 @@ void  read_HOSTLIB_WGTMAP(void) {
   // before read_head_HOSTLIB().
   //
   // July 14 2020: replace PATH_USER_INPUT with PATH_DEFAULT_HOSTLIB
-
+  // Feb  07 2024: return if FORCE_GALID > 0 (no need for WGTMAP)
+  //
   FILE *fp ;
   int  gzipFlag ;
   char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
@@ -1138,6 +1139,11 @@ void  read_HOSTLIB_WGTMAP(void) {
 
   ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
+
+  if ( INPUTS.HOSTLIB_GALID_FORCE > 0 ) { //
+    sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,"NONE");
+    return; 
+  }
 
   fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
 			  PATH_DEFAULT_HOSTLIB, ptrFile,
@@ -5731,6 +5737,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_DUMP ) 
     { DUMP_SNHOST(); }
 
+  return ;
 
 } // end of GEN_SNHOST_DRIVER
 
@@ -8507,6 +8514,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   //
   // Apr 20 2019: bail on incorrect host match.
   // May 25 2020: add vpec
+  // Jan    2024: B.Carreres and R.Kessler : refactor for VPEC in hostlib
 
   double ZTRUE         = SNHOSTGAL.ZTRUE ;     // helio redshift with VPEC 
 
@@ -8527,8 +8535,11 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
   // ------------ BEGIN ------------
 
-  // if wrong host (based on mag), bail
+  // bail if wrong host (based on mag)
   if ( !GENLC.CORRECT_HOSTMATCH ) { return ; }
+
+  // bail if there is nothing to transfer (RK, Feb 9 2024)
+  if ( ! (DO_SN2GAL_Z || DO_SN2GAL_RADEC) ) {  return;  }
 
   if ( DO_VPEC ){
     // VPEC has not been applied to redshift yet (VPEC = 0)

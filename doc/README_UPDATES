@@ -22171,6 +22171,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v11_05k) *****
 
+    new utility randomize_table.py to randomize HOSTLIB or FITRES file.
 
          *****  MISCELLANEOUS(v11_05k) *****
 

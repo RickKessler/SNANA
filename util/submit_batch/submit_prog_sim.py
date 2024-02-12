@@ -112,7 +112,7 @@ SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
     "FORMAT_MASK"       :     [ 1,    False,     True    ],
     "GENFILTERS"        :     [ 1,    True,      True    ],
     "PATH_USER_INPUT"   :     [ 1,    False,     True    ],
-    "GENRANGE_REDSHIFT" :     [ 2,    True,      True    ],
+    "GENRANGE_REDSHIFT" :     [ 2,    True,      False   ],
     "GENRANGE_PEAKMJD"  :     [ 2,    True,      True    ],
     "SOLID_ANGLE"       :     [ 1,    True,      True    ]    }
 
@@ -1428,7 +1428,7 @@ class Simulation(Program):
             elif do_require :
                 nerr      += 1
                 key_exists = False 
-                msg=(f"ERROR: required key {keycheck} missing in {infile_ref}")
+                msg=(f"ERROR: required key {keycheck} missing in {infile_tmp}")
                 msgerr.append(msg)
 
             #print(f" xxx key={keycheck} exist={key_exists} req={do_require}")

@@ -22200,6 +22200,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_host.c:
       fix bug in TRANSFER_SNHOST_REDSHIFT() that was introduced mid-Jan 2024
       when VPEC (from HOSTLIB) was updated to allow for ZTRUE_CMB in HOSTLIB.
-
+      The bug broke GENSIGMA_VPEC.
 
 END: 

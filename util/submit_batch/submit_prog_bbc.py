@@ -72,6 +72,7 @@
 #
 # Apr 30 2023: add SIM_c,SIM_x1 to append_varname_missing 
 # Jan 17 2024: add CPU column in MERGE.LOG
+# Feb 12 2024: new input key INPFILE+
 #
 # ================================================================
 
@@ -117,7 +118,7 @@ SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 
 # name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
-PREFIX_wfit = "wfit"
+PREFIX_wfit  = "wfit"
 
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
@@ -264,7 +265,7 @@ class BBC(Program):
         # - - - -
         key = 'INPDIR+'
         if key not in CONFIG :
-            msgerr.append(f"Missing require key = {key} under CONFIG block")
+            msgerr.append(f"Missing required key = {key} under CONFIG block")
             msgerr.append(f"Check {input_file}")
             self.log_assert(False,msgerr)
 
@@ -276,7 +277,6 @@ class BBC(Program):
         inpdir_list_orig    = [ ]  # before expandvar
         version_list2d      = [ ] * n_inpdir  # vs. inpdir, iver
         fitopt_table_list2d = [ ] * n_inpdir
-        # xxx fitopt_num_list     = [ ]
         n_fitopt_list       = [ ]
         n_version_list      = [ ]
         sync_evt_list       = [ ] 
@@ -367,7 +367,6 @@ class BBC(Program):
                     sync_evt       = fit_info_yaml[key] > 0
                     KEY_SYNC_EVT   = key
 
-            # xxx if devel_flag == -20: sync_evt = False # disable event sync
             if not preserve_sync_evt :
                 sync_evt = False 
 
@@ -1375,6 +1374,15 @@ class BBC(Program):
         if nmissing > 0 :
             msgerr.append(f"missing {nmissing} input {SUFFIX_FITRES} files")
             self.log_assert(False,msgerr)
+
+        # - - --  .xyz
+        # Feb 2024: check optional list of external FITRES files to include
+        CONFIG   = self.config_yaml['CONFIG']
+        key = 'INPFILE+'
+        if key in CONFIG:
+            for infile in CONFIG[key]:
+                infile = os.path.expandvars(infile)
+                cat_list += f",{infile}"
 
         return cat_list
 

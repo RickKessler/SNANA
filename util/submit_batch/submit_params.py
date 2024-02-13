@@ -483,6 +483,12 @@ HELP_CONFIG_BBC = f"""
        or
   INPDIR+: None  # flag to ignore INPDIR+; instead, use datafile= argument
 
+  # to include external FITRES files (e.g., from a separate analysis)
+  INPFILE+:
+  - file1   # include this explicit FITRES file; no subdir structure
+  - file2
+    etc ...
+
   OUTDIR:   [outdir]   # all output goes here
 
   # if there are multiple versions per INPDIR, method is to "IGNORE"

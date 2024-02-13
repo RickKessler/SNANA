@@ -3182,28 +3182,28 @@ void wfit_uncertainty(void) {
 
   // Error checking 
   if(i==0){
-    printf("WARNING: lower 1-sigma limit outside range explored\n");
+    printf("WARNING-w0: lower 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
     WORKSPACE.NWARN++ ;
   }
   
   if ( INPUTS.dofit_w0wa ) {
     if(kk==0){
-      printf("WARNING: lower 1-sigma limit outside range explored\n");
+      printf("WARNING-wa: lower 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;
       WORKSPACE.NWARN++ ;
     }
   }
 
   if ( WORKSPACE.w0_sig_lower <= INPUTS.w0_stepsize ) {   
-    printf("WARNING: 1. w0 grid is too coarse to resolve "
+    printf("WARNING-w0: 1. w0 grid is too coarse to resolve "
 	   "lower 1-sigma limit\n");
     WORKSPACE.w0_sig_lower = INPUTS.w0_stepsize;
     WORKSPACE.NWARN++ ;
   }
   if (INPUTS.dofit_w0wa){
     if (WORKSPACE.wa_sig_lower <= INPUTS.wa_stepsize) {  
-      printf("WARNING: 1. wa grid is too coarse to resolve "
+      printf("WARNING-wa: 1. wa grid is too coarse to resolve "
 	     "lower 1-sigma limit\n");
       WORKSPACE.wa_sig_lower = INPUTS.wa_stepsize;
       WORKSPACE.NWARN++ ;
@@ -3234,14 +3234,14 @@ void wfit_uncertainty(void) {
     
   // Error checking 
   if(i==(INPUTS.w0_steps-1)){
-    printf("WARNING: upper 1-sigma limit outside range explored\n");
+    printf("WARNING-w0: upper 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
     WORKSPACE.NWARN++ ;
   } 
   
 
   if ( WORKSPACE.w0_sig_upper <= INPUTS.w0_stepsize){
-    printf("WARNING: 2. w0 grid is too coarse to resolve "
+    printf("WARNING-w0: 2. w0 grid is too coarse to resolve "
 	   "upper 1-sigma limit\n %f, %f\n", 
 	   WORKSPACE.w0_sig_upper, INPUTS.w0_stepsize);
     WORKSPACE.w0_sig_upper = INPUTS.w0_stepsize; 
@@ -3250,12 +3250,12 @@ void wfit_uncertainty(void) {
 
   if ( INPUTS.dofit_w0wa ) {
     if(kk==(INPUTS.wa_steps-1)){
-      printf("WARNING: upper 1-sigma limit outside range explored\n");
+      printf("WARNING-wa: upper 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;	
       WORKSPACE.NWARN++ ;
     }
     if (WORKSPACE.wa_sig_upper <= INPUTS.wa_stepsize){
-      printf("WARNING: 2. wa grid is too coarse to resolve "
+      printf("WARNING-wa: 2. wa grid is too coarse to resolve "
 	     "upper 1-sigma limit\n %f, %f\n", 
 	     WORKSPACE.wa_sig_upper, INPUTS.wa_stepsize);
       WORKSPACE.wa_sig_upper = INPUTS.wa_stepsize;

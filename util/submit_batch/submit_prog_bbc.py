@@ -72,7 +72,9 @@
 #
 # Apr 30 2023: add SIM_c,SIM_x1 to append_varname_missing 
 # Jan 17 2024: add CPU column in MERGE.LOG
-# Feb 12 2024: new input key INPFILE+
+# Feb 12 2024: 
+#   + new input key INPFILE+
+#   + add NDOF, NWARN, FOM columns to BBC_SUMMARY_wfit.DAT
 #
 # ================================================================
 
@@ -2573,13 +2575,14 @@ class BBC(Program):
         
         # prepare w-varnames for varnames
         varlist_w = f"{varname_w} {varname_w}sig"
+        varname_FoM = ''
         if use_wfit_w0wa :
             varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
-
+            varname_FoM = 'FoM'
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
-                   f"chi2 sigint   \n"
+                   f"CHI2 NDOF NWARN {varname_FoM} \n"
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
@@ -2605,7 +2608,7 @@ class BBC(Program):
 
             # extract wfit values into local variables
             wfit_values_dict = util.get_wfit_values(wfit_yaml)
-
+            
             w       = wfit_values_dict['w']  
             w_sig   = wfit_values_dict['w_sig']
             wa      = wfit_values_dict['wa']    
@@ -2614,21 +2617,27 @@ class BBC(Program):
             omm_sig = wfit_values_dict['omm_sig']
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
+            ndof    = wfit_values_dict['ndof']
+            FoM     = wfit_values_dict['FoM']
+            nwarn   = wfit_values_dict['nwarn']
+
             w_ran   = int(wfit_values_dict['w_ran']) 
             wa_ran  = int(wfit_values_dict['wa_ran'])
             omm_ran = int(wfit_values_dict['omm_ran'])
 
             if use_wfit_w0wa :
                 w0 = w ; w0_sig = w_sig
-                w_values = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+                str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+                str_FoM   = f"{FoM:.1f}"
             else:
-                w_values = f"{w:7.4f} {w_sig:6.4f}"
+                str_w_v   = f"{w:7.4f} {w_sig:6.4f}"
+                str_FoM    = ''
 
             string_values = \
                 f"{nrow:3d}  {version} {ifit} {imu} " \
-                f"{w_values}  {omm:6.4f} {omm_sig:6.4f} " \
-                f"{chi2:.1f} {sigint:.3f} "
-
+                f"{str_w}  {omm:6.4f} {omm_sig:6.4f} " \
+                f"{chi2:.1f} {ndof} {nwarn} {str_FoM}"
+            
             if nrow == 1 and use_wfit_blind: 
                 f.write(f"# cosmology params blinded.\n")
                 f.write(f"#   {varname_w:<3} includes sin({w_ran}) \n")

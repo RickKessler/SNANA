@@ -1270,6 +1270,7 @@ def get_wfit_values(wfit_yaml):
     # Oct 23 2021: check for Rho
     # Feb 22 2022: check for NWARNINGS
     # Aug 28 2022: wsig_hi -> wsig_up (bug fix)
+    # Feb 12 2024: return ndof in dictionary
 
     key_list = [ 'w', 'w0' ]
     for key in key_list:
@@ -1346,6 +1347,12 @@ def get_wfit_values(wfit_yaml):
     # - - - misc - - - - 
     chi2    = wfit_yaml['chi2'] 
     sigint  = wfit_yaml['sigint']
+    
+    key_list = [ 'ndof', 'Ndof' ]
+    ndof = -9.0 
+    for key in key_list:
+        if key in wfit_yaml:
+            ndof = wfit_yaml[key]
 
     key_list = [ 'wrand', 'wran', 'w0ran' ]
     w_ran = -9.0 
@@ -1383,6 +1390,7 @@ def get_wfit_values(wfit_yaml):
         'omm'      : omm ,
         'omm_sig'  : omm_sig ,
         'chi2'     : chi2 ,
+        'ndof'     : ndof, 
         'sigint'   : sigint ,
         'w_ran'    : w_ran,
         'omm_ran'  : omm_ran,

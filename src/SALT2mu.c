@@ -8180,7 +8180,8 @@ void store_output_varnames(void) {
 				  OUTPUT_VARNAMES.LIST );
       if ( ivar_match < 0  ) {
 	NDROP++ ;
-	catVarList_with_comma(OUTPUT_VARNAMES.DROPLIST,varName);
+	if ( strlen(OUTPUT_VARNAMES.DROPLIST) < MXCHAR_VARLIST-100 ) 
+	  { catVarList_with_comma(OUTPUT_VARNAMES.DROPLIST,varName); }
 	if ( LDMP) {
 	  printf(" xxx %s: DROP varName='%s'  match=%d (ifile=%d,ivar=%d)\n",
 		 fnam,  varName, ivar_match, ifile, ivar );
@@ -21358,9 +21359,9 @@ void write_cat_info(FILE *fout) {
   }
   
   if ( INPUTS.cat_prescale <= 1 ) {
-    fprintf(fout,"# Appended columns: %s \n", 
+    fprintf(fout,"#\n# Appended columns: %s \n", 
 	    INPUTS.append_varname_missing);
-    fprintf(fout,"# Dropped columns: %s \n", 
+    fprintf(fout,"#\n# Dropped columns: %s \n", 
 	    OUTPUT_VARNAMES.DROPLIST );
   }
   else {

@@ -22203,4 +22203,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       when VPEC (from HOSTLIB) was updated to allow for ZTRUE_CMB in HOSTLIB.
       The bug broke GENSIGMA_VPEC.
 
+    submit_prog_bbc.py
+      + new input INPFILE+ to enable adding specific (external) FITRES
+        files in addition to those found with INPDIR+ key.
+      + add columns NDOF,NWARN,FOM to BBC_SUMMARY_wfit.FITRES.
+
 END: 

@@ -3216,26 +3216,6 @@ void check_duplicates_util(int EVENT_TYPE) {
     xList = TABLEVAR->SIM_FITPAR[INDEX_x1] ;  
   }
 
-  /* xxx mark delete 
-  for(isn=0; isn<nsn; isn++)  {
-    if ( IS_DATA ) {
-      z = (double)TABLEVAR->zhd[isn]; 
-      c = (double)TABLEVAR->fitpar[INDEX_c][isn]; 
-      x = (double)TABLEVAR->fitpar[INDEX_x1][isn]; 
-    }
-    else {
-      // biasCor -> use true values
-      z = (double)TABLEVAR->SIM_ZCMB[isn];
-      c = (double)TABLEVAR->SIM_FITPAR[INDEX_c][isn]; 
-      x = (double)TABLEVAR->SIM_FITPAR[INDEX_x1][isn]; 
-    }
-    zList[isn] = z;
-    cList[isn] = c;
-    xList[isn] = x;
-    IS_DUPL[isn] = false;
-  }
-  xxxxxxx end mar xxxxxx */
-
   ORDER_SORT = + 1 ; // increasing order
   // xxx mark   sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
   sortFloat( nsn, zList, ORDER_SORT, unsortList ) ;
@@ -17902,10 +17882,12 @@ void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT) {
   //
   // [parse_IDSAMPLE_select and parse_sntype should become obsolete]
   //
+  // Feb 13 2024: init sep[0]=0 to avoid garbage if there is no separator.
+  //
   // --------------- BEGIN -------------
 
   int  NTMP, i, ID, IDLIST[MXID_SELECT], ITYPE, NSEP=0 ; 
-  char itemLocal[60],  *ptrID[MXID_SELECT], strID[MXID_SELECT][4] ;
+  char itemLocal[60],  *ptrID[MXID_SELECT], strID[MXID_SELECT][6] ;
   char sep[4], *VARNAME ;
   char fnam[] = "parse_select_IDLIST" ;
 
@@ -17917,6 +17899,7 @@ void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT) {
   for(i=0; i < MXID_SELECT; i++ ) { ptrID[i] = strID[i]; }
 
   // check which separator is used
+  sep[0] = 0 ;
   if ( strchr(itemLocal,',') != NULL ) 
     { sprintf(sep,"%s", COMMA ); NSEP++ ; }
 

@@ -22208,4 +22208,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         files in addition to those found with INPDIR+ key.
       + add columns NDOF,NWARN,FOM to BBC_SUMMARY_wfit.FITRES.
 
+    snlc_sim.c
+      + fix logic storing SIMLIB info so that exceeding array bound
+        does not corrupt & confuse abort message.
+
 END: 

@@ -17628,6 +17628,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //
   // Nov 29 2022: fix bug setting FIELD per epoch with overlaps.
   //              See field and FIELD_LIST.
+  //
+  // Feb 14 2024 : 
+  //  + fix bad logic  if (INPUTS.SIMLIB_DUMP) ... because INPUTS.SIMLIB_DUMP=-9 
+  //    is the initialized value (not 0)
+  //  + fix KEEP_MJD logic so that ISTORE increments beyond MXOBS_SIMLIB
+  //    for accurate abort message, but arrays beyond bound are not loaded
+  //    to avoid corrupting information in abort message.
+  //
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 
@@ -17661,7 +17669,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
  START:
 
   init_SIMLIB_HEADER();
-  NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = ISTORE = 0 ;
+  NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = 0;
+  ISTORE = 0 ;
   USEFLAG_LIBID =USEFLAG_MJD = 0 ;
   DONE_READING = NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
   NMAG_notZeroFlux = 0 ;
@@ -17793,18 +17802,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // as long as it's less than MXOBS_SIMLIB
       if ( strcmp(wd0,"NOBS:") == 0 )   {  
 	sscanf(wd1, "%d", &NOBS_EXPECT ); 
-	SIMLIB_HEADER.NOBS = NOBS_EXPECT ;
-       
-	// xxx remove this abort trap for SIMLIB_REFAC
-	if ( NOBS_EXPECT >= MXOBS_SIMLIB && !INPUTS.SIMLIB_REFAC ) {
-	  sprintf(c1err,"NOBS=%d exceeds bound for LIBID=%d.", 
-		  NOBS_EXPECT, ID);
-	  sprintf(c2err,"Check bound: MXOBS_SIMLIB = %d", 
-		  MXOBS_SIMLIB );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
-	}
-	// xxxxxxxxx
-
+	SIMLIB_HEADER.NOBS = NOBS_EXPECT ;      
 	iwd++; continue ;
       }
     
@@ -17857,73 +17855,83 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
 	NOBS_FOUND++ ; 	IWD = iwd;  
 
-	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
+	//read MJD into scalar to see if it is within GENRANGE_MJD
+	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  );
+       
+	KEEP_MJD = 
+	  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
+	if ( INPUTS.SIMLIB_DUMP >0 ) { KEEP_MJD = true ; } 
 
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE]  );
+	// code aborts below if ISTORE is too big, but to avoid corrupting
+	// abort messages, don't exceed array bound here.
+	if ( KEEP_MJD &&  ISTORE < MXOBS_SIMLIB ) {
+	  SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
+	  SIMLIB_OBS_RAW.MJD[ISTORE]     = MJD;
 
-	IWD++; sscanf(WDLIST[IWD], "%s", ctmp );
-	parse_SIMLIB_IDplusNEXPOSE(ctmp, 
-				   &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
-				   &SIMLIB_OBS_RAW.NEXPOSE[ISTORE] );
-
-	IWD++; sscanf(WDLIST[IWD], "%s" , SIMLIB_OBS_RAW.BAND[ISTORE]     );
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.READNOISE[ISTORE]);
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.SKYSIG[ISTORE]   );
-
-	if ( SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) 
-	  { IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.NEA[ISTORE] ); }
-	else {
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFSIG1[ISTORE] );
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFSIG2[ISTORE] );
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFRATIO[ISTORE]);
-
-	  // if NEA is here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
-	  // this trap will hopefully abort.
-	  checkval_D("PSF1(readNextCadence)", 1, 
-		     &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+	  IWD++; sscanf(WDLIST[IWD], "%s", ctmp );
+	  parse_SIMLIB_IDplusNEXPOSE(ctmp, 
+				     &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
+				     &SIMLIB_OBS_RAW.NEXPOSE[ISTORE] );
+	  
+	  IWD++; sscanf(WDLIST[IWD], "%s" , SIMLIB_OBS_RAW.BAND[ISTORE]     );
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.READNOISE[ISTORE]);
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.SKYSIG[ISTORE]   );
+	  
+	  if ( SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) 
+	    { IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.NEA[ISTORE] ); }
+	  else {
+	    IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFSIG1[ISTORE] );
+	    IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFSIG2[ISTORE] );
+	    IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFRATIO[ISTORE]);
+	    
+	    // if NEA is here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
+	    // this trap will hopefully abort.
+	    checkval_D("PSF1(readNextCadence)", 1, 
+		       &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+	  }
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   ); 
+	  checkval_D("ZPT(readNextCadence)", 1, 
+		     &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0 ) ;
+	  
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]      );
+	  // xxx mark iwd = NWD; 
+	  
+	  if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
+	    { SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
+	  
+	  // check MAG column for SIMLIB model (Nov 2019)
+	  MAG = SIMLIB_OBS_RAW.MAG[ISTORE];
+	  if ( MAG < MAG_ZEROFLUX-0.001 ) { NMAG_notZeroFlux++ ; }
+	  
+	  // convert filter-char to integer		   
+	  BAND      = SIMLIB_OBS_RAW.BAND[ISTORE] ;
+	  ifilt_obs = INTFILTER(BAND);
+	  SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs ;
+	  
+	  // update few header items for each epoch since
+	  // these item can be changed at any epoch.
+	  sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
+	  PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
+	  SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
+	  
+	  // set 'not from spectrograph' values
+	  SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[ISTORE]   = -9 ;
+	  SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] =  0.0 ; 
+	  SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[ISTORE]   = -9 ; 
 	}
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   ); 
-	checkval_D("ZPT(readNextCadence)", 1, 
-		   &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0 ) ;
 
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]      );
+	if ( KEEP_MJD ) { ISTORE++; } 
 	iwd = NWD; 
 
-	if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
-	  { SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
-
-	// check MAG column for SIMLIB model (Nov 2019)
-	MAG = SIMLIB_OBS_RAW.MAG[ISTORE];
-	if ( MAG < MAG_ZEROFLUX-0.001 ) { NMAG_notZeroFlux++ ; }
-
-	// convert filter-char to integer		   
-	BAND      = SIMLIB_OBS_RAW.BAND[ISTORE] ;
-	ifilt_obs = INTFILTER(BAND);
-	SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs ;
-
-	// update few header items for each epoch since
-	// these item can be changed at any epoch.
-	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
-	PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
-	SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
-
-	// set 'not from spectrograph' values
-	SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[ISTORE]   = -9 ;
-	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] =  0.0 ; 
-	SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[ISTORE]   = -9 ; 
-
-	ISTORE++ ;
-
-	if ( INPUTS.SIMLIB_REFAC ) { 
-	  ISTORE-- ;
-	  MJD = SIMLIB_OBS_RAW.MJD[ISTORE];
-	  KEEP_MJD = 
-	    (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
-	  if ( INPUTS.SIMLIB_DUMP ) { KEEP_MJD = 1; } 
-	  if ( KEEP_MJD ) { ISTORE++; } 
-	}
+	/* xxx mark delete Feb 2024 xxx
+	//	   MJD = SIMLIB_OBS_RAW.MJD[ISTORE];
+	   KEEP_MJD = 
+	   (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
+	   if ( INPUTS.SIMLIB_DUMP > 0 ) { KEEP_MJD = 1; } 
+	   if ( KEEP_MJD ) { ISTORE++; } 
+	   xxxxxxxx end mark xxxxxxx */
 
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
@@ -17999,7 +18007,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   if ( ISTORE > MXOBS_SIMLIB ) {
     sprintf(c1err,"Selected %d obs from %d total in LIBID=%d", 
 	    ISTORE, SIMLIB_HEADER.NOBS, SIMLIB_HEADER.LIBID );
-    sprintf(c2err,"MXOBS_SIMLIB=%d -> array bound overflow", 
+    sprintf(c2err,"MXOBS_SIMLIB=%d -> array overflow: check input GENRANGE_MJD", 
 	    MXOBS_SIMLIB);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }

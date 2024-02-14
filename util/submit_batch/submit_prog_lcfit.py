@@ -43,6 +43,11 @@
 # Oct 12 2023 RK - begin refactor/update to allow stand-alone BayeSN-python LCFIT code.
 #                  See dependence on LCFIT_SUBCLASS.
 #
+# Feb 14 2024 RK 
+#    - rename NEVT_SNANA_CUTS to NEVT_LC_CUTS to have a more generic
+#                  name for SALT3 and BayeSN.
+#    - minor tweaks to post-process for subclass LCFIT_BAYESN.
+#  
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -143,7 +148,7 @@ COLNUM_FIT_MERGE_STATE           = 0  # STATE required in col=0
 COLNUM_FIT_MERGE_VERSION         = 1
 COLNUM_FIT_MERGE_FITOPT          = 2
 COLNUM_FIT_MERGE_NEVT_ALL        = 3  # NEVT0
-COLNUM_FIT_MERGE_NEVT_SNANA_CUTS = 4  # NEVT1
+COLNUM_FIT_MERGE_NEVT_LC_CUTS    = 4  # NEVT1
 COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS = 5  # NEVT2
 COLNUM_FIT_MERGE_CPU             = 6
 
@@ -843,19 +848,6 @@ class LightCurveFit(Program):
 
         self.config_prep['use_table_format'] = use_table_format
 
-        # xxxxxxx mark delete xxxxxxx Oct 12 2023 xxxxxxx
-        #for i in range(0,NTABLE_FORMAT) :
-        #    key    = TABLE_INPKEY_LIST[i]
-        #    fmt    = TABLE_FORMAT_LIST[i]
-        #    if LCFIT_SUBCLASS == LCFIT_SNANA :
-        #        if key in snlcinp :  # snana selects among TEXT, ROOT, HBOOK
-        #            use_table_format[i] = True
-        #    else:
-        #        use_table_format[i] = True  # BayeSN, SALT3 only do TEXT output ... for now
-        # xxxxxxxx end mark xxxxxxx
-
-
-
         # get list of tables in SNTABLE_LIST
 
         if LCFIT_SUBCLASS == LCFIT_SNANA:
@@ -866,12 +858,6 @@ class LightCurveFit(Program):
             sntable_string = 'FITRES'
 
         sntable_list = sntable_string.split()
-
-        # xxxx mark delete xxx
-        #sntable_list   = []
-        #for string in sntable_string.split() :
-        #    sntable_list.append(string)
-        # xxxx
 
         logging.info(f"  SNTABLE_LIST = {sntable_list} ")
 
@@ -1225,7 +1211,7 @@ class LightCurveFit(Program):
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
             " STATE   VERSION  FITOPT  " \
-            "NEVT_ALL  NEVT_SNANACUT NEVT_FITCUT  CPU"
+            "NEVT_ALL  NEVT_LC_CUTS NEVT_FIT_CUTS  CPU"
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -1272,14 +1258,14 @@ class LightCurveFit(Program):
         COLNUM_VERS    = COLNUM_FIT_MERGE_VERSION 
         COLNUM_FITOPT  = COLNUM_FIT_MERGE_FITOPT
         COLNUM_NEVT0   = COLNUM_FIT_MERGE_NEVT_ALL 
-        COLNUM_NEVT1   = COLNUM_FIT_MERGE_NEVT_SNANA_CUTS
+        COLNUM_NEVT1   = COLNUM_FIT_MERGE_NEVT_LC_CUTS
         COLNUM_NEVT2   = COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS
         COLNUM_CPU     = COLNUM_FIT_MERGE_CPU
 
         key_tot, key_tot_sum, key_list = \
                 self.keynames_for_job_stats('NEVT_TOT')
         key_snana, key_snana_sum, key_snana_list = \
-                self.keynames_for_job_stats('NEVT_SNANA_CUTS')
+                self.keynames_for_job_stats('NEVT_LC_CUTS')
         key_lcfit, key_lcfit_sum, key_lcfit_list = \
                 self.keynames_for_job_stats('NEVT_LCFIT_CUTS')
         key_cpu, key_cpu_sum, key_cpu_list = \
@@ -1440,13 +1426,16 @@ class LightCurveFit(Program):
         # these temp files remain. After NEVT validation,
         # each temp file is moved to {version}/{fitopt}.{suffix}
 
-        if use_table_format[ITABLE_HBOOK] :
-            self.merge_table_CERN(ITABLE_HBOOK, version_fitopt_dict)
+        # only SNANA has root and hbook
+        if LCFIT_SUBCLASS == LCFIT_SNANA:
+            if use_table_format[ITABLE_HBOOK] :
+                self.merge_table_CERN(ITABLE_HBOOK, version_fitopt_dict)
 
-        if use_table_format[ITABLE_ROOT] :
-            self.merge_table_CERN(ITABLE_ROOT, version_fitopt_dict)
+            if use_table_format[ITABLE_ROOT] :
+                self.merge_table_CERN(ITABLE_ROOT, version_fitopt_dict)
 
-        # process TEXT format after ROOT & HBOOK to allow for append feature
+        # all subclass must have TEXT format.
+        # Process TEXT format after ROOT & HBOOK to allow for append feature
         if use_table_format[ITABLE_TEXT] :
             for table_name in TABLE_NAME_LIST :
                 self.merge_table_TEXT(table_name, version_fitopt_dict)
@@ -2145,7 +2134,7 @@ class LightCurveFit(Program):
         # read status from MERGE file          
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         colnum_zero_list    = [ COLNUM_FIT_MERGE_NEVT_ALL, 
-                                COLNUM_FIT_MERGE_NEVT_SNANA_CUTS,
+                                COLNUM_FIT_MERGE_NEVT_LC_CUTS,
                                 COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS,
                                 COLNUM_FIT_MERGE_CPU]
         logging.info(f"  {fnam}: STATE->WAIT and NEVT->0 in {MERGE_LOG_FILE}")

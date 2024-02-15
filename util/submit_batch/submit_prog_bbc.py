@@ -2630,7 +2630,7 @@ class BBC(Program):
                 str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
                 str_FoM   = f"{FoM:.1f}"
             else:
-                str_w_v   = f"{w:7.4f} {w_sig:6.4f}"
+                str_w      = f"{w:7.4f} {w_sig:6.4f}"
                 str_FoM    = ''
 
             string_values = \

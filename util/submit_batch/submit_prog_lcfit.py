@@ -292,6 +292,7 @@ class LightCurveFit(Program):
         msg = f"\n\t !!!! LCFIT_SUBCLASS = {LCFIT_SUBCLASS} !!!! \n"
         logging.info(msg)
         return
+        # end fit_prep_subclass
         # - - - - - - - - - 
 
     def fit_prep_same_sncid(self):
@@ -1228,6 +1229,8 @@ class LightCurveFit(Program):
         # end create_merge_file
 
     def merge_config_prep(self,output_dir):
+
+        self.fit_prep_subclass()  # Feb 15 2024
 
         # fit-specific settings to config_prep that are needed later.
         submit_info_yaml = self.config_prep['submit_info_yaml'] 

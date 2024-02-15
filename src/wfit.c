@@ -46,8 +46,10 @@
      Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
      Armstron 2023 (2307.13862)  contraint validation
      Kessler  2023 (2306.05819)  Binning-is-sinning redemption     
-     Vincenzi 2023 (in prep)     DES5YR analysis & syst
-    
+     Qu       2023 (2307.13696)  Biases from host mis-match
+     Vincenzi 2024 (2401.02945)  DES-SN5YR analysis & syst
+
+
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
     + include option to float wa in w0waCDM model

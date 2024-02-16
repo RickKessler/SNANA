@@ -1,4 +1,4 @@
-# ============================================
+#
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # TO DO (JULY 2022); for single node option, remove mem-per-cpu 
@@ -961,6 +961,7 @@ class Program:
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
         f.write(f"CLEANUP_FLAG:     {cleanup_flag}   # flag to compress run-job dir\n")
+        f.write(f"KILL_ON_FAIL:     {args.kill_on_fail} \n")
 
         comment = "total number of jobs (excludes sym links)"
         f.write(f"N_JOB_TOT:        {n_job_tot}     # {comment}\n")
@@ -1521,6 +1522,7 @@ class Program:
         fail_list_end = self.get_merge_done_list(2, MERGE_INFO_CONTENTS)
         n_job_merge   = len(MERGE_INFO_CONTENTS[TABLE_MERGE]) # entire list
         n_done        = 0  
+        n_fail        = 0 
         n_wrapup      = 0
         for job_merge in range(0,n_job_merge):
             done_now     = done_list_end[job_merge]  # DONE or FAIL
@@ -1532,9 +1534,16 @@ class Program:
             if done_new and not fail_now and not check_abort :
                 n_wrapup += 1
                 self.merge_job_wrapup(job_merge,MERGE_INFO_CONTENTS)
+            if fail_now:
+                n_fail += 1
 
         if verbose_flag:
             logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
+
+        # Feb 2024: check kill_on_fail here in addition to check in CPU*.CMD
+        if n_fail > 0 and submit_info_yaml['KILL_ON_FAIL'] :
+            args.kill = True   # set flag as if -k were comman-line arg
+            self.kill_jobs()
 
         # Only last merge process does cleanup tasks and DONE stamps
         if MERGE_LAST and n_done == n_job_merge :

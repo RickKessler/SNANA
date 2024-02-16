@@ -919,12 +919,6 @@ def write_job_info(f,JOB_INFO,icpu):
     CHECK_ALL_DONE = all_done_file is not None and kill_on_fail and \
                      not check_abort
 
-    # xxx mark delete Ju 27 2022 xxxxxxxxxxxxxxxxx
-    #CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
-    #                    'kill_on_fail'  in JOB_INFO  and \
-    #                    not check_abort
-    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
     CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :

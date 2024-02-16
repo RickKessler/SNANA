@@ -47,7 +47,9 @@
 #    - rename NEVT_SNANA_CUTS to NEVT_LC_CUTS to have a more generic
 #                  name for SALT3 and BayeSN.
 #    - minor tweaks to post-process for subclass LCFIT_BAYESN.
-#  
+#    - auto-set kill_on_fail flag if sync-event flag is set to avoid infinite 
+#      wait-for-file if FITOPT000.FITRES is never created.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -1073,6 +1075,8 @@ class LightCurveFit(Program):
         else:
             NOREJECT = FITOPT_STRING_NOREJECT in fitopt_label
 
+        # for sync-event feature, each FITOPT must wait for FITOPT000
+        # to get its cid list.
         if iopt > 0 and opt_sncid_list > 0  and NOREJECT is False :
             argdict_same_sncid = self.config_prep['argdict_same_sncid']
             arg_opt   = argdict_same_sncid['arg_opt']             # KEY OPT
@@ -1080,7 +1084,9 @@ class LightCurveFit(Program):
             wait_file = arg_file.split()[1]  # just the FILE name
             arg_list.append(f"{arg_file}")
             arg_list.append(f"{arg_opt}")
-            JOB_INFO['wait_file']  = wait_file
+            JOB_INFO['wait_file']     = wait_file
+            JOB_INFO['kill_on_fail']  = True
+            args.kill_on_fail         = True   # avoid infinite wait on FITOPT000 failure
 
         # - - - 
         JOB_INFO['arg_list']   = arg_list

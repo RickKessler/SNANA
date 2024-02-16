@@ -942,6 +942,7 @@ struct INPUTS {
 
   int  nfile_data;
   char **dataFile;  
+  char dataFile_string[2*MXPATHLEN];
 
   char model_lcfit[40]; // e.g., 'SALT2'  'BAYESN'
   bool ISMODEL_LCFIT_SALT2 ;   // Default is True; see model_lcfit input key
@@ -3356,7 +3357,7 @@ void check_duplicates_util(int EVENT_TYPE) {
 	  STRTYPE, MXDUPL_PER_SET);
   fprintf(FP_STDOUT,"  Number of unique %s events: %d (of %d) \n",
 	  STRTYPE, N_UNIQUE, nsn);
-  // .xyz
+  
   // - - - - - - -
   fflush(FP_STDOUT);
 
@@ -16816,8 +16817,10 @@ int ppar(char* item) {
   for ( ikey=0; ikey < 2; ikey++ ) {
     len = strlen( keyList_data[ikey] );
     if ( uniqueOverlap(item,keyList_data[ikey]) ) {
+      sprintf(INPUTS.dataFile_string,"%s", &item[len]); // save for error msg
       parse_commaSepList("DATAFILE", &item[len], MXFILE_DATA, MXCHAR_FILENAME, 
 			 &INPUTS.nfile_data, &INPUTS.dataFile );
+      
       return(1);
     }
   }
@@ -18911,6 +18914,12 @@ void prep_input_driver(void) {
   ENVreplace("init",fnam,1); 
 
   // substitute ENV for filenames
+  if ( INPUTS.nfile_data <= 0 ) {
+    sprintf(c1err,"No input data (fitres files) !!!");
+    sprintf(c2err,"Check datafile=%s", INPUTS.dataFile_string); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
   for(ifile=0; ifile < INPUTS.nfile_data; ifile++ ) 
     { ENVreplace(INPUTS.dataFile[ifile],fnam,1); }
 

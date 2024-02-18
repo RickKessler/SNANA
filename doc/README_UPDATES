@@ -22212,4 +22212,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix logic storing SIMLIB info so that exceeding array bound
         does not corrupt & confuse abort message.
 
+    SALT2mu.c
+      + new option simfile_biascor=datafile will use the data file as biasCor.
+        Recommended only for quick 1D biasCor, to save time generating a
+        separate biascor. For rough forecasts; do NOT use this for nominal
+        data analysis.
 END: 

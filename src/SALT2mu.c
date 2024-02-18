@@ -1531,6 +1531,7 @@ int   storeDataBias(int n, int dumpFlag ) ;
 int   biasMapSelect(int i) ;
 void  read_simFile_biasCor(void);
 void  set_DUST_FLAG_biasCor(void) ;
+void  set_simFile_biasCor_to_dataFile(void);
 
 void  set_MAPCELL_biasCor(int IDSAMPLE) ;
 void  store_iaib_biasCor(void) ;
@@ -9804,6 +9805,9 @@ void  read_simFile_biasCor(void) {
 
   t_read_biasCor[0] = time(NULL); 
 
+  if ( strcmp(INPUTS.simFile_biasCor[0],"datafile") == 0 ) 
+    { set_simFile_biasCor_to_dataFile();  }
+
   // read each file quickly to get total size of arrays to malloc
   NEVT_TOT = 0 ;
   for(ifile=0; ifile < NFILE; ifile++ ) {
@@ -9853,6 +9857,34 @@ void  read_simFile_biasCor(void) {
 
   return ;
 } // end read_simFile_biasCor
+
+
+// ==========================================
+void set_simFile_biasCor_to_dataFile(void) {
+
+  // Set simFile_biasCor array(s) to that of dataFile.
+  // Free simFile_biasCor, and redo malloc using input NFILE to
+  // override previous malloc. Note that this is NOT using realloc.
+
+  int NFILE_DATA         = INPUTS.nfile_data;
+  int NFILE_BIASCOR_ORIG = INPUTS.nfile_biasCor;
+
+  int ifile;
+  char fnam[] = "set_simFile_biasCor_to_dataFile" ;
+
+  // ------------ BEGIN --------------
+
+  print_banner(fnam);
+  free(INPUTS.simFile_biasCor[0]); free(INPUTS.simFile_biasCor);
+
+  INPUTS.simFile_biasCor = (char**) malloc( NFILE_DATA * sizeof(char*) );
+  for ( ifile = 0; ifile < NFILE_DATA; ifile++ ) {
+    INPUTS.simFile_biasCor[ifile] = (char*) malloc( MXPATHLEN * sizeof(char) );
+    sprintf(INPUTS.simFile_biasCor[ifile], "%s", INPUTS.dataFile[ifile] );
+  }
+
+  return;
+} // end remalloc_simFile_Biascor
 
 // =======================================
 void set_DUST_FLAG_biasCor(void) {

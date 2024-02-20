@@ -343,6 +343,8 @@ HELP_CONFIG_LCFIT = f"""
   - FITOPT000     # another synLink for FITOPT012
   - etc ...
 
+  FITOPT_GLOBAL: <command-line arg list>  # global o[tions for all FITOPTs
+
   # Sym Link Notes for FITOPT000: this feature is useful for systematics
   # with multiple surveys. For example above, FITOPT011 and FITOP012 could
   # be calibration variatios for a different survey, so here the sym link

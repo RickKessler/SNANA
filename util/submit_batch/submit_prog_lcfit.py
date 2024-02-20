@@ -1002,6 +1002,7 @@ class LightCurveFit(Program):
         isplit = index_dict['isplit']+1  # fortran like index for file names
         icpu   = index_dict['icpu']      # cpu index
 
+        CONFIG        = self.config_yaml['CONFIG']
         args          = self.config_yaml['args']
         input_file    = args.input_file 
         kill_on_fail  = args.kill_on_fail
@@ -1013,6 +1014,8 @@ class LightCurveFit(Program):
         fitopt_arg    = self.config_prep['fitopt_arg_list'][iopt]
         fitopt_num    = self.config_prep['fitopt_num_list'][iopt]
         fitopt_label  = self.config_prep['fitopt_label_list'][iopt]
+        fitopt_global = CONFIG.setdefault('FITOPT_GLOBAL',None)
+
         use_table_format = self.config_prep['use_table_format']
         n_job_split   = self.config_prep['n_job_split']
         split_num     = f"SPLIT{isplit:03d}"
@@ -1061,6 +1064,9 @@ class LightCurveFit(Program):
 
         
         # user-define FITOPT options. 
+        if fitopt_global is not None:
+            arg_list.append(f"  {fitopt_global}")
+
         arg_list.append(f"{fitopt_arg}")
 
         # Jan 8, 2021: option to use CID list from FITOPT000

@@ -14,7 +14,6 @@
 #define OPTMASK_INIT_SIMSED_BATCH    128 // batch mode -> abort on stale binary
 
 
-// xxx mark delete #define INFO_SIMSED_FILENAME  "SED.INFO" 
 #define SIMSED_INFO_FILENAME    "SED.INFO" 
 #define SIMSED_BINARY_FILENAME  "SED.BINARY" 
 char SIMSED_INFO_FILENAME_FULL[MXPATHLEN] ;

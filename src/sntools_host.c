@@ -1302,7 +1302,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
 int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
 
   // July 14 2020
-  // pre-HOSTLIB-read utility to fetch & return list of
+  // pre-HOSTLIB-read utility to fetch & return comma-sep list of
   // VARNAMES appearing in WGTMAP so that WGTMAP variables can
   // be automatically stored in data files.
   // Check external WGTMAP file first; if no external WGTMAP file,

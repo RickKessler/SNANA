@@ -885,6 +885,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       }
     } // end PARNAMES
 
+
     // ------------
 
     if ( strcmp(c_get,"SED:") == 0 ) {
@@ -1201,6 +1202,9 @@ void checkBinary_SIMSED(char *binaryFile) {
     else {
       ptrFile = SIMSED_KCORFILE ; 
       if ( BINARYFLAG_KCORFILENAME == 0 ) { continue; }
+
+      // SED.BINARY does not depend on kcor file
+      if ( strstr(binaryFile,SIMSED_BINARY_FILENAME) != NULL ) { continue; }
     }
 
     tdif_sec = file_timeDif(binaryFile, ptrFile );

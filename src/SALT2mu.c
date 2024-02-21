@@ -22526,6 +22526,8 @@ void print_SALT2mu_HELP(void) {
     "chi2max(DES,PS1)=12    # apply cut only to DES & PS1",
     "chi2max(CSP)=10        # apply cut to CSP only",
     "",
+    "select_trueIa=1        # select only true SNIa, disable CC prior  (sim only)",
+    "",
     " - - - - -  Output - - - - - ",
     "",
     "prefix=<prefix for output FITRES files>", 

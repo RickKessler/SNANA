@@ -493,6 +493,9 @@ void malloc_METADATA_SEDMODEL(int NSED, int NPAR) {
   // number of SED surfaces and number of SED parameters.
   // This includes param values, day-binning, and wave-binning.
   //
+  // Feb 21 2024: move some mallocs outside ised loop to avoid re-mallocing
+  //              the same array multiple times.
+
   int ised, ipar;
   int NSED_malloc = NSED + 1 ;
   int MEMC_PARVAL_SED = NSED_malloc * sizeof(char**) ;
@@ -516,30 +519,41 @@ void malloc_METADATA_SEDMODEL(int NSED, int NPAR) {
 
   SEDMODEL.PARVAL        = (double**) malloc ( MEMD_PARVAL_SED );
   SEDMODEL.PARVAL_STRING = (char ***) malloc ( MEMC_PARVAL_SED );
-  SEDMODEL.FILENAME      = (char  **) malloc ( MEMC_FNAM_SED );
-  
+  SEDMODEL.FILENAME      = (char  **) malloc ( MEMC_FNAM_SED );  
+  SEDMODEL.DAY           = (double**) malloc ( NSED_malloc * sizeof(double*) );
+
   for(ised = 0; ised < NSED_malloc ; ised++ ) {
     SEDMODEL.PARVAL[ised]        = (double *) malloc ( MEMD_PARVAL_PAR );
     SEDMODEL.PARVAL_STRING[ised] = (char  **) malloc ( MEMC_PARVAL_PAR );
     SEDMODEL.FILENAME[ised]      = (char   *) malloc ( MEMC_FNAM_LEN );
-
-    SEDMODEL.NLAM    = (int   *) malloc ( MEMI_1D_SED);
-    SEDMODEL.LAMMIN  = (double*) malloc ( MEMD_1D_SED );
-    SEDMODEL.LAMMAX  = (double*) malloc ( MEMD_1D_SED );
-    SEDMODEL.LAMSTEP = (double*) malloc ( MEMD_1D_SED );
-
-    SEDMODEL.NDAY    = (int    *) malloc ( MEMI_1D_SED);
-    SEDMODEL.DAYMIN  = (double *) malloc ( MEMD_1D_SED );
-    SEDMODEL.DAYMAX  = (double *) malloc ( MEMD_1D_SED );
-    SEDMODEL.DAYSTEP = (double *) malloc ( MEMD_1D_SED );
-    SEDMODEL.DAY     = (double**) malloc ( NSED_malloc * sizeof(double*) );
-    //    int *NDAY, *NLAM;
-    //    double *LAMMIN, *LAMMAX, *LAMSTEP;
-    //    double *DAYMIN, *DAYMAX, *DAYSTEP, **DAY;
+    SEDMODEL.DAY[ised] = (double*) malloc( MXBIN_DAYSED_SEDMODEL * sizeof(double) );
 
     for(ipar=0; ipar < NPAR; ipar++ ) {
       SEDMODEL.PARVAL_STRING[ised][ipar] = (char*) malloc ( MEMC_PARVAL_LEN );
     }
+  }
+
+  SEDMODEL.NLAM    = (int   *) malloc ( MEMI_1D_SED);
+  SEDMODEL.LAMMIN  = (double*) malloc ( MEMD_1D_SED );
+  SEDMODEL.LAMMAX  = (double*) malloc ( MEMD_1D_SED );
+  SEDMODEL.LAMSTEP = (double*) malloc ( MEMD_1D_SED );
+  
+  SEDMODEL.NDAY    = (int    *) malloc ( MEMI_1D_SED);
+  SEDMODEL.DAYMIN  = (double *) malloc ( MEMD_1D_SED );
+  SEDMODEL.DAYMAX  = (double *) malloc ( MEMD_1D_SED );
+  SEDMODEL.DAYSTEP = (double *) malloc ( MEMD_1D_SED );
+
+  // init some values
+  for(ised = 0; ised < NSED_malloc ; ised++ ) {
+    SEDMODEL.NLAM[ised]    = 0;
+    SEDMODEL.LAMMIN[ised]  = 0.0 ;
+    SEDMODEL.LAMMAX[ised]  = 0.0 ;
+    SEDMODEL.LAMSTEP[ised] = 0.0 ;
+
+    SEDMODEL.NDAY[ised]    = 0;
+    SEDMODEL.DAYMIN[ised]  = 0.0 ;
+    SEDMODEL.DAYMAX[ised]  = 0.0 ;
+    SEDMODEL.DAYSTEP[ised] = 0.0 ;
   }
 
   return ;
@@ -3504,7 +3518,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
 
     if ( NLOOP > 100 ) {
       sprintf(c1err, "NLOOP=%d is too much", NLOOP);
-      sprintf(c2err, "LAMMIN=%.0f  LAMMAX=%.0f  LAMSTEP=%.1f",
+      sprintf(c2err, "LAMMIN=%.0f  LAMMAX=%.0f  LAMSTEP=%f",
 	      LAMMIN, LAMMAX, lamStep);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }

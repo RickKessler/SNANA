@@ -22220,4 +22220,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         Recommended only for quick 1D biasCor, to save time generating a
         separate biascor. For rough forecasts; do NOT use this for nominal
         data analysis.
+  
+    genmag_SEDtools.c
+      + fix dumb bugs in malloc_METADATA_SEDMODEL() and initialize
+        some array values to zero.
 END: 

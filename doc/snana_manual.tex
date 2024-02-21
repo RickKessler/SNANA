@@ -394,12 +394,12 @@ HEAD file:
 \begin{Verbatim}[frame=single]
 PHOT file:
 * MJD                      modified Julian date (-777 -> end of light curve)
-* BAND                     e.g.,  u,g,r,i,z
+* BAND                     e.g.,  'u', 'g', 'r' etc ...
 * CCDNUM                   CCD or detector number
-* IMGNUM                   image number (e.g. exposure number, visit id ...)
+* IMGNUM                   image number; e.g. exposure number, visit id ...
 * FIELD                    name of field; e.g., SHALLOW, DEEP, etc ...
 * PHOTFLAG                 bit-mask of information (check data README)
-* PHOTPROB                 RealBogus score, or chi2, or any float metric
+* PHOTPROB                 float metric; e.g, RealBogus score, chi2, ...
 * FLUXCAL                  calibrated flux : mag = 27.5 - 2.5*log10(FLUXCAL)
 * FLUXCALERR               Poisson uncertainty on FLUXCAL; sky+galaxy+source
 
@@ -408,9 +408,9 @@ PHOT file:
 * SKY_SIG                  sky noise (ADU/pixel)
 * SKY_SIG_T                template sky noise (for DIFFIMG, not for SMP)
 * ZEROPT                   image zero point
-* GAIN                     N_photoelectron/ADU = 1.0
-* XPIX                     x-locaton on CCD (in pixels)
-* YPIX                     y-locaton on CCD (in pixels)
+* GAIN                     N_photoelectron/ADU
+* XPIX                     x-locaton on CCD (pixels)
+* YPIX                     y-locaton on CCD (pixels)
 
     For simulated data:
 * SIM_MAGOBS               true model mag

@@ -39,6 +39,7 @@
 #          (original need is genmag_BAYESN.c)
 # May 26 2023: link sim to sntools_sim_atmosphere
 # Sep 14 2023: add genmag_extrap
+# Feb 22 2024: add sntools_wgtmap
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -337,6 +338,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/snlc_sim.o	\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_host.o   \
+        $(OBJ)/sntools_wgtmap.o   \
 	$(OBJ)/sntools_weaklens.o  \
 	$(OBJ)/sntools_stronglens.o  \
 	$(OBJ)/sntools_wronghost.o   \
@@ -781,6 +783,12 @@ $(OBJ)/sntools_host.o : $(SRC)/sntools_host.c  $(SRC)/sntools_host.h $(SRC)/snlc
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_host.c )
 
+# -------------------------------------------------
+# compile sntools_wgtmap (.o only)
+
+$(OBJ)/sntools_wgtmap.o : $(SRC)/sntools_wgtmap.c  $(SRC)/sntools_wgtmap.h $(SRC)/snlc_sim.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_wgtmap.c )
 
 # -------------------------------------------------
 # compile sntools_devel (.o only)

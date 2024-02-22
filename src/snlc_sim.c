@@ -670,6 +670,7 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
+  INPUTS.REFAC_WGTMAP = 0;
   INPUTS.SIMLIB_REFAC = 1;
   INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
@@ -1682,6 +1683,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
+    INPUTS.REFAC_WGTMAP = (INPUTS.DEBUG_FLAG == 28);
   }
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPEND_SNID_SEDINDEX) ; 

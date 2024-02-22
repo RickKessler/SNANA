@@ -481,6 +481,7 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
+  bool REFAC_WGTMAP ;         // Temporary development flag; set internally from DEBUG_FLAG value
   bool APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
 
   bool DEBUG_SNSEP;  // temp flag to debug SNSEP

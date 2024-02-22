@@ -911,7 +911,8 @@ void append_HOSTLIB_STOREPAR(void) {
   int NVAR_WGTMAP = 0 ;
   if ( INPUTS.REFAC_WGTMAP ) {
     NVAR_WGTMAP = read_VARNAMES_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, VARLIST_WGTMAP);
-  } else {
+  } 
+  else {
     NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
   }
   if ( NVAR_WGTMAP > 0 ) {
@@ -1258,8 +1259,10 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
       N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
     }
 
-    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME) ;
-    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ") ;
+    catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
+
+    // xxx mark    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME) ;
+    // xxx mark   strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ") ;
     
     // load variable if it's not already loaded, and NOT SN var.
     IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 

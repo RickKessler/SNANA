@@ -21549,14 +21549,15 @@ void checkpar_SIMSED(void) {
     }
 
 
+    /* xxx Feb 21 2024: buggy error trap ... fix later ....
     if ( SEDMODEL.IPAR_TEMPLATE_INDEX >= 0 && INPUTS.NPAR_SIMSED_PARAM>0 ){
       char *parName = SEDMODEL.PARNAMES[SEDMODEL.IPAR_TEMPLATE_INDEX];
       sprintf(c1err,"Cannot specify SIMSED_PARAM with 'SIMSED_GRIDONLY: %s' ",
               parName);
       sprintf(c2err,"Remove one of these keys from sim-input");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
- 
     }
+    xxxx */
 
     GENLC.SIMSED_IPARMAP[ipar_user] = ipar_model ; // Nov 18, 2011
 

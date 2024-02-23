@@ -1532,7 +1532,7 @@ struct SIMLIB_HEADER {
 
   int  NGROUPID_HOSTLIB;
   int  GROUPID_HOSTLIB_LIST[10]; // select GROUPID from HOSTLIB
-  char GROUPID_HOSTLIB_STRING[200];
+  char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
   char TELESCOPE[60] ; // July 2016

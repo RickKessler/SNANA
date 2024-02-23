@@ -17640,6 +17640,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
+#define MXCHAR_LINE_SIMLIB 400
 
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0 ;
@@ -17651,8 +17652,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, FOUND_LIBID ;
   bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE, KEEP_MJD ;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
-  char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
-  char WDLIST[MXWDLIST_SIMLIB][200], *ptrWDLIST[MXWDLIST_SIMLIB];
+  char wd0[MXCHAR_LINE_SIMLIB], wd1[MXCHAR_LINE_SIMLIB];
+  char ctmp[200], *BAND, cline[MXCHAR_LINE_SIMLIB], *pos ;
+  char WDLIST[MXWDLIST_SIMLIB][MXCHAR_LINE_SIMLIB];
+  char *ptrWDLIST[MXWDLIST_SIMLIB];
   char *FIELD_LIST = SIMLIB_HEADER.FIELD; // plus-separated list of fields
   char field[40];                         // field per epoch
   char *TEL        = SIMLIB_HEADER.TELESCOPE ;

@@ -156,7 +156,11 @@ void INIT_HOSTLIB(void) {
   initvar_HOSTLIB();
 
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
-  read_HOSTLIB_WGTMAP();
+  if ( INPUTS.REFAC_WGTMAP ){
+    read_HOSTLIB_WGTMAP();
+  } else {
+    read_HOSTLIB_WGTMAP_LEGACY();
+  }
 
   // open hostlib and start reading
   open_HOSTLIB(&fp_hostlib);     // open and return file pointer
@@ -910,7 +914,9 @@ void append_HOSTLIB_STOREPAR(void) {
   char VARLIST_WGTMAP[200];
   int NVAR_WGTMAP = 0 ;
   if ( INPUTS.REFAC_WGTMAP ) {
-    NVAR_WGTMAP = read_VARNAMES_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, VARLIST_WGTMAP);
+    //NVAR_WGTMAP = read_VARNAMES_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, VARLIST_WGTMAP);
+    NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
+
   } 
   else {
     NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
@@ -1138,6 +1144,78 @@ void  read_HOSTLIB_WGTMAP(void) {
   int  gzipFlag ;
   char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
   char fnam[] = "read_HOSTLIB_WGTMAP"  ;
+  int OPTMASK = 0;
+  int NDIM;
+
+  // ------------- BEGIN --------------
+
+  HOSTLIB_WGTMAP.READSTAT = false ;
+
+  ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
+  if ( IGNOREFILE(ptrFile) )  { return ; }
+
+  if ( INPUTS.HOSTLIB_GALID_FORCE > 0 ) { //
+    sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,"NONE");
+    return; 
+  }
+
+  NDIM = read_WGTMAP(ptrFile, OPTMASK);
+  // continue below 
+
+  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
+			  PATH_DEFAULT_HOSTLIB, ptrFile,
+			  fileName_full, &gzipFlag );  // <== returned
+
+  if ( !fp ) {
+      abort_openTextFile("HOSTLIB_WGTMAP_FILE", 
+			 PATH_DEFAULT_HOSTLIB, ptrFile, fnam);
+  }
+
+  // if we get here, open and read WGTMAP file.
+
+  printf("\t Read WEIGHT-MAP from supplemental file:\n\t   %s\n", ptrFile );
+  fflush(stdout);
+
+  while( (fscanf(fp, "%s", c_get)) != EOF) 
+    { parse_HOSTLIB_WGTMAP(fp,c_get);  }
+
+  if ( gzipFlag ) { pclose(fp); }   else { fclose(fp); }
+
+  HOSTLIB_WGTMAP.READSTAT = true ;
+
+  if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
+    { printf("\t Implement SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
+  else
+    { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
+
+
+  int NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
+  if ( NVAR_WGTMAP == 0 ) {
+    sprintf(c1err, "Found no VARNAMES_WGTMAP key in HOSTLIB_WGTMAP_FILE ;");
+    sprintf(c2err, "Check argument of HOSTLIB_WGTMAP_FILE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return;
+
+} // end of read_HOSTLIB_WGTMAP
+
+// ====================================
+void  read_HOSTLIB_WGTMAP_LEGACY(void) {
+
+  // Function to read OPTIONAL weight-map to over-ride
+  // weight map in the HOSTLIB. If the weight map is read
+  // here, then the corresponding weight-map in the HOSTLIB
+  // will be ignored. Note that this function must be called
+  // before read_head_HOSTLIB().
+  //
+  // July 14 2020: replace PATH_USER_INPUT with PATH_DEFAULT_HOSTLIB
+  // Feb  07 2024: return if FORCE_GALID > 0 (no need for WGTMAP)
+  //
+  FILE *fp ;
+  int  gzipFlag ;
+  char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
+  char fnam[] = "read_HOSTLIB_WGTMAP_LEGACY"  ;
 
   // ------------- BEGIN --------------
 
@@ -1187,8 +1265,7 @@ void  read_HOSTLIB_WGTMAP(void) {
 
   return;
 
-} // end of read_HOSTLIB_WGTMAP
-
+} // end of read_HOSTLIB_WGTMAP_LEGACY
 
 // ====================================
 void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {

@@ -14,6 +14,47 @@
 #include "sntools_output.h"
 
 // ============================================
+int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK){
+
+  // Created Feb 2024 by Alex Gagliano
+  // Create generic WGTMAP function to read file
+  // This used to be hard-wired for HOSTLIBs; 
+  // Generalizing to work for HOSTLIBs, SIMSEDs, and 
+  // potentially other applications.
+
+  char TEXTMODE_read[] = "rt";
+  char fnam[]    = "read_WGTMAP";
+  FILE *fp;
+  int gzipFlag;
+  int NDIM;
+
+  // ------------- BEGIN ------------
+  
+  fp = open_TEXTgz(WGTMAP_FILE, TEXTMODE_read, &gzipFlag );
+  
+  printf("Read WGTMAP file: %s\n", WGTMAP_FILE);
+
+  /*
+  if ( strcmp(string,"OPT_EXTRAP_WGTMAP:") == 0 )
+    { HOSTLIB_WGTMAP.OPT_EXTRAP = 1;  } // Jun 11 2021
+
+  FOUND_VARNAMES = ( strcmp(string,"VARNAMES_WGTMAP:") ==0 );
+  if ( !FOUND_VARNAMES) { return ; }
+  */
+
+  // read WGT keys and load GRIDMAP struct.
+  //read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN,
+  //             HOSTLIB_WGTMAP.OPT_EXTRAP,
+  //             MXROW_WGTMAP, fnam,
+  //             &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
+
+  if ( gzipFlag ){ pclose(fp); }     else { fclose(fp); }
+  debugexit(fnam);
+  return NDIM;
+ 
+}//end read_WGTMAP
+
+// ============================================
 int read_VARNAMES_WGTMAP(char *WGTMAP_FILE, char *VARLIST_WGTMAP) {
 
   // ATG Reminder: Need to pass the fnam in as argument.

@@ -17639,6 +17639,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //    for accurate abort message, but arrays beyond bound are not loaded
   //    to avoid corrupting information in abort message.
   //
+  // Feb 23 2024: increase string lengths to MXCHAR_LINE_SIMLIB to handle
+  //              long GROUPID strings.
+  //
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 #define MXCHAR_LINE_SIMLIB 400

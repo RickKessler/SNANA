@@ -22214,6 +22214,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c
       + fix logic storing SIMLIB info so that exceeding array bound
         does not corrupt & confuse abort message.
+      + in function SIMLIB_readNextCadence_TEXT(), increase local string array
+        bounds to avoid choking on long HOSTLIB_GROUPIDs in the simlib.
+      + increase MXGROUPID_SIMLIB -> 60 (was 20)
 
     SALT2mu.c
       + new option simfile_biascor=datafile will use the data file as biasCor.

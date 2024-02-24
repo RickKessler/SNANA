@@ -24121,98 +24121,6 @@ c - - - - - - HOST GALAXY - - - -
       IGAL = 2
       CALL INIT_TABLE_HOSTVAR(ID, IGAL, ITEXT2, BLOCK)
 
-c xxxxxxx mark delete Sep 9 2023 xxxxxxxx
-+SELF,IF=REMOVE.
-c store HOST_OBJID as double precision because
-c  * root tree supports Long64_t, but does not read back correctly
-c  * hbook cwnt does not support long long int.
-c  * sntable_dump extraction will write real*8 as integer.
-
-
-      VARLIST =  'HOST_OBJID:D' // char(0)
-      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(1), 
-     &             VARLIST,ITEXT,     LENBLOCK, 20 )
-
-      VARLIST =  'HOST_ZPHOT:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(1), 
-     &             VARLIST,ITEXT,    LENBLOCK, 40 )
-      VARLIST =  'HOST_ZPHOTERR:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(1), 
-     &               VARLIST,ITEXT,    LENBLOCK, 40 )
-
-      VARLIST =  'HOST_ZSPEC:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(1), 
-     &             VARLIST,ITEXT,    LENBLOCK, 40 )
-      VARLIST =  'HOST_ZSPECERR:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC_ERR(1), 
-     &              VARLIST,ITEXT,  LENBLOCK, 40 )
-
-      VARLIST = 'HOST_RA:D'  // char(0)
-      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_RA(1), 
-     &          VARLIST,ITEXT,    LENBLOCK, 20 )
-      VARLIST = 'HOST_DEC:D'  // char(0)
-      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_DEC(1), 
-     &          VARLIST,ITEXT,   LENBLOCK, 20 )
-
-      VARLIST = 'HOST_ANGSEP:F'  // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ANGSEP(1), 
-     &         VARLIST,ITEXT,   LENBLOCK, 20 )
-
-      VARLIST = 'HOST_DDLR:F'  // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_DDLR(1), 
-     &          VARLIST,ITEXT,    LENBLOCK, 20 )
-
-      VARLIST = 'HOST_CONFUSION:F'  // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_CONFUSION, 
-     &          VARLIST,ITEXT,    LENBLOCK, 20 )
-
-c always write LOGMASS and SFR
-      IF ( EXIST_SNHOST_LOGMASS ) THEN
-        VARLIST =  'HOST_LOGMASS:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS(1), 
-     &          VARLIST, 1,    LENBLOCK, 40 )
-        VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS_ERR(1), 
-     &          VARLIST, 1,     LENBLOCK, 40 )
-      ENDIF
-
-      IF ( EXIST_SNHOST_LOGSFR ) THEN
-        VARLIST =  'HOST_LOGSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR(1), 
-     &            VARLIST, 1,    LENBLOCK, 40 )
-        VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR_ERR(1), 
-     &            VARLIST, 1,    LENBLOCK, 40 )
-      ENDIF
-
-      IF ( EXIST_SNHOST_LOGsSFR ) THEN
-        VARLIST =  'HOST_LOGsSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR(1), 
-     &            VARLIST, 1,   LENBLOCK, 40 )
-        VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR_ERR(1), 
-     &           VARLIST, 1,    LENBLOCK, 40 )
-      ENDIF
-
-      IF ( EXIST_SNHOST_COLOR ) THEN
-        VARLIST =  'HOST_COLOR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR(1), 
-     &             VARLIST, 1,    LENBLOCK, 40 )
-        VARLIST =  'HOST_COLOR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR_ERR(1), 
-     &           VARLIST, 1,     LENBLOCK, 40 )
-      ENDIF
-
-      IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
-        CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
-     &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
-     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
-      ENDIF
-
-+SELF.
-c xxxxxxxxxx end mark xxxxxxxxxx
-
 
 c Apr 2022
 c store host surface brightness if SB exists or host-mag exists.
@@ -24539,7 +24447,11 @@ c  Inputs
 c   ID   : table ID
 c   IGAL : 1 for best match, >1 for other matches
 c   ITEXT: 1 -> write to text also
-
+c
+c
+c Feb 23 2024: pass ITEXT for HOST MAGS so that they appear with
+c              SNTABLE_LIST = 'SNANA(text:key,text:host)'
+c
       IMPLICIT NONE
 
 c subroutine args
@@ -24657,7 +24569,7 @@ c physical properties
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
      &           VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
-     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+     &      VARLIST(1:LENLIST)//char(0), ITEXT, LENBLOCK, LENLIST)
       ENDIF
 
       RETURN

@@ -1375,6 +1375,7 @@ class Simulation(Program):
         # end sim_prep_SIMGEN_INFILE_read
 
     def sim_prep_SIMGEN_INFILE_verify(self,iver,keycheck,msgerr):
+
         # For input genversion, verify keycheck among all sim-input
         # files and abort if particular keys are not the same;
         #      e.g., REDSHIFT, PEAKMJD, SOLID_ANGLE.

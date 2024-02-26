@@ -40,6 +40,7 @@
 # May 26 2023: link sim to sntools_sim_atmosphere
 # Sep 14 2023: add genmag_extrap
 # Feb 22 2024: add sntools_wgtmap
+# Feb 24 2024: switch -O1 to -O2 optimizer (20% faster photo-z fits)
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -59,10 +60,10 @@ FFC  = gfortran
 #CC   = cc
 CC   = gcc
 
-  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
+#  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-# EXTRA_FLAGS = -O2 -
+  EXTRA_FLAGS = -O2
 # EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)

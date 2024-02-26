@@ -13,28 +13,80 @@
 #include "sntools_wgtmap.h"
 #include "sntools_output.h"
 
+#define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
+
 // ============================================
-int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK){
+int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
 
   // Created Feb 2024 by Alex Gagliano
   // Create generic WGTMAP function to read file
   // This used to be hard-wired for HOSTLIBs; 
   // Generalizing to work for HOSTLIBs, SIMSEDs, and 
   // potentially other applications.
+  // OPTMASK = 1 means read_VARLIST only and return.
 
   char TEXTMODE_read[] = "rt";
   char fnam[]    = "read_WGTMAP";
+  char line[MXPATHLEN];
   FILE *fp;
   int gzipFlag;
-  int NDIM;
+  int NDIM = 0, i, iwd, NWD = 0;
+  char WORD[MXPATHLEN];
+  int FLAG_EXTRAP = (OPTMASK & OPTMASK_WGTMAP_EXTRAP);
+  int FLAG_VERBOSE = (OPTMASK & OPTMASK_WGTMAP_VERBOSE);
+  int FLAG_VARNAMES_ONLY = (OPTMASK & OPTMASK_WGTMAP_READ_VARNAMES_ONLY);
+  char KEYLIST_VARNAMES[2][20] = {"VARNAMES:", "VARNAMES_WGTMAP:"};
+  bool FOUND_VARNAMES = false;
 
   // ------------- BEGIN ------------
   
   fp = open_TEXTgz(WGTMAP_FILE, TEXTMODE_read, &gzipFlag );
   
-  printf("Read WGTMAP file: %s\n", WGTMAP_FILE);
+  if ( FLAG_VERBOSE ) {
+    printf("Read WGTMAP file: %s\n", WGTMAP_FILE);
+    fflush(stdout);
+  }
 
-  /*
+  GRIDMAP->VARLIST[0] = 0;
+
+  while ( fgets(line, MXPATHLEN, fp) != NULL ) {
+
+    if ( commentchar(line) ) {  continue;  };
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, line, fnam);    
+    
+    iwd = 0;
+    get_PARSE_WORD(0, iwd, WORD);
+    for ( i = 0; i < 2; i++ ) {
+      if ( strcmp(KEYLIST_VARNAMES[i], WORD) == 0){
+
+	FOUND_VARNAMES = true;
+
+        for ( iwd = 1; iwd < NWD; iwd++ ) {
+	  get_PARSE_WORD(0, iwd, WORD);
+	  catVarList_with_comma( GRIDMAP->VARLIST, WORD );
+	  NDIM++;
+	}
+	if ( FLAG_VARNAMES_ONLY ) {
+	   //printf("xxx %s: VARLIST = %s NDIM = %d\n", fnam, GRIDMAP->VARLIST, NDIM);
+	   return NDIM;
+	}
+      } // end of VALID_VARNAME 
+    } // end loop over VALID_VARNAME_KEYS
+
+    if ( FOUND_VARNAMES ) {
+      int NFUN = 2;
+      int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
+      read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN,
+               FLAG_EXTRAP,
+               MXROW_WGTMAP, fnam,
+               GRIDMAP ); // <== return GRIDMAP
+
+      return NDIM;
+
+    }
+  } // end while loop over WGTMAP file lines
+
+  /* 
   if ( strcmp(string,"OPT_EXTRAP_WGTMAP:") == 0 )
     { HOSTLIB_WGTMAP.OPT_EXTRAP = 1;  } // Jun 11 2021
 
@@ -49,7 +101,7 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK){
   //             &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
 
   if ( gzipFlag ){ pclose(fp); }     else { fclose(fp); }
-  debugexit(fnam);
+
   return NDIM;
  
 }//end read_WGTMAP

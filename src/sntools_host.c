@@ -911,11 +911,12 @@ void append_HOSTLIB_STOREPAR(void) {
   //  WGTMAP is read later, but possibly after reading HOSTLIB
   //  VARNAMES where it is too late to store WGTMAP var.
   //  Here we are well before reading HOSTLIB.
-  char VARLIST_WGTMAP[200];
-  int NVAR_WGTMAP = 0 ;
+  char *VARLIST_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.VARLIST;
+  int NVAR_WGTMAP = 0, OPTMASK_WGTMAP = 1;
   if ( INPUTS.REFAC_WGTMAP ) {
-    //NVAR_WGTMAP = read_VARNAMES_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, VARLIST_WGTMAP);
-    NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
+    NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, &HOSTLIB_WGTMAP.GRIDMAP);
+    //NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
+    debugexit(fnam);
 
   } 
   else {
@@ -1159,28 +1160,17 @@ void  read_HOSTLIB_WGTMAP(void) {
     return; 
   }
 
-  NDIM = read_WGTMAP(ptrFile, OPTMASK);
-  // continue below 
-
-  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
-			  PATH_DEFAULT_HOSTLIB, ptrFile,
-			  fileName_full, &gzipFlag );  // <== returned
-
-  if ( !fp ) {
-      abort_openTextFile("HOSTLIB_WGTMAP_FILE", 
-			 PATH_DEFAULT_HOSTLIB, ptrFile, fnam);
+  if ( HOSTLIB_WGTMAP.OPT_EXTRAP ) {
+    OPTMASK += OPTMASK_WGTMAP_EXTRAP;
   }
+  OPTMASK += OPTMASK_WGTMAP_VERBOSE;
+
+  NDIM = read_WGTMAP(ptrFile, OPTMASK, &HOSTLIB_WGTMAP.GRIDMAP);
+
+  // continue below 
+  HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
 
   // if we get here, open and read WGTMAP file.
-
-  printf("\t Read WEIGHT-MAP from supplemental file:\n\t   %s\n", ptrFile );
-  fflush(stdout);
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) 
-    { parse_HOSTLIB_WGTMAP(fp,c_get);  }
-
-  if ( gzipFlag ) { pclose(fp); }   else { fclose(fp); }
-
   HOSTLIB_WGTMAP.READSTAT = true ;
 
   if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
@@ -1195,6 +1185,8 @@ void  read_HOSTLIB_WGTMAP(void) {
     sprintf(c2err, "Check argument of HOSTLIB_WGTMAP_FILE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+
+  debugexit(fnam);
 
   return;
 
@@ -1349,6 +1341,9 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
     }  
   } // end of ivar loop
   
+  // temporary hack until we remove this function.
+  int MXROW_WGTMAP = 25000000;
+
   // read WGT keys and load GRIDMAP struct.
   read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 
 	       HOSTLIB_WGTMAP.OPT_EXTRAP,

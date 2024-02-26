@@ -597,7 +597,7 @@ void readme_docana_hostmatch(int *iline, char *pad) {
 
   // ------------ BEGIN ----------
 
-  str_n0_list[0] = str_n2_list[0] = 0 ;
+  str_n0_list[0]    = str_n2_list[0] = 0 ;
   str_frac0_list[0] = str_frac2_list[0] = str_z_list[0] = 0 ;
 
   for(iz=0; iz < NBINz; iz++ ) {
@@ -614,8 +614,8 @@ void readme_docana_hostmatch(int *iline, char *pad) {
     }
 
     /*
-    printf(" xxx %s: N0=%d N2=%d N_WRITE=%d frac[0,2] = %f, %f \n",
-	   fnam, N0, N2, NGENLC_WRITE, frac0, frac2); fflush(stdout);
+    printf(" xxx %s: N=%d  N0=%d N2=%d N_WRITE=%d frac[0,2] = %f, %f \n",
+	   fnam, N, N0, N2, NGENLC_WRITE, frac0, frac2); fflush(stdout);
     */
 
     sprintf(str_z,  " %.2f-%.2f", z0, z1);

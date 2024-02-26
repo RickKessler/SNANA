@@ -2023,8 +2023,9 @@ void read_specTable_EAZY(char *spec_list_file) {
   // the eazy template reside in same dirname.
   basename = strrchr(spec_list_file, '/');
   int parentLen = strlen(spec_list_file) - strlen(basename+1);
-  strncpy(eazy_dir, spec_list_file, parentLen);
-  eazy_dir[parentLen-1] = 0 ; // terminate
+  // xxx mark delete Feb 256 2024 strncpy(eazy_dir, spec_list_file, parentLen);
+  sprintf(eazy_dir, "%s", spec_list_file);
+  eazy_dir[parentLen-1] = 0 ; // terminate after dir name
 
   // xxx  printf(" xxx %s: eazy_dir = '%s' \n", fnam, eazy_dir); fflush(stdout);
 

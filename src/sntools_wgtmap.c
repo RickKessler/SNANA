@@ -37,6 +37,8 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
   int FLAG_VARNAMES_ONLY = (OPTMASK & OPTMASK_WGTMAP_READ_VARNAMES_ONLY);
   char KEYLIST_VARNAMES[2][20] = {"VARNAMES:", "VARNAMES_WGTMAP:"};
   bool FOUND_VARNAMES = false;
+  bool FOUND_WGT = false;
+  int NFUN = 0;
 
   // ------------- BEGIN ------------
   
@@ -53,7 +55,6 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
 
     if ( commentchar(line) ) {  continue;  };
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, line, fnam);    
-    
     iwd = 0;
     get_PARSE_WORD(0, iwd, WORD);
     for ( i = 0; i < 2; i++ ) {
@@ -63,8 +64,16 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
 
         for ( iwd = 1; iwd < NWD; iwd++ ) {
 	  get_PARSE_WORD(0, iwd, WORD);
+	  if ( strcmp(WORD, VARNAME_WGT_REQUIRED) == 0 ){
+	    NDIM = iwd - 1;
+	    NFUN = NWD - NDIM - 1; // subtract WGT and KEYWORD
+	    if ( FLAG_VERBOSE ){
+	      printf("\tNDIM = %d NFUN = %d\n", NDIM, NFUN);
+	      fflush(stdout);
+	    }
+            FOUND_WGT = true;
+	  }
 	  catVarList_with_comma( GRIDMAP->VARLIST, WORD );
-	  NDIM++;
 	}
 	if ( FLAG_VARNAMES_ONLY ) {
 	   //printf("xxx %s: VARLIST = %s NDIM = %d\n", fnam, GRIDMAP->VARLIST, NDIM);
@@ -74,7 +83,6 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
     } // end loop over VALID_VARNAME_KEYS
 
     if ( FOUND_VARNAMES ) {
-      int NFUN = 2;
       int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
       read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN,
                FLAG_EXTRAP,

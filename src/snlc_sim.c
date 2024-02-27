@@ -2139,7 +2139,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS.GENGAUSS_SALT2ALPHA.SIGMA[0] = 0.9E4 ; // under 1E4 to write into readme
     INPUTS.GENGAUSS_SALT2ALPHA.SIGMA[1] = 0.9E4 ;
     INPUTS.GENGAUSS_SALT2ALPHA.NGRID    = 2 ;
-    prepIndex_GENGAUSS(WORDS[0], &INPUTS.GENGAUSS_SALT2BETA);    
+    prepIndex_GENGAUSS("SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA);    
   }
   else if ( strstr(WORDS[0],"BIASCOR_SALT2BETA_GRID") != NULL ) {
     // load asymGauss params for BBC beta grid 
@@ -2151,8 +2151,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS.GENGAUSS_SALT2BETA.RANGE[1] = TMPVAL[1];
     INPUTS.GENGAUSS_SALT2BETA.SIGMA[0] = 0.9E4 ;
     INPUTS.GENGAUSS_SALT2BETA.SIGMA[1] = 0.9E4 ;
-    INPUTS.GENGAUSS_SALT2BETA.NGRID     = 2 ;
-    prepIndex_GENGAUSS(WORDS[0], &INPUTS.GENGAUSS_SALT2BETA);
+    INPUTS.GENGAUSS_SALT2BETA.NGRID    = 2 ;
+    prepIndex_GENGAUSS("SALT2BETA", &INPUTS.GENGAUSS_SALT2BETA);
   }
 
   else if ( strstr(WORDS[0],"SALT2ALPHA") != NULL ) {

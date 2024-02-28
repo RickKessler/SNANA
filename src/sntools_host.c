@@ -685,6 +685,7 @@ void init_OPTIONAL_HOSTVAR(void) {
   return ;
 } // end of init_OPTIONAL_HOSTVAR
 
+
 void init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) {
 #define N_SUFFIX_PROP 3 
   char fnam[]="init_OPTIONAL_HOSTVAR_PROPERTY";
@@ -829,6 +830,11 @@ int load_VARNAME_STORE(char *varName) {
   // return -1 if this varName was already loaded.
 
   int N ;
+  char fnam[] = "load_VARNAME_STORE";
+
+  if ( strcmp(varName,"x1") == 0 )
+    { printf(" xxx %s: varName=%s \n", fnam, varName); } // xxxx
+
   if ( IVAR_HOSTLIB(varName,0) < 0 ) {
     N = HOSTLIB.NVAR_STORE ;
     sprintf( HOSTLIB.VARNAME_STORE[N],"%s", varName);
@@ -862,6 +868,7 @@ void append_HOSTLIB_STOREPAR(void) {
   char fnam[] = "append_HOSTLIB_STOREPAR" ;
 
   // -------------- BEGIN ------------
+
 
   // If zHOST_FILE exists,  copy variables from zHOST efficiency map to 
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
@@ -912,23 +919,63 @@ void append_HOSTLIB_STOREPAR(void) {
   //  VARNAMES where it is too late to store WGTMAP var.
   //  Here we are well before reading HOSTLIB.
   char *VARLIST_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.VARLIST;
-  int NVAR_WGTMAP = 0, OPTMASK_WGTMAP = OPTMASK_WGTMAP_READ_VARNAMES_ONLY + OPTMASK_WGTMAP_VERBOSE;
+  char VARLIST_WGTMAP_noSNVAR[200];
+  int NVAR_WGTMAP    = 0;
+  int OPTMASK_WGTMAP = 
+    OPTMASK_WGTMAP_READ_VARNAMES_ONLY + OPTMASK_WGTMAP_VERBOSE;
+
 
   if ( INPUTS.REFAC_WGTMAP ) {
-    NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, &HOSTLIB_WGTMAP.GRIDMAP);
-    //NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
+    NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, 
+			      &HOSTLIB_WGTMAP.GRIDMAP); // <= returned
+    
+    strip_SNVAR_from_VARLIST_WGTMAP(VARLIST_WGTMAP,VARLIST_WGTMAP_noSNVAR);
+    //    prep_HOSTLIB_WGTMAP() ;
   } 
   else {
-    NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP);
+    NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP_noSNVAR);
   }
+
   if ( NVAR_WGTMAP > 0 ) {
-    if ( strlen(STOREPAR) > 0 ) { strcat(STOREPAR,COMMA); }
-    strcat(STOREPAR,VARLIST_WGTMAP);
+    catVarList_with_comma(STOREPAR, VARLIST_WGTMAP_noSNVAR);
+    // xxx mark if ( strlen(STOREPAR) > 0 ) { strcat(STOREPAR,COMMA); }
+    // xxx mark strcat(STOREPAR,VARLIST_WGTMAP);
   }
     
   return ;
 
 } // end append_HOSTLIB_STOREPAR
+
+
+void strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
+				     char *VARLIST_WGTMAP_noSNVAR) {
+
+  // Created Feb 27 2024
+  // For input comma-sep list VARLIST_WGTMAP, return 
+  // comma-sep list VARLIST_WGTMAP_noSNVAR that has
+  // SN variables removed
+  
+  int NWD, ivar;
+  bool IS_SNVAR ;
+  char VARNAME[80];
+  char fnam[] = "strip_SNVAR_from_VARLIST_WGTMAP";
+  
+  // ---------- BEGIN -------------
+  
+  VARLIST_WGTMAP_noSNVAR[0] = 0 ;
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARLIST_WGTMAP, fnam);
+
+  for(ivar=0; ivar < NWD; ivar++ ) {
+    get_PARSE_WORD(0, ivar, VARNAME);
+    IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME); // Mar 2020
+    if ( !IS_SNVAR ) {
+      catVarList_with_comma(VARLIST_WGTMAP_noSNVAR, VARNAME);
+    }
+  }
+
+  return ;
+
+} // end strip_SNVAR_from_VARLIST_WGTMAP
 
 // ====================================================
 void  init_OUTVAR_HOSTLIB(void) {
@@ -971,7 +1018,6 @@ void  init_OUTVAR_HOSTLIB(void) {
   sprintf(VARLIST_ALL, "%s", INPUTS.HOSTLIB_STOREPAR_LIST) ;
   VARLIST_LOAD[0] = 0 ; 
 
-
   // bail if nothing is specified.
   if ( strlen(VARLIST_ALL) == 0 ) { return ; }
 
@@ -980,7 +1026,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   NVAR_REQ = HOSTLIB.NVAR_REQUIRED ;
 
   // split VARLIST_ALL into individual var names
-  NVAR_STOREPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST_ALL, fnam);
+  NVAR_STOREPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARLIST_ALL, fnam);
 
   for(ivar=0; ivar < NVAR_STOREPAR; ivar++ ) {
 
@@ -1131,21 +1177,15 @@ void close_HOSTLIB(FILE *fp) {
 // ====================================
 void  read_HOSTLIB_WGTMAP(void) {
 
-  // Function to read OPTIONAL weight-map to over-ride
-  // weight map in the HOSTLIB. If the weight map is read
-  // here, then the corresponding weight-map in the HOSTLIB
-  // will be ignored. Note that this function must be called
-  // before read_head_HOSTLIB().
+  // Function to read OPTIONAL weight-map file.
+  // Note that this function must be called  before read_head_HOSTLIB().
   //
   // July 14 2020: replace PATH_USER_INPUT with PATH_DEFAULT_HOSTLIB
   // Feb  07 2024: return if FORCE_GALID > 0 (no need for WGTMAP)
   //
-  FILE *fp ;
-  int  gzipFlag ;
-  char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
+  char *ptrFile;
+  int  NVAR_WGTMAP, OPTMASK;
   char fnam[] = "read_HOSTLIB_WGTMAP"  ;
-  int OPTMASK = 0;
-  int NDIM;
 
   // ------------- BEGIN --------------
 
@@ -1154,22 +1194,23 @@ void  read_HOSTLIB_WGTMAP(void) {
   ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
 
+  // if forceing GALID, then WGTMAP serves no purpose.
   if ( INPUTS.HOSTLIB_GALID_FORCE > 0 ) { //
     sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,"NONE");
     return; 
   }
 
-  if ( HOSTLIB_WGTMAP.OPT_EXTRAP ) {
-    OPTMASK += OPTMASK_WGTMAP_EXTRAP;
-  }
-  OPTMASK += OPTMASK_WGTMAP_VERBOSE;
-
-  NDIM = read_WGTMAP(ptrFile, OPTMASK, &HOSTLIB_WGTMAP.GRIDMAP);
-
-  // continue below 
-  HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
+  // set option mask for reading WGTMAP
+  OPTMASK = OPTMASK_WGTMAP_VERBOSE ;
+  if ( HOSTLIB_WGTMAP.OPT_EXTRAP ) { OPTMASK += OPTMASK_WGTMAP_EXTRAP;  }
 
   // if we get here, open and read WGTMAP file.
+  NVAR_WGTMAP = read_WGTMAP(ptrFile, OPTMASK, &HOSTLIB_WGTMAP.GRIDMAP);
+
+  prep_HOSTLIB_WGTMAP() ;
+
+  // set a few things after reading WGTMAP
+  HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
   HOSTLIB_WGTMAP.READSTAT = true ;
 
   if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
@@ -1178,7 +1219,6 @@ void  read_HOSTLIB_WGTMAP(void) {
     { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
 
 
-  int NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
   if ( NVAR_WGTMAP == 0 ) {
     sprintf(c1err, "Found no VARNAMES_WGTMAP key in HOSTLIB_WGTMAP_FILE ;");
     sprintf(c2err, "Check argument of HOSTLIB_WGTMAP_FILE");
@@ -1389,6 +1429,7 @@ void prep_HOSTLIB_WGTMAP(void){
   long long GALID ;
   bool IS_SNVAR, IS_STORED ;
   int NVAR_WGTMAP, IVAR_STORE, NDIM, NFUN, ivar, N, N_SNVAR=0 ;
+  int NWD, iwd;
   GRIDMAP *GRIDMAP = &HOSTLIB_WGTMAP.GRIDMAP;
 
   char *VARLIST, *VARNAME ;
@@ -1403,37 +1444,27 @@ void prep_HOSTLIB_WGTMAP(void){
   
   IVAR_STORE = HOSTLIB.NVAR_STORE ;
 
-  //if ( strcmp(VARNAME,HOSTLIB_VARNAME_SNMAGSHIFT) == 0 )
-  //{ FOUNDVAR_SNMAGSHIFT = true; continue; }
-
+  // check for SNMAGSHIFT column (2nd function in WGTMAP file)
   if ( NFUN == 2 ){
-    if ( strstr( VARLIST, HOSTLIB_VARNAME_SNMAGSHIFT ) != NULL ) { HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT = true; }
+    if ( strstr( VARLIST, HOSTLIB_VARNAME_SNMAGSHIFT ) != NULL ) 
+      { HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT = true; }
   }
 
-  //continue here
-/*
-  NFUN = 1;    // WGT is required fun-val
-  if ( HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT )  { NFUN++; }
-  NDIM = NVAR_WGTMAP-NFUN ; 
 
-  if ( NDIM < 1 ) {
-    sprintf(c1err, "Invalid NDIM=%d for %s", NDIM, string);
-    sprintf(c2err, "VARNAMES_WGTMAP must inclulde WGT & SNMAGSHIFT");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
+  // split comma-sep list of VARNAMES
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARLIST, fnam);
   
   // - - - - - - -  -
-  // read in names used for weight map
-  HOSTLIB_WGTMAP.GRIDMAP.VARLIST[0] = 0 ;
-
-  for ( ivar=0; ivar < NVAR_WGTMAP ; ivar++ ) {
+  for ( ivar=0; ivar < NDIM ; ivar++ ) {
+    
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0,ivar,VARNAME) ;
+    get_PARSE_WORD(0, ivar, VARNAME);		  
 
     checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
 
     // check SN properties (e..g, x1, c) that are not in HOSTLIB
     IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME); // Mar 2020
+
     HOSTLIB_WGTMAP.IS_SNVAR[ivar] = IS_SNVAR ; 
     if ( IS_SNVAR ) { 
       N = HOSTLIB_WGTMAP.N_SNVAR;
@@ -1443,10 +1474,10 @@ void prep_HOSTLIB_WGTMAP(void){
       N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
     }
 
-    catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
+    //    printf(" xxx %s: ivar=%d  VARNAME=%s  IS_SNVAR=%d\n", 
+    //	   fnam, ivar, VARNAME, IS_SNVAR );
 
-    // xxx mark    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME) ;
-    // xxx mark   strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ") ;
+    // xxx mark catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
     
     // load variable if it's not already loaded, and NOT SN var.
     IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 
@@ -1456,21 +1487,13 @@ void prep_HOSTLIB_WGTMAP(void){
     }  
   } // end of ivar loop
   
-  // temporary hack until we remove this function.
-  int MXROW_WGTMAP = 25000000;
 
-  // read WGT keys and load GRIDMAP struct.
-  read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 
-	       HOSTLIB_WGTMAP.OPT_EXTRAP,
-	       MXROW_WGTMAP, fnam,
-	       &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
-  
-  HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
-
-  // update global counter
   HOSTLIB.NVAR_STORE = IVAR_STORE ;
 
+  prep_SNVAR_HOSTLIB_WGTMAP();
 
+
+  /*
   // check for optional WGTMAP_CHECK key to verify
   // WGTMAP interpolation.
   double TMPVAL[10];
@@ -1484,11 +1507,10 @@ void prep_HOSTLIB_WGTMAP(void){
     HOSTLIB_WGTMAP.CHECKLIST_SNMAG[N] = TMPVAL[2] ;
     HOSTLIB_WGTMAP.NCHECKLIST++ ;  
   }
+  */
 
   // - - - - - - -
 
-  prep_SNVAR_HOSTLIB_WGTMAP();
-  */
   return ;
 
 } // end of prep_HOSTLIB_WGTMAP
@@ -1503,7 +1525,7 @@ int read_VARNAMES_WGTMAP_LEGACY(char *VARLIST_WGTMAP) {
   // be automatically stored in data files.
   // Check external WGTMAP file first; if no external WGTMAP file,
   // then check if WGTMAP is embedded in HOSTLIB.
-  // Function returns number of WGTMAP variables found.
+  // Function return number of WGTMAP variables found.
   //
   // Jan 15 2021: abort if EOF is reached.
   // Nov 18 2021: 
@@ -1620,7 +1642,7 @@ void prep_SNVAR_HOSTLIB_WGTMAP(void) {
   double VALMIN, VALBIN, VALGRID ;
   char *VARNAME, VARLIST[100] ;
   char fnam[] = "prep_SNVAR_HOSTLIB_WGTMAP" ;
-  bool LDMP = false;
+  int LDMP = 0;
   // ------------- BEGIN -----------
 
   if ( N_SNVAR == 0 ) { return ; }
@@ -1670,7 +1692,6 @@ void prep_SNVAR_HOSTLIB_WGTMAP(void) {
       VALGRID = VALMIN + VALBIN * (double)IB1D;
       HOSTLIB_WGTMAP.VALGRID_SNVAR[ivar_SN][IBIN] = VALGRID ;
 	
-
       if ( LDMP ) {
 	VARNAME = HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN] ;
 	printf(" xxx %s: IBIN=%3d -> %s bin = %d\n",
@@ -2637,6 +2658,7 @@ void read_head_HOSTLIB(FILE *fp) {
 	// check for optional variables to add to the store list
 	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {
 	  cptr = HOSTLIB.VARNAME_OPTIONAL[i];
+
 	  if( match_varname_HOSTLIB(c_var,cptr)  ) {
 	    N = HOSTLIB.NVAR_STORE ;  // global var index (required+optional)
 	    sprintf(HOSTLIB.VARNAME_STORE[N],"%s", c_var );
@@ -2744,6 +2766,13 @@ void read_head_HOSTLIB(FILE *fp) {
     } // end ivar
 
   DONEMATCH:
+
+    // xxxxxxxxx
+    if ( strcmp(c_var,"x1") == 0 ) {
+      printf(" xxx %s: MATCH=%d for ivar=%d c_var=%s \n",
+	     fnam, MATCH, ivar, c_var);  //.xyz
+    }  // xxxxxxxx    
+
     if ( MATCH && VBOSE ) {
       IS_SNPAR = HOSTLIB.IS_SNPAR_STORE[IVAR_STORE];
       sprintf(wd,"HOSTLIB");
@@ -5745,9 +5774,9 @@ int IVAR_HOSTLIB_PREFIX(char *prefix, int FLAG) {
 
   NVAR = HOSTLIB.NVAR_STORE ;
   for ( ivar = 0; ivar < NVAR; ivar++ ) {
-        if (strstr(HOSTLIB.VARNAME_STORE[ivar],prefix)  != NULL){
-	      return(ivar);
-      }
+    if (strstr(HOSTLIB.VARNAME_STORE[ivar],prefix)  != NULL) {
+      return(ivar);
+    }
   }
 
   // if we get here, abort

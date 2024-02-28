@@ -1223,11 +1223,11 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   long double DVAR[MXVAR_TABLE];
   char        CVAR[MXVAR_TABLE][60];
   
-  char fnam[]    = "SNTABLE_READ_EXEC_TEXT" ;
   int  NVAR_TOT  = READTABLE_POINTERS.NVAR_TOT ;  // all variables
   int  NVAR_READ = READTABLE_POINTERS.NVAR_READ ; // subset to read
   FILE *FP       = PTRFILE_TEXT ; 
-  
+  char fnam[]    = "SNTABLE_READ_EXEC_TEXT" ;
+
   // ------------ BEGIN -----------    
 
   // get key name of ID varname such as CID, GALID, etc.
@@ -1353,6 +1353,7 @@ int validRowKey_TEXT(char *string) {
   //  text-formatted table file.
   //  Return 0 otherwise.
 
+  if ( strlen(string) < 2 ) { return 0 ; }
   if ( strcmp(string,"SN:")    == 0 ) { return 1; }
   if ( strcmp(string,"ROW:")   == 0 ) { return 1; }
   if ( strcmp(string,"GAL:")   == 0 ) { return 1; }

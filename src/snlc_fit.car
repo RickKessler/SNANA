@@ -4972,6 +4972,9 @@ c prior on 2nd shape par
       IF ( NSHAPEPAR > 1 ) THEN
         CHI2PRIOR(IPAR_SHAPE2) 
      &          = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
+
+c        print*,' xxx x2, chi2prior = ', sngl(SHAPE(2)),
+c     &        sngl(CHI2PRIOR(IPAR_SHAPE2))
       ENDIF
 
 c ----------------------
@@ -11861,6 +11864,11 @@ c check trivial case of flat-prior region
       if ( PARVAL .GE. FLATPRIOR_RANGE(1,ipar) .and.
      &     PARVAL .LE. FLATPRIOR_RANGE(2,ipar) ) then
          CHI2_PRIOR = 0.0
+
+cc         if ( IPAR .EQ. IPAR_SHAPE2 ) then ! xxxx
+cc              print*,' xxx chi2_prior=0 for ', sngl(PARVAL)
+cc         endif
+
          RETURN
       endif
 

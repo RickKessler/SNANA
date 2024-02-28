@@ -26,26 +26,27 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
   // OPTMASK = 1 means read_VARLIST only and return.
 
   char TEXTMODE_read[] = "rt";
-  char fnam[]    = "read_WGTMAP";
-  char line[MXPATHLEN];
+  char line[MXPATHLEN], WORD[MXPATHLEN];
   FILE *fp;
-  int gzipFlag;
-  int NDIM = 0, i, iwd, NWD = 0;
-  char WORD[MXPATHLEN];
-  int FLAG_EXTRAP = (OPTMASK & OPTMASK_WGTMAP_EXTRAP);
-  int FLAG_VERBOSE = (OPTMASK & OPTMASK_WGTMAP_VERBOSE);
-  int FLAG_VARNAMES_ONLY = (OPTMASK & OPTMASK_WGTMAP_READ_VARNAMES_ONLY);
+  int  NDIM = 0, NFUN=0, i, iwd, NWD = 0, gzipFlag ;
+  int  FLAG_EXTRAP        = (OPTMASK & OPTMASK_WGTMAP_EXTRAP);
+  int  FLAG_VERBOSE       = (OPTMASK & OPTMASK_WGTMAP_VERBOSE);
+  int  FLAG_VARNAMES_ONLY = (OPTMASK & OPTMASK_WGTMAP_READ_VARNAMES_ONLY);
   char KEYLIST_VARNAMES[2][20] = {"VARNAMES:", "VARNAMES_WGTMAP:"};
   bool FOUND_VARNAMES = false;
-  bool FOUND_WGT = false;
-  int NFUN = 0;
+  bool FOUND_WGT      = false;
+  char fnam[]    = "read_WGTMAP";
 
   // ------------- BEGIN ------------
   
   fp = open_TEXTgz(WGTMAP_FILE, TEXTMODE_read, &gzipFlag );
   
   if ( FLAG_VERBOSE ) {
-    printf("Read WGTMAP file: %s\n", WGTMAP_FILE);
+    if ( FLAG_VARNAMES_ONLY ) 
+      { printf("  Read WGTMAP VARNAMES from file: \n\t%s\n", WGTMAP_FILE); }
+    else
+      { printf("  Read entire WGTMAP file: \n\t%s\n", WGTMAP_FILE); }
+
     fflush(stdout);
   }
 
@@ -54,11 +55,14 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
   while ( fgets(line, MXPATHLEN, fp) != NULL ) {
 
     if ( commentchar(line) ) {  continue;  };
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, line, fnam);    
+    
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, line, fnam); 
+    if ( NWD < 2 ) { continue ; }
+
     iwd = 0;
     get_PARSE_WORD(0, iwd, WORD);
     for ( i = 0; i < 2; i++ ) {
-      if ( strcmp(KEYLIST_VARNAMES[i], WORD) == 0){
+      if ( strcmp(KEYLIST_VARNAMES[i], WORD) == 0) {
 
 	FOUND_VARNAMES = true;
 
@@ -73,14 +77,23 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
 	    }
             FOUND_WGT = true;
 	  }
-	  catVarList_with_comma( GRIDMAP->VARLIST, WORD );
+
+	  if ( !FOUND_WGT ) // store grid variables (not FUN vars)
+	    { catVarList_with_comma( GRIDMAP->VARLIST, WORD ); }
 	}
-	if ( FLAG_VARNAMES_ONLY ) {
-	   //printf("xxx %s: VARLIST = %s NDIM = %d\n", fnam, GRIDMAP->VARLIST, NDIM);
-	   return NDIM;
+
+	if ( FLAG_VARNAMES_ONLY ) { 
+	  GRIDMAP->NDIM = NDIM;
+	  GRIDMAP->NFUN = NFUN;
+	  return (NDIM+NFUN); 
 	}
+
       } // end of VALID_VARNAME 
     } // end loop over VALID_VARNAME_KEYS
+
+    // - - - - - 
+    // after reading list of varnames, use GRIDMAP utility to
+    // scoop up the entire GRIDMAP and store it.
 
     if ( FOUND_VARNAMES ) {
       int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
@@ -88,29 +101,13 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
                FLAG_EXTRAP,
                MXROW_WGTMAP, fnam,
                GRIDMAP ); // <== return GRIDMAP
-
-      return NDIM;
-
     }
   } // end while loop over WGTMAP file lines
 
-  /* 
-  if ( strcmp(string,"OPT_EXTRAP_WGTMAP:") == 0 )
-    { HOSTLIB_WGTMAP.OPT_EXTRAP = 1;  } // Jun 11 2021
-
-  FOUND_VARNAMES = ( strcmp(string,"VARNAMES_WGTMAP:") ==0 );
-  if ( !FOUND_VARNAMES) { return ; }
-  */
-
-  // read WGT keys and load GRIDMAP struct.
-  //read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN,
-  //             HOSTLIB_WGTMAP.OPT_EXTRAP,
-  //             MXROW_WGTMAP, fnam,
-  //             &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
-
+  // close WGTMAP file
   if ( gzipFlag ){ pclose(fp); }     else { fclose(fp); }
 
-  return NDIM;
+  return (NDIM+NFUN);
  
 }//end read_WGTMAP
 

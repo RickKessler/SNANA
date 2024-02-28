@@ -22204,6 +22204,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       when VPEC (from HOSTLIB) was updated to allow for ZTRUE_CMB in HOSTLIB.
       The bug broke GENSIGMA_VPEC.
 
+      Finish refactor of WGTMAP utility so that WGTMAP feature can be used
+      for other applications; see new sntools_wgtmap.c[h].
+
     submit_prog_lcfit.py
       + new input config key FITOPT_GLOBAL
 

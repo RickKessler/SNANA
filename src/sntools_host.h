@@ -743,6 +743,9 @@ double get_Sersic_bn(double n);
 void   init_OUTVAR_HOSTLIB(void) ;
 void   LOAD_OUTVAR_HOSTLIB(int IGAL) ;
 void   append_HOSTLIB_STOREPAR(void);
+void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
+				       char *VARLIST_WGTMAP_noSNVAR);
+
 bool   QstringMatch(char *varName0, char *varName1);
 
 void   check_duplicate_GALID(void);

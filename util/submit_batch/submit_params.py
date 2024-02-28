@@ -462,7 +462,7 @@ HELP_CONFIG_COSMOFIT = f"""
 # of the directory under 7_CREATE_COV,and sometimes /X is needed to ensure 
 # uniqueness.
 # 
-  FITAVG:  # also works with WFITAVG and FCAVG key
+  WFITAVG:  # also works with WEIGHT_AVG and FCAVG key
   - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC    # w(wa) diff-avg
   - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w(wa) diff-avg
   - UNBIN5YR_5YR_IaCC                        # w(wa) avg

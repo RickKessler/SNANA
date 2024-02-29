@@ -2279,7 +2279,7 @@ double SALT2x0calc(double alpha, double beta, double x1, double c,
 double SALT2mBcalc(double x0);
 
 int init_genmag_SIMSED(char *version, char *PATH_BINARY,
-		       char *SURVEY, char *kcorFile, int OPTMASK );
+		       char *SURVEY, char *kcorFile, char *WGTMAP_FILE, int OPTMASK );
 
 void genmag_SIMSED(int OPTMASK, int ifilt, double x0,
 		   int NLUMIPAR, int *iflagpar, int *iparmap, double *lumipar,

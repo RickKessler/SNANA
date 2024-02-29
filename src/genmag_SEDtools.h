@@ -122,8 +122,6 @@ struct SEDMODEL {
   int    NPAR ;        // Npar describing SEDs
   char   PARNAMES[MXPAR_SEDMODEL][40];
 
-  double *WGT_SUM; // cumulative sum of WGT vs. ISED (Feb 29 2024) X_WGT+
-
   double **PARVAL;       // param value vs [ised][ipar]
   char ***PARVAL_STRING; //  string to preserve format for each [ised][ipar]
 
@@ -152,6 +150,10 @@ struct SEDMODEL {
   int MXDAY ; // max number of epochs to store => used to malloc (Nov 2011)
 
   int OPTMASK;  // 2 ==> use DAY array instead of uniform DAYSTEP
+
+  // WGT parameters to select from WGT column or from external WGTMAP
+  double WGT_MIN, WGT_MAX; // WGT_MIN=0; WGT_MAX = WGT_SUM[NSED-1]
+  double *WGT_SUM; // cumulative sum of WGT vs. ISED (Feb 29 2024) X_WGT+
 
 } SEDMODEL ;
 

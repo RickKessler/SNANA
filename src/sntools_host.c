@@ -6230,13 +6230,14 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
   } // end while not CONVERGE
 
+
   // reset igal_start[end] for brute-force search below.
   int igal_start_orig = igal_start;
   int igal_end_orig   = igal_end;
 
   NGAL_CHECK = 0 ;
-  igal_start = igal0;
-  if ( !USEONCE ) { igal_end = igal1; }
+  igal_start = igal0; // restrict igal search range based on binary search above
+  if ( !USEONCE ) { igal_end = igal1; } // idem
 
   int ngal_search     = igal_end - igal_start + 1;
 
@@ -6251,7 +6252,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
     SKIP_WGT = false ;
     if ( NGROUPID > 0 ) {
-      // find WGT closest to WGT_select that has GROUPID match
+      // find WGT closest to WGT_select that has GROUPID match.
+      // Beware that this can be very slow for LARGE HOSTLIB because
+      // it does not benefit from binary search above.
       WGTDIF        = fabs(WGT-WGT_select);
       MATCH_GROUPID = MATCH_GROUPID_HOSTLIB(igal);
       if ( WGTDIF < WGTDIF_MIN && MATCH_GROUPID ) 

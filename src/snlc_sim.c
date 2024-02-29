@@ -875,8 +875,9 @@ void set_user_defaults(void) {
   INPUTS.NPAR_SIMSED_param    = 0;
   INPUTS.NPAR_SIMSED_MODEL    = 0;
 
-  INPUTS.USE_BINARY_SIMSED   = 0;
-  sprintf(INPUTS.PATH_BINARY_SIMSED,"%s", "");
+  INPUTS.USE_BINARY_SIMSED     = 0;
+  INPUTS.PATH_BINARY_SIMSED[0] = 0 ;
+  INPUTS.WGTMAP_FILE_SIMSED[0] = 0 ;
 
   INPUTS.IPAR_SIMSED_SHAPE = -9 ;
   INPUTS.IPAR_SIMSED_COLOR = -9 ;
@@ -5472,6 +5473,10 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
 
   } // end SIMSED_GRIDONLY 
 
+  else if ( keyMatchSim(MXPAR,"SIMSED_WGTMAP_FILE", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N],"%s", INPUTS.WGTMAP_FILE_SIMSED );  // X_WGT+
+    
+  }
   else if ( keyMatchSim(1,"SIMSED_REDCOR SIMSED_COV", WORDS[0], keySource) ) {
     N += parse_input_SIMSED_COV(WORDS, keySource);
   }
@@ -13040,7 +13045,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
   // ------------------------------------------------
   for ( ipar = 0; ipar < NPAR ; ipar++ ) {
-    ipar_model   = GENLC.SIMSED_IPARMAP[ipar]  ;
+    ipar_model   = GENLC.SIMSED_IPARMAP[ipar]  ; // aboluste ipar in SED.INFO
     genflag      = INPUTS.GENFLAG_SIMSED[ipar] ;
     opt_interp   = ( genflag & OPTMASK_GEN_SIMSED_PARAM    ) ;
     opt_gridonly = ( genflag & OPTMASK_GEN_SIMSED_GRIDONLY ) ;
@@ -13055,13 +13060,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
     if ( opt_interp ) {
 
-      if ( opt_wgt ) {  
-	// Feb 28 2024 ... X_WGT-
-	// pick random WGT_select
-	// use quickBinSearch to find bin/index
-	parVal = 444.0 ; // 
-      }
-      else if ( opt_gridonly ) {
+      if ( opt_gridonly ) {
 	parVal = pick_gridval_SIMSED(ipar, ipar_model); 
       }
       else if ( irow_COV >= 0 ) {
@@ -13107,6 +13106,9 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
   //
   // Jun 3 2022: fix index bug using ipar instead of ipar_model
 
+  int GENFLAG = INPUTS.GENFLAG_SIMSED[ipar] ;
+  int OPT_WGT = GENFLAG & OPTMASK_GEN_SIMSED_WGT ;
+
   bool PICK_SUBSET  = (INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY > 0) ;
   int  nsed=0, ised_ran=-9, itmp=-9 ;
   double flatRan  = getRan_Flat1(2); // random between 0-1
@@ -13130,8 +13132,15 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
     itmp    = (int) ( flatRan * (double)nsed ) ;
     PARVAL  = (double)INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[itmp] ;
   }
+  else if ( OPT_WGT ) {
+    // X_WGT-  pick SED from random weight (Feb 39 2024)
+
+    // pick random WGT_select
+    // use quickBinSearch to find bin/index
+  }
   else { 
     // pick random sed from asymGauss params.
+    // This includes random _INDEX using Gauss with sigma = 1E8
     GENGAUSS_SIMSED = &INPUTS.GENGAUSS_SIMSED[ipar];
     PARVAL_TMP = getRan_GENGAUSS_ASYM(GENGAUSS_SIMSED);
     PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
@@ -21540,6 +21549,8 @@ void checkpar_SIMSED(void) {
   for ( ipar_tmp = 0; ipar_tmp < INPUTS.NPAR_SIMSED_MODEL; ipar_tmp++ )
     { IPAR_MODEL_USED[ipar_tmp] = 0; }
 
+  // loop over user-specified list of model parameters that are used 
+  // for selection
   for ( ipar_user = 0; ipar_user < INPUTS.NPAR_SIMSED; ipar_user++ ) {
 
     sprintf(parname_user,"%s", INPUTS.PARNAME_SIMSED[ipar_user] );
@@ -21547,7 +21558,8 @@ void checkpar_SIMSED(void) {
     SIGMA[0] = INPUTS.GENGAUSS_SIMSED[ipar_user].SIGMA[0] ;
     SIGMA[1] = INPUTS.GENGAUSS_SIMSED[ipar_user].SIGMA[1] ;
 
-    // find which model parameter matches user parameter
+    // find absoluete "ipar_model" index for this model par.
+    // e.g., the 2nd user param could be the 4th absolute param in SED.INFO file.   
     ipar_model = -9 ;
     for ( ipar_tmp = 0; ipar_tmp < NPAR_MODEL; ipar_tmp++ ) {
       fetch_parInfo_SEDMODEL(ipar_tmp, parname_model, &NBPAR, range_model );
@@ -21575,6 +21587,8 @@ void checkpar_SIMSED(void) {
     }
     xxxx */
 
+    // store map between sparse list of user-defined ipar_user 
+    // and absolute ipar_model index
     GENLC.SIMSED_IPARMAP[ipar_user] = ipar_model ; // Nov 18, 2011
 
     fetch_parInfo_SEDMODEL(ipar_model, parname_model, &NBPAR, range_model );
@@ -21582,18 +21596,18 @@ void checkpar_SIMSED(void) {
     // July 28 2017
     // if GRIDONLY option and flat distribution, set range to
     // min-0.5*bin to max+0.5*bin so that each bin is sampled
-    // with equal prob
+    // with equal prob. Thus the user need not specify ASYMGASUSS
+    // parameters in the sim-input file.
     ISGRIDONLY = (GENFLAG & OPTMASK_GEN_SIMSED_GRIDONLY);
     ISFLAT     = (SIGMA[0] > 1.0E7 );
     if ( ISGRIDONLY && ISFLAT ) {
-
       bin_user      = SEDMODEL.PARVAL_BIN[ipar_model] ;
       range_user[0] = SEDMODEL.PARVAL_MIN[ipar_model] - 0.5*bin_user ;
       range_user[1] = SEDMODEL.PARVAL_MAX[ipar_model] + 0.5*bin_user;
 
       sprintf(INPUTS.GENGAUSS_SIMSED[ipar_user].NAME, "%s",
               SEDMODEL.PARNAMES[ipar_model] );
-      INPUTS.GENGAUSS_SIMSED[ipar_user].USE      = true  ; // Aug 19 2020
+      INPUTS.GENGAUSS_SIMSED[ipar_user].USE      = true  ;
  
       INPUTS.GENGAUSS_SIMSED[ipar_user].RANGE[0] = range_user[0] ;
       INPUTS.GENGAUSS_SIMSED[ipar_user].RANGE[1] = range_user[1] ;
@@ -21662,7 +21676,9 @@ void checkpar_SIMSED(void) {
   } // end ipar loop
 
 
-  // Set un-used MODEL parameters as baggage params.
+  // - - - - - - - -
+  // Set un-used MODEL parameters as baggage params so that they can
+  // be included in output data and output SIMGEN-DUMP table.
 
   NTMP = INPUTS.NPAR_SIMSED_param;
   if ( NTMP == 0 ) {
@@ -21690,20 +21706,21 @@ void checkpar_SIMSED(void) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
 	}
 
-      }
-    }
+      } // end un-used param if block
+    } // end ipar_model loop
 
   } // NTMP=0
 
 
+  // - - - - - - - -
   // Add the SIMSED parameters to the SIMGEN_DUMP list
   // if the list is specified.
 
   NTMP = INPUTS.NVAR_SIMGEN_DUMP ;
   if ( NTMP > 0  && INPUTS.WRFLAG_MODELPAR ) {
 
-    // first check that no SIMSED PARAM/param is specified ... 
-    // otherwise abort.
+    // first check that no SIMSED PARAM/param is specified in 
+    // in SIMGEN_DUMP list (in sim-input file);  otherwise abort.
     for ( idump=0; idump < INPUTS.NVAR_SIMGEN_DUMP; idump++ ) {
       for ( ipar = 0; ipar < INPUTS.NPAR_SIMSED; ipar++ ) {
 	ptrDumpVar    = INPUTS.VARNAME_SIMGEN_DUMP[idump] ;
@@ -21739,14 +21756,8 @@ void checkpar_SIMSED(void) {
     INPUTS.NGEN = N ;
     INPUTS.NGENTOT_LC = N;
     INPUTS.NGEN_LC    = 0;
-
     set_screen_update(N);
-    /*
-    if ( INPUTS.NGEN_LC    > 0 ) { INPUTS.NGEN_LC    = N; }
-    if ( INPUTS.NGENTOT_LC > 0 ) { INPUTS.NGENTOT_LC = N; }
-    */
   }
-
 
   //  debugexit("add baggage params");
   

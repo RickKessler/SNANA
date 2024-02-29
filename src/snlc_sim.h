@@ -748,6 +748,7 @@ struct INPUTS {
   // SIMSED parameters & ranges
   int   USE_BINARY_SIMSED;  // 1 => use binary files fof faster I/O
   char  PATH_BINARY_SIMSED[MXPATHLEN]; // location of binaries (default = ./)
+  char  WGTMAP_FILE_SIMSED[MXPATHLEN]; // X_WGT+
 
   int   NPAR_SIMSED_PARAM;     // continuous interp params
   int   NPAR_SIMSED_GRIDONLY;  // GRIDONLY parameters (random)

@@ -5626,11 +5626,12 @@ c translate fit-params into SALT2 language
           SALT2x1 = 0.0  ! unused shape-par variable for SIMSED
 
           MSKTMP  = 1  ! bit0 => return flux instead of mag
-          CALL genmag_simsed( MSKTMP, ifilt_obs
-     &          , SALT2x0, SALT2x1
-     &          , MWEBV_MODEL, ZSN, Nepoch, Tobs
-     &          , flux, mag_err )  ! returns FLUX and MAG_ERR
-
+c xxxxxxx
+c          CALL genmag_simsed( MSKTMP, ifilt_obs
+c     &          , SALT2x0, SALT2x1
+c     &          , MWEBV_MODEL, ZSN, Nepoch, Tobs
+c     &          , flux, mag_err )  ! returns FLUX and MAG_ERR
+c xxxxxxx
           GOTO 502  ! skip K-corrections and other rest-frame stuff
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_FIXMAG ) THEN

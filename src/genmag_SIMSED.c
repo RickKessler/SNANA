@@ -70,10 +70,11 @@
 
 const char dual_bits_SIMSED[INTERP_SIMSED_MAX_DIM] =
   {1, 2, 4, 8, 16, 32, 64, 128};
-
 // =======================================================
-// define mangled functions with underscore (for fortran)
 
+
+/* xxx mark delete Feb 28 2024 xxx
+// define mangled functions with underscore (for fortran)
 
 int init_genmag_simsed__(char *version, char *PATH_BINARY, char *SURVEY,
 			 char *kcorFile, int *OPTMASK) {
@@ -96,7 +97,7 @@ void genmag_simsed__(int *OPTMASK, int *ifilt, double *x0,
 		index_sed );
 }
 
-
+xxxxxx end mark xxxxx */
 
 /****************************************************************
   init_genmag_SIMSED:
@@ -136,9 +137,11 @@ void genmag_simsed__(int *OPTMASK, int *ifilt, double *x0,
 int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,char *PATH_BINARY // directory to write/read binaries
 		       ,char *SURVEY      // name of survey  
-		       ,char *kcorFile    // kcor filename
+		       ,char *kcorFile    // kcor filename 
 		       ,int OPTMASK       // bit-mask of options
 		       ) {   
+
+  // TO DO: add WGTMAP_FILE as option argument X_WGT-
 
   // OPTMASK +=  1 --> create binary file if it doesn't exist
   // OPTMASK +=  2 --> force creation of SED.BINARY
@@ -314,6 +317,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   // check to change default logz binning
   set_SIMSED_LOGZBIN();
+
+  // set_SIMSED_WGT_SUM() // use internal WGT or external WGTMAP  X_WGT-
 
   // =======================================================
   // allocate memory for storing flux-integral tables
@@ -787,6 +792,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   ptrFile = SIMSED_INFO_FILENAME_FULL ;
   sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
   SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
+  SEDMODEL.IPAR_WGT            = -9; // Feb 28 2024    X_WGT+
 
   // read number of rows to use for malloc (Jan 2024)
   NSED_COUNT = count_SIMSED_INFO(PATHMODEL);
@@ -875,7 +881,11 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 	  catVarList_with_comma(tmpName_index,tmpName);
 	  SEDMODEL.IPAR_TEMPLATE_INDEX = ipar; 
 	}  
-      }
+
+	// X_WGT-: set SEDMODEL.IPAR_WGT : ???
+	// define analogous IS_WGT_SIMSED(tmpName) -->  set SEDMODEL.IPAR_WGT       
+
+      } 
 
       if ( NPAR_INDEX > 1 ) {
 	sprintf(c1err,"Found %d PARNAMES with INDEX or index; only 1 allowed",
@@ -884,7 +894,6 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
     } // end PARNAMES
-
 
     // ------------
 

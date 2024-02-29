@@ -7230,10 +7230,10 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
   // April 2011.
   // Return integer bin [0 < IBIN < NBIN-1] such that 
-  // *(VAL_LIST+IBIN) contains VAL.
+  // VAL_LIST[IBIN] contains VAL.
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
-  // Dec 13 2019: return(0) immediately of NBIN=1
+  // Dec 13 2019: return(0) immediately if NBIN=1
 
   char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
@@ -7313,7 +7313,7 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
     }  // VAL if-block
   }  // ibin loop
 
-
+  
   // if we get here, then something is really wrong.
   print_preAbort_banner(fnam);
   printf("\t MINVAL=%f  MAXVAL=%f  NBIN=%d\n", MINVAL, MAXVAL, NBIN);

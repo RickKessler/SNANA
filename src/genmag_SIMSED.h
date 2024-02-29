@@ -6,6 +6,9 @@
 #define OPTMASK_GEN_SIMSED_param    2   // baggage parameter
 #define OPTMASK_GEN_SIMSED_GRIDONLY 4   // random gen snapped to GRID only
 
+// select based on WGT column (or external WGTMAP) X_WGT+
+#define OPTMASK_GEN_SIMSED_WGT  8  
+
 // define OPTMASK for init_genmag_SIMSED (LSB=0)
 #define OPTMASK_INIT_SIMSED_BINARY    1  // make binary file(s) if not there
 #define OPTMASK_INIT_SIMSED_BINARY1   2  // force creation of SED.BINARY

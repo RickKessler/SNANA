@@ -12960,7 +12960,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   int     NROW_COV  = INPUTS.NROW_SIMSED_COV;
   double  ZCMB      = GENLC.REDSHIFT_CMB ; // for z-dependent populations
 
-  int  ipar, ipar_model, genflag, opt_interp, opt_gridonly ;
+  int  ipar, ipar_model, genflag, opt_interp, opt_gridonly, opt_wgt ;
   int  irow, irow_COV, NRANGEN_ITER=0 ;
   double ARG, parVal, parVal_old ;
   double PEAK, PMIN, PMAX ;
@@ -12990,7 +12990,8 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
   if ( NPAR <= 0 &&  INPUTS.OPTMASK_SIMSED == 0 ) {
     sprintf(c1err,"NPAR_SIMSED = %d", NPAR );
-    errmsg(SEV_FATAL, 0, fnam, c1err, "  " ); 
+    sprintf(c2err,"for GENMODEL %s", INPUTS.GENMODEL);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
   // ----------------------------------------------
@@ -13008,7 +13009,6 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
       GAURAN[irow]  = getRan_Gauss(1);   // Gauss Random
       CORRVAL[irow] = 0.0 ;
     }
-
     
     getRan_GaussCorr(&INPUTS.SIMSED_DECOMP,GAURAN,CORRVAL); // return CORRVAL
 
@@ -13044,16 +13044,24 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     genflag      = INPUTS.GENFLAG_SIMSED[ipar] ;
     opt_interp   = ( genflag & OPTMASK_GEN_SIMSED_PARAM    ) ;
     opt_gridonly = ( genflag & OPTMASK_GEN_SIMSED_GRIDONLY ) ;
+    opt_wgt      = ( genflag & OPTMASK_GEN_SIMSED_WGT ) ;
     parName      = INPUTS.PARNAME_SIMSED[ipar] ;
     irow_COV     = INPUTS.IROWLIST_SIMSED_COV[ipar] ;
     GENLC.SIMSED_PARVAL[ipar]  = -9.0 ;
+
 
     // skip baggage params
     if ( (genflag & OPTMASK_GEN_SIMSED_param)  != 0 ) { continue ; }
 
     if ( opt_interp ) {
 
-      if (  opt_gridonly ) {
+      if ( opt_wgt ) {  
+	// Feb 28 2024 ... X_WGT-
+	// pick random WGT_select
+	// use quickBinSearch to find bin/index
+	parVal = 444.0 ; // 
+      }
+      else if ( opt_gridonly ) {
 	parVal = pick_gridval_SIMSED(ipar, ipar_model); 
       }
       else if ( irow_COV >= 0 ) {
@@ -21516,12 +21524,12 @@ void checkpar_SIMSED(void) {
   double  tmpdif, range_model[2], range_user[2], bin_user, SIGMA[2] ;
 
   char
-    fnam[] = "checkpar_SIMSED"
-    ,parname_model[40]  // defined in modes/SIMSED
+     parname_model[40]  // defined in modes/SIMSED
     ,parname_user[40]   // defined in sim-input file
-    ,*ptrDumpVar
-    ,*ptrSIMSEDVar
+    ,*ptrDumpVar, *ptrSIMSEDVar
     ;
+
+  char fnam[] = "checkpar_SIMSED" ;
 
   // -------------- BEGIN ---------------
 
@@ -21573,7 +21581,7 @@ void checkpar_SIMSED(void) {
 
     // July 28 2017
     // if GRIDONLY option and flat distribution, set range to
-    // min-0.5*bin to max+0.5*bin so that each bin is sample
+    // min-0.5*bin to max+0.5*bin so that each bin is sampled
     // with equal prob
     ISGRIDONLY = (GENFLAG & OPTMASK_GEN_SIMSED_GRIDONLY);
     ISFLAT     = (SIGMA[0] > 1.0E7 );

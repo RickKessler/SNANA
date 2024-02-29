@@ -1093,7 +1093,7 @@ struct GENLC {
   char  SHAPEPAR2_NAME[40] ;  // alpha ...
 
   int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat
-  double SIMSED_PARVAL[MXPAR_SIMSED];    // params for SIMSED model
+  double SIMSED_PARVAL[MXPAR_SIMSED];      // params for SIMSED model
 
   double AVTAU;       // exponential tau for host extinction
   double AVSIG;       // Gauss sigma

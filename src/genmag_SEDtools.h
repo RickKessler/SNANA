@@ -122,21 +122,19 @@ struct SEDMODEL {
   int    NPAR ;        // Npar describing SEDs
   char   PARNAMES[MXPAR_SEDMODEL][40];
 
-  double **PARVAL;
-  // xxx mark del Jan 31 2024L: double PARVAL[MXSEDMODEL][MXPAR_SEDMODEL];
+  double *WGT_SUM; // cumulative sum of WGT vs. ISED (Feb 29 2024) X_WGT+
 
-  char ***PARVAL_STRING; // string to preserve format for each SED and param
-  // xxx mark  char PARVAL_STRING[MXSEDMODEL][MXPAR_SEDMODEL][20]; 
+  double **PARVAL;       // param value vs [ised][ipar]
+  char ***PARVAL_STRING; //  string to preserve format for each [ised][ipar]
 
   int    NBIN_PARVAL[MXPAR_SEDMODEL] ; // Number of bins per par val
   double PARVAL_MIN[MXPAR_SEDMODEL] ;
   double PARVAL_MAX[MXPAR_SEDMODEL] ;
   double PARVAL_BIN[MXPAR_SEDMODEL] ; // bin size
   int    IPAR_TEMPLATE_INDEX ;   // ipar to use to fill SIM_TEMPLATE_INDEX
-  // xxx mark   int    IPAR_NON1A_INDEX ;   // ipar to use to fill SIM_xNON1A_INDEX
+  int    IPAR_WGT ;              // ipar of WGT  (X_WGT+)
 
   char   **FILENAME ; // NSURFACE of them
-  // xxx mark delete   char   FILENAME[MXSEDMODEL][80]; // NSURFACE of them
 
   double RESTLAMMIN_FILTERCEN;  // min-lambda for <lamfilt>/(1+z) 
   double RESTLAMMAX_FILTERCEN;  // max-lambda for <lamfilt>/(1+z)
@@ -148,13 +146,6 @@ struct SEDMODEL {
   int *NDAY, *NLAM;
   double *LAMMIN, *LAMMAX, *LAMSTEP;
   double *DAYMIN, *DAYMAX, *DAYSTEP, **DAY;
-
-  /* xxx mark delete Jan 2024 xxx
-  int    NDAY[MXSEDMODEL],   NLAM[MXSEDMODEL] ;
-  double LAMMIN[MXSEDMODEL], LAMMAX[MXSEDMODEL], LAMSTEP[MXSEDMODEL];
-  double DAYMIN[MXSEDMODEL], DAYMAX[MXSEDMODEL], DAYSTEP[MXSEDMODEL];
-  double *DAY[MXSEDMODEL];  // Aug 2017 - allows non-uniform DAY bins
-  xxxxx end mark xxxx */
 
   double DAYMIN_ALL, DAYMAX_ALL; // min & max day among all SEDs
 

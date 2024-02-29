@@ -13133,7 +13133,9 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
     PARVAL  = (double)INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[itmp] ;
   }
   else if ( OPT_WGT ) {
-    // X_WGT-  pick SED from random weight (Feb 39 2024)
+    // X_WGT+  pick SED from random weight (Feb 39 2024)
+    int INDX = pick_SIMSED_BY_WGT();
+    PARVAL = (double) INDX; 
 
     // pick random WGT_select
     // use quickBinSearch to find bin/index
@@ -24566,6 +24568,7 @@ void init_genmodel(void) {
 			       ,INPUTS.PATH_BINARY_SIMSED
 			       ,GENLC.SURVEY_NAME
 			       ,INPUTS.KCOR_FILE
+			       ,INPUTS.WGTMAP_FILE_SIMSED
 			       ,OPTMASK );
 
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );

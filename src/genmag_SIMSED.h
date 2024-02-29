@@ -74,8 +74,7 @@ struct {
    Function Declarations
 **********************************************/
 
-int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY,
-			char *kcorFile, int OPTMASK );
+int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY, char *kcorFile, char *WGTMAP_FILE, int OPTMASK );
 
 int read_SIMSED_INFO(char *PATHMODEL );
 int read_simsed_info__(char *PATHMODEL );
@@ -84,6 +83,10 @@ int count_SIMSED_INFO(char *PATHMODEL);
 void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin, 
 		      bool RDFLAG_BINARY, bool WRFLAG_BINARY );
 void set_SIMSED_LOGZBIN(void);
+
+void set_SIMSED_WGT_SUM(char *WGTMAP_FILE);
+
+int pick_SIMSED_BY_WGT(void);
 
 void dump_SIMSED_INFO(void);
 
@@ -114,5 +117,7 @@ void checkBinary_SIMSED(char *binaryFile); // abort if earlier than SED.INFO
 void read_SIMSED_flux(char *sedFile, char *sedComment) ;
 
 int IS_INDEX_SIMSED(char *parName) ;
+
+int IS_WGT_SIMSED(char *parName) ;
 
 // END

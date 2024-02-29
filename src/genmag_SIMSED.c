@@ -138,10 +138,11 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,char *PATH_BINARY // directory to write/read binaries
 		       ,char *SURVEY      // name of survey  
 		       ,char *kcorFile    // kcor filename 
+	               ,char *WGTMAP_FILE // WGTMAP filename
 		       ,int OPTMASK       // bit-mask of options
 		       ) {   
 
-  // TO DO: add WGTMAP_FILE as option argument X_WGT-
+  // TO DO: add WGTMAP_FILE as option argument X_WGT+
 
   // OPTMASK +=  1 --> create binary file if it doesn't exist
   // OPTMASK +=  2 --> force creation of SED.BINARY
@@ -318,7 +319,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // check to change default logz binning
   set_SIMSED_LOGZBIN();
 
-  // set_SIMSED_WGT_SUM() // use internal WGT or external WGTMAP  X_WGT-
+  set_SIMSED_WGT_SUM(WGTMAP_FILE); // use internal WGT or external WGTMAP  X_WGT-
 
   // =======================================================
   // allocate memory for storing flux-integral tables
@@ -769,11 +770,11 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   //
 
   char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[100] ;
-  char  string_parnames[200], tmpName_index[200];
+  char  string_parnames[200], tmpName_index[200], tmpName_WGT[200];
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG, NTAB=0, len, i ;
   int NSED_COUNT ;
-  int NPAR_INDEX = 0 ;
+  int NPAR_INDEX = 0, NPAR_WGT = 0 ;
 
 #define NKEY_REQUIRE_SIMSED 3
   int  IPAR_PARNAMES = 0, IPAR_RESTLAM=1, IPAR_SED=2;
@@ -873,6 +874,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
       SEDMODEL.NPAR = NPAR;
       tmpName_index[0] = 0 ;
+      tmpName_WGT[0] = 0;
       for(ipar=0; ipar < NPAR; ipar++ ) {
 	get_PARSE_WORD(0, ipar, tmpName);
 	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
@@ -881,6 +883,12 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 	  catVarList_with_comma(tmpName_index,tmpName);
 	  SEDMODEL.IPAR_TEMPLATE_INDEX = ipar; 
 	}  
+
+        if ( IS_WGT_SIMSED(tmpName) ) {
+          NPAR_WGT++ ; 
+          catVarList_with_comma(tmpName_WGT,tmpName);
+          SEDMODEL.IPAR_WGT = ipar;
+        }  
 
 	// X_WGT-: set SEDMODEL.IPAR_WGT : ???
 	// define analogous IS_WGT_SIMSED(tmpName) -->  set SEDMODEL.IPAR_WGT       
@@ -1003,6 +1011,17 @@ int IS_INDEX_SIMSED(char *parName) {
   if ( strstr(parName,"indx" ) != NULL ) { IS_INDEX = 1; }
   return(IS_INDEX);
 } // end IS_INDEX_SIMSED
+ 
+// ===============================
+int IS_WGT_SIMSED(char *parName) {
+
+  int IS_WGT = 0 ;
+  if ( strstr(parName,"WGT") != NULL ) { IS_WGT = 1; }
+  if ( strstr(parName,"wgt" ) != NULL ) { IS_WGT = 1; }
+  if ( strstr(parName,"weight" ) != NULL ) { IS_WGT = 1; }
+  if ( strstr(parName,"WEIGHT" ) != NULL ) { IS_WGT = 1; }
+  return(IS_WGT);
+} // end IS_WGT_SIMSED
 
 // ===================================
 int count_SIMSED_INFO(char *PATHMODEL ) {
@@ -1126,6 +1145,51 @@ void  set_SIMSED_LOGZBIN(void) {
   return ;
 
 }  // end set_SIMSED_LOGZBIN
+   
+// **********************************************
+void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
+  // Created Feb 29 2024 by Alex Gagliano
+  //
+
+  int OPT_WGT = 0;
+  int ISED;
+  double WGT, WGT_SUM = 0.;
+  int NSED = SEDMODEL.NSURFACE;
+  char fnam[] = "set_SIMSED_WGT_SUM";
+
+  if ( SEDMODEL.IPAR_WGT >= 0 ) { OPT_WGT = 1; } 
+  if ( !IGNOREFILE(WGTMAP_FILE) ){ OPT_WGT = 2; }
+
+  if ( !OPT_WGT ){ return; }
+
+  SEDMODEL.WGT_SUM = (double *) malloc(NSED * sizeof(double));
+
+  if ( OPT_WGT == 1 ){
+    SEDMODEL.WGT_SUM[0] = 0.;
+    for ( ISED = 1; ISED <= SEDMODEL.NSURFACE ; ISED++ ){
+      WGT = SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT];
+      WGT_SUM += WGT;
+      SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
+      //printf("xxx %s ISED = %d WGT = %f\n", fnam, ISED, WGT);
+    }
+    SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[1];
+    SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
+
+    printf("\t Loaded %d cumulative WGTS from column %d \n", NSED, SEDMODEL.IPAR_WGT);
+  }
+  debugexit(fnam);
+  // X_WGT+
+
+  return ;
+} //end set_SIMSED_WGT_SUM
+  
+int pick_SIMSED_BY_WGT(void){
+  int INDX = -9;
+  char fnam[] = "pick_SIMSED_BY_WGT";
+ 
+  return INDX; // X_WGT-
+	       // continue here 
+} //end pick_SIMSED_BY_WGT
 
 // **********************************************
 void dump_SIMSED_INFO(void) {

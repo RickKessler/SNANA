@@ -22222,6 +22222,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         bounds to avoid choking on long HOSTLIB_GROUPIDs in the simlib.
       + increase MXGROUPID_SIMLIB -> 60 (was 20)
 
+    snlc_sim.h
+      + remove redundant genmag_xxx prototypes that are already defined
+        in genmag_ALL.h (included in snlc_sim.c)
+
     SALT2mu.c
       + new option simfile_biascor=datafile will use the data file as biasCor.
         Recommended only for quick 1D biasCor, to save time generating a

@@ -2235,8 +2235,11 @@ extern void  get_primary_legacy__(char *primary, int *NLAM,
 //   genmag_xxx functions
 // -----------------------------
 
+
 int gen_smearMag  ( int epoch, int VBOSE );
 int npe_above_saturation ( int epoch, double flux_pe);
+
+/* xxxxxxxxxxx mar delete Feb 29 2024 xxxxxxxxxx
 
 int init_genmag_mlcs2k2(char *version, char *covFile, float scale_covar,
 		     char *filtlist );
@@ -2286,6 +2289,8 @@ void genmag_SIMSED(int OPTMASK, int ifilt, double x0,
 		   double RV_host, double AV_host,
 		   double mwebv, double z, int nobs, double *Tobs,
 		   double *magobs_list, double *magerr_list, int *index_sed );
+xxxxxxxxx end mark xxxxxxxxx */
+
 
 // ------------------------------------
 // generic functions for SEDMODELs

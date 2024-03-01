@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
   // parse user arguments
   parse_args(argc, argv );
 
-  init_genmag_SIMSED(INPUTS.INPDIR_SIMSED, "", "", "", OPTMASK);
+  init_genmag_SIMSED(INPUTS.INPDIR_SIMSED, "", "", "","",  OPTMASK);
 
   NSEDWARN_MAGDAY_SLOPE1    = 0 ;
   NSEDWARN_MAGDAY_SLOPE2    = 0 ;

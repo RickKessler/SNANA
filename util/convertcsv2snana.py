@@ -6,7 +6,9 @@
 # SNANA-KEY format
 #
 # Apr 27 2021: replace '' with VOID (works only with first '')
-# Mar 05 2024: write "GAL:" row key if GALID is in header
+# Mar 05 2024: 
+#  + write "GAL:" row key if GALID is in header
+#  + fix to work with either comma-sep or space-sep var list in header.
 #
 
 import os, sys, argparse, csv
@@ -72,6 +74,14 @@ def read_csv_file(csv_file):
 
     #print(f" xxx varname_list = {varname_list}")
     #print(f" xxx row_list = {row_list}")
+
+    # - - - - - -                                                               
+    # if varname_list has only one item,                                        
+    #     e.g., [ 'GALID ZPHOT ZPHOTERR' ], then split it into 
+    # list of variables. This will enable reading both comma-sep 
+    # and space-sep list of variables in header.                   
+    if len(varname_list) == 1 :
+        varname_list = varname_list[0].split()
 
     return varname_list, row_list
 

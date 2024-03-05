@@ -1049,6 +1049,7 @@ void set_user_defaults(void) {
   INPUTS.SIMLIB_MAXRANSTART =  0 ;
   INPUTS.SIMLIB_IDLOCK   = -9 ;
   INPUTS.SIMLIB_MINOBS   =  1 ; 
+  INPUTS.SIMLIB_MAXOBS   =  999999 ; 
   INPUTS.SIMLIB_DUMP     = -9 ;
   INPUTS.SIMLIB_NSKIPMJD_STRING[0] = 0 ;
 
@@ -3418,6 +3419,9 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_MINOBS",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MINOBS );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_MAXOBS",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MAXOBS );
   }
   else if ( keyMatchSim(1, "SIMLIB_MINSEASON",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MINSEASON );
@@ -18098,6 +18102,7 @@ int keep_SIMLIB_HEADER(void) {
   //
   // Nov 28 2019: few checks for SIMLIB model.
   // May 30 2020: increment SIMLIB_HEADER.NFOUND_GENCUTS after all cuts.
+  // Mar 05 2024: check SIMLIB_MAXOBS
 
   int  ID      = SIMLIB_HEADER.LIBID ;
   int  NOBS    = SIMLIB_HEADER.NOBS ;
@@ -18153,7 +18158,7 @@ int keep_SIMLIB_HEADER(void) {
     { return(REJECT_FLAG); }
 
   if(LTRACE) {printf(" xxx %s: 3  NOBS=%d \n", fnam, NOBS );}
-  if ( NOBS < INPUTS.SIMLIB_MINOBS ) 
+  if ( NOBS < INPUTS.SIMLIB_MINOBS ||  NOBS > INPUTS.SIMLIB_MAXOBS )
     { return(REJECT_FLAG); }
 
   // check SIMLIB GENRANGES and user-input ranges

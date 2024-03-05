@@ -506,7 +506,8 @@ struct INPUTS {
   int  SIMLIB_MAXRANSTART;  // start at random LIBID among this many
   int  SIMLIB_IDLOCK;    // >0 => use same LIBID;
                          // e.g., 1 => always 1st used LIBID
-  int  SIMLIB_MINOBS;    // min NOBS to use (default=5)
+  int  SIMLIB_MINOBS;    // min NOBS to accept for SIMLIB entry
+  int  SIMLIB_MAXOBS;    // max NOBS ...
   int  SIMLIB_NREPEAT ;  // repeat each ID this many times (for less reading)
   int  SIMLIB_MXREPEAT ; // used only with BPOLY Galactic rate model
   double SIMLIB_MINSEASON ; // min season length (days); default=0

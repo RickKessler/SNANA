@@ -22221,6 +22221,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + in function SIMLIB_readNextCadence_TEXT(), increase local string array
         bounds to avoid choking on long HOSTLIB_GROUPIDs in the simlib.
       + increase MXGROUPID_SIMLIB -> 60 (was 20)
+      + new sim-input key SIMLIB_MAXOBS to reject observation with
+         large NOBS
 
     snlc_sim.h
       + remove redundant genmag_xxx prototypes that are already defined

@@ -22235,4 +22235,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     genmag_SEDtools.c
       + fix dumb bugs in malloc_METADATA_SEDMODEL() and initialize
         some array values to zero.
+
+    stnools_genPDF.c
+      + protect Gauss RANGE when it is >> sigma; see init_genPDF_from_GenGauss().
 END: 

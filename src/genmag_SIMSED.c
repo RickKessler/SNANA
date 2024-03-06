@@ -325,6 +325,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // allocate memory for storing flux-integral tables
   NZBIN  = REDSHIFT_SEDMODEL.NZBIN ;
   NLAMPOW_SEDMODEL = 0 ;
+
   malloc_FLUXTABLE_SEDMODEL ( NFILT_SEDMODEL, NZBIN, NLAMPOW_SEDMODEL, 
 			      SEDMODEL.MXDAY, SEDMODEL.NSURFACE );
   fflush(stdout);
@@ -375,7 +376,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       }
     }
 
-
+    
     double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
     if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
 
@@ -1162,33 +1163,42 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
 
   if ( !OPT_WGT ){ return; }
 
-  SEDMODEL.WGT_SUM = (double *) malloc(NSED * sizeof(double));
+  SEDMODEL.WGT_SUM = (double *) malloc((NSED+1) * sizeof(double));
 
   if ( OPT_WGT == 1 ){
     SEDMODEL.WGT_SUM[0] = 0.;
     for ( ISED = 1; ISED <= SEDMODEL.NSURFACE ; ISED++ ){
       WGT = SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT];
       WGT_SUM += WGT;
+      //printf("xxx %s ISED = %d WGT = %le WGT_SUM = %le\n", fnam, ISED, WGT, WGT_SUM);
       SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
-      //printf("xxx %s ISED = %d WGT = %f\n", fnam, ISED, WGT);
     }
     SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[1];
     SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
 
     printf("\t Loaded %d cumulative WGTS from column %d \n", NSED, SEDMODEL.IPAR_WGT);
   }
-  debugexit(fnam);
   // X_WGT+
 
   return ;
 } //end set_SIMSED_WGT_SUM
   
 int pick_SIMSED_BY_WGT(void){
-  int INDX = -9;
+  int ISED = -9;
   char fnam[] = "pick_SIMSED_BY_WGT";
+  double ranCDF;
+  double WGTrange[2];
+
+  WGTrange[0] = SEDMODEL.WGT_MIN;
+  WGTrange[1] = SEDMODEL.WGT_MAX;
+
+  ranCDF = getRan_Flat(1, WGTrange);
+
+  ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE, SEDMODEL.WGT_SUM,
+                   fnam);
  
-  return INDX; // X_WGT-
-	       // continue here 
+  return ISED; // X_WGT+
+	       // CONTINUE HERE
 } //end pick_SIMSED_BY_WGT
 
 // **********************************************
@@ -1343,6 +1353,8 @@ void genmag_SIMSED(
                        (to avoid discontinuity for negative flux)
 
    OPTMASK+=2 (bit1) => print warning message when model flux < 0
+
+   OPTMASK+=4 (bit2) => grid only (no interpolation)
 
    OPTMASK+=8 (bit3) => dump flag
 

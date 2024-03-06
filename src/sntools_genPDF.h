@@ -57,7 +57,7 @@ void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE,
 			    int dumpFlag);
 void   free_memory_genPDF(void); // release memory of all genPDF maps
 
-int  IDMAP_GENPDF(char *parName, bool *LOGPARAM);
+int  IMAP_GENPDF(char *parName, bool *LOGPARAM);
 void iter_summary_genPDF(void);
 
 // xxx mark bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS);

@@ -539,7 +539,7 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
 
   double range[2], xval[10];
   char   parName[40], parName2[40] ;
-  int    IDMAP ;
+  int    IMAP ;
   bool IS_LOGPARAM;
   GENGAUSS_ASYM_DEF     GENGAUSS ;
   GEN_EXP_HALFGAUSS_DEF GENEXP   ;
@@ -573,23 +573,23 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     // sprintf(parName,"SALT2c"); 
     sprintf(parName,"EBV"); 
     SNHOSTGAL.IGAL = 20;   
-    IDMAP          = IDMAP_GENPDF(parName, &IS_LOGPARAM) ;
+    IMAP          = IMAP_GENPDF(parName, &IS_LOGPARAM) ;
 
     // restrict range to make better use of binned results below 
     // SALT2x1 range is ok
     if ( strcmp(parName,"SALT2c") == 0 ) { 
-      GENPDF[IDMAP].GRIDMAP.VALMIN[0] = -0.3;
-      GENPDF[IDMAP].GRIDMAP.VALMAX[0] =  0.3;
+      GENPDF[IMAP].GRIDMAP.VALMIN[0] = -0.3;
+      GENPDF[IMAP].GRIDMAP.VALMAX[0] =  0.3;
     }
     else if ( strcmp(parName,"EBV")    == 0 ) { 
-      GENPDF[IDMAP].GRIDMAP.VALMIN[0] = 0.0 ;
-      GENPDF[IDMAP].GRIDMAP.VALMAX[0] = 0.9 ;
+      GENPDF[IMAP].GRIDMAP.VALMIN[0] = 0.0 ;
+      GENPDF[IMAP].GRIDMAP.VALMAX[0] = 0.9 ;
     }
 
-    range[0]       = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
-    range[1]       = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ; 
+    range[0]       = GENPDF[IMAP].GRIDMAP.VALMIN[0] ;
+    range[1]       = GENPDF[IMAP].GRIDMAP.VALMAX[0] ; 
 
-    GENPDF[IDMAP].PROB_EXPON_REWGT = 1.0 ;
+    GENPDF[IMAP].PROB_EXPON_REWGT = 1.0 ;
   }
   else {
     print_preAbort_banner(fnam);
@@ -609,8 +609,8 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
 	 range[0], range[1]); fflush(stdout);
 
   if ( NMAP_GENPDF > 0 ) {
-    printf("\t Select GENPDF map for %s (IDMAP=%d) \n",
-	   parName, IDMAP);
+    printf("\t Select GENPDF map for %s (IMAP=%d) \n",
+	   parName, IMAP);
 
   }
   // ---------------------------------
@@ -741,13 +741,13 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     int IGAL = SNHOSTGAL.IGAL ;
     long long GALID = get_GALID_HOSTLIB(IGAL);;
     char *tmpName;
-    printf("\n    GENPDF varname: %s  from MAP=%s  (IDMAP=%d)\n", 
-	   parName, GENPDF[IDMAP].MAPNAME, IDMAP);
+    printf("\n    GENPDF varname: %s  from MAP=%s  (IMAP=%d)\n", 
+	   parName, GENPDF[IMAP].MAPNAME, IMAP);
     printf("\t GALID = %lld   (IGAL = %d)\n", GALID, IGAL);
-    for(ivar=1; ivar < GENPDF[IDMAP].GRIDMAP.NDIM ; ivar++ ) {
-      IVAR_HOSTLIB   = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+    for(ivar=1; ivar < GENPDF[IMAP].GRIDMAP.NDIM ; ivar++ ) {
+      IVAR_HOSTLIB   = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
       x              = get_VALUE_HOSTLIB(IVAR_HOSTLIB, IGAL);
-      tmpName        = GENPDF[IDMAP].VARNAMES[ivar];
+      tmpName        = GENPDF[IMAP].VARNAMES[ivar];
       printf("\t %-12s = %f \n", tmpName, x);
       fflush(stdout);
     }

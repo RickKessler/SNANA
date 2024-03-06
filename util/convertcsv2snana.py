@@ -6,12 +6,17 @@
 # SNANA-KEY format
 #
 # Apr 27 2021: replace '' with VOID (works only with first '')
+# Mar 05 2024: 
+#  + write "GAL:" row key if GALID is in header
+#  + fix to work with either comma-sep or space-sep var list in header.
 #
 
 import os, sys, argparse, csv
 
 VALID_ROWID_LIST = [ "CID", "SNID", "ROW", "GALID", "STARID" ]
 ROWID_DEFAULT    = "ROW" 
+
+ROWKEY = "ROW:"  # default row key
 
 # =====================================
 def get_args():
@@ -70,6 +75,14 @@ def read_csv_file(csv_file):
     #print(f" xxx varname_list = {varname_list}")
     #print(f" xxx row_list = {row_list}")
 
+    # - - - - - -                                                               
+    # if varname_list has only one item,                                        
+    #     e.g., [ 'GALID ZPHOT ZPHOTERR' ], then split it into 
+    # list of variables. This will enable reading both comma-sep 
+    # and space-sep list of variables in header.                   
+    if len(varname_list) == 1 :
+        varname_list = varname_list[0].split()
+
     return varname_list, row_list
 
 # ==============================
@@ -80,12 +93,10 @@ def  write_out_file(out_file,varname_list,row_list):
     add_rownum = False 
     varname0 = varname_list[0]
 
-    #print(f" xxx varname_list = {varname_list}")
-    #print(f" xxx varname0 = '{varname0}'")
-    #print(f" xxx VALID_ROWID_LIST = {VALID_ROWID_LIST}")
-
     if varname0 in VALID_ROWID_LIST:
         header = varname_list
+        if varname0 == "GALID": 
+            global ROWKEY ; ROWKEY = "GAL:"
     else:
         header = [ ROWID_DEFAULT ] + varname_list
         add_rownum = True
@@ -106,7 +117,7 @@ def  write_out_file(out_file,varname_list,row_list):
     rownum = 0 
     for row in row_list:
         rownum += 1
-        line  = "ROW: "
+        line  = f"{ROWKEY} "
         if add_rownum :  line += (f"{rownum:3d}  ")
         line += " ".join(row)
         f.write(f"{line}\n")

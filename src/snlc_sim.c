@@ -1049,6 +1049,7 @@ void set_user_defaults(void) {
   INPUTS.SIMLIB_MAXRANSTART =  0 ;
   INPUTS.SIMLIB_IDLOCK   = -9 ;
   INPUTS.SIMLIB_MINOBS   =  1 ; 
+  INPUTS.SIMLIB_MAXOBS   =  999999 ; 
   INPUTS.SIMLIB_DUMP     = -9 ;
   INPUTS.SIMLIB_NSKIPMJD_STRING[0] = 0 ;
 
@@ -3418,6 +3419,9 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_MINOBS",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MINOBS );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_MAXOBS",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MAXOBS );
   }
   else if ( keyMatchSim(1, "SIMLIB_MINSEASON",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MINSEASON );
@@ -7224,8 +7228,8 @@ void prep_dustFlags(void) {
 
   // ------------ BEGIN --------------
 
-  if ( INPUTS.GENGAUSS_RV.USE           )        { DO_RV  = 1; }
-  if ( IDMAP_GENPDF(PARNAME_RV,&LOGPARAM) >= 0 ) { DO_RV += 2; }
+  if ( INPUTS.GENGAUSS_RV.USE           )       { DO_RV  = 1; }
+  if ( IMAP_GENPDF(PARNAME_RV,&LOGPARAM) >= 0 ) { DO_RV += 2; }
 
   // check for WV07 option
   if ( INPUTS.WV07_REWGT_EXPAV > -1.0E-9 ) 
@@ -7253,8 +7257,8 @@ void prep_dustFlags(void) {
   if ( INPUTS.GENPROFILE_AV.USE       ) { DO_AV = 1; }
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) { DO_AV = 1; }
   if ( DO_WV07  || DO_GRID            ) { DO_AV = 1; }
-  if ( IDMAP_GENPDF(PARNAME_AV, &LOGPARAM ) >= 0 ) { DO_AV +=2; }
-  if ( IDMAP_GENPDF(PARNAME_EBV,&LOGPARAM ) >= 0 ) { DO_AV +=4; }
+  if ( IMAP_GENPDF(PARNAME_AV, &LOGPARAM ) >= 0 ) { DO_AV +=2; }
+  if ( IMAP_GENPDF(PARNAME_EBV,&LOGPARAM ) >= 0 ) { DO_AV +=4; }
   INPUTS.DOGEN_AV = DO_AV ; // store global for gen_modelPar_dust()
 
   // Jun 2023 - require dust sim for MLCS,snoopy,BayeSN
@@ -14515,7 +14519,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.WGTMAP_WGT ;
   NVAR_SIMGEN_DUMP++ ;
 
-  // allow any variable used in HOSTLIB_WGTMAP
+  // allow any variable used in HOSTLIB_WGTMXAP
   for ( imap=0; imap < HOSTLIB_WGTMAP.GRIDMAP.NDIM; imap++ ) {   
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
     sprintf(cptr, "%s", HOSTLIB_WGTMAP.VARNAME[imap]) ;
@@ -18101,6 +18105,7 @@ int keep_SIMLIB_HEADER(void) {
   //
   // Nov 28 2019: few checks for SIMLIB model.
   // May 30 2020: increment SIMLIB_HEADER.NFOUND_GENCUTS after all cuts.
+  // Mar 05 2024: check SIMLIB_MAXOBS
 
   int  ID      = SIMLIB_HEADER.LIBID ;
   int  NOBS    = SIMLIB_HEADER.NOBS ;
@@ -18156,7 +18161,7 @@ int keep_SIMLIB_HEADER(void) {
     { return(REJECT_FLAG); }
 
   if(LTRACE) {printf(" xxx %s: 3  NOBS=%d \n", fnam, NOBS );}
-  if ( NOBS < INPUTS.SIMLIB_MINOBS ) 
+  if ( NOBS < INPUTS.SIMLIB_MINOBS ||  NOBS > INPUTS.SIMLIB_MAXOBS )
     { return(REJECT_FLAG); }
 
   // check SIMLIB GENRANGES and user-input ranges
@@ -28960,7 +28965,7 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   int  FUNTYPE_EXPHALFGAUSS  = 2;
   char FUNNAME[3][20] = { "", "AsymGauss", "Exp+HalfGauss" };
 
-  int  IDMAP_LIST[10], FUNTYPE_LIST[10], FUNTYPE, IDMAP, i, NCHECK = 0;
+  int  IMAP_LIST[10], FUNTYPE_LIST[10], FUNTYPE, IMAP, i, NCHECK = 0;
   bool IS_LOGPAR, USE_GENPDF, USE_FUN;
   int  KEYSOURCE_FUN ; // asymGauss or exp_halfGauss function
   char PARNAME_LIST[10][20], *PARNAME;
@@ -28974,50 +28979,50 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   
   // store asymGauss functions
   sprintf(PARNAME_LIST[NCHECK],"SALT2x1");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2x1 ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
   NCHECK++ ;
 
   sprintf(PARNAME_LIST[NCHECK],"SALT2c");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2c ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
   NCHECK++ ;
 
   sprintf(PARNAME_LIST[NCHECK],"SALT2ALPHA");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2ALPHA ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
   NCHECK++ ;
 
   sprintf(PARNAME_LIST[NCHECK],"SALT2BETA");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2BETA ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
   NCHECK++ ;
 
   sprintf(PARNAME_LIST[NCHECK],"RV");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_RV ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
   NCHECK++ ;
 
   // store expHalfGauss functions
   sprintf(PARNAME_LIST[NCHECK],"EBV");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_EXPHALFGAUSS_LIST[NCHECK] = &INPUTS.GENPROFILE_EBV_HOST ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_EXPHALFGAUSS;
   NCHECK++ ;
 
   sprintf(PARNAME_LIST[NCHECK],"EBV_HOST");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_EXPHALFGAUSS_LIST[NCHECK] = &INPUTS.GENPROFILE_EBV_HOST ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_EXPHALFGAUSS;
   NCHECK++ ;
 
   sprintf(PARNAME_LIST[NCHECK],"AV");
-  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  IMAP_LIST[NCHECK]        = IMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_EXPHALFGAUSS_LIST[NCHECK] = &INPUTS.GENPROFILE_EBV_HOST ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_EXPHALFGAUSS;
   NCHECK++ ;
@@ -29025,9 +29030,9 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   // - - - - -
   for(i=0; i < NCHECK; i++ ) {
     PARNAME      = PARNAME_LIST[i];
-    USE_GENPDF   = ( IDMAP_LIST[i] >= 0 );
+    USE_GENPDF   = ( IMAP_LIST[i] >= 0 );
     FUNTYPE      = FUNTYPE_LIST[i];
-    IDMAP        = IDMAP_LIST[i];
+    IMAP         = IMAP_LIST[i];
 
     if ( FUNTYPE == FUNTYPE_ASYMGAUSS ) {
       USE_FUN       = ptr_ASYMGAUSS_LIST[i]->USE ; 
@@ -29061,10 +29066,10 @@ void prioritize_genPDF_ASYMGAUSS(void) {
       }
       else if ( KEYSOURCE_FUN > KEYSOURCE_GENPDF ) {
 	// disable GENPDF map by changing VARNAME
-	// so that IDMAP_GENPDF cannot find a match.
+	// so that IMAP_GENPDF cannot find a match.
 	printf("\t %s overrides GENPDF for %s\n", 
 	       FUNNAME[FUNTYPE], PARNAME); 
-	sprintf(GENPDF[IDMAP].VARNAMES[0],"DISABLE-%s", PARNAME);
+	sprintf(GENPDF[IMAP].VARNAMES[0],"DISABLE-%s", PARNAME);
       }
       
     } // end both methods
@@ -29077,7 +29082,7 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   
   bool GETPAR_HOSTLIB   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
   bool GETc_ASYMGAUSS   = INPUTS.GENGAUSS_SALT2c.USE;
-  bool GETc_GENPDF      = (IDMAP_GENPDF("SALT2c", &IS_LOGPAR) >= 0);
+  bool GETc_GENPDF      = (IMAP_GENPDF("SALT2c", &IS_LOGPAR) >= 0);
   bool GETc             = GETc_ASYMGAUSS || GETc_GENPDF ;
   bool SKIPc            = (GETPAR_HOSTLIB && !GETc );
   if ( SKIPc ) { INPUTS.DOGEN_COLOR = false; }
@@ -29089,7 +29094,7 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   bool NOSHAPE = ( ISMODEL_SIMSED || ISMODEL_SIMLIB|| ISMODEL_NON1A || ISMODEL_LCLIB || IS_PySEDMODEL );
 
   bool GETx_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
-  bool GETx_GENPDF      = (IDMAP_GENPDF("SALT2x1", &IS_LOGPAR) >= 0);
+  bool GETx_GENPDF      = (IMAP_GENPDF("SALT2x1", &IS_LOGPAR) >= 0);
   bool GETx             = GETx_ASYMGAUSS || GETx_GENPDF ;
   bool SKIPx            = NOSHAPE || ( GETPAR_HOSTLIB && !GETx ) ;
   if ( SKIPx ) { INPUTS.DOGEN_SHAPE = false; }

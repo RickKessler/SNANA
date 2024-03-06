@@ -742,7 +742,8 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,PRIOR_MUERRSCALE      ! I: scale MU-error for x0-prior in photoZ fits
      &  ,SNMAGRMS_for_PHOTOZ   ! I: compute PHOTOZ error from SNMAGRMS
      &  ,PARLIST_MCMC_PHOTOZ(5) ! params for MCMC burn-in
-
+     &  ,QUANTILE_ZERRMIN      ! I: use quantile zphot for zerr above this; else use Gauss prior
+ 
 c define varibales to fudge the data errors for particular
 c TREST-range and passbands. Note that FUDGE_MAGERR_MODEL
 c globally replaces the model error, while FUDGE_FITERR_MAXFRAC
@@ -802,7 +803,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
      &   ,FITWIN_PEAKMJD_ERRz1
      &   ,FITWIN_MB_ERRz1, FITWIN_SHAPE_ERRz1, FITWIN_COLOR_ERRz1
-     &   ,SNMAGRMS_for_PHOTOZ
+     &   ,SNMAGRMS_for_PHOTOZ, QUANTILE_ZERRMIN
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
      &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
@@ -873,7 +874,7 @@ c ------
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
      &   ,FITWIN_PEAKMJD_ERRz1
      &   ,FITWIN_MB_ERRz1, FITWIN_SHAPE_ERRz1, FITWIN_COLOR_ERRz1
-     &   ,SNMAGRMS_for_PHOTOZ
+     &   ,SNMAGRMS_for_PHOTOZ, QUANTILE_ZERRMIN
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
@@ -4942,7 +4943,13 @@ c Prior on photoZ
 
         if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
           ! get the probability at this redshift
-          PROBZ = eval_zPDF_spline(ZSN)
+          if ( SNLC_REDSHIFT_ERR >= QUANTILE_ZERRMIN ) then
+             PROBZ = eval_zPDF_spline(ZSN)
+          else
+             pull   = PRIOR_ZPULL(ZSN)
+             PROBZ  = exp(-0.5*pull*pull)  ! Mat 2024
+          endif
+
           if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
           CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
         else
@@ -7121,6 +7128,7 @@ c ---------------------------------
       PRIOR_ZERRSCALE  = 1000.0   ! default is no prior
       PRIOR_MUERRSCALE = 1000.0   ! default is no prior
       DOPRIOR_DLMAG    = .FALSE. 
+      QUANTILE_ZERRMIN = 0.02     ! Gauss prior on zspec if zspecerr < .02
 
       OPT_PRIOR      = 1
       OPT_PRIOR_AV   = 1
@@ -12078,19 +12086,22 @@ c local
 +CDE,SNLCINP.
 
       REAL*8  zPRIOR_err, zPRIOR, sqerr, Zpull, Zdif, Zsig
-      LOGICAL LPULL
+      LOGICAL LPULL, LPZ_PHOT, LPZ_BEST
 
 C ------------ BEGIN -------------
 
       PRIOR_ZPULL = 0.0
       LPULL  = .FALSE.
-  
-      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then  ! use host photo z
+      LPZ_PHOT = BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
+      LPZ_BEST = BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) .or. 
+     &            SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN  ! Mar  2024
+
+      if ( LPZ_PHOT ) then  ! use host photo z
          zPRIOR     = SNHOST_ZPHOT(1)
          zPRIOR_err = SNHOST_ZPHOT_ERR(1)
          LPULL = zPRIOR_err .GT. 0.005 .and. DOFIT_PHOTOZ_HOST
 
-      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then  ! use final redshift
+      else if ( LPZ_BEST ) then        ! use final redshift
          zPRIOR      = SNLC_REDSHIFT
          zPRIOR_err  = SNLC_REDSHIFT_ERR
          LPULL       = .TRUE.
@@ -13656,7 +13667,7 @@ c local var
       REAL*8  MU8(2), Z8(2), DZ8, DZDMU, MUREF
 
       character CZPRIOR*12
-
+      LOGICAL LPZ_PHOT, LPZ_BEST, LPZ_QUANTILE
 c functions
 
       REAL*8  DLMAG8_REF
@@ -13670,17 +13681,22 @@ c extract fit photoZ and determine total error.
       zfit    = LCVAL_STORE(IPAR_zPHOT) 
       zfiterr = LCERR_STORE(IPAR_zPHOT) 
          
-      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then 
+      LPZ_PHOT     = BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
+      LPZ_BEST     = BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) .or.
+     &               SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN   ! Mar 2024
+      LPZ_QUANTILE = BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
+
+      if ( LPZ_PHOT ) then 
         zhost    =  SNHOST_ZPHOT(1)
         zhosterr =  SNHOST_ZPHOT_ERR(1)
         czprior  = 'HOST-Gauss'   ! for screen dump comment
 
-      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
-        zhost    = SNLC_REDSHIFT     ! for testing only
+      else if ( LPZ_BEST ) then
+        zhost    = SNLC_REDSHIFT
         zhosterr = SNLC_REDSHIFT_ERR
         czprior  = 'zBEST-Gauss'   ! for screen dump comment
 
-      else if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then ! Jan 2024
+      else if ( LPZ_QUANTILE ) then ! Jan 2024
         zhost    = 0.0
         zhosterr = 0.0
         czprior  = 'QUANTILES'   ! for screen dump comment

@@ -5456,13 +5456,16 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
     if ( strcmp(PARNAME,"SEQUENTIAL") == 0  ) {
       INPUTS.NPAR_SIMSED = 0 ;  // no interp pars => treat as baggage
       INPUTS.OPTMASK_SIMSED    = OPTMASK_GEN_SIMSED_GRIDONLY ;
-    }
+    } 
     else {
       // PARNAME is one of the SIMSED params, but GRIDONLY
       NPAR = INPUTS.NPAR_SIMSED ;
       sprintf(INPUTS.PARNAME_SIMSED[NPAR], "%s", PARNAME );
       INPUTS.GENFLAG_SIMSED[NPAR] = 
 	OPTMASK_GEN_SIMSED_PARAM + OPTMASK_GEN_SIMSED_GRIDONLY ;
+
+      if ( strcmp(PARNAME, "WGT") == 0 ) { INPUTS.GENFLAG_SIMSED[NPAR] += OPTMASK_GEN_SIMSED_WGT; }
+
       sprintf(INPUTS.KEYWORD_SIMSED[NPAR],"SIMSED_GRIDONLY");
 
       INPUTS.NPAR_SIMSED++ ; 
@@ -13056,6 +13059,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
 
     // skip baggage params
+
     if ( (genflag & OPTMASK_GEN_SIMSED_param)  != 0 ) { continue ; }
 
     if ( opt_interp ) {
@@ -13135,10 +13139,9 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
   else if ( OPT_WGT ) {
     // X_WGT+  pick SED from random weight (Feb 39 2024)
     int INDX = pick_SIMSED_BY_WGT();
-    PARVAL = (double) INDX; 
+    printf("xxx %s INDX = %d\n", fnam, INDX);
 
-    // pick random WGT_select
-    // use quickBinSearch to find bin/index
+    PARVAL = (double) INDX; 
   }
   else { 
     // pick random sed from asymGauss params.

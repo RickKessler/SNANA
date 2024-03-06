@@ -22240,4 +22240,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     stnools_genPDF.c
       + protect Gauss RANGE when it is >> sigma; see init_genPDF_from_GenGauss().
+
+    snlc_fit.car
+      + new &FITINP  QUANTILE_ZERRMIN = 0.02; use quantile prior of zerr > 0.02;
+        else switch to Gauss-z prior on zspec.
+        
 END: 

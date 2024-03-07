@@ -237,7 +237,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   
   // set defaults
 
-  ISIMSED_SEQUENTIAL = 0 ;  // for sequential GRIDONLY option 
+  ISIMSED_SEQUENTIAL = -9 ;  // xxx mark delete 
+  ISIMSED_SELECT     = -9 ;  // for SEQUENTIAL or WGT opton
 
   SEDMODEL.NSURFACE   = 0 ;
   SEDMODEL.FLUXSCALE  = 1.0 ;
@@ -1149,8 +1150,9 @@ void  set_SIMSED_LOGZBIN(void) {
    
 // **********************************************
 void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
+
   // Created Feb 29 2024 by Alex Gagliano
-  //
+  // malloc cumulative WGT_SUM, and fill it.
 
   int OPT_WGT = 0;
   int ISED;
@@ -1158,8 +1160,8 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
   int NSED = SEDMODEL.NSURFACE;
   char fnam[] = "set_SIMSED_WGT_SUM";
 
-  if ( SEDMODEL.IPAR_WGT >= 0 ) { OPT_WGT = 1; } 
-  if ( !IGNOREFILE(WGTMAP_FILE) ){ OPT_WGT = 2; }
+  if ( SEDMODEL.IPAR_WGT >= 0   ) { OPT_WGT = 1; } 
+  if ( !IGNOREFILE(WGTMAP_FILE) ) { OPT_WGT = 2; }
 
   if ( !OPT_WGT ){ return; }
 
@@ -1170,13 +1172,13 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
     for ( ISED = 1; ISED <= SEDMODEL.NSURFACE ; ISED++ ){
       WGT = SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT];
       WGT_SUM += WGT;
-      //printf("xxx %s ISED = %d WGT = %le WGT_SUM = %le\n", fnam, ISED, WGT, WGT_SUM);
       SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
     }
     SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[1];
     SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
 
-    printf("\t Loaded %d cumulative WGTS from column %d \n", NSED, SEDMODEL.IPAR_WGT);
+    printf("\t Loaded %d cumulative WGTS from column %d \n", 
+	   NSED, SEDMODEL.IPAR_WGT); fflush(stdout);
   }
   // X_WGT+
 
@@ -1223,6 +1225,24 @@ int pick_SIMSED_BY_WGT(void){
   return ISED; // X_WGT+
 
 } //end pick_SIMSED_BY_WGT
+
+// **********************************************
+void dump_SIMSED_WGT(int NSED, char *msg) {
+  int ISED;
+  double WGT;
+  char fnam[] = "dump_SIMSED_WGT";
+
+  // ---------- BEGIN --------
+
+  printf(" xxx %s: --------------------------- \n", fnam);
+  for ( ISED = 1; ISED <= NSED ; ISED++ ){
+    WGT = SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT];
+    printf(" xxx %s: WGT[ISED=%d] = %f (%s)\n",
+	   fnam, ISED, WGT, msg);
+  }
+  fflush(stdout);
+} // end dump_SIMSED_WGT
+
 
 // **********************************************
 void dump_SIMSED_INFO(void) {
@@ -1379,7 +1399,11 @@ void genmag_SIMSED(
 
    OPTMASK+=4 (bit2) => grid only (no interpolation)
 
-   OPTMASK+=8 (bit3) => dump flag
+   OPTMASK+=8(bit3) => use WGT columm
+
+   OPTMASK+=16(bit4) => SEQUENTIAL option
+
+   OPTMASK+=512  => dump flag
 
         HISTORY
 
@@ -1397,11 +1421,13 @@ void genmag_SIMSED(
 
   Jul 30 2018: add output arg *index_sed
 
+  Mar 6 2024: minor refactor to handle SEQUENTIAL and WGT using same tools.
+
   ***/
 
   double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
-  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSEDSEQ ;
+  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSED_SELECT ;
   double AV, XT_MW, XT_HOST ;
   double magobs, magerr, tmpPar;
   char *cfilt ;
@@ -1415,12 +1441,15 @@ void genmag_SIMSED(
 
   LDMP_BADFLUX = LRETURN_FLUX = LDMP_DEBUG = 0 ;
   LRETURN_MAG  = 1;
-  LSEDSEQ      = 0;
+  LSED_SELECT  = 0;
 
   if ( (OPTMASK & 1) > 0 ) { LRETURN_MAG    = 0; LRETURN_FLUX = 1; }
   if ( (OPTMASK & 2) > 0 ) { LDMP_BADFLUX   = 1; }
-  if ( (OPTMASK & 4) > 0 ) { LSEDSEQ        = 1; }
-  if ( (OPTMASK & 8) > 0 ) { LDMP_DEBUG     = 1; }
+
+  if ( (OPTMASK & 4 )   > 0 ) { LSED_SELECT    = 1; }
+  if ( (OPTMASK & 16)   > 0 ) { LSED_SELECT    = 1; }
+
+  if ( (OPTMASK & 512) > 0 ) { LDMP_DEBUG      = 1; }
   
   // make sure that user NLUMIPAR matches expected number 
   // of parameters.
@@ -1468,7 +1497,7 @@ void genmag_SIMSED(
     Tobs  = Tobs_list[epobs];
     Trest = Tobs / z1;
 
-    if ( LSEDSEQ ) {
+    if ( LSED_SELECT ) {
       // get flux from next SED on the grid; fill all of the lumipar
       Sinterp = nextgrid_flux_SIMSED(iflagpar, iparmap, lumipar,
 				     ifilt_obs, z, Trest);
@@ -1570,37 +1599,36 @@ double nextgrid_flux_SIMSED (
 			  ) 
 {
 
-  // Increment ISIMSED_SEQUENTIAL and return integrated flux for this SED.
-  // Also return the *lumipar array.
+  // Process selection of global ISIMSED_SELECT and
+  // return the *lumipar array. Works for 
+  //   GRIDONLY:  SEQUENTIAL
+  //   GRIDONLY:  WGT
   //
-  // Mar 6 2017: set global ISED_SEDMODEL
-  //
-  // Dec 20 2018: ISIMSED_SEQUENTIAL is set from snlc_sim, not passed
-  //              as lumipar argument.
+  // where SED selection is NOT based on the physical parameters.
 
   double Sinterp ;
-  int  ipar, ISED ;
+  int  ipar, ipar_model, ISED ;
+  char fnam[] = "nextgrid_flux_SIMSED";
 
   // ----------- BEGIN -----------
 
-  // get SED index for GRIDONLY-sequential
-
-  ISED = ISIMSED_SEQUENTIAL ;
+  ISED = ISIMSED_SELECT ;
 
   // extract SED index for GRIDONLY-sequential option
-  if ( ISED  > SEDMODEL.NSURFACE ) { 
-    sprintf(c1err,"ISED =%d exceeds number of SEDS(%d)",
-	    ISED , SEDMODEL.NSURFACE);
+  if ( ISED < 1 || ISED  > SEDMODEL.NSURFACE ) { 
+    sprintf(c1err,"Invalid ISED =%d ; expect 1 to %d", ISED, SEDMODEL.NSURFACE);
+    sprintf(c2err,"Something is really messed up");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
-
 
   Sinterp = get_flux_SEDMODEL( ISED, 0, ifilt_obs, z, Trest);
 
-  ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
+  ISED_SEDMODEL = ISED; 
 
   // load *lumipar array
   for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
-    lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];
+    ipar_model = iparmap[ipar];
+    lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
   }
 
 
@@ -1649,7 +1677,6 @@ double interp_flux_SIMSED(
   int verbose = 0 ;
   int pars[INTERP_SIMSED_MAX_DIM];
   int pars_baggage[INTERP_SIMSED_MAX_BAGGAGE_PARS];
-  int opt_wgt[INTERP_SIMSED_MAX_BAGGAGE_PARS], OPT_WGT=0 ;
   int i, j, k, ISED, num_dims, num_pars_baggage;
   int found_corner, index, ipar_model, NPAR, ipar, ipar_user ;
   int flag, NGRIDONLY, NMATCH=0;
@@ -1681,8 +1708,10 @@ double interp_flux_SIMSED(
     Sinterp = get_flux_SEDMODEL( ISED, 0, ifilt_obs, z, Trest);
 
     // load *lumipar array
-    for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) 
-      { lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  }
+    for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
+      ipar_model    = iparmap[i];
+      lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];  
+    }
 
     return(Sinterp) ;
   }
@@ -1695,16 +1724,9 @@ double interp_flux_SIMSED(
     flag       = iflag[i];
     ipar_model = iparmap[i];
     pars_baggage[i] = 0 ;
-    opt_wgt[i]      = 0 ; 
 
     if ( flag & OPTMASK_GEN_SIMSED_GRIDONLY )
       { NGRIDONLY++ ; } 
-
-    if ( flag & OPTMASK_GEN_SIMSED_WGT ) {
-      opt_wgt[i] = 1;  OPT_WGT = 1;
-      ISED_MIN = (int)lumipar[i];
-      ISED_MAX = (int)lumipar[i];      
-    }
 
     if ( (flag & OPTMASK_GEN_SIMSED_PARAM ) > 0 )  {
       pars[num_dims] = i;
@@ -1737,9 +1759,8 @@ double interp_flux_SIMSED(
       NMATCH = 0 ;
       for(j=0; j < NPAR; j++ ) {
 	if ( pars_baggage[j] ) { continue ; } // skip baggage	     
-	// xxx mark delete range  = SEDMODEL.PARVAL_MAX[j] - SEDMODEL.PARVAL_MIN[j] ;
 	ipar_model = iparmap[j];
-        range      = SEDMODEL.PARVAL_MAX[ipar_model] - SEDMODEL.PARVAL_MIN[ipar_model] ;
+        range = SEDMODEL.PARVAL_MAX[ipar_model]-SEDMODEL.PARVAL_MIN[ipar_model];
 	parval     = SEDMODEL.PARVAL[ISED][ipar_model];
 	diff       = (parval - lumipar[j]) / range ;
 	
@@ -1749,9 +1770,7 @@ double interp_flux_SIMSED(
 	       ISED, ipar_model, parval, j,lumipar[j], range, diff ); 
 	*/
 
-	if ( opt_wgt[j]               ) { NMATCH++ ; }	
-	else if ( fabs(diff) < 0.0001 ) { NMATCH++ ; }
-
+	if ( fabs(diff) < 0.0001 ) { NMATCH++ ; }
       }
 
       if ( NMATCH == NGRIDONLY ) { 
@@ -1759,11 +1778,9 @@ double interp_flux_SIMSED(
 	ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
 
 	// load *lumipar array
-	if ( !OPT_WGT ) {
-	  for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
-	    ipar_model = iparmap[ipar];
-	    lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
-	  }
+	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
+	  ipar_model = iparmap[ipar];
+	  lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];	
 	}
 
 	return(Sinterp) ;
@@ -1792,12 +1809,6 @@ double interp_flux_SIMSED(
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  if ( OPT_WGT ) {
-    sprintf(c1err, "Should not be here with OPT_WGT=True "
-	    "(ifilt_obs=%d  z=%.3f  Trest=%.1f", ifilt_obs, z, Trest);
-    sprintf(c2err, "Something is really messed up.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
-  }
 
   /*
    * Define arrays which depend upon the number of dimensions
@@ -1840,7 +1851,7 @@ double interp_flux_SIMSED(
       for (j = 0; j < SEDMODEL.NSURFACE; j++)
 	{
 
-	  // BD orig   diff = SEDMODEL.PARVAL[j + 1][pars[i] + 1] - lumipar[pars[i]];
+	  // BD orig diff = SEDMODEL.PARVAL[j + 1][pars[i] + 1] - lumipar[pars[i]];
 	  diff = SEDMODEL.PARVAL[j + 1][ipar_model] - lumipar[pars[i]]; // RK
 	  
 	  if (diff <= 0)

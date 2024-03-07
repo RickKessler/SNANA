@@ -5459,7 +5459,8 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
 
     if ( strcmp(PARNAME,"SEQUENTIAL") == 0  ) {
       INPUTS.NPAR_SIMSED = 0 ;  // no interp pars => treat as baggage
-      INPUTS.OPTMASK_SIMSED    = OPTMASK_GEN_SIMSED_GRIDONLY ;
+      INPUTS.OPTMASK_SIMSED  = 
+	OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_SEQ;
     } 
     else {
       // PARNAME is one of the SIMSED params, but GRIDONLY
@@ -5468,7 +5469,12 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
       INPUTS.GENFLAG_SIMSED[NPAR] = 
 	OPTMASK_GEN_SIMSED_PARAM + OPTMASK_GEN_SIMSED_GRIDONLY ;
 
-      if ( strcmp(PARNAME, "WGT") == 0 ) { INPUTS.GENFLAG_SIMSED[NPAR] += OPTMASK_GEN_SIMSED_WGT; }
+      if ( strcmp(PARNAME, "WGT") == 0 )  {         
+        INPUTS.OPTMASK_SIMSED = 
+	  OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_WGT;
+        INPUTS.GENFLAG_SIMSED[NPAR] = 
+	  OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_WGT ;
+      }
 
       sprintf(INPUTS.KEYWORD_SIMSED[NPAR],"SIMSED_GRIDONLY");
 
@@ -12968,12 +12974,14 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
   bool ISFRAME_REST    = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS     = ( OPT_FRAME == OPT_FRAME_OBS  );
+  int  OPTMASK_SIMSED  = INPUTS.OPTMASK_SIMSED ;
+
   int     NPAR      = INPUTS.NPAR_SIMSED;
   int     NROW_COV  = INPUTS.NROW_SIMSED_COV;
   double  ZCMB      = GENLC.REDSHIFT_CMB ; // for z-dependent populations
 
   int  ipar, ipar_model, genflag, opt_interp, opt_gridonly, opt_wgt ;
-  int  irow, irow_COV, NRANGEN_ITER=0 ;
+  int  irow, irow_COV, NRANGEN_ITER=0, OVP ;
   double ARG, parVal, parVal_old ;
   double PEAK, PMIN, PMAX ;
   double GAURAN[MXPAR_SIMSED], CORRVAL[MXPAR_SIMSED] ;
@@ -13000,7 +13008,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
   parVal = parVal_old = 0.0 ;
 
-  if ( NPAR <= 0 &&  INPUTS.OPTMASK_SIMSED == 0 ) {
+  if ( NPAR <= 0 &&  OPTMASK_SIMSED == 0 ) {
     sprintf(c1err,"NPAR_SIMSED = %d", NPAR );
     sprintf(c2err,"for GENMODEL %s", INPUTS.GENMODEL);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -13085,16 +13093,23 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
     } // opt_interp
     
-    //  printf(" xxx %s: PARVAL[%d] = %f \n", fnam, ipar, parVal);
     GENLC.SIMSED_PARVAL[ipar]  = parVal ;
 
   }  // end ipar
 
   // ------------------
-  // set PARVAL[0] to the SED index ... the IGEN index.
-  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) 
-  { ISIMSED_SEQUENTIAL  = (double)NGENLC_TOT ; } // IGEN = ISED
+  // check options that select ISED instead of sed params
+  
+  OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_SEQ);
+  if ( OVP > 0 )  { 
+    ISIMSED_SELECT      = NGENLC_TOT ; // IGEN=ISED (refac)
+    ISIMSED_SEQUENTIAL  = NGENLC_TOT ; // IGEN = ISED (legacy; mark dekete)
+  }
 
+  OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT);
+  if ( OVP > 0 )  { 
+    ISIMSED_SELECT  = pick_SIMSED_BY_WGT();
+  }
   
   return;
 
@@ -13115,8 +13130,6 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
   // Jun 3 2022: fix index bug using ipar instead of ipar_model
 
   int GENFLAG = INPUTS.GENFLAG_SIMSED[ipar] ;
-  int OPT_WGT = GENFLAG & OPTMASK_GEN_SIMSED_WGT ;
-
   bool PICK_SUBSET  = (INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY > 0) ;
   int  nsed=0, ised_ran=-9, itmp=-9 ;
   double flatRan  = getRan_Flat1(2); // random between 0-1
@@ -13140,11 +13153,7 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
     itmp    = (int) ( flatRan * (double)nsed ) ;
     PARVAL  = (double)INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[itmp] ;
   }
-  else if ( OPT_WGT ) {
-    // X_WGT+  pick SED from random weight (Feb 39 2024)
-    int ISED = pick_SIMSED_BY_WGT();
-    PARVAL = (double)ISED ; 
-  }
+
   else { 
     // pick random sed from asymGauss params.
     // This includes random _INDEX using Gauss with sigma = 1E8
@@ -21759,7 +21768,7 @@ void checkpar_SIMSED(void) {
   // For the "SIMSED_GRIDONLY: SEQUENTIAL" option, 
   // set NGEN_LC equal to the number of SEDs so that 
   // each SED is processed once.
-  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) {
+  if ( INPUTS.OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_SEQ ) {
     N = NSED_SEDMODEL();
     INPUTS.NGEN = N ;
     INPUTS.NGENTOT_LC = N;
@@ -27174,7 +27183,7 @@ void genmodel(
 		  ,&GENLC.TEMPLATE_INDEX // (O) SED index
 		  ) ;
 
-    if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) 
+    if ( INPUTS.OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_SEQ ) 
       { GENLC.CID = GENLC.TEMPLATE_INDEX ; }
 
   }

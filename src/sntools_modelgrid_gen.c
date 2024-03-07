@@ -45,8 +45,11 @@
 #include "sntools_modelgrid.h"
 #include "sntools_stronglens.h"
 #include "snlc_sim.h"
+
+#include "genmag_SEDtools.h"
 #include "genmag_SIMSED.h"
 #include "genmag_NON1ASED.h"
+#include "genmag_SALT2.h"
 
 // =============================
 //     GRID  functions 

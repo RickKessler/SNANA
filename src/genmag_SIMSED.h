@@ -5,9 +5,8 @@
 #define OPTMASK_GEN_SIMSED_PARAM    1   // continuous interp
 #define OPTMASK_GEN_SIMSED_param    2   // baggage parameter
 #define OPTMASK_GEN_SIMSED_GRIDONLY 4   // random gen snapped to GRID only
-
-// select based on WGT column (or external WGTMAP) X_WGT+
-#define OPTMASK_GEN_SIMSED_WGT  8  
+#define OPTMASK_GEN_SIMSED_WGT  8  // select based on WGT column or external WGTMAP
+#define OPTMASK_GEN_SIMSED_SEQ  16 // for "GRIDONLY: SEQUENTIAL" option
 
 // define OPTMASK for init_genmag_SIMSED (LSB=0)
 #define OPTMASK_INIT_SIMSED_BINARY    1  // make binary file(s) if not there
@@ -42,7 +41,8 @@ int     IVERSION_SIMSED_BINARY ;     // actual version
 double Trange_SIMSED[2] ; // used for rd_sedflux
 double Lrange_SIMSED[2] ;
 
-int ISIMSED_SEQUENTIAL ;
+int ISIMSED_SEQUENTIAL ; // xxx mark obsolete Mar 7 2024
+int ISIMSED_SELECT;   // either SEQUENTIAL or WGT option
 
 bool ISBATCH_SIMSED;   // T => running in batch mode
 
@@ -85,8 +85,8 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 void set_SIMSED_LOGZBIN(void);
 
 void set_SIMSED_WGT_SUM(char *WGTMAP_FILE);
-
-int pick_SIMSED_BY_WGT(void);
+int  pick_SIMSED_BY_WGT(void);
+void dump_SIMSED_WGT(int NSED, char *msg);
 
 void dump_SIMSED_INFO(void);
 

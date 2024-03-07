@@ -1174,7 +1174,7 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       WGT_SUM += WGT;
       SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
     }
-    SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[1];
+    SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[0];
     SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
 
     printf("\t Loaded %d cumulative WGTS from column %d \n", 
@@ -1206,8 +1206,8 @@ int pick_SIMSED_BY_WGT(void){
 	   fnam, ranCDF, WGTrange[0], WGTrange[1] ); fflush(stdout);
   }
 
-  ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE, 
-			&SEDMODEL.WGT_SUM[1], fnam);
+  ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE+1, 
+			SEDMODEL.WGT_SUM, fnam);
  
   ISED++ ; // avoid ISED=0 since ISED starts at 1
 

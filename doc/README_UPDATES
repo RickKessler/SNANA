@@ -22234,6 +22234,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         separate biascor. For rough forecasts; do NOT use this for nominal
         data analysis.
   
+      + new parameter MXCHAR_DATAFILE_STRING = 4*MXPATHLEN doubles previous
+        size. Also added abort trap in case user input dataFile_string 
+        exceeds this size.
+
     genmag_SEDtools.c
       + fix dumb bugs in malloc_METADATA_SEDMODEL() and initialize
         some array values to zero.

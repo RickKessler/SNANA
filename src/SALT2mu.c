@@ -337,6 +337,8 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 int     NCALL_SALT2mu_DRIVER_EXEC;
 #define MXVAR_OVERRIDE 10
 
+#define MXCHAR_DATAFILE_STRING  4*MXPATHLEN // max len of input dataFile_string
+
 // Maximum number of bins
 // Note that 5D biasCor array would take 30*20*20*5*5 = 300,000
 // So instead we define a linear array of 50,000 to take less memory,
@@ -942,7 +944,7 @@ struct INPUTS {
 
   int  nfile_data;
   char **dataFile;  
-  char dataFile_string[2*MXPATHLEN];
+  char dataFile_string[MXCHAR_DATAFILE_STRING];
 
   char model_lcfit[40]; // e.g., 'SALT2'  'BAYESN'
   bool ISMODEL_LCFIT_SALT2 ;   // Default is True; see model_lcfit input key
@@ -16849,6 +16851,14 @@ int ppar(char* item) {
   for ( ikey=0; ikey < 2; ikey++ ) {
     len = strlen( keyList_data[ikey] );
     if ( uniqueOverlap(item,keyList_data[ikey]) ) {
+
+      if ( strlen(item) > MXCHAR_DATAFILE_STRING ) {
+	sprintf(c1err,"'%s' arg length=%d exceeds bound of %d",
+		keyList_data[ikey], strlen(item), MXCHAR_DATAFILE_STRING);
+	sprintf(c2err,"Reduce size of arg or increase MXCHAR_DATAFILE_STRING");
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+      }
+
       sprintf(INPUTS.dataFile_string,"%s", &item[len]); // save for error msg
       parse_commaSepList("DATAFILE", &item[len], MXFILE_DATA, MXCHAR_FILENAME, 
 			 &INPUTS.nfile_data, &INPUTS.dataFile );
@@ -20020,6 +20030,8 @@ void conflict_check() {
   char fnam[] = "conflict_check" ;
 
   // ---------- BEGIN -----------
+
+  if( INPUTS.cat_only ) { return; } // Mar 2024
 
   if ( INPUTS.zpolyflag == 1 && INPUTS.fitflag_sigmb > 0 ) {
     sprintf(varName[NERR][0], "zpolyflag");

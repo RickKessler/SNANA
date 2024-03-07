@@ -13142,10 +13142,8 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
   }
   else if ( OPT_WGT ) {
     // X_WGT+  pick SED from random weight (Feb 39 2024)
-    int INDX = pick_SIMSED_BY_WGT();
-    printf("xxx %s INDX = %d\n", fnam, INDX);
-
-    PARVAL = (double) INDX; 
+    int ISED = pick_SIMSED_BY_WGT();
+    PARVAL = (double)ISED ; 
   }
   else { 
     // pick random sed from asymGauss params.

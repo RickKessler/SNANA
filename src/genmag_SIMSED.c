@@ -1183,22 +1183,45 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
   return ;
 } //end set_SIMSED_WGT_SUM
   
+//**************************************
 int pick_SIMSED_BY_WGT(void){
   int ISED = -9;
-  char fnam[] = "pick_SIMSED_BY_WGT";
   double ranCDF;
   double WGTrange[2];
+  int LDMP = 0 ;
+  char fnam[] = "pick_SIMSED_BY_WGT";
+
+  // --------- BEGIN --------------
 
   WGTrange[0] = SEDMODEL.WGT_MIN;
   WGTrange[1] = SEDMODEL.WGT_MAX;
 
   ranCDF = getRan_Flat(1, WGTrange);
 
-  ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE, SEDMODEL.WGT_SUM,
-                   fnam);
+  if ( LDMP ) {
+    printf(" xxx - - - - - - - -\n");
+    printf(" xxx %s: ranCDF=%f WGTrange=(%f,%f) ... \n", 
+	   fnam, ranCDF, WGTrange[0], WGTrange[1] ); fflush(stdout);
+  }
+
+  ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE, 
+			&SEDMODEL.WGT_SUM[1], fnam);
  
+  ISED++ ; // avoid ISED=0 since ISED starts at 1
+
+  if ( ISED < 1 || ISED > SEDMODEL.NSURFACE ) {
+    sprintf(c1err,"Invalid ISED = %d ", ISED);
+    sprintf(c2err,"ranCDF=%f  WGTrange=(%f,%f)",
+	    ranCDF, WGTrange[0], WGTrange[1]);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( LDMP ) 
+    { printf(" xxx %s: ISED = %d \n", fnam, ISED ); fflush(stdout); }
+
+
   return ISED; // X_WGT+
-	       // CONTINUE HERE
+
 } //end pick_SIMSED_BY_WGT
 
 // **********************************************
@@ -1602,26 +1625,7 @@ double interp_flux_SIMSED(
     Interpolate in multi-dimensional space of SIMSED parameters
     to get flux-integral.
 
-    Jun 24, 2010 (RK) - add ilampow=0 argument to interp_flux_SEDMODEL.
-                        No effect for SIMSED models, but the extra arg
-                        is needed for the SALT2  model.
-
-    Jun 29, 2010 (RK) 
-        - replace case test on iflag with bit-mask test
-        - fix tabs
-
-    May 16, 2011 (RK) skip interpolation if there is just 1 SED.
-
-    Nov 18, 2011 (RK) pass *iparmap so that user can pick SIMSED params
-                      in any order.  See ipar_model below.
-
-   Nov 28,  2011:  bugfix: fill *lumipar array if there is just one SED.
-
-   Aug 17 2015: if all params are GRIDONLY, then find ISED at grid-node
-                instead of interpolating . See NGRIDONLY & NMATCH.
-
-   Mar 6 2017: set global ISED_SEDMODEL
-
+    
    Dec 26 2018:
      fix bug from v10_63g (July 2018). For GRIDONLY option, 
      make sure to load  *lumipar.
@@ -1631,6 +1635,11 @@ double interp_flux_SIMSED(
      + fix index bug loading *lumipar ... before it worked only if
        selected model params were in same order is in SED.INFO file
 
+   Mar 2024: 
+    + check option to use WGT column to select ISED. 
+      Beware for WGT option because input *lumipar is the ISED index,
+      not the WGT value, so don't update *lumipar = WGT.  
+   
   -------------------------------------------------- */
 
   /*
@@ -1640,9 +1649,11 @@ double interp_flux_SIMSED(
   int verbose = 0 ;
   int pars[INTERP_SIMSED_MAX_DIM];
   int pars_baggage[INTERP_SIMSED_MAX_BAGGAGE_PARS];
+  int opt_wgt[INTERP_SIMSED_MAX_BAGGAGE_PARS], OPT_WGT=0 ;
   int i, j, k, ISED, num_dims, num_pars_baggage;
   int found_corner, index, ipar_model, NPAR, ipar, ipar_user ;
-  int flag, NGRIDONLY, NMATCH=0 ;
+  int flag, NGRIDONLY, NMATCH=0;
+  int ISED_MIN=1, ISED_MAX = SEDMODEL.NSURFACE ;
 
   double Sinterp, left_min_diff, right_min_diff;
   double diff, diff0, diff1, parval, range, term;
@@ -1666,7 +1677,7 @@ double interp_flux_SIMSED(
   // just interpolate in the space of redshift and Trest.
   if ( SEDMODEL.NSURFACE == 1 ) {
     ISED = 1;
-    ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
+    ISED_SEDMODEL = ISED; 
     Sinterp = get_flux_SEDMODEL( ISED, 0, ifilt_obs, z, Trest);
 
     // load *lumipar array
@@ -1684,9 +1695,16 @@ double interp_flux_SIMSED(
     flag       = iflag[i];
     ipar_model = iparmap[i];
     pars_baggage[i] = 0 ;
-		 
+    opt_wgt[i]      = 0 ; 
+
     if ( flag & OPTMASK_GEN_SIMSED_GRIDONLY )
-      { NGRIDONLY++ ; } // Aug 17 2015 RK
+      { NGRIDONLY++ ; } 
+
+    if ( flag & OPTMASK_GEN_SIMSED_WGT ) {
+      opt_wgt[i] = 1;  OPT_WGT = 1;
+      ISED_MIN = (int)lumipar[i];
+      ISED_MAX = (int)lumipar[i];      
+    }
 
     if ( (flag & OPTMASK_GEN_SIMSED_PARAM ) > 0 )  {
       pars[num_dims] = i;
@@ -1714,7 +1732,7 @@ double interp_flux_SIMSED(
   
   NPAR = SEDMODEL.NPAR ;
   if( NGRIDONLY == NPAR-num_pars_baggage ) {
-    for ( ISED = 1; ISED <= SEDMODEL.NSURFACE ; ISED++ ) {
+    for ( ISED = ISED_MIN; ISED <= ISED_MAX ; ISED++ ) {
       
       NMATCH = 0 ;
       for(j=0; j < NPAR; j++ ) {
@@ -1730,18 +1748,22 @@ double interp_flux_SIMSED(
 	       "lumipar[%d]=%6.2f  range=%.2f  diff=%.2f\n",
 	       ISED, ipar_model, parval, j,lumipar[j], range, diff ); 
 	*/
-	
-	if ( fabs(diff) < 0.0001 ) { NMATCH++ ; }
+
+	if ( opt_wgt[j]               ) { NMATCH++ ; }	
+	else if ( fabs(diff) < 0.0001 ) { NMATCH++ ; }
+
       }
+
       if ( NMATCH == NGRIDONLY ) { 
 	Sinterp = get_flux_SEDMODEL(ISED, 0, ifilt_obs, z, Trest);	
 	ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
 
 	// load *lumipar array
-	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
-	  ipar_model = iparmap[ipar];
-	  lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
-	  // xxx mark delete lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  
+	if ( !OPT_WGT ) {
+	  for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
+	    ipar_model = iparmap[ipar];
+	    lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
+	  }
 	}
 
 	return(Sinterp) ;
@@ -1768,6 +1790,13 @@ double interp_flux_SIMSED(
       sprintf(c1err, "Cannot interpolate in %d dimensions.", num_dims);
       sprintf(c2err, " ");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  if ( OPT_WGT ) {
+    sprintf(c1err, "Should not be here with OPT_WGT=True "
+	    "(ifilt_obs=%d  z=%.3f  Trest=%.1f", ifilt_obs, z, Trest);
+    sprintf(c2err, "Something is really messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
   /*

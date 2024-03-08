@@ -30,11 +30,13 @@
  May 02 2020: add spectra format for MARZ (FITS with particular extensions)
  May 30 2020: MXSPEC_SPECPAK -> MXSPECTRA from sndata.h
 
+ Jan 05 2023: MXCHAR_FILENAME-> 300 (was 240)
+
 *******************************************/
 
 
 // define flags for software packages
-#define USE_HBOOK      
+#define USE_HBOOKxxx               
 #define USE_ROOT        
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
@@ -49,7 +51,7 @@
 #define IFILETYPE_MARZ   4
 #define MXTABLEFILETYPE  5
 
-#define MXCHAR_FILENAME  240
+#define MXCHAR_FILENAME  300
 #define MXCHAR_VARLIST   2000  
 #define MXCHAR_VARNAME   60
 #define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
@@ -536,8 +538,8 @@ extern"C" {
   void MAKEDIR_OUTPUT(char *CCID, int CID ) ;
   void makedir_output__(char *CCID, int *CID ) ;
   
-  void CDTOPDIR_OUTPUT(void) ;
-  void cdtopdir_output__ (void) ;
+  void CDTOPDIR_OUTPUT(int VBOSE) ;
+  void cdtopdir_output__ (int *VOBSE) ;
 
 
   // SNLCPAK functions

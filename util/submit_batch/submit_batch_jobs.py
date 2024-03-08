@@ -20,6 +20,7 @@
 # Feb 27 2023: undo hack that allowed missing f90nml for makeDataFiles
 # May 19 2023: remove obsolete translate class
 # May 22 2023: add train_BAYESN class
+# Jan 17 2023: new option --cpu_sum
 # - - - - - - - - - -
 
 #import os
@@ -31,13 +32,6 @@ from   submit_params      import *
 from   submit_prog_sim    import Simulation
 from   submit_prog_lcfit  import LightCurveFit
 
-# xxxxxxxx mark delete Feb 27 2023 xxxxxxxxx
-#try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
-#    from   submit_prog_lcfit  import LightCurveFit
-#except Exception as e:
-#    print(f" WARNING: could not import LightCurveFit")
-#    pass
-# xxxxxxxxxxxxxx
 
 from   submit_prog_bbc      import BBC
 from   submit_prog_covmat   import create_covmat
@@ -93,6 +87,9 @@ def get_args():
     msg = "Use 'find' to locate and remove non-essential output."
     parser.add_argument("--purge", help=msg, action="store_true")
 
+    msg = f"Diagnostic: Sum all CPU under current dir"
+    parser.add_argument("--cpu_sum", help=msg, action="store_true")
+
     # - - -
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
@@ -113,25 +110,23 @@ def get_args():
     msg = "run merge as background process instead of via batch"
     parser.add_argument("--merge_background", help=msg, action="store_true")
 
+    # - - - - - DEBUG options - - - - 
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
-
-    msg = (f"DEBUG MODE: reset (undo) merge process ")
+    msg = f"DEBUG MODE: reset (undo) merge process "
     parser.add_argument("--merge_reset", help=msg, action="store_true")
-
-    msg = (f"DEBUG MODE: developer flag to avoid conflicts. ")
+    msg = f"DEBUG MODE: developer flag to avoid conflicts. "
     parser.add_argument("--devel_flag", help=msg, type=int, default=0 )
-
-    msg = (f"DEBUG MODE: force crash in batch-prep ")
+    msg = f"DEBUG MODE: force crash in batch-prep "
     parser.add_argument("--force_crash_prep", help=msg, action="store_true")
-    msg = (f"DEBUG MODE: force crash in merge ")
+    msg = f"DEBUG MODE: force crash in merge "
     parser.add_argument("--force_crash_merge", help=msg, action="store_true")
-    msg = (f"DEBUG MODE: force abort in merge ")
+    msg = f"DEBUG MODE: force abort in merge "
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
-    msg = (f"DEBUG MODE: force garbage argument for this job id") # not implemented yet ...
+    msg = f"DEBUG MODE: force garbage argument for this job id"  # not implemented yet ...
     parser.add_argument("--jobid_force_bad_arg", help=msg, type=int, default=None )
 
-    msg = (f"DEBUG MODE: run codes from private snana_dir ")
+    msg = f"DEBUG MODE: run codes from private snana_dir "
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
 
     # args passed internally from command files
@@ -317,6 +312,108 @@ def purge_old_submit_output():
 
     # end purge_old_submit_output
 
+def print_cpu_sum():
+    
+    # Created Jan 17 2024 (Perlmutter down for maintenance)
+    # Find all MERGE.LOG files in current pwd;
+    # sum CPU by class; print CPU_SUM by class, and total CPU.
+    # This task is strictly diaganostic to help track CPU needs.
+    # This task does not submit or process jobs.
+
+    SUMMARY_FILE_LIST = [ MERGE_LOG_FILE, 'SCONE_SUMMARY.LOG' ] 
+
+    logging.info(f"\n Sum CPU in {SUMMARY_FILE_LIST} files ... ")
+
+    summary_log_list = []
+
+    for summ_file in SUMMARY_FILE_LIST:
+        cmd_find  = f"find . -name {summ_file} " + "-exec du -mc {} +"
+
+        OPT_FIND = 'run'  # or 'check_output'
+        if OPT_FIND == 'check_output' :
+            find_list    = subprocess.check_output(cmd_find, shell=True)
+            find_list    = (find_list.rstrip()).decode('utf-8')
+        elif OPT_FIND == 'run' :
+            find_list  = subprocess.run( cmd_find.split(), cwd='./' ,
+                                         capture_output=True, text=True ).stdout
+
+        if len(find_list) == 0 : continue
+
+        # every other elment is file or dir   .xyz
+        find_list  = find_list.split()[1::2]  
+        find_list  = find_list[:-1]
+
+        # remove last element for 'total'
+        summary_log_list += find_list
+        #print(f"\n xxx summary_log_list = {summary_log_list}")
+
+    # - - - - 
+    # define expected keys in MERGE.LOG
+    KEY_PROGRAM_CLASS     = 'PROGRAM_CLASS'
+    KEY_CPU_SUM           = 'CPU_SUM'
+
+    # PROGRAM_CLASS key does not exist before about mid-Jan 2024,
+    # so substitute "UnknownClass" in this case
+    PROGRAM_CLASS_UNKNOWN = "UnknownClass"
+
+    cpu_dict = {}
+    cpu_sum_total = 0.0 
+    NMISSING_KEY_CPU_SUM = 0
+    N_SKIP               = 0
+
+    SKIP_LIST = [ '5_MERGE', 'denied' ] # skip these duplicates
+
+    for merge_log in summary_log_list:
+
+        do_skip = False
+        for str_skip in SKIP_LIST :
+            if str_skip in merge_log: do_skip = True
+        if do_skip:
+            N_SKIP += 1
+            continue
+
+        yaml_contents ,comment_lines = util.read_merge_file(merge_log)
+
+        logging.info(f" Read {merge_log}")
+        if KEY_PROGRAM_CLASS in yaml_contents:
+            program_class = yaml_contents[KEY_PROGRAM_CLASS]
+        else:
+            program_class = PROGRAM_CLASS_UNKNOWN
+
+        if KEY_CPU_SUM in yaml_contents:
+            cpu  =  float(yaml_contents[KEY_CPU_SUM])
+        else:
+            cpu = 0.0
+            NMISSING_KEY_CPU_SUM += 1
+            logging.info(f" **** WARNING **** Missing required {KEY_CPU_SUM} key.")
+
+        cpu_sum_total += cpu
+        logging.info(f"\t CPU = {cpu} hr for program class {program_class}")
+        if program_class not in cpu_dict:
+            cpu_dict[program_class] = 0.0
+        cpu_dict[program_class] += cpu
+          
+    CLASS_TOTAL = "*** TOTAL ***"
+    cpu_dict[CLASS_TOTAL] = cpu_sum_total
+
+    logging.info("")
+    for program_class, cpu in cpu_dict.items():
+        percent = 100.0 * (cpu / cpu_sum_total)
+        logging.info(f"  CPU-sum of {program_class:16s} :  {cpu:8.2f} hr   " \
+                     f"({percent:6.1f} %)")
+
+    if NMISSING_KEY_CPU_SUM > 0 :
+        logging.info(f"\n WARNING: {NMISSING_KEY_CPU_SUM} " \
+                     f"{MERGE_LOG_FILE} files are missing {KEY_CPU_SUM} key.")
+
+    if N_SKIP > 0 :
+        logging.info(f"\n WARNING: {N_SKIP} skipped files containing {SKIP_LIST}")
+        
+    logging.info("")
+
+    return
+    # end print_cpu_sum
+
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
@@ -358,6 +455,10 @@ if __name__ == "__main__":
         purge_old_submit_output()
         sys.exit(' Done with purge: exiting Main.')
 
+    if args.cpu_sum :
+        print_cpu_sum()
+        sys.exit(' Done with summing CPU times.')
+
     # check input file: does it have a path?
     check_input_file_name(args)
 
@@ -373,6 +474,7 @@ if __name__ == "__main__":
     # - - - - - -
     # determine which program class (sim, fit, bbc, train ...)
     program_class = which_program_class(config_yaml)
+    args.program_class = f"{program_class.__name__}"
 
     # run the class
     program = program_class(config_yaml)  # calls __init only

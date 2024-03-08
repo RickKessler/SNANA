@@ -77,7 +77,7 @@ void   DUMP_FILTER(int ifilt, int isig, int istp,  double *TRANS_REBIN );
 #define MXLAMINT    20000  // max # lambda bins for integration
 #define MXBIN         100  // max # bins for Z, LAMSTEP, LAMSIGMA
 
-#define FNU_AB  3.631E-20 // flat Fnu for AB, erg/cm^2*s*Hz
+// xxx mark #define FNU_AB  3.631E-20 // flat Fnu for AB, erg/cm^2*s*Hz
 
 double GLOBAL_LAMBDA_MIN; //  global lambda min,max among filters;
 double GLOBAL_LAMBDA_MAX; //  used to limit SED range that is read

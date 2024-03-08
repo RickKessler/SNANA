@@ -45,8 +45,10 @@
      Dai      2022 (2212.06879)  SALT3 training syst
      Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
      Armstron 2023 (2307.13862)  contraint validation
-     Kessler  2023 (2306.05819)  Binning-is-sinning redemption
-     Vincenzi 2023 (in prep)     DES5YR analysis & syst
+     Kessler  2023 (2306.05819)  Binning-is-sinning redemption     
+     Qu       2023 (2307.13696)  Biases from host mis-match
+     Vincenzi 2024 (2401.02945)  DES-SN5YR analysis & syst
+
 
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
@@ -138,6 +140,13 @@
  Aug 03 2023: 
    + use print_cputime(..) utility to grep stdout for standard CPUTIME string.
 
+ Oct 17 2023: 
+   + new option ranseed_Rcmb to fluctuate Rcmb value 
+     (intended for error validation on many sim-data samples)
+
+ Dec 3 2023: replace fixed muerr_ideal with polyFun(z); 
+             e.g., muerr_ideal = .11,0.01,0.07
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -193,7 +202,9 @@ struct INPUTS {
   bool blind_auto; // automatically blind data and unblind sim
   int  blind_seed; // used to pick large random number for sin arg
   int  debug_flag ;
-  double muerr_ideal ; // flag to replace mu -> mu_true + Gauss(0,muerr_ideal)
+
+  GENPOLY_DEF zpoly_muerr_ideal; // define muerr = polynom(z)
+  char string_muerr_ideal[100];
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -332,9 +343,10 @@ Cosparam COSPAR_SIM ; // cosmo params from simulated data
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
-  int ranseed_R;     // random seed used to fluctuate R 
   double z, a ;      // redshift and 1/(1+z)
   char comment[200];
+
+  int ranseed_R;     // random seed used to fluctuate R (1->internally compute)
 } CMB_PRIOR;
 
 
@@ -431,6 +443,7 @@ int  applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD);
 int  applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
 void dump_MUCOV(COVMAT_DEF *COV, char *comment);
 void sync_HD_LIST(HD_DEF *HD_REF, HD_DEF *HD, COVMAT_DEF *MUCOV);
+void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) ;
 void compute_MUCOV_FINAL();
 void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
@@ -468,8 +481,11 @@ double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
 
 void   init_cmb_prior(int OPT) ;
+double get_Rcmb_ranshift(void) ;
 double chi2_bao_prior(Cosparam *cpar);
 double chi2_cmb_prior(Cosparam *cpar);
+
+int    ISEED_UNIQUE(void);
 
 void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
                         HzFUN_INFO_DEF *HzFUN ) ;
@@ -495,7 +511,6 @@ double one_over_EofA(double a, Cosparam *cptr);
 double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
-
 #define EPS_CONVERGE_POSomm  1.0e-6
 #define EPS_CONVERGE_NEGomm  1.0e-3
 #define JMAX 20
@@ -555,9 +570,13 @@ int main(int argc,char *argv[]){
       { read_HD(INPUTS.HD_infile_list[1], &HD_LIST[1]); }
 
     // for large samples, setup logz grid to interpolate rz(z)
+    init_rz_interp(&HD_LIST[0]);
+
+    /* xxx mark delete Dec 18 2023 xxxxxx
     for(f=0; f < INPUTS.NHD; f++ )
       { init_rz_interp(&HD_LIST[f]); }
-
+    xxxx xxxx */
+    
     // Set BAO and CMB priors
     set_priors();
   
@@ -572,6 +591,8 @@ int main(int argc,char *argv[]){
 
       sync_HD_LIST(&HD_LIST[1],
 		   &HD_LIST[0], &WORKSPACE.MUCOV[0] );  // <== modified
+
+      sync_HD_redshifts(&HD_LIST[0], &HD_LIST[1]); 
     }
 
     if ( INPUTS.use_mucov ) {
@@ -648,7 +669,9 @@ void init_stuff(void) {
 
   INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
   INPUTS.blind_seed = 48901 ;
-  INPUTS.muerr_ideal = 0.0;
+
+  init_GENPOLY(&INPUTS.zpoly_muerr_ideal);
+  INPUTS.string_muerr_ideal[0] = 0 ;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
@@ -757,7 +780,7 @@ void print_wfit_help(void) {
     "   -marg\tget w and OM from marginalizing (default)",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
-    "   -ranseed_Rcmb\t random seed to flutuate Rcmb",
+    "   -ranseed_Rcmb random seed to fluctuate Rcmb (1-> internally compute seed)",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
     "   -muerr_force\tforce this mu_sig on all events",
     "   -zmin\tFit only data with z>zmin",
@@ -772,19 +795,20 @@ void print_wfit_help(void) {
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
     "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
     "   -debug_flag 91\t compare calc mu(wfit) vs. mu(sim)",
-    "   -muerr_ideal \t replace all mu with mu_true + Gauss(0,muerr_ideal)",
+    "   -muerr_ideal  replace all mu with mu_true + Gauss(0,muerr);",
+    "                 e.g.,  muerr_ideal 0.1,0.01,0.05 -> "
+    "muerr = .1 + .01*z + .05*z^2",
+    "                 e.g.,  muerr_ideal muerr -> use original muerr from data",
     "\n",
     " Grid spacing:",
     " wCDM Fit:",
-    "   -hmin/-hmax/-hsteps\t\tH0 grid [40,100,121]",
-    "   -wmin/-wmax/-wsteps\t\tw grid  [0,-2,201]",
-    "   -ommin/-ommax/-omsteps\tOM grid [0,1.0,81]",
+    "   -wmin/-wmax/-wsteps\t\tw grid   [-2 / 0 /201]",
+    "   -ommin/-ommax/-omsteps\tOM grid [ 0 / 1 / 81]",
     "",
     " w0-wa Fit:",
-    "   -hmin/-hmax/-hsteps\t\tH0 grid [40,100,121]",
-    "   -w0min/-w0max/-w0steps\tw0 grid [-3.0,1.0,201]",
-    "   -wamin/-wamax/-wasteps\twa grid [-4.0,4.0,301]",
-    "   -ommin/-ommax/-omsteps\tOM grid [0,1.0,81]",
+    "   -w0min/-w0max/-w0steps\tw0 grid  [-2 / 0 / 201]",
+    "   -wamin/-wamax/-wasteps\twa grid  [-4 / 4 / 101]",
+    "   -ommin/-ommax/-omsteps\tOM grid  [ 0 / 1 /  81]",
     "",
 
 
@@ -815,7 +839,7 @@ void print_wfit_help(void) {
 void parse_args(int argc, char **argv) {
 
   // Created Oct 1 2021 [code moved from main]
-
+  // 
   int N_HDfile ;
   int iarg;
   char fnam[] = "parse_args" ;
@@ -823,7 +847,7 @@ void parse_args(int argc, char **argv) {
   // ------------ BEGIN ------------
 
   // parse HD as 1st positional arg
-  parse_commaSepList("HD_infile", argv[1], 2, MXCHAR_FILENAME,
+  parse_commaSepList("HD_infile", argv[1], 2, 2*MXCHAR_FILENAME,
 		     &INPUTS.NHD, &INPUTS.HD_infile_list );
 
   if ( INPUTS.NHD == 2 ) { INPUTS.USE_HDIBC = true; }
@@ -848,7 +872,7 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
 	CMB_PRIOR.sigR = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1, "ranseed_Rcmb")==0) {
-        CMB_PRIOR.ranseed_R = atoi(argv[++iarg]);	
+	CMB_PRIOR.ranseed_R = atoi(argv[++iarg]);
 
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	INPUTS.use_cmb = 1;
@@ -910,7 +934,7 @@ void parse_args(int argc, char **argv) {
 
       } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {
 
-	parse_commaSepList("mucov_file", argv[++iarg], 2, MXCHAR_FILENAME,
+	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
 			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
 	INPUTS.use_mucov =1 ;
 	
@@ -1000,8 +1024,17 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
-      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  
-	{ INPUTS.muerr_ideal = atof(argv[++iarg]);  } 
+      else if (strcasecmp(argv[iarg]+1,"muerr_ideal")==0)  { 
+	char *string_muerr_ideal = INPUTS.string_muerr_ideal;
+	strcpy(string_muerr_ideal,argv[++iarg]); 
+	if ( strcmp(string_muerr_ideal,"muerr") == 0 ) {   
+	  INPUTS.zpoly_muerr_ideal.ORDER = 100; // flag to use data muerr
+	}
+	else {
+	  parse_GENPOLY(string_muerr_ideal, "zpoly_muerr_ideal",
+			&INPUTS.zpoly_muerr_ideal, fnam ) ;
+	}  
+      }
 
       else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)
 	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]); }      
@@ -1200,7 +1233,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
   int IVAR_zHD=-8, IVAR_zHDERR=-8, IVAR_NFIT=-8 ;
   int IFILETYPE, NVAR_ORIG, LEN, NROW, irow ;    
   int VBOSE = 1;
-  double rz, mu_cos;
+  double rz, mu_cos, ztmp, sigtmp ;
   bool ISDATA_REAL = false ;
   char TBNAME[] = "HD" ;  // table name is Hubble diagram
   char fnam[] = "read_HD" ;
@@ -1274,7 +1307,6 @@ void read_HD(char *inFile, HD_DEF *HD) {
   // - - - - - -
 
   int    PASSCUTS,  NFIT, NROW2=0 ;  
-  double ztmp;
   HD->zmin = 99999.0;  HD->zmax = -9999.90 ;
 
   for(irow=0; irow < NROW; irow++ ) {
@@ -1292,7 +1324,6 @@ void read_HD(char *inFile, HD_DEF *HD) {
 
   } // end irow
 
-  // xxx mark  HD->NSN  = NROW2;
 
   HD->NSN = applyCut_HD(HD->pass_cut, HD);
 
@@ -1302,29 +1333,42 @@ void read_HD(char *inFile, HD_DEF *HD) {
   // - - - - - 
   // Mar 29 2023: test with ideal mu and mu_err 
   double muerr_ideal, gran ;
+  GENPOLY_DEF *zpoly_muerr_ideal = &INPUTS.zpoly_muerr_ideal;
+  int         ORDER              = zpoly_muerr_ideal->ORDER ;
   int ISEED ;
 
-  muerr_ideal = INPUTS.muerr_ideal ;
-  if ( muerr_ideal > 0.0 ) {
+  if ( ORDER >= 0.0 ) {
 
     // compute SEED using first MU-uncertainty so that
     // each data set has a unique randome seed.
-    ISEED = (int)(HD->mu_sig[0] * 8224532.0);
+    ISEED = ISEED_UNIQUE();
     init_random_seed(ISEED,1);
  
     printf("\n");
     printf("   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,%.3f) \n", 
-	   muerr_ideal);
+    printf("\n\t TEST: Replace MU -> MU_SIM + N(0,muerr) \n");
+
+    if ( ORDER < 10 )
+	{ print_GENPOLY(zpoly_muerr_ideal); }
+    else
+      { printf("\t\t muerr = original muerr\n"); }
+	  
     printf("\t ISEED = %d \n", ISEED );
     printf("\n   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printf("\n");
 
     for(irow=0; irow < HD->NSN; irow++ ) {
-      ztmp    = HD->z[irow] ;
-      gran    = unix_getRan_Gauss(0);
+      ztmp               = HD->z[irow] ;
+      sigtmp             = HD->mu_sig[irow];
+      gran               = unix_getRan_Gauss(0);
       rz                 = codist(ztmp, &COSPAR_SIM);
       mu_cos             = get_mu_cos(ztmp, rz);
+
+      if ( ORDER < 10 ) 
+	{ muerr_ideal  = eval_GENPOLY(ztmp, zpoly_muerr_ideal, fnam); }
+      else
+	{ muerr_ideal = sigtmp; } // use original muerr
+
       HD->mu[irow]       = mu_cos + (muerr_ideal * gran) ;
       HD->mu_sig[irow]   = muerr_ideal;
       HD->mu_sqsig[irow] = muerr_ideal * muerr_ideal ;
@@ -1905,7 +1949,6 @@ void sync_HD_LIST(HD_DEF *HD_REF,
   // Called for HDIBC method where we have two HDs and possibly two COVMATs.
   // Re-define HD and MUCOV to include only those elements in HD_REF.
   //
-  // WARNING: NOT TESTED !!!
 
   int NSN_REF = HD_REF->NSN ;
   int MEMB    = sizeof(bool) * (NSN_REF + 100);
@@ -1946,6 +1989,82 @@ void sync_HD_LIST(HD_DEF *HD_REF,
 
   return ;
 } // end sync_HD_LIST
+
+// ===================================================
+void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
+
+  // Created Dec 18 2023
+  // For binned HD, the redshifts for each HD can be very
+  // slightly different because of how BBC computes <z> in each bin.
+  // This function forces HD1 redshifts to match those in HD0,
+  // and make a slight MU-correction to distance.
+  // Report average diff and abort on crazy-large average.
+  
+  int NSN = HD0->NSN;
+  int MEMD = NSN * sizeof(double);
+  
+  int i, NDIF = 0 ;
+  double z0, z1, zdif, zdif_sum=0, zdif_max=0.0, zdif_avg ;
+  double rz1_orig, rz1_new, mu1_dif, mu1_orig;
+  double *zdif_list   = (double*)malloc(MEMD);
+  double *mu1dif_list = (double*)malloc(MEMD);
+  
+  char fnam[] = "sync_HD_redshifts" ;
+
+  // ------------- BEGIN ----------
+
+  if ( NSN > 100 ) { return; } // bail on unbinned HD
+  
+  print_banner(fnam);
+  
+  for(i=0; i < NSN; i++ ) {
+    z0 = HD0->z[i];
+    z1 = HD1->z[i];
+    zdif = z1 - z0 ;
+
+    if ( zdif == 0.0 ) { continue; }
+    NDIF++ ;
+    
+    zdif_sum += zdif;
+    if ( fabs(zdif) > fabs(zdif_max) ) { zdif_max = zdif; }
+
+    // compute Mu1 shift corresponding to z1 shift
+    rz1_orig     = codist(z1, &HD1->cospar_biasCor);
+    rz1_new      = codist(z0, &HD1->cospar_biasCor);
+    mu1_orig     = HD1->mu[i];
+    
+    mu1_dif = -(get_mu_cos(z0, rz1_new) - get_mu_cos(z1, rz1_orig) ) ;
+    
+    HD1->z[i]   = z0;  // force same redshift
+    HD1->mu[i] += mu1_dif;
+
+    zdif_list[i]   = zdif;
+    mu1dif_list[i] = mu1_dif;
+    
+    //.xyz
+  }
+
+  // - - - - - - - - - 
+  // print z & mu change for each redshift
+  if ( NDIF > 0 ) {
+    for(i=0; i < NSN; i++ ) {
+      z0 = HD0->z[i];
+      printf("\t z=%.5f: dz1 = %9.6f -> mu1 += %8.5f\n",
+	     z0, zdif_list[i], mu1dif_list[i] );
+      fflush(stdout);
+    }
+  } // end NDIF
+  
+  zdif_avg = zdif_sum / (double)NSN;
+  printf("\t <zdif>= %le  zdif_max=%le\n", fnam, zdif_avg, zdif_max);
+  fflush(stdout);
+
+  free(zdif_list); free(mu1dif_list);
+  
+  //  debugexit(fnam);
+  
+  return;
+} // sync_HD_redshifts
 
 // ===================================
 void compute_MUCOV_FINAL(void) {
@@ -2078,23 +2197,20 @@ void init_cmb_prior(int OPT) {
   else if ( INPUTS.use_cmb == 2 ) {
     //recompute R from sim
     HzFUN_INFO_DEF HzFUN ;
+    double Rcmb_ranshift = get_Rcmb_ranshift();
+    char str_ranshift[40]; str_ranshift[0] = 0 ;
+
     a = CMB_PRIOR.a ;  // 1/(1+z)
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( a, ONE, &HzFUN ) / LIGHT_km;
     CMB_PRIOR.R = sqrt(OM) * rz ;
 
-    char str_gran[40]; str_gran[0] = 0 ; 
-    
-    if (CMB_PRIOR.ranseed_R > 0) {
-      int istream = 1; 
-      init_random_seed(CMB_PRIOR.ranseed_R, istream);
-      double  gran    = unix_getRan_Gauss(0);
-      CMB_PRIOR.R += gran * CMB_PRIOR.sigR;
-      sprintf(str_gran, "(gran=%.3f)",gran ); 
+    if ( Rcmb_ranshift != 0.0 ) {
+      CMB_PRIOR.R += Rcmb_ranshift;
+      sprintf(str_ranshift,"(Rcmb_ranshift=%.4f)", Rcmb_ranshift);
     }
-    
-    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f %s " ,
-	    CMB_PRIOR.R, CMB_PRIOR.sigR, str_gran);
+    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f  %s" ,
+	    CMB_PRIOR.R, CMB_PRIOR.sigR, str_ranshift );
   }
 
   
@@ -2109,6 +2225,79 @@ void init_cmb_prior(int OPT) {
   return;
 
 } // end init_cmb_prior
+
+
+// ==============================
+double get_Rcmb_ranshift(void) {
+
+  // Created Oct 17 2023
+  // Return random Rcmb shift (if user-selects this option)
+  // The final Rcmb is determined externally from this function.
+  
+  int NSTREAM = 1, istream=0 ;
+  int iseed;
+  double gran, ranshift = 0.0 ;
+  char fnam[] = "get_Rcmb_ranshift";
+
+  // ---------- BEGIN -------------
+
+  if (CMB_PRIOR.ranseed_R <= 0) { return ranshift; }
+
+  if ( CMB_PRIOR.ranseed_R == 1 ) {
+    // internally compute unique seed based on HD values
+    iseed = ISEED_UNIQUE();
+  }
+  else {
+    // seed is explicitly passed by user
+    iseed = CMB_PRIOR.ranseed_R; 
+  }
+
+  init_random_seed(iseed, NSTREAM);
+  gran      = unix_getRan_Gauss(istream);
+  ranshift  = gran * CMB_PRIOR.sigR;
+
+  printf(" %s: random Rcmb shift = %.4f (ISEED=%d, Gaussran=%.4f)\n",
+	 fnam, iseed, ranshift, iseed, gran); fflush(stdout);
+
+  return ranshift;
+
+} // end get_Rcmb_ranshift
+
+
+// ===============================
+int ISEED_UNIQUE(void) {
+
+  // Created Oct 17 2023.
+  // return ISEED that is unique for each data set.
+  // Used for user-input options:
+  //   -ranseed_Rcmb 1
+  //   -muerr_ideal <muerr>
+  //
+  HD_DEF *HD = &HD_LIST[0];
+  int ISEED  = 0 ;
+  int k, NUSE=0, NUSE_MAX = 5;
+  double product = 1.0 ;
+  char fnam[] = "ISEED_UNIQUE" ;
+
+  // --------- BEGIN --------
+
+  k = 0 ;
+  while ( NUSE < NUSE_MAX &&  k < HD->NSN-1 ) {
+
+    // make sure that z-bin has a real MU value 
+    if ( HD->mu_sig[k] < 8.0 ) {
+      product *= ( HD->mu[k]/40.0 ) ;  // ~ unity 
+      NUSE++ ;
+    }
+    k++ ;
+  }
+
+  // product is of order unity, so multiply by a very big number
+  ISEED = (int)(product * 8224532.0);
+  
+  return ISEED;
+
+} // end ISEED_UNIQUE
 
 // =========================================
 void init_bao_prior(int OPT) {
@@ -2432,7 +2621,7 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
     mucos_loc = mucos0 + frac*(mucos1-mucos0); 
   }
   else {
-    rz_loc    = WORKSPACE.rz_list_interp[iz]; // last z-bin
+    rz_loc    = WORKSPACE.rz_list_interp[iz];    // last z-bin
     mucos_loc = WORKSPACE.mucos_list_interp[iz]; // last z-bin
   }
   
@@ -2993,28 +3182,28 @@ void wfit_uncertainty(void) {
 
   // Error checking 
   if(i==0){
-    printf("WARNING: lower 1-sigma limit outside range explored\n");
+    printf("WARNING-w0: lower 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
     WORKSPACE.NWARN++ ;
   }
   
   if ( INPUTS.dofit_w0wa ) {
     if(kk==0){
-      printf("WARNING: lower 1-sigma limit outside range explored\n");
+      printf("WARNING-wa: lower 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;
       WORKSPACE.NWARN++ ;
     }
   }
 
   if ( WORKSPACE.w0_sig_lower <= INPUTS.w0_stepsize ) {   
-    printf("WARNING: 1. w0 grid is too coarse to resolve "
+    printf("WARNING-w0: 1. w0 grid is too coarse to resolve "
 	   "lower 1-sigma limit\n");
     WORKSPACE.w0_sig_lower = INPUTS.w0_stepsize;
     WORKSPACE.NWARN++ ;
   }
   if (INPUTS.dofit_w0wa){
     if (WORKSPACE.wa_sig_lower <= INPUTS.wa_stepsize) {  
-      printf("WARNING: 1. wa grid is too coarse to resolve "
+      printf("WARNING-wa: 1. wa grid is too coarse to resolve "
 	     "lower 1-sigma limit\n");
       WORKSPACE.wa_sig_lower = INPUTS.wa_stepsize;
       WORKSPACE.NWARN++ ;
@@ -3045,14 +3234,14 @@ void wfit_uncertainty(void) {
     
   // Error checking 
   if(i==(INPUTS.w0_steps-1)){
-    printf("WARNING: upper 1-sigma limit outside range explored\n");
+    printf("WARNING-w0: upper 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
     WORKSPACE.NWARN++ ;
   } 
   
 
   if ( WORKSPACE.w0_sig_upper <= INPUTS.w0_stepsize){
-    printf("WARNING: 2. w0 grid is too coarse to resolve "
+    printf("WARNING-w0: 2. w0 grid is too coarse to resolve "
 	   "upper 1-sigma limit\n %f, %f\n", 
 	   WORKSPACE.w0_sig_upper, INPUTS.w0_stepsize);
     WORKSPACE.w0_sig_upper = INPUTS.w0_stepsize; 
@@ -3061,12 +3250,12 @@ void wfit_uncertainty(void) {
 
   if ( INPUTS.dofit_w0wa ) {
     if(kk==(INPUTS.wa_steps-1)){
-      printf("WARNING: upper 1-sigma limit outside range explored\n");
+      printf("WARNING-wa: upper 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;	
       WORKSPACE.NWARN++ ;
     }
     if (WORKSPACE.wa_sig_upper <= INPUTS.wa_stepsize){
-      printf("WARNING: 2. wa grid is too coarse to resolve "
+      printf("WARNING-wa: 2. wa grid is too coarse to resolve "
 	     "upper 1-sigma limit\n %f, %f\n", 
 	     WORKSPACE.wa_sig_upper, INPUTS.wa_stepsize);
       WORKSPACE.wa_sig_upper = INPUTS.wa_stepsize;
@@ -3079,7 +3268,7 @@ void wfit_uncertainty(void) {
   printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	 varname_w, WORKSPACE.w0_sig_lower, WORKSPACE.w0_sig_upper);
   if ( INPUTS.dofit_w0wa ) {
-    printf("Prob %s-err estimates: lower = %f, upper = %f\n", 
+    printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	   varname_wa, WORKSPACE.wa_sig_lower, WORKSPACE.wa_sig_upper);
   }
   
@@ -3254,49 +3443,7 @@ void wfit_final(void) {
   WORKSPACE.sigmu_int = 0.0;
   if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
 
-  
-  // --------- xxx BEWARE: BELOW IS BROKEN xxx ---------------
-
-  /* xxxxxxxxxx mark delete Mar 15 2023 xxxxxxxx
-  sigint_binsize = 0.01;
-  printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
-  fflush(stdout);
-  mindif = 999999.;
-  for ( i = 0; i< 20; i++ ) {
-    sigmu_tmp   = (double)i * sigint_binsize ;
-    sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
-    get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
-	  	  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
-    
-    dif = chi2_tmp/(double)Ndof - 1.0 ;
-    if ( fabsf(dif) < mindif ) {
-      sigmu_int1 = sigmu_tmp ; mindif = dif;
-    }
-  } // end i loop
-
-  // search again in .001 sigmu_int bins
-  sigint_binsize = 0.0002;
-  printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
-  fflush(stdout);
-  mindif = 9999999. ;
-  for ( i = -10; i < 10; i++ ) {
-    sigmu_tmp   = sigmu_int1 + (double)i * sigint_binsize ;
-    sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
-    invert_mucovar(&WORKSPACE.MUCOV[0],sqmusig_tmp);
-    
-    get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
-		  &muoff_tmp, &snchi_tmp, &chi2_tmp );   // return args
-    
-    dif = chi2_tmp/(double)Ndof - 1.0 ;
-    if ( fabsf(dif) < mindif ) {
-      sigmu_int = sigmu_tmp ; mindif = dif;
-    }
-  }
  
-  WORKSPACE.sigmu_int   = sigmu_int ;
-  xxxxxxxxxxxx end mark xxxxxxxx */
-
   return;
 } // end wfit_final
 
@@ -4677,6 +4824,7 @@ void test_cospar(void) {
 
   FILE *fp;
   double z, rz, mu_wfit[NCOSPAR_TEST], mu_sim[NCOSPAR_TEST];
+  double vpec=0.0 ;
   int  icos, irow=0;  
   char line[200];
   char outFile[] = "cospar_comparison.txt";   
@@ -4713,7 +4861,7 @@ void test_cospar(void) {
       mu_wfit[icos] =  get_mu_cos(z,rz) ; 
 
       set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, cpar.wa, &HzFUN);
-      mu_sim[icos] = dLmag(z,z, &HzFUN, &ANISOTROPY);
+      mu_sim[icos] = dLmag(z,z, vpec, &HzFUN, &ANISOTROPY);
     }
 
     irow++ ;

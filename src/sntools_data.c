@@ -222,16 +222,8 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       { copy_int(copyFlag, parVal, &SNDATA.NPAR_SIM_HOSTLIB ); }
 
     else if ( strncmp(key,"SIM_HOSTLIB_PAR",15) == 0 ) {
-
       sscanf(&key[15], "%d", &ipar);
       copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
-
-      /* xxxxxxx mark delete Oct 11 2022 xxxxxxxxxxxxxx
-      for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-	copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
-      }
-      xxxxxxxxxxx end mark xxxxxx */
-
     }
     else if ( strcmp(key,"SIM_SL_FLAG") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_SL_FLAG ); }
@@ -369,6 +361,18 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_flt(copyFlag, parVal, &SNDATA.VPEC ); } 
   else if ( strcmp(key,"VPEC_ERR") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.VPEC_ERR ); } 
+
+  else if ( strstr(key,"MWXT_MAG") != NULL ) {
+    for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
+      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+      sprintf(KEY_TEST, "MWXT_MAG_%c", FILTERSTRING[ifilt_obs]);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.MWXT_MAG[ifilt_obs]) ; 
+	  //	  printf(" xxx %s: %s(%d) -> %f \n" ,
+	  //	 fnam, KEY_TEST, ifilt, SNDATA.MWXT_MAG[ifilt]);
+	}
+    }
+  }
 
   else if ( strncmp(key,"HOSTGAL",7) == 0 ) {
 
@@ -511,8 +515,10 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_MODEL_INDEX) ; }  
 
-    else if ( strcmp(key,"SIM_TYPE_INDEX") == 0 ) 
-      { copy_int(copyFlag, parVal, &SNDATA.SIM_TYPE_INDEX) ; }  
+    else if ( strcmp(key,"SIM_GENTYPE") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_GENTYPE) ; }  
+    else if ( strcmp(key,"SIM_TYPE_INDEX") == 0 )  // legacy var name
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_GENTYPE) ; }  
 
     else if ( strcmp(key,"SIM_TEMPLATE_INDEX") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_TEMPLATE_INDEX) ; }  
@@ -553,15 +559,6 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	  copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]); 
 	}
       }
-
-      /* xxxxxxxx mark delete Oct 11 2022 xxxxxxx
-      for(igal=0; igal < MXHOSTGAL; igal++ ) {
-      	for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-	  copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]) ; 
-        }
-      }
-      xxxxxxxx end mark xxxxxxx */
-
     }
     else if ( strcmp(key,"SIM_DLMU") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_DLMU) ; }  
@@ -586,6 +583,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
     else if ( strcmp(key,"SIM_MAGSMEAR_COH") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_MAGSMEAR_COH) ; }  
+
+    else if ( strcmp(key,"SIM_WGT_POPULATION") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_WGT_POPULATION) ; }  
 
     else if ( strcmp(key,"SIM_AV") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_AV) ; }  
@@ -1185,12 +1185,6 @@ void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST) {
       sprintf(SNDATA.PRIVATE_VARNAME[NVAR_MATCH],"%s", ptr_VARNAME);
     }
 
-    /* xxx mark    
-    printf(" xxx %s: ivar=%2d MATCH=%d  KEYWORD = %s \n",
-	   fnam, i0, MATCH, ptr_KEYWORD0 );
-    fflush(stdout);
-    xxxx */
-
   } // end i0
 
   if ( NVAR_MATCH != NVAR_LIST ) {
@@ -1239,23 +1233,26 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   print_banner(fnam);
 
-  if ( REQUIRE_DOCANA ) {
-    int OPTMASK_OPEN = OPENMASK_REQUIRE_DOCANA ;
-    int gzipFlag ;
-    char fullName[MXPATHLEN], PATH_LIST[] = "" ;
-    FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, OVERRIDE_FILE, 
-				   fullName, &gzipFlag );
-    fclose(fp);
-  }
-  //.xyz
-
   // split comma-sep OVERRIDE_FILE 
   parse_commaSepList(fnam, OVERRIDE_FILE, MXFILE_OVERRIDE, MXPATHLEN,
 		     &NFILE, &file_list ); // <== returned
   
+
+
   SNTABLE_AUTOSTORE_RESET(); // May 2022
   for(ifile=0; ifile < NFILE; ifile++ ) {
     ptrFile = file_list[ifile] ;
+
+    if ( REQUIRE_DOCANA ) {
+      int OPTMASK_OPEN = OPENMASK_REQUIRE_DOCANA ;
+      int gzipFlag ;
+      char fullName[MXPATHLEN], PATH_LIST[] = "" ;
+      FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, ptrFile, 
+				     fullName, &gzipFlag );
+      fclose(fp);
+    }
+
+
     ENVreplace(ptrFile, fnam, 1);
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST,
 				  OPTMASK_SNTABLE );
@@ -1528,15 +1525,6 @@ void rd_override_zphot_q(int OPT) {
     // ZPHOT_Q[nnn] that were found
     RD_OVERRIDE_FETCH(SNDATA.CCID, STRING_NZPHOT_Q, &d_nzphot_q) ;
     OVERRIDE_NZPHOT_Q = (int)d_nzphot_q ;
-
-    /* xxx mark delete
-    if ( NZPHOT_Q != OVERRIDE_NZPHOT_Q ) {
-      sprintf(c1err,"Expected %d ZPHOT_Q[nnn] override variables", NZPHOT_Q);
-      sprintf(c2err,"but NZPHOT_Q=%d in override file (CID=%s)", 
-	      OVERRIDE_NZPHOT_Q, SNDATA.CCID );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    xxxxxxxx end mark xxxxxxxxx */
 
     for(q=0; q < NZPHOT_Q; q++ ) {
       zq = -9.0 ;

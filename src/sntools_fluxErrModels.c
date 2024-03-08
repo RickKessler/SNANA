@@ -218,7 +218,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
 
     if ( strcmp(c_get,"VARNAMES:")==0 ) {
       fgets(LINE,100,fp);
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
       FLUXERRMAP[NMAP].NVAR = NVAR ;
 
       for(ivar=0; ivar < NVAR; ivar++ ) { 

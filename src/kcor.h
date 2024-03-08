@@ -49,7 +49,7 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 #define FILTSYSTEM_COUNT        1
 #define FILTSYSTEM_ENERGY       2
 
-#define FNU_AB  3.631E-20    // flat Fnu for AB, erg/cm^2*s*Hz
+// xxx mark delete #define FNU_AB  3.631E-20    // flat Fnu for AB, erg/cm^2*s*Hz
 
 #define KCORMIN_VALID -31.0  // set kcor to NULLVAL if outside these limits
 #define KCORMAX_VALID  31.0

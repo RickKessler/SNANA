@@ -485,14 +485,93 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
 
 } // end of init_redshift_SEDMODEL
 
+// ==================================================
+void malloc_METADATA_SEDMODEL(int NSED, int NPAR) {
+
+  // Created Jan 31 2024
+  // malloc meta data arrays in SEDMODEL struct that depend on 
+  // number of SED surfaces and number of SED parameters.
+  // This includes param values, day-binning, and wave-binning.
+  //
+  // Feb 21 2024: move some mallocs outside ised loop to avoid re-mallocing
+  //              the same array multiple times.
+
+  int ised, ipar;
+  int NSED_malloc = NSED + 1 ;
+  int MEMC_PARVAL_SED = NSED_malloc * sizeof(char**) ;
+  int MEMC_PARVAL_PAR = NPAR * sizeof(char*) ;
+  int MEMC_PARVAL_LEN = 32   * sizeof(char) ;
+
+  int  MEMD_PARVAL_SED = (NSED_malloc) * sizeof(double**);
+  int  MEMD_PARVAL_PAR = NPAR * sizeof(double*);
+
+  int  MEMD_1D_SED     = NSED_malloc  * sizeof(double);
+  int  MEMI_1D_SED     = NSED_malloc  * sizeof(int);
+
+  int  MEMC_FNAM_SED = NSED_malloc * sizeof(char*) ;
+  int  MEMC_FNAM_LEN = 80   * sizeof(char);
+  char fnam[] = "malloc_METADATA_SEDMODEL" ;
+
+  // -------- BEGIN ----------
+
+  printf("\t %s for NSED=%d and NPAR=%d\n", fnam, NSED, NPAR);
+  fflush(stdout);
+
+  SEDMODEL.PARVAL        = (double**) malloc ( MEMD_PARVAL_SED );
+  SEDMODEL.PARVAL_STRING = (char ***) malloc ( MEMC_PARVAL_SED );
+  SEDMODEL.FILENAME      = (char  **) malloc ( MEMC_FNAM_SED );  
+  SEDMODEL.DAY           = (double**) malloc ( NSED_malloc * sizeof(double*) );
+
+  for(ised = 0; ised < NSED_malloc ; ised++ ) {
+    SEDMODEL.PARVAL[ised]        = (double *) malloc ( MEMD_PARVAL_PAR );
+    SEDMODEL.PARVAL_STRING[ised] = (char  **) malloc ( MEMC_PARVAL_PAR );
+    SEDMODEL.FILENAME[ised]      = (char   *) malloc ( MEMC_FNAM_LEN );
+    SEDMODEL.DAY[ised] = (double*) malloc( MXBIN_DAYSED_SEDMODEL * sizeof(double) );
+
+    for(ipar=0; ipar < NPAR; ipar++ ) {
+      SEDMODEL.PARVAL_STRING[ised][ipar] = (char*) malloc ( MEMC_PARVAL_LEN );
+    }
+  }
+
+  SEDMODEL.NLAM    = (int   *) malloc ( MEMI_1D_SED);
+  SEDMODEL.LAMMIN  = (double*) malloc ( MEMD_1D_SED );
+  SEDMODEL.LAMMAX  = (double*) malloc ( MEMD_1D_SED );
+  SEDMODEL.LAMSTEP = (double*) malloc ( MEMD_1D_SED );
+  
+  SEDMODEL.NDAY    = (int    *) malloc ( MEMI_1D_SED);
+  SEDMODEL.DAYMIN  = (double *) malloc ( MEMD_1D_SED );
+  SEDMODEL.DAYMAX  = (double *) malloc ( MEMD_1D_SED );
+  SEDMODEL.DAYSTEP = (double *) malloc ( MEMD_1D_SED );
+
+  // init some values
+  for(ised = 0; ised < NSED_malloc ; ised++ ) {
+    SEDMODEL.NLAM[ised]    = 0;
+    SEDMODEL.LAMMIN[ised]  = 0.0 ;
+    SEDMODEL.LAMMAX[ised]  = 0.0 ;
+    SEDMODEL.LAMSTEP[ised] = 0.0 ;
+
+    SEDMODEL.NDAY[ised]    = 0;
+    SEDMODEL.DAYMIN[ised]  = 0.0 ;
+    SEDMODEL.DAYMAX[ised]  = 0.0 ;
+    SEDMODEL.DAYSTEP[ised] = 0.0 ;
+  }
+
+  return ;
+
+} // end malloc_METADATA_SEDMODEL
+
 // ******************************************
 void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW, 
 				int NDAY, int NSED ) {
 
+  // Created 2008
+  // Allocate flattened 5D arrays vs {Filter, redshift, LAMPOW, day, sed};
+  // to store flux for each SED time series.
+  //
   // Nov 24, 2008: allocate flux-integral memory for NSED & NZBIN
   // Jan 30, 2010: switch from fancy 5-dim pointer to 1d pointer
   // Dec 15, 2021: fix isize=sizeof(float) instead of pointer size.
-
+  // Feb 01, 2024: abort if max pointer size (NBTOT_DBL) exceeds 2 billion
   int isize;
   char fnam[] = "malloc_FLUXTABLE_SEDMODEL" ;
 
@@ -507,7 +586,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   }
 
   if ( NZBIN <= 0 || NZBIN > MXZBIN_SEDMODEL ) {
-    sprintf(c1err,"NZBIN=%d  is invalid.",  NZBIN );
+    sprintf(c1err,"NZBIN=%d (MXZBIN_SEDMODEL=%d)",  NZBIN, MXZBIN_SEDMODEL );
     sprintf(c2err,"Check redshift bins");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -525,7 +604,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   }
 
   if ( NSED <=0 || NSED > MXSEDMODEL ) {
-    sprintf(c1err,"NSED=%d  is invalid.",  NSED );
+    sprintf(c1err,"NSED=%d (MXSEDMODEL=%d)",  NSED, MXSEDMODEL );
     sprintf(c2err,"Check number of SEDs");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -536,6 +615,20 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   NBIN_SEDMODEL_FLUXTABLE[IDIM_SEDMODEL_LAMPOW]   = NLAMPOW ;
   NBIN_SEDMODEL_FLUXTABLE[IDIM_SEDMODEL_DAY]      = NDAY ;
   NBIN_SEDMODEL_FLUXTABLE[IDIM_SEDMODEL_SED]      = NSED ;
+
+  // abort if flattened 1D size exceeds 4-byte pointer size of 2 billion.
+  // Make sure to use long (8-byte) integers for local computation.
+  // xxx mark  NSED=32300; NDAY=206; NZBIN=185; NFILT=6; // xxx REMOVE
+  long long int NBTMP1 = (NSED+1) * (NDAY+1) * (NLAMPOW+1) ;
+  long long int NBTMP2 = (NZBIN+1) * (NFILT+1) ;
+  long long int NBTOT_DBL = NBTMP1 * NBTMP2 ;
+
+  if ( NBTOT_DBL > 2147000000 ) {
+    print_preAbort_banner(fnam);
+    sprintf(c1err,"Total number of flattened 1D bins = %lld", NBTOT_DBL);
+    sprintf(c2err,"exceeds 4-byte pointer size of 2^31 = 2.147 billion");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
 
   N1DBINOFF_SEDMODEL_FLUXTABLE[0] = 
     (NSED+1) * (NDAY+1) * (NLAMPOW+1) * (NZBIN+1) * (NFILT+1) ;
@@ -549,7 +642,6 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
     (NSED+1) ;
   N1DBINOFF_SEDMODEL_FLUXTABLE[5] = 
     1;
-
 
   sprintf(VARNAME_SEDMODEL_FLUXTABLE[1],"NFILT");
   sprintf(VARNAME_SEDMODEL_FLUXTABLE[2],"NZBIN");
@@ -604,6 +696,8 @@ void malloc_SEDFLUX_SEDMODEL(SEDMODEL_FLUX_DEF *SEDMODEL_FLUX,
 			     int NBIN_SED_USER ) {
 
   // Created Mar 7 2017
+  // Allocate arrays for SEDMODEL_FLUX structure that is passed as argument.
+  //
   // May 2018: 
   //  + if any input NBIN > 0, use it instead of default
   //  + pass structure to modify instead of operating on TEMP_SEDMODEL
@@ -1217,7 +1311,8 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 
   // if GENMODEL_MSKOPT & 16, force Flam<0 to zero  
   bool zero_NEGFLAM = zero_NEGFLAM_SEDMODEL(ISED, LAMSED, TREST, FLUX);
-  if ( zero_NEGFLAM ) { FLUX = 0.0 ; }
+  // xxx mark delete   if ( zero_NEGFLAM ) { FLUX = 0.0 ; }
+  if ( zero_NEGFLAM ) { FLUX = 1.0E-20 ; }
 
   return(FLUX);
 
@@ -1493,7 +1588,12 @@ double interp_flux_SEDMODEL(
   // July 19 2018: 
   //   + replace quadInterp with linear interp to avoid pathological
   //     parabolic interp that can result in negative flux
-  //             
+  //    
+  // Nov 14 2023:
+  //   for interpolating SZTMP vs. logz, replace quad interp with linear;
+  //   avoids far-UV pathology where SZTMP vs. logz varies willdly and 
+  //   results in negative flux from quadratic assumption.
+  //
   int 
     ifilt, NDAY, EPMAX, index, LDMP, NZBIN, IZLO, EPLO, ep, iz, NZTMP
     ,NBIN_SPLINE = 3
@@ -1504,13 +1604,10 @@ double interp_flux_SEDMODEL(
     ( (SEDMODEL.OPTMASK & OPTMASK_DAYLIST_SEDMODEL)==0 );
 
   double 
-    logz
-    ,DAYMIN, DAYSTEP, DAYMAX
-    ,DAYLIST_INTERP[4]
+    logz, DAYMIN, DAYSTEP, DAYMAX, DAYLIST_INTERP[4]
     ,LOGZMIN, LOGZMAX, LOGZBIN, FRAC, LOGZ_TMP
     ,S2DTMP[10][10]  // [iz][iday]
-    ,SZTMP[10], S, LAMOBS_MIN, LAMOBS_MAX
-    ,*ptr_EP, *ptr_LOGZ    
+    ,SZTMP[10], S, LAMOBS_MIN, LAMOBS_MAX, *ptr_EP, *ptr_LOGZ    
     ,z1 = 1.0 + z
     ;
 
@@ -1639,9 +1736,9 @@ double interp_flux_SEDMODEL(
 
     // interpolate across epoch to get SZ
     if ( NDAY > 1 ) {
-	// linear interp to avoid crazy parabolic fits
+      // linear interp to avoid crazy parabolic fits
       SZTMP[iz] = interp_1DFUN (1, Trest,
-				  NBIN_SPLINE, ptr_EP, S2DTMP[iz], fnam ) ;
+				NBIN_SPLINE, ptr_EP, S2DTMP[iz], fnam ) ;
     }
     else
       { SZTMP[iz] = S2DTMP[iz][0] ; }  // no interp of just 1 spectrum
@@ -1650,10 +1747,14 @@ double interp_flux_SEDMODEL(
 
   // Now interpolate across LOGZ
 
-  if ( NZBIN == 1 ) 
-    { S = SZTMP[0]; } // 1 z-bin => no interp needed.
-  else 
-    { S = quadInterp( logz, ptr_LOGZ, SZTMP, fnam ); }
+  if ( NZBIN == 1 )  { 
+    S = SZTMP[0];  // 1 z-bin => no interp needed.
+  }
+  else { 
+    S = interp_1DFUN(1, logz, 
+		     NBIN_SPLINE, ptr_LOGZ, SZTMP, fnam);   
+    // xxx mark delete Nov 2023: S = quadInterp( logz, ptr_LOGZ, SZTMP, fnam ); 
+  }
 
   LDMP = ( EPLO == 20 &&  ifilt_obs == -2  ) ;
   if ( LDMP ) {
@@ -1671,7 +1772,7 @@ double interp_flux_SEDMODEL(
 	   S2DTMP[0][0], S2DTMP[0][1], S2DTMP[0][2] );
     printf(" SSSS SZTMP = %le, %le, %le \n",
 	   SZTMP[0], SZTMP[1], SZTMP[2] );
-    printf(" SSSS Z=%le \n", S );
+    printf(" SSSS S=%le \n", S );
 
     //    debugexit("interp_SEDMODEL"); // xxxxxxxx
   } // end of LDMP
@@ -1922,6 +2023,13 @@ void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax
 
   return;
 } // end get_LAMRANGE_SED_TRUE
+
+int get_NSURFACE_SEDMODEL(void) {
+  return SEDMODEL.NSURFACE;
+}
+int get_nsurface_sedmodel__(void) {
+  return get_NSURFACE_SEDMODEL();
+}
 
 // *************************************
 void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
@@ -3216,6 +3324,9 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // Jul 12 2019: 
   //  + store FILTER_SEDMODEL[IFILT].lammin/lammax (for BYOSED)
   //
+  // Nov 6 2023: store FILTER_SEDMODEL[IFILT].lam[ilam] 
+  //     to fix bug where MWXT_FRA=1.0 for spectra
+  //
 
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
@@ -3248,6 +3359,8 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     DUMPFLAG_ZP = 0; // ( fabs(L0-4210.0) < 2.0 ) ;
     SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
       = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
+
+    FILTER_SEDMODEL[IFILT].lam[ilam] = LAVG; // Nov 2023  
   }
 
 
@@ -3404,7 +3517,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
 
     if ( NLOOP > 100 ) {
       sprintf(c1err, "NLOOP=%d is too much", NLOOP);
-      sprintf(c2err, "LAMMIN=%.0f  LAMMAX=%.0f  LAMSTEP=%.1f",
+      sprintf(c2err, "LAMMIN=%.0f  LAMMAX=%.0f  LAMSTEP=%f",
 	      LAMMIN, LAMMAX, lamStep);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
@@ -3430,7 +3543,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
 } // end getZP_SPECTROGRAPH_SEDMODEL
 
 // *****************************************************
-void getSpec_SEDMODEL(int ised,
+void genSpec_SEDMODEL(int ised,
 		      double MWEBV, double RV_host, double AV_host,
 		      double z, double MU, double Tobs, double MAGOFF,
 		      double *GENFLUX_LIST, double *GENMAG_LIST ) {
@@ -3445,22 +3558,33 @@ void getSpec_SEDMODEL(int ised,
   // Mar  6 2017: pass extinction arguments MWEBV,RV_host,AV_host
   // Dec 12 2018: replace x0 argument with MU; compute x0 below.
   // Mar 29 2019: SEDMODELNORM is separate for MAG and SPEC (hc factor)
+  // Oct 18 2023: missing 1/z1 for spec ... not clear why but it 
+  //               results in SYNMAG = MAG
+  //
+  // Oct 30 2023: fix awful bug; had passed lam-obs instead of lam-rest
+  //              to GALextinct(....) for host. Also refactored code
+  //              so that there is only one spectrograph-wavelength loop
+  //              instead of a 2nd loop for host extinction.
+  //
 
   double x0     = pow(TEN,-0.4*MU);
   double hc8    = (double)hc;
   double LAMBIN = 10.0 ;  // Angstromgs, integration binsize
   int    IFILT  = JFILT_SPECTROGRAPH ;
   int    NBSPEC = FILTER_SEDMODEL[IFILT].NLAM ;
+  double z1     = 1.0 + z ;
+  bool   DOXT = ( AV_host > 1.0E-9 ) ;
 
   double LAMTMP_OBS, LAMTMP_REST, LAM0, LAM1, LAMAVG, lamBin, lam ;
   double ZP, MAG, FLUXGEN_forSPEC, FLUXGEN_forMAG;
-  double FTMP, MWXT_FRAC, z1, x0fac ;
+  double FTMP, MWXT_FRAC, x0fac ;
+  double HOSTXT_MAGOFF, GLOBAL_FRAC, HOSTXT_FRAC ;
   double SEDNORM_forSPEC, SEDNORM_forMAG;
   int    ispec, NBLAM ;
   int    NDMP_SKIP=0;
   int    LDMP  = ( fabs(Tobs) < -5.0 ) ; 
 
-  char   fnam[] = "getSpec_SEDMODEL" ;
+  char   fnam[] = "genSpec_SEDMODEL" ;
 
   // --------------- BEGIN ---------------
 
@@ -3472,8 +3596,9 @@ void getSpec_SEDMODEL(int ised,
 
 
   SEDNORM_forMAG  = SEDMODEL.FLUXSCALE / hc8 ;
-  SEDNORM_forSPEC = SEDMODEL.FLUXSCALE ;
-  z1 = 1.0 + z ;
+  // xxx mark delete SEDNORM_forSPEC = SEDMODEL.FLUXSCALE ;
+  SEDNORM_forSPEC = SEDMODEL.FLUXSCALE / z1 ; // to fix SYNMAG to match mag
+
 
   if ( LDMP ) {
     printf("\n xxx %s DUMP for ised=%d z=%.3f Tobs=%.2f  NBSPEC=%d \n",
@@ -3481,6 +3606,9 @@ void getSpec_SEDMODEL(int ised,
     printf(" xxx FLUXSCALE=%f  SEDNORM(MAG)=%le  x0=%le\n",
 	   SEDMODEL.FLUXSCALE, SEDNORM_forMAG, x0 );
   }
+
+  GLOBAL_FRAC = 1.0;
+  if ( MAGOFF != 0.0 )  { GLOBAL_FRAC = pow(TEN, -0.4*MAGOFF) ; }
 
 
   // loop over spectrograph wavelength bins
@@ -3508,15 +3636,29 @@ void getSpec_SEDMODEL(int ised,
       FLUXGEN_forMAG  += (FTMP * lamBin * LAMTMP_REST); 
       FLUXGEN_forSPEC += (FTMP * lamBin );
     }
+    x0fac = x0;
+
+    // correct for galactic extinction, host extinction, magoff
 
     MWXT_FRAC   = SEDMODEL_TABLE_MWXT_FRAC[IFILT][ispec] ;
-    x0fac       = (x0 *MWXT_FRAC) ;
+
+    HOSTXT_FRAC = 1.0; 
+    if ( DOXT ) { // host
+      LAMTMP_REST = LAMAVG/z1 ;
+      HOSTXT_MAGOFF = GALextinct ( RV_host, AV_host, LAMTMP_REST, 94 ); 
+      HOSTXT_FRAC   = pow(TEN, -0.4*HOSTXT_MAGOFF);
+    }
+
+    x0fac      *= (MWXT_FRAC * HOSTXT_FRAC * GLOBAL_FRAC);
+
     FLUXGEN_forSPEC  *= (x0fac*SEDNORM_forSPEC) ;
     FLUXGEN_forMAG   *= (x0fac*SEDNORM_forMAG ) ; 
+
 
     MAG  = MAG_UNDEFINED ;
     if ( ZP > 0.0 && FLUXGEN_forMAG > 1.0E-50 ) 
       { MAG = ZP - 2.5*log10(FLUXGEN_forMAG) ; }
+
 
     // load function output 
     GENFLUX_LIST[ispec] = FLUXGEN_forSPEC ;
@@ -3537,17 +3679,11 @@ void getSpec_SEDMODEL(int ised,
   // ------------------------------------------------
   // ------- apply host galaxy extinction -----------
 
-  double MAGOFF_XT, FRAC, FRAC_XT, LAM ;
-  int  DOXT = ( AV_host > 1.0E-9 ) ;
+
+  /* xxx mark xxxxxxxxx
   // check before removing: int NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-
   if ( MAGOFF == 0.0  &&  DOXT==0 ) { return ; }
-
-  FRAC = pow(TEN, -0.4*MAGOFF);
-  MAGOFF_XT=0.0 ; FRAC_XT=1.0 ;
-
-  for(ispec=0; ispec < NBSPEC; ispec++ ) {
-  
+  for(ispec=0; ispec < NBSPEC; ispec++ ) {  
     // get extinction from host in rest-frame (Jan 15, 2012)
     if ( DOXT ) {
       LAM       = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ispec] ;
@@ -3558,11 +3694,11 @@ void getSpec_SEDMODEL(int ised,
     GENMAG_LIST[ispec]  += ( MAGOFF + MAGOFF_XT ) ;
     GENFLUX_LIST[ispec] *= ( FRAC * FRAC_XT );
   }
-
+  xxxx  end mark xxxxx */
 
   // - - - - - - - - - - - - - - - -  
   if ( LDMP ) { debugexit(fnam); }
 
   return ;
 
-}  // getSpec_SEDMODEL
+}  // genSpec_SEDMODEL

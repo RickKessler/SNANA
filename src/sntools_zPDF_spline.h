@@ -11,9 +11,11 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
 		      char *cid);
 double eval_zPDF_spline(double z);
 
+
 void dump_zPDF(int N_Q, double* percentile_list, double* zphot_q_list,
                       char *cid);
 // Mangled fortran functions
+
 
 void init_zpdf_spline__(int *N_Q, double* percentile_list, double* zphot_q_list, 
 			char *cid);

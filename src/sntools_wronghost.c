@@ -143,7 +143,7 @@ void INIT_WRONGHOST(char *inFile, double ZMIN, double ZMAX) {
 
  
   rd2columnFile(inFile, NROW_TOT,         // inputs
-		&NROW_READ, tmpZTRUE, tmpZMATCH); // outputs
+		&NROW_READ, tmpZTRUE, tmpZMATCH, 0 ); // outputs
 
   printf("\t Read %d ZTRUE-ZMATCH pairs \n", NROW_READ);
   printf("\t Require %.3f < ZTRUE & ZMATCH < %.3f \n", ZMIN, ZMAX);

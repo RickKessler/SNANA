@@ -92,9 +92,10 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     README_DOCANA_OVERVIEW(&i);
     README_DOCANA_INPUT_KEYS(&i);
     README_DOCANA_INPUT_NOTES(&i);
-
   }
   else {
+    README_DOCANA_SED_TRUE(&i); // write mag-diff warnings
+
     README_DOCANA_OUTPUT_SUMMARY(&i);
 
     i++; 
@@ -369,6 +370,59 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 } // end README_DOCANA_INPUT_NOTES
 
 
+// =========================================
+void README_DOCANA_SED_TRUE(int *iline) {
+
+  // Created Oct 2023
+  // For option to generate true SED for each observation (sim-input LAMBIN_SED_TRUE),
+  // write out alarm values to readme; fraction of observations (per band) in which
+  // synthetic mag from SED is discrepant from original genmag using fine-binned SED.
+
+  int  OVP, j, i = *iline;
+  int    ifilt, ifilt_obs, N0, N1;
+  double frac;
+
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
+  double magdif_alarm = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[0];
+  double mag_alarm    = INPUTS.SPECTROGRAPH_OPTIONS.ALARM_PAR_SED_TRUE[1];
+
+  char cfilt[2];
+  char *cptr, pad[] = "  " ;
+  char fnam[] = "README_DOCANA_SED_TRUE";
+
+  // ----------- BEGIN ------------
+
+  if ( LAMBIN_SED_TRUE < 0.01 ) { return; }
+
+  readme_docana_comment(&i, "");
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sWARNINGS_SED_TRUE:   "
+	  "# fraction of genmag<%.1f with |synmag-genmag|>%.2f", 
+	  pad, mag_alarm, magdif_alarm );  
+
+  for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
+    N0 =  INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt_obs][0];
+    N1 =  INPUTS.SPECTROGRAPH_OPTIONS.N_ALARM_SED_TRUE[ifilt_obs][1];
+    sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
+
+    if ( N0 > 0 ) 
+      { frac = (double)N1 / (double)N0; }
+    else
+      { frac = 0.0 ; }
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s  %s:  %8.5f   #  %6d / %6d", pad, cfilt, frac, N1, N0);
+    
+  }
+ 
+  *iline = i;
+  return;
+
+} // end README_DOCANA_SED_TRUE
+
+
 // ========================================
 void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   int  OVP, j, i = *iline;
@@ -543,7 +597,7 @@ void readme_docana_hostmatch(int *iline, char *pad) {
 
   // ------------ BEGIN ----------
 
-  str_n0_list[0] = str_n2_list[0] = 0 ;
+  str_n0_list[0]    = str_n2_list[0] = 0 ;
   str_frac0_list[0] = str_frac2_list[0] = str_z_list[0] = 0 ;
 
   for(iz=0; iz < NBINz; iz++ ) {
@@ -560,8 +614,8 @@ void readme_docana_hostmatch(int *iline, char *pad) {
     }
 
     /*
-    printf(" xxx %s: N0=%d N2=%d N_WRITE=%d frac[0,2] = %f, %f \n",
-	   fnam, N0, N2, NGENLC_WRITE, frac0, frac2); fflush(stdout);
+    printf(" xxx %s: N=%d  N0=%d N2=%d N_WRITE=%d frac[0,2] = %f, %f \n",
+	   fnam, N, N0, N2, NGENLC_WRITE, frac0, frac2); fflush(stdout);
     */
 
     sprintf(str_z,  " %.2f-%.2f", z0, z1);
@@ -808,7 +862,7 @@ void readme_docana_modelPar(int *iline, char *pad) {
 
   readme_docana_comment(&i, "Population and rate-model params");
 
-  s = INPUTS.GENPDF_FILE;
+  s = INPUTS.GENPDF.MAP_FILE;
   if ( !IGNOREFILE(s) ) {
     ENVrestore(s,ORIG_FILE_README);
     i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -1040,6 +1094,8 @@ void readme_docana_misc(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMAG:", noComment, 
 		    lenkey, false, nval2,dptr, 0.0,40.0, -999.0); 
 
+  readme_docana_load_list(&i, pad, &README_KEYS_CID);
+
   readme_docana_load_list(&i, pad, &README_KEYS_RANSYSTPAR);
 
   readme_docana_load_list(&i, pad, &README_KEYS_ZVARIATION);
@@ -1147,7 +1203,7 @@ void readme_docana_output(int *iline, char *pad) {
 		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
 
   // - - - -- types - - - - -
-  dval = (double)GENLC.SIMTYPE ;
+  dval = (double)GENLC.SIM_GENTYPE ;
   VERSION_INFO_load(&i, pad, "GENTYPE:", "true type", 
 		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
 
@@ -1156,9 +1212,11 @@ void readme_docana_output(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "SNTYPE:", "spec Type, photID type", 
 		    lenkey, true, nval2, dval_list, 0.0,2000.0, -1.0); 
 
+  /* xxx mark delete Nov 12 2023 (check below under Misc) xxxx
   dval = (double)INPUTS.CIDOFF ;
   VERSION_INFO_load(&i, pad, "CIDOFF:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+  xxx */
 
   dval = (double)INPUTS.CIDRAN_MIN ;
   VERSION_INFO_load(&i, pad, "CIDRAN_MIN:", noComment, 
@@ -1254,6 +1312,8 @@ void readme_docana_load_asymGauss(int *iline, char *pad,
 				 GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   // Utility to load asymGauss params for DOCANA
+  // Nov 2023: noprint range for GENSIGMA -> 1E9 (was 1E4)
+
   int i = *iline ;
   int nval1=1, nval2=2, lenkey=24 ;
   bool USE      = GENGAUSS->USE ;
@@ -1278,7 +1338,7 @@ void readme_docana_load_asymGauss(int *iline, char *pad,
   dptr = GENGAUSS->SIGMA ;
   VERSION_INFO_load(&i, pad, keyName, 
   		    noComment, lenkey, false, 
-		    nval2, dptr, -1.E4,1.E4, -9.0); // val,min,max noprint
+		    nval2, dptr, -1.E9,1.E9, -9.0); // val,min,max noprint
 
   sprintf(keyName,"GENRANGE_%s:", VARNAME);
   dptr = GENGAUSS->RANGE ;

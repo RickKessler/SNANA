@@ -264,7 +264,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 
     if ( commentchar(LINE) ) { continue; }
 
-    NWD = store_PARSE_WORDS(MSKOPT,LINE);
+    NWD = store_PARSE_WORDS(MSKOPT,LINE,fnam);
     if ( NWD == 0 ) { continue; }
 
     NRD += NWD;

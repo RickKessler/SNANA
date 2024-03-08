@@ -1,5 +1,5 @@
 /*********************************
-  Jun 23, 2009 by R.Kessler
+  Jun 23, 2009 by R.Kessler 
  
   ------------
   
@@ -29,6 +29,9 @@
 
   >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile.gz>
        (produce gzipped outfile.gz)
+
+  >  combine_fitres.exe <fitres1> <fitres2> --rowmatch
+       (force match each row regardless of ROW or CID name)
 
   >  combine_fitres.exe <fitres1>   R      ! .ROOT extension 
   >  combine_fitres.exe <fitres1>  -R      ! same with python syntax
@@ -145,6 +148,13 @@
               slow performance in batch mode.
  Aug 03 2023: switch print_elapsed_time -> print_cputime(..)
 
+ Nov 18 2023: 
+   + remove obsolete HASH_LOCAL variables and function
+   + fix to write CCID when GALID is identifier. Needed when GALID is
+     bigger than I*4 can hold.
+
+ Dec 12 2023: new --rowmatch option
+
 ******************************/
 
 #include <stdio.h>
@@ -174,7 +184,6 @@ void  init_misc(void);
 void  INIT_TABLEVAR(void);
 void  ADD_FITRES(int ifile);
 int   match_CID_orig(int ifile, int isn2);
-int   match_CID_hash_local(int ifile, int isn2);
 void  ADD_FITRES_VARLIST(int ifile, int isn, int isn2);
 
 int   NMATCH_VARNAME(char *ctag , int ntlist ) ;
@@ -192,6 +201,8 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN);
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
 void malloc_NMATCH_PER_EVT(int N);
+
+void  relabel_rownum(int ifile);
 
 // ================================
 // Global variables
@@ -231,7 +242,7 @@ int NWRITE_SNTABLE ;
 #define  TABLENAME_COMBINE TABLENAME_FITRES
 
 #define MATCHFLAG_ORIG       1 // original slow CID-matching
-#define MATCHFLAG_HASH_LOCAL 3 // use hash table recommended by Sam
+//#define MATCHFLAG_HASH_LOCAL 3 // use hash table recommended by Sam
 #define MATCHFLAG_HASH_UTIL  5 // generical utility in sntools (Jun 2021)
 
 // inputs
@@ -249,6 +260,9 @@ struct INPUTS {
   int  NVARNAMES_KEEP ;
   char **VARNAMES_KEEP; // select and save only these varnames
   char VARLIST_KEEP[MXPATHLEN];
+
+  int DO_ROWMATCH;
+
 } INPUTS ;
 
 
@@ -343,7 +357,6 @@ int main(int argc, char **argv) {
 
   INIT_TABLEVAR();
 
-  // xxx mark print_elapsed_time(t_start, "INIT", UNIT_TIME_SECONDS );
   sprintf(str_cputime,"%s(INIT_TABLEVAR)", STRING_CPUTIME_INIT);
   print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
 
@@ -357,10 +370,7 @@ int main(int argc, char **argv) {
 
   sprintf(str_cputime,"%s(read_input_tables)", STRING_CPUTIME_INIT);
   print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
-  // xxx mark  print_elapsed_time(t_start, "read input tables", UNIT_TIME_SECONDS );
 
-  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) 
-    { match_CID_hash_local(-1,0); } // remove hash table
 
   if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) 
     { match_cid_hash("", -1,0); } // remove hash table
@@ -445,7 +455,8 @@ void  print_combine_fitres_help(void) {
     " --varnames zHD,c,x1,SIM_DLMAG  # select CID and these varnames",
     "",
     " --nullval_float -12345  # override default nullval of -888",
-    
+    "",
+    "--rowmatch       # force match for each row, regardless of CID",
     0
   };
 
@@ -505,8 +516,8 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.NULLVAL_FLOAT   =  DEFAULT_NULLVAL_FLOAT ;
   INPUTS.NVARNAMES_KEEP  = 0 ;
   INPUTS.VARLIST_KEEP[0] = 0 ;
+  INPUTS.DO_ROWMATCH     = 0 ;
 
-  
   printf("\n Full command: ");
   for ( i = 0; i < NARGV_LIST ; i++ ) {  printf("%s ", argv[i]);   }
   printf("\n\n"); fflush(stdout);
@@ -521,12 +532,6 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
-    /* xxx mark delete xxxxx
-    if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
-      i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
-      continue ;
-    }
-    xxxxxxx */
 
     if ( keyarg_match(argv[i],"outfile_text"))  {
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
@@ -582,6 +587,11 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
+    if ( keyarg_match(argv[i],"rowmatch") )  {
+      INPUTS.DO_ROWMATCH = 1;
+      continue ;
+    }
+
     // parse FITRES file(s) and add to INPUTS.FFILE list
     parse_FFILE(argv[i]);
 
@@ -590,9 +600,6 @@ void  PARSE_ARGV(int argc, char **argv) {
   
   if ( INPUTS.MATCHFLAG == MATCHFLAG_ORIG ) {
     printf("   CID-match method: brute force loop over each file.\n");
-  }
-  else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) {
-    printf("   CID-match method: hash table with local util.\n");
   }
   else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
     printf("   CID-match method: hash table with sntools util.\n");
@@ -874,6 +881,8 @@ void ADD_FITRES(int ifile) {
   NLIST = SNTABLE_READ_EXEC();
   NEVT_READ[ifile] = NLIST;
 
+  if ( INPUTS.DO_ROWMATCH  ) { relabel_rownum(ifile); }
+
   if ( ifile == 0 ) {
     NLIST_FIRST_FITRES  = NLIST ; 
     malloc_NMATCH_PER_EVT(NLIST);
@@ -893,10 +902,8 @@ void ADD_FITRES(int ifile) {
 
   for(isn2=0; isn2 < NLIST2_FITRES; isn2++ ) {
     
-    if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) {
-      isn = match_CID_hash_local(ifile,isn2);   // isn is for ifile=0
-    }
-    else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
+
+    if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
       sprintf(ccid, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2]);
       isn = match_cid_hash(ccid,ifile,isn2);   // isn is for ifile=0
     }
@@ -967,65 +974,6 @@ int match_CID_orig(int ifile, int isn2) {
   //  if ( ifile>0 )  { printf("\t (NLOOP_TOT = %lld)\n", NLOOP_TOT); }
 
 } // end if match_CID_orig
-
-// =====================================
-int match_CID_hash_local(int ifile, int isn2) {
-
-  // Created Oct 7 2019
-  // Use hash table to speed matching.
-  // Inputs:
-  //   ifile = file index 
-  //   isn2  = current SN index
-  // 
-  // Function returns isn index of ifile=0.
-  //
-  // !!! obsolete !!!
-
-  int   isn;
-  char  ccid[MXSTRLEN_CID];
-  struct hash_table *s, *tmp;
-  //  char fnam[] = "match_CID_hash_local" ;
-
-  // ----------- BEGIN ------------
-
-  if ( ifile < 0 ) {
-    /* free the hash table contents */
-    HASH_ITER(hh, users, s, tmp) {
-      HASH_DEL(users, s);
-      free(s);
-    }
-    return(-1);
-  }
-
-
-  if ( ifile == 0 ) {
-    // create hash table
-    sprintf(ccid, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2]);
-    s     = malloc(sizeof(struct hash_table));
-    s->id = isn2;
-    strcpy(s->name, ccid);
-    HASH_ADD_STR( users, name, s );      
-    return(isn2) ;
-  }
-
-  // if we get here, match each CID to ifile=0
-  
-  sprintf(ccid, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2] );
-  HASH_FIND_STR( users, ccid, s);
-  if ( s ) {
-    isn = s->id;
-    //    printf("\t xxx CID=%8s matches to %d in ifile=0\n",  ccid, isn);
-    return(isn);	     
-  }
-  else {
-    //    printf("\t xxx CID=%s does not match.\n", ccid);
-    return(-9);
-  }
-  
-
-  return(-9);
-
-} // end if match_CID_hash_local
 
 
 // =============================
@@ -1613,6 +1561,7 @@ int  maxlen_varString(char *varName) {
   // Jan 2014
   // return max string length for variable nameed *varName.
   // Dec 4 2016: add VERSION
+  // Nov 2023: check for  GALID
 
   int MXLEN ;
   MXLEN = MXSTRLEN ;
@@ -1621,6 +1570,9 @@ int  maxlen_varString(char *varName) {
     { MXLEN = MXSTRLEN_CID; }
 
   if ( strcmp(varName,"CCID") == 0 ) 
+    { MXLEN = MXSTRLEN_CID; }
+
+  if ( strcmp(varName,"GALID") == 0 ) 
     { MXLEN = MXSTRLEN_CID; }
 
   if ( strcmp(varName,"STARID") == 0 ) 
@@ -1646,3 +1598,32 @@ int  maxlen_varString(char *varName) {
 
 } // end of void  maxlen_varString
 
+
+// =========================================
+void relabel_rownum(int ifile) {
+
+  int N0  = NEVT_READ[0];
+  int NSN = NEVT_READ[ifile];
+  int isn, rownum=0 ;
+
+  char fnam[] = "relabel_rownum";
+  
+  // --------- BEGIN ----------
+
+  if ( NSN != N0 ) {
+    sprintf(c1err,"--rowmatch option requires same NSN per file, but ...");
+    sprintf(c2err,"NSN = %d,%d for ifile = %d, %d ",
+	    NSN, N0, ifile, 0);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+  }
+
+  printf("   %s for ifile=%d \n", fnam, ifile); fflush(stdout);
+
+  for(isn=0; isn < NSN; isn++ ) {   
+    rownum++ ;
+    sprintf(FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn],"%d", rownum);
+  }
+
+
+  return;
+} // end relabel_rownum

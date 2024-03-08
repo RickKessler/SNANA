@@ -5,6 +5,8 @@
 #define OPTMASK_GEN_SIMSED_PARAM    1   // continuous interp
 #define OPTMASK_GEN_SIMSED_param    2   // baggage parameter
 #define OPTMASK_GEN_SIMSED_GRIDONLY 4   // random gen snapped to GRID only
+#define OPTMASK_GEN_SIMSED_WGT  8  // select based on WGT column or external WGTMAP
+#define OPTMASK_GEN_SIMSED_SEQ  16 // for "GRIDONLY: SEQUENTIAL" option
 
 // define OPTMASK for init_genmag_SIMSED (LSB=0)
 #define OPTMASK_INIT_SIMSED_BINARY    1  // make binary file(s) if not there
@@ -14,7 +16,6 @@
 #define OPTMASK_INIT_SIMSED_BATCH    128 // batch mode -> abort on stale binary
 
 
-// xxx mark delete #define INFO_SIMSED_FILENAME  "SED.INFO" 
 #define SIMSED_INFO_FILENAME    "SED.INFO" 
 #define SIMSED_BINARY_FILENAME  "SED.BINARY" 
 char SIMSED_INFO_FILENAME_FULL[MXPATHLEN] ;
@@ -40,7 +41,8 @@ int     IVERSION_SIMSED_BINARY ;     // actual version
 double Trange_SIMSED[2] ; // used for rd_sedflux
 double Lrange_SIMSED[2] ;
 
-int ISIMSED_SEQUENTIAL ;
+int ISIMSED_SEQUENTIAL ; // xxx mark obsolete Mar 7 2024
+int ISIMSED_SELECT;   // either SEQUENTIAL or WGT option
 
 bool ISBATCH_SIMSED;   // T => running in batch mode
 
@@ -72,8 +74,7 @@ struct {
    Function Declarations
 **********************************************/
 
-int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY,
-			char *kcorFile, int OPTMASK );
+int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY, char *kcorFile, char *WGTMAP_FILE, int OPTMASK );
 
 int read_SIMSED_INFO(char *PATHMODEL );
 int read_simsed_info__(char *PATHMODEL );
@@ -82,6 +83,10 @@ int count_SIMSED_INFO(char *PATHMODEL);
 void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin, 
 		      bool RDFLAG_BINARY, bool WRFLAG_BINARY );
 void set_SIMSED_LOGZBIN(void);
+
+void set_SIMSED_WGT_SUM(char *WGTMAP_FILE);
+int  pick_SIMSED_BY_WGT(void);
+void dump_SIMSED_WGT(int NSED, char *msg);
 
 void dump_SIMSED_INFO(void);
 
@@ -112,5 +117,7 @@ void checkBinary_SIMSED(char *binaryFile); // abort if earlier than SED.INFO
 void read_SIMSED_flux(char *sedFile, char *sedComment) ;
 
 int IS_INDEX_SIMSED(char *parName) ;
+
+int IS_WGT_SIMSED(char *parName) ;
 
 // END

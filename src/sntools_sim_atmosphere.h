@@ -22,6 +22,7 @@ struct {
   char SEDSTAR_FILE[MXPATHLEN]; // stellar SED to compute <lam> in each passband
   GENPOLY_DEF  DCR_COORDRES_POLY; // poly fun for astrometry resolution vs. PSF/SNR
   GENPOLY_DEF  DCR_MAGSHIFT_POLY; // poly fun for mag shift vs. PSF-fraction shift
+  double DCR_COORDRES_FLOOR; // constant term for astrometric systematic floor
 
   // define Gaussian variations in T,BH,PWV that impact index of refraction
   double SIGMA_SITE_TEMP; // Gauss sigma for site temperaure variation (Celsius)

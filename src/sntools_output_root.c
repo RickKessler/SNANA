@@ -199,7 +199,7 @@ extern"C" {
   void SNHIST_RDCONT_ROOT(int ID, int NRDBIN, double *CONTENTS);
 
   void MAKEDIR_ROOT(char *CCID);
-  void CDTOPDIR_ROOT(void);
+  void CDTOPDIR_ROOT(int VBOSE);
 
   void modify_text_4root(char *Text) ;
 
@@ -1272,10 +1272,11 @@ void MAKEDIR_ROOT(char *CCID, int CID) {
 } // end of  MAKEDIR_ROOT
 
 
-void CDTOPDIR_ROOT(void) {
+void CDTOPDIR_ROOT(int VBOSE) {
   char fnam[] = "CDTOPDIR_ROOT" ;
   // Created Mar 3, 2013 by R.Kessler
-  printf("\t %s : return to top dir.\n", fnam ); fflush(stdout);
+  if ( VBOSE ) 
+    { printf("\t %s : return to top dir.\n", fnam ); fflush(stdout); } 
   TFILE_ROOT_NEW->cd();  
 }
 

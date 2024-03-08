@@ -4,47 +4,6 @@
  Global variables used for SED-based models
  such as SALT2 or SN-explosion models. 
 
- Jun 24, 2010: MXLAMPOW -> MXLAMPOW_SEDMODEL = 2 (instead of 0) 
-               and define new variable NLAMPOW_SEDMODEL
-
-               Add 'ilampower' argument to interp_flux_SEDMODEL
-
- Jul 02, 2010: add SIMSED.PARVAL_STRING[ised]
- Jul 16, 2010: add FLUX_ERRFLAG
- Jul 19, 2010: increase MXFILT_SEDMODEL from 10 to 12
- Aug 31, 2010: increase MXFILT_SEDMODEL from 10 to MXFILTINDX
- Sep 02, 2010: declare zero_flux_SEDMODEL
-
- Apr 04, 2011: increase MXZBIN_SEDMODEL -> 500 (was 300)
-
- May 15, 2011: increase MXBIN_LAMSED_SEDMODEL from 2100 -> 5000
-
- Jun 09, 2011: define SEDMODEL.LAMMIN_ALL and SEDMODEL.MAXLAM_ALL
-
- Jun 20, 2011  increase MXPAR_SEDMODEL  from 10 -> 100
-
- Nov 1, 2011: MXBIN_DAYSED_SEDMODEL -> 200 (was 130)
-
- Nov 11, 2011: MXBIN_LAMFILT_SEDMODEL -> 800 (was 600)
- Feb 20, 2013: MXBIN_LAMFILT_SEDMODEL -> 900 (was 800)
- Mar 16, 2014: MXSEDMODEL -> 8000 (was 5000)
-
- Apr 26, 2014: MXFILT_SEDMODEL[20] -> MXFILT_SEDMODEL[MXFILT_SEDMODEL]
-                 (fixes crash with jpas)
-
- Aug 05, 2015: MXBIN_LAMFILT_SEDMODEL -> 1500 (was 900) for WFIRST W band
-
- Aug 11, 2015: define void  shiftPeakDay_SEDMODEL();
-
- July 24 2016: define stuff for SPECTROGRAPH
-
- Jul 26, 2016: MXBIN_LAMFILT_SEDMODEL -> 2000 (was 1500)
-
- Jul 30 2016: define SPECTROGRAPH_SEDMODEL struct and a few 
-              SPECTROGRAPH functions.
-
- Mar 6 2017: declare ISED_SEDMODEL
-
  Apr 17 2018: MXBIN_DAYSED_SEDMODEL -> 400 (was 250)
 
  May 21 2018: define struct INPUTS_SEDMODEL
@@ -55,10 +14,15 @@
 
  Aug 23 2019: MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
 
+ Jan 31 2024: replace many [MXSEDMODEL]-dependent arrays with pointers that
+              are allocated in malloc_METADATA_SEDMODEL. 
+              This enables much larger MXSEDMODEL without increasing 
+              static program size. MXSEDMODEL -> 40k (was 8k)
+
 ********************************************/
 
 // define bounds for filter and SED arrays
-#define MXSEDMODEL          8000   // max number of SED surfaces
+#define MXSEDMODEL          40000   // max number of SED surfaces
 #define MXFILT_SEDMODEL     MXFILTINDX     // max internal filter index
 #define MXBIN_LAMFILT_SEDMODEL 2400   // length of largest filter file
 #define MXBIN_LAMSED_SEDMODEL  8000   // max # lambda bins for SED
@@ -157,15 +121,18 @@ struct SEDMODEL {
 
   int    NPAR ;        // Npar describing SEDs
   char   PARNAMES[MXPAR_SEDMODEL][40];
-  double PARVAL[MXSEDMODEL][MXPAR_SEDMODEL];
-  char   PARVAL_STRING[MXSEDMODEL][MXPAR_SEDMODEL][20]; // parval string to preserve format
+
+  double **PARVAL;       // param value vs [ised][ipar]
+  char ***PARVAL_STRING; //  string to preserve format for each [ised][ipar]
+
   int    NBIN_PARVAL[MXPAR_SEDMODEL] ; // Number of bins per par val
   double PARVAL_MIN[MXPAR_SEDMODEL] ;
   double PARVAL_MAX[MXPAR_SEDMODEL] ;
   double PARVAL_BIN[MXPAR_SEDMODEL] ; // bin size
-  int    IPAR_NON1A_INDEX ;   // ipar to use to fill SIM_xNON1A_INDEX
+  int    IPAR_TEMPLATE_INDEX ;   // ipar to use to fill SIM_TEMPLATE_INDEX
+  int    IPAR_WGT ;              // ipar of WGT  (X_WGT+)
 
-  char   FILENAME[MXSEDMODEL][80]; // NSURFACE of them
+  char   **FILENAME ; // NSURFACE of them
 
   double RESTLAMMIN_FILTERCEN;  // min-lambda for <lamfilt>/(1+z) 
   double RESTLAMMAX_FILTERCEN;  // max-lambda for <lamfilt>/(1+z)
@@ -174,16 +141,19 @@ struct SEDMODEL {
   double LAMMAX_ALL ;  // max LAM covered by all SEDs
 
   // define DAY and LAM binning for each SED
-  int    NDAY[MXSEDMODEL],   NLAM[MXSEDMODEL] ;
-  double LAMMIN[MXSEDMODEL], LAMMAX[MXSEDMODEL], LAMSTEP[MXSEDMODEL];
-  double DAYMIN[MXSEDMODEL], DAYMAX[MXSEDMODEL], DAYSTEP[MXSEDMODEL];
-  double *DAY[MXSEDMODEL];  // Aug 2017 - allows non-uniform DAY bins
+  int *NDAY, *NLAM;
+  double *LAMMIN, *LAMMAX, *LAMSTEP;
+  double *DAYMIN, *DAYMAX, *DAYSTEP, **DAY;
 
   double DAYMIN_ALL, DAYMAX_ALL; // min & max day among all SEDs
 
   int MXDAY ; // max number of epochs to store => used to malloc (Nov 2011)
 
   int OPTMASK;  // 2 ==> use DAY array instead of uniform DAYSTEP
+
+  // WGT parameters to select from WGT column or from external WGTMAP
+  double WGT_MIN, WGT_MAX; // WGT_MIN=0; WGT_MAX = WGT_SUM[NSED-1]
+  double *WGT_SUM; // cumulative sum of WGT vs. ISED (Feb 29 2024) X_WGT+
 
 } SEDMODEL ;
 
@@ -316,6 +286,7 @@ void init_MWXT_SEDMODEL(int OPT_COLORLAW, double RV) ;
 double interp_primaryFlux_SEDMODEL(double lam) ;
 double interp_primaryMag_SEDMODEL(double lam) ;  // for SPECTROGRAPH bins
 
+void malloc_METADATA_SEDMODEL(int NSED, int NPAR);
 void malloc_FLUXTABLE_SEDMODEL(int NFILT, int NZBIN, int NLAMPOW, 
 			       int NDAY, int NSED);
 void malloc_SEDFLUX_SEDMODEL (SEDMODEL_FLUX_DEF *SEDMODEL, 
@@ -346,6 +317,8 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS);
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
 
 void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax);
+
+int get_NSURFACE_SEDMODEL(void);
 
 void checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) ;
 void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC);
@@ -403,7 +376,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
 
 double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX, int DUMPFLAG);
 
-void getSpec_SEDMODEL(int ised, 
+void genSpec_SEDMODEL(int ised, 
 		      double MWEBV, double RV_host, double AV_host,
 		      double z, double MU, double Tobs, double MAGOFF,
 		      double *FLUXGEN_LIST, double *GENMAG_LIST ) ;
@@ -429,6 +402,8 @@ void init_redshift_sedmodel__(int *NZbin, double *Zmin,  double *Zmax) ;
 void init_mwxt_sedmodel__(int *OPT_COLORLAW, double *RV) ;
 
 void get_lamrange_sedmodel__(int *opt, double *lammin, double *lammax);
+
+int get_nsurface_sedmodel__(void);
 
 int fetch_parinfo_sedmodel__(int *ipar,char *parname,int *NBIN,double *range); 
 void fetch_parval_sedmodel__(int *ISED, int *IPAR, double *PARVAL);

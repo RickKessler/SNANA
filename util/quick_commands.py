@@ -18,6 +18,7 @@
 # Jun 26 2022: add --diff_data option 
 #
 # Jul 19 2023: --extract_spectra_format
+# Jan 31 2024: fix bug finding DOCANA keys for --extract_sim_input  option
 #
 # =========================
 
@@ -56,6 +57,7 @@ HELP_COMMANDS = f"""
 # extract a few events from FITS format back to TEXT format:
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text 1032,5944
  quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN
+ quick_commands.py -v SDSS_allCandidates+BOSS --cidlist_text TEN --nospectra
 
 # create SIMLIB file from LOWZ data
  quick_commands.py -v DES-SN3YR_LOWZ \\
@@ -119,8 +121,14 @@ def get_args():
     msg = "CID list to extract into text format"
     parser.add_argument("--cidlist_text",help=msg,type=str,default="")
 
+    msg = "suppress reading/reformattig spectra"
+    parser.add_argument("--nospectra", help=msg, action="store_true")
+
     msg = "TYPE list to extract into text format (e.g., 118,119,120)"
     parser.add_argument("--typelist_text",help=msg,type=str,default="")
+
+    msg = "extra snana.exe args for reformatting (e.g., OPT_MWEBV, ...)"
+    parser.add_argument("--reformat_args", help=msg, type=str,default="")
 
     msg = "CID list to make table of redshifts and vpec"
     parser.add_argument("--cidlist_ztable", help=msg, type=str, default="")
@@ -208,6 +216,7 @@ def extract_text_format(args):
     vout     = create_vout_string(vin,"TEXT")
     cidlist  = args.cidlist_text
     typelist = args.typelist_text
+    reformat_args = args.reformat_args  # Nov 2023
     rmdir_check(vout)
         
     print(f"\n Create new data folder: {vout}")
@@ -215,6 +224,11 @@ def extract_text_format(args):
     command = snana_command_plus_version(args)
     command += f"VERSION_REFORMAT_TEXT {vout} "
     command += arg_cidlist(cidlist,typelist)
+    command += f"{reformat_args} "
+
+    if args.nospectra :
+        command += ' DEBUG_FLAG -333'
+
     exec_command(command,args,0)
     # end extract_text_format
 
@@ -476,12 +490,19 @@ def get_README_contents(version):
 
 def write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat):
     nkey_write = 0
-    key = 'INPUT_KEYS'
+
+    key_list = [ 'INPUT_KEYS', 'INPUT_KEYS_SNIaMODEL0', 'INPUT_KEYS_NONIaMODEL0' ]
+    # xxx makr key = 'INPUT_KEYS'  # INPUT_KEYS_SNIaMODEL0  INPUT_KEYS_NONIaMODEL0
+
     DOCANA = sim_readme_yaml['DOCUMENTATION']
-    if key in DOCANA:
-        INPUT_KEYS = DOCANA[key]
-    else:
-        msgerr = f"\n ERROR: could not find {key} key in \n {sim_input_file} "
+    INPUT_KEYS = None
+
+    for key in key_list:
+        if key in DOCANA:
+            INPUT_KEYS = DOCANA[key]
+
+    if INPUT_KEYS is None:
+        msgerr = f"\n ERROR: could not find {key_list} key in README "
         assert False, msgerr 
 
     # make list of special keys that will cause sim-abort or other problems.

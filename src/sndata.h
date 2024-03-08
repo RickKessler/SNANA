@@ -315,6 +315,7 @@ struct SNDATA {
   bool  NEA_PSF_UNIT; 
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
+  float MWXT_MAG[MXFILTINDX];      // MWXT mag at mean wave of band
 
   int     HOSTGAL_USEMASK ;  // bits 0,1,2,3 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
@@ -384,7 +385,8 @@ struct SNDATA {
   int  SIM_MODEL_INDEX;      //integer id for model or class
   int  SIM_TEMPLATE_INDEX ;  // template index for NON1ASED, SIMSED, LCLIB ...
   char SIM_COMMENT[200]; 
-  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
+  // xxx mark  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
+  int  SIM_GENTYPE;          // same as SNTYPE (if set).
   char SIM_TYPE_NAME[12];    // Ia, Ib, II, etc ...
 
   int   SIM_LIBID;
@@ -437,6 +439,8 @@ struct SNDATA {
   float SIM_FALLTIME_SHIFT;
   float SIM_TRESTMIN ;
   float SIM_TRESTMAX ;
+
+  float SIM_WGT_POPULATION; // product of population wgts (color x stretch x AV)
 
   // luminosity params
   float SIM_STRETCH ;  // for history lesson

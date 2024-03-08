@@ -21,6 +21,9 @@
   May 26 2021: new function free_memory_genPDF() to free GRIDMAP memory.
   Aug 10 2021: check priority of GENPDF vs. GENGAUSS
 
+  Mar 05 2024: minor refac; rename IDMAP var -> IMAP for sparse index;
+               reserve IDMAP as absolute index. Refac is to avoid confusion.
+
  ****************************************************/
 
 #ifndef USE_SUBPROCESS
@@ -225,7 +228,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	continue; 
       }
 
-      IDMAP  = IDGRIDMAP_GENPDF + NMAP ;
+      IDMAP  = IDGRIDMAP_GENPDF + NMAP ;  // absolute ID
       MAPNAME = GENPDF[NMAP].MAPNAME;
       NFUN   = 1  ; // for now, assume only one PROB column
       NDIM   = NVAR - NFUN ;
@@ -236,7 +239,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       GENPDF[NMAP].N_CALL      = 0 ;
       GENPDF[NMAP].N_ITER_SUM  = 0 ;
       GENPDF[NMAP].N_ITER_MAX  = 0 ;
-
+      GENPDF[NMAP].PROB_EXPON_REWGT = 1.0 ; // default is no rewgt 
       /*
       int NROW = GENPDF[NMAP].GRIDMAP.NROW;
       char *VARLIST = GENPDF[NMAP].GRIDMAP.VARLIST ;
@@ -291,8 +294,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	sprintf(c2err,"Check HOSTLIB and check GENPDF_FILE");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
- 
-      //   imap_tmp= IDMAP_GENPDF(VARNAME, &IS_LOGPARAM);
+
 
       printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
 	     ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME );
@@ -319,20 +321,48 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // as if it were read from GENPDF map file.
   // Initial use for SALT2 alpha/beta in SALT2mu SUBPROCESS
   // WARNING! Currently only works for 1D maps
+  //
+  // Mar 5 2024: reduce RANGE if more than 10 sigma away from peak;
+  //   needed to avoid downstream abort from not finding prob > 0.001
+  //   in course-grid search.
 
   char   *NAME   = GENGAUSS->NAME ;
   double *RANGE  = GENGAUSS->RANGE;
+  double PEAK    = GENGAUSS->PEAK ;
   double siglo   = GENGAUSS->SIGMA[0];
   double sighi   = GENGAUSS->SIGMA[1];
   double sigavg  = 0.5*(siglo+sighi);
+
   int   IDMAP  = IDGRIDMAP_GENPDF + IMAP ;
   int   NBIN_PER_SIGMA = 20; // hard-wired guess
+  double NSIGMA_MAX    = 8.0; // range must not be more than this away from peak
+  
   int   NBIN;
-  double XNBIN;
+  double XNBIN, xnsig_tmp, x_orig;
   char fnam[] = "init_genPDF_from_GenGauss" ; 
 
   // ---------- BEGIN ----------
  
+  // if RANGE is to wide compared to sigma, reduce RANGE so that
+  // downstream selection does not fail in finding a hard-to-fid
+  // delta-function .xyz
+  xnsig_tmp = (PEAK - RANGE[0]) / siglo;
+  if ( xnsig_tmp > NSIGMA_MAX ) {
+    x_orig = RANGE[0] ; // for comment
+    RANGE[0] = (PEAK - NSIGMA_MAX*siglo) ;
+    printf("  %s: [PEAK-min(%s)]/siglo=%.1f; change RANGE[0]=%.3f to %.3f\n", 
+	   fnam, NAME, xnsig_tmp,   x_orig, RANGE[0] );
+  }
+
+  xnsig_tmp = (RANGE[1] - PEAK ) / sighi;
+  if ( xnsig_tmp > NSIGMA_MAX ) {
+    x_orig = RANGE[1] ; // for comment
+    RANGE[1] = (PEAK + NSIGMA_MAX*sighi) ;
+    printf("  %s: [max(%s)-PEAK]/sighi=%.1f; change RANGE[1]=%.3f to %.3f\n", 
+	   fnam, NAME, xnsig_tmp, x_orig, RANGE[1] );
+  }
+
+  // - - - -
   XNBIN = (float)NBIN_PER_SIGMA * (RANGE[1] - RANGE[0]) / sigavg ;
   NBIN  = (int)(XNBIN+0.5);
 
@@ -428,46 +458,96 @@ void checkAbort_VARNAME_GENPDF(char *varName) {
 
 #ifndef USE_SUBPROCESS
 
+// ===================================
+double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
+
+  // Created Dec 19 2023
+  // For input parName and value x, return genPDF function value.
+  // For multi-dim genPDF map, additional HOSTLIB-dependent values
+  // are internally included.
+  //
+
+  int    IMAP = -9 ;
+  double prob  = -9.0 ;
+  bool   IS_LOGPARAM = false ;
+  char fnam[] = "funVal_genPDF" ;
+
+  // -------------- BEGIN ------------
+
+  if ( NMAP_GENPDF > 0 ) {
+    int    istat, NDIM, ivar, IVAR_HOSTLIB;
+    double xval[MXVAR_GENPDF], EXPON_REWGT ;
+    IMAP        = IMAP_GENPDF(parName, &IS_LOGPARAM) ;
+    NDIM        = GENPDF[IMAP].GRIDMAP.NDIM ;
+    EXPON_REWGT = GENPDF[IMAP].PROB_EXPON_REWGT ;
+
+    xval[0] = x;
+    for(ivar=1; ivar < NDIM ; ivar++ ) {
+      IVAR_HOSTLIB   = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
+      xval[ivar]     = get_VALUE_HOSTLIB(IVAR_HOSTLIB, SNHOSTGAL.IGAL);
+    }
+
+    istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, xval, &prob);
+
+    if ( EXPON_REWGT != 1.0 )  { prob = pow(prob,EXPON_REWGT); }
+  }
+
+  if  ( GENGAUSS->USE ) {
+    prob = funVal_GENGAUSS_ASYM(x, GENGAUSS);
+  }
+
+  if ( prob < -1.0E-6 || prob > 1.0000000001 ) {
+    sprintf(c1err,"Invalid prob = %le for x=%f  parName=%s (IMAP=%d)", 
+	    prob, x, parName, IMAP);
+    sprintf(c2err,"Need either GENPDF map or GENGAUSS");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return prob ;
+
+} // end funVal_genPDF
+
 // =====================================================
-double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
-			 
+double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
+	
+  // Return random number from GENPDF map corresponding to input *parName.
+  // If *parName does not match a GENPDF map, use input *GENGAUSS instead.
+  // 
+  // Dec 2023: implement PROB_EXPON_REWGT
+
   int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
-  int    IGAL = SNHOSTGAL.IGAL;
+  int    IGAL               = SNHOSTGAL.IGAL;
 
   int    ILIST_RAN = 1;
   int    N_ITER=0, MAX_ITER  = MXITER_GENPDF ;
-  int    N_EVAL = 0, IDMAP, ivar, NDIM, istat, itmp, IVAR_HOSTLIB;
+  int    N_EVAL = 0, IMAP, ivar, NDIM, istat, itmp, IVAR_HOSTLIB;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
-  double VAL_RANGE[2], FUNMAX, prob_ratio ;
+  double VAL_RANGE[2], FUNMAX, EXPON_REWGT, prob_ratio ;
   int    LDMP = 0 ;
   bool   DO_GENGAUSS; 
-  // xx  bool   matchVar    = false ; // true -> both GENPDF and GENGAUSS provided
   bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
   char   *MAPNAME, *VARNAME ;
-  char fnam[] = "get_random_genPDF";
+  char fnam[] = "getRan_genPDF";
   
   // ------------- BEGIN -----------
 
   // check for map in GENPDF_FILE argument of sim-input file
   if ( NMAP_GENPDF > 0 ) {
-    IDMAP = IDMAP_GENPDF(parName, &IS_LOGPARAM);
-    if ( IDMAP >= 0 ) {
+    IMAP = IMAP_GENPDF(parName, &IS_LOGPARAM);
+    if ( IMAP >= 0 ) {
       N_EVAL++ ; NCALL_GENPDF++ ;
-      MAPNAME       = GENPDF[IDMAP].MAPNAME ;
-      VARNAME       = GENPDF[IDMAP].VARNAMES[0] ;
-      FUNMAX        = GENPDF[IDMAP].GRIDMAP.FUNMAX[0] ;
-      NDIM          = GENPDF[IDMAP].GRIDMAP.NDIM ;
+      MAPNAME       = GENPDF[IMAP].MAPNAME ;
+      VARNAME       = GENPDF[IMAP].VARNAMES[0] ;
+      FUNMAX        = GENPDF[IMAP].GRIDMAP.FUNMAX[0] ;
+      NDIM          = GENPDF[IMAP].GRIDMAP.NDIM ;
+      EXPON_REWGT   = GENPDF[IMAP].PROB_EXPON_REWGT ; 
+      if ( EXPON_REWGT != 1.0 ) { FUNMAX = pow(FUNMAX,EXPON_REWGT); }
       prob_ref=1.0; prob=0.0;
-
-      /* xxx mark 
-      if ( matchVar_GENPDF_GENGAUSS(VARNAME,GENGAUSS->NAME) ) 
-	{ matchVar = true; }
-      */
 
       // tack on optional dependence on HOSTLIB
       // Leave var_inputs[0] to be filled below inside while loop
       for(ivar=1; ivar < NDIM; ivar++ ) {
-	IVAR_HOSTLIB = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+	IVAR_HOSTLIB     = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
 	val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
       }
 
@@ -475,11 +555,11 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       // function here returns VAL_RANGE
 
       if ( IS_LOGPARAM ) {
-	VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
-	VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+	VAL_RANGE[0]  = GENPDF[IMAP].GRIDMAP.VALMIN[0] ;
+	VAL_RANGE[1]  = GENPDF[IMAP].GRIDMAP.VALMAX[0] ;
       }
       else {
-	get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 0 );
+	get_VAL_RANGE_genPDF(IMAP, val_inputs, VAL_RANGE, 0 );
       }
 
       // - - - - - -
@@ -495,20 +575,22 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	r             = getRan_Flat(ILIST_RAN, VAL_RANGE);
 	val_inputs[0] = r ;  
 
-	istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
+	istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, val_inputs, &prob);
+	if ( EXPON_REWGT != 1.0 )  { prob = pow(prob,EXPON_REWGT); }
+
 	if ( istat != SUCCESS ) {
 	  print_preAbort_banner(fnam);
 	  for(ivar=0; ivar < NDIM; ivar++ ) {
 	    printf("   %s = %f  [mapRange: %.2f to %.2f]\n", 
-		   GENPDF[IDMAP].VARNAMES[ivar], val_inputs[ivar],
-		   GENPDF[IDMAP].GRIDMAP.VALMIN[ivar],
-		   GENPDF[IDMAP].GRIDMAP.VALMAX[ivar]	 );
+		   GENPDF[IMAP].VARNAMES[ivar], val_inputs[ivar],
+		   GENPDF[IMAP].GRIDMAP.VALMIN[ivar],
+		   GENPDF[IMAP].GRIDMAP.VALMAX[ivar]	 );
 	  }
 
 	  sprintf(c1err,"interp_GRIDMAP returned istat=%d", istat);
 	  sprintf(c2err,"Value probably outside GENPDF map range");
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-	}
+	} // end abort check
 
 	prob /= FUNMAX; // normalize to max prob = 1.0
 
@@ -524,10 +606,10 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	N_ITER++ ;
 	if ( N_ITER >= MAX_ITER ) {
 	  print_preAbort_banner(fnam);
-	  printf("   %s(%s) \n", MAPNAME, GENPDF[IDMAP].GRIDMAP.VARLIST );
+	  printf("   %s(%s) \n", MAPNAME, GENPDF[IMAP].GRIDMAP.VARLIST );
 	  
 	  for(ivar=1; ivar < NDIM; ivar++ ) {
-	    IVAR_HOSTLIB = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+	    IVAR_HOSTLIB = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
 	    val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
 	    printf("\t %s = %f \n", 
 		   HOSTLIB.VARNAME_STORE[IVAR_HOSTLIB], val_inputs[ivar] );
@@ -542,22 +624,22 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 		   "RATIO=%.4f, %s=%8.5f \n", 
 		   itmp, prob, prob_ref, prob_ratio, parName, r);
 	  }	  
-	  get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 1 );
+	  get_VAL_RANGE_genPDF(IMAP, val_inputs, VAL_RANGE, 1 );
 	  sprintf(c1err,"N_ITER=%d exceeds bound (prob_ref=%f)", 
 		  N_ITER, prob_ref );
 	  sprintf(c2err,"Check %s or increase MXITER_GENPDF", MAPNAME );
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-	}
+	} // end abort check
 
       } // end while loop over prob
 
     } // end IDMAP >= 0
 
     // track N_ITER stats
-    GENPDF[IDMAP].N_CALL++ ;
-    GENPDF[IDMAP].N_ITER_SUM += (double)N_ITER;
-    if ( N_ITER > GENPDF[IDMAP].N_ITER_MAX ) 
-      { GENPDF[IDMAP].N_ITER_MAX = N_ITER; }
+    GENPDF[IMAP].N_CALL++ ;
+    GENPDF[IMAP].N_ITER_SUM += (double)N_ITER;
+    if ( N_ITER > GENPDF[IMAP].N_ITER_MAX ) 
+      { GENPDF[IMAP].N_ITER_MAX = N_ITER; }
     
   } // end genPDF 
 
@@ -565,8 +647,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // check explicit asymGauss function 
   DO_GENGAUSS = GENGAUSS->USE ;
 
-
-  if  ( DO_GENGAUSS ) {   
+  if  ( GENGAUSS->USE ) {
     N_EVAL++ ;
     r = getRan_GENGAUSS_ASYM(GENGAUSS) ;
   }
@@ -585,22 +666,12 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   return(r);
 
-} // end get_random_genPDF
+} // end getRan_genPDF
+
+
 
 // ========================================================
-bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS) {
-  // Created Aug 10 2021 by R.Kessler
-  // return True of the GENPDF and GENGAUSS varNames match.
-  char fnam[] = "matchVar_GENPDF_GENGAUSS" ;
-  // ------------ BEGIN -------------
-  if ( strcmp(varName_GENPDF,varName_GENGAUSS) == 0 )
-    { return true; }
-
-  return false ;
-} // end matchVar_GENPDF_GENGAUSS
-
-// ========================================================
-void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, 
+void get_VAL_RANGE_genPDF(int IMAP, double *val_inputs, 
 			  double *VAL_RANGE, int dumpFlag ) {
 
   // Created Oct 23 2020
@@ -613,7 +684,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   //  VAL_RANGE[1] = max(val_inputs[0]) for which PROB > 0
   //
   // Inputs:
-  //   IDMAP  : integer ID of GRIDMAP
+  //   IMAP  : sparse integer ID of GRIDMAP
   //   val_inputs : includes HOSTLIB and PROB elements 1 to NDIM
   //                 val_inputs[0] is varied to see where PROB>0.
   //
@@ -631,10 +702,11 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   double VAL_RANGE_PROB[2], VAL_TMP, VAL_BINSIZE, prob ;
   int itmp, istat;
   char fnam[] = "get_VAL_RANGE_genPDF" ;
+
   // ----------- BEGIN ------------
 
-  VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
-  VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+  VAL_RANGE[0]  = GENPDF[IMAP].GRIDMAP.VALMIN[0] ;
+  VAL_RANGE[1]  = GENPDF[IMAP].GRIDMAP.VALMAX[0] ;
 
   if ( OPTMASK_GENPDF & OPTMASK_GENPDF_SLOW ) { return; }
 
@@ -643,7 +715,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   for(itmp=0; itmp <= NBIN_CHECKPROB0; itmp++ ) {
     VAL_TMP       = VAL_RANGE[0] + VAL_BINSIZE*(double)itmp ;
     val_inputs[0] = VAL_TMP;
-    istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
+    istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, val_inputs, &prob);
 
     if ( dumpFlag ) {
       printf("\t %s: prob(%.3f) = %le \n", fnam, VAL_TMP, prob);
@@ -661,8 +733,14 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
 
   // - - - - -
   if ( VAL_RANGE_PROB[0] > 8.0E12 || VAL_RANGE_PROB[1] < -8.0E12 ) {
-    sprintf(c1err,"Unable to get VAL_RANGE for IDMAP=%d, val_input=%.3f",
-            IDMAP, val_inputs[0] );
+    
+    print_preAbort_banner(fnam);
+    printf("\t IMAP(sparse)=%d  IDMAP=%d \n", IMAP, GENPDF[IMAP].GRIDMAP.ID);
+    printf("\t NBIN_CHECKPROB0 = %d \n", NBIN_CHECKPROB0);
+    printf("\t PROBMAX_REJECT_GENPDF = %le \n", PROBMAX_REJECT_GENPDF);
+    sprintf(c1err,"Invalid VAL_RANGE_PROB (%.3le to %.3le) for %s=%.3f",
+            VAL_RANGE_PROB[0], VAL_RANGE_PROB[1], val_inputs[0] );
+
     sprintf(c2err,"Consider GENPDF_OPTMASK to extrapolate.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
@@ -672,23 +750,23 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   VAL_RANGE[1] = VAL_RANGE_PROB[1] + VAL_BINSIZE ;
 
   // avoid going past boundaries            
-  if ( VAL_RANGE[0] < GENPDF[IDMAP].GRIDMAP.VALMIN[0] )
-    { VAL_RANGE[0] = GENPDF[IDMAP].GRIDMAP.VALMIN[0]; }
+  if ( VAL_RANGE[0] < GENPDF[IMAP].GRIDMAP.VALMIN[0] )
+    { VAL_RANGE[0] = GENPDF[IMAP].GRIDMAP.VALMIN[0]; }
 
-  if ( VAL_RANGE[1] > GENPDF[IDMAP].GRIDMAP.VALMAX[0] )
-    { VAL_RANGE[1] = GENPDF[IDMAP].GRIDMAP.VALMAX[0]; }
+  if ( VAL_RANGE[1] > GENPDF[IMAP].GRIDMAP.VALMAX[0] )
+    { VAL_RANGE[1] = GENPDF[IMAP].GRIDMAP.VALMAX[0]; }
 
   return;
 } // end get_VAL_RANGE_genPDF
 
 // ==========================================================
-int IDMAP_GENPDF(char *parName, bool *FOUND_LOGPARAM) {
+int IMAP_GENPDF(char *parName, bool *FOUND_LOGPARAM) {
 
-  // return IDMAP for this input parName.
+  // return sparse IMAP for this input parName.
   // Match against first varName in each map.
-  // Mar 26 2021: of LOGparName exists, return LOGPARAM=True.
+  // Mar 26 2021: if LOGparName exists, return LOGPARAM=True.
 
-  int ID=-9, imap;
+  int IMAP_NONE =-9, imap;
   char *tmpName, LOGparName[60];
 
   *FOUND_LOGPARAM = false; 
@@ -703,9 +781,9 @@ int IDMAP_GENPDF(char *parName, bool *FOUND_LOGPARAM) {
       { *FOUND_LOGPARAM=true; return(imap); }
   }
 
-  return(ID);
+  return(IMAP_NONE);
 
-} // end IDMAP_GENPDF
+} // end IMAP_GENPDF
 
 // =============================
 void iter_summary_genPDF(void) {

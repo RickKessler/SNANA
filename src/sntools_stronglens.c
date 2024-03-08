@@ -115,7 +115,7 @@ void init_stronglens(char *MODEL_FILE) {
   // read until VARNAMES key is found
   NVARS = -1;
   while( NVARS==-1 && fgets(cline, MXCHAR_LINE, fp)  != NULL ){
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline);
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline, fnam );
     if ( NWD > 1 ) {
       get_PARSE_WORD(0,0,tmpWord);
       if ( strcmp(tmpWord,"VARNAMES:") ==0  ) { NVARS=NWD-1; }
@@ -216,7 +216,7 @@ void init_stronglens(char *MODEL_FILE) {
 
   while( fgets(cline, MXCHAR_LINE, fp)  != NULL ){
 
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline);
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline, fnam );
     iwd = 0;
     get_PARSE_WORD(0,iwd,tmpWord); // read first word
 

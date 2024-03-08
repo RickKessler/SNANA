@@ -96,6 +96,16 @@
 #
 # Apr 05 2023 M.Vincenzi: update -H [HELP] on how to remove one syst.
 #
+# Jan 05 2024 RK 
+#   - write PROBIA_BEAMS to hubble diagram (for diagnostic)
+#   - new input option --skip_invert_check
+#   - break up python function(function) for matrices to avoid core dumps
+#   - write cov with single write instead of separate f.write per element
+#     [pand use compresslevel=6 for faster write]
+#
+# Jan 28 2024 RK
+#   - skip tilde files and skip wfit_ files.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -130,13 +140,14 @@ VARNAME_MUREF        = "MUREF"
 VARNAME_MURES        = "MURES"
 VARNAME_MUERR        = "MUERR"
 VARNAME_MUERR_VPEC   = "MUERR_VPEC"
-VARNAME_MUERR_RENORM = "MUERR_RENORM"
+VARNAME_MUERR_RENORM = "MUERR_RENORM"  # accounts for P_BEAMS
+VARNAME_PROBCC_BEAMS = "PROBCC_BEAMS"  # diagnostic for HD (used in BBC, not used here)
+VARNAME_PROBIA_BEAMS = "PROBIA_BEAMS"  # varname output in HD (diagnostic
 VARNAME_MUERR_SYS    = "MUERR_SYS"
 VARNAME_zHD          = "zHD"
 VARNAME_zHEL         = "zHEL"
 
 VARNAME_iz     = "IZBIN"
-# xxx mark delete VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
 
@@ -244,6 +255,9 @@ def get_args():
 
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
+
+    msg = "Skip check of COV invertibility (for speed in debugging)"
+    parser.add_argument("--skip_invert_check", help=msg, action="store_true")
 
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 
@@ -359,7 +373,6 @@ def read_header_info(hd_file):
         line  = line.decode('utf-8')
         wd_list = line.split()
 
-        # xxx mark delete: if key_isdata in wd_list:
         if any(KEYNAME_ISDATA in s for s in wd_list):  
             key_isdata     = f"{KEYNAME_ISDATA}:"
             j              = wd_list.index(key_isdata)
@@ -425,7 +438,7 @@ def load_hubble_diagram(hd_file, args, config):
         df["CID"] = df["CID"].astype(str)
         df = df.sort_values([ "CID"])
         df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
-        # xxx mark df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
+
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {hd_file}"
@@ -473,8 +486,14 @@ def get_hubble_diagrams(folder, args, config):
     infile_list = []
     label_list  = []
     first_load  = True
+    str_skip_list = [ '~', 'wfit_' ]
 
     for infile in sorted(os.listdir(folder_expand)):
+
+        skip = False
+        for s in str_skip_list : 
+            if s in infile : skip = True
+        if skip: continue
 
         is_M0DIF    = f".{SUFFIX_M0DIF}"  in infile
         is_FITRES   = f".{SUFFIX_FITRES}" in infile and "MUOPT" in infile
@@ -559,9 +578,17 @@ def get_common_set_of_sne(datadict):
     return datadict
 
 def update_MUERR(HDs):
+    # replace MUERR with MUERR_RENORM (both in SALT2mu/BBC output table),
+    # where the latter includes 1/sqrt(PIa_BEAMS) term and a scale
+    # to preserve binned M0DIF uncertainties.
     for label,df in HDs.items():
         if VARNAME_MUERR_RENORM in df.columns:
             HDs[label][VARNAME_MUERR] =  df[VARNAME_MUERR_RENORM]
+
+        # Jan 5 2024: scoop up beams-prob to write out as diagnostic
+        if VARNAME_PROBCC_BEAMS in df.columns:
+            HDs[label][VARNAME_PROBCC_BEAMS] =  df[VARNAME_PROBCC_BEAMS]
+
     return HDs
 
 def get_rebin_info(config,HD):
@@ -870,7 +897,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     #
     # 9.29.2022 RK - optional 3rd arg with sys scale ?
     #         "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
-
+    # 
     
     covopt_list = covopt.split() # break into two terms
     tmp0 = covopt_list[0]
@@ -886,6 +913,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     fitopt_filter = bracket_content1_list[0]
     muopt_filter  = bracket_content1_list[1]
     covopt_scale     = 1.0
+    logging.info(f"    compute cov for {label}")
+
     if len(bracket_content1_list) > 2 :  # err_scale (3rd item) is optional
         sig_scale    = float(bracket_content1_list[2])
         covopt_scale = sig_scale * sig_scale
@@ -896,7 +925,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         f"'{fitopt_filter}' / {muopt_filter} | " \
         f" covopt_scale={covopt_scale}"
 
-    # xxx mark delete  print(f" xxx refac {msg_content1}")
 
     fitopt_filter = fitopt_filter.strip()
     muopt_filter  = muopt_filter.strip()
@@ -920,7 +948,9 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
         if apply_fitopt and apply_muopt :
             if final_cov is None:
-                final_cov = cov.copy()*0
+                # xxx mark core dump on RCC: final_cov = cov.copy()*0
+                final_cov = cov.copy()
+                final_cov *= 0.0
             if True:
                 # If calibrators and  VPEC term, filter out calib
                 if calibrators and (apply_vpec or apply_zshift):
@@ -929,19 +959,30 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                     cov2 = cov.copy()
                     cov2[mask_calib, :] = 0
                     cov2[:, mask_calib] = 0
-                    # xxx mark delete final_cov += cov2
                     final_cov += cov2 * covopt_scale
                 else:
-                    # xxx mark delete final_cov += cov
                     final_cov += cov * covopt_scale
 
     assert final_cov is not None,  f"No syst matches {msg_content1} " 
 
-    # Validate that the final_cov is invertible
+
+    return label, final_cov
+    # end get_cov_from_covopt
+
+
+def check_cov_invertible(label, cov_sys,muerr_stat_list):
+    
+    # Created Jan 5 2024 by R.Kessler
+    # move this code out of get_cov_from_covopt() so that a flag
+    # can be easily put around calling this method.
+
     try:
         # CosmoMC will add the diag terms, 
         # so lets do it here and make sure its all good
-        effective_cov = final_cov + np.diag(base[VARNAME_MUERR] ** 2)
+        diag_muerr_cov = np.diag(muerr_stat_list**2)
+        effective_cov  = cov_sys + diag_muerr_cov
+
+        # xxx mark core dump: effective_cov=final_cov + np.diag(base[VARNAME_MUERR]**2)
 
         # First just try and invert it to catch singular matrix errors
         precision = np.linalg.inv(effective_cov)
@@ -972,16 +1013,32 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
         raise ex
 
-    return label, final_cov
+    return
+    # end check_cov_invertible
+                
 
 def is_unitary(matrix: np.ndarray) -> bool:
     # Created May 2022 by A.Mitra
     # Return true if input matrix is unitary
     unitary = True
     n = len(matrix)
-    error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
-    if not(error < np.finfo(matrix.dtype).eps * 10.0 *n):
+
+    # xxxxx mark delete Jan 2024 xxxxxx
+    # Jan 2024: RK -
+    # this one-line error calc causes core dump on RCC-midway, so break it
+    # into smaller pieces
+    #error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
+    # xxxxxx end mark xxxxxxxx
+
+    tmp1 = np.eye(n)
+    tmp2 = matrix.dot( matrix.transpose().conjugate())
+    tmpdif = tmp1 - tmp2
+    error  = np.linalg.norm(tmpdif)
+
+    error_max = np.finfo(matrix.dtype).eps * 10.0 * n
+    if not(error < error_max ):
         unitary = False
+
     return unitary
     # end is_unitary
 
@@ -1002,8 +1059,7 @@ def write_standard_output(config, args, covs, data, label_list):
     # P. Armstrong 05 Aug 2022
     # Add option to create hubble_diagram.txt for each systematic as well
 
-    logging.info("")
-    logging.info("   OUTPUT  ")
+
     unbinned       = args.unbinned
     label_cov_rows = args.label_cov_rows
     outdir         = Path(config["OUTDIR"])
@@ -1030,14 +1086,9 @@ def write_standard_output(config, args, covs, data, label_list):
 
     
     # write covariance matrices and datasets
-    opt_cov = 0  
+    opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
     for i, (label, cov) in enumerate(covs):
-
-        # xxx mark delete Oct 2022
-        #base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
-        #base_file  += '.gz'  # force gzip file, Apr 22 2022
-
         base_file   = get_covsys_filename(i)
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
@@ -1199,7 +1250,6 @@ def write_HD_binned(path, base, muerr_sys_list):
     wrflag_syserr = (muerr_sys_list is not None)
 
     keyname_row = f"{VARNAME_ROW}:"
-    # xxx mark varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
     varlist = f"{VARNAME_ROW} {VARNAME_zHD} {VARNAME_zHEL} " \
               f"{VARNAME_MU} {VARNAME_MUERR}"
 
@@ -1221,7 +1271,7 @@ def write_HD_binned(path, base, muerr_sys_list):
         syserr_list = muerr_list # anything to allow zip loop
 
     with open(path, "w") as f:
-        write_HD_comments(f, unbinned, wrflag_syserr)
+        write_HD_comments(f, unbinned, wrflag_syserr, False )
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr, nevt, syserr) in \
             zip(name_list, zHD_list, mu_list, muerr_list, 
@@ -1254,7 +1304,6 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     varlist = f"{varname_row} {VARNAME_IDSURVEY} " \
               f"{VARNAME_zHD} {VARNAME_zHEL} " \
               f"{VARNAME_MU} {VARNAME_MUERR}"
-              # xxx mark delete Nov 9 2022 f"zCMB zHEL " \
 
     name_list   = base[VARNAME_CID].to_numpy()
     idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
@@ -1262,11 +1311,12 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     zHEL_list   = base[VARNAME_zHEL].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
-
+    
     # check for optional quantities that may not exist in older files
-    found_muerr_vpec = VARNAME_MUERR_VPEC in base
-    found_muerr_sys  = muerr_sys_list is not None
-
+    found_muerr_vpec   = VARNAME_MUERR_VPEC in base
+    found_muerr_sys    = muerr_sys_list is not None
+    found_pbeams       = VARNAME_PROBCC_BEAMS in base  # Jan 2024
+ 
     if found_muerr_vpec :   
         varlist += f" {VARNAME_MUERR_VPEC}"
         muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
@@ -1279,24 +1329,34 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     else:
         syserr_list = muerr_list # anything for zip command
 
+    if found_pbeams:
+        varlist += f" {VARNAME_PROBIA_BEAMS}"
+        pbeams_list = base[VARNAME_PROBCC_BEAMS].to_numpy()
+        pbeams_list = 1.0 - pbeams_list # convert to Ia prob (instead of CC prob)
+    else:
+        pbeams_list = muerr_list # anything for zip command
+
+        # .xyz
+
     # - - - - - - -
     with open(path, "w") as f:
-        write_HD_comments(f, unbinned, found_muerr_sys)
+        write_HD_comments(f, unbinned, found_muerr_sys, found_pbeams )
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr) in \
+        for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr, pbeams) in \
             zip(name_list, idsurv_list, zHD_list, zHEL_list,
-                mu_list, muerr_list, muerr2_list, syserr_list ):
+                mu_list, muerr_list, muerr2_list, syserr_list, pbeams_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
                        f"{zHD:6.5f} {zHEL:6.5f} " \
                        f"{mu:8.5f} {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
             if found_muerr_sys:  val_list += f" {syserr:8.5f}"
+            if found_pbeams:     val_list += f" {pbeams:8.5f}"
 
             f.write(f"{keyname_row} {val_list}\n")
     return
     # end write_HD_unbinned
 
-def write_HD_comments(f, unbinned, wrflag_syserr):
+def write_HD_comments(f, unbinned, wrflag_syserr, wrflag_pbeams):
 
     f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
 
@@ -1314,6 +1374,10 @@ def write_HD_comments(f, unbinned, wrflag_syserr):
         f.write(f"# MUERR_SYS = sqrt(COVSYS_DIAG) for 'ALL' sys " \
                 "(diagnostic)\n")
 
+    if wrflag_pbeams:
+        f.write(f"# PROB1A_BEAMS = SNIa BEAMS probability from BBC " \
+            "(diagnostic)\n")
+
     # write ISDATA flag as comment in HD 
     ISDATA = config[KEYNAME_ISDATA]
     f.write(f"# {KEYNAME_ISDATA}: {ISDATA}   "\
@@ -1327,14 +1391,15 @@ def write_covariance(path, cov, opt_cov):
     
     add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
-    covdet         = np.linalg.det(cov)
     nrow           = cov.shape[0]
 
     logging.info("")
-    logging.info(f"Write cov to {path}")
+    logging.info(f"Write cov to {file_base}")
 
-    # RK - write diagnostic to check if anything changes
-    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:.5e}")
+    # RK - write diagnostic to stdout for regression test
+    (sgn, logcovdet)  = np.linalg.slogdet(cov)
+    logging.info(f"    {file_base}: size={nrow}  " \
+                 f"log|det(cov)| = {logcovdet:.1f}")
     sys.stdout.flush() 
 
     # - - - - -
@@ -1342,24 +1407,30 @@ def write_covariance(path, cov, opt_cov):
     nwr = 0 ; rownum = -1; colnum=-1
 
     if '.gz' in str(path):
-        f = gzip.open(path,"wt")
+        f = gzip.open(path,"wt", compresslevel=6 )
     else:
         f = open(path,"wt") 
 
     f.write(f"{nrow}\n")
-    for c in cov.flatten():
-        nwr += 1
-        is_new_row = False
-        if (nwr-1) % nrow == 0 : 
-            is_new_row = True ; rownum += 1 ; colnum = -1
-        colnum += 1
 
-        label = ""
-        if add_labels:            
+    
+    if add_labels:  
+        # might be slower with f.write for each cov element
+        for c in cov.flatten():
+            nwr += 1
+            is_new_row = False
+            if (nwr-1) % nrow == 0 : 
+                is_new_row = True ; rownum += 1 ; colnum = -1
+                colnum += 1
             if colnum == 0 or colnum == rownum : 
                 label = f"# ({rownum},{colnum})"
+            else:
+                label = ""
         f.write(f"{c:13.6e}  {label}\n")
-        # xxx mark delete f.write(f"{c:12.8f}  {label}\n")
+    else:
+        # write cov without an labels
+        str_cov = '\n'.join([str(f"{x:13.6e}") for x in cov.flatten() ] )
+        f.write(f"{str_cov}\n")
 
     f.close()
 
@@ -1382,11 +1453,9 @@ def write_summary_output(config, covariances, base):
     for i, (label, cov) in enumerate(covariances):
         covsys_file = get_covsys_filename(i)
         cov_info[i] = f"{label:<20} {covsys_file}"
-        # xxx mark delete oct 13 2022 cov_info[i] = label
 
     info["COVOPTS"] = cov_info
-        
-    # xxx mark del Mar 2023:  info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+    
 
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
@@ -1603,7 +1672,8 @@ def create_covariance(config, args):
                                                extracovdict)
 
     # find contributions which match to construct covs for each COVOPT
-    logging.info(f"Compute covariance for COVOPTS")
+    logging.info("")
+    logging.info(f"# ============ Compute covariance for COVOPTS ===========")
 
     # Add covopt to compute everything
     if args.nosys:
@@ -1613,10 +1683,31 @@ def create_covariance(config, args):
 
     covopts = covopts_default + config.get("COVOPTS",[])  
 
-    covariances = \
-        [ get_cov_from_covopt(c, contributions, base, 
-                              config.get("CALIBRATORS")) for c in covopts]
-    
+    args.tstart_cov = time.time()
+    covariances = []
+    for c in covopts:
+        label, cov = get_cov_from_covopt(c, contributions, base,
+                                         config.get("CALIBRATORS") )
+        covariances.append( (label, cov) )
+        
+    args.tend_cov = time.time()
+
+    # Validate that the final_cov is invertible
+    if not args.skip_invert_check:
+        logging.info("")
+        logging.info("# ========== check invertibility ===============")
+        for (label, cov) in covariances:
+            check_cov_invertible(label, cov,base[VARNAME_MUERR])
+
+        args.tend_check_cov_invert = time.time()
+
+    # xxx mark delet Jan 5 2024 xxxx
+    #covariances = \
+    #    [ get_cov_from_covopt(c, contributions, base, 
+    #                          config.get("CALIBRATORS")) for c in covopts]
+    # xxx end mark xxxx
+
+
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
     if args.systematic_HD:
@@ -1624,6 +1715,11 @@ def create_covariance(config, args):
     # Only create hubble_diagram.txt for the nominal
     else:
         label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
+
+    args.tstart_write = time.time()
+
+    logging.info("")
+    logging.info("# ================  OUTPUT ================= ")
 
     # write standard output for cov(s) and hubble diagram (9.22.2021)
     write_standard_output(config, args, covariances, data, label_list)
@@ -1634,7 +1730,11 @@ def create_covariance(config, args):
 
     write_summary_output(config, covariances, base)
 
-    # Sep 30 2022 RK - submit_batch_jobs needs output yaml to communicate
+    args.tend_write = time.time()
+
+    args.tend_all = time.time()
+
+    # write YAML output to communicate with submit_batch_jobs
     if args.yaml_file is not None:
         write_yaml(args, len(covariances) )
 
@@ -1699,16 +1799,34 @@ def prep_config(config,args):
         
     # end prep_config
 
+def loginfo_cpu_summary(args):
+
+    cpu_minutes = (args.tstart_cov - args.tstart_all)/60.0
+    logging.info(f"CPUTIME_INITIALIZE   = {cpu_minutes:.3f} minutes")
+
+    cpu_minutes = (args.tend_cov - args.tstart_cov)/60.0
+    logging.info(f"CPUTIME_COV_COMPUTE  = {cpu_minutes:.3f} minutes")
+
+    if not args.skip_invert_check:
+        cpu_minutes = (args.tend_check_cov_invert - args.tend_cov)/60.0
+        logging.info(f"CPUTIME_CHECK_INVERT = {cpu_minutes:.3f} minutes")
+
+    cpu_minutes = (args.tend_write - args.tstart_write)/60.0
+    logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")
+
+    cpu_minutes = (args.tend_all - args.tstart_all)/60.0
+    logging.info(f"CPUTIME_PROCESS_ALL  = {cpu_minutes:.3f} minutes")
+
+    # end loginfo_cpu_summary
+
 def write_yaml(args, n_cov):
 
-    start_time = args.start_time
-    end_time   = time.time()
-    cpu_min    = (end_time - start_time)/60.0
+    cpu_minutes  = (args.tend_all - args.tstart_all)/60.0
 
     with open(args.yaml_file,"wt") as y:
         y.write(f"N_COVMAT:       {n_cov}\n")
         y.write(f"ABORT_IF_ZERO:  {n_cov}    # same as N_COVMAT\n")
-        y.write(f"CPU_MINUTES:    {cpu_min:.3f} \n")
+        y.write(f"CPU_MINUTES:    {cpu_minutes:.3f} \n")
 
     return
     # end write_yaml
@@ -1723,13 +1841,17 @@ if __name__ == "__main__":
 
         command = " ".join(sys.argv)
         logging.info(f"# Command: {command}")
-        
-        args   = get_args()
-        args.start_time = time.time()
-        config = read_yaml(args.input_file)
+        sys.stdout.flush()
+
+        args            = get_args()
+        args.tstart_all = time.time()
+        config          = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...
         create_covariance(config, args)
+        loginfo_cpu_summary(args)
 
     except Exception as e:
         logging.exception(e)
         raise e
+
+    # end main

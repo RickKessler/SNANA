@@ -23,6 +23,9 @@
 #
 # Aug 21 2022 RK - fix bug counting lines before VARNAMES key
 # Jul 31 2023 RK - new option --reformat
+# Feb 02 2024 RK 
+#   + improve stdout appearance
+#   + new --outfile option
 #
 import os, sys, argparse, gzip, math
 import numpy as np
@@ -56,10 +59,11 @@ def get_args():
     msg = "number of rows to fetch CIDs (no need to know CIDs)"
     parser.add_argument("--nrow", help=msg, type=int, default=0)
 
-    msg = "comma seperated list of selection functions: combined via 'or'. Can use <, >, or =="
+    msg = "comma seperated list of selection functions: " \
+          "combined via 'or'. Can use <, >, or =="
     parser.add_argument("--sel", help=msg, type=str, default=None)
 
-    msg = "comma separated list of variable names"
+    msg = "comma separated list of variable names to  print values"
     parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
 
     msg = "comma seperated list of functions (mean, min, or max)"
@@ -71,6 +75,9 @@ def get_args():
 
     msg = "type of plot. Options include hist (histogram of each variable), and scatter (scatter plot, must specify 2 variables)"
     parser.add_argument("--plot", help=msg, type=str, default=None)
+
+    msg = "name of output table in fitres format"
+    parser.add_argument("-o", "--outfile", help=msg, type=str, default=None)
 
     if len(sys.argv) == 1:  parser.print_help(); sys.exit()
 
@@ -141,9 +148,9 @@ def parse_inputs(args):
             assert len(var_list) == 2, f"Only 2 variables can be defined when creating a scatter plot, not {len(var_list)}"
 
     
-    id_list = []
-    func_list = []
-    sel_list = []
+    id_list    = []
+    func_list  = []
+    sel_list   = []
     keyname_id = None
 
     if args.cid is not None :    
@@ -171,7 +178,8 @@ def parse_inputs(args):
     nrow       = args.nrow
 
     info_fitres = {
-        'fitres_file' : args.fitres_file,
+        'fitres_file' : args.fitres_file,   # input fitres file
+        'outfile'     : args.outfile,       # optional output
         'id_list'     : id_list,
         'nrow'        : nrow,
         'var_list'    : var_list,
@@ -191,7 +199,7 @@ def read_fitres_file(info_fitres, reformat_option):
     var_list   = info_fitres['var_list']     # list of variables
     keyname_id = info_fitres['keyname_id']
  
-    print(f"\n Read {ff}")
+    print(f"\n# Read {ff}")
 
     nrow_skip   = 0
     nrow_docana = 0
@@ -226,10 +234,10 @@ def read_fitres_file(info_fitres, reformat_option):
 
         if wdlist[0] == 'VARNAMES:' : 
             keyname_id = wdlist[1]
-            print(f" Found keyname_id = {keyname_id} " \
+            print(f"# Found keyname_id = {keyname_id} " \
                   f"after skipping {nrow_skip} rows")
             if nrow_docana > 0:
-                print(f"\t (skipped {nrow_docana} DOCANA rows)")
+                print(f"#\t (skipped {nrow_docana} DOCANA rows)")
 
             info_fitres['keyname_id'] = keyname_id
             VARLIST_ALL = wdlist[2:]
@@ -253,23 +261,25 @@ def read_fitres_file(info_fitres, reformat_option):
     # - - - - 
     if info_fitres['nrow'] > 0:
         df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
-                          skiprows=nrow_skip,
-                          usecols=var_list_local,
+                          skiprows=nrow_skip, dtype=str,
+                          usecols=var_list_local,                          
                           nrows = info_fitres['nrow'])
+
     else:
         df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
-                          skiprows=nrow_skip,
+                          skiprows=nrow_skip, dtype=str,
                           usecols=var_list_local)
 
-
-    df[keyname_id] = df[keyname_id].astype(str)
+    # xxx mark df[keyname_id] = df[keyname_id].astype(str)
     df             = df.set_index(keyname_id, drop=False)
 
-    # other columns to print as string to avoid int->float roundoff
-    keyname_str_list = [ 'SIM_HOSTLIB_GALID', 'HOST_OBJID' ]
-    for k in keyname_str_list:
-        if k in df:
-            df[k] = df[k].astype(str)
+    # xxx mark delete Feb 2024 xxxxxx
+    # set a few other columns to print as string to avoid int->float roundoff
+    #keyname_str_list = [ 'SIM_HOSTLIB_GALID', 'HOST_OBJID' ]
+    #for k in keyname_str_list:
+    #    if k in df:
+    #        df[k] = df[k].astype(str)
+    # xxxxxxxxx
 
     # load data frame
     info_fitres['df'] = df
@@ -284,14 +294,15 @@ def print_info(info_fitres):
     #   id_list  = comma-sep list of cids or galids
     #   nrow     = number of rows to fetch CID
 
-    df         = info_fitres['df']
-    id_list    = info_fitres['id_list']
-    nrow       = info_fitres['nrow']
-    var_list   = info_fitres['var_list']
-    keyname_id = info_fitres['keyname_id']
-    func_list  = info_fitres['func_list']
-    plot       = info_fitres['plot']
-    sel_list   = info_fitres['sel_list']
+    df           = info_fitres['df']
+    id_list      = info_fitres['id_list']
+    nrow         = info_fitres['nrow']
+    var_list     = info_fitres['var_list']
+    keyname_id   = info_fitres['keyname_id']
+    func_list    = info_fitres['func_list']
+    plot         = info_fitres['plot']
+    sel_list     = info_fitres['sel_list']
+    outfile      = info_fitres['outfile']
 
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)
@@ -315,8 +326,19 @@ def print_info(info_fitres):
     id_list = list(set(id_list))
     # Only print if id_list defined either by cid or nrow
     if len(id_list) > 0:
-        df = df.loc[sorted(id_list), var_list]
-        print(df.__repr__())
+
+        # xxx mark df = df.loc[sorted(id_list), var_list]
+        # xxx mark delete print(df.__repr__())
+
+        # add back keynam_id [e.g., CID or GALID] and then print
+        # without index ... this avoids index name (CID) printed
+        # to a separate row compared to other varnames
+        df = df.loc[sorted(id_list), [keyname_id] + var_list] # RK Feb 2024
+        print(df.to_string(index=False))                      # RK Feb 2024
+
+        if outfile is not None:
+            write_outfile_fitres(info_fitres)
+
     else:
         df = df.loc[df[keyname_id].to_list(), var_list]
 
@@ -328,6 +350,7 @@ def print_info(info_fitres):
         if func == 'max':
             print("\n",df.max().to_frame('Max'),"\n")
 
+    # warning: this plotter may be obsolete when plot_fitres.py is installed 
     if plot == "hist":
         for var in var_list:
             data = df[var]
@@ -348,6 +371,35 @@ def print_info(info_fitres):
         plt.show()
 
     # end print_info
+
+def write_outfile_fitres(info_fitres):
+
+    df         = info_fitres['df']
+    outfile    = info_fitres['outfile']
+    var_list   = info_fitres['var_list']
+    keyname_id = info_fitres['keyname_id']
+
+    print(f"\n# Write selected fitres value to table in {outfile}")
+
+    varnames_list   = [ keyname_id ] + var_list
+    varnames_string = ' '.join(varnames_list)
+    user_command    = ' '.join(sys.argv)
+    nvar       = len(varnames_list)
+
+    with open(outfile,"wt") as f:   
+        f.write(f"# This table created by command \n# {user_command}\n#\n")
+        f.write(f"VARNAMES: {varnames_string}\n")
+
+        #f.write(df.to_string(index=False))
+        for index, row in df.iterrows():
+            row_values = ""
+            for i in range(0,nvar):
+                row_values += f"{row[i]} "  # gotta be a better way 
+
+            f.write(f"SN: {row_values}\n")
+
+    return
+    # end write_outfile_fitres
 
 def reformat(reformat, info_fitres):
 
@@ -386,9 +438,9 @@ def reformat(reformat, info_fitres):
         basename += '.gz'
 
     for i in range(0,nfile_split):
-        outfile = f"{format_string}{i:02d}_{basename}"
+        outfile_reformat = f"{format_string}{i:02d}_{basename}"
         info_fitres['isplit']  = i
-        info_fitres['outfile'] = outfile
+        info_fitres['outfile_reformat'] = outfile_reformat
         print(f"  Create {outfile} ")
         if format_string == STRING_FORMAT_EAZY :
             if i==0 :
@@ -402,15 +454,15 @@ def reformat_eazy(info_fitres):
 
     # write gal id and fluxcal in format usable by eazy code.
 
-    outfile     = info_fitres['outfile']
-    isplit      = info_fitres['isplit']
-    nfile_split = info_fitres['nfile_split']
+    outfile_reformat       = info_fitres['outfile_reformat']
+    isplit                 = info_fitres['isplit']
+    nfile_split            = info_fitres['nfile_split']
     varname_fluxcal_list   = info_fitres['varname_fluxcal_list'] 
     varname_fluxcal_string = info_fitres['varname_fluxcal_string'] 
     
     nrow = len(info_fitres['GALID'])
 
-    with gzip.open(outfile,"wt") as f:
+    with gzip.open(outfile_reformat,"wt") as f:
         f.write(f"# id {varname_fluxcal_string}\n")
         for i in range(0,nrow):
             if (i % nfile_split) != isplit : continue
@@ -501,6 +553,7 @@ if __name__ == "__main__":
         reformat(args.reformat,info_fitres)
     else:
         print_info(info_fitres)
+
     # end main
 
 

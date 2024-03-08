@@ -71,6 +71,10 @@
 # Mar 3 2023 RK - DOFAST_PREP_INPUT_FILES=True (devel_flag=-328 for False)
 #
 # Apr 30 2023: add SIM_c,SIM_x1 to append_varname_missing 
+# Jan 17 2024: add CPU column in MERGE.LOG
+# Feb 12 2024: 
+#   + new input key INPFILE+
+#   + add NDOF, NWARN, FOM columns to BBC_SUMMARY_wfit.DAT
 #
 # ================================================================
 
@@ -104,7 +108,9 @@ COLNUM_BBC_MERGE_MUOPT        = 3
 COLNUM_BBC_MERGE_NEVT_DATA    = 4
 COLNUM_BBC_MERGE_NEVT_BIASCOR = 5
 COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
-COLNUM_BBC_MERGE_SPLITRAN     = 7
+COLNUM_BBC_MERGE_CPU          = 7  # added Jan 2024
+COLNUM_BBC_MERGE_SPLITRAN     = 8
+NCOL_BBC_MERGE = 9
 
 # list used in wrapup, cleanup, and merge_reset
 SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
@@ -114,7 +120,7 @@ SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 
 # name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
-PREFIX_wfit = "wfit"
+PREFIX_wfit  = "wfit"
 
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
@@ -261,7 +267,7 @@ class BBC(Program):
         # - - - -
         key = 'INPDIR+'
         if key not in CONFIG :
-            msgerr.append(f"Missing require key = {key} under CONFIG block")
+            msgerr.append(f"Missing required key = {key} under CONFIG block")
             msgerr.append(f"Check {input_file}")
             self.log_assert(False,msgerr)
 
@@ -273,7 +279,6 @@ class BBC(Program):
         inpdir_list_orig    = [ ]  # before expandvar
         version_list2d      = [ ] * n_inpdir  # vs. inpdir, iver
         fitopt_table_list2d = [ ] * n_inpdir
-        # xxx fitopt_num_list     = [ ]
         n_fitopt_list       = [ ]
         n_version_list      = [ ]
         sync_evt_list       = [ ] 
@@ -364,7 +369,6 @@ class BBC(Program):
                     sync_evt       = fit_info_yaml[key] > 0
                     KEY_SYNC_EVT   = key
 
-            # xxx if devel_flag == -20: sync_evt = False # disable event sync
             if not preserve_sync_evt :
                 sync_evt = False 
 
@@ -1373,6 +1377,15 @@ class BBC(Program):
             msgerr.append(f"missing {nmissing} input {SUFFIX_FITRES} files")
             self.log_assert(False,msgerr)
 
+        # - - --  .xyz
+        # Feb 2024: check optional list of external FITRES files to include
+        CONFIG   = self.config_yaml['CONFIG']
+        key = 'INPFILE+'
+        if key in CONFIG:
+            for infile in CONFIG[key]:
+                infile = os.path.expandvars(infile)
+                cat_list += f",{infile}"
+
         return cat_list
 
         # end make_cat_fitres_list
@@ -1610,7 +1623,7 @@ class BBC(Program):
 
         # construct row mimicking MERGE.LOG
         
-        row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
+        row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
         input_ff      = f"INPUT_{fitopt_num}.{SUFFIX_FITRES}"
         log_file      = f"{prefix_orig}.LOG"
@@ -1672,7 +1685,7 @@ class BBC(Program):
 
             elif iter1 and ifit > 0 :
                 # process events from FITOPT000_MUOPT000
-                row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0,  0 ]
+                row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0, 0.0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
                 ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}"
                 wait_file   = f"{ff_file}.gz"
@@ -1714,7 +1727,7 @@ class BBC(Program):
         fitopt_num    = self.config_prep['fitopt_num_outlist'][ifit] 
         muopt_num     = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
 
-        row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
+        row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_bbc_orig,  prefix_bbc_final  = self.bbc_prefix("bbc",  row)
         prefix_wfit_orig, prefix_wfit_final = self.bbc_prefix("wfit", row)
     
@@ -1841,10 +1854,9 @@ class BBC(Program):
         USE_SPLITRAN    = n_splitran > 1
 
         # create only MERGE table ... no need for SPLIT table
-
         header_line_merge = \
             f" STATE   VERSION  FITOPT  MUOPT " \
-            f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  SPLITRAN"
+            f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  CPU  SPLITRAN"
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -1869,6 +1881,7 @@ class BBC(Program):
             ROW_MERGE.append(0)    # NEVT_DATA
             ROW_MERGE.append(0)    # NEVT_BIASCOR
             ROW_MERGE.append(0)    # NEVT_CCPRIOR
+            ROW_MERGE.append(0.0)  # CPU (Jan 2024)
             if USE_SPLITRAN :
                 ROW_MERGE.append(isplitran)
             else:
@@ -1909,6 +1922,7 @@ class BBC(Program):
         COLNUM_NDATA     = COLNUM_BBC_MERGE_NEVT_DATA
         COLNUM_NBIASCOR  = COLNUM_BBC_MERGE_NEVT_BIASCOR
         COLNUM_NCCPRIOR  = COLNUM_BBC_MERGE_NEVT_CCPRIOR
+        COLNUM_CPU       = COLNUM_BBC_MERGE_CPU
         NROW_DUMP   = 0
 
         # keynames_for_job_stats returns 3 keynames : 
@@ -1919,7 +1933,10 @@ class BBC(Program):
                  self.keynames_for_job_stats('NEVT_BIASCOR')
         key_nccprior, key_nccprior_sum, key_nccprior_list = \
                  self.keynames_for_job_stats('NEVT_CCPRIOR')
-        key_list = [ key_ndata, key_nbiascor, key_nccprior  ] 
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                    self.keynames_for_job_stats('CPU_MINUTES')
+
+        key_list = [ key_ndata, key_nbiascor, key_nccprior, key_cpu  ] 
 
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
@@ -1980,7 +1997,8 @@ class BBC(Program):
                     row[COLNUM_NDATA]     = bbc_stats[key_ndata_sum]
                     row[COLNUM_NBIASCOR]  = bbc_stats[key_nbiascor_sum]
                     row[COLNUM_NCCPRIOR]  = bbc_stats[key_nccprior_sum]
-                    
+                    row[COLNUM_CPU]       = bbc_stats[key_cpu_sum]
+
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
 
@@ -2477,6 +2495,8 @@ class BBC(Program):
             f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
                     f"        # DATA, BIASCOR, CCPRIOR\n")
 
+            f.flush()
+
             # - - - - - - - - -
             # check for NEVT by sample (9.19.2021)
             if 'SAMPLE_LIST' in bbc_yaml :
@@ -2518,7 +2538,6 @@ class BBC(Program):
             f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
             f.flush()
 
-
             # - - - - 
             for result in BBCFIT_RESULTS:
                 #print(f" xxx result = {result}  key = {result.keys()} ")
@@ -2527,7 +2546,7 @@ class BBC(Program):
                     err = str(result[key].split()[1])
                     KEY = f"{key}:"
                     f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8} \n")
-
+                    f.flush()
         f.close()
 
         #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
@@ -2556,13 +2575,14 @@ class BBC(Program):
         
         # prepare w-varnames for varnames
         varlist_w = f"{varname_w} {varname_w}sig"
+        varname_FoM = ''
         if use_wfit_w0wa :
             varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
-
+            varname_FoM = 'FoM'
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
-                   f"chi2 sigint   \n"
+                   f"CHI2 NDOF NWARN {varname_FoM} \n"
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
@@ -2588,7 +2608,7 @@ class BBC(Program):
 
             # extract wfit values into local variables
             wfit_values_dict = util.get_wfit_values(wfit_yaml)
-
+            
             w       = wfit_values_dict['w']  
             w_sig   = wfit_values_dict['w_sig']
             wa      = wfit_values_dict['wa']    
@@ -2597,21 +2617,27 @@ class BBC(Program):
             omm_sig = wfit_values_dict['omm_sig']
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
+            ndof    = wfit_values_dict['ndof']
+            FoM     = wfit_values_dict['FoM']
+            nwarn   = wfit_values_dict['nwarn']
+
             w_ran   = int(wfit_values_dict['w_ran']) 
             wa_ran  = int(wfit_values_dict['wa_ran'])
             omm_ran = int(wfit_values_dict['omm_ran'])
 
             if use_wfit_w0wa :
                 w0 = w ; w0_sig = w_sig
-                w_values = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+                str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+                str_FoM   = f"{FoM:.1f}"
             else:
-                w_values = f"{w:7.4f} {w_sig:6.4f}"
+                str_w      = f"{w:7.4f} {w_sig:6.4f}"
+                str_FoM    = ''
 
             string_values = \
                 f"{nrow:3d}  {version} {ifit} {imu} " \
-                f"{w_values}  {omm:6.4f} {omm_sig:6.4f} " \
-                f"{chi2:.1f} {sigint:.3f} "
-
+                f"{str_w}  {omm:6.4f} {omm_sig:6.4f} " \
+                f"{chi2:.1f} {ndof} {nwarn} {str_FoM}"
+            
             if nrow == 1 and use_wfit_blind: 
                 f.write(f"# cosmology params blinded.\n")
                 f.write(f"#   {varname_w:<3} includes sin({w_ran}) \n")
@@ -2913,6 +2939,13 @@ class BBC(Program):
         #    prefix_orig  (includes version_ )
         #    prefix_final (does not include version_
 
+        lenrow = len(row)
+        if lenrow != NCOL_BBC_MERGE :
+            msgerr = [ f'BBC merge-row has {lenrow} elements, ' \
+                       f'but expected {NCOL_BBC_MERGE}' , 
+                       f'row = {row}' ]
+            self.log_assert(False,msgerr)
+
         version       = row[COLNUM_BBC_MERGE_VERSION]
         fitopt_num    = row[COLNUM_BBC_MERGE_FITOPT]
         muopt_num     = row[COLNUM_BBC_MERGE_MUOPT]
@@ -2953,6 +2986,7 @@ class BBC(Program):
         # end get_misc_merge_info 
 
     def get_merge_COLNUM_CPU(self):
-        return -9  # there is no CPU column
+        return COLNUM_BBC_MERGE_CPU
+
 
 

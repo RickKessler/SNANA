@@ -29,6 +29,16 @@
 **********************************************************
 **********************************************************/
 
+void system_pmap(char *code_name, char *call_fun) {
+  char cmd[100];
+  printf("\n xxx Function %s calling unix pmap :\n", call_fun);
+  fflush(stdout);
+  sprintf(cmd,"pmap `pidof %s` | tail -1", code_name );
+  system(cmd);
+  printf("\n");
+  fflush(stdout);
+}
+
 void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
 
   // Created July 15 2023
@@ -280,7 +290,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   else {
     // parse string
     MSKOPT  = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
-    NCID    = store_PARSE_WORDS(MSKOPT,fileName);
+    NCID    = store_PARSE_WORDS(MSKOPT,fileName, fnam);
     for(iwd = 0; iwd < NCID; iwd++ ) {
       get_PARSE_WORD(langC, iwd, CCID);
       match_cid_hash(CCID, ILIST, iwd);
@@ -310,7 +320,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
       if ( tmpLine[0] == '#' ) { continue ; }
       // parse words on this line  
-      NWD = store_PARSE_WORDS(MSKOPT,tmpLine);
+      NWD = store_PARSE_WORDS(MSKOPT,tmpLine, fnam);
       if ( NWD == 0 ) { continue ; }
 
       // loop over words on this line     
@@ -1700,7 +1710,7 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   char fnam[] = "keyMatchSim";
 
   // ------------ BEGIN --------------                                          
-  NKEY = store_PARSE_WORDS(MSKOPT,KEY);
+  NKEY = store_PARSE_WORDS(MSKOPT,KEY, fnam);
   for(ikey=0; ikey < NKEY; ikey++ ) {
     get_PARSE_WORD(0, ikey, tmpKey);
     if ( IS_FILE ) {
@@ -2296,7 +2306,7 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 
 
 // *******************************************************
-int store_PARSE_WORDS(int OPT, char *FILENAME) {
+int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
 
   // Read FILENAME (ascii) and store each word to be fetched later
   // with next_PARSE_WORDS.
@@ -2318,7 +2328,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Feb 26 2021: for FIRSTLINE, read 5 lines for safety.
   // Feb 18 2022: read 2 lines for FIRSTLINE
   // Aug 31 2023: minor refactor to handle strlen > 10k (see NWD_APPROX)
-  //
+  // Nov 16 2023: pass callFun arg for abort message
+
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
   bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
@@ -2390,7 +2401,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
     if ( NWD >= MXWD ) {
       sprintf(c1err,"NWD=%d exceeds bound of  MXWD=%d", NWD, MXWD);
-      sprintf(c2err,"NWD_APPROX=%d", NWD_APPROX);
+      sprintf(c2err,"NWD_APPROX=%d (called from %s)", NWD_APPROX, callFun);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
   
@@ -2407,8 +2418,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	printf("  split tmpLine = \n '%s' \n", tmpLine);
 	sprintf(c1err,"split string len = %d for iwd=%d " 
 		"(see tmpLine above)",	 lwd, iwd);
-	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d", 
-		MXCHARWORD_PARSE_WORDS);
+	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d (called from %s)", 
+		MXCHARWORD_PARSE_WORDS, callFun);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
     }
@@ -2419,7 +2430,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     // read text file
     fp = open_TEXTgz(FILENAME,"rt", &GZIPFLAG );
     if ( !fp ) {
-      sprintf(c1err,"Could not open text file");
+      sprintf(c1err,"Could not open text file (called from %s)", callFun);
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -2458,14 +2469,14 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   }
   else {
     sprintf(c1err,"Invalid OPT=%d with FILENAME='%s'", OPT, FILENAME);
-    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c");
+    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c (%s)", callFun);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
 
   if ( NWD >= MXWORDFILE_PARSE_WORDS ) {
-    sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d",
-	    NWD, MXWORDFILE_PARSE_WORDS );
+    sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d (%s)",
+	    NWD, MXWORDFILE_PARSE_WORDS, callFun );
     sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -2475,7 +2486,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   for(iwd=0; iwd < NWD; iwd++ ) 
     {  if ( PARSE_WORDS.WDLIST[iwd][0] == '\t' ) { NTAB++ ; }   }
   if ( NTAB > 0 ) {
-    sprintf(c1err,"Found %d invalid tabs.", NTAB);
+    sprintf(c1err,"Found %d invalid tabs. (called from %s)", NTAB, callFun);
     sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
@@ -2497,8 +2508,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
 } // end store_PARSE_WORDS
 
-int store_parse_words__(int *OPT, char *FILENAME) 
-{ return store_PARSE_WORDS(*OPT, FILENAME); }
+int store_parse_words__(int *OPT, char *FILENAME, char *callFun) 
+{ return store_PARSE_WORDS(*OPT, FILENAME, callFun); }
 
 
 void malloc_PARSE_WORDS(int NWD) {
@@ -4546,12 +4557,14 @@ int strcmp_ignoreCase(char *str1, char *str2) {
   //
   // return strcmp on lower-case comparison.
 
-  int len1, len2, j ;
-  char str1_lc[100], str2_lc[100];
+  int len1 = strlen(str1) ;
+  int len2 = strlen(str2) ;
+  int j ;
+  char *str1_lc = (char*) malloc ( len1 * sizeof(char) + 10 );
+  char *str2_lc = (char*) malloc ( len2 * sizeof(char) + 10 );
 
   // --------- BEGIN ----------
-  len1 = strlen(str1) ;
-  len2 = strlen(str2) ;
+
   if ( len1 != len2 ) { return -1 ; }
 
   for(j=0; j<len1; j++ ) { str1_lc[j] = tolower ( str1[j] ) ;  }
@@ -4560,9 +4573,39 @@ int strcmp_ignoreCase(char *str1, char *str2) {
   str1_lc[len1] = '\0' ;
   str2_lc[len2] = '\0' ;
 
-  return strcmp(str1_lc,str2_lc) ;
+  int jcmp = strcmp(str1_lc,str2_lc) ;
+  free(str1_lc); free(str2_lc);
+  return jcmp;
   
 } // end of strcmp_ignoreCase
+
+
+// ==================================================
+int strcmp_ignoregz(char *str1, char *str2) {
+
+  // Nov 2023: compare strings after stripping out possible .gz extension.
+
+  int len1 = strlen(str1) ;
+  int len2 = strlen(str2) ;
+  int j ;
+  char *str1_nogz = (char*) malloc ( len1 * sizeof(char) + 10 );
+  char *str2_nogz = (char*) malloc ( len2 * sizeof(char) + 10 );
+
+  // --------- BEGIN ----------
+
+  sprintf(str1_nogz,"%s", str1);
+  sprintf(str2_nogz,"%s", str2);
+
+  if ( strstr(str1_nogz,".gz") != NULL )  { str1_nogz[len1-3] = 0; }
+  if ( strstr(str2_nogz,".gz") != NULL )  { str2_nogz[len2-3] = 0; }
+
+  int jcmp = strcmp(str1_nogz,str2_nogz) ;
+
+  free(str1_nogz); free(str2_nogz);
+
+  return jcmp;
+  
+} // end of strcmp_ignoregz
 
 // ==================================================
 void invertMatrix(int N, int n, double *Matrix ) {
@@ -6166,12 +6209,15 @@ int nrow_read(char *file, char *callFun) {
 
 } // end nrow_read
 
+
+
 // =====================================
 int rd2columnFile(
 		   char *file   // (I) file to read
 		   , int MXROW  // (I) max size of column arrays
 		   , int *Nrow  // (O) number of rows read from file
 		   , double *column1, double *column2 // (O) column data
+		   , int OPT
 		   ) {
 
   // open  *file and read/return 2 data columns.
@@ -6179,9 +6225,11 @@ int rd2columnFile(
   // Returns SUCCESS flag upon completion
   // Skips rows that have comments starting with #, !, %
   //
+  // OPT |= 1 --> do NOT abort on missing file; return ERROR instead
+  //
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
   // Oct 17 2020: skip optional DOCUMENTATION lines
-
+  // Dec 05 2023: add OPT arg
   FILE *fp ;
   int  n, GZIPFLAG, IS_DOCANA=0 ;
   double tmp1, tmp2;  
@@ -6193,9 +6241,14 @@ int rd2columnFile(
 
   fp = open_TEXTgz(file, "rt", &GZIPFLAG );
   if ( fp == NULL ) {
-    sprintf(c1err,"Could not open file");
-    sprintf(c2err,"%s", file);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    if ( (OPT & 1) > 0 ) {
+      return ERROR;
+    }
+    else {
+      sprintf(c1err,"Could not open file");
+      sprintf(c2err,"%s", file);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
   }
 
   *Nrow =  n = 0;
@@ -6252,8 +6305,8 @@ int rd2columnFile(
 
 // define mangle routine for fortran
 int rd2columnfile_(char *file, int *MXROW, int *Nrow,
-		   double *col1, double *col2) {
-  return rd2columnFile(file,*MXROW, Nrow, col1, col2);
+		   double *col1, double *col2, int *OPT) {
+  return rd2columnFile(file,*MXROW, Nrow, col1, col2, *OPT);
 }
 
 
@@ -6843,13 +6896,15 @@ double getRan_GaussClip(int ilist, double ranGmin, double ranGmax ) {
 // *********************************
 double getRan_Flat1(int ilist) {
 
+  // return random number between 0 and 1
+  // Feb 2013: pass argument 'ilist' to pick random list.
+
   int  N ;
   double   x8;
   int  NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
   char fnam[] = "getRan_Flat1" ;
 
-  // return random number between 0 and 1
-  // Feb 2013: pass argument 'ilist' to pick random list.
+  // ----------- BEGIN -------------
 
   if ( ilist < 1 || ilist > NLIST_RAN ) {
     sprintf(c1err,"Invalid ilist = %d", ilist);
@@ -7175,10 +7230,10 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
   // April 2011.
   // Return integer bin [0 < IBIN < NBIN-1] such that 
-  // *(VAL_LIST+IBIN) contains VAL.
+  // VAL_LIST[IBIN] contains VAL.
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
-  // Dec 13 2019: return(0) immediately of NBIN=1
+  // Dec 13 2019: return(0) immediately if NBIN=1
 
   char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
@@ -7258,7 +7313,7 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
     }  // VAL if-block
   }  // ibin loop
 
-
+  
   // if we get here, then something is really wrong.
   print_preAbort_banner(fnam);
   printf("\t MINVAL=%f  MAXVAL=%f  NBIN=%d\n", MINVAL, MAXVAL, NBIN);
@@ -7379,6 +7434,7 @@ int rd_sedFlux(
 	     ,double *LAM_STEP     // (O) lambda-step
 	     ,double *FLUX_LIST    // (O) flux list
 	     ,double *FLUXERR_LIST // (O) flux error list
+	     ,int    *nflux_nan    // (O) number of nan fluxes
 	    ) {
 
   /***************
@@ -7395,7 +7451,8 @@ int rd_sedFlux(
 
    OPTMASK += 1 --> read FLUXERR (4th column of SEDFILE)
    OPTMASK += 2 --> allow non-uniform DAY bins 
-   
+   OPTMASK += 1024 --> do NOT abort on NLAM_PER_DAY (temporary)
+
    The return-arg lengths are
      - DAY_LIST has length NDAY
      - LAM_LIST has length NLAM and 
@@ -7437,6 +7494,10 @@ int rd_sedFlux(
     + abort if line length is too long (to avoid corruption)
     + abort if fewer than 3 words are read
 
+  Nov 13 2023: increment NLAM_PER_DAY, and set abort trap if any
+               NLAM differs for a pareticular day.
+
+  Dec 5 2023: return nflux_nan.
 
   **********/
 
@@ -7452,16 +7513,19 @@ int rd_sedFlux(
   int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX, LEN ;
   bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
+  int *NLAM_PER_DAY = (int*)malloc ( MXDAY * sizeof(int) );
+  bool OPT_ABORT_NLAM_PER_DAY;
+
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
   double LAMSTEP_TOL = 0.01;   // tolerance on LAMSTEP uniformity
-
+ 
   char fnam[]  = "rd_sedFlux" ;
 
   // ------------- BEGIN -------------
 
   // init return args
-  *NDAY = *NLAM = 0 ;
+  *NDAY = *NLAM = *nflux_nan = 0 ;
 
   // set flags that *NDAY and *NLAM are within bounds
   OKBOUND_DAY = OKBOUND_LAM = 1; 
@@ -7478,9 +7542,11 @@ int rd_sedFlux(
   // check OPTMASK args
   OPT_READ_FLUXERR = false ;      // default: ignore fluxerr column
   OPT_FIX_DAYSTEP  = true;     // default => require fixed bin size
+  OPT_ABORT_NLAM_PER_DAY = true;
 
   if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = true ; }
   if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = false ; }
+  if ( (OPTMASK & 1024)>0) { OPT_ABORT_NLAM_PER_DAY = false; }
 
   if ( OPT_READ_FLUXERR  ) 
     { sprintf(txterr, "and errors"); }
@@ -7497,6 +7563,8 @@ int rd_sedFlux(
   LAMFILLED = NRDLINE = NONZEROFLUX = FIRST_NONZEROFLUX = 0;
   daystep_last = daystep=-9.0;  day_last = -999999. ;
   lamstep_last = lamstep=-9.0;  lam_last = -999999. ;
+
+  NLAM_PER_DAY[iep] = 0 ;
 
   for(ival=0; ival < MXWORDLINE_FLUX; ival++ ) 
     { ptrStringVal[ival] = StringVal[ival];   }
@@ -7542,6 +7610,9 @@ int rd_sedFlux(
     sscanf(StringVal[1], "%le" , &lam  ) ;
     sscanf(StringVal[2], "%le" , &flux ) ;
 
+    // protect against nan and increment number of nans
+    if ( isnan(flux) ) { flux = 0.0;  (*nflux_nan)++ ; }
+
     sprintf(lastLine, "%s", line);
 
     if ( OPT_READ_FLUXERR ) { 
@@ -7583,6 +7654,7 @@ int rd_sedFlux(
       }
 
       iep++ ; *NDAY = iep ;  NONZEROFLUX = 0 ; 
+      NLAM_PER_DAY[iep] = 0  ;
 
     /* xxx not now
       // do NOT increment this day if all fluxes are zero.
@@ -7648,6 +7720,7 @@ int rd_sedFlux(
 
     ilam++ ; 
 
+
     // load flux after OKBOUND arrays are set
     if( OKBOUND_DAY && OKBOUND_LAM )  { 
       FLUX_LIST[iflux] = flux ;  
@@ -7656,6 +7729,7 @@ int rd_sedFlux(
       iflux++ ;  
     }
 
+    NLAM_PER_DAY[iep-1]++ ;
     day_last = day;
     lam_last = lam;
 
@@ -7664,6 +7738,12 @@ int rd_sedFlux(
 
   // - - - - - - - - - 
   // error checking
+
+  if ( *nflux_nan > 0 ) 
+    { printf("\n   >>>>>> WARNING: %s SED contains %d flux=nan values <<<<<<<\n\n", 
+	     sedcomment, *nflux_nan); 
+    }
+
   if ( OKBOUND_DAY == 0 ) {
     sprintf(c1err,"NDAY=%d exceeds bound of MXDAY=%d", *NDAY, MXDAY );
     sprintf(c2err,"%s", "Increase EPOCH  binsize or increase MXDAY");
@@ -7681,6 +7761,25 @@ int rd_sedFlux(
     sprintf(c1err, "Invalid NDAY=%d and NLAM=%d", *NDAY, *NLAM);
     sprintf(c2err, "Check sed file for tabs; DAYrange=%.1f to %.1f",
 	    DAYrange[0], DAYrange[1] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  // - - - - - -
+  // check that all NLAM_PER_DAY are the same (Nov 2023)
+  int NLAM_REF = NLAM_PER_DAY[0];
+  int NLAM_TEST, NERR=0;
+  for ( iep=1; iep < *NDAY; iep++ ) {
+    NLAM_TEST = NLAM_PER_DAY[iep];
+    if ( NLAM_TEST != NLAM_REF ) {
+      printf(" ERROR: NLAM=%d at DAY=%.2f but NLAM=%d at DAY=%.2f \n",
+	     NLAM_REF,  DAY_LIST[0], 
+	     NLAM_TEST, DAY_LIST[iep] ); fflush(stdout);
+      NERR++ ;
+    }
+  }
+  if ( NERR > 0 && OPT_ABORT_NLAM_PER_DAY ) {
+    sprintf(c1err, "%d phases have invalid NLAM", NERR);
+    sprintf(c2err, "Wavelength grid must be the same for each day.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
@@ -7702,11 +7801,13 @@ int rd_sedFlux(
   else
     { *LAM_STEP = 0.0 ; }
 
+  free(NLAM_PER_DAY);
 
   if ( GZIPFLAG==0 ) 
     { fclose(fpsed); } // normal file stream
   else
     { pclose(fpsed); } // for gzip file
+
 
   return SUCCESS ;
 
@@ -8318,27 +8419,19 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
   if  ( ispec < 0 ) { init_GENSPEC_GLOBAL(); return; }
   
+  /* xxx
   if ( GENSPEC.NBLAM_VALID[ispec] > 0 ) {
-    free(GENSPEC.LAMMIN_LIST[ispec])  ;
-    free(GENSPEC.LAMMAX_LIST[ispec])  ;
-    free(GENSPEC.LAMAVG_LIST[ispec])  ;
-    free(GENSPEC.FLAM_LIST[ispec])    ;
-    free(GENSPEC.FLAMERR_LIST[ispec]) ;
-    free(GENSPEC.FLAMWARP_LIST[ispec]) ; // Apr 2 2021
-    free(GENSPEC.GENFLAM_LIST[ispec]) ;
-    free(GENSPEC.GENMAG_LIST[ispec])  ;
+    malloc_GENSPEC(-1, 0);
   }
+  xxx */
 
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
-  int MEMD = NBLAM * sizeof(double) ;
-  GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
-  GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
-  GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
-  GENSPEC.FLAM_LIST[ispec]     = (double*) malloc(MEMD);
-  GENSPEC.FLAMERR_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.FLAMWARP_LIST[ispec] = (double*) malloc(MEMD);
-  GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);
+  // xxx mark   int MEMD = NBLAM * sizeof(double) ;
+
+  if ( GENSPEC.IS_MALLOC[ispec] ) { malloc_GENSPEC(-1, ispec, 0); }
+
+  // always re-malloc in case NBLAM changes
+  malloc_GENSPEC(+1, ispec, NBLAM);
   
   // Jul 1 2021: init wave-dependent arrays in case they aren't filled
   int ilam;
@@ -8352,6 +8445,53 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
 } // end init_GENSPEC_EVENT
 
+
+// ============================
+void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
+
+  // Created Oct 2023
+  // opt = -1 --> free GENSPEC
+  // opt =  0 --> one-time init of IS_MALLOC[ispec] = false
+  // opt = +1 --> malloc with length NBLAM
+  //
+  // The GENSPEC malloc is tricky because arrays need to be re-malloced
+  // each event because real data has different size spectra arrays.
+
+  int i;
+  char fnam[] = "malloc_GENSPEC" ;
+
+  // --------- BEGIN ------------
+  if ( opt == 0 ) {
+    for(i=0; i < MXSPEC; i++ ) 
+      { GENSPEC.IS_MALLOC[i] = false; }
+  }
+  else if ( opt < 0 ) {
+    free(GENSPEC.LAMMIN_LIST[ispec])  ;
+    free(GENSPEC.LAMMAX_LIST[ispec])  ;
+    free(GENSPEC.LAMAVG_LIST[ispec])  ;
+    free(GENSPEC.FLAM_LIST[ispec])    ;
+    free(GENSPEC.FLAMERR_LIST[ispec]) ;
+    free(GENSPEC.FLAMWARP_LIST[ispec]) ; // Apr 2 2021
+    free(GENSPEC.GENFLAM_LIST[ispec]) ;
+    free(GENSPEC.GENMAG_LIST[ispec])  ;
+    GENSPEC.IS_MALLOC[ispec] = false;
+  }
+  else if ( opt > 0 ) {
+    int MEMD = (NBLAM+100) * sizeof(double); 
+    GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
+    GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
+    GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
+    GENSPEC.FLAM_LIST[ispec]     = (double*) malloc(MEMD);
+    GENSPEC.FLAMERR_LIST[ispec]  = (double*) malloc(MEMD);
+    GENSPEC.FLAMWARP_LIST[ispec] = (double*) malloc(MEMD);
+    GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
+    GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);    
+    GENSPEC.IS_MALLOC[ispec]     = true;
+  }
+
+  return ;
+
+} // end malloc_GENSPEC
 
 // =====================================
 void set_SNDATA_FILTER(char *filter_list) {
@@ -8687,7 +8827,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
     if ( FOUND_VARNAMES ) {
       NKEY_LOCAL++ ;
       fgets(LINE, 100, fp ); // scoop up varnames
-      NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
       
       ivar_start = 0; ivar_end = NVAR_TMP;
       if ( NVAR_SKIP < 0 ) { ivar_start -= NVAR_SKIP; }
@@ -9589,7 +9729,7 @@ int colnum_in_table(char *fileName, char *varName) {
     if ( strcmp(c_get,KEY) == 0 ) { 
       colnum = -3;
       fgets(VARNAME_STRING, MXPATHLEN, fp);
-      nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING);
+      nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING, fnam);
       for(ivar=0; ivar < nvar; ivar++ ) {
 	get_PARSE_WORD(0, ivar, c_get);
 	if ( strcmp(varName,c_get) == 0 ) { colnum = ivar; }
@@ -9656,7 +9796,7 @@ void check_file_docana(int optmask, char *fileName) {
   char fnam[] = "check_file_docana";
   // ------------- BEGIN --------
 
-  NWD = store_PARSE_WORDS(MSKOPT, fileName);
+  NWD = store_PARSE_WORDS(MSKOPT, fileName, fnam );
 
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(langFlag, iwd, key);

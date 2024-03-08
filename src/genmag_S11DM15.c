@@ -96,6 +96,7 @@ int init_genmag_S11DM15(char *VERSION, int OPTMASK ) {
   read_S11DM15_INFO_FILE();
 
   // set extreme ranges to read any SED
+  int     nflux_nan;
   double  Trange[2], Lrange[2] ;
   char    tmpFile[MXPATHLEN], sedComment[60];
 
@@ -119,7 +120,8 @@ int init_genmag_S11DM15(char *VERSION, int OPTMASK ) {
 	     ,S11DM15_SEDMODEL.DAY, &S11DM15_SEDMODEL.DAYSTEP
 	     ,&S11DM15_SEDMODEL.NLAM
 	     ,S11DM15_SEDMODEL.LAM, &S11DM15_SEDMODEL.LAMSTEP
-	     ,S11DM15_SEDMODEL.FLUX, S11DM15_SEDMODEL.FLUXERR );
+	     ,S11DM15_SEDMODEL.FLUX, S11DM15_SEDMODEL.FLUXERR
+	     ,&nflux_nan );
   
   // store useful quantities
   NDAY = S11DM15_SEDMODEL.NDAY ;

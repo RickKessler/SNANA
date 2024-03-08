@@ -19,6 +19,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   // Jan 9, 2024: pass SNID to use for messaging.
 
   char fnam[] = "init_zPDF_spline";
+
   int i,i2;
 
   // ------ BEGIN ---------
@@ -108,6 +109,7 @@ void init_zpdf_spline__(int *N_Q, double* percentile_list,
 }
 double eval_zpdf_spline__(double *z) {
   return eval_zPDF_spline(*z) ; 
+
 }
 
 
@@ -122,6 +124,7 @@ void dump_zPDF(int N_Q, double* percentile_list, double* zphot_q_list,
     fflush(stdout);
   }
 }
+
 
 
 

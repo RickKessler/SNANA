@@ -312,7 +312,7 @@ void  SIMSED_DRIVER(void) {
 
 #define MXCHAR_LINE 200
 
-  int NLINE=0, NSED=0 ;
+  int NLINE=0, NSED=0, nflux_nan=0 ;
   char LINE[MXCHAR_LINE];
   char *ptrtok, KEY[40], sed_fileName[100], SED_FILENAME[200];
   char sedComment[] = "";
@@ -348,14 +348,15 @@ void  SIMSED_DRIVER(void) {
     
     sprintf(SED_FILENAME, "%s/%s", INPUTS.INPDIR_SIMSED, sed_fileName);
     rd_sedFlux(SED_FILENAME, sedComment
-	     ,Trange_SIMSED, Lrange_SIMSED
-	     ,MXBIN_DAY_REBIN, MXBIN_LAM_REBIN
-	     ,SEDMODEL_OPTMASK
-	     ,&TEMP_SEDMODEL_INP.NDAY, 
+	       ,Trange_SIMSED, Lrange_SIMSED
+	       ,MXBIN_DAY_REBIN, MXBIN_LAM_REBIN
+	       ,SEDMODEL_OPTMASK
+	       ,&TEMP_SEDMODEL_INP.NDAY, 
 	       TEMP_SEDMODEL_INP.DAY, &TEMP_SEDMODEL_INP.DAYSTEP
-	     ,&TEMP_SEDMODEL_INP.NLAM, 
+	       ,&TEMP_SEDMODEL_INP.NLAM, 
 	       TEMP_SEDMODEL_INP.LAM, &TEMP_SEDMODEL_INP.LAMSTEP
-	     ,TEMP_SEDMODEL_INP.FLUX,  TEMP_SEDMODEL_INP.FLUXERR );  
+	       ,TEMP_SEDMODEL_INP.FLUX,  TEMP_SEDMODEL_INP.FLUXERR
+	       ,&nflux_nan);  
 
 
     // do the dirty work of rebinng and modify TEMP_SEDMODEL

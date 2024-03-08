@@ -73,6 +73,9 @@
  May 30 2020: include sndata.h and remove a few redundant define statements
                in sntools_outout.h
 
+ Nov 04 2023: add VBOSE arg to CDTOPDIR_OUTPUT to enable codes to
+              suppress output for long batch jobs.
+
 ************************************************/
 
 #include <stdio.h>
@@ -2825,29 +2828,30 @@ void makedir_output__(char *CCID, int *CID ) {
 
 
 // ===================================================
-void CDTOPDIR_OUTPUT(void) {
+void CDTOPDIR_OUTPUT(int VBOSE) {
 
   // cd top topdir if in OPEN-NEW mode; do nothing for READ mode.
+  // Nov 2023: pass VBOSE flag to print what it's doing.
 
   int  NEW ;
-  //  char fnam[] = "CDTOPDIR_OUTPUT" ;
+  char fnam[] = "CDTOPDIR_OUTPUT" ;
 
   if ( NOPEN_TABLEFILE == 0 ) { return ; }
 
 #ifdef USE_HBOOK
   NEW = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ;
-  if ( NEW && SNLCPAK_USE_HBOOK ) { CDTOPDIR_HBOOK();  }
+  if ( NEW && SNLCPAK_USE_HBOOK ) { CDTOPDIR_HBOOK(VBOSE);  }
 #endif
 
 #ifdef USE_ROOT
   NEW = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ;
-  if ( NEW && SNLCPAK_USE_ROOT )  { CDTOPDIR_ROOT();  }
+  if ( NEW && SNLCPAK_USE_ROOT )  { CDTOPDIR_ROOT(VBOSE);  }
 #endif
   
 } // end of CDTOPDIR_OUTPUT
 
-void cdtopdir_output__ (void) {
-  CDTOPDIR_OUTPUT();
+void cdtopdir_output__ (int *VBOSE) {
+  CDTOPDIR_OUTPUT(*VBOSE);
 }
 
 

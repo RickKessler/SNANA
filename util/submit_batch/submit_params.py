@@ -343,6 +343,8 @@ HELP_CONFIG_LCFIT = f"""
   - FITOPT000     # another synLink for FITOPT012
   - etc ...
 
+  FITOPT_GLOBAL: <command-line arg list>  # global o[tions for all FITOPTs
+
   # Sym Link Notes for FITOPT000: this feature is useful for systematics
   # with multiple surveys. For example above, FITOPT011 and FITOP012 could
   # be calibration variatios for a different survey, so here the sym link
@@ -460,7 +462,7 @@ HELP_CONFIG_COSMOFIT = f"""
 # of the directory under 7_CREATE_COV,and sometimes /X is needed to ensure 
 # uniqueness.
 # 
-  FITAVG:  # also works with WFITAVG and FCAVG key
+  WFITAVG:  # also works with WEIGHT_AVG and FCAVG key
   - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC    # w(wa) diff-avg
   - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w(wa) diff-avg
   - UNBIN5YR_5YR_IaCC                        # w(wa) avg
@@ -482,6 +484,12 @@ HELP_CONFIG_BBC = f"""
 
        or
   INPDIR+: None  # flag to ignore INPDIR+; instead, use datafile= argument
+
+  # to include external FITRES files (e.g., from a separate analysis)
+  INPFILE+:
+  - file1   # include this explicit FITRES file; no subdir structure
+  - file2
+    etc ...
 
   OUTDIR:   [outdir]   # all output goes here
 

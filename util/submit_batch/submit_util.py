@@ -919,12 +919,6 @@ def write_job_info(f,JOB_INFO,icpu):
     CHECK_ALL_DONE = all_done_file is not None and kill_on_fail and \
                      not check_abort
 
-    # xxx mark delete Ju 27 2022 xxxxxxxxxxxxxxxxx
-    #CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
-    #                    'kill_on_fail'  in JOB_INFO  and \
-    #                    not check_abort
-    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
     CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
@@ -1131,6 +1125,69 @@ def get_survey_info(yaml_path):
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 
+def get_simInput_key_values(sim_input_file, key_list):
+
+    # Created Feb 2024 by R.Kessler
+    # Example:
+    #    input key_list = [ 'GENMODEL', 'GENRANGE_PEAKMJD' ]
+    # Search sim_input_file for these keys, and also search
+    # INCLUDE files. Sim-input format is not quite YAML,
+    # so there can be multiple values returned for a given key.
+    # Return a dictionary as follows:
+    #   { 'GENMODEL':  [ arg list ],
+    #     'GENRANGE_PEAKMJD' : [arg list] }
+    #
+    # Initial use is for pippin to read GENMODEL keys, so here
+    # is just a public place to store this utility.
+    # .xyz
+
+
+    INPUT_FILE_LIST = [ sim_input_file ]
+
+    # first find INCLUDE files and append INPUT_FILE_LIST
+    KEYLIST_INCLUDE_FILE = [ 'INPUT_INCLUDE_FILE', 'INPUT_FILE_INCLUDE' ]
+    with open(sim_input_file,"rt") as f:
+        line_list = f.readlines()
+    for line in line_list:
+        line = line.rstrip() # remove trailine space
+        wdlist = line.split()
+        if len(wdlist) < 2 : continue
+        for key in KEYLIST_INCLUDE_FILE:
+            if wdlist[0] == key + ':' :
+                inc_file = os.path.expandvars(wdlist[1])
+                INPUT_FILE_LIST.append(inc_file)
+    
+    # - - - - -
+    # init output dictionary 
+    key_dict = {}
+    for key in key_list:  key_dict[key] = []
+
+    #print(f" xxx util: INPUT_FILE_LIST = {INPUT_FILE_LIST}")
+
+    # loop over all of the sim-input files and search for key values
+    for inp_file in INPUT_FILE_LIST:
+        f         = open(inp_file,"rt")
+        line_list = f.readlines()
+        f.close()
+
+        #print(f" Inspect {inp_file}")
+        for line in line_list:
+            if line.isspace()   : continue
+            if line[0:1] == '#' : continue
+            line = line.rstrip()      # remove trailing space 
+            line = line.split('#')[0] # remove comments
+            wdlist = line.split()
+            if len(wdlist) < 2 : continue
+            for key in key_list:
+                if wdlist[0] == key + ':' :
+                    args = ' '.join(wdlist[1:])
+                    #print(f" xxx load {key} with {args}")
+                    key_dict[key].append(args)
+
+    # - - - - - 
+    
+    return key_dict
+    # end get_simInput_key_values
 
 # ---------------------------------------------------
 # MESSAGING
@@ -1270,6 +1327,7 @@ def get_wfit_values(wfit_yaml):
     # Oct 23 2021: check for Rho
     # Feb 22 2022: check for NWARNINGS
     # Aug 28 2022: wsig_hi -> wsig_up (bug fix)
+    # Feb 12 2024: return ndof in dictionary
 
     key_list = [ 'w', 'w0' ]
     for key in key_list:
@@ -1346,6 +1404,12 @@ def get_wfit_values(wfit_yaml):
     # - - - misc - - - - 
     chi2    = wfit_yaml['chi2'] 
     sigint  = wfit_yaml['sigint']
+    
+    key_list = [ 'ndof', 'Ndof' ]
+    ndof = -9.0 
+    for key in key_list:
+        if key in wfit_yaml:
+            ndof = wfit_yaml[key]
 
     key_list = [ 'wrand', 'wran', 'w0ran' ]
     w_ran = -9.0 
@@ -1383,6 +1447,7 @@ def get_wfit_values(wfit_yaml):
         'omm'      : omm ,
         'omm_sig'  : omm_sig ,
         'chi2'     : chi2 ,
+        'ndof'     : ndof, 
         'sigint'   : sigint ,
         'w_ran'    : w_ran,
         'omm_ran'  : omm_ran,

@@ -16,8 +16,8 @@ typedef struct GRIDMAP {
   double  *FUNMAX ;    // max fun-val per function 
   int    *INVMAP;      // covert multi-D indices into 1D index
   int  NROW;          // number or rows read from file 
-  int  OPT_EXTRAP;   // 1=>snap outside values to edge 
-  char VARLIST[80];  // comma-sep list of variables (optional to fill)   
+  int  OPT_EXTRAP;    // 1=>snap outside values to edge 
+  char VARLIST[80];   // comma-sep list of variables (optional to fill)   
 
   float MEMORY; // alloated memory, MB
 

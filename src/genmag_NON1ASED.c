@@ -8,18 +8,6 @@
     HISTORY
    ~~~~~~~~~
 
-  Mar 14 2016: include prep_NON1ASED and pick_NON1ASED here,
-               along with include snlc_sim.h .
-               Need more refactoring to define NON1ASED structure
-               in genmag_NON1ASED.h so that snlc_sim.h reference
-               can be removed.
-
-  Aug 28 2017: new function getName_SED_FILE_NON1ASED()
-
-  Jul 20 2018: 
-    + replace interp_flux_SEDMODEL with get_flux_SEDMODEL to take
-      care of late-time extrapolation. Expect no change here,
-      but uses same utility as genmag_SIMSED.
 
   May 4 2019
     + read and apply index-dependent FLUXSCALE_NON1ASED (default SCALE=1)
@@ -69,7 +57,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
 
   double UVLAM     = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
   int   DO_GENGRID = ( INP_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
-  int ifilt, ifilt_obs, NZBIN, NON1A_INDEX ;
+  int ifilt, ifilt_obs, NZBIN, NON1A_INDEX, nflux_nan ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40], *sedFile ;
   char fnam[] = "init_genmag_NON1ASED"  ;
@@ -106,7 +94,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
       }
     }
 
-
+    malloc_METADATA_SEDMODEL(1,0); // allocate 1 SED surface
     malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
 
     malloc_FLUXTABLE_SEDMODEL ( NFILT_SEDMODEL, NZBIN, NLAMPOW_SEDMODEL, 
@@ -136,7 +124,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
 	     ,SEDMODEL.OPTMASK
 	     ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );
+	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	     ,&nflux_nan );
 
   if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); } 
 
@@ -290,7 +279,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
   float FRAC_PEC1A = GEN_NON1ASED->FRAC_PEC1A ; // Ngen(pecIa)/NgenTot
   int   DO_GENGRID = ( GEN_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
 
-  int index, isp, NINDEX, ISPEC1A ;
+  int index, isp, NINDEX, ISPEC1A, EXIST_SED ;
   int NGENTMP, NGENSUM, NGENTOT, NSED_SKIP, ONEFLAG ;
 
   double  wgt, WGTSUM_TOT, WGTSUM[2], XNGEN[2], XN ;
@@ -428,8 +417,8 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     INP_NON1ASED->MXGEN[isp] = NGENSUM ;
 
     ptrSed  = INP_NON1ASED->SED_FILE[isp] ;
-    getName_SED_FILE_NON1ASED(INP_NON1ASED->PATH, name, 
-			      ptrSed); // return ptrSed
+    EXIST_SED = getName_SED_FILE_NON1ASED(INP_NON1ASED->PATH, name, 
+					  ptrSed); // return ptrSed
 
     if ( NGENTMP > 0 ) {
       printf("     Will generate %4d %s (MXGEN=%4d) with %s\n", 
@@ -449,13 +438,15 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     }
 
     // check that NONIA and PECIA are not mixed up (Aug 2016)
-    int ISPEC1A_USER = INP_NON1ASED->ISPEC1A[isp] ;
-    int ISPEC1A_LIST = INP_NON1ASED->LIST_ISPEC1A[index] ;
-    if ( ISPEC1A_USER != ISPEC1A_LIST ) {
-      sprintf(c1err, "ISPEC1A(USER)=%d but ISPEC1A(NON1A_LIST)=%d",
-	      ISPEC1A_USER, ISPEC1A_LIST );
-      sprintf(c2err,"for %s (index=%d)", name, index );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
+    if ( !INP_NON1ASED->ALL_NON1A ) {
+      int ISPEC1A_USER = INP_NON1ASED->ISPEC1A[isp] ;
+      int ISPEC1A_LIST = INP_NON1ASED->LIST_ISPEC1A[index] ;
+      if ( ISPEC1A_USER != ISPEC1A_LIST ) {
+	sprintf(c1err, "ISPEC1A(USER)=%d but ISPEC1A(NON1A_LIST)=%d",
+		ISPEC1A_USER, ISPEC1A_LIST );
+	sprintf(c2err,"for %s (index=%d)", name, index );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
+      }
     }
 
   } // isp
@@ -474,7 +465,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
 
 
 // =========================================================
-void  getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
+bool getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
 
   // Created Aug 28 2017   
   // Inputs
@@ -483,17 +474,21 @@ void  getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
   //
   // Output 
   //   *outName is the full file name, including path.
+  //
+  // Oct 2023: 
+  //  return True if SED file exists (gzip or not); false if not.
 
   struct stat statbuff;
-  int jstat ;
-  //  char fnam[] = "getName_SED_FILE_NON1ASED" ;
+  int jstat, jstat_gz ;
+  char *outName_gz = (char*)malloc( MXPATHLEN*sizeof(char) );
+  char fnam[] = "getName_SED_FILE_NON1ASED" ;
 
   // -------------- BEGIN --------------
 
   // First check legacy option where outName = PATH/inpName.SED
   sprintf(outName, "%s/%s.SED", PATH, inpName ); 
   jstat = stat(outName, &statbuff); // returns 0 if file exists
-  if ( jstat == 0 ) { return ; }
+  if ( jstat == 0 ) { return true ; }
 
   // if we get here, then inpName is assumed to be a complete
   // file name. If it has a slash (/), then it included a path.
@@ -509,7 +504,18 @@ void  getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
     sprintf(outName,"%s/%s", PATH, inpName ); 
   } 
 
-  return;
+  sprintf(outName_gz,"%s.gz", outName);
+
+  // check if file (or file.gz) exists
+  jstat    = stat(outName,    &statbuff);   // returns 0 if file exists
+  jstat_gz = stat(outName_gz, &statbuff);   // returns 0 if file exists
+  free(outName_gz);
+
+  if ( jstat == 0 || jstat_gz == 0) 
+    { return true ; }
+  else 
+    { return false; }
+
 
 } // end getName_SED_FILE_NON1ASED
 
@@ -567,13 +573,18 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
   //     FLUX_SCALE can repeat within NON1A.LIST file so that different
   //     model groups have different FLUX_SCALE.
   //
+  // Oct 29 2023: abort if any SED files are missing ... so we don't waste
+  //   hours of processing before prep_NON1ASED aborts on missing SED.
+  //
   FILE *fp;
   int NLIST, L_NON1A, L_PEC1A, index, NINDEX ;
   int FOUND_PEC1A=0;
   double SCALE = 1.0 ;
-  int    ALLNON1A_FLAG=0, SNTAG_ALLNON1A=0 ;
+  int    ALLNON1A_FLAG=0, SNTAG_ALLNON1A=0, NSED_MISSING=0 ;
+  bool   EXIST_SED;
   double MAGOFF_ALLNON1A=0.0, MAGSMEAR_ALLNON1A=0.0;
-  char cget[80], type[20], fname[MXPATHLEN], listFile[MXPATHLEN] ;
+  char cget[80], type[20];
+  char FILE_NAME[MXPATHLEN], file_name[MXPATHLEN], listFile[MXPATHLEN] ;
   char tmpLine[100], *ptrTmp = tmpLine ;
   char fnam[] = "read_NON1A_LIST" ;
 
@@ -599,6 +610,7 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
     MAGOFF_ALLNON1A   = INP_NON1ASED->MAGOFF[1];
     MAGSMEAR_ALLNON1A = INP_NON1ASED->MAGSMEAR[1][0];
     SNTAG_ALLNON1A    = INP_NON1ASED->SNTAG[1];
+    INP_NON1ASED->ALL_NON1A = true; // set global flag
   }
   else { 
     ALLNON1A_FLAG = 0; 
@@ -626,13 +638,22 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 
       readint(fp,  1, &index );
       readchar(fp, type );
-      readchar(fp, fname );  ENVreplace(fname,fnam,1);
+      readchar(fp, file_name );  ENVreplace(file_name,fnam,1);
+
 
       if ( index <= 0 || index >= MXNON1A_TYPE ) {
 	sprintf(c1err,"Invalid %s index = %d read from ", 
 		MODELNAME_NON1ASED, index );
 	sprintf(c2err,"%s", INP_NON1ASED->LISTFILE );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+      EXIST_SED = getName_SED_FILE_NON1ASED(INP_NON1ASED->PATH, file_name, 
+					    FILE_NAME);  // <= returned
+      if ( !EXIST_SED ) {
+	NSED_MISSING++ ;
+	printf(" ERROR: cannot find SED file %s\n", FILE_NAME);
+	fflush(stdout);
       }
 
       NLIST++ ;
@@ -642,7 +663,7 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
       INP_NON1ASED->INDEXVALID[index] = 1; 
       INP_NON1ASED->FLUXSCALE[index]  = SCALE ;
       sprintf(INP_NON1ASED->LIST_TYPE[index], "%s", type );
-      sprintf(INP_NON1ASED->LIST_NAME[index], "%s", fname );
+      sprintf(INP_NON1ASED->LIST_NAME[index], "%s", file_name );
 
       // check for peculiar SN1A (Aug 2016)
       INP_NON1ASED->LIST_ISPEC1A[index] = 0 ;
@@ -660,15 +681,23 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 	INP_NON1ASED->KEYVAL[NINDEX][2]    = 1.0 ; // 2nd key is WGT
 	INP_NON1ASED->MAGOFF[NINDEX]       = MAGOFF_ALLNON1A ;
 	INP_NON1ASED->MAGSMEAR[NINDEX][0]  = MAGSMEAR_ALLNON1A ;
+	INP_NON1ASED->MAGSMEAR[NINDEX][1]  = MAGSMEAR_ALLNON1A ; // bugfix Oct 29 2023
 	INP_NON1ASED->SNTAG[NINDEX]        = SNTAG_ALLNON1A ;
-	sprintf(INP_NON1ASED->SED_FILE[NINDEX],"%s", fname ) ;
+	sprintf(INP_NON1ASED->SED_FILE[NINDEX],"%s", file_name ) ;
       }
 
     }
   } // end of fscanf loop
   INP_NON1ASED->NLIST = NLIST ;
-
   fclose(fp);
+
+
+  if ( NSED_MISSING > 0 ) {
+    sprintf(c1err,"%d SED files missing", NSED_MISSING);
+    sprintf(c2err,"See ERROR messages above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
 
   return ;
 
@@ -696,7 +725,7 @@ void sort_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   INPUTS_NON1ASED_DEF *TMP_NON1ASED ;
   int isp, inew, ISPEC1A, NNON1A=0, NPEC1A=0 ;
   int  NINDEX = INP_NON1ASED->NINDEX ;
-  //  char fnam[] = "sort_NON1ASED" ;
+  char fnam[] = "sort_NON1ASED" ;
 
   // --------------- BEGIN ----------------
 

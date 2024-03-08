@@ -35,6 +35,7 @@
  
  May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band]
+ Dec 22 2023: write SIM_WGT_POPULATION 
 
 *************************************************/
 
@@ -147,6 +148,11 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 	    SNDATA.APPLYFLAG_MWEBV ) ;
   }
 
+  // Nov 2023: write MW mag extinction per band as visual diagnostic;
+  //   this information is NOT written to FITS format.
+  wr_dataformat_text_FILTERPAR(fp, "MWXT_MAG", "MW mag-XT per band", 
+				   "%.3f", SNDATA.MWXT_MAG);
+
   fprintf(fp, "PEAKMJD:  %9.3f     # estimate for LC fit codes\n", 
 	  SNDATA.SEARCH_PEAKMJD ); 
 
@@ -235,8 +241,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_MODEL_INDEX:     %d  # grep MODEL_ sntools.h | grep def\n",
 	  SNDATA.SIM_MODEL_INDEX  ) ;
 
-  fprintf(fp, "SIM_TYPE_INDEX:      %d  # true GENTYPE \n",
-	  SNDATA.SIM_TYPE_INDEX );
+  fprintf(fp, "SIM_GENTYPE:         %d  # true GENTYPE \n",
+	  SNDATA.SIM_GENTYPE );
 
   fprintf(fp, "SIM_TYPE_NAME:       %s \n",
 	  SNDATA.SIM_TYPE_NAME );
@@ -262,7 +268,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_NOBS_UNDEFINED:  %d  \n", 
 	  SNDATA.SIM_NOBS_UNDEFINED );
 
-  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  # vpec not included\n",
+  fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f \n", 
 	  SNDATA.SIM_REDSHIFT_HELIO );
 
   fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n",
@@ -286,7 +292,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     sprintf(key,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
     parval  = SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ;
     parval2 = SNDATA.SIM_HOSTLIB_PARVAL[ipar][1] ; // kluge for now
-    fprintf(fp, "%-40.40s  %.3f %.3f \n", key, parval, parval2);
+    fprintf(fp, "%-40.40s  %.3f  %.3f    # true host & nearest nbr\n", 
+	    key, parval, parval2);
   }
 
   // 4.23.2023: write this GROUPID diagnostic for text only ...
@@ -319,6 +326,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
   fprintf(fp, "SIMOPT_MWEBV:        %d   # MWEBV option \n",
 	  SNDATA.SIMOPT_MWEBV ) ;
+
+  fprintf(fp, "SIM_WGT_POPULATION:  %.5f  # stretch x color * AV\n", 
+	  SNDATA.SIM_WGT_POPULATION);
 
   if ( SNDATA.SIM_AV != NULLFLOAT ) {
 
@@ -413,10 +423,6 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
       wr_dataformat_text_KEYVAL(fp, SNDATA.SIMSED_KEYWORD[ipar],
 				(double)SNDATA.SIMSED_PARVAL[ipar] );
-      /* xxx mark delete 
-      fprintf(fp,"%s:    %f\n"
-	      ,SNDATA.SIMSED_KEYWORD[ipar]
-	      ,SNDATA.SIMSED_PARVAL[ipar] ); xxxxxx */
     }
   }
 
@@ -429,11 +435,6 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
       wr_dataformat_text_KEYVAL(fp, SNDATA.PySEDMODEL_KEYWORD[ipar],
 				(double)SNDATA.PySEDMODEL_PARVAL[ipar]  );
-
-      /* xxxxx mark 
-      fprintf(fp,"%s:    %f \n"
-	      ,SNDATA.PySEDMODEL_KEYWORD[ipar]
-	      ,SNDATA.PySEDMODEL_PARVAL[ipar] ); xxxxx */
     }
   }
 
@@ -445,10 +446,6 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
       wr_dataformat_text_KEYVAL(fp, SNDATA.LCLIB_KEYWORD[ipar],
 				(double)SNDATA.LCLIB_PARVAL[ipar] );
-      /* xxx mark 
-      fprintf(fp,"%s:    %f \n"
-	      ,SNDATA.LCLIB_KEYWORD[ipar]
-	      ,SNDATA.LCLIB_PARVAL[ipar] ); xxxx */
     }
   }
 
@@ -503,8 +500,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   wr_dataformat_text_FILTERPAR(fp, "SIM_EXPOSURE", "", 
 			       "%6.1f", SNDATA.SIM_EXPOSURE_TIME);
 
-
-
+  fflush(fp); 
   return ;
 
 } // end wr_dataformat_text_SIMPAR
@@ -538,7 +534,7 @@ void wr_dataformat_text_FILTERPAR(FILE *fp, char *KEY, char *COMMENT,
 				  char *FORMAT, float *VAL) {
 
   // Oct 4 2023: MXVAL_PER_LINE -> 12 (was 10)
-  int  MXVAL_PER_LINE=12;
+  int  MXVAL_PER_LINE=14;
   int ifilt, ifilt_obs, NTMP;
   char FORMAT_LOCAL[40];
   char fnam[] = "wr_dataformat_text_FILTERPAR" ;
@@ -565,7 +561,7 @@ void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT,
   // instead of float.
 
   char FORMAT_LOCAL[40];
-  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=12;
+  int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=14;
   char fnam[] = "wr_dataformat_text_FILTERPAR" ;
 
   // ------------ BEGIN ---------
@@ -642,7 +638,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	    PREFIX, SNDATA.HOSTGAL_FLAG[igal] );
     
     if ( !RDTEXT || SNDATA.HOSTGAL_PHOTOZ[igal] > 0.0 ) {
-      fprintf(fp, "%s_PHOTOZ:      %.4f  +- %.4f \n", PREFIX,
+      fprintf(fp, "%s_PHOTOZ:      %.5f  +- %.5f \n", PREFIX,
 	      SNDATA.HOSTGAL_PHOTOZ[igal], 
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
@@ -663,7 +659,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     }
 
     if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {
-      fprintf(fp, "%s_SPECZ:       %.4f  +- %.4f \n", PREFIX,
+      fprintf(fp, "%s_SPECZ:       %.5f  +- %.5f \n", PREFIX,
 	      SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 
     }
 
@@ -1239,7 +1235,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 	}  
 
 	// write SNR only for sim in TEXT format
-	// xxx mark delete SNR  = FLAM/FLAMERR ;
 	if ( FLAMERR > 0.0 ) 
 	  { SNR  = GENFLAM/FLAMERR ; }// true SNR to avoid fluct (Aug 19 2021)
 	else
@@ -1293,12 +1288,14 @@ void RD_SNTEXTIO_INIT(int init_num) {
   SNTEXTIO_VERSION_INFO.PHOT_VERSION[0] = 0 ;
   SNTEXTIO_VERSION_INFO.DATA_PATH[0]    = 0 ;
   check_head_sntextio(0);
+  malloc_GENSPEC(0, 0,0); 
 
   if ( init_num == 1 ) {
     init_SNDATA_GLOBAL();
     init_SNDATA_EVENT();
     init_GENSPEC_GLOBAL();
   }
+
 
   DEBUG_FLAG_SNTEXTIO = false ;
   RD_OVERRIDE.USE     = false ;
@@ -1402,7 +1399,7 @@ int rd_sntextio_list(void) {
 
   // ------------- BEGIN --------------
 
-  NFILE = store_PARSE_WORDS(MSKOPT, LIST_FILE);
+  NFILE = store_PARSE_WORDS(MSKOPT, LIST_FILE, fnam );
 
   // read first file
   iwd=0;  get_PARSE_WORD(langC, iwd, firstFile);
@@ -1483,14 +1480,13 @@ void  rd_sntextio_global(void) {
   bool IS_PRIVATE, IS_ZPHOT_Q;
   bool IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
   int  ICHOICE_PySEDMODEL;
-  // xxx mark  bool IS_BYOSED, IS_SNEMO, IS_AGN ;
   char word0[100], word1[100], word2[100], parName[40];    
   char fnam[] = "rd_sntextio_global" ;
   int  LDMP = 0 ;
   // ---------- BEGIN ----------
 
   sprintf(FIRSTFILE, "%s/%s", DATA_PATH, firstFile);	 
-  NWD = store_PARSE_WORDS(MSKOPT,FIRSTFILE);
+  NWD = store_PARSE_WORDS(MSKOPT,FIRSTFILE, fnam );
   
   if ( LDMP ) {
     printf(" xxx %s: store %d words from \n\t %s\n", fnam, NWD, FIRSTFILE);
@@ -1517,12 +1513,6 @@ void  rd_sntextio_global(void) {
 	if ( strstr(word0,parName)  != NULL )  { ICHOICE_PySEDMODEL=i; }
       }
     }
-
-    /* xxx mark delete May 25 2023 xxxxxxx
-    IS_BYOSED    =  strstr(word0,"BYOSED_PARAM")  != NULL && IS_TMP ;
-    IS_SNEMO     =  strstr(word0,"SNEMO_PARAM")   != NULL && IS_TMP ;
-    IS_AGN       =  strstr(word0,"AGN_PARAM")     != NULL && IS_TMP ;
-    xxxxxx end mark */
 
     IS_SIM       =  strncmp(word0,"SIM",3)   == 0    && HAS_COLON ;
 
@@ -1591,21 +1581,6 @@ void  rd_sntextio_global(void) {
       sprintf(SNDATA.PySEDMODEL_NAME, "%s",
 	      PySEDMODEL_CHOICE_LIST[ICHOICE_PySEDMODEL] );
     } 
-
-    /* xxxxxxx mark delete May 25 2023 xxxxxxx
-    else if ( IS_BYOSED || IS_SNEMO || IS_AGN ) {
-      NPAR = SNDATA.NPAR_PySEDMODEL ;
-      if ( strcmp(word0,"BYOSED_NPAR:") == 0 ) { continue; }  
-      if ( strcmp(word0,"SNEMO_NPAR:" ) == 0 ) { continue; }  
-      if ( strcmp(word0,"AGN_NPAR:"   ) == 0 ) { continue; }  
-      copy_keyword_nocolon(word0,SNDATA.PySEDMODEL_KEYWORD[NPAR]);
-      NPAR++ ;    SNDATA.NPAR_PySEDMODEL = NPAR ;
-      if ( IS_BYOSED ) { sprintf(SNDATA.PySEDMODEL_NAME, "BYOSED"); }
-      if ( IS_SNEMO  ) { sprintf(SNDATA.PySEDMODEL_NAME, "SNEMO" ); }
-      if ( IS_AGN    ) { sprintf(SNDATA.PySEDMODEL_NAME, "AGN"   ); }
-    } 
-    xxxxxxxxxx end mark xxxxxxxxx */
-
 
     else if ( IS_SIM ) {
       if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {
@@ -2003,7 +1978,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
 
   if ( LRD_HEAD ) {
     sprintf(FILENAME, "%s/%s", DATA_PATH, fileName);
-    NWD = store_PARSE_WORDS(MSKOPT,FILENAME);
+    NWD = store_PARSE_WORDS(MSKOPT,FILENAME, fnam );
 
     SNTEXTIO_FILE_INFO.NWD_TOT    = NWD ;
     SNTEXTIO_FILE_INFO.IPTR_READ  = 0 ;
@@ -2486,9 +2461,14 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {
       SNDATA.SIM_MODEL_INDEX = IVAL;
     }
-    else if ( strcmp(word0,"SIM_TYPE_INDEX:") == 0 ) {
-      SNDATA.SIM_TYPE_INDEX = IVAL;
+
+    else if ( strcmp(word0,"SIM_GENTYPE:") == 0 ) { // updated Oct 26 2023
+      SNDATA.SIM_GENTYPE = IVAL; 
     }
+    else if ( strcmp(word0,"SIM_TYPE_INDEX:") == 0 ) { // legacy
+      SNDATA.SIM_GENTYPE = IVAL;
+    }
+
     else if ( strcmp(word0,"SIM_TEMPLATE_INDEX:") == 0 ) {
       SNDATA.SIM_TEMPLATE_INDEX = IVAL;
     }
@@ -2923,7 +2903,6 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     lenstr = strlen(str); 
     sprintf(SNDATA.FILTCHAR[ep], "%c", str[lenstr-1] );
     catVarList_with_comma(SNDATA.FILTCHAR_1D, SNDATA.FILTCHAR[ep]);
-    // xxx mark  catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FIELD] ;
     if ( strcmp(str,"NULL") == 0 ) { sprintf(str,FIELD_NONAME); }

@@ -742,6 +742,7 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,PRIOR_MUERRSCALE      ! I: scale MU-error for x0-prior in photoZ fits
      &  ,SNMAGRMS_for_PHOTOZ   ! I: compute PHOTOZ error from SNMAGRMS
      &  ,PARLIST_MCMC_PHOTOZ(5) ! params for MCMC burn-in
+     &  ,QUANTILE_ZERRMIN      ! I: use quantile zphot for zerr above this; else use Gauss prior
  
 c define varibales to fudge the data errors for particular
 c TREST-range and passbands. Note that FUDGE_MAGERR_MODEL
@@ -802,7 +803,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
      &   ,FITWIN_PEAKMJD_ERRz1
      &   ,FITWIN_MB_ERRz1, FITWIN_SHAPE_ERRz1, FITWIN_COLOR_ERRz1
-     &   ,SNMAGRMS_for_PHOTOZ
+     &   ,SNMAGRMS_for_PHOTOZ, QUANTILE_ZERRMIN
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
      &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
@@ -873,7 +874,7 @@ c ------
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
      &   ,FITWIN_PEAKMJD_ERRz1
      &   ,FITWIN_MB_ERRz1, FITWIN_SHAPE_ERRz1, FITWIN_COLOR_ERRz1
-     &   ,SNMAGRMS_for_PHOTOZ
+     &   ,SNMAGRMS_for_PHOTOZ, QUANTILE_ZERRMIN
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
@@ -7127,6 +7128,7 @@ c ---------------------------------
       PRIOR_ZERRSCALE  = 1000.0   ! default is no prior
       PRIOR_MUERRSCALE = 1000.0   ! default is no prior
       DOPRIOR_DLMAG    = .FALSE. 
+      QUANTILE_ZERRMIN = 0.02     ! Gauss prior on zspec if zspecerr < .02
 
       OPT_PRIOR      = 1
       OPT_PRIOR_AV   = 1
@@ -7146,9 +7148,12 @@ c init to wide open
       PRIOR_SHAPE_RANGE(2) = +9.0
       PRIOR_SHAPE_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
 
+
       PRIOR_SHAPE2_RANGE(1) = -9.0  ! 
       PRIOR_SHAPE2_RANGE(2) = +9.0
       PRIOR_SHAPE2_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
+
+
 
       PRIOR_COLOR_RANGE(1) = -9.0
       PRIOR_COLOR_RANGE(2) = +9.0

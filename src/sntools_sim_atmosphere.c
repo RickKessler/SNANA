@@ -143,7 +143,7 @@ void INIT_ATMOSPHERE(void) {
 
   if ( REQUIRE_RESPOLY ) { 
 
-    double SNR, ANGRES;
+    double SNR, ANGRES, STATRES;
     GENPOLY_DEF *RESPOLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
 
     if ( RESPOLY->ORDER < 0 ) {
@@ -158,9 +158,9 @@ void INIT_ATMOSPHERE(void) {
     for (SNR=10.0; SNR <= 100.0; SNR+= 30.0 ) {
       double PSF_FWHM = 1.0 ; // arcsec
       double x = PSF_FWHM/SNR;
-      ANGRES = eval_GENPOLY(x, RESPOLY, fnam);
-      printf("\t ANGRES = %7.4f arcsec for SNR = %4.0f (PSF_FWHM=%.1f asec)\n", 
-	     ANGRES, SNR, PSF_FWHM); fflush(stdout);
+      STATRES = eval_GENPOLY(x, RESPOLY, fnam);
+      printf("\t STATRES = %7.4f arcsec for SNR = %4.0f (PSF_FWHM=%.1f asec)\n", 
+	     STATRES, SNR, PSF_FWHM); fflush(stdout);
     }
   }  // end REQUIRE_RESPOLY
 
@@ -214,7 +214,7 @@ void  read_stellar_sed_atmos(void) {
   ATMOS_INFO.FLUX_ARRAY_CALSTAR = (double*) malloc(MXBIN_LAMSED_SEDMODEL * MEMD);
 
   rd2columnFile(ptrFile, MXBIN_LAMSED_SEDMODEL, &ATMOS_INFO.NBINLAM_CALSTAR,
-		ATMOS_INFO.LAM_ARRAY_CALSTAR, ATMOS_INFO.FLUX_ARRAY_CALSTAR );
+		ATMOS_INFO.LAM_ARRAY_CALSTAR, ATMOS_INFO.FLUX_ARRAY_CALSTAR, 0 );
 
   int NB = ATMOS_INFO.NBINLAM_CALSTAR ;
   printf("\t Found %d wave bins from %.0f to %.0f A \n",  NB,
@@ -506,7 +506,7 @@ void genSmear_coords(int epoch) {
 
   // Created May 2023: 
   // Determine measured RA,DEC for this epoch, using coord-smear 
-  // resolution defined by sim-input key ATMOSPHERE_DCR_COORDRES_POLY.
+  // resolution defined by sim-input key ATMOSPHERE_DCR_COORDRES_POLY and ATMOSPHERE_DCR_COORDRES_FLOOR
 
   double cosDEC  = GENLC.cosDEC;
   double SNR_TRUE = SEARCHEFF_DATA.SNR_CALC[epoch-1];
@@ -521,7 +521,9 @@ void genSmear_coords(int epoch) {
   bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[epoch] < COORD_SHIFT_NULL_DEG );
 
   GENPOLY_DEF  *DCR_COORDRES_POLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
+  double DCR_COORDRES_FLOOR = INPUTS_ATMOSPHERE.DCR_COORDRES_FLOOR;
   double RA_OBS, DEC_OBS, RA_TRUE, DEC_TRUE ;
+  double STATRES_TRUE_asec, STATRES_OBS_asec;
   double ANGRES_TRUE_asec, ANGRES_TRUE_deg, ran_RA, ran_DEC, WGT ;
   double ANGRES_OBS_asec,  ANGRES_OBS_deg;
   char fnam[] = "genSmear_coords" ;
@@ -534,8 +536,11 @@ void genSmear_coords(int epoch) {
 
   double x_TRUE = PSF_FWHM/SNR_TRUE;
   double x_OBS  = PSF_FWHM/SNR_OBS;
-  ANGRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
-  ANGRES_OBS_asec  = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
+
+  STATRES_TRUE_asec = eval_GENPOLY(x_TRUE, DCR_COORDRES_POLY, fnam);
+  STATRES_OBS_asec = eval_GENPOLY(x_OBS, DCR_COORDRES_POLY, fnam);
+  ANGRES_TRUE_asec = sqrt(pow(STATRES_TRUE_asec, 2) + pow(DCR_COORDRES_FLOOR, 2)); //sqrt(sigma_syst**2 + sigma_stat**2)
+  ANGRES_OBS_asec  = sqrt(pow(STATRES_OBS_asec, 2) + pow(DCR_COORDRES_FLOOR, 2));
   if ( !VALID_DCR_SHIFT ) { ANGRES_TRUE_asec = 0.0; } // nothing to smear
 
   // convert ANGRES to degrees and divide by sqrt(2) for 

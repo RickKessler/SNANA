@@ -2334,7 +2334,7 @@ int rd_filter ( int ifilt ) {
      fclose(fp);
      rd2columnFile(FILTFILE_FULLNAME, MXLAM_FILT, &NBIN 
 		   ,&FILTER[ifilt].LAMBDA[1]
-		   ,&FILTER[ifilt].TRANS[1] );
+		   ,&FILTER[ifilt].TRANS[1], 0 );
 
      sprintf(txtFilter,"Filter");
    }
@@ -2670,7 +2670,7 @@ int rd_snsed ( void ) {
      ;
 
    int NDAY, NLAM,ilam0, iep0, jflux0, ilam1, iep1, ifilt, ilam, iep  ;
-   int FOUND_SNSEDFILE ;
+   int FOUND_SNSEDFILE, nflux_nan ;
    char sedFile[MXPATHLEN], sedcomment[40], SNPATH[MXPATHLEN] ;
    char fnam[] = "rd_snsed" ;
 
@@ -2724,7 +2724,7 @@ int rd_snsed ( void ) {
 	      MXEP, MXLAM_SN, INPUTS.FLUXERR_FLAG,
 	      &NDAY, DAYREAD, &DAYSTEP,
 	      &NLAM, LAMREAD, &LAMSTEP,
-	      DUMMYFLUX, DUMMYERR );
+	      DUMMYFLUX, DUMMYERR, &nflux_nan );
 
    // check array sizes
    check_snsed_bins();

@@ -70,10 +70,11 @@
 
 const char dual_bits_SIMSED[INTERP_SIMSED_MAX_DIM] =
   {1, 2, 4, 8, 16, 32, 64, 128};
-
 // =======================================================
-// define mangled functions with underscore (for fortran)
 
+
+/* xxx mark delete Feb 28 2024 xxx
+// define mangled functions with underscore (for fortran)
 
 int init_genmag_simsed__(char *version, char *PATH_BINARY, char *SURVEY,
 			 char *kcorFile, int *OPTMASK) {
@@ -96,7 +97,7 @@ void genmag_simsed__(int *OPTMASK, int *ifilt, double *x0,
 		index_sed );
 }
 
-
+xxxxxx end mark xxxxx */
 
 /****************************************************************
   init_genmag_SIMSED:
@@ -136,9 +137,12 @@ void genmag_simsed__(int *OPTMASK, int *ifilt, double *x0,
 int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,char *PATH_BINARY // directory to write/read binaries
 		       ,char *SURVEY      // name of survey  
-		       ,char *kcorFile    // kcor filename
+		       ,char *kcorFile    // kcor filename 
+	               ,char *WGTMAP_FILE // WGTMAP filename
 		       ,int OPTMASK       // bit-mask of options
 		       ) {   
+
+  // TO DO: add WGTMAP_FILE as option argument X_WGT+
 
   // OPTMASK +=  1 --> create binary file if it doesn't exist
   // OPTMASK +=  2 --> force creation of SED.BINARY
@@ -149,8 +153,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // Aug 18 2020: check kcor file with .gz
   // Dec 14 2021: new OPTMASK 2 and 4
   // Mar 02 2022: check UVLAM_EXTRAP
+  // Feb 05 2024: abort if PATH_BINARY is not a directory.
 
-  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat;
+  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR;
   int retval = SUCCESS ;
 
   bool USE_BINARY=false, USE_TESTMODE=false;
@@ -232,7 +237,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   
   // set defaults
 
-  ISIMSED_SEQUENTIAL = 0 ;  // for sequential GRIDONLY option 
+  ISIMSED_SEQUENTIAL = -9 ;  // xxx mark delete 
+  ISIMSED_SELECT     = -9 ;  // for SEQUENTIAL or WGT opton
 
   SEDMODEL.NSURFACE   = 0 ;
   SEDMODEL.FLUXSCALE  = 1.0 ;
@@ -264,13 +270,22 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     IVERSION_SIMSED_BINARY = WRVERSION_SIMSED_BINARY ;
 
-    // make sure that PATH_BINARY exists, and copy it to global
+    // make sure that PATH_BINARY exists, and copy path name it to global
     sprintf(SIMSED_BINARY_INFO.PATH, "%s", PATH_BINARY);
     istat = stat(PATH_BINARY, &statbuf);
+
     if ( istat != 0 ) {
-      sprintf(c1err,"PATH_BINARY='%s'", PATH_BINARY);
+      sprintf(c1err,"SIMSED_PATH_BINARY='%s'", PATH_BINARY);
       sprintf(c2err,"does not exist.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    // make sure that binary is a directory, not a file name
+    IS_DIR = S_ISDIR(statbuf.st_mode);
+    if ( !IS_DIR ) {
+      sprintf(c1err,"SIMSED_PATH_BINARY=%s", PATH_BINARY);
+      sprintf(c2err,"must be directory, not a file.");     
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     sprintf(bin1File, "%s/%s", SIMSED_PATHMODEL, SIMSED_BINARY_FILENAME );
@@ -305,10 +320,13 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // check to change default logz binning
   set_SIMSED_LOGZBIN();
 
+  set_SIMSED_WGT_SUM(WGTMAP_FILE); // use internal WGT or external WGTMAP  X_WGT-
+
   // =======================================================
   // allocate memory for storing flux-integral tables
   NZBIN  = REDSHIFT_SEDMODEL.NZBIN ;
   NLAMPOW_SEDMODEL = 0 ;
+
   malloc_FLUXTABLE_SEDMODEL ( NFILT_SEDMODEL, NZBIN, NLAMPOW_SEDMODEL, 
 			      SEDMODEL.MXDAY, SEDMODEL.NSURFACE );
   fflush(stdout);
@@ -359,7 +377,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       }
     }
 
-
+    
     double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
     if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
 
@@ -555,6 +573,8 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   //
   // Aug 12 2017: replace SEDMODEL.FLUX_ERRFLAG argument with OPTMASK
   //
+
+  int nflux_nan;
   char fnam[] = "read_SIMSED_flux";
 
   // -------------- BEGIN -----------------
@@ -566,7 +586,8 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
 	     ,SEDMODEL.OPTMASK
 	     ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );  
+	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	     ,&nflux_nan );  
 
   int NDAY = TEMP_SEDMODEL.NDAY;
   int NLAM = TEMP_SEDMODEL.NLAM;
@@ -694,7 +715,8 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   // read name of kcor file form binary, and check for match of full path
   if ( BINARYFLAG_KCORFILENAME ) {
     fread(kcorFile_tmp, MXPATHLEN, 1, fp );
-    if ( strcmp(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
+    // xxx mark if ( strcmp(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
+    if ( strcmp_ignoregz(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
       sprintf(c1err,"Binary file KCOR_FILE: '%s' ", kcorFile_tmp);
       sprintf(c2err,"but current KCOR_FILE: '%s' ", SIMSED_KCORFILE);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -738,10 +760,30 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // Apr 28 2019: set Lrange_SIMSED when reading "RESTLAMBDA_RANGE:" key.
   //
   // Jun 6 2022: if PARVAL range > 1E6, write %le format
+  //
+  // Nov 7 2023: abort on missing required key
+  //
+  // Nov 15 2023: ignore NPAR key and compute NPAR from PARNAMES line
+  //       (remove LEGACY_NPAR stuff later)
+  //
+  // Jan 25 2024: 
+  //   abort on tabs (see NTAB); 
+  //   abort on more than 1 PARNAME with INDEX or index
+  //
 
-  char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[80] ;
+  char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[100] ;
+  char  string_parnames[200], tmpName_index[200], tmpName_WGT[200];
   double PARLIM[2], DIF, XN;
-  int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
+  int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG, NTAB=0, len, i ;
+  int NSED_COUNT ;
+  int NPAR_INDEX = 0, NPAR_WGT = 0 ;
+
+#define NKEY_REQUIRE_SIMSED 3
+  int  IPAR_PARNAMES = 0, IPAR_RESTLAM=1, IPAR_SED=2;
+  char KEYNAME_REQUIRE_LIST[NKEY_REQUIRE_SIMSED][20] = 
+    { "PARNAMES", "RESTLAMBDA_RANGE", "SED" };
+  bool FOUND_REQUIRE_LIST[NKEY_REQUIRE_SIMSED] = 
+    { false, false, false } ;
 
   FILE *fp;
   char fnam[] = "read_SIMSED_INFO" ;
@@ -752,19 +794,29 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   ptrFile = SIMSED_INFO_FILENAME_FULL ;
   sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
-  SEDMODEL.IPAR_NON1A_INDEX = -9;
+  SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
+  SEDMODEL.IPAR_WGT            = -9; // Feb 28 2024    X_WGT+
+
+  // read number of rows to use for malloc (Jan 2024)
+  NSED_COUNT = count_SIMSED_INFO(PATHMODEL);
+  // xxxx  NROW_FILE = nrow_read(ptrFile, fnam);
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
     sprintf(c2err,"%s", ptrFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+
   printf("\n Read list of SEDs and parameters from \n  %s \n", ptrFile);
 
   NPAR = NSED = SEDMODEL.NSURFACE = 0 ;
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
-
+    
+    len = strlen(c_get);
+    for(i=0; i < len; i++ ) 
+      { if ( c_get[i] == '\t' ) { NTAB++; } } // doesn't work?
+    
     if ( strcmp(c_get,"FLUX_SCALE:") == 0 ) 
       { readdouble(fp, 1, &SEDMODEL.FLUXSCALE ); }
 
@@ -803,6 +855,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     
 
     if ( strcmp(c_get,"RESTLAMBDA_RANGE:") == 0 ) {
+      FOUND_REQUIRE_LIST[IPAR_RESTLAM] = true;
       readdouble(fp, 1, &SEDMODEL.RESTLAMMIN_FILTERCEN );
       readdouble(fp, 1, &SEDMODEL.RESTLAMMAX_FILTERCEN );
       
@@ -814,27 +867,53 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
     }
 
-    if ( strcmp(c_get,"NPAR:") == 0 ) 
-      {  readint(fp, 1, &SEDMODEL.NPAR ); }
 
     if ( strcmp(c_get,"PARNAMES:") == 0 ) {
-      if ( SEDMODEL.NPAR < 0 ) {
-	sprintf(c1err,"PARNAMES key specified before NPAR key");
-	sprintf(c2err,"Check %s", ptrFile );
+      FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
+      fgets(string_parnames, 200, fp);
+      NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
+      malloc_METADATA_SEDMODEL(NSED_COUNT, NPAR); // Jan 2024
+
+      SEDMODEL.NPAR = NPAR;
+      tmpName_index[0] = 0 ;
+      tmpName_WGT[0] = 0;
+      for(ipar=0; ipar < NPAR; ipar++ ) {
+	get_PARSE_WORD(0, ipar, tmpName);
+	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
+	if ( IS_INDEX_SIMSED(tmpName) ) { 
+	  NPAR_INDEX++ ; 
+	  catVarList_with_comma(tmpName_index,tmpName);
+	  SEDMODEL.IPAR_TEMPLATE_INDEX = ipar; 
+	}  
+
+        if ( IS_WGT_SIMSED(tmpName) ) {
+          NPAR_WGT++ ; 
+          catVarList_with_comma(tmpName_WGT,tmpName);
+          SEDMODEL.IPAR_WGT = ipar;
+        }  
+
+	// X_WGT-: set SEDMODEL.IPAR_WGT : ???
+	// define analogous IS_WGT_SIMSED(tmpName) -->  set SEDMODEL.IPAR_WGT       
+
+      } 
+
+      if ( NPAR_INDEX > 1 ) {
+	sprintf(c1err,"Found %d PARNAMES with INDEX or index; only 1 allowed",
+		NPAR_INDEX);
+	sprintf(c2err,"ambiguous PARNAMES: '%s' ", tmpName_index);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
-      for ( ipar=0; ipar < SEDMODEL.NPAR; ipar++ ) {
-	readchar(fp, tmpName);
-	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
-	if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }
-      }
-    }
+    } // end PARNAMES
 
     // ------------
 
     if ( strcmp(c_get,"SED:") == 0 ) {
 
+      FOUND_REQUIRE_LIST[IPAR_SED] = true;
       SEDMODEL.NSURFACE++ ;  NSED = SEDMODEL.NSURFACE ;
+
+      if ( NSED >= MXSEDMODEL ) { continue; }
+
       readchar(fp, SEDMODEL.FILENAME[NSED] );
       NPAR = SEDMODEL.NPAR ;
 
@@ -849,8 +928,16 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   } // end of reading info file
 
-
+  // - - - - 
   fclose(fp);
+
+  tabs_ABORT(NTAB, ptrFile, fnam); // Jan 2024
+
+  if ( NSED >= MXSEDMODEL ) { 
+    sprintf(c1err,"NSED=%d exceeds bound MXSEDMODEL=%d", NSED, MXSEDMODEL);
+    sprintf(c2err,"Either reduce NSED or increase MXSEDMODEL");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   // for each SIMSED parameter, get NBIN, MIN and MAX,
   // and print summary info.
@@ -884,6 +971,27 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   printf("\n Finished reading parameters for %d SEDs \n", NSED );
   fflush(stdout);
 
+  // - - - - -
+  // abort if missing a required key
+  int k, NKEY_MISSING = 0 ;
+  char *key, keyname_missing[100] = "";
+  for(k=0; k < NKEY_REQUIRE_SIMSED; k++ ) {
+    if ( !FOUND_REQUIRE_LIST[k] ) {
+      key = KEYNAME_REQUIRE_LIST[k] ;
+      printf(" ERROR: SED.INFO missing require key %s\n", key)/
+	fflush(stdout);
+      catVarList_with_comma(keyname_missing,key);
+      NKEY_MISSING++ ;
+    }
+    if ( NKEY_MISSING > 0 ) {
+      sprintf(c1err,"SED.INFO file missing required keys %s", keyname_missing);
+      sprintf(c2err,"Check %s",  ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+  }
+
+  // - - -  -
+
   return(SEDMODEL.NSURFACE) ;
 
 } // end of read_SIMSED_INFO
@@ -905,6 +1013,17 @@ int IS_INDEX_SIMSED(char *parName) {
   if ( strstr(parName,"indx" ) != NULL ) { IS_INDEX = 1; }
   return(IS_INDEX);
 } // end IS_INDEX_SIMSED
+ 
+// ===============================
+int IS_WGT_SIMSED(char *parName) {
+
+  int IS_WGT = 0 ;
+  if ( strstr(parName,"WGT") != NULL ) { IS_WGT = 1; }
+  if ( strstr(parName,"wgt" ) != NULL ) { IS_WGT = 1; }
+  if ( strstr(parName,"weight" ) != NULL ) { IS_WGT = 1; }
+  if ( strstr(parName,"WEIGHT" ) != NULL ) { IS_WGT = 1; }
+  return(IS_WGT);
+} // end IS_WGT_SIMSED
 
 // ===================================
 int count_SIMSED_INFO(char *PATHMODEL ) {
@@ -919,7 +1038,7 @@ int count_SIMSED_INFO(char *PATHMODEL ) {
 
   // ---------------- BEGIN --------------
 
-  sprintf(FILENAME, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
+  sprintf(FILENAME, "%s/%s", PATHMODEL, SIMSED_INFO_FILENAME);
 
   if (( fp = fopen(FILENAME,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
@@ -1028,6 +1147,102 @@ void  set_SIMSED_LOGZBIN(void) {
   return ;
 
 }  // end set_SIMSED_LOGZBIN
+   
+// **********************************************
+void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
+
+  // Created Feb 29 2024 by Alex Gagliano
+  // malloc cumulative WGT_SUM, and fill it.
+
+  int OPT_WGT = 0;
+  int ISED;
+  double WGT, WGT_SUM = 0.;
+  int NSED = SEDMODEL.NSURFACE;
+  char fnam[] = "set_SIMSED_WGT_SUM";
+
+  if ( SEDMODEL.IPAR_WGT >= 0   ) { OPT_WGT = 1; } 
+  if ( !IGNOREFILE(WGTMAP_FILE) ) { OPT_WGT = 2; }
+
+  if ( !OPT_WGT ){ return; }
+
+  SEDMODEL.WGT_SUM = (double *) malloc((NSED+1) * sizeof(double));
+
+  if ( OPT_WGT == 1 ){
+    SEDMODEL.WGT_SUM[0] = 0.;
+    for ( ISED = 1; ISED <= SEDMODEL.NSURFACE ; ISED++ ){
+      WGT = SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT];
+      WGT_SUM += WGT;
+      SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
+    }
+    SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[0];
+    SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
+
+    printf("\t Loaded %d cumulative WGTS from column %d \n", 
+	   NSED, SEDMODEL.IPAR_WGT); fflush(stdout);
+  }
+  // X_WGT+
+
+  return ;
+} //end set_SIMSED_WGT_SUM
+  
+//**************************************
+int pick_SIMSED_BY_WGT(void){
+  int ISED = -9;
+  double ranCDF;
+  double WGTrange[2];
+  int LDMP = 0 ;
+  char fnam[] = "pick_SIMSED_BY_WGT";
+
+  // --------- BEGIN --------------
+
+  WGTrange[0] = SEDMODEL.WGT_MIN;
+  WGTrange[1] = SEDMODEL.WGT_MAX;
+
+  ranCDF = getRan_Flat(1, WGTrange);
+
+  if ( LDMP ) {
+    printf(" xxx - - - - - - - -\n");
+    printf(" xxx %s: ranCDF=%f WGTrange=(%f,%f) ... \n", 
+	   fnam, ranCDF, WGTrange[0], WGTrange[1] ); fflush(stdout);
+  }
+
+  ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE+1, 
+			SEDMODEL.WGT_SUM, fnam);
+ 
+  ISED++ ; // avoid ISED=0 since ISED starts at 1
+
+  if ( ISED < 1 || ISED > SEDMODEL.NSURFACE ) {
+    sprintf(c1err,"Invalid ISED = %d ", ISED);
+    sprintf(c2err,"ranCDF=%f  WGTrange=(%f,%f)",
+	    ranCDF, WGTrange[0], WGTrange[1]);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( LDMP ) 
+    { printf(" xxx %s: ISED = %d \n", fnam, ISED ); fflush(stdout); }
+
+
+  return ISED; // X_WGT+
+
+} //end pick_SIMSED_BY_WGT
+
+// **********************************************
+void dump_SIMSED_WGT(int NSED, char *msg) {
+  int ISED;
+  double WGT;
+  char fnam[] = "dump_SIMSED_WGT";
+
+  // ---------- BEGIN --------
+
+  printf(" xxx %s: --------------------------- \n", fnam);
+  for ( ISED = 1; ISED <= NSED ; ISED++ ){
+    WGT = SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT];
+    printf(" xxx %s: WGT[ISED=%d] = %f (%s)\n",
+	   fnam, ISED, WGT, msg);
+  }
+  fflush(stdout);
+} // end dump_SIMSED_WGT
+
 
 // **********************************************
 void dump_SIMSED_INFO(void) {
@@ -1113,6 +1328,9 @@ void checkBinary_SIMSED(char *binaryFile) {
     else {
       ptrFile = SIMSED_KCORFILE ; 
       if ( BINARYFLAG_KCORFILENAME == 0 ) { continue; }
+
+      // SED.BINARY does not depend on kcor file
+      if ( strstr(binaryFile,SIMSED_BINARY_FILENAME) != NULL ) { continue; }
     }
 
     tdif_sec = file_timeDif(binaryFile, ptrFile );
@@ -1179,7 +1397,13 @@ void genmag_SIMSED(
 
    OPTMASK+=2 (bit1) => print warning message when model flux < 0
 
-   OPTMASK+=8 (bit3) => dump flag
+   OPTMASK+=4 (bit2) => grid only (no interpolation)
+
+   OPTMASK+=8(bit3) => use WGT columm
+
+   OPTMASK+=16(bit4) => SEQUENTIAL option
+
+   OPTMASK+=512  => dump flag
 
         HISTORY
 
@@ -1197,11 +1421,13 @@ void genmag_SIMSED(
 
   Jul 30 2018: add output arg *index_sed
 
+  Mar 6 2024: minor refactor to handle SEQUENTIAL and WGT using same tools.
+
   ***/
 
   double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
-  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSEDSEQ ;
+  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSED_SELECT ;
   double AV, XT_MW, XT_HOST ;
   double magobs, magerr, tmpPar;
   char *cfilt ;
@@ -1215,12 +1441,15 @@ void genmag_SIMSED(
 
   LDMP_BADFLUX = LRETURN_FLUX = LDMP_DEBUG = 0 ;
   LRETURN_MAG  = 1;
-  LSEDSEQ      = 0;
+  LSED_SELECT  = 0;
 
   if ( (OPTMASK & 1) > 0 ) { LRETURN_MAG    = 0; LRETURN_FLUX = 1; }
   if ( (OPTMASK & 2) > 0 ) { LDMP_BADFLUX   = 1; }
-  if ( (OPTMASK & 4) > 0 ) { LSEDSEQ        = 1; }
-  if ( (OPTMASK & 8) > 0 ) { LDMP_DEBUG     = 1; }
+
+  if ( (OPTMASK & 4 )   > 0 ) { LSED_SELECT    = 1; }
+  if ( (OPTMASK & 16)   > 0 ) { LSED_SELECT    = 1; }
+
+  if ( (OPTMASK & 512) > 0 ) { LDMP_DEBUG      = 1; }
   
   // make sure that user NLUMIPAR matches expected number 
   // of parameters.
@@ -1268,7 +1497,7 @@ void genmag_SIMSED(
     Tobs  = Tobs_list[epobs];
     Trest = Tobs / z1;
 
-    if ( LSEDSEQ ) {
+    if ( LSED_SELECT ) {
       // get flux from next SED on the grid; fill all of the lumipar
       Sinterp = nextgrid_flux_SIMSED(iflagpar, iparmap, lumipar,
 				     ifilt_obs, z, Trest);
@@ -1347,13 +1576,14 @@ void genmag_SIMSED(
 
   // if any SIMSED parameter looks or smells like an index,
   // return this value as *index_sed.
-  int IPAR = SEDMODEL.IPAR_NON1A_INDEX;
+  int IPAR = SEDMODEL.IPAR_TEMPLATE_INDEX;
   if ( IPAR >= 0 ) {
     tmpPar = SEDMODEL.PARVAL[ISED_SEDMODEL][IPAR] + 0.01 ;
     *index_sed = (int)(tmpPar);
   }
   else
     { *index_sed = -9; }
+
 
 } // end of genmag_SIMSED
 
@@ -1369,37 +1599,36 @@ double nextgrid_flux_SIMSED (
 			  ) 
 {
 
-  // Increment ISIMSED_SEQUENTIAL and return integrated flux for this SED.
-  // Also return the *lumipar array.
+  // Process selection of global ISIMSED_SELECT and
+  // return the *lumipar array. Works for 
+  //   GRIDONLY:  SEQUENTIAL
+  //   GRIDONLY:  WGT
   //
-  // Mar 6 2017: set global ISED_SEDMODEL
-  //
-  // Dec 20 2018: ISIMSED_SEQUENTIAL is set from snlc_sim, not passed
-  //              as lumipar argument.
+  // where SED selection is NOT based on the physical parameters.
 
   double Sinterp ;
-  int  ipar, ISED ;
+  int  ipar, ipar_model, ISED ;
+  char fnam[] = "nextgrid_flux_SIMSED";
 
   // ----------- BEGIN -----------
 
-  // get SED index for GRIDONLY-sequential
-
-  ISED = ISIMSED_SEQUENTIAL ;
+  ISED = ISIMSED_SELECT ;
 
   // extract SED index for GRIDONLY-sequential option
-  if ( ISED  > SEDMODEL.NSURFACE ) { 
-    sprintf(c1err,"ISED =%d exceeds number of SEDS(%d)",
-	    ISED , SEDMODEL.NSURFACE);
+  if ( ISED < 1 || ISED  > SEDMODEL.NSURFACE ) { 
+    sprintf(c1err,"Invalid ISED =%d ; expect 1 to %d", ISED, SEDMODEL.NSURFACE);
+    sprintf(c2err,"Something is really messed up");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
-
 
   Sinterp = get_flux_SEDMODEL( ISED, 0, ifilt_obs, z, Trest);
 
-  ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
+  ISED_SEDMODEL = ISED; 
 
   // load *lumipar array
   for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
-    lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];
+    ipar_model = iparmap[ipar];
+    lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
   }
 
 
@@ -1424,26 +1653,7 @@ double interp_flux_SIMSED(
     Interpolate in multi-dimensional space of SIMSED parameters
     to get flux-integral.
 
-    Jun 24, 2010 (RK) - add ilampow=0 argument to interp_flux_SEDMODEL.
-                        No effect for SIMSED models, but the extra arg
-                        is needed for the SALT2  model.
-
-    Jun 29, 2010 (RK) 
-        - replace case test on iflag with bit-mask test
-        - fix tabs
-
-    May 16, 2011 (RK) skip interpolation if there is just 1 SED.
-
-    Nov 18, 2011 (RK) pass *iparmap so that user can pick SIMSED params
-                      in any order.  See ipar_model below.
-
-   Nov 28,  2011:  bugfix: fill *lumipar array if there is just one SED.
-
-   Aug 17 2015: if all params are GRIDONLY, then find ISED at grid-node
-                instead of interpolating . See NGRIDONLY & NMATCH.
-
-   Mar 6 2017: set global ISED_SEDMODEL
-
+    
    Dec 26 2018:
      fix bug from v10_63g (July 2018). For GRIDONLY option, 
      make sure to load  *lumipar.
@@ -1453,6 +1663,11 @@ double interp_flux_SIMSED(
      + fix index bug loading *lumipar ... before it worked only if
        selected model params were in same order is in SED.INFO file
 
+   Mar 2024: 
+    + check option to use WGT column to select ISED. 
+      Beware for WGT option because input *lumipar is the ISED index,
+      not the WGT value, so don't update *lumipar = WGT.  
+   
   -------------------------------------------------- */
 
   /*
@@ -1464,7 +1679,8 @@ double interp_flux_SIMSED(
   int pars_baggage[INTERP_SIMSED_MAX_BAGGAGE_PARS];
   int i, j, k, ISED, num_dims, num_pars_baggage;
   int found_corner, index, ipar_model, NPAR, ipar, ipar_user ;
-  int flag, NGRIDONLY, NMATCH=0 ;
+  int flag, NGRIDONLY, NMATCH=0;
+  int ISED_MIN=1, ISED_MAX = SEDMODEL.NSURFACE ;
 
   double Sinterp, left_min_diff, right_min_diff;
   double diff, diff0, diff1, parval, range, term;
@@ -1488,12 +1704,14 @@ double interp_flux_SIMSED(
   // just interpolate in the space of redshift and Trest.
   if ( SEDMODEL.NSURFACE == 1 ) {
     ISED = 1;
-    ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
+    ISED_SEDMODEL = ISED; 
     Sinterp = get_flux_SEDMODEL( ISED, 0, ifilt_obs, z, Trest);
 
     // load *lumipar array
-    for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) 
-      { lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  }
+    for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
+      ipar_model    = iparmap[i];
+      lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];  
+    }
 
     return(Sinterp) ;
   }
@@ -1506,9 +1724,9 @@ double interp_flux_SIMSED(
     flag       = iflag[i];
     ipar_model = iparmap[i];
     pars_baggage[i] = 0 ;
-		 
+
     if ( flag & OPTMASK_GEN_SIMSED_GRIDONLY )
-      { NGRIDONLY++ ; } // Aug 17 2015 RK
+      { NGRIDONLY++ ; } 
 
     if ( (flag & OPTMASK_GEN_SIMSED_PARAM ) > 0 )  {
       pars[num_dims] = i;
@@ -1536,14 +1754,13 @@ double interp_flux_SIMSED(
   
   NPAR = SEDMODEL.NPAR ;
   if( NGRIDONLY == NPAR-num_pars_baggage ) {
-    for ( ISED = 1; ISED <= SEDMODEL.NSURFACE ; ISED++ ) {
+    for ( ISED = ISED_MIN; ISED <= ISED_MAX ; ISED++ ) {
       
       NMATCH = 0 ;
       for(j=0; j < NPAR; j++ ) {
 	if ( pars_baggage[j] ) { continue ; } // skip baggage	     
-	// xxx mark delete range  = SEDMODEL.PARVAL_MAX[j] - SEDMODEL.PARVAL_MIN[j] ;
 	ipar_model = iparmap[j];
-        range      = SEDMODEL.PARVAL_MAX[ipar_model] - SEDMODEL.PARVAL_MIN[ipar_model] ;
+        range = SEDMODEL.PARVAL_MAX[ipar_model]-SEDMODEL.PARVAL_MIN[ipar_model];
 	parval     = SEDMODEL.PARVAL[ISED][ipar_model];
 	diff       = (parval - lumipar[j]) / range ;
 	
@@ -1552,9 +1769,10 @@ double interp_flux_SIMSED(
 	       "lumipar[%d]=%6.2f  range=%.2f  diff=%.2f\n",
 	       ISED, ipar_model, parval, j,lumipar[j], range, diff ); 
 	*/
-	
+
 	if ( fabs(diff) < 0.0001 ) { NMATCH++ ; }
       }
+
       if ( NMATCH == NGRIDONLY ) { 
 	Sinterp = get_flux_SEDMODEL(ISED, 0, ifilt_obs, z, Trest);	
 	ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
@@ -1562,8 +1780,7 @@ double interp_flux_SIMSED(
 	// load *lumipar array
 	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
 	  ipar_model = iparmap[ipar];
-	  lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
-	  // xxx mark delete lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  
+	  lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];	
 	}
 
 	return(Sinterp) ;
@@ -1591,6 +1808,7 @@ double interp_flux_SIMSED(
       sprintf(c2err, " ");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+
 
   /*
    * Define arrays which depend upon the number of dimensions
@@ -1633,7 +1851,7 @@ double interp_flux_SIMSED(
       for (j = 0; j < SEDMODEL.NSURFACE; j++)
 	{
 
-	  // BD orig   diff = SEDMODEL.PARVAL[j + 1][pars[i] + 1] - lumipar[pars[i]];
+	  // BD orig diff = SEDMODEL.PARVAL[j + 1][pars[i] + 1] - lumipar[pars[i]];
 	  diff = SEDMODEL.PARVAL[j + 1][ipar_model] - lumipar[pars[i]]; // RK
 	  
 	  if (diff <= 0)

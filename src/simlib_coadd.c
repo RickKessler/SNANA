@@ -589,7 +589,7 @@ void SIMLIB_open_read(void) {
 
     if ( strlen(cline) < 2 ) { continue; }
 
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline, fnam);
     iwd=0; get_PARSE_WORD(langC, iwd, key); 
 
     if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 )  

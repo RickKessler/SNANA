@@ -56,8 +56,8 @@
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       400  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-#define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
-#define MXROW_HOSTLIB     60000000  // max number or rows in HOSTLIB
+//xxx #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
+#define MXROW_HOSTLIB     80000000  // max number or rows in HOSTLIB
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file
@@ -95,6 +95,7 @@
 
 #define MXUSE_SAMEGAL 50     // max number of times to re-use hostGal
                              // with MINDAYSEP_SAMEGAL option
+#define MXREJECT_USEONCE 2   // reject up to 2 events that fail USEONCE opt
 
 // define required keys in the HOSTLIB
 #define HOSTLIB_VARNAME_GALID     "GALID"      // required 
@@ -693,8 +694,10 @@ void   close_HOSTLIB(FILE *fp);
 
 void   init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END);
 void   read_HOSTLIB_WGTMAP(void);
-void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
-int    read_VARNAMES_WGTMAP(char *VARLIST);
+void   read_HOSTLIB_WGTMAP_LEGACY(void);
+void   parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string);
+void   prep_HOSTLIB_WGTMAP(void);
+int    read_VARNAMES_WGTMAP_LEGACY(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST, char *varName, 
 				 char *funCall);
@@ -740,6 +743,9 @@ double get_Sersic_bn(double n);
 void   init_OUTVAR_HOSTLIB(void) ;
 void   LOAD_OUTVAR_HOSTLIB(int IGAL) ;
 void   append_HOSTLIB_STOREPAR(void);
+void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
+				       char *VARLIST_WGTMAP_noSNVAR);
+
 bool   QstringMatch(char *varName0, char *varName1);
 
 void   check_duplicate_GALID(void);
@@ -773,7 +779,6 @@ bool snr_detect_HOSTLIB(int IGAL);
 void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
 
 // SPECBASIS functions
-void   read_specTable_HOSTLIB_legacy(void);
 void   read_specTable_HOSTLIB(void);
 void   read_specTable_SNANA(char *spec_file,  char *VARNAME_PREFIX);
 void   read_specTable_EAZY(char *spec_file);
@@ -796,11 +801,10 @@ void   rewrite_HOSTLIB_plusNbr(void) ;
 void   get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND);
 void   rewrite_HOSTLIB_plusMags(void);
 void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
-
-void   rewrite_HOSTLIB_plusAppend(char *append_file);
-void   rewrite_HOSTLIB_plusAppend_legacy(char *append_file);
-
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
+void   rewrite_HOSTLIB_plusAppend(char *append_file);
+
+
 
 // copy from sntools_calib.h
 void get_calib_filtlam_stats(int opt_frame, int ifilt_obs,  

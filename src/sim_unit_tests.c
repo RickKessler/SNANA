@@ -11,6 +11,8 @@
 
 // ================================================
 
+void unit_test_driver(char *UNIT_TEST_NAME);
+
 void test_kcor_utils(void);
 void test_kcor_table_lcmag(void);
 void test_kcor_table_mwxt(void);
@@ -25,11 +27,44 @@ void test_ran(void);
 void test_PARSE_WORDS(void);
 void test_zcmb_dLmag_invert(void);
 
+void test_getRan_funVal(char *FUNVAL_NAME);
+void load_test_GENGAUSS(GENGAUSS_ASYM_DEF *GENGAUSS );
+void load_test_GENEXP(GEN_EXP_HALFGAUSS_DEF *GENEXP);
+
 char TEST_REFAC[]  = "REFAC";
 char TEST_LEGACY[] = "LEGACY";
 
+#define STRING_FUNVAL_GENGAUSS     "FUNVAL_GENGAUSS"
+#define STRING_FUNVAL_GENEXP       "FUNVAL_GENEXP"
+#define STRING_FUNVAL_GENPDF       "FUNVAL_GENPDF"
+
 // ************************
 
+
+void unit_test_driver(char *UNIT_TEST_NAME) {
+
+  char fnam[] = "unit_test_driver" ;
+
+  // ------ BEGIN ----------
+
+  if ( strlen(UNIT_TEST_NAME) == 0 ) { return; }
+
+  if ( strcmp(UNIT_TEST_NAME,"IGM") == 0 ) 
+    { test_igm(); }
+
+  else if ( strstr(UNIT_TEST_NAME,"FUNVAL") != NULL ) 
+    { test_getRan_funVal(UNIT_TEST_NAME); }
+
+  else {
+    sprintf(c1err,"Undefined UNIT_TEST: %s", UNIT_TEST_NAME);
+    sprintf(c2err,"Check UNIT_TEST key in sim-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+} // end unit_test_driver
+
+
+// =====================================
 void test_kcor_utils(void) {
   
   // Created Nov 2022
@@ -46,7 +81,6 @@ void test_kcor_utils(void) {
   test_kcor_table_kcor();
   test_GET_KCOR_DRIVER();
 
-  //.xyz
   debugexit(fnam);
   return;
 
@@ -413,16 +447,16 @@ void test_PARSE_WORDS(void) {
   char tmpWord[80];
   int NWD, iwd;
 
-  store_PARSE_WORDS(-1,"");
+  store_PARSE_WORDS(-1,"", fnam);
 
-  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,dumFile);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,dumFile, fnam);
 
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(0,iwd,tmpWord);
     printf(" xxx word[%2d] = '%s' \n", iwd, tmpWord);
   }
 
-  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,dumString);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,dumString, fnam);
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(0,iwd,tmpWord);
     printf(" xxx word[%2d] = '%s' \n", iwd, tmpWord);
@@ -495,3 +529,296 @@ void test_igm(void) {
 } // end test_igm 
 
 
+// ===============================
+void test_getRan_funVal(char *FUNVAL_NAME) {
+
+  // Created Dec 2023
+  // Test asymGauss and expHalf by generating randoms from
+  // distribution and comparing random distribution to 
+  // funVal-computed distribution
+
+  double range[2], xval[10];
+  char   parName[40], parName2[40] ;
+  int    IMAP ;
+  bool IS_LOGPARAM;
+  GENGAUSS_ASYM_DEF     GENGAUSS ;
+  GEN_EXP_HALFGAUSS_DEF GENEXP   ;
+
+  char fnam[] = "test_getRan_funVal" ;
+
+  // ----------- BEGIN ---------
+
+  print_banner(fnam);
+
+  GENGAUSS.USE = GENEXP.USE = false;
+
+  if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENGAUSS) == 0 ) { 
+    load_test_GENGAUSS(&GENGAUSS );
+    range[0]  = GENGAUSS.RANGE[0] ;
+    range[1]  = GENGAUSS.RANGE[1] ;
+  }
+  else if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENEXP) == 0 ) {
+    load_test_GENEXP(&GENEXP);
+    range[0]  = GENEXP.RANGE[0] ;
+    range[1]  = GENEXP.RANGE[1] ;
+  }
+  else if ( strcmp(FUNVAL_NAME,STRING_FUNVAL_GENPDF) == 0 ) {
+    int  GENPDF_OPTMASK   = 1 ;
+    char GENPDF_FILE[200] = 
+      "$DES5YR/populations/FINAL_forDES5yr/DES5YR_S3W22N21_GENPDF.DAT"; 
+    ENVreplace(GENPDF_FILE, fnam, 1);
+    init_genPDF(GENPDF_OPTMASK, NULL, GENPDF_FILE, BLANK_STRING) ;
+
+    // sprintf(parName,"SALT2x1"); 
+    // sprintf(parName,"SALT2c"); 
+    sprintf(parName,"EBV"); 
+    SNHOSTGAL.IGAL = 20;   
+    IMAP          = IMAP_GENPDF(parName, &IS_LOGPARAM) ;
+
+    // restrict range to make better use of binned results below 
+    // SALT2x1 range is ok
+    if ( strcmp(parName,"SALT2c") == 0 ) { 
+      GENPDF[IMAP].GRIDMAP.VALMIN[0] = -0.3;
+      GENPDF[IMAP].GRIDMAP.VALMAX[0] =  0.3;
+    }
+    else if ( strcmp(parName,"EBV")    == 0 ) { 
+      GENPDF[IMAP].GRIDMAP.VALMIN[0] = 0.0 ;
+      GENPDF[IMAP].GRIDMAP.VALMAX[0] = 0.9 ;
+    }
+
+    range[0]       = GENPDF[IMAP].GRIDMAP.VALMIN[0] ;
+    range[1]       = GENPDF[IMAP].GRIDMAP.VALMAX[0] ; 
+
+    GENPDF[IMAP].PROB_EXPON_REWGT = 1.0 ;
+  }
+  else {
+    print_preAbort_banner(fnam);
+    printf("  Valid FUNVAL names for UNIT_TEST argument: \n");
+    printf("\t %s\n", STRING_FUNVAL_GENGAUSS);
+    printf("\t %s\n", STRING_FUNVAL_GENEXP);
+    printf("\t %s\n", STRING_FUNVAL_GENPDF);
+
+    sprintf(c1err,"Undefined FUNVAL_NAME = '%s' ", FUNVAL_NAME);
+    sprintf(c2err,"Check valid FUNVAL unit test names above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  printf("\n - - -  Done with UNIT_TEST init - - - - \n");
+
+  printf("\t Range is %.3f to %.3f \n", 
+	 range[0], range[1]); fflush(stdout);
+
+  if ( NMAP_GENPDF > 0 ) {
+    printf("\t Select GENPDF map for %s (IMAP=%d) \n",
+	   parName, IMAP);
+
+  }
+  // ---------------------------------
+  int    NRANGEN = 500000;
+  int    NBIN_HIST = 600; //600;
+  double range_tot = range[1] - range[0];
+  double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
+  double r, x, xmin, xmax, funVal, genVal, genVal_err, nsig;
+  double funVal_edge[2], funVal_integral=0.0 ;
+
+  int MEMD = NBIN_HIST * sizeof(double);
+  int MEMI = NBIN_HIST * sizeof(int);
+  double *funVal_PER_BIN = (double *) malloc(MEMD) ;
+  double *x_PER_BIN      = (double *) malloc(MEMD) ;
+  int    *NGEN_PER_BIN   = (int    *) malloc(MEMI) ;
+  int i, bin, MX_PER_BIN=0, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
+
+  printf("\t Generate %d random numbers from %s:\n",
+	 NRANGEN, FUNVAL_NAME);
+
+  fflush(stdout);
+
+  for(bin=0; bin < NBIN_HIST; bin++ ) { 
+    NGEN_PER_BIN[bin] = 0 ; 
+    x_PER_BIN[bin] = range[0] + ((double)bin + 0.5) * BINSIZE_HIST; // bin center
+  }
+
+  int NWRAP, NWRAP_LAST = -9,  N_fill_RANLISTs=0;
+
+  for(i=0; i < NRANGEN; i++ ) {
+
+    NWRAP = GENRAN_INFO.NWRAP[1] ;
+    if ( NWRAP == 1 )  { fill_RANLISTs();  }
+    //    NWRAP_LAST = NWRAP ;
+
+    if ( GENGAUSS.USE ) 
+      { r   = getRan_GENGAUSS_ASYM(&GENGAUSS) ; }
+    else if ( GENEXP.USE ) 
+      { r   = getRan_GEN_EXP_HALFGAUSS(&GENEXP) ; }
+    else if ( NMAP_GENPDF > 0 ) 
+      { r = getRan_genPDF(parName, &GENGAUSS); }
+
+    if ( r < range[0] || r > range[1] ) { continue; }
+
+    bin = (int)( (r - range[0])/BINSIZE_HIST );
+    NGEN_PER_BIN[bin]++;
+    if ( i < -20 ) {
+      printf(" xxx i=%2d r=%f bin=%d \n", i, r, bin);
+    }
+  }
+
+  // - - - - - 
+  // get funVal and integral 
+  for(bin=0; bin < NBIN_HIST; bin++ ) {
+    x      = x_PER_BIN[bin];
+    xmin   = x - 0.5*BINSIZE_HIST ;
+    xmax   = x + 0.5*BINSIZE_HIST ;
+
+    if ( GENGAUSS.USE ) {
+      funVal_edge[0] = funVal_GENGAUSS_ASYM(xmin, &GENGAUSS) ;
+      funVal_edge[1] = funVal_GENGAUSS_ASYM(xmax, &GENGAUSS) ;
+    }
+    else if ( GENEXP.USE ) {
+      funVal_edge[0] = funVal_GEN_EXP_HALFGAUSS(xmin, &GENEXP) ;
+      funVal_edge[1] = funVal_GEN_EXP_HALFGAUSS(xmax, &GENEXP) ;
+    }
+    else if ( NMAP_GENPDF > 0 ) {
+      xval[0] = xmin; 
+      funVal_edge[0] = funVal_genPDF(parName, xmin, &GENGAUSS) ;
+      xval[0] = xmax; 
+      funVal_edge[1] = funVal_genPDF(parName, xmax, &GENGAUSS) ;
+    }
+
+    funVal         = 0.5 * ( funVal_edge[0] + funVal_edge[1] );
+    funVal_integral    += funVal ;
+    funVal_PER_BIN[bin] = funVal ;
+  }
+
+  // - - - - - 
+  double XNORM = funVal_integral / (double)NRANGEN;
+  printf("\t XNORM(funVal_integral / %d) = %le \n", NRANGEN, XNORM);
+
+  printf("\n");
+  printf("#    x      funVal      genVal  \n");
+  for(bin=0; bin < NBIN_HIST; bin++ ) {
+    x      = x_PER_BIN[bin];
+    funVal = funVal_PER_BIN[bin];
+    genVal = (double)NGEN_PER_BIN[bin] * XNORM ;
+
+    genVal_err = nsig = 0.0 ;
+    bool USE = ( funVal > 0.01 );
+    if ( USE ) {      
+      genVal_err = sqrt(funVal/XNORM) * XNORM; // use model to get error
+      nsig       = fabs(genVal-funVal) / genVal_err ;
+      NBIN_NONZERO++ ;
+      if ( nsig > 2.0 ) { N2SIG++ ; }
+      if ( nsig > 3.0 ) { N3SIG++ ; }
+    }
+
+    if ( USE ) {
+      printf("   %6.3f   %8.5f  %8.5f +_ %8.5f  (%4.2f sigma) \n", 
+	     x, funVal, genVal, genVal_err, nsig );
+    }
+    fflush(stdout);
+    // N_PER_BIN[bin] = 0 ;
+  }
+  
+  // - - - - -
+  double frac2, frac3;
+  printf("\n");
+  frac2 = (double)N2SIG / (double)(NBIN_NONZERO);
+  frac3 = (double)N3SIG / (double)(NBIN_NONZERO);
+
+  printf(" Number of fill_RANLISTs calls: %d \n", 
+	 GENRAN_INFO.NCALL_fill_RANSTATs);
+  printf(" Number of generated randoms  : %d \n", NRANGEN);
+
+  printf(" Number of 2-sigma outliers: %d of %d  (frac = %.3f)\n",
+	 N2SIG, NBIN_NONZERO, frac2 );
+  printf(" Number of 3-sigma outliers: %d of %d  (frac = %.3f)\n",
+	 N3SIG, NBIN_NONZERO, frac3 );
+
+  fflush(stdout);
+
+  // summarize variables for GENPDF
+  if ( NMAP_GENPDF ) {
+    int IVAR_HOSTLIB, ivar;
+    int IGAL = SNHOSTGAL.IGAL ;
+    long long GALID = get_GALID_HOSTLIB(IGAL);;
+    char *tmpName;
+    printf("\n    GENPDF varname: %s  from MAP=%s  (IMAP=%d)\n", 
+	   parName, GENPDF[IMAP].MAPNAME, IMAP);
+    printf("\t GALID = %lld   (IGAL = %d)\n", GALID, IGAL);
+    for(ivar=1; ivar < GENPDF[IMAP].GRIDMAP.NDIM ; ivar++ ) {
+      IVAR_HOSTLIB   = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
+      x              = get_VALUE_HOSTLIB(IVAR_HOSTLIB, IGAL);
+      tmpName        = GENPDF[IMAP].VARNAMES[ivar];
+      printf("\t %-12s = %f \n", tmpName, x);
+      fflush(stdout);
+    }
+  }
+
+  debugexit(fnam);
+
+  return;
+} // end test_getRan_funVal
+
+
+// =========
+void load_test_GENGAUSS(GENGAUSS_ASYM_DEF *GENGAUSS ) {
+
+  // Created Dec 2023:
+  // hard-wire test values into GENGAUSS structure.
+
+  // --------- BEGIN ----------
+
+  init_GENGAUSS_ASYM(GENGAUSS, (double)0.0 ); 
+  GENGAUSS->USE      = true;
+  sprintf(GENGAUSS->NAME,"UNIT_TEST");
+
+  GENGAUSS->PEAK     =  0.0;
+  GENGAUSS->SIGMA[0] =  0.2; 
+  GENGAUSS->SIGMA[1] =  0.4 ;
+  GENGAUSS->RANGE[0] = -1.0 ;
+  GENGAUSS->RANGE[1] =  3.0 ;  // check 1.4 and 3
+
+  GENGAUSS->PROB2     = 0.3 ;
+  GENGAUSS->PEAK2     = 1.0 ; 
+  GENGAUSS->SIGMA2[0] = 0.1 ;
+  GENGAUSS->SIGMA2[1] = 0.3 ;
+
+  double prob_expon_rewgt         = 0.5 ;
+  GENGAUSS->PROB_EXPON_REWGT      = prob_expon_rewgt;
+  GENGAUSS->SQRT_PROB_EXPON_REWGT = sqrt(prob_expon_rewgt) ;
+
+  dump_GENGAUSS_ASYM(GENGAUSS);
+
+  return ;
+
+} // end load_test_GENGAUSS
+
+
+void load_test_GENEXP(GEN_EXP_HALFGAUSS_DEF *GENEXP) {
+
+  double tau = 0.3;
+  double range[2] = { 0.0, 2.0 } ;
+
+  // --------- BEGIN ----------
+
+  init_GEN_EXP_HALFGAUSS(GENEXP, (double)0.0 );
+
+  sprintf(GENEXP->NAME,"UNIT_TEST");  
+  set_GEN_EXPON(tau, range, GENEXP);
+
+  // define half-Gaussian core
+  bool DO_GAUSS = true ;
+  if ( DO_GAUSS ) {
+    GENEXP->RATIO = 0.3 ;  
+    GENEXP->PEAK  = 0.0 ;
+    GENEXP->SIGMA = 0.05 ;
+  }
+
+  double prob_expon_rewgt       = 0.5 ;
+  GENEXP->PROB_EXPON_REWGT      = prob_expon_rewgt ;
+  GENEXP->SQRT_PROB_EXPON_REWGT = sqrt(prob_expon_rewgt) ;
+
+  dump_GEN_EXP_HALFGAUSS(GENEXP);
+
+  return ;
+
+} // end load_test_GENEXP

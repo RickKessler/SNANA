@@ -186,7 +186,7 @@ extern"C" {
   void  readint(FILE *fp, int nint, int *list) ;
   void  readchar(FILE *fp, char *clist) ;
   FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG);
-  int   store_PARSE_WORDS(int OPT, char *FILENAME);
+  int   store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun );
   void  get_PARSE_WORD(int langFlag, int iwd, char *word);
   void  trim_blank_spaces(char *string);
   void  debugexit(char *string);
@@ -1156,7 +1156,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       MATCH = ( strstr(VARLIST,KEYNAME_VERSION_PHOTOMETRY) != NULL ) ;
       if ( MATCH ) {
 	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
-	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST);
+	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST, fnam);
 	iwd=1;   get_PARSE_WORD(0, iwd, vtmp) ; 
 	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
       } // end MATCH
@@ -1168,7 +1168,7 @@ int  SNTABLE_READPREP_TEXT(void) {
     if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
       FOUNDKEY = 1;
       fgets(VARLIST, MXCHAR_LINE, FP );
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST, fnam );
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
 	get_PARSE_WORD(0,ivar,VARNAME);
@@ -1223,11 +1223,11 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   long double DVAR[MXVAR_TABLE];
   char        CVAR[MXVAR_TABLE][60];
   
-  char fnam[]    = "SNTABLE_READ_EXEC_TEXT" ;
   int  NVAR_TOT  = READTABLE_POINTERS.NVAR_TOT ;  // all variables
   int  NVAR_READ = READTABLE_POINTERS.NVAR_READ ; // subset to read
   FILE *FP       = PTRFILE_TEXT ; 
-  
+  char fnam[]    = "SNTABLE_READ_EXEC_TEXT" ;
+
   // ------------ BEGIN -----------    
 
   // get key name of ID varname such as CID, GALID, etc.
@@ -1353,6 +1353,7 @@ int validRowKey_TEXT(char *string) {
   //  text-formatted table file.
   //  Return 0 otherwise.
 
+  if ( strlen(string) < 2 ) { return 0 ; }
   if ( strcmp(string,"SN:")    == 0 ) { return 1; }
   if ( strcmp(string,"ROW:")   == 0 ) { return 1; }
   if ( strcmp(string,"GAL:")   == 0 ) { return 1; }
@@ -1774,7 +1775,7 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
 
   // ----------- BEGIN ------------
 
-  NVAR_SPECPLOT = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARPLOT_KEY);
+  NVAR_SPECPLOT = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARPLOT_KEY, fnam );
 
   if ( OPT_FORMAT == OPT_FORMAT_COL ) {
     return ; // do nothing 

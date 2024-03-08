@@ -3,6 +3,7 @@
 
 // ========= GLOBAL DECLARATIONS =================
 
+#define ILIST_GETRAN_GENGAUSS 1
 #define MXGENGAUSS 100
 int NFUN_GENGAUSS_ASYM ; // used in conjunction with FUNINDEX       
 
@@ -24,8 +25,12 @@ typedef struct  {
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index
   double RMS;  // RMS of asym Gaussian 
 
+  // Dec 2023: option to rewgt prob
+  double PROB_EXPON_REWGT; // PROB -> PROB^PROB_EXPON_REWGT
+  double SQRT_PROB_EXPON_REWGT; 
+
   int KEYSOURCE ; // 1=FILE, 2=ARG; used for prioritization
-  int INDEX; // Generic index for internal use (not part of function)
+  int INDEX;      // Generic index for internal use (not part of function)
 
 } GENGAUSS_ASYM_DEF ;
 
@@ -35,7 +40,9 @@ GENGAUSS_ASYM_DEF  GENGAUSS_ASYM_LIST[MXGENGAUSS] ;
 // ========= FUNCTION PROTOTYPES ==================
 
 void   init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL );
+
 double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
+double getRan_GENGAUSS_ASYM_bug(GENGAUSS_ASYM_DEF *genGauss);
 double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss);
 void   copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
                           GENGAUSS_ASYM_DEF *genGauss2) ;
@@ -43,6 +50,8 @@ void   dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
 
 void   set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
 			 GENGAUSS_ASYM_DEF *genGauss);
+
+void   set_GENGAUSS_ASYM_REWGT(double rewgt, GENGAUSS_ASYM_DEF *genGauss);
 
 void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss );
 

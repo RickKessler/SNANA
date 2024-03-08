@@ -56,12 +56,26 @@ char SALT2_PREFIX_FILENAME[20]; // e.g., "salt2", "salt3", etc ...
 
 double RVMW_SALT2 ;
 
+#define MXSURFACE_SALT2 4
+#define MXERRMAP_SALT2  10
+int     NERRMAP_SALT2 ;
+struct  { // define indices for ERROR maps
+  int VAR[MXSURFACE_SALT2];
+  int COVAR[MXSURFACE_SALT2][MXSURFACE_SALT2];
+  int ERRSCALE ;
+  int COLORDISP ;
+} INDEX_SALT2_ERRMAP;
+
+
+/* xxxxxxxxxx mark delete Dec 28 2023 xxxxxxx
 #define NERRMAP 5  // VAR0, VAR1, COVAR_01 and ERRSCALE
 #define INDEX_ERRMAP_VAR0     0
 #define INDEX_ERRMAP_VAR1     1
 #define INDEX_ERRMAP_COVAR01  2
 #define INDEX_ERRMAP_SCAL     3
 #define INDEX_ERRMAP_COLORDISP  4 // color  dispersion vs. lambda
+xxxxxxxxxx */
+
 
 
 struct SALT2_ERRMAP {
@@ -80,7 +94,7 @@ struct SALT2_ERRMAP {
   int NBADVAL_NAN, NBADVAL_CRAZY; // July 2020 (for retraining)
   double  RANGE_VALID[2] ;  // valid range for each map
   double  RANGE_FOUND[2] ;  // actual min/max for each map
-} SALT2_ERRMAP[NERRMAP]; // SALT2_VAR[2], SALT2_COVAR, SALT2_ERRSCALE ;
+} SALT2_ERRMAP[MXERRMAP_SALT2]; // SALT2_VAR[2], SALT2_COVAR, SALT2_ERRSCALE ;
 
 #define CALIB_SALT2_MAGSHIFT  1
 #define CALIB_SALT2_WAVESHIFT 2
@@ -136,7 +150,7 @@ struct INPUT_SALT3_INFO {
 
 } INPUT_SALT3_INFO;
 
-
+/* xxx mark delete Dec 2023 xxxxxxxxxxx
 // xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
 // define model parameter for late-time mag-extrapolation
 #define MXLAMBIN_EXTRAP_LATETIME 20
@@ -163,7 +177,7 @@ struct {
 } INPUT_EXTRAP_LATETIME ;
 
 // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
+xxxx end mark xxxx */
 
 struct SALT2_SPLINE_ARGS {  
   double  DAY[MXBIN_VAR_SALT2] ;
@@ -178,8 +192,8 @@ double mBoff_SALT2;
 int    ifiltB_SALT2;
 
 // define filenames that contain model-error information
-char SALT2_ERRMAP_FILES[NERRMAP][60] ;
-char SALT2_ERRMAP_COMMENT[NERRMAP][40] ;
+char SALT2_ERRMAP_FILES[MXERRMAP_SALT2][60] ;
+char SALT2_ERRMAP_COMMENT[MXERRMAP_SALT2][40] ;
 int  NERRMAP_BADRANGE_SALT2;  // bad wave and/or day range
 int  NERRMAP_BADVALUE_SALT2 ; // bad map value: nan or crazy value
 
@@ -189,7 +203,7 @@ int  NERRMAP_BADVALUE_SALT2 ; // bad map value: nan or crazy value
 struct SALT2_TABLE {
   double **COLORLAW   ;   // color law table [color][lambda]
   double **XTMW_FRAC  ;   // XTMW table [ifilt][lambda]
-  double **SEDFLUX[2] ;   // SED flux vs. Trest and lambda [iday][ilam]
+  double **SEDFLUX[MXSURFACE_SALT2] ;   // SED flux vs. Trest and lambda [iday][ilam]
 
   // parameters (binning) of SEDFLUX table
   int    NDAY, NLAMSED  ;   // Number of DAY and LAM bins for SEDs
@@ -225,13 +239,7 @@ void genmag_SALT2(int OPTMASK, int ifilt,
 		  double z, double z_forErr, int nobs, double *Tobs_list, 
 		  double *magobs_list, double *magerr_list );
 
-
-/* xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
-// xxx void   init_extrap_latetime_SALT2(char *fileName);
-// xxx mark double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
-// xxxdouble FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2, 
-// xxx			       double ratio);
-xxxxx end mark xxxx */
+int  NSURFACE_SALT2(void);
 
 void colordump_SALT2(double lam, double c, char *cfilt);
 void errorSummary_SALT2(void) ;
@@ -247,7 +255,10 @@ double SALT2x0calc(double alpha, double beta, double x1, double c,
 double SALT2mBcalc(double x0); 
 
 double SALT2magerr(double Trest, double lamRest,  double z,
-		   double x1, double Finteg_errPar, int LDMP);
+		   double x1, double x2, double Finteg_errPar, int LDMP);
+
+double SALT2magerr_legacy(double Trest, double lamRest,  double z,
+			  double x1, double Finteg_errPar, int LDMP);
 
 double SALT2colorDisp(double lam, char *callFun);
 
@@ -256,12 +267,14 @@ void   setFlags_ISMODEL_SALT2(char *version);
 void getFileName_SALT2colorDisp(char *fileName) ;
 void read_SALT2_INFO_FILE(int OPTMASK);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );
+void read_SALT2errmaps_legacy(double Trange[2], double Lrange[2] );
 void read_SALT2colorDisp(void);
 
 void check_lamRange_SALT2errmap(int imap);
 void check_dayRange_SALT2errmap(int imap);
 void check_BADVAL_SALT2errmap(int imap);  // check for Nan & crazy values
 void init_BADVAL_SALT2errmap(int imap);  
+void init_BADVAL_SALT2errmap_legacy(int imap);  
 
 void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP );
 

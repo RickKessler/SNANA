@@ -39,6 +39,7 @@
 # July 29 2023: write HOSTNAME in RUNJOB_CPU[nnn].LOG files
 #               to help diagnose problems.
 #
+# Feb 01 2024: print CMD_JOB to slurm log
 
 import os, sys, datetime, shutil, time, glob
 import subprocess, argparse
@@ -721,6 +722,10 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
 
     # run full job, include 'cd' and pipe to LOGFILE
     CMD_JOB     = f"cd {LOGDIR}; {job_plus_args} >& {LOGFILE}"
+
+    print(f"\n CMD_JOB = {CMD_JOB}")
+    sys.stdout.flush()
+
     os.system(CMD_JOB)
 
     # - - - - - - - - - - - - - - - - 

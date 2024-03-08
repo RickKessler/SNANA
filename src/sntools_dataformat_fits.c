@@ -67,6 +67,7 @@
 
  Feb 03 2023: read/write SIM_THETA for BayeSN model
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band] for ATMOS
+ Dec 22 2023: write SIM_WGT_POPULATION
 
 **************************************************/
 
@@ -447,7 +448,10 @@ void wr_snfitsio_init_head(void) {
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     wr_snfitsio_addCol( "32A", "SIM_MODEL_NAME"     , itype );
     wr_snfitsio_addCol( "1I",  "SIM_MODEL_INDEX"    , itype );
-    wr_snfitsio_addCol( "1I",  "SIM_TYPE_INDEX"     , itype );
+
+    wr_snfitsio_addCol( "1I",  "SIM_GENTYPE"     , itype );
+    wr_snfitsio_addCol( "1I",  "SIM_TYPE_INDEX", itype ); // legacy duplicate
+
     wr_snfitsio_addCol( "8A",  "SIM_TYPE_NAME"      , itype );
 
     wr_snfitsio_addCol( "1J",  "SIM_TEMPLATE_INDEX" , itype );
@@ -477,6 +481,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E",  "SIM_MJD_EXPLODE"    , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MAGSMEAR_COH"   , itype );      
   
+    wr_snfitsio_addCol( "1E", "SIM_WGT_POPULATION"  , itype );  // Dec 2023
+
     // always write SIM_AV,RV
     wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
     wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
@@ -503,8 +509,7 @@ void wr_snfitsio_init_head(void) {
     
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_NON1ASED ||
 	 SNDATA.SIM_MODEL_INDEX  == MODEL_NON1AGRID ) {
-      // wr_snfitsio_addCol( "1E", "SIM_AV"            , itype );
-      // wr_snfitsio_addCol( "1E", "SIM_RV"            , itype );
+
     }
 
     if ( SNDATA.SIM_MODEL_INDEX == MODEL_SIMSED && 
@@ -659,9 +664,13 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
   // HOSTGAL_LOGMASS and HOSTGALL_LOGMASS_ERR.
   //
 
-  int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_NAME_LIST);
   int i;
   char KEY[80], KEY_ERR[80], PROPERTY[40] ;
+  char fnam[] = "wr_snfitsio_addCol_HOSTGAL_PROERTIES"; 
+
+  int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, 
+				 HOSTGAL_PROPERTY_NAME_LIST, fnam);
+
   // -------------- BEGIN ------------
 
   for(i=0; i < N_PROP; i++ ) {
@@ -1826,9 +1835,14 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_MODEL_INDEX ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MODEL_INDEX", itype );
 
-  // SIM_TYPE index (added Jun 9 2013)
+  // SIM_GENTYPE index
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_TYPE_INDEX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_GENTYPE ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_GENTYPE", itype );
+
+  // write legacy GENTYPE name .... for a while
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_GENTYPE ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_TYPE_INDEX", itype );
 
   // SIM_TYPE name  (Ia, Ib, II ...)
@@ -1949,6 +1963,11 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MAGSMEAR_COH ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGSMEAR_COH", itype );
 
+
+  // Dec 22 2023: write SIM_WGT for population
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_WGT_POPULATION ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_WGT_POPULATION", itype );
 
   // Ju 16 2016: always write SIM_RV & SIM_AV
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2919,6 +2938,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   NSNLC_RD_SNFITSIO_TOT    = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
+  malloc_GENSPEC(0, 0,0) ;
 
   if ( init_num == 1 ) {
     init_SNDATA_GLOBAL();
@@ -3359,7 +3379,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_STR(isn, "SIM_TYPE_NAME", SNDATA.SIM_TYPE_NAME,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
-    j++; NRD = RD_SNFITSIO_INT(isn, "SIM_TYPE_INDEX", &SNDATA.SIM_TYPE_INDEX,
+    j++; NRD = RD_SNFITSIO_INT(isn, "SIM_GENTYPE", &SNDATA.SIM_GENTYPE,
+			       &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    // Oct 26 2023: check legacy key name for GENTYPE
+    j++; NRD = RD_SNFITSIO_INT(isn, "SIM_TYPE_INDEX", &SNDATA.SIM_GENTYPE,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_INT(isn, "SIM_SUBSAMPLE_INDEX", 
@@ -3432,6 +3456,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_FLT(isn,"SIM_MAGSMEAR_COH",&SNDATA.SIM_MAGSMEAR_COH,
+			       &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_WGT_POPULATION", &SNDATA.SIM_WGT_POPULATION,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_AV", &SNDATA.SIM_AV ,

@@ -1529,7 +1529,7 @@ void print_shfudgefun_options(void) {
 // ****************************************************
 void init_SALT2_fudge(char *version) {
 
-  int  ISED, ised ;
+  int  ISED, ised, nflux_nan ;
   char tmpFile[200], sedcomment[60] ;
   char fnam[] = "init_SALT2_fudge" ;
 
@@ -1572,7 +1572,8 @@ void init_SALT2_fudge(char *version) {
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
 	       ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
 	       ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-	       ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );
+	       ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR
+	       ,&nflux_nan );
 
     // make sure that DAY and LAM binning is identical for each surface
 
@@ -2318,7 +2319,7 @@ void sedRead(int ised) {
     ,sedcomment[100] 
     ;
 
-  int N;
+  int N, nflux_nan;
 
   // ------------ BEGIN ------------
 
@@ -2332,7 +2333,8 @@ void sedRead(int ised) {
 	     ,SEDMODEL.OPTMASK
              ,&TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAY, &TEMP_SEDMODEL.DAYSTEP
              ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
-             ,TEMP_SEDMODEL.FLUX, TEMP_SEDMODEL.FLUXERR );
+             ,TEMP_SEDMODEL.FLUX, TEMP_SEDMODEL.FLUXERR
+	     ,&nflux_nan );
   
   N = TEMP_SEDMODEL.NDAY ;
   TEMP_SEDMODEL.DAYMIN  = TEMP_SEDMODEL.DAY[0] ;
@@ -2798,7 +2800,7 @@ void  sedSynMag(int ised, int ifilt) {
 
 
   // read filter trans vs. wavelength
-  rd2columnFile(transFile, MXLAM_FILT, &NLAM_FILT, LAM_FILT, TRANS_FILT);
+  rd2columnFile(transFile, MXLAM_FILT, &NLAM_FILT, LAM_FILT, TRANS_FILT, 0);
 
   LAMMIN_FILT = LAM_FILT[0];
   LAMMAX_FILT = LAM_FILT[NLAM_FILT-1];
@@ -3863,7 +3865,7 @@ void malloc_KRW09(int imodel) {
 // *****************************************
 void  read_SED_KRW09(int imodel, int icos) {
 
-  int  i, NCOS, indx, NBIN_FLUX, NDAY, NLAM ;
+  int  i, NCOS, indx, NBIN_FLUX, NDAY, NLAM, nflux_nan ;
 
   char 
     *name
@@ -3906,6 +3908,7 @@ void  read_SED_KRW09(int imodel, int icos) {
 	     ,&KRW09.LAMSTEP[imodel][icos]
 	     ,KRW09.FLUX[imodel][icos]
 	     ,KRW09.FLUXERR[imodel][icos] 
+	     ,&nflux_nan
 	     ) ; 
   
 

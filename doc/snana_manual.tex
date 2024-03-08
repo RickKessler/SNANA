@@ -326,12 +326,12 @@ format.
 Large data \& sim samples should use FITS format because
 it is much more compact and much faster to read.
 With TEXT format, each event is written to a separate ASCII file.
-With FITS format (Fig.~\ref{fig:data_format}), 
-there are two FITS files: a summary HEAD file
-with a one-row summary per event, and a PHOT file with the
-light curves. For fast reading, the HEAD file includes pointers
-to the PHOT table, so do not catenate FITS files without updating
-these pointers.
+With FITS format, there are two FITS files: a summary HEAD file
+with a one-row summary per event (Fig.~\ref{fig:data_format_head}), 
+and a PHOT file with the light curves (Fig.~\ref{fig:data_format_phot}).
+For fast reading, the HEAD file includes pointers
+to the PHOT table ({\tt PTROBS\_MIN, PTROBS\_MAX}), 
+so do not catenate FITS files without updating these pointers.
 
 \begin{figure} [ht] 
 \begin{center}
@@ -340,52 +340,90 @@ HEAD file:
   variable name              description
 # ---------------------------------------------------------------------
 * SNID                      integer or character ID
+* FAKE                      0=real data, 1=fake overlaid on image, 2=SNANA sim, 
 * RA,DEC                    sky coordinates (degrees)
+* SNTYPE                    integer type assigned by survey (e.g., SPEC type)
 * NOBS                      number of obs (all bands)
-* PTROBS_MIN                points to 1st light curve obs in PHOT file
-* PTROBS_MAX                points to last light curve obs
+* PTROBS_MIN                pointer to 1st light curve obs in PHOT file
+* PTROBS_MAX                pointer to last light curve obs
 * MWEBV[_ERR]               E(B-V) for Milky way
 * REDSHIFT_HELIO[_ERR]      best heliocentric redshift;
                             zSpec if available; else zPhot; else -9
-* REDSHIFT_FINAL[_ERR]      best CMB redshift
+* REDSHIFT_FINAL[_ERR]      best CMB redshift (no VPEC correction)
 * VPEC_[ERR]                pec velocity (km/sec) and error on correction
+
+* PEAKMJD                   approx PEAKMJD; useful to init light curve fit
+* MJD_TRIGGER               MJD when survey trigger is satisfied
+* MJD_DETECT_FIRST          MJD of first detection
+* MJD_DETECT_LAST           MJD of last detection
+
+* HOSTGAL_SB_FLUXCAL_[band] Surface brightness mag at SN location
 * HOSTGAL_NMATCH            number of host matches with DDLR < 4
 * HOSTGAL_NMATCH2           number of host matches with DDLR < 7
+* HOSTGAL_OBJID             integer id of host (long long int)
 * HOSTGAL_RA                R.A. (deg) for center of host
 * HOSTGAL_DEC               declination (deg) for center of host
 * HOSTGAL_SNSEP             transient-host separation, arcsec
+* HOSTGAL_DDLR              SN-host sep in distance-light-radii (d_DLR)
 * HOSTGAL_SPECZ[_ERR]       zSpec of host  (-9 -> not available)
 * HOSTGAL_PHOTOZ[_ERR]      zphot (mean of PDF); -9 -> not available
-* HOSTGAL_ZPHOT_Q[PPP]      redshift containing PPP% of zPDF prob
+* HOSTGAL_ZPHOT_Q[PPP]      redshift containing PPP percent of zPDF prob
+* HOSTGAL_LOGMASS[_ERR]     logmass and error
+* HOSTGAL_LOGSFR[_ERR]      log(star formation rate) and error
 * HOSTGAL_MAG_[band]        host mags for band=u,g,r,i,z,Y
 * HOSTGAL_MAGERR_[band]     uncertainty on above mags
     [Each hostgal_xxx has hostgal2_xxx for 2nd host-match;
      -999 indicates no 2nd host; else values are filled.
      First listed host has smallest DDLR and may not be the true host]
     
+     For simulated data:
 * SIM_TYPE_INDEX            true integer transient type (e.g., 1 for SNIa)
 * SIM_[SSS]                 true sim property SSS
-
+\end{Verbatim}
+\end{center}
+\vspace{-0.5cm}
+\caption{
+  FITS data structure for header file (*HEAD.FITS).
+ }
+\label{fig:data_format_head}
+\end{figure}
+%
+%
+\begin{figure} [ht] 
+\begin{center}
+\begin{Verbatim}[frame=single]
 PHOT file:
 * MJD                      modified Julian date (-777 -> end of light curve)
-* BAND                     e.g.,  u,g,r,i,z
+* BAND                     e.g.,  'u', 'g', 'r' etc ...
+* CCDNUM                   CCD or detector number
+* IMGNUM                   image number; e.g. exposure number, visit id ...
+* FIELD                    name of field; e.g., SHALLOW, DEEP, etc ...
 * PHOTFLAG                 bit-mask of information (check data README)
+* PHOTPROB                 float metric; e.g, RealBogus score, chi2, ...
 * FLUXCAL                  calibrated flux : mag = 27.5 - 2.5*log10(FLUXCAL)
 * FLUXCALERR               Poisson uncertainty on FLUXCAL; sky+galaxy+source
-* SIM_MAGOBS               true model mag
+
      image properties
 * PSF_SIG1                 PSF Gauss sigma, pixels
 * SKY_SIG                  sky noise (ADU/pixel)
+* SKY_SIG_T                template sky noise (for DIFFIMG, not for SMP)
 * ZEROPT                   image zero point
-* GAIN                     N_photoelectron/ADU = 1.0
+* GAIN                     N_photoelectron/ADU
+* XPIX                     x-locaton on CCD (pixels)
+* YPIX                     y-locaton on CCD (pixels)
+
+    For simulated data:
+* SIM_MAGOBS               true model mag
 \end{Verbatim}
 \end{center}
+\vspace{-0.5cm}
 \caption{
-  FITS data structure.
+  FITS data structure for photometry file (*PHOT.FITS)
  }
-\label{fig:data_format}
+\label{fig:data_format_phot}
 \end{figure}
 
+\bigskip\bigskip
 
 % -------------------------------------------
 \subsection{Citations}
@@ -1330,6 +1368,7 @@ etc ...
 \begin{Verbatim}[frame=single]
   SIMLIB_MSKOPT:  nnn     # bit-mask of options (see below)
   SIMLIB_MINOBS:  nnn     # require at least this many obs per LIBID
+  SIMLIB_MAXOBS:  nnn     # require fewer than this many obs per LIBID
   SIMLIB_IDSTART: nnn     # start at LIBID nnn
   SIMLIB_IDLOCK:  nnn     # use only LIBID nnn ; skip all others
   SIMLIB_MAXRANSTART: nnn # start at random LIBID among first nnn entries
@@ -4091,7 +4130,8 @@ Commonly used Sersic indices are $n=0.5, 1, 4$
 for Gaussian, exponential and  deVaucouleurs,
 respectively. 
 If there are 2 or more Sersic profiles per galaxy, 
-weights ({\tt w0\_Sersic}-{w9\_Sersic}) are needed.
+weights ({\tt w0\_Sersic}-{w9\_Sersic}) are needed;
+the sum of Sersic weights is 1.
 
 %Finally, the weight ``{\tt w0\_Sersic}'' give the flux-ratio
 %between this component and the total flux. The weight 
@@ -4657,6 +4697,44 @@ to reduce the galaxy SNR by a factor of $\sqrt{1/4}=1/2$.
 An optional PEAKMJD-dependent {\tt SNR\_SCALE} can be given
 by providing PEAKMJD-ranges as parenthetical arguments.
 
+%\clearpage
+\subsubsection{Generating Host Galaxy Photometric Redshifts}
+\label{sss:quantiles}
+
+Photometric redshifts are read from the {\tt HOSTLIB}.
+The $\Zphot$ values are not used in the simulation for calculations,
+but are simply written to the data files for analysis.
+There are two ways to provide photo-z information into the {\tt HOSTLIB}.
+First, provide {\tt ZPHOT} and {\tt ZPHOTERR} columns.
+The second method is to provide 11 quantile redshift columns 
+corresponding to integrated (CDF) probabilities of 
+0, 10\%, 20\%, ... 100\%:
+\begin{verbatim}
+    ZPHOT_Q000  ZPHOT_Q010   ZPHOT_Q020   ZPHOT_Q030 ... ZPHOT_Q100
+\end{verbatim}
+One or both methods may be provided in the same {\tt HOSTLIB}.
+A more general framework for arbitrary quantiles may be developed in the
+future. 
+The corresponding output data variables are
+\begin{verbatim} 
+    HOSTGAL_ZPHOT_Q000  HOSTGAL_ZPHOT_Q010   
+    HOSTGAL_ZPHOT_Q020  HOSTGAL_ZPHOT_Q030 ... HOSTGAL_ZPHOT_Q100 
+    NZPHOT_Q
+\end{verbatim}
+%
+where {\tt NZPHOT\_Q=11}.
+
+To select photo-$z$ in the light curve fitting program,
+set {\&FITINP} namelist variable {\tt OPT\_PHOTOZ=4}
+(\S\ref{subsec:photoz}). To override photo-$z$ information
+in the data files (real or sim), 
+see (\S\ref{sss:header_override}).
+Note that quantile overrides are unique because they can
+be appended even if the original data files do not have
+quantile data.
+
+
+% .xyz
 % ------------------------------------
 \clearpage
 \subsubsection{Compute Synthetic \hostlib\ Magnitudes ({\tt +HOSTMAGS})}
@@ -5799,6 +5877,7 @@ set the following sim-input key
  \begin{verbatim}
    LAMBIN_SED_TRUE:    10                 # wavelength bin size (A) for true SED output
    LAMRANGE_SED_TRUE:  <lammin> <lammax>  # optional; defaults explained below
+   VERIFY_SED_TRUE:    1                  # diagnostic dump
 \end{verbatim}
 %
 This option is unique because
@@ -9879,8 +9958,8 @@ see Sec.~\ref{sss:new_data_files} on updating data files with
 override information.
 
 The header information includes host properties, peculiar
-velocities, redshifts, and Galactic extintion, all of which
-can be modified for a particular study. 
+velocities, redshifts (spec-$z$ and photo-$z$), 
+and Galactic extintion, all of which can be modified for a particular study. 
 To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
 The input key for the analysis programs is
 \begin{verbatim}
@@ -9893,8 +9972,8 @@ The input key for the analysis programs is
 
 more myUpdates.dat
 VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV
-SN:  1346137      0.246  0.001    0.021
-SN:  1346387      0.533  0.0011   0.038
+SN:   1346137      0.246        0.001              0.021
+SN:   1346387      0.533        0.0011             0.038
 etc ...
 \end{verbatim}
 %
@@ -9902,14 +9981,27 @@ etc ...
 %SN:  1346137    78.4 150.0   10.87  0.21
 %SN:  1346387   -63.0 150.0    9.44  0.33
 
-In the first example, three header values are updated:
+In the first example ({\tt muUpdates.dat}), three header values are updated:
 helio redshift, the uncertainty, and Galactic extintion.
 For SNe missing from the update file, the original values in the 
-data file header are used. This feature does {\tt NOT} work
+data file header are preserved. This override feature does {\tt NOT} work
 on epoch-dependent quantities, but mag and flux corrections can
 be applied as described below in Sec.~\ref{sss:magcor}.
 The second example illustrates a comma-separated list of table files;
-beware that the variables in each file must be unique (except for CID).
+beware that the variables in each override file must be unique (except for CID).
+
+Data-override variables must exist in the original data file,
+with the exception of photo-$z$ quantiles (\S\ref{sss:quantiles}).
+Thus quantiles can be overwritten if they already exist in the
+original data files, 
+or appended if the original data files
+do not include quantile information. For quantile overrides using
+{\tt HOSTGAL\_ZPHOT\_Qppp} (where {\tt ppp=000, 010, ... 100}), 
+make sure to also include an {\tt NZPHOT\_Q} column with each value set to 11.
+
+
+%.xyz
+\clearpage
 
 The header-override list may include variables that are used later in 
 BBC or cosmology fitting, but not used in light curve fitting;
@@ -11737,29 +11829,22 @@ which automatically loops over all SEDs in the {\tt NON1A.LIST} file.
 \medskip
 The {\tt NON1ASED\_KEYS} are used to specify additional parameters 
 that depend on \NONIA\ type. 
-\begin{itemize}
+\begin{itemize}[noitemsep]
  \item {\tt\bf INDEX} is the index in the {\tt NON1A.LIST} file.
 %
- \item {\tt\bf WGT} are the relative rates.
+ \item {\tt\bf WGT} are relative rates.
    Since the weights are re-normalized to sum to unity,
-   the first 1/4 of the generated SNe will use \indx\ $=2$,
-   the second 1/4 will use \indx\ $=3$,
-   and the latter 1/2 will use \indx\ $=4$.
+   the first 1/4 of the generated SNe use \indx\ $=2$,
+   the second 1/4 use \indx\ $=3$,
+   and the latter 1/2 use \indx\ $=4$.
 %
-  \item {\tt\bf MAGOFF} is a global magnitude offset applied to
-     all passbands 
-     (i.e, equivalent to the \\ {\tt GENMAG\_OFF\_MODEL} keyword), 
-     and is used to adjust the average brightness of each \NONIA\ type.
-     For SEDs that are normalized to have a peak mag of zero
-     (i.e., the Nugent templates) rather than to physical units
-     (erg/s/\AA/cm$^2$), {\tt MAGOFF} must be used for the 
-     {\tt NONIA} option to get meaningful results.
+  \item {\tt\bf MAGOFF} is a magnitude offset applied to all passbands, 
+      and enables adjusting the luminosity function to match data.    
 %
-   \item {\tt\bf MAGSMEAR} is a Gaussian $\sigma$ for global coherent 
-        magnitude fluctuations (i.e, equivalent to \\
-       {\tt GENMAG\_SMEAR} for SNIa),
-       and is used to simulate intrinsic brightness variations.
-       The generated random value is stored in the data file
+   \item {\tt\bf MAGSMEAR} is a Gaussian $\sigma$ to generate coherent 
+       intinsic mag fluctuations 
+       (i.e, equivalent to {\tt GENMAG\_SMEAR} for SNIa).
+       Each random mag shift is stored in the data file
        ({\tt SIM\_MAGSMEAR\_COH} key) and in the SNTABLEs.
        Comma-separated values specify two sigmas for bifurcated Gaussian;
        {\tt MAGOFF} is the distribution peak, not the mean.
@@ -11768,9 +11853,8 @@ that depend on \NONIA\ type.
        after the {\tt SNTYPE} keyword in the 
        SNDATA files (see \S\ref{subsec:sim_sntype} for SNTYPE details).
        In the above example, \NONIA\ indices 2 \& 3 are both 
-       type II SNe, so they both get {\tt SNTYPE=2}.
-       \NONIA\ index 3 is a different SN type, so it gets a different
-       {\tt SNTYPE} value.  
+       assigned {\tt SNTYPE=2};
+       \NONIA\ index 4 is assigned  {\tt SNTYPE=3}.  
 \end{itemize}
 
 
@@ -11801,7 +11885,7 @@ the rate-vs-redshift for peculiar Ia is different than
 for NON1A (core collapse).
 There are three input modifications for peculiar Ia:
 %
-\begin{enumerate}
+\begin{enumerate}[noitemsep]
    \item In the sim-input file, the `{\tt NON1ASED:}' keys are replaced
          with `{\tt PEC1ASED:}' (or `{\tt PEC1A:}') 
    \item In the {\tt NON1A.LIST} file, the `{\tt NON1A:}' keys are 
@@ -11815,7 +11899,23 @@ There are three input modifications for peculiar Ia:
 \end{enumerate}
 
 
+% ----------------------------------------------
+\subsubsection{Force Single NON1ASED Index}
+\label{sss:NON1A_INDEX_FORCE}
+
+To select a specific NON1ASED index without modifying the sim-input file,
+\begin{verbatim}
+    snlc_sim.exe <inputFile>  NON1A_INDEX_FORCE 4  NGENTOT_LC 3
+\end{verbatim}
+%
+which will generate 3 events using only NON1A index 4.
+The {\tt NON1A\_INDEX\_FORCE} key is allowed only as command-line override;
+if this key is found in a sim-input file, the simulation will abort.
+
 % -----------------------------------------
+
+% -----------------------------------------
+\clearpage
 \subsection{\tt NON1AGRID}
 \label{subsec:NON1AGRID}
 % -----------------------------------------
@@ -13956,6 +14056,7 @@ Additional reformat options can be specified using {\tt SNLCINP} input mask
     OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
 
     OPT_REFORMAT_SPECTRA = 1 ! re-write only the spectra in text: lam Flam Flamerr
+    OPT_REFORMAT_SPECTRA = 2 ! write FLUX instead of FLam for astrodash
 \end{verbatim}
 %
 Here is an example command to convert a simulation into a data-like

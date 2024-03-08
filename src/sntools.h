@@ -1,4 +1,3 @@
-
 /*******************************************************
      Created Jan 2005 by R.Kessler
 
@@ -99,6 +98,7 @@
 #define PLANCK    6.6260755e-27     // Planck constant (erg s)
 #define hc        LIGHT_A * PLANCK
 #define PC_km     3.085678e13       // parsec (km)
+#define FNU_AB    3.631E-20         // flat Fnu for AB, erg/cm^2*s*Hz
 
 #define TWOPI     2.0*3.141592653589793238462643383279
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
@@ -216,7 +216,8 @@ char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list
 #define MXLIST_RAN      4  // max number of lists for stream0
-#define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+// xxx mark #define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+#define MXSTORE_RAN  1001  // size of RANLIST per event; avoid harmonics with submit_batch
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 
@@ -368,7 +369,7 @@ struct {
 } OLD_INPUTS;
 
 
-#define ADDBUF_PARSE_WORDS 10000
+#define ADDBUF_PARSE_WORDS     15000
 #define MXCHARWORD_PARSE_WORDS MXPATHLEN+200 // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700      // max words per line
@@ -542,6 +543,7 @@ int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
 
 int strcmp_ignoreCase(char *str1, char *str2) ;
+int strcmp_ignoregz(char *str1, char *str2) ;
 
 
 // data functions
@@ -554,6 +556,7 @@ void set_SNDATA_FILTER(char *filter_list);
 
 void init_GENSPEC_GLOBAL(void) ;
 void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
+void malloc_GENSPEC(int opt, int ispec, int NBLAM); 
 
 void ld_null(float *ptr, float value);
 
@@ -566,7 +569,7 @@ int rd_sedFlux( char *sedFile, char *sedcomment,
 		int MXDAY, int MXLAM, int OPTMASK,
 		int *NDAY, double *DAY_LIST, double *DAY_STEP,
 		int *NLAM, double *LAM_LIST, double *LAM_STEP,
-		double *FLUX_LIST, double *FLUXERR_LIST );
+		double *FLUX_LIST, double *FLUXERR_LIST, int *nflux_nan );
 
 int  PARSE_FILTLIST(char *filtlist_string, int *filtlist_array );
 
@@ -576,7 +579,7 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 			double (*covMat)[*MATSIZE], double *EIGMIN,
 			int *istat_cov ) ;
 
-int  store_PARSE_WORDS(int OPT, char *FILENAME);
+int  store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun);
 void malloc_PARSE_WORDS(int NWD);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
@@ -757,9 +760,10 @@ void fillbins(int OPT, char *name, int NBIN, float *RANGE,
 
 int commentchar(char *str);
 int rd2columnFile(char *file, int MXROW, int *Nrow,
-		   double *column1, double *column2 );
+		  double *column1, double *column2, int opt );
 int rd2columnfile_(char *file, int *MXROW, int *Nrow,
-		   double *column1, double *column2 );
+		   double *column1, double *column2, int *opt );
+
 
 int nrow_read(char *file, char *callFun) ;
 
@@ -955,6 +959,8 @@ void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 
 void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
+
+void system_pmap(char *code_name, char *call_fun);
 
 // glob functions
 int  glob_file_list(char *wildcard, char ***file_list); // underlying util

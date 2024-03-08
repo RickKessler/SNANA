@@ -22251,5 +22251,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_fit.car
       + new &FITINP  QUANTILE_ZERRMIN = 0.02; use quantile prior of zerr > 0.02;
         else switch to Gauss-z prior on zspec.
-        
+    
+# =============================================================
+         v11_05l ([tag date])
+
+         *****  IMPORTANT(v11_05l) *****
+
+
+         *****  USEFUL(v11_05l) *****
+
+
+         *****  MISCELLANEOUS(v11_05l) *****
+    
+
 END: 

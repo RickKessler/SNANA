@@ -16094,7 +16094,6 @@ double SNcount_model(double zMIN, double zMAX, RATEPAR_DEF *RATEPAR ) {
   // with model params passed via RATEPAR.
   // Solid angle & time window are passed via global INPUTS.
   //
-  // Sep 4 2016: add missing return(SNsum)
 
   double SNsum, dz, ztmp, vtmp, rtmp, tmp ;
   int NBZ, iz;

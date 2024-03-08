@@ -22164,7 +22164,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-         v11_05k ([tag date])
+         v11_05k (Mar 7 2024)
 
          *****  IMPORTANT(v11_05k) *****
 
@@ -22174,9 +22174,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     new utility randomize_table.py to randomize HOSTLIB or FITRES file.
 
+    new &FITINP QUANTILE_ZERRMIN to combine photo-z quantiles and zSpec.
+
+
          *****  MISCELLANEOUS(v11_05k) *****
 
-    submit_batch_jobs.py --topdir_cpu_sum <dirName>
+    submit_batch_jobs.py --cpu_sum
         finds all MERGE.LOG files, extracts CPU_SUM, and reports summary.
         + add CPU_SUM to MERGE.LOG for BBC and COSMOFIT
         + write class name to MERGE.LOG so that CPU can be

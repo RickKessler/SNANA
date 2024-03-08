@@ -320,25 +320,34 @@ def print_cpu_sum():
     # This task is strictly diaganostic to help track CPU needs.
     # This task does not submit or process jobs.
 
-    logging.info(f"\n Sum CPU in {MERGE_LOG_FILE} files ... ")
+    SUMMARY_FILE_LIST = [ MERGE_LOG_FILE, 'SCONE_SUMMARY.LOG' ] 
 
-    merge_log_list = []
-    cmd_find     = f"find . -name {MERGE_LOG_FILE} " + "-exec du -mc {} +"
+    logging.info(f"\n Sum CPU in {SUMMARY_FILE_LIST} files ... ")
 
-    OPT_FIND = 'run'  # or 'check_output'
+    summary_log_list = []
 
-    if OPT_FIND == 'check_output' :
-        find_list    = subprocess.check_output(cmd_find, shell=True)
-        find_list    = (find_list.rstrip()).decode('utf-8')
-    elif OPT_FIND == 'run' :
-        find_list  = subprocess.run( cmd_find.split(), cwd='./' ,
-                                     capture_output=True, text=True ).stdout
+    for summ_file in SUMMARY_FILE_LIST:
+        cmd_find  = f"find . -name {summ_file} " + "-exec du -mc {} +"
 
-    merge_log_list += find_list.split()[1::2]  # every other elment if file or dir  
+        OPT_FIND = 'run'  # or 'check_output'
+        if OPT_FIND == 'check_output' :
+            find_list    = subprocess.check_output(cmd_find, shell=True)
+            find_list    = (find_list.rstrip()).decode('utf-8')
+        elif OPT_FIND == 'run' :
+            find_list  = subprocess.run( cmd_find.split(), cwd='./' ,
+                                         capture_output=True, text=True ).stdout
 
-    # remove last element for 'total'
-    merge_log_list = merge_log_list[:-1]
+        if len(find_list) == 0 : continue
 
+        # every other elment is file or dir   .xyz
+        find_list  = find_list.split()[1::2]  
+        find_list  = find_list[:-1]
+
+        # remove last element for 'total'
+        summary_log_list += find_list
+        #print(f"\n xxx summary_log_list = {summary_log_list}")
+
+    # - - - - 
     # define expected keys in MERGE.LOG
     KEY_PROGRAM_CLASS     = 'PROGRAM_CLASS'
     KEY_CPU_SUM           = 'CPU_SUM'
@@ -354,7 +363,7 @@ def print_cpu_sum():
 
     SKIP_LIST = [ '5_MERGE', 'denied' ] # skip these duplicates
 
-    for merge_log in merge_log_list:
+    for merge_log in summary_log_list:
 
         do_skip = False
         for str_skip in SKIP_LIST :
@@ -364,6 +373,7 @@ def print_cpu_sum():
             continue
 
         yaml_contents ,comment_lines = util.read_merge_file(merge_log)
+
         logging.info(f" Read {merge_log}")
         if KEY_PROGRAM_CLASS in yaml_contents:
             program_class = yaml_contents[KEY_PROGRAM_CLASS]

@@ -1945,6 +1945,7 @@ c Oct 2014: variables to check for multi-season transient activity
      &   SIM_PRESCALE        ! I: pre-scale applied only to SIM
      &  ,VPEC_ERR_OVERRIDE   ! I: override VPEC_ERR in data header (km/sec)
      &  ,SNTABLE_APPEND_VALUE   ! I: value for SNTABLE_APPEND_VARNAME
+     &  ,QUANTILE_ZERRMIN ! I: use quantile prior for zerr> this; else use Guass prior
 
 c variables to control estimate of PEAKMJD
       INTEGER
@@ -1993,7 +1994,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
-     &    , OPT_SETPKMJD
+     &    , OPT_SETPKMJD, QUANTILE_ZERRMIN
      &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
@@ -2048,7 +2049,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
-     &    , OPT_SETPKMJD
+     &    , OPT_SETPKMJD, QUANTILE_ZERRMIN
      &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION, LDMP_SATURATE
@@ -4560,6 +4561,7 @@ c May 11 2022: read ZPHOT_Q
       INTEGER   LENPRE, ifilt, q
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
       REAL*8    DARRAY(MXFILT_OBS), SB, MAG
+      LOGICAL LTMP 
 
 C -------------- BEGIN ----------
       
@@ -4628,10 +4630,17 @@ c read ZPHOT_Q (May 2022)
           CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
           SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
         ENDDO
+	
+	IF (igal == 1) THEN
+	   LTMP = (SNHOST_ZPHOT_Q(igal,1) < -0.001) .AND. 
+     &     (SNLC_REDSHIFT > QUANTILE_ZERRMIN)	   
+	   IF (LTMP) SNLC_REDSHIFT = -9.0 !'Forced event to be rejected'
+
+	ENDIF
 c          print*,' xxx ------------------------------------------- '
 c          print*,' xxx CID ,igal = ', SNLC_CCID, igal
 c          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
-      endif
+      endif      
 
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
 c - - - -
@@ -6264,6 +6273,7 @@ c set reference cosmo params to defaults.
       DWDA_REF(2) = DWDAERR_DEFAULT
 
       zTOL_HELIO2CMB = 0.02   ! tolerance on dzHELIO/zHELIO
+      QUANTILE_ZERRMIN = 0.01 
 
 c set LTEST logicals to false.
 

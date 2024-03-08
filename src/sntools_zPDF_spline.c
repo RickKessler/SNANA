@@ -20,6 +20,8 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
 
   char fnam[] = "init_zPDF_spline";
 
+  int i,i2;
+
   // ------ BEGIN ---------
 
   zCDF_spline.acc    = gsl_interp_accel_alloc();
@@ -42,6 +44,20 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     sprintf(c2err,"Expecting prob ~ 1.0");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+
+  for(i = 1; i<N_Q; i++){
+    bool check_1 = percentile_list[i]>percentile_list[i-1];
+    bool check_2 = zphot_q_list[i]>zphot_q_list[i-1];
+    if(! check_1 || ! check_2){
+      print_preAbort_banner(fnam);
+      dump_zPDF(N_Q, percentile_list, zphot_q_list, cid);
+      sprintf(c1err,"Quantile information is not monotinically incerasing for CID=%s", cid);
+      sprintf(c2err,"Check both z and percentile in datafile");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  } 
+
+  
   
   // intialize spline
   gsl_spline_init(zCDF_spline.spline, zphot_q_list, percentile_list, N_Q);
@@ -93,4 +109,22 @@ void init_zpdf_spline__(int *N_Q, double* percentile_list,
 }
 double eval_zpdf_spline__(double *z) {
   return eval_zPDF_spline(*z) ; 
+
 }
+
+
+
+
+void dump_zPDF(int N_Q, double* percentile_list, double* zphot_q_list,
+	       char *cid){
+  int i;
+  for(i = 0; i<N_Q; i++){
+    printf("Quantile %2d : z = %3f percentile = %3f\n",
+	  i,zphot_q_list[i],percentile_list[i]);
+    fflush(stdout);
+  }
+}
+
+
+
+

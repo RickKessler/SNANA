@@ -4,7 +4,8 @@
 // Nov 11 2021: Add BayeSN
 
 // define pre-processor command to use python interface
-#define USE_PYTHONxxx                  
+
+#define USE_PYTHON          
 
 
 // ===========================================

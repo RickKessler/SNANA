@@ -7148,9 +7148,12 @@ c init to wide open
       PRIOR_SHAPE_RANGE(2) = +9.0
       PRIOR_SHAPE_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
 
+
       PRIOR_SHAPE2_RANGE(1) = -9.0  ! 
       PRIOR_SHAPE2_RANGE(2) = +9.0
       PRIOR_SHAPE2_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
+
+
 
       PRIOR_COLOR_RANGE(1) = -9.0
       PRIOR_COLOR_RANGE(2) = +9.0
@@ -13652,6 +13655,7 @@ c
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
++CDE,SNLCINP.
 
 c local var
 

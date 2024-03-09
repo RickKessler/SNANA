@@ -51,6 +51,7 @@ void  README_DOCANA_INPUT_KEYS(int *iline);
 void  README_DOCANA_INPUT_NOTES(int *iline);
 void  README_DOCANA_OUTPUT_SUMMARY(int *iline);
 void  README_DOCANA_SED_TRUE(int *iline);
+void  README_DOCANA_GENTYPE_MAP(int *iline);
 
 void  readme_docana_output(int *iline, char *pad); 
 void  readme_docana_genmodel(int *iline, char *pad);

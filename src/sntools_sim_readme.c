@@ -96,6 +96,8 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   else {
     README_DOCANA_SED_TRUE(&i); // write mag-diff warnings
 
+    README_DOCANA_GENTYPE_MAP(&i);  // write map of GENTYPE -> TYPE_NAME
+
     README_DOCANA_OUTPUT_SUMMARY(&i);
 
     i++; 
@@ -423,6 +425,45 @@ void README_DOCANA_SED_TRUE(int *iline) {
 } // end README_DOCANA_SED_TRUE
 
 
+// ===================================================
+void README_DOCANA_GENTYPE_MAP(int *iline) {
+
+  // Created Mar 2024
+  // Write the following to readme docana section:
+  // GENTYPE_TO_NAME:
+  //   10:  SNIa
+  //   20:  II
+  //   32:  Ibc
+  //   etc ...
+  // Motivation is for classifiers (e.g.. scone, snn) to 
+  // automatically read this map from sim-output readme
+
+  int   GENTYPE, i = *iline;
+  char *TYPE_NAME, *cptr;
+  char fnam[]=  "README_DOCANA_GENTYPE_MAP";
+
+  // --------- BEGIN ---------
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"#" );  
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  GENTYPE_TO_NAME:" );  
+  
+  for (GENTYPE=0; GENTYPE < MXNON1A_TYPE; GENTYPE++ ) {
+    TYPE_NAME = INPUTS.GENTYPE_TO_NAME_MAP[GENTYPE];
+    if ( strlen(TYPE_NAME) > 0 ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"    - %d   %s", GENTYPE, TYPE_NAME);      
+    }
+  }
+
+  *iline = i;
+
+  return;
+
+} // end README_DOCANA_GENTYPE_MAP
+
 // ========================================
 void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   int  OVP, j, i = *iline;
@@ -436,7 +477,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   // ------------- BEGIN ------------
 
   readme_docana_comment(&i, "");
-  
+ 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  %s:", DOCANA_OUTPUT_SUMMARY );  
 

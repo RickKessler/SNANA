@@ -158,6 +158,9 @@ SUBMIT_STATE_BUSY = "BUSY"
 arg_check_abort  = "check_abort"
 arg_kill_on_fail = "kill_on_fail"
  
+KEY_DOCANA_START = 'DOCUMENTATION' 
+KEY_DOCANA_END   = 'DOCUMENTATION_END'
+
 # column ids for FITOPT_LIST written by fit job and read by BBC
 COLNUM_FITOPT_NUM   = 0   # e.g., FITOPT001
 COLNUM_FITOPT_LABEL = 1   # optional user label

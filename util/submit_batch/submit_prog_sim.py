@@ -68,6 +68,9 @@
 # Dec 05 2023: CIDOFF safety margin -> 1013 (instead of 1000) to help avoid
 #              bad luck numbers that result in repeated random sequences
 #
+# Mar 09 2024: write GENTYPE_TO_NAME dictionary to final readme; to be read
+#              by scone and other classifiers.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -959,7 +962,6 @@ class Simulation(Program):
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
             if reset_cidoff > 0 :
-                # xxx mark cidadd       = int(ngentot*1.1)+1000   # leave safety margin
                 cidadd       = int(ngentot*1.1) + 1013   # leave safety margin
                 cidoff      += cidadd        # for random CIDs in snlc_sim
                 cidran_max   = cidoff
@@ -2414,7 +2416,7 @@ class Simulation(Program):
         IS_CHANGE =  'CHANGE' in ranseed_key
 
         # - - - - - -
-        f.write(f"DOCUMENTATION:\n")
+        f.write(f"{KEY_DOCANA_START}:\n")
         f.write(f"  GENVERSION: {genversion} \n")  
         f.write(f"\n#                   NLC_GEN   NLC_WRITE " \
                 f" NSPEC_WRITE  CPU(minutes)\n")
@@ -2465,17 +2467,48 @@ class Simulation(Program):
 
         # - - - - - - - - -
         # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
+        tmp_dict_GENTYPE_TO_NAME = {}
+        tmp_list_model_string = []
+        tmp_list_readme       = []
+
         for row,model_string in zip(row_list_split,model_string_list) :
             if iver == row[COLNUM_SIM_MERGE_IVER] :
                 TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                v_list      = sorted(glob.glob1(path_sndata_sim,f"{TMP_GENV}*"))
-                v0          = v_list[0]  # pick first one from list
+                tmp_genv_list  = sorted(glob.glob1(path_sndata_sim,f"{TMP_GENV}*"))                
+                v0          = tmp_genv_list[0]  # pick first one from list
                 tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
-                self.merge_write_input_keys(f, model_string, tmp_readme)
+                tmp_list_model_string.append(model_string)
+                tmp_list_readme.append(tmp_readme)
+                #self.merge_write_input_keys(f, model_string, tmp_readme)
+                
+                with open(tmp_readme, "r") as r:
+                    readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
+                    gentype_to_name_list = readme_docana.setdefault('GENTYPE_TO_NAME', [])
+                    for gentype_to_name in gentype_to_name_list:
+                        gentype = str(gentype_to_name.split()[0])
+                        name    = gentype_to_name.split()[1]
+                        tmp_dict_GENTYPE_TO_NAME[gentype] = name
+                        #print(f" xxx gentype = {gentype} | namne = {name} ")
+                        
 
-        f.write("DOCUMENTATION_END:\n")
+        # .xyz
+        # - - - - -  -
+        # write GENTYPE_TO_NAME mapping (Mar 2024)
+        if len(tmp_dict_GENTYPE_TO_NAME) > 0:
+            f.write(f"\n")
+            f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    transient-NAME\n")
+            for gentype, name in tmp_dict_GENTYPE_TO_NAME.items():
+                f.write(f"    -  {gentype:<3}  {name:<20}  \n")
+            
+        # write input keys for each model (after writing gentype_to_name)
+        for model_string, readme in zip(tmp_list_model_string, tmp_list_readme):
+            self.merge_write_input_keys(f, model_string, readme)
 
+        f.write(f"{KEY_DOCANA_END}:\n")
+
+        return
         # end merge_write_readme
+
 
     def merge_write_input_keys(self, f, model_string, tmp_readme):
 
@@ -2510,6 +2543,7 @@ class Simulation(Program):
                     f.write(f"{line}")
 
                 if INPUT_KEYS_BASENAME  in line: found_input_keys = True
+        return
 
         # end merge_write_input_keys
         

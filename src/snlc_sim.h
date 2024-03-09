@@ -960,6 +960,8 @@ struct INPUTS {
   int   GENTYPE_SPEC;   // idem for any model; overrides any other type
   int   GENTYPE_PHOT;   // idem for photo-id subset
 
+  char  GENTYPE_TO_NAME_MAP[MXNON1A_TYPE][80];  // for output readme
+
   // - - - - - -
   INPUTS_NON1ASED_DEF NON1ASED ;
   // - - - - - -
@@ -1084,8 +1086,8 @@ struct GENLC {
 
   double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
-  char  SNTYPE_NAME[80];   // 1a, 1b, 1c, II, etc ...
   char  SNTEMPLATE[80];
+  char  SNTYPE_NAME[MXPATHLEN];   // 1a, 1b, 1c, II, etc ...
 
   char  DISTANCE_NAME[40];    // DLMAG, mB, ...
   char  COLORPAR_NAME[40];    // c, AV ...

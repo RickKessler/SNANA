@@ -1312,6 +1312,8 @@ void set_user_defaults(void) {
     INPUTS.NON1ASED.SNTAG[i]       = NULLINT ;
     INPUTS.NON1ASED.ISPEC1A[i]     = 0;
     INPUTS.NON1ASED.FLUXSCALE[i]   = 1.0 ;
+
+    INPUTS.GENTYPE_TO_NAME_MAP[i][0] = 0;  //for readme; store id->name map
   }
 
 
@@ -9024,7 +9026,8 @@ void  init_event_GENLC(void) {
   GENLC.REDSHIFT_FLAG         = REDSHIFT_FLAG_NONE ;
   GENLC.VPEC = GENLC.VPEC_SMEAR = 0.0 ;
 
-  sprintf(GENLC.SNTYPE_NAME, "UNKNOWN" ); 
+  //  GENLC.SNTYPE_NAME[0] = 0;
+  sprintf(GENLC.SNTYPE_NAME,"UNKNOWN");
 
   for(i=0; i < MXOBS_SIMLIB; i++ ) {
     SIMLIB_OBS_GEN.IFILT_OBS[i]  = -9 ;
@@ -17930,13 +17933,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	    checkval_D("PSF1(readNextCadence)", 1, 
 		       &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
 	  }
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   ); 
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE] ); 
 	  checkval_D("ZPT(readNextCadence)", 1, 
 		     &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0 ) ;
 	  
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]      );
-	  // xxx mark iwd = NWD; 
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE] );  
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]   );
 	  
 	  if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
 	    { SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
@@ -17964,15 +17966,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	if ( KEEP_MJD ) { ISTORE++; } 
 	iwd = NWD; 
-
-	/* xxx mark delete Feb 2024 xxx
-	//	   MJD = SIMLIB_OBS_RAW.MJD[ISTORE];
-	   KEEP_MJD = 
-	   (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
-	   if ( INPUTS.SIMLIB_DUMP > 0 ) { KEEP_MJD = 1; } 
-	   if ( KEEP_MJD ) { ISTORE++; } 
-	   xxxxxxxx end mark xxxxxxx */
-
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
 	
@@ -23101,6 +23094,8 @@ void snlc_to_SNDATA(int FLAG) {
   // Jul 20 2019: load strong lens info into SNDATA.SIM_SL_XXX
   // Feb 28 2021: load NEA
   // Jul 21 2022: load PHOTFLAG_DETECT
+  // Mar 09 2024: store INPUTS.GENTYPE_TO_NAME_MAP
+
   // ---------------------------------------
 
   int PHOTFLAG_DETECT  = INPUTS_SEARCHEFF.PHOTFLAG_DETECT;
@@ -23273,8 +23268,12 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
   SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
-  sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME );
+  sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); //.xyz
   
+  // store map[GENTYPE] = name to print in readme
+  char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];
+  if ( strlen(ctype) == 0 ) { sprintf(ctype, "%s", GENLC.SNTYPE_NAME); }
+
   if ( WRFLAG_BLINDTEST ) 
     { SNDATA.FAKE  = FAKEFLAG_LCSIM_BLINDTEST ; }
   else
@@ -23314,7 +23313,6 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SEARCHEFF_SPEC  = GENLC.SEARCHEFF_SPEC ;
   SNDATA.SIM_SEARCHEFF_zHOST = GENLC.SEARCHEFF_zHOST ;
 
-  // xxx mark delete Jan 28 2024 (taken care of properly in gen_zsmear)
      
   // assign photoz to REDSHIFT_FINAL if Zspec error is >= 1
   if ( INPUTS.DEBUG_FLAG == -128 && GENLC.REDSHIFT_SMEAR_ERR > 0.999 ) {
@@ -27021,6 +27019,11 @@ void genmodel(
     { NGRID = NEPFILT_SAVE = 0 ; }
 
 
+  // Mar 2024: set SNTYPE_NAME == INPUTS.MODELNAME by default
+  //   may be overwritten below for NON1ASED
+
+  sprintf(GENLC.SNTYPE_NAME, "%s", INPUTS.MODELNAME ); 
+
   // -------------------------------------------
   // -------------------------------------------
   // -------------------------------------------
@@ -27058,7 +27061,7 @@ void genmodel(
       ptr_genmag[iep] = GENLC.FIXMAG ;
       ptr_generr[iep] = 0.0 ;
     }
-    sprintf(GENLC.SNTYPE_NAME, "%s", INPUTS.MODELNAME ); 
+
     GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
@@ -27068,7 +27071,6 @@ void genmodel(
 
     /*
     printf(" xxx %s: %d \n", SIMLIB_HEADER.NOBS_SIM_MAGOBS);
-
     if ( SIMLIB_HEADER.NOBS_SIM_MAGOBS == 0 ) {
       sprintf(c1err,"All SIMLIB SIM_MAGOBS=%.1f --> all true flux = 0", 
 	      MAG_ZEROFLUX);
@@ -27099,6 +27101,7 @@ void genmodel(
     // 1: bit0 => return flux instead of mag;
     // 2: bit1 => print warning when flux < 0
     // 8: bit3 => SALT2 dump
+
 
     OPTMASK      = 0 ; // return mag
                       
@@ -27155,6 +27158,9 @@ void genmodel(
 
     // 1: bit0=> return flux instead of mag;
     // 2: bit1 => print warning when flux < 0
+
+    // use model name appearing after 'SIMSED.'
+    sprintf(GENLC.SNTYPE_NAME, "%s", &INPUTS.MODELNAME[7] ); 
 
     NPAR         = INPUTS.NPAR_SIMSED;
 

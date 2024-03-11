@@ -3156,7 +3156,9 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Jan 22 2021: print WARNING if HOSTLIB.NSTAR > 0
   // Apr 30 2021: abort on NaN.
 
-  bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT) ;
+  bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT)>0 ;
+  bool DO_PLUSNBR   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0;
+
   int  IVAR_ZPHOT    = HOSTLIB.IVAR_ZPHOT ; // ivar_STORE
   int  IVAR_ZTRUE    = HOSTLIB.IVAR_ZTRUE ;
   int  IVAR_FIELD    = HOSTLIB.IVAR_FIELD ;
@@ -3309,6 +3311,9 @@ void read_gal_HOSTLIB(FILE *fp) {
 
   fflush(stdout);
 
+  // bail if doing near NBR
+  if ( DO_PLUSNBR ) { return; }
+
   // check warning for stars (i.e, z ~ 0)
   if ( HOSTLIB.NSTAR > 0 ) {
     printf("\n\t *** WARNING: %d entries might be stars (z<%.4f) **** \n\n",
@@ -3347,8 +3352,6 @@ void read_gal_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-
-       
   // abort on NAN
   int NERR_NAN = HOSTLIB.NERR_NAN ;
   if ( NERR_NAN > 0 ) {
@@ -10339,11 +10342,9 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   // Return LINE_APPEND = original line for igal_unsort plus list of
   // neighbors.
 
-#define MXNNBR_STORE 100         // max number of neighbors to track
+#define MXNNBR_STORE 200         // max number of neighbors to track
   double SEPNBR_MAX      = HOSTLIB_NBR_WRITE.SEPNBR_MAX ;
   int    NNBR_WRITE_MAX  = HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX ;
-  //  int    MXCHAR_NBR_LIST = HOSTLIB_NBR.MXCHAR_NBR_LIST ;
-
   double ASEC_PER_DEG  = 3600.0 ;
 
   int  NGAL        = HOSTLIB.NGAL_STORE;
@@ -10434,6 +10435,12 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
     ISORT_CHANGE++ ;
   } // end while
 
+  
+  if ( NNBR >=  MXNNBR_STORE ) {
+    sprintf(c1err, "NNBR=%d exceeds MXNNBR_STORE=%d", NNBR, MXNNBR_STORE);
+    sprintf(c2err, "Try reducing SEPNBR_MAX");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   // - - - - - - - - - - - - - - - - - - 
   // sort SEP_NBR_LIST inascending order

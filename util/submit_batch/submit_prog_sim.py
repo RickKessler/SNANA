@@ -2483,22 +2483,21 @@ class Simulation(Program):
                 
                 with open(tmp_readme, "r") as r:
                     readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
-                    gentype_to_name_list = readme_docana.setdefault('GENTYPE_TO_NAME', [])
-                    for gentype_to_name in gentype_to_name_list:
-                        gentype = str(gentype_to_name.split()[0])
-                        name    = gentype_to_name.split()[1]
-                        tmp_dict_GENTYPE_TO_NAME[gentype] = name
-                        #print(f" xxx gentype = {gentype} | namne = {name} ")
+                    gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
+                    for gentype, names in gentype_to_name_dict.items():
+                        tmp_dict_GENTYPE_TO_NAME[gentype] = names
+                        #print(f" xxx gentype = {gentype} | names = {names} ")
                         
 
         # .xyz
         # - - - - -  -
         # write GENTYPE_TO_NAME mapping (Mar 2024)
+        #sys.exit(f"\n xxx tmp_dict_GENTYPE_TO_NAME = {tmp_dict_GENTYPE_TO_NAME}")
         if len(tmp_dict_GENTYPE_TO_NAME) > 0:
             f.write(f"\n")
-            f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    transient-NAME\n")
-            for gentype, name in tmp_dict_GENTYPE_TO_NAME.items():
-                f.write(f"    -  {gentype:<3}  {name:<20}  \n")
+            f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    Ia/!Ia   transient-Name\n")
+            for gentype, names in tmp_dict_GENTYPE_TO_NAME.items():
+                f.write(f"    {gentype}:  {names}  \n")
             
         # write input keys for each model (after writing gentype_to_name)
         for model_string, readme in zip(tmp_list_model_string, tmp_list_readme):

@@ -431,15 +431,17 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
   // Created Mar 2024
   // Write the following to readme docana section:
   // GENTYPE_TO_NAME:
-  //   10:  SNIa
-  //   20:  II
-  //   32:  Ibc
+  //   10:  Ia     SNIa
+  //   20:  nonIa  II
+  //   32:  nonIa  Ibc
   //   etc ...
   // Motivation is for classifiers (e.g.. scone, snn) to 
   // automatically read this map from sim-output readme
 
   int   GENTYPE, i = *iline;
-  char *TYPE_NAME, *cptr;
+  char *TYPE_NAME, *cptr, *STR;
+  char STR_Ia[]    = "Ia";
+  char STR_notIa[] = "nonIa" ;
   char fnam[]=  "README_DOCANA_GENTYPE_MAP";
 
   // --------- BEGIN ---------
@@ -452,9 +454,15 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
   
   for (GENTYPE=0; GENTYPE < MXNON1A_TYPE; GENTYPE++ ) {
     TYPE_NAME = INPUTS.GENTYPE_TO_NAME_MAP[GENTYPE];
+
+    if ( LGEN_SNIA ) 
+      { STR = STR_Ia ; } 
+    else
+      { STR = STR_notIa; } 
+
     if ( strlen(TYPE_NAME) > 0 ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"    - %d   %s", GENTYPE, TYPE_NAME);      
+      sprintf(cptr,"    %d:  %-6s   %s", GENTYPE, STR, TYPE_NAME);      
     }
   }
 

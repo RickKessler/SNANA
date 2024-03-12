@@ -2493,7 +2493,7 @@ class Simulation(Program):
         if len(tmp_dict_GENTYPE_TO_NAME) > 0:
             f.write(f"\n")
             f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    (non)Ia  " \
-                    f" transient-Name   RateScale\n")
+                    f" transient-Name  \n")
             for gentype, names in tmp_dict_GENTYPE_TO_NAME.items():
                 f.write(f"    {gentype}:  {names}  \n")
             

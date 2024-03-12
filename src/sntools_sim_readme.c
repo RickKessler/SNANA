@@ -451,7 +451,7 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
   sprintf(cptr,"#" );  
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  GENTYPE_TO_NAME:  # GENTYPE:  [non]Ia   type   RateScale");  
+  sprintf(cptr,"  GENTYPE_TO_NAME:  # GENTYPE:  [non]Ia   type  ");  
   
   for (GENTYPE=0; GENTYPE < MXNON1A_TYPE; GENTYPE++ ) {
     TYPE_NAME = INPUTS.GENTYPE_TO_NAME_MAP[GENTYPE];
@@ -459,7 +459,7 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
     SCALE = INPUTS.RATEPAR.DNDZ_ALLSCALE ;
     if ( LGEN_SNIA ) {
       STR = STR_Ia ; 
-      SCALE *= INPUTS.RATEPAR.DNDZ_SCALE[0];
+      SCALE *= INPUTS.RATEPAR.DNDZ_SCALE[0];  // doesn't work with submit_batch_jobs
     } 
     else {
        STR = STR_notIa; 
@@ -468,8 +468,8 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
 
     if ( strlen(TYPE_NAME) > 0 ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"    %d:  %-6s   %-15s   %.3f", 
-	      GENTYPE, STR, TYPE_NAME, SCALE);      
+      sprintf(cptr,"    %d:  %-6s   %s", 
+	      GENTYPE, STR, TYPE_NAME );      
     }
   }
 

@@ -15627,15 +15627,6 @@ void gen_zsmear(double zerr) {
   }
 
 
-  // xxxxxx flag to use legacy/buggy code  
-  if ( INPUTS.DEBUG_FLAG == -128 ) {
-    if ( zerr == 0.0 || zerr > 0.999 ) { 
-      GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
-      GENLC.REDSHIFT_SMEAR_ERR     = zerr ;
-      goto ZCMB_SMEAR ;
-    }
-  }
-  // xxxxxx end flag xxxxxx
 
   if ( zerr == 0.0 ) { 
     GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
@@ -23313,20 +23304,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SEARCHEFF_SPEC  = GENLC.SEARCHEFF_SPEC ;
   SNDATA.SIM_SEARCHEFF_zHOST = GENLC.SEARCHEFF_zHOST ;
 
-     
-  // assign photoz to REDSHIFT_FINAL if Zspec error is >= 1
-  if ( INPUTS.DEBUG_FLAG == -128 && GENLC.REDSHIFT_SMEAR_ERR > 0.999 ) {
-
-    // beware that REDSHIFT_FINAL = REDSHIFT_CMB is not transformed,
-    // and thus snlc_fit will abort on zTOL check.
-    SNDATA.REDSHIFT_FINAL      = SNHOSTGAL.ZPHOT ;
-    SNDATA.REDSHIFT_FINAL_ERR  = SNHOSTGAL.ZPHOT_ERR ;
-
-    SNDATA.REDSHIFT_HELIO      = SNHOSTGAL.ZPHOT ;
-    SNDATA.REDSHIFT_HELIO_ERR  = SNHOSTGAL.ZPHOT_ERR ;
-  }
-  // xxxxxxxxxxx end mark xxxxxxx
-
+  
   if ( INPUTS.NGENTOT_LC > 1000000 || 
        INPUTS.NGEN_LC    > 1000000 || 
        WRFLAG_CIDRAN     > 0 ) {

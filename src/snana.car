@@ -4683,7 +4683,8 @@ c - - - - - - - - - - - -  -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGMASS_ERR(igal)   = SNGL(DARRAY(1))
 
-      if(SNHOST_LOGMASS(igal) > -9000.) EXIST_SNHOST_LOGMASS = .TRUE.
+c xxx      if(SNHOST_LOGMASS(igal) > -9000.) EXIST_SNHOST_LOGMASS = .TRUE.
+      EXIST_SNHOST_LOGMASS = .TRUE.
 
 c - - - -
 
@@ -4695,8 +4696,8 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGSFR_ERR(igal)     = SNGL(DARRAY(1))
 
-      IF(SNHOST_LOGSFR(igal) > -9000.0) EXIST_SNHOST_LOGSFR = .TRUE.
-
+c xxx      IF(SNHOST_LOGSFR(igal) > -9000.0) EXIST_SNHOST_LOGSFR = .TRUE.
+      EXIST_SNHOST_LOGSFR = .TRUE.
 c - - - -
 
       KEY    = PREFIX(1:LENPRE)//'_LOGsSFR' ;   

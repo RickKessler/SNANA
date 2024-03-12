@@ -2488,14 +2488,12 @@ class Simulation(Program):
                         tmp_dict_GENTYPE_TO_NAME[gentype] = names
                         #print(f" xxx gentype = {gentype} | names = {names} ")
                         
-
-        # .xyz
         # - - - - -  -
         # write GENTYPE_TO_NAME mapping (Mar 2024)
-        #sys.exit(f"\n xxx tmp_dict_GENTYPE_TO_NAME = {tmp_dict_GENTYPE_TO_NAME}")
         if len(tmp_dict_GENTYPE_TO_NAME) > 0:
             f.write(f"\n")
-            f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    Ia/!Ia   transient-Name\n")
+            f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    (non)Ia  " \
+                    f" transient-Name   RateScale\n")
             for gentype, names in tmp_dict_GENTYPE_TO_NAME.items():
                 f.write(f"    {gentype}:  {names}  \n")
             

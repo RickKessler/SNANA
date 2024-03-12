@@ -431,14 +431,15 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
   // Created Mar 2024
   // Write the following to readme docana section:
   // GENTYPE_TO_NAME:
-  //   10:  Ia     SNIa
-  //   20:  nonIa  II
-  //   32:  nonIa  Ibc
-  //   etc ...
+  //   10:  Ia     SNIa  scale
+  //   20:  nonIa  II    scale
+  //   32:  nonIa  Ibc   scale
+  //   etc ... 
   // Motivation is for classifiers (e.g.. scone, snn) to 
   // automatically read this map from sim-output readme
 
   int   GENTYPE, i = *iline;
+  double SCALE;
   char *TYPE_NAME, *cptr, *STR;
   char STR_Ia[]    = "Ia";
   char STR_notIa[] = "nonIa" ;
@@ -450,19 +451,25 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
   sprintf(cptr,"#" );  
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  GENTYPE_TO_NAME:" );  
+  sprintf(cptr,"  GENTYPE_TO_NAME:  # GENTYPE:  [non]Ia   type   RateScale");  
   
   for (GENTYPE=0; GENTYPE < MXNON1A_TYPE; GENTYPE++ ) {
     TYPE_NAME = INPUTS.GENTYPE_TO_NAME_MAP[GENTYPE];
 
-    if ( LGEN_SNIA ) 
-      { STR = STR_Ia ; } 
-    else
-      { STR = STR_notIa; } 
+    SCALE = INPUTS.RATEPAR.DNDZ_ALLSCALE ;
+    if ( LGEN_SNIA ) {
+      STR = STR_Ia ; 
+      SCALE *= INPUTS.RATEPAR.DNDZ_SCALE[0];
+    } 
+    else {
+       STR = STR_notIa; 
+       SCALE *= INPUTS.RATEPAR.DNDZ_SCALE[0];
+    } 
 
     if ( strlen(TYPE_NAME) > 0 ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"    %d:  %-6s   %s", GENTYPE, STR, TYPE_NAME);      
+      sprintf(cptr,"    %d:  %-6s   %-15s   %.3f", 
+	      GENTYPE, STR, TYPE_NAME, SCALE);      
     }
   }
 

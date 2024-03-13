@@ -46,9 +46,9 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   }
 
   for(i = 1; i<N_Q; i++){
-    bool check_1 = percentile_list[i]>percentile_list[i-1];
-    bool check_2 = zphot_q_list[i]>zphot_q_list[i-1];
-    if(! check_1 || ! check_2){
+    bool check_1 = percentile_list[i] >= percentile_list[i-1];
+    bool check_2 = zphot_q_list[i]    >= zphot_q_list[i-1];
+    if( !check_1 || !check_2) {
       print_preAbort_banner(fnam);
       dump_zPDF(N_Q, percentile_list, zphot_q_list, cid);
       sprintf(c1err,"Quantile information is not monotinically incerasing for CID=%s", cid);

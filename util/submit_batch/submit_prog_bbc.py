@@ -76,6 +76,9 @@
 #   + new input key INPFILE+
 #   + add NDOF, NWARN, FOM columns to BBC_SUMMARY_wfit.DAT
 #
+# Mar 13 2024: add comments to BBC_SUMMARY_wfit.LOG to make it more
+#              human-readable.
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -2561,6 +2564,8 @@ class BBC(Program):
         use_wfit         = submit_info_yaml['USE_WFIT']
         n_splitran       = submit_info_yaml['NSPLITRAN']
         opt_wfit         = submit_info_yaml['OPT_WFIT']
+        fitopt_list      = submit_info_yaml['FITOPT_OUT_LIST']
+        muopt_list       = submit_info_yaml['MUOPT_OUT_LIST']
         use_wfit_w0wa    = '-wa'    in opt_wfit
         use_wfit_blind   = '-blind' in opt_wfit
 
@@ -2582,7 +2587,7 @@ class BBC(Program):
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
-                   f"CHI2 NDOF NWARN {varname_FoM} \n"
+                   f"CHI2 NDOF NWARN {varname_FoM}"
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
@@ -2590,6 +2595,8 @@ class BBC(Program):
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         nrow = 0 
+        ifit_last = -9 ; imu_last = 9
+
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
             version    = row[COLNUM_BBC_MERGE_VERSION] # sim data version
@@ -2598,9 +2605,14 @@ class BBC(Program):
             isplitran  = row[COLNUM_BBC_MERGE_SPLITRAN]
             
             # get indices for summary file
-            ifit = f"{fitopt_num[6:]}"
-            imu  = f"{muopt_num[5:]}"
-            
+            ifit_str = f"{fitopt_num[6:]}"
+            imu_str  = f"{muopt_num[5:]}"
+
+            ifit = int(ifit_str)
+            imu  = int(imu_str)
+            label_fitopt = fitopt_list[ifit][2]
+            label_muopt  = muopt_list[imu][1]
+
             # figure out name of wfit-YAML file and read it
             prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
             YAML_FILE  = f"{output_dir}/{version}/{prefix_final}.YAML"
@@ -2634,7 +2646,7 @@ class BBC(Program):
                 str_FoM    = ''
 
             string_values = \
-                f"{nrow:3d}  {version} {ifit} {imu} " \
+                f"{nrow:3d}  {version} {ifit_str} {imu_str} " \
                 f"{str_w}  {omm:6.4f} {omm_sig:6.4f} " \
                 f"{chi2:.1f} {ndof} {nwarn} {str_FoM}"
             
@@ -2649,8 +2661,16 @@ class BBC(Program):
             if nrow==1 : 
                 f.write(f"{varnames}\n")
 
+            # add blank line + comment for each FITOPT/MUOPT 
+            # (mainly for human readability)
+            if ifit > ifit_last or imu > imu_last:                
+                f.write(f"#\n")
+                f.write(f"# FITOPT{ifit_str}={label_fitopt} " \
+                        f"  MUOPT{imu_str}={label_muopt}\n")
+
             f.write(f"{KEY_ROW} {string_values}\n")
 
+            ifit_last = ifit; imu_last = imu
         f.close()
 
         # end make_wfit_summary

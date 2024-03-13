@@ -112,11 +112,13 @@ void parse_spectrograph_options(char *stringOpt) {
 // ===============================================
 void read_spectrograph_text(char *inFile) {
 
+  //
+  // Mar 2024: use open_TEXTgz to read if gzipped.
+
   FILE *fp ;
   int NROW_FILE, ikey, NKEY_FOUND, DONE_MALLOC ;
-  int NBL, NBT, NRDCOL, t ;
+  int NBL, NBT, NRDCOL, t, GZIPFLAG ;
   char c_get[60], tmpLine[200] ;
-  char fnam[] = "read_spectrograph_text" ;
 
 #define NKEY_REQ_SPECTROGRAPH 3
 #define IKEY_INSTRUMENT 0
@@ -130,6 +132,8 @@ void read_spectrograph_text(char *inFile) {
   } ;
   int KEYFLAG_FOUND[NKEY_REQ_SPECTROGRAPH];
 
+  char fnam[] = "read_spectrograph_text" ;
+
   // ---------------- BEGIN -------------
 
   printf("\n %s: \n", fnam); fflush(stdout);
@@ -137,7 +141,9 @@ void read_spectrograph_text(char *inFile) {
   // get number of rows in file to get malloc size.
   NROW_FILE = nrow_read(inFile,fnam);
 
-  fp = fopen(inFile,"rt");
+  fp = open_TEXTgz(inFile, "rt", &GZIPFLAG );
+  // xxx mark delete Mar 2024  fp = fopen(inFile,"rt");
+
   if ( !fp ) {
     sprintf(c1err,"Could not find SPECTROGRAPH table file:");
     sprintf(c2err,"%s", inFile );

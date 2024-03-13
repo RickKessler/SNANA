@@ -22260,13 +22260,24 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v11_05l) *****
 
+   snlc_sim.c/submit_prog_sim.py    
+      Output sim-README includes GENTYPE_TO_NAME map that can be
+      read by classifiers or other analysis codes that need to 
+      parse GENTYPE column in FITRES output from LCFIT or BBC.
 
          *****  MISCELLANEOUS(v11_05l) *****
-    
+
+
    sntools_host.c
      + MXNNBR_STORE -> 200 ( was 100)
 
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
+
+   snlc_fit.car
+     + MXFIT_DATA -> 2000 (was 1500)
+
+   submit_prog_bbc.py
+     + nicer visual output for BBC_SUMMARY_wfit.LOG
 
 END: 

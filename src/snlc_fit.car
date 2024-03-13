@@ -212,7 +212,7 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
 +KEEP,SNFITVAR.
 
       INTEGER MXFIT_DATA
-      PARAMETER ( MXFIT_DATA = 1500 )
+      PARAMETER ( MXFIT_DATA = 2000 ) ! -> 2000 on Mar 13 2024 (was 1500)
 
 c variables used in fit.
 

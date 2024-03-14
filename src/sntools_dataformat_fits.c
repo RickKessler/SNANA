@@ -270,6 +270,7 @@ void wr_snfitsio_init_head(void) {
   // May 14, 2020: add REDSHIFT_QUALITYFLAG
   // Oct 13, 2021: add IMGNUM  (mimic CCDNUM)
   // Feb 7, 2022: add SFR, sSFR, COLOR
+  // Mar 14, 2024: add MASK_REDSHIFT_SOURCE
 
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar, iq;
@@ -301,7 +302,7 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1D" , "RA"  ,    itype   ) ;  
   wr_snfitsio_addCol( "1D" , "DEC",     itype   ) ;
 
-  // include band-avg RA & DEC if using atmosphere effects.
+ // include band-avg RA & DEC if using atmosphere effects.
   if ( SNFITSIO_ATMOS ) { 
     wr_snfitsio_addCol_filters("1D", "RA_AVG",  itype);   // avg per band
     wr_snfitsio_addCol_filters("1D", "DEC_AVG", itype); 
@@ -327,6 +328,9 @@ void wr_snfitsio_init_head(void) {
 
   if ( SNFITSIO_DATAFLAG ) 
     { wr_snfitsio_addCol( "1I", "REDSHIFT_QUALITYFLAG",  itype ); }
+
+  wr_snfitsio_addCol( "1I", "MASK_REDSHIFT_SOURCE",  itype );
+
 
   wr_snfitsio_addCol( "1E", "VPEC" ,      itype );  // peculiar velocity cor
   wr_snfitsio_addCol( "1E", "VPEC_ERR" ,  itype );  // error on correction
@@ -1583,6 +1587,10 @@ void wr_snfitsio_update_head(void) {
     wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_QUALITYFLAG", itype );
   }
 
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.MASK_REDSHIFT_SOURCE ;
+  wr_snfitsio_fillTable ( ptrColnum, "MASK_REDSHIFT_SOURCE", itype );
+  
   // VPEC and error (Jan 2018)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.VPEC ;
@@ -3197,6 +3205,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
     }
 
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "MASK_REDSHIFT_SOURCE",
+				 &SNDATA.MASK_REDSHIFT_SOURCE,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "VPEC", &SNDATA.VPEC,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 

@@ -777,6 +777,7 @@ c analysis-related variables.
      &  ,ISNLC_SNRECON_USE(MXEPOCH)  ! 1 -> epoch used in SNRECON
      &  ,ISNLC_PHOTFLAG(MXEPOCH)     ! photomety flags
      &  ,ISNLC_zFLAG                 ! zspec-quality flag (May 2020), data only
+     &  ,ISNLC_zSOURCE               ! mask indicating the source of redshift
      &  ,ISNLC_LENCCID     ! char-len of CCID
      &  ,ISNLC_LENIAUC     ! char-len of IAUC name
      &  ,ISNLC_VERSION     ! photometry version index vs. ISN     
@@ -972,7 +973,7 @@ c
 
       COMMON / ISNCOM /      
      &     ISNLC_VERSION, ISNLC_SNRECON_USE, ISNLC_PHOTFLAG
-     &    ,ISNLC_TYPE, ISNLC_zFLAG, ISNLC_IFILE
+     &    ,ISNLC_TYPE, ISNLC_zFLAG, ISNLC_zSOURCE, ISNLC_IFILE
      &    ,ISNLC_LENCCID, ISNLC_LENIAUC
      &    ,ISNLC_NFILT_NEWMJD, ISNLC_IFILT_OBS
      &    ,ISNLC_NEWMJD_HEAD, ISNLC_NEWMJD_FOUND, ISNLC_NEWMJD_STORE
@@ -4858,8 +4859,15 @@ c redshift quality flag (real data only)
      &    ONE, STRING, DARRAY, OPT)
       ISNLC_zFLAG = INT(DARRAY(1))
 
+c mask redshift source (march 14 2024)
+      CALL FETCH_SNDATA_WRAPPER("MASK_REDSHIFT_SOURCE",
+     &    ONE, STRING, DARRAY, OPT)
+      ISNLC_zSOURCE = INT(DARRAY(1))
+
       RETURN
       END    ! end RDHEAD_REDSHIFT
+
+
 
 
 C =============================

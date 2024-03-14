@@ -36,6 +36,7 @@
  May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band]
  Dec 22 2023: write SIM_WGT_POPULATION 
+ Mar 14 2024: write and read MASK_REDSHIFT_SOURCE
 
 *************************************************/
 
@@ -178,6 +179,8 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"REDSHIFT_FINAL:   %.6f +- %.6f  # CMB (no VPEC corr) \n"
 	  ,SNDATA.REDSHIFT_FINAL, SNDATA.REDSHIFT_FINAL_ERR );
+  fprintf(fp,"MASK_REDSHIFT_SOURCE:   %d # grep MASK_REDSHIFT_SOURCE sndata.h  \n"
+          ,SNDATA.MASK_REDSHIFT_SOURCE );  
 
   fprintf(fp,"VPEC:             %8.2f +- %.2f      # v_pec correction\n", 
 	  SNDATA.VPEC, SNDATA.VPEC_ERR );
@@ -2266,6 +2269,12 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     SNDATA.REDSHIFT_FINAL_ERR = FVAL;
   }
 
+  
+  else if ( strcmp(word0,"MASK_REDSHIFT_SOURCE:") == 0 ) {
+    SNDATA.MASK_REDSHIFT_SOURCE = (int)FVAL;
+  }
+
+  
   else if ( strcmp(word0,"REDSHIFT_CMB:") == 0 ) {
     SNDATA.REDSHIFT_FINAL = FVAL ;
     if(PLUS_MINUS) { SNDATA.REDSHIFT_FINAL_ERR = FVAL_ERR; }

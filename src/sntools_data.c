@@ -355,7 +355,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	    strcmp(key,"REDSHIFT_CMB_ERR"  ) == 0 )  
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL_ERR ); } 
   else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 ) 
-    { copy_int(copyFlag, parVal, &SNDATA.REDSHIFT_QUALITYFLAG ); } 
+    { copy_int(copyFlag, parVal, &SNDATA.REDSHIFT_QUALITYFLAG ); }
+  else if ( strcmp(key,"MASK_REDSHIFT_SOURCE") == 0 )
+    { copy_int(copyFlag, parVal, &SNDATA.MASK_REDSHIFT_SOURCE ); }
 
   else if ( strcmp(key,"VPEC") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.VPEC ); } 

@@ -23341,6 +23341,8 @@ void snlc_to_SNDATA(int FLAG) {
     sprintf(SNDATA.SIM_REDSHIFT_COMMENT,"%s", STRING_REDSHIFT_FLAG[zFLAG] );
   }
 
+  SNDATA.MASK_REDSHIFT_SOURCE = 0 ; // Need to fill this in XXX
+  
   SNDATA.SIM_VPEC         = GENLC.VPEC ;
   SNDATA.SIM_DLMU         = GENLC.DLMU ; 
   SNDATA.SIM_LENSDMU      = GENLC.LENSDMU ;

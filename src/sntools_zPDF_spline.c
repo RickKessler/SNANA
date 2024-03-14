@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 
 void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list, 
-		      char *cid) {
+		      char *cid, bool verbose ) {
   // created Jun 2022 R. Chen
   // Initialize spline interpolate for photo-z quantiles
   // allocate interpolation accelerator and gsl_spline object
@@ -46,12 +46,12 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   }
 
   for(i = 1; i<N_Q; i++){
-    bool check_1 = percentile_list[i] >= percentile_list[i-1];
-    bool check_2 = zphot_q_list[i]    >= zphot_q_list[i-1];
-    if( !check_1 || !check_2) {
+    bool check_1 = percentile_list[i] > percentile_list[i-1];
+    bool check_2 = zphot_q_list[i]    > zphot_q_list[i-1];
+    if(  !(check_1 && check_2) ) {
       print_preAbort_banner(fnam);
       dump_zPDF(N_Q, percentile_list, zphot_q_list, cid);
-      sprintf(c1err,"Quantile information is not monotinically incerasing for CID=%s", cid);
+      sprintf(c1err,"Quantile information is not monotonically increasing for CID=%s", cid);
       sprintf(c2err,"Check both z and percentile in datafile");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
@@ -72,8 +72,12 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     if ( pdf > pdf_max ) { pdf_max = pdf; }
   }
   zCDF_spline.pdf_max = pdf_max;
-  printf(" zPhot-quantile pdf(max) = %.2f  for CID = %s\n", pdf_max, cid);
-  fflush(stdout);
+
+  if ( verbose ) {
+    printf("\t zPhot-quantile pdf(max) = %.2f  for CID = %s\n", pdf_max, cid);
+    fflush(stdout);
+  }
+
 
 } // END OF init_zPDF_spline
 
@@ -104,8 +108,8 @@ double eval_zPDF_spline(double z) {
 } // END OF eval_zPDF_spline
 
 void init_zpdf_spline__(int *N_Q, double* percentile_list, 
-			double* zphot_q_list, char *cid){
-  init_zPDF_spline(*N_Q, percentile_list, zphot_q_list, cid);
+			double* zphot_q_list, char *cid, bool *verbose) {
+  init_zPDF_spline(*N_Q, percentile_list, zphot_q_list, cid, verbose);
 }
 double eval_zpdf_spline__(double *z) {
   return eval_zPDF_spline(*z) ; 
@@ -118,12 +122,16 @@ double eval_zpdf_spline__(double *z) {
 void dump_zPDF(int N_Q, double* percentile_list, double* zphot_q_list,
 	       char *cid){
   int i;
+  char fnam[] = "dump_zPDF";
+
+  printf(" xxx %s for cid = %s \n", fnam, cid);
   for(i = 0; i<N_Q; i++){
-    printf("Quantile %2d : z = %3f percentile = %3f\n",
-	  i,zphot_q_list[i],percentile_list[i]);
+    printf(" xxx %s: Quantile %2d : z = %3f percentile = %3f\n",
+	   fnam, i, zphot_q_list[i], percentile_list[i]);
     fflush(stdout);
   }
-}
+} // end dump_zPDF
+
 
 
 

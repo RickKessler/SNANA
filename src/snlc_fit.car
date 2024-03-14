@@ -3693,12 +3693,15 @@ c require at least enough filters to have a chance at NFILT_SNRMAX cut
            ERRFLAG = ERRFLAG_ZFIT_DROPFILTCUTS
         endif
 
-        if ( ERRFLAG > 0 ) then
-           write(6,196) 'FAIL', MSKCUT
-        else
-           write(6,191) 'PASS'
+        if ( STDOUT_UPDATE ) then
+          if ( ERRFLAG > 0 ) then
+             write(6,196) 'FAIL', MSKCUT
+          else
+             write(6,191) 'PASS'
+          endif
+          call flush(6)
         endif
-        call flush(6)
+
 191     format(A)
 196     format(A,' (MSKCUT=',I3,')' )
 
@@ -8651,7 +8654,7 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
             endif
         enddo
         CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,
-     &              CCID_forC, ISNLC_LENCCID )
+     &              CCID_forC, LPRINT, ISNLC_LENCCID )
 
         if ( LDMP_Q ) then
            Print *, ' xxx Finished init_zPDF_spline' 

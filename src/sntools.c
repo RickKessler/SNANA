@@ -8128,8 +8128,11 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
   SNDATA.HOSTGAL_NZPHOT_Q    = 0;
-  for(j=0; j < MXBIN_ZPHOT_Q; j++)
-    { SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -9.0;  }
+  for(j=0; j < MXBIN_ZPHOT_Q; j++)  { 
+    SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -99.0;  
+    SNDATA.HOSTGAL_ZPHOT_Q[0][j]          = -99.0;
+    SNDATA.HOSTGAL_ZPHOT_Q[1][j]          = -99.0;
+  } 
 
   return(SUCCESS);
 

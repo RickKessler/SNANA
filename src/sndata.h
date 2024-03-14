@@ -6,31 +6,6 @@
  used by programs that generate SNDATA files
   (including simulation)
 
-  Mar 02, 2013: 
-    - SNDATA.MJD[] -> double (was float)
-    - replace FLUXCAL_SCALE with ZEROPOINT_FLUXCAL_DEFAULT 
-
-  May 26, 2013:  int HOSTGAL_OBJID -> long long
-
-  Jul 29, 2013: MXVERLEN -> 72 (was 60) to be consistent with 
-                MXCHAR_VERS in snana.car
-
-  Mar 1, 2014:  add template error to SNDATA, 
-                 and remove some obsolete variables.
-
-  Oct 11 2014: MXEPOCH -> 1000 (was 600)
-
-  Oct 22 2015: MXFILTINDX -> 100 (was 80)
-
-  Oct 30 2015: add SDNATA.SIMOPT_FLUXERR
-
-  Jan 19 2016: MXDOCLINE -> 400 (was 300)
-
-  Jul 17 2016: remove MINCID_DEFAULT, MAXCID_DEFAULT, MJD200[4-7],
-               MINTYPE_DEFAULT, MAXTYPE_DEFAULT
-
-  Feb 1 2017: MXDOCLINE -> 1000 (was 400)
-
   Jan 31 2019: MXTYPE -> 1000 (was 200)
   Aug 13 2019: MXPATHLEN -> 300 (was 200)
   Apr 05 2021: MXSPECTRA -> 200 (was 40)
@@ -111,6 +86,15 @@
 #define MODEL_NAME_AGN      "AGN"
 #define NCHOICE_PySEDMODEL  4
 char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
+
+
+// Mar 2024:  define mask bits for new MASK_REDSHIFT_SOURCE variables to make
+//  clerar what is/isn't available. Immediate need is to choose between
+//  using quantiles or zspec, and not be fooled by crazy zphot with tiny error.
+#define MASK_REDSHIFT_SOURCE_ZHOST_SPEC      1
+#define MASK_REDSHIFT_SOURCE_ZSN_SPEC        2
+#define MASK_REDSHIFT_SOURCE_ZPHOT_POINT     4
+#define MASK_REDSHIFT_SOURCE_ZPHOT_QUANTILE  8
 
 // ------------------------------------------
 
@@ -367,7 +351,8 @@ struct SNDATA {
   float REDSHIFT_FINAL;         // idem, CMB frame
   float REDSHIFT_FINAL_ERR;     // error on above
   float VPEC, VPEC_ERR;         // Jan 2018
-  int   REDSHIFT_QUALITYFLAG;   // quality flag (survey-dependent meaning)
+  int   REDSHIFT_QUALITYFLAG;   // quality flag: survey dependent meaning
+  int   MASK_REDSHIFT_SOURCE;   // Mar 2024: determines source(s) of redshift
 
   // info obtained during survey (in SQL). 
   // Note that LC fit => Masao's fitter

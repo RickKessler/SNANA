@@ -23294,11 +23294,12 @@ void snlc_to_SNDATA(int FLAG) {
 
   SNDATA.REDSHIFT_FINAL      = GENLC.REDSHIFT_CMB_SMEAR ;
   SNDATA.REDSHIFT_HELIO      = GENLC.REDSHIFT_HELIO_SMEAR ;
-
+  
   SNDATA.REDSHIFT_FINAL_ERR  = GENLC.REDSHIFT_SMEAR_ERR ;
   SNDATA.REDSHIFT_HELIO_ERR  = GENLC.REDSHIFT_SMEAR_ERR ;
   SNDATA.VPEC                = GENLC.VPEC_SMEAR;
   SNDATA.VPEC_ERR            = INPUTS.VPEC_ERR;
+  zsource_to_SNDATA(FLAG) ;
 
   SNDATA.SIM_SEARCHEFF_MASK  = GENLC.SEARCHEFF_MASK ;
   SNDATA.SIM_SEARCHEFF_SPEC  = GENLC.SEARCHEFF_SPEC ;
@@ -23341,7 +23342,6 @@ void snlc_to_SNDATA(int FLAG) {
     sprintf(SNDATA.SIM_REDSHIFT_COMMENT,"%s", STRING_REDSHIFT_FLAG[zFLAG] );
   }
 
-  SNDATA.MASK_REDSHIFT_SOURCE = 0 ; // Need to fill this in XXX
   
   SNDATA.SIM_VPEC         = GENLC.VPEC ;
   SNDATA.SIM_DLMU         = GENLC.DLMU ; 
@@ -23593,7 +23593,39 @@ void snlc_to_SNDATA(int FLAG) {
 
 }  // end of snlc_to_SNDATA
 
+void zsource_to_SNDATA(int FLAG){
+  // Created Mar, 15, 2024
+  // Set SNDATA.MASK_REDSHIFT_SOURCE
+  // to clearly indicate the sources of redshift in the datafile
+  // This variable works for both simulation and real data
 
+  
+  double ztmp, ztmp_err; 
+  char fnam[] = "zsource_to_SNDATA" ;
+  SNDATA.MASK_REDSHIFT_SOURCE = 0;
+  
+  ztmp_err = SNDATA.HOSTGAL_SPECZ_ERR[0];  
+  if(ztmp_err>=0 && ztmp_err<0.05){
+    SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_SPEC  ;
+  }
+
+  ztmp_err = SNDATA.HOSTGAL_PHOTOZ_ERR[0];
+  if(ztmp_err>0 && ztmp_err<9.0){
+    SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_PHOT  ;
+  }
+
+  int N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
+  double zq0 = SNDATA.HOSTGAL_ZPHOT_Q[0][0]; // First [0] dlr match index and second [0] quantile index
+  if (N_Q > 0 && zq0 >= 0.){
+    SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_QUANTILE;
+  }
+
+  if ( GENLC.REDSHIFT_FLAG == REDSHIFT_FLAG_SNSPEC ){
+    SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZSN_SPEC;
+  }
+
+}
+  
 // *********************************
 void coords_to_SNDATA(int FLAG) {
 

@@ -2123,6 +2123,7 @@ void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
 void   coords_to_SNDATA(int FLAG) ;
+void   zsource_to_SNDATA(int FLAG);
 
 void   check_SNDATA_HOSTGAL_SNSEP(int m);
 

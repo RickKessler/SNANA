@@ -29152,7 +29152,6 @@ void rewgt_genPDF(int OPT) {
     GENLC.WGT_POPULATION = wgt_event ;
   }
 
-
   return;
 
 } // end rewgt_genPDF
@@ -29181,7 +29180,13 @@ void set_population_expon_rewgt(double EXPON_REWGT) {
     set_GEN_EXPON_REWGT(EXPON_REWGT, &INPUTS.GENPROFILE_AV)  ;
   }
 
+  int imap;
+  for ( imap = 0 ; imap < NMAP_GENPDF; imap++ ) {
+    GENPDF[imap].PROB_EXPON_REWGT = EXPON_REWGT; 
+  }
+
   return;
+
 } // end set_population_expon_rewgt
  
 // ===========================================

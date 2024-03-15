@@ -93,8 +93,8 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 //  using quantiles or zspec, and not be fooled by crazy zphot with tiny error.
 #define MASK_REDSHIFT_SOURCE_ZHOST_SPEC      1
 #define MASK_REDSHIFT_SOURCE_ZSN_SPEC        2
-#define MASK_REDSHIFT_SOURCE_ZPHOT_POINT     4
-#define MASK_REDSHIFT_SOURCE_ZPHOT_QUANTILE  8
+#define MASK_REDSHIFT_SOURCE_ZHOST_PHOT     4
+#define MASK_REDSHIFT_SOURCE_ZHOST_QUANTILE  8
 
 // ------------------------------------------
 

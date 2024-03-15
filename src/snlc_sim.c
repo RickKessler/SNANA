@@ -29180,6 +29180,9 @@ void set_population_expon_rewgt(double EXPON_REWGT) {
     set_GEN_EXPON_REWGT(EXPON_REWGT, &INPUTS.GENPROFILE_AV)  ;
   }
 
+  // Mar 14 2024: init EXPON_REWGT for genPDF maps ...
+  //   beware that this is not tested.
+
   int imap;
   for ( imap = 0 ; imap < NMAP_GENPDF; imap++ ) {
     GENPDF[imap].PROB_EXPON_REWGT = EXPON_REWGT; 

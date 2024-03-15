@@ -868,7 +868,7 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
     ibin++;
   } //end XVAL loop
 
-  printf("    Load GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n",
+  printf("    Load genGauss GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n",
          IDMAP, MAPNAME, NAME, NBIN); fflush(stdout);
   
 

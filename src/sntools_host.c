@@ -6632,6 +6632,9 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   // Oct 04 2018: fix awful bug with checking HOSTLIB_GENZPHOT usage
   //     
   // Jan 31 2020: compute for all neighbors
+  // Mar 15 2024: return on NNBR=0 to avoid reporting ZPHOT when
+  //               host is not detected.
+  //
 
   int    NNBR  = SNHOSTGAL.NNBR_DDLRCUT2;
   double ZTRUE = SNHOSTGAL.ZTRUE ;
@@ -6641,6 +6644,8 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   char fnam[] = "GEN_SNHOST_ZPHOT" ;
 
   // ----------- BEGIN ----------
+
+  if ( NNBR == 0 ) { return ; }
 
   // Compte user-specified bias
   ZBIAS = 0.0 ;

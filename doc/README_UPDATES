@@ -11381,7 +11381,7 @@
           SIMLIB_MSKOPT +=4
        will include the entire season if any part of Trest
        range overlaps season.
-     + gen-zsmear(): if zerr>.999 then skip generation of random z
+     + gen_zsmear(): if zerr>.999 then skip generation of random z
        since RESHIFT_FINAL[_ERR] -> -9.
        Fixes rare abort on ZGEN_MIN when GENSIGMA_REDSHIFT = 1.0
      + few fmodf -> fmod (float->double) to handle very large NGENTOT_LC
@@ -22267,9 +22267,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v11_05l) *****
 
-
    sntools_host.c
      + MXNNBR_STORE -> 200 ( was 100)
+     + if NNBR == 0 (no galaxy detection), avoid setting false ZPHOT.
+         (in function GEN_SNHOST_ZPHOT)
 
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
@@ -22280,4 +22281,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_prog_bbc.py
      + nicer visual output for BBC_SUMMARY_wfit.LOG
 
+   
 END: 

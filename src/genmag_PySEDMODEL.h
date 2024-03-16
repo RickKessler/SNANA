@@ -5,7 +5,7 @@
 
 // define pre-processor command to use python interface
 
-#define USE_PYTHON            
+#define USE_PYTHONxxx            
 
 
 // ===========================================

@@ -523,7 +523,7 @@ c CHI2GRID_PRIOR is a grid storing chi2-values to add.
       REAL*8  
      &   PRIOR_CHI2GRID(NBIN_PRIOR,IPAR_MAX)
      &  ,PRIOR_PROBGRID(NBIN_PRIOR,IPAR_MAX)
-     &  ,PRIOR_GRID(NBIN_PRIOR,IPAR_MAX)
+     &  ,PRIOR_VALGRID(NBIN_PRIOR,IPAR_MAX)
      &  ,PRIOR_RANGE(2,IPAR_MAX)
      &  ,PRIOR_BINSIZE(IPAR_MAX)
      &  ,FLATPRIOR_RANGE(2,IPAR_MAX)  ! used to interp near discontinuity
@@ -533,7 +533,7 @@ c CHI2GRID_PRIOR is a grid storing chi2-values to add.
       INTEGER FLATPRIOR_BINRANGE(2,IPAR_MAX)
 
       COMMON / PRIORCOM8 / 
-     &    PRIOR_CHI2GRID, PRIOR_PROBGRID, PRIOR_GRID
+     &    PRIOR_CHI2GRID, PRIOR_PROBGRID, PRIOR_VALGRID
      &  , PRIOR_RANGE, PRIOR_BINSIZE
      &  , FLATPRIOR_RANGE, FLATPRIOR_BINRANGE
 
@@ -10860,7 +10860,7 @@ c initalize all chi2-prior to zero.
       DO ipar = 1, IPAR_MAX
           PRIOR_CHI2GRID(ibin,ipar) = 0.0
           PRIOR_PROBGRID(ibin,ipar) = 0.0
-          PRIOR_GRID(ibin,ipar)     = 0.0
+          PRIOR_VALGRID(ibin,ipar)  = 0.0
       ENDDO
       ENDDO
 
@@ -11103,7 +11103,7 @@ c set up binning used to store PHOTOZ prior on grid.
             CHI2  = SQDIF / SQSIG 
             PROB  = GNORM * EXP(-CHI2/2.0)
 
-            PRIOR_GRID(IZ,ipar)     = Zpull
+            PRIOR_VALGRID(IZ,ipar)  = Zpull
             PRIOR_CHI2GRID(IZ,IPAR) = CHI2
             PRIOR_PROBGRID(IZ,IPAR) = PROB
 50    CONTINUE
@@ -11188,7 +11188,7 @@ c set up binning used to store DLMAG prior on grid.
             CHI2  = SQDIF / SQSIG 
             PROB  = GNORM * EXP(-CHI2/2.0)
 
-            PRIOR_GRID(IMU,ipar)     = pull
+            PRIOR_VALGRID(IMU,ipar)  = pull
             PRIOR_CHI2GRID(IMU,IPAR) = CHI2
             PRIOR_PROBGRID(IMU,IPAR) = PROB
 50    CONTINUE
@@ -11314,7 +11314,7 @@ c boundary.
 
          CHI2  = CHI2 * EXP(DT*DT)
          PROB  = GNORM * EXP(-CHI2/2.0)
-         PRIOR_GRID(IMJD,ipar)     = MJD 
+         PRIOR_VALGRID(IMJD,ipar)  = MJD 
          PRIOR_CHI2GRID(IMJD,IPAR) = CHI2
          PRIOR_PROBGRID(IMJD,IPAR) = PROB
 50    CONTINUE
@@ -11530,7 +11530,7 @@ c allow non-trivial priors to multiply flat prior
 
          PROB = MAX( PROB, PROBMIN )
 
-         PRIOR_GRID(IVAR,ipar)     = VAR
+         PRIOR_VALGRID(IVAR,ipar)  = VAR
          PRIOR_CHI2GRID(IVAR,IPAR) = CHI2
          PRIOR_PROBGRID(IVAR,IPAR) = PROB
 50    CONTINUE
@@ -11596,7 +11596,7 @@ c ------------------------
      &  ,chi2_1, chi2_2, chi2slope
      &  ,arg
 
-      REAL*8  CHI2_PRIOR
+cc      REAL*8  CHI2_PRIOR
 
       LOGICAL USER_EXPSUM
 
@@ -11717,7 +11717,7 @@ c start with loop over AV that includes negative values.
          XAV1     = DBLE(IAV1) 
          AV1      = PRIOR_RANGE(1,IPAR_AV) + AV1_binsize * xav1
 
-         PRIOR_GRID(iav1,ipar_av) = AV1  ! store AV vs. grid index
+         PRIOR_VALGRID(iav1,ipar_av) = AV1  ! store AV vs. grid index
 
 c now loop over physical AV2 > 0, and go past defined range to
 c accoount for smearing from beyond defined range.
@@ -11793,8 +11793,8 @@ c look for first bin with chi2 < chi2max
 
 c get slope from two neighbor chi2 points 
 
-      AV1 =  PRIOR_GRID(iavtmp,  ipar_av)
-      AV2 =  PRIOR_GRID(iavtmp+1,ipar_av)
+      AV1 =  PRIOR_VALGRID(iavtmp,  ipar_av)
+      AV2 =  PRIOR_VALGRID(iavtmp+1,ipar_av)
       AVEXTRAP = AV1
 
       chi2_1 = PRIOR_chi2grid(iavtmp,  ipar_av)
@@ -11806,7 +11806,7 @@ c Loop over AV bins again, and replace chi2 in overflow region
 c with extrapolated chi2.
 
       DO IAV1 = 1, NBIN_PRIOR
-         AV1 =  PRIOR_GRID(iav1,ipar_av)
+         AV1 =  PRIOR_VALGRID(iav1,ipar_av)
          if ( AV1 .LT. AVEXTRAP ) then
            chi2 = chi2_1 + chi2slope * (AV1 - AVEXTRAP)
            PRIOR_CHI2GRID(iav1,ipar_av) = chi2
@@ -11822,6 +11822,86 @@ c with extrapolated chi2.
 C ==========================================
 +DECK,CHI2_PRIOR.
       DOUBLE PRECISION FUNCTION CHI2_PRIOR(ipar, PARVAL)
+c
+c Return chi2 penality for prior.
+c IPAR is the fitpar index;
+c FITPAR is the value to look up the prior.
+c
+c Mar 2024: refactor to use interp_1DFUN (C fun in sntools.c)
+c       and get rid of very old/obscure interpolcation code. 
+c
+c ------------------------
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,SNLCINP.
+
+c function args.
+
+      INTEGER IPAR    ! (I) fitpar index
+      REAL*8  PARVAL  ! (I) fitpar value to compute chi2
+
+c local var
+
+      INTEGER OPTMASK
+      CHARACTER COMMENT*40
+      REAL*8    TMPVAL, MINVAL, MAXVAL
+
+c define variables for polynomial interpolation
+
+      REAL*8   INTERP_1DFUN
+      EXTERNAL INTERP_1DFUN
+
+      REAL*8 CHI2_PRIOR_LEGACY
+
+C -------------- BEGIN --------------
+
+      IF ( DEBUG_FLAG .NE. 1024 ) THEN  ! legacy function, Mar 2024
+          CHI2_PRIOR = CHI2_PRIOR_LEGACY(ipar, PARVAL)
+          RETURN
+      ENDIF
+
+      CHI2_PRIOR = 0.0  ! init
+
+      if ( .NOT. USE_PRIOR(ipar) ) RETURN
+
+c - - - - - -
+
+c check trivial case of flat-prior region
+      if ( PARVAL .GE. FLATPRIOR_RANGE(1,ipar) .and.
+     &     PARVAL .LE. FLATPRIOR_RANGE(2,ipar) ) then
+         CHI2_PRIOR = 0.0
+         RETURN
+      endif
+
+      OPTMASK = 1  ! 1=linear, 2=quadratic interp
+      COMMENT = 'CHI2_PRIOR(' // PARNAME_STORE(ipar)(1:8) //  ')'
+
+      TMPVAL = PARVAL
+      MINVAL = PRIOR_VALGRID(1,IPAR)
+      MAXVAL = PRIOR_VALGRID(NBIN_PRIOR,IPAR) 
+      IF ( PARVAL .LE. MINVAL ) THEN
+         TMPVAL = MINVAL + 1.0E-6
+      ENDIF
+      IF ( PARVAL .GE. MAXVAL ) THEN
+         TMPVAL = MAXVAL - 1.0E-6
+      ENDIF
+
+      CHI2_PRIOR = interp_1DFUN(OPTMASK, TMPVAL, NBIN_PRIOR,
+     &     PRIOR_VALGRID(1,IPAR), PRIOR_CHI2GRID(1,IPAR),
+     &     COMMENT//char(0), 40 )
+
+
+      RETURN
+      END  ! end CHI2_PRIOR
+
+
+C ==========================================
++DECK,CHI2_PRIOR_LEGACY.
+      DOUBLE PRECISION FUNCTION CHI2_PRIOR_LEGACY(ipar, PARVAL)
 c
 c Return chi2 penality for prior.
 c IPAR is the fitpar index;
@@ -11869,14 +11949,14 @@ c define variables for polynomial interpolation
 
 C -------------- BEGIN --------------
 
-      CHI2_PRIOR = 0.0  ! init
+      CHI2_PRIOR_LEGACY = 0.0  ! init
 
       if ( .NOT. USE_PRIOR(ipar) ) RETURN
 
 c check trivial case of flat-prior region
       if ( PARVAL .GE. FLATPRIOR_RANGE(1,ipar) .and.
      &     PARVAL .LE. FLATPRIOR_RANGE(2,ipar) ) then
-         CHI2_PRIOR = 0.0
+         CHI2_PRIOR_LEGACY = 0.0
 
 cc         if ( IPAR .EQ. IPAR_SHAPE2 ) then ! xxxx
 cc              print*,' xxx chi2_prior=0 for ', sngl(PARVAL)
@@ -11923,7 +12003,7 @@ c we don't have two interp bins in the flat-prior region.
 c Note that PARVAL must be outside FLAT-PRIOR region to get here,
 c so this is just a check of the central interp bin.
 
-         XTMP = PRIOR_GRID(ibcen,ipar)   
+         XTMP = PRIOR_VALGRID(ibcen,ipar)   
 
          IBTMP = FLATPRIOR_BINRANGE(1,IPAR)
          IF ( IBCEN .GE. IBTMP .and. IBCEN .LE. IBTMP+2 ) then
@@ -11951,7 +12031,7 @@ c so this is just a check of the central interp bin.
      &         ,PRIOR_BINSIZE(ipar)
 24          format('PRIOR_RANGE,BINSIZE=', 3F10.3 )
 
-            CALL MADABORT ( "CHI2_PRIOR", c1err, c2err )            
+            CALL MADABORT ( "CHI2_PRIOR_LEGACY", c1err, c2err )            
          endif
 
 c if upstream and downstream slopes are withing 5%, use 3 interp bins;
@@ -11986,7 +12066,7 @@ c load table for POLINT ... note 4-byte reals
       DO i = 1, NPMAX
         if ( i .LE. NPINT ) then
           ibin(i)     = ibcen - (NPHALF+1) + i
-          XTMP        = PRIOR_GRID(ibin(i),ipar)      ! fitpar grid
+          XTMP        = PRIOR_VALGRID(ibin(i),ipar)   ! fitpar grid
           CHI2INT8(i) = PRIOR_CHI2GRID(ibin(i),ipar)  ! chi2 grid
 
 c if GRID point is in a flat-prior region, pull it to the
@@ -12016,18 +12096,18 @@ c call CERNLIB routine to interpolate ...
 c R8 is returned.
 
       CALL POLINT8 ( CHI2INT8, XINT8, NPINT, PARVAL, R8 )
-      CHI2_PRIOR = R8
+      CHI2_PRIOR_LEGACY = R8
 
 +SELF,IF=PRIORBUG.
 c xxxxxxxxxxxxxxxxxx
       if ( IPAR .EQ. IPAR_AV .and. 
      &     abs(abs(PARVAL) - 0.01) .LT. 1.0E-4 ) then
 
-         arg   = min(40.0,chi2_prior/2.0)
+         arg   = min(40.0,chi2_prior_legacy/2.0)
          prob  = dexp(-arg)
 
          print*,' -------------------------------------- '
-         write(6,666) PARVAL, chi2_prior, prob, NPINT, IBCEN
+         write(6,666) PARVAL, chi2_prior_legacy,prob,NPINT,IBCEN
 666      format(T2,' xxx AV=',F7.4, 2x, 'CHI2=', G12.5, 2x, 
      &       'PROB=',F12.5, 2x, 'NPINT,IBCEN=', I2,',', I5)
 
@@ -12049,13 +12129,13 @@ c xxxxxxxxxxxxxxxx
          print*,' XXX PAR(solve)   = ', SNGL(PARVAL),' NPINT=',NPINT
          print*,' XXX PAR(GRID)    = ', (SNGL(XINT8(i)),i=1,NPMAX)
          print*,' XXX CHI2(GRID)   = ', (SNGL(CHI2INT8(i)),i=1,NPMAX)
-         print*,' XXX CHI2(fun)    = ', SNGL(CHI2_PRIOR)
+         print*,' XXX CHI2(fun)    = ', SNGL(CHI2_PRIOR_LEGACY)
          print*,' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX '
       endif
 
 
       RETURN
-      END
+      END  ! end PRIOR_CHI2_LEGACY
 
 C =================================
 +DECK,PRIOR_ZPULL.

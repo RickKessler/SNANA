@@ -15600,7 +15600,8 @@ void gen_zsmear(double zerr) {
   // May 25 2022:  for LCLIB, set measured redshifts to -9 instead of zero.
   //                  [true redshifts still set to zero]
   //
-
+  // Mar 19 2024: remove special check on zerr==0; was causing strange behavior
+  // 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
   double ZGEN_MIN = 0.0001;
@@ -15609,7 +15610,7 @@ void gen_zsmear(double zerr) {
 
   // ---------- BEGIN ----------
 
-  if ( INDEX_GENMODEL == MODEL_LCLIB ) { 
+  if ( INDEX_GENMODEL == MODEL_LCLIB || INDEX_GENMODEL == MODEL_FIXMAG ) { 
     // set all redshift info to zero 
     GENLC.REDSHIFT_CMB_SMEAR    = -9.0 ;
     GENLC.REDSHIFT_CMB          =  0.0 ;
@@ -15627,12 +15628,14 @@ void gen_zsmear(double zerr) {
   }
 
 
-
+  /* xxx mark delete Mar 19 2024 xxxxxx
   if ( zerr == 0.0 ) { 
     GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
     GENLC.REDSHIFT_SMEAR_ERR     = zerr ;
     goto ZCMB_SMEAR ;
   }
+  xxxx */
+
   if ( zerr > 0.999 ) {  // user flag to use zPHOT_HOST
     GENLC.REDSHIFT_HELIO_SMEAR   = SNHOSTGAL.ZPHOT ;
     GENLC.REDSHIFT_SMEAR_ERR     = SNHOSTGAL.ZPHOT_ERR ;

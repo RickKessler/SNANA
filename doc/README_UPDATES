@@ -22274,6 +22274,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
+     + in gen_zsmear(), remove special check for zerr==0
 
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)

@@ -502,10 +502,12 @@ c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
      &  ,PHOTOZ_DROPFILTER(MXFILT_ALL)  ! T=> filter was dropped
      &  ,PHOTOZ_ADDFILTER(MXFILT_ALL)   ! T=> filter added
 
+      INTEGER MASK_PHOTOZ_SOURCE  ! set used OPT_PHOTOZ bits
+
       INTEGER IFILT_NEARDROP  ! used filt-index nearest to gettinng dropped
  
-      COMMON / PHOTOZCOM / 
-     &   DOFIT_PHOTOZ_HOST, DOFIT_PHOTOZ_noHOST, DOFIT_PHOTOZ_CHEAT
+      COMMON / PHOTOZCOM / MASK_PHOTOZ_SOURCE
+     &  ,DOFIT_PHOTOZ_HOST, DOFIT_PHOTOZ_noHOST, DOFIT_PHOTOZ_CHEAT
      &  ,PHOTOZ_ERR_SNFIT, PHOTOZ_ERR_SNHOST, PHOTOZ_ERR_SNMAG 
      &  ,PHOTOZ_ERR_ZPULL
      &  ,PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR  ! Feb 2022
@@ -1868,8 +1870,9 @@ c Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
 c can make the same approx MilkyWay correction that was
 c applied to data.
 c
-c Aug 28, 2012: remove ISN arg from FITINI_ADJUST call
-c Dec 05, 2013: remove ISN arg from subroutine
+c
+c Mar 19 2024: set MASK_PHOTOZ_SOURCE
+c
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -1901,10 +1904,11 @@ c local var
       LOGICAL 
      &   USE_FILT_ITER1(MXFILT_ALL)
      &  ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL, LPRINT
+     &  ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC
 
 c functions
      
-      LOGICAL LFITFUN_FILT, FIRST_ITERATION
+      LOGICAL LFITFUN_FILT, FIRST_ITERATION, IS_ZSPEC
       INTEGER NEAREST_IFILTDEF_WRAPPER
 
       REAL*8   USRFUN
@@ -1995,6 +1999,24 @@ c skipped ; they are applied in PHOTOZ_ANA (after 1st fit) instead.
 
 c reset DROPFILTER array in first iteration only
         if ( FIRST_ITER ) then
+
+c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
+          MASK_PHOTOZ_SOURCE = 0
+          LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
+          LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
+          LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
+          LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
+          if ( LPZ_Q .and. .not.LZSPEC )  THEN
+             MASK_PHOTOZ_SOURCE = 
+     &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
+          else if ( LPZ_BEST ) then
+             MASK_PHOTOZ_SOURCE = 
+     &          IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
+          else if ( LPZ_HOST ) then
+             MASK_PHOTOZ_SOURCE = 
+     &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
+          endif
+
           DO 220 ifilt_obs = 1,  MXFILT_ALL
 
             PHOTOZ_ADDFILTER(ifilt_obs)  = .FALSE.
@@ -4822,7 +4844,7 @@ c local args
      &  ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN
      &  ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ 
 
-      LOGICAL LTMP, LBADVAL
+      LOGICAL LTMP, LBADVAL, DO_QUANTILES, DO_BESTZ_GAUSS
 
 c define max color and MU for which exponential priorchi2 is used
 c to prevent MINUIT from probing extreme values.
@@ -4842,7 +4864,7 @@ c functions
      &  ,PRIOR_MUPULL
      &  ,GET_RV8
      &  ,SNLC_FIT_SIMEFF
-     &  ,eval_zPDF_spline
+     &  ,eval_zPDF_spline     
 
       EXTERNAL eval_zPDF_spline
 
@@ -4943,24 +4965,24 @@ c Prior on photoZ
 
       IF ( DOFIT_PHOTOZ ) THEN
 
-        if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
-          ! get the probability at this redshift
-          if ( SNLC_REDSHIFT_ERR >= QUANTILE_ZERRMIN ) then
-             PROBZ = eval_zPDF_spline(ZSN)
-          else
-             pull   = PRIOR_ZPULL(ZSN)
-             PROBZ  = exp(-0.5*pull*pull)  ! Mat 2024
-          endif
+c  load local variables for user-specified options from &SNLCINP OPT_PHOTOZ
+        DO_QUANTILES    = btest(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
+c xxx mark DO_BESTZ_GAUSS  = btest(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
 
+        if ( DO_QUANTILES ) then
+          ! get the probability at this redshift
+          PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
           if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
           CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+
           if ( DEBUG_FLAG == 906 ) then
             CHI2TMP = 2.0 * log(SNHOST_ZPHOT_ERR(1)) + 0.9189 ! + ln(sqrt(2pi))
             CHI2PRIOR(IPAR_zPHOT) = CHI2PRIOR(IPAR_zPHOT) + CHI2TMP
           endif
+
         endif
         
         if ( DEBUG_FLAG == 908 ) then
@@ -5026,7 +5048,6 @@ c sum all the pieces
 
       RETURN
       END  ! end FCNCHI2_PRIOR
-
 
 C ==============================================
 +DECK,DUMP_ZPHOT_PRIOR.
@@ -12147,9 +12168,9 @@ c Returns ZPULL = (Z - Zref) / err
 c to be used in chi2-fit function.
 c
 c Note namelist option  
-c  OPT_PHOTOZ=1  => always use host-galaxy photoZ
-c  OPT_PHOTOZ=2  => use spectro Z when available.
-c
+c  OPT_PHOTOZ += 1  => always use host-galaxy photoZ
+c  OPT_PHOTOZ += 2  => use spectro Z when available.
+c  OPT_PHOTOZ += 4  => use quantiles instead of zphot point estimate
 c
 c Jan 27 2018: 
 c  + use DOFIT_PHOTOZ_HOST to determine LPULL
@@ -12176,11 +12197,11 @@ C ------------ BEGIN -------------
 
       PRIOR_ZPULL = 0.0
       LPULL  = .FALSE.
-      LPZ_PHOT = BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
-      LPZ_BEST = BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) .or. 
-     &            SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN  ! Mar  2024
+      LPZ_PHOT = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
+      LPZ_BEST = BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS) 
+cc xxx mark delete     &  SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN  ! Mar  2024
 
-      if ( LPZ_PHOT ) then  ! use host photo z
+      if ( LPZ_PHOT ) then  ! use host photo z point estimate
          zPRIOR     = SNHOST_ZPHOT(1)
          zPRIOR_err = SNHOST_ZPHOT_ERR(1)
          LPULL = zPRIOR_err .GT. 0.005 .and. DOFIT_PHOTOZ_HOST
@@ -13647,7 +13668,7 @@ C =====================================
 
 c Created Aug 12, 2009 by R.Kessler
 c
-c Called from FITPAR_PREP to set initial REDSHIFT_FIT
+c For each event, called from FITPAR_PREP to set initial REDSHIFT_FIT
 c that is used to select filters & epochs.
 c Most of the logic here is related to photoZ fits.
 c
@@ -13672,7 +13693,7 @@ c ---------------- BEGIN ---------------
       PRIOR_PHOTOZ     = -9.0
       PRIOR_PHOTOZ_ERR = -9.0
 
-c .xyz add option for using HOSTGAL_PHOTOZ ...
+c .xyz add option for using HOSTGAL_PHOTOZ ... and quantiles
 
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
@@ -13729,6 +13750,10 @@ C ========================================
 c
 c Store PHOTOZ-related variables
 c
+c Mar 2024: use MASK_PHOTOZ_SOURCE instead of user-input OPT_PHOTOZ
+c           because MASK_PHOTOZ_SOURCE is guaranteed to have only
+c           one bit set, thus simplifying local logic.
+c
       IMPLICIT NONE
 
       INTEGER  NPAR   ! (I) storage index
@@ -13766,10 +13791,9 @@ c extract fit photoZ and determine total error.
       zfit    = LCVAL_STORE(IPAR_zPHOT) 
       zfiterr = LCERR_STORE(IPAR_zPHOT) 
          
-      LPZ_PHOT     = BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
-      LPZ_BEST     = BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) .or.
-     &               SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN   ! Mar 2024
-      LPZ_QUANTILE = BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
+      LPZ_PHOT     = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
+      LPZ_BEST     = BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS) 
+      LPZ_QUANTILE = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
 
       if ( LPZ_PHOT ) then 
         zhost    =  SNHOST_ZPHOT(1)
@@ -13782,9 +13806,10 @@ c extract fit photoZ and determine total error.
         czprior  = 'zBEST-Gauss'   ! for screen dump comment
 
       else if ( LPZ_QUANTILE ) then ! Jan 2024
-        zhost    = 0.0
+        zhost    = 0.0  ! maybe switch value to -9 here ??
         zhosterr = 0.0
         czprior  = 'QUANTILES'   ! for screen dump comment
+
       endif
 
 c scale the error by user-scale:

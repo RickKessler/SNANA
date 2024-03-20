@@ -4634,10 +4634,10 @@ c read ZPHOT_Q (May 2022)
 	
 	IF (igal == 1) THEN
 	   LTMP = (SNHOST_ZPHOT_Q(igal,1) < -0.001) .AND. 
-     &     (SNLC_REDSHIFT > QUANTILE_ZERRMIN)	   
-	   IF (LTMP) SNLC_REDSHIFT = -9.0 !'Forced event to be rejected'
-
+     &        (SNLC_REDSHIFT > QUANTILE_ZERRMIN)	   
+	   IF (LTMP) SNLC_REDSHIFT = -9.0 ! Forced event to be rejected
 	ENDIF
+
 c          print*,' xxx ------------------------------------------- '
 c          print*,' xxx CID ,igal = ', SNLC_CCID, igal
 c          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
@@ -4866,9 +4866,6 @@ c mask redshift source (march 14 2024)
 
       RETURN
       END    ! end RDHEAD_REDSHIFT
-
-
-
 
 C =============================
 +DECK,RDHEAD_SIM_SNANA.
@@ -6281,8 +6278,8 @@ c set reference cosmo params to defaults.
       DWDA_REF(1) = DWDA_DEFAULT
       DWDA_REF(2) = DWDAERR_DEFAULT
 
-      zTOL_HELIO2CMB = 0.02   ! tolerance on dzHELIO/zHELIO
-      QUANTILE_ZERRMIN = 0.01 
+      zTOL_HELIO2CMB   = 0.02   ! tolerance on dzHELIO/zHELIO
+      QUANTILE_ZERRMIN = 0.00   ! 0 -> always use quantiles
 
 c set LTEST logicals to false.
 
@@ -18357,6 +18354,32 @@ c bail if none of the zSHIFT options are used
       RETURN
       END     ! end SET_zSHIFT
 
+C ============================================
++DECK,IS_ZSPEC.
+      LOGICAL FUNCTION IS_ZSPEC()
+
+c Created March 20 2024 by R.Kessler and A.Mitra
+c Return True if best redshift is a spec-z.
+c Optimal logic is to use MASK_REDSHIFT_SOURCE that
+c explcitly sets bit0 for host zspec and bit1 for SN zspec.
+c However, if this MASK is not provided, one can assume
+c specz if redshift error is less than &SNLCINP variable
+c QUANTILE_ZERRMIN.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+c define local zspec mask; 
+c   grep MASK_REDSHIFT_SOURCE sndata.h
+      INTEGER MASK_ZSPEC_SOURCE
+      PARAMETER ( MASK_ZSPEC_SOURCE = 3) ! 1=zspec_host, 2=zspec(SN)
+
+      IS_ZSPEC = (SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN) .or.
+     &           (IAND(ISNLC_zSOURCE,MASK_ZSPEC_SOURCE) > 0)
+
+      RETURN
+      END
 
 C ===============================
 +DECK,SET_SNHOST_CONFUSION.

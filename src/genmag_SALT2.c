@@ -2592,18 +2592,6 @@ double SALT2magerr(double Trest, double lamRest, double z,
       }
     } // end DEBUG_SALT2
 
-    /*   xxxxxxxxxxxxxx mark
-    double vartot_flux_new = vartot_flux;
-    double vartot_flux_old = var[0] + var[1]*x1*x1 + (2.0 * x1 * covar[0][1]) ;
-    vartot_flux = vartot_flux_old; // xxx REMOVE
-    double ratio = vartot_flux_new/vartot_flux_old ;
-    if ( ratio != 1.0 ) {
-      printf(" xxx %s: vartot(new/old) = %.2f  COV01=(%lef,%le) \n", 
-	     fnam, ratio,
-	     covar[0][1], covar[1][0] ); fflush(stdout);
-    }
-    xxxx end mark */
-
     if ( !DEBUG_SALT2 ) 
       { vartot_flux = var[0] + var[1]*x1*x1 + (2.0 * x1 * covar[0][1]) ; } // legacy
 

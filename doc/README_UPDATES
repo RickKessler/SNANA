@@ -22256,7 +22256,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05l ([tag date])
 
          *****  IMPORTANT(v11_05l) *****
-
+  
+    snlc_fit.car
+       + refactor/simplify logic to control using zSPEC, zPHOT, quantiles.
+         Old logic was done within fit; new logic is done prior to fit
+         so that downstream code is simpler.
+       + See manual sec ?? on how code decides between quantiles
+         and accurate zspec.
 
          *****  USEFUL(v11_05l) *****
 

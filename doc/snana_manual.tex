@@ -8499,15 +8499,35 @@ the redshift prior as follows:
    OPT_PHOTOZ = 16 ! set initial zPhot=zSpec and skip grid search (for debug)
 \end{verbatim}
 %
-When {\tt DOFIT\_PHOTOZ=T}, 
-{\tt OPT\_PHOTOZ} is automatically set to 1 so that the
-host-photoZ prior is used.  
+%When {\tt DOFIT\_PHOTOZ=T}, 
+%{\tt OPT\_PHOTOZ} is automatically set to 1 so that the
+%host-photoZ Gaussian prior is used.  
+Setting {\tt OPT\_PHOTOZ=1} forces using host photo-z Gaussian prior, 
+even if spec-$z$ is available.
 {\tt OPT\_PHOTOZ=2} uses the best redshift (spec or photo-$z$)
-as a prior, and is useful for samples with a mix of spec-$z$ and 
+as a Gaussian prior, and is useful for samples with a mix of spec-$z$ and 
 photo-$z$ redshifts.
-When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
-automatically set, and vice-versa: thus the
-photo-$z$ option can be enabled with either namelist variable.
+%
+{\tt OPT\_PHOTOZ=4} uses zPDF from quantiles, and ignores 
+subset with accurate spec-$z$.
+{\tt OPT\_PHOTOZ=6} (2+4) uses accurate spec-$z$ Gaussian prior
+if available; else it uses quantiles.
+
+For quantile option, existance of spec-$z$ is determined as follows.
+The most robust method is data variable {\tt MASK\_REDSHIFT\_SOURCE}
+set by the survey team creating the data files, and automatically
+set for simulations. The mask values are as follows:
+1: host spec-$z$, 2: SN spec-$z$, 4: host photo-$z$ point estimate, 
+8: host photo-$z$ quantiles. Thus {\tt MASK\_REDSHIFT\_SOURCE} value
+of 1,2 or 3 unambiguously indicates spec-$z$.
+If this mask is not available, an alternative (less robust) method
+is to define {\tt \&SNLCINP} input {\tt QUANTILE\_ZERRMIN = 0.01};
+this identifies spec-$z$ if redshift uncertainty is below 0.01.
+
+
+%When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
+%automatically set, and vice-versa: thus the
+%photo-$z$ option can be enabled with either namelist variable.
 
 If {\tt PRIOR\_MUERRSCALE} is 100 or larger (the default),
 then there is no prior applied to the distance modulus ($\mu$).

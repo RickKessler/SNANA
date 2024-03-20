@@ -5064,7 +5064,11 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //
   // May 27 2021: check for FIELD arg in WORDS(0)
   // Jun 21 2021: FIELD check only for keySource == KEYSOURCE_ARG
-  
+  // 
+  // Mar 19 2024: not sure why FIELD check was only for command-line arg;
+  //              allow FIELD check for command line or input file,
+  //              and check for prescale; e.g, TAKE_SPECTRUM(DEEP/2.3)
+  //
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP ;
@@ -5084,6 +5088,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // ----------- BEGIN -----------
 
+
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
     INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[i]  = -99.0;
@@ -5098,6 +5103,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_LAMBDA = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE      = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].FIELD[0]  = 0 ;
+  INPUTS.TAKE_SPECTRUM[NTAKE].WGT       = 1.0;  // Mar 2024
 
   // before reading TAKE_SPECTRUM options from file, 
   // parse optional WARP_SPECTRUM_STRING that was previously read.
@@ -5116,11 +5122,32 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // for input file & command line arg, 
   // check for FIELD arg in (); e.g., TAKE_SPECTRUM(X1)
-  if ( keySource == KEYSOURCE_ARG ) {
+  // xxx mark bool CHECK_FIELD = ( keySource == KEYSOURCE_ARG ) ; // from 2021 ??
+  bool CHECK_FIELD = true;
+  if ( CHECK_FIELD ) {
     sprintf(string0, "%s", WORDS[0]);
+
+    char string_field[80], *sl ;
     char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
-    extractStringOpt(string0,FIELD); // return FIELD
-  }
+    int indx_slash;
+    double ps, WGT=1.0;
+
+    extractStringOpt(string0,string_field); // return string_field; eg DEEP/2.2
+    sprintf(FIELD,"%s", string_field);
+    
+    // find location of slash (if it exists)
+    if ( strlen(string_field) > 0 ) {
+      sl = strchr(string_field, '/');
+      indx_slash = (int)(sl - string_field);
+      if ( indx_slash > 0 ) {
+	sscanf(&string_field[indx_slash+1], "%le", &ps); 
+	INPUTS.TAKE_SPECTRUM[NTAKE].WGT = 1.0/ps;	
+	FIELD[indx_slash] = 0 ;
+      }
+      //      printf(" xxx %s: string0=%s  FIELD=%s  WGT=%f \n", 
+      //     fnam, string0, FIELD, WGT);
+    }
+  } // end CHECK_FIELD
 
   // ----------------------------------------------
   // read 1st arg and parse as either TREST or TOBS
@@ -9777,11 +9804,15 @@ bool DO_GENSPEC(int imjd) {
 
   // Created May 27 2021
   // Return True to process spectrum for this imjd.
+  //
+  // Mar 19 2024: Check WGT as another prescale option.
 
   STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
   bool   DO             = false ;
   double MJD            = GENSPEC.MJD_LIST[imjd] ;
+  int    INDX           = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
 
+  double WGT            = INPUTS.TAKE_SPECTRUM[INDX].WGT ; // 3/2024
   char  *FIELD_REQUIRE  = INPUTS.TAKE_SPECTRUM[imjd].FIELD ;
   bool   CHECK_FIELD    = ( strlen(FIELD_REQUIRE) > 0 );
   bool   CHECK_PS       = ( DICT->N_ITEM > 0 ) ;
@@ -9802,7 +9833,16 @@ bool DO_GENSPEC(int imjd) {
   // if there are no fields, skip FIELD-logic
   if ( NFIELD_OVP == 0 )   { return(true); }
 
+  // - - - - - - -
+  // Mar 2024: apply FIELD-dependent prescale from input for the form
+  //      TAKE_SPECTRUM(DEEP/2.3): ...
+   
+  r1 = getRan_Flat1(1) ;
+  if ( r1 > WGT ) 
+    { GENSPEC.SKIP[imjd] = true ;    return false; }
   // - - - - - - - - - -
+
+  // Below is for TAKE_SPECTRUM_PRESCALE input
   // check each field for SELECT and PRESCALE(PS)
   // Beware the invalid FIELD in user input is not trapped
   // since we don't know a-priori which fields are in the SIMLIB.
@@ -10649,7 +10689,7 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   bool   ALLOW_HOST_ZEROFLUX = true; // for host
 
-  int  INDX        = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
+  int    INDX           = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
   double LAMMIN_SPEC    = INPUTS.TAKE_SPECTRUM[INDX].SNR_LAMRANGE[0];
   double LAMMAX_SPEC    = INPUTS.TAKE_SPECTRUM[INDX].SNR_LAMRANGE[1];
 
@@ -10798,7 +10838,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   double TOBS        = MJD - GENLC.PEAKMJD ;
   double TREST       = TOBS/z1;
 
-  double LAMMIN_OBS, LAMMAX_OBS ;
+  double LAMMIN_OBS, LAMMAX_OBS, ran ;
   double SNR=0.0, SNR_REQUEST, SNR_RATIO, ZPT, PSFSIG;
   double TEXPOSE_REQUEST, TEXPOSE, TEXPOSE_T, SKYSIG, SKYSIG_T;
   char fnam[] = "GENSPEC_TEXPOSE_TAKE_SPECTRUM" ;
@@ -23268,7 +23308,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
   SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
-  sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); //.xyz
+  sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); 
   
   // store map[GENTYPE] = name to print in readme
   char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];

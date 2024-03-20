@@ -369,6 +369,9 @@ typedef struct {
   // OPT_TEXPOSE = 1(TEXPOSE), or 2(SNR)
   int   OPT_TEXPOSE ;
 
+  // TAKE_SPECTRUM(SHALLOW/2): xxx -> prescale by 2 with WGT = 0.5
+  double WGT; // optional WGT<1 to prescale sample (Mar 2024)
+
 } TAKE_SPECTRUM_DEF;
 
 #define NTYPE_FLUXNOISE      6

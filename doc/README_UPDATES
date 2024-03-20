@@ -22275,6 +22275,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
      + in gen_zsmear(), remove special check for zerr==0
+     + new sim-input key HOSTLIB_VARNAME_ZPHOT to use alternate  
+       ZPHOT[_ERR] column in HOSTLIB
 
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)

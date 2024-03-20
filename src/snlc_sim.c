@@ -1077,6 +1077,8 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_ZPHOTEFF_FILE, "NONE" );  // optional zphot-eff
   sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE,"NONE" );  //optional host-spec templ
   sprintf(INPUTS.HOSTLIB_SPECDATA_FILE, "NONE" ); 
+  sprintf(INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT, "%s" , HOSTLIB_VARNAME_ZPHOT); 
+  
   HOSTLIB_WGTMAP.OPT_EXTRAP       = 0 ; 
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
   INPUTS.HOSTLIB_PLUS_COMMAND[0]  = 0 ;
@@ -3536,6 +3538,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_SPECDATA_FILE", WORDS[0], keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECDATA_FILE ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_VARNAME_ZPHOT", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
     MSKOPT_OLD = INPUTS.HOSTLIB_MSKOPT ; 

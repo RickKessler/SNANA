@@ -10441,8 +10441,11 @@ void GENSPEC_TRUE(int imjd) {
       set_ALARM_SED_TRUE(ifilt_obs, genmag_obs, SYNMAG);
 
       // for true SED, check option to write genmag and synmag to diagnostic table file
-      if ( VERIFY_SED_TRUE )  
-	{ wr_VERIFY_SED_TRUE(ifilt_obs, MJD, genmag_obs, SYNMAG); }
+      if ( VERIFY_SED_TRUE ) { 
+	wr_VERIFY_SED_TRUE(FLAG_PROCESS_UPDATE, 
+			     ifilt_obs, MJD, genmag_obs, SYNMAG); 
+      }
+
     }
 
   } // end ifilt
@@ -10612,7 +10615,7 @@ void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
 } // end set_ALARM_SED_TRUE
 
 // ==================================
-void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
+void wr_VERIFY_SED_TRUE(int FLAG_PROC, int ifilt_obs, double MJD, double genmag_obs,
 			double synmag_obs ) {
 
   // Created Aug 26 2021
@@ -10640,7 +10643,7 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
 
   if ( !VERIFY_SED_TRUE ) { return; }
 
-  if ( ifilt_obs == 0 ) {
+  if ( FLAG_PROC == FLAG_PROCESS_INIT ) {
     // open output table file
     sprintf(VERFIY_FILE_NAME,"%s_VERFIY_SED_TRUE.DAT", INPUTS.GENVERSION);
     sprintf(VARLIST,"CID z MJD TREST LAMREST BAND MAG MAG_VERIFY MAG_DIF");
@@ -10655,7 +10658,11 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
 
   FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
 
-  if ( ifilt_obs > 900 ) {  fclose(FP); return;   } // end of sim
+  if ( FLAG_PROC == FLAG_PROCESS_END ) 
+    {  fclose(FP); return;   } // end of sim
+
+  // ---------------------------------------------
+  // Update DUMP below
 
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -12508,8 +12515,9 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(2,SIMFILE_AUX); }
-  if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(2,SIMFILE_AUX); }
+  int FLAG = FLAG_PROCESS_UPDATE;
+  if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); }
+  if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX); }
 
   int LDMP=0;
   if ( LDMP && *ILC != ilc ) {
@@ -13662,12 +13670,15 @@ void set_TIMERS(int flag) {
 } // end set_TIMERS
 
 // ***********************************************
-void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
+void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   
+  // Write yaml-formatted summary to communicate with pipelines 
+  // such as submit_batch_jobs.py or pippin.py.
+
   FILE *fp ;
   char *ptrFile  = SIMFILE_AUX->YAML ;
-  char fnam[] = "wr_SIMGEN_YAML" ;
   double t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
+  char fnam[] = "wr_SIMGEN_YAML_SUMMARY" ;
 
   // ------------ BEGIN ---------------
   if ( (fp = fopen(ptrFile, "wt")) == NULL ) {       
@@ -13699,7 +13710,7 @@ void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   
   return;
 
-} // end wr_SIMGEN_YAML
+} // end wr_SIMGEN_YAML_SUMARY
 
 // ***********************************************
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
@@ -13746,24 +13757,21 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
 
   int   NVAR, ivar, IDSPEC, imjd, index, FIRST ; 
-
   long long i8, ir8 ;
   int    i4 ;
   float  r4 ; 
   double r8 ;
-  char  *ptrFile, *pvar, *str  ;
-  char *varName ;
+  char  *ptrFile, *pvar, *str, *varName, cval[100] ;
   bool  IS_SIMSED;
 
   FILE *fp ;
-  char cval[40] ;
   char fnam[] = "wr_SIMGEN_DUMP" ;
 
   // --------------- BEGIN ----------
 
   if ( INPUTS.NVAR_SIMGEN_DUMP < 0 ) { return ; }
 
-  if ( OPT_DUMP < 1 || OPT_DUMP > 3 ) {
+  if ( OPT_DUMP < FLAG_PROCESS_INIT || OPT_DUMP > FLAG_PROCESS_END ) {
     sprintf ( c1err, "Invalid OPT_DUMP = %d ", OPT_DUMP );
     sprintf ( c2err, "OPT_DUMP must be 1,2, or 3.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -13782,7 +13790,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ptrFile = SIMFILE_AUX->DUMP ;
 
-  if ( OPT_DUMP == 1 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP file " );
     print_banner(BANNER );
@@ -13850,7 +13858,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   double XN, XNPS=(double)INPUTS.PRESCALE_SIMGEN_DUMP ;
 
-  if ( OPT_DUMP == 2 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
 
     FIRST = (NEVT_SIMGEN_DUMP==0 ) ; // used for SPECTROGRAPH info
     NEVT_SIMGEN_DUMP++ ;  XN=(double)NEVT_SIMGEN_DUMP ;
@@ -13938,13 +13946,13 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   } // end of OPT_DUMP=2 if-block
 
 
-  if ( OPT_DUMP == 3 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_END ) {
     free(SIMFILE_AUX->OUTLINE);
     fclose(SIMFILE_AUX->FP_DUMP);
     printf("  %s\n", ptrFile ); fflush(stdout);
-    return ;
   }
 
+  return ;
 
 } // end of wr_SIMGEN_DUMP
 
@@ -13971,7 +13979,7 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ptrFile = SIMFILE_AUX->DUMP_SL ;
 
-  if ( OPT_DUMP == 1 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_SL file for strong lenses" );
     print_banner(BANNER);
@@ -14010,7 +14018,7 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   bool LAST_IMG   = (GENSL.IMGNUM == GENSL.NIMG_GEN-1) && 
     GENSL.LIBEVENT.IDLENS>0 ;
   bool ACCEPT     = ( GENSL.NIMG_ACC > 0 ) ;
-  if ( OPT_DUMP == 2 && LAST_IMG  &&  ACCEPT ) {
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE && LAST_IMG  &&  ACCEPT ) {
     
     fp = SIMFILE_AUX->FP_DUMP_SL ;
     OUTLINE[0] = 0 ;
@@ -14054,7 +14062,7 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   // - - - - - - - -  -
-  if ( OPT_DUMP == 3 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_END ) {
     fp = SIMFILE_AUX->FP_DUMP_SL ;
     int NLENS;
     fprintf(fp,"\n");
@@ -14068,7 +14076,6 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     fclose(SIMFILE_AUX->FP_DUMP_SL);
     printf("  %s\n", ptrFile ); fflush(stdout);
-    return ;
   }
 
   return ;
@@ -14082,7 +14089,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Created Jul 5 2023 
   // Write one row per observation with RA,DEC,mag shifts due to DCR.
   //  OPT_DUMP =  1  => init file, write header
-  //  OPT_DUMP >  2  => update 
+  //  OPT_DUMP =  2  => update 
   //  OPT_DUMP =  3  => close file (end of job)
 
   int   OPTMASK = INPUTS_ATMOSPHERE.OPTMASK;
@@ -14099,7 +14106,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ptrFile = SIMFILE_AUX->DUMP_DCR ;
 
-  if ( OPT_DUMP == 1 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_DCR file for DCR shifts per obs." );
     print_banner(BANNER);
@@ -14134,7 +14141,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // - - - - - - - -  -
 
-  if ( OPT_DUMP == 2 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
     
     fp = SIMFILE_AUX->FP_DUMP_DCR ;
 
@@ -14178,21 +14185,78 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       fflush(fp);
     } // end ep loop
 
-  }
+  } // end OPT_DUMP==2
 
   // - - - - - - - -  -
-  if ( OPT_DUMP == 3 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
     fp = SIMFILE_AUX->FP_DUMP_DCR ;
-
     fclose(SIMFILE_AUX->FP_DUMP_DCR);
-    printf("  %s\n", ptrFile ); 
-    fflush(stdout);
-    return ;
+    printf("  %s\n", ptrFile );     fflush(stdout);
   }
 
   return ;
 
 } // end wr_SIMGEN_DUMP_DCR
+
+// ***********************************************
+void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
+
+  // Created March 2024
+  // write one row per spectrum summary if SPECTROGRAPH is used.
+
+  FILE *fp;
+  char *ptrFile = SIMFILE_AUX->DUMP_SPEC ;
+  char VARLIST[200];
+  char fnam[] = "wr_SIMGEN_DUMP_SPEC" ;
+
+  // ----------- BEGIN ---------
+
+  if ( NPEREVT_TAKE_SPECTRUM <= 0 ) { return; }
+
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+
+    sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
+    print_banner(BANNER);
+
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_SPEC = fopen(ptrFile, "wt")) == NULL ) {       
+      sprintf ( c1err, "Cannot open SIMGEN SPEC-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_SPEC ;
+
+    sprintf(VARLIST,
+	    "ROW CID GENTYPE FIELD zHEL MJD TOBS TEXPOSE SNR_TOT" );
+    // add SNR vs. lam ??
+
+    fprintf(fp,"# SPECTROGRPAH SUMMARY: one row per spectrum.\n");
+    fprintf(fp,"#\n");
+
+    fprintf(fp,"VARNAMES: %s\n", VARLIST);
+    fflush(fp);
+
+  } // end OPT_DUMP==1
+
+
+  // - - - - 
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
+    fp = SIMFILE_AUX->FP_DUMP_DCR ;
+
+  }
+
+  // - - - - - - - -  -
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
+    fp = SIMFILE_AUX->FP_DUMP_SPEC ;
+    fclose(SIMFILE_AUX->FP_DUMP_SPEC);
+    printf("  %s\n", ptrFile );     fflush(stdout);
+  }
+
+  return;
+} // end wr_SIMGEN_DUMP_SPEC
 
 // ******************************************
 int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
@@ -28676,7 +28740,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Dec 22 2021: refactored write-spectra is now default.
   // Jul 05 2022: check for strong lens (SL) dump
 
-  int i, isys ;
+  int i, isys, FLAG ;
+  double zero = 0.0 ;
   char headFile[MXPATHLEN];
   char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN];
   char fnam[] = "init_simFiles" ;
@@ -28685,13 +28750,16 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   README_DOCANA_DRIVER(1);
 
+  /* xxxxx mark delete Mar 2024 xxxxxxxx
   // init DUMP file regardless of SNDATA file status
-
   if ( INPUTS.FORMAT_MASK <= 0 ) {
     sprintf(SIMFILE_AUX->DUMP,  "%s.DUMP",  INPUTS.GENVERSION );
     wr_SIMGEN_DUMP(1,SIMFILE_AUX);  // always make DUMP file if requested
     return ;
   }
+  xxxxxxxx end mark xxxxxxxxx*/
+
+
 
   // clear out old GENVERSION files; 2nd arg is PROMPT flag
   clr_VERSION(INPUTS.GENVERSION,INPUTS.CLEARPROMPT);
@@ -28717,6 +28785,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );
   sprintf(SIMFILE_AUX->DUMP_SL,    "%s.SL",          prefix ); // July 2022
   sprintf(SIMFILE_AUX->DUMP_DCR,   "%s.DCR",         prefix ); // Jun 2023
+  sprintf(SIMFILE_AUX->DUMP_SPEC,  "%s.SPEC",        prefix ); // Mar 2024
 
   // Aug 10 2020: for batch mode, write YAML file locally so that
   //              it is easily found by batch script.
@@ -28735,8 +28804,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   fflush(SIMFILE_AUX->FP_README);
   if ( INPUTS.README_DUMPFLAG ) { debugexit(fnam); }
 
-  // if FITRES DUMP-file is requested, open and init header
-  wr_SIMGEN_DUMP(1,SIMFILE_AUX);
   
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
 #ifdef MODELGRID_GEN
@@ -28745,15 +28812,16 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 #endif
   }
 
-  // check option init SL dump file
-  wr_SIMGEN_DUMP_SL(1,SIMFILE_AUX);
 
-  // check for DCR dump
-  wr_SIMGEN_DUMP_DCR(1,SIMFILE_AUX);
+  // - - - - - - -
+  // check for SIMGEN-dumps:
+  FLAG = FLAG_PROCESS_INIT ;
+  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);             // primary dump
+  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);          // strong lensing (SL)
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);         // DCR
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);        // spectrograph
+  wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );     // SED_TRUE
 
-  // check for dump to check SED_TRUE
-  double dum = 0.0 ;
-  wr_VERIFY_SED_TRUE(0, dum, dum, dum );
 
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
@@ -28838,15 +28906,12 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // load SNDATA structure
   snlc_to_SNDATA(0) ;
 
-  // always check to file DUMP file, even if SNDATA files are not written
-  wr_SIMGEN_DUMP(2,SIMFILE_AUX);
-
-  // check SL dump (July 2022)
-  wr_SIMGEN_DUMP_SL(2,SIMFILE_AUX);
-
-
-  // check DCR dump
-  wr_SIMGEN_DUMP_DCR(2,SIMFILE_AUX);
+  // check for SIMGEN dump files:
+  int FLAG = FLAG_PROCESS_UPDATE;
+  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);        // primary SN dump
+  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);     // SL
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);    // DCR
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // DCR
 
 
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
@@ -28880,7 +28945,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Oct 04 2023: check user-option INPUTS.GZIP_DATA_FILES to enable NOT
   //               gzipping
 
-  double dum=0.0 ;
+  double zero = 0.0 ;
   int i, N1, N2, OPTMASK=0 ;
 
   // ------------ BEGIN -------------
@@ -28926,18 +28991,13 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // check optional auxiliary files.
 
-  // close out SIMGEN_DUMP file if it exists
-  if ( INPUTS.NVAR_SIMGEN_DUMP > 0 ) 
-    { wr_SIMGEN_DUMP(3,SIMFILE_AUX);  }
-
-  if ( INPUTS_STRONGLENS.USE_FLAG ) 
-    { wr_SIMGEN_DUMP_SL(3,SIMFILE_AUX); }
-
-  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) 
-    { wr_SIMGEN_DUMP_DCR(3,SIMFILE_AUX); }
-
-  if ( INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE > 0 ) 
-    { wr_VERIFY_SED_TRUE(999, dum, dum, dum); }
+  // close out SIMGEN_DUMP files
+  int FLAG = FLAG_PROCESS_END;
+  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); 
+  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);
+  wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero);
 
   // copy ZVARATION file to SIM/[VERSION]
   if ( USE_ZVAR_FILE ) {
@@ -28946,7 +29006,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   }
 
   // Aug 10 2020: in batch mode, write few stats to YAML formatted file
-  if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 
+  if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX); } 
 
 #ifdef MODELGRID_GEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {

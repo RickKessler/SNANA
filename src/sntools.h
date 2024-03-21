@@ -212,6 +212,11 @@
 #define STRING_CPUTIME_PROC_ALL    "CPUTIME_PROCESS_ALL"
 #define STRING_CPUTIME_PROC_RATE   "CPUTIME_PROCESS_RATE"
 
+// generic process flags for INIT, UPDATE, END
+#define  FLAG_PROCESS_INIT     1  
+#define  FLAG_PROCESS_UPDATE   2  
+#define  FLAG_PROCESS_END      3  
+
 char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list

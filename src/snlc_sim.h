@@ -51,11 +51,12 @@
 #define  MXNON1A_TYPE 1200     // max number of non1a types/indices
 #define  MXNON1A_KEY  10      // max number of non1a keys
 #define  MXCHAR_FIELDNAME 20
-#define  MXSIMGEN_DUMP 600    // max number of variables to dump
-#define  TABLEID_DUMP  7100   // for SNTABLE functions
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
 #define  MXGROUPID_SIMLIB 60      // max number of groupIDs per LIBID entry
+
+#define  MXSIMGEN_DUMP 600    // max number of variables to dump
+#define  TABLEID_DUMP  7100   // for SNTABLE functions
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  MXEPOCH    // max number of observ. per simlib
@@ -174,11 +175,12 @@ typedef struct { // SIMFILE_AUX_DEF
   FILE *FP_README;  char  README[MXPATHLEN] ;
 
   // optional outputs
-  FILE *FP_DUMP;     char  DUMP[MXPATHLEN] ;
-  FILE *FP_IGNORE;   char  IGNORE[MXPATHLEN] ;
-  FILE *FP_DUMP_SL;  char  DUMP_SL[MXPATHLEN] ;
-  FILE *FP_DUMP_DCR; char  DUMP_DCR[MXPATHLEN] ;
-  FILE *FP_YAML;     char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
+  FILE *FP_DUMP;        char  DUMP[MXPATHLEN] ;
+  FILE *FP_IGNORE;      char  IGNORE[MXPATHLEN] ;
+  FILE *FP_DUMP_SL;     char  DUMP_SL[MXPATHLEN] ;
+  FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXPATHLEN] ;
+  FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
+  FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
   // optional outputs (just filename, not pointer)
@@ -2063,8 +2065,8 @@ double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
 void   set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) ;
-void   wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs, 
-			  double synmag_obs) ;
+void   wr_VERIFY_SED_TRUE(int FLAG_PROCESS, int ifilt_obs, double MJD, 
+			  double genmag_obs,  double synmag_obs) ;
 double find_genmag_obs(int ifilt_obs, double MJD);
 
 void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
@@ -2163,14 +2165,15 @@ void update_SIMLIB_DUMP_AVGALL(int OPT);
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;
 
-void wr_HOSTLIB_info(void);    // write hostgal info
-void wr_SIMGEN_FITLERS(char *path);
+// xxx mark void wr_HOSTLIB_info(void);    // write hostgal info
+// xxx mark void wr_SIMGEN_FITLERS(char *path);
 
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 
-void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;

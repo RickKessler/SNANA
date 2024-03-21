@@ -22285,6 +22285,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        ZPHOT[_ERR] column in HOSTLIB
      + new sim-input to prescale spectra:
          TAKE_SPECTRUM(DEEP/2.5): etc ...
+     + fix sim to handle multiple TAKE_SPECTRUM pre-scales using same field;
+        allows running multiple strategies with one generation.
 
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
@@ -22293,4 +22295,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + nicer visual output for BBC_SUMMARY_wfit.LOG
 
    
+   NEEDED: [VERSION].SPEC summary with
+        VARNAMES:  ROW CID REDSHIFT MJD TOBS SNR_2000 SNR_4000 ...
+
 END: 

@@ -5756,12 +5756,14 @@ The warping is applied only to the measured $\Flam$
 the true $\Flam$ is not warped ({\tt SIM\_GENFLAM}).
 
 % ------------------------------------
+\clearpage
 \subsubsection{Field-Dependent PreScale for SN Spectra}
 \label{sss:SPEC_PRESCALE}
 % ------------------------------------
 
 Since SN spectra are typically limited to a subset of events,
-field-dependent pre-scales for SN spectra can be specified as follows:
+field-dependent pre-scales for SN spectra can be specified in 
+two distinct ways. First is a global prescale per field, such as:
 %
 \begin{verbatim}
 # SN spectra for half of SHALLOW events
@@ -5771,11 +5773,31 @@ field-dependent pre-scales for SN spectra can be specified as follows:
    TAKE_SPECTRUM_PRESCALE: SHALLOW/4.2+DEEP/2.05
 \end{verbatim}
 The prescale is applied per event, not per spectrum.
-Thus if 6 SN spectra are defined per events, the pre-scale
-results in each event either having 6 SN spectra, or none.
+Thus if 6 SN spectra are defined per event, the prescale
+results in each event having either 6 SN spectra, or none.
 While there is no host spectrum prescale,
-there is a zHOST efficiency file
-(\S\ref{sss:eff_zHOST}).
+there is a zHOST efficiency file (\S\ref{sss:eff_zHOST}).
+
+The second prescale method allows controling the prescale as
+a function of phase and exposure time (or SNR), even for the
+same field:
+\begin{verbatim} 
+   TAKE_SPECTRUM(DEEP/4):   TREST(-3:3)     TEXPOSE_ZPOLY(1000)
+   TAKE_SPECTRUM(DEEP/8):   TREST(-3:3)     TEXPOSE_ZPOLY(2000)
+   TAKE_SPECTRUM(DEEP/10):  TREST(-10:-5)   TEXPOSE_ZPOLY(2500)
+   TAKE_SPECTRUM(DEEP/15):  TREST(-10:-5)   TEXPOSE_ZPOLY(3500)
+
+   TAKE_SPECTRUM(SHALLOW/2):  TREST(-3:3)  TEXPOSE_ZPOLY(500)
+   TAKE_SPECTRUM(SHALLOW/5):  TREST(-3:3)  TEXPOSE_ZPOLY(800)
+\end{verbatim}
+%
+The {\tt TREST} and {\tt TEXPOSE\_ZPOLY} keys can be replaced
+with other valid keys at that location, and the integer prescales
+shown here can be replaced with floats (e.g., {\tt DEEP/4.23}).
+This option is useful to study multiple spec-follow up strategies 
+with a single generation of the simulation, provided that the
+FIELD-dependent exposure times are unique for each 
+{\tt TAKE\_SPECTRUM} key.
 
 % ------------------------------------
 %\clearpage

@@ -354,6 +354,7 @@ typedef struct {
 
 #define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
 int     NPEREVT_TAKE_SPECTRUM ;
+int     NKEY_TAKE_SPECTRUM ;
 typedef struct {
   float   EPOCH_RANGE[4];    // Trest or TOBS range, or MJD range
   char    FIELD[80];         // restrict spectra to particular field(s)
@@ -371,6 +372,10 @@ typedef struct {
 
   // TAKE_SPECTRUM(SHALLOW/2): xxx -> prescale by 2 with WGT = 0.5
   double WGT; // optional WGT<1 to prescale sample (Mar 2024)
+  
+  // index iKEY = 0 to NKEY_TAKE_SPECTRUM-1; used to select
+  // coherent randoms if any WGT < 1.
+  int iKEY_TAKE_SPECTRUM; 
 
 } TAKE_SPECTRUM_DEF;
 

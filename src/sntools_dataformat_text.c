@@ -1137,7 +1137,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   // write header info                                                          
   fprintf(fp,"\n# ============================================= \n");
-  fprintf(fp,"NSPECTRA:   %d \n\n",  NMJD_PROC );
+  fprintf(fp,"NSPECTRA:   %d    # %s\n\n",  NMJD_PROC, SNDATA.FIELDNAME[1] );
   fprintf(fp,"NVAR_SPEC:  %d \n",    NVAR );
   fprintf(fp,"VARNAMES_SPEC: %s \n", VARLIST);
 

@@ -1,4 +1,3 @@
-
 /******************************************* 
   snlc_sim:  Mar 2006: Created by R.Kessler
              Apr 2007: Remove SQL dependencies for public usage. 
@@ -1391,6 +1390,8 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE      = 0 ;
   
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
+  NKEY_TAKE_SPECTRUM    =  0 ; // Mar 2024
+
   INPUTS.TAKE_SPECTRUM_DUMPCID    = -9 ;
   INPUTS.TAKE_SPECTRUM_HOSTFRAC   =  0.0 ;
   INPUTS.TAKE_SPECTRUM_HOSTSNFRAC =  0.0 ;
@@ -1402,8 +1403,18 @@ void set_user_defaults_SPECTROGRAPH(void) {
 
   int i;
   for ( i=0; i < MXSPECTRA ; i++ ) {
+    INPUTS.TAKE_SPECTRUM[i].WGT               = 1.0 ;
+    INPUTS.TAKE_SPECTRUM[i].iKEY_TAKE_SPECTRUM = -9;
+    INPUTS.TAKE_SPECTRUM[i].FIELD[0]          = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].EPOCH_FRAME[0]    = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].OPT_TEXPOSE       = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_EPOCH   = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_LAMBDA  = 0 ;
+
     init_GENPOLY(&INPUTS.TAKE_SPECTRUM[i].GENLAMPOLY_WARP);
   }
+
+  return ;
 
 } // end set_user_defaults_SPECTROGRAPH
 
@@ -5069,8 +5080,9 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //              allow FIELD check for command line or input file,
   //              and check for prescale; e.g, TAKE_SPECTRUM(DEEP/2.3)
   //
-  bool READ_fp = (fp != NULL);
-  int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
+  bool READ_fp            = (fp != NULL);
+  int  NTAKE              = NPEREVT_TAKE_SPECTRUM ;
+  int  iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP ;
   GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE;
   GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR ;
@@ -5104,6 +5116,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE      = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].FIELD[0]  = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].WGT       = 1.0;  // Mar 2024
+  INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
 
   // before reading TAKE_SPECTRUM options from file, 
   // parse optional WARP_SPECTRUM_STRING that was previously read.
@@ -5372,6 +5385,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
+  NKEY_TAKE_SPECTRUM++ ;
 
   return(N);
 
@@ -5392,6 +5406,9 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   int   NTAKE_ORIG  = NPEREVT_TAKE_SPECTRUM;
   int   NTAKE       = NPEREVT_TAKE_SPECTRUM;
   int   OPT_TEXPOSE = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE;
+  double WGT        = INPUTS.TAKE_SPECTRUM[NTAKE].WGT ;
+  char  *FIELD      = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD;
+  int   iKEY        = NKEY_TAKE_SPECTRUM ;
   float MJD, MJD_STEP, MJD_MIN, MJD_MAX ;
 
   GENPOLY_DEF GENPOLY_WARP  ;
@@ -5422,9 +5439,13 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
 
     if ( NTAKE < MXPEREVT_TAKE_SPECTRUM ) {
       INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE    = OPT_TEXPOSE ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].WGT            = WGT ;
       INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0] = MJD;
       INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1] = MJD;
       INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_MJD ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = iKEY;
+
+      sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].FIELD, "%s", FIELD);
       sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"MJD"); 
 
       copy_GENPOLY(&GENPOLY_WARP, 
@@ -5447,6 +5468,7 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
 
 
   NPEREVT_TAKE_SPECTRUM = NTAKE ;
+
   return;
 
 } // end expand_TAKE_SPECTRUM_MJD
@@ -9734,13 +9756,16 @@ void GENSPEC_DRIVER(void) {
     { GENSPEC_TRUE(ISPEC_PEAK); }
 
   int    NFIELD_OVP = SIMLIB_HEADER.NFIELD_OVP ;
-  int    ifield, imjd_order[MXSPEC];
+  int    NFLATRAN, iran, imjd_order[MXSPEC];
   double SNR, LAMMIN=100.0, LAMMAX=25000. ; 
 
   GENSPEC_MJD_ORDER(imjd_order); // check if nearPeak is done first
 
-  for(ifield=0; ifield < NFIELD_OVP; ifield++ ) 
-    { GENSPEC.FLATRAN_LIST[ifield]  = getRan_Flat1(1); } // for optional prescale
+  // generate random per prescale
+  NFLATRAN = NFIELD_OVP;
+  if ( NKEY_TAKE_SPECTRUM > NFLATRAN ) { NFLATRAN = NKEY_TAKE_SPECTRUM; } 
+  for(iran=0; iran < NFLATRAN; iran++ ) 
+    { GENSPEC.FLATRAN_LIST[iran]  = getRan_Flat1(1); } // for optional prescale
 
   // - - - - -
   for(i=0; i < NMJD; i++ ) {
@@ -9813,6 +9838,7 @@ bool DO_GENSPEC(int imjd) {
   int    INDX           = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
 
   double WGT            = INPUTS.TAKE_SPECTRUM[INDX].WGT ; // 3/2024
+  int    iKEY           = INPUTS.TAKE_SPECTRUM[INDX].iKEY_TAKE_SPECTRUM ;
   char  *FIELD_REQUIRE  = INPUTS.TAKE_SPECTRUM[imjd].FIELD ;
   bool   CHECK_FIELD    = ( strlen(FIELD_REQUIRE) > 0 );
   bool   CHECK_PS       = ( DICT->N_ITEM > 0 ) ;
@@ -9835,11 +9861,15 @@ bool DO_GENSPEC(int imjd) {
 
   // - - - - - - -
   // Mar 2024: apply FIELD-dependent prescale from input for the form
-  //      TAKE_SPECTRUM(DEEP/2.3): ...
-   
-  r1 = getRan_Flat1(1) ;
-  if ( r1 > WGT ) 
-    { GENSPEC.SKIP[imjd] = true ;    return false; }
+  //      TAKE_SPECTRUM(DEEP/2.3):  ... make sure to pick coherent
+  //      random so that we keep all or none of the spectra for
+  //      this event.
+  if ( WGT < 1.000 ) {
+    r1 = GENSPEC.FLATRAN_LIST[iKEY];
+    if ( r1 > WGT ) 
+      { GENSPEC.SKIP[imjd] = true ;    return false; }
+  }
+
   // - - - - - - - - - -
 
   // Below is for TAKE_SPECTRUM_PRESCALE input
@@ -14130,7 +14160,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	      "%5.1f "                // SIM_SNR_TRUE
 	      "%7.4f "                // SIM_DCR (arcsec)
 	      "%7.4f %7.4f "          // SIM_dRA SIM_dDEC  (arcsec)
-	      "%7.4f  "              // SIM_dMAG
+	      "%7.4f  "               // SIM_dMAG
 	      ,
 	      GENLC.CID, GENLC.MJD[ep], band, GENLC.LAMAVG_SED_WGTED[ep],
 	      SNR,  SIMLIB_OBS_GEN.PSF_FWHM[ep],

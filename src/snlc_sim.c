@@ -10429,7 +10429,7 @@ void GENSPEC_TRUE(int imjd) {
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
     if (!GENLC.DOFILT[ifilt_obs]) {continue;}
-    SYNMAG    = GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST); // compute synthetic mag
+    SYNMAG  = GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST); // compute synthetic mag
     GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs] = SYNMAG;    // store it
 
     if ( LAMBIN_SED_TRUE > 0.01 ) {
@@ -10518,7 +10518,7 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
   // Compute true synthetic mag for ifilt_obs using flux per wave bin
   // pass as input *GENFLUX_LIST.
 
-  int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
   double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;  
   double hc8    = (double)hc ;
@@ -10538,7 +10538,6 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
   lammin      = FILTER_SEDMODEL[ifilt].lammin ;
   lammax      = FILTER_SEDMODEL[ifilt].lammax ;
   ZP          = FILTER_SEDMODEL[ifilt].ZP ;
-
 
   if ( LAMAVG_LIST[0] > lammin || LAMAVG_LIST[NLAMSPEC-1] < lammax ) {
     return MAG_ZEROFLUX ; // spectrum does not cover filter
@@ -14204,15 +14203,46 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Created March 2024
   // write one row per spectrum summary if SPECTROGRAPH is used.
 
+  double LAM_MIN = INPUTS_SPECTRO.LAM_MIN ;
+  double LAM_MAX = INPUTS_SPECTRO.LAM_MAX ;
+  double lam_min_filter, lam_max_filter, SYNMAG, SYNMAGERR;
+
+  int    IFILTOBS_SYNMAG[MXFILTINDX];
+  int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
+  char   BAND_STRING[MXFILTINDX], cfilt[4];
   FILE *fp;
-  char *ptrFile = SIMFILE_AUX->DUMP_SPEC ;
-  char VARLIST[200];
+  char *ptrFile = SIMFILE_AUX->DUMP_SPEC ;  
+  char VARLIST[200], VARLIST_SYNMAG[100], varname_tmp[40], cval[40];
   char fnam[] = "wr_SIMGEN_DUMP_SPEC" ;
 
   // ----------- BEGIN ---------
 
   if ( NPEREVT_TAKE_SPECTRUM <= 0 ) { return; }
 
+  // determine which filters are contained by spectrograph
+  // and thus have synthetic mags .xyz
+  BAND_STRING[0]    = 0 ;
+  VARLIST_SYNMAG[0] = 0;
+  for ( ifilt=0; ifilt < NFILT_SEDMODEL; ifilt++ ) {
+    ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+
+    lam_min_filter = FILTER_SEDMODEL[ifilt].lammin ;
+    lam_max_filter = FILTER_SEDMODEL[ifilt].lammax ;
+    if ( lam_min_filter < LAM_MIN ) { continue; }
+    if ( lam_max_filter > LAM_MAX ) { continue; }
+
+    IFILTOBS_SYNMAG[NFILT_SYNMAG] = ifilt_obs;
+    NFILT_SYNMAG++ ;
+
+    sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+    catVarList_with_comma(BAND_STRING,cfilt);
+
+    sprintf(varname_tmp,"%s_SYNMAG %s_SYNMAGERR ", cfilt, cfilt);
+    strcat(VARLIST_SYNMAG, varname_tmp);
+
+  } // end ifilt
+
+  // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
@@ -14230,10 +14260,13 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fp = SIMFILE_AUX->FP_DUMP_SPEC ;
 
     sprintf(VARLIST,
-	    "ROW CID GENTYPE FIELD zHEL MJD TOBS TEXPOSE SNR_TOT" );
-    // add SNR vs. lam ??
+	    "ROW CID GENTYPE FIELD zHEL MJD TOBS TEXPOSE " \
+	    "IDSPEC IS_HOST %s", VARLIST_SYNMAG);
 
     fprintf(fp,"# SPECTROGRPAH SUMMARY: one row per spectrum.\n");
+    fprintf(fp,"# Synthetic mags store for :  %s\n", BAND_STRING);
+    fprintf(fp,"# Spectrograph instrument  :  %s  (%6.0f < LAM < %6.0f A)\n", 
+	    INPUTS_SPECTRO.INSTRUMENT_NAME, LAM_MIN, LAM_MAX);
     fprintf(fp,"#\n");
 
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
@@ -14243,10 +14276,37 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   // - - - - 
+  int i, IDSPEC;
+  int ROWNUM = NGENSPEC_WRITE - GENSPEC.NMJD_PROC ; 
+  char line[MXPATHLEN], line_synmag[MXPATHLEN];
   if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
-    fp = SIMFILE_AUX->FP_DUMP_DCR ;
+    fp = SIMFILE_AUX->FP_DUMP_SPEC ;
 
-  }
+    for(i=0; i < GENSPEC.NMJD_TOT; i++ ) {
+      ROWNUM++ ;
+      IDSPEC = i+1;
+      sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f"
+	      "%3d %d" , 
+	      ROWNUM, GENLC.CID, SNDATA.SIM_GENTYPE,
+	      GENLC.FIELDNAME[1], GENLC.REDSHIFT_HELIO, 
+	      GENSPEC.MJD_LIST[i], GENSPEC.TOBS_LIST[i],
+	      GENSPEC.TEXPOSE_LIST[i],
+	      IDSPEC, GENSPEC.IS_HOST[i]);
+
+      // load up synthetic mags & magerr into line_synmag string
+      line_synmag[0] = 0;
+      for(ifilt=0; ifilt < NFILT_SYNMAG; ifilt++ ) {
+	ifilt_obs = IFILTOBS_SYNMAG[ifilt];
+	SYNMAG    = GENSPEC.GENMAG_SYNFILT[i][ifilt_obs];
+	SYNMAGERR = 0.77; // xxxx ???
+	sprintf(cval,"%5.2f %4.2f  ", SYNMAG, SYNMAGERR);
+	strcat(line_synmag,cval);
+      }
+      // .xyz
+      fprintf(fp,"%s   %s\n", line, line_synmag);
+    } // end i loop over spectra
+
+  } // end OPT_DUMP == 2
 
   // - - - - - - - -  -
   if ( OPT_DUMP == FLAG_PROCESS_END) {

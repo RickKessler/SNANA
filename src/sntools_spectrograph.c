@@ -46,9 +46,10 @@
 
 #include "fitsio.h"
 #include "sntools.h"
-//#include "genmag_SEDtools.h"
+#include "genmag_SEDtools.h"
 #include "sntools_spectrograph.h"
 #include "sntools_dataformat_fits.h"
+
 
 // =======================================
 void init_spectrograph(char *inFile, char *stringOpt ) {
@@ -952,7 +953,6 @@ void read_spectrograph_fits(char *inFile) {
 
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
     {  INPUTS_SPECTRO.IS_SYN_FILTER[ifilt] = false; }
-  
 
 
   // open fits file
@@ -1208,13 +1208,61 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err, "Close Spectrograph FITS file"  );
   snfitsio_errorCheck(c1err, istat);
 
-
+  
   printf("\n"); fflush(stdout);
 
   return ;
 
 } // end read_spectrograph_fits
 
+
+// ====================================================
+void compute_spectrograph_filter_overlap(void) {
+
+  // Created Mar 21 2024
+  // For each band, compute transmission-wgted overlap with spectrograph.
+
+  int    ifilt, ifilt_obs, NLAM, ilam ;
+  double LAMOBS, TRANS, SUMTRANS, SUMTRANS_SPEC, OVERLAP ;  
+  char fnam[] = "compute_spectrograph_filter_overlap";
+
+  // ---------- BEGIN ---------
+
+  // define hard-wired cut to compute synthetic mags when
+  // a small fraction of filter-transmission lies outside 
+  // spectrograph wavelength range.
+  GENSPEC.OVERLAP_MIN = 0.99; 
+
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+    { GENSPEC.OVERLAP_SYNFILT[ifilt] = 0.0 ; }
+
+  // skip ifilt=0 --> spectrograph
+  for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+    ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+
+    SUMTRANS = SUMTRANS_SPEC = 0.0 ;
+    NLAM = FILTER_SEDMODEL[ifilt].NLAM;
+    for ( ilam=0; ilam < NLAM; ilam++ ) {
+      get_LAMTRANS_SEDMODEL(ifilt, ilam,
+			    &LAMOBS, &TRANS );  // <== returned
+      SUMTRANS += TRANS ;
+      if ( LAMOBS > INPUTS_SPECTRO.LAM_MIN && LAMOBS < INPUTS_SPECTRO.LAM_MAX)
+	{ SUMTRANS_SPEC += TRANS; }
+    } // end ilam
+
+    OVERLAP = SUMTRANS_SPEC / SUMTRANS ;
+    GENSPEC.OVERLAP_SYNFILT[ifilt_obs] = OVERLAP ;
+
+    printf("\t %-12s overlap with spectrograph: %.5f \n",
+	   FILTER_SEDMODEL[ifilt].name, OVERLAP );
+    fflush(stdout);
+
+  } // end ifilt
+
+
+  return;
+
+} // end compute_spectrograph_filter_overlap
 
 // ====================================================
 void extend_spectrograph_lambins(void) {

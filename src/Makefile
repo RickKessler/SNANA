@@ -41,6 +41,8 @@
 # Sep 14 2023: add genmag_extrap
 # Feb 22 2024: add sntools_wgtmap
 # Feb 24 2024: switch -O1 to -O2 optimizer (20% faster photo-z fits)
+# Mar 22 2024: fix kcor to link with genmag_SEDtools.o
+#
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -610,13 +612,15 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO)  $(IGSL) $(SRC)/kcor.c )
 
-$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ_SNTOOLS_DATA)
+
+$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/genmag_SEDtools.o $(OBJ_SNTOOLS_DATA)
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcor.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ)/MWgaldust.o 	\
 	$(OBJ_SNTOOLS_DATA) 	\
 	$(OBJ)/sntools_spectrograph.o  	\
+	$(OBJ)/genmag_SEDtools.o  	\
 	$(LCFITSIO)  $(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm kcor.o )
 

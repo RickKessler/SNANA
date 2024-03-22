@@ -112,7 +112,11 @@ struct {
   double  *FLAMWARP_LIST[MXSPEC]; // warp applied to FLAM
   int      USE_WARP;
 
-  double  GENMAG_SYNFILT[MXSPEC][MXFILTINDX]; // true synthetic mag per filter
+  // true synthetic mag (and uncertainty) per ifilt_obs
+  double  GENMAG_SYNFILT[MXSPEC][MXFILTINDX]; 
+  double  GENMAGERR_SYNFILT[MXSPEC][MXFILTINDX];
+  double  OVERLAP_SYNFILT[MXFILTINDX]; // bandpass integral over spectrograph
+  double  OVERLAP_MIN; // internal cut to compute syn mags
 
   // items below are used for read utils (not used for sim)
   int     ID_LIST[MXSPEC] ;
@@ -142,6 +146,8 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment);
 int  read_TEXPOSE_LIST(FILE *fp); 
 int  read_SPECBIN_spectrograph(FILE *fp);
 void reset_VALUES_SPECBIN(void) ;
+
+void compute_spectrograph_filter_overlap(void);
 
 void malloc_spectrograph(int OPT, int NBIN_LAM, int NBIN_TEXPOSE) ;
 void solve_spectrograph(void) ;

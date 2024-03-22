@@ -9573,6 +9573,9 @@ void  init_genSpec(void) {
     double *L1 = INPUTS_SPECTRO.LAMMAX_LIST ;
 
     INIT_SPECTROGRAPH_SEDMODEL(modelName, NB, L0, L1); 
+
+    compute_spectrograph_filter_overlap();
+
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) { 
     // do nothing for spectra
@@ -10524,7 +10527,7 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
   double hc8    = (double)hc ;
 
   double SYNMAG = 99.0, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
-  double lamstep, lambin, ZP, lammin, lammax ; 
+  double lamstep, lambin, ZP, lammin, lammax, OVERLAP ; 
   int  ifilt, NLAMFILT, ilam, NFLAM_DEFINED = 0 ; 
   char cfilt[4];
   int  OPT_INTERP = 1;     // linear
@@ -10538,19 +10541,29 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
   lammin      = FILTER_SEDMODEL[ifilt].lammin ;
   lammax      = FILTER_SEDMODEL[ifilt].lammax ;
   ZP          = FILTER_SEDMODEL[ifilt].ZP ;
+  OVERLAP     = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
 
+  // compute syn mags for partial band-spectrograph overlap,
+  // but beware !!!
+  if ( OVERLAP < 0.90 )  { return MAG_ZEROFLUX ; }
+
+  /* xxxx mark delete Mar 2024 xxxxxxxx
   if ( LAMAVG_LIST[0] > lammin || LAMAVG_LIST[NLAMSPEC-1] < lammax ) {
     return MAG_ZEROFLUX ; // spectrum does not cover filter
   }
+  xxxxxxxxxxxx */
 
   // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
   flux_sum = 0.0 ;
   for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
-
+    
     get_LAMTRANS_SEDMODEL(ifilt, ilam, 
 			  &LAMOBS, &TRANS );  // <== returned
     if ( TRANS < 1.0E-12 ) { continue; }
-      
+    
+    if ( LAMOBS < LAMAVG_LIST[0]          ) { continue; } // Mar 2024
+    if ( LAMOBS > LAMAVG_LIST[NLAMSPEC-1] ) { continue; }
+
     flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
 			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );
 
@@ -14203,11 +14216,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Created March 2024
   // write one row per spectrum summary if SPECTROGRAPH is used.
 
-  double LAM_MIN = INPUTS_SPECTRO.LAM_MIN ;
-  double LAM_MAX = INPUTS_SPECTRO.LAM_MAX ;
-  double lam_min_filter, lam_max_filter, SYNMAG, SYNMAGERR;
-
-  int    IFILTOBS_SYNMAG[MXFILTINDX];
+  double OVERLAP, SYNMAG, SYNMAGERR ;
+  int    NFILT_WARN=0,  IFILTOBS_WARN[MXFILTINDX];
   int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
   char   BAND_STRING[MXFILTINDX], cfilt[4];
   FILE *fp;
@@ -14219,34 +14229,32 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   if ( NPEREVT_TAKE_SPECTRUM <= 0 ) { return; }
 
-  // determine which filters are contained by spectrograph
-  // and thus have synthetic mags .xyz
-  BAND_STRING[0]    = 0 ;
-  VARLIST_SYNMAG[0] = 0;
-  for ( ifilt=0; ifilt < NFILT_SEDMODEL; ifilt++ ) {
-    ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
-
-    lam_min_filter = FILTER_SEDMODEL[ifilt].lammin ;
-    lam_max_filter = FILTER_SEDMODEL[ifilt].lammax ;
-    if ( lam_min_filter < LAM_MIN ) { continue; }
-    if ( lam_max_filter > LAM_MAX ) { continue; }
-
-    IFILTOBS_SYNMAG[NFILT_SYNMAG] = ifilt_obs;
-    NFILT_SYNMAG++ ;
-
-    sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
-    catVarList_with_comma(BAND_STRING,cfilt);
-
-    sprintf(varname_tmp,"%s_SYNMAG %s_SYNMAGERR ", cfilt, cfilt);
-    strcat(VARLIST_SYNMAG, varname_tmp);
-
-  } // end ifilt
 
   // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
     print_banner(BANNER);
+
+    // xxx mark    compute_spectrograph_filter_overlap();
+
+    BAND_STRING[0] = VARLIST_SYNMAG[0] = 0 ;
+    for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
+      ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+      OVERLAP = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
+      if ( OVERLAP > GENSPEC.OVERLAP_MIN ) {
+	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+	catVarList_with_comma(BAND_STRING,cfilt);
+	sprintf(varname_tmp,"%s_mag_syn %s_magerr_syn ", cfilt, cfilt);
+	strcat(VARLIST_SYNMAG, varname_tmp);	
+
+	if ( OVERLAP < 1.000 ) {
+	  IFILTOBS_WARN[NFILT_WARN] = ifilt_obs ;
+	  NFILT_WARN++ ;
+	}
+      }
+
+    } // end ifilt
 
     // open file and write header
     if ( (SIMFILE_AUX->FP_DUMP_SPEC = fopen(ptrFile, "wt")) == NULL ) {       
@@ -14264,9 +14272,21 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	    "IDSPEC IS_HOST %s", VARLIST_SYNMAG);
 
     fprintf(fp,"# SPECTROGRPAH SUMMARY: one row per spectrum.\n");
-    fprintf(fp,"# Synthetic mags store for :  %s\n", BAND_STRING);
-    fprintf(fp,"# Spectrograph instrument  :  %s  (%6.0f < LAM < %6.0f A)\n", 
-	    INPUTS_SPECTRO.INSTRUMENT_NAME, LAM_MIN, LAM_MAX);
+    fprintf(fp,"# Spectrograph instrument  :  %s  (%.0f < LAM < %.0f A)\n", 
+	    INPUTS_SPECTRO.INSTRUMENT_NAME, 
+	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
+
+    fprintf(fp,"# Synthetic mags stored for:  %s\n", BAND_STRING);
+
+    // print warning for each band that has overlap < 1.000
+    for (ifilt=0; ifilt < NFILT_WARN; ifilt++ ) {
+      ifilt_obs = IFILTOBS_WARN[ifilt];
+      OVERLAP   = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
+      sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+      fprintf(fp,"# WARNING: %s-band overlap with %s is %.5f (<1.00) \n",
+	      cfilt, INPUTS_SPECTRO.INSTRUMENT_NAME, OVERLAP );
+    }
+
     fprintf(fp,"#\n");
 
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
@@ -14283,10 +14303,13 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fp = SIMFILE_AUX->FP_DUMP_SPEC ;
 
     for(i=0; i < GENSPEC.NMJD_TOT; i++ ) {
+
+      if ( GENSPEC.SKIP[i] ) { continue ; }
+
       ROWNUM++ ;
       IDSPEC = i+1;
-      sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f"
-	      "%3d %d" , 
+      sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f "
+	      "%5d %d" , 
 	      ROWNUM, GENLC.CID, SNDATA.SIM_GENTYPE,
 	      GENLC.FIELDNAME[1], GENLC.REDSHIFT_HELIO, 
 	      GENSPEC.MJD_LIST[i], GENSPEC.TOBS_LIST[i],
@@ -14295,12 +14318,14 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
       // load up synthetic mags & magerr into line_synmag string
       line_synmag[0] = 0;
-      for(ifilt=0; ifilt < NFILT_SYNMAG; ifilt++ ) {
-	ifilt_obs = IFILTOBS_SYNMAG[ifilt];
-	SYNMAG    = GENSPEC.GENMAG_SYNFILT[i][ifilt_obs];
-	SYNMAGERR = 0.77; // xxxx ???
-	sprintf(cval,"%5.2f %4.2f  ", SYNMAG, SYNMAGERR);
-	strcat(line_synmag,cval);
+      for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+	ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+	if ( GENSPEC.OVERLAP_SYNFILT[ifilt_obs] > GENSPEC.OVERLAP_MIN ) {
+	  SYNMAG    = GENSPEC.GENMAG_SYNFILT[i][ifilt_obs];
+	  SYNMAGERR = 0.77;    // xxxx ???
+	  sprintf(cval,"%5.2f %4.2f  ", SYNMAG, SYNMAGERR);
+	  strcat(line_synmag,cval);
+	}
       }
       // .xyz
       fprintf(fp,"%s   %s\n", line, line_synmag);

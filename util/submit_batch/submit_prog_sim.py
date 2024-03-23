@@ -2109,6 +2109,7 @@ class Simulation(Program):
         # Dec 20 2021: gzip FITS if not already gzipped.
         # Jun 27 2023: include optional .DCR files
         # Oct 04 2023: check option to gzip data files
+        # Mar 22 2024: refactor DUMP file merging and add .SPEC to list
 
         args             = self.config_yaml['args']
         if args.check_abort: return
@@ -2125,27 +2126,49 @@ class Simulation(Program):
         msg = f"  move {genversion_split} files to {genversion_combine}"
         logging.info(msg)
 
-        dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
-        sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL")  # strong lens
-        dcr_split_list      = glob.glob(f"{from_dir}/TMP*.DCR") # DCR
+        # refactor mergeing of many flavors of DUMP files
+        REFAC_DUMP = True
 
-        merge_simgen_dump = len(dump_split_list)
-        merge_simgen_sl   = len(sl_split_list)
-        merge_simgen_dcr  = len(dcr_split_list)
+        if REFAC_DUMP:
+            # Mar 22 2024 refactor to add SPEC-dump and simplify logic
+            DUMP_FILE_MERGE_DICT = {}
+            DUMP_FILE_LIST_DICT  = {}
+            SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC' ]
+            readme_file   = f"{target_dir}/{genversion_combine}.README"
+            list_file     = f"{target_dir}/{genversion_combine}.LIST"
+            for suffix in SUFFIX_DUMP_LIST :
+                split_list = glob.glob(f"{from_dir}/TMP*.{suffix}")
+                if len(split_list) > 0:
+                    dump_file_merge = f"{target_dir}/{genversion_combine}.{suffix}"
+                    DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge
+                    DUMP_FILE_LIST_DICT[suffix]  = split_list
+                    logging.info("\t Merge SIMGEN-{suffix} files")
 
-        # define aux files for combined version
-        dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
-        readme_file   = f"{target_dir}/{genversion_combine}.README"
-        list_file     = f"{target_dir}/{genversion_combine}.LIST"
-        sl_file       = f"{target_dir}/{genversion_combine}.SL"
-        dcr_file      = f"{target_dir}/{genversion_combine}.DCR"
+        else:
+            # legacy
+            dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
+            sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL")  # strong lens
+            dcr_split_list      = glob.glob(f"{from_dir}/TMP*.DCR") # DCR
 
-        if merge_simgen_dump :
-            logging.info("\t Merge SIMGEN-DUMP files")
-        if merge_simgen_sl :
-            logging.info("\t Merge SIMGEN-SL files")
-        if merge_simgen_dcr :
-            logging.info("\t Merge SIMGEN-DCR files")
+            merge_simgen_dump  = len(dump_split_list)
+            merge_simgen_sl    = len(sl_split_list)
+            merge_simgen_dcr   = len(dcr_split_list)
+
+            # define aux files for combined version
+            dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
+            readme_file   = f"{target_dir}/{genversion_combine}.README"
+            list_file     = f"{target_dir}/{genversion_combine}.LIST"
+            sl_file       = f"{target_dir}/{genversion_combine}.SL"
+            dcr_file      = f"{target_dir}/{genversion_combine}.DCR"
+
+            if merge_simgen_dump :
+                logging.info("\t Merge SIMGEN-DUMP files")
+            if merge_simgen_sl :
+                logging.info("\t Merge SIMGEN-SL files")
+            if merge_simgen_dcr :
+                logging.info("\t Merge SIMGEN-DCR files")
+
+        # - - - - - -
 
         # if target dir does NOT exist, create target dir along
         # with aux files.
@@ -2161,19 +2184,25 @@ class Simulation(Program):
             # create combined DUMP file with VARNAMES & comments from
             # first DUMP file. Protect against job failure.
 
-            if merge_simgen_dump :
-                dump_file_template = dump_split_list[0]
-                self.create_simgen_dump_file(dump_file_template,dump_file)
-                
-            # July 5 2022: repeat for strong lens (SL) file
-            if merge_simgen_sl > 0 :
-                sl_file_template = sl_split_list[0]
-                self.create_simgen_dump_file(sl_file_template,sl_file)
+            if  REFAC_DUMP :                
+                for suffix, split_list in DUMP_FILE_LIST_DICT.items():
+                    merge_file    = DUMP_FILE_MERGE_DICT[suffix]
+                    template_file = split_list[0]
+                    self.create_simgen_dump_file(template_file,merge_file)
 
-            # June 27 2023: repeat for DCR dump
-            if merge_simgen_dcr > 0 :
-                dcr_file_template = dcr_split_list[0]
-                self.create_simgen_dump_file(dcr_file_template,dcr_file)
+            else:
+                # legacy 
+                if merge_simgen_dump :
+                    dump_file_template = dump_split_list[0]
+                    self.create_simgen_dump_file(dump_file_template,dump_file)
+                
+                if merge_simgen_sl > 0 :
+                    sl_file_template = sl_split_list[0]
+                    self.create_simgen_dump_file(sl_file_template,sl_file)
+
+                if merge_simgen_dcr > 0 :
+                    dcr_file_template = dcr_split_list[0]
+                    self.create_simgen_dump_file(dcr_file_template,dcr_file)
 
         # if there were failures, return
         if nfail > 0 : 
@@ -2211,18 +2240,24 @@ class Simulation(Program):
         os.system(cmd)
 
         # loop over TMP_*DUMP files and append combined DUMP file
-        for dump_split_file in dump_split_list :
-            self.append_merge_dump_file(dump_split_file,dump_file)
+        if REFAC_DUMP:
+            for suffix, split_list in DUMP_FILE_LIST_DICT.items():
+                merge_file    = DUMP_FILE_MERGE_DICT[suffix]
+                for split_file in split_list:
+                    self.append_merge_dump_file(split_file, merge_file)
 
-        # repeat for strong lens dump (if they exist)
-        for sl_split_file in sl_split_list :
-            self.append_merge_dump_file(sl_split_file,sl_file)
+        else:
+            for dump_split_file in dump_split_list :
+                self.append_merge_dump_file(dump_split_file,dump_file)
 
-        # repeat for DCR dump (if they exist)
-        for dcr_split_file in dcr_split_list :
-            self.append_merge_dump_file(dcr_split_file,dcr_file)
+            for sl_split_file in sl_split_list :
+                self.append_merge_dump_file(sl_split_file,sl_file)
+
+            for dcr_split_file in dcr_split_list :
+                self.append_merge_dump_file(dcr_split_file,dcr_file)
 
 
+        return
         # end move_sim_data_files
 
 

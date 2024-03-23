@@ -1233,8 +1233,10 @@ void compute_spectrograph_filter_overlap(void) {
   // spectrograph wavelength range.
   GENSPEC.OVERLAP_MIN = 0.99; 
 
-  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
-    { GENSPEC.OVERLAP_SYNFILT[ifilt] = 0.0 ; }
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ )  {
+    GENSPEC.OVERLAP_SYNFILT[ifilt] = 0.0 ;
+    GENSPEC.DO_SYNFILT[ifilt]      = false ;
+  }
 
   // skip ifilt=0 --> spectrograph
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
@@ -1252,6 +1254,7 @@ void compute_spectrograph_filter_overlap(void) {
 
     OVERLAP = SUMTRANS_SPEC / SUMTRANS ;
     GENSPEC.OVERLAP_SYNFILT[ifilt_obs] = OVERLAP ;
+    GENSPEC.DO_SYNFILT[ifilt_obs]      = ( OVERLAP > GENSPEC.OVERLAP_MIN );
 
     printf("\t %-12s overlap with spectrograph: %.5f \n",
 	   FILTER_SEDMODEL[ifilt].name, OVERLAP );

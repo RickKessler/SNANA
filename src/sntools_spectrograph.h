@@ -117,6 +117,7 @@ struct {
   double  GENMAGERR_SYNFILT[MXSPEC][MXFILTINDX];
   double  OVERLAP_SYNFILT[MXFILTINDX]; // bandpass integral over spectrograph
   double  OVERLAP_MIN; // internal cut to compute syn mags
+  bool    DO_SYNFILT[MXFILTINDX] ;
 
   // items below are used for read utils (not used for sim)
   int     ID_LIST[MXSPEC] ;

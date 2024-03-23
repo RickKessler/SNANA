@@ -11823,6 +11823,7 @@ void gen_event_driver(int ilc) {
       - RISETIME_SHIFT
       - MWEBV
       - GENMAG_OFF_GLOBAL
+      - EPSILON (BAYESN)
 
   These quantities are either read from data files
   to mimic real data, or they are generated randomly.
@@ -11854,6 +11855,8 @@ void gen_event_driver(int ilc) {
      selected in pick_NON1ASED().
   
   Jul 2019: add strong lens option
+
+  Mar 22 2024: add epsilon for BAYESN
 
   *********************************************************/
 
@@ -11951,6 +11954,15 @@ void gen_event_driver(int ilc) {
     // - - - - - - - 
     // get host galaxy extinction for rest-frame models and for NON1A
     gen_modelPar_dust(GENFRAME_OPT);
+
+    // Mar 22 2024
+    // update BAYESN residual scatter
+    // this calls a function from genmag_BAYESN.c
+    // there is a running epsilon variable inside the BAYESN_MODEL_INFO
+    // struct that will be modified by this call
+    if ( INDEX_GENMODEL == MODEL_BAYESN ) {
+        genEPSILON_BAYESN();
+    }
 
     // check for SN params in HOSTLIB
     override_modelPar_from_SNHOST(); 

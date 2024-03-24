@@ -22287,15 +22287,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          TAKE_SPECTRUM(DEEP/2.5): etc ...
      + fix sim to handle multiple TAKE_SPECTRUM pre-scales using same field;
         allows running multiple strategies with one generation.
+     +_ if simulating spectra, automatically produce [VERSION].SPEC
+        summary file in sim-data outout directory.
+
+   snana.car
+     + call ENVreplace(HEADER_OVERRIDE_FILE)
 
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
 
    submit_prog_bbc.py
      + nicer visual output for BBC_SUMMARY_wfit.LOG
-
-   
-   NEEDED: [VERSION].SPEC summary with
-     VARNAMES:  ROW CID GENTYPE FIELD REDSHIFT MJD TOBS TEXPOSE SNR_2000 SNR_4000 ...
 
 END: 

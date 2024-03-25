@@ -1471,6 +1471,7 @@ void  rd_sntextio_global(void) {
   // Oct 5 2021: read SIM_MODEL_INDEX for sim
   // Dec 10 2021: fix to work with SIM_HOSTLIB
   // May 25 2023: use PySEDMODEL_CHOICE_LIST and remove hard-coded PySEDMODEL names
+  // Mar 25 2024: Read number of quantiles
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1504,7 +1505,7 @@ void  rd_sntextio_global(void) {
     HAS_PARENTH  =  strstr(word0,"("  ) != NULL  ;
     IS_TMP       =  HAS_COLON && HAS_PARENTH ;
     IS_PRIVATE   =  strstr(word0,"PRIVATE")       != NULL && IS_TMP ;
-    IS_ZPHOT_Q   =  strstr(word0,"ZPHOT_Q")       != NULL && IS_TMP ;
+    IS_ZPHOT_Q   =  strstr(word0,"ZPHOT_Q")       != NULL  ;
     IS_HOSTLIB   =  strstr(word0,"SIM_HOSTLIB")   != NULL && IS_TMP ;
     IS_SIMSED    =  strstr(word0,"SIMSED_")       != NULL && IS_TMP ;
     IS_LCLIB     =  strstr(word0,"LCLIB_PARAM")   != NULL && IS_TMP ;
@@ -1553,6 +1554,24 @@ void  rd_sntextio_global(void) {
       SNDATA.NVAR_PRIVATE++ ; // note fortran-like index
       NVAR = SNDATA.NVAR_PRIVATE ;
       copy_keyword_nocolon(word0,SNDATA.PRIVATE_KEYWORD[NVAR]);
+    }
+    else if (IS_ZPHOT_Q){
+      if ( strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 )
+      { iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.HOSTGAL_NZPHOT_Q ) ; }
+
+      if ( strcmp(word0,"HOSTGAL_PERCENTILE_ZPHOT_Q:") == 0 )
+      {
+	int N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
+	int q;
+	for (q = 0; q <N_Q; q ++){
+	  iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ) ;
+	}
+	
+
+
+      }
+
+     
     }
     else if ( IS_HOSTLIB ) { 
       NPAR = SNDATA.NPAR_SIM_HOSTLIB;

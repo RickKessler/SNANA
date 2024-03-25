@@ -1359,7 +1359,6 @@ void SALT2mu_DRIVER_EXEC(void);
 int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
-void check_duplicates_LEGACY(void);
 void check_duplicates_util(int EVENT_TYPE);
 void check_redshifts(void) ;
 void check_vpec_sign(void);
@@ -3174,8 +3173,6 @@ void check_duplicates_util(int EVENT_TYPE) {
   
   // ----------- BEGIN -----------
 
-  if ( INPUTS.debug_flag == -1204 ) { check_duplicates_LEGACY(); return; }
-
   sprintf(BANNER,"Begin %s for %s", fnam, STRTYPE);
   fprint_banner(FP_STDOUT,BANNER);
 
@@ -3412,207 +3409,6 @@ void check_duplicates_util(int EVENT_TYPE) {
 
 } // end of check_duplicates_util
 
-
-// ******************************************
-void check_duplicates_LEGACY(void) {
-
-  // Sep 2016:
-  // Use sorted redshift and its error to flag duplicates.
-  // CHeck iflag_duplictes for what to do:
-  // 0 -> nothing
-  // 1 -> abort
-  // 2 -> merge fitparams and cov into one LC
-  //
-  // Sep 24 2021: malloc local UNSORT_DUPL and NDUPL_LIST
-  //              Introduce 2nd dimension MXSET_DUPLICATE
-
-
-
-  int  iflag   = INPUTS.iflag_duplicate;
-  int  MXSTORE = MXSTORE_DUPLICATE ;
-  int debug_malloc = INPUTS.debug_malloc ;
-
-  int  isn, isn2, nsn, MEMD, MEMI, MEMB;
-  int  unsort, unsort2, *unsortList, ORDER_SORT   ;
-  bool IS_SIM ;
-  double *zList ;
-  bool   *IS_DUPL;
-  char fnam[] = "check_duplicates_LEGACY" ;
-
-  // ----------- BEGIN -----------
-
-  sprintf(BANNER,"Begin %s", fnam);
-  fprint_banner(FP_STDOUT,BANNER);
-
-  IS_SIM  = INFO_DATA.TABLEVAR.IS_SIM ;
-  nsn     = INFO_DATA.TABLEVAR.NSN_ALL ;
-
-  // Jun 11 2020: for sims, don't bother tracking duplicates
-  if ( IS_SIM ) { return; }
-
-  print_debug_malloc(+1*debug_malloc,fnam);
-  MEMD = (nsn+1) * sizeof(double)  ;
-  MEMI = (nsn+1) * sizeof(int)     ;
-  MEMB = (nsn+1) * sizeof(bool)    ;
-  zList      = (double *)malloc(MEMD); // allocate redshift list
-  unsortList = (int    *)malloc(MEMI); // allocate sorted list
-  IS_DUPL    = (bool   *)malloc(MEMB);
-
-  for(isn=0; isn<nsn; isn++)  {
-    zList[isn] = (double)INFO_DATA.TABLEVAR.zhd[isn]; 
-    IS_DUPL[isn] = false;
-  }
-  
-  // ******* LEGACY *********
-
-  ORDER_SORT = + 1 ; // increasing order
-  sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
-
-  bool  SAME_SNID, FOUND_DUPL ;
-  int   NTMP, idup ;
-  double z, z2 ;
-  char *snid, *snid2 ;
-  int  **UNSORT_DUPL;
-  int  *NDUPL_LIST; // how many duplicates per set
-  int  NDUPL_SET ; // number of duplicate sets
-  int  NDUPL_TOT ; // includes those beyond storage capacity
-  int  NDUPL_SN  ; // total number of SN controbuting to duplicates
-
-  MEMI = MXSTORE_DUPLICATE * sizeof(int);
-  NDUPL_LIST  = (int*)  malloc(MEMI);
-  UNSORT_DUPL = (int**) malloc( MXSTORE * sizeof(int*) );
-
-  for(idup=0; idup < MXSTORE; idup++ )  {  
-    NDUPL_LIST[idup] = 0 ; 
-    UNSORT_DUPL[idup] = (int*) malloc(MXSET_DUPLICATE*sizeof(int)) ;
-  }
-  NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
-
-  // ******* LEGACY *********
-  // - - - - 
-
-  for ( isn=0; isn < nsn-1; isn++ ) {
-    unsort  = unsortList[isn];
-    z      = INFO_DATA.TABLEVAR.zhd[unsort];
-    snid   = INFO_DATA.TABLEVAR.name[unsort];    
-
-    if ( IS_DUPL[isn] ) { continue; }
-    isn2 = isn  ;      z2 = z;   FOUND_DUPL=false;
-
-    while ( z == z2 && isn2 < nsn-1 ) {
-      isn2++ ;
-      unsort2    = unsortList[isn2];
-      z2         = INFO_DATA.TABLEVAR.zhd[unsort2];
-      snid2      = INFO_DATA.TABLEVAR.name[unsort2];
-      SAME_SNID  = ( strcmp(snid,snid2) == 0 );
-
-      if ( IS_DUPL[isn2] ) { continue; }
-      if ( !SAME_SNID    ) { continue; }
-
-      // we have a duplicate
-      NDUPL_TOT++ ; 
-      IS_DUPL[isn] = IS_DUPL[isn2] = true; 
-
-      // ******* LEGACY *********
-
-      /* xxx
-      if ( isn < 10 ) {
-	printf(" xxx %s: compare %s/%s  %d/%d  FOUND=%d\n", 
-	       fnam, snid, snid2, isn,isn2, FOUND_DUPL ); fflush(stdout);
-      }
-      xxxxxx*/
-
-      if ( NDUPL_SET >= MXSTORE ) { continue; }
-
-      // store this duplicate
-      if ( !FOUND_DUPL ) {
-	// first duplicate for isn; store isn info
-	FOUND_DUPL = true;
-	NDUPL_SET++ ;  // increment number of duplicate sets
-	NDUPL_SN++ ;
-
-
-	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ;
-	NDUPL_LIST[NDUPL_SET-1]++ ;
-      }
-
-      // always store isn2 info
-      NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSET_DUPLICATE ) 
-	{ UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
-      NDUPL_LIST[NDUPL_SET-1]++ ;      
-      NDUPL_SN++ ;
-      
-    }  // end z==z2 (isn2 loop)
-  } // end loop over isn
-
-  // ******* LEGACY *********
-
-  // - - - - - 
-  if ( NDUPL_SET == 0 ) 
-    { fprintf(FP_STDOUT, "\t No duplicates found. \n"); goto DONE; }
-  
-  fprintf(FP_STDOUT, "   Found %d sets of duplicates from %d input SN: \n", 
-	  NDUPL_SET, NDUPL_SN );
-
-  for(idup=0; idup < NDUPL_SET ; idup++ ) {
-
-    unsort = UNSORT_DUPL[idup][0] ; // first duplicate has SNID and z
-    NTMP   = NDUPL_LIST[idup] ;
-    snid   = INFO_DATA.TABLEVAR.name[unsort]; 
-    z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%14.14s at z=%.5f \n",
-	    idup, NTMP, snid, z );	
-  }
-
-  fflush(stdout);
-
-  // - - - - - - -
-  fflush(FP_STDOUT);
-
-  if ( NDUPL_SET >= MXSTORE  && iflag>0 ) {
-    sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
-	    NDUPL_TOT, MXSTORE );
-    sprintf(c2err,"Check duplicates");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
- 
-  fprintf(FP_STDOUT, "  iflag_duplicate = %d --> ", iflag);
-  if ( iflag == IFLAG_DUPLICATE_IGNORE ) {
-    fprintf(FP_STDOUT, " do nothing.\n");
-  }
-  else if ( iflag == IFLAG_DUPLICATE_ABORT ) {
-    sprintf(c1err,"Duplicates not allowed.");
-    sprintf(c2err,"Check input FITRES file.");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-  else if ( iflag == IFLAG_DUPLICATE_AVG ) {
-    fprintf(FP_STDOUT, " merge duplicates.\n");
-    for(idup=0; idup < NDUPL_SET ; idup++ ) 
-      { merge_duplicates(NDUPL_LIST[idup], UNSORT_DUPL[idup] ); }
-  }
-  else {
-    sprintf(c1err,"Invalid iflag_duplicate=%d", INPUTS.iflag_duplicate );
-    sprintf(c2err,"grep IFLAG_DUPLICATE  SALT2mu.c");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
-
- DONE:
-  print_debug_malloc(-1*debug_malloc,fnam);
-  free(zList);  free(unsortList); free(IS_DUPL);
-  
-  // ******* LEGACY *********
-
-  free(NDUPL_LIST);
-  for(idup=0; idup < MXSTORE; idup++ )  { free(UNSORT_DUPL[idup]); }
-  free(UNSORT_DUPL);
-
-  return;
-
-} // end of check_duplicates_LEGACY
 
 
 
@@ -5164,7 +4960,7 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11,
   cosPar[2] = xval[IPAR_w0] ;
   cosPar[3] = xval[IPAR_wa] ;
 
-  // xxx mark  if ( INPUTS.debug_flag == 720 ) {
+
   if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) { // Dec 2023
     // avoid using blinded cosmology params for CC prior (July 20 2023)
     cosPar[0] = OMEGA_LAMBDA_DEFAULT ;
@@ -22561,10 +22357,11 @@ void print_SALT2mu_HELP(void) {
     "p6=gamma1        # z-dependence, gamma = gamma0 + z*gamma1 (default p6=0)",
     "p7=logmass_cen   # logmass split value",
     "p8=logmass_tau   # logmass width of transition between step",
-    "p9=Omega_L       # Omega Lambda",
-    "p10=Omega_k      # Omega curvature",
-    "p11=w            # w_DE",
-    "p12=wa           # for w0waCDM model",
+    "p9=Omega_L       # Omega Lambda for muref",
+    "p10=Omega_k      # Omega curvature for muref",
+    "p11=w            # w_DE for muref",
+    "p12=wa           # for w0waCDM model for muref",
+    "muref_zpoly      # z-dependent polynom for muref (replace p9-p12)",
     "p13=scalePCC     # if u13=1 (scale P_CC in BEAMS-like chi2)",
     "p13=scalePIa     # if u13=2 (= A in Eq 4 of https://arxiv.org/abs/1111.5328)",
     "p14=sigint       # if using CC prior in BEAMS; WARNING-> DOES NOT WORK !!!",

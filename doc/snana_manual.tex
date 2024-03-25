@@ -4212,6 +4212,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_DZTOL:  a0,a1,a2,,,aN      # default=0.002,0.040
    HOSTLIB_GALID_PRIORITY: xxx yyy    # default= 0 0 
    HOSTLIB_GALID_UNIQUE: 0            # default=0; 1-> assign unique GALID
+   HOSTLIB_VARNAME_ZPHOT:  ZPHOT_xxx  # use this column for ZPHOT[_ERR]
    HOSTLIB_GENZPHOT_FUDGEMAP: 'z0:rms0,z1:rms1,z2:rms2,etc..' #no pad spaces
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
@@ -5755,12 +5756,14 @@ The warping is applied only to the measured $\Flam$
 the true $\Flam$ is not warped ({\tt SIM\_GENFLAM}).
 
 % ------------------------------------
+\clearpage
 \subsubsection{Field-Dependent PreScale for SN Spectra}
 \label{sss:SPEC_PRESCALE}
 % ------------------------------------
 
 Since SN spectra are typically limited to a subset of events,
-field-dependent pre-scales for SN spectra can be specified as follows:
+field-dependent pre-scales for SN spectra can be specified in 
+two distinct ways. First is a global prescale per field, such as:
 %
 \begin{verbatim}
 # SN spectra for half of SHALLOW events
@@ -5770,11 +5773,31 @@ field-dependent pre-scales for SN spectra can be specified as follows:
    TAKE_SPECTRUM_PRESCALE: SHALLOW/4.2+DEEP/2.05
 \end{verbatim}
 The prescale is applied per event, not per spectrum.
-Thus if 6 SN spectra are defined per events, the pre-scale
-results in each event either having 6 SN spectra, or none.
+Thus if 6 SN spectra are defined per event, the prescale
+results in each event having either 6 SN spectra, or none.
 While there is no host spectrum prescale,
-there is a zHOST efficiency file
-(\S\ref{sss:eff_zHOST}).
+there is a zHOST efficiency file (\S\ref{sss:eff_zHOST}).
+
+The second prescale method allows controling the prescale as
+a function of phase and exposure time (or SNR), even for the
+same field:
+\begin{verbatim} 
+   TAKE_SPECTRUM(DEEP/4):   TREST(-3:3)     TEXPOSE_ZPOLY(1000)
+   TAKE_SPECTRUM(DEEP/8):   TREST(-3:3)     TEXPOSE_ZPOLY(2000)
+   TAKE_SPECTRUM(DEEP/10):  TREST(-10:-5)   TEXPOSE_ZPOLY(2500)
+   TAKE_SPECTRUM(DEEP/15):  TREST(-10:-5)   TEXPOSE_ZPOLY(3500)
+
+   TAKE_SPECTRUM(SHALLOW/2):  TREST(-3:3)  TEXPOSE_ZPOLY(500)
+   TAKE_SPECTRUM(SHALLOW/5):  TREST(-3:3)  TEXPOSE_ZPOLY(800)
+\end{verbatim}
+%
+The {\tt TREST} and {\tt TEXPOSE\_ZPOLY} keys can be replaced
+with other valid keys at that location, and the integer prescales
+shown here can be replaced with floats (e.g., {\tt DEEP/4.23}).
+This option is useful to study multiple spec-follow up strategies 
+with a single generation of the simulation, provided that the
+FIELD-dependent exposure times are unique for each 
+{\tt TAKE\_SPECTRUM} key.
 
 % ------------------------------------
 %\clearpage
@@ -8498,15 +8521,35 @@ the redshift prior as follows:
    OPT_PHOTOZ = 16 ! set initial zPhot=zSpec and skip grid search (for debug)
 \end{verbatim}
 %
-When {\tt DOFIT\_PHOTOZ=T}, 
-{\tt OPT\_PHOTOZ} is automatically set to 1 so that the
-host-photoZ prior is used.  
+%When {\tt DOFIT\_PHOTOZ=T}, 
+%{\tt OPT\_PHOTOZ} is automatically set to 1 so that the
+%host-photoZ Gaussian prior is used.  
+Setting {\tt OPT\_PHOTOZ=1} forces using host photo-z Gaussian prior, 
+even if spec-$z$ is available.
 {\tt OPT\_PHOTOZ=2} uses the best redshift (spec or photo-$z$)
-as a prior, and is useful for samples with a mix of spec-$z$ and 
+as a Gaussian prior, and is useful for samples with a mix of spec-$z$ and 
 photo-$z$ redshifts.
-When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
-automatically set, and vice-versa: thus the
-photo-$z$ option can be enabled with either namelist variable.
+%
+{\tt OPT\_PHOTOZ=4} uses zPDF from quantiles, and ignores 
+subset with accurate spec-$z$.
+{\tt OPT\_PHOTOZ=6} (2+4) uses accurate spec-$z$ Gaussian prior
+if available; else it uses quantiles.
+
+For quantile option, existance of spec-$z$ is determined as follows.
+The most robust method is data variable {\tt MASK\_REDSHIFT\_SOURCE}
+set by the survey team creating the data files, and automatically
+set for simulations. The mask values are as follows:
+1: host spec-$z$, 2: SN spec-$z$, 4: host photo-$z$ point estimate, 
+8: host photo-$z$ quantiles. Thus {\tt MASK\_REDSHIFT\_SOURCE} value
+of 1,2 or 3 unambiguously indicates spec-$z$.
+If this mask is not available, an alternative (less robust) method
+is to define {\tt \&SNLCINP} input {\tt QUANTILE\_ZERRMIN = 0.01};
+this identifies spec-$z$ if redshift uncertainty is below 0.01.
+
+
+%When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
+%automatically set, and vice-versa: thus the
+%photo-$z$ option can be enabled with either namelist variable.
 
 If {\tt PRIOR\_MUERRSCALE} is 100 or larger (the default),
 then there is no prior applied to the distance modulus ($\mu$).

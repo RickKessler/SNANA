@@ -3061,10 +3061,90 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   // Note that the input argument is modified !
   //
   // Apr 2023: check for VARNAME_ZTRUE_CMB
+  // Mar 2024: 
+  //   + check for user-defined ZPHOT column name
+  //   + refactor using replace_varName_HOSTLIB utility to simplify
+  //     code and write message about replacement of column names.
+
+  char *BASENAME;
+  char varName_check[40], varName_replace[40];
+  char *inp_colname = INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT;
+  int j;
+  char fnam[] = "checkAlternateVarNames_HOSTLIB";
+
+  // --------- BEGIN ---------
+
+  sprintf(varName_check, "%sERR",  inp_colname);
+  replace_varName_HOSTLIB(varName, varName_check,    HOSTLIB_VARNAME_ZPHOT_ERR) ;
+
+  sprintf(varName_check, "%s_ERR", inp_colname);
+  replace_varName_HOSTLIB(varName, varName_check,    HOSTLIB_VARNAME_ZPHOT_ERR) ;
+
+  sprintf(varName_check, "ZPHOTERR" );
+  replace_varName_HOSTLIB(varName, varName_check,    HOSTLIB_VARNAME_ZPHOT_ERR) ;
+
+  sprintf(varName_check,  "%s",   inp_colname);
+  replace_varName_HOSTLIB(varName, varName_check,    HOSTLIB_VARNAME_ZPHOT) ;
+
+  // - - - -
+
+  sprintf(varName_check,  "VPECERR");
+  replace_varName_HOSTLIB(varName, varName_check,  HOSTLIB_VARNAME_VPEC_ERR) ;
+
+  sprintf(varName_check,  "REDSHIFT");
+  replace_varName_HOSTLIB(varName, varName_check,  HOSTLIB_VARNAME_ZTRUE) ;
+  
+
+  if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
+    sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
+    HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
+
+    // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
+    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
+    if ( !SN2GAL ) {
+      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
+	      HOSTLIB_VARNAME_ZTRUE_CMB);
+      sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
+	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+  } // end HOSTLIB_VARNAME_ZTRUE_CMB if block
+
+
+
+  for (j=0; j<N_HOSTGAL_PROPERTY; j++){
+    BASENAME = HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
+    
+    sprintf(varName_check,   "%s",      BASENAME);
+    sprintf(varName_replace, "%s_TRUE", BASENAME);
+    replace_varName_HOSTLIB(varName, varName_check, varName_replace );
+
+    /* xxx mark delete 
+    if ( strcmp(varName, BASENAME) == 0 ) 
+      { sprintf(varName,"%s_TRUE", BASENAME); }
+    */
+  }
+  
+
+  return;
+
+} // end of   checkAlternateVarNames_HOSTLIB
+
+
+// =====================================
+void  checkAlternateVarNames_LEGACY(char *varName) {
+
+  // Feb 12 2014
+  // If input varName matches an allowed [hard-wired] alternative,
+  // reset varName to the official name.
+  // Note that the input argument is modified !
+  //
+  // Apr 2023: check for VARNAME_ZTRUE_CMB
 
   char *BASENAME;
   int j;
-  char fnam[] = "checkAlternateVarNames_HOSTLIB";
+  char fnam[] = "checkAlternateVarNames_LEGACY";
 
   // --------- BEGIN ---------
 
@@ -3074,6 +3154,7 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"ZPHOTERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZPHOT_ERR); }
 
+  
   if ( strcmp(varName,"VPECERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
 
@@ -3102,7 +3183,28 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
 
-} // end of   checkAlternateVarNames_HOSTLIB
+  return;
+
+} // end of checkAlternateVarNames_LEGACY
+
+
+void replace_varName_HOSTLIB(char *varName, char *varName_check, 
+			     char *varName_replace) {
+  
+  //  Created Mar 2024
+  //  If varName == varName_check, then replace varName with varName_replace
+  
+  // ---------- BEGIN ----------
+
+  if ( strcmp(varName,varName_check) == 0 ) {
+      sprintf(varName, "%s",  varName_replace); 
+      printf("\t replace %s colummn with  %s \n",  varName_replace, varName_check);
+      fflush(stdout);
+  }
+
+  return ;
+
+} // replace_varName_HOSTLIB
 
 // ====================================
 void  parse_Sersic_n_fixed(FILE *fp, char  *string) {
@@ -6632,6 +6734,9 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   // Oct 04 2018: fix awful bug with checking HOSTLIB_GENZPHOT usage
   //     
   // Jan 31 2020: compute for all neighbors
+  // Mar 15 2024: return on NNBR=0 to avoid reporting ZPHOT when
+  //               host is not detected.
+  //
 
   int    NNBR  = SNHOSTGAL.NNBR_DDLRCUT2;
   double ZTRUE = SNHOSTGAL.ZTRUE ;
@@ -6641,6 +6746,8 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   char fnam[] = "GEN_SNHOST_ZPHOT" ;
 
   // ----------- BEGIN ----------
+
+  if ( NNBR == 0 ) { return ; }
 
   // Compte user-specified bias
   ZBIAS = 0.0 ;
@@ -9517,7 +9624,8 @@ void DUMP_SNHOST(void) {
 
   IVAR_ZPHOT = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT,0);
   if ( IVAR_ZPHOT > 0 ) {
-    printf("\t => ZPHOT = %6.4f +- %6.4f \n"
+    printf("\t => %s = %6.4f +- %6.4f \n"
+	   ,HOSTLIB_VARNAME_ZPHOT
 	   ,SNHOSTGAL.ZPHOT
 	   ,SNHOSTGAL.ZPHOT_ERR );
     fflush(stdout);

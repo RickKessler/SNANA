@@ -11381,7 +11381,7 @@
           SIMLIB_MSKOPT +=4
        will include the entire season if any part of Trest
        range overlaps season.
-     + gen-zsmear(): if zerr>.999 then skip generation of random z
+     + gen_zsmear(): if zerr>.999 then skip generation of random z
        since RESHIFT_FINAL[_ERR] -> -9.
        Fixes rare abort on ZGEN_MIN when GENSIGMA_REDSHIFT = 1.0
      + few fmodf -> fmod (float->double) to handle very large NGENTOT_LC
@@ -22256,7 +22256,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05l ([tag date])
 
          *****  IMPORTANT(v11_05l) *****
-
+  
+    snlc_fit.car
+       + refactor/simplify logic to control using zSPEC, zPHOT, quantiles.
+         Old logic was done within fit; new logic is done prior to fit
+         so that downstream code is simpler.
+       + See manual sec ?? on how code decides between quantiles
+         and accurate zspec.
 
          *****  USEFUL(v11_05l) *****
 
@@ -22267,12 +22273,25 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v11_05l) *****
 
-
    sntools_host.c
      + MXNNBR_STORE -> 200 ( was 100)
+     + if NNBR == 0 (no galaxy detection), avoid setting false ZPHOT.
+         (in function GEN_SNHOST_ZPHOT)
 
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
+     + in gen_zsmear(), remove special check for zerr==0
+     + new sim-input key HOSTLIB_VARNAME_ZPHOT to use alternate  
+       ZPHOT[_ERR] column in HOSTLIB
+     + new sim-input to prescale spectra:
+         TAKE_SPECTRUM(DEEP/2.5): etc ...
+     + fix sim to handle multiple TAKE_SPECTRUM pre-scales using same field;
+        allows running multiple strategies with one generation.
+     +_ if simulating spectra, automatically produce [VERSION].SPEC
+        summary file in sim-data outout directory.
+
+   snana.car
+     + call ENVreplace(HEADER_OVERRIDE_FILE)
 
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)

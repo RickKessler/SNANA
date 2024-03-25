@@ -148,7 +148,10 @@
 #include "kcor.h"       // kcor-specific definitions 
 #include "MWgaldust.h"
 //#include "sntools_cosmology.h"
-#include "sntools_spectrograph.h" 
+//#include "genmag_SEDtools.h"
+#include "sntools_spectrograph.h"
+
+
 
 // =================================================
 // =================== MAIN ========================
@@ -3028,8 +3031,6 @@ int rd_primary ( int INDX, char *subdir ) {
      if ( commentchar(line) ) { continue; }
      sscanf(line, "%le %le", &lambda, &flam );
 
-
-     // xxx mark   while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
 
      if ( lambda < STORE_LAMBDA_MAX + 20. ) {
 

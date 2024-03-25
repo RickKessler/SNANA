@@ -1446,8 +1446,8 @@ void genmag_SIMSED(
   if ( (OPTMASK & 1) > 0 ) { LRETURN_MAG    = 0; LRETURN_FLUX = 1; }
   if ( (OPTMASK & 2) > 0 ) { LDMP_BADFLUX   = 1; }
 
-  if ( (OPTMASK & 4 )   > 0 ) { LSED_SELECT    = 1; }
-  if ( (OPTMASK & 16)   > 0 ) { LSED_SELECT    = 1; }
+  if ( (OPTMASK & OPTMASK_GEN_SIMSED_WGT) > 0 ) { LSED_SELECT    = 1; }
+  if ( (OPTMASK & OPTMASK_GEN_SIMSED_SEQ) > 0 ) { LSED_SELECT    = 1; }
 
   if ( (OPTMASK & 512) > 0 ) { LDMP_DEBUG      = 1; }
   

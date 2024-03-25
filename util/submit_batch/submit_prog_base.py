@@ -1147,7 +1147,7 @@ class Program:
                 node       = node_list[inode]
                 log_file   = cmdlog_file_list[inode]
                 cmd_file   = command_file_list[inode]
-                cmd_source = f"{login_setup}; {cddir} ; " \
+                cmd_source = f"{login_setup} 2> /dev/null; {cddir} ; " \
                              f"sh {cmd_file} >& {log_file} &"
 
                 #ret = subprocess.call(["ssh", node, cmd_source] )

@@ -34,6 +34,8 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots);
 gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gsl_matrix * L_Sigma_epsilon);
 
+void genEPSILON_BAYESN(); // added by ST Mar 22 2024 (HACK HACK)
+
 char BAYESN_MODELPATH[MXPATHLEN];
 int VERBOSE_BAYESN;
 #define OPTMASK_BAYESN_VERBOSE 128
@@ -67,9 +69,8 @@ struct {
    gsl_matrix *W0;
    gsl_matrix *W1;
 
-   //double **L_Sigma_epsilon;
-   //double **W0; 
-   //double **W1; 
+   // running epsilon variable (yikes)
+   gsl_matrix *EPSILON;
 
    // for the base SED - typically Hsiao
    SEDMODEL_FLUX_DEF S0; 

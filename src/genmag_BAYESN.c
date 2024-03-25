@@ -469,6 +469,13 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
             BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.S0.LAM,
             BAYESN_MODEL_INFO.lam_knots, BAYESN_MODEL_INFO.KD_lam);
 
+    // allocate memory for epsilon (which will keep being overwritten)
+    // the genEPSILON_BAYESN() function will update this when it gets
+    // invoked in snlc_sim
+    // added by ST on Mar 22 2024 (sorry)
+    BAYESN_MODEL_INFO.EPSILON = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
+            BAYESN_MODEL_INFO.n_tau_knots);
+    gsl_matrix_set_zero(BAYESN_MODEL_INFO.EPSILON);
 
     // init _LAST variables for extinction storage
     SEDMODEL_MWEBV_LAST     = -999.   ; // Galactic
@@ -596,6 +603,8 @@ void genmag_BAYESN(
             Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
 
     // deal with epsilon
+    // relocated to genEPSILON_BAYESN (Mar 22 2024)
+    /*
     gsl_matrix * EPSILON = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
             BAYESN_MODEL_INFO.n_tau_knots);
     gsl_matrix_set_zero(EPSILON);
@@ -606,6 +615,7 @@ void genmag_BAYESN(
                 BAYESN_MODEL_INFO.n_tau_knots, nu, BAYESN_MODEL_INFO.L_Sigma_epsilon);
         gsl_vector_free(nu);
     }
+    */
 
     /* xxx mark delete Jun 19 2023 RK
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
@@ -626,7 +636,7 @@ void genmag_BAYESN(
         for (wy=0; wy < ny; wy++)   {
             double W0_val = gsl_matrix_get(BAYESN_MODEL_INFO.W0, wx, wy) ;
             double W1_val = gsl_matrix_get(BAYESN_MODEL_INFO.W1, wx, wy) ;
-            double EP_val = gsl_matrix_get(EPSILON, wx, wy);
+            double EP_val = gsl_matrix_get(BAYESN_MODEL_INFO.EPSILON, wx, wy);
 	        double W_val  = W0_val + THETA * W1_val + EP_val;
             gsl_matrix_set(W, wx,wy, W_val);
          }
@@ -801,7 +811,6 @@ void genmag_BAYESN(
     gsl_matrix_free(W);
     gsl_matrix_free(WJ_tau);
     gsl_vector_free(jWJ);
-    gsl_matrix_free(EPSILON);
 
     double zdum = 2.5*log10(1.0+z);
     if (VERBOSE_BAYESN > 0)
@@ -1028,6 +1037,21 @@ gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gs
 
 	return epsilon_mat;
 } // end sample_epsilon
+
+// this updates the EPSILON value stored in BAYESN_MODEL_INFO
+// HACK HACK HACK (etc.)
+// gets called from snlc_sim directly so scatter gets preserved across bands
+void genEPSILON_BAYESN() {
+    // only actually do the update if ENABLE_SCATTER is on
+    // HACK HACK HACK
+    if (ENABLE_SCATTER_BAYESN) {
+        gsl_vector * nu = sample_nu(BAYESN_MODEL_INFO.n_lam_knots,
+                BAYESN_MODEL_INFO.n_tau_knots);
+        BAYESN_MODEL_INFO.EPSILON = sample_epsilon(BAYESN_MODEL_INFO.n_lam_knots,
+                BAYESN_MODEL_INFO.n_tau_knots, nu, BAYESN_MODEL_INFO.L_Sigma_epsilon);
+        gsl_vector_free(nu);
+    }
+}
 
 // =================================================
 int print_matrix(FILE *f, const gsl_matrix *m) {

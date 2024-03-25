@@ -51,11 +51,12 @@
 #define  MXNON1A_TYPE 1200     // max number of non1a types/indices
 #define  MXNON1A_KEY  10      // max number of non1a keys
 #define  MXCHAR_FIELDNAME 20
-#define  MXSIMGEN_DUMP 600    // max number of variables to dump
-#define  TABLEID_DUMP  7100   // for SNTABLE functions
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
 #define  MXGROUPID_SIMLIB 60      // max number of groupIDs per LIBID entry
+
+#define  MXSIMGEN_DUMP 600    // max number of variables to dump
+#define  TABLEID_DUMP  7100   // for SNTABLE functions
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  MXEPOCH    // max number of observ. per simlib
@@ -174,11 +175,12 @@ typedef struct { // SIMFILE_AUX_DEF
   FILE *FP_README;  char  README[MXPATHLEN] ;
 
   // optional outputs
-  FILE *FP_DUMP;     char  DUMP[MXPATHLEN] ;
-  FILE *FP_IGNORE;   char  IGNORE[MXPATHLEN] ;
-  FILE *FP_DUMP_SL;  char  DUMP_SL[MXPATHLEN] ;
-  FILE *FP_DUMP_DCR; char  DUMP_DCR[MXPATHLEN] ;
-  FILE *FP_YAML;     char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
+  FILE *FP_DUMP;        char  DUMP[MXPATHLEN] ;
+  FILE *FP_IGNORE;      char  IGNORE[MXPATHLEN] ;
+  FILE *FP_DUMP_SL;     char  DUMP_SL[MXPATHLEN] ;
+  FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXPATHLEN] ;
+  FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
+  FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
   // optional outputs (just filename, not pointer)
@@ -354,6 +356,7 @@ typedef struct {
 
 #define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
 int     NPEREVT_TAKE_SPECTRUM ;
+int     NKEY_TAKE_SPECTRUM ;
 typedef struct {
   float   EPOCH_RANGE[4];    // Trest or TOBS range, or MJD range
   char    FIELD[80];         // restrict spectra to particular field(s)
@@ -368,6 +371,13 @@ typedef struct {
 
   // OPT_TEXPOSE = 1(TEXPOSE), or 2(SNR)
   int   OPT_TEXPOSE ;
+
+  // TAKE_SPECTRUM(SHALLOW/2): xxx -> prescale by 2 with WGT = 0.5
+  double WGT; // optional WGT<1 to prescale sample (Mar 2024)
+  
+  // index iKEY = 0 to NKEY_TAKE_SPECTRUM-1; used to select
+  // coherent randoms if any WGT < 1.
+  int iKEY_TAKE_SPECTRUM; 
 
 } TAKE_SPECTRUM_DEF;
 
@@ -554,6 +564,7 @@ struct INPUTS {
   char HOSTLIB_ZPHOTEFF_FILE[MXPATHLEN];  // optional EFF(zphot) vs. ZTRUE
   char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
   char HOSTLIB_SPECDATA_FILE[MXPATHLEN]; // spec data for host spec
+  char HOSTLIB_COLUMN_NAME_ZPHOT[60];        // alternate ZPHOT column name
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MSKOPT_ADD ;     // add to HOSTLIB_MSKOPT (command-line only)
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
@@ -2039,7 +2050,9 @@ bool   DO_GENSPEC(int imjd);
 void   GENSPEC_INIT(int opt, int imjd);  // init arrays
 void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
 void   GENSPEC_TRUE(int imjd);  
-double GENSPEC_SYNMAG(int ifilt_obs, double *FLAM_LIST);  
+void   GENSPEC_SYNMAG(int ifilt_obs, double *FLAM_LIST, double *FLAMERR_LIST,
+		      double *SYNMAG, double *SYNMAG_ERR);  
+
 void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
 double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX );
@@ -2054,8 +2067,8 @@ double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
 void   set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) ;
-void   wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs, 
-			  double synmag_obs) ;
+void   wr_VERIFY_SED_TRUE(int FLAG_PROCESS, int ifilt_obs, double MJD, 
+			  double genmag_obs,  double synmag_obs) ;
 double find_genmag_obs(int ifilt_obs, double MJD);
 
 void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
@@ -2154,14 +2167,15 @@ void update_SIMLIB_DUMP_AVGALL(int OPT);
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;
 
-void wr_HOSTLIB_info(void);    // write hostgal info
-void wr_SIMGEN_FITLERS(char *path);
+// xxx mark void wr_HOSTLIB_info(void);    // write hostgal info
+// xxx mark void wr_SIMGEN_FITLERS(char *path);
 
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 
-void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;

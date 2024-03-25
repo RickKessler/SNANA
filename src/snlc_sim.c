@@ -1,4 +1,3 @@
-
 /******************************************* 
   snlc_sim:  Mar 2006: Created by R.Kessler
              Apr 2007: Remove SQL dependencies for public usage. 
@@ -1077,6 +1076,8 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_ZPHOTEFF_FILE, "NONE" );  // optional zphot-eff
   sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE,"NONE" );  //optional host-spec templ
   sprintf(INPUTS.HOSTLIB_SPECDATA_FILE, "NONE" ); 
+  sprintf(INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT, "%s" , HOSTLIB_VARNAME_ZPHOT); 
+  
   HOSTLIB_WGTMAP.OPT_EXTRAP       = 0 ; 
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
   INPUTS.HOSTLIB_PLUS_COMMAND[0]  = 0 ;
@@ -1389,6 +1390,8 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE      = 0 ;
   
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
+  NKEY_TAKE_SPECTRUM    =  0 ; // Mar 2024
+
   INPUTS.TAKE_SPECTRUM_DUMPCID    = -9 ;
   INPUTS.TAKE_SPECTRUM_HOSTFRAC   =  0.0 ;
   INPUTS.TAKE_SPECTRUM_HOSTSNFRAC =  0.0 ;
@@ -1400,8 +1403,18 @@ void set_user_defaults_SPECTROGRAPH(void) {
 
   int i;
   for ( i=0; i < MXSPECTRA ; i++ ) {
+    INPUTS.TAKE_SPECTRUM[i].WGT               = 1.0 ;
+    INPUTS.TAKE_SPECTRUM[i].iKEY_TAKE_SPECTRUM = -9;
+    INPUTS.TAKE_SPECTRUM[i].FIELD[0]          = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].EPOCH_FRAME[0]    = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].OPT_TEXPOSE       = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_EPOCH   = 0 ;
+    INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_LAMBDA  = 0 ;
+
     init_GENPOLY(&INPUTS.TAKE_SPECTRUM[i].GENLAMPOLY_WARP);
   }
+
+  return ;
 
 } // end set_user_defaults_SPECTROGRAPH
 
@@ -3537,6 +3550,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECDATA_FILE ) ; 
   }
+  else if ( keyMatchSim(1, "HOSTLIB_VARNAME_ZPHOT", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT ) ; 
+  }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
     MSKOPT_OLD = INPUTS.HOSTLIB_MSKOPT ; 
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT);
@@ -5058,9 +5075,14 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //
   // May 27 2021: check for FIELD arg in WORDS(0)
   // Jun 21 2021: FIELD check only for keySource == KEYSOURCE_ARG
-  
-  bool READ_fp = (fp != NULL);
-  int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
+  // 
+  // Mar 19 2024: not sure why FIELD check was only for command-line arg;
+  //              allow FIELD check for command line or input file,
+  //              and check for prescale; e.g, TAKE_SPECTRUM(DEEP/2.3)
+  //
+  bool READ_fp            = (fp != NULL);
+  int  NTAKE              = NPEREVT_TAKE_SPECTRUM ;
+  int  iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP ;
   GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE;
   GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR ;
@@ -5078,6 +5100,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // ----------- BEGIN -----------
 
+
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
     INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[i]  = -99.0;
@@ -5092,6 +5115,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_LAMBDA = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE      = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].FIELD[0]  = 0 ;
+  INPUTS.TAKE_SPECTRUM[NTAKE].WGT       = 1.0;  // Mar 2024
+  INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
 
   // before reading TAKE_SPECTRUM options from file, 
   // parse optional WARP_SPECTRUM_STRING that was previously read.
@@ -5110,11 +5135,32 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // for input file & command line arg, 
   // check for FIELD arg in (); e.g., TAKE_SPECTRUM(X1)
-  if ( keySource == KEYSOURCE_ARG ) {
+  // xxx mark bool CHECK_FIELD = ( keySource == KEYSOURCE_ARG ) ; // from 2021 ??
+  bool CHECK_FIELD = true;
+  if ( CHECK_FIELD ) {
     sprintf(string0, "%s", WORDS[0]);
+
+    char string_field[80], *sl ;
     char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
-    extractStringOpt(string0,FIELD); // return FIELD
-  }
+    int indx_slash;
+    double ps, WGT=1.0;
+
+    extractStringOpt(string0,string_field); // return string_field; eg DEEP/2.2
+    sprintf(FIELD,"%s", string_field);
+    
+    // find location of slash (if it exists)
+    if ( strlen(string_field) > 0 ) {
+      sl = strchr(string_field, '/');
+      indx_slash = (int)(sl - string_field);
+      if ( indx_slash > 0 ) {
+	sscanf(&string_field[indx_slash+1], "%le", &ps); 
+	INPUTS.TAKE_SPECTRUM[NTAKE].WGT = 1.0/ps;	
+	FIELD[indx_slash] = 0 ;
+      }
+      //      printf(" xxx %s: string0=%s  FIELD=%s  WGT=%f \n", 
+      //     fnam, string0, FIELD, WGT);
+    }
+  } // end CHECK_FIELD
 
   // ----------------------------------------------
   // read 1st arg and parse as either TREST or TOBS
@@ -5339,6 +5385,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
+  NKEY_TAKE_SPECTRUM++ ;
 
   return(N);
 
@@ -5359,6 +5406,9 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   int   NTAKE_ORIG  = NPEREVT_TAKE_SPECTRUM;
   int   NTAKE       = NPEREVT_TAKE_SPECTRUM;
   int   OPT_TEXPOSE = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE;
+  double WGT        = INPUTS.TAKE_SPECTRUM[NTAKE].WGT ;
+  char  *FIELD      = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD;
+  int   iKEY        = NKEY_TAKE_SPECTRUM ;
   float MJD, MJD_STEP, MJD_MIN, MJD_MAX ;
 
   GENPOLY_DEF GENPOLY_WARP  ;
@@ -5389,9 +5439,13 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
 
     if ( NTAKE < MXPEREVT_TAKE_SPECTRUM ) {
       INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE    = OPT_TEXPOSE ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].WGT            = WGT ;
       INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0] = MJD;
       INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1] = MJD;
       INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_MJD ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = iKEY;
+
+      sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].FIELD, "%s", FIELD);
       sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"MJD"); 
 
       copy_GENPOLY(&GENPOLY_WARP, 
@@ -5414,6 +5468,7 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
 
 
   NPEREVT_TAKE_SPECTRUM = NTAKE ;
+
   return;
 
 } // end expand_TAKE_SPECTRUM_MJD
@@ -9518,6 +9573,9 @@ void  init_genSpec(void) {
     double *L1 = INPUTS_SPECTRO.LAMMAX_LIST ;
 
     INIT_SPECTROGRAPH_SEDMODEL(modelName, NB, L0, L1); 
+
+    compute_spectrograph_filter_overlap();
+
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) { 
     // do nothing for spectra
@@ -9701,13 +9759,16 @@ void GENSPEC_DRIVER(void) {
     { GENSPEC_TRUE(ISPEC_PEAK); }
 
   int    NFIELD_OVP = SIMLIB_HEADER.NFIELD_OVP ;
-  int    ifield, imjd_order[MXSPEC];
+  int    NFLATRAN, iran, imjd_order[MXSPEC];
   double SNR, LAMMIN=100.0, LAMMAX=25000. ; 
 
   GENSPEC_MJD_ORDER(imjd_order); // check if nearPeak is done first
 
-  for(ifield=0; ifield < NFIELD_OVP; ifield++ ) 
-    { GENSPEC.FLATRAN_LIST[ifield]  = getRan_Flat1(1); } // for optional prescale
+  // generate random per prescale
+  NFLATRAN = NFIELD_OVP;
+  if ( NKEY_TAKE_SPECTRUM > NFLATRAN ) { NFLATRAN = NKEY_TAKE_SPECTRUM; } 
+  for(iran=0; iran < NFLATRAN; iran++ ) 
+    { GENSPEC.FLATRAN_LIST[iran]  = getRan_Flat1(1); } // for optional prescale
 
   // - - - - -
   for(i=0; i < NMJD; i++ ) {
@@ -9771,11 +9832,16 @@ bool DO_GENSPEC(int imjd) {
 
   // Created May 27 2021
   // Return True to process spectrum for this imjd.
+  //
+  // Mar 19 2024: Check WGT as another prescale option.
 
   STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
   bool   DO             = false ;
   double MJD            = GENSPEC.MJD_LIST[imjd] ;
+  int    INDX           = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
 
+  double WGT            = INPUTS.TAKE_SPECTRUM[INDX].WGT ; // 3/2024
+  int    iKEY           = INPUTS.TAKE_SPECTRUM[INDX].iKEY_TAKE_SPECTRUM ;
   char  *FIELD_REQUIRE  = INPUTS.TAKE_SPECTRUM[imjd].FIELD ;
   bool   CHECK_FIELD    = ( strlen(FIELD_REQUIRE) > 0 );
   bool   CHECK_PS       = ( DICT->N_ITEM > 0 ) ;
@@ -9796,7 +9862,20 @@ bool DO_GENSPEC(int imjd) {
   // if there are no fields, skip FIELD-logic
   if ( NFIELD_OVP == 0 )   { return(true); }
 
+  // - - - - - - -
+  // Mar 2024: apply FIELD-dependent prescale from input for the form
+  //      TAKE_SPECTRUM(DEEP/2.3):  ... make sure to pick coherent
+  //      random so that we keep all or none of the spectra for
+  //      this event.
+  if ( WGT < 1.000 ) {
+    r1 = GENSPEC.FLATRAN_LIST[iKEY];
+    if ( r1 > WGT ) 
+      { GENSPEC.SKIP[imjd] = true ;    return false; }
+  }
+
   // - - - - - - - - - -
+
+  // Below is for TAKE_SPECTRUM_PRESCALE input
   // check each field for SELECT and PRESCALE(PS)
   // Beware the invalid FIELD in user input is not trapped
   // since we don't know a-priori which fields are in the SIMLIB.
@@ -10322,13 +10401,14 @@ void GENSPEC_TRUE(int imjd) {
   int    ifilt, ifilt_obs;
   int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
-  double SYNMAG, genmag_obs, flux, lamavg, lambin, flam ;
+  double SYNMAG, DUMERR, genmag_obs, flux, lamavg, lambin, flam ;
 
   // to compute synmags, first compute true Flam in each spectrograph bin.
   // Note that global GENSPEC.GENFLAM_LIST has not been filled yet, and thus
   // local GENFLAM_LIST is computed here.
-  int     NLAMSPEC     = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  double *GENFLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
+  int     NLAMSPEC        = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  double *GENFLAM_LIST      = (double*)malloc( NLAMSPEC * sizeof(double) );
+  double *NULL_FLAMERR_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
   double *LAMMAX_LIST  = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
   double *LAMMIN_LIST  = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
   double *LAMAVG_LIST  = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
@@ -10346,15 +10426,18 @@ void GENSPEC_TRUE(int imjd) {
       printf("%s\n", msg); fflush(stdout);
     }
 
-    GENFLAM_LIST[ilam] = flux / lambin ;
+    GENFLAM_LIST[ilam]      = flux / lambin ;
+    NULL_FLAMERR_LIST[ilam] = -9.0 ; // flamerr not computed yet
   }
 
   // compute true synthetic mag per band
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
     if (!GENLC.DOFILT[ifilt_obs]) {continue;}
-    SYNMAG    = GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST); // compute synthetic mag
-    GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs] = SYNMAG;    // store it
+    GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST, NULL_FLAMERR_LIST,
+		   &SYNMAG, &DUMERR); // compute synth mag; ignore MAGERR
+
+    GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs]    = SYNMAG;    // store it
 
     if ( LAMBIN_SED_TRUE > 0.01 ) {
       // find original genmag at this filter and MJD
@@ -10362,11 +10445,14 @@ void GENSPEC_TRUE(int imjd) {
       genmag_obs = find_genmag_obs(ifilt_obs,MJD);
       if (genmag_obs == MAG_UNDEFINED) { continue; }
 
-      set_ALARM_SED_TRUE(ifilt_obs, genmag_obs, SYNMAG);
+      set_ALARM_SED_TRUE(ifilt_obs, genmag_obs, SYNMAG );
 
-      // for true SED, check option to write genmag and synmag to diagnostic table file
-      if ( VERIFY_SED_TRUE )  
-	{ wr_VERIFY_SED_TRUE(ifilt_obs, MJD, genmag_obs, SYNMAG); }
+      // for true SED, check option to write genmag and synmag to 
+      // diagnostic table file
+      if ( VERIFY_SED_TRUE ) { 
+	wr_VERIFY_SED_TRUE(FLAG_PROCESS_UPDATE, 
+			   ifilt_obs, MJD, genmag_obs, SYNMAG); 
+      }
     }
 
   } // end ifilt
@@ -10376,7 +10462,6 @@ void GENSPEC_TRUE(int imjd) {
   return ;
 
 } // end GENSPEC_TRUE
-
 
 
 // =============================
@@ -10433,25 +10518,37 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
 } // end find_genmag_obs
 
 // ==================================
-double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
+void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
+		    double *SYNMAG, double *SYNMAG_ERR) {
 
   // Created Oct 2023
   // Compute true synthetic mag for ifilt_obs using flux per wave bin
   // pass as input *GENFLUX_LIST.
+  // Return SYNMAG and SYNMAG_ERR
+  //
 
-  int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
-  double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;  
-  double hc8    = (double)hc ;
+  double ZP_SNANA     = ZEROPOINT_FLUXCAL_DEFAULT ;  
+  double hc8          = (double)hc ;
+  bool   DO_MAGERR    =  FLAMERR_LIST[0] >= 0.0 ;
 
-  double SYNMAG = 99.0, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
-  double lamstep, lambin, ZP, lammin, lammax ; 
+  double LAMOBS, TRANS, flam, flamerr, flux, flux_sum=0.0, varflux_sum=0.0 ;
+  double lamstep, lambin, ZP, lammin, lammax, LT, frac_err ; 
   int  ifilt, NLAMFILT, ilam, NFLAM_DEFINED = 0 ; 
   char cfilt[4];
   int  OPT_INTERP = 1;     // linear
   char fnam[] = "GENSPEC_SYNMAG" ;
 
   // --------- BEGIN ------------
+
+  *SYNMAG     = MAG_ZEROFLUX ;
+  *SYNMAG_ERR = MAGERR_UNDEFINED ;
+
+  // compute syn mags for partial band-spectrograph overlap,
+  // but beware !!!
+  if ( !GENSPEC.DO_SYNFILT[ifilt_obs] )  { return ; }
+
 
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -10461,35 +10558,46 @@ double GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST ) {
   ZP          = FILTER_SEDMODEL[ifilt].ZP ;
 
 
-  if ( LAMAVG_LIST[0] > lammin || LAMAVG_LIST[NLAMSPEC-1] < lammax ) {
-    return MAG_ZEROFLUX ; // spectrum does not cover filter
-  }
-
   // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
   flux_sum = 0.0 ;
   for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
-
+    
     get_LAMTRANS_SEDMODEL(ifilt, ilam, 
 			  &LAMOBS, &TRANS );  // <== returned
     if ( TRANS < 1.0E-12 ) { continue; }
-      
-    flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
-			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );
+    
+    if ( LAMOBS < LAMAVG_LIST[0]          ) { continue; } // Mar 2024
+    if ( LAMOBS > LAMAVG_LIST[NLAMSPEC-1] ) { continue; }
 
-    flux_sum += ( flam * LAMOBS * TRANS );
+    flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
+			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );   
+
+    LT = LAMOBS * TRANS ;
+    flux_sum    += ( flam * LT );
+
+    if ( DO_MAGERR ) {
+      flamerr = interp_1DFUN(OPT_INTERP, LAMOBS, 
+			     NLAMSPEC, LAMAVG_LIST, FLAMERR_LIST, fnam );
+      varflux_sum += ( flamerr*flamerr * LT * LT );
+    }
 
   } // end ilam
 
 
   if ( flux_sum > 0.0 ) {
+
+    if ( DO_MAGERR ) {
+      frac_err    = sqrt(varflux_sum) / flux_sum ;
+      *SYNMAG_ERR = (2.5/LNTEN) * frac_err; 
+      if ( *SYNMAG_ERR > MAGERR_UNDEFINED ) { *SYNMAG_ERR = MAGERR_UNDEFINED ; }
+    }
+
     flux_sum *= (lamstep/hc8) ;
-    SYNMAG = ZP - 2.5*log10(flux_sum);
-  }
-  else {
-    SYNMAG = MAG_ZEROFLUX ;
+    *SYNMAG = ZP - 2.5*log10(flux_sum);
+    
   }
 
-  return(SYNMAG) ;
+  return ;
 
 } // end GENSPEC_SYNMAG
 
@@ -10536,7 +10644,7 @@ void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
 } // end set_ALARM_SED_TRUE
 
 // ==================================
-void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
+void wr_VERIFY_SED_TRUE(int FLAG_PROC, int ifilt_obs, double MJD, double genmag_obs,
 			double synmag_obs ) {
 
   // Created Aug 26 2021
@@ -10564,7 +10672,7 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
 
   if ( !VERIFY_SED_TRUE ) { return; }
 
-  if ( ifilt_obs == 0 ) {
+  if ( FLAG_PROC == FLAG_PROCESS_INIT ) {
     // open output table file
     sprintf(VERFIY_FILE_NAME,"%s_VERFIY_SED_TRUE.DAT", INPUTS.GENVERSION);
     sprintf(VARLIST,"CID z MJD TREST LAMREST BAND MAG MAG_VERIFY MAG_DIF");
@@ -10579,7 +10687,11 @@ void wr_VERIFY_SED_TRUE(int ifilt_obs, double MJD, double genmag_obs,
 
   FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
 
-  if ( ifilt_obs > 900 ) {  fclose(FP); return;   } // end of sim
+  if ( FLAG_PROC == FLAG_PROCESS_END ) 
+    {  fclose(FP); return;   } // end of sim
+
+  // ---------------------------------------------
+  // Update DUMP below
 
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -10643,7 +10755,7 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   bool   ALLOW_HOST_ZEROFLUX = true; // for host
 
-  int  INDX        = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
+  int    INDX           = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
   double LAMMIN_SPEC    = INPUTS.TAKE_SPECTRUM[INDX].SNR_LAMRANGE[0];
   double LAMMAX_SPEC    = INPUTS.TAKE_SPECTRUM[INDX].SNR_LAMRANGE[1];
 
@@ -10792,7 +10904,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   double TOBS        = MJD - GENLC.PEAKMJD ;
   double TREST       = TOBS/z1;
 
-  double LAMMIN_OBS, LAMMAX_OBS ;
+  double LAMMIN_OBS, LAMMAX_OBS, ran ;
   double SNR=0.0, SNR_REQUEST, SNR_RATIO, ZPT, PSFSIG;
   double TEXPOSE_REQUEST, TEXPOSE, TEXPOSE_T, SKYSIG, SKYSIG_T;
   char fnam[] = "GENSPEC_TEXPOSE_TAKE_SPECTRUM" ;
@@ -11444,6 +11556,8 @@ void  GENSPEC_FLAM(int imjd) {
   // Convert true flux in each wave bin to dF/dlam,
   // and apply optional calibration warp from WARP_SPECTRUM key(s).
   // WARP applies only to measured dF/dlam, NOT to true dF/dlam.
+  // 
+  // Mar 22 2024: compute and store synthetic mag and error per passband
 
   int  ilam, DO_WARP ;
   double GENFLUX, FLUX, FLUXERR, FLAM, FLAMERR;
@@ -11494,8 +11608,28 @@ void  GENSPEC_FLAM(int imjd) {
     GENSPEC.FLAMWARP_LIST[imjd][ilam] = WARP ;
 
     GENSPEC.GENFLAM_LIST[imjd][ilam]  = GENFLUX/LAMBIN ; // true FLAM
-  }
+
+  }  // end ilam loop
   
+
+  // Mar 22 2024: compute synthetic mag & error per passband.
+  // .xyz
+  int ifilt, ifilt_obs; 
+  double GENMAG_SYN, GENMAGERR_SYN ;
+  for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    if (!GENLC.DOFILT[ifilt_obs]) {continue;}
+
+    // note input is true GENFLAM_LIST (not measured FLAM_LIST)
+    // and true FLAMERR_LIST is same as measured FLAMERR_LIST.
+    GENSPEC_SYNMAG(ifilt_obs, GENSPEC.GENFLAM_LIST[imjd], GENSPEC.FLAMERR_LIST[imjd],
+		   &GENMAG_SYN, &GENMAGERR_SYN); // <== returned
+
+    GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs]    = GENMAG_SYN;
+    GENSPEC.GENMAGERR_SYNFILT[imjd][ifilt_obs] = GENMAGERR_SYN;
+  }
+
+  return ;
 
 } // end GENSPEC_FLAM
 
@@ -11689,6 +11823,7 @@ void gen_event_driver(int ilc) {
       - RISETIME_SHIFT
       - MWEBV
       - GENMAG_OFF_GLOBAL
+      - EPSILON (BAYESN)
 
   These quantities are either read from data files
   to mimic real data, or they are generated randomly.
@@ -11720,6 +11855,8 @@ void gen_event_driver(int ilc) {
      selected in pick_NON1ASED().
   
   Jul 2019: add strong lens option
+
+  Mar 22 2024: add epsilon for BAYESN
 
   *********************************************************/
 
@@ -11817,6 +11954,15 @@ void gen_event_driver(int ilc) {
     // - - - - - - - 
     // get host galaxy extinction for rest-frame models and for NON1A
     gen_modelPar_dust(GENFRAME_OPT);
+
+    // Mar 22 2024
+    // update BAYESN residual scatter
+    // this calls a function from genmag_BAYESN.c
+    // there is a running epsilon variable inside the BAYESN_MODEL_INFO
+    // struct that will be modified by this call
+    if ( INDEX_GENMODEL == MODEL_BAYESN ) {
+        genEPSILON_BAYESN();
+    }
 
     // check for SN params in HOSTLIB
     override_modelPar_from_SNHOST(); 
@@ -12432,8 +12578,9 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(2,SIMFILE_AUX); }
-  if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(2,SIMFILE_AUX); }
+  int FLAG = FLAG_PROCESS_UPDATE;
+  if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); }
+  if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX); }
 
   int LDMP=0;
   if ( LDMP && *ILC != ilc ) {
@@ -13586,12 +13733,15 @@ void set_TIMERS(int flag) {
 } // end set_TIMERS
 
 // ***********************************************
-void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
+void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   
+  // Write yaml-formatted summary to communicate with pipelines 
+  // such as submit_batch_jobs.py or pippin.py.
+
   FILE *fp ;
   char *ptrFile  = SIMFILE_AUX->YAML ;
-  char fnam[] = "wr_SIMGEN_YAML" ;
   double t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
+  char fnam[] = "wr_SIMGEN_YAML_SUMMARY" ;
 
   // ------------ BEGIN ---------------
   if ( (fp = fopen(ptrFile, "wt")) == NULL ) {       
@@ -13623,7 +13773,7 @@ void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   
   return;
 
-} // end wr_SIMGEN_YAML
+} // end wr_SIMGEN_YAML_SUMARY
 
 // ***********************************************
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
@@ -13670,24 +13820,21 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
 
   int   NVAR, ivar, IDSPEC, imjd, index, FIRST ; 
-
   long long i8, ir8 ;
   int    i4 ;
   float  r4 ; 
   double r8 ;
-  char  *ptrFile, *pvar, *str  ;
-  char *varName ;
+  char  *ptrFile, *pvar, *str, *varName, cval[100] ;
   bool  IS_SIMSED;
 
   FILE *fp ;
-  char cval[40] ;
   char fnam[] = "wr_SIMGEN_DUMP" ;
 
   // --------------- BEGIN ----------
 
   if ( INPUTS.NVAR_SIMGEN_DUMP < 0 ) { return ; }
 
-  if ( OPT_DUMP < 1 || OPT_DUMP > 3 ) {
+  if ( OPT_DUMP < FLAG_PROCESS_INIT || OPT_DUMP > FLAG_PROCESS_END ) {
     sprintf ( c1err, "Invalid OPT_DUMP = %d ", OPT_DUMP );
     sprintf ( c2err, "OPT_DUMP must be 1,2, or 3.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -13706,7 +13853,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ptrFile = SIMFILE_AUX->DUMP ;
 
-  if ( OPT_DUMP == 1 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP file " );
     print_banner(BANNER );
@@ -13774,7 +13921,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   double XN, XNPS=(double)INPUTS.PRESCALE_SIMGEN_DUMP ;
 
-  if ( OPT_DUMP == 2 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
 
     FIRST = (NEVT_SIMGEN_DUMP==0 ) ; // used for SPECTROGRAPH info
     NEVT_SIMGEN_DUMP++ ;  XN=(double)NEVT_SIMGEN_DUMP ;
@@ -13862,13 +14009,13 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   } // end of OPT_DUMP=2 if-block
 
 
-  if ( OPT_DUMP == 3 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_END ) {
     free(SIMFILE_AUX->OUTLINE);
     fclose(SIMFILE_AUX->FP_DUMP);
     printf("  %s\n", ptrFile ); fflush(stdout);
-    return ;
   }
 
+  return ;
 
 } // end of wr_SIMGEN_DUMP
 
@@ -13895,7 +14042,7 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ptrFile = SIMFILE_AUX->DUMP_SL ;
 
-  if ( OPT_DUMP == 1 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_SL file for strong lenses" );
     print_banner(BANNER);
@@ -13934,7 +14081,7 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   bool LAST_IMG   = (GENSL.IMGNUM == GENSL.NIMG_GEN-1) && 
     GENSL.LIBEVENT.IDLENS>0 ;
   bool ACCEPT     = ( GENSL.NIMG_ACC > 0 ) ;
-  if ( OPT_DUMP == 2 && LAST_IMG  &&  ACCEPT ) {
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE && LAST_IMG  &&  ACCEPT ) {
     
     fp = SIMFILE_AUX->FP_DUMP_SL ;
     OUTLINE[0] = 0 ;
@@ -13978,7 +14125,7 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   // - - - - - - - -  -
-  if ( OPT_DUMP == 3 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_END ) {
     fp = SIMFILE_AUX->FP_DUMP_SL ;
     int NLENS;
     fprintf(fp,"\n");
@@ -13992,7 +14139,6 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     fclose(SIMFILE_AUX->FP_DUMP_SL);
     printf("  %s\n", ptrFile ); fflush(stdout);
-    return ;
   }
 
   return ;
@@ -14006,7 +14152,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Created Jul 5 2023 
   // Write one row per observation with RA,DEC,mag shifts due to DCR.
   //  OPT_DUMP =  1  => init file, write header
-  //  OPT_DUMP >  2  => update 
+  //  OPT_DUMP =  2  => update 
   //  OPT_DUMP =  3  => close file (end of job)
 
   int   OPTMASK = INPUTS_ATMOSPHERE.OPTMASK;
@@ -14023,7 +14169,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   ptrFile = SIMFILE_AUX->DUMP_DCR ;
 
-  if ( OPT_DUMP == 1 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_DCR file for DCR shifts per obs." );
     print_banner(BANNER);
@@ -14058,7 +14204,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // - - - - - - - -  -
 
-  if ( OPT_DUMP == 2 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
     
     fp = SIMFILE_AUX->FP_DUMP_DCR ;
 
@@ -14084,7 +14230,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	      "%5.1f "                // SIM_SNR_TRUE
 	      "%7.4f "                // SIM_DCR (arcsec)
 	      "%7.4f %7.4f "          // SIM_dRA SIM_dDEC  (arcsec)
-	      "%7.4f  "              // SIM_dMAG
+	      "%7.4f  "               // SIM_dMAG
 	      ,
 	      GENLC.CID, GENLC.MJD[ep], band, GENLC.LAMAVG_SED_WGTED[ep],
 	      SNR,  SIMLIB_OBS_GEN.PSF_FWHM[ep],
@@ -14102,21 +14248,151 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       fflush(fp);
     } // end ep loop
 
-  }
+  } // end OPT_DUMP==2
 
   // - - - - - - - -  -
-  if ( OPT_DUMP == 3 ) {
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
     fp = SIMFILE_AUX->FP_DUMP_DCR ;
-
     fclose(SIMFILE_AUX->FP_DUMP_DCR);
-    printf("  %s\n", ptrFile ); 
-    fflush(stdout);
-    return ;
+    printf("  %s\n", ptrFile );     fflush(stdout);
   }
 
   return ;
 
 } // end wr_SIMGEN_DUMP_DCR
+
+// ***********************************************
+void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
+
+  // Created March 2024
+  // write one row per spectrum summary if SPECTROGRAPH is used.
+
+  double OVERLAP, SYNMAG, SYNMAGERR ;
+  int    NFILT_WARN=0,  IFILTOBS_WARN[MXFILTINDX];
+  int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
+  char   BAND_STRING[MXFILTINDX], cfilt[4];
+  FILE *fp;
+  char *ptrFile = SIMFILE_AUX->DUMP_SPEC ;  
+  char VARLIST[200], VARLIST_SYNMAG[100], varname_tmp[40], cval[40];
+  char fnam[] = "wr_SIMGEN_DUMP_SPEC" ;
+
+  // ----------- BEGIN ---------
+
+  if ( NPEREVT_TAKE_SPECTRUM <= 0 ) { return; }
+
+
+  // - - - - - -
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+
+    sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
+    print_banner(BANNER);
+
+    // xxx mark    compute_spectrograph_filter_overlap();
+
+    BAND_STRING[0] = VARLIST_SYNMAG[0] = 0 ;
+    for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
+      ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+      OVERLAP = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
+      if ( GENSPEC.DO_SYNFILT[ifilt_obs] ) {
+	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+	catVarList_with_comma(BAND_STRING,cfilt);
+	sprintf(varname_tmp,"%s_mag_syn %s_magerr_syn ", cfilt, cfilt);
+	strcat(VARLIST_SYNMAG, varname_tmp);	
+
+	if ( OVERLAP < 1.000 ) {
+	  IFILTOBS_WARN[NFILT_WARN] = ifilt_obs ;
+	  NFILT_WARN++ ;
+	}
+      }
+
+    } // end ifilt
+
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_SPEC = fopen(ptrFile, "wt")) == NULL ) {       
+      sprintf ( c1err, "Cannot open SIMGEN SPEC-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_SPEC ;
+
+    sprintf(VARLIST,
+	    "ROW CID GENTYPE FIELD zHEL MJD TOBS TEXPOSE " \
+	    "IDSPEC IS_HOST %s", VARLIST_SYNMAG);
+
+    fprintf(fp,"# SPECTROGRPAH SUMMARY: one row per spectrum.\n");
+    fprintf(fp,"# Spectrograph instrument  :  %s  (%.0f < LAM < %.0f A)\n", 
+	    INPUTS_SPECTRO.INSTRUMENT_NAME, 
+	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
+
+    fprintf(fp,"# Synthetic mags stored for:  %s\n", BAND_STRING);
+
+    // print warning for each band that has overlap < 1.000
+    for (ifilt=0; ifilt < NFILT_WARN; ifilt++ ) {
+      ifilt_obs = IFILTOBS_WARN[ifilt];
+      OVERLAP   = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
+      sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+      fprintf(fp,"# WARNING: %s-band overlap with %s is %.5f (<1.00) \n",
+	      cfilt, INPUTS_SPECTRO.INSTRUMENT_NAME, OVERLAP );
+    }
+
+    fprintf(fp,"#\n");
+
+    fprintf(fp,"VARNAMES: %s\n", VARLIST);
+    fflush(fp);
+
+  } // end OPT_DUMP==1
+
+
+  // - - - - 
+  int i, IDSPEC;
+  int ROWNUM = NGENSPEC_WRITE - GENSPEC.NMJD_PROC ; 
+  char line[MXPATHLEN], line_synmag[MXPATHLEN];
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
+    fp = SIMFILE_AUX->FP_DUMP_SPEC ;
+
+    for(i=0; i < GENSPEC.NMJD_TOT; i++ ) {
+
+      if ( GENSPEC.SKIP[i] ) { continue ; }
+
+      ROWNUM++ ;
+      IDSPEC = i+1;
+      sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f "
+	      "%3d %d" , 
+	      ROWNUM, GENLC.CID, SNDATA.SIM_GENTYPE,
+	      GENLC.FIELDNAME[1], GENLC.REDSHIFT_HELIO, 
+	      GENSPEC.MJD_LIST[i], GENSPEC.TOBS_LIST[i],
+	      GENSPEC.TEXPOSE_LIST[i],
+	      IDSPEC, GENSPEC.IS_HOST[i]);
+
+      // load up synthetic mags & magerr into line_synmag string
+      line_synmag[0] = 0;
+      for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+	ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+	if ( GENSPEC.DO_SYNFILT[ifilt_obs] ) {
+	  SYNMAG    = GENSPEC.GENMAG_SYNFILT[i][ifilt_obs];
+	  SYNMAGERR = GENSPEC.GENMAGERR_SYNFILT[i][ifilt_obs];
+	  sprintf(cval,"%6.3f %5.3f  ", SYNMAG, SYNMAGERR);
+	  strcat(line_synmag,cval);
+	}
+      }
+
+      fprintf(fp,"%s   %s\n", line, line_synmag);
+    } // end i loop over spectra
+
+  } // end OPT_DUMP == 2
+
+  // - - - - - - - -  -
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
+    fp = SIMFILE_AUX->FP_DUMP_SPEC ;
+    fclose(SIMFILE_AUX->FP_DUMP_SPEC);
+    printf("  %s\n", ptrFile );     fflush(stdout);
+  }
+
+  return;
+} // end wr_SIMGEN_DUMP_SPEC
 
 // ******************************************
 int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
@@ -15600,7 +15876,8 @@ void gen_zsmear(double zerr) {
   // May 25 2022:  for LCLIB, set measured redshifts to -9 instead of zero.
   //                  [true redshifts still set to zero]
   //
-
+  // Mar 19 2024: remove special check on zerr==0; was causing strange behavior
+  // 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
   double ZGEN_MIN = 0.0001;
@@ -15609,7 +15886,7 @@ void gen_zsmear(double zerr) {
 
   // ---------- BEGIN ----------
 
-  if ( INDEX_GENMODEL == MODEL_LCLIB ) { 
+  if ( INDEX_GENMODEL == MODEL_LCLIB || INDEX_GENMODEL == MODEL_FIXMAG ) { 
     // set all redshift info to zero 
     GENLC.REDSHIFT_CMB_SMEAR    = -9.0 ;
     GENLC.REDSHIFT_CMB          =  0.0 ;
@@ -15627,12 +15904,14 @@ void gen_zsmear(double zerr) {
   }
 
 
-
+  /* xxx mark delete Mar 19 2024 xxxxxx
   if ( zerr == 0.0 ) { 
     GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
     GENLC.REDSHIFT_SMEAR_ERR     = zerr ;
     goto ZCMB_SMEAR ;
   }
+  xxxx */
+
   if ( zerr > 0.999 ) {  // user flag to use zPHOT_HOST
     GENLC.REDSHIFT_HELIO_SMEAR   = SNHOSTGAL.ZPHOT ;
     GENLC.REDSHIFT_SMEAR_ERR     = SNHOSTGAL.ZPHOT_ERR ;
@@ -23259,7 +23538,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.NEPOCH        = GENLC.NEPOCH ;
   SNDATA.SNTYPE        = GENLC.SNTYPE;
   SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
-  sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); //.xyz
+  sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); 
   
   // store map[GENTYPE] = name to print in readme
   char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];
@@ -28597,7 +28876,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Dec 22 2021: refactored write-spectra is now default.
   // Jul 05 2022: check for strong lens (SL) dump
 
-  int i, isys ;
+  int i, isys, FLAG ;
+  double zero = 0.0 ;
   char headFile[MXPATHLEN];
   char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN];
   char fnam[] = "init_simFiles" ;
@@ -28606,13 +28886,16 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   README_DOCANA_DRIVER(1);
 
+  /* xxxxx mark delete Mar 2024 xxxxxxxx
   // init DUMP file regardless of SNDATA file status
-
   if ( INPUTS.FORMAT_MASK <= 0 ) {
     sprintf(SIMFILE_AUX->DUMP,  "%s.DUMP",  INPUTS.GENVERSION );
     wr_SIMGEN_DUMP(1,SIMFILE_AUX);  // always make DUMP file if requested
     return ;
   }
+  xxxxxxxx end mark xxxxxxxxx*/
+
+
 
   // clear out old GENVERSION files; 2nd arg is PROMPT flag
   clr_VERSION(INPUTS.GENVERSION,INPUTS.CLEARPROMPT);
@@ -28638,6 +28921,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );
   sprintf(SIMFILE_AUX->DUMP_SL,    "%s.SL",          prefix ); // July 2022
   sprintf(SIMFILE_AUX->DUMP_DCR,   "%s.DCR",         prefix ); // Jun 2023
+  sprintf(SIMFILE_AUX->DUMP_SPEC,  "%s.SPEC",        prefix ); // Mar 2024
 
   // Aug 10 2020: for batch mode, write YAML file locally so that
   //              it is easily found by batch script.
@@ -28656,8 +28940,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   fflush(SIMFILE_AUX->FP_README);
   if ( INPUTS.README_DUMPFLAG ) { debugexit(fnam); }
 
-  // if FITRES DUMP-file is requested, open and init header
-  wr_SIMGEN_DUMP(1,SIMFILE_AUX);
   
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
 #ifdef MODELGRID_GEN
@@ -28666,15 +28948,16 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 #endif
   }
 
-  // check option init SL dump file
-  wr_SIMGEN_DUMP_SL(1,SIMFILE_AUX);
 
-  // check for DCR dump
-  wr_SIMGEN_DUMP_DCR(1,SIMFILE_AUX);
+  // - - - - - - -
+  // check for SIMGEN-dumps:
+  FLAG = FLAG_PROCESS_INIT ;
+  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);             // primary dump
+  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);          // strong lensing (SL)
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);         // DCR
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);        // spectrograph
+  wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );     // SED_TRUE
 
-  // check for dump to check SED_TRUE
-  double dum = 0.0 ;
-  wr_VERIFY_SED_TRUE(0, dum, dum, dum );
 
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
@@ -28759,15 +29042,12 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // load SNDATA structure
   snlc_to_SNDATA(0) ;
 
-  // always check to file DUMP file, even if SNDATA files are not written
-  wr_SIMGEN_DUMP(2,SIMFILE_AUX);
-
-  // check SL dump (July 2022)
-  wr_SIMGEN_DUMP_SL(2,SIMFILE_AUX);
-
-
-  // check DCR dump
-  wr_SIMGEN_DUMP_DCR(2,SIMFILE_AUX);
+  // check for SIMGEN dump files:
+  int FLAG = FLAG_PROCESS_UPDATE;
+  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);        // primary SN dump
+  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);     // SL
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);    // DCR
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // DCR
 
 
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
@@ -28801,7 +29081,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Oct 04 2023: check user-option INPUTS.GZIP_DATA_FILES to enable NOT
   //               gzipping
 
-  double dum=0.0 ;
+  double zero = 0.0 ;
   int i, N1, N2, OPTMASK=0 ;
 
   // ------------ BEGIN -------------
@@ -28847,18 +29127,13 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // check optional auxiliary files.
 
-  // close out SIMGEN_DUMP file if it exists
-  if ( INPUTS.NVAR_SIMGEN_DUMP > 0 ) 
-    { wr_SIMGEN_DUMP(3,SIMFILE_AUX);  }
-
-  if ( INPUTS_STRONGLENS.USE_FLAG ) 
-    { wr_SIMGEN_DUMP_SL(3,SIMFILE_AUX); }
-
-  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) 
-    { wr_SIMGEN_DUMP_DCR(3,SIMFILE_AUX); }
-
-  if ( INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE > 0 ) 
-    { wr_VERIFY_SED_TRUE(999, dum, dum, dum); }
+  // close out SIMGEN_DUMP files
+  int FLAG = FLAG_PROCESS_END;
+  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); 
+  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);
+  wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero);
 
   // copy ZVARATION file to SIM/[VERSION]
   if ( USE_ZVAR_FILE ) {
@@ -28867,7 +29142,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   }
 
   // Aug 10 2020: in batch mode, write few stats to YAML formatted file
-  if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 
+  if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX); } 
 
 #ifdef MODELGRID_GEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {

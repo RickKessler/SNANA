@@ -717,6 +717,10 @@ bool   match_varname_HOSTLIB(char *varName0, char *varName1);
 bool   MATCH_GROUPID_HOSTLIB(int IGAL);
 
 void   checkAlternateVarNames_HOSTLIB(char *varName) ;
+void   checkAlternateVarNames_LEGACY(char *varName) ;
+void replace_varName_HOSTLIB(char *varName, char *varName_check,
+                             char *varName_replace);
+
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
 			   char *field, char *nbr_list  );

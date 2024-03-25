@@ -22264,6 +22264,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + See manual sec ?? on how code decides between quantiles
          and accurate zspec.
 
+     sntools_dataformat_text.c
+         fix to prperly read quantile information for text format
+         (previously, zPDF-quantiles were read only from FITS format)
+
          *****  USEFUL(v11_05l) *****
 
    snlc_sim.c/submit_prog_sim.py    
@@ -22295,6 +22299,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
+     + return mean and std from init_zPDF_spline.c
 
    submit_prog_bbc.py
      + nicer visual output for BBC_SUMMARY_wfit.LOG

@@ -8675,8 +8675,8 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
             endif
         enddo
         CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,
-     &              CCID_forC, LPRINT,SNHOST_QZPHOT_mean(1),
-     &              SNHOST_QZPHOT_rms(1), ISNLC_LENCCID  )
+     &              CCID_forC, LPRINT,SNHOST_QZPHOT_MEAN(1),
+     &              SNHOST_QZPHOT_STD(1), ISNLC_LENCCID  )
 
         if ( LDMP_Q ) then
            Print *, ' xxx Finished init_zPDF_spline' 
@@ -13808,7 +13808,7 @@ c extract fit photoZ and determine total error.
 
       else if ( LPZ_QUANTILE ) then ! Jan 2024
         zhost    = SNHOST_QZPHOT_MEAN(1)  
-        zhosterr = SNHOST_QZPHOT_RMS(1)
+        zhosterr = SNHOST_QZPHOT_STD(1)
         czprior  = 'QUANTILES'   ! for screen dump comment
 
       endif

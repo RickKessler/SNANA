@@ -8,7 +8,7 @@ struct{
 
 
 void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list, 
-		      char *cid, bool verbose );
+		      char *cid, bool verbose, double *mean, double *std_dev );
 double eval_zPDF_spline(double z);
 
 
@@ -18,6 +18,6 @@ void dump_zPDF(int N_Q, double* percentile_list, double* zphot_q_list,
 
 
 void init_zpdf_spline__(int *N_Q, double* percentile_list, double* zphot_q_list, 
-			char *cid, bool *verbose );
+			char *cid, bool *verbose, double *mean, double *std_dev );
 double eval_zpdf_spline__(double *z);
 

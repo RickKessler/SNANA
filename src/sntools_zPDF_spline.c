@@ -11,16 +11,22 @@
 #include <sys/stat.h>
 
 void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list, 
-		      char *cid, bool verbose ) {
+		      char *cid, bool verbose, double *mean, double *std_dev ) {
   // created Jun 2022 R. Chen
   // Initialize spline interpolate for photo-z quantiles
   // allocate interpolation accelerator and gsl_spline object
   //
   // Jan 9, 2024: pass SNID to use for messaging.
+  // Mar 25,2024: return mean and RMS
 
   char fnam[] = "init_zPDF_spline";
+  double sum    = 0. ;
+  double sum_pdf= 0. ;
+  double sum_sq = 0. ;
+ 
 
   int i,i2;
+  int LDMP = 0;
 
   // ------ BEGIN ---------
 
@@ -28,7 +34,8 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   zCDF_spline.spline = gsl_spline_alloc(gsl_interp_cspline, N_Q);
   zCDF_spline.zmin   = zphot_q_list[0];
   zCDF_spline.zmax   = zphot_q_list[N_Q-1];
-  zCDF_spline.dz     = (zCDF_spline.zmax - zCDF_spline.zmin)/20.0; // Warning -- hack
+  int NBIN_SPLINE    = 20; // Warning -- hack 
+  zCDF_spline.dz     = (zCDF_spline.zmax - zCDF_spline.zmin)/(double)NBIN_SPLINE ;
   
   // check that percentile list covers 0 and 1.0
   double P0 = percentile_list[0];
@@ -64,17 +71,48 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
 
   // - - - - 
   double zmin, zmax, dz, z, pdf, pdf_max = 0.0;
+  int iz = 0; 
+  double *pdf_store = (double*)malloc((NBIN_SPLINE+1)*sizeof(double));
+  //double pdf_store[40];
   zmin = zphot_q_list[0] ;
   zmax = zphot_q_list[N_Q-1] ;
   dz   = zCDF_spline.dz ;
   for( z = zmin; z <= zmax; z += dz ) {
     pdf = gsl_spline_eval_deriv(zCDF_spline.spline, z, zCDF_spline.acc);
+    pdf_store[iz] =  pdf; iz++; 
     if ( pdf > pdf_max ) { pdf_max = pdf; }
+    if(LDMP) {
+    printf("XXX %s iz = %d, z = %le, pdf = %le \n",fnam,iz,z, pdf);
+    }
+    sum     += z*pdf;
+    sum_pdf += pdf;
+    sum_sq  += z*z*pdf; 
   }
+
+
+  *mean = sum/sum_pdf ;
+  iz = 0; 
+  for( z = zmin; z <= zmax; z += dz){
+    pdf = pdf_store[iz]; iz++;
+    sum_sq = (z - *mean)*(z - *mean)*pdf;
+  }
+  if(LDMP) {
+  printf("XXX %s sum = %le, sum_pdf = %le, sum_sq = %le \n",fnam,sum,sum_pdf,sum_sq);
+  }
+  if(sum_sq > 0  && sum_pdf > 0){
+  *std_dev  = sqrt(sum_sq/sum_pdf);
+  }
+  else {*std_dev = 0.;}
+
+  if(LDMP) {
+  printf("XXX %s std = %le \n",fnam,*std_dev);
+  }
+  //free(pdf_store);
+    
   zCDF_spline.pdf_max = pdf_max;
 
   if ( verbose ) {
-    printf("\t zPhot-quantile pdf(max) = %.2f  for CID = %s\n", pdf_max, cid);
+    printf("\t zPhot-quantile pdf(max) = %.2f mean = %.3f  std = %.3f for CID = %s\n", pdf_max,*mean, *std_dev,  cid);
     fflush(stdout);
   }
 
@@ -108,8 +146,8 @@ double eval_zPDF_spline(double z) {
 } // END OF eval_zPDF_spline
 
 void init_zpdf_spline__(int *N_Q, double* percentile_list, 
-			double* zphot_q_list, char *cid, bool *verbose) {
-  init_zPDF_spline(*N_Q, percentile_list, zphot_q_list, cid, verbose);
+			double* zphot_q_list, char *cid, bool *verbose, double *mean, double *rms) {
+  init_zPDF_spline(*N_Q, percentile_list, zphot_q_list, cid, verbose, mean, rms);
 }
 double eval_zpdf_spline__(double *z) {
   return eval_zPDF_spline(*z) ; 

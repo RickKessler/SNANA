@@ -3457,10 +3457,13 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
   // bounded by input LAMMIN & LAMMIN.
   //
   // Jun 18 2021: abort of primary lam range does not cover spectrograph range.
+  // Mar 27 2024: hard-wire LAMSTEP=10.0 because SEDMODEL.LAMSTEP[0]
+  //              crashes on PySEDMODELs
+  //
 
   double ZP, lam0, lamCen, lamStep, fluxSum, flux, magPrimary ;
   double hc8     = (double)hc ;
-  double LAMSTEP = SEDMODEL.LAMSTEP[0] ;
+  double LAMSTEP = 10.0 ; // SEDMODEL.LAMSTEP[0] ;
   int    LDMP    = DUMPFLAG ;
   int    NLOOP   = 0;
   char   fnam[]  = "getZP_SPECTROGRAPH_SEDMODEL" ;

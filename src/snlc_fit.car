@@ -178,14 +178,20 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &   BIT_PHOTOZ_GAUSS  ! use <zPhot> and RMS in Gauss approx
      &  ,BIT_BESTZ_GAUSS   ! idem, but with best redshift (e.g., zSpec)
      &  ,BIT_PHOTOZ_QUANTILES ! use photo-z quantiles for prior
+     &  ,BIT_PHOTOZ_QUANTILES_CUBIC ! replace default Steffen with cubic spline	
      &  ,BIT_PHOTOZ_CHEAT  ! use correct redshift and filters
 
+
       PARAMETER (
-     &   BIT_PHOTOZ_GAUSS      = 0  ! OPT_PHOTOZ += 1
-     &  ,BIT_BESTZ_GAUSS       = 1  ! OPT_PHOTOZ += 2
-     &  ,BIT_PHOTOZ_QUANTILES  = 2  ! OPT_PHOTOZ += 4
-     &  ,BIT_PHOTOZ_CHEAT      = 4  ! OPT_PHOTOZ += 16
+     &   BIT_PHOTOZ_GAUSS            = 0  ! OPT_PHOTOZ += 1
+     &  ,BIT_BESTZ_GAUSS             = 1  ! OPT_PHOTOZ += 2
+     &  ,BIT_PHOTOZ_QUANTILES        = 2  ! OPT_PHOTOZ += 4
+     &  ,BIT_PHOTOZ_QUANTILES_CUBIC  = 3  ! OPT_PHOTOZ += 8 ! note: set OPT_PHOTOZ = 12 for this option
+     &  ,BIT_PHOTOZ_CHEAT            = 4  ! OPT_PHOTOZ += 16
      &    )
+
+      CHARACTER METHOD_SPLINE_QUANTILES*20 
+      COMMON/PHOTOZ_COM/METHOD_SPLINE_QUANTILES
 
 +KEEP,SIMEFFCM.
 
@@ -2002,6 +2008,7 @@ c reset DROPFILTER array in first iteration only
 
 c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           MASK_PHOTOZ_SOURCE = 0
+           
           LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
           LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
           LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
@@ -2009,6 +2016,10 @@ c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           if ( LPZ_Q .and. .not.LZSPEC )  THEN
              MASK_PHOTOZ_SOURCE = 
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
+             METHOD_SPLINE_QUANTILES = "STEFFEN" // char(0) ! default 28 Mar, 2024
+	     if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_CUBIC))  THEN 
+                METHOD_SPLINE_QUANTILES = "CUBIC" // char(0)! Legacy option    
+             endif	            
           else if ( LPZ_BEST ) then
              MASK_PHOTOZ_SOURCE = 
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
@@ -8538,10 +8549,10 @@ c+CDE,SNFITPAR.
 
 c local var
 
-      INTEGER  IPAR, NZBIN, NCBIN, NSBIN
-      LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2
+      INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT
+      LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
       REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
-      LOGICAL LPRINT, LDMP_Q
+      LOGICAL  LDMP_Q
       CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
 c FCNSNLC args
@@ -8550,7 +8561,7 @@ c FCNSNLC args
       REAL*8 
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
-     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q)
+     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
       CHARACTER FNAM*14
       REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN, init_zPDF_spline
@@ -8558,6 +8569,8 @@ c FCNSNLC args
 C --------------- BEGIN -----------------
 
       LPRINT = STDOUT_UPDATE
+      IPRINT = 0 
+      if (LPRINT) IPRINT = 1
       CCID_forC = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
 
       IF ( USE_SNHOST_ZPHOT  ) THEN
@@ -8674,9 +8687,16 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
               call flush(6)
             endif
         enddo
+
+        !print*,'xxx zphot_prob = ', ZPHOT_PROB
+        !print*,'xxx zphot_quantiles = ', ZPHOT_Q
+        !print*,'xxx method_spline_quantiles = ', METHOD_SPLINE_QUANTILES
+
         CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,
-     &              CCID_forC, LPRINT,SNHOST_QZPHOT_MEAN(1),
-     &              SNHOST_QZPHOT_STD(1), ISNLC_LENCCID  )
+     &   CCID_forC, METHOD_SPLINE_QUANTILES, IPRINT,MEAN, 
+     &   STD,ISNLC_LENCCID,20)
+        SNHOST_QZPHOT_MEAN(1) = MEAN ! store result in 4 byte global
+        SNHOST_QZPHOT_STD(1)  = STD  
 
         if ( LDMP_Q ) then
            Print *, ' xxx Finished init_zPDF_spline' 
@@ -11082,6 +11102,10 @@ C -------------- BEGIN ---------------
 
       LSTAT    = .FALSE.
       IPAR     = IPAR_zPHOT  ! local variable
+
+      if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_CUBIC)) then
+         OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix user mistake
+      endif
 
       if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then
          write(global_banner,21) PRIOR_ZERRSCALE

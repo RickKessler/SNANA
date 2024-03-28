@@ -19939,7 +19939,7 @@ void remove_short_SIMLIB_SEASON(void) {
   if ( LDMP ) {
     char cstatus[12];
     printf("\n xxx ================================== \n");
-    printf(" xxx DUMP  %s  for  LIBID=%d  CID=%d\n", 
+    //printf(" xxx DUMP  %s  for  LIBID=%d  CID=%d\n", 
 	   fnam, SIMLIB_HEADER.LIBID, GENLC.CID );
     for(iseason=0; iseason < NSEASON_ORIG; iseason++ ) {
       if( FLAG_REMOVE[iseason] )

@@ -42,11 +42,19 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     zPDF_spline.spline = gsl_spline_alloc(gsl_interp_cspline, N_Q); // cubic
   }
   else if  (strcmp(method_spline,METHOD_SPLINE_STEFFEN)==0){
+#ifdef GSL_INTERP_STEFFEN
     zPDF_spline.spline = gsl_spline_alloc(gsl_interp_steffen, N_Q);    // Steffan
+#else
+    sprintf(c1err,"Compilation does not include %s method for GSL",
+	    method_spline);
+    sprintf(c2err,"Needs GSL 2.7 or higher");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+#endif
   }
   else {
-    sprintf(c1err,"Invalid method_spline=%s for CID=%s",method_spline, cid );
-    sprintf(c2err,"Valid methods are: %s  %s  %s",METHOD_SPLINE_LINEAR, METHOD_SPLINE_CUBIC, METHOD_SPLINE_STEFFEN);
+    sprintf(c1err,"Invalid method_spline=%s for CID=%s", method_spline, cid );
+    sprintf(c2err,"Valid methods are: %s  %s  %s", 
+	    METHOD_SPLINE_LINEAR, METHOD_SPLINE_CUBIC, METHOD_SPLINE_STEFFEN);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
     

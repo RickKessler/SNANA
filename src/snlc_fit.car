@@ -178,7 +178,7 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &   BIT_PHOTOZ_GAUSS  ! use <zPhot> and RMS in Gauss approx
      &  ,BIT_BESTZ_GAUSS   ! idem, but with best redshift (e.g., zSpec)
      &  ,BIT_PHOTOZ_QUANTILES ! use photo-z quantiles for prior
-     &  ,BIT_PHOTOZ_QUANTILES_CUBIC ! replace default Steffen with cubic spline	
+     &  ,BIT_PHOTOZ_QUANTILES_STEFFEN ! replace default cubic with Steffen
      &  ,BIT_PHOTOZ_CHEAT  ! use correct redshift and filters
 
 
@@ -186,7 +186,7 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &   BIT_PHOTOZ_GAUSS            = 0  ! OPT_PHOTOZ += 1
      &  ,BIT_BESTZ_GAUSS             = 1  ! OPT_PHOTOZ += 2
      &  ,BIT_PHOTOZ_QUANTILES        = 2  ! OPT_PHOTOZ += 4
-     &  ,BIT_PHOTOZ_QUANTILES_CUBIC  = 3  ! OPT_PHOTOZ += 8 ! note: set OPT_PHOTOZ = 12 for this option
+     &  ,BIT_PHOTOZ_QUANTILES_STEFFEN = 3  ! OPT_PHOTOZ += 8 ! note: set OPT_PHOTOZ = 12 for this option
      &  ,BIT_PHOTOZ_CHEAT            = 4  ! OPT_PHOTOZ += 16
      &    )
 
@@ -2016,9 +2016,9 @@ c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           if ( LPZ_Q .and. .not.LZSPEC )  THEN
              MASK_PHOTOZ_SOURCE = 
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
-             METHOD_SPLINE_QUANTILES = "STEFFEN" // char(0) ! default 28 Mar, 2024
-	     if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_CUBIC))  THEN 
-                METHOD_SPLINE_QUANTILES = "CUBIC" // char(0)! Legacy option    
+             METHOD_SPLINE_QUANTILES = "CUBIC" // char(0) ! default 28 Mar, 2024
+	     if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN))  THEN 
+                METHOD_SPLINE_QUANTILES = "STEFFEN" // char(0)! Legacy option    
              endif	            
           else if ( LPZ_BEST ) then
              MASK_PHOTOZ_SOURCE = 
@@ -11103,7 +11103,7 @@ C -------------- BEGIN ---------------
       LSTAT    = .FALSE.
       IPAR     = IPAR_zPHOT  ! local variable
 
-      if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_CUBIC)) then
+      if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_STEFFEN)) then
          OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix user mistake
       endif
 

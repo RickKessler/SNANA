@@ -22304,4 +22304,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_prog_bbc.py
      + nicer visual output for BBC_SUMMARY_wfit.LOG
 
+   genmag_PySEDMODEL.c
+     + fix to work with spectrograph; for preEvent, 
+       pass addition list of MJDs for spectrograph.
+
 END: 

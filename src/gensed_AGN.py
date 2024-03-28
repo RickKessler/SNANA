@@ -651,8 +651,11 @@ class gensed_AGN(gensed_base):
         idx = search_nearest(self.trest, trest)
         # Check if given time value is close enough to what we've found
         # 1e-4 days is arbitrary small value
-        if abs(self.trest[idx] - trest) > 1e-4:
-            raise ValueError(f"trest = {trest:.6f} was not providen in prepEvent()")
+        # RK 3/2024 - relax to 1E-3
+        tdif = self.trest[idx] - trest
+        if abs(tdif) > 1e-3:
+            raise ValueError(f"trest = {trest:.4f} (tdif={tdif:.4f}) " \
+                             "is not in prepEvent()")
         return self.sed[idx]
 
     def fetchParNames(self):

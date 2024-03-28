@@ -418,7 +418,9 @@ void set_lamRanges_PySEDMODEL(char *MODEL_NAME) {
 // =========================================================
 void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,
 			  int NHOSTPAR, double *HOSTPAR_LIST,
-			  int NOBS, double *TOBS_LIST ) {
+			  int NOBS,  double *TOBS_LIST,
+			  int NSPEC, double *TSPEC_LIST ) {
+
   // Created Sep 2022 by R.Kessler
   // Interface to prepare seds for all epochs (over all bands),
   // instead of genmag_PySEDMODEL that is called for each band.
@@ -436,40 +438,52 @@ void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,
   //  HOSTPAR_LIST:  host property values
   //  NOBS:          total number of observations, all bands
   //  TOBS_LIST:     observer-frame times w.r.t. PEAKMJD
+  //  NSPEC:         number of spectra
+  //  TSPEC_LIST     TOBS for each spectrum
   //
+  // Mar 27 2024: pass extra list of NSPEC and TSPEC_LIST so that
+  //   this works for both broadband and spectrograph observations.
 
   #ifdef USE_PYTHON
-  
+ 
+  int     NOBS_ALL = NOBS + NSPEC;
+  int     MEMI     = (NOBS_ALL+10) * sizeof(int);
+  int     MEMD     = (NOBS_ALL+10) * sizeof(double);
+  int    *INDEX_SORT = (int   *)   malloc(MEMI);
+  double *TOBS_ALL   = (double*)   malloc(MEMD);
+
   char *MODEL_NAME   = INPUTS_PySEDMODEL.MODEL_NAME ;
-  int MEMI           = (NOBS+10) * sizeof(int);
-  int    *INDEX_SORT = (int*)   malloc(MEMI);
+
   double *arrTrest;
   double z1      = 1.0 + zHEL;
   double z1inv   = 1.0/z1;
   double Tobs_template;
   int o, o_sort, i, ihost, NOBS_STORE;
   char fnam[] = "prepEvent_PySEDMODEL";
-  
+ 
+
   PyObject *pHOSTPARS, *pTrest, *prepmeth;
   Py_buffer bufTrest = {NULL, NULL};
 
   // ------------- BEGIN ------------
 
+  for(o = 0; o < NOBS;  o++ ) { TOBS_ALL[o]      = TOBS_LIST[o]; }
+  for(o = 0; o < NSPEC; o++ ) { TOBS_ALL[NOBS+o] = TSPEC_LIST[o]; }
 
   // sort TOBS_LIST in increasing order
   int ORDER_SORT = +1; // ==> increasing
-  sortDouble(NOBS, TOBS_LIST, ORDER_SORT, INDEX_SORT);
+  sortDouble(NOBS_ALL, TOBS_ALL, ORDER_SORT, INDEX_SORT);
 
   // for recurring models (e.g., AGN), we need one extra DIA tempalte
   bool RECUR = ( strcmp(MODEL_NAME,MODEL_NAME_AGN) == 0 );
   
   if ( RECUR ) {
     o_sort = INDEX_SORT[0];
-    Tobs_template = TOBS_LIST[o_sort] - 365.0 ; // arbitrary value of one year
-    NOBS_STORE = NOBS + 1;
+    Tobs_template = TOBS_ALL[o_sort] - 365.0 ; // arbitrary value of one year
+    NOBS_STORE = NOBS_ALL + 1;
   } else {
     Tobs_template = -1.0E8; // not used
-    NOBS_STORE = NOBS;
+    NOBS_STORE = NOBS_ALL;
   }
   Event_PySEDMODEL.Tobs_template = Tobs_template ;
 
@@ -488,10 +502,10 @@ void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,
   if ( RECUR ) {
     arrTrest[0] = Tobs_template * z1inv;
   }
-  for(o=0; o < NOBS; o++ )  { 
+  for(o=0; o < NOBS_ALL; o++ )  { 
     o_sort = INDEX_SORT[o];
     i = o + (int) RECUR;
-    arrTrest[i] = TOBS_LIST[o_sort] * z1inv ;
+    arrTrest[i] = TOBS_ALL[o_sort] * z1inv ;
   }
 
   // Give Python model Trest array so it is prepared

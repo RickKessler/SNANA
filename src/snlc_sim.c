@@ -27494,9 +27494,11 @@ void genmodel(
 
     // Sep 2022: optional sed prep for all MJDs on first call
     if ( ncall == 1 ) {
+
       prepEvent_PySEDMODEL(GENLC.CID, GENLC.REDSHIFT_HELIO,
 			   NHOSTPAR, VAL_HOSTPAR, 
-			   GENLC.NEPOCH, &GENLC.epoch_obs[1] );
+			   GENLC.NEPOCH, &GENLC.epoch_obs[1],
+			   GENSPEC.NMJD_TOT, GENSPEC.TOBS_LIST);
     }
 
     if ( INDEX_GENMODEL == MODEL_AGN ) 

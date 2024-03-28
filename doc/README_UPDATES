@@ -22281,6 +22281,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + MXNNBR_STORE -> 200 ( was 100)
      + if NNBR == 0 (no galaxy detection), avoid setting false ZPHOT.
          (in function GEN_SNHOST_ZPHOT)
+     + fix +HOST[xxx] logic to work if sim-input file contains
+       only HOSTLIB_FILE key and nothing else.
 
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
@@ -22291,7 +22293,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          TAKE_SPECTRUM(DEEP/2.5): etc ...
      + fix sim to handle multiple TAKE_SPECTRUM pre-scales using same field;
         allows running multiple strategies with one generation.
-     +_ if simulating spectra, automatically produce [VERSION].SPEC
+     + if simulating spectra, automatically produce [VERSION].SPEC
         summary file in sim-data outout directory.
 
    snana.car

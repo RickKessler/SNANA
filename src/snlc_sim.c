@@ -106,6 +106,9 @@ int main(int argc, char **argv) {
   // read user input file for directions
   get_user_input();
 
+  // check options to rewrite HOSTLIB and quit
+  rewrite_HOSTLIB_DRIVER();
+
   // init random number generator, and store first random.
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
     { init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN); }
@@ -197,6 +200,7 @@ int main(int argc, char **argv) {
 
   DASHBOARD_DRIVER();
 
+
   // initialize calib/kcor
   init_read_calib_wrapper();
 
@@ -219,8 +223,8 @@ int main(int argc, char **argv) {
   // after filters are read fom kcor/calib file
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) { INIT_ATMOSPHERE(); }
 
-  // check options to rewrite hostlib and quit
-  rewrite_HOSTLIB_DRIVER();
+
+  // xxx mark delete  rewrite_HOSTLIB_DRIVER();
 
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
@@ -3526,7 +3530,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
       { INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;  }
     else { 
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE); 
-      if ( !INPUTS.HOSTLIB_USE )  { INPUTS.HOSTLIB_USE = 1; }
+      if ( !INPUTS.HOSTLIB_USE )  { INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_USE; }
     }
   }
   else if ( keyMatchSim(1, "HOSTLIB_WGTMAP_FILE", WORDS[0], keySource) ) {
@@ -3588,7 +3592,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ; // add synth mags
     N += FLAG_NWD_ZERO; // flag that key has no argument 
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    INPUTS.HOSTLIB_USE = 2; // set rewrite flag
+    INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_REWRITE; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
 
@@ -3596,7 +3600,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ; // add NBR_LIST
     N += FLAG_NWD_ZERO; // flag that key has no argument
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    INPUTS.HOSTLIB_USE = 2; // set rewrite flag
+    INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_REWRITE; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
   else if ( keyMatchSim( 1, "SEPNBR_MAX", WORDS[0], keySource ) ) {
@@ -3610,7 +3614,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_APPEND ; // append info
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_APPEND_FILE );
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    INPUTS.HOSTLIB_USE = 2; // set rewrite flag
+    INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_REWRITE; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
 
@@ -9681,6 +9685,14 @@ void rewrite_HOSTLIB_DRIVER(void) {
   char fnam[] = "rewrite_HOSTLIB_DRIVER" ;
 
   // ------------- BEGIN -------------
+
+  if ( INPUTS.HOSTLIB_USE != HOSTLIB_FLAG_REWRITE ) { return; }
+
+  // manually prepare a few things
+  ENVreplace(INPUTS.HOSTLIB_FILE, fnam, 1);
+  INIT_HOSTLIB(); // .xyz ?? 
+
+  // - - - - -
 
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
     { rewrite_HOSTLIB_plusMags(); }

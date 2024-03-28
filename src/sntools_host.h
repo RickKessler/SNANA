@@ -50,6 +50,9 @@
 #define HOSTLIB_MSKOPT_PLUSNBR   16384  // append list of nbr to HOSTLIB
 #define HOSTLIB_MSKOPT_ZPHOT_QGAUSS 32768  // write Gauss quantiles for zPHOT
 
+#define HOSTLIB_FLAG_USE      1   // for INPUTS.HOSTLIB_USE
+#define HOSTLIB_FLAG_REWRITE  2   // for INPUTS.HOSTLIB_USE
+
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
 #define MXCHAR_LINE_HOSTLIB 900  // max number of chars per HOSTLIB line
@@ -724,6 +727,7 @@ void replace_varName_HOSTLIB(char *varName, char *varName_check,
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
 			   char *field, char *nbr_list  );
+void   check_redshift_HOSTLIB(void);
 int    passCuts_HOSTLIB(double *xval);
 void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);

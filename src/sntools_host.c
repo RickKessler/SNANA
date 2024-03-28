@@ -2,6 +2,7 @@
 
   March, 2011  R.Kessler  
 
+
   Inlcude this file in the simulation to  
  
   - select a host-galaxy with ZTRUE ~ ZSN and randomly selected
@@ -3423,12 +3424,44 @@ void read_gal_HOSTLIB(FILE *fp) {
     fflush(stdout);
   }
 
-  // abort if requested z-range exceeds range of HOSTLIB.
-  // Note that GENRANGE_REDSHIFT is for zCMB, so subtract/add "dz_safe"
+
+  // redshift range checks
+  check_redshift_HOSTLIB();
+
+  // abort on NAN
+  int NERR_NAN = HOSTLIB.NERR_NAN ;
+  if ( NERR_NAN > 0 ) {
+    sprintf(c1err,"%d HOSTLIB values are NaN", NERR_NAN );
+    sprintf(c2err,"Must fix/remove these NaN values.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return ;
+
+} // end of read_gal_HOSTLIB
+
+// ================================
+void check_redshift_HOSTLIB(void) {
+
+  // Created Mar 28 2024
+  // [code moved from read_gal_HOSTLIB]
+  //
+  // Abort if requested z-range (GENRANGE_REDSHIFT) exceeds 
+  // range of HOSTLIB.
+  // Note that GENRANGE_REDSHIFT is for zCMB, while HOSTLIB
+  // redsfhits are zHELIO; therefore subtract/add "dz_safe"
   // to convert GENRANGE_REDSHIFT(CMB) to helio frame.
+
   double dz_safe  = 0.002 ;
   double ZMIN_GEN = INPUTS.GENRANGE_REDSHIFT[0] - dz_safe; // convert to helio
   double ZMAX_GEN = INPUTS.GENRANGE_REDSHIFT[1] + dz_safe;
+  char   fnam[]   = "check_redshift_HOSTLIB" ;
+
+  // ------------ BEGIN -----------
+
+  // skip check if any +HOST[XXX] option is used to append hostlib
+  if ( INPUTS.HOSTLIB_USE == HOSTLIB_FLAG_REWRITE ) { return; }
+
 
   if ( HOSTLIB.ZMIN > ZMIN_GEN || HOSTLIB.ZMAX < ZMAX_GEN ) {
 
@@ -3454,17 +3487,9 @@ void read_gal_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // abort on NAN
-  int NERR_NAN = HOSTLIB.NERR_NAN ;
-  if ( NERR_NAN > 0 ) {
-    sprintf(c1err,"%d HOSTLIB values are NaN", NERR_NAN );
-    sprintf(c2err,"Must fix/remove these NaN values.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
   return ;
 
-} // end of read_gal_HOSTLIB
+}  // end check_redshift_HOSTLIB
 
 // ====================================
 int passCuts_HOSTLIB(double *xval ) {
@@ -3477,7 +3502,7 @@ int passCuts_HOSTLIB(double *xval ) {
   // ---------- BEGIN ---------
 
   // bail for any option to rewrite HOSTLIB with appended columns
-  if ( INPUTS.HOSTLIB_USE == 2 ) { return(1); }
+  if ( INPUTS.HOSTLIB_USE == HOSTLIB_FLAG_REWRITE ) { return(1); }
 
   // REDSHIFT
   ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_ZTRUE] ; 

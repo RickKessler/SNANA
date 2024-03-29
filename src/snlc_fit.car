@@ -2016,10 +2016,14 @@ c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           if ( LPZ_Q .and. .not.LZSPEC )  THEN
              MASK_PHOTOZ_SOURCE = 
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
-             METHOD_SPLINE_QUANTILES = "CUBIC" // char(0) ! default 28 Mar, 2024
-	     if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN))  THEN 
-                METHOD_SPLINE_QUANTILES = "STEFFEN" // char(0)! Legacy option    
-             endif	            
+
+cc xxxxxxxxxxxxx mark delete xxxxxxxxx
+cc           METHOD_SPLINE_QUANTILES = "CUBIC" // char(0)
+cc	     if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN))  THEN 
+cc              METHOD_SPLINE_QUANTILES = "STEFFEN" // char(0)
+cc            endif	            
+cc xxxxxxxxxxxxx
+
           else if ( LPZ_BEST ) then
              MASK_PHOTOZ_SOURCE = 
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
@@ -8549,7 +8553,7 @@ c+CDE,SNFITPAR.
 
 c local var
 
-      INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT
+      INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
       REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
       LOGICAL  LDMP_Q
@@ -8688,14 +8692,12 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
             endif
         enddo
 
-        !print*,'xxx zphot_prob = ', ZPHOT_PROB
-        !print*,'xxx zphot_quantiles = ', ZPHOT_Q
-        !print*,'xxx method_spline_quantiles = ', METHOD_SPLINE_QUANTILES
-
+        LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
         CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,
-     &   CCID_forC, METHOD_SPLINE_QUANTILES, IPRINT,MEAN, 
-     &   STD,ISNLC_LENCCID,20)
-        SNHOST_QZPHOT_MEAN(1) = MEAN ! store result in 4 byte global
+     &     CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0), 
+     &     IPRINT, MEAN, STD,ISNLC_LENCCID, 20)
+
+        SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
         SNHOST_QZPHOT_STD(1)  = STD  
 
         if ( LDMP_Q ) then
@@ -11109,10 +11111,17 @@ C -------------- BEGIN ---------------
 
       if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then
          write(global_banner,21) PRIOR_ZERRSCALE
+
       else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
          write(global_banner,22) PRIOR_ZERRSCALE
+
       else if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
-         write(global_banner,23) PRIOR_ZERRSCALE
+        METHOD_SPLINE_QUANTILES = "CUBIC"    ! default 28 Mar, 2024 
+        if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN)) then
+          METHOD_SPLINE_QUANTILES = "STEFFEN"  ! newer option  
+        endif
+        write(global_banner,23) 
+     &          PRIOR_ZERRSCALE,METHOD_SPLINE_QUANTILES
       else
         write(c1err,662) OPT_PHOTOZ
 662     format('Invalid OPT_PHOTOZ = ', I5 )
@@ -11120,14 +11129,14 @@ C -------------- BEGIN ---------------
         CALL MADABORT ( "FITINI_ZPRIOR", c1err, c2err )
       endif
 
-21    format('INIT Gaussian HOST-PHOTOZ PRIOR  with error-scale=',
+21    format('INIT Gaussian HOST-PHOTOZ PRIOR with err-scale=',
      &         F7.2 )
-22    format('INIT Gaussian SPEC-Z PRIOR with error-scale=',
+22    format('INIT Gaussian BEST-Z PRIOR with err-scale=',
      &         F7.2 )
-23    format('INIT quantiles HOST-PHOTOZ PRIOR with error-scale=',
-     &         F7.2 )
+23    format('INIT quantile HOST-PHOTOZ PRIOR; err-scale=',
+     &         F7.2,' and interp-', A8 )
 
-      CALL PRBANNER(global_banner(1:60))
+      CALL PRBANNER(global_banner(1:72))
 
       PRIOR_RANGE(1,IPAR) = -10.0  ! min Zpull for prior 
       PRIOR_RANGE(2,IPAR) = +10.0  ! max 

@@ -68,6 +68,7 @@
  Feb 03 2023: read/write SIM_THETA for BayeSN model
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band] for ATMOS
  Dec 22 2023: write SIM_WGT_POPULATION
+ Mar 28 2024: add logic to close SPEC file and free SPEC memory to fix memory leak.
 
 **************************************************/
 
@@ -3779,13 +3780,16 @@ void RD_SNFITSIO_CLOSE(char *version) {
   rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_HEAD );
   rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );   
 
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH )
+  if ( SNFITSIO_SPECTRA_FLAG )
     { rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_SPEC );}
 
   // free memory
   rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_HEAD );
   rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { ; } // nothing to free
+  if ( SNFITSIO_SPECTRA_FLAG ) { rd_snfitsio_mallocSpec(-1,IFILE_RD_SNFITSIO); }
+
+
+    // xxx mark  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { ; } // nothing to free
 
 } // end of RD_SNFITSIO_CLOSE
 
@@ -5024,8 +5028,10 @@ void  rd_snfitsio_specFile( int ifile ) {
   snfitsio_errorCheck(c1err, istat);
   fp      = fp_rd_snfitsio[itype] ;  
 
+  /* xxxxxxxxx mark delete or check a vbose flag
   printf("\n");
   printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); 
+  xxxxxxxxxxx  */
 
   // - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -5038,7 +5044,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   sprintf(c1err,"movrel to %s table", snfitsType[itype] ) ;
   snfitsio_errorCheck(c1err, istat);
 
-  if ( RDSPEC_SNFITSIO_HEADER.NROW > 0 ) { rd_snfitsio_mallocSpec(-1); }
+  // ??  if ( RDSPEC_SNFITSIO_HEADER.NROW > 0 ) { rd_snfitsio_mallocSpec(-1,ifile); }
 
   // read number of HEADER rows
   sprintf(keyName, "%s", "NAXIS2" );
@@ -5052,7 +5058,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   if ( NROW == 0 ) 
     { SNFITSIO_SIMFLAG_SPECTROGRAPH = false ; return; }
 
-  rd_snfitsio_mallocSpec(+1);
+  rd_snfitsio_mallocSpec(+1,ifile);
 
 
   icol=1 ;
@@ -5211,11 +5217,12 @@ void RD_SNFITSIO_SPECDATA(int irow,
 
 
 // =========================================
-void  rd_snfitsio_mallocSpec(int opt) {
+void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
   // opt > 0 -> malloc RDSPEC_SNFITSIO_HEADER
   // opt < 0 -> free   RDSPEC_SNFITSIO_HEADER
 
+  double MEMTOT = 0.0 ;
   int  NROW  =   RDSPEC_SNFITSIO_HEADER.NROW;
   int  MEMD  =   NROW * sizeof(double);
   int  MEMI  =   NROW * sizeof(int);
@@ -5223,24 +5230,37 @@ void  rd_snfitsio_mallocSpec(int opt) {
   int  MEMC  =   NROW * sizeof(char*);
   int  MEMSNID = 40   * sizeof(char) ;
   int irow;
-  //  char fnam[] = "rd_snfitsio_mallocSpec" ;
+  char fnam[] = "rd_snfitsio_mallocSpec" ;
 
   // ------------ BEGIN -----------
 
   if ( opt > 0 ) {
     
-    RDSPEC_SNFITSIO_HEADER.MJD     = (double *) malloc (MEMD) ;
-    RDSPEC_SNFITSIO_HEADER.TEXPOSE = (float  *) malloc (MEMF) ;
-    RDSPEC_SNFITSIO_HEADER.NLAMBIN = (int    *) malloc (MEMI) ;
-    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN = (int    *) malloc (MEMI) ;
-    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX = (int    *) malloc (MEMI) ;
+    RDSPEC_SNFITSIO_HEADER.MJD     = (double *) malloc (MEMD) ; MEMTOT += (double)MEMD ;
+    RDSPEC_SNFITSIO_HEADER.TEXPOSE = (float  *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+    RDSPEC_SNFITSIO_HEADER.NLAMBIN = (int    *) malloc (MEMI) ; MEMTOT += (double)MEMI ;
+    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
+    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
 
     RDSPEC_SNFITSIO_HEADER.SNID  = (char**) malloc (MEMC) ;
-    for(irow=0; irow<NROW; irow++ ) 
-      { RDSPEC_SNFITSIO_HEADER.SNID[irow] = (char*) malloc(MEMSNID);}
+    for(irow=0; irow<NROW; irow++ ) {
+      RDSPEC_SNFITSIO_HEADER.SNID[irow] = (char*) malloc(MEMSNID);
+      MEMTOT += (double)MEMSNID;
+    }
+
+
+    // print summary of allocated memory
+    double FMEM = 1.0E-6*(float)(MEMTOT) ;  
+    printf("   Allocated %6.3f MB of memory for %s table. \n", 
+	   FMEM, snfitsType[ITYPE_SNFITSIO_SPEC] );
+    fflush(stdout); 
 
   }
   else {
+    printf("\t Free allocated SNFITSIO memory for %s \n",
+	   rd_snfitsFile[ifile][ITYPE_SNFITSIO_SPEC] );
+    fflush(stdout);
+
     free(RDSPEC_SNFITSIO_HEADER.MJD);
     free(RDSPEC_SNFITSIO_HEADER.TEXPOSE);
     free(RDSPEC_SNFITSIO_HEADER.NLAMBIN );
@@ -5251,7 +5271,6 @@ void  rd_snfitsio_mallocSpec(int opt) {
       { free(RDSPEC_SNFITSIO_HEADER.SNID[irow] ); }
     free(RDSPEC_SNFITSIO_HEADER.SNID);
   }
-
 
   return ;
 

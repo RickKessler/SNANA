@@ -22277,6 +22277,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v11_05l) *****
 
+   sntools_dataformat_fits.c[h]
+     + close each SPEC file and free SPEC memory (fix memory leak reading data)
+
    sntools_host.c
      + MXNNBR_STORE -> 200 ( was 100)
      + if NNBR == 0 (no galaxy detection), avoid setting false ZPHOT.

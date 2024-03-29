@@ -279,7 +279,7 @@ void  rd_snfitsio_tblpar(int ifile, int itype);
 void  rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow);
 
 void  rd_snfitsio_specFile(int ifile); 
-void  rd_snfitsio_mallocSpec(int opt);
+void  rd_snfitsio_mallocSpec(int opt, int ifile );
 
 int RD_SNFITSIO_PARVAL(int isn, char *parName, 
 		      double *parLIST, char *parString, int *iptr);

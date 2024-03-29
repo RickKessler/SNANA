@@ -9537,6 +9537,8 @@ void  init_genSpec(void) {
 
   // -------------- BEGIN ----------------
   
+  if ( INPUTS.INIT_ONLY )  { return; }
+
   if ( !SPECTROGRAPH_USEFLAG && DO_SEDMODEL ) {
     // there is no spectrograph in kcor/calib file, so create an
     // ideal spectrograph here that covers wavelength range of all bands.

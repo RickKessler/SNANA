@@ -5156,7 +5156,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     if ( strlen(string_field) > 0 ) {
       sl = strchr(string_field, '/');
       indx_slash = (int)(sl - string_field);
-      if ( indx_slash > 0 ) {
+      if ( sl != NULL && indx_slash > 0 ) {
 	sscanf(&string_field[indx_slash+1], "%le", &ps); 
 	INPUTS.TAKE_SPECTRUM[NTAKE].WGT = 1.0/ps;	
 	FIELD[indx_slash] = 0 ;

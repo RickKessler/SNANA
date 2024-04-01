@@ -4566,8 +4566,8 @@ c May 11 2022: read ZPHOT_Q
 +CDE,FILTCOM.
       INTEGER   LENPRE, ifilt, q
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
-      REAL*8    DARRAY(MXFILT_OBS), SB, MAG
-      LOGICAL LTMP 
+      REAL*8    DARRAY(MXFILT_OBS), SB, MAG, zq
+      LOGICAL LTMP, LZQ
 
 C -------------- BEGIN ----------
       
@@ -4640,11 +4640,15 @@ c read ZPHOT_Q (May 2022)
         SNHOST_QZPHOT_MEAN(igal) = -9.0
 	SNHOST_QZPHOT_STD(igal)  = -9.0	
 	
-	IF (igal == 1) THEN
-	   LTMP = (SNHOST_ZPHOT_Q(igal,1) < -0.001) .AND. 
-     &        (SNLC_REDSHIFT > QUANTILE_ZERRMIN)	   
-	   IF (LTMP) SNLC_REDSHIFT = -9.0 ! Forced event to be rejected
-	ENDIF
+c xxxxxxxxxx Apr 1 2024 mark delete xxxxxxxxx
+c  BAD LOGIC BECAUSE IT TAKES EFFECT EVEN IF QUSNTILES ARE NOT REQUESTED
+c
+c	IF (igal == 1) THEN
+c	   LTMP = (SNHOST_ZPHOT_Q(igal,1) < -0.001) .AND. 
+c     &        (SNLC_REDSHIFT > QUANTILE_ZERRMIN)	   
+c	   IF (LTMP) SNLC_REDSHIFT = -9.0 ! Forced event to be rejected
+c	ENDIF
+c xxxxxxxxx end mark xxxxxxxxxx
 
 c          print*,' xxx ------------------------------------------- '
 c          print*,' xxx CID ,igal = ', SNLC_CCID, igal

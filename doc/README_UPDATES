@@ -22301,7 +22301,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    snana.car
      + call ENVreplace(HEADER_OVERRIDE_FILE)
-
+     + undo recent logic that forced SNLC_REDSHIFT = -9 if 
+       quantiles are undefined; this bad logic was rejecting
+       events for fits that do not request quantiles.
+    
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
      + return mean and std from init_zPDF_spline.c

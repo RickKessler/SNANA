@@ -153,6 +153,7 @@ ifeq ($(USE_ROOT),0)
 else
 #   $(info EXTRA_FLAGS_CPLUS = $(EXTRA_FLAGS_CPLUS))
    CCoutput    = c++ $(EXTRA_FLAGS_CPLUS)
+#   CCoutput    = $(EXTRA_FLAGS_CPLUS)
    CPPLIB      = -lstdc++
    IROOT       = -I/$(ROOT_DIR)/include -I/opt/local/include/freetype2
    ROOT_LIBDIR = $(LIB_SDIR)

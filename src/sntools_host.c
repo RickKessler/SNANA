@@ -767,12 +767,14 @@ void  checkAbort_HOSTLIB(void) {
   // Apr 8 2019
 
   int USE_GALCOORDS  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
-  int USE_MWEBV_FILE = (INPUTS.OPT_MWEBV == OPT_MWEBV_FILE);  
+  int USE_MWEBV_FILE = (INPUTS.OPT_MWEBV == OPT_MWEBV_FILE);
+  bool REWRITE       = ( INPUTS.HOSTLIB_USE == HOSTLIB_FLAG_REWRITE ); 
   char fnam[] = "checkAbort_HOSTLIB" ;
 
   // ---------------- BEGIN ----------------
 
-
+  if ( REWRITE ) { return; }
+  
   if ( USE_GALCOORDS && USE_MWEBV_FILE )  {
     sprintf ( c1err, "Cannot transfer SN coords to Gal coords");
     sprintf ( c2err, "without specifying MWEBV model (OPT_MWEBV>1)");

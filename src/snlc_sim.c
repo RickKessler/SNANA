@@ -8260,8 +8260,15 @@ void init_DNDZ_Rate(void) {
   // ----------- BEGIN ------------
 
   // Jun 2023: there is no rate model for AGN, so user must define how
-  // many to generate with NGENTOT_LC
+  // many to generate with NGENTOT_LC. Redshift dependence is default
+  // constant volumetric rate.
   if ( INDEX_GENMODEL == MODEL_AGN )  { 
+    if ( INPUTS.NGENTOT_LC <= 0 ) {
+      sprintf(c1err,"Invalid NGENTOT_LC=%d for AGN model", INPUTS.NGENTOT_LC);
+      sprintf(c2err,"Note that DNDZ key is ignored for AGN model.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
     INPUTS.RATEPAR.SEASON_COUNT = (double)INPUTS.NGENTOT_LC ; 
     return ; 
   }
@@ -15732,14 +15739,13 @@ double gen_redshift_cmb ( void) {
     zcmb = INPUTS.GENRANGE_REDSHIFT[0] ; 
   }
   else {
-
     // pick from pure Hubble distribution with reweight based on rate model
     zcmb = genz_hubble(zmin,zmax, GENLC.RATEPAR ) ;  
   }
 
   return(zcmb);
 
-}  // end of gen_redshiftt_cmb
+}  // end of gen_redshift_cmb
 
 
 
@@ -16106,7 +16112,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
   /************
    return random SN redshift between Z0,Z1 = INPUTS.REDSHIFT[0,1]
-   using dV/dz/(1+z) Hubble distribution. 
+   using constant volumetric rate dV/dz/(1+z) Hubble distribution. 
    Note that time-dilation factor 1/(1+z) for SN.
 
    For special tests, if INPUTS.DNDZ_ZEXP_REWGT  is non-zero, 
@@ -16121,40 +16127,16 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
    Global variable ZGENWGT_MAX is set on the first pass;
    this is the max weight based on looping over all z.
   
-   Dec 17, 2006: fix dumb bug and include time-dilation factor
-
-   Jan 22, 2011: fix dumb bug and force NZ to be at least 3 to
-                 avoid divide-by-zero when zmax is very small
-
-   Sep 23, 2011: float -> double 
-
-   May 5, 2014: float rangen -> double getRan_Flat
-                and remaining legacy floats -> double.
-
-   Feb 5 2015: move 'ilist=1' after PICKRAN instead of before so that
-               it works with FLATRAN option.
-
-   Dec 21 2015: 
-      pass zmin & zmax as args instead of using INPUTS.GENRANGE_REDSHIFT.
-      Allows picking from narrower redshift windows.
-
-   Jan 7 2016: if NEWZRANGE is true, then recompute ZGENWGT_MAX.
-               --> more efficient generation when GENRANGE_REDSHIFT
-                   is different for each simlib entry.
-
-  Aug 12 2016; refactor to pass RATEPAR struct.
-
-  Jan 26 2018: if USE_SIMLIB_DISTANCE, return wgt=1
 
   Feb 19 2018:
     set ZGENWGT_MAX=1 if 
       (USE_FLAT || USE_SIMLIB_DISTANCE || USE_SIMLIB_REDSHIFT)
 
- Nov 24 2019: if zmin == zmax, return immediately
+   Nov 24 2019: if zmin == zmax, return immediately
 
   *****************/
 
-  double z, zran, z_atmax, dz, w, wgt, wran1 ; // xxx H0, OM, OL, W0, 
+  double z, zran, z_atmax, dz, w, wgt, wran1 ; 
   double zrange[2] = { zmin, zmax } ;
   int iz, NZ, ISFLAT, ISPOLY, ilist, NEWZRANGE, FIRST ;
   char fnam[] = "genz_hubble" ;
@@ -16205,7 +16187,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       }
       else {
 	w = dVdz (z, &INPUTS.HzFUN_INFO);
-	w /= (1.0+z);          // Dec 2006: time dilation factor
+	w /= (1.0+z); 
 	w *= genz_wgt(z,RATEPAR) ;
       }
 

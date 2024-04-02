@@ -3071,6 +3071,8 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   char varName_check[40], varName_replace[40];
   char *inp_colname = INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT;
   int j;
+  bool REWRITE = ( INPUTS.HOSTLIB_USE == HOSTLIB_FLAG_REWRITE ); 
+
   char fnam[] = "checkAlternateVarNames_HOSTLIB";
 
   // --------- BEGIN ---------
@@ -3102,7 +3104,7 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 
     // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
     bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
-    if ( !SN2GAL ) {
+    if ( !SN2GAL && !REWRITE ) {
       sprintf(c1err,"%s column found in HOSTLIB ... but ", 
 	      HOSTLIB_VARNAME_ZTRUE_CMB);
       sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",

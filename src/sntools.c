@@ -1,9 +1,8 @@
 // sntools.c
-
-
+// General tools for snana codes.
 
 #include "sntools.h"
-#include "sntools_spectrograph.h" // Feb 2021
+#include "sntools_spectrograph.h" 
 #include "sntools_data.h"
 #include "sntools_output.h"
 

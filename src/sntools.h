@@ -731,7 +731,6 @@ int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
                  GENPOLY_DEF *POLY) ;
 
 void  read_SURVEYDEF(void);
-void  read_SURVEYDEF_legacy(void);
 void  parse_geoSURVEYDEF(char *string_geo, int ID);
 
 int   get_IDSURVEY(char *SURVEY);

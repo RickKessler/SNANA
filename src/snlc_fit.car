@@ -277,7 +277,7 @@ c define index for each variable.
 
 c variable indices for integer I4EP_
       INTEGER
-     &   IEP_IMJD, IEP_EPOCH, IEP_IDTEL
+     &   IEP_IMJD, IEP_EPOCH
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
      &  ,IEP_REJECT, IEP_REJECT2
      &  ,IEP_CCDNUM, IEP_IMGNUM
@@ -307,7 +307,7 @@ c variable indices for real R4EP_
 c for I4EP_XXX
      &   IEP_IMJD            = 1  ! for absolute IMJD index
      &  ,IEP_EPOCH           = 2  ! for absolute ep index
-     &  ,IEP_IDTEL           = 3  ! telescope index
+c
      &  ,IEP_IFILT           = 4  ! sparse survey filter index
      &  ,IEP_IFILT_OBS       = 5  ! absolute filter index
      &  ,IEP_IFILT_REST1     = 6  ! absolute filter index, nearest rest-filter
@@ -4247,7 +4247,7 @@ c local arguments
 
       INTEGER
      &   ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata
-     &  ,NFITDATA_LOC, irow, icol, IERR, IDTEL
+     &  ,NFITDATA_LOC, irow, icol, IERR
      &  ,NFITDATA_FILT(MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
       character cfilt*1
@@ -10441,7 +10441,7 @@ c local var
 
       INTEGER 
      &   IFILT, IFILT_OBS, IREJ, IMJD, ep, EPMIN, EPMAX
-     &  ,IDTEL, N, OPT, IF1, IF2, ifit, ivar, REJECT, REJECT2
+     &  ,N, OPT, IF1, IF2, ifit, ivar, REJECT, REJECT2
 
       INTEGER ITER_DMP / -1 /
       REAL 
@@ -10500,7 +10500,6 @@ c ---------------------------------
 
         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD)
-        IDTEL = ISNLC_IDTEL(EPMIN)
 
       DO 102 ep = EPMIN, EPMAX
 
@@ -10595,7 +10594,6 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT)       = IFILT
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
-        I4EP_ALL(ep,IEP_IDTEL)       = ISNLC_IDTEL(ep)
         I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
         I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)

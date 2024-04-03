@@ -17,7 +17,7 @@ c parameters used by snana code
      &   MXVERS, MXSURVEY, MXSNLC,MXCID, MXCID_CHECK,MXEPOCH, MXITER
      &  ,MXFILT_ALL, MXFILT_OBS, MXFILT_REST, ONE
      &  ,MXFILT_KCOR, MXFILT_SNRMAX, MXEP_MODELGRID
-     &  ,MXIDTEL, MXIDFIELD, MXFIELD_OVP, MXSEASON
+     &  ,MXIDFIELD, MXFIELD_OVP, MXSEASON
      &  ,MXSNHOST, MXZPHOT_Q
      &  ,MXTABLE1D_KCOR,MXTABLE1D_LCMAG,MXTABLE1D_MWXT,MXTABLE1D_AVWARP
      &  ,MXZBIN_KCOR, MXTBIN_KCOR, MXAVBIN_KCOR, MXCBIN_AVWARP
@@ -123,7 +123,6 @@ c
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
      &  ,MXEPOCH     = 30000      ! max number of filter-epochs per SN
      &  ,MXEP_MODELGRID = 200     ! max model grid for SNANA+SIM_MAGOBS table
-     &  ,MXIDTEL     = 200        ! max telescope ID in SURVEY.DEF
      &  ,MXIDFIELD   = 200        ! max FIELD ID in SURVEY.DEF
      &  ,MXFIELD_OVP = 12         ! max number of overlapping fields
      &  ,MXSEASON    = 100        ! max number of seasons
@@ -807,7 +806,6 @@ c
      &  ,ISNLC_FAKE             ! => real data, else it's a fake
      &  ,ISNLC_CCDNUM(MXEPOCH)  ! read from header (May 2017)
      &  ,ISNLC_IMGNUM(MXEPOCH)  ! Oct 2021: IMAGE NUNBER (e.g., EXPNUM, VISIT_ID)
-     &  ,ISNLC_IDTEL(MXEPOCH)   ! integer telescope id      
      &  ,ISNLC_IDFIELD(MXEPOCH) ! integer field id      
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
      &  ,ISNLC_CUTFLAG_REQEP        ! idem
@@ -986,7 +984,7 @@ c
      &    ,ISNLC_NFILT_SNRMAX, ISNLC_NFILT_SNRMAX2
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
      &    ,ISNLC_NFILT_TREST2
-     &    ,ISNLC_IDTEL, ISNLC_IDFIELD, ISNLC_NFIELD_OVP
+     &    ,ISNLC_IDFIELD, ISNLC_NFIELD_OVP
      &    ,ISNLC_CUTFLAG_REQEP
      &    ,ISNLC_CUTFLAG_PRIVATE
      &    ,ISNLC_CUTFLAG_SIMVAR
@@ -1539,9 +1537,7 @@ c define namelist cuts
      &  ,SNCID_IGNORE(MXLISTNML)   ! I: list of CIDs to ignore
      &  ,PHOTFLAG_MSKREJ(5)        ! I: PHOTFLAG mask-bits to reject, 1,2 => logical OR,AND
      &  ,PHOTFLAG_BITLIST_REJECT(MXBIT_PHOTFLAG)  ! I: bits to reject
-     &  ,IDTEL_LIST(MXLISTNML)     ! computed from SNTEL_LIST
      &  ,IDFIELD_LIST(MXLISTNML)   ! 
-     &  ,NIDTEL_LIST               ! size of list
      &  ,NIDFIELD_LIST
      &  ,NSNTYPE_LIST           ! size of SNTYPE_LIST
      &  ,NCCDNUM_LIST           ! size of CCDNUM list
@@ -1555,8 +1551,7 @@ c define namelist cuts
       LOGICAL DOALL_SNTEL, DOALL_SNFIELD
 
       character 
-     &    SNTEL_LIST(MXLISTNML)*20    ! (I) list of telescopes (or ALL)
-     &   ,SNFIELD_LIST(MXLISTNML)*60  ! I:  list of fields to use (or 'ALL')
+     &    SNFIELD_LIST(MXLISTNML)*60  ! I:  list of fields to use (or 'ALL')
      &   ,SNCCID_LIST(MXLISTNML)*(MXCHAR_CCID)   ! I: list of CIDs to process
      &   ,SNCCID_IGNORE(MXLISTNML)*(MXCHAR_CCID) ! I: list of CIDs to ignore
      &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME)    ! I: file with CIDs to ignore
@@ -1717,7 +1712,6 @@ c
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
      &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
-     &   ,SNTEL_LIST,   IDTEL_LIST,   NIDTEL_LIST,   DOALL_SNTEL
      &   ,SNFIELD_LIST, IDFIELD_LIST, NIDFIELD_LIST, DOALL_SNFIELD
      &   ,NSNTYPE_LIST, NCCDNUM_LIST, NSIM_TEMPLATE_INDEX_LIST
      &   ,NSNTYPE_IGNORE, NFILT_SNRMAX, IFILT_SNRMAX
@@ -2082,7 +2076,7 @@ c
      &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
-     &   ,SNFIELD_LIST, SNTEL_LIST
+     &   ,SNFIELD_LIST
      &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT
      &   ,cutwin_cid, cutwin_sntype
      &   ,cutwin_redshift, cutwin_redshift_err
@@ -2186,7 +2180,7 @@ c results
 c define external C functions to read from fits files
 
 c max length of catenated strings from all epochs;
-c e.g., FIELD, TELESCOPE ...
+c e.g., FIELD
 c Aug 31 2023: 40k -> 80k
 c Nov 16 2023: 80k -> 160k
 
@@ -6140,22 +6134,17 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
          SNCCID_IGNORE(i)  = ''        
          SNCCID_PLOT(i)    = ''
 
-         SNTEL_LIST(i)     = ''
-         IDTEL_LIST(i)     = -9
-
          SNFIELD_LIST(i)     = ''
          IDFIELD_LIST(i)     = -9
       ENDDO
 
-c set default telescope & field to ALL
-      SNTEL_LIST(1)     = 'ALL'
+c set default field to ALL
       SNFIELD_LIST(1)   = 'ALL'
 
       NSNTYPE_LIST = 0
       NCCDNUM_LIST = 0
       NSNTYPE_IGNORE = 0
 
-      NIDTEL_LIST = 0
       NIDFIELD_LIST = 0
       NCCID_LIST = 0
       NCID_LIST  = 0
@@ -6403,21 +6392,8 @@ c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
 c -----------------------------------------
 c Compute useful variables from namelist
 
-c if no telescope (namelist SNTEL_LIST) is specified, 
-c then use survey name by default
-
-      NIDTEL_LIST = PARSE_NML_STRINGLIST(SNTEL_LIST,20)
-      IF ( SNTEL_LIST(1) .NE. 'ALL' ) THEN
-         C1ERR = 'SNTEL_LIST no longer allowed.'
-         C2ERR = 'Remove SNTEL_LIST from &SNLCINP'
-         CALL MADABORT(FNAM, C1ERR, C2ERR)
-      ENDIF
-
-      DOALL_SNTEL = ( SNTEL_LIST(1) .EQ. 'ALL' )
-
       NIDFIELD_LIST = PARSE_NML_STRINGLIST(SNFIELD_LIST,60)
       DOALL_SNFIELD = ( SNFIELD_LIST(1) .EQ. 'ALL' )
-
 
       i = 1 ; NSNTYPE_LIST=0
       DO WHILE ( SNTYPE_LIST(i) .GE. MNTYPE ) 
@@ -13018,7 +12994,7 @@ c local variables.
 +CDE,FILTCOM.
 
       INTEGER 
-     &   iwd, NWD, IFILT_OBS, LL, L1, L2, LNAM, IDTEL, i, IDTMP
+     &   iwd, NWD, IFILT_OBS, LL, L1, L2, LNAM,  i, IDTMP
      &  ,IDFIELD, NFILT_NONSURVEY, NFILT_ADD, iadd, jtmp
      &  ,LWD0, LWD1, LWD2, LWD3
 
@@ -13124,7 +13100,6 @@ c create IFILTDEF_MAP_SURVEY
 c ------------
 c Now open SURVEY.DEF file to get 
 c  IDSURVEY
-c  IDTEL
 c  IDFIELD
 
       LL = INDEX ( SNDATA_ROOT , ' ' ) - 1
@@ -13159,38 +13134,6 @@ c     IDSURVEY should never change, but IDSUBSURVEY can change
                IDSURVEY=IDTMP ; IDSUBSURVEY=IDTMP
             endif
          endif
-
-c ------------
-c check telescope
-
-         LTMP = .NOT. DOALL_SNTEL 
-         LKEY = cwd .EQ. 'TELESCOPE:' 
-
-         if ( LKEY .AND. LTMP ) then
-            call UPCASE(cwd_next, UPPER)       
-            CTEL = UPPER        ! telescope in SURVEY.DEF file
-          
-            read(cwd_next2,*) IDTEL
-
-c now compare with user request, and convert everything to upper case
-c Allow data files to have extra characters such as "sdss-2.5m" or CTIO4m
-
-            DO i = 1, NIDTEL_LIST
-c     convert user name to uppercase
-               CALL UPCASE(SNTEL_LIST(i), upper) 
-               SNTEL_LIST(i) = upper(1:20) ! user-specified telescope
-               LL = INDEX( CTEL, ' ' ) - 1
-
-               if ( CTEL(1:LL) .EQ. SNTEL_LIST(i)(1:LL) ) then
-                  SNTEL_LIST(i) = ctel(1:20) ! truncate extra characters
-                  IDTEL_LIST(i) = IDTEL               
-                  write(6,205) CTEL(1:LL), IDTEL
- 205              format(T5,'Found requested TELESCOPE=',A,2x, 
-     &                 'with IDTEL=', I3 )
-               endif
-            END DO  ! end loop of NIDTEL_LIST
-
-         endif  ! end of TELSCOPE: if-block
 
 c ------------
 c check SN field
@@ -13268,21 +13211,6 @@ c print some info to stdout
       call flush(6)
 
 c --------------------------------------------------------
-c check that user telescopes & fields are defined in SURVEY.DEF ...
-c but if 'ALL' option is set, don't bother checking.
-
-      IF ( .NOT. DOALL_SNTEL ) THEN
-        DO i    = 1, NIDTEL_LIST
-          ctel  = SNTEL_LIST(i)
-          idtel = IDTEL_LIST(i)
-          if ( idtel .LT. 0 ) then
-             LL = index( ctel, ' ' ) - 1
-             c1err = 'Unknown TELESCOPE: ' // ctel(1:LL)
-             c2err = 'Check namelist variable SNTEL_LIST '
-             CALL MADABORT(FNAM, c1err, c2err )
-          endif
-        ENDDO
-      ENDIF
 
       IF ( .NOT. DOALL_SNFIELD ) THEN
         DO i    = 1, NIDFIELD_LIST
@@ -14261,7 +14189,6 @@ c
 c  KEYNAME    filled array
 c   FLT       ISNLC_IFILT_OBS
 c   FIELD     ISNLC_IDFIELD & SNLC_FIELD
-c   TEL       ISNLC_IDTEL
 c
 c Feb 11 2021: fix computation of LENS (length of STRING)
 c -----------------------------
@@ -14280,10 +14207,10 @@ c -----------------------------
 
       INTEGER iwd, LWD, NWD, LK, LENS, MSKOPT
       CHARACTER  CWD*80, FNAM*30
-      LOGICAL LVAR_FLT, LVAR_FIELD, LVAR_TEL
+      LOGICAL LVAR_FLT, LVAR_FIELD
 
 c functions
-      INTEGER  FILTINDX_REPLACE, GET_IDFIELD, GET_IDTEL
+      INTEGER  FILTINDX_REPLACE, GET_IDFIELD
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -14298,14 +14225,11 @@ c determine variable type from KEYNAME
 
       LVAR_FLT   = .FALSE.
       LVAR_FIELD = .FALSE.
-      LVAR_TEL   = .FALSE.
 
       IF ( KEYNAME(1:3) .EQ. 'FLT' ) THEN
         LVAR_FLT = .TRUE.
       ELSE IF ( KEYNAME(1:5) .EQ. 'FIELD' ) THEN
         LVAR_FIELD = .TRUE.
-      ELSE IF ( KEYNAME(1:3) .EQ. 'TEL' ) THEN
-        LVAR_TEL = .TRUE.
       ELSE
         c1err = 'Unrecognized KEYNAME = ' // KEYNAME
         c2err = 'Check FITS table.'
@@ -14326,8 +14250,8 @@ cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
         print*,'   NWD, NVAL = ', NWD, NVAL
         print*,'   SNLC_CCID = ', SNLC_CCID
         print*,'   KEYNAME   = ', KEYNAME,'      LENKEY=', LK
-	print*,'   ISVAR_[FLT,FIELD,TEL] = ', 
-     &         LVAR_FLT, LVAR_FIELD, LVAR_TEL
+	print*,'   ISVAR_[FLT,FIELD] = ', 
+     &         LVAR_FLT, LVAR_FIELD
         print*,'   LEN(STRING) = ', LENS
         print*,'   STRING = ', STRING(1:1000)
         call flush(6)
@@ -14352,9 +14276,7 @@ cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
             ISNLC_IFILT_OBS(iwd) = FILTINDX_REPLACE(CWD)
          else if ( LVAR_FIELD ) then
             SNLC_FIELD(iwd)    = CWD(1:LWD)
-            ISNLC_IDFIELD(iwd) = GET_IDFIELD(CWD)           
-         else if ( LVAR_TEL ) then
-            ISNLC_IDTEL(iwd) = GET_IDTEL(CWD)
+            ISNLC_IDFIELD(iwd) = GET_IDFIELD(CWD)       
          endif
 
 +SELF,IF=DEBUG.
@@ -15378,47 +15300,6 @@ c now that ISBXFILT=T  set global logical
       RETURN
       END
 
-C ================================================      
-+DECK,GET_IDTEL.
-      INTEGER FUNCTION GET_IDTEL ( tel_name )
-c
-c May 2008
-c Return integer ID for this telescope name
-c IDTEL is from $SNDATA_ROOT/SURVEY.DEF
-c
-c Allow data files to have extra characters such as
-c "sdss-2.5m" for sdss and 'CTIO4m" for CTIO
-c
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-
-      character tel_name*(*)  ! name of telescope
-
-c local
-      character tel_upper*60
-      INTEGER LL, i
-
-c --------------- BEGIN -----------------
-
-      GET_IDTEL = -9
-
-      CALL UPCASE(tel_name, tel_upper) ! returns tel_upper
-      if ( tel_upper(1:3) .EQ. 'ALL' ) then
-        GET_IDTEL = 0
-        return
-      endif
-
-      DO i = 1, NIDTEL_LIST
-        LL = INDEX(SNTEL_LIST(i),' ' ) - 1
-        if ( tel_upper(1:LL) .EQ. SNTEL_LIST(i)(1:LL) ) then
-          GET_IDTEL = IDTEL_LIST(i)
-        endif
-      END DO
-
-      RETURN
-      END
 
 
 C ================================================      
@@ -15664,7 +15545,6 @@ C ------------- BEGIN ------------
       SNLC8_MJD(ep1)           = SNLC8_MJD(ep2)
       ISNLC_IDFIELD(ep1)       = ISNLC_IDFIELD(ep2)
       SNLC_FIELD(ep1)          = SNLC_FIELD(ep2) 
-      ISNLC_IDTEL(ep1)         = ISNLC_IDTEL(ep2)
       ISNLC_IFILT_OBS(ep1)     = ISNLC_IFILT_OBS(ep2)
       SNLC_FLUXCAL(ep1)        = SNLC_FLUXCAL(ep2)
       SNLC_FLUXCAL_ERRTOT(ep1) = SNLC_FLUXCAL_ERRTOT(ep2)
@@ -15904,7 +15784,6 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         ISNLC_EPOCH_RANGE_NEWMJD(2,iep)  =  -9
         ISNLC_IFILT_OBS(iep)      =  -9
 
-        ISNLC_IDTEL(iep)          =  -9
         ISNLC_IDFIELD(iep)        =  -9
 
         SNLC8_MJD(iep)           =  -9.0
@@ -21059,36 +20938,6 @@ c use H0_DEFAULT instead of namelist H0_REF so that plot is always the same.
       RETURN
       END   ! end of MON_HUBBLEREF
 
-C =======================================
-+DECK,IDTELSELECT.
-      LOGICAL FUNCTION IDTELSELECT(IDTEL)
-c
-c Returns TRUE if this IDTEL is accepted.
-c 
-      IMPLICIT NONE
-      INTEGER IDTEL  ! (I) telescope id of current epoch
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-      INTEGER i
-c ------------- BEGIN ---------
-
-      IF ( DOALL_SNTEL .or. FORMAT_TEXT ) THEN
-         IDTELSELECT = .TRUE. 
-         RETURN
-      ENDIF
-
-c check specific telescopes in user-list
-
-      IDTELSELECT = .FALSE.
-      DO i  = 1, NIDTEL_LIST
-         if ( IDTEL .EQ. IDTEL_LIST(i) ) then
-           IDTELSELECT = .TRUE.
-         endif
-      ENDDO
-      RETURN
-      END
 
 C ===============================================
 +DECK,MJDSELECT.
@@ -21528,7 +21377,7 @@ c local var
       INTEGER
      &   NEWMJD, imjd, NEWMJD_CUTS
      &  ,EPMIN, EPMAX, ep, ifilt, ifilt_obs
-     &  ,ICUT, i, cid, IDTEL, NTLIST
+     &  ,ICUT, i, cid,  NTLIST
      &  ,FLIST(MXEPOCH)
      &  ,NFILT, NFTMIN, NFTMAX, NFT2
 
@@ -21540,7 +21389,7 @@ c local var
       REAL  TREST, TRUEMAG, PHOTPROB
 
 c functions
-      LOGICAL MJDSELECT, IDTELSELECT, LCIDSELECT
+      LOGICAL MJDSELECT, LCIDSELECT
 
 c ---------------- BEGIN ---------------
 

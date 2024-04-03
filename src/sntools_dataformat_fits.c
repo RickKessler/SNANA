@@ -696,10 +696,7 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
 void wr_snfitsio_init_phot(void) {
 
   // Init HEADER table.
-  // Jan 2018: 
-  //   + remove several obsolete columns
-  //     (TELESCOPE, MAG, MAGERR )
-  //     
+
 
   long  NROW = 0 ;
   int itype, ncol, istat ;
@@ -1407,7 +1404,6 @@ void WR_SNFITSIO_UPDATE(void) {
   SNDATA.FLUXCAL_ERRTOT[ep] = SNFITSIO_EOE_MARKER ;
   sprintf(SNDATA.FILTCHAR[ep],  "%s", "-");
   sprintf(SNDATA.FIELDNAME[ep], "%s", "XXXX" ) ;
-  // xxx mark  sprintf(SNDATA.TELESCOPE[ep], "%s", "XXXX" ) ;
 
   // loop over epochs and fill fits table.
   NUSE_EPOCH = 0;

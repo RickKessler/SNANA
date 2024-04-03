@@ -16823,7 +16823,6 @@ void SIMLIB_initGlobalHeader(void) {
   SIMLIB_GLOBAL_HEADER.PIXSIZE            = 0.0 ;
   SIMLIB_GLOBAL_HEADER.SOLID_ANGLE        = 0.0 ;
   SIMLIB_GLOBAL_HEADER.NGENSKIP_PEAKMJD   = 0 ;
-  sprintf(SIMLIB_GLOBAL_HEADER.TELESCOPE, "UNKNOWN"); 
   sprintf(SIMLIB_GLOBAL_HEADER.FIELD,  "%s", FIELD_NONAME);
 
   sprintf(SIMLIB_GLOBAL_HEADER.SKYSIG_UNIT, "%s", 
@@ -16909,9 +16908,6 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     }
     else if ( strcmp(c_get,"SUBSURVEY_LIST:")==0  ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST );
-    }
-    else if ( strcmp(c_get,"TELESCOPE:") == 0 ) {
-      readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.TELESCOPE );
     }
     else if ( strcmp(c_get,"FIELD:") == 0 ) {      
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.FIELD );
@@ -17017,7 +17013,7 @@ void SIMLIB_prepGlobalHeader(void) {
 
   double RAD = RADIAN ;
   int i, NTMP, ifilt, ifilt_obs ;
-  char cfilt[4], *FILTERS, *TEL, *FIELD ;
+  char cfilt[4], *FILTERS, *FIELD ;
   char *SURVEY, *SUBSURVEY_LIST ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
 
@@ -17041,12 +17037,6 @@ void SIMLIB_prepGlobalHeader(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
  
-
-
-  TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
-  // xxz  sprintf(GENLC.TELESCOPE[0], "%s", TEL );
-  if ( !IGNOREFILE(TEL) )
-    { printf("\t SIMLIB telescope : %s \n", TEL ); }
 
   FIELD = SIMLIB_GLOBAL_HEADER.FIELD ;
   sprintf(GENLC.FIELDNAME[0], "%s", FIELD );
@@ -17992,7 +17982,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   char *ptrWDLIST[MXWDLIST_SIMLIB];
   char *FIELD_LIST = SIMLIB_HEADER.FIELD; // plus-separated list of fields
   char field[40];                         // field per epoch
-  char *TEL        = SIMLIB_HEADER.TELESCOPE ;
   char sepKey[] = " ";
   char fnam[] = "SIMLIB_readNextCadence_TEXT" ;
 
@@ -18565,8 +18554,8 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
   int NFILT_SPEC = INPUTS_SPECTRO.NSYN_FILTER  ; // Nsynthetic filters
   int ifilt, ispec, OBSRAW, ISTORE, NOBS_ADD, APP ;
   double MJD, TEXPOSE, PIXSIZE ;
-  char *FIELD, *TEL ;
-  //  char fnam[] = "SIMLIB_addCadence_SPECTROGRAPH" ;
+  char *FIELD ;
+  char fnam[] = "SIMLIB_addCadence_SPECTROGRAPH" ;
 
   // --------------- BEGIN --------------
 
@@ -18592,7 +18581,7 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
     TEXPOSE = SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[OBSRAW] ;
     FIELD   = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW] ;
     APP     = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW] ;
-    TEL     = INPUTS_SPECTRO.INSTRUMENT_NAME ;
+    // xxx mark del TEL     = INPUTS_SPECTRO.INSTRUMENT_NAME ;
     PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 
     // add each synthetic filter to SIMLIB OBS_RAW as if it
@@ -20165,8 +20154,6 @@ void init_SIMLIB_HEADER(void) {
   SIMLIB_HEADER.NSEASON = 1 ;
   for(i=0; i < MXSEASON_SIMLIB; i++ ) { SIMLIB_HEADER.USE_SEASON[i] = 0;}
 
-
-  sprintf(SIMLIB_HEADER.TELESCOPE,  "%s", SIMLIB_GLOBAL_HEADER.TELESCOPE) ;
   SIMLIB_HEADER.PIXSIZE  = SIMLIB_GLOBAL_HEADER.PIXSIZE ;
 
   if ( INPUTS.USE_SIMLIB_SPECTRA ) { NPEREVT_TAKE_SPECTRUM = 0 ; }

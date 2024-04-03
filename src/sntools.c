@@ -3229,11 +3229,7 @@ void read_SURVEYDEF(void) {
   FILE *fp ;
   char fnam[] = "read_SURVEYDEF" ;
 
-  bool LEGACY = false;
-
   // ------------ BEGIN ------------
-
-  if ( LEGACY ) { read_SURVEYDEF_legacy(); return; }
 
   sprintf(SURVEYDEF_FILE,"%s/SURVEY.DEF", PATH_SNDATA_ROOT);
   fp = fopen(SURVEYDEF_FILE,"rt");
@@ -3362,54 +3358,6 @@ void parse_geoSURVEYDEF(char *string_geo, int ID) {
 
 } // // end parse_geoSURVEYDEF
 
-// ==========================================
-void read_SURVEYDEF_legacy(void) {
-
-  // Created Aug 19 2016 [moved frmo SALT2mu.c on July 2017]
-  // Read SURVEY.DEF file and store each defined survey name in
-  // SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY].
-  //
-
-  char SURVEYDEF_FILE[MXPATHLEN], c_get[60], nameTmp[40];
-  int  idTmp ;
-  FILE *fp ;
-  char fnam[] = "read_SURVEYDEF_legacy" ;
-
-  // ------------ BEGIN -------------
-
-  sprintf(SURVEYDEF_FILE,"%s/SURVEY.DEF", PATH_SNDATA_ROOT);
-  fp = fopen(SURVEYDEF_FILE,"rt");
-  if ( !fp ) {
-    sprintf(c1err,"Could not open SURVEY.DEF file");
-    sprintf(c2err,"%s", SURVEYDEF_FILE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  // init each survey name to NULL
-  for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
-    sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"NULL"); 
-    SURVEY_INFO.geoLAT[idTmp]  = 99999.0 ;
-    SURVEY_INFO.geoLON[idTmp]  = 99999.0 ;
-  }
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-    if ( strcmp(c_get,"SURVEY:") == 0 ) {
-      readchar(fp, nameTmp ); readint(fp, 1, &idTmp );
-      if ( idTmp >= MXIDSURVEY ) {
-	sprintf(c1err,"IDSURVEY=%d(%s) exceeds MXIDSURVEY=%d", 
-		idTmp, nameTmp, MXIDSURVEY);
-	sprintf(c2err,"check %s", SURVEYDEF_FILE);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-
-      sprintf(SURVEY_INFO.SURVEYDEF_LIST[idTmp],"%s", nameTmp);
-    }
-  }
-
-  fclose(fp);
-  return ;
-
-} // end read_SURVEYDEF_legacy
 
 // ==========================================                                   
 int get_IDSURVEY(char *SURVEY) {
@@ -8345,8 +8293,6 @@ int init_SNDATA_EVENT(void) {
     sprintf ( SNDATA.FIELDNAME[i_epoch], FIELD_NONAME );
 
     SNDATA.IDTEL[i_epoch] = NULLINT ;
-    //xxx mark    sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );
-
 
     SNDATA.FILTINDX[i_epoch]       = NULLINT ;
     SNDATA.SEARCH_FIELD[i_epoch]   = NULLINT ;

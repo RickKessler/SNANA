@@ -28,7 +28,7 @@
 
 // - - - - - -
 void simlib_open_write(char *filename, char *surveyname, char *filters, 
-		       char *telescope, char *comment, char *headFile );
+		       char *comment, char *headFile );
 
 void simlib_add_header(int optflag, int IDLIB, int NOBS, 
 		       char *FIELD, float *INFO );

@@ -82,7 +82,6 @@ void simlib_open_write(
 		 char *filename     // full name of file to open
 		 ,char *surveyname  // name of survey; i.e, "SDSS"
 		 ,char *filters     // filter list; i.e, "ugriz"
-		 ,char *telescope   // name of telescope
 		 ,char *comment     // user comment
 		 ,char *headFile    // optional file with header contents
 		 ) {
@@ -113,8 +112,8 @@ void simlib_open_write(
 
   // write global info at top of lib-file
 
-  fprintf(FPLIB,"SURVEY: %s     FILTERS: %s   TELESCOPE:  %s \n", 
-	  surveyname, filters, telescope );
+  fprintf(FPLIB,"SURVEY: %s     FILTERS: %s \n", 
+	  surveyname, filters);
   fprintf(FPLIB,"USER: %s     HOST: %s \n", 
 	  getenv("USER"), getenv("HOST") );
   fprintf(FPLIB,"COMMENT: '%s'  \n", comment);

@@ -1485,7 +1485,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char SUBSURVEY_LIST[MXPATHLEN];
   char FILTERS[MXFILTINDX];  // global list of all filters
   char FIELD[60];            // Nov 2021
-  char TELESCOPE[60];
+  // xxx mark delete  char TELESCOPE[60];
   char PSF_UNIT[40] ;
   bool NEA_PSF_UNIT;
   char SKYSIG_UNIT[40];
@@ -1555,7 +1555,7 @@ struct SIMLIB_HEADER {
   char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
-  char TELESCOPE[60] ; // July 2016
+  // xxx mark del  char TELESCOPE[60] ; // July 2016
   char FIELD[60], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
   int  NFIELD_OVP ;
 

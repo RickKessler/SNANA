@@ -8,7 +8,7 @@
 #          for a specific MJD utilizing the original dump file and input file.
 #
 
-import argparse, yaml, sys, os, re, glob, pandas as pd
+import argparse, yaml, sys, os, re, glob, logging, pandas as pd
 
 def parse_yaml(args):
     # parse yaml file, return dictionary of values
@@ -19,9 +19,7 @@ def parse_yaml(args):
         try:
             config_dic = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            
-            print(exc)
-            sys.stdout.flush()
+            logging.error("%s",exc)
     return(config_dic)
 
 def get_args():
@@ -50,8 +48,7 @@ def get_args():
 
     file = args.file_name
     if file == '':
-        print('ERROR: No yaml file name given.')
-        sys.stdout.flush()
+        logging.error('No yaml file name given.')
         sys.exit()
 
     no_resim = args.no_resim
@@ -64,9 +61,8 @@ def get_args():
         parser.print_help(); sys.exit()
         
     if verbose==True:
-        print('Retrieved arguments.')
-        sys.stdout.flush()
-    
+        logging.info('Retrieved arguments.')
+
     return no_resim, verbose, perfect, config_dic, Help, extra_sim_args
 
 
@@ -77,37 +73,32 @@ def find_dump_file(cid, simfolder):
     all_dump_files = exp_var+'/*DUMP'
     list_dumps = glob.glob(all_dump_files)
     if len(list_dumps)==0:
-        print('ERROR: No dump files found in ', exp_var)
-        sys.stdout.flush()
+        logging.error('No dump files found in %s', exp_var)
         sys.exit()
     counter = 0
     for dump in list_dumps:
         if "REPEAT" not in dump:
             with open(dump) as file:
                 data = file.read()
-            if re.search(str(cid),data):
+            if re.search(str(cid) + " ",data):
                 dump_path = dump
                 counter += 1
     if counter !=1:
-        print('ERROR: Number of dump files found with the cid is expected 1, but is: ', counter)
-        sys.stdout.flush()
+        logging.error('Number of dump files found with the cid is expected 1, but is: %s', counter)
         sys.exit()
 
     return(dump_path)
 
-def retrieve_values_from_dump(dump_file_path, cid, dump_key):
+def retrieve_values_from_dump(dump_row, dump_key):
     #retrieve and return values from dump file for a given cid and key
-    if verbose == True:
-        print('Accessing dump file: ', dump_file_path)
-        sys.stdout.flush()
-    command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+" -o out_simgen_resim.dump"
-    if verbose == True:
-        print('Getting fitres values using command: ', command)
-        sys.stdout.flush()
-    os.system(command) 
-    df = pd.read_csv('out_simgen_resim.dump', comment='#', delim_whitespace=True)
-    row = df.loc[df['CID'] == int(cid)]
-    value = str(row[dump_key].values[0])
+    #if verbose == True:
+    #    logging.info('Accessing dump file: %s', dump_file_path)
+    #command = f"get_fitres_values.py -f {dump_file_path} -c {cid} -v "+dump_key+" -o out_simgen_resim.dump"
+    #if verbose == True:
+    #    logging.info('Getting fitres values using command: %s ', command)
+    #os.system(command) 
+    #df = pd.read_csv('out_simgen_resim.dump', comment='#', delim_whitespace=True)
+    value = str(dump_row[dump_key].values[0])
     return(value)
 
 def is_it_Ia(lines):
@@ -124,7 +115,7 @@ def get_genversion(dump_file_path):
     return genversion
     # end get_genversion
 
-def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir):
+def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir, dump_cid_row):
     #edit input file for a given cid and mjd
     #returns path of new input file
 
@@ -180,9 +171,7 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
 
     if perfect==True:
         KEY_CHANGE_DICT['SPECTROGRAPH_OPTMASK:'] = [  None,              ACTION_ADD,      '32768',                        False]
-        print('Perfect flag was raised, so turn off noise in spectrum.')
-        sys.stdout.flush()
-
+        logging.info('Perfect flag was raised, so turn off noise in spectrum.')
 
     lines = []
     with open(file_name, 'r') as f:
@@ -206,36 +195,31 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
                 if KEY_CHANGE_DICT[key][1] == ACTION_REMOVE:
                     new_string = "#"+ key+" REMOVED BY SCRIPT"
                     if verbose==True:
-                        print('REMOVED BY SCRIPT: ', key[0:-1])
-                        sys.stdout.flush()
+                        logging.info('REMOVED BY SCRIPT: %s', key[0:-1])
                 #if the action is change
                 elif KEY_CHANGE_DICT[key][1] == ACTION_CHANGE:
                     #if the key is associated with a value and the SN is Ia, input the SALT values into the line
                     if KEY_CHANGE_DICT[key][0] == None and KEY_CHANGE_DICT[key][3]==is_Ia:
                         new_string = new_string + KEY_CHANGE_DICT[key][2] + "   # CHANGED BY SCRIPT"
                         if verbose==True:
-                            print('CHANGED BY SCRIPT: ', key[0:-1])
-                            sys.stdout.flush()
+                            logging.info('CHANGED BY SCRIPT: %s', key[0:-1])
                     #if the key is associated with a value, input that into the line
                     elif KEY_CHANGE_DICT[key][0] == None and KEY_CHANGE_DICT[key][3]==False:
                         new_string = new_string + KEY_CHANGE_DICT[key][2] + "   # CHANGED BY SCRIPT"
                         if verbose==True:
-                            print('CHANGED BY SCRIPT: ', key[0:-1])      
-                            sys.stdout.flush()             
+                            logging.info('CHANGED BY SCRIPT: %s', key[0:-1])      
                     #otherwise the key is associated with a dump file key, so retrieve that value from the dump file
                     #SALT values if Ia and then the rest
                     elif KEY_CHANGE_DICT[key][3]==is_Ia:
-                        from_dump = retrieve_values_from_dump(dump_file_path,cid,KEY_CHANGE_DICT[key][0])
+                        from_dump = retrieve_values_from_dump(dump_cid_row,KEY_CHANGE_DICT[key][0])
                         new_string = new_string + from_dump + "   # CHANGED BY SCRIPT"
                         if verbose==True:
-                            print('CHANGED BY SCRIPT: ', key[0:-1]) 
-                            sys.stdout.flush()
+                            logging.info('CHANGED BY SCRIPT: %s', key[0:-1]) 
                     else:
-                        from_dump = retrieve_values_from_dump(dump_file_path,cid,KEY_CHANGE_DICT[key][0])
+                        from_dump = retrieve_values_from_dump(dump_cid_row,KEY_CHANGE_DICT[key][0])
                         new_string = new_string + from_dump + "   # CHANGED BY SCRIPT"
                         if verbose==True:
-                            print('CHANGED BY SCRIPT: ', key[0:-1])   
-                            sys.stdout.flush() 
+                            logging.info('CHANGED BY SCRIPT: %s', key[0:-1])   
         final_lines.append(new_string)
     
     #add the action change keys
@@ -245,15 +229,13 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
             if value[0] == None:
                 new_string = key + '  ' + value[2] + "   # ADDED BY SCRIPT"
                 if verbose==True:
-                    print('ADDED BY SCRIPT: ', key)
-                    sys.stdout.flush()
+                    logging.info('ADDED BY SCRIPT: %s', key)
                 final_lines.append(new_string)
             else:
-                from_dump = retrieve_values_from_dump(dump_file_path,cid,KEY_CHANGE_DICT[key][0])
+                from_dump = retrieve_values_from_dump(dump_cid_row,KEY_CHANGE_DICT[key][0])
                 new_string = key + ' ' + from_dump + "   # ADDED BY SCRIPT"
                 if verbose==True:
-                    print('ADDED BY SCRIPT: ', key)
-                    sys.stdout.flush()
+                    logging.info('ADDED BY SCRIPT: %s', key)
                 final_lines.append(new_string)
     
     #add the nonIa keys
@@ -262,24 +244,19 @@ def edit_input(cid, mjd, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy,
         final_lines.append(new_string)
 
 
-        nonIa_index = retrieve_values_from_dump(dump_file_path, cid, 'NON1A_INDEX')
-        gentype = retrieve_values_from_dump(dump_file_path, cid, 'GENTYPE')
+        nonIa_index = retrieve_values_from_dump(dump_cid_row, 'NON1A_INDEX')
+        gentype = retrieve_values_from_dump(dump_cid_row, 'GENTYPE')
 
         new_string = 'NON1A:    '+ nonIa_index + ' 1 0 0  ' + gentype + '  # ADDED BY SCRIPT'
         final_lines.append(new_string)
         if verbose==True:
-            print('ADDED BY SCRIPT: NON1A_KEYS, NON1A')
-            sys.stdout.flush()
+            logging.info('ADDED BY SCRIPT: NON1A_KEYS, NON1A')
 
     if verbose==False:
-        print('Keys have been changed, removed, and added as needed.')
-        sys.stdout.flush()
-
-    
+        logging.info('Keys have been changed, removed, and added as needed.')
 
     filename = version+"_cid"+str(cid)+'_mjd'+str(mjd)+"_new.input"   # name of the file to create 
-    print('Final input file name stored in ',outdir,'/', filename)
-    sys.stdout.flush()
+    logging.info('Final input file name stored in %s/%s',outdir,filename)
     #join the sub-directory and filename using os.path.join() 
 
     path = os.path.join(outdir, filename) 
@@ -315,37 +292,31 @@ def process_cid(cid,mjds,config_dic):
             os.makedirs(outdir)
 
     if verbose==True:
-        print('Simfolder:  ', simfolder)
-        sys.stdout.flush()
-        print('kcor file: ', kcor)
-        sys.stdout.flush()
-        print('simgen_eazy file: ', simgen_eazy)
-        sys.stdout.flush()
-        print('hostlib file: ', hostlib_file)
-        sys.stdout.flush()
+        logging.info('Simfolder:  %s', simfolder)
+        logging.info('kcor file: %s', kcor)
+        logging.info('simgen_eazy file: %s', simgen_eazy)
+        logging.info('hostlib file: %s', hostlib_file)
 
     dump_file_path = find_dump_file(cid, simfolder)
+    dump_df = pd.read_csv(dump_file_path, comment='#', delim_whitespace=True)
+    dump_cid_row = dump_df.loc[dump_df['CID'] == int(cid)]
     #store z and peak_mjd
-    zcmb = retrieve_values_from_dump(dump_file_path,cid,'ZCMB')
+    zcmb = retrieve_values_from_dump(dump_cid_row,'ZCMB')
     if verbose==True:
-        print('ZCMB is: ', zcmb)
-        sys.stdout.flush()
-    peak_mjd = retrieve_values_from_dump(dump_file_path,cid,'PEAKMJD')
+        logging.info('ZCMB is: %s', zcmb)
+    peak_mjd = retrieve_values_from_dump(dump_cid_row,'PEAKMJD')
     if verbose==True:
-        print('Peak MJD is: ', peak_mjd)
-        sys.stdout.flush()
+        logging.info('Peak MJD is: %s', peak_mjd)
 
     #convert string 'peak' to peak_mjd
     if 'peak' in mjds:
         mjds.remove('peak')
         mjds.append(peak_mjd)
 
-    print('Processing for CID: ', cid)
-    sys.stdout.flush()
+    logging.info('Processing for CID: %s', cid)
     mjds = [float(i) for i in mjds]
     cid = int(cid)
-    print('Processing for the following MJDs: ', mjds)
-    sys.stdout.flush()
+    logging.info('Processing for the following MJDs: %s', mjds)
 
     for date in mjds:
         #create file for each date
@@ -371,28 +342,22 @@ def process_cid(cid,mjds,config_dic):
             file_name = outdir+ "/sim_input_" + genversion + "_MODEL0.input"
         
         if verbose==True:
-            print('Run the following command in ', outdir, command)
-            sys.stdout.flush()
+            logging.info('Run the following command in %s: %s', outdir, command)
 
         
-        print('Input file to edit: ', file_name)
-        sys.stdout.flush()
+        logging.info('Input file to edit: %s', file_name)
         #edit input file
         if verbose==True:
-            print('Create edited input file.')
-            sys.stdout.flush()
+            logging.info('Create edited input file.')
 
-        path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir) 
+        path = edit_input(cid, date, zcmb, peak_mjd, file_name, dump_file_path, simgen_eazy, hostlib_file, kcor, outdir,dump_cid_row) 
 
         if no_resim==False:
             #run sim
-            print('Running simulation.')
-            sys.stdout.flush()
+            logging.info('Running simulation.')
             command = f"snlc_sim.exe "+path.split('/')[1]+extra_sim_args
-            print('PATH:', path)
-            sys.stdout.flush()
-            print('Run the following command: ', command)
-            sys.stdout.flush()
+            logging.info('PATH: %s', path)
+            logging.info('Run the following command: %s', command)
             if outdir == 'store_resim_inputs':
                 os.chdir(cwd+ "/store_resim_inputs")
                 os.system(command)
@@ -402,8 +367,7 @@ def process_cid(cid,mjds,config_dic):
                 os.system(command)
                 os.chdir(cwd)
         else:
-            print("No resim flag was raised, so not resimulating.")
-            sys.stdout.flush()
+            logging.info("No resim flag was raised, so not resimulating.")
 
 def print_help():
     #print help menu for config parameters
@@ -432,15 +396,14 @@ def print_help():
 
 def print_verbose_main(config_dic, cids_mjd_rows):
     #print all verbose statements in main method
-    print('YAML contained: ', config_dic)
-    sys.stdout.flush()
-    print('CIDS + mjds are: ', cids_mjd_rows)
-    sys.stdout.flush()
+    logging.info('YAML contained: %s', config_dic)
+    logging.info('CIDS + mjds are: %s', cids_mjd_rows)
 
 # =============================================
 #       MAIN
 # =============================================
 if __name__ == "__main__":
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
     no_resim, verbose, perfect, config_dic, Help, extra_sim_args = get_args()
     cid_mjd_rows = config_dic['CID_MJD_LIST'] 
 

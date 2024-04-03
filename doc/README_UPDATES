@@ -22287,6 +22287,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + fix +HOST[xxx] logic to work if sim-input file contains
        only HOSTLIB_FILE key and nothing else.
 
+   sntools_sim_readme.c
+     + write mean wavelength vs. band to FILTERS block in readme
+     
    snlc_sim.c
      + remove DEBUG_FLAG==-128 block to reproduce old bug
      + in gen_zsmear(), remove special check for zerr==0

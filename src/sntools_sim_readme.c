@@ -4,7 +4,8 @@
    Write DOCUMENTATION block to [VERSION].README    
 
    Jan 17 2022: remove legacy functions
-
+   Apr 02 2024: write <lamobs> vs. filter (needed by classifiers)
+'
 ******************************************************/
 
 #include "sntools.h"
@@ -91,6 +92,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
 
     README_DOCANA_OVERVIEW(&i);
     README_DOCANA_INPUT_KEYS(&i);
+    README_DOCANA_FILTERS(&i);
     README_DOCANA_INPUT_NOTES(&i);
   }
   else {
@@ -296,6 +298,42 @@ void  README_DOCANA_INPUT_KEYS(int *iline) {
   *iline = i;
   return;
 } // end README_DOCANA_INPUT_KEYS
+
+void  README_DOCANA_FILTERS(int *iline) {
+
+  // Created Apr 2024
+
+  int ifilt, ifilt_obs, i = *iline ;
+  double LAMOBS, LAMMIN, LAMMAX ; 
+  char cfilt[4], *cptr, pad[] = "  " ;
+  char fnam[] = "README_DOCANA_FILTERS";
+  
+  // --------- BEGIN ----------
+
+  readme_docana_comment(&i, "");
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sFILTERS:   # mean wavelength (A)", pad );
+  
+  for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
+    sprintf(cfilt, "%c", INPUTS.GENFILTERS[ifilt] ) ;
+    LAMOBS     = (double)INPUTS.LAMAVG_OBS[ifilt_obs];
+    LAMMIN     = (double)INPUTS.LAMMIN_OBS[ifilt_obs];
+    LAMMAX     = (double)INPUTS.LAMMAX_OBS[ifilt_obs];
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s  %s:  %.1f", pad, cfilt, LAMOBS );
+  }
+
+  
+  
+  *iline = i;
+  return;
+  
+} // end README_DOCANA_FILTERS
+
+
 
 void README_DOCANA_INPUT_NOTES(int *iline) {
   int  OVP, j, i = *iline;

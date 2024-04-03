@@ -48,6 +48,7 @@ README_KEYPLUSARGS_DEF README_KEYS_SIMGEN_DUMP ;
 void  README_DOCANA_DRIVER(int iflag_readme);
 void  README_DOCANA_OVERVIEW(int *iline);
 void  README_DOCANA_INPUT_KEYS(int *iline);
+void  README_DOCANA_FILTERS(int *iline);
 void  README_DOCANA_INPUT_NOTES(int *iline);
 void  README_DOCANA_OUTPUT_SUMMARY(int *iline);
 void  README_DOCANA_SED_TRUE(int *iline);

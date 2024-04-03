@@ -10484,7 +10484,7 @@ void GENSPEC_TRUE(int imjd) {
   // compute true synthetic mag per band
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-    if (!GENLC.DOFILT[ifilt_obs]) {continue;}
+    // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
     GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST, NULL_FLAMERR_LIST,
 		   &SYNMAG, &DUMERR); // compute synth mag; ignore MAGERR
 
@@ -11669,7 +11669,7 @@ void  GENSPEC_FLAM(int imjd) {
   double GENMAG_SYN, GENMAGERR_SYN ;
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-    if (!GENLC.DOFILT[ifilt_obs]) {continue;}
+    // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
 
     // note input is true GENFLAM_LIST (not measured FLAM_LIST)
     // and true FLAMERR_LIST is same as measured FLAMERR_LIST.

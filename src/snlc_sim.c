@@ -23203,7 +23203,11 @@ double zHEL_WRONGHOST(void) {
   //  First-principls model using NBR_LIST column of HOSTLIB
   //
   // Jul 5 2022: allow Strong lens model for incorrect host match
-  //             
+  // Apr 3 2024: disable abort if there is no wrong-host model
+  //              to allow simulating host-less events if true
+  //              host fails HOSTLIB_MAG[SNR]_DETECT
+  //
+  
   bool WRONGHOST_MODEL_LEGACY  = (WRONGHOST.NLIST > 0); 
   bool WRONGHOST_MODEL_HOSTLIB = (HOSTLIB.IVAR_NBR_LIST > 0 );
   bool WRONGHOST_MODEL_SL      = INPUTS_STRONGLENS.USE_FLAG ;
@@ -23223,9 +23227,11 @@ double zHEL_WRONGHOST(void) {
     zHEL = SNHOSTGAL_DDLR_SORT[0].ZSPEC ; // only DDLR match
   }
   else {
+    /* xxxxxxxxxxx mark delete Apr 2024 xxxxxxxx
     sprintf(c1err,"CORRECT_HOSTMATCH = %d ", GENLC.CORRECT_HOSTMATCH);
     sprintf(c2err,"but neither WRONGHOST model is set ???");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    xxxxxxxx */
   }
 
   return zHEL;

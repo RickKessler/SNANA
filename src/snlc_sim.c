@@ -1122,6 +1122,10 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_NBAND_SNR_DETECT     = 0;
   for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_DETECT[i] = 0.0 ; }
 
+  INPUTS.HOSTLIB_MAG_DETECT_STRING[0] = 0 ;
+  INPUTS.HOSTLIB_NBAND_MAG_DETECT     = 0;
+  for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_MAG_DETECT[i] = 0.0 ; }
+
   INPUTS.HOSTLIB_NMJD_SNR_SCALE = 0;
   for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_SCALE[i][0] = 0.0 ; }
 
@@ -2856,50 +2860,72 @@ void parse_input_FIXMAG(char *string) {
 } // end parse_input_FIXMAG
 
 // =========================================
-void parse_input_HOSTLIB_SNR_DETECT(char *STRING) {
+void parse_input_HOSTLIB_GAL_DETECT(char *FEATURE, char *STRING) {
 
-  // Created Jun 2022 
-  // parse STRING of the form, e.g., 
+  // Created Jun 2022
+  // 
+  // parse input FEATURE = "SNR" or "MAG"
+  // and STRING of the form, e.g., 
   //   5   -> one band with SNR>5
   //   5,5 -> two bands with SNR>5
   //   5,4 -> one band with SNR>5, another with SNR>4
   //
-  // and store NBAND and list of SNR_DETECT in INPUTS struct.
-  // Store SNR_DETECT as sorted list starting with max SNR requirement.
+  // and similar for comma-sep list of mags.
+  //
+  // Store NBAND and list of SNR_DETECT [MAG_DETECT] in INPUTS struct.
+  // Store SNR[MAG]_DETECT as sorted list starting with most stringent
+  // requirement.
   // Thus if user input is
   //   HOSTLIB_SNR_DETECT: 5,10,3
   // the SNR_DETECT list is stored as 10,5,3
   //
+  // If user input is
+  //   HOSTLIB_MAG_DETECT: 28,26,27
+  // the MAG_DETECT list is stored as 26,27,28
+  //
 
   int i, NBAND;
-  int MXBAND=10, MXCHAR=8;
-  float SNR, SNR_LIST[10];
-  char **str_list;
-  char fnam[] = "parse_input_HOSTLIB_SNR_DETECT";
+  int MXBAND=10, MXCHAR=8, ORDER_SORT ;
+  float VAL, VAL_LIST[10], *val_detect_ptr;
+  int  *nband_ptr ;
+  char **str_list, *string_ptr;
+  char fnam[] = "parse_input_HOSTLIB_GAL_DETECT";
 
   // ---------- BEGIN -----------
 
-  sprintf(INPUTS.HOSTLIB_SNR_DETECT_STRING,"%s", STRING);
+  if ( strcmp(FEATURE,"SNR") == 0 ) {
+    string_ptr     = INPUTS.HOSTLIB_SNR_DETECT_STRING;
+    nband_ptr      = &INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
+    val_detect_ptr = INPUTS.HOSTLIB_SNR_DETECT;
+    ORDER_SORT     = -1;
+  }
+  else {
+    string_ptr     = INPUTS.HOSTLIB_MAG_DETECT_STRING;
+    nband_ptr      = &INPUTS.HOSTLIB_NBAND_MAG_DETECT ;
+    val_detect_ptr = INPUTS.HOSTLIB_MAG_DETECT;
+    ORDER_SORT     = +1;
+  }
+  
+  sprintf(string_ptr,"%s", STRING);
 
   parse_commaSepList(fnam, STRING, MXBAND, MXCHAR, &NBAND, &str_list);
 
-  INPUTS.HOSTLIB_NBAND_SNR_DETECT = NBAND;
+  *nband_ptr = NBAND;
 
   for(i=0; i < NBAND; i++ ) 
-    { sscanf(str_list[i], "%f", &SNR);     SNR_LIST[i] = SNR;  }
+    { sscanf(str_list[i], "%f", &VAL);   VAL_LIST[i] = VAL;  }
 
   // sort list to be increasing order
   if ( NBAND == 1 ) {
     // 1 item, so nothing to sort
-    INPUTS.HOSTLIB_SNR_DETECT[0] = SNR_LIST[0];
+    val_detect_ptr[0] = VAL_LIST[0];		   
   }
   else {
-    int ORDER_SORT = -1; // decreasing order
     int INDEX_SORT[10], isort;
-    sortFloat(NBAND, SNR_LIST, ORDER_SORT, INDEX_SORT );
+    sortFloat(NBAND, VAL_LIST, ORDER_SORT, INDEX_SORT );
     for(i=0; i < NBAND; i++ )  {  
       isort = INDEX_SORT[i]; 
-      INPUTS.HOSTLIB_SNR_DETECT[i] = SNR_LIST[isort];  
+      val_detect_ptr[i] = VAL_LIST[isort];  
     }
 
   }
@@ -2908,8 +2934,8 @@ void parse_input_HOSTLIB_SNR_DETECT(char *STRING) {
   int LDMP = 0 ;
   if ( LDMP ) {
     for(i=0; i < NBAND; i++ )  {  
-      printf(" xxx %s: store SNR_DETECT[%d] = %.2f \n",
-	     fnam, i, INPUTS.HOSTLIB_SNR_DETECT[i] );
+      printf(" xxx %s: store  %s_DETECT[%d] = %.2f \n",
+	     fnam, FEATURE, i, val_detect_ptr[i] );
     }
     
     debugexit(fnam);
@@ -2917,7 +2943,7 @@ void parse_input_HOSTLIB_SNR_DETECT(char *STRING) {
 
   return ;
 
-} // end parse_input_HOSTLIB_SNR_DETECT
+} // end parse_input_HOSTLIB_GAL_DETECT
 
 
 // ===============================================
@@ -3705,8 +3731,12 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_SMEAR_SERSIC );
   }
   else if ( keyMatchSim(1, "HOSTLIB_SNR_DETECT", WORDS[0],keySource) ) {
-    N++;  parse_input_HOSTLIB_SNR_DETECT(WORDS[N]);
+    N++;  parse_input_HOSTLIB_GAL_DETECT("SNR", WORDS[N]);
   }
+  else if ( keyMatchSim(1, "HOSTLIB_MAG_DETECT", WORDS[0],keySource) ) {
+    N++;  parse_input_HOSTLIB_GAL_DETECT("MAG", WORDS[N]);
+  }
+  
   else if ( strstr(WORDS[0],"HOSTLIB_SNR_SCALE") != NULL )  {
     N++;  parse_input_HOSTLIB_SNR_SCALE(WORDS,keySource); // June 29 2022
   }

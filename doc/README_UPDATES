@@ -22301,7 +22301,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         allows running multiple strategies with one generation.
      + if simulating spectra, automatically produce [VERSION].SPEC
         summary file in sim-data outout directory.
-
+     + new inputs HOSTLIB_MAG_DETECT; analog of HOSTLIB_SNR_DETECT,
+       but mag-errors are not needed. Initial use is for Roman sims.
+     
    snana.car
      + call ENVreplace(HEADER_OVERRIDE_FILE)
      + undo recent logic that forced SNLC_REDSHIFT = -9 if 

@@ -784,6 +784,7 @@ double snmagshift_salt2gamma_HOSTLIB(long long int GALID);
 void   set_GALID_UNIQUE(int i);
 
 bool snr_detect_HOSTLIB(int IGAL);
+bool mag_detect_HOSTLIB(int IGAL);
 void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
 
 // SPECBASIS functions

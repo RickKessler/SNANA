@@ -2550,8 +2550,8 @@ class Simulation(Program):
         # for merged sim version.
         # The tricky part is to skip the '# Output data' keys.
 
-        INPUT_KEYS_BASENAME  = "INPUT_KEYS"
-        INPUT_NOTES_BASENAME = "INPUT_NOTES"
+        INPUT_KEYS_BASENAME  = "INPUT_KEYS"   # when to start writing
+        INPUT_NOTES_BASENAME = "INPUT_NOTES"  # when to stop writing
 
         # define keys to ignore in global readme because these keys
         # only make sense for job in specific core.

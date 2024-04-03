@@ -7999,6 +7999,7 @@ void GEN_SNHOST_NBR(int IGAL) {
   // Jun 29 2021: change rownum-1 to rownum to fix index bug.
 
   int  NBAND_SNR_DETECT = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
+  int  NBAND_MAG_DETECT = INPUTS.HOSTLIB_NBAND_MAG_DETECT ;
   int  LDMP = 0 ; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
   int  i, ii, NNBR_READ, NNBR_STORE=1, rowNum, IGAL_STORE, IGAL_ZSORT ;
   int  unsort_true = 0; // index for unsorted DDLR
@@ -8091,12 +8092,17 @@ void GEN_SNHOST_NBR(int IGAL) {
 
  SNR_DETECT:
 
-  if ( NBAND_SNR_DETECT > 0 ) { 
+  if ( NBAND_SNR_DETECT > 0  || NBAND_MAG_DETECT > 0 ) { 
     int  NNBR_DETECT=0, IGAL_NBR;
     bool DETECT;
     for(i=0; i < NNBR_STORE; i++ ) {
       IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i] ;
-      DETECT   = snr_detect_HOSTLIB(IGAL_NBR);
+
+      if ( NBAND_SNR_DETECT ) 
+	{ DETECT   = snr_detect_HOSTLIB(IGAL_NBR); }
+      else
+	{ DETECT   = mag_detect_HOSTLIB(IGAL_NBR); }
+      
       if ( DETECT ) { 
 	SNHOSTGAL.IGAL_NBR_LIST[NNBR_DETECT] = IGAL_NBR ;
 	NNBR_DETECT++ ;
@@ -8158,6 +8164,8 @@ bool snr_detect_HOSTLIB(int IGAL) {
 
   // ------------ BEGIN ----------
 
+  // check option to scale uncertainty based on survey duration;
+  // this impacts SNR_DETECT, but not MAG_DETECT.
   set_MAGOBS_ERR_SCALE_HOSTLIB();
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
@@ -8166,13 +8174,13 @@ bool snr_detect_HOSTLIB(int IGAL) {
     IVAR_MAG       = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
     IVAR_MAGERR    = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
 
-    if (( IVAR_MAG > 0 ) & (IVAR_MAGERR > 0)) {
+    if (( IVAR_MAG > 0 ) && (IVAR_MAGERR > 0)) {
         MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
         MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
 	MAG_ERR *= SNHOSTGAL.MAGOBS_ERR_SCALE;
 
 	// Oct 5 2023: set crazy MAG_ERR to 9.0
-	if ( MAG_ERR < 0.0 || MAG_ERR > MAGERR_UNDEFINED ) { MAG_ERR = MAGERR_UNDEFINED; }
+	if ( MAG_ERR < 0.0 || MAG_ERR > MAGERR_UNDEFINED) { MAG_ERR=MAGERR_UNDEFINED;}
 
 	if ( MAG_ERR > 0.0 ) {
 	  SNR  = (2.5/LNTEN) / MAG_ERR ;
@@ -8229,6 +8237,82 @@ bool snr_detect_HOSTLIB(int IGAL) {
   return detect ;
 
 } // end snr_detect_HOSTLIB
+
+
+// ==================================
+bool mag_detect_HOSTLIB(int IGAL) {
+
+  // Created Apri 2024
+  // Return True if this IGAL is detected based in MAG cuts from
+  // sim-input HOSTLIB_MAG_DETECT.
+  // Galaxy mags ([band_obs]) are needed in HOSTLIB
+  // (but mag errors are NOT needed).
+  //  [band]_obs and [band]_obs_err
+  // Abort if mag columns are missing from HOSTLIB.
+
+
+  int  NBAND_MAG_DETECT = INPUTS.HOSTLIB_NBAND_MAG_DETECT ;
+  int IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt, NBAND_EXIST = 0;
+  char cfilt[2];
+  double MAG,  MAG_LIST[MXFILTINDX];
+  bool detect = true;
+  char fnam[] = "mag_detect_HOSTLIB";
+
+  // ------------ BEGIN ----------
+
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+    IVAR_MAG       = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+
+    if (  IVAR_MAG > 0 ) {
+      MAG      = get_VALUE_HOSTLIB(IVAR_MAG, IGAL) ;  
+      MAG_LIST[NBAND_EXIST]      = MAG ; 
+      NBAND_EXIST++;
+    }
+  }
+
+  // - - - -
+  // abort if there are fewer bands than needed to apply the MAG cut
+  if ( NBAND_EXIST < NBAND_MAG_DETECT ) {
+    sprintf(c1err,"NBAND_EXIST = %d but NBAND_MAG_EXIST==%d", 
+	    NBAND_EXIST, NBAND_MAG_DETECT);
+    sprintf(c2err,"Check <BAND>_OBS in HOSTLIB, "
+	    "and sim-input HOSTLIB_MAG_DETECT.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+ }
+
+  // sort HOST mags by MAG, in increasing order
+  int ORDER_SORT = +1; // increasing order
+  int INDEX_SORT[MXFILTINDX];
+  sortDouble( NBAND_EXIST, MAG_LIST, ORDER_SORT, INDEX_SORT ) ;
+
+  // loop over MAG cut values and apply MAG cut in sorted space.
+  int icut, isort; 
+  for(icut=0; icut < NBAND_MAG_DETECT; icut++){
+    isort = INDEX_SORT[icut];
+    if ( MAG_LIST[isort] > INPUTS.HOSTLIB_MAG_DETECT[icut] ) {
+      detect = false;
+    }
+  }
+
+  int i, LDMP = 0;
+  int NNBR_ORIG = SNHOSTGAL.NNBR_ALL ;
+  if ( LDMP && NNBR_ORIG > 1 ) {
+    long long GALID = get_GALID_HOSTLIB(IGAL);
+    printf("XXX: ----------------------------------- \n");
+    printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
+	   fnam, GENLC.CID, GALID);
+    printf("XXX: MAG_LIST = ");
+    for(i=0; i < NBAND_EXIST; i++) { printf("%.3f  ", MAG_LIST[i]); }
+    printf("\nXXX: detect = %d  (CID=%d, zSN=%.3f  NNBR_ORIG=%d)\n", 
+	   detect, GENLC.CID, GENLC.REDSHIFT_CMB, NNBR_ORIG );
+    fflush(stdout);
+  }
+  
+  return detect ;
+
+} // end mag_detect_HOSTLIB
 
 
 // ================================================

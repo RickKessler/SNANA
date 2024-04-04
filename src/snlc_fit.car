@@ -4992,12 +4992,6 @@ c xxx mark DO_BESTZ_GAUSS  = btest(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
-
-          if ( DEBUG_FLAG == 906 ) then
-            CHI2TMP = 2.0 * log(SNHOST_ZPHOT_ERR(1)) + 0.9189 ! + ln(sqrt(2pi))
-            CHI2PRIOR(IPAR_zPHOT) = CHI2PRIOR(IPAR_zPHOT) + CHI2TMP
-          endif
-
         endif
         
         if ( DEBUG_FLAG == 908 ) then
@@ -8185,10 +8179,6 @@ c - - - - PKMJD - - -
       INIBND(1,IPAR)  =  INIVAL(IPAR) - 100.0
       INIBND(2,IPAR)  =  INIVAL(IPAR) + 100.0
 
-      IF ( DEBUG_FLAG == 30 ) THEN
-         INIBND(1,IPAR)  =  INIVAL(IPAR) - 30.0
-         INIBND(2,IPAR)  =  INIVAL(IPAR) + 30.0
-      ENDIF
       FITVAL(IPAR,0)  =  INIVAL(IPAR) 
 
 c - - - - - DLMAG - - - - - 
@@ -11912,10 +11902,12 @@ c define variables for polynomial interpolation
 
 C -------------- BEGIN --------------
 
-      IF ( DEBUG_FLAG .NE. 1024 ) THEN  ! legacy function, Mar 2024
-          CHI2_PRIOR = CHI2_PRIOR_LEGACY(ipar, PARVAL)
-          RETURN
-      ENDIF
+c xxxxxxxx mark delete Apr 4 2024 xxxxxxxxxx
+c      IF ( DEBUG_FLAG .NE. 1024 ) THEN  ! legacy function, Mar 2024
+c          CHI2_PRIOR = CHI2_PRIOR_LEGACY(ipar, PARVAL)
+c          RETURN
+c      ENDIF
+c xxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxx
 
       CHI2_PRIOR = 0.0  ! init
 

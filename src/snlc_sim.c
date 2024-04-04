@@ -13992,11 +13992,11 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     fp = SIMFILE_AUX->FP_DUMP ;
 
+    /* xxxxx mark delete Apr 4 2024 xxxxxxxxxx
     // on first event, write comment info for TAKE_SPECTRUM keys.
     // Can't do this during init because GENSPEC arrays not filled until now.
     if ( FIRST && LAMBIN_SED_TRUE < 0.0 ) { 
       for(imjd=0; imjd < NPEREVT_TAKE_SPECTRUM; imjd++ ) {
-	//	if ( imjd == 0 ) { fprintf(fp,"\n"); }
 	IDSPEC = imjd + 1 ; // fortran-like index for ID
 	index  = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
 	fprintf(fp,"# SPEC%2.2d_T%-4.4s : %6.1f to %6.1f \n",
@@ -14007,7 +14007,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       }
       fprintf(fp, "\n" );    fflush(fp);
     }
-
+    xxxxxxxxxx end mark xxxxxxxxx */
 
     sprintf(SIMFILE_AUX->OUTLINE, "SN: " );
 
@@ -14333,6 +14333,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
   char   BAND_STRING[MXFILTINDX], cfilt[4];
   FILE *fp;
+  char *INSTRUMENT_NAME = INPUTS_SPECTRO.INSTRUMENT_NAME;
+
   char *ptrFile = SIMFILE_AUX->DUMP_SPEC ;  
   char VARLIST[200], VARLIST_SYNMAG[100], varname_tmp[40], cval[40];
   char fnam[] = "wr_SIMGEN_DUMP_SPEC" ;
@@ -14386,25 +14388,35 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	    INPUTS_SPECTRO.INSTRUMENT_NAME, 
 	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
 
-    fprintf(fp,"# Synthetic mags are stored for:  %s\n", BAND_STRING);
+    fprintf(fp,"# Synthetic [band]_mag_syn and [band]_magerr_syn "
+	    "are stored for bands:\n#    %s\n", BAND_STRING);
 
+    // - - - - - - - - - -
+    // print header table of OVERLAP and Effective LAMWIDTH vs. band
+    char dashLine[] = "# --------------------------------------------- ";
     fprintf(fp,"#\n");
-    fprintf(fp,"#              %12s     Effective \n",
-	    INPUTS_SPECTRO.INSTRUMENT_NAME);
-    fprintf(fp,"#        BAND     OVERLAP     LAM-WIDTH(A) \n");
+    fprintf(fp,"#                %-12s    Effective \n", INSTRUMENT_NAME);
+    fprintf(fp,"#        BAND     OVERLAP^a    LAM-WIDTH(A)^b \n");
+    fprintf(fp, "%s\n", dashLine);
     for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
       ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
       if ( GENSPEC.DO_SYNFILT[ifilt_obs] ) {
 	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
 	OVERLAP = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
 	LAMWID  = GENSPEC.LAMWIDTH_SYNFILT[ifilt_obs];
-	fprintf(fp, "# SYN:    %s       %.5f    %6.0f\n",
+	fprintf(fp, "# SYN:    %s       %.5f        %6.0f\n",
 		cfilt, OVERLAP, LAMWID );
       }
     }
-         
+    fprintf(fp, "%s\n", dashLine);
+    fprintf(fp, "#   ^a OVERLAP   = FilterTrans integral within %s\n",
+	    INSTRUMENT_NAME);
+    fprintf(fp, "#   ^b LAM-WIDTH = LAMSTEP * Sum_i[Trans_i] / TransMax\n");
+	    
+    
+    // - - - - - -
     fprintf(fp,"#\n");
-    fprintf(fp,"VARNAMES: %s\n", VARLIST);
+    fprintf(fp,"VARNAMES: %s\n\n", VARLIST);
     fflush(fp);
 
   } // end OPT_DUMP==1

@@ -22313,7 +22313,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
      + return mean and std from init_zPDF_spline.c
-
+     + release refactor in CHI2_PRIOR to use interp_1DFUN
+       instead of very old interp code that gave strange artifact/bug
+       for fitting x_2 component with Gauss prior.
+       Later, should remove CHI2_PRIOR_LEGACY function.
+     
    sntools_zPDF_spline.c[h]:
      + add option for STEFFNE or CUBIC spine;
        see OPT_PHOTOZ in SNANA manual to control these options.

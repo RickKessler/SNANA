@@ -22257,12 +22257,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05l) *****
   
-    snlc_fit.car
-       + refactor/simplify logic to control using zSPEC, zPHOT, quantiles.
+   snlc_fit.car
+     + refactor/simplify logic to control using zSPEC, zPHOT, quantiles.
          Old logic was done within fit; new logic is done prior to fit
          so that downstream code is simpler.
-       + See manual sec ?? on how code decides between quantiles
+     + See manual sec ?? on how code decides between quantiles
          and accurate zspec.
+
+     + release refactor in CHI2_PRIOR to use interp_1DFUN isntead of
+       very old hacky-interp code that gave strange artifact/bug
+       for fitting x_2 component with Gauss prior. Regression test
+       shows ~millimag changes in mB/DLMU.
+       Next SNANA version, should remove CHI2_PRIOR_LEGACY function.
 
      sntools_dataformat_text.c
          fix to prperly read quantile information for text format
@@ -22313,10 +22319,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
      + return mean and std from init_zPDF_spline.c
-     + release refactor in CHI2_PRIOR to use interp_1DFUN
-       instead of very old interp code that gave strange artifact/bug
-       for fitting x_2 component with Gauss prior.
-       Later, should remove CHI2_PRIOR_LEGACY function.
      
    sntools_zPDF_spline.c[h]:
      + add option for STEFFNE or CUBIC spine;

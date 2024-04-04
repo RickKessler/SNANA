@@ -14389,15 +14389,15 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
 
     fprintf(fp,"# Synthetic [band]_mag_syn and [band]_magerr_syn "
-	    "are stored for bands:\n#    %s\n", BAND_STRING);
+	    "are stored for bands:\n#    %s \n", BAND_STRING);
 
     // - - - - - - - - - -
     // print header table of OVERLAP and Effective LAMWIDTH vs. band
     char dashLine[] = "# --------------------------------------------- ";
-    fprintf(fp,"#\n");
+    fprintf(fp,"#  \n");
     fprintf(fp,"#                %-12s    Effective \n", INSTRUMENT_NAME);
     fprintf(fp,"#        BAND     OVERLAP^a    LAM-WIDTH(A)^b \n");
-    fprintf(fp, "%s\n", dashLine);
+    fprintf(fp,"%s\n", dashLine);
     for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
       ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
       if ( GENSPEC.DO_SYNFILT[ifilt_obs] ) {

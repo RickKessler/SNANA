@@ -5220,6 +5220,8 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
   double MEMTOT = 0.0 ;
   int  NROW  =   RDSPEC_SNFITSIO_HEADER.NROW;
+  if ( NROW == 0 ) { return; }
+  
   int  MEMD  =   NROW * sizeof(double);
   int  MEMI  =   NROW * sizeof(int);
   int  MEMF  =   NROW * sizeof(float);

@@ -2,7 +2,9 @@
 *   Sep 11 2017: MNI->110
 *   Sep 01 2020: fix obsolete fortan; DO and GOTO must point to CONTINUE
 *      (needed for gcc 9.2 on Midway)
-*
+*     Apr 04 2024 RK : comment out stdout so that biasCor stdout
+*     isn't so big; see CCx
+*      
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
 *
@@ -9376,9 +9378,9 @@ C                        Check if negative or zero on diagonal
       DO 200 I= 1, NPAR
       NDEX = I*(I+1)/2
       IF (VHMAT(NDEX) .LE. ZERO) THEN
-          WRITE (CHBUFF(1:3),'(I3)') I
-          CALL MNWARN('W',CFROM,
-     +'Negative diagonal element'//CHBUFF(1:3)//' in Error Matrix')
+CCx          WRITE (CHBUFF(1:3),'(I3)') I
+CCx          CALL MNWARN('W',CFROM,
+CCx     +'Negative diagonal element'//CHBUFF(1:3)//' in Error Matrix')
       ENDIF
       IF (VHMAT(NDEX) .LT. DGMIN)  DGMIN = VHMAT(NDEX)
   200 CONTINUE
@@ -9414,8 +9416,8 @@ C      call eigen (p,p,maxint,npar,pstar,-npar)
       PMAX = MAX(ABS(PMAX), ONE)
       IF ((PMIN .LE. ZERO .AND. LWARN) .OR.  ISW(5) .GE. 2) THEN
          if ( ISYSWR > 0 ) then ! RK
-           WRITE (ISYSWR,550)
-           WRITE (ISYSWR,551) (PSTAR(IP),IP=1,NPAR)
+CCx           WRITE (ISYSWR,550)
+CCx           WRITE (ISYSWR,551) (PSTAR(IP),IP=1,NPAR)
         endif
       ENDIF
       IF (PMIN .GT. EPSPDF*PMAX)  GO TO 217
@@ -9428,8 +9430,8 @@ C      call eigen (p,p,maxint,npar,pstar,-npar)
 
       CSTATU= 'NOT POSDEF'
       WRITE (CHBUFF,'(G12.5)') PADD
-      CALL MNWARN('W',CFROM,
-     +   'MATRIX FORCED POS-DEF BY ADDING '//CHBUFF//' TO DIAGONAL.')
+CCx      CALL MNWARN('W',CFROM,
+CCx     +   'MATRIX FORCED POS-DEF BY ADDING '//CHBUFF//' TO DIAGONAL.')
   217 CONTINUE
 C
   550 FORMAT (' EIGENVALUES OF SECOND-DERIVATIVE MATRIX:' )
@@ -12740,9 +12742,9 @@ C             Either print warning or put in buffer
       IF (COPT .EQ. 'W')  THEN
         ITYP = 1
         IF (LWARN .and. ISYSWR > 0 ) THEN ! RK
-          WRITE (ISYSWR,'(A,A/A,A)') ' MINUIT WARNING IN ',CORG,
-     +              ' ============== ',CMES
-          CALL FLUSH(6)
+CCx          WRITE (ISYSWR,'(A,A/A,A)') ' MINUIT WARNING IN ',CORG,
+CCx     +              ' ============== ',CMES
+CCx          CALL FLUSH(6)
           RETURN
         ENDIF
       ELSE

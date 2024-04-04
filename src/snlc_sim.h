@@ -2056,7 +2056,7 @@ void   GENSPEC_INIT(int opt, int imjd);  // init arrays
 void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
 void   GENSPEC_TRUE(int imjd);  
 void   GENSPEC_SYNMAG(int ifilt_obs, double *FLAM_LIST, double *FLAMERR_LIST,
-		      double *SYNMAG, double *SYNMAG_ERR);  
+		      double *SYNMAG, double *SYNMAG_ERR );  
 
 void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);

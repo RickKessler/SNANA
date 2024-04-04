@@ -115,10 +115,12 @@ struct {
   // true synthetic mag (and uncertainty) per ifilt_obs
   double  GENMAG_SYNFILT[MXSPEC][MXFILTINDX]; 
   double  GENMAGERR_SYNFILT[MXSPEC][MXFILTINDX];
-  double  OVERLAP_SYNFILT[MXFILTINDX]; // bandpass integral over spectrograph
-  double  OVERLAP_MIN; // internal cut to compute syn mags
-  bool    DO_SYNFILT[MXFILTINDX] ;
 
+  double  OVERLAP_MIN; // internal cut to compute syn mags
+  double  OVERLAP_SYNFILT[MXFILTINDX]; // bandpass integral over spectrograph
+  bool    DO_SYNFILT[MXFILTINDX] ;
+  double  LAMWIDTH_SYNFILT[MXFILTINDX];  // Transmission-wgted filter width
+  
   // items below are used for read utils (not used for sim)
   int     ID_LIST[MXSPEC] ;
   double *LAMMIN_LIST[MXSPEC], *LAMMAX_LIST[MXSPEC], *LAMAVG_LIST[MXSPEC] ; 

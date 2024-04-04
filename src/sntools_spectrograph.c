@@ -1223,7 +1223,7 @@ void compute_spectrograph_filter_overlap(void) {
   // For each band, compute transmission-wgted overlap with spectrograph.
 
   int    ifilt, ifilt_obs, NLAM, ilam ;
-  double LAMOBS, TRANS, SUMTRANS, SUMTRANS_SPEC, OVERLAP ;  
+  double LAMOBS, TRANS, SUMTRANS, SUMTRANS_SPEC, MAXTRANS,  OVERLAP ;  
   char fnam[] = "compute_spectrograph_filter_overlap";
 
   // ---------- BEGIN ---------
@@ -1234,20 +1234,22 @@ void compute_spectrograph_filter_overlap(void) {
   GENSPEC.OVERLAP_MIN = 0.99; 
 
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ )  {
-    GENSPEC.OVERLAP_SYNFILT[ifilt] = 0.0 ;
-    GENSPEC.DO_SYNFILT[ifilt]      = false ;
+    GENSPEC.LAMWIDTH_SYNFILT[ifilt] = 0.0 ;
+    GENSPEC.OVERLAP_SYNFILT[ifilt]  = 0.0 ;
+    GENSPEC.DO_SYNFILT[ifilt]       = false ;
   }
 
   // skip ifilt=0 --> spectrograph
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
     ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
 
-    SUMTRANS = SUMTRANS_SPEC = 0.0 ;
+    SUMTRANS = SUMTRANS_SPEC = MAXTRANS = 0.0 ;
     NLAM = FILTER_SEDMODEL[ifilt].NLAM;
     for ( ilam=0; ilam < NLAM; ilam++ ) {
       get_LAMTRANS_SEDMODEL(ifilt, ilam,
 			    &LAMOBS, &TRANS );  // <== returned
       SUMTRANS += TRANS ;
+      if ( TRANS > MAXTRANS ) { MAXTRANS = TRANS ; }
       if ( LAMOBS > INPUTS_SPECTRO.LAM_MIN && LAMOBS < INPUTS_SPECTRO.LAM_MAX)
 	{ SUMTRANS_SPEC += TRANS; }
     } // end ilam
@@ -1256,6 +1258,9 @@ void compute_spectrograph_filter_overlap(void) {
     GENSPEC.OVERLAP_SYNFILT[ifilt_obs] = OVERLAP ;
     GENSPEC.DO_SYNFILT[ifilt_obs]      = ( OVERLAP > GENSPEC.OVERLAP_MIN );
 
+    GENSPEC.LAMWIDTH_SYNFILT[ifilt_obs] =
+      (SUMTRANS/MAXTRANS) * FILTER_SEDMODEL[ifilt].lamstep ;
+      
     printf("\t %-12s overlap with spectrograph: %.5f \n",
 	   FILTER_SEDMODEL[ifilt].name, OVERLAP );
     fflush(stdout);

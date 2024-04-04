@@ -10452,7 +10452,7 @@ void GENSPEC_TRUE(int imjd) {
   int    ifilt, ifilt_obs;
   int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
-  double SYNMAG, DUMERR, genmag_obs, flux, lamavg, lambin, flam ;
+  double SYNMAG, DUMERR, DUMLAM, genmag_obs, flux, lamavg, lambin, flam ;
 
   // to compute synmags, first compute true Flam in each spectrograph bin.
   // Note that global GENSPEC.GENFLAM_LIST has not been filled yet, and thus
@@ -10486,7 +10486,7 @@ void GENSPEC_TRUE(int imjd) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
     // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
     GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST, NULL_FLAMERR_LIST,
-		   &SYNMAG, &DUMERR); // compute synth mag; ignore MAGERR
+		   &SYNMAG, &DUMERR ); // compute synth mag; ignore MAGERR
 
     GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs]    = SYNMAG;    // store it
 
@@ -10570,12 +10570,14 @@ double find_genmag_obs(int ifilt_obs, double MJD) {
 
 // ==================================
 void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
-		    double *SYNMAG, double *SYNMAG_ERR) {
+		    double *SYNMAG, double *SYNMAG_ERR ) {
 
   // Created Oct 2023
   // Compute true synthetic mag for ifilt_obs using flux per wave bin
   // pass as input *GENFLUX_LIST.
-  // Return SYNMAG and SYNMAG_ERR
+  // Return SYNMAG and SYNMAG_ERR with usual meaning.
+  // SYNLAM_WIDTH is an effective filter width weighted by transmission;
+  // it can be used to compute approx SNR for any wave-bin size.
   //
 
   int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -10584,7 +10586,8 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
   double hc8          = (double)hc ;
   bool   DO_MAGERR    =  FLAMERR_LIST[0] >= 0.0 ;
 
-  double LAMOBS, TRANS, flam, flamerr, flux, flux_sum=0.0, varflux_sum=0.0 ;
+  double LAMOBS, TRANS, flam, flamerr, flux;
+  double flux_sum=0.0, varflux_sum=0.0, T_max=0.0, T_sum=0.0 ;
   double lamstep, lambin, ZP, lammin, lammax, LT, frac_err ; 
   int  ifilt, NLAMFILT, ilam, NFLAM_DEFINED = 0 ; 
   char cfilt[4];
@@ -10625,11 +10628,13 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
     LT = LAMOBS * TRANS ;
     flux_sum    += ( flam * LT );
-
+    
     if ( DO_MAGERR ) {
       flamerr = interp_1DFUN(OPT_INTERP, LAMOBS, 
 			     NLAMSPEC, LAMAVG_LIST, FLAMERR_LIST, fnam );
       varflux_sum += ( flamerr*flamerr * LT * LT );
+      T_sum  += TRANS;
+      if ( TRANS > T_max ) { T_max = TRANS; }
     }
 
   } // end ilam
@@ -10645,7 +10650,7 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
     flux_sum *= (lamstep/hc8) ;
     *SYNMAG = ZP - 2.5*log10(flux_sum);
-    
+    // xxx    *SYNLAM_WIDTH = lamstep * T_sum / T_max ; // effect lam-width
   }
 
   return ;
@@ -11666,7 +11671,7 @@ void  GENSPEC_FLAM(int imjd) {
   // Mar 22 2024: compute synthetic mag & error per passband.
   // .xyz
   int ifilt, ifilt_obs; 
-  double GENMAG_SYN, GENMAGERR_SYN ;
+  double GENMAG_SYN, GENMAGERR_SYN, LAMWIDTH_SYN ;
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
     // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
@@ -11674,7 +11679,7 @@ void  GENSPEC_FLAM(int imjd) {
     // note input is true GENFLAM_LIST (not measured FLAM_LIST)
     // and true FLAMERR_LIST is same as measured FLAMERR_LIST.
     GENSPEC_SYNMAG(ifilt_obs, GENSPEC.GENFLAM_LIST[imjd], GENSPEC.FLAMERR_LIST[imjd],
-		   &GENMAG_SYN, &GENMAGERR_SYN); // <== returned
+		   &GENMAG_SYN, &GENMAGERR_SYN ); // <== returned
 
     GENSPEC.GENMAG_SYNFILT[imjd][ifilt_obs]    = GENMAG_SYN;
     GENSPEC.GENMAGERR_SYNFILT[imjd][ifilt_obs] = GENMAGERR_SYN;
@@ -14318,7 +14323,7 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Created March 2024
   // write one row per spectrum summary if SPECTROGRAPH is used.
 
-  double OVERLAP, SYNMAG, SYNMAGERR ;
+  double OVERLAP, SYNMAG, SYNMAGERR, LAMWID ;
   int    NFILT_WARN=0,  IFILTOBS_WARN[MXFILTINDX];
   int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
   char   BAND_STRING[MXFILTINDX], cfilt[4];
@@ -14337,8 +14342,6 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
     print_banner(BANNER);
-
-    // xxx mark    compute_spectrograph_filter_overlap();
 
     BAND_STRING[0] = VARLIST_SYNMAG[0] = 0 ;
     for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
@@ -14378,19 +14381,24 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	    INPUTS_SPECTRO.INSTRUMENT_NAME, 
 	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
 
-    fprintf(fp,"# Synthetic mags stored for:  %s\n", BAND_STRING);
-
-    // print warning for each band that has overlap < 1.000
-    for (ifilt=0; ifilt < NFILT_WARN; ifilt++ ) {
-      ifilt_obs = IFILTOBS_WARN[ifilt];
-      OVERLAP   = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
-      sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
-      fprintf(fp,"# WARNING: %s-band overlap with %s is %.5f (<1.00) \n",
-	      cfilt, INPUTS_SPECTRO.INSTRUMENT_NAME, OVERLAP );
-    }
+    fprintf(fp,"# Synthetic mags are stored for:  %s\n", BAND_STRING);
 
     fprintf(fp,"#\n");
-
+    fprintf(fp,"#              %12s     Effective \n",
+	    INPUTS_SPECTRO.INSTRUMENT_NAME);
+    fprintf(fp,"#        BAND     OVERLAP     LAM-WIDTH(A) \n");
+    for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
+      ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+      if ( GENSPEC.DO_SYNFILT[ifilt_obs] ) {
+	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+	OVERLAP = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
+	LAMWID  = GENSPEC.LAMWIDTH_SYNFILT[ifilt_obs];
+	fprintf(fp, "# SYN:    %s       %.5f    %6.0f\n",
+		cfilt, OVERLAP, LAMWID );
+      }
+    }
+         
+    fprintf(fp,"#\n");
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
     fflush(fp);
 

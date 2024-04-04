@@ -2905,9 +2905,14 @@ void parse_input_HOSTLIB_GAL_DETECT(char *FEATURE, char *STRING) {
     val_detect_ptr = INPUTS.HOSTLIB_MAG_DETECT;
     ORDER_SORT     = +1;
   }
+
+  if ( IGNOREFILE(STRING) ) {
+    *nband_ptr = 0;
+    string_ptr[0] = 0 ;
+    return ;
+  }
   
   sprintf(string_ptr,"%s", STRING);
-
   parse_commaSepList(fnam, STRING, MXBAND, MXCHAR, &NBAND, &str_list);
 
   *nband_ptr = NBAND;

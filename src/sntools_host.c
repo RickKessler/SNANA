@@ -10898,7 +10898,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   printf("\t Done matching. \n"); fflush(stdout);
 
-  char MSG[200]; 
+  char MSG[400]; 
   sprintf(MSG,"%s appended %d variables (%s)", 
 	  getenv("USER"), NVAR_APPEND, append_varname_string);
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);

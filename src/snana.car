@@ -3029,7 +3029,6 @@ c ######################################################
 c ------------------------------
       JTIME_LOOPSTART = TIME()
       JDIFF = JTIME_LOOPSTART - JTIME_START
-c xxx mark    print*,'   FINISHED INIT after ', JDIFF,' seconds '
 
       CALL PRINT_CPUTIME(JTIME_START, "CPUTIME_INIT"//char(0), 
      &            "second"//char(0), 0, 20,20)
@@ -3519,7 +3518,7 @@ c ---------------------------------------------------------------
             N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
             call PRINT_RDSN()      ! print one-line summary
 
-            CALL SNANA_DRIVER(N_SNLC_PROC)
+            CALL SNANA_DRIVER(ISN,N_SNLC_PROC)
          ENDIF
 
 c stop reading if/when all CIDs are processed
@@ -4956,7 +4955,6 @@ C ----------- BEGIN ----------
      &    ONE, STRING, DARRAY, OPT)
       DSIM_HOSTLIB_GALID = DARRAY(1)
       SIM_HOSTLIB_GALID  = DSIM_HOSTLIB_GALID
-c xxx mark del Nov 16 2023   SIM_HOSTLIB_GALID  = int(DSIM_HOSTLIB_GALID)
 
       do ipar = 1, NPAR_SIM_HOSTLIB
          CALL FETCH_SNDATA_WRAPPER(SIM_HOSTLIB_KEYWORD(ipar),
@@ -5303,12 +5301,6 @@ c read SIM_MAGOBS for SNANA sim or FAKES ...
 c the rest is for SNANA sim only ...
 
       if ( .NOT. LSIM_SNANA ) GOTO 800
-
-c xxxxxx mark delete Aug 31 2023 xxxxxxx
-c      CALL FETCH_SNDATA_WRAPPER("SIM_FLUXCAL_HOSTERR",  
-c     &      NOBS_STORE, STRING, DARRAY, OPT)
-c      DO o=1,NOBS_STORE; SIM_EPFLUXCAL_HOSTERR(o)=SNGL(DARRAY(o)); ENDDO
-c xxxxxxx end mark xxxxxxxxxx
 
       LENTMP = INDEX(SIMNAME_SNRMON,' ') - 1
       IF ( LENTMP > 2 ) THEN
@@ -6237,7 +6229,6 @@ c default is to reject nothing (accept everything)
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-c xxx mark delete      USE_KCOR_REFACTOR = .FALSE.
       USE_KCOR_REFACTOR = .TRUE.   ! permanently set, Dec 2 2022
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
@@ -6922,7 +6913,6 @@ c MARZ (host spectra only)
 c ----------------------------------------
 c Oct 23, 2014: store global comments
 
-c xxx mark      LENC = 72
       LENC = MXCHAR_VERSION
 
       COMMENT_forC = 'VERSION_PHOTOMETRY:  '//VER_PHOT_forC(1:LENC)
@@ -9264,27 +9254,6 @@ c print out processing time, and process time per SN.
      &        "CPUTIME_PROCESS_RATE"//char(0), 
      &        "second"//char(0), N_SNLC_CUTS,    20,20)
 
-+SELF,IF=XYZDEL.
-c xxx mark delete Aug 3 2023 xxxxxxxxxxxxxxxxxxxxxx
-      JDIFF = JTIME_LOOPSTART - JTIME_START
-      print*,'   TOTAL  INIT   TIME : ', JDIFF,' seconds '
-
-      JDIFF = JTIME_LOOPEND - JTIME_LOOPSTART
-      Ttot = float(JDIFF)/60. 
-      if ( N_SNLC_CUTS .GT. 0 ) then
-        Tsn   = float(JDIFF)/float(N_SNLC_CUTS)
-      else
-        Tsn = 0.0
-      endif
-
-      write(6,30) Ttot, Tsn
-30    format(T5,'TOTAL PROCESS TIME : ',F7.2,' minutes ',4x,
-     &      '(',F6.2,' sec per SN)' )
-      print*,' '
-      CALL FLUSH(6)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-+SELF.
-
 c --------------------------
 c print DUPLICATE-CID WARNING
 
@@ -9447,6 +9416,54 @@ c for fit, write number passing fit cuts.
       RETURN
       END
 
+C =========================
++DECK,PR_CPU_REMAIN.
+      SUBROUTINE PRINT_CPU_REMAIN(ISN)  
+C
+C Created Apr 4 2024
+C Print fraction of total events processed, elapsed time,
+C and estimate time remaining:
+C 
+C   Processed ~12% of events in mm minutes -> mm minutes remaining.
+C
+C Used only for BATCH mode.
+C ----------------
+
+      IMPLICIT NONE
+      
+      INTEGER ISN  ! (I) integer index (1-NSN)
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER NSN_TOT, JTIME, JTDIF, PERCENT
+      REAL FRAC, T_ELAPSE, T_REMAIN
+C ------------ BEGIN ---------
+
+      if ( .NOT. STDOUT_UPDATE ) RETURN
+
+c bail for subset option for which this update makes no sense
+      if ( .NOT. ISJOB_BATCH     ) RETURN 
+      if ( NCID_LIST > 0         ) RETURN 
+      if ( MXEVT_PROCESS < 10000 ) RETURN
+      
+      NSN_TOT = N_SNLC_READ(1)
+      FRAC = FLOAT(ISN) / FLOAT(NSN_TOT)
+      PERCENT = INT(FRAC*100.0 + 0.5)
+      
+      JTIME = TIME()
+      JTDIF = JTIME - JTIME_LOOPSTART 
+      T_ELAPSE = FLOAT(JTDIF)/60.0
+      T_REMAIN = T_ELAPSE * ( 1.0/FRAC - 1.0 )  ! prediction
+
+      write(6,20) PERCENT, T_ELAPSE, T_REMAIN
+20    format(T6,'Processed ', I3,'% of events in ',
+     &     F6.1, ' minutes -> ', F6.1,' minutes remaining.')
+      call flush(6)
+      
+      RETURN
+      END   ! end of PRINT_CPU_REMAIN
+      
 C ==================================
 +DECK,PRINT_JOBSPLIT_OUT.
       SUBROUTINE PRINT_JOBSPLIT_OUT()
@@ -9542,11 +9559,14 @@ c check options for ABORT_IF_ZERO (AIZ)
       END
 C ======================================
 +DECK,SNANA_DRIVER.
-      SUBROUTINE SNANA_DRIVER(ISN)
+      SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC)
 
 c Created May 18, 2012 by R.Kessler
 c
-c Analysis driver for SN with sparse index ISN.
+c Analysis driver for SN with
+c   ISN_ALL  = absolute index for all events, regardless of cuts
+c   ISN_PROC = sparse index of processed events (after cuts)
+C
 c Move code from MAIN to here so that each SN is fit
 c right after it is read.
 c
@@ -9558,7 +9578,7 @@ c ----------------------
 
       IMPLICIT NONE
 
-      INTEGER ISN  ! (I) SN sparse index
+      INTEGER ISN_ALL, ISN_PROC  ! (I) 
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -9580,9 +9600,9 @@ c ----------------- BEGIN -------------
 
       FNAM = 'SNANA_DRIVER' 
 
-      if ( ISN > MXSNLC-1 ) THEN
+      if ( ISN_PROC > MXSNLC-1 ) THEN
         write(c1err,666) N_SNLC_PROC
-666     format('ISN=',I8,' exceeds MXSNLC array bound.')
+666     format('ISN_PROC=',I8,' exceeds MXSNLC array bound.')
         c2err = 'Try splitting job into multiple jobs with CID-ranges'
         CALL MADABORT(FNAM, c1err, c2err)
       endif
@@ -9656,7 +9676,7 @@ c check dump-option for SN that fail cuts.
       ENDIF
 
       IF ( STDOUT_UPDATE ) THEN
-        write(6,42) isn
+        write(6,42) isn_proc
      &        , SNLC_CCID
      &        , ISNLC_NEWMJD_STORE
      &        , ISNLC_NEWMJD_CUTS
@@ -9698,10 +9718,10 @@ c do the fit
           endif
 
           if ( STDOUT_UPDATE ) THEN
-            WRITE(GLOBAL_BANNER,44) ISN, SNLC_CCID(1:ISNLC_LENCCID), 
-     &           NFITPAR_MN, ITER
+            WRITE(GLOBAL_BANNER,44) ISN_PROC,
+     &         SNLC_CCID(1:ISNLC_LENCCID), NFITPAR_MN, ITER
             CALL PRBANNER(GLOBAL_BANNER)
-44          format(T5,'CALL MNFIT_DRIVER for ISN=',I5,
+44          format(T5,'CALL MNFIT_DRIVER for ISN_PROC=',I5,
      &           3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
           endif
 
@@ -9742,7 +9762,7 @@ c  =  0 => OK; keep SN
 c  >  0 => discard fit
 c  = -1 => decrement ITER and try again (e.g., for photoZ spike) 
 
-          CALL FITPAR_ANA ( isn, iter, ERRFLAG_FIT )
+          CALL FITPAR_ANA ( isn_proc, iter, ERRFLAG_FIT )
 
 c check ERRFLAG_FIT
           CALL SNANA_ERRFLAG_FIT(iter,ERRFLAG_FIT)
@@ -9753,7 +9773,7 @@ c check ERRFLAG_FIT
         if ( STDOUT_UPDATE ) THEN
           print*,'    Finished fitting CID = ',
      &         SNLC_CCID(1:ISNLC_LENCCID)
-          print*,' ' 
+          CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Apr 4 2024
           call flush(6)
         endif
 +SELF.
@@ -9763,7 +9783,7 @@ c check ERRFLAG_FIT
 +SELF.
 
 
-42    format(T8,'Analyze ISN=',I8, 2x,
+42    format(T8,'Analyze ISN_PROC=',I8, 2x,
      &    'for ',A14,'  NMJD(stored,cuts)=', I4, '->', I4 )
       CALL FLUSH(6)
       CALL USRANA(IERR)     ! call user-analysis routine
@@ -17789,12 +17809,6 @@ c strip off local variables.
 c Jan 3 2018: skip saturated mags
           if ( FLUXCAL_ERR .GE. 0.9E8 .AND. LSIM_SNANA ) GOTO 201
 
-c xxxxxxxx mark delete Jan 8 2024 xxxx
-c          if ( RESTORE_DES3YR ) then
-c             CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
-c          endif
-c xxxxxxxx end mark xxxxxxxxxx
-
 c convert sim-mag to SIM_FLUXCA
           IF ( ISJOB_SIM ) THEN
              ZP        = ZEROPOINT_FLUXCAL_DEFAULT
@@ -18905,13 +18919,6 @@ c - - - - - - - - - - - - - -
       ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge error
       ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
       ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
-
-c xxxxxxxxx mark delete Jan 2024 xxxxxx
-c      if ( RESTORE_DES3YR ) then  ! Mar 2020
-c         ERR3 = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL_BUG
-c         FLUXCAL_BUG = DBLE( SNLC_FLUXCAL(ep) ) 
-c      endif
-c xxxxxxxxxxxxx end mark xxxxxxxxx
 
       SQERR1     = ERR1  * ERR1
       SQERR2a    = ERR2a * ERR2a
@@ -26077,7 +26084,7 @@ c    for files which exist
 
       IF ( LEXIST_REF ) THEN
         DO 20 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 
  
             LAM = FLAM_STORE(ilam)
             FTRANSREF_STORE(ilam) = 0.0 
@@ -26088,7 +26095,7 @@ c    for files which exist
             Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
      &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) 
             FTRANSREF_STORE(ilam)  = Trans_upd
 
 20      CONTINUE  ! ILAM loop over original lambda binning
@@ -26116,7 +26123,7 @@ c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
       IF (LEXIST_SN) THEN
 cc      print*, ' Interpolate SN file', NLAM_STORE
         DO 70 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 
 
             LAM = FLAM_STORE(ilam)
             FTRANSSN_STORE(ilam) = 0.0 
@@ -26127,7 +26134,7 @@ cc      print*, ' Interpolate SN file', NLAM_STORE
             Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
      &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
 
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) 
             FTRANSSN_STORE(ilam) = Trans_upd
 
 70      CONTINUE  ! ILAM loop over original lambda binning
@@ -26158,8 +26165,8 @@ c                             but should have been aborted above
 
       if (.NOT. LEXIST_SN ) then 
         DO 170 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
-     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  
+     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) 
 
             FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
 170     CONTINUE  ! ILAM loop over original lambda binning
@@ -26282,7 +26289,6 @@ C ---------------- BEGIN --------------
 
       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
       cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
-c xxx mark      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
       LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
       CCID      = SNLC_CCID(1:LCC)
 
@@ -26384,8 +26390,7 @@ c    for files which exist
 
       IF ( LEXIST_REF ) THEN
         DO 20 ilam = 1, NLAM_STORE
-c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 
  
             LAM = FLAM_STORE(ilam)
             FTRANSREF_STORE(ilam) = 0.0 
@@ -26396,7 +26401,7 @@ c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
             Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
      &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) 
             FTRANSREF_STORE(ilam)  = Trans_upd
 
 20      CONTINUE  ! ILAM loop over original lambda binning
@@ -26437,7 +26442,6 @@ c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
       IF (LEXIST_SN) THEN
 cc      print*, ' Interpolate SN file', NLAM_STORE
         DO 70 ilam = 1, NLAM_STORE
-c xxx mark      LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
             FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
 
             LAM = FLAM_STORE(ilam)

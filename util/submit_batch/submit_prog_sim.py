@@ -619,11 +619,11 @@ class Simulation(Program):
                 else:
                     dummy   = self.get_ngentot_from_input(iver,ifile,-1)
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
-                    ngentot = int(ngen_unit * ngentmp)
+                    ngentot = int(ngen_unit * ngentmp + 0.5)
 
                 # finally, check for fast option to divide by 10 or 100
                 if prescale > 1 :  
-                    ngentot = int(ngentot/prescale)
+                    ngentot = int((ngentot+0.5)/prescale)
 
                 ngentot_list.append(ngentot) # append ifile dimension
                 ngentot_sum += ngentot

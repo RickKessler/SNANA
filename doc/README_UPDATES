@@ -22338,7 +22338,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + fix to work with spectrograph; for preEvent, 
        pass addition list of MJDs for spectrograph.
 
+   randomize_table.py
+     + add --prescale option, and fix to read .gz input table.
+     
    many codes:
      + remove all TELESCOPE variables since they are obsolete.
-     
+
+  
 END: 

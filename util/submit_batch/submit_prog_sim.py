@@ -2142,7 +2142,7 @@ class Simulation(Program):
                     dump_file_merge = f"{target_dir}/{genversion_combine}.{suffix}"
                     DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge
                     DUMP_FILE_LIST_DICT[suffix]  = split_list
-                    logging.info("\t Merge SIMGEN-{suffix} files")
+                    logging.info(f"\t Merge SIMGEN-{suffix} files")
 
         else:
             # legacy
@@ -2519,6 +2519,7 @@ class Simulation(Program):
                 with open(tmp_readme, "r") as r:
                     readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
                     gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
+                    if len(gentype_to_name_dict) == 0 : break
                     for gentype, names in gentype_to_name_dict.items():
                         tmp_dict_GENTYPE_TO_NAME[gentype] = names
                         #print(f" xxx gentype = {gentype} | names = {names} ")

@@ -3933,7 +3933,8 @@ void sortz_HOSTLIB(void) {
   //
   // Nov 11 2019: check NBR_LIST
   // May 23 2020: compute a few VPEC quantities for README
-
+  // Apr 06 2024: count malloc memeory with MEMTOT and print total
+  
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   int  NGAL, igal, ival, unsort, VBOSE, DO_FIELD, DO_NBR;
   int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT, MEMC, IVAR_VPEC ;
@@ -3948,15 +3949,12 @@ void sortz_HOSTLIB(void) {
   VBOSE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_VERBOSE );
 
   if ( VBOSE )  { 
-    printf("\t Sort HOSTLIB by redshift (%.4f to %.4f) \n",
-	   HOSTLIB.ZMIN , HOSTLIB.ZMAX );   
-    
-    printf("\t |zSN-zGAL| tolerance zpoly: %s \n",
-	   INPUTS.HOSTLIB_GENPOLY_DZTOL.STRING );
-    
+    printf("\t %s by redshift (%.4f to %.4f) \n",
+	   fnam, HOSTLIB.ZMIN , HOSTLIB.ZMAX );   
+    printf("\t %s |zSN-zGAL| tolerance zpoly: %s \n",
+	   fnam, INPUTS.HOSTLIB_GENPOLY_DZTOL.STRING );
     fflush(stdout); 
   }
-
 
   DO_FIELD = ( HOSTLIB.IVAR_FIELD    > 0 ) ;
   DO_NBR   = ( HOSTLIB.IVAR_NBR_LIST > 0 ) ;
@@ -3966,31 +3964,45 @@ void sortz_HOSTLIB(void) {
   IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE ;
   IVAR_VPEC  = HOSTLIB.IVAR_VPEC ;
 
+  int MEMI  = (NGAL+1) * sizeof(int) ;
+  int MEMD  = (NGAL+1) * sizeof(double) ;
+  int MEMCp = (NGAL+1) * sizeof(char*) ;
+  double MEMTOT = 0.0 ;
+  
   // allocate memory for sort-pointers
-  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( (NGAL+1) * sizeof(int) );
-  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( (NGAL+1) * sizeof(int) );
+  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( MEMI ); MEMTOT += (double)MEMI ;
+  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( MEMI ); MEMTOT += (double)MEMI ;
 
   // allocate memory for sorted values
-  for ( ival=0; ival < NVAR_STORE; ival++ ) {
-    HOSTLIB.VALUE_ZSORTED[ival] = 
-      (double*)malloc( (NGAL+1) * sizeof(double) ) ;
+  for ( ival=0; ival < NVAR_STORE; ival++ )  {
+    HOSTLIB.VALUE_ZSORTED[ival] = (double*)malloc(MEMD);
+    MEMTOT += (double)MEMD ;
   }
 
   if ( DO_FIELD  ) {
-    HOSTLIB.FIELD_ZSORTED = (char**)malloc( (NGAL+1) * sizeof(char*) ) ;
+    HOSTLIB.FIELD_ZSORTED = (char**)malloc( MEMCp );
     MEMC = MXCHAR_FIELDNAME * sizeof(char) ;
-    for ( igal=0; igal <= NGAL; igal++ ) 
-      { HOSTLIB.FIELD_ZSORTED[igal] = (char*)malloc(MEMC) ; }
+    for ( igal=0; igal <= NGAL; igal++ )  {
+      HOSTLIB.FIELD_ZSORTED[igal] = (char*)malloc(MEMC) ;
+      MEMTOT += (double)MEMC ;
+    }
   }
 
   if ( DO_NBR ) {
-    HOSTLIB.NBR_ZSORTED = (char**)malloc( (NGAL+1) * sizeof(char*) ) ;
+    HOSTLIB.NBR_ZSORTED = (char**)malloc( MEMCp ) ;
+    MEMTOT += (double)MEMCp ;
+
   }
 
 
   // allocate memory and load ZSORT need for sorting routine
-  ZSORT = (double*)malloc( (NGAL+1) * sizeof(double) );
+  ZSORT = (double*)malloc( (NGAL+1) * sizeof(double) ); 
 
+
+  // - - - -
+  printf("\t %s malloc-sum: %.2f MB \n", fnam, MEMTOT*1.0E-6);
+  fflush(stdout);
+  
   // load ZSORT array
   for ( igal=0; igal < NGAL; igal++ ) {
     ZTRUE = HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][igal]; 
@@ -4040,7 +4052,8 @@ void sortz_HOSTLIB(void) {
       ptr_UNSORT = HOSTLIB.NBR_UNSORTED[unsort];
       MEMC = (1+strlen(ptr_UNSORT)) * sizeof(char);
       if ( MEMC == 0 ) { MEMC = 4 ; }
-      HOSTLIB.NBR_ZSORTED[igal] = (char*)malloc(MEMC) ; 
+      HOSTLIB.NBR_ZSORTED[igal] = (char*)malloc(MEMC) ;
+      MEMTOT += (double)MEMC ;
       sprintf(HOSTLIB.NBR_ZSORTED[igal], "%s", ptr_UNSORT);
       free(HOSTLIB.NBR_UNSORTED[unsort]); 
     }

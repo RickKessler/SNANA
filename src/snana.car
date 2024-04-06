@@ -9456,6 +9456,8 @@ c bail for subset option for which this update makes no sense
       T_ELAPSE = FLOAT(JTDIF)/60.0
       T_REMAIN = T_ELAPSE * ( 1.0/FRAC - 1.0 )  ! prediction
 
+      if ( T_ELAPSE < 1.0 ) RETURN  ! avoid printing crazy predictions 
+      
       write(6,20) PERCENT, T_ELAPSE, T_REMAIN
 20    format(T6,'Processed ', I3,'% of events in ',
      &     F6.1, ' minutes -> ', F6.1,' minutes remaining.')

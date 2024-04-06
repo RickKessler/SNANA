@@ -8304,7 +8304,9 @@ void init_DNDZ_Rate(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    INPUTS.RATEPAR.SEASON_COUNT = (double)INPUTS.NGENTOT_LC ; 
+    INPUTS.RATEPAR.SEASON_COUNT =
+      (double)INPUTS.NGENTOT_LC * INPUTS.RATEPAR.DNDZ_SCALE[1] ;
+    
     return ; 
   }
 

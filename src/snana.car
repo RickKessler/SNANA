@@ -1165,6 +1165,10 @@ c
      &  ,SIM_HOSTLIB_PARNAME(MXPAR_SIMSED)*60 ! parname 
      &  ,SIMNAME_SNRMON*40
 
+      LOGICAL
+     &  LSIM_TRUE_SNIa   ! true SNIa (SALT3 or BAYES or MLCS ...)
+     & ,LSIM_TRUE_NONIa  ! true NONIa (SNCC, AGN, TDE ...)
+      
       COMMON / SNSIMCOM / SIMNAME_MODEL, SIM_MODEL_INDEX
      &  ,SIM_REDSHIFT_HELIO, SIM_REDSHIFT_CMB, SIM_REDSHIFT_HOST
      &  ,SIM_REDSHIFT_FLAG
@@ -1187,7 +1191,8 @@ c
      &  ,SIM_EPFILTREST, SIM_EPMAGREST,  SIM_MAGSMEAR_COH
      &  ,SIM_SALT2gammaDM
      &  ,NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
-     &  ,SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT 
+     &  ,SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT
+     &  ,LSIM_TRUE_SNIa, LSIM_TRUE_NONIa
 
       COMMON / SIMSEDCOM /
      &  NPAR_SIMSED, SIMSED_PARVAL, SIMSED_PARNAME, SIMSED_KEYWORD
@@ -1828,7 +1833,7 @@ c
 
       CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)
      &    HEADER_OVERRIDE_FILE       ! I: comma-sep list of files with CID VAR
-     &    ,SIM_HEADER_OVERRIDE_FILE  ! I: same, but for sims
+     &   ,SIM_HEADER_OVERRIDE_FILE  ! I: same, but for sims
 
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! I: SN versions to read
@@ -1904,8 +1909,8 @@ c
      &  ,LDMP_AVWARP         ! I: dump GET_AVWARP8 (debug only)
      &  ,LDMP_KCORFUN        ! I: dump KCORFUN8 (debug only)
      &  ,LDMP_SATURATE       ! I: dump saturated observations
-     &  ,USESIM_SNIA         ! I: default True -> process simulated SNIa
-     &  ,USESIM_SNCC         ! I: default True -> process simulated SNCC
+     &  ,USESIM_SNIA         ! I: default True -> process simulated SNIa 
+     &  ,USESIM_NONIA        ! I: default True -> process simulated nonIa
      &  ,USESIM_TRUEFLUX     ! I: SNLC_FLUXCAL -> SIM_FLUXCAL 
      &  ,LPROB_TRUEFLUX      ! I: T=> compute F-Ftrue chi2 and PROB
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
@@ -1997,7 +2002,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LDMP_SATURATE
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
-     &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
+     &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
@@ -2051,7 +2056,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION, LDMP_SATURATE
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
-     &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
+     &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
@@ -4367,9 +4372,10 @@ C ===========================================
 c Created Feb 2021 [refactored from PARSE_HEAD]
 c Read header info and apply a few selection cuts to rapidly
 c select small subsets:
+c
 c   CID
 c   SNTYPE
-c   REDSHFIT_ERR ??
+c   REDSHIFT_ERR ??
 c
       IMPLICIT NONE
 
@@ -4502,8 +4508,19 @@ c - - - - - -
 
       CALL RDHEAD_PRIVATE(OPT)
 
-      IF ( LSIM_SNANA ) CALL RDHEAD_SIM_SNANA(OPT)     
+      IF ( LSIM_SNANA ) THEN
+         CALL RDHEAD_SIM_SNANA(OPT)
 
+c   reject event if user doesn't want to process true SNIa or NONIa
+         if ( .NOT. USESIM_SNIA  .and. LSIM_TRUE_NONIa) THEN
+	     ISTAT = ISTAT_SKIP ; RETURN
+	 endif
+         if ( .NOT. USESIM_NONIa .and. LSIM_TRUE_SNIa)  THEN
+	    ISTAT = ISTAT_SKIP; RETURN
+         endif
+
+      ENDIF
+      
       RETURN
       END   ! end RDHEAD_DRIVER
 
@@ -4887,6 +4904,9 @@ C =============================
       CHARACTER STRING*100, KEY*80
       REAL*8 DARRAY(10)
 
+c functions
+      INTEGER ISMODEL_SNIa
+      
 C ----------- BEGIN ----------
 
       STRING  = 'DUMMY'
@@ -4903,6 +4923,11 @@ C ----------- BEGIN ----------
      &    ONE, STRING, DARRAY, OPT)
       SIM_MODEL_INDEX = INT(DARRAY(1))
 
+        ! set TRUE_SNIa and NONIa  logicals (Apr 2024)
+      LSIM_TRUE_SNIa = .FALSE.
+      IF ( ISMODEL_SNIa(SIM_MODEL_INDEX) > 0 ) LSIM_TRUE_SNIa=.TRUE.
+      LSIM_TRUE_NONIa = .NOT. LSIM_TRUE_SNIa
+            
       CALL FETCH_SNDATA_WRAPPER("SIM_TYPE_INDEX",  
      &    ONE, STRING, DARRAY, OPT)
       SIM_GENTYPE = INT(DARRAY(1))
@@ -6220,7 +6245,7 @@ c default is to reject nothing (accept everything)
       LSIM_SEARCH_ZHOST   = .FALSE.
 
       USESIM_SNIA      = .TRUE. 
-      USESIM_SNCC      = .TRUE.
+      USESIM_NONIA     = .TRUE.
       USESIM_TRUEFLUX  = .FALSE.
 
       LPROB_TRUEFLUX     = .FALSE.  
@@ -7844,9 +7869,9 @@ c - - - - -
          else if ( MATCH_NMLKEY('USESIM_SNIA',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USESIM_SNIA
-         else if ( MATCH_NMLKEY('USESIM_SNCC',
+         else if ( MATCH_NMLKEY('USESIM_NONIA',
      &             1, iArg, ARGLIST) ) then 
-           READ(ARGLIST(1),*) USESIM_SNCC
+           READ(ARGLIST(1),*) USESIM_NONIA
 
          else if ( MATCH_NMLKEY('USE_SNHOST_ZPHOT',
      &             1, iArg, ARGLIST) ) then 
@@ -10792,7 +10817,7 @@ c write MWXT mag as diagnostic (not used)
      &           cSTRING, DVAL, LEN_KEY, LEN_STR)
         end do
 
-      ENDIF  ! .xyz
+      ENDIF
 
 c always update redshift and vpec info in case of header-override
 c or other calculated update.
@@ -15766,6 +15791,7 @@ c --------
          SIM_LCWIDTH(ifilt)     = 0.0 
       ENDDO
 
+      LSIM_TRUE_SNIa  = .FALSE.
       SIM_MODEL_INDEX = -9
       SIM_COLORPAR    = -9.
       SIM_COLORLAW    = -9.
@@ -24813,15 +24839,6 @@ C ========================================
 c Created Feb 02, 2013
 c Initialize table for simulated variables.
 c
-c Jun  9, 2013: replace SIM_MODEL_INDEX with SIM_TYPE_INDEX
-c Dec 26, 2015: add SIM_NGEN_LIBID:I
-c Apr 21, 2016: add SIM_alpha
-c Jul 16, 2016: add SIM_AV; check for WRTABLEFILE_SIMVAR
-c Nov 26, 2016: add SIM_MWEBV
-c Jan 08, 2018: add SIM_VPEC to text-FITRES output
-c Feb 28, 2018: add LCLIB params
-c Dec 10, 2018: add BYOSED params
-c Feb 01, 2019: add SIM_LCWIDTH
 c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
 c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO

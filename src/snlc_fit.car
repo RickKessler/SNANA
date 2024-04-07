@@ -10071,7 +10071,7 @@ c local var
      &  LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV
      & ,LMWXT
 
-      character BANNER*60, ccid*(MXCHAR_CCID)
+      character BANNER*60, ccid*(MXCHAR_CCID), FNAM*12
 
 c functions
       INTEGER 
@@ -10090,7 +10090,7 @@ C ------------------- BEGIN ---------------
       FIRST_ITER = FIRST_ITERATION(ITER)
 
       LPRINT = BTEST(MSKOPT,0) .and. STDOUT_UPDATE
-
+      FNAM   = 'FITINI_COV'
       CCID   = SNLC_CCID
       LCCID  = ISNLC_LENCCID
 
@@ -10187,12 +10187,11 @@ c --------------------------------------
         print*,'   Either remove this SN, or fix it. '
         print*,' '
         call flush(6)
-
+c .xyz
         if ( ABORT_ON_NOEPOCHS ) then
-           print*,'  To avoid abort, set   ABORT_ON_NOEPOCHS=F '
-           print*,' ***** ABORT ***** '
-           call flush(6)
-           STOP
+           C1ERR = 'Nothing to fit for CID = ' // CCID(1:LCCID)
+           C2ERR = 'To avoid abort, set   ABORT_ON_NOEPOCHS=F '
+           CALL MADABORT(FNAM, C1ERR, C2ERR)
         else
            IERR = ERRFLAG_FITPREP_NOEPOCHS
            RETURN

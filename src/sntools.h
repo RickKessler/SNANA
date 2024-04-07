@@ -565,9 +565,12 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM);
 
 void ld_null(float *ptr, float value);
 
-int rd_SNDATA(void);
-int rd_filtband_int   ( FILE *fp, int isn, int i_epoch, int   *iptr ) ;
-int rd_filtband_float ( FILE *fp, int isn, int i_epoch, float *fptr ) ;
+int ISMODEL_SNIa(int MODEL_INDEX);
+int ismodel_snia(int *MODEL_INDEX);
+
+// xxx mark int rd_SNDATA(void);
+// xxx mark int rd_filtband_int(FILE *fp, int isn, int i_epoch, int   *iptr);
+// xxx int rd_filtband_float ( FILE *fp, int isn, int i_epoch, float *fptr);
 
 int rd_sedFlux( char *sedFile, char *sedcomment,
 		double DAYrange[2], double LAMrange[2],
@@ -625,16 +628,10 @@ double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, double PSFratio);
 double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);
 
 
-/* xxxxxxx mark delete Sep 2023 xxxxx
-double modelflux_extrap(double T, double Tref,
-			double fluxref, double fluxslope, int LDMP);
-xxxxxxx */
 
 int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
 double asinhinv(double mag, int ifilt);
 
-
-//  xxx mark float effective_aperture ( float PSF_sigma, int VBOSE ) ;
 double pressure_atmos(double h);
 
 int   Landolt_ini(int opt, float *mag, float *kshift);

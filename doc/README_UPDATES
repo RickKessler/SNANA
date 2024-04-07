@@ -22317,7 +22317,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        events for fits that do not request quantiles.
      + print elapsed time and predict time remaiming
           grep remain <sdtout>
-     
+     + restore &SNLCINP USESIM_SNIa and USESIM_NONIa; both defaults
+       are true, so setting either to false rejects events.
+       
    snlc_fit.car
      + MXFIT_DATA -> 2000 (was 1500)
      + return mean and std from init_zPDF_spline.c

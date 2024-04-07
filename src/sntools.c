@@ -7286,86 +7286,6 @@ double polyEval(int N, double *coef, double x) {
 } // end of polyEval
 
 
-
-
-/* xxxxxxxxxx mark delete Sep 2023 [moved to genmag_extrap.c] xxxxxx
-double modelflux_extrap(
-		       double T          // (I) Time to extrapolate to
-		       ,double Tref      // (I) nearest time with model flux
-		       ,double fluxref   // (I) flux at Tref
-		       ,double fluxslope // (I) dflux/dT  at Tref
-		       ,int LDMP         // (I) print to screen if true
-		       ) {
-
-    Created Apr 12, 2009 by R.Kessler
-
-    Extrapolates model flux from Tref to time T
-    (rest-frame), where T is outside range of model.
-    T and Tref are in days, defined so that T=0 at peak brightness.
-
-    T < Tref => 
-    Rises like  F0*(T-T0)^2 x (T-T1) where the quadratic term 
-    is a simple fireball model, and the 2nd (linear) term allows 
-    matching both the function and its derivative at T=Tref.
-
-    T > Tref => on the tail; use linear mag-extrap, which
-                is a power-law flux-extrap.  If fluxref < 0,
-                then just hard-wire flux=1E-30 since model
-                is unphysical and extrapolation makes no sense.
-  
-
-  double flux, slope, arg, F0, FP, T1 ;
-  double DTref0, SQDTref0, CUBEDTref0 ,DT0, DT1 ;
-  double T0  = -20.0 ; // time of explosion, wher T=0 at peak
-
-  char fnam[] = "modelflux_extrap" ;
-
-  // -------- BEGIN ----------
-
-  // always use same sign to ensure that flux-> 0 at T->infinity
-  slope = fabs(fluxslope) ;
-
-  if ( T > Tref ) {
-
-    // linear mag-extrap at late times => power-law extrap for flux
-    if ( fluxref > 0.0 ) {
-      arg  = -(T-Tref)*slope / (LNTEN * fluxref) ;
-      flux = fluxref * pow(TEN,arg) ;
-    }
-    else { 
-      flux = 1.0E-30 ; 
-    }
-  }
-  else {
-
-    if ( T < T0 ) { flux = 0.0 ; return flux ; }
-
-    // solve for F0 and T1 to describe pre-max rise
-    FP         = fluxslope ;
-    DTref0     = Tref - T0;
-    SQDTref0   = DTref0*DTref0;
-    CUBEDTref0 = SQDTref0*DTref0;
-
-    F0  = (FP * DTref0 - 2.*fluxref)/CUBEDTref0 ;
-    T1  = Tref - fluxref / (F0*SQDTref0) ;
-
-    DT0 = T - T0 ;
-    DT1 = T - T1 ;
-    flux = F0 * DT0*DT0 * DT1 ;
-  }
-
-  if ( LDMP > 0 ) {
-    printf("FLUX_EXTRAP: F(T=%5.1f)=%10.3le", T, flux );
-    printf(" [Fref(Tref=%3.0f)=%10.3le & dF/dT=%10.3le] \n",
-	   Tref, fluxref, fluxslope );
-  }
-
-  return flux ;
-
-} // end of modelflux_extrap
-xxxxxxxxxxxxxxxxxxxxxxxxx */
-
-
 // ====================================================
 int rd_sedFlux(
 	     char *sedFile         // (I) name of SED file to read
@@ -7955,16 +7875,26 @@ int  init_VERSION ( char *version ) {
 
 // ********************************************
 void ld_null (float *ptr, float value) {
-
   // load *ptr with "value" if *ptr = NULLFLOAT ;
   // If *ptr is not null, then leave it with current value.
-
   if ( *ptr == NULLFLOAT ) *ptr = value ;
-
 }
 
+int ISMODEL_SNIa(int MODEL_INDEX) {
 
-
+  // Created Apr 2024
+  // Return 1 if MODEL_INDEX is SNIa;   else return 0.
+  int flag = 0;
+  if ( MODEL_INDEX == MODEL_SALT2   ) { flag = 1; }
+  if ( MODEL_INDEX == MODEL_SALT3   ) { flag = 1; }
+  if ( MODEL_INDEX == MODEL_BAYESN  ) { flag = 1; }
+  if ( MODEL_INDEX == MODEL_SNEMO   ) { flag = 1; }
+  if ( MODEL_INDEX == MODEL_MLCS2k2 ) { flag = 1; }
+  if ( MODEL_INDEX == MODEL_SNOOPY  ) { flag = 1; }  
+  return flag;
+} 
+int ismodel_snia__(int *MODEL_INDEX)
+{ return ISMODEL_SNIa(*MODEL_INDEX); }
 
 // ********************************************
 int  init_SNPATH(void) {

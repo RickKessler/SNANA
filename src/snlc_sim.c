@@ -6893,7 +6893,8 @@ void prep_user_input(void) {
   WRFLAG_FILTERS   = 0 ;
   WRFLAG_COMPACT   = 0 ;
   WRFLAG_ATMOS     = 0 ;
-
+  WRFLAG_noSPEC    = 0 ;
+  
   // check for whether to write FULL, TERSE, FITS, etc ,
   // EXCEPT for the GRID-GEN option (for psnid ...), 
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) {
@@ -6906,6 +6907,7 @@ void prep_user_input(void) {
     WRFLAG_FILTERS   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_FILTERS   ) ;
     WRFLAG_COMPACT   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_COMPACT   ) ;
     WRFLAG_ATMOS     = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_ATMOS     ) ;
+    WRFLAG_noSPEC    = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_noSPEC    ) ;
   }
 
   if ( WRFLAG_BLINDTEST ) 
@@ -29006,7 +29008,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);        // spectrograph
   wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );     // SED_TRUE
 
-
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
 
@@ -29015,7 +29016,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Default behavior is to disable SED output if atmos-DCR is enabled because
   // DCR leverages SPECTROGRAPH infrastructure. However, if original user input
   // requests SED output, then do it.
-  bool WRITE_SPECTRA = SPECTROGRAPH_USEFLAG;
+  
+  bool WRITE_SPECTRA = SPECTROGRAPH_USEFLAG && !WRFLAG_noSPEC;
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) {
     int OPTMASK_ORIG = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK_ORIG; // original user intent
     if ( (OPTMASK_ORIG & SPECTROGRAPH_OPTMASK_SEDMODEL) == 0 ) 

@@ -22309,6 +22309,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         summary file in sim-data outout directory.
      + new inputs HOSTLIB_MAG_DETECT; analog of HOSTLIB_SNR_DETECT,
        but mag-errors are not needed. Initial use is for Roman sims.
+     + FORMAT_MASK += 2048 -> suppress SPEC.FITS output, but keep VERSION.FITS
      
    snana.car
      + call ENVreplace(HEADER_OVERRIDE_FILE)

@@ -110,8 +110,9 @@
 #define FORMAT_MASK_CIDRAN   16   // use random CID (1-MXCID)
 #define FORMAT_MASK_FITS     32   // write to fits file instead of ascii
 #define FORMAT_MASK_COMPACT  64   // suppress non-essential PHOT output
-#define FORMAT_MASK_ATMOS    128  // write RA,DEC,AIRMASS per obs, for atmos corrections
+#define FORMAT_MASK_ATMOS    128  // write RA,DEC,AIRMASS per obs, for atmos corr
 #define FORMAT_MASK_FILTERS  256  // write filterTrans files (Aug 2016)
+#define FORMAT_MASK_noSPEC  2048  // suppress SPEC.FITS data; keep VERSION.SPEC dump file
 
 // xxx #define KEYSOURCE_FILE 1
 // xxx #define KEYSOURCE_ARG  2
@@ -131,10 +132,10 @@ int WRFLAG_MODEL     ;
 int WRFLAG_BLINDTEST ;
 int WRFLAG_CIDRAN    ;
 int WRFLAG_FITS      ;
-int WRFLAG_FILTERS   ; // Aug 2016
+int WRFLAG_FILTERS   ;
 int WRFLAG_ATMOS    ; // May 2023
 int WRFLAG_COMPACT   ; // Jan 2018
-
+int WRFLAG_noSPEC ;    // Apr 2024
 
 #define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
 #define SIMLIB_PSF_ARCSEC_FWHM   "ARCSEC_FWHM"        // option

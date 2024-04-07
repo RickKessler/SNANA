@@ -6720,7 +6720,8 @@ Here is a quick summary of the bit-mask format options,
    FORMAT_MASK:  48  # 32(FITS) + 16(RANDOM CID)
    FORMAT_MASK: +64  # compact PHOT table 
                       (remove GAIN,RDNOISE,SKYSIG_T,PSF_SIG2,PSF_RATIO,ZP_ERR)
-   FORMAT_MASK:  288 # 32(FITS) + 256(write filterTrans files)
+   FORMAT_MASK:  288  # 32(FITS) + 256(write filterTrans files)
+   FORMAT_MASK:  2080 # 32(FITS) + 2048(no SPEC.FITS, but keep VERSION.SPEC)
 \end{Verbatim}
 %
 and the sub-sections below give more details.

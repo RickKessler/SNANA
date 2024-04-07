@@ -71,6 +71,8 @@
 # Mar 09 2024: write GENTYPE_TO_NAME dictionary to final readme; to be read
 #              by scone and other classifiers.
 #
+# Apr 07 2024: gzip SIMGEN-DUMP files
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -132,6 +134,8 @@ FORMAT_MASK_CIDRAN = 16
 
 FORMAT_TEXT = "TEXT"
 FORMAT_FITS = "FITS"
+
+SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC' ]
 
 # define max ranseed to avoid exceeding 4-byte limit of snlc_sim storage
 RANSEED_MAX = 1000000000   # 1 billion
@@ -2133,7 +2137,6 @@ class Simulation(Program):
             # Mar 22 2024 refactor to add SPEC-dump and simplify logic
             DUMP_FILE_MERGE_DICT = {}
             DUMP_FILE_LIST_DICT  = {}
-            SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC' ]
             readme_file   = f"{target_dir}/{genversion_combine}.README"
             list_file     = f"{target_dir}/{genversion_combine}.LIST"
             for suffix in SUFFIX_DUMP_LIST :
@@ -2245,7 +2248,6 @@ class Simulation(Program):
                 merge_file    = DUMP_FILE_MERGE_DICT[suffix]
                 for split_file in split_list:
                     self.append_merge_dump_file(split_file, merge_file)
-
         else:
             for dump_split_file in dump_split_list :
                 self.append_merge_dump_file(dump_split_file,dump_file)
@@ -2366,6 +2368,13 @@ class Simulation(Program):
         with open(readme_file,"w") as f : 
             self.merge_write_readme(f, iver_all, MERGE_INFO_CONTENTS)
 
+        # gzip DUMP files. (Apr 2024)
+        for suffix in SUFFIX_DUMP_LIST:
+            dump_file = f"{path_genv}/{genversion}.{suffix}"
+            if os.path.exists(dump_file):
+                cmd_gzip = f"gzip {dump_file}"
+                os.system(cmd_gzip)
+                
         # move README files to misc/ for REPEAT only
         os.mkdir(misc_dir)
         TMP_GENV_LIST = []

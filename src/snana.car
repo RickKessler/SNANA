@@ -4512,10 +4512,10 @@ c - - - - - -
          CALL RDHEAD_SIM_SNANA(OPT)
 
 c   reject event if user doesn't want to process true SNIa or NONIa
-         if ( .NOT. USESIM_SNIA  .and. LSIM_TRUE_NONIa) THEN
+         if ( .NOT. USESIM_SNIA  .and. LSIM_TRUE_SNIa) THEN
 	     ISTAT = ISTAT_SKIP ; RETURN
 	 endif
-         if ( .NOT. USESIM_NONIa .and. LSIM_TRUE_SNIa)  THEN
+         if ( .NOT. USESIM_NONIa .and. LSIM_TRUE_NONIa)  THEN
 	    ISTAT = ISTAT_SKIP; RETURN
          endif
 

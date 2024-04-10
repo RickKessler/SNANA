@@ -79,6 +79,8 @@
 # Mar 13 2024: add comments to BBC_SUMMARY_wfit.LOG to make it more
 #              human-readable.
 #
+# Apr 10 2024: if using wfit afterburner, record CPU in MERGE_wfit.LOG
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -128,6 +130,7 @@ PREFIX_wfit  = "wfit"
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_FILE     = "BBC_SUMMARY_wfit.FITRES"
+# xxx mark WFIT_MERGE_LOG        = "MERGE_wfit.LOG"
 
 BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
 BBC_ACCEPT_SUMMARY_FILE  = "BBC_ACCEPT_SUMMARY.LIST"
@@ -2596,7 +2599,8 @@ class BBC(Program):
 
         nrow = 0 
         ifit_last = -9 ; imu_last = 9
-
+        cpu_sum = 0.0
+        
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
             version    = row[COLNUM_BBC_MERGE_VERSION] # sim data version
@@ -2632,7 +2636,8 @@ class BBC(Program):
             ndof    = wfit_values_dict['ndof']
             FoM     = wfit_values_dict['FoM']
             nwarn   = wfit_values_dict['nwarn']
-
+            cpu_sum += wfit_values_dict['cpu_minutes']
+            
             w_ran   = int(wfit_values_dict['w_ran']) 
             wa_ran  = int(wfit_values_dict['wa_ran'])
             omm_ran = int(wfit_values_dict['omm_ran'])
@@ -2673,6 +2678,15 @@ class BBC(Program):
             ifit_last = ifit; imu_last = imu
         f.close()
 
+        # Apr 2024 - write MERGE_wfit.LOG with CPU sum
+        cpu_sum /= 60.0  # minutes -> hr
+        MERGE_wfit_LOG     = f"{output_dir}/{MERGE_wfit_LOG_FILE}"
+        f = open(MERGE_wfit_LOG,"w")
+        f.write(f"PROGRAM_CLASS:  BBC-wfit\n");
+        f.write(f"CPU_SUM:        {cpu_sum:0.2f}  # hours\n")
+        f.close()
+        
+        return
         # end make_wfit_summary
 
     def make_splitran_summary(self):
@@ -2751,6 +2765,8 @@ class BBC(Program):
             if nrow == 77777 : break  # debug only
 
         f.close()
+
+        return
         # end make_splitran_summary
     
     def get_splitran_values(self,row):

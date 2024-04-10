@@ -93,7 +93,8 @@ SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_COV    = "COV"
 
 # define monitor files
-MERGE_LOG_FILE    = "MERGE.LOG"
+MERGE_LOG_FILE         = "MERGE.LOG"
+MERGE_wfit_LOG_FILE    = "MERGE_wfit.LOG"  # only for BBC's wfit afterburner
 SUBMIT_INFO_FILE  = "SUBMIT.INFO"
 TABLE_SPLIT       = "SPLIT"  # yaml table in MERGE.LOG
 TABLE_MERGE       = "MERGE"  # yaml table in MERGE.LOG

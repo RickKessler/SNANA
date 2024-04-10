@@ -1328,7 +1328,8 @@ def get_wfit_values(wfit_yaml):
     # Feb 22 2022: check for NWARNINGS
     # Aug 28 2022: wsig_hi -> wsig_up (bug fix)
     # Feb 12 2024: return ndof in dictionary
-
+    # Apr 10 2024: return cpu_minutes
+    
     key_list = [ 'w', 'w0' ]
     for key in key_list:
         if  key in wfit_yaml:
@@ -1441,6 +1442,12 @@ def get_wfit_values(wfit_yaml):
         if key in wfit_yaml:
             nwarn = wfit_yaml[key]
 
+    key_list = [ 'CPU_MINUTES' ]
+    nwarn    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            cpu_minutes = wfit_yaml[key]
+            
     wfit_values_dict = {
         'w'        : w ,
         'w_sig'    : w_sig ,
@@ -1460,6 +1467,7 @@ def get_wfit_values(wfit_yaml):
         'FoM'      : FoM,
         'rho_womm' : rho_womm,
         'rho_w0wa' : rho_w0wa,
+        'cpu_minutes' : cpu_minutes,
         'PAD'  : 0
     }
 

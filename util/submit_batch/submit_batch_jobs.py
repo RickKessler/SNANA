@@ -320,7 +320,7 @@ def print_cpu_sum():
     # This task is strictly diaganostic to help track CPU needs.
     # This task does not submit or process jobs.
 
-    SUMMARY_FILE_LIST = [ MERGE_LOG_FILE, 'SCONE_SUMMARY.LOG' ] 
+    SUMMARY_FILE_LIST = [ MERGE_LOG_FILE, MERGE_wfit_LOG_FILE, 'SCONE_SUMMARY.LOG' ] 
 
     logging.info(f"\n Sum CPU in {SUMMARY_FILE_LIST} files ... ")
 

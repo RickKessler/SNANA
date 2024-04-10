@@ -26709,7 +26709,9 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   // Jan 2020
   // Abort if flux (in ADU) is way too large (i.e., crazy)
   //   [part of GENFLUX_DRIVER refactor] 
-
+  //
+  // Apr 2024: increase AGN crazyflux limit by x10 (*=1e10 instead of 1e9)
+  
   int     ifilt_obs    = FLUXNOISE->IFILT_OBS;  
   double  ZPADU        = SIMLIB_OBS_GEN.ZPTADU[ep] ;
   double  zsn          = GENLC.REDSHIFT_HELIO ;
@@ -26762,7 +26764,7 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
     { crazyFlux *= 100.0; }  
 
   if ( INDEX_GENMODEL == MODEL_AGN )
-     { crazyFlux *= 1e9; } // crazyflux with AGN (Apr 2023)
+     { crazyFlux *= 1e10; } // crazyflux with AGN (Apr 2023)
 
   // determine NEGATIVE crazy flux 
   crazyFlux_neg = -crazyFlux ; // Mar 20 2021

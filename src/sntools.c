@@ -1371,8 +1371,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   //    problems near season boundary
   //
   // Mar 23 2021: bail if NOBS < 3
+  // Apr 10 2024: init OBS_atFLUXMAX[0] before returning
   //
 
+  OBS_atFLUXMAX[0] = -9;  // Apr 2024
   int  OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
   if ( NOBS    <  3 ) { return ; }

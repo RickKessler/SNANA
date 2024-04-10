@@ -45,6 +45,7 @@ int ISIMSED_SEQUENTIAL ; // xxx mark obsolete Mar 7 2024
 int ISIMSED_SELECT;   // either SEQUENTIAL or WGT option
 
 bool ISBATCH_SIMSED;   // T => running in batch mode
+bool ISWGTMAP_SIMSED;  // True = user-provided SIMSED_WGTMAP file
 
 /**********************************************
   Init Information

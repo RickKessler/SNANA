@@ -72,33 +72,6 @@ const char dual_bits_SIMSED[INTERP_SIMSED_MAX_DIM] =
   {1, 2, 4, 8, 16, 32, 64, 128};
 // =======================================================
 
-
-/* xxx mark delete Feb 28 2024 xxx
-// define mangled functions with underscore (for fortran)
-
-int init_genmag_simsed__(char *version, char *PATH_BINARY, char *SURVEY,
-			 char *kcorFile, int *OPTMASK) {
-  int istat;
-  istat = init_genmag_SIMSED(version, PATH_BINARY, SURVEY, kcorFile, *OPTMASK);
-  return istat;
-} 
-
-
-void genmag_simsed__(int *OPTMASK, int *ifilt, double *x0,
-		     int *NLUMIPAR,int *iflagpar,int *iparmap, double *lumipar,
-		     double *RV_host, double *AV_host, double *mwebv, 
-		     double *z, int *nobs, double *Tobs_list, 
-		     double *magobs_list, double *magerr_list,
-		     int *index_sed ) {
-
-  genmag_SIMSED(*OPTMASK, *ifilt, *x0, *NLUMIPAR, iflagpar, iparmap, lumipar,
-		*RV_host, *AV_host,
-		*mwebv, *z, *nobs, Tobs_list, magobs_list, magerr_list,
-		index_sed );
-}
-
-xxxxxx end mark xxxxx */
-
 /****************************************************************
   init_genmag_SIMSED:
     o reads in the filters from FilterFiles
@@ -184,6 +157,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   USE_BINARY      = ( OPTMASK &  OPTMASK_INIT_SIMSED_BINARY   ) > 0 ;
   USE_TESTMODE    = ( OPTMASK &  OPTMASK_INIT_SIMSED_TESTMODE ) > 0 ;
   ISBATCH_SIMSED  = ( OPTMASK &  OPTMASK_INIT_SIMSED_BATCH    ) > 0 ;
+  ISWGTMAP_SIMSED = ( strlen(WGTMAP_FILE) > 0 );
 
   if ( (OPTMASK & OPTMASK_INIT_SIMSED_BINARY1)> 0 )
     { FORCE_SEDBINARY = true; USE_BINARY = true;  }
@@ -872,6 +846,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
       fgets(string_parnames, 200, fp);
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
+      // if SIMSED_WGTMAP exists, NPAR for malloc += 1
+      // need to define int NPAR_MALLOC 
       malloc_METADATA_SEDMODEL(NSED_COUNT, NPAR); // Jan 2024
 
       SEDMODEL.NPAR = NPAR;
@@ -1179,6 +1155,17 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
 
     printf("\t Loaded %d cumulative WGTS from column %d \n", 
 	   NSED, SEDMODEL.IPAR_WGT); fflush(stdout);
+  }
+
+  if ( OPT_WGT == 2 ) {
+    // if no INDEX column, abort
+    // read WGTMAP file 
+    // load above arrays and check that every ISED is read/loaded once and only once
+    // duplicate/missing indices will trigger abort
+    // (need local array for ISEDs as presented in WGTMAP
+    // need to fill SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT]
+    // if SEDMODEL.IPAR_WGT doesn't exist, force it to exist and increment NPAR(?).
+    // SIMSED_WGTMAP
   }
   // X_WGT+
 

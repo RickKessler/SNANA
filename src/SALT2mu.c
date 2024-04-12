@@ -410,7 +410,6 @@ double  BIASCOR_MINVAL_LCFIT[3]  = {  5.0, -4.0, -0.30 } ;
 double  BIASCOR_MAXVAL_LCFIT[3]  = { 30.0, +4.0, +0.50 } ;
 double  BIASCOR_BINSIZE_LCFIT[3] = { 25.0,  0.5,  0.05 } ;
 char    BIASCOR_NAME_LCFIT[4][4] = { "mB", "x1", "c", "mu" } ;
-//int     BIASCOR_MIN_PER_CELL     = 3  ; // at least this many per 5D cell
 int     BIASCOR_MINSUM           = 10 ; // at least this many summed in 3x3x3
 double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
@@ -1923,7 +1922,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   TABLEFILE_INIT();  // call before prep_input_driver , 9.28.2020
 
-  // prepare input
+  // prepare input (ISMODEL_LCFIT_SALT2/BAYESN detemrined here)
   prep_input_driver();
 
   //  test_zmu_solve();
@@ -1931,7 +1930,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // --------------------------------------
   //Read input data from SALT2 fit
-  read_data(); 
+  read_data();
 
   compute_more_INFO_DATA();  
 
@@ -3164,7 +3163,6 @@ void check_duplicates_util(int EVENT_TYPE) {
   int  isn, isn2, nsn, MEMD, MEMI, MEMB, IDSURVEY ;
   int  unsort, unsort2, *unsortList, ORDER_SORT   ;
   bool IS_SIM ;
-  // xxx mark  double *zList, *cList, *xList, z, x, c  ;
   float  *zList, *cList, *xList, z, x, c  ;
   bool   *IS_DUPL;
   TABLEVAR_DEF *TABLEVAR;
@@ -3191,13 +3189,6 @@ void check_duplicates_util(int EVENT_TYPE) {
   print_debug_malloc(+1*debug_malloc,fnam);
   nsn     = TABLEVAR->NSN_ALL ;
 
-  /* xxx mark delete
-  MEMD = (nsn+1) * sizeof(double)  ;
-  zList      = (double *)malloc(MEMD); // allocate list of variables to sort
-  cList      = (double *)malloc(MEMD);
-  xList      = (double *)malloc(MEMD); 
-  xxxx end mark */
-
   MEMI = (nsn+1) * sizeof(int)   ;
   MEMB = (nsn+1) * sizeof(bool)  ;
   unsortList = (int    *)malloc(MEMI); // allocate sorted list
@@ -3218,7 +3209,6 @@ void check_duplicates_util(int EVENT_TYPE) {
   }
 
   ORDER_SORT = + 1 ; // increasing order
-  // xxx mark   sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
   sortFloat( nsn, zList, ORDER_SORT, unsortList ) ;
 
   bool  SAME, FOUND_DUPL ;
@@ -10269,7 +10259,6 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   int    NMAP_TOT = 0 ;
   int    NMAP_USE = 0 ;
   double sumsq_nbr, sum_nbr, Wsum_nbr ;
-  // xxx mark  int    Nsum_nbr=0;
   int    J1D_nbr, inbr ;
   int    NgetList = 0 ;
 
@@ -10313,7 +10302,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
       sum_nbr   += sum[J1D_nbr] ;
       Wsum_nbr  += CELLINFO_BIASCOR[IDSAMPLE].WperCell[J1D_nbr] ;
     }
-    // xxx mark delete     XNLIST = (double)Nsum_nbr ;
+
     XNLIST = Wsum_nbr ;
 
     tmp1   = sum_nbr/XNLIST;   tmp2=sumsq_nbr/XNLIST ;
@@ -11087,15 +11076,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     CELL_MUCOVSCALE->AVG_m[i1d]              += (m * WGT_POP) ;
     CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] += (c * WGT_POP) ;
 
-    /* xxx mark delete  xxxxxx
-    printf(" xxx %s: WGT_POP = %f WperCell = %f \n", 
-	   fnam, WGT_POP, CELL_MUCOVSCALE->WperCell[i1d] );
-    debugexit(fnam);
-    xxxx */
-
   } // end ievt
 
-  //printf("xxx N_REALLOC=%d\n",N_REALLOC);
 
   // -------------------------------------------------
   double WN, SQSTD, AVG=-9.0, STD=-9.0, MAD=-9.0 ;

@@ -22253,7 +22253,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         else switch to Gauss-z prior on zspec.
     
 # =============================================================
-         v11_05l ([tag date])
+         v11_05l (Apr 12 2024)
 
          *****  IMPORTANT(v11_05l) *****
   
@@ -22280,7 +22280,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       Output sim-README includes GENTYPE_TO_NAME map that can be
       read by classifiers or other analysis codes that need to 
       parse GENTYPE column in FITRES output from LCFIT or BBC.
-
+      Also write mean wavelength vs. band to FILTERS block in readme
+      
          *****  MISCELLANEOUS(v11_05l) *****
 
    sntools_dataformat_fits.c[h]
@@ -22291,13 +22292,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + if NNBR == 0 (no galaxy detection), avoid setting false ZPHOT.
          (in function GEN_SNHOST_ZPHOT)
      + fix +HOST[xxx] logic to work if sim-input file contains
-       only HOSTLIB_FILE key and nothing else.
-
-   sntools_sim_readme.c
-     + write mean wavelength vs. band to FILTERS block in readme
+       only HOSTLIB_FILE key and nothing else (to simplify usage)
      
    snlc_sim.c
-     + remove DEBUG_FLAG==-128 block to reproduce old bug
+     + remove DEBUG_FLAG == -128 block to reproduce old bug
      + in gen_zsmear(), remove special check for zerr==0
      + new sim-input key HOSTLIB_VARNAME_ZPHOT to use alternate  
        ZPHOT[_ERR] column in HOSTLIB
@@ -22326,14 +22324,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + return mean and std from init_zPDF_spline.c
 
    minuit.F
-     + comment out nagging warning messages (CCx) that result in
+     + comment out nagging warning messages (see CCx) that result in
        HUGE log files for biasCor sims and may degrade performance
        due to stressed I/O.
        
    sntools_zPDF_spline.c[h]:
-     + add option for STEFFNE or CUBIC spine;
+     + add option for STEFFEN or CUBIC spine;
        see OPT_PHOTOZ in SNANA manual to control these options.
-
+       Beware that STEFFEN needs gsl version > 2.0
+       
    submit_prog_bbc.py
      + nicer visual output for BBC_SUMMARY_wfit.LOG
 
@@ -22346,6 +22345,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      
    many codes:
      + remove all TELESCOPE variables since they are obsolete.
-
   
 END: 

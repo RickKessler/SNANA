@@ -1221,6 +1221,12 @@ class BBC(Program):
                           f"(and {n_fitres} INPUT*FITRES)." 
                     logging.info(f"\t\t{msg}")
 
+                    # abort of output_dir disappears (e.g, user removes it)
+                    if not os.path.exists(output_dir):
+                        msgerr = []
+                        msgerr.append(f"{output_dir} disappeared.")
+                        self.log_assert(False,msgerr)
+
                     time.sleep(5.0)
 
         # - - - - - - -

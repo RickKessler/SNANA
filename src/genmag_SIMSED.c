@@ -67,6 +67,7 @@
 #include  "genmag_SEDtools.h"
 #include  "genmag_SIMSED.h"
 #include  "MWgaldust.h"
+#include  "sntools_wgtmap.h"
 
 const char dual_bits_SIMSED[INTERP_SIMSED_MAX_DIM] =
   {1, 2, 4, 8, 16, 32, 64, 128};
@@ -749,6 +750,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   char  string_parnames[200], tmpName_index[200], tmpName_WGT[200];
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG, NTAB=0, len, i ;
+  int NPAR_MALLOC;
   int NSED_COUNT ;
   int NPAR_INDEX = 0, NPAR_WGT = 0 ;
 
@@ -846,9 +848,13 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
       fgets(string_parnames, 200, fp);
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
-      // if SIMSED_WGTMAP exists, NPAR for malloc += 1
-      // need to define int NPAR_MALLOC 
-      malloc_METADATA_SEDMODEL(NSED_COUNT, NPAR); // Jan 2024
+      // A.G
+      if ( ISWGTMAP_SIMSED ) {
+        NPAR_MALLOC = NPAR + 1;
+      } else{
+	NPAR_MALLOC = NPAR;
+      }
+      malloc_METADATA_SEDMODEL(NSED_COUNT, NPAR_MALLOC); // Jan 2024
 
       SEDMODEL.NPAR = NPAR;
       tmpName_index[0] = 0 ;
@@ -1158,14 +1164,60 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
   }
 
   if ( OPT_WGT == 2 ) {
-    // if no INDEX column, abort
-    // read WGTMAP file 
+    // if no INDEX column, abort+
+    // read WGTMAP file+
     // load above arrays and check that every ISED is read/loaded once and only once
     // duplicate/missing indices will trigger abort
     // (need local array for ISEDs as presented in WGTMAP
     // need to fill SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT]
     // if SEDMODEL.IPAR_WGT doesn't exist, force it to exist and increment NPAR(?).
     // SIMSED_WGTMAP
+
+    /*if ( SEDMODEL.IPAR_TEMPLATE_INDEX < 0 ) {
+      sprintf(c1err,"missing required INDEX column in SED.INFO file.");
+      sprintf(c2err,"INDEX column is required for SIMSED_WGTMAP option.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }* mark delete */
+    
+    struct GRIDMAP GRIDMAP; 
+    int OPTMASK = 0;
+    int ISED, IPAR_WGTMAP, IPAR_SED, istat;
+    double PARVALUES[20], WGT_INTERP;
+
+    ENVreplace(WGTMAP_FILE,fnam,1);
+    read_WGTMAP(WGTMAP_FILE, OPTMASK, &GRIDMAP);
+
+    //A.G
+    if ( SEDMODEL.IPAR_WGT < 0 ) {
+      printf("\tdefine WGT column for SIMSED WGTMAP");
+      SEDMODEL.IPAR_WGT = SEDMODEL.NPAR;
+      SEDMODEL.NPAR++;
+    } 
+
+    /*
+    for (j = 0; j < 1; j++){
+      //printf("xxx %s VARNAME = %s\n", fnam, GRIDMAP.VARNAMES[j]);
+    }
+    */
+
+    //debugexit(fnam);
+    
+
+    for (ISED = 1; ISED <= SEDMODEL.NSURFACE; ISED++){
+      for ( IPAR_WGTMAP = 0; IPAR_WGTMAP < GRIDMAP.NDIM; IPAR_WGTMAP++ ){
+        IPAR_SED = IPAR_SEDMODEL (GRIDMAP.VARNAMES[IPAR_WGTMAP]);
+	PARVALUES[IPAR_WGTMAP] = SEDMODEL.PARVAL[ISED][IPAR_SED];
+	printf("xxx %s ISED = %d IPAR_WGTMAP = %d PARVALUE = %f\n", fnam, ISED, IPAR_WGTMAP, PARVALUES[IPAR_WGTMAP]);
+      }
+
+      istat = interp_GRIDMAP(&GRIDMAP, PARVALUES, &WGT_INTERP) ;
+      SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT] = WGT_INTERP;
+      printf("xxx %s ISED = %d WGT_INTERP = %le\n", fnam, ISED, WGT_INTERP);
+
+    }
+
+    debugexit(fnam);
+
   }
   // X_WGT+
 

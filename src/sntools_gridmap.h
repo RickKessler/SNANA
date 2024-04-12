@@ -1,6 +1,7 @@
 // Created July 2021 [moved from sntools.h]
 
 // define prototype for multi-dimensionl grid; used for interpolation
+#define MXDIM_GRIDMAP 20
 typedef struct GRIDMAP {
   int     ID;        //    
   int     NDIM;     // Number of dimensions      
@@ -18,6 +19,7 @@ typedef struct GRIDMAP {
   int  NROW;          // number or rows read from file 
   int  OPT_EXTRAP;    // 1=>snap outside values to edge 
   char VARLIST[80];   // comma-sep list of variables (optional to fill)   
+  char *VARNAMES[MXDIM_GRIDMAP];    // array of variable names (internally computed)
 
   float MEMORY; // alloated memory, MB
 

@@ -75,7 +75,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double *TMPVAL, *TMPVAL_LAST, *DIFVAL_LAST, DDIF, DIF;
 
-  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK ;
+  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
   char  LINE[200], word[80] ;
   char fnam[] = "read_GRIDMAP" ;
@@ -213,6 +213,14 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   // ----------------
   printf("    Load GRIDMAP-%3.3d '%s(%s)'  NROW=%d \n",
 	 IDMAP, MAPNAME, VARLIST, NROW_READ); fflush(stdout);
+
+  // split VARLIST into array of names 04/12/2024
+  for ( ivar = 0; ivar < NDIM; ivar++ ){
+    GRIDMAP_LOAD->VARNAMES[ivar] = (char*) malloc(100);
+  } 
+
+  splitString(VARLIST, COMMA, fnam, MXDIM_GRIDMAP, &NDIM_TMP, 
+		  GRIDMAP_LOAD->VARNAMES);
 
   init_interp_GRIDMAP(IDMAP, MAPNAME, NROW_READ, NDIM, NFUN, OPT_EXTRAP,
 		      TMPMAP2D, 

@@ -22253,7 +22253,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         else switch to Gauss-z prior on zspec.
     
 # =============================================================
-         v11_05l (Apr 12 2024)
+         v11_05l (Apr 12 2024) <-- end date
 
          *****  IMPORTANT(v11_05l) *****
   
@@ -22345,5 +22345,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      
    many codes:
      + remove all TELESCOPE variables since they are obsolete.
+
+# =============================================================
+         v11_05m (Apr 12 2024) <-- start date
+
+         *****  IMPORTANT(v11_05m) *****
   
+
+         *****  USEFUL(v11_05m) *****
+
+      
+         *****  MISCELLANEOUS(v11_05m) *****
+
 END: 

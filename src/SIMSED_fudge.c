@@ -205,6 +205,7 @@
 
 #include "sntools.h"
 #include "sntools_genSmear.h"
+#include "sntools_wgtmap.h"
 #include "MWgaldust.h"
 
 #include "genmag_SIMSED.h"

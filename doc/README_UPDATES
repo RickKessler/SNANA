@@ -22357,4 +22357,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
          *****  MISCELLANEOUS(v11_05m) *****
 
+    change typedef GRIDMAP name to GRIDMAP_DEF to follow SNANA convention.
+    
 END: 

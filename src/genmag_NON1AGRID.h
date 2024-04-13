@@ -14,7 +14,7 @@ int    INDEX_NON1AGRID ;
 
 void init_genmag_NON1AGRID(char *GRIDFILE, double FRAC_PEC1A );
 
-void init_interp_NON1AGRIDMAP(int ifilt, SNGRID_DEF *SNGRID, GRIDMAP *GRIDMAP );
+void init_interp_NON1AGRIDMAP(int ifilt, SNGRID_DEF *SNGRID, GRIDMAP_DEF *GRIDMAP );
 
 void genmag_NON1AGRID (int ifilt_obs, double mwebv, double z,
 		       double RVhost, double AVhost,

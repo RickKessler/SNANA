@@ -456,7 +456,7 @@ struct HOSTLIB_WGTMAP_DEF {
   double    CHECKLIST_WGT[MXCHECK_WGTMAP] ;
   double    CHECKLIST_SNMAG[MXCHECK_WGTMAP] ;
 
-  struct  GRIDMAP  GRIDMAP ;       // all WGTMAP vars
+  GRIDMAP_DEF  GRIDMAP ;       // all WGTMAP vars
 
   int OPT_EXTRAP; // 1 ==> pull out-of-range values to edge of grid
 

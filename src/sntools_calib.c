@@ -3292,7 +3292,7 @@ double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double A
   // Created Nov 2022
   // Return rest-frame mag for input Test, z, AV(warp)
 
-  GRIDMAP       *KCOR_GRIDMAP = &KCOR_TABLE.GRIDMAP_LCMAG ;
+  GRIDMAP_DEF   *KCOR_GRIDMAP = &KCOR_TABLE.GRIDMAP_LCMAG ;
   FILTERCAL_DEF *FILTERCAL    = &CALIB_INFO.FILTERCAL_REST;
   int            ifilt_r      = FILTERCAL->IFILTDEF_INV[ifiltdef_rest];
   int           NFILTDEF_REST = FILTERCAL->NFILTDEF;
@@ -3335,7 +3335,7 @@ double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVw
   // to produce kcor/calib file, compute corretion based on
   // central wavelength of band.
 
-  GRIDMAP       *KCOR_GRIDMAP = &KCOR_TABLE.GRIDMAP_MWXT ;
+  GRIDMAP_DEF   *KCOR_GRIDMAP = &KCOR_TABLE.GRIDMAP_MWXT ;
   FILTERCAL_DEF *FILTERCAL    = &CALIB_INFO.FILTERCAL_OBS;
   int            ifilt_o      = FILTERCAL->IFILTDEF_INV[ifiltdef_obs];
   int            NFILTDEF_OBS = FILTERCAL->NFILTDEF;
@@ -3390,7 +3390,7 @@ double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b,
   //
   // NOT_DONE
 
-  GRIDMAP  *KCOR_GRIDMAP = &KCOR_TABLE.GRIDMAP_AVWARP ;
+  GRIDMAP_DEF  *KCOR_GRIDMAP = &KCOR_TABLE.GRIDMAP_AVWARP ;
   int ifilt_a            = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_a];
   int ifilt_b            = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_b];
   double   AVwarp = 0.0 ;
@@ -3441,7 +3441,7 @@ double eval_kcor_table_KCOR(int ifiltdef_rest, int ifiltdef_obs, double Trest,
 
   int ifilt_r = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_rest];
   int ifilt_o = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[ifiltdef_obs];
-  GRIDMAP *KCOR_GRIDMAP =  &KCOR_TABLE.GRIDMAP_KCOR ;
+  GRIDMAP_DEF *KCOR_GRIDMAP =  &KCOR_TABLE.GRIDMAP_KCOR ;
 
   double KCOR = 0.0 ; // kcor value return-arg
   double GRIDVAL_LIST[10];

@@ -42,6 +42,7 @@
 # Feb 22 2024: add sntools_wgtmap
 # Feb 24 2024: switch -O1 to -O2 optimizer (20% faster photo-z fits)
 # Mar 22 2024: fix kcor to link with genmag_SEDtools.o
+# Apr 12 2024: few tweaks to handle sntools_wgtmap.c[h]
 #
 # ------------------------------------------------------------------------
 
@@ -66,7 +67,7 @@ CC   = gcc
   PROFILEFLAG = 
 
   EXTRA_FLAGS = -O2
-  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
 GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
@@ -283,17 +284,18 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_BAYESN.o	\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
-	$(OBJ)/genmag_SIMSED.o	\
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_extinction.o \
 	$(OBJ)/genmag_extrap.o
+
 
 OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
 	$(OBJ)/genmag_NON1ASED.o \
 	$(OBJ)/genmag_NON1AGRID.o \
 	$(OBJ)/genmag_LCLIB.o	\
-	$(OBJ)/genmag_PySEDMODEL.o
+	$(OBJ)/genmag_PySEDMODEL.o \
+	$(OBJ)/genmag_SIMSED.o
 
 OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools.o 	\
@@ -1093,6 +1095,8 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/genmag_SALT2.o   \
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o \
+	$(OBJ)/sntools_wgtmap.o \
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/MWgaldust.o \
 	$(LIB)/libsnana.a  \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
@@ -1118,6 +1122,8 @@ $(BIN)/SIMSED_extractSpec.exe : \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
+	$(OBJ)/sntools_wgtmap.o \
+	$(OBJ)/sntools_gridmap.o \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_extractSpec.o )
 
@@ -1156,6 +1162,8 @@ $(BIN)/SIMSED_check.exe : \
 	$(OBJ)/sntools.o  \
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
+	$(OBJ)/sntools_wgtmap.o \
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	$(OBJ)/genmag_SIMSED.o  \

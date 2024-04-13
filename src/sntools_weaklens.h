@@ -1,6 +1,6 @@
 
 #define MXBIN_LENSING_z   100
-#define MXBIN_LENZING_dmu 100
+#define MXBIN_LENSING_dmu 6000
 
 struct {
   int USEFLAG;

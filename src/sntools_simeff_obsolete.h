@@ -12,7 +12,7 @@
 
 #define MXGENVAR_SIMEFFMAP   10
 
-struct SIMEFFMAP_DEF {
+struct SIMEFFMAP {
   int NGENVAR ; // number of variables to specify map
   char   VARNAME[MXGENVAR_SIMEFFMAP][20] ;  // variable name
   char   VARSCALE[MXGENVAR_SIMEFFMAP][8] ;  // LIN, LOG or INV
@@ -27,7 +27,7 @@ struct SIMEFFMAP_DEF {
   double  *TMPEFF ; // idem
 } SIMEFFMAP ;
 
-struct GRIDMAP  SIMEFF_GRIDMAP ;
+GRIDMAP_DEF  SIMEFF_GRIDMAP ;
 
 
 

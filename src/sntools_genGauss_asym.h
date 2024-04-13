@@ -66,6 +66,6 @@ int  parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
 
 void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int IDMAP,
                               int OPT_EXTRAP, int NBIN, double *RANGE,
-                              char *callFun, GRIDMAP *GRIDMAP_LOAD);
+                              char *callFun, GRIDMAP_DEF *GRIDMAP_LOAD);
 
 // == END ==

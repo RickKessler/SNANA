@@ -23,7 +23,7 @@
 // ********************************************************
 void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
-                  char *callFun, GRIDMAP *GRIDMAP_LOAD ) {
+                  char *callFun, GRIDMAP_DEF *GRIDMAP_LOAD ) {
 
   // Mar 2019
   // Utility to read mutil-D map from file and call
@@ -237,7 +237,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
 
 // ==============================================================
-void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE){
+void malloc_GRIDMAP(int OPT, GRIDMAP_DEF *gridmap, int NFUN, int NDIM, int MAPSIZE){
   // Created May 26 2021
   // OPT > 0 -> malloc
   // OPT < 0 -> free
@@ -303,7 +303,7 @@ void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE){
 void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, 
 			 int NDIM, int NFUN, int OPT_EXTRAP,
 			 double **GRIDMAP_INPUT, double **GRIDFUN_INPUT,
-			 GRIDMAP *gridmap ) {
+			 GRIDMAP_DEF *gridmap ) {
 
   // Created July 2011 by R.Kessler
   // Return struct *gridmap to assist in mult-dimensional interp .
@@ -459,7 +459,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
 } // end of init_interp_GRIDMAP
 
 
-int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
+int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
 
   // Created Jul 3, 2011
   // Do multi-dimensional interpolation.

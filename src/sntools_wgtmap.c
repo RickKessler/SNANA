@@ -16,7 +16,7 @@
 #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
 
 // ============================================
-int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP *GRIDMAP){
+int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
 
   // Created Feb 2024 by Alex Gagliano
   // Create generic WGTMAP function to read file

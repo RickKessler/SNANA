@@ -1310,7 +1310,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
 
 // ********************************************
-void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM,     
+void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D_DEF *SIGCOH_LAM,     
 			     double  *COLOR_DISP_MAX) 
 { 
 
@@ -1374,7 +1374,7 @@ void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM,
 
 // ************************************
 void  parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG, 
-			 GRIDMAP1D *SIGCOH_LAM) {
+			 GRIDMAP1D_DEF *SIGCOH_LAM) {
 
   // Created May 30 2018
   //

@@ -66,8 +66,9 @@
 #include  "sntools.h"           // SNANA community tools
 #include  "genmag_SEDtools.h"
 #include  "genmag_SIMSED.h"
-#include  "MWgaldust.h"
 #include  "sntools_wgtmap.h"
+#include  "MWgaldust.h"
+
 
 const char dual_bits_SIMSED[INTERP_SIMSED_MAX_DIM] =
   {1, 2, 4, 8, 16, 32, 64, 128};
@@ -1179,7 +1180,7 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }* mark delete */
     
-    struct GRIDMAP GRIDMAP; 
+    GRIDMAP_DEF GRIDMAP; 
     int OPTMASK = 0;
     int ISED, IPAR_WGTMAP, IPAR_SED, istat;
     double PARVALUES[20], WGT_INTERP;

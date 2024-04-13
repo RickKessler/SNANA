@@ -64,6 +64,8 @@
    replace HFILE_OPEN call with wrapper TABLEFILE_OPEN call.
     --> compiles & links, but not tested.
 
+ Apr 2024: fix few compilier bugs
+
 *****************************************/
 
 #include <stdio.h>
@@ -168,7 +170,7 @@ char MODTRAN_TYPE[NMOD_COL+1][20] = {
 double GLOBAL_LAMBDA_MIN; //  global lambda min,max among filters;
 double GLOBAL_LAMBDA_MAX; //  used to limit SED range that is read
 
-double ONEARRAY[MXLAMINT] ;
+double ONEARRAY[MXLAMINT+1] ;
 
 struct {
   char inputFile[200] ;
@@ -189,7 +191,7 @@ struct {
   int  sedType[MXSEDCAL];       // ref, SN or galaxy
  
   char ModtranFile[200] ; // extinction file from MODTRAN
-  char ModtranReplace[NMOD_COL][2][200] ; // replace component with file
+  char ModtranReplace[NMOD_COL+1][2][200] ; // replace component with file
   int  NREPLACE_Modtran ;
 
   int FILTER_MODTRAN_FLAG ;
@@ -218,7 +220,7 @@ struct {
 // used for integration. 
 // Note that this is common for all filters & SEDs.
 
-double LAMBDA_REBIN[MXLAMINT]; 
+double LAMBDA_REBIN[MXLAMINT+1]; 
 double *ptrlam_rebin;  // pointer to above
 
 double BADMAG;
@@ -232,8 +234,8 @@ struct {
   double LAMBDA[MXLAM_FILT];
   double TRANS[MXLAM_FILT];
 
-  double TRANS_REBIN[MXLAMINT];   // input filter trans
-  double TRANSTOT_REBIN[MXLAMINT]; // filter trans *= atmTrans
+  double TRANS_REBIN[MXLAMINT+1];   // input filter trans
+  double TRANSTOT_REBIN[MXLAMINT+1]; // filter trans *= atmTrans
 
   double color_slope[MXCHANGES] ;
   double color_offset[MXCHANGES] ;
@@ -246,7 +248,7 @@ struct {
   int    NBIN_LAM ; 
   double LAMBDA[MXLAM_SED];
   double FLUX[MXLAM_SED];
-  double FLUX_REBIN[MXLAMINT] ;
+  double FLUX_REBIN[MXLAMINT+1] ;
 
 } SED[MXSEDCAL] ;
 
@@ -256,11 +258,11 @@ struct {
   double LAMBDA[MXLAM_MODTRAN];
 
   // define atm trans vs. component (IMOD_TOTAL = net trans)
-  double AtmTRANS[NMOD_COL][MXLAM_MODTRAN];  // from MODTRAN file
-  double AtmTRANS_REBIN[NMOD_COL][MXLAMINT]; // rebinned
+  double AtmTRANS[NMOD_COL+1][MXLAM_MODTRAN];  // from MODTRAN file
+  double AtmTRANS_REBIN[NMOD_COL+1][MXLAMINT+1]; // rebinned
 
   // total atmos trans vs. user-requested changes
-  double AtmTRANS_CHANGE[MXCHANGES][MXLAMINT] ;
+  double AtmTRANS_CHANGE[MXCHANGES][MXLAMINT+1] ;
 } MODTRAN ;
 
 

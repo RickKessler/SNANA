@@ -27,7 +27,7 @@ struct {
   char     MAPNAME[40];
   char     *VARNAMES[MXVAR_GENPDF];
   int      NVAR;              // May 26 2021
-  GRIDMAP  GRIDMAP ;
+  GRIDMAP_DEF  GRIDMAP ;
   int      IVAR_HOSTLIB[MXVAR_GENPDF];
   
   // track stats on number of iterations to find value

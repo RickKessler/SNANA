@@ -1,8 +1,10 @@
 // Created July 2021 [moved from sntools.h]
+// Apr 2024: change typedef GRIDMAP to GRIDMAP_DEF (follow SNANA convention)
+
 
 // define prototype for multi-dimensionl grid; used for interpolation
 #define MXDIM_GRIDMAP 20
-typedef struct GRIDMAP {
+typedef struct GRIDMAP_DEF {
   int     ID;        //    
   int     NDIM;     // Number of dimensions      
   int    *NBIN;     // Number of bins in each dimension   
@@ -23,13 +25,13 @@ typedef struct GRIDMAP {
 
   float MEMORY; // alloated memory, MB
 
-} GRIDMAP ;
+} GRIDMAP_DEF ;
 
 
-typedef struct GRIDMAP1D {
+typedef struct GRIDMAP1D_DEF {
   int NBIN ;
   double  *XVAL, *YVAL ;
-} GRIDMAP1D ;
+} GRIDMAP1D_DEF ;
 
 
 #define IDGRIDMAP_SIMEFFMAP              8  // for MLCS-AV prior 
@@ -57,17 +59,17 @@ void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
 
 
-void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE);
+void malloc_GRIDMAP(int OPT, GRIDMAP_DEF *gridmap, int NFUN, int NDIM, int MAPSIZE);
 
 void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
                          int OPT_EXTRAP, 
                          double **GRIDMAP_INPUT, double **GRIDFUN_INPUT, 
-                         GRIDMAP *gridmap ); 
+                         GRIDMAP_DEF *gridmap ); 
                                                                            
-int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
+int  interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun );
                                                                 
 void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
                   int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
-                  char *callFun, GRIDMAP *GRIDMAP_LOAD ); 
+                  char *callFun, GRIDMAP_DEF *GRIDMAP_LOAD ); 
 
 // === END ===

@@ -17,9 +17,9 @@ void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH,
 void init_genSmear_randoms(int NRANGauss, int NRANFlat) ;
 
 void   read_genSmear_SALT2disp(char *smearFile, double COLOR_DISP_MAX) ;
-void   read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM, 
+void   read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D_DEF *SIGCOH_LAM, 
 			       double *COLOR_DISP_MAX ) ;
-void   parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG, GRIDMAP1D *SIGCOH_LAM);
+void   parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG, GRIDMAP1D_DEF *SIGCOH_LAM);
 void   getFileName_SALT2colorDisp(char *fileName) ; // added Jan 2017
 
 void  init_genSmear_Chotard11(int OPT_farUV) ;
@@ -205,7 +205,7 @@ struct GENSMEAR_SALT2 {
   double SIGMA_SCALE ;
 
   // SIGMA_INT from SALT2.INFO file or from user input
-  GRIDMAP1D SIGCOH_LAM ;   // May 30 2018 : sigma_coh vs. wavelenth
+  GRIDMAP1D_DEF SIGCOH_LAM ;   // May 30 2018 : sigma_coh vs. wavelenth
   double    SIGCOH ;       // traditional coherent term 
 
   double LAMSEP_NODE ;

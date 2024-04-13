@@ -29,7 +29,8 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   // If file does not exist, return but don't abort.
   //
   // Oct 10 2021: require DOCANA
-
+  // Apr 12 2024: apply bound checks on NZ and NDUM (number of bins)
+  
   FILE *FPMAP;
   int    OPENMASK = OPENMASK_VERBOSE + OPENMASK_REQUIRE_DOCANA ;
   int    MEMD, NROW_TOT, NROW_TABLE, irow;
@@ -136,12 +137,25 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
     sprintf(c2err,"Something is really messed up.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
   }
-
+  
   // convert TMP1D arrays to 2D map 
   NDMU = NROW_TABLE/NZ ;
 
   printf("\t Convert %d lens-table rows into %d(z) x %d(DMU) array\n",
 	 NROW_TABLE, NZ, NDMU); fflush(stdout);
+
+  if ( NZ >= MXBIN_LENSING_z ) {
+    sprintf(c1err,"NZ(bins) = %d exceeds bound of MXBIN_LENSING_z = %d", NZ, MXBIN_LENSING_z);
+    sprintf(c2err,"Either reduce NZ or increase MXBIN_LENSING_z");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );        
+  }
+
+  if ( NDMU >= MXBIN_LENSING_dmu ) {
+    sprintf(c1err,"NDMU(bins) = %d exceeds bound of MXBIN_LENSING_dmu = %d",
+	    NDMU, MXBIN_LENSING_dmu);
+    sprintf(c2err,"Either reduce NDMU or increase MXBIN_LENSING_dmu");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );        
+  }
 
   // allocate memory for LENSING structure
   LENSING_PROBMAP.NBIN_z   = NZ;

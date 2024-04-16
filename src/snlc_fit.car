@@ -12199,6 +12199,7 @@ c Jan 27 2018:
 c  + use DOFIT_PHOTOZ_HOST to determine LPULL
 c
 c Mar 02 2022: load global PRIOR_PHOTOZ[_ERR]
+c Apr 16 2024: set zerr floor to E-3 instead of E-5 to avoid pathologically large prior-chi2.
 c
 c ------------------------------------------------
 
@@ -12242,7 +12243,8 @@ cc xxx mark delete     &  SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN  ! Mar  2024
 
 c protect against error=0
       sqerr = zPRIOR_ERR*zPRIOR_ERR
-      zPRIOR_ERR = SQRT(sqerr + 1.0E-10)
+c xxx mark      zPRIOR_ERR = SQRT(sqerr + 1.0E-10)
+      zPRIOR_ERR = SQRT(sqerr + 1.0E-6)
 
       if ( zPRIOR_ERR .LE. 1.0E-7 ) then
         write(c1err,666) zPRIOR_ERR, SNLC_CCID

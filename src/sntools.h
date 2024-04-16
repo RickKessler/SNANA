@@ -498,6 +498,7 @@ void write_epoch_list_exec__(char *CID,double *MJD,char *BAND,double *VARLIST);
 void write_epoch_list_summary__(void);
 
 void catVarList_with_comma(char *varList, char *addVarName);
+void catVarList_with_sep(char *varList, char *addVarName, char *sep);
 
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
 void getRan_GaussCorr(CHOLESKY_DECOMP_DEF *DECOMP,

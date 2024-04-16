@@ -2647,7 +2647,7 @@ class Simulation(Program):
         #  KEYNAME:  VALUE
 
         output_dir      = self.config_prep['output_dir']
-        survey,idsurvey = util.get_survey_info(output_dir)
+        survey,idsurvey = util.get_survey_info(output_dir,"TMP*.YAML")
 
         info_lines   = []
         info_lines.append(f"SURVEY:         {survey}")

@@ -1093,14 +1093,17 @@ def get_YAML_key_values(YAML_BLOCK, KEYLIST):
     return value_list
     # end get_YAML_key_values
 
-def get_survey_info(yaml_path):
+def get_survey_info(yaml_path,wildcard):
     # Read SURVEY (string) and IDSURVEY (int) from YAML file,
     # and return these quantities.
     # if yaml_path is a file, read this particular file;
     # If yaml_path is a directory, read first file in glob list
     # or read first file in first tar file.
-
-    yaml_file_list = glob.glob(f"{yaml_path}/*.YAML")
+    #
+    # Apr 16 2024: add wildcard argument to avoid reading the
+    #              wrong YAML file.
+    
+    yaml_file_list = glob.glob(f"{yaml_path}/{wildcard}")
     yaml_tar_list  = glob.glob(f"{yaml_path}/*YAML.tar.gz")
 
     if  os.path.isfile(yaml_path) :

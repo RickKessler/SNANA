@@ -23590,7 +23590,9 @@ void snlc_to_SNDATA(int FLAG) {
   
   // store map[GENTYPE] = name to print in readme
   char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];
-  if ( strlen(ctype) == 0 ) { sprintf(ctype, "%s", GENLC.SNTYPE_NAME); }
+  if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
+    { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
+  // xxx mark  if ( strlen(ctype) == 0 ) { sprintf(ctype, "%s", GENLC.SNTYPE_NAME); }
 
   if ( WRFLAG_BLINDTEST ) 
     { SNDATA.FAKE  = FAKEFLAG_LCSIM_BLINDTEST ; }

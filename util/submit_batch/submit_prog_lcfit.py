@@ -2256,7 +2256,7 @@ class LightCurveFit(Program):
             if key in submit_info_yaml :
                 opt_sncid_list = submit_info_yaml[key]
 
-        survey,idsurvey  = util.get_survey_info(script_dir)
+        survey,idsurvey  = util.get_survey_info(script_dir,"*SPLIT*.YAML")
 
         info_lines  = []
         info_lines.append(f"SURVEY:         {survey}")

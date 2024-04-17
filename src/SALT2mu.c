@@ -7002,7 +7002,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->mu[ISTART], 
 				   LEN, VBOSE );
 
-    sprintf(vartmp,"DLMAGERR:F  MUERR:F");
+    sprintf(vartmp,"DLMAGERR:F  MUERR:F  MU_ERR:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->muerr[ISTART], 
 				   LEN, VBOSE );
     

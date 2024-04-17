@@ -31076,7 +31076,8 @@ c Jan 04, 2016: protect sqrt(negative SQERR8)
 c May 05, 2018: init FITERRMAT=0 instead of -9. Allows USESIM_xxx=T
 c May 23, 2018: set LCFRACERRDIF_STORE(ipar)
 c Feb 22, 2020: set NDOF_PRIOR=0  here on each iteration.
-c
+c Apr 16, 2024: write FITPROB to stdout
+
 c subroutine args
 
       INTEGER 
@@ -31239,6 +31240,15 @@ c do stuff on last iteration
 
 444   CONTINUE   ! end loop over IPAR
 
+
+c - - - - - -
+      if ( STDOUT_UPDATE ) then
+         write(6,446) SNLC_CCID(1:ISNLC_LENCCID),
+     &                iter, FITPROBCHI2_STORE(1)
+446      format(T8, 'CID ', A, 3x, 'ITER=',I1, 3x, 'FITPROB = ', E10.3 )
+         CALL FLUSH(6)
+      endif
+	
 c ----------------------
 c 9/29/2007: get error matrix
 
@@ -31391,6 +31401,7 @@ c write par value into string using format
  430    FORMAT (T8,'CID ',A,2x, A,'par(', I2, '):',A14,' = ', 
      &                 A11,' +/- ', G10.4, '(',A,')' )
 
+     
       CALL FLUSH(6)
 
       RETURN

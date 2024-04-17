@@ -131,6 +131,7 @@ c  _FIT -> fixed redshift; _ZFIT -> photoz fit
      &  ,ERRFLAG_FIT_CRAZYERR
      &  ,ERRFLAG_FIT_MARGINALIZE
      &  ,ERRFLAG_FIT_CUTS
+     &  ,ERRFLAG_ZFIT_FITPROB_ITER1     
      &  ,ERRFLAG_ZFIT_DROPFILTCUTS
      &  ,ERRFLAG_ZFIT_RANGE
      &  ,ERRFLAG_REPEAT_ITER
@@ -165,6 +166,7 @@ c
      &  ,ERRFLAG_FIT_CUTS           = 12  ! failed 1 or more cuts
      &  ,ERRFLAG_ZFIT_DROPFILTCUTS  = 13  ! fail Zphot-cuts after drop filter
      &  ,ERRFLAG_ZFIT_RANGE         = 14  ! Zphot outside valid range
+     &  ,ERRFLAG_ZFIT_FITPROB_ITER1 = 15  ! 1st iteration FITPROB cut (4/2024)          
      &  ,ERRFLAG_REPEAT_ITER        = -1  ! repeat fit iteration
      &  ,ERRFLAG_REPEAT_MINOS       = -2  ! repeat entire it with MINOS
 c
@@ -631,6 +633,7 @@ c Jun 2015: FITWIN_AV -> FITWIN_COLOR
      &  ,FITWIN_COLOR(2)       ! I: cut-window for COLOR/AV
      &  ,FITWIN_SHAPE(2)       ! I: "         for SHAPE
      &  ,FITWIN_PROB(2)        ! I: cut-window for chi2 prob
+     &  ,FITWIN_PROB_ITER1(2)  ! I: cut-window for 1st-iteration FITPROB (fast cut)
      &  ,FITWIN_NOMARG_PROB(2) ! I: cut-window before marginalization
      &  ,FITWIN_CHI2SIGMA(2)   ! I: cut on chi2-contribution from sigma-term
      &  ,FITWIN_TREST(2)       ! I: cut on T - T0 (to replace TREST_REJECT)
@@ -804,7 +807,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
      &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
-     &   ,FITWIN_PROB, FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
+     &   ,FITWIN_PROB, FITWIN_PROB_ITER1
+     &   ,FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
      &   ,FITWIN_TREST, FITWIN_TREST_FILTER, FITWIN_TREST_FILT
      &   ,FITWIN_COV_OFFDIAG, FITWIN_PEAKMJD_ERR
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
@@ -875,7 +879,8 @@ c ------
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
      &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
-     &   ,FITWIN_PROB, FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
+     &   ,FITWIN_PROB, FITWIN_PROB_ITER1
+     &   ,FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
      &   ,FITWIN_TREST, FITWIN_TREST_FILTER, FITWIN_TREST_FILT
      &   ,FITWIN_COV_OFFDIAG, FITWIN_PEAKMJD_ERR
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
@@ -3371,6 +3376,8 @@ c  PHOTODZ1Z_MIN(iter)
 c  IFILT_NEARDROP     ! filter-index closest to being dropped
 c
 c
+c April 2024: check FITWIN_PROB_ITER
+c
 c -----------------------------------------------------------
 
       IMPLICIT NONE
@@ -3401,7 +3408,7 @@ c local var
       REAL
      &   CUTWIN_SNANA(2)
      &  ,TLIST(MXEPOCH)
-     &  ,Z4
+     &  ,Z4, FITPROB
 
       INTEGER 
      &   IFILT, IFILT_OBS, N, NFILT_CUT, NFILT
@@ -3440,8 +3447,9 @@ c check for cheater flag.
              PHOTOZ_RANGE_KCOR(2) = ZMAX_KCOR + 4.0*ZBIN_KCOR
           endif
         ENDIF
-
       ENDIF  ! end IFLAG==0
+
+c - - - - - - - - 
 
       ERRFLAG = 0  ! default is OK
       LDROP = .FALSE.
@@ -3753,11 +3761,17 @@ c ----------------------
 
 c -------------------------
 
-c after 1st iteration, SKIP SN if photoz no longer respects
-c the z-range for each filter. 
-
 800   CONTINUE
 
+c check FITPROB on 1st iter (apr 2024)
+      IF ( ITER==1 ) THEN
+         FITPROB = FITPROBCHI2_STORE(1)
+         IF( FITPROB < FITWIN_PROB_ITER1(1) ) THEN
+             ERRFLAG = ERRFLAG_ZFIT_FITPROB_ITER1
+         ENDIF
+      ENDIF
+
+c after 1st iteration, SKIP SN if photoz no longer respects z-range for each filter. 
       IF ( ITER > 1 .OR. LREPEAT_ITER ) THEN
          LZTEST = LTEST_ZPHFILTER(ITER, PHOTOZ_VAL, PHOTOZ_ERR,
      &             IFILTDROP)
@@ -6977,6 +6991,7 @@ c set defgaults to no rejected epochs at 2nd iteration
         FITWIN_COLOR(i)      = CUTINI(i)        
         FITWIN_SHAPE(i)      = CUTINI(i)
         FITWIN_PROB(i)       = CUTINI(i)
+        FITWIN_PROB_ITER1(i)   = CUTINI(i)
         FITWIN_NOMARG_PROB(i)  = CUTINI(i)
         FITWIN_CHI2SIGMA(i)    = CUTINI(i)
         FITWIN_TREST(i)        = CUTINI(i)

@@ -404,7 +404,11 @@ int NWARN_CRAZYERR[4];
 FILE *FP_STDOUT ;  // direct stdout to screen (stdout) or log file
 char PATH_SNDATA_ROOT[MXPATHLEN];
 
-// hard wire bins to store biasCor
+// B.P - split things like "BIASCOR_MINVAL_LCFIT" into two  
+// BIASCOR_MINVAL_SALT & BIASCOR_MINVAL_BAYESN
+// Make OG BIASCOR_MINVAL_LCFIT into a global variable set based on ismodel SALT/Bayesn
+
+// hard wire bins to store biasCor 
 //                                    mB    x1     c
 double  BIASCOR_MINVAL_LCFIT[3]  = {  5.0, -4.0, -0.30 } ;
 double  BIASCOR_MAXVAL_LCFIT[3]  = { 30.0, +4.0, +0.50 } ;
@@ -442,6 +446,7 @@ double  M0_DEFAULT;
 // max number of random split jobs (RK - July 10, 2012)
 #define MXSPLITRAN 1000
 
+// B.P - maaayy need to add something here
 
 // define indices for fit parameters
 #define NLCPAR    3  // mB,x1,c
@@ -455,6 +460,10 @@ double  M0_DEFAULT;
 #define MXCUTWIN 20 // max number of CUTWIN definitions in input file.
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
+
+// B.P - generalise these away from SALT, e.g.
+// CUTBIT_x1 -> CUTBIT_stretch
+// CUTBIT_c -> CUTBIT_colour
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
@@ -1651,6 +1660,8 @@ void   write_COVINT_biasCor(void);
 void   zero_COV(double (*COV)[NLCPAR]);
 void   scale_COV(double scale, double (*COV)[NLCPAR]);
 
+// B.P - maybe generalise "J1D_invert_" arguments to avoid confusion, no longer call "x1"
+
 double muresid_biasCor(int ievt);
 int    J1D_biasCor(int ievt, char *msg);
 void   J1D_invert_D(int IDSAMPLE, int J1D, double *a, double *b, double *g,
@@ -1900,7 +1911,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   set_defaults();
 
   if (argc < 2) {
-    sprintf(c1err,"Must give param-input file as arguent");
+    sprintf(c1err,"Must give param-input file as argument");
     sprintf(c2err,"to SALT2mu program. See manual.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
@@ -1922,7 +1933,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   TABLEFILE_INIT();  // call before prep_input_driver , 9.28.2020
 
-  // prepare input (ISMODEL_LCFIT_SALT2/BAYESN detemrined here)
+  // prepare input (ISMODEL_LCFIT_SALT2/BAYESN determined here)
   prep_input_driver();
 
   //  test_zmu_solve();
@@ -3048,6 +3059,7 @@ void check_vpec_sign(void) {
     if ( zHD > zwin[1] ) { continue; }
     if ( zHD < zwin[0] ) { continue; }
 
+    // B.P - strip off mu for BayeSN
     zCMB = (double)INFO_DATA.TABLEVAR.zcmb[isn] ;
     mB   = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][isn] ;
     x1   = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_x1][isn] ;
@@ -3068,6 +3080,8 @@ void check_vpec_sign(void) {
 	{ zHD_tmp = zHD;  } // nominal
       else 
 	{ zHD_tmp += (sgn_flip*2.0*zpec); } // flip vpec sign
+
+      // B.P - add "if" block around `mures` based on ismodel SALT2/BAYESN
 
       dl = cosmodl_forFit(zHD_tmp, zHD_tmp, INPUTS.COSPAR); // zhel not needed here
       mumodel        = 5.0*log10(dl) + 25.0 ;
@@ -3195,6 +3209,9 @@ void check_duplicates_util(int EVENT_TYPE) {
   IS_DUPL    = (bool   *)malloc(MEMB);
 
   for(isn=0; isn<nsn; isn++)  { IS_DUPL[isn] = false; }
+
+  // B.P - set lists based on ismodel SALT/BAYESN. Might also just work;
+  // update parameter names to be more general
 
   // beware that arrays are float (not double) to conserve memory
   if ( IS_DATA ) {
@@ -3435,6 +3452,8 @@ void merge_duplicates(int NDUPL, int *isnList) {
   //  char fnam[] = "merge_duplicates" ;
 
   // ----------- BEGIN ----------------
+
+  //B.P - if BAYESN, abort.
 
   ISN_SAVE = isnList[0] ;
   name = INFO_DATA.TABLEVAR.name[ISN_SAVE] ;
@@ -4090,6 +4109,8 @@ void *MNCHI2FUN(void *thread) {
     muerrsq  = fcn_muerrsq(name, alpha, beta, gamma, covmat_tot,
 			   z, zmuerr, optmask_muerrsq );
 
+    // B.P - generalise BIASCORLIST.FITPAR[INDEX_*] 
+
     // --------------------------------
     // Compute bias from biasCor sample
     BIASCORLIST.z            = z;
@@ -4162,6 +4183,8 @@ void *MNCHI2FUN(void *thread) {
       APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
     }
     // - - - - - -  -
+
+    //B.P - if BAYESN && APPLY_COVADD -> abort
 
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
@@ -6648,6 +6671,8 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
 
+  // B.P - will need to adapt for BayeSN
+
   else if ( strcmp(CUTNAME,"x1") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->fitpar[INDEX_x1]; }
   else if ( strcmp(CUTNAME,"x1ERR") == 0 )
@@ -8379,6 +8404,8 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
     }
     sscanf(ptr_binVar[1],"%le", &value); // strip off value
 
+    // B.P - take a look-see at x1bin
+
     // check which variable
     if ( strcmp(ptr_binVar[0],"zbin") == 0 ) 
       { SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT = value ; LZBIN=1; }
@@ -9245,6 +9272,9 @@ void prepare_biasCor(void) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
+
+  // B.P - will have to set alphabins = betabins = 1 when doing BAYESN
+  // B.P Come back! 
 
   // - - - - - - - - - -
   if ( DOCOR_5D ) {  

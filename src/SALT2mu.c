@@ -9768,7 +9768,8 @@ void  prepare_biasCor_zinterp(void) {
   // Jun 25 2020: fix determination of mu_true based on DO_BIASCOR_MU
   // Jul 02 2020: fix mu_true = SIM_MUz, regardless of DO_BIASCOR_MU
   // Jul 10 2023: refactor to work for BAYESN fit par
-
+  // Apr 17 2024: protect against SUMWGT_HISNR=0
+  
   int   NSAMPLE  = NSAMPLE_BIASCOR ;
   bool  ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   bool  ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
@@ -9943,7 +9944,11 @@ void  prepare_biasCor_zinterp(void) {
   int IZMAX[MXNUM_SAMPLE];
   int NBZ[MXNUM_SAMPLE];
 
-  MUBIAS_SIM_HISNR /= SUMWGT_HISNR ;
+  if ( SUMWGT_HISNR > 0.0 ) 
+    { MUBIAS_SIM_HISNR /= SUMWGT_HISNR ; }
+  else
+    { MUBIAS_SIM_HISNR = 0.0 ; } // 4/2024
+  
   fprintf(FP_STDOUT, "\t muBias(sim,SNR>%.0f) = %6.3f \n",
 	 INPUTS.snrmin_sigint_biasCor, MUBIAS_SIM_HISNR);
 

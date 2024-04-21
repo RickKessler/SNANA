@@ -14046,6 +14046,7 @@ file with the following,
 %
 \begin{Verbatim}[frame=single]
   &SNLCINP
+     PRIVATE_DATA_PATH     = 'MYDATAPATH' 
      VERSION_PHOTOMETRY    = 'MYSURVEY_TEXT'
      VERSION_REFORMAT_FITS = 'MYSURVEY_FITS'
      OPT_SETPKMJD = 20   ! useful if there is no PEAKMJD estimate
@@ -14055,6 +14056,7 @@ file with the following,
   or use NOFILE option with no input NML file:
 
   snana.exe NOFILE  \
+     PRIVATE_DATA_PATH      MYDATAPATH     \
      VERSION_PHOTOMETRY     MYSURVEY_TEXT  \  
      VERSION_REFORMAT_FITS  MYSURVEY_FITS  \
      OPT_SETPKMJD 20                       \ 

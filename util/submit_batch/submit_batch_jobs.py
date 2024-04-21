@@ -392,12 +392,15 @@ def print_cpu_sum():
         if program_class not in cpu_dict:
             cpu_dict[program_class] = 0.0
         cpu_dict[program_class] += cpu
-          
+
+    # sort by CPU in decreasing order
+    cpu_dict_sorted = dict(sorted(cpu_dict.items(), key=lambda x:x[1], reverse=True ))
+        
     CLASS_TOTAL = "*** TOTAL ***"
-    cpu_dict[CLASS_TOTAL] = cpu_sum_total
+    cpu_dict_sorted[CLASS_TOTAL] = cpu_sum_total
 
     logging.info("")
-    for program_class, cpu in cpu_dict.items():
+    for program_class, cpu in cpu_dict_sorted.items():
         percent = 100.0 * (cpu / cpu_sum_total)
         logging.info(f"  CPU-sum of {program_class:16s} :  {cpu:8.2f} hr   " \
                      f"({percent:6.1f} %)")

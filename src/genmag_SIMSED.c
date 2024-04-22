@@ -1217,7 +1217,7 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
 
     }
 
-    debugexit(fnam);
+    //debugexit(fnam);
 
   }
   // X_WGT+

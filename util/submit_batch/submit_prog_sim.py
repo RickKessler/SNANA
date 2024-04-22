@@ -2124,7 +2124,9 @@ class Simulation(Program):
         path_sndata_sim  = submit_info_yaml['PATH_SNDATA_SIM']    
         Nsec_time_stamp  = submit_info_yaml['TIME_STAMP_NSEC']
         GZIP_DATA_FILES  = submit_info_yaml['GZIP_DATA_FILES']
-
+        FORMAT_MASK      = submit_info_yaml['FORMAT_MASK']
+        BLIND            = FORMAT_MASK & FORMAT_MASK_BLIND
+        
         from_dir   = f"{path_sndata_sim}/{genversion_split}"  
         target_dir = f"{path_sndata_sim}/{genversion_combine}"
 
@@ -2135,7 +2137,9 @@ class Simulation(Program):
         # Mar 22 2024 refactor to add SPEC-dump and simplify logic
         DUMP_FILE_MERGE_DICT = {}
         DUMP_FILE_LIST_DICT  = {}
-        readme_file   = f"{target_dir}/{genversion_combine}.README"
+
+        readme_file = self.get_readme_file_name(target_dir)
+            
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
         for suffix in SUFFIX_DUMP_LIST :
             split_list  = glob.glob(f"{from_dir}/TMP*.{suffix}")
@@ -2163,8 +2167,7 @@ class Simulation(Program):
             with open (readme_file,"w") as f :
                 if nfail > 0 : 
                     f.write("FAIL\n")  # leave message for snlc_fit
-                pass
-
+                        
             # create combined DUMP file with VARNAMES & comments from
             # first DUMP file. Protect against job failure.
 
@@ -2217,7 +2220,20 @@ class Simulation(Program):
         return
         # end move_sim_data_files
 
+    def get_readme_file_name(self,simdir):
+        
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        FORMAT_MASK      = submit_info_yaml['FORMAT_MASK']
+        BLIND            = FORMAT_MASK & FORMAT_MASK_BLIND
 
+        version = os.path.basename(simdir)
+        if BLIND:
+            readme_file = f"{simdir}/HIDE_{version}.README"
+        else:
+            readme_file = f"{simdir}/{version}.README"
+                
+        return readme_file
+    
     def append_merge_dump_file(self,dump_split_file,dump_file):
 
         # read input dump_split_file and save the lines
@@ -2299,6 +2315,9 @@ class Simulation(Program):
         Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC']          
         Nsec_now  = seconds_since_midnight # current time since midnight
 
+        FORMAT_MASK      = submit_info_yaml['FORMAT_MASK']
+        BLIND            = FORMAT_MASK & FORMAT_MASK_BLIND
+        
         row_list_merge  = MERGE_INFO_CONTENTS[TABLE_MERGE]
         row_list_split  = MERGE_INFO_CONTENTS[TABLE_SPLIT]
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
@@ -2319,10 +2338,14 @@ class Simulation(Program):
         # create and write README file
         msg = f"\t Create README for {genversion}"
         logging.info(msg)
-        readme_file   = f"{path_genv}/{genversion}.README"
+
+        readme_file = self.get_readme_file_name(path_genv)
         with open(readme_file,"w") as f : 
             self.merge_write_readme(f, iver_all, MERGE_INFO_CONTENTS)
 
+        if BLIND:
+            self.merge_write_blind_readme(readme_file)
+            
         # gzip DUMP files. (Apr 2024)
         for suffix in SUFFIX_DUMP_LIST:
             dump_file = f"{path_genv}/{genversion}.{suffix}"
@@ -2382,6 +2405,19 @@ class Simulation(Program):
 
         # end merge_job_wrapup
 
+    def merge_write_blind_readme(self,readme_file):
+        # Apr 2024
+        # for BLIND format to suppress sim truth, the full readme has
+        # HIDE_ prefix. To avoid analysis abort on missing readme,
+        # write a blinded README with correct name and minimal information.
+        
+        readme_blind_file = readme_file.replace("HIDE_","")
+        with open(readme_blind_file,"wt") as r :
+            r.write(f"{KEY_DOCANA_START}:\n")
+            r.write(f"  PURPOSE: test analysis on sim data with no truth info \n")
+            r.write(f"{KEY_DOCANA_END}:\n")
+        return
+    
     def merge_write_readme(self, f, iver_all, MERGE_INFO_CONTENTS):
 
         # Write global summary in yaml format in [VERSION].README file.
@@ -2398,7 +2434,9 @@ class Simulation(Program):
         Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC'] 
         TIME_STAMP_SUBMIT   = submit_info_yaml['TIME_STAMP_SUBMIT'] 
         snana_version       = submit_info_yaml['SNANA_VERSION'] 
-
+        FORMAT_MASK         = submit_info_yaml['FORMAT_MASK']
+        BLIND               = FORMAT_MASK & FORMAT_MASK_BLIND
+        
         Nsec_now  = seconds_since_midnight # current time since midnight
 
         row_list_merge  = MERGE_INFO_CONTENTS[TABLE_MERGE]
@@ -2476,18 +2514,18 @@ class Simulation(Program):
                 tmp_genv_list  = sorted(glob.glob1(path_sndata_sim,f"{TMP_GENV}*"))                
                 v0          = tmp_genv_list[0]  # pick first one from list
                 tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+
                 tmp_list_model_string.append(model_string)
                 tmp_list_readme.append(tmp_readme)
-                #self.merge_write_input_keys(f, model_string, tmp_readme)
                 
-                with open(tmp_readme, "r") as r:
+                with open(tmp_readme, "r") as r :
                     readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
                     gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
                     if not isinstance(gentype_to_name_dict,dict) : break
                     for gentype, names in gentype_to_name_dict.items():
                         tmp_dict_GENTYPE_TO_NAME[gentype] = names
                         #print(f" xxx gentype = {gentype} | names = {names} ")
-                        
+        
         # - - - - -  -
         # write GENTYPE_TO_NAME mapping (Mar 2024)
         if len(tmp_dict_GENTYPE_TO_NAME) > 0:

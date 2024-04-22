@@ -22363,6 +22363,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + for zphot fit, set zerr floor to E-3 instead of E-5.
 
     snlc_sim.c
-       + for FORMAT_MASK +=8 (BLIND), rename VERSION.DUM to HIDE_VERSION.DUMP
-       
+       + for FORMAT_MASK +=8 (BLIND), rename VERSION.DUMP to HIDE_VERSION.DUMP;
+         rename VERSION.README to HIDE_VERSION.README and create a new
+	 VERSION.README with minimal content
+	 
+    submit_prog_sim.py: adapt to handle HIDE* files.
 END: 

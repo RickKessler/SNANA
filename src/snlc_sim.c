@@ -28929,8 +28929,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   int i, isys, FLAG ;
   double zero = 0.0 ;
+  int  IS_BLIND =  ( INPUTS.FORMAT_MASK & FORMAT_MASK_BLINDTEST );
   char headFile[MXPATHLEN];
-  char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN];
+  char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN], hide_prefix[2*MXPATHLEN];
   char fnam[] = "init_simFiles" ;
 
   // ------------ BEGIN -------------
@@ -28950,15 +28951,16 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // create full names for auxilliary files,
   // whether they are used or not.
-  sprintf(prefix,"%s/%s", PATH_SNDATA_SIM, INPUTS.GENVERSION );
+  sprintf(prefix,     "%s/%s",      PATH_SNDATA_SIM, INPUTS.GENVERSION );
+  sprintf(hide_prefix,"%s/HIDE_%s", PATH_SNDATA_SIM, INPUTS.GENVERSION );
 
   // mandatory
-  sprintf(SIMFILE_AUX->LIST,       "%s.LIST",        prefix );
-  sprintf(SIMFILE_AUX->README,     "%s.README",      prefix );
+  sprintf(SIMFILE_AUX->LIST,        "%s.LIST",        prefix );
+  sprintf(SIMFILE_AUX->README,      "%s.README",      prefix );
+  sprintf(SIMFILE_AUX->HIDE_README, "%s.README",      hide_prefix );
 
   // optional
-  if ( INPUTS.FORMAT_MASK & FORMAT_MASK_BLINDTEST )
-    { sprintf(prefix,"%s/HIDE_%s", PATH_SNDATA_SIM, INPUTS.GENVERSION ); }
+  if ( IS_BLIND ) { sprintf(prefix,"%s", hide_prefix); }
   sprintf(SIMFILE_AUX->DUMP,       "%s.DUMP",        prefix );
   sprintf(SIMFILE_AUX->ZVAR,       "%s.ZVARIATION",  prefix );
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );
@@ -29124,6 +29126,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Oct 04 2023: check user-option INPUTS.GZIP_DATA_FILES to enable NOT
   //               gzipping
 
+  int  IS_BLIND =  ( INPUTS.FORMAT_MASK & FORMAT_MASK_BLINDTEST );
   double zero = 0.0 ;
   int i, N1, N2, OPTMASK=0 ;
 
@@ -29149,6 +29152,9 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   printf("  %s \n", SIMFILE_AUX->LIST );
   printf("  %s \n", SIMFILE_AUX->README );
 
+  if ( IS_BLIND )
+    { printf("  %s \n", SIMFILE_AUX->HIDE_README ); }
+  
   if ( INPUTS.WRFLAG_YAML_FILE > 0 ) 
     { printf("  %s \n", SIMFILE_AUX->YAML ); }  // for batch mode, Aug 10 2020
 
@@ -29168,6 +29174,8 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   fclose(SIMFILE_AUX->FP_LIST);
   fclose(SIMFILE_AUX->FP_README);
 
+  if ( IS_BLIND ) { hide_readme_file(SIMFILE_AUX->README, SIMFILE_AUX->HIDE_README); }
+  
   // check optional auxiliary files.
 
   // close out SIMGEN_DUMP files
@@ -29205,6 +29213,43 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 } // end of end_simFiles
 
+// ==================================
+void hide_readme_file(char *readme_file, char *hide_readme_file) {
+
+  // Created Apr 2024
+  // Called for BLIND option (FORMAT_MASK += 8) with no sim-truth info;
+  // rename [VERSION].README to HIDE_[VERSION].README ,
+  // then create a new [VERSION].README  with minimal information.
+  // This ensures that analysis codes do not have access to nominal
+  // sim-readme infomation.
+
+  int isys;
+  FILE *FP;
+  char cmd[4*MXPATHLEN];
+  char fnam[] = "hide_readme_file" ;
+
+  // --------- BEGIN ----------
+
+  sprintf(cmd, "mv %s %s",  readme_file, hide_readme_file );
+  isys = system(cmd);
+
+  // open and create minimal readme to avoid abort in analysis codes
+  FP = fopen(readme_file,"wt");
+
+  fprintf(FP,"%s\n", KEYNAME_DOCANA_REQUIRED );
+
+  fprintf(FP,"  PURPOSE: test analysis on sim data with no truth information\n");
+  fprintf(FP,"  NOTES: \n");
+  fprintf(FP,"  - original sim readme is HIDE_%s.README\n", INPUTS.GENVERSION);
+  fprintf(FP,"  - SIM_XXX keys are suppressed in data files\n");
+  
+  fprintf(FP,"%s\n", KEYNAME2_DOCANA_REQUIRED );
+  
+  fclose(FP);
+
+  return;
+  
+} // end hide_readme_file
 
 // ===========================
 void set_screen_update(int NGEN) {
@@ -29218,6 +29263,7 @@ void set_screen_update(int NGEN) {
   else
     { INPUTS.NGEN_SCREEN_UPDATE = 500 ; }
 
+  return;
 }
 
 // ===========================

@@ -174,6 +174,7 @@ typedef struct { // SIMFILE_AUX_DEF
   // required outputs
   FILE *FP_LIST;    char  LIST[MXPATHLEN] ;
   FILE *FP_README;  char  README[MXPATHLEN] ;
+  FILE *FP_HIDE_README;  char  HIDE_README[MXPATHLEN] ; // for BLIND option
 
   // optional outputs
   FILE *FP_DUMP;        char  DUMP[MXPATHLEN] ;
@@ -2016,6 +2017,8 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) ;
 void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
+void hide_readme_file(char *readme_file, char *hide_readme_file);
+
 
 void update_accept_counters(void);
 void update_hostmatch_counters(void);

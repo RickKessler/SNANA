@@ -22361,5 +22361,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_fit.car
        + for zphot fit, set zerr floor to E-3 instead of E-5.
+
+    snlc_sim.c
+       + for FORMAT_MASK +=8 (BLIND), rename VERSION.DUM to HIDE_VERSION.DUMP
        
 END: 

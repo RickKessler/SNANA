@@ -24889,7 +24889,8 @@ C ---------------- BEGIN ---------------
      &                VARLIST, 0,     LENBLOCK, LENLIST)  
       ENDIF
 
-      VARLIST = 'SIM_TYPE_INDEX:I' //char(0) 
+      ! xxx mark delete  VARLIST = 'SIM_TYPE_INDEX:I' //char(0)
+      VARLIST = 'SIM_GENTYPE:I' //char(0) 
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
      &                   LENBLOCK, LENLIST)
 

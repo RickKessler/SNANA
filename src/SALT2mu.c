@@ -18352,7 +18352,8 @@ int usesim_CUTWIN(char *varName) {
 
   int use ;
   use = 1; 
-  if (strcmp(varName,"SIM_TYPE_INDEX" ) == 0 ) { use = 0 ; }  
+  if (strcmp(varName,"SIM_TYPE_INDEX" ) == 0 ) { use = 0 ; }   // legacy SIM_GENTYPE
+  if (strcmp(varName,"SIM_GENTYPE" )    == 0 ) { use = 0 ; }   // Apr 21 2024
   if (strcmp(varName,"SIM_NONIA_INDEX") == 0 ) { use = 0 ; }  
   if (strcmp(varName,"SIM_NON1A_INDEX") == 0 ) { use = 0 ; }  // 7.31.2018
   if (strcmp(varName,"SIM_TEMPLATE_INDEX") == 0 ) { use = 0 ; }  // 7.31.2018

@@ -2486,7 +2486,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       sprintf(SNDATA.SIM_TYPE_NAME, "%s",   word1_val ) ;
     }
 
-    if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {
+    else if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {
       SNDATA.SIM_MODEL_INDEX = IVAL;
     }
 

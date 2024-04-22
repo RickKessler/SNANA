@@ -223,9 +223,6 @@ int main(int argc, char **argv) {
   // after filters are read fom kcor/calib file
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) { INIT_ATMOSPHERE(); }
 
-
-  // xxx mark delete  rewrite_HOSTLIB_DRIVER();
-
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
 
@@ -28940,16 +28937,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   README_DOCANA_DRIVER(1);
 
-  /* xxxxx mark delete Mar 2024 xxxxxxxx
-  // init DUMP file regardless of SNDATA file status
-  if ( INPUTS.FORMAT_MASK <= 0 ) {
-    sprintf(SIMFILE_AUX->DUMP,  "%s.DUMP",  INPUTS.GENVERSION );
-    wr_SIMGEN_DUMP(1,SIMFILE_AUX);  // always make DUMP file if requested
-    return ;
-  }
-  xxxxxxxx end mark xxxxxxxxx*/
-
-
 
   // clear out old GENVERSION files; 2nd arg is PROMPT flag
   clr_VERSION(INPUTS.GENVERSION,INPUTS.CLEARPROMPT);
@@ -28970,6 +28957,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->README,     "%s.README",      prefix );
 
   // optional
+  if ( INPUTS.FORMAT_MASK & FORMAT_MASK_BLINDTEST )
+    { sprintf(prefix,"%s/HIDE_%s", PATH_SNDATA_SIM, INPUTS.GENVERSION ); }
   sprintf(SIMFILE_AUX->DUMP,       "%s.DUMP",        prefix );
   sprintf(SIMFILE_AUX->ZVAR,       "%s.ZVARIATION",  prefix );
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );

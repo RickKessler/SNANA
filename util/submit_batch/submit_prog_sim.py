@@ -128,9 +128,10 @@ GENOPT_GLOBAL_IGNORE_SIMnorm = [
     "SIMGEN_DUMP", "HOSTLIB_", "SEARCHEFF_" ,  "GENMODEL_EXTRAP" ]
 
 # format mask options for output data files
-FORMAT_MASK_TEXT   = 2
-FORMAT_MASK_FITS   = 32
-FORMAT_MASK_CIDRAN = 16
+FORMAT_MASK_TEXT   = 2    # TEXT format
+FORMAT_MASK_FITS   = 32   # FITS format
+FORMAT_MASK_CIDRAN = 16   # random CIDs
+FORMAT_MASK_BLIND  =  8   # suppress sim truth to look like real data
 
 FORMAT_TEXT = "TEXT"
 FORMAT_FITS = "FITS"
@@ -2130,47 +2131,27 @@ class Simulation(Program):
         msg = f"  move {genversion_split} files to {genversion_combine}"
         logging.info(msg)
 
-        # refactor mergeing of many flavors of DUMP files
-        REFAC_DUMP = True
 
-        if REFAC_DUMP:
-            # Mar 22 2024 refactor to add SPEC-dump and simplify logic
-            DUMP_FILE_MERGE_DICT = {}
-            DUMP_FILE_LIST_DICT  = {}
-            readme_file   = f"{target_dir}/{genversion_combine}.README"
-            list_file     = f"{target_dir}/{genversion_combine}.LIST"
-            for suffix in SUFFIX_DUMP_LIST :
-                split_list = glob.glob(f"{from_dir}/TMP*.{suffix}")
-                if len(split_list) > 0:
-                    dump_file_merge = f"{target_dir}/{genversion_combine}.{suffix}"
-                    DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge
-                    DUMP_FILE_LIST_DICT[suffix]  = split_list
-                    logging.info(f"\t Merge SIMGEN-{suffix} files")
+        # Mar 22 2024 refactor to add SPEC-dump and simplify logic
+        DUMP_FILE_MERGE_DICT = {}
+        DUMP_FILE_LIST_DICT  = {}
+        readme_file   = f"{target_dir}/{genversion_combine}.README"
+        list_file     = f"{target_dir}/{genversion_combine}.LIST"
+        for suffix in SUFFIX_DUMP_LIST :
+            split_list  = glob.glob(f"{from_dir}/TMP*.{suffix}")
+            if len(split_list) > 0:
+                dump_file_merge = f"{target_dir}/{genversion_combine}.{suffix}"
+                DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge
+                DUMP_FILE_LIST_DICT[suffix]  = split_list
+                logging.info(f"\t Merge SIMGEN-{suffix} files")
 
-        else:
-            # legacy
-            dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
-            sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL")  # strong lens
-            dcr_split_list      = glob.glob(f"{from_dir}/TMP*.DCR") # DCR
-
-            merge_simgen_dump  = len(dump_split_list)
-            merge_simgen_sl    = len(sl_split_list)
-            merge_simgen_dcr   = len(dcr_split_list)
-
-            # define aux files for combined version
-            dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
-            readme_file   = f"{target_dir}/{genversion_combine}.README"
-            list_file     = f"{target_dir}/{genversion_combine}.LIST"
-            sl_file       = f"{target_dir}/{genversion_combine}.SL"
-            dcr_file      = f"{target_dir}/{genversion_combine}.DCR"
-
-            if merge_simgen_dump :
-                logging.info("\t Merge SIMGEN-DUMP files")
-            if merge_simgen_sl :
-                logging.info("\t Merge SIMGEN-SL files")
-            if merge_simgen_dcr :
-                logging.info("\t Merge SIMGEN-DCR files")
-
+            split_list  = glob.glob(f"{from_dir}/HIDE*.{suffix}")  # for blind option
+            if len(split_list) > 0:
+                dump_file_merge = f"{target_dir}/HIDE_{genversion_combine}.{suffix}"
+                DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge
+                DUMP_FILE_LIST_DICT[suffix]  = split_list
+                logging.info(f"\t Merge hidden SIMGEN-{suffix} files")
+                
         # - - - - - -
 
         # if target dir does NOT exist, create target dir along
@@ -2187,25 +2168,10 @@ class Simulation(Program):
             # create combined DUMP file with VARNAMES & comments from
             # first DUMP file. Protect against job failure.
 
-            if  REFAC_DUMP :                
-                for suffix, split_list in DUMP_FILE_LIST_DICT.items():
-                    merge_file    = DUMP_FILE_MERGE_DICT[suffix]
-                    template_file = split_list[0]
-                    self.create_simgen_dump_file(template_file,merge_file)
-
-            else:
-                # legacy 
-                if merge_simgen_dump :
-                    dump_file_template = dump_split_list[0]
-                    self.create_simgen_dump_file(dump_file_template,dump_file)
-                
-                if merge_simgen_sl > 0 :
-                    sl_file_template = sl_split_list[0]
-                    self.create_simgen_dump_file(sl_file_template,sl_file)
-
-                if merge_simgen_dcr > 0 :
-                    dcr_file_template = dcr_split_list[0]
-                    self.create_simgen_dump_file(dcr_file_template,dcr_file)
+            for suffix, split_list in DUMP_FILE_LIST_DICT.items():
+                merge_file    = DUMP_FILE_MERGE_DICT[suffix]
+                template_file = split_list[0]
+                self.create_simgen_dump_file(template_file,merge_file)
 
         # if there were failures, return
         if nfail > 0 : 
@@ -2243,22 +2209,11 @@ class Simulation(Program):
         os.system(cmd)
 
         # loop over TMP_*DUMP files and append combined DUMP file
-        if REFAC_DUMP:
-            for suffix, split_list in DUMP_FILE_LIST_DICT.items():
-                merge_file    = DUMP_FILE_MERGE_DICT[suffix]
-                for split_file in split_list:
-                    self.append_merge_dump_file(split_file, merge_file)
-        else:
-            for dump_split_file in dump_split_list :
-                self.append_merge_dump_file(dump_split_file,dump_file)
 
-            for sl_split_file in sl_split_list :
-                self.append_merge_dump_file(sl_split_file,sl_file)
-
-            for dcr_split_file in dcr_split_list :
-                self.append_merge_dump_file(dcr_split_file,dcr_file)
-
-
+        for suffix, split_list in DUMP_FILE_LIST_DICT.items():
+            merge_file    = DUMP_FILE_MERGE_DICT[suffix]
+            for split_file in split_list:
+                self.append_merge_dump_file(split_file, merge_file)
         return
         # end move_sim_data_files
 

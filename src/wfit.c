@@ -10,7 +10,7 @@
    Optional priors:
     + Gaussian Omega_M
     + CMB R-shift param (E.g. Eq 69 of Komatsu 2009)
-    + BAO A-param as in Eisenstein 2006
+    + BAO prior from DESI_2024 or SDSS4_2020
 
    To apply CMB prior using sim cosmology and similar sensitivity 
    to Planck 2016,
@@ -70,7 +70,6 @@
    --------------------------------------------
    
  Nov 24 2021 RK :
-   + BOA prior from Alam 2020 is the new default for -bao option.
    + disable computation of sigint unless refit option is used.
      (for large NSN, calc was slow because of matrix inversion each step)
 
@@ -146,6 +145,13 @@
 
  Dec 3 2023: replace fixed muerr_ideal with polyFun(z); 
              e.g., muerr_ideal = .11,0.01,0.07
+
+ Apr 23 2024: Update to more general BAO prior for SDSS4 or DESI based on these args:
+      -bao DESI_2024
+      -bao SDSS4_2020
+      -bao_sim DESI_2024   (use sim cosmology for means + DESI cov)
+      -bao_sim SDSS4_2020  (use sim cosmology for means + SDSS4 cov)
+   that read z-dependent means and cov from $SNDATA_ROOT/models/BAO
 
 *****************************************************************************/
 
@@ -235,7 +241,8 @@ struct INPUTS {
   int dofit_w0wa ;    // option with -wa
 
   int use_bao, use_cmb ; // flags for bao and cmb priors
-  //  int use_wa;            // flag to fit for wa (added Sep 2021)
+  char bao_sample[20];   // e.g., DESI_2024 or SDSS4_2020
+  
   int use_marg;          // flag to marginalize (instead of only minimize)
   int use_mucov;         // flag to read cov matrix
   double zmin, zmax;               // redshift selection
@@ -350,7 +357,23 @@ struct {
 } CMB_PRIOR;
 
 
+#define MXDATA_BAO_PRIOR 40
+#define IVAR_BAO_DM_over_rd   1
+#define IVAR_BAO_DH_over_rd   2
+#define IVAR_BAO_DV_over_rd   3
 
+struct {
+
+  int    NDATA;
+  double REDSHIFT[MXDATA_BAO_PRIOR];
+  double MEAN[MXDATA_BAO_PRIOR];
+  double *COV1D, *COVINV1D ;            // store cov matrix in 1D flattened array
+  char   VARNAME[MXDATA_BAO_PRIOR][20]; // e.g., DM_over_rd
+  int    IVAR[MXDATA_BAO_PRIOR];        // e.g., = IVAR_BAO_DH_over_rd
+  char   comment[200];
+} BAO_PRIOR;
+
+/* xxxxxxxxx mark delete Apr 23 2024 xxxxxxxxxxxxx
 // define SDSS4-eBOSS prior/structure
 #define NZBIN_BAO_SDSS4 7
 
@@ -388,7 +411,8 @@ struct {
   // comment for stdout
   char comment[200];
 	      
-} BAO_PRIOR;
+} BAO_PRIOR_LEGACY;
+xxxxxxxxxx end mark xxxxxxxxxxxxxx */
 
 // =========== global variables ================
 
@@ -475,14 +499,18 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
+void   init_bao_prior_legacy(int OPT) ;
 void   init_bao_cov(void);
 double rd_bao_prior(Cosparam *cpar) ;
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
+double DV_bao_prior(double z, Cosparam *cpar);
+void   dump_bao_prior(void);
 
 void   init_cmb_prior(int OPT) ;
 double get_Rcmb_ranshift(void) ;
 double chi2_bao_prior(Cosparam *cpar);
+double chi2_bao_prior_legacy(Cosparam *cpar);
 double chi2_cmb_prior(Cosparam *cpar);
 
 int    ISEED_UNIQUE(void);
@@ -701,7 +729,8 @@ void init_stuff(void) {
   INPUTS.dofit_lcdm = 0 ;
   INPUTS.dofit_w0wa = 0 ;
 
-  INPUTS.use_bao  = INPUTS.use_cmb ;
+  INPUTS.use_bao  = INPUTS.use_cmb = 0 ;
+  INPUTS.bao_sample[0] = 0 ;
   INPUTS.use_marg = 1;
 
 
@@ -769,8 +798,12 @@ void print_wfit_help(void) {
     "   -lcdm\tfit for OM only (fix w=-1)" ,
     "   -ompri\tcentral value of omega_m prior [default: Planck2018]", 
     "   -dompri\twidth of omega_m prior [default: 0.04]",
-    "   -bao\t\tuse BAO prior from Eisenstein et al, 2006",
-    "   -bao_sim\tuse BAO prior with simulated cosmology and E06 formalism",
+    //
+    "   -bao DESI_2024\tBAO prior (mean+cov) from DESI 2024",
+    "   -bao_sim DESI_2024\tBAO cov from DESI 2024, mean from sim cosmology params",
+    "   -bao SDSS4_2020\tBAO prior (mean+cov) from SDSS4 2020",
+    "   -bao_sim SDSS4_2020\tBAO cov from SDSS4 2020, mean from sim cosmology params",        
+    //
     "   -cmb\t\tuse CMB prior from 5-year WMAP (2008)",
     "   -cmb_sim\tuse CMB prior with simulated cosmology and WMAP formalism",
     "   -om_sim\tOmega_M for cmb_sim (default from sntools.h)",
@@ -860,10 +893,14 @@ void parse_args(int argc, char **argv) {
 	INPUTS.omm_prior = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"dompri")==0) { 
 	INPUTS.omm_prior_sig = atof(argv[++iarg]);
+
       } else if (strcasecmp(argv[iarg]+1,"bao")==0) { 
+	sprintf(INPUTS.bao_sample,"%s", argv[++iarg]);
 	INPUTS.use_bao=1;
       } else if (strcasecmp(argv[iarg]+1,"bao_sim")==0) {
+	sprintf(INPUTS.bao_sample,"%s", argv[++iarg]);
         INPUTS.use_bao=2;
+
       } else if (strcasecmp(argv[iarg]+1,"csv")==0) { 
 	INPUTS.csv_out = 1;
 
@@ -1660,7 +1697,7 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   // if all COV elements are zero, this is a request for stat-only fit,
   // so disable cov
   if ( MUCOV->N_NONZERO == 0 ) { 
-    printf("\t -> disable off-diag COV computations.\n"); //.xyz
+    printf("\t -> disable off-diag COV computations.\n"); 
     INPUTS.use_mucov = 0; 
     INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
     return; 
@@ -2040,8 +2077,6 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
 
     zdif_list[i]   = zdif;
     mu1dif_list[i] = mu1_dif;
-    
-    //.xyz
   }
 
   // - - - - - - - - - 
@@ -2303,6 +2338,191 @@ int ISEED_UNIQUE(void) {
 void init_bao_prior(int OPT) {
 
   // Created Oct 2021 by R.Kessler
+  // Re-written April 2024 to read BAO params from data file
+  //
+  // OPT= -9 --> set all params to -9
+  //               (before reading user input)
+  // OPT= +1 --> set params to measured or sim values.
+  //               (after reading user input)
+  //
+
+  int i, IVAR ;
+  char *comment = BAO_PRIOR.comment;
+  char bao_file[MXPATHLEN], VARNAME[40];
+  double z, MEAN, COV;
+  FILE *fp;
+  int LDMP = 1;
+  char fnam[] = "init_bao_prior" ;
+
+  // -----------------BEGIN ------------------
+
+
+  if ( OPT == -9 ) {
+    for(i=0; i < MXDATA_BAO_PRIOR; i++ ) {
+      BAO_PRIOR.REDSHIFT[i]   = -9.0 ;
+      BAO_PRIOR.MEAN[i]       = -9.0 ;
+      BAO_PRIOR.VARNAME[i][0] =  0  ;
+      BAO_PRIOR.IVAR[i]       = -9;
+    }
+    BAO_PRIOR.comment[0] = 0;    
+    return;
+  } 
+  
+  // - - - - - - - - - - - - -
+  // read redshift, means, quantity 
+  sprintf(PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
+  sprintf(bao_file, "%s/models/BAO/%s_mean.dat", PATH_SNDATA_ROOT, INPUTS.bao_sample);
+  fp = fopen(bao_file,"rt");
+  if ( !fp ) {
+    sprintf(c1err,"Could not open %s", bao_file);
+    sprintf(c2err,"Check -bao argument");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  char **ptrSplit, cline[200];
+  int j, NWD, ndata=0;
+  ptrSplit = (char **)malloc(MXDATA_BAO_PRIOR*sizeof(char*));
+  for(i=0; i<MXDATA_BAO_PRIOR; i++) { ptrSplit[i]=(char *)malloc(40*sizeof(char));  }
+
+  while ( fgets(cline, 200, fp) != NULL ) {
+    // ignore comment lines 
+    if ( commentchar(cline) ) { continue; }
+    
+    // break line into words
+    splitString(cline, " ", fnam, MXDATA_BAO_PRIOR,  // (I)
+		&NWD, ptrSplit);       // (O)
+
+    sscanf(ptrSplit[0], "%le", &z );
+    sscanf(ptrSplit[1], "%le", &MEAN );
+    sscanf(ptrSplit[2], "%s",  VARNAME );
+
+    if (strstr(VARNAME,"DM_over") != NULL ) 
+      { IVAR = IVAR_BAO_DM_over_rd; }
+    else if (strstr(VARNAME,"DH_over") != NULL ) 
+      { IVAR = IVAR_BAO_DH_over_rd; }
+    else if (strstr(VARNAME,"DV_over") != NULL ) 
+      { IVAR = IVAR_BAO_DV_over_rd; }
+    else {
+      sprintf(c1err,"Could not decode BAO variable '%s'", VARNAME);
+      sprintf(c2err,"from %s", bao_file);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+    }
+
+    // store bao info for this data point
+    BAO_PRIOR.REDSHIFT[ndata] = z;
+    BAO_PRIOR.MEAN[ndata]     = MEAN;
+    BAO_PRIOR.IVAR[ndata]     = IVAR;
+    sprintf(BAO_PRIOR.VARNAME[ndata],"%s", VARNAME);   
+    ndata++ ;   
+  }
+  
+  BAO_PRIOR.NDATA = ndata;
+  fclose(fp);
+
+  
+  // next read cov matrix
+  int MEMD  = ndata * ndata * sizeof(double) ;
+  BAO_PRIOR.COV1D    = (double*) malloc(MEMD);
+  BAO_PRIOR.COVINV1D = (double*) malloc(MEMD);
+  
+  sprintf(bao_file, "%s/models/BAO/%s_cov.dat", PATH_SNDATA_ROOT, INPUTS.bao_sample);
+  fp = fopen(bao_file,"rt");
+  if ( !fp ) {
+    sprintf(c1err,"Could not open %s", bao_file);
+    sprintf(c2err,"Check -bao argument");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  int nrow = 0, ncov=0 ;
+  while ( fgets(cline, 200, fp) != NULL ) {
+    // ignore comment lines 
+    if ( commentchar(cline) ) { continue; }
+    
+    // break line into words
+    splitString(cline, " ", fnam, MXDATA_BAO_PRIOR,  // (I)
+		&NWD, ptrSplit);       // (O) 
+
+    if ( NWD != ndata ) {
+      sprintf(c1err,"Expected %d cov elements in row %d, but found %d",
+	      ndata, nrow, NWD);
+      sprintf(c2err,"Check %s", bao_file);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+    }
+    for(i=0; i < NWD; i++ ) {
+      sscanf(ptrSplit[i], "%le", &BAO_PRIOR.COV1D[ncov] );
+      BAO_PRIOR.COVINV1D[ncov] = BAO_PRIOR.COV1D[ncov]  ; // invert below
+      ncov++ ;
+    }
+    nrow++ ;
+    
+  } // end while
+
+  invertMatrix( ndata, ndata, BAO_PRIOR.COVINV1D );
+  sprintf(comment,"BAO prior from %s data (n=%d)", INPUTS.bao_sample, ndata );
+
+  if ( INPUTS.use_bao ==1 && LDMP ) { dump_bao_prior(); }
+  
+  // - - - - - -
+  if ( INPUTS.use_bao == 2 ) { 
+    double rd; 
+    HzFUN_INFO_DEF HzFUN;
+    rd = rd_bao_prior(&COSPAR_SIM);
+
+    //printf(" xxx %s rd  = %f \n", fnam, rd);
+    for (i=0; i < ndata; i++ ) {
+      z    = BAO_PRIOR.REDSHIFT[i];
+      IVAR = BAO_PRIOR.IVAR[i];
+
+      if ( IVAR == IVAR_BAO_DM_over_rd ) 
+	{ MEAN = DM_bao_prior(z, &COSPAR_SIM) / rd ; }
+      else if ( IVAR == IVAR_BAO_DH_over_rd )
+	{ MEAN = DH_bao_prior(z, &COSPAR_SIM) / rd ; }
+      else if ( IVAR == IVAR_BAO_DV_over_rd )
+      	{ MEAN = DV_bao_prior(z, &COSPAR_SIM) / rd ; }
+      
+      BAO_PRIOR.MEAN[i]    = MEAN ;
+    }
+    sprintf(comment,"BAO prior from %s using sim cosmology (n=%d)", INPUTS.bao_sample, ndata );
+    if ( LDMP ) { dump_bao_prior(); }
+  }
+
+  //  debugexit(fnam);
+  
+  return ;
+  
+} // end init_bao_prior
+
+void dump_bao_prior(void) {
+
+  double z, mean, err, cov;
+  char *varname;
+  int i, kk, NDATA = BAO_PRIOR.NDATA;
+  char fnam[] = "dump_bao_prior";
+  // --------- BEGIN ---------
+
+  print_banner(fnam);
+  printf("\t xxx %s\n", BAO_PRIOR.comment);
+  for(i=0; i < NDATA; i++ ) {
+    z        = BAO_PRIOR.REDSHIFT[i];
+    mean     = BAO_PRIOR.MEAN[i];
+    varname  = BAO_PRIOR.VARNAME[i];
+
+    kk = i*NDATA + i; // diagonal element of COV
+    cov      = BAO_PRIOR.COV1D[kk] ;
+    err      = sqrt(cov);
+    
+    printf("\t xxx %s:  z=%5.3f   mean(%s) = %7.4f +- %7.4f \n",
+	   fnam, z, varname, mean, err);
+    fflush(stdout);
+  }
+
+  return;
+} // end dump_bao_prior
+
+// =========================================
+void init_bao_prior_legacy(int OPT) {
+
+  // Created Oct 2021 by R.Kessler
   // OPT= -9 --> set all params to -9
   //               (before reading user input)
   // OPT= +1 --> set params to measured or sim values.
@@ -2315,10 +2535,11 @@ void init_bao_prior(int OPT) {
 
   int iz;
   char *comment = BAO_PRIOR.comment;
-  char fnam[] = "init_bao_prior" ;
+  char fnam[] = "init_bao_prior_legacy" ;
 
   // -----------------BEGIN ------------------
 
+  /* xxxxxx mark 
   if ( OPT == -9 ) {
     BAO_PRIOR.use_sdss  = false;
     BAO_PRIOR.use_sdss4 = false;
@@ -2339,8 +2560,8 @@ void init_bao_prior(int OPT) {
     return;
   }
   
-  // - - - - - -
-  BAO_PRIOR.use_sdss4   = true ;
+  // - - - - - - - - - - - - -
+  BAO_PRIOR.use_sdss4  = true ;
 
   // Default values from SDSS4
   BAO_PRIOR.rd_sdss4 = -9.0 ;
@@ -2372,27 +2593,24 @@ void init_bao_prior(int OPT) {
   init_bao_cov();
   return ;
 
-} // end init_bao_prior
+  xxxxxxxxx end xxxxxx */
+  
+} // end init_bao_prior_legacy
 
-void init_bao_cov(void){
-  char fnam[] = "init_bao_cov";
 
-
-  return;
-
-}
 double rd_bao_prior( Cosparam *cpar) {
+  // Compute drag epochs rd.
   // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
   // c_s= 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) )  Davis et al, Page 4.
   // Om_b ~ 0.02/h^2                                   Davis T. Note
-  // Om_g 2.469 * 10e-5 * T_CMB / 2.725                Davis et al, after eq. 15 
+  // Om_g ~ 2.469 * 10e-5 * T_CMB / 2.725              Davis et al, after eq. 15 
   double H0      = H0_Planck;
   double c_sound = 0.9 * c_light / sqrt(3.0); // Davis internal note
   double h       = H0 / 100.0 ;
   double Om_b = 0.02 / (h * h), Om_gamma = 2.46*0.00001;
   //c_sound = 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) ); 
-  double z_d    = 1060.0 ; 
+  double z_d    = 1060.0 ;
   double amin   = 1.0E-6,  amax = 1.0/(1+z_d);
   double Hinv_integ, Einv_integ, rd = 1.0;
   HzFUN_INFO_DEF HzFUN_INFO;
@@ -2400,7 +2618,7 @@ double rd_bao_prior( Cosparam *cpar) {
   int  LDMP = 0;
   char fnam[] = "rd_bao_prior" ;
   // ---------- BEGIN ----------  
-  rd = rd_DEFAULT;
+  // xxx mark   rd = rd_DEFAULT;
   if ( DO_INTEGRAL  ) {
     Einv_integ = Eainv_integral(amin, amax, cpar);
     Hinv_integ = Einv_integ / H0 ;
@@ -2436,6 +2654,15 @@ double DH_bao_prior(double z, Cosparam *cpar){
   H  = Hzfun(z, &HzFUN);
   DH = (c_light / H);
   return DH;
+}
+
+
+double DV_bao_prior(double z, Cosparam *cpar){
+  double DM, DH, DV;
+  DM = DM_bao_prior(z,cpar);
+  DH = DH_bao_prior(z,cpar);
+  DV = cbrt( z * DM*DM * DH ) ;
+  return DV;
 }
 
 
@@ -2498,7 +2725,7 @@ void set_Ndof(void) {
   int Ndof_data = HD_LIST[0].NSN - 3 ; // h, w, om = 3 fitted parameters
   int Ndof_prior = 0;
   if ( INPUTS.dofit_w0wa  ) { Ndof_data-- ; } 
-  if ( INPUTS.use_bao     ) { Ndof_prior += 2*NZBIN_BAO_SDSS4 ; }
+  if ( INPUTS.use_bao     ) { Ndof_prior += BAO_PRIOR.NDATA ; }
   if ( INPUTS.use_cmb     ) { Ndof_prior += 1 ; }
 
   Ndof = Ndof_data + Ndof_prior;
@@ -3881,6 +4108,63 @@ double chi2_cmb_prior(Cosparam *cpar) {
 double chi2_bao_prior(Cosparam *cpar) {
 
   // Created Oct 2021
+  // Refactored Apr 2024 to process more general input from $SNDATA_ROOT/models/BAO.
+  // Return chi2 for bao prior.
+
+  double chi2 = 0.0, covint, chi2_tmp ;
+  int    NDATA = BAO_PRIOR.NDATA;
+  int    i, i2, kk, IVAR;
+  double rd, z, mean_meas, mean_model, dif[MXDATA_BAO_PRIOR];
+  char   fnam[] = "chi2_bao_prior" ;
+
+  // ------------ BEGIN -------------
+
+  rd = rd_bao_prior(cpar);
+  for(i=0; i < NDATA; i++ ) {
+    z         = BAO_PRIOR.REDSHIFT[i];
+    mean_meas = BAO_PRIOR.MEAN[i];
+    IVAR      = BAO_PRIOR.IVAR[i];
+
+    if ( IVAR == IVAR_BAO_DM_over_rd )
+      { mean_model = DM_bao_prior(z, cpar) / rd ; }
+    else if ( IVAR == IVAR_BAO_DH_over_rd )
+      { mean_model = DH_bao_prior(z, cpar) / rd ; }
+    else if ( IVAR == IVAR_BAO_DV_over_rd )
+      { mean_model = DV_bao_prior(z, cpar) / rd ; }
+    else {
+      sprintf(c1err,"invalid IVAR=%d for %s", IVAR, BAO_PRIOR.VARNAME[i]);
+      sprintf(c2err,"Valid IVAR = %d %d %d",
+	      IVAR_BAO_DM_over_rd, IVAR_BAO_DH_over_rd, IVAR_BAO_DV_over_rd);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);          
+    }
+
+    dif[i] = mean_meas - mean_model ;
+
+    
+  } // end i loop over BAO data points
+
+  // - - - - - - -
+  // compute chi2, including full cov matrix
+  for(i=0; i < NDATA; i++ ) {
+    for(i2=i; i2 < NDATA; i2++ ) {
+
+      kk = i2*NDATA + i;
+      covint = BAO_PRIOR.COVINV1D[kk];
+      chi2_tmp = dif[i] * dif[i2] * covint;
+      if ( i2 != i ) { chi2_tmp *= 2.0 ; }
+      chi2 += chi2_tmp ;      
+    }
+  }
+  
+  return chi2;
+    
+} // end chi2_bao_prior
+
+
+// ======================================
+double chi2_bao_prior_legacy(Cosparam *cpar) {
+
+  // Created Oct 2021
   // Return chi2 for bao prior.
   // Mar 09 2022 RK - fix bug to allow -bao_sim
 
@@ -3890,9 +4174,11 @@ double chi2_bao_prior(Cosparam *cpar) {
   double rd_model,dif_M, dif_H, DM_rd_var, DH_rd_var,DH_rd_model,DM_rd_model;
   int    iz;
   bool   DEBUG_TINYERR = (INPUTS.debug_flag == 309 );
-  char   fnam[] = "chi2_bao_prior" ;
+  char   fnam[] = "chi2_bao_prior_legacy" ;
 
   // ------------ BEGIN -------------
+
+  /* xxxxxxxxxx mark xxxxxxxxx
 
   if ( BAO_PRIOR.use_sdss4 ) {
 
@@ -3944,9 +4230,11 @@ double chi2_bao_prior(Cosparam *cpar) {
     nsig = (a - a_sdss) / siga_sdss ;
     chi2 = nsig * nsig ;
   }
-  return chi2;
+  xxxxxxxx end */
 
-} // end chi2_bao_prior
+  return chi2;
+    
+} // end chi2_bao_prior_legacy
 
 // ===============================================
 double get_DMU_chi2wOM(double z, double rz, double mu)  {

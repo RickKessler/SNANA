@@ -22,7 +22,8 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
   // If fileName contains string OUT or out, then interpret
   // as output file to write H(z) using cosPar params, and
   // then read it back.
-
+  // Increase checkval_D range for wa, and add range check for w0.
+  
   int ipar;
   int MEMD   = MXMAP_HzFUN * sizeof(double);
   bool WR_OUTFILE;
@@ -90,7 +91,8 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
       checkval_D("H0", 1, &H0,  30.0, 100.0 );
       checkval_D("OM", 1, &OM,  0.0,  1.0 );
       checkval_D("OL", 1, &OM,  0.0,  1.0 );
-      checkval_D("wa", 1, &wa, -3.0,  1.0 );
+      checkval_D("w0", 1, &w0, -4.0,  2.0 ); 
+      checkval_D("wa", 1, &wa, -5.0,  5.0 );
 
       fflush(stdout) ;
     }

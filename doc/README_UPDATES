@@ -22368,4 +22368,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 VERSION.README with minimal content
 	 
     submit_prog_sim.py: adapt to handle HIDE* files.
+
+    sntools_cosmology.c
+       + inside init_HzFUN_INFO(), increase checkval_D range for wa, and add
+         checkval_D for w0.
+	 
 END: 

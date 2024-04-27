@@ -656,7 +656,7 @@ void  solve_spectrograph(void) {
   int NBL = INPUTS_SPECTRO.NBIN_LAM ;
   int NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;
 
-  double MAGREF[2], POWMAG[2], SQPOWMAG[2], ARG, SNR[2], SNR1_ORIG ;
+  double MAGREF[2], POWMAG[2], ARG, SNR[2], SNR1_ORIG ;
   double TOP, BOT, ZP, SQSIGSKY, F[2], DUM0, DUM1, LAMMIN, LAMMAX, LAMAVG ;
   double SNR_check[2], check[2], MAGREF_DIF, MAGSNR_DIF, magCheck ;
   int    LDMP_SNRFIX = 1;
@@ -673,7 +673,6 @@ void  solve_spectrograph(void) {
     MAGREF[iref] = INPUTS_SPECTRO.MAGREF_LIST[iref];
     ARG  = -0.4 * MAGREF[iref] ; 
     POWMAG[iref] = pow(TEN,ARG); 
-    SQPOWMAG[iref] = POWMAG[iref] * POWMAG[iref] ;
   }
 
   

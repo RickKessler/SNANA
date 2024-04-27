@@ -22351,7 +22351,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05m) *****
   
-
+    wfit.c:
+       switch default STD(PDF) uncertainty to 68% confidence region,
+       after fixing binned approx to exact interpolation of PDF.
+       Can switch back to STD uncertainty with argument "-sig_type std"
+    
          *****  USEFUL(v11_05m) *****
 
       

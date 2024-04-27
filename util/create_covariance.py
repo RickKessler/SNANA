@@ -106,6 +106,11 @@
 # Jan 28 2024 RK
 #   - skip tilde files and skip wfit_ files.
 #
+# Apr 27 2024 RK
+#   - write covtot_inv_[nnn].txt files so that comsology fitting
+#     can skip matrix inversion to save time. Beware that this doubles
+#     disk space usage.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -126,6 +131,7 @@ SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
 
 PREFIX_COVSYS     = "covsys"
+PREFIX_COVTOT_INV = "covtot_inv"
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 
@@ -256,8 +262,8 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
-    msg = "Skip check of COV invertibility (for speed in debugging)"
-    parser.add_argument("--skip_invert_check", help=msg, action="store_true")
+    msg = "Skip computing COV inverse (for speed in debugging)"
+    parser.add_argument("--skip_cov_invert", help=msg, action="store_true")
 
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 
@@ -798,7 +804,7 @@ def get_cov_from_diff(df1, df2, scale):
     return cov, (coef, mean_abs_deviation, max_abs_deviation)
     # end get_cov_from_diff
 
-def get_cov_from_covfile(data, covfile, scale):
+def get_covsys_from_covfile(data, covfile, scale):
     covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
     covindf['CID1'] = covindf['CID1'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
     covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
@@ -861,7 +867,7 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
 
     #now loop over extracov_labels
     for key,value in extracovdict.items():
-        cov, summary = get_cov_from_covfile(df, os.path.expandvars(value), muopt_scales[key])
+        cov, summary = get_covsys_from_covfile(df, os.path.expandvars(value), muopt_scales[key])
         fitopt_label = 'DEFAULT'
         muopt_label = key
         result[f"{fitopt_label}|{muopt_label}"] = cov
@@ -887,7 +893,7 @@ def apply_filter(string, pattern):
         raise ValueError(f"Unable to parse COVOPT matching pattern {pattern}")
 
 
-def get_cov_from_covopt(covopt, contributions, base, calibrators):
+def get_covsys_from_covopt(covopt, contributions, base, calibrators):
 
     # Parse covopts (from input config file) that look like 
     #        "[cal] [+cal,=DEFAULT]"
@@ -967,10 +973,10 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
 
     return label, final_cov
-    # end get_cov_from_covopt
+    # end get_covsys_from_covopt
 
 
-def check_cov_invertible(label, cov_sys,muerr_stat_list):
+def get_cov_invert(label, cov_sys, muerr_stat_list):
     
     # Created Jan 5 2024 by R.Kessler
     # move this code out of get_cov_from_covopt() so that a flag
@@ -980,24 +986,24 @@ def check_cov_invertible(label, cov_sys,muerr_stat_list):
         # CosmoMC will add the diag terms, 
         # so lets do it here and make sure its all good
         diag_muerr_cov = np.diag(muerr_stat_list**2)
-        effective_cov  = cov_sys + diag_muerr_cov
-
-        # xxx mark core dump: effective_cov=final_cov + np.diag(base[VARNAME_MUERR]**2)
+        covtot_inv     = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
 
         # First just try and invert it to catch singular matrix errors
-        precision = np.linalg.inv(effective_cov)
+        precision = np.linalg.inv(covtot_inv)
 
+        # covtot_inv is now the inverse of covtot
+        
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
-        pr = np.dot(effective_cov,precision)
-        pr = np.round(pr,decimals=3)
+        pr   = np.dot(covtot_inv,precision)
+        pr   = np.round(pr,decimals=3)
         flag = is_unitary(np.round(pr,decimals=2))
         if flag :
             logging.info(f"{label} Matrix is UNITARY")
         else :
             logging.info(f"WARNING: {label} Matrix is not UNITARY")
 
-        flag2 = is_pos_def(np.round(effective_cov,decimals=3))
+        flag2 = is_pos_def(np.round(covtot_inv,decimals=3))
         if flag2:
             logging.info(f"{label} Matrix is Positive-Definite")
         else :
@@ -1005,15 +1011,18 @@ def check_cov_invertible(label, cov_sys,muerr_stat_list):
         
         # check that COV is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon
-        cond = np.linalg.cond(effective_cov)
+        cond    = np.linalg.cond(covtot_inv)
+        
         assert cond < 1 / epsilon, "Cov matrix is ill-conditioned and cannot be inverted"
+        
         logging.info(f"Covar condition for COVOPT {label} is {cond:.3f}")
 
     except np.linalg.LinAlgError as ex:
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
         raise ex
 
-    return
+    return covtot_inv
+
     # end check_cov_invertible
                 
 
@@ -1048,7 +1057,8 @@ def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
     # end is_pos_def
 
-def write_standard_output(config, args, covs, data, label_list):
+def write_standard_output(config, args, covsys_list, covtot_inv_list,
+                          data, label_list):
 
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
@@ -1065,8 +1075,8 @@ def write_standard_output(config, args, covs, data, label_list):
     outdir         = Path(config["OUTDIR"])
     os.makedirs(outdir, exist_ok=True)
 
-    # Apr 30 2022: get array of muerr_sys(ALL) for output
-    muerr_sys_list = get_muerr_sys(covs)
+    # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
+    muerr_sys_list = get_muerr_sys(covsys_list)
             
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
@@ -1088,11 +1098,18 @@ def write_standard_output(config, args, covs, data, label_list):
     # write covariance matrices and datasets
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
-    for i, (label, cov) in enumerate(covs):
+    for i, (label, covsys) in enumerate(covsys_list):
         base_file   = get_covsys_filename(i)
-        covsys_file = outdir / base_file
-        write_covariance(covsys_file, cov, opt_cov)
-        
+        cov_file    = outdir / base_file
+        write_covariance(cov_file, covsys, opt_cov)
+
+        # Apr 2024: check writing covtot_inv to save time in cosmology fitting.
+        if len(covtot_inv_list) > 0:
+            covtot_inv  = covtot_inv_list[i]
+            base_file   = get_covtot_inv_filename(i)
+            cov_file    = outdir / base_file
+            write_covariance(cov_file, covtot_inv, opt_cov)
+    
     return
 
     # end write_standard_output
@@ -1100,9 +1117,16 @@ def write_standard_output(config, args, covs, data, label_list):
 def get_covsys_filename(i):
     # Created Oct 13 2022 by R.Kessler: 
     # return name of covsys file for systematic index i
-    covsys_file   = f"{PREFIX_COVSYS}_{i:03d}.txt.gz"
-    return covsys_file
+    cov_file   = f"{PREFIX_COVSYS}_{i:03d}.txt.gz"
+    return cov_file
     # end get_covsys_filename
+
+def get_covtot_inv_filename(i):
+    # Created Apr 2024
+    # return name of covtot_inv file for systematic index i
+    cov_file   = f"{PREFIX_COVTOT_INV}_{i:03d}.txt.gz"
+    return cov_file
+    # end get_covtot_inv_filename
 
 def get_muerr_sys(covs):
 
@@ -1436,7 +1460,7 @@ def write_covariance(path, cov, opt_cov):
 
     # end write_covariance
 
-def write_summary_output(config, covariances, base):
+def write_summary_output(args, config, covsys_list, base):
 
     # write information to INFO.YAML that is intended to be 
     # picked up by cosmology fitting progam. Info includes
@@ -1449,14 +1473,17 @@ def write_summary_output(config, covariances, base):
 
     info['HD'] = HD_FILENAME
 
-    cov_info = {}
-    for i, (label, cov) in enumerate(covariances):
+    covsys_info = {}
+    for i, (label, covsys) in enumerate(covsys_list):
         covsys_file = get_covsys_filename(i)
-        cov_info[i] = f"{label:<20} {covsys_file}"
+        covsys_info[i] = f"{label:<20} {covsys_file}"
 
-    info["COVOPTS"] = cov_info
+        if not args.skip_cov_invert:
+            covtot_inv_file = get_covtot_inv_filename(i)
+            covsys_info[i] += f"  {covtot_inv_file}"
+            
+    info["COVOPTS"] = covsys_info
     
-
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
 
@@ -1485,6 +1512,7 @@ def write_summary_output(config, covariances, base):
             info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
             yaml.safe_dump(info_cospar, f )
 
+    return
     # end write_summary_output
 
 def get_cospar_sim(sim_version):
@@ -1684,29 +1712,24 @@ def create_covariance(config, args):
     covopts = covopts_default + config.get("COVOPTS",[])  
 
     args.tstart_cov = time.time()
-    covariances = []
+    covsys_list = []
     for c in covopts:
-        label, cov = get_cov_from_covopt(c, contributions, base,
+        label, covsys = get_covsys_from_covopt(c, contributions, base,
                                          config.get("CALIBRATORS") )
-        covariances.append( (label, cov) )
+        covsys_list.append( (label, covsys) )
         
     args.tend_cov = time.time()
 
     # Validate that the final_cov is invertible
-    if not args.skip_invert_check:
+    covtot_inv_list = []
+    if not args.skip_cov_invert :
         logging.info("")
-        logging.info("# ========== check invertibility ===============")
-        for (label, cov) in covariances:
-            check_cov_invertible(label, cov,base[VARNAME_MUERR])
-
-        args.tend_check_cov_invert = time.time()
-
-    # xxx mark delet Jan 5 2024 xxxx
-    #covariances = \
-    #    [ get_cov_from_covopt(c, contributions, base, 
-    #                          config.get("CALIBRATORS")) for c in covopts]
-    # xxx end mark xxxx
-
+        logging.info("# ========== fetch inverse ===============")
+        for (label, cov) in covsys_list:
+            covtot_inv = get_cov_invert(label, cov, base[VARNAME_MUERR])
+            covtot_inv_list.append(covtot_inv)
+            
+        args.tend_cov_invert = time.time()
 
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
@@ -1722,13 +1745,14 @@ def create_covariance(config, args):
     logging.info("# ================  OUTPUT ================= ")
 
     # write standard output for cov(s) and hubble diagram (9.22.2021)
-    write_standard_output(config, args, covariances, data, label_list)
+    write_standard_output(config, args, covsys_list, covtot_inv_list,
+                          data, label_list)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :
-        write_cosmomc_output(config, args, covariances, base)
+        write_cosmomc_output(config, args, covsys_list, base)
 
-    write_summary_output(config, covariances, base)
+    write_summary_output(args, config, covsys_list, base)
 
     args.tend_write = time.time()
 
@@ -1736,8 +1760,9 @@ def create_covariance(config, args):
 
     # write YAML output to communicate with submit_batch_jobs
     if args.yaml_file is not None:
-        write_yaml(args, len(covariances) )
+        write_yaml(args, len(covsys_list) )
 
+    return
     # end create_covariance
 
 def prep_config(config,args):
@@ -1807,9 +1832,9 @@ def loginfo_cpu_summary(args):
     cpu_minutes = (args.tend_cov - args.tstart_cov)/60.0
     logging.info(f"CPUTIME_COV_COMPUTE  = {cpu_minutes:.3f} minutes")
 
-    if not args.skip_invert_check:
-        cpu_minutes = (args.tend_check_cov_invert - args.tend_cov)/60.0
-        logging.info(f"CPUTIME_CHECK_INVERT = {cpu_minutes:.3f} minutes")
+    if not args.skip_cov_invert:
+        cpu_minutes = (args.tend_cov_invert - args.tend_cov)/60.0
+        logging.info(f"CPUTIME_INVERT = {cpu_minutes:.3f} minutes")
 
     cpu_minutes = (args.tend_write - args.tstart_write)/60.0
     logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")

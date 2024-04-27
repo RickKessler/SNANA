@@ -153,6 +153,20 @@
       -bao_sim SDSS4_2020  (use sim cosmology for means + SDSS4 cov)
    that read z-dependent means and cov from $SNDATA_ROOT/models/BAO
 
+ Apr 25 2024:
+   + include optional Gauss prior on rd (to mimic Camilari et al)
+   + define separate chi2_prior variables for OM, CMB, BOA, rd  
+     and print each chi2-prior contribution separately at end of fit;
+     see get_chi2_priors(...)
+  
+  Apr 26 2024:
+    + refactor wfit_uncertainty to simplify code.
+    + replace default std error with average of lower+upper at 68% confidence;
+      this new default error is larger and FoM will therefore be smaller.
+      Revert back to std errors with argument "-sig_type std"
+    + fix lower/upper 68% confidence calc using interpolation to 
+      avoid original nearest bin approximation and round-off error on error.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -177,6 +191,8 @@
 #define SPEED_MASK_INTERP  2  // interplate r(z) and mu_cos(z)
 #define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG + SPEED_MASK_INTERP
 
+#define PROBSUM_1SIGMA  0.683
+
 // Define variable names to read in hubble diagram file.
 // VARLIST_DEFAULT_XXX means that any variable is valid for XXX.
 #define  VARLIST_DEFAULT_CID     "CID:C*20 ROW:C*20"
@@ -197,6 +213,21 @@
 #define SIMKEY_OMEGA_MATTER   "OMEGA_MATTER:"
 #define SIMKEY_w0_LAMBDA      "w0_LAMBDA:"
 #define SIMKEY_wa_LAMBDA      "wa_LAMBDA:"
+
+// Define default grid for each fitted parameter.
+// They can be modified via command line args; for help type "wfit.exe"
+#define DEFAULT_omm_steps  81   // number of steps
+#define DEFAULT_omm_min    0.0
+#define DEFAULT_omm_max    1.0
+
+#define DEFAULT_w0_steps   201
+#define DEFAULT_w0_min    -2.0
+#define DEFAULT_w0_max    +2.0
+
+#define DEFAULT_wa_steps   101
+#define DEFAULT_wa_min    -4.0
+#define DEFAULT_wa_max    +4.0
+
 
 // ======== global structures ==========
 
@@ -232,9 +263,9 @@ struct INPUTS {
   char varname_muerr[40] ; // name of muerr variable, default MUERR
 
   // grid ranges and steps
-  int    h_steps, omm_steps, w0_steps, wa_steps ;
-  double h_min,   omm_min,   w0_min,   wa_min   ;    
-  double h_max,   omm_max,   w0_max,   wa_max   ;
+  int    omm_steps, w0_steps, wa_steps ;
+  double omm_min,   w0_min,   wa_min   ;    
+  double omm_max,   w0_max,   wa_max   ;
 
   int dofit_wcdm ;    // default is true
   int dofit_lcdm ;    // option with -lcdm
@@ -242,6 +273,7 @@ struct INPUTS {
 
   int use_bao, use_cmb ; // flags for bao and cmb priors
   char bao_sample[20];   // e.g., DESI_2024 or SDSS4_2020
+  double rd_prior, rd_prior_sig ;
   
   int use_marg;          // flag to marginalize (instead of only minimize)
   int use_mucov;         // flag to read cov matrix
@@ -257,9 +289,12 @@ struct INPUTS {
   double w0_SIM, wa_SIM ;   // idem
 
   // computed from user inputs
-  double h_stepsize, omm_stepsize, w0_stepsize, wa_stepsize;
+  double omm_stepsize, w0_stepsize, wa_stepsize;
   int    format_cospar;
 
+  char sig_type[40];
+  bool use_sig_std, use_sig_68;
+  
 } INPUTS ;
 
 
@@ -281,8 +316,10 @@ struct  {
   double  rz_dif_max ;
 
   // - - - -
-  double *w0_prob, *wa_prob, *omm_prob;
-  double *w0_sort, *wa_sort;
+  double *omm_val,  *w0_val,  *wa_val;
+  double *omm_prob, *w0_prob, *wa_prob;
+  double *omm_cdf,  *w0_cdf,  *wa_cdf;
+  double *omm_sort, *w0_sort, *wa_sort;
 
   double   *snprob,     *extprob,      *snchi,      *extchi ;
   double ***snprob3d, ***extprob3d,  ***snchi3d,  ***extchi3d;
@@ -300,9 +337,9 @@ struct  {
   double w0_mean,    wa_mean,     omm_mean ; 
   double w0_probmax, wa_probmax,  omm_probmax;
 
-  double w0_sig_marg,  w0_sig_upper,  w0_sig_lower;
-  double wa_sig_marg,  wa_sig_upper,  wa_sig_lower;
-  double omm_sig_marg, omm_sig_upper, omm_sig_lower;
+  double omm_sig_std, omm_sig_upper, omm_sig_lower, omm_sig_final;
+  double w0_sig_std,  w0_sig_upper,  w0_sig_lower,  w0_sig_final ;
+  double wa_sig_std,  wa_sig_upper,  wa_sig_lower,  wa_sig_final ;
   double cov_w0wa, cov_w0omm;
   double rho_w0wa, rho_w0omm; 
 
@@ -371,48 +408,8 @@ struct {
   char   VARNAME[MXDATA_BAO_PRIOR][20]; // e.g., DM_over_rd
   int    IVAR[MXDATA_BAO_PRIOR];        // e.g., = IVAR_BAO_DH_over_rd
   char   comment[200];
+  char   comment_rd_prior[200];
 } BAO_PRIOR;
-
-/* xxxxxxxxx mark delete Apr 23 2024 xxxxxxxxxxxxx
-// define SDSS4-eBOSS prior/structure
-#define NZBIN_BAO_SDSS4 7
-
-double rd_DEFAULT = 150.0; // from ???
-// define default values from Table 3 of Alam 2020
-double  z_sdss4_DEFAULT[NZBIN_BAO_SDSS4] =
-  { 0.38,   0.51,  0.70,  0.85,  1.48,  2.33, 2.33 } ;
-double DMrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
-  { 10.27, 13.38, 17.65, 19.50, 30.21, 37.60, 37.30 } ;
-double sigDMrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
-  {  0.15,  0.18,  0.30,  1.00,  0.79,  1.90,  1.70 } ;
-double DHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
-  { 24.89, 22.43, 19.78, 19.60, 13.23, 8.93, 9.08 };   
-double sigDHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
-  {  0.58,  0.48,  0.46,  2.10,  0.47, 0.28, 0.34 } ;
-double COV_BAO_SDSS4[NZBIN_BAO_SDSS4*2][NZBIN_BAO_SDSS4*2]; 
-double COVINV_BAO_SDSS4[NZBIN_BAO_SDSS4*2][NZBIN_BAO_SDSS4*2];
-
-struct {
-
-  bool use_sdss;  // from Eisenstein 2005  astro-ph/0501171 
-  bool use_sdss4; // from SDSS-IV-eBOSS    arxiv:2007.08991
-
-  // define params for Eisenstein 2005  astro-ph/0501171 
-  double z_sdss, a_sdss, siga_sdss; 
-
-  // define params for Alam 2010 (SDSS-IV-eBOSS)  arxiv:2007.08991 
-  double  rd_sdss4; 
-  double  z_sdss4[NZBIN_BAO_SDSS4] ;
-  double  DMrd_sdss4[NZBIN_BAO_SDSS4] ;
-  double  DHrd_sdss4[NZBIN_BAO_SDSS4] ;
-  double  sigDMrd_sdss4[NZBIN_BAO_SDSS4] ;
-  double  sigDHrd_sdss4[NZBIN_BAO_SDSS4] ;
-
-  // comment for stdout
-  char comment[200];
-	      
-} BAO_PRIOR_LEGACY;
-xxxxxxxxxx end mark xxxxxxxxxxxxxx */
 
 // =========== global variables ================
 
@@ -482,6 +479,8 @@ void prep_speed_offdiag(double extchi_tmp);
 void wfit_normalize(void);
 void wfit_marginalize(void);
 void wfit_uncertainty(void);
+void wfit_uncertainty_fitpar(char *varname);
+void wfit_uncertainty_legacy(void);
 void wfit_final(void);
 void wfit_FoM(void);
 void wfit_Covariance(void);
@@ -509,9 +508,11 @@ void   dump_bao_prior(void);
 
 void   init_cmb_prior(int OPT) ;
 double get_Rcmb_ranshift(void) ;
-double chi2_bao_prior(Cosparam *cpar);
+double chi2_bao_prior(Cosparam *cpar, double *rd);
 double chi2_bao_prior_legacy(Cosparam *cpar);
 double chi2_cmb_prior(Cosparam *cpar);
+void   get_chi2_priors(Cosparam *cpar, double *chi2_om, double *chi2_cmb,
+		       double *chi2_bao, double *chi2_rd);
 
 int    ISEED_UNIQUE(void);
 
@@ -648,17 +649,24 @@ int main(int argc,char *argv[]){
     wfit_marginalize();
 
     // get uncertainties
-    wfit_uncertainty();
+    if ( INPUTS.debug_flag == -426 )
+      { wfit_uncertainty_legacy(); }
+    else
+      { wfit_uncertainty(); }  // refactored Apr 26 2024
 
     // Compute covriance with fitted parameters
-    wfit_Covariance();
+    // xxx mark wfit_Covariance();
     
     // determine "final" quantities, including sigma_mu^int
     wfit_final();
 
+    // Compute covriance with fitted parameters
+    wfit_Covariance();
+    
     // estimate FoM
     wfit_FoM();
 
+    
     t_end_fit = time(NULL);
 
     // call driver routine for output(s)
@@ -718,9 +726,16 @@ void init_stuff(void) {
   INPUTS.fitnumber = 1;
   INPUTS.varname_muerr[0] = 0 ;
 
+  INPUTS.use_sig_std  = false;   // legacy option
+  INPUTS.use_sig_68   = true;  
+   
   // Gauss OM params
   INPUTS.omm_prior        = OMEGA_MATTER_DEFAULT ;  // mean
   INPUTS.omm_prior_sig    = 0.04;  // sigma
+
+  INPUTS.rd_prior         = 147.0 ;
+  INPUTS.rd_prior_sig     = 1.0E8 ;
+
   
   init_bao_prior(-9); 
   init_cmb_prior(-9);  
@@ -733,11 +748,15 @@ void init_stuff(void) {
   INPUTS.bao_sample[0] = 0 ;
   INPUTS.use_marg = 1;
 
-
-  INPUTS.w0_steps  = 201; INPUTS.w0_min  = -2.0 ;  INPUTS.w0_max  = 0. ;  
-  INPUTS.wa_steps  = 101; INPUTS.wa_min  = -4.0 ;  INPUTS.wa_max  = 4.0 ;
-  INPUTS.omm_steps =  81; INPUTS.omm_min =  0.0 ;  INPUTS.omm_max = 1.0;
-  INPUTS.h_steps   = 121; INPUTS.h_min   = 40.0 ;  INPUTS.h_max   = 100;   
+  INPUTS.omm_steps =  DEFAULT_omm_steps;
+  INPUTS.omm_min   =  DEFAULT_omm_min ;
+  INPUTS.omm_max   =  DEFAULT_omm_max;
+  INPUTS.w0_steps  =  DEFAULT_w0_steps;
+  INPUTS.w0_min    =  DEFAULT_w0_min ;
+  INPUTS.w0_max    =  DEFAULT_w0_max ;  
+  INPUTS.wa_steps  =  DEFAULT_wa_steps ;
+  INPUTS.wa_min    =  DEFAULT_wa_min ;
+  INPUTS.wa_max    =  DEFAULT_wa_max ;
 
   INPUTS.zmin = 0.0;  INPUTS.zmax = 9.0;
 
@@ -785,7 +804,7 @@ void print_wfit_help(void) {
   // Created Oct 1 2021
   // [moved from main]
 
-  static char *help[] = {		/* instructions */
+  static char *help_main[] = {		/* instructions */
     "",
     "WFIT - Usage: wfit [hubble diagram] (options)",
     "WFIT - Usage: wfit [HD0,HD1] (options)   for HDIBC method",
@@ -797,12 +816,14 @@ void print_wfit_help(void) {
     "     \t\t Chevallier & Polarski, 2001 [Int.J.Mod.Phys.D10,213(2001)]",
     "   -lcdm\tfit for OM only (fix w=-1)" ,
     "   -ompri\tcentral value of omega_m prior [default: Planck2018]", 
-    "   -dompri\twidth of omega_m prior [default: 0.04]",
+    "   -dompri\tGauss sigma of omega_m prior [default: 0.04]",
     //
     "   -bao DESI_2024\tBAO prior (mean+cov) from DESI 2024",
     "   -bao_sim DESI_2024\tBAO cov from DESI 2024, mean from sim cosmology params",
     "   -bao SDSS4_2020\tBAO prior (mean+cov) from SDSS4 2020",
-    "   -bao_sim SDSS4_2020\tBAO cov from SDSS4 2020, mean from sim cosmology params",        
+    "   -bao_sim SDSS4_2020\tBAO cov from SDSS4 2020, mean from sim cosmology params",
+    "   -rd_prior \t rd prior (with BAO prior only)  [default=147]",
+    "   -rd_prior_sig \t Gauss sigma for rd prior (with BAO prior only) [default=999.]",
     //
     "   -cmb\t\tuse CMB prior from 5-year WMAP (2008)",
     "   -cmb_sim\tuse CMB prior with simulated cosmology and WMAP formalism",
@@ -811,6 +832,8 @@ void print_wfit_help(void) {
     "   -wa_sim\twa for cmb_sim (default from sntools.h)",
     "   -minchi2\tget w and OM from minchi2 instead of marginalizing",
     "   -marg\tget w and OM from marginalizing (default)",
+    "   -sig_type 68 \tUncertainty from 68 percent confidence (default)",
+    "   -sig_type std\tUncertainty from STD of marginalized pdf",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
     "   -ranseed_Rcmb random seed to fluctuate Rcmb (1-> internally compute seed)",
@@ -832,19 +855,31 @@ void print_wfit_help(void) {
     "                 e.g.,  muerr_ideal 0.1,0.01,0.05 -> "
     "muerr = .1 + .01*z + .05*z^2",
     "                 e.g.,  muerr_ideal muerr -> use original muerr from data",
-    "\n",
-    " Grid spacing:",
-    " wCDM Fit:",
-    "   -wmin/-wmax/-wsteps\t\tw grid   [-2 / 0 /201]",
-    "   -ommin/-ommax/-omsteps\tOM grid [ 0 / 1 / 81]",
     "",
-    " w0-wa Fit:",
-    "   -w0min/-w0max/-w0steps\tw0 grid  [-2 / 0 / 201]",
-    "   -wamin/-wamax/-wasteps\twa grid  [-4 / 4 / 101]",
-    "   -ommin/-ommax/-omsteps\tOM grid  [ 0 / 1 /  81]",
-    "",
+    0
+  };
 
+  char help_grid[1000];
+  sprintf(help_grid,
+	  " Grid spacing:\n"
+	  " wCDM Fit: \n"
+	  "   -ommin/-ommax/-omsteps   OM default grid [%4.1f / %4.1f / %3d] \n"
+	  "   -wmin /-wmax /-wsteps    w  default grid [%4.1f / %4.1f / %3d] \n"
+	  "\n"
+	  " w0-wa Fit:\n"
+	  "   -ommin/-ommax/-omsteps   OM default grid [%4.1f / %4.1f / %3d] \n"
+	  "   -w0min/-w0max/-w0steps   w0 default grid [%4.1f / %4.1f / %3d] \n"
+	  "   -wamin/-wamax/-wasteps   w0 default grid [%4.1f / %4.1f / %3d] \n" 
+	  "\n",
+	  DEFAULT_omm_min, DEFAULT_omm_max, DEFAULT_omm_steps,
+	  DEFAULT_w0_min,  DEFAULT_w0_max,  DEFAULT_w0_steps,
+	  //
+	  DEFAULT_omm_min, DEFAULT_omm_max, DEFAULT_omm_steps,
+	  DEFAULT_w0_min,  DEFAULT_w0_max,  DEFAULT_w0_steps,
+	  DEFAULT_wa_min,  DEFAULT_wa_max,  DEFAULT_wa_steps
+	  );
 
+  static char *help_output[] = {
     " Output:",
     "   -outfile_cospar\tname of output file with fit cosmo params",
     "   -cospar\t\t  [same as previous]",
@@ -858,10 +893,17 @@ void print_wfit_help(void) {
   };
 
   int i;
+  
   // ----------- BEGIN ------------
   
-  for (i = 0; help[i] != 0; i++)
-    { printf ("%s\n", help[i]); }
+  for (i = 0; help_main[i] != 0; i++)
+    { printf ("%s\n", help_main[i]); }
+
+
+  printf("%s", help_grid);
+
+  for (i = 0; help_output[i] != 0; i++)
+    { printf ("%s\n", help_output[i]); }    
 
   return;
 
@@ -900,6 +942,11 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1,"bao_sim")==0) {
 	sprintf(INPUTS.bao_sample,"%s", argv[++iarg]);
         INPUTS.use_bao=2;
+
+      } else if (strcasecmp(argv[iarg]+1,"rd_prior")==0) {
+	INPUTS.rd_prior     = atof(argv[++iarg]);
+      } else if (strcasecmp(argv[iarg]+1,"rd_prior_sig")==0) {
+	INPUTS.rd_prior_sig = atof(argv[++iarg]);
 
       } else if (strcasecmp(argv[iarg]+1,"csv")==0) { 
 	INPUTS.csv_out = 1;
@@ -940,6 +987,18 @@ void parse_args(int argc, char **argv) {
 	INPUTS.use_marg = 0 ;
       } else if (strcasecmp(argv[iarg]+1,"marg")==0) { 
 	INPUTS.use_marg=1;
+
+      } else if (strcasecmp(argv[iarg]+1,"sig_type")==0) {
+	sprintf(INPUTS.sig_type,"%s", argv[++iarg]);
+	if ( strcmp(INPUTS.sig_type,"std")== 0 )
+	  { INPUTS.use_sig_std = true; INPUTS.use_sig_68= false; }
+	else if ( strcmp(INPUTS.sig_type,"68")== 0 )
+	  { INPUTS.use_sig_std = false; INPUTS.use_sig_68= true; }
+	else {
+	  sprintf(c1err,"Invalid sig_type = '%s'", INPUTS.sig_type);
+	  sprintf(c2err,"Valid sig_types are std and 68");
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+	}
 
       } else if (strcasecmp(argv[iarg]+1,"snrms")==0) { 
 	INPUTS.snrms = atof(argv[++iarg]);
@@ -992,17 +1051,8 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1,"ndump_mucov")==0 ) { 
 	INPUTS.ndump_mucov = atoi(argv[++iarg]);      
 
-      /* Change H0 grid parameters? */
-      } else if (strcasecmp(argv[iarg]+1,"hmin")==0) {   
-	INPUTS.h_min = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"hmax")==0) {   
-	INPUTS.h_max = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"hsteps")==0) {   
-	INPUTS.h_steps = (int)atof(argv[++iarg]);
-      }
-
       /* Change Omega_m grid parameters? */
-      else if (strcasecmp(argv[iarg]+1,"ommin")==0) {   
+      } else if (strcasecmp(argv[iarg]+1,"ommin")==0) {   
 	INPUTS.omm_min = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"ommax")==0) {   
 	INPUTS.omm_max = atof(argv[++iarg]);
@@ -1147,12 +1197,21 @@ void  malloc_workspace(int opt) {
   // ------------ BEGIN ------------
 
   if ( opt > 0 ) {
+    WORKSPACE.omm_val  = (double *)calloc(INPUTS.omm_steps, memd);
+    WORKSPACE.w0_val   = (double *)calloc(INPUTS.w0_steps,  memd);
+    WORKSPACE.wa_val   = (double *)calloc(INPUTS.wa_steps,  memd);
+
+    WORKSPACE.omm_prob  = (double *)calloc(INPUTS.omm_steps, memd);
     WORKSPACE.w0_prob   = (double *)calloc(INPUTS.w0_steps,  memd);
     WORKSPACE.wa_prob   = (double *)calloc(INPUTS.wa_steps,  memd);
-    WORKSPACE.omm_prob  = (double *)calloc(INPUTS.omm_steps, memd);
+    
+    WORKSPACE.omm_sort  = (double *)calloc(INPUTS.omm_steps, memd);
+    WORKSPACE.w0_sort   = (double *)calloc(INPUTS.w0_steps,  memd);
+    WORKSPACE.wa_sort   = (double *)calloc(INPUTS.wa_steps,  memd);
 
-    WORKSPACE.w0_sort   = (double *)calloc(INPUTS.w0_steps, memd);
-    WORKSPACE.wa_sort   = (double *)calloc(INPUTS.wa_steps, memd);
+    WORKSPACE.omm_cdf  = (double *)calloc(INPUTS.omm_steps, memd);
+    WORKSPACE.w0_cdf   = (double *)calloc(INPUTS.w0_steps,  memd);
+    WORKSPACE.wa_cdf   = (double *)calloc(INPUTS.wa_steps,  memd);    
 
     /* Probability arrays */
     
@@ -1179,11 +1238,21 @@ void  malloc_workspace(int opt) {
 
   }
   else {
+    free(WORKSPACE.omm_val);
+    free(WORKSPACE.w0_val);
+    free(WORKSPACE.wa_val);
+
+    free(WORKSPACE.omm_prob);
     free(WORKSPACE.w0_prob);
     free(WORKSPACE.wa_prob);
-    free(WORKSPACE.omm_prob);
+
+    free(WORKSPACE.omm_cdf);
+    free(WORKSPACE.w0_cdf);
+    free(WORKSPACE.wa_cdf);
+
+    free(WORKSPACE.omm_sort);
     free(WORKSPACE.w0_sort);
-    free(WORKSPACE.wa_sort);
+    free(WORKSPACE.wa_sort);    
     
     free(WORKSPACE.extprob);
     free(WORKSPACE.snprob);
@@ -2134,6 +2203,7 @@ void compute_MUCOV_FINAL(void) {
 //===================================
 void set_priors(void) {
 
+  char *comment ;
   bool noprior = true;
   char fnam[]="set_priors";
 
@@ -2159,7 +2229,10 @@ void set_priors(void) {
   // - - - - - - - -
   if ( INPUTS.use_bao ) {
     noprior = false;
-    char *comment = BAO_PRIOR.comment ; 
+    comment = BAO_PRIOR.comment ; 
+    printf("   %s\n", comment) ;
+
+    comment = BAO_PRIOR.comment_rd_prior ; 
     printf("   %s\n", comment) ;
   } 
   else if ( INPUTS.omm_prior_sig < 1. ) {
@@ -2171,7 +2244,7 @@ void set_priors(void) {
   // - - - -
   if ( INPUTS.use_cmb ) {
     noprior = false;
-    char *comment = CMB_PRIOR.comment ; 
+    comment = CMB_PRIOR.comment ; 
     printf("   %s\n", comment) ; 
   }
 
@@ -2351,7 +2424,7 @@ void init_bao_prior(int OPT) {
   char bao_file[MXPATHLEN], VARNAME[40];
   double z, MEAN, COV;
   FILE *fp;
-  int LDMP = 1;
+  int LDMP = 0 ;
   char fnam[] = "init_bao_prior" ;
 
   // -----------------BEGIN ------------------
@@ -2454,20 +2527,18 @@ void init_bao_prior(int OPT) {
       ncov++ ;
     }
     nrow++ ;
-    
+  
   } // end while
 
   invertMatrix( ndata, ndata, BAO_PRIOR.COVINV1D );
   sprintf(comment,"BAO prior from %s data (n=%d)", INPUTS.bao_sample, ndata );
-
-  if ( INPUTS.use_bao ==1 && LDMP ) { dump_bao_prior(); }
   
   // - - - - - -
   if ( INPUTS.use_bao == 2 ) { 
-    double rd; 
+    double rd ; 
     HzFUN_INFO_DEF HzFUN;
     rd = rd_bao_prior(&COSPAR_SIM);
-
+    
     //printf(" xxx %s rd  = %f \n", fnam, rd);
     for (i=0; i < ndata; i++ ) {
       z    = BAO_PRIOR.REDSHIFT[i];
@@ -2482,10 +2553,14 @@ void init_bao_prior(int OPT) {
       
       BAO_PRIOR.MEAN[i]    = MEAN ;
     }
-    sprintf(comment,"BAO prior from %s using sim cosmology (n=%d)", INPUTS.bao_sample, ndata );
-    if ( LDMP ) { dump_bao_prior(); }
+    sprintf(comment,"BAO prior from %s using sim cosmology (n=%d)",
+	    INPUTS.bao_sample, ndata );
   }
 
+  sprintf(BAO_PRIOR.comment_rd_prior,"rd Gauss prior: mean=%.2f  sig=%.2f\n",
+	  INPUTS.rd_prior, INPUTS.rd_prior_sig);
+
+  if ( LDMP ) { dump_bao_prior(); }
   //  debugexit(fnam);
   
   return ;
@@ -2677,8 +2752,7 @@ void set_stepsizes(void) {
 
   // ------------ BEGIN ------------
 
-  INPUTS.w0_stepsize = INPUTS.wa_stepsize = 0.0;
-  INPUTS.omm_stepsize = INPUTS.h_stepsize = 0. ;
+  INPUTS.w0_stepsize = INPUTS.wa_stepsize =  INPUTS.omm_stepsize = 0 ;
 
   if (INPUTS.w0_steps  > 1) 
     { INPUTS.w0_stepsize  = (INPUTS.w0_max-INPUTS.w0_min)/(INPUTS.w0_steps-1);}
@@ -2686,8 +2760,6 @@ void set_stepsizes(void) {
     { INPUTS.wa_stepsize  = (INPUTS.wa_max-INPUTS.wa_min)/(INPUTS.wa_steps-1);}
   if (INPUTS.omm_steps > 1) 
     { INPUTS.omm_stepsize = (INPUTS.omm_max-INPUTS.omm_min)/(INPUTS.omm_steps-1);}
-  if (INPUTS.h_steps   > 1) 
-    { INPUTS.h_stepsize   = (INPUTS.h_max-INPUTS.h_min)/(INPUTS.h_steps-1);}
   
 
   printf("\n");
@@ -2704,11 +2776,6 @@ void set_stepsizes(void) {
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_omm, varname_omm, 
 	 INPUTS.omm_min, INPUTS.omm_max, INPUTS.omm_steps, INPUTS.omm_stepsize);
-
-  /* xxx mark delete Feb 2023 xxxxxx
-  printf("  h_min:  %6.2f   h_max:  %6.2f  %5i steps of size %8.5f\n",
-	 INPUTS.h_min,  INPUTS.h_max,  INPUTS.h_steps,  INPUTS.h_stepsize);
-  xxxxxxxx end mark xxxxxxxx */
 
   printf("   ------------------------------------\n");
 
@@ -2991,11 +3058,6 @@ void wfit_minimize(void) {
 	  { UPDATE_STDOUT = ( NB % 10000 == 0 ); }
 
 	if ( UPDATE_STDOUT || NB==NBTOT ) {
-	  // xxx time_t t_update = time(NULL);
-	  // xxx double dt = t_update - t0 ;
-	  // xxx printf("\t finished chi2 bin %8d of %8d  (%.0f sec)\n",
-	  // xxx NB, NBTOT, dt); fflush(stdout) ;
-
 	  char comment[60];
 	  sprintf(comment, "chi2 bin %8d of %8d", NB, NBTOT); 
 	  print_elapsed_time(t0, comment, UNIT_TIME_SECOND);
@@ -3023,10 +3085,10 @@ void wfit_minimize(void) {
     fflush(stdout);
   }
 
-
   return;
 
 } // end wfit_minimize
+
 
 // =============================
 void prep_speed_offdiag(double chi2min_approx) {
@@ -3146,11 +3208,10 @@ void wfit_marginalize(void) {
   printf("\t Get Marginalized %s\n", varname_w ); fflush(stdout);
   for(i=0; i < INPUTS.w0_steps; i++){
     w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
-    WORKSPACE.w0_prob[i] = 0. ;                 
-    for(kk=0; kk < INPUTS.wa_steps; kk++){
-      for(j=0; j < INPUTS.omm_steps; j++){
+    WORKSPACE.w0_prob[i] = 0. ;      
+    for(kk=0; kk < INPUTS.wa_steps; kk++) {
+      for(j=0; j < INPUTS.omm_steps; j++) {
 	Pt1mp       = WORKSPACE.extprob3d[i][kk][j] ;
-
 	WORKSPACE.w0_prob[i] += Pt1mp ;
 	if ( Pt1mp > P1max ) {
 	  P1max = Pt1mp ;
@@ -3175,8 +3236,8 @@ void wfit_marginalize(void) {
     for(kk=0; kk < INPUTS.wa_steps; kk++){
       wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
       WORKSPACE.wa_prob[kk] = 0. ; 
-      for(i=0; i < INPUTS.w0_steps; i++){
-	for(j=0; j < INPUTS.omm_steps; j++){
+      for(i=0; i < INPUTS.w0_steps; i++) {
+	for(j=0; j < INPUTS.omm_steps; j++) {
 	  Pt2mp       = WORKSPACE.extprob3d[i][kk][j] ;
 	  WORKSPACE.wa_prob[kk] += Pt2mp ;
 	  if ( Pt2mp > P2max ) {
@@ -3201,8 +3262,9 @@ void wfit_marginalize(void) {
   printf("\t Get Marginalized %s\n", varname_omm ); fflush(stdout);
   for(j=0; j < INPUTS.omm_steps; j++){
     omm = INPUTS.omm_min + j*INPUTS.omm_stepsize;
-    for(kk=0; kk < INPUTS.wa_steps; kk++){
-      for(i=0; i < INPUTS.w0_steps; i++){
+    WORKSPACE.omm_prob[j] = 0.0 ;
+    for(kk=0; kk < INPUTS.wa_steps; kk++) {
+      for(i=0; i < INPUTS.w0_steps; i++) {
 	WORKSPACE.omm_prob[j] += WORKSPACE.extprob3d[i][kk][j]; 
       }
     }
@@ -3250,30 +3312,179 @@ void wfit_marginalize(void) {
 // =========================================
 void wfit_uncertainty(void) {
 
+  // Created Apr 26 2024 by R.Kessler
+  // Refactor to process each variable exactly the same way
+  // without repeating so much code.
+  
+  printf("\n# ============================================ \n");
+  printf(" Estimate uncertainties (refac): \n");
+  fflush(stdout);
+
+  wfit_uncertainty_fitpar(varname_omm);
+  wfit_uncertainty_fitpar(varname_w);
+
+  if ( INPUTS.dofit_w0wa ) 
+    { wfit_uncertainty_fitpar(varname_wa); }
+
+  return ;
+}  // end wfit_uncertainty
+
+
+void wfit_uncertainty_fitpar(char *varname) {
+
+  // Created Apr 2024
+  // Compute and store two kinds of fitted uncertainty for parameter 'varname';
+  // 1. standard devistion (std) of marginalized posterior (prob_array)
+  //     -> symmetric uncertainty
+  // 2. 68% confidence interval of marginalized posterior
+  //     -> lower and upper uncertainty
+  //
+  
+  double *sig_std, *sig_upper, *sig_lower, sqdelta, delta ;
+  double val, val_min, val_max, val_mean, val_step ;
+  double val_sum,  probsum, cdf_find;
+  double *val_array, *prob_array, *cdf_array ;
+  int  i, n_steps;
+  char fnam[] = "wfit_uncertainty_fitpar";
+
+  // ---------- BEGIN -----------
+
+  if ( strcmp(varname,varname_omm) == 0 ) {
+    sig_std   = &WORKSPACE.omm_sig_std ;
+    sig_lower = &WORKSPACE.omm_sig_lower ;
+    sig_upper = &WORKSPACE.omm_sig_upper ;
+    n_steps  =  INPUTS.omm_steps;
+    val_min  =  INPUTS.omm_min;
+    val_max  =  INPUTS.omm_max;
+    val_step =  INPUTS.omm_stepsize;
+    val_mean =  WORKSPACE.omm_mean;
+    probsum  =  WORKSPACE.omm_probsum;
+
+    val_array     =  WORKSPACE.omm_val ;
+    prob_array    =  WORKSPACE.omm_prob;
+    cdf_array     =  WORKSPACE.omm_cdf;
+  }
+  else if ( strcmp(varname,varname_w) == 0 ) {
+    sig_std   = &WORKSPACE.w0_sig_std ;
+    sig_lower = &WORKSPACE.w0_sig_lower ;
+    sig_upper = &WORKSPACE.w0_sig_upper ;
+    n_steps  =  INPUTS.w0_steps;
+    val_min  =  INPUTS.w0_min;
+    val_max  =  INPUTS.w0_max;
+    val_step =  INPUTS.w0_stepsize;
+    val_mean =  WORKSPACE.w0_mean;
+    probsum  =  WORKSPACE.w0_probsum;
+
+    val_array      =  WORKSPACE.w0_val ;    
+    prob_array     =  WORKSPACE.w0_prob;
+    cdf_array      =  WORKSPACE.w0_cdf;
+  }
+  else if ( strcmp(varname,varname_wa) == 0 ) {
+    sig_std   = &WORKSPACE.wa_sig_std ;
+    sig_lower = &WORKSPACE.wa_sig_lower ;
+    sig_upper = &WORKSPACE.wa_sig_upper ;
+    n_steps  =  INPUTS.wa_steps;
+    val_min  =  INPUTS.wa_min;
+    val_max  =  INPUTS.wa_max;
+    val_step =  INPUTS.wa_stepsize;
+    val_mean =  WORKSPACE.wa_mean;
+    probsum  =  WORKSPACE.wa_probsum;
+
+    val_array      =  WORKSPACE.wa_val ;        
+    prob_array     =  WORKSPACE.wa_prob;
+    cdf_array      =  WORKSPACE.wa_cdf;
+  }
+  else {
+    sprintf(c1err,"Invalid varname = '%s'", varname);
+    sprintf(c2err,"Valid varnames are %s  %s  %s",
+	    varname_omm, varname_w, varname_wa);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
+  }
+  
+  printf("      %s: \n", varname); fflush(stdout);
+  
+  *sig_std   = 0.0 ;
+  *sig_upper = 0.0 ;
+  *sig_lower = 0.0 ;
+
+  // Get std dev for the weighted mean.  This is a reasonable   
+  //  measure of uncertainty in w if distribution is ~Gaussian
+  sqdelta = 0.0;
+  cdf_array[0] = 0.0 ;
+  for(i=0; i < n_steps; i++){ 	
+    val      = val_min + i*val_step;
+    val_array[i]   = val;
+    prob_array[i] /= probsum;  
+    delta    = val - val_mean ;
+    sqdelta += prob_array[i] * (delta*delta);   
+    if ( i > 0 ) { cdf_array[i] = cdf_array[i-1] + prob_array[i]; }
+  }
+  *sig_std = sqrt(sqdelta/probsum);
+  printf("\t STD %s_sig estimate = %.4f (use=%d)\n",
+	 varname, *sig_std, INPUTS.use_sig_std );
+  
+
+  // - - - -
+  cdf_find = (0.5 - PROBSUM_1SIGMA/2.0);
+  val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
+  *sig_lower = val_mean - val;
+    
+  cdf_find = (0.5 + PROBSUM_1SIGMA/2.0);
+  val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
+  *sig_upper = val - val_mean ;
+  
+  printf("\t 68 percent %s-err estimate: lower = %f, upper = %f (use=%d)\n", 
+	 varname, *sig_lower, *sig_upper, INPUTS.use_sig_68);  
+  fflush(stdout);
+
+  return;
+  
+} // end wfit_uncertainty_fitpar
+
+// =========================================
+void wfit_uncertainty_legacy(void) {
+
   // Created Oct 2 2021
   // Estimate uncertainties
 
-  double w0, wa, omm, delta, sqdelta ;
+  double omm, w0, wa, delta, sqdelta ;
   int i, kk, j ;
-  char fnam[] = "wfit_uncertainty" ;
+  char fnam[] = "wfit_uncertainty_legacy" ;
 
   // ------------- BEGIN ------------
 
   printf("\n# ============================================ \n");
-  printf(" Estimate uncertainties: \n");
+  printf(" Estimate uncertainties (legacy code): \n");
   fflush(stdout);
 
-  WORKSPACE.w0_sig_marg = 0.0 ;
+  WORKSPACE.w0_sig_std = 0.0 ;
   WORKSPACE.w0_sig_upper = WORKSPACE.w0_sig_lower = 0.0;
 
-  WORKSPACE.wa_sig_marg = 0.0;
+  WORKSPACE.wa_sig_std = 0.0;
   WORKSPACE.wa_sig_upper = WORKSPACE.wa_sig_lower = 0.0;
 
-  WORKSPACE.omm_sig_marg = 0.0;
+  WORKSPACE.omm_sig_std = 0.0;
   WORKSPACE.omm_sig_upper = WORKSPACE.omm_sig_lower = 0.0;
 
   // Get std dev for the weighted mean.  This is a reasonable   
   //  measure of uncertainty in w if distribution is ~Gaussian
+
+  // omm ...  
+  sqdelta = 0.0;
+  for(i=0; i < INPUTS.omm_steps; i++){ 	
+    omm      = INPUTS.omm_min + i*INPUTS.omm_stepsize;    
+    WORKSPACE.omm_prob[i] /= WORKSPACE.omm_probsum;  
+    delta    = omm - WORKSPACE.omm_mean ;
+    sqdelta += WORKSPACE.omm_prob[i] * (delta*delta);
+    WORKSPACE.omm_sort[i] = WORKSPACE.omm_prob[i];
+  }
+  WORKSPACE.omm_sig_std = sqrt(sqdelta/WORKSPACE.omm_probsum);
+  printf("\t std %s_sig_estimate = %.4f\n", 
+	 varname_omm, WORKSPACE.omm_sig_std);
+
+
+  // w0
   sqdelta = 0.0 ;
   for(i=0; i < INPUTS.w0_steps; i++){
     w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -3282,11 +3493,12 @@ void wfit_uncertainty(void) {
     sqdelta    += WORKSPACE.w0_prob[i] * (delta*delta);
     WORKSPACE.w0_sort[i] = WORKSPACE.w0_prob[i];  
   }
-  WORKSPACE.w0_sig_marg = sqrt(sqdelta/WORKSPACE.w0_probsum);
-  printf("\t marg %s_sig estimate = %.4f  (probsum=%le)\n", 
-	 varname_w, WORKSPACE.w0_sig_marg, WORKSPACE.w0_probsum);
+  WORKSPACE.w0_sig_std = sqrt(sqdelta/WORKSPACE.w0_probsum);
+  printf("\t std %s_sig estimate = %.4f  (probsum=%le)\n", 
+	 varname_w, WORKSPACE.w0_sig_std, WORKSPACE.w0_probsum);
     
 
+  // wa
   if ( INPUTS.dofit_w0wa ) {
     sqdelta = 0.0 ;
     for(kk=0; kk < INPUTS.wa_steps; kk++){
@@ -3296,28 +3508,26 @@ void wfit_uncertainty(void) {
       sqdelta += WORKSPACE.wa_prob[kk]*(delta*delta);
       WORKSPACE.wa_sort[kk] = WORKSPACE.wa_prob[kk];        // make a copy 
     }
-    WORKSPACE.wa_sig_marg = sqrt(sqdelta/WORKSPACE.wa_probsum);
-    printf("\t marg %s_sig estimate = %.4f\n", 
-	   varname_wa, WORKSPACE.wa_sig_marg);
+    WORKSPACE.wa_sig_std = sqrt(sqdelta/WORKSPACE.wa_probsum);
+    printf("\t std %s_sig estimate = %.4f\n", 
+	   varname_wa, WORKSPACE.wa_sig_std);
   } // end dofit_w0wa 
      
-  // omm ...  
-  sqdelta = 0.0;
-  for(i=0; i < INPUTS.omm_steps; i++){ 	
-    omm = INPUTS.omm_min + i*INPUTS.omm_stepsize;    
-    WORKSPACE.omm_prob[i] /= WORKSPACE.omm_probsum;  
-    delta    = omm - WORKSPACE.omm_mean ;
-    sqdelta += WORKSPACE.omm_prob[i] * (delta*delta);
-  }
-  WORKSPACE.omm_sig_marg = sqrt(sqdelta/WORKSPACE.omm_probsum);
-  printf("\t marg %s_sig estimate = %.4f\n", 
-	 varname_omm, WORKSPACE.omm_sig_marg);
-
+  
   // - - - - - - - - -
-  double delta_w0=1.0E3, delta_wa=1.0E3 ;
-  double w0_sum, w0_sort_1sigma, wa_sum, wa_sort_1sigma;
-  int iw0_mean, iwa_mean, memd=sizeof(double) ;
+  double delta_omm = 10.0, delta_w0=200.0, delta_wa=200.0 ;
+  double omm_sum, omm_sort_1sigma;
+  double w0_sum,  w0_sort_1sigma;
+  double wa_sum,  wa_sort_1sigma;
+  int    iomm_mean, iw0_mean, iwa_mean, memd=sizeof(double) ;
   // Find location of mean in the prob vector
+  for (i=0; i < INPUTS.omm_steps; i++){
+    omm = INPUTS.omm_min + i*INPUTS.omm_stepsize;
+    if (fabs(omm - WORKSPACE.omm_mean) < delta_omm) { 
+      delta_omm = fabs(omm - WORKSPACE.omm_mean);
+      iomm_mean = i;
+    }
+  }
 
   for (i=0; i < INPUTS.w0_steps; i++){
     w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -3326,7 +3536,7 @@ void wfit_uncertainty(void) {
       iw0_mean = i;
     }
   }
-
+  
   if ( INPUTS.dofit_w0wa ) {
     for (kk=0; kk < INPUTS.wa_steps; kk++){
       wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
@@ -3337,21 +3547,34 @@ void wfit_uncertainty(void) {
     }
   }
 
-    // Sort probability
-  qsort(WORKSPACE.w0_sort, INPUTS.w0_steps, memd,
+  // Sort probability
+  qsort(WORKSPACE.omm_sort, INPUTS.omm_steps, memd,
 	compare_double_reverse);
+  qsort(WORKSPACE.w0_sort, INPUTS.w0_steps, memd,
+	compare_double_reverse);  
   if (INPUTS.dofit_w0wa) {
     qsort(WORKSPACE.wa_sort, INPUTS.wa_steps, memd,
 	  compare_double_reverse);
   }
 
+  // - - - - - - -
   // Add up probability until you get to 68.3%, use that value to 
   // determine the upper/lower limits on w 
+  omm_sum=0.;
+  omm_sort_1sigma=-1;
+  for (i=0; i < INPUTS.omm_steps; i++){
+    omm_sum += WORKSPACE.omm_sort[i];
+    if (omm_sum > PROBSUM_1SIGMA ) {
+      omm_sort_1sigma = WORKSPACE.omm_sort[i];  // omm_sort value for 68.3%
+      break;
+    }
+  }
+
   w0_sum=0.;
   w0_sort_1sigma=-1;
   for (i=0; i < INPUTS.w0_steps; i++){
     w0_sum += WORKSPACE.w0_sort[i];
-    if (w0_sum > 0.683) {
+    if (w0_sum > PROBSUM_1SIGMA ) {
       w0_sort_1sigma = WORKSPACE.w0_sort[i];  // w0_sort value for 68.3%
       break;
     }
@@ -3362,7 +3585,7 @@ void wfit_uncertainty(void) {
     wa_sort_1sigma=-1;
     for (kk=0; kk < INPUTS.wa_steps; kk++){
       wa_sum += WORKSPACE.wa_sort[kk];
-      if (wa_sum > 0.683) {
+      if (wa_sum > PROBSUM_1SIGMA ) {
 	wa_sort_1sigma = WORKSPACE.wa_sort[kk]; // w0_sort value for 68.3
 	break;
       }
@@ -3372,13 +3595,18 @@ void wfit_uncertainty(void) {
   // - - - - - - - -
   // ERROR checking ... 
  
-  if (w0_sort_1sigma < 0 ){
+  if (omm_sort_1sigma < 0 ) {
+    printf("ERROR: omm grid encloses %.4f prob <  0.683 !\n", omm_sum);
+    exit(EXIT_ERRCODE_wfit);
+  }
+
+  if (w0_sort_1sigma < 0 ) {
     printf("ERROR: w0 grid encloses %.4f prob <  0.683 !\n", w0_sum);
     exit(EXIT_ERRCODE_wfit);
   }
 
-  if ( INPUTS.dofit_w0wa ){
-    if (wa_sort_1sigma < 0 ){
+  if ( INPUTS.dofit_w0wa ) {
+    if (wa_sort_1sigma < 0 ) {
       printf("ERROR: wa grid encloses %.3f prob < 0.683 !\n", wa_sum);
       exit(EXIT_ERRCODE_wfit);
     }
@@ -3387,8 +3615,8 @@ void wfit_uncertainty(void) {
 
   // Prob array is in order of ascending w.  Count from i=iw0_mean
   // towards i=0 to get lower 1-sigma bound on w 
-  for (i=iw0_mean; i>=0; i--){
-    if (WORKSPACE.w0_prob[i] < w0_sort_1sigma){
+  for (i=iw0_mean; i>=0; i--) {
+    if (WORKSPACE.w0_prob[i] < w0_sort_1sigma) {
       WORKSPACE.w0_sig_lower = WORKSPACE.w0_mean - 
 	(INPUTS.w0_min + i*INPUTS.w0_stepsize);
       break;
@@ -3491,9 +3719,13 @@ void wfit_uncertainty(void) {
   }    
 
     
-  //printf("\n---------------------------------------\n");
+  //printf("\n---------------------------------------\n")
+  printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
+	 varname_omm, WORKSPACE.omm_sig_lower, WORKSPACE.omm_sig_upper);
+
   printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	 varname_w, WORKSPACE.w0_sig_lower, WORKSPACE.w0_sig_upper);
+
   if ( INPUTS.dofit_w0wa ) {
     printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	   varname_wa, WORKSPACE.wa_sig_lower, WORKSPACE.wa_sig_upper);
@@ -3503,7 +3735,7 @@ void wfit_uncertainty(void) {
 
   return ;
 
-} // end wfit_uncertainty
+} // end wfit_uncertainty_legacy
 
 
 // ==========================================x 
@@ -3516,7 +3748,10 @@ void wfit_Covariance(void){
   // reduced covar in WORKSPACE.rho*
   //
   int i,kk, j ;
-  Cosparam cpar;  
+  Cosparam cpar;
+  double  omm_sig = WORKSPACE.omm_sig_std;
+  double  w0_sig  = WORKSPACE.w0_sig_std ;
+  double  wa_sig  = WORKSPACE.wa_sig_std ;
   double cov_w0wa=0., cov_w0omm =0., rho_w0wa=0., rho_w0omm=0.;
   double probsum = 0., prob=0;
   double diff_w0, diff_wa, diff_omm, sig_product ;
@@ -3535,13 +3770,13 @@ void wfit_Covariance(void){
 
 	prob     = WORKSPACE.extprob3d[i][kk][j];
 	probsum += prob;
-	diff_w0 = cpar.w0 - WORKSPACE.w0_mean;
+	diff_w0  = cpar.w0  - WORKSPACE.w0_mean;
 	diff_omm = cpar.omm - WORKSPACE.omm_mean;
-	cov_w0omm +=  diff_w0 * diff_omm * prob;
+	cov_w0omm +=  (diff_w0 * diff_omm * prob) ;
 
 	if ( dofit_w0wa ) {
 	  diff_wa   = cpar.wa - WORKSPACE.wa_mean;
-	  cov_w0wa +=  diff_w0 * diff_wa * prob;
+	  cov_w0wa +=  (diff_w0 * diff_wa * prob) ;
 	}
 
       } // end j
@@ -3550,7 +3785,7 @@ void wfit_Covariance(void){
 
   // - - - - - -
   // Compute cov and reduced covariances
-  sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.omm_sig_marg);
+  sig_product = w0_sig * omm_sig ;  
   cov_w0omm /= probsum;
   if ( sig_product > 0.0 ) 
     { rho_w0omm = cov_w0omm / sig_product; }
@@ -3562,7 +3797,7 @@ void wfit_Covariance(void){
   }
 
   if( dofit_w0wa ) { 
-    sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg) ;
+    sig_product = w0_sig * wa_sig ;
     cov_w0wa  /= probsum ;
     if ( sig_product > 0.0 ) 
       { rho_w0wa = cov_w0wa / sig_product ; }
@@ -3599,12 +3834,15 @@ void wfit_final(void) {
   // Compute "final" cosmology quantities, 
   // and also sigma_int to get chi2/dof=1.
   // Store in WORKSPACE.
-
+  //
+  // Apr 26 2024: set [var]_sig_final = average of lower & upper
+  
   int    Ndof = WORKSPACE.Ndof ;
   Cosparam cpar;
   double sigmu_int=0.0, sigmu_int1=0.0, sigmu_tmp, sqmusig_tmp ;
   double dif, mindif, muoff_tmp, snchi_tmp, chi2_tmp ;
   double w0_final, wa_final, omm_final ;
+  double w0_sig_final, wa_sig_final, omm_sig_final ;
   double w0_ran=0.0,  wa_ran=0.0, omm_ran=0.0 ;
   double muoff_final, chi2_final, sigint_binsize ;
   int i;
@@ -3618,13 +3856,33 @@ void wfit_final(void) {
 
   // load final cosmology parameters based on marg or minimize option
   if ( INPUTS.use_marg ) {
+    omm_final = WORKSPACE.omm_mean ;
     w0_final  = WORKSPACE.w0_mean ;  
-    wa_final  = WORKSPACE.wa_mean;   
-    omm_final = WORKSPACE.omm_mean ; }
+    wa_final  = WORKSPACE.wa_mean;
+
+    // Apr 2024: use the real 68% prob
+
+    if ( INPUTS.use_sig_68 ) {
+      omm_sig_final = 0.5*(WORKSPACE.omm_sig_lower + WORKSPACE.omm_sig_upper);
+      w0_sig_final  = 0.5*(WORKSPACE.w0_sig_lower  + WORKSPACE.w0_sig_upper);
+      wa_sig_final  = 0.5*(WORKSPACE.wa_sig_lower  + WORKSPACE.wa_sig_upper);
+    }
+    else if ( INPUTS.use_sig_std ) {
+      omm_sig_final = WORKSPACE.omm_sig_std;
+      w0_sig_final  = WORKSPACE.w0_sig_std;
+      wa_sig_final  = WORKSPACE.wa_sig_std;    
+    }
+     
+  }
   else {
     w0_final  = WORKSPACE.w0_atchimin ; 
     wa_final  = WORKSPACE.wa_atchimin ; 
-    omm_final = WORKSPACE.omm_atchimin ; 
+    omm_final = WORKSPACE.omm_atchimin ;
+
+    // use STD approximation
+    omm_sig_final = WORKSPACE.omm_sig_std;
+    w0_sig_final  = WORKSPACE.w0_sig_std;
+    wa_sig_final  = WORKSPACE.wa_sig_std;    
   }
 
   // store final results before adding random offsets
@@ -3655,6 +3913,10 @@ void wfit_final(void) {
   WORKSPACE.wa_final  = wa_final ; 
   WORKSPACE.omm_final = omm_final ; 
 
+  WORKSPACE.w0_sig_final  = w0_sig_final ;
+  WORKSPACE.wa_sig_final  = wa_sig_final ; 
+  WORKSPACE.omm_sig_final = omm_sig_final ; 
+  
   WORKSPACE.w0_ran  = w0_ran ;
   WORKSPACE.wa_ran  = wa_ran ;
   WORKSPACE.omm_ran = omm_ran ;
@@ -3666,17 +3928,30 @@ void wfit_final(void) {
   WORKSPACE.chi2_final  = chi2_final;
   WORKSPACE.muoff_final = muoff_final ;
 
+    // summarize chi2 and chi2 for each prior (Apr 2024)
+  double chi2_om, chi2_cmb, chi2_bao, chi2_rd;
+  get_chi2_priors(&cpar, &chi2_om, &chi2_cmb, &chi2_bao, &chi2_rd);
+  printf("\t chi2tot = %8.2f \n", chi2_final);
+  printf("\t chi2_prior(OMM) = %8.2f \n" , chi2_om);
+  printf("\t chi2_prior(CMB) = %8.2f \n" , chi2_cmb);
+  printf("\t chi2_prior(BAO) = %8.2f \n" , chi2_bao);
+  printf("\t chi2_prior(rd)  = %8.2f \n" , chi2_rd);
+  fflush(stdout);
+
+  
   // - - - -  sigmu_int - - - - 
   WORKSPACE.sigmu_int = 0.0;
   if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
-
- 
+  
   return;
 } // end wfit_final
 
 // ==================================
 void wfit_FoM(void) {
-  // estimate FoM for w0wa model ... need to finish ...
+  
+  // Estimate FoM for w0wa model.
+  // Apr 2024: use  WORKSPACE.[var]_sig_final
+  
   int Ndof = WORKSPACE.Ndof;
   double extchi_min = WORKSPACE.extchi_min;
   int i, kk, j;
@@ -3698,7 +3973,7 @@ void wfit_FoM(void) {
 
   if ( !INPUTS.dofit_w0wa ) {return ; }
 
-  sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);
+  sig_product = (WORKSPACE.w0_sig_final * WORKSPACE.wa_sig_final);
 
 
   rho_w0omm = WORKSPACE.rho_w0omm;
@@ -3728,7 +4003,9 @@ void wfit_FoM(void) {
   fflush(stdout);
 
   return ;
-} // emd wfit_FoM
+} // end wfit_FoM
+
+  
 
 // ==================================
 void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
@@ -4052,24 +4329,10 @@ void get_chi2wOM (
 
   *chi2tot = *chi2sn ;     // load intermediate function output
 
-
-  /* Compute likelihood with external prior: Omega_m or BAO */
-  if ( INPUTS.use_bao ) {
-    chi2_prior += chi2_bao_prior(&cparloc);
-  } 
-  else {
-    // Gaussian Omega_m prior
-    double nsig;
-    nsig = (OM-INPUTS.omm_prior)/INPUTS.omm_prior_sig ;
-    chi2_prior += nsig*nsig;
-  }
-
-  // CMB prior
-  if ( INPUTS.use_cmb ) {
-    chi2_prior += chi2_cmb_prior(&cparloc);
-  }
-
-  *chi2tot += chi2_prior;
+  double chi2_om, chi2_cmb, chi2_bao, chi2_rd;
+  get_chi2_priors(&cparloc, &chi2_om, &chi2_cmb, &chi2_bao, &chi2_rd);
+  
+  *chi2tot += (chi2_om + chi2_cmb + chi2_bao + chi2_rd);
 
   free(rz_list);
   free(dmu_list);
@@ -4078,6 +4341,46 @@ void get_chi2wOM (
 
 }  // end of get_chi2wOM
 
+// =======================
+void get_chi2_priors(Cosparam *cpar, double *chi2_om, double *chi2_cmb,
+		     double *chi2_bao, double *chi2_rd) {
+
+  // Creaetd Apr 2024
+  // Compute each prior term separately to enable printing
+  // each prior chi2 at end of job
+
+  double rd;
+  char fnam[] = "get_chi2_priors";
+
+  // ---------- BEGIN ---------
+
+  *chi2_om = *chi2_cmb = *chi2_bao = *chi2_rd = 0.0 ;
+  
+    /* Compute likelihood with external prior: Omega_m or BAO */
+  if ( INPUTS.use_bao ) {
+    *chi2_bao = chi2_bao_prior(cpar, &rd);
+
+    // tack on optional rd prior
+    double rd_pull = (rd - INPUTS.rd_prior) / INPUTS.rd_prior_sig ;
+    *chi2_rd = rd_pull * rd_pull ;
+
+  } 
+  else {
+    // Gaussian Omega_m prior
+    double nsig;
+    double OM = cpar->omm ;
+    nsig = (OM-INPUTS.omm_prior)/INPUTS.omm_prior_sig ;
+    *chi2_om = nsig*nsig;
+  }
+
+  // CMB prior
+  if ( INPUTS.use_cmb ) {
+    *chi2_cmb = chi2_cmb_prior(cpar);
+  }
+
+  return;
+  
+} // end get_chi2_priors
 
 // ======================================
 double chi2_cmb_prior(Cosparam *cpar) {
@@ -4105,13 +4408,13 @@ double chi2_cmb_prior(Cosparam *cpar) {
 } // end chi2_cmb_prior
 
 // ======================================
-double chi2_bao_prior(Cosparam *cpar) {
+double chi2_bao_prior(Cosparam *cpar, double *rd_prior) {
 
   // Created Oct 2021
   // Refactored Apr 2024 to process more general input from $SNDATA_ROOT/models/BAO.
   // Return chi2 for bao prior.
 
-  double chi2 = 0.0, covint, chi2_tmp ;
+  double chi2 = 0.0, cov, chi2_tmp, rd_inverse ;
   int    NDATA = BAO_PRIOR.NDATA;
   int    i, i2, kk, IVAR;
   double rd, z, mean_meas, mean_model, dif[MXDATA_BAO_PRIOR];
@@ -4120,17 +4423,20 @@ double chi2_bao_prior(Cosparam *cpar) {
   // ------------ BEGIN -------------
 
   rd = rd_bao_prior(cpar);
+  *rd_prior = rd;  // return arg
+  rd_inverse = 1.0/rd; // multipilcation below is faster than division?
+  
   for(i=0; i < NDATA; i++ ) {
     z         = BAO_PRIOR.REDSHIFT[i];
     mean_meas = BAO_PRIOR.MEAN[i];
     IVAR      = BAO_PRIOR.IVAR[i];
 
     if ( IVAR == IVAR_BAO_DM_over_rd )
-      { mean_model = DM_bao_prior(z, cpar) / rd ; }
+      { mean_model = DM_bao_prior(z, cpar) * rd_inverse ; }
     else if ( IVAR == IVAR_BAO_DH_over_rd )
-      { mean_model = DH_bao_prior(z, cpar) / rd ; }
+      { mean_model = DH_bao_prior(z, cpar) * rd_inverse ; }
     else if ( IVAR == IVAR_BAO_DV_over_rd )
-      { mean_model = DV_bao_prior(z, cpar) / rd ; }
+      { mean_model = DV_bao_prior(z, cpar) * rd_inverse ; }
     else {
       sprintf(c1err,"invalid IVAR=%d for %s", IVAR, BAO_PRIOR.VARNAME[i]);
       sprintf(c2err,"Valid IVAR = %d %d %d",
@@ -4140,7 +4446,6 @@ double chi2_bao_prior(Cosparam *cpar) {
 
     dif[i] = mean_meas - mean_model ;
 
-    
   } // end i loop over BAO data points
 
   // - - - - - - -
@@ -4148,14 +4453,16 @@ double chi2_bao_prior(Cosparam *cpar) {
   for(i=0; i < NDATA; i++ ) {
     for(i2=i; i2 < NDATA; i2++ ) {
 
-      kk = i2*NDATA + i;
-      covint = BAO_PRIOR.COVINV1D[kk];
-      chi2_tmp = dif[i] * dif[i2] * covint;
+      // xxx kk       = i2*NDATA + i;
+      kk       = i*NDATA + i2;
+      cov      = BAO_PRIOR.COVINV1D[kk];
+      chi2_tmp = dif[i] * dif[i2] * cov;
       if ( i2 != i ) { chi2_tmp *= 2.0 ; }
       chi2 += chi2_tmp ;      
     }
   }
-  
+
+    
   return chi2;
     
 } // end chi2_bao_prior
@@ -4173,7 +4480,6 @@ double chi2_bao_prior_legacy(Cosparam *cpar) {
   double DM_rd_measured,  DH_rd_measured,  DMvar, DHvar;
   double rd_model,dif_M, dif_H, DM_rd_var, DH_rd_var,DH_rd_model,DM_rd_model;
   int    iz;
-  bool   DEBUG_TINYERR = (INPUTS.debug_flag == 309 );
   char   fnam[] = "chi2_bao_prior_legacy" ;
 
   // ------------ BEGIN -------------
@@ -4391,15 +4697,10 @@ void printerror(int status) {
 int compare_double_reverse (const void *a, const void *b)
 { 				/* qsort in decreasing order */
   int rv = 0;
-
   if (  *((double *) a)  <  *((double *) b)   )
-    {
-      rv = 1;
-    }
+    {      rv = 1;    }
   else if (  *((double *) a)  >  *((double *) b)   )
-    {
-      rv = -1;
-    }
+    {      rv = -1;    }
   return rv;
 }
 
@@ -4748,8 +5049,6 @@ void WRITE_OUTPUT_DRIVER(void) {
  
   // write chi2 & prob maps to fits files;
   // not used for VERY long time ... beware.
-  // xxx mark delete   if ( INPUTS.fitsflag ) { write_output_fits(); }
-
   write_output_chi2grid();
 
   return;
@@ -4804,7 +5103,8 @@ void write_output_cospar(void) {
 
   if ( use_marg ) {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_w); 
-    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_marg ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_final ) ;
+    // xxx mark sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_marg ) ;
     NVAR++ ;
   }
   else {
@@ -4823,7 +5123,8 @@ void write_output_cospar(void) {
     NVAR++ ;
     if ( use_marg ) {
       sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_wa); 
-      sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_sig_marg ) ;
+      sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_sig_final ) ;
+      // xxx mark sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_sig_marg ) ;      
       NVAR++ ;
     }
     else {
@@ -4844,14 +5145,15 @@ void write_output_cospar(void) {
   NVAR++ ;
   if ( use_marg ) {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
-    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_marg ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_final ) ;
+    // xxx mark sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_marg ) ;    
     NVAR++ ;
   }
   else {
     // WARNING: we don't have omm_sig_upper/lower, so just
     // write omm_sig_marg
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
-    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_marg ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_final ) ;
     NVAR++ ;
   }
 
@@ -5056,8 +5358,8 @@ void write_output_chi2grid(void) {
   double snchi, extchi, w0, wa, omm ;
   char   line[100], cval[3][40];
   for(i=0; i < INPUTS.w0_steps; i++){
-    for(kk=0; kk < INPUTS.wa_steps;kk++){
-      for(j=0; j < INPUTS.omm_steps; j++){
+    for(kk=0; kk < INPUTS.wa_steps;kk++) {
+      for(j=0; j < INPUTS.omm_steps; j++) {
 	snchi =  WORKSPACE.snchi3d[i][kk][j]  - WORKSPACE.snchi_min;
 	extchi = WORKSPACE.extchi3d[i][kk][j] - WORKSPACE.extchi_min;
 
@@ -5078,7 +5380,7 @@ void write_output_chi2grid(void) {
 
 	rownum++ ;
 	sprintf(line,"ROW: %4d   "
-		"%s %s %s   %10.4le %10.4le", 
+		"%s %s %s   %12.5le %12.5le", 
 		rownum, 
 		cval[0], cval[1], cval[2],
 		snchi, extchi );	

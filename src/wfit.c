@@ -165,7 +165,9 @@
       this new default error is larger and FoM will therefore be smaller.
       Revert back to std errors with argument "-sig_type std"
     + fix lower/upper 68% confidence calc using interpolation to 
-      avoid original nearest bin approximation and round-off error on error.
+      avoid original nearest bin approximation and round-off error on error. 
+    + add -mucovtot_inv_file option to read already inverted cov matrix.
+      This goes with create_covariancy.py update to write covtot_inv_[nnn].txt
 
 *****************************************************************************/
 
@@ -458,8 +460,7 @@ void malloc_HDarrays(int opt, int NSN, HD_DEF *HD);
 void malloc_COVMAT(int opt, COVMAT_DEF *COV);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
-void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *COV);
-void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *COV);
+void read_mucov(char *inFile, int imat, COVMAT_DEF *COV);
 int  applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD);
 int  applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV);
 void dump_MUCOV(COVMAT_DEF *COV, char *comment);
@@ -609,9 +610,9 @@ int main(int argc,char *argv[]){
     // Set BAO and CMB priors
     set_priors();
   
-    // read optional mu-covSys matrix
+    // read optional mu-covSys or mucovtot_inv matrix
     for(f=0; f < INPUTS.NMUCOV; f++ ) 
-      { read_mucov_sys(INPUTS.mucov_file[f], f, &WORKSPACE.MUCOV[f] ); }
+      { read_mucov(INPUTS.mucov_file[f], f, &WORKSPACE.MUCOV[f] ); }
 
     // sync HD events and MUCOV if there are two HDs
     if ( INPUTS.USE_HDIBC ) { 
@@ -844,9 +845,10 @@ void print_wfit_help(void) {
     "   -blind\tIf set, results are obscured with sin(large random) ",
     "   -blind_auto\tBlind data, unblind sim; requires ISDATA_REAL in HD file",
     "   -blind_seed\tSeed to pick large random numbers for sin arg ",
-    "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
+    "   -mucovsys_file\tfile with COV_syst e.g., from create_covariance",
+    "   -mucov_file   \tlegacy key for mucovsys_file",
+    "   -mucovtot_inv_file\tfile with inverse of COVTOT",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
-    "   -mucovar\t\t [Legacy key for previous]",
     "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
     "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
@@ -931,37 +933,44 @@ void parse_args(int argc, char **argv) {
 
   for (iarg=2; iarg<argc; iarg++) {
     if (argv[iarg][0]=='-') {
+
       if (strcasecmp(argv[iarg]+1,"ompri")==0) { 
 	INPUTS.omm_prior = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"dompri")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"dompri")==0) { 
 	INPUTS.omm_prior_sig = atof(argv[++iarg]);
-
-      } else if (strcasecmp(argv[iarg]+1,"bao")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"bao")==0) { 
 	sprintf(INPUTS.bao_sample,"%s", argv[++iarg]);
 	INPUTS.use_bao=1;
-      } else if (strcasecmp(argv[iarg]+1,"bao_sim")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"bao_sim")==0) {
 	sprintf(INPUTS.bao_sample,"%s", argv[++iarg]);
         INPUTS.use_bao=2;
-
-      } else if (strcasecmp(argv[iarg]+1,"rd_prior")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"rd_prior")==0) {
 	INPUTS.rd_prior     = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"rd_prior_sig")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"rd_prior_sig")==0) {
 	INPUTS.rd_prior_sig = atof(argv[++iarg]);
-
-      } else if (strcasecmp(argv[iarg]+1,"csv")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"csv")==0) { 
 	INPUTS.csv_out = 1;
-
-      } else if (strcasecmp(argv[iarg]+1, "Rcmb")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1, "Rcmb")==0) {
 	CMB_PRIOR.R = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
 	CMB_PRIOR.sigR = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1, "ranseed_Rcmb")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1, "ranseed_Rcmb")==0) {
 	CMB_PRIOR.ranseed_R = atoi(argv[++iarg]);
-
-      } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	INPUTS.use_cmb = 1;
 	INPUTS.omm_prior_sig = 0.9;  // turn off omm prior (9/2021)
-      } else if (strcasecmp(argv[iarg]+1,"wa")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"wa")==0) {
         INPUTS.dofit_w0wa = 1 ;
 	INPUTS.dofit_wcdm = 0 ;
 	sprintf(varname_w,"w0");
@@ -975,20 +984,24 @@ void parse_args(int argc, char **argv) {
 	INPUTS.omm_prior     = INPUTS.OMEGA_MATTER_SIM ;
 	INPUTS.omm_prior_sig = 0.9;  // turn off Gauss omm prior
 
-      } else if (strcasecmp(argv[iarg]+1,"om_sim")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"om_sim")==0) {
 	INPUTS.OMEGA_MATTER_SIM = atof(argv[++iarg]); 
 	INPUTS.omm_prior        = INPUTS.OMEGA_MATTER_SIM ;
-      } else if (strcasecmp(argv[iarg]+1,"w0_sim")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"w0_sim")==0) {
 	INPUTS.w0_SIM = atof(argv[++iarg]); 
-      } else if (strcasecmp(argv[iarg]+1,"wa_sim")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"wa_sim")==0) {
 	INPUTS.wa_SIM = atof(argv[++iarg]); 
-
-      } else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
 	INPUTS.use_marg = 0 ;
-      } else if (strcasecmp(argv[iarg]+1,"marg")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"marg")==0) { 
 	INPUTS.use_marg=1;
-
-      } else if (strcasecmp(argv[iarg]+1,"sig_type")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"sig_type")==0) {
 	sprintf(INPUTS.sig_type,"%s", argv[++iarg]);
 	if ( strcmp(INPUTS.sig_type,"std")== 0 )
 	  { INPUTS.use_sig_std = true; INPUTS.use_sig_68= false; }
@@ -1000,22 +1013,25 @@ void parse_args(int argc, char **argv) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
 	}
 
-      } else if (strcasecmp(argv[iarg]+1,"snrms")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"snrms")==0) { 
 	INPUTS.snrms = atof(argv[++iarg]);
 	INPUTS.sqsnrms = INPUTS.snrms * INPUTS.snrms ;
-
-      } else if (strcasecmp(argv[iarg]+1,"muerr_force")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"muerr_force")==0) { 
 	INPUTS.muerr_force = atof(argv[++iarg]); // March 2023
-
-      } else if (strcasecmp(argv[iarg]+1,"refit")==0){
+      }
+      else if (strcasecmp(argv[iarg]+1,"refit")==0){
         INPUTS.fitnumber -= 1;  
-
-      } else if (strcasecmp(argv[iarg]+1,"zmin")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"zmin")==0) { 
 	INPUTS.zmin = atof(argv[++iarg]); 
-      } else if (strcasecmp(argv[iarg]+1,"zmax")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"zmax")==0) { 
 	INPUTS.zmax = atof(argv[++iarg]); 	
 
-      } else if (strcasecmp(argv[iarg]+1,"blind")==0) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"blind")==0) { 
 	INPUTS.blind = true ;
 
       } else if (strcasecmp(argv[iarg]+1,"blind_auto")==0) { 
@@ -1028,61 +1044,69 @@ void parse_args(int argc, char **argv) {
 	/* Output likelihoods as fits files & text files */
 	INPUTS.fitsflag = 1; 
 
-      } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {
+      }
+      else if ( strcasecmp(argv[iarg]+1,"mucovsys_file")==0 ||
+		strcasecmp(argv[iarg]+1,"mucov_file"   )==0    ) {
 
 	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
 			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
-	INPUTS.use_mucov =1 ;
-	
-	/* xxxxxxxxx
-	// if mucov_file is comma-sep list, remove 2nd file name for now
-	// until we figure out how to deal with two cov matrices
-	if ( strchr(INPUTS.mucov_file,',') != NULL ) {
-	  char *e   = strchr(INPUTS.mucov_file,',') ;
-	  int  j    = (int)(e - INPUTS.mucov_file);
-	  INPUTS.mucov_file[j] = 0 ;
-	}
-	xxxxxxx */
-      
+	INPUTS.use_mucov =1 ;  // flag that mucovsys has been read
 
-      } else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"mucovtot_inv_file")==0) {
+	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
+			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
+	INPUTS.use_mucov = 2 ;  // flag that mucovtot_inv has been read
+	
+      }
+      else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
         strcpy(INPUTS.varname_muerr,argv[++iarg]);
        
-      } else if (strcasecmp(argv[iarg]+1,"ndump_mucov")==0 ) { 
+      }
+      else if (strcasecmp(argv[iarg]+1,"ndump_mucov")==0 ) { 
 	INPUTS.ndump_mucov = atoi(argv[++iarg]);      
 
       /* Change Omega_m grid parameters? */
-      } else if (strcasecmp(argv[iarg]+1,"ommin")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"ommin")==0) {   
 	INPUTS.omm_min = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"ommax")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"ommax")==0) {   
 	INPUTS.omm_max = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"omsteps")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"omsteps")==0) {   
 	INPUTS.omm_steps = (int)atof(argv[++iarg]);
       }
 
       /* accept w or w0 */
       else if (strcasecmp(argv[iarg]+1,"w0min")==0) {   
 	INPUTS.w0_min = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"w0max")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"w0max")==0) {   
 	INPUTS.w0_max = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"w0steps")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"w0steps")==0) {   
 	INPUTS.w0_steps = (int)atof(argv[++iarg]);
       }
 
       else if (strcasecmp(argv[iarg]+1,"wmin")==0) {   
 	INPUTS.w0_min = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"wmax")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"wmax")==0) {   
 	INPUTS.w0_max = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"wsteps")==0) {   
+      }
+      else if (strcasecmp(argv[iarg]+1,"wsteps")==0) {   
 	INPUTS.w0_steps = (int)atof(argv[++iarg]);
       }
 
       /* Change wa grid parameters? */
       else if (strcasecmp(argv[iarg]+1,"wamin")==0) {
         INPUTS.wa_min = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"wamax")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"wamax")==0) {
         INPUTS.wa_max = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"wasteps")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"wasteps")==0) {
         INPUTS.wa_steps = (int)atof(argv[++iarg]);
       }
            
@@ -1669,7 +1693,7 @@ bool read_ISDATA_REAL(char *inFile) {
 } // end read_ISDATA_REAL
 
 // =================================================================
-void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
+void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // Created October 2021 by A.Mitra and R.Kessler
   // Read option Cov_syst matrix, and invert it.
@@ -1689,14 +1713,18 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
   char  **ptrSplit;
   FILE *fp;
-  char fnam[] = "read_mucov_sys" ;
+  char fnam[] = "read_mucov" ;
 
   // ---------- BEGIN ----------------
 
   MUCOV->N_NONZERO = 0;
 
   printf("\n# ======================================= \n");
-  printf("  Process MUCOV systematic file  \n"); 
+
+  if ( INPUTS.use_mucov == 1 ) 
+    { printf("  Process MUCOV systematic file  \n");  }
+  else if ( INPUTS.use_mucov == 2 )
+    { printf("  Process MUCOVTOT^{-1} file  \n");  }    
 
   sprintf(MUCOV->fileName, "%s", inFile);
   
@@ -1773,7 +1801,7 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   }
 
   // - - - - - - - - - - - - - - - - -
-  // sanify check
+  // sanity check
   if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
     sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
 	    NMAT_read, NDIM_ORIG, NDIM_ORIG*NDIM_ORIG);
@@ -1788,155 +1816,22 @@ void read_mucov_sys(char *inFile, int imat, COVMAT_DEF *MUCOV ){
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // Add diagonal errors from the Hubble diagram
-  double COV_STAT ;
-  for ( i=0; i<NDIM_STORE; i++ )  {
-    kk = i*NDIM_STORE + i;
-    COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
-    MUCOV->ARRAY1D[kk] += COV_STAT ;
-  }
+
+  if ( INPUTS.use_mucov == 1 ) {
+    // Add diagonal errors (from Hubble diagram) to covsys
+    double COV_STAT ;
+    for ( i=0; i<NDIM_STORE; i++ )  {
+      kk = i*NDIM_STORE + i;
+      COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
+      MUCOV->ARRAY1D[kk] += COV_STAT ;
+    }
+  } 
 
   
   return ; 
 }
-// end of read_mucov_sys
+// end of read_mucov
 
-
-// =================================================================
-void read_mucov_sys_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
-
-  // Created October 2021 by A.Mitra and R.Kessler
-  // Read option Cov_syst matrix, and invert it.
- 
-#define MXSPLIT_mucov 20
-
-  int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
-  int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
-  int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
-  int NDIM_STORE   = NSN_STORE ;
-  
-  char ctmp[200], SN[2][12], locFile[1000] ;
-  int NSPLIT, NROW_read=0, NDIM_ORIG = 0;
-  int NMAT_read=0,  NMAT_store = 0;
-  float f_MEM;
-  double cov;
-  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
-  char  **ptrSplit;
-  FILE *fp;
-  char fnam[] = "read_mucov_sys_legacy" ;
-
-  // ---------- BEGIN ----------------
-
-  MUCOV->N_NONZERO = 0;
-
-  printf("\n# ======================================= \n");
-  printf("  Process MUCOV systematic file  \n"); 
-
-  sprintf(MUCOV->fileName, "%s", inFile);
-  
-  // Open File using the utility
-  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
-  fp = snana_openTextFile(OPENMASK, "", inFile,
-			  locFile, &gzipFlag );
-
-  if ( !fp ) {
-    sprintf(c1err,"Cannot open mucov_file") ;
-    sprintf(c2err,"%s", inFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // allocate strings to read each line ... in case there are comments
-  ptrSplit = (char **)malloc(MXSPLIT_mucov*sizeof(char*));
-  for(j=0;j<MXSPLIT_mucov;j++){
-    ptrSplit[j]=(char *)malloc(200*sizeof(char));
-  }
-  
-  i0 = i1 = 0 ;
-  k0 = k1 = 0 ;
-  while ( fgets(ctmp, 100, fp) != NULL ) {
-    // ignore comment lines 
-    if ( commentchar(ctmp) ) { continue; }
-    
-    // break line into words
-    splitString(ctmp, " ", fnam, MXSPLIT_mucov,  // (I)
-		&NSPLIT, ptrSplit);       // (O)
-
-    if ( NROW_read == 0 ) {
-      sscanf(ptrSplit[0],"%d",&NDIM_ORIG);
-      printf("\t Found COV dimension %d\n", NDIM_ORIG);
-      printf("\t Store COV dimension %d\n", NDIM_STORE);
-      
-      if ( NDIM_ORIG != HD_LIST[imat].NSN_ORIG ) {
-	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
-		NDIM_ORIG, HD_LIST[imat].NSN_ORIG);
-	sprintf(c2err,"Above NDIM are before cuts.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-      }
-
-      MUCOV->NDIM    = NDIM_STORE;
-      malloc_COVMAT(+1,MUCOV);
-    }
-    else {
-      NMAT_read++ ;
-      sscanf( ptrSplit[0],"%le",&cov);      
-      if(HD_LIST[imat].pass_cut[i0] && HD_LIST[imat].pass_cut[i1] ) {
-	kk = k1*NDIM_STORE + k0;
-	MUCOV->ARRAY1D[kk] = cov;
-	if ( cov != 0.0 ) { MUCOV->N_NONZERO++ ; }
-	NMAT_store += 1;
-	k0++;
-	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
-      }
-      i0++;
-      if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
-    }
-    
-    NROW_read += 1 ;
-
-  } // end of read loop
-
-
-  printf("\t Read %d non-zero COV elements.\n", MUCOV->N_NONZERO );
-  fflush(stdout);
-
-  // if all COV elements are zero, this is a request for stat-only fit,
-  // so disable cov
-  if ( MUCOV->N_NONZERO == 0 ) { 
-    printf("\t -> disable off-diagnoal COV computations.");
-    INPUTS.USE_SPEED_OFFDIAG = false;
-    INPUTS.use_mucov = 0; 
-    fflush(stdout);
-    return; 
-  }
-
-  // - - - - - - - - - - - - - - - - -
-  // sanify check
-  if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
-    sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
-	    NMAT_read, NDIM_ORIG, NDIM_ORIG*NDIM_ORIG);
-    sprintf(c2err,"Check %s", inFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  if ( NMAT_store != NDIM_STORE*NDIM_STORE )  {
-    sprintf(c1err,"Store %d cov elements, but expected %d**2=%d",
-            NMAT_store, NDIM_STORE, NDIM_STORE*NDIM_STORE);
-    sprintf(c2err,"Check %s", inFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // Add diagonal errors from the Hubble diagram
-  double COV_STAT ;
-  for ( i=0; i<NDIM_STORE; i++ )  {
-    kk = i*NDIM_STORE + i;
-    COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
-    MUCOV->ARRAY1D[kk] += COV_STAT ;
-  }
-
-  
-  return ; 
-}
-// end of read_mucov_sys_legacy
 
 
 // ===================================
@@ -4037,9 +3932,17 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   
   // ---------------- BEGIN --------------
 
+  if ( INPUTS.use_mucov == 2 ) {
+    printf("\t COV already inverted, so nothing to invert here.\n");
+    fflush(stdout);
+    return;
+  }
+
+  // - - - - - -
   printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
 	 NSN, NSN, sqmurms_add);
-
+  fflush(stdout);
+    
   if ( sqmurms_add != 0.0 ) 
     { printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n"); }
 
@@ -4058,12 +3961,6 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   invertMatrix( NSN, NSN, MUCOV->ARRAY1D ) ;
 
   print_elapsed_time(t0, "invert matrix", UNIT_TIME_SECOND);
-
-  /* xxx mark delete 
-  t1 = time(NULL);
-  double t_invert = (t1-t0);
-  printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
-  xxxx */
 
   if ( check_inverse ) {
     check_invertMatrix(NSN,MUCOV_ORIG,MUCOV->ARRAY1D);

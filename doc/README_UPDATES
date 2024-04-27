@@ -22350,12 +22350,20 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05m (Apr 12 2024) <-- start date
 
          *****  IMPORTANT(v11_05m) *****
-  
+
+    create_covariance.py
+      In additoin to writing covsys, write covtot_inv that is already
+      computed as a crosscheck. This enables cosmology fitting codes
+      to avoid repeating matrix inversion and save CPU time.
+
     wfit.c:
-       switch default STD(PDF) uncertainty to 68% confidence region,
+     + switch default STD(PDF) uncertainty to 68% confidence region,
        after fixing binned approx to exact interpolation of PDF.
        Can switch back to STD uncertainty with argument "-sig_type std"
-    
+     + New input option -mucovtot_inv_file to read already inverted
+       covtot^{-1} and save CPU time by avoiding repeating the inversion.
+       Still need to update pippin to pass this new arg.
+       
          *****  USEFUL(v11_05m) *****
 
       

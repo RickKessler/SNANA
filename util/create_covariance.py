@@ -986,16 +986,15 @@ def get_cov_invert(label, cov_sys, muerr_stat_list):
         # CosmoMC will add the diag terms, 
         # so lets do it here and make sure its all good
         diag_muerr_cov = np.diag(muerr_stat_list**2)
-        covtot_inv     = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
+        covtot         = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
 
         # First just try and invert it to catch singular matrix errors
-        precision = np.linalg.inv(covtot_inv)
-
-        # covtot_inv is now the inverse of covtot
+        # precision -> covtot_inv
+        covtot_inv = np.linalg.inv(covtot)    
         
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
-        pr   = np.dot(covtot_inv,precision)
+        pr   = np.dot(covtot,covtot_inv)
         pr   = np.round(pr,decimals=3)
         flag = is_unitary(np.round(pr,decimals=2))
         if flag :

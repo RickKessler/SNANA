@@ -49,6 +49,8 @@
 #
 # Jul 5 2023: for avg summary, remove samples with nwarn > 0; see nwarn_dict
 #
+# Apr 27 2024: read and use  mucovtot_inv_file if it exists.
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -241,11 +243,12 @@ class cosmofit(Program):
 
         
         # - - - - -
-        isdata_list        = []
-        hd_file_list       = []
-        covsys_file_list2d = [] # file list per inpdir
-        covsys_num_list2d  = [] # cov index list per inpdir
-        covinfo_list       = [] # list of yaml info per inpdir
+        isdata_list            = []
+        hd_file_list           = []
+        covsys_file_list2d     = [] # file list per inpdir
+        covtot_inv_file_list2d = [] # file list per inpdir        
+        covsys_num_list2d      = [] # cov index list per inpdir
+        covinfo_list           = [] # list of yaml info per inpdir
 
         covsys_select_list = None  # Select All cov by default
         for key in KEYNAME_COVOPT_LIST:
@@ -257,12 +260,12 @@ class cosmofit(Program):
             inpdir_split = inpdir.split(',')
             
             yaml_info, dict_info = \
-                self.read_hd_info_file(inpdir_split[0],covsys_select_list)
+                self.read_hd_info_file(inpdir_split[0], covsys_select_list)
 
-            # for HDIBC method using two HDs, make sure that yamp info is the same
+            # for HDIBC method using two HDs, make sure that yaml info is the same
             if len(inpdir_split) == 2:
                 yaml_info2, dict_info2 = \
-		    self.read_hd_info_file(inpdir_split[1],covsys_select_list)
+		    self.read_hd_info_file(inpdir_split[1], covsys_select_list)
                 key_check_list = [ 'hd_file', 'covsys_file_list', 'covsys_num_list',
                                    'isdata' ]
                 for key in key_check_list:
@@ -271,14 +274,16 @@ class cosmofit(Program):
                         msgerr=[f"{key} name mismatch between {inpdir_list}" ]
                         self.log_assert(False, msgerr)
                 
-            hd_file           = dict_info['hd_file'] 
-            covsys_file_list  = dict_info['covsys_file_list']
-            covsys_num_list   = dict_info['covsys_num_list']
-            n_covsys          = len(covsys_file_list)
-            isdata            = dict_info['isdata']   
+            hd_file               = dict_info['hd_file'] 
+            covsys_file_list      = dict_info['covsys_file_list']
+            covtot_inv_file_list  = dict_info['covtot_inv_file_list'] 
+            covsys_num_list       = dict_info['covsys_num_list']
+            n_covsys              = len(covsys_file_list)
+            isdata                = dict_info['isdata']   
 
             hd_file_list.append(hd_file)
             covsys_file_list2d.append(covsys_file_list)
+            covtot_inv_file_list2d.append(covtot_inv_file_list)  # 4.2024
             covsys_num_list2d.append(covsys_num_list)
             isdata_list.append(isdata)
             covinfo_list.append(yaml_info)
@@ -297,11 +302,12 @@ class cosmofit(Program):
         self.config_prep['inpdir_list']        = inpdir_list
         self.config_prep['n_inpdir']           = len(inpdir_list)
 
-        self.config_prep['hd_file_list']       = hd_file_list
-        self.config_prep['covsys_file_list2d'] = covsys_file_list2d
-        self.config_prep['covsys_num_list2d']  = covsys_num_list2d
-        self.config_prep['isdata_list']        = isdata_list
-        self.config_prep['covinfo_list']       = covinfo_list
+        self.config_prep['hd_file_list']           = hd_file_list
+        self.config_prep['covsys_file_list2d']     = covsys_file_list2d
+        self.config_prep['covtot_inv_file_list2d'] = covtot_inv_file_list2d 
+        self.config_prep['covsys_num_list2d']      = covsys_num_list2d
+        self.config_prep['isdata_list']            = isdata_list
+        self.config_prep['covinfo_list']           = covinfo_list
 
         self.cosmofit_error_check_input_list()
 
@@ -517,7 +523,8 @@ class cosmofit(Program):
         covsys_num_list   = []
         covsys_label_list = []
         covsys_file_list  = []
-
+        covtot_inv_file_list = []  # 4.2024
+        
         for covnum, covinfo in COVOPTS.items():
             covinfo_split = covinfo.split()
 
@@ -531,6 +538,12 @@ class cosmofit(Program):
             covsys_label_list.append(covsys_label)
             covsys_file_list.append(covsys_file)
 
+            if len(covinfo_split) > 2 :
+                covtot_inv_file = covinfo_split[2] 
+                covtot_inv_file_list.append(covtot_inv_file)  # 4.2024
+            else:
+                covtot_inv_file_list.append(None)
+                
         # - - - - -
         # check optional subset of covsys options to store
         if covsys_select_list is not None :
@@ -538,13 +551,13 @@ class cosmofit(Program):
             yaml_info_select         = yaml_info.copy()
             covsys_file_list_select  = []
             covsys_num_list_select   = []
-            for covsys_num_tmp, covsys_file_tmp in \
-                zip(COVOPTS_DICT, covsys_file_list):
-                # mark delete RK: covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp]
+            for covsys_num_tmp, covsys_file_tmp, covtot_inv_file_tmp in \
+                zip(COVOPTS_DICT, covsys_file_list, covtot_inv_file_list):
                 covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp].split()[0]
 
                 if covsys_name_tmp in covsys_select_list:
                     covsys_file_list_select.append(covsys_file_tmp)
+                    covtot_inv_file_list_select.append(covtot_inv_file_tmp)   
                     covsys_num_list_select.append(covsys_num_tmp)
                 else:
                     yaml_info_select["COVOPTS"].pop(covsys_num_tmp)
@@ -557,11 +570,12 @@ class cosmofit(Program):
         # - - - - - - - - - - 
         # store dictionary
         dict_info = {
-            'hd_file'           : hd_file,
-            'covsys_num_list'   : covsys_num_list,
-            'covsys_label_list' : covsys_label_list,
-            'covsys_file_list'  : covsys_file_list,
-            'isdata'            : isdata            
+            'hd_file'               : hd_file,
+            'covsys_num_list'       : covsys_num_list,
+            'covsys_label_list'     : covsys_label_list,
+            'covsys_file_list'      : covsys_file_list,
+            'covtot_inv_file_list'  : covtot_inv_file_list,            
+            'isdata'                : isdata            
         }
         
         #print(f"\n xxx dict_info = \n{dict_info}\n")
@@ -788,19 +802,20 @@ class cosmofit(Program):
         arg_blind    = self.config_prep['arg_blind_list'][idir]
         arg_string   = self.config_prep['fitopt_arg_list'][ifit]
         arg_global   = self.config_prep['fitopt_global']
-        cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
-        hd_basename  = self.config_prep['hd_file_list'][idir]
+        covsys_base  = self.config_prep['covsys_file_list2d'][idir][icov]
+        covtot_inv_base  = self.config_prep['covtot_inv_file_list2d'][idir][icov] 
+        hd_base      = self.config_prep['hd_file_list'][idir]
         outdir_chi2grid = self.config_prep['outdir_chi2grid']
         
         prefix = self.cosmofit_num_string(idir,icov,ifit)
 
-        hd_file       = self.glue_inpdir_plus_filename(inpdir,hd_basename)
-        covsys_file   = self.glue_inpdir_plus_filename(inpdir,cov_basename)
+        hd_file          = self.glue_inpdir_plus_filename(inpdir,hd_base)
+        covsys_file      = self.glue_inpdir_plus_filename(inpdir,covsys_base)
+        covtot_inv_file  = self.glue_inpdir_plus_filename(inpdir,covtot_inv_base)
 
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
-
 
         # start with user-defined args from WFITOPT[_GLOBAL] key
         arg_list =  [ arg_string ]
@@ -812,7 +827,10 @@ class cosmofit(Program):
             #print(f" xxx arg_list -> {arg_list}")
 
         # define covsys file from create_cov
-        arg_list.append(f"-mucov_file {covsys_file}")
+        if covtot_inv_file:
+            arg_list.append(f"-mucovtot_inv_file {covtot_inv_file}")
+        else:
+            arg_list.append(f"-mucovsys_file {covsys_file}")
 
         # tack on blind arg
         arg_list.append(arg_blind)
@@ -864,14 +882,14 @@ class cosmofit(Program):
         arg_blind    = self.config_prep['arg_blind_list'][idir]
         arg_string   = self.config_prep['fitopt_arg_list'][ifit]
         arg_global   = self.config_prep['fitopt_global']
-        cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
-        hd_basename  = self.config_prep['hd_file_list'][idir]
+        covsys_base  = self.config_prep['covsys_file_list2d'][idir][icov]
+        hd_base      = self.config_prep['hd_file_list'][idir]
         input_file   = self.config_yaml['CONFIG']["FIRECROWN_INPUT_FILE"]
         
         prefix = self.cosmofit_num_string(idir,icov,ifit)
 
-        covsys_file   = f"{inpdir}/{cov_basename}"
-        hd_file       = f"{inpdir}/{hd_basename}"
+        covsys_file   = f"{inpdir}/{cov_base}"
+        hd_file       = f"{inpdir}/{hd_base}"
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
@@ -880,8 +898,8 @@ class cosmofit(Program):
 
         # Start with HD and cov matrix
         arg_list.append(f"{inpdir} ")        
-        arg_list.append(f"{hd_basename} ")
-        arg_list.append(f"{cov_basename} ")
+        arg_list.append(f"{hd_base} ")
+        arg_list.append(f"{cov_base} ")
         arg_list.append(f"{input_file} ")
         arg_list.append(f"--outdir {outdir} ")
 
@@ -911,12 +929,7 @@ class cosmofit(Program):
   
         return JOB_INFO
 
-        # end prep_JOB_INFO_firecrown
-
-
-
-
-        
+        # end prep_JOB_INFO_firecrown    
 
         
     def cosmofit_num_string(self,idir,icov,ifit):

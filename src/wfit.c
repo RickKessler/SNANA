@@ -3237,7 +3237,7 @@ void wfit_uncertainty_fitpar(char *varname) {
   
   double *sig_std, *sig_upper, *sig_lower, sqdelta, delta ;
   double val, val_min, val_max, val_mean, val_step ;
-  double val_sum,  probsum, cdf_find;
+  double val_sum,  probsum, cdf_find, cdf_max ;
   double *val_array, *prob_array, *cdf_array ;
   int  i, n_steps;
   char fnam[] = "wfit_uncertainty_fitpar";
@@ -3324,8 +3324,14 @@ void wfit_uncertainty_fitpar(char *varname) {
   cdf_find = (0.5 - PROBSUM_1SIGMA/2.0);
   val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
   *sig_lower = val_mean - val;
-    
+
   cdf_find = (0.5 + PROBSUM_1SIGMA/2.0);
+  cdf_max  = cdf_array[n_steps-1] ;
+  if (cdf_max < 0.9999 ) {
+    printf(" WARNING-%s: cdf_max = %f (not 1); rescale prob\n", varname, cdf_max);
+    cdf_find *= cdf_max ;
+    WORKSPACE.NWARN++ ;
+  }
   val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
   *sig_upper = val - val_mean ;
   

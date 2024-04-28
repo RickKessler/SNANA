@@ -107,9 +107,11 @@
 #   - skip tilde files and skip wfit_ files.
 #
 # Apr 27 2024 RK
-#   - write covtot_inv_[nnn].txt files so that comsology fitting
+#   - eanble writing covtot_inv_[nnn].txt files so that comsology fitting
 #     can skip matrix inversion to save time. Beware that this doubles
-#     disk space usage.
+#     disk space usage. New command line arg --write_mask_cov controls
+#     which COV(s) are written to disk. Current default is to write both
+#     covsys and covtot_inv.
 #
 # ===============================================
 
@@ -134,6 +136,14 @@ PREFIX_COVSYS     = "covsys"
 PREFIX_COVTOT_INV = "covtot_inv"
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
+
+# Apr 28 2024: setup masks to control which COV matrice are written.
+#  start with default of writing both, but eventually the default shuold
+#  be to write only COVTOT_INT (to conserve disk space). Command line
+#  arg --write_mask_cov can override default.
+WRITE_MASK_COVSYS       = 1
+WRITE_MASK_COVTOT_INV   = 2
+WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by ddefault (4/28/2024)
 
 VARNAME_CID          = "CID"  # for unbinned fitres files
 VARNAME_ROW          = "ROW"  # for binned M0DIF files
@@ -262,8 +272,10 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
-    msg = "Skip computing COV inverse (for speed in debugging)"
-    parser.add_argument("--skip_cov_invert", help=msg, action="store_true")
+    msg = "Define which COV(s) to write: 1=only covsys, " \
+        "2=only covtot_inv, 3=both (default)"
+    parser.add_argument("--write_mask_cov", help=msg,
+                        nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 
@@ -1098,12 +1110,14 @@ def write_standard_output(config, args, covsys_list, covtot_inv_list,
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
     for i, (label, covsys) in enumerate(covsys_list):
-        base_file   = get_covsys_filename(i)
-        cov_file    = outdir / base_file
-        write_covariance(cov_file, covsys, opt_cov)
 
-        # Apr 2024: check writing covtot_inv to save time in cosmology fitting.
-        if len(covtot_inv_list) > 0:
+        if config['write_covsys']:
+            base_file   = get_covsys_filename(i)
+            cov_file    = outdir / base_file
+            write_covariance(cov_file, covsys, opt_cov)
+
+        # Apr 2024: check writing covtot_inv 
+        if config['write_covtot_inv']:
             covtot_inv  = covtot_inv_list[i]
             base_file   = get_covtot_inv_filename(i)
             cov_file    = outdir / base_file
@@ -1474,12 +1488,16 @@ def write_summary_output(args, config, covsys_list, base):
 
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):
-        covsys_file = get_covsys_filename(i)
-        covsys_info[i] = f"{label:<20} {covsys_file}"
+        covsys_file     = None
+        covtot_inv_file = None
+        if config['write_covsys']:
+            covsys_file = get_covsys_filename(i)
 
-        if not args.skip_cov_invert:
+        if config['write_covtot_inv']:
             covtot_inv_file = get_covtot_inv_filename(i)
-            covsys_info[i] += f"  {covtot_inv_file}"
+            
+        covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
+
             
     info["COVOPTS"] = covsys_info
     
@@ -1494,6 +1512,11 @@ def write_summary_output(args, config, covsys_list, base):
  
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
+        f.write(f"# Dictionary arguments for COVOPTS:\n")
+        f.write(f"# index:  <sysLabel>  <name of covsys file>   " \
+                f"<name of covtot_inv file>\n")
+        f.write(f"#  (file name = None -> not written)\n")
+        f.write(f"#\n")
         yaml.safe_dump(info, f )
 
     # - - - - - - - - - - - - - 
@@ -1719,9 +1742,9 @@ def create_covariance(config, args):
         
     args.tend_cov = time.time()
 
-    # Validate that the final_cov is invertible
+    # Compute & validate covtot_inv only if it is requested
     covtot_inv_list = []
-    if not args.skip_cov_invert :
+    if config['write_covtot_inv']:
         logging.info("")
         logging.info("# ========== fetch inverse ===============")
         for (label, cov) in covsys_list:
@@ -1769,6 +1792,18 @@ def prep_config(config,args):
     # Dec 7 2022: fix bug setting override args at start of method instead 
     #   of at the end.
 
+    # - - - - -
+    # Apr 28 2024: check which COV(s) to write
+    config['write_covsys']     = False
+    config['write_covtot_inv'] = False
+    if args.write_mask_cov & WRITE_MASK_COVSYS:
+        config['write_covsys'] = True
+    if args.write_mask_cov & WRITE_MASK_COVTOT_INV:
+        config['write_covtot_inv'] = True  
+
+    logging.info(f"WRITE_COVSYS:      {config['write_covsys']}")
+    logging.info(f"WRITE_COVTOT_INV:  {config['write_covtot_inv']}")
+    
     # - - - - -
     # check override args (RK, Feb 15 2021)
     if args.input_dir is not None :
@@ -1831,7 +1866,7 @@ def loginfo_cpu_summary(args):
     cpu_minutes = (args.tend_cov - args.tstart_cov)/60.0
     logging.info(f"CPUTIME_COV_COMPUTE  = {cpu_minutes:.3f} minutes")
 
-    if not args.skip_cov_invert:
+    if args.write_mask_cov & WRITE_MASK_COVTOT_INV :
         cpu_minutes = (args.tend_cov_invert - args.tend_cov)/60.0
         logging.info(f"CPUTIME_INVERT = {cpu_minutes:.3f} minutes")
 
@@ -1857,7 +1892,6 @@ def write_yaml(args, n_cov):
 
 # ===================================================
 if __name__ == "__main__":
-
 
     try:
         setup_logging()

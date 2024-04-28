@@ -49,7 +49,8 @@
 #
 # Jul 5 2023: for avg summary, remove samples with nwarn > 0; see nwarn_dict
 #
-# Apr 27 2024: read and use  mucovtot_inv_file if it exists.
+# Apr 27 2024: for wfit, read and use  mucovtot_inv_file if it exists.
+#              (needs separate update for firecrown)
 #
 # ====================================================================
 

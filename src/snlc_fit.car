@@ -192,6 +192,18 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &  ,BIT_PHOTOZ_CHEAT            = 4  ! OPT_PHOTOZ += 16
      &    )
 
+c Declare masks for how to treat log sigma term in fit April 26 2024 W.D. Kenworthy
+      INTEGER 
+     &  MASK_CHI2_SIGMA_ERRTOT 
+     & ,MASK_CHI2_SIGMA_ERRDATA 
+     & ,MASK_CHI2_SIGMA_LOGDET   ! Eventually should become default
+     & ,MASK_CHI2_SIGMA_IGNORE  ! Compute quantity for output, but do not use in fit
+      PARAMETER (
+     &  MASK_CHI2_SIGMA_ERRTOT = 1
+     & ,MASK_CHI2_SIGMA_ERRDATA = 2
+     & ,MASK_CHI2_SIGMA_LOGDET = 4  ! Eventually should become default
+     & ,MASK_CHI2_SIGMA_IGNORE = 128 ! Compute quantity for output, but do not use in fit
+     & ) 
       CHARACTER METHOD_SPLINE_QUANTILES*20 
       COMMON/PHOTOZ_COM/METHOD_SPLINE_QUANTILES
 
@@ -726,7 +738,7 @@ c
      &  ,OPT_SALT2FIT  ! I: fit 0=> fit x0;  1=> fit log10(x0); 2=> fit delta-mu
      &  ,IPAR_PLOTCHI2 ! I: HFUNMIN only for this parameter
      &  ,NFIT_VERBOSE  ! I: number of verbose printouts (avoid huge logs)
-
+     &  ,OPT_CHI2_SIGMA  ! I: 1= SIGMA_LAST= Total Error, 2= SIGMA_LAST= Data Error, 128= Compute but don't use
 C ----------------------
 c define all of the PHOTOZ options here in one place
 c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
@@ -799,7 +811,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,LDMP_PHOTOZ_DROPFILTER
      &   ,LDMPFCN, LDMPFUN, LDMPFCN_PLOTCHI2, LDMPFUN_PLOTCHI2
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
-     &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
+     &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, OPT_CHI2_SIGMA
+     &   , LAMREST_MODEL_SMOOTH
      &   ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz
      &   ,ENABLE_MAGSHIFT_SALT2, ENABLE_WAVESHIFT_SALT2
      &   ,ALLOW_NEGFLUX_SALT2
@@ -871,7 +884,8 @@ c ------
      &   ,DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
      &   ,LDMP_PHOTOZ_DROPFILTER
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
-     &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
+     &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, OPT_CHI2_SIGMA 
+     &   , LAMREST_MODEL_SMOOTH
      &   ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz
      &   ,ENABLE_MAGSHIFT_SALT2, ENABLE_WAVESHIFT_SALT2
      &   ,ALLOW_NEGFLUX_SALT2
@@ -4106,7 +4120,7 @@ c skip marg if chi2(sigma) fails cut since it won't change after marg.
       LTMP = (CHI2 .GE. FITWIN_CHI2SIGMA(1) ) .and.
      &       (CHI2 .LE. FITWIN_CHI2SIGMA(2) )
 
-      IF ( DOCHI2_SIGMA .and. .not. LTMP ) THEN
+      IF ( (OPT_CHI2_SIGMA > 0) .and. .not. LTMP ) THEN
         write(6,600) 'CHI2SIGMA', SNLC_CCID(1:LL), CHI2
         RETURN
       ENDIF
@@ -4298,12 +4312,12 @@ c local arguments
       CHARACTER CVAR*8, star*1
       REAL*8 delchi2_off(2000)
       REAL*4 LAMREST4
+      REAL*8 logdet
 
 c functions
       REAL*8  
      &   FCNCHI2_PRIOR, FCNCHI2_SIGMA, DLMAG8_REF
-     &  ,GET_RV8, GET_DIST8, SALT2xx1
-
+     &  ,GET_RV8, GET_DIST8, SALT2xx1, getlogdeterminant 
       LOGICAL FIRST_ITERATION
 
 C ----------- BEGIN ------------
@@ -4561,7 +4575,10 @@ cc xxx mark        IF ( RESTORE_DES3YR ) delchi2_nofudge = delchi2
         ENDIF
 
 c 5/08/2009: tack on chi2 from model-error (2nd iter only)
-        delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot)
+        delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot) 
+        IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_IGNORE) > 0 ) THEN
+                delchi2_sigma=0.0 !WDK April 26 2024
+        ENDIF
 
         IF ( LFITDATA ) then
           DEL_FLUX(ifitdata)  = dif
@@ -4823,9 +4840,12 @@ c loop over COV_INV elements and compute chi2
               chi2 = chi2 + (FF * COV_INV * 2.)  ! include ij + ji terms
            endif
 
-c   check option to include log[det(COV_INC)] term
+c   check option to include determinant term log[det(COV_INC)] 
 ccc xxx not yet ...  chi2 = chi2 - log(DETERM_COVMAT2)
-
+	   IF ( IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_LOGDET)>0) THEN
+             logdet= getlogdeterminant(NFITDATA, COVMAT1)
+             chi2= chi2+ logdet
+           ENDIF
 802     CONTINUE
 801     CONTINUE
 
@@ -5130,14 +5150,12 @@ c
 c so that this is nominally ~zero if the flux-error does not
 c change much between iterations.
 c
+c LAST_FLUXERR is either defined as total error (default) or only using the data error (user option)
+c To control this option, see user input OPT_CHI2_SIGMA and MASK_CHI2_SIGMA_* parameters
+c
 c Also fix bug by returning zero if 1st-iteration FLUXERR=0 ...
 c this can happen if a new filter is added in the 2nd iteration.
-c 
-c Aug 22, 2011: allow CHI2_SIGMA calc if OPT_COVAR_FLUX > 0
-c Jan 25, 2014: 
-c   * use new R4EP_LAST array
-c   * pass iepoch instead of ifitdata
-c
+c Updated April 26 2024, W. D. Kenworthy added flexibility to LAST_FLUXERR 
 c ------------------
 
       IMPLICIT NONE
@@ -5167,9 +5185,17 @@ c ----------- BEGIN -----------
 
       FCNCHI2_SIGMA = 0.0               ! init to zero chi2
       IF ( FIRST_ITERATION(ITER) ) RETURN 
-      IF ( .NOT. DOCHI2_SIGMA    ) RETURN  ! check user option
-
-      LAST_FLUXERR = DBLE( R4EP_LAST(iepoch,JEP_FLUX_ERRTOT) )
+      IF ( OPT_CHI2_SIGMA == 0 ) RETURN  ! check user option
+      IF ( IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_ERRTOT) > 0) THEN
+            LAST_FLUXERR = DBLE( R4EP_LAST(iepoch,JEP_FLUX_ERRTOT) ) !WDK JEP_DATAFLUX_ERR 
+      ELSE IF ( IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_ERRDATA) > 0) THEN
+            LAST_FLUXERR = DBLE( R4EP_LAST(iepoch,JEP_DATAFLUX_ERR) )
+      ELSE 
+         WRITE(c1err,601)OPT_CHI2_SIGMA
+601      FORMAT('Invalid OPT_CHI2_SIGMA =',i5)
+         c2err='OPT_CHI2_SIGMA must include bit for flux error baseline'
+	 CALL MADABORT('FCNCHI2_SIGMA', c1err, c2err );
+      ENDIF
 
       if ( LAST_FLUXERR .LE. 1.0E-11 ) RETURN
 
@@ -7070,6 +7096,7 @@ c setup default grid w.r.t. peakmjd-estimate
       LFIXPAR_ADJUST = .FALSE.
 
       DOCHI2_SIGMA = .FALSE.  ! May 8, 2009
+      OPT_CHI2_SIGMA = 0
       CHECK_CRAZYFITERR  = .TRUE.
 
       LDMP_PHOTOZ_DROPFILTER = .FALSE.
@@ -7362,10 +7389,10 @@ c first, allow user to set integer option or logical flag.
 
 c Set non-zero step-size for PHOTOZ or DLMAG,
 c depending on type of fit.
-
+      if ( DOCHI2_SIGMA) OPT_CHI2_SIGMA = MASK_CHI2_SIGMA_ERRTOT  ! Preserve original option WDK
       if ( DOFIT_PHOTOZ ) THEN
          if ( INISTP_PHOTOZ < 1.0E-5 ) INISTP_PHOTOZ    = 0.05    
-         DOCHI2_SIGMA     = .TRUE.    ! use proper chi2 when error varies
+         if (OPT_CHI2_SIGMA == 0) OPT_CHI2_SIGMA= MASK_CHI2_SIGMA_ERRTOT  ! Default
          INTERP_OPT       = INTERP_ZSMOOTH
          if ( LAMREST_MODEL_SMOOTH .LE. 0.0 ) then
            LAMREST_MODEL_SMOOTH = 200.  ! smooth model over this lambda range
@@ -7958,6 +7985,9 @@ c
 
         else if(MATCH_NMLKEY('DOCHI2_SIGMA', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) DOCHI2_SIGMA
+
+        else if(MATCH_NMLKEY('OPT_CHI2_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_CHI2_SIGMA 
 
         else if(MATCH_NMLKEY('LAMREST_MODEL_SMOOTH',1,i,ARGLIST)) then
             READ(ARGLIST(1),*) LAMREST_MODEL_SMOOTH
@@ -12786,7 +12816,7 @@ c Cut on sigma-chi2
      &       xval .LE. FITWIN_CHI2SIGMA(2) 
 
 
-      IF ( DOCHI2_SIGMA .and. .NOT. LTMP ) THEN
+      IF ( (OPT_CHI2_SIGMA > 0) .and. .NOT. LTMP ) THEN
          write(CLINE,161) 'CHI2(SIGMA)', xval, 'FAILED'
          LCUTS = .FALSE.
       ELSE
@@ -13538,11 +13568,7 @@ c calculation. This value is either the same x1 value in
 c the fit (if DOCHI2_SIGMA=T) or it is fixed to the x1-value
 c from the previous iteration.
 c
-c Aug 20, 2011
-c If DOFIT_PHOTOZ is set, then DOCHI2_SIGMA is automatically set;
-c in this case treat x1 as if DOCHI2_SIGMA was not set.
 c
-c Jul 2 2013: xx1 -> 0 (instead of 1.0) when ITER=1
 c
 c Aug 30 2017: use FIRST_ITERTION(ITER) instead of ITER=1 .
 c              Needed for SIMFIT_IDEAL option.
@@ -13573,7 +13599,7 @@ c --------------- BEGIN -------------
       IF ( FIRST_ITERATION(ITER)  ) then
         xx1 = 0.0    ! always fix xx1 on 1st iteration
       ELSE
-         if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
+         if ( (OPT_CHI2_SIGMA >0) .and. DOFIT_zFIX) then
              xx1 = x1
          else
              xx1 = FITVAL(IPAR_SHAPE,iter-1) ! from previous iteration
@@ -13627,7 +13653,7 @@ c      FIRST_ITER = FIRST_ITERATION(ITER)  ! v10_76b and earlier
       IF ( FIRST_ITER ) then
         zz = z
       ELSE
-         if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
+         if ( (OPT_CHI2_SIGMA > 0) .and. DOFIT_zFIX) then
              zz = z
          else
              zz = FITVAL(IPAR_ZPHOT,iter-1) ! from previous iteration
@@ -14093,7 +14119,7 @@ c print chi2 and prob for 1:TOTAL,  2:DATA,  3:PRIOR,   4:SIGMA
       print*,' '
 
       NTMP = 3
-      IF ( DOCHI2_SIGMA ) NTMP=4
+      IF (OPT_CHI2_SIGMA > 0 ) NTMP=4
       DO i = 1, NTMP
          write(6,781) 'FIT MINIMUM ', CCID(1:KK)
      &    ,CCHI2(i)

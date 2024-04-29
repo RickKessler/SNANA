@@ -936,7 +936,8 @@ void float2double_(int *N, float *flist, double *dlist);
 // invert matrix to replace CERNLIB functions
 void invertMatrix (int  N, int  n, double *Matrix ) ;
 void invertmatrix_(int *N, int *n, double *Matrix ) ;
-
+double getLogDeterminant(int N, double *Matrix ) ;
+double getlogdeterminant_(int *N, double *Matrix ) ;
 
 // functions for user-define PATH_SNDATA_SIM
 #define MXPATH_SNDATA_SIM 20

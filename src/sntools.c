@@ -4631,6 +4631,33 @@ void invertmatrix_(int *N, int *n, double *Matrix ) {
 }
 
 
+double getLogDeterminant(int N, double *Matrix1D ){
+// Created April 26 2024 by W.D. Kenworthy
+//
+	CHOLESKY_DECOMP_DEF decomp;
+	double logdet=0.0;
+	int MEMD=N*N*sizeof(double);
+	int i=0;
+
+	//BEGIN
+	decomp.COVMAT1D=(double*) malloc(MEMD);
+ 	decomp.MATSIZE=N;
+
+	init_Cholesky(+1, &decomp);
+	for (i=0; i<N; i++){
+		logdet+= log( decomp.CHOLESKY2D[i][i] );
+	}
+
+	free(decomp.COVMAT1D);
+	init_Cholesky(-1, &decomp);
+	return logdet;
+} 
+double getlogdeterminant_(int *N, double *Matrix1D ){
+	return getLogDeterminant( *N, Matrix1D );
+} 
+
+
+
 void sortDouble(int NSORT, double *ARRAY, int ORDER, 
 		int *INDEX_SORT) {
 

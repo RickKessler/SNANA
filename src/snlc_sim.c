@@ -31079,6 +31079,8 @@ void print_sim_help(void) {
     "GENMAG_OFF_GLOBAL:  <magoff>      # global mag offset for any model",
     "GENMAG_OFF_NON1A:   <magoff>      # mag off only for NON1a (ignored for SNIa)",
     "",
+    "SIMSED_WGTMAP_FILE:  <fileName>   # wgtmap file for SIMSED model  ",
+    "",
     "# - - - - - - Instrumental inputs - - - - - ",
     "GENFILTERS: <filters>   # list of filter band; e.g, ugriz ",
     "KCOR_FILE:    <name>    # file name of kcor/calibration file",

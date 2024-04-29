@@ -4169,6 +4169,21 @@ etc ...
 \end{center}
 \end{figure}
 
+
+\begin{figure}[!] 
+\begin{center}
+\caption{  Example {\tt HOSTLIB\_WGTMAP\_FILE} for the \snana\ simulation. }
+\label{fig:hostlib_wgtmap}
+\begin{Verbatim}[frame=single]
+VARNAMES_WGTMAP: LOGMASS   LOG_SFR   WGT  SNMAGSHIFT
+WGT:  4.50 -12.5  9.119e-04  0.
+WGT:  4.50 -12.3  1.114e-03  0.
+WGT:  4.50 -12.1  1.360e-03  0.
+etc ...
+\end{Verbatim}
+\end{center}
+\end{figure}
+
 The host-galaxy selection starts by finding a ``near-$z$''
 subset of host galaxies, where sim-input {\tt HOSTLIB\_DZTOL} 
 (\S\ref{sss:hostlib_options})
@@ -4518,9 +4533,13 @@ defines a relative probability for assigning a host galaxy.
 The redshift is matched based on a tolerance
 (see {\tt HOSTLIB\_DZTOL} key), and the {\tt WGTMAP} is applied among
 all galaxies within the redshift tolerance.
-An example {\tt WGTMAP} is shown in Fig.~\ref{fig:hostlib}, but it may be
-more convenient to define the {\tt WGTMAP} in a separate file using the
-{\tt HOSTLIB\_WGTMAP\_FILE} (\S\ref{sss:hostlib_options}).
+An example {\tt HOSTLIB\_WGTMAP\_FILE} is shown in
+Fig.~\ref{fig:hostlib_wgtmap}.
+Any {\tt HOSTLIB} parameter may appear before the WGT column,
+and the map dimension can be arbitrarily high provided that your computer
+has sufficient memory to hold the entire weight map.
+An important constraint is that binning in each dimension must be uniform.
+
 
 Following the {\tt VARNAMES\_WGTMAP} key, the first ``$N-2$'' 
 variables must be from the {\tt VARNAMES} list in Fig.~\ref{fig:hostlib},
@@ -4735,8 +4754,6 @@ Note that quantile overrides are unique because they can
 be appended even if the original data files do not have
 quantile data.
 
-
-% .xyz
 % ------------------------------------
 \clearpage
 \subsubsection{Compute Synthetic \hostlib\ Magnitudes ({\tt +HOSTMAGS})}
@@ -10048,8 +10065,6 @@ do not include quantile information. For quantile overrides using
 {\tt HOSTGAL\_ZPHOT\_Qppp} (where {\tt ppp=000, 010, ... 100}), 
 make sure to also include an {\tt NZPHOT\_Q} column with each value set to 11.
 
-
-%.xyz
 \clearpage
 
 The header-override list may include variables that are used later in 
@@ -11546,12 +11561,15 @@ A {\SIMSED} model is a ensemble of SED time series,
 where the ensemble spans an arbitrary set of parameters
 characterizing the object.
 \SIMSED\ models can be derived from specialized explosion-model 
-codes (e.g., FLASH, Sedona, Pheonix),
+codes (e.g., MOSFIT, Sedona, Pheonix ...),
 or determined from high-resolution spectroscopic data.
 The {\SIMSED} model is implemented in the \snana\
 simulation, but is not included in a fitting code. 
 However, simulated data using \SIMSED\ can be fit with \snana\
 fitting codes ({\tt snlc\_fit.exe, psnid.exe}) the same way as for real data.
+\SIMSED\ models tend to be much larger than \sndataroot\ and are thus
+available through specialized releases such as
+PLAsTiCC.\footnote{\url{https://zenodo.org/records/6672739}}
 A few examples in the pulic \sndataroot\ are here,
 %
 \begin{verbatim}
@@ -11610,7 +11628,7 @@ result in extrapolations that give brighter mags at later times.
 
 The default redshift binning in log-space has {\tt LOGZBIN=0.02}.
 For models consuming significant memory, {\tt LOGZBIN} can be
-increased to reduce storage.
+increased to reduce memory.
 
 The first parameter with {\tt \_INDEX} in the name can be used
 to select random indices as shown below.
@@ -11717,8 +11735,28 @@ list will cause the simulation to abort because of a redundant parameter.
 %large, a separate binary-table directory can be specified
 %with the {\tt SIMSED\_PATH\_BINARY} key (see above).
 
-\bigskip
-\noindent{\bf BINARY FILES:} \\
+\subsubsection{Arbitrary Distribution using SIMSED Weights}
+\label{sss:simsed_wgt}
+
+If the desired distribution is more complex than bifurcated Gaussian
+or picking a random SED, there are two mechanisms to assign an arbitrary
+selection weight for each SED. The first method is to include a WGT column
+in the {\tt SED.INFO} file. The second method is to define a separate
+weight map in the sim-input file using key
+\begin{verbatim}
+   SIMSED_WGTMAP_FILE:  <wgtmap file>
+\end{verbatim}
+The {\tt WGTMAP} file has the same form as the {\tt HOSTLIB\_WGTMAP\_FILE}
+in \S\ref{sss:hostlib_wgtmap} and Fig.~\ref{fig:hostlib_wgtmap},
+except that there is no {\tt SNMAGSHIFT} column for the {\tt SIMSED\_WGTMAP}.
+The weight map file works whether or not there is a WGT column in the
+{\tt SED.INFO} file.
+
+%\bigskip
+%\noindent{\bf BINARY FILES:} \\
+\subsubsection{Binary SIMSED Files}
+\label{sss:simsed_binary}
+
 The {\tt SIMSED} initialization takes ${\sim}1$~sec per SED, 
 and is somewhat time-consuming for 100's or 1000's of SEDs. 
 About half the time is reading the SED text files, and the other half 
@@ -11754,7 +11792,7 @@ that is earlier than the SIMSED model or earlier than
 the K-cor file used to define the primary reference
 and filter transmissions.
 
-To create binary files for multiple SIMSED models,
+To simplify creation of binary files for multiple SIMSED models,
 \vspace{-2mm}
 \begin{verbatim}
    make_simsed_binaries.py -H  # get help on input config file

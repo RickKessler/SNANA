@@ -22363,6 +22363,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + New input option -mucovtot_inv_file to read already inverted
        covtot^{-1} and save CPU time by avoiding repeating the inversion.
        Still need to update pippin to pass this new arg.
+
+     submit_batch_jobs.py
+       + the cosmofit class passes mucovtot_inv_file (if it exists) to wfit.
+         Analogous change for Firecrown awaits Firecrown code update.
        
          *****  USEFUL(v11_05m) *****
 
@@ -22377,12 +22381,26 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c
        + for FORMAT_MASK +=8 (BLIND), rename VERSION.DUMP to HIDE_VERSION.DUMP;
          rename VERSION.README to HIDE_VERSION.README and create a new
-	 VERSION.README with minimal content
+	 VERSION.README with minimal content.
 	 
     submit_prog_sim.py: adapt to handle HIDE* files.
 
     sntools_cosmology.c
-       + inside init_HzFUN_INFO(), increase checkval_D range for wa, and add
-         checkval_D for w0.
-	 
+       + inside init_HzFUN_INFO(), increase checkval_D range for wa (-5 to +5),
+         and add (forgotten?) checkval_D for w0.
+
+    manual:
+       + update SIMSED section to include subsubsection on SIMSED_WGTMAP_FILE.
+
+# =============================================================
+         v11_05n (Apr 28 2024) <-- start date
+
+         *****  IMPORTANT(v11_05n) *****
+       
+         *****  USEFUL(v11_05n) *****
+
+      
+         *****  MISCELLANEOUS(v11_05n) *****
+
+
 END: 

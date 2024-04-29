@@ -4275,7 +4275,7 @@ c local arguments
 
       INTEGER
      &   ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata
-     &  ,NFITDATA_LOC, irow, icol, IERR
+     &  ,NFITDATA_LOC, irow, icol, IERR, matepoch
      &  ,NFITDATA_FILT(MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
       character cfilt*1
@@ -4308,11 +4308,12 @@ c local arguments
      &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX
      &  ,FIRST_ITER
      &  ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2
+     &  ,  DO_LOGDET 
 
       CHARACTER CVAR*8, star*1
       REAL*8 delchi2_off(2000)
       REAL*4 LAMREST4
-      REAL*8 logdet
+      REAL*8 logdet, LAST_FLUXERR, logdet_offset
 
 c functions
       REAL*8  
@@ -4575,10 +4576,14 @@ cc xxx mark        IF ( RESTORE_DES3YR ) delchi2_nofudge = delchi2
         ENDIF
 
 c 5/08/2009: tack on chi2 from model-error (2nd iter only)
-        delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot) 
-        IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_IGNORE) > 0 ) THEN
-                delchi2_sigma=0.0 !WDK April 26 2024
-        ENDIF
+        IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_LOGDET) == 0 ) THEN
+		delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot) 
+        	IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_IGNORE) > 0 ) THEN
+                	delchi2_sigma=0.0 !WDK April 26 2024
+        	ENDIF
+	ELSE
+		delchi2_sigma=0.0
+	ENDIF
 
         IF ( LFITDATA ) then
           DEL_FLUX(ifitdata)  = dif
@@ -4827,28 +4832,32 @@ c  1st arg OPT=0 suppresses printing.
         endif
 
 c loop over COV_INV elements and compute chi2
-
+        DO_LOGDET = (IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_LOGDET)>0)
         DO 801 irow = 1,    NFITDATA
         DO 802 icol = irow, NFITDATA
-           COV_INV  = covmat2(irow,icol)
-           if ( COV_INV .EQ. 0.0 ) GOTO 802
+         COV_INV  = covmat2(irow,icol)
+         if ( COV_INV .EQ. 0.0 ) GOTO 802
 
-           FF   = del_flux(irow) * del_flux(icol)
-           if ( irow .EQ. icol ) then         
-              chi2 = chi2 + (FF * COV_INV)
-           else
-              chi2 = chi2 + (FF * COV_INV * 2.)  ! include ij + ji terms
-           endif
-
-c   check option to include determinant term log[det(COV_INC)] 
-ccc xxx not yet ...  chi2 = chi2 - log(DETERM_COVMAT2)
-	   IF ( IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_LOGDET)>0) THEN
-             logdet= getlogdeterminant(NFITDATA, COVMAT1)
-             chi2= chi2+ logdet
+         FF   = del_flux(irow) * del_flux(icol)
+         if ( irow .EQ. icol ) then     
+           if (DO_LOGDET) THEN
+            matepoch= EPLIST_FIT(irow) 
+            LAST_FLUXERR = DBLE(R4EP_LAST(matepoch,JEP_DATAFLUX_ERR) )
+            logdet_offset = logdet_offset + 2.* log( LAST_FLUXERR )   
            ENDIF
+           chi2 = chi2 + (FF * COV_INV)
+         else
+           chi2 = chi2 + (FF * COV_INV * 2.)  ! include ij + ji terms
+         endif
+
 802     CONTINUE
 801     CONTINUE
 
+c   check option to include determinant term log[det(COV_INC)] 
+        IF (DO_LOGDET) THEN
+         logdet= getlogdeterminant(NFITDATA, COVMAT1) - logdet_offset 
+         chi2= chi2+ logdet
+        ENDIF
 
         FCN_FITCHI2(0) = chi2 - chi2ini
 

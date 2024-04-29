@@ -4645,7 +4645,7 @@ double getLogDeterminant(int N, double *Matrix1D ){
 
 	init_Cholesky(+1, &decomp);
 	for (i=0; i<N; i++){
-		logdet+= log( decomp.CHOLESKY2D[i][i] );
+		logdet+=2* log( decomp.CHOLESKY2D[i][i] );
 	}
 
 	free(decomp.COVMAT1D);

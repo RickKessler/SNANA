@@ -26710,7 +26710,9 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   //   [part of GENFLUX_DRIVER refactor] 
   //
   // Apr 2024: increase AGN crazyflux limit by x10 (*=1e10 instead of 1e9)
-  
+  // Apr 2024: increase initial crazyFlux fro 4E4 to 1E5 to handle
+  //            very bright nearby SLSN.
+  //
   int     ifilt_obs    = FLUXNOISE->IFILT_OBS;  
   double  ZPADU        = SIMLIB_OBS_GEN.ZPTADU[ep] ;
   double  zsn          = GENLC.REDSHIFT_HELIO ;
@@ -26733,7 +26735,7 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   arg        = 0.4 * ( ZPADU - 31.0 );  
   pow_arg     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyFlux  = (4.E4 * pow_arg * xt) / (zsn*zsn) ; }
+    { crazyFlux  = (1.E5 * pow_arg * xt) / (zsn*zsn) ; }
   else
     { crazyFlux = 1.0E14 ; } // for LCLIB (July 2018)
 

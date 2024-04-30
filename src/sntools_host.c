@@ -7454,13 +7454,12 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
 void GEN_SNHOST_WEAKLENS_DMU(int IGAL) {
   // Created June 28 2022 by Kevin Wang
   // If WEAKLENS_DMU column in hostlib exists, store value in structure SNHOSTGAL.WEAKLENS_DMU
-  int  IVAR_WEAKLENS_DMU     = HOSTLIB.IVAR_WEAKLENS_DMU ;
-  char fnam[]        = "GEN_SNHOST_WEAKLENS_DMU" ;
+  int  IVAR_WEAKLENS_DMU  = HOSTLIB.IVAR_WEAKLENS_DMU ;
+  char fnam[] = "GEN_SNHOST_WEAKLENS_DMU" ;
 
   // BEGIN
   if (IVAR_WEAKLENS_DMU > 0) {
     SNHOSTGAL.WEAKLENS_DMU  = get_VALUE_HOSTLIB(IVAR_WEAKLENS_DMU,IGAL);
-
   }
 
 } // end GEN_SNHOST_WEAKLENS_DMU

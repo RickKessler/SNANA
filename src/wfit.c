@@ -257,6 +257,8 @@ struct INPUTS {
   char outFile_cospar[MXCHAR_FILENAME] ; // output name of cospar file
   char outFile_resid[MXCHAR_FILENAME] ;
   char outFile_chi2grid[MXCHAR_FILENAME];
+  char outFile_mucovtot_inv[MXCHAR_FILENAME];
+  
   char **mucov_file ;  // input cov matrix(es); e.g., produced by create_cov
   int    NMUCOV ; // 1 or 2 cov matrices; 2 for HDIBC method
   
@@ -721,6 +723,7 @@ void init_stuff(void) {
   INPUTS.outFile_cospar[0]   = 0 ;
   INPUTS.outFile_resid[0]    = 0 ;
   INPUTS.outFile_chi2grid[0] = 0 ;
+  INPUTS.outFile_mucovtot_inv[0] = 0 ;
   INPUTS.use_mucov           = 0 ;
   sprintf(INPUTS.label_cospar,"none");
   INPUTS.format_cospar = 1; // csv like format
@@ -732,7 +735,7 @@ void init_stuff(void) {
    
   // Gauss OM params
   INPUTS.omm_prior        = OMEGA_MATTER_DEFAULT ;  // mean
-  INPUTS.omm_prior_sig    = 0.04;  // sigma
+  INPUTS.omm_prior_sig    = 99.0;  // sigma
 
   INPUTS.rd_prior         = 147.0 ;
   INPUTS.rd_prior_sig     = 1.0E8 ;
@@ -817,7 +820,7 @@ void print_wfit_help(void) {
     "     \t\t Chevallier & Polarski, 2001 [Int.J.Mod.Phys.D10,213(2001)]",
     "   -lcdm\tfit for OM only (fix w=-1)" ,
     "   -ompri\tcentral value of omega_m prior [default: Planck2018]", 
-    "   -dompri\tGauss sigma of omega_m prior [default: 0.04]",
+    "   -dompri\tGauss sigma of omega_m prior [default: 99]",
     //
     "   -bao DESI_2024\tBAO prior (mean+cov) from DESI 2024",
     "   -bao_sim DESI_2024\tBAO cov from DESI 2024, mean from sim cosmology params",
@@ -890,11 +893,12 @@ void print_wfit_help(void) {
     "   -resid\t\t  [same as previous]" ,
     "   -outfile_chi2grid\tname of output file containing chi2-grid",
     "   -label\tstring-label for cospar file.",
+    "   -outfile_mucovtot_inv\t Write mucovtot_inv to file",
     "",
     0
   };
 
-  int i;
+  int i; 
   
   // ----------- BEGIN ------------
   
@@ -1129,9 +1133,12 @@ void parse_args(int argc, char **argv) {
 
       else if (strcasecmp(argv[iarg]+1,"outfile_chi2grid")==0)  
 	{ strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
-      else if (strcasecmp(argv[iarg]+1,"chi2grid")==0)  
-	{ strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
+      // xxx else if (strcasecmp(argv[iarg]+1,"chi2grid")==0)  
+      // xxx { strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
 
+      else if (strcasecmp(argv[iarg]+1,"outfile_mucovtot_inv")==0)  
+	{ strcpy(INPUTS.outFile_mucovtot_inv,argv[++iarg]); }
+      
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
@@ -3830,16 +3837,20 @@ void wfit_final(void) {
   WORKSPACE.muoff_final = muoff_final ;
 
     // summarize chi2 and chi2 for each prior (Apr 2024)
-  double chi2_om, chi2_cmb, chi2_bao, chi2_rd;
+  double chi2_om, chi2_cmb, chi2_bao, chi2_rd, rd ;
   get_chi2_priors(&cpar, &chi2_om, &chi2_cmb, &chi2_bao, &chi2_rd);
   printf("\t chi2tot = %8.2f \n", chi2_final);
   printf("\t chi2_prior(OMM) = %8.2f \n" , chi2_om);
   printf("\t chi2_prior(CMB) = %8.2f \n" , chi2_cmb);
-  printf("\t chi2_prior(BAO) = %8.2f \n" , chi2_bao);
-  printf("\t chi2_prior(rd)  = %8.2f \n" , chi2_rd);
+
+  if ( INPUTS.use_bao > 0 ) {
+    rd = rd_bao_prior(&cpar);
+    printf("\t chi2_prior(BAO)  = %8.2f   (rd=%.2f)\n" , chi2_bao, rd);
+    printf("\t chi2_prior(rd)   = %8.2f \n" , chi2_rd);
+  }
+  
   fflush(stdout);
 
-  
   // - - - -  sigmu_int - - - - 
   WORKSPACE.sigmu_int = 0.0;
   if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
@@ -3935,7 +3946,7 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   bool check_inverse = (INPUTS.debug_flag == 1000);
   double *MUCOV_ORIG ;
   int LDMP_MUCOV = INPUTS.ndump_mucov > 0 ;
-  
+  char fnam[] = "invert_mucovar" ;
   // ---------------- BEGIN --------------
 
   if ( INPUTS.use_mucov == 2 ) {
@@ -3973,7 +3984,18 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
     free(MUCOV_ORIG);
   }
 
+  char *ptr_outFile = INPUTS.outFile_mucovtot_inv;
+  if ( strlen(ptr_outFile) > 0 ) {
 
+    printf("\n %s: write covtot_inv to %s\n", fnam, ptr_outFile);
+    FILE *fpout = fopen(ptr_outFile,"wt");
+    fprintf(fpout,"%d\n", NSN);
+    for(i=0; i < NSN*NSN; i++ )
+      { fprintf(fpout,"%14.8le\n", MUCOV->ARRAY1D[i]); }
+    fclose(fpout);
+    debugexit(fnam);
+  }
+ 
   if ( LDMP_MUCOV ) { dump_MUCOV(MUCOV,"MUCOV^-1"); }
   
   fflush(stdout);

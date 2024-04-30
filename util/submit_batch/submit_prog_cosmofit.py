@@ -551,6 +551,7 @@ class cosmofit(Program):
             COVOPTS_DICT             = yaml_info["COVOPTS"].copy()
             yaml_info_select         = yaml_info.copy()
             covsys_file_list_select  = []
+            covtot_inv_file_list_select = []
             covsys_num_list_select   = []
             for covsys_num_tmp, covsys_file_tmp, covtot_inv_file_tmp in \
                 zip(COVOPTS_DICT, covsys_file_list, covtot_inv_file_list):
@@ -811,8 +812,17 @@ class cosmofit(Program):
         prefix = self.cosmofit_num_string(idir,icov,ifit)
 
         hd_file          = self.glue_inpdir_plus_filename(inpdir,hd_base)
-        covsys_file      = self.glue_inpdir_plus_filename(inpdir,covsys_base)
-        covtot_inv_file  = self.glue_inpdir_plus_filename(inpdir,covtot_inv_base)
+
+        if covsys_base:
+            covsys_file      = self.glue_inpdir_plus_filename(inpdir,covsys_base)
+        else:
+            covsys_file = None
+
+        if covtot_inv_base:
+            covtot_inv_file  = self.glue_inpdir_plus_filename(inpdir,covtot_inv_base)
+        else:
+            covtot_inv_file = None
+            
 
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"

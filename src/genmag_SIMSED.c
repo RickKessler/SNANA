@@ -1157,11 +1157,6 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       WGT_SUM += WGT;
       SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
     }
-    SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[0];
-    SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
-
-    printf("\t Loaded %d cumulative WGTS from column %d \n", 
-	   NSED, SEDMODEL.IPAR_WGT); fflush(stdout);
   }
 
   if ( OPT_WGT == 2 ) {
@@ -1192,6 +1187,7 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
     if ( SEDMODEL.IPAR_WGT < 0 ) {
       printf("\tdefine WGT column for SIMSED WGTMAP");
       SEDMODEL.IPAR_WGT = SEDMODEL.NPAR;
+      sprintf(SEDMODEL.PARNAMES[SEDMODEL.NPAR], "%s", VARNAME_WGT_REQUIRED);
       SEDMODEL.NPAR++;
     } 
 
@@ -1203,18 +1199,21 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
 
     //debugexit(fnam);
     
+    WGT_SUM = 0;
 
     for (ISED = 1; ISED <= SEDMODEL.NSURFACE; ISED++){
       for ( IPAR_WGTMAP = 0; IPAR_WGTMAP < GRIDMAP.NDIM; IPAR_WGTMAP++ ){
         IPAR_SED = IPAR_SEDMODEL (GRIDMAP.VARNAMES[IPAR_WGTMAP]);
 	PARVALUES[IPAR_WGTMAP] = SEDMODEL.PARVAL[ISED][IPAR_SED];
-	printf("xxx %s ISED = %d IPAR_WGTMAP = %d PARVALUE = %f\n", fnam, ISED, IPAR_WGTMAP, PARVALUES[IPAR_WGTMAP]);
+	//printf("xxx %s ISED = %d IPAR_WGTMAP = %d PARVALUE = %f\n", fnam, ISED, IPAR_WGTMAP, PARVALUES[IPAR_WGTMAP]);
       }
 
       istat = interp_GRIDMAP(&GRIDMAP, PARVALUES, &WGT_INTERP) ;
       SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT] = WGT_INTERP;
-      printf("xxx %s ISED = %d WGT_INTERP = %le\n", fnam, ISED, WGT_INTERP);
+      //printf("xxx %s ISED = %d WGT_INTERP = %le\n", fnam, ISED, WGT_INTERP);
 
+      WGT_SUM += WGT_INTERP;
+      SEDMODEL.WGT_SUM[ISED] = WGT_SUM;
     }
 
     //debugexit(fnam);
@@ -1222,15 +1221,22 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
   }
   // X_WGT+
 
+  SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[0];
+  SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
+ 
+  printf("\t Loaded %d cumulative WGTS from column %d \n",
+      NSED, SEDMODEL.IPAR_WGT); fflush(stdout);
+
   return ;
 } //end set_SIMSED_WGT_SUM
   
 //**************************************
+// A.G.
 int pick_SIMSED_BY_WGT(void){
   int ISED = -9;
   double ranCDF;
   double WGTrange[2];
-  int LDMP = 0 ;
+  int LDMP = 1 ;
   char fnam[] = "pick_SIMSED_BY_WGT";
 
   // --------- BEGIN --------------
@@ -1488,7 +1494,7 @@ void genmag_SIMSED(
 
   if ( (OPTMASK & OPTMASK_GEN_SIMSED_WGT) > 0 ) { LSED_SELECT    = 1; }
   if ( (OPTMASK & OPTMASK_GEN_SIMSED_SEQ) > 0 ) { LSED_SELECT    = 1; }
-
+  
   if ( (OPTMASK & 512) > 0 ) { LDMP_DEBUG      = 1; }
   
   // make sure that user NLUMIPAR matches expected number 

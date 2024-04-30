@@ -5580,7 +5580,10 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
   } // end SIMSED_GRIDONLY 
 
   else if ( keyMatchSim(MXPAR,"SIMSED_WGTMAP_FILE", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N],"%s", INPUTS.WGTMAP_FILE_SIMSED );  // X_WGT+
+    N++ ; sscanf(WORDS[N],"%s", INPUTS.WGTMAP_FILE_SIMSED );  
+    INPUTS.OPTMASK_SIMSED  = 
+     OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_WGT;
+    // X_WGT+
     
   }
   else if ( keyMatchSim(1,"SIMSED_REDCOR SIMSED_COV", WORDS[0], keySource) ) {
@@ -13318,7 +13321,9 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     ISIMSED_SEQUENTIAL  = NGENLC_TOT ; // IGEN = ISED (legacy; mark dekete)
   }
 
-  OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT);
+  // A.G.
+  OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT) || (strlen(INPUTS.WGTMAP_FILE_SIMSED) > 0);
+  printf("xxx %s OVP = %d\n", fnam, OVP);
   if ( OVP > 0 )  { 
     ISIMSED_SELECT  = pick_SIMSED_BY_WGT();
   }

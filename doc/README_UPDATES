@@ -22402,5 +22402,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
          *****  MISCELLANEOUS(v11_05n) *****
 
-
+    SALT2mu.c:
+      + add abort trap if SIM_XXX vars are missing from biasCor.
+      
+    
 END: 

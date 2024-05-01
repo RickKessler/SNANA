@@ -1,6 +1,6 @@
 /*******************************************
 Created by J. Marriner.
-Installed into snana v8_38, January 2010.  
+Installed into snana v8_38, January 2010. 
 
 Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters
@@ -607,7 +607,7 @@ typedef struct {
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal, *peakmjd ;
 
   // SIM_[PROPERTY] read from table file
-  short int *SIM_NONIA_INDEX, *SIM_ZFLAG ;
+  short int *SIM_TEMPLATE_INDEX, *SIM_ZFLAG ;
   float *SIM_ALPHA, *SIM_BETA, *SIM_GAMMADM;
   float *SIM_WGT_POPULATION ;
   float *SIM_X0, *SIM_FITPAR[NLCPAR+1], *SIM_AV; 
@@ -1348,10 +1348,7 @@ struct {
 int  DOFIT_FLAG;    // non-zero --> do another fit iteration
 
 int ISDATA_REAL;           // T if no SIM keys are found -> real data
-int FOUNDKEY_SNTYPE = 0 ;  // T -> found sntype key in fitres file
 int FOUNDKEY_SIM    = 0 ;  // T -> is simulation (formerly 'simok')
-int FOUNDKEY_SIMx0  = 0 ;  // T -> is SALT2 (formerly 'simx0')
-int FOUNDKEY_SIM_NONIA_INDEX = 0 ;
 
 int NVAR_APPEND ;  // NVAR appended from SALTmu
 char VARNAMES_APPEND[MAXPAR*10][MXCHAR_VARNAME] ;
@@ -1381,6 +1378,7 @@ void check_duplicates_util(int EVENT_TYPE);
 void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
+void check_valid_biasCor(TABLEVAR_DEF *TABLEVAR);
 void applyCut_nmax(void);
 void applyCut_chi2max(void);
 void merge_duplicates(int N, int *isnList);
@@ -1508,7 +1506,7 @@ void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO);
 void setup_contam_CCprior(char *which, CONTAM_INFO_DEF *CONTAM_INFO) ;
 void zero_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO) ;
 void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
-			double xhisto, int SIM_NONIA_INDEX) ;
+			double xhisto, int SIM_TEMPLATE_INDEX) ;
 
 void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
 
@@ -1584,7 +1582,7 @@ void  setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
 
 
 void  countData_per_zbin(void) ;
-int   prescale_reject_simData(int SIM_NONIA_INDEX);
+int   prescale_reject_simData(int SIM_TEMPLATE_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
@@ -3944,7 +3942,7 @@ void *MNCHI2FUN(void *thread) {
   double muerrsq_tmp, muerr_update, muerrsq_update ; 
   double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
   int    n, nsnfit, nsnfit_truecc, ipar, ipar2 ;
-  int    cutmask, idsample, SIM_NONIA_INDEX, IS_SIM ; 
+  int    cutmask, idsample, SIM_TEMPLATE_INDEX, IS_SIM ; 
   int    ia, ib, ig, optmask_muerrsq, nevt_biascor ;
   int    dumpFlag_muerrsq=0, DUMPFLAG=0 ;
   int    USE_CCPRIOR=0, USE_CCPRIOR_H11=0 ;
@@ -4047,7 +4045,7 @@ void *MNCHI2FUN(void *thread) {
 
     mumodel_store   = (double)INFO_DATA.TABLEVAR.mumodel[n] ; 
 
-    SIM_NONIA_INDEX = (int)INFO_DATA.TABLEVAR.SIM_NONIA_INDEX[n];
+    SIM_TEMPLATE_INDEX = (int)INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[n];
     IS_SIM          = (INFO_DATA.TABLEVAR.IS_SIM == true);
     
     if ( USE_CCPRIOR ) { 
@@ -4401,7 +4399,7 @@ void *MNCHI2FUN(void *thread) {
 				  optmask_dump );
       }
       
-      if ( IS_SIM && SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
+      if ( IS_SIM && SIM_TEMPLATE_INDEX > 0 ) { nsnfit_truecc++ ; } 
 
       // store reference errors for 1/sigma term
       if ( DOFIT_FLAG == FITFLAG_CHI2 ) {
@@ -6508,7 +6506,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     for(i=0; i < INPUTS.NCUTWIN; i++ ) 
       { MEMTOT += malloc_TABLEVAR_CUTVAL(LEN_MALLOC, i, TABLEVAR ); }
   
-    TABLEVAR->SIM_NONIA_INDEX  = (short int *) malloc(MEMS); MEMTOT+=MEMS;
+    TABLEVAR->SIM_TEMPLATE_INDEX  = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->SIM_ZCMB         = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_VPEC         = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_MU           = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -6516,13 +6514,13 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     TABLEVAR->SIM_WGT_POPULATION = (float *) malloc(MEMF); MEMTOT+=MEMF;
 
+    for (i=0; i < NLCPAR_LOCAL ; i++ ) 
+      { TABLEVAR->SIM_FITPAR[i] = (float *) malloc(MEMF); MEMTOT+=MEMF; }
+	  
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
       TABLEVAR->SIM_ALPHA        = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->SIM_BETA         = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->SIM_X0           = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      for (i=0; i < NLCPAR_LOCAL ; i++ ) 
-	{ TABLEVAR->SIM_FITPAR[i] = (float *) malloc(MEMF); MEMTOT+=MEMF; } 
-
     }
     TABLEVAR->SIM_GAMMADM      = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_AV           = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -6591,19 +6589,17 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
       if ( INPUTS.LCUTWIN_RDFLAG[i] ) { free(TABLEVAR->CUTVAL[i]); }
     }
 
-    free(TABLEVAR->SIM_NONIA_INDEX);
+    free(TABLEVAR->SIM_TEMPLATE_INDEX);
     free(TABLEVAR->SIM_ZCMB);
     free(TABLEVAR->SIM_VPEC);
     free(TABLEVAR->SIM_MU);
     free(TABLEVAR->SIM_MUz);
-
+    for (i=0; i < NLCPAR_LOCAL ; i++ )  { free(TABLEVAR->SIM_FITPAR[i]); }
+	  
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
       free(TABLEVAR->SIM_ALPHA);
       free(TABLEVAR->SIM_BETA);
       free(TABLEVAR->SIM_X0);
-      for (i=0; i < NLCPAR_LOCAL ; i++ )
-	{ free(TABLEVAR->SIM_FITPAR[i]); }
-
     }
     free(TABLEVAR->SIM_GAMMADM);
     free(TABLEVAR->SIM_AV);
@@ -6921,7 +6917,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
       { TABLEVAR->zprior[irow]  = TABLEVAR->zpriorerr[irow]  = -9.0 ; }
 
     TABLEVAR->SIM_WGT_POPULATION[irow]  =  1.0 ;
-    TABLEVAR->SIM_NONIA_INDEX[irow]  = -9 ;
+    TABLEVAR->SIM_TEMPLATE_INDEX[irow]  = -9 ;
     TABLEVAR->SIM_AV[irow]           =  0.0 ;
     TABLEVAR->SIM_GAMMADM[irow]      =  0.0 ; // allow missing gammadm
     TABLEVAR->SIM_MU[irow]           = -9.0 ;
@@ -6929,12 +6925,13 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->SIM_ZCMB[irow]         = -9.0 ;
     TABLEVAR->SIM_VPEC[irow]         =  0.0 ;
 
+    TABLEVAR->SIM_FITPAR[0][irow]    = -9.0 ;
+    TABLEVAR->SIM_FITPAR[1][irow]    = -9.0 ;
+    TABLEVAR->SIM_FITPAR[2][irow]    = -9.0 ;  
+      
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
+      TABLEVAR->warnCov[irow]          =  false ;
       TABLEVAR->SIM_X0[irow]           = -9.0 ;
-      TABLEVAR->warnCov[irow]    =  false ;
-      TABLEVAR->SIM_FITPAR[0][irow]    = -9.0 ;
-      TABLEVAR->SIM_FITPAR[1][irow]    = -9.0 ;
-      TABLEVAR->SIM_FITPAR[2][irow]    = -9.0 ;
       TABLEVAR->SIM_ALPHA[irow]        = -9.0 ;
       TABLEVAR->SIM_BETA[irow]         = -9.0 ;
     }
@@ -7131,7 +7128,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   // - - - - - - - - SIM_XXX - - - - - - - - - -
   sprintf(vartmp,"SIM_NONIA_INDEX:S SIM_TEMPLATE_INDEX:S" );
-  ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_NONIA_INDEX[ISTART], 
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_TEMPLATE_INDEX[ISTART], 
 				 LEN, VBOSE );
   if ( IS_DATA && INPUTS.force_realdata ) { ivar = -9; } // Jun 17 2021
 
@@ -7295,7 +7292,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
 
   double SIM_X0, SIM_ZCMB,  SIM_MU, SIM_MUz;
-  int    SIM_NONIA_INDEX;
+  int    SIM_TEMPLATE_INDEX;
 
   double x0, x0err, x1, x1err, c, cerr, COV_x0x1, COV_x0c, COV_x1c;
   double mB, mBerr, mB_orig, sf, x0_ideal, mB_ideal ;
@@ -7330,7 +7327,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     SIM_ZCMB  = (double)TABLEVAR->SIM_ZCMB[ISN];
     SIM_MU    = (double)TABLEVAR->SIM_MU[ISN] ; 
     SIM_MUz   = -9.0 ;   // SIM_MU at zHD, computed below
-    SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
+    SIM_TEMPLATE_INDEX = TABLEVAR->SIM_TEMPLATE_INDEX[ISN];
 
     // beware that INPUTS.COSPAR are not always the same as SIM-COSPAR,
     // so be careful computing SIM_MU at zHD
@@ -7535,7 +7532,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 	sprintf(c2err,"This option works only for sim data.") ;
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
       }
-      if ( SIM_NONIA_INDEX == 0 )
+      if ( SIM_TEMPLATE_INDEX == 0 )
 	{ TABLEVAR->pIa[ISN] = 1.0; } // it's a true SNIa
       else
 	{ TABLEVAR->pIa[ISN] = 0.0; } // it's not SNIa
@@ -9665,9 +9662,12 @@ void  read_simFile_biasCor(void) {
   int NFILE      = INPUTS.nfile_biasCor;
   int NROW, ISTART, IFILETYPE, ifile, LEN_MALLOC ;   
   int NEVT[MXFILE_BIASCOR], NEVT_TOT, NVAR_ORIG ;
+
+  TABLEVAR_DEF *TABLEVAR = &INFO_BIASCOR.TABLEVAR;
   char *simFile ;
   char fnam[] = "read_simFile_biasCor" ;
 
+  
   // --------------- BEGIN ---------------
 
   t_read_biasCor[0] = time(NULL); 
@@ -9687,7 +9687,7 @@ void  read_simFile_biasCor(void) {
 
   // malloc arrays for all sim files
   LEN_MALLOC = NEVT_TOT + 10 ;
-  INFO_BIASCOR.TABLEVAR.LEN_MALLOC = LEN_MALLOC ;
+  TABLEVAR->LEN_MALLOC = LEN_MALLOC ;
   malloc_INFO_BIASCOR(+1,LEN_MALLOC);
   
   // loop again over each data file: read and append arrays
@@ -9696,17 +9696,17 @@ void  read_simFile_biasCor(void) {
     IFILETYPE   = TABLEFILE_OPEN(simFile,"read");
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");
 
-    ISTART      = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
+    ISTART      = TABLEVAR->NSN_ALL ;
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
-			      &INFO_BIASCOR.TABLEVAR);
+			      TABLEVAR);
 
     NROW = SNTABLE_READ_EXEC(); // read entire file; load arrays
-    INFO_BIASCOR.TABLEVAR.NSN_ALL += NROW ;
+    TABLEVAR->NSN_ALL += NROW ;
 
-    INFO_BIASCOR.TABLEVAR.EVENT_RANGE[ifile][0] = ISTART ;
-    INFO_BIASCOR.TABLEVAR.EVENT_RANGE[ifile][1] = ISTART + NROW - 1;
-    sprintf(INFO_BIASCOR.TABLEVAR.INPUT_FILE[ifile],"%s", simFile);
-    store_input_varnames(ifile, &INFO_BIASCOR.TABLEVAR) ;
+    TABLEVAR->EVENT_RANGE[ifile][0] = ISTART ;
+    TABLEVAR->EVENT_RANGE[ifile][1] = ISTART + NROW - 1;
+    sprintf(TABLEVAR->INPUT_FILE[ifile],"%s", simFile);
+    store_input_varnames(ifile, TABLEVAR) ;
   }
 
 
@@ -9720,11 +9720,66 @@ void  read_simFile_biasCor(void) {
   print_cputime(t_read_biasCor[0], str_cputime, UNIT_TIME_MINUTE, 0);
 
   
-  if ( INPUTS.check_duplicates_biasCor ) {   check_duplicates_util(EVENT_TYPE_BIASCOR); }
+  if ( INPUTS.check_duplicates_biasCor ) { check_duplicates_util(EVENT_TYPE_BIASCOR); }
 
+  check_valid_biasCor(TABLEVAR);
+    
   return ;
 } // end read_simFile_biasCor
 
+
+// ====================================================
+void check_valid_biasCor(TABLEVAR_DEF *TABLEVAR) {
+
+  // May 1 2024
+  // Check that biasCor has some true SNIa, and a few required variables.
+  // This is not an exhaustive check, but will catch glaring mistakes
+  // such as leaving out the SIM_xxx quantities.
+
+  int NIa=0, i, index, evt_Ia = -9 ;
+  char fnam[] = "check_valid_biasCor";
+
+  // ------------- BEGIN --------------
+
+  for(i=0; i < TABLEVAR->NSN_ALL; i++ ) {
+    index = TABLEVAR->SIM_TEMPLATE_INDEX[i];
+    if ( index == 0 ) { NIa++ ; evt_Ia=i ; }  // true SNIa
+  }
+
+  if ( NIa < 10 ) {
+    sprintf(c1err,"Found %d true SNIa for BiasCor", NIa);
+    sprintf(c2err,"Either generate more or check SIM_TEMPALTE_INDEX in FITRES file");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+      
+  int ivar, NVAR_CHECK = 4;
+  char SIM_VARNAMES[4][20] = { "SIM_ZCMB", "SIM_DLMAG", "", "" }; 
+  sprintf(SIM_VARNAMES[2],"%s", BIASCOR_NAME_LCFIT[INDEX_s] );
+  sprintf(SIM_VARNAMES[3],"%s", BIASCOR_NAME_LCFIT[INDEX_c] );
+  double SIM_VALUES[4] = {
+    TABLEVAR->SIM_ZCMB[evt_Ia], TABLEVAR->SIM_MU[evt_Ia],
+    TABLEVAR->SIM_FITPAR[INDEX_s][evt_Ia],  TABLEVAR->SIM_FITPAR[INDEX_c][evt_Ia]
+  } ; 
+
+  int NERR = 0;
+  double VAL;
+  for (ivar = 0; ivar < NVAR_CHECK; ivar++ ) {
+    VAL = SIM_VALUES[ivar];
+    if ( VAL == -9.0 ) {
+      NERR++ ;
+      printf(" %s WARNING: undefined %s in biasCor\n", fnam, SIM_VARNAMES[ivar]);
+      fflush(stdout);
+    }
+  }
+  if ( NERR > 0 ) {
+    sprintf(c1err,"Missing SIM_[XXX] variables. ");
+    sprintf(c2err,"Check simfile_biascor FITRES file (created by LCFIT program)");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+  
+  return ;
+  
+} // end check_valid_biasCor
 
 // ==========================================
 void set_simFile_biasCor_to_dataFile(void) {
@@ -9762,7 +9817,7 @@ void set_DUST_FLAG_biasCor(void) {
   // with p2 value which is the approximated fitted beta. 
   // Beware that BS21 model does not predict a true SIM_BETA.
 
-  int SIM_NONIA_INDEX, isn, NSN_CHECK = 20, nav=0, nia=0 ;
+  int SIM_TEMPLATE_INDEX, isn, NSN_CHECK = 20, nav=0, nia=0 ;
   double SIM_AV, Alpha, Beta ;
   char fnam[] = "set_DUST_FLAG_biasCor" ;
 
@@ -9773,8 +9828,8 @@ void set_DUST_FLAG_biasCor(void) {
   for ( isn=0; isn < NSN_CHECK; isn++ ) {
 
     // ensure SNIa     
-    SIM_NONIA_INDEX = INFO_BIASCOR.TABLEVAR.SIM_NONIA_INDEX[isn];
-    if ( SIM_NONIA_INDEX != 0 ) { continue; }
+    SIM_TEMPLATE_INDEX = INFO_BIASCOR.TABLEVAR.SIM_TEMPLATE_INDEX[isn];
+    if ( SIM_TEMPLATE_INDEX != 0 ) { continue; }
 
     nia++ ;
     SIM_AV = INFO_BIASCOR.TABLEVAR.SIM_AV[isn];
@@ -11397,7 +11452,7 @@ void  store_iaib_biasCor(void) {
 
   for(i=0; i < NSN; i++ ) {
 
-    if ( INFO_BIASCOR.TABLEVAR.SIM_NONIA_INDEX[i] != 0 ) { continue ; }
+    if ( INFO_BIASCOR.TABLEVAR.SIM_TEMPLATE_INDEX[i] != 0 ) { continue ; }
 
     ID  = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[i];
     if ( ID < 0 ) { continue ; }
@@ -14205,7 +14260,7 @@ void  get_BININFO_biasCor_abg(char *varName,
   valbin_loc =  0.0 ;
 
   NROW         = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
-  ptrVal_index = INFO_BIASCOR.TABLEVAR.SIM_NONIA_INDEX;
+  ptrVal_index = INFO_BIASCOR.TABLEVAR.SIM_TEMPLATE_INDEX;
   ptr_IDSURVEY = INFO_BIASCOR.TABLEVAR.IDSURVEY ;   
   if ( strcmp(varName,"SIM_alpha") == 0 ) { 
     ptrVal_f = INFO_BIASCOR.TABLEVAR.SIM_ALPHA ; NBMAX=MXa; 
@@ -14824,8 +14879,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
 	INFO_CCPRIOR.TABLEVAR.fitpar[ipar][isn];
     }
 
-    INFO_CCPRIOR.TABLEVAR_CUTS.SIM_NONIA_INDEX[icc]  = 
-      INFO_CCPRIOR.TABLEVAR.SIM_NONIA_INDEX[isn];
+    INFO_CCPRIOR.TABLEVAR_CUTS.SIM_TEMPLATE_INDEX[icc]  = 
+      INFO_CCPRIOR.TABLEVAR.SIM_TEMPLATE_INDEX[isn];
 
     INFO_CCPRIOR.TABLEVAR_CUTS.IDSURVEY[icc] = 
       INFO_CCPRIOR.TABLEVAR.IDSURVEY[isn];
@@ -15366,7 +15421,7 @@ void zero_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO) {
 } // end zero_contam_CCprior
 	 
 void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
-			double xhisto, int SIM_NONIA_INDEX) {
+			double xhisto, int SIM_TEMPLATE_INDEX) {
 
   // Sep 26 2019:
   // Increment histogram of CC contamination vs. xhisto (mures,z, etc ...)
@@ -15404,7 +15459,7 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
   
   // - - - - - - SUM TRUTH for SIM DATA - - - - - 
   if ( IS_SIM ) {    
-    if ( SIM_NONIA_INDEX == 0 ) {
+    if ( SIM_TEMPLATE_INDEX == 0 ) {
       CONTAM_INFO->NTRUE_TOT_IA++ ;
       CONTAM_INFO->ntrue_Ia[ibin]++ ;
     }
@@ -15451,7 +15506,7 @@ void print_contam_CCprior(FILE *fp) {
   CONTAM_INFO_DEF CONTAM_REDSHIFT_BINS;
 
   int   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ; 
-  int   i, SIM_NONIA_INDEX;
+  int   i, SIM_TEMPLATE_INDEX;
   char fnam[] = "print_contam_CCprior";
 
   // -------------- BEGIN --------------
@@ -15468,12 +15523,12 @@ void print_contam_CCprior(FILE *fp) {
     mures    = INFO_DATA.mures[i];
     probcc   = INFO_DATA.probcc_beams[i] ;
     probIa   = 1.0 - probcc ;
-    SIM_NONIA_INDEX = INFO_DATA.TABLEVAR.SIM_NONIA_INDEX[i];
+    SIM_TEMPLATE_INDEX = INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[i];
 
     sum_contam_CCprior(&CONTAM_MURES_BINS,    probIa, mures,
-		       SIM_NONIA_INDEX); 
+		       SIM_TEMPLATE_INDEX); 
     sum_contam_CCprior(&CONTAM_REDSHIFT_BINS, probIa, zhd,
-		       SIM_NONIA_INDEX); 
+		       SIM_TEMPLATE_INDEX); 
   }
 
   print_table_CONTAM_INFO(fp, &CONTAM_MURES_BINS);
@@ -15988,7 +16043,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT ;
-  int  sntype, SIM_NONIA_INDEX, idsample, idsurvey, IZBIN ;
+  int  sntype, SIM_TEMPLATE_INDEX, idsample, idsurvey, IZBIN ;
   bool BADERR=false, BADCOV=false, sel ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
@@ -16031,7 +16086,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     COV_x1c   = (double)TABLEVAR->covmat_fit[isn][INDEX_s][INDEX_c];
   }
 
-  SIM_NONIA_INDEX = (int)TABLEVAR->SIM_NONIA_INDEX[isn] ;
+  SIM_TEMPLATE_INDEX = (int)TABLEVAR->SIM_TEMPLATE_INDEX[isn] ;
 
 
   // =======================================
@@ -16139,7 +16194,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   if ( IS_DATA ) {
     // check pre-scale if data is from a simulation
-    REJECT = prescale_reject_simData(SIM_NONIA_INDEX);
+    REJECT = prescale_reject_simData(SIM_TEMPLATE_INDEX);
     if ( REJECT )
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
@@ -16154,7 +16209,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
   else if ( IS_BIASCOR ) { 
     
-    if ( SIM_NONIA_INDEX != 0 ) 
+    if ( SIM_TEMPLATE_INDEX != 0 ) 
       { setbit_CUTMASK(isn, CUTBIT_TRUESNIa, TABLEVAR); }
         
     if ( idsample < 0 )
@@ -16184,7 +16239,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
   else if ( IS_CCPRIOR ) {
    
-    if ( SIM_NONIA_INDEX == 0 ) // require true SNCC
+    if ( SIM_TEMPLATE_INDEX == 0 ) // require true SNCC
       { setbit_CUTMASK(isn, CUTBIT_TRUESNCC, TABLEVAR); }
     
     if ( idsample < 0 )
@@ -16310,7 +16365,7 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
 } // END selectCID_data
 
 // =============================================
-int prescale_reject_simData(int SIM_NONIA_INDEX) {
+int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
 
   // Created Apr 14 2017 by R.Kessler
   // For simulated data, check prescales to see if this event is rejected:
@@ -16342,7 +16397,7 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   if ( fmodf( XN, XNPS ) != 0 )  { REJECT = 1 ; }
 
   // increment separate NSIMCC counter
-  if ( SIM_NONIA_INDEX > 0 ) {
+  if ( SIM_TEMPLATE_INDEX > 0 ) {
     NSIMCC++ ;
     XN    = (float)NSIMCC ;
     XNPS  = (float)INPUTS.prescale_simCC ;
@@ -16350,7 +16405,7 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
     if ( INPUTS.prescale_simCC > 9999.0 ) { REJECT=1 ; }
   }
 
-  if ( SIM_NONIA_INDEX == 0 ) {
+  if ( SIM_TEMPLATE_INDEX == 0 ) {
     NSIMIa++ ;
     XN    = (float)NSIMIa ;
     XNPS  = (float)INPUTS.prescale_simIa ;
@@ -23295,7 +23350,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // -------------------------------------
 
   // loop over sim data and set make to keep/reject based on GENPDF map
-  int isn, istat, SIM_NONIA_INDEX, NKEEP_ORIG=0, NKEEP_REWGT=0 ;
+  int isn, istat, SIM_TEMPLATE_INDEX, NKEEP_ORIG=0, NKEEP_REWGT=0 ;
   bool LDMP, KEEP ;
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL;
   char *name;
@@ -23308,12 +23363,12 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     PROB_SIMREF     = 1.0;
     PROB_TOT        = 1.0;
     name            = INFO_DATA.TABLEVAR.name[isn];
-    SIM_NONIA_INDEX = INFO_DATA.TABLEVAR.SIM_NONIA_INDEX[isn];
+    SIM_TEMPLATE_INDEX = INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[isn];
     //    CUTMASK         = INFO_BIASCOR.TABLEVAR.CUTMASK[isn] ;
     SUBPROCESS.KEEP_AFTER_REWGT[isn] = KEEP = false;
     LDMP            = SUBPROCESS.DUMPFLAG_REWGT[isn];
 
-    if ( SIM_NONIA_INDEX > 0 ) { continue; } // reject of not true SNIa
+    if ( SIM_TEMPLATE_INDEX > 0 ) { continue; } // reject of not true SNIa
     //    if ( CUTMASK != 0        ) { continue; }
 
     NKEEP_ORIG++ ;

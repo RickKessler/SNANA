@@ -3275,7 +3275,6 @@ void check_duplicates_util(int EVENT_TYPE) {
 
   for ( isn=0; isn < nsn-1; isn++ ) {
     unsort  = unsortList[isn];
-
     z = zList[unsort];
     c = cList[unsort]; 
     s = sList[unsort]; 
@@ -4136,7 +4135,6 @@ void *MNCHI2FUN(void *thread) {
     muerrsq  = fcn_muerrsq(name, alpha, beta, gamma, covmat_tot,
 			   z, zmuerr, optmask_muerrsq );
 
-    // B.P - generalise BIASCORLIST.FITPAR[INDEX_*] 
 
     // --------------------------------
     // Compute bias from biasCor sample
@@ -4149,6 +4147,16 @@ void *MNCHI2FUN(void *thread) {
     BIASCORLIST.FITPAR[INDEX_mB] = mb ;
     BIASCORLIST.FITPAR[INDEX_s] = x1 ;
     BIASCORLIST.FITPAR[INDEX_c]  = c ;
+
+    if (ISMODEL_LCFIT_SALT2){             
+      BIASCORLIST.alpha        = alpha ;
+      BIASCORLIST.beta         = beta ;
+      BIASCORLIST.FITPAR[INDEX_mB] = mb ;
+    }
+    else if (INPUTS.ISMODEL_LCFIT_BAYESN) {       // Put something ??
+      // B.P - generalise BIASCORLIST.FITPAR[INDEX_*]. Maybe DONE 
+    }
+
     muBias = muBiasErr = 0.0 ;  
     muCOVscale =1.0 ;
     muCOVadd = 0.0;
@@ -6439,6 +6447,13 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     if ( IS_DATA ) 
       { TABLEVAR->peakmjd = (float *) malloc(MEMF); MEMTOT += MEMF;  }
 
+
+      for (i=0; i < NLCPAR_LOCAL; i++ ) {
+	TABLEVAR->fitpar[i]     = (float *) malloc(MEMF); MEMTOT+=MEMF;
+	TABLEVAR->fitpar_err[i] = (float *) malloc(MEMF); MEMTOT+=MEMF;
+      }
+
+
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
       TABLEVAR->warnCov       = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
       TABLEVAR->x0            = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -6446,10 +6461,11 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
       TABLEVAR->COV_x0x1      = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->COV_x0c       = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->COV_x1c       = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      for (i=0; i < NLCPAR_LOCAL; i++ ) {
-	TABLEVAR->fitpar[i]     = (float *) malloc(MEMF); MEMTOT+=MEMF;
-	TABLEVAR->fitpar_err[i] = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      }
+      // XXX Mark delete, May 1, 2024
+      //      for (i=0; i < NLCPAR_LOCAL; i++ ) {
+      //	TABLEVAR->fitpar[i]     = (float *) malloc(MEMF); MEMTOT+=MEMF;
+      //	TABLEVAR->fitpar_err[i] = (float *) malloc(MEMF); MEMTOT+=MEMF;
+      // }
     }
     else if ( INPUTS.ISMODEL_LCFIT_BAYESN )  {      
       TABLEVAR->mu            = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -7321,7 +7337,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // zhel -> zHD ok here because cosmodl error mostly drops out in dl-ratio
 
     dl_hd    = cosmodl(zhd,      zhd,      INPUTS.COSPAR); // zhel not needed here
-    dl_sim   = cosmodl(SIM_ZCMB, SIM_ZCMB, INPUTS.COSPAR); // idem
+    dl_sim   = cosmodl(SIM_ZCMB, SIM_ZCMB, INPUTS.COSPAR); // idem 
     dl_ratio = dl_hd/dl_sim ;
     dmu = 5.0*log10(dl_ratio);
     SIM_MUz = SIM_MU + dmu ;
@@ -9268,9 +9284,15 @@ void prepare_biasCor(void) {
 
   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
 
-  if (DOCOR_MUCOVADD) { // link MAD with MUCOVADD; doesnt work without MAD
+  if (DOCOR_MUCOVADD) { // link MAD with MUCOVADD; doesnt work without MAD 
     INPUTS.opt_biasCor |= MASK_BIASCOR_MAD;
+    if (INPUTS.ISMODEL_LCFIT_BAYESN){
+      sprintf(c1err,"MUCOVADD not allowed for BAYESN");
+      sprintf(c2err,"remove %d bit from opt_biascor",MASK_BIASCOR_MUCOVADD);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+    }
   }
+
 
   if ( DOCOR_MU ) 
     { INFO_BIASCOR.ILCPAR_MIN = INDEX_mu; INFO_BIASCOR.ILCPAR_MAX = INDEX_mu;}
@@ -9401,10 +9423,8 @@ void prepare_biasCor(void) {
     compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR );
     compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR );
   }
-
   if ( NDIM_BIASCOR >=5 ) { store_iaib_biasCor(); }
   
-
   print_eventStats(EVENT_TYPE);
 
   //  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
@@ -9419,6 +9439,7 @@ void prepare_biasCor(void) {
     init_sigInt_biasCor_SNRCUT(IDSAMPLE);      
   } 
 
+
   // determine intrinsic scatter matrix on grid of
   // idsample, redshift, alpha, beta
   init_COVINT_biasCor();
@@ -9426,6 +9447,7 @@ void prepare_biasCor(void) {
 
   // get wgted-average z in each user redshift bin for M0-vs-z output
   calc_zM0_biasCor();
+
 
   // ----------------------------------------------------------------
   // -------- START LOOP OVER SURVEY/FIELDGROUP SUB-SAMPLES ---------

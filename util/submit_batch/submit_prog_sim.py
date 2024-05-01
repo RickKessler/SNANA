@@ -2532,7 +2532,7 @@ class Simulation(Program):
         if len(ALL_GENTYPE_TO_NAME) > 0:
             f.write(f"\n")
             f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    (non)Ia  " \
-                    f" transient-Name  \n")
+                    f" transient-Name     FITS-prefix\n")
             for gentype, names in ALL_GENTYPE_TO_NAME.items():
                 f.write(f"    {gentype}:  {names}  \n")
 

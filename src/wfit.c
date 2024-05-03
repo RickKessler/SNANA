@@ -232,8 +232,6 @@
 
 
 #define OPT_RD_CALC     0  // 0=Planck; 1=compute with constant c_s, 2=c_s(z)
-#define FRAC_H0ERR      0.5/67.0
-#define SQFRAC_H0ERR    FRAC_H0ERR*FRAC_H0ERR  // for BAO prior
 
 // ======== global structures ==========
 
@@ -2339,7 +2337,7 @@ void init_bao_prior(int OPT) {
   double frac_rderr   = (double)rderr_Planck/(double)rd_Planck ;
   double sqfrac_H0err = frac_H0err * frac_H0err ;
   double sqfrac_rderr = frac_rderr * frac_rderr ;
-  double sqmean;
+  double mm;
   
   char fnam[] = "init_bao_prior" ;
 
@@ -2441,11 +2439,11 @@ void init_bao_prior(int OPT) {
 
     
     for(i=0; i < NWD; i++ ) {
-      // H0 & rd error is an external (Planck) error, but here we tack it onto
-      // BAO measurement error (instead of model error).
+      // H0 & rd error is an external (Planck) error; here we tack it onto
+      // BAO measurement error instead of floating these parameters in the fit.
       if ( OPT_RD_CALC == 0 ) {
-	sqmean      = BAO_PRIOR.MEAN[i] * BAO_PRIOR.MEAN[i] ;
-	cov_planck  = (sqfrac_H0err + sqfrac_rderr) * sqmean ;
+	mm          = BAO_PRIOR.MEAN[i] * BAO_PRIOR.MEAN[nrow] ;
+	cov_planck  = (sqfrac_H0err + sqfrac_rderr) * mm ;
       }
       else {
 	cov_planck = 0.0 ;

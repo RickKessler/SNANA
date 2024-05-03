@@ -22409,5 +22409,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + hack fix in sigint_muresid_list() to allow for only one
         sig_int attempt of rmsPull is close to 1.
 	
-	
+    wfit.c
+      + for BAO prior, rather than compute rd in model, fix H0 and rd
+        to planck values, and add associated BAO model covariance to
+	BAO cov matrix. Fitting DES-SN5YR + BAO_DESI_2024 with wfit
+	gives consistent om,w0,wa errors as Dynesty;
+	  see https://github.com/RickKessler/SNANA/issues/1342
+	  
 END: 

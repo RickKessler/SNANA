@@ -13323,7 +13323,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
   // A.G.
   OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT) || (strlen(INPUTS.WGTMAP_FILE_SIMSED) > 0);
-  printf("xxx %s OVP = %d\n", fnam, OVP);
+
   if ( OVP > 0 )  { 
     ISIMSED_SELECT  = pick_SIMSED_BY_WGT();
   }

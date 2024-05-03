@@ -5561,7 +5561,10 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   //   + implement debug dump with OPTMASK & 64
   //   + reduce covtotfloor from 0.1^2 to 0.02^2
   //
-
+  // May 2 2024
+  //  + if there is only 1 bin and |rmsPull-1| < 0.001, return sigTmp_store[0].
+  //
+  
   bool LABORT = (OPTMASK & 1) == 0 ;
   bool LTEST  = (OPTMASK & 32) > 0 ;
   bool LDMP   = (OPTMASK & 64) > 0 ;
@@ -5712,17 +5715,16 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
     
     sigTmp -= sigint_bin;
 
-
     if (rmsPull>1.0){ BOUND_ONE = true; }
-
-    //if (sigTmp<sigint_min) { 
-    //  sprintf(c1err,"rmsPull > 1 for sigTmp=%f ???",sigint_min);
-    //  sprintf(c2err,"called from %s",callFun);
-    //  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
-    //}
 
   } // end sigTmnp loop
 
+
+  // - - - - -
+  if ( NBIN_SIGINT == 1 && fabs(rmsPull_store[0]-1.0) < 0.001 )
+    { return sigTmp_store[0] ; }      // May 2 2024 
+
+ 
   bool ONE_TEST = ONE >= rmsPull_store[0] && ONE <= rmsPull_store[NBIN_SIGINT-1];
   if (!ONE_TEST){ 
     print_preAbort_banner(fnam);

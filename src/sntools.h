@@ -90,8 +90,12 @@
 #define wa_DEFAULT             0.0
 #define H0_SALT2            70.0    // km/s/Mpc : tied to SALT2 training
 #define H0_MLCS             65.0    // km/s/Mpc : tied to MLCS training
-#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
 #define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
+
+#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
+#define H0err_Planck        0.5   // 1807.06209 (Planck 2018)
+#define rd_Planck         147.05  // Integral of c_s/H(z)
+#define rderr_Planck       0.30
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s)
 #define LIGHT_A   2.99792458e18     // speed of light (A/s)

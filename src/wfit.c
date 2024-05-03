@@ -231,6 +231,10 @@
 #define DEFAULT_wa_max    +4.0
 
 
+#define OPT_RD_CALC     0  // 0=Planck; 1=compute with constant c_s, 2=c_s(z)
+#define FRAC_H0ERR      0.5/67.0
+#define SQFRAC_H0ERR    FRAC_H0ERR*FRAC_H0ERR  // for BAO prior
+
 // ======== global structures ==========
 
 struct INPUTS {
@@ -420,7 +424,6 @@ struct {
 
 double H0SIG     = 1000.0 ;       // error used in prior
 double c_light   = 299792.458 ;   // speed of light, km/s 
-double c_sound   = 155776.730694; 
 double TWOTHIRD  = 2./3. ;
 double TWO       = 2. ;
 double NEGTHIRD  = -1./3. ;
@@ -501,9 +504,9 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
-void   init_bao_prior_legacy(int OPT) ;
 void   init_bao_cov(void);
-double rd_bao_prior(Cosparam *cpar) ;
+double rd_bao_prior(int OPT, Cosparam *cpar) ;
+double c_sound(int OPT, double z, double H0);
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
 double DV_bao_prior(double z, Cosparam *cpar);
@@ -512,7 +515,6 @@ void   dump_bao_prior(void);
 void   init_cmb_prior(int OPT) ;
 double get_Rcmb_ranshift(void) ;
 double chi2_bao_prior(Cosparam *cpar, double *rd);
-double chi2_bao_prior_legacy(Cosparam *cpar);
 double chi2_cmb_prior(Cosparam *cpar);
 void   get_chi2_priors(Cosparam *cpar, double *chi2_om, double *chi2_cmb,
 		       double *chi2_bao, double *chi2_rd);
@@ -536,12 +538,15 @@ double EofZ(double z, Cosparam *cptr);
 double one_over_EofZ(double z, Cosparam *cptr);
 double codist(double z, Cosparam *cptr); // maybe change name to Ezinv_integral
 void   test_codist(void);
+void   test_c_sound(void);
 
 // Nov 1 2021 R.Kessler - new set of functions to integrate over "a"
 double EofA(double a, Cosparam *cptr);
 double one_over_EofA(double a, Cosparam *cptr);
+double cs_over_EofA(double a, Cosparam *cptr);
 double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
-
+double cs_over_E_integral(double amin, double amax, Cosparam *cptr);
+  
 // from simpint.h
 #define EPS_CONVERGE_POSomm  1.0e-6
 #define EPS_CONVERGE_NEGomm  1.0e-3
@@ -557,6 +562,7 @@ double trapezoid(double (*func)(double, Cosparam *),
 		 double x1, double x2, int n, double s, Cosparam *vptr);
 
 void test_cospar(void);
+
 
 // =============================================
 // ================ MAIN =======================
@@ -580,7 +586,8 @@ int main(int argc,char *argv[]){
   init_stuff(); 
 
   //  test_codist();  only to test r(z) integral
-
+  // test_c_sound();
+  
   // Parse command line args 
   parse_args(argc,argv);
 
@@ -2327,6 +2334,13 @@ void init_bao_prior(int OPT) {
   double z, MEAN, COV;
   FILE *fp;
   int LDMP = 0 ;
+
+  double frac_H0err   = (double)H0err_Planck/(double)H0_Planck ;
+  double frac_rderr   = (double)rderr_Planck/(double)rd_Planck ;
+  double sqfrac_H0err = frac_H0err * frac_H0err ;
+  double sqfrac_rderr = frac_rderr * frac_rderr ;
+  double sqmean;
+  
   char fnam[] = "init_bao_prior" ;
 
   // -----------------BEGIN ------------------
@@ -2409,6 +2423,7 @@ void init_bao_prior(int OPT) {
   }
 
   int nrow = 0, ncov=0 ;
+  double cov_planck;
   while ( fgets(cline, 200, fp) != NULL ) {
     // ignore comment lines 
     if ( commentchar(cline) ) { continue; }
@@ -2423,8 +2438,21 @@ void init_bao_prior(int OPT) {
       sprintf(c2err,"Check %s", bao_file);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
     }
+
+    
     for(i=0; i < NWD; i++ ) {
+      // H0 & rd error is an external (Planck) error, but here we tack it onto
+      // BAO measurement error (instead of model error).
+      if ( OPT_RD_CALC == 0 ) {
+	sqmean      = BAO_PRIOR.MEAN[i] * BAO_PRIOR.MEAN[i] ;
+	cov_planck  = (sqfrac_H0err + sqfrac_rderr) * sqmean ;
+      }
+      else {
+	cov_planck = 0.0 ;
+      }
+      
       sscanf(ptrSplit[i], "%le", &BAO_PRIOR.COV1D[ncov] );
+      BAO_PRIOR.COV1D[ncov]   += cov_planck;
       BAO_PRIOR.COVINV1D[ncov] = BAO_PRIOR.COV1D[ncov]  ; // invert below
       ncov++ ;
     }
@@ -2439,7 +2467,7 @@ void init_bao_prior(int OPT) {
   if ( INPUTS.use_bao == 2 ) { 
     double rd ; 
     HzFUN_INFO_DEF HzFUN;
-    rd = rd_bao_prior(&COSPAR_SIM);
+    rd = rd_bao_prior(OPT_RD_CALC, &COSPAR_SIM);
     
     //printf(" xxx %s rd  = %f \n", fnam, rd);
     for (i=0; i < ndata; i++ ) {
@@ -2496,119 +2524,90 @@ void dump_bao_prior(void) {
   return;
 } // end dump_bao_prior
 
-// =========================================
-void init_bao_prior_legacy(int OPT) {
 
-  // Created Oct 2021 by R.Kessler
-  // OPT= -9 --> set all params to -9
-  //               (before reading user input)
-  // OPT= +1 --> set params to measured or sim values.
-  //               (after reading user input)
-  //
-  // Nov 24 2021: BAO from SDSSIV is new default.
-  //              legacy prior used if debug_flag = -7
-  //
-  // Mar 09 2022: remove LEGACY flag
+double rd_bao_prior(int OPT, Cosparam *cpar) {
 
-  int iz;
-  char *comment = BAO_PRIOR.comment;
-  char fnam[] = "init_bao_prior_legacy" ;
-
-  // -----------------BEGIN ------------------
-
-  /* xxxxxx mark 
-  if ( OPT == -9 ) {
-    BAO_PRIOR.use_sdss  = false;
-    BAO_PRIOR.use_sdss4 = false;
-
-    BAO_PRIOR.a_sdss    = -9.0 ;
-    BAO_PRIOR.siga_sdss = -9.0 ;
-    BAO_PRIOR.z_sdss    = -9.0 ;
-
-    BAO_PRIOR.rd_sdss4    = -9.0 ;
-    for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-      BAO_PRIOR.z_sdss4[iz]  = -9.0 ;
-      BAO_PRIOR.DMrd_sdss4[iz] = -9.0 ;
-      BAO_PRIOR.DHrd_sdss4[iz] = -9.0 ;
-    }
-
-    BAO_PRIOR.comment[0] = 0;
-    
-    return;
-  }
+  // OPT = 0 -> Planck value
+  // OPT = 1 -> compute integral with constant c_s
+  // OPT = 2 -> compute integral with c_s(z)
   
-  // - - - - - - - - - - - - -
-  BAO_PRIOR.use_sdss4  = true ;
-
-  // Default values from SDSS4
-  BAO_PRIOR.rd_sdss4 = -9.0 ;
-  for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-    BAO_PRIOR.z_sdss4[iz]       = z_sdss4_DEFAULT[iz];
-    BAO_PRIOR.DMrd_sdss4[iz]    = DMrd_sdss4_DEFAULT[iz];
-    BAO_PRIOR.DHrd_sdss4[iz]    = DHrd_sdss4_DEFAULT[iz];
-    BAO_PRIOR.sigDMrd_sdss4[iz] = sigDMrd_sdss4_DEFAULT[iz];
-    BAO_PRIOR.sigDHrd_sdss4[iz] = sigDHrd_sdss4_DEFAULT[iz];
-  }
-  // keep loading all 7 z ranges ...
-  sprintf(comment,"BAO prior from SDSS-IV (Alam 2020)" );
-  
-  // - - - - - -
-  // check option to compute BAO params from sim cosmology
-  if ( INPUTS.use_bao == 2 ) { 
-    double rd,z, DM, DH;
-    HzFUN_INFO_DEF HzFUN;
-    rd = rd_bao_prior(&COSPAR_SIM);
-    for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-      z = BAO_PRIOR.z_sdss4[iz];
-      DM = DM_bao_prior(z, &COSPAR_SIM);
-      DH = DH_bao_prior(z, &COSPAR_SIM);
-      BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ;
-      BAO_PRIOR.DHrd_sdss4[iz] = DH/rd ;
-    }
-    sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
-  }
-  init_bao_cov();
-  return ;
-
-  xxxxxxxxx end xxxxxx */
-  
-} // end init_bao_prior_legacy
-
-
-double rd_bao_prior( Cosparam *cpar) {
   // Compute drag epochs rd.
   // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
-  // c_s= 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) )  Davis et al, Page 4.
+  // c_s= c_light/sqrt[3*(1 + 3*Om_b / 4*Om_gamma)]    Davis et al, Page 4.
   // Om_b ~ 0.02/h^2                                   Davis T. Note
-  // Om_g ~ 2.469 * 10e-5 * T_CMB / 2.725              Davis et al, after eq. 15 
-  double H0      = H0_Planck;
-  double c_sound = 0.9 * c_light / sqrt(3.0); // Davis internal note
-  double h       = H0 / 100.0 ;
-  double Om_b = 0.02 / (h * h), Om_gamma = 2.46*0.00001;
-  //c_sound = 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) ); 
-  double z_d    = 1060.0 ;
-  double amin   = 1.0E-6,  amax = 1.0/(1+z_d);
-  double Hinv_integ, Einv_integ, rd = 1.0;
+  // Om_g ~ 2.469 * 10e-5 * T_CMB / 2.725              Davis et al, after eq. 15
+
+  double z_d    = 1060.0 ;  
+  double H0     = H0_Planck;
+
+  int OPT_c_sound  = 1;  // 1 = simple approx, 2= Om_[b,g] dependence
+  double amin   = 1.0E-6,  amax = 1.0/(1.0+z_d);
+  double Hinv_integ, Einv_integ, c_s, rd = 1.0;
   HzFUN_INFO_DEF HzFUN_INFO;
-  bool DO_INTEGRAL = true ; 
   int  LDMP = 0;
   char fnam[] = "rd_bao_prior" ;
+  
   // ---------- BEGIN ----------  
-  // xxx mark   rd = rd_DEFAULT;
-  if ( DO_INTEGRAL  ) {
+
+  if ( OPT == 0 ) {
+    rd = rd_Planck ;
+  }
+  
+  else if ( OPT == 1 ) {
+    // approx c_s = contant
+    c_s = c_sound(OPT_c_sound, z_d, H0_Planck);
     Einv_integ = Eainv_integral(amin, amax, cpar);
     Hinv_integ = Einv_integ / H0 ;
-    rd = c_sound * Hinv_integ  ; 
+    rd = c_s * Hinv_integ  ; 
   }
+  else {
+    // full integral
+    rd = cs_over_E_integral(amin, amax, cpar) / H0;
+  }
+  
   return rd;
 }
 
+
+// ======================================
+double c_sound(int OPT, double z, double H0) {
+
+  // OPT=1 -> simplest approx
+  // OPT=2 -> include dependence om Om_b(z)/Om_g(z)
+  
+  double c_s;
+  double root3_inv = 0.57735 ;  // 1/sqrt(3)
+  double Om_b0     = 0.0225;    // Omega_baryon, today (1/h^2 cancels with Om_g)
+  double Om_g0     = 2.47E-5;   // Omega_gamma, today    
+  double z1        = 1.0 + z;
+  double a         = 1.0/z1 ;
+  char fnam[] = "c_sound" ;
+
+  // ---------- BEGIN ----------
+
+  c_s  = c_light * root3_inv ; // common factors for both methods
+  
+  if (  OPT == 1 ) {
+    c_s *= 0.9 ; // Davis internal note
+  }
+  else if ( OPT == 2 ) {
+    c_s /= sqrt( 1.0 + 0.75*a*(Om_b0/Om_g0) )  ;
+  }
+  else {
+    sprintf(c1err,"Invalid OPT = %d", OPT);
+    sprintf(c2err,"Valid OPT = 1 or 2");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return c_s;
+  
+} // end c_cound
+
 double DM_bao_prior(double z, Cosparam *cpar){
   // Ayan Mitra Nov, 2021
-  double DM = 1.0,  DA, H0 = H0_Planck;
+  double DM = 1.0, H0 = H0_Planck;
   double amin   = 1.,  amax = 1.0/(1+z);
-  double rd = codist(z, cpar);
   double Hinv_integ, Einv_integ;
   HzFUN_INFO_DEF HzFUN_INFO;
   bool DO_INTEGRAL = true ;
@@ -3844,7 +3843,7 @@ void wfit_final(void) {
   printf("\t chi2_prior(CMB) = %8.2f \n" , chi2_cmb);
 
   if ( INPUTS.use_bao > 0 ) {
-    rd = rd_bao_prior(&cpar);
+    rd = rd_bao_prior(OPT_RD_CALC, &cpar);
     printf("\t chi2_prior(BAO)  = %8.2f   (rd=%.2f)\n" , chi2_bao, rd);
     printf("\t chi2_prior(rd)   = %8.2f \n" , chi2_rd);
   }
@@ -4339,15 +4338,16 @@ double chi2_bao_prior(Cosparam *cpar, double *rd_prior) {
   // Refactored Apr 2024 to process more general input from $SNDATA_ROOT/models/BAO.
   // Return chi2 for bao prior.
 
-  double chi2 = 0.0, cov, chi2_tmp, rd_inverse ;
+  double chi2 = 0.0, covinv, chi2_tmp, rd_inverse ;
   int    NDATA = BAO_PRIOR.NDATA;
   int    i, i2, kk, IVAR;
-  double rd, z, mean_meas, mean_model, dif[MXDATA_BAO_PRIOR];
+  double rd, z, mean_meas, mean_model;
+  double dif_vector[MXDATA_BAO_PRIOR], mean_model_vector[MXDATA_BAO_PRIOR];
   char   fnam[] = "chi2_bao_prior" ;
 
   // ------------ BEGIN -------------
 
-  rd = rd_bao_prior(cpar);
+  rd = rd_bao_prior(OPT_RD_CALC, cpar);
   *rd_prior = rd;  // return arg
   rd_inverse = 1.0/rd; // multipilcation below is faster than division?
   
@@ -4369,19 +4369,20 @@ double chi2_bao_prior(Cosparam *cpar, double *rd_prior) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);          
     }
 
-    dif[i] = mean_meas - mean_model ;
+    mean_model_vector[i]  = mean_model ;
+    dif_vector[i]         = mean_meas - mean_model ;
 
   } // end i loop over BAO data points
 
   // - - - - - - -
-  // compute chi2, including full cov matrix
+  // compute chi2, including full cov matrix       
   for(i=0; i < NDATA; i++ ) {
     for(i2=i; i2 < NDATA; i2++ ) {
-
-      // xxx kk       = i2*NDATA + i;
+      
       kk       = i*NDATA + i2;
-      cov      = BAO_PRIOR.COVINV1D[kk];
-      chi2_tmp = dif[i] * dif[i2] * cov;
+      covinv   = BAO_PRIOR.COVINV1D[kk];
+      
+      chi2_tmp = dif_vector[i] * dif_vector[i2] * covinv;
       if ( i2 != i ) { chi2_tmp *= 2.0 ; }
       chi2 += chi2_tmp ;      
     }
@@ -4392,80 +4393,6 @@ double chi2_bao_prior(Cosparam *cpar, double *rd_prior) {
     
 } // end chi2_bao_prior
 
-
-// ======================================
-double chi2_bao_prior_legacy(Cosparam *cpar) {
-
-  // Created Oct 2021
-  // Return chi2 for bao prior.
-  // Mar 09 2022 RK - fix bug to allow -bao_sim
-
-  double OM        = cpar->omm ;
-  double rz, tmp1, tmp2, a, z, nsig, E, chi2 = 0.0 ;
-  double DM_rd_measured,  DH_rd_measured,  DMvar, DHvar;
-  double rd_model,dif_M, dif_H, DM_rd_var, DH_rd_var,DH_rd_model,DM_rd_model;
-  int    iz;
-  char   fnam[] = "chi2_bao_prior_legacy" ;
-
-  // ------------ BEGIN -------------
-
-  /* xxxxxxxxxx mark xxxxxxxxx
-
-  if ( BAO_PRIOR.use_sdss4 ) {
-
-    // Alam 2020, SDSS-IV;  Ayan Mitra Nov, 2021    
-    double *z_sdss4 = BAO_PRIOR.z_sdss4;
-    double *DMrd    = BAO_PRIOR.DMrd_sdss4 ;
-    double *DHrd    = BAO_PRIOR.DHrd_sdss4 ;
-    double *sigDMrd = BAO_PRIOR.sigDMrd_sdss4;
-    double *sigDHrd = BAO_PRIOR.sigDHrd_sdss4;
-
-    rd_model      = rd_bao_prior( cpar);
-    for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-      
-      // Measured
-      z               = z_sdss4[iz];
-      DH_rd_measured  = DHrd[iz];
-      DM_rd_measured  = DMrd[iz]; 
-      DM_rd_var       = (sigDMrd[iz] * sigDMrd[iz]); 
-      DH_rd_var       = (sigDHrd[iz] * sigDHrd[iz]);
-
-      if ( DEBUG_TINYERR ) {
-	DM_rd_var *= 0.1 ;
-	DH_rd_var *= 0.1 ;
-      }
-
-      // Model
-      DH_rd_model   = DH_bao_prior(z, cpar)/rd_model ;
-      DM_rd_model   = DM_bao_prior(z, cpar)/rd_model ;
-
-      // measured - model
-      dif_H         = (DH_rd_measured - DH_rd_model);
-      dif_M   	    = (DM_rd_measured - DM_rd_model);
-     
-      chi2 += (dif_H * dif_H) / DH_rd_var;
-      chi2 += (dif_M * dif_M) / DM_rd_var; 
-    }
-  }
-  else if ( BAO_PRIOR.use_sdss ) {
-    // Eisen 2006
-    double z_sdss    = BAO_PRIOR.z_sdss;
-    double a_sdss    = BAO_PRIOR.a_sdss;
-    double siga_sdss = BAO_PRIOR.siga_sdss;
-
-    rz   = codist(z_sdss, cpar);
-    E    = EofZ(z_sdss, cpar) ;
-    tmp1 = pow( E, NEGTHIRD) ;
-    tmp2 = pow( (rz/z_sdss),   TWOTHIRD );
-    a    = sqrt(OM) * tmp1 * tmp2 ;
-    nsig = (a - a_sdss) / siga_sdss ;
-    chi2 = nsig * nsig ;
-  }
-  xxxxxxxx end */
-
-  return chi2;
-    
-} // end chi2_bao_prior_legacy
 
 // ===============================================
 double get_DMU_chi2wOM(double z, double rz, double mu)  {
@@ -4698,6 +4625,12 @@ double Eainv_integral(double amin, double amax, Cosparam *cptr) {
   return simpint(one_over_EofA, amin, amax, cptr);
 }
 
+double cs_over_E_integral(double amin, double amax, Cosparam *cptr) {
+  // Created May 2 2024 by R.Kessler
+  // return integral of c_s/E.
+  return simpint(cs_over_EofA, amin, amax, cptr);
+}
+
 double one_over_EofZ(double z, Cosparam *cptr){
   // This is actually the function that we pass to the integrator.
   return 1./EofZ(z, cptr);
@@ -4706,6 +4639,24 @@ double one_over_EofA(double a, Cosparam *cptr) {
   double Einv     = 1./EofA(a, cptr);
   double Jacobian = 1.0/(a*a);  // dz = da/a^2, Jac=1/a^2
   return Einv * Jacobian;
+}
+
+double cs_over_EofA(double a, Cosparam *cptr) {
+
+  // Created May 2 2024 by R.Kessler
+  //  [not yet used?]
+  double Einv, Jacobian, c_over_E;
+  double z = 1.0/a - 1.0 ;
+  double c_s;
+
+  z        = 1.0/a - 1.0;
+  c_s      = c_sound(2, z, H0_Planck);
+  
+  Einv     = 1./EofA(a,cptr);
+  Jacobian = 1.0/(a*a);  // dz = da/a^2, Jac=1/a^2
+  c_over_E = c_s * Einv * Jacobian ;
+  
+  return c_over_E ;
 }
 
 double EofZ(double z, Cosparam *cptr){
@@ -4871,7 +4822,41 @@ double trapezoid(double (*func)(double, Cosparam *), double x1, double x2,
 }
 
 
-void test_codist() {
+void test_c_sound(void) {
+
+  // Created May 2024
+  Cosparam cpar;
+  double z, cs1, cs2, H0 = H0_Planck; 
+  int iz, nz_list = 7;
+  double z_list[7] = {
+    1060.0, 1200.0, 1500.0, 2000.0, 5000.0, 2.0E4, 5.0E4
+  } ;
+
+  char fnam[] = "test_c_sound";
+
+  // --------- BEGIN -----------
+  
+  cpar.omm  =  0.31;
+  cpar.ome  =  0.69;
+  cpar.w0   = -1.0;
+  cpar.wa   =  0.0;
+  cpar.mushift = 0.0 ;
+
+  for(iz=0; iz < nz_list; iz++ ) {
+    z = z_list[iz];
+    cs1 = c_sound(1, z, H0);
+    cs2 = c_sound(2, z, H0);
+
+    printf(" xxx %s: z=%8.1f  c_s(1,2) = %.3f  %.3f \n",
+	   fnam, z, cs1, cs2);
+    
+  }
+  
+  debugexit(fnam);
+  return ;
+} // end test_c_sound
+
+void test_codist(void) {
 
   // test variables
   int iz;

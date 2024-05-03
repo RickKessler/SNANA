@@ -3076,7 +3076,8 @@ void check_vpec_sign(void) {
       c    = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn] ;
     }
     else if (INPUTS.ISMODEL_LCFIT_BAYESN){
-      mu = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mu][isn] ;
+      //mu = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mu][isn] ; // XXX
+      mu = (double)INFO_DATA.TABLEVAR.mu[isn] ;
     }
     vpec = (double)INFO_DATA.TABLEVAR.vpec[isn] ; 
     zpec = fabs(vpec / LIGHT_km) ;
@@ -7070,6 +7071,23 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     sprintf(vartmp,"DLMAGERR:F  MUERR:F  MU_ERR:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->muerr[ISTART], 
 				   LEN, VBOSE );
+
+    sprintf(vartmp,"THETA:F THETA1:F" ); 
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar[INDEX_s][ISTART],
+                                   LEN, VBOSE);
+
+    
+    sprintf(vartmp,"THETAERR:F THETA1ERR:F" );
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_s][ISTART],
+                                   LEN, VBOSE);
+
+    sprintf(vartmp,"AV:F " );
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar[INDEX_c][ISTART],
+                                   LEN, VBOSE);
+    sprintf(vartmp,"AVERR:F" );
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_c][ISTART],
+                                   LEN, VBOSE);
+
     
     if ( ivar < 0 ) {
       sprintf(c1err,"Could not find table colummn %s", vartmp);
@@ -7096,7 +7114,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->host_logmass[ISTART],
                                    LEN, VBOSE );
   }
-
   if ( IS_DATA ) { // Jan 28 2021
       sprintf(vartmp,"PKMJD:F" ) ;
       ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->peakmjd[ISTART], 
@@ -7124,7 +7141,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
       set_DOFLAG_CUTWIN(ivar, icut, IS_DATA) ;
 
   } // end icut
-
 
   // - - - - - - - - SIM_XXX - - - - - - - - - -
   sprintf(vartmp,"SIM_NONIA_INDEX:S SIM_TEMPLATE_INDEX:S" );
@@ -7171,6 +7187,13 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
 			    LEN, VBOSE);
 
+    
+    /// Read SIM_AV as an optional/additional c parameter
+    sprintf(vartmp,"SIM_AV:F" );
+    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_AV[ISTART],
+                          LEN, VBOSE);
+    
+
     sprintf(vartmp,"SIM_alpha:F SIMalpha:F" ) ;
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_ALPHA[ISTART],
 				 LEN, VBOSE );
@@ -7179,13 +7202,18 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 				 LEN, VBOSE );
   }
   else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
-    // ??
-  } 
+    sprintf(vartmp,"SIM_THETA:F SIM_THETA1:F " );
+    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_s][ISTART],
+                            LEN, VBOSE);
 
-  sprintf(vartmp,"SIM_AV:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_AV[ISTART], 
-			  LEN, VBOSE);
-
+    // Read SIM_AV as a color parameter analogous to SALT2 c
+    sprintf(vartmp,"SIM_AV:F" );
+    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART],
+                          LEN, VBOSE);
+   
+    
+  }   
+  
   sprintf(vartmp,"SIM_gammaDM:F" ) ; 
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_GAMMADM[ISTART],
 				 LEN, VBOSE );
@@ -9754,8 +9782,8 @@ void check_valid_biasCor(TABLEVAR_DEF *TABLEVAR) {
       
   int ivar, NVAR_CHECK = 4;
   char SIM_VARNAMES[4][20] = { "SIM_ZCMB", "SIM_DLMAG", "", "" }; 
-  sprintf(SIM_VARNAMES[2],"%s", BIASCOR_NAME_LCFIT[INDEX_s] );
-  sprintf(SIM_VARNAMES[3],"%s", BIASCOR_NAME_LCFIT[INDEX_c] );
+  sprintf(SIM_VARNAMES[2],"SIM_%s", BIASCOR_NAME_LCFIT[INDEX_s] );
+  sprintf(SIM_VARNAMES[3],"SIM_%s", BIASCOR_NAME_LCFIT[INDEX_c] );
   double SIM_VALUES[4] = {
     TABLEVAR->SIM_ZCMB[evt_Ia], TABLEVAR->SIM_MU[evt_Ia],
     TABLEVAR->SIM_FITPAR[INDEX_s][evt_Ia],  TABLEVAR->SIM_FITPAR[INDEX_c][evt_Ia]

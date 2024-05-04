@@ -3242,7 +3242,7 @@ void wfit_uncertainty_fitpar(char *varname) {
   double *sig_std, *sig_upper, *sig_lower, sqdelta, delta ;
   double val, val_min, val_max, val_mean, val_step ;
   double val_sum,  probsum, cdf_find, cdf_max ;
-  double *val_array, *prob_array, *cdf_array ;
+  double *val_array, *prob_array, *cdf_array, STD_WARN ;
   int  i, n_steps;
   char fnam[] = "wfit_uncertainty_fitpar";
 
@@ -3257,7 +3257,7 @@ void wfit_uncertainty_fitpar(char *varname) {
     val_max  =  INPUTS.omm_max;
     val_step =  INPUTS.omm_stepsize;
     val_mean =  WORKSPACE.omm_mean;
-    probsum  =  WORKSPACE.omm_probsum;
+    probsum  =  WORKSPACE.omm_probsum;    
 
     val_array     =  WORKSPACE.omm_val ;
     prob_array    =  WORKSPACE.omm_prob;
@@ -3322,7 +3322,11 @@ void wfit_uncertainty_fitpar(char *varname) {
   *sig_std = sqrt(sqdelta/probsum);
   printf("\t STD %s_sig estimate = %.4f (use=%d)\n",
 	 varname, *sig_std, INPUTS.use_sig_std );
-  
+
+  if ( INPUTS.dofit_w0wa  &&  *sig_std < 0.01 ) {
+    WORKSPACE.NWARN++ ;
+    printf(" WARNING-%s: STD too small, likley BBC problem with MUERR\n", varname);
+  }
 
   // - - - -
   cdf_find = (0.5 - PROBSUM_1SIGMA/2.0);

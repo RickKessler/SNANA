@@ -3747,7 +3747,8 @@ bool crazy_M0_errors(void) {
 	     "M0ERR=%.5f ERRMAX_CRAZY=%.1f  NEVT=%d\n", 
 	     iz, z, ERR, ERRMAX_CRAZY, NEVT); 
       fflush(stdout);
-      n_crazy_M0_error++ ; 
+      n_crazy_M0_error++ ;
+      sprintf(string_flag,"HAS_CRAZY_ERRORS");
     }
   }
   

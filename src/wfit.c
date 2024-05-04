@@ -3319,6 +3319,15 @@ void wfit_uncertainty_fitpar(char *varname) {
     sqdelta += prob_array[i] * (delta*delta);   
     if ( i > 0 ) { cdf_array[i] = cdf_array[i-1] + prob_array[i]; }
   }
+
+  cdf_max  = cdf_array[n_steps-1] ;
+  if ( cdf_max < 0.8 ) {
+    printf(" WARNING-%s: cdf_max = %le (should be 1.0); check fitpar bounds.",
+	   varname, cdf_max);    fflush(stdout);    
+    WORKSPACE.NWARN++ ;
+    return;
+  }
+  
   *sig_std = sqrt(sqdelta/probsum);
   printf("\t STD %s_sig estimate = %.4f (use=%d)\n",
 	 varname, *sig_std, INPUTS.use_sig_std );
@@ -3328,13 +3337,13 @@ void wfit_uncertainty_fitpar(char *varname) {
     printf(" WARNING-%s: STD too small, likley BBC problem with MUERR\n", varname);
   }
 
+  
   // - - - -
   cdf_find = (0.5 - PROBSUM_1SIGMA/2.0);
   val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
   *sig_lower = val_mean - val;
 
   cdf_find = (0.5 + PROBSUM_1SIGMA/2.0);
-  cdf_max  = cdf_array[n_steps-1] ;
   if (cdf_max < 0.9999 ) {
     printf(" WARNING-%s: cdf_max = %f (not 1); rescale prob\n", varname, cdf_max);
     cdf_find *= cdf_max ;

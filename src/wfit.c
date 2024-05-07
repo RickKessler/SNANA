@@ -224,7 +224,7 @@
 
 #define DEFAULT_w0_steps   201
 #define DEFAULT_w0_min    -2.0
-#define DEFAULT_w0_max    +2.0
+#define DEFAULT_w0_max    +0.0
 
 #define DEFAULT_wa_steps   101
 #define DEFAULT_wa_min    -4.0
@@ -390,6 +390,7 @@ typedef struct {
 HD_DEF HD_LIST[2];
 
 Cosparam COSPAR_SIM ; // cosmo params from simulated data 
+Cosparam COSPAR_LCDM; // w0,wa = -1,0
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
@@ -608,11 +609,6 @@ int main(int argc,char *argv[]){
 
     // for large samples, setup logz grid to interpolate rz(z)
     init_rz_interp(&HD_LIST[0]);
-
-    /* xxx mark delete Dec 18 2023 xxxxxx
-    for(f=0; f < INPUTS.NHD; f++ )
-      { init_rz_interp(&HD_LIST[f]); }
-    xxxx xxxx */
     
     // Set BAO and CMB priors
     set_priors();
@@ -1212,6 +1208,12 @@ void parse_args(int argc, char **argv) {
   COSPAR_SIM.w0  = INPUTS.w0_SIM;
   COSPAR_SIM.wa  = INPUTS.wa_SIM;
   COSPAR_SIM.mushift  = 0.0 ;
+
+  COSPAR_LCDM.omm =  INPUTS.OMEGA_MATTER_SIM ;
+  COSPAR_LCDM.ome =  1.0 - INPUTS.OMEGA_MATTER_SIM ;
+  COSPAR_LCDM.w0  = -1.0 ;
+  COSPAR_LCDM.wa  =  0.0 ;
+  COSPAR_LCDM.mushift  = 0.0 ;
 
   return;
 
@@ -2162,6 +2164,18 @@ void set_priors(void) {
 	   INPUTS.OMEGA_MATTER_SIM, INPUTS.w0_SIM, INPUTS.wa_SIM );
   }
 
+  // print a few computed mu resids at simCospar values
+  double z, rz, mu_sim, mu_lcdm;
+  printf("\n   Ref sim distance resids:\n");
+  for (z=0.5; z <=3.0; z+=0.5) {
+    rz      =  codist( z, &COSPAR_SIM) ;
+    mu_sim  =  get_mu_cos(z,rz) ;
+    rz      =  codist( z, &COSPAR_LCDM) ;
+    mu_lcdm =  get_mu_cos(z,rz) ;
+    printf("\t z=%.2f  mu(sim) - mu(LCDM) = %.3f - %3f = %.3f \n",
+	   z, mu_sim, mu_lcdm, mu_sim-mu_lcdm );
+  }
+  
   fflush(stdout);
 
   return;
@@ -4915,7 +4929,6 @@ void test_codist(void) {
       printf("    Z=%7.2f  ra/rz = %f   ra/codist = %f \n", 
 	     Ztmp, ra/rz, ra/rcodist );
     }
-
 
   }
 

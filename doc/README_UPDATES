@@ -22415,5 +22415,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	BAO cov matrix. Fitting DES-SN5YR + BAO_DESI_2024 with wfit
 	gives consistent om,w0,wa errors as Dynesty;
 	  see https://github.com/RickKessler/SNANA/issues/1342
-	  
+
+   sntools_host.c
+      + add WEAKLENS_DMU to list of optional HOSTLIB columns.
+      
 END: 

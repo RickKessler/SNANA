@@ -534,7 +534,8 @@ void init_OPTIONAL_HOSTVAR(void) {
   //
   // Jan 30 2015: allow RA or RA_HOST, DEC or DEC_HOST
   // May 23 2020: add VPEC and VPEC_ERR
-
+  // May 07 2024: add WEAKLENS_DMU
+  
   int NVAR, j, ifilt, ifilt_obs ;
   char anam[12], bnam[12], wnam[12], nnam[12];
   char varName[40], *cptr ;
@@ -629,6 +630,9 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
   sprintf(cptr,"%s", HOSTLIB_VARNAME_ANGLE );
+
+  cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_WEAKLENS_DMU );  
 
   char varName_err[50]; 
   // check for observer-frame mags '[filt]_obs' 

@@ -22402,6 +22402,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
          *****  MISCELLANEOUS(v11_05n) *****
 
+    snana.car
+      + inside MNFIT_DRIVER, return IERR=1001 if any FITVAL (from MNPOUT)
+        is NaN. This is to avoid crash for single Roman event using zphot
+	fit ... unable to find source of NaN using debugger and valgrind.
+	
     SALT2mu.c:
       + add abort trap if SIM_XXX vars are missing from biasCor.
       

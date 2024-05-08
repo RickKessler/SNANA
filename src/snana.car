@@ -99,7 +99,8 @@ c
      &  ,IFLAG_INI, IFLAG_ANA, IFLAG_END
      &  ,MASK_FLUXCOR_SNANA, MASK_FLUXERRCOR_SNANA
      &  ,EXIT_ERRCODE_SNANA, EXIT_ERRCODE_SNFIT, EXIT_ERRCODE_PSNID
-
+     &  ,ERRFLAG_MNFIT_INITPAR, ERRFLAG_MNFIT_FIXPAR, ERRFLAG_MNFIT_NAN
+     
       REAL*8 
      &   ZERO8, ONE8, TEN8,  PI, LOGTEN
      &  ,PDFMIN, PDFMAX_EDGE, PDFMIN_GOOD
@@ -317,6 +318,9 @@ c
      &  ,EXIT_ERRCODE_SNANA = 21
      &  ,EXIT_ERRCODE_SNFIT = 22
      &  ,EXIT_ERRCODE_PSNID = 23
+     &  ,ERRFLAG_MNFIT_INITPAR = 91
+     &  ,ERRFLAG_MNFIT_FIXPAR  = 92
+     &  ,ERRFLAG_MNFIT_NAN     = 93
      &      )
 
 c physical constants
@@ -9756,7 +9760,7 @@ c call main driver for fitter.
 c Note that all returned output from MNFIT_DRIVER goes to common blocks.
 
           CALL MNFIT_DRIVER ( 
-     &       SNLC_CID, NFITPAR_MN                 ! (I)
+     &       SNLC_CCID, NFITPAR_MN                ! (I)
      &      ,INIVAL, INISTP, INIBND               ! (I)
      &      ,PARNAME_STORE                        ! (I)
      &      ,USE_MINOS_LOCAL                      ! (I)
@@ -9770,6 +9774,13 @@ c Note that all returned output from MNFIT_DRIVER goes to common blocks.
      &      ,IERR                                 ! (O)
      &            )   
 
+c bail on error
+         IF ( IERR > 90 ) THEN  ! May 2024
+	   ERRFLAG_FIT = IERR
+	   REJECT_FIT = .TRUE.
+           GOTO 410
+         ENDIF
+	 
 c avoid infinite loop with MNFIT calls ...
          NCALL_MNFIT = NCALL_MNFIT + 1
          IF  ( NCALL_MNFIT .GT. 2*MXITER ) THEN
@@ -9781,7 +9792,6 @@ c avoid infinite loop with MNFIT calls ...
          ENDIF
 
 c  store fit results
-
          CALL MNFIT_STOREPAR(iter,IERR) 
 
 c analyze results: returns ERRFLAG_FIT
@@ -30768,7 +30778,7 @@ C =======================
 C ==============================================
 +DECK,MNFIT_DRIVER.
       SUBROUTINE MNFIT_DRIVER ( 
-     &   CID         ! (I) cand id
+     &   CCID        ! (I) cand id
      &  ,NFITPAR     ! (I) number of fit parameters
      &  ,INIVAL      ! (I) initial parmater values
      &  ,INISTP      ! (I) initial step sizes (0=> fixed parameter)
@@ -30803,6 +30813,7 @@ c May 21, 2012: set print level using SNLCINP namelist MINUIT_PRINT_LEVEL
 c
 c Jan 03 2016: pass new output arg MNSTAT_COV
 c Apr 19 2022: set DO_PRINT for printing to suppress STDOUT for batch jobs
+c May 08 2024: return IERR !=0  on NaN for any fit par value
 c
 c -------------------------------------------------
 
@@ -30810,7 +30821,8 @@ c -------------------------------------------------
 
 c arguments
 
-      INTEGER CID, NFITPAR, NFIXPAR, PRINT_LEVEL 
+      CHARACTER CCID*(*)
+      INTEGER   NFITPAR, NFIXPAR, PRINT_LEVEL 
 
       LOGICAL USE_MINOS  ! (I) 
 
@@ -30826,7 +30838,7 @@ c arguments
       CHARACTER PARNAME(NFITPAR)*20  ! (MXCHAR_PARNAME)
 
       INTEGER ERRTYPE(NFITPAR), MNSTAT_COV
-      INTEGER IERR
+      INTEGER IERR, N_NAN
 
 c local var
 
@@ -30865,7 +30877,8 @@ C Unit numbers for input and output
 C -------------------- BEGIN -------------------------
 
       IERR = 0
-      NFIXPAR = 0
+      N_NAN   = 0
+      NFIXPAR = 0       
       FITCHI2 = 0.0
       DO_PRINT = STDOUT_UPDATE
 C  
@@ -30891,6 +30904,7 @@ C Define parameters in MINUIT
      &       ,IERR   ) 
 +SELF.
          IF ( IERR .NE. 0 ) THEN
+	    IERR = ERRFLAG_MNFIT_INITPAR
             WRITE (6,'(A,A10,A)') '  ERROR initializing ', 
      &            PARNAME(ipar), '  with MNPARM '
             RETURN
@@ -30922,6 +30936,7 @@ c fix param if its step size is zero
          CALL MNEXCM(FCNSNLC,'FIX',FIXLIST, NFIXPAR,IERR,USRFUN)
 +SELF.
          IF ( IERR .NE. 0 ) THEN
+            IERR = ERRFLAG_MNFIT_FIXPAR
             WRITE (6,'(A)') '  ERROR fixing parameters'
             RETURN
          ENDIF
@@ -30990,6 +31005,13 @@ c get the fit result
      &              , FITVAL(IPAR), ERRSYM
      &              , BND1,BND2, IVARBL )
 
+        IF ( ISNAN(FITVAL(IPAR))  ) THEN
+	   N_NAN = N_NAN + 1
+	   write(6,644) PARNAME(IPAR), CCID
+644	   format(' MNFIT_DRIVER ERROR: ', A,' = NaN for CID = ', A)
+           call flush(6)
+        ENDIF
+	
         CALL MNERRS( IPAR, EPLUS, EMINUS, EPARAB, GLOBCC )
 +SELF.
 
@@ -31014,6 +31036,11 @@ c If MINOS errors are zero, then use parabolic error above.
 44    CONTINUE  ! end of loop over IPAR
 
 
+      IF ( N_NAN > 0 ) THEN
+         IERR = ERRFLAG_MNFIT_NAN
+         RETURN  ! May 2024
+      ENDIF
+      
 +SELF,IF=MINUIT.
 c -------------------------------------------------------
 c get chi2 and status; fill FITCHI2 return arg
@@ -31055,7 +31082,7 @@ c Stop fit and make LAST call to function
       CALL MNEXCM(FCNSNLC, 'EXIT',  PARG, 0, IERR, USRFUN )
 +SELF.
       IF ( DO_PRINT ) THEN
-        PRINT *,'  MNFIT_DRIVER: EXIT returns IERR = ', IERR
+        PRINT *,'   MNFIT_DRIVER: EXIT returns IERR = ', IERR
         CALL FLUSH(6)
       ENDIF
 

@@ -419,6 +419,7 @@ double  BIASCOR_MINVAL_BAYESN[3]  = { -9.0, -4.0, +0.00 } ;
 double  BIASCOR_MAXVAL_BAYESN[3]  = { -9.0, +4.0, +1.00 } ;
 double  BIASCOR_BINSIZE_BAYESN[3] = { -9.0,  0.5,  0.10 } ; //0.1 for now 
 char    BIASCOR_NAME_BAYESN[4][8] = { "mB", "theta1", "AV", "mu" } ;
+double  SIM_ABG_BAYESN  = 1.0;   // dummy values for SALT2 alpha, beta, gamma
 
 double  BIASCOR_MINVAL_LCFIT[3]  ; //Set to either SALT2 or BAYESN values
 double  BIASCOR_MAXVAL_LCFIT[3]  ;
@@ -1483,6 +1484,7 @@ void   init_COVINT_biasCor(void);
 void   print_biascor_options(void); 
 void   prepare_CCprior(void);
 
+void   set_INTERPWGT_abg(INTERPWGT_AlphaBetaGammaDM *INTERPWGT, double VAL);
 void   get_INTERPWGT_abg(double alpha,double beta,double gammadm, int DUMPFLAG,
 			INTERPWGT_AlphaBetaGammaDM *INTERPWGT, char *callFun );
 
@@ -1535,6 +1537,7 @@ void  vpec_biasCor(void);
 void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) ;
 void  init_sigInt_biasCor_SNRCUT_legacy(int IDSAMPLE) ;
 void  LOAD_SIGINT_ABGRID(double sigInt, int IDSAMPLE);
+void  get_abg_biasCor(int ievt, double *a, double *b, double *g, char *callFun);
 
 void  makeMap_binavg_biasCor(int ISAMPLE);
 void  makeSparseList_biasCor(void);
@@ -1551,7 +1554,7 @@ void  set_DUST_FLAG_biasCor(void) ;
 void  set_simFile_biasCor_to_dataFile(void);
 
 void  set_MAPCELL_biasCor(int IDSAMPLE) ;
-void  store_iaib_biasCor(void) ;
+void  store_index_abg_biasCor(void) ; // was store_iaib_biasCor
 
 void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) ;
 int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
@@ -3219,6 +3222,7 @@ void check_duplicates_util(int EVENT_TYPE) {
     TABLEVAR = &INFO_BIASCOR.TABLEVAR; 
     sprintf(string_match_varlist,"SIM_[z,c,x]"); // for print-dump only
     sprintf(str_SIM_prefix,"SIM_");
+    str_SIM_prefix[0] = str_SIM_ab[0] = 0;
   }
 
   print_debug_malloc(+1*debug_malloc,fnam);
@@ -3364,7 +3368,7 @@ void check_duplicates_util(int EVENT_TYPE) {
       c      = cList[unsort]; 
       s      = sList[unsort];   
 
-      if ( IS_BIASCOR ) {
+      if ( IS_BIASCOR && INPUTS.ISMODEL_LCFIT_SALT2) {
 	sprintf(str_SIM_ab,"SIM_[a,b] = %.3f %.3f", 
 		TABLEVAR->SIM_ALPHA[unsort], TABLEVAR->SIM_BETA[unsort] );
       }
@@ -4588,6 +4592,33 @@ double fcn_M0(int n, double *M0LIST) {
 
 } // end fcn_M0
 
+
+
+// ==================================================
+void set_INTERPWGT_abg(INTERPWGT_AlphaBetaGammaDM *INTERPWGT, double VAL) {
+
+  // Created May 2024
+  // Set all elements of INTERPWGT to input *VAL.
+
+  int ia, ib, ig;
+  // ------- BEGIN ---------
+
+  for(ia=0; ia < MXa; ia++ ) {
+    for(ib=0; ib < MXb; ib++ ) {
+      for(ig=0; ig < MXg; ig++ ) {
+	INTERPWGT->WGT[ia][ib][ig] = VAL;  
+      }
+    }
+  }
+
+  INTERPWGT->ia_min = INTERPWGT->ia_max = 0 ;
+  INTERPWGT->ib_min = INTERPWGT->ib_max = 0 ;
+  INTERPWGT->ig_min = INTERPWGT->ig_max = 0 ;
+  
+  return;
+
+} // end set_INTERPWGT_abg
+
 // ==================================================
 void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
 		      INTERPWGT_AlphaBetaGammaDM *INTERPWGT, char *callFun ) {
@@ -4616,6 +4647,13 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
 
   // ------------------ BEGIN ---------------
 
+  if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
+    // there is no alpha, beta grid for BayeSN, so just set all a,b,g wgts to 1.0.
+    // Beware that later may need to include gammaDM grid
+    set_INTERPWGT_abg(INTERPWGT, (double)1.0);
+    return ;
+  }
+  
   BININFO_SIM_ALPHA   = &INFO_BIASCOR.BININFO_SIM_ALPHA ;
   BININFO_SIM_BETA    = &INFO_BIASCOR.BININFO_SIM_BETA ;
   BININFO_SIM_GAMMADM = &INFO_BIASCOR.BININFO_SIM_GAMMADM ;
@@ -4657,18 +4695,12 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   double DUMPLIST_Da[MXa][MXb][MXg], DUMPLIST_Db[MXa][MXb][MXg];
   double DUMPLIST_Dg[MXa][MXb][MXg];
   double SUMWGT = 0.0 ;
-  double WGT[MXa][MXb][MXg];
+  //  double WGT[MXa][MXb][MXg];
 
 
   // init WGT map
-  for(ia=0; ia < MXa; ia++ ) {
-    for(ib=0; ib < MXb; ib++ ) {
-      for(ig=0; ig < MXg; ig++ ) {
-	WGT[ia][ib][ig] = 0.0 ;
-	INTERPWGT->WGT[ia][ib][ig] = 0.0 ;
-      }
-    }
-  }
+  set_INTERPWGT_abg(INTERPWGT, (double)0.0);
+
 
   for(ia=IA-1; ia <= IA+1; ia++ ) {
     if ( ia < 0      ) { continue ; }
@@ -4704,8 +4736,8 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
 	if ( fabs(Db) > 0.99999 ) { continue ; }
 	if ( fabs(Dg) > 0.99999 ) { continue ; }
       
-	WGT[ia][ib][ig] = (1.0 - Da) * (1.0 - Db) * (1.0 - Dg) ;
-	SUMWGT     += WGT[ia][ib][ig] ;
+	INTERPWGT->WGT[ia][ib][ig] = (1.0 - Da) * (1.0 - Db) * (1.0 - Dg) ;
+	SUMWGT     += INTERPWGT->WGT[ia][ib][ig] ;
 	
 	if ( FIRST ) { 
 	  INTERPWGT->ia_min = ia ;
@@ -4737,7 +4769,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
       for(ib=0; ib < MXb; ib++ ) {
 	for(ig=0; ig < MXg; ig++ ) {
 	printf("\t WGT[ia,ib,ig=%d,%d,%d] = %f \n", 
-	       ia,ib,ig, WGT[ia][ib][ig] );
+	       ia,ib,ig, INTERPWGT->WGT[ia][ib][ig] );
 	}
       }
     }
@@ -4752,7 +4784,8 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   for(ia=INTERPWGT->ia_min; ia<=INTERPWGT->ia_max; ia++ ) {
     for(ib=INTERPWGT->ib_min; ib<=INTERPWGT->ib_max; ib++ ) {
       for(ig=INTERPWGT->ig_min; ig<=INTERPWGT->ig_max; ig++ ) {
-	INTERPWGT->WGT[ia][ib][ig] = WGT[ia][ib][ig]/SUMWGT ;
+	// xxx mark 	INTERPWGT->WGT[ia][ib][ig] = WGT[ia][ib][ig]/SUMWGT ;
+	INTERPWGT->WGT[ia][ib][ig] /= SUMWGT ;
 	if ( INTERPWGT->WGT[ia][ib][ig] < 0.0 ) { NEGWGT = 1; }
       }
     }
@@ -4777,7 +4810,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
     for(ia=ia_min; ia<=ia_max; ia++ ) {
       for(ib=ib_min; ib<=ib_max; ib++ ) {
 	for(ig=ig_min; ig<=ig_max; ig++ ) {
-	  INTERPWGT->WGT[ia][ib][ig] = WGT[ia][ib][ig]/SUMWGT ;
+	  // xxx mark 	  INTERPWGT->WGT[ia][ib][ig] = WGT[ia][ib][ig]/SUMWGT ;
 	  printf("xxx ia,ib,ig=%d,%d,%d: "
 		 "WGT = %.4f  Da,Db,Dg=%.3f,%.3f,%.3f\n",
 		 ia,ib,ig, INTERPWGT->WGT[ia][ib][ig],
@@ -6461,11 +6494,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
       TABLEVAR->COV_x0x1      = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->COV_x0c       = (float *) malloc(MEMF); MEMTOT+=MEMF;
       TABLEVAR->COV_x1c       = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      // XXX Mark delete, May 1, 2024
-      //      for (i=0; i < NLCPAR_LOCAL; i++ ) {
-      //	TABLEVAR->fitpar[i]     = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      //	TABLEVAR->fitpar_err[i] = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      // }
     }
     else if ( INPUTS.ISMODEL_LCFIT_BAYESN )  {      
       TABLEVAR->mu            = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -6841,7 +6869,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  Jun 16 2021: read explicit logmass rather than thru CUTWIN
   //  Mar 02 2022: read zPRIOR[ERR]
   //  Jul 11 2023: modify to work with BAYESN instead of SALT2 fit pars
-
+  //  May 08 2024: accept MU_LCFIT and MUERR_LCFIT (from BayeSN)
+  //
   int  EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
   bool IS_DATA      = ( EVENT_TYPE == EVENT_TYPE_DATA);
   bool IS_BIASCOR   = ( EVENT_TYPE == EVENT_TYPE_BIASCOR);
@@ -6850,12 +6879,15 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   char *varname_pIa = INPUTS.varname_pIa ;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
 
+  int OPTMASK_VBOSE = 1;
+  int OPTMASK_WARN  = 1+4; // give warning if variable not found
+  
   int VBOSE = 1 ;  // verbose, but no abort on missing variable
   bool FIRSTFILE = ( ISTART == 0 ) ;
   bool USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
   bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
-  int  icut, ivar, ivar2, irow, id ;
+  int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0 ;
   bool RDFLAG ;
   char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
   char str_zerr[MXCHAR_VARNAME]; 
@@ -6945,32 +6977,29 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   sprintf(vartmp, "CID:C*%d  CCID:C*%d  GALID:C*%d", 
 	  MXCHAR_CCID, MXCHAR_CCID, MXCHAR_CCID);
  
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->name[ISTART], 
-			  LEN, VBOSE) ;
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->name[ISTART], 
+				 LEN, OPTMASK_WARN) ;
+  if ( ivar < 0 ) { NVAR_REQ_MISS++; }
 
   if ( USE_FIELD ) {
     sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID ); 
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->field[ISTART], 
-				   LEN, VBOSE) ;
-    if ( ivar < 0 ) {
-      sprintf(c1err,"Required FIELD column missing");
-      sprintf(c2err,"Check CUTFIELD or fieldGroup_biascor keys");
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
-    }
+				   LEN, OPTMASK_WARN ) ;
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
   }
 
   sprintf(vartmp,"IDSURVEY:S" ); // S -> short int
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->IDSURVEY[ISTART], 
-			  LEN, VBOSE );
+			  LEN, OPTMASK_WARN );
 
   sprintf(vartmp,"OPT_PHOTOZ:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->OPT_PHOTOZ[ISTART],
-				 LEN, VBOSE);
+				 LEN, OPTMASK_VBOSE);
   TABLEVAR->IVAR_OPT_PHOTOZ = ivar;
 
   sprintf(vartmp,"TYPE:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SNTYPE[ISTART],
-				 LEN, VBOSE);
+				 LEN, OPTMASK_VBOSE );
   TABLEVAR->IVAR_SNTYPE = ivar;
 
 
@@ -7064,37 +7093,37 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   }
   else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
-
-    sprintf(vartmp,"DLMAG:F  MU:F");
+    
+    sprintf(vartmp,"DLMAG:F  MU_LCFIT:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->mu[ISTART], 
-				   LEN, VBOSE );
-
-    sprintf(vartmp,"DLMAGERR:F  MUERR:F  MU_ERR:F");
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }    
+    
+    sprintf(vartmp,"DLMAGERR:F  MUERR_LCFIT:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->muerr[ISTART], 
-				   LEN, VBOSE );
-
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }    
+    
     sprintf(vartmp,"THETA:F THETA1:F" ); 
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar[INDEX_s][ISTART],
-                                   LEN, VBOSE);
-
+                                   LEN, OPTMASK_WARN);
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
     
     sprintf(vartmp,"THETAERR:F THETA1ERR:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_s][ISTART],
-                                   LEN, VBOSE);
-
+                                   LEN, OPTMASK_WARN);
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     sprintf(vartmp,"AV:F " );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar[INDEX_c][ISTART],
-                                   LEN, VBOSE);
+                                   LEN, OPTMASK_WARN);
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }    
+    
     sprintf(vartmp,"AVERR:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_c][ISTART],
                                    LEN, VBOSE);
-
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }    
     
-    if ( ivar < 0 ) {
-      sprintf(c1err,"Could not find table colummn %s", vartmp);
-      sprintf(c2err,"expected for BAYESN lcfit params");
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-    }
   }
 
   // - - - - - - 
@@ -7257,6 +7286,13 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
 #endif
 
+
+  if ( NVAR_REQ_MISS > 0 ) {
+    sprintf(c1err,"%d required variables missing.", NVAR_REQ_MISS);
+    sprintf(c2err,"Scroll back to see SNTABLE_READPREP_VARDEF  warnings.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+      
   return ;
 
 } // end  SNTABLE_READPREP_TABLEVAR
@@ -9449,7 +9485,7 @@ void prepare_biasCor(void) {
     compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR );
     compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR );
   }
-  if ( NDIM_BIASCOR >=5 ) { store_iaib_biasCor(); }
+  if ( NDIM_BIASCOR >=5 ) { store_index_abg_biasCor(); }
   
   print_eventStats(EVENT_TYPE);
 
@@ -10705,6 +10741,9 @@ int J1D_biasCor(int ievt, char *msg ) {
   // For biasCor event "ievt", return 1D index to biasCor map.
   // *msg is used only for error message.
 
+  bool  ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
+  bool  ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
+  
   double a, b, g, z, m, x1, c ;
   char *name, MSGERR[100] ;
   int ia, ib, ig, iz, im, ix1, ic, J1D, idsample ;
@@ -10717,9 +10756,8 @@ int J1D_biasCor(int ievt, char *msg ) {
 
   J1D = -9 ;
 
-  a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
-  b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
-  g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
+  get_abg_biasCor(ievt, &a, &b, &g, fnam);
+  
   z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
   m        = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt];
   x1       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_s][ievt] ;
@@ -11088,12 +11126,11 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	}
       }
     }
-    
+
+
+    get_abg_biasCor(ievt, &a, &b, &gDM, fnam);    
     z    = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
     m    = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt];
-    a    = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt];
-    b    = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt];
-    gDM  = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt];
     c    = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt];
 
     ia   = (int)INFO_BIASCOR.IA[ievt];
@@ -11466,16 +11503,18 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
 
 // ======================================================
-void  store_iaib_biasCor(void) {
+void  store_index_abg_biasCor(void) {
 
   // store alpha, beta, gamma, zcmb (ia,ib,ig iz) for each biasCor event.
   // 
   // Jul 16 2019: include gammaDM index (ig).
 
+  bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
+  bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;
   int NSN = INFO_BIASCOR.TABLEVAR.NSN_ALL; 
   double a, b, g, z, Z ;
   int i, IA, IB, IG, IZ, iz, ID;
-  char fnam[] = "store_iaib_biasCor" ;
+  char fnam[] = "store_index_abg_biasCor" ;
 
   // ------------ BEGIN ----------
 
@@ -11486,9 +11525,8 @@ void  store_iaib_biasCor(void) {
     ID  = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[i];
     if ( ID < 0 ) { continue ; }
 
-    a      = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[i] ;
-    b      = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[i] ;  
-    g      = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[i] ;  
+
+    get_abg_biasCor(i, &a, &b, &g, fnam); 
     Z      = (double)INFO_BIASCOR.TABLEVAR.SIM_ZCMB[i] ;  // true ZCMB
     z      = (double)INFO_BIASCOR.TABLEVAR.zhd[i] ;       // measured zcmb
 
@@ -11508,7 +11546,7 @@ void  store_iaib_biasCor(void) {
 
   return ; 
 
-} // end store_iaib_biasCor
+} // end store_index_abg_biasCor
 
 
 
@@ -11522,7 +11560,7 @@ double muresid_biasCor(int ievt ) {
   // Aug 22 2019: include dmHost term based on initial hostPar values.
   // Apr 02 2020: for BIASCOR_MU option, a,b = user input p1,p2  
 
-  double z, a, b, M0, mB, x1, c, logmass, dmHost, hostPar[10];
+  double z, a, b, g, M0, mB, x1, c, logmass, dmHost, hostPar[10];
   double zTrue, muFit, muTrue, muz, muDif ;
   double dlz, dlzTrue, dmu  ;
   char fnam[] = "muresid_biasCor" ;
@@ -11541,8 +11579,7 @@ double muresid_biasCor(int ievt ) {
     b  = INPUTS.parval[IPAR_BETA0];
   }  
   else{
-    a  = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
-    b  = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
+    get_abg_biasCor(ievt, &a, &b, &g, fnam); 
   }
 
   //  g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
@@ -11607,10 +11644,15 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov, char *msg) {
   //  Jun 8 2021: check USEMASK_BIASCOR_ZMUERR option
   //
 
+
+
   bool DOCOVFIT     = ( (maskCov & USEMASK_BIASCOR_COVFIT)>0 ) ;
   bool DOCOVINT     = ( (maskCov & USEMASK_BIASCOR_COVINT)>0 ) ;
   bool DOZMUERR     = ( (maskCov & USEMASK_BIASCOR_ZMUERR)>0 ) ;
 
+  bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
+  bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;
+  
   int IDSAMPLE, OPTMASK;
   double zhd, zmuerr=0.0, a, b, gDM;
   double COVTOT[NLCPAR][NLCPAR] ;
@@ -11625,9 +11667,10 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov, char *msg) {
 
   IDSAMPLE = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[ievt] ;
   zhd      = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
-  a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
-  b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
-  gDM      = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
+
+  get_abg_biasCor(ievt, &a, &b, &gDM, fnam);   
+
+  
   //  ia       = (int)INFO_BIASCOR.IA[ievt] ;
   //  ib       = (int)INFO_BIASCOR.IB[ievt] ;
   //  ig       = (int)INFO_BIASCOR.IG[ievt] ;
@@ -12612,6 +12655,33 @@ void  init_sigInt_biasCor_SNRCUT_legacy(int IDSAMPLE) {
   return ;
 
 } // end init_sigInt_biasCor_SNRCUT_legacy
+
+
+// =====================================================
+void get_abg_biasCor(int ievt, double *a, double *b, double *g, char *callFun) {
+
+  // Created May 2024 by R.Kessler
+  // Utility to return alpha, beta, gamma for biasCor event with index ievt.
+  // For BAYESN, return fixed values since alpha, beta, gamma array is not defined.
+
+  char fnam[] = "get_abg_biasCor" ;
+
+  if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
+    *a     = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
+    *b     = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
+    *g     = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
+  }
+  else if ( INPUTS.ISMODEL_LCFIT_BAYESN) {
+    *a = *b = *g = SIM_ABG_BAYESN ;
+  }
+  else {
+    sprintf(c1err,"ISMODEL_LCFIT is undefined (expected SALT2 or BAYESN)");
+    sprintf(c2err,"ievt = %d  callFun=%s", ievt, callFun);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+  
+  
+} // end get_abg_biasCor
 
 // =====================================================
 void LOAD_SIGINT_ABGRID(double sigInt, int IDSAMPLE){
@@ -14081,7 +14151,7 @@ void setup_CELLINFO_biasCor(int IDSAMPLE) {
     fflush(FP_STDOUT);
 
     setup_BININFO_biasCor(IDSAMPLE, 100, MXa,  
-			  &INFO_BIASCOR.BININFO_SIM_ALPHA );     
+			  &INFO_BIASCOR.BININFO_SIM_ALPHA );    
     setup_BININFO_biasCor(IDSAMPLE, 200, MXb,
 			  &INFO_BIASCOR.BININFO_SIM_BETA );   
     setup_BININFO_biasCor(IDSAMPLE, 300, MXg,			    
@@ -14137,13 +14207,25 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
   // Apr 30 2017: change "nbin>=MAXBIN" -> "nbin>MAXBIN" for abort trap.
   // Jul 16 2019: process SIM_gammaDM
   // Mar 31 2020: allow 1 bin for beta as well as gamma; see OK1BIN
-
+  // May 08 2024: adapt for BAYESN
+  
+  bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
+  bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   double val_lo, val_hi, VAL_MIN, VAL_MAX, VAL_BIN;
   int nbin ;
   char NAME[20];
   char fnam[] = "setup_BININFO_biasCor" ;
 
   // ------------- BEGIN ----------------
+
+  VAL_BIN = -9.0 ;
+  
+  if ( ISMODEL_BAYESN && ipar_LCFIT >= 100)   {
+    VAL_MIN = SIM_ABG_BAYESN;
+    VAL_MAX = SIM_ABG_BAYESN;
+    VAL_BIN = 0.0;
+  } 
+  
 
   if ( ipar_LCFIT >= 0 && ipar_LCFIT < 10 ) {
     // mb, x1, c
@@ -14170,19 +14252,19 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     VAL_BIN = SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS ;
     sprintf(NAME,"m");
   }
-  else if ( ipar_LCFIT == 100*INDEX_s ) {
+  else if ( ISMODEL_SALT2 && ipar_LCFIT == 100*INDEX_s ) {
     // get info for SIMalpha binning
     get_BININFO_biasCor_abg("SIM_alpha", 
 			    &VAL_MIN, &VAL_MAX, &VAL_BIN );
     sprintf(NAME,"SIM_alpha");
   }
-  else if ( ipar_LCFIT == 100*INDEX_c ) {
+  else if ( ISMODEL_SALT2 && ipar_LCFIT == 100*INDEX_c ) {
     // get info for SIM_beta binning
     get_BININFO_biasCor_abg("SIM_beta", 
 			    &VAL_MIN, &VAL_MAX, &VAL_BIN );
     sprintf(NAME,"SIM_beta");
   }
-  else if ( ipar_LCFIT == 300 ) {
+  else if ( ISMODEL_SALT2 && ipar_LCFIT == 300 ) {
     // get info for SIM_gammaDM binning (Jul 2019)
     get_BININFO_biasCor_abg("SIM_gammaDM", 
 			    &VAL_MIN, &VAL_MAX, &VAL_BIN );
@@ -14195,13 +14277,16 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
 	   fnam, VAL_MIN, VAL_MAX, VAL_BIN, INFO_BIASCOR.GAMMADM_OFFSET);
     */
   }
-  else {
-    sprintf(c1err,"Invalid ipar_LCFIT=%d", ipar_LCFIT );    
+
+  
+  // - - - - -
+  if ( VAL_BIN < 0.0 ) {
+    sprintf(c1err,"Invalid ipar_LCFIT=%d for IDSAMPLE=%d", ipar_LCFIT, IDSAMPLE );    
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, ""); 
   }
 
 
-  // allow 1 bin for beta and gamma; but not for other params
+  // allow 1 bin for alpha, beta, gamma; but not for other params
   bool ONEBIN = (VAL_MAX == VAL_MIN) ;
   bool OK1BIN = ( ONEBIN && (ipar_LCFIT >= 100) ) ;
   if ( VAL_MAX <= VAL_MIN  && !OK1BIN ) {

@@ -478,6 +478,7 @@ extern"C" {
 
   int SNTABLE_READPREP_VARDEF(char *varList, void *ptr, 
 			      int mxlen, int optMask );
+    
   int sntable_readprep_vardef1(char *VARNAME_withCast, void *ptr, 
 			       int mxlen, int vboseflag, char *varName_noCast);
   int SNTABLE_READ_EXEC(void);

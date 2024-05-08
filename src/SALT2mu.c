@@ -6869,7 +6869,12 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  Jun 16 2021: read explicit logmass rather than thru CUTWIN
   //  Mar 02 2022: read zPRIOR[ERR]
   //  Jul 11 2023: modify to work with BAYESN instead of SALT2 fit pars
-  //  May 08 2024: accept MU_LCFIT and MUERR_LCFIT (from BayeSN)
+  //
+  //  May 08 2024:
+  //    + accept MU_LCFIT and MUERR_LCFIT (from BayeSN)
+  //    + minor refac to use OPTMASK_VBOSE and OPTMASK_WARN, and to abort
+  //      if rewquired variables are missing.
+  //
   //
   int  EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
   bool IS_DATA      = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6877,12 +6882,10 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   bool IS_CCPRIOR   = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR);
   bool REQUIRE_pIa  = TABLEVAR->REQUIRE_pIa ;
   char *varname_pIa = INPUTS.varname_pIa ;
-  bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
 
-  int OPTMASK_VBOSE = 1;
-  int OPTMASK_WARN  = 1+4; // give warning if variable not found
+  int OPTMASK_VBOSE = 1;   // 1=verbose
+  int OPTMASK_WARN  = 1+4; // 1=verbose; 4=give warning if missing
   
-  int VBOSE = 1 ;  // verbose, but no abort on missing variable
   bool FIRSTFILE = ( ISTART == 0 ) ;
   bool USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
   bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
@@ -7006,46 +7009,49 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   // readshift and peculiar velocity
   str_z[0] = str_zerr[0] = 0 ;
   get_zString(str_z,str_zerr,"F");
-  SNTABLE_READPREP_VARDEF(str_z, &TABLEVAR->zhd[ISTART], 
-			  LEN, VBOSE);
-  SNTABLE_READPREP_VARDEF(str_zerr, &TABLEVAR->zhderr[ISTART], 
-			  LEN, VBOSE);
-
+  ivar = SNTABLE_READPREP_VARDEF(str_z, &TABLEVAR->zhd[ISTART], 
+			  LEN, OPTMASK_WARN );
+  if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+  
+  ivar = SNTABLE_READPREP_VARDEF(str_zerr, &TABLEVAR->zhderr[ISTART], 
+			  LEN, OPTMASK_WARN );
+  if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+  
   sprintf(vartmp,"zCMB:F"); 
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zcmb[ISTART], 
-			  LEN, VBOSE);
+			  LEN, OPTMASK_VBOSE);
   sprintf(vartmp,"zCMBERR:F"); 
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zcmberr[ISTART], 
-			  LEN, VBOSE);
+			  LEN, OPTMASK_VBOSE);
 
   sprintf(vartmp,"zHEL:F");   // Dec 11 2020
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhel[ISTART], 
-			  LEN, VBOSE);
+			  LEN, OPTMASK_VBOSE);
   sprintf(vartmp,"zHELERR:F"); 
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhelerr[ISTART], 
-			  LEN, VBOSE);
+			  LEN, OPTMASK_VBOSE);
 
   if ( INPUTS.zspec_errmax_idsample > 0.0 ) {
     sprintf(vartmp,"zPRIOR:F"); 
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zprior[ISTART], 
-				   LEN, VBOSE);
+				   LEN, OPTMASK_VBOSE);
     sprintf(vartmp,"zPRIORERR:F"); 
     ivar2 = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zpriorerr[ISTART], 
-				    LEN, VBOSE);
+				    LEN, OPTMASK_VBOSE);
     if ( ivar > 0 && ivar2>0 ) { TABLEVAR->IVAR_ZPRIOR = ivar; }
   }
 
   sprintf(vartmp,"VPEC:F" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->vpec[ISTART], 
-				 LEN, VBOSE);
+				 LEN, OPTMASK_VBOSE);
   sprintf(vartmp,"VPEC_ERR:F VPECERR:F" );
   ivar2 = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->vpecerr[ISTART], 
-				  LEN, VBOSE);
+				  LEN, OPTMASK_VBOSE);
   if ( ivar>0 && ivar2 > 0 ) { TABLEVAR->IVAR_VPEC = ivar; }
 
   sprintf(vartmp,"SNRMAX:F  SNRMAX1:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->snrmax[ISTART],  
-			  LEN, VBOSE );
+			  LEN, OPTMASK_VBOSE );
 
 
   // - - - - - - - - - - LC fit params - - - - - - - - - - 
@@ -7054,42 +7060,45 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
     sprintf(vartmp,"x0:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->x0[ISTART], 
-				   LEN, VBOSE);
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    
     sprintf(vartmp,"x0ERR:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->x0err[ISTART], 
-				   LEN, VBOSE);
-
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    
     sprintf(vartmp,"x1:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar[INDEX_s][ISTART], 
-				   LEN, VBOSE);
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    
     sprintf(vartmp,"x1ERR:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_s][ISTART], 
-				   LEN, VBOSE);
-
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    
     sprintf(vartmp,"c:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar[INDEX_c][ISTART], 
-				   LEN, VBOSE);
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    
     sprintf(vartmp,"cERR:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_c][ISTART], 
-				   LEN, VBOSE);
-
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    
     sprintf(vartmp,"COVx0x1:F COV_x1_x0:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->COV_x0x1[ISTART],  
-				   LEN, VBOSE);
+				   LEN, OPTMASK_VBOSE);
 
     sprintf(vartmp,"COVx0c:F COV_c_x0:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->COV_x0c[ISTART],
-				   LEN, VBOSE);
+				   LEN, OPTMASK_VBOSE);
 
     sprintf(vartmp,"COVx1c:F COV_x1_c:F");
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->COV_x1c[ISTART], 
-				   LEN, VBOSE );
-
-    if ( ivar < 0 ) {
-      sprintf(c1err,"Could not find table colummn %s", vartmp);
-      sprintf(c2err,"expected for SALT2 lcfit params");
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-    }
+				   LEN, OPTMASK_VBOSE );
 
   }
   else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
@@ -7121,7 +7130,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     
     sprintf(vartmp,"AVERR:F" );
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_err[INDEX_c][ISTART],
-                                   LEN, VBOSE);
+                                   LEN, OPTMASK_VBOSE);
     if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }    
     
   }
@@ -7131,7 +7140,9 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( REQUIRE_pIa ) {
     sprintf(vartmp,"%s:F", varname_pIa);
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART], 
-				   LEN, VBOSE );
+				   LEN, OPTMASK_WARN );
+    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
   }
   else {
@@ -7142,12 +7153,13 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( strlen(varname_gamma) > 0 ) {
     sprintf(vartmp,"%s:F", varname_gamma);
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->host_logmass[ISTART],
-                                   LEN, VBOSE );
+                                   LEN, OPTMASK_VBOSE );
   }
+  
   if ( IS_DATA ) { // Jan 28 2021
       sprintf(vartmp,"PKMJD:F" ) ;
       ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->peakmjd[ISTART], 
-				     LEN, VBOSE);
+				     LEN, OPTMASK_WARN );
   }
 
   // - - - - - - -
@@ -7162,7 +7174,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
     if ( RDFLAG ) {
       ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->CUTVAL[icut][ISTART], 
-				     LEN, VBOSE );
+				     LEN, OPTMASK_WARN );
+      if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
     }
     else {
       ivar = IVAR_READTABLE_POINTER(cutname) ;   // May 8 2020 
@@ -7175,7 +7188,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   // - - - - - - - - SIM_XXX - - - - - - - - - -
   sprintf(vartmp,"SIM_NONIA_INDEX:S SIM_TEMPLATE_INDEX:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_TEMPLATE_INDEX[ISTART], 
-				 LEN, VBOSE );
+				 LEN, OPTMASK_VBOSE );
   if ( IS_DATA && INPUTS.force_realdata ) { ivar = -9; } // Jun 17 2021
 
   FOUNDKEY_SIM=0;
@@ -7200,84 +7213,94 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
  
   sprintf(vartmp,"SIM_WGT_POP:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_WGT_POPULATION[ISTART], 
-			  LEN, VBOSE);
+			  LEN, OPTMASK_VBOSE);
 
   if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
-
+      
     sprintf(vartmp,"SIMx0:F SIM_x0:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_X0[ISTART], 
-			    LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_X0[ISTART], 
+				   LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     sprintf(vartmp,"SIMmB:F SIM_mB:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_mB][ISTART], 
-			    LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_mB][ISTART], 
+			    LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     sprintf(vartmp,"SIMx1:F SIM_x1:F SIM_SALT2x1:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_s][ISTART], 
-			    LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_s][ISTART], 
+			    LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     sprintf(vartmp,"SIMc:F SIM_c:F SIM_SALT2c:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
-			    LEN, VBOSE);
-
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
+				   LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
     
     /// Read SIM_AV as an optional/additional c parameter
     sprintf(vartmp,"SIM_AV:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_AV[ISTART],
-                          LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_AV[ISTART],
+                          LEN, OPTMASK_VBOSE);
     
-
     sprintf(vartmp,"SIM_alpha:F SIMalpha:F" ) ;
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_ALPHA[ISTART],
-				 LEN, VBOSE );
+				 LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     sprintf(vartmp,"SIM_beta:F  SIMbeta:F" ) ;
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_BETA[ISTART],
-				 LEN, VBOSE );
+				 LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
   }
   else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
     sprintf(vartmp,"SIM_THETA:F SIM_THETA1:F " );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_s][ISTART],
-                            LEN, VBOSE);
-
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_s][ISTART],
+                            LEN, OPTMASK_WARN );
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
     // Read SIM_AV as a color parameter analogous to SALT2 c
     sprintf(vartmp,"SIM_AV:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART],
-                          LEN, VBOSE);
-   
-    
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART],
+                          LEN, OPTMASK_WARN);
+    if ( IS_BIASCOR && ivar < 0 ) { NVAR_REQ_MISS++ ; }    
   }   
   
   sprintf(vartmp,"SIM_gammaDM:F" ) ; 
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_GAMMADM[ISTART],
-				 LEN, VBOSE );
+				 LEN, OPTMASK_VBOSE );
   TABLEVAR->IVAR_SIM_GAMMADM = ivar;
   
   // - - - - - - - - - - - - - - - - - - - 
 
   // true z & MU
   sprintf(vartmp,"SIM_ZCMB:F" ) ;
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_ZCMB[ISTART],
-			  LEN, VBOSE);
-
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_ZCMB[ISTART],
+			  LEN, OPTMASK_WARN );
+  if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    
   sprintf(vartmp,"SIM_DLMAG:F" ) ;
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_MU[ISTART],
-			  LEN, VBOSE);
-
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_MU[ISTART],
+			  LEN, OPTMASK_WARN );
+  if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+  
   // true VPEC (Aug 2017)
   sprintf(vartmp,"SIM_VPEC:F" ) ;
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_VPEC[ISTART], 
-				 LEN, VBOSE);
+				 LEN, OPTMASK_VBOSE);
   if ( ivar > 0 ) { TABLEVAR->IVAR_SIM_VPEC = ivar ; }
 
   if ( IS_BIASCOR && IDEAL ) {
     sprintf(vartmp,"x0_ideal:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->x0_ideal[ISTART], 
-			    LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->x0_ideal[ISTART], 
+				   LEN, OPTMASK_WARN );
     sprintf(vartmp,"x1_ideal:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_s][ISTART], 
-			    LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_s][ISTART], 
+				   LEN, OPTMASK_WARN );
     sprintf(vartmp,"c_ideal:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_c][ISTART], 
-			    LEN, VBOSE);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_c][ISTART], 
+				   LEN, OPTMASK_WARN );
   }
-
 
  CHECK_SUBPROCESS:
 #ifdef USE_SUBPROCESS  

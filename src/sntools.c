@@ -5620,8 +5620,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   if  ( INVALID_SIGINT_APPROX && LABORT ) {
       print_preAbort_banner(fnam);
       printf("  %s called from %s\n", fnam, callFun);
-      sprintf(c1err,"Cannot compute sigint because RMS < AVG_MUERR ??");
-      sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
+      sprintf(c1err,"Cannot compute sigint because STD < AVG_MUERR ??");
+      sprintf(c2err,"STD=%.3f, sqrt(AVG_COV)=%.3f  N=%d",
 	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
   } // end INVALID_SIGINT && ABORT

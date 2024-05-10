@@ -2556,6 +2556,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   // ------------ BEGIN ------------
 
+  if ( keySource == KEYSOURCE_ARG ) { NAME[0]=0;RATEPAR->NMODEL_ZRANGE=0;} // May 10, 2024. 
+
   sprintf(KEYNAME, "%s", WORDS[0] );
   CONTINUE = false ;
   if ( strstr(KEYNAME,"DNDZ") != NULL ) { CONTINUE = true ; }

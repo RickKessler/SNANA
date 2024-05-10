@@ -5,6 +5,7 @@
 
    Jan 17 2022: remove legacy functions
    Apr 02 2024: write <lamobs> vs. filter (needed by classifiers)
+   May 10 2024: new util  README_KEYPLUSARGS_purge
 '
 ******************************************************/
 

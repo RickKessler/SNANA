@@ -5564,6 +5564,9 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   // May 2 2024
   //  + if there is only 1 bin and |rmsPull-1| < 0.001, return sigTmp_store[0].
   //
+  // May 10 2024
+  //   nbin_lo[hi] -> 50 (was 30) is hopefully a more robust fix for extra
+  //   lensing scatter, and for the May 2 hack.
   
   bool LABORT = (OPTMASK & 1) == 0 ;
   bool LTEST  = (OPTMASK & 32) > 0 ;
@@ -5575,8 +5578,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   double covtotfloor = 0.02*0.02 ; // protection for negative covtot
   if ( LTEST ) { covtotfloor = 0.1*0.1; } // see -927 flag in SALT2mu
 
-  int    nbin_lo     = 30 ; // prep this many bins below sigint_approx
-  int    nbin_hi     = 30 ; // idem above sigint_approx
+  int    nbin_lo     = 50 ; // prep this many bins below sigint_approx
+  int    nbin_hi     = 50 ; // idem above sigint_approx
   double XN          = (double)N;
 
 #define MXSTORE_PULL 100

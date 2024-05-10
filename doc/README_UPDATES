@@ -22409,6 +22409,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	
     SALT2mu.c:
       + add abort trap if SIM_XXX vars are missing from biasCor.
+      + extend nbin search in sigint_muresid_list() in sntools.c
       
     sntools.c
       + hack fix in sigint_muresid_list() to allow for only one

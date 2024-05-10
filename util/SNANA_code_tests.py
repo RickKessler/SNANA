@@ -732,7 +732,7 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
     # - - - - - - - - - - - - - - - - 
     # single task has finished
     # check for ABORT, then check for no result-string, then result
-
+    
     if ' ABORT ' in open(LOGFILE).read() :
         DONE_STRING = ('%-40s:  ABORT' % (TASKNUMNAME) )
     else:

@@ -22429,5 +22429,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
    snlc_sim.c
      + new sim-input WRSPEC_PRESCALE to prescale writing output spectra; see manual.
+     + command line arg DNDZ [arg] overrides previous DNDZ without aborting
+       on mixed rates. In particular "DNDZ HUBBLE" on command line overrides
+       "DNDZ POWERLAW2 ..." from input files.
      
 END: 

@@ -85,6 +85,9 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
 			     char *callFun);
 void README_KEYPLUSARGS_init(README_KEYPLUSARGS_DEF *README_KEYS) ;
 
+void README_KEYPLUSARGS_purge(README_KEYPLUSARGS_DEF *README_KEYS, char *KEY_PURGE) ;
+
+
 void  readme_docana_load_list(int *iline, char *pad,
 			      README_KEYPLUSARGS_DEF *README_KEYS);
 

@@ -114,8 +114,6 @@
 #define FORMAT_MASK_FILTERS  256  // write filterTrans files (Aug 2016)
 #define FORMAT_MASK_noSPEC  2048  // suppress SPEC.FITS data; keep VERSION.SPEC dump file
 
-// xxx #define KEYSOURCE_FILE 1
-// xxx #define KEYSOURCE_ARG  2
 #define FLAG_NWD_ZERO 100 // flag that override word is a key with no arg
 
 #define IFLAG_GENSMEAR_FILT 1 // intrinsic smear at central LAMBDA of filter

@@ -2556,7 +2556,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   // ------------ BEGIN ------------
 
-  if ( keySource == KEYSOURCE_ARG ) { NAME[0]=0;RATEPAR->NMODEL_ZRANGE=0;} // May 10, 2024. 
 
   sprintf(KEYNAME, "%s", WORDS[0] );
   CONTINUE = false ;
@@ -2564,6 +2563,17 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   if ( strstr(KEYNAME,"DNDB") != NULL ) { CONTINUE = true ; }
   if ( !CONTINUE  && !INPUTS.KEYNAME_DUMPFLAG ) { return(N) ; }
 
+
+  // May 2024
+  // for command line override of rate model, make sure to remove
+  // all previous DNDZ models. XXX doesn't quite work ?!?!?!
+  if ( IS_NOMINAL && keySource == KEYSOURCE_ARG && strcmp(KEYNAME,"DNDZ")==0 )  {
+    RATEPAR->NAME[0]         = 0 ;
+    RATEPAR->NMODEL_ZRANGE   = 0 ;
+    README_KEYPLUSARGS_purge(&README_KEYS_RATEMODEL, "DNDZ:");
+  } 
+
+  
   // check a few misc keys
   if ( IS_NOMINAL ) {
 

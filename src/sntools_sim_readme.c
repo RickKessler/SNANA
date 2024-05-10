@@ -1372,6 +1372,9 @@ void  readme_docana_load_list(int *iline, char *pad,
     ARG = README_KEYS->ARG_LIST[k];
     NEW = (strcmp(KEY,KEY_LAST) != 0) ; // it's a new key
 
+    // bail on null key so to avoid need to reshuffle keys if one is removed.
+    if ( strlen(KEY) == 0 ) { continue ; }
+    
     if ( k < NKEY-1 ) {
       KEY_NEXT = README_KEYS->KEY_LIST[k+1];
       UNIQUE = NEW && (strcmp(KEY,KEY_NEXT) != 0 ); 
@@ -1584,6 +1587,35 @@ void README_KEYPLUSARGS_init(README_KEYPLUSARGS_DEF *README_KEYS) {
   README_KEYS->NKEY = 0;
   README_KEYS->MALLOC1 = false;
 }
+
+
+void README_KEYPLUSARGS_purge(README_KEYPLUSARGS_DEF *README_KEYS, char *KEY_PURGE) {
+  
+  // Created May 2024
+  // for keys matching input KEY_PURGE, set key and arg = ""
+  
+  int  k, NKEY    = README_KEYS->NKEY;
+  char *KEY_TMP, *ARG_TMP ;
+  char fnam[] = "README_KEYPLUSARGS_purge";
+  // --------- BEGIN -------
+
+  for(k=0; k < NKEY; k++ ) {
+	   
+    KEY_TMP = README_KEYS->KEY_LIST[k];
+    ARG_TMP = README_KEYS->ARG_LIST[k];
+
+    printf(" xxx %s: KEY_PURGE=%s  KEY_TMP=%s   ARG='%s'\n",
+	   fnam, KEY_PURGE, KEY_TMP, ARG_TMP);
+    
+    if ( strcmp(KEY_TMP,KEY_PURGE) == 0 ) {
+      KEY_TMP[0] = 0 ;
+      ARG_TMP[0] = 0 ;
+    }
+  }
+  
+  return;
+} // end README_KEYPLUSARGS_purge
+
 
 // =============================================================
 void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,

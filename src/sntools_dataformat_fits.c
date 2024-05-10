@@ -1432,9 +1432,11 @@ void WR_SNFITSIO_UPDATE(void) {
   // (e.g., Trest outside sim-model range can't create spectra)
   int imjd;
   if ( SNFITSIO_SPECTRA_FLAG ) {
-    for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ )  { 
-      wr_snfitsio_update_spec(imjd) ; 
-      NSPEC_WR_SNFITSIO_TOT++ ;
+    for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ )  {
+      if ( !GENSPEC.SKIP[imjd] ) { 
+	wr_snfitsio_update_spec(imjd) ; 
+	NSPEC_WR_SNFITSIO_TOT++ ;
+      }
     }
   }
 
@@ -2505,8 +2507,6 @@ void  wr_snfitsio_update_spec(int imjd)  {
   //  printf(" xxx %s imjd=%2d  SKIP=%d \n",
   //	 fnam, imjd, GENSPEC.SKIP[imjd] ); fflush(stdout);
 
-  // Bail if no spectrum (e.g, sim outside Trest range)
-  if ( GENSPEC.SKIP[imjd] ) { return; }
 
   // calculate obs-pointer for photometry fits file.
   PTRSPEC_MIN = WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW+1 ;

@@ -1004,7 +1004,8 @@ void set_user_defaults(void) {
   INPUTS.WRITE_MASK       = WRITE_MASK_SIM_SNANA ; // default
   INPUTS.WRFLAG_MODELPAR  = 1;  // default is yes
   INPUTS.WRFLAG_YAML_FILE = 0;  // batch-sumbit scripts should set this
-
+  INPUTS.WRSPEC_PRESCALE  = 1;
+  
   INPUTS.NPE_PIXEL_SATURATE = 1000000000; // billion
   INPUTS.PHOTFLAG_SATURATE = 0 ;
   INPUTS.PHOTFLAG_SNRMAX   = 0 ;
@@ -1832,6 +1833,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "WRFLAG_YAML_FILE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.WRFLAG_YAML_FILE );
+  }
+  else if ( keyMatchSim(1, "WRSPEC_PRESCALE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.WRSPEC_PRESCALE );
   }
   // - - - -
   else if ( keyMatchSim(1, "NPE_PIXEL_SATURATE",  WORDS[0],keySource) ) {
@@ -20144,6 +20148,33 @@ void store_GENSPEC(double *VAL_STORE) {
 
 } // end store_GENSPEC
 
+
+// ===================================
+void apply_prescale_GENSPEC(void) {
+
+  // Created May 2024
+  // Implement user input WRSPEC_PRESCALE to prescale spectra output
+  // to reduce disk space usaage. This utility is called after
+  // updating [VERSION].SPEC summary for all spectra.
+  
+  int  PS     = INPUTS.WRSPEC_PRESCALE ;
+  int  i;
+  char fnam[] = "apply_prescale_GENSPEC" ;
+
+  // ----------- BEGIN -----------
+
+  if ( PS <= 1 ) { return ; }
+
+  if ( (GENLC.CID % PS) != 0 ) {
+    NGENSPEC_WRITE -= GENSPEC.NMJD_PROC ;
+    for ( i=0; i < GENSPEC.NMJD_TOT; i++ )
+      { GENSPEC.SKIP[i] = true; }
+  }
+    
+    
+  return; 
+} // end apply_prescale_GENSPEC
+
 // ====================================================
 void init_SIMLIB_HEADER(void) {
 
@@ -29099,20 +29130,18 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);        // primary SN dump
   wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);     // SL
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);    // DCR
-  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // DCR
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // SPECTRA
 
 
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
 
+  apply_prescale_GENSPEC();
+  
   if ( WRFLAG_FITS ) { 
     WR_SNFITSIO_UPDATE(); 
-    return ;
   }
-
-  if ( WRFLAG_TEXT ) {
+  else  if ( WRFLAG_TEXT ) {
     WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
-
-    // update LIST file
     fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
   }
 

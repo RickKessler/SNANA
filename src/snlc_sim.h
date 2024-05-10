@@ -873,7 +873,8 @@ struct INPUTS {
   int  WRITE_MASK ;          ;  // computed from FORMAT_MASK
   int  WRFLAG_MODELPAR;    // write model pars to data files (e.g,SIMSED,LCLIB)
   int  WRFLAG_YAML_FILE ;  // write YAML file (Aug 12 2020)
-
+  int  WRSPEC_PRESCALE  ;  // prescale FITS output, but not SPEC-DUMPa
+  
   int   SMEARFLAG_FLUX ;        // 0,1 => off,on for photo-stat smearing
   int   SMEARFLAG_ZEROPT ;      // 0,1 => off,on for zeropt smearing
   int   SMEARFLAG_HOSTGAL;      // host-gal logical flag
@@ -1851,6 +1852,7 @@ void   remove_short_SIMLIB_SEASON(void);
 
 void   store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE);
 void   store_GENSPEC(double *VAL_STORE);
+void   apply_prescale_GENSPEC(void);
 
 void   get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
 				  double TEXPOSE_S, double TEXPOSE_T,

@@ -6874,6 +6874,18 @@ After combining the SN samples, a useful unitarity check is to do
 and verify that the total number of files matches the expected 
 sum from the simulation jobs.
 
+% ------------------------------------
+\subsubsection{Suppressing Spectra Output}
+\label{sss:suppress_spectra}
+% ------------------------------------
+
+To avoid excessive disk volume output for spectra, there are two methods
+to suppress output without affecting the  {\tt VERSION.SPEC} summary table.
+The first method is to suppress all spectra by adding 2048 to {\tt FORMAT\_MASK}.
+The second method is to pres-scale the number of output spectra with sim-input
+\begin{verbatim}
+     WRSPEC_PRESCALE: 5  # write 1 of 5 spectra 
+\end{verbatim}
 
 % ------------------------------------
 %  \clearpage

@@ -22427,5 +22427,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_batch_jobs.py:
       + add heatmaps*.tfrecord to list of items to purge with --purge arg.
       
-      
+   snlc_sim.c
+     + new sim-input WRSPEC_PRESCALE to prescale writing output spectra; see manual.
+     
 END: 

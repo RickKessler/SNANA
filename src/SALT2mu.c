@@ -9993,6 +9993,7 @@ void  prepare_biasCor_zinterp(void) {
   double MUBIAS_FIT[MXNUM_SAMPLE][MXz];
   double MUBIAS_SIM[MXNUM_SAMPLE][MXz];
   double SUMWGT[MXNUM_SAMPLE][MXz];
+  int    NSUM[MXNUM_SAMPLE][MXz];
   double SUMWGT_HISNR, MUBIAS_SIM_HISNR ;
   double muerrsq, SNRMAX, *ptr_zM0 ;
   char  *name ;
@@ -10035,7 +10036,7 @@ void  prepare_biasCor_zinterp(void) {
     for(idsample=0; idsample < NSAMPLE; idsample++ ) {
       MUBIAS_FIT[idsample][iz] = MUBIAS_SIM[idsample][iz] = 0.0;
       SUMWGT[idsample][iz]     = 0.0 ;
-
+      NSUM[idsample][iz]       = 0 ;
       zbin               = zbinSize[idsample] ;
       zlo[idsample][iz]  = zMIN[idsample]    + zbin * (double)iz ;
       zhi[idsample][iz]  = zlo[idsample][iz] + zbin ;
@@ -10111,6 +10112,7 @@ void  prepare_biasCor_zinterp(void) {
       { WGT = 1.0/muerrsq ; }
 
     SUMWGT[idsample][iz]     += WGT ;
+    NSUM[idsample][iz]++ ;
     MUBIAS_FIT[idsample][iz] += WGT*(mu_fit - mu_true) ;
     MUBIAS_SIM[idsample][iz] += WGT*(mu_sim - mu_true) ;
 
@@ -10179,9 +10181,9 @@ void  prepare_biasCor_zinterp(void) {
       MUBIAS_FIT[idsample][iz] -= MUBIAS_SIM_HISNR ;
       MUBIAS_SIM[idsample][iz] -= MUBIAS_SIM_HISNR ;
 
-      fprintf(FP_STDOUT, "\t z=%.3f - %.3f : muBias = %6.3f  (iz=%d)\n",
-	     zlo[idsample][iz], zhi[idsample][iz],
-	     MUBIAS_FIT[idsample][iz], iz );
+      fprintf(FP_STDOUT, "\t z=%.3f - %.3f : muBias = %6.3f  (iz=%2d, N=%d)\n",
+	      zlo[idsample][iz], zhi[idsample][iz],
+	      MUBIAS_FIT[idsample][iz], iz, NSUM[idsample][iz] );
       
     }  // end iz
     fflush(FP_STDOUT);

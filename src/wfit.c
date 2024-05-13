@@ -3885,48 +3885,42 @@ void wfit_final(void) {
 // ==================================
 void wfit_FoM(void) {
   
-  // Estimate FoM for w0wa model.
+  // Estimate FoM for w0wa model or wCDM model
   // Apr 2024: use  WORKSPACE.[var]_sig_final
+  // May 2024: compute FoM for either w0m or w0wa
   
   int Ndof = WORKSPACE.Ndof;
   double extchi_min = WORKSPACE.extchi_min;
   int i, kk, j;
   double extchi, extchi_dif, chi_approx, snchi_tmp, extchi_tmp, muoff_tmp;;
-  double sig_product, rho_w0wa, rho_w0omm;
+  double sig_product, rho ;
   Cosparam cpar;
+  char string_vars[20];
   char fnam[] = "wfit_FoM" ;
   // --------------BEGIN --------------
-  /*
-    1. Run a loop over w0, wa, Om
-    2. Call getchi2Om function and compute the Chi-sq for each bin
-    3. Compute delta_Chi = [Chi-sq] - [Chi-sq_min]
-    4. Check if delta_Chi is less than 4.6
-    5. Store it in a variable (eg. Chi_Tot) if Yes
-    6. Return the Sum of Chi_Tot
-   */
   
   WORKSPACE.FoM_final = 0.0 ;
 
-  if ( !INPUTS.dofit_w0wa ) {return ; }
+  if ( INPUTS.dofit_w0wa ) {
+    sig_product = (WORKSPACE.w0_sig_final * WORKSPACE.wa_sig_final);
+    rho         = WORKSPACE.rho_w0wa;
+    sprintf(string_vars,"w0wa");
+  }
+  else {
+    // wom for wCDM model
+    sig_product = (WORKSPACE.w0_sig_final * WORKSPACE.omm_sig_final);
+    rho = WORKSPACE.rho_w0omm;
+    sprintf(string_vars,"womm");
+  }
 
-  sig_product = (WORKSPACE.w0_sig_final * WORKSPACE.wa_sig_final);
 
-
-  rho_w0omm = WORKSPACE.rho_w0omm;
-  rho_w0wa  = WORKSPACE.rho_w0wa;
-
-  if( fabs(rho_w0wa) > 1. ){
-    sprintf(c1err,"Invalid rho_w0wa = %f \n",rho_w0wa);
+  if( fabs(rho) > 1. ){
+    sprintf(c1err,"Invalid rho(%s) = %f \n",  string_vars, rho);
     sprintf(c2err,"Check Covariance Calculation ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
-  if( fabs(rho_w0omm) > 1. ){
-    sprintf(c1err,"Invalid rho_w0omm = %f \n",rho_w0omm);
-    sprintf(c2err,"Check Covariance Calculation ");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
 
-  sig_product *= sqrt(1.0- rho_w0wa*rho_w0wa);
+  sig_product *= sqrt(1.0 - rho*rho);
 
   
   if ( sig_product > 0. ) 
@@ -3935,7 +3929,7 @@ void wfit_FoM(void) {
     { WORKSPACE.FoM_final = -9.0; }
 
   printf("# ====================================== \n");
-  printf(" FOM = %.2f\n", WORKSPACE.FoM_final);
+  printf(" FOM(%s) = %.2f\n", string_vars, WORKSPACE.FoM_final);
   fflush(stdout);
 
   return ;
@@ -5009,9 +5003,9 @@ void write_output_cospar(void) {
 #define MXVAR_WRITE 20
   int    ivar, NVAR = 0;
   FILE *fp ;
-  char   VALUES_LIST[MXVAR_WRITE][20];
+  char   VALUES_LIST[MXVAR_WRITE][40];
   char   VARNAMES_LIST[MXVAR_WRITE][20], LINE_STRING[200] ;
-  char   ckey[40], cval[40];
+  char   ckey[40], cval[40], vv[20];
   char sep[] = " " ;
   char fnam[] = "write_output_cospar" ;
 
@@ -5091,21 +5085,22 @@ void write_output_cospar(void) {
     NVAR++ ;
   }
 
-  sprintf(VARNAMES_LIST[NVAR],"rho_%s%s", varname_w, varname_omm);
+  sprintf(vv,"%s%s", varname_w, varname_omm);
+  sprintf(VARNAMES_LIST[NVAR],"rho_%s", vv );
   sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0omm ) ;
   NVAR++;
 
   if ( dofit_w0wa ) {
-    // xxx mark delete Sep 27 2022: sprintf(VARNAMES_LIST[NVAR],"Rho" );
-    sprintf(VARNAMES_LIST[NVAR],"rho_%s%s", varname_w,varname_wa );
+    sprintf(vv,"%s%s", varname_w, varname_wa);
+    sprintf(VARNAMES_LIST[NVAR],"rho_%s", vv );
     sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0wa ) ;
     NVAR++;
-
-    sprintf(VARNAMES_LIST[NVAR],"FoM" );
-    sprintf(VALUES_LIST[NVAR], "%5.1f",  WORKSPACE.FoM_final ) ;
-    NVAR++ ;
-
   }
+
+  // May 2024: always write FoM, even for wCDM(w,omm)
+  sprintf(VARNAMES_LIST[NVAR],"FoM" );
+  sprintf(VALUES_LIST[NVAR], "%6.1f   # %s",  WORKSPACE.FoM_final, vv ) ;
+  NVAR++ ;  
 
   sprintf(VARNAMES_LIST[NVAR],"chi2" );
   sprintf(VALUES_LIST[NVAR], "%.1f",  WORKSPACE.chi2_final ) ;

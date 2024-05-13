@@ -519,6 +519,12 @@ HELP_CONFIG_BBC = f"""
   # run "wfit.exe" with no args. Output cosmology fit params are
   # in YAML format.
   WFITMUDIF_OPT: <argList>
+  #   or
+  WFITMUDIF_OPT:   # labels below are optional
+  - /label0/  <argList0>   
+  - /lable1/  <argList1>
+  - /label2/  <argList2>
+  - etc ...
 
   # Process subset of FITOPT x MUOPT matrix. Examples are
   FITOPTxMUOPT: 0+0   # process only FITOPT=000 or  MUOPT=000

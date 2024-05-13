@@ -5099,7 +5099,7 @@ void write_output_cospar(void) {
 
   // May 2024: always write FoM, even for wCDM(w,omm)
   sprintf(VARNAMES_LIST[NVAR],"FoM" );
-  sprintf(VALUES_LIST[NVAR], "%6.1f   # %s",  WORKSPACE.FoM_final, vv ) ;
+  sprintf(VALUES_LIST[NVAR], "%6.1f",  WORKSPACE.FoM_final ) ;
   NVAR++ ;  
 
   sprintf(VARNAMES_LIST[NVAR],"chi2" );

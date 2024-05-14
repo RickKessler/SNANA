@@ -1382,17 +1382,19 @@ c v is made up to extend bluer.
 c --- hard-write space based array pf SKYMAG vs. lambda
 
       INTEGER  NLIST_SKY_SPACE
-      PARAMETER ( NLIST_SKY_SPACE = 9 )
+      PARAMETER ( NLIST_SKY_SPACE = 13 )
       REAL*8 SKYLAM_SPACE_LIST(NLIST_SKY_SPACE)
       REAL*8 SKYMAG_SPACE_LIST(NLIST_SKY_SPACE)
       
 c from WFIRST sims
       DATA SKYLAM_SPACE_LIST / 
      &        1000.0,  4330.0,  6258.0,  8052.0,          ! x,B,R,I
-     &        8745.0, 10653.0, 12976.0, 15848.0, 20000. / ! Z,Y,J,H,FUDGE
+     &        8745.0, 10653.0, 12976.0, 15848.0, 20000.,  ! Z,Y,J,H,FUDGE
+     &        27700.0, 35600.0, 44400.0, 50000.0        / ! NIRCAM LW
       DATA SKYMAG_SPACE_LIST / 
-     &        23.5,    23.0,     22.3,   22.5,
-     &        22.7,    22.6,     22.6,   22.7, 22.6  /
+     &        24.0,    23.8,     23.6,   23.5,
+     &        23.5,    23.7,     23.8,   23.9, 24.2,     
+     &        23.1,    23.3,     22.3,   22.0	        /
 
 +KEEP,TRUECHI2COM.
 

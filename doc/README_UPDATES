@@ -22433,5 +22433,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + command line arg DNDZ [arg] overrides previous DNDZ without aborting
        on mixed rates. In particular "DNDZ HUBBLE" on command line overrides
        "DNDZ POWERLAW2 ..." from input files.
-     
+     + new sim-input SPECTROGRAPH_SCALE_SNR: [a0],[a1],etc ...
+        to scale SNR with wavelength-dependent polynomial.
+	
 END: 

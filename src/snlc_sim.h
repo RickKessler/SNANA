@@ -337,7 +337,8 @@ typedef struct {
   // below are for tests & debugging, based on OPTMASK
   int    ILAM_SPIKE ;     // set by OPTMASK
   double SCALE_LAMSIGMA ; // set by OPTMASK
-  double SCALE_SNR ;      // set by OPTMASK
+  //xxxx double SCALE_SNR ;      // set by user or OPTMASK
+  GENPOLY_DEF GENPOLY_SCALE_SNR;
   double SCALE_TEXPOSE ;  // from user input SPECTROGRAPH_SCALE_TEXPOSE
 
   // option to enable true SED option, and to define lambda bin size (A)

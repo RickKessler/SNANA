@@ -1387,7 +1387,8 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC     =  0 ;
   INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA       =  3.0;
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_LAMSIGMA  =  1. ;
-  INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
+  init_GENPOLY(&INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR);
+  //  INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE   =  1. ;  // scale Texpose
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
   INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE      = -9.0 ; // true SED option
@@ -5048,6 +5049,11 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
   else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
   }
+  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_SNR", WORDS[0],keySource)) {
+    N++ ;
+    parse_GENPOLY(WORDS[N], WORDS[0],
+		  &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR, fnam);
+  }
   // - - - - TAKE_SPECTRUM - - - - -
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
@@ -6583,8 +6589,9 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SIG      = 0.0 ;
     INPUTS.MWEBV_SHIFT    = 0.0 ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
-
-
+    sprintf(INPUTS.HOSTLIB_FILE,           "NONE");
+    INPUTS.HOSTLIB_MSKOPT = 0 ;
+    
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
     INPUTS.GENMAG_OFF_NON1A  = 0.0 ;
@@ -9672,7 +9679,9 @@ void  init_genSpec(void) {
 	   tmpText, ILAM_SPIKE, INPUTS_SPECTRO.LAMAVG_LIST[ILAM_SPIKE] );
   }
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_SNRx100)>0 ) { 
-    INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR = 100.0; 
+    // xxx mark    INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR = 100.0;
+    parse_GENPOLY("100.0", "SCALE_SNR",
+		  &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR, fnam );
     printf("\t %s SNR *= 100 \n", tmpText );
   }
 
@@ -9682,6 +9691,9 @@ void  init_genSpec(void) {
     printf("\t %s Texpose *= %.3f \n", tmpText, *s );
   }
 
+  if ( INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR.ORDER >= 0 )
+    { print_GENPOLY(&INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR); }
+  
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE)>0 ) { 
     printf("\t %s no template noise \n", tmpText );
   }
@@ -11267,13 +11279,15 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
   int    MEMD  = NBLAM * sizeof(double);
 
+  GENPOLY_DEF *GENPOLY_SCALE_SNR = &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR;
+
   int    ilam, ILAM_MIN=99999, ILAM_MAX=-9, NBLAM_USE=0 ;
   double GENFLUX, GENFLUXERR, GENFLUXERR_T, GENMAG, LAMAVG ;
   double *SNR_TRUE_LIST,   SNR_TRUE, *ERRFRAC_T_LIST, ERRFRAC_T ; 
 
   double  TEXPOSE_S  = GENSPEC.TEXPOSE_LIST[imjd] ;
   double  TEXPOSE_T  = GENSPEC.TEXPOSE_TEMPLATE ;
-  double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
+  bool    DO_SCALE_SNR  = GENPOLY_SCALE_SNR->ORDER >= 0 ;
   double  SNR_SPEC = 0.0 ;
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
@@ -11353,11 +11367,13 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   for(ilam = ILAM_MIN; ilam <= ILAM_MAX ; ilam++ ) {
 
+    LAMAVG    = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
     SNR_TRUE  = SNR_TRUE_LIST[ilam];
     ERRFRAC_T = ERRFRAC_T_LIST[ilam];
 
     if ( SNR_TRUE < 1.0E-18 ) { continue; } 
-    if ( SCALE_SNR != 1.00 ) { SNR_TRUE *= SCALE_SNR ;  }
+    if ( DO_SCALE_SNR )
+      { SNR_TRUE *= eval_GENPOLY(LAMAVG, GENPOLY_SCALE_SNR, fnam) ; }
 
     OBSFLUX       = GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
@@ -11383,7 +11399,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     GENSPEC.NBLAM_VALID[imjd]++ ; 
 
     // Nov 2021: store min/max wave for this spectrum (for printing)
-    LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+
     if ( LAMAVG < GENSPEC.LAMRANGE_VALID[imjd][0] ) 
       { GENSPEC.LAMRANGE_VALID[imjd][0] = LAMAVG; }
     if ( LAMAVG > GENSPEC.LAMRANGE_VALID[imjd][1] ) 
@@ -22189,7 +22205,10 @@ int GENRANGE_CUT(void) {
   if ( GENLC.GLAT > GENRANGE[1] )  { return istat; }
  
 
-  if ( INDEX_GENMODEL != MODEL_LCLIB ) {
+  bool SKIP_zCUT =
+    ( INDEX_GENMODEL == MODEL_LCLIB ) ||
+    ( INDEX_GENMODEL == MODEL_FIXMAG ) ;
+  if ( ! SKIP_zCUT ) {
     GENRANGE = INPUTS.GENRANGE_REDSHIFT;
     if(LTRACE) {
       printf(" xxx %s: 2 check zCMB=%f in {%f to %f}\n",

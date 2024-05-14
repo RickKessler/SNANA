@@ -5843,6 +5843,7 @@ can be used as follows:
   SPECTROGRAPH_OPTMASK:  6   # flux only in center bin & LAMSIGMA*=2
 
   SPECTROGRAPH_SCALE_TEXPOSE: 2.4  # scale exposure times by 2.4
+  SPECTROGRAPH_SCALE_SNR:     0.9,0.02,-.003  # SNR *= [0.9 + 0.02*lam - 0.003*lam^2]
 \end{verbatim}
 %
 Multiple options can be combined by adding values

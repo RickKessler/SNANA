@@ -1755,7 +1755,7 @@ double interp_flux_SIMSED(
 
     // load *lumipar array
     for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
-      ipar_model    = iparmap[i];
+      ipar_model    = iparmap[ipar];
       lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];  
     }
 

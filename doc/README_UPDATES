@@ -22399,6 +22399,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        
          *****  USEFUL(v11_05n) *****
 
+    + new utility submit_batch_list.py to run sequential sets of
+      submit_batch_jobs, where each set waits for previous set to finish.
+      "submit_batch_list.py -H" for help on config file.     
       
          *****  MISCELLANEOUS(v11_05n) *****
 

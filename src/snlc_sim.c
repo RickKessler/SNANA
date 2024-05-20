@@ -988,6 +988,8 @@ void set_user_defaults(void) {
     { INPUTS.GENMAG_SMEAR_USRFUN[i] = -9.0 ; }
 
   INPUTS.DO_MODELSMEAR   =  0 ;
+  INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 0 ;
+  
   NSMEARPAR_OVERRIDE     =  0 ; // see sntools_genSmear.h
 
   INPUTS.GENFILTERS[0] = 0 ;
@@ -9301,12 +9303,12 @@ void init_modelSmear(void) {
   }
 
   // ------------
-
-  if (  INPUTS.GENMAG_SMEAR[0]  > 0.     ||
-	GENMODEL_ERRSCALE       > 0.     ||
-	INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] != 0.0 )
+  if (  INPUTS.GENMAG_SMEAR[0]  > 0.  ||  GENMODEL_ERRSCALE  > 0.  )
     { INPUTS.DO_MODELSMEAR = 1 ; }
 
+  if ( INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] != 0.0 )
+    { INPUTS.DO_MODELSMEAR = INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 1; }
+  
   // check passband magsmear 
   init_genSmear_filters();
 
@@ -9317,8 +9319,8 @@ void init_modelSmear(void) {
 
   if ( IGNOREFILE(ptrName) ) {  goto SKIP_GENSMEAR ;  }
 
-  INPUTS.DO_MODELSMEAR  = 1 ;
-
+  INPUTS.DO_MODELSMEAR  = INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 1;
+  
   sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   if ( GENMODEL_ERRSCALE > 1.0E-9 ) {
     print_preAbort_banner(fnam);
@@ -13694,8 +13696,9 @@ void genran_modelSmear(void) {
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt]  = rtot ;      
   }
 
+
   // xxx mark  if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
-  if ( INPUTS.DO_MODELSMEAR ) {
+  if ( INPUTS.DO_MODELSMEAR_LOAD_RANDOMS ) {
     load_genSmear_randoms(GENLC.CID, rmin, rmax, 
 			  INPUTS.GENSMEAR_RANGauss_FIX);
   }

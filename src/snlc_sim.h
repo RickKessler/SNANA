@@ -855,7 +855,8 @@ struct INPUTS {
   int   GENMODEL_ERRSCALE_OPT ;  // 1=> peak MLCS error; 2=> nominal MLCS err
 
   int   DO_MODELSMEAR;  // flag to do some kind of model smearing.
-
+  int   DO_MODELSMEAR_LOAD_RANDOMS;
+  
   char  GENFILTERS[MXFILTINDX];        // 'gri', 'grizY', etc ...
   int   NFILTDEF_OBS;
   int   IFILTMAP_OBS[MXFILTINDX];     // converts ifilt to ifilt_obs

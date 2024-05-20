@@ -9302,7 +9302,9 @@ void init_modelSmear(void) {
 
   // ------------
 
-  if (  INPUTS.GENMAG_SMEAR[0]  > 0. || GENMODEL_ERRSCALE  > 0.  ) 
+  if (  INPUTS.GENMAG_SMEAR[0]  > 0.     ||
+	GENMODEL_ERRSCALE       > 0.     ||
+	INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] != 0.0 )
     { INPUTS.DO_MODELSMEAR = 1 ; }
 
   // check passband magsmear 

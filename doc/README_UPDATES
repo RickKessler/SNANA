@@ -22439,5 +22439,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        "DNDZ POWERLAW2 ..." from input files.
      + new sim-input SPECTROGRAPH_SCALE_SNR: [a0],[a1],etc ...
         to scale SNR with wavelength-dependent polynomial.
-	
+     + set DO_MODELSMEAR flag when ADDPHASECOR option is set ... no longer
+       need supplmental C11 model with scale = 0.0001.
+       
+     
 END: 

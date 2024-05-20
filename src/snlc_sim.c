@@ -13694,7 +13694,8 @@ void genran_modelSmear(void) {
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt]  = rtot ;      
   }
 
-  if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
+  // xxx mark  if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
+  if ( INPUTS.DO_MODELSMEAR ) {
     load_genSmear_randoms(GENLC.CID, rmin, rmax, 
 			  INPUTS.GENSMEAR_RANGauss_FIX);
   }

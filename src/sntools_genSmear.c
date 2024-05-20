@@ -239,7 +239,7 @@ void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
   // malloc memory to hold Gauss and flat randoms for each event.
 
   int MEMD;
-  //  char fnam[] = "init_genSmear_randoms";
+  char fnam[] = "init_genSmear_randoms";
 
   // ------------ BEGIN --------------
 
@@ -282,7 +282,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   int  LDMP = 0 ;
 
   int iran;
-  //  char fnam[] = "load_genSmear_randoms" ;
+  char fnam[] = "load_genSmear_randoms" ;
 
   // ------------- BEGIN ------------
 
@@ -453,7 +453,7 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
   int LDMP    = 0 ;
   double LAMMIN = Lam[0];
   double LAMMAX = Lam[NLam-1];
-  //  char fnam[] = "repeat_genSmear";
+  char fnam[] = "repeat_genSmear";
 
   // ------------ BEGIN ------------
 
@@ -521,7 +521,7 @@ void update_genSmear_COVLAM_debug(double *magSmear) {
 
   double mtmp, XN, SUM, SQSUM, MEAN[2], RMS[2], COV_01, RHO ;
   int i, N;
-  //  char fnam[] = "update_genSmear_COVLAM_debug" ;
+  char fnam[] = "update_genSmear_COVLAM_debug" ;
 
   // ----------- BEGIN -------
 
@@ -3792,9 +3792,13 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   if ( magSmear == 0.0 ) { return; } 
 
   printf("\n %s: magSmear=%.3f, rho=exp(-Tdif/%.1f) \n",
-	 fnam, magSmear, expTau); 
+	 fnam, magSmear, expTau);
+
+  init_genSmear_randoms(2, 0);
+    
   fflush(stdout);
 
+  
   GENSMEAR_PHASECOR.USE = 1;
   GENSMEAR_PHASECOR.INPUT_MAGSMEAR = magSmear ;  
   GENSMEAR_PHASECOR.INPUT_EXPTAU   = expTau;

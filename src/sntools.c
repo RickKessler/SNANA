@@ -5527,7 +5527,8 @@ double STD_from_SUMS(int N, double SUM, double SQSUM) {
   double XN  = (double)N;
   if ( N == 0 ) { return(STD); }
 
-  double ARG = SQSUM/XN - pow((SUM/XN),2.0) ;
+  double AVG = SUM/XN ;
+  double ARG = SQSUM/XN - AVG*AVG;
   if ( ARG > 0.0 ) { STD = sqrt(ARG); }
 
   return(STD);
@@ -5535,14 +5536,15 @@ double STD_from_SUMS(int N, double SUM, double SQSUM) {
 } // end STD_from_SUMS
 
 // ======================================================
-double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
-			   int OPTMASK, char *callFun ) { 
+double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
+			   double *WGT_LIST, int OPTMASK, char *callFun ) { 
 
 
   // Created July 24 2021 by R.Kessler [extracted from SALT2mu code]
   // Unility to compute sigint from N mu-residuals
   //   MURES_LIST   : mu - mu(true,fit)
   //   MUCOV_LIST   : covariance per mu
+  //   WGT_LIST     : weight per element (e.g., from REWGT option in biasCor)
   //
   // Strategy is to make first pass over LIST and compute sigint_approx. 
   // Then make another pass over LIST and compute RMS_PULL on a grid of 
@@ -5551,6 +5553,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   //
   // OPTMASK & 1 --> do not abort on negative sigint
   //    will return negative sqrt(abs(arg)) as flag/quantitative info
+  //
+  // OPTMASK & 2 --> apply WGT_LIST to reweight each elment on list
   //
   // OPTMASK & 32 --> implement test feature
   // OPTMASK & 64 --> print debug dump
@@ -5567,10 +5571,13 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   // May 10 2024
   //   nbin_lo[hi] -> 50 (was 30) is hopefully a more robust fix for extra
   //   lensing scatter, and for the May 2 hack.
+  //
+  // May 20 2024: add WGT_LIST arg (used if OPTMASK & 2 > 0)
   
-  bool LABORT = (OPTMASK & 1) == 0 ;
-  bool LTEST  = (OPTMASK & 32) > 0 ;
-  bool LDMP   = (OPTMASK & 64) > 0 ;
+  bool LABORT  = (OPTMASK &  1) == 0 ;
+  bool USE_WGT = (OPTMASK &  2) > 0 ;   
+  bool LTEST   = (OPTMASK & 32) > 0 ;
+  bool LDMP    = (OPTMASK & 64) > 0 ;
   
   int    OPT_INTERP  = 1 ;
   double sigint_bin  = 0.01 ;
@@ -5580,12 +5587,12 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 
   int    nbin_lo     = 50 ; // prep this many bins below sigint_approx
   int    nbin_hi     = 50 ; // idem above sigint_approx
-  double XN          = (double)N;
+  //  double XN          = (double)N_LIST;
 
 #define MXSTORE_PULL 100
 
   int i ;
-  double STD_MURES_ORIG, SQMURES, MURES, MUCOV ;
+  double STD_MURES_ORIG, SQMURES, MURES, MUCOV, WGT, WGT_SUM = 0.0 ;
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
@@ -5593,11 +5600,14 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   
   // ---------------- BEGIN -------------
  
-
-  for ( i=0; i < N ; i ++ ) {
+  WGT_SUM = 0.0 ;
+  for ( i=0; i < N_LIST ; i ++ ) {
     MURES    = MURES_LIST[i];
     MUCOV    = MUCOV_LIST[i];
     SQMURES  = MURES * MURES ;
+    if ( USE_WGT ) { WGT = WGT_LIST[i]; } else { WGT=1.0; }
+    WGT_SUM += WGT ;
+    
     if ( MUCOV <= 0.0 ) {
       print_preAbort_banner(fnam);
       printf("  %s called from %s\n", fnam, callFun);
@@ -5606,15 +5616,16 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
 
-    SUM_MUCOV   += MUCOV ;
-    SUM_MURES   += MURES ;
-    SUM_SQMURES += SQMURES ;
+    SUM_MUCOV   += WGT*MUCOV ;
+    SUM_MURES   += WGT*MURES ;
+    SUM_SQMURES += WGT*SQMURES ;
   }
 
-  AVG_MURES = SUM_MURES / XN ;
-  AVG_MUCOV = SUM_MUCOV / XN;
+  AVG_MURES = SUM_MURES / WGT_SUM ;
+  AVG_MUCOV = SUM_MUCOV / WGT_SUM ;
   AVG_MUERR = sqrt(AVG_MUCOV);
-  STD_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
+  // STD_MURES_ORIG = STD_from_SUMS(N_LIST, SUM_MURES, SUM_SQMURES);
+  STD_MURES_ORIG = STD_from_SUMS( (int)WGT_SUM, SUM_MURES, SUM_SQMURES);
 
   tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
 
@@ -5625,7 +5636,7 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
       printf("  %s called from %s\n", fnam, callFun);
       sprintf(c1err,"Cannot compute sigint because STD < AVG_MUERR ??");
       sprintf(c2err,"STD=%.3f, sqrt(AVG_COV)=%.3f  N=%d",
-	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
+	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
   } // end INVALID_SIGINT && ABORT
   
@@ -5676,7 +5687,7 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",
 		sigint_min );
 	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d",
-		STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
+		STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
       } 
       else { 
@@ -5687,19 +5698,25 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
     sum_dif = sum_sqdif = sum_pull = sum_sqpull = 0.0 ;
     covTmp = sigTmp * fabs(sigTmp) ;
 
-    for(i=0; i < N; i++ ) {
+    WGT_SUM = 0.0 ;
+    
+    for(i=0; i < N_LIST; i++ ) {
+
+      if ( USE_WGT ) { WGT = WGT_LIST[i]; } else { WGT=1.0; }
+      WGT_SUM += WGT ;
+    
       covtot = MUCOV_LIST[i] + covTmp;
       if ( covTmp < 0  &&  covtot < covtotfloor ) {
 	covtot = covtotfloor;
       }
       pull        = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot);
-      sum_pull   += pull ;
-      sum_sqpull += ( pull * pull);
+      sum_pull   += ( WGT * pull ) ;
+      sum_sqpull += ( WGT * pull * pull);
     }
-    rmsPull = STD_from_SUMS(N, sum_pull, sum_sqpull);
-    if ( rmsPull == 0.0 ){
-      debugexit("xxx rmsPull = 0");
-    }
+    
+    // xxx     rmsPull = STD_from_SUMS(N_LIST, sum_pull, sum_sqpull);
+    rmsPull = STD_from_SUMS( (int)WGT_SUM, sum_pull, sum_sqpull);
+    if ( rmsPull == 0.0 ) { debugexit("xxx rmsPull = 0");  }
 
     if (NBIN_SIGINT < MXSTORE_PULL) {
        rmsPull_store[NBIN_SIGINT] = rmsPull;
@@ -5735,7 +5752,7 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
     printf("  sigTmp_store range is %f to %f \n", 
 	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
     printf("  NBIN_SIGINT=%d N_EVT=%d sigint_approx=%f\n", 
-	   NBIN_SIGINT, N, sigint_approx );
+	   NBIN_SIGINT, N_LIST, sigint_approx );
     printf("  STD_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
 	   STD_MURES_ORIG, sqrt(AVG_MUCOV) );
     sprintf(c1err,"ONE NOT CONTAINED by rmsPull_store array" );

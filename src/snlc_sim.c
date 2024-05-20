@@ -9255,21 +9255,6 @@ void init_modelSmear(void) {
   // of the SN mags/fluxes. Note that the 'modelSmear' 
   // is defined independent of the SN model (MLCS,SALT2,DM15...).
   //
-  // Jul 19, 2010: set DO_MODELSMEAR flag if any smear-option is set.
-  //
-  // Apr 06, 2012:
-  //  Call new init_modelSmear_XXX functions, including
-  //  new option GENMAG_SMEAR_MODELNAME
-  //
-  // Dec 2012 TODO: for NON1A, allow only global GENMAG_SMEAR.
-  //   
-  // Nov 14 2013: new model G10FUDGE to allow changing sigma_coh.
-  //
-  // May 01 2014: major re-org of SALT2-smearing model.
-  //
-  // Oct 09 2018: 
-  //  + implement INPUTS.GENMAG_SMEAR_SCALE. See new SMEAR_SCALE 
-  //    argument passed to   init_genSmear_FLAGS(SMEAR_SCALE);
   // 
   // Apr 11 2019:
   //  + adapt so that G10 model works for BYOSED
@@ -9282,7 +9267,8 @@ void init_modelSmear(void) {
   //
   // Feb 11 2020: call init_genSmear_phaseCor(magSmear,expTau);
   //
-
+  // May 20 2024: begin integrating DUST models.
+  
   double GENMODEL_ERRSCALE   = (double)INPUTS.GENMODEL_ERRSCALE ;
   char  *SMEAR_SCALE_STRING  = INPUTS.GENMAG_SMEAR_SCALE;
   int    SMEAR_MSKOPT        = INPUTS.GENMAG_SMEAR_MSKOPT ;
@@ -9331,7 +9317,7 @@ void init_modelSmear(void) {
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
-    sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
+  sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   if ( GENMODEL_ERRSCALE > 1.0E-9 ) {
     print_preAbort_banner(fnam);
     printf("  %s = %s \n" , key, ptrName);
@@ -9359,7 +9345,6 @@ void init_modelSmear(void) {
     if ( strstr(ptrName,"G10FUDGE") != NULL ) 
       {   SIGCOH  = INPUTS.GENMAG_SMEAR_USRFUN[0] ; }
     
-
     if ( INDEX_GENMODEL == MODEL_SALT2 ) { 
       sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); 
     }
@@ -9427,6 +9412,9 @@ void init_modelSmear(void) {
   else if ( strcmp(ptrName,"CCM89") == 0 )   // modify color law with CCM89
     {  init_genSmear_CCM89(LAMRANGE) ; }
 
+  else if ( strstr(ptrName,"DUST") != NULL ) 
+    {  init_genSmear_DUST(ptrName,LAMRANGE) ; }
+  
   else if ( strstr(ptrName,"COH") != NULL ) 
     {  init_genSmear_COH(ptrName) ; }
 
@@ -9766,7 +9754,7 @@ void rewrite_HOSTLIB_DRIVER(void) {
 
   // manually prepare a few things
   ENVreplace(INPUTS.HOSTLIB_FILE, fnam, 1);
-  INIT_HOSTLIB(); // .xyz ?? 
+  INIT_HOSTLIB(); 
 
   // - - - - -
 
@@ -11710,12 +11698,10 @@ void  GENSPEC_FLAM(int imjd) {
   
 
   // Mar 22 2024: compute synthetic mag & error per passband.
-  // .xyz
   int ifilt, ifilt_obs; 
   double GENMAG_SYN, GENMAGERR_SYN, LAMWIDTH_SYN ;
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-    // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
 
     // note input is true GENFLAM_LIST (not measured FLAM_LIST)
     // and true FLAMERR_LIST is same as measured FLAMERR_LIST.

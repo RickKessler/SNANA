@@ -362,8 +362,9 @@ if __name__ == "__main__":
         #submit, wait for ALL.DONE
         run_submit(infile_list, outdir_list, SUBMIT_INFO )  
 
-    # - - - - 
-    logging.info("\n Done.")
+    # - - - -
+    logging.info(f"")
+    logging.info(f"Done.")
     logging.info(f"All jobs reported {STRING_SUCCESS} in {ALL_DONE_FILE}")
     sys.exit(0)
 

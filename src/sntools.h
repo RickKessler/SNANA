@@ -798,8 +798,8 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void test_arrayStat(void);
 double STD_from_SUMS(int N, double SUM, double SQSUM);
-double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
-			   int OPTMASK, char *callFun );
+double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
+			   double *WGT_LIST, int OPTMASK, char *callFun );
 
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;

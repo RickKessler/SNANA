@@ -1486,8 +1486,9 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
 
   fgets(LINE, 100, fp ); // scoop up varnames
   if ( LDMP ) {
-    printf(" xxx --------------------------------- \n" );
-    printf(" xxx VARNAMES LINE = '%s' \n", LINE);
+    printf(" xxx %s --------------------------------- \n", fnam );
+    printf(" xxx %s VARNAMES LINE = '%s' \n", fnam, LINE);
+    fflush(stdout);
   }
 
   varNameList[0] = 0 ;
@@ -1502,8 +1503,8 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
     *ivar_H  = IVAR_HOSTLIB(varName_H,0);
     
     if (LDMP ) {
-      printf(" xxx varName[%d] = '%s' (IVAR_HOSTLIB=%d)\n", 
-	     ivar, varName_H , *ivar_H);
+      printf(" xxx %s: varName[%d] = '%s' (IVAR_HOSTLIB=%d)\n", 
+	     fnam, ivar, varName_H , *ivar_H); fflush(stdout);
     }
 
     // sanity checks
@@ -1521,11 +1522,14 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
     }
     */
 
+    catVarList_with_sep(varNameList, varName_H, " ");
+
+    /* xxx mark delete May 20 2024 xxxxxxx
     if ( ivar==0 ) 
       { sprintf(varNameList,"%s", varName_H); }
     else
       { sprintf(varNameList,"%s %s", varNameList, varName_H); }
-
+    xxxxxxx */
   }
   
   if ( NERR > 0 ) {

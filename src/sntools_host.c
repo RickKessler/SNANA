@@ -868,9 +868,11 @@ void append_HOSTLIB_STOREPAR(void) {
   // defining HOSTLIB_STOREPAR.
   //
   // Jun 12 2020: set NVAR_zHOST after reading zHOST file
-
+  // May 20 2024: use open_TEXTgz instead of fopen for GENPDF map file
+  //               so that it reads gzipped or unzipped file
+  
   char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
-  int  ivar, NVAR_zHOST ;
+  int  ivar, NVAR_zHOST, gzipFlag ;
   char *ptrVarName;
   FILE *fp ;
   char fnam[] = "append_HOSTLIB_STOREPAR" ;
@@ -895,7 +897,8 @@ void append_HOSTLIB_STOREPAR(void) {
   // - - - - - - - 
   // check PDF maps for populations
 
-  fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
+  // xxx mark delete fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
+  fp = open_TEXTgz(INPUTS.GENPDF.MAP_FILE, "rt", &gzipFlag );  
   if ( fp ) {
     int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
     char **VARNAMES;

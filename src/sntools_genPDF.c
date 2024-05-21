@@ -326,9 +326,18 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   //   needed to avoid downstream abort from not finding prob > 0.001
   //   in course-grid search.
 
+  // May 2024: avoid sigma = 0
+
+  double PEAK    = GENGAUSS->PEAK ;
+    
+  double sig_tiny = PEAK/1.0E6;
+  if ( GENGAUSS->SIGMA[0] == 0.0 )
+    { GENGAUSS->SIGMA[0] = sig_tiny;  GENGAUSS->RANGE[0] = PEAK - 2.0*sig_tiny; }
+  if ( GENGAUSS->SIGMA[1] == 0.0 )
+    { GENGAUSS->SIGMA[1] = sig_tiny;  GENGAUSS->RANGE[1] = PEAK + 2.0*sig_tiny; }
+
   char   *NAME   = GENGAUSS->NAME ;
   double *RANGE  = GENGAUSS->RANGE;
-  double PEAK    = GENGAUSS->PEAK ;
   double siglo   = GENGAUSS->SIGMA[0];
   double sighi   = GENGAUSS->SIGMA[1];
   double sigavg  = 0.5*(siglo+sighi);
@@ -344,8 +353,8 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // ---------- BEGIN ----------
  
   // if RANGE is to wide compared to sigma, reduce RANGE so that
-  // downstream selection does not fail in finding a hard-to-fid
-  // delta-function .xyz
+  // downstream selection does not fail in finding a hard-to-find
+  // delta-function 
   xnsig_tmp = (PEAK - RANGE[0]) / siglo;
   if ( xnsig_tmp > NSIGMA_MAX ) {
     x_orig = RANGE[0] ; // for comment

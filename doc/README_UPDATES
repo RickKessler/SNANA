@@ -22428,10 +22428,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    sntools_host.c
       + add WEAKLENS_DMU to list of optional HOSTLIB columns.
-
+      + fix bug reading GENPDF file to allow for gzipped file;
+          see call to open_TEXTgz.
+      
    submit_batch_jobs.py:
       + add heatmaps*.tfrecord to list of items to purge with --purge arg.
-      
+
+   sntools_genPDF.c
+     + for alpha, beta specified by genGauss in GENPDF_FILE, allow specifying
+       delta-function with inly GENPEAK_SALT2ALPHA or GENPEAK_SALT2BETA.
+       Internally, code sets very snall sigma and range so that grid is
+       essentially a delta-fun.
+       
    snlc_sim.c
      + new sim-input WRSPEC_PRESCALE to prescale writing output spectra; see manual.
      + command line arg DNDZ [arg] overrides previous DNDZ without aborting
@@ -22441,6 +22449,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         to scale SNR with wavelength-dependent polynomial.
      + set DO_MODELSMEAR flag when ADDPHASECOR option is set ... no longer
        need supplmental C11 model with scale = 0.0001.
-       
-     
+            
 END: 

@@ -25,11 +25,6 @@
 
  GENMAG_SMEAR_MODELNAME: OIR    # Optical+IR using CSP+CfA (under development)
  GENMAG_SMEAR_MODELNAME: [path]/COVSED.[version] # cov(wave x phase), Oct 2019
-
- # May 2024: after DES-SN5YR, integrate DUST-based models to simplify sim-inputs
- GENMAG_SMEAR_MODELNAME: DUST(BS21)        
- GENMAG_SMEAR_MODELNAME: DUST(P21)
- GENMAG_SMEAR_MODELNAME: DUST(DES-SN5YR)
  
  External program must set
    NSMEARPAR_OVERRIDE = 0 
@@ -45,7 +40,6 @@
    init_genSmear_COH
    init_genSmear_OIR
    init_genSmear_USRFUN
-   init_genSmear_DUST      ! May 2024
    etc ...
 
 
@@ -901,30 +895,6 @@ void get_genSmear_USRFUN(double Trest, int NLam, double *Lam,
 
 }  // end of get_genSmear_USRFUN
 
-// ********************************
-void init_genSmear_DUST(char *smearModel, double *LAMRANGE) {
-
-  // Created May 20 2024 by R.Kessler
-  // Inputs:
-  //   smearModel = "DUST(BS21)" or "DUST(P21)", etc ...
-  //   LAMRANGE   = wavelength range of model
-
-#define  NDUSTMODEL_DEFINE 3
-  char MODEL_NAME_LIST[NDUSTMODEL_DEFINE][20] = { "BS21", "P21", "DES-SN5YR"  };
-  
-  //char GENPDF_FILE_LIST[NDUSTMODEL_DEFINE][MXPATHLEN] = {
-  //    "$SNDATA_ROOT/models/population_pdf/DES-SN5YR/"
-  //  }
-		      
-  char fnam[] = "init_genSmear_DUST";
-  
-  // -------------- BEGIN ----------------
-
-
-  //.xyz
-  return;
-  
-} // end init_genSmear_DUST
 
 // ********************************
 void init_genSmear_CCM89(double *LAMRANGE) {

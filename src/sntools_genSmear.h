@@ -25,7 +25,6 @@ void   getFileName_SALT2colorDisp(char *fileName) ; // added Jan 2017
 void  init_genSmear_Chotard11(int OPT_farUV) ;
 void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
-void  init_genSmear_DUST(char *smearModel, double *LAMRANGE);
 
 void  init_genSmear_COH(char *stringArg) ;
 void  init_genSmear_biModalUV(void) ;

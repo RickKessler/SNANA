@@ -23,6 +23,8 @@ int      OPT_EXTRAP_GENPDF;
 int      OPTMASK_GENPDF ;
 int      KEYSOURCE_GENPDF; // 1=file, 2=arg; used for prioritization
 
+double MAG_OFFSET_GENPDF;  // read from MAG_OFFSET key in GENPDF_FILE
+
 struct {
   char     MAPNAME[40];
   char     *VARNAMES[MXVAR_GENPDF];

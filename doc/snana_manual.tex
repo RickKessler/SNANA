@@ -6475,6 +6475,36 @@ maps, asymmetric Gaussians (x1,c,RV), and exponential (EBV,AV).
        extrapolate instead of abort. 
 \end{itemize}  
 
+\bigskip
+In addition to specifying population maps in the {\tt GENPDF\_FILE},
+an analytical \AG\ map can be speicified for SALT2 $\alpha$ and $\beta$
+using the same keys as in the sim-input file:
+%
+\begin{Verbatim}
+GENPEAK_SALT2BETA:   2.1
+GENSIGMA_SALT2BETA:  0.22 0.22
+GENRANGE_SALT2BETA:  0.4  3.0 
+
+GENPEAK_SALT2ALPHA:   0.15
+\end{Verbatim}
+%
+The $\beta$ distribution here is a symmetric Gaussian,
+and the $\alpha$ distribution is a delta-function since
+the $\sigma$ and range are not specified. Internally, the
+simulation sets $\sigma_{\alpha} = 0.15\times 10^{-6}$,
+and the range to be $0.15\pm 2\sigma_{\alpha}$. Both
+$\alpha$ and $\beta$ Gaussians are converted into maps as if they
+had been read from the {\tt GENPDF\_FILE}; thus all PDF maps
+are processed using the same grid-interpolation code.
+
+\noindent
+To use a command-line override to change the Gaussian function in the
+{\tt GENPDF\_FILE}, the relevant map must be disabled using the
+{\tt GENPDF\_IGNORE} key:
+%
+\begin{Verbatim}
+  snlc_sim.exe  <inputFile>  GENPDF_IGNORE SALT2ALPHA   GENPEAK_SALT2ALPHA 0.16
+\end{Verbatim}
 
 % ------------------------------------
    \clearpage

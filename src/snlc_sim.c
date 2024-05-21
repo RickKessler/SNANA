@@ -9415,9 +9415,6 @@ void init_modelSmear(void) {
 
   else if ( strcmp(ptrName,"CCM89") == 0 )   // modify color law with CCM89
     {  init_genSmear_CCM89(LAMRANGE) ; }
-
-  else if ( strstr(ptrName,"DUST") != NULL ) 
-    {  init_genSmear_DUST(ptrName,LAMRANGE) ; }
   
   else if ( strstr(ptrName,"COH") != NULL ) 
     {  init_genSmear_COH(ptrName) ; }

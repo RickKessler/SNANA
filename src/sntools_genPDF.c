@@ -84,6 +84,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //   Aug 10 2021 Brodie and Rick fixed bug setting NVAR properly
   //   Nov  4 2021 RK - check OPTMASK_GENPDF_KEYSOURCE_ARG
   //   Nov 10 2022 RK - skip parsing comment lines
+  //   May 20 2024 RK - read MAG_OFFSET
   // -----------
 
   FILE *fp;
@@ -98,18 +99,21 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   char *LINE, *TMPLINE ;
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
-  char fnam[]     = "init_genPDF";
 
   GENGAUSS_ASYM_DEF  gengauss_SALT2ALPHA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
   char **ptr_ITEMLIST;
   int KEYSOURCE = 1; // default source is from file
+
+  char fnam[]     = "init_genPDF";
   
   // ------------- BEGIN -------------
 
   OPTMASK_GENPDF = OPTMASK ; // Dec 23 2020
 
   NMAP_GENPDF = NCALL_GENPDF = 0;
+  MAG_OFFSET_GENPDF = 0.0 ;
+  
   if ( IGNOREFILE(fileName) ) { return; }
 
   sprintf(BANNER,"%s with OPTMASK=%d", fnam, OPTMASK);
@@ -191,6 +195,11 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     IS_SALT2    = (strstr(c_get,"SALT2")     != NULL );
     IS_SIM      = (strstr(c_get,"SIM_")      != NULL );
 
+    if ( strcmp(c_get,"MAG_OFFSET:") == 0 ) {
+      sscanf(ptr_ITEMLIST[1], "%le", &MAG_OFFSET_GENPDF);
+      printf("    Load MAG_OFFSET = %.3f \n", MAG_OFFSET_GENPDF);
+      fflush(stdout);
+    }
     // try sim-input keys
     if ( IS_SALT2 ) {
       NWD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
@@ -277,14 +286,18 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // loop thru maps again and check that extra variables (after 1st column)
   // exist in HOSTLIB
   bool IS_LOGPARAM;
-  int  ivar_hostlib, imap, imap_tmp ;
+  int  ivar_hostlib, imap, imap_tmp, NVAR_HOSTLIB=0 ;
   int  ABORTFLAG = 0 ;
   char *VARNAME;
+
+  printf("\n   Check for GENPDF variables in HOSTLIB:\n"); fflush(stdout);
+  
   for(imap=0; imap < NMAP; imap++ ) {
     NVAR = GENPDF[imap].NVAR ;
 
     if ( GENPDF[imap].GRIDMAP.NDIM == 1 ) { continue; }
 
+    NVAR_HOSTLIB = 0 ;
     for(ivar=1; ivar < NVAR-1; ivar++ )	{ 
       VARNAME = GENPDF[imap].VARNAMES[ivar] ;
       checkAlternateVarNames_HOSTLIB(VARNAME);
@@ -295,12 +308,15 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-
       printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
-	     ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME );
+	     ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME ); fflush(stdout);
       GENPDF[imap].IVAR_HOSTLIB[ivar] = ivar_hostlib;
+      NVAR_HOSTLIB++ ;
     }
+    printf("    Found %d HOSTLIB variables in GENPDF map %s\n",
+	   NVAR_HOSTLIB, GENPDF[imap].MAPNAME);    fflush(stdout);
   }
+
 #endif
 
   // free memory
@@ -816,9 +832,12 @@ void iter_summary_genPDF(void) {
     N_ITER_MAX  = GENPDF[imap].N_ITER_MAX ;
     N_CALL      = GENPDF[imap].N_CALL ;
     N_ITER_SUM  = GENPDF[imap].N_ITER_SUM ;
-    MEAN        = (double)N_ITER_SUM / (double)N_CALL ;
+    if ( N_CALL > 0 ) 
+      { MEAN        = (double)N_ITER_SUM / (double)N_CALL ; }
+    else
+      { MEAN        = 0.0 ; }
 
-    printf("\t%-12.12s : N_ITER[MEAN,MAX] = %.1f, %d \n",
+    printf("\t%-16.16s : N_ITER[MEAN,MAX] = %.1f, %d \n",
 	   MAPNAME, MEAN, N_ITER_MAX );
 
     fflush(stdout);

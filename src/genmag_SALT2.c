@@ -207,7 +207,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
 
   DEBUG_SALT2 = ( OPTMASK & GENMODEL_MSKOPT_SALT2_DEBUG );
-  //  DEBUG_SALT2 = 1; // xxx REMOVE
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -967,8 +966,6 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
     fflush(stdout);
 
   }   //  imap
-
-  //  if ( DEBUG_SALT2 ) { debugexit(fnam); }
 
 } // end of read_SALT2errmaps
 

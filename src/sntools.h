@@ -902,8 +902,6 @@ double unix_random__(int *istream) ;
 double getran_flat1__(int *ilist) ;          // for fortran
 double getran_gauss__(int *ilist);         // for fortran
 
-double biGaussRan_LEGACY(double siglo, double sighi);
-
 double getRan_skewGauss(double rmin, double rmax, double siglo, double sighi,
 			double skewlo, double skewhi);
 

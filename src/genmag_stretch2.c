@@ -193,7 +193,6 @@ int init_genmag_stretch2 (
 
   rewind(fp);
 
-
   iep = 0;
 
   if ( LEGACYFLAG > 0 ) {
@@ -265,7 +264,9 @@ int init_genmag_stretch2 (
 
   return SUCCESS ;
 
-}
+  return ;
+  
+} // end init_genmag_stretch2
 
 
 

@@ -289,7 +289,6 @@ typedef struct {  // RATEPAR_DEF
 
   char   NAME[40] ;           // filled internally
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
-  double DNDZ_ZPOLY_REWGT_LEGACY[4]; // xxx legacy var
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
 
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
@@ -1819,7 +1818,7 @@ void   SIMLIB_INIT_DRIVER(void);
 void   SIMLIB_initGlobalHeader(void);
 void   SIMLIB_readGlobalHeader_TEXT(void);
 void   SIMLIB_prepGlobalHeader(void);
-void   SIMLIB_prep_fluxerrScale_LEGACY(void);
+void   SIMLIB_prep_fluxerrScale(void);
 void   SIMLIB_findStart(void);
 void   SIMLIB_INIT_IDEAL_GRID(void);
 
@@ -1866,7 +1865,7 @@ int    IFIELD_OVP_SIMLIB(int OPT, char *FIELD) ;
 void   GENFILTERS_CHECK(void);
 
 
-double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR ) ;
+double get_SIMLIB_fluxerrScale(int ifiltobs, double SNR ) ;
 
 void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 			  double *SCALE_SKYSIG, double *SCALE_SKYSIG_T,
@@ -2066,7 +2065,6 @@ void   GENSPEC_SYNMAG(int ifilt_obs, double *FLAM_LIST, double *FLAMERR_LIST,
 
 void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
-double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX );
 double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX );
 double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 				double *GAURAN_T) ;
@@ -2115,7 +2113,6 @@ void   genmag_boost(void);
 void   genmag_MWXT_fromKcor(void);   // apply MW extinct for rest-frame models
 
 void   LOAD_SEARCHEFF_DATA(void);
-void   LOAD_SEARCHEFF_DATA_LEGACY(void);
 
 void   gen_spectype(void);
 
@@ -2241,13 +2238,6 @@ extern int filtindx_(char *cfilt, int len);
 
 extern int get_filtmap__ ( char *copt, float *filtmap, int len );
 
-
-extern void get_filttrans_legacy__(int *maskFrame, int *ifilt,
-				   char *survey_name, char *filter_name,
-				   double *magPrim, int *NLAM, double *lam,
-				   double *TransSN, double *TransREF,
-				   int len1, int len2);
-
 extern void set_survey__ ( char *name, int *NFILTDEF, int *IFILTDEF,
 			   float *LAMSHIFT, int len  );
 
@@ -2256,9 +2246,6 @@ extern int  get_idsurvey__(char *survey, int len );
 extern double kcorfun8_ ( int *ifilt_obs, int *ifilt_rest,
 			  double *mag_rest, double *lamdif,
 			  double *Trest, double *Z, double *AVwarp ) ;
-
-extern void  get_primary_legacy__(char *primary, int *NLAM,
-				  double *lam, double *primFlux, int len);
 
 // -----------------------------
 //   genmag_xxx functions

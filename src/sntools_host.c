@@ -3145,61 +3145,6 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 } // end of   checkAlternateVarNames_HOSTLIB
 
 
-// =====================================
-void  checkAlternateVarNames_LEGACY(char *varName) {
-
-  // Feb 12 2014
-  // If input varName matches an allowed [hard-wired] alternative,
-  // reset varName to the official name.
-  // Note that the input argument is modified !
-  //
-  // Apr 2023: check for VARNAME_ZTRUE_CMB
-
-  char *BASENAME;
-  int j;
-  char fnam[] = "checkAlternateVarNames_LEGACY";
-
-  // --------- BEGIN ---------
-
-  if ( strcmp(varName,"ZERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZPHOT_ERR); }
-
-  if ( strcmp(varName,"ZPHOTERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZPHOT_ERR); }
-
-  
-  if ( strcmp(varName,"VPECERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
-
-  if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
-    sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
-    HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
-
-    // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
-    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
-    if ( !SN2GAL ) {
-      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
-	      HOSTLIB_VARNAME_ZTRUE_CMB);
-      sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
-	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-  } // end HOSTLIB_VARNAME_ZTRUE_CMB if block
-
-  for (j=0; j<N_HOSTGAL_PROPERTY; j++){
-    BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
-    if ( strcmp(varName, BASENAME) == 0 ) 
-      { sprintf(varName,"%s_TRUE", BASENAME); }
-  }
-  
-  if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
-
-  return;
-
-} // end of checkAlternateVarNames_LEGACY
-
 
 void replace_varName_HOSTLIB(char *varName, char *varName_check, 
 			     char *varName_replace) {

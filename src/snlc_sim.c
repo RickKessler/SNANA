@@ -7894,6 +7894,7 @@ void genmag_offsets(void) {
       + GENLC.LENSDMU                       // lensing correction
       + INPUTS.MUSHIFT                      // user distance offset (Oct 2020)
       + GENLC.SALT2gammaDM                  // gamma from SN-host corr
+      + MAG_OFFSET_GENPDF                   // from GENPDF_FILE (May 21 2024)
     ;
 
 
@@ -17216,7 +17217,7 @@ void SIMLIB_prepGlobalHeader(void) {
 
   // scale FLUXERR as a function of log10(SNR) and filter
   // [code moved/refactored from SIMLIB_read_fluxerrCor]
-  SIMLIB_prep_fluxerrScale_LEGACY();
+  SIMLIB_prep_fluxerrScale();
 
   // Apr 2023: print info for SIMLIB_MSKOPT
   print_SIMLIB_MSKOPT();
@@ -17372,12 +17373,15 @@ void  print_SIMLIB_MSKOPT(void) {
 } //end print_SIMLIB_MSKOPT
 
 // *************************************************
-void  SIMLIB_prep_fluxerrScale_LEGACY(void) {
+void  SIMLIB_prep_fluxerrScale(void) {
 
   // Created Aug 2017
   // prepare fluxerr scale fudges specified in global header
   // of SIMLIB file. Transfer sparse contents of
   // SIMLIB_GLOBAL_HEADER into SIMLIB_FLUXERR_COR struct.
+  // This fluxerrScale method is from 2009 (SDSS analysis)
+  // and is maintained only for back-compatibility, but should
+  // not be used for surveys after SDSS.
   //
   // Feb 2018: 
   //  + if using FLUXERRMODEL_FILE, ignore errFudge map inside SIMLIB
@@ -17387,12 +17391,12 @@ void  SIMLIB_prep_fluxerrScale_LEGACY(void) {
   int  NFTMP, size, ifilt, ifilt_obs, IFILTLIST_MAP[MXFILTINDX] ;
 
   char cfilt[2], *FILTERS;
-  char fnam[] = "SIMLIB_prep_fluxerrScale_LEGACY" ;
+  char fnam[] = "SIMLIB_prep_fluxerrScale" ;
 
   // --------------- BEGIN -------------
 
 
-  if ( IGNOREFILE(INPUTS.FLUXERRMODEL_FILE) == 0 ) 
+  if ( !IGNOREFILE(INPUTS.FLUXERRMODEL_FILE)  ) 
     { INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_IGNORE_FLUXERR_COR ; }
 
 
@@ -17480,7 +17484,7 @@ void  SIMLIB_prep_fluxerrScale_LEGACY(void) {
   } // end icor loop
 
   
-} // end SIMLIB_prep_fluxerrScale_LEGACY
+} // end SIMLIB_prep_fluxerrScale
 
 
 
@@ -17860,12 +17864,12 @@ int IFIELD_OVP_SIMLIB(int OPT, char *FIELD) {
 
 
 // ************************************
-double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
+double get_SIMLIB_fluxerrScale(int ifiltobs, double SNR) {
 
   // Dec 5, 2011 R.Kessler
   // Return error correction on flux based on FLUXERR_COR map
   // in the simlib file. If there is no map for this filter
-  // then return 1.
+  // then return 1. 
   //
   // Feb 24, 2012: if SNR is outside map, return value at min or max edge.
   // Aug 15, 2017: arrays are 0 to M-1 (instead of 1 to M)
@@ -17874,7 +17878,7 @@ double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
   double SCALE, LOGSNR, LOGSNR_MIN, LOGSNR_MAX;
   int    ifilt, M, LDMP ;
   int    OPT_INTERP = 1;  // 1=linear, 2=quadratic
-  char   fnam[] = "get_SIMLIB_fluxerrScale_LEGACY" ;
+  char   fnam[] = "get_SIMLIB_fluxerrScale" ;
 
   // -------------- BEGIN ---------------
 
@@ -17913,7 +17917,7 @@ double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
 
   return(SCALE);
 
-} // end of get_SIMLIB_fluxerrScale_LEGACY
+} // end of get_SIMLIB_fluxerrScale
 
 
 // ************************************
@@ -26255,7 +26259,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     // include sqadderr_pe
 
     double SNR_CALC = SNR_CALC_ST * sqrt(SQSIG_ST_ORIG/SQSIG_ST_NEW);
-    SCALE     = get_SIMLIB_fluxerrScale_LEGACY(ifilt_obs, SNR_CALC);    
+    SCALE     = get_SIMLIB_fluxerrScale(ifilt_obs, SNR_CALC);    
     SQSCALE   = SCALE * SCALE ;
     SQSIG_DATA *= SQSCALE ;
     for(itype=0; itype < NTYPE; itype++ ) { SQSIG_TRUE[itype] *= SQSCALE ; }
@@ -29544,6 +29548,21 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   bool SKIPx            = NOSHAPE || ( GETPAR_HOSTLIB && !GETx ) ;
   if ( SKIPx ) { INPUTS.DOGEN_SHAPE = false; }
 
+  // -------------------------------------
+  // May 21 2024 RK - temp abort to catch GENMAG_OFF_GLOBAL = -0.12 and
+  //  also the newer MAG_OFFSET_GENPDF = -0.12 in GENPDF_FILE.
+  //  This is to avoid double-counting this offset after declaring
+  //  MAG_OFFSET: -0.12 in the GENPDF_FILEs.
+  double MAG_OFFSET_DES5YR = -0.12 ;
+  bool ISVAL_DES5YR  = fabs(MAG_OFFSET_GENPDF-MAG_OFFSET_DES5YR) < 0.0001 ;
+  bool SAMEVAL_TWICE = fabs(INPUTS.GENMAG_OFF_GLOBAL-MAG_OFFSET_GENPDF) < 0.0001;
+  if ( ISVAL_DES5YR && SAMEVAL_TWICE ) {
+    sprintf(c1err,"MAG_OFFSET(GENPDF_FILE) = %f and also GENMAG_OFF_GLOBAL=%f",
+	    MAG_OFFSET_GENPDF, INPUTS.GENMAG_OFF_GLOBAL);
+    sprintf(c2err,"Avoid double-counting GENPDF_FILE offset from DES-SN5YR");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
   return;
 
 } // end prioritize_genPDF_ASYMGAUSS

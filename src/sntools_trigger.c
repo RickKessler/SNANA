@@ -680,7 +680,7 @@ int IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME) {
 
   int ivar, IVARABS = -9;
   char *varTmp ;
-  //  char fnam[] = "IVARABS_SEARCHEFF_PHOTPROB" ;
+  char fnam[] = "IVARABS_SEARCHEFF_PHOTPROB" ;
 
   for(ivar=0; ivar < MXDEF_VARNAMES_PHOTPROB; ivar++ ) {
     varTmp = VARDEF_SEARCHEFF_PHOTPROB[ivar];
@@ -759,21 +759,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 
   } // NBIN 
 
-  // ------
-
-  /* xxxxxxx mark delete Dec 1 2022 xxxxxxxxx
-  // print VAL (SNR or MAG) when eff is closest to  1.
-  VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_ONE];
-  EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_ONE];
-  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
-	  cfilt, EFF, ptr_effname, VAL );
   
-  printf("%s", cline);
-  i = SEARCHEFF_DETECT[imap].NLINE_README ;
-  sprintf(SEARCHEFF_DETECT[imap].README[i], "%s", cline);
-  SEARCHEFF_DETECT[imap].NLINE_README++ ;
-  xxxxxxxx end mark xxxxxxx */
-
   // ------
   // print VAL (SNR or MAG) when eff is closest to  0.5
 
@@ -795,7 +781,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 void check_SEARCHEFF_PHOTPROB(int imap) {
   
   // set README comment(s).
-  //  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
+  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
 
   // -------------- BEGIN ----------------
 
@@ -1523,13 +1509,6 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
     */
 
     catVarList_with_sep(varNameList, varName_H, " ");
-
-    /* xxx mark delete May 20 2024 xxxxxxx
-    if ( ivar==0 ) 
-      { sprintf(varNameList,"%s", varName_H); }
-    else
-      { sprintf(varNameList,"%s %s", varNameList, varName_H); }
-    xxxxxxx */
   }
   
   if ( NERR > 0 ) {
@@ -2002,7 +1981,7 @@ void dumpLine_PIPELINE_PHOTPROB(void) {
   int  NDUMP  = INPUTS_SEARCHEFF.NPHOTPROB_DUMP ;
   int  i, obs, NFOUND=0;
   double PHOTPROB, PHOTPROB_LIST[MXOBS_PHOTPROB];
-  //  char fnam[] = "dumpLine_PIPELINE_PHOTPROB";
+  char fnam[] = "dumpLine_PIPELINE_PHOTPROB";
   // --------------- BEGIN --------------
 
   if ( NDUMP == 0 ) { return ; }
@@ -2601,7 +2580,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   double  *CUTWIN_SNRMAX = INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST ;
   int     LFIND ;
   double  SNRMAX, RAN, EFF ;
-  //  char fnam[] = "gen_SEARCHEFF_zHOST" ;
+  char fnam[] = "gen_SEARCHEFF_zHOST" ;
 
   // ----------- BEGIN -----------
 
@@ -2841,7 +2820,7 @@ void LOAD_PHOTPROB_CDF(int NVAR_CDF, double *VAL ) {
 
   int ivar;
   double SUM=0.0, sum=0.0, TMPVAL[MXVAR_SEARCHEFF_PHOTPROB];
-  //  char fnam[] = "LOAD_PHOTPROB_CDF" ;
+  char fnam[] = "LOAD_PHOTPROB_CDF" ;
 
   // ------------- BEGIN -------------
 
@@ -3188,7 +3167,7 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   char cfilt[2], PREFIX_LIST[MXPREFIX][80], *ptr_PREFIX;
   char *ptrList[MXPREFIX];
   char sepKey[] = " ";
-  //  char fnam[] = "IFILTOBS_SPECEFF_VAR" ;
+  char fnam[] = "IFILTOBS_SPECEFF_VAR" ;
 
   // -------------- BEGIN ---------------
 

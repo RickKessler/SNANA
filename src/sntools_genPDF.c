@@ -396,7 +396,7 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
 			   NBIN, RANGE, fnam,
 			   &GENPDF[IMAP].GRIDMAP ); // <== returned
 
-  GENPDF[IMAP].PROB_EXPON_REWGT = 1.0 ; // Mar 14, 2024 .xyz 
+  GENPDF[IMAP].PROB_EXPON_REWGT = 1.0 ; // Mar 14, 2024
 
   assign_VARNAME_GENPDF(IMAP, 0, NAME );
 

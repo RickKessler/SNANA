@@ -12624,6 +12624,7 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   int ilc_orig, ilc;
   bool doReject_DUMP = false ;
   bool REJECT= false;
+  int  LDMP = ( GENLC.CID == -102 );
   char fnam[] = "gen_event_reject" ;
 
   // ----------- BEGIN --------------
@@ -12634,28 +12635,34 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   if ( strcmp(REJECT_STAGE,"GENRANGE") == 0 ) {
     ilc-- ;
     NGEN_REJECT.GENRANGE++ ;
+    if(LDMP) { printf(" xxx %s CID=%d fails GENRANGE\n", fnam, GENLC.CID); fflush(stdout); }
+
   }
   else if ( strcmp(REJECT_STAGE,"GENMAG") == 0 ) {
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.GENMAG++ ;
+    if(LDMP) { printf(" xxx %s CID=%d fails GENMAG\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else if ( strcmp(REJECT_STAGE,"SEARCHEFF") == 0 ) {
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.SEARCHEFF++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("SEARCHEFF") ;
-    REJECT = true;    
+    REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails SEARCHEFF\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else if ( strcmp(REJECT_STAGE,"CUTWIN") == 0 ) {
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.CUTWIN++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("CUTWIN");
     REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails CUTWIN\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else if ( strcmp(REJECT_STAGE,"NEPOCH") == 0 ) {  // Mar 17 2018
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.NEPOCH++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("NEPOCH");
     REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else {
     sprintf(c1err,"Undefined REJECT_STAGE = '%s'", REJECT_STAGE);
@@ -12667,8 +12674,8 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); }
   if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX); }
 
-  int LDMP=0;
-  if ( LDMP && *ILC != ilc ) {
+  int LDMP2=0;
+  if ( LDMP2 && *ILC != ilc ) {
     printf(" xxx %s: ILC=%d  ilc=%d  CID=%d  LIBID=%d\n",
 	   fnam, *ILC, ilc, GENLC.CID, GENLC.SIMLIB_ID );
     printf(" xxx %s: NREJEVT[GENRANGE,GENMAG|SEARCH,CUT,NEP] = "

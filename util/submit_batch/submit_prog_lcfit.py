@@ -1965,10 +1965,11 @@ class LightCurveFit(Program):
         # Created Apr 2022 by R.Kessler
         # wait for program_merge to exist as executable.
         # Abort if wait is too long.
-
+        # .xyz ?? doesn't work ??
+        
         snana_dir       = self.config_yaml['args'].snana_dir    
         t_wait        = 10   # wait this long before checking again
-        t_wait_abort  = 300  # abort after this total time
+        t_wait_abort  = 500  # abort after this total time
         t_wait_tot    = 0
         msgerr = []
 

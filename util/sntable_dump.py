@@ -264,7 +264,6 @@ def append_fitres(input_args,config):
         print(f" Finished {Cprogram_combine} with append mode.")
         t0 = config.t0
         print_elapse_time(t0)
-        sys.stdout.flush()
 
     # append comments at top of appended fitres file
     comment_list = []
@@ -285,14 +284,14 @@ def append_fitres(input_args,config):
         print(f" Finished adding comments to top of appended file.")
         t0 = config.t0
         print_elapse_time(t0)
-        sys.stdout.flush()
 
     # end append_fitres
 
 def print_elapse_time(t0):
     dt_sec = (datetime.datetime.now() - t0).total_seconds()
     print(f"\t elapse time: {dt_sec} sec")
-
+    sys.stdout.flush()
+    
 # =========================
 # ======= MAIN ============
 # =========================
@@ -321,7 +320,6 @@ if __name__ == "__main__":
     if input_args.VERBOSE :
         print(f"  File format is {config.Format}")
         print_elapse_time(t0)
-        sys.stdout.flush()
 
     # make sure table name is appropriate for file format
     config.table_name = check_table_name(input_args.table_name,config.Format)

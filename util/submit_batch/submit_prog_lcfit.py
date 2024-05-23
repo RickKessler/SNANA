@@ -80,11 +80,6 @@ FORMAT_TEXT  = 'TEXT'
 FORMAT_HBOOK = 'HBOOK'
 FORMAT_ROOT  = 'ROOT'
 
-# xxxx mark delete xxxxxxxx
-#TABLE_SUFFIX_LIST  = [ 'TEXT', 'HBOOK', 'ROOT' ]
-#TABLE_SNLCINP_LIST = [ 'TEXTFILE_PREFIX', 'HFILE_OUT', 'ROOTFILE_OUT' ]
-#NTABLE_FORMAT = len(TABLE_SUFFIX_LIST)
-# xxxxxxxxxxxxxxxxxxxxxxxx
 
 # these globals will be updated in prep_subclass
 TABLE_INPKEY_LIST  = []   # input key per format
@@ -1055,7 +1050,7 @@ class LightCurveFit(Program):
         # include suffix in TEXTFILE_PREFIX argument
         for itab in range(0,NTABLE_FORMAT) :
             if use_table_format[itab] :
-                key    = TABLE_INPKEY_LIST[itab]  # xxx mark delete .upper()
+                key    = TABLE_INPKEY_LIST[itab] 
                 fmt    = TABLE_FORMAT_LIST[itab]
                 arg    = f"{key:<16} {prefix}"
                 if fmt != TABLE_FORMAT_LIST[ITABLE_TEXT] :
@@ -1491,14 +1486,6 @@ class LightCurveFit(Program):
         for use, suffix in zip(use_table_format,TABLE_FORMAT_LIST):
             if use:
                 suffix_tar_list.append(suffix)
-
-        # xxxxxxxxxx mark delete Oct 12 2023 xxxxxx
-        #for itable in range(0,NTABLE_FORMAT):
-        #    use    = use_table_format[itable]
-        #    suffix = TABLE_FORMAT_LIST[itable]
-        #    if use:
-        #        suffix_tar_list.append(suffix)
-        # xxxxxxx end mark xxxxxxxx
 
         return suffix_tar_list
         # end get_suffix_tar_list_lcfit
@@ -1965,29 +1952,32 @@ class LightCurveFit(Program):
         # Created Apr 2022 by R.Kessler
         # wait for program_merge to exist as executable.
         # Abort if wait is too long.
-        # .xyz ?? doesn't work ??
         
         snana_dir       = self.config_yaml['args'].snana_dir    
-        t_wait        = 10   # wait this long before checking again
-        t_wait_abort  = 500  # abort after this total time
-        t_wait_tot    = 0
-        msgerr = []
-
         if snana_dir is None:
             program_path  = f"{SNANA_DIR}/bin/{program_merge}" # default code
         else:
             program_path  = f"{snana_dir}/bin/{program_merge}" # user code
 
-        while os.access(program_path, os.X_OK) is False:
-            t_now   = datetime.datetime.now()
-            logging.info(f"\t wait for {program_path} to exist ({t_now})")
-            time.sleep(t_wait)
-            t_wait_tot += t_wait
-            if t_wait_tot > t_wait_abort :
-                msgerr.append(f"Could not find {program_path}")
-                msgerr.append(f"after waiting {t_wait_tot} seconds.")
-                self.log_assert(False,msgerr)
-
+        # abort if program is not found within t_wait_abort time (allow for make)
+        t_wait_abort  = 500 
+        found_program = util.program_exists(program_path, t_wait_abort, True)
+        
+        #  xxxxxxx mark delete May 23 2024 xxxxxxx
+        # t_wait        = 10   # wait this long before checking again
+        # t_wait_tot    = 0
+        # msgerr = []
+        #while os.access(program_path, os.X_OK) is False:
+        #    t_now   = datetime.datetime.now()
+        #    logging.info(f"\t wait for {program_path} to exist ({t_now})")
+        #    time.sleep(t_wait)
+        #    t_wait_tot += t_wait
+        #    if t_wait_tot > t_wait_abort :
+        #        msgerr.append(f"Could not find {program_path}")
+        #        msgerr.append(f"after waiting {t_wait_tot} seconds.")
+        #        self.log_assert(False,msgerr)
+        # xxxxxxxxxxxxx
+        
         return
         # end check_program_merge_table_CERN
 
@@ -2170,15 +2160,6 @@ class LightCurveFit(Program):
 
         # untar and unzip file inside SUBDIR_SCRIPTS_LCFIT
         util.untar_script_dir(script_dir)
-
-        # xxxxxx mark delete Oct 1 2022 xxxxxx
-        #backup_list = glob.glob1(script_dir, "{BACKUP_PREFIX}*")
-        #if len(backup_list) > 0 :
-        #    cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
-        #    cmd_all   = f"cd {script_dir}; {cmd_unzip} ; rm BACKUP*.gz ; "\
-        #                f"cd {CWD}"
-        #    os.system(cmd_all)
-        # xxxx end mark xxxxx
 
         # remove lingering temp files in SPLIT_JOBS_LCFIT.
         # Also remove MERGE.LOG_{Nsec} backups, and DONE file

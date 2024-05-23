@@ -256,6 +256,8 @@ def append_fitres(input_args,config):
           f"-outprefix {outfile_prefix} " \
           f"t"   # <== write only text output; no ROOT or hbook
 
+    # .xyz check that Cprogram_combine exists ...
+    
     os.system(cmd)
 
     if input_args.VERBOSE:
@@ -335,6 +337,8 @@ if __name__ == "__main__":
         print('\n')
         sys.stdout.flush()
 
+    # .xyz check that Cprogram exists ...
+    
     istat = os.system(config.command)
 
     if input_args.VERBOSE:

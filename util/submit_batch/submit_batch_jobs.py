@@ -449,10 +449,16 @@ def run_merge_driver(program,args):
 
 # =============================================
 if __name__ == "__main__":
-
+    
     args  = get_args()
     store = util.setup_logging(args)
 
+    # xxx mark delete 
+    # program_path = "/home/s1/rkessler/SNANA/bin/combine_fitres.exe"
+    # found = util.program_exists(program_path, 50, True)
+    # sys.exit(f" xxx found_program = {found}")
+    # xxxxxxxxxxx
+    
     # check option for long HELP menus
     if args.HELP : 
         print_HELP()

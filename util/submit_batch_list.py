@@ -170,7 +170,7 @@ def check_done_file(done_file):
     # Return true if done_file exists and has SUCCESS in it.
     # Return false if done_file does not exist.
     # If done_file exists with FAIL, cancel jobs and abort.
-
+    
     if os.path.isfile(done_file):
         with open(done_file,"rt") as f:
             line = f.read() ;  status = line.rstrip("\n")
@@ -335,7 +335,7 @@ if __name__ == "__main__":
     SUBMIT_INFO.update( {'config' : config} )
     infile_submit_list = config[KEY_SUBMIT_LIST]
     submit_dir         = config[KEY_SUBMIT_DIR]
-
+    
     nset = 0
     for infile_set in infile_submit_list:
         nset += 1

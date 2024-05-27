@@ -978,7 +978,8 @@ struct INPUTS {
   
   int    write_yaml;  // used by submit_batch_jobs.py
   int    write_csv ;  // M0DIF formatted for CosmoMC
-
+  int    write_chi2grid; //
+  
   int    minos;
 
   int    nmax_tot ;   // Nmax to fit for all
@@ -1220,10 +1221,10 @@ int IPAR_OL, IPAR_Ok, IPAR_w0, IPAR_wa;
 
 // define inputs to fit that are read or calculated
 struct {
-  int    NSNTOT ;            // total number of SN read
-  int    NPASS, NREJECT ;     // temporary during refactor
-  double COVINT_PARAM_FIX ;  //  sigint OR SCALE_COVINT
-  double DCHI2RED_DSIGINT;   // Mar 25 2022
+  int    NSNTOT ;               // total number of SN read
+  int    NPASS, NREJECT ;       // temporary during refactor
+  double COVINT_PARAM_FIX ;     //  sigint OR SCALE_COVINT
+  double DCHI2RED_DSIGINT;      // Mar 25 2022
   double COVINT_PARAM_LAST; 
   char   COVINT_PARAM_NAME[20];
   
@@ -1615,6 +1616,7 @@ void  outFile_driver(void);
 void  write_M0_fitres(char *fileName);
 void  write_M0_csv(char *fileName);  
 void  write_M0_cov(char *fileName) ;
+void  write_chi2grid(char *chi2grid_file);
 void  write_MUERR_INCLUDE(FILE *fp) ;
 void  write_NWARN(FILE *fp, int FLAG) ;
 
@@ -4781,7 +4783,6 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   for(ia=INTERPWGT->ia_min; ia<=INTERPWGT->ia_max; ia++ ) {
     for(ib=INTERPWGT->ib_min; ib<=INTERPWGT->ib_max; ib++ ) {
       for(ig=INTERPWGT->ig_min; ig<=INTERPWGT->ig_max; ig++ ) {
-	// xxx mark 	INTERPWGT->WGT[ia][ib][ig] = WGT[ia][ib][ig]/SUMWGT ;
 	INTERPWGT->WGT[ia][ib][ig] /= SUMWGT ;
 	if ( INTERPWGT->WGT[ia][ib][ig] < 0.0 ) { NEGWGT = 1; }
       }
@@ -4807,7 +4808,6 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
     for(ia=ia_min; ia<=ia_max; ia++ ) {
       for(ib=ib_min; ib<=ib_max; ib++ ) {
 	for(ig=ig_min; ig<=ig_max; ig++ ) {
-	  // xxx mark 	  INTERPWGT->WGT[ia][ib][ig] = WGT[ia][ib][ig]/SUMWGT ;
 	  printf("xxx ia,ib,ig=%d,%d,%d: "
 		 "WGT = %.4f  Da,Db,Dg=%.3f,%.3f,%.3f\n",
 		 ia,ib,ig, INTERPWGT->WGT[ia][ib][ig],
@@ -5183,6 +5183,7 @@ void set_defaults(void) {
   INPUTS.cat_file_out[0] = 0 ;
   INPUTS.write_yaml = 0 ;
   INPUTS.write_csv  = 0 ;
+  INPUTS.write_chi2grid  = 0 ;
 
   INPUTS.minos      = 0 ; // disable default minos, Apr 22 2022
   INPUTS.nfile_data = 0 ;
@@ -6494,8 +6495,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
       TABLEVAR->COV_x1c       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     }
     else if ( INPUTS.ISMODEL_LCFIT_BAYESN )  {      
-      // xxx mark TABLEVAR->mu            = (float *) malloc(MEMF); MEMTOT+=MEMF;
-      // xxx mark TABLEVAR->muerr         = (float *) malloc(MEMF); MEMTOT+=MEMF;
+
     }
 
 
@@ -6591,8 +6591,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
       free(TABLEVAR->warnCov);
     }
     else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
-      // xxx mark free(TABLEVAR->mu);
-      // xxx mark free(TABLEVAR->muerr);
+
     }
 
     free(TABLEVAR->zhd);      free(TABLEVAR->zhderr);
@@ -10440,13 +10439,6 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   ptr_fitpar  = INFO_BIASCOR.TABLEVAR.fitpar[ipar_LCFIT] ;
   ptr_simpar  = INFO_BIASCOR.TABLEVAR.SIM_FITPAR[ipar_LCFIT] ;
   ptr_gammadm = INFO_BIASCOR.TABLEVAR.SIM_GAMMADM ;
-
-  /* xxxxxx mark delete 
-  printf(" xxx %s: mu = %f  SIM_MU=%s  g=%f \n",
-         fnam, ptr_fitpar[4], ptr_simpar[4], ptr_gammadm[4] );
-  debugexit(fnam);
-  xxxxxxxx*/
-
   
   // ------------------------------------------
   for( J1D=0; J1D < NCELL ; J1D++ ) {
@@ -12378,7 +12370,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   DOPRINT = ( IDSAMPLE==0 || DO_SIGINT_SAMPLE ) ;
   SIGINT_AVG = 0.0 ;
   WGTSUM     = 0.0 ;
-  int OPTMASK = 2; // 2-> use WGT_POP for sigint_muresid .xyz
+  int OPTMASK = 2; // 2-> use WGT_POP for sigint_muresid 
   
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {    
@@ -16609,6 +16601,10 @@ int ppar(char* item) {
     sscanf(&item[10],"%d", &INPUTS.write_csv);  return(1);
   }
 
+  if ( uniqueOverlap(item,"write_chi2grid=") ) {
+    sscanf(&item[15],"%d", &INPUTS.write_chi2grid);  return(1);
+  }
+
   // - - - - July 2023: check for model_lcfit that is not SALT2 - - - - - 
   if ( uniqueOverlap(item,"model_lcfit=") ) {
     sscanf(&item[12],"%s", INPUTS.model_lcfit);  return(1);
@@ -19926,7 +19922,9 @@ void outFile_driver(void) {
 
   char *prefix   = INPUTS.PREFIX ;
 
-  char tmpFile1[200], tmpFile2[200], tmpFile3[200], tmpFile[200];
+  char tmpFile[MXPATHLEN];
+  char tmpFile1[MXPATHLEN], tmpFile2[MXPATHLEN], tmpFile3[MXPATHLEN];
+  char tmpFile4[MXPATHLEN];
   char fnam[] = "outFile_driver" ; 
 
   // --------------- BEGIN -------------
@@ -19960,10 +19958,13 @@ void outFile_driver(void) {
 
   if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
-    sprintf(tmpFile1,"%s.fitres", prefix ); 
+    // xxx mark May 28 27 2024 sprintf(tmpFile1,"%s.fitres", prefix );
+    sprintf(tmpFile1,"%s.FITRES", prefix ); 
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
-    sprintf(tmpFile3,"%s.COV",    prefix );  // Dec 2 2020
+    sprintf(tmpFile3,"%s.COV",    prefix );     // Dec 2 2020
+    sprintf(tmpFile4,"%s.CHI2GRID", prefix );  // May 27 2024
 
+    /* xxxxxxxx mark delete May 27 2024 xxxxxxxxxx
     // Aug 12 2020 temp HACK: 
     // if YAML output is specified, it's from the new
     // submit_batch_jobs script. Write output fitres file with
@@ -19971,12 +19972,15 @@ void outFile_driver(void) {
     // in batch script. Should fix this permanenetly, but need to 
     // check/fix SALT2mu_fit.pl.
     if ( INPUTS.write_yaml ) { sprintf(tmpFile1,"%s.FITRES", prefix ); }
+    xxxxxxxxx end mark xxxxxxxxxx */
+
     
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
     write_M0_fitres(tmpFile2);      // write M0 vs. redshift
     write_M0_cov(tmpFile3);         // write cov_stat matrix for CosmoMC
-
+    write_chi2grid(tmpFile4);
+    
     if ( INPUTS.write_yaml ) {
       sprintf(tmpFile,"%s.YAML", prefix );
       write_yaml_info(tmpFile);
@@ -20431,6 +20435,72 @@ void write_M0_cov(char *fileName) {
 
 } // end write_M0_cov
 
+
+// ================================================
+void write_chi2grid(char *chi2grid_file) {
+
+  // Created May 27 2024
+  // Write 1D chi2 map for alpha, beta, gamma, etc ...
+  // For diagnostic to study crazy errors.
+
+  FILE *fp;
+  double a_save, b_save;
+  double a, b, amin=0.10, bmin=2.5, abin=1.0E-4, bbin=0.001;
+  double xval[100], grad[100], chi2_a, chi2_b;
+  int    nbin=1000, i, ipar, iflag=3, rownum=0 ;
+  int    npar = FITINP.NFITPAR_ALL ;
+  void  *not_used;
+  char fnam[] = "write_chi2grid";
+
+  // ------------- BEGIN --------------
+
+  //  abin *= 10.0; bbin *=10.0 ; nbin /= 10; // xxx temp REMOVE
+  
+  if ( !INPUTS.write_chi2grid) { return; }
+
+  fprintf(FP_STDOUT, "\n Write chi2grid to %s\n" , chi2grid_file); 
+  fflush(FP_STDOUT);
+  
+  fp = fopen(chi2grid_file,"wt");
+
+  fprintf(fp,"VARNAMES:  ROW  alpha  beta chi2_alpha chi2_beta \n");
+
+  for ( ipar=0; ipar < npar ; ipar++ ) {
+    xval[ipar] = FITRESULT.PARVAL[NJOB_SPLITRAN][ipar] ;
+    grad[ipar] = 0.0 ;
+
+    if ( FITINP.ISFLOAT[ipar] ) 
+      { printf("\t xval[%2d] = %f \n", ipar, xval[ipar] ); }
+  }
+  fflush(FP_STDOUT);
+  
+  a_save = xval[IPAR_ALPHA0];
+  b_save = xval[IPAR_BETA0];
+
+  // - - - - - - - -
+  for(i=0; i < nbin; i++ ) {
+    rownum++ ;
+    a = amin + abin * (double)i;
+    b = bmin + bbin * (double)i;
+    
+    xval[IPAR_ALPHA0] = a;
+    xval[IPAR_BETA0]  = b_save;    
+    fcn(&npar, grad, &chi2_a, xval, &iflag, not_used);
+
+    xval[IPAR_ALPHA0] = a_save;
+    xval[IPAR_BETA0]  = b;
+    fcn(&npar, grad, &chi2_b, xval, &iflag, not_used);
+
+    fprintf(fp,"ROW: %5d  %.4f %.4f   %.6le  %.6le \n",
+	    rownum, a, b, chi2_a, chi2_b ); fflush(fp);
+  }
+  
+  fclose(fp);
+  
+  // .xyz
+  return;
+  
+} // end write_chi2grid
 
 // ******************************************
 void write_fitres_driver(char* fileName) {
@@ -22390,6 +22460,7 @@ void print_SALT2mu_HELP(void) {
     "",
     "write_yaml=1 -> write yaml info output for batch script",
     "write_csv=1  -> write M0DIF vs. z in csv format for CosmoMC input",
+    "write_chi2grid=1 -> write chi2 vs. alpha and vs. beta (diagnostic)",
     "",
     " - - - - -  fit par initial values and float flags - - - - - ",
     "",

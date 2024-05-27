@@ -22414,6 +22414,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + add abort trap if SIM_XXX vars are missing from biasCor.
       + extend nbin search in sigint_muresid_list() in sntools.c
       + apply WGT_POPULATION to compute sigInt (SNR>60)
+      + new input write_chi2grid=1 to write chi2 vs. alpha and beta
       
     sntools.c
       + hack fix in sigint_muresid_list() to allow for only one

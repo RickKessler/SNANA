@@ -22415,6 +22415,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + extend nbin search in sigint_muresid_list() in sntools.c
       + apply WGT_POPULATION to compute sigInt (SNR>60)
       + new input write_chi2grid=1 to write chi2 vs. alpha and beta
+      + repeat fit if MNSTAT=2 (errors forced positive)
+      + new input minos2=1 -> use minos on 2nd fit after crazy errors
       
     sntools.c
       + hack fix in sigint_muresid_list() to allow for only one

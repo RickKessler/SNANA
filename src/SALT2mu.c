@@ -978,9 +978,10 @@ struct INPUTS {
   
   int    write_yaml;  // used by submit_batch_jobs.py
   int    write_csv ;  // M0DIF formatted for CosmoMC
-  int    write_chi2grid; //
+  int    write_chi2grid; // number of chi2 grid bins for alpha & beta
   
-  int    minos;
+  int    minos;  // 1 -> use minos for full fit (very slow)
+  int    minos2; // 1 -> use minos only for repeat after crazy errors
 
   int    nmax_tot ;   // Nmax to fit for all
   int    nmax[MXIDSURVEY];   // idem by survey
@@ -2120,11 +2121,11 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 
   int MNSTAT = FITRESULT.MNSTAT ;
 
-  char COMMENT_MNSTAT[4][40] = {
-    "Fit Invalid", 
-    "Bad fit; Diagonal errors only", 
-    "Suspect fit; errors forced positive",
-    "Good fit; errors valid"
+  char COMMENT_MNSTAT[4][60] = {
+    "COV not calculated at all", 
+    "COV-Diagonal approx, not accurate", 
+    "Full COV matrix, but forced positive-definite",
+    "Full accurate COV matrix (normal convergence)"
   };
 
   char fnam[] = "SALT2mu_DRIVER_SUMMARY" ;
@@ -2146,17 +2147,20 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   exec_mnpout_mnerrs(); // Dec 12 2016
 
   // Sep 13 2022: 
-  //  if M0 errors are crazy small, repeat fit, but only one repeat
+  //  if M0 errors are crazy small, repeat fit, but only one repeat.
+  // May 27 2024: repeat if MNSTAT=2 (Suspect fit; errors forced positive)
   bool IS_CRAZYERR = crazy_M0_errors();
   if ( IS_CRAZYERR &&  NCALL_SALT2mu_DRIVER_EXEC == 1 ) {
     double delta_alpha = 0.001;
     double delta_beta  = 0.01;
     INPUTS.parval[IPAR_ALPHA0] += delta_alpha ;
     INPUTS.parval[IPAR_BETA0]  += delta_beta  ;
-    INPUTS.minos     = 1;  // JUly 5 2023
+    INPUTS.minos     = INPUTS.minos2;  // May 27 2024
     FITINP.NFITPAR_FLOAT = 0 ;
-    printf("\t Repeat BBC fit with initial alpha += %.5f,  beta += %.5f, MINOS\n",
-	   delta_alpha, delta_beta); fflush(stdout);
+    printf("\t Repeat BBC fit with initial alpha += %.5f,  beta += %.5f, " \
+	   "MINOS=%d\n",
+	   delta_alpha, delta_beta, INPUTS.minos);
+    fflush(stdout);
     return(FLAG_EXEC_REPEAT); 
   }
 
@@ -3689,7 +3693,7 @@ int prepNextFit(void) {
 // ******************************************
 bool crazy_M0_errors(void) {
   // Created July 2022
-  // Return TRUE if fitted distance errors are absurdly small,
+  // Return TRUE if fitted distance errors are absurdly small or large,
   // so that main program repeats the BBC fit process.  
   // The super-tiny errors is a rare pathology that is likely due 
   // to a kink in the chi2 function, and MINUIT's derivative 
@@ -3703,10 +3707,14 @@ bool crazy_M0_errors(void) {
   double VAL, ERR, ERRMIN_COMPUTE, XN, z;
   int    n, iz, NEVT, n_crazy_M0_error = 0;
 
-  double ERRMAX_CRAZY      = 1.5;  // changed to 1.5 by M.Vincenzi on 2/10/2023
+  double ERRMAX_CRAZY      = 1.5;   // changed to 1.5 by M.Vincenzi on 2/10/2023
   double ERRMIN_FRAC_CRAZY = 0.67;  // crazy err of ERR/ERRMIN < this value
   int    N_CRAZYERR_SETFLAG = 3;
-  char   string_flag[40];
+  char   string_flag[60];
+  char  STRING_NO_CRAZY_ERRORS[]  = "NO_CRAZY_ERRORS";
+  char  STRING_HAS_CRAZY_ERRORS[] = "HAS_CRAZY_ERRORS";
+  char  STRING_COV_PROBLEM[]      = "HAS_COV_PROBLEM";
+  
   char fnam[] = "crazy_M0_errors";
 
   // ----------- BEGIN -------------
@@ -3716,7 +3724,7 @@ bool crazy_M0_errors(void) {
   sprintf(BANNER,"Check for Crazy Fitted M0 Errors" );
   fprint_banner(FP_STDOUT,BANNER);   
 
-  sprintf(string_flag,"NO_CRAZY_ERRORS");
+  sprintf(string_flag,"%s ", STRING_NO_CRAZY_ERRORS);
 
   for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
 
@@ -3742,7 +3750,7 @@ bool crazy_M0_errors(void) {
       fflush(stdout);
       n_crazy_M0_error++ ; 
 
-      sprintf(string_flag,"HAS_CRAZY_ERRORS");
+      sprintf(string_flag,"%s ", STRING_HAS_CRAZY_ERRORS);
     }
 
     if ( ERR > ERRMAX_CRAZY ) {
@@ -3751,17 +3759,22 @@ bool crazy_M0_errors(void) {
 	     iz, z, ERR, ERRMAX_CRAZY, NEVT); 
       fflush(stdout);
       n_crazy_M0_error++ ;
-      sprintf(string_flag,"HAS_CRAZY_ERRORS");
+      sprintf(string_flag,"%s ", STRING_HAS_CRAZY_ERRORS);
     }
   }
   
-  crazy_error_flag = ( n_crazy_M0_error >= N_CRAZYERR_SETFLAG );
+  crazy_error_flag = ( n_crazy_M0_error >= N_CRAZYERR_SETFLAG ) ;
 
+  if ( FITRESULT.MNSTAT == 2 ) {    // May 27 2024
+    strcat(string_flag, STRING_COV_PROBLEM);
+    crazy_error_flag = true;
+  }
+  
   // load global for each DRIVER_EXEC iteration
   NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC] = n_crazy_M0_error; 
 
-  printf("\t Found %d crazy M0 fit-errors. %s\n\n", 
-	 n_crazy_M0_error, string_flag );
+  printf("\t Found %d crazy M0 fit-errors and MNSTAT=%d    %s\n\n", 
+	 n_crazy_M0_error, FITRESULT.MNSTAT, string_flag );
 
   fflush(stdout);
 
@@ -16666,6 +16679,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"minos=") ) 
     { sscanf(&item[6],"%i", &INPUTS.minos ); return(1); }
 
+  if ( uniqueOverlap(item,"minos2=") ) 
+    { sscanf(&item[7],"%i", &INPUTS.minos2 ); return(1); }  
+
 
   // - - - - - -
   // allow two different keys for data file name
@@ -20445,20 +20461,29 @@ void write_chi2grid(char *chi2grid_file) {
 
   FILE *fp;
   double a_save, b_save;
-  double a, b, amin=0.10, bmin=2.5, abin=1.0E-4, bbin=0.001;
-  double xval[100], grad[100], chi2_a, chi2_b;
-  int    nbin=1000, i, ipar, iflag=3, rownum=0 ;
+  double a, b, a_bin, b_bin;
+  double a_range[2] = { 0.10, 0.20 } ;
+  double b_range[2] = { 2.00, 4.00 } ;
+  
+  int    nbin = INPUTS.write_chi2grid ;
   int    npar = FITINP.NFITPAR_ALL ;
+  
+  double xval[100], grad[100], chi2_a, chi2_b;
+  int    i, ipar, iflag=3, rownum=0 ;
   void  *not_used;
   char fnam[] = "write_chi2grid";
 
   // ------------- BEGIN --------------
 
+
   //  abin *= 10.0; bbin *=10.0 ; nbin /= 10; // xxx temp REMOVE
   
-  if ( !INPUTS.write_chi2grid) { return; }
+  if ( nbin <= 0 ) { return; }
 
-  fprintf(FP_STDOUT, "\n Write chi2grid to %s\n" , chi2grid_file); 
+  a_bin = (a_range[1] - a_range[0]) / (double)nbin ;
+  b_bin = (b_range[1] - b_range[0]) / (double)nbin ;
+    
+  fprintf(FP_STDOUT, "\n Write %d chi2 grid values to %s\n" , nbin, chi2grid_file); 
   fflush(FP_STDOUT);
   
   fp = fopen(chi2grid_file,"wt");
@@ -20480,8 +20505,8 @@ void write_chi2grid(char *chi2grid_file) {
   // - - - - - - - -
   for(i=0; i < nbin; i++ ) {
     rownum++ ;
-    a = amin + abin * (double)i;
-    b = bmin + bbin * (double)i;
+    a = a_range[0] + a_bin * (double)i;
+    b = b_range[0] + b_bin * (double)i;
     
     xval[IPAR_ALPHA0] = a;
     xval[IPAR_BETA0]  = b_save;    
@@ -20497,7 +20522,6 @@ void write_chi2grid(char *chi2grid_file) {
   
   fclose(fp);
   
-  // .xyz
   return;
   
 } // end write_chi2grid
@@ -22491,9 +22515,13 @@ void print_SALT2mu_HELP(void) {
     "p21=H11sigcc1  ",
     "p22=H11sigcc2  ",
     "",
-    "u1=1    #  0,1 --> fix/float  parameter 1", 
-    "u2=1    #  0,1 --> fix/float  parameter 2",
+    "u1=1    #  0,1 --> fix/float  parameter 1 (alpha)", 
+    "u2=1    #  0,1 --> fix/float  parameter 2 (beta)",
+    "u1=3    #      --> force 1 biasCor alpha bin with continuous distribution",
+    "u2=3    #      --> force 1 biasCor beta  bin with continuous distribution",   
     " ... ",
+    "u5=1    #  --> float gamma0",
+    " ... ",    
     "u13=1   # 1 or 2 defines scalePCC above",
     " ... ",
     "u22=1   # 0,1 --> fix/float parameter 22",
@@ -22509,7 +22537,8 @@ void print_SALT2mu_HELP(void) {
     "",
     " - - - - -  misc fit params and options - - - - - ",
     "",
-    "minos=0          #  1 --> MINUIT minos errors",
+    "minos=0          #  1 --> MINUIT minos errors (warning: very slow)",
+    "minos2=0         #  1 --> use minos on repeat fit after crazy errors",    
     "fitflag_sigmb=1  #  find sigmB giving chi2(Ia)/N = 1 (or sig1fit=1)",
     "fitflag_sigmb=2  #  idem, with extra fit adding 2log(sigma)",
     "redchi2_tol=0.02 #  tolerance on chi2/dof-1",

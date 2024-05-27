@@ -263,8 +263,6 @@ int init_genmag_stretch2 (
   */
 
   return SUCCESS ;
-
-  return ;
   
 } // end init_genmag_stretch2
 

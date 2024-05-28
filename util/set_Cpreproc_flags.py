@@ -18,36 +18,76 @@
 #
 import os
 import sys
+import subprocess
+import shutil
 
 # GLOBALS
 SNANA_DIR          = os.environ['SNANA_DIR']
 INCFILE_OUTPUT     = '../src/sntools_output.h'
 INCFILE_PySEDMODEL = '../src/genmag_PySEDMODEL.h'
 INCFILE_BAYESN     = '../src/genmag_BAYESN.h'
+INCFILE_ZPDF_SPLINE= '../src/sntools_zPDF_spline.h'
 
-LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
-LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON' ]
-LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL ]
+
+LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON', 'GSL_INTERP_STEFFEN' ]
+LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON', 'GSL_DIR 2.0' ]
+LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL, INCFILE_ZPDF_SPLINE ]
 NCFLAG         = len(LIST_CFLAG)
+
+
+
+def fetch_version(ENV):
+    '''
+    May 28/2024
+    '''
+    if 'GSL' in ENV :
+        command = 'gsl-config --version'
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+        output  = process.communicate()[0]
+        version =  output.decode()
+    elif 'ROOT' in ENV :
+        version = None  # Maybe Later
+    else :
+        version = None
+
+    return version    
+        
 
 def check_Cflag(iflag):
 
-    import subprocess
-    import shutil
-    ENV     =   LIST_ENV[iflag]
-    ENV_val =   os.environ.get(ENV)
-    CFLAG   =   LIST_CFLAG[iflag]
-    INCFILE =   LIST_INCFILE[iflag]
+    ENV_ITEMS      =   LIST_ENV[iflag].split()
+    NITEMS         =   len(ENV_ITEMS)
+    ENV            =   ENV_ITEMS[0]
+    ENV_val        =   os.environ.get(ENV)
+    CFLAG          =   LIST_CFLAG[iflag]
+    INCFILE        =   LIST_INCFILE[iflag]
+    SET_CFLAG      = False
+    
+    if (NITEMS == 2 ):
+        VERSION_WANT = ENV_ITEMS[1]
+        VERSION_ACTUAL = fetch_version(ENV)
+    else :
+        VERSION_ACTUAL = 'unknown'
 
-    if ( ENV_val == None ):
-        SET_CFLAG = False
-    else:
-        SET_CFLAG = True
+    if ( ENV_val is not  None ):
+        #SET_CFLAG = True
+        if (NITEMS == 2 ):
+            # Require version to SET_CFLAG
+            VERSION_WANT   = ENV_ITEMS[1]
+            VERSION_ACTUAL = fetch_version(ENV)
+            VERSION_LIST   = [VERSION_WANT, VERSION_ACTUAL]
+            VERSION_SORT   = sorted(VERSION_LIST)
+            if (VERSION_SORT[1] == VERSION_ACTUAL ):
+                SET_CFLAG = True
+        else :
+            SET_CFLAG = True # ENV exists so SET_CFLAG 
 
     print('# --------------------------------------------- ')
     print(' Check C preproc flag: %s'%CFLAG)
     print(' File: %s'%INCFILE)
     print(' ENV(%s) = %s ' % (ENV, ENV_val))
+    if (NITEMS == 2):
+        print('%s Version = %s'%(ENV, VERSION_ACTUAL))
     print(' SET_CFLAG = %s'%SET_CFLAG)
 
     # grep out CFLAG

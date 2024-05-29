@@ -864,6 +864,32 @@ def backup_merge_file(merge_file):
     shutil.copyfile(merge_file, merge_file_save )
     # end backup_merge_file
 
+def program_exists(program_name, t_wait_max, abort_not_exists):
+    # Created May 23 2024 by R.Kessler
+    # Return True if profram_name exists within time t_wait_max.
+    # If program_name does not exist after t_wait_time,
+    # and abort_not_exists=True, the abort.
+    # 
+    t_wait_tot = 0
+    t_wait     = 10  # wait this long before checking again
+    
+    while os.access(program_name, os.X_OK) is False:
+        t_now   = datetime.datetime.now()
+        tstr    = t_now.strftime("%Y-%m-%d %H:%M:%S") 
+        logging.info(f"  waiting for {program_name} to exist ({tstr})")
+        time.sleep(t_wait)
+        t_wait_tot += t_wait
+        if t_wait_tot > t_wait_max :
+            logging.info(f"WARNING: Could not find program {program_name}")
+            logging.info(f"\tafter waiting {t_wait_tot} seconds.")        
+            if abort_not_exists:
+                log_assert(False, ["ABORT on missing program", program_name] )
+            else:
+                return False
+    
+    return True
+# end of program_exists
+
 def wait_for_files(n_file_wait, wait_dir, wait_files):
     # go to sleep until all wait_files exist
     # Inputs:

@@ -372,7 +372,7 @@ struct SNDATA {
   char SIM_COMMENT[200]; 
   // xxx mark  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
   int  SIM_GENTYPE;          // same as SNTYPE (if set).
-  char SIM_TYPE_NAME[12];    // Ia, Ib, II, etc ...
+  char SIM_TYPE_NAME[60];    // Ia, Ib, II, etc ...
 
   int   SIM_LIBID;
   int   SIM_NGEN_LIBID;

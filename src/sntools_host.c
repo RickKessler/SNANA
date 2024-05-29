@@ -534,7 +534,8 @@ void init_OPTIONAL_HOSTVAR(void) {
   //
   // Jan 30 2015: allow RA or RA_HOST, DEC or DEC_HOST
   // May 23 2020: add VPEC and VPEC_ERR
-
+  // May 07 2024: add WEAKLENS_DMU
+  
   int NVAR, j, ifilt, ifilt_obs ;
   char anam[12], bnam[12], wnam[12], nnam[12];
   char varName[40], *cptr ;
@@ -629,6 +630,9 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
   sprintf(cptr,"%s", HOSTLIB_VARNAME_ANGLE );
+
+  cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_WEAKLENS_DMU );  
 
   char varName_err[50]; 
   // check for observer-frame mags '[filt]_obs' 
@@ -864,9 +868,11 @@ void append_HOSTLIB_STOREPAR(void) {
   // defining HOSTLIB_STOREPAR.
   //
   // Jun 12 2020: set NVAR_zHOST after reading zHOST file
-
+  // May 20 2024: use open_TEXTgz instead of fopen for GENPDF map file
+  //               so that it reads gzipped or unzipped file
+  
   char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
-  int  ivar, NVAR_zHOST ;
+  int  ivar, NVAR_zHOST, gzipFlag ;
   char *ptrVarName;
   FILE *fp ;
   char fnam[] = "append_HOSTLIB_STOREPAR" ;
@@ -891,7 +897,8 @@ void append_HOSTLIB_STOREPAR(void) {
   // - - - - - - - 
   // check PDF maps for populations
 
-  fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
+  // xxx mark delete fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
+  fp = open_TEXTgz(INPUTS.GENPDF.MAP_FILE, "rt", &gzipFlag );  
   if ( fp ) {
     int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
     char **VARNAMES;
@@ -3137,61 +3144,6 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 
 } // end of   checkAlternateVarNames_HOSTLIB
 
-
-// =====================================
-void  checkAlternateVarNames_LEGACY(char *varName) {
-
-  // Feb 12 2014
-  // If input varName matches an allowed [hard-wired] alternative,
-  // reset varName to the official name.
-  // Note that the input argument is modified !
-  //
-  // Apr 2023: check for VARNAME_ZTRUE_CMB
-
-  char *BASENAME;
-  int j;
-  char fnam[] = "checkAlternateVarNames_LEGACY";
-
-  // --------- BEGIN ---------
-
-  if ( strcmp(varName,"ZERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZPHOT_ERR); }
-
-  if ( strcmp(varName,"ZPHOTERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZPHOT_ERR); }
-
-  
-  if ( strcmp(varName,"VPECERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
-
-  if ( strcmp(varName,HOSTLIB_VARNAME_ZTRUE_CMB) == 0 ) { 
-    sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE);
-    HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
-
-    // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
-    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
-    if ( !SN2GAL ) {
-      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
-	      HOSTLIB_VARNAME_ZTRUE_CMB);
-      sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
-	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-  } // end HOSTLIB_VARNAME_ZTRUE_CMB if block
-
-  for (j=0; j<N_HOSTGAL_PROPERTY; j++){
-    BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
-    if ( strcmp(varName, BASENAME) == 0 ) 
-      { sprintf(varName,"%s_TRUE", BASENAME); }
-  }
-  
-  if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
-
-  return;
-
-} // end of checkAlternateVarNames_LEGACY
 
 
 void replace_varName_HOSTLIB(char *varName, char *varName_check, 
@@ -7454,13 +7406,12 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
 void GEN_SNHOST_WEAKLENS_DMU(int IGAL) {
   // Created June 28 2022 by Kevin Wang
   // If WEAKLENS_DMU column in hostlib exists, store value in structure SNHOSTGAL.WEAKLENS_DMU
-  int  IVAR_WEAKLENS_DMU     = HOSTLIB.IVAR_WEAKLENS_DMU ;
-  char fnam[]        = "GEN_SNHOST_WEAKLENS_DMU" ;
+  int  IVAR_WEAKLENS_DMU  = HOSTLIB.IVAR_WEAKLENS_DMU ;
+  char fnam[] = "GEN_SNHOST_WEAKLENS_DMU" ;
 
   // BEGIN
   if (IVAR_WEAKLENS_DMU > 0) {
     SNHOSTGAL.WEAKLENS_DMU  = get_VALUE_HOSTLIB(IVAR_WEAKLENS_DMU,IGAL);
-
   }
 
 } // end GEN_SNHOST_WEAKLENS_DMU

@@ -1,5 +1,6 @@
 // genmag_SALT2.h
-
+// May 21 2024: define REFAC_SALT2_COV=T to enable x_2 component.
+//
 
 // useful numbers
 #define X0SCALE_SALT2   1.0E-12        // arbitrary normalization
@@ -38,6 +39,8 @@
 #define GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE   64  // abort on bad model-LAMRANGE
 #define GENMODEL_MSKOPT_SALT2_DEBUG   1024    // Refactor for developer only
 
+//#define REFAC_SALT2_COV false
+#define REFAC_SALT2_COV true
 
 int  DEBUG_SALT2;
 int  NCALL_DBUG_SALT2 ; 

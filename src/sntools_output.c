@@ -1199,14 +1199,18 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   // Inputs:
   //   - ptr : pointer to store
   //   - mxlen = max length of input ptr
-  //   - optMask: bit0 -> print for each var, bit1 -> abort on missing var
+  //   - optMask:
+  //       bit0 (+=1) -> print for each var
+  //       bit1 (+=2) -> abort on missing var
+  //       bit2 (+=4) -> print warning on missing var
   //
   // Function returns absolute IVAR index.
   //
   // Feb 6 2023 RK - for multuple VARLIST names, select 1st on list 
   //                 instead of last.
   //
-  int  istat, ISTAT,  NVAR_TOT, NVAR_FOUND, FLAG_VBOSE, FLAG_ABORT ;
+  int  istat, ISTAT,  NVAR_TOT, NVAR_FOUND;
+  int  FLAG_VBOSE, FLAG_ABORT, FLAG_WARN ;
   char VARLIST_LOCAL[MXCHAR_VARLIST], VARLIST_FOUND[MXCHAR_VARLIST];
   char VARNAME_withCast[MXCHAR_VARNAME]; 
   char VARNAME_noCast[MXCHAR_VARNAME]; 
@@ -1223,6 +1227,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
 
   FLAG_VBOSE = (optMask & 1); // flag to print comment for each variable
   FLAG_ABORT = (optMask & 2); // flag to abort on missing variable
+  FLAG_WARN  = (optMask & 4); // flag to print warning on missing variable  
 
   ptrtok = strtok(VARLIST_LOCAL," ");
   while ( ptrtok != NULL ) {
@@ -1252,6 +1257,11 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
   }
 
+  if ( FLAG_WARN && NVAR_FOUND == 0 ) {
+    printf(" %s WARNING: variable %s not found\n", fnam, VARLIST);
+    fflush(stdout);      
+  }
+  
   return ISTAT ;
 
 } // end of SNTABLE_READPREP_VARDEF

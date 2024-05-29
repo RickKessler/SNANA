@@ -53,8 +53,9 @@ TABLE_NAME_MAP_ROOT  = {
 OUTFILE_PREFIX = "sntable_dump"
 OUTFILE_SUFFIX = "fitres"
 
-Cprogram_dump    = "sntable_dump.exe"
-Cprogram_combine = "combine_fitres.exe"
+SNANA_DIR = os.getenv('SNANA_DIR')
+Cprogram_dump    = f"{SNANA_DIR}/bin/sntable_dump.exe"
+Cprogram_combine = f"{SNANA_DIR}/bin/combine_fitres.exe"
 
 # ===========
 def get_args():
@@ -236,6 +237,35 @@ def make_command_sntable_dump(input_args,config):
     # end make_command_sntable_dump
 
 
+def program_exists(program_name, t_wait_max, abort_not_exists):
+    # Created May 23 2024 by R.Kessler                                                                                                                
+    # Return True if profram_name exists within time t_wait_max.                                                                                
+    # If program_name does not exist after t_wait_time,                                                                                               
+    # and abort_not_exists=True, the abort.                                                                                                           
+    #                                                                                                                                                 
+    t_wait_tot = 0
+    t_wait     = 10  # wait this long before checking again                                                                                           
+
+    while os.access(program_name, os.X_OK) is False:
+        t_now   = datetime.datetime.now()
+        tstr    = t_now.strftime("%Y-%m-%d %H:%M:%S")
+        printf(f"  waiting for {program_name} to exist ({tstr})")
+        sys.stdout.flush()
+        time.sleep(t_wait)
+        t_wait_tot += t_wait
+        if t_wait_tot > t_wait_max :
+            print(f"WARNING: Could not find program {program_name}")
+            print(f"\tafter waiting {t_wait_tot} seconds.")
+            sys.stdout.flush()
+            if abort_not_exists:
+                log_assert(False, ["ABORT on missing program", program_name] )
+            else:
+                return False
+
+    return True
+
+
+    
 def append_fitres(input_args,config):
 
     # combine args.append file with config.outfile
@@ -256,13 +286,14 @@ def append_fitres(input_args,config):
           f"-outprefix {outfile_prefix} " \
           f"t"   # <== write only text output; no ROOT or hbook
 
+    # .xyz check that Cprogram_combine exists ...
+    
     os.system(cmd)
 
     if input_args.VERBOSE:
         print(f" Finished {Cprogram_combine} with append mode.")
         t0 = config.t0
         print_elapse_time(t0)
-        sys.stdout.flush()
 
     # append comments at top of appended fitres file
     comment_list = []
@@ -283,14 +314,14 @@ def append_fitres(input_args,config):
         print(f" Finished adding comments to top of appended file.")
         t0 = config.t0
         print_elapse_time(t0)
-        sys.stdout.flush()
 
     # end append_fitres
 
 def print_elapse_time(t0):
     dt_sec = (datetime.datetime.now() - t0).total_seconds()
     print(f"\t elapse time: {dt_sec} sec")
-
+    sys.stdout.flush()
+    
 # =========================
 # ======= MAIN ============
 # =========================
@@ -319,7 +350,6 @@ if __name__ == "__main__":
     if input_args.VERBOSE :
         print(f"  File format is {config.Format}")
         print_elapse_time(t0)
-        sys.stdout.flush()
 
     # make sure table name is appropriate for file format
     config.table_name = check_table_name(input_args.table_name,config.Format)
@@ -335,6 +365,9 @@ if __name__ == "__main__":
         print('\n')
         sys.stdout.flush()
 
+    # .xyz check that Cprogram exists ...
+    
+    
     istat = os.system(config.command)
 
     if input_args.VERBOSE:

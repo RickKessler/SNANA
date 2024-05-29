@@ -2468,7 +2468,7 @@ class Simulation(Program):
         for row in row_list_split :
             TMP_GENV     = row[COLNUM_SIM_MERGE_GENVERSION]
             jlast        = TMP_GENV.rindex('_'); 
-            model_string = TMP_GENV[jlast+1:] # e.g. SNIaMODEL0            
+            model_string = TMP_GENV[jlast+1:] # e.g. SNIaMODEL0, NONIaMODEL1, etc ...
             model_string_list.append(model_string)
 
         # write out same info for each model ... only for RANSEED_REPEAT
@@ -2504,7 +2504,7 @@ class Simulation(Program):
 
         # - - - - - - - - -
         # Mar 2023 - write sim-input keys for each model (SPLIT001 only)
-        tmp_dict_GENTYPE_TO_NAME = {}
+        ALL_GENTYPE_TO_NAME = {}
         tmp_list_model_string = []
         tmp_list_readme       = []
 
@@ -2517,24 +2517,26 @@ class Simulation(Program):
 
                 tmp_list_model_string.append(model_string)
                 tmp_list_readme.append(tmp_readme)
-                
+
+                # increment GENTYPE_TO_NAMES from all versions
                 with open(tmp_readme, "r") as r :
                     readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
                     gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
                     if not isinstance(gentype_to_name_dict,dict) : break
                     for gentype, names in gentype_to_name_dict.items():
-                        tmp_dict_GENTYPE_TO_NAME[gentype] = names
+                        ALL_GENTYPE_TO_NAME[gentype] = f"{names:<30} {model_string}"
                         #print(f" xxx gentype = {gentype} | names = {names} ")
         
         # - - - - -  -
         # write GENTYPE_TO_NAME mapping (Mar 2024)
-        if len(tmp_dict_GENTYPE_TO_NAME) > 0:
+        if len(ALL_GENTYPE_TO_NAME) > 0:
             f.write(f"\n")
             f.write(f"  GENTYPE_TO_NAME:   # GENTYPE-integer    (non)Ia  " \
-                    f" transient-Name  \n")
-            for gentype, names in tmp_dict_GENTYPE_TO_NAME.items():
+                    f" transient-Name     FITS-prefix\n")
+            for gentype, names in ALL_GENTYPE_TO_NAME.items():
                 f.write(f"    {gentype}:  {names}  \n")
-            
+
+
         # write input keys for each model (after writing gentype_to_name)
         for model_string, readme in zip(tmp_list_model_string, tmp_list_readme):
             self.merge_write_input_keys(f, model_string, readme)

@@ -207,7 +207,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
 
   DEBUG_SALT2 = ( OPTMASK & GENMODEL_MSKOPT_SALT2_DEBUG );
-  //  DEBUG_SALT2 = 1; // xxx REMOVE
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -449,7 +448,7 @@ int NSURFACE_SALT2(void) {
 
   // ------------ BEGIN -------------
 
-  if ( DEBUG_SALT2 == 0 ) { return 2; } // legacy
+  if ( !REFAC_SALT2_COV ) { return 2; } // legacy
 
   for(i=0; i < 3; i++ ) {
     sprintf(template_file, "%s/%s_template_%d.dat", 
@@ -845,14 +844,13 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   int imap, NDAY, NLAM, NBTOT, nflux_nan ;
   double DUMMY[20];
 
-  bool LEGACY = (DEBUG_SALT2 == 0 ) ;
   char tmpFile[200], sedcomment[80], lc_string[20] ;
   char *prefix = SALT2_PREFIX_FILENAME ;
   char fnam[] = "read_SALT2errmaps" ;
 
   // ----------- BEGIN -----------    
 
-  if ( LEGACY ) { read_SALT2errmaps_legacy(Trange,Lrange); return; }
+  if ( !REFAC_SALT2_COV ) { read_SALT2errmaps_legacy(Trange,Lrange); return; }
 
   printf("\n Read SALT%d ERROR MAPS: \n", IMODEL_SALT );
   fflush(stdout);
@@ -967,8 +965,6 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
     fflush(stdout);
 
   }   //  imap
-
-  //  if ( DEBUG_SALT2 ) { debugexit(fnam); }
 
 } // end of read_SALT2errmaps
 
@@ -2533,7 +2529,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
 
   // ---------------- BEGIN ---------------
   
-  if ( !DEBUG_SALT2 ) {
+  if ( !REFAC_SALT2_COV ) {
     // legacy magerr for only 2 components
     return SALT2magerr_legacy(Trest, lamRest, z, x1, Finteg_errPar, LDMP );
   }
@@ -2580,7 +2576,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
     // Dave and D'Arcy's vartot has flux units (M0 + x1*M1), not relative units
     double flux_train   = Finteg_errPar ;  // M0 + x1*M1; no Gal extinc and c=0    
 
-    if ( DEBUG_SALT2 ) {
+    if ( REFAC_SALT2_COV ) {
       double x_loop[3]    = { 1.0, x1, x2 };
       vartot_flux = 0.0 ;
       for(i=0; i < NSED; i++ ) {
@@ -2590,9 +2586,9 @@ double SALT2magerr(double Trest, double lamRest, double z,
 	  if ( i != i2 ) { vartot_flux += covtmp; } // add other off-diag element
 	}
       }
-    } // end DEBUG_SALT2
+    } // end REFAC_SALT2_COV
 
-    if ( !DEBUG_SALT2 ) 
+    if ( !REFAC_SALT2_COV ) 
       { vartot_flux = var[0] + var[1]*x1*x1 + (2.0 * x1 * covar[0][1]) ; } // legacy
 
     if ( vartot_flux < 0   ) { vartot_flux = -vartot_flux ; }  // W.A.G

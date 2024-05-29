@@ -21,6 +21,8 @@
 # May 19 2023: remove obsolete translate class
 # May 22 2023: add train_BAYESN class
 # Jan 17 2023: new option --cpu_sum
+# May 07 2024: add heatmaps to purge list.
+#
 # - - - - - - - - - -
 
 #import os
@@ -299,6 +301,9 @@ def purge_old_submit_output():
     util.find_and_remove(f"FITOPT*.HBOOK*")
     util.find_and_remove(f"FITOPT*.ROOT*")
 
+    # Scone heatmaps (May 2024)
+    util.find_and_remove(f"heatmaps*.tfrecord")
+        
     # BBC
     util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
 
@@ -444,10 +449,16 @@ def run_merge_driver(program,args):
 
 # =============================================
 if __name__ == "__main__":
-
+    
     args  = get_args()
     store = util.setup_logging(args)
 
+    # xxx mark delete 
+    # program_path = "/home/s1/rkessler/SNANA/bin/combine_fitres.exe"
+    # found = util.program_exists(program_path, 50, True)
+    # sys.exit(f" xxx found_program = {found}")
+    # xxxxxxxxxxx
+    
     # check option for long HELP menus
     if args.HELP : 
         print_HELP()

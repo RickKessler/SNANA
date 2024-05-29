@@ -22350,8 +22350,24 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05m (Apr 12 2024) <-- start date
 
          *****  IMPORTANT(v11_05m) *****
-  
 
+    create_covariance.py
+      In additoin to writing covsys, write covtot_inv that is already
+      computed as a crosscheck. This enables cosmology fitting codes
+      to avoid repeating matrix inversion and save CPU time.
+
+    wfit.c:
+     + switch default STD(PDF) uncertainty to 68% confidence region,
+       after fixing binned approx to exact interpolation of PDF.
+       Can switch back to STD uncertainty with argument "-sig_type std"
+     + New input option -mucovtot_inv_file to read already inverted
+       covtot^{-1} and save CPU time by avoiding repeating the inversion.
+       Still need to update pippin to pass this new arg.
+
+     submit_batch_jobs.py
+       + the cosmofit class passes mucovtot_inv_file (if it exists) to wfit.
+         Analogous change for Firecrown awaits Firecrown code update.
+       
          *****  USEFUL(v11_05m) *****
 
       
@@ -22365,12 +22381,79 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c
        + for FORMAT_MASK +=8 (BLIND), rename VERSION.DUMP to HIDE_VERSION.DUMP;
          rename VERSION.README to HIDE_VERSION.README and create a new
-	 VERSION.README with minimal content
+	 VERSION.README with minimal content.
 	 
     submit_prog_sim.py: adapt to handle HIDE* files.
 
     sntools_cosmology.c
-       + inside init_HzFUN_INFO(), increase checkval_D range for wa, and add
-         checkval_D for w0.
-	 
+       + inside init_HzFUN_INFO(), increase checkval_D range for wa (-5 to +5),
+         and add (forgotten?) checkval_D for w0.
+
+    manual:
+       + update SIMSED section to include subsubsection on SIMSED_WGTMAP_FILE.
+
+# =============================================================
+         v11_05n (Apr 28 2024) <-- start date
+
+         *****  IMPORTANT(v11_05n) *****
+       
+         *****  USEFUL(v11_05n) *****
+
+    + new utility submit_batch_list.py to run sequential sets of
+      submit_batch_jobs, where each set waits for previous set to finish.
+      "submit_batch_list.py -H" for help on config file.     
+      
+         *****  MISCELLANEOUS(v11_05n) *****
+
+    snana.car
+      + inside MNFIT_DRIVER, return IERR=1001 if any FITVAL (from MNPOUT)
+        is NaN. This is to avoid crash for single Roman event using zphot
+	fit ... unable to find source of NaN using debugger and valgrind.
+	
+    SALT2mu.c:
+      + add abort trap if SIM_XXX vars are missing from biasCor.
+      + extend nbin search in sigint_muresid_list() in sntools.c
+      + apply WGT_POPULATION to compute sigInt (SNR>60)
+      + new input write_chi2grid=1 to write chi2 vs. alpha and beta
+      + repeat fit if MNSTAT=2 (errors forced positive)
+      + new input minos2=1 -> use minos on 2nd fit after crazy errors
+      
+    sntools.c
+      + hack fix in sigint_muresid_list() to allow for only one
+        sig_int attempt of rmsPull is close to 1.
+	
+    wfit.c
+      + for BAO prior, rather than compute rd in model, fix H0 and rd
+        to planck values, and add associated BAO model covariance to
+	BAO cov matrix. Fitting DES-SN5YR + BAO_DESI_2024 with wfit
+	gives consistent om,w0,wa errors as Dynesty;
+	  see https://github.com/RickKessler/SNANA/issues/1342
+
+   sntools_host.c
+      + add WEAKLENS_DMU to list of optional HOSTLIB columns.
+      + fix bug reading GENPDF file to allow for gzipped file;
+          see call to open_TEXTgz.
+      
+   submit_batch_jobs.py:
+      + add heatmaps*.tfrecord to list of items to purge with --purge arg.
+
+   sntools_genPDF.c
+     + for alpha, beta specified by genGauss in GENPDF_FILE, allow specifying
+       delta-function with inly GENPEAK_SALT2ALPHA or GENPEAK_SALT2BETA.
+       Internally, code sets very snall sigma and range so that grid is
+       essentially a delta-fun.
+       
+   snlc_sim.c
+     + new sim-input WRSPEC_PRESCALE to prescale writing output spectra; see manual.
+     + command line arg DNDZ [arg] overrides previous DNDZ without aborting
+       on mixed rates. In particular "DNDZ HUBBLE" on command line overrides
+       "DNDZ POWERLAW2 ..." from input files.
+     + new sim-input SPECTROGRAPH_SCALE_SNR: [a0],[a1],etc ...
+        to scale SNR with wavelength-dependent polynomial.
+     + set DO_MODELSMEAR flag when ADDPHASECOR option is set ... no longer
+       need supplmental C11 model with scale = 0.0001.
+
+   genmag_SALT2.h
+       set REFAC_SALT2_COV=T flag to enable x_2 component.
+       
 END: 

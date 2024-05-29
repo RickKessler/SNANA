@@ -988,6 +988,8 @@ void set_user_defaults(void) {
     { INPUTS.GENMAG_SMEAR_USRFUN[i] = -9.0 ; }
 
   INPUTS.DO_MODELSMEAR   =  0 ;
+  INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 0 ;
+  
   NSMEARPAR_OVERRIDE     =  0 ; // see sntools_genSmear.h
 
   INPUTS.GENFILTERS[0] = 0 ;
@@ -1004,7 +1006,8 @@ void set_user_defaults(void) {
   INPUTS.WRITE_MASK       = WRITE_MASK_SIM_SNANA ; // default
   INPUTS.WRFLAG_MODELPAR  = 1;  // default is yes
   INPUTS.WRFLAG_YAML_FILE = 0;  // batch-sumbit scripts should set this
-
+  INPUTS.WRSPEC_PRESCALE  = 1;
+  
   INPUTS.NPE_PIXEL_SATURATE = 1000000000; // billion
   INPUTS.PHOTFLAG_SATURATE = 0 ;
   INPUTS.PHOTFLAG_SNRMAX   = 0 ;
@@ -1386,7 +1389,8 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC     =  0 ;
   INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA       =  3.0;
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_LAMSIGMA  =  1. ;
-  INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
+  init_GENPOLY(&INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR);
+  //  INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE   =  1. ;  // scale Texpose
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
   INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE      = -9.0 ; // true SED option
@@ -1832,6 +1836,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "WRFLAG_YAML_FILE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.WRFLAG_YAML_FILE );
+  }
+  else if ( keyMatchSim(1, "WRSPEC_PRESCALE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.WRSPEC_PRESCALE );
   }
   // - - - -
   else if ( keyMatchSim(1, "NPE_PIXEL_SATURATE",  WORDS[0],keySource) ) {
@@ -2552,12 +2559,24 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   // ------------ BEGIN ------------
 
+
   sprintf(KEYNAME, "%s", WORDS[0] );
   CONTINUE = false ;
   if ( strstr(KEYNAME,"DNDZ") != NULL ) { CONTINUE = true ; }
   if ( strstr(KEYNAME,"DNDB") != NULL ) { CONTINUE = true ; }
   if ( !CONTINUE  && !INPUTS.KEYNAME_DUMPFLAG ) { return(N) ; }
 
+
+  // May 2024
+  // for command line override of rate model, make sure to remove
+  // all previous DNDZ models. XXX doesn't quite work ?!?!?!
+  if ( IS_NOMINAL && keySource == KEYSOURCE_ARG && strcmp(KEYNAME,"DNDZ")==0 )  {
+    RATEPAR->NAME[0]         = 0 ;
+    RATEPAR->NMODEL_ZRANGE   = 0 ;
+    README_KEYPLUSARGS_purge(&README_KEYS_RATEMODEL, "DNDZ:");
+  } 
+
+  
   // check a few misc keys
   if ( IS_NOMINAL ) {
 
@@ -5032,6 +5051,11 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
   else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
   }
+  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_SNR", WORDS[0],keySource)) {
+    N++ ;
+    parse_GENPOLY(WORDS[N], WORDS[0],
+		  &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR, fnam);
+  }
   // - - - - TAKE_SPECTRUM - - - - -
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
@@ -5580,7 +5604,10 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
   } // end SIMSED_GRIDONLY 
 
   else if ( keyMatchSim(MXPAR,"SIMSED_WGTMAP_FILE", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N],"%s", INPUTS.WGTMAP_FILE_SIMSED );  // X_WGT+
+    N++ ; sscanf(WORDS[N],"%s", INPUTS.WGTMAP_FILE_SIMSED );  
+    INPUTS.OPTMASK_SIMSED  = 
+     OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_WGT;
+    // X_WGT+
     
   }
   else if ( keyMatchSim(1,"SIMSED_REDCOR SIMSED_COV", WORDS[0], keySource) ) {
@@ -6564,8 +6591,9 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SIG      = 0.0 ;
     INPUTS.MWEBV_SHIFT    = 0.0 ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
-
-
+    sprintf(INPUTS.HOSTLIB_FILE,           "NONE");
+    INPUTS.HOSTLIB_MSKOPT = 0 ;
+    
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
     INPUTS.GENMAG_OFF_NON1A  = 0.0 ;
@@ -7866,6 +7894,7 @@ void genmag_offsets(void) {
       + GENLC.LENSDMU                       // lensing correction
       + INPUTS.MUSHIFT                      // user distance offset (Oct 2020)
       + GENLC.SALT2gammaDM                  // gamma from SN-host corr
+      + MAG_OFFSET_GENPDF                   // from GENPDF_FILE (May 21 2024)
     ;
 
 
@@ -9229,21 +9258,6 @@ void init_modelSmear(void) {
   // of the SN mags/fluxes. Note that the 'modelSmear' 
   // is defined independent of the SN model (MLCS,SALT2,DM15...).
   //
-  // Jul 19, 2010: set DO_MODELSMEAR flag if any smear-option is set.
-  //
-  // Apr 06, 2012:
-  //  Call new init_modelSmear_XXX functions, including
-  //  new option GENMAG_SMEAR_MODELNAME
-  //
-  // Dec 2012 TODO: for NON1A, allow only global GENMAG_SMEAR.
-  //   
-  // Nov 14 2013: new model G10FUDGE to allow changing sigma_coh.
-  //
-  // May 01 2014: major re-org of SALT2-smearing model.
-  //
-  // Oct 09 2018: 
-  //  + implement INPUTS.GENMAG_SMEAR_SCALE. See new SMEAR_SCALE 
-  //    argument passed to   init_genSmear_FLAGS(SMEAR_SCALE);
   // 
   // Apr 11 2019:
   //  + adapt so that G10 model works for BYOSED
@@ -9256,7 +9270,8 @@ void init_modelSmear(void) {
   //
   // Feb 11 2020: call init_genSmear_phaseCor(magSmear,expTau);
   //
-
+  // May 20 2024: begin integrating DUST models.
+  
   double GENMODEL_ERRSCALE   = (double)INPUTS.GENMODEL_ERRSCALE ;
   char  *SMEAR_SCALE_STRING  = INPUTS.GENMAG_SMEAR_SCALE;
   int    SMEAR_MSKOPT        = INPUTS.GENMAG_SMEAR_MSKOPT ;
@@ -9289,10 +9304,12 @@ void init_modelSmear(void) {
   }
 
   // ------------
-
-  if (  INPUTS.GENMAG_SMEAR[0]  > 0. || GENMODEL_ERRSCALE  > 0.  ) 
+  if (  INPUTS.GENMAG_SMEAR[0]  > 0.  ||  GENMODEL_ERRSCALE  > 0.  )
     { INPUTS.DO_MODELSMEAR = 1 ; }
 
+  if ( INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] != 0.0 )
+    { INPUTS.DO_MODELSMEAR = INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 1; }
+  
   // check passband magsmear 
   init_genSmear_filters();
 
@@ -9303,9 +9320,9 @@ void init_modelSmear(void) {
 
   if ( IGNOREFILE(ptrName) ) {  goto SKIP_GENSMEAR ;  }
 
-  INPUTS.DO_MODELSMEAR  = 1 ;
-
-    sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
+  INPUTS.DO_MODELSMEAR  = INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 1;
+  
+  sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   if ( GENMODEL_ERRSCALE > 1.0E-9 ) {
     print_preAbort_banner(fnam);
     printf("  %s = %s \n" , key, ptrName);
@@ -9333,7 +9350,6 @@ void init_modelSmear(void) {
     if ( strstr(ptrName,"G10FUDGE") != NULL ) 
       {   SIGCOH  = INPUTS.GENMAG_SMEAR_USRFUN[0] ; }
     
-
     if ( INDEX_GENMODEL == MODEL_SALT2 ) { 
       sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); 
     }
@@ -9400,7 +9416,7 @@ void init_modelSmear(void) {
 
   else if ( strcmp(ptrName,"CCM89") == 0 )   // modify color law with CCM89
     {  init_genSmear_CCM89(LAMRANGE) ; }
-
+  
   else if ( strstr(ptrName,"COH") != NULL ) 
     {  init_genSmear_COH(ptrName) ; }
 
@@ -9653,7 +9669,9 @@ void  init_genSpec(void) {
 	   tmpText, ILAM_SPIKE, INPUTS_SPECTRO.LAMAVG_LIST[ILAM_SPIKE] );
   }
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_SNRx100)>0 ) { 
-    INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR = 100.0; 
+    // xxx mark    INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR = 100.0;
+    parse_GENPOLY("100.0", "SCALE_SNR",
+		  &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR, fnam );
     printf("\t %s SNR *= 100 \n", tmpText );
   }
 
@@ -9663,6 +9681,9 @@ void  init_genSpec(void) {
     printf("\t %s Texpose *= %.3f \n", tmpText, *s );
   }
 
+  if ( INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR.ORDER >= 0 )
+    { print_GENPOLY(&INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR); }
+  
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE)>0 ) { 
     printf("\t %s no template noise \n", tmpText );
   }
@@ -9735,7 +9756,7 @@ void rewrite_HOSTLIB_DRIVER(void) {
 
   // manually prepare a few things
   ENVreplace(INPUTS.HOSTLIB_FILE, fnam, 1);
-  INIT_HOSTLIB(); // .xyz ?? 
+  INIT_HOSTLIB(); 
 
   // - - - - -
 
@@ -11248,13 +11269,15 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
   int    MEMD  = NBLAM * sizeof(double);
 
+  GENPOLY_DEF *GENPOLY_SCALE_SNR = &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR;
+
   int    ilam, ILAM_MIN=99999, ILAM_MAX=-9, NBLAM_USE=0 ;
   double GENFLUX, GENFLUXERR, GENFLUXERR_T, GENMAG, LAMAVG ;
   double *SNR_TRUE_LIST,   SNR_TRUE, *ERRFRAC_T_LIST, ERRFRAC_T ; 
 
   double  TEXPOSE_S  = GENSPEC.TEXPOSE_LIST[imjd] ;
   double  TEXPOSE_T  = GENSPEC.TEXPOSE_TEMPLATE ;
-  double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
+  bool    DO_SCALE_SNR  = GENPOLY_SCALE_SNR->ORDER >= 0 ;
   double  SNR_SPEC = 0.0 ;
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
@@ -11334,11 +11357,13 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   for(ilam = ILAM_MIN; ilam <= ILAM_MAX ; ilam++ ) {
 
+    LAMAVG    = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
     SNR_TRUE  = SNR_TRUE_LIST[ilam];
     ERRFRAC_T = ERRFRAC_T_LIST[ilam];
 
     if ( SNR_TRUE < 1.0E-18 ) { continue; } 
-    if ( SCALE_SNR != 1.00 ) { SNR_TRUE *= SCALE_SNR ;  }
+    if ( DO_SCALE_SNR )
+      { SNR_TRUE *= eval_GENPOLY(LAMAVG, GENPOLY_SCALE_SNR, fnam) ; }
 
     OBSFLUX       = GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
@@ -11364,7 +11389,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     GENSPEC.NBLAM_VALID[imjd]++ ; 
 
     // Nov 2021: store min/max wave for this spectrum (for printing)
-    LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+
     if ( LAMAVG < GENSPEC.LAMRANGE_VALID[imjd][0] ) 
       { GENSPEC.LAMRANGE_VALID[imjd][0] = LAMAVG; }
     if ( LAMAVG > GENSPEC.LAMRANGE_VALID[imjd][1] ) 
@@ -11675,12 +11700,10 @@ void  GENSPEC_FLAM(int imjd) {
   
 
   // Mar 22 2024: compute synthetic mag & error per passband.
-  // .xyz
   int ifilt, ifilt_obs; 
   double GENMAG_SYN, GENMAGERR_SYN, LAMWIDTH_SYN ;
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-    // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
 
     // note input is true GENFLAM_LIST (not measured FLAM_LIST)
     // and true FLAMERR_LIST is same as measured FLAMERR_LIST.
@@ -12601,6 +12624,7 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   int ilc_orig, ilc;
   bool doReject_DUMP = false ;
   bool REJECT= false;
+  int  LDMP = ( GENLC.CID == -102 );
   char fnam[] = "gen_event_reject" ;
 
   // ----------- BEGIN --------------
@@ -12611,28 +12635,34 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   if ( strcmp(REJECT_STAGE,"GENRANGE") == 0 ) {
     ilc-- ;
     NGEN_REJECT.GENRANGE++ ;
+    if(LDMP) { printf(" xxx %s CID=%d fails GENRANGE\n", fnam, GENLC.CID); fflush(stdout); }
+
   }
   else if ( strcmp(REJECT_STAGE,"GENMAG") == 0 ) {
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.GENMAG++ ;
+    if(LDMP) { printf(" xxx %s CID=%d fails GENMAG\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else if ( strcmp(REJECT_STAGE,"SEARCHEFF") == 0 ) {
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.SEARCHEFF++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("SEARCHEFF") ;
-    REJECT = true;    
+    REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails SEARCHEFF\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else if ( strcmp(REJECT_STAGE,"CUTWIN") == 0 ) {
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.CUTWIN++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("CUTWIN");
     REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails CUTWIN\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else if ( strcmp(REJECT_STAGE,"NEPOCH") == 0 ) {  // Mar 17 2018
     if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
     NGEN_REJECT.NEPOCH++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("NEPOCH");
     REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH\n", fnam, GENLC.CID); fflush(stdout); }
   }
   else {
     sprintf(c1err,"Undefined REJECT_STAGE = '%s'", REJECT_STAGE);
@@ -12644,8 +12674,8 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   if ( doReject_DUMP ) {  wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); }
   if ( REJECT        ) {  wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX); }
 
-  int LDMP=0;
-  if ( LDMP && *ILC != ilc ) {
+  int LDMP2=0;
+  if ( LDMP2 && *ILC != ilc ) {
     printf(" xxx %s: ILC=%d  ilc=%d  CID=%d  LIBID=%d\n",
 	   fnam, *ILC, ilc, GENLC.CID, GENLC.SIMLIB_ID );
     printf(" xxx %s: NREJEVT[GENRANGE,GENMAG|SEARCH,CUT,NEP] = "
@@ -13318,7 +13348,9 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     ISIMSED_SEQUENTIAL  = NGENLC_TOT ; // IGEN = ISED (legacy; mark dekete)
   }
 
-  OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT);
+  // A.G.
+  OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT) || (strlen(INPUTS.WGTMAP_FILE_SIMSED) > 0);
+
   if ( OVP > 0 )  { 
     ISIMSED_SELECT  = pick_SIMSED_BY_WGT();
   }
@@ -13669,7 +13701,9 @@ void genran_modelSmear(void) {
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt]  = rtot ;      
   }
 
-  if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
+
+  // xxx mark  if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
+  if ( INPUTS.DO_MODELSMEAR_LOAD_RANDOMS ) {
     load_genSmear_randoms(GENLC.CID, rmin, rmax, 
 			  INPUTS.GENSMEAR_RANGauss_FIX);
   }
@@ -14438,7 +14472,7 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       IDSPEC = i+1;
       sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f "
 	      "%3d %d" , 
-	      ROWNUM, GENLC.CID, SNDATA.SIM_GENTYPE,
+	      ROWNUM, SNDATA.CID, SNDATA.SIM_GENTYPE,
 	      GENLC.FIELDNAME[1], GENLC.REDSHIFT_HELIO, 
 	      GENSPEC.MJD_LIST[i], GENSPEC.TOBS_LIST[i],
 	      GENSPEC.TEXPOSE_LIST[i],
@@ -17190,7 +17224,7 @@ void SIMLIB_prepGlobalHeader(void) {
 
   // scale FLUXERR as a function of log10(SNR) and filter
   // [code moved/refactored from SIMLIB_read_fluxerrCor]
-  SIMLIB_prep_fluxerrScale_LEGACY();
+  SIMLIB_prep_fluxerrScale();
 
   // Apr 2023: print info for SIMLIB_MSKOPT
   print_SIMLIB_MSKOPT();
@@ -17346,12 +17380,15 @@ void  print_SIMLIB_MSKOPT(void) {
 } //end print_SIMLIB_MSKOPT
 
 // *************************************************
-void  SIMLIB_prep_fluxerrScale_LEGACY(void) {
+void  SIMLIB_prep_fluxerrScale(void) {
 
   // Created Aug 2017
   // prepare fluxerr scale fudges specified in global header
   // of SIMLIB file. Transfer sparse contents of
   // SIMLIB_GLOBAL_HEADER into SIMLIB_FLUXERR_COR struct.
+  // This fluxerrScale method is from 2009 (SDSS analysis)
+  // and is maintained only for back-compatibility, but should
+  // not be used for surveys after SDSS.
   //
   // Feb 2018: 
   //  + if using FLUXERRMODEL_FILE, ignore errFudge map inside SIMLIB
@@ -17361,12 +17398,12 @@ void  SIMLIB_prep_fluxerrScale_LEGACY(void) {
   int  NFTMP, size, ifilt, ifilt_obs, IFILTLIST_MAP[MXFILTINDX] ;
 
   char cfilt[2], *FILTERS;
-  char fnam[] = "SIMLIB_prep_fluxerrScale_LEGACY" ;
+  char fnam[] = "SIMLIB_prep_fluxerrScale" ;
 
   // --------------- BEGIN -------------
 
 
-  if ( IGNOREFILE(INPUTS.FLUXERRMODEL_FILE) == 0 ) 
+  if ( !IGNOREFILE(INPUTS.FLUXERRMODEL_FILE)  ) 
     { INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_IGNORE_FLUXERR_COR ; }
 
 
@@ -17454,7 +17491,7 @@ void  SIMLIB_prep_fluxerrScale_LEGACY(void) {
   } // end icor loop
 
   
-} // end SIMLIB_prep_fluxerrScale_LEGACY
+} // end SIMLIB_prep_fluxerrScale
 
 
 
@@ -17834,12 +17871,12 @@ int IFIELD_OVP_SIMLIB(int OPT, char *FIELD) {
 
 
 // ************************************
-double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
+double get_SIMLIB_fluxerrScale(int ifiltobs, double SNR) {
 
   // Dec 5, 2011 R.Kessler
   // Return error correction on flux based on FLUXERR_COR map
   // in the simlib file. If there is no map for this filter
-  // then return 1.
+  // then return 1. 
   //
   // Feb 24, 2012: if SNR is outside map, return value at min or max edge.
   // Aug 15, 2017: arrays are 0 to M-1 (instead of 1 to M)
@@ -17848,7 +17885,7 @@ double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
   double SCALE, LOGSNR, LOGSNR_MIN, LOGSNR_MAX;
   int    ifilt, M, LDMP ;
   int    OPT_INTERP = 1;  // 1=linear, 2=quadratic
-  char   fnam[] = "get_SIMLIB_fluxerrScale_LEGACY" ;
+  char   fnam[] = "get_SIMLIB_fluxerrScale" ;
 
   // -------------- BEGIN ---------------
 
@@ -17887,7 +17924,7 @@ double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR) {
 
   return(SCALE);
 
-} // end of get_SIMLIB_fluxerrScale_LEGACY
+} // end of get_SIMLIB_fluxerrScale
 
 
 // ************************************
@@ -20139,6 +20176,33 @@ void store_GENSPEC(double *VAL_STORE) {
 
 } // end store_GENSPEC
 
+
+// ===================================
+void apply_prescale_GENSPEC(void) {
+
+  // Created May 2024
+  // Implement user input WRSPEC_PRESCALE to prescale spectra output
+  // to reduce disk space usaage. This utility is called after
+  // updating [VERSION].SPEC summary for all spectra.
+  
+  int  PS     = INPUTS.WRSPEC_PRESCALE ;
+  int  i;
+  char fnam[] = "apply_prescale_GENSPEC" ;
+
+  // ----------- BEGIN -----------
+
+  if ( PS <= 1 ) { return ; }
+
+  if ( (GENLC.CID % PS) != 0 ) {
+    NGENSPEC_WRITE -= GENSPEC.NMJD_PROC ;
+    for ( i=0; i < GENSPEC.NMJD_TOT; i++ )
+      { GENSPEC.SKIP[i] = true; }
+  }
+    
+    
+  return; 
+} // end apply_prescale_GENSPEC
+
 // ====================================================
 void init_SIMLIB_HEADER(void) {
 
@@ -22141,7 +22205,10 @@ int GENRANGE_CUT(void) {
   if ( GENLC.GLAT > GENRANGE[1] )  { return istat; }
  
 
-  if ( INDEX_GENMODEL != MODEL_LCLIB ) {
+  bool SKIP_zCUT =
+    ( INDEX_GENMODEL == MODEL_LCLIB ) ||
+    ( INDEX_GENMODEL == MODEL_FIXMAG ) ;
+  if ( ! SKIP_zCUT ) {
     GENRANGE = INPUTS.GENRANGE_REDSHIFT;
     if(LTRACE) {
       printf(" xxx %s: 2 check zCMB=%f in {%f to %f}\n",
@@ -26199,7 +26266,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     // include sqadderr_pe
 
     double SNR_CALC = SNR_CALC_ST * sqrt(SQSIG_ST_ORIG/SQSIG_ST_NEW);
-    SCALE     = get_SIMLIB_fluxerrScale_LEGACY(ifilt_obs, SNR_CALC);    
+    SCALE     = get_SIMLIB_fluxerrScale(ifilt_obs, SNR_CALC);    
     SQSCALE   = SCALE * SCALE ;
     SQSIG_DATA *= SQSCALE ;
     for(itype=0; itype < NTYPE; itype++ ) { SQSIG_TRUE[itype] *= SQSCALE ; }
@@ -26710,7 +26777,9 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   //   [part of GENFLUX_DRIVER refactor] 
   //
   // Apr 2024: increase AGN crazyflux limit by x10 (*=1e10 instead of 1e9)
-  
+  // Apr 2024: increase initial crazyFlux fro 4E4 to 1E5 to handle
+  //            very bright nearby SLSN.
+  //
   int     ifilt_obs    = FLUXNOISE->IFILT_OBS;  
   double  ZPADU        = SIMLIB_OBS_GEN.ZPTADU[ep] ;
   double  zsn          = GENLC.REDSHIFT_HELIO ;
@@ -26733,7 +26802,7 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   arg        = 0.4 * ( ZPADU - 31.0 );  
   pow_arg     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyFlux  = (4.E4 * pow_arg * xt) / (zsn*zsn) ; }
+    { crazyFlux  = (1.E5 * pow_arg * xt) / (zsn*zsn) ; }
   else
     { crazyFlux = 1.0E14 ; } // for LCLIB (July 2018)
 
@@ -29092,20 +29161,18 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);        // primary SN dump
   wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);     // SL
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);    // DCR
-  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // DCR
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // SPECTRA
 
 
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
 
+  apply_prescale_GENSPEC();
+  
   if ( WRFLAG_FITS ) { 
     WR_SNFITSIO_UPDATE(); 
-    return ;
   }
-
-  if ( WRFLAG_TEXT ) {
+  else  if ( WRFLAG_TEXT ) {
     WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
-
-    // update LIST file
     fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
   }
 
@@ -29488,6 +29555,21 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   bool SKIPx            = NOSHAPE || ( GETPAR_HOSTLIB && !GETx ) ;
   if ( SKIPx ) { INPUTS.DOGEN_SHAPE = false; }
 
+  // -------------------------------------
+  // May 21 2024 RK - temp abort to catch GENMAG_OFF_GLOBAL = -0.12 and
+  //  also the newer MAG_OFFSET_GENPDF = -0.12 in GENPDF_FILE.
+  //  This is to avoid double-counting this offset after declaring
+  //  MAG_OFFSET: -0.12 in the GENPDF_FILEs.
+  double MAG_OFFSET_DES5YR = -0.12 ;
+  bool ISVAL_DES5YR  = fabs(MAG_OFFSET_GENPDF-MAG_OFFSET_DES5YR) < 0.0001 ;
+  bool SAMEVAL_TWICE = fabs(INPUTS.GENMAG_OFF_GLOBAL-MAG_OFFSET_GENPDF) < 0.0001;
+  if ( ISVAL_DES5YR && SAMEVAL_TWICE ) {
+    sprintf(c1err,"MAG_OFFSET(GENPDF_FILE) = %f and also GENMAG_OFF_GLOBAL=%f",
+	    MAG_OFFSET_GENPDF, INPUTS.GENMAG_OFF_GLOBAL);
+    sprintf(c2err,"Avoid double-counting GENPDF_FILE offset from DES-SN5YR");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
   return;
 
 } // end prioritize_genPDF_ASYMGAUSS
@@ -31078,6 +31160,8 @@ void print_sim_help(void) {
     "",
     "GENMAG_OFF_GLOBAL:  <magoff>      # global mag offset for any model",
     "GENMAG_OFF_NON1A:   <magoff>      # mag off only for NON1a (ignored for SNIa)",
+    "",
+    "SIMSED_WGTMAP_FILE:  <fileName>   # wgtmap file for SIMSED model  ",
     "",
     "# - - - - - - Instrumental inputs - - - - - ",
     "GENFILTERS: <filters>   # list of filter band; e.g, ugriz ",

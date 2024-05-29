@@ -39,6 +39,7 @@
 
 
 #define USE_HBOOKxxx                       
+
 #define USE_ROOT  
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
@@ -478,6 +479,7 @@ extern"C" {
 
   int SNTABLE_READPREP_VARDEF(char *varList, void *ptr, 
 			      int mxlen, int optMask );
+    
   int sntable_readprep_vardef1(char *VARNAME_withCast, void *ptr, 
 			       int mxlen, int vboseflag, char *varName_noCast);
   int SNTABLE_READ_EXEC(void);

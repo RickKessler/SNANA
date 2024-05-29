@@ -124,12 +124,13 @@ SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
 SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 
 # name of quick-and-dirty cosmology fitting program
-PROGRAM_wfit = "wfit.exe"
-PREFIX_wfit  = "wfit"
+PROGRAM_wfit      = "wfit.exe"
+PREFIX_wfit       = "wfit"
+KEY_WFITMUDIF_OPT = "WFITMUDIF_OPT"
 
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
-WFIT_SUMMARY_FILE     = "BBC_SUMMARY_wfit.FITRES"
+WFIT_SUMMARY_PREFIX   = "BBC_SUMMARY_wfit"
 # xxx mark WFIT_MERGE_LOG        = "MERGE_wfit.LOG"
 
 BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
@@ -160,9 +161,10 @@ class BBC(Program):
     def __init__(self, config_yaml):
 
         config_prep = {}
-        config_prep['program'] = PROGRAM_NAME_BBC
+        config_prep['program'] = PROGRAM_NAME_BBC        
         super().__init__(config_yaml, config_prep)
-
+        return
+    
     def set_output_dir_name(self):
         CONFIG     = self.config_yaml['CONFIG']
         input_file = self.config_yaml['args'].input_file  # for msgerr
@@ -185,6 +187,17 @@ class BBC(Program):
             global DOFAST_PREP_INPUT_FILES
             DOFAST_PREP_INPUT_FILES = False
 
+
+        # May 2024: if WFITMUDIF_OPT is specified as item, switch to a list.
+        CONFIG     = self.config_yaml['CONFIG']                
+        if KEY_WFITMUDIF_OPT in CONFIG:
+            arg = CONFIG[KEY_WFITMUDIF_OPT]            
+            if not isinstance(arg,list):
+                CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
+        else:
+            CONFIG[KEY_WFITMUDIF_OPT] = []
+
+            
         # - - - - - - -
         # read C code inputs (not YAML block)
         self.bbc_read_input_file()
@@ -250,7 +263,7 @@ class BBC(Program):
                     
         # - - - - 
         self.config_prep['input_file_dict'] = input_file_dict
-
+        
         # end bbc_read_input_file
 
     def bbc_prep_version_list(self):
@@ -1389,7 +1402,7 @@ class BBC(Program):
             msgerr.append(f"missing {nmissing} input {SUFFIX_FITRES} files")
             self.log_assert(False,msgerr)
 
-        # - - --  .xyz
+        # - - --  
         # Feb 2024: check optional list of external FITRES files to include
         CONFIG   = self.config_yaml['CONFIG']
         key = 'INPFILE+'
@@ -1524,7 +1537,7 @@ class BBC(Program):
         n_use_matrix2d = self.config_prep['n_use_matrix2d'] # FITOPT x MUOPT
 
         CONFIG   = self.config_yaml['CONFIG']
-        use_wfit = 'WFITMUDIF_OPT' in CONFIG  # check follow-up job after bbc
+        use_wfit = len(CONFIG[KEY_WFITMUDIF_OPT]) > 0   # check follow-up job after bbc
 
         #n_job_tot   = n_version * n_fitopt * n_muopt * n_splitran
         n_job_tot   = n_version * n_use_matrix2d * n_splitran
@@ -1552,10 +1565,15 @@ class BBC(Program):
                 job_info_bbc   = self.prep_JOB_INFO_bbc(index_dict)
                 util.write_job_info(f, job_info_bbc, icpu)
 
-                if use_wfit :
-                    job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict)
+                iwfit=0
+                for opt_wfit in CONFIG[KEY_WFITMUDIF_OPT]:
+                    index_dict['iwfit'] = iwfit
+                    index_dict['nwfit'] = len(CONFIG[KEY_WFITMUDIF_OPT])
+                    label, arg     = util.separate_label_from_arg(opt_wfit)
+                    job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict, arg)
                     util.write_job_info(f, job_info_wfit, icpu)
-    
+                    iwfit += 1
+                    
                 merge_force = self.set_merge_force_bbc(ifit)
                 job_info_merge = \
                     self.prep_JOB_INFO_merge(icpu,n_job_local,merge_force) 
@@ -1724,12 +1742,17 @@ class BBC(Program):
         # end prep_JOB_INFO_bbc
 
 
-    def prep_JOB_INFO_wfit(self,index_dict):
+    def prep_JOB_INFO_wfit(self, index_dict, wfit_arg):
+        
         # optional: run wfit cosmology fitter if WFITMUDIF_OPT is set in CONFIG
+        # May 12 2024: pass wfit_arg to allow loop over list of wfit args
 
         iver      = index_dict['iver']
-        ifit      = index_dict['ifit']
-        imu       = index_dict['imu'] 
+        ifit      = index_dict['ifit']  # BBC fit option
+        imu       = index_dict['imu']
+        iwfit     = index_dict['iwfit'] # wfit option (May 2024)
+        nwfit     = index_dict['nwfit'] # wfit option (May 2024)
+        
         isplitran = index_dict['isplitran'] 
 
         CONFIG        = self.config_yaml['CONFIG']
@@ -1741,18 +1764,23 @@ class BBC(Program):
 
         row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_bbc_orig,  prefix_bbc_final  = self.bbc_prefix("bbc",  row)
-        prefix_wfit_orig, prefix_wfit_final = self.bbc_prefix("wfit", row)
+        prefix_wfit_orig, prefix_wfit_final = self.bbc_prefix(f"wfit{iwfit}", row)
     
         # note that the done file has the SALT2mu/BBC done stamp,
         # not a wfit done stamp.
         wfit_inp_file   = f"{prefix_bbc_orig}.{SUFFIX_M0DIF}"
-        wfit_done_file  = f"{prefix_bbc_orig}.DONE"
         wfit_out_file   = f"{prefix_wfit_orig}.YAML"
         wfit_log_file   = f"{prefix_wfit_orig}.LOG"
 
+        # write done file only after last wfit job
+        if iwfit == nwfit-1:
+            wfit_done_file  = f"{prefix_bbc_orig}.DONE"
+        else:
+            wfit_done_file  = ''
+        
         arg_list = []
         arg_list.append(f"-cospar_yaml {wfit_out_file} ") 
-        arg_list.append(CONFIG['WFITMUDIF_OPT'])
+        arg_list.append(f"{wfit_arg} ")
 
         JOB_INFO = {}
         JOB_INFO['program']     = PROGRAM_wfit
@@ -1814,8 +1842,10 @@ class BBC(Program):
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
         if use_wfit :
-            f.write(f"OPT_WFIT:       {CONFIG['WFITMUDIF_OPT']}    " \
-                    f"# wfit arguments\n")
+            wfit_arg_list = CONFIG[KEY_WFITMUDIF_OPT]
+            f.write(f"OPT_WFIT:     #   wfit arguments\n")
+            for wfit_arg in wfit_arg_list:
+                f.write(f"  - {wfit_arg}\n")
 
         f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
@@ -2041,7 +2071,8 @@ class BBC(Program):
         output_dir       = self.config_prep['output_dir']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
-
+        opt_wfit_list    = submit_info_yaml.setdefault('OPT_WFIT',[])
+        
         row     = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         version = row[COLNUM_BBC_MERGE_VERSION]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
@@ -2060,8 +2091,8 @@ class BBC(Program):
             os.system(cmd_all)
 
         # check to move wfit YAML file (don't bother gzipping)
-        if use_wfit :
-            prefix_orig, prefix_final = self.bbc_prefix("wfit", row)
+        for i, opt_wfit in enumerate(opt_wfit_list):
+            prefix_orig, prefix_final = self.bbc_prefix(f"wfit{i}", row)
             suffix_move = "YAML"
             orig_file = f"{prefix_orig}.{suffix_move}"
 
@@ -2073,7 +2104,7 @@ class BBC(Program):
             cmd_move  = f"{cddir}; mv {orig_file} ../{version}/{move_file}"
             cmd_all   = f"{cmd_move}"
             os.system(cmd_all)
-
+            
         if irow == 9999 :
             sys.exit("\n xxx DEBUG DIE xxx \n")
 
@@ -2097,9 +2128,17 @@ class BBC(Program):
         self.make_fitpar_summary()
         
         if use_wfit :
-            logging.info(f"  BBC cleanup: create {WFIT_SUMMARY_FILE}")
-            self.make_wfit_summary()
-            
+            opt_wfit_list   = submit_info_yaml['OPT_WFIT']
+            for iwfit, opt_wfit in enumerate(opt_wfit_list):
+                self.make_wfit_summary(iwfit, opt_wfit)
+            self.make_wfit_cpu_summary()
+            # tar up all the wfit yaml files (May 2024) .xyz
+            wildcard = "wfit*YAML"
+            logging.info(f"  BBC cleanup: compress {wildcard} files")
+            for vout in self.config_prep['version_out_list']:
+                vout_dir = f"{output_dir}/{vout}"
+                util.compress_files(+1, vout_dir, wildcard, "WFIT_YAML", "" )
+                
         if n_splitran > 1 :
             logging.info(f"  BBC cleanup: create {SPLITRAN_SUMMARY_FILE}")
             self.make_splitran_summary()
@@ -2128,6 +2167,7 @@ class BBC(Program):
         if DOFAST_PREP_INPUT_FILES :
             wildcard = f"{PREFIX_PREP}*"
             util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
+
 
         logging.info("")
 
@@ -2565,23 +2605,27 @@ class BBC(Program):
 
         # end make_fitpar_summary
 
-    def make_wfit_summary(self):
+    def make_wfit_summary(self, iwfit, opt_wfit):
+
+        # May 2024: pass index iwfit and opt_wfit as input args.
         
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         n_splitran       = submit_info_yaml['NSPLITRAN']
-        opt_wfit         = submit_info_yaml['OPT_WFIT']
+        # xxx mark delete  opt_wfit         = submit_info_yaml['OPT_WFIT']
         fitopt_list      = submit_info_yaml['FITOPT_OUT_LIST']
         muopt_list       = submit_info_yaml['MUOPT_OUT_LIST']
+
         use_wfit_w0wa    = '-wa'    in opt_wfit
         use_wfit_blind   = '-blind' in opt_wfit
 
-        # - - - 
-        SUMMARYF_FILE     = f"{output_dir}/{WFIT_SUMMARY_FILE}"
-        f = open(SUMMARYF_FILE,"w") 
-
+        SUMMARY_FILE     = f"{output_dir}/{WFIT_SUMMARY_PREFIX}{iwfit}.FITRES"
+        logging.info(f"  BBC cleanup: create {SUMMARY_FILE}")
+        f = open(SUMMARY_FILE,"w") 
+        f.write(f"# wfit options: {opt_wfit}\n")
+        
         varname_w   = "w"
         if use_wfit_w0wa : varname_w = "w0"
         varname_wa  = "wa"
@@ -2602,10 +2646,11 @@ class BBC(Program):
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
-
+        
         nrow = 0 
         ifit_last = -9 ; imu_last = 9
-        cpu_sum = 0.0
+        if iwfit == 0 :
+            self.wfit_cpu_sum = 0.0
         
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
@@ -2624,7 +2669,7 @@ class BBC(Program):
             label_muopt  = muopt_list[imu][1]
 
             # figure out name of wfit-YAML file and read it
-            prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
+            prefix_orig,prefix_final = self.bbc_prefix(f"wfit{iwfit}", row)
             YAML_FILE  = f"{output_dir}/{version}/{prefix_final}.YAML"
             wfit_yaml  = util.extract_yaml(YAML_FILE, None, None )
 
@@ -2642,8 +2687,8 @@ class BBC(Program):
             ndof    = wfit_values_dict['ndof']
             FoM     = wfit_values_dict['FoM']
             nwarn   = wfit_values_dict['nwarn']
-            cpu_sum += wfit_values_dict['cpu_minutes']
-            
+            self.wfit_cpu_sum += wfit_values_dict['cpu_minutes']
+
             w_ran   = int(wfit_values_dict['w_ran']) 
             wa_ran  = int(wfit_values_dict['wa_ran'])
             omm_ran = int(wfit_values_dict['omm_ran'])
@@ -2683,18 +2728,22 @@ class BBC(Program):
 
             ifit_last = ifit; imu_last = imu
         f.close()
+        
+        
+        return
+        # end make_wfit_summary
+
+    def make_wfit_cpu_summary(self):
 
         # Apr 2024 - write MERGE_wfit.LOG with CPU sum
-        cpu_sum /= 60.0  # minutes -> hr
-        MERGE_wfit_LOG     = f"{output_dir}/{MERGE_wfit_LOG_FILE}"
+        cpu_sum         = self.wfit_cpu_sum / 60.0  # minutes -> hr
+        output_dir      = self.config_prep['output_dir']
+        MERGE_wfit_LOG   = f"{output_dir}/{MERGE_wfit_LOG_FILE}"
         f = open(MERGE_wfit_LOG,"w")
         f.write(f"PROGRAM_CLASS:  BBC-wfit\n");
         f.write(f"CPU_SUM:        {cpu_sum:0.2f}  # hours\n")
         f.close()
         
-        return
-        # end make_wfit_summary
-
     def make_splitran_summary(self):
 
         # collect all BBC fit params, and optional w(wfit);
@@ -2850,7 +2899,7 @@ class BBC(Program):
             ivar = n_var - 1
             w_list = [] ;  werr_list = []
             varname_list.append("w_wfit")
-            prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
+            prefix_orig,prefix_final = self.bbc_prefix("wfit0", row) # .xyz ??
             yaml_file     = f"{prefix_final}.YAML"
             v_wildcard    = f"{output_dir}/{version_base}*"
             yaml_list     = glob.glob(f"{v_wildcard}/{yaml_file}")
@@ -3004,9 +3053,9 @@ class BBC(Program):
         prefix_final  = f"{fitopt_num}_{muopt_num}"
 
         # check for adding 'wfit' to prefix
-        if program.lower() == 'wfit' :
-            prefix_orig  = f"wfit_{prefix_orig}"
-            prefix_final = f"wfit_{prefix_final}"
+        if 'wfit' in program.lower() :
+            prefix_orig  = f"{program}_{prefix_orig}"
+            prefix_final = f"{program}_{prefix_final}"
 
         return prefix_orig, prefix_final
 

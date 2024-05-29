@@ -149,8 +149,6 @@ struct  PSNID_INPUTS  {
   int  USEFILT_GRIDOFF[MXTYPEINDX_PSNID+1][MXFILTINDX]; // SNGRID  offset
   int  IFILTLIST[80];      // integer-list of abs. filter indices
   int  IFILTLIST_INV[80];  // inverse map of above
-
-  int  WRSTAT_OUTFILE_LEGACY;   // legacy flag to write outfile
   int  WRSTAT_TABLE;            // flag to make fitres table
   int  LSIM ;                   // =1 for simulation, 0 for data
 
@@ -168,8 +166,6 @@ struct PSNID_FITRES {
   int   NVAR ;
   char  VARNAMES[PSNID_MXVAR_FITRES][40] ;
   int   USE4NN[PSNID_MXVAR_FITRES] ;  // T => needed for NN analysis
-
-  FILE *FP_OUTFILE ;  // pointer to legacy outfile option
 } PSNID_FITRES ;
 
 

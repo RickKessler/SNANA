@@ -218,7 +218,7 @@ void  relabel_rownum(int ifile);
 #define DEFAULT_NULLVAL_STRING  "NULL" // default string value
 
 #define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
-#define MXSTRLEN_BAND      4
+#define MXSTRLEN_BAND      8
 #define MXSTRLEN_CID      20
 #define MXSTRLEN_FIELD    20
 #define MXSTRLEN_VERSION  32 // photometry versoin, added Dec 2016

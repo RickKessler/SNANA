@@ -40,6 +40,7 @@
 #               to help diagnose problems.
 #
 # Feb 01 2024: print CMD_JOB to slurm log
+# Apr 29 2024: increase WALLTIME_MAX to 2 hr
 
 import os, sys, datetime, shutil, time, glob
 import subprocess, argparse
@@ -64,7 +65,7 @@ RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = f"{LOG_TOPDIR}/STOP"
 MEMORY                  = 2000   # Mb
-WALLTIME_MAX            = "01:00:00"    # 1 hr to allow queue delay
+WALLTIME_MAX            = "02:00:00"    # 1 hr to allow queue delay
 
 # ========================================================
 def parse_args():
@@ -731,7 +732,7 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
     # - - - - - - - - - - - - - - - - 
     # single task has finished
     # check for ABORT, then check for no result-string, then result
-
+    
     if ' ABORT ' in open(LOGFILE).read() :
         DONE_STRING = ('%-40s:  ABORT' % (TASKNUMNAME) )
     else:

@@ -90,8 +90,12 @@
 #define wa_DEFAULT             0.0
 #define H0_SALT2            70.0    // km/s/Mpc : tied to SALT2 training
 #define H0_MLCS             65.0    // km/s/Mpc : tied to MLCS training
-#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
 #define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
+
+#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
+#define H0err_Planck        0.5   // 1807.06209 (Planck 2018)
+#define rd_Planck         147.05  // Integral of c_s/H(z)
+#define rderr_Planck       0.30
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s)
 #define LIGHT_A   2.99792458e18     // speed of light (A/s)
@@ -794,8 +798,8 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void test_arrayStat(void);
 double STD_from_SUMS(int N, double SUM, double SQSUM);
-double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
-			   int OPTMASK, char *callFun );
+double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
+			   double *WGT_LIST, int OPTMASK, char *callFun );
 
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
@@ -897,8 +901,6 @@ int    getRan_Poisson(double mean);
 double unix_random__(int *istream) ;
 double getran_flat1__(int *ilist) ;          // for fortran
 double getran_gauss__(int *ilist);         // for fortran
-
-double biGaussRan_LEGACY(double siglo, double sighi);
 
 double getRan_skewGauss(double rmin, double rmax, double siglo, double sighi,
 			double skewlo, double skewhi);

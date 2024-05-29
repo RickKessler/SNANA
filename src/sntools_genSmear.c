@@ -25,7 +25,7 @@
 
  GENMAG_SMEAR_MODELNAME: OIR    # Optical+IR using CSP+CfA (under development)
  GENMAG_SMEAR_MODELNAME: [path]/COVSED.[version] # cov(wave x phase), Oct 2019
-
+ 
  External program must set
    NSMEARPAR_OVERRIDE = 0 
 
@@ -233,7 +233,7 @@ void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
   // malloc memory to hold Gauss and flat randoms for each event.
 
   int MEMD;
-  //  char fnam[] = "init_genSmear_randoms";
+  char fnam[] = "init_genSmear_randoms";
 
   // ------------ BEGIN --------------
 
@@ -276,7 +276,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   int  LDMP = 0 ;
 
   int iran;
-  //  char fnam[] = "load_genSmear_randoms" ;
+  char fnam[] = "load_genSmear_randoms" ;
 
   // ------------- BEGIN ------------
 
@@ -447,7 +447,7 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
   int LDMP    = 0 ;
   double LAMMIN = Lam[0];
   double LAMMAX = Lam[NLam-1];
-  //  char fnam[] = "repeat_genSmear";
+  char fnam[] = "repeat_genSmear";
 
   // ------------ BEGIN ------------
 
@@ -515,7 +515,7 @@ void update_genSmear_COVLAM_debug(double *magSmear) {
 
   double mtmp, XN, SUM, SQSUM, MEAN[2], RMS[2], COV_01, RHO ;
   int i, N;
-  //  char fnam[] = "update_genSmear_COVLAM_debug" ;
+  char fnam[] = "update_genSmear_COVLAM_debug" ;
 
   // ----------- BEGIN -------
 
@@ -896,7 +896,6 @@ void get_genSmear_USRFUN(double Trest, int NLam, double *Lam,
 }  // end of get_genSmear_USRFUN
 
 
-
 // ********************************
 void init_genSmear_CCM89(double *LAMRANGE) {
 
@@ -908,7 +907,7 @@ void init_genSmear_CCM89(double *LAMRANGE) {
 
   int    NLAM, I8 ;
   double sig, REF, LAM, LAMBIN;
-  //  char fnam[] = "init_genSmear_CCM89" ;
+  char fnam[] = "init_genSmear_CCM89" ;
 
   // --------- BEGIN ------------
 
@@ -958,7 +957,7 @@ double get_CCM89_RV(void) {
   // Also fill MAGSMEAR_MAP for CPU speed.
 
   double RVmin, RVmax, RV0, RVsig, RV, RVsmear, ran ;
-  //  char fnam[] = "get_CCM89_RV" ;
+  char fnam[] = "get_CCM89_RV" ;
 
   // ---------- BEGIN ----------
 
@@ -993,19 +992,9 @@ double get_CCM89_RV(void) {
     XT0  = GALextinct(RV0, Color, LAM, OPT ) ;
     XTDIF = XT - XT0 ;
     GENSMEAR_CCM89.XTDIF_MAP[ilam]  = XTDIF ;
-
-    /*
-    if ( fabs(LAM-6900.)<5.0 ) {
-      printf(" xxxx RV-RV0=%5.2f  c=%5.2f  LAM=%6.0f  XTDIF=%6.3f \n",
-	     RVsmear, Color, LAM, XTDIF);
-    }
-    */
-
   }
 
-    //  printf(" 666666  %f   %f \n", RV, GENSMEAR.COLOR );
   return RV ;
-
 
 } // end of get_CCM89_RV
  
@@ -3773,9 +3762,13 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   if ( magSmear == 0.0 ) { return; } 
 
   printf("\n %s: magSmear=%.3f, rho=exp(-Tdif/%.1f) \n",
-	 fnam, magSmear, expTau); 
+	 fnam, magSmear, expTau);
+
+  init_genSmear_randoms(2, 0);
+    
   fflush(stdout);
 
+  
   GENSMEAR_PHASECOR.USE = 1;
   GENSMEAR_PHASECOR.INPUT_MAGSMEAR = magSmear ;  
   GENSMEAR_PHASECOR.INPUT_EXPTAU   = expTau;

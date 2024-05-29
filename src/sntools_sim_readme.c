@@ -649,7 +649,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 
   if ( NGEN_REJECT.CRAZYFLUX > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%sNREJECT_CRAZYFLUX:  %d ", NGEN_REJECT.CRAZYFLUX);
+    sprintf(cptr,"%sNREJECT_CRAZYFLUX:  %d ", pad, NGEN_REJECT.CRAZYFLUX);
   }
   
   // check for wrong host info

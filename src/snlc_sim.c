@@ -26860,6 +26860,7 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   if ( flux > crazyFlux || flux < crazyFlux_neg ) {
 
     GENLC.FLAG_CRAZYFLUX = 1;
+    if ( INDEX_GENMODEL == MODEL_AGN ) { return; } // avoid rare bug until it is fixed.
     
     print_preAbort_banner(fnam);
     dumpEpoch_fluxNoise_apply(fnam, ep, FLUXNOISE);

@@ -1176,10 +1176,11 @@ struct GENLC {
   int   SUBSAMPLE_INDEX ; // only if NSUBSAMPLE_MARK > 0 (June 2017)
   int   NEPOCH;        // includes model-epoch at T=0 and epoch with fluxerr<0
 
-  int   ACCEPTFLAG ;       // True of event is accepted
-  int   ACCEPTFLAG_FORCE ; // true if same LIBID is read too many times
-  int   ACCEPTFLAG_LAST ;
-
+  int   FLAG_ACCEPT ;       // True of event is accepted
+  int   FLAG_ACCEPT_FORCE ; // true if same LIBID is read too many times
+  int   FLAG_ACCEPT_LAST ;
+  int   FLAG_CRAZYFLUX;    // > 0 if any epoch has crazy flux
+  
   double  MJD[MXEPSIM];
   int     INDEX_MJDSORT[MXEPSIM];
   int     IFILT_OBS[MXEPSIM];    // observer filter vs. epoch
@@ -1437,6 +1438,7 @@ struct NGEN_REJECT {
   int SEARCHEFF;
   int CUTWIN ;
   int NEPOCH ;   // counts NEPOCH < NEPOCH_MIN
+  int CRAZYFLUX ;
 } NGEN_REJECT ;
 
 

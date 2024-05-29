@@ -22452,7 +22452,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         to scale SNR with wavelength-dependent polynomial.
      + set DO_MODELSMEAR flag when ADDPHASECOR option is set ... no longer
        need supplmental C11 model with scale = 0.0001.
-
+     + for AGN crazyAbort, skip event instead of abort; see GENLC.FLAG_CRAZYFLUX
+     
    genmag_SALT2.h
        set REFAC_SALT2_COV=T flag to enable x_2 component.
        

@@ -647,6 +647,11 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 	  NGEN_REJECT.CUTWIN,
 	  (int)INPUTS.CUTWIN_NEPOCH[0] ) ;
 
+  if ( NGEN_REJECT.CRAZYFLUX > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNREJECT_CRAZYFLUX:  %d ", NGEN_REJECT.CRAZYFLUX);
+  }
+  
   // check for wrong host info
   if ( !IGNOREFILE(INPUTS.WRONGHOST_FILE) ) {
     int N_WRONGHOST=0 ;  float FRAC=0.0 ;

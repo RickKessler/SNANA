@@ -328,6 +328,12 @@ int main(int argc, char **argv) {
     // convert generated mags into observed fluxes
     GENFLUX_DRIVER(); 
 
+    // May 29 2024: reject on crazyFlux (if abort is skipped)
+    if ( GENLC.FLAG_CRAZYFLUX ) {
+      gen_event_reject(&ilc, &SIMFILE_AUX, "CRAZYFLUX");
+      goto GENEFF ;
+    }
+    
     // Oct 1 2023
     // bail of there are no observations to write out; e.g., pre-explosion 
     // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
@@ -344,7 +350,7 @@ int main(int argc, char **argv) {
     // In this case, set NOBS=NEPOCH=0 for data file since the
     // event has actually been discarded.
     if ( GENLC.NGEN_SIMLIB_ID >= SIMLIB_MXGEN_LIBID )  { 
-      GENLC.ACCEPTFLAG_FORCE = 1;
+      GENLC.FLAG_ACCEPT_FORCE = 1;
       GENLC.NOBS_MODELFLUX = GENLC.NEPOCH = 0; 
     }
 
@@ -371,7 +377,7 @@ int main(int argc, char **argv) {
     // otherwise keep all SNe    
     int OVP ;
     OVP = ( INPUTS.APPLY_SEARCHEFF_OPT & GENLC.SEARCHEFF_MASK ) ;
-    if ( OVP != INPUTS.APPLY_SEARCHEFF_OPT  && GENLC.ACCEPTFLAG_FORCE==0 ) {
+    if ( OVP != INPUTS.APPLY_SEARCHEFF_OPT  && GENLC.FLAG_ACCEPT_FORCE==0 ) {
       gen_event_reject(&ilc, &SIMFILE_AUX, "SEARCHEFF");
       goto GENEFF ;
     }
@@ -382,7 +388,7 @@ int main(int argc, char **argv) {
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("11", ilc) ; }
 
     // check option to apply CUT windows
-    if ( gen_cutwin() != SUCCESS  && GENLC.ACCEPTFLAG_FORCE==0 ) {
+    if ( gen_cutwin() != SUCCESS  && GENLC.FLAG_ACCEPT_FORCE==0 ) {
       gen_event_reject(&ilc, &SIMFILE_AUX, "CUTWIN");
       goto GENEFF;
     }
@@ -409,7 +415,7 @@ int main(int argc, char **argv) {
     // update SNDATA files & auxiliary files
     update_simFiles(&SIMFILE_AUX);
 
-    GENLC.ACCEPTFLAG = 1 ;  // Added Dec 2015
+    GENLC.FLAG_ACCEPT = 1 ;  // Added Dec 2015
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("14", ilc) ; }
 
@@ -8700,7 +8706,7 @@ void init_simvar(void) {
   init_GaussIntegral();
 
   GENLC.STOPGEN_FLAG = 0 ;
-  GENLC.ACCEPTFLAG   = GENLC.ACCEPTFLAG_LAST = 0 ;
+  GENLC.FLAG_ACCEPT   = GENLC.FLAG_ACCEPT_LAST = 0 ;
   GENLC.REDSHIFT_MAX_SNR5 = -9.0;
 
   set_FILTERSTRING(FILTERSTRING);
@@ -8720,6 +8726,7 @@ void init_simvar(void) {
   NGEN_REJECT.SEARCHEFF = 0;
   NGEN_REJECT.CUTWIN    = 0;
   NGEN_REJECT.NEPOCH    = 0;
+  NGEN_REJECT.CRAZYFLUX = 0;  
 
   GENLC.MWEBV           = 0.0 ;
   GENLC.MWEBV_ERR       = 0.0 ;
@@ -8884,10 +8891,11 @@ void  init_event_GENLC(void) {
   char fnam[] = "init_event_GENLC" ;
 
   // -------------- BEGIN ---------------
-  GENLC.ACCEPTFLAG_LAST  = GENLC.ACCEPTFLAG ;
-  GENLC.ACCEPTFLAG       = 0 ;
-  GENLC.ACCEPTFLAG_FORCE = 0 ;
-
+  GENLC.FLAG_ACCEPT_LAST  = GENLC.FLAG_ACCEPT ;
+  GENLC.FLAG_ACCEPT       = 0 ;
+  GENLC.FLAG_ACCEPT_FORCE = 0 ;
+  GENLC.FLAG_CRAZYFLUX    = 0 ;
+  
   GENLC.SEARCHEFF_MASK = 0 ;
   GENLC.SEARCHEFF_SPEC = 0.0 ;
   GENLC.SEARCHEFF_zHOST= 0.0 ;
@@ -12620,7 +12628,8 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   // * do stuff based on REJECT_STAGE
   //
   // Mar 18 2018: add separate category for NEPOCH 
-
+  // May 29 2024: add new category for CRAZYFLUX
+  
   int ilc_orig, ilc;
   bool doReject_DUMP = false ;
   bool REJECT= false;
@@ -12635,7 +12644,8 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   if ( strcmp(REJECT_STAGE,"GENRANGE") == 0 ) {
     ilc-- ;
     NGEN_REJECT.GENRANGE++ ;
-    if(LDMP) { printf(" xxx %s CID=%d fails GENRANGE\n", fnam, GENLC.CID); fflush(stdout); }
+    if(LDMP) { printf(" xxx %s CID=%d fails GENRANGE\n",
+		      fnam, GENLC.CID); fflush(stdout); }
 
   }
   else if ( strcmp(REJECT_STAGE,"GENMAG") == 0 ) {
@@ -12664,6 +12674,15 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
     REJECT = true;
     if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH\n", fnam, GENLC.CID); fflush(stdout); }
   }
+
+  else if ( strcmp(REJECT_STAGE,"CRAZYFLUX") == 0 ) {  // May 29 2024
+    if ( INPUTS.NGEN_LC > 0 ) { ilc-- ; }
+    NGEN_REJECT.CRAZYFLUX++ ;
+    doReject_DUMP = doReject_SIMGEN_DUMP("CRAZYFLUX");
+    REJECT = true;
+    if(LDMP) { printf(" xxx %s CID=%d fails CRAZYFLUX\n", fnam, GENLC.CID); fflush(stdout); }
+  } 
+    
   else {
     sprintf(c1err,"Undefined REJECT_STAGE = '%s'", REJECT_STAGE);
     sprintf(c1err,"at ilc = %d" , *ILC);
@@ -20731,7 +20750,7 @@ int USE_SAME_SIMLIB_ID(int IFLAG) {
   // check option to re-use same LIBID until an event is accepted
   // (for ABC sims)
   OVP = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_REPEAT_UNTIL_ACCEPT );
-  if ( OVP > 0  &&  GENLC.ACCEPTFLAG_LAST == 0 ) 
+  if ( OVP > 0  &&  GENLC.FLAG_ACCEPT_LAST == 0 ) 
     { return(1); }
   // - - - - - - - - - - - - - - - - 
 
@@ -26839,6 +26858,9 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
 
   // - - - - - - - - - - - - - 
   if ( flux > crazyFlux || flux < crazyFlux_neg ) {
+
+    GENLC.FLAG_CRAZYFLUX = 1;
+    
     print_preAbort_banner(fnam);
     dumpEpoch_fluxNoise_apply(fnam, ep, FLUXNOISE);
     if ( flux > 0.0 ) {

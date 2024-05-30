@@ -9,10 +9,14 @@
 # Dec 5 2023: re-write script to brute-force write stdout file
 #      instead of using subprocess ... hopefully less hangup.
 #
+# May 30 3024: remove MINOs instead of MINOS so that snana's MINOS comments remain.
+#       Previous submit_batch_jobs output with USE_MINOS=T has no record of MINOS
+#       in the log files. Most MINUIT output has been suppressed anyway in minuit.F
+#
 
 import os, sys, subprocess, datetime
 
-STRING_REMOVE_LIST = [ 'MINUIT', 'MINOS', '=======' ,
+STRING_REMOVE_LIST = [ 'MINUIT', 'MINOs', '=======' ,
                        'EIGENVALUES', 'MINIMIZ', 'VV' ]
 
 # ===================================================

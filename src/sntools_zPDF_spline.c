@@ -19,8 +19,6 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   // Jan 9, 2024: pass SNID to use for messaging.
   // Mar 25,2024: return mean and RMS
 
-  dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);
-
   char fnam[] = "init_zPDF_spline";
   double sum    = 0. ;
   double sum_pdf= 0. ;
@@ -197,10 +195,10 @@ void dump_zPDF(char *method_spline, int N_Q, double* percentile_list, double* zp
   int i;
   char fnam[] = "dump_zPDF";
 
-  //printf(" xxx %s for cid = %s method_spline = %s \n", fnam, cid, method_spline);
+  printf(" xxx %s for cid = %s method_spline = %s \n", fnam, cid, method_spline);
   for(i = 0; i<N_Q; i++){
-    //printf(" xxx %s: Quantile %2d : z = %3f percentile = %3f\n",
-    //fnam, i, zphot_q_list[i], percentile_list[i]);
+    printf(" xxx %s: Quantile %2d : z = %3f percentile = %3f\n",
+	   fnam, i, zphot_q_list[i], percentile_list[i]);
     fflush(stdout);
   }
 } // end dump_zPDF

@@ -1962,22 +1962,7 @@ class LightCurveFit(Program):
         # abort if program is not found within t_wait_abort time (allow for make)
         t_wait_abort  = 500 
         found_program = util.program_exists(program_path, t_wait_abort, True)
-        
-        #  xxxxxxx mark delete May 23 2024 xxxxxxx
-        # t_wait        = 10   # wait this long before checking again
-        # t_wait_tot    = 0
-        # msgerr = []
-        #while os.access(program_path, os.X_OK) is False:
-        #    t_now   = datetime.datetime.now()
-        #    logging.info(f"\t wait for {program_path} to exist ({t_now})")
-        #    time.sleep(t_wait)
-        #    t_wait_tot += t_wait
-        #    if t_wait_tot > t_wait_abort :
-        #        msgerr.append(f"Could not find {program_path}")
-        #        msgerr.append(f"after waiting {t_wait_tot} seconds.")
-        #        self.log_assert(False,msgerr)
-        # xxxxxxxxxxxxx
-        
+                
         return
         # end check_program_merge_table_CERN
 

@@ -702,7 +702,7 @@ def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional):
         CID_lost_list = dfcut['CID'].to_numpy()
 
         print(f" TEST table contains {len_sel} of {len_tot} REF events ")
-        print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
+        print(f" CIDs missing in TEST: {CID_lost_list[0:20]}")
 
     # - - - - - 
     print("")

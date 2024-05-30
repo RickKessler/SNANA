@@ -26,10 +26,14 @@
 #   + call print_elapse_time for VERBOSE mode
 #   + for combine_fitres.exe call in append mode, add 't' argument to 
 #     write only text output and avoid writing useless ROOT file.
+
+# May 30 2024
+#   + Used program_exists to ensure exectuable exists.
 # ===================
 
 import os, sys, argparse, yaml, datetime 
 from   argparse import Namespace
+import time
 
 VARNAME_CCID = "CCID"
 FORMAT_ROOT  = "ROOT"
@@ -56,6 +60,7 @@ OUTFILE_SUFFIX = "fitres"
 SNANA_DIR = os.getenv('SNANA_DIR')
 Cprogram_dump    = f"{SNANA_DIR}/bin/sntable_dump.exe"
 Cprogram_combine = f"{SNANA_DIR}/bin/combine_fitres.exe"
+T_WAIT_MAX = 500.00 # Max time to wait for executable to exist
 
 # ===========
 def get_args():
@@ -238,18 +243,18 @@ def make_command_sntable_dump(input_args,config):
 
 
 def program_exists(program_name, t_wait_max, abort_not_exists):
-    # Created May 23 2024 by R.Kessler                                                                                                                
-    # Return True if profram_name exists within time t_wait_max.                                                                                
-    # If program_name does not exist after t_wait_time,                                                                                               
-    # and abort_not_exists=True, the abort.                                                                                                           
-    #                                                                                                                                                 
+    # Created May 23 2024 by R.Kessler                                                                                                               
+    # Return True if profram_name exists within time t_wait_max (seconds).                                                                       
+    # If program_name does not exist after t_wait_time,                                                                                              
+    # and abort_not_exists=True, the abort.                                                                                                          
+                                                                                                                                                  
     t_wait_tot = 0
     t_wait     = 10  # wait this long before checking again                                                                                           
 
     while os.access(program_name, os.X_OK) is False:
         t_now   = datetime.datetime.now()
         tstr    = t_now.strftime("%Y-%m-%d %H:%M:%S")
-        printf(f"  waiting for {program_name} to exist ({tstr})")
+        print(f"  waiting for {program_name} to exist ({tstr})")
         sys.stdout.flush()
         time.sleep(t_wait)
         t_wait_tot += t_wait
@@ -287,6 +292,7 @@ def append_fitres(input_args,config):
           f"t"   # <== write only text output; no ROOT or hbook
 
     # .xyz check that Cprogram_combine exists ...
+    program_exists(Cprogram_combine, T_WAIT_MAX, True)
     
     os.system(cmd)
 
@@ -366,7 +372,7 @@ if __name__ == "__main__":
         sys.stdout.flush()
 
     # .xyz check that Cprogram exists ...
-    
+    program_exists(Cprogram_dump, T_WAIT_MAX, True)
     
     istat = os.system(config.command)
 

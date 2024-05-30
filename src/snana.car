@@ -281,7 +281,7 @@ c
      &  ,MXCHAR_VERSION    = 72   ! max len of VERSION_PHOTOMETRY
      &  ,MXCHAR_SURVEY     = 40   ! max len of SURVEY_NAME
      &  ,MXCHAR_PATH       = 160  ! max len of path
-     &  ,MXCHAR_FILENAME   = 200  ! max len of filename with full path
+     &  ,MXCHAR_FILENAME   = 300  ! max len of filename with full path
      &  ,MXCHAR_MODELNAME  = 72   ! max len of model name
      &  ,MXCHAR_FIELDNAME  = 20   ! max len of field name
      &  ,MXCHAR_PARNAME    = 20   ! max len of parameter name

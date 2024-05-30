@@ -168,6 +168,7 @@ PREFIX_TEMP_SNANA = "TEMP_SNANA"
 
 # define script to dump number of events in table (for hbook & root)
 SCRIPT_SNTABLE_DUMP    = "sntable_dump.py"   # Mar 17 2021
+Cprogram_SNTABLE_DUMP  = "sntable_dump.exe"  
 
 # define program to merge text-fitres files
 PROGRAM_COMBINE_FITRES = "combine_fitres.exe"
@@ -1779,6 +1780,13 @@ class LightCurveFit(Program):
                      f"--VERBOSE " \
                      f"-v '{varlist_append}' " \
                      f"-a {text_table_file} > {append_log_file} 2>/dev/null"
+
+
+        # abort if required C program exe is not found within 10 minutes        
+        snana_dir      = self.config_yaml['args'].snana_dir
+        Cprogram_path  = util.get_SNANA_program_path(snana_dir,Cprogram_SNTABLE_DUMP)
+        found_Cprogram = util.program_exists(Cprogram_path, TMAX_EXE_WAIT_ABORT, True) 
+        
         istat = os.system(f"{cddir} ; {cmd_append} ")
         util.print_elapse_time(tref,SCRIPT_SNTABLE_DUMP)
 
@@ -1950,22 +1958,17 @@ class LightCurveFit(Program):
 
     def check_program_merge_table_CERN(self,program_merge):
         # Created Apr 2022 by R.Kessler
-        # wait for program_merge to exist as executable.
+        # wait for program_merge to exist as executable (allow for make during processing)
         # Abort if wait is too long.
         
-        snana_dir       = self.config_yaml['args'].snana_dir    
-        if snana_dir is None:
-            program_path  = f"{SNANA_DIR}/bin/{program_merge}" # default code
-        else:
-            program_path  = f"{snana_dir}/bin/{program_merge}" # user code
-
-        # abort if program is not found within t_wait_abort time (allow for make)
-        t_wait_abort  = 500 
-        found_program = util.program_exists(program_path, t_wait_abort, True)
+        snana_dir     = self.config_yaml['args'].snana_dir
+        program_path  = util.get_SNANA_program_path(snana_dir,program_merge)
+        found_program = util.program_exists(program_path, TMAX_EXE_WAIT_ABORT, True)
                 
         return
         # end check_program_merge_table_CERN
 
+    
     def nrow_table_CERN(self,table_file):
         # return number of table rows in CERN file that
         # has either HBOOK or ROOT extension
@@ -1975,6 +1978,11 @@ class LightCurveFit(Program):
         script   = SCRIPT_SNTABLE_DUMP
         arg_NEVT = "--NEVT"
         if '.pl' in script:  arg_NEVT = "NEVT" # legacy perl arg
+
+        # abort if required C program exe is not found within 10 minutes        
+        snana_dir      = self.config_yaml['args'].snana_dir
+        Cprogram_path  = util.get_SNANA_program_path(snana_dir,Cprogram_SNTABLE_DUMP)
+        found_Cprogram = util.program_exists(Cprogram_path, TMAX_EXE_WAIT_ABORT, True) 
         
         cmd_nevt = f"{script} {table_file} FITRES {arg_NEVT} " \
                    f" | grep 'NEVT:' "

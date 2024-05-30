@@ -243,14 +243,14 @@ def make_command_sntable_dump(input_args,config):
 
 
 def program_exists(program_name, t_wait_max, abort_not_exists):
-    # Created May 23 2024 by R.Kessler                                                                                                               
-    # Return True if profram_name exists within time t_wait_max (seconds).                                                                       
-    # If program_name does not exist after t_wait_time,                                                                                              
-    # and abort_not_exists=True, the abort.                                                                                                          
-                                                                                                                                                  
-    t_wait_tot = 0
-    t_wait     = 10  # wait this long before checking again                                                                                           
+    # Created May 23 2024 by R.Kessler  
+    # Return True if profram_name exists within time t_wait_max (seconds).
+    # If program_name does not exist after t_wait_time,
+    # and abort_not_exists=True, the abort.
 
+    t_wait_tot = 0
+    t_wait     = 10  # wait this long before checking again
+    
     while os.access(program_name, os.X_OK) is False:
         t_now   = datetime.datetime.now()
         tstr    = t_now.strftime("%Y-%m-%d %H:%M:%S")

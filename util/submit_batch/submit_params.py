@@ -130,6 +130,8 @@ STRING_SUCCESS = "SUCCESS"
 STRING_FAIL    = "FAIL"
 STRING_STOP    = "STOP"
 
+TMAX_EXE_WAIT_ABORT = 600  # max wait for binary exe to exist (in case of make)
+
 KEY_END_YAML = "#END_YAML"
 
 # either of these keys allowed in CONFIG

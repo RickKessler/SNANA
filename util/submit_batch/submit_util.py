@@ -864,6 +864,19 @@ def backup_merge_file(merge_file):
     shutil.copyfile(merge_file, merge_file_save )
     # end backup_merge_file
 
+def get_SNANA_program_path(snana_dir, program_name):
+    # Created May 30 2024
+    # Return full path of SNANA program executable in /bin directory.
+    # Input snana_dir is an optional user-defined SNANA code repo location;
+    # if snana_dir is None then use default $SNANA_DIR/bin.
+    
+    if snana_dir is None :
+        program_path  = f"{SNANA_DIR}/bin/{program_name}" # default code
+    else:
+        program_path  = f"{snana_dir}/bin/{program_name}" # user code
+        
+    return program_path
+
 def program_exists(program_name, t_wait_max, abort_not_exists):
     # Created May 23 2024 by R.Kessler
     # Return True if profram_name exists within time t_wait_max.

@@ -11,11 +11,12 @@
 #include <sys/stat.h>
 
 void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list, 
-		      char *cid, char *method_spline, int verbose, double *mean, double *std_dev, int *error_flag ) {
+		      char *cid, char *method_spline, int verbose,
+		      double *mean, double *std_dev, int *error_flag ) {
   // created Jun 2022 R. Chen
   // Initialize spline interpolate for photo-z quantiles
   // allocate interpolation accelerator and gsl_spline object
-
+  //
   // Inputs :
   //       N_Q : Number of Quantiles
   //       percentile_list : List of N_Q percentiles, spanning 0 to 100
@@ -23,36 +24,39 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   //       cid             : Candidate ID used for error messaging
   //       method_spline   : 'LINEAR', 'CUBIC', 'STEFFEN'
   //       verbose         : greaater than 0, print information
+  //
   // Outputs :
   //       mean            : mean of the PDF
   //       std_dev         : standard deviation of the PDF
-  //       error_flag      : 0 --> Good quantiles (All ok), -1 --> All negative; -2 --> Non-monotinically increasing  
-  
+  //       error_flag      :  0 --> Good quantiles (All ok),
+  //                         -1 --> All negative zphot_q;
+  //                         -2 --> zphot_q Not-monotinically increasing  
+  // 
   
   // Jan 9, 2024: pass SNID to use for messaging.
   // Mar 25,2024: return mean and RMS
-  
+  // May 30 2024: return error_flag!=0  on bad quantiles instead of aborting;
+  //              allows calling code to reject event and move on.
+  //
 
   char fnam[] = "init_zPDF_spline";
   double sum    = 0. ;
   double sum_pdf= 0. ;
   double sum_sq = 0. ;
- 
-
   int i,i2;
   int LDMP = 0;
 
   // ------ BEGIN ---------
  
-  *error_flag = 0; // 
+  *error_flag = 0; // init output 
     
   zPDF_spline.acc    = gsl_interp_accel_alloc();
 
   if (strcmp(method_spline,METHOD_SPLINE_LINEAR)==0 ){
-  zPDF_spline.spline = gsl_spline_alloc(gsl_interp_linear, N_Q);     // Linear
+    zPDF_spline.spline = gsl_spline_alloc(gsl_interp_linear, N_Q);     // Linear
   }
   else if (strcmp(method_spline,METHOD_SPLINE_CUBIC)==0){
-    zPDF_spline.spline = gsl_spline_alloc(gsl_interp_cspline, N_Q); // cubic
+    zPDF_spline.spline = gsl_spline_alloc(gsl_interp_cspline, N_Q);   // cubic
   }
   else if  (strcmp(method_spline,METHOD_SPLINE_STEFFEN)==0){
 #ifdef GSL_INTERP_STEFFEN
@@ -65,8 +69,8 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
 #endif
   }
   else {
-    sprintf(c1err,"Invalid method_spline=%s for CID=%s", method_spline, cid );
-    sprintf(c2err,"Valid methods are: %s  %s  %s", 
+    sprintf(c1err,"Invalid method_spline = '%s' for CID=%s", method_spline, cid );
+    sprintf(c2err,"Valid methods are:  %s  %s  %s", 
 	    METHOD_SPLINE_LINEAR, METHOD_SPLINE_CUBIC, METHOD_SPLINE_STEFFEN);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
@@ -99,30 +103,30 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   for(i = 1; i<N_Q; i++){
     bool check_1 = percentile_list[i] > percentile_list[i-1];
     bool check_2 = zphot_q_list[i]    > zphot_q_list[i-1];
-    //bool force_dump = true ; // Internal debugging only ??
-    /* XXX Mark delete, May 30, 2024
+
+    /* xxxxxxxxx  Mark delete, May 30, 2024 xxxxxxxxxxxxxx
     if(  !(check_1 && check_2)) {
       print_preAbort_banner(fnam);
-      dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);
-      
+      dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);      
       sprintf(c1err,"Quantile information is not monotonically increasing for CID=%s", cid);
       sprintf(c2err,"Check both z and percentile in datafile");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
-     XXX  */
+    xxxxxxxxxxxx end mark xxxxxxxxxxxx  */
 
-    if (!(check_1 && check_2)) {
-      dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);  
-      if (zphot_q_list[i] < 0 ){
-	*error_flag = -1 ;
-      }
-      else {
-	*error_flag = -2;
-      }
-      return ;
-				 
-    }
-  } 
+    if ( !(check_1 && check_2)  ) {
+      if ( verbose ) 
+	{ dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);  }
+      
+      if (zphot_q_list[i] < 0 )
+	{ *error_flag = -1 ;  }
+      else
+	{ *error_flag = -2 ;  }
+      
+      return ;				 
+    } // end quantile check
+    
+  } // end loop over quantile percentages
 
   
   

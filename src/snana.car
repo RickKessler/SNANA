@@ -1953,7 +1953,7 @@ c Oct 2014: variables to check for multi-season transient activity
      &   SIM_PRESCALE        ! I: pre-scale applied only to SIM
      &  ,VPEC_ERR_OVERRIDE   ! I: override VPEC_ERR in data header (km/sec)
      &  ,SNTABLE_APPEND_VALUE   ! I: value for SNTABLE_APPEND_VARNAME
-     &  ,QUANTILE_ZERRMIN ! I: use quantile prior for zerr> this; else use Guass prior
+     &  ,QUANTILE_ZERRMIN    ! I: use quantile prior for zerr> this; else use Guass prior
 
 c variables to control estimate of PEAKMJD
       INTEGER
@@ -4656,16 +4656,6 @@ c read ZPHOT_Q (May 2022)
         SNHOST_QZPHOT_MEAN(igal) = -9.0
 	SNHOST_QZPHOT_STD(igal)  = -9.0	
 	
-c xxxxxxxxxx Apr 1 2024 mark delete xxxxxxxxx
-c  BAD LOGIC BECAUSE IT TAKES EFFECT EVEN IF QUSNTILES ARE NOT REQUESTED
-c
-c	IF (igal == 1) THEN
-c	   LTMP = (SNHOST_ZPHOT_Q(igal,1) < -0.001) .AND. 
-c     &        (SNLC_REDSHIFT > QUANTILE_ZERRMIN)	   
-c	   IF (LTMP) SNLC_REDSHIFT = -9.0 ! Forced event to be rejected
-c	ENDIF
-c xxxxxxxxx end mark xxxxxxxxxx
-
 c          print*,' xxx ------------------------------------------- '
 c          print*,' xxx CID ,igal = ', SNLC_CCID, igal
 c          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
@@ -9744,6 +9734,7 @@ c do the fit
           CALL FITPAR_PREP ( iter, IERR )  ! init fit params
           if ( IERR .NE. 0 ) then
             ERRFLAG_FIT = IERR
+ 	    REJECT_FIT = .TRUE.	    
             write(6,40) ITER, SNLC_CCID(1:ISNLC_LENCCID)
 40          format(T5,'FITPAR_PREP PROBLEM => SKIP FIT-ITER=', 
      &              I2,'  for  CID=',A )
@@ -31447,59 +31438,6 @@ c write par value into string using format
 
       RETURN
       END    ! end of PRINT_FITPAR
-
-C ==============================
-+DECK,BOOK_CONTOUR.
-      SUBROUTINE BOOK_CONTOUR ( h1,h2, Npt, IPAR1, IPAR2 )
-c
-c Store information about this contour.
-c The contour is made with MNCONT after 
-c the fit has finished.
-c
-c The contour results are booked in h1,h2 
-c when the user calls PLOT_CONTOUR.
-c
-c ----------------------------------
-
-      IMPLICIT NONE
-
-      INTEGER 
-     &    h1,h2   ! (I) hbook ids for storage (in PLOT_CONTOUR)
-     &   ,NPT     ! (I) Number of points for contour
-     &   ,IPAR1   ! (I) 1st param index 
-     &   ,IPAR2   ! (I) 1st param index 
-
-c local var
-
-+CDE,SNPAR.
-+CDE,SNCONTCM.
-+CDE,SNANAFIT.
-
-      INTEGER N, L1, L2
-
-C ------------- BEGIN -------------
-
-      NPLOT_CONT = NPLOT_CONT + 1
-      N = NPLOT_CONT
-
-      NPT_CONT(N)   = NPT
-      HID_CONT(1,N) = h1
-      HID_CONT(2,N) = h2
-
-      IPAR_CONT(1,N) = ipar1
-      IPAR_CONT(2,N) = ipar2
-
-      L1 = INDEX ( PARNAME_STORE(ipar1), ' ') -1 
-      L2 = INDEX ( PARNAME_STORE(ipar2), ' ') -1 
-
-      write(6,20) PARNAME_STORE(ipar1)(1:L1), 
-     &            PARNAME_STORE(ipar2)(1:L2), NPT
-
-20    format(T5,'BOOK_CONTOUR for ',A,' vs. ', A,
-     &    ' with ',I3,' points. ' )
-
-      RETURN
-      END
 
 
 C ======================================

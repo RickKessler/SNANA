@@ -856,7 +856,7 @@ $(OBJ)/sntools_wronghost.o : $(SRC)/sntools_wronghost.c  $(SRC)/sntools_wronghos
 # -------------------------------------------------
 # compile sntools_wronghost (.o only)
 
-$(OBJ)/sntools_zPDF_spline.o : $(SRC)/sntools_zPDF_spline.c 
+$(OBJ)/sntools_zPDF_spline.o : $(SRC)/sntools_zPDF_spline.c $(SRC)/sntools_zPDF_spline.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_zPDF_spline.c )
 

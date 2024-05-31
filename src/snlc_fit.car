@@ -1917,11 +1917,9 @@ c ----------------------------------------
 c local var
 
       INTEGER
-     &    NPAR, ipar
+     &    NPAR, ipar, bit
      &  , ifilt, ifilt_obs, ifilt_rest1, ifilt_rest2, ifilt_rest_iter1
      &  , istat, NUSE_FILT, OPT, LL, L2, LCHAR
-
-      INTEGER i, cid, ipar1, ipar2, NPT, h1, h2  ! CONTOUR args
 
       REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST, GRAD(MXFITPAR)
       REAL*4 Z4, LMIN4
@@ -1931,7 +1929,7 @@ c local var
       LOGICAL 
      &   USE_FILT_ITER1(MXFILT_ALL)
      &  ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL, LPRINT
-     &  ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC
+     &  ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, LDMP_MASK
 
 c functions
      
@@ -1943,8 +1941,6 @@ c functions
 
 C ---------- BEGIN -------------
       
-  
-
       IERR = 0  ! init to OK
       LPRINT = STDOUT_UPDATE
 
@@ -2037,16 +2033,20 @@ c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
           LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
 
-          if ( LPZ_Q .and. .not.LZSPEC )  THEN
-             MASK_PHOTOZ_SOURCE = 
-     &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
+c xxxxxxxxxxxxxx mark delete May 30 2024 xxxxxxxxxxxxx
+c          if ( LPZ_Q .and. .not.LZSPEC )  THEN
+c             MASK_PHOTOZ_SOURCE = 
+c     &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-cc xxxxxxxxxxxxx mark delete xxxxxxxxx
-cc           METHOD_SPLINE_QUANTILES = "CUBIC" // char(0)
-cc	     if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN))  THEN 
-cc              METHOD_SPLINE_QUANTILES = "STEFFEN" // char(0)
-cc            endif	            
-cc xxxxxxxxxxxxx
+          if ( LPZ_Q ) then
+c           use z_spec prior or quantiles; ignore zPHOT point estimate
+            if ( LZSPEC ) then
+                bit = BIT_BESTZ_GAUSS  ! use zspec prior if available and requested
+            else
+                bit = BIT_PHOTOZ_QUANTILES
+            endif
+            MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT)
 
           else if ( LPZ_BEST ) then
              MASK_PHOTOZ_SOURCE = 
@@ -2056,6 +2056,17 @@ cc xxxxxxxxxxxxx
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
           endif
 
+c - - - - - - - 
+          LDMP_MASK = .FALSE.
+          if ( LDMP_MASK ) then
+             write(6,660) LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, 
+     &              MASK_PHOTOZ_SOURCE
+660          format(' xxx LPZ[HOST,BEST,Q]=',3L2, 3x, 'LZSPEC=',L2, 3x,
+     &           '--> MASK_PHOTOZ_SOURCE=',I5 )
+             call flush(6)
+          endif
+
+c --------------------
           DO 220 ifilt_obs = 1,  MXFILT_ALL
 
             PHOTOZ_ADDFILTER(ifilt_obs)  = .FALSE.
@@ -2206,25 +2217,6 @@ c check option to fix all parameters in fit
         DO ipar = 1, NFITPAR_MN
            INISTP(ipar)  = 0.0 
         ENDDO
-      ENDIF
-
-c Check for contour plots with namelist array CONTOUR_LIST
-c Contour plots are initialized for each SN before MINUIT is run.
-
-      IF ( ITER .EQ. NFIT_ITERATION ) THEN
-        DO i = 1, 20
-           CID   = CONTOUR_LIST(1,i)
-           ipar1 = CONTOUR_LIST(2,i)
-           ipar2 = CONTOUR_LIST(3,i)
-           NPT   = CONTOUR_LIST(4,i)
-
-           h1 = 20000 + i*10  ! histograms go into subdir for each SN
-           h2 = h1 + 1
-           if ( CID .EQ. SNLC_CID ) then
-              CALL BOOK_CONTOUR(h1,h2, NPT, IPAR1, IPAR2 )
-           endif
-        END DO
-
       ENDIF
 
 c ---------------
@@ -8588,7 +8580,10 @@ c
 c Oct 10 2019: abort if USE_SNHOST_ZPHOT=T
 c
 c Jan 2024: wrap Quantile debug prints under LDMP_Q flag
-c May 2024: add IERR argument
+c May 2024: 
+c   + add IERR argument based on init_zPDF_spline
+c   + fix bug and use MASK_PHOTOZ_SOURCE instead of OPT_PHOTOZ
+c
 c --------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -8605,7 +8600,7 @@ c+CDE,SNFITPAR.
 
 c local var
 
-      INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM
+      INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
       REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
       LOGICAL  LDMP_Q
@@ -8699,8 +8694,9 @@ c set initial value and step size.
 
       Zhost     =  SNHOST_ZPHOT(1)
       LZDONE    = .FALSE.
+      MASK      = MASK_PHOTOZ_SOURCE
 
-      IF ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
+      IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
@@ -8712,7 +8708,7 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
 
         goto 777        ! Jan 2021
 
-      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
+      ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = Zhost
@@ -8724,7 +8720,7 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
            IF( SKIP_PHOTOZ_INIT ) GOTO 888
         endif
       
-      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
+      ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
          LDMP_Q = .false.  ! RK - control debug dump with  flag
 
@@ -11160,6 +11156,7 @@ C -------------- BEGIN ---------------
 
       LSTAT    = .FALSE.
       IPAR     = IPAR_zPHOT  ! local variable
+      global_banner = ''
 
       if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_STEFFEN)) then
          OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix user mistake
@@ -11170,15 +11167,19 @@ C -------------- BEGIN ---------------
 
       else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
          write(global_banner,22) PRIOR_ZERRSCALE
+      endif
 
-      else if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
+c check quantile mask independent of other mask bits
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
         METHOD_SPLINE_QUANTILES = "CUBIC"    ! default 28 Mar, 2024 
         if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN)) then
           METHOD_SPLINE_QUANTILES = "STEFFEN"  ! newer option  
         endif
         write(global_banner,23) 
      &          PRIOR_ZERRSCALE,METHOD_SPLINE_QUANTILES
-      else
+      endif
+
+      if ( global_banner .EQ. '' ) then
         write(c1err,662) OPT_PHOTOZ
 662     format('Invalid OPT_PHOTOZ = ', I5 )
         c2err = "Check &FITINP namelist."

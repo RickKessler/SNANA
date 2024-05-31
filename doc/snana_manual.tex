@@ -8606,8 +8606,9 @@ The most robust method is data variable {\tt MASK\_REDSHIFT\_SOURCE}
 set by the survey team creating the data files, and automatically
 set for simulations. The mask values are as follows:
 1: host spec-$z$, 2: SN spec-$z$, 4: host photo-$z$ point estimate, 
-8: host photo-$z$ quantiles. Thus {\tt MASK\_REDSHIFT\_SOURCE} value
-of 1,2 or 3 unambiguously indicates spec-$z$.
+8: host photo-$z$ quantiles.
+Thus, for example, {\tt MASK\_REDSHIFT\_SOURCE=9} means that
+both spec-$z$ and quantiles are available.
 If this mask is not available, an alternative (less robust) method
 is to define {\tt \&SNLCINP} input {\tt QUANTILE\_ZERRMIN = 0.01};
 this identifies spec-$z$ if redshift uncertainty is below 0.01.

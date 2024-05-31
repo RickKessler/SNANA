@@ -22465,5 +22465,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        
    genmag_SALT2.h
        set REFAC_SALT2_COV=T flag to enable x_2 component.
-       
+
+   After changing MXLAM_SN=4000 -> 6000 (kcor.h) to accomodate 5321 bins for JWST,
+   ran into several more errors from many different MXLAM parameters. To avoid future
+   conflicts, defined primary MXLAMBIN_SNANA in sntools.h, and set the other MXLAM
+   params to MXLAMBIN_SNANA.
+   
 END: 

@@ -9,7 +9,7 @@
 
 #define MXTABLE_KCOR   100   // max numver of kcor tables
 
-#define MXLAMBIN_FILT_CALIB  6000  // max wave bins for filter trans
+// xxx mark #define MXLAMBIN_FILT_CALIB  6000  // max wave bins for filter trans
 
 #define MXTBIN_KCOR   150
 #define MXZBIN_KCOR   100

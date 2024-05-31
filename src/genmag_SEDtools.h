@@ -19,22 +19,24 @@
               This enables much larger MXSEDMODEL without increasing 
               static program size. MXSEDMODEL -> 40k (was 8k)
 
+ May 31 2024: use global MXLAMBIN_SNANA (from sntools.h) to specify max number of wave bins
+
 ********************************************/
 
 // define bounds for filter and SED arrays
 #define MXSEDMODEL          40000   // max number of SED surfaces
 #define MXFILT_SEDMODEL     MXFILTINDX     // max internal filter index
-#define MXBIN_LAMFILT_SEDMODEL 2400   // length of largest filter file
-#define MXBIN_LAMSED_SEDMODEL  8000   // max # lambda bins for SED
+#define MXBIN_LAMFILT_SEDMODEL  2400   // length of largest filter file
+#define MXBIN_LAMSED_SEDMODEL   MXLAMBIN_SNANA   // max # lambda bins for SED
 #define MXBIN_DAYSED_SEDMODEL   400 // max # epoch (day) bins for SED
-#define MXBIN_SED_SEDMODEL     MXBIN_LAMSED_SEDMODEL*MXBIN_DAYSED_SEDMODEL 
-#define MXBIN_PRIMARY_SEDMODEL  5000
+#define MXBIN_SED_SEDMODEL      MXBIN_LAMSED_SEDMODEL*MXBIN_DAYSED_SEDMODEL 
+#define MXBIN_PRIMARY_SEDMODEL  MXLAMBIN_SNANA
 #define MXZBIN_SEDMODEL         500     // max redshift bins
 #define MXPAR_SEDMODEL         100      // max NPAR describing SEDs
 #define MXLAMPOW_SEDMODEL 4   // max power of lambda for pre-computed integrals
 
 #define LAMMIN_SEDMODEL 100     // global min Lambda for reading SED model
-#define LAMMAX_SEDMODEL 30000   // global max Lambda
+#define LAMMAX_SEDMODEL 30000   // global max Lambda (what about JWST??)
 
 
 // define redshift bins for SEDMODEL_TABLE

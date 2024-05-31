@@ -142,15 +142,15 @@
 
 ****************************************************/
 
-
-#include "sntools.h"    // defines some general tools
 #include "fitsio.h"
+#include "sntools.h"    // defines some general tools
+#include "sntools_calib.h"
+
 #include "kcor.h"       // kcor-specific definitions 
 #include "MWgaldust.h"
 //#include "sntools_cosmology.h"
 //#include "genmag_SEDtools.h"
 #include "sntools_spectrograph.h"
-
 
 
 // =================================================

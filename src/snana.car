@@ -2245,11 +2245,12 @@ c define long fits-string returned by RD_SNFITSIO_STR
 
 c filter bandpasses.
 c Jan 16 2017: MXLAMBIN_FILT -> 4000 (was 3000) for JWST test
-
+c May 31 2024 sync MXLAMBIN_PRIM = MXLAMBIN_SNSED
+c
       INTEGER MXLAMBIN_FILT, MXLAMBIN_PRIM
       PARAMETER ( 
-     &   MXLAMBIN_FILT = 4000   ! max number of lambda bins to store
-     &  ,MXLAMBIN_PRIM = 4000  ! max lambda bins for primary
+     &   MXLAMBIN_FILT = 4000            ! max number of lambda bins per filter
+     &  ,MXLAMBIN_PRIM = MXLAMBIN_SNSED  ! max lambda bins for primary
      &    )
 
 c Define filter chars A-Z, a-z and 0-9, but do not change order of 

@@ -108,7 +108,9 @@
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA   10.0        // max snana redshift, Sept 9, 2022
-#define PSFMAX_SNANA 5.0        // max allowed PSF, FWHM, arcsec (Mar 2021)
+#define PSFMAX_SNANA 5.0         // max allowed PSF, FWHM, arcsec (Mar 2021)
+#define MXLAMBIN_SNANA 6000      // max number of wave bins (SED, filters ...)
+
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings
 #define PERCENT    "%"              // idem for %-sep strings
@@ -573,9 +575,6 @@ void ld_null(float *ptr, float value);
 int ISMODEL_SNIa(int MODEL_INDEX);
 int ismodel_snia(int *MODEL_INDEX);
 
-// xxx mark int rd_SNDATA(void);
-// xxx mark int rd_filtband_int(FILE *fp, int isn, int i_epoch, int   *iptr);
-// xxx int rd_filtband_float ( FILE *fp, int isn, int i_epoch, float *fptr);
 
 int rd_sedFlux( char *sedFile, char *sedcomment,
 		double DAYrange[2], double LAMrange[2],

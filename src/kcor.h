@@ -18,7 +18,8 @@
 
   Nov 15 2020: IVERSION_KCOR -> 4 (was 3) for reading SURVEY key
 
-  May 31 2024: MXLAM_SN -> 6000 for JWST (was 4000)
+  May 31 2024:  set all MXLAM_XXX values to common MXLAMBIN_SNANA (from sntools.h)
+    
 
 ********************************************************/
 
@@ -26,10 +27,11 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 
 //#define VERSION_KCOR 3    // internal version
 #define VERSION_KCOR 4    // internal version
+
 #define MXFILTDEF   100    // max number of defined filters 
-#define MXLAM_SN       6000  // max number of lambda bins 
-#define MXLAM_PRIMARY  6000  // max number of lambda bins
-#define MXLAM_FILT  5000  // max number of lambda bins for filters
+#define MXLAM_SN       MXLAMBIN_SNANA  // max number of lambda bins 
+#define MXLAM_PRIMARY  MXLAMBIN_SNANA // max number of lambda bins
+#define MXLAM_FILT     MXLAMBIN_SNANA // max number of lambda bins for filters
 #define MXEP        150   // 110
 #define MXREDSHIFT  80    // max number of redshift bins 
 #define MXKCOR     200    // max number of Kcors to make (Kgg,Kgr, etc..)
@@ -38,7 +40,7 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 #define MXPRIMARY    6    // max number of primary standards
 #define MXCHAR_FILENAME 200
 
-#define MXSED  MXLAM_SN*MXEP
+#define MXSED  MXLAM_SN*MXEP // max flattened array size for lam x epoch
 
 #define ZPOFF_FILE_DEFAULT "ZPOFF.DAT"
 

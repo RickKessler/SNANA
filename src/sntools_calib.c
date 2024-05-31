@@ -395,7 +395,7 @@ void read_calib_head(void) {
   // - - - - - - - 
   // read bin info 
 
-  read_kcor_binInfo("wavelength", "L"  , MXLAMBIN_FILT_CALIB,
+  read_kcor_binInfo("wavelength", "L"  , MXLAMBIN_SNANA,
 		    &CALIB_INFO.BININFO_LAM ); 
   read_kcor_binInfo("epoch",      "T"  , MXTBIN_KCOR,
 		    &CALIB_INFO.BININFO_T ); 

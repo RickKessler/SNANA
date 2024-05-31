@@ -124,7 +124,8 @@ C =======================================
      &  ,IPAR_SPARE
 c  Define Error flags 
 c  _FIT -> fixed redshift; _ZFIT -> photoz fit
-     &  ,ERRFLAG_FITPREP_NOFILTERS    
+     &  ,ERRFLAG_FITPREP_NOFILTERS
+     &  ,ERRFLAG_FITPREP_QUANTILES
      &  ,ERRFLAG_FITPREP_NOEPOCHS
      &  ,ERRFLAG_FITPREP_NEPOCH
      &  ,ERRFLAG_FIT_BADCOV
@@ -160,6 +161,7 @@ c
      &  ,ERRFLAG_FITPREP_NOFILTERS  =  1  ! no valid filters
      &  ,ERRFLAG_FITPREP_NOEPOCHS   =  2  ! no epochs in FITINI_COV
      &  ,ERRFLAG_FITPREP_NEPOCH     =  3  ! too few epochs
+     &  ,ERRFLAG_FITPREP_QUANTILES  =  4  ! quantiles either negative or not increasing
      &  ,ERRFLAG_FIT_BADCOV         =  9  ! MNSTAT returns ISTAT<3
      &  ,ERRFLAG_FIT_CRAZYERR       = 10  ! insane error detected
      &  ,ERRFLAG_FIT_MARGINALIZE    = 11  ! could not marginalize
@@ -1940,6 +1942,8 @@ c functions
       EXTERNAL USRFUN
 
 C ---------- BEGIN -------------
+      
+  
 
       IERR = 0  ! init to OK
       LPRINT = STDOUT_UPDATE
@@ -1964,6 +1968,7 @@ C ---------- BEGIN -------------
         ENDIF
 
       ENDIF
+
 
 c init Trest-related variables that are set after fit
       IF ( FIRST_ITER ) THEN
@@ -2003,7 +2008,6 @@ c load redshift to use in spec-z fit
 26       format(T5,'Z-WARNING for CID=',A, 
      &      ' : no Z_helio => use ZCMB for lc fit' )
       ENDIF
-
 c ------------------------------
 c set global REDSHIFT_FIT to use for things like
 c getting rest-frame filters and Trest values.
@@ -2032,6 +2036,7 @@ c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
           LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
           LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
+
           if ( LPZ_Q .and. .not.LZSPEC )  THEN
              MASK_PHOTOZ_SOURCE = 
      &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
@@ -2182,7 +2187,8 @@ c init linear FITCOV arrays
       IF ( IERR .NE. 0 ) RETURN
 
 c check for photoZ fit (after FITINI_COV)
-      IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter)
+      IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter, IERR)
+      IF ( IERR .NE. 0 ) RETURN
 
 c adjust fitpar based on initial Fdata/Fmodel ratios.
       CALL FITINI_ADJUST(iter)
@@ -8555,7 +8561,7 @@ c (exception for option that fixes parameters)
 
 C ==========================================
 +DECK,FITINI_PHOTOZ.
-      SUBROUTINE FITINI_PHOTOZ ( iter )
+      SUBROUTINE FITINI_PHOTOZ ( iter , IERR)
 c
 c Created Jul 11,2006 by R.Kessler
 c Used only if DOFIT_PHOTOZ=T.
@@ -8582,6 +8588,7 @@ c
 c Oct 10 2019: abort if USE_SNHOST_ZPHOT=T
 c
 c Jan 2024: wrap Quantile debug prints under LDMP_Q flag
+c May 2024: add IERR argument
 c --------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -8594,6 +8601,7 @@ c+CDE,SNFITPAR.
 
       INTEGER 
      &   iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
+     &   ,IERR ! (O) error flag
 
 c local var
 
@@ -8605,7 +8613,7 @@ c local var
 
 c FCNSNLC args
 
-      INTEGER IFLAG, q
+      INTEGER IFLAG, q, IERR_ZPDF
       REAL*8 
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
@@ -8615,6 +8623,8 @@ c FCNSNLC args
       EXTERNAL USRFUN, init_zPDF_spline
 
 C --------------- BEGIN -----------------
+
+      IERR = 0 
 
       LPRINT = STDOUT_UPDATE
       IPRINT = 0 
@@ -8739,7 +8749,12 @@ c xxx mark delete        PHOTOZ_ITER1_LAMRANGE(1) =  2000.
         LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
         CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,
      &     CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0), 
-     &     IPRINT, MEAN, STD,ISNLC_LENCCID, 20)
+     &     IPRINT, MEAN, STD, IERR_ZPDF, ISNLC_LENCCID, 20)
+
+        if (IERR_ZPDF .NE. 0 ) then 
+	   IERR = ERRFLAG_FITPREP_QUANTILES
+	   return
+	endif
 
         SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
         SNHOST_QZPHOT_STD(1)  = STD  

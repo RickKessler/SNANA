@@ -22396,7 +22396,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05n (Apr 28 2024) <-- start date
 
          *****  IMPORTANT(v11_05n) *****
-       
+
+    + fix snlc_fit OPT_PHOTOZ to work properly for using either quantiles
+      or zSpec; see https://github.com/RickKessler/SNANA/issues/1364
+  
+    + in snana.car, default CUTWIN_LAMOBS = 2000, 25000 -> 2000, 70000
+        (to accommodate JWST)
+      
          *****  USEFUL(v11_05n) *****
 
     + new utility submit_batch_list.py to run sequential sets of
@@ -22409,7 +22415,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + inside MNFIT_DRIVER, return IERR=1001 if any FITVAL (from MNPOUT)
         is NaN. This is to avoid crash for single Roman event using zphot
 	fit ... unable to find source of NaN using debugger and valgrind.
-	
+      + MXLAMBIN_SNSED -> 6000 for JWST (was 4000); make similar MXLAM change
+        in kcor.h (MXLAM_SN) and sntools_calib.h (MXLAMBIN_FILT_CALIB)
+      
     SALT2mu.c:
       + add abort trap if SIM_XXX vars are missing from biasCor.
       + extend nbin search in sigint_muresid_list() in sntools.c

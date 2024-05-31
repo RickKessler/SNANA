@@ -231,7 +231,7 @@ c
      &  ,NPAR_ANYLC       = 10   ! for MNFIT_PKMJD 
      &  ,MXPAR_SIMSED     = 100  ! max number of SIMSED parameters
      &  ,MXPAR_LCLIB      = 40   ! should be same as in genmag_LCLIB.h
-     &  ,MXLAMBIN_SNSED   = 4000 ! Jan 2017: raised from 3000
+     &  ,MXLAMBIN_SNSED   = 6000 ! May 2024: raised from 4k -> 6k
      &  ,MXCUTBIT         = 64   ! max number of cut bits
 c
      &  ,OPT_FILTUPD_EACHSN   = 1  ! default filter-updates
@@ -6092,7 +6092,7 @@ c set namelist defaults
       CUTWIN_LAMREST(1)      =  2000.  ! Angstroms
       CUTWIN_LAMREST(2)      = 25000.
       CUTWIN_LAMOBS(1)       =  2000.
-      CUTWIN_LAMOBS(2)       = 25000.
+      CUTWIN_LAMOBS(2)       = 70000.  ! increase from 25k -> 70k, for JWST (May 2024)
 
       CUTWIN_NBAND_THRESH(1) = -9.0   !  obsolete as of Nov 15 2019
       CUTWIN_NBAND_THRESH(2) = -9.0

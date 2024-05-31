@@ -2844,7 +2844,7 @@ void check_snsed_bins(void) {
 
    // check array size
    if ( NLAM >= MXLAM_SN ) {
-     sprintf ( c1err, "NLAM = %d exceeds array bound.", NLAM );
+     sprintf ( c1err, "NLAM = %d exceeds array bound of MXLAM_SN=%d.", NLAM, MXLAM_SN );
      sprintf ( c2err, "See LAMBDA_RANGE: in input file.");
      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
    }
@@ -2867,7 +2867,7 @@ void  hardWire_snsed_bins(void) {
   // This allows NOT defining an SN spectral time series via
   // the SN_SED key.
   // Jan 2023: HARDWIRE_LAMBIN -> 10 (was 20)
-
+  
   int  ilam, iday, NLAM,  NDAY ;
   double lamBin, dayBin, tmpRange, xi  ;
   char fnam[] = "hardWire_snsed_bins" ;

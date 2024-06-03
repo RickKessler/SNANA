@@ -2818,7 +2818,7 @@ int rd_snsed ( void ) {
 	magflux_info( 0, ifilt, ilam, iep, 
 		      &lam, &flux, &wflux, &wfilt ) ;
 
-	trans  = filter_trans8 ( lam, ifilt, 0);
+	trans  = filter_trans( lam, ifilt, 0);
 	 
 	 if ( trans > 0.0 ) 
 	   { FILTER[ifilt].SSUM_SN  += (trans * wfilt); }
@@ -3259,6 +3259,9 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
 
     Nov 3 2021: replace FILTER_LAMBDA_MIN[MAX] with STORE_LAMBDA_MIN[MAX]
              (to allow for spectrograph with broader wave range)
+
+   May 31 2024: replace hard wired DLAM=10 with DLAM = SNSED.LAMBDA_BINSIZE
+
   ****/
 
   int NBLAM, ilam, idump=0;
@@ -3267,7 +3270,8 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
 
   /* ---------------------------- BEGIN -------------------- */
 
-  DLAM = 10.0 ;  //hard-wire lambda binning to 10 A
+  DLAM = SNSED.LAMBDA_BINSIZE;
+  
   LAM  = LAM0 = LAM1 = F0 = F1 = 0.0 ; 
   NBLAM = 0 ;
 
@@ -3610,15 +3614,15 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 
      if ( LAM >= LAMMIN_FILT && LAM <= LAMMAX_FILT ) {
 
-       trans_rest  = filter_trans8 ( LAM, ifilt_rest, 0 );
+       trans_rest  = filter_trans( LAM, ifilt_rest, 0 );
      
 	if ( trans_rest > 0.0 ) {
-	  flux_sn_rest  = snflux8 ( epoch, LAM, zero, av );   // flux at z=0 
+	  flux_sn_rest  = snflux ( epoch, LAM, zero, av );   // flux at z=0 
 	  conv_sn_rest += flux_sn_rest * trans_rest * LAM ;
 
 	  // June 6, 2008 compute overlap function
 	  LAMZ       = LAM * oneplusz ;
-          trans_obs  = filter_trans8 ( LAMZ, ifilt_obs, 0 );
+          trans_obs  = filter_trans( LAMZ, ifilt_obs, 0 );
 
 	  if  ( trans_obs < trans_rest)  
 	    trans_min = trans_obs;
@@ -3652,12 +3656,12 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 
      if ( LAM >= LAMMIN_FILT && LAM <= LAMMAX_FILT ) {
 
-       trans_obs   = filter_trans8 ( LAM, ifilt_obs, 0 ); // filter trans
+       trans_obs   = filter_trans( LAM, ifilt_obs, 0 ); // filter trans
 
        if ( trans_obs > 0.0 ) {
 
 	 // get redshifted flux needed for K-cor
-	 flux_sn_obs  = snflux8 ( epoch, LAM, redshift, av ); 
+	 flux_sn_obs  = snflux ( epoch, LAM, redshift, av ); 
 	 conv_sn_obs += flux_sn_obs * trans_obs * LAM ;
 
 	 if ( flux_sn_obs == NULLVAL ) { return ; }
@@ -3754,7 +3758,7 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 
 
 
-double filter_trans8 ( double lam, int ifilt, int idump ) {
+double filter_trans( double lam, int ifilt, int idump ) {
 
 /**************************
   Returns interpolated filter transmission at
@@ -3790,12 +3794,12 @@ double filter_trans8 ( double lam, int ifilt, int idump ) {
       
    return trans;
 
-} // end of filter_trans8
+} // end of filter_trans
 
 
 
 // ***********************************************************************
-double snflux8 ( double epoch, double lambda, double redshift, double av ) {
+double snflux( double epoch, double lambda, double redshift, double av ) {
 
   /*******
 
@@ -3934,13 +3938,11 @@ double snflux8 ( double epoch, double lambda, double redshift, double av ) {
 
    return flux;
 
-}  // end of snflux8
+}  // end of snflux
 
 
 
-
-
-double primaryflux8 ( int iprim, double lambda ) {
+double primaryflux( int iprim, double lambda ) {
 
 /********************************
 
@@ -3949,6 +3951,8 @@ double primaryflux8 ( int iprim, double lambda ) {
   Note that flux unit is  erg/s/cm**2/A .  
 
   Feb 20, 2014: abs -> fabs in a few places  (caught with c++)
+
+  May 31 2024: replace hard-wired LBIN=10 with LBIN=SNSED.LAMBDA_BINSIZE
 
 ********************************/
 
@@ -3969,14 +3973,16 @@ double primaryflux8 ( int iprim, double lambda ) {
 
    int idebug = 0;
 
+   char fnam[] = "primaryflux";
+   
    /* --------------------- BEGIN -------------------- */
 
    flux    = 0.0 ;             // init output 
    LMIN    = PRIMARYSED[iprim].LAMBDA_MIN;
    LMAX    = PRIMARYSED[iprim].LAMBDA_MAX;
-   LBIN    = 10.0 ;
+   LBIN    = SNSED.LAMBDA_BINSIZE;
    NBIN    = PRIMARYSED[iprim].NBIN_LAMBDA ;
-
+   
    if ( lambda < LMIN || lambda > LMAX ) {
       return flux;
    }
@@ -4027,7 +4033,7 @@ double primaryflux8 ( int iprim, double lambda ) {
       sprintf(c2err,"LMIN=%7.2f, LBIN=%5.2f,  ilam=%d .",  
 	      LMIN, LBIN, ilambda );
 
-      errmsg(SEV_FATAL, 0, "primaryflux8", c1err, c2err);       
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
    }
 
    // do the interpolation 
@@ -4057,7 +4063,7 @@ double primaryflux8 ( int iprim, double lambda ) {
 
    return flux;
 
-} // end of primaryflux8
+} // end of primaryflux
 
 
 // *******************************************
@@ -4241,7 +4247,7 @@ int snmag(void) {
 	 magflux_info( 0, ifilt, ilam, iepoch, 
 		       &lam, &flux, &wflux, &wfilt ) ;
 
-	 trans  = filter_trans8 ( lam, ifilt, 0 );
+	 trans  = filter_trans( lam, ifilt, 0 );
 
 	 /* xxxxxxxxxxxxxxxxx
 	 if ( iepoch==10 ) {
@@ -4419,7 +4425,7 @@ void primarymag_zp(int iprim ) {
 	magflux_info( iprim, ifilt, ilam, 0, 
 		      &lam, &flux, &wflux, &wfilt ) ;
 
-	trans  = filter_trans8 ( lam, ifilt, idump );
+	trans  = filter_trans( lam, ifilt, idump );
 	 
 	 if ( trans > 0.0 ) {
 	   fluxsum[ifilt]  += (trans * wflux * flux) ;
@@ -5249,7 +5255,7 @@ void wr_fits_PRIMARY(fitsfile *fp) {
       icol++ ;           
 
       if ( PRIMARYSED[iprim].USE ) 
-	{ flux8  = primaryflux8 ( iprim, lam8 );  }
+	{ flux8  = primaryflux ( iprim, lam8 );  }
       else
 	{ flux8 = 0.0 ; }
 
@@ -5288,7 +5294,7 @@ void wr_fits_FilterTrans(fitsfile *fp) {
     ,TBLname[]   = "FilterTrans"  
     ;
 
-  float lam, trans ;
+  float lam4, trans4 ;
   double lam8, trans8 ;
 
   // ----------- BEGIN ------------
@@ -5331,29 +5337,29 @@ void wr_fits_FilterTrans(fitsfile *fp) {
 
   for ( ilam=1; ilam <= NBLAM; ilam++ ) {
     lam8 = SNSED.LAMBDA[1][ilam];
-    lam  = (float)lam8 ;
+    lam4 = (float)lam8 ;
 
-    if ( lam > 0 ) { NONZERO++ ; }
+    if ( lam8 > 0 ) { NONZERO++ ; }
     firstrow = ilam ;
 
     // start by filling wavelength
     icol = 1 ;
     fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
-		   &lam, &istat);  
+		   &lam4, &istat);  
 
-    sprintf(c1err,"writing filter ilam=%d (lam=%f)", ilam, lam );
+    sprintf(c1err,"writing filter ilam=%d (lam=%f)", ilam, lam4 );
     wr_fits_errorCheck(c1err, istat) ;
 
     // now fill transmission for each filter
     for(ifilt=1 ; ifilt <= NFILTDEF; ifilt++ ) {
       icol++ ;           
-      trans8 = filter_trans8 ( lam8, ifilt, 0 );
-      trans  = (float)trans8 ;
+      trans8 = filter_trans( lam8, ifilt, 0 );
+      trans4 = (float)trans8 ;
             
       fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
-		     &trans, &istat) ;
+		     &trans4, &istat) ;
       
-      sprintf(c1err,"writing Trans for  ifilt=%d (lam=%f)", ifilt, lam );
+      sprintf(c1err,"writing Trans for  ifilt=%d (lam=%f)", ifilt, lam4 );
       wr_fits_errorCheck(c1err, istat) ;
 
     } // ifilt

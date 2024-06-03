@@ -70,16 +70,6 @@ struct  { // define indices for ERROR maps
 } INDEX_SALT2_ERRMAP;
 
 
-/* xxxxxxxxxx mark delete Dec 28 2023 xxxxxxx
-#define NERRMAP 5  // VAR0, VAR1, COVAR_01 and ERRSCALE
-#define INDEX_ERRMAP_VAR0     0
-#define INDEX_ERRMAP_VAR1     1
-#define INDEX_ERRMAP_COVAR01  2
-#define INDEX_ERRMAP_SCAL     3
-#define INDEX_ERRMAP_COLORDISP  4 // color  dispersion vs. lambda
-xxxxxxxxxx */
-
-
 
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
@@ -153,34 +143,6 @@ struct INPUT_SALT3_INFO {
 
 } INPUT_SALT3_INFO;
 
-/* xxx mark delete Dec 2023 xxxxxxxxxxx
-// xxxxxx remove after moving to genmag_extrap.c[h] xxxxxxx
-// define model parameter for late-time mag-extrapolation
-#define MXLAMBIN_EXTRAP_LATETIME 20
-#define MXPAR_EXTRAP_LATETIME    10 // includes computer params
-#define NPAR_EXTRAP_LATETIME  4     // used in F(t) function
-#define IPAR_EXTRAP_LAM       0
-#define IPAR_EXTRAP_TAU1      1
-#define IPAR_EXTRAP_TAU2      2
-#define IPAR_EXTRAP_EXPRATIO  3
-#define IPAR_EXTRAP_MAGSLOPE1 4  // computed magslope for tau1
-#define IPAR_EXTRAP_MAGSLOPE2 5  // computed magslope for tau2
-#define IPAR_EXTRAP_DAYPIVOT  6  // day when each flux is the same
-
-struct {
-  char   FILENAME[MXPATHLEN];
-  double DAYMIN ; 
-  int NLAMBIN;  // number of lambda bins to defie F(t)
-
-  // Define parameters vs. ilambin.
-  // index order allows easy interpolation vs. lambda
-  //                 ipar                    ilambin
-  double PARLIST[MXPAR_EXTRAP_LATETIME][MXLAMBIN_EXTRAP_LATETIME] ;
-
-} INPUT_EXTRAP_LATETIME ;
-
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxx end mark xxxx */
 
 struct SALT2_SPLINE_ARGS {  
   double  DAY[MXBIN_VAR_SALT2] ;

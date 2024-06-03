@@ -434,13 +434,13 @@ void magflux_info( int iprim, int ifilt, int ilam, int epoch
 
 
 // return filter transmission at this "lam" 
-double filter_trans8 ( double lam, int ifilt, int idump );  
+double filter_trans ( double lam, int ifilt, int idump );  
 
 // return SN flux at "epoch" and for "lambda/(1+redshift)"
-double snflux8 ( double epoch, double lambda, double redshift, double av );
+double snflux ( double epoch, double lambda, double redshift, double av );
 
 // return flux of primary standard
-double primaryflux8 ( int iprim, double lambda );
+double primaryflux ( int iprim, double lambda );
 
 // Compute K correction as in Nugent 2002 
 // Note opt = OPT_KCOR_EPHOT, OPT_KCOR_NPHOT 

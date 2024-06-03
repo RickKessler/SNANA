@@ -12276,8 +12276,12 @@ c protect against error=0
       endif
      
       PRIOR_ZPULL      =  Zpull  ! function return
-      PRIOR_PHOTOZ     =  sngl(zPRIOR)       ! global
-      PRIOR_PHOTOZ_ERR =  sngl(zPRIOR_ERR)   ! global
+
+c xxxxxxx mark delete Jun 3 2024 xxxxxx
+c      PRIOR_PHOTOZ     =  sngl(zPRIOR)       ! global
+c      PRIOR_PHOTOZ_ERR =  sngl(zPRIOR_ERR)   ! global
+c xxxxxxxxxxx
+
 
       RETURN
       END  ! end of PRIOR_ZPULL
@@ -13850,6 +13854,11 @@ c scale the error by user-scale:
          zhost    = zfit
          zhosterr = 0.0
       endif
+
+c Jun 3 2024 [moved from PRIOR_ZPULL]
+      PRIOR_PHOTOZ     =  zhost
+      PRIOR_PHOTOZ_ERR =  max(zhosterr,0.001) 
+      
 
 c ---------------------
 c Compute photoZ-error from intrinsic MAG-dispersion.

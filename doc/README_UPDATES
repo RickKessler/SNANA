@@ -22470,5 +22470,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    ran into several more errors from many different MXLAM parameters. To avoid future
    conflicts, defined primary MXLAMBIN_SNANA in sntools.h, and set the other MXLAM
    params to MXLAMBIN_SNANA.
-   
+
+   snlc_fit.car
+      + fix bug setting zPRIOR[ERR] for quantiles so that BBC knows
+        which events are zSPEC vs. zPHOT. Search "PRIOR_PHOTOZ[_ERR]"
+	
 END: 

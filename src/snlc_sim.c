@@ -9661,7 +9661,13 @@ void  init_genSpec(void) {
   else {
     sprintf(c1err,"Spectrograph option not available for");    
     sprintf(c2err,"INDEX_GENMODEL=%d (%s)", INDEX_GENMODEL, modelName);
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
+    errmsg(SEV_WARN, 0, fnam, c1err, c2err );
+
+    INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 0;
+    INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK     = 0 ;
+    NPEREVT_TAKE_SPECTRUM = 0;
+    return ;
+ 
   }
 
   // - - - - - - - - - - - - - - - - - - - -
@@ -18740,7 +18746,8 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   // Apr 01 2021: set GENSPEC.SKIP
   // Apr 26 2021: abort if final NOBS > MXOBS_SIMLIB
   // Apr 28 2021: TEXPOSE = -1 if outside TREST range
-
+  // Jun 04 2024: bail on LCLIB model
+   
   int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = INPUTS_SPECTRO.NSYN_FILTER ;  
@@ -18755,8 +18762,9 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 
   if ( NSPEC == 0 ) { return ; }
 
- 
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL) > 0 ) { return; }
+
+  if ( INDEX_GENMODEL == MODEL_LCLIB ) { return ; }
 
   // in case of repeated cadence, reset NOBS to leave out 
   // previous TAKE_SPECTRUM obs.

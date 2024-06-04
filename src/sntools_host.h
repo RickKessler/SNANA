@@ -666,6 +666,8 @@ void   GEN_SNHOST_DDLR(int i_nbr);
 void   SORT_SNHOST_byDDLR(void);
 void   reset_SNHOSTGAL_DDLR_SORT(int MAXNBR);
 
+void   load_SNHOST_GENLC_COORDS(void);
+
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);

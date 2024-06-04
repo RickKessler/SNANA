@@ -6498,6 +6498,10 @@ void init_event_SNHOSTGAL(void) {
 
   // init elements of SNHOSTGAL struct; called for each event.
 
+  char fnam[] = "init_event_SNHOSTGAL";
+  
+  // --------- BEGIN ---------
+  
   if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
   
   SNHOSTGAL.ZGEN              = -9.0 ;
@@ -6755,6 +6759,8 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
 
   // ----------- BEGIN ----------
 
+  if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
+  
   if ( NNBR == 0 ) { return ; }
 
   // Compte user-specified bias
@@ -7626,7 +7632,10 @@ void GEN_SNHOST_POS(int IGAL) {
 
   // -------------- BEGIN -------------
 
-  if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
+  if ( HOSTLIB_REPEAT_GALID_SNPOS ) {
+    if ( LSN2GAL ) { load_SNHOST_GENLC_COORDS(); }
+    return;
+  }
 
   SNHOSTGAL.phi               =  0.0 ;
   SNHOSTGAL.reduced_R         = HOSTLIB_SNPAR_UNDEFINED ;
@@ -7834,6 +7843,9 @@ void GEN_SNHOST_POS(int IGAL) {
   // selected SN coord to SNHOST coord. 
   // Likely use is for input to Image sim where the
   // SN coords must correspond to the galaxy location.
+  if ( LSN2GAL ) { load_SNHOST_GENLC_COORDS(); }
+
+  /* xxxxxxxxx mark delete Jun 4 2024 xxxxxxx
   if ( LSN2GAL ) {
     GENLC.RA   = GENLC.RA_OBS_AVG =  SNHOSTGAL.RA_SN_DEG ;
     GENLC.DEC  = GENLC.DEC_OBS_AVG = SNHOSTGAL.DEC_SN_DEG ;
@@ -7842,7 +7854,9 @@ void GEN_SNHOST_POS(int IGAL) {
     // Note that return MWEBV is not used here.
     double MWEBV = gen_MWEBV(GENLC.RA, GENLC.DEC); 
   }
+  xxxxxx end mark xxxxxxx*/
 
+  
   // compute SN-host separation in arcsec.
   SNSEP = angSep(SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG,
 		 SNHOSTGAL.RA_SN_DEG,  SNHOSTGAL.DEC_SN_DEG,
@@ -7888,6 +7902,24 @@ void GEN_SNHOST_POS(int IGAL) {
 
 } // end of GEN_SNHOST_POS
 
+
+// =====================================
+void load_SNHOST_GENLC_COORDS(void) {
+
+  char fnam[] = "load_SNHOST_GENLC_COORDS";
+
+  // ---------- BEGIN ----------
+  
+  GENLC.RA   = GENLC.RA_OBS_AVG =  SNHOSTGAL.RA_SN_DEG ;
+  GENLC.DEC  = GENLC.DEC_OBS_AVG = SNHOSTGAL.DEC_SN_DEG ;
+
+  // compute MWEBV with SN coords (was skipped in snlc_sim)
+  // Note that return MWEBV is not used here.
+  double MWEBV = gen_MWEBV(GENLC.RA, GENLC.DEC); 
+  
+  return;
+  
+} // end load_SNHOST_GENLC_COORDS
 
 // ================================================
 void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
@@ -8358,6 +8390,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
   // -------------- BEGIN ------------
 
+  if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
+  
   SNHOSTGAL.DDLR_NBR_LIST[i_nbr]  = 0.0 ;
   SNHOSTGAL.SNSEP_NBR_LIST[i_nbr] = 0.0 ;
 

@@ -22462,6 +22462,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        need supplmental C11 model with scale = 0.0001.
      + for AGN crazyAbort, skip event instead of abort; see GENLC.FLAG_CRAZYFLUX
        There is a rare bug causing flux to be x1E9 greater than crazyFlux limit.
+     + new sim input HOSTLIB_NREPEAT_GALID_SNPOS to repeat exact GALID & SNPOS
+       for this many events; initial use is Roman sim optimization.
        
    genmag_SALT2.h
        set REFAC_SALT2_COV=T flag to enable x_2 component.

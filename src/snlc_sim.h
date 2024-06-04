@@ -617,7 +617,8 @@ struct INPUTS {
   double HOSTLIB_FIXRAN_RADIUS ;  // fix random number of radius
   double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi
   double HOSTLIB_FIXSERSIC[4];    // fix sersic a,b,n,a_rot
-
+  int    HOSTLIB_NREPEAT_GALID_SNPOS; // allow repeating same GALID and SNPOS
+  
   char   FLUXERRMODEL_FILE[MXPATHLEN];   // input err-scale map(s)
   char   FLUXERRMAP_IGNORE_DATAERR[100]; // list of MAPNAMES to ignore in data error
   int    FLUXERRMODEL_OPTMASK ;

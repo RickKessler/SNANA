@@ -1154,6 +1154,8 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_FIXSERSIC[2]  = -999.0 ; // n
   INPUTS.HOSTLIB_FIXSERSIC[3]  = -999.0 ; // a_rot, deg
 
+  INPUTS.HOSTLIB_NREPEAT_GALID_SNPOS = 0 ;
+  
   INPUTS.FLUXERRMODEL_OPTMASK       = 0 ;
   INPUTS.FLUXERRMODEL_REDCOV[0]     = 0;
   INPUTS.FLUXERRMODEL_SNRMIN_REDCOV = 2.0; // to avoid slow Chol. decomp.
@@ -3789,6 +3791,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     }
   }
 
+  else if ( keyMatchSim(1, "HOSTLIB_NREPEAT_GALID_SNPOS", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_NREPEAT_GALID_SNPOS );
+  }
 
   if ( N > 0  && N < FLAG_NWD_ZERO ) {
     README_KEYPLUSARGS_load(100, N, WORDS, keySource,

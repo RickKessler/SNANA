@@ -5967,13 +5967,22 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   //
 
   int    USE, IGAL, ilist ;
+  int    NREPEAT_GALID_SNPOS = INPUTS.HOSTLIB_NREPEAT_GALID_SNPOS;
   double fixran ;
   char   fnam[] = "GEN_SNHOST_DRIVER" ;
 
   // ------------ BEGIN -----------
 
+  // Jun 4 2024: check obscure option to repeat GALID and SNPOS
+  //  (initial use for Roman sim strategy optimization)
+  HOSTLIB_REPEAT_GALID_SNPOS = false;
+  if ( NREPEAT_GALID_SNPOS > 0 ) {
+    HOSTLIB_REPEAT_GALID_SNPOS = (NCALL_GEN_SNHOST_DRIVER % NREPEAT_GALID_SNPOS)>0;
+  }
+ 
+  
   NCALL_GEN_SNHOST_DRIVER++ ;
-
+    
   // always burn random numbers to stay synced.
   ilist = 1 ; 
   SNHOSTGAL.FlatRan1_GALID     = getRan_Flat1(ilist) ; // random GAL in z-bin
@@ -6111,6 +6120,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // ---------- BEGIN ------------
 
+  if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
+  
   IGAL_SELECT = -9 ; 
   
   // compute zSN-zGAL tolerance for this ZGEN = zSN
@@ -6487,6 +6498,8 @@ void init_event_SNHOSTGAL(void) {
 
   // init elements of SNHOSTGAL struct; called for each event.
 
+  if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
+  
   SNHOSTGAL.ZGEN              = -9.0 ;
   SNHOSTGAL.ZSPEC             = -9.0 ;
   SNHOSTGAL.PEAKMJD           = -9.0 ;
@@ -7612,6 +7625,8 @@ void GEN_SNHOST_POS(int IGAL) {
   char fnam[] = "GEN_SNHOST_POS" ;
 
   // -------------- BEGIN -------------
+
+  if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
 
   SNHOSTGAL.phi               =  0.0 ;
   SNHOSTGAL.reduced_R         = HOSTLIB_SNPAR_UNDEFINED ;

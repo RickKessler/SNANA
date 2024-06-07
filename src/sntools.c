@@ -5600,6 +5600,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   //   lensing scatter, and for the May 2 hack.
   //
   // May 20 2024: add WGT_LIST arg (used if OPTMASK & 2 > 0)
+  // Jun 05 2024: WGT /= WGTMAX so that int(SUM_WGT) has less round off error
   
   bool LABORT  = (OPTMASK &  1) == 0 ;
   bool USE_WGT = (OPTMASK &  2) > 0 ;   
@@ -5618,22 +5619,35 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
 #define MXSTORE_PULL 100
 
-  int i ;
-  double STD_MURES_ORIG, SQMURES, MURES, MUCOV, WGT, WGT_SUM = 0.0 ;
+  int i, NEFF ;
+  double STD_MURES_ORIG, SQMURES, MURES, MUCOV;
+  double WGTMAX = 0.0, WGT, SUM_WGT = 0.0 ;
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
   char fnam[] = "sigint_muresid_list";
   
   // ---------------- BEGIN -------------
- 
-  WGT_SUM = 0.0 ;
+
+  // determine max wgt
+  if ( USE_WGT ) {
+    for ( i=0; i < N_LIST ; i ++ ) {
+      WGT = WGT_LIST[i];
+      if ( WGTMAX < WGT ) { WGTMAX = WGT; }
+    }
+  }
+  else {
+    WGTMAX = 1.0 ;
+  }
+
+  // - - - - - -
+  SUM_WGT = 0.0 ;
   for ( i=0; i < N_LIST ; i ++ ) {
     MURES    = MURES_LIST[i];
     MUCOV    = MUCOV_LIST[i];
     SQMURES  = MURES * MURES ;
     if ( USE_WGT ) { WGT = WGT_LIST[i]; } else { WGT=1.0; }
-    WGT_SUM += WGT ;
+    WGT /= WGTMAX;  // avoid very small numbers 
     
     if ( MUCOV <= 0.0 ) {
       print_preAbort_banner(fnam);
@@ -5646,16 +5660,17 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     SUM_MUCOV   += WGT*MUCOV ;
     SUM_MURES   += WGT*MURES ;
     SUM_SQMURES += WGT*SQMURES ;
+    SUM_WGT     += WGT ;
   }
 
-  AVG_MURES = SUM_MURES / WGT_SUM ;
-  AVG_MUCOV = SUM_MUCOV / WGT_SUM ;
+  AVG_MURES = SUM_MURES / SUM_WGT ;
+  AVG_MUCOV = SUM_MUCOV / SUM_WGT ;
   AVG_MUERR = sqrt(AVG_MUCOV);
+  NEFF      = (int)(SUM_WGT+0.5) ;
   // STD_MURES_ORIG = STD_from_SUMS(N_LIST, SUM_MURES, SUM_SQMURES);
-  STD_MURES_ORIG = STD_from_SUMS( (int)WGT_SUM, SUM_MURES, SUM_SQMURES);
+  STD_MURES_ORIG = STD_from_SUMS( NEFF, SUM_MURES, SUM_SQMURES);
 
   tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
-
   
   bool INVALID_SIGINT_APPROX = (STD_MURES_ORIG < AVG_MUERR);
   if  ( INVALID_SIGINT_APPROX && LABORT ) {
@@ -5725,24 +5740,25 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     sum_dif = sum_sqdif = sum_pull = sum_sqpull = 0.0 ;
     covTmp = sigTmp * fabs(sigTmp) ;
 
-    WGT_SUM = 0.0 ;
+    SUM_WGT = 0.0 ;
     
     for(i=0; i < N_LIST; i++ ) {
 
-      if ( USE_WGT ) { WGT = WGT_LIST[i]; } else { WGT=1.0; }
-      WGT_SUM += WGT ;
-    
+      if ( USE_WGT ) { WGT = WGT_LIST[i]; }   else { WGT=1.0; }
+      WGT /= WGTMAX ;
+      
       covtot = MUCOV_LIST[i] + covTmp;
-      if ( covTmp < 0  &&  covtot < covtotfloor ) {
-	covtot = covtotfloor;
-      }
+      if ( covTmp < 0  &&  covtot < covtotfloor ) { covtot = covtotfloor; }
       pull        = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot);
       sum_pull   += ( WGT * pull ) ;
       sum_sqpull += ( WGT * pull * pull);
+      SUM_WGT    += WGT ;
     }
     
     // xxx     rmsPull = STD_from_SUMS(N_LIST, sum_pull, sum_sqpull);
-    rmsPull = STD_from_SUMS( (int)WGT_SUM, sum_pull, sum_sqpull);
+
+    NEFF      = (int)(SUM_WGT+0.5) ;
+    rmsPull = STD_from_SUMS( NEFF, sum_pull, sum_sqpull);
     if ( rmsPull == 0.0 ) { debugexit("xxx rmsPull = 0");  }
 
     if (NBIN_SIGINT < MXSTORE_PULL) {

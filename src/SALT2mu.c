@@ -1559,7 +1559,7 @@ void  store_index_abg_biasCor(void) ; // was store_iaib_biasCor
 
 void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) ;
 int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		     char *callFun, FITPARBIAS_DEF *FITPARBIAS);
+		     char *call, FITPARBIAS_DEF *FITPARBIAS);
 int get_muCOVcorr(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		  double *muCOVscale, double *muCOVadd, int *i1d_cen ) ;
 void dump_muCOVcorr(int n);
@@ -20280,6 +20280,8 @@ void  write_M0_fitres(char *fileName) {
   write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
 
+  fprintf(fp,"# For cosmology fit: z=zHD, MU=MUREF+MUDIF, MUERR=MUDIFERR\n\n");
+  
   fprintf(fp,"VARNAMES: ROW  zHDMIN zHDMAX   zHD        "
 	  "MUDIF  MUDIFERR   MUREF  NFIT \n");
 
@@ -20603,8 +20605,12 @@ void write_fitres_driver(char* fileName) {
     if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
       { write_blindFlag_message(fout); }      
     fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
-    write_NWARN(fout,1);
     write_MUERR_INCLUDE(fout);
+    
+    fprintf(fout,"# For cosmology fit: use zHD, MU, MUERR_RENORM\n");
+    fprintf(fout,"#   [MUERR_RENORM is Eq 10 of arxiv:2306.05819, "
+	    "MUERR is sig_{mu,i}]\n\n");
+    write_NWARN(fout,1);
   }
 
   // - - - - -
@@ -21071,7 +21077,7 @@ void write_MUERR_INCLUDE(FILE *fp) {
 
   int USE=0;
   double tmpErr;
-  //  char fnam[] = "write_MUERR_INCLUDE";
+  char fnam[] = "write_MUERR_INCLUDE";
 
   // --------------- BEGIN ----------------
 

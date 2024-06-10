@@ -832,6 +832,7 @@ struct {
   
   // define intrinsic scatter matrix 
   int     NEVT_COVINT[MXNUM_SAMPLE][MXz][MXa][MXb][MXg] ;
+  double  SUMWGT_COVINT[MXNUM_SAMPLE][MXz][MXa][MXb][MXg] ;  
   COV_DEF COVINT[MXNUM_SAMPLE][MXz][MXa][MXb][MXg] ;
   COV_DEF COVINT_AVG[MXNUM_SAMPLE];  // avg over a,b,z (for printing)
   BININFO_DEF zCOVINT;
@@ -9558,7 +9559,6 @@ void prepare_biasCor(void) {
   // get wgted-average z in each user redshift bin for M0-vs-z output
   calc_zM0_biasCor();
 
-
   // ----------------------------------------------------------------
   // -------- START LOOP OVER SURVEY/FIELDGROUP SUB-SAMPLES ---------
   // ----------------------------------------------------------------
@@ -12012,7 +12012,8 @@ void init_COVINT_biasCor(void) {
   // * For emprical method (IDEAL_COVINT=1), compute COV in bins of
   //   idsample,redshift,alpha,beta
   //
-
+  // Jun 7 2024: use WGT_POP
+  
   int  DO_IDEAL_COVINT = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   int  DO_COV00_ONLY   = ( DO_IDEAL_COVINT ==0 ) ;
   int  NSAMPLE  = NSAMPLE_BIASCOR ;
@@ -12021,7 +12022,7 @@ void init_COVINT_biasCor(void) {
   int  Nb       = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   int  Ng       = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
   int  Nz, idsample, iz, ia, ib, ig, ievt, ipar, ipar2 ; 
-  double sigInt, COV ;
+  double sigInt, COV, WGT_POP ;
   char fnam[] = "init_COVINT_biasCor" ;
 
   //  int DOTEST_SIGINT_ONLY = 1 ; // traditional sigma_int model (debug only)
@@ -12048,6 +12049,7 @@ void init_COVINT_biasCor(void) {
 	  for(ig=0; ig < Ng; ig++ ) {
 	    zero_COV(INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL) ;
 	    INFO_BIASCOR.NEVT_COVINT[idsample][iz][ia][ib][ig] = 0 ;
+	    INFO_BIASCOR.SUMWGT_COVINT[idsample][iz][ia][ib][ig] = 0.0 ;
 	    if ( DO_COV00_ONLY ) {
 	      sigInt = INFO_BIASCOR.SIGINT_ABGRID[idsample][ia][ib][ig]; 
 	      COV    = (sigInt * sigInt) ;
@@ -12078,6 +12080,8 @@ void init_COVINT_biasCor(void) {
     if ( INFO_BIASCOR.TABLEVAR.CUTMASK[ievt] ) { continue; }
     NBIASCOR_CUTS++ ;
 
+    WGT_POP = WGT_biasCor_population(ievt,fnam);
+    
     // check for valid IDEAL fit params 
     tmpVal = INFO_BIASCOR.TABLEVAR.fitpar_ideal[INDEX_d][ievt];
     if ( tmpVal > 900.0 ) { continue ; }
@@ -12100,9 +12104,10 @@ void init_COVINT_biasCor(void) {
 
     // use true or meaured redshift ??? [7.01.2020]
     iz       = (int)INFO_BIASCOR.IZ[ievt] ; // true zcmb index
-    //    z        = (int)INFO_BIASCOR.TABLEVAR.SIM_ZCMB[ievt] ;
 
+    //.xyz
     INFO_BIASCOR.NEVT_COVINT[idsample][iz][ia][ib][ig]++ ;
+    INFO_BIASCOR.SUMWGT_COVINT[idsample][iz][ia][ib][ig] += WGT_POP;
 
     for(ipar=0; ipar < NLCPAR; ipar++ ) {
       for(ipar2=ipar; ipar2 < NLCPAR; ipar2++ ) {
@@ -12123,8 +12128,9 @@ void init_COVINT_biasCor(void) {
 	xxxxxxxxxxx*/
 
 	INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL[ipar][ipar2] 
-	  += (tmpVal * tmpVal2) ;
+	  += WGT_POP * (tmpVal * tmpVal2) ;
 
+	// set symmetric part of COVINT
 	INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL[ipar2][ipar] =
 	  INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL[ipar][ipar2] ;
       }
@@ -12142,7 +12148,7 @@ void init_COVINT_biasCor(void) {
   // - - - - - - - - - - - - - - - - - 
 
   // divide each sum-term by N, and load symmetric part of matrix
-  int N;
+  int N, SUMWGT ;
   double XNINV;
 
   for(idsample=0; idsample < NSAMPLE; idsample++ ) {
@@ -12152,10 +12158,12 @@ void init_COVINT_biasCor(void) {
 	for(ib=0; ib < Nb; ib++ ) {
 	  for(ig=0; ig < Ng; ig++ ) {
 	  
-	    N = INFO_BIASCOR.NEVT_COVINT[idsample][iz][ia][ib][ig]; 
+	    N      = INFO_BIASCOR.NEVT_COVINT[idsample][iz][ia][ib][ig];
+	    SUMWGT = INFO_BIASCOR.SUMWGT_COVINT[idsample][iz][ia][ib][ig]; 
 	    if ( N > 0 ) {
-	      XNINV = 1.0/(double)N;
-	      scale_COV(XNINV,INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL);
+	      // xxx mark delete Jun 7 2024   XNINV = 1.0/(double)N;
+	      XNINV = 1.0/SUMWGT;
+	      scale_COV( XNINV, INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL );
 	    }
 	    
 	    
@@ -12637,7 +12645,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
 
     irow = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
 
-    WGT = WGT_biasCor(1,irow,fnam) ;  // WGT = WGT_population 1/muerr^2
+    WGT = WGT_biasCor(1,irow,fnam) ;  // WGT = WGT_population * 1/muerr^2
 
     J1D = J1D_biasCor(irow,fnam);     // 1D index
     NperCell[J1D]++ ; // not used ??
@@ -12713,7 +12721,6 @@ void calc_zM0_biasCor(void) {
     if ( CUTMASK ) { continue; }
 
     WGT = WGT_biasCor(1,i,fnam) ;  // WGT = WGT_population * 1/muerr^2
-
     z   = (double)(ptr_z[i]) ;
     iz  = IBINFUN(z,  &INPUTS.BININFO_z, 0, "" );
 

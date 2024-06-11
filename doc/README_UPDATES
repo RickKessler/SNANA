@@ -22402,6 +22402,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   
     + in snana.car, default CUTWIN_LAMOBS = 2000, 25000 -> 2000, 70000
         (to accommodate JWST)
+
+    + reformat option in snana.car: preserve full filter names in
+      output data. 
       
          *****  USEFUL(v11_05n) *****
 

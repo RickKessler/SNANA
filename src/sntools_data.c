@@ -868,9 +868,11 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     // FILTCHAR_1D includes every observation; here we pick out subset
     // subset of FILTCHAR_1D that are on STORE_LIST
 
+    /* xxx mark delete Jun 11 2024: leave full SNDATA.FILTCHAR
     splitString(SNDATA.FILTCHAR_1D, COMMA, fnam, MXEPOCH,    // inputs    
 		&NSPLIT, &SNDATA.FILTCHAR[1] );            // outputs 
-
+    xxxxxx end mark xxxxxx */
+    
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    

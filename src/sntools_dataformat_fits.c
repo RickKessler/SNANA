@@ -1402,8 +1402,8 @@ void WR_SNFITSIO_UPDATE(void) {
   SNDATA.MJD[ep]            = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL[ep]        = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL_ERRTOT[ep] = SNFITSIO_EOE_MARKER ;
-  sprintf(SNDATA.FILTCHAR[ep],  "%s", "-");
-  sprintf(SNDATA.FIELDNAME[ep], "%s", "XXXX" ) ;
+  sprintf(SNDATA.FILTCHAR[ep],  "-");
+  sprintf(SNDATA.FIELDNAME[ep], "XXXX" ) ;
 
   // loop over epochs and fill fits table.
   NUSE_EPOCH = 0;

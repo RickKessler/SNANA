@@ -8036,8 +8036,9 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.PHOTFLAG_DETECT  = 0 ; // July 2022
 
   for(ep=0; ep < MXEPOCH; ep++ ) {
-   SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
-   SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
+    // xxx mark  SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
+    SNDATA.FILTCHAR[ep]  = (char*)malloc( 20 * sizeof(char) );
+    SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
   }
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;

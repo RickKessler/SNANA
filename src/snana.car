@@ -1625,7 +1625,7 @@ c# -----------  epoch-dependent cut windows  ! I: ------------------------------
      &  ,CUTWIN_MJD_EXCLUDE(2)   ! I: MJD window to exclude
      &  ,CUTWIN_MJD_INCLUDE(2)   ! I: require 1 or more MJD in this window
      &  ,CUTWIN_NMJD_INCLUDE(2)         ! for internal use only
-     &  ,cutwin_SEARCHEFF_MASK(2)       ! for SIM only
+     &  ,cutwin_SEARCHEFF_MASK(2)       ! I: cut on SIM_SEARCHEFF_MASK
      &  ,cutwin_snrmin_filt(2,MXFILT_OBS) ! filled from EPCUT_SNRMIN
      &  ,cutwin_restlam(2)                ! I: cut on <LAMREST>, no cutBit
      &  ,cutwin_lamrest(2)                ! I: same as above
@@ -10869,9 +10869,9 @@ c Do NOT modify NVAR_PRIVATE.
       ENDIF
 
 c ----
-c update logmass and sSFR
+c update flux[err] if modified
 c ------
-      IF ( DOFUDGE_FLUXERRMODEL ) THEN
+      IF ( DOFUDGE_FLUXERRMODEL .or. FUDGE_MAG_ERROR.NE.'') THEN 
          cKEY  = "FLUXCALERR" // char(0)
          DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL_ERRTOT(o) ; END DO
          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 

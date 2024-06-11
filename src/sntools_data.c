@@ -876,7 +876,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
-      catVarList_with_comma(stringVal, SNDATA.FILTCHAR[OBS] );
+      catVarList_with_comma(stringVal, SNDATA.FILTNAME[OBS] );
     }
 
   }

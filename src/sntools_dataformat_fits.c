@@ -696,7 +696,7 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
 void wr_snfitsio_init_phot(void) {
 
   // Init HEADER table.
-
+  // Jun 2024: band string size = 2 for sim, 20 for real data
 
   long  NROW = 0 ;
   int itype, ncol, istat ;
@@ -712,7 +712,11 @@ void wr_snfitsio_init_phot(void) {
   sprintf(TBLname, "%s", "Photometry" );
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
-  wr_snfitsio_addCol( "2A",  "BAND"        , itype ) ; 
+
+  if ( SNFITSIO_DATAFLAG ) 
+    { wr_snfitsio_addCol( "20A",  "BAND" , itype ) ;  } // full string for data
+  else
+    { wr_snfitsio_addCol( "2A", "BAND"   , itype ) ;  } // single char for sim
   
   if (WRFULL ) {
     wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
@@ -762,12 +766,6 @@ void wr_snfitsio_init_phot(void) {
 	wr_snfitsio_addCol( "1E" , "SIM_DCR_dMAG" ,    itype ) ;
       }
     }
-
-    /* xxx mark delete
-    if ( SNFITSIO_SIMFLAG_SNANA ) {
-      wr_snfitsio_addCol( "1E" , "SIM_FLUXCAL_HOSTERR" , itype ) ;
-    }
-    xxxx end mark xxx */
 
   }  //end WRFULL
 
@@ -1402,7 +1400,7 @@ void WR_SNFITSIO_UPDATE(void) {
   SNDATA.MJD[ep]            = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL[ep]        = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL_ERRTOT[ep] = SNFITSIO_EOE_MARKER ;
-  sprintf(SNDATA.FILTCHAR[ep],  "-");
+  sprintf(SNDATA.FILTNAME[ep],  "-");
   sprintf(SNDATA.FIELDNAME[ep], "XXXX" ) ;
 
   // loop over epochs and fill fits table.
@@ -2320,7 +2318,7 @@ void wr_snfitsio_update_phot(int ep) {
  
   // FILTER
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FILTCHAR[ep] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FILTNAME[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "BAND", itype );
 
   if ( WRFULL ){
@@ -2447,15 +2445,6 @@ void wr_snfitsio_update_phot(int ep) {
       }
 
     } // end ATMOS/DCR
-
-    /* xxx mark delete xxx
-    if ( SNFITSIO_SIMFLAG_SNANA ) {  
-      LOC++ ; 
-      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[ep];
-      wr_snfitsio_fillTable ( ptrColnum, "SIM_FLUXCAL_HOSTERR", itype );
-    }
-    xxxxxx end mark xxxx */
     
   } // end WRFULL
 
@@ -3702,14 +3691,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
     }
 
-    /* xxx mark delete xxx
-    if ( SNFITSIO_SIMFLAG_SNANA ) {
-      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_FLUXCAL_HOSTERR", 
-				 &SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[ep0], 
-				 &SNFITSIO_READINDX_PHOT[j] ) ;
-    }
-    xxxxxx end mark xxxxx */
-
     if ( SNFITSIO_SIMFLAG_SNRMON ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.VARNAME_SNRMON,
 				 &SNDATA.SIMEPOCH_SNRMON[ep0], 
@@ -3784,8 +3765,6 @@ void RD_SNFITSIO_CLOSE(char *version) {
   rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );
   if ( SNFITSIO_SPECTRA_FLAG ) { rd_snfitsio_mallocSpec(-1,IFILE_RD_SNFITSIO); }
 
-
-    // xxx mark  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { ; } // nothing to free
 
 } // end of RD_SNFITSIO_CLOSE
 
@@ -4391,7 +4370,6 @@ void rd_snfitsio_zphot_q(void) {
   fp      = fp_rd_snfitsio[itype] ;
 
   if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) { return; } // Sep 2023
-  // xxx mark delete SNDATA.HOSTGAL_NZPHOT_Q = 0 ;
 
   istat = 0;
   sprintf(keyname, "%s", STRING_NZPHOT_Q );
@@ -4449,8 +4427,6 @@ void rd_snfitsio_private(void) {
   // ------------ BEGIN ------------
 
   if ( SNDATA.NVAR_PRIVATE > 0 ) { return ; } // Sep 2023
-
-  // xxx mark delete  SNDATA.NVAR_PRIVATE = 0;
 
   itype   = ITYPE_SNFITSIO_HEAD ;
   fp      = fp_rd_snfitsio[itype] ;
@@ -5024,11 +5000,6 @@ void  rd_snfitsio_specFile( int ifile ) {
   snfitsio_errorCheck(c1err, istat);
   fp      = fp_rd_snfitsio[itype] ;  
 
-  /* xxxxxxxxx mark delete or check a vbose flag
-  printf("\n");
-  printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); 
-  xxxxxxxxxxx  */
-
   // - - - - - - - - - - - - - - - - - - - - - - -
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -5560,7 +5531,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
       // clumsy load of epoch-dependent strings here for speed;
       // avoids additional epoch loops later. Note ep starts at 1.
       if ( strcmp(parName,"FLT") == 0 || strcmp(parName,"BAND")==0 ) 
-	{ sprintf(SNDATA.FILTCHAR[NSTORE+1],"%s",  C_VAL); }
+	{ sprintf(SNDATA.FILTNAME[NSTORE+1],"%s",  C_VAL); }
       if ( strcmp(parName,"FIELD") == 0 ) 
 	{ sprintf(SNDATA.FIELDNAME[NSTORE+1],"%s", C_VAL); }
 

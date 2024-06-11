@@ -960,7 +960,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%10.4f ",  SNDATA.MJD[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%s ",  SNDATA.FILTCHAR[ep] ); 
+    sprintf(cval, "%s ",  SNDATA.FILTNAME[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     if ( WRFLAG_CCDNUM ) {
@@ -2929,7 +2929,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
     lenstr = strlen(str); 
-    sprintf(SNDATA.FILTCHAR[ep], "%s", str ); // Jun 11 2024
+    sprintf(SNDATA.FILTNAME[ep], "%s", str ); // Jun 11 2024
     catVarList_with_comma(SNDATA.FILTCHAR_1D, &str[lenstr-1]);
     /* xxx mark delete Jun 11 2024 xxxxxx
        // xxx sprintf(SNDATA.FILTCHAR[ep], "%c", str[lenstr-1] );
@@ -3104,7 +3104,7 @@ double get_dbl_sntextio_obs(int IVAROBS, int ep) {
     }
     else {
       printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
-	     varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
+	     varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTNAME[ep] );
       SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
     }
   }

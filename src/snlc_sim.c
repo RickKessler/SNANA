@@ -23880,9 +23880,10 @@ void snlc_to_SNDATA(int FLAG) {
     if ( !GENLC.OBSFLAG_GEN[epoch] ) { continue; }
 
     ifilt_obs    = GENLC.IFILT_OBS[epoch];
-      
+
+    // for sims, only store single char representation of filter band
     SNDATA.FILTINDX[epoch]  = ifilt_obs ;
-    sprintf(SNDATA.FILTCHAR[epoch], "%c",  FILTERSTRING[ifilt_obs] );
+    sprintf(SNDATA.FILTNAME[epoch], "%c",  FILTERSTRING[ifilt_obs] );
 
     MCOR_TRUE_MW  = GENLC.MAGCOR_MWEBV_TRUE[ifilt_obs]; 
     MCOR_MAP_MW   = GENLC.MAGCOR_MWEBV_MAP[ifilt_obs];

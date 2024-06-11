@@ -247,7 +247,8 @@ struct SNDATA {
   int  IDTEL[MXEPOCH];             // integer telescope id
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
-  char *FILTCHAR[MXEPOCH];        // char string for filter
+  // xxx mark Jun 11 2024  char *FILTCHAR[MXEPOCH]; // char string for filter
+  char *FILTNAME[MXEPOCH];        // full name of filter
   char  FILTCHAR_1D[MXEPOCH*2];   // for fortran interface
 
   int   SEARCH_RUN[MXEPOCH] ;

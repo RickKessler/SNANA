@@ -8037,7 +8037,7 @@ int init_SNDATA_GLOBAL(void) {
 
   for(ep=0; ep < MXEPOCH; ep++ ) {
     // xxx mark  SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
-    SNDATA.FILTCHAR[ep]  = (char*)malloc( 20 * sizeof(char) );
+    SNDATA.FILTNAME[ep]  = (char*)malloc( 20 * sizeof(char) );
     SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
   }
 

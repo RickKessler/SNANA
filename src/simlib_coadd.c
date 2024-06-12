@@ -106,6 +106,11 @@
    + fix bug computing min/max MJD for in update_summary_info();
      no impact on SIMLIB contents.
 
+ Jun 12 2024: 
+   + MXLINE_HEADER -> 200 (was 30)
+   + define SIMLIB_INPUT_TEMP as global instead of local to avoid
+     too much local memory inside function (was causing crash)
+
 ***************************************/
 
 #include <stdio.h>
@@ -121,8 +126,8 @@
 #define MXMJD     100000    // max MJDs per LIBID
 #define MXLIBID   6000
 #define MWEBV_MAX    2.0    // reject fields with such large MWEBV
-#define MXLINE_HEADER 30    // max lines for simlib header
-#define MXCHAR_LINE  200     
+#define MXLINE_HEADER 200    // max lines for simlib header
+#define MXCHAR_LINE   200     
 
 // global variables.
 
@@ -188,6 +193,7 @@ typedef struct {
 
 
 SIMLIB_CONTENTS_DEF SIMLIB_INPUT ;
+SIMLIB_CONTENTS_DEF SIMLIB_INPUT_TEMP ;
 SIMLIB_CONTENTS_DEF SIMLIB_OUTPUT ;
 
 // Jan 2021: store info for summary
@@ -545,7 +551,8 @@ void SIMLIB_open_read(void) {
   // Open input SIMLIB file and read header.
   // Jan 7 2021: use snana_open to allow reading gzipped SIMLIB.
 
-  char cline[80], c_get[80], c_tmp[80], clast[80], key[80];
+  char cline[MXPATHLEN], c_get[MXPATHLEN], c_tmp[MXPATHLEN];
+  char clast[MXPATHLEN], key[MXPATHLEN];
   char fullName[MXPATHLEN] ;
 
   bool FOUND_COMMENT = false, FOUND_DOCANA = false, FOUND_FILTERS=false ;
@@ -919,7 +926,7 @@ void SIMLIB_sort_band(void) {
   // Sort SIMLIB by band so that co-add includes
   // non-sequential bands.
 
-  SIMLIB_CONTENTS_DEF SIMLIB_INPUT_TEMP;
+  // xxx mark delete  SIMLIB_CONTENTS_DEF SIMLIB_INPUT_TEMP;
   int  NOBS_orig = SIMLIB_INPUT.NOBS;
   int  ifilt, NFILT, o, NOBS_copy=0 ;
   int  LDMP = 0;

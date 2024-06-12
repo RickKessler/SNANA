@@ -1672,7 +1672,8 @@ c Note that error is added in quadrature; ERROR<0 is subtracted in quadrature.
      &  ,FUDGE_MAG_ERROR       ! I: add stat error per band
      &  ,FUDGE_MAG_COVERR      ! I: add covariant error per band
      &  ,FUDGE_FLUXERR_SCALE   ! I: scale error in each band
-
+     &  ,SIM_FUDGE_MAG_ERROR   ! I: add stat error per band, sim only
+     
       REAL
      &   MAGOBS_SHIFT_PRIMARY_FILT(MXFILT_ALL) ! shift mag of primary ref
      &  ,MAGOBS_SHIFT_ZP_USER(MXFILT_ALL)      ! user ZP shift
@@ -1691,6 +1692,7 @@ c
      &  ,FUDGE_FLUXERR_SCALE_FILT(MXFILT_ALL)
      &  ,FUDGE_MAG_ERROR_FILT(MXFILT_ALL)
      &  ,FUDGE_MAG_COVERR_FILT(MXFILT_ALL)
+     &  ,SIM_FUDGE_MAG_ERROR_FILT(MXFILT_ALL)
      &  ,MWEBV_SCALE        ! I: scale MW extinc for syst test
      &  ,MWEBV_SHIFT        ! I: shift MW extinc
      &  ,MWEBV_FORCE        ! I: force specific MWEBV value (Feb 2020)
@@ -1743,6 +1745,7 @@ c
      &   ,FUDGE_FLUXERR_SCALE_FILT
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_ERROR_FILT
      &   ,FUDGE_MAG_COVERR, FUDGE_MAG_COVERR_FILT
+     &   ,SIM_FUDGE_MAG_ERROR, SIM_FUDGE_MAG_ERROR_FILT
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
      &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
@@ -2120,7 +2123,7 @@ c
      &   ,MAGOBS_SHIFT_PRIMARY_PARAMS, MAGOBS_SHIFT_ZP_PARAMS
      &   ,FUDGE_FLUXCAL_OFFSET,FUDGE_FLUXCAL_ERROR,FUDGE_FLUXCAL_ERRPIX
      &   ,FUDGE_FLUXERR_SCALE
-     &   ,FUDGE_MAG_ERROR, FUDGE_MAG_COVERR
+     &   ,FUDGE_MAG_ERROR, FUDGE_MAG_COVERR, SIM_FUDGE_MAG_ERROR
      &   ,FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
@@ -6198,6 +6201,7 @@ c default is to reject nothing (accept everything)
       FUDGE_MAG_ERROR      = ''
       FUDGE_MAG_COVERR     = ''
       FUDGE_HOSTNOISE_FILE = ''
+      SIM_FUDGE_MAG_ERROR  = ''
       FLUXERRMODEL_FILE    = ''
       SIM_FLUXERRMODEL_FILE = ''
       FLUXERRMODEL_OPTMASK = 0 
@@ -8333,6 +8337,10 @@ c - - - - - - -
      &             1, iArg, ARGLIST) ) then 
            FUDGE_MAG_ERROR = ARGLIST(1)(1:MXCHAR_CUTNAME)
 
+         else if ( MATCH_NMLKEY('SIM_FUDGE_MAG_ERROR',
+     &             1, iArg, ARGLIST) ) then 
+           SIM_FUDGE_MAG_ERROR = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
          else if ( MATCH_NMLKEY('FUDGE_MAG_COVERR',
      &             1, iArg, ARGLIST) ) then 
            FUDGE_MAG_COVERR = ARGLIST(1)(1:MXCHAR_CUTNAME)
@@ -8901,6 +8909,12 @@ c - - -
       DO i = 1, NF
          ifiltdef = IAFILT(i)
          FUDGE_MAG_ERROR_FILT(ifiltdef) = xafilt(i)
+      ENDDO
+
+      CALL PARSE_FILTSTRING(1,SIM_FUDGE_MAG_ERROR,NF,iafilt,xafilt)
+      DO i = 1, NF
+         ifiltdef = IAFILT(i)
+         SIM_FUDGE_MAG_ERROR_FILT(ifiltdef) = xafilt(i)
       ENDDO
 
       CALL PARSE_FILTSTRING(1,FUDGE_MAG_COVERR, NF, iafilt, xafilt )
@@ -11686,7 +11700,8 @@ c define filter indices for Legacy filters
           FUDGE_FLUXCAL_OFFSET_FILT(ifilt)  =  0.0 
           FUDGE_FLUXERR_SCALE_FILT(ifilt)   =  1.0 ! Feb 2020
           FUDGE_MAG_ERROR_FILT(ifilt)       =  0.0 
-          FUDGE_MAG_COVERR_FILT(ifilt)      =  0.0 
+          FUDGE_MAG_COVERR_FILT(ifilt)      =  0.0
+          SIM_FUDGE_MAG_ERROR_FILT(ifilt)   =  0.0
 
       END DO
 
@@ -18859,26 +18874,15 @@ c   - SNLC_FLUXCAL_ERRTOT
 c
 c Note that the SNLC_MAG array is not modified !!!
 c
-c Dec 14, 2011: abort on negative SQERR
-c Sep 03, 2013: add FLUXCAL_OFF(ifilt)
-c Oct 23, 2013: add use FUDGE_MAG_ERROR
-c Aug 27, 2014: add FUDGE_FLUXCAL_ERRPIX (error per pixel x AREA)
-c               See ERR2b and DAREA calc.
-c
-c Mar 06, 2015: check GEN_HOSTNOISE
-c Sep 14, 2015: fix dumb bug setting ZP outside if-block
-c Apr 17, 2017: call GET_NONLIN(...)
-c Feb 16, 2018: 
-c  + call get_FLUXERRMODEL, float -> double, little refactor
-c
-c Nov 12, 2018: call EXEC_MAGCOR(ep)
 c
 c Mar 9 2020: 
 c   fix awful bug where previous FLUXCAL was used to apply
 c   FUDGE_MAG_ERROR. Note RESTORE_DES3YR restores bug.
 c
 c Dec 2 2022: add string-length args to get_FLUXERRMODEL call.
-c   
+c
+c Jun 11 2024: implement SIM_FUDGE_MAG_ERROR_FILT (for DES-SN5YR)
+c
 c ------------
 
       IMPLICIT NONE
@@ -18893,7 +18897,7 @@ c ------------
 c local var
 
       REAL*8
-     &   ERR1, ERR2a, ERR2b, ERR3, ERR_SIM, ERR_DATA
+     &   ERR1, ERR2a, ERR2b, ERR3, ERR3_SIM, ERR_SIM, ERR_DATA
      &  ,ERR_ORIG, SCALE, FUDGE, SNR, SNR_PROTECT, LOGSNR
      &  ,SQERR, SQERR1, SQERR2a, SQERR2b, SQERR3, SQERRHOST, SQERRMAP
      &  ,RDNOISE_pe, FLUXCAL, FLUXCAL_BUG, FLUXADU
@@ -18948,9 +18952,15 @@ c - - - - - - - - - - - - - -
       SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
       ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
       ERR1  = ERR_ORIG * SCALE
-      ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge error
-      ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
-      ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
+
+      FUDGE = FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS)
+      ERR2a = DBLE(FUDGE)  ! fudge error
+
+      FUDGE = FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)
+      ERR2b = DBLE(FUDGE) ! fudge err/pix
+
+      FUDGE = FUDGE_MAG_ERROR_FILT(IFILT_OBS)
+      ERR3  = DBLE(FUDGE)* FLUXCAL ! fudge mag err
 
       SQERR1     = ERR1  * ERR1
       SQERR2a    = ERR2a * ERR2a
@@ -18960,6 +18970,12 @@ c - - - - - - - - - - - - - -
       SQERRHOST  = 0.0 
       SQERRMAP   = 0.0 
 
+      IF ( LSIM_SNANA ) THEN
+        FUDGE     = SIM_FUDGE_MAG_ERROR_FILT(IFILT_OBS)
+        ERR3_SIM  = DBLE(FUDGE)* FLUXCAL ! fudge mag err
+	SQERR3    = SQERR3 + (ERR3_SIM*ERR3_SIM)
+      ENDIF
+	
 c --------------------------------------------
 c  Check for map corrections
 

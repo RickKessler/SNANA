@@ -22421,6 +22421,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + MXLAMBIN_SNSED -> 6000 for JWST (was 4000); make similar MXLAM change
         in kcor.h (MXLAM_SN) and sntools_calib.h (MXLAMBIN_FILT_CALIB)
       + fix bug so that FUDGE_MAG_ERROR is propagated with REFORMAT option.
+      + new &SNLCINP SIM_FUDGE_MAG_ERROR, needed for DES-SN5YR release
+        because data no longer needs FUDGE_MAG_ERROR.
       
     SALT2mu.c:
       + add abort trap if SIM_XXX vars are missing from biasCor.

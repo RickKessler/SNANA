@@ -22484,5 +22484,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_fit.car
       + fix bug setting zPRIOR[ERR] for quantiles so that BBC knows
         which events are zSPEC vs. zPHOT. Search "PRIOR_PHOTOZ[_ERR]"
-	
+      + use STDOUT_UPDATE logical to reduce more output
+      
 END: 

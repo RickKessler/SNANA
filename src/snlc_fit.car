@@ -9565,6 +9565,7 @@ c #########################################
          DO IFILT = 1,  NF
            write(6,52) RTMP(IFILT)
          ENDDO
+
          print*,' '
 
          if ( IPAR_ADJUST .GT. 0 ) then
@@ -12546,7 +12547,8 @@ c functions
 
 C ----------------- BEGIN ----------------
 
-      LVBOSE = ( ISN .LE. NFIT_VERBOSE )  ! June 2013 - avoid HUGE log files
+c xxx mark  LVBOSE = ( ISN .LE. NFIT_VERBOSE )  ! June 2013 - avoid HUGE files
+      LVBOSE = STDOUT_UPDATE  ! Jun 2024 
 
       CCID = SNLC_CCID
       LCID = ISNLC_LENCCID  ! INDEX(CCID,' ')
@@ -13934,29 +13936,6 @@ C ===================================================
 c
 c print summary of fit vs. filter.
 c
-c
-c Apr 26, 2007: print marginalized chi2
-c
-c Mar 12, 2008: write SIMEFF(z,AV,DELTA) at end.
-c
-c Jul 14, 2008: define IFMINsp & IFMAXsp, and fix 
-c               ifilt-ranges for some write statements.
-c
-c Dec 15, 2008: print correct EP_XTMW instead of SNLC_XTINCMAG_MW ;
-c               latter is for SDSS galaxy and is usually zero;
-c               EP_XTMW is for SN.
-c
-c Feb 16, 2009: 'quantity' printouts account for non-sequential filters
-c Apr 24, 2009: write mB +- mBerr for SALT2 model
-c
-c May 8, 2009: CCHI2(3) -> CCHI2(4) to include CHI2 from ln(sigma)
-c
-c Jul 17, 2009: add RV8 to call to SNLC_SIMEFF
-c
-c Jul 25, 2011: replace SNLC_SIMEFF() with SNLC_FIT_SIMEFF()
-c
-c Jun 27, 2013: bail when ISN > 1000
-c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -13998,7 +13977,8 @@ c function
 
 C ------------------- BEGIN -----------------
 
-      IF ( ISN > NFIT_VERBOSE ) RETURN  ! Jun 2013: avoid HUGE log files.
+      IF ( .NOT. STDOUT_UPDATE ) RETURN ! Jun 2024
+c xxx mark  IF(ISN>NFIT_VERBOSE ) RETURN  ! Jun 2013: avoid HUGE log files.
 
       CCID = SNLC_CCID
       KK   = ISNLC_LENCCID

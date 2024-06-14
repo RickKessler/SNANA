@@ -22423,6 +22423,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix bug so that FUDGE_MAG_ERROR is propagated with REFORMAT option.
       + new &SNLCINP SIM_FUDGE_MAG_ERROR, needed for DES-SN5YR release
         because data no longer needs FUDGE_MAG_ERROR.
+      + fix logicals to always define SNHOST_COLOR & SNHOST_LOGsSFR
       
     SALT2mu.c:
       + add abort trap if SIM_XXX vars are missing from biasCor.

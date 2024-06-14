@@ -7491,10 +7491,14 @@ C                                        . . . new minimum found . . . .
       NFCNFR = NFCNMI
       CSTATU= 'NEW MINIMU'
       IF (ISW(5) .GE. 0) CALL MNPRIN(4,AMIN)
-      WRITE (ISYSWR,675)
-  675 FORMAT(/50H NEW MINIMUM FOUND.  GO BACK TO MINIMIZATION STEP./1H ,
-     +60(1H=)/60X,1HV/60X,1HV/60X,1HV/57X,7HVVVVVVV/58X,5HVVVVV/59X,
-     +3HVVV/60X,1HV//)
+
+c xxxxxxx mark delete Jun 13 2024 xxxxxxxx
+c      WRITE (ISYSWR,675)
+c  675 FORMAT(/50H NEW MINIMUM FOUND.  GO BACK TO MINIMIZATION STEP./1H ,
+c     +60(1H=)/60X,1HV/60X,1HV/60X,1HV/57X,7HVVVVVVV/58X,5HVVVVV/59X,
+c     +     3HVVV/60X,1HV//)
+c     xxxxxxxxxxxxxxxx
+      
       GO TO 900
   700 WRITE (ISYSWR,'(A)') ' THERE ARE NO MINOS ERRORS TO CALCULATE.'
   900 RETURN

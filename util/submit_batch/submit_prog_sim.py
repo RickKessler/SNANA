@@ -2511,7 +2511,9 @@ class Simulation(Program):
         for row,model_string in zip(row_list_split,model_string_list) :
             if iver == row[COLNUM_SIM_MERGE_IVER] :
                 TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                tmp_genv_list  = sorted(glob.glob1(path_sndata_sim,f"{TMP_GENV}*"))                
+                # search sim folders with time stamp to avoid using older sim versions
+                wildcard    = f"{TMP_GENV}*{Nsec_time_stamp}" 
+                tmp_genv_list  = sorted(glob.glob1(path_sndata_sim,wildcard))    
                 v0          = tmp_genv_list[0]  # pick first one from list
                 tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
 

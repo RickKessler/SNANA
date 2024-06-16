@@ -64,8 +64,8 @@ RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = f"{LOG_TOPDIR}/STOP"
-MEMORY                  = 2000   # Mb
-WALLTIME_MAX            = "02:00:00"    # 1 hr to allow queue delay
+MEMORY                  = "2GB"  
+WALLTIME_MAX            = "02:00:00"    # 2 hr to allow queue delay
 
 # ========================================================
 def parse_args():

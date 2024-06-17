@@ -28,13 +28,12 @@ backup_logdir  = 'backup_logs'
 BACKUP_LOGDIR  = (f"{SNDATA_ROOT}/{backup_logdir}")
 
 backup_logfile = "BACKUPS.LOG"
-BACKUP_LOGFILE = (f"{BACKUP_LOGDIR}/{backup_logfile}")
+BACKUP_LOGFILE = f"{BACKUP_LOGDIR}/{backup_logfile}"
 
 # explicitly define directories to include in backup tar file
 TAR_SUBDIR_LIST = \
     'filters kcor lcmerge models MWDUST sample_input_files ' \
     'SIM simlib snsed standards  SURVEY.DEF'
-#TAR_SUBDIR_LIST = 'SIM snsed'  # xxx REMOVE
 
 # specify content to exclude from tar file
 EXCLUDE_FROM_TAR = [ 'SIM/*' ]
@@ -57,9 +56,9 @@ def get_tar_file_name(backup_dict):
     jslash      = SNDATA_ROOT.rindex('/')
     path_backup = SNDATA_ROOT[0:jslash]
 
-    prefix      = (f"SNDATA_ROOT_{DATE_STAMP}")
-    tar_file    = (f"SNDATA_ROOT_{DATE_STAMP}.tar")
-    TAR_FILE    = (f"{path_backup}/{tar_file}")
+    prefix      = f"SNDATA_ROOT_{DATE_STAMP}"
+    tar_file    = f"SNDATA_ROOT_{DATE_STAMP}.tar"
+    TAR_FILE    = f"{path_backup}/{tar_file}"
 
     print(f" TAR_FILE    : {TAR_FILE} ")
     print(f" tar_file    : {tar_file} ")
@@ -75,7 +74,7 @@ def create_tar_file(backup_dict):
     TAR_FILE   = backup_dict['TAR_FILE']
     TAR_FILEgz = TAR_FILE + '.gz'
     if os.path.isfile(TAR_FILEgz):
-        cmd_rm = (f"rm {TAR_FILEgz}")
+        cmd_rm = f"rm {TAR_FILEgz}"
         os.system(cmd_rm)
 
     print(f"\n Creating tar file: \n     {TAR_FILEgz} ... ")
@@ -83,13 +82,13 @@ def create_tar_file(backup_dict):
     # combine list of things to exclude
     x_string = ''
     for x in EXCLUDE_FROM_TAR :
-        x_string += (f"--exclude='{x}' ")
+        x_string += f"--exclude='{x}' "
 
-    cmd_tar = (f"cd {SNDATA_ROOT}; " \
-               f"tar -czf " \
-               f"{TAR_FILEgz} " \
-               f"{x_string} " \
-               f"{TAR_SUBDIR_LIST} ")
+    cmd_tar =  f"cd {SNDATA_ROOT}; " \
+        f"tar -czf " \
+        f"{TAR_FILEgz} " \
+        f"{x_string} " \
+        f"{TAR_SUBDIR_LIST} "
 
     os.system(cmd_tar)
 
@@ -120,17 +119,17 @@ def find_new_files(backup_dict) :
     
     x_string = ''
     for x in EXCLUDE_FROM_NEW_FILES:
-        x_string += (f"! -path '{x}' ")
+        x_string += f"! -path '{x}' "
 
-    new_file_log = (f"{backup_logdir}/NEW_FILES_{DATE_STAMP}.LOG")
-    NEW_LOG_FILE = (f"{BACKUP_LOGDIR}/NEW_FILES_{DATE_STAMP}.LOG")
+    new_file_log = f"{backup_logdir}/NEW_FILES_{DATE_STAMP}.LOG"
+    NEW_LOG_FILE = f"{BACKUP_LOGDIR}/NEW_FILES_{DATE_STAMP}.LOG"
 
     print(f" Search new files since last backup date:   {last_backup_date}")
     print(f" Write list of new files to \n    $SNDATA_ROOT/{new_file_log} ")
 
-    cmd_find = (f"cd {SNDATA_ROOT}; " \
-                f"find . -type f -newermt '{last_backup_date}' {x_string} " \
-                f"> {new_file_log}")
+    cmd_find = f"cd {SNDATA_ROOT}; " \
+        f"find . -type f -newermt '{last_backup_date}' {x_string} " \
+        f"> {new_file_log}"
     os.system(cmd_find)
 
     # count number of new files:

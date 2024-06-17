@@ -7637,7 +7637,7 @@ c --- keep legacy variables TREST_REJECT and MJD_REJECT
             READ(ARGLIST(1),*) FITWIN_PROB(1)
             READ(ARGLIST(2),*) FITWIN_PROB(2)
 
-        else if ( MATCH_NMLKEY('FITWIN_PROB_ITER', 2,i,ARGLIST)) then
+        else if ( MATCH_NMLKEY('FITWIN_PROB_ITER1', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_PROB_ITER1(1)
             READ(ARGLIST(2),*) FITWIN_PROB_ITER1(2)
 

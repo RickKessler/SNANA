@@ -3050,7 +3050,11 @@ void check_vpec_sign(void) {
   //
   // Feb 10 2021: fix nasty delcaration bug: rms[0] -> rms[2]
   // Apr 24 2024: Adapted to BayeSN
-
+  // Jun 18 2024: reject events with zHDERR > zHDERR_MAX to avoid nonsense
+  //              from pathological photo-z events.
+  
+  double zHDERR_MAX = 0.005; // don't use photo-z events with large uncertainty
+  
   double *zwin           = INPUTS.zwin_vpec_check ;
   double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
   double beta            = INPUTS.parval[IPAR_BETA0] ;
@@ -3058,7 +3062,7 @@ void check_vpec_sign(void) {
 
   int isn, i, cutmask, NSN_SUM=0;
   double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[2], sgn_flip ;
-  double zHD, zCMB, zHD_tmp, vpec, zpec;
+  double zHD, zHDERR, zCMB, zHD_tmp, vpec, zpec;
   double mB, x1, c, mumodel, mures, dl, mu ;
   char fnam[] = "check_vpec_sign" ;
 
@@ -3072,11 +3076,14 @@ void check_vpec_sign(void) {
   for(isn=0; isn < NSN_ALL; isn++ ) {
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[isn] ; 
     zHD      = (double)INFO_DATA.TABLEVAR.zhd[isn] ;
+    zHDERR   = (double)INFO_DATA.TABLEVAR.zhderr[isn] ;
 
+    
     if ( cutmask ) { continue; }
     if ( zHD > zwin[1] ) { continue; }
     if ( zHD < zwin[0] ) { continue; }
-
+    if ( zHDERR > zHDERR_MAX ) { continue; }
+    
     // B.P.Done - strip off mu for BayeSN
     zCMB = (double)INFO_DATA.TABLEVAR.zcmb[isn] ;
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {

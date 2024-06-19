@@ -22435,7 +22435,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + new input write_chi2grid=1 to write chi2 vs. alpha and beta
       + repeat fit if MNSTAT=2 (errors forced positive)
       + new input minos2=1 -> use minos on 2nd fit after crazy errors
-      
+      + fix subtle bug computing RMS(mures) for vpec-flip test with photo-z sample;
+        require OPT_PHOTOZ==0 to avoid crazy photo-z leakage.
+	
     sntools.c
       + hack fix in sigint_muresid_list() to allow for only one
         sig_int attempt of rmsPull is close to 1.

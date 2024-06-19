@@ -3050,17 +3050,15 @@ void check_vpec_sign(void) {
   //
   // Feb 10 2021: fix nasty delcaration bug: rms[0] -> rms[2]
   // Apr 24 2024: Adapted to BayeSN
-  // Jun 18 2024: reject events with zHDERR > zHDERR_MAX to avoid nonsense
-  //              from pathological photo-z events.
+  // Jun 18 2024: reject events with OPT_PHOTOZ > 0 to ensure zSPEC.
   
-  double zHDERR_MAX = 0.005; // don't use photo-z events with large uncertainty
   
   double *zwin           = INPUTS.zwin_vpec_check ;
   double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
   double beta            = INPUTS.parval[IPAR_BETA0] ;
   int    NSN_ALL         = INFO_DATA.TABLEVAR.NSN_ALL ;
 
-  int isn, i, cutmask, NSN_SUM=0;
+  int isn, i, cutmask, NSN_SUM=0, OPT_PHOTOZ;
   double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[2], sgn_flip ;
   double zHD, zHDERR, zCMB, zHD_tmp, vpec, zpec;
   double mB, x1, c, mumodel, mures, dl, mu ;
@@ -3074,15 +3072,16 @@ void check_vpec_sign(void) {
     { SUM_MURES[i] = SUM_SQMURES[i] = 0.0 ;  }
 
   for(isn=0; isn < NSN_ALL; isn++ ) {
-    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[isn] ; 
-    zHD      = (double)INFO_DATA.TABLEVAR.zhd[isn] ;
-    zHDERR   = (double)INFO_DATA.TABLEVAR.zhderr[isn] ;
-
+    cutmask    = INFO_DATA.TABLEVAR.CUTMASK[isn] ; 
+    zHD        = (double)INFO_DATA.TABLEVAR.zhd[isn] ;
+    zHDERR     = (double)INFO_DATA.TABLEVAR.zhderr[isn] ;
+    OPT_PHOTOZ =  INFO_DATA.TABLEVAR.OPT_PHOTOZ[isn] ;
+    
     
     if ( cutmask ) { continue; }
+    if ( OPT_PHOTOZ > 0) { continue; }  // avoid photo-z, Jun 2024
     if ( zHD > zwin[1] ) { continue; }
     if ( zHD < zwin[0] ) { continue; }
-    if ( zHDERR > zHDERR_MAX ) { continue; }
     
     // B.P.Done - strip off mu for BayeSN
     zCMB = (double)INFO_DATA.TABLEVAR.zcmb[isn] ;

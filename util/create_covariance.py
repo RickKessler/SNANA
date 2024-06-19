@@ -114,10 +114,12 @@
 #     covsys and covtot_inv.
 #
 # Jun 19 2024 RK
-#   remove replacing 999 with nan because this results in those lines
-#   being removed later. Not sure how/when/why this "cleaning" was added.
-#   Sometimes missing HOST info if -999, but doesn't mean we discard event.
-#
+#   instead of replacing any 999.0 with NaN, replace specific columns
+#   MUERR and MUDIFERR, which was the original intent so that lines
+#   with NaN are later removed. The old logic was found to reject
+#   valid rows (LSST-ELASTICC sims) where HOST_MAG_[band] = 999
+#   due to non-detection.
+#   
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -444,12 +446,19 @@ def load_hubble_diagram(hd_file, args, config):
 
     #sys.exit("\n xxx DEBUG STOP xxx\n")
 
-    # xxxxxxxxxxx
+    # xxxxxxxx mark delete Jun 19 2024 xxxxxxxx
     # Do a bit of data cleaning: replace 999 with nan 
     # (beware that 999 in BBC output means no info, does not mean nan)
-    # xxxx mark delete Jun 19 2024:  df = df.replace(999.0, np.nan)
-    # xxxxxxxxxxx
+    # df = df.replace(999.00, np.nan)
+    # xxxxxxxx end mark xxxxxxx
     
+    # Jun 2024: if MUERR or MUDIFERR = 999, replace with NaN
+    #   [replaces old logic of replacing any 999 with NaN]
+    colname_muerr_list = [ VARNAME_MUERR, VARNAME_MUDIFERR ]
+    for colname in colname_muerr_list :
+        if colname in df.columns :
+            df.loc[df[colname] == 999.0, colname] = np.nan
+
     # M0DIF doesnt have MU column, so add it back in
     # For FITRES file with all events, do nothing sinve MU exists
     if "MU" not in df.columns:
@@ -1914,9 +1923,10 @@ if __name__ == "__main__":
         prep_config(config,args)  # expand vars, set defaults, etc ...
         create_covariance(config, args)
         loginfo_cpu_summary(args)
-
     except Exception as e:
         logging.exception(e)
         raise e
 
+    logging.info('Done.')
+    
     # end main

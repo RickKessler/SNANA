@@ -22406,9 +22406,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + reformat option in snana.car: preserve full filter names in
       output data. 
 
-    + create_covariance.py: remove old "cleaning" that replaced 999 with nan ...
-        and later removed rows with nan. Thus missing information (e.g. host)
-	with 999 (-999?) resulted in removal.
+    + create_covariance.py: instead of replacing all 999.0 with NaN, only
+        do the replacement for MUERR and MUDIFERR columns. This avoids
+	later rejection of valud rows where a different column value is 999.	
 	
          *****  USEFUL(v11_05n) *****
 

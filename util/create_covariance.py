@@ -113,6 +113,11 @@
 #     which COV(s) are written to disk. Current default is to write both
 #     covsys and covtot_inv.
 #
+# Jun 19 2024 RK
+#   remove replacing 999 with nan because this results in those lines
+#   being removed later. Not sure how/when/why this "cleaning" was added.
+#   Sometimes missing HOST info if -999, but doesn't mean we discard event.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -439,10 +444,12 @@ def load_hubble_diagram(hd_file, args, config):
 
     #sys.exit("\n xxx DEBUG STOP xxx\n")
 
+    # xxxxxxxxxxx
     # Do a bit of data cleaning: replace 999 with nan 
     # (beware that 999 in BBC output means no info, does not mean nan)
-    df = df.replace(999.0, np.nan)
-
+    # xxxx mark delete Jun 19 2024:  df = df.replace(999.0, np.nan)
+    # xxxxxxxxxxx
+    
     # M0DIF doesnt have MU column, so add it back in
     # For FITRES file with all events, do nothing sinve MU exists
     if "MU" not in df.columns:

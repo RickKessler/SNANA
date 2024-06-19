@@ -22405,7 +22405,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     + reformat option in snana.car: preserve full filter names in
       output data. 
-      
+
+    + create_covariance.py: remove old "cleaning" that replaced 999 with nan ...
+        and later removed rows with nan. Thus missing information (e.g. host)
+	with 999 (-999?) resulted in removal.
+	
          *****  USEFUL(v11_05n) *****
 
     + new utility submit_batch_list.py to run sequential sets of
@@ -22491,5 +22495,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix bug setting zPRIOR[ERR] for quantiles so that BBC knows
         which events are zSPEC vs. zPHOT. Search "PRIOR_PHOTOZ[_ERR]"
       + use STDOUT_UPDATE logical to reduce more output
-      
+
+
 END: 

@@ -312,6 +312,7 @@ class BBC(Program):
             return
 
         # check BBC option to disable sync_evt from 2_LCFIT stage
+        # Note that BBC-sync cannot be used if not already synced at 2_LCFIT.
         preserve_sync_evt = True
         for key in KEYLIST_SYNC_EVT:
             if key in CONFIG:

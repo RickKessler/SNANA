@@ -17,12 +17,12 @@ from scipy.stats import binned_statistic
 import distutils.util 
 
 """
-How do I use this plotter? Well, first you're going to need to present your M0DIF/FITRES/HOSTLIB files!
+How do I use this plotter? Well, first need to create M0DIF/FITRES/HOSTLIB files!
 
 Then you'll need to specify what you want to plot, eg, @@VARIABLE. For this, you can do a 1D histogram or a 2D function. This is formatted with pandas dataframes, so you'll need to be familiar with that syntax. For instance, if you want to see the redshift distribution, df.zHD or df.zHD.values are both acceptable! Need to use df, this is very important.
 
 You can also do 2D functions. These are parsed by using a colon (:) to separate the x and y variables. The syntax is generally x:y
-   For instance, 'df.zHD.values:df.x1.values' will show z vs x1. You can also do algebra! 'df.zHD.values:df.mB.values - 3.1*df.c.values + 0.16*df.x1.values' will give you the Tripp estimator! 
+For instance, 'df.zHD.values:df.x1.values' will show z vs x1. You can also do algebra! 'df.zHD.values:df.mB.values - 3.1*df.c.values + 0.16*df.x1.values' will give you the Tripp estimator! 
 
 
 Then you can also set custom boundaries and bins! This is done by giving '@@BOUNDS minimum maximum binsize'. For 2D plots, same colon separation deal. 
@@ -42,7 +42,16 @@ plotter-class.py @@FITRES File1.FITRES File2.FITRES @@VARIABLE df.zHD.values:df.
 
 That'll plot z vs Tripp Estimator for your two files!
 
+
+Examples:
+
+plot_table.py @@FITRES scone_predict_diff.text \
+   @@VARIABLE df.PROB_SCONE_2:df.PROB_SCONE_1 \
+   @@CUT "df.loc[df['PROB_SCONE_2']>0]" \
+
+
 """
+
 
 parser.add_argument('@@FITRES', help='The location of your FITRES file that you need plotted. You can give a space delineated list of different FITRES files. Please make sure they are named differently, as their names (not full filepath) will be used for labeling.', nargs="+")
 parser.add_argument('@@VARIABLE', help="""The variable you want to plot. Needs to be a valid FITRES parameter. \n
@@ -62,20 +71,22 @@ parser.add_argument('@@ALPHA', default=0.3, type=float, help='Alpha value for pl
 parser.add_argument("@@CUT", help="NEEDS TO BE GIVEN IN QUOTATION MARKS!!! SUPER IMPORTANT!!! This takes the form of a df.loc[] option, typically. Any sort of cuts you want to make.", nargs="+")
 parser.add_argument("@@NROWS", help="choose number of rows to read in for larger files", type=int, default=0)
 
-args = parser.parse_args()
+args     = parser.parse_args()
 VARIABLE = args.VARIABLE
 FILENAME = args.FITRES
-BOUNDS = args.BOUNDS
-FORMAT = args.SAVE
-DIFF = args.DIFF
-ALPHA = args.ALPHA
-CUT = args.CUT
-NROWS = args.NROWS
+BOUNDS   = args.BOUNDS
+FORMAT   = args.SAVE
+DIFF     = args.DIFF
+ALPHA    = args.ALPHA
+CUT      = args.CUT
+NROWS    = args.NROWS
 
-if DIFF: DIFF = DIFF.strip()
+if DIFF:
+    DIFF = DIFF.strip()
 
 VARIABLE = ''.join([str(elem) for elem in VARIABLE])
-if CUT: CUT = ''.join([str(elem) for elem in CUT])
+if CUT:
+    CUT = ''.join([str(elem) for elem in CUT])
 
 
 def NAndR(filename):

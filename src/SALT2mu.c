@@ -291,6 +291,9 @@ For help, run code with no arguments
 
  Dec 19 2023: begin refactor to integrate new WGT_biasCor_population() function
 
+ Jun 24 204: finally fix recycle feature to write correct output fitres without
+             leaving duplicate CUTMASK MU MUMODEL etc ... see IS_RECYCLED
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1463,6 +1466,7 @@ int   SNTABLE_READPREP_HOST(char *VARNAME, int ISTART, int LEN,
 void  SNTABLE_CLOSE_TEXT(void) ;
 void  compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
 bool  IS_SPECZ_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
+bool  IS_APPEND_VARNAME(char *varName);
 void  compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR );
 void  compute_more_INFO_DATA(void);
 void  prepare_IDSAMPLE_biasCor(void); 
@@ -8000,8 +8004,6 @@ void store_output_varnames(void) {
   char FIRST_VARNAME_APPEND[] = "CUTMASK" ;
   char fnam[] = "store_output_varnames" ;
   // ------------- BEGIN ------------
-  
-  // xxx  OUTPUT_VARNAMES.PERFECT_COLUMN_MATCH = true;
 
   // alloate VARNAMES memory for x2 number of variables in first file ...
   // should be enough
@@ -8020,7 +8022,10 @@ void store_output_varnames(void) {
     NVAR = INFO_DATA.TABLEVAR.NVAR[ifile];
     for(ivar=0; ivar < NVAR; ivar++ ) { 
       varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile][ivar];
-      if (strcmp(varName,FIRST_VARNAME_APPEND) == 0 ) { CHOP_VAR=true;}
+
+      if ( IS_APPEND_VARNAME(varName) )  { CHOP_VAR=true; }
+      // xx xmark if (strcmp(varName,FIRST_VARNAME_APPEND) == 0 ) { CHOP_VAR=true;}
+      
       if ( CHOP_VAR ) { break; }
       sprintf(OUTPUT_VARNAMES.LIST[ivar],"%s", varName);
       OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = ivar ; 
@@ -20571,7 +20576,7 @@ void write_fitres_driver(char* fileName) {
   int n, ivar, indx, NCUT, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
   int idsample, NSN_DATA, nfile, ifile, MSKOPT_PARSE_WORDS;
   bool VALID_ROWKEY;
-  char  line[MXCHAR_LINE], tmpName[60], *ptrFile ;
+  char  line[MXCHAR_LINE], tmpName[60], *ptrFile, *ptrName ;
   char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
 
   char fnam[] = "write_fitres_driver" ;
@@ -20632,9 +20637,12 @@ void write_fitres_driver(char* fileName) {
   if ( INPUTS.cutmask_write != -9 ) { 
     // write standard header keys
     fprintf(fout,"VARNAMES: ");
-    
-    for ( ivar=0; ivar < OUTPUT_VARNAMES.NVAR_TOT; ivar++ ) { 
-      fprintf(fout,"%s ", OUTPUT_VARNAMES.LIST[ivar] );
+    bool IS_RECYCLE = false;
+    for ( ivar=0; ivar < OUTPUT_VARNAMES.NVAR_TOT; ivar++ ) {
+      ptrName = OUTPUT_VARNAMES.LIST[ivar];
+      if ( IS_APPEND_VARNAME(ptrName) ) { IS_RECYCLE = true; }
+      if ( !IS_RECYCLE ) 
+	{ fprintf(fout,"%s ", OUTPUT_VARNAMES.LIST[ivar] ); }
     }
     
 
@@ -20842,6 +20850,24 @@ void write_fitres_driver(char* fileName) {
 
 } // end of write_fitres_driver
 
+
+// =============================================
+bool IS_APPEND_VARNAME(char *varName) {
+  // Created Jun 26 2024
+  // return true if inpu *varName is a SALT2mu-appended variable.
+  // Beware that this function does not check every appended var ...
+  // it checks the first few.
+
+  bool IS_APPEND = false;
+
+  if ( strcmp(varName,"CUTMASK") == 0 ) { IS_APPEND = true; }
+  if ( strcmp(varName,"MU")      == 0 ) { IS_APPEND = true; }
+  if ( strcmp(varName,"MUMODEL") == 0 ) { IS_APPEND = true; }
+
+  return IS_APPEND;
+  
+} // end IS_APPEND_VARNAME
+
 // ===============================================
 int write_fitres_line(int indx, int ifile, char *rowkey, 
 		      char *line, FILE *fout) {
@@ -20859,7 +20885,8 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
   int ISTAT = 0 ;
   int  ivar_tot, ivar_file, ivar_word ;
-  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;
+  bool IS_RECYCLED = false; 
+  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;  
   char blank[] = " ";
   char fnam[] = "write_fitres_line" ;
   int  LDMP = 0 ;
@@ -20876,6 +20903,12 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
     else 
       { sprintf(word,"-9.0"); }
 
+    // Jun 26 2024: check if input file is recycled SALT2mu output
+    //  Earlier SALT2mu output started with MU ... then CUTMASK was added ...
+    //  so check both.
+    if ( IS_APPEND_VARNAME(word) ) { IS_RECYCLED = true; }
+    if ( IS_RECYCLED ) { continue; }
+    
     if ( LDMP ) {
       printf(" xxx %s: ivar[tot,file,word]=%2d,%2d,%2d  word='%s' \n",
 	     fnam, ivar_tot,ivar_file,ivar_word, word); fflush(stdout);

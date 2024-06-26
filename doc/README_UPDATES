@@ -22441,7 +22441,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + new input minos2=1 -> use minos on 2nd fit after crazy errors
       + fix subtle bug computing RMS(mures) for vpec-flip test with photo-z sample;
         require OPT_PHOTOZ==0 to avoid crazy photo-z leakage.
-	
+      + fix fitres output if using recycled SALT2mu output as input file.
+         (see IS_RECYCLED logical)
+	 
     sntools.c
       + hack fix in sigint_muresid_list() to allow for only one
         sig_int attempt of rmsPull is close to 1.

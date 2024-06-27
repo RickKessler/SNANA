@@ -22412,6 +22412,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	
          *****  USEFUL(v11_05n) *****
 
+    + new plot_table.py (from B.Popovic) to make plots from FITS/M0DIF/HOSTLIB.
+    
     + new utility submit_batch_list.py to run sequential sets of
       submit_batch_jobs, where each set waits for previous set to finish.
       "submit_batch_list.py -H" for help on config file.     
@@ -22497,6 +22499,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix bug setting zPRIOR[ERR] for quantiles so that BBC knows
         which events are zSPEC vs. zPHOT. Search "PRIOR_PHOTOZ[_ERR]"
       + use STDOUT_UPDATE logical to reduce more output
-
 
 END: 

@@ -282,7 +282,7 @@ def read_tables(args, plot_info):
     plotdic    = plot_info.plotdic
     boundsdic  = plot_info.boundsdic
     
-    MASTER_VAR_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
+    MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     
     for l in table_list:
         l_base = os.path.basename(l)
@@ -291,6 +291,7 @@ def read_tables(args, plot_info):
             sys.exit(f"\n ERROR: cannot find {l}")
             
         df  = pd.read_csv(l, comment="#", sep=r"\s+")
+
         if NROWS > 0 :
             # read NROWS subset
             df  = pd.read_csv(l, comment="#", sep=r"\s+", nrows=NROWS)
@@ -306,20 +307,20 @@ def read_tables(args, plot_info):
         # apply user cuts
         if CUT: df = eval(CUT)
 
-        # increment MASTER_VAR_DICT dictionary; note that filename is dict key.
+        # increment MASTER_DF_DICT dictionary; note that filename is dict key.
 
-        MASTER_VAR_DICT[l] = df
+        MASTER_DF_DICT[l] = df
         name_legend = get_name_legend(l, table_list)
         logging.info(f"\t --> name_legend = {name_legend}")
 
-        MASTER_VAR_DICT[l]['name_legend'] = name_legend 
+        MASTER_DF_DICT[l]['name_legend'] = name_legend 
 
         try:
-            MASTER_VAR_DICT[l]['x_plot_val'] = eval(plotdic['x'])
-            boundsdic[l + "_min"] = np.amin(MASTER_VAR_DICT[l]['x_plot_val'])
-            boundsdic[l + "_max"] = np.amax(MASTER_VAR_DICT[l]['x_plot_val'])
+            MASTER_DF_DICT[l]['x_plot_val'] = eval(plotdic['x'])
+            boundsdic[l + "_min"] = np.amin(MASTER_DF_DICT[l]['x_plot_val'])
+            boundsdic[l + "_max"] = np.amax(MASTER_DF_DICT[l]['x_plot_val'])
             if len(plotdic) == 2:
-                MASTER_VAR_DICT[l]['y_plot_val'] = eval(plotdic['y'])
+                MASTER_DF_DICT[l]['y_plot_val'] = eval(plotdic['y'])
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for {plotdic} and {l}")
 
@@ -328,7 +329,7 @@ def read_tables(args, plot_info):
     logging.info("Done loading all table files.")
 
     # load output namespace
-    plot_info.MASTER_VAR_DICT = MASTER_VAR_DICT
+    plot_info.MASTER_DF_DICT = MASTER_DF_DICT
     
     return
     # end read_tables
@@ -382,7 +383,7 @@ def plotter_func(args, plot_info):
     CUT       = args.CUT
     ALPHA     = args.ALPHA
 
-    MASTER_VAR_DICT  = plot_info.MASTER_VAR_DICT
+    MASTER_DF_DICT   = plot_info.MASTER_DF_DICT
     plotdic          = plot_info.plotdic
     boundsdic        = plot_info.boundsdic
     custom_bounds    = plot_info.custom_bounds
@@ -399,15 +400,14 @@ def plotter_func(args, plot_info):
         if (DIFF == 'ALL') or (DIFF == 'CID'):
             sys.exit("The DIFF feature does not work for histograms. ABORT to avoid confusion.")
 
-        for n, key_name in enumerate(MASTER_VAR_DICT): 
-            k = MASTER_VAR_DICT[key_name]   # recall that key_name is file name
+        for n, key_name in enumerate(MASTER_DF_DICT): 
+            df = MASTER_DF_DICT[key_name]   # recall that key_name is file name
             msg = f"The upper and lower bounds are: " \
                 f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
             logging.info(msg)
-            sb = binned_statistic(k.x_plot_val, k.x_plot_val, bins=bins,
-                                  statistic='count')[0] #Get counts            
+            sb = binned_statistic(df.x_plot_val, df.x_plot_val, bins=bins, statistic='count')[0] #Get counts            
             errl,erru = poisson_interval(sb) # And error for those counts
-            nevt = np.sum(sb)  # number of events before normalization
+            nevt = np.sum(sb)                # number of events before normalization
             
             if n==0 :
                 sb0 = copy.deepcopy(sb)  # preserve 1st file contents to normalize other files
@@ -441,26 +441,26 @@ def plotter_func(args, plot_info):
         except KeyError:     
             pass  # auto scale y axis
             
-        keylist    = list(MASTER_VAR_DICT.keys()) # really, it's a file list
-        df_ref = MASTER_VAR_DICT[keylist[0]]  # reference df  for difference
-        # .xyz df_ref = differator
+        keylist    = list(MASTER_DF_DICT.keys()) # really, it's a file list
+        df_ref = MASTER_DF_DICT[keylist[0]]  # reference df  for difference
         for k in keylist[1:]:
-            k = MASTER_VAR_DICT[k]
+            df = MASTER_DF_DICT[k]
             if DIFF == 'CID':
                 #need to do an inner join with each entry in dic, then plot the diff
                 # (join logic thanks to Charlie Prior)
-                join = df_ref.join(k.set_index('CID'), on='CID', how='inner', lsuffix='_1', rsuffix='_2')
+                join = df_ref.join(df.set_index('CID'), on='CID', how='inner', lsuffix='_1', rsuffix='_2')
                 plt.scatter(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values,
                             alpha=ALPHA, label='Diff')
                 avgdiff = binned_statistic(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values, bins=bins, statistic='median')[0]                                     
                 plt.scatter((bins[1:] + bins[:-1])/2, avgdiff, label="Mean Difference", color='k')
             elif (DIFF == 'ALL'):
                 try:
-                    plt.scatter(df_ref.x_plot_val, df_ref.y_plot_val - k.y_plot_val, label=df_ref.name.values[0]+" - "+k.name.values[0], alpha=ALPHA)
+                    plt.scatter(df_ref.x_plot_val, df_ref.y_plot_val - df.y_plot_val, 
+                                label=df_ref.name.values[0]+" - "+df.name.values[0], alpha=ALPHA)
                 except ValueError:
                     pass
                 median_ref = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val, bins=bins, statistic='median')[0]
-                median = binned_statistic(k.x_plot_val, k.y_plot_val, bins=bins, statistic='median')[0]
+                median = binned_statistic(df.x_plot_val, df.y_plot_val, bins=bins, statistic='median')[0]
                 plt.scatter((bins[1:] + bins[:-1])/2., median_ref - median, 
                             label=df_ref.name.values[0]+" - "+k.name.values[0]+" median", marker="^", zorder=10)
             else:  
@@ -477,12 +477,12 @@ def plotter_func(args, plot_info):
         except KeyError:
             pass  # auto scale axis
         
-        for key_name, k in MASTER_VAR_DICT.items():
-            name_legend = k['name_legend'][0]
-            plt.scatter(k.x_plot_val, k.y_plot_val, alpha=ALPHA, label=name_legend, zorder=0)
+        for key_name, df in MASTER_DF_DICT.items():
+            name_legend = df['name_legend'][0]
+            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=name_legend, zorder=0)
 
             # overlay information on plot
-            median = binned_statistic(k.x_plot_val, k.y_plot_val, bins=bins, statistic='median')[0] 
+            median = binned_statistic(df.x_plot_val, df.y_plot_val, bins=bins, statistic='median')[0] 
             plt.scatter((bins[1:] + bins[:-1])/2., median, label= name_legend+" median",
                         marker="^", zorder=10)
             

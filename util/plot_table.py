@@ -2,9 +2,19 @@
 #
 # Created by B.Popovic during his graduate career at Duke University.
 # Installed into SNANA Jun 24 2024 by R.Kessler
-# Refactor to have main, and start translate_VARIABLE and tranlate_CUT
-# methods to automatically append data frame df.
+# Refactor to have __main__, and add translate_VARIABLE and tranlate_CUT
+# methods to automatically append data commands to simplified user input.
 # 
+# TO DO:
+#   - translate_VARIABLE needs to catch and fix np.math(var+var2...)
+#      and has to work with combinaton of var and number
+#
+#   + @@HELP to call print_help(); shorten strings in python help
+#   + @@TITLE
+#   - write underflow/overflow stats
+#   - mask of stat info to display on plot
+#
+# ==============================================
 import os, sys, gzip, copy, logging, math
 import pandas as pd
 import numpy as np
@@ -21,13 +31,27 @@ import distutils.util
 # ====================
 # globals
 
-BOUNDS_AUTO    = "AUTO"
-DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':' ]
-DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=' ]
+BOUNDS_AUTO    = "AUTO"  # indicates default axis bounds for plot
 
+
+DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':' ]  # for @@VARIABLE 
+DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=' ]  # for @@CUT
+
+# define pandas strings to add into VARIABLE and CUT strings.
 STR_DF         = 'df.'
 STR_DF_LOC     = 'df.loc'
 
+# internal flag to exit after translating VARIALBE and CUT
+#DEBUG_TRANSLATE = True   
+DEBUG_TRANSLATE = False
+
+
+# ================================
+# HELP
+
+def print_help():
+
+    help_string = \
 """
 This plot unility works on 
   * FITRES table files create by light curve fitting code (snlc_fit.exe) and BBC (SALT2mu.exe)
@@ -44,46 +68,82 @@ Next, specify what variables to plot ussing @@VARIABLE for
   * 2D scatter plot or 
   * 1D or 2D function of variables. 
 
-Input table files are loaded with pandas dataframes, and therefore you need to be familiar 
-with that syntax. For instance, to plot redshift distribution require user input
+Input table files are loaded with pandas dataframes, and therefore input variables
+are internally converted to pandas notation. For instance, to plot redshift 
+distribution require user input
+    @@VARIALBE zHD
+      or
     @@VARIALBE df.zHD
-In short, need to use df pandas notation. For future, we are working on interpreter
-to automatically append df internally, but unclear how long this will take.
 
-2D plots are parsed by a colon (:) to separate the x and y variables. The syntax is generally x:y
-For instance, @@VARIABLE df.zHD:df.x1  displays x1 vs z. 
+2D plots are parsed by a colon (:) to separate the x and y variables. 
+The syntax is generally x:y For instance, 
+   @@VARIABLE zHD:x1      # displays x1 vs z. 
+      or
+   @@VARIABLE df.zHD:df.x1      # displays x1 vs z. 
 
-You can also do algebra, e.g,
+In short, this code internally prepends pandas notation (df.) to simplify
+command-line inputs, or you can input the pandas notation with the df symobls. 
+The @@VARIALBE must have all df or none of them; cannot mix variables with and
+without df. This script writes out the pandas-translated @@VARIABLE string 
+that can be scooped up for other plotting purposes.
+
+If a command without df fails, please post github issue.
+
+Algebraic and numpy functions are also allowed, e.g., 
+    @@VARIABLE zHD:mB - 3.1*c + 0.16*x1
+        or
     @@VARIABLE df.zHD:df.mB - 3.1*df.c + 0.16*df.x1
-will plot the distance for Tripp estimator. Algebra works in 1D and 2D.
+
+    @@VARIABLE np.sqrt(MUERR**2 + .05**2):zHD
+         or
+    @@VARIABLE np.sqrt(df.MUERR**2 + .05**2):df.zHD
+
 
 Custom axis boundaries are input with 
-   @@BOUNDS minimum maximum binsize          # 1D
+   @@BOUNDS xmin xmax xbin                   # 1D
    @@BOUNDS xmin xmax xbin: ymin ymax ybin   # 2D
-Mean, Median, stdev only include entries in the plot; overflows are ignored.
+Mean, Median, stdev only include entries within the plot bounds; 
+overflows are ignored.
 
-Use  @@SAVE to save figure as pdf or png or jpeg (based on user-suppled extension)
+
+Use  @@SAVE to save figure as pdf or png or jpeg (based on user-suppled extension); 
+e.g.
+    @@SAVE my_first_table_plot.pdf
+       or
+    @@SAVE my_first_table_plot.png
 
 To compare and contrast values for the same CID, enable the @@DIFF option! 
-There are two valid DIFF options. 'ALL' will compare the difference in median values. 
-'CID' will compare the difference for the same CIDs. 
+There are two valid DIFF options:
+    @@DIFF ALL    #  compare the difference in median values. 
+      or
+    @@DIFF CID    #  compare the difference for the same CIDs. 
 
-@@CUT applies selection cuts on the sample. This is usually a 'df.loc[]' option of some capacity. 
-This option MUST have quotation marks around it (due to bash issues)
+@@CUT applies selection cuts on the sample. As with @@VARIABLE, CUT is internally 
+translated to append df and df.loc as needed, or the user can imput the pandas 
+notation; e.g,
+   @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD='C3'"
+      or
+   @@CUT "df.loc[(df.zHD > 0.2) &  (df.zHDERR<.1) & (df.SNRMAX1 < 100) & (df.FIELD=='C3')]"
 
-Finally, @@ALPHA adjusts the matplot alpha values to adjust transparency (0=transparent, 1=solid)
+Finally, @@ALPHA adjusts the matplot alpha values to adjust transparency 
+(0=transparent, 1=solid)
+
 
 Examples:
 
-plot_table.py @@FITRES File1.FITRES File2.FITRES \
-   @@VARIABLE df.zHD:df.mB - 3.1*df.c + 0.16*df.x1 - df.MU \
-   @@CUT "df.loc[df.IDSURVEY < 15]"
+plot_table.py @@TFILE File1.FITRES File2.FITRES \\
+   @@VARIABLE zHD:mB - 3.1*c + 0.16*x1 - MU \\
+   @@CUT "IDSURVEY < 15 & zHD>0.1" 
 
-plot_table.py @@FITRES scone_predict_diff.text \
-   @@VARIABLE df.PROB_SCONE_2:df.PROB_SCONE_1 \
-   @@CUT "df.loc[df['PROB_SCONE_2']>0]"
+plot_table.py @@TFILE scone_predict_diff.text \\
+   @@VARIABLE PROB_SCONE_2:PROB_SCONE_1 \\
+   @@CUT "PROB_SCONE_2 > 0"
+
 
 """
+
+    sys.exit(f"\n{help_string}\n")
+    return
 
 def setup_logging():
 
@@ -99,15 +159,17 @@ def setup_logging():
 
 
 def get_args():
-    parser.add_argument('@@FITRES', help='The location of your FITRES file that you need plotted. You can give a space delineated list of different FITRES files. Please make sure they are named differently, as their names (not full filepath) will be used for labeling.', nargs="+")
+    parser.add_argument('@@TFILE', help="Name of TABLE file or space delineated list of different TABLE files. If >1 TFILE, plots are overlaid", nargs="+")
     
-    parser.add_argument('@@VARIABLE', help="""The variable you want to plot. Needs to be a valid FITRES parameter. \n
-If you give only one value, this will generate a histogram. If you give two colon delimited values, such as df.zHD:df.mB it will plot zHD (x) vs mB (y). Please note that for the histogram, counts will be normalised to the first file given.""", nargs="+")
+    parser.add_argument('@@VARIABLE', help="""Variable(s) to plot from table file, or function of variables. \n
+One variable results in 1D histogram. Two colon delimited variables, such as zHD:mB, plots mB (y) vs zHD (x). For the histogram, counts are normalised to the first table file.""", nargs="+")
     
     parser.add_argument('@@BOUNDS', default=BOUNDS_AUTO, help=
-"""AUTO (default): bounds are maximum and minimum values of specified parameter. \n 
-Custom: Give a set of numbers, colon delimited. An example is min:max:binsize \n
-Please note, if you are doing a two dimensional plot, you need to specify both x and y sets in order. The binsize for y will not be used. """, nargs = '+')
+"""AUTO (default): optional bounds are maximum and minimum values of specified parameter. \n 
+An example is min:max:binsize . \n
+For 2D plot, must specify both x and y bounds. The binsize for y is ignored. """, nargs = '+')
+
+    parser.add_argument('@@TITLE', default=None, help="Override default plot title = arg of @@CUTS")
     
     parser.add_argument('@@SAVE', default='None', help=
 """Filename to save image under. Can give a custom filepath, otherwise saves in the working directory. Default does not save images.""")
@@ -120,25 +182,31 @@ CID will plot the per-CID difference.
     
     parser.add_argument('@@ALPHA', default=0.3, type=float, help='Alpha value for plotting. Set to 0 if you just want to see averages. If you set ALPHA = 0 and DIFF = True, you can compare the average difference between the two files even if there are no overlapping CIDS.')
 
-    parser.add_argument("@@CUT", help="NEEDS TO BE GIVEN IN QUOTATION MARKS!!! SUPER IMPORTANT!!! This takes the form of a df.loc[] option, typically. Any sort of cuts you want to make.", nargs="+")
+    parser.add_argument("@@CUT", help="cuts with boolean and algegraic operations; see @@HELP:", nargs="+")
 
-    parser.add_argument("@@NROWS", help="choose number of rows to read in for larger files", type=int, default=0)
+    parser.add_argument("@@NROWS", help="number of rows to read (for large files)", type=int, default=0)
+
+    parser.add_argument("@@HELP", help="Full help menu printed to stdout", action="store_true")
 
     args    = parser.parse_args()
-        
+    
+    if args.HELP:
+        print_help()
+    
     # - - - - - - -
     # fix inputs under the hood; mianly remove pad spacing
     if args.DIFF:
         args.DIFF = args.DIFF.strip()  # remove pad spacing
 
+    args.VARIABLE_ORIG = args.VARIABLE    
     if args.VARIABLE:
         args.VARIABLE = ''.join([str(elem) for elem in args.VARIABLE])
-        args.VARIABLE_ORIG = args.VARIABLE
-    
+        
+    args.CUT_ORIG  = args.CUT
     if args.CUT:
         args.CUT = ''.join([str(elem) for elem in args.CUT])
-        args.CUT_ORIG      = args.CUT
-        
+        args.CUT_ORIG = args.CUT_ORIG[0]
+
     if args.BOUNDS != BOUNDS_AUTO:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
 
@@ -146,17 +214,17 @@ CID will plot the per-CID difference.
 
     table_list      = []
     table_base_list = []  # base names only; for plot legend
-    for table_file in args.FITRES:
+    for table_file in args.TFILE:
         table_list.append( os.path.expandvars(table_file) )
         table_base_list.append( os.path.basename(table_file) )
         
-    # xxx fitres_list = [l.split("/")[-1] for l in FILENAME]
     if (any(table_list.count(x) > 1 for x in table_list)):
         sys.exit(f"\n ERROR: found duplicate table file; check {table_list}")
 
     args.table_list      = table_list  # ENVs are expanded
     args.table_base_list = table_base_list
     
+
     return args
 
     # end get_args()
@@ -173,8 +241,14 @@ def get_var_list(VARIABLE, DELIMITER_LIST):
     for delim in DELIMITER_LIST:
         VAR_TMP = VAR_TMP.replace(delim,' ')
 
-    var_list = VAR_TMP.split(' ')
-    return  sorted(var_list)
+    var_list = sorted(VAR_TMP.split(' '))
+
+    isnum_list = []
+    for var in var_list:
+        isnum_list.append(is_number(var))
+
+    return  var_list, isnum_list
+
     # end get_var_list
     
 def translate_VARIABLE(args):
@@ -187,7 +261,7 @@ def translate_VARIABLE(args):
     if STR_DF in VARIABLE: return
 
     # break down VARIABLE into a list of variables without any symbols
-    var_list  = get_var_list(VARIABLE, DELIMITER_VAR_LIST)
+    var_list, isnum_list  = get_var_list(VARIABLE, DELIMITER_VAR_LIST)
 
     # next, put df. in front of each variable ... but be careful about
     # variable names that are subsets of others. E.g., naively prepending
@@ -203,23 +277,48 @@ def translate_VARIABLE(args):
     return
 
 def translate_CUT(args):
-    # add df. as needed to args.CUT
+
+    # add df.loc, df. and () as needed to args.CUT
+    # Add "(df." in front of each var_list element that is NOT a number.
+    # Add ")" after each var_list eleement that is a number.
 
     CUT = args.CUT
     if not CUT: return
     if STR_DF in CUT: return
 
-    var_list  = get_var_list(CUT, DELIMITER_CUT_LIST)
-    
-    for var in var_list:
-        var = var.replace('(','')
-        var = var.replace(')','')                
-        if is_number(var) : continue
-        if "'"  in var    : continue  # e.g beware of FIELD='DEEP'
-        df_var = STR_DF + var        
-        if df_var not in CUT:  # modify only if not already modified
-            CUT = CUT.replace(var,df_var)
+    # '=' is the only delimeter where user might use '==' instead,
+    # and 2-char delimiter totally breaks the logic below. Rather 
+    # than abort, just fix it here so that FIELD='C3' or FIELD=='C3' 
+    # will both work.
+    if '==' in CUT:
+        CUT = CUT.replace('==', '=')
 
+    # examine CUT string and return list of var names and numbers that
+    # represent cut values.
+    var_list, isnum_list  = get_var_list(CUT, DELIMITER_CUT_LIST)
+    
+    if DEBUG_TRANSLATE:
+        print(f" xxx CUT var_list   = {var_list}")
+        print(f" xxx CUT isnum_list = {isnum_list}")
+
+    for var, isnum in zip(var_list, isnum_list):
+        has_quotes = "'" in var  # e.g., FIELD='C3'
+
+        if isnum or has_quotes:
+            var_parenth = var + ')'
+            if var_parenth not in CUT:
+                CUT = CUT.replace(var,var_parenth)
+
+        else:
+            df_var = STR_DF + var        
+            if df_var not in CUT:  # modify only if not already modified
+                CUT = CUT.replace(var, '(' + df_var)
+
+    # replace input for '=' with '=='
+    if '=' in CUT:
+        CUT = CUT.replace('=', '==')
+
+    # finally, wrap entire cut in df.loc[ CUT ]
     CUT = STR_DF_LOC + '[' + CUT + ']'
     
     args.CUT = CUT
@@ -244,12 +343,25 @@ def set_var_dict(args, plot_info):
     BOUNDS   = args.BOUNDS
 
     # store x and [optional] y variable names
-    plotdic = {}
-    for n,VAR in enumerate(VARIABLE.split(":")):
+    plotdic            = {}  # has df for making plots
+    plotdic_axis_label = {}  # cleaned up for axis labels
+
+    if args.TITLE:
+        plot_title    = args.TITLE
+    elif args.CUT_ORIG :
+        plot_title    = args.CUT_ORIG
+    else:
+        plot_title    = args.VARIABLE_ORIG
+
+    for n, VAR in enumerate(VARIABLE.split(":")):
+        STR_VAR   = str(VAR)
+        STR_LABEL = STR_VAR.replace('df.','') 
         if n == 0:
-            plotdic['x'] = str(VAR)
+            plotdic['x'] = STR_VAR
+            plotdic_axis_label['x'] = STR_LABEL
         else:
-            plotdic['y'] = str(VAR)
+            plotdic['y'] = STR_VAR
+            plotdic_axis_label['y'] = STR_LABEL
 
     # check for user (custom) bounds in plot
     custom_bounds = False
@@ -265,9 +377,11 @@ def set_var_dict(args, plot_info):
     #print(f" xxx plotdic = {plotdic}")
     
     # load output namespace
-    plot_info.plotdic       = plotdic
-    plot_info.boundsdic     = boundsdic
-    plot_info.custom_bounds = custom_bounds
+    plot_info.plotdic             = plotdic
+    plot_info.plotdic_axis_label  = plotdic_axis_label
+    plot_info.plot_title          = plot_title
+    plot_info.boundsdic           = boundsdic
+    plot_info.custom_bounds       = custom_bounds
     
     return
     # end set_var_dict
@@ -310,17 +424,23 @@ def read_tables(args, plot_info):
         # increment MASTER_DF_DICT dictionary; note that filename is dict key.
 
         MASTER_DF_DICT[l] = df
+        nrow = len(df)
         name_legend = get_name_legend(l, table_list)
         logging.info(f"\t --> name_legend = {name_legend}")
 
-        MASTER_DF_DICT[l]['name_legend'] = name_legend 
+        MASTER_DF_DICT[l] = {
+            'df'           : df,
+            'name_legend'  : name_legend
+        }
+        # xxx mark MASTER_DF_DICT[l]['name_legend'] = eval(name_legend)
+
 
         try:
-            MASTER_DF_DICT[l]['x_plot_val'] = eval(plotdic['x'])
-            boundsdic[l + "_min"] = np.amin(MASTER_DF_DICT[l]['x_plot_val'])
-            boundsdic[l + "_max"] = np.amax(MASTER_DF_DICT[l]['x_plot_val'])
+            MASTER_DF_DICT[l]['df']['x_plot_val'] = eval(plotdic['x'])
+            boundsdic[l + "_min"] = np.amin(MASTER_DF_DICT[l]['df']['x_plot_val'])
+            boundsdic[l + "_max"] = np.amax(MASTER_DF_DICT[l]['df']['x_plot_val'])
             if len(plotdic) == 2:
-                MASTER_DF_DICT[l]['y_plot_val'] = eval(plotdic['y'])
+                MASTER_DF_DICT[l]['df']['y_plot_val'] = eval(plotdic['y'])
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for {plotdic} and {l}")
 
@@ -381,13 +501,16 @@ def plotter_func(args, plot_info):
     # strip off local args from input name spaces
     DIFF      = args.DIFF
     CUT       = args.CUT
+    CUT_ORIG  = args.CUT_ORIG
     ALPHA     = args.ALPHA
 
-    MASTER_DF_DICT   = plot_info.MASTER_DF_DICT
-    plotdic          = plot_info.plotdic
-    boundsdic        = plot_info.boundsdic
-    custom_bounds    = plot_info.custom_bounds
-    
+    MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
+    plotdic              = plot_info.plotdic
+    plotdic_axis_label   = plot_info.plotdic_axis_label
+    boundsdic            = plot_info.boundsdic
+    custom_bounds        = plot_info.custom_bounds
+    plot_title           = plot_info.plot_title
+
     if custom_bounds:                       
         bins = np.arange(boundsdic['x'][0],boundsdic['x'][1],boundsdic['x'][2]) 
         plt.xlim([boundsdic['x'][0], boundsdic['x'][1]])  
@@ -398,10 +521,10 @@ def plotter_func(args, plot_info):
         
     if len(plotdic) == 1:                           
         if (DIFF == 'ALL') or (DIFF == 'CID'):
-            sys.exit("The DIFF feature does not work for histograms. ABORT to avoid confusion.")
+            sys.exit("\nERROR: DIFF does not work for histograms. ABORT to avoid confusion.")
 
         for n, key_name in enumerate(MASTER_DF_DICT): 
-            df = MASTER_DF_DICT[key_name]   # recall that key_name is file name
+            df = MASTER_DF_DICT[key_name]['df']   # recall that key_name is file name
             msg = f"The upper and lower bounds are: " \
                 f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
             logging.info(msg)
@@ -428,10 +551,9 @@ def plotter_func(args, plot_info):
             for str_stat, val_stat in stat_dict.items():
                 logging.info(f" {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
                 
-        plt.xlabel(plotdic['x'])  #In this case, VAR = [string], so we're going to strip the list.                     
+        plt.xlabel(plotdic_axis_label['x'])
         plt.legend()                     
-        if CUT:
-            plt.title(CUT)
+        plt.title(plot_title)
             
     elif (DIFF == 'CID') or (DIFF == 'ALL'):
         # 2D plot of difference between two files
@@ -442,9 +564,9 @@ def plotter_func(args, plot_info):
             pass  # auto scale y axis
             
         keylist    = list(MASTER_DF_DICT.keys()) # really, it's a file list
-        df_ref = MASTER_DF_DICT[keylist[0]]  # reference df  for difference
+        df_ref = MASTER_DF_DICT[keylist[0]]['df']  # reference df  for difference
         for k in keylist[1:]:
-            df = MASTER_DF_DICT[k]
+            df = MASTER_DF_DICT[k]['df']
             if DIFF == 'CID':
                 #need to do an inner join with each entry in dic, then plot the diff
                 # (join logic thanks to Charlie Prior)
@@ -466,10 +588,10 @@ def plotter_func(args, plot_info):
             else:  
                 sys.exit(f"\n ERROR: {str(DIFF)} is not a valid DIFF option -> ABORT.")         
 
-            plt.xlabel(plotdic['x'])                    
-            plt.ylabel(plotdic['y'] + " diff")                    
+            plt.xlabel(plotdic_axis_label['x'])
+            plt.ylabel(plotdic_axis_label['y'] + " diff")                    
             plt.legend()                                
-            if CUT: plt.title(CUT)       
+            plt.title(plot_title)       
     else:
         # 2D for each file
         try:
@@ -477,8 +599,9 @@ def plotter_func(args, plot_info):
         except KeyError:
             pass  # auto scale axis
         
-        for key_name, df in MASTER_DF_DICT.items():
-            name_legend = df['name_legend'][0]
+        for key_name, df_dict in MASTER_DF_DICT.items():
+            df          = df_dict['df']
+            name_legend = df_dict['name_legend']
             plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=name_legend, zorder=0)
 
             # overlay information on plot
@@ -486,11 +609,10 @@ def plotter_func(args, plot_info):
             plt.scatter((bins[1:] + bins[:-1])/2., median, label= name_legend+" median",
                         marker="^", zorder=10)
             
-        plt.xlabel(plotdic['x'])                    
-        plt.ylabel(plotdic['y'])                    
+        plt.xlabel(plotdic_axis_label['x'])                    
+        plt.ylabel(plotdic_axis_label['y'])                    
         plt.legend()                                
-        if CUT:
-            plt.title(CUT) 
+        plt.title(plot_title) 
     return 
     # end plotter_func
 
@@ -508,11 +630,12 @@ if __name__ == "__main__":
     translate_VARIABLE(args) # add df. as needed to args.VARIABLE
     translate_CUT(args)      # add df. and df.loc as needed to args.CUT
 
-    #sys.exit(f"\n xxx bye.")
+    if  DEBUG_TRANSLATE :
+        sys.exit(f"\n xxx bye.")
     
     plot_info = Namespace()  # someplace to store internally computed info
     
-    set_var_dict(args, plot_info) # set plot bounds and axis info
+    set_var_dict(args, plot_info) # set plot bounds and axisinfo
 
     read_tables(args, plot_info)  # read each input file and store data frames
 

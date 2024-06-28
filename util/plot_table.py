@@ -6,9 +6,7 @@
 # methods to automatically append data commands to simplified user input.
 # 
 # TO DO:
-#   - translate_VARIABLE needs to catch and fix np.math(var+var2...)
-#      and has to work with combinaton of var and number
-#
+#   + allow for numpy (np.) commands
 #   + @@HELP to call print_help(); shorten strings in python help
 #   + @@TITLE
 #   - write underflow/overflow stats
@@ -34,12 +32,13 @@ import distutils.util
 BOUNDS_AUTO    = "AUTO"  # indicates default axis bounds for plot
 
 
-DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':' ]  # for @@VARIABLE 
+DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=' ]  # for @@CUT
 
 # define pandas strings to add into VARIABLE and CUT strings.
-STR_DF         = 'df.'
-STR_DF_LOC     = 'df.loc'
+STR_df         = 'df.'
+STR_df_loc     = 'df.loc'
+STR_np         = 'np.'
 
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
@@ -47,7 +46,6 @@ DEBUG_TRANSLATE = False
 
 
 # ================================
-# HELP
 
 def print_help():
 
@@ -62,6 +60,8 @@ This plot unility works on
 BEWARE that conventional dashes in input keys are replaced with @@
 E.g., --VARIABLE in any other python code is @@VARIABLE here ...
 this is because dashes are confused with minus signs when plotting differences.
+
+       IF A COMMAND FAILS, PLEAE POST SNANA-GITHUB ISSUE !!! 
 
 Next, specify what variables to plot ussing @@VARIABLE for  
   * 1D histogram or
@@ -87,17 +87,16 @@ The @@VARIALBE must have all df or none of them; cannot mix variables with and
 without df. This script writes out the pandas-translated @@VARIABLE string 
 that can be scooped up for other plotting purposes.
 
-If a command without df fails, please post github issue.
-
 Algebraic and numpy functions are also allowed, e.g., 
     @@VARIABLE zHD:mB - 3.1*c + 0.16*x1
         or
     @@VARIABLE df.zHD:df.mB - 3.1*df.c + 0.16*df.x1
 
-    @@VARIABLE np.sqrt(MUERR**2 + .05**2):zHD
+    @@VARIABLE 'np.sqrt(MUERR**2 + .05**2):zHD'
          or
-    @@VARIABLE np.sqrt(df.MUERR**2 + .05**2):df.zHD
+    @@VARIABLE 'np.sqrt(df.MUERR**2 + .05**2):df.zHD'
 
+Single quotes are numpy expressions are needed to avoid linux problems parsing ().
 
 Custom axis boundaries are input with 
    @@BOUNDS xmin xmax xbin                   # 1D
@@ -106,11 +105,13 @@ Mean, Median, stdev only include entries within the plot bounds;
 overflows are ignored.
 
 
-Use  @@SAVE to save figure as pdf or png or jpeg (based on user-suppled extension); 
-e.g.
+Use @@SAVE to save figure as pdf or png; e.g.
     @@SAVE my_first_table_plot.pdf
        or
     @@SAVE my_first_table_plot.png
+Plot is either displayed in pop-up window or stored in @@SAVE file ...
+but not both. This enables pipelines to make post-processing plots
+without worrying about pop-windows in slurm jobs.
 
 To compare and contrast values for the same CID, enable the @@DIFF option! 
 There are two valid DIFF options:
@@ -140,6 +141,7 @@ plot_table.py @@TFILE scone_predict_diff.text \\
    @@CUT "PROB_SCONE_2 > 0"
 
 
+       IF A COMMAND FAILS, PLEAE POST SNANA-GITHUB ISSUE !!! 
 """
 
     sys.exit(f"\n{help_string}\n")
@@ -201,6 +203,7 @@ CID will plot the per-CID difference.
     args.VARIABLE_ORIG = args.VARIABLE    
     if args.VARIABLE:
         args.VARIABLE = ''.join([str(elem) for elem in args.VARIABLE])
+        args.VARIABLE_ORIG = args.VARIABLE_ORIG[0]
         
     args.CUT_ORIG  = args.CUT
     if args.CUT:
@@ -236,13 +239,23 @@ def get_var_list(VARIABLE, DELIMITER_LIST):
     # first replace any valid delimiter with '!' so that we can split on
     # single ! char
     VAR_TMP = copy.copy(VARIABLE)
-    VAR_TMP = VAR_TMP.replace(' ','')
 
+    VAR_TMP = VAR_TMP.strip()  # remove pad spaces
+
+    # replace algabraic delimiters with pad space for easier split
     for delim in DELIMITER_LIST:
         VAR_TMP = VAR_TMP.replace(delim,' ')
 
-    var_list = sorted(VAR_TMP.split(' '))
+    var_list_all = sorted(VAR_TMP.split())
 
+    # keep elements that do NOT have numpy "np."
+    var_list = []
+    for var in var_list_all:
+        if STR_np not in var:
+            var_list.append(var)
+
+    # create supplemental list of logicals indicating which
+    # var_list elements are numbers.
     isnum_list = []
     for var in var_list:
         isnum_list.append(is_number(var))
@@ -258,16 +271,21 @@ def translate_VARIABLE(args):
     
     VARIABLE = args.VARIABLE
     
-    if STR_DF in VARIABLE: return
+    if STR_df in VARIABLE: return
 
     # break down VARIABLE into a list of variables without any symbols
     var_list, isnum_list  = get_var_list(VARIABLE, DELIMITER_VAR_LIST)
 
+    if DEBUG_TRANSLATE:
+        print(f" xxx VARIABLE var_list   = {var_list}")
+        print(f" xxx VARIABLE isnum_list = {isnum_list}")
+
     # next, put df. in front of each variable ... but be careful about
     # variable names that are subsets of others. E.g., naively prepending
     # df in from of z and z_2 results in df.z and df.df.z_2.
-    for var in var_list:
-        df_var = STR_DF + var
+    for var, isnum in zip(var_list,isnum_list):
+        if isnum : continue
+        df_var = STR_df + var
         if df_var not in VARIABLE:  # modify only if not already modified
             VARIABLE = VARIABLE.replace(var,df_var)
 
@@ -284,7 +302,7 @@ def translate_CUT(args):
 
     CUT = args.CUT
     if not CUT: return
-    if STR_DF in CUT: return
+    if STR_df in CUT: return
 
     # '=' is the only delimeter where user might use '==' instead,
     # and 2-char delimiter totally breaks the logic below. Rather 
@@ -310,7 +328,7 @@ def translate_CUT(args):
                 CUT = CUT.replace(var,var_parenth)
 
         else:
-            df_var = STR_DF + var        
+            df_var = STR_df + var        
             if df_var not in CUT:  # modify only if not already modified
                 CUT = CUT.replace(var, '(' + df_var)
 
@@ -319,7 +337,7 @@ def translate_CUT(args):
         CUT = CUT.replace('=', '==')
 
     # finally, wrap entire cut in df.loc[ CUT ]
-    CUT = STR_DF_LOC + '[' + CUT + ']'
+    CUT = STR_df_loc + '[' + CUT + ']'
     
     args.CUT = CUT
 
@@ -347,21 +365,27 @@ def set_var_dict(args, plot_info):
     plotdic_axis_label = {}  # cleaned up for axis labels
 
     if args.TITLE:
-        plot_title    = args.TITLE
+        plot_title    = str(args.TITLE)
     elif args.CUT_ORIG :
-        plot_title    = args.CUT_ORIG
+        plot_title    = str(args.CUT_ORIG)
     else:
-        plot_title    = args.VARIABLE_ORIG
+        plot_title    = str(args.VARIABLE_ORIG)
+
+    if STR_np in plot_title:
+        plot_title = plot_title.replace(STR_np,'')
 
     for n, VAR in enumerate(VARIABLE.split(":")):
         STR_VAR   = str(VAR)
-        STR_LABEL = STR_VAR.replace('df.','') 
+        STR_LABEL = STR_VAR.replace(STR_df,'') 
+        if STR_np in STR_LABEL:  STR_LABEL = STR_LABEL.replace(STR_np,'')
+
         if n == 0:
             plotdic['x'] = STR_VAR
             plotdic_axis_label['x'] = STR_LABEL
         else:
             plotdic['y'] = STR_VAR
             plotdic_axis_label['y'] = STR_LABEL
+
 
     # check for user (custom) bounds in plot
     custom_bounds = False
@@ -447,7 +471,8 @@ def read_tables(args, plot_info):
             
     # - - - - - - - -
     logging.info("Done loading all table files.")
-
+    logging.info("# - - - - - - - - - - ")
+    
     # load output namespace
     plot_info.MASTER_DF_DICT = MASTER_DF_DICT
     
@@ -518,38 +543,44 @@ def plotter_func(args, plot_info):
         bins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
                            boundsdic[max(boundsdic, key=boundsdic.get)], 30)
 
+
+    msg = f"The min & max x-axis bounds are: " \
+          f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
+    logging.info(msg)
         
     if len(plotdic) == 1:                           
         if (DIFF == 'ALL') or (DIFF == 'CID'):
             sys.exit("\nERROR: DIFF does not work for histograms. ABORT to avoid confusion.")
 
         for n, key_name in enumerate(MASTER_DF_DICT): 
-            df = MASTER_DF_DICT[key_name]['df']   # recall that key_name is file name
-            msg = f"The upper and lower bounds are: " \
-                f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
-            logging.info(msg)
+            df_dict     = MASTER_DF_DICT[key_name]
+            df          = df_dict['df']
+            name_legend = df_dict['name_legend']
+      
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, bins=bins, statistic='count')[0] #Get counts            
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt = np.sum(sb)                # number of events before normalization
             
             if n==0 :
                 sb0 = copy.deepcopy(sb)  # preserve 1st file contents to normalize other files
+                logging.info(f"Plot {name_legend}")
             else:
-                sb *= np.sum(sb0) / np.sum(sb) # normalize integral to match file 0
+                scale = np.sum(sb0) / np.sum(sb)
+                sb   *= scale # normalize integral to match file 0                
+                logging.info(f"Overlay {name_legend} scaled by {scale}")
 
-            name_legend = k['name_legend'][0]
             plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
                          yerr=[sb-errl, erru-sb], fmt='o')                 
 
             stat_dict = {
                 'nevt'   : nevt,
-                'mean'   : np.mean(k.x_plot_val),
-                'median' : np.median(k.x_plot_val),
-                'stdev'  : np.std(k.x_plot_val)
+                'mean'   : np.mean(df.x_plot_val),
+                'median' : np.median(df.x_plot_val),
+                'stdev'  : np.std(df.x_plot_val)
                 # overflow/underflow ??
             }
             for str_stat, val_stat in stat_dict.items():
-                logging.info(f" {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
+                logging.info(f"\t {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
                 
         plt.xlabel(plotdic_axis_label['x'])
         plt.legend()                     

@@ -555,7 +555,7 @@ def plotter_func(args, plot_info):
     plot_title           = plot_info.plot_title
 
     if custom_bounds:                       
-        bins = np.arange(boundsdic['x'][0],boundsdic['x'][1],boundsdic['x'][2]) 
+        bins = np.arange(boundsdic['x'][0], boundsdic['x'][1], boundsdic['x'][2]) 
         plt.xlim([boundsdic['x'][0], boundsdic['x'][1]])  
     else:                                   
         bins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
@@ -575,7 +575,8 @@ def plotter_func(args, plot_info):
             df          = df_dict['df']
             name_legend = df_dict['name_legend']        
 
-            sb = binned_statistic(df.x_plot_val, df.x_plot_val, bins=bins, statistic='count')[0] #Get counts            
+            # get counts sb
+            sb = binned_statistic(df.x_plot_val, df.x_plot_val, bins=bins, statistic='count')[0]
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt = np.sum(sb)                # number of events before normalization
             
@@ -584,9 +585,12 @@ def plotter_func(args, plot_info):
                 logging.info(f"Plot {name_legend}")
             else:
                 scale = np.sum(sb0) / np.sum(sb)
-                sb   *= scale # normalize integral to match file 0                
+                sb   *= scale # normalize integral to match file 0 
+                errl *= scale
+                erru *= scale
                 logging.info(f"Overlay {name_legend} scaled by {scale:.3e}")
 
+            
             plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
                          yerr=[sb-errl, erru-sb], fmt='o')                 
 

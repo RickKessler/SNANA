@@ -462,7 +462,10 @@ def read_tables(args, plot_info):
         MASTER_DF_DICT[l] = df
         nrow = len(df)
         name_legend = get_name_legend(l, args.table_list, args.legend_list)
-        logging.info(f"\t --> name_legend = {name_legend}")
+        logging.info(f"\t --> nrow={nrow}   name_legend = {name_legend}")
+
+        if nrow == 0:
+            sys.exit(f"\n ERROR: zero rows read for {name_legend}")
 
         MASTER_DF_DICT[l] = {
             'df'           : df,
@@ -570,19 +573,19 @@ def plotter_func(args, plot_info):
         for n, key_name in enumerate(MASTER_DF_DICT): 
             df_dict     = MASTER_DF_DICT[key_name]
             df          = df_dict['df']
-            name_legend = df_dict['name_legend']
-      
+            name_legend = df_dict['name_legend']        
+
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, bins=bins, statistic='count')[0] #Get counts            
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt = np.sum(sb)                # number of events before normalization
             
-            if n==0 :
+            if n == 0 :
                 sb0 = copy.deepcopy(sb)  # preserve 1st file contents to normalize other files
                 logging.info(f"Plot {name_legend}")
             else:
                 scale = np.sum(sb0) / np.sum(sb)
                 sb   *= scale # normalize integral to match file 0                
-                logging.info(f"Overlay {name_legend} scaled by {scale}")
+                logging.info(f"Overlay {name_legend} scaled by {scale:.3e}")
 
             plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
                          yerr=[sb-errl, erru-sb], fmt='o')                 

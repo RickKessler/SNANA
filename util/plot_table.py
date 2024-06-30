@@ -9,6 +9,7 @@
 #   + allow for numpy (np.) commands
 #   + @@HELP to call print_help(); shorten strings in python help
 #   + @@TITLE
+#   - @@LEGEND
 #   - write underflow/overflow stats
 #   - mask of stat info to display on plot
 #
@@ -148,22 +149,21 @@ plot_table.py @@TFILE scone_predict_diff.text \\
     return
 
 def setup_logging():
-
     #logging.basicConfig(level=logging.DEBUG,
     logging.basicConfig(level=logging.INFO,
         format="[%(levelname)8s | %(message)s")
     # xxx mark format="[%(levelname)8s |%(filename)21s:%(lineno)3d]   %(message)s")
-
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
     logging.getLogger("seaborn").setLevel(logging.ERROR)
-
     return
 
 
 def get_args():
-    parser.add_argument('@@TFILE', help="Name of TABLE file or space delineated list of different TABLE files. If >1 TFILE, plots are overlaid", nargs="+")
+
     
-    parser.add_argument('@@VARIABLE', help="""Variable(s) to plot from table file, or function of variables. \n
+    parser.add_argument('@@TFILE', help="required: Name of TABLE file or space delineated list of different TABLE files. If >1 TFILE, plots are overlaid", nargs="+")
+    
+    parser.add_argument('@@VARIABLE', help="""required: Variable(s) to plot from table file, or function of variables. \n
 One variable results in 1D histogram. Two colon delimited variables, such as zHD:mB, plots mB (y) vs zHD (x). For the histogram, counts are normalised to the first table file.""", nargs="+")
     
     parser.add_argument('@@BOUNDS', default=BOUNDS_AUTO, help=
@@ -171,10 +171,13 @@ One variable results in 1D histogram. Two colon delimited variables, such as zHD
 An example is min:max:binsize . \n
 For 2D plot, must specify both x and y bounds. The binsize for y is ignored. """, nargs = '+')
 
-    parser.add_argument('@@TITLE', default=None, help="Override default plot title = arg of @@CUTS")
+    parser.add_argument('@@TITLE',  default=None, help="Override default plot title = arg of @@CUTS")
+    parser.add_argument('@@LEGEND', default=None, 
+                        help="Override default legend on plot (space sep list per TFILE)", 
+                        nargs="+")
     
     parser.add_argument('@@SAVE', default='None', help=
-"""Filename to save image under. Can give a custom filepath, otherwise saves in the working directory. Default does not save images.""")
+                        "Filename to save plot.  Default does not save plots.")
     
     parser.add_argument('@@DIFF', default=None, type=str, help=
 """Plot the difference in the y-axis between files. Valid options are None, ALL, and CID. \n
@@ -182,7 +185,8 @@ ALL will plot the median difference between the first file and subsequent ones. 
 CID will plot the per-CID difference.
 """)
     
-    parser.add_argument('@@ALPHA', default=0.3, type=float, help='Alpha value for plotting. Set to 0 if you just want to see averages. If you set ALPHA = 0 and DIFF = True, you can compare the average difference between the two files even if there are no overlapping CIDS.')
+    parser.add_argument('@@ALPHA', default=0.3, type=float, 
+                        help='Alpha value for plot. Set to 0 to see only averages. ALPHA=0 and DIFF=True compares average difference between two files, even if there are no overlapping CIDS.')
 
     parser.add_argument("@@CUT", help="cuts with boolean and algegraic operations; see @@HELP:", nargs="+")
 
@@ -214,19 +218,27 @@ CID will plot the per-CID difference.
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
 
     # tack on new name space elements that are trivially dependent on user input
+    if not args.LEGEND:
+        args.LEGEND = [ None ] * len(args.TFILE)
+
+    narg_legend = len(args.LEGEND)
+    narg_tfile  = len(args.TFILE)
+    if narg_tfile != narg_legend:
+        sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
+                 f"narg_legend must match number of table files.")
 
     table_list      = []
     table_base_list = []  # base names only; for plot legend
     for table_file in args.TFILE:
         table_list.append( os.path.expandvars(table_file) )
         table_base_list.append( os.path.basename(table_file) )
-        
+
     if (any(table_list.count(x) > 1 for x in table_list)):
         sys.exit(f"\n ERROR: found duplicate table file; check {table_list}")
 
     args.table_list      = table_list  # ENVs are expanded
     args.table_base_list = table_base_list
-    
+    args.legend_list     = args.LEGEND
 
     return args
 
@@ -449,15 +461,13 @@ def read_tables(args, plot_info):
 
         MASTER_DF_DICT[l] = df
         nrow = len(df)
-        name_legend = get_name_legend(l, table_list)
+        name_legend = get_name_legend(l, args.table_list, args.legend_list)
         logging.info(f"\t --> name_legend = {name_legend}")
 
         MASTER_DF_DICT[l] = {
             'df'           : df,
             'name_legend'  : name_legend
         }
-        # xxx mark MASTER_DF_DICT[l]['name_legend'] = eval(name_legend)
-
 
         try:
             MASTER_DF_DICT[l]['df']['x_plot_val'] = eval(plotdic['x'])
@@ -480,11 +490,16 @@ def read_tables(args, plot_info):
     # end read_tables
 
     
-def get_name_legend(table_file, table_list):
+def get_name_legend(table_file, table_list, legend_list):
 
     # for input table_file, return name to put in plot legend.
     # If there are duplicate base names in table_file_list, then
     # modify legend name accordinngly.
+
+    # first check for user-defined legend name
+    if legend_list[0] is not None:
+        j = table_list.index(table_file)
+        return legend_list[j]
 
     base        =  os.path.basename(table_file)
     name_legend =  base  # default 

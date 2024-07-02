@@ -854,6 +854,7 @@ c
      &  ,SNLC_T0GAPMAX    ! max gap near peak 
      &  ,SNLC_SNRMAX_FILT(0:MXFILT_OBS)   ! max S/N per filter/SN
      &  ,SNLC_SNRMAX_SORT(MXFILT_OBS)     ! 1st, 2nd ... SNRMAX by filt
+     &  ,SNLC_SNRSUM
      &  ,SNLC_FLUXCALMAX(MXFILT_OBS)    ! max flux per filter/SN
      &  ,SNLC_FLUXCALMAX_ERR(MXFILT_OBS)  ! uncertainty on above
      &  ,SNLC_SNANAFIT_PEAKMJD     ! SNANA-estimate of PEAKKMJD
@@ -950,7 +951,7 @@ c
      &    ,SNLC_TRESTMIN, SNLC_TRESTMAX, SNLC_TrestRange, SNLC_TREST
      &    ,SNLC_TGAPMAX,  SNLC_T0GAPMAX
      &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
-     &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT
+     &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT, SNLC_SNRSUM
      &    ,SNLC_FLUXCALMAX, SNLC_FLUXCALMAX_ERR
      &    ,SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
      &    ,SNLC_GAIN, SNLC_RDNOISE
@@ -1431,6 +1432,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_NEPOCH
      &  ,CUTBIT_SNRMAX         ! global SNRMAX cut; any filter(s)
      &  ,CUTBIT_SNRMAX2        ! 2nd global SNRMAX cut; any filter(s)
+     &  ,CUTBIT_SNRSUM         ! cut on sqrt[ sum SNR_i^2 ]
      &  ,CUTBIT_NFIELD         ! cut on number of fields used by SN
      &  ,CUTBIT_MWEBV          ! cut on Galactic extinct (May 8 2012)
      &  ,CUTBIT_NSEASON_ACTIVE ! Nseason with activity
@@ -1466,7 +1468,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_TrestMIN       = 8
      &  ,CUTBIT_TrestMAX       = 9
      &  ,CUTBIT_TrestRange     = 10  ! Dec 2017 (TrestMax-TrestMin)
-     &  ,CUTBIT_Trest2         = 11  ! Oct 2012
+     &  ,CUTBIT_Trest2         = 11 
      &  ,CUTBIT_Tgapmax        = 12
      &  ,CUTBIT_T0gapMAX       = 13
      &  ,CUTBIT_TobsMIN        = 14 
@@ -1482,14 +1484,15 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_NFILT_TREST2   = 24
      &  ,CUTBIT_SNRMAX         = 25
      &  ,CUTBIT_SNRMAX2        = 26
-     &  ,CUTBIT_NFIELD         = 27
-     &  ,CUTBIT_MWEBV          = 28  ! May 2012
-     &  ,CUTBIT_NSEASON_ACTIVE = 29  ! May 2019
-     &  ,CUTBIT_REQEP          = 30  ! required epochs (9/17/2017)
-     &  ,CUTBIT_PRIVATE        = 31  ! all private-var cuts
-     &  ,CUTBIT_SIMVAR         = 32  ! 
-     &  ,CUTBIT_OFFSET_SBFLUX  = 33  ! Mar 2012
-     &  ,CUTBIT_OFFSET_SNRMAX  = 33 + MXFILT_SNRMAX
+     &  ,CUTBIT_SNRSUM         = 27  ! Jul 2024
+     &  ,CUTBIT_NFIELD         = 28
+     &  ,CUTBIT_MWEBV          = 29 
+     &  ,CUTBIT_NSEASON_ACTIVE = 30  ! May 2019
+     &  ,CUTBIT_REQEP          = 31  ! required epochs (9/17/2017)
+     &  ,CUTBIT_PRIVATE        = 32  ! all private-var cuts
+     &  ,CUTBIT_SIMVAR         = 33  ! 
+     &  ,CUTBIT_OFFSET_SBFLUX  = 34 
+     &  ,CUTBIT_OFFSET_SNRMAX  = 34 + MXFILT_SNRMAX
      &  ,CUTBIT_MJD_MARKER     = CUTBIT_OFFSET_SNRMAX + MXFILT_SNRMAX
      &  ,NCUTBIT_SNLC          = CUTBIT_MJD_MARKER
 c SN-dependent cuts above
@@ -1585,6 +1588,7 @@ c# -----------  SN-dependent cut-window  ! I: --------------------------------
      &  ,cutwin_snrmax_filt(2,MXFILT_SNRMAX)   ! filled from SNCUT_SNRMAX
      &  ,cutwin_snrmax(2)        ! I: global SNRMAX cut
      &  ,cutwin_snrmax2(2)       ! I: 2nd global SNRMAX cut (different band)
+     &  ,cutwin_snrsum(2)        ! I: cut on sqrt[  sum(SNR_i^2) ]
      &  ,cutwin_nfield(2)        ! I: number of fields (usually 1)
      &  ,cutwin_mwebv(2)         ! I: Galactic extinction
      &  ,cutwin_nseason_active(2) 
@@ -1792,6 +1796,7 @@ c
      &   ,( cutwin_var(1,cutbit_search),        cutwin_searcheff_mask )
      &   ,( cutwin_var(1,cutbit_snrmax),        cutwin_snrmax  )
      &   ,( cutwin_var(1,cutbit_snrmax2),       cutwin_snrmax2  )
+     &   ,( cutwin_var(1,cutbit_snrsum),        cutwin_snrsum  )     
      &   ,( cutwin_var(1,cutbit_nfield),        cutwin_nfield  )
      &   ,( cutwin_var(1,cutbit_mwebv),         cutwin_mwebv  )
      &   ,( cutwin_var(1,cutbit_nseason_active),cutwin_nseason_active)
@@ -2096,7 +2101,7 @@ c
      &   ,cutwin_redshift, cutwin_redshift_err
      &   ,cutwin_ra, cutwin_dec
      &   ,cutwin_hostsep,   cutwin_Nepoch
-     &   ,cutwin_snrmax,    cutwin_snrmax2, cutwin_nfield
+     &   ,cutwin_snrmax,    cutwin_snrmax2, cutwin_snrsum, cutwin_nfield
      &   ,cutwin_mwebv,     cutwin_nseason_active
      &   ,cutwin_Trestmin,   cutwin_Trestmax
      &   ,cutwin_TrestRange, cutwin_Trest, cutwin_Tobs
@@ -8239,6 +8244,11 @@ c - - - -
      &            2, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) CUTWIN_SNRMAX2(1)
           READ(ARGLIST(2),*) CUTWIN_SNRMAX2(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_SNRSUM',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_SNRSUM(1)
+          READ(ARGLIST(2),*) CUTWIN_SNRSUM(2)
 
         else if ( MATCH_NMLKEY('CUTWIN_SNR_NODETECT',
      &            2, iArg, ARGLIST) ) then
@@ -15780,7 +15790,8 @@ c init a few SNHOST arrays
 c --------
       
       SNLC_SNRMAX_FILT(0) = -9.
-
+      SNLC_SNRSUM         = 0.0
+      
       DO ifilt = 1, MXFILT_OBS
          ISNLC_NEPOCH_FILT(ifilt)    =   0
          ISNLC_NEPOCH_PRESN(ifilt)   =  -9
@@ -16184,6 +16195,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_TREST_TRUEFLUX2) = 'Trest_TRUEFLUX:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
+      cutvar_name(CUTBIT_SNRSUM)       = 'SNRSUM:'  
       cutvar_name(CUTBIT_NFILT_SNRMAX) = 'NFILT_SNRmax:'
       cutvar_name(CUTBIT_NFILT_SNRMAX2)= 'NFILT_SNRmax2:'
       cutvar_name(CUTBIT_NFILT_TRESTMIN) = 'NFILT_Trestmin:'
@@ -20239,7 +20251,7 @@ c hard-wire PSF since we can't solve for all 3 items
          C2ERR = 'Need to extend SKYLAM and SKYMAG ' //
      &           'arrays in SIMLIBCOM'
          CALL MADABORT(FNAM, c1err, c2err)
-      endif  ! .xyz
+      endif 
 	      
 c linear interpolation to get estimate of Sky mag per asec^2
       SKYMAG = interp_1dfun(1, LAMOBS, NLIST_SKY, 
@@ -21115,13 +21127,14 @@ c  cuts EXCEPT |cutbit|
 C ==========================================
 +DECK,GET_TRESTVAR.
       SUBROUTINE GET_TRESTVAR(
-     &     NTLIST, TLIST, FLIST               ! (I)
+     &     NTLIST, TLIST, FLIST, SNRLIST      ! (I)
      &   , CUTWIN_TREST                       ! (I)
      &   , CUTWIN_TRESTMIN, CUTWIN_TRESTMAX   ! (I)
      &   , CUTWIN_TREST2                      ! (I)
      &   , NFILT, TMIN, TMAX                  ! (O)
      &   , NFTMIN, NFTMAX, NFT2               ! (O)
-     &   , TGAPMAX, T0GAPMAX )                ! (O) 
+     &   , TGAPMAX, T0GAPMAX                  ! (O)
+     &   , SNRSUM     )                       ! (O)
 
 c Created May 25, 2009 by R.Kessler
 c Return rest-frame variables related to TREST,
@@ -21130,9 +21143,7 @@ c NOTES:
 c   - assumes that TLIST is ordered from min to max.
 c
 c
-c Aug 16, 2009: add more arguments: FLIST, NFTMIN, NFTMAX
-c Aug 23, 2009: add NFILT output arg               
-c Oct 09, 2012: new args, CUTWIN_TREST2 and NFT2
+c Jul 01 2024 pass and process SNRLIST
 c --------------------
 
       IMPLICIT NONE
@@ -21144,6 +21155,7 @@ c --------------------
 
       REAL  
      &   TLIST(NTLIST)         ! (I) rest-frame list
+     &  ,SNRLIST(NTLIST)       ! (I) SNR list
      &  ,CUTWIN_TREST(2)       ! (I) global Trest-window
      &  ,CUTWIN_TRESTMIN(2)    ! (I) window to count NFTMIN 
      &  ,CUTWIN_TRESTMAX(2)    ! (I) idem for NFTMAX
@@ -21168,7 +21180,7 @@ c local car
      &  ,IFILT_obs
     
       REAL 
-     &  Trest, Tlast, TGAP
+     &  Trest, Tlast, TGAP, SNR, SNRSUM, SQSNRSUM
      & ,T0GAPWIN(2)
 
       LOGICAL 
@@ -21193,7 +21205,9 @@ c init output args
       NFTMAX    = 0
       NFILT     = 0
       NFT2      = 0
-
+      SQSNRSUM  = 0.0
+      SNRSUM    = 0.0
+      
 c local stuff
       Tlast     =  999.
 
@@ -21217,7 +21231,8 @@ c construct T0GAP-window from other cuts
          isort      = INDEX_SORT(i)
          Trest      = TLIST(isort)
          ifilt_obs  = FLIST(isort)
-
+         snr        = SNRLIST(isort)
+	 
          if ( Trest .LT. CUTWIN_TREST(1)   ) GOTO 444          
          if ( Trest .GT. CUTWIN_TREST(2)   ) GOTO 444          
 
@@ -21247,6 +21262,10 @@ c construct T0GAP-window from other cuts
             LT2(ifilt_obs) = .TRUE.
          ENDIF
 
+         IF ( LTMP ) THEN
+           SQSNRSUM = SQSNRSUM + SNR*SNR
+         ENDIF
+	 
          Tmin = MIN ( Tmin, Trest )
          Tmax = MAX ( Tmax, Trest )
 
@@ -21276,6 +21295,8 @@ c construct T0GAP-window from other cuts
 
 444   CONTINUE
 
+      if ( SQSNRSUM > 1.0E-8 ) SNRSUM = sqrt(SQSNRSUM)
+      
       RETURN
       END    ! GET_TRESTVAR
 
@@ -21421,18 +21442,11 @@ c    endif
 c
 c       HISTORY
 c    ~~~~~~~~~~~~~
-c Feb 7, 2014 ZZ->1 if SNLC_REDHIFT < 0 ; fixes TOBSMIN/TOBSMAX.
-c
-c Jan 11 2015: call REJECT_PRESCALE to set LCUT for CUTBIT_PRESCALE
-c
-c Jan  8 2017: abort if ISNLC_TYPE > MXTYPE 
-c Jul 11 2017: declare PS8 as REAL*8, not INT*8
-c Dec 09 2017: remove REJECT_PRESCALE() and move it to SNANA_DRIVER
-c Dec 18 2017: set cut for PSF
 c Feb 27 2018: set cut for ZP in Npe; see CUTWIN_ZP
 c Feb 06 2020: add cut for Trest_trueflux
 c Feb 20 2020: make sure PHOTPROB cut passes if PHOTPROB < 0
 c Mar 16 2021: load SIM_EPPULL to enable cut on PULL
+c Jul 01 2024: compute SNRLIST and pass to GET_TRESTVAR
 c -----------------------------
 
       IMPLICIT NONE
@@ -21454,8 +21468,9 @@ c local var
 
       LOGICAL LTEST, LCUT, LCUT1, LCUT2
  
-      REAL  TMP, Tmin, Tmax, ZZ, TGAPMAX, T0GAPMAX, TLIST(MXEPOCH)
-      REAL  TREST, TRUEMAG, PHOTPROB
+      REAL  TMP, Tmin, Tmax, ZZ, TGAPMAX, T0GAPMAX
+      REAL  TLIST(MXEPOCH), SNRLIST(MXEPOCH)
+      REAL  TREST, TRUEMAG, PHOTPROB, F, FERR, SNRSUM
 
 c functions
       LOGICAL MJDSELECT, LCIDSELECT
@@ -21622,8 +21637,8 @@ c so that NEWMJD_CUTS can be evaluated correctly.
          SNLC_CUTVAR(CUTBIT_SNRMAX)  = 
      &       SNLC_SNRMAX_FILT(0)
          SNLC_CUTVAR(CUTBIT_SNRMAX2)  = 
-     &       SNLC_SNRMAX_FILT(0)
-
+     &       SNLC_SNRMAX_FILT(0)  ! temp val; changed below
+	       
          SNLC_CUTVAR(CUTBIT_NEPOCH)  = 
      &       float ( ISNLC_NEPOCH_STORE )
 
@@ -21658,32 +21673,42 @@ c first build TLIST array for epochs that pass MJDSELECT()
        DO 444 imjd = 1, NEWMJD        
          if ( .NOT. MJDSELECT(imjd,0)  ) GOTO 444
          EPMIN     = ISNLC_EPOCH_RANGE_NEWMJD(1,imjd)
-         EPMAX     = ISNLC_EPOCH_RANGE_NEWMJD(2,imjd) 
+         EPMAX     = ISNLC_EPOCH_RANGE_NEWMJD(2,imjd)
          DO EP     = EPMIN, EPMAX
            NTLIST  = NTLIST + 1
            TLIST(NTLIST) = SNLC_Trest(EP)  
            FLIST(NTLIST) = ISNLC_IFILT_OBS(EP)
+
+           F     = SNLC_FLUXCAL(EP)
+	   FERR  = SNLC_FLUXCAL_ERRTOT(EP)
+	   if ( F > 0.0 .and. FERR > 0.0 ) then
+    	      SNRLIST(NTLIST) = F/FERR
+	   else
+	      SNRLIST(NTLIST) = 0.0
+	   endif
+
          ENDDO
 444    CONTINUE
 
-       CALL GET_TRESTVAR(NTLIST, TLIST, FLIST     ! (I)
+       CALL GET_TRESTVAR(NTLIST, TLIST, FLIST, SNRLIST  ! (I)
      &       ,CUTWIN_TREST                        ! (I)
      &       ,CUTWIN_TRESTMIN, CUTWIN_TRESTMAX    ! (I)
      &       ,CUTWIN_TREST2                       ! (I)
      &       ,NFILT, TMIN, TMAX                   ! (O)
      &       ,NFTMIN, NFTMAX, NFT2                ! (O)
-     &       ,TGAPMAX, T0GAPMAX )                 ! (O) 
+     &       ,TGAPMAX, T0GAPMAX, SNRSUM )         ! (O) 
 
        SNLC_TGAPMAX  = TGAPMAX
        SNLC_T0GAPMAX = T0GAPMAX
-
+       SNLC_SNRSUM   = SNRSUM
+       
        SNLC_Trestmin = Tmin
        SNLC_Trestmax = Tmax
        SNLC_TrestRange = Tmax - Tmin    ! Dec 2017
 
        SNLC_Tobsmin = Tmin * ZZ
        SNLC_Tobsmax = Tmax * ZZ
-
+	       
        ISNLC_NFILT_TRESTMIN  = NFTMIN
        ISNLC_NFILT_TRESTMAX  = NFTMAX
        ISNLC_NFILT_TREST2    = NFT2
@@ -21729,7 +21754,8 @@ c always make sure TREST2 cut passes since the only cut of
 c interest in in NFILT_TREST2.
        SNLC_CUTVAR(CUTBIT_TREST2)  = CUTWIN_TREST2(1) + 0.1
 
-
+       SNLC_CUTVAR(CUTBIT_SNRSUM)  = SNLC_SNRSUM
+	       
 c be careful with the SNRMAX indices.
        DO i         = 1, NFILT_SNRMAX  ! sparse index for SNRMAX cut
           ifilt_obs = IFILT_SNRMAX(i)  ! absolute filtetr index
@@ -24295,6 +24321,10 @@ c snana variables with no fitting.
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
      &               VARLIST,1,    LENBLOCK, 40 )
+
+         VARLIST = 'SNRSUM:F' // char(0)
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRSUM,
+     &                VARLIST,0,   LENBLOCK, 20 ) ! .xyz
 
 c ----------
 c Below are SNANA variables for which the FIT analog is not

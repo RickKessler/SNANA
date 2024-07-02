@@ -3395,8 +3395,8 @@ c local var
 
       REAL
      &   CUTWIN_SNANA(2)
-     &  ,TLIST(MXEPOCH)
-     &  ,Z4, FITPROB
+     &  ,TLIST(MXEPOCH), SNRLIST(MXEPOCH)
+     &  ,Z4, FITPROB, F, FERR, SNRSUM
 
       INTEGER 
      &   IFILT, IFILT_OBS, N, NFILT_CUT, NFILT
@@ -3665,6 +3665,14 @@ c tighter (final) cuts.
           NTLIST        = NTLIST + 1 
           TLIST(NTLIST) = Trest  
           FLIST(NTLIST) = ifilt_obs
+       
+          F               = SNLC_FLUXCAL(iep)
+          FERR            = SNLC_FLUXCAL_ERRTOT(iep)
+          if ( F > 0.0 .and. FERR > 0.0 ) then
+              SNRLIST(NTLIST) = F/FERR
+          else
+              SNRLIST(NTLIST) = 0.0
+          endif
 
 200     CONTINUE 
 
@@ -3677,7 +3685,7 @@ c if we don't have enough measurements after filter-drop, bail ASAP.
 c get Nfilt passing Trestmin & Trestmax cuts.
 
         CALL GET_TRESTVAR (
-     &        NTLIST, TLIST, FLIST          ! (I) Trest & IFILT arrays
+     &        NTLIST, TLIST, FLIST, SNRLIST ! (I) Trest & IFILT arrays
      &       ,CUTWIN_TREST                  ! (I) user cutwin
      &       ,CUTWIN_TRESTMIN               ! (I) idem 
      &       ,CUTWIN_TRESTMAX               ! (I) idem
@@ -3687,7 +3695,8 @@ c get Nfilt passing Trestmin & Trestmax cuts.
      &       ,NFILT_TRESTMIN_FIT            ! (O)
      &       ,NFILT_TRESTMAX_FIT            ! (O)
      &       ,NFILT_TREST2_FIT              ! (O)
-     &       ,TGAPMAX_FIT, T0GAPMAX_FIT )   ! (O) 
+     &       ,TGAPMAX_FIT, T0GAPMAX_FIT     ! (O) 
+     &       ,SNRSUM        )               ! (O)
 
 
         TRESTRANGE_FIT = TRESTMAX_FIT - TRESTMIN_FIT  ! De 18 2017
@@ -10206,7 +10215,7 @@ c --------------------------------------
         print*,'   Either remove this SN, or fix it. '
         print*,' '
         call flush(6)
-c .xyz
+c 
         if ( ABORT_ON_NOEPOCHS ) then
            C1ERR = 'Nothing to fit for CID = ' // CCID(1:LCCID)
            C2ERR = 'To avoid abort, set   ABORT_ON_NOEPOCHS=F '
@@ -12958,8 +12967,8 @@ c local var
      &  ,MASK_STORE_VAL, MASK_STORE_ERR, MASK_STORE_SUM
 
       REAL 
-     &    TLIST(MXEPOCH), XEPOCH_FIT(MXFILT_ALL)
-     &   ,Tobs, Trest, MJD, PEAKMJD, z1
+     &    TLIST(MXEPOCH), XEPOCH_FIT(MXFILT_ALL), SNRLIST(MXEPOCH)
+     &   ,Tobs, Trest, MJD, PEAKMJD, z1, SNRSUM
      &   ,MAGVAL, MAGERR, PROB_MAGDIF(2)
 
       REAL*8 
@@ -13009,10 +13018,11 @@ c loop over epochs used in fit: rejected epochs are excluded here.
           NTLIST    = NTLIST + 1 
           TLIST(NTLIST) = Trest  
           FLIST(NTLIST) = I4EP_ALL(iep,IEP_IFILT_OBS)
+          SNRLIST       = SNLC_FLUXCAL(iep)/SNLC_FLUXCAL_ERRTOT(iep)
 100   CONTINUE 
 
       CALL GET_TRESTVAR (
-     &        NTLIST, TLIST, FLIST              ! (I) Trest & IFILT arrays
+     &        NTLIST, TLIST, FLIST, SNRLIST     ! (I) Trest & IFILT arrays
      &       ,FITANA_CUTWIN_TREST               ! (I) user cutwin
      &       ,FITANA_CUTWIN_TRESTMIN            ! (I) idem 
      &       ,FITANA_CUTWIN_TRESTMAX            ! (I) idem
@@ -13022,7 +13032,8 @@ c loop over epochs used in fit: rejected epochs are excluded here.
      &       ,NFILT_TRESTMIN_FIT                ! (O)
      &       ,NFILT_TRESTMAX_FIT                ! (O)
      &       ,NFILT_TREST2_FIT                  ! (O)
-     &       ,TGAPMAX_FIT, T0GAPMAX_FIT )       ! (O) 
+     &       ,TGAPMAX_FIT, T0GAPMAX_FIT         ! (O) 
+     &       ,SNRSUM     )                      ! (O)
 
       TRESTRANGE_FIT = TRESTMAX_FIT - TRESTMIN_FIT
       TOBSMIN_FIT = TRESTMIN_FIT * z1

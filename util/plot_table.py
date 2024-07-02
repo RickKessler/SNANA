@@ -10,6 +10,7 @@
 #   + @@HELP to call print_help(); shorten strings in python help
 #   + @@TITLE
 #   - @@LEGEND
+#   - @@OPT 'CHI2 OPT2 OPT3 ...'
 #   - write underflow/overflow stats
 #   - mask of stat info to display on plot
 #
@@ -32,7 +33,6 @@ import distutils.util
 
 BOUNDS_AUTO    = "AUTO"  # indicates default axis bounds for plot
 
-
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=' ]  # for @@CUT
 
@@ -40,6 +40,8 @@ DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=' ]  # for @@CUT
 STR_df         = 'df.'
 STR_df_loc     = 'df.loc'
 STR_np         = 'np.'
+
+OPT_CHI2 = "CHI2"
 
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
@@ -160,39 +162,50 @@ def setup_logging():
 
 def get_args():
 
+    msg = "required: Name of TABLE file or space delineated list of " \
+          "different TABLE files. If >1 TFILE, plots are overlaid"
+    parser.add_argument('@@TFILE', help=msg, nargs="+")
     
-    parser.add_argument('@@TFILE', help="required: Name of TABLE file or space delineated list of different TABLE files. If >1 TFILE, plots are overlaid", nargs="+")
+    msg = "required: Variable(s) to plot from table file, or function of variables.\n" \
+          "One variable results in 1D histogram. Two colon delimited variables, " \
+          "such as zHD:mB, plots mB (y) vs zHD (x). " \
+          "For the histogram, counts are normalised to the first table file."
+    parser.add_argument('@@VARIABLE', help=msg, nargs="+")
     
-    parser.add_argument('@@VARIABLE', help="""required: Variable(s) to plot from table file, or function of variables. \n
-One variable results in 1D histogram. Two colon delimited variables, such as zHD:mB, plots mB (y) vs zHD (x). For the histogram, counts are normalised to the first table file.""", nargs="+")
-    
-    parser.add_argument('@@BOUNDS', default=BOUNDS_AUTO, help=
-"""AUTO (default): optional bounds are maximum and minimum values of specified parameter. \n 
-An example is min:max:binsize . \n
-For 2D plot, must specify both x and y bounds. The binsize for y is ignored. """, nargs = '+')
+    msg = "AUTO (default): optional bounds are min, max and binsize of plot parameters.\n" \
+          "For 2D plot, must specify both x and y bounds. The binsize for y is ignored. "
+    parser.add_argument('@@BOUNDS', default=BOUNDS_AUTO, help=msg, nargs = '+')
 
-    parser.add_argument('@@TITLE',  default=None, help="Override default plot title = arg of @@CUTS")
-    parser.add_argument('@@LEGEND', default=None, 
-                        help="Override default legend on plot (space sep list per TFILE)", 
-                        nargs="+")
-    
-    parser.add_argument('@@SAVE', default='None', help=
-                        "Filename to save plot.  Default does not save plots.")
-    
-    parser.add_argument('@@DIFF', default=None, type=str, help=
-"""Plot the difference in the y-axis between files. Valid options are None, ALL, and CID. \n
-ALL will plot the median difference between the first file and subsequent ones. \n
-CID will plot the per-CID difference.
-""")
-    
-    parser.add_argument('@@ALPHA', default=0.3, type=float, 
-                        help='Alpha value for plot. Set to 0 to see only averages. ALPHA=0 and DIFF=True compares average difference between two files, even if there are no overlapping CIDS.')
+    msg = "Override default plot title = arg of @@CUTS"
+    parser.add_argument('@@TITLE',  default=None, help=msg )
 
-    parser.add_argument("@@CUT", help="cuts with boolean and algegraic operations; see @@HELP:", nargs="+")
+    msg = "Override default legend on plot (space sep list per TFILE)"
+    parser.add_argument('@@LEGEND', default=None, help=msg, nargs="+")
+    
+    msg = "Filename to save plot.  Default: does not save plots."
+    parser.add_argument('@@SAVE', default='None', help=msg )
 
-    parser.add_argument("@@NROWS", help="number of rows to read (for large files)", type=int, default=0)
+    msg = "Plot difference in y-axis between files. Valid options are None, ALL, and CID.\n" \
+          "ALL plots median difference between first file and subsequent ones.\n" \
+          "CID plots per-CID difference."
+    parser.add_argument('@@DIFF', default=None, type=str, help=msg )
+    
+    msg = "Alpha value for plot. Set to 0 to see only averages." \
+          "ALPHA=0 and DIFF=True compares average difference between two files, " \
+          "even if there are no overlapping CIDS."
+    parser.add_argument('@@ALPHA', default=0.3, type=float, help=msg )
 
-    parser.add_argument("@@HELP", help="Full help menu printed to stdout", action="store_true")
+    msg = "cuts with boolean and algegraic operations; see @@HELP"
+    parser.add_argument("@@CUT", help=msg, nargs="+")
+
+    msg = "number of rows to read (for large files)"
+    parser.add_argument("@@NROWS", help=msg, type=int, default=0)
+
+    msg = "options; see @@HELP"
+    parser.add_argument("@@OPT", help=msg, nargs="+")
+
+    msg = "Full help menu printed to stdout"
+    parser.add_argument("@@HELP", help=msg, action="store_true")
 
     args    = parser.parse_args()
     

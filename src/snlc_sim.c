@@ -2793,7 +2793,8 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
   //
   // Jul 21 2020: use keyMatchSim(...) and keySource
 
-  // xxx marl delete   bool FROM_FILE = ( keySource == KEYSOURCE_FILE ) ;
+  int  MXKEY_DNDZ = 3; // Jul 2 2024: increase 2 -> 3
+  
   int  ISNOMINAL = strcmp(WHAT,"NOMINAL") == 0 ;
   int  ISPEC1A   = strcmp(WHAT,"PEC1A"  ) == 0 ;
   char PRIMARY_KEYLIST[10][20], KEYTEST[20] ;
@@ -2824,7 +2825,7 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
   // check for primary key
   for(ikey=0; ikey < NKEY; ikey++ ) {
     sprintf(KEYTEST,"%s", PRIMARY_KEYLIST[ikey] );
-    if ( keyMatchSim(2, KEYTEST, KEYNAME, keySource) ) { FOUND=true; }
+    if ( keyMatchSim(MXKEY_DNDZ, KEYTEST, KEYNAME, keySource) ) { FOUND=true; } 
   } // end ikey
 
   return(FOUND);
@@ -10696,7 +10697,6 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
     flux_sum *= (lamstep/hc8) ;
     *SYNMAG = ZP - 2.5*log10(flux_sum);
-    // xxx    *SYNLAM_WIDTH = lamstep * T_sum / T_max ; // effect lam-width
   }
 
   return ;

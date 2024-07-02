@@ -22433,6 +22433,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + new &SNLCINP SIM_FUDGE_MAG_ERROR, needed for DES-SN5YR release
         because data no longer needs FUDGE_MAG_ERROR.
       + fix logicals to always define SNHOST_COLOR & SNHOST_LOGsSFR
+      + new CUTWIN_SNRSUM = cut window on sqrt[ sum SNR_i^2 ]
       
     SALT2mu.c:
       + add abort trap if SIM_XXX vars are missing from biasCor.
@@ -22486,7 +22487,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        for this many events; initial use is Roman sim optimization.
      + few fixes so that requesting spectra with LCLIB model runs
        with warning that it cannot generate spectra.
-       
+     + allow up to 3 DNDZ keys (see MXKEY_DNDZ); previous limit was 2
+     
    genmag_SALT2.h
        set REFAC_SALT2_COV=T flag to enable x_2 component.
 

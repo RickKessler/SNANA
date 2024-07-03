@@ -564,12 +564,20 @@ def plotter_func(args, plot_info):
     plotdic              = plot_info.plotdic
     plotdic_axis_label   = plot_info.plotdic_axis_label
     boundsdic            = plot_info.boundsdic
+    plotdic              = plot_info.plotdic
     custom_bounds        = plot_info.custom_bounds
     plot_title           = plot_info.plot_title
 
     if custom_bounds:                       
-        bins = np.arange(boundsdic['x'][0], boundsdic['x'][1], boundsdic['x'][2]) 
-        plt.xlim([boundsdic['x'][0], boundsdic['x'][1]])  
+        xmin = boundsdic['x'][0]; xmax = boundsdic['x'][1]
+        xbin = boundsdic['x'][2]
+        bins = np.arange(xmin, xmax, xbin)
+        plt.xlim(xmin, xmax)
+        if len(plotdic) == 2:
+            ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
+            ybin = boundsdic['y'][2]
+            ybins = np.arange(ymin, ymax, ybin) # ignored 
+            plt.ylim(ymin, ymax)
     else:                                   
         bins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
                            boundsdic[max(boundsdic, key=boundsdic.get)], 30)

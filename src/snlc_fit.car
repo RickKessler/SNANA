@@ -1286,6 +1286,7 @@ c This allows using the same FITANA_CUTWIN_XXX array in FITANA
        FITANA_CUTWIN_TRESTMAX(i) = CUTWIN_TRESTMAX(i)
        FITANA_CUTWIN_TGAPMAX(i)  = CUTWIN_TGAPMAX(i)
        FITANA_CUTWIN_T0GAPMAX(i) = CUTWIN_T0GAPMAX(i)
+       FITANA_CUTWIN_SNRSUM(i)   = CUTWIN_SNRSUM(i)
       ENDDO
 c -------
 c Default is rest-frame model; override below for obs-frame
@@ -3396,7 +3397,7 @@ c local var
       REAL
      &   CUTWIN_SNANA(2)
      &  ,TLIST(MXEPOCH), SNRLIST(MXEPOCH)
-     &  ,Z4, FITPROB, F, FERR, SNRSUM
+     &  ,Z4, FITPROB, F, FERR
 
       INTEGER 
      &   IFILT, IFILT_OBS, N, NFILT_CUT, NFILT
@@ -3696,7 +3697,7 @@ c get Nfilt passing Trestmin & Trestmax cuts.
      &       ,NFILT_TRESTMAX_FIT            ! (O)
      &       ,NFILT_TREST2_FIT              ! (O)
      &       ,TGAPMAX_FIT, T0GAPMAX_FIT     ! (O) 
-     &       ,SNRSUM        )               ! (O)
+     &       ,SNRSUM_FIT    )               ! (O)
 
 
         TRESTRANGE_FIT = TRESTMAX_FIT - TRESTMIN_FIT  ! De 18 2017
@@ -3851,7 +3852,7 @@ C ============
       IMPLICIT NONE
 
 c Created Aug 19, 2009
-c Returns either 1+z or  1/(1+z) times Trest
+c Returns either (1+z)*Trest or  1/(1+z) times Trest
 c
 c OPT = 1 : return TRESTzCUT that is smaller than Trest
 c OPT = 2 : return TRESTzCUT that is larger than Trest
@@ -12640,9 +12641,13 @@ c apply GAP cuts
       LTMP = LCUTVAR(T0GAPMAX_FIT, CUTBIT_T0GAPMAX, LVBOSE) 
       IF ( .NOT. LTMP ) LCUTS = .FALSE.
 
+c apply SNRSUM cut, July 2024
+      LTMP = LCUTVAR(SNRSUM_FIT, CUTBIT_SNRSUM, LVBOSE)
+      IF ( .NOT. LTMP ) LCUTS = .FALSE.
+
 c -------------------------------------------------------
 c Check that Trestmin/max are withing FITWIN_TREST,
-c but allow slop of TRESTCUT_EXTEND.
+c but allow slop in TRESTCUT_EXTEND.
 
 c is this redundant with Trestmin[max]_FIT cuts above ??
 c Feb 2014: skip this for photo-z fits.
@@ -12926,23 +12931,7 @@ C ===================================================
       SUBROUTINE FITANA_STORE()
 c
 c store info in  FITVAL_STORE and FITERR_STORE arrays.
-c These arrays are used for generic plotting in HFFITRES.
-c
-c Jul 24, 2009: move fillig of hid=1 to PLOT_FITRES
-c
-c Aug 16, 2009: call GET_TRESTVAR to re-evaluate Trest-related variables.
-c
-c Aug 22, 2009: fix delmu calc to use Zspec for photoz fits & to use
-c               DLMAG8_REF function
-c
-c Aug 25, 2009: fix DELMU for SALT2: convert x0 into MU
-c Aug 12, 2010: use mB to compute MU for SALT2 
-c                 (instead of 30-2.5log10(x0))
-c
-c Dec 02, 2011: fill SNRMAX_SORT_FIT to get sorted SNRMAX among fitted filters
-c Feb 11, 2012: fill FITRESTMAG arrays
-c
-c Dec 21, 2012: fix NaN computing DELMU when REDSHIFT = -9
+c These arrays are used for FITRES table output.
 c
 c Feb 20 2017: refactor using new calls to SET_FITANA_STORE;
 c              accomodates SNTABLE_FILTER_REMAP option.
@@ -12968,7 +12957,7 @@ c local var
 
       REAL 
      &    TLIST(MXEPOCH), XEPOCH_FIT(MXFILT_ALL), SNRLIST(MXEPOCH)
-     &   ,Tobs, Trest, MJD, PEAKMJD, z1, SNRSUM
+     &   ,Tobs, Trest, MJD, PEAKMJD, z1
      &   ,MAGVAL, MAGERR, PROB_MAGDIF(2)
 
       REAL*8 
@@ -13033,7 +13022,7 @@ c loop over epochs used in fit: rejected epochs are excluded here.
      &       ,NFILT_TRESTMAX_FIT                ! (O)
      &       ,NFILT_TREST2_FIT                  ! (O)
      &       ,TGAPMAX_FIT, T0GAPMAX_FIT         ! (O) 
-     &       ,SNRSUM     )                      ! (O)
+     &       ,SNRSUM_FIT   )                    ! (O)
 
       TRESTRANGE_FIT = TRESTMAX_FIT - TRESTMIN_FIT
       TOBSMIN_FIT = TRESTMIN_FIT * z1

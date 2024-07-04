@@ -2564,10 +2564,12 @@ c ------ define FITANA_CUTWIN_XXX that depend on spec-vs-photoz fit
      &  ,FITANA_CUTWIN_TREST2(2)
      &  ,FITANA_CUTWIN_TGAPMAX(2)
      &  ,FITANA_CUTWIN_T0GAPMAX(2)
+     &  ,FITANA_CUTWIN_SNRSUM(2)     ! Jul 2024
 c ------ SNLC_XXX -> XXX_FIT re-evaluated after final fit
      &  ,TRESTMIN_FIT, TRESTMAX_FIT, TRESTRANGE_FIT
      &  ,TOBSMIN_FIT,  TOBSMAX_FIT
      &  ,TGAPMAX_FIT,  T0GAPMAX_FIT
+     &  ,SNRSUM_FIT
      &  ,SNRMAX_FILT_FIT(MXFILT_OBS)      ! sparse ordering
      &  ,SNRMAX_SORT_FIT(MXFILT_OBS)
 
@@ -2618,10 +2620,11 @@ c
      &  ,FITANA_CUTWIN_TREST
      &  ,FITANA_CUTWIN_TRESTMIN, FITANA_CUTWIN_TRESTMAX
      &  ,FITANA_CUTWIN_TREST2
-     &  ,FITANA_CUTWIN_TGAPMAX,  FITANA_CUTWIN_T0GAPMAX
+     &  ,FITANA_CUTWIN_TGAPMAX,  FITANA_CUTWIN_T0GAPMAX     
      &  ,TRESTMIN_FIT, TRESTMAX_FIT, TRESTRANGE_FIT
      &  ,TobsMIN_FIT, TobsMAX_FIT, TGAPMAX_FIT, T0GAPMAX_FIT
      &  ,SNRMAX_FILT_FIT, SNRMAX_SORT_FIT
+     &  ,FITANA_CUTWIN_SNRSUM, SNRSUM_FIT
      &  ,NFILT_TRESTMIN_FIT,NFILT_TRESTMAX_FIT,NFILT_TREST2_FIT
      &  ,NFILT_SNRMAX_FIT,   NFILT_SNRMAX2_FIT
      &  ,LREPEAT_ITER, LREPEAT_MINOS,  MNSTAT_COV
@@ -24324,7 +24327,7 @@ c snana variables with no fitting.
 
          VARLIST = 'SNRSUM:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRSUM,
-     &                VARLIST,0,   LENBLOCK, 20 ) ! .xyz
+     &                VARLIST,1,   LENBLOCK, 20 ) ! .xyz
 
 c ----------
 c Below are SNANA variables for which the FIT analog is not

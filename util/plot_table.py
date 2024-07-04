@@ -5,14 +5,6 @@
 # Refactor to have __main__, and add translate_VARIABLE and tranlate_CUT
 # methods to automatically append data commands to simplified user input.
 # 
-# TO DO:
-#   + allow for numpy (np.) commands
-#   + @@HELP to call print_help(); shorten strings in python help
-#   + @@TITLE
-#   - @@LEGEND
-#   - @@OPT 'CHI2 OPT2 OPT3 ...'
-#   - write underflow/overflow stats
-#   - mask of stat info to display on plot
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math
@@ -41,7 +33,10 @@ STR_df         = 'df.'
 STR_df_loc     = 'df.loc'
 STR_np         = 'np.'
 
-OPT_CHI2 = "CHI2"
+# define strings for @@OPT
+OPT_CHI2      = "CHI2"
+OPT_NOMEDIAN  = "NOMEDIAN"
+OPT_DIAG_LINE = "DIAG_LINE"
 
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
@@ -53,7 +48,7 @@ DEBUG_TRANSLATE = False
 def print_help():
 
     help_string = \
-"""
+f"""
 This plot unility works on 
   * FITRES table files create by light curve fitting code (snlc_fit.exe) and BBC (SALT2mu.exe)
   * M0DIF files from BBC
@@ -129,9 +124,14 @@ notation; e.g,
       or
    @@CUT "df.loc[(df.zHD > 0.2) &  (df.zHDERR<.1) & (df.SNRMAX1 < 100) & (df.FIELD=='C3')]"
 
-Finally, @@ALPHA adjusts the matplot alpha values to adjust transparency 
+@@ALPHA adjusts the matplot alpha values to adjust transparency 
 (0=transparent, 1=solid)
 
+  @@OPT   {OPT_CHI2}  {OPT_NOMEDIAN}  {OPT_DIAG_LINE}
+    where
+      {OPT_CHI2:<12} ==> show chi2/dof on plot for two table files
+      {OPT_NOMEDIAN:<12} ==> disable median for 2D plot
+      {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
 
 Examples:
 
@@ -559,7 +559,12 @@ def plotter_func(args, plot_info):
     CUT       = args.CUT
     CUT_ORIG  = args.CUT_ORIG
     ALPHA     = args.ALPHA
+    OPT       = args.OPT
 
+    do_chi2      = OPT_CHI2 in OPT
+    do_median    = OPT_NOMEDIAN not in OPT
+    do_diag_line = OPT_DIAG_LINE in OPT
+    
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
     plotdic_axis_label   = plot_info.plotdic_axis_label
@@ -620,7 +625,7 @@ def plotter_func(args, plot_info):
             do_ovsim    = False  # overlay sim
             chi2red     = 0.0
 
-            if n > 0 and OPT_CHI2 in args.OPT:
+            if n > 0 and do_chi2:
                 # prepare for sim overlay with histogram
                 do_errorbar = False; do_ovsim = True 
 
@@ -683,15 +688,21 @@ def plotter_func(args, plot_info):
                 avgdiff = binned_statistic(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values, bins=bins, statistic='median')[0]                                     
                 plt.scatter((bins[1:] + bins[:-1])/2, avgdiff, label="Mean Difference", color='k')
             elif (DIFF == 'ALL'):
+                text_label = df_ref.name.values[0]+ " - " + df.name.values[0]
                 try:
                     plt.scatter(df_ref.x_plot_val, df_ref.y_plot_val - df.y_plot_val, 
-                                label=df_ref.name.values[0]+" - "+df.name.values[0], alpha=ALPHA)
+                                label=text_label, alpha=ALPHA)
                 except ValueError:
                     pass
-                median_ref = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val, bins=bins, statistic='median')[0]
-                median = binned_statistic(df.x_plot_val, df.y_plot_val, bins=bins, statistic='median')[0]
-                plt.scatter((bins[1:] + bins[:-1])/2., median_ref - median, 
-                            label=df_ref.name.values[0]+" - "+k.name.values[0]+" median", marker="^", zorder=10)
+
+                if do_median:
+                    median_ref = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                                  bins=bins, statistic='median')[0]
+                    median = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                              bins=bins, statistic='median')[0]
+                    plt.scatter((bins[1:] + bins[:-1])/2., median_ref - median, 
+                                label=text_label+" median", marker="^", zorder=10)
+                    
             else:  
                 sys.exit(f"\n ERROR: {str(DIFF)} is not a valid DIFF option -> ABORT.")         
 
@@ -712,10 +723,16 @@ def plotter_func(args, plot_info):
             plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=name_legend, zorder=0)
 
             # overlay information on plot
-            median = binned_statistic(df.x_plot_val, df.y_plot_val, bins=bins, statistic='median')[0] 
-            plt.scatter((bins[1:] + bins[:-1])/2., median, label= name_legend+" median",
-                        marker="^", zorder=10)
-            
+            if do_median:
+                median = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                          bins=bins, statistic='median')[0] 
+                plt.scatter((bins[1:] + bins[:-1])/2., median, label= name_legend+" median",
+                            marker="^", zorder=10)
+
+            if do_diag_line:
+                x = np.linspace(xmin,xmax,100);  y = x
+                plt.plot(x,y)
+                   
         plt.xlabel(plotdic_axis_label['x'])                    
         plt.ylabel(plotdic_axis_label['y'])                    
         plt.legend()                                

@@ -170,7 +170,7 @@ def get_args():
           "One variable results in 1D histogram. Two colon delimited variables, " \
           "such as zHD:mB, plots mB (y) vs zHD (x). " \
           "For the histogram, counts are normalised to the first table file."
-    parser.add_argument('@@VARIABLE', help=msg, nargs="+")
+    parser.add_argument('@V', '@@VARIABLE', help=msg, nargs="+")
     
     msg = "AUTO (default): optional bounds are min, max and binsize of plot parameters.\n" \
           "For 2D plot, must specify both x and y bounds. The binsize for y is ignored. "
@@ -202,10 +202,10 @@ def get_args():
     parser.add_argument("@@NROWS", help=msg, type=int, default=0)
 
     msg = "options; see @@HELP"
-    parser.add_argument("@@OPT", help=msg, nargs="+")
+    parser.add_argument("@@OPT", help=msg, nargs="+", default = [])
 
     msg = "Full help menu printed to stdout"
-    parser.add_argument("@@HELP", help=msg, action="store_true")
+    parser.add_argument("@H", "@@HELP", help=msg, action="store_true")
 
     args    = parser.parse_args()
     
@@ -581,6 +581,7 @@ def plotter_func(args, plot_info):
     else:                                   
         bins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
                            boundsdic[max(boundsdic, key=boundsdic.get)], 30)
+        xmin = bins[0];  xmax = bins[-1]
 
 
     msg = f"The min & max x-axis bounds are: " \
@@ -597,13 +598,15 @@ def plotter_func(args, plot_info):
             name_legend = df_dict['name_legend']        
 
             # get counts sb
-            sb = binned_statistic(df.x_plot_val, df.x_plot_val, bins=bins, statistic='count')[0]
+            sb = binned_statistic(df.x_plot_val, df.x_plot_val, 
+                                  bins=bins, statistic='count')[0]
             errl,erru = poisson_interval(sb) # And error for those counts
-            nevt = np.sum(sb)                # number of events before normalization
+            nevt = np.sum(sb)                # nevt before normalization
             
             if n == 0 :
                 sb0 = copy.deepcopy(sb)  # preserve 1st file contents to normalize other files
                 logging.info(f"Plot {name_legend}")
+                name0_legend = name_legend
             else:
                 scale = np.sum(sb0) / np.sum(sb)
                 sb   *= scale # normalize integral to match file 0 
@@ -611,15 +614,33 @@ def plotter_func(args, plot_info):
                 erru *= scale
                 logging.info(f"Overlay {name_legend} scaled by {scale:.3e}")
 
-            
-            plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
-                         yerr=[sb-errl, erru-sb], fmt='o')                 
+            # determine plot style: 
+            # default is solid-filled circles with error bars
+            do_errorbar = True 
+            do_ovsim    = False  # overlay sim
+            chi2red     = 0.0
+
+            if n > 0 and OPT_CHI2 in args.OPT:
+                # prepare for sim overlay with histogram
+                do_errorbar = False; do_ovsim = True 
+
+            if do_errorbar :
+                plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
+                             yerr=[sb-errl, erru-sb], fmt='o')  
+            elif do_ovsim :
+                x_val = df.x_plot_val
+                wgt   = [ scale ] * len(x_val)
+                plt.hist(x_val, bins, alpha=0.25, weights = wgt, 
+                         label=name_legend)
+            else:
+                sys.exit(f"\n ERROR: cannot determine which plot type: " \
+                         f"errorbar or hist")
 
             stat_dict = {
-                'nevt'   : nevt,
-                'mean'   : np.mean(df.x_plot_val),
-                'median' : np.median(df.x_plot_val),
-                'stdev'  : np.std(df.x_plot_val)
+                'nevt'    : nevt,
+                'mean'    : np.mean(df.x_plot_val),
+                'median'  : np.median(df.x_plot_val),
+                'stdev'   : np.std(df.x_plot_val),
                 # overflow/underflow ??
             }
             for str_stat, val_stat in stat_dict.items():
@@ -628,7 +649,19 @@ def plotter_func(args, plot_info):
         plt.xlabel(plotdic_axis_label['x'])
         plt.legend()                     
         plt.title(plot_title)
-            
+
+        # check option to compute and print chi2/dof info on plot
+        if do_ovsim :
+            sqdif = (sb0-sb)**2
+            sqerr = np.maximum((sb0+sb*scale*scale), 1.0)
+            chi2  = np.sum( sqdif / sqerr )
+            ndof  = len(bins) - 1 
+            text_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
+            logging.info(f"{name0_legend}/{name_legend} {text_chi2}") 
+            x_text = xmin + 0.7*(xmax-xmin)
+            y_text = 1.0 * np.max(sb0)  # warning; fragile coord calc
+            plt.text(x_text, y_text, text_chi2 )
+
     elif (DIFF == 'CID') or (DIFF == 'ALL'):
         # 2D plot of difference between two files
         logging.info("plotting DIFF between two files.")

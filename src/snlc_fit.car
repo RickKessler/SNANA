@@ -3397,7 +3397,7 @@ c local var
       REAL
      &   CUTWIN_SNANA(2)
      &  ,TLIST(MXEPOCH), SNRLIST(MXEPOCH)
-     &  ,Z4, FITPROB, F, FERR
+     &  ,Z4, FITPROB, SNR
 
       INTEGER 
      &   IFILT, IFILT_OBS, N, NFILT_CUT, NFILT
@@ -3662,18 +3662,13 @@ c tighter (final) cuts.
           if ( PHOTOZ_DROPFILTER(ifilt_obs) ) GOTO 200
 
           MJD           = SNLC8_MJD(iep) - MJDOFF 
+	  SNR           = SNLC_SNR(iep)
+
           Trest         = (MJD - PEAKMJD) / z1
           NTLIST        = NTLIST + 1 
           TLIST(NTLIST) = Trest  
           FLIST(NTLIST) = ifilt_obs
-       
-          F               = SNLC_FLUXCAL(iep)
-          FERR            = SNLC_FLUXCAL_ERRTOT(iep)
-          if ( F > 0.0 .and. FERR > 0.0 ) then
-              SNRLIST(NTLIST) = F/FERR
-          else
-              SNRLIST(NTLIST) = 0.0
-          endif
+          SNRLIST(NTLIST) = SNR
 
 200     CONTINUE 
 
@@ -13007,7 +13002,7 @@ c loop over epochs used in fit: rejected epochs are excluded here.
           NTLIST    = NTLIST + 1 
           TLIST(NTLIST) = Trest  
           FLIST(NTLIST) = I4EP_ALL(iep,IEP_IFILT_OBS)
-          SNRLIST       = SNLC_FLUXCAL(iep)/SNLC_FLUXCAL_ERRTOT(iep)
+          SNRLIST(NTLIST) = SNLC_SNR(iep)
 100   CONTINUE 
 
       CALL GET_TRESTVAR (

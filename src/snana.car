@@ -885,7 +885,7 @@ c
      &  ,SNLC_PSF_RATIO(MXEPOCH)
      &  ,SNLC_PSF_FWHM_ARCSEC(MXEPOCH) 
      &  ,SNLC_PSF_NEA(MXEPOCH)     ! Noise-equivalent area (pixels)
-     &  ,SNLC_FLUX_NSIG(MXEPOCH)   ! significance
+     &  ,SNLC_SNR(MXEPOCH)         ! SNR
      &  ,SNLC_FLUXCAL_OFF(MXFILT_OBS)    ! add SN light from template
      &  ,SNLC_FLUXCAL_ERRCALC(MXEPOCH)   ! calc a-la simulation
      &  ,SNLC_FLUXCAL_HOSTERRCALC(MXEPOCH)   ! idem for host error
@@ -964,7 +964,7 @@ c
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
      &    ,SNLC_PSF_NEA, SNLC_PSF_FWHM_ARCSEC
 c
-     &    ,SNLC_FLUX_NSIG, SNLC_FLUXCAL_OFF
+     &    ,SNLC_SNR, SNLC_FLUXCAL_OFF
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
      &    ,SNLC_FLUXCAL_HOSTERRCALC
      &    ,SNLC_FLUXCAL, SNLC_FLUXCAL_ERRTOT
@@ -15884,7 +15884,7 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         SNLC_GAIN(iep)       = 0.0
         SNLC_RDNOISE(iep)    = 0.0
 
-        SNLC_FLUX_NSIG(iep)       =  0.0
+        SNLC_SNR(iep)             =  0.0
         SNLC_FLUXCAL_ERRCALC(iep) =  0.0
         SNLC_FLUXCAL_ERRTEST(iep) = -9.0
         SNLC_FLUXCAL_HOSTERRCALC(iep) = 0.0 
@@ -17941,7 +17941,7 @@ c ----------------
 c signal is accepted if it passes S/noise cut,
 c or it is within the Trest window.
 
-          SNLC_FLUX_NSIG(ep) = Xnsig
+          SNLC_SNR(ep) = Xnsig
 
 c check how many obs are in the INCLUDE_MJD window (Aug 2015)
           LINCMJD = MJD8 .GE. CUTWIN_MJD_INCLUDE(1) .and. 
@@ -21266,7 +21266,7 @@ c construct T0GAP-window from other cuts
          ENDIF
 
          IF ( LTMP ) THEN
-           SQSNRSUM = SQSNRSUM + SNR*SNR
+           SQSNRSUM = SQSNRSUM + (SNR*SNR)
          ENDIF
 	 
          Tmin = MIN ( Tmin, Trest )
@@ -21473,7 +21473,7 @@ c local var
  
       REAL  TMP, Tmin, Tmax, ZZ, TGAPMAX, T0GAPMAX
       REAL  TLIST(MXEPOCH), SNRLIST(MXEPOCH)
-      REAL  TREST, TRUEMAG, PHOTPROB, F, FERR, SNRSUM
+      REAL  TREST, TRUEMAG, PHOTPROB, SNRSUM
 
 c functions
       LOGICAL MJDSELECT, LCIDSELECT
@@ -21679,17 +21679,10 @@ c first build TLIST array for epochs that pass MJDSELECT()
          EPMAX     = ISNLC_EPOCH_RANGE_NEWMJD(2,imjd)
          DO EP     = EPMIN, EPMAX
            NTLIST  = NTLIST + 1
-           TLIST(NTLIST) = SNLC_Trest(EP)  
-           FLIST(NTLIST) = ISNLC_IFILT_OBS(EP)
-
-           F     = SNLC_FLUXCAL(EP)
-	   FERR  = SNLC_FLUXCAL_ERRTOT(EP)
-	   if ( F > 0.0 .and. FERR > 0.0 ) then
-    	      SNRLIST(NTLIST) = F/FERR
-	   else
-	      SNRLIST(NTLIST) = 0.0
-	   endif
-
+           TLIST(NTLIST)   = SNLC_Trest(EP)  
+           FLIST(NTLIST)   = ISNLC_IFILT_OBS(EP)
+           SNRLIST(NTLIST) = SNLC_SNR(EP)
+	   
          ENDDO
 444    CONTINUE
 
@@ -24328,7 +24321,6 @@ c snana variables with no fitting.
          VARLIST = 'SNRSUM:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRSUM,
      &                VARLIST,1,   LENBLOCK, 20 ) ! .xyz
-
 c ----------
 c Below are SNANA variables for which the FIT analog is not
 c available here -> book FIT-analogs in snlc_fit.car
@@ -24375,6 +24367,10 @@ c variables re-evaluated after fit
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
      &                 VARLIST,1,  LENBLOCK, 40 )
+
+         VARLIST = 'SNRSUM:F' // char(0)
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRSUM_FIT,
+     &                VARLIST,1,   LENBLOCK, 20 ) 
 
       ENDIF
 

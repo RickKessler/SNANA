@@ -86,6 +86,8 @@
 #define  INDEX_RATEMODEL_TDE      9  // Tidal disrupt event (was EPM)
 #define  INDEX_RATEMODEL_BPOLY    10  // relRate vs. GalLat
 #define  INDEX_RATEMODEL_COSBPOLY 11  // relRate vs. cos(GalLat)
+#define  INDEX_RATEMODEL_FILE     12  // Volumetric rate vs. z read from table in file
+
 #define  MXPOLY_GALRATE            5   // 5th order poly for BPOLY or COSB
 
 #define  MXRATEPAR_ZRANGE  9    // max number of z-ranges for rate model
@@ -301,8 +303,8 @@ typedef struct {  // RATEPAR_DEF
   
   // rate model pars: A&B or R0&beta, zpoly ...
   int    NMODEL_ZRANGE;     // number of rate models glued together
-  double MODEL_PARLIST[MXRATEPAR_ZRANGE+1][20];
-  double MODEL_ZRANGE[MXRATEPAR_ZRANGE+1][2];  // z-range of rate model
+  double MODEL_PARLIST[MXRATEPAR_ZRANGE][20];
+  double MODEL_ZRANGE[MXRATEPAR_ZRANGE][2];  // z-range of rate model
   GENPOLY_DEF MODEL_ZPOLY;  // some models are polynom functions of z
   GENPOLY_DEF MODEL_BPOLY;  // rate vs. Galact b or cosb (LCLIB model)
   int    INDEX_MODEL ;  //

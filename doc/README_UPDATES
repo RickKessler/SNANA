@@ -22506,4 +22506,21 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         which events are zSPEC vs. zPHOT. Search "PRIOR_PHOTOZ[_ERR]"
       + use STDOUT_UPDATE logical to reduce more output
 
+
+# =============================================================
+         v11_05o (July 5 2024) <-- start date
+
+         *****  IMPORTANT(v11_05o) *****
+
+	
+         *****  USEFUL(v11_05o) *****
+
+     
+         *****  MISCELLANEOUS(v11_05o) *****
+
+   snlc_sim.c
+      + make sure that command-line DNDZ_FILE erases previous DNDZ keys in sim-input.
+      + adjust RATEPAR.MODEL_ZRANGE[iz] and RATEPAR.MODEL_PARLIST[iz] usage so that
+         index starts at 0 (not 1).
+      
 END: 

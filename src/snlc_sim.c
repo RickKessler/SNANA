@@ -2558,7 +2558,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
   bool FOUND_PRIMARY_KEY, CONTINUE ;
-  int  N=0, m, n, j, NLOCAL, nread, NMODEL_LIST, N_MODELPAR ;
+  int  N=0, m, n, j, iz_tmp, nread, NMODEL_LIST, N_MODELPAR ;
   int  MEMC = 100*sizeof(char);
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
   char KEYNAME[40], TMPNAME[60] ;
@@ -2577,12 +2577,17 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   // May 2024
   // for command line override of rate model, make sure to remove
   // all previous DNDZ models. XXX doesn't quite work ?!?!?!
-  if ( IS_NOMINAL && keySource == KEYSOURCE_ARG && strcmp(KEYNAME,"DNDZ")==0 )  {
+  bool IS_OVERRIDE   = (keySource == KEYSOURCE_ARG); // is command line override
+  bool IS_DNDZ       = (strcmp(KEYNAME,"DNDZ") == 0) || (strcmp(KEYNAME,"DNDZ:") == 0);
+  bool IS_DNDZ_FILE  = strstr(KEYNAME,"DNDZ_FILE") != NULL ; // allow optional colon
+  if ( IS_NOMINAL && IS_OVERRIDE && (IS_DNDZ || IS_DNDZ_FILE) ) {
     RATEPAR->NAME[0]         = 0 ;
     RATEPAR->NMODEL_ZRANGE   = 0 ;
     README_KEYPLUSARGS_purge(&README_KEYS_RATEMODEL, "DNDZ:");
   } 
 
+  //  printf(" xxx %s: IS_NOM=%d   KEYNAME = %s  IS_DNDZ_FILE=%d\n",
+  //	 fnam, IS_NOMINAL, KEYNAME, IS_DNDZ_FILE ); fflush(stdout);
   
   // check a few misc keys
   if ( IS_NOMINAL ) {
@@ -2664,26 +2669,26 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 	RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_AB ;
 	RATEPAR->NMODEL_ZRANGE = 1 ; 
 	N_MODELPAR = 2;
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][1] ); 
+	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[0][0] ); 
+	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[0][1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      NLOCAL = RATEPAR->NMODEL_ZRANGE ;
+      iz_tmp = RATEPAR->NMODEL_ZRANGE - 1 ;
       N_MODELPAR = 2;
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[iz_tmp][0] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[iz_tmp][1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW2") == 0 ) {
       RATEPAR->NMODEL_ZRANGE++ ;
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW2 ;
-      NLOCAL = RATEPAR->NMODEL_ZRANGE ;
+      iz_tmp = RATEPAR->NMODEL_ZRANGE - 1 ;
       N_MODELPAR = 4 ;
-      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
-      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
-      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][0] ); 
-      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][1] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[iz_tmp][0] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[iz_tmp][1] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[iz_tmp][0] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[iz_tmp][1] ); 
       if(nread!=1) { abort_bad_input(KEYNAME, WORDS[N], 3, fnam); }
     }
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_CCS15) != NULL ) {
@@ -2691,14 +2696,14 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_CCS15); // strip off name only
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_CCS15 ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      RATEPAR->MODEL_PARLIST[1][0] = TMPVAL; // rate-scale
+      RATEPAR->MODEL_PARLIST[0][0] = TMPVAL; // rate-scale
     }
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_PISN) != NULL ) {
       parse_multiplier(RATEPAR->NAME,RATEMODELNAME_PISN, &TMPVAL);
       sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_PISN); // strip off name only
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_PISN ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      RATEPAR->MODEL_PARLIST[1][0] = TMPVAL; // rate-scale
+      RATEPAR->MODEL_PARLIST[0][0] = TMPVAL; // rate-scale
       
     }
     else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_TDE) == 0 ) {
@@ -2706,14 +2711,14 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->NMODEL_ZRANGE = 1 ;
       // read rate at z=0
       N_MODELPAR = 1;
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[0][0] ); 
     }
     else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_MD14) == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_MD14 ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
       // read rate at z=0
       N_MODELPAR = 1;
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[0][0] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_ZPOLY ;
@@ -2726,10 +2731,11 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       // Jun 20 2016: set powerlaw model with alpha=0 to avoid abort later
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      RATEPAR->MODEL_PARLIST[1][0] =  1.0 ; // crazy rate per Mpc^3 per year  
-      RATEPAR->MODEL_PARLIST[1][1] =  0.0 ; // alpha for (1+z)^alpha 
-      RATEPAR->MODEL_ZRANGE[1][0]  =  0.0 ;  // Zmin
-      RATEPAR->MODEL_ZRANGE[1][1]  =  ZMAX_SNANA ;  // Zmax
+      iz_tmp = 0 ;
+      RATEPAR->MODEL_PARLIST[iz_tmp][0] =  1.0 ; // crazy rate per Mpc^3 per year  
+      RATEPAR->MODEL_PARLIST[iz_tmp][1] =  0.0 ; // alpha for (1+z)^alpha 
+      RATEPAR->MODEL_ZRANGE[iz_tmp][0]  =  0.0 ;  // Zmin
+      RATEPAR->MODEL_ZRANGE[iz_tmp][1]  =  ZMAX_SNANA ;  // Zmax
     }
     else if ( strcmp(RATEPAR->NAME,"FLAT") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_FLAT ;
@@ -2762,10 +2768,16 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       }
 
     }
-    else if ( strcmp(KEYNAME,"DNDZ_FILE:") == 0 ) {
+    // else if ( strcmp(KEYNAME,"DNDZ_FILE:") == 0 ) {
+    else if ( IS_DNDZ_FILE ) {
+      printf(" xxx %s SNrate based on file %s \n", fnam, TMPNAME); fflush(stdout);
+      RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_FILE ;
       sprintf(RATEPAR->DNDZ_FILE, "%s", TMPNAME );
       read_DNDZ_rate(RATEPAR);
       RATEPAR->NMODEL_ZRANGE = 1 ;
+      iz_tmp = 0 ;
+      RATEPAR->MODEL_ZRANGE[iz_tmp][0]  =  0.0 ;         // Zmin
+      RATEPAR->MODEL_ZRANGE[iz_tmp][1]  =  ZMAX_SNANA ;  // Zmax      
     }
     else {
       sprintf(c1err,"'%s %s' is invalid", KEYNAME, RATEPAR->NAME );
@@ -8506,12 +8518,12 @@ void init_DNDZ_Rate(void) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
 		 " A+B RATE MODEL: A(delayed) = %7.2e    B(prompt) = %7.2e", 
-		 INPUTS.RATEPAR.MODEL_PARLIST[1][0], 
-		 INPUTS.RATEPAR.MODEL_PARLIST[1][1] );
+		 INPUTS.RATEPAR.MODEL_PARLIST[0][0], 
+		 INPUTS.RATEPAR.MODEL_PARLIST[0][1] );
   }
   else if ( IMODEL_PLAW || IMODEL_PLAW2 ) {
     DNDZFLAG = 1;
-    for ( iz=1; iz <= INPUTS.RATEPAR.NMODEL_ZRANGE; iz++ ) {
+    for ( iz=0; iz < INPUTS.RATEPAR.NMODEL_ZRANGE; iz++ ) {
       sprintf(ctmp,"%7.2e*(1+z)^%4.2f",
 	      INPUTS.RATEPAR.MODEL_PARLIST[iz][0], 
 	      INPUTS.RATEPAR.MODEL_PARLIST[iz][1] );
@@ -8545,7 +8557,7 @@ void init_DNDZ_Rate(void) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
 		 " dN/dz from %4.2f x Strolger15(CANDELS): ", 
-		 INPUTS.RATEPAR.MODEL_PARLIST[1][0] );
+		 INPUTS.RATEPAR.MODEL_PARLIST[0][0] );
   }
   else if ( IMODEL_PISN ) {
     DNDZFLAG = 1;
@@ -8561,7 +8573,7 @@ void init_DNDZ_Rate(void) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
 		 " dN/dz = SFR(MD14,rV=%9.2le):  ", 
-		 INPUTS.RATEPAR.MODEL_PARLIST[1][0] ) ;
+		 INPUTS.RATEPAR.MODEL_PARLIST[0][0] ) ;
     
   }
   else if ( IMODEL_FILE ) {
@@ -8680,7 +8692,7 @@ void init_DNDB_Rate(void) {
   // Dec 18 2021: implement DNDB_SCALE if != 1
 
   int i, j ;
-  double *PARLIST     = INPUTS.RATEPAR.MODEL_PARLIST[1] ;
+  double *PARLIST     = INPUTS.RATEPAR.MODEL_PARLIST[0] ;
   int INDEX_RATEMODEL = INPUTS.RATEPAR.INDEX_MODEL ; 
   char varName[8] = "";
   char fnam[] = "init_DNDB_Rate" ;
@@ -16088,13 +16100,6 @@ void gen_zsmear(double zerr) {
   }
 
 
-  /* xxx mark delete Mar 19 2024 xxxxxx
-  if ( zerr == 0.0 ) { 
-    GENLC.REDSHIFT_HELIO_SMEAR   = GENLC.REDSHIFT_HELIO ;
-    GENLC.REDSHIFT_SMEAR_ERR     = zerr ;
-    goto ZCMB_SMEAR ;
-  }
-  xxxx */
 
   if ( zerr > 0.999 ) {  // user flag to use zPHOT_HOST
     GENLC.REDSHIFT_HELIO_SMEAR   = SNHOSTGAL.ZPHOT ;
@@ -16508,7 +16513,7 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   RATEPAR->NMODEL_ZRANGE  = 0 ;
   RATEPAR->INDEX_MODEL    = 0 ;
 
-  for ( i=0; i <= MXRATEPAR_ZRANGE; i++ ) {
+  for ( i=0; i < MXRATEPAR_ZRANGE; i++ ) {
     RATEPAR->MODEL_PARLIST[i][0]  = 0.0 ;  // rate param 1
     RATEPAR->MODEL_PARLIST[i][1]  = 0.0 ;  // rate param 2
     RATEPAR->MODEL_ZRANGE[i][0]   = 0.0 ;  // Zmin
@@ -16583,7 +16588,7 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
   ***/
 
   double sfr, sfrint, h, H0, OM, OL, w0, wa, z1, rate ;
-  double A, B, k, zmin, zmax, z2,z3,z4,z5, arg ;
+  double k, zmin, zmax, z2,z3,z4,z5, arg, A, B ;
   double MD14parList[8], R0;
   double zero=0.0 ;
   int iz, FOUND_iz, ISPOW ;
@@ -16597,13 +16602,14 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
 
   A = B = rate = 0.0 ;
   FOUND_iz = 0;
-  for ( iz = 1; iz <= RATEPAR->NMODEL_ZRANGE; iz++ ) {
+  
+  for ( iz = 0; iz < RATEPAR->NMODEL_ZRANGE; iz++ ) {
     zmin = RATEPAR->MODEL_ZRANGE[iz][0];
     zmax = RATEPAR->MODEL_ZRANGE[iz][1];
-
+    
     if ( z >= zmin && z < zmax ) {
-      A  = RATEPAR->MODEL_PARLIST[iz][0];
-      B  = RATEPAR->MODEL_PARLIST[iz][1];
+      A  = RATEPAR->MODEL_PARLIST[iz][0];  // strip off 1st rate parameter
+      B  = RATEPAR->MODEL_PARLIST[iz][1];  // strip off 2nd rate par
       FOUND_iz += 1 ;
     }
   }
@@ -16641,14 +16647,14 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     MD14parList[3] = 6.10;   // D
     k=0.0091 ;
     rate  = k * (h*h) * SFRfun_MD14(z,MD14parList);
-    rate *= RATEPAR->MODEL_PARLIST[1][0] ; // user-defined scale
+    rate *= RATEPAR->MODEL_PARLIST[0][0] ; // user-defined scale
   }
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_MD14 ) {
     MD14parList[0] = 0.015;  // A
     MD14parList[1] = 2.90;   // B
     MD14parList[2] = 2.70;   // C
     MD14parList[3] = 5.60;   // D
-    R0   = RATEPAR->MODEL_PARLIST[1][0] ; // user-define rate at z=0
+    R0   = RATEPAR->MODEL_PARLIST[0][0] ; // user-define rate at z=0
     rate = R0 * SFRfun_MD14(z,MD14parList)/SFRfun_MD14(zero,MD14parList);
 
   }
@@ -16658,10 +16664,10 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     z2=z*z; z3=z*z2; z4=z*z3; z5=z*z4; 
     rate = 1.98 + 6.38*z + 6.558*z2 - 4.42*z3 + 0.8312*z4 - 0.0508*z5;
     rate /= 1.0E9;  // convert Gpc^3 to Mpc^3
-    rate *= RATEPAR->MODEL_PARLIST[1][0] ; // user-defined scale (Jun 2022)
+    rate *= RATEPAR->MODEL_PARLIST[0][0] ; // user-defined scale (Jun 2022)
   }
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_TDE ) {
-    R0   = RATEPAR->MODEL_PARLIST[1][0] ; // user-define rate at z=0
+    R0   = RATEPAR->MODEL_PARLIST[0][0] ; // user-define rate at z=0
     arg  = (-0.5*z/0.6) ;
     rate = R0 * pow(10.0,arg);
   }

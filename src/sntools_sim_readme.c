@@ -1610,8 +1610,8 @@ void README_KEYPLUSARGS_purge(README_KEYPLUSARGS_DEF *README_KEYS, char *KEY_PUR
     KEY_TMP = README_KEYS->KEY_LIST[k];
     ARG_TMP = README_KEYS->ARG_LIST[k];
 
-    printf(" xxx %s: KEY_PURGE=%s  KEY_TMP=%s   ARG='%s'\n",
-	   fnam, KEY_PURGE, KEY_TMP, ARG_TMP);
+    //printf(" xxx %s: KEY_PURGE=%s  KEY_TMP=%s   ARG='%s'\n",
+    //	   fnam, KEY_PURGE, KEY_TMP, ARG_TMP);
     
     if ( strcmp(KEY_TMP,KEY_PURGE) == 0 ) {
       KEY_TMP[0] = 0 ;

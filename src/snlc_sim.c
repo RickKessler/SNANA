@@ -2566,8 +2566,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   char fnam[] = "parse_input_RATEPAR" ;
 
   // ------------ BEGIN ------------
-
-
+  
   sprintf(KEYNAME, "%s", WORDS[0] );
   CONTINUE = false ;
   if ( strstr(KEYNAME,"DNDZ") != NULL ) { CONTINUE = true ; }
@@ -2609,6 +2608,10 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[1] ); 
     }
 
+    else if ( keyMatchSim(1, "DNDZ_ALLSCALE", KEYNAME, keySource) ) {
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ALLSCALE ); 
+    }
+    
     // return if any key above was read
     if ( N > 0 ) { return(N); }
   }
@@ -2620,8 +2623,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   /*
   printf(" xxx %s: FOUND=%d  IS_NOM/PEC1A = %d/%d \n",
 	 fnam, FOUND_PRIMARY_KEY,  IS_NOMINAL, IS_PEC1A );
+  
   */
-
+  
   // --------------------
 
   N_MODELPAR = 0; 
@@ -2758,6 +2762,11 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       }
 
     }
+    else if ( strcmp(KEYNAME,"DNDZ_FILE:") == 0 ) {
+      sprintf(RATEPAR->DNDZ_FILE, "%s", TMPNAME );
+      read_DNDZ_rate(RATEPAR);
+      RATEPAR->NMODEL_ZRANGE = 1 ;
+    }
     else {
       sprintf(c1err,"'%s %s' is invalid", KEYNAME, RATEPAR->NAME );
       sprintf(c2err,"Check sim-input file '%s'", 
@@ -2811,6 +2820,7 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
     sprintf(PRIMARY_KEYLIST[NKEY],"DNDZ_NON1A");  NKEY++ ;
     sprintf(PRIMARY_KEYLIST[NKEY],"DNDZ_NONIA");  NKEY++ ;
     sprintf(PRIMARY_KEYLIST[NKEY],"DNDB");        NKEY++ ; // Nov 26 2017
+    sprintf(PRIMARY_KEYLIST[NKEY],"DNDZ_FILE");   NKEY++ ; // July 2024
   }
   else if ( ISPEC1A ) {
     sprintf(PRIMARY_KEYLIST[NKEY],"DNDZ_PEC1A");  NKEY++ ;
@@ -2832,6 +2842,30 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
 
 } // end valid_DNDZ_KEY 
 
+
+// ===================================================
+void  read_DNDZ_rate(RATEPAR_DEF *RATEPAR ) {
+
+  int   ISTAT ;
+  char *ptrFile = RATEPAR->DNDZ_FILE;
+  int  MXROW    = MXRATEPAR_ZRANGE * 100;
+  char fnam[] = "read_DNDZ_rate" ;
+
+  // ----------- BEGIN ------------------
+
+  ISTAT = rd2columnFile(ptrFile, MXROW,
+			&RATEPAR->NBIN_DNDZ_MAP,
+			RATEPAR->CONTENTS_DNDZ_MAP[0],
+			RATEPAR->CONTENTS_DNDZ_MAP[1],  0);
+
+  //  printf(" %s: read rate(z) table (nzbin=%d) from %s\n",
+  //	 fnam, RATEPAR->NBIN_DNDZ_MAP, ptrFile);
+  
+  fflush(stdout);
+  
+  return;
+  
+} // end read_DNDZ_rate
 
 
 
@@ -5913,6 +5947,7 @@ int parse_input_SIMSED_COV(char **WORDS, int keySource) {
 void parse_input_OBSOLETE(char **WORDS, int keySource ) {
 
   // Created July 2020
+  // This is NOT an obsolete function !
   // ABORT on obsolete keys, giving message about correct key to use.
   //
   // Note that abort call is via
@@ -8437,6 +8472,7 @@ void init_DNDZ_Rate(void) {
   char ctmp_z[80], ctmp[100], ctmp_pec1a[80], *NAME;
   int  IMODEL_AB, IMODEL_PLAW, IMODEL_PLAW2, IMODEL_ZPOLY, IMODEL_FLAT ;
   int  IMODEL_CCS15, IMODEL_MD14, IMODEL_PISN, IMODEL_TDE, IMODEL_HUBBLE ;
+  int  IMODEL_FILE;
   int  IFLAG_REWGT_ZEXP, IFLAG_REWGT_ZPOLY ;
   
   // model flags 
@@ -8456,6 +8492,8 @@ void init_DNDZ_Rate(void) {
   IMODEL_TDE  = ( (strcmp(NAME,"EPM")==0) ||
 		  (strcmp(NAME,RATEMODELNAME_TDE) ==0) ) ;
 
+  IMODEL_FILE = ( INPUTS.RATEPAR.NBIN_DNDZ_MAP > 0 ) ;
+  
   // re-wgt flags
   IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0    ) ;
   IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) ;
@@ -8525,6 +8563,12 @@ void init_DNDZ_Rate(void) {
 		 " dN/dz = SFR(MD14,rV=%9.2le):  ", 
 		 INPUTS.RATEPAR.MODEL_PARLIST[1][0] ) ;
     
+  }
+  else if ( IMODEL_FILE ) {
+    DNDZFLAG = 1;
+    i++; sprintf(LINE_RATE_INFO[i],
+		 " dN/dz = rate from %s:  ", 
+		 INPUTS.RATEPAR.DNDZ_FILE ) ;       
   }
   else {
     sprintf(c1err,"Unknown rate model.");
@@ -16307,7 +16351,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       }
       else {
 	w = dVdz (z, &INPUTS.HzFUN_INFO);
-	w /= (1.0+z); 
+	w /= (1.0+z);
 	w *= genz_wgt(z,RATEPAR) ;
       }
 
@@ -16321,7 +16365,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
     if ( RATEPAR->ZGENWGT_MAX == 0.0 ) {
       print_preAbort_banner(fnam);
       printf("\t RATE MODEL = '%s' \n", RATEPAR->NAME );
-      sprintf(c1err,"Max dN/dz*wgt = 0 ?!?!?");
+      sprintf(c1err,"Max dN/dz*wgt = 0   ?!?!?");
       sprintf(c2err,"zmin=%f zmax=%f", zmin, zmax);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
@@ -16405,11 +16449,12 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   char fnam[] = "genz_wgt" ;
 
   // ------ BEGIN ---------
-
+    
   if ( RATEPAR->NMODEL_ZRANGE <= 0 ) { return(0.0); }
 
   w = 1.0 ;
 
+  
   // Jul 2007: check for rate-evolution models
   w *= SNrate_model(z, RATEPAR);  
 
@@ -16450,7 +16495,9 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   RATEPAR->DNDZ_ALLSCALE       = 1.0 ; // Aug 30 2017
   RATEPAR->RATEMAX = 0.0 ;
   RATEPAR->DNDB_SCALE          = 1.0 ; // Dec 2021
-
+  RATEPAR->DNDZ_FILE[0]        = 0 ;   // July 2024
+  RATEPAR->NBIN_DNDZ_MAP       = 0 ;   // July 2024
+  
   init_GENPOLY(&RATEPAR->MODEL_ZPOLY);
   init_GENPOLY(&RATEPAR->MODEL_BPOLY);
 
@@ -16646,6 +16693,14 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_ZPOLY ) {
     rate = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
   }
+  else if ( RATEPAR->NBIN_DNDZ_MAP > 0 ) {
+    int OPT_INTERP=1;
+    rate = interp_1DFUN(OPT_INTERP, z,
+			RATEPAR->NBIN_DNDZ_MAP,
+			RATEPAR->CONTENTS_DNDZ_MAP[0],
+			RATEPAR->CONTENTS_DNDZ_MAP[1], fnam);
+  }
+  
   else {
     sprintf(c1err,"Invalid model: '%s'", cptr);
     sprintf(c2err,"ISPOW = %d, INDEX_MODEL=%d",

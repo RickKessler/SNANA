@@ -290,11 +290,15 @@ typedef struct {  // RATEPAR_DEF
   char   NAME[40] ;           // filled internally
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
-
+  
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
   double DNDZ_ALLSCALE ;      // scale all SN models (Ia, SIMSED, etc ... )
   double DNDB_SCALE ;         // scale rate for galactic models (LCLIB)
 
+  char   DNDZ_FILE[MXPATHLEN]; // optional two col file (z, rate)
+  int    NBIN_DNDZ_MAP;
+  double CONTENTS_DNDZ_MAP[2][MXRATEPAR_ZRANGE*100];  // list of z DNDZ
+  
   // rate model pars: A&B or R0&beta, zpoly ...
   int    NMODEL_ZRANGE;     // number of rate models glued together
   double MODEL_PARLIST[MXRATEPAR_ZRANGE+1][20];
@@ -1942,7 +1946,7 @@ int    parse_input_ATMOSPHERE(char **WORDS, int keySource );
 
 void   parse_input_OBSOLETE(char **WORDS, int keySource );
 bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );
-
+void   read_DNDZ_rate(RATEPAR_DEF *RATEPAR ) ; 
 
 void   checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) ;
 

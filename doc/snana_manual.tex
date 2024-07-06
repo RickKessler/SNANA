@@ -5253,7 +5253,7 @@ iii) relax redshift match tolerance ({\tt see HOSTLIB\_DZTOL} key).
 % ------------------------------------
 
 To simulate a constant volumetric rate at all redshifts,
-include the following in your sim-input file,
+include one of the following sim-input options:
 %
 \begin{verbatim}
    DNDZ: HUBBLE
@@ -5283,6 +5283,15 @@ The output {\tt README} file includes a dump of the
 SN volumetric rate in redshift bins of 0.1
 (grep ``{\tt MODEL-RATE}'').
 
+To read and interpolate a table of $R(z)$,
+\begin{verbatim}     
+   DNDZ_FILE: <myrate.dat>
+\end{verbatim}
+containing two columns, redshift $z$ and volumetric rate (no keys).
+Comment lines with \# are allowed.
+
+
+\bigskip
 Highly distorted redshift distribution for special tests
 can be obtained with
 %

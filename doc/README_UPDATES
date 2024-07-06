@@ -22397,14 +22397,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05n) *****
 
-    + fix snlc_fit OPT_PHOTOZ to work properly for using either quantiles
+    + fix snlc_fit OPT_PHOTOZ to work properly using either quantiles
       or zSpec; see https://github.com/RickKessler/SNANA/issues/1364
   
     + in snana.car, default CUTWIN_LAMOBS = 2000, 25000 -> 2000, 70000
         (to accommodate JWST)
 
     + reformat option in snana.car: preserve full filter names in
-      output data. 
+      output data (motivated by DES-SN5YR)
 
     + create_covariance.py: instead of replacing all 999.0 with NaN, only
         do the replacement for MUERR and MUDIFERR columns. This avoids
@@ -22412,7 +22412,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	
          *****  USEFUL(v11_05n) *****
 
-    + new plot_table.py (from B.Popovic) to make plots from FITS/M0DIF/HOSTLIB.
+    + new plot_table.py (based on code from B.Popovic) to make plots
+      from FITS/M0DIF/HOSTLIB.
     
     + new utility submit_batch_list.py to run sequential sets of
       submit_batch_jobs, where each set waits for previous set to finish.
@@ -22420,7 +22421,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     + new utilty install_SNDATA_ROOT.py to install SNDATA_ROOT from gzip tar file.
         (takes care of a few subtle details)
-    
+
+    + new sim input DNDZ_FILE option to interpolate Rate(z); see manual
+     
          *****  MISCELLANEOUS(v11_05n) *****
 
     snana.car
@@ -22488,6 +22491,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + few fixes so that requesting spectra with LCLIB model runs
        with warning that it cannot generate spectra.
      + allow up to 3 DNDZ keys (see MXKEY_DNDZ); previous limit was 2
+
      
    genmag_SALT2.h
        set REFAC_SALT2_COV=T flag to enable x_2 component.

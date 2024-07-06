@@ -718,9 +718,14 @@ def plotter_func(args, plot_info):
             pass  # auto scale axis
         
         for key_name, df_dict in MASTER_DF_DICT.items():
+
             df          = df_dict['df']
             name_legend = df_dict['name_legend']
-            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=name_legend, zorder=0)
+            nevt        = len(df) 
+            size        = 20 / math.log10(nevt)  # dot size gets smaller with nevt ??
+            #print(f"\n xxx nevt= {nevt}  size={size}\n")
+            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=name_legend,
+                        zorder=0, s=size)
 
             # overlay information on plot
             if do_median:

@@ -289,7 +289,7 @@ typedef struct  {   // GENLC_NON1ASED_DEF
 
 typedef struct {  // RATEPAR_DEF
 
-  char   NAME[40] ;           // filled internally
+  char   NAME[MXPATHLEN] ;           // filled internally
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
   

@@ -2561,7 +2561,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   int  N=0, m, n, j, iz_tmp, nread, NMODEL_LIST, N_MODELPAR ;
   int  MEMC = 100*sizeof(char);
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
-  char KEYNAME[40], TMPNAME[60] ;
+  char KEYNAME[40], TMPNAME[MXPATHLEN] ;
   char *NAME = RATEPAR->NAME;
   char fnam[] = "parse_input_RATEPAR" ;
 
@@ -2770,8 +2770,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     }
     // else if ( strcmp(KEYNAME,"DNDZ_FILE:") == 0 ) {
     else if ( IS_DNDZ_FILE ) {
-      printf(" xxx %s SNrate based on file %s \n", fnam, TMPNAME); fflush(stdout);
+      //printf(" xxx %s SNrate based on file %s \n", fnam, TMPNAME); fflush(stdout);
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_FILE ;
+      ENVreplace(TMPNAME, fnam, 1);
       sprintf(RATEPAR->DNDZ_FILE, "%s", TMPNAME );
       read_DNDZ_rate(RATEPAR);
       RATEPAR->NMODEL_ZRANGE = 1 ;
@@ -16509,6 +16510,8 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   // init REWGT to 1.000
   parse_GENPOLY("1", "DNDZ_ZPOLY_REWGT", &RATEPAR->DNDZ_ZPOLY_REWGT, fnam);
 
+  //  print_GENPOLY(&RATEPAR->DNDZ_ZPOLY_REWGT); // xxx REMOVE
+  
   sprintf(RATEPAR->NAME, "NONE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
   RATEPAR->INDEX_MODEL    = 0 ;

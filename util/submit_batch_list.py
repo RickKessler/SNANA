@@ -10,6 +10,7 @@
 # each successive line is launched when the ALL.DONEs exist with
 # SUCCESS.
 #
+# July 9 2024: remove scancel --me ... later, need to scancel specific pids
 #
 # ==================================================
 
@@ -150,10 +151,20 @@ def read_list_file(input_submit_file):
 
     return config
 
-def scancel_all_jobs():
-    cmd_cancel = (f"scancel --user={USERNAME}")
-    logging.info(f"{cmd_cancel}"); sys.stdout.flush()
-    os.system(cmd_cancel)
+def scancel_all_jobs(submit_info_file):
+
+    # read pid list from submit_info_file
+    if os.path.exists(submit_info_file):
+        #cmd_cancel = (f"scancel --user={USERNAME}")
+        #logging.info(f"{cmd_cancel}"); sys.stdout.flush()
+        #os.system(cmd_cancel)
+        logging.info(f"EXIT without scancel on pids (fix code to read pids)")
+    else:
+        logging.info(f"WARNING: cannot find {submit_info_file}")
+        logging.info(f"EXIT without scancel on pids")
+
+    sys.exit()
+    return
 
 def check_file_exists(file_name):
     # abort if file does not exist
@@ -170,12 +181,15 @@ def check_done_file(done_file):
     # Return true if done_file exists and has SUCCESS in it.
     # Return false if done_file does not exist.
     # If done_file exists with FAIL, cancel jobs and abort.
+
+    dirname = os.path.dirname(done_file)
+    submit_info_file = f"{dirname}/{SUBMIT_INFO_FILE}" # in case of error
     
     if os.path.isfile(done_file):
         with open(done_file,"rt") as f:
             line = f.read() ;  status = line.rstrip("\n")
             if status != STRING_SUCCESS :
-                scancel_all_jobs()
+                scancel_all_jobs(submit_info_file)
                 msgerr = f"\n ERROR: found {status} in \n\t {done_file}\n"
                 sys.exit(msgerr)
         return True

@@ -37,6 +37,7 @@ STR_np         = 'np.'
 OPT_CHI2      = "CHI2"
 OPT_NOMEDIAN  = "NOMEDIAN"
 OPT_DIAG_LINE = "DIAG_LINE"
+OPT_LOGY      = "LOGY"
 
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
@@ -132,6 +133,7 @@ notation; e.g,
       {OPT_CHI2:<12} ==> show chi2/dof on plot for two table files
       {OPT_NOMEDIAN:<12} ==> disable median for 2D plot
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
+      {OPT_LOGY:<12} ==> log scale for vertical axis
 
 Examples:
 
@@ -545,9 +547,10 @@ def poisson_interval(k, alpha=0.32):
     from scipy.stats import chi2
     a = alpha
     low, high = (chi2.ppf(a/2, 2*k) / 2, chi2.ppf(1-a/2, 2*k + 2) / 2)
-    low[k == 0] = 0.0
-    #if k == 0:                                                                          
-    #    low = 0.0                                                                       
+
+    low[k == 0]  = 0.0
+    high[k == 0] = 0.0    
+    
     return low, high
 
 def plotter_func(args, plot_info):
@@ -564,6 +567,7 @@ def plotter_func(args, plot_info):
     do_chi2      = OPT_CHI2 in OPT
     do_median    = OPT_NOMEDIAN not in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
+    do_logy      = OPT_LOGY      in OPT
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
@@ -629,6 +633,9 @@ def plotter_func(args, plot_info):
                 # prepare for sim overlay with histogram
                 do_errorbar = False; do_ovsim = True 
 
+            if do_logy:
+                plt.yscale("log")
+                
             if do_errorbar :
                 plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
                              yerr=[sb-errl, erru-sb], fmt='o')  
@@ -656,6 +663,8 @@ def plotter_func(args, plot_info):
         plt.title(plot_title)
 
         # check option to compute and print chi2/dof info on plot
+        # Froce min error =1 in chi2 calc so that it's ok to plot
+        # error=0 for bins with zero events.
         if do_ovsim :
             sqdif = (sb0-sb)**2
             sqerr = np.maximum((sb0+sb*scale*scale), 1.0)

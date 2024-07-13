@@ -3619,8 +3619,12 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Jul 01 2021: read forgotten INPUTS.HOSTLIB_MAXDDLR
   // Jul 16 2021: fix override logic by setting INPUTS.HOSTLIB_USE=1
   //               only if it is not already set.
-
+  //
+  // Jul 13 2024: set skip_readme_store=T for MAXDDLR cuts to avoid double-printing
+  //              in the readme
+  
   int  j, ITMP, N=0, nread, MSKOPT_OLD ;
+  bool skip_readme_store = false;
   char *ptr_str ,ctmp[60];
   char fnam[] = "parse_input_HOSTLIB" ;
 
@@ -3800,9 +3804,11 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR );
+    skip_readme_store = true;  // always force in readme, so don't store it here
   }
   else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR2", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR2 );
+    skip_readme_store = true;  // always force in readme, so don't store it here
   }
   else if ( keyMatchSim(1, "HOSTLIB_SMEAR_SERSIC", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_SMEAR_SERSIC );
@@ -3843,7 +3849,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_NREPEAT_GALID_SNPOS );
   }
 
-  if ( N > 0  && N < FLAG_NWD_ZERO ) {
+  if ( N > 0  && N < FLAG_NWD_ZERO && !skip_readme_store ) {
     README_KEYPLUSARGS_load(100, N, WORDS, keySource,
 			    &README_KEYS_HOSTLIB, fnam );   
   }

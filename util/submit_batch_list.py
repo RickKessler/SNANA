@@ -23,7 +23,6 @@ HOSTNAME         = os.uname()[1]
 CWD              = os.getcwd()
 SUBMIT_LOG_DIR   = CWD + '/submit_logs'
 
-
 KEY_SUBMIT_LIST = 'SUBMIT_LIST'
 KEY_SUBMIT_DIR  = 'SUBMIT_DIR'
 
@@ -153,12 +152,21 @@ def read_list_file(input_submit_file):
 
 def scancel_all_jobs(submit_info_file):
 
-    # read pid list from submit_info_file
     if os.path.exists(submit_info_file):
-        #cmd_cancel = (f"scancel --user={USERNAME}")
-        #logging.info(f"{cmd_cancel}"); sys.stdout.flush()
-        #os.system(cmd_cancel)
-        logging.info(f"EXIT without scancel on pids (fix code to read pids)")
+        # scancel pid list read from submit_info_file
+        logging.info(f"scancel all slurm jobs in {submit_info_file}")
+        submit_info_contents = extract_yaml(submit_info_file)
+        SBATCH_LIST          = submit_info_contents['SBATCH_LIST']
+        for tmp in SBATCH_LIST :
+            cpu     = tmp[0]    # cpu id = 0,1,2, etc ...
+            pid     = tmp[1]
+            jobname = tmp[2]
+            logging.info(f"\t scancel {pid} for {jobname}")
+            
+            cmd_cancel = f"scancel {pid}"
+            os.system(cmd_cancel)
+            
+        logging.info(f"EXIT after scancel on all pids")
     else:
         logging.info(f"WARNING: cannot find {submit_info_file}")
         logging.info(f"EXIT without scancel on pids")
@@ -172,7 +180,7 @@ def check_file_exists(file_name):
     if not exist:
         msgerr = f"ERROR: Cannot find required file: {file_name}"
         logging.info(f"{msgerr}")
-        scancel_all_jobs()
+        scancel_all_jobs("dum.log")
         sys.exit(f"\n ABORT {sys.argv[0]}")
 
     # end check_file_exists
@@ -200,6 +208,8 @@ def check_done_file(done_file):
             
 def extract_yaml(input_file):
 
+    # after expandvars on input_file, read and return yaml contents
+    
     input_file = os.path.expandvars(input_file)
 
     exist  = os.path.isfile(input_file)
@@ -263,10 +273,12 @@ def run_submit(infile_list, outdir_list, SUBMIT_INFO ):
         os.mkdir(SUBMIT_LOG_DIR)
 
     done_file_list = []
+    info_file_list = []
     for infile, outdir in zip(infile_list, outdir_list) :
         merge_file = f"{submit_dir}/{outdir}/{MERGE_LOG_FILE}"
         info_file  = f"{submit_dir}/{outdir}/{SUBMIT_INFO_FILE}"
         done_file  = f"{submit_dir}/{outdir}/{ALL_DONE_FILE}"      
+        info_file_list.append(info_file)
         done_file_list.append(done_file)
         logging.info(f" submit {infile}  -> {outdir}")
 
@@ -320,9 +332,9 @@ def run_submit(infile_list, outdir_list, SUBMIT_INFO ):
 
         NDONE_LAST = NDONE_FIND
 
-    # check for SUCCESS or FAIL
-
+    # - - - - - -
     logging.info(f"\t Finished set with {STRING_SUCCESS}" )
+    return
 
     # end run_submit
 

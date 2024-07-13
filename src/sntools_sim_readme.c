@@ -6,7 +6,8 @@
    Jan 17 2022: remove legacy functions
    Apr 02 2024: write <lamobs> vs. filter (needed by classifiers)
    May 10 2024: new util  README_KEYPLUSARGS_purge
-'
+   Jul 13 2024: force writing HOSTLIB_MAXDDLR[2]
+
 ******************************************************/
 
 #include "sntools.h"
@@ -941,6 +942,14 @@ void readme_docana_hostlib(int *iline, char *pad) {
 
   readme_docana_load_list(&i, pad, &README_KEYS_HOSTLIB);
 
+  //.xyz
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sHOSTLIB_MAXDDLR:      %.2f    "
+	  "# DDLR cut for match",
+	  pad, INPUTS.HOSTLIB_MAXDDLR  );
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sHOSTLIB_MAXDDLR2:     %.2f    "
+	  "# DDLR cut for 2nd match (for confusion)", pad, INPUTS.HOSTLIB_MAXDDLR2 );
 
   // - - - - -
   *iline = i;

@@ -18127,6 +18127,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
   for(icut=0; icut < ICUT; icut++ ) {
     name = INPUTS.CUTWIN_NAME[icut] ;
     if ( strcmp(NAME,name) == 0 ) {
+      fprintf(FP_STDOUT,"\t replace previous CUTWIN %s\n", name);
       copy_CUTWIN(ICUT,icut);
       INPUTS.NCUTWIN-- ;
     }

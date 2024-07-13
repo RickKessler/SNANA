@@ -24453,6 +24453,8 @@ c
 c Feb 23 2024: pass ITEXT for HOST MAGS so that they appear with
 c              SNTABLE_LIST = 'SNANA(text:key,text:host)'
 c
+c Jul 13 2024: fix bug in which all gal property indices were 1 instead of IGAL.
+c 
       IMPLICIT NONE
 
 c subroutine args
@@ -24488,36 +24490,36 @@ c  * hbook cwnt does not support long long int.
 c  * sntable_dump extraction will write real*8 as integer.
 
       VARLIST =  PREFIX(1:LP) // 'OBJID:D' // char(0)
-      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(1), 
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(IGAL), 
      &             VARLIST,ITEXT,     LENBLOCK, 20 )
 
       VARLIST =  PREFIX(1:LP) // 'ZPHOT:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(1), 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(IGAL), 
      &             VARLIST,ITEXT,    LENBLOCK, 40 )
       VARLIST =  PREFIX(1:LP) // 'ZPHOTERR:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(1), 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(IGAL), 
      &               VARLIST,ITEXT,    LENBLOCK, 40 )
 
       VARLIST =  PREFIX(1:LP) // 'ZSPEC:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(1), 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(IGAL), 
      &             VARLIST,ITEXT,    LENBLOCK, 40 )
       VARLIST =  PREFIX(1:LP) // 'ZSPECERR:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC_ERR(1), 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC_ERR(IGAL), 
      &              VARLIST,ITEXT,  LENBLOCK, 40 )
 
       VARLIST = PREFIX(1:LP) // 'RA:D'  // char(0)
-      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_RA(1), 
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_RA(IGAL), 
      &          VARLIST,ITEXT,    LENBLOCK, 20 )
       VARLIST = PREFIX(1:LP) // 'DEC:D'  // char(0)
-      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_DEC(1), 
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_DEC(IGAL), 
      &          VARLIST,ITEXT,   LENBLOCK, 20 )
 
       VARLIST = PREFIX(1:LP) // 'ANGSEP:F'  // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ANGSEP(1), 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ANGSEP(IGAL), 
      &         VARLIST,ITEXT,   LENBLOCK, 20 )
 
       VARLIST = PREFIX(1:LP) // 'DDLR:F'  // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_DDLR(1), 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_DDLR(IGAL), 
      &          VARLIST,ITEXT,    LENBLOCK, 20 )
 
       if ( igal == 1 ) then  
@@ -24532,37 +24534,37 @@ c physical properties
 
       IF ( EXIST_SNHOST_LOGMASS ) THEN
         VARLIST =  PREFIX(1:LP) // 'LOGMASS:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS(IGAL), 
      &          VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
         VARLIST =  PREFIX(1:LP) // 'LOGMASS_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS_ERR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS_ERR(IGAL), 
      &          VARLIST, ITEXT_LOCAL,     LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_LOGSFR ) THEN
         VARLIST =  PREFIX(1:LP) // 'LOGSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR(IGAL), 
      &            VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
         VARLIST =  PREFIX(1:LP) // 'LOGSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR_ERR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR_ERR(IGAL), 
      &            VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_LOGsSFR ) THEN
         VARLIST =  PREFIX(1:LP) // 'LOGsSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR(IGAL), 
      &            VARLIST, ITEXT_LOCAL,   LENBLOCK, 40 )
         VARLIST =  PREFIX(1:LP) // 'LOGsSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR_ERR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR_ERR(IGAL), 
      &           VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_COLOR ) THEN
         VARLIST =  PREFIX(1:LP) // 'COLOR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR(IGAL), 
      &             VARLIST, ITEXT_LOCAL,    LENBLOCK, 40 )
         VARLIST =  PREFIX(1:LP) // 'COLOR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR_ERR(1), 
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR_ERR(IGAL), 
      &           VARLIST, ITEXT_LOCAL,     LENBLOCK, 40 )
       ENDIF
 

@@ -22523,5 +22523,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + adjust RATEPAR.MODEL_ZRANGE[iz] and RATEPAR.MODEL_PARLIST[iz] usage so that
          index starts at 0 (not 1).
       + force writing HOSTLIB_DDLR[2] to sim-readme
+
+   snana.car
+      + fix IGAL index bug in INIT_TABLE_HOSTVAR
       
 END: 

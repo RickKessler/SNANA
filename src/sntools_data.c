@@ -1254,6 +1254,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
       FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, ptrFile, 
 				     fullName, &gzipFlag );
       fclose(fp);
+      if ( !fp ) { abort_openTextFile(…); }
     }
 
 

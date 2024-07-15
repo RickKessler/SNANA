@@ -495,7 +495,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"MJD_DETECT_LAST") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.MJD_DETECT_LAST) ; }  
 
-  else if ( strcmp(key,"SEARCH_TYPE") == 0 ) 
+  else if ( strcmp(key,"SEARCH                       PATH_SEARCHEFF, logicFile, fnam_TYPE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SEARCH_TYPE) ; }  
 
   else if ( strncmp(key,"PRIVATE",7) == 0 ) {
@@ -1253,8 +1253,9 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
       char fullName[MXPATHLEN], PATH_LIST[] = "" ;
       FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, ptrFile, 
 				     fullName, &gzipFlag );
+      if ( !fp ) { abort_openTextFile("HEADER_OVERRIDE",
+				      PATH_LIST, ptrFile, fnam); }
       fclose(fp);
-      if ( !fp ) { abort_openTextFile(…); }
     }
 
 

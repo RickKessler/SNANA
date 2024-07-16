@@ -124,8 +124,8 @@ class ovhist:
                     sim.MURES = sim.MU - cosmo.distmod(sim.zHD).value
 
         if self.options.scaleb4cuts:
-            cols_CC = np.where((sim.SIM_TYPE_INDEX != 1))[0]
-            cols_Ia = np.where((sim.SIM_TYPE_INDEX == 1))[0]
+            cols_CC = np.where((sim.SIM_TEMPLATE_INDEX != 1))[0]
+            cols_Ia = np.where((sim.SIM_TEMPLATE_INDEX == 1))[0]
             lenCC = float(len(cols_CC))
             lenIa = float(len(cols_Ia))
 
@@ -204,10 +204,10 @@ class ovhist:
                 self.options.histmax = np.max(np.append(sim.__dict__[histvar],data.__dict__[histvar]))
 
 
-            cols_CC = np.where((sim.SIM_TYPE_INDEX != 1) & 
+            cols_CC = np.where((sim.SIM_TEMPLATE_INDEX != 1) & 
                                (sim.__dict__[histvar] >= self.options.histmin) &
                                (sim.__dict__[histvar] <= self.options.histmax))[0]
-            cols_Ia = np.where((sim.SIM_TYPE_INDEX == 1) & 
+            cols_Ia = np.where((sim.SIM_TEMPLATE_INDEX == 1) & 
                                (sim.__dict__[histvar] >= self.options.histmin) &
                                (sim.__dict__[histvar] <= self.options.histmax))[0]
             if not self.options.scaleb4cuts:
@@ -307,10 +307,10 @@ class ovhist:
             self.options.histmax = np.max(np.append(sim.__dict__[histvar],data.__dict__[histvar]))
 
 
-        cols_CC = np.where((sim.SIM_TYPE_INDEX != 1) & 
+        cols_CC = np.where((sim.SIM_TEMPLATE_INDEX != 1) & 
                            (sim.__dict__[histvar] >= self.options.histmin) &
                            (sim.__dict__[histvar] <= self.options.histmax))[0]
-        cols_Ia = np.where((sim.SIM_TYPE_INDEX == 1) & 
+        cols_Ia = np.where((sim.SIM_TEMPLATE_INDEX == 1) & 
                            (sim.__dict__[histvar] >= self.options.histmin) &
                            (sim.__dict__[histvar] <= self.options.histmax))[0]
         if not self.options.scaleb4cuts:
@@ -363,10 +363,10 @@ class ovhist:
             self.options.histmax = np.max(np.append(sim.__dict__[histvar],data.__dict__[histvar]))
 
 
-        cols_CC = np.where((sim.SIM_TYPE_INDEX != 1) & 
+        cols_CC = np.where((sim.SIM_TEMPLATE_INDEX != 1) & 
                            (sim.__dict__[histvar] >= self.options.histmin) &
                            (sim.__dict__[histvar] <= self.options.histmax))[0]
-        cols_Ia = np.where((sim.SIM_TYPE_INDEX == 1) & 
+        cols_Ia = np.where((sim.SIM_TEMPLATE_INDEX == 1) & 
                            (sim.__dict__[histvar] >= self.options.histmin) &
                            (sim.__dict__[histvar] <= self.options.histmax))[0]
         if not self.options.scaleb4cuts:

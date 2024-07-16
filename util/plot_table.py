@@ -352,7 +352,12 @@ def translate_CUT(args):
         if isnum or has_quotes:
             var_parenth = var + ')'
             if var_parenth not in CUT:
-                CUT = CUT.replace(var,var_parenth)
+                # be careful to add ) only to last isnum to avoid things like
+                # a0=0 variable name -> a0)=0)
+                jvar = CUT.rindex(var) + len(var) # index at end of last occurence 
+                CUT  = CUT[0:jvar] + ')' + CUT[jvar:-1] 
+                
+                # xxx mark delete July 15 2024   CUT = CUT.replace(var,var_parenth)
 
         else:
             df_var = STR_df + var        

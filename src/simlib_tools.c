@@ -288,7 +288,7 @@ void simlib_add_header(
   // make sanity checks on input values.
 
   if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
-    istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, 100000. );
+    istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, 1000000. );
     istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, 30000.  );
     istat = CHECK_SIMLIB_VAL("RA",      RA,           -200., 400.0  );
     istat = CHECK_SIMLIB_VAL("DEC",     DEC,          -200., 400.0  );

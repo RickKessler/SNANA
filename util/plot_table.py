@@ -355,7 +355,7 @@ def translate_CUT(args):
                 # be careful to add ) only to last isnum to avoid things like
                 # a0=0 variable name -> a0)=0)
                 jvar = CUT.rindex(var) + len(var) # index at end of last occurence 
-                CUT  = CUT[0:jvar] + ')' + CUT[jvar:-1] 
+                CUT  = CUT[0:jvar] + ')' + CUT[jvar:] 
                 
                 # xxx mark delete July 15 2024   CUT = CUT.replace(var,var_parenth)
 

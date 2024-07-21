@@ -8474,14 +8474,14 @@ void init_DNDZ_Rate(void) {
   if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
     if ( SNsum > 0.0 && INPUTS.NON1ASED.NNON1A == 0 ) {
       sprintf(c1err,"DNDZ is specified, but found no NON1A SEDs.");
-      sprintf(c2err,"Remove DNDZ key or add NON1A SEDs.");
+      sprintf(c2err,"Add NON1A_KEYS and NON1A key(s) to sim-input file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   }
 
   if ( PEC1Asum > 0.0 && INPUTS.NON1ASED.NPEC1A == 0 ) {
     sprintf(c1err,"DNDZ_PEC1A is specified, but found no PEC1A SEDs.");
-    sprintf(c2err,"Remove DNDZ_PEC1A key or add PEC1A SEDs.");
+    sprintf(c2err,"Add PEC1A key(s) to sim input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 

@@ -28,6 +28,8 @@ BOUNDS_AUTO    = "AUTO"  # indicates default axis bounds for plot
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=' ]  # for @@CUT
 
+COLON = ':'
+
 # define pandas strings to add into VARIABLE and CUT strings.
 STR_df         = 'df.'
 STR_df_loc     = 'df.loc'
@@ -38,6 +40,7 @@ OPT_CHI2      = "CHI2"
 OPT_NOMEDIAN  = "NOMEDIAN"
 OPT_DIAG_LINE = "DIAG_LINE"
 OPT_LOGY      = "LOGY"
+OPT_GRID      = "GRID"
 
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
@@ -103,6 +106,12 @@ Custom axis boundaries are input with
 Mean, Median, stdev only include entries within the plot bounds; 
 overflows are ignored.
 
+Units are defined with
+   @@UNITS days       # units for 1D plot or x-axis of 2D plot
+   @@UNITS :deg       # units for y-axis of 2D plot
+   @@UNITS days:deg   # units for both axes of 2D plot
+     or
+   @U <arg>
 
 Use @@SAVE to save figure as pdf or png; e.g.
     @@SAVE my_first_table_plot.pdf
@@ -134,6 +143,7 @@ notation; e.g,
       {OPT_NOMEDIAN:<12} ==> disable median for 2D plot
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
       {OPT_LOGY:<12} ==> log scale for vertical axis
+      {OPT_GRID:<12} ==> draw dashed grid on plot
 
 Examples:
 
@@ -174,10 +184,13 @@ def get_args():
           "For the histogram, counts are normalised to the first table file."
     parser.add_argument('@V', '@@VARIABLE', help=msg, nargs="+")
     
-    msg = "AUTO (default): optional bounds are min, max and binsize of plot parameters.\n" \
-          "For 2D plot, must specify both x and y bounds. The binsize for y is ignored. "
+    msg = "AUTO (default): optional bounds min, max and binsize of plot parameters.\n" \
+          "For 2D plot, must specify both x and y bounds. y-binsize is ignored."
     parser.add_argument('@@BOUNDS', default=BOUNDS_AUTO, help=msg, nargs = '+')
 
+    msg = "Units to show for each axis; see @@HELP"
+    parser.add_argument('@U', '@@UNITS', default=None, help=msg, nargs="+")
+    
     msg = "Override default plot title = arg of @@CUTS"
     parser.add_argument('@@TITLE',  default=None, help=msg )
 
@@ -213,7 +226,7 @@ def get_args():
     
     if args.HELP:
         print_help()
-    
+
     # - - - - - - -
     # fix inputs under the hood; mianly remove pad spacing
     if args.DIFF:
@@ -221,9 +234,20 @@ def get_args():
 
     args.VARIABLE_ORIG = args.VARIABLE    
     if args.VARIABLE:
-        args.VARIABLE = ''.join([str(elem) for elem in args.VARIABLE])
+        args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])
         args.VARIABLE_ORIG = args.VARIABLE_ORIG[0]
+
+    n_var = len(args.VARIABLE.split(COLON))
+    if args.UNITS:
+        args.UNITS  = ''.join([str(elem) for elem in args.UNITS])
+        if COLON not in args.UNITS:
+            args.UNITS += COLON
+    else:
+        args.UNITS = COLON
         
+    #sys.exit(f"\n xxx args.VARIABLE = {args.VARIABLE_ORIG}  UNITS={args.UNITS}")
+
+    
     args.CUT_ORIG  = args.CUT
     if args.CUT:
         args.CUT = ''.join([str(elem) for elem in args.CUT])
@@ -391,7 +415,8 @@ def set_var_dict(args, plot_info):
     # strip off user args
     VARIABLE = args.VARIABLE
     BOUNDS   = args.BOUNDS
-
+    UNITS    = args.UNITS
+    
     # store x and [optional] y variable names
     plotdic            = {}  # has df for making plots
     plotdic_axis_label = {}  # cleaned up for axis labels
@@ -406,16 +431,25 @@ def set_var_dict(args, plot_info):
     if STR_np in plot_title:
         plot_title = plot_title.replace(STR_np,'')
 
-    for n, VAR in enumerate(VARIABLE.split(":")):
+    # - - - - 
+    VAR_LIST   = VARIABLE.split(COLON)
+    UNITS_LIST = UNITS.split(COLON)
+    
+    for n, VAR in enumerate(VAR_LIST):
         STR_VAR   = str(VAR)
         STR_LABEL = STR_VAR.replace(STR_df,'') 
         if STR_np in STR_LABEL:  STR_LABEL = STR_LABEL.replace(STR_np,'')
 
+        U = UNITS_LIST[n]
+        if len(U) > 0:  STR_LABEL += '  (' + U + ')'
+            
         if n == 0:
-            plotdic['x'] = STR_VAR
+            plotdic['x']            = STR_VAR
             plotdic_axis_label['x'] = STR_LABEL
+            plotdic_axis_label['y'] = None
+
         else:
-            plotdic['y'] = STR_VAR
+            plotdic['y']            = STR_VAR
             plotdic_axis_label['y'] = STR_LABEL
 
 
@@ -572,11 +606,13 @@ def plotter_func(args, plot_info):
     do_chi2      = OPT_CHI2 in OPT
     do_median    = OPT_NOMEDIAN not in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
-    do_logy      = OPT_LOGY      in OPT
+
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
     plotdic_axis_label   = plot_info.plotdic_axis_label
+    xlabel               = plotdic_axis_label['x']
+    ylabel               = plotdic_axis_label['y']
     boundsdic            = plot_info.boundsdic
     plotdic              = plot_info.plotdic
     custom_bounds        = plot_info.custom_bounds
@@ -637,9 +673,6 @@ def plotter_func(args, plot_info):
             if n > 0 and do_chi2:
                 # prepare for sim overlay with histogram
                 do_errorbar = False; do_ovsim = True 
-
-            if do_logy:
-                plt.yscale("log")
                 
             if do_errorbar :
                 plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
@@ -662,10 +695,8 @@ def plotter_func(args, plot_info):
             }
             for str_stat, val_stat in stat_dict.items():
                 logging.info(f"\t {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
-                
-        plt.xlabel(plotdic_axis_label['x'])
-        plt.legend()                     
-        plt.title(plot_title)
+
+        setup_plot(args, plot_title, xlabel, ylabel)                  
 
         # check option to compute and print chi2/dof info on plot
         # Froce min error =1 in chi2 calc so that it's ok to plot
@@ -720,10 +751,7 @@ def plotter_func(args, plot_info):
             else:  
                 sys.exit(f"\n ERROR: {str(DIFF)} is not a valid DIFF option -> ABORT.")         
 
-            plt.xlabel(plotdic_axis_label['x'])
-            plt.ylabel(plotdic_axis_label['y'] + " diff")                    
-            plt.legend()                                
-            plt.title(plot_title)       
+            setup_plot(args, plot_title, xlabel, ylabel+" diff")  
     else:
         # 2D for each file
         try:
@@ -751,13 +779,31 @@ def plotter_func(args, plot_info):
             if do_diag_line:
                 x = np.linspace(xmin,xmax,100);  y = x
                 plt.plot(x,y)
-                   
-        plt.xlabel(plotdic_axis_label['x'])                    
-        plt.ylabel(plotdic_axis_label['y'])                    
-        plt.legend()                                
-        plt.title(plot_title) 
+
+        setup_plot(args, plot_title, xlabel, ylabel)    
+
     return 
     # end plotter_func
+
+def setup_plot(args, plot_title, xlabel, ylabel):
+
+    # Created July 21 2024 by R.Kessler
+    # wrapper for lots of plt. calls that are repeated several times.
+    
+    OPT          = args.OPT    
+    do_logy      = OPT_LOGY    in OPT
+    do_grid      = OPT_GRID    in OPT
+    
+    if do_logy:    plt.yscale("log")
+    if do_grid:    plt.grid()
+    
+    plt.xlabel(xlabel)  
+    if ylabel is not None: plt.ylabel(ylabel)
+    
+    plt.legend()                                
+    plt.title(plot_title) 
+    
+    return
 
 
 # ===================================================

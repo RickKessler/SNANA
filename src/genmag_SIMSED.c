@@ -1236,7 +1236,7 @@ int pick_SIMSED_BY_WGT(void){
   int ISED = -9;
   double ranCDF;
   double WGTrange[2];
-  int LDMP = 1 ;
+  int LDMP = 0 ;
   char fnam[] = "pick_SIMSED_BY_WGT";
 
   // --------- BEGIN --------------

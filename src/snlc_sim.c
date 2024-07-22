@@ -17660,7 +17660,7 @@ void SIMLIB_findStart(void) {
   }
 
   // for batch job, autom-compute NSKIP 
-  if ( NJOBTOT > 0  &&  NLIBID > 100 ) { 
+  if ( NJOBTOT > 0  &&  NLIBID > 100  && IDSTART <= 0 ) { 
     flatRan     = unix_getRan_Flat1(0) ;
     XTMP        = (double)NLIBID / (double)NJOBTOT;    
     NTMP        = (int)XTMP ;

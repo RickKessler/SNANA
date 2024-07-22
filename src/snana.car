@@ -26767,7 +26767,9 @@ c
 c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
 c Nov 2022: separate filter loop over OBS and REST frame so that it works
 c           for both legacy and refac kcor.
-c     
+c
+c July 2024: clarify stdout comment that ZP offsets are from ZPOFF.DAT file
+c            and from user MAGOBS_SHIFT_ZP ... not from kcor-input file.
 c -------------------------
       IMPLICIT NONE
 
@@ -26784,9 +26786,9 @@ c -------------------------
 C ------------------ BEGIN ------------
 
       print*,' '
-      write(6,20) 'KCOR file' 
-20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
-
+      print*,'    Extra ZP offsets from ZPOFF.DAT + ' //
+     &            '&SNLCINP MAGOBS_SHIFT_ZP:'
+      
       DO 100 ifilt = 1, NFILTDEF_SURVEY
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)     
          if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
@@ -26803,7 +26805,7 @@ C ------------------ BEGIN ------------
          write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT 
 200   CONTINUE
 
-801     format(T10,'Will apply net ', 
+801     format(T10,'Will apply extra ', 
      &     A,'_SHIFT_ZP(',A,') = ', F7.4 )
 
       CALL FLUSH(6)

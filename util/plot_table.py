@@ -37,7 +37,7 @@ STR_np         = 'np.'
 
 # define strings for @@OPT
 OPT_CHI2      = "CHI2"
-OPT_NOMEDIAN  = "NOMEDIAN"
+OPT_MEDIAN    = "MEDIAN"
 OPT_DIAG_LINE = "DIAG_LINE"
 OPT_LOGY      = "LOGY"
 OPT_GRID      = "GRID"
@@ -137,10 +137,10 @@ notation; e.g,
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
 (0=transparent, 1=solid)
 
-  @@OPT   {OPT_CHI2}  {OPT_NOMEDIAN}  {OPT_DIAG_LINE}
+  @@OPT   {OPT_CHI2}  {OPT_MEDIAN}  {OPT_DIAG_LINE} {OPT_LOGY} {OPT_GRID}
     where
       {OPT_CHI2:<12} ==> show chi2/dof on plot for two table files
-      {OPT_NOMEDIAN:<12} ==> disable median for 2D plot
+      {OPT_MEDIAN:<12} ==> show median (vertical axis) for 2D plot
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
       {OPT_LOGY:<12} ==> log scale for vertical axis
       {OPT_GRID:<12} ==> draw dashed grid on plot
@@ -603,8 +603,8 @@ def plotter_func(args, plot_info):
     ALPHA     = args.ALPHA
     OPT       = args.OPT
 
-    do_chi2      = OPT_CHI2 in OPT
-    do_median    = OPT_NOMEDIAN not in OPT
+    do_chi2      = OPT_CHI2      in OPT
+    do_median    = OPT_MEDIAN    in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
 
     

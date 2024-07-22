@@ -17713,7 +17713,13 @@ void SIMLIB_findStart(void) {
 
   if ( NOPT   == 0 ) { return ; } // do nothing ==> start at first LIBID
 
-  if ( NOPT > 1 ) {
+  // for lowz + highz sample, we might want fixed lowz and only vary highz.
+  // In this case, GENOPT_GLOBAL: RANSEED <seed>  SIMLIB_IDSTART <libid>
+  // results in fixed sample with RANSEED_CHANGE. Here we need to allow
+  // special exception of mixing IDSTART batch JOBID.
+  bool ALLOW = (IDSTART > 0 && JOBID > 0); // July 22 2024 
+  
+  if ( NOPT > 1 && (!ALLOW) ) {
     sprintf ( c1err, "Cannot combine SIMLIB-start options:");
     sprintf ( c2err," (IDSTART=%d  IDLOCK=%d JOBID=%d)", 
 	      IDSTART, IDLOCK, JOBID );

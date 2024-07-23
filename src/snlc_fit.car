@@ -133,7 +133,9 @@ c  _FIT -> fixed redshift; _ZFIT -> photoz fit
      &  ,ERRFLAG_FIT_CRAZYERR
      &  ,ERRFLAG_FIT_MARGINALIZE
      &  ,ERRFLAG_FIT_CUTS
-     &  ,ERRFLAG_ZFIT_FITPROB_ITER1     
+     &  ,ERRFLAG_FIT_FITPROB_ITER1
+     &  ,ERRFLAG_FIT_SHAPE_ITER1
+     &  ,ERRFLAG_FIT_COLOR_ITER1     
      &  ,ERRFLAG_ZFIT_DROPFILTCUTS
      &  ,ERRFLAG_ZFIT_RANGE
      &  ,ERRFLAG_REPEAT_ITER
@@ -170,7 +172,9 @@ c
      &  ,ERRFLAG_FIT_CUTS           = 12  ! failed 1 or more cuts
      &  ,ERRFLAG_ZFIT_DROPFILTCUTS  = 13  ! fail Zphot-cuts after drop filter
      &  ,ERRFLAG_ZFIT_RANGE         = 14  ! Zphot outside valid range
-     &  ,ERRFLAG_ZFIT_FITPROB_ITER1 = 15  ! 1st iteration FITPROB cut (4/2024)          
+     &  ,ERRFLAG_FIT_FITPROB_ITER1  = 15  ! 1st iteration FITPROB cut (4/2024)
+     &  ,ERRFLAG_FIT_SHAPE_ITER1    = 16  ! 1st iteration SHAPE cut (7/2024)
+     &  ,ERRFLAG_FIT_COLOR_ITER1    = 17  ! 1st iteration COLOR cut 
      &  ,ERRFLAG_REPEAT_ITER        = -1  ! repeat fit iteration
      &  ,ERRFLAG_REPEAT_MINOS       = -2  ! repeat entire it with MINOS
 c
@@ -648,8 +652,10 @@ c Jun 2015: FITWIN_AV -> FITWIN_COLOR
      &  ,FITWIN_ZPHOT(2)       ! I: cut-windo on photoz (Dec 2014)
      &  ,FITWIN_COLOR(2)       ! I: cut-window for COLOR/AV
      &  ,FITWIN_SHAPE(2)       ! I: "         for SHAPE
-     &  ,FITWIN_PROB(2)        ! I: cut-window for chi2 prob
-     &  ,FITWIN_PROB_ITER1(2)  ! I: cut-window for 1st-iteration FITPROB (fast cut)
+     &  ,FITWIN_PROB(2)        ! I: cut-window on chi2 prob
+     &  ,FITWIN_PROB_ITER1(2)  ! I: cut-window on 1st-iter FITPROB (fast cut)
+     &  ,FITWIN_SHAPE_ITER1(2) ! I: cut-window on 1st-iter shape (fast cut)
+     &  ,FITWIN_COLOR_ITER1(2) ! I: cut-window on 1st-iter color (fast cut)
      &  ,FITWIN_CHI2RED_INI(2)  ! I: cut-window on chi2 using initial guess params
      &  ,FITWIN_CHI2RED_INI2(2) ! I: cut-window on chi2 using init-adjusted params
      &  ,FITWIN_NOMARG_PROB(2) ! I: cut-window before marginalization
@@ -827,6 +833,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
      &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
      &   ,FITWIN_PROB, FITWIN_PROB_ITER1
+     &   ,FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
      &   ,FITWIN_CHI2RED_INI, FITWIN_CHI2RED_INI2
      &   ,FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
      &   ,FITWIN_TREST, FITWIN_TREST_FILTER, FITWIN_TREST_FILT
@@ -901,6 +908,7 @@ c ------
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
      &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
      &   ,FITWIN_PROB, FITWIN_PROB_ITER1
+     &   ,FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
      &   ,FITWIN_CHI2RED_INI, FITWIN_CHI2RED_INI2
      &   ,FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
      &   ,FITWIN_TREST, FITWIN_TREST_FILTER, FITWIN_TREST_FILT
@@ -2307,22 +2315,6 @@ c  = -1 => decrement ITER and try again (e.g., for photoZ spike)
 c
 c
 c
-c Oct 26 2015: remove obsolete ISN arg from FITANA_STORE.
-c
-c Jan 04 2016: if MNSTAT_COV<3 (bad cov matric), set ERRFLAG=-1
-c              to fit again
-c
-c July 27 2017: for photo-z fit, set SNLD_zHD=zPHOT
-c
-c Oct 24 2017: 
-c   move MAKEDIR_OUTPUT() call down inside DOLC_PLOT if-block.
-c   Pass FALSE DOPLOT-flag to FITANA_MARGE since the subDir
-c   no longer exists when FITANA_MARG is called.
-c   This fixes problem of having empty subDir for each
-c   SN that passes SNANA cuts but fails FIT cuts.
-c
-c Jun 21 2018: 
-c   check CRAZYFITERR on every iteration to check for NaN
 c
 c Feb 28 2020:
 c   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and 
@@ -2332,6 +2324,8 @@ c Aug 28 2020: if ERRFLAG=0 then set CUTFLAG_SNANA += 2 so that
 c              correct CUTFLAG_SNANA shows up in FITRES table.
 c
 c May 18 2021: skip crazyflux check of OPT_SNCID_LIST > 0
+c Jul 23 2024: apply user defined 1st-iteration cuts on FITPROB, shape, color;
+c              see FITWIN_[FITPROB,SHAPE,COLOR]_ITER1
 c
 c --------------------------------------------------
 
@@ -2357,7 +2351,7 @@ c local var
 
       LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT
       LOGICAL LMAXFRAC, LCHI2REJ, CRAZY
-      REAL FRACERRDIF
+      REAL FRACERRDIF, FITPROB, SHAPE, COLOR
       character sdir*20, chis*40, ccid*(MXCHAR_CCID)
 
 c function
@@ -2372,7 +2366,29 @@ C -------------------- BEGIN ---------------
       CID   = SNLC_CID
       CCID  = SNLC_CCID      
       LCID  = ISNLC_LENCCID
-      
+
+c ------------------------------------------------------
+c check cuts on 1st-iteration FITPROB and fit pars
+      IF ( ITER==1 ) THEN ! .xyz
+         FITPROB = FITPROBCHI2_STORE(1)
+         SHAPE   = FITVAL(IPAR_SHAPE,ITER)
+         COLOR   = FITVAL(IPAR_COLOR,ITER)
+         IF( FITPROB < FITWIN_PROB_ITER1(1) .or.
+     &       FITPROB > FITWIN_PROB_ITER1(2) ) THEN
+             ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
+         ENDIF
+         IF( SHAPE < FITWIN_SHAPE_ITER1(1) .or.
+     &       SHAPE > FITWIN_SHAPE_ITER1(2) ) THEN
+             ERRFLAG = ERRFLAG_FIT_SHAPE_ITER1
+         ENDIF
+         IF( COLOR < FITWIN_COLOR_ITER1(1) .or.
+     &       COLOR > FITWIN_COLOR_ITER1(2) ) THEN
+             ERRFLAG = ERRFLAG_FIT_COLOR_ITER1
+         ENDIF
+         if ( ERRFLAG > 0 ) RETURN
+      ENDIF
+
+c 
 c transfer I4/R4EP_ALL arrays to sparse I4/R4EP_FIT arrays (Jan 25 2014)
       CALL LOAD_EPFIT()
 
@@ -3404,7 +3420,7 @@ c local var
       REAL
      &   CUTWIN_SNANA(2)
      &  ,TLIST(MXEPOCH), SNRLIST(MXEPOCH)
-     &  ,Z4, FITPROB, SNR
+     &  ,Z4, FITPROB, SNR, SHAPE, COLOR
 
       INTEGER 
      &   IFILT, IFILT_OBS, N, NFILT_CUT, NFILT
@@ -3763,13 +3779,15 @@ c -------------------------
 
 800   CONTINUE
 
+c xxxxxx mark delete July 23 2024 xxxxxxxxxxxx
 c check FITPROB on 1st iter (apr 2024)
-      IF ( ITER==1 ) THEN
-         FITPROB = FITPROBCHI2_STORE(1)
-         IF( FITPROB < FITWIN_PROB_ITER1(1) ) THEN
-             ERRFLAG = ERRFLAG_ZFIT_FITPROB_ITER1
-         ENDIF
-      ENDIF
+c      IF ( ITER==1 ) THEN
+c         FITPROB = FITPROBCHI2_STORE(1)
+c         IF( FITPROB < FITWIN_PROB_ITER1(1) ) THEN
+c             ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
+c         ENDIF
+c      ENDIF
+c xxxxxxxxxxxxxxxxxxx
 
 c after 1st iteration, SKIP SN if photoz no longer respects z-range for each filter. 
       IF ( ITER > 1 .OR. LREPEAT_ITER ) THEN
@@ -6987,6 +7005,8 @@ c set defgaults to no rejected epochs at 2nd iteration
         FITWIN_SHAPE(i)      = CUTINI(i)
         FITWIN_PROB(i)       = CUTINI(i)
         FITWIN_PROB_ITER1(i)   = CUTINI(i)
+        FITWIN_SHAPE_ITER1(i)  = CUTINI(i)
+        FITWIN_COLOR_ITER1(i)  = CUTINI(i)
         FITWIN_CHI2RED_INI(i)  = CUTINI(i)
         FITWIN_CHI2RED_INI2(i) = CUTINI(i)
         FITWIN_NOMARG_PROB(i)  = CUTINI(i)
@@ -7654,6 +7674,14 @@ c --- keep legacy variables TREST_REJECT and MJD_REJECT
         else if ( MATCH_NMLKEY('FITWIN_PROB_ITER1', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_PROB_ITER1(1)
             READ(ARGLIST(2),*) FITWIN_PROB_ITER1(2)
+
+        else if ( MATCH_NMLKEY('FITWIN_SHAPE_ITER1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE_ITER1(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE_ITER1(2)
+
+        else if ( MATCH_NMLKEY('FITWIN_COLOR_ITER1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR_ITER1(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR_ITER1(2)
 
         else if ( MATCH_NMLKEY('FITWIN_CHI2RED_INI', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_CHI2RED_INI(1)

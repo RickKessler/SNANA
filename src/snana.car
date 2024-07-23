@@ -2550,7 +2550,12 @@ c
      &  ,LCPROBCHI2_STORE(4)    !  idem for prob
      &  ,FITCHI2_STORE(4)       !  idem for fit minimum
      &  ,FITPROBCHI2_STORE(4)
+c
+c  define a few intermediate-fit variables to identify cuts to more
+c  quickly remove events.
      &  ,FITPROB_ITER1          ! total FITPROB after ITER=1
+     &  ,FITCHI2RED_INI         ! first guess at fit chi2red
+     &  ,FITCHI2RED_INI2        ! fit chi2red after rough adjustment
 c
      &  ,INIVAL_STORE(MXFITSTORE)  ! store all inital values  
      &  ,SIMVAL_STORE(MXFITPAR)     ! sim values
@@ -2608,7 +2613,8 @@ c ---- ISNLC_XXX  -> XXX_FIT  re-evaluated after fitting
      &  ,NPLOTPAR, ERRTYPE, FLOATPAR, USEPDF_MARG
      &  ,PARPTR_CHI2, PARPTR_IFILT_REST, PARPTR_FITRESTMAG
      &  ,FITVAL_STORE, FITERR_STORE
-     &  ,FITCHI2_STORE, FITPROBCHI2_STORE, FITPROB_ITER1
+     &  ,FITCHI2_STORE, FITPROBCHI2_STORE
+     &  ,FITPROB_ITER1, FITCHI2RED_INI, FITCHI2RED_INI2
      &  ,PDFVAL_STORE, PDFERR_STORE, PDFPROB2_STORE
      &  ,LCVAL_STORE,  LCERR_STORE, LCFRACERRDIF_STORE
      &  ,LCCHI2_STORE, LCPROBCHI2_STORE
@@ -15912,7 +15918,10 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
       IF ( DO_FIT ) THEN
 
-           FITPROB_ITER1 = 0.0  ! July 2024
+           FITPROB_ITER1   = 0.0  ! July 2024
+	   FITCHI2RED_INI  = 0.0
+	   FITCHI2RED_INI2 = 0.0
+	   
          do i = 1, 4
            FITCHI2_STORE(i)      = 0.0
            FITPROBCHI2_STORE(i)  = 0.0
@@ -23881,6 +23890,7 @@ c Mar 14 2021: always include PKMJDINI in TEXT output
 c Mar 19 2021: add NEP_OUTLIER if OUTLIER table is defined
 c Aug 13 2021: include HOST_SBMAG, and HOST_SB -> HOST_SBFLUXCAL
 c Sep 09 2023: update to write 2nd HOST match.
+c Jul 23 2024: add FITPROB_ITER1, FITCHI2RED_INI[2]
 c
 c -------------------------------------------------------------
 
@@ -23904,7 +23914,7 @@ c local var
 +CDE,TRUECHI2COM.
 
       INTEGER 
-     &   IFILT, IFILT_OBS, ITEXT, ITEXT2, IGAL
+     &   IFILT, IFILT_OBS, ITEXT, ITEXT2, ITEXT_NO, ITEXT_YES, IGAL
      &  ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
 
       LOGICAL LTMP, ADDCOL_SETPKMJD
@@ -23920,7 +23930,9 @@ c local var
 C ---------------- BEGIN ------------
 
       FNAM = 'INIT_TABLE_SNANAVAR'
-
+      ITEXT_NO  = 0   ! --> for ROOT table only
+      ITEXT_YES = 1   ! --> for TEXT and ROOT tables
+      
       write(6,10) BLOCK, ID
  10   format(T6,'Create BLOCK = ',A,'  for TABLE ID = ', I5 )
       call flush(6)
@@ -23977,7 +23989,8 @@ c but keep same name 'IDSURVEY'
      &                   LENBLOCK, 20 )
 
 c Feb 15 2018: remove condition on CCDNUM 
-      ITEXT = 0 ;     IF(NCCDNUM_LIST>0) ITEXT = 1  
+      ITEXT = ITEXT_NO
+      IF(NCCDNUM_LIST>0) ITEXT = ITEXT_YES
       VARLIST = 'CCDNUM:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_CCDNUM(1), 
      &            VARLIST,ITEXT,       LENBLOCK, 20 )
@@ -23997,18 +24010,14 @@ c ERRFLAG_FIT = -9 -> no fit, just SNANA job
 c ERRFLAG_FIT =  0 -> no fitting errors.
 c ERRFLAG_FIT >  0 -> fit failed, see ERRFLAG codes in fitting program.
 
-      ITEXT = 0
+      ITEXT = ITEXT_NO
 +SELF,IF=SNFIT.
-      ITEXT=1
+      ITEXT=ITEXT_YES
 +SELF.
 
       VARLIST = 'ERRFLAG_FIT:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ERRFLAG_FIT, 
      &              VARLIST, ITEXT,   LENBLOCK, 20 )
-
-      VARLIST = 'FITPROB_ITER1:F' // char(0)
-      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, FITPROB_ITER1, 
-     &              VARLIST, 0,   LENBLOCK, 20 )
 
 c --------------------------------------------
       IF ( N_USERTAGS .GT. 0) then
@@ -24103,11 +24112,11 @@ c Feb 6 2020: write MWEBV to TEXT (but not the error)
      &                   LENBLOCK, 20 )
 
 c - - - - - - HOST GALAXY - - - - 
-      ITEXT = 0
+      ITEXT = ITEXT_NO
       if ( WRTABLEFILE_HOST_TEXT .or. WRTABLEFILE_HOST2_TEXT ) ITEXT=1
 
-      ITEXT2 = 0
-      if ( WRTABLEFILE_HOST2_TEXT ) ITEXT2=1  ! for 2nd host only
+      ITEXT2 = ITEXT_NO
+      if ( WRTABLEFILE_HOST2_TEXT ) ITEXT2=ITEXT_YES  ! for 2nd host only
 
       VARLIST =  'HOST_NMATCH:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH, 
@@ -24133,44 +24142,58 @@ c on the template image.
       IF ( EXIST_SNHOST_SB .OR. EXIST_SNHOST_MAGOBS) THEN 
 c        HOST_SB -> HOST_SBFLUXCAL
         CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
-     &           VARLIST, LENLIST)
+     &    VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
-     &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
 
         CALL TABLE_VARLIST_FILTERS('HOST_SBMAG','F', ADDCOL_FILTERS, 
-     &           VARLIST, LENLIST)
+     &    VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
-     &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
       ENDIF
 
 
-c - - - - -  initial PEAKMJD  - -  - 
-      ITEXT = 1                       ! default is no TEXT output ...
+c - - - - -  pre-fit quantities to show for all events  - -  -
+
+c PKMJDINI (e.g., from max-flux clump method)
+
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
-     &           VARLIST, ITEXT, LENBLOCK, 20 )
+     &           VARLIST, ITEXT_NO, LENBLOCK, 20 )
+
+      VARLIST = 'FITPROB_ITER1:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, FITPROB_ITER1, 
+     &              VARLIST, ITEXT_NO,   LENBLOCK, 20 )
+
+      VARLIST = 'FITCHI2RED_INI:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, FITCHI2RED_INI, 
+     &              VARLIST, ITEXT_NO,   LENBLOCK, 20 )
+
+      VARLIST = 'FITCHI2RED_INI2:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, FITCHI2RED_INI2, 
+     &              VARLIST, ITEXT_NO,   LENBLOCK, 20 )
 
 c - - - - time above threshold for REQUIRE_EPOCHS - - - - - - 
 
       IF( NFILT_REQEP > 0 ) THEN
         VARLIST = 'NDAYS_ABOVE_SNRMIN:F' // char(0)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NDAYS_ABOVE_SNRMIN_REQEP, 
-     &                    VARLIST, 1,       LENBLOCK, 40 )
+     &                    VARLIST, ITEXT_YES,       LENBLOCK, 40 )
       ENDIF
 
 c - - - - - max flux per band (May 2016) - - - - - - - - -
 
         CALL TABLE_VARLIST_FILTERS('FLUXCALMAX','F', ADDCOL_FILTERS, 
-     &           VARLIST, LENLIST)
+     &    VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_FLUXCALMAX(1),
-     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), ITEXT_NO, LENBLOCK, LENLIST)
 
 c ... and the uncertainty (Nov 2022)
 
         CALL TABLE_VARLIST_FILTERS('FLUXCALMAX_ERR','F',ADDCOL_FILTERS, 
-     &           VARLIST, LENLIST)
+     &   VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_FLUXCALMAX_ERR(1),
-     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), ITEXT_NO, LENBLOCK, LENLIST)
 
 c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - - 
 
@@ -24182,8 +24205,8 @@ c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - -
      &           SURVEY_FILTERS, VARLIST, LENLIST)
             
             CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, 
-     &           SNLC_SNANAFIT_PEAKMJD_FITPAR(1,ipar),
-     &           VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+     &        SNLC_SNANAFIT_PEAKMJD_FITPAR(1,ipar),
+     &        VARLIST(1:LENLIST)//char(0), ITEXT_YES, LENBLOCK, LENLIST)
          ENDDO
 
 c ----------------------------
@@ -24197,27 +24220,27 @@ c  PKMJD per filter
 
             VARNAME   = 'PKMJD_FIT_' // cfilt(1:1) // ':F'
             CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
-     &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
+     &           VARNAME(1:20)//char(0), ITEXT_YES, LENBLOCK, 20 )
             
             VARNAME   = 'PKMJD_ERR_' // cfilt(1:1) //  ':F'
             CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
-     &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
+     &           VARNAME(1:20)//char(0), ITEXT_YES, LENBLOCK, 20 )
 
  222     CONTINUE
 
 c --------------------------
 c      fit chi2 per filter
           CALL TABLE_VARLIST_FILTERS('FIT_CHI2','F', ADDCOL_FILTERS,
-     &           VARLIST, LENLIST )
+     &      VARLIST, LENLIST )
           CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_CHI2_FITPKMJD(1),
-     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+     &      VARLIST(1:LENLIST)//char(0), ITEXT_YES, LENBLOCK, LENLIST)
 
 c --------------------------
 c      fit NDOF per filter
           CALL TABLE_VARLIST_FILTERS('FIT_NDOF','I', SURVEY_FILTERS,
-     &           VARLIST, LENLIST)
+     &      VARLIST, LENLIST)
           CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NDOF_FITPKMJD(1),
-     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+     &      VARLIST(1:LENLIST)//char(0), ITEXT_YES, LENBLOCK, LENLIST)
 
       ENDIF  ! end of SETPKMJD if-block
 
@@ -24227,35 +24250,35 @@ c - - - - - -
 c global PROB_TRUEFLUX for all bands combined
         VARNAME   = 'PROB_TRUEFLUX:F' // char(0)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PROB_TRUEFLUX(0),
-     &        VARNAME(1:20), 1, LENBLOCK, 20)
+     &        VARNAME(1:20), ITEXT_YES, LENBLOCK, 20)
 
 c ... and for each individual band
         CALL TABLE_VARLIST_FILTERS('PROB_TRUEFLUX','F', ADDCOL_FILTERS,
-     &         VARLIST, LENLIST )
+     &     VARLIST, LENLIST )
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX(1),
-     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), ITEXT_YES, LENBLOCK, LENLIST)
 
         CALL TABLE_VARLIST_FILTERS('NDOF_TRUEFLUX','I', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ADDCOL_NDOF_TRUEFLUX(1),
-     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), ITEXT_YES, LENBLOCK, LENLIST)
 
       ENDIF
 
 c - - - - -  min and max MJD 
       VARLIST = 'MJDMIN:D,MJDMAX:D' // char(0)
       CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJDMIN, 
-     &                VARLIST, 0,   LENBLOCK, 20 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 20 )
 
 c - - - - - MJD_DETECT and MJD_TRIGGER (Sep 2023) - - - - -
 
       VARLIST = 'MJD_TRIGGER:D' // char(0)
       CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_TRIGGER, 
-     &                VARLIST, 0,   LENBLOCK, 20 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 20 )
 
       VARLIST = 'MJD_DETECT_FIRST:D,MJD_DETECT_LAST:D' // char(0)
       CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_DETECT_FIRST, 
-     &                VARLIST, 0,   LENBLOCK, 20 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 20 )
 
 
 c - - - -  multi-season variability - - - -
@@ -24263,12 +24286,12 @@ c - - - -  multi-season variability - - - -
 
 c Aug 15 2018: include NTOT and NLC in output and TEXT output
         VARLIST = 'NSEASON_TOT:I' // char(0)
-        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_TOT, VARLIST,1,
-     &                   LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_TOT, VARLIST,
+     &                   ITEXT_YES, LENBLOCK, 40 )
 
         VARLIST = 'NSEASON_ACTIVE:I' // char(0)
-        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,1,
-     &                   LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,
+     &                   ITEXT_YES, LENBLOCK, 40 )
 
         VARLIST = 'MULTISEASON_CHI2RED_1:F,' //
      &            'MULTISEASON_CHI2RED_2:F,' //
@@ -24277,7 +24300,7 @@ c Aug 15 2018: include NTOT and NLC in output and TEXT output
      &            'MULTISEASON_CHI2RED_5:F'  //
      &          char(0)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, MULTISEASON_CHI2RED(1), 
-     &               VARLIST,0,     LENBLOCK, 160 )
+     &               VARLIST, ITEXT_NO,     LENBLOCK, 160 )
 
         VARLIST = 'MULTISEASON_AVGFLUX_1:F,' //
      &            'MULTISEASON_AVGFLUX_2:F,' //
@@ -24286,7 +24309,7 @@ c Aug 15 2018: include NTOT and NLC in output and TEXT output
      &            'MULTISEASON_AVGFLUX_5:F' //
      &          char(0)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, MULTISEASON_AVGFLUX(1), 
-     &              VARLIST,0,       LENBLOCK, 160 )
+     &              VARLIST, ITEXT_NO,    LENBLOCK, 160 )
       ENDIF
 
 c ------------------------------------
@@ -24298,36 +24321,36 @@ c snana variables with no fitting.
 
          VARLIST = 'TrestMIN:F,TrestMAX:F,TrestRange:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TRESTMIN, 
-     &               VARLIST, 0,     LENBLOCK, 40 )
+     &               VARLIST, ITEXT_NO,     LENBLOCK, 40 )
 
          VARLIST = 'TobsMIN:F,TobsMAX:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TOBSMIN, 
-     &               VARLIST, 0,    LENBLOCK,  40 )
+     &               VARLIST, ITEXT_NO,    LENBLOCK,  40 )
 
          VARLIST = 'TGAPMAX:F,T0GAPMAX:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TGAPMAX, 
-     &                VARLIST, 0,   LENBLOCK, 40 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 40 )
 
          VARLIST =  
      &      'NFILT_Tmin:I,NFILT_Tmax:I,NFILT_Trest2:I' // char(0) 
          CALL SNTABLE_ADDCOL_int(ID, CBLOCK,ISNLC_NFILT_TRESTMIN,
-     &              VARLIST,0,     LENBLOCK, 40 )
+     &              VARLIST, ITEXT_NO,     LENBLOCK, 40 )
 
          VARLIST = 'NFILT_SNRMAX:I,NFILT_SNRMAX2:I'  // char(0)
          CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NFILT_SNRMAX,
-     &                VARLIST,0,    LENBLOCK, 40 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 40 )
 
          VARLIST = 'SNRMAX:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
-     &                VARLIST,0,   LENBLOCK, 20 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 20 )
 
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
-     &               VARLIST,1,    LENBLOCK, 40 )
+     &               VARLIST, ITEXT_YES,    LENBLOCK, 40 )
 
          VARLIST = 'SNRSUM:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRSUM,
-     &                VARLIST,1,   LENBLOCK, 20 ) ! .xyz
+     &                VARLIST, ITEXT_YES,   LENBLOCK, 20 )
 c ----------
 c Below are SNANA variables for which the FIT analog is not
 c available here -> book FIT-analogs in snlc_fit.car
@@ -24335,12 +24358,12 @@ c available here -> book FIT-analogs in snlc_fit.car
          CALL TABLE_VARLIST_FILTERS('SNRMAX', 'F', ADDCOL_FILTERS,
      &                    VARLIST, LENLIST )
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNRMAX(1), 
-     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0),ITEXT_NO, LENBLOCK, LENLIST)
 
          CALL TABLE_VARLIST_FILTERS('XTMW', 'F', ADDCOL_FILTERS, 
      &                    VARLIST, LENLIST )
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_XTMW(1),
-     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+     &    VARLIST(1:LENLIST)//char(0), ITEXT_NO, LENBLOCK, LENLIST)
 
       ELSE
 
@@ -24348,36 +24371,36 @@ c variables re-evaluated after fit
 
          VARLIST = 'TrestMIN:F,TrestMAX:F,TrestRange:F'  // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TRESTMIN_FIT, 
-     &                 VARLIST, 0,  LENBLOCK, 40 )
+     &                 VARLIST, ITEXT_NO,  LENBLOCK, 40 )
 
          VARLIST = 'TobsMIN:F,TobsMAX:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TOBSMIN_FIT, 
-     &                  VARLIST, 0, LENBLOCK, 40 )
+     &                  VARLIST, ITEXT_NO, LENBLOCK, 40 )
 
          VARLIST = 'TGAPMAX:F,T0GAPMAX:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TGAPMAX_FIT, 
-     &                 VARLIST, 0,  LENBLOCK, 40 )
+     &                 VARLIST, ITEXT_NO,  LENBLOCK, 40 )
 
          VARLIST = 'NFILT_Tmin:I,NFILT_Tmax:I' // char(0)
          CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NFILT_TRESTMIN_FIT,
-     &                VARLIST,0,   LENBLOCK, 40 )
+     &                VARLIST, ITEXT_NO,   LENBLOCK, 40 )
 
 
          VARLIST = 'NFILT_SNRMAX:I,NFILT_SNRMAX2:I' // char(0)
          CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NFILT_SNRMAX_FIT, 
-     &                 VARLIST,0,  LENBLOCK, 40 )
+     &                 VARLIST, ITEXT_NO,  LENBLOCK, 40 )
 
          VARLIST = 'SNRMAX:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
-     &                VARLIST,0,    LENBLOCK, 20 )
+     &                VARLIST, ITEXT_NO,    LENBLOCK, 20 )
 
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
-     &                 VARLIST,1,  LENBLOCK, 40 )
+     &                 VARLIST, ITEXT_YES,  LENBLOCK, 40 )
 
          VARLIST = 'SNRSUM:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRSUM_FIT,
-     &                VARLIST,1,   LENBLOCK, 20 ) 
+     &                VARLIST, ITEXT_YES,   LENBLOCK, 20 ) 
 
       ENDIF
 
@@ -24391,16 +24414,16 @@ c - - - - - -  nearest nbr (Apr 2014) - - - - -
 
       IF ( LTMP ) THEN
          VARLIST = 'NN_ITYPE:I' // char(0) 
-         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_ITYPE, VARLIST,1, 
-     &                   LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_ITYPE, VARLIST,
+     &               ITEXT_YES, LENBLOCK, 20 )
 
          VARLIST = 'NN_NCELL:I' // char(0)   ! with training cuts (no NN)
-         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_NCELL, VARLIST,0,
-     &                   LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_NCELL, VARLIST,
+     &               ITEXT_NO, LENBLOCK, 20 )
 
          VARLIST = 'NN_PROB_IA:F' // char(0)  ! Bayesian prob with NN cut
-         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NN_PROB_IA, VARLIST, 1,
-     &                   LENBLOCK, 20) 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NN_PROB_IA, VARLIST, 
+     &               ITEXT_YES, LENBLOCK, 20) 
 
       ENDIF
 
@@ -24426,7 +24449,7 @@ c glue together variables in comma-separate VARLIST
         VARLIST = VARLIST(1:LENLIST) // char(0)
 
         CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PRIVATE_VALUE(1), 
-     &                VARLIST, 0,   LENBLOCK, LENLIST)
+     &                VARLIST, ITEXT_NO,   LENBLOCK, LENLIST)
       ENDIF     ! end of NPAR_PRIVATE if-block
 
 c --- Sep 23 2017: user variables --------
@@ -24436,7 +24459,7 @@ c --- Sep 23 2017: user variables --------
           LENLIST = INDEX(VARLIST,' ') - 1
           VARLIST = VARLIST(1:LENLIST) // ':F' // char(0)
           CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TABLEVALUE_USER(1), 
-     &               VARLIST, 1, LENBLOCK, LENLIST+2)           
+     &               VARLIST, ITEXT_YES, LENBLOCK, LENLIST+2)           
         ENDDO
       ENDIF
 

@@ -9328,7 +9328,8 @@ c local var
       CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
 
       REAL
-     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux, CHI2, Xsig, ZTMP
+     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux
+     &  ,CHI2, CHI2RED, Xsig, ZTMP
      &  ,PEAKMJD_INI, PEAKMJD_SAVE
      &  ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD
      &  ,COLOR_INI, COLOR_SAVE, COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
@@ -9400,6 +9401,8 @@ c to set EP_XXX arrays with initial conditions.
 c This is needed to check initial data/model normalization.
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8INI,INIVAL,IFLAG,USRFUN)
+      CHI2RED        = SNGL(CHI8INI/DBLE(NEPOCH_ALL(0)))
+      FITCHI2RED_INI = CHI2RED  ! store for SNANA table
 
       if ( LPRINT ) then
         write(6,56) 'BEFORE', chi8INI, NEPOCH_ALL(0)
@@ -9600,7 +9603,9 @@ c -------------------------------------------
 c check chi2 at end of adjustment
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8END,INIVAL,IFLAG,USRFUN)
-   
+      CHI2RED         = SNGL(CHI8END/DBLE(NEPOCH_ALL(0))) 
+      FITCHI2RED_INI2 = CHI2RED        ! store for SNANA table
+
       if ( LPRINT ) then
         write(6,56) 'AFTER ', chi8end,  NEPOCH_ALL(0)
       endif

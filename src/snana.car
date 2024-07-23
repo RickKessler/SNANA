@@ -2550,6 +2550,7 @@ c
      &  ,LCPROBCHI2_STORE(4)    !  idem for prob
      &  ,FITCHI2_STORE(4)       !  idem for fit minimum
      &  ,FITPROBCHI2_STORE(4)
+     &  ,FITPROB_ITER1          ! total FITPROB after ITER=1
 c
      &  ,INIVAL_STORE(MXFITSTORE)  ! store all inital values  
      &  ,SIMVAL_STORE(MXFITPAR)     ! sim values
@@ -2607,7 +2608,7 @@ c ---- ISNLC_XXX  -> XXX_FIT  re-evaluated after fitting
      &  ,NPLOTPAR, ERRTYPE, FLOATPAR, USEPDF_MARG
      &  ,PARPTR_CHI2, PARPTR_IFILT_REST, PARPTR_FITRESTMAG
      &  ,FITVAL_STORE, FITERR_STORE
-     &  ,FITCHI2_STORE, FITPROBCHI2_STORE
+     &  ,FITCHI2_STORE, FITPROBCHI2_STORE, FITPROB_ITER1
      &  ,PDFVAL_STORE, PDFERR_STORE, PDFPROB2_STORE
      &  ,LCVAL_STORE,  LCERR_STORE, LCFRACERRDIF_STORE
      &  ,LCCHI2_STORE, LCPROBCHI2_STORE
@@ -15911,6 +15912,7 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
       IF ( DO_FIT ) THEN
 
+           FITPROB_ITER1 = 0.0  ! July 2024
          do i = 1, 4
            FITCHI2_STORE(i)      = 0.0
            FITPROBCHI2_STORE(i)  = 0.0
@@ -23999,9 +24001,14 @@ c ERRFLAG_FIT >  0 -> fit failed, see ERRFLAG codes in fitting program.
 +SELF,IF=SNFIT.
       ITEXT=1
 +SELF.
+
       VARLIST = 'ERRFLAG_FIT:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ERRFLAG_FIT, 
-     &              VARLIST,ITEXT,   LENBLOCK, 20 )
+     &              VARLIST, ITEXT,   LENBLOCK, 20 )
+
+      VARLIST = 'FITPROB_ITER1:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, FITPROB_ITER1, 
+     &              VARLIST, 0,   LENBLOCK, 20 )
 
 c --------------------------------------------
       IF ( N_USERTAGS .GT. 0) then
@@ -31244,7 +31251,9 @@ c Convert fitchi2 into fitprobs.
         LCCHI2_STORE(i)      = FITCHI2_STORE(i)
         LCPROBCHI2_STORE(i)  = FITPROBCHI2_STORE(i)
       ENDDO
-
+      
+      IF ( ITER==1 ) FITPROB_ITER1 = FITPROBCHI2_STORE(1)  ! July 2024
+      
 
 c now store fit parameters.
 

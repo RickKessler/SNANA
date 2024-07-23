@@ -213,7 +213,7 @@ def read_fitres_file(info_fitres, reformat_option):
     # - - - - - 
     # check keyname of id; e.g., CID, ROW, GALID, etc ...
     # read first VARNAMES element and number of rows to
-    # skip for DOCANAN keys
+    # skip for DOCANA keys
 
     for line in f:       
         wdlist = line.split()
@@ -270,16 +270,8 @@ def read_fitres_file(info_fitres, reformat_option):
                           skiprows=nrow_skip, dtype=str,
                           usecols=var_list_local)
 
-    # xxx mark df[keyname_id] = df[keyname_id].astype(str)
     df             = df.set_index(keyname_id, drop=False)
 
-    # xxx mark delete Feb 2024 xxxxxx
-    # set a few other columns to print as string to avoid int->float roundoff
-    #keyname_str_list = [ 'SIM_HOSTLIB_GALID', 'HOST_OBJID' ]
-    #for k in keyname_str_list:
-    #    if k in df:
-    #        df[k] = df[k].astype(str)
-    # xxxxxxxxx
 
     # load data frame
     info_fitres['df'] = df

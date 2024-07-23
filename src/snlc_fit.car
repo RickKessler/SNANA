@@ -128,6 +128,7 @@ c  _FIT -> fixed redshift; _ZFIT -> photoz fit
      &  ,ERRFLAG_FITPREP_QUANTILES
      &  ,ERRFLAG_FITPREP_NOEPOCHS
      &  ,ERRFLAG_FITPREP_NEPOCH
+     &  ,ERRFLAG_FITPREP_ADJUST
      &  ,ERRFLAG_FIT_BADCOV
      &  ,ERRFLAG_FIT_CRAZYERR
      &  ,ERRFLAG_FIT_MARGINALIZE
@@ -162,6 +163,7 @@ c
      &  ,ERRFLAG_FITPREP_NOEPOCHS   =  2  ! no epochs in FITINI_COV
      &  ,ERRFLAG_FITPREP_NEPOCH     =  3  ! too few epochs
      &  ,ERRFLAG_FITPREP_QUANTILES  =  4  ! quantiles either negative or not increasing
+     &  ,ERRFLAG_FITPREP_ADJUST     =  5  ! bad chi2 on initial params (July 2024)
      &  ,ERRFLAG_FIT_BADCOV         =  9  ! MNSTAT returns ISTAT<3
      &  ,ERRFLAG_FIT_CRAZYERR       = 10  ! insane error detected
      &  ,ERRFLAG_FIT_MARGINALIZE    = 11  ! could not marginalize
@@ -648,6 +650,8 @@ c Jun 2015: FITWIN_AV -> FITWIN_COLOR
      &  ,FITWIN_SHAPE(2)       ! I: "         for SHAPE
      &  ,FITWIN_PROB(2)        ! I: cut-window for chi2 prob
      &  ,FITWIN_PROB_ITER1(2)  ! I: cut-window for 1st-iteration FITPROB (fast cut)
+     &  ,FITWIN_CHI2RED_INI(2)  ! I: cut-window on chi2 using initial guess params
+     &  ,FITWIN_CHI2RED_INI2(2) ! I: cut-window on chi2 using init-adjusted params
      &  ,FITWIN_NOMARG_PROB(2) ! I: cut-window before marginalization
      &  ,FITWIN_CHI2SIGMA(2)   ! I: cut on chi2-contribution from sigma-term
      &  ,FITWIN_TREST(2)       ! I: cut on T - T0 (to replace TREST_REJECT)
@@ -823,6 +827,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
      &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
      &   ,FITWIN_PROB, FITWIN_PROB_ITER1
+     &   ,FITWIN_CHI2RED_INI, FITWIN_CHI2RED_INI2
      &   ,FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
      &   ,FITWIN_TREST, FITWIN_TREST_FILTER, FITWIN_TREST_FILT
      &   ,FITWIN_COV_OFFDIAG, FITWIN_PEAKMJD_ERR
@@ -896,6 +901,7 @@ c ------
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
      &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
      &   ,FITWIN_PROB, FITWIN_PROB_ITER1
+     &   ,FITWIN_CHI2RED_INI, FITWIN_CHI2RED_INI2
      &   ,FITWIN_NOMARG_PROB, FITWIN_CHI2SIGMA
      &   ,FITWIN_TREST, FITWIN_TREST_FILTER, FITWIN_TREST_FILT
      &   ,FITWIN_COV_OFFDIAG, FITWIN_PEAKMJD_ERR
@@ -2179,7 +2185,8 @@ c check for photoZ fit (after FITINI_COV)
       IF ( IERR .NE. 0 ) RETURN
 
 c adjust fitpar based on initial Fdata/Fmodel ratios.
-      CALL FITINI_ADJUST(iter)
+      CALL FITINI_ADJUST(iter,IERR)
+      IF ( IERR .NE. 0 ) RETURN
 
 c Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
       CALL FITINI_LIST_FILE(iter)
@@ -6980,6 +6987,8 @@ c set defgaults to no rejected epochs at 2nd iteration
         FITWIN_SHAPE(i)      = CUTINI(i)
         FITWIN_PROB(i)       = CUTINI(i)
         FITWIN_PROB_ITER1(i)   = CUTINI(i)
+        FITWIN_CHI2RED_INI(i)  = CUTINI(i)
+        FITWIN_CHI2RED_INI2(i) = CUTINI(i)
         FITWIN_NOMARG_PROB(i)  = CUTINI(i)
         FITWIN_CHI2SIGMA(i)    = CUTINI(i)
         FITWIN_TREST(i)        = CUTINI(i)
@@ -7645,6 +7654,14 @@ c --- keep legacy variables TREST_REJECT and MJD_REJECT
         else if ( MATCH_NMLKEY('FITWIN_PROB_ITER1', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_PROB_ITER1(1)
             READ(ARGLIST(2),*) FITWIN_PROB_ITER1(2)
+
+        else if ( MATCH_NMLKEY('FITWIN_CHI2RED_INI', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_CHI2RED_INI(1)
+            READ(ARGLIST(2),*) FITWIN_CHI2RED_INI(2)
+
+        else if ( MATCH_NMLKEY('FITWIN_CHI2RED_INI2', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_CHI2RED_INI2(1)
+            READ(ARGLIST(2),*) FITWIN_CHI2RED_INI2(2)
 
         else if ( MATCH_NMLKEY('FITWIN_NOMARG_PROB',2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_NOMARG_PROB(1)
@@ -9287,13 +9304,15 @@ c --------------------------------------------
 
 C ==========================================
 +DECK,FINI_ADJUST.
-      SUBROUTINE FITINI_ADJUST ( iter )
+      SUBROUTINE FITINI_ADJUST ( iter, IERR )
 c
 c Re-Created April 6, 2009 by R.Kessler
 c
 c Compute data/model ratio and adjust either MU or x0
 c so that initial model matches data better.
 c This is much simpler than original version.
+c IERR  = 0 -> OK
+c IERR != 0 -> bad adjustment; should skip fit
 c
 c Aug 30 2017: use function FIRST_ITERATION instead of test on ITER.
 c              --> accomodate SIMFIT_IDEAL logic
@@ -9304,6 +9323,9 @@ c  + remove CHI2TEST on 5*NEPOCH
 c
 c Aug 4 2021
 c  + add optional color grid search with INIVAL_GRIDSEARCH_COLOR - D. Jones
+c
+c Jul 23 2024: add IERR arg
+c
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -9316,6 +9338,7 @@ c ----------------------------------------
 
       INTEGER 
      &   iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
+     &  ,IERR
 
 c local var
 
@@ -9350,6 +9373,8 @@ c functions
 
 C --------------- BEGIN -------------
 
+      IERR = 0 
+
       if ( DOFIT_PHOTOZ_MCMC_ADJUST ) RETURN
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 0")
@@ -9366,7 +9391,6 @@ c process only 1st fit iteration
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
 
       LPRINT = STDOUT_UPDATE
-
 
 c init everything to zero
 
@@ -9403,6 +9427,11 @@ c This is needed to check initial data/model normalization.
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8INI,INIVAL,IFLAG,USRFUN)
       CHI2RED        = SNGL(CHI8INI/DBLE(NEPOCH_ALL(0)))
       FITCHI2RED_INI = CHI2RED  ! store for SNANA table
+      if ( CHI2RED < FITWIN_CHI2RED_INI(1) .or.
+     &     CHI2RED > FITWIN_CHI2RED_INI(2) ) then
+          IERR = ERRFLAG_FITPREP_ADJUST 
+          RETURN
+      endif
 
       if ( LPRINT ) then
         write(6,56) 'BEFORE', chi8INI, NEPOCH_ALL(0)
@@ -9605,6 +9634,11 @@ c check chi2 at end of adjustment
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8END,INIVAL,IFLAG,USRFUN)
       CHI2RED         = SNGL(CHI8END/DBLE(NEPOCH_ALL(0))) 
       FITCHI2RED_INI2 = CHI2RED        ! store for SNANA table
+      if ( CHI2RED < FITWIN_CHI2RED_INI2(1) .or.
+     &     CHI2RED > FITWIN_CHI2RED_INI2(2) ) then
+          IERR = ERRFLAG_FITPREP_ADJUST 
+          RETURN
+      endif
 
       if ( LPRINT ) then
         write(6,56) 'AFTER ', chi8end,  NEPOCH_ALL(0)

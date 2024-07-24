@@ -52,6 +52,9 @@
 # Apr 27 2024: for wfit, read and use  mucovtot_inv_file if it exists.
 #              (needs separate update for firecrown)
 #
+# Jul 24 2024: in WFIT_SUMNMARY[_AVG].FITRES files, write comment for each
+#              VARNAME columns.
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1397,6 +1400,31 @@ class cosmofit(Program):
         omm_ran = int(fit_values_dict['omm_ran'])
 
         lines_list = []
+        lines_list.append(f"# =================================== " )
+        lines_list.append(f"# VARNAME COLUMN DEFINITIONS:  " )
+        lines_list.append(f"#   iDIR:  " \
+                          f"internal index for hubble diagram folder")
+        lines_list.append(f"#   iCOV:  " \
+                          f"covsys-option index for label in COVOPT column")
+        lines_list.append(f"#   iFIT:  " \
+                          f"cosmology fit-opt index for label in FITOPT column")
+        lines_list.append(f"#   {varnames_w} {varnames_om}:  " \
+                          f"best fit cosmology params and uncertainties." )
+        lines_list.append(f"#   chi2:    " \
+                          f"chi2 for cosmolofy fit.")
+        lines_list.append(f"#   blind:   " \
+                          f"0 -> unblinded; 1=blinded. SimData should always be unblinded.")
+        lines_list.append(f"#   nwarn:   " \
+                          f"number of warnings in cosmology fit; grep WARN DIR*LOG")
+
+        lines_list.append(f"#   COVOPT:  " \
+                          f"label for covsys option (ALL=all syst, NOSYS=stat only)")
+        lines_list.append(f"#   FITOPT:  " \
+                          f"label for cosmology fit option")
+        
+        lines_list.append(f"# =================================== " )
+        lines_list.append(f"")
+                          
         if w_ran > 0 : 
             lines_list.append(f"#  blind=1 ==> w0,wa,omm += " \
                               f"sin({w_ran},{wa_ran},{omm_ran}) ")
@@ -1539,6 +1567,30 @@ class cosmofit(Program):
         else: 
             VARNAME_FOM = "<w_sig>"
 
+        comment_lines = []
+        comment_lines.append(f"# =================================== " )
+        comment_lines.append(f"# VARNAME COLUMN DEFINITIONS:  " )
+        comment_lines.append(f"#   iCOV      : " \
+                             f"covsys-option index for label in COVOPT column")
+        comment_lines.append(f"#   iFIT      : " \
+                             f"cosmology fit-opt index for label in FITOPT column")        
+        comment_lines.append(f"#   <w>       : mean fitted w among N_DIRs samples.")
+        comment_lines.append(f"#   <w>_sig   : error on mean w [ RMS/sqrt(N_DIR) ]")
+        comment_lines.append(f"#   <wa>      : mean fitted wa among N_DIRs samples.")
+        comment_lines.append(f"#   <wa>_sig  : error on mean wa [ RMS/sqrt(N_DIR) ]")
+        comment_lines.append(f"#   <omm>     : mean fitted OM among N_DIRs samples.")
+        comment_lines.append(f"#   <omm>_sig : error on mean OM [ RMS/sqrt(N_DIR) ]")
+        comment_lines.append(f"#   <w_sig>   : mean fitted w-uncertainty")
+        comment_lines.append(f"#   N_DIRs    : number of data samples for mean.")
+        comment_lines.append(f"#   COVOPT    : " \
+                             f"label for covsys option (ALL=all syst, NOSYS=stat only)")
+        comment_lines.append(f"#   FITOPT    : " \
+                             f"label for cosmology fit option")        
+        comment_lines.append(f"# =================================== " )
+        comment_lines.append(f"")
+        for line in comment_lines:
+            f.write(f"{line}\n")
+            
         VARNAMES_STRING = \
                           f"ROW  iCOV iFIT <w> <w>_sig   <wa> <wa>_sig  "  \
                           f"<omm> <omm>_sig {VARNAME_FOM} N_DIRs COVOPT FITOPT"
@@ -1626,9 +1678,7 @@ class cosmofit(Program):
                             FoM_list2.append(summary_table['FoM'])
                     else: 
                         # if theres no second set of dirs, this is not a 
-                        # difference so just set x_list2 to zero 
-                        
-                        # xxx mark delete zero_list2  = np.zeros(len(fitavg_list1))
+                        # difference so just set x_list2 to zero                         
                         zero_list2  = np.zeros(len(w_list))
                         omm_list2   = zero_list2
                         w_list2     = zero_list2

@@ -121,11 +121,8 @@
 #   due to non-detection.
 #
 # Jul 23 2024 RK
-#   sort unbinned data frame by zHD,CID (instead of only CID) to ensure
-#   consistent sorting if a duplicate CID appears. This fixes a subtle
-#   bug for HDIBC where two HDs are interpolated. Unclear impact on covsys
-#   in previous usage with duplicate CIDs; e.g., indpendent SNIa and CC
-#   sim might have random CID duplicate.
+#   sort unbinned data frame by zHD,CID (instead of only CID) ;
+#   see https://github.com/RickKessler/SNANA/issues/1390
 #
 # ===============================================
 

@@ -4493,12 +4493,14 @@ int IGNOREFILE(char *fileName) {
   // Return 0 otherwise.
   //
   // Dec 18 2017: include ' '
-
+  // Jul 23 2024: allow python-line "None"
+  
   if ( strcmp_ignoreCase(fileName,"null")   == 0 ) { return 1 ; }
   if ( strcmp_ignoreCase(fileName,"none")   == 0 ) { return 1 ; }
   if ( strcmp_ignoreCase(fileName,"blank")  == 0 ) { return 1 ; }
   if ( strcmp_ignoreCase(fileName,"NULL")   == 0 ) { return 1 ; }
   if ( strcmp_ignoreCase(fileName,"NONE")   == 0 ) { return 1 ; }
+  if ( strcmp_ignoreCase(fileName,"None")   == 0 ) { return 1 ; }  // pythonic None
   if ( strcmp_ignoreCase(fileName,"BLANK")  == 0 ) { return 1 ; }
   if ( strcmp_ignoreCase(fileName," ")      == 0 ) { return 1 ; }
   if ( strlen(fileName) == 0 ) { return 1; } // Sep 2016

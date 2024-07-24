@@ -6278,6 +6278,7 @@ void prep_user_input(void) {
   Oct 16 2020: call prep_user_cosmology()
   Feb 21 2021: abort on FORMAT_MASK +=1, or legacy VERBOSE 
   Oct 14 2021: set spectra bit of WRITE_MASK if spectrograph is used.
+  Jul 23 2024: INPUTS.HOSTLIB_USE=0 for FIXMAG model
 
   *******************/
 
@@ -6659,6 +6660,7 @@ void prep_user_input(void) {
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
     sprintf(INPUTS.HOSTLIB_FILE,           "NONE");
     INPUTS.HOSTLIB_MSKOPT = 0 ;
+    INPUTS.HOSTLIB_USE    = 0 ; // July 2024
     
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;

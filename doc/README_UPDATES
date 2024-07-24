@@ -22513,7 +22513,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  IMPORTANT(v11_05o) *****
 
    create_covariance.py:
-      fix subtle sorting bug; see https ...
+      https://github.com/RickKessler/SNANA/issues/1390 
       
 	
          *****  USEFUL(v11_05o) *****
@@ -22527,10 +22527,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          index starts at 0 (not 1).
       + force writing HOSTLIB_DDLR[2] to sim-readme
       + allow SIMLIB_IDSTART in batch mode to fix LIBIDs that are used.
+      + set INPUTS.HOSTLIB_USE=0 for FIXMAG to fix bug rejecting all events.
       
    snana.car
       + fix IGAL index bug in INIT_TABLE_HOSTVAR
       + add FITPROB_ITER1 to snana & fitres table for ROOT file.
 
+   snlc_fit.car: add &FITINP cut window
+       FITWIN_PROB_ITER1, FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
+       
    
 END: 

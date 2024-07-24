@@ -7,7 +7,7 @@
 # 
 #
 # ==============================================
-import os, sys, gzip, copy, logging, math
+import os, sys, gzip, copy, logging, math, re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -350,6 +350,63 @@ def translate_CUT(args):
     # add df.loc, df. and () as needed to args.CUT
     # Add "(df." in front of each var_list element that is NOT a number.
     # Add ")" after each var_list eleement that is a number.
+    #
+    # July 24 2024 rewrite logic to split by bool and (),
+    #   then wrap each item as '(df.' + item + ')'
+    
+    CUT = args.CUT
+    if not CUT: return
+    if STR_df in CUT: return
+
+    # '=' is the only delimeter where user might use '==' instead,
+    # and 2-char delimiter totally breaks the logic below. Rather 
+    # than abort, just fix it here so that FIELD='C3' or FIELD=='C3' 
+    # will both work.
+    if '==' in CUT:
+        CUT = CUT.replace('==', '=')
+
+
+    # split into sections separated by boolean &, |, or ()
+    cut_list = re.split(r"\(|\)|\&|\|", CUT.replace(' ',''))
+    cut_list = list(filter(None, cut_list))
+
+    if DEBUG_TRANSLATE:
+        print(f" xxx CUT      = {CUT}" )
+        print(f" xxx cut_list = {cut_list}")
+
+    # for each cut item, append parentheses and df.
+    cut_list_df = []
+    for cut in cut_list:
+        cut_df = '(' + STR_df + cut + ')'
+        cut_list_df.append(cut_df)
+        #print(f" xxx cut={cut}  :  cut_list_df -->  {cut_list_df}")
+        
+    # replace each original cut with cut_df in CUT
+    CUT_df = CUT
+    for cut,cut_df in zip(cut_list, cut_list_df):
+        CUT_df = CUT_df.replace(cut,cut_df)
+        if DEBUG_TRANSLATE:
+            print(f" xxx \t replace user cut {cut} --> {cut_df} ")
+
+    # replace input for '=' with '=='
+    if '=' in CUT_df:
+        CUT_df = CUT_df.replace('=', '==')
+            
+
+    # finally, wrap entire cut in df.loc[ CUT ]
+    CUT_df = STR_df_loc + '[' + CUT_df + ']'    
+    args.CUT = CUT_df
+
+    logging.info(f"Translate CUT {args.CUT_ORIG}  ->  {CUT_df}")
+    #print(f"\n xxx var_list = {var_list}")
+    
+    return
+
+def translate_CUT_obsolete(args):
+
+    # add df.loc, df. and () as needed to args.CUT
+    # Add "(df." in front of each var_list element that is NOT a number.
+    # Add ")" after each var_list eleement that is a number.
 
     CUT = args.CUT
     if not CUT: return
@@ -370,6 +427,8 @@ def translate_CUT(args):
         print(f" xxx CUT var_list   = {var_list}")
         print(f" xxx CUT isnum_list = {isnum_list}")
 
+    # @@@@@@@@ translate_CUT_obsolete @@@@@@@@@@
+    
     for var, isnum in zip(var_list, isnum_list):
         has_quotes = "'" in var  # e.g., FIELD='C3'
 
@@ -379,8 +438,7 @@ def translate_CUT(args):
                 # be careful to add ) only to last isnum to avoid things like
                 # a0=0 variable name -> a0)=0)
                 jvar = CUT.rindex(var) + len(var) # index at end of last occurence 
-                CUT  = CUT[0:jvar] + ')' + CUT[jvar:] 
-                
+                CUT  = CUT[0:jvar] + ')' + CUT[jvar:]                 
                 # xxx mark delete July 15 2024   CUT = CUT.replace(var,var_parenth)
 
         else:
@@ -401,7 +459,8 @@ def translate_CUT(args):
     #print(f"\n xxx var_list = {var_list}")
     
     return
-
+    # end of translate_CUT_obsolete
+    
 def is_number(string): 
     try: 
         float(string) 

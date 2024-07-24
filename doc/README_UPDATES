@@ -22512,6 +22512,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05o) *****
 
+   create_covariance.py:
+      fix subtle sorting bug; see https ...
+      
 	
          *****  USEFUL(v11_05o) *****
 
@@ -22528,5 +22531,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snana.car
       + fix IGAL index bug in INIT_TABLE_HOSTVAR
       + add FITPROB_ITER1 to snana & fitres table for ROOT file.
-      
+
+   
 END: 

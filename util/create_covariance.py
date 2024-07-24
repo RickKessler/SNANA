@@ -119,7 +119,14 @@
 #   with NaN are later removed. The old logic was found to reject
 #   valid rows (LSST-ELASTICC sims) where HOST_MAG_[band] = 999
 #   due to non-detection.
-#   
+#
+# Jul 23 2024 RK
+#   sort unbinned data frame by zHD,CID (instead of only CID) to ensure
+#   consistent sorting if a duplicate CID appears. This fixes a subtle
+#   bug for HDIBC where two HDs are interpolated. Unclear impact on covsys
+#   in previous usage with duplicate CIDs; e.g., indpendent SNIa and CC
+#   sim might have random CID duplicate.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -470,7 +477,8 @@ def load_hubble_diagram(hd_file, args, config):
     # --> ensure direct subtraction comparison
     if "CID" in df.columns:
         df["CID"] = df["CID"].astype(str)
-        df = df.sort_values([ "CID"])
+        # xxx mark delete df = df.sort_values([ "CID"])
+        df = df.sort_values([ "zHD", "CID"])  # July 2024: protect HDIBC
         df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
 
         if args.subtract_vpec:
@@ -1392,9 +1400,14 @@ def write_HD_unbinned(path, base, muerr_sys_list):
         # .xyz
 
     # - - - - - - -
+    #foo = ["c", "b", "a"] ???
+    #bar = [1, 2, 3] ???
+    #foo, bar = zip(*sorted(zip(foo, bar)))
+
     with open(path, "w") as f:
         write_HD_comments(f, unbinned, found_muerr_sys, found_pbeams )
         f.write(f"VARNAMES: {varlist}\n")
+        
         for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr, pbeams) in \
             zip(name_list, idsurv_list, zHD_list, zHEL_list,
                 mu_list, muerr_list, muerr2_list, syserr_list, pbeams_list ):

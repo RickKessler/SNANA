@@ -1408,8 +1408,11 @@ class cosmofit(Program):
                           f"covsys-option index for label in COVOPT column")
         lines_list.append(f"#   iFIT:  " \
                           f"cosmology fit-opt index for label in FITOPT column")
-        lines_list.append(f"#   {varnames_w} {varnames_om}:  " \
+        lines_list.append(f"#   {varnames_w.replace('FoM ','')} {varnames_om}:  " \
                           f"best fit cosmology params and uncertainties." )
+        if use_wa:
+            lines_list.append(f"    FoM:     DETF Figure of merit = 1/area(w0wa) ")
+            
         lines_list.append(f"#   chi2:    " \
                           f"chi2 for cosmolofy fit.")
         lines_list.append(f"#   blind:   " \
@@ -1563,7 +1566,7 @@ class cosmofit(Program):
         nrow = 0
         
         if use_wa: 
-            VARNAME_FOM = "<w_sig> <wa_sig> FoM FoM_sig"
+            VARNAME_FOM = "<w_sig> <wa_sig> <FoM> <FoM>_sig"
         else: 
             VARNAME_FOM = "<w_sig>"
 
@@ -1575,12 +1578,18 @@ class cosmofit(Program):
         comment_lines.append(f"#   iFIT      : " \
                              f"cosmology fit-opt index for label in FITOPT column")        
         comment_lines.append(f"#   <w>       : mean fitted w among N_DIRs samples.")
-        comment_lines.append(f"#   <w>_sig   : error on mean w [ RMS/sqrt(N_DIR) ]")
+        comment_lines.append(f"#   <w>_sig   : error on <w> [ RMS/sqrt(N_DIR) ]")
         comment_lines.append(f"#   <wa>      : mean fitted wa among N_DIRs samples.")
-        comment_lines.append(f"#   <wa>_sig  : error on mean wa [ RMS/sqrt(N_DIR) ]")
+        comment_lines.append(f"#   <wa>_sig  : error on <wa> [ RMS/sqrt(N_DIR) ]")
         comment_lines.append(f"#   <omm>     : mean fitted OM among N_DIRs samples.")
-        comment_lines.append(f"#   <omm>_sig : error on mean OM [ RMS/sqrt(N_DIR) ]")
+        comment_lines.append(f"#   <omm>_sig : error on <omm> [ RMS/sqrt(N_DIR) ]")
         comment_lines.append(f"#   <w_sig>   : mean fitted w-uncertainty")
+
+        if use_wa:
+            comment_lines.append(f"#   <wa_sig>  : mean fitted wa-uncertainty")
+            comment_lines.append(f"#   <FoM>     : mean Figure of Merit = 1/area(w0wa)")
+            comment_lines.append(f"#   <FoM>_sig : error on <FoM> = RMS(FoM)/sqrt(N_DIRs)")
+            
         comment_lines.append(f"#   N_DIRs    : number of data samples for mean.")
         comment_lines.append(f"#   COVOPT    : " \
                              f"label for covsys option (ALL=all syst, NOSYS=stat only)")

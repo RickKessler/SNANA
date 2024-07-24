@@ -14,6 +14,7 @@ import os
 import datetime
 import time
 import getpass
+from colorama import Fore, Style
 
 # start with flags that should be switched to command-line args
 NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
@@ -157,6 +158,8 @@ SUBMIT_STATE_RUN  = "RUN "
 SUBMIT_STATE_DONE = "DONE"
 SUBMIT_STATE_FAIL = "FAIL"
 SUBMIT_STATE_BUSY = "BUSY"
+
+# xxx SUBMIT_STATE_WAIT = Fore.YELLOW + Style.BRIGHT + "WAIT" + Style.RESET_ALL
 
 arg_check_abort  = "check_abort"
 arg_kill_on_fail = "kill_on_fail"

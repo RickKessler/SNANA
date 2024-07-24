@@ -2566,11 +2566,6 @@ class BBC(Program):
                 tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
                 NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
 
-                #print(f" xxx ---------------------------- ")
-                #print(f" xxx {fitopt_num}_{muopt_num}")
-                #print(f" xxx SAMPLE_LIST = {SAMPLE_LIST} ")
-                #print(f" xxx NEVT_DATA_bySAMPLE = {NEVT_DATA_bySAMPLE}")
-                
                 f.write(f"    NEVT_bySAMPLE:"
                         f"                # DATA, BIASCOR, CCPRIOR\n")
                 for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,

@@ -12,7 +12,7 @@
 #
 # ==============================================
 
-import os, sys, yaml, shutil, glob, math, ntpath
+import os, sys, yaml, shutil, glob, math, ntpath, re
 import logging, coloredlogs, subprocess, tarfile, pathlib
 import pandas as pd
 from   submit_params import *
@@ -809,8 +809,10 @@ def check_file_exists(file_name,msg_user):
 def read_merge_file(merge_file) :
     comment_lines = []
     input_lines   = []
-    with open(merge_file, 'r') as f :
+    with open(merge_file, 'r') as f :        
         for line in f:
+            #line_new = re.sub('[^a-zA-Z0-9\n\.]', '', line) # YELLOW            
+            #logging.info(f" xxx line: {line} ----> {line_new}")
             input_lines.append(line)
             if line[0] == '#' :
                 comment_lines.append(line[1:].strip("\n"))
@@ -848,8 +850,9 @@ def write_merge_file(f, MERGE_INFO, comment_lines ):
 
     f.write(f"#{header_line} \n")
     f.write(f"{primary_key}: \n")
-    for row in row_list : 
+    for row in row_list :
         f.write(f"  - {row}\n")
+        #f.write(Fore.YELLOW + f"  - {row}\n" + Style.RESET_ALL)
 
     f.write("\n")
     for comment in comment_lines :  f.write(f"#{comment}\n")

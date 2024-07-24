@@ -557,6 +557,7 @@ int  CUTMASK_LIST[MXCUTBIT];          // ERRMASK for each bit
 char CUTSTRING_LIST[MXCUTBIT][40];    // text definition per cut
 int  *CUTMASK_POINTER[MXEVENT_TYPE];
 short int  *IDSAMPLE_POINTER[MXEVENT_TYPE];
+int  *SIM_TEMPLATE_INDEX_POINTER[MXEVENT_TYPE];
 int  *NALL_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NPASS_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NREJECT_CUTMASK_POINTER[MXEVENT_TYPE];
@@ -589,10 +590,11 @@ typedef struct {
   char **VARNAMES_LIST[MXFILE_DATA];  // varnames per [file][ivar]
 
   // global counters
-  int  LEN_MALLOC ;    // total number of lines in file = max for malloc
-  int  NSN_ALL ;       // total number of SN rows read from file
-  int  NSN_PASSCUTS ;  // number passing cuts
-  int  NSN_REJECT;     // number rejected by cuts
+  int  LEN_MALLOC ;      // total number of lines in file = max for malloc
+  int  NSN_ALL ;         // total number of SN rows read from file
+  int  NSN_PASSCUTS ;    // total number passing cuts
+  int  NCONTAM_PASSCUTS;  // contaminaton passing cuts:  CC, PecIA, AGN ...
+  int  NSN_REJECT;       // number rejected by cuts
   int  NSN_CUTBIT[MXCUTBIT]; // number cut per CUTBIT
 
   int  EVENT_RANGE[MXFILE_DATA][2]; // first/last event for each data file
@@ -6925,6 +6927,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->NSN_ALL           = 0;
     TABLEVAR->NSN_REJECT        = 0;
     TABLEVAR->NSN_PASSCUTS      = 0;
+    TABLEVAR->NCONTAM_PASSCUTS  = 0;
     TABLEVAR->NSN_REJECT        = 0;
     TABLEVAR->IS_SIM            = false ;
     TABLEVAR->IS_DATA           = false ;
@@ -12116,7 +12119,6 @@ void init_COVINT_biasCor(void) {
     // use true or meaured redshift ??? [7.01.2020]
     iz       = (int)INFO_BIASCOR.IZ[ievt] ; // true zcmb index
 
-    //.xyz
     INFO_BIASCOR.NEVT_COVINT[idsample][iz][ia][ib][ig]++ ;
     INFO_BIASCOR.SUMWGT_COVINT[idsample][iz][ia][ib][ig] += WGT_POP;
 
@@ -15400,7 +15402,6 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
       CONTAM_INFO->ntrue_cc[ibin]++ ;
     }
 
-
     sum_Ia = (double)CONTAM_INFO->NTRUE_TOT_IA;
     sum_cc = (double)CONTAM_INFO->NTRUE_TOT_CC;
     sum    = sum_Ia + sum_cc ;
@@ -15839,10 +15840,13 @@ void print_eventStats(int event_type) {
   //
   // Sep 18 2021: increment NPASS_CUTMASK_BYSAMPLE for YAML print out later.
 
+  int  IS_DATA_SIM  = (event_type == EVENT_TYPE_DATA && INFO_DATA.TABLEVAR.IS_SIM);
+  
   int  NSN_TOT      = *NALL_CUTMASK_POINTER[event_type];
   char *STRTYPE     = STRING_EVENT_TYPE[event_type];
-  int  NSN_REJ=0, NSN_PASS=0, *NBIT, bit, isn, cutmask, idsample, NCUT=0 ;
-  int  *CUTMASK_PTR, NCUT_SOLO[MXCUTBIT];
+  int  NSN_REJ=0, NSN_PASS=0, NCONTAM_PASS = 0 ;
+  int  *NBIT, bit, isn, cutmask, idsample, NCUT=0 ;
+  int  *CUTMASK_PTR, SIM_TEMPLATE_INDEX=0, NCUT_SOLO[MXCUTBIT];
   short int *IDSAMPLE_PTR ;
   char fnam[] = "print_eventStats" ;
 
@@ -15851,7 +15855,7 @@ void print_eventStats(int event_type) {
   CUTMASK_PTR   =  CUTMASK_POINTER[event_type];
   IDSAMPLE_PTR  =  IDSAMPLE_POINTER[event_type];
   NBIT          =  &NSTORE_CUTBIT[event_type][0];
-
+  
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) 
     { NPASS_CUTMASK_BYSAMPLE[event_type][idsample] = 0; }
 
@@ -15869,7 +15873,12 @@ void print_eventStats(int event_type) {
 
     if ( cutmask ==0 ) {       
       NPASS_CUTMASK_BYSAMPLE[event_type][idsample]++ ;
-      NSN_PASS++ ; 
+      NSN_PASS++ ;
+
+      if ( IS_DATA_SIM ) {
+	SIM_TEMPLATE_INDEX = INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[isn];
+	if ( SIM_TEMPLATE_INDEX > 0 ) { INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS++ ; }
+      }
       continue; 
     }
     // check if one and only 1 bit is set
@@ -15886,7 +15895,7 @@ void print_eventStats(int event_type) {
   *NREJECT_CUTMASK_POINTER[event_type] = NSN_REJ;
   *NPASS_CUTMASK_POINTER[event_type]   = NSN_PASS ;
 
-
+  
   fprintf(FP_STDOUT, 
 	  "\n#%s\n", dashLine);
   fprintf(FP_STDOUT, 
@@ -19998,17 +20007,6 @@ void outFile_driver(void) {
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
     sprintf(tmpFile3,"%s.COV",    prefix );     // Dec 2 2020
     sprintf(tmpFile4,"%s.CHI2GRID", prefix );  // May 27 2024
-
-    /* xxxxxxxx mark delete May 27 2024 xxxxxxxxxx
-    // Aug 12 2020 temp HACK: 
-    // if YAML output is specified, it's from the new
-    // submit_batch_jobs script. Write output fitres file with
-    // .FITRES instead of .fitres to avoid the silly file-move
-    // in batch script. Should fix this permanenetly, but need to 
-    // check/fix SALT2mu_fit.pl.
-    if ( INPUTS.write_yaml ) { sprintf(tmpFile1,"%s.FITRES", prefix ); }
-    xxxxxxxxx end mark xxxxxxxxxx */
-
     
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
@@ -20076,7 +20074,8 @@ void write_yaml_info(char *fileName) {
   // Oct 06 2021: write ISDATA_REAL
   // Sep 21 2022: write NWARN_CRAZYERR
   // Aug 22 2023: replace -12.12s format with -20s to avoid truncation from long varnames
-
+  // Jul 24 2024: write CONTAM_TRUE for sim data
+  
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
 
@@ -20201,12 +20200,26 @@ void write_yaml_info(char *fileName) {
   }
 
 
+  double XNIa, XNCC, XNTOT ;
   if ( INFO_CCPRIOR.USE ) {
-    VAL = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A;
+    XNCC = FITRESULT.NSNFIT_CC;
+    XNIa = FITRESULT.NSNFIT_1A ;
+    // xxx mark delete July 2024 : VAL = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A; 
+    VAL = XNCC / ( XNIa + XNCC );
     ERR = 0.0 ;
     fprintf(fp,"  - %-20s  %.5f  %.5f \n", "CONTAM_DATA:", VAL, ERR ) ;
-    // xxx fprintf(fp,"  - CONTAM_DATA:  %.4f  0.000 \n", contam_data);
-  }
+
+    // write true contam for sim even though it's not a fit result
+    if ( INFO_DATA.TABLEVAR.IS_SIM ) {
+      XNCC  = (double)INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS ;
+      XNTOT = (double)INFO_DATA.TABLEVAR.NSN_PASSCUTS ;
+            
+      VAL =  XNCC / XNTOT ;
+      ERR =  sqrt(XNCC)/ XNTOT ;
+      fprintf(fp,"  - %-20s  %.5f  %.5f    # for sim data only \n",
+	      "CONTAM_TRUE:", VAL, ERR ) ;
+    }
+  } 
 
   fclose(fp);
 

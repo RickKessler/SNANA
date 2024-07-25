@@ -5366,7 +5366,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   //         --> allows other functions to use parse_commaSep function
   //
   // Dec 12 2021: call RD_OVERRIDE_FETCH
-
+  // Jul 25 2024: allow RD_OVERRIDE_FETCH to return string C_VAL (e.g., IAUC)
+  
   int  iptr_local, iform, itype, ifile, itmp, icol, ipar, NSTORE;
   int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX, NSTR=0;
   int  *IPTR, MASK, NEP_RDMASK, NEP_MASK=0, OPTMASK ;
@@ -5414,8 +5415,14 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // since there is no point in finding value in FITS file.
   // This override occurs whether or not parName exists, and thus
   // it overrides or appends data.
-  if ( RD_OVERRIDE_FETCH(SNDATA.CCID, parName, &D_VAL) > 0 ) 
-    { parList[0] = D_VAL;  return 1; }
+  if ( RD_OVERRIDE_FETCH(SNDATA.CCID, parName, &D_VAL, C_VAL) > 0 ) {
+    if ( iform == IFORM_A )
+      { sprintf(parString,"%s", C_VAL); } // July 25 2024
+    else
+      { parList[0] = D_VAL; }
+    
+    return 1;
+  }
 
   // determine 'itype' and 'icol' from parName.
   // use pointer if it's defined (i.e, positive); otherwise search list.

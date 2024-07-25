@@ -50,7 +50,7 @@ void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 bool IS_SIMKEY_SNDATA(char *key);
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
-int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL);
+int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL);
 void RD_OVERRIDE_POSTPROC(void); 
 void rd_override_append(void);
 void rd_override_zcalc(void);

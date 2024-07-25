@@ -1334,15 +1334,16 @@ void rd_override_check_mistake(char *varname_mistake, char *varname_correct) {
 
 
 // ==================================================
-int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
+int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL) {
 
   // Created Dec 2021
   // If SNID and VARNAME is on override list, return DVAL
   // and function returns 1.
   // Function returns 0 if there is no override.
-
+  //
+  // July 25 2024: return *STRVAL if VARNAME cast is string (e.g., for IAUC)
+  
   int  ISTAT, NRD, IVAR, NTMP ;
-  char STRDUM[20];
   char fnam[] = "RD_OVERRIDE_FETCH";
 
   // ----------- BEGIN -----------
@@ -1353,7 +1354,7 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
   if ( IVAR < 0 ) { return 0; }
 
   // read from override table; ISTAT and DVALare returned
-  SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, DVAL, STRDUM);  
+  SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, DVAL, STRVAL);  
 
   // *ISTAT =  0  if CCID is found; 
   // *ISTAT = -1  if CCID is NOT found    
@@ -1432,7 +1433,7 @@ void rd_override_append(void) {
 
   int ivar;
   double DVAL ;
-  char *varName ;
+  char *varName, STRVAL[40] ;
   char fnam[] = "rd_override_append" ;
 
   // --------- BEGIN --------
@@ -1440,7 +1441,7 @@ void rd_override_append(void) {
   for (ivar=0; ivar < NVAR_OVERRIDE_CHECK; ivar++ ) {
     varName = VARNAME_CHECK[ivar] ;
     if ( EXIST_VARNAME_AUTOSTORE(varName) ) { 
-      RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &DVAL) ;
+      RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &DVAL, STRVAL) ;
       *ptr_SNDATA[ivar] = (float)DVAL;
 
       if ( strstr(varName,"HOSTGAL") != NULL ) {
@@ -1491,7 +1492,7 @@ void rd_override_zphot_q(int OPT) {
   //  OPT=2 --> read zphot_q values
 
   int  NZPHOT_Q, PCT, q, LEN_PREFIX ;
-  char PREFIX[60], *varName ;
+  char PREFIX[60], *varName, STRDUM[40] ;
   char fnam[] = "rd_override_zphot_q" ;
 
   // ------------- BEGIN -------------
@@ -1529,14 +1530,14 @@ void rd_override_zphot_q(int OPT) {
 
     // check if NZPHOT_Q in override file matches number of
     // ZPHOT_Q[nnn] that were found
-    RD_OVERRIDE_FETCH(SNDATA.CCID, STRING_NZPHOT_Q, &d_nzphot_q) ;
+    RD_OVERRIDE_FETCH(SNDATA.CCID, STRING_NZPHOT_Q, &d_nzphot_q, STRDUM ) ;
     OVERRIDE_NZPHOT_Q = (int)d_nzphot_q ;
 
     for(q=0; q < NZPHOT_Q; q++ ) {
       zq = -9.0 ;
       if ( OVERRIDE_NZPHOT_Q == NZPHOT_Q ) {
 	varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
-	RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &zq) ; // return zq
+	RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &zq, STRDUM) ; // return zq
       }
       
       SNDATA.HOSTGAL_ZPHOT_Q[IGAL][q] = zq ;

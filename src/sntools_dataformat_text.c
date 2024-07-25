@@ -2145,6 +2145,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   bool   IS_PRIVATE, PLUS_MINUS = false ;  
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
   char PREFIX[40], KEY[80], KEY_ERR[80], KEY_TEST[80], ARG_TMP[80];
+  char STRVAL[40];
   char fnam[] = "parse_SNTEXTIO_HEAD" ;
 
   // ------------ BEGIN -----------g
@@ -2182,8 +2183,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   len_word0 = strlen(word0);
   sprintf(KEY,"%s", word0); KEY[len_word0-1] = 0;
   sprintf(KEY_ERR, "%s_ERR", KEY);
-  NRD     = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY,     &DVAL);      // return DVAL
-  NRD_ERR = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY_ERR, &DVAL_ERR);  
+  NRD     = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY,     &DVAL,     STRVAL);    // return DVAL
+  NRD_ERR = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY_ERR, &DVAL_ERR, STRVAL);  
   if ( NRD     > 0 ) { sprintf(word1_val, "%le", DVAL); }
   if ( NRD_ERR > 0 ) { sprintf(word3_err, "%le", DVAL_ERR); PLUS_MINUS=true; }
 

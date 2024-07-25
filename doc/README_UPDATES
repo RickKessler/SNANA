@@ -22514,8 +22514,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    create_covariance.py:
       https://github.com/RickKessler/SNANA/issues/1390 
+
+   sntools_data.c
+      Fix RD_OVERRIDE_FETCH to return double and string (before, only returned DVAL)
+      to work with header strings such as IAUC.
       
-	
          *****  USEFUL(v11_05o) *****
 
      

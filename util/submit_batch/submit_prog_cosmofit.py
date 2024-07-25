@@ -1411,7 +1411,7 @@ class cosmofit(Program):
         lines_list.append(f"#   {varnames_w.replace('FoM ','')} {varnames_om}:  " \
                           f"best fit cosmology params and uncertainties." )
         if use_wa:
-            lines_list.append(f"    FoM:     DETF Figure of merit = 1/area(w0wa) ")
+            lines_list.append(f"#   FoM:     DETF Figure of merit = 1/area(w0wa) ")
             
         lines_list.append(f"#   chi2:    " \
                           f"chi2 for cosmolofy fit.")
@@ -1676,7 +1676,6 @@ class cosmofit(Program):
 
                         for dir2_ in fitavg_list2:
                             if nwarn_dict[dir2_] > 0 : continue
-                            # xxx mark unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
                             unique_key2   = f"{dir2_}_{str_covnum_wfitnum}"
                             summary_table = cosmofit_summary_table[unique_key]
                             omm_list2.append(summary_table['omm'])
@@ -1725,7 +1724,7 @@ class cosmofit(Program):
                     # xxx mark delete : str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
                     
                     if use_wa:
-                        str_FoM      = f"{FoM_avg:5.0f} {FoM_avg_std:5.0f} "
+                        str_FoM      = f"{FoM_avg:5.0f} {FoM_avg_std:5.1f} "
                         str_results += f"{wasig_avg:7.4f}  {str_FoM}"
 
                     str_misc    = f"{len(w_list)}"

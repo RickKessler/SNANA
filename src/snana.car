@@ -1847,7 +1847,7 @@ c
 
       CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)
      &    HEADER_OVERRIDE_FILE       ! I: comma-sep list of files with CID VAR
-     &   ,SIM_HEADER_OVERRIDE_FILE  ! I: same, but for sims
+     &   ,SIM_HEADER_OVERRIDE_FILE   ! I: same, but for sims
 
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! I: SN versions to read
@@ -10787,6 +10787,7 @@ C =====================================
 
 c Created Mar 14 2021
 c Update the following SNDATA struct variables for FITS or TEXT format:
+c   + IAUC                   ( if not UNKNOWN) 
 c   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
@@ -10803,7 +10804,11 @@ c   + MJD_TRIGGER        # if PHOTFLAG_TRIGGER > 0
 c   + MJD_DETECT_FIRST   # if PHOTFLAG_DETECT > 0
 c   + MJD_DETECT_LAST    # idem
 c   
-c   + MWMAGCOR_[band]  # Nov 2023 
+c   + MWMAGCOR_[band]  # Nov 2023
+c
+c -----------
+c July 25 2024: add IAUC, but beware that it is not yet tested.
+c
 c -------------
 
       IMPLICIT NONE
@@ -10827,7 +10832,7 @@ C -------------- BEGIN ----------
       LEN_KEY  = 20
       LEN_STR  = 20
       cSTRING  = "DUMMY" // char(0)
-
+      
       IF ( OPT_SETPKMJD > 0 ) THEN
         cKEY     = "PEAKMJD" // char(0)
         DVAL(1)     = DBLE(SNLC_SEARCH_PEAKMJD)
@@ -10942,8 +10947,19 @@ c           if they have been computed from PHOTFLAG .
      &         cSTRING, DVAL, LEN_KEY, LEN_STR)
       endif
 
+c - - - - - 
+c IAUC
+      if ( SNLC_IAUC .NE. 'UNKNOWN' ) then
+        LEN_STR  = INDEX(SNLC_IAUC,' ') - 1
+        cKEY     = "IAUC" // char(0)
+        cSTRING  = SNLC_IAUC(1:LEN_STR) // char(0)
+        DVAL(1)  = 0.0
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &          cSTRING, DVAL, LEN_KEY, LEN_STR)
+      endif
+      
       RETURN 
-      END
+      END  ! end copy_SNDATA_MISC
 
 C =========================================
 +DECK,WR_REFORMAT_IGNORE.

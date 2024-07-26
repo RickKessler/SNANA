@@ -1287,13 +1287,20 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   RD_OVERRIDE.FOUND_zCMB = false ;
   RD_OVERRIDE.FOUND_zHEL = false ; 
   RD_OVERRIDE.NZPHOT_Q   = 0 ;
-
+  RD_OVERRIDE.FOUND_NAME_IAUC      = false;
+  RD_OVERRIDE.FOUND_NAME_TRANSIENT = false;
+    
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_FINAL") ) 
     { RD_OVERRIDE.FOUND_zCMB = true; }
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_CMB") ) 
     { RD_OVERRIDE.FOUND_zCMB = true; }
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO") ) 
     { RD_OVERRIDE.FOUND_zHEL = true; }
+
+  if ( EXIST_VARNAME_AUTOSTORE("NAME_IAUC") ) 
+    { RD_OVERRIDE.FOUND_NAME_IAUC = true; }
+  if ( EXIST_VARNAME_AUTOSTORE("NAME_TRANSIENT") ) 
+    { RD_OVERRIDE.FOUND_NAME_TRANSIENT = true; }    
 
   // check for varname mistakes
   rd_override_check_mistake("HOSTGAL_ZPHOT" ,    "HOSTGAL_PHOTOZ");
@@ -1403,6 +1410,10 @@ void RD_OVERRIDE_POSTPROC(void) {
   //  exist in the data file
   if ( RD_OVERRIDE.NZPHOT_Q > 0 )  { rd_override_zphot_q(2); }
 
+  // check NAME_IAUC or NAME_TRANSIENT column when
+  // these variables don't exist in original file.
+  rd_override_name();
+  
   return ;
 
 } // end RD_OVERRIDE_POSTPROC
@@ -1501,7 +1512,7 @@ void rd_override_zphot_q(int OPT) {
   char fnam[] = "rd_override_zphot_q" ;
 
   // ------------- BEGIN -------------
-
+    
   if ( OPT == 1 ) {
     char *VARSTRING = (char*) malloc(500*sizeof(char));
     sprintf(PREFIX,"HOSTGAL_%s", PREFIX_ZPHOT_Q);
@@ -1554,6 +1565,30 @@ void rd_override_zphot_q(int OPT) {
 
 } // end rd_override_zphot_q
 
+// =================================
+void rd_override_name(void) {
+
+  // Created Jul 26 2024
+  // Check misc overrides that are not in original data file.
+
+  double D_VAL = 0.0 ;
+  char   *ptr_str;
+  char fnam[] = "rd_override_name" ;
+  
+  // ---------- BEGIN -------------
+
+  if ( RD_OVERRIDE.FOUND_NAME_IAUC ) {
+    RD_OVERRIDE_FETCH(SNDATA.CCID, "NAME_IAUC",
+		      &D_VAL, SNDATA.NAME_IAUC) ;
+  }
+
+  if ( RD_OVERRIDE.FOUND_NAME_TRANSIENT ) {
+    RD_OVERRIDE_FETCH(SNDATA.CCID, "NAME_TRANSIENT",
+		      &D_VAL, SNDATA.NAME_TRANSIENT) ;
+  }
+  
+  return;
+} // end rd_override_name
 
 // - - - - - - - 
 // mangled fortran functions

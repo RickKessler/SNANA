@@ -295,7 +295,7 @@ void wr_snfitsio_init_head(void) {
 
   wr_snfitsio_addCol( "16A", "SNID", itype   ) ;  // required integer or string name
 
-  if ( SNDATA.FAKE == FAKEFLAG_DATA ) {
+  if ( !SNFITSIO_SIMFLAG_SNANA  ) {
     wr_snfitsio_addCol( "16A" ,"NAME_IAUC",      itype); // optional IAUC name
     wr_snfitsio_addCol( "20A" ,"NAME_TRANSIENT", itype); // optional name (Jul 2024)
   }
@@ -981,8 +981,9 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
   //  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
   //  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
+  //  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
 
-  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
+  SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
 
   // - - - - - - - 
 
@@ -3094,12 +3095,21 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   // OPT = 14 -> read all
   //
   // Apr 27 2021: fix bug reading SIM_VPEC (was reading VPEC instead)
-
+  // Jul 26 2024; read new NAME_IAUC, but also check for legacy IAUC key name.
+  
   bool LRD_HEAD = ( OPT & OPTMASK_SNFITSIO_HEAD );
   bool LRD_PHOT = ( OPT & OPTMASK_SNFITSIO_PHOT );
   bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
   int  NFILT    = SNDATA_FILTER.NDEF;
 
+  int  OPTMASK_RD = OPTMASK_RD_SNFITSIO ;
+  int  ITYPE_HEAD = ITYPE_SNFITSIO_HEAD ;
+
+  // define keys for IAUC and TRANSIENT names (July 26 2024)
+  char KEY_NAME_IAUC[]          = "NAME_IAUC";      
+  char KEY_NAME_IAUC_LEGACY[]   = "IAUC";
+  char KEY_NAME_TRANSIENT[]     = "NAME_TRANSIENT"; 
+  
   int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, N_Q ;
   char PREFIX[20], KEY[40]; 
   double D_OBJID;
@@ -3118,14 +3128,22 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
-      j++ ;  NRD = RD_SNFITSIO_STR(isn, "NAME_IAUC", SNDATA.NAME_IAUC, 
+
+      // check new (NAME_IAUC) and legacy (IAUC) key names for IAUC.
+      if ( IPAR_SNFITSIO(OPTMASK_RD, KEY_NAME_IAUC, ITYPE_HEAD) > 0 )
+	{ sprintf(KEY,"%s", KEY_NAME_IAUC); }
+      else
+	{ sprintf(KEY,"%s", KEY_NAME_IAUC_LEGACY); }
+
+      j++ ;  NRD = RD_SNFITSIO_STR(isn, KEY, SNDATA.NAME_IAUC, 
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
-      if (NRD == 0 ) { // check legacy IAUC key name
-	j++ ;  NRD = RD_SNFITSIO_STR(isn, "IAUC", SNDATA.NAME_IAUC, 
-				     &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      // read NAME_TRANSIENT only if it exists (July 16 2024)
+      if ( IPAR_SNFITSIO(OPTMASK_RD, KEY_NAME_TRANSIENT, ITYPE_HEAD) > 0 ) {
+	j++ ;  NRD = RD_SNFITSIO_STR(isn, KEY_NAME_TRANSIENT, SNDATA.NAME_TRANSIENT,
+ 				     &SNFITSIO_READINDX_HEAD[j] ) ;
       }
-      j++ ;  NRD = RD_SNFITSIO_STR(isn, "NAME_TRANSIENT", SNDATA.NAME_TRANSIENT, 
-				   &SNFITSIO_READINDX_HEAD[j] ) ; 
+      
     }
     
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
@@ -5434,6 +5452,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // since there is no point in finding value in FITS file.
   // This override occurs whether or not parName exists, and thus
   // it overrides or appends data.
+  D_VAL = -9.9; C_VAL[0] = 0 ;
   if ( RD_OVERRIDE_FETCH(SNDATA.CCID, parName, &D_VAL, C_VAL) > 0 ) {
     if ( iform == IFORM_A )
       { sprintf(parString,"%s", C_VAL); } // July 25 2024

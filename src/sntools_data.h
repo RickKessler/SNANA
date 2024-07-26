@@ -19,6 +19,8 @@ struct {
   int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023)
   char **VARLIST_ZPHOT_Q;
 
+  bool FOUND_NAME_IAUC, FOUND_NAME_TRANSIENT; // July 2024
+  
 } RD_OVERRIDE;
 
 
@@ -55,6 +57,8 @@ void RD_OVERRIDE_POSTPROC(void);
 void rd_override_append(void);
 void rd_override_zcalc(void);
 void rd_override_zphot_q(int OPT);
+void rd_override_name(void);
+
 void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
 
 void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST); 

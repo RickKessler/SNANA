@@ -1380,7 +1380,8 @@ int ICAST_for_textVar(char *varName) {
   // Aug 04 2017: allow for "CCID ROW" using strstr
   // Apr 29 2019: allow PARNAME
   // Apr 16 2023: check partial match for GALID and OBJID
-
+  // Jul 26 2024: check NAME_IAUC and NAME_TRANSIENT
+  
   char fnam[] = "ICAST_for_textVar";
 
   // ----------- BEGIN -------------
@@ -1416,7 +1417,9 @@ int ICAST_for_textVar(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"BAND" )  == 0 ) 
     { return ICAST_C; }
 
-  if ( strcmp_ignoreCase(varName,(char*)"IAUC_NAME" ) == 0 ) 
+  if ( strcmp_ignoreCase(varName,(char*)"NAME_TRANSIENT" ) == 0 ) 
+    { return ICAST_C;}
+  if ( strcmp_ignoreCase(varName,(char*)"NAME_IAUC" ) == 0 ) 
     { return ICAST_C;}
   if ( strcmp_ignoreCase(varName,(char*)"IAUC" ) == 0 ) 
     { return ICAST_C;}

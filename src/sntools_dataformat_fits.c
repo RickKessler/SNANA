@@ -293,8 +293,13 @@ void wr_snfitsio_init_head(void) {
   if ( SNDATA.SUBSURVEY_FLAG )
     { wr_snfitsio_addCol("40A", "SUBSURVEY", itype); }
 
-  wr_snfitsio_addCol( "16A", "SNID", itype   ) ;  // character
-  wr_snfitsio_addCol( "16A" ,"IAUC", itype   ) ;
+  wr_snfitsio_addCol( "16A", "SNID", itype   ) ;  // required integer or string name
+
+  if ( SNDATA.FAKE == FAKEFLAG_DATA ) {
+    wr_snfitsio_addCol( "16A" ,"NAME_IAUC",      itype); // optional IAUC name
+    wr_snfitsio_addCol( "20A" ,"NAME_TRANSIENT", itype); // optional name (Jul 2024)
+  }
+  
   wr_snfitsio_addCol( "1I" , "FAKE", itype   ) ;  // 0=data; >1 => sim
 
   if ( !SNFITSIO_SIMFLAG_SNANA  )
@@ -1483,11 +1488,17 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.CCID ;
   wr_snfitsio_fillTable ( ptrColnum, "SNID", itype );
 
-  // IAUC name
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.IAUC_NAME ;
-  wr_snfitsio_fillTable ( ptrColnum, "IAUC", itype );
-
+  // IAUC and transient NAME
+  if ( SNDATA.FAKE == FAKEFLAG_DATA ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.NAME_IAUC ;
+    wr_snfitsio_fillTable ( ptrColnum, "NAME_IAUC", itype );
+    
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.NAME_TRANSIENT ;
+    wr_snfitsio_fillTable ( ptrColnum, "NAME_TRANSIENT", itype );
+  }
+  
   // fake flag
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.FAKE ;
@@ -3105,10 +3116,18 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     j++ ;  NRD = RD_SNFITSIO_STR(isn, "SNID", SNDATA.CCID, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
-    
-    j++ ;  NRD = RD_SNFITSIO_STR(isn, "IAUC", SNDATA.IAUC_NAME, 
-				 &SNFITSIO_READINDX_HEAD[j] ) ; 
 
+    if ( !SNFITSIO_SIMFLAG_SNANA ) {
+      j++ ;  NRD = RD_SNFITSIO_STR(isn, "NAME_IAUC", SNDATA.NAME_IAUC, 
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+      if (NRD == 0 ) { // check legacy IAUC key name
+	j++ ;  NRD = RD_SNFITSIO_STR(isn, "IAUC", SNDATA.NAME_IAUC, 
+				     &SNFITSIO_READINDX_HEAD[j] ) ;
+      }
+      j++ ;  NRD = RD_SNFITSIO_STR(isn, "NAME_TRANSIENT", SNDATA.NAME_TRANSIENT, 
+				   &SNFITSIO_READINDX_HEAD[j] ) ; 
+    }
+    
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 

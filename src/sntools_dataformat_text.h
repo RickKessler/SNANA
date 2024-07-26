@@ -114,8 +114,6 @@ void check_nblam_sntextio_spec(void);
 void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
 			      float *PTR_VAL, float *PTR_ERR) ;
 
-bool is_valid_SNTEXTIO(float VAL_MIN, float VAL);
-
 void copy_keyword_nocolon(char *key_in, char *key_out) ;
 void check_head_sntextio(int OPT);
 

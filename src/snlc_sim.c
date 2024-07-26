@@ -23775,8 +23775,9 @@ void snlc_to_SNDATA(int FLAG) {
 
   SNDATA.CID  = GENLC.CID_FINAL ; 
 
-  sprintf(SNDATA.CCID,      "%d", SNDATA.CID ) ;
-  sprintf(SNDATA.IAUC_NAME, "%s", "NULL" );
+  sprintf(SNDATA.CCID,   "%d", SNDATA.CID ) ;
+  sprintf(SNDATA.NAME_IAUC,      "%s", "NONE" );
+  sprintf(SNDATA.NAME_TRANSIENT, "%s", "NONE" );
 
   if ( INPUTS.APPEND_SNID_SEDINDEX ) 
     { sprintf(SNDATA.CCID, "%d-%d", SNDATA.CID, GENLC.TEMPLATE_INDEX ); } 

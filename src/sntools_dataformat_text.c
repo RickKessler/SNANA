@@ -88,6 +88,13 @@ void wr_sntextio_datafile__(char *OUTFILE)
 // =====================================================
 void  wr_dataformat_text_HEADER(FILE *fp) {
 
+  // Write header info.
+  //
+  // July 26 2024:
+  //  + add TRANSIENT_NAME
+  //  + rename IAUC key to NAME_IAUC key
+  //  + write NAME_IAUC and NAME_TRANSIENT only for real data.
+  
   char comment[80];
 
   char COMMENT_FAKEFLAG[4][80] = {
@@ -97,13 +104,15 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
     "BLIND-TEST simulation"
   } ;
 
+  bool IS_DATA      = ( SNDATA.FAKE == FAKEFLAG_DATA);
+  bool IS_SIM       = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
+  bool IS_BLINDTEST =  SNDATA.WRFLAG_BLINDTEST;
+  
   char SURVEY_ARG[100];
   char fnam[] = "wr_dataformat_text_HEADER" ;
 
   // ------------ BEGIN -----------
 
-  // For real data, write only valid value to avoid clutter. (Jan 23 2022)
-  WRITE_VALID_SNTEXTIO = ( SNDATA.FAKE == FAKEFLAG_DATA  );
 
   // write either "SURVEY: SURVEY" or "SURVEY: SURVEY(SUBSAMPLE)"
   int LENS = strlen(SNDATA.SUBSURVEY_NAME);
@@ -115,10 +124,24 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
     { sprintf(SURVEY_ARG, "%s", SNDATA.SURVEY_NAME); }
   fprintf(fp,"SURVEY:   %s\n", SURVEY_ARG);
 
+  fprintf(fp,"SNID:             %s  "
+	  "# integer or string assigned by survey team (required)\n",
+	  SNDATA.CCID);
 
-  fprintf(fp,"SNID:     %s\n", SNDATA.CCID);
-  fprintf(fp,"IAUC:     %s\n", SNDATA.IAUC_NAME);
-  fprintf(fp,"SNTYPE:   %d\n", SNDATA.SNTYPE);
+  if ( IS_DATA ) {
+    fprintf(fp,"NAME_IAUC:      %s  "
+	    "# name for Intern. Atron. Union Circulars (optional)\n",
+	    SNDATA.NAME_IAUC);
+
+    if (strlen(SNDATA.NAME_TRANSIENT) > 0 ) {
+      fprintf(fp,"NAME_TRANSIENT: %s  "
+	      "# extra name assigned by survey team (optional)\n",
+	      SNDATA.NAME_TRANSIENT);
+    }
+  }
+  
+  fprintf(fp,"SNTYPE:   %d    # integer type; e.g. spec or phot classification\n",
+	  SNDATA.SNTYPE);
   fprintf(fp,"RA:       %.6f  # deg (avg among obs)\n", SNDATA.RA_AVG);
   fprintf(fp,"DEC:      %.6f  # deg (avg among obs)\n", SNDATA.DEC_AVG);
 
@@ -201,26 +224,21 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
 
   // - - - - - - - - -  -
-  // SIM_ info
+  /* xxxx mark delete July 16 2024 xxxxxxxxxx
   if ( SNDATA.WRFLAG_BLINDTEST       ) { return; } // skip for BLIND test
   if ( SNDATA.FAKE == FAKEFLAG_DATA  ) { return; } // skip for real data
   if ( SNDATA.FAKE == FAKEFLAG_FAKES ) { return; } // skip for fakes
+  xxxxxxxxx end mark xxxxxxxxxxxx */
 
-  wr_dataformat_text_SIMPAR(fp);
+  
+  // write SIM_ info for SNANA sim
+  if ( IS_SIM && !IS_BLINDTEST ) 
+    { wr_dataformat_text_SIMPAR(fp); }
 
   return ;
 } // end wr_dataformat_text_HEADER
 
 
-bool is_valid_SNTEXTIO(float VAL_MIN, float VAL) {
-  // Created Jan 24 2022
-  // Return false of WRITE_VALID_SNTEXTIO flag is set and VAL < VAL_MIN.
-  // Used to write only valid items to data file (avoids clutter)
-  if ( WRITE_VALID_SNTEXTIO && VAL < VAL_MIN) 
-    { return false ;}
-  else
-    { return true; }
-} // end IS_VALID_SNTEXTIO
 
 // ========================================= 
 void wr_dataformat_text_SIMPAR(FILE *fp) {
@@ -2224,10 +2242,16 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
     }
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_FILTERS] = true ;
-  } 
-  else if ( strcmp(word0,"IAUC:") == 0 ) {
-    sscanf(word1_val, "%s", SNDATA.IAUC_NAME);
   }
+
+  
+  else if ( strcmp(word0,"NAME_IAUC:") == 0 || strcmp(word0,"IAUC:") == 0 ) {
+    sscanf(word1_val, "%s", SNDATA.NAME_IAUC);
+  }
+  else if ( strcmp(word0,"NAME_TRANSIENT:") == 0 ) { // 7/2024
+    sscanf(word1_val, "%s", SNDATA.NAME_TRANSIENT);
+  }
+  
   else if ( strcmp(word0,"FAKE:") == 0 ) {
     SNDATA.FAKE = IVAL;
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_FAKE] = true ;

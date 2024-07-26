@@ -306,8 +306,13 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
      SNDATA.NOBS_STORE = 0 ; // must call select_MJD_SNDATA to set this
   }
 
-  else if ( strcmp(key,"IAUC") == 0 ) 
-    { copy_str(copyFlag, stringVal, SNDATA.IAUC_NAME ); }
+  else if ( strcmp(key,"NAME_IAUC") == 0 ) 
+    { copy_str(copyFlag, stringVal, SNDATA.NAME_IAUC ); }
+  else if ( strcmp(key,"IAUC") == 0 )  // legacy key name (7/2024)
+    { copy_str(copyFlag, stringVal, SNDATA.NAME_IAUC ); }  
+
+  else if ( strcmp(key,"NAME_TRANSIENT") == 0 ) 
+    { copy_str(copyFlag, stringVal, SNDATA.NAME_TRANSIENT ); }  
 
   else if ( strcmp(key,"FAKE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.FAKE ); }

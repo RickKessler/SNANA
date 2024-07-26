@@ -8077,7 +8077,8 @@ int init_SNDATA_EVENT(void) {
 
   sprintf(FLUXUNIT, "ADU");
 
-  sprintf(SNDATA.IAUC_NAME,      "UNKNOWN" );
+  sprintf(SNDATA.NAME_IAUC,      "UNKNOWN" );
+  sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );
   sprintf(SNDATA.AUXHEADER_FILE, "UNKNOWN" );
 
   SNDATA.NLINES_AUXHEADER = 0;

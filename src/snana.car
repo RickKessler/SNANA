@@ -783,6 +783,7 @@ c analysis-related variables.
      &  ,ISNLC_zSOURCE               ! mask indicating the source of redshift
      &  ,ISNLC_LENCCID     ! char-len of CCID
      &  ,ISNLC_LENIAUC     ! char-len of IAUC name
+     &  ,ISNLC_LENNAME     ! char-len of transient name
      &  ,ISNLC_VERSION     ! photometry version index vs. ISN     
      &  ,ISNLC_TYPE        ! type (120=confirmed Ia, etc ...)
      &  ,ISNLC_IFILE       ! ifile index, text format only
@@ -922,8 +923,9 @@ c
      &  ,MULTISEASON_MJDMAX(MXSEASON)
 
       CHARACTER
-     &   SNLC_CCID*(MXCHAR_CCID)      ! char CID 
-     &  ,SNLC_IAUC*(MXCHAR_CCID)
+     &   SNLC_CCID*(MXCHAR_CCID)    ! public integer or string name
+     &  ,SNLC_IAUC*(MXCHAR_CCID)    ! public IAUC name
+     &  ,SNLC_NAME*(MXCHAR_CCID)    ! internal transient name (July 2024)
      &  ,SNLC_CASTCID*8             ! = 'INT' or 'CHAR' to indicate cast
      &  ,SNLC_FIELD(MXEPOCH)*(MXCHAR_FIELDNAME)    ! char field name
      &  ,SNLC_FIELD_OVPLIST(MXFIELD_OVP)*(MXCHAR_FIELDNAME)  ! sparse list of overlap fields
@@ -936,7 +938,7 @@ c
      &  ,SNLC8_FLUXCAL, SNLC8_FLUXCAL_ERRTOT
 
       COMMON / SNLCCOM /
-     &     SNLC_CID, SNLC_CCID,  SNLC_CASTCID, SNLC_IAUC
+     &     SNLC_CID, SNLC_CCID,  SNLC_CASTCID, SNLC_IAUC, SNLC_NAME
      &    ,INDEX_CID_MATCH
      &    ,SNLC_FIELD, SNLC_FIELD_OVPLIST, SNLC_FIELDLIST
      &    ,SNLC_SNANAFIT_PEAKMJD
@@ -977,7 +979,7 @@ c
       COMMON / ISNCOM /      
      &     ISNLC_VERSION, ISNLC_SNRECON_USE, ISNLC_PHOTFLAG
      &    ,ISNLC_TYPE, ISNLC_zFLAG, ISNLC_zSOURCE, ISNLC_IFILE
-     &    ,ISNLC_LENCCID, ISNLC_LENIAUC
+     &    ,ISNLC_LENCCID, ISNLC_LENIAUC, ISNLC_LENNAME
      &    ,ISNLC_NFILT_NEWMJD, ISNLC_IFILT_OBS
      &    ,ISNLC_NEWMJD_HEAD, ISNLC_NEWMJD_FOUND, ISNLC_NEWMJD_STORE
      &    ,ISNLC_NEWMJD_CUTS, ISNLC_EPOCH_RANGE_NEWMJD
@@ -4455,6 +4457,11 @@ c     &    + OPTMASK_SNDATA_DUMP
          ISNLC_LENCCID  = ISNLC_LENIAUC
          call checkString_CCID(SNLC_CCID) ! abort if illegal char in name
       ENDIF     
+
+      CALL FETCH_SNDATA_WRAPPER("SNID", 
+     &     ONE, SNLC_NAME, DARRAY, OPT)
+      ISNLC_LENNAME = INDEX(SNLC_NAME,' ') - 1
+      call checkString_CCID(SNLC_NAME)   ! abort if illegal char in name
 
 c - - - - - - - - - - - - - - - - - - - - - - - - - -
 c Convert CCID to integer CID, and check if this CCID is selected.
@@ -10787,7 +10794,7 @@ C =====================================
 
 c Created Mar 14 2021
 c Update the following SNDATA struct variables for FITS or TEXT format:
-c   + IAUC                   ( if not UNKNOWN) 
+c
 c   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
@@ -10805,9 +10812,6 @@ c   + MJD_DETECT_FIRST   # if PHOTFLAG_DETECT > 0
 c   + MJD_DETECT_LAST    # idem
 c   
 c   + MWMAGCOR_[band]  # Nov 2023
-c
-c -----------
-c July 25 2024: add IAUC, but beware that it is not yet tested.
 c
 c -------------
 
@@ -10948,15 +10952,6 @@ c           if they have been computed from PHOTFLAG .
       endif
 
 c - - - - - 
-c IAUC
-      if ( SNLC_IAUC .NE. 'UNKNOWN' ) then
-        LEN_STR  = INDEX(SNLC_IAUC,' ') - 1
-        cKEY     = "IAUC" // char(0)
-        cSTRING  = SNLC_IAUC(1:LEN_STR) // char(0)
-        DVAL(1)  = 0.0
-        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
-     &          cSTRING, DVAL, LEN_KEY, LEN_STR)
-      endif
       
       RETURN 
       END  ! end copy_SNDATA_MISC
@@ -15725,8 +15720,9 @@ c ------------- BEGIN -------------
 
       SNLC_CID    = -9
       SNLC_CCID   = ''
-      SNLC_IAUC   = 'NULL'   ! Aug 31 2017 (can't write blank to FITS file)
-
+      SNLC_IAUC   = 'NONE'   ! Aug 31 2017 (don't write blank to FITS file)
+      SNLC_NAME   = 'NONE'   ! Jul 26 2024
+      
       NSPECTRUM   = 0    ! for reading spectra for plot-table
       NLAMBIN_READ = 0 
 

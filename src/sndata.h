@@ -17,6 +17,7 @@
   May 24 2023: MXDOCLINE -> 2000 (was 1000) to handle long list of NON1A keys
   Aug 05 2023: MXEPOCH -> 15000 (was 5000) for Roman+LSST catalog sim
   Sep 30 2023: MXSPECTRA -> 2000 (was 1000); for Roman+LSST SED TRUE
+  Jul 26 2024: define TRANSIENT_NAME and move MXCHAR_CCID here (from sntools_output.h)
 
 *****************************************************/
 
@@ -100,6 +101,7 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 //  disk pointers defined in init_SNDATA
 
+#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
 #define MXPATHLEN            300  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
@@ -203,7 +205,7 @@ struct SNDATA {
 
   // start with info read from input flux file
 
-  char  CCID[20];         // char name of SNID
+  char  CCID[MXCHAR_CCID];   // char name of SNID
   int   CID ;             // candidate id  
   int   FAKE ;            // 1=FAKE, 0=DATA
   int   NEPOCH;           // total NEPOCH including peak and unused filters
@@ -243,7 +245,6 @@ struct SNDATA {
   char  MAGREF[20];    // VEGA or AB
 
   int  SNTYPE;                     // user-defined integer type 
-  // xxx  char TELESCOPE[MXEPOCH][20];     // name of telescope at each epoch
   int  IDTEL[MXEPOCH];             // integer telescope id
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
@@ -269,8 +270,8 @@ struct SNDATA {
 
   // now define stuff computed or found by this program
 
-  char  IAUC_NAME[20];           // official name (SQL)
-
+  char  NAME_IAUC[MXCHAR_CCID];       // public name in IAUC
+  char  NAME_TRANSIENT[MXCHAR_CCID];  // internal string name (July 2024)
   char *FIELDNAME[MXEPOCH] ;    // survey field (generalize SDSS STRIPE)
   char  FIELDNAME_1D[MXEPOCH*20] ;  // for fortran interface
 

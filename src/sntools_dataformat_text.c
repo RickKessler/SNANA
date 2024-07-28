@@ -2955,11 +2955,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
     lenstr = strlen(str); 
     sprintf(SNDATA.FILTNAME[ep], "%s", str ); // Jun 11 2024
-    catVarList_with_comma(SNDATA.FILTCHAR_1D, &str[lenstr-1]);
-    /* xxx mark delete Jun 11 2024 xxxxxx
-       // xxx sprintf(SNDATA.FILTCHAR[ep], "%c", str[lenstr-1] );
-       // xxx catVarList_with_comma(SNDATA.FILTCHAR_1D, SNDATA.FILTCHAR[ep]);    
-    xxxx end mark xxxxxx */
+    catVarList_with_comma(SNDATA.FILTCHAR_1D, &str[lenstr-1]);    
     
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FIELD] ;
     if ( strcmp(str,"NULL") == 0 ) { sprintf(str,FIELD_NONAME); }

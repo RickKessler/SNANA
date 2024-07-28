@@ -5,42 +5,6 @@
 //
 // - - - - - - - - - - - 
 // HISTORY
-// July 22 2013: include two new columns: CID and MJD
-//
-// Oct 15, 2013: in SNLCPAK_FILL_TEXT(void) fix bug closing each text file.
-// Jan 22, 2014: write optional rest-frame filter and flux, and simRestFlux.
-//
-// Oct 27 2014: major overhaul for refactor
-//
-// Jan 10 2015: fix bug in SNTABLE_FILL_TEXT; add padded blank after CVAL
-//              just before trim call.
-//
-// Apr 26 2015: 
-//   For LCPLOT table, all SN written to one  [REPFIX].LCPLOT.TEXT file
-//   instead of one file per SN.
-//   New function CLOSE_TEXTFILE() to close LCPLOT file(s).
-//
-// Nov 7 2015: TEXTFILE_PREFIX is always a prefix, even if there is a dot.
-//             See SNTABLE_CREATE_TEXT
-//
-// Nov 19 2015: undo Nov 7 change; if there's a dot, assume it's the 
-//              whole file-name.
-//
-// Jul 17 2016:
-//   + remove IDTABLE_OVERRIDE
-//   + write forst 20 chars of .ptr_C into CVAL
-//
-// Dec 4 2016: allow char VERSION column (i.e., photometry) 
-//
-// Jan 14 2017: move ISFILE_TEXT to sntools_output.c
-//
-// Dec 2 2017: 
-//  + minor overhaul to process .gz files. See *open_TEXTgz.
-//    Beware that rewind() does not work on gzipped file.
-//
-// Dec 20 2017:
-//   SNTABLE_NEVT_TEXT() reads lines and is much faster
-//   READ_EXEC uses only fgets
 //
 // Apr 17 2019: in SNTABLE_NEVT_TEXT, rewind -> snana_rewind.
 //
@@ -1380,7 +1344,68 @@ int ICAST_for_textVar(char *varName) {
   // Aug 04 2017: allow for "CCID ROW" using strstr
   // Apr 29 2019: allow PARNAME
   // Apr 16 2023: check partial match for GALID and OBJID
+  
+  // Jul 26 2024:
+  //   + check NAME_IAUC and NAME_TRANSIENT
+  //   + refactor to define list of strings to allow.
+  
+#define NVARNAME_STRING_TABLE 15
+  char ALLOWED_STRING_COLUMN_LIST[NVARNAME_STRING_TABLE][20] =
+    { "CID",            "SNID",         "CCID",        "GALID",
+      "ROW",            "STARID",      "FIELD",        "BAND",
+      "NAME_TRANSIENT", "NAME_IAUC",   "IAUC",         "CATALOG",
+      "VERSION",        "PARNAME",     "OBJID" } ;
+
+  int ivar;
+  char *varname_tmp;
+  char fnam[] = "ICAST_for_textVar";
+
+  // ----------- BEGIN -------------
+
+  for ( ivar=0; ivar < NVARNAME_STRING_TABLE; ivar++ ) {
+    varname_tmp = ALLOWED_STRING_COLUMN_LIST[ivar];
+    if ( strcmp_ignoreCase(varName,varname_tmp  )  == 0 ) 
+	{ return ICAST_C; }
+  }
+  
+  // allow for partial matches; e.g., things like 
+  // "CCID ROW" or "HOSTGAL_OBJID" 
+  if ( strstr(varName,"CCID"  ) != NULL ) { return ICAST_C; }
+  if ( strstr(varName,"ROW"   ) != NULL ) { return ICAST_C; }
+
+  // allow partial match for GALID or OBJID to avoid float truncation
+  // when these integer IDs are very large
+  if ( strstr(varName,"GALID" ) != NULL ) { return ICAST_C; }
+  if ( strstr(varName,"OBJID" ) != NULL ) { return ICAST_C; }
+
+
+  // if not a string, return float cast which really means
+  // that it's not a char.
+
+  return ICAST_F ;
+
+} // end of ICAST_for_textVar
+
+// ====================================
+int ICAST_for_textVar_obsolete(char *varName) {
+
+  // Oct 2014
+  // Since ascii files do not include a cast, this function
+  // has hard-coded string values to return ICAST_C for
+  // string variables such as CCID and FIELD. All other 
+  // variables are returned as float (ICAST_F).
+  //
+  // Note that users can explicitly cast a string by appending 
+  // :C to the variables passed to SNTABLE_READPREP_VARDEF(..)
+  // This ICAST function allows sloppy read-usage when the 
+  // explicit cast is left out of SNTABLE_READPREP_VARDEF(..).
+  //
+  // Aug 04 2017: allow for "CCID ROW" using strstr
+  // Apr 29 2019: allow PARNAME
+  // Apr 16 2023: check partial match for GALID and OBJID
   // Jul 26 2024: check NAME_IAUC and NAME_TRANSIENT
+
+  // ******* OBSOLETE *********
   
   char fnam[] = "ICAST_for_textVar";
 
@@ -1400,6 +1425,8 @@ int ICAST_for_textVar(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"STARID") == 0 ) 
     { return ICAST_C; }
 
+  // ******* OBSOLETE *********
+  
   // allow for partial matches; e.g., things like 
   // "CCID ROW" or "HOSTGAL_OBJID" 
   if ( strstr(varName,"CCID"  ) != NULL ) { return ICAST_C; }
@@ -1417,6 +1444,8 @@ int ICAST_for_textVar(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"BAND" )  == 0 ) 
     { return ICAST_C; }
 
+  // ******* OBSOLETE *********
+  
   if ( strcmp_ignoreCase(varName,(char*)"NAME_TRANSIENT" ) == 0 ) 
     { return ICAST_C;}
   if ( strcmp_ignoreCase(varName,(char*)"NAME_IAUC" ) == 0 ) 
@@ -1427,6 +1456,8 @@ int ICAST_for_textVar(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"CATALOG" )   == 0 ) 
     { return ICAST_C;}
 
+  // ******* OBSOLETE *********
+  
   if ( strcmp_ignoreCase(varName,(char*)"VERSION" )   == 0 ) 
     { return ICAST_C;}
 
@@ -1436,9 +1467,11 @@ int ICAST_for_textVar(char *varName) {
   // if not a string, return float cast which really means
   // that it's not a char.
 
+  // ******* OBSOLETE *********
+  
   return ICAST_F ;
 
-} // end of ICAST_for_textVar
+} // end of ICAST_for_textVar_obsolete
 
 
 // ==========================================

@@ -22550,5 +22550,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_prog_cosmofit.py
       for WFIT_SUMMARY[_AVG].FITRES files, write comments at top of file
       with definition for each VARNAME column.
+
+   sntools_output_text.c
+      in function ICAST_for_textVar(..), define list of strings allowed
+      as column varnames ... replace explicit check for each string with
+      a loop over strings. Should be easier to add new elements, such
+      as NAME_TRANSIENT NAME_IAUC that were recently added.
       
 END: 

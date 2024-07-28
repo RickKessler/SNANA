@@ -128,11 +128,16 @@ There are two valid DIFF options:
     @@DIFF CID    #  compare the difference for the same CIDs. 
 
 @@CUT applies selection cuts on the sample. As with @@VARIABLE, CUT is internally 
-translated to append df and df.loc as needed, or the user can imput the pandas 
-notation; e.g,
+translated to append df and df.loc as needed. Beware that quotes (single or double)
+are required around all cuts: e.g,
+
    @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD='C3'"
-      or
-   @@CUT "df.loc[(df.zHD > 0.2) &  (df.zHDERR<.1) & (df.SNRMAX1 < 100) & (df.FIELD=='C3')]"
+
+If a cut includes a string matches (e.g., FIELD='C3'), single quotes must be 
+used around the string to match, and double quotes around the entire CUT arg.
+To overlay the same variable with different cuts, provide a list of cuts,
+   @@CUT  'SNRMAX1>10'  'SNRMAX1>20'  'SNRMAX1>40'
+results in 3 overlaid plots, and default legend shows each cut.
 
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
 (0=transparent, 1=solid)
@@ -211,7 +216,7 @@ def get_args():
     parser.add_argument('@@ALPHA', default=0.3, type=float, help=msg )
 
     msg = "cuts with boolean and algegraic operations; see @@HELP"
-    parser.add_argument("@@CUT", help=msg, nargs="+")
+    parser.add_argument("@@CUT", help=msg, nargs="+", default =[None])
 
     msg = "number of rows to read (for large files)"
     parser.add_argument("@@NROWS", help=msg, type=int, default=0)
@@ -225,63 +230,98 @@ def get_args():
     args    = parser.parse_args()
     
     if args.HELP:
-        print_help()
+        print_help()    
 
+    return args
+
+    # end get_args()
+
+def process_args(args):
+
+    # process arguments such as remove pad spacing and forcing
+    # number or @@TFILE args to match number of @@CUT args
+    
     # - - - - - - -
-    # fix inputs under the hood; mianly remove pad spacing
-    if args.DIFF:
-        args.DIFF = args.DIFF.strip()  # remove pad spacing
-
+        
     args.VARIABLE_ORIG = args.VARIABLE    
     if args.VARIABLE:
-        args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])
+        args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])        
         args.VARIABLE_ORIG = args.VARIABLE_ORIG[0]
 
+    # CUT is tricky. Make sure that length of cut list matchs length
+    # of table-file list ... or vice versa ... make sure that length of
+    # tfile list matches length of CUT list.
+    if DEBUG_TRANSLATE:
+        print(f" xxx proc_args: args.CUT = {args.CUT}  (before modifications)")
+
+    n_tfile_orig = len(args.TFILE)
+    n_cut_orig   = len(args.CUT)
+    tfile_list   = copy.copy(args.TFILE)
+    cut_list     = copy.copy(args.CUT)
+
+    if n_cut_orig == 1 and n_tfile_orig > 1:
+        cut_list = [ cut_list[0] ] * n_tfile_orig # same cut per tfile
+        
+    if n_cut_orig > 1 and n_tfile_orig == 1:
+        tfile_list = [ tfile_list[0] ] * n_cut_orig # same tfile per cut
+
+    if DEBUG_TRANSLATE:
+        print(f" xxx proc_args: args.CUT   -> {args.CUT}")
+        print(f" xxx proc_args: args.TFILE -> {args.TFILE}")
+    
+    table_list      = []
+    table_base_list = []  # base names only; for plot legend
+    for tfile in tfile_list :
+        table_list.append( os.path.expandvars(tfile) )
+        table_base_list.append( os.path.basename(tfile) )
+
+    # xxx mark delete xxxx
+    #if (any(table_list.count(x) > 1 for x in table_list)):
+    #    sys.exit(f"\n ERROR: found duplicate table file; check {table_list}")
+    # xxxxxxxxx
+    
+    args.tfile_list      = table_list           # ENVs are expanded
+    args.tfile_base_list = table_base_list
+    args.cut_list        = cut_list
+    
+    # - - - - -
+
+    # make sure there is a colon in UNITS atg
+    # e.g  "degrees" -> "degrees:"
     n_var = len(args.VARIABLE.split(COLON))
     if args.UNITS:
         args.UNITS  = ''.join([str(elem) for elem in args.UNITS])
         if COLON not in args.UNITS:
             args.UNITS += COLON
     else:
-        args.UNITS = COLON
+        args.UNITS = COLON    
+
         
-    #sys.exit(f"\n xxx args.VARIABLE = {args.VARIABLE_ORIG}  UNITS={args.UNITS}")
-
-    
-    args.CUT_ORIG  = args.CUT
-    if args.CUT:
-        args.CUT = ''.join([str(elem) for elem in args.CUT])
-        args.CUT_ORIG = args.CUT_ORIG[0]
-
     if args.BOUNDS != BOUNDS_AUTO:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
 
     # tack on new name space elements that are trivially dependent on user input
+
+    
     if not args.LEGEND:
         args.LEGEND = [ None ] * len(args.TFILE)
-
-    narg_legend = len(args.LEGEND)
-    narg_tfile  = len(args.TFILE)
+        if len(args.CUT) > 1 :
+            args.LEGEND = args.CUT
+        else :
+            args.LEGEND = args.tfile_base_list
+        
+    narg_legend       = len(args.LEGEND)
+    args.legend_list  = args.LEGEND
+    
+    narg_tfile  = len(args.tfile_list)
     if narg_tfile != narg_legend:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
                  f"narg_legend must match number of table files.")
-
-    table_list      = []
-    table_base_list = []  # base names only; for plot legend
-    for table_file in args.TFILE:
-        table_list.append( os.path.expandvars(table_file) )
-        table_base_list.append( os.path.basename(table_file) )
-
-    if (any(table_list.count(x) > 1 for x in table_list)):
-        sys.exit(f"\n ERROR: found duplicate table file; check {table_list}")
-
-    args.table_list      = table_list  # ENVs are expanded
-    args.table_base_list = table_base_list
-    args.legend_list     = args.LEGEND
-
-    return args
-
-    # end get_args()
+    
+    if args.DIFF:
+        args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
+        
+    return
 
 def get_var_list(VARIABLE, DELIMITER_LIST):
     # if VARIABLE = 'zHD-zHD_2:SNRMAX' -> return var_list = ['zHD', 'zHD_2', 'SNRMAX']
@@ -306,23 +346,26 @@ def get_var_list(VARIABLE, DELIMITER_LIST):
             var_list.append(var)
 
     # create supplemental list of logicals indicating which
-    # var_list elements are numbers.
+    # var_list elements are numbers. A string in quotes is
+    # treated like a number.
     isnum_list = []
     for var in var_list:
-        isnum_list.append(is_number(var))
+        isnum = is_number(var) or "'" in var
+        isnum_list.append(isnum)
 
     return  var_list, isnum_list
 
     # end get_var_list
     
-def translate_VARIABLE(args):
-    # add df. as needed to args.VARIABLE
+def translate_VARIABLE(VARIABLE):
+    # add df. as needed to VARIABLE
     # assume that all df. have been provided by user, or none;
     # will not handle in-between cases.
+
+    VARIABLE_ORIG = VARIABLE
     
-    VARIABLE = args.VARIABLE
-    
-    if STR_df in VARIABLE: return
+    if STR_df in VARIABLE:
+        return VARIABLE
 
     # break down VARIABLE into a list of variables without any symbols
     var_list, isnum_list  = get_var_list(VARIABLE, DELIMITER_VAR_LIST)
@@ -340,23 +383,22 @@ def translate_VARIABLE(args):
         if df_var not in VARIABLE:  # modify only if not already modified
             VARIABLE = VARIABLE.replace(var,df_var)
 
-    logging.info(f"Translate VARIABLE {args.VARIABLE_ORIG}  ->  {VARIABLE}")
+    logging.info(f"Translate VARIABLE {VARIABLE_ORIG}  ->  {VARIABLE}")
     
-    args.VARIABLE = VARIABLE
-    return
+    return VARIABLE
 
-def translate_CUT(args):
+def translate_CUT(CUT):
 
-    # add df.loc, df. and () as needed to args.CUT
+    # add df.loc, df. and () as needed to input cut
     # Add "(df." in front of each var_list element that is NOT a number.
     # Add ")" after each var_list eleement that is a number.
     #
     # July 24 2024 rewrite logic to split by bool and (),
     #   then wrap each item as '(df.' + item + ')'
-    
-    CUT = args.CUT
-    if not CUT: return
-    if STR_df in CUT: return
+
+    CUT_ORIG = CUT
+    if not CUT:       return CUT
+    if STR_df in CUT: return CUT
 
     CUT = CUT.replace(' ','')
     
@@ -414,72 +456,13 @@ def translate_CUT(args):
 
     # finally, wrap entire cut in df.loc[ CUT ]
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    
-    args.CUT = CUT_df
 
-    logging.info(f"Translate CUT {args.CUT_ORIG}  ->  {CUT_df}")
+    logging.info(f"Translate CUT {CUT}  ->  {CUT_df}")
     #print(f"\n xxx var_list = {var_list}")
     
-    return
+    return CUT_df
 
-def translate_CUT_obsolete(args):
 
-    # add df.loc, df. and () as needed to args.CUT
-    # Add "(df." in front of each var_list element that is NOT a number.
-    # Add ")" after each var_list eleement that is a number.
-
-    CUT = args.CUT
-    if not CUT: return
-    if STR_df in CUT: return
-
-    # '=' is the only delimeter where user might use '==' instead,
-    # and 2-char delimiter totally breaks the logic below. Rather 
-    # than abort, just fix it here so that FIELD='C3' or FIELD=='C3' 
-    # will both work.
-    if '==' in CUT:
-        CUT = CUT.replace('==', '=')
-
-    # examine CUT string and return list of var names and numbers that
-    # represent cut values.
-    var_list, isnum_list  = get_var_list(CUT, DELIMITER_CUT_LIST)
-    
-    if DEBUG_TRANSLATE:
-        print(f" xxx CUT var_list   = {var_list}")
-        print(f" xxx CUT isnum_list = {isnum_list}")
-
-    # @@@@@@@@ translate_CUT_obsolete @@@@@@@@@@
-    
-    for var, isnum in zip(var_list, isnum_list):
-        has_quotes = "'" in var  # e.g., FIELD='C3'
-
-        if isnum or has_quotes:
-            var_parenth = var + ')'
-            if var_parenth not in CUT:
-                # be careful to add ) only to last isnum to avoid things like
-                # a0=0 variable name -> a0)=0)
-                jvar = CUT.rindex(var) + len(var) # index at end of last occurence 
-                CUT  = CUT[0:jvar] + ')' + CUT[jvar:]                 
-                # xxx mark delete July 15 2024   CUT = CUT.replace(var,var_parenth)
-
-        else:
-            df_var = STR_df + var        
-            if df_var not in CUT:  # modify only if not already modified
-                CUT = CUT.replace(var, '(' + df_var)
-
-    # replace input for '=' with '=='
-    if '=' in CUT:
-        CUT = CUT.replace('=', '==')
-
-    # finally, wrap entire cut in df.loc[ CUT ]
-    CUT = STR_df_loc + '[' + CUT + ']'
-    
-    args.CUT = CUT
-
-    logging.info(f"Translate CUT {args.CUT_ORIG}  ->  {CUT}")    
-    #print(f"\n xxx var_list = {var_list}")
-    
-    return
-    # end of translate_CUT_obsolete
-    
 def is_number(string): 
     try: 
         float(string) 
@@ -501,11 +484,11 @@ def set_var_dict(args, plot_info):
 
     if args.TITLE:
         plot_title    = str(args.TITLE)
-    elif args.CUT_ORIG :
-        plot_title    = str(args.CUT_ORIG)
+    elif args.CUT :
+        plot_title    = str(args.CUT)
     else:
         plot_title    = str(args.VARIABLE_ORIG)
-
+    
     if STR_np in plot_title:
         plot_title = plot_title.replace(STR_np,'')
 
@@ -556,30 +539,32 @@ def set_var_dict(args, plot_info):
 
 def read_tables(args, plot_info):
 
-    table_list      = args.table_list
-    table_base_list = args.table_base_list
-    CUT             = args.CUT
+    tfile_list      = args.tfile_list
+    tfile_base_list = args.tfile_base_list
+    cut_list        = args.cut_list
+    legend_list     = args.legend_list
     NROWS           = args.NROWS
 
     plotdic    = plot_info.plotdic
     boundsdic  = plot_info.boundsdic
     
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
+    nf = 0
     
-    for l in table_list:
-        l_base = os.path.basename(l)
-        logging.info(f"Loading {l}")
-        if not os.path.exists(l):
-            sys.exit(f"\n ERROR: cannot find {l}")
+    for tfile, cut, legend in zip(tfile_list, cut_list, legend_list):
+        tfile_base = os.path.basename(tfile)
+        logging.info(f"Loading {tfile_base}")
+        if not os.path.exists(tfile):
+            sys.exit(f"\n ERROR: cannot find {tfile}")
             
-        df  = pd.read_csv(l, comment="#", sep=r"\s+")
+        df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
 
         if NROWS > 0 :
             # read NROWS subset
-            df  = pd.read_csv(l, comment="#", sep=r"\s+", nrows=NROWS)
+            df  = pd.read_csv(tfile, comment="#", sep=r"\s+", nrows=NROWS)
         else:
             # read all
-            df  = pd.read_csv(l, comment="#", sep=r"\s+")
+            df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
 
         try:
             df['CID'] = df['CID'].astype(str)
@@ -587,31 +572,35 @@ def read_tables(args, plot_info):
             logging.warn("No CIDs present in this file. OK for some file types.")
 
         # apply user cuts
-        if CUT: df = eval(CUT)
+        if cut:
+            df = eval(cut)
 
-        # increment MASTER_DF_DICT dictionary; note that filename is dict key.
-
-        MASTER_DF_DICT[l] = df
+        # increment MASTER_DF_DICT dictionary; note that filename index is dict key.
+        key = f"tf{nf}"
+        nf += 1
+        
+        MASTER_DF_DICT[key] = df
         nrow = len(df)
-        name_legend = get_name_legend(l, args.table_list, args.legend_list)
+        name_legend = legend
+            
         logging.info(f"\t --> nrow={nrow}   name_legend = {name_legend}")
 
         if nrow == 0:
             sys.exit(f"\n ERROR: zero rows read for {name_legend}")
 
-        MASTER_DF_DICT[l] = {
+        MASTER_DF_DICT[key] = {
             'df'           : df,
             'name_legend'  : name_legend
         }
 
         try:
-            MASTER_DF_DICT[l]['df']['x_plot_val'] = eval(plotdic['x'])
-            boundsdic[l + "_min"] = np.amin(MASTER_DF_DICT[l]['df']['x_plot_val'])
-            boundsdic[l + "_max"] = np.amax(MASTER_DF_DICT[l]['df']['x_plot_val'])
+            MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(plotdic['x'])
+            boundsdic[key + "_min"] = np.amin(MASTER_DF_DICT[key]['df']['x_plot_val'])
+            boundsdic[key + "_max"] = np.amax(MASTER_DF_DICT[key]['df']['x_plot_val'])
             if len(plotdic) == 2:
-                MASTER_DF_DICT[l]['df']['y_plot_val'] = eval(plotdic['y'])
+                MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(plotdic['y'])
         except AttributeError:
-            sys.exit(f"\n ERROR: Couldn't set bounds for {plotdic} and {l}")
+            sys.exit(f"\n ERROR: Couldn't set bounds for {plotdic} and {tfile}")
 
             
     # - - - - - - - -
@@ -625,21 +614,20 @@ def read_tables(args, plot_info):
     # end read_tables
 
     
-def get_name_legend(table_file, table_list, legend_list):
+def get_name_legend_default(table_file, table_list):
 
+    # xxxxxx OBSOLETE xxxxxxx
+    
     # for input table_file, return name to put in plot legend.
     # If there are duplicate base names in table_file_list, then
     # modify legend name accordinngly.
 
-    # first check for user-defined legend name
-    if legend_list[0] is not None:
-        j = table_list.index(table_file)
-        return legend_list[j]
-
+    # xxxxxx OBSOLETE xxxxxxx 
     base        =  os.path.basename(table_file)
     name_legend =  base  # default 
 
-    if table_file == table_list[0] : return name_legend
+    if table_file == table_list[0] :
+        return name_legend
 
     # - - - - -
     # alter name_legend for duplicate base names
@@ -650,7 +638,7 @@ def get_name_legend(table_file, table_list, legend_list):
             n_base_match += 1
             if t != table_file:
                 name_legend += f"-{n_base_match}"
-    
+    # xxxxxx OBSOLETE xxxxxxx
     return name_legend
     # end get_name_legend
     
@@ -676,15 +664,12 @@ def plotter_func(args, plot_info):
 
     # strip off local args from input name spaces
     DIFF      = args.DIFF
-    CUT       = args.CUT
-    CUT_ORIG  = args.CUT_ORIG
     ALPHA     = args.ALPHA
     OPT       = args.OPT
 
     do_chi2      = OPT_CHI2      in OPT
     do_median    = OPT_MEDIAN    in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
-
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
@@ -696,6 +681,7 @@ def plotter_func(args, plot_info):
     custom_bounds        = plot_info.custom_bounds
     plot_title           = plot_info.plot_title
 
+    
     if custom_bounds:                       
         xmin = boundsdic['x'][0]; xmax = boundsdic['x'][1]
         xbin = boundsdic['x'][2]
@@ -715,7 +701,8 @@ def plotter_func(args, plot_info):
     msg = f"The min & max x-axis bounds are: " \
           f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
     logging.info(msg)
-        
+
+    
     if len(plotdic) == 1:                           
         if (DIFF == 'ALL') or (DIFF == 'CID'):
             sys.exit("\nERROR: DIFF does not work for histograms. ABORT to avoid confusion.")
@@ -727,7 +714,8 @@ def plotter_func(args, plot_info):
 
             # get counts sb
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, 
-                                  bins=bins, statistic='count')[0]
+                                  bins=bins,
+                                  statistic='count')[0]
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt = np.sum(sb)                # nevt before normalization
             
@@ -736,7 +724,11 @@ def plotter_func(args, plot_info):
                 logging.info(f"Plot {name_legend}")
                 name0_legend = name_legend
             else:
-                scale = np.sum(sb0) / np.sum(sb)
+                if do_chi2:
+                    # re-scale overlay plot only if chi2 option is requested
+                    scale = np.sum(sb0) / np.sum(sb)
+                else:
+                    scale = 1.0  # overlay plot is not scaled
                 sb   *= scale # normalize integral to match file 0 
                 errl *= scale
                 erru *= scale
@@ -798,7 +790,7 @@ def plotter_func(args, plot_info):
         except KeyError:     
             pass  # auto scale y axis
             
-        keylist    = list(MASTER_DF_DICT.keys()) # really, it's a file list
+        keylist    = list(MASTER_DF_DICT.keys())   # tf0, tf1 ...
         df_ref = MASTER_DF_DICT[keylist[0]]['df']  # reference df  for difference
         for k in keylist[1:]:
             df = MASTER_DF_DICT[k]['df']
@@ -894,18 +886,25 @@ if __name__ == "__main__":
 
     args = get_args()
 
-    translate_VARIABLE(args) # add df. as needed to args.VARIABLE
-    translate_CUT(args)      # add df. and df.loc as needed to args.CUT
+    # process/modify input args
+    process_args(args)
 
+    V = args.VARIABLE
+    args.VARIABLE = translate_VARIABLE(V)   # add df. as needed to args.VARIABLE
+    
+    for icut, cut in enumerate(args.cut_list):
+        args.cut_list[icut] = translate_CUT(cut)  # add df. and df.loc as needed
+        
     if  DEBUG_TRANSLATE :
-        sys.exit(f"\n xxx bye.")
+        sys.exit(f"\n xxx bye .")
     
     plot_info = Namespace()  # someplace to store internally computed info
     
     set_var_dict(args, plot_info) # set plot bounds and axisinfo
 
     read_tables(args, plot_info)  # read each input file and store data frames
-
+    #sys.exit(f"\n xxx DEBUG STOP xxx")
+    
     plt.figure()  # initialize matplotlib figure
     
     plotter_func(args, plot_info)  # prepare plot in matplotlib

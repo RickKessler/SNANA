@@ -4747,6 +4747,8 @@ int  parse_input_CID(char **WORDS, int keySource ) {
 // =====================================================
 int parse_input_MWEBV(char **WORDS, int keySource ) {
 
+
+  bool skip_readme_store = false;  
   int ITMP=0, N=0;
   char fnam[] = "parse_input_MWEBV" ;
   // ------------- BEGIN -------------
@@ -4756,11 +4758,12 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "OPT_MWCOLORLAW", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%d", &INPUTS.OPT_MWCOLORLAW ) ;
+    skip_readme_store = true ;  
   }
   else if ( keyMatchSim(1, "OPT_MWEBV", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%d", &ITMP );
     INPUTS.OPT_MWEBV = abs(ITMP);
-
+    skip_readme_store = true ;  
     if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
     if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
 
@@ -4799,7 +4802,7 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
   }
 
 
-  if ( N > 0 ) {
+  if ( N > 0 && !skip_readme_store ) {
     README_KEYPLUSARGS_load(20, N, WORDS, keySource, 
 			    &README_KEYS_MWEBV, fnam) ;
   }

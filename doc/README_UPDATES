@@ -22539,10 +22539,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snana.car
       + fix IGAL index bug in INIT_TABLE_HOSTVAR
       + add FITPROB_ITER1 to snana & fitres table for ROOT file.
-
-   snlc_fit.car: add &FITINP cut window
-       FITWIN_PROB_ITER1, FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
-       
+      + fix a few divide-by-zero (traced with make debug)
+      
+   snlc_fit.car:
+     +  add &FITINP cut windows FITWIN_PROB_ITER1, FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
+     +  in FITINI_COV(), set PARLIST_SN(4:5) elements that are passed to gencovar_SALT2().
+     + fix evil bug in SEDMODEL_INI that set zmax=0.0 for photo-z fits
+         remove "ZMAX = PHOTOZ_RANGE_KCOR(2)" because PHOTOZ_RANGE_KCOR isn't set yet.
+	 
    SALT2mu.c:
       write CONTAM_TRUE to yaml file under BBCFIT_RESULTS block, even
       though CONTAM_TRUE is not a fit result.

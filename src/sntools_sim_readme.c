@@ -825,6 +825,7 @@ void readme_docana_genmodel(int *iline, char *pad) {
 
   // - - - - - - -
   readme_docana_comment(&i, "Cosmology inputs");
+  
   dval = (double)INPUTS.OMEGA_MATTER ;
   VERSION_INFO_load(&i, pad, "OMEGA_MATTER:", noComment,
 		    lenkey, false, nval1, &dval, 0.0, 2.0, -9.0);
@@ -942,7 +943,6 @@ void readme_docana_hostlib(int *iline, char *pad) {
 
   readme_docana_load_list(&i, pad, &README_KEYS_HOSTLIB);
 
-  //.xyz
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sHOSTLIB_MAXDDLR:      %.2f    "
 	  "# DDLR cut for match",
@@ -1220,6 +1220,7 @@ void readme_docana_misc(int *iline, char *pad) {
 
 
 void readme_docana_mwebv(int *iline, char *pad) {
+  
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
   char *cptr, noComment[]="" ;
@@ -1229,6 +1230,13 @@ void readme_docana_mwebv(int *iline, char *pad) {
 
   readme_docana_comment(&i, "Galactic extinction");
 
+  // force writing option for MWEBV and Galactic color l;aw
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sOPT_MWEBV:        %d   ",   pad, INPUTS.OPT_MWEBV  );
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sOPT_MWCOLORLAW:   %d   ",  pad, INPUTS.OPT_MWCOLORLAW );
+
+  // write optional keys
   readme_docana_load_list(&i, pad, &README_KEYS_MWEBV);
 
   *iline = i;

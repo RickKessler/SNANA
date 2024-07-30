@@ -2600,7 +2600,8 @@ double SALT2magerr(double Trest, double lamRest, double z,
   fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
 
   // get total fractional  error.
-  fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
+  // xxx mark  fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
+  fracerr_TOT  = sqrt(fracerr_snake*fracerr_snake + fracerr_kcor*fracerr_kcor) ;
 
   // convert frac-error to mag-error, and load return array
   magerr_model  = (2.5/LNTEN) * fracerr_TOT ;   // exact
@@ -3444,25 +3445,19 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   // Input 'matsize' is the size of one row or column;
   // the output *covar size is matsize^2.
   //
-  // Jul 3 2013: 
-  //  fix aweful bug that was double-counting the kcor error
-  //  for the diagonal elements.
-  //    COV_TMP += COV_DIAG  -> COV_TMP = COV_DIAG
-  //  ARRRRRRRRRGH !!!
-  //
-  //  July 2016: add new inputs args RV_host & AV_host
 
   int  icovar, irow, icol, ifilt_obs, ifilt_row, ifilt_col, ifilt ;
   int ISDIAG, LDMP ;
 
   double x1    = parList_SN[1] ;
+  double xx1   = parList_SN[3] ;
   double x2    = parList_SN[4] ;
   double z1    = 1.0 + z;
   double invZ1 = 1.0/z1;
 
   double 
     COV_TMP,  COV_DIAG, meanlam_obs, meanlam_rest
-    ,cDisp[MXFILT_SEDMODEL]
+    ,cDisp[MXFILT_SEDMODEL], cDispsq[MXFILT_SEDMODEL]
     ,Finteg, Finteg_errPar, FspecDum[10], magerr
     ,Tobs, Trest, Trest_tmp, Trest_row, Trest_col
     ,FAC = 1.17882   //  [ 2.5/ln(10) ]^2
@@ -3480,6 +3475,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++) {
     ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs ;
     cDisp[ifilt_obs] = -9.0 ;
+    cDispsq[ifilt_obs] = -9.0 ;
   }
 
 
@@ -3501,12 +3497,14 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	ifilt         = IFILTMAP_SEDMODEL[ifilt_row] ;
 	meanlam_obs   = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
 	meanlam_rest  = meanlam_obs * invZ1 ; 
-	cDisp[ifilt_row] = SALT2colorDisp(meanlam_rest,fnam);    
+	cDisp[ifilt_row]   = SALT2colorDisp(meanlam_rest,fnam);
+	cDispsq[ifilt_row] = cDisp[ifilt_row] * cDisp[ifilt_row];
       }
 
       // set covariances only for same passband.
-      if ( ifilt_col == ifilt_row ) 
-	{ COV_TMP = FAC * pow(cDisp[ifilt_row],2.0);  }
+      if ( ifilt_col == ifilt_row )
+	{ COV_TMP = FAC * cDispsq[ifilt_row] ;  }
+      // xxx mark delete { COV_TMP = FAC * pow(cDisp[ifilt_row],2.0);  }
 
       // check for local dump option
       LDMP  = (COV_TMP != 0.0 || ISDIAG) && 
@@ -3524,7 +3522,6 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	meanlam_obs   = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
 	meanlam_rest  = meanlam_obs * invZ1 ; 
 
-
 	// make sure that Trest is within the map range
 	if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
 	  { Trest_tmp = SALT2_ERRMAP[0].DAYMAX ; }
@@ -3539,11 +3536,17 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, parList_SN, parList_HOST, // (I)
 			 &Finteg, &Finteg_errPar, FspecDum); // returned
 
-	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, x2, 
+	magerr = SALT2magerr(Trest, meanlam_rest, z, xx1, x2, 
 			     Finteg_errPar, LDMP );
+
+	/* xxxxxxxxxxxxxxxx mark delte July 29 2024 xxxxxxxxx
+		magerr = SALT2magerr(Trest, meanlam_rest, z, x1, x2, 
+			     Finteg_errPar, LDMP );
+	xxxxxxxxxxxxxxxxxxxxx  */
+	
 	COV_DIAG = magerr*magerr ;
 	COV_TMP = COV_DIAG ;
-      }
+      } // end ISDIAG
       
       covar[icovar] = COV_TMP ;  // load output array  
       icovar++ ;                   // increment local pointer
@@ -3836,6 +3839,8 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   //
   // Jan 2024: call fill_TABLE_MWXT_SEDMODEL() in case genmag_SALT2 isn't called
   //        because all bands are outside model wavelength range
+  //
+  // Jul 29 2024: replace a few pow(x,2) with x*x (for speed)
   //
   // ------------------------------------------
 

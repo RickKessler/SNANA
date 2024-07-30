@@ -102,32 +102,13 @@ endif
 
 
 # ------------------------------------------
-# default lib-subdir name is just 'lib'.
-   LIB_SDIR  = lib
-
-# --------------------------
-# Check for lib dir with BITNESS as part of name (as done at FNAL)
-# Pick TESTFILE to be one library in CERN_DIR/lib$BITNESS; 
-# if it exists then assume that all product libraries are in 
-# ${PRODUCT)/lib$BTNESS; otherwise leave default LIB_SDIR as is.
-
-#TESTFILE = $(CERN_DIR)/lib$(BITNESS)/libpacklib.a
-#ifneq ($(wildcard $(TESTFILE)),) 
-#   LIB_SDIR  = lib$(BITNESS)
-#endif
-
-# --------------------------------------------------
 # define libraries
 
+# default lib-subdir name is just 'lib'.
+  LIB_SDIR  = lib
 
-# xxxx mark delete 4.1.2024 xxxxx
-#  LGSL    =  $(GSL_DIR)/$(LIB_GSLDIR)/libgsl.a  \
-#	     $(GSL_DIR)/$(LIB_GSLDIR)/libgslcblas.a
-# xxxxxxxxx
-
-  LIB_GSLDIR = lib
-  LGSL    =  -L$(GSL_DIR)/$(LIB_GSLDIR) -lgsl  \
-	     -L$(GSL_DIR)/$(LIB_GSLDIR) -lgslcblas
+  LGSL    =  -L$(GSL_DIR)/$(LIB_SDIR) -lgsl  \
+	     -L$(GSL_DIR)/$(LIB_SDIR) -lgslcblas
 
   IGSL    =  -I$(GSL_DIR)/include
 

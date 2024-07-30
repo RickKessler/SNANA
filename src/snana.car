@@ -18922,7 +18922,7 @@ c
 c Dec 2 2022: add string-length args to get_FLUXERRMODEL call.
 c
 c Jun 11 2024: implement SIM_FUDGE_MAG_ERROR_FILT (for DES-SN5YR)
-c
+c Jul 30 2024: move 'SNR = FLUXCAL/ERR1' aft3er ERR1 is computed to avoid divide-by-zero
 c ------------
 
       IMPLICIT NONE
@@ -18986,13 +18986,13 @@ c get C function arguments
       ZP         = DBLE( SNLC_ZEROPT(ep) )
       ZPDIF      = ZP - ZEROPOINT_FLUXCAL_DEFAULT
       MJD        = SNLC8_MJD(EP)
-      SNR        = FLUXCAL/ERR1
 
 c - - - - - - - - - - - - - - 
       SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
       ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
       ERR1  = ERR_ORIG * SCALE
-
+      SNR   = FLUXCAL/ERR1
+      
       FUDGE = FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS)
       ERR2a = DBLE(FUDGE)  ! fudge error
 
@@ -31203,6 +31203,7 @@ c May 05, 2018: init FITERRMAT=0 instead of -9. Allows USESIM_xxx=T
 c May 23, 2018: set LCFRACERRDIF_STORE(ipar)
 c Feb 22, 2020: set NDOF_PRIOR=0  here on each iteration.
 c Apr 16, 2024: write FITPROB to stdout
+c Jul 30, 2024: protect EPLUS/EMINUS when EMINUS=0
 
 c subroutine args
 
@@ -31329,7 +31330,7 @@ c set bad-error flag of fit-value has not moved from initial value.
             ERRTYPE(ipar)      = ERRTYPE_BAD
          endif
 
-         FITERR_RATIO(ipar,iter)   = EPLUS / EMINUS
+         FITERR_RATIO(ipar,iter)   = EPLUS / (EMINUS+1.0E-10)
          FITERR(ipar,iter)         = 0.5 * ( EPLUS + EMINUS )
 
          FITVAL_STORE(ipar)    = FITVAL(ipar,iter)

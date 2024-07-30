@@ -207,10 +207,10 @@ c Declare masks for how to treat log sigma term in fit April 26 2024 W.D. Kenwor
      & ,MASK_CHI2_SIGMA_LOGDET   ! Eventually should become default
      & ,MASK_CHI2_SIGMA_IGNORE  ! Compute quantity for output, but do not use in fit
       PARAMETER (
-     &  MASK_CHI2_SIGMA_ERRTOT = 1
-     & ,MASK_CHI2_SIGMA_ERRDATA = 2
-     & ,MASK_CHI2_SIGMA_LOGDET = 4  ! Eventually should become default
-     & ,MASK_CHI2_SIGMA_IGNORE = 128 ! Compute quantity for output, but do not use in fit
+     &  MASK_CHI2_SIGMA_ERRTOT  = 1  ! sigma = sigma_data + sigma_model
+     & ,MASK_CHI2_SIGMA_ERRDATA = 2  ! sigma_data only
+     & ,MASK_CHI2_SIGMA_LOGDET  = 4  ! Eventually should become default
+     & ,MASK_CHI2_SIGMA_IGNORE  = 128 ! Compute quantity for output, but do not use in fit
      & ) 
       CHARACTER METHOD_SPLINE_QUANTILES*20 
       COMMON/PHOTOZ_COM/METHOD_SPLINE_QUANTILES
@@ -587,7 +587,8 @@ c namelist input variables.
      &   ,NEARFILT_IGNORE_REST*20 ! I: ignore these nearest rest-filters
      &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
      &   ,FILTER_FITMAGDIF*4      ! I: fit magObs in this filter 2 ways for test
-
+     &   ,CCID_DUMP_CHI2_MATRIX*20  ! I: CID to print each chi2 term in matrix
+     
       CHARACTER
      &   FILTLIST_FITRESTMAG*12     ! I: fit for these restMag filters
       REAL 
@@ -751,6 +752,7 @@ c
      &  ,IPAR_PLOTCHI2 ! I: HFUNMIN only for this parameter
      &  ,NFIT_VERBOSE  ! I: number of verbose printouts (avoid huge logs)
      &  ,OPT_CHI2_SIGMA  ! I: 1= SIGMA_LAST= Total Error, 2= SIGMA_LAST= Data Error, 128= Compute but don't use
+
 C ----------------------
 c define all of the PHOTOZ options here in one place
 c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
@@ -883,7 +885,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,SALT2alpha, SALT2beta, OPT_SALT2FIT
      &   ,PHOTODZ_REJECT, PHOTODZ1Z_REJECT
      &   ,PHOTOZ_ITER1_LAMRANGE, PHOTOZ_BOUND
-     &   ,MAGLIM_VMAX, OPT_VMAX
+     &   ,MAGLIM_VMAX, OPT_VMAX, CCID_DUMP_CHI2_MATRIX
 
 c ------
 
@@ -959,7 +961,7 @@ c ------
      &   ,SALT2alpha, SALT2beta , OPT_SALT2FIT
      &   ,PHOTODZ_REJECT, PHOTODZ1Z_REJECT
      &   ,PHOTOZ_ITER1_LAMRANGE, PHOTOZ_BOUND
-     &   ,MAGLIM_VMAX, OPT_VMAX
+     &   ,MAGLIM_VMAX, OPT_VMAX, CCID_DUMP_CHI2_MATRIX
 
       EQUIVALENCE ( FITWIN_MJD(1),   MJD_REJECT(1)   ) 
       EQUIVALENCE ( FITWIN_TREST(1), TREST_REJECT(1) ) 
@@ -2024,12 +2026,6 @@ c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
           LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
 
-c xxxxxxxxxxxxxx mark delete May 30 2024 xxxxxxxxxxxxx
-c          if ( LPZ_Q .and. .not.LZSPEC )  THEN
-c             MASK_PHOTOZ_SOURCE = 
-c     &          IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
           if ( LPZ_Q ) then
 c           use z_spec prior or quantiles; ignore zPHOT point estimate
             if ( LZSPEC ) then
@@ -2369,7 +2365,7 @@ C -------------------- BEGIN ---------------
 
 c ------------------------------------------------------
 c check cuts on 1st-iteration FITPROB and fit pars
-      IF ( ITER==1 ) THEN ! .xyz
+      IF ( ITER==1 ) THEN 
          FITPROB = FITPROBCHI2_STORE(1)
          SHAPE   = FITVAL(IPAR_SHAPE,ITER)
          COLOR   = FITVAL(IPAR_COLOR,ITER)
@@ -3081,6 +3077,10 @@ c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
 c 
 c Apr 20 2020: fix dimenstion of TMP_FITMODEL to allow paths
 c
+c Jul 30 2024:
+c  remove "ZMAX = PHOTOZ_RANGE_KCOR(2)" because PHOTOZ_RANGE_KCOR isn't set yet.
+c  This results in zmax=0 and undefined log10(zmax)  ... not clear how this worked at all.
+c
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -3166,10 +3166,10 @@ c to avoid lots of uncecessary CPU time.
         zmax    = CUTWIN_REDSHIFT(2)
 
         zmin    = max(zmin,0.005)
-        zmax    = min(zmax,3.0)   ! avoid crazy Zmax = E4
+        zmax    = min(zmax,5.0)   ! avoid crazy Zmax = E4
 
         if ( DOFIT_PHOTOZ ) then
-          ZMAX = PHOTOZ_RANGE_KCOR(2)
+c xxx mark delete July 30 2024  ZMAX = PHOTOZ_RANGE_KCOR(2) ! this is zero ?!?!?!!?
           ZMAX = min ( ZMAX, PHOTOZ_BOUND(2) )
         endif
 
@@ -4279,7 +4279,7 @@ c local arguments
 
       INTEGER
      &   ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata
-     &  ,NFITDATA_LOC, irow, icol, IERR, matepoch
+     &  ,NFITDATA_LOC, irow, icol, IERR, ep
      &  ,NFITDATA_FILT(MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
       character cfilt*1
@@ -4296,6 +4296,7 @@ c local arguments
      &  ,AVwarp, mag_kcor(2), mag_tmp, mag_err
      &  ,dif, sqdif, sqsig, inv_sqsig, sqsig_nofudge
      &  ,delchi2, delchi2_diag, delchi2_sigma, delchi2_nofudge
+     &  ,chi2_offdiag, delchi2_offdiag
      &  ,chi2filt_sigma(MXFILT_OBS),chi2sum_sigma,chi2filt(MXFILT_OBS)
      &  ,errfrac, DEL_FLUX(MXFIT_DATA)
      &  ,FF, COV_INV, x1, DT1, DT2, CHI2PRIOR(0:MXFITPAR)
@@ -4312,13 +4313,13 @@ c local arguments
      &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX
      &  ,FIRST_ITER
      &  ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2
-     &  ,  DO_LOGDET 
+     &  ,DO_LOGDET, DUMP_FCNCHI2
 
       CHARACTER CVAR*8, star*1
-      REAL*8 delchi2_off(2000)
       REAL*4 LAMREST4
       REAL*8 logdet, LAST_FLUXERR, logdet_offset
 
+ 
 c functions
       REAL*8  
      &   FCNCHI2_PRIOR, FCNCHI2_SIGMA, DLMAG8_REF
@@ -4578,15 +4579,17 @@ c always evaluate simple chi2 ignoring covariance
           delchi2_nofudge = 0.0
         ENDIF
 
-c 5/08/2009: tack on chi2 from model-error (2nd iter only)
-        IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_LOGDET) == 0 ) THEN
-		delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot) 
-        	IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_IGNORE) > 0 ) THEN
-                	delchi2_sigma=0.0 !WDK April 26 2024
-        	ENDIF
-	ELSE
-		delchi2_sigma=0.0
-	ENDIF
+
+c check for 2log(sigma) in chi2
+        delchi2_sigma=0.0
+        IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_ERRTOT) >0 ) THEN
+           delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot) 
+        ELSE IF (IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_ERRDATA) >0 ) THEN
+           delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_data_errtot) 
+        ENDIF
+        IF (IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_IGNORE) > 0 ) THEN
+            delchi2_sigma=0.0 ! D.Kenworthy April 26 2024
+        ENDIF
 
         IF ( LFITDATA ) then
           DEL_FLUX(ifitdata)  = dif
@@ -4814,6 +4817,9 @@ c ----------------------------------
 c ----------------------
 c compute chi2 from covariance matrix
        
+      DUMP_FCNCHI2 =  CCID_DUMP_CHI2_MATRIX(1:ISNLC_LENCCID) .EQ.
+     &                SNLC_CCID(1:ISNLC_LENCCID)
+
       IF ( USE_FITCOV ) THEN
         chi2    = CHI2INI + chi2sum_sigma
 
@@ -4836,6 +4842,8 @@ c  1st arg OPT=0 suppresses printing.
 
 c loop over COV_INV elements and compute chi2
         DO_LOGDET = (IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_LOGDET)>0)
+        chi2_offdiag = 0.0 
+
         DO 801 irow = 1,    NFITDATA
         DO 802 icol = irow, NFITDATA
          COV_INV  = covmat2(irow,icol)
@@ -4844,13 +4852,20 @@ c loop over COV_INV elements and compute chi2
          FF   = del_flux(irow) * del_flux(icol)
          if ( irow .EQ. icol ) then     
            if (DO_LOGDET) THEN
-            matepoch= EPLIST_FIT(irow) 
-            LAST_FLUXERR = DBLE(R4EP_LAST(matepoch,JEP_DATAFLUX_ERR) )
+            ep = EPLIST_FIT(irow) 
+            LAST_FLUXERR = DBLE(R4EP_LAST(ep,JEP_DATAFLUX_ERR) )
             logdet_offset = logdet_offset + 2.* log( LAST_FLUXERR )   
            ENDIF
-           chi2 = chi2 + (FF * COV_INV)
+           delchi2   = (FF * COV_INV)
+           chi2      = chi2 + delchi2
          else
-           chi2 = chi2 + (FF * COV_INV * 2.)  ! include ij + ji terms
+           delchi2         = (FF * COV_INV * 2.)   ! include ij + ji terms
+           chi2_offdiag    = chi2_offdiag + delchi2
+           chi2            = chi2         + delchi2    
+         endif
+
+         if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
+             CALL PRINT_FCNCHI2(iter, irow, icol, delchi2)
          endif
 
 802     CONTINUE
@@ -4864,11 +4879,92 @@ c   check option to include determinant term log[det(COV_INC)]
 
         FCN_FITCHI2(0) = chi2 - chi2ini
 
-      ENDIF  ! end of LFLAG_COVAR loop
+      ENDIF  ! end of USE_FITCOV if block
+
+      if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
+          write(6,6655) chi2, chi2-chi2_offdiag, chi2_offdiag
+6655      format(' xxx FCN_CHI2(tot, diag, offdiag) = ', 3F12.1)
+          print*,' '
+          call flush(6)
+      endif
 
       RETURN
-      END  ! FCNSNLC
+      END           ! FCNSNLC
 
+
+C ===============================
++DECK,PRINT_FCNCHI2.
+      SUBROUTINE  PRINT_FCNCHI2(iter, irow, icol, delchi2)
+
+c Created Jul 2024
+c print chi2 matrix contribution for irow,icol
+
+      IMPLICIT NONE
++CDE,SNDATCOM. 
++CDE,SNFITCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
+c +CDE,SNLCINP.
+
+c input args
+      INTEGER ITER, IROW, ICOL
+      REAL*8  DELCHI2
+
+c local args
+      INTEGER ep0, ep1, IF0, IF1
+      REAL    Trest0, Trest1, MJD0, MJD1
+      REAL    FDATA, FDATA_ERR, FMODEL, FMODEL_ERR
+      CHARACTER CFILT0*2, CFILT1*2
+
+c ----------- BEGIN -----------
+
+      if ( irow > icol ) return
+
+      ep0 = EPLIST_FIT(irow) 
+      ep1 = EPLIST_FIT(icol) 
+
+      TREST0 = R4EP_ALL(ep0,JEP_TREST)
+      TREST1 = R4EP_ALL(ep1,JEP_TREST)
+
+      MJD0 = R4EP_ALL(ep0,JEP_MJD)
+      MJD1 = R4EP_ALL(ep1,JEP_MJD)
+
+      IF0 = I4EP_ALL(ep0,IEP_IFILT_OBS)
+      IF1 = I4EP_ALL(ep1,IEP_IFILT_OBS)
+
+      cfilt0  = filtdef_string(IF0:IF0)
+      cfilt1  = filtdef_string(IF1:IF1)
+
+      write(6,66) cfilt0(1:1), MJD0, Trest0, 
+     &            cfilt1(1:1), MJD1, Trest1,
+     &            delchi2, iter
+66    format(T2,' xxx FCN_CHI2(', A,':', F7.1, 1x, F6.2, ' / ',
+     &                            A,':', F7.1, 1x, F6.2, ') = ',  
+     &               F10.2, 4x, '(ITER=',I2,')'   )
+
+c print more info for large delchi2      
+      if ( abs(delchi2) > 60.0 ) then
+          FDATA       = R4EP_ALL(ep0,JEP_DATAFLUX)
+          FDATA_ERR   = R4EP_ALL(ep0,JEP_DATAFLUX_ERR)
+          FMODEL      = R4EP_ALL(ep0,JEP_MODELFLUX)
+          FMODEL_ERR  = R4EP_ALL(ep0,JEP_MODELFLUX_ERR)
+          write(6,166) MJD0, FDATA, FDATA_ERR, FMODEL, FMODEL_ERR
+
+          FDATA       = R4EP_ALL(ep1,JEP_DATAFLUX)
+          FDATA_ERR   = R4EP_ALL(ep1,JEP_DATAFLUX_ERR)
+          FMODEL      = R4EP_ALL(ep1,JEP_MODELFLUX)
+          FMODEL_ERR  = R4EP_ALL(ep1,JEP_MODELFLUX_ERR)
+          write(6,166) MJD1, FDATA, FDATA_ERR, FMODEL, FMODEL_ERR
+
+166       format(T5,' xxx MJD=',F7.1, 2x, 'FLUX[DATA,MODEL] = ',
+     &          F8.2,'+_', F7.2, 3x, F8.2,'+_', F7.2 )
+
+      endif
+
+      call flush(6)
+
+      RETURN
+      END    ! end PRINT_FCNCHI2
 
 C ==============================================================
 +DECK,FCNCHI2_PRIOR.
@@ -7284,6 +7380,7 @@ c Aug 17 2015: from snlc_sim.defaults since this is no longer read
 
       MAGLIM_VMAX = ''
       OPT_VMAX    = 0
+      CCID_DUMP_CHI2_MATRIX = ''
 
 c -----------------------
 
@@ -8098,6 +8195,10 @@ c --- Vmax
 
         else if(MATCH_NMLKEY('OPT_VMAX', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) OPT_VMAX
+
+c - - -
+        else if(MATCH_NMLKEY('CCID_DUMP_CHI2_MATRIX', 1,i,ARGLIST)) then
+            CCID_DUMP_CHI2_MATRIX = ARGLIST(1)
 
          endif
 
@@ -10124,6 +10225,7 @@ c
 c
 c Feb 2020: add OPT_COVAR_MWXT==2 option to include only DIAG part.
 c May 2021: pass param lists to gencovar_SALT2
+c Jul 2024: load PARLIST_SN(4:5) 
 c 
 c ----------------------------------------------------------
 
@@ -10155,7 +10257,7 @@ c local var
      &  ,COVMAG_ERR(MXFIT_DATA)
      &  ,SQMAGERR, SQFLUXERR, FF
      &  ,R1, R2, F1, F2, ERR1, ERR2, FUDGE_SQERR, ERRSCALE
-     &  ,COV_MWXT, COV_MODEL, COV_DATA, COV_TMP
+     &  ,COV_MWXT, COV_MODEL, COV_DATA, COV_TMP, x0, x1, xx1, c
      &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
       LOGICAL 
@@ -10170,7 +10272,7 @@ c functions
      &  ,gencovar_SALT2
      
       LOGICAL FIRST_ITERATION
-      REAL*8 RHOFUDGE_MODEL, COVFUDGE_DATA
+      REAL*8 RHOFUDGE_MODEL, COVFUDGE_DATA, SALT2xx1
 
       EXTERNAL INVERTMATRIX
 
@@ -10331,10 +10433,15 @@ c This is the model-covariance only.
 
            Z        = REDSHIFT_FIT
            MWEBV    = SNLC_MWEBV
+           x1  = FITPAR(IPAR_SHAPE) 
+           xx1 = SALT2xx1(ITER,x1)  
            PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
-           PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
-           PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
-           PARLIST_HOST(1) = 0.0  ! cannot fit RV
+           PARLIST_SN(2) = x1
+           PARLIST_SN(3) = FITPAR(IPAR_COLOR)   ! c or AV
+           PARLIST_SN(4) = xx1
+	   PARLIST_SN(5) = 0.0                  ! x2                 (July 29 2024)
+
+	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
            PARLIST_HOST(2) = 0.0  ! cannot fit AV
            PARLIST_HOST(3) = -9.0 ! cannot fit logMass
 
@@ -12354,12 +12461,6 @@ c protect against error=0
      
       PRIOR_ZPULL      =  Zpull  ! function return
 
-c xxxxxxx mark delete Jun 3 2024 xxxxxx
-c      PRIOR_PHOTOZ     =  sngl(zPRIOR)       ! global
-c      PRIOR_PHOTOZ_ERR =  sngl(zPRIOR_ERR)   ! global
-c xxxxxxxxxxx
-
-
       RETURN
       END  ! end of PRIOR_ZPULL
 
@@ -12623,7 +12724,6 @@ c functions
 
 C ----------------- BEGIN ----------------
 
-c xxx mark  LVBOSE = ( ISN .LE. NFIT_VERBOSE )  ! June 2013 - avoid HUGE files
       LVBOSE = STDOUT_UPDATE  ! Jun 2024 
 
       CCID = SNLC_CCID
@@ -13796,8 +13896,6 @@ c ---------------- BEGIN ---------------
       PRIOR_PHOTOZ     = -9.0
       PRIOR_PHOTOZ_ERR = -9.0
 
-c .xyz add option for using HOSTGAL_PHOTOZ ... and quantiles
-
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
 c -------------------------------
@@ -14044,7 +14142,6 @@ c function
 C ------------------- BEGIN -----------------
 
       IF ( .NOT. STDOUT_UPDATE ) RETURN ! Jun 2024
-c xxx mark  IF(ISN>NFIT_VERBOSE ) RETURN  ! Jun 2013: avoid HUGE log files.
 
       CCID = SNLC_CCID
       KK   = ISNLC_LENCCID

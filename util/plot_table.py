@@ -36,11 +36,15 @@ STR_df_loc     = 'df.loc'
 STR_np         = 'np.'
 
 # define strings for @@OPT
-OPT_CHI2      = "CHI2"
+OPT_CHI2      = "CHI2"       # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
 OPT_MEDIAN    = "MEDIAN"
-OPT_DIAG_LINE = "DIAG_LINE"
-OPT_LOGY      = "LOGY"
+OPT_DIAG_LINE = "DIAG_LINE"  # draw diagonal line on plot
+OPT_LOGY      = "LOGY"       # log scale along Y axis
 OPT_GRID      = "GRID"
+OPT_LIST_CID  = "LIST_CID" # list CIDs passing cuts
+
+VALID_OPT_LIST = [ OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE, OPT_LOGY,
+                   OPT_GRID, OPT_LIST_CID ]
 
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
@@ -142,13 +146,14 @@ results in 3 overlaid plots, and default legend shows each cut.
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
 (0=transparent, 1=solid)
 
-  @@OPT   {OPT_CHI2}  {OPT_MEDIAN}  {OPT_DIAG_LINE} {OPT_LOGY} {OPT_GRID}
+  @@OPT   {OPT_CHI2}  {OPT_MEDIAN}  {OPT_DIAG_LINE} {OPT_LOGY} {OPT_GRID} {OPT_LIST_CID}
     where
       {OPT_CHI2:<12} ==> show chi2/dof on plot for two table files
       {OPT_MEDIAN:<12} ==> show median (vertical axis) for 2D plot
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
       {OPT_LOGY:<12} ==> log scale for vertical axis
-      {OPT_GRID:<12} ==> draw dashed grid on plot
+      {OPT_GRID:<12} ==> draw dashed grid on plot 
+      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts (1D plot only)
 
 Examples:
 
@@ -320,7 +325,16 @@ def process_args(args):
     
     if args.DIFF:
         args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
-        
+
+    # abort on invalid @@OPT
+    invalid_OPT_list = []
+    if args.OPT:
+        for opt in args.OPT:
+            if opt not in  VALID_OPT_LIST:
+                invalid_OPT_list.append(opt)
+        if len(invalid_OPT_list) > 0:
+            sys.exit(f"\n ERROR: Invalid @@OPT {invalid_OPT_list}")
+                
     return
 
 def get_var_list(VARIABLE, DELIMITER_LIST):
@@ -381,7 +395,11 @@ def translate_VARIABLE(VARIABLE):
         if isnum : continue
         df_var = STR_df + var
         if df_var not in VARIABLE:  # modify only if not already modified
-            VARIABLE = VARIABLE.replace(var,df_var)
+
+            # .xyz PROBLEM c-SIM_c -> df.c-SIM_df.c unless makig only 1 replace;
+            #     but then SIM_c-c  -> SIM_df.c-c fails ???
+            #     need better logic when 1 variable name is substring of another.
+            VARIABLE = VARIABLE.replace(var,df_var,1)
 
     logging.info(f"Translate VARIABLE {VARIABLE_ORIG}  ->  {VARIABLE}")
     
@@ -670,6 +688,7 @@ def plotter_func(args, plot_info):
     do_chi2      = OPT_CHI2      in OPT
     do_median    = OPT_MEDIAN    in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
+    do_list_cid  = OPT_LIST_CID  in OPT
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
@@ -766,6 +785,11 @@ def plotter_func(args, plot_info):
             for str_stat, val_stat in stat_dict.items():
                 logging.info(f"\t {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
 
+            if do_list_cid:
+                cid_list = sorted(df['CID'].to_numpy())
+                print(f"\n CIDs passing cuts for '{name_legend}': \n{cid_list[0:100]}\n")
+                sys.stdout.flush()
+                
         setup_plot(args, plot_title, xlabel, ylabel)                  
 
         # check option to compute and print chi2/dof info on plot
@@ -852,6 +876,7 @@ def plotter_func(args, plot_info):
 
         setup_plot(args, plot_title, xlabel, ylabel)    
 
+        
     return 
     # end plotter_func
 

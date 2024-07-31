@@ -36,14 +36,15 @@ STR_df_loc     = 'df.loc'
 STR_np         = 'np.'
 
 # define strings for @@OPT
+OPT_NEVT      = "NEVT"       # append N={nevt} to legend
 OPT_CHI2      = "CHI2"       # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
 OPT_MEDIAN    = "MEDIAN"
 OPT_DIAG_LINE = "DIAG_LINE"  # draw diagonal line on plot
 OPT_LOGY      = "LOGY"       # log scale along Y axis
 OPT_GRID      = "GRID"
-OPT_LIST_CID  = "LIST_CID" # list CIDs passing cuts
+OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 
-VALID_OPT_LIST = [ OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE, OPT_LOGY,
+VALID_OPT_LIST = [ OPT_NEVT, OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE, OPT_LOGY,
                    OPT_GRID, OPT_LIST_CID ]
 
 # internal flag to exit after translating VARIALBE and CUT
@@ -146,13 +147,14 @@ results in 3 overlaid plots, and default legend shows each cut.
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
 (0=transparent, 1=solid)
 
-  @@OPT   {OPT_CHI2}  {OPT_MEDIAN}  {OPT_DIAG_LINE} {OPT_LOGY} {OPT_GRID} {OPT_LIST_CID}
+  @@OPT  {' '.join(VALID_OPT_LIST)}
     where
-      {OPT_CHI2:<12} ==> show chi2/dof on plot for two table files
-      {OPT_MEDIAN:<12} ==> show median (vertical axis) for 2D plot
+      {OPT_NEVT:<12} ==> append N=Nevt on each legend
+      {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files
+      {OPT_MEDIAN:<12} ==> plot median (vertical axis) for 2D plot
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
       {OPT_LOGY:<12} ==> log scale for vertical axis
-      {OPT_GRID:<12} ==> draw dashed grid on plot 
+      {OPT_GRID:<12} ==> display grid on plot 
       {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts (1D plot only)
 
 Examples:
@@ -689,6 +691,7 @@ def plotter_func(args, plot_info):
     do_median    = OPT_MEDIAN    in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
     do_list_cid  = OPT_LIST_CID  in OPT
+    do_nevt      = OPT_NEVT      in OPT
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
@@ -730,13 +733,15 @@ def plotter_func(args, plot_info):
             df_dict     = MASTER_DF_DICT[key_name]
             df          = df_dict['df']
             name_legend = df_dict['name_legend']        
-
+            plt_legend  = name_legend
+            
             # get counts sb
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, 
                                   bins=bins,
                                   statistic='count')[0]
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt = np.sum(sb)                # nevt before normalization
+            if do_nevt: plt_legend += f'  N={int(nevt)}'
             
             if n == 0 :
                 sb0 = copy.deepcopy(sb)  # preserve 1st file contents to normalize other files
@@ -764,13 +769,13 @@ def plotter_func(args, plot_info):
                 do_errorbar = False; do_ovsim = True 
                 
             if do_errorbar :
-                plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=name_legend,
+                plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=plt_legend,
                              yerr=[sb-errl, erru-sb], fmt='o')  
             elif do_ovsim :
                 x_val = df.x_plot_val
                 wgt   = [ scale ] * len(x_val)
                 plt.hist(x_val, bins, alpha=0.25, weights = wgt, 
-                         label=name_legend)
+                         label=plt_legend)
             else:
                 sys.exit(f"\n ERROR: cannot determine which plot type: " \
                          f"errorbar or hist")
@@ -790,7 +795,7 @@ def plotter_func(args, plot_info):
                 print(f"\n CIDs passing cuts for '{name_legend}': \n{cid_list[0:100]}\n")
                 sys.stdout.flush()
                 
-        setup_plot(args, plot_title, xlabel, ylabel)                  
+        setup_plot(args, plot_title, xlabel, ylabel) 
 
         # check option to compute and print chi2/dof info on plot
         # Froce min error =1 in chi2 calc so that it's ok to plot
@@ -859,8 +864,12 @@ def plotter_func(args, plot_info):
             name_legend = df_dict['name_legend']
             nevt        = len(df) 
             size        = 20 / math.log10(nevt)  # dot size gets smaller with nevt ??
+
+            plt_legend = name_legend
+            if do_nevt: plt_legend += f'  N={nevt}'
+            
             #print(f"\n xxx nevt= {nevt}  size={size}\n")
-            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=name_legend,
+            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=plt_legend,
                         zorder=0, s=size)
 
             # overlay information on plot
@@ -891,7 +900,7 @@ def setup_plot(args, plot_title, xlabel, ylabel):
     
     if do_logy:    plt.yscale("log")
     if do_grid:    plt.grid()
-    
+
     plt.xlabel(xlabel)  
     if ylabel is not None: plt.ylabel(ylabel)
     

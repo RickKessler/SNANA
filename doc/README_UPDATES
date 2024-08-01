@@ -22535,6 +22535,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + force writing HOSTLIB_DDLR[2] to sim-readme
       + allow SIMLIB_IDSTART in batch mode to fix LIBIDs that are used.
       + set INPUTS.HOSTLIB_USE=0 for FIXMAG to fix bug rejecting all events.
+      + fix SIMLIB_DUMP option to work with only SIMLIB_FILE key in sim-input,
+        or to work using new NOFILE option; see SIMLIB_DUMP in manual
       
    snana.car
       + fix IGAL index bug in INIT_TABLE_HOSTVAR

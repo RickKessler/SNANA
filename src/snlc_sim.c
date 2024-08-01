@@ -1486,7 +1486,11 @@ int read_input_file(char *input_file, int keySource ) {
   //     (to match YAML syntax for refactored submit script)
   //
   // Nov 19 2023: fix array size for tmpWord MXPATHLEN -> MXCHARWORD_PARSE_WORDS
+  // Aug 01 2024:
+  //   + remove REFAC logic and hard-wire REFAC from 2022
+  //   + return if input_file == NOFILE
   //
+ 
 
   int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT ;
   int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING, NTRY=0 ;
@@ -1498,6 +1502,8 @@ int read_input_file(char *input_file, int keySource ) {
 
   // ---------- BEGIN ----------
 
+  if ( strcmp(input_file,"NOFILE") == 0 ) { return SUCCESS ; } // .xyz
+  
   // unpack ENV, and make sure that input file exists
   ENVreplace(input_file,fnam,1);
   if ( (fp = fopen(input_file, "rt"))==NULL ) {       
@@ -1515,15 +1521,10 @@ int read_input_file(char *input_file, int keySource ) {
   // for include files inside primary input, do NOT init string match
   // so that duplicate keys cause abort. For INCLUDE on command line,
   // init string match to avoid abort.
-  bool REFAC = true ; // set True Jan 15 2022, 17:00
-  if ( REFAC ) {        // refac
-    DO_STRINGMATCH_INIT =
-      (INPUTS.NREAD_INPUT_FILE==1)  || // always init first file
-      (keySource == KEYSOURCE_ARG)  ;  // init INCLUDE passed as command arg
-  }
-  else {
-    DO_STRINGMATCH_INIT = true ; // Legacy
-  }
+
+  DO_STRINGMATCH_INIT =
+    (INPUTS.NREAD_INPUT_FILE==1)  || // always init first file
+    (keySource == KEYSOURCE_ARG)  ;  // init INCLUDE passed as command arg
 
   if ( DO_STRINGMATCH_INIT ) 
     { NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); }
@@ -3550,6 +3551,11 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_DUMP",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_DUMP );
+
+    // set "fixmag" model to avoid abort of there is no GENMODEL 
+    sprintf(INPUTS.GENMODEL,"fixmag");  
+    sprintf(INPUTS.MODELNAME,"fixmag");
+    INPUTS.FIXMAG[0] = INPUTS.FIXMAG[1] = 20.0;
   }
   else if ( keyMatchSim(1, "SIMLIB_NREPEAT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_NREPEAT );
@@ -4439,7 +4445,7 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   // if not GENMODEL key, skip.
   // Feb 2 2022 RK - allow up to 2 GENMODEL keys to avoid Pippin abort.
   // xxx  if ( !keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
-  if ( !keyMatchSim(2, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
+  if ( !keyMatchSim(2, "GENMODEL",  WORDS[0], keySource) ) { return 0;}
 
   // - - - -
   // Everything below is for GENMODEL key
@@ -6356,7 +6362,7 @@ void prep_user_input(void) {
     for ( j=0; j < MXNAME_PER_MODEL ;  j++ ) {
       PTR_GENMODEL = GENMODEL_NAME[indx][j] ;
       if ( strcmp(PTR_GENMODEL,"NULL") == 0 ) { continue ; }
-
+      
       lentmp = strlen(PTR_GENMODEL);
       if ( strncmp(INPUTS.MODELNAME,PTR_GENMODEL,lentmp) == 0 ) { 
 	INDEX_GENMODEL = indx ; 
@@ -6451,11 +6457,7 @@ void prep_user_input(void) {
   USE_SMEAR_MODELNAME = !IGNOREFILE(PTR_SMEAR_MODELNAME);
   ISCOH_SMEAR         = ( strstr(PTR_SMEAR_MODELNAME,"COH") != NULL );
 
-  if ( INPUTS.SIMLIB_DUMP > 0 ) {
-    // set params to read entire SIMLIB once; then quit. (Mar 2021)
-    INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_QUIT_NOREWIND;
-    INPUTS.NGENTOT_LC = 10000; INPUTS.NGEN_LC=0;
-  }
+  if ( INPUTS.SIMLIB_DUMP > 0 ) {  prep_SIMLIB_DUMP(); return;  }  
 
   // - - - - - -  - - - 
 
@@ -18061,7 +18063,6 @@ void SIMLIB_READ_DRIVER(void) {
   GENLC.NGEN_SIMLIB_ID++ ;
   REPEAT = USE_SAME_SIMLIB_ID(2);
 
-
   if ( !REPEAT ) {  // process next cadence
 
     // read next cadence from SIMLIB/Cadence file (any format)
@@ -18167,7 +18168,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   for(iwd=0; iwd < MXWDLIST_SIMLIB; iwd++ ) { ptrWDLIST[iwd] = WDLIST[iwd]; }
 
-
+  
  START:
 
   init_SIMLIB_HEADER();
@@ -18356,7 +18357,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
 	NOBS_FOUND++ ; 	IWD = iwd;  
-
+	
 	//read MJD into scalar to see if it is within GENRANGE_MJD
 	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  );
        
@@ -18364,6 +18365,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
 	if ( INPUTS.SIMLIB_DUMP >0 ) { KEEP_MJD = true ; } 
 
+	
 	// code aborts below if ISTORE is too big, but to avoid corrupting
 	// abort messages, don't exceed array bound here.
 	if ( KEEP_MJD &&  ISTORE < MXOBS_SIMLIB ) {
@@ -18468,7 +18470,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
-
+	
 	if ( USEFLAG_LIBID != ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
 	  { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }	
       }
@@ -18507,7 +18509,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   SIMLIB_OBS_RAW.NOBS      = ISTORE ;      // can change with SPECTROGRAPH
   SIMLIB_OBS_RAW.NOBS_READ = ISTORE ;  // won't change for this cadence
 
-
+	
   NOBS_EXPECT -= NOBS_SKIP ;
   if ( NOBS_EXPECT != NOBS_FOUND ) {
     sprintf(c1err,"Found %d observations in LIBID %d", 
@@ -18998,7 +19000,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Apr 13, 2016: 
   // check if anything needs to be re-generated based on header info
   if ( regen_SIMLIB_GENRANGES() < 0 ) { return ; }
-
+    
   // transfer some SIMLIB_HEADER info to GENLC struct
   GENLC.RA         = SIMLIB_HEADER.RA ;
   GENLC.DEC        = SIMLIB_HEADER.DEC ;
@@ -19173,7 +19175,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     RDNOISE_T  = SIMLIB_OBS_RAW.TEMPLATE_READNOISE[OBSRAW] ;
     SKYSIG_T   = SIMLIB_OBS_RAW.TEMPLATE_SKYSIG[OBSRAW] ;
     ZPT_T      = SIMLIB_OBS_RAW.TEMPLATE_ZPT[OBSRAW] ;
-
+      
     // idiot check on MJD might catch invalid SIMLIB entries
     BAD_MJD = ( MJD < 10000.0 || MJD > 2.0E5 );
     if ( BAD_MJD && !IS_SPECTRO ) {
@@ -19205,7 +19207,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     // check if this MJD is kept.
     KEEP = keep_SIMLIB_OBS(OBSRAW);
-
+    
     if ( !KEEP ) { continue ; }
 
     // flag this filter as 'used'
@@ -19705,7 +19707,8 @@ bool keep_SIMLIB_OBS(int OBS) {
   ifilt_obs = SIMLIB_OBS_RAW.IFILT_OBS[OBS] ;
   ifilt     = GENLC.IFILTINVMAP_OBS[ifilt_obs]; 
   if (LTRACE) {
-    printf(" xxx 4 ifilt=%d of %d\n",ifilt, GENLC.NFILTDEF_OBS ); 
+    printf(" xxx 4 ifilt = %d  of  %d (ifilt_obs=%d)\n",
+	   ifilt, GENLC.NFILTDEF_OBS, ifilt_obs ); 
     fflush(stdout); 
   }
   if ( ifilt < 0                   ) { return(NOKEEP); }
@@ -30010,7 +30013,6 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   // ------------ BEGIN  ----------
 
-
   LDMP_LOCAL = 1 * (1-QUIET) ;
 
   if ( INPUTS.SIMLIB_DUMP < 0 ) { return ; }
@@ -30198,7 +30200,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
     NREAD++ ;
     NREAD_SIMLIB = NREAD;  // set global 
-
+    
     // store summary info for each SIMLIB entry
 
     zero_SIMLIB_DUMP(&SIMLIB_DUMP_AVG1);
@@ -30213,10 +30215,11 @@ void SIMLIB_DUMP_DRIVER(void) {
     MJDMIN4 =  99999. ;
     MJDMAX4 = -99999. ;
     sprintf(FIELDNAME, "%s", SIMLIB_OBS_GEN.FIELDNAME[1]) ;
-
+	  
     for ( iep = 1; iep <= GENLC.NEPOCH; iep++ ) {
       ifilt_obs = GENLC.IFILT_OBS[iep] ;
 
+      
       MJD_LAST = -9.0; if(iep>1) { MJD_LAST=GENLC.MJD[iep-1]; }
       MJD = GENLC.MJD[iep];
 
@@ -30647,6 +30650,58 @@ void zero_SIMLIB_DUMP(SIMLIB_DUMP_DEF *SIMLIB_DUMP) {
   }
 
 } // end zero_SIMLIB_DUMP
+
+// =======================================
+void prep_SIMLIB_DUMP(void) {
+
+  // Created Aug 1 2024
+  // Prepare for SIMLIB_DUMP assuming that user input is only
+  // the name of SIMLIB_FILE and nothing else.
+  
+  char fnam[] = "prep_SIMLIB_DUMP" ;
+
+  // ------------- BEGIN ------------
+
+  // set params to read entire SIMLIB once; then quit. (Mar 2021)
+  INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_QUIT_NOREWIND;
+  INPUTS.NGENTOT_LC = 10000; INPUTS.NGEN_LC=0;
+
+  // hack inputs to avoid abort  (Aug 2024)
+  if ( IGNOREFILE(INPUTS.GENVERSION) )
+    { sprintf(INPUTS.GENVERSION,"SIMLIB_DUMP"); } 
+  
+  INPUTS.GENRANGE_TREST[0] = -1.0E8 ;
+  INPUTS.GENRANGE_TREST[1] = +1.0E8 ;
+
+  if ( INPUTS.GENRANGE_PEAKMJD[0] == 0.0 ) {
+    INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.GENRANGE_MJD[0];
+    INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.GENRANGE_MJD[1];
+  }
+
+  // if there is no kcor file, then read FILTERS key from SIMLIB file
+  // and prepare filter lists as if kcor init had run
+  int ifilt, ifilt_obs, NF;
+  char cfilt[2];
+  if ( IGNOREFILE(INPUTS.KCOR_FILE) ) {  //.xyz
+    SIMLIB_readGlobalHeader_TEXT();      fclose(fp_SIMLIB);
+    sprintf(INPUTS.GENFILTERS,"%s", SIMLIB_GLOBAL_HEADER.FILTERS);
+    NF = strlen(INPUTS.GENFILTERS);
+    GENLC.NFILTDEF_SIMLIB = GENLC.NFILTDEF_OBS = INPUTS.NFILTDEF_OBS = NF ;
+    for(ifilt=0; ifilt < NF; ifilt++ ) {
+      sprintf(cfilt, "%c", SIMLIB_GLOBAL_HEADER.FILTERS[ifilt] );
+      ifilt_obs = INTFILTER(cfilt);
+      INPUTS.IFILTMAP_OBS[ifilt]  = ifilt_obs; 
+      GENLC.IFILTMAP_OBS[ifilt]   = ifilt_obs;
+      GENLC.IFILTINVMAP_SIMLIB[ifilt_obs] = ifilt ;
+      GENLC.IFILTINVMAP_OBS[ifilt_obs]    = ifilt;	
+    }
+    SIMLIB_GLOBAL_HEADER.FILTERS[0] = 0;
+  } // end of no kcor file
+
+  
+  return;
+  
+} // end prep_SIMLIB_DUMP
 
 // =========================================================
 void SIMLIB_DUMP_openTable(int LDMP_MJD_TEXT,int LDMP_ROOT) {

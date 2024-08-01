@@ -8027,7 +8027,6 @@ void store_output_varnames(void) {
       varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile][ivar];
 
       if ( IS_APPEND_VARNAME(varName) )  { CHOP_VAR=true; }
-      // xx xmark if (strcmp(varName,FIRST_VARNAME_APPEND) == 0 ) { CHOP_VAR=true;}
       
       if ( CHOP_VAR ) { break; }
       sprintf(OUTPUT_VARNAMES.LIST[ivar],"%s", varName);
@@ -12174,7 +12173,6 @@ void init_COVINT_biasCor(void) {
 	    N      = INFO_BIASCOR.NEVT_COVINT[idsample][iz][ia][ib][ig];
 	    SUMWGT = INFO_BIASCOR.SUMWGT_COVINT[idsample][iz][ia][ib][ig]; 
 	    if ( N > 0 ) {
-	      // xxx mark delete Jun 7 2024   XNINV = 1.0/(double)N;
 	      XNINV = 1.0/SUMWGT;
 	      scale_COV( XNINV, INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL );
 	    }
@@ -20002,7 +20000,6 @@ void outFile_driver(void) {
 
   if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
-    // xxx mark May 28 27 2024 sprintf(tmpFile1,"%s.fitres", prefix );
     sprintf(tmpFile1,"%s.FITRES", prefix ); 
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
     sprintf(tmpFile3,"%s.COV",    prefix );     // Dec 2 2020
@@ -20204,7 +20201,6 @@ void write_yaml_info(char *fileName) {
   if ( INFO_CCPRIOR.USE ) {
     XNCC = FITRESULT.NSNFIT_CC;
     XNIa = FITRESULT.NSNFIT_1A ;
-    // xxx mark delete July 2024 : VAL = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A; 
     VAL = XNCC / ( XNIa + XNCC );
     ERR = 0.0 ;
     fprintf(fp,"  - %-20s  %.5f  %.5f \n", "CONTAM_DATA:", VAL, ERR ) ;

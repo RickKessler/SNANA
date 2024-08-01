@@ -6992,12 +6992,14 @@ it is written to TEXT, ROOT, and HBOOK files.
    \label{sssec:simlib_dump}
 % ------------------------------------
 
-To quickly check a \simlib,
-a screen-dump summary is obtained 
-with the command:
+To quickly check global properties of a  \simlib,
+a screen-dump summary is obtained with the command:
 %
 \begin{Verbatim}[frame=single]
-  >  snlc_sim.exe  mysim.input  SIMLIB_DUMP 1 
+    snlc_sim.exe  mysim.input  SIMLIB_DUMP 1
+         or
+    snlc_sim.exe  NOFILE   SIMLIB_FILE <simlib_file>  SIMLIB_DUMP 1
+         
  ************************************************** 
    SIMLIB_DUMP  
 
@@ -7022,16 +7024,18 @@ with the command:
    r   35.04   0.820     173.5   20.50    19.99  29.71   0.130 
    i   34.81   0.829     216.2   19.74    19.99  31.43   0.128 
    z   34.18   0.823     205.7   19.20    19.99  32.14   0.135 
-   Y   32.93   0.822     197.9   17.99    19.99  30.14   0.127 
 
  LIBRARY MIN-MAX RANGES:  
          RA:    -59.994  to    58.766 deg 
          DECL:   -1.253  to     1.257 deg 
          MJD:   53616.2  to   53705.4 
-
-  CUT-WARNING:   46 SIMLIBS will fail user-cut on 'RA' 
 \end{Verbatim}
 %
+The sim-input file must contain the {\tt SIMLIB\_FILE} key;
+no other keys are needed. To avoid creating a sim-input file,
+the {\tt NOFILE} argument ignores the sim-input file and reads
+all arguments on the command line.
+
 {\tt GAPMAX} and {\tt <GAP>} are the 
 maximum and average gaps (days) between epochs in the {\tt SIMLIB}.
 The ``{\tt frac}'' after {\tt GAPMAX} is the fraction of the
@@ -7059,6 +7063,8 @@ of the SIMLIB\_DUMP mask,
 %
 \begin{Verbatim}[frame=single]
     snlc_sim.exe  mysim.input  SIMLIB_DUMP 2
+         or
+    snlc_sim.exe  NOFILE  SIMLIB_FILE <simlib_file>  SIMLIB_DUMP 2
 \end{Verbatim}
 and the corresponding output file is 
 {\tt DUMP\_MJD-[simlib]}. To obtain both the LIBID and MJD

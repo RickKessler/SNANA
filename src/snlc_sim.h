@@ -63,7 +63,7 @@
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10
-#define  MXSEASON_SIMLIB  20      // max number of seasons
+#define  MXSEASON_SIMLIB  30      // max number of seasons
 #define  MXFLUXERR_COR_SIMLIB 100  // max number of FLUXERR_COR keys in header
 #define  TGAP_SEASON_SIMLIB 90.0  // gap (days) to define new season
 #define  GENRANGE_TOBS_PAD  0.1   // Tobs padding for MJD-selection

@@ -761,7 +761,7 @@ void SIMLIB_read(int *RDSTAT) {
     if ( strcmp(c_get,"RA:") == 0 ) 
       { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_RA] ); }
 
-    if ( strcmp(c_get,"DECL:") == 0 || strcmp(c_get,"DEC")==0 ) 
+    if ( strcmp(c_get,"DECL:") == 0 || strcmp(c_get,"DEC:")==0 ) 
       { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_DEC] ); }
 
     if ( strcmp(c_get,"MWEBV:") == 0  ) 

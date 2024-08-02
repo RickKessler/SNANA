@@ -47,6 +47,8 @@ OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 VALID_OPT_LIST = [ OPT_NEVT, OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE, OPT_LOGY,
                    OPT_GRID, OPT_LIST_CID ]
 
+NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
+
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
 DEBUG_TRANSLATE = False
@@ -145,7 +147,12 @@ To overlay the same variable with different cuts, provide a list of cuts,
 results in 3 overlaid plots, and default legend shows each cut.
 
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
-(0=transparent, 1=solid)
+(0=transparent, 1=solid).
+For 2D overlays of multuple files or cuts, can specify multiple 
+alpha values, e.g.,
+   @@ALPHA 0.9 0.1
+so that primary plot is dark and overlay plot is nearly transparent.
+
 
   @@OPT  {' '.join(VALID_OPT_LIST)}
     where
@@ -208,6 +215,11 @@ def get_args():
 
     msg = "Override default legend on plot (space sep list per TFILE)"
     parser.add_argument('@@LEGEND', default=None, help=msg, nargs="+")
+
+    msg = "Alpha value for plot. Set to 0 to see only averages." \
+          "ALPHA=0 and DIFF=True compares average difference between two files, " \
+          "even if there are no overlapping CIDS."
+    parser.add_argument('@@ALPHA', default=[0.3], type=float, help=msg, nargs="+" )
     
     msg = "Filename to save plot.  Default: does not save plots."
     parser.add_argument('@@SAVE', default='None', help=msg )
@@ -217,11 +229,6 @@ def get_args():
           "CID plots per-CID difference."
     parser.add_argument('@@DIFF', default=None, type=str, help=msg )
     
-    msg = "Alpha value for plot. Set to 0 to see only averages." \
-          "ALPHA=0 and DIFF=True compares average difference between two files, " \
-          "even if there are no overlapping CIDS."
-    parser.add_argument('@@ALPHA', default=0.3, type=float, help=msg )
-
     msg = "cuts with boolean and algegraic operations; see @@HELP"
     parser.add_argument("@@CUT", help=msg, nargs="+", default =[None])
 
@@ -324,6 +331,15 @@ def process_args(args):
     if narg_tfile != narg_legend:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
                  f"narg_legend must match number of table files.")
+
+    # if only 1 alpha, make sure there is alpha for each file/cut .xyz
+    narg_alpha = len(args.ALPHA)
+    if narg_alpha < narg_tfile:
+        a          = args.ALPHA[0]
+        alpha_list = [a]*narg_tfile
+    else:
+        alpha_list = copy.copy(args.ALPHA)
+    args.alpha_list = alpha_list
     
     if args.DIFF:
         args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
@@ -563,6 +579,7 @@ def read_tables(args, plot_info):
     tfile_base_list = args.tfile_base_list
     cut_list        = args.cut_list
     legend_list     = args.legend_list
+    alpha_list      = args.alpha_list
     NROWS           = args.NROWS
 
     plotdic    = plot_info.plotdic
@@ -571,7 +588,7 @@ def read_tables(args, plot_info):
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
     
-    for tfile, cut, legend in zip(tfile_list, cut_list, legend_list):
+    for tfile, cut, legend, alpha in zip(tfile_list, cut_list, legend_list, alpha_list):
         tfile_base = os.path.basename(tfile)
         logging.info(f"Loading {tfile_base}")
         if not os.path.exists(tfile):
@@ -610,7 +627,8 @@ def read_tables(args, plot_info):
 
         MASTER_DF_DICT[key] = {
             'df'           : df,
-            'name_legend'  : name_legend
+            'name_legend'  : name_legend,
+            'alpha'        : alpha
         }
 
         try:
@@ -684,7 +702,7 @@ def plotter_func(args, plot_info):
 
     # strip off local args from input name spaces
     DIFF      = args.DIFF
-    ALPHA     = args.ALPHA
+    # xxx mark ALPHA     = args.ALPHA
     OPT       = args.OPT
 
     do_chi2      = OPT_CHI2      in OPT
@@ -789,11 +807,8 @@ def plotter_func(args, plot_info):
             }
             for str_stat, val_stat in stat_dict.items():
                 logging.info(f"\t {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
-
             if do_list_cid:
-                cid_list = sorted(df['CID'].to_numpy())
-                print(f"\n CIDs passing cuts for '{name_legend}': \n{cid_list[0:100]}\n")
-                sys.stdout.flush()
+                print_cid_list(df, name_legend)
                 
         setup_plot(args, plot_title, xlabel, ylabel) 
 
@@ -822,20 +837,21 @@ def plotter_func(args, plot_info):
         keylist    = list(MASTER_DF_DICT.keys())   # tf0, tf1 ...
         df_ref = MASTER_DF_DICT[keylist[0]]['df']  # reference df  for difference
         for k in keylist[1:]:
-            df = MASTER_DF_DICT[k]['df']
+            df     = MASTER_DF_DICT[k]['df']
+            plt_alpha  = df_dict['alpha']
             if DIFF == 'CID':
                 #need to do an inner join with each entry in dic, then plot the diff
                 # (join logic thanks to Charlie Prior)
                 join = df_ref.join(df.set_index('CID'), on='CID', how='inner', lsuffix='_1', rsuffix='_2')
                 plt.scatter(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values,
-                            alpha=ALPHA, label='Diff')
+                            alpha=plt_alpha, label='Diff')
                 avgdiff = binned_statistic(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values, bins=bins, statistic='median')[0]                                     
                 plt.scatter((bins[1:] + bins[:-1])/2, avgdiff, label="Mean Difference", color='k')
             elif (DIFF == 'ALL'):
                 text_label = df_ref.name.values[0]+ " - " + df.name.values[0]
                 try:
                     plt.scatter(df_ref.x_plot_val, df_ref.y_plot_val - df.y_plot_val, 
-                                label=text_label, alpha=ALPHA)
+                                label=text_label, alpha=plt_alpha)
                 except ValueError:
                     pass
 
@@ -862,6 +878,7 @@ def plotter_func(args, plot_info):
 
             df          = df_dict['df']
             name_legend = df_dict['name_legend']
+            plt_alpha   = df_dict['alpha']
             nevt        = len(df) 
             size        = 20 / math.log10(nevt)  # dot size gets smaller with nevt ??
 
@@ -869,20 +886,23 @@ def plotter_func(args, plot_info):
             if do_nevt: plt_legend += f'  N={nevt}'
             
             #print(f"\n xxx nevt= {nevt}  size={size}\n")
-            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=ALPHA, label=plt_legend,
+            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=plt_alpha, label=plt_legend,
                         zorder=0, s=size)
 
             # overlay information on plot
             if do_median:
                 median = binned_statistic(df.x_plot_val, df.y_plot_val,
                                           bins=bins, statistic='median')[0] 
-                plt.scatter((bins[1:] + bins[:-1])/2., median, label= name_legend+" median",
-                            marker="^", zorder=10)
+                plt.scatter((bins[1:] + bins[:-1])/2., median,
+                            label= name_legend+" median", marker="^", zorder=10)
 
             if do_diag_line:
                 x = np.linspace(xmin,xmax,100);  y = x
                 plt.plot(x,y)
 
+            if do_list_cid:
+                print_cid_list(df, name_legend)
+            
         setup_plot(args, plot_title, xlabel, ylabel)    
 
         
@@ -906,7 +926,12 @@ def setup_plot(args, plot_title, xlabel, ylabel):
     
     plt.legend()                                
     plt.title(plot_title) 
-    
+
+def print_cid_list(df, name_legend) :
+    # print list of cids to stdout    
+    cid_list = sorted(df['CID'].to_numpy())[0:NMAX_CID_LIST]
+    print(f"\n CIDs passing cuts for '{name_legend}' : \n{cid_list}" )
+    sys.stdout.flush()
     return
 
 

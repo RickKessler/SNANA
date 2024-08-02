@@ -145,7 +145,6 @@ int WRFLAG_noSPEC ;    // Apr 2024
 #define SIMLIB_SKYSIG_SQPIX    "ADU_PER_SQPIXEL"    // default
 #define SIMLIB_SKYSIG_SQASEC   "ADU_PER_SQARCSEC"   // option
 
-//#define SIMLIB_MXGEN_LIBID 10000  // stop gen on this many for one LIBID
 #define SIMLIB_MXGEN_LIBID 1000
 #define SIMLIB_MSKOPT_REPEAT_UNTIL_ACCEPT      2 // force each LIBID to accept
 #define SIMLIB_MSKOPT_QUIT_NOREWIND            4 // quit after one pass

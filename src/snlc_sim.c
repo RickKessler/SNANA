@@ -1,3 +1,4 @@
+
 /******************************************* 
   snlc_sim:  Mar 2006: Created by R.Kessler
              Apr 2007: Remove SQL dependencies for public usage. 
@@ -19996,7 +19997,11 @@ void store_SIMLIB_SEASONS(void) {
     sprintf(c1err,"Invalid NSEASON=%d  exceeds bound of %d",
 	    SIMLIB_HEADER.NSEASON, MXSEASON_SIMLIB ) ;
     sprintf(c2err,"LIBID=%d ", GENLC.SIMLIB_ID );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+
+    if ( INPUTS.SIMLIB_DUMP <= 0 ) 
+      { errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; }
+    else
+      { printf("%s   %s\n", c1err, c2err); fflush(stdout); }
   }
 
   // Aug 2018: check for minimum  Season length requirement 
@@ -30128,9 +30133,8 @@ void SIMLIB_DUMP_DRIVER(void) {
 
     NVAR = 10 + 4*GENLC.NFILTDEF_OBS ; 
 
-    // xxxx    fprintf(fpdmp0,"NVAR: %d \n", NVAR );
     fprintf(fpdmp0,"VARNAMES: ROW LIBID RA DEC FIELD MWEBV GAPMAX GAPAVG "
-	    "NOBS MJDMIN MJDMAX ");
+	    "NOBS MJDMIN MJDMAX NSEASON  ");
 
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
@@ -30189,6 +30193,8 @@ void SIMLIB_DUMP_DRIVER(void) {
     DEC   = GENLC.DEC ;
     MWEBV = GENLC.MWEBV;
 
+    if ( ID < INPUTS.SIMLIB_IDSTART ) { continue ; }
+    
     RA4  = (float)GENLC.RA ;   // need float version for pointers
     DEC4 = (float)GENLC.DEC ;
 
@@ -30226,6 +30232,7 @@ void SIMLIB_DUMP_DRIVER(void) {
       ZPTERR    = SIMLIB_OBS_GEN.ZPTERR[iep]; 
       if ( ZPTERR > ZPTERR_MAX ) { continue;} // exclude extreme variations
 
+      // .xyz
       if ( MJD < MJDMIN4 ) { MJDMIN4 = MJD ; }
       if ( MJD > MJDMAX4 ) { MJDMAX4 = MJD ; }
 
@@ -30301,9 +30308,9 @@ void SIMLIB_DUMP_DRIVER(void) {
     if ( LDMP_SEQ_TEXT ) {
       NROW++ ;
       fprintf(fpdmp0,"ROW: %4d %4d %7.3f %7.3f %s %6.3f %5.0f %3.1f "
-	      "%3d %.2f %.2f ", 
+	      "%3d %.2f %.2f  %d  ", 
 	      NROW, ID, RA, DEC, FIELDNAME, MWEBV, GAPMAX, GAPAVG, 
-	      Nobs, MJDMIN4, MJDMAX4 );
+	      Nobs, MJDMIN4, MJDMAX4, SIMLIB_HEADER.NSEASON );
       fflush(fpdmp0);
     }
 
@@ -30664,7 +30671,8 @@ void prep_SIMLIB_DUMP(void) {
 
   // set params to read entire SIMLIB once; then quit. (Mar 2021)
   INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_QUIT_NOREWIND;
-  INPUTS.NGENTOT_LC = 10000; INPUTS.NGEN_LC=0;
+  INPUTS.NGENTOT_LC = 50000;
+  INPUTS.NGEN_LC=0;
 
   // hack inputs to avoid abort  (Aug 2024)
   if ( IGNOREFILE(INPUTS.GENVERSION) )

@@ -36,16 +36,18 @@ STR_df_loc     = 'df.loc'
 STR_np         = 'np.'
 
 # define strings for @@OPT
-OPT_NEVT      = "NEVT"       # append N={nevt} to legend
-OPT_CHI2      = "CHI2"       # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
+OPT_NEVT      = "NEVT"      # append N={nevt} to legend
+OPT_MEAN      = "MEAN"      # append mean to legend
+OPT_STDDEV    = "STDDEV"    # append stddev to legend
+OPT_CHI2      = "CHI2"      # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
 OPT_MEDIAN    = "MEDIAN"
 OPT_DIAG_LINE = "DIAG_LINE"  # draw diagonal line on plot
 OPT_LOGY      = "LOGY"       # log scale along Y axis
 OPT_GRID      = "GRID"
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 
-VALID_OPT_LIST = [ OPT_NEVT, OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE, OPT_LOGY,
-                   OPT_GRID, OPT_LIST_CID ]
+VALID_OPT_LIST = [ OPT_NEVT, OPT_MEAN, OPT_STDDEV, OPT_CHI2, OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE,
+                   OPT_LOGY, OPT_GRID, OPT_LIST_CID ]
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
 
@@ -157,6 +159,8 @@ so that primary plot is dark and overlay plot is nearly transparent.
   @@OPT  {' '.join(VALID_OPT_LIST)}
     where
       {OPT_NEVT:<12} ==> append N=Nevt on each legend
+      {OPT_MEAN:<12} ==> append mean on each legend
+      {OPT_STDDEV:<12} ==> append stddev on each legend
       {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files
       {OPT_MEDIAN:<12} ==> plot median (vertical axis) for 2D plot
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
@@ -710,6 +714,8 @@ def plotter_func(args, plot_info):
     do_diag_line = OPT_DIAG_LINE in OPT
     do_list_cid  = OPT_LIST_CID  in OPT
     do_nevt      = OPT_NEVT      in OPT
+    do_mean      = OPT_MEAN      in OPT
+    do_stddev    = OPT_STDDEV    in OPT    
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
@@ -758,8 +764,21 @@ def plotter_func(args, plot_info):
                                   bins=bins,
                                   statistic='count')[0]
             errl,erru = poisson_interval(sb) # And error for those counts
-            nevt = np.sum(sb)                # nevt before normalization
-            if do_nevt: plt_legend += f'  N={int(nevt)}'
+            nevt   = np.sum(sb)              # nevt before normalization
+            mean   = np.mean(df.x_plot_val)
+            median = np.median(df.x_plot_val)
+            stdev  = np.std(df.x_plot_val)
+            
+            stat_dict = {
+                'nevt'    : nevt,
+                'mean'    : mean,
+                'median'  : median,
+                'stdev'   : stdev
+                # overflow/underflow ??
+            }
+            if do_nevt:   plt_legend += f'  N={int(nevt)}'
+            if do_mean:   plt_legend += f'  mean={mean:.2f}'
+            if do_stddev: plt_legend += f'  stdev={stdev:.2f}'  
             
             if n == 0 :
                 sb0 = copy.deepcopy(sb)  # preserve 1st file contents to normalize other files
@@ -798,13 +817,6 @@ def plotter_func(args, plot_info):
                 sys.exit(f"\n ERROR: cannot determine which plot type: " \
                          f"errorbar or hist")
 
-            stat_dict = {
-                'nevt'    : nevt,
-                'mean'    : np.mean(df.x_plot_val),
-                'median'  : np.median(df.x_plot_val),
-                'stdev'   : np.std(df.x_plot_val),
-                # overflow/underflow ??
-            }
             for str_stat, val_stat in stat_dict.items():
                 logging.info(f"\t {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
             if do_list_cid:

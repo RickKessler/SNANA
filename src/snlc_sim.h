@@ -34,6 +34,7 @@
 
  Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
  Jan 28 2022: MXEPSIM -> 15k (was 10k)
+ Aug 02 2024: MXSEASON_SIMLIB -> 30 (was 20) to handle LSST cadence artifact
 
 ********************************************/
 

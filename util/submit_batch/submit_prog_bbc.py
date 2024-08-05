@@ -156,6 +156,9 @@ TABLE_VARNAME_CID      = "CID"
 TABLE_VARNAME_IDSURVEY = "IDSURVEY"
 TABLE_VARNAME_IZBIN    = "IZBIN"
 
+# keep these variables if they exist in some FITRES files but not others
+VARNAME_APPEND = 'PROB*,zPRIOR*,SNRSUM,SIM_c,SIM_x1'  
+
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
     def __init__(self, config_yaml):
@@ -1173,7 +1176,7 @@ class BBC(Program):
                     input_ff       = "INPUT_" + ff
                     cat_file_out   = f"../{v_dir}/{input_ff}"
 
-                    append_arg     = f"-a 'PROB*,zPRIOR*,SIM_c,SIM_x1'"
+                    append_arg     = f"-a '{VARNAME_APPEND}'"
 
                     cat_command    = f"{PROGRAM_NAME_CAT} \\\n " \
                                      f"  -i {cat_file_list} \\\n" \
@@ -1351,7 +1354,7 @@ class BBC(Program):
         cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
-                  f"append_varname_missing='PROB*,zPRIOR*,SIM_c,SIM_x1'  " \
+                  f"append_varname_missing='{VARNAME_APPEND}'  " \
                   f"catfile_out={cat_file_out}  " \
                   f" &> {cat_file_log}"
 

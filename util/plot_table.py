@@ -199,48 +199,48 @@ def get_args():
 
     msg = "required: Name of TABLE file or space delineated list of " \
           "different TABLE files. If >1 TFILE, plots are overlaid"
-    parser.add_argument('@@TFILE', help=msg, nargs="+")
+    parser.add_argument('@@TFILE', '@@tfile', help=msg, nargs="+")
     
     msg = "required: Variable(s) to plot from table file, or function of variables.\n" \
           "One variable results in 1D histogram. Two colon delimited variables, " \
           "such as zHD:mB, plots mB (y) vs zHD (x). " \
           "For the histogram, counts are normalised to the first table file."
-    parser.add_argument('@V', '@@VARIABLE', help=msg, nargs="+")
+    parser.add_argument('@V', '@@VARIABLE', '@v', help=msg, nargs="+")
     
     msg = "AUTO (default): optional bounds min, max and binsize of plot parameters.\n" \
           "For 2D plot, must specify both x and y bounds. y-binsize is ignored."
-    parser.add_argument('@@BOUNDS', default=BOUNDS_AUTO, help=msg, nargs = '+')
+    parser.add_argument('@@BOUNDS', '@@bounds', default=BOUNDS_AUTO, help=msg, nargs = '+')
 
     msg = "Units to show for each axis; see @@HELP"
-    parser.add_argument('@U', '@@UNITS', default=None, help=msg, nargs="+")
+    parser.add_argument('@U', '@@UNITS', '@@units', default=None, help=msg, nargs="+")
     
-    msg = "Override default plot title = arg of @@CUTS"
-    parser.add_argument('@@TITLE',  default=None, help=msg )
+    msg = "Override default plot title"
+    parser.add_argument("@@TITLE", "@@title", default=None, help=msg )
 
     msg = "Override default legend on plot (space sep list per TFILE)"
-    parser.add_argument('@@LEGEND', default=None, help=msg, nargs="+")
+    parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
 
     msg = "Alpha value for plot. Set to 0 to see only averages." \
           "ALPHA=0 and DIFF=True compares average difference between two files, " \
           "even if there are no overlapping CIDS."
-    parser.add_argument('@@ALPHA', default=[0.3], type=float, help=msg, nargs="+" )
+    parser.add_argument('@@ALPHA', '@@alpha',  default=[0.3], type=float, help=msg, nargs="+" )
     
     msg = "Filename to save plot.  Default: does not save plots."
-    parser.add_argument('@@SAVE', default='None', help=msg )
+    parser.add_argument('@@SAVE', '@@save', default='None', help=msg )
 
     msg = "Plot difference in y-axis between files. Valid options are None, ALL, and CID.\n" \
           "ALL plots median difference between first file and subsequent ones.\n" \
           "CID plots per-CID difference."
-    parser.add_argument('@@DIFF', default=None, type=str, help=msg )
+    parser.add_argument('@@DIFF', '@@diff', default=None, type=str, help=msg )
     
     msg = "cuts with boolean and algegraic operations; see @@HELP"
-    parser.add_argument("@@CUT", help=msg, nargs="+", default =[None])
+    parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
 
     msg = "number of rows to read (for large files)"
-    parser.add_argument("@@NROWS", help=msg, type=int, default=0)
+    parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=0)
 
     msg = "options; see @@HELP"
-    parser.add_argument("@@OPT", help=msg, nargs="+", default = [])
+    parser.add_argument("@@OPT", "@@opt", help=msg, nargs="+", default = [])
 
     msg = "Full help menu printed to stdout"
     parser.add_argument("@H", "@@HELP", help=msg, action="store_true")
@@ -348,15 +348,20 @@ def process_args(args):
     if args.DIFF:
         args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
 
-    # abort on invalid @@OPT
+    # abort on invalid @@OPT, and change all OPT to upper case
     invalid_OPT_list = []
+    args_upper_list = []
     if args.OPT:
         for opt in args.OPT:
+            opt = opt.upper()
+            args_upper_list.append(opt)
             if opt not in  VALID_OPT_LIST:
                 invalid_OPT_list.append(opt)
         if len(invalid_OPT_list) > 0:
             sys.exit(f"\n ERROR: Invalid @@OPT {invalid_OPT_list}")
-                
+
+        args.OPT = args_upper_list
+        
     return
 
 def get_var_list(VARIABLE, DELIMITER_LIST):

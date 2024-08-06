@@ -190,6 +190,7 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &  ,BIT_PHOTOZ_QUANTILES ! use photo-z quantiles for prior
      &  ,BIT_PHOTOZ_QUANTILES_STEFFEN ! replace default cubic with Steffen
      &  ,BIT_PHOTOZ_CHEAT  ! use correct redshift and filters
+     &  ,BIT_PHOTOZ_AUTO_INISTP  ! automatically set INISTP_PHOTOZ (Aug 2024)
 
 
       PARAMETER (
@@ -198,6 +199,7 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &  ,BIT_PHOTOZ_QUANTILES        = 2  ! OPT_PHOTOZ += 4
      &  ,BIT_PHOTOZ_QUANTILES_STEFFEN = 3  ! OPT_PHOTOZ += 8 ! note: set OPT_PHOTOZ = 12 for this option
      &  ,BIT_PHOTOZ_CHEAT            = 4  ! OPT_PHOTOZ += 16
+     &  ,BIT_PHOTOZ_AUTO_INISTP      = 5  ! OPT_PHOTOZ += 32
      &    )
 
 c Declare masks for how to treat log sigma term in fit April 26 2024 W.D. Kenworthy
@@ -8689,6 +8691,8 @@ c May 2024:
 c   + add IERR argument based on init_zPDF_spline
 c   + fix bug and use MASK_PHOTOZ_SOURCE instead of OPT_PHOTOZ
 c
+c Aug 06 2024: implement BIT_PHOTOZ_AUTO_INISTP bit in OPT_PHOTOZ
+c
 c --------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -8707,8 +8711,8 @@ c local var
 
       INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
-      REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
-      LOGICAL  LDMP_Q
+      REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
+      LOGICAL  LDMP_Q, LPZ_AUTO_INISTP
       CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
 c FCNSNLC args
@@ -8717,7 +8721,7 @@ c FCNSNLC args
       REAL*8 
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
-     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
+     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD, STP
       CHARACTER FNAM*14
       REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN, init_zPDF_spline
@@ -8755,13 +8759,11 @@ c get over-written in FITINI_PARVAL
 c reset photoz step, unless this is a 2-band 'FITRESTMAG' fit (Nov 28, 2014)
 
       IPAR = IPAR_zPHOT
-      if ( IFILTOBS_BRACKET(1) < 0 ) then
-        INISTP(IPAR)  =  INISTP_PHOTOZ     ! initial step size
-      endif
 
       INIBND(1,ipar)  =  ZMIN
       INIBND(2,ipar)  =  ZMAX
 
++SELF,IF=DELETE.  ! removed Aug 6 2024
 c Mar 27 2018:  
 c  on last fit iteration, move INIVAL by a small amount;
 c  empirically, this reduces pathological errors on fit par.
@@ -8779,7 +8781,7 @@ c  seems to be the solution.
            endif
         ENDDO
       ENDIF
-
++SELF.
 
 c continue processing only on 1st fit iteration, 
       IF ( LREPEAT_ITER  ) RETURN
@@ -8798,11 +8800,15 @@ c ----------------------------------------
 c set initial value and step size.
 
       Zhost     =  SNHOST_ZPHOT(1)
+      Zhost_err =  SNHOST_ZPHOT_ERR(1)
+
       LZDONE    = .FALSE.
       MASK      = MASK_PHOTOZ_SOURCE
+      STD       = 0.0 
 
       IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
+        STD          = SNLC_REDSHIFT_ERR
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
 
@@ -8815,7 +8821,8 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
-           INIVAL(ipar) = Zhost
+           INIVAL(ipar) = zhost
+           STD          = zhost_err
            LZDONE       = .TRUE.
            CZTMP        = 'Zhost'
         else
@@ -8857,7 +8864,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
 	endif
 
         SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
-        SNHOST_QZPHOT_STD(1)  = STD  
+        SNHOST_QZPHOT_STD(1)  = STD 
 
         if ( LDMP_Q ) then
            Print *, ' xxx Finished init_zPDF_spline' 
@@ -8865,7 +8872,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         endif
 
 c     initialize at Q50
-          INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)
+          INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)  ! Fragile alert !!! 
           LZDONE       = .TRUE.
           CZTMP        = 'ZPHOT_Q50'
       ENDIF
@@ -8874,9 +8881,9 @@ c check cheat option (4/30/2012)
       IF ( DOFIT_PHOTOZ_CHEAT ) THEN  ! cheat option
         CZTMP        = 'Z(Cheat)'
         INIVAL(ipar) = SNLC_REDSHIFT
+        STD          = 0.001
         LZDONE       = .TRUE.
       ENDIF
-
 
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
@@ -8930,6 +8937,29 @@ c update x0-bound for SALT2
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
 777   CONTINUE
+
+c - - - - -  - -
+c set INISTP for photoz
+      LPZ_AUTO_INISTP = btest(OPT_PHOTOZ,BIT_PHOTOZ_AUTO_INISTP) 
+      if ( IFILTOBS_BRACKET(1) < 0 ) then
+        STP =  INISTP_PHOTOZ     ! initial step size
+        if ( LPZ_AUTO_INISTP .and. STD > 0.0 ) then
+           STP = PRIOR_ZERRSCALE * STD/3.0  ! step size
+           if ( STP > 0.05   ) STP = 0.05
+           if ( STP < 1.0E-4 ) STP = 1.0E-4 ! ??? .xyz test this
+           INISTP(IPAR) = STP
+           write(BANNER,551) STP
+        else
+           write(BANNER,550) STP
+        endif
+
+        INISTP(IPAR)  =  STP
+551      format('Dynamic INISTP_PHOTOZ -> STD(PDF)/3 = ', F6.4)
+550      format('Fixed INISTP_PHOTOZ = ', F6.4)
+	 if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
+      endif
+
+c - - - - 
       if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
 
       CALL FLUSH(6)
@@ -10946,6 +10976,8 @@ C -------------------- BEGIN ----------------
       LCCID = INDEX(CCID,' ') - 1
       write(6,20) CCID(1:LCCID),ITER,COMMENT
 20    format(T5,A,'(ITER=',I1,'): ', A)
+
+      CALL FLUSH(6)
 
       RETURN
       END
@@ -16264,7 +16296,7 @@ c local var
       LOGICAL SKIPTEST, LSNR, LSNR1, LSNR2
 
 c function
-      INTEGER BRACKET_FILTERLIST, BRACKET_IFILT_OLD
+      INTEGER BRACKET_FILTERLIST
 
 c -------------------- BEGIN ----------------
 
@@ -16540,85 +16572,6 @@ c sanity check
       RETURN
       END    ! end of FITRESTMAG_PREP(ITER)
 
-
-C ========================================
-+DECK,BRACKET_IFILT_OLD.
-      INTEGER FUNCTION BRACKET_IFILT_OLD ( 
-     &          LAMREST, Z, IFILTOBS_BRACKET )
-
-c !!!!!!!!!!!!!!!!!!!
-c !!!! Mar 25 2020: SLATED TO BECOME OBSOLETE !!!!
-c !!!!!!!!!!!!!!!!!!!
-c -----------------------------------------
-c Feb 12, 2012
-c Return IFILTOBS_BRACKET(2) (filter indices) that brackets
-c LAMREST in the rest-frame. In the loop over SURVEY filters, 
-c IFILT_OBS = -999 is a flag to ignore this filter.
-c
-c Return number of bracket-filters found; 2 => success.
-c
-c ------------------------------------------
-
-      IMPLICIT NONE
-
-c subroutine args.
-
-      REAL LAMREST   ! (I) rest-frame lambda to match
-      REAL Z         ! (I) redshift
-      INTEGER 
-     &  IFILTOBS_BRACKET(2) ! (O) IFILTOBS that brackets LAMREST
-
-c local var
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER IFILT, IFILTOBS, JLOHI, NFILT
-      REAL Z1, LAMZ, LAMDIF, LAMDIFMIN(2)
-
-C ------------- BEGIN ------------
-
-      Z1 = 1.0 + z
-
-      LAMDIFMIN(1) = 99999999.
-      LAMDIFMIN(2) = 99999999.
-
-      IFILTOBS_BRACKET(1) = -9 
-      IFILTOBS_BRACKET(2) = -9
-
-      DO 100 ifilt = 1, NFILTDEF_SURVEY
-
-         if ( .not. EXIST_FILT(ifilt) ) goto 100
-
-         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
-         if ( ifiltobs .EQ. -999 ) goto 100
-         
-         LAMZ   = FILTOBS_LAMAVG(ifiltobs)/Z1
-         LAMDIF = ABS(LAMZ-LAMREST)
-
-         IF ( LAMZ .LE. LAMREST ) THEN
-            JLOHI = 1
-         ELSE
-            JLOHI = 2
-         ENDIF
-
-         if ( LAMDIF .LT. LAMDIFMIN(JLOHI) ) then
-             LAMDIFMIN(JLOHI)        = LAMDIF
-             IFILTOBS_BRACKET(JLOHI) = IFILTOBS
-         endif
-
-100   CONTINUE
-
-c set function value
-
-      NFILT = 0
-      IF ( IFILTOBS_BRACKET(1) .GT. 0 ) NFILT = NFILT + 1
-      IF ( IFILTOBS_BRACKET(2) .GT. 0 ) NFILT = NFILT + 1
-
-      BRACKET_IFILT_OLD = NFILT
-
-      RETURN
-      END   
 
 C ========================================
 +DECK,BRACKET_FILTERLIST.

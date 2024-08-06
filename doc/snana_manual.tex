@@ -8596,10 +8596,13 @@ The parameter {\tt OPT\_PHOTOZ} controls the source of
 the redshift prior as follows:
 %
 \begin{verbatim}
-   OPT_PHOTOZ = 1  ! use host zPhot mean and Gauss sigma
-   OPT_PHOTOZ = 2  ! use best-z (spec or host photo-z) 
-   OPT_PHOTOZ = 4  ! use photo-z PDF unpacked from quantiles; cubic interp
-   OPT_PHOTOZ = 16 ! set initial zPhot=zSpec and skip grid search (for debug)
+   OPT_PHOTOZ = 1   ! use host zPhot mean and Gauss sigma
+   OPT_PHOTOZ = 2   ! use best-z (spec or host photo-z) 
+   OPT_PHOTOZ = 4   ! use photo-z PDF unpacked from quantiles; cubic interp
+   OPT_PHOTOZ = 8   ! use photo-z PDF unpacked from quantiles; Steffan interp
+   OPT_PHOTOZ = 10  ! use accurate zSpec, otherwise use quantiles.
+   OPT_PHOTOZ = 16  ! CHEAT: set initial zPhot=zSpec and skip grid search (for debug)
+   OPT_PHOTOZ += 32 ! compute INISTP = STD(zPDF)/3.0 (ignore INISTP_PHOTOZ)
 \end{verbatim}
 %
 %When {\tt DOFIT\_PHOTOZ=T}, 

@@ -22548,7 +22548,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      +  in FITINI_COV(), set PARLIST_SN(4:5) elements that are passed to gencovar_SALT2().
      + fix evil bug in SEDMODEL_INI that set zmax=0.0 for photo-z fits
          remove "ZMAX = PHOTOZ_RANGE_KCOR(2)" because PHOTOZ_RANGE_KCOR isn't set yet.
-	 
+     + new photo-z OPT_PHOTOZ += 32 -> compute INISTP = STD(zPDF)/3.
+     + remove 2018 code snippet for photoz that shifted INISTP to avoid some kind
+       of pathology. This results is very tiny changes in regression test results.
+       
    SALT2mu.c:
       write CONTAM_TRUE to yaml file under BBCFIT_RESULTS block, even
       though CONTAM_TRUE is not a fit result.

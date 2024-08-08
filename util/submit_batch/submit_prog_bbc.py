@@ -1220,7 +1220,8 @@ class BBC(Program):
                                   shell=True, capture_output=False, text=True )
 
             check_gz = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
-                       (njob_prep_run < NJOB_PREP_INPUT_FITRES)
+                       (njob_prep_run < NJOB_PREP_INPUT_FITRES)      or \
+                       (njob_prep_run == njob_prep_tot )     # Aug 2024
             if check_gz:                
                 wait_filegz_spec = f"{output_dir}/**/INPUT*.FITRES.gz"
                 wait_file_spec   = f"{output_dir}/**/INPUT*.FITRES"

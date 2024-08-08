@@ -22565,5 +22565,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       as column varnames ... replace explicit check for each string with
       a loop over strings. Should be easier to add new elements, such
       as NAME_TRANSIENT NAME_IAUC that were recently added.
+
+   submit_prog_bbc.py:
+      fix subtle bug to wait for last PREP-INPUT task when there are
+      more than 10.
       
 END: 

@@ -122,6 +122,11 @@ Units are defined with
      or
    @U <arg>
 
+Override default solid circle markers with
+   @@MARKER s ^  # square and triangle for 1st and 2nd file/cut
+   @@MARKER s x  # square and X        for 1st and 2nd file/cut
+    etc ... (see doc on matplotlib markers)
+
 Use @@SAVE to save figure as pdf or png; e.g.
     @@SAVE my_first_table_plot.pdf
        or
@@ -219,6 +224,9 @@ def get_args():
 
     msg = "Override default legend on plot (space sep list per TFILE)"
     parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
+
+    msg = "Override default marker='o'"
+    parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
 
     msg = "Alpha value for plot. Set to 0 to see only averages." \
           "ALPHA=0 and DIFF=True compares average difference between two files, " \
@@ -332,13 +340,13 @@ def process_args(args):
     narg_legend       = len(args.LEGEND)
     args.legend_list  = args.LEGEND
 
-    narg_tfile           = len(args.tfile_list)    
+    narg_tfile   = len(args.tfile_list)    
     match_narg   = narg_tfile == narg_legend
     if  not match_narg:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
                  f"narg_legend must match number of table files.")
 
-    # if only 1 alpha, make sure there is alpha for each file/cut .xyz
+    # if only 1 alpha, make sure there is alpha for each file/cut 
     narg_alpha = len(args.ALPHA)
     if narg_alpha < narg_tfile:
         a          = args.ALPHA[0]
@@ -346,6 +354,17 @@ def process_args(args):
     else:
         alpha_list = copy.copy(args.ALPHA)
     args.alpha_list = alpha_list
+
+    # if only 1 marker, make sure there is marker for each file/cut 
+    narg_marker = len(args.MARKER)
+    if narg_marker < narg_tfile:
+        mk          = args.MARKER[0]
+        marker_list = [mk]*narg_tfile
+    else:
+        marker_list = copy.copy(args.MARKER)
+    args.marker_list = marker_list
+    
+
     
     if args.DIFF:
         args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
@@ -591,6 +610,7 @@ def read_tables(args, plot_info):
     cut_list        = args.cut_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
+    marker_list     = args.marker_list
     NROWS           = args.NROWS
 
     plotdic    = plot_info.plotdic
@@ -599,7 +619,8 @@ def read_tables(args, plot_info):
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
     
-    for tfile, cut, legend, alpha in zip(tfile_list, cut_list, legend_list, alpha_list):
+    for tfile, cut, legend, alpha, marker in \
+        zip(tfile_list, cut_list, legend_list, alpha_list, marker_list):
         tfile_base = os.path.basename(tfile)
         logging.info(f"Loading {tfile_base}")
         if not os.path.exists(tfile):
@@ -639,7 +660,8 @@ def read_tables(args, plot_info):
         MASTER_DF_DICT[key] = {
             'df'           : df,
             'name_legend'  : name_legend,
-            'alpha'        : alpha
+            'alpha'        : alpha,
+            'marker'       : marker
         }
 
         try:
@@ -875,6 +897,7 @@ def plotter_func(args, plot_info):
             df          = df_dict['df']
             name_legend = df_dict['name_legend']
             plt_alpha   = df_dict['alpha']
+            plt_marker  = df_dict['marker']
             nevt        = len(df) 
             size        = 20 / math.log10(nevt)  # dot size gets smaller with nevt ??
 
@@ -883,7 +906,7 @@ def plotter_func(args, plot_info):
             
             #print(f"\n xxx nevt= {nevt}  size={size}\n")
             plt.scatter(df.x_plot_val, df.y_plot_val, alpha=plt_alpha, label=plt_legend,
-                        zorder=0, s=size)
+                        zorder=0, s=size, marker=plt_marker)
 
             # overlay information on plot
             if do_median:

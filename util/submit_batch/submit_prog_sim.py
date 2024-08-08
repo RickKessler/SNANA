@@ -72,6 +72,7 @@
 #              by scone and other classifiers.
 #
 # Apr 07 2024: gzip SIMGEN-DUMP files
+# Aug 07 2024: write PATH_SNDATA_SIM to bottom of MERGE.LOG file
 #
 # ==========================================
 
@@ -2643,9 +2644,12 @@ class Simulation(Program):
         # Each info line must be of the form
         #  KEYNAME:  VALUE
 
-        output_dir      = self.config_prep['output_dir']
-        survey,idsurvey = util.get_survey_info(output_dir,"TMP*.YAML")
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        path_sndata_sim  = submit_info_yaml['PATH_SNDATA_SIM']
+        survey,idsurvey  = util.get_survey_info(output_dir,"TMP*.YAML")
 
+        
         info_lines   = []
         info_lines.append(f"SURVEY:         {survey}")
         info_lines.append(f"IDSURVEY:       {idsurvey}")
@@ -2665,6 +2669,8 @@ class Simulation(Program):
         info_lines.append(f"NLC_GEN_SUM:      {NLC_GEN_SUM}")
         info_lines.append(f"NLC_WRITE_SUM:    {NLC_WRITE_SUM}")
         info_lines.append(f"NSPEC_WRITE_SUM:  {NSPEC_WRITE_SUM}")
+        info_lines.append(f"PATH_SNDATA_SIM:  {path_sndata_sim}  " \
+                          f"# GENVERSION folder location")  # Aug 2024
 
         return info_lines
         # end get_misc_merge_info

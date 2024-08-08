@@ -301,7 +301,6 @@ def process_args(args):
     args.tfile_list      = table_list           # ENVs are expanded
     args.tfile_base_list = table_base_list
     args.cut_list        = cut_list
-    
     # - - - - -
 
     # make sure there is a colon in UNITS atg
@@ -320,19 +319,22 @@ def process_args(args):
 
     # tack on new name space elements that are trivially dependent on user input
 
-    
     if not args.LEGEND:
         args.LEGEND = [ None ] * len(args.TFILE)
         if len(args.CUT) > 1 :
             args.LEGEND = args.CUT
         else :
-            args.LEGEND = args.tfile_base_list
+            args.LEGEND = []
+            for t in args.tfile_base_list:
+                args.LEGEND.append(t.split('.')[0])
+
         
     narg_legend       = len(args.LEGEND)
     args.legend_list  = args.LEGEND
-    
-    narg_tfile  = len(args.tfile_list)
-    if narg_tfile != narg_legend:
+
+    narg_tfile           = len(args.tfile_list)    
+    match_narg   = narg_tfile == narg_legend
+    if  not match_narg:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
                  f"narg_legend must match number of table files.")
 
@@ -661,34 +663,6 @@ def read_tables(args, plot_info):
     # end read_tables
 
     
-def get_name_legend_default(table_file, table_list):
-
-    # xxxxxx OBSOLETE xxxxxxx
-    
-    # for input table_file, return name to put in plot legend.
-    # If there are duplicate base names in table_file_list, then
-    # modify legend name accordinngly.
-
-    # xxxxxx OBSOLETE xxxxxxx 
-    base        =  os.path.basename(table_file)
-    name_legend =  base  # default 
-
-    if table_file == table_list[0] :
-        return name_legend
-
-    # - - - - -
-    # alter name_legend for duplicate base names
-    n_base_match = 0
-    for t in table_list :
-        b    = os.path.basename(t)
-        if b == base:
-            n_base_match += 1
-            if t != table_file:
-                name_legend += f"-{n_base_match}"
-    # xxxxxx OBSOLETE xxxxxxx
-    return name_legend
-    # end get_name_legend
-    
 
 def poisson_interval(k, alpha=0.32):
     """  
@@ -852,20 +826,25 @@ def plotter_func(args, plot_info):
             pass  # auto scale y axis
             
         keylist    = list(MASTER_DF_DICT.keys())   # tf0, tf1 ...
-        df_ref = MASTER_DF_DICT[keylist[0]]['df']  # reference df  for difference
+        df_ref_dict = MASTER_DF_DICT[keylist[0]]
+        df_ref      = MASTER_DF_DICT[keylist[0]]['df']  # reference df  for difference
         for k in keylist[1:]:
-            df     = MASTER_DF_DICT[k]['df']
+            df_dict    = MASTER_DF_DICT[k] 
+            df         = df_dict['df']            
             plt_alpha  = df_dict['alpha']
             if DIFF == 'CID':
                 #need to do an inner join with each entry in dic, then plot the diff
                 # (join logic thanks to Charlie Prior)
-                join = df_ref.join(df.set_index('CID'), on='CID', how='inner', lsuffix='_1', rsuffix='_2')
-                plt.scatter(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values,
+                join = df_ref.join(df.set_index('CID'), on='CID', how='inner',
+                                   lsuffix='_1', rsuffix='_2')
+                plt.scatter(join.x_plot_val_1.values,
+                            join.y_plot_val_1.values - join.y_plot_val_2.values,
                             alpha=plt_alpha, label='Diff')
                 avgdiff = binned_statistic(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values, bins=bins, statistic='median')[0]                                     
                 plt.scatter((bins[1:] + bins[:-1])/2, avgdiff, label="Mean Difference", color='k')
             elif (DIFF == 'ALL'):
-                text_label = df_ref.name.values[0]+ " - " + df.name.values[0]
+                #text_label = df_ref.name.values[0]+ " - " + df.name.values[0]
+                text_label =  df_ref_dict['name_legend']  + " - " + df_dict['name_legend']
                 try:
                     plt.scatter(df_ref.x_plot_val, df_ref.y_plot_val - df.y_plot_val, 
                                 label=text_label, alpha=plt_alpha)

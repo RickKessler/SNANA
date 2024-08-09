@@ -160,11 +160,19 @@ To overlay the same variable with different cuts, provide a list of cuts,
 results in 3 overlaid plots, and default legend shows each cut.
 
 
-Reweight counts in 1D plot with arbitrary functions, e.g., 
-   @@WEIGHT '1-X+X**2'
-   @@WEIGHT 'exp(-0.4*((X+.3)/.3)**2)'
-Make sure to use capital X (not x) to avoid replacement problems
-with exp function. Vertical axis label will show Counts * WEIGHT.
+Reweight counts in 1D plot with arbitrary function using
+   @@WEIGHT '1-x+x**2'
+   @@WEIGHT 'exp(-0.4*((x+.3)/.2)**2)'
+   @@WEIGHT 'exp(-0.4*((x+.3)/.2)**2)*heaviside(x-2,0.5)'
+
+A weighted plot can be overlaid on original plot with list of
+weights,
+   @@WEIGHT  1   '1-x+x**2'
+where the "1" arg means that first plot is not modified.
+Vertical axis label will show Counts * WEIGHT.  Quotes are 
+required around @@WEIGHT arg to avoid conflicts with unix commands.
+Internally the script applies "np." where needed; e.g. 
+exp is replaced with np.exp, and heaviside -> np.heaviside.
   
 
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
@@ -258,8 +266,8 @@ def get_args():
     msg = "cuts with boolean and algegraic operations; see @@HELP"
     parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
 
-    msg = "WEIGHT function (1D hist only); e.g., 1-0.5*x+3*x**2"
-    parser.add_argument("@@WEIGHT", "@@weight", help=msg, type=str, default =None) 
+    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
+    parser.add_argument("@@WEIGHT", "@@weight", help=msg, nargs="+", default=[None] ) 
 
     msg = "number of rows to read (for large files)"
     parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=0)
@@ -299,18 +307,38 @@ def process_args(args):
 
     n_tfile_orig = len(args.TFILE)
     n_cut_orig   = len(args.CUT)
+    n_wgt_orig   = len(args.WEIGHT)
     tfile_list   = copy.copy(args.TFILE)
     cut_list     = copy.copy(args.CUT)
+    wgt_list     = copy.copy(args.WEIGHT)
 
-    if n_cut_orig == 1 and n_tfile_orig > 1:
-        cut_list = [ cut_list[0] ] * n_tfile_orig # same cut per tfile
+    name_arg_list  = [ '@@TFILE', '@@CUT', '@@WEIGHT' ]
+    n_orig_list    = [ n_tfile_orig, n_cut_orig, n_wgt_orig ]
+    arg_list_list  = [ tfile_list,   cut_list,   wgt_list   ]
+
+    # abort if more than 1 of the above has multiple entries in list
+    n_multiple = sum(n > 1 for n in n_orig_list)
+    if n_multiple > 1:
+        sys.exit("\n ERROR: cannot specify more than 1 set of multiple plots: \n" \
+                 f"\t n_plots = {n_orig_list} for {name_arg_list}")
+
+    if n_multiple == 1:
+        n_plot = max(n_orig_list)
+        for j, arg_list in enumerate(arg_list_list):
+            if len(arg_list) == 1:
+                arg_list_list[j] = [ arg_list_list[j][0] ] * n_plot
+                print(f" xxx extend {name_arg_list[j]}")
+
+    # update lists that will be used later
+    tfile_list = arg_list_list[0]
+    cut_list   = arg_list_list[1]
+    wgt_list   = arg_list_list[2]    
         
-    if n_cut_orig > 1 and n_tfile_orig == 1:
-        tfile_list = [ tfile_list[0] ] * n_cut_orig # same tfile per cut
+    # - - - -
 
     if DEBUG_TRANSLATE:
-        print(f" xxx proc_args: args.CUT   -> {args.CUT}")
-        print(f" xxx proc_args: args.TFILE -> {args.TFILE}")
+        print(f" xxx proc_args: args.TFILE  -> {args.TFILE}")
+        print(f" xxx proc_args: args.CUT    -> {args.CUT}")
     
     table_list      = []
     table_base_list = []  # base names only; for plot legend
@@ -326,6 +354,7 @@ def process_args(args):
     args.tfile_list      = table_list           # ENVs are expanded
     args.tfile_base_list = table_base_list
     args.cut_list        = cut_list
+    args.wgt_list        = wgt_list
     # - - - - -
 
     # make sure there is a colon in UNITS atg
@@ -641,6 +670,7 @@ def read_tables(args, plot_info):
     tfile_list      = args.tfile_list
     tfile_base_list = args.tfile_base_list
     cut_list        = args.cut_list
+    wgt_list        = args.wgt_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
     marker_list     = args.marker_list
@@ -652,8 +682,8 @@ def read_tables(args, plot_info):
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
     
-    for tfile, cut, legend, alpha, marker in \
-        zip(tfile_list, cut_list, legend_list, alpha_list, marker_list):
+    for tfile, cut, wgt, legend, alpha, marker in \
+        zip(tfile_list, cut_list, wgt_list, legend_list, alpha_list, marker_list):
         tfile_base = os.path.basename(tfile)
         logging.info(f"Loading {tfile_base}")
         if not os.path.exists(tfile):
@@ -692,6 +722,7 @@ def read_tables(args, plot_info):
 
         MASTER_DF_DICT[key] = {
             'df'           : df,
+            'wgt'          : wgt,
             'name_legend'  : name_legend,
             'alpha'        : alpha,
             'marker'       : marker
@@ -788,18 +819,19 @@ def plotter_func(args, plot_info):
         for n, key_name in enumerate(MASTER_DF_DICT): 
             df_dict     = MASTER_DF_DICT[key_name]
             df          = df_dict['df']
+            wgt         = df_dict['wgt']  # optoinal wgt function
             plt_marker  = df_dict['marker']
-            name_legend = df_dict['name_legend']        
+            name_legend = df_dict['name_legend']            
             plt_legend  = name_legend
 
             # get counts sb
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, 
                                   bins=bins,
                                   statistic='count')[0]
-
-            if args.WEIGHT:
-                wgts     = get_weights(xcen,args)
-                sb      *= wgts
+            
+            if wgt:
+                wgt_vals   = get_weights(xcen,wgt)
+                sb        *= wgt_vals
                 
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt   = np.sum(sb)              # nevt before normalization
@@ -853,7 +885,7 @@ def plotter_func(args, plot_info):
             elif do_ovsim :
                 # xxx mark   x_val = df.x_plot_val
                 # xxx mark   wgt   = [ scale ] * len(x_val)
-                wgts_scale = wgts*scale
+                wgts_scale = wgt_vals * scale
                 plt.hist(x_val, bins, alpha=0.25, weights = wgts_scale, 
                          label=plt_legend)
             else:
@@ -992,26 +1024,29 @@ def setup_plot(args, plot_title, xlabel, ylabel):
     plt.title(plot_title) 
     return
 
-def get_weights(xcen,args):
+def get_weights(xcen,wgt):
 
-    n_val = len(xcen)
-    wgts  = [1] * n_val   # default weights are 1
+    n_val     = len(xcen)
+    wgt_vals  = [1] * n_val   # default weights are 1
 
-    if args.WEIGHT:
-        wgts_formula = args.WEIGHT        
+    if wgt :
+        wgt_formula = wgt
+        # protect exp so that the middle x is not odified
+        wgt_formula = wgt_formula.replace('exp','eXp')
         replace_dict = {
-            'X'   :  'xcen_np' ,
-            'exp' :  'np.exp' ,
-            'log' :  'np.log'
+            'x'           :  'xcen_np' ,
+            'eXp'         :  'np.exp' ,
+            'log'         :  'np.log' ,
+            'heaviside'   :  'np.heaviside'
         }
         xcen_np      = np.array(xcen)
         for str_orig, str_final in replace_dict.items():
-            wgts_formula = wgts_formula.replace(str_orig,str_final)
+            wgt_formula = wgt_formula.replace(str_orig,str_final)
 
-        wgts = eval(wgts_formula)
+        wgt_vals = eval(wgt_formula)
         #sys.exit(f"\n xxx wgts_formula = {wgts_formula}\n xxx wgts = {wgts}")
         
-    return wgts
+    return wgt_vals
 
 def print_cid_list(df, name_legend) :
     # print list of cids to stdout    

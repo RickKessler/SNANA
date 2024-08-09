@@ -51,6 +51,10 @@ VALID_OPT_LIST = [ OPT_NEVT, OPT_MEAN, OPT_STDDEV, OPT_CHI2, OPT_CHI2, OPT_MEDIA
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
 
+ARG_DIFF_CID = "CID"
+ARG_DIFF_ALL = "ALL"
+VALID_ARG_DIFF_LIST = [ ARG_DIFF_CID, ARG_DIFF_ALL ]
+
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
 DEBUG_TRANSLATE = False
@@ -135,11 +139,13 @@ Plot is either displayed in pop-up window or stored in @@SAVE file ...
 but not both. This enables pipelines to make post-processing plots
 without worrying about pop-windows in slurm jobs.
 
-To compare and contrast values for the same CID, enable the @@DIFF option! 
-There are two valid DIFF options:
-    @@DIFF ALL    #  compare the difference in median values. 
+For 2D plots with 2 table files (or 2 sets of cuts), compare 
+values using @@DIFF option:
+    @@DIFF ALL    #  plot y-axis difference in median values
+                  #  (can compare independent samples)
       or
-    @@DIFF CID    #  compare the difference for the same CIDs. 
+    @@DIFF CID    #  plot y-axis difference for each CID.
+                  #   (samples must overlap)
 
 @@CUT applies selection cuts on the sample. As with @@VARIABLE, CUT is internally 
 translated to append df and df.loc as needed. Beware that quotes (single or double)
@@ -152,6 +158,14 @@ used around the string to match, and double quotes around the entire CUT arg.
 To overlay the same variable with different cuts, provide a list of cuts,
    @@CUT  'SNRMAX1>10'  'SNRMAX1>20'  'SNRMAX1>40'
 results in 3 overlaid plots, and default legend shows each cut.
+
+
+Reweight counts in 1D plot with arbitrary functions, e.g., 
+   @@WEIGHT '1-X+X**2'
+   @@WEIGHT 'exp(-0.4*((X+.3)/.3)**2)'
+Make sure to use capital X (not x) to avoid replacement problems
+with exp function. Vertical axis label will show Counts * WEIGHT.
+  
 
 @@ALPHA adjusts the matplot alpha values to adjust transparency 
 (0=transparent, 1=solid).
@@ -244,6 +258,9 @@ def get_args():
     msg = "cuts with boolean and algegraic operations; see @@HELP"
     parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
 
+    msg = "WEIGHT function (1D hist only); e.g., 1-0.5*x+3*x**2"
+    parser.add_argument("@@WEIGHT", "@@weight", help=msg, type=str, default =None) 
+
     msg = "number of rows to read (for large files)"
     parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=0)
 
@@ -266,9 +283,9 @@ def process_args(args):
 
     # process arguments such as remove pad spacing and forcing
     # number or @@TFILE args to match number of @@CUT args
+    # (and vice versa)
     
     # - - - - - - -
-        
     args.VARIABLE_ORIG = args.VARIABLE    
     if args.VARIABLE:
         args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])        
@@ -326,7 +343,6 @@ def process_args(args):
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
 
     # tack on new name space elements that are trivially dependent on user input
-
     if not args.LEGEND:
         args.LEGEND = [ None ] * len(args.TFILE)
         if len(args.CUT) > 1 :
@@ -382,8 +398,12 @@ def process_args(args):
             sys.exit(f"\n ERROR: Invalid @@OPT {invalid_OPT_list}")
 
         args.OPT = args_upper_list
+
+    if args.DIFF == ARG_DIFF_ALL and OPT_MEDIAN not in args.OPT:
+            args.OPT.append(OPT_MEDIAN)
         
-    return
+    return  # end process_args
+    
 
 def get_var_list(VARIABLE, DELIMITER_LIST):
     # if VARIABLE = 'zHD-zHD_2:SNRMAX' -> return var_list = ['zHD', 'zHD_2', 'SNRMAX']
@@ -571,10 +591,14 @@ def set_var_dict(args, plot_info):
         if len(U) > 0:  STR_LABEL += '  (' + U + ')'
             
         if n == 0:
-            plotdic['x']            = STR_VAR
-            plotdic_axis_label['x'] = STR_LABEL
-            plotdic_axis_label['y'] = None
+            xlabel = STR_LABEL
+            ylabel = 'Counts'
+            if args.WEIGHT: ylabel = f'Counts * {args.WEIGHT}'
 
+            plotdic['x']            = STR_VAR
+            plotdic_axis_label['x'] = xlabel
+            plotdic_axis_label['y'] = ylabel
+            
         else:
             plotdic['y']            = STR_VAR
             plotdic_axis_label['y'] = STR_LABEL
@@ -591,8 +615,17 @@ def set_var_dict(args, plot_info):
             else:
                 boundsdic['y'] = [float(i) for i in BND.split()]
 
-    #print(f" xxx plotdic = {plotdic}")
-    
+    # - - - - - -  - - 
+    # error checks 
+    if args.DIFF:
+        if len(plotdic) == 1 :
+            sys.exit("\nERROR: DIFF does not work for 1D histograms." \
+                     " ABORT to avoid confusion.")
+        if args.DIFF not in VALID_ARG_DIFF_LIST :
+            sys.exit(f"\n ERROR: @@DIFF {args.DIFF} is not a valid option; " \
+                     f" valid options are {VALID_ARG_DIFF_LIST}")
+
+            
     # load output namespace
     plot_info.plotdic             = plotdic
     plot_info.plotdic_axis_label  = plotdic_axis_label
@@ -707,7 +740,6 @@ def plotter_func(args, plot_info):
 
     # strip off local args from input name spaces
     DIFF      = args.DIFF
-    # xxx mark ALPHA     = args.ALPHA
     OPT       = args.OPT
 
     do_chi2      = OPT_CHI2      in OPT
@@ -748,22 +780,27 @@ def plotter_func(args, plot_info):
     msg = f"The min & max x-axis bounds are: " \
           f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
     logging.info(msg)
-
+    xcen     = ( bins[1:] + bins[:-1] ) / 2.
     
-    if len(plotdic) == 1:                           
-        if (DIFF == 'ALL') or (DIFF == 'CID'):
-            sys.exit("\nERROR: DIFF does not work for histograms. ABORT to avoid confusion.")
+    if len(plotdic) == 1:
+        # 1D plot(s)
 
         for n, key_name in enumerate(MASTER_DF_DICT): 
             df_dict     = MASTER_DF_DICT[key_name]
             df          = df_dict['df']
+            plt_marker  = df_dict['marker']
             name_legend = df_dict['name_legend']        
             plt_legend  = name_legend
-            
+
             # get counts sb
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, 
                                   bins=bins,
                                   statistic='count')[0]
+
+            if args.WEIGHT:
+                wgts     = get_weights(xcen,args)
+                sb      *= wgts
+                
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt   = np.sum(sb)              # nevt before normalization
             mean   = np.mean(df.x_plot_val)
@@ -777,6 +814,7 @@ def plotter_func(args, plot_info):
                 'stdev'   : stdev
                 # overflow/underflow ??
             }
+
             if do_nevt:   plt_legend += f'  N={int(nevt)}'
             if do_mean:   plt_legend += f'  mean={mean:.2f}'
             if do_stddev: plt_legend += f'  stdev={stdev:.2f}'  
@@ -791,6 +829,7 @@ def plotter_func(args, plot_info):
                     scale = np.sum(sb0) / np.sum(sb)
                 else:
                     scale = 1.0  # overlay plot is not scaled
+                    
                 sb   *= scale # normalize integral to match file 0 
                 errl *= scale
                 erru *= scale
@@ -805,14 +844,17 @@ def plotter_func(args, plot_info):
             if n > 0 and do_chi2:
                 # prepare for sim overlay with histogram
                 do_errorbar = False; do_ovsim = True 
-                
+
             if do_errorbar :
-                plt.errorbar((bins[1:] + bins[:-1])/2., sb, label=plt_legend,
-                             yerr=[sb-errl, erru-sb], fmt='o')  
+                yval     = sb 
+                yval_err = [sb-errl, erru-sb] 
+                plt.errorbar(xcen, yval, yerr=yval_err, 
+                             fmt=plt_marker, label=plt_legend )
             elif do_ovsim :
-                x_val = df.x_plot_val
-                wgt   = [ scale ] * len(x_val)
-                plt.hist(x_val, bins, alpha=0.25, weights = wgt, 
+                # xxx mark   x_val = df.x_plot_val
+                # xxx mark   wgt   = [ scale ] * len(x_val)
+                wgts_scale = wgts*scale
+                plt.hist(x_val, bins, alpha=0.25, weights = wgts_scale, 
                          label=plt_legend)
             else:
                 sys.exit(f"\n ERROR: cannot determine which plot type: " \
@@ -839,7 +881,7 @@ def plotter_func(args, plot_info):
             y_text = 1.0 * np.max(sb0)  # warning; fragile coord calc
             plt.text(x_text, y_text, text_chi2 )
 
-    elif (DIFF == 'CID') or (DIFF == 'ALL'):
+    elif DIFF :
         # 2D plot of difference between two files
         logging.info("plotting DIFF between two files.")
         try:         
@@ -854,7 +896,9 @@ def plotter_func(args, plot_info):
             df_dict    = MASTER_DF_DICT[k] 
             df         = df_dict['df']            
             plt_alpha  = df_dict['alpha']
-            if DIFF == 'CID':
+            plt_marker = df_dict['marker']
+            
+            if DIFF == ARG_DIFF_CID :
                 #need to do an inner join with each entry in dic, then plot the diff
                 # (join logic thanks to Charlie Prior)
                 join = df_ref.join(df.set_index('CID'), on='CID', how='inner',
@@ -863,13 +907,14 @@ def plotter_func(args, plot_info):
                             join.y_plot_val_1.values - join.y_plot_val_2.values,
                             alpha=plt_alpha, label='Diff')
                 avgdiff = binned_statistic(join.x_plot_val_1.values, join.y_plot_val_1.values - join.y_plot_val_2.values, bins=bins, statistic='median')[0]                                     
-                plt.scatter((bins[1:] + bins[:-1])/2, avgdiff, label="Mean Difference", color='k')
-            elif (DIFF == 'ALL'):
-                #text_label = df_ref.name.values[0]+ " - " + df.name.values[0]
-                text_label =  df_ref_dict['name_legend']  + " - " + df_dict['name_legend']
+                plt.scatter((bins[1:] + bins[:-1])/2, avgdiff, label="Mean Difference",
+                            color='k', marker=plt_marker)
+                
+            elif DIFF == ARG_DIFF_ALL :
+                text_label =  df_ref_dict['name_legend'] + " - " + df_dict['name_legend']
                 try:
                     plt.scatter(df_ref.x_plot_val, df_ref.y_plot_val - df.y_plot_val, 
-                                label=text_label, alpha=plt_alpha)
+                                label=text_label, alpha=plt_alpha, marker=plt_marker)
                 except ValueError:
                     pass
 
@@ -882,8 +927,9 @@ def plotter_func(args, plot_info):
                                 label=text_label+" median", marker="^", zorder=10)
                     
             else:  
-                sys.exit(f"\n ERROR: {str(DIFF)} is not a valid DIFF option -> ABORT.")         
+                sys.exit(f"\n ERROR: Invalid DIFF option:  {DIFF} \n")
 
+                
             setup_plot(args, plot_title, xlabel, ylabel+" diff")  
     else:
         # 2D for each file
@@ -902,9 +948,8 @@ def plotter_func(args, plot_info):
             size        = 20 / math.log10(nevt)  # dot size gets smaller with nevt ??
 
             plt_legend = name_legend
-            if do_nevt: plt_legend += f'  N={nevt}'
+            if do_nevt: plt_legend += f'  N={nevt_wgt}'
             
-            #print(f"\n xxx nevt= {nevt}  size={size}\n")
             plt.scatter(df.x_plot_val, df.y_plot_val, alpha=plt_alpha, label=plt_legend,
                         zorder=0, s=size, marker=plt_marker)
 
@@ -945,6 +990,28 @@ def setup_plot(args, plot_title, xlabel, ylabel):
     
     plt.legend()                                
     plt.title(plot_title) 
+    return
+
+def get_weights(xcen,args):
+
+    n_val = len(xcen)
+    wgts  = [1] * n_val   # default weights are 1
+
+    if args.WEIGHT:
+        wgts_formula = args.WEIGHT        
+        replace_dict = {
+            'X'   :  'xcen_np' ,
+            'exp' :  'np.exp' ,
+            'log' :  'np.log'
+        }
+        xcen_np      = np.array(xcen)
+        for str_orig, str_final in replace_dict.items():
+            wgts_formula = wgts_formula.replace(str_orig,str_final)
+
+        wgts = eval(wgts_formula)
+        #sys.exit(f"\n xxx wgts_formula = {wgts_formula}\n xxx wgts = {wgts}")
+        
+    return wgts
 
 def print_cid_list(df, name_legend) :
     # print list of cids to stdout    

@@ -55,6 +55,18 @@ ARG_DIFF_CID = "CID"
 ARG_DIFF_ALL = "ALL"
 VALID_ARG_DIFF_LIST = [ ARG_DIFF_CID, ARG_DIFF_ALL ]
 
+# define dictuionay of user-defined functions (key)
+# and the np.xxx replacement for pandas. These functions
+# can be used in variables (@V) and weigts (@@WEIGHT).
+NUMPY_FUNC_DICT = {
+    'exp'         :  'np.exp'  ,
+    'log'         :  'np.log'  ,   # works for log and log10
+    'sqrt'        :  'np.sqrt' ,
+    'abs'         :  'np.abs'  ,
+    'heaviside'   :  'np.heaviside'
+}
+
+        
 # internal flag to exit after translating VARIALBE and CUT
 #DEBUG_TRANSLATE = True   
 DEBUG_TRANSLATE = False
@@ -72,118 +84,135 @@ This plot unility works on
   * HOSTLIB files used in simulation
   * any file with same format that has VARNAMES key
 
-BEWARE that conventional dashes in input keys are replaced with @@
-E.g., --VARIABLE in any other python code is @@VARIABLE here ...
-this is because dashes are confused with minus signs when plotting differences.
+BEWARE that conventional dashes for command-line input keys are replaced 
+with @@ ; e.g., --VARIABLE in any other python code is @@VARIABLE here ...
+this change avoids confusing dashes and minus signs.
 
        IF A COMMAND FAILS, PLEAE POST SNANA-GITHUB ISSUE !!! 
 
-Next, specify what variables to plot ussing @@VARIABLE for  
-  * 1D histogram or
-  * 2D scatter plot or 
-  * 1D or 2D function of variables. 
+There are two general types of comamnd-line input:
+  1. plot content
+  2. presentation style
 
-Input table files are loaded with pandas dataframes, and therefore input variables
-are internally converted to pandas notation. For instance, to plot redshift 
-distribution require user input
-    @@VARIALBE zHD
+      INPUTS FOR PLOT CONTENT 
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@@VARIABLE or @V:
+  Input table files are loaded with pandas dataframes, and therefore input variables
+  are internally converted to pandas notation. For instance, to plot redshift 
+  distribution requires user input
+     @@VARIALBE zHD
+
+  2D plots are parsed by a colon (:) to separate the x and y variables. 
+  The syntax is generally x:y For instance, 
+     @@VARIABLE zHD:x1      # displays x1 vs z. 
+
+  In short, this code internally prepends pandas notation (df.) to simplify
+  command-line inputs, This script prints the pandas-translated @@VARIABLE 
+  string (with df.) to stdout.
+
+  Algebraic and numpy functions are also allowed, e.g., 
+      @@VARIABLE zHD:mB - 3.1*c + 0.16*x1
+      @@VARIABLE 'sqrt(MUERR**2 + .05**2):zHD'
+      @@VARIABLE 'np.sqrt(MUERR**2 + .05**2):zHD'  # can explicitly define with np.
+
+  Single quotes around expressions with parenetheses are needed to avoid 
+  linux problems parsing (). Math functions (sqrt, abs, exp, log, log10)
+  are internally updated with 'np.' prefix. There is a hard-wired list of 
+  functions to check for missing np, so if using an undefined function
+  you can explicitly prepend np (and please post github issue about 
+  missing function).
+
+@@CUT 
+  Apply selection cuts on the sample. As with @@VARIABLE, CUT is internally 
+  translated to append df and df.loc as needed. Beware that quotes (single or 
+  double) are required around all cuts: e.g,
+
+     @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD='C3'"
+
+  If a cut includes a string matches (e.g., FIELD='C3'), single quotes must be 
+  used around the string to match, and double quotes around the entire CUT arg.
+  To overlay the same variable with different cuts, provide a list of cuts,
+     @@CUT  'SNRMAX1>10'  'SNRMAX1>20'  'SNRMAX1>40'
+  results in 3 overlaid plots, and default legend shows each cut.
+  While math functions (sqrt, exp, log ...) are allowed for variables,
+  they cannot be used for cuts.
+
+@@WEIGHT
+  Reweight 1D bin contents with arbitrary math function of x-axis using
+  syntax with 'x' as variable:
+     @@WEIGHT '1-x+x**2'
+     @@WEIGHT 'exp(-0.4*((x+.3)/.2)**2)'
+     @@WEIGHT 'exp(-0.4*((x+.3)/.2)**2)*heaviside(x-2,0.5)'
+
+  A weighted plot can be overlaid on original plot (single @@TFILE arg)
+  with list of two weight functions, 
+     @@TFILE A.TEXT  @@WEIGHT  1   '1-x+x**2'
+  where the "1" arg means that first plot is not modified. Finally,
+  when overlaying plots from two different files, providing two 
+  weights applies a separate weight to each file, e.g.
+     @@TFILE A.TEXT B.TEXT  @@WEIGHT 1  'exp(-x/2)'
+  aplplies unit weight to A.TEXT and exp(-x/2) weight to B.TEXT.
+
+  Vertical axis label shows Counts * WEIGHT.  Quotes are required 
+  around @@WEIGHT arg to avoid conflicts with unix commands.
+  Internally, the plot script applies "np." where needed; e.g. 
+  exp is replaced with np.exp, and heaviside -> np.heaviside.
+  
+
+@@BOUNDS
+  Custom axis boundaries are input with 
+     @@BOUNDS xmin xmax xbin                   # 1D
+     @@BOUNDS xmin xmax xbin: ymin ymax ybin   # 2D; ybin ignored
+  Mean, Median, stdev only include entries within the plot bounds; 
+  overflows are ignored.
+
+@@DIFF
+  For 2D plots with 2 table files (or 2 sets of cuts), compare 
+  values using;
+    @@DIFF ALL    #  plot y-axis difference in median values
+                  #  (can compare correlated or independent samples)
       or
-    @@VARIALBE df.zHD
+    @@DIFF CID    #  plot y-axis difference for each CID.
+                  #   (compare correlated samples only; must have CID overlap)
 
-2D plots are parsed by a colon (:) to separate the x and y variables. 
-The syntax is generally x:y For instance, 
-   @@VARIABLE zHD:x1      # displays x1 vs z. 
-      or
-   @@VARIABLE df.zHD:df.x1      # displays x1 vs z. 
 
-In short, this code internally prepends pandas notation (df.) to simplify
-command-line inputs, or you can input the pandas notation with the df symobls. 
-The @@VARIALBE must have all df or none of them; cannot mix variables with and
-without df. This script writes out the pandas-translated @@VARIABLE string 
-that can be scooped up for other plotting purposes.
+      INPUTS FOR PLOT STYLE
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Algebraic and numpy functions are also allowed, e.g., 
-    @@VARIABLE zHD:mB - 3.1*c + 0.16*x1
-        or
-    @@VARIABLE df.zHD:df.mB - 3.1*df.c + 0.16*df.x1
+@UNITS
+  Default x- and y-axis labels show variable name only.
+  To display units in (),
+     @@UNITS days       # units for 1D plot or x-axis of 2D plot
+     @@UNITS :deg       # units for y-axis of 2D plot (no unit for x-axis)
+     @@UNITS days:deg   # units for both axes of 2D plot
+       or
+     @U <arg>
 
-    @@VARIABLE 'np.sqrt(MUERR**2 + .05**2):zHD'
-         or
-    @@VARIABLE 'np.sqrt(df.MUERR**2 + .05**2):df.zHD'
+@@ALPHA
+  Aadjust the matplotlib alpha values to adjust transparency 
+  (0=transparent, 1=solid). For 2D overlays of multuple files or cuts, 
+  can specify multiple alpha values, e.g.,
+     @@ALPHA 0.9 0.1
+  so that primary plot is dark and overlay plot is nearly transparent.
 
-Single quotes are numpy expressions are needed to avoid linux problems parsing ().
+@@MARKER
+  Override default solid circle markers with
+     @@MARKER s ^  # square and triangle for 1st and 2nd file/cut
+     @@MARKER s x  # square and X        for 1st and 2nd file/cut
+     etc ... (see online doc on matplotlib markers)
 
-Custom axis boundaries are input with 
-   @@BOUNDS xmin xmax xbin                   # 1D
-   @@BOUNDS xmin xmax xbin: ymin ymax ybin   # 2D
-Mean, Median, stdev only include entries within the plot bounds; 
-overflows are ignored.
-
-Units are defined with
-   @@UNITS days       # units for 1D plot or x-axis of 2D plot
-   @@UNITS :deg       # units for y-axis of 2D plot
-   @@UNITS days:deg   # units for both axes of 2D plot
-     or
-   @U <arg>
-
-Override default solid circle markers with
-   @@MARKER s ^  # square and triangle for 1st and 2nd file/cut
-   @@MARKER s x  # square and X        for 1st and 2nd file/cut
-    etc ... (see doc on matplotlib markers)
-
-Use @@SAVE to save figure as pdf or png; e.g.
+@@SAVE
+  Save figure as pdf or png; e.g.
     @@SAVE my_first_table_plot.pdf
        or
     @@SAVE my_first_table_plot.png
-Plot is either displayed in pop-up window or stored in @@SAVE file ...
-but not both. This enables pipelines to make post-processing plots
-without worrying about pop-windows in slurm jobs.
-
-For 2D plots with 2 table files (or 2 sets of cuts), compare 
-values using @@DIFF option:
-    @@DIFF ALL    #  plot y-axis difference in median values
-                  #  (can compare independent samples)
-      or
-    @@DIFF CID    #  plot y-axis difference for each CID.
-                  #   (samples must overlap)
-
-@@CUT applies selection cuts on the sample. As with @@VARIABLE, CUT is internally 
-translated to append df and df.loc as needed. Beware that quotes (single or double)
-are required around all cuts: e.g,
-
-   @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD='C3'"
-
-If a cut includes a string matches (e.g., FIELD='C3'), single quotes must be 
-used around the string to match, and double quotes around the entire CUT arg.
-To overlay the same variable with different cuts, provide a list of cuts,
-   @@CUT  'SNRMAX1>10'  'SNRMAX1>20'  'SNRMAX1>40'
-results in 3 overlaid plots, and default legend shows each cut.
+  Plot is either displayed in pop-up window or stored in @@SAVE file ...
+  but not both. This enables pipelines to make post-processing plots
+  without worrying about pop-windows in slurm jobs.
 
 
-Reweight counts in 1D plot with arbitrary function using
-   @@WEIGHT '1-x+x**2'
-   @@WEIGHT 'exp(-0.4*((x+.3)/.2)**2)'
-   @@WEIGHT 'exp(-0.4*((x+.3)/.2)**2)*heaviside(x-2,0.5)'
-
-A weighted plot can be overlaid on original plot with list of
-weights,
-   @@WEIGHT  1   '1-x+x**2'
-where the "1" arg means that first plot is not modified.
-Vertical axis label will show Counts * WEIGHT.  Quotes are 
-required around @@WEIGHT arg to avoid conflicts with unix commands.
-Internally the script applies "np." where needed; e.g. 
-exp is replaced with np.exp, and heaviside -> np.heaviside.
-  
-
-@@ALPHA adjusts the matplot alpha values to adjust transparency 
-(0=transparent, 1=solid).
-For 2D overlays of multuple files or cuts, can specify multiple 
-alpha values, e.g.,
-   @@ALPHA 0.9 0.1
-so that primary plot is dark and overlay plot is nearly transparent.
-
-
-  @@OPT  {' '.join(VALID_OPT_LIST)}
+@@OPT   {' '.join(VALID_OPT_LIST)}
     where
       {OPT_NEVT:<12} ==> append N=Nevt on each legend
       {OPT_MEAN:<12} ==> append mean on each legend
@@ -193,7 +222,8 @@ so that primary plot is dark and overlay plot is nearly transparent.
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
       {OPT_LOGY:<12} ==> log scale for vertical axis
       {OPT_GRID:<12} ==> display grid on plot 
-      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts (1D plot only)
+      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts
+
 
 Examples:
 
@@ -294,45 +324,58 @@ def process_args(args):
     # (and vice versa)
     
     # - - - - - - -
-    args.VARIABLE_ORIG = args.VARIABLE    
+    # for variable(s), remove pad spacing and add np. if needed
+    # for functions
+    args.VARIABLE_ORIG = args.VARIABLE 
     if args.VARIABLE:
         args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])        
         args.VARIABLE_ORIG = args.VARIABLE_ORIG[0]
+        args.VARIABLE = numpy_fun_replace(args.VARIABLE)
+    else:
+        sys.exit(f"\n ERROR: must define variable(s) to plot with @@VARIABLE or @@V")
 
+    # xxx beware that functions don't work with CUTS
+    # add np. if needed for cuts
+    #if args.CUT:
+    #    for n, cut in enumerate(args.CUT):
+    #        cut = numpy_fun_replace(cut)
+    #        args.CUT[n] = cut
+    # xxxxxxx
+    
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
     if DEBUG_TRANSLATE:
         print(f" xxx proc_args: args.CUT = {args.CUT}  (before modifications)")
 
-    n_tfile_orig = len(args.TFILE)
-    n_cut_orig   = len(args.CUT)
-    n_wgt_orig   = len(args.WEIGHT)
-    tfile_list   = copy.copy(args.TFILE)
-    cut_list     = copy.copy(args.CUT)
-    wgt_list     = copy.copy(args.WEIGHT)
+    n_tfile_orig    = len(args.TFILE)
+    n_cut_orig      = len(args.CUT)
+    n_weight_orig   = len(args.WEIGHT)
+    tfile_list      = copy.copy(args.TFILE)
+    cut_list        = copy.copy(args.CUT)
+    weight_list     = copy.copy(args.WEIGHT)
 
     name_arg_list  = [ '@@TFILE', '@@CUT', '@@WEIGHT' ]
-    n_orig_list    = [ n_tfile_orig, n_cut_orig, n_wgt_orig ]
-    arg_list_list  = [ tfile_list,   cut_list,   wgt_list   ]
+    n_orig_list    = [ n_tfile_orig, n_cut_orig, n_weight_orig ]
+    arg_list_list  = [ tfile_list,   cut_list,   weight_list   ]
 
-    # abort if more than 1 of the above has multiple entries in list
+    # abort if more than 1 table file and more than 1 cut are requested.
+    # However, allow 2 table files and 2 WEIGHTs 
     n_multiple = sum(n > 1 for n in n_orig_list)
-    if n_multiple > 1:
-        sys.exit("\n ERROR: cannot specify more than 1 set of multiple plots: \n" \
+    if n_tfile_orig> 1 and n_cut_orig > 1:
+        sys.exit("\n ERROR: cannot specify >1 tfile and >1 cut: \n" \
                  f"\t n_plots = {n_orig_list} for {name_arg_list}")
 
-    if n_multiple == 1:
+    if n_multiple >= 1:
         n_plot = max(n_orig_list)
         for j, arg_list in enumerate(arg_list_list):
             if len(arg_list) == 1:
                 arg_list_list[j] = [ arg_list_list[j][0] ] * n_plot
-                print(f" xxx extend {name_arg_list[j]}")
 
     # update lists that will be used later
-    tfile_list = arg_list_list[0]
-    cut_list   = arg_list_list[1]
-    wgt_list   = arg_list_list[2]    
+    tfile_list   = arg_list_list[0]
+    cut_list     = arg_list_list[1]
+    weight_list  = arg_list_list[2]    
         
     # - - - -
 
@@ -354,7 +397,7 @@ def process_args(args):
     args.tfile_list      = table_list           # ENVs are expanded
     args.tfile_base_list = table_base_list
     args.cut_list        = cut_list
-    args.wgt_list        = wgt_list
+    args.weight_list     = weight_list
     # - - - - -
 
     # make sure there is a colon in UNITS atg
@@ -433,6 +476,15 @@ def process_args(args):
         
     return  # end process_args
     
+def numpy_fun_replace(var)  :
+    # replace user functions (e.g., exp or sqrt) with numpy
+    # functions (e.g. np.exp or np.sqrt). If np.xxx is already
+    # defined, then avoid replacement.
+
+    for fun, np_fun in NUMPY_FUNC_DICT.items():            
+        if fun in var and np_fun not in var:
+            var = var.replace(fun,np_fun)
+    return var
 
 def get_var_list(VARIABLE, DELIMITER_LIST):
     # if VARIABLE = 'zHD-zHD_2:SNRMAX' -> return var_list = ['zHD', 'zHD_2', 'SNRMAX']
@@ -622,8 +674,7 @@ def set_var_dict(args, plot_info):
         if n == 0:
             xlabel = STR_LABEL
             ylabel = 'Counts'
-            if args.WEIGHT: ylabel = f'Counts * {args.WEIGHT}'
-
+            if args.WEIGHT[0]: ylabel = f'Counts * {args.WEIGHT}'            
             plotdic['x']            = STR_VAR
             plotdic_axis_label['x'] = xlabel
             plotdic_axis_label['y'] = ylabel
@@ -670,7 +721,7 @@ def read_tables(args, plot_info):
     tfile_list      = args.tfile_list
     tfile_base_list = args.tfile_base_list
     cut_list        = args.cut_list
-    wgt_list        = args.wgt_list
+    weight_list     = args.weight_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
     marker_list     = args.marker_list
@@ -682,8 +733,8 @@ def read_tables(args, plot_info):
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
     
-    for tfile, cut, wgt, legend, alpha, marker in \
-        zip(tfile_list, cut_list, wgt_list, legend_list, alpha_list, marker_list):
+    for tfile, cut, weight, legend, alpha, marker in \
+        zip(tfile_list, cut_list, weight_list, legend_list, alpha_list, marker_list):
         tfile_base = os.path.basename(tfile)
         logging.info(f"Loading {tfile_base}")
         if not os.path.exists(tfile):
@@ -722,7 +773,7 @@ def read_tables(args, plot_info):
 
         MASTER_DF_DICT[key] = {
             'df'           : df,
-            'wgt'          : wgt,
+            'weight'       : weight,
             'name_legend'  : name_legend,
             'alpha'        : alpha,
             'marker'       : marker
@@ -819,7 +870,7 @@ def plotter_func(args, plot_info):
         for n, key_name in enumerate(MASTER_DF_DICT): 
             df_dict     = MASTER_DF_DICT[key_name]
             df          = df_dict['df']
-            wgt         = df_dict['wgt']  # optoinal wgt function
+            weight      = df_dict['weight']  # optoinal weight function
             plt_marker  = df_dict['marker']
             name_legend = df_dict['name_legend']            
             plt_legend  = name_legend
@@ -828,10 +879,10 @@ def plotter_func(args, plot_info):
             sb = binned_statistic(df.x_plot_val, df.x_plot_val, 
                                   bins=bins,
                                   statistic='count')[0]
-            
-            if wgt:
-                wgt_vals   = get_weights(xcen,wgt)
-                sb        *= wgt_vals
+                
+            if weight:
+                wgt_user   = get_weights_user(xcen,weight)
+                sb        *= wgt_user
                 
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt   = np.sum(sb)              # nevt before normalization
@@ -883,10 +934,13 @@ def plotter_func(args, plot_info):
                 plt.errorbar(xcen, yval, yerr=yval_err, 
                              fmt=plt_marker, label=plt_legend )
             elif do_ovsim :
-                # xxx mark   x_val = df.x_plot_val
-                # xxx mark   wgt   = [ scale ] * len(x_val)
-                wgts_scale = wgt_vals * scale
-                plt.hist(x_val, bins, alpha=0.25, weights = wgts_scale, 
+                x_val  = df.x_plot_val
+                wgt_ov = [ scale ] * len(x_val)
+                if weight:
+                    wgt_user = get_weights_user(x_val,weight) 
+                    wgt_ov   = np.multiply(wgt_ov,wgt_user)
+                    
+                plt.hist(x_val, bins, alpha=0.25, weights = wgt_ov,
                          label=plt_legend)
             else:
                 sys.exit(f"\n ERROR: cannot determine which plot type: " \
@@ -980,7 +1034,7 @@ def plotter_func(args, plot_info):
             size        = 20 / math.log10(nevt)  # dot size gets smaller with nevt ??
 
             plt_legend = name_legend
-            if do_nevt: plt_legend += f'  N={nevt_wgt}'
+            if do_nevt: plt_legend += f'  N={nevt}'
             
             plt.scatter(df.x_plot_val, df.y_plot_val, alpha=plt_alpha, label=plt_legend,
                         zorder=0, s=size, marker=plt_marker)
@@ -1024,27 +1078,22 @@ def setup_plot(args, plot_title, xlabel, ylabel):
     plt.title(plot_title) 
     return
 
-def get_weights(xcen,wgt):
+def get_weights_user(xcen,weight):
 
     n_val     = len(xcen)
-    wgt_vals  = [1] * n_val   # default weights are 1
 
-    if wgt :
-        wgt_formula = wgt
-        # protect exp so that the middle x is not odified
-        wgt_formula = wgt_formula.replace('exp','eXp')
-        replace_dict = {
-            'x'           :  'xcen_np' ,
-            'eXp'         :  'np.exp' ,
-            'log'         :  'np.log' ,
-            'heaviside'   :  'np.heaviside'
-        }
-        xcen_np      = np.array(xcen)
-        for str_orig, str_final in replace_dict.items():
-            wgt_formula = wgt_formula.replace(str_orig,str_final)
+    if weight == '1' :
+        wgt_vals  = [1.0] * n_val   # default weights are 1
+    elif weight:
 
-        wgt_vals = eval(wgt_formula)
-        #sys.exit(f"\n xxx wgts_formula = {wgts_formula}\n xxx wgts = {wgts}")
+        # create numpy array x (from xcen) and x varname must be used to
+        # match variable in user-define WEIGHT (e.g., 1-x).
+        x   = np.array(xcen)
+        weight_plus_np = weight        
+        for str_orig, str_final in NUMPY_FUNC_DICT.items(): 
+            weight_plus_np = weight_plus_np.replace(str_orig,str_final)
+
+        wgt_vals = eval(weight_plus_np)
         
     return wgt_vals
 

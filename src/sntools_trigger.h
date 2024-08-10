@@ -20,11 +20,12 @@
 #define  IVARTYPE_SPECEFF_REDSHIFT 3  // flag val that var is a redshift
 #define  IVARTYPE_SPECEFF_PEAKMJD  4  // flag val that var is a peakmjd
 #define  IVARTYPE_SPECEFF_DTPEAK   5  // flag val that var is a dTpeak_min
-#define  IVARTYPE_SPECEFF_HOSTMAG  6  // flag val that var is a HOSTmag
-#define  IVARTYPE_SPECEFF_SBMAG    7  // flag val that var is a SBmag
-#define  IVARTYPE_SPECEFF_SALT2mB   8  // flag val that var is a dTpeak_min
-#define  IVARTYPE_SPECEFF          9  // flag val that var is SPECEFF
-#define  MXVAR_SEARCHEFF_SPEC      10  // max number of SPEC-eff VARNAMES
+#define  IVARTYPE_SPECEFF_DTSEASON_PEAK 6
+#define  IVARTYPE_SPECEFF_HOSTMAG  7  // flag val that var is a HOSTmag
+#define  IVARTYPE_SPECEFF_SBMAG    8  // flag val that var is a SBmag
+#define  IVARTYPE_SPECEFF_SALT2mB  8  // flag val that var is a dTpeak_min
+#define  IVARTYPE_SPECEFF          10  // flag val that var is SPECEFF
+#define  MXVAR_SEARCHEFF_SPEC      11  // max number of SPEC-eff VARNAMES
 
 #define  MXMAP_SEARCHEFF_DETECT   50  
 #define  MXROW_SEARCHEFF_DETECT   10000
@@ -198,11 +199,14 @@ struct SEARCHEFF_LOGIC {
 struct {
   char VARNAMES[MXVAR_SEARCHEFF_SPEC][40] ;
   //  int NROW, NVAR; 
-  int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD, IVAR_DTPEAK, IVAR_SALT2mB;
+  int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD;
+  int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB;
 
   char FIELDLIST[60] ;
   int IVARTYPE[MXVAR_SEARCHEFF_SPEC] ;
 
+  int REQUIRE; // 1 -> require this map (logical AND) instead of optional (OR)
+  
   // ifilt_obs (mag and color) vs. IVAR index
   int NFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_SPEC];
   int IFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_SPEC][MXFILTINDX];  
@@ -254,7 +258,7 @@ struct {
 
   // scalars
   int    CID ;
-  double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX, MWEBV ;
+  double REDSHIFT, PEAKMJD, DTPEAK_MIN, DTSEASON_PEAK, SALT2mB, SNRMAX, MWEBV ;
   int    SIMLIB_ID;
 
 

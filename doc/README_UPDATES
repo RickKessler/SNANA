@@ -22522,6 +22522,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snana.car, sntools_data*.c, sndata.h
       add new NAME_TRANSIENT key in data header, and rename IAUC key to IAUC_NAME;
       see https://github.com/RickKessler/SNANA/issues/1394
+
+   sntools_trigger.c[h]
+      add optional REQUIRE flag for SPECEFF map; see manual
       
          *****  USEFUL(v11_05o) *****
 

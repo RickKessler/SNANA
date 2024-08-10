@@ -3246,13 +3246,11 @@ Fig.~\ref{fig:speceff_varnames}.
 \label{fig:speceff}
 \begin{Verbatim}[frame=single]
 # TABLE 1 -- ensure 100% eff at low redshift
-  NVAR:  2  
   VARNAMES:  REDSHIFT  SPECEFF
   SPECEFF:    0.0      1.00
   SPECEFF:    0.1      1.00
 
 # TABLE 2 -- 4m telescope
-  NVAR: 3
   VARNAMES:  g-r   r   SPECEFF  # can add comments here
   SPECEFF:  -0.5  18.0  1.0
   SPECEFF:  -0.5  20.0  0.6
@@ -3262,7 +3260,6 @@ Fig.~\ref{fig:speceff_varnames}.
   SPECEFF:  +0.5  22.0  0.02
 
 # TABLE 3 -- 8m telescope
-  NVAR: 3
   VARNAMES: REDSHIFT  i   SPECEFF  
   FIELD:    DEEPFIELD
   SPECEFF:    0.0    22.0  1.0
@@ -3289,12 +3286,12 @@ Fig.~\ref{fig:speceff_varnames}.
   * REDSHIFT
   * PEAKMJD      
   * DTPEAK           # closest T-Tpeak; can be pos or negative
+  * DTSEASON_PEAK    # positive if PEAK is in-season; else negative
   * HOSTMAG_[band]   # mag of host galaxy
   * SBMAG_[band]     # surface brightness mag/arcsec^2
 \end{Verbatim}
 \end{center}
 \end{figure}
-
 
 
 In principle there is just one function of redshift and
@@ -3310,6 +3307,28 @@ to shift the peak magnitude used to determine $\simeffspec=0$
 from the grid-map.  The second problem can be fixed only
 by using distributions with appropriate tails.
 
+\bigskip
+For multiple maps in one {SEARCHEFF\_SPEC\_FILE} file,
+the default logic is ``OR'', meaning that
+random selection from any map results in spectroscopic confirmation.
+This logic accomodates multiple telescopes covering different
+mag ranges, but is not appropriate for selection {\it requirements}
+such as {\tt PEAKMJD}, {\tt DTPEAK}, or {\tt DTSEASON\_PEAK}.
+To force selection from a particular map, add a {\tt REQUIRE}
+key before the {\tt VARNAMES} key as shown in this example:
+%
+\begin{verbatim}
+  REQUIRE:   1
+  VARNAMES:  DTSEASON_PEAK  SPECEFF
+  SPECEFF:   0    1.0   # 100# eff for in-season 
+  SPECEFF:  999   1.0
+\end{verbatim}
+%
+which forces spec-confirmed events to have {\tt PEAKMJD} in-season;
+i.e., between the first and last observation of a season, where
+a season is defined as a set of observations with gaps less than 90 days.
+This map alone would select every in-season event as spec-confirmed,
+but addition peakmag-dependent maps can be added to the same file.
 
 
 \bigskip

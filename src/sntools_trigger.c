@@ -48,6 +48,8 @@
     + use new MATCH_SEARCHEFF_FIELD(field_map) function to handle
       overlaps.
 
+ Aug 09 2024: add logic to read and apply optional REQUIRE key in SPECEFF map.
+
 ************************************/
 
 #include "sntools.h"
@@ -260,7 +262,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
 
   int   OPTMASK = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   FILE *fp;
-  int   IREQUIRE, gzipFlag, imap, NMAP=0 ;
+  int   REQUIRE_EFF_FILE=0, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
   char  file_local[MXPATHLEN], c_get[60], *ptrFile_user, *ptrFile_final ;   
   char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;
@@ -282,15 +284,15 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
 
   if ( strcmp(ptrFile_user,"DEFAULT") == 0 )   { 
     sprintf(file_local, "SEARCHEFF_PIPELINE_%s.DAT",  survey); 
-    IREQUIRE = 0 ;
+    REQUIRE_EFF_FILE = 0 ;
   }
   else if ( IGNOREFILE(ptrFile_user) ) {
     sprintf(file_local, "%s",  ptrFile_user); 
-    IREQUIRE = 0 ;
+    REQUIRE_EFF_FILE = 0 ;
   }
   else {
     sprintf(file_local, "%s",  ptrFile_user); 
-    IREQUIRE = 1 ;
+    REQUIRE_EFF_FILE = 1 ;
   }
 
   // use utility to check local dir and path.
@@ -299,7 +301,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
 
   if ( fp == NULL ) { 
 
-    if ( IREQUIRE ) {
+    if ( REQUIRE_EFF_FILE ) {
       abort_openTextFile("SEARCHEFF_PIPELINE_EFF_FILE", 
 			 PATH_SEARCHEFF, file_local, fnam);
     }
@@ -1022,7 +1024,8 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   // Mar 11 2018: refactor
   // Jun 02 2018: check SPEC_FILE = ZERO option
   // Mar 14 2019: refactor to use read_GRIDMAP().
-  //
+  // Aug 09 2024: read optional REQUIRE key to require selection from map
+  //              (e.g,, PEAKMJD or DTPEAK range)
 
   char 
      effspec_file_local[MXPATHLEN]
@@ -1034,7 +1037,8 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   FILE *fp ;
 
   int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
-  int   ID, NDIM, NFUN, N, IREQUIRE, gzipFlag, ISFIELD ;
+  int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
+  int   REQUIRE_SPEC_FILE = 0, REQUIRE_MAP;
   char  KEY_ROW[]  = "SPECEFF:";
   char  KEY_STOP[] = "" ;
   char  *VARNAME, *VARLIST ; 
@@ -1052,17 +1056,19 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO=0;
   SEARCHEFF_SPEC_INFO.IVARTYPE_MASK = 0 ;
   SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY = 0 ;
-  SEARCHEFF_SPEC_INFO.BOOLEAN_OR        = 1 ;
-  SEARCHEFF_SPEC_INFO.BOOLEAN_AND       = 0 ; // default logic is AND
+  SEARCHEFF_SPEC_INFO.BOOLEAN_OR        = 1 ; // default logic is OR
+  SEARCHEFF_SPEC_INFO.BOOLEAN_AND       = 0 ; 
 
   for( imap=0; imap < MXMAP_SEARCHEFF_SPEC; imap++ ) {
     SEARCHEFF_SPEC[imap].IVAR           = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_REDSHIFT  = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_PEAKMJD   = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_DTPEAK    = -9 ;
+    SEARCHEFF_SPEC[imap].IVAR_DTSEASON_PEAK = -9 ;    
     SEARCHEFF_SPEC[imap].IVAR_SALT2mB   = -9 ;
     sprintf(SEARCHEFF_SPEC[imap].FIELDLIST, "%s", ALL ); // default is all fields
-
+    SEARCHEFF_SPEC[imap].REQUIRE = 0 ; // Aug 2024
+    
     for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_SPEC; ivar++ ) {
       SEARCHEFF_SPEC[imap].IVARTYPE[ivar]              = -9 ;
       SEARCHEFF_SPEC[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
@@ -1082,7 +1088,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
   if ( IGNOREFILE(ptrFile_user) ) {
     sprintf(effspec_file_local, "%s",  ptrFile_user); 
-    IREQUIRE = 0 ;
+    REQUIRE_SPEC_FILE = 0 ;
   }
   else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
     INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO = 1 ;
@@ -1093,7 +1099,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   }
   else { 
     sprintf(effspec_file_local, "%s",  ptrFile_user); 
-    IREQUIRE = 1 ;
+    REQUIRE_SPEC_FILE = 1 ;
   }
 
 
@@ -1102,7 +1108,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 			  ptrFile_final, &gzipFlag ); // returned
 
   if ( fp == NULL ) { 
-    if ( IREQUIRE ) {
+    if ( REQUIRE_SPEC_FILE ) {
       abort_openTextFile("SEARCHEFF_SPEC_FILE",
 			 PATH_SEARCHEFF, effspec_file_local, fnam );
     }
@@ -1119,12 +1125,13 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   printf("   Reading spectroscopic efficiency from \n\t %s\n", 
 	 ptrFile_final );
 
-  NVAR = NROW = NMAP = 0;   sprintf(FIELDLIST,"%s", ALL);
+  NVAR = NROW = NMAP = 0;
+  REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
 
   sprintf(c2err,"%s", "Check spec-eff file above");
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
-
+    
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(ptrFile_final); }
 
     // - - - - - -
@@ -1132,13 +1139,19 @@ void  init_SEARCHEFF_SPEC(char *survey) {
     ISFIELD = (strcmp(c_get,"FIELD:")==0 || strcmp(c_get,"FIELDLIST:")==0 );
     if ( ISFIELD ) { readchar(fp, FIELDLIST); }
 
+    if ( strcmp(c_get,"REQUIRE:") == 0 ) {
+      readint(fp, 1, &REQUIRE_MAP);
+      fflush(stdout); //.xyz	    
+    }
+    
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
 
     if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_SPEC ) {
       fgets(LINE, 100, fp ); // scoop up varnames
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
       sprintf(SEARCHEFF_SPEC[NMAP].FIELDLIST,"%s", FIELDLIST );
-
+      SEARCHEFF_SPEC[NMAP].REQUIRE = REQUIRE_MAP;
+      
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = SEARCHEFF_SPEC[NMAP].VARNAMES[ivar] ;
 	VARLIST = SEARCHEFF_SPEC[NMAP].GRIDMAP.VARLIST ;
@@ -1154,7 +1167,10 @@ void  init_SEARCHEFF_SPEC(char *survey) {
       read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
 		   MXROW_SEARCHEFF_SPEC, fnam,
 		   &SEARCHEFF_SPEC[NMAP].GRIDMAP ) ;
+      
       printf("\t for FIELDLIST=%s\n", FIELDLIST);
+      if ( REQUIRE_MAP ) { printf("\t This SPECEFF map is required.\n"); }
+				  
       NONZERO_SEARCHEFF_SPEC++; 
     }
 
@@ -1276,7 +1292,7 @@ FILE *open_zHOST_FILE(int OPT) {
   // OPT = -1 -> called from init_HOSTLIB to get VARNAMES
 
   int LPRINT = ( OPT > 0 ) ; // stdout printing
-  int IREQUIRE, gzipFlag ;
+  int  REQUIRE_zHOST_FILE=0, gzipFlag ;
   char *ptrFile_user ;
   char *ptrFile_final ;
   char localFile[MXPATHLEN];
@@ -1310,7 +1326,7 @@ FILE *open_zHOST_FILE(int OPT) {
   }
   else { 
     sprintf(localFile, "%s",  ptrFile_user); 
-    IREQUIRE = 1 ;
+    REQUIRE_zHOST_FILE = 1 ;
   }
 
 
@@ -1321,7 +1337,7 @@ FILE *open_zHOST_FILE(int OPT) {
   
   // examine if there is no zHOST file
   if ( fp == NULL ) { 
-    if ( IREQUIRE ) {
+    if ( REQUIRE_zHOST_FILE ) {
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
     }
@@ -1670,13 +1686,6 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
    spectroscopic efficiency because there is currently
    no way to calculate the pipeline efficiency.
 
-
-  May 8 2014: call gen_SEARCHEFF_zHOST() and set 4-bit of MASK
-
-  Aug 22, 2014: pass ID (integer identifier)
-
-  Jan 28 2015: check spec eff only if found by pipeline
-               Clarify variable names of LFIND* logicals.
 
   Mar 2018: 
    + use APPLYMASK_SEARCHEFF_xxx parmaeters to set return MASK
@@ -2470,19 +2479,19 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   // Return 1 if this SN is spec-confirmed; return 0 otherwise
   // (O) *EFF_SPEC is the spec-efficiency
   //
-  // Oct 1, 2012: check  FIELD
   // May 10 2018: EFF *= USER_SPECEFF_SCALE
   // Jun 02 2018: check opton to force EFF_SPEC=0
   // Jun 08 2018: check BOOLEAN OR/AND logic for EFF.
-
+  // Aug 09 2024: check for REQUIRED map (e.g., PEAKMJD or DTPEAK)
+  
   int  NMAP        = INPUTS_SEARCHEFF.NMAP_SPEC ;
   int  BOOLEAN_OR  = SEARCHEFF_SPEC_INFO.BOOLEAN_OR  ;
   int  BOOLEAN_AND = SEARCHEFF_SPEC_INFO.BOOLEAN_AND ;
 
-  int  imap, ivar, NVAR, LFIND, istat ;
-  bool MATCH ;
+  int  imap, ivar, NVAR, LFIND, istat, REQUIRE_MAP ;
+  bool MATCH, REQUIRE_PASS = true ;
   double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
-  char *fld_gen, *fld_map ;
+  char *FIELD_MAP;
   char fnam[] = "gen_SEARCHEFF_SPEC" ;
 
   // ----------- BEGIN --------
@@ -2512,15 +2521,14 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
 
   PnoSpec_OR = 1.0 ;
   Pspec_AND  = 1.0 ;
-  fld_gen = SEARCHEFF_DATA.FIELDNAME ;
+  // xxx mark delete FIELD_GEN = SEARCHEFF_DATA.FIELDNAME ;
 
   for ( imap=0; imap < NMAP; imap++ ) {
 
     // check if current field goes with this map
-    fld_map = SEARCHEFF_SPEC[imap].FIELDLIST ;
-
-    MATCH = MATCH_SEARCHEFF_FIELD(fld_map); // Feb 2021
-
+    FIELD_MAP = SEARCHEFF_SPEC[imap].FIELDLIST ;
+    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP);  // Feb 2021
+    
     // determine list of variables
     NVAR = SEARCHEFF_SPEC[imap].GRIDMAP.NDIM ;
     for ( ivar=0; ivar < NVAR; ivar++ )
@@ -2530,13 +2538,28 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
     PnoSpec_OR *= (1.0 - EFF);
     Pspec_AND  *= EFF ;
 
+    // Aug 2024: check for required map; e.g.. PEAKMJD or DTPEAK range
+    REQUIRE_MAP = SEARCHEFF_SPEC[imap].REQUIRE;
+    if ( REQUIRE_MAP ) {
+      RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[imap+10] ;
+      if ( RAN > EFF ) { REQUIRE_PASS = false ; } 
+    }
+    
   } // imap for SPECEFF
 
   //  printf(" xxx BOOLEAN(OR,AND) = %d %d \n",  BOOLEAN_OR, BOOLEAN_AND);
 
   if ( NMAP > 0  ) { 
-    if ( BOOLEAN_OR  ) { EFF = 1.0 - PnoSpec_OR ; }
-    if ( BOOLEAN_AND ) { EFF = Pspec_AND        ; }
+    if ( BOOLEAN_OR  )
+      { EFF = 1.0 - PnoSpec_OR ; }
+    else if ( BOOLEAN_AND )
+      { EFF = Pspec_AND  ; }
+    else {
+      sprintf(c1err,"Undefined BOOL logic for SPECEFF maps.");
+      sprintf(c2err,"Expecting OR or AND logic.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
+    }
+    
   }
 
   if ( EFF < 0.0 && EFF > -0.001 ) { EFF = 0.0 ; } // allow round-off
@@ -2560,6 +2583,9 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
   if ( RAN > EFF ) { LFIND = 0 ; }
 
+  // Aug 2024: if required map is not satisfied, reject this event
+  if ( !REQUIRE_PASS ) { LFIND = 0 ; }
+  
   return LFIND ;
 
 } // end of gen_SEARCHEFF_SPEC
@@ -2920,6 +2946,9 @@ double LOAD_SPECEFF_VAR(int imap, int ivar) {
   else if ( IVARTYPE == IVARTYPE_SPECEFF_DTPEAK ) {
     return  SEARCHEFF_DATA.DTPEAK_MIN ; // smallest abs(T-Tpeak)
   }
+  else if ( IVARTYPE == IVARTYPE_SPECEFF_DTSEASON_PEAK ) {
+    return  SEARCHEFF_DATA.DTSEASON_PEAK ; // smallest abs(T-Tpeak)
+  }
   else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2mB ) {
     return  SEARCHEFF_DATA.SALT2mB ; 
   }
@@ -2991,6 +3020,7 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   //  * SEARCHEFF_SPEC.IVAR_REDSHIFT  
   //  * SEARCHEFF_SPEC.IVAR_PEAKMJD
   //  * SEARCHEFF_SPEC.IVAR_DTPEAK
+  //  * SEARCHEFF_SPEC.IVAR_DTSEASON_PEAK  
   //  * SEARCHEFF_SPEC.IFILTOBS_PEAKMAG
   //  * SEARCHEFF_SPEC.IFILTOBS_PEAKCOLOR
   //  * SEARCHEFF_SPEC.IFILTOBS_HOSTMAG 
@@ -2998,15 +3028,6 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   //
   // If assignment can't be made then abort.
   //
-  // Oct 1 2012: check  for PEAKMJD
-  //
-  // Jan 18 2014: replace IFILTOBS_fromMAP(c0); with INTFILTER function.
-  //              Remove obsolete IFILTOBS_fromMAP function.
-  //
-  // Jun 23 2016: check for HOSTMAG_[band] and SBMAG_[band]
-  //
-  // Feb 20 2017: check for OR of peakMag bands:
-  //                a+b+c+d --> peakMag from any abcd band.
   //
   // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
   // May 13 2021: allow HOSTMAG or HOST_MAG
@@ -3042,6 +3063,12 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
     SEARCHEFF_SPEC[imap].IVAR_DTPEAK = ivar ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_DTPEAK ;
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_DTPEAK );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"DTSEASON_PEAK") == 0 )  {
+    SEARCHEFF_SPEC[imap].IVAR_DTSEASON_PEAK = ivar ;
+    SEARCHEFF_SPEC[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_DTSEASON_PEAK ;
+    SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_DTSEASON_PEAK );
     return ;
   }
   else if ( strcmp(VARNAME,"mB") == 0 )  {

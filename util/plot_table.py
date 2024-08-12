@@ -140,9 +140,16 @@ and two types of command-line input delimeters
       or
     @@VARIABLE zHD:MU  @@ERROR  :MUERR  # include MU error bar but no zHD error bar
     
-  if @ERROR defines y-axis error, then '@@OPT MEAN' (see below) replaces the
-  default arithmetic mean with 1/ERR^2-weighted mean.
+  When @@ERROR defines y-axis error, '@@OPT MEAN' (see below) replaces the default 
+  arithmetic mean with 1/ERR^2-weighted mean. 
 
+@@error @e
+  For plots with many data points, showing many error bars can result in a plot that 
+  looks like a painted wall and no detail can be seen among the individual data points. 
+  To use errors for weight-average computation and plot data points WITHOUT error bars,
+  replace @@ERROR @E --> @@error @e.
+
+  
 @@CUT 
   Apply selection cuts on the sample. As with @@VARIABLE, CUT is internally 
   translated to append df and df.loc as needed. Beware that quotes (single or 
@@ -284,8 +291,11 @@ def get_args():
           "For the histogram, counts are normalised to the first table file."
     parser.add_argument('@V', '@@VARIABLE', '@v', help=msg, nargs="+")
 
-    msg = 'variable to use for error bar in 2D plot'
-    parser.add_argument('@E', '@@ERROR', '@e', help=msg, nargs="+", default=None)    
+    msg = 'variable to use for error bar in 2D plot, and for weighted avg per bin'
+    parser.add_argument('@E', '@@ERROR', help=msg, nargs="+", default=None)
+
+    msg = 'variable to only for weight avg per bin; do not show error bard in 2D plot'
+    parser.add_argument('@e', '@@error', help=msg, nargs="+", default=None)        
 
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
@@ -430,7 +440,12 @@ def arg_prep_driver(args):
     # make sure there is a colon in ERROR and UNITS args
     # e.g  "degrees" -> "degrees:" so that user can specify only x-axis
     # without colon and code here adds required colon. For y-axis,
-    # user must provide colon; e.g.,  :degress applies y-axis label.    
+    # user must provide colon; e.g.,  :degress applies y-axis label.
+    args.use_err_list = True  # default
+    if args.error:
+        args.ERROR = args.error
+        args.use_err_list = False  # disable error bar on 2D plot
+    
     args.UNITS = arg_prep_axis(args.UNITS)
     args.ERROR = arg_prep_axis(args.ERROR)
     
@@ -961,11 +976,14 @@ def plotter_func_driver(args, plot_info):
         name_legend = df_dict['name_legend']        
         logging.info(f"Plot {name_legend}")
 
-        info_plot_dict['numplot']   =  numplot
-        info_plot_dict['xbins']     =  xbins
-        info_plot_dict['ybins']     =  ybins
-        info_plot_dict['xbins_cen'] =  xbins_cen        
-        info_plot_dict['df_dict']   =  df_dict        
+        info_plot_dict['do_plot_errorbar']    = False
+        info_plot_dict['do_ov1d_hist']        = False
+        info_plot_dict['do_ov2d_binned_stat'] = False
+        info_plot_dict['numplot']             =  numplot
+        info_plot_dict['xbins']               =  xbins
+        info_plot_dict['ybins']               =  ybins
+        info_plot_dict['xbins_cen']           =  xbins_cen        
+        info_plot_dict['df_dict']             =  df_dict        
                 
         if NDIM_PLOT == 1:
             # 1D
@@ -975,13 +993,20 @@ def plotter_func_driver(args, plot_info):
             get_info_plot2d(args, info_plot_dict)      
 
         # strip off arguments to pass to matplotlib ...
-        do_errorbar = info_plot_dict['do_errorbar']
-        do_hist     = info_plot_dict['do_hist']             
+        do_plot_errorbar    = info_plot_dict['do_plot_errorbar']
+        do_ov1d_hist        = info_plot_dict['do_ov1d_hist']
+        do_ov2d_binned_stat = info_plot_dict['do_ov2d_binned_stat']
+        
         xval_list   = info_plot_dict['xval_list'] 
         yval_list   = info_plot_dict['yval_list']
-        xerr_list   = info_plot_dict['xerr_list'] 
-        yerr_list   = info_plot_dict['yerr_list']
-        
+
+        if args.use_err_list:        
+            xerr_list   = info_plot_dict['xerr_list'] 
+            yerr_list   = info_plot_dict['yerr_list']
+        else:
+            xerr_list = None
+            yerr_list = None
+                
         plt_size    = info_plot_dict['plt_size']   # depends on nevt for 2D
         plt_legend  = info_plot_dict['plt_legend'] # can be appended with more info
         plt_text_dict = info_plot_dict['plt_text_dict']
@@ -989,28 +1014,31 @@ def plotter_func_driver(args, plot_info):
         plt_alpha   = df_dict['alpha']  # fixed by user
         plt_marker  = df_dict['marker'] # fixed by user
         # - - - - -
-
+        
         if custom_bounds:
             plt.xlim(xmin, xmax)
             if NDIM_PLOT==2:  plt.ylim(ymin, ymax)
         
-        if do_errorbar :
+        if do_plot_errorbar :
+            # nominal
             plt.errorbar(xval_list, yval_list, xerr=xerr_list, yerr=yerr_list, 
                          fmt=plt_marker, label=plt_legend,
                          markersize=plt_size, alpha=plt_alpha )
-        elif do_hist:            
+            
+            if NDIM_PLOT==2 and do_ov2d_binned_stat :
+                overlay2d_binned_stat(args, info_plot_dict)
+            
+        elif NDIM_PLOT==1 and do_ov1d_hist:
+            # 1D, typically sim overlaid on data
             wgt_ov = info_plot_dict['wgt_ov']
             plt.hist(df.x_plot_val, xbins, alpha=0.25, weights = wgt_ov,
                      label = plt_legend)
-
         else:
             # nothing to plot; e.g, 1st file for DIFF option
             numplot += 1
             continue
 
         # - - - - -
-        if NDIM_PLOT == 2:
-            overlay_binned_stat(args, info_plot_dict)
             
         # - - - -
         # check for misc options
@@ -1051,9 +1079,10 @@ def get_info_plot1d(args, info_plot_dict):
     yval_list = binned_statistic(df.x_plot_val, df.x_plot_val, 
                                  bins=xbins, statistic='count')[0]                
 
-    do_errorbar = True
-    do_hist     = False
-    
+    do_plot_errorbar = True
+    do_ov1d_hist     = False
+
+    # apply option user-weight function (see @@WEIGHT arg)
     if weight:
         wgt_user   = get_weights_user(xbins_cen, weight)
         yval_list *= wgt_user
@@ -1070,8 +1099,8 @@ def get_info_plot1d(args, info_plot_dict):
             yval0_list   = info_plot_dict['yval0_list']
             name0_legend = info_plot_dict['name0_legend'] 
             scale = np.sum(yval0_list) / np.sum(yval_list)
-            do_errorbar = False
-            do_hist     = True
+            do_plot_errorbar = False
+            do_ov1d_hist     = True
         else:
             scale = 1.0  # overlay plot is not scaled
 
@@ -1131,8 +1160,8 @@ def get_info_plot1d(args, info_plot_dict):
             plt_legend += f'  {str_stat}={val:{fmt_legend}}'            
 
     # - - - - - -
-    info_plot_dict['do_errorbar']  = do_errorbar
-    info_plot_dict['do_hist']      = do_hist
+    info_plot_dict['do_plot_errorbar']  = do_plot_errorbar
+    info_plot_dict['do_ov1d_hist']      = do_ov1d_hist
     info_plot_dict['xval_list']    = xval_list
     info_plot_dict['yval_list']    = yval_list
     info_plot_dict['xerr_list']    = None
@@ -1170,8 +1199,9 @@ def get_info_plot2d(args, info_plot_dict):
     if 'x_plot_err' in df:  xerr_list = df.x_plot_err
     if 'y_plot_err' in df:  yerr_list = df.y_plot_err    
 
-    info_plot_dict['do_errorbar']   = True
-    info_plot_dict['do_hist']       = False
+    info_plot_dict['do_plot_errorbar']    = True
+    info_plot_dict['do_ov1d_hist']        = False
+    info_plot_dict['do_ov2d_binned_stat'] = True
     info_plot_dict['plt_size']      = plt_size
     info_plot_dict['plt_legend']    = plt_legend
     info_plot_dict['plt_text_dict'] = None
@@ -1185,9 +1215,9 @@ def get_info_plot2d(args, info_plot_dict):
             
         if numplot == 0:
             # nothing to plot on first file; store references
-            info_plot_dict['do_errorbar']   = False  # disable making plot
-            info_plot_dict['df_ref']        = df     # store ref table for next plot
-            info_plot_dict['name_legend_ref'] = name_legend
+            info_plot_dict['do_plot_errorbar']   = False  # disable making plot
+            info_plot_dict['df_ref']             = df     # store ref table for next plot
+            info_plot_dict['name_legend_ref']    = name_legend
             return
 
         # strip off reference values from first plot
@@ -1220,7 +1250,7 @@ def get_info_plot2d(args, info_plot_dict):
         
     return  # end  get_info_plot2d
 
-def overlay_binned_stat(args, info_plot_dict):
+def overlay2d_binned_stat(args, info_plot_dict):
 
     # prepare 2D plot overlay of median, avg or wgt-avg in each x-bin.
     
@@ -1240,8 +1270,9 @@ def overlay_binned_stat(args, info_plot_dict):
     do_median    = OPT_MEDIAN  in OPT
     do_avg       = OPT_MEAN    in OPT or OPT_AVG in OPT
     do_wgtavg    = yerr_list is not None
+
+    DO_DUMP    = False
     
-    DO_DUMP = True
     OPT        = args.OPT
     which_stat = None
     if do_median:
@@ -1293,7 +1324,7 @@ def overlay_binned_stat(args, info_plot_dict):
         plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat, fmt='^', label=legend,
                      zorder=5 ) 
             
-    return  # end of overlay_binned_stat
+    return  # end of overlay2d_binned_stat
 
 def plotter_func_legacy(args, plot_info):
 

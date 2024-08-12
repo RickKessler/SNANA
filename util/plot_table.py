@@ -37,7 +37,9 @@ STR_np         = 'np.'
 
 # define strings for @@OPT
 OPT_NEVT      = "NEVT"      # append N={nevt} to legend
-OPT_MEAN      = "MEAN"      # append mean to legend
+OPT_AVG       = "AVG"       # 1D->append avg to legend; 2D->overlay avg in x-bins
+OPT_MEAN      = "MEAN"      # same as AVG
+OPT_WGTAVG    = "WGTAVG"    # 2D only -> overlay weighted avg in x-bins
 OPT_STDDEV    = "STDDEV"    # append stddev to legend
 OPT_CHI2      = "CHI2"      # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
 OPT_MEDIAN    = "MEDIAN"
@@ -46,7 +48,8 @@ OPT_LOGY      = "LOGY"       # log scale along Y axis
 OPT_GRID      = "GRID"
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 
-VALID_OPT_LIST = [ OPT_NEVT, OPT_MEAN, OPT_STDDEV, OPT_CHI2, OPT_CHI2, OPT_MEDIAN, OPT_DIAG_LINE,
+VALID_OPT_LIST = [ OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_CHI2, OPT_CHI2,
+                   OPT_WGTAVG, OPT_MEDIAN, OPT_DIAG_LINE,
                    OPT_LOGY, OPT_GRID, OPT_LIST_CID ]
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
@@ -67,9 +70,9 @@ NUMPY_FUNC_DICT = {
 }
 
         
-# internal flag to exit after translating VARIALBE and CUT
-#DEBUG_TRANSLATE = True   
-DEBUG_TRANSLATE = False
+# internal DEBUG flags
+DEBUG_FLAG_REFAC          = 2
+DEBUG_FLAG_DUMP_TRANSLATE = 3
 
 
 # ================================
@@ -79,7 +82,7 @@ def print_help():
     help_string = \
 f"""
 This plot unility works on 
-  * FITRES table files create by light curve fitting code (snlc_fit.exe) and BBC (SALT2mu.exe)
+  * FITRES table files create by LC-fitting code (snlc_fit.exe) and BBC (SALT2mu.exe)
   * M0DIF files from BBC
   * HOSTLIB files used in simulation
   * any file with same format that has VARNAMES key
@@ -93,6 +96,13 @@ this change avoids confusing dashes and minus signs.
 There are two general types of comamnd-line input:
   1. plot content
   2. presentation style
+
+and two types of command-line input delimeters
+  1. colon separates args for x and y axes; 
+      (e.g.,  @V zHD:c   or    @@UNITS day:degrees)
+  2. space separates args for mutliple plots 
+      (e.g., @@TFILE A.TXT B.TXT  or  @@CUT 'zHD<0.2' 'zHD<0.4' )
+
 
       INPUTS FOR PLOT CONTENT 
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -122,6 +132,14 @@ There are two general types of comamnd-line input:
   functions to check for missing np, so if using an undefined function
   you can explicitly prepend np (and please post github issue about 
   missing function).
+
+@@ERROR @E
+  for 2D plot, specify variable(s) to plot as sigma error bar; 
+  e.g, plot hubble diagram as
+    @@VARIABLE zHD:MU  @@ERROR zHDERR:MUERR
+      or
+    @@VARIABLE zHD:MU  @@ERROR  :MUERR  # include MU error bar but no zHD error bar
+    
 
 @@CUT 
   Apply selection cuts on the sample. As with @@VARIABLE, CUT is internally 
@@ -214,16 +232,16 @@ There are two general types of comamnd-line input:
 
 @@OPT   {' '.join(VALID_OPT_LIST)}
     where
-      {OPT_NEVT:<12} ==> append N=Nevt on each legend
-      {OPT_MEAN:<12} ==> append mean on each legend
-      {OPT_STDDEV:<12} ==> append stddev on each legend
-      {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files
-      {OPT_MEDIAN:<12} ==> plot median (vertical axis) for 2D plot
+      {OPT_NEVT:<12} ==> append N=Nevt on each legend (1D and 2D)
+      {OPT_AVG:<12} ==> 1D->append avg on legend; 2D->overlay avg in x-bins
+      {OPT_MEAN:<12} ==> same as {OPT_AVG}
+      {OPT_MEDIAN:<12} ==> overlay median in x-bins (2D only)
+      {OPT_STDDEV:<12} ==> append stddev on each legend (1D only)
+      {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files (1D only)
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
       {OPT_LOGY:<12} ==> log scale for vertical axis
       {OPT_GRID:<12} ==> display grid on plot 
       {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts
-
 
 Examples:
 
@@ -258,11 +276,29 @@ def get_args():
           "different TABLE files. If >1 TFILE, plots are overlaid"
     parser.add_argument('@@TFILE', '@@tfile', help=msg, nargs="+")
     
-    msg = "required: Variable(s) to plot from table file, or function of variables.\n" \
-          "One variable results in 1D histogram. Two colon delimited variables, " \
-          "such as zHD:mB, plots mB (y) vs zHD (x). " \
+    msg = "required: Variable(s) to plot from table file, or function of variables." \
           "For the histogram, counts are normalised to the first table file."
     parser.add_argument('@V', '@@VARIABLE', '@v', help=msg, nargs="+")
+
+    msg = 'variable to use for error bar in 2D plot'
+    parser.add_argument('@E', '@@ERROR', '@e', help=msg, nargs="+", default=None)    
+
+    msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
+    parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
+    
+    msg = "Plot difference in y-axis between files.\n" \
+          "ALL plots median difference between first file and subsequent ones.\n" \
+          "CID plots per-CID difference."
+    parser.add_argument('@@DIFF', '@@diff', default=None, type=str, help=msg )
+
+    
+    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
+    parser.add_argument("@@WEIGHT", "@@weight", help=msg, nargs="+", default=[None] ) 
+
+    msg = "number of rows to read (for large files)"
+    parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=0)
+    
+    # -------- decorative options below ---------
     
     msg = "AUTO (default): optional bounds min, max and binsize of plot parameters.\n" \
           "For 2D plot, must specify both x and y bounds. y-binsize is ignored."
@@ -283,27 +319,16 @@ def get_args():
     msg = "Alpha value for plot. Set to 0 to see only averages." \
           "ALPHA=0 and DIFF=True compares average difference between two files, " \
           "even if there are no overlapping CIDS."
-    parser.add_argument('@@ALPHA', '@@alpha',  default=[0.3], type=float, help=msg, nargs="+" )
+    parser.add_argument('@@ALPHA', '@@alpha',  default=[0.8], type=float, help=msg, nargs="+" )
     
     msg = "Filename to save plot.  Default: does not save plots."
-    parser.add_argument('@@SAVE', '@@save', default='None', help=msg )
-
-    msg = "Plot difference in y-axis between files. Valid options are None, ALL, and CID.\n" \
-          "ALL plots median difference between first file and subsequent ones.\n" \
-          "CID plots per-CID difference."
-    parser.add_argument('@@DIFF', '@@diff', default=None, type=str, help=msg )
-    
-    msg = "cuts with boolean and algegraic operations; see @@HELP"
-    parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
-
-    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
-    parser.add_argument("@@WEIGHT", "@@weight", help=msg, nargs="+", default=[None] ) 
-
-    msg = "number of rows to read (for large files)"
-    parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=0)
+    parser.add_argument('@@SAVE', '@@save', default=None, help=msg )
 
     msg = "options; see @@HELP"
     parser.add_argument("@@OPT", "@@opt", help=msg, nargs="+", default = [])
+
+    msg = "debug options (for development only)"
+    parser.add_argument("@@DEBUG_FLAG", "@@debug_flag", help=msg, type=int, default=0)    
 
     msg = "Full help menu printed to stdout"
     parser.add_argument("@H", "@@HELP", help=msg, action="store_true")
@@ -317,11 +342,15 @@ def get_args():
 
     # end get_args()
 
-def process_args(args):
+def arg_prep_driver(args):
 
     # process arguments such as remove pad spacing and forcing
     # number or @@TFILE args to match number of @@CUT args
     # (and vice versa)
+
+    # ---------------------------------------
+    # check debug args (for develepers only)
+    arg_prep_DEBUG_FLAG(args)
     
     # - - - - - - -
     # for variable(s), remove pad spacing and add np. if needed
@@ -334,18 +363,10 @@ def process_args(args):
     else:
         sys.exit(f"\n ERROR: must define variable(s) to plot with @@VARIABLE or @@V")
 
-    # xxx beware that functions don't work with CUTS
-    # add np. if needed for cuts
-    #if args.CUT:
-    #    for n, cut in enumerate(args.CUT):
-    #        cut = numpy_fun_replace(cut)
-    #        args.CUT[n] = cut
-    # xxxxxxx
-    
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
-    if DEBUG_TRANSLATE:
+    if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx proc_args: args.CUT = {args.CUT}  (before modifications)")
 
     n_tfile_orig    = len(args.TFILE)
@@ -379,7 +400,7 @@ def process_args(args):
         
     # - - - -
 
-    if DEBUG_TRANSLATE:
+    if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx proc_args: args.TFILE  -> {args.TFILE}")
         print(f" xxx proc_args: args.CUT    -> {args.CUT}")
     
@@ -395,87 +416,131 @@ def process_args(args):
     # xxxxxxxxx
     
     args.tfile_list      = table_list           # ENVs are expanded
+    narg_tfile           = len(args.tfile_list)
+    
     args.tfile_base_list = table_base_list
     args.cut_list        = cut_list
     args.weight_list     = weight_list
     # - - - - -
 
-    # make sure there is a colon in UNITS atg
-    # e.g  "degrees" -> "degrees:"
-    n_var = len(args.VARIABLE.split(COLON))
-    if args.UNITS:
-        args.UNITS  = ''.join([str(elem) for elem in args.UNITS])
-        if COLON not in args.UNITS:
-            args.UNITS += COLON
-    else:
-        args.UNITS = COLON    
-
-        
+    # make sure there is a colon in ERROR and UNITS args
+    # e.g  "degrees" -> "degrees:" so that user can specify only x-axis
+    # without colon and code here adds required colon. For y-axis,
+    # user must provide colon; e.g.,  :degress applies y-axis label.    
+    args.UNITS = arg_prep_axis(args.UNITS)
+    args.ERROR = arg_prep_axis(args.ERROR)
+    
     if args.BOUNDS != BOUNDS_AUTO:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
 
-    # tack on new name space elements that are trivially dependent on user input
-    if not args.LEGEND:
-        args.LEGEND = [ None ] * len(args.TFILE)
-        if len(args.CUT) > 1 :
-            args.LEGEND = args.CUT
-        else :
-            args.LEGEND = []
-            for t in args.tfile_base_list:
-                args.LEGEND.append(t.split('.')[0])
 
+    args.legend_list = arg_prep_legend(args)
+    
+    # if only 1 alpha, make sure there is alpha for each file/cut
+    args.alpha_list  = arg_prep_extend_list(narg_tfile, args.ALPHA)
+    args.marker_list = arg_prep_extend_list(narg_tfile, args.MARKER) 
+
+    if args.DIFF:
+        args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
+        if args.DIFF == ARG_DIFF_ALL and OPT_MEDIAN not in args.OPT:
+            args.OPT.append(OPT_MEDIAN)  # this should be optional MEDIAN or AVG ??
+
+    args.OPT = arg_prep_OPT(args)            
+    
+    return  # end process_args
+
+def arg_prep_OPT(args):
+
+    # abort on invalid @@OPT, and change all OPT to upper case    
+    invalid_OPT_list = []
+    args_upper_list = []
+    OPT_orig = args.OPT
+    OPT_out  = OPT_orig  # default
+    
+    if OPT_orig:
+        for opt in OPT_orig:
+            opt = opt.upper()
+            args_upper_list.append(opt)
+            if opt not in  VALID_OPT_LIST:
+                invalid_OPT_list.append(opt)
+        if len(invalid_OPT_list) > 0:
+            sys.exit(f"\n ERROR: Invalid @@OPT {invalid_OPT_list} ; " \
+                     f"Valid @@OPT args are\n\t {' '.join(VALID_OPT_LIST)}")
+
+        OPT_out = args_upper_list
+
+    return OPT_out
+
+def arg_prep_DEBUG_FLAG(args):
+
+    args.DEBUG_FLAG_REFAC          = False
+    args.DEBUG_FLAG_DUMP_TRANSLATE = False
+    if args.DEBUG_FLAG != 0:
+        args.DEBUG_FLAG_REFAC          = args.DEBUG_FLAG == DEBUG_FLAG_REFAC
+        args.DEBUG_FLAG_DUMP_TRANSLATE = args.DEBUG_FLAG == DEBUG_FLAG_DUMP_TRANSLATE
+        logging.info(f"# \t DEBUG_FLAG={args.DEBUG_FLAG} " )
+        logging.info(f"# \t DEBUG_FLAG_REFAC          = {args.DEBUG_FLAG_REFAC}")
+        logging.info(f"# \t DEBUG_FLAG_DUMP_TRANSLATE = {args.DEBUG_FLAG_DUMP_TRANSLATE}")
+        print(f"")        
+    
+    return
+
+def arg_prep_legend(args):
+
+    LEGEND_orig = args.LEGEND
+    LEGEND_out  = LEGEND_orig   # default is user input
+    
+    if LEGEND_orig is None:
+        # no user supplied legend, so make up reasonable legend
         
-    narg_legend       = len(args.LEGEND)
-    args.legend_list  = args.LEGEND
-
+        LEGEND_out = [ None ] * len(args.TFILE)
+        if len(args.CUT) > 1 :
+            LEGEND_out = args.CUT
+        else :
+            LEGEND_out = []
+            for t in args.tfile_base_list:
+                legend = t.split('.')[0]  # base file name without extension after dot
+                LEGEND_out.append(legend)
+    # - - - - - 
+    narg_legend  = len(LEGEND_out)
     narg_tfile   = len(args.tfile_list)    
     match_narg   = narg_tfile == narg_legend
     if  not match_narg:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
                  f"narg_legend must match number of table files.")
 
-    # if only 1 alpha, make sure there is alpha for each file/cut 
-    narg_alpha = len(args.ALPHA)
-    if narg_alpha < narg_tfile:
-        a          = args.ALPHA[0]
-        alpha_list = [a]*narg_tfile
+    return LEGEND_out
+
+def arg_prep_extend_list(narg_tfile, arg_list_orig):
+
+    # if arg_list_orig has fewer elements than number of table files,
+    # extend list to be same length as number or table files;
+    # else return original list.  This allows users to specify one
+    # value (e.g. for alpha or maker) that is used on all plots.
+    
+    narg_orig = len(arg_list_orig)
+    if narg_orig < narg_tfile:
+        val          = arg_list_orig[0]
+        arg_list_out = [val]*narg_tfile
     else:
-        alpha_list = copy.copy(args.ALPHA)
-    args.alpha_list = alpha_list
+        arg_list_out = copy.copy(arg_list_orig)
 
-    # if only 1 marker, make sure there is marker for each file/cut 
-    narg_marker = len(args.MARKER)
-    if narg_marker < narg_tfile:
-        mk          = args.MARKER[0]
-        marker_list = [mk]*narg_tfile
+    return arg_list_out
+
+    
+def arg_prep_axis(arg_axis):
+    # if input arg_axis = "degress" then return "degrees:"
+    # to ensure that splitting by colon works later.
+    # If arg_axis is None, return ":" to indicate nothing for either axis.
+    if arg_axis:
+        arg_axis  = ''.join([str(elem) for elem in arg_axis])
+        if COLON not in arg_axis:
+            arg_axis += COLON
     else:
-        marker_list = copy.copy(args.MARKER)
-    args.marker_list = marker_list
-    
+        arg_axis = COLON    
+    return arg_axis
 
-    
-    if args.DIFF:
-        args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
 
-    # abort on invalid @@OPT, and change all OPT to upper case
-    invalid_OPT_list = []
-    args_upper_list = []
-    if args.OPT:
-        for opt in args.OPT:
-            opt = opt.upper()
-            args_upper_list.append(opt)
-            if opt not in  VALID_OPT_LIST:
-                invalid_OPT_list.append(opt)
-        if len(invalid_OPT_list) > 0:
-            sys.exit(f"\n ERROR: Invalid @@OPT {invalid_OPT_list}")
-
-        args.OPT = args_upper_list
-
-    if args.DIFF == ARG_DIFF_ALL and OPT_MEDIAN not in args.OPT:
-            args.OPT.append(OPT_MEDIAN)
-        
-    return  # end process_args
-    
 def numpy_fun_replace(var)  :
     # replace user functions (e.g., exp or sqrt) with numpy
     # functions (e.g. np.exp or np.sqrt). If np.xxx is already
@@ -533,7 +598,7 @@ def translate_VARIABLE(VARIABLE):
     # break down VARIABLE into a list of variables without any symbols
     var_list, isnum_list  = get_var_list(VARIABLE, DELIMITER_VAR_LIST)
 
-    if DEBUG_TRANSLATE:
+    if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx VARIABLE var_list   = {var_list}")
         print(f" xxx VARIABLE isnum_list = {isnum_list}")
 
@@ -581,44 +646,40 @@ def translate_CUT(CUT):
     cut_list = re.split(r"\(|\)|\&|\|", CUT.replace(' ',''))
     cut_list = list(filter(None, cut_list))
 
-    if DEBUG_TRANSLATE:
+    if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx CUT      = {CUT}" )
         print(f" xxx cut_list = {cut_list}")
 
     # for each cut item, append parentheses and df.
     cut_list_df = []
 
-    REFAC = True
-    if REFAC:
-        for cut in cut_list:
-            # append df. in from of each string to allow cutting on
-            # math functions of variables.
-            var_list, isnum_list  = get_var_list(cut, DELIMITER_CUT_LIST)
-            cut_df = cut
-            for var, isnum in zip(var_list, isnum_list):
-                if not isnum:
-                    cut_df = cut_df.replace(var, STR_df + var)
-            cut_df = '(' + cut_df + ')'
-            cut_list_df.append(cut_df)
-    else:
-        # legac/obsolete
-        for cut in cut_list:
-            cut_df = '(' + STR_df + cut + ')'
-            cut_list_df.append(cut_df)
+    for cut in cut_list:
+        # append df. in from of each string to allow cutting on
+        # math functions of variables.
+        var_list, isnum_list  = get_var_list(cut, DELIMITER_CUT_LIST)
+        cut_df = cut
+        for var, isnum in zip(var_list, isnum_list):
+            if not isnum:
+                cut_df = cut_df.replace(var, STR_df + var)
+        cut_df = '(' + cut_df + ')'
+        cut_list_df.append(cut_df)
 
-    if DEBUG_TRANSLATE:
+    if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx cut_list_df = {cut_list_df}")
         
     # replace each original cut with cut_df in CUT
     CUT_df = CUT
     for cut, cut_df in zip(cut_list, cut_list_df):
         CUT_df = CUT_df.replace(cut,cut_df)
-        if DEBUG_TRANSLATE:
+        if args.DEBUG_FLAG_DUMP_TRANSLATE:
             print(f" xxx \t replace user cut {cut} --> {cut_df} ")
 
-    # replace input for '=' with '=='
+    # replace input for '=' with '==', but be careful not change '!='
+    # This logic is a bit goofy; is there a  simpler logic?
     if '=' in CUT_df:
         CUT_df = CUT_df.replace('=', '==')
+    if '!==' in CUT_df:
+        CUT_df = CUT_df.replace('!==', '!=')        
             
 
     # finally, wrap entire cut in df.loc[ CUT ]
@@ -642,12 +703,12 @@ def set_var_dict(args, plot_info):
 
     # strip off user args
     VARIABLE = args.VARIABLE
+    ERROR    = args.ERROR
     BOUNDS   = args.BOUNDS
     UNITS    = args.UNITS
     
     # store x and [optional] y variable names
-    plotdic            = {}  # has df for making plots
-    plotdic_axis_label = {}  # cleaned up for axis labels
+    plotdic            = {}  # x & y varnames, err varnames, axis labels
 
     if args.TITLE:
         plot_title    = str(args.TITLE)
@@ -660,14 +721,23 @@ def set_var_dict(args, plot_info):
         plot_title = plot_title.replace(STR_np,'')
 
     # - - - - 
-    VAR_LIST   = VARIABLE.split(COLON)
-    UNITS_LIST = UNITS.split(COLON)
-    
-    for n, VAR in enumerate(VAR_LIST):
-        STR_VAR   = str(VAR)
-        STR_LABEL = STR_VAR.replace(STR_df,'') 
-        if STR_np in STR_LABEL:  STR_LABEL = STR_LABEL.replace(STR_np,'')
+    VAR_LIST     = VARIABLE.split(COLON)
+    VARERR_LIST  = ERROR.split(COLON)
+    UNITS_LIST   = UNITS.split(COLON)
 
+    for n, VAR in enumerate(VAR_LIST):
+
+        STR_VAR      = str(VAR)
+        STR_LABEL    = STR_VAR.replace(STR_df,'') 
+        if STR_np in STR_LABEL:
+            STR_LABEL = STR_LABEL.replace(STR_np,'')
+
+        VARERR  = VARERR_LIST[n]
+        if len(VARERR) > 0:
+            STR_VARERR   = STR_df + str(VARERR)
+        else:
+            STR_VARERR   = None            
+        
         U = UNITS_LIST[n]
         if len(U) > 0:  STR_LABEL += '  (' + U + ')'
             
@@ -676,14 +746,17 @@ def set_var_dict(args, plot_info):
             ylabel = 'Counts'
             if args.WEIGHT[0]: ylabel = f'Counts * {args.WEIGHT}'            
             plotdic['x']            = STR_VAR
-            plotdic_axis_label['x'] = xlabel
-            plotdic_axis_label['y'] = ylabel
+            plotdic['xerr']         = STR_VARERR
+            plotdic['xaxis_label']  = xlabel
+            plotdic['yaxis_label']  = ylabel
+            plotdic['ndim']         = 1
             
         else:
             plotdic['y']            = STR_VAR
-            plotdic_axis_label['y'] = STR_LABEL
-
-
+            plotdic['yerr']         = STR_VARERR
+            plotdic['yaxis_label']  = STR_LABEL
+            plotdic['ndim']         = 2
+            
     # check for user (custom) bounds in plot
     custom_bounds = False
     boundsdic     = {}
@@ -698,7 +771,7 @@ def set_var_dict(args, plot_info):
     # - - - - - -  - - 
     # error checks 
     if args.DIFF:
-        if len(plotdic) == 1 :
+        if plotdic['ndim'] == 1 :
             sys.exit("\nERROR: DIFF does not work for 1D histograms." \
                      " ABORT to avoid confusion.")
         if args.DIFF not in VALID_ARG_DIFF_LIST :
@@ -708,7 +781,6 @@ def set_var_dict(args, plot_info):
             
     # load output namespace
     plot_info.plotdic             = plotdic
-    plot_info.plotdic_axis_label  = plotdic_axis_label
     plot_info.plot_title          = plot_title
     plot_info.boundsdic           = boundsdic
     plot_info.custom_bounds       = custom_bounds
@@ -781,12 +853,17 @@ def read_tables(args, plot_info):
 
         try:
             MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(plotdic['x'])
+            if plotdic['xerr'] is not None:
+                MASTER_DF_DICT[key]['df']['x_plot_err'] = eval(plotdic['xerr'])       
             boundsdic[key + "_min"] = np.amin(MASTER_DF_DICT[key]['df']['x_plot_val'])
             boundsdic[key + "_max"] = np.amax(MASTER_DF_DICT[key]['df']['x_plot_val'])
-            if len(plotdic) == 2:
+            if plotdic['ndim'] == 2:
                 MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(plotdic['y'])
+                if plotdic['yerr'] is not None:
+                    MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(plotdic['yerr'])
+                
         except AttributeError:
-            sys.exit(f"\n ERROR: Couldn't set bounds for {plotdic} and {tfile}")
+            sys.exit(f"\n ERROR: Couldn't set bounds for plotdic={plotdic} and {tfile}")
 
             
     # - - - - - - - -
@@ -816,7 +893,303 @@ def poisson_interval(k, alpha=0.32):
     
     return low, high
 
-def plotter_func(args, plot_info):
+def plotter_func_driver(args, plot_info):
+
+    # REFAC Aug 10 2024
+    # utility to create the plot (but doesn't show it)
+
+    # strip off local args from input name spaces
+    DIFF      = args.DIFF
+    OPT       = args.OPT
+
+    do_chi2      = OPT_CHI2      in OPT
+    do_median    = OPT_MEDIAN    in OPT
+    do_diag_line = OPT_DIAG_LINE in OPT
+    do_list_cid  = OPT_LIST_CID  in OPT
+    do_nevt      = OPT_NEVT      in OPT
+    do_avg       = OPT_AVG       in OPT or OPT_MEAN in OPT
+    do_stddev    = OPT_STDDEV    in OPT    
+    
+    MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
+    plotdic              = plot_info.plotdic
+    boundsdic            = plot_info.boundsdic
+    custom_bounds        = plot_info.custom_bounds
+    plot_title           = plot_info.plot_title
+    
+    xlabel               = plotdic['xaxis_label']
+    ylabel               = plotdic['yaxis_label']
+    NDIM_PLOT            = plotdic['ndim']  # 1 or 2
+
+    xbins = None
+    ybins = None    
+    if custom_bounds:                       
+        xmin  = boundsdic['x'][0]; xmax = boundsdic['x'][1]
+        xbin  = boundsdic['x'][2]
+        xbins = np.arange(xmin, xmax, xbin)
+        if NDIM_PLOT == 2:
+            ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
+            ybin = boundsdic['y'][2]
+            ybins = np.arange(ymin, ymax, ybin) # ignored 
+    else:                                   
+        xbins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
+                            boundsdic[max(boundsdic, key=boundsdic.get)], 30)
+        xmin = xbins[0];  xmax = xbins[-1]
+
+    xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin 
+    # - - - - - - - 
+    msg = f"The min & max x-axis bounds are: " \
+          f"{np.around(xbins[0],4)}  {np.around(xbins[-1],4)} respectively"
+    logging.info(msg)
+
+    numplot = 0 
+    info_plot_dict = { }
+    
+    for key_name, df_dict in MASTER_DF_DICT.items():
+
+        df          = df_dict['df'] 
+        name_legend = df_dict['name_legend']        
+        logging.info(f"Plot {name_legend}")
+
+        info_plot_dict['numplot']   =  numplot
+        info_plot_dict['xbins']     =  xbins
+        info_plot_dict['ybins']     =  ybins
+        info_plot_dict['xbins_cen'] =  xbins_cen        
+        info_plot_dict['df_dict']   =  df_dict        
+                
+        if NDIM_PLOT == 1:
+            # 1D
+            get_info_plot1d(args, info_plot_dict)        
+        else:
+            # 2D
+            get_info_plot2d(args, info_plot_dict)      
+
+        # strip off arguments to pass to matplotlib ...
+        do_errorbar = info_plot_dict['do_errorbar']
+        do_hist     = info_plot_dict['do_hist']             
+        xval_list   = info_plot_dict['xval_list'] 
+        yval_list   = info_plot_dict['yval_list']
+        xerr_list   = info_plot_dict['xerr_list'] 
+        yerr_list   = info_plot_dict['yerr_list']
+        plt_size    = info_plot_dict['plt_size']   # depends on nevt for 2D
+        plt_legend  = info_plot_dict['plt_legend'] # can be appended with more info
+        plt_text_dict = info_plot_dict['plt_text_dict']
+        
+        plt_alpha   = df_dict['alpha']  # fixed by user
+        plt_marker  = df_dict['marker'] # fixed by user
+        # - - - - -
+
+        if custom_bounds:
+            plt.xlim(xmin, xmax)
+            if NDIM_PLOT==2:  plt.ylim(ymin, ymax)
+        
+        if do_errorbar :
+            plt.errorbar(xval_list, yval_list, xerr=xerr_list, yerr=yerr_list, 
+                         fmt=plt_marker, label=plt_legend,
+                         markersize=plt_size, alpha=plt_alpha )
+        elif do_hist:            
+            wgt_ov = info_plot_dict['wgt_ov']
+            plt.hist(df.x_plot_val, bins, alpha=0.25, weights = wgt_ov,
+                     label = plt_legend)
+
+        if NDIM_PLOT == 2:
+            overlay_binned_stat(args, info_plot_dict)
+            
+        # - - - -
+        # check for misc options
+        if do_list_cid:
+            print_cid_list(df, name_legend)
+
+        if do_diag_line:
+            x = np.linspace(xmin,xmax,100);  y = x
+            plt.plot(x,y)
+
+        apply_plt_misc(args, plot_title, xlabel, ylabel, plt_text_dict)
+        numplot += 1
+        
+        
+    return   # end plotter_func_driver
+
+
+def get_info_plot1d(args, info_plot_dict):
+
+    do_chi2   = OPT_CHI2 in args.OPT
+    do_nevt   = OPT_NEVT in args.OPT
+    do_avg    = OPT_AVG  in args.OPT or OPT_MEAN in args.OPT
+    do_stddev = OPT_STDDEV in args.OPT
+    
+    numplot   = info_plot_dict['numplot']
+    xbins     = info_plot_dict['xbins']
+    xbins_cen = info_plot_dict['xbins_cen']    
+    df_dict   = info_plot_dict['df_dict']
+    
+    df             = df_dict['df']
+    weight         = df_dict['weight']
+    name_legend    = df_dict['name_legend']
+    plt_legend     = name_legend
+    plt_text_dict  = None
+    
+    xval_list = xbins_cen
+    xerr_list = None
+    yval_list = binned_statistic(df.x_plot_val, df.x_plot_val, 
+                                 bins=xbins, statistic='count')[0]                
+
+    do_errorbar = True
+    do_hist     = False
+    
+    if weight:
+        wgt_user   = get_weights_user(xbins_cen, weight)
+        yval_list *= wgt_user
+
+    nevt = np.sum(yval_list)  # sum before re-normalizing (for printing only)
+    errl,erru = poisson_interval(yval_list) # compute poisson errors
+        
+    if numplot == 0 :
+        info_plot_dict['yval0_list']   = yval_list # save for normalizing overlay
+        info_plot_dict['name0_legend'] = name_legend
+    else:
+        if do_chi2:
+            # re-scale overlay plot only if chi2 option is requested
+            yval0_list   = info_plot_dict['yval0_list']
+            name0_legend = info_plot_dict['name0_legend'] 
+            scale = np.sum(yval0_list) / np.sum(yval_list)
+            do_errorbar = False
+            do_hist     = True
+        else:
+            scale = 1.0  # overlay plot is not scaled
+
+        yval_list  *= scale # normalize integral to match file 0 
+        errl       *= scale
+        erru       *= scale
+        logging.info(f"Overlay {name_legend} scaled by {scale:.3e}")
+
+    # ---------------
+
+    # check for overlay weights with chi2
+    if numplot > 0 and do_chi2:
+        wgt_ov = [ scale ] * len(df.x_plot_val)
+        if weight :
+            wgt_user = get_weights_user(df.x_plot_val,weight) 
+            wgt_ov   = np.multiply(wgt_ov,wgt_user)
+
+            len_wgt_ov = len(wgt_ov)
+            #sys.exit(f"\n xxx wgt_ov({len_wgt_ov}) = \n{wgt_ov}\n xxx x=\n{df.x_plot_val}\n")
+        # check option to compute and print chi2/dof info on plot
+        # Froce min error =1 in chi2 calc so that it's ok to plot
+        # error=0 for bins with zero events.
+        sqdif = (yval0_list-yval_list)**2
+        sqerr = np.maximum((yval0_list+yval_list*scale*scale), 1.0)
+        chi2  = np.sum( sqdif / sqerr )
+        ndof  = len(xbins) - 1 
+        text_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
+        logging.info(f"{name0_legend}/{name_legend} {text_chi2}")
+        xmin = xbins[0];  xmax = xbins[-1]
+        x_text = xmin + 0.7*(xmax-xmin)
+        y_text = 1.0 * np.max(yval0_list)  # warning; fragile coord calc
+        plt_text_dict = { 'x_text': x_text, 'y_text': y_text, 'text': text_chi2 }
+        #plt.text(x_text, y_text, text_chi2 )
+            
+    else:
+        wgt_ov = None    
+
+    yerr_list = [yval_list-errl, erru-yval_list]
+    nevt    = nevt
+    avg     = np.mean(df.x_plot_val)
+    median  = np.median(df.x_plot_val)
+    stddev  = np.std(df.x_plot_val)
+
+    stat_dict = {
+        'N'       : [ int(nevt),  do_nevt,   'd'     ],
+        'avg'     : [ avg,        do_avg,   '.2f'   ],
+        'median'  : [ median,     False,     '.2f'   ],
+        'stddev'  : [ stddev,     do_stddev, '.2f'   ]
+        # overflow/underflow ??
+    }
+    for str_stat, tmp_list in stat_dict.items():
+        val           = tmp_list[0]
+        add_to_legend = tmp_list[1]
+        fmt_legend    = tmp_list[2]
+        logging.info(f"\t {str_stat:8} value for {name_legend}:  {val:.3f}")
+        if add_to_legend:
+            plt_legend += f'  {str_stat}={val:{fmt_legend}}'            
+
+    # - - - - - -
+    info_plot_dict['do_errorbar']  = do_errorbar
+    info_plot_dict['do_hist']      = do_hist
+    info_plot_dict['xval_list']    = xval_list
+    info_plot_dict['yval_list']    = yval_list
+    info_plot_dict['xerr_list']    = None
+    info_plot_dict['yerr_list']    = yerr_list
+    info_plot_dict['plt_size']     = None
+    info_plot_dict['plt_legend']   = plt_legend
+    info_plot_dict['plt_text_dict'] = plt_text_dict
+    info_plot_dict['wgt_ov']       = wgt_ov
+     
+    return  # end get_info_plot1d
+
+
+
+def get_info_plot2d(args, info_plot_dict):
+
+
+    do_nevt      = OPT_NEVT in args.OPT
+    
+    df_dict      = info_plot_dict['df_dict']
+    df           = df_dict['df']
+    name_legend  = df_dict['name_legend']
+    plt_legend   = name_legend
+
+    
+    nevt         = len(df) 
+    plt_size     = 5 / math.log10(nevt)  # dot size gets smaller with nevt 
+    if do_nevt: plt_legend += f'  N={nevt}'
+    
+    xval_list    = df.x_plot_val
+    yval_list    = df.y_plot_val
+    xerr_list    = None
+    yerr_list    = None
+
+    if 'x_plot_err' in df:  xerr_list = df.x_plot_err
+    if 'y_plot_err' in df:  yerr_list = df.y_plot_err    
+
+    info_plot_dict['do_errorbar']   = True
+    info_plot_dict['do_hist']       = False
+    info_plot_dict['xval_list']     = xval_list
+    info_plot_dict['yval_list']     = yval_list
+    info_plot_dict['xerr_list']     = xerr_list
+    info_plot_dict['yerr_list']     = yerr_list
+    info_plot_dict['plt_size']      = plt_size
+    info_plot_dict['plt_legend']    = plt_legend
+    info_plot_dict['plt_text_dict'] = None
+    
+    return  # end  get_info_plot2d
+
+def overlay_binned_stat(args, info_plot_dict):
+
+    # prepare plot overlay of median, avg or wgt-avg in each x-bin.
+    
+    xbins        = info_plot_dict['xbins']
+    xbins_cen    = info_plot_dict['xbins_cen']     
+    df_dict      = info_plot_dict['df_dict']
+    df           = df_dict['df']
+
+    OPT        = args.OPT
+    which_stat = None
+    if OPT_MEDIAN  in OPT:
+        which_stat = 'median'
+    elif OPT_AVG in OPT or OPT_MEAN in OPT:
+        which_stat =  'mean'
+    
+    if which_stat :
+        legend  = df_dict['name_legend'] + ' ' + which_stat
+        yval = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic=which_stat)[0]
+
+        # TO DO: error on mean/median ??
+        plt.errorbar(xbins_cen, yval, fmt='^', label=legend ) 
+    
+    return  # end of overlay_binned_stat
+
+def plotter_func_legacy(args, plot_info):
 
     # utility to create the plot (but doesn't show it)
 
@@ -829,16 +1202,16 @@ def plotter_func(args, plot_info):
     do_diag_line = OPT_DIAG_LINE in OPT
     do_list_cid  = OPT_LIST_CID  in OPT
     do_nevt      = OPT_NEVT      in OPT
-    do_mean      = OPT_MEAN      in OPT
+    do_avg       = OPT_AVG       in OPT or OPT_MEAN in OPT
     do_stddev    = OPT_STDDEV    in OPT    
-    
+
+    # XXXXXXXXX LEGACY XXXXXXXXXXXX
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     plotdic              = plot_info.plotdic
-    plotdic_axis_label   = plot_info.plotdic_axis_label
-    xlabel               = plotdic_axis_label['x']
-    ylabel               = plotdic_axis_label['y']
+    xlabel               = plotdic['xaxis_label']
+    ylabel               = plotdic['yaxis_label']
     boundsdic            = plot_info.boundsdic
-    plotdic              = plot_info.plotdic
+
     custom_bounds        = plot_info.custom_bounds
     plot_title           = plot_info.plot_title
 
@@ -848,7 +1221,7 @@ def plotter_func(args, plot_info):
         xbin = boundsdic['x'][2]
         bins = np.arange(xmin, xmax, xbin)
         plt.xlim(xmin, xmax)
-        if len(plotdic) == 2:
+        if plotdic['ndim'] == 2:
             ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
             ybin = boundsdic['y'][2]
             ybins = np.arange(ymin, ymax, ybin) # ignored 
@@ -858,13 +1231,14 @@ def plotter_func(args, plot_info):
                            boundsdic[max(boundsdic, key=boundsdic.get)], 30)
         xmin = bins[0];  xmax = bins[-1]
 
-
+    # XXXXXXXXX LEGACY XXXXXXXXXXXX
+    
     msg = f"The min & max x-axis bounds are: " \
           f"{np.around(bins[0],4)}  {np.around(bins[-1],4)} respectively"
     logging.info(msg)
     xcen     = ( bins[1:] + bins[:-1] ) / 2.
     
-    if len(plotdic) == 1:
+    if plotdic['ndim'] == 1:
         # 1D plot(s)
 
         for n, key_name in enumerate(MASTER_DF_DICT): 
@@ -883,23 +1257,24 @@ def plotter_func(args, plot_info):
             if weight:
                 wgt_user   = get_weights_user(xcen,weight)
                 sb        *= wgt_user
-                
+
+            # XXXXXXXXX LEGACY XXXXXXXXXXXX                
             errl,erru = poisson_interval(sb) # And error for those counts
             nevt   = np.sum(sb)              # nevt before normalization
-            mean   = np.mean(df.x_plot_val)
+            avg    = np.mean(df.x_plot_val)
             median = np.median(df.x_plot_val)
             stdev  = np.std(df.x_plot_val)
             
             stat_dict = {
                 'nevt'    : nevt,
-                'mean'    : mean,
+                'avg'     : avg,
                 'median'  : median,
                 'stdev'   : stdev
                 # overflow/underflow ??
             }
 
             if do_nevt:   plt_legend += f'  N={int(nevt)}'
-            if do_mean:   plt_legend += f'  mean={mean:.2f}'
+            if do_avg:    plt_legend += f'  avg={avg:.2f}'
             if do_stddev: plt_legend += f'  stdev={stdev:.2f}'  
             
             if n == 0 :
@@ -918,6 +1293,7 @@ def plotter_func(args, plot_info):
                 erru *= scale
                 logging.info(f"Overlay {name_legend} scaled by {scale:.3e}")
 
+            # XXXXXXXXX LEGACY XXXXXXXXXXXX                
             # determine plot style: 
             # default is solid-filled circles with error bars
             do_errorbar = True 
@@ -950,9 +1326,10 @@ def plotter_func(args, plot_info):
                 logging.info(f"\t {str_stat:8} value for {name_legend}:  {val_stat:.3f}")
             if do_list_cid:
                 print_cid_list(df, name_legend)
-                
-        setup_plot(args, plot_title, xlabel, ylabel) 
 
+        apply_plt_misc(args, plot_title, xlabel, ylabel, None)      
+
+        # XXXXXXXXX LEGACY XXXXXXXXXXXX        
         # check option to compute and print chi2/dof info on plot
         # Froce min error =1 in chi2 calc so that it's ok to plot
         # error=0 for bins with zero events.
@@ -1015,8 +1392,8 @@ def plotter_func(args, plot_info):
             else:  
                 sys.exit(f"\n ERROR: Invalid DIFF option:  {DIFF} \n")
 
-                
-            setup_plot(args, plot_title, xlabel, ylabel+" diff")  
+            # XXXXXXXXX LEGACY XXXXXXXXXXXX
+            apply_plt_misc(args, plot_title, xlabel, ylabel+" diff", None)  
     else:
         # 2D for each file
         try:
@@ -1035,10 +1412,11 @@ def plotter_func(args, plot_info):
 
             plt_legend = name_legend
             if do_nevt: plt_legend += f'  N={nevt}'
-            
-            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=plt_alpha, label=plt_legend,
-                        zorder=0, s=size, marker=plt_marker)
 
+            plt.scatter(df.x_plot_val, df.y_plot_val, alpha=plt_alpha,
+                        label=plt_legend, zorder=0, s=size, marker=plt_marker)
+
+            # XXXXXXXXX LEGACY XXXXXXXXXXXX                
             # overlay information on plot
             if do_median:
                 median = binned_statistic(df.x_plot_val, df.y_plot_val,
@@ -1052,14 +1430,16 @@ def plotter_func(args, plot_info):
 
             if do_list_cid:
                 print_cid_list(df, name_legend)
-            
-        setup_plot(args, plot_title, xlabel, ylabel)    
 
-        
+        apply_plt_misc(args, plot_title, xlabel, ylabel, None)  
+
+
+    # XXXXXXXXX LEGACY XXXXXXXXXXXX        
     return 
-    # end plotter_func
+    # end plotter_func_legacy
 
-def setup_plot(args, plot_title, xlabel, ylabel):
+    
+def apply_plt_misc(args, plot_title, xlabel, ylabel, plt_text_dict):
 
     # Created July 21 2024 by R.Kessler
     # wrapper for lots of plt. calls that are repeated several times.
@@ -1075,7 +1455,14 @@ def setup_plot(args, plot_title, xlabel, ylabel):
     if ylabel is not None: plt.ylabel(ylabel)
     
     plt.legend()                                
-    plt.title(plot_title) 
+    plt.title(plot_title)
+
+    if plt_text_dict is not None:
+        x_text = plt_text_dict['x_text']
+        y_text = plt_text_dict['y_text']
+        text   = plt_text_dict['text']
+        plt.text(x_text, y_text, text )
+    
     return
 
 def get_weights_user(xcen,weight):
@@ -1114,9 +1501,9 @@ if __name__ == "__main__":
     logging.info("# ========== BEGIN plot_table.py  ===============")
 
     args = get_args()
-
-    # process/modify input args
-    process_args(args)
+                              
+    # prepare input args
+    arg_prep_driver(args)
 
     V = args.VARIABLE
     args.VARIABLE = translate_VARIABLE(V)   # add df. as needed to args.VARIABLE
@@ -1124,7 +1511,7 @@ if __name__ == "__main__":
     for icut, cut in enumerate(args.cut_list):
         args.cut_list[icut] = translate_CUT(cut)  # add df. and df.loc as needed
         
-    if  DEBUG_TRANSLATE :
+    if args.DEBUG_FLAG_DUMP_TRANSLATE :
         sys.exit(f"\n xxx bye .")
     
     plot_info = Namespace()  # someplace to store internally computed info
@@ -1135,18 +1522,23 @@ if __name__ == "__main__":
     #sys.exit(f"\n xxx DEBUG STOP xxx")
     
     plt.figure()  # initialize matplotlib figure
-    
-    plotter_func(args, plot_info)  # prepare plot in matplotlib
 
+    if args.DEBUG_FLAG_REFAC:
+        plotter_func_driver(args, plot_info)  # prepare plot in matplotlib
+    else:
+        plotter_func_legacy(args, plot_info)  # prepare plot in matplotlib
+        
     # check for user-define output (e.g. myplot.pdf, myplot.png, etc ...)
     # Note that we either save to file, or show in pop-up window ... but not both.
     # This enables creating plots as part of pipelines.
     SAVE = args.SAVE
-    if SAVE !="None":
-        logging.info(f"Save plot to {SAVE}")
-        plt.savefig(SAVE, bbox_inches="tight", format=SAVE.split(".")[-1])
-    else:
+    if SAVE is None :
         plt.show()  # show plot in pop-up window
+    else:
+        # save to file
+        logging.info(f"Save plot to {SAVE}")
+        fmt = SAVE.split(".")[-1]  # test.png -> fmt = png
+        plt.savefig(SAVE, bbox_inches="tight", format = fmt)
 
     logging.info('Done.')
     

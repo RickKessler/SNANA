@@ -39,7 +39,6 @@ STR_np         = 'np.'
 OPT_NEVT      = "NEVT"      # append N={nevt} to legend
 OPT_AVG       = "AVG"       # 1D->append avg to legend; 2D->overlay avg in x-bins
 OPT_MEAN      = "MEAN"      # same as AVG
-OPT_WGTAVG    = "WGTAVG"    # 2D only -> overlay weighted avg in x-bins
 OPT_STDDEV    = "STDDEV"    # append stddev to legend
 OPT_CHI2      = "CHI2"      # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
 OPT_MEDIAN    = "MEDIAN"
@@ -49,7 +48,7 @@ OPT_GRID      = "GRID"
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 
 VALID_OPT_LIST = [ OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_CHI2, OPT_CHI2,
-                   OPT_WGTAVG, OPT_MEDIAN, OPT_DIAG_LINE,
+                   OPT_MEDIAN, OPT_DIAG_LINE,
                    OPT_LOGY, OPT_GRID, OPT_LIST_CID ]
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
@@ -71,8 +70,9 @@ NUMPY_FUNC_DICT = {
 
         
 # internal DEBUG flags
-DEBUG_FLAG_REFAC          = 2
-DEBUG_FLAG_DUMP_TRANSLATE = 3
+DEBUG_FLAG_REFAC          =  2
+DEBUG_FLAG_LEGACY         = -2
+DEBUG_FLAG_DUMP_TRANSLATE =  3
 
 
 # ================================
@@ -134,12 +134,14 @@ and two types of command-line input delimeters
   missing function).
 
 @@ERROR @E
-  for 2D plot, specify variable(s) to plot as sigma error bar; 
+  for 2D plot, specify variable(s) to plot as error bar; 
   e.g, plot hubble diagram as
     @@VARIABLE zHD:MU  @@ERROR zHDERR:MUERR
       or
     @@VARIABLE zHD:MU  @@ERROR  :MUERR  # include MU error bar but no zHD error bar
     
+  if @ERROR defines y-axis error, then '@@OPT MEAN' (see below) replaces the
+  default arithmetic mean with 1/ERR^2-weighted mean.
 
 @@CUT 
   Apply selection cuts on the sample. As with @@VARIABLE, CUT is internally 
@@ -232,16 +234,18 @@ and two types of command-line input delimeters
 
 @@OPT   {' '.join(VALID_OPT_LIST)}
     where
-      {OPT_NEVT:<12} ==> append N=Nevt on each legend (1D and 2D)
-      {OPT_AVG:<12} ==> 1D->append avg on legend; 2D->overlay avg in x-bins
-      {OPT_MEAN:<12} ==> same as {OPT_AVG}
-      {OPT_MEDIAN:<12} ==> overlay median in x-bins (2D only)
-      {OPT_STDDEV:<12} ==> append stddev on each legend (1D only)
-      {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files (1D only)
-      {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot
-      {OPT_LOGY:<12} ==> log scale for vertical axis
-      {OPT_GRID:<12} ==> display grid on plot 
-      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts
+      {OPT_NEVT:<12} ==> append N=Nevt on each legend (1D and 2D).
+      {OPT_MEAN:<12} ==> 1D->append mean on legend; 2D->overlay mean in x-bins.
+                         If @@ERROR defines y-axis error, replace arithmetic
+                         mean with 1/ERR^2-weighted mean.
+      {OPT_AVG:<12} ==> same as {OPT_MEAN}.
+      {OPT_MEDIAN:<12} ==> overlay median in x-bins (2D only).
+      {OPT_STDDEV:<12} ==> append stddev on each legend (1D only).
+      {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files (1D only).
+      {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot.
+      {OPT_LOGY:<12} ==> log scale for vertical axis.
+      {OPT_GRID:<12} ==> display grid on plot.
+      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.
 
 Examples:
 
@@ -440,11 +444,15 @@ def arg_prep_driver(args):
     args.alpha_list  = arg_prep_extend_list(narg_tfile, args.ALPHA)
     args.marker_list = arg_prep_extend_list(narg_tfile, args.MARKER) 
 
+    # if user has not specified any kind of statistical average
+    # for DIFF, then set default MEDIAN
     if args.DIFF:
-        args.DIFF = args.DIFF.replace(' ','')  # remove pad spacing
-        if args.DIFF == ARG_DIFF_ALL and OPT_MEDIAN not in args.OPT:
-            args.OPT.append(OPT_MEDIAN)  # this should be optional MEDIAN or AVG ??
+        OPT = args.OPT
+        do_tmp = OPT_MEDIAN in OPT  or OPT_MEAN in OPT or OPT_AVG in OPT
+        if not do_tmp:
+            args.OPT.append(OPT_MEDIAN) 
 
+    # - - - - - - -
     args.OPT = arg_prep_OPT(args)            
     
     return  # end process_args
@@ -473,10 +481,12 @@ def arg_prep_OPT(args):
 
 def arg_prep_DEBUG_FLAG(args):
 
-    args.DEBUG_FLAG_REFAC          = False
+    args.DEBUG_FLAG_REFAC          = True
+    args.DEBUG_FLAG_LEGACY         = False
     args.DEBUG_FLAG_DUMP_TRANSLATE = False
     if args.DEBUG_FLAG != 0:
-        args.DEBUG_FLAG_REFAC          = args.DEBUG_FLAG == DEBUG_FLAG_REFAC
+        args.DEBUG_FLAG_LEGACY         = args.DEBUG_FLAG == DEBUG_FLAG_LEGACY
+        args.DEBUG_FLAG_REFAC          = not args.DEBUG_FLAG_LEGACY        
         args.DEBUG_FLAG_DUMP_TRANSLATE = args.DEBUG_FLAG == DEBUG_FLAG_DUMP_TRANSLATE
         logging.info(f"# \t DEBUG_FLAG={args.DEBUG_FLAG} " )
         logging.info(f"# \t DEBUG_FLAG_REFAC          = {args.DEBUG_FLAG_REFAC}")
@@ -492,7 +502,6 @@ def arg_prep_legend(args):
     
     if LEGEND_orig is None:
         # no user supplied legend, so make up reasonable legend
-        
         LEGEND_out = [ None ] * len(args.TFILE)
         if len(args.CUT) > 1 :
             LEGEND_out = args.CUT
@@ -777,7 +786,9 @@ def set_var_dict(args, plot_info):
         if args.DIFF not in VALID_ARG_DIFF_LIST :
             sys.exit(f"\n ERROR: @@DIFF {args.DIFF} is not a valid option; " \
                      f" valid options are {VALID_ARG_DIFF_LIST}")
-
+        if len(args.TFILE) == 1:
+            sys.exit(f"\n ERROR '@@DIFF {args.DIFF}' does not work with 1 table file;\n"\
+                     f"\t need 2 or more table files specified after @@TFILE key.")
             
     # load output namespace
     plot_info.plotdic             = plotdic
@@ -970,6 +981,7 @@ def plotter_func_driver(args, plot_info):
         yval_list   = info_plot_dict['yval_list']
         xerr_list   = info_plot_dict['xerr_list'] 
         yerr_list   = info_plot_dict['yerr_list']
+        
         plt_size    = info_plot_dict['plt_size']   # depends on nevt for 2D
         plt_legend  = info_plot_dict['plt_legend'] # can be appended with more info
         plt_text_dict = info_plot_dict['plt_text_dict']
@@ -988,9 +1000,15 @@ def plotter_func_driver(args, plot_info):
                          markersize=plt_size, alpha=plt_alpha )
         elif do_hist:            
             wgt_ov = info_plot_dict['wgt_ov']
-            plt.hist(df.x_plot_val, bins, alpha=0.25, weights = wgt_ov,
+            plt.hist(df.x_plot_val, xbins, alpha=0.25, weights = wgt_ov,
                      label = plt_legend)
 
+        else:
+            # nothing to plot; e.g, 1st file for DIFF option
+            numplot += 1
+            continue
+
+        # - - - - -
         if NDIM_PLOT == 2:
             overlay_binned_stat(args, info_plot_dict)
             
@@ -1130,15 +1148,16 @@ def get_info_plot1d(args, info_plot_dict):
 
 def get_info_plot2d(args, info_plot_dict):
 
-
-    do_nevt      = OPT_NEVT in args.OPT
+    # prepare arguments for matplotlib's plt.errobar.
     
+    do_nevt      = OPT_NEVT in args.OPT
+
+    numplot      = info_plot_dict['numplot']
     df_dict      = info_plot_dict['df_dict']
     df           = df_dict['df']
     name_legend  = df_dict['name_legend']
     plt_legend   = name_legend
 
-    
     nevt         = len(df) 
     plt_size     = 5 / math.log10(nevt)  # dot size gets smaller with nevt 
     if do_nevt: plt_legend += f'  N={nevt}'
@@ -1153,40 +1172,127 @@ def get_info_plot2d(args, info_plot_dict):
 
     info_plot_dict['do_errorbar']   = True
     info_plot_dict['do_hist']       = False
+    info_plot_dict['plt_size']      = plt_size
+    info_plot_dict['plt_legend']    = plt_legend
+    info_plot_dict['plt_text_dict'] = None
+
     info_plot_dict['xval_list']     = xval_list
     info_plot_dict['yval_list']     = yval_list
     info_plot_dict['xerr_list']     = xerr_list
     info_plot_dict['yerr_list']     = yerr_list
-    info_plot_dict['plt_size']      = plt_size
-    info_plot_dict['plt_legend']    = plt_legend
-    info_plot_dict['plt_text_dict'] = None
-    
+
+    if args.DIFF:
+            
+        if numplot == 0:
+            # nothing to plot on first file; store references
+            info_plot_dict['do_errorbar']   = False  # disable making plot
+            info_plot_dict['df_ref']        = df     # store ref table for next plot
+            info_plot_dict['name_legend_ref'] = name_legend
+            return
+
+        # strip off reference values from first plot
+        df_ref          = info_plot_dict['df_ref']
+        name_legend_ref = info_plot_dict['name_legend_ref']
+            
+        # if there is no user-supplied legend, construct legend using
+        # auto-generated legend from each plot
+        if args.LEGEND is None:
+            info_plot_dict['plt_legend']  = name_legend_ref + ' - ' + name_legend
+        
+        if args.DIFF == ARG_DIFF_CID :
+            #need to do an inner join with each entry in dic, then plot the diff
+            # (join logic thanks to Charlie Prior)
+            join   = df_ref.join(df.set_index('CID'), on='CID', how='inner',
+                                 lsuffix='_0', rsuffix='_1')
+            xval_list = join.x_plot_val_0.values
+            yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
+            info_plot_dict['xval_list']     = xval_list
+            info_plot_dict['yval_list']     = yval_list
+            if yerr_list is not None:
+                yerr_list_0 = join.y_plot_err_0.values
+                info_plot_dict['yerr_list']  = yerr_list_0
+                
+        elif args.DIFF == ARG_DIFF_ALL :
+            sys.exit(f"\n ERROR: refactored @@DIFF ALL is not ready ")
+            
+            # TO DO : ALL option: don't make standard 2D plotl
+            #   only plot median/mean difference
+        
     return  # end  get_info_plot2d
 
 def overlay_binned_stat(args, info_plot_dict):
 
-    # prepare plot overlay of median, avg or wgt-avg in each x-bin.
+    # prepare 2D plot overlay of median, avg or wgt-avg in each x-bin.
     
     xbins        = info_plot_dict['xbins']
     xbins_cen    = info_plot_dict['xbins_cen']     
     df_dict      = info_plot_dict['df_dict']
+    xval_list    = info_plot_dict['xval_list']
+    yval_list    = info_plot_dict['yval_list']
+    xerr_list    = info_plot_dict['xerr_list']
+    yerr_list    = info_plot_dict['yerr_list']    
+    plt_legend   = info_plot_dict['plt_legend'] 
     df           = df_dict['df']
 
+    y_err_stat = None
+    
+    OPT = args.OPT
+    do_median    = OPT_MEDIAN  in OPT
+    do_avg       = OPT_MEAN    in OPT or OPT_AVG in OPT
+    do_wgtavg    = yerr_list is not None
+    
+    DO_DUMP = True
     OPT        = args.OPT
     which_stat = None
-    if OPT_MEDIAN  in OPT:
+    if do_median:
         which_stat = 'median'
-    elif OPT_AVG in OPT or OPT_MEAN in OPT:
-        which_stat =  'mean'
+    elif do_avg :
+        which_stat = 'mean'
     
     if which_stat :
-        legend  = df_dict['name_legend'] + ' ' + which_stat
-        yval = binned_statistic(df.x_plot_val, df.y_plot_val,
+        stat_legend = which_stat  # default for legend
+        y_stat  = binned_statistic(xval_list, yval_list,
                                   bins=xbins, statistic=which_stat)[0]
 
+        if do_wgtavg:
+            stat_legend = 'wgtavg'
+            y_avg   = copy.deepcopy(y_stat)  # for diagnostic print
+
+            # compute error on the mean per bin: stddev/sqrt(N)
+            y_std   = binned_statistic(xval_list, yval_list,
+                                       bins=xbins, statistic='std')[0]
+            y_count = binned_statistic(xval_list, yval_list,
+                                       bins=xbins, statistic='count')[0]
+            y_err_stat = y_std/np.sqrt(y_count)  # error on mean per bin
+
+            # compute wgted avg using individual errors as weight
+            y_wgt_list  = yval_list/yerr_list**2
+            wgt_list    = 1.0/yerr_list**2
+            sum_y_wgt   = binned_statistic(xval_list, y_wgt_list,
+                                           bins=xbins, statistic='sum')[0]
+            sum_wgt     = binned_statistic(xval_list, wgt_list,
+                                           bins=xbins, statistic='sum')[0]
+            y_stat  = sum_y_wgt/sum_wgt
+
+            if DO_DUMP:
+                n_val = len(yval_list)
+                print(f"")
+                print(f" xxx n_val={n_val}")
+                print(f" xxx yval_list  = {yval_list[1:10]}")
+                print(f" xxx yerr_list  = {yerr_list[1:10]}")   
+                print(f" xxx y_wgt_list = {y_wgt_list[1:10]}")
+                print(f" xxx wgt_list   = {wgt_list[1:10]}")    
+                print(f" xxx binned y_count   = {y_count}")
+                print(f" xxx binned sum_y_wgt = {sum_y_wgt}")
+                print(f" xxx binned sumwgt    = {sum_wgt}")
+                print(f" xxx binned y_avg     = {y_avg}")
+                print(f" xxx binned y_wgtavg  = {y_stat}")
+                print(f"")            
         # TO DO: error on mean/median ??
-        plt.errorbar(xbins_cen, yval, fmt='^', label=legend ) 
-    
+        legend  = plt_legend + ' ' + stat_legend
+        plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat, fmt='^', label=legend,
+                     zorder=5 ) 
+            
     return  # end of overlay_binned_stat
 
 def plotter_func_legacy(args, plot_info):
@@ -1447,9 +1553,9 @@ def apply_plt_misc(args, plot_title, xlabel, ylabel, plt_text_dict):
     OPT          = args.OPT    
     do_logy      = OPT_LOGY    in OPT
     do_grid      = OPT_GRID    in OPT
-    
+
     if do_logy:    plt.yscale("log")
-    if do_grid:    plt.grid()
+    if do_grid:    plt.grid(zorder=3)
 
     plt.xlabel(xlabel)  
     if ylabel is not None: plt.ylabel(ylabel)
@@ -1523,10 +1629,10 @@ if __name__ == "__main__":
     
     plt.figure()  # initialize matplotlib figure
 
-    if args.DEBUG_FLAG_REFAC:
-        plotter_func_driver(args, plot_info)  # prepare plot in matplotlib
-    else:
+    if args.DEBUG_FLAG_LEGACY:
         plotter_func_legacy(args, plot_info)  # prepare plot in matplotlib
+    else:
+        plotter_func_driver(args, plot_info)  # prepare plot in matplotlib
         
     # check for user-define output (e.g. myplot.pdf, myplot.png, etc ...)
     # Note that we either save to file, or show in pop-up window ... but not both.

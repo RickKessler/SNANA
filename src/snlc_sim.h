@@ -1725,7 +1725,7 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 // define strings to contain info about simulated volume & time
 #define MXLINE_RATE_INFO 100
 int  NLINE_RATE_INFO;
-char LINE_RATE_INFO[MXLINE_RATE_INFO][80];
+char LINE_RATE_INFO[MXLINE_RATE_INFO][120];
 
 
 // define up to four allowed names for each model (e.g., 'mlcs2k2', 'mlcs')

@@ -1167,7 +1167,6 @@ struct INPUTS {
   
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
-  // xxx int restore_bug_sim_beta;  // May 25 2023 (harmless bug -> no impact)
   int restore_bug_WGTabg ; 
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
 
@@ -5427,7 +5426,6 @@ void set_defaults(void) {
   INPUTS.restore_bug_WGTabg     = 0 ;
   INPUTS.restore_bug_mumodel_zhel = 0; // leave bug until more testing is done
 
-  // xxx  INPUTS.restore_bug_sim_beta     = 0 ; // harmless bug; no effect
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
   INPUTS.cidlist_debug_biascor[0] = 0 ;
@@ -9949,6 +9947,11 @@ void set_DUST_FLAG_biasCor(void) {
 
   // ------------ BEGIN -----------
 
+  // Aug 14 2024: restore "restore_bug" option to use SIM_BETA ~ 2
+  //              instead of approx fitted beta
+  if (  (INPUTS.restore_bug_mucovadd &1)>0 ) { return; }
+
+  
   if ( !INPUTS.ISMODEL_LCFIT_SALT2 ) { return; }
 
   for ( isn=0; isn < NSN_CHECK; isn++ ) {
@@ -22667,6 +22670,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_muzerr=1        # ignore vpec err in biasCor",
     "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
     "restore_bug_mucovadd=1      # use wrong beta for sim biasCor",
+    "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",   
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_WGTabg=1        # restore WGTabg bug in get_muBias",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",

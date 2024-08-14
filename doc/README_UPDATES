@@ -22556,9 +22556,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        of pathology. This results is very tiny changes in regression test results.
        
    SALT2mu.c:
-      write CONTAM_TRUE to yaml file under BBCFIT_RESULTS block, even
-      though CONTAM_TRUE is not a fit result.
-
+     + write CONTAM_TRUE to yaml file under BBCFIT_RESULTS block, even
+       though CONTAM_TRUE is not a fit result.
+     + restore "restore_bug_mucovadd=1" to use SIM_BETA in data file
+       instead of overwriting SIM_BETA = p2.
+       
    submit_prog_cosmofit.py
       for WFIT_SUMMARY[_AVG].FITRES files, write comments at top of file
       with definition for each VARNAME column.

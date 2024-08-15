@@ -3233,8 +3233,8 @@ The 3rd map depends on the $i$-band magnitude and redshift,
 and applies only for the field named 'DEEPFIELD':
 the 'FIELD:' option allows for field-dependent maps.
 There essentially is no limit to the complexity: 
-for example, one could define ``{\tt NVAR: 7}'' 
-and ``{\tt VARNAMES: g  r  i  g-r  r-i  REDSHIFT SPECEFF}''
+for example, one could define 
+``{\tt VARNAMES: g  r  i  g-r  r-i  REDSHIFT SPECEFF}''
 assuming that such a function could be determined.
 A list of valid {\tt VARNAMES} is shown in 
 Fig.~\ref{fig:speceff_varnames}.
@@ -3283,8 +3283,8 @@ Fig.~\ref{fig:speceff_varnames}.
   * PEAKMAG_[band]   # idem for any [band]
   * g-r              # peak color
   * g-i              # another peak color
-  * REDSHIFT
-  * PEAKMJD      
+  * REDSHIFT         # redshift
+  * PEAKMJD          # MJD at time of peak brightness
   * DTPEAK           # closest T-Tpeak; can be pos or negative
   * DTSEASON_PEAK    # positive if PEAK is in-season; else negative
   * HOSTMAG_[band]   # mag of host galaxy

@@ -3187,7 +3187,8 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   //   Allow multiple prefix names separated by space; e.g., 
   //    PREFIX = "HOSTMAG HOST_MAG"
   //
-
+  // Aug 15 2024: splitString2 crashes, so use splitString(...).
+  
 #define MXPREFIX 4
   int  NPREFIX=0;
   int  i, LENV, IFILTOBS = -9;
@@ -3201,9 +3202,14 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   for(i=0; i < MXPREFIX; i++ ) { ptrList[i] = PREFIX_LIST[i]; }
 
   // check how many space-separated PREFIX names to check
+  splitString(PREFIX, sepKey, fnam, MXPREFIX,
+              &NPREFIX, ptrList ); // <== returned
+
+  /* xxx mark delete Aug 15 2024 xxxxx
   splitString2(PREFIX, sepKey, MXPREFIX,
 	       &NPREFIX, ptrList ); // <== returned
-
+  xxxxxxxxxx end mark xxxxx */
+  
   for ( i=0; i < NPREFIX; i++ ) {
     ptr_PREFIX = PREFIX_LIST[i];
     if ( strstr(VARNAME,ptr_PREFIX) != NULL ) {

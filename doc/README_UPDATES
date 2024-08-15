@@ -22576,6 +22576,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       a loop over strings. Should be easier to add new elements, such
       as NAME_TRANSIENT NAME_IAUC that were recently added.
 
+   sntools_trigger.c:
+     + in function IFILTOBS_SPECEFF_VAR(), splitString2(...) crashes
+       so use splitString(...) instead. 
+       
    submit_prog_bbc.py:
       fix subtle bug to wait for last PREP-INPUT task when there are
       more than 10.

@@ -207,6 +207,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"VPEC:             %8.2f +- %.2f      # v_pec correction\n", 
 	  SNDATA.VPEC, SNDATA.VPEC_ERR );
+
+  fprintf(fp,"LENSDMU:          %8.3f +- %.3f      # DMU from lensing\n", 
+	  SNDATA.LENSDMU, SNDATA.LENSDMU_ERR );  
   
   // HOST galaxy info
   fprintf(fp, "\n");
@@ -221,14 +224,6 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   int j ;
   for(j=0; j < SNDATA.NLINES_AUXHEADER; j++ ) 
     {  fprintf(fp,"%s \n", SNDATA.AUXHEADER_LINES[j]); }
-
-
-  // - - - - - - - - -  -
-  /* xxxx mark delete July 16 2024 xxxxxxxxxx
-  if ( SNDATA.WRFLAG_BLINDTEST       ) { return; } // skip for BLIND test
-  if ( SNDATA.FAKE == FAKEFLAG_DATA  ) { return; } // skip for real data
-  if ( SNDATA.FAKE == FAKEFLAG_FAKES ) { return; } // skip for fakes
-  xxxxxxxxx end mark xxxxxxxxxxxx */
 
   
   // write SIM_ info for SNANA sim
@@ -2336,6 +2331,14 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     SNDATA.VPEC_ERR = FVAL ;
   }
 
+  else if ( strcmp(word0,"LENSDMU:") == 0 ) {
+    SNDATA.LENSDMU = FVAL ;
+    if(PLUS_MINUS) { SNDATA.LENSDMU_ERR = FVAL_ERR; }
+  }
+  else if ( strcmp(word0,"LENSDMU_ERR:") == 0 ) {
+    SNDATA.LENSDMU_ERR = FVAL ;
+  }
+  
   else if ( strncmp(word0,"HOSTGAL",7) == 0 ) {
     
     if ( strcmp(word0,"HOSTGAL_NMATCH:") == 0 ) {

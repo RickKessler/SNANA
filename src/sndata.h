@@ -353,6 +353,7 @@ struct SNDATA {
   float REDSHIFT_FINAL;         // idem, CMB frame
   float REDSHIFT_FINAL_ERR;     // error on above
   float VPEC, VPEC_ERR;         // Jan 2018
+  float LENSDMU, LENSDMU_ERR;   // Aug 2024
   int   REDSHIFT_QUALITYFLAG;   // quality flag: survey dependent meaning
   int   MASK_REDSHIFT_SOURCE;   // Mar 2024: determines source(s) of redshift
 

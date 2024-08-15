@@ -369,6 +369,11 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"VPEC_ERR") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.VPEC_ERR ); } 
 
+  else if ( strcmp(key,"LENSDMU") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.LENSDMU ); } 
+  else if ( strcmp(key,"LENSDMU_ERR") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.LENSDMU_ERR ); } 
+  
   else if ( strstr(key,"MWXT_MAG") != NULL ) {
     for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];

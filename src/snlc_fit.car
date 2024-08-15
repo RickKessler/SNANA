@@ -7652,8 +7652,9 @@ C ========================================
 c local var
       CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       INTEGER i, LL, ilast, iuse
-
-      LOGICAL MATCH_NMLKEY
+      LOGICAL FOUND_MATCH
+c functions
+      LOGICAL MATCH_NMLKEY, FOUND_MATCH_NMLKEY
 
 C -------------- BEGIN --------------
 
@@ -8206,7 +8207,10 @@ c - - -
 
 c set logical flag for used LINE_ARGS
  
-         IF ( i .GT. ilast ) THEN
+         FOUND_MATCH = FOUND_MATCH_NMLKEY(i,ilast,ARG,ARGLIST(1))
+
+c xxx mark delete Aug 14 2024   IF ( i .GT. ilast ) THEN
+         IF ( FOUND_MATCH ) THEN
            DO iuse = ilast, i
               USE_LINE_ARGS(iuse) = .TRUE.
            ENDDO

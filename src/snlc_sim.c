@@ -12150,6 +12150,8 @@ void gen_event_driver(int ilc) {
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
 
+    // xxx ??? gen_lensDMU_smear(INPUTS.GENSIGMA_REDSHIFT);
+    
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENMAG_OFF_GLOBAL");
@@ -23815,6 +23817,10 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.REDSHIFT_HELIO_ERR  = GENLC.REDSHIFT_SMEAR_ERR ;
   SNDATA.VPEC                = GENLC.VPEC_SMEAR;
   SNDATA.VPEC_ERR            = INPUTS.VPEC_ERR;
+
+  SNDATA.LENSDMU        = 0.0 ; // placeholder to fill in later
+  SNDATA.LENSDMU_ERR    = 0.0 ;  
+  
   zsource_to_SNDATA(FLAG) ;
 
   SNDATA.SIM_SEARCHEFF_MASK  = GENLC.SEARCHEFF_MASK ;

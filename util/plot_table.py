@@ -1021,9 +1021,11 @@ def plotter_func_driver(args, plot_info):
         
         if do_plot_errorbar :
             # nominal
-            plt.errorbar(xval_list, yval_list, xerr=xerr_list, yerr=yerr_list, 
-                         fmt=plt_marker, label=plt_legend,
-                         markersize=plt_size, alpha=plt_alpha )
+            if plt_alpha > 0:
+                plt.errorbar(xval_list, yval_list,
+                             xerr=xerr_list, yerr=yerr_list, 
+                             fmt=plt_marker, label=plt_legend,
+                             markersize=plt_size, alpha=plt_alpha )
             
             if NDIM_PLOT==2 and do_ov2d_binned_stat :
                 overlay2d_binned_stat(args, info_plot_dict)
@@ -1243,10 +1245,25 @@ def get_info_plot2d(args, info_plot_dict):
                 info_plot_dict['yerr_list']  = yerr_list_0
                 
         elif args.DIFF == ARG_DIFF_ALL :
-            sys.exit(f"\n ERROR: refactored @@DIFF ALL is not ready ")
-            
-            # TO DO : ALL option: don't make standard 2D plotl
-            #   only plot median/mean difference
+
+            if OPT_MEDIAN in args.OPT:
+                which_stat = 'median'
+            elif OPT_MEAN in args.OPT:
+                which_stat = 'mean'                
+
+            xbins  = info_plot_dict['xbins']
+            y_ref  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                      bins=xbins, statistic=which_stat)[0]
+            y      = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                      bins=xbins, statistic=which_stat)[0]            
+
+            # convert NaN (empty bins) to zero to avoid crash when plotting
+            y_ref[np.isnan(y_ref)] = 0
+            y[np.isnan(y)] = 0                        
+            #sys.exit(f"\n xxx y_ref = \n{y_ref} \n xxx y = \n{y}")
+            info_plot_dict['xval_list'] = info_plot_dict['xbins_cen']
+            info_plot_dict['yval_list'] = y_ref - y
+            info_plot_dict['yerr_list'] = None            
         
     return  # end  get_info_plot2d
 
@@ -1263,7 +1280,8 @@ def overlay2d_binned_stat(args, info_plot_dict):
     yerr_list    = info_plot_dict['yerr_list']    
     plt_legend   = info_plot_dict['plt_legend'] 
     df           = df_dict['df']
-
+    plt_marker   = df_dict['marker']
+    
     y_err_stat = None
     
     OPT = args.OPT
@@ -1319,10 +1337,10 @@ def overlay2d_binned_stat(args, info_plot_dict):
                 print(f" xxx binned y_avg     = {y_avg}")
                 print(f" xxx binned y_wgtavg  = {y_stat}")
                 print(f"")            
-        # TO DO: error on mean/median ??
-        legend  = plt_legend + ' ' + stat_legend
-        plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat, fmt='^', label=legend,
-                     zorder=5 ) 
+
+        plt_legend  += ' ' + stat_legend
+        plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat,
+                     fmt=plt_marker, label=plt_legend, zorder=5 ) 
             
     return  # end of overlay2d_binned_stat
 

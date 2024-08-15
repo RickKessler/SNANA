@@ -22528,6 +22528,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
          *****  USEFUL(v11_05o) *****
 
+    sntools_dataformat_* , snlc_sim.c, sndata.h:
+    Define new data variables LENSDMU[_ERR] to model LENSDMU correction.
+    Both are set to zero until we find a decent error model.
      
          *****  MISCELLANEOUS(v11_05o) *****
 
@@ -22554,7 +22557,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + new photo-z OPT_PHOTOZ += 32 -> compute INISTP = STD(zPDF)/3.
      + remove 2018 code snippet for photoz that shifted INISTP to avoid some kind
        of pathology. This results is very tiny changes in regression test results.
-       
+     + Fix to allow command line args using equal sign; e.g. FITMODEL_NAME=SALT2.K21
+         https://github.com/RickKessler/SNANA/issues/1400
+     
    SALT2mu.c:
      + write CONTAM_TRUE to yaml file under BBCFIT_RESULTS block, even
        though CONTAM_TRUE is not a fit result.

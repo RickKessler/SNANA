@@ -7595,6 +7595,12 @@ c   + fix bug setting USE_LINE_ARGS(iuse) to trap bad args.
 c     last few months we were vulnerable to bad args that were
 c     ignored instead of causing abort.
 c
+c Aug 14 2024
+c   call new function FOUND_MATCH_NMLKEY that has logic to figure out
+c   valid key with space sep or '=' delimeter. The old refactor code
+c   had never been properly integrated until now. Advantage is that
+c   FITNML_OVERRIDE can use the same function.
+c
 c ----------
 
       IMPLICIT  NONE
@@ -7607,10 +7613,11 @@ c local var
       CHARACTER STRING_LIST*60
       CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       LOGICAL LSNIGNORE, DO_STOP, FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
-      LOGICAL HAS_EQUAL, VALID_ARGLIST, LDMP
+      LOGICAL FOUND_MATCH, LDMP
+c xxx mark      LOGICAL HAS_EQUAL, VALID_ARGLIST, LDMP
 
 c functions
-      LOGICAL MATCH_NMLKEY
+      LOGICAL MATCH_NMLKEY, FOUND_MATCH_NMLKEY
       INTEGER PARSE_INTLIST
 
 c ------------- BEGIN -------------
@@ -7622,7 +7629,6 @@ c ------------- BEGIN -------------
 
         CALL GETARG(iArg, ARG)
         LL = INDEX (ARG, ' ' ) - 1
-        HAS_EQUAL = ( INDEX(ARG,'=') > 0 )
 
         print*,'     PROCESS COMMAND LINE ARG: ', ARG(1:LL)
 
@@ -8508,6 +8514,8 @@ c - - - -
 c - - - 
         endif
 
+
++SELF,IF=REMOVE.
 c ?????????????
 c PROBLEM: for XYZ=5,999 iArg does not increment, and thus USE_LINE_ARGS
 c          is NOT filled.
@@ -8521,6 +8529,7 @@ c   _REFAC  is for "KEY=VAL" (single string)
         if ( ARGLIST(1) .EQ. ''     ) VALID_ARGLIST = .FALSE.
         if ( ARGLIST(1) .EQ. 'NULL' ) VALID_ARGLIST = .FALSE.
 
+        HAS_EQUAL = ( INDEX(ARG,'=') > 0 )
         FOUND_MATCH_LEGACY = 
      &    ( iArg .GT. ilast )
         FOUND_MATCH_REFAC  = 
@@ -8533,10 +8542,12 @@ c   _REFAC  is for "KEY=VAL" (single string)
            print*,' xxx  ilast, iArg = ', ilast, iArg
            print*,' xxx  ARGLIST(1)  = ', ARGLIST(1)(1:40)
         endif
++SELF.
 
-         IF ( FOUND_MATCH_LEGACY .or. FOUND_MATCH_REFAC) THEN
+c xxx mark delete Aug 14 2024  IF(FOUND_MATCH_LEGACY.or.FOUND_MATCH_REFAC) THEN
+         FOUND_MATCH = FOUND_MATCH_NMLKEY(iArg,ilast,ARG,ARGLIST(1))
+         IF ( FOUND_MATCH ) THEN
            DO iuse = ilast, iArg
-c              print*,' xxx  load USE_ARG for ', iuse
               USE_LINE_ARGS(iuse) = .TRUE.
            ENDDO
          ENDIF
@@ -8607,7 +8618,7 @@ C ------------- BEGIN ------------
          ARGLIST(i) = 'NULL'
       ENDDO
       LDMP = .false.
-c      LDMP =  ( KEYNAME(1:8) .EQ. 'FITMODEL'  ) 
+      LDMP =  ( KEYNAME(1:8) .EQ. 'FITMODEL'  ) ! xxx REMOVE
 
       LENKEY = INDEX(KEYNAME//' ', ' ') - 1
 
@@ -8672,7 +8683,58 @@ c break comma-sep ARGSTRING into sub strings
       RETURN
       END    ! end MATCH_NMLKEY
 
+C ===================================
++DECK,FOUND_MATCH.
+      LOGICAL FUNCTION FOUND_MATCH_NMLKEY(iArg,ilast,KEY,FIRSTARG)
 
+c Created Aug 2024
+c Handle logic to identify valid key+arg using space-separated
+c delimeter (e.g., CUTWIN_TREST -20 80) or equal sign with
+c no spaces (e.g., CUTWIN_TREST=-20,80).
+c In the latter case, passed args should be
+c
+c   KEY=CUTWIN_TREST=-20,80 and FIRSTARG=-20
+c
+c Move code output SNLCINP_OVERRIDE so that it can be
+c used for other NML overrides.
+
+      IMPLICIT NONE
+
+c arguments
+      INTEGER iArg, ilast
+      CHARACTER KEY*(*), FIRSTARG*(*)
+
+c local args
+      LOGICAL FOUND_MATCH_SPSEP, FOUND_MATCH_EQ
+      LOGICAL LDMP, VALID_FIRSTARG, HAS_EQUAL
+      
+C ----------- BEGIN -----------
+      FOUND_MATCH_NMLKEY = .FALSE.
+      LDMP = .FALSE.
+
+      VALID_FIRSTARG = .TRUE.
+      if ( FIRSTARG .EQ. ''     ) VALID_FIRSTARG = .FALSE.
+      if ( FIRSTARG .EQ. 'NULL' ) VALID_FIRSTARG = .FALSE.
+
+      HAS_EQUAL = ( INDEX(KEY,'=') > 0 ) 
+      FOUND_MATCH_SPSEP = 
+     &    ( iArg .GT. ilast )   ! space seperated args
+      FOUND_MATCH_EQ  =         ! key=arg
+     &    ( iArg .EQ. ilast .and. HAS_EQUAL .and. VALID_FIRSTARG )
+
+      FOUND_MATCH_NMLKEY = FOUND_MATCH_SPSEP .or. FOUND_MATCH_EQ
+      
+      if ( LDMP ) then
+          print*,' xxx - - - - - - - - '
+          print*,' xxx  ilast, iArg = ', ilast, iArg
+          print*,' xxx  FIRSTARG    = ', FIRSTARG(1:40)	  
+	  print*,' xxx  HAS_EQUAL = ', HAS_EQUAL
+          print*,' xxx  FOUND_MATCH[SPSEP,EQ] = ', 
+     &          FOUND_MATCH_SPSEP, FOUND_MATCH_EQ	  
+      endif
+
+      RETURN
+      END
 C ========================================
 +DECK,MCMCINP_OVERRIDE.
       SUBROUTINE MCMCINP_OVERRIDE(IERR)

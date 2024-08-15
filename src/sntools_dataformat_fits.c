@@ -337,9 +337,11 @@ void wr_snfitsio_init_head(void) {
 
   wr_snfitsio_addCol( "1I", "MASK_REDSHIFT_SOURCE",  itype );
 
-
   wr_snfitsio_addCol( "1E", "VPEC" ,      itype );  // peculiar velocity cor
   wr_snfitsio_addCol( "1E", "VPEC_ERR" ,  itype );  // error on correction
+
+  wr_snfitsio_addCol( "1E", "LENSDMU" ,     itype );  // lens core on MU
+  wr_snfitsio_addCol( "1E", "LENSDMU_ERR",  itype );  // error on above
 
   // ---------- HOST ----------
   
@@ -1608,6 +1610,15 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.VPEC_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "VPEC_ERR", itype );
+
+  // LENSDMU and error (Aug 2024)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.LENSDMU ;
+  wr_snfitsio_fillTable ( ptrColnum, "LENSDMU", itype );
+
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.LENSDMU_ERR ;
+  wr_snfitsio_fillTable ( ptrColnum, "LENSDMU_ERR", itype );
 
   // ---------- HOST --------------
   int NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;
@@ -3239,6 +3250,12 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "VPEC_ERR", &SNDATA.VPEC_ERR,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "LENSDMU", &SNDATA.LENSDMU,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "LENSDMU_ERR", &SNDATA.LENSDMU_ERR,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    
     // -------- HOST ---------
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_NMATCH", 

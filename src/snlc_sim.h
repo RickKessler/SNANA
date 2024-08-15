@@ -1066,6 +1066,7 @@ struct GENLC {
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
   double LENSDMU;            // weak lensing DMU (Apr 2017)
+  double LENSDMU_SMEAR ;     // measured LENSDMU (Aug 2024)  
   double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;

@@ -49,6 +49,7 @@
       overlaps.
 
  Aug 09 2024: add logic to read and apply optional REQUIRE key in SPECEFF map.
+ Aug 19 2024: replace c_get[60] with c_get[100] in a few places
 
 ************************************/
 
@@ -264,7 +265,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   FILE *fp;
   int   REQUIRE_EFF_FILE=0, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
-  char  file_local[MXPATHLEN], c_get[60], *ptrFile_user, *ptrFile_final ;   
+  char  file_local[MXPATHLEN], c_get[100], *ptrFile_user, *ptrFile_final ;   
   char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;
     
 
@@ -834,8 +835,8 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   char 
      cline[MXPATHLEN]
-    ,logic[60]
-    ,c_get[60]
+    ,logic[100]
+    ,c_get[100]
     ,surveykey[60]
     ,logicFile_Default[] = "SEARCHEFF_PIPELINE_LOGIC.DAT"
     ,logicFile[MXPATHLEN]
@@ -1030,7 +1031,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   char 
      effspec_file_local[MXPATHLEN]
     ,*ptrFile_user, *ptrFile_final, *cptr
-    ,c_get[60], LINE[100]
+    ,c_get[100], LINE[100]
     ,fnam[] = "init_SEARCHEFF_SPEC" 
     ;
 
@@ -1365,14 +1366,16 @@ void read_zHOST_FILE(FILE *fp) {
   // 
   // Dec 3 2019: fix bug by setting KEY_STOP = ""
   // Jul 13 2020: read optional PEAKMJD
-
+  // Aug 19 2024: redefine *ptr_VARNAMES[MX] -> **ptr_VARNAMES to avoid
+  //              strange crash using -O2 optimization
+  //
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
   int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN ;
   int  FOUND_VARNAMES;
-  char c_get[60], FIELDLIST[100] ;
-  char *ptr_VARNAMES[MXVAR_SEARCHEFF_zHOST], *VARLIST;
-  char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
+  char c_get[100], FIELDLIST[100] ;
+  char **ptr_VARNAMES, *VARLIST;
+  // xxx mark  char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
   double PEAKMJD_RANGE[2];
   char KEY_ROW[]   = "HOSTEFF:" ;
@@ -1384,9 +1387,17 @@ void read_zHOST_FILE(FILE *fp) {
   for(imap=0; imap < MXMAP_SEARCHEFF_zHOST; imap++ ) {
     sprintf(SEARCHEFF_zHOST[imap].FIELDLIST,"NONE" );
   }
+
+  ptr_VARNAMES = (char**) malloc( MXVAR_SEARCHEFF_zHOST*sizeof(char*) );
   for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ ) {
-    ptr_VARNAMES[ivar] = VARNAME_HOSTLIB_TMP[ivar]; 
+    ptr_VARNAMES[ivar] = (char*) malloc( 40*sizeof(char) );
   }
+
+  /* xxx mark delete Aug 19 2024 xxxx
+  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ )
+  {    ptr_VARNAMES[ivar] = VARNAME_HOSTLIB_TMP[ivar];   }
+  xxxxxxx end mark xxxx */
+  
   NMAP = NVAR = 0;    
   sprintf(FIELDLIST,"%s", ALL);
   PEAKMJD_RANGE[0] = 10000.0;
@@ -1544,7 +1555,7 @@ void read_zHOST_FILE_LEGACY(FILE *fp) {
   // This legacy code is separated from init_SEARCHEFF_zHOST.
   // Here the efficiency depends only on redshift.
 
-  char c_get[60], FIELDLIST[100], *ptrField ;
+  char c_get[100], FIELDLIST[100], *ptrField ;
   int  NROW = 0, NMAP=0, imap ;
   int  MEMD = MXROW_SEARCHEFF_zHOST * sizeof(double);
   double VAL[2];

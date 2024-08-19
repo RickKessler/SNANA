@@ -4339,7 +4339,7 @@ int snmag(void) {
      mag15 = SNSED.MAG_RST[iepoch_15day][ifilt] ;
      dm15  = mag15 - mag;
 
-     printf("SNMAG:   %-20.20s (%6s) %8.4f  %8.3f"
+     printf("SNMAG:   %-20.20s (%6s) %8.4f  %8.4f"
 	    ,FILTER[ifilt].name
 	    ,FILTER[ifilt].MAGSYSTEM_NAME
 	    ,mag, dm15
@@ -4524,9 +4524,9 @@ void primarymag_summary(int iprim) {
   // print results to screen
   
   printf("                                            syn                    \n");
-  printf("                                flux        %s     system  final  \n",
+  printf("                                flux        %s       system   final  \n",
 	 NAME );
-  printf("         filter      (system) (Nph/s/cm^2)  mag      ZPoff    ZP    \n" );
+  printf("         filter      (system) (Nph/s/cm^2)  mag       ZPoff     ZP    \n" );
   printf("  ------------------------------------------------------------------ \n");
   
   for ( ifilt=1;  ifilt <= NFILTDEF ; ifilt++ ) {
@@ -4536,7 +4536,7 @@ void primarymag_summary(int iprim) {
     USE_FILT = (iprim==INDX);
     if ( !USE_FILT ) { continue; }
     
-    printf("%20s (%6s)   %9.3le %8.4f %7.3f %7.3f  \n"
+    printf("%20s (%6s)   %9.3le %8.4f %8.4f %8.4f  \n"  // .xyz
 	   ,FILTER[ifilt].name
 	   ,FILTER[ifilt].MAGSYSTEM_NAME
 	   ,PRIMARYSED[iprim].FLUXSUM[ifilt]

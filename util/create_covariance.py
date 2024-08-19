@@ -265,11 +265,11 @@ def get_args():
     msg = "Use each SN instead of BBC binning"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
-    msg = "number of x1 bins (default=0)"
+    msg = "number of x1 bins for rebinning (default=0 -> no rebin)"
     parser.add_argument("--nbin_x1", help=msg, 
                         nargs='?', type=int, default=0 )
 
-    msg = "number of c bins (default=0)"
+    msg = "number of c bins for rebinning (default=0 -> no rebin)"
     parser.add_argument("--nbin_c", help=msg, 
                         nargs='?', type=int, default=0 )
 

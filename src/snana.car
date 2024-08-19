@@ -1897,7 +1897,8 @@ c
      &  ,SIMLIB_OUT_TMINFIX   ! I: choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
      &  ,REQUIRE_DOCANA 
      &  ,OPT_SNCID_LIST      ! I: 1=force all and ignore cuts; 2=use PKMJDINI
-
+     &  ,OPT_VPEC_COR        ! I: 1=apply vpec cor (default)
+     
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! I: T => require simulated SPEC-tag
      &  ,LSIM_SEARCH_ZHOST  ! I: T => require simulated zHOST
@@ -1933,9 +1934,7 @@ c
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
      &  ,RESTORE_MWEBV_ERR_BUG ! I: bug used MWEBV/6 if MWEBV_ERR < 0.001
-     &  ,USE_KCOR_REFACTOR     ! I: use refactored KCOR C-code
-     &  ,USE_KCOR_LEGACY
-
+     
 c LC plot info
 
       INTEGER  
@@ -2001,8 +2000,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
-     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
-     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE, NONLINEARITY_FILE
+     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -2022,7 +2021,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
-     &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
+     &    , RESTORE_MWEBV_ERR_BUG
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2063,8 +2062,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_FILE
-     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
-     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE, NONLINEARITY_FILE
+     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
@@ -2076,7 +2075,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
-     &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
+     &    , RESTORE_MWEBV_ERR_BUG
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -4823,6 +4822,7 @@ c Read/store redshift & vpec info
 c Note tat REDSHIFT_FINAL is used for LC fitting.
 c
 c Jun 5 2021: no longer apply REDSHIFT_FINAL_SHIFT here; see SET_zSHIFT().
+c Aug 19 2024: check OPT_VPEC_COR option to disable VPEC
 c
       IMPLICIT NONE
 
@@ -4888,7 +4888,7 @@ c VPEC
 
       CALL FETCH_SNDATA_WRAPPER("VPEC_ERR", ONE, STRING, DARRAY, OPT)
       SNLC_VPEC_ERR = SNGL(DARRAY(1))
-
+	 
 c Oct 26 2020: check option to fix VPEC sign convention in older FITS data
       if ( DOFIX_WRONG_SIGN_VPEC ) then
          SNLC_VPEC = -1.0 * SNLC_VPEC
@@ -4897,6 +4897,11 @@ c Oct 26 2020: check option to fix VPEC sign convention in older FITS data
       IF (  abs(VPEC_ERR_OVERRIDE) > .001 ) THEN
          SNLC_VPEC_ERR = VPEC_ERR_OVERRIDE  ! Jan 11 2018
       ENDIF
+
+      if ( OPT_VPEC_COR == 0 ) then  ! Aug 19 2024
+          SNLC_VPEC     = 0.0
+	  SNLC_VPEC_ERR = 0.0
+      endif
 
 c redshift quality flag (real data only)
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_QUALITYFLAG", 
@@ -6150,7 +6155,8 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
 
       SNCID_LIST_FILE   = ' '
       OPT_SNCID_LIST    = 0  ! default 0 => AND with other cuts
-
+      OPT_VPEC_COR      = 1  ! default is to correct zHD with vpec
+      
       MXEVT_PROCESS      = 999888777
       MXEVT_CUTS         = 999888777
       SIMLIB_OUT     = ''
@@ -6277,8 +6283,6 @@ c default is to reject nothing (accept everything)
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-      USE_KCOR_REFACTOR = .TRUE.   ! permanently set, Dec 2 2022
-
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
       USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
@@ -6381,8 +6385,6 @@ c read the nml
 
 c check for namelist over-rides from command line.    
       CALL SNLCINP_OVERRIDE()  ! refact with MATCH_NMLKEY (Enable 8.19.2020)
-
-      USE_KCOR_LEGACY = .NOT. USE_KCOR_REFACTOR
 
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>
@@ -7929,10 +7931,6 @@ c - - - - -
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
-
-         else if ( MATCH_NMLKEY('USE_KCOR_REFACTOR',
-     &             1, iArg, ARGLIST) ) then 
-           READ(ARGLIST(1),*) USE_KCOR_REFACTOR
 
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
@@ -26375,10 +26373,8 @@ c                             but should have been aborted above
 270      CONTINUE  ! ILAM loop over original lambda binning
       ENDIF
 
-      if ( USE_KCOR_REFACTOR ) then
-         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
+      CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
      &         FLAM_STORE, FTRANSSN_STORE )
-      endif
 
 c -----------------------------
       if ( UPD_DUMP ) then 
@@ -26480,18 +26476,9 @@ C ---------------- BEGIN --------------
       LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
       CCID      = SNLC_CCID(1:LCC)
 
-      IF ( USE_KCOR_LEGACY ) THEN
-        NLAM_STORE = NLAMBIN_FILTOBS(ifilt_obs)
-        DO ilam = 1, NLAM_STORE
-           FLAM_STORE(ilam) = 
-     &           DBLE( FILTOBS_LAMBDA(ilam,IFILT_OBS) )
-        ENDDO
-      ELSE
-        ! refac C code
-        OPT_FRAME = OPT_FILTOBS - 1
-        CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
+      OPT_FRAME = OPT_FILTOBS - 1
+      CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
      &                      NLAM_STORE, FLAM_STORE)
-      ENDIF
 
 c - - - - - 
       if (UPD_DUMP) then
@@ -26694,10 +26681,8 @@ c                             but should have been aborted above
 270      CONTINUE  ! ILAM loop over original lambda binning
       ENDIF
 
-      if ( USE_KCOR_REFACTOR ) then
-         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
+       CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
      &         FLAM_STORE, FTRANSSN_STORE )
-      endif
 
 c -----------------------------
       if ( UPD_DUMP ) then 

@@ -3452,15 +3452,14 @@ c check for cheater flag.
            DOFIT_PHOTOZ_CHEAT = .FALSE.
         ENDIF
 
-        IF ( USE_KCOR_REFACTOR ) THEN
-          PHOTOZ_RANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
-          PHOTOZ_RANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
+        PHOTOZ_RANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
+        PHOTOZ_RANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
           if ( LREST_FITMODEL ) then
              CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
              PHOTOZ_RANGE_KCOR(1) = ZMIN_KCOR
              PHOTOZ_RANGE_KCOR(2) = ZMAX_KCOR + 4.0*ZBIN_KCOR
           endif
-        ENDIF
+
       ENDIF  ! end IFLAG==0
 
 c - - - - - - - - 

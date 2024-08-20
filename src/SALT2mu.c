@@ -18898,7 +18898,7 @@ void prep_input_driver(void) {
   FITINP.DCHI2RED_DSIGINT   = INPUTS.dchi2red_dsigint; // Mar 25 2022
   INPUTS.covint_param_step1 = INPUTS.sigint_step1 ; // default COVINT param
 
-  if ( DO_COVADD && INPUTS.sigmB > 0.05 ) {
+  if ( DO_COVADD && INPUTS.sigmB > 0.05 && !INPUTS.restore_bug_mucovadd ) {
     sprintf(c1err,"initial sigmB (or sig1) = %.3f is too large for MUCOVADD",
 	    INPUTS.sigmB);
     sprintf(c2err,"Expect final sigmB near zero --> reduce sigmB (or sig1)");

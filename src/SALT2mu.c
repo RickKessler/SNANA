@@ -340,7 +340,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 int     NCALL_SALT2mu_DRIVER_EXEC;
 #define MXVAR_OVERRIDE 10
 
-#define MXCHAR_DATAFILE_STRING  4*MXPATHLEN // max len of input dataFile_string
+#define MXCHAR_DATAFILE_STRING  8*MXPATHLEN // max len of input dataFile_string
 
 // Maximum number of bins
 // Note that 5D biasCor array would take 30*20*20*5*5 = 300,000

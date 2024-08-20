@@ -207,7 +207,12 @@ and two types of command-line input delimeters
       INPUTS FOR PLOT STYLE
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-@UNITS
+@@XLABEL 
+   Override default x-axis label = variable name
+@@YLABEL  
+   Override default y-axis label = variable name
+
+@@UNITS @U
   Default x- and y-axis labels show variable name only.
   To display units in (),
      @@UNITS days       # units for 1D plot or x-axis of 2D plot
@@ -222,6 +227,9 @@ and two types of command-line input delimeters
   can specify multiple alpha values, e.g.,
      @@ALPHA 0.9 0.1
   so that primary plot is dark and overlay plot is nearly transparent.
+
+  For 2D plot with @@OPT MEDIAN or MEAN, setting ALPHA=0 will suppress 
+  individual points and show only MEDIAN/MEAN.  
 
 @@MARKER
   Override default solid circle markers with
@@ -320,6 +328,11 @@ def get_args():
 
     msg = "Units to show for each axis; see @@HELP"
     parser.add_argument('@U', '@@UNITS', '@@units', default=None, help=msg, nargs="+")
+
+    msg = "x-axis label (override default)"
+    parser.add_argument('@@XLABEL', '@@xlabel', default=None, help=msg, type=str)
+    msg = "y-axis label (override default)"
+    parser.add_argument('@@YLABEL', '@@ylabel', default=None, help=msg, type=str)        
     
     msg = "Override default plot title"
     parser.add_argument("@@TITLE", "@@title", default=None, help=msg )
@@ -768,7 +781,9 @@ def set_var_dict(args, plot_info):
         if n == 0:
             xlabel = STR_LABEL
             ylabel = 'Counts'
-            if args.WEIGHT[0]: ylabel = f'Counts * {args.WEIGHT}'            
+            if args.WEIGHT[0]: ylabel = f'Counts * {args.WEIGHT}'
+            if args.XLABEL : xlabel = args.XLABEL
+            if args.YLABEL : ylabel = args.YLABEL               
             plotdic['x']            = STR_VAR
             plotdic['xerr']         = STR_VARERR
             plotdic['xaxis_label']  = xlabel
@@ -776,9 +791,11 @@ def set_var_dict(args, plot_info):
             plotdic['ndim']         = 1
             
         else:
+            ylabel = STR_LABEL
+            if args.YLABEL : ylabel = args.YLABEL
             plotdic['y']            = STR_VAR
             plotdic['yerr']         = STR_VARERR
-            plotdic['yaxis_label']  = STR_LABEL
+            plotdic['yaxis_label']  = ylabel
             plotdic['ndim']         = 2
             
     # check for user (custom) bounds in plot

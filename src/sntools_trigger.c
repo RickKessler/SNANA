@@ -1375,7 +1375,6 @@ void read_zHOST_FILE(FILE *fp) {
   int  FOUND_VARNAMES;
   char c_get[100], FIELDLIST[100] ;
   char **ptr_VARNAMES, *VARLIST;
-  // xxx mark  char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
   double PEAKMJD_RANGE[2];
   char KEY_ROW[]   = "HOSTEFF:" ;
@@ -1470,6 +1469,11 @@ void read_zHOST_FILE(FILE *fp) {
 
   tabs_ABORT(NTAB, INPUTS_SEARCHEFF.zHOST_FILE, fnam);
 
+  // free temp memory
+  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ )
+    { free(ptr_VARNAMES[ivar]);  }
+  free(ptr_VARNAMES);
+  
   return ;
 
 } // end read_zHOST_FILE

@@ -22543,6 +22543,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + set INPUTS.HOSTLIB_USE=0 for FIXMAG to fix bug rejecting all events.
       + fix SIMLIB_DUMP option to work with only SIMLIB_FILE key in sim-input,
         or to work using new NOFILE option; see SIMLIB_DUMP in manual
+      + fix memory overwrite bug in read_zHOST_FILE().
       
    snana.car
       + fix IGAL index bug in INIT_TABLE_HOSTVAR

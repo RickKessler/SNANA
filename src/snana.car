@@ -8616,7 +8616,6 @@ C ------------- BEGIN ------------
          ARGLIST(i) = 'NULL'
       ENDDO
       LDMP = .false.
-      LDMP =  ( KEYNAME(1:8) .EQ. 'FITMODEL'  ) ! xxx REMOVE
 
       LENKEY = INDEX(KEYNAME//' ', ' ') - 1
 

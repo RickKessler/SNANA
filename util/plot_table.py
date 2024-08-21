@@ -475,7 +475,7 @@ def arg_prep_driver(args):
     # if user has not specified any kind of statistical average
     # for DIFF, then set default MEDIAN
     if args.DIFF:
-        OPT = args.OPT
+        OPT    = args.OPT
         do_tmp = OPT_MEDIAN in OPT  or OPT_MEAN in OPT or OPT_AVG in OPT
         if not do_tmp:
             args.OPT.append(OPT_MEDIAN) 
@@ -538,9 +538,16 @@ def arg_prep_legend(args):
             for t in args.tfile_base_list:
                 legend = t.split('.')[0]  # base file name without extension after dot
                 LEGEND_out.append(legend)
+
+
     # - - - - - 
     narg_legend  = len(LEGEND_out)
-    narg_tfile   = len(args.tfile_list)    
+    narg_tfile   = len(args.tfile_list)
+
+    if args.DIFF and narg_legend == 1:
+        LEGEND_out.append(LEGEND_out[0])
+        narg_legend  = len(LEGEND_out)
+
     match_narg   = narg_tfile == narg_legend
     if  not match_narg:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
@@ -792,6 +799,7 @@ def set_var_dict(args, plot_info):
             
         else:
             ylabel = STR_LABEL
+            if args.DIFF   : ylabel += ' Diff'            
             if args.YLABEL : ylabel = args.YLABEL
             plotdic['y']            = STR_VAR
             plotdic['yerr']         = STR_VARERR
@@ -872,6 +880,10 @@ def read_tables(args, plot_info):
         # apply user cuts
         if cut:
             df = eval(cut)
+
+        # drop duplicates for DIFF CID matching
+        if args.DIFF == ARG_DIFF_CID:
+            df.drop_duplicates('CID', inplace=True)
 
         # increment MASTER_DF_DICT dictionary; note that filename index is dict key.
         key = f"tf{nf}"

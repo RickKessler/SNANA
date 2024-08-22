@@ -62,17 +62,31 @@ VALID_ARG_DIFF_LIST = [ ARG_DIFF_CID, ARG_DIFF_ALL ]
 # can be used in variables (@V) and weigts (@@WEIGHT).
 NUMPY_FUNC_DICT = {
     'exp'         :  'np.exp'  ,
+    'log10'       :  'np.log'  ,   # works for log and log10        
     'log'         :  'np.log'  ,   # works for log and log10
     'sqrt'        :  'np.sqrt' ,
     'abs'         :  'np.abs'  ,
     'heaviside'   :  'np.heaviside'
 }
+NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 
-        
+# list possible VARNAME to identify row
+VARNAME_IDROW_LIST = [ 'CID', 'GALID', 'ROW' ]
+
+# internal strings to identify type of string in @V or @@CUT
+STRTYPE_VAR   = "VARIABLE"
+STRTYPE_NUM   = "NUMBER"
+STRTYPE_DELIM = "DELIMETER"   # e.g., + - : / *
+STRTYPE_FUNC  = "FUNCTION"    # e.g., log10, sqrt 
+STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC]
+
+FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
+
 # internal DEBUG flags
-DEBUG_FLAG_REFAC          =  2
-DEBUG_FLAG_LEGACY         = -2
-DEBUG_FLAG_DUMP_TRANSLATE =  3
+DEBUG_FLAG_REFAC           =  2
+DEBUG_FLAG_LEGACY          = -2
+DEBUG_FLAG_DUMP_TRANSLATE  =  3
+DEBUG_FLAG_DUMP_TRANSLATE2 =  33  # info dump for each char of @V and @@CUT string
 
 
 # ================================
@@ -143,6 +157,9 @@ and two types of command-line input delimeters
   When @@ERROR defines y-axis error, '@@OPT MEAN' (see below) replaces the default 
   arithmetic mean with 1/ERR^2-weighted mean. 
 
+  For 2D plots, code aborts if arg is missing colon;
+  e.g., "@@ERROR MUERR" results in abort for 2D plot.
+
 @@error @e
   For plots with many data points, showing many error bars can result in a plot that 
   looks like a painted wall and no detail can be seen among the individual data points. 
@@ -212,14 +229,22 @@ and two types of command-line input delimeters
 @@YLABEL  
    Override default y-axis label = variable name
 
+@@LEGEND
+   Overwrite default legend; must give one arg per plot.
+   For 2 files and @@DIF CID option, only need to give one @@LEGEND arg.
+
 @@UNITS @U
-  Default x- and y-axis labels show variable name only.
+  Default x- and y-axis labels show variable name only without units.
   To display units in (),
-     @@UNITS days       # units for 1D plot or x-axis of 2D plot
-     @@UNITS :deg       # units for y-axis of 2D plot (no unit for x-axis)
+     @@UNITS days       # units for 1D plot; e.g., "PEAKMJD (days)"
+                        #  (aborts for 2D plot because of missing colon)
+     @@UNITS days:      # x-axis units for 2D plot (no y-axis units)
+     @@UNITS :deg       # units for y-axis of 2D plot (no units for x-axis)
      @@UNITS days:deg   # units for both axes of 2D plot
        or
      @U <arg>
+
+   For 2D plots, code aborts if @@UNITS arg is missing colon.
 
 @@ALPHA
   Aadjust the matplotlib alpha values to adjust transparency 
@@ -237,6 +262,13 @@ and two types of command-line input delimeters
      @@MARKER s x  # square and X        for 1st and 2nd file/cut
      etc ... (see online doc on matplotlib markers)
 
+@@XSIZE_SCALE
+@@YSIZE_SCALE
+  scale horizontal or vertical size of plot; e.g, 
+    @@XSIZE_SCALE 0.5 -> make plot horizontallly narrower
+    @@YSIZE_SCALE 0.5 -> make plot vertically shorter
+    
+ 
 @@SAVE
   Save figure as pdf or png; e.g.
     @@SAVE my_first_table_plot.pdf
@@ -255,7 +287,8 @@ and two types of command-line input delimeters
                          mean with 1/ERR^2-weighted mean.
       {OPT_AVG:<12} ==> same as {OPT_MEAN}.
       {OPT_MEDIAN:<12} ==> overlay median in x-bins (2D only).
-      {OPT_STDDEV:<12} ==> append stddev on each legend (1D only).
+      {OPT_STDDEV:<12} ==> 1D -> append stddev on each legend;
+                       2D -> mean error bar is STDDEV instead of STDDEV/sqrt(N)
       {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files (1D only).
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot.
       {OPT_LOGY:<12} ==> log scale for vertical axis.
@@ -343,6 +376,13 @@ def get_args():
     msg = "Override default marker='o'"
     parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
 
+    msg = "scale horizontal size of plot"
+    parser.add_argument('@@XSIZE_SCALE', '@@xsize_scale',
+                        default=1.0, help=msg, type=float)
+    msg = "scale vertical size of plot"
+    parser.add_argument('@@YSIZE_SCALE', '@@ysize_scale',
+                        default=1.0, help=msg, type=float)    
+    
     msg = "Alpha value for plot. Set to 0 to see only averages." \
           "ALPHA=0 and DIFF=True compares average difference between two files, " \
           "even if there are no overlapping CIDS."
@@ -378,23 +418,23 @@ def arg_prep_driver(args):
     # ---------------------------------------
     # check debug args (for develepers only)
     arg_prep_DEBUG_FLAG(args)
-    
+
+    if args.DEBUG_FLAG_DUMP_TRANSLATE:
+        print(f" xxx args.VARIABLE = {args.VARIABLE}  (before modifications)")  
+        print(f" xxx args.CUT      = {args.CUT}  (before modifications)")
+        
     # - - - - - - -
-    # for variable(s), remove pad spacing and add np. if needed
-    # for functions
+    # for variable(s), remove pad spacin
     args.VARIABLE_ORIG = args.VARIABLE 
     if args.VARIABLE:
         args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])        
         args.VARIABLE_ORIG = args.VARIABLE_ORIG[0]
-        args.VARIABLE = numpy_fun_replace(args.VARIABLE)
     else:
         sys.exit(f"\n ERROR: must define variable(s) to plot with @@VARIABLE or @@V")
 
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
-    if args.DEBUG_FLAG_DUMP_TRANSLATE:
-        print(f" xxx proc_args: args.CUT = {args.CUT}  (before modifications)")
 
     n_tfile_orig    = len(args.TFILE)
     n_cut_orig      = len(args.CUT)
@@ -450,17 +490,15 @@ def arg_prep_driver(args):
     args.weight_list     = weight_list
     # - - - - -
 
-    # make sure there is a colon in ERROR and UNITS args
-    # e.g  "degrees" -> "degrees:" so that user can specify only x-axis
-    # without colon and code here adds required colon. For y-axis,
-    # user must provide colon; e.g.,  :degress applies y-axis label.
     args.use_err_list = True  # default
     if args.error:
         args.ERROR = args.error
         args.use_err_list = False  # disable error bar on 2D plot
-    
-    args.UNITS = arg_prep_axis(args.UNITS)
-    args.ERROR = arg_prep_axis(args.ERROR)
+
+    ndim       = len(args.VARIABLE_ORIG.split(COLON))
+    args.UNITS = arg_prep_axis(ndim, 'UNITS', args.UNITS)
+    args.ERROR = arg_prep_axis(ndim, 'ERROR', args.ERROR)
+
     
     if args.BOUNDS != BOUNDS_AUTO:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
@@ -483,7 +521,7 @@ def arg_prep_driver(args):
     # - - - - - - -
     args.OPT = arg_prep_OPT(args)            
     
-    return  # end process_args
+    return  # end arg_prep_driver
 
 def arg_prep_OPT(args):
 
@@ -509,13 +547,19 @@ def arg_prep_OPT(args):
 
 def arg_prep_DEBUG_FLAG(args):
 
-    args.DEBUG_FLAG_REFAC          = True
-    args.DEBUG_FLAG_LEGACY         = False
-    args.DEBUG_FLAG_DUMP_TRANSLATE = False
+    args.DEBUG_FLAG_REFAC           = True
+    args.DEBUG_FLAG_LEGACY          = False
+    args.DEBUG_FLAG_DUMP_TRANSLATE  = False
+    args.DEBUG_FLAG_DUMP_TRANSLATE2 = False    
     if args.DEBUG_FLAG != 0:
-        args.DEBUG_FLAG_LEGACY         = args.DEBUG_FLAG == DEBUG_FLAG_LEGACY
-        args.DEBUG_FLAG_REFAC          = not args.DEBUG_FLAG_LEGACY        
-        args.DEBUG_FLAG_DUMP_TRANSLATE = args.DEBUG_FLAG == DEBUG_FLAG_DUMP_TRANSLATE
+        args.DEBUG_FLAG_LEGACY          = args.DEBUG_FLAG == DEBUG_FLAG_LEGACY
+        args.DEBUG_FLAG_REFAC           = not args.DEBUG_FLAG_LEGACY
+        
+        args.DEBUG_FLAG_DUMP_TRANSLATE2 = args.DEBUG_FLAG == DEBUG_FLAG_DUMP_TRANSLATE2        
+        args.DEBUG_FLAG_DUMP_TRANSLATE  = \
+            args.DEBUG_FLAG == DEBUG_FLAG_DUMP_TRANSLATE   or \
+            args.DEBUG_FLAG == DEBUG_FLAG_DUMP_TRANSLATE2
+        
         logging.info(f"# \t DEBUG_FLAG={args.DEBUG_FLAG} " )
         logging.info(f"# \t DEBUG_FLAG_REFAC          = {args.DEBUG_FLAG_REFAC}")
         logging.info(f"# \t DEBUG_FLAG_DUMP_TRANSLATE = {args.DEBUG_FLAG_DUMP_TRANSLATE}")
@@ -572,16 +616,17 @@ def arg_prep_extend_list(narg_tfile, arg_list_orig):
     return arg_list_out
 
     
-def arg_prep_axis(arg_axis):
-    # if input arg_axis = "degress" then return "degrees:"
-    # to ensure that splitting by colon works later.
-    # If arg_axis is None, return ":" to indicate nothing for either axis.
+def arg_prep_axis(ndim,name_arg, arg_axis):
+    
+    # If arg_axis is None, return ':'
+    # If ndim==2 and there is no colon, abort.
     if arg_axis:
         arg_axis  = ''.join([str(elem) for elem in arg_axis])
-        if COLON not in arg_axis:
-            arg_axis += COLON
+        if ndim == 2 and COLON not in arg_axis:
+            sys.exit(f"\n ERROR: ndim={ndim} but {name_arg} = {arg_axis} has no colon.")
     else:
-        arg_axis = COLON    
+        arg_axis = COLON
+        
     return arg_axis
 
 
@@ -595,7 +640,79 @@ def numpy_fun_replace(var)  :
             var = var.replace(fun,np_fun)
     return var
 
-def get_var_list(VARIABLE, DELIMITER_LIST):
+def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
+
+    # Created Aug 21 2024
+    # This is a custom split that splits input string into list of
+    #  * variables names
+    #  * numbers
+    #  * delimeters (from input DELIM_LIST)
+    #  * functions  (from input FUNC_LIST)
+    #
+    # Example:
+    #  STRING = 'log10(zcmb):SNRMAX'
+    #   returns ['log10', '(',     'zcmb',    ')',    ':',   'SNRMAX']
+    #   and     ['FUNC' , 'DELIM', 'VAR',  'DELIM', 'DELIM', 'VAR' ]
+    #
+    #  STRING = 'zcmb:z-zcmb + .003'
+    #    return ['zcmb', ':', 'z', '-', 'zcmb', '+', '.003']
+    #
+    split_list   = []
+    strtype_list = [] 
+
+    STRING_local = STRING
+    
+    # remove 'np.' that isn't needed because later code adds it.
+    if STR_np in STRING:        STRING_local = STRING.replace(STR_np,'')
+    len_str = len(STRING_local)
+    
+    if args.DEBUG_FLAG_DUMP_TRANSLATE2:
+        print(f"\n split_var_string: prepare dump for each char in \n" \
+              f"\t STRING_local({len_str}) = {STRING_local}")
+        
+            
+    j_last = 0
+    for j in range(0,len_str):
+        ch         = STRING_local[j:j+1]  # current char
+        is_last    = (j == len_str-1)
+        is_delim   = (ch in DELIM_LIST)
+        str_last = None
+        j_last_dump = j_last
+        if is_delim:
+            str_last = STRING_local[j_last:j].replace(' ','')
+            j_last = j+1
+        elif is_last:
+            str_last = STRING_local[j_last:j+1].replace(' ','')
+            
+        valid_str_last = (str_last is not None and len(str_last)>0)
+
+        if valid_str_last:
+            split_list.append(str_last)
+            if is_number(str_last) or "'" in str_last:
+                strtype_list.append(STRTYPE_NUM)
+            elif str_last in FUNC_LIST:
+                strtype_list.append(STRTYPE_FUNC)
+            else:
+                strtype_list.append(STRTYPE_VAR)
+
+                
+        if is_delim:
+            split_list.append(ch)
+            strtype_list.append(STRTYPE_DELIM)
+
+        if args.DEBUG_FLAG_DUMP_TRANSLATE2 :
+            print(f"\t xxx - - - - - - - - ")
+            print(f"\t xxx j={j}  j_last={j_last_dump}  ch={ch}  " \
+                  f"is_[last,delim]={is_last},{is_delim}  " \
+                  f"str_last={str_last}  valid_str_last={valid_str_last}")
+            print(f"\t xxx split_list -> {split_list}")
+        
+    # - - - -
+    return split_list, strtype_list
+    # end split_var_string
+    
+
+def get_var_list_legacy(VARIABLE, DELIMITER_LIST):
     # if VARIABLE = 'zHD-zHD_2:SNRMAX' -> return var_list = ['zHD', 'zHD_2', 'SNRMAX']
     # which is a list of variables wihtout symbols
 
@@ -605,6 +722,8 @@ def get_var_list(VARIABLE, DELIMITER_LIST):
 
     VAR_TMP = VAR_TMP.strip()  # remove pad spaces
 
+    # XXXXXXXXX LEGACY/OBSOLETE XXXXXXXXXXXXXX
+    
     # replace algabraic delimiters with pad space for easier split
     for delim in DELIMITER_LIST:
         VAR_TMP = VAR_TMP.replace(delim,' ')
@@ -617,6 +736,8 @@ def get_var_list(VARIABLE, DELIMITER_LIST):
         if STR_np not in var:
             var_list.append(var)
 
+    # XXXXXXXXX LEGACY/OBSOLETE XXXXXXXXXXXXXX
+    
     # create supplemental list of logicals indicating which
     # var_list elements are numbers. A string in quotes is
     # treated like a number.
@@ -625,9 +746,9 @@ def get_var_list(VARIABLE, DELIMITER_LIST):
         isnum = is_number(var) or "'" in var
         isnum_list.append(isnum)
 
+    # XXXXXXXXX LEGACY/OBSOLETE XXXXXXXXXXXXXX        
     return  var_list, isnum_list
-
-    # end get_var_list
+    # end get_var_list_legacy
     
 def translate_VARIABLE(VARIABLE):
     # add df. as needed to VARIABLE
@@ -640,29 +761,36 @@ def translate_VARIABLE(VARIABLE):
         return VARIABLE
 
     # break down VARIABLE into a list of variables without any symbols
-    var_list, isnum_list  = get_var_list(VARIABLE, DELIMITER_VAR_LIST)
+
+    split_list, strtype_list = \
+        split_var_string(VARIABLE, DELIMITER_VAR_LIST, NUMPY_FUNC_LIST)
 
     if args.DEBUG_FLAG_DUMP_TRANSLATE:
-        print(f" xxx VARIABLE var_list   = {var_list}")
-        print(f" xxx VARIABLE isnum_list = {isnum_list}")
+        print(f" xxx User input VARIABLE = {VARIABLE}")
+        for tmp_str, tmp_type in zip(split_list,strtype_list):
+            tmp = f"'{tmp_str}'"
+            print(f"\t xxx var sub-string = {tmp:<14} is {tmp_type}")
 
-    # next, put df. in front of each variable ... but be careful about
-    # variable names that are subsets of others. E.g., naively prepending
-    # df in from of z and z_2 results in df.z and df.df.z_2.
-    for var, isnum in zip(var_list,isnum_list):
-        if isnum : continue
-        df_var = STR_df + var
-        if df_var not in VARIABLE:  # modify only if not already modified
-
-            # .xyz PROBLEM c-SIM_c -> df.c-SIM_df.c unless makig only 1 replace;
-            #     but then SIM_c-c  -> SIM_df.c-c fails ???
-            #     need better logic when 1 variable name is substring of another.
-            VARIABLE = VARIABLE.replace(var,df_var,1)
-
-    logging.info(f"Translate VARIABLE {VARIABLE_ORIG}  ->  {VARIABLE}")
+        
+    # next, put df. in front of each variable, and np. in front of functions
+    VARIABLE_df = ''
+    for tmp_str, tmp_type in zip(split_list, strtype_list):
+        tmp_append = tmp_str  # default string to append
+        if tmp_type == STRTYPE_VAR:
+            tmp_append = STR_df + tmp_str
+        elif tmp_type == STRTYPE_FUNC :
+            tmp_append = STR_np + tmp_str
+        else:
+            pass
+        
+        VARIABLE_df += tmp_append    
+        
+    logging.info(f"Translate VARIABLE {VARIABLE_ORIG}")
+    logging.info(f"             ->    {VARIABLE_df}")
     
-    return VARIABLE
-
+    return VARIABLE_df
+    # end translate_VARIABLE
+    
 def translate_CUT(CUT):
 
     # add df.loc, df. and () as needed to input cut
@@ -698,14 +826,32 @@ def translate_CUT(CUT):
     cut_list_df = []
 
     for cut in cut_list:
+        
         # append df. in from of each string to allow cutting on
         # math functions of variables.
-        var_list, isnum_list  = get_var_list(cut, DELIMITER_CUT_LIST)
-        cut_df = cut
-        for var, isnum in zip(var_list, isnum_list):
-            if not isnum:
-                cut_df = cut_df.replace(var, STR_df + var)
-        cut_df = '(' + cut_df + ')'
+        split_list, strtype_list = \
+            split_var_string(cut, DELIMITER_CUT_LIST, NUMPY_FUNC_LIST)
+
+        cut_df = ''
+        for tmp_str, tmp_type in zip(split_list, strtype_list ):
+            if args.DEBUG_FLAG_DUMP_TRANSLATE:
+                tmp = f"'{tmp_str}'"
+                print(f"\t xxx cut sub-string = {tmp:<14} is {tmp_type}")
+                
+            tmp_append = tmp_str
+            if tmp_type == STRTYPE_VAR:
+                tmp_append = STR_df + tmp_str
+            elif tmp_type == STRTYPE_FUNC:
+                tmp_append = STR_np + tmp_str
+                sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
+                         f"remove '{tmp_str}' from @@CUT arg")
+            else:
+                pass
+            cut_df += tmp_append
+            
+
+        if STR_np not in cut_df:
+            cut_df = '(' + cut_df + ')'
         cut_list_df.append(cut_df)
 
     if args.DEBUG_FLAG_DUMP_TRANSLATE:
@@ -729,7 +875,8 @@ def translate_CUT(CUT):
     # finally, wrap entire cut in df.loc[ CUT ]
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    
 
-    logging.info(f"Translate CUT {CUT}  ->  {CUT_df}")
+    logging.info(f"Translate CUT {CUT}  ")
+    logging.info(f"          ->  {CUT_df}")
     #print(f"\n xxx var_list = {var_list}")
     
     return CUT_df
@@ -769,8 +916,12 @@ def set_var_dict(args, plot_info):
     VARERR_LIST  = ERROR.split(COLON)
     UNITS_LIST   = UNITS.split(COLON)
 
+    all_var_list = []  # list of all vars and varerr used to check existence
+    
     for n, VAR in enumerate(VAR_LIST):
 
+        all_var_list.append(VAR)
+        
         STR_VAR      = str(VAR)
         STR_LABEL    = STR_VAR.replace(STR_df,'') 
         if STR_np in STR_LABEL:
@@ -778,6 +929,7 @@ def set_var_dict(args, plot_info):
 
         VARERR  = VARERR_LIST[n]
         if len(VARERR) > 0:
+            all_var_list.append(VARERR)
             STR_VARERR   = STR_df + str(VARERR)
         else:
             STR_VARERR   = None            
@@ -835,6 +987,7 @@ def set_var_dict(args, plot_info):
     plot_info.plot_title          = plot_title
     plot_info.boundsdic           = boundsdic
     plot_info.custom_bounds       = custom_bounds
+    plot_info.all_var_list        = all_var_list
     
     return
     # end set_var_dict
@@ -872,10 +1025,32 @@ def read_tables(args, plot_info):
             # read all
             df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
 
+        # figure out KEYNAME to id events
+        plot_info.varname_idrow = None
+        for varname_idrow in VARNAME_IDROW_LIST:
+            if varname_idrow in df:
+                plot_info.varname_idrow = varname_idrow
+
+        varname_idrow = plot_info.varname_idrow
+        if varname_idrow is None:
+            sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
+                     f"among {VARNAME_IDROW_LIST}")
+
+        # make sure that all requested variables (and error-vars) exist in df
+        varlist_missing = []
+        for tmp_var_df in plot_info.all_var_list:
+            tmp_var = tmp_var_df.split(STR_df)[1]  # remove df.
+            if tmp_var not in df:
+                varlist_missing.append(tmp_var)
+                logging.warning(f"Could not find requested {tmp_var} for {tfile}")
+        assert (len(varlist_missing) == 0),  \
+            f"\n ERROR: Missing {varlist_missing} in df; " + \
+            f"check @@VARIABLE and  @@ERROR args" 
+        
         try:
-            df['CID'] = df['CID'].astype(str)
+            df[varname_idrow] = df[varname_idrow].astype(str)
         except KeyError:
-            logging.warn("No CIDs present in this file. OK for some file types.")
+            logging.warn(f"No {varname_idrow} present in this file. OK for some file types.")
 
         # apply user cuts
         if cut:
@@ -883,7 +1058,7 @@ def read_tables(args, plot_info):
 
         # drop duplicates for DIFF CID matching
         if args.DIFF == ARG_DIFF_CID:
-            df.drop_duplicates('CID', inplace=True)
+            df.drop_duplicates(varname_idrow, inplace=True)
 
         # increment MASTER_DF_DICT dictionary; note that filename index is dict key.
         key = f"tf{nf}"
@@ -919,8 +1094,7 @@ def read_tables(args, plot_info):
                 
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for plotdic={plotdic} and {tfile}")
-
-            
+    
     # - - - - - - - -
     logging.info("Done loading all table files.")
     logging.info("# - - - - - - - - - - ")
@@ -984,7 +1158,6 @@ def plotter_func_driver(args, plot_info):
         if NDIM_PLOT == 2:
             ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
             ybin = boundsdic['y'][2]
-            ybins = np.arange(ymin, ymax, ybin) # ignored 
     else:                                   
         xbins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
                             boundsdic[max(boundsdic, key=boundsdic.get)], 30)
@@ -1078,7 +1251,7 @@ def plotter_func_driver(args, plot_info):
 
         if do_diag_line:
             x = np.linspace(xmin,xmax,100);  y = x
-            plt.plot(x,y)
+            plt.plot(x,y, zorder=10)
 
         apply_plt_misc(args, plot_title, xlabel, ylabel, plt_text_dict)
         numplot += 1
@@ -1263,8 +1436,9 @@ def get_info_plot2d(args, info_plot_dict):
         if args.DIFF == ARG_DIFF_CID :
             #need to do an inner join with each entry in dic, then plot the diff
             # (join logic thanks to Charlie Prior)
-            join   = df_ref.join(df.set_index('CID'), on='CID', how='inner',
-                                 lsuffix='_0', rsuffix='_1')
+            varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW
+            join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
+                                 how='inner', lsuffix='_0', rsuffix='_1')
             xval_list = join.x_plot_val_0.values
             yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
             info_plot_dict['xval_list']     = xval_list
@@ -1332,17 +1506,21 @@ def overlay2d_binned_stat(args, info_plot_dict):
         y_stat  = binned_statistic(xval_list, yval_list,
                                   bins=xbins, statistic=which_stat)[0]
 
+        # compute error on the mean per bin: stddev/sqrt(N), or just STDDEV
+        y_std   = binned_statistic(xval_list, yval_list,
+                                   bins=xbins, statistic='std')[0]
+        y_count = binned_statistic(xval_list, yval_list,
+                                   bins=xbins, statistic='count')[0]
+        
+        if OPT_STDDEV in OPT:
+            y_err_stat = y_std  # stddev per bin (user input @@OPT STTDEV)
+        else:
+            y_err_stat = y_std/np.sqrt(y_count)  # error on mean per bin (default)
+        
         if do_wgtavg:
             stat_legend = 'wgtavg'
             y_avg   = copy.deepcopy(y_stat)  # for diagnostic print
-
-            # compute error on the mean per bin: stddev/sqrt(N)
-            y_std   = binned_statistic(xval_list, yval_list,
-                                       bins=xbins, statistic='std')[0]
-            y_count = binned_statistic(xval_list, yval_list,
-                                       bins=xbins, statistic='count')[0]
-            y_err_stat = y_std/np.sqrt(y_count)  # error on mean per bin
-
+               
             # compute wgted avg using individual errors as weight
             y_wgt_list  = yval_list/yerr_list**2
             wgt_list    = 1.0/yerr_list**2
@@ -1367,6 +1545,7 @@ def overlay2d_binned_stat(args, info_plot_dict):
                 print(f" xxx binned y_wgtavg  = {y_stat}")
                 print(f"")            
 
+        # - - - - - - -
         plt_legend  += ' ' + stat_legend
         plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat,
                      fmt=plt_marker, label=plt_legend, zorder=5 ) 
@@ -1408,7 +1587,6 @@ def plotter_func_legacy(args, plot_info):
         if plotdic['ndim'] == 2:
             ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
             ybin = boundsdic['y'][2]
-            ybins = np.arange(ymin, ymax, ybin) # ignored 
             plt.ylim(ymin, ymax)
     else:                                   
         bins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
@@ -1669,7 +1847,9 @@ def get_weights_user(xcen,weight):
     return wgt_vals
 
 def print_cid_list(df, name_legend) :
-    # print list of cids to stdout    
+    # print list of cids to stdout
+    #varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
+
     cid_list = sorted(df['CID'].to_numpy())[0:NMAX_CID_LIST]
     print(f"\n CIDs passing cuts for '{name_legend}' : \n{cid_list}" )
     sys.stdout.flush()
@@ -1691,10 +1871,12 @@ if __name__ == "__main__":
 
     V = args.VARIABLE
     args.VARIABLE = translate_VARIABLE(V)   # add df. as needed to args.VARIABLE
+    logging.info('')
     
     for icut, cut in enumerate(args.cut_list):
         args.cut_list[icut] = translate_CUT(cut)  # add df. and df.loc as needed
-        
+    logging.info('')
+    
     if args.DEBUG_FLAG_DUMP_TRANSLATE :
         sys.exit(f"\n xxx bye .")
     
@@ -1704,8 +1886,10 @@ if __name__ == "__main__":
 
     read_tables(args, plot_info)  # read each input file and store data frames
     #sys.exit(f"\n xxx DEBUG STOP xxx")
-    
-    plt.figure()  # initialize matplotlib figure
+
+    # initialize matplotlib figure
+    plt.figure( figsize=(FIGSIZE[0]*args.XSIZE_SCALE,
+                         FIGSIZE[1]*args.YSIZE_SCALE) ) 
 
     if args.DEBUG_FLAG_LEGACY:
         plotter_func_legacy(args, plot_info)  # prepare plot in matplotlib

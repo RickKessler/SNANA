@@ -18,6 +18,7 @@ from argparse import Namespace
 
 parser=argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, prefix_chars='@')
 from scipy.stats import binned_statistic
+from collections import Counter
 import distutils.util 
 
 # ====================
@@ -47,9 +48,14 @@ OPT_LOGY      = "LOGY"       # log scale along Y axis
 OPT_GRID      = "GRID"
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 
+OPT_DIFF_CID  = "DIFF_CID"   # 2 files and 2D: plot y-axis diff for each CID
+OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
+OPT_RATIO     = "RATIO"      # 1D: plot ratio between 2 files or 2 cuts
+
 VALID_OPT_LIST = [ OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_CHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
-                   OPT_LOGY, OPT_GRID, OPT_LIST_CID ]
+                   OPT_LOGY, OPT_GRID, OPT_LIST_CID,
+                   OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
 
@@ -293,7 +299,14 @@ and two types of command-line input delimeters
       {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot.
       {OPT_LOGY:<12} ==> log scale for vertical axis.
       {OPT_GRID:<12} ==> display grid on plot.
-      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.
+      {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.      
+      {OPT_DIFF_ALL:<12} ==> 2D: plot y-axis difference in median values between 2 plots
+                       (can compare correlated or independent samples)
+      {OPT_DIFF_CID:<12} ==> 2D: plot y-axis difference for each CID.
+                       (compare correlated samples only; must have CID overlap)
+      {OPT_RATIO:<12} ==> 1D: plot historgram ratio file0/file1 or cut0/cut1
+                       (binomial error if 1st file(cut) is subset of 2nd file)
+
 
 Examples:
 
@@ -502,26 +515,55 @@ def arg_prep_driver(args):
     
     if args.BOUNDS != BOUNDS_AUTO:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
-
-
-    args.legend_list = arg_prep_legend(args)
     
     # if only 1 alpha, make sure there is alpha for each file/cut
     args.alpha_list  = arg_prep_extend_list(narg_tfile, args.ALPHA)
     args.marker_list = arg_prep_extend_list(narg_tfile, args.MARKER) 
 
-    # if user has not specified any kind of statistical average
-    # for DIFF, then set default MEDIAN
-    if args.DIFF:
-        OPT    = args.OPT
-        do_tmp = OPT_MEDIAN in OPT  or OPT_MEAN in OPT or OPT_AVG in OPT
-        if not do_tmp:
-            args.OPT.append(OPT_MEDIAN) 
+    args = args_prep_DIFF(args)    
 
+    args.legend_list = arg_prep_legend(args) # must be after prep_DIFF
+    
     # - - - - - - -
     args.OPT = arg_prep_OPT(args)            
     
     return  # end arg_prep_driver
+
+
+def get_list_match(list0, list1):    
+    # if any element of opt_subset_list is in OPT_LIST,
+    # return that element; else return None
+
+    if list0 is None: return None
+    if list1 is None: return None
+    
+    for opt in list0:
+        if opt in list1:
+            return opt
+
+    # if we get here, return None
+    return None
+
+def args_prep_DIFF(args):
+
+    # set args.DIFF internally, and append args.OPT with MEDIAN
+    # if no stat option is given.
+    
+    if args.DIFF:
+        sys.exit(f"\n ERROR: @@DIFF {args.DIFF} is obsolete and no longer valid;\n" \
+                 f"\t instead, use @@OPT DIFF_{args.DIFF}" )
+    
+    # if user has not specified any kind of statistical average
+    # for DIFF, then set default MEDIAN
+    OPT        = args.OPT
+    opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL], args.OPT)
+    opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], args.OPT)
+    args.DIFF  = opt_diff  # e.g., 'CID' or 'ALL' or None
+        
+    if opt_diff and  opt_stat is None :
+        args.OPT.append(OPT_MEDIAN) 
+
+    return args
 
 def arg_prep_OPT(args):
 
@@ -571,12 +613,19 @@ def arg_prep_legend(args):
 
     LEGEND_orig = args.LEGEND
     LEGEND_out  = LEGEND_orig   # default is user input
+
+    do_diff  = args.DIFF
+    do_ratio = OPT_RATIO in args.OPT
+    narg_cut = len(args.CUT)
     
     if LEGEND_orig is None:
         # no user supplied legend, so make up reasonable legend
         LEGEND_out = [ None ] * len(args.TFILE)
-        if len(args.CUT) > 1 :
+        if narg_cut > 1 :
             LEGEND_out = args.CUT
+            #if do_ratio:
+            #    legend_ratio = args.CUT[0] + ' / ' + args.CUT[1]
+            #    LEGEND_out   = [legend_ratio] * narg_cut
         else :
             LEGEND_out = []
             for t in args.tfile_base_list:
@@ -588,7 +637,8 @@ def arg_prep_legend(args):
     narg_legend  = len(LEGEND_out)
     narg_tfile   = len(args.tfile_list)
 
-    if args.DIFF and narg_legend == 1:
+    allow_single_legend = args.DIFF or OPT_RATIO in args.OPT
+    if allow_single_legend and narg_legend == 1:
         LEGEND_out.append(LEGEND_out[0])
         narg_legend  = len(LEGEND_out)
 
@@ -940,9 +990,10 @@ def set_var_dict(args, plot_info):
         if n == 0:
             xlabel = STR_LABEL
             ylabel = 'Counts'
-            if args.WEIGHT[0]: ylabel = f'Counts * {args.WEIGHT}'
-            if args.XLABEL : xlabel = args.XLABEL
-            if args.YLABEL : ylabel = args.YLABEL               
+            if args.WEIGHT[0]        : ylabel = f'Counts * {args.WEIGHT}'
+            if OPT_RATIO in args.OPT : ylabel = 'Ratio'
+            if args.XLABEL   : xlabel = args.XLABEL # user override
+            if args.YLABEL   : ylabel = args.YLABEL # user override
             plotdic['x']            = STR_VAR
             plotdic['xerr']         = STR_VARERR
             plotdic['xaxis_label']  = xlabel
@@ -957,16 +1008,20 @@ def set_var_dict(args, plot_info):
             plotdic['yerr']         = STR_VARERR
             plotdic['yaxis_label']  = ylabel
             plotdic['ndim']         = 2
-            
+
+    plotdic['set_ylim'] = plotdic['ndim'] == 2 or OPT_RATIO in args.OPT
+    
     # check for user (custom) bounds in plot
     custom_bounds = False
     boundsdic     = {}
     if BOUNDS != BOUNDS_AUTO:
         for n,BND in enumerate(BOUNDS.split(':')):
             custom_bounds = True
-            if n == 0:
+            load_xbound = (n==0)
+            load_ybound = (n >0)
+            if load_xbound:
                 boundsdic['x'] = [float(i) for i in BND.split()]
-            else:
+            if load_ybound:
                 boundsdic['y'] = [float(i) for i in BND.split()]
 
     # - - - - - -  - - 
@@ -975,9 +1030,7 @@ def set_var_dict(args, plot_info):
         if plotdic['ndim'] == 1 :
             sys.exit("\nERROR: DIFF does not work for 1D histograms." \
                      " ABORT to avoid confusion.")
-        if args.DIFF not in VALID_ARG_DIFF_LIST :
-            sys.exit(f"\n ERROR: @@DIFF {args.DIFF} is not a valid option; " \
-                     f" valid options are {VALID_ARG_DIFF_LIST}")
+
         if len(args.TFILE) == 1:
             sys.exit(f"\n ERROR '@@DIFF {args.DIFF}' does not work with 1 table file;\n"\
                      f"\t need 2 or more table files specified after @@TFILE key.")
@@ -1029,8 +1082,8 @@ def read_tables(args, plot_info):
         plot_info.varname_idrow = None
         for varname_idrow in VARNAME_IDROW_LIST:
             if varname_idrow in df:
-                plot_info.varname_idrow = varname_idrow
-
+                plot_info.varname_idrow            = varname_idrow
+                
         varname_idrow = plot_info.varname_idrow
         if varname_idrow is None:
             sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
@@ -1148,25 +1201,25 @@ def plotter_func_driver(args, plot_info):
     boundsdic            = plot_info.boundsdic
     custom_bounds        = plot_info.custom_bounds
     plot_title           = plot_info.plot_title
+    varname_idrow        = plot_info.varname_idrow
     
     xlabel               = plotdic['xaxis_label']
     ylabel               = plotdic['yaxis_label']
     NDIM_PLOT            = plotdic['ndim']  # 1 or 2
-
+    set_ylim             = plotdic['set_ylim']
+    
     xbins = None
-    ybins = None    
     if custom_bounds:                       
         xmin  = boundsdic['x'][0]; xmax = boundsdic['x'][1]
         xbin  = boundsdic['x'][2]
         xbins = np.arange(xmin, xmax, xbin)
-        if NDIM_PLOT == 2:
+        if set_ylim:
             ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
-            ybin = boundsdic['y'][2]
     else:                                   
         xbins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
                             boundsdic[max(boundsdic, key=boundsdic.get)], 30)
         xmin = xbins[0];  xmax = xbins[-1]
-
+        
     xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin 
     # - - - - - - - 
     msg = f"The min & max x-axis bounds are: " \
@@ -1187,10 +1240,10 @@ def plotter_func_driver(args, plot_info):
         info_plot_dict['do_ov2d_binned_stat'] = False
         info_plot_dict['numplot']             =  numplot
         info_plot_dict['xbins']               =  xbins
-        info_plot_dict['ybins']               =  ybins
         info_plot_dict['xbins_cen']           =  xbins_cen        
         info_plot_dict['df_dict']             =  df_dict        
-                
+        info_plot_dict['varname_idrow']       =  varname_idrow
+        
         if NDIM_PLOT == 1:
             # 1D
             get_info_plot1d(args, info_plot_dict)        
@@ -1223,7 +1276,7 @@ def plotter_func_driver(args, plot_info):
         
         if custom_bounds:
             plt.xlim(xmin, xmax)
-            if NDIM_PLOT==2:  plt.ylim(ymin, ymax)
+            if set_ylim: plt.ylim(ymin, ymax)
         
         if do_plot_errorbar :
             # nominal
@@ -1266,9 +1319,10 @@ def plotter_func_driver(args, plot_info):
 
 def get_info_plot1d(args, info_plot_dict):
 
-    do_chi2   = OPT_CHI2 in args.OPT
-    do_nevt   = OPT_NEVT in args.OPT
-    do_avg    = OPT_AVG  in args.OPT or OPT_MEAN in args.OPT
+    do_chi2   = OPT_CHI2   in args.OPT
+    do_nevt   = OPT_NEVT   in args.OPT
+    do_avg    = OPT_AVG    in args.OPT  or  OPT_MEAN in args.OPT
+    do_ratio  = OPT_RATIO  in args.OPT
     do_stddev = OPT_STDDEV in args.OPT
     
     numplot   = info_plot_dict['numplot']
@@ -1296,43 +1350,67 @@ def get_info_plot1d(args, info_plot_dict):
         yval_list *= wgt_user
 
     nevt = np.sum(yval_list)  # sum before re-normalizing (for printing only)
-    errl,erru = poisson_interval(yval_list) # compute poisson errors
-        
+    lo_list, up_list = poisson_interval(yval_list) # compute poisson interval
+    errl_list        = yval_list - lo_list         # low-side error bar
+    erru_list        = up_list   - yval_list       # high-side error bar
+    
+    wgt_ov = None
+    ov_scale = 1.0  # default overlay plot is not scaled
+    
     if numplot == 0 :
-        info_plot_dict['yval0_list']   = yval_list # save for normalizing overlay
-        info_plot_dict['name0_legend'] = name_legend
+        info_plot_dict['df0']          = df
+        info_plot_dict['yval0_list']   = yval_list # save for norm overlay or ratio
+        info_plot_dict['errl0_list']   = errl_list
+        info_plot_dict['erru0_list']   = erru_list
+        info_plot_dict['name0_legend'] = name_legend        
+        if do_ratio:
+            do_plot_errorbar = False
     else:
+        df0          = info_plot_dict['df0'] 
+        yval0_list   = info_plot_dict['yval0_list']
+        errl0_list   = info_plot_dict['errl0_list']
+        erru0_list   = info_plot_dict['erru0_list']        
+        name0_legend = info_plot_dict['name0_legend']         
         if do_chi2:
             # re-scale overlay plot only if chi2 option is requested
-            yval0_list   = info_plot_dict['yval0_list']
-            name0_legend = info_plot_dict['name0_legend'] 
-            scale = np.sum(yval0_list) / np.sum(yval_list)
+            ov_scale = np.sum(yval0_list) / np.sum(yval_list)
             do_plot_errorbar = False
             do_ov1d_hist     = True
+        elif do_ratio:
+            # check of df0 is a subset of df --> binomial errors
+            is_subset = is_cid_subset(info_plot_dict, df0, df)
+            ratio, errl_ratio, erru_ratio = \
+                compute_ratio(yval0_list, errl0_list, erru0_list,
+                              yval_list,  errl_list,  erru_list, is_subset  )        
+            # load arrays that will be store in dictionary below              
+            yval_list  = ratio
+            errl_list  = errl_ratio
+            erru_list  = erru_ratio
+            ratio = len(df0) / len(df)
+            plt_legend = f"<ratio> = {ratio:.2f}"
         else:
-            scale = 1.0  # overlay plot is not scaled
+            pass
 
-        yval_list  *= scale # normalize integral to match file 0 
-        errl       *= scale
-        erru       *= scale
-        logging.info(f"Overlay {name_legend} scaled by {scale:.3e}")
+        yval_list  *= ov_scale # normalize integral to match file 0 
+        errl_list  *= ov_scale
+        erru_list  *= ov_scale
+        logging.info(f"Overlay {name_legend} scaled by {ov_scale:.3e}")
 
     # ---------------
 
     # check for overlay weights with chi2
     if numplot > 0 and do_chi2:
-        wgt_ov = [ scale ] * len(df.x_plot_val)
+        wgt_ov = [ ov_scale ] * len(df.x_plot_val)
         if weight :
             wgt_user = get_weights_user(df.x_plot_val,weight) 
             wgt_ov   = np.multiply(wgt_ov,wgt_user)
-
             len_wgt_ov = len(wgt_ov)
-            #sys.exit(f"\n xxx wgt_ov({len_wgt_ov}) = \n{wgt_ov}\n xxx x=\n{df.x_plot_val}\n")
+
         # check option to compute and print chi2/dof info on plot
         # Froce min error =1 in chi2 calc so that it's ok to plot
         # error=0 for bins with zero events.
         sqdif = (yval0_list-yval_list)**2
-        sqerr = np.maximum((yval0_list+yval_list*scale*scale), 1.0)
+        sqerr = np.maximum((yval0_list + yval_list*ov_scale*ov_scale), 1.0)
         chi2  = np.sum( sqdif / sqerr )
         ndof  = len(xbins) - 1 
         text_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
@@ -1341,12 +1419,10 @@ def get_info_plot1d(args, info_plot_dict):
         x_text = xmin + 0.7*(xmax-xmin)
         y_text = 1.0 * np.max(yval0_list)  # warning; fragile coord calc
         plt_text_dict = { 'x_text': x_text, 'y_text': y_text, 'text': text_chi2 }
-        #plt.text(x_text, y_text, text_chi2 )
-            
-    else:
-        wgt_ov = None    
 
-    yerr_list = [yval_list-errl, erru-yval_list]
+
+    # - - - - - - -
+    yerr_list = [errl_list, erru_list]
     nevt    = nevt
     avg     = np.mean(df.x_plot_val)
     median  = np.median(df.x_plot_val)
@@ -1370,19 +1446,85 @@ def get_info_plot1d(args, info_plot_dict):
     # - - - - - -
     info_plot_dict['do_plot_errorbar']  = do_plot_errorbar
     info_plot_dict['do_ov1d_hist']      = do_ov1d_hist
-    info_plot_dict['xval_list']    = xval_list
-    info_plot_dict['yval_list']    = yval_list
-    info_plot_dict['xerr_list']    = None
-    info_plot_dict['yerr_list']    = yerr_list
-    info_plot_dict['plt_size']     = None
-    info_plot_dict['plt_legend']   = plt_legend
-    info_plot_dict['plt_text_dict'] = plt_text_dict
-    info_plot_dict['wgt_ov']       = wgt_ov
+    info_plot_dict['xval_list']         = xval_list
+    info_plot_dict['yval_list']         = yval_list
+    info_plot_dict['xerr_list']         = None
+    info_plot_dict['yerr_list']         = yerr_list
+    info_plot_dict['plt_size']          = None
+    info_plot_dict['plt_legend']        = plt_legend
+    info_plot_dict['plt_text_dict']     = plt_text_dict
+    info_plot_dict['wgt_ov']            = wgt_ov
      
     return  # end get_info_plot1d
 
 
+def is_cid_subset(plot_dict, df0, df1):
+    
+    # return True if cids (or galid or rownum) in df0 are a subset of df1;
+    # else return False. Rather than require a strict overlap, 2% of the
+    # df0 elements are allowed to be outside of df1, and still return True.
+    # This handles cases where a naively expected subset has a few outliers;
+    # e.g, light curve fitting with true redshift vs. photo-z, we naively
+    # expect the zphot sample to be a subset of ztrue set ... but in reality
+    # there can be a very small fraction of zphot fits that fail ztrue fit,
+    # and thus zphot is not a literal subset of ztrue. For plotting zphot/ztrue
+    # efficiency, however, binomial errors are appropriate.
+    #
+    # This result is used to determine if errors on a ratio are independent
+    # or correlated-binomial.
 
+    MIN_OVERLAP_SUBSET = 0.98
+    is_subset     = False
+    varname_idrow = plot_dict['varname_idrow']
+
+    n0 = len(df0)
+    n1 = len(df1)
+    temp = Counter(df0[varname_idrow]) - Counter(df1[varname_idrow])
+    ndif = len(temp)
+    overlap = 1.0 - ndif/n0
+
+    is_subset = ( overlap > MIN_OVERLAP_SUBSET)
+    
+    # xxx mark delete
+    #id_set0       = set(df0[varname_idrow])
+    #id_set1       = set(df1[varname_idrow])
+    #is_subset     = id_set0.issubset(id_set1)
+    # xxx end
+    
+    return is_subset
+
+def compute_ratio(yval0_list, errl0_list, erru0_list,
+                  yval1_list, errl1_list, erru1_list, is_subset ):
+
+    # for two sets of input y-axis values and errors (lo and upper),
+    # return ratio and error (lo,up) on ratio.
+    # If is_subset=True, compute binomial error instead of default
+    # independent error.
+
+    ratio  = yval0_list / yval1_list
+        
+    if is_subset:
+        # binomial error with set0 being subset of set1,
+        # and input errors are ignored;
+        # COV = p ( 1 − p ) * NTOT (per bin)
+        logging.info("\t Compute binomial error for ratio.")
+        p          = yval0_list/yval1_list
+        cov_ratio  = p*(1-p) / yval1_list
+        errl_ratio = np.sqrt(cov_ratio)
+        erru_ratio = errl_ratio
+        
+    else:
+        # independent error
+        logging.info("\t Compute independent error for ratio.")
+        sqrelerrl  = (errl0_list/yval0_list)**2 + (errl1_list/yval1_list)**2
+        sqrelerru  = (erru0_list/yval0_list)**2 + (erru1_list/yval1_list)**2
+        errl_ratio = ratio * np.sqrt(sqrelerrl)
+        erru_ratio = ratio * np.sqrt(sqrelerru)
+    
+    return ratio, errl_ratio, erru_ratio
+
+    # end compute_ratio
+    
 def get_info_plot2d(args, info_plot_dict):
 
     # prepare arguments for matplotlib's plt.errobar.
@@ -1590,7 +1732,6 @@ def plotter_func_legacy(args, plot_info):
         plt.xlim(xmin, xmax)
         if plotdic['ndim'] == 2:
             ymin = boundsdic['y'][0]; ymax = boundsdic['y'][1]
-            ybin = boundsdic['y'][2]
             plt.ylim(ymin, ymax)
     else:                                   
         bins = np.linspace(boundsdic[min(boundsdic, key=boundsdic.get)],
@@ -1817,11 +1958,13 @@ def apply_plt_misc(args, plot_title, xlabel, ylabel, plt_text_dict):
     if do_logy:    plt.yscale("log")
     if do_grid:    plt.grid(zorder=3)
 
-    plt.xlabel(xlabel)  
-    if ylabel is not None: plt.ylabel(ylabel)
+    fsize = 12
+    plt.xlabel(xlabel, fontsize=fsize)  
+    if ylabel is not None:
+        plt.ylabel(ylabel, fontsize=fsize)
     
     plt.legend()                                
-    plt.title(plot_title)
+    plt.title(plot_title, fontsize=14)
 
     if plt_text_dict is not None:
         x_text = plt_text_dict['x_text']

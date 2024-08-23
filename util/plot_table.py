@@ -1037,15 +1037,7 @@ def read_tables(args, plot_info):
                      f"among {VARNAME_IDROW_LIST}")
 
         # make sure that all requested variables (and error-vars) exist in df
-        varlist_missing = []
-        for tmp_var_df in plot_info.all_var_list:
-            tmp_var = tmp_var_df.split(STR_df)[1]  # remove df.
-            if tmp_var not in df:
-                varlist_missing.append(tmp_var)
-                logging.warning(f"Could not find requested {tmp_var} for {tfile}")
-        assert (len(varlist_missing) == 0),  \
-            f"\n ERROR: Missing {varlist_missing} in df; " + \
-            f"check @@VARIABLE and  @@ERROR args" 
+        # xxx ?? check_vars_exist(args, df, plot_info)
         
         try:
             df[varname_idrow] = df[varname_idrow].astype(str)
@@ -1105,7 +1097,19 @@ def read_tables(args, plot_info):
     return
     # end read_tables
 
-    
+def check_vars_exist(args, df, plot_info):
+
+    # Tricky because all_var_list can include math symbols.
+    varlist_missing = []
+    for tmp_var_df in plot_info.all_var_list:
+        tmp_var = tmp_var_df.split(STR_df)[1]  # remove df.
+        if tmp_var not in df:
+            varlist_missing.append(tmp_var)
+            logging.warning(f"Could not find requested {tmp_var} for {tfile}")
+    assert (len(varlist_missing) == 0),  \
+        f"\n ERROR: Missing {varlist_missing} in df; " + \
+        f"check @@VARIABLE and  @@ERROR args" 
+    return
 
 def poisson_interval(k, alpha=0.32):
     """  

@@ -22584,5 +22584,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_prog_bbc.py:
       fix subtle bug to wait for last PREP-INPUT task when there are
       more than 10.
+
+   get_fitres_values.py:
+      + fix to preserve output order of user-supplied list of cid or galid.
       
 END: 

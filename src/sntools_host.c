@@ -1380,9 +1380,6 @@ void parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string) {
     }
 
     catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
-
-    // xxx mark    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME) ;
-    // xxx mark   strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ") ;
     
     // load variable if it's not already loaded, and NOT SN var.
     IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 
@@ -1487,8 +1484,6 @@ void prep_HOSTLIB_WGTMAP(void){
 
     //    printf(" xxx %s: ivar=%d  VARNAME=%s  IS_SNVAR=%d\n", 
     //	   fnam, ivar, VARNAME, IS_SNVAR );
-
-    // xxx mark catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
     
     // load variable if it's not already loaded, and NOT SN var.
     IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 

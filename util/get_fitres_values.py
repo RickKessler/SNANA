@@ -27,6 +27,10 @@
 #   + improve stdout appearance
 #   + new --outfile option
 #
+# Aug 23 2024 RK
+#   + fix to preserve output order to match user order of input cid (galid)
+#   + fix bug writing to output file (-o option)
+#
 import os, sys, argparse, gzip, math
 import numpy as np
 import pandas as pd
@@ -302,7 +306,6 @@ def print_info(info_fitres):
     # check option to use IDs from first 'nrow' rows
     if nrow > 0 :
         id_rows = df[keyname_id].head(nrow).tolist()
-        #print(f" xxx cid_rows = {cid_rows}   ty={type(cid_rows)}")
         id_list += id_rows
 
     if len(sel_list) > 0:
@@ -315,21 +318,21 @@ def print_info(info_fitres):
                 id_rows = df[df[sel[0]] == sel[2]][keyname_id].tolist()
             id_list += id_rows
 
-    id_list = list(set(id_list))
+    # be careful here to remove duplicates AND preserve original order
+    # xxx mark delte Aug 23 2024  id_list = list(set(id_list))
+    id_list = list(dict.fromkeys(id_list))  # trick to preserve order and remove duplicates
+    
     # Only print if id_list defined either by cid or nrow
     if len(id_list) > 0:
-
-        # xxx mark df = df.loc[sorted(id_list), var_list]
-        # xxx mark delete print(df.__repr__())
-
         # add back keynam_id [e.g., CID or GALID] and then print
         # without index ... this avoids index name (CID) printed
         # to a separate row compared to other varnames
-        df = df.loc[sorted(id_list), [keyname_id] + var_list] # RK Feb 2024
-        print(df.to_string(index=False))                      # RK Feb 2024
+        # xxx mark Aug 23 2024 df = df.loc[sorted(id_list), [keyname_id] + var_list]
+        df = df.loc[ id_list, [keyname_id] + var_list]
+        print(df.to_string(index=False))                     
 
         if outfile is not None:
-            write_outfile_fitres(info_fitres)
+            write_outfile_fitres(df, info_fitres)
 
     else:
         df = df.loc[df[keyname_id].to_list(), var_list]
@@ -364,9 +367,8 @@ def print_info(info_fitres):
 
     # end print_info
 
-def write_outfile_fitres(info_fitres):
+def write_outfile_fitres(df,info_fitres):
 
-    df         = info_fitres['df']
     outfile    = info_fitres['outfile']
     var_list   = info_fitres['var_list']
     keyname_id = info_fitres['keyname_id']

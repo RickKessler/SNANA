@@ -24600,6 +24600,17 @@ c  * sntable_dump extraction will write real*8 as integer.
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(IGAL), 
      &               VARLIST,ITEXT,    LENBLOCK, 40 )
 
+c     XYZ
+
+      if(SNHOST_NZPHOT_Q > 0) then  
+        VARLIST =  PREFIX(1:LP) // 'QZPHOT:F' // char(0)  
+      	    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_MEAN(IGAL), 
+     &      	        VARLIST,ITEXT,    LENBLOCK, 40 )
+      	VARLIST =  PREFIX(1:LP) // 'QZPHOTSTD:F' // char(0)
+      	    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_STD(IGAL), 
+     &               	VARLIST,ITEXT,    LENBLOCK, 40 )
+        end if
+     
       VARLIST =  PREFIX(1:LP) // 'ZSPEC:F' // char(0)
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(IGAL), 
      &             VARLIST,ITEXT,    LENBLOCK, 40 )

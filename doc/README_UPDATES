@@ -22589,13 +22589,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix to preserve output order of user-supplied list of cid or galid.
 
 # =============================================================
-         v11_05n (Aug 23 2024) <-- start date
+         v11_05p (Aug 23 2024) <-- start date
 
-         *****  IMPORTANT(v11_05n) *****
+         *****  IMPORTANT(v11_05p) *****
       
-         *****  USEFUL(v11_05n) *****
+         *****  USEFUL(v11_05p) *****
      
-         *****  MISCELLANEOUS(v11_05n) *****
+         *****  MISCELLANEOUS(v11_05p) *****
 
 
 END: 

@@ -7,7 +7,7 @@
 # 
 #
 # ==============================================
-import os, sys, gzip, copy, logging, math, re
+import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -364,7 +364,7 @@ def get_args():
     parser.add_argument("@@WEIGHT", "@@weight", help=msg, nargs="+", default=[None] ) 
 
     msg = "number of rows to read (for large files)"
-    parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=0)
+    parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=None)
     
     # -------- decorative options below ---------
     
@@ -1064,20 +1064,28 @@ def read_tables(args, plot_info):
     
     for tfile, cut, weight, legend, alpha, marker in \
         zip(tfile_list, cut_list, weight_list, legend_list, alpha_list, marker_list):
+        
         tfile_base = os.path.basename(tfile)
         logging.info(f"Loading {tfile_base}")
         if not os.path.exists(tfile):
             sys.exit(f"\n ERROR: cannot find {tfile}")
-            
-        df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
 
-        if NROWS > 0 :
-            # read NROWS subset
-            df  = pd.read_csv(tfile, comment="#", sep=r"\s+", nrows=NROWS)
-        else:
-            # read all
-            df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
+        # check for DOCANA block and count number of lines to skip before VARNAMES;
+        # e.g., skip DOCANA for HOSTLIB 
+        nrow_skip = count_rows_to_skip(tfile)
+        
+        df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
+                          skiprows=nrow_skip, nrows=NROWS)
 
+        # xxxxxxx mark delete Aug 23 2024 xxxxxxx
+        #if NROWS > 0 :
+        #    # read NROWS subset
+        #    df  = pd.read_csv(tfile, comment="#", sep=r"\s+", nrows=NROWS)
+        #else:
+        #    # read all
+        #    df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
+        # xxxxxxxxxxxxxxxx
+        
         # figure out KEYNAME to id events
         plot_info.varname_idrow = None
         for varname_idrow in VARNAME_IDROW_LIST:
@@ -1149,6 +1157,34 @@ def read_tables(args, plot_info):
     
     return
     # end read_tables
+
+def count_rows_to_skip(tfile):
+
+    nrow_skip = 0
+    if '.gz' in tfile:
+        t = gzip.open(tfile,'rt')
+    else:
+        t = open(tfile,'rt')
+
+    nrow_skip = 0
+    
+    for line in t:
+        wdlist = line.split()
+        if len(wdlist) == 0 :
+            nrow_skip += 1
+            continue
+
+        if wdlist[0] == 'VARNAMES:' :
+            break
+        else:
+            nrow_skip += 1            
+            continue
+
+    t.close()
+    logging.info(f"\t found {nrow_skip} rows to skip before 'VARNAMES:' key")
+
+    return nrow_skip
+    # end count_rows_to_skip
 
 def check_vars_exist(args, df, plot_info):
 

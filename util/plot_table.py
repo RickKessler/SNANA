@@ -25,7 +25,8 @@ import distutils.util
 # ====================
 # globals
 
-NXBIN_AUTO  = 30  # number of x-bins of user does not provide @@BOUNDS arg
+NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
+NXYBIN_AUTO = (20,20)   # auto nbin for hist2d (if @@BOUNDS is not give)
 
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=', '*', '+', '-', '/' ]  # for @@CUT
@@ -1001,13 +1002,47 @@ def set_axis_dict(args, plot_info):
     
     return  # end set_axis_dict
 
+def set_hist2d_args(args, plot_info):
+
+    
+    do_hist2d   = args.NDIM == 2 and (OPT_HIST in args.OPT  or  OPT_HISTFILL in args.OPT)
+    if not do_hist2d:
+        plot_info.hist2d_args = None
+        return None
+
+    bounds_dict = plot_info.bounds_dict
+
+    hist2d_args         = Namespace()
+    if bounds_dict['custom'] :        
+        x_range = [ bounds_dict['xmin'], bounds_dict['xmax'] ]
+        y_range = [ bounds_dict['ymin'], bounds_dict['ymax'] ]
+        hist2d_args.range =  [ x_range, y_range ]
+        hist2d_args.bins  =  ( bounds_dict['nxbin'] , bounds_dict['nybin'] )
+                    
+    else:
+        # load None values to pass to plt.hist2d
+        hist2d_args.bins    = NXYBIN_AUTO
+        hist2d_args.range   = None
+        
+    # logz option applies for custom or auto bounds
+    if OPT_LOGZ in args.OPT:
+        hist2d_args.norm = colors.LogNorm()
+    else:
+        hist2d_args.norm = None
+        
+    logging.info(f"hist2d_args = {hist2d_args}")
+    plot_info.hist2d_args = hist2d_args
+                    
+    return   # end set_hist2d_args
+    
 def set_custom_bounds_dict(args,plot_info):
 
-    # set plot_info.bounds_dict for @@BOUNDS input
+    # set plot_info.bounds_dict for @@BOUNDS input.
+    # Also set hist2d_args if this option is set.
     
     bounds_dict     = {}  # user/custom bounds
     bounds_dict['custom'] = False
-
+    
     BOUNDS   = args.BOUNDS
 
     if BOUNDS is None:
@@ -1493,11 +1528,17 @@ def plotter_func_driver(args, plot_info):
                      label = plt_legend)
 
         elif do_plot_hist and NDIM == 2 :
-            plt_norm  = info_plot_dict['plt_norm']
-            plt_bins  = (10,20)
-            plt_range =  [ [0,1], [-0.4,0.4] ]
-            plt.hist2d(df.x_plot_val, df.y_plot_val, bins=plt_bins, range=plt_range,
-                       label = plt_legend, norm=plt_norm )
+            hist2d_args = plot_info.hist2d_args
+            counts, xedges, yedges, im = \
+                plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
+                           cmin=.1, alpha=plt_alpha, # cmap='Greys',
+                           bins  = hist2d_args.bins,
+                           range = hist2d_args.range,
+                           norm  = hist2d_args.norm )
+            plt.colorbar(im)
+
+            if do_ov2d_binned_stat and NDIM == 2  :
+                overlay2d_binned_stat(args, info_plot_dict)            
             
         elif do_plot_hist_ov1d and NDIM == 1:
             # 1D, typically sim overlaid on data
@@ -1775,14 +1816,6 @@ def get_info_plot2d(args, info_plot_dict):
     if do_hist:
         info_plot_dict['do_plot_errorbar']    = False
         info_plot_dict['do_plot_hist']        = True
-        if OPT_LOGZ in args.OPT:
-            info_plot_dict['plt_norm']  = colors.LogNorm()
-        else:
-            info_plot_dict['plt_norm']  = None
-
-        #if .xyz
-        plt_bins = (10,20)
-        plt_range =  [ [0,1], [-0.4,0.4] ]            
     else:
         # default
         info_plot_dict['do_plot_errorbar']    = True
@@ -2054,6 +2087,9 @@ if __name__ == "__main__":
 
     # set custom bounds if user passes @@BOUNDS
     set_custom_bounds_dict(args,plot_info)
+
+    # set args for hist2d if 2d histogram is requested
+    set_hist2d_args(args, plot_info)
     
     # xxx mark delete  set_var_dict(args, plot_info) 
 

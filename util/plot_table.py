@@ -939,17 +939,12 @@ def set_axis_dict(args, plot_info):
 
     # copute and store plot_info.axis_dict
     
-    axis_dict       = {}  # x & y varnames, err varnames, axis labels
-
-    # strip off user args
-    VARIABLE = args.VARIABLE
-    ERROR    = args.ERROR
-    UNITS    = args.UNITS
-   
-    # - - - - 
-    VAR_LIST     = VARIABLE.split(COLON)
-    VARERR_LIST  = ERROR.split(COLON)
-    UNITS_LIST   = UNITS.split(COLON)
+    axis_dict       = {}  # x & y varnames, err varnames
+    
+    # - - - -
+    NDIM         = args.NDIM
+    VAR_LIST     = args.VARIABLE.split(COLON)
+    VARERR_LIST  = args.ERROR.split(COLON)
 
     # list of all vars and varerr that may be used to check existence
     # (this list is not used for nominal plots)
@@ -960,47 +955,89 @@ def set_axis_dict(args, plot_info):
         all_var_list.append(VAR)
         
         STR_VAR      = str(VAR)
-        STR_LABEL    = STR_VAR.replace(STR_df,'') 
-        if STR_np in STR_LABEL:
-            STR_LABEL = STR_LABEL.replace(STR_np,'')
-
         VARERR  = VARERR_LIST[n]
         if len(VARERR) > 0:
             all_var_list.append(VARERR)
             STR_VARERR   = STR_df + str(VARERR)
         else:
             STR_VARERR   = None            
-        
-        U = UNITS_LIST[n]
-        if len(U) > 0:  STR_LABEL += '  (' + U + ')'
-    
-        if n == 0:
-            xlabel = STR_LABEL
-            ylabel = 'Counts'
-            if args.WEIGHT[0]        : ylabel = f'Counts * {args.WEIGHT}'
-            if OPT_RATIO in args.OPT : ylabel = 'Ratio'
-            if args.XLABEL   : xlabel = args.XLABEL # user override
-            if args.YLABEL   : ylabel = args.YLABEL # user override
-            axis_dict['x']            = STR_VAR
-            axis_dict['xerr']         = STR_VARERR
-            axis_dict['xaxis_label']  = xlabel
-            axis_dict['yaxis_label']  = ylabel
             
+        if n == 0:
+            axis_dict['x']       = STR_VAR
+            axis_dict['xerr']    = STR_VARERR            
         else:
-            ylabel = STR_LABEL
-            if args.DIFF   : ylabel += ' Diff'            
-            if args.YLABEL : ylabel = args.YLABEL
             axis_dict['y']            = STR_VAR
             axis_dict['yerr']         = STR_VARERR
-            axis_dict['yaxis_label']  = ylabel
 
-    ndim = args.NDIM
-    axis_dict['set_ylim'] = (ndim == 2 or OPT_RATIO in args.OPT)
+    axis_dict['set_ylim'] = (NDIM == 2 or OPT_RATIO in args.OPT)
     axis_dict['all_var_list'] = all_var_list
     
     plot_info.axis_dict           = axis_dict
     
     return  # end set_axis_dict
+
+def set_axis_labels(args, plot_info):
+
+    # set x and y axis labels in plot_info.axis_dict.
+    # If user does not define @@XAXIS (@@YAXIS), define reasonable defaults
+    # based on user options.
+    
+    NDIM         = args.NDIM
+    OPT          = args.OPT
+    VAR_LIST     = args.VARIABLE.split(COLON)
+    UNITS_LIST   = args.UNITS.split(COLON)
+
+    WEIGHT       = args.WEIGHT[0]  # remove [] for axis title 
+    if len(args.WEIGHT) > 1:
+        WEIGHT = '[' + ' , '.join(args.WEIGHT) +']'    # show list of all weights for overlay
+            
+    axis_dict = plot_info.axis_dict
+    xbin      = plot_info.bounds_dict['xbin']
+
+    # - - - - 
+    # avoid crazy number of digits for ylabel 'counts per {xbin}'
+    str_xbin = str(xbin)
+    if '.' in str_xbin:
+        n_digit = len(str_xbin.split('.')[1])  # number of digits after decimal
+        if n_digit > 4 :
+            str_xbin = f'{xbin:.4f}'
+
+    xlabel = None
+    ylabel = None
+    
+    for n, VAR in enumerate(VAR_LIST):
+            
+        LABEL    = VAR.replace(STR_df,'') 
+        LABEL    = LABEL.replace(STR_np,'')
+
+        U = UNITS_LIST[n]
+        if len(U) > 0:  LABEL += '  (' + U + ')'
+    
+        if n == 0:
+            # set default x-axis label
+            xlabel = LABEL
+
+            # for 1D plots, set default y-axis label based on user optons
+            if NDIM == 1:
+                ylabel  = f'Counts per {str_xbin}' 
+                if WEIGHT           : ylabel = f'Counts * {WEIGHT} per {str_xbin}'
+                if OPT_RATIO in OPT : ylabel = 'Ratio' 
+
+            # check user overrides
+            if args.XLABEL   : xlabel = args.XLABEL 
+            if args.YLABEL   : ylabel = args.YLABEL 
+        else:
+            # for 2D plots, default axis label is varname
+            ylabel = LABEL
+            if args.DIFF      : ylabel += ' Diff'            
+            if args.YLABEL    : ylabel = args.YLABEL  # user overrride
+
+    # - - - - - - 
+    axis_dict['xaxis_label']  = xlabel
+    axis_dict['yaxis_label']  = ylabel            
+    plot_info.axis_dict       = axis_dict
+    
+    return  # end set_axis_labels
 
 def set_hist2d_args(args, plot_info):
 
@@ -1079,8 +1116,7 @@ def set_custom_bounds_dict(args,plot_info):
             bounds_dict['xmax']  = amax
             bounds_dict['xbin']  = abin
             bounds_dict['nxbin'] = int(nbin)
-            #??if ndim == 1 and not args.YLABEL :
-            #??    axis_dict['yaxis_label']  = f'Counts per {abin}'
+
         if load_ybound:
             bounds_dict['y']     = axis_bounds_values
             bounds_dict['ymin']  = amin
@@ -1099,138 +1135,6 @@ def set_custom_bounds_dict(args,plot_info):
     
     return # end set_custom_bounds_dict
 
-def set_var_dict(args, plot_info):
-
-    # xxxxxxxxx OBSOLETE xxxxxxxxxxxx
-    
-    # init dictionaries to be filled here and appended to
-    # plot_info nameSpace.
-    axis_dict       = {}  # x & y varnames, err varnames, axis labels
-    bounds_dict     = {}  # user/custom bounds
-    bounds_dict['custom'] = False
-    
-    # strip off user args
-    VARIABLE = args.VARIABLE
-    ERROR    = args.ERROR
-    BOUNDS   = args.BOUNDS
-    UNITS    = args.UNITS
-
-    # xxxxxxxxx OBSOLETE xxxxxxxxxxxx       
-    # - - - - 
-    VAR_LIST     = VARIABLE.split(COLON)
-    VARERR_LIST  = ERROR.split(COLON)
-    UNITS_LIST   = UNITS.split(COLON)
-
-    # list of all vars and varerr that may be used to check existence
-    # (this list is not used for nominal plots)
-    all_var_list = []  
-    
-    for n, VAR in enumerate(VAR_LIST):
-
-        all_var_list.append(VAR)
-        
-        STR_VAR      = str(VAR)
-        STR_LABEL    = STR_VAR.replace(STR_df,'') 
-        if STR_np in STR_LABEL:
-            STR_LABEL = STR_LABEL.replace(STR_np,'')
-
-        # xxxxxxxxx OBSOLETE xxxxxxxxxxxx
-        
-        VARERR  = VARERR_LIST[n]
-        if len(VARERR) > 0:
-            all_var_list.append(VARERR)
-            STR_VARERR   = STR_df + str(VARERR)
-        else:
-            STR_VARERR   = None            
-        
-        U = UNITS_LIST[n]
-        if len(U) > 0:  STR_LABEL += '  (' + U + ')'
-            
-        if n == 0:
-            xlabel = STR_LABEL
-            ylabel = 'Counts'
-            if args.WEIGHT[0]        : ylabel = f'Counts * {args.WEIGHT}'
-            if OPT_RATIO in args.OPT : ylabel = 'Ratio'
-            if args.XLABEL   : xlabel = args.XLABEL # user override
-            if args.YLABEL   : ylabel = args.YLABEL # user override
-            axis_dict['x']            = STR_VAR
-            axis_dict['xerr']         = STR_VARERR
-            axis_dict['xaxis_label']  = xlabel
-            axis_dict['yaxis_label']  = ylabel
-            axis_dict['ndim']         = 1
-            
-        else:
-            ylabel = STR_LABEL
-            if args.DIFF   : ylabel += ' Diff'            
-            if args.YLABEL : ylabel = args.YLABEL
-            axis_dict['y']            = STR_VAR
-            axis_dict['yerr']         = STR_VARERR
-            axis_dict['yaxis_label']  = ylabel
-            axis_dict['ndim']         = 2
-
-    # xxxxxxxxx OBSOLETE xxxxxxxxxxxx
-    
-    ndim = axis_dict['ndim']
-    axis_dict['set_ylim'] = (ndim == 2 or OPT_RATIO in args.OPT)
-    axis_dict['all_var_list'] = all_var_list
-
-    # check for user (custom) bounds in plot
-    if BOUNDS :
-        for n, axis_bounds in enumerate(BOUNDS.split(':')):
-            bounds_dict['custom'] = True
-            axis_bounds_values  = [float(i) for i in axis_bounds.split() ]
-
-            amin = float(axis_bounds_values[0])   # axis min val
-            amax = float(axis_bounds_values[1])   # axis max val
-            abin = float(axis_bounds_values[2])   # axis bin size
-            if abin > 0.0:
-                nbin = (amax-amin+1.0e-8)/abin        # axis nbin
-            else:
-                nbin = 0  # allowed for y-axis if not used
-                
-            load_xbound = (n == 0)
-            load_ybound = (n  > 0)
-
-            # xxxxxxxxx OBSOLETE xxxxxxxxxxxx
-            
-            # check that bin size is compatible with range for x-axis
-            # or for hist2d y-axis
-            do_check_nbin = load_xbound or (load_ybound and OPT_HIST in args.OPT)
-            if do_check_nbin:
-                if abs(nbin-int(nbin)) > 1.0e-5 :
-                    sys.exit(f"\n ERROR: invalid bin size for  " \
-                             f"min max bin = '{axis_bounds}' in @@BOUNDS {BOUNDS}")
-            
-            if load_xbound:
-                bounds_dict['x']     = axis_bounds_values
-                bounds_dict['xmin']  = amin
-                bounds_dict['xmax']  = amax
-                bounds_dict['xbin']  = abin
-                bounds_dict['nxbin'] = int(nbin)
-                if ndim == 1 and not args.YLABEL :
-                    axis_dict['yaxis_label']  = f'Counts per {abin}'
-            if load_ybound:
-                bounds_dict['y']     = axis_bounds_values
-                bounds_dict['ymin']  = amin
-                bounds_dict['ymax']  = amax
-                bounds_dict['ybin']  = abin
-                bounds_dict['nybin'] = int(nbin)
-
-    #sys.exit(f"\n xxx STOP DEBUG bounds_dict = \n{bounds_dict}")
-    # - - - - - -  - - 
-    # error checks 
-    if args.DIFF and  ndim == 1 :
-        sys.exit("\nERROR: @@OPT {args.DIFF}  does not work for 1D histograms." \
-                 " ABORT to avoid confusion.")
-
-    # xxxxxxxxx OBSOLETE xxxxxxxxxxxx        
-    # load output namespace
-    plot_info.axis_dict           = axis_dict
-    plot_info.bounds_dict         = bounds_dict
-    
-    return      # xxxxxxxxx OBSOLETE xxxxxxxxxxxx
-    # end set_var_dict
-
 def read_tables(args, plot_info):
 
     tfile_list      = args.tfile_list
@@ -1242,9 +1146,15 @@ def read_tables(args, plot_info):
     marker_list     = args.marker_list
     NROWS           = args.NROWS
 
-    axis_dict    = plot_info.axis_dict
-    bounds_dict  = plot_info.bounds_dict
-    
+    axis_dict      = plot_info.axis_dict
+    varname_x      = axis_dict['x']
+    varname_nodf_x = varname_x.split(STR_df)[1]  # for diagnostic print 
+    varname_xerr = axis_dict['xerr']
+    if args.NDIM == 2:
+        varname_y      = axis_dict['y']
+        varname_nodf_y = varname_y.split(STR_df)[1]  # for diagnostic print         
+        varname_yerr   = axis_dict['yerr']    
+            
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
     
@@ -1262,23 +1172,15 @@ def read_tables(args, plot_info):
         
         df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
                           skiprows=nrow_skip, nrows=NROWS)
-
-        # xxxxxxx mark delete Aug 23 2024 xxxxxxx
-        #if NROWS > 0 :
-        #    # read NROWS subset
-        #    df  = pd.read_csv(tfile, comment="#", sep=r"\s+", nrows=NROWS)
-        #else:
-        #    # read all
-        #    df  = pd.read_csv(tfile, comment="#", sep=r"\s+")
-        # xxxxxxxxxxxxxxxx
         
         # figure out KEYNAME to id events
         plot_info.varname_idrow = None
         for varname_idrow in VARNAME_IDROW_LIST:
             if varname_idrow in df:
-                plot_info.varname_idrow            = varname_idrow
+                plot_info.varname_idrow = varname_idrow
                 
         varname_idrow = plot_info.varname_idrow
+        
         if varname_idrow is None:
             sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
                      f"among {VARNAME_IDROW_LIST}")
@@ -1307,7 +1209,7 @@ def read_tables(args, plot_info):
         nrow = len(df)
         name_legend = legend
             
-        logging.info(f"\t --> nrow={nrow}   name_legend = {name_legend}")
+        logging.info(f"\t Read nrow={nrow}  for {name_legend}")
 
         if nrow == 0:
             sys.exit(f"\n ERROR: zero rows read for {name_legend}")
@@ -1321,18 +1223,34 @@ def read_tables(args, plot_info):
         }
 
         try:
-            MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(axis_dict['x'])
-            if axis_dict['xerr'] is not None:
-                MASTER_DF_DICT[key]['df']['x_plot_err'] = eval(axis_dict['xerr'])       
-            bounds_dict[key + "_min"] = np.amin(MASTER_DF_DICT[key]['df']['x_plot_val'])
-            bounds_dict[key + "_max"] = np.amax(MASTER_DF_DICT[key]['df']['x_plot_val'])
+
+            MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(varname_x)
+            xmin = np.amin(df['x_plot_val'])
+            xmax = np.amax(df['x_plot_val'])
+            logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}")            
+            if varname_xerr is not None:
+                MASTER_DF_DICT[key]['df']['x_plot_err'] = eval(varname_xerr)       
+            
             if args.NDIM == 2:
-                MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(axis_dict['y'])
-                if axis_dict['yerr'] is not None:
-                    MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(axis_dict['yerr'])
-                
+                MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(varname_y)
+                ymin = np.amin(df['y_plot_val'])
+                ymax = np.amax(df['y_plot_val'])
+                logging.info(f"\t y-axix({varname_nodf_y}) range : {ymin} to {ymax}")  
+                if varname_yerr is not None:
+                    MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(varname_yerr)
+            else:
+                ymin = None
+                ymax = None
+            
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for axis_dict={axis_dict} and {tfile}")
+
+
+        # store min and max for each variable to plot
+        table_bounds_key_list = [ 'xmin', 'xmax', 'ymin', 'ymax' ]
+        table_bounds_val_list = [  xmin,   xmax,   ymin,   ymax  ]
+        for tmp_key, tmp_val in zip(table_bounds_key_list, table_bounds_val_list):
+            MASTER_DF_DICT[key][tmp_key] = tmp_val
     
     # - - - - - - - -
     logging.info("Finished loading all table files.")
@@ -1348,7 +1266,9 @@ def set_xbins(args, plot_info):
 
     # set xbins and xbins_cen to pass later as arguments to matplot routines
     
-    bounds_dict = plot_info.bounds_dict
+    bounds_dict    = plot_info.bounds_dict
+    MASTER_DF_DICT = plot_info.MASTER_DF_DICT
+
     custom      = bounds_dict['custom']
 
     if custom:
@@ -1356,35 +1276,32 @@ def set_xbins(args, plot_info):
         xmin  = bounds_dict['xmin']
         xmax  = bounds_dict['xmax']
         nxbin = bounds_dict['nxbin']
-        # xxx mark delete xbins = np.arange(xmin, xmax, xbin)
 
     else:
-        # auto-set x bins from the data that was read in read_tables()
-        xmin  = bounds_dict['tf0_min']
-        xmax  = bounds_dict['tf0_max']
+        # fetch xmin/maxfrom the data that was read in read_tables()
+        xmin  = MASTER_DF_DICT['tf0']['xmin']
+        xmax  = MASTER_DF_DICT['tf0']['xmax']
         nxbin = NXBIN_AUTO 
 
     #  - - - - 
     xbins = np.linspace(xmin, xmax, nxbin+1)
     xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
-    
-    bounds_dict['xmin']  = xbins[0]                                 
-    bounds_dict['xmax']  = xbins[-1]
-    bounds_dict['xbin']  = xbins[1] - xbins[0]
-    bounds_dict['nxbin'] = nxbin
-    
-    # - - - - - 
     bounds_dict['xbins']     = xbins
     bounds_dict['xbins_cen'] = xbins_cen
+
+    if not custom :
+        bounds_dict['xmin']  = xbins[0]                                 
+        bounds_dict['xmax']  = xbins[-1]
+        bounds_dict['xbin']  = xbins[1] - xbins[0]
+        bounds_dict['nxbin'] = nxbin
+    
+    # - - - - - 
 
     #sys.exit(f"\n xxx xbins(arange) = \n{xbins}\n xbins_cen=\n{xbins_cen} \n")
         
     plot_info.bounds_dict = bounds_dict
 
-    xmin = bounds_dict['xmin']
-    xmax = bounds_dict['xmax']
-    xbin = bounds_dict['xbin']
-    msg = f"x-axis bins: {xmin} to {xmax}  ; binsize={xbin:.4f} and nxbin={nxbin}"
+    msg = f"x-axis has {nxbin} bins from {xmin} to {xmax} "
     logging.info(msg)
     
     return   # end set_xbins
@@ -2097,13 +2014,14 @@ if __name__ == "__main__":
 
     # set args for hist2d if 2d histogram is requested
     set_hist2d_args(args, plot_info)
-    
-    # xxx mark delete  set_var_dict(args, plot_info) 
 
     read_tables(args, plot_info)  # read each input file and store data frames
 
     # set x bins based on custom bounds or auto bounds
     set_xbins(args, plot_info)
+
+    # set axis labels after reading tables and setting xbins
+    set_axis_labels(args, plot_info)
     
     # initialize matplotlib figure
     plt.figure( figsize=(FIGSIZE[0]*args.XSIZE_SCALE,

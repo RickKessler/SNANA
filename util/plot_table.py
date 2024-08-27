@@ -65,9 +65,6 @@ VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
 
-ARG_DIFF_CID = "CID"
-ARG_DIFF_ALL = "ALL"
-VALID_ARG_DIFF_LIST = [ ARG_DIFF_CID, ARG_DIFF_ALL ]
 
 # define dictuionay of user-defined functions (key)
 # and the np.xxx replacement for pandas. These functions
@@ -570,7 +567,7 @@ def args_prep_DIFF(args):
     OPT        = args.OPT
     opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL], args.OPT)
     opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], args.OPT)
-    args.DIFF  = opt_diff  # e.g., 'CID' or 'ALL' or None
+    args.DIFF  = opt_diff  # e.g., 'DIFF_CID' or 'DIFF_ALL' or None
         
     if opt_diff and  opt_stat is None :
         args.OPT.append(OPT_MEDIAN) 
@@ -1126,7 +1123,7 @@ def set_custom_bounds_dict(args,plot_info):
 
     # - - - - - -  - - 
     # error checks 
-    if args.DIFF and  ndim == 1 :
+    if args.DIFF and  args.NDIM == 1 :
         sys.exit("\nERROR: @@OPT {args.DIFF}  does not work for 1D histograms." \
                  " ABORT to avoid confusion.")
 
@@ -1198,7 +1195,7 @@ def read_tables(args, plot_info):
             df = eval(cut)
 
         # drop duplicates for DIFF CID matching
-        if args.DIFF == ARG_DIFF_CID:
+        if args.DIFF == OPT_DIFF_CID:
             df.drop_duplicates(varname_idrow, inplace=True)
 
         # increment MASTER_DF_DICT dictionary; note that filename index is dict key.
@@ -1671,13 +1668,7 @@ def is_cid_subset(plot_dict, df0, df1):
     overlap = 1.0 - ndif/n0
 
     is_subset = ( overlap > MIN_OVERLAP_SUBSET)
-    
-    # xxx mark delete
-    #id_set0       = set(df0[varname_idrow])
-    #id_set1       = set(df1[varname_idrow])
-    #is_subset     = id_set0.issubset(id_set1)
-    # xxx end
-    
+        
     return is_subset
 
 def compute_ratio(yval0_list, errl0_list, erru0_list,
@@ -1770,13 +1761,13 @@ def get_info_plot2d(args, info_plot_dict):
         # strip off reference values from first plot
         df_ref          = info_plot_dict['df_ref']
         name_legend_ref = info_plot_dict['name_legend_ref']
-            
+
         # if there is no user-supplied legend, construct legend using
         # auto-generated legend from each plot
         if args.LEGEND is None:
             info_plot_dict['plt_legend']  = name_legend_ref + ' - ' + name_legend
         
-        if args.DIFF == ARG_DIFF_CID :
+        if args.DIFF == OPT_DIFF_CID :
             #need to do an inner join with each entry in dic, then plot the diff
             # (join logic thanks to Charlie Prior)
             varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW
@@ -1784,13 +1775,14 @@ def get_info_plot2d(args, info_plot_dict):
                                  how='inner', lsuffix='_0', rsuffix='_1')
             xval_list = join.x_plot_val_0.values
             yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
+
             info_plot_dict['xval_list']     = xval_list
             info_plot_dict['yval_list']     = yval_list
             if yerr_list is not None:
                 yerr_list_0 = join.y_plot_err_0.values
                 info_plot_dict['yerr_list']  = yerr_list_0
                 
-        elif args.DIFF == ARG_DIFF_ALL :
+        elif args.DIFF == OPT_DIFF_ALL :
 
             if OPT_MEDIAN in args.OPT:
                 which_stat = 'median'

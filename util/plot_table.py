@@ -1355,29 +1355,35 @@ def set_xbins(args, plot_info):
         # most info already set in set_custom_bounds_dict
         xmin  = bounds_dict['xmin']
         xmax  = bounds_dict['xmax']
-        xbin  = bounds_dict['xbin']
         nxbin = bounds_dict['nxbin']
-        xbins = np.arange(xmin, xmax, xbin)
+        # xxx mark delete xbins = np.arange(xmin, xmax, xbin)
+
     else:
         # auto-set x bins from the data that was read in read_tables()
-        xbins = np.linspace(bounds_dict[min(bounds_dict, key=bounds_dict.get)],
-                            bounds_dict[max(bounds_dict, key=bounds_dict.get)], NXBIN_AUTO)
-        xmin  = xbins[0]
-        xmax  = xbins[-1]
-        xbin  = xbins[1]-xbins[0]
-        nxbin = len(xbins)
-        bounds_dict['xmin']  = xmin
-        bounds_dict['xmax']  = xmax
-        bounds_dict['xbin']  = xbin
-        bounds_dict['nxbin'] = nxbin
+        xmin  = bounds_dict['tf0_min']
+        xmax  = bounds_dict['tf0_max']
+        nxbin = NXBIN_AUTO 
 
-    # - - - - - 
+    #  - - - - 
+    xbins = np.linspace(xmin, xmax, nxbin+1)
     xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
+    
+    bounds_dict['xmin']  = xbins[0]                                 
+    bounds_dict['xmax']  = xbins[-1]
+    bounds_dict['xbin']  = xbins[1] - xbins[0]
+    bounds_dict['nxbin'] = nxbin
+    
+    # - - - - - 
     bounds_dict['xbins']     = xbins
     bounds_dict['xbins_cen'] = xbins_cen
 
+    #sys.exit(f"\n xxx xbins(arange) = \n{xbins}\n xbins_cen=\n{xbins_cen} \n")
+        
     plot_info.bounds_dict = bounds_dict
 
+    xmin = bounds_dict['xmin']
+    xmax = bounds_dict['xmax']
+    xbin = bounds_dict['xbin']
     msg = f"x-axis bins: {xmin} to {xmax}  ; binsize={xbin:.4f} and nxbin={nxbin}"
     logging.info(msg)
     
@@ -1521,7 +1527,7 @@ def plotter_func_driver(args, plot_info):
                              markersize=plt_size, alpha=plt_alpha )
             
             if do_ov2d_binned_stat and NDIM == 2  :
-                overlay2d_binned_stat(args, info_plot_dict)
+                overlay2d_binned_stat(args, info_plot_dict, None)
 
         elif do_plot_hist and NDIM == 1 :
             plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
@@ -1537,8 +1543,9 @@ def plotter_func_driver(args, plot_info):
                            norm  = hist2d_args.norm )
             plt.colorbar(im)
 
-            if do_ov2d_binned_stat and NDIM == 2  :
-                overlay2d_binned_stat(args, info_plot_dict)            
+            if do_ov2d_binned_stat and NDIM == 2 :
+                overlay2d_binned_stat(args, info_plot_dict, 'ORANGE')
+
             
         elif do_plot_hist_ov1d and NDIM == 1:
             # 1D, typically sim overlaid on data
@@ -1889,7 +1896,7 @@ def get_info_plot2d(args, info_plot_dict):
         
     return  # end  get_info_plot2d
 
-def overlay2d_binned_stat(args, info_plot_dict):
+def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
 
     # prepare 2D plot overlay of median, avg or wgt-avg in each x-bin.
     
@@ -1967,7 +1974,7 @@ def overlay2d_binned_stat(args, info_plot_dict):
         # - - - - - - -
         plt_legend  += ' ' + stat_legend
         plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat,
-                     fmt=plt_marker, label=plt_legend, zorder=5 ) 
+                     fmt=plt_marker, label=plt_legend, color=ovcolor, zorder=5 ) 
             
     return  # end of overlay2d_binned_stat
 

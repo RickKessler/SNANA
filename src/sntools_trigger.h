@@ -17,20 +17,20 @@
  **************************************************/
 
 
-#define  IVARTYPE_SPECEFF_PEAKMAG    1  // flag val that var is a peakmag
-#define  IVARTYPE_SPECEFF_COLOR      2  // flag val that var is a color
-#define  IVARTYPE_SPECEFF_REDSHIFT   3  // flag val that var is a redshift
-#define  IVARTYPE_SPECEFF_PEAKMJD    4  // flag val that var is a peakmjd
-#define  IVARTYPE_SPECEFF_DTPEAK     5  // flag val that var is a dTpeak_min
+#define  IVARTYPE_SPECEFF_PEAKMAG    1  // flag that var is a peakmag
+#define  IVARTYPE_SPECEFF_COLOR      2  // flag that var is a peak color
+#define  IVARTYPE_SPECEFF_REDSHIFT   3  // flag that var is a redshift
+#define  IVARTYPE_SPECEFF_PEAKMJD    4  // flag that var is a peakmjd
+#define  IVARTYPE_SPECEFF_DTPEAK     5  // flag that var is a dTpeak_min
 #define  IVARTYPE_SPECEFF_DTSEASON_PEAK 6
-#define  IVARTYPE_SPECEFF_HOSTMAG    7  // flag val that var is a HOSTmag
-#define  IVARTYPE_SPECEFF_SBMAG      8  // flag val that var is a SBmag
-#define  IVARTYPE_SPECEFF_LOGMASS    9  // flag val that var is a LOGMASS
-#define  IVARTYPE_SPECEFF_SALT2mB   10  // flag val that var is a dTpeak_min
-#define  IVARTYPE_SPECEFF_SALT2x1   11  // flag val that var is a dTpeak_min
-#define  IVARTYPE_SPECEFF_SALT2c    12  // flag val that var is a dTpeak_min
-#define  IVARTYPE_SPECEFF           13  // flag val that var is SPECEFF
-#define  MXVAR_SEARCHEFF_SPEC       13  // max number of SPEC-eff VARNAMES
+#define  IVARTYPE_SPECEFF_HOSTMAG    7  // flag that var is HOSTmag
+#define  IVARTYPE_SPECEFF_SBMAG      8  // flag that var is SBmag
+#define  IVARTYPE_SPECEFF_LOGMASS    9  // flag that var is a LOGMASS
+#define  IVARTYPE_SPECEFF_SALT2mB   10  // flag that var is SALT2mb
+#define  IVARTYPE_SPECEFF_SALT2x1   11  // flag that var us SALT2x1
+#define  IVARTYPE_SPECEFF_SALT2c    12  // flag that var is SALT2c
+#define  IVARTYPE_SPECEFF           13  // flag that var is SPECEFF
+#define  MXVAR_SEARCHEFF_SPEC       20  // max number of SPEC-eff VARNAMES
 
 #define  MXMAP_SEARCHEFF_DETECT   50  
 #define  MXROW_SEARCHEFF_DETECT   10000

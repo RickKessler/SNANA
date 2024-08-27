@@ -23195,7 +23195,6 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.PEAKMAG[ifilt] = MAG_UNDEFINED ;
     SEARCHEFF_DATA.HOSTMAG[ifilt] = MAG_UNDEFINED ;
     SEARCHEFF_DATA.SBMAG[ifilt]   = MAG_UNDEFINED ;
-    
   }
   
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {

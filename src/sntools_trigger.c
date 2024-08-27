@@ -1068,7 +1068,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
     SEARCHEFF_SPEC[imap].IVAR_DTSEASON_PEAK = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_LOGMASS   = -9 ;    // Aug 27 2024
     SEARCHEFF_SPEC[imap].IVAR_SALT2mB   = -9 ;
-    SEARCHEFF_SPEC[imap].IVAR_SALT2x1    = -9 ;     // Aug 27 2024    
+    SEARCHEFF_SPEC[imap].IVAR_SALT2x1   = -9 ;     // Aug 27 2024    
     SEARCHEFF_SPEC[imap].IVAR_SALT2c    = -9 ;     // Aug 27 2024
     sprintf(SEARCHEFF_SPEC[imap].FIELDLIST, "%s", ALL ); // default is all fields
     SEARCHEFF_SPEC[imap].REQUIRE = 0 ; // Aug 2024
@@ -2510,6 +2510,7 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   bool MATCH, REQUIRE_PASS = true ;
   double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
   char *FIELD_MAP;
+  int  LDMP = 0;
   char fnam[] = "gen_SEARCHEFF_SPEC" ;
 
   // ----------- BEGIN --------
@@ -2537,10 +2538,14 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   // is specified. Take the logical-OR of each map,
   // which means that EFF = 1 - product(1-Eff_imap)
 
+  if ( LDMP ) {
+    printf(" xxx \n");
+    printf(" xxx %s DUMP for CID = %d ------------- \n", fnam, ID);
+  }
+    
   PnoSpec_OR = 1.0 ;
   Pspec_AND  = 1.0 ;
-  // xxx mark delete FIELD_GEN = SEARCHEFF_DATA.FIELDNAME ;
-
+  
   for ( imap=0; imap < NMAP; imap++ ) {
 
     // check if current field goes with this map
@@ -2549,13 +2554,26 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
     
     // determine list of variables
     NVAR = SEARCHEFF_SPEC[imap].GRIDMAP.NDIM ;
-    for ( ivar=0; ivar < NVAR; ivar++ )
-      { VARDATA[ivar] = LOAD_SPECEFF_VAR(imap,ivar); }
+    for ( ivar=0; ivar < NVAR; ivar++ )  {
+      VARDATA[ivar] = LOAD_SPECEFF_VAR(imap,ivar);
+      if ( LDMP ) {
+	char *VARNAME = SEARCHEFF_SPEC[imap].VARNAMES[ivar] ;	
+	printf(" xxx %s: imap=%d  load ivar=%d:  %s = %f \n",
+	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
+      }
+    }
 
     istat = interp_GRIDMAP(&SEARCHEFF_SPEC[imap].GRIDMAP, VARDATA, &EFF );
+
+    if ( LDMP ) {
+      printf(" xxx %s: imap=%d  EFF=%f \n", fnam, imap, EFF );
+      fflush(stdout);
+    }
+    
     PnoSpec_OR *= (1.0 - EFF);
     Pspec_AND  *= EFF ;
 
+    
     // Aug 2024: check for required map; e.g.. PEAKMJD or DTPEAK range
     REQUIRE_MAP = SEARCHEFF_SPEC[imap].REQUIRE;
     if ( REQUIRE_MAP ) {
@@ -2953,8 +2971,9 @@ double LOAD_SPECEFF_VAR(int imap, int ivar) {
 
   // ------------ BEGIN ------------------
 
+      
   IVARTYPE = SEARCHEFF_SPEC[imap].IVARTYPE[ivar]; 
-
+  
   if ( IVARTYPE == IVARTYPE_SPECEFF_REDSHIFT ) {
     return  SEARCHEFF_DATA.REDSHIFT ; 
   }
@@ -3005,11 +3024,11 @@ double LOAD_SPECEFF_VAR(int imap, int ivar) {
     ifilt_obs = SEARCHEFF_SPEC[imap].IFILTOBS_PEAKCOLOR[ivar][0] ;
     mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
     check_magUndefined(mag0,varName,fnam);  
-
+    
     ifilt_obs = SEARCHEFF_SPEC[imap].IFILTOBS_PEAKCOLOR[ivar][1] ;
     mag1 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
     check_magUndefined(mag1,varName,fnam);  
-
+	  
     color = mag0 - mag1 ;
     return  color ;
   }          
@@ -3070,7 +3089,7 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   char fnam[] = "assign_SPECEFF";
 
   // ----------- BEGIN ---------
-
+  
   // check for the easy ones first.
   if ( strcmp(VARNAME,"SPECEFF") == 0 )  {
     SEARCHEFF_SPEC[imap].IVAR = ivar ;
@@ -3101,22 +3120,28 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_DTSEASON_PEAK );
     return ;
   }
-  else if ( strcmp(VARNAME,"SALT2mB") )  {
+  else if ( strcmp(VARNAME,"SALT2mB")==0 )  {
     SEARCHEFF_SPEC[imap].IVAR_SALT2mB = ivar ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2mB ;
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2mB );
     return ;
   }
-  else if ( strcmp(VARNAME,"SALT2c") )  {
+  else if ( strcmp(VARNAME,"SALT2c")==0 )  {
     SEARCHEFF_SPEC[imap].IVAR_SALT2c = ivar ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2c ;
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2c );
     return ;
   }
-  else if ( strcmp(VARNAME,"SALT2x1") )  {
+  else if ( strcmp(VARNAME,"SALT2x1")==0 )  {
     SEARCHEFF_SPEC[imap].IVAR_SALT2x1 = ivar ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2x1 ;
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2x1 );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"LOGMASS") ==0 )  {
+    SEARCHEFF_SPEC[imap].IVAR_LOGMASS = ivar ;
+    SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_LOGMASS ;
+    SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_LOGMASS );
     return ;
   }
 
@@ -3129,7 +3154,7 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   ISPEAKMAG  = ISCOLOR = 0;
   LENVAR = strlen(VARNAME);
   ifilt_obs = ifilt2_obs = -9;
-
+  
   if ( strstr(VARNAME,"+") != NULL ) {
     // OR of multiple peakMags (Feb 2017)
     // Store filter-list for any char that is not a plus (+)

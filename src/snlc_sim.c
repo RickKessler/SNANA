@@ -1503,7 +1503,7 @@ int read_input_file(char *input_file, int keySource ) {
 
   // ---------- BEGIN ----------
 
-  if ( strcmp(input_file,"NOFILE") == 0 ) { return SUCCESS ; } // .xyz
+  if ( strcmp(input_file,"NOFILE") == 0 ) { return SUCCESS ; } 
   
   // unpack ENV, and make sure that input file exists
   ENVreplace(input_file,fnam,1);
@@ -8994,8 +8994,11 @@ void  init_event_GENLC(void) {
   SEARCHEFF_DATA.PEAKMJD     = -9.0 ;
   SEARCHEFF_DATA.MWEBV       = -9.0 ;
   SEARCHEFF_DATA.DTPEAK_MIN  = -9.0 ;
-  SEARCHEFF_DATA.DTSEASON_PEAK = -9.0 ;  
+  SEARCHEFF_DATA.DTSEASON_PEAK = -9.0 ;
+  SEARCHEFF_DATA.LOGMASS     = -9.0 ;
   SEARCHEFF_DATA.SALT2mB     = -9.0 ;
+  SEARCHEFF_DATA.SALT2x1     = -9.0 ;
+  SEARCHEFF_DATA.SALT2c      = -9.0 ;    
   SEARCHEFF_DATA.SIMLIB_ID   = -9 ;
 
   //  for(obs=0; obs < MXOBS_TRIGGER; obs++ ) {
@@ -9013,7 +9016,7 @@ void  init_event_GENLC(void) {
     SEARCHEFF_RANDOMS.FLAT_PHOTPROB[obs]  = -999.0 ;
     SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs] = -999.0 ;
   }
-  
+ 
 
   GENLC.MJD_TRIGGER      = -9.0 ;
   GENLC.MJD_DETECT_FIRST = -9.0 ;
@@ -23076,24 +23079,13 @@ void  LOAD_SEARCHEFF_DATA(void) {
   // to be used by  SEARCHEFF_xxx functions to evaluate
   // pipeline and SPEC efficiencies.
   //
-  // Aug 24 2014: 
-  //   major fix, use SNR_CALC instead of measured SNR.
-  //   But for SDSS, keep using measured SNR so that spec-effic is OK.
-  //
-  // Jun 23 2016: load HOSTMAG and HOSTSB
-  // Jan 03 2018: load NPE_SAT
-  // Jan 15 2018: load GENLC.FIELDNAME[0], not FIELDNAME[1]
-  // Jun 18 2018: load SNRMAX
-  //
-  // Dec 22 1019: 
-  //  + loop over GENLC.NEPOCH intead of GENLC.NEWMJD -->
-  //    more efficiency, and beware change of random sync.
   //
   // Feb 05 2021: load each overlap field and NFIELD_OVP
   // Jun 08 2022: Load NEXPOSE. 
   // Jul 08 2022: load PSFSIG (PSF sigma, pixels)
   //
-
+  // Aug 27 204: load LOGMASS, SALT2x1, SALT2c
+  
   bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
 
@@ -23109,10 +23101,13 @@ void  LOAD_SEARCHEFF_DATA(void) {
   SEARCHEFF_DATA.DTPEAK_MIN = GENLC.DTPEAK_MIN ; // closest T-Tpeak
   SEARCHEFF_DATA.DTSEASON_PEAK = GENLC.DTSEASON_PEAK ; // in-season time of peak
   SEARCHEFF_DATA.SALT2mB    = GENLC.SALT2mB ;
+  SEARCHEFF_DATA.SALT2x1    = GENLC.SALT2x1 ;
+  SEARCHEFF_DATA.SALT2c     = GENLC.SALT2c ;
   SEARCHEFF_DATA.SNRMAX     = GENLC.SNRMAX_GLOBAL ;
   SEARCHEFF_DATA.SIMLIB_ID  = GENLC.SIMLIB_ID;
   SEARCHEFF_DATA.MWEBV      = GENLC.MWEBV ;
-
+  SEARCHEFF_DATA.LOGMASS    = SNHOSTGAL_DDLR_SORT[0].LOGMASS_TRUE; 
+  
   SEARCHEFF_DATA.SEP_NEAREST_SRC = 9999.0;
   if ( INPUTS_STRONGLENS.USE_FLAG ) {
     SEARCHEFF_DATA.SEP_NEAREST_SRC = GENSL.MINSEP[GENSL.IMGNUM];
@@ -30240,7 +30235,6 @@ void SIMLIB_DUMP_DRIVER(void) {
       ZPTERR    = SIMLIB_OBS_GEN.ZPTERR[iep]; 
       if ( ZPTERR > ZPTERR_MAX ) { continue;} // exclude extreme variations
 
-      // .xyz
       if ( MJD < MJDMIN4 ) { MJDMIN4 = MJD ; }
       if ( MJD > MJDMAX4 ) { MJDMAX4 = MJD ; }
 
@@ -30698,7 +30692,7 @@ void prep_SIMLIB_DUMP(void) {
   // and prepare filter lists as if kcor init had run
   int ifilt, ifilt_obs, NF;
   char cfilt[2];
-  if ( IGNOREFILE(INPUTS.KCOR_FILE) ) {  //.xyz
+  if ( IGNOREFILE(INPUTS.KCOR_FILE) ) {  
     SIMLIB_readGlobalHeader_TEXT();      fclose(fp_SIMLIB);
     sprintf(INPUTS.GENFILTERS,"%s", SIMLIB_GLOBAL_HEADER.FILTERS);
     NF = strlen(INPUTS.GENFILTERS);

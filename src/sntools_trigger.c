@@ -1065,8 +1065,11 @@ void  init_SEARCHEFF_SPEC(char *survey) {
     SEARCHEFF_SPEC[imap].IVAR_REDSHIFT  = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_PEAKMJD   = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_DTPEAK    = -9 ;
-    SEARCHEFF_SPEC[imap].IVAR_DTSEASON_PEAK = -9 ;    
+    SEARCHEFF_SPEC[imap].IVAR_DTSEASON_PEAK = -9 ;
+    SEARCHEFF_SPEC[imap].IVAR_LOGMASS   = -9 ;    // Aug 27 2024
     SEARCHEFF_SPEC[imap].IVAR_SALT2mB   = -9 ;
+    SEARCHEFF_SPEC[imap].IVAR_SALT2x1    = -9 ;     // Aug 27 2024    
+    SEARCHEFF_SPEC[imap].IVAR_SALT2c    = -9 ;     // Aug 27 2024
     sprintf(SEARCHEFF_SPEC[imap].FIELDLIST, "%s", ALL ); // default is all fields
     SEARCHEFF_SPEC[imap].REQUIRE = 0 ; // Aug 2024
     
@@ -1142,7 +1145,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
     if ( strcmp(c_get,"REQUIRE:") == 0 ) {
       readint(fp, 1, &REQUIRE_MAP);
-      fflush(stdout); //.xyz	    
+      fflush(stdout); 
     }
     
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
@@ -2964,8 +2967,17 @@ double LOAD_SPECEFF_VAR(int imap, int ivar) {
   else if ( IVARTYPE == IVARTYPE_SPECEFF_DTSEASON_PEAK ) {
     return  SEARCHEFF_DATA.DTSEASON_PEAK ; // smallest abs(T-Tpeak)
   }
+  else if ( IVARTYPE == IVARTYPE_SPECEFF_LOGMASS ) {
+    return  SEARCHEFF_DATA.LOGMASS ; 
+  }  
   else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2mB ) {
     return  SEARCHEFF_DATA.SALT2mB ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2x1 ) {
+    return  SEARCHEFF_DATA.SALT2x1 ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2c ) {
+    return  SEARCHEFF_DATA.SALT2c ; 
   }
   else if ( IVARTYPE == IVARTYPE_SPECEFF_PEAKMAG ) {
     // take average of peakMags that are OR'ed in this map.
@@ -3035,7 +3047,9 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   //  * SEARCHEFF_SPEC.IVAR_REDSHIFT  
   //  * SEARCHEFF_SPEC.IVAR_PEAKMJD
   //  * SEARCHEFF_SPEC.IVAR_DTPEAK
-  //  * SEARCHEFF_SPEC.IVAR_DTSEASON_PEAK  
+  //  * SEARCHEFF_SPEC.IVAR_DTSEASON_PEAK
+  //  * SEARCHEFF_SPEC.IVAR_SALT2mb[x1,c]
+  //  * SEARCHEFF_SPEC.IVAR_LOGMASS  
   //  * SEARCHEFF_SPEC.IFILTOBS_PEAKMAG
   //  * SEARCHEFF_SPEC.IFILTOBS_PEAKCOLOR
   //  * SEARCHEFF_SPEC.IFILTOBS_HOSTMAG 
@@ -3046,7 +3060,8 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   //
   // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
   // May 13 2021: allow HOSTMAG or HOST_MAG
-  //
+  // Aug 27 2024: store IVAR_SALT2x1, IVAR_SALT2c, IVAR_LOGMASS
+  
   int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
   int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
 
@@ -3086,10 +3101,22 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_DTSEASON_PEAK );
     return ;
   }
-  else if ( strcmp(VARNAME,"mB") == 0 )  {
+  else if ( strcmp(VARNAME,"SALT2mB") )  {
     SEARCHEFF_SPEC[imap].IVAR_SALT2mB = ivar ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2mB ;
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2mB );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"SALT2c") )  {
+    SEARCHEFF_SPEC[imap].IVAR_SALT2c = ivar ;
+    SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2c ;
+    SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2c );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"SALT2x1") )  {
+    SEARCHEFF_SPEC[imap].IVAR_SALT2x1 = ivar ;
+    SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2x1 ;
+    SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2x1 );
     return ;
   }
 

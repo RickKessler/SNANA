@@ -12,20 +12,25 @@
 
   Feb 05 2021: define FIELDLIST_OVP and NFIELD_OVP
 
+  Aug 27 2024: add variables to update SPECEFF map to include SALT2x1, SALT2c, LOGMASS
+
  **************************************************/
 
 
-#define  IVARTYPE_SPECEFF_PEAKMAG  1  // flag val that var is a peakmag
-#define  IVARTYPE_SPECEFF_COLOR    2  // flag val that var is a color
-#define  IVARTYPE_SPECEFF_REDSHIFT 3  // flag val that var is a redshift
-#define  IVARTYPE_SPECEFF_PEAKMJD  4  // flag val that var is a peakmjd
-#define  IVARTYPE_SPECEFF_DTPEAK   5  // flag val that var is a dTpeak_min
+#define  IVARTYPE_SPECEFF_PEAKMAG    1  // flag val that var is a peakmag
+#define  IVARTYPE_SPECEFF_COLOR      2  // flag val that var is a color
+#define  IVARTYPE_SPECEFF_REDSHIFT   3  // flag val that var is a redshift
+#define  IVARTYPE_SPECEFF_PEAKMJD    4  // flag val that var is a peakmjd
+#define  IVARTYPE_SPECEFF_DTPEAK     5  // flag val that var is a dTpeak_min
 #define  IVARTYPE_SPECEFF_DTSEASON_PEAK 6
-#define  IVARTYPE_SPECEFF_HOSTMAG  7  // flag val that var is a HOSTmag
-#define  IVARTYPE_SPECEFF_SBMAG    8  // flag val that var is a SBmag
-#define  IVARTYPE_SPECEFF_SALT2mB  8  // flag val that var is a dTpeak_min
-#define  IVARTYPE_SPECEFF          10  // flag val that var is SPECEFF
-#define  MXVAR_SEARCHEFF_SPEC      11  // max number of SPEC-eff VARNAMES
+#define  IVARTYPE_SPECEFF_HOSTMAG    7  // flag val that var is a HOSTmag
+#define  IVARTYPE_SPECEFF_SBMAG      8  // flag val that var is a SBmag
+#define  IVARTYPE_SPECEFF_LOGMASS    9  // flag val that var is a LOGMASS
+#define  IVARTYPE_SPECEFF_SALT2mB   10  // flag val that var is a dTpeak_min
+#define  IVARTYPE_SPECEFF_SALT2x1   11  // flag val that var is a dTpeak_min
+#define  IVARTYPE_SPECEFF_SALT2c    12  // flag val that var is a dTpeak_min
+#define  IVARTYPE_SPECEFF           13  // flag val that var is SPECEFF
+#define  MXVAR_SEARCHEFF_SPEC       13  // max number of SPEC-eff VARNAMES
 
 #define  MXMAP_SEARCHEFF_DETECT   50  
 #define  MXROW_SEARCHEFF_DETECT   10000
@@ -198,10 +203,9 @@ struct SEARCHEFF_LOGIC {
 
 struct {
   char VARNAMES[MXVAR_SEARCHEFF_SPEC][40] ;
-  //  int NROW, NVAR; 
-  int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD;
-  int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB;
-
+  int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD, IVAR_LOGMASS ;
+  int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB, IVAR_SALT2x1, IVAR_SALT2c ;
+  
   char FIELDLIST[60] ;
   int IVARTYPE[MXVAR_SEARCHEFF_SPEC] ;
 
@@ -258,7 +262,8 @@ struct {
 
   // scalars
   int    CID ;
-  double REDSHIFT, PEAKMJD, DTPEAK_MIN, DTSEASON_PEAK, SALT2mB, SNRMAX, MWEBV ;
+  double REDSHIFT, PEAKMJD, DTPEAK_MIN, DTSEASON_PEAK, SNRMAX, MWEBV ;
+  double SALT2mB, SALT2x1, SALT2c, LOGMASS ;
   int    SIMLIB_ID;
 
 

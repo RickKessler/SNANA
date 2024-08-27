@@ -3276,7 +3276,7 @@ Fig.~\ref{fig:speceff_varnames}.
 % ----------------
 \begin{figure}[hb] 
 \begin{center}
-\caption{ Valid {\tt VARNAMES} to describe $\simeffspec$. }
+\caption{ Valid {\tt VARNAMES} to describe $\simeffspec$ in Fig.~\ref{fig:speceff} }
 \label{fig:speceff_varnames}
 \begin{Verbatim}[frame=single]
   * g r i            # peak mag in any band
@@ -3287,8 +3287,12 @@ Fig.~\ref{fig:speceff_varnames}.
   * PEAKMJD          # MJD at time of peak brightness
   * DTPEAK           # closest T-Tpeak; can be pos or negative
   * DTSEASON_PEAK    # positive if PEAK is in-season; else negative
-  * HOSTMAG_[band]   # mag of host galaxy
-  * SBMAG_[band]     # surface brightness mag/arcsec^2
+  * SALT2mB          # SALT2 mB 
+  * SALT2x1          # SALT2 stretch parameter
+  * SALT2c           # SALT2 color parameter
+  * LOGMASS          # hsot galaxy LOGMASS
+  * HOSTMAG_[band]   # mag of host galaxy in [band]
+  * SBMAG_[band]     # surface brightness mag/arcsec^2 in [band]
 \end{Verbatim}
 \end{center}
 \end{figure}

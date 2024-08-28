@@ -22589,7 +22589,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix to preserve output order of user-supplied list of cid or galid.
 
 # =============================================================
-         v11_05p (Aug 23 2024) <-- start date
+         v11_05p (Aug 23 2024) <-- start date (no git tag yet)
 
          *****  IMPORTANT(v11_05p) *****
       
@@ -22597,5 +22597,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      
          *****  MISCELLANEOUS(v11_05p) *****
 
+    SALT2mu.c :
+      + restore_bug_muCOVadd += 4 -> restore bug in prepNextFit (was fixed Feb 2022)
+      + add more explicit WARNING messages for this restore_bug flag
 
+    plot_table.py: lots of continued development.
+    
 END: 

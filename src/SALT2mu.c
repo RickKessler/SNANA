@@ -1162,7 +1162,7 @@ struct INPUTS {
 
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_bug_mucovscale ; // Sep 14 2021 allow restoring bug
-  int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
+  int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022; +=4 for bug in prepNextFit
   int restore_bug2_mucovadd; // https://github.com/RickKessler/SNANA/issues/1154
   
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
@@ -3610,7 +3610,8 @@ int prepNextFit(void) {
   // Sep 3 2021: REPEAT fit msg incldues alpha,beta,redchi2.
   // Feb 22 2022: fix bug to recalc_dataCov if sigint=0
   // Dec 07 2022: require NCALL_SALT2mu_DRIVER_EXEC=1 to force STOP_TOL=0
-
+  // Aug 28 2024: implement restore_bug to undo Feb 22 2022 fix.
+  //
   double redchi2, covParam ;
   double step1 = INPUTS.covint_param_step1 ;
   double COVINT_PARAM_MIN = 0.0 ;
@@ -3676,11 +3677,21 @@ int prepNextFit(void) {
     // On 2nd iteration, use linear approx and dchi2red/dsigint 
     // to estimate next covParam
 
+    bool restore_bug = (INPUTS.restore_bug_mucovadd &4)>0;
+    bool do_recalc_dataCov = true;
+    
     covParam = FITINP.COVINT_PARAM_FIX ;
     FITINP.COVINT_PARAM_FIX = next_covFitPar(redchi2,covParam,step1); 
     if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN ) 
-      {  FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ; } 
-    recalc_dataCov();
+      {  FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ; }
+    else {
+      if ( restore_bug ) {
+	fprintf(FP_STDOUT,"\t %s WARNING: restore bug -> skip recalc_dataCov()\n");
+	do_recalc_dataCov = false;
+      }
+    }
+    
+    if ( do_recalc_dataCov ) { recalc_dataCov(); }
 
     retCode = FITFLAG_CHI2 ;
 
@@ -9949,7 +9960,11 @@ void set_DUST_FLAG_biasCor(void) {
 
   // Aug 14 2024: restore "restore_bug" option to use SIM_BETA ~ 2
   //              instead of approx fitted beta
-  if (  (INPUTS.restore_bug_mucovadd &1)>0 ) { return; }
+  if (  (INPUTS.restore_bug_mucovadd &1)>0 ) {
+    fprintf(FP_STDOUT,"\n %s WARNING: restore bug to use "
+	    "SIM_BETA for biasCor instead of p2\n\n");
+    return;
+  }
 
   
   if ( !INPUTS.ISMODEL_LCFIT_SALT2 ) { return; }
@@ -22669,8 +22684,9 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_mucovscale=1    # use undefined muCOVscale cells",
     "restore_bug_muzerr=1        # ignore vpec err in biasCor",
     "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
-    "restore_bug_mucovadd=1      # use wrong beta for sim biasCor",
-    "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",   
+    "restore_bug_mucovadd=1      # use wrong beta for sim biasCor (Feb 2022)",
+    "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",
+    "restore_bug_mucovadd=4      # restore bug in prepNextFit (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_WGTabg=1        # restore WGTabg bug in get_muBias",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",

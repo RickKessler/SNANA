@@ -275,7 +275,7 @@ and two types of command-line input delimeters
   Provide relative coordinates (0 to 1) per axis and text to add on plot.
   Relative coord 0 puts text at left (x-axis) or bottom (y-axis); 
   relative coord of 0.5 puts text in the middle, etc ...
-  Use colon to separate multiple text strings at different locations.
+  The arg syntax is groups of   x_rel y_rel 'text' ; e.g, 
   e.g.
     @@TEXT 0.05 0.90 '(a) comment bla bla $alpha = \beta$' 
         or

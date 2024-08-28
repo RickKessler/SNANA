@@ -959,7 +959,6 @@ void append_HOSTLIB_STOREPAR(void) {
 			      &HOSTLIB_WGTMAP.GRIDMAP); // <= returned
     
     strip_SNVAR_from_VARLIST_WGTMAP(VARLIST_WGTMAP,VARLIST_WGTMAP_noSNVAR);
-    //    prep_HOSTLIB_WGTMAP() ;
   } 
   else {
     NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP_noSNVAR);

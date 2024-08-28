@@ -39,6 +39,8 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
   char fnam[]    = "read_WGTMAP";
 
   // ------------- BEGIN ------------
+
+  if ( IGNOREFILE(WGTMAP_FILE) ) { return 0; }
   
   fp = open_TEXTgz(WGTMAP_FILE, TEXTMODE_read, &gzipFlag );
   

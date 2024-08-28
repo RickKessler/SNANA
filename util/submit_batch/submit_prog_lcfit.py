@@ -44,12 +44,15 @@
 #                  See dependence on LCFIT_SUBCLASS.
 #
 # Feb 14 2024 RK 
-#    - rename NEVT_SNANA_CUTS to NEVT_LC_CUTS to have a more generic
+#    + rename NEVT_SNANA_CUTS to NEVT_LC_CUTS to have a more generic
 #                  name for SALT3 and BayeSN.
-#    - minor tweaks to post-process for subclass LCFIT_BAYESN.
-#    - auto-set kill_on_fail flag if sync-event flag is set to avoid infinite 
+#    + minor tweaks to post-process for subclass LCFIT_BAYESN.
+#    + auto-set kill_on_fail flag if sync-event flag is set to avoid infinite 
 #      wait-for-file if FITOPT000.FITRES is never created.
 #
+# Aug 28 2024 RK
+#    + allow new kind of FITOPT to give JOBNAME <jobname> to easily run tests
+#      over many old code versions. See -H LCFIT for help.
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -1010,14 +1013,18 @@ class LightCurveFit(Program):
         fitopt_arg    = self.config_prep['fitopt_arg_list'][iopt]
         fitopt_num    = self.config_prep['fitopt_num_list'][iopt]
         fitopt_label  = self.config_prep['fitopt_label_list'][iopt]
-        fitopt_global = CONFIG.setdefault('FITOPT_GLOBAL',None)
+        #fitopt_global = CONFIG.setdefault('FITOPT_GLOBAL',None)
+        fitopt_global = self.get_fitopt_global(version)
 
-        # xxxxx
-        bla = [value for key,value in CONFIG.items() if key.startswith("FITOPT_GLOBAL")]
-        print(f"\n xxx bla = \n{bla}")
-        sys.exit(f"\n xxx CONFIG = \n{CONFIG}")
-        # xxxxx
-        
+        # Aug 28 2024: check FITOPT that is actually a different program name,
+        #              such as an older code version; e.g., 
+        #    FITOPT:
+        #    - /v11_04e/  JOBNAME  /products/SNANA_v11_04e/bin/snlc_fit.exe
+        #
+        if JOBNAME in fitopt_arg:
+            program in fitopt_arg.split()[1]
+            fitopt_arg = ''
+            
         use_table_format = self.config_prep['use_table_format']
         n_job_split   = self.config_prep['n_job_split']
         split_num     = f"SPLIT{isplit:03d}"
@@ -1069,6 +1076,7 @@ class LightCurveFit(Program):
         if fitopt_global is not None:
             arg_list.append(f"  {fitopt_global}")
 
+            
         arg_list.append(f"{fitopt_arg}")
 
         # Jan 8, 2021: option to use CID list from FITOPT000
@@ -1115,7 +1123,34 @@ class LightCurveFit(Program):
         return JOB_INFO
 
         # end prep_JOB_INFO_fit
- 
+
+    def get_fitopt_global(self,version):
+        # Created Aug 29 2024
+        # Return fitopt_global st
+        CONFIG        = self.config_yaml['CONFIG']
+        key_fitopt_pairs = [(key,value) for key,value in \
+                            CONFIG.items() if key.startswith("FITOPT_GLOBAL")]
+
+        if len(key_fitopt_pairs) == 0:
+            fitopt_global = None
+        else:
+            fitopt_global = ''            
+            for key, fitopt  in key_fitopt_pairs:       
+                version_pattern = util.extract_arg(key)
+                if version_pattern == '' or version_pattern in version:
+                    fitopt_global += f"{fitopt}  "
+
+        LDMP = False
+        if LDMP:
+            print(f" xxx ------------------------------------------- ")
+            print(f" xxx get_fitopt_global DUMP for version = {version} :")
+            print(f" xxx key_fitopt_pairs = \n{key_fitopt_pairs}")        
+            print(f" xxx fitopt_global = \n{fitopt_global}")
+                
+        
+        return fitopt_global
+        # end get_fitopt_global
+        
     def get_sym_link_list(self,sym_link_dict):
         # prepare commands for symbolic links from FITOPTnnn to FITOPT000,
         # where nnn > 0

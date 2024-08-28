@@ -336,6 +336,7 @@ HELP_CONFIG_LCFIT = f"""
   - MY_SIMDATA
   - MY_SIMBIASCOR_*     # wildcard allowed
   - etc ...
+
   FITOPT:
   - /ZPCAL/    MAGOBS_SHIFT_ZP g .01  # optional ZPCAL label for other codes
   - /ZPCAL/    MAGOBS_SHIFT_ZP r .01
@@ -352,7 +353,17 @@ HELP_CONFIG_LCFIT = f"""
   - FITOPT000     # another synLink for FITOPT012
   - etc ...
 
-  FITOPT_GLOBAL: <command-line arg list>  # global o[tions for all FITOPTs
+  FITOPT_GLOBAL: <command-line arg list>  # global options for all FITOPTs
+
+  # Version-dependent fit-options can be specified with
+  FITOPT_GLOBAL(MY_DATA): <command-line data args>
+  FITOPT_GLOBAL(SIM):     <command-line sim  args>
+  
+  # where the first set of fit-options applies only to VERSION MY_DATA 
+  # (see VERSION: key above), and the 2nd set applies to VERSIONs containing
+  # "SIM" in the name:  MY_SIMDATA and MY_SIMBIASCOR_* . The options in 
+  # "FITOPT_GLOBAL:" are always included, regardless of whether or not 
+  # version-dependent FITOPTs are provided.
 
   # Sym Link Notes for FITOPT000: this feature is useful for systematics
   # with multiple surveys. For example above, FITOPT011 and FITOP012 could
@@ -360,6 +371,16 @@ HELP_CONFIG_LCFIT = f"""
   # uses the default LCFIT (FITOPT000) without wasting CPU.
   # Labels with NOREJECT are used by BBC to exlcude these tests in
   # determining reject list in 2nd BBC fit iteration.
+
+  # To repeat fits with multiple code versions (e.g., to identify code version 
+  # causing a big change);
+  FITOPT:
+  - /v11_04e/  JOBNAME /products/SNANA_v11_04e/bin/snlc_fit.exe
+  - /v11_04f/  JOBNAME /products/SNANA_v11_04f/bin/snlc_fit.exe
+  - /v11_04g/  JOBNAME /products/SNANA_v11_04g/bin/snlc_fit.exe
+  etc ...
+  # will use the specified JOBNAME and also suppress the JOBNAME key and arg
+  # from the argument list.
 
   # Option to use events from FITOPT000 in all FITOPTs ...
   # except those with NOREJECT in label.

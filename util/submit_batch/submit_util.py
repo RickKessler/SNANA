@@ -649,7 +649,7 @@ def nrow_table_TEXT(table_file, row_key):
 
 def extract_arg(key):
     # If key is of the form  KEY(ARG), function returns ARG.
-    # If not (), function returns ''
+    # If no (), function returns ''
     arg = ''
     if '(' in key and ')' in key :
         j0  = key.index('(') + 1

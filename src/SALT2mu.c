@@ -3686,7 +3686,7 @@ int prepNextFit(void) {
       {  FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ; }
     else {
       if ( restore_bug ) {
-	fprintf(FP_STDOUT,"\t %s WARNING: restore bug -> skip recalc_dataCov()\n");
+	fprintf(FP_STDOUT,"\t %s WARNING: restore bug -> skip recalc_dataCov()\n", fnam);
 	do_recalc_dataCov = false;
       }
     }
@@ -9962,7 +9962,7 @@ void set_DUST_FLAG_biasCor(void) {
   //              instead of approx fitted beta
   if (  (INPUTS.restore_bug_mucovadd &1)>0 ) {
     fprintf(FP_STDOUT,"\n %s WARNING: restore bug to use "
-	    "SIM_BETA for biasCor instead of p2\n\n");
+	    "SIM_BETA for biasCor instead of p2\n\n", fnam );
     return;
   }
 

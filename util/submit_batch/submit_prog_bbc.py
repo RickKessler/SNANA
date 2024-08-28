@@ -1657,8 +1657,8 @@ class BBC(Program):
         sync_evt     = self.config_prep['sync_evt_list'][0]
 
         # check option to use different code (JOBNAME)
-        if 'JOBNAME' in muopt_arg:
-            program = muopt_arg.split()[1]
+        if 'JOBNAME' in muopt_arg :
+            program = os.path.expandvars(muopt_arg.split()[1])
             muopt_arg = ''
 
         # construct row mimicking MERGE.LOG            

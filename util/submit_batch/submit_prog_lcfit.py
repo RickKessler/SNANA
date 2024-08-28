@@ -1022,7 +1022,7 @@ class LightCurveFit(Program):
         #    - /v11_04e/  JOBNAME  /products/SNANA_v11_04e/bin/snlc_fit.exe
         #
         if 'JOBNAME' in fitopt_arg:
-            program in fitopt_arg.split()[1]
+            program = os.path.expandvars(fitopt_arg.split()[1])
             fitopt_arg = ''
             
         use_table_format = self.config_prep['use_table_format']
@@ -1303,6 +1303,7 @@ class LightCurveFit(Program):
 
         MERGE_LAST          = self.config_yaml['args'].MERGE_LAST
         submit_info_yaml    = self.config_prep['submit_info_yaml']
+        snana_version       = self.config_prep['snana_version']
         script_dir          = submit_info_yaml['SCRIPT_DIR']
         n_job_split         = submit_info_yaml['N_JOB_SPLIT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
@@ -1313,11 +1314,17 @@ class LightCurveFit(Program):
         COLNUM_NEVT1   = COLNUM_FIT_MERGE_NEVT_LC_CUTS
         COLNUM_NEVT2   = COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS
         COLNUM_CPU     = COLNUM_FIT_MERGE_CPU
-
+        
         key_tot, key_tot_sum, key_list = \
                 self.keynames_for_job_stats('NEVT_TOT')
+
+        # use old key NEVT_SNANA_CUTS if snana_version < v11_05k
+        # Beware that this fails for reading snlc_fit.exe from restored git clone
+        KEY_YAML = 'NEVT_LC_CUTS'
+        if snana_version < 'v11_05k' : KEY_YAML = 'NEVT_SNANA_CUTS'  # .xyz
         key_snana, key_snana_sum, key_snana_list = \
-                self.keynames_for_job_stats('NEVT_LC_CUTS')
+                self.keynames_for_job_stats(KEY_YAML)
+        
         key_lcfit, key_lcfit_sum, key_lcfit_list = \
                 self.keynames_for_job_stats('NEVT_LCFIT_CUTS')
         key_cpu, key_cpu_sum, key_cpu_list = \

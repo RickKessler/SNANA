@@ -65,7 +65,9 @@ class Program:
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
-            
+
+        config_prep['snana_version'] = util.get_snana_version()
+        
         # default is 1 submit, so iter is None
         # (bbc might change this to 1 and 2) 
         config_prep['submit_iter'] = None  # May 24 2021
@@ -2431,6 +2433,9 @@ class Program:
             
                 for item in yaml_key_list :
                     key, key_sum, key_list  = self.keynames_for_job_stats(item)
+                    self.log_assert(key in stats_yaml,
+                                    [ f"Missing yaml key={key}", f"in {YAML_FILE}"] )
+
                     job_stats[key_list][isplit] = stats_yaml[key]
                     job_stats[key_sum]         += stats_yaml[key]
                 

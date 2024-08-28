@@ -723,7 +723,9 @@ class Simulation(Program):
 
     def get_ngentot_from_rate(self,iver,ifile):
 
-        # run sim with INIT_ONLY flag to use sim as rate-calculator
+        # Determine number of events to generate based on physical rate
+        # or user-supplied NGENTOT_LC.
+        # Run sim with INIT_ONLY flag to use sim as rate-calculator
         # that quits immediately without generating events. Basic
         # idea is that one "UNIT" of generated events is computed from
         # GENRANGE_PEAKMJD, GENRANGE_REDSHIFT and SOLID_ANGLE.
@@ -748,6 +750,12 @@ class Simulation(Program):
         genopt        = self.config_prep['genopt_list2d'][iver][ifile]
         snana_dir     = self.config_yaml['args'].snana_dir
 
+        # Aug 28 2024: check special JOBNAME option to use different code
+        #   (e.g, older code version)
+        if 'JOBNAME' in genopt:
+            program  = os.path.expandvars(genopt.split()[1])
+            genopt   = ''
+        
         cddir         = f"cd {output_dir}"
         ngentot       = 0
         
@@ -1613,7 +1621,7 @@ class Simulation(Program):
         # Aug 28 2024: check special JOBNAME option to use different code
         #   (e.g, older code version)
         if 'JOBNAME' in genopt:
-            program  = genopt.split()[1]
+            program  = os.path.expandvars(genopt.split()[1])
             genopt   = ''
             
         # init JOB_INFO dictionary. Note that sim job runs in same

@@ -3682,13 +3682,12 @@ int prepNextFit(void) {
     
     covParam = FITINP.COVINT_PARAM_FIX ;
     FITINP.COVINT_PARAM_FIX = next_covFitPar(redchi2,covParam,step1); 
-    if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN ) 
-      {  FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ; }
-    else {
+    if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN )  {
+      FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ;
       if ( restore_bug ) {
 	fprintf(FP_STDOUT,"\t %s WARNING: restore bug -> skip recalc_dataCov()\n", fnam);
 	do_recalc_dataCov = false;
-      }
+      }      
     }
     
     if ( do_recalc_dataCov ) { recalc_dataCov(); }

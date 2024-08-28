@@ -112,10 +112,14 @@
 #define HOSTLIB_VARNAME_ZPHOT        "ZPHOT"
 #define HOSTLIB_VARNAME_ZPHOT_ERR    "ZPHOT_ERR" 
 #define HOSTLIB_VARNAME_VPEC         "VPEC"         
-#define HOSTLIB_VARNAME_VPEC_ERR     "VPEC_ERR"     
+#define HOSTLIB_VARNAME_VPEC_ERR     "VPEC_ERR"
+
+/* xxx mark delete Aug 28 2024 xxxxs
 #define HOSTLIB_VARNAME_LOGMASS_TRUE "LOGMASS_TRUE"  // log10(Mgal/Msolar)
 #define HOSTLIB_VARNAME_LOGMASS_ERR  "LOGMASS_ERR" 
 #define HOSTLIB_VARNAME_LOGMASS_OBS  "LOGMASS_OBS"
+xxxx end mark xxx */
+
 #define HOSTLIB_VARNAME_RA           "RA"  
 #define HOSTLIB_VARNAME_DEC          "DEC" 
 #define HOSTLIB_VARNAME_RA_HOST      "RA_HOST"  
@@ -236,9 +240,11 @@ struct HOSTLIB_DEF {
   int NZPHOT_Q;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
-  int IVAR_LOGMASS_TRUE ; // legacy 
-  int IVAR_LOGMASS_ERR ; // legacy 
-  int IVAR_LOGMASS_OBS ;  // legacy
+
+  int IVAR_LOGMASS_TRUE ;
+  int IVAR_LOGMASS_ERR ; 
+  int IVAR_LOGMASS_OBS ;  
+  
   HOSTGAL_PROPERTY_IVAR_DEF *HOSTGAL_PROPERTY_IVAR ;
   int IVAR_RA ;
   int IVAR_DEC ; 
@@ -488,14 +494,14 @@ typedef struct {
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
   double RA, DEC, SNSEP, DLR, DDLR ;
-  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
+  // xxx mark Aug 28 2024  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
   HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
   double ZPHOT_Q[MXBIN_ZPHOT_Q];
   bool   TRUE_MATCH ;
-  // Added for LSST but maybe of more general utility
-  // Alex Gagliano 09/2021
+  
+  // Added GALID2 for LSST but maybe of more general utility; A Gagliano 09/2021
   long long GALID2 ; // Second ID e.g., from external catalog
   int       GROUPID; 
   double SQRADIUS; // Ixx + Iyy
@@ -677,7 +683,6 @@ void   GEN_SNHOST_WEAKLENS_DMU(int IGAL);
 void   GEN_SNHOST_STRONGLENS(void);
 void   GEN_DDLR_STRONGLENS(int IMGNUM);
 
-void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 
 int    USEHOST_GALID(int IGAL) ;
 void   FREEHOST_GALID(int IGAL) ;
@@ -712,6 +717,7 @@ void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 
 void   malloc_HOSTGAL_PROPERTY(void);
 int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
+// xxx mark double get_VALUE_HOSTGAL_PROPERTY(char *PROPERTY, char *WHICH); 
 
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init

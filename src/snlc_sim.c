@@ -9603,7 +9603,7 @@ void dump_modelSmearSigma(void) {
   parList[0] = TREST ;
   parList[1] = GENLC.SHAPEPAR ;
   parList[2] = GENLC.SALT2c ;
-  if ( m >= 0 ) { LOGMASS = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE ; }
+  // .xyz if ( m >= 0 ) { LOGMASS = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE ; }
   parList[3] = LOGMASS ;
     
 
@@ -23089,7 +23089,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
   bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
 
-  int ep, NOBS,  NRANTMP=0;
+  int ep, NOBS,  NRANTMP=0, i_prop;
   double flux, flux_err, SNR_CALC, SNR_OBS, SNR, oldRan ;
   char fnam[] = "LOAD_SEARCHEFF_DATA";
 
@@ -23106,7 +23106,13 @@ void  LOAD_SEARCHEFF_DATA(void) {
   SEARCHEFF_DATA.SNRMAX     = GENLC.SNRMAX_GLOBAL ;
   SEARCHEFF_DATA.SIMLIB_ID  = GENLC.SIMLIB_ID;
   SEARCHEFF_DATA.MWEBV      = GENLC.MWEBV ;
-  SEARCHEFF_DATA.LOGMASS    = SNHOSTGAL_DDLR_SORT[0].LOGMASS_TRUE; 
+
+  if ( HOSTLIB.IVAR_LOGMASS_TRUE > 0 ) {
+    i_prop = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);  
+    SEARCHEFF_DATA.LOGMASS =
+      SNHOSTGAL_DDLR_SORT[0].HOSTGAL_PROPERTY_VALUE[i_prop].VAL_TRUE;
+  }
+
   
   SEARCHEFF_DATA.SEP_NEAREST_SRC = 9999.0;
   if ( INPUTS_STRONGLENS.USE_FLAG ) {
@@ -27654,8 +27660,12 @@ void genmodel(
     S2c  = GENLC.SALT2c  + GENLC.COVMAT_SCATTER[2] ;
     tmp  = -0.4 * GENLC.COVMAT_SCATTER[0] ;
     S2x0 = GENLC.SALT2x0 * pow(10.0,tmp);
-    int m = SNHOSTGAL.IMATCH_TRUE_SORT;
-    if ( m >= 0 ) { logMass = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE; }
+
+    int m      = SNHOSTGAL.IMATCH_TRUE_SORT;
+    if(m >= 0 && HOSTLIB.IVAR_LOGMASS_TRUE > 0 ) {
+      int i_prop = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
+      logMass = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[i_prop].VAL_TRUE;
+    }
 
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
     double parList_HOST[3] = { RV, AV, logMass } ;
@@ -28205,7 +28215,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       parList[0] = Trest;
       parList[1] = GENLC.SALT2x1;
       parList[2] = GENLC.SALT2c ;
-      parList[3] = SNHOSTGAL_DDLR_SORT[0].LOGMASS_TRUE ;
+      // xxx .xyz parList[3] = SNHOSTGAL_DDLR_SORT[0].LOGMASS_TRUE ;
       get_genSmear(parList, ONE,  &lamrest, &magSmear_model);
       magSmear = magSmear_model ;
     }

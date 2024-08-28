@@ -333,7 +333,10 @@ void initvar_HOSTLIB(void) {
     HOSTLIB.IS_SNPAR_STORE[ivar]    = 0 ;
   }
   
-  
+  HOSTLIB.IVAR_LOGMASS_TRUE = -9 ;
+  HOSTLIB.IVAR_LOGMASS_OBS  = -9 ;
+  HOSTLIB.IVAR_LOGMASS_ERR  = -9 ;  
+    
   malloc_HOSTGAL_PROPERTY();
 
 
@@ -510,12 +513,12 @@ int getindex_HOSTGAL_PROPERTY(char *PROPERTY){
   // for input hostgal property return index to HOSTGAL_PROPERTY_IVAR
   // return -9 is there's no match to input property
   //  
-  char fnam[] = "getindex_HOSTGAL_PROPERTY";
   int index=-9;
   int N_PROP=N_HOSTGAL_PROPERTY;
   char *BASENAME;
   int i;
-
+  char fnam[] = "getindex_HOSTGAL_PROPERTY";
+  
   for (i=0; i<N_PROP; i++){
     BASENAME = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
     if (strcmp(BASENAME, PROPERTY)==0){ index=i; };
@@ -523,6 +526,21 @@ int getindex_HOSTGAL_PROPERTY(char *PROPERTY){
   
   return index;
 }  // end of getindex_HOSTGAL_PROPERTY
+
+
+/* xxx mark delete xxxx
+double get_VALUE_HOSTGAL_PROPERTY(char *PROPERTY, char *WHICH) {
+  // Created Aug 28 2024
+  // Return hostgal property value for input *PROPERTY (e..g, LOGMASS, LOGSFR)
+  // and input *WHICH = 'TRUE' , 'OBS' or 'ERR'
+  int    i_prop = getindex_HOSTGAL_PROPERTY(PROPERTY);
+  double VAL = -9.0 ;
+  char fnam[] = "get_VALUE_HOSTGAL_PROPERTY" ;
+  // ------------ BEGIN ------------
+  // HOSTLIB.HOSTGAL_PROPERTY_IVAR[index].SCALE_ERR = scale;
+  return VAL;
+} // end get_VALUE_HOSTGAL_PROPERTY
+xxxxxxx end mark xxx */
 
 // ==========================================
 void init_OPTIONAL_HOSTVAR(void) {
@@ -2593,6 +2611,7 @@ void read_head_HOSTLIB(FILE *fp) {
   NVAR_STORE_SNPAR = 0 ;
   HOSTLIB.FIX_VPEC_ERR = -9.0 ;
 
+    
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     // stop reading when first GAL: key is reached.
@@ -7460,59 +7479,6 @@ void  GEN_SNHOST_VPEC(int IGAL) {
 
 } // end GEN_SNHOST_VPEC
 
-// =========================================
-void GEN_SNHOST_LOGMASS(void) {
-
-  // *** legacy function as of Feb 2022 ***
-  // Created Feb 2020
-  // If LOGMASS_OBS is defined in HOSTLIB, do nothing.
-  // Otherwise, use LOGMASS_TRUE and LOGMASS_ERR to determine 
-  // LOGMASS_OBS.
-  // Alex Gagliano 10/12/21 Added if block to set LOGMASS_OBS = LOGMASS_TRUE
-  // if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
-
-  int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2;
-  int  IVAR_TRUE  = HOSTLIB.IVAR_LOGMASS_TRUE ;
-  int  IVAR_OBS   = HOSTLIB.IVAR_LOGMASS_OBS ;
-  int  IVAR_ERR   = HOSTLIB.IVAR_LOGMASS_ERR ;
-  double SCALE    = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
-  int i;
-
-  double LOGMASS_TRUE, LOGMASS_OBS, LOGMASS_ERR, GauRan ;
-  double rmin=-3.0, rmax=3.0 ;
-  char fnam[] = "GEN_SNHOST_LOGMASS" ;
-
-  // ---------- BEGIN -----------
-  
-  if ( IVAR_TRUE < 0 ) { return; }
-
-  for(i=0; i < NNBR; i++ ) {
-
-    LOGMASS_OBS = -9.0 ;
-
-    if ( IVAR_OBS > 0 ) { 
-      LOGMASS_OBS = SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS ;
-    }
-    else if ( IVAR_TRUE > 0 && IVAR_ERR > 0 ) {
-      LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
-      LOGMASS_ERR  = SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR ;
-      LOGMASS_ERR *= SCALE ;
-      GauRan = getRan_GaussClip(1,rmin,rmax);
-      LOGMASS_OBS = LOGMASS_TRUE + GauRan*LOGMASS_ERR ;
-    } 
-    else {
-      LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
-      LOGMASS_OBS = LOGMASS_TRUE;
-    }
-
-    SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = LOGMASS_OBS;
-      
-  }
-
-  return ;
-
-} // end GEN_SNHOST_LOGMASS
-
 
 // =========================================    
 void GEN_SNHOST_PROPERTY(int ivar_property) {
@@ -8839,8 +8805,12 @@ void SORT_SNHOST_byDDLR(void) {
 	     // xxx DDLR, SNSEP ); 
       printf("\t xxx %s: RA_GAL=%f DEC_GAL=%f \n",
 	     fnam, SNHOSTGAL_DDLR_SORT[i].RA, SNHOSTGAL_DDLR_SORT[i].DEC);
+
+      /* xxx mark delete Aug 28 2024 xxx
       printf("\t xxx %s: LOGMASS = %f \n",
 	     fnam, SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE );
+      xxxxx */
+      
       fflush(stdout);      
     }
   }
@@ -9106,13 +9076,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   //   SNHOSTGAL_DDLR_SORT[inbr].MAG[ifilt_obs] = MAG ; 
   //   SNHOSTGAL.GALMAG[ifilt_obs][iPSF]
   //
-  // May 27, 2011: apply Galactic extinction, see MWXT[ifilt_obs]
-  //
-  // Dec 17, 2012: in NMSGPSF loop, include i=0 to store total mag.
-  //
-  // Mar 3 2015: compute local surface brightness SBFLUX and SBMAG
-  //
-  // May 5 2017: use user-input INPUTS.HOSTLIB_SBRADIUS
   //
   // Nov 25 2019: protect dm for GALFRAC=0
   //

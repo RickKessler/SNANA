@@ -22594,13 +22594,24 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  IMPORTANT(v11_05p) *****
       
          *****  USEFUL(v11_05p) *****
-     
+
+   submit_batch_jobs.sh:
+      + can specify multiple JOBNAME paths to old code versons for
+        SIM, LCFIT, BBC classes; see
+	  https://github.com/RickKessler/SNANA/issues/1409
+
+      + can specify version-dependent global options such as separate
+        SNCID_LIST_FILE file for data and sim; see
+	  https://github.com/RickKessler/SNANA/issues/1408
+	  
          *****  MISCELLANEOUS(v11_05p) *****
 
     SALT2mu.c :
-      + restore_bug_muCOVadd += 4 -> restore bug in prepNextFit (was fixed Feb 2022)
-      + add more explicit WARNING messages for this restore_bug flag
+      + add restore_bug_sigint0=1 -> restore bug in prepNextFit (was fixed Feb 2022)
+      + add more explicit WARNING messages for a few restore_bug flags.
 
-    plot_table.py: lots of continued development.
+    plot_table.py:
+      + lots of continued development.
+      
     
 END: 

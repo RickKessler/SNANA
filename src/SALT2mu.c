@@ -1162,9 +1162,9 @@ struct INPUTS {
 
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_bug_mucovscale ; // Sep 14 2021 allow restoring bug
-  int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022; +=4 for bug in prepNextFit
+  int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022
   int restore_bug2_mucovadd; // https://github.com/RickKessler/SNANA/issues/1154
-  
+  int restore_bug_sigint0; // bug calling recalc_datacov when sigint=0
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
   int restore_bug_WGTabg ; 
@@ -3677,14 +3677,12 @@ int prepNextFit(void) {
     // On 2nd iteration, use linear approx and dchi2red/dsigint 
     // to estimate next covParam
 
-    bool restore_bug = (INPUTS.restore_bug_mucovadd &4)>0;
-    bool do_recalc_dataCov = true;
-    
+    bool do_recalc_dataCov = true;    
     covParam = FITINP.COVINT_PARAM_FIX ;
     FITINP.COVINT_PARAM_FIX = next_covFitPar(redchi2,covParam,step1); 
     if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN )  {
       FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ;
-      if ( restore_bug ) {
+      if ( INPUTS.restore_bug_sigint0 > 0 ) {
 	fprintf(FP_STDOUT,"\t %s WARNING: restore bug -> skip recalc_dataCov()\n", fnam);
 	do_recalc_dataCov = false;
       }      
@@ -5431,6 +5429,7 @@ void set_defaults(void) {
   INPUTS.restore_bug_mucovscale = 0 ;
   INPUTS.restore_bug_mucovadd   = 0 ;
   INPUTS.restore_bug2_mucovadd  =  0 ;
+  INPUTS.restore_bug_sigint0    =  0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_WGTabg     = 0 ;
@@ -17219,6 +17218,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_bug2_mucovadd="))
     { sscanf(&item[22],"%d", &INPUTS.restore_bug2_mucovadd); return(1); }
 
+  if ( uniqueOverlap(item,"restore_bug_sigint0="))
+    { sscanf(&item[20],"%d", &INPUTS.restore_bug_sigint0); return(1); }  
+    
   if ( uniqueOverlap(item,"restore_bug_muzerr="))
     { sscanf(&item[19],"%d", &INPUTS.restore_bug_muzerr); return(1); }
   if ( uniqueOverlap(item,"restore_bug_zmax_biascor="))
@@ -19313,6 +19315,10 @@ void prep_debug_flag(void) {
     printf("\n RESTORE 2nd BUG for mucovadd (missing sigint in 1/MUERR^2)\n" );
   }
 
+  if ( INPUTS.restore_bug_sigint0 ) {
+    printf("\n RESTORE BUG calling recalc_datacov() when sigint=0 (in prepNextFit)\n");
+  }
+  
   if ( INPUTS.restore_bug_muzerr ) {
     printf("\n RESTORE BUG for muzerr in biasCor (set to %d)\n", 
 	   INPUTS.restore_bug_muzerr);
@@ -21011,7 +21017,7 @@ void define_varnames_append(void) {
 
   int   NSN_BIASCOR       =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
   char  tmpName[MXCHAR_VARNAME];
-  //  char fnam[] = "define_varnames_append";
+  char fnam[] = "define_varnames_append";
 
   // ----------- BEGIN -----------
 
@@ -22685,7 +22691,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
     "restore_bug_mucovadd=1      # use wrong beta for sim biasCor (Feb 2022)",
     "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",
-    "restore_bug_mucovadd=4      # restore bug in prepNextFit (Feb 2022)",       
+    "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_WGTabg=1        # restore WGTabg bug in get_muBias",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",

@@ -1012,6 +1012,12 @@ class LightCurveFit(Program):
         fitopt_label  = self.config_prep['fitopt_label_list'][iopt]
         fitopt_global = CONFIG.setdefault('FITOPT_GLOBAL',None)
 
+        # xxxxx
+        bla = [value for key,value in CONFIG.items() if key.startswith("FITOPT_GLOBAL")]
+        print(f"\n xxx bla = \n{bla}")
+        sys.exit(f"\n xxx CONFIG = \n{CONFIG}")
+        # xxxxx
+        
         use_table_format = self.config_prep['use_table_format']
         n_job_split   = self.config_prep['n_job_split']
         split_num     = f"SPLIT{isplit:03d}"

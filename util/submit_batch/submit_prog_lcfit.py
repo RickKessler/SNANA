@@ -1021,7 +1021,7 @@ class LightCurveFit(Program):
         #    FITOPT:
         #    - /v11_04e/  JOBNAME  /products/SNANA_v11_04e/bin/snlc_fit.exe
         #
-        if JOBNAME in fitopt_arg:
+        if 'JOBNAME' in fitopt_arg:
             program in fitopt_arg.split()[1]
             fitopt_arg = ''
             

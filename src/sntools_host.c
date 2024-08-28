@@ -7684,7 +7684,7 @@ void GEN_SNHOST_POS(int IGAL) {
   Ran0  = SNHOSTGAL.FlatRan1_radius[0] ;
   Ran1  = SNHOSTGAL.FlatRan1_radius[1] ;
 
-  // Start by randonly picking (Ran0) which Sersic profile 
+  // Start by randomly picking (Ran0) which Sersic profile 
   // based on the WGT of each profile.
 
   JPROF = -9;

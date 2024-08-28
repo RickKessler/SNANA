@@ -18550,7 +18550,7 @@ void SIMLIB_randomize_skyCoords(void) {
   // To avoid fixed set of RA,DEC from SIMLIB.
   //
   // Initial function is just a do-nothing shell;
-  // waiting to get C function that picks randonly
+  // waiting to get C function that picks randomly
   // within healPix area.
 
   //  char fnam[] = "SIMLIB_randomize_skyCoords" ;

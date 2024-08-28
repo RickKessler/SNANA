@@ -32,6 +32,7 @@ DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE
 DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=', '*', '+', '-', '/' ]  # for @@CUT
 
 COLON = ':'
+BAR   = '|'
 
 # define pandas strings to add into VARIABLE and CUT strings.
 STR_df         = 'df.'
@@ -262,11 +263,27 @@ and two types of command-line input delimeters
    Override default y-axis label = variable name
 
 @@LEGEND
-   Overwrite default legend; must give one arg per plot.
+   Overwrite default legend; must give one arg (in quotes) per plot.
+   E.g., For 3 sets of cuts, 
+      @@LEGEND 'No cuts'  'SALT2c < 0'  'SALT2c>0'
    For 2 files and "@@OPT DIFF_CID", only need to give one @@LEGEND arg.
-
+  
 @@TITLE
-  Text to dispaly above plot 
+  Text of title to dispaly above plot 
+
+@@TEXT
+  Provide relative coordinates (0 to 1) per axis and text to add on plot.
+  Relative coord 0 puts text at left (x-axis) or bottom (y-axis); 
+  relative coord of 0.5 puts text in the middle, etc ...
+  Use colon to separate multiple text strings at different locations.
+  e.g.
+    @@TEXT 0.05 0.90 '(a) comment bla bla $alpha = \beta$' 
+        or
+    @@TEXT 0.05 0.90 '(a) comment 1'   0.10 0.80 'comment 2'  0.10 0.70 'comment 3'
+
+  There is no explicit delimiter and thus each text strimg must be enclosed in quotes
+  so that it counts as a single item when parsed. Script aborts if number of TEXT 
+  args is not a multiple of 3.
 
 @@UNITS @U
   Default x- and y-axis labels show variable name only without units.
@@ -303,7 +320,9 @@ and two types of command-line input delimeters
     @@XSIZE_SCALE 0.5 -> make plot horizontallly narrower
     @@YSIZE_SCALE 0.5 -> make plot vertically shorter
     
- 
+@@FONTSIZE_SCALE
+  scale font sizes for title and axis labels
+
 @@SAVE
   Save figure as pdf or png; e.g.
     @@SAVE my_first_table_plot.pdf
@@ -388,6 +407,9 @@ def get_args():
     msg = "Override default plot title"
     parser.add_argument("@@TITLE", "@@title", default=None, help=msg )
 
+    msg = "Extra text on plot"
+    parser.add_argument("@@TEXT", "@@text", default=None, help=msg, nargs="+")    
+
     msg = "Override default legend on plot (space sep list per TFILE)"
     parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
 
@@ -400,6 +422,10 @@ def get_args():
     msg = "scale vertical size of plot"
     parser.add_argument('@@YSIZE_SCALE', '@@ysize_scale',
                         default=1.0, help=msg, type=float)    
+
+    msg = "scale font size of axis labels and title"
+    parser.add_argument('@@FONTSIZE_SCALE', '@@fontsize_scale',
+                        default=1.0, help=msg, type=float)
     
     msg = "Alpha value for plot. Set to 0 to see only averages." \
           "ALPHA=0 and DIFF=True compares average difference between two files, " \
@@ -532,6 +558,8 @@ def arg_prep_driver(args):
 
     args.TITLE       = arg_prep_TITLE(args)
     args.legend_list = arg_prep_legend(args) # must be after prep_DIFF
+
+    args.text_list   = arg_prep_TEXT(args)
     
     # - - - - - - -
     args.OPT = arg_prep_OPT(args)            
@@ -593,6 +621,37 @@ def arg_prep_TITLE(args):
 
     return plot_title
     # end arg_prep_TITLE
+
+def arg_prep_TEXT(args):
+
+    # if user input TEXT is
+    #   .05 .90 '(a) text1'   0.06 0.80 'text2'   0.06 0.70 'text3'
+    # then return
+    #   text_list = [
+    #                 [ 0.06, 0.90, '(a) text1'] ,
+    #                 [ 0.06, 0.80, 'text2' ] ,
+    #                 [ 0.06, 0.70, 'text3' ]
+    #                ]
+    #
+    # The user text must be inside quotes since there is no explicit
+    # delimiter between text times. The number of args must  be a multiple of 3.
+
+    TEXT = args.TEXT
+    if TEXT is None: return None
+
+    text_list = []
+    n_arg = len(TEXT)
+    if n_arg % 3 != 0:
+        sys.exit(f"\nERROR: {n_arg} TEXT args is not a multiple of 3 " \
+                 f"-> invalid\n\t Check for missing quotes.\n\t TEXT={TEXT}")
+
+    for i in range(0,n_arg,3):
+        x_rel = float(TEXT[i+0])
+        y_rel = float(TEXT[i+1])
+        text  = TEXT[i+2]
+        text_list.append( [ x_rel, y_rel, text] )
+            
+    return text_list  # end arg_prep_TEXT
 
 def arg_prep_OPT(args):
 
@@ -1232,7 +1291,7 @@ def read_tables(args, plot_info):
                 MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(varname_y)
                 ymin = np.amin(df['y_plot_val'])
                 ymax = np.amax(df['y_plot_val'])
-                logging.info(f"\t y-axix({varname_nodf_y}) range : {ymin} to {ymax}")  
+                logging.info(f"\t y-axis({varname_nodf_y}) range : {ymin} to {ymax}")  
                 if varname_yerr is not None:
                     MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(varname_yerr)
             else:
@@ -1600,7 +1659,8 @@ def get_info_plot1d(args, info_plot_dict):
         xmin = xbins[0];  xmax = xbins[-1]
         x_text = xmin + 0.7*(xmax-xmin)
         y_text = 1.0 * np.max(yval0_list)  # warning; fragile coord calc
-        plt_text_dict = { 'x_text': x_text, 'y_text': y_text, 'text': text_chi2 }
+        plt_text_dict = { 'x_text': x_text, 'y_text': y_text,
+                          'text': text_chi2 }
 
 
     # - - - - - - -
@@ -1904,15 +1964,16 @@ def apply_plt_misc(args, plot_inf, plt_text_dict):
     custom_bounds = bounds_dict['custom']
     xmin          = bounds_dict['xmin']
     xmax          = bounds_dict['xmax']
-    ymin          = bounds_dict.setdefault('ymin',None)
-    ymax          = bounds_dict.setdefault('ymax',None)
+    # xxx mark ymin          = bounds_dict.setdefault('ymin',None)
+    # xxx mark ymax          = bounds_dict.setdefault('ymax',None)
+    ymin, ymax    = plt.ylim()
     set_ylim      = axis_dict['set_ylim']
     
     if do_logy:
         plt.yscale("log")
         
     if do_grid:
-        plt.grid(zorder=3)
+        plt.grid(zorder=10)
 
     if custom_bounds:
         plt.xlim(xmin, xmax)
@@ -1923,22 +1984,34 @@ def apply_plt_misc(args, plot_inf, plt_text_dict):
         x = np.linspace(xmin,xmax,100);  y = x
         plt.plot(x,y, zorder=10)
     
-    fsize   = 12
+    fsize_label = 12 * args.FONTSIZE_SCALE
     xlabel  = axis_dict['xaxis_label']
     ylabel  = axis_dict['yaxis_label']    
-    plt.xlabel(xlabel, fontsize=fsize)  
+    plt.xlabel(xlabel, fontsize=fsize_label)  
     if ylabel is not None:
-        plt.ylabel(ylabel, fontsize=fsize)
+        plt.ylabel(ylabel, fontsize=fsize_label)
     
-    plt.legend()                                
-    plt.title(args.TITLE, fontsize=14)
+    plt.legend()
 
+    fsize_title   = 14 * args.FONTSIZE_SCALE    
+    plt.title(args.TITLE, fontsize=fsize_title)
+
+    # auto-generated text; eg., chi2/dof for chi2 option
+    fsize_text = 14 * args.FONTSIZE_SCALE
     if plt_text_dict is not None:
         x_text = plt_text_dict['x_text']
         y_text = plt_text_dict['y_text']
         text   = plt_text_dict['text']
-        plt.text(x_text, y_text, text )
-    
+        plt.text(x_text, y_text, text, fontsize=fsize_text )
+
+    # optional display text from user input @@TEXT
+    if args.text_list:
+        for [ x_rel, y_rel, text ] in args.text_list:
+            x     = xmin + x_rel*(xmax-xmin)
+            y     = ymin + y_rel*(ymax-ymin)
+            plt.text(x, y, text, fontsize=fsize_text)
+        
+        
     return
     # end apply_plt_misc
     

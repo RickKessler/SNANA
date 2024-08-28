@@ -1573,14 +1573,28 @@ class Simulation(Program):
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
-        infile_list2d     = self.config_prep['infile_list2d']
-        model_list2d      = self.config_prep['model_list2d']
+        
+        # xxx mark infile_list2d     = self.config_prep['infile_list2d']
+        infile            = self.config_prep['infile_list2d'][iver][ifile]
+        
+        # xxx mark model_list2d      = self.config_prep['model_list2d']
+        model             = self.config_prep['model_list2d'][iver][ifile]
+                
         INFILE_KEYS       = self.config_prep['INFILE_KEYS']
         n_genversion      = self.config_prep['n_genversion']
-        genversion_list   = self.config_prep['genversion_list']
-        genopt_list2d     = self.config_prep['genopt_list2d']
-        ngentot_list2d    = self.config_prep['ngentot_list2d']
-        ranseed_list      = self.config_prep['ranseed_list']
+        
+        # xxx mark genversion_list   = self.config_prep['genversion_list']
+        genversion       = self.config_prep['genversion_list'][iver]        
+
+        # xxx mark genopt_list2d     = self.config_prep['genopt_list2d']
+        genopt            = self.config_prep['genopt_list2d'][iver][ifile]
+        
+        # xxx mark ngentot_list2d    = self.config_prep['ngentot_list2d']
+        ngentot           = self.config_prep['ngentot_list2d'][iver][ifile]
+        
+        # XXX MARK ranseed_list      = self.config_prep['ranseed_list']
+        ranseed           = self.config_prep['ranseed_list'][isplit]
+        
         ranseed_key       = self.config_prep['ranseed_key']
         IS_CHANGE         = 'CHANGE' in ranseed_key
         n_include_files   = self.config_prep.get('n_include_files', 0)
@@ -1596,6 +1610,12 @@ class Simulation(Program):
         cidran_max_list  = self.config_prep['cidran_max_list']
         cidoff_list3d    = self.config_prep['cidoff_list3d']
 
+        # Aug 28 2024: check special JOBNAME option to use different code
+        #   (e.g, older code version)
+        if 'JOBNAME' in genopt:
+            program  = genopt.split()[1]
+            genopt   = ''
+            
         # init JOB_INFO dictionary. Note that sim job runs in same
         # dir where simgen-master file resides; this avoids copying
         # lots of iinputs & nclude files and potential infile-clobber
@@ -1606,12 +1626,13 @@ class Simulation(Program):
         JOB_INFO['program']   = program
 
         isplit1      = isplit+1               # for TMP-genversion names 
-        genversion   = genversion_list[iver]
-        genopt       = genopt_list2d[iver][ifile]
-        ranseed      = ranseed_list[isplit]
-        infile       = infile_list2d[iver][ifile]
-        model        = model_list2d[iver][ifile]
-        ngentot      = ngentot_list2d[iver][ifile]
+        # xxx genversion   = genversion_list[iver]
+        # xxx genopt       = genopt_list2d[iver][ifile] # .xyz
+        # xxx ranseed      = ranseed_list[isplit]
+        # xxx infile       = infile_list2d[iver][ifile]
+        # xxx model        = model_list2d[iver][ifile]
+        # xxx ngentot      = ngentot_list2d[iver][ifile]
+        
         if check_abort: ngentot = NGENTOT_CHECK_ABORT
         Nsec         = seconds_since_midnight
 

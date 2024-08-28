@@ -1656,8 +1656,12 @@ class BBC(Program):
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
 
-        # construct row mimicking MERGE.LOG
-        
+        # check option to use different code (JOBNAME)
+        if 'JOBNAME' in muopt_arg:
+            program = muopt_arg.split()[1]
+            muopt_arg = ''
+
+        # construct row mimicking MERGE.LOG            
         row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
         input_ff      = f"INPUT_{fitopt_num}.{SUFFIX_FITRES}"

@@ -309,6 +309,11 @@ GENVERSION_LIST:
     - SIMGEN_SNII-NMF_OVERRIDE.INPUT
     - SIMGEN_SNIax.INPUT
 
+# special option to use different sim code version; enables running on 
+# multiple old code versons to identify large change.
+  - GENVERSION: DES_TEST_SNANA_v11_04e
+      GENOPT:  JOBNAME  /products/SNANA_v11_04e/bin/snlc_sim.exe
+   
 GENOPT_GLOBAL:   # OPTIONAL commands applied to all GENVERSIONs
    KEY1: ARG1
    KEY2: ARG2
@@ -539,6 +544,12 @@ HELP_CONFIG_BBC = f"""
   - /SYST_tol/  redchi2_tol=.02
   - /SYST_sig1/ sig1=0.14
   - /NOREJECT/  simfile_biascor=[something_else]
+
+  # To run with older code versions, use JOBNAME key in MUOPT; e.g.
+  MUOPT:
+  - /v11_04e/  JOBNAME  /products/SNANA_v11_04e/bin/SALT2mu.exe
+  - /v11_04f/  JOBNAME  /products/SNANA_v11_04f/bin/SALT2mu.exe
+  etc ...
 
   # Option to run wfit (fast, but ancient) as merge process. Useful
   # for quick cosmology cross-checks. To get help on argList,

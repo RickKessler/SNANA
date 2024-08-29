@@ -1318,10 +1318,8 @@ class LightCurveFit(Program):
         key_tot, key_tot_sum, key_list = \
                 self.keynames_for_job_stats('NEVT_TOT')
 
-        # use old key NEVT_SNANA_CUTS if snana_version < v11_05k
         # Beware that this fails for reading snlc_fit.exe from restored git clone
-        KEY_YAML = 'NEVT_LC_CUTS'
-        if snana_version < 'v11_05k' : KEY_YAML = 'NEVT_SNANA_CUTS'  # .xyz
+        KEY_YAML = 'NEVT_LC_CUTS' # how to change this for older SNANA versions?
         key_snana, key_snana_sum, key_snana_list = \
                 self.keynames_for_job_stats(KEY_YAML)
         

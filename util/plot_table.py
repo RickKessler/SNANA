@@ -1964,9 +1964,6 @@ def apply_plt_misc(args, plot_inf, plt_text_dict):
     custom_bounds = bounds_dict['custom']
     xmin          = bounds_dict['xmin']
     xmax          = bounds_dict['xmax']
-    # xxx mark ymin          = bounds_dict.setdefault('ymin',None)
-    # xxx mark ymax          = bounds_dict.setdefault('ymax',None)
-    ymin, ymax    = plt.ylim()
     set_ylim      = axis_dict['set_ylim']
     
     if do_logy:
@@ -1977,9 +1974,15 @@ def apply_plt_misc(args, plot_inf, plt_text_dict):
 
     if custom_bounds:
         plt.xlim(xmin, xmax)
+        ymin  = bounds_dict['ymin']
+        ymax  = bounds_dict['ymax']
         if set_ylim:
             plt.ylim(ymin, ymax)
-            
+
+    # - - - -
+    ymin, ymax    = plt.ylim() # valid for auto or custom bounds
+
+    
     if do_diag_line:
         x = np.linspace(xmin,xmax,100);  y = x
         plt.plot(x,y, zorder=10)

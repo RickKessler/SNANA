@@ -1167,7 +1167,7 @@ struct INPUTS {
   int restore_bug_sigint0; // bug calling recalc_datacov when sigint=0
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
-  int restore_bug_WGTabg ; 
+  int restore_bug_WGTabg ;      // Oct 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
 
   int debug_flag;    // for internal testing/refactoring
@@ -22688,7 +22688,7 @@ void print_SALT2mu_HELP(void) {
     "# restore_bug options:",
     "restore_bug_mucovscale=1    # use undefined muCOVscale cells",
     "restore_bug_muzerr=1        # ignore vpec err in biasCor",
-    "restore_bug_zmax_biascort=1 # no extra redshift range for biasCor-interp",
+    "restore_bug_zmax_biascor=1  # no extra redshift range for biasCor-interp",
     "restore_bug_mucovadd=1      # use wrong beta for sim biasCor (Feb 2022)",
     "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",
     "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       

@@ -22589,7 +22589,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix to preserve output order of user-supplied list of cid or galid.
 
 # =============================================================
-         v11_05p (Aug 23 2024) <-- start date (no git tag yet)
+         v11_05p (Aug 23 2024) <-- start date of git tag
 
          *****  IMPORTANT(v11_05p) *****
       
@@ -22613,5 +22613,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     plot_table.py:
       + lots of continued development.
       
-    
+    snlc_sim.c:
+      + set INPUTS.REFAC_WGTMAP=true by default; legacy code enabled with DEBUG_FLAG -28'
+
 END: 

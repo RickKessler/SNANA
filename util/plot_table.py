@@ -1237,22 +1237,32 @@ def read_tables(args, plot_info):
             
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
+
+    same_tfiles = (len(set(tfile_list)) == 1)
     
     for tfile, cut, weight, legend, alpha, marker in \
         zip(tfile_list, cut_list, weight_list, legend_list, alpha_list, marker_list):
         
         tfile_base = os.path.basename(tfile)
-        logging.info(f"Loading {tfile_base}")
         if not os.path.exists(tfile):
             sys.exit(f"\n ERROR: cannot find {tfile}")
 
-        # check for DOCANA block and count number of lines to skip before VARNAMES;
-        # e.g., skip DOCANA for HOSTLIB 
-        nrow_skip = count_rows_to_skip(tfile)
-        
-        df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
-                          skiprows=nrow_skip, nrows=NROWS)
-        
+
+        store_df_ref = same_tfiles and nf == 0
+        copy_df_ref  = same_tfiles and nf >  0
+
+        if copy_df_ref:
+            logging.info(f"Copy duplicate df for {tfile_base}")
+            df = copy.deepcopy(df_ref)
+        else:
+            logging.info(f"Read {tfile_base}")
+            # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
+            nrow_skip = count_rows_to_skip(tfile)        
+            df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
+                              skiprows=nrow_skip, nrows=NROWS)
+
+        if store_df_ref:  df_ref = copy.deepcopy(df)
+            
         # figure out KEYNAME to id events
         plot_info.varname_idrow = None
         for varname_idrow in VARNAME_IDROW_LIST:
@@ -1304,20 +1314,24 @@ def read_tables(args, plot_info):
 
         try:
 
-            MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(varname_x)
+            # xxx MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(varname_x)
+            MASTER_DF_DICT[key]['df'].loc[:,'x_plot_val'] = eval(varname_x)
             xmin = np.amin(df['x_plot_val'])
             xmax = np.amax(df['x_plot_val'])
-            logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}")            
+            logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}") 
             if varname_xerr is not None:
-                MASTER_DF_DICT[key]['df']['x_plot_err'] = eval(varname_xerr)       
+                # xxx MASTER_DF_DICT[key]['df']['x_plot_err'] = eval(varname_xerr)       
+                MASTER_DF_DICT[key]['df'].loc[:,'x_plot_err'] = eval(varname_xerr)
             
             if args.NDIM == 2:
-                MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(varname_y)
+                # xxx MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(varname_y)
+                MASTER_DF_DICT[key]['df'].loc[:,'y_plot_val'] = eval(varname_y)
                 ymin = np.amin(df['y_plot_val'])
                 ymax = np.amax(df['y_plot_val'])
                 logging.info(f"\t y-axis({varname_nodf_y}) range : {ymin} to {ymax}")  
                 if varname_yerr is not None:
-                    MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(varname_yerr)
+                    # xxx MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(varname_yerr)
+                    MASTER_DF_DICT[key]['df'].loc[:,'y_plot_err'] = eval(varname_yerr)
             else:
                 ymin = None
                 ymax = None
@@ -1943,6 +1957,7 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
         if OPT_STDDEV in OPT:
             y_err_stat = y_std  # stddev per bin (user input @@OPT STTDEV)
         else:
+            y_count = replace_zeros(y_count) # avoid divide by zero
             y_err_stat = y_std/np.sqrt(y_count)  # error on mean per bin (default)
         
         if do_wgtavg:
@@ -1956,6 +1971,8 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
                                            bins=xbins, statistic='sum')[0]
             sum_wgt     = binned_statistic(xval_list, wgt_list,
                                            bins=xbins, statistic='sum')[0]
+
+            sum_wgt = replace_zeros(sum_wgt) # avoid divide by zero
             y_stat  = sum_y_wgt/sum_wgt
 
             if DO_DUMP:
@@ -1980,7 +1997,17 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
             
     return  # end of overlay2d_binned_stat
 
+def replace_zeros(float_list):
+
+    float_list_nozeros = []
+    val_replace = 1.0e-20
     
+    for val in float_list:
+        if val == 0.0 : val = val_replace
+        float_list_nozeros.append(val)
+    
+    return float_list_nozeros
+
 def apply_plt_misc(args, plot_inf, plt_text_dict):
 
     # Created July 21 2024 by R.Kessler

@@ -249,8 +249,11 @@ and two types of command-line input delimeters
                     (can compare correlated or independent samples)
    {OPT_DIFF_CID:<12} ==> 2D: plot y-axis difference for each CID.
                     (compare correlated samples only; must have CID overlap)
-   {OPT_RATIO:<12} ==> 1D: plot histogram ratio file0/file1 or cut0/cut1
-                    (binomial error if 1st file, or cut, is subset of 2nd file)
+   {OPT_RATIO:<12} ==> 1D: plot histogram ratio file1/file0 or cut1/cut0.
+                    Use binomial error if numerator is subset of denominator.
+                    Can overlay multiple ratios with multiple files or cuts; e.g.
+                      @@CUT 'c>9'  'c<.1'  'c<0'  'c<-0.1'  
+                    where the first cut c<9 selects entire sample for denominator.
 
 
 
@@ -478,7 +481,10 @@ def arg_prep_driver(args):
 
     # store plot dimension as if it were passed on command line
     args.NDIM = len(args.VARIABLE.split(COLON))
-    
+
+    if args.NDIM == 2 and OPT_RATIO in args.OPT:
+        sys.exit(f"\n ERROR: '@@OPT RATIO' is not valid for 2D plot")
+        
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
@@ -589,6 +595,8 @@ def args_prep_DIFF(args):
     if args.DIFF:
         sys.exit(f"\n ERROR: @@DIFF {args.DIFF} is obsolete and no longer valid;\n" \
                  f"\t instead, use @@OPT DIFF_{args.DIFF}" )
+
+    narg_tfile = len(args.tfile_list)
     
     # if user has not specified any kind of statistical average
     # for DIFF, then set default MEDIAN
@@ -596,15 +604,30 @@ def args_prep_DIFF(args):
     opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL], args.OPT)
     opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], args.OPT)
     args.DIFF  = opt_diff  # e.g., 'DIFF_CID' or 'DIFF_ALL' or None
-        
+
+    # if user does not specify statistic for DIFF, set MEDIAN as default    
     if opt_diff and  opt_stat is None :
         args.OPT.append(OPT_MEDIAN) 
 
-    if args.DIFF and len(args.TFILE) == 1:
+
+    # for DIFF_ALL option, set ALPHA=0 which results in showing
+    # only the MEDAN (or MEAN) 
+    if opt_diff == OPT_DIFF_ALL:
+        args.alpha_list = [ 0.0 ] * len(args.alpha_list)
+
+    # markers are tricky because we only need NTFILE-1 of them.
+    # If user does not provide dummy marker for first file, then add one here.
+    if args.MARKER:
+        narg_marker = len(args.MARKER)
+        if narg_marker == narg_tfile - 1:
+            args.marker_list = ['dummy'] + args.MARKER  # the first element is ignored
+        
+    if args.DIFF and len(args.tfile_list) == 1:
             sys.exit(f"\n ERROR '@@OPT {args.DIFF}' does not work with 1 table file;\n" \
                      f"\t need 2 or more table files specified after @@TFILE key.")
         
     return args
+    # end args_prep_DIFF
 
 def arg_prep_TITLE(args):
 
@@ -702,6 +725,7 @@ def arg_prep_legend(args):
     LEGEND_orig = args.LEGEND
     LEGEND_out  = LEGEND_orig   # default is user input
 
+    NDIM     = args.NDIM
     do_diff  = args.DIFF
     do_ratio = OPT_RATIO in args.OPT
     narg_cut = len(args.CUT)
@@ -711,9 +735,6 @@ def arg_prep_legend(args):
         LEGEND_out = [ None ] * len(args.TFILE)
         if narg_cut > 1 :
             LEGEND_out = args.CUT
-            #if do_ratio:
-            #    legend_ratio = args.CUT[0] + ' / ' + args.CUT[1]
-            #    LEGEND_out   = [legend_ratio] * narg_cut
         else :
             LEGEND_out = []
             for t in args.tfile_base_list:
@@ -725,9 +746,10 @@ def arg_prep_legend(args):
     narg_legend  = len(LEGEND_out)
     narg_tfile   = len(args.tfile_list)
 
-    allow_single_legend = args.DIFF or OPT_RATIO in args.OPT
-    if allow_single_legend and narg_legend == 1:
-        LEGEND_out.append(LEGEND_out[0])
+    # check option to allow NTFILE-1 legends 
+    allow_missing_legend = do_diff or do_ratio
+    if allow_missing_legend and narg_legend == narg_tfile-1:
+        LEGEND_out = ['dummy'] + LEGEND_out
         narg_legend  = len(LEGEND_out)
 
     match_narg   = narg_tfile == narg_legend
@@ -736,7 +758,9 @@ def arg_prep_legend(args):
                  f"narg_legend must match number of table files.")
 
     return LEGEND_out
+    # end arg_prep_legend
 
+    
 def arg_prep_extend_list(narg_tfile, arg_list_orig):
 
     # if arg_list_orig has fewer elements than number of table files,
@@ -1618,17 +1642,26 @@ def get_info_plot1d(args, info_plot_dict):
             do_plot_hist       = False
             do_plot_hist_ov1d  = True
         elif do_ratio:
-            # check of df0 is a subset of df --> binomial errors
-            is_subset = is_cid_subset(info_plot_dict, df0, df)
+            # plot ratio of 2nd plot over 1st plot, or 3rd plot over 1st plot; etc..
+            
+            # check of df is a subset of df0 --> binomial errors
+            is_subset = is_cid_subset(info_plot_dict, df, df0)
             ratio, errl_ratio, erru_ratio = \
-                compute_ratio(yval0_list, errl0_list, erru0_list,
-                              yval_list,  errl_list,  erru_list, is_subset  )        
+                compute_ratio(yval_list,  errl_list,  erru_list,
+                              yval0_list, errl0_list, erru0_list, is_subset ) 
             # load arrays that will be store in dictionary below              
             yval_list  = ratio
             errl_list  = errl_ratio
             erru_list  = erru_ratio
-            ratio = len(df0) / len(df)
+            ratio = len(df) / len(df0)
             plt_legend = f"<ratio> = {ratio:.2f}"
+            if args.legend_list:
+                legend = args.legend_list[numplot]
+                plt_legend += f' for {legend} '                
+            elif args.CUT:  # user cut without df.
+                cut = args.CUT[numplot]
+                plt_legend += f' for {cut} '
+                
         else:
             pass
 

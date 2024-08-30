@@ -563,12 +563,13 @@ def arg_prep_driver(args):
     
     if args.BOUNDS:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
+
+    args = args_prep_DIFF(args)
     
     # if only 1 alpha, make sure there is alpha for each file/cut
-    args.alpha_list  = arg_prep_extend_list(narg_tfile, args.ALPHA)
-    args.marker_list = arg_prep_extend_list(narg_tfile, args.MARKER) 
+    args.alpha_list  = arg_prep_extend_list(args, narg_tfile, args.ALPHA)
+    args.marker_list = arg_prep_extend_list(args, narg_tfile, args.MARKER) 
 
-    args = args_prep_DIFF(args)    
 
     args.TITLE       = arg_prep_TITLE(args)
     args.legend_list = arg_prep_legend(args) # must be after prep_DIFF
@@ -623,12 +624,6 @@ def args_prep_DIFF(args):
     if opt_diff == OPT_DIFF_ALL:
         args.alpha_list = [ 0.0 ] * len(args.alpha_list)
 
-    # markers are tricky because we only need NTFILE-1 of them.
-    # If user does not provide dummy marker for first file, then add one here.
-    if args.MARKER:
-        narg_marker = len(args.MARKER)
-        if narg_marker == narg_tfile - 1:
-            args.marker_list = ['dummy'] + args.MARKER  # the first element is ignored
         
     if args.DIFF and len(args.tfile_list) == 1:
             sys.exit(f"\n ERROR '@@OPT {args.DIFF}' does not work with 1 table file;\n" \
@@ -769,15 +764,22 @@ def arg_prep_legend(args):
     # end arg_prep_legend
 
     
-def arg_prep_extend_list(narg_tfile, arg_list_orig):
+def arg_prep_extend_list(args, narg_tfile, arg_list_orig):
 
     # if arg_list_orig has fewer elements than number of table files,
     # extend list to be same length as number or table files;
     # else return original list.  This allows users to specify one
     # value (e.g. for alpha or maker) that is used on all plots.
-    
+
     narg_orig = len(arg_list_orig)
-    if narg_orig < narg_tfile:
+    
+    # check option to allow one missing 
+    allow_missing = args.DIFF or  OPT_RATIO in args.OPT
+    if allow_missing and narg_orig == narg_tfile-1:
+        arg_list_out = ['dummy'] + arg_list_orig    
+        return arg_list_out
+    
+    if narg_orig == 1 and narg_tfile > 1:
         val          = arg_list_orig[0]
         arg_list_out = [val]*narg_tfile
     else:

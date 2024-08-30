@@ -9265,13 +9265,13 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   // ----------------------
   // Mar 3 2015:
-  // compute local surface brightness mag with effective PSF = 0.6''
-  // Note that the effective area is 4*PI*PSF^2.
+  // compute local surface brightness mag with effective PSF.
+  // Note that the effective area is 4*PI*PSFSIG^2.
 
   double psfsig, arg, SB_MAG, SB_FLUXCAL, AREA ;
 
-  psfsig  = INPUTS.HOSTLIB_SBRADIUS/2.0; 
-  AREA    = 3.14159*(4.0*psfsig*psfsig) ; // effective noise-equiv area
+  psfsig  = INPUTS.HOSTLIB_SBRADIUS/2.0;
+  AREA    = 4.0 * 3.14159 *(psfsig*psfsig) ; // effective noise-equiv area
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];

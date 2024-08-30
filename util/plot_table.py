@@ -232,8 +232,8 @@ and two types of command-line input delimeters
                     @@CUT 'x1<3'  @@CUT 'x1<1'  @@CUT 'x1<-1'
    {OPT_NEVT:<12} ==> append N=Nevt on each legend (1D and 2D).
    {OPT_MEAN:<12} ==> 1D->append mean on legend; 2D->overlay y-axis mean in x-bins.
-                      If @@ERROR defines y-axis error, replace arithmetic
-                      mean with 1/ERR^2-weighted mean.
+                    @@ERROR or @E (y-axis) -> replace arithmetic mean with 1/ERR^2-weighted mean.
+                    @@error or @e -> same as @@ERROR, but suppress error bars on plot.
    {OPT_AVG:<12} ==> same as {OPT_MEAN}.
    {OPT_MEDIAN:<12} ==> overlay y-axis median in x-bins (2D only).
    {OPT_STDDEV:<12} ==> 1D -> append stddev on each legend;
@@ -245,15 +245,23 @@ and two types of command-line input delimeters
    {OPT_LOGZ:<12} ==> log scale for Z axis (2D HIST only)
    {OPT_GRID:<12} ==> display grid on plot.
    {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.      
-   {OPT_DIFF_ALL:<12} ==> 2D: plot y-axis difference in median values between 2 plots
-                    (can compare correlated or independent samples)
-   {OPT_DIFF_CID:<12} ==> 2D: plot y-axis difference for each CID.
-                    (compare correlated samples only; must have CID overlap)
+   {OPT_DIFF_ALL:<12} ==> 2D: plot y-axis difference in median (or mean) values between plots.
+                    Overlay file1-file0, file2-file0, file3-file0, etc, or
+                    overlay cut1-cut0, cut2-cut0, cut3-cut0, etc;
+                    e.g., @@CUT ''  'c<.1'  'c<0'  'c<-0.1'  
+                    where blank cut '' means reference has no cuts.
+                    Only median (or mean) is shown; individual data points are suppressed.
+   {OPT_DIFF_CID:<12} ==> 2D: plot y-axis difference for each CID between samples.
+                    (compare correlated samples only; must have CID overlap).
+                    As with {OPT_DIFF_ALL}, can compare multiple files or cuts.
+                    Median (or mean) is overlaid over individual data points;
+                    to suppress points and only show median(mean), set "@@ALPHA 0".
    {OPT_RATIO:<12} ==> 1D: plot histogram ratio file1/file0 or cut1/cut0.
-                    Use binomial error if numerator is subset of denominator.
+                    Computes binomial error if numerator is subset of denominator;
+                    else adds denom+numerator Poisson uncertainties in quadrature.
                     Can overlay multiple ratios with multiple files or cuts; e.g.
-                      @@CUT 'c>9'  'c<.1'  'c<0'  'c<-0.1'  
-                    where the first cut c<9 selects entire sample for denominator.
+                      @@CUT ''  'c<.1'  'c<0'  'c<-0.1'  
+                    where the blank cut '' selects entire sample for denominator.
 
 
 
@@ -637,7 +645,7 @@ def arg_prep_TITLE(args):
         if args.CUT[0] :
             plot_title = str(args.CUT)
         else:
-            plot_title = str(args.VARIABLE)
+            plot_title = more_human_readable(str(args.VARIABLE))
     
         if STR_np in plot_title:
             plot_title = plot_title.replace(STR_np,'')    
@@ -1095,7 +1103,7 @@ def set_axis_labels(args, plot_info):
     
         if n == 0:
             # set default x-axis label
-            xlabel = LABEL
+            xlabel = more_human_readable(LABEL)
 
             # for 1D plots, set default y-axis label based on user optons
             if NDIM == 1:
@@ -1108,7 +1116,7 @@ def set_axis_labels(args, plot_info):
             if args.YLABEL   : ylabel = args.YLABEL 
         else:
             # for 2D plots, default axis label is varname
-            ylabel = LABEL
+            ylabel = more_human_readable(LABEL)
             if args.DIFF      : ylabel += ' Diff'            
             if args.YLABEL    : ylabel = args.YLABEL  # user overrride
 
@@ -1119,6 +1127,21 @@ def set_axis_labels(args, plot_info):
     
     return  # end set_axis_labels
 
+def more_human_readable(label_orig):
+
+    # For input string label_orig, replace math symbols with
+    # math mode (e.g, replace dash with real minus sign) and
+    # add pad spacing around some math symbols for better readability.
+
+    label_out = label_orig
+    math_symbol_list = [ '+', '-', '/', ':' ]
+
+    for sym in math_symbol_list:
+        label_out = label_out.replace(sym,f' ${sym}$ ')
+    
+    return label_out
+    # end more_human_readable
+    
 def set_hist2d_args(args, plot_info):
 
     
@@ -1872,7 +1895,8 @@ def get_info_plot2d(args, info_plot_dict):
         # if there is no user-supplied legend, construct legend using
         # auto-generated legend from each plot
         if args.LEGEND is None:
-            info_plot_dict['plt_legend']  = name_legend_ref + ' - ' + name_legend
+            info_plot_dict['plt_legend'] = f"{name_legend} - {name_legend_ref}"
+            # xxx mark info_plot_dict['plt_legend']=name_legend_ref + ' - ' + name_legend
         
         if args.DIFF == OPT_DIFF_CID :
             #need to do an inner join with each entry in dic, then plot the diff
@@ -1881,7 +1905,8 @@ def get_info_plot2d(args, info_plot_dict):
             join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
                                  how='inner', lsuffix='_0', rsuffix='_1')
             xval_list = join.x_plot_val_0.values
-            yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
+            # xxx mark delete yval_list=join.y_plot_val_0.values-join.y_plot_val_1.values
+            yval_list = join.y_plot_val_1.values - join.y_plot_val_0.values            
 
             info_plot_dict['xval_list']     = xval_list
             info_plot_dict['yval_list']     = yval_list
@@ -1904,8 +1929,7 @@ def get_info_plot2d(args, info_plot_dict):
 
             # convert NaN (empty bins) to zero to avoid crash when plotting
             y_ref[np.isnan(y_ref)] = 0
-            y[np.isnan(y)] = 0                        
-            #sys.exit(f"\n xxx y_ref = \n{y_ref} \n xxx y = \n{y}")
+            y[np.isnan(y)]         = 0                        
             info_plot_dict['xval_list'] = info_plot_dict['xbins_cen']
             info_plot_dict['yval_list'] = y_ref - y
             info_plot_dict['yerr_list'] = None            

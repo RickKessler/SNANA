@@ -2058,9 +2058,9 @@ def apply_plt_misc(args, plot_inf, plt_text_dict):
 
     if custom_bounds:
         plt.xlim(xmin, xmax)
-        ymin  = bounds_dict['ymin']
-        ymax  = bounds_dict['ymax']
         if set_ylim:
+            ymin  = bounds_dict['ymin']
+            ymax  = bounds_dict['ymax']            
             plt.ylim(ymin, ymax)
 
     # - - - -

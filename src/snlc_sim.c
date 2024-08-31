@@ -14510,7 +14510,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     fflush(stdout);
     fp = SIMFILE_AUX->FP_DUMP_NOISE ;
 
-    sprintf(VARLIST, "CID GALID MJD BAND ZCMB   "
+    sprintf(VARLIST, "CID GALID LIBID MJD BAND ZCMB   "
 	    "MAG_SN MAG_GAL   COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
 
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
@@ -14543,10 +14543,10 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 
     if ( mag_sn > 90.0 ) { return ; }
     
-    sprintf(OUTLINE, "SN: %8d %8lld %.4f "
+    sprintf(OUTLINE, "SN: %8d %8lld %4d %.4f "
 	    "%s %.3f   %.3f %.3f  "
 	    "%9.2f %9.2f %9.2f %9.2f %9.2f " , 
-	    GENLC.CID, SNHOSTGAL.GALID, mjd,
+	    GENLC.CID, SNHOSTGAL.GALID, GENLC.SIMLIB_ID, mjd,
 	    band, z, mag_sn, mag_gal,
 	    cov_tot, cov_sn, cov_gal, cov_sky, cov_read	) ;
 

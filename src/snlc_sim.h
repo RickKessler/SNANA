@@ -181,6 +181,7 @@ typedef struct { // SIMFILE_AUX_DEF
   FILE *FP_IGNORE;      char  IGNORE[MXPATHLEN] ;
   FILE *FP_DUMP_SL;     char  DUMP_SL[MXPATHLEN] ;
   FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXPATHLEN] ;
+  FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXPATHLEN] ;  
   FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
   FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
@@ -1005,6 +1006,8 @@ struct INPUTS {
   int  IFLAG_SIMGEN_DUMPALL ;  // 1 -> dump every generated SN
   int  PRESCALE_SIMGEN_DUMP ;  // prescale on writing to SIMGEN_DUMP file
 
+  int  SIMGEN_DUMP_NOISE; // Aug 30 2014: diagnostic dump of noise per obs.
+  
   // inputs for intrinsic scatter matrix (July 27, 2011)
   int    NCOVMAT_SCATTER ;           // number of non-zero elements
   double COVMAT_SCATTER[3][3] ;
@@ -1028,6 +1031,8 @@ struct INPUTS {
 
 // define GENLC structure
 struct GENLC {
+
+  SIMFILE_AUX_DEF SIMFILE_AUX ; // controls auxilary output files 
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
   char SUBSURVEY_NAME[40]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
@@ -2192,7 +2197,10 @@ void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
+			  double *NOISE_PAR_LIST);
 void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+
 
 void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);

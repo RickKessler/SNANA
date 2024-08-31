@@ -74,8 +74,6 @@
 int main(int argc, char **argv) {
 
   int ilc, istat, i  ;
-  // define local structures
-  SIMFILE_AUX_DEF SIMFILE_AUX ;
   char fnam[] = "main"; 
 
   // ------------- BEGIN --------------
@@ -225,7 +223,7 @@ int main(int argc, char **argv) {
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) { INIT_ATMOSPHERE(); }
 
   // create/init output sim-files
-  init_simFiles(&SIMFILE_AUX);
+  init_simFiles(&GENLC.SIMFILE_AUX);
 
   // check option to dump rest-frame mags
  SIMLIB_DUMP:
@@ -267,7 +265,7 @@ int main(int argc, char **argv) {
     if ( GENLC.STOPGEN_FLAG ) { NGENLC_TOT--;  goto ENDLOOP ; }
     
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
-      gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
       goto GENEFF; 
     }
 
@@ -288,7 +286,7 @@ int main(int argc, char **argv) {
 
     // apply generation cuts
     if ( GENRANGE_CUT() == 0  ) {
-      gen_event_reject(&ilc, &SIMFILE_AUX, "GENRANGE");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "GENRANGE");
       goto GENEFF;
     }
 
@@ -298,13 +296,13 @@ int main(int argc, char **argv) {
 
     // first check if peakMag-dependent trigger fails (to speed generation)
     if ( gen_TRIGGER_PEAKMAG_SPEC() == 0 ) { 
-      gen_event_reject(&ilc, &SIMFILE_AUX, "SEARCHEFF");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "SEARCHEFF");
       goto GENEFF; 
     }
 
     // now check zHOST-dependent efficiency (Dec 1 2017)
     if ( gen_TRIGGER_zHOST() == 0 ) { 
-      gen_event_reject(&ilc, &SIMFILE_AUX, "SEARCHEFF");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "SEARCHEFF");
       goto GENEFF; 
     }
 
@@ -313,7 +311,7 @@ int main(int argc, char **argv) {
     GENMAG_DRIVER();   // July 2016
 
     if ( GENMAG_CUT() == 0  ) {
-      gen_event_reject(&ilc, &SIMFILE_AUX, "GENMAG");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "GENMAG");
       goto GENEFF;
     }
 
@@ -331,7 +329,7 @@ int main(int argc, char **argv) {
 
     // May 29 2024: reject on crazyFlux (if abort is skipped)
     if ( GENLC.FLAG_CRAZYFLUX ) {
-      gen_event_reject(&ilc, &SIMFILE_AUX, "CRAZYFLUX");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "CRAZYFLUX");
       goto GENEFF ;
     }
     
@@ -340,7 +338,7 @@ int main(int argc, char **argv) {
     // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
     // model is not defined.
     if ( GENLC.NOBS_MODELFLUX == 0 ) {
-      gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
       goto GENEFF;
     }
 
@@ -379,7 +377,7 @@ int main(int argc, char **argv) {
     int OVP ;
     OVP = ( INPUTS.APPLY_SEARCHEFF_OPT & GENLC.SEARCHEFF_MASK ) ;
     if ( OVP != INPUTS.APPLY_SEARCHEFF_OPT  && GENLC.FLAG_ACCEPT_FORCE==0 ) {
-      gen_event_reject(&ilc, &SIMFILE_AUX, "SEARCHEFF");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "SEARCHEFF");
       goto GENEFF ;
     }
 
@@ -390,7 +388,7 @@ int main(int argc, char **argv) {
 
     // check option to apply CUT windows
     if ( gen_cutwin() != SUCCESS  && GENLC.FLAG_ACCEPT_FORCE==0 ) {
-      gen_event_reject(&ilc, &SIMFILE_AUX, "CUTWIN");
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "CUTWIN");
       goto GENEFF;
     }
 
@@ -414,7 +412,7 @@ int main(int argc, char **argv) {
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("13", ilc) ; }
 
     // update SNDATA files & auxiliary files
-    update_simFiles(&SIMFILE_AUX);
+    update_simFiles(&GENLC.SIMFILE_AUX);
 
     GENLC.FLAG_ACCEPT = 1 ;  // Added Dec 2015
 
@@ -438,7 +436,7 @@ int main(int argc, char **argv) {
 
   // print final statistics on generated lightcurves.
 
-  simEnd(&SIMFILE_AUX);
+  simEnd(&GENLC.SIMFILE_AUX);
 
   return(0);
 
@@ -1348,6 +1346,8 @@ void set_user_defaults(void) {
   INPUTS.IFLAG_SIMGEN_DUMPALL = 0 ; // dump only SN written to data file.
   INPUTS.PRESCALE_SIMGEN_DUMP = 1 ; // prescale
 
+  INPUTS.SIMGEN_DUMP_NOISE = 0 ;
+  
 #ifdef MODELGRID_GEN
   sprintf(GRIDGEN_INPUTS.FORMAT, "%s", "BLANK" );
   for ( i = 0; i <= NPAR_GRIDGEN; i++ ) 
@@ -4584,7 +4584,8 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   //
   // Apr 16 2021: check SIMGEN_DUMPALL SWITCH 
   // Jun 23 2023: check LRD_ADD
-
+  // Aug 30 2024: check SIMGEN_DUMP_NOISE
+  
   int  ivar, NVAR=0, N=0 ;
   bool LRD = false, LRD_COMMA_SEP=false, LRD_SPACE_SEP=false ;
   bool LRD_ADD = false;
@@ -4627,6 +4628,10 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
       INPUTS.IFLAG_SIMGEN_DUMPALL = 1 ;
       return(N+1) ; 
     }
+  }
+  else if ( keyMatchSim(1, "SIMGEN_DUMP_NOISE", WORDS[0], keySource) ) {
+    N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_NOISE );
+    return(N);
   }
 
   // - - - - - - - 
@@ -14422,8 +14427,6 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       if ( SNDATA.SIMEPOCH_DCR_dRA[ep] > 90.0 ) { continue ; }
       if ( SNR < ATMOS_INFO.SNRMIN            ) { continue; }
       
-
-
       sprintf(OUTLINE,"ROW: "
 	      "%6d %.4f %s %.1f "     // CID MHD BAND LAMAVG
 	      "%5.1f %5.3f "          // measured SNR,  PSF
@@ -14465,6 +14468,106 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 } // end wr_SIMGEN_DUMP_DCR
 
+
+
+// ***********************************************
+void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
+			  double *NOISE_PAR_LIST ) {
+
+  // Created Aug 30 2024
+  // Write one row per observation with noise terms (sky, ccd, galaxy, source)
+  //  OPT_DUMP =  1  => init file, write header
+  //  OPT_DUMP =  2  => update 
+  //  OPT_DUMP =  3  => close file (end of job)
+
+  bool  DO_DUMP = ( INPUTS.SIMGEN_DUMP_NOISE > 0 ) ;
+  int   ep, ifilt_obs ;
+  FILE *fp;
+  double SNR, FLUXCAL, FLUXCALERR;
+  char *ptrFile, OUTLINE[MXPATHLEN], VARLIST[200], band[2] ;
+  char fnam[] = "wr_SIMGEN_DUMP_NOISE" ;
+
+  // -------------- BEGIN --------------
+  
+  if ( !DO_DUMP ) { return; }
+
+  ptrFile = SIMFILE_AUX->DUMP_NOISE ;
+
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+
+    sprintf(BANNER,"Init SIMGEN_DUMP_NOISE file." );
+    print_banner(BANNER);
+
+    
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_NOISE = fopen(ptrFile, "wt")) == NULL ) {       
+      sprintf ( c1err, "Cannot open SIMGEN NOISE-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_NOISE ;
+
+    sprintf(VARLIST, "CID GALID MJD BAND ZCMB   "
+	    "MAG_SN MAG_GAL   COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
+
+    fprintf(fp,"VARNAMES: %s\n", VARLIST);
+    fflush(fp);
+
+    //    debugexit(fnam);    
+  } // end OPT_DUMP==1
+
+  // - - - - - - - -  -
+
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
+
+    int    ep          = (int)NOISE_PAR_LIST[0] ;
+    int    ifilt_obs   = GENLC.IFILT_OBS[ep] ;
+
+    double cov_sn      = NOISE_PAR_LIST[1] ;
+    double cov_gal     = NOISE_PAR_LIST[2] ;
+    double cov_sky     = NOISE_PAR_LIST[3] ;
+    double cov_read    = NOISE_PAR_LIST[4] ;    
+    double cov_tot     = cov_sn + cov_gal + cov_sky + cov_read ;
+      
+    double mag_sn      = GENLC.genmag_obs[ep];
+    double mag_gal     = SNHOSTGAL.GALMAG[ifilt_obs][0];     
+    double mjd         = GENLC.MJD[ep];
+    double z           = GENLC.REDSHIFT_CMB;
+
+    char band[2];
+    sprintf(band,  "%c", FILTERSTRING[ifilt_obs] );      
+    //.xyz
+
+    if ( mag_sn > 90.0 ) { return ; }
+    
+    sprintf(OUTLINE, "SN: %8d %8lld %.4f "
+	    "%s %.3f   %.3f %.3f  "
+	    "%9.2f %9.2f %9.2f %9.2f %9.2f " , 
+	    GENLC.CID, SNHOSTGAL.GALID, mjd,
+	    band, z, mag_sn, mag_gal,
+	    cov_tot, cov_sn, cov_gal, cov_sky, cov_read	) ;
+
+    fp = SIMFILE_AUX->FP_DUMP_NOISE ;    
+    fprintf(fp,"%s\n", OUTLINE);
+    fflush(fp);
+    
+  } // end OPT_DUMP==2
+
+  // - - - - - - - -  -
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
+    fp = SIMFILE_AUX->FP_DUMP_NOISE ;
+    fclose(SIMFILE_AUX->FP_DUMP_NOISE);
+    printf("  %s\n", ptrFile );     fflush(stdout);
+  }
+
+  return ;
+
+} // end wr_SIMGEN_DUMP_NOISE
+
+
 // ***********************************************
 void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
@@ -14485,7 +14588,6 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // ----------- BEGIN ---------
 
   if ( NPEREVT_TAKE_SPECTRUM <= 0 ) { return; }
-
 
   // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
@@ -26141,6 +26243,15 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     + sqerr_ccd_pe     // CCD read noise (added Dec 13, 2010)
     ;
 
+  
+  if ( INPUTS.SIMGEN_DUMP_NOISE ) {
+    double noise_par_list[5] = {
+      (double)epoch, fluxsn_pe, fluxgal_pe,
+      sqerr_sky_pe, sqerr_ccd_pe } ;
+    wr_SIMGEN_DUMP_NOISE(FLAG_PROCESS_UPDATE, &GENLC.SIMFILE_AUX, noise_par_list) ;
+  }
+
+  
   sqsig_true = sqsig_noZ ;
   sqsig_data = sqsig_noZ ;
 
@@ -29136,7 +29247,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Jul 05 2022: check for strong lens (SL) dump
 
   int i, isys, FLAG ;
-  double zero = 0.0 ;
+  double zero = 0.0, dummy[10] ;
   int  IS_BLIND =  ( INPUTS.FORMAT_MASK & FORMAT_MASK_BLINDTEST );
   char headFile[MXPATHLEN];
   char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN], hide_prefix[2*MXPATHLEN];
@@ -29172,8 +29283,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->DUMP,       "%s.DUMP",        prefix );
   sprintf(SIMFILE_AUX->ZVAR,       "%s.ZVARIATION",  prefix );
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );
-  sprintf(SIMFILE_AUX->DUMP_SL,    "%s.SL",          prefix ); // July 2022
+  sprintf(SIMFILE_AUX->DUMP_SL,    "%s.SL",          prefix ); // Jul 2022
   sprintf(SIMFILE_AUX->DUMP_DCR,   "%s.DCR",         prefix ); // Jun 2023
+  sprintf(SIMFILE_AUX->DUMP_NOISE, "%s.NOISE",       prefix ); // Aug 2024
   sprintf(SIMFILE_AUX->DUMP_SPEC,  "%s.SPEC",        prefix ); // Mar 2024
 
   // Aug 10 2020: for batch mode, write YAML file locally so that
@@ -29207,9 +29319,10 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   FLAG = FLAG_PROCESS_INIT ;
   wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);             // primary dump
   wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);          // strong lensing (SL)
-  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);         // DCR
-  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);        // spectrograph
-  wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );     // SED_TRUE
+  wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);         // DCR per epoch
+  wr_SIMGEN_DUMP_NOISE(FLAG,SIMFILE_AUX, dummy);  // NOISE per epoch  
+  wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);          // spectrograph
+  wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );  // SED_TRUE
 
   // - - - - - 
   snlc_to_SNDATA(1) ;  // 1 => load header only
@@ -29295,11 +29408,12 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // load SNDATA structure
   snlc_to_SNDATA(0) ;
 
-  // check for SIMGEN dump files:
+  // check for SIMGEN dump file updates
   int FLAG = FLAG_PROCESS_UPDATE;
   wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX);        // primary SN dump
   wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);     // SL
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);    // DCR
+  // wr_SIMGEN_DUMP_NOISE(FLAG,SIMFILE_AUX);  // NOISE
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // SPECTRA
 
 
@@ -29333,7 +29447,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //               gzipping
 
   int  IS_BLIND =  ( INPUTS.FORMAT_MASK & FORMAT_MASK_BLINDTEST );
-  double zero = 0.0 ;
+  double zero = 0.0, dummy[10] ;
   int i, N1, N2, OPTMASK=0 ;
 
   // ------------ BEGIN -------------
@@ -29389,6 +29503,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP(FLAG,SIMFILE_AUX); 
   wr_SIMGEN_DUMP_SL(FLAG,SIMFILE_AUX);
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_NOISE(FLAG,SIMFILE_AUX, dummy);  
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);
   wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero);
 

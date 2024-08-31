@@ -14511,7 +14511,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     fp = SIMFILE_AUX->FP_DUMP_NOISE ;
 
     sprintf(VARLIST, "CID GALID LIBID MJD BAND ZCMB   "
-	    "MAG_SN MAG_GAL   COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
+	    "MAG_SN MAG_GAL  NEA COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
 
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
     fflush(fp);
@@ -14529,9 +14529,9 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     double cov_sn      = NOISE_PAR_LIST[1] ;
     double cov_gal     = NOISE_PAR_LIST[2] ;
     double cov_sky     = NOISE_PAR_LIST[3] ;
-    double cov_read    = NOISE_PAR_LIST[4] ;    
+    double cov_read    = NOISE_PAR_LIST[4] ;
+    double nea         = NOISE_PAR_LIST[5] ;
     double cov_tot     = cov_sn + cov_gal + cov_sky + cov_read ;
-      
     double mag_sn      = GENLC.genmag_obs[ep];
     double mag_gal     = SNHOSTGAL.GALMAG[ifilt_obs][0];     
     double mjd         = GENLC.MJD[ep];
@@ -14545,10 +14545,10 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     
     sprintf(OUTLINE, "SN: %8d %8lld %4d %.4f "
 	    "%s %.3f   %.3f %.3f  "
-	    "%9.2f %9.2f %9.2f %9.2f %9.2f " , 
+	    "%.1f  %9.2f %9.2f %9.2f %9.2f %9.2f " , 
 	    GENLC.CID, SNHOSTGAL.GALID, GENLC.SIMLIB_ID, mjd,
 	    band, z, mag_sn, mag_gal,
-	    cov_tot, cov_sn, cov_gal, cov_sky, cov_read	) ;
+	    nea, cov_tot, cov_sn, cov_gal, cov_sky, cov_read  ) ;
 
     fp = SIMFILE_AUX->FP_DUMP_NOISE ;    
     fprintf(fp,"%s\n", OUTLINE);
@@ -26245,9 +26245,9 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
   
   if ( INPUTS.SIMGEN_DUMP_NOISE ) {
-    double noise_par_list[5] = {
-      (double)epoch, fluxsn_pe, fluxgal_pe,
-      sqerr_sky_pe, sqerr_ccd_pe } ;
+    double xep = (double)epoch ;
+    double noise_par_list[6] =
+      { xep, fluxsn_pe, fluxgal_pe, sqerr_sky_pe, sqerr_ccd_pe, nea  } ;
     wr_SIMGEN_DUMP_NOISE(FLAG_PROCESS_UPDATE, &GENLC.SIMFILE_AUX, noise_par_list) ;
   }
 

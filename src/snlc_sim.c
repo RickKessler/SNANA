@@ -14485,12 +14485,22 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
   FILE *fp;
   double SNR, FLUXCAL, FLUXCALERR;
   char *ptrFile, OUTLINE[MXPATHLEN], VARLIST[200], band[2] ;
+  char fileName_orig[MXPATHLEN];
   char fnam[] = "wr_SIMGEN_DUMP_NOISE" ;
 
   // -------------- BEGIN --------------
   
   if ( !DO_DUMP ) { return; }
 
+  // do not allow use with slurm/submit_batch_jobs ... to prevent
+  // gigantic dump files.
+  if ( INPUTS.JOBID > 0 ) {
+    sprintf( c1err, "SIMGEN_DUMP_NOISE not allowed with submit_batch_jobs;");
+    sprintf( c2err, "This DUMP can only be used interactively (remove JOBID input).");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // - - - - - -
   ptrFile = SIMFILE_AUX->DUMP_NOISE ;
 
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
@@ -14506,17 +14516,30 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
     fp = SIMFILE_AUX->FP_DUMP_NOISE ;
 
     sprintf(VARLIST, "CID GALID LIBID MJD BAND ZCMB   "
-	    "MAG_SN MAG_GAL  NEA COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
+	    "MAG_SN MAG_GAL GALSNSEP ZP_pe NEA "
+	    "COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
 
+    fprintf(fp, "# Simulation NOISE dump. \n");
+
+    ENVrestore(INPUTS.HOSTLIB_FILE,fileName_orig);
+    fprintf(fp, "# GALID identifies galaxy  in %s\n", fileName_orig);
+
+    ENVrestore(INPUTS.SIMLIB_FILE,fileName_orig);    
+    fprintf(fp, "# LIBID identifies cadence in %s\n", fileName_orig);
+    
+    fprintf(fp, "# COV_XXX units are Npe. \n");
+    fprintf(fp, "# COV_SKY and COV_GAL are summed over NEA.\n");    
+    fprintf(fp, "\n");    
+    
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
     fflush(fp);
 
-    //    debugexit(fnam);    
   } // end OPT_DUMP==1
 
   // - - - - - - - -  -
@@ -14533,7 +14556,9 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     double nea         = NOISE_PAR_LIST[5] ;
     double cov_tot     = cov_sn + cov_gal + cov_sky + cov_read ;
     double mag_sn      = GENLC.genmag_obs[ep];
-    double mag_gal     = SNHOSTGAL.GALMAG[ifilt_obs][0];     
+    double mag_gal     = SNHOSTGAL.GALMAG[ifilt_obs][0];
+    double galsnsep    = SNHOSTGAL_DDLR_SORT[0].SNSEP ;
+    double zp_pe       = SIMLIB_OBS_GEN.ZPTADU[ep] ;
     double mjd         = GENLC.MJD[ep];
     double z           = GENLC.REDSHIFT_CMB;
 
@@ -14544,10 +14569,10 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     if ( mag_sn > 90.0 ) { return ; }
     
     sprintf(OUTLINE, "SN: %8d %8lld %4d %.4f "
-	    "%s %.3f   %.3f %.3f  "
+	    "%s %.3f   %.3f %.3f %.2f %.3f "
 	    "%.1f  %9.2f %9.2f %9.2f %9.2f %9.2f " , 
 	    GENLC.CID, SNHOSTGAL.GALID, GENLC.SIMLIB_ID, mjd,
-	    band, z, mag_sn, mag_gal,
+	    band, z, mag_sn, mag_gal, galsnsep, zp_pe,
 	    nea, cov_tot, cov_sn, cov_gal, cov_sky, cov_read  ) ;
 
     fp = SIMFILE_AUX->FP_DUMP_NOISE ;    

@@ -14481,14 +14481,14 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
   //  OPT_DUMP =  3  => close file (end of job)
 
   int   DUMP_NOISE       = INPUTS.SIMGEN_DUMP_NOISE;
-  bool  DO_DUMP_ALLOBS   = ( INPUTS.SIMGEN_DUMP_NOISE == SIMGEN_DUMP_NOISE_ALLOBS ) ;
   bool  DO_DUMP_NEARPEAK = ( INPUTS.SIMGEN_DUMP_NOISE == SIMGEN_DUMP_NOISE_NEARPEAK ) ;
+  bool  DO_DUMP_ALLOBS   = ( INPUTS.SIMGEN_DUMP_NOISE == SIMGEN_DUMP_NOISE_ALLOBS ) ;
   bool  DO_DUMP          = DO_DUMP_ALLOBS || DO_DUMP_NEARPEAK ;
 
   char COMMENT_DUMP_NOISE[4][100] = {
     "dummy",
-    "Dump all observations with defined transient model mag",
     "Dump only the observation closest to PEAKMJD",
+    "Dump all observations with defined transient model mag",
     "dummy"
   } ;
     
@@ -14510,7 +14510,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
   if ( !DO_DUMP ) {
     if ( DUMP_NOISE > 0 ) {
       sprintf( c1err, "Invalid SIMGEN_DUMP_NOISE = %d", DUMP_NOISE);
-      sprintf( c2err, "Valid values: 1(all obs) and 2(nearpeak)");
+      sprintf( c2err, "Valid values: 1(near peak only) and 2(all obs)");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }    
     return;

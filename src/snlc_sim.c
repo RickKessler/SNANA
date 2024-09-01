@@ -14480,23 +14480,47 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
   //  OPT_DUMP =  2  => update 
   //  OPT_DUMP =  3  => close file (end of job)
 
-  bool  DO_DUMP = ( INPUTS.SIMGEN_DUMP_NOISE > 0 ) ;
+  int   DUMP_NOISE       = INPUTS.SIMGEN_DUMP_NOISE;
+  bool  DO_DUMP_ALLOBS   = ( INPUTS.SIMGEN_DUMP_NOISE == SIMGEN_DUMP_NOISE_ALLOBS ) ;
+  bool  DO_DUMP_NEARPEAK = ( INPUTS.SIMGEN_DUMP_NOISE == SIMGEN_DUMP_NOISE_NEARPEAK ) ;
+  bool  DO_DUMP          = DO_DUMP_ALLOBS || DO_DUMP_NEARPEAK ;
+
+  char COMMENT_DUMP_NOISE[4][100] = {
+    "dummy",
+    "Dump all observations with defined transient model mag",
+    "Dump only the observation closest to PEAKMJD",
+    "dummy"
+  } ;
+    
   int   ep, ifilt_obs ;
   FILE *fp;
   double SNR, FLUXCAL, FLUXCALERR;
-  char *ptrFile, OUTLINE[MXPATHLEN], VARLIST[200], band[2] ;
+  char *ptrFile, OUTLINE[MXPATHLEN],  band[2] ;
   char fileName_orig[MXPATHLEN];
+  
+  char VARLIST[] =
+    "CID GALID LIBID MJD BAND ZCMB   "
+    "MAG_SN MAG_GAL GALSNSEP ZP_pe NEA "
+    "COV_TOT COV_SN COV_GAL COV_SKY COV_READ" ;
+      
   char fnam[] = "wr_SIMGEN_DUMP_NOISE" ;
 
   // -------------- BEGIN --------------
-  
-  if ( !DO_DUMP ) { return; }
+
+  if ( !DO_DUMP ) {
+    if ( DUMP_NOISE > 0 ) {
+      sprintf( c1err, "Invalid SIMGEN_DUMP_NOISE = %d", DUMP_NOISE);
+      sprintf( c2err, "Valid values: 1(all obs) and 2(nearpeak)");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }    
+    return;
+  }
 
   // do not allow use with slurm/submit_batch_jobs ... to prevent
   // gigantic dump files.
-  if ( INPUTS.JOBID > 0 ) {
-    sprintf( c1err, "SIMGEN_DUMP_NOISE not allowed with submit_batch_jobs;");
-    sprintf( c2err, "This DUMP can only be used interactively (remove JOBID input).");
+  if ( INPUTS.JOBID > 0 && DO_DUMP_ALLOBS ) {
+    sprintf( c1err, "SIMGEN_DUMP_NOISE=%d not allowed with submit_batch_jobs;", DUMP_NOISE);
+    sprintf( c2err, "The ALLOBS DUMP can only be used interactively.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -14521,12 +14545,12 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     fflush(stdout);
     fp = SIMFILE_AUX->FP_DUMP_NOISE ;
 
-    sprintf(VARLIST, "CID GALID LIBID MJD BAND ZCMB   "
-	    "MAG_SN MAG_GAL GALSNSEP ZP_pe NEA "
-	    "COV_TOT COV_SN COV_GAL COV_SKY COV_READ");
 
-    fprintf(fp, "# Simulation NOISE dump. \n");
-
+    // - - - - - write comments at top of output file - - - - -
+    fprintf(fp, "# Simulation NOISE dump with SIMGEN_DUMP_NOISE=%d --> \n", DUMP_NOISE); 
+    fprintf(fp, "#      %s\n", COMMENT_DUMP_NOISE[DUMP_NOISE]);
+    fprintf(fp, "#\n");
+    
     ENVrestore(INPUTS.HOSTLIB_FILE,fileName_orig);
     fprintf(fp, "# GALID identifies galaxy  in %s\n", fileName_orig);
 
@@ -14536,6 +14560,9 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     fprintf(fp, "# COV_XXX units are Npe. \n");
     fprintf(fp, "# COV_SKY and COV_GAL are summed over NEA.\n");    
     fprintf(fp, "\n");    
+    fflush(fp);
+    
+    // - - - - - write list of column names - - - - -
     
     fprintf(fp,"VARNAMES: %s\n", VARLIST);
     fflush(fp);
@@ -14567,6 +14594,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     //.xyz
 
     if ( mag_sn > 90.0 ) { return ; }
+    if ( DO_DUMP_NEARPEAK && ep != GENLC.IEPOCH_NEARPEAK ) { return; }
     
     sprintf(OUTLINE, "SN: %8d %8lld %4d %.4f "
 	    "%s %.3f   %.3f %.3f %.2f %.3f "

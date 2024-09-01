@@ -59,6 +59,9 @@
 #define  MXSIMGEN_DUMP 600    // max number of variables to dump
 #define  TABLEID_DUMP  7100   // for SNTABLE functions
 
+#define  SIMGEN_DUMP_NOISE_ALLOBS   1
+#define  SIMGEN_DUMP_NOISE_NEARPEAK 2
+
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  MXEPOCH    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event

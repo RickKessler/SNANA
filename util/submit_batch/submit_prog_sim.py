@@ -73,6 +73,7 @@
 #
 # Apr 07 2024: gzip SIMGEN-DUMP files
 # Aug 07 2024: write PATH_SNDATA_SIM to bottom of MERGE.LOG file
+# Sep 01 2024: add 'NOISE' to SUFFIX_DUMP_LIST
 #
 # ==========================================
 
@@ -137,7 +138,7 @@ FORMAT_MASK_BLIND  =  8   # suppress sim truth to look like real data
 FORMAT_TEXT = "TEXT"
 FORMAT_FITS = "FITS"
 
-SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC' ]
+SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC', 'NOISE' ]
 
 # define max ranseed to avoid exceeding 4-byte limit of snlc_sim storage
 RANSEED_MAX = 1000000000   # 1 billion

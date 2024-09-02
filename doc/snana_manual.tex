@@ -16,6 +16,8 @@
 \usepackage{color}
 \usepackage{enumitem}
 \usepackage{hyperref}
+%\usepackage{epsfig}
+\usepackage{graphicx}
 
 \setlength{\textheight}{9.5in}
 \setlength{\textwidth}{7.0in}
@@ -4156,10 +4158,6 @@ If there are 2 or more Sersic profiles per galaxy,
 weights ({\tt w0\_Sersic}-{w9\_Sersic}) are needed;
 the sum of Sersic weights is 1.
 
-%Finally, the weight ``{\tt w0\_Sersic}'' give the flux-ratio
-%between this component and the total flux. The weight 
-%{\tt w4\_Sersic} need not be given since $w_4 = 1 - w_0$.  
-
 Finally, ``{\tt a\_rot}'' 
 is the rotation angle (in degrees) of the major axis  w.r.t. 
 the +RA coordinate.  If North is up and East is to the right, 
@@ -4442,6 +4440,7 @@ viewed with the grep-command
 \end{verbatim}
 %
 \begin{itemize}
+  \itemsep0em 
 \item {\tt MSKOPT} += 2~: compute the host-galaxy Poisson noise within
        an aperture of radius $2\sigma_{\rm PSF}$ 
        (added to total error per epoch), and also compute
@@ -4502,6 +4501,55 @@ viewed with the grep-command
 Options can be combined, such as {\tt HOSTLIB\_MSKOPT}=10
 will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
+
+% ------------------------------------ 
+\subsubsection{Poisson Noise from Host}
+\label{sss:host_noise}
+
+\newcommand{\COVHOST}{C_{\rm host}}
+\newcommand{\FHOST}{F_{\rm host}}
+\newcommand{\redr}{\rho_g}
+\newcommand{\Rhalf}{R_{1/2}}
+
+If the 2-bit of {\tt HOSTLIB\_MSKOPT} is set,
+the noise covariance from the host ($\COVHOST$) is computed as the
+PSF-convolved galaxy flux contained within the noise-equivalent-area (NEA)
+centered on the Supernova,as illustrated in Fig.~\ref{fig:host_noise};
+\begin{equation}
+  \COVHOST = \int_{\rm host} \large\left[
+    \int_{\rm NEA} \FHOST(\redr,\theta_g) PSF(x-x_g, y-y_g) dx dy
+     \large\right] \redr d\redr d\theta_g
+\end{equation}
+%
+where $\redr$ is the reduced radius\footnote{($\redr \equiv R/\Rhalf$,
+    where $\Rhalf$ is the half-light radius.}
+$\theta_g$ is the azimuthal angle, and
+$\FHOST$ is the host Sersic profile flux at coordinate $\{\redr,\theta_g\}$
+  (w.r.t. center of host).
+The inner PSF integral is over the circular NEA region; for computational speed,
+the Gaussian-PSF integrals are pre-computed and stored on a grid as a
+function of $R=\sqrt{(x-x_g)^2 + (y-y_g)^2}$, where $\{x_g,y_g\}$ are
+Cartesion coordinates converted from polar coordinates.
+The outer integral is over the entire host galaxy with 100 $\redr$ bins
+and 36 $\theta_g$ bins. To avoid computing this integral for each \obs\ per event,
+$\COVHOST$ is pre-computed on a grid of about 10 {\tt PSFSIG} values
+at the start of each generated event, and interpolated at the {\tt PSFSIG}
+value of each \obs.
+
+\begin{figure}[h]
+  \vspace{-0.5in}
+  \centering
+  \includegraphics[width=0.5\linewidth, angle= -90]{Fig_hostgal_noise.ps}
+  \vspace{-0.8in}  
+\caption{
+  Diagram of host galaxy, SN, NEA and coordinates
+  used to compute Poisson noise.
+ }
+\label{fig:host_noise}
+\end{figure}
+
+
+
 
 % ------------------------------------ 
 \subsubsection{Hostgal properties}
@@ -4618,7 +4666,7 @@ Check memory usage in the stdout from this output:
 
 
 %\clearpage
-\newcommand{\Rhalf}{R_{1/2}}
+
 \newcommand{\Sn}{{\cal S}_{n}}
 
 % ------------------------------------

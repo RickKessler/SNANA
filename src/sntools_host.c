@@ -4928,7 +4928,6 @@ void init_Gauss2d_Overlap(void) {
 
   // Read the Gauss2d table
   HOSTLIB.NGauss2d = SNTABLE_READ_EXEC();
-  // xxx obsolete TABLEFILE_CLOSE(Gauss2dFile);
 
   // decode binning for easy lookup
   rmin = 1.0E9; rmax = -1.0E9 ; rlast = -999. ;  rbin = 0.0 ;
@@ -9069,7 +9068,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   //         TO be exactly right, should sum all neighbors.
   //
   // For a given PSF, the effective aperture is
-  // taken to be 4*PI*PSF^2.
+  // taken to be 4*PI*PSFIG^2.
   //
   // Fill struct
   //   SNHOSTGAL_DDLR_SORT[inbr].MAG[ifilt_obs] = MAG ; 
@@ -9451,7 +9450,7 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   int    j, NBIN ;
   double a, b, w, n, bn, rexp, sqsum,  arg ;
   double reduced_R, xx, yy, FSUM_PROFILE, F, FGAL_TOT    ;
-  //  char fnam[] = "get_GALFLUX_HOSTLIB" ;
+  char fnam[] = "get_GALFLUX_HOSTLIB" ;
 
   // ---------------- BEGIN ---------------
 

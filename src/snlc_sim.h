@@ -1487,11 +1487,11 @@ SIMLIB_DUMP_DEF  SIMLIB_DUMP_AVG1   ;  // avg for one SIMLIB entry
 SIMLIB_DUMP_DEF  SIMLIB_DUMP_AVGALL ;  // average over all SIMLIB entries
 SIMLIB_DUMP_DEF  SIMLIB_DUMP_NAVGALL;  // how many used for avg in AVGALL
 
-char SIMLIB_DUMPFILE_SEQ[MXPATHLEN]; // TEXT: one row per SEQUENCE
+char SIMLIB_DUMPFILE_AVG[MXPATHLEN]; // TEXT: one row AVG per LIBID
 char SIMLIB_DUMPFILE_OBS[MXPATHLEN]; // TEXT: one row per OBS
 char SIMLIB_DUMPFILE_ROOT[MXPATHLEN];  // covert to root
 
-#define SIMLIB_DUMPMASK_SEQ   1  // one-row summary for each SEQUENCE (LIBID)
+#define SIMLIB_DUMPMASK_AVG   1  // one-row AVG summary for each SEQUENCE (LIBID)
 #define SIMLIB_DUMPMASK_OBS   2  // one-row summary for each OBS
 
 #define TABLEID_SIMLIB_DUMP    7788

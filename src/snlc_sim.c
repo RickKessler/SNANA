@@ -14591,7 +14591,6 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 
     char band[2];
     sprintf(band,  "%c", FILTERSTRING[ifilt_obs] );      
-    //.xyz
 
     if ( mag_sn > 90.0 ) { return ; }
     if ( DO_DUMP_NEARPEAK && ep != GENLC.IEPOCH_NEARPEAK ) { return; }
@@ -30145,6 +30144,10 @@ void SIMLIB_DUMP_DRIVER(void) {
   // July 16 2018: include BAND: key in output table for parsing
   //
   // Jul 02 2021: malloc large MJDLIST arrays to avoid stack issues.
+  //
+  // Sep 03 2024: modify PREFIX for output dump file to include prefix of SIMLIB file name;
+  //              avoids clobbering if there are multiple simlib files for one survey.
+  //
   // ----------------------------------
 
 #define MXSIMLIB_DUMP_STDOUT 50   // max simlib entries to screen-dump
@@ -30154,7 +30157,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   int 
     ID, IDLAST, NREAD, LDMP_LOCAL
-    ,LDMP_SEQ_TEXT, LDMP_OBS_TEXT, LDMP_ROOT
+    ,LDMP_AVG_TEXT, LDMP_OBS_TEXT, LDMP_ROOT
     ,ifilt, ifilt_obs, iep, icut, Ncut, NVAR, NROW_MJD, NROW
     ;
 
@@ -30210,10 +30213,10 @@ void SIMLIB_DUMP_DRIVER(void) {
     sprintf(c2err,"Must set bit0,1 to dump per LIBID, per MJD");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  LDMP_SEQ_TEXT =  LDMP_OBS_TEXT = LDMP_ROOT = 0 ; 
+  LDMP_AVG_TEXT =  LDMP_OBS_TEXT = LDMP_ROOT = 0 ; 
   if ( !QUIET ) { 
-    if ( INPUTS.SIMLIB_DUMP & SIMLIB_DUMPMASK_SEQ ) { LDMP_SEQ_TEXT = 1; }
-    if ( INPUTS.SIMLIB_DUMP & SIMLIB_DUMPMASK_OBS ) { LDMP_OBS_TEXT = 1; }
+    if ( INPUTS.SIMLIB_DUMP & SIMLIB_DUMPMASK_AVG ) { LDMP_AVG_TEXT = 1; } // avg per LIBID
+    if ( INPUTS.SIMLIB_DUMP & SIMLIB_DUMPMASK_OBS ) { LDMP_OBS_TEXT = 1; } // every obs
   }
 
 #ifdef USE_ROOT
@@ -30298,16 +30301,30 @@ void SIMLIB_DUMP_DRIVER(void) {
   }
 
   // =======================================
+  // Sep 2024 RK - determine dump file prefix to be simlib file name before the .SIMLIB
+  // e.g., SIMLIB_FILE = LSST_baseline_v3.4.SIMLIB -> prefix = LSST_baseline_v3.4
+  char PREFIX[MXPATHLEN], *ptr_substr;
+  sprintf(PREFIX, "%s", INPUTS.SIMLIB_FILE);
+  ptr_substr = strstr(PREFIX,".SIMLIB");
+  if ( ptr_substr == NULL ) { ptr_substr = strstr(PREFIX,".simlib"); }
+  int j = ptr_substr - PREFIX;
+  PREFIX[j] = 0;
+
+  
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
 
-  if ( LDMP_SEQ_TEXT ) {
-    sprintf(SIMLIB_DUMPFILE_SEQ, "SIMLIB_DUMP_SUMMARY_%s-%s.TEXT", 
+  if ( LDMP_AVG_TEXT ) {
+    /* xxx mark delete Sep 3 2024 
+    sprintf(SIMLIB_DUMPFILE_AVG, "SIMLIB_DUMP_SUMMARY_%s-%s.TEXT", 
 	    GENLC.SURVEY_NAME, SIMLIB_GLOBAL_HEADER.FILTERS );
+    xxxxxxx end mark */
+    
+    sprintf(SIMLIB_DUMPFILE_AVG, "SIMLIB_DUMP_AVG_%s.TEXT", PREFIX); // Sep 2024
 
-    fpdmp0 = fopen(SIMLIB_DUMPFILE_SEQ, "wt") ;    
+    fpdmp0 = fopen(SIMLIB_DUMPFILE_AVG, "wt") ;    
     if ( !fpdmp0 ) {
       sprintf(c1err,"Could not open DUMP_LIBID file to write:");
-      sprintf(c2err,"%s", SIMLIB_DUMPFILE_SEQ );
+      sprintf(c2err,"%s", SIMLIB_DUMPFILE_AVG );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -30336,11 +30353,14 @@ void SIMLIB_DUMP_DRIVER(void) {
   }
 
   if ( LDMP_OBS_TEXT ) {
+
+    /* xxx mark delete Sep 2024 xxxxx
     sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s-%s.TEXT", 
 	    GENLC.SURVEY_NAME, SIMLIB_GLOBAL_HEADER.FILTERS );
-
+    xxxx end mark xxx */
+    
+    sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s.TEXT", PREFIX); // Sep 2024
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ; 
-
     NVAR = 11 ;
     fprintf(fpdmp1,"VARNAMES: ROW "
 	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG MJD_DIF\n");
@@ -30485,7 +30505,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     SIMLIB_DUMP_AVG1.GAPMAX[0]  = GAPMAX ;
     SIMLIB_DUMP_AVG1.GAPAVG[0]  = GAPAVG ;
     
-    if ( LDMP_SEQ_TEXT ) {
+    if ( LDMP_AVG_TEXT ) {
       NROW++ ;
       fprintf(fpdmp0,"ROW: %4d %4d %7.3f %7.3f %s %6.3f %5.0f %3.1f "
 	      "%3d %.2f %.2f  %d  ", 
@@ -30514,7 +30534,7 @@ void SIMLIB_DUMP_DRIVER(void) {
       SIMLIB_DUMP_AVG1.SKYMAG[ifilt_obs]     /= XNobs ;
       SIMLIB_DUMP_AVG1.M5SIG[ifilt_obs]      /= XNobs ;
 
-      if ( LDMP_SEQ_TEXT ) {
+      if ( LDMP_AVG_TEXT ) {
 	fprintf(fpdmp0,"%2d %6.2f %5.2f %5.2f ", Nobs
 		, SIMLIB_DUMP_AVG1.ZPT[ifilt_obs]
 		, SIMLIB_DUMP_AVG1.PSF[ifilt_obs]
@@ -30543,7 +30563,7 @@ void SIMLIB_DUMP_DRIVER(void) {
       if ( TMP1 > SIMLIB_GENRANGE[icut][1] ) { NSIMLIB_CUTFAIL[icut]++ ; }
     }
 
-    if ( LDMP_SEQ_TEXT ) { fprintf(fpdmp0,"\n" ); }
+    if ( LDMP_AVG_TEXT ) { fprintf(fpdmp0,"\n" ); }
     
     // screen dump
     if ( LDMP_LOCAL  && NREAD <= MXSIMLIB_DUMP_STDOUT ) {
@@ -30584,10 +30604,10 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   if ( QUIET ) { return; }
 
-  if ( LDMP_SEQ_TEXT ) { 
+  if ( LDMP_AVG_TEXT ) { 
     fclose(fpdmp0); 
-    printf("\n One-line dump per LIBID-sequence written to \n\t '%s' \n", 
-	   SIMLIB_DUMPFILE_SEQ );
+    printf("\n One-line dump AVG per LIBID-sequence written to \n\t '%s' \n", 
+	   SIMLIB_DUMPFILE_AVG );
   }
 
   if ( LDMP_OBS_TEXT   ) { 

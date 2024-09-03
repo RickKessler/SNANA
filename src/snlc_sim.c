@@ -30119,25 +30119,11 @@ void DASHBOARD_DRIVER(void) {
 // ***********************************
 void SIMLIB_DUMP_DRIVER(void) {
 
-  // Dump summary information for SIMLIB 
+  // Dump summary information for SIMLIB into 1 or 2 files:
+  // SIMLIB_DUMP += 1 -> create "AVG" file with averages per LIBID
+  // SIMLIB_DUMP += 2 -> create "OBS" file with summary for each observation
   //
   // History:
-  //
-  // May 2 2017;
-  //   +  add RA & DEC to fpdmp1 (dump for every MJD)
-  //   +  bail when NREAD > NGENTOT_LC
-  //
-  // Aug 4 2017: 
-  //  + refactor so that SIMLIB_DUMP[MXREAD_SIMLIB] ->  SIMLIB_DUMP
-  //    and more than 100 MB of memory is eliminated.
-  //  + use new utils zero_SIMLIB_DUMP and update_SIMLIB_DUMP_AVGALL
-  //
-  // Sep 22 2017:  
-  //  + set INPUTS.SIMLIB_NREPEAT=1 to override user value
-  //
-  //
-  // Oct 16 2017:  MJDGAP_IGNORE-> 50 (was 100)
-  // Oct 23 2017:  add MJD_DIF to SEQuence file (time since last obs)
   //
   // Jun 18 2018: compute avergae weight for LCLIB model
   //
@@ -30157,7 +30143,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   int 
     ID, IDLAST, NREAD, LDMP_LOCAL
-    ,LDMP_AVG_TEXT, LDMP_OBS_TEXT, LDMP_ROOT
+    ,LDMP_AVG_TEXT, LDMP_OBS_TEXT
     ,ifilt, ifilt_obs, iep, icut, Ncut, NVAR, NROW_MJD, NROW
     ;
 
@@ -30166,7 +30152,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   FILE *fpdmp0, *fpdmp1 ;
   
   double
-    MJD, MJD_LAST, GAPMAX, GAPAVG, MJDWIN, FRAC, *ptrmjd
+    MJD, MJD_LAST, MJD_LAST_FILTER[MXFILTINDX], GAPMAX, GAPAVG, MJDWIN, FRAC, *ptrmjd
     ,ZPT_pe, PSF, SKYSIG_ADU, SKYSIG_pe ,ZPTERR, M5SIG
     ,ZPT_SIMLIB, PSF_SIMLIB, SNR_maglimit
     ,FSKY_pe, SKYMAG, RA, DEC, MWEBV
@@ -30183,7 +30169,8 @@ void SIMLIB_DUMP_DRIVER(void) {
   double 
      *MJDLIST_ALL
     ,*MJDLIST[MXFILTINDX]    // MJD list per band
-    ,*M5SIGLIST[MXFILTINDX]   // idem for M5sigma    
+    ,*M5SIGLIST[MXFILTINDX]   // idem for M5sigma
+    ,MJD_DIF, MJD_DIF_FILTER
     ;
 
   double  MJDGAP_IGNORE = 50.0 ; // ignore Gaps (days) longer than this
@@ -30213,15 +30200,11 @@ void SIMLIB_DUMP_DRIVER(void) {
     sprintf(c2err,"Must set bit0,1 to dump per LIBID, per MJD");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  LDMP_AVG_TEXT =  LDMP_OBS_TEXT = LDMP_ROOT = 0 ; 
+  LDMP_AVG_TEXT =  LDMP_OBS_TEXT = 0 ; 
   if ( !QUIET ) { 
     if ( INPUTS.SIMLIB_DUMP & SIMLIB_DUMPMASK_AVG ) { LDMP_AVG_TEXT = 1; } // avg per LIBID
     if ( INPUTS.SIMLIB_DUMP & SIMLIB_DUMPMASK_OBS ) { LDMP_OBS_TEXT = 1; } // every obs
   }
-
-#ifdef USE_ROOT
-  if ( INPUTS.SIMLIB_DUMP & 4 ) { LDMP_ROOT  = 1; }
-#endif
 
   if ( INPUTS.DASHBOARD_DUMPFLAG == 0 ) { print_banner("SIMLIB_DUMP"); }
 
@@ -30328,7 +30311,7 @@ void SIMLIB_DUMP_DRIVER(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-
+    write_docana_SIMLIB_DUMP(fpdmp0, SIMLIB_DUMPMASK_AVG);
     NVAR = 10 + 4*GENLC.NFILTDEF_OBS ; 
 
     fprintf(fpdmp0,"VARNAMES: ROW LIBID RA DEC FIELD MWEBV GAPMAX GAPAVG "
@@ -30346,11 +30329,6 @@ void SIMLIB_DUMP_DRIVER(void) {
   } // LDMP_LIBID
 
 
-  // open full table for each MJD/epoch
-  if ( LDMP_ROOT ) {
-    SIMLIB_DUMP_openTable(LDMP_OBS_TEXT, LDMP_ROOT);
-    SIMLIB_DUMP_makeTable(LDMP_OBS_TEXT, LDMP_ROOT);
-  }
 
   if ( LDMP_OBS_TEXT ) {
 
@@ -30360,10 +30338,13 @@ void SIMLIB_DUMP_DRIVER(void) {
     xxxx end mark xxx */
     
     sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s.TEXT", PREFIX); // Sep 2024
-    fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ; 
+    fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ;
+    write_docana_SIMLIB_DUMP(fpdmp1, SIMLIB_DUMPMASK_OBS);
+    
     NVAR = 11 ;
+   
     fprintf(fpdmp1,"VARNAMES: ROW "
-	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG MJD_DIF\n");
+	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG   MJD_DIF MJD_DIF_BAND\n");
     fprintf(fpdmp1,"\n");
   }
 
@@ -30422,12 +30403,13 @@ void SIMLIB_DUMP_DRIVER(void) {
     MJDMIN4 =  99999. ;
     MJDMAX4 = -99999. ;
     sprintf(FIELDNAME, "%s", SIMLIB_OBS_GEN.FIELDNAME[1]) ;
-	  
+    
+    MJD_LAST = -9.0;
+    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) { MJD_LAST_FILTER[ifilt] = -9.0; }
+    
     for ( iep = 1; iep <= GENLC.NEPOCH; iep++ ) {
       ifilt_obs = GENLC.IFILT_OBS[iep] ;
-
       
-      MJD_LAST = -9.0; if(iep>1) { MJD_LAST=GENLC.MJD[iep-1]; }
       MJD = GENLC.MJD[iep];
 
       ZPTERR    = SIMLIB_OBS_GEN.ZPTERR[iep]; 
@@ -30484,17 +30466,23 @@ void SIMLIB_DUMP_DRIVER(void) {
       SIMLIB_DUMP_AVG1.M5SIG[ifilt_obs]      += M5SIG ;
 
 
+      MJD_DIF        = MJD-MJD_LAST;
+      if ( MJD_DIF > 40000. ) { MJD_DIF = 9999.0 ; }
+      MJD_DIF_FILTER = MJD - MJD_LAST_FILTER[ifilt_obs] ;
+      if ( MJD_DIF_FILTER > 40000. ) { MJD_DIF_FILTER = 9999.0 ; }
+      
       if ( LDMP_OBS_TEXT ) {
 	NROW_MJD++ ;
 	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
-	fprintf(fpdmp1,"ROW: %3d %4d %.4f %.4f %.3f  "
-		"%s  %.3f  %.3f  %.3f %.3f %.3f \n",
+	fprintf(fpdmp1,"ROW: %3d %4d %.4f %.4f %.4f  "
+		"%s  %.3f  %.3f  %.3f %.3f   %.3f %.3f\n",
 		NROW_MJD, ID, RA, DEC, MJD, 
-		cfilt, ZPT_pe, SKYMAG, PSF,  M5SIG, MJD-MJD_LAST );
+		cfilt, ZPT_pe, SKYMAG, PSF,  M5SIG, MJD_DIF, MJD_DIF_FILTER );
       }
 
-
-
+      MJD_LAST = MJD;
+      MJD_LAST_FILTER[ifilt_obs] = MJD;
+      
     } // end of 'ep' epoch loop for this simlib entry
 
 
@@ -30589,9 +30577,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     } // end of LDMP_LOCAL - screen dump
 
     update_SIMLIB_DUMP_AVGALL(1);
-    if ( LDMP_ROOT ) {
-      SNTABLE_FILL(TABLEID_SIMLIB_DUMP); 
-    }
+
 
   } // end of READ loop
 
@@ -30616,8 +30602,6 @@ void SIMLIB_DUMP_DRIVER(void) {
 	   SIMLIB_DUMPFILE_OBS );
   }
 
-  if ( LDMP_ROOT ) 
-    {  TABLEFILE_CLOSE(SIMLIB_DUMPFILE_ROOT); }
 
   // compute grand-average quantities over all LIBIDs (for each filter)
   update_SIMLIB_DUMP_AVGALL(2);
@@ -30698,6 +30682,44 @@ void SIMLIB_DUMP_DRIVER(void) {
   return ;
 
 } // end of SIMLIB_DUMP_DRIVER
+
+// ==============================================
+void write_docana_SIMLIB_DUMP(FILE *fp, int OPT) {
+
+  // Created Sep 2024
+  // Write DOCANA block with info such as SURVEY name, FILTERs, etc ...
+  // OPT = 1 --> AVG file
+  // OPT = 2 --> OBS file
+
+  char pad[]  = "  "   ;
+  char pad2[] = "    " ;  
+  char fnam[] = "write_header_SIMLIB_DUMP";
+
+  // -------- BEGIN ---------
+
+  fprintf(fp,"%s\n", KEYNAME_DOCANA_REQUIRED);
+
+  fprintf(fp, "%sPURPOSE: table dump for SIMLIB_FILE %s\n", pad, INPUTS.SIMLIB_FILE);
+  fprintf(fp, "%sSIMLIB_FILE: %s \n", pad, INPUTS.SIMLIB_FILE);
+  fprintf(fp, "%sSURVEY:  %s\n", pad, GENLC.SURVEY_NAME);
+  fprintf(fp, "%sFILTERS: %s\n", pad, SIMLIB_GLOBAL_HEADER.FILTERS);
+  
+  if ( OPT == SIMLIB_DUMPMASK_OBS ) {
+    fprintf(fp,"\n");    
+    fprintf(fp,"%sCOLUMN_NOTES:\n", pad);
+    fprintf(fp,"%sLIBID:    Cadence ID in %s \n", pad2, INPUTS.SIMLIB_FILE);
+    fprintf(fp,"%sSKYMAG:   ADU/pixel\n", pad2 );
+    fprintf(fp,"%sPSF:      effective Gauss sigma (pixels) = sqrt[ NEA/(4*PI) ]\n", pad2);
+    fprintf(fp,"%sMJD_DIF:       time since last observation (days)\n", pad2);
+    fprintf(fp,"%sMJD_DIF_BAND:  time since last observation in same band (days)\n", pad2);
+    fprintf(fp,"\n");
+  }
+
+  fprintf(fp,"%s\n\n", KEYNAME2_DOCANA_REQUIRED);
+  
+  return;
+  
+} // end write_header_SIMLIB_DUMP
 
 
 // =========================================================
@@ -30911,177 +30933,6 @@ void prep_SIMLIB_DUMP(void) {
   
 } // end prep_SIMLIB_DUMP
 
-// =========================================================
-void SIMLIB_DUMP_openTable(int LDMP_MJD_TEXT,int LDMP_ROOT) {
-
-  // Created Aug 4 2017 
-  // Check option to open table(s):
-  // LDMP_MJD_TEXT --> open TEXT-format table
-  // LDMP_ROOT     --> open ROOT table for entire SIMLIB
-  //
-
-  int NOUT=0, IFILETYPE; 
-  char PREFIX[MXPATHLEN], openOpt[40] ;
-  //  char fnam[] = "SIMLIB_DUMP_openTable" ;
-
-  // -------------- BEGIN -------------
-
-  if ( LDMP_MJD_TEXT==0 && LDMP_ROOT==0 ) { return ; }
-
-  TABLEFILE_INIT(); 
-
-  sprintf(PREFIX,"SIMLIB_DUMP_%s-%s", 
-	  GENLC.SURVEY_NAME, SIMLIB_GLOBAL_HEADER.FILTERS );
-
-#ifdef USE_ROOT
-  if ( LDMP_ROOT )  {
-    sprintf(SIMLIB_DUMPFILE_ROOT,"%s.ROOT", PREFIX);
-    sprintf(openOpt,"root new");
-    IFILETYPE = TABLEFILE_OPEN(SIMLIB_DUMPFILE_ROOT,openOpt);
-    NOUT++ ;
-  }
-#endif
-
-  return ;
-
-} // end SIMLIB_DUMP_openTable
-
-// =========================================================
-void SIMLIB_DUMP_makeTable(int LDMP_MJD_TEXT,int LDMP_ROOT) {
-
-  // Created Aug 4 2017
-  // Create table (text and/or root) for SIMLIB DUMP
-  //
-  // !!! NOT READY !!!
-  // 
-  char varName[40];
-  char BLOCKVAR[] = "VAR";
-  //  char fnam[] = "SIMLIB_DUMP_makeTable" ;
-
-  // --------------- BEGIN --------------
-
-  if ( LDMP_MJD_TEXT==0 && LDMP_ROOT==0 ) { return ; }
-
-  SNTABLE_CREATE(TABLEID_SIMLIB_DUMP, TABLENAME_SIMLIB_DUMP, "KEY" ) ;
-
-
-  // define columns; first identifier must be a string
-  sprintf(varName, "ROW:C*12"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 SIMLIB_HEADER.LIBNAME, varName, 1 ) ;
-
-  sprintf(varName, "LIBID:I"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.LIBID, varName, 1 ) ;
-
-  sprintf(varName, "CCDNUM:I"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.CCDNUM, varName, 1 ) ;
-
-  sprintf(varName, "FIELD:C*20"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 SIMLIB_HEADER.FIELD, varName, 1 ) ;
-
-  sprintf(varName, "RA:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.RA, varName, 1 ) ;
-
-  sprintf(varName, "DEC:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.DEC, varName, 1 ) ;
- 
-  sprintf(varName, "MWEBV:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.MWEBV, varName, 1 ) ;
-
-  sprintf(varName, "PIXSIZE:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.PIXSIZE, varName, 1 ) ;
-
-  sprintf(varName, "REDSHIFT_MIN:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.GENRANGE_REDSHIFT[0], varName, 1 ) ;
-  sprintf(varName, "REDSHIFT_MAX:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.GENRANGE_REDSHIFT[1], varName, 1 ) ;
-
-  sprintf(varName, "PEAKMJD_MIN:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[0], varName, 1 );
-  sprintf(varName, "PEAKMJD_MAX:D"); 
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[1], varName, 1 );
-
-  // ---------------------------------
-  // --- start epoch-vectors ---------
-  // ---------------------------------
-
-
-  sprintf(varName,"NOBS[%d]:I", MXOBS_SIMLIB );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_HEADER.NOBS, varName, 1 );
-
-  sprintf(varName,"MJD(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.MJD[1], varName, 1 );
-
-  sprintf(varName,"IDEXPT(NOBS):I" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.IDEXPT[1], varName, 1 );
-
-  sprintf(varName,"FIELD(NOBS):C*12" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 SIMLIB_OBS_RAW.PTR_FIELDNAME[1], varName, 1 );
-
-  sprintf(varName,"BAND(NOBS):C*4" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 SIMLIB_OBS_RAW.PTR_BAND[1], varName, 1 );
-
-  sprintf(varName,"CCDGAIN(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.CCDGAIN[1], varName, 1 );
-
-  sprintf(varName,"READNOISE(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.READNOISE[1], varName, 1 );
-
-  sprintf(varName,"SKYSIG(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.SKYSIG[1], varName, 1 );
-
-  sprintf(varName,"PSFSIG1(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.PSFSIG1[1], varName, 1 );
-  sprintf(varName,"PSFSIG2(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.PSFSIG2[1], varName, 1 );
-  sprintf(varName,"PSFRATIO(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.PSFRATIO[1], varName, 1 );
-
-  sprintf(varName,"ZPTADU(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.ZPTADU[1], varName, 1 );
-  sprintf(varName,"ZPTERR(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.ZPTERR[1], varName, 1 );
-
-  sprintf(varName,"MAG(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.MAG[1], varName, 1 );
-
-  // - - -  template noise - - - - 
-  sprintf(varName,"TEMPLATE_SKYSIG(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.TEMPLATE_SKYSIG[1], varName, 1 );
-
-  sprintf(varName,"TEMPLATE_ZPT(NOBS):D" );
-  SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.TEMPLATE_ZPT[1], varName, 1 );
-
-  return;
-
-} // end SIMLIB_DUMP_makeTable
 
 // ===================================
 void MJDGAP(int NLIST, double *MJDLIST, double MJDGAP_IGNORE,

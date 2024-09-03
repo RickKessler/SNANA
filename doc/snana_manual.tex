@@ -7226,6 +7226,14 @@ To append dump variables on the command line
 The ADD-list argument must be a comma-separated list,
 and using this key in the sim-input file will trigger an abort.
 
+\medskip\noindent
+To dump the noise components in photo-electrons (source, sky, host, readout):
+\begin{verbatim}  
+   SIMGEN_DUMP_NOISE: 1  # dump noise for obs closest to peak per event & band
+   SIMGEN_DUMP_NOISE: 2  # dump noise for every obs with defined source flux
+\end{verbatim}
+which outputs a table file ({\tt [VERSION].NOISE}) in the output data folder.
+
 % ------------------------------------
    \subsubsection{ Model Dump }
    \label{sssec:model_dump}

@@ -2184,12 +2184,12 @@ int  GENMAG_CUT(void);
 
 
 void DASHBOARD_DRIVER(void);
+
 void SIMLIB_DUMP_DRIVER(void);
-void SIMLIB_DUMP_openTable(int LDMP_MJD_TEXT,int LDMP_ROOT) ;
-void SIMLIB_DUMP_makeTable(int LDMP_MJD_TEXT,int LDMP_ROOT) ;
 void zero_SIMLIB_DUMP(SIMLIB_DUMP_DEF *SIMLIB_DUMP) ;
 void update_SIMLIB_DUMP_AVGALL(int OPT);
 void prep_SIMLIB_DUMP(void);
+void write_docana_SIMLIB_DUMP(FILE *fp, int OPT);
 
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;

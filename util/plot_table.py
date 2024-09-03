@@ -76,6 +76,9 @@ NUMPY_FUNC_DICT = {
     'log'         :  'np.log'  ,   # works for log and log10
     'sqrt'        :  'np.sqrt' ,
     'abs'         :  'np.abs'  ,
+    'cos'         :  'np.cos'  ,
+    'sin'         :  'np.sin'  ,
+    'tan'         :  'np.tan'  ,        
     'heaviside'   :  'np.heaviside'
 }
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())

@@ -3155,6 +3155,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   // ------------ BEGIN -------------
 
+  
   get_PARSE_WORD(langC, iwd, word0) ;
 
   if ( strcmp(word0,"NSPECTRA:") == 0 ) {

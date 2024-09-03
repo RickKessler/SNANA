@@ -3407,7 +3407,7 @@ c function calls.
 c This subroutine replaces legacy RDVERSION_FITS & RDVERSION_TEXT
 c
 c Oct 17 2023: read spectra only if using a REFORMAT option.
-c
+c Sep 03 2024: set LRDFLAG_SPEC=T for SIMLIB_OUTFILE
 c ------
 
       IMPLICIT NONE
@@ -3424,12 +3424,12 @@ c local var
       INTEGER   NSN_VERS, LEN_VERS, LEN_PATH, OPTRD
       INTEGER   IJOB, NJOBTOT, ISN, ISTAT
       LOGICAL   LRDFLAG_GLOBAL, LRDFLAG_ALL, LRDFLAG_SPEC
-      LOGICAL   REFORMAT_LOCAL
+      LOGICAL   REFORMAT_LOCAL, WR_SIMLIB_OUTFILE
       CHARACTER cVERSION*(MXCHAR_VERSION), cPATH*(MXCHAR_PATH)
       CHARACTER FNAM*16
 
 c functions
-      LOGICAL  LDONE_CIDLIST
+      LOGICAL  LDONE_CIDLIST, IGNOREFILE_fortran
       INTEGER  RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
       EXTERNAL RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
 C --------------- BEGIN -----------
@@ -3438,10 +3438,13 @@ C --------------- BEGIN -----------
       LRDFLAG_GLOBAL = ( OPTMASK .EQ. OPTMASK_SNDATA_GLOBAL)
       LRDFLAG_ALL    = ( OPTMASK .EQ. OPTMASK_SNDATA_ALL   )
 
-      REFORMAT_LOCAL = (REFORMAT_SNANA .or. REFORMAT_SPECTRA_ONLY)
-      LRDFLAG_SPEC   = (REFORMAT_LOCAL .or. USE_TABLEFILE_MARZ)
+      REFORMAT_LOCAL    = (REFORMAT_SNANA .or. REFORMAT_SPECTRA_ONLY)
+      WR_SIMLIB_OUTFILE = (.not. IGNOREFILE_fortran(SIMLIB_OUTFILE) )
+      
+      LRDFLAG_SPEC   = (REFORMAT_LOCAL .or. USE_TABLEFILE_MARZ .or.
+     &                  WR_SIMLIB_OUTFILE)
      &                 .and. (DEBUG_FLAG .NE. -333)  ! -333 suppresses reading SPEC
-
+	  
       ISNLC_VERSION    = IVERS
 
 c get version and private data path for this version
@@ -20449,8 +20452,7 @@ c --> avoid crazy large errors that result in bad FLUXUM/FLUXERRSUM.
 
       EXTERNAL ARRAYSTAT    
 C ----------- BEGIN --------
-
-
+      
       DO 222 ispec = 1, NSPECTRUM
 
          CALL RDSPEC_DRIVER(ispec)  ! apr 5 2021

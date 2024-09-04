@@ -52,11 +52,14 @@ def get_args():
     parser.add_argument("--mjd_range", help=msg, nargs="+", default=None)
 
     msg = f"do NOT remove temporary {PREFIX_TEMP_FILES}* files (for debugging)"
-    parser.add_argument("--noclean", help=msg, default=False)    
+    parser.add_argument("--noclean", help=msg, action="store_true")    
 
     # parse it
     args = parser.parse_args()
 
+    args.simlib_basename  = os.path.basename(args.simlib_file)
+    args.simlib_prefix    = args.simlib_basename.split('.')[0]    
+    
     #if len(sys.argv) == 1:
     #    parser.print_help()
     #    sys.exit()
@@ -66,9 +69,10 @@ def get_args():
 
 
 def get_simlib_dump_file_names(simlib_file):
-    base          = os.path.basename(simlib_file).split('.')[0]
-    dump_file_avg = f"SIMLIB_DUMP_AVG_{base}.TEXT"
-    dump_file_obs = f"SIMLIB_DUMP_OBS_{base}.TEXT"
+    # xxx mark base          = os.path.basename(simlib_file).split('.')[0]
+    prefix          = args.simlib_prefix
+    dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}.TEXT"
+    dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}.TEXT"
     return dump_file_avg, dump_file_obs
 
 def get_next_plot_filename(plot_info, dump_type):
@@ -148,9 +152,11 @@ def prepare_plot_table_AVG_illum(args, plot_info):
     cmd = \
         f"{cmd_first} " + \
         f"@V '{xvar}:{yvar}' " + \
-        f"@@TITLE 'SIMLIB Sky Coverage' " + \
+        f"@@TITLE '{args.simlib_basename} Sky Coverage' " + \
         f"@@XLABEL '{xlabel}' " + \
         f"@@YLABEL '{ylabel}' " + \
+        f"@@OPT HIST LOGZ "     + \
+        f"@@NBIN_AUTO_SCALE 4 " + \
         f"{cmd_last}"
         
     return cmd   # end prepare_plot_table_AVG_illum
@@ -169,14 +175,14 @@ def prepare_plot_table_AVG1D(args, plot_info, var, label):
     cmd_legend = '@@LEGEND '
     for band in filter_list:
         cmd_var    += f"{var}_{band} "
-        cmd_legend += "{band} "
+        cmd_legend += f"{band} "
         
     cmd = f"{cmd_first} "
     cmd += f"{cmd_var} "
     cmd += f"{cmd_legend} "
     cmd += f"@@XLABEL '{label}' "
     cmd += f"@@TITLE '{var} for {survey}' "
-    cmd += f"@@OPT HIST "
+    cmd += f"@@OPT HIST LOGZ "
     cmd += f"{cmd_last}"
 
     return cmd   # end prepare_plot_table_AVG1D
@@ -196,7 +202,8 @@ def prepare_plot_table_OBS(args, plot_info, var, label):
     cmd_last  = command_append_auto(STRING_LAST,  plot_info, STRING_OBS)
 
     # - - - - - -
-    # first generate single 2D plot of val vs. MJD with all bands overlaid on same plot
+    # first generate single 2D plot of meadian(val) vs. MJD
+    # with all bands overlaid on same plot
     cmd_cut    = '@@CUT '
     cmd_legend = '@@LEGEND '
     cmd_marker = '@@MARKER '
@@ -226,13 +233,14 @@ def prepare_plot_table_OBS(args, plot_info, var, label):
         cmd += f"@V MJD:{var} "
         cmd += f"@@CUT \"BAND=\'{band}\'\"  "
         cmd += f"@@YLABEL '{label}' "
+        cmd += f"@@LEGEND ''  " 
         cmd += f"@@TITLE '{var} for {survey} {band}-band' "
-        cmd += f"@@ALPHA 0.3 "
-        cmd += f"@@OPT GRID MEDIAN "
+        cmd += f"@@ALPHA 0.9 "
+        cmd += f"@@OPT GRID MEDIAN HIST LOGZ  "
+        cmd += f"@@NBIN_AUTO_SCALE 2 "  
         cmd += f"{cmd_last}"
         cmd_list.append(cmd)
-    
-    
+        
     return cmd_list   # end prepare_plot_table_OBS
 
 
@@ -298,7 +306,7 @@ def prepare_plot_table_commands(args, plot_info):
 def execute_plot_commands(plot_command_list):
 
     nplot_per_group = 6
-    t_delay         = 5.0  # sleep time between launch next group
+    t_delay         = 10.0  # sleep time between launch next group
     n_plot = 0
     for plot_command in plot_command_list:
         n_plot += 1
@@ -322,6 +330,7 @@ def wait_for_plots(args, plot_info):
 
     # check if all plot files exist
     n_plot_file    = 0
+    n_plot_last    = 0
     t_wait_tot     = 0
     while n_plot_file < n_log_expect and t_wait_tot < 20 :
         plot_file_list = glob.glob(f"{WILDCARD_PLOTS}")
@@ -329,11 +338,9 @@ def wait_for_plots(args, plot_info):
         logging.info(f"Found {n_plot_file} {PLOT_SUFFIX} files (expect {n_log_expect}) ")
         time.sleep(t_wait)
         t_wait_tot += t_wait
+        if n_plot_file > n_plot_last: t_wait_tot = 0
+        n_plot_last = n_plot_file
         
-    if n_plot_file == n_log_expect:
-        pass
-    else:
-        pass
     
     #ret = subprocess.run( [ command ], cwd=os.getcwd(),
     #                      shell=True, capture_output=False, text=True )
@@ -343,12 +350,15 @@ def wait_for_plots(args, plot_info):
 def combine_all_plots(args, plot_info):
 
     # check if combine program is available
-    rc = subprocess.call(['which', PROGRAM_COMBINE , '2>/dev/null' ] )
+    rc = subprocess.call(['which', PROGRAM_COMBINE  ] )
     
     if rc == 0:
-        base          = os.path.basename(simlib_file).split('.')[0]
-        pdf_file    = f"{base}.pdf"
-        cmd_combine = f"{PROGRAM_COMBINE}  {WILDCARD_PLOTS} > {pdf_file}"
+        # xxx mark base          = os.path.basename(args.simlib_file).split('.')[0]
+        pdf_file    = f"{args.simlib_prefix}.pdf"
+        cmd_combine = f"{PROGRAM_COMBINE}  {WILDCARD_PLOTS}   {pdf_file}"
+        logging.info('')
+        logging.info(f"Convert {WILDCARD_PLOTS} into single pdf file: ")        
+        logging.info(f"\t{cmd_combine}")
         os.system(cmd_combine)
         return True
     else:

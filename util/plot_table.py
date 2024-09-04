@@ -26,7 +26,7 @@ import distutils.util
 # globals
 
 NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
-NXYBIN_AUTO = (20,20)   # auto nbin for hist2d (if @@BOUNDS is not give)
+NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=', '*', '+', '-', '/' ]  # for @@CUT
@@ -148,7 +148,7 @@ and two types of command-line input delimeters
   string (with df.) to stdout.
 
   Algebraic and numpy functions are also allowed, e.g., 
-      @@VARIABLE zHD:mB - 3.1*c + 0.16*x1
+      @@VARIABLE 'zHD:mB - 3.1*c + 0.16*x1'
       @@VARIABLE 'sqrt(MUERR**2 + .05**2):zHD'
       @@VARIABLE 'np.sqrt(MUERR**2 + .05**2):zHD'  # can explicitly define with np.
 
@@ -158,6 +158,12 @@ and two types of command-line input delimeters
   functions to check for missing np, so if using an undefined function
   you can explicitly prepend np (and please post github issue about 
   missing function).
+
+  Multiple variables are overlaid on same plot; e.g.
+     @V SNRMAX1  SNRMAX2  SNRMAX3
+  If using math symbols or pad spaces, use single quotes, e.g.
+     @V  'PEAKMAG_r - PEAKMAG_i'  'PEAKMAG_i - PEAKMAG_z'  'PEAKMAG_Y - PEAKMAG_z'
+
 
 @@ERROR @E
   for 2D plot, specify variable(s) to plot as error bar; 
@@ -223,6 +229,8 @@ and two types of command-line input delimeters
   Mean, Median, stdev only include entries within the plot bounds; 
   overflows are ignored.
 
+@@NBIN_AUTO_SCALE
+  scale number of bins with automatic bounds; must be integer
 
 @@OPT   {' '.join(VALID_OPT_LIST)}
 
@@ -409,6 +417,10 @@ def get_args():
           "For 2D plot, must specify both x and y bounds. y-binsize is ignored."
     parser.add_argument('@@BOUNDS', '@@bounds', default=None, help=msg, nargs = '+')
 
+    msg = "scale auto NBIN  (no @@BOUNDS input)"
+    parser.add_argument('@@NBIN_AUTO_SCALE', '@@nbin_auto_scale',
+                        default=1, help=msg, type=int)    
+    
     msg = "Units to show for each axis; see @@HELP"
     parser.add_argument('@U', '@@UNITS', '@@units', default=None, help=msg, nargs="+")
 
@@ -1182,7 +1194,8 @@ def set_hist2d_args(args, plot_info):
                     
     else:
         # load None values to pass to plt.hist2d
-        hist2d_args.bins    = NXYBIN_AUTO
+        NBIN_SCALE = args.NBIN_AUTO_SCALE
+        hist2d_args.bins    = (NXYBIN_AUTO*NBIN_SCALE, NXYBIN_AUTO*NBIN_SCALE)
         hist2d_args.range   = None
         
     # logz option applies for custom or auto bounds
@@ -1426,10 +1439,10 @@ def set_xbins(args, plot_info):
         for key_tf  in MASTER_DF_DICT:
             xmin = min(xmin,MASTER_DF_DICT[key_tf]['xmin'])
             xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])            
-        nxbin = NXBIN_AUTO 
+        nxbin = NXBIN_AUTO * args.NBIN_AUTO_SCALE
         
     #  - - - - 
-    xbins = np.linspace(xmin, xmax, nxbin+1)
+    xbins       = np.linspace(xmin, xmax, nxbin+1)
     xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
     bounds_dict['xbins']     = xbins
     bounds_dict['xbins_cen'] = xbins_cen

@@ -79,7 +79,7 @@ def get_args():
     args.simlib_file      = simlib_file    
     args.simlib_basename  = os.path.basename(simlib_file)
     args.simlib_prefix    = args.simlib_basename.split('.')[0]    
-    
+
     #if len(sys.argv) == 1:
     #    parser.print_help()
     #    sys.exit()
@@ -99,7 +99,7 @@ def get_simlib_dump_file_names(args):
     if args.mjd_range:
         imjd_min = int(args.mjd_range[0])
         imjd_max = int(args.mjd_range[1])        
-        cut += f"_{mjd_min}-{mjd_max}"
+        cut += f"_{imjd_min}-{imjd_max}"
         
     dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}{cut}.TEXT"
     dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}{cut}.TEXT"

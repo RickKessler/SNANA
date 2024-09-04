@@ -1720,7 +1720,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ;
     if ( INPUTS.DEBUG_FLAG == -28 ) { INPUTS.REFAC_WGTMAP = 0; }
-    // xxx mark delete Aug 28 2024 INPUTS.REFAC_WGTMAP = (INPUTS.DEBUG_FLAG == 28);
   }
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPEND_SNID_SEDINDEX) ; 
@@ -5276,7 +5275,6 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // for input file & command line arg, 
   // check for FIELD arg in (); e.g., TAKE_SPECTRUM(X1)
-  // xxx mark bool CHECK_FIELD = ( keySource == KEYSOURCE_ARG ) ; // from 2021 ??
   bool CHECK_FIELD = true;
   if ( CHECK_FIELD ) {
     sprintf(string0, "%s", WORDS[0]);
@@ -9770,7 +9768,6 @@ void  init_genSpec(void) {
 	   tmpText, ILAM_SPIKE, INPUTS_SPECTRO.LAMAVG_LIST[ILAM_SPIKE] );
   }
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_SNRx100)>0 ) { 
-    // xxx mark    INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR = 100.0;
     parse_GENPOLY("100.0", "SCALE_SNR",
 		  &INPUTS.SPECTROGRAPH_OPTIONS.GENPOLY_SCALE_SNR, fnam );
     printf("\t %s SNR *= 100 \n", tmpText );
@@ -10612,7 +10609,6 @@ void GENSPEC_TRUE(int imjd) {
   // compute true synthetic mag per band
   for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-    // xxx mark if (!GENLC.DOFILT[ifilt_obs]) {continue;}
     GENSPEC_SYNMAG(ifilt_obs, GENFLAM_LIST, NULL_FLAMERR_LIST,
 		   &SYNMAG, &DUMERR ); // compute synth mag; ignore MAGERR
 
@@ -13815,7 +13811,6 @@ void genran_modelSmear(void) {
   }
 
 
-  // xxx mark  if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
   if ( INPUTS.DO_MODELSMEAR_LOAD_RANDOMS ) {
     load_genSmear_randoms(GENLC.CID, rmin, rmax, 
 			  INPUTS.GENSMEAR_RANGauss_FIX);
@@ -14139,23 +14134,6 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     if ( fmod(XN,XNPS) != 0 ) { return; }
 
     fp = SIMFILE_AUX->FP_DUMP ;
-
-    /* xxxxx mark delete Apr 4 2024 xxxxxxxxxx
-    // on first event, write comment info for TAKE_SPECTRUM keys.
-    // Can't do this during init because GENSPEC arrays not filled until now.
-    if ( FIRST && LAMBIN_SED_TRUE < 0.0 ) { 
-      for(imjd=0; imjd < NPEREVT_TAKE_SPECTRUM; imjd++ ) {
-	IDSPEC = imjd + 1 ; // fortran-like index for ID
-	index  = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
-	fprintf(fp,"# SPEC%2.2d_T%-4.4s : %6.1f to %6.1f \n",
-		IDSPEC, 
-		INPUTS.TAKE_SPECTRUM[index].EPOCH_FRAME,
-		INPUTS.TAKE_SPECTRUM[index].EPOCH_RANGE[0],
-		INPUTS.TAKE_SPECTRUM[index].EPOCH_RANGE[1] ) ;
-      }
-      fprintf(fp, "\n" );    fflush(fp);
-    }
-    xxxxxxxxxx end mark xxxxxxxxx */
 
     sprintf(SIMFILE_AUX->OUTLINE, "SN: " );
 
@@ -18525,7 +18503,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
        
 	KEEP_MJD = 
 	  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
-	if ( INPUTS.SIMLIB_DUMP >0 ) { KEEP_MJD = true ; } 
+	// xxx mark delete Sep 4 2024  if ( INPUTS.SIMLIB_DUMP >0 ) { KEEP_MJD = true ; } 
 
 	
 	// code aborts below if ISTORE is too big, but to avoid corrupting
@@ -18919,7 +18897,6 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
     TEXPOSE = SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[OBSRAW] ;
     FIELD   = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW] ;
     APP     = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW] ;
-    // xxx mark del TEL     = INPUTS_SPECTRO.INSTRUMENT_NAME ;
     PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 
     // add each synthetic filter to SIMLIB OBS_RAW as if it
@@ -23587,11 +23564,6 @@ double zHEL_WRONGHOST(void) {
     zHEL = SNHOSTGAL_DDLR_SORT[0].ZSPEC ; // only DDLR match
   }
   else {
-    /* xxxxxxxxxxx mark delete Apr 2024 xxxxxxxx
-    sprintf(c1err,"CORRECT_HOSTMATCH = %d ", GENLC.CORRECT_HOSTMATCH);
-    sprintf(c2err,"but neither WRONGHOST model is set ???");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-    xxxxxxxx */
   }
 
   return zHEL;
@@ -30301,7 +30273,6 @@ void SIMLIB_DUMP_DRIVER(void) {
   if ( LDMP_AVG_TEXT ) {
 
     get_filename_SIMLIB_DUMP("AVG", PREFIX, SIMLIB_DUMPFILE_AVG);    
-    // xxx mark sprintf(SIMLIB_DUMPFILE_AVG, "SIMLIB_DUMP_AVG_%s.TEXT", PREFIX);
 
     fpdmp0 = fopen(SIMLIB_DUMPFILE_AVG, "wt") ;    
     if ( !fpdmp0 ) {
@@ -30332,7 +30303,6 @@ void SIMLIB_DUMP_DRIVER(void) {
   if ( LDMP_OBS_TEXT ) {
 
     get_filename_SIMLIB_DUMP("OBS", PREFIX, SIMLIB_DUMPFILE_OBS);
-    // xxx mark sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s.TEXT", PREFIX); 
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ;
     write_docana_SIMLIB_DUMP(fpdmp1, SIMLIB_DUMPMASK_OBS);
     

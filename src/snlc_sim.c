@@ -30286,8 +30286,10 @@ void SIMLIB_DUMP_DRIVER(void) {
   // =======================================
   // Sep 2024 RK - determine dump file prefix to be simlib file name before the .SIMLIB
   // e.g., SIMLIB_FILE = LSST_baseline_v3.4.SIMLIB -> prefix = LSST_baseline_v3.4
-  char PREFIX[MXPATHLEN], *ptr_substr;
+  char PREFIX[MXPATHLEN], *ptr_substr, *basename;
   sprintf(PREFIX, "%s", INPUTS.SIMLIB_FILE);
+  basename = strrchr(PREFIX, '/');
+  if ( basename != NULL ) { sprintf(PREFIX, "%s", basename+1 ); }
   ptr_substr = strstr(PREFIX,".SIMLIB");
   if ( ptr_substr == NULL ) { ptr_substr = strstr(PREFIX,".simlib"); }
   int j = ptr_substr - PREFIX;

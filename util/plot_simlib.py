@@ -68,7 +68,7 @@ def get_args():
 def get_simlib_dump_file_names(simlib_file):
     base          = os.path.basename(simlib_file).split('.')[0]
     dump_file_avg = f"SIMLIB_DUMP_AVG_{base}.TEXT"
-    dump_file_obs = f"SIMLIB_DUMP_OBS_{base}.TEXT"    
+    dump_file_obs = f"SIMLIB_DUMP_OBS_{base}.TEXT"
     return dump_file_avg, dump_file_obs
 
 def get_next_plot_filename(plot_info, dump_type):

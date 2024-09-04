@@ -30444,7 +30444,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 	NROW_MJD++ ;
 	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
 	fprintf(fpdmp1,"ROW: %3d %4d %.4f %.4f %.4f  "
-		"%s  %.3f  %.3f  %.3f %.3f   %.3f %.3f\n",
+		"%s  %.3f  %.3f  %.3f %.3f   %.4f %.4f\n",
 		NROW_MJD, ID, RA, DEC, MJD, 
 		cfilt, ZPT_pe, SKYMAG, PSF,  M5SIG, MJD_DIF, MJD_DIF_FILTER );
       }

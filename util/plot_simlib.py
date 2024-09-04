@@ -29,6 +29,7 @@ PROGRAM_SIM        = "snlc_sim.exe"      # SNANA code
 PROGRAM_PLOT_TABLE = "plot_table.py"     # SNANA code
 PROGRAM_COMBINE    = "convert"           # linux command
 PLOT_SUFFIX        = "png"
+SIMLIB_SUFFIX      = "SIMLIB"
 
 WILDCARD_PLOTS    = f"{PREFIX_TEMP_FILES}*.{PLOT_SUFFIX}"
 WILDCARD_LOGS     = f"{PREFIX_TEMP_FILES}*.LOG"
@@ -78,7 +79,11 @@ def get_args():
     args.simlib_file_orig = simlib_file_orig
     args.simlib_file      = simlib_file    
     args.simlib_basename  = os.path.basename(simlib_file)
-    args.simlib_prefix    = args.simlib_basename.split('.')[0]    
+
+    # to get prefix of simlib file, remove .COADD and then split after last dot.
+    # E.g., LSST_v3.4_10yrs.SIMLIB.COADD --> prefix = LSST_v3.4_10yrs.
+    temp_simlib_file      = args.simlib_basename.replace('.COADD','')
+    args.simlib_prefix    = temp_simlib_file.rsplit(f".",1)[0] 
 
     #if len(sys.argv) == 1:
     #    parser.print_help()
@@ -173,6 +178,7 @@ def clean_temp_files():
     temp_file_list = glob.glob(f"{wildcard}")
     if len(temp_file_list) > 0:
         cmd_rm = f"rm {wildcard}"
+        logging.info(f"{cmd_rm}")
         os.system(cmd_rm)        
     return
     
@@ -384,8 +390,10 @@ def wait_for_plots(args, plot_info):
     
     #ret = subprocess.run( [ command ], cwd=os.getcwd(),
     #                      shell=True, capture_output=False, text=True )
+
+    found_all_plots = (n_plot_file == n_log_expect)
     
-    return # end wait_for_plots
+    return found_all_plots  # end wait_for_plots
 
 def combine_all_plots(args, plot_info):
 
@@ -428,13 +436,15 @@ if __name__ == "__main__":
     execute_plot_commands(plot_info.plot_command_list)
 
     # wait for everything to finish
-    wait_for_plots(args, plot_info)
+    all_plots_found = wait_for_plots(args, plot_info)
 
-    # combine all plots into single pdf file
-    do_combine = combine_all_plots(args, plot_info)
+    # combine all plots into single pdf file;
+    # note that not all plots may exist (yet) if plot_table takes too long.
+    # If some plots take too long, user can manuall run convert.
+    all_plots_combined = combine_all_plots(args, plot_info)
 
     # clean up mess
-    if do_combine and not args.noclean:
+    if all_plots_found and all_plots_combined and not args.noclean:
         clean_temp_files()
 
     logging.info(f"Done.")

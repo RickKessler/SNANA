@@ -1292,6 +1292,7 @@ def read_tables(args, plot_info):
     nf = 0
 
     same_tfiles = (len(set(tfile_list)) == 1)
+    nrow_tot = 0
     
     for tfile, var, axis_dict, cut, weight, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
@@ -1358,12 +1359,13 @@ def read_tables(args, plot_info):
         
         MASTER_DF_DICT[key] = df
         nrow = len(df)
+        nrow_tot   += nrow
         name_legend = legend
             
         logging.info(f"\t Read nrow={nrow}  for {name_legend}")
 
-        if nrow == 0:
-            sys.exit(f"\n ERROR: zero rows read for {name_legend}")
+        if nrow == 0: # .xyz
+            logging.warning(f"zero rows read for {name_legend}")
 
         MASTER_DF_DICT[key] = {
             'df'           : df,
@@ -1409,7 +1411,11 @@ def read_tables(args, plot_info):
     # - - - - - - - -
     logging.info("Finished loading all table files.")
     logging.info("# - - - - - - - - - - ")
-    
+
+    if nrow_tot == 0:
+        logging.fatal(f"zero rows read among all tables ")
+        sys.exit('\n\t ABORT')
+            
     # load output namespace
     plot_info.MASTER_DF_DICT = MASTER_DF_DICT
     
@@ -1664,12 +1670,19 @@ def get_info_plot1d(args, info_plot_dict):
     name_legend    = df_dict['name_legend']
     plt_legend     = name_legend
     plt_text_dict  = None
+    nxbins         = len(xbins)
     
     xval_list = xbins_cen
     xerr_list = None
-    yval_list = binned_statistic(df.x_plot_val, df.x_plot_val, 
-                                 bins=xbins, statistic='count')[0]                
 
+    is_empty = len(df.x_plot_val) == 0
+    
+    if is_empty:
+        yval_list = [ 0.0 ]  * nxbins  # allow for empty plot        
+    else:
+        yval_list = binned_statistic(df.x_plot_val, df.x_plot_val, 
+                                     bins=xbins, statistic='count')[0]
+    
     plt_histtype = 'step'  # default for HIST
     
     if do_hist :
@@ -1690,9 +1703,13 @@ def get_info_plot1d(args, info_plot_dict):
         yval_list *= wgt_user
 
     nevt = np.sum(yval_list)  # sum before re-normalizing (for printing only)
-    lo_list, up_list = poisson_interval(yval_list) # compute poisson interval
-    errl_list        = yval_list - lo_list         # low-side error bar
-    erru_list        = up_list   - yval_list       # high-side error bar
+    if is_empty:
+        errl_list = [1] * nxbins
+        erru_list = [1] * nxbins        
+    else:
+        lo_list, up_list = poisson_interval(yval_list) # compute poisson interval
+        errl_list        = yval_list - lo_list         # low-side error bar
+        erru_list        = up_list   - yval_list       # high-side error bar
     
     wgt_ov = None
     ov_scale = 1.0  # default overlay plot is not scaled
@@ -1742,9 +1759,10 @@ def get_info_plot1d(args, info_plot_dict):
         else:
             pass
 
-        yval_list  *= ov_scale # normalize integral to match file 0 
-        errl_list  *= ov_scale
-        erru_list  *= ov_scale
+        if not is_empty:
+            yval_list  *= ov_scale # normalize integral to match file 0 
+            errl_list  *= ov_scale
+            erru_list  *= ov_scale
         logging.info(f"Overlay {name_legend} scaled by {ov_scale:.3e}")
 
     # ---------------
@@ -1901,8 +1919,8 @@ def get_info_plot2d(args, info_plot_dict):
     name_legend  = df_dict['name_legend']
     plt_legend   = name_legend
 
-    nevt         = len(df) 
-    plt_size     = 5 / math.log10(nevt)  # dot size gets smaller with nevt 
+    nevt         = len(df)
+    plt_size     = 5 / math.log10(max(10,nevt))  # dot size gets smaller with nevt 
     if do_nevt: plt_legend += f'  N={nevt}'
     
     xval_list    = df.x_plot_val

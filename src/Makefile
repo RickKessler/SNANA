@@ -796,13 +796,13 @@ $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 # -------------------------------------------------
 # compile sntools_sim_readme (.o only)
 
-$(OBJ)/sntools_sim_readme.o : $(SRC)/sntools_sim_readme.c  $(SRC)/sntools_sim_readme.h
+$(OBJ)/sntools_sim_readme.o : $(SRC)/sntools_sim_readme.c  $(SRC)/sntools_sim_readme.h  $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_sim_readme.c )
 
 # --------------
 # compile sntools_sim_atmosphere (.o only)
-$(OBJ)/sntools_sim_atmosphere.o : $(SRC)/sntools_sim_atmosphere.c  $(SRC)/sntools_sim_atmosphere.h
+$(OBJ)/sntools_sim_atmosphere.o : $(SRC)/sntools_sim_atmosphere.c  $(SRC)/sntools_sim_atmosphere.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_sim_atmosphere.c )
 

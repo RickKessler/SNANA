@@ -13,10 +13,9 @@
 # block at the top of each SIMLIB_DUMP file.
 #
 # TODO:
-#   - fragile logic for using existing DUMP in case where user provides
-#      cut on FIELD or MJD, but code doesn't know to re-run DUMP
-#   - apply MJD range to snlc_sim
-#   - apply FIELD selection to snlc_sim
+#   - new input --random_prescale ; apply in snlc_sim to make smaller dump,
+#     but also useful to have this feature in plot_table
+#   - delay time between submissions should scale with size of OBS table
 #
 # =======================
 
@@ -67,6 +66,9 @@ def get_args():
     msg = "select FIELD"
     parser.add_argument("--field", help=msg, type=str, default=None)    
 
+    msg = "prescale cadences written to SIMLIB DUMP file"
+    parser.add_argument("--prescale", help=msg, type=int, default=None )
+    
     msg = f"do NOT remove temporary {PREFIX_TEMP_FILES}* files (for debugging)"
     parser.add_argument("--noclean", help=msg, action="store_true")    
 
@@ -97,7 +99,9 @@ def get_simlib_dump_file_names(args):
     prefix          = args.simlib_prefix
 
     # define part of file name that indicates cuts on FIELD and MJD;
-    # follows same convention as in snlc_sim.exe
+    # must follow same naming convention as in C function
+    # get_filename_SIMLIB_DUMP()  in $SNANA_DIR/src/snlc_sim.c
+    
     cut=''
     if args.field:
         cut += f"_{args.field}"
@@ -105,6 +109,9 @@ def get_simlib_dump_file_names(args):
         imjd_min = int(args.mjd_range[0])
         imjd_max = int(args.mjd_range[1])        
         cut += f"_{imjd_min}-{imjd_max}"
+
+    if args.prescale:
+        cut += f"_PS{args.prescale}"
         
     dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}{cut}.TEXT"
     dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}{cut}.TEXT"
@@ -151,6 +158,8 @@ def prepare_simlib_dump(args, plot_info):
             arg_sim += f"SIMLIB_FIELDLIST {args.field} "
         if args.mjd_range:
             arg_sim += f"GENRANGE_MJD {args.mjd_range[0]} {args.mjd_range[1]} "
+        if args.prescale:
+            arg_sim += f"SIMLIB_PRESCALE {args.prescale} "
             
         command = f"{PROGRAM_SIM} {arg_sim} >& {log_file} "
         ret = subprocess.run( [ command ], cwd=os.getcwd(),
@@ -383,7 +392,7 @@ def wait_for_plots(args, plot_info):
     n_plot_file    = 0
     n_plot_last    = 0
     t_wait_tot     = 0
-    while n_plot_file < n_log_expect and t_wait_tot < 20 :
+    while n_plot_file < n_log_expect and t_wait_tot < 30 :
         plot_file_list = glob.glob(f"{WILDCARD_PLOTS}")
         n_plot_file    = len(plot_file_list)
         logging.info(f"Found {n_plot_file} {WILDCARD_PLOTS} files " \

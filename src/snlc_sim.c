@@ -1060,7 +1060,8 @@ void set_user_defaults(void) {
   INPUTS.SIMLIB_MAXOBS   =  999999 ; 
   INPUTS.SIMLIB_DUMP     = -9 ;
   INPUTS.SIMLIB_NSKIPMJD_STRING[0] = 0 ;
-
+  INPUTS.SIMLIB_PRESCALE  =  1 ;
+  
   INPUTS.SIMLIB_NREPEAT  =  1 ;
   INPUTS.NSKIP_SIMLIB    =  0 ;
   INPUTS.SIMLIB_MINSEASON = 0.0 ;
@@ -3563,6 +3564,9 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_NSKIPMJD",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_NSKIPMJD_STRING );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_PRESCALE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_PRESCALE );
   }
   else if ( keyMatchSim(1, "SIMLIB_IDSKIP",  WORDS[0],keySource) ) {
     int NSKIP = INPUTS.NSKIP_SIMLIB;
@@ -18706,11 +18710,13 @@ int keep_SIMLIB_HEADER(void) {
   // Nov 28 2019: few checks for SIMLIB model.
   // May 30 2020: increment SIMLIB_HEADER.NFOUND_GENCUTS after all cuts.
   // Mar 05 2024: check SIMLIB_MAXOBS
-
+  // Sep 04 2024: check PRESCALE (for SIMLIB_DUMP)
+  
   int  ID      = SIMLIB_HEADER.LIBID ;
   int  NOBS    = SIMLIB_HEADER.NOBS ;
   int  IDLOCK  = GENLC.SIMLIB_IDLOCK ;
-  int  NSKIP   = INPUTS.NSKIP_SIMLIB ;
+  int  NSKIP   = INPUTS.NSKIP_SIMLIB ; // now many user-specified LIBIDs to skip
+  int  PRESCALE = INPUTS.SIMLIB_PRESCALE ; // Sep 2024
   int  NWRAP   = SIMLIB_HEADER.NWRAP ;
   double  zCMB = GENLC.REDSHIFT_CMB ;
   bool  ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
@@ -18718,7 +18724,7 @@ int keep_SIMLIB_HEADER(void) {
   double z_min     = SIMLIB_HEADER.GENRANGE_REDSHIFT[0];
   double pkmjd_min = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[0];
 
-  int  iskip, icheck ;
+  int  iskip, icheck, NTEST=0 ;
   double *ptrGen ;
   char fnam[] = "keep_SIMLIB_HEADER" ;
   int LTRACE  = 0; // (SIMLIB_HEADER.LIBID == 4 );
@@ -18746,50 +18752,64 @@ int keep_SIMLIB_HEADER(void) {
     }
   }
 
-  if(LTRACE) {printf(" xxx %s: 0  IDLOCK=%d \n", fnam, IDLOCK);}
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  IDLOCK=%d \n", fnam, NTEST, IDLOCK);}
   if ( IDLOCK >= 0 && IDLOCK != ID ) 
     { return(REJECT_FLAG); }
 
-  if(LTRACE) {printf(" xxx %s: 1  NSKIP=%d \n", fnam, NSKIP );}
+  // check specific LIBIDs to skip
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  NSKIP=%d \n", fnam, NTEST, NSKIP );}
   for ( iskip=0; iskip < NSKIP; iskip++ ) {
     if ( ID == INPUTS.SIMLIB_IDSKIP[iskip] ) 
       { return(REJECT_FLAG); }
   }
 
-  if(LTRACE) {printf(" xxx %s: 2  NWRAP=%d \n", fnam, NWRAP );}
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  NWRAP=%d \n", fnam, NTEST, NWRAP );}
   if ( NWRAP > 0 && (SIMLIB_HEADER.LIBID == SIMLIB_ID_REWIND) )
     { return(REJECT_FLAG); }
 
-  if(LTRACE) {printf(" xxx %s: 3  NOBS=%d \n", fnam, NOBS );}
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  NOBS=%d \n", fnam, NTEST, NOBS );}
   if ( NOBS < INPUTS.SIMLIB_MINOBS ||  NOBS > INPUTS.SIMLIB_MAXOBS )
     { return(REJECT_FLAG); }
 
+
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  PRESCALE=%d \n", fnam, NTEST, PRESCALE );}
+  if ( ID % PRESCALE != 0 ) 
+    { return(REJECT_FLAG); }
+    
   // check SIMLIB GENRANGES and user-input ranges
-  if(LTRACE) {printf(" xxx %s: 4  RA=%f\n", fnam, SIMLIB_HEADER.RA );}
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  RA=%f\n", fnam, NTEST, SIMLIB_HEADER.RA );}
   if( SIMLIB_HEADER.RA < INPUTS.GENRANGE_RA[0] ) { return(REJECT_FLAG) ; }
   if( SIMLIB_HEADER.RA > INPUTS.GENRANGE_RA[1] ) { return(REJECT_FLAG) ; }
   SIMLIB_HEADER.NFOUND_RA++ ;    
 
-  if(LTRACE) {printf(" xxx %s: 5  DEC=%f\n", fnam, SIMLIB_HEADER.DEC );}
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  DEC=%f\n", fnam, NTEST, SIMLIB_HEADER.DEC );}
   if( SIMLIB_HEADER.DEC < INPUTS.GENRANGE_DEC[0] ) { return(REJECT_FLAG) ; }
   if( SIMLIB_HEADER.DEC > INPUTS.GENRANGE_DEC[1] ) { return(REJECT_FLAG) ; }
   SIMLIB_HEADER.NFOUND_DEC++ ;    
-
 
   
   // Check optional CUTWIN_REDSHIFT so that each LIBID
   // can have its own z-range (originally for WFIRST study)
   // Note that this is a cut, not a range to generate.
-  if(LTRACE) {printf(" xxx %s: 6  zCMB=%f\n", fnam, zCMB );}
+  NTEST++ ;
+  if(LTRACE) {printf(" xxx %s: %d  zCMB=%f\n", fnam, NTEST, zCMB );}
   if ( zCMB < SIMLIB_HEADER.CUTWIN_REDSHIFT[0] )  { return(REJECT_FLAG); }
   if ( zCMB > SIMLIB_HEADER.CUTWIN_REDSHIFT[1] )  { return(REJECT_FLAG); }
 
 
   // check redshift window
+  NTEST++ ;
   ptrGen = SIMLIB_HEADER.GENRANGE_REDSHIFT ;
   if(LTRACE) {
-    printf(" xxx %s: 8 check zrange: %.3f to %.3f\n", 
-	   fnam, ptrGen[0], ptrGen[1] );
+    printf(" xxx %s: %d check zrange: %.3f to %.3f\n", 
+	   fnam, NTEST, ptrGen[0], ptrGen[1] );
   }
   if ( ptrGen[0] > 0.0 ) {
     icheck = check_SIMLIB_GENRANGE(INPUTS.GENRANGE_REDSHIFT, ptrGen);
@@ -18798,9 +18818,10 @@ int keep_SIMLIB_HEADER(void) {
   }
 
   // check PEAKMJD
+  NTEST++ ;
   ptrGen = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE ;
   if(LTRACE) 
-    {printf(" xxx %s: 9 PEAKMJD.RANGE=%.3f,%.3f\n", fnam,ptrGen[0],ptrGen[1]);}
+    {printf(" xxx %s: %d PEAKMJD.RANGE=%.3f,%.3f\n", fnam, NTEST, ptrGen[0],ptrGen[1]);}
   if ( ptrGen[0] > 1000. ) {
     icheck = check_SIMLIB_GENRANGE(INPUTS.GENRANGE_PEAKMJD, ptrGen);
     if ( icheck < 0 ) { return(REJECT_FLAG); }    
@@ -18815,7 +18836,8 @@ int keep_SIMLIB_HEADER(void) {
 
   if ( ISMODEL_SALT2 ) {
     // check SALT2c
-    if(LTRACE) {printf(" xxx %s: 10 check SALT2c \n", fnam );}
+    NTEST++ ;
+    if(LTRACE) {printf(" xxx %s: %d check SALT2c \n", fnam, NTEST );}
     ptrGen = SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE ;
     if ( fabs(ptrGen[0]) < 90.0 ) {
       icheck = check_SIMLIB_GENRANGE(INPUTS.GENGAUSS_SALT2c.RANGE, ptrGen);
@@ -18824,7 +18846,8 @@ int keep_SIMLIB_HEADER(void) {
     }
     
     // check SALT2x1
-    if(LTRACE) {printf(" xxx %s: 11 check SALT2x1\n", fnam );}
+    NTEST++ ;
+    if(LTRACE) {printf(" xxx %s: %d check SALT2x1\n", fnam, NTEST );}
     ptrGen = SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE ;
     if ( fabs(ptrGen[0]) < 90.0 ) {
       icheck = check_SIMLIB_GENRANGE(INPUTS.GENGAUSS_SALT2x1.RANGE, ptrGen);
@@ -18836,11 +18859,13 @@ int keep_SIMLIB_HEADER(void) {
 
   // Nov 26 2017: check NREPEAT for LCLIB
   set_SIMLIB_NREPEAT();
+  NTEST++ ;
   if(LTRACE) 
-    {printf(" xxx %s: 12 SIMLIB_NREPEAT=%d\n", fnam, INPUTS.SIMLIB_NREPEAT );}
+    {printf(" xxx %s: %d SIMLIB_NREPEAT=%d\n", fnam, NTEST, INPUTS.SIMLIB_NREPEAT );}
   if ( INPUTS.SIMLIB_NREPEAT == 0 ) { return(REJECT_FLAG); }
   
 
+  
   if(LTRACE) {printf(" xxx %s: 99 END\n", fnam ); debugexit(fnam); }
   
   // if we get here, keep this ID
@@ -30111,8 +30136,9 @@ void SIMLIB_DUMP_DRIVER(void) {
 #define MXSIMLIB_DUMP_STDOUT 50   // max simlib entries to screen-dump
 #define ZPTERR_MAX  0.05      // exclude entries with this much ZPT-variation
 
-  int QUIET =  INPUTS.DASHBOARD_DUMPFLAG;
-
+  int QUIET    = INPUTS.DASHBOARD_DUMPFLAG;
+  int PRESCALE = INPUTS.SIMLIB_PRESCALE ;
+  
   int 
     ID, IDLAST, NREAD, LDMP_LOCAL
     ,LDMP_AVG_TEXT, LDMP_OBS_TEXT
@@ -30272,7 +30298,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   if ( LDMP_AVG_TEXT ) {
 
-    get_filename_SIMLIB_DUMP("AVG", PREFIX, SIMLIB_DUMPFILE_AVG);    
+    get_filename_SIMLIB_DUMP("AVG", PREFIX,  SIMLIB_DUMPFILE_AVG);    
 
     fpdmp0 = fopen(SIMLIB_DUMPFILE_AVG, "wt") ;    
     if ( !fpdmp0 ) {
@@ -30652,7 +30678,8 @@ void SIMLIB_DUMP_DRIVER(void) {
 
 } // end of SIMLIB_DUMP_DRIVER
 
-void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX, char *FILENAME) {
+void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX,
+			      char *FILENAME) {
 
   // Construct file name of DUMP file based on function inputs,
   // and based on user cuts on:
@@ -30660,8 +30687,9 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX, char *FILENAME) 
   //  + MJD
   //
   // Inputs:
-  //   WHICH         = 'AVG' or 'OBS'
-  //   SIMLIB_PREFIX = prefix of SIMLIB_FILE
+  //   WHICH            = 'AVG' or 'OBS'
+  //   SIMLIB_PREFIX    = prefix of SIMLIB_FILE
+  //
   // Outputs:
   //   FILENAME
   //
@@ -30669,8 +30697,10 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX, char *FILENAME) 
   // on user-requested cuts.
   
   char CUT_STRING[100], cut_add[60];
-  char   *FIELD = INPUTS.SIMLIB_FIELDLIST;
+  char   *FIELD  = INPUTS.SIMLIB_FIELDLIST;
   double *ptrMJD = INPUTS.GENRANGE_MJD;
+  int    PRESCALE = INPUTS.SIMLIB_PRESCALE ;
+  
   char   fnam[] = "get_filename_SIMLIB_DUMP" ;
   
   // ------------- BEGIN -----------
@@ -30685,6 +30715,11 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX, char *FILENAME) 
   if ( ptrMJD[0] > 21000. || ptrMJD[1] < 79000. ) {	      
     sprintf(cut_add,"_%d-%d", (int)ptrMJD[0], (int)ptrMJD[1] );
     strcat(CUT_STRING, cut_add);
+  }
+
+  if ( PRESCALE > 1 ) {
+    sprintf(cut_add,"_PS%d", PRESCALE);
+    strcat(CUT_STRING, cut_add);    
   }
   
   sprintf(FILENAME, "SIMLIB_DUMP_%s_%s%s.TEXT", WHICH, SIMLIB_PREFIX, CUT_STRING);  

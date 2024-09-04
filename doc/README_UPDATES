@@ -22619,7 +22619,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix SIMLIB_DUMP_DRIVER to reject LIBIDs with NEPOCH = 0
       + SIMLIB_DUMP file name includes SIMLIB_FIELDLIST (if given) and
         GENRANGE_MJD (if given) to distinguish from nominal dump with all LIBIDs
-	
+      + new sim input SIMLIB_PRESCALE to select prescale subset of cadences
+         Initial use is to reduce size of SIMLIB_DUMP for plotting.
+	 
     snana.car
       + enable LRDFLAG_SPEC if SIMLIB_OUTFILE is defined so that TAKE_SPECTRUM
         keys appear in output SIMLIB file.

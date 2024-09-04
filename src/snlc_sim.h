@@ -539,6 +539,7 @@ struct INPUTS {
   float  SIMLIB_CADENCEFOM_ANGSEP; // controls calc of cadence FoM
   double SIMLIB_CADENCEFOM_PARLIST[10] ; // optional *parList for SNcadenceFoM
 
+  int  SIMLIB_PRESCALE;     // prescale used LIBIDs (Sep 2024); for SIMLIB_DUMP
   char SIMLIB_NSKIPMJD_STRING[100] ; // e.g., 2(50),4(100)
 
   int  USE_SIMLIB_GENOPT ;    // use some optional gen-keys in simlib header

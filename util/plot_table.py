@@ -1611,7 +1611,7 @@ def plotter_func_driver(args, plot_info):
             hist2d_args = plot_info.hist2d_args
             counts, xedges, yedges, im = \
                 plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
-                           cmin=.1, alpha=plt_alpha, cmap='Greys',
+                           cmin=.1, alpha=plt_alpha, cmap='rainbow_r', # cmap='Greys',
                            bins  = hist2d_args.bins,
                            range = hist2d_args.range,
                            norm  = hist2d_args.norm )

@@ -30299,12 +30299,9 @@ void SIMLIB_DUMP_DRIVER(void) {
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
 
   if ( LDMP_AVG_TEXT ) {
-    /* xxx mark delete Sep 3 2024 
-    sprintf(SIMLIB_DUMPFILE_AVG, "SIMLIB_DUMP_SUMMARY_%s-%s.TEXT", 
-	    GENLC.SURVEY_NAME, SIMLIB_GLOBAL_HEADER.FILTERS );
-    xxxxxxx end mark */
-    
-    sprintf(SIMLIB_DUMPFILE_AVG, "SIMLIB_DUMP_AVG_%s.TEXT", PREFIX); // Sep 2024
+
+    get_filename_SIMLIB_DUMP("AVG", PREFIX, SIMLIB_DUMPFILE_AVG);    
+    // xxx mark sprintf(SIMLIB_DUMPFILE_AVG, "SIMLIB_DUMP_AVG_%s.TEXT", PREFIX);
 
     fpdmp0 = fopen(SIMLIB_DUMPFILE_AVG, "wt") ;    
     if ( !fpdmp0 ) {
@@ -30334,12 +30331,8 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   if ( LDMP_OBS_TEXT ) {
 
-    /* xxx mark delete Sep 2024 xxxxx
-    sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s-%s.TEXT", 
-	    GENLC.SURVEY_NAME, SIMLIB_GLOBAL_HEADER.FILTERS );
-    xxxx end mark xxx */
-    
-    sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s.TEXT", PREFIX); // Sep 2024
+    get_filename_SIMLIB_DUMP("OBS", PREFIX, SIMLIB_DUMPFILE_OBS);
+    // xxx mark sprintf(SIMLIB_DUMPFILE_OBS,"SIMLIB_DUMP_OBS_%s.TEXT", PREFIX); 
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ;
     write_docana_SIMLIB_DUMP(fpdmp1, SIMLIB_DUMPMASK_OBS);
     
@@ -30377,8 +30370,12 @@ void SIMLIB_DUMP_DRIVER(void) {
     DEC   = GENLC.DEC ;
     MWEBV = GENLC.MWEBV;
 
-    if ( ID < INPUTS.SIMLIB_IDSTART ) { continue ; }
-    
+    if ( ID < INPUTS.SIMLIB_IDSTART )       { continue ; }
+
+    // skip this LIBID of there are no observations;
+    // e.g. due to FIELDLIST selection
+    if ( GENLC.NEPOCH == 0 ) { continue ; } // Sep 2024
+ 
     RA4  = (float)GENLC.RA ;   // need float version for pointers
     DEC4 = (float)GENLC.DEC ;
 
@@ -30685,6 +30682,46 @@ void SIMLIB_DUMP_DRIVER(void) {
 
 } // end of SIMLIB_DUMP_DRIVER
 
+void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX, char *FILENAME) {
+
+  // Construct file name of DUMP file based on function inputs,
+  // and based on user cuts on:
+  //  + FIELDLIST
+  //  + MJD
+  //
+  // Inputs:
+  //   WHICH         = 'AVG' or 'OBS'
+  //   SIMLIB_PREFIX = prefix of SIMLIB_FILE
+  // Outputs:
+  //   FILENAME
+  //
+  // plot_simlib.py tracks which simlib-dump file to use or re-make based
+  // on user-requested cuts.
+  
+  char CUT_STRING[100], cut_add[60];
+  char   *FIELD = INPUTS.SIMLIB_FIELDLIST;
+  double *ptrMJD = INPUTS.GENRANGE_MJD;
+  char   fnam[] = "get_filename_SIMLIB_DUMP" ;
+  
+  // ------------- BEGIN -----------
+
+  CUT_STRING[0] = 0;
+
+  if ( strcmp(FIELD,"ALL") != 0 ) {
+    sprintf(cut_add,"_%s", FIELD);
+    strcat(CUT_STRING, cut_add);
+  }
+
+  if ( ptrMJD[0] > 21000. || ptrMJD[1] < 79000. ) {	      
+    sprintf(cut_add,"_%d-%d", (int)ptrMJD[0], (int)ptrMJD[1] );
+    strcat(CUT_STRING, cut_add);
+  }
+  
+  sprintf(FILENAME, "SIMLIB_DUMP_%s_%s%s.TEXT", WHICH, SIMLIB_PREFIX, CUT_STRING);  
+  return;
+  
+} // end get_filename_SIMLIB_DUMP
+
 // ==============================================
 void write_docana_SIMLIB_DUMP(FILE *fp, int OPT) {
 
@@ -30703,9 +30740,12 @@ void write_docana_SIMLIB_DUMP(FILE *fp, int OPT) {
 
   fprintf(fp, "%sPURPOSE: table dump for SIMLIB_FILE %s\n", pad, INPUTS.SIMLIB_FILE);
   fprintf(fp, "%sSIMLIB_FILE: %s \n", pad, INPUTS.SIMLIB_FILE);
-  fprintf(fp, "%sSURVEY:  %s\n", pad, GENLC.SURVEY_NAME);
-  fprintf(fp, "%sFILTERS: %s\n", pad, SIMLIB_GLOBAL_HEADER.FILTERS);
-  
+  fprintf(fp, "%sSURVEY:      %s \n", pad, GENLC.SURVEY_NAME);
+  fprintf(fp, "%sFILTERS:     %s \n", pad, SIMLIB_GLOBAL_HEADER.FILTERS);
+  fprintf(fp, "%sFIELDLIST:   %s \n", pad, INPUTS.SIMLIB_FIELDLIST);
+  fprintf(fp, "%sMJD_RANGE:   %d %d \n",
+	  pad, (int)INPUTS.GENRANGE_MJD[0], (int)INPUTS.GENRANGE_MJD[1]);
+  // .xyz
   if ( OPT == SIMLIB_DUMPMASK_OBS ) {
     fprintf(fp,"\n");    
     fprintf(fp,"%sCOLUMN_NOTES:\n", pad);

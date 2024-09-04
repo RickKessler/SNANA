@@ -22616,7 +22616,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c:
       + set INPUTS.REFAC_WGTMAP=true by default; legacy code enabled with DEBUG_FLAG -28'
       + modify name of SIMLIB_DUMP file to include prefix of SIMLIB_FILE.
-
+      + fix SIMLIB_DUMP_DRIVER to reject LIBIDs with NEPOCH = 0
+      + SIMLIB_DUMP file name includes SIMLIB_FIELDLIST (if given) and
+        GENRANGE_MJD (if given) to distinguish from nominal dump with all LIBIDs
+	
     snana.car
       + enable LRDFLAG_SPEC if SIMLIB_OUTFILE is defined so that TAKE_SPECTRUM
         keys appear in output SIMLIB file.

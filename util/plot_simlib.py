@@ -6,6 +6,18 @@
 # If input simlib file has name baseline_v3.4_10yrs.simlib,
 # produce output file baseline_v3.4_10yrs.pdf.
 #
+# If selecting LIBIDs based on field or mjd range, note that
+# cut is applied in snlc_sim.exe that creates the SIMLIB_DUMP file.
+# The applied cuts appear in the SIMLIB_DUMP file name to enable
+# time-stamp logic, and cuts are also printed in the DOCUMENTATION
+# block at the top of each SIMLIB_DUMP file.
+#
+# TODO:
+#   - fragile logic for using existing DUMP in case where user provides
+#      cut on FIELD or MJD, but code doesn't know to re-run DUMP
+#   - apply MJD range to snlc_sim
+#   - apply FIELD selection to snlc_sim
+#
 # =======================
 
 import os, sys, argparse, gzip, logging, shutil, time, math, subprocess, yaml, glob
@@ -51,13 +63,21 @@ def get_args():
     msg = "mjd min max binsize"
     parser.add_argument("--mjd_range", help=msg, nargs="+", default=None)
 
+    msg = "select FIELD"
+    parser.add_argument("--field", help=msg, type=str, default=None)    
+
     msg = f"do NOT remove temporary {PREFIX_TEMP_FILES}* files (for debugging)"
     parser.add_argument("--noclean", help=msg, action="store_true")    
 
     # parse it
     args = parser.parse_args()
 
-    args.simlib_basename  = os.path.basename(args.simlib_file)
+    # tack on a few things to args
+    simlib_file_orig      = args.simlib_file  # preserve name with ENV
+    simlib_file           = os.path.expandvars(args.simlib_file)
+    args.simlib_file_orig = simlib_file_orig
+    args.simlib_file      = simlib_file    
+    args.simlib_basename  = os.path.basename(simlib_file)
     args.simlib_prefix    = args.simlib_basename.split('.')[0]    
     
     #if len(sys.argv) == 1:
@@ -68,11 +88,21 @@ def get_args():
     # end get_args
 
 
-def get_simlib_dump_file_names(simlib_file):
-    # xxx mark base          = os.path.basename(simlib_file).split('.')[0]
+def get_simlib_dump_file_names(args):    
     prefix          = args.simlib_prefix
-    dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}.TEXT"
-    dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}.TEXT"
+
+    # define part of file name that indicates cuts on FIELD and MJD;
+    # follows same convention as in snlc_sim.exe
+    cut=''
+    if args.field:
+        cut += f"_{args.field}"
+    if args.mjd_range:
+        imjd_min = int(args.mjd_range[0])
+        imjd_max = int(args.mjd_range[1])        
+        cut += f"_{mjd_min}-{mjd_max}"
+        
+    dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}{cut}.TEXT"
+    dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}{cut}.TEXT"
     return dump_file_avg, dump_file_obs
 
 def get_next_plot_filename(plot_info, dump_type):
@@ -87,9 +117,9 @@ def prepare_simlib_dump(args, plot_info):
     # than simlib file --> do nothing;
     # else use snlc_sim.exe to create the DUMP files.
 
-    simlib_file = os.path.expandvars(args.simlib_file)
+    simlib_file = args.simlib_file
     
-    dump_file_avg, dump_file_obs = get_simlib_dump_file_names(simlib_file)
+    dump_file_avg, dump_file_obs = get_simlib_dump_file_names(args)
 
     
     dump_file_list = [ dump_file_avg, dump_file_obs ]
@@ -107,10 +137,17 @@ def prepare_simlib_dump(args, plot_info):
             create_dump_files = True ;  break
         
     if create_dump_files:
-        logging.info(f"Run {PROGRAM_SIM} to create dump files from {args.simlib_file}")
+        logging.info(f"Run {PROGRAM_SIM} to create dump files from {args.simlib_file_orig}")
         logging.info(f"... please be patient ... ")
         log_file = f"{PREFIX_TEMP_FILES}_make_dump_files.log"
-        command = f"{PROGRAM_SIM} NOFILE SIMLIB_FILE {simlib_file} SIMLIB_DUMP 3 >& {log_file} "
+
+        arg_sim = f"NOFILE SIMLIB_FILE {simlib_file} SIMLIB_DUMP 3  "
+        if args.field:
+            arg_sim += f"SIMLIB_FIELDLIST {args.field} "
+        if args.mjd_range:
+            arg_sim += f"GENRANGE_MJD {args.mjd_range[0]} {args.mjd_range[1]} "
+            
+        command = f"{PROGRAM_SIM} {arg_sim} >& {log_file} "
         ret = subprocess.run( [ command ], cwd=os.getcwd(),
                              shell=True, capture_output=False, text=True )
 
@@ -142,17 +179,20 @@ def clean_temp_files():
 def prepare_plot_table_AVG_illum(args, plot_info):
 
     xvar   = 'RA'
-    yvar   = 'cos((DEC+90)*.01745)'
+    yvar   = 'cos((DEC-90)*.01745)'
     xlabel = 'RA (deg)'
-    ylabel = 'cos(DEC+90)'
+    ylabel = 'cos(DEC-90)'
 
     cmd_first = command_append_auto(STRING_FIRST, plot_info, STRING_AVG)
     cmd_last  = command_append_auto(STRING_LAST,  plot_info, STRING_AVG)    
-    
+    title     = f"{args.simlib_basename} Sky Coverage"
+    if args.field:
+        title += f" for {args.field}"
+        
     cmd = \
         f"{cmd_first} " + \
-        f"@V '{xvar}:{yvar}' " + \
-        f"@@TITLE '{args.simlib_basename} Sky Coverage' " + \
+        f"@V '{xvar}:{yvar}' "  + \
+        f"@@TITLE '{title}' "   + \
         f"@@XLABEL '{xlabel}' " + \
         f"@@YLABEL '{ylabel}' " + \
         f"@@OPT HIST LOGZ "     + \

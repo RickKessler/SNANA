@@ -13,8 +13,6 @@
 # block at the top of each SIMLIB_DUMP file.
 #
 # TODO:
-#   - new input --random_prescale ; apply in snlc_sim to make smaller dump,
-#     but also useful to have this feature in plot_table
 #   - delay time between submissions should scale with size of OBS table
 #
 # =======================
@@ -96,26 +94,33 @@ def get_args():
 
 
 def get_simlib_dump_file_names(args):    
-    prefix          = args.simlib_prefix
 
-    # define part of file name that indicates cuts on FIELD and MJD;
-    # must follow same naming convention as in C function
+    # Determine names of the two SIMLIB dump files produced by
+    #    snlc_sim.exe NOFILE SIMLIB_FILE <simlib_file>  SIMLIB_DUMP 3.
+    # Part of file name indicates cuts on FIELD, MJD, PRESCALE.
+    # Here we must follow same naming convention as in C function
     # get_filename_SIMLIB_DUMP()  in $SNANA_DIR/src/snlc_sim.c
-    
-    cut=''
+
+    prefix        = args.simlib_prefix  # base name with .SIMLIB removed
+    cut_string    = get_cut_string(args)
+    dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}{cut_string}.TEXT"
+    dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}{cut_string}.TEXT"
+    return dump_file_avg, dump_file_obs
+
+def get_cut_string(args):
+    # return string gluing cuts together to use as part of file names.
+    cut_string=''
     if args.field:
-        cut += f"_{args.field}"
+        cut_string += f"_{args.field}"
     if args.mjd_range:
         imjd_min = int(args.mjd_range[0])
         imjd_max = int(args.mjd_range[1])        
-        cut += f"_{imjd_min}-{imjd_max}"
+        cut_string += f"_{imjd_min}-{imjd_max}"
 
     if args.prescale:
-        cut += f"_PS{args.prescale}"
-        
-    dump_file_avg = f"SIMLIB_DUMP_AVG_{prefix}{cut}.TEXT"
-    dump_file_obs = f"SIMLIB_DUMP_OBS_{prefix}{cut}.TEXT"
-    return dump_file_avg, dump_file_obs
+        cut_string += f"_PS{args.prescale}"
+
+    return cut_string  # end get_cut_string
 
 def get_next_plot_filename(plot_info, dump_type):
     # dump_type = AVG or OBS
@@ -179,6 +184,8 @@ def prepare_simlib_dump(args, plot_info):
     plot_info.dump_file_obs = dump_file_obs
     plot_info.dump_file_avg = dump_file_avg
     plot_info.docana_yaml   = docana_yaml
+    plot_info.filter_list   = list(docana_yaml['FILTERS'])
+    plot_info.survey        = docana_yaml['SURVEY']
     
     return # end prepare_simlib_dump
 
@@ -220,8 +227,8 @@ def prepare_plot_table_AVG1D(args, plot_info, var, label):
 
     # overlay [var]_band on one plot
     docana_yaml  = plot_info.docana_yaml
-    filter_list  = list(docana_yaml['FILTERS'])
-    survey       = docana_yaml['SURVEY']
+    filter_list  = plot_info.filter_list
+    survey       = plot_info.survey
 
     cmd_first = command_append_auto(STRING_FIRST, plot_info, STRING_AVG)
     cmd_last  = command_append_auto(STRING_LAST,  plot_info, STRING_AVG)
@@ -298,6 +305,35 @@ def prepare_plot_table_OBS(args, plot_info, var, label):
         
     return cmd_list   # end prepare_plot_table_OBS
 
+def prepare_plot_table_MJD_DIF(args, plot_info):
+
+    # for each band, overlay MJD_DIF (time since last obs in any band)
+    # and MJD_DIF_BAND (time since last obs in same band)
+
+    filter_list = plot_info.filter_list
+    survey      = plot_info.survey
+    
+    cmd_list = []
+    for band in filter_list:
+        cmd_first = command_append_auto(STRING_FIRST, plot_info, STRING_OBS)
+        cmd_last  = command_append_auto(STRING_LAST,  plot_info, STRING_OBS)
+        title     = f'Cadence gaps for {survey} {band}-band'        
+        xlabel    = f'MJD({band}-band) $-$ MJD(previous observation)' 
+        
+        cmd  = f"{cmd_first}  "
+        cmd += f"@V MJD_DIF MJD_DIF_BAND  "
+        cmd += f"@@CUT  \"MJD_DIF_BAND<999 & BAND=\'{band}\'\"  "
+        cmd += f"@@LEGEND 'Any band'  'Same {band}-band' "
+        cmd += f"@@MARKER o x "
+        cmd += f"@@XLABEL '{xlabel}' "
+        cmd += f"@@TITLE '{title}'  "
+        cmd += f"@@ALPHA 0.9 "
+        cmd += f"@@OPT GRID LOGY  "
+        cmd += f"@@NBIN_AUTO_SCALE 4 "  
+        cmd += f"{cmd_last}"
+        cmd_list.append(cmd)        
+
+    return cmd_list # end prepare_plot_table_MJD_DIF
 
 def command_append_auto(which_command, plot_info, which_dump):
     cmd = None
@@ -354,7 +390,10 @@ def prepare_plot_table_commands(args, plot_info):
     for var, label in VARLIST_OBS.items():
         cmd_list = prepare_plot_table_OBS(args, plot_info, var, label)
         command_list += cmd_list
-    
+
+    cmd_list = prepare_plot_table_MJD_DIF(args, plot_info)
+    command_list += cmd_list
+        
     return command_list   # end prepare_plot_table_commands
 
 
@@ -416,8 +455,9 @@ def combine_all_plots(args, plot_info):
     rc = subprocess.call(['which', PROGRAM_COMBINE  ] )
     
     if rc == 0:
-        # xxx mark base          = os.path.basename(args.simlib_file).split('.')[0]
-        pdf_file    = f"{args.simlib_prefix}.pdf"
+        # combine program exists, so do it
+        cut_string  = get_cut_string(args)
+        pdf_file    = f"{args.simlib_prefix}{cut_string}.pdf"
         cmd_combine = f"{PROGRAM_COMBINE}  {WILDCARD_PLOTS}   {pdf_file}"
         logging.info('')
         logging.info(f"Convert {WILDCARD_PLOTS} into single pdf file: ")        
@@ -425,6 +465,7 @@ def combine_all_plots(args, plot_info):
         os.system(cmd_combine)
         return True
     else:
+        # give warning
         logging.warning(f"{PROGRAM_COMBINE} program does not exist; " \
                         f"cannot combine plots into a single PDF file")
 

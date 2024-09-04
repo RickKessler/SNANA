@@ -53,6 +53,7 @@ OPT_LOGY      = "LOGY"       # log scale along Y axis (1D or 2D)
 OPT_LOGZ      = "LOGZ"       # log scale along Z axis (2D only)
 OPT_GRID      = "GRID"       # draw grid on plot
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
+OPT_LIST_ROW  = "LIST_ROW"   # list ROWS passing cuts (same as LIST_CID)
 
 OPT_DIFF_CID  = "DIFF_CID"   # 2 files and 2D: plot y-axis diff for each CID
 OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
@@ -61,7 +62,7 @@ OPT_RATIO     = "RATIO"      # 1D: plot ratio between 2 files or 2 cuts
 VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL, 
                    OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
-                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_LIST_CID,
+                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_LIST_CID, OPT_LIST_ROW,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
@@ -255,6 +256,7 @@ and two types of command-line input delimeters
    {OPT_LOGZ:<12} ==> log scale for Z axis (2D HIST only)
    {OPT_GRID:<12} ==> display grid on plot.
    {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.      
+   {OPT_LIST_ROW:<12} ==> print up to 100 ROWs passing cuts.      
    {OPT_DIFF_ALL:<12} ==> 2D: plot y-axis difference in median (or mean) values between plots.
                     Overlay file1-file0, file2-file0, file3-file0, etc, or
                     overlay cut1-cut0, cut2-cut0, cut3-cut0, etc;
@@ -705,7 +707,8 @@ def arg_prep_OPT(args):
     args_upper_list = []
     OPT_orig = args.OPT
     OPT_out  = OPT_orig  # default
-    
+
+    # fix lower case OPTs to be upper case; e.g, median -> MEDIAN
     if OPT_orig:
         for opt in OPT_orig:
             opt = opt.upper()
@@ -718,6 +721,11 @@ def arg_prep_OPT(args):
 
         OPT_out = args_upper_list
 
+    # LIST_ROW and LIST_CID are the same, but internally we only use
+    # the LIST_CID flag
+    if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
+        OPT_out.append(OPT_LIST_CID)
+        
     return OPT_out
 
 def arg_prep_DEBUG_FLAG(args):
@@ -1535,7 +1543,7 @@ def plotter_func_driver(args, plot_info):
     # strip off local args from input name spaces
     NDIM          = args.NDIM    
     OPT           = args.OPT
-    do_list_cid   = OPT_LIST_CID  in OPT
+    do_list_cid   = OPT_LIST_CID  in OPT 
     
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     bounds_dict          = plot_info.bounds_dict
@@ -1638,7 +1646,7 @@ def plotter_func_driver(args, plot_info):
             continue
 
         # - - - - -
-        # check option to dump CIDs for events passing cuts
+        # check option to dump CIDs (or ROWs) for events passing cuts
         if do_list_cid:
             print_cid_list(df, name_legend)
 
@@ -2200,11 +2208,11 @@ def get_weights_user(xcen,weight):
     return wgt_vals
 
 def print_cid_list(df, name_legend) :
+    
     # print list of cids to stdout
-    #varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
-
-    cid_list = sorted(df['CID'].to_numpy())[0:NMAX_CID_LIST]
-    print(f"\n CIDs passing cuts for '{name_legend}' : \n{cid_list}" )
+    varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
+    id_list = sorted(df[varname_idrow].to_numpy())[0:NMAX_CID_LIST]
+    print(f"\n {varname_idrow}s passing cuts for '{name_legend}' : \n{id_list}" )
     sys.stdout.flush()
     return
 

@@ -30140,7 +30140,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   int PRESCALE = INPUTS.SIMLIB_PRESCALE ;
   
   int 
-    ID, IDLAST, NREAD, LDMP_LOCAL
+    ID, IDLAST, NREAD, NOBS_TOT, LDMP_LOCAL
     ,LDMP_AVG_TEXT, LDMP_OBS_TEXT
     ,ifilt, ifilt_obs, iep, icut, Ncut, NVAR, NROW_MJD, NROW
     ;
@@ -30258,7 +30258,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
   // init local counters
   NREAD_SIMLIB = 0;
-  ID = NREAD = 0; IDLAST = -1 ;
+  ID = NREAD = NOBS_TOT = 0; IDLAST = -1 ;
 
   // init global min/max values
   GLOBAL_RANGE_RA[0]   = +9999999. ;  
@@ -30416,6 +30416,7 @@ void SIMLIB_DUMP_DRIVER(void) {
       SIMLIB_DUMP_AVG1.NEPFILT[0]         += 1.0 ;
       SIMLIB_DUMP_AVG1.NEPFILT[ifilt_obs] += 1.0 ;
 
+      NOBS_TOT++ ; // all obs over all LIBIDs (Sep 2024)
       Nobs = (int)SIMLIB_DUMP_AVG1.NEPFILT[0] ;
       MJDLIST_ALL[Nobs] = MJD ; 
       Nobs = (int)SIMLIB_DUMP_AVG1.NEPFILT[ifilt_obs] ;
@@ -30586,13 +30587,15 @@ void SIMLIB_DUMP_DRIVER(void) {
   if ( QUIET ) { return; }
 
   if ( LDMP_AVG_TEXT ) { 
-    fclose(fpdmp0); 
+    fclose(fpdmp0);
+    append_stats_SIMLIB_DUMP(NREAD, NOBS_TOT, SIMLIB_DUMPFILE_AVG);
     printf("\n One-line dump AVG per LIBID-sequence written to \n\t '%s' \n", 
 	   SIMLIB_DUMPFILE_AVG );
   }
 
   if ( LDMP_OBS_TEXT   ) { 
-    fclose(fpdmp1); 
+    fclose(fpdmp1);
+    append_stats_SIMLIB_DUMP(NREAD, NOBS_TOT, SIMLIB_DUMPFILE_OBS);    
     printf("\n One-line dump per OBS written to \n\t '%s' \n", 
 	   SIMLIB_DUMPFILE_OBS );
   }
@@ -30750,6 +30753,12 @@ void write_docana_SIMLIB_DUMP(FILE *fp, int OPT) {
   fprintf(fp, "%sFIELDLIST:   %s \n", pad, INPUTS.SIMLIB_FIELDLIST);
   fprintf(fp, "%sMJD_RANGE:   %d %d \n",
 	  pad, (int)INPUTS.GENRANGE_MJD[0], (int)INPUTS.GENRANGE_MJD[1]);
+  fprintf(fp, "%sPRESCALE:    %d \n", pad, INPUTS.SIMLIB_PRESCALE);
+
+  // leave keys to replace at end of job when we know the full stats
+  fprintf(fp, "%sNLIBID_TOT:  NLIBID_XXX \n", pad);
+  fprintf(fp, "%sNOBS_TOT:    NOBS_XXX \n", pad);
+  
   // .xyz
   if ( OPT == SIMLIB_DUMPMASK_OBS ) {
     fprintf(fp,"\n");    
@@ -30979,6 +30988,29 @@ void prep_SIMLIB_DUMP(void) {
   return;
   
 } // end prep_SIMLIB_DUMP
+
+void append_stats_SIMLIB_DUMP(int NLIBID_TOT, int NOBS_TOT, char *SIMLIB_DUMPFILE) {
+
+  // Created Sep 2024
+  // SIMLIB_DUMPFILE is closed, so here use unix sed utility to replace
+  //   NLIBID_XXX with NLIBID_TOT
+  //   NOBS_XXX   with NOBS_TOT
+  //
+  // where these values appear in the DOCUMENTION block of the simlib dump file.
+
+  char cmd_sed[MXPATHLEN];
+  char fnam[] = "append_stats_SIMLIB_DUMP" ;
+
+  // ----------- BEGIN -----------
+
+  sprintf(cmd_sed, "sed -i 's/NLIBID_XXX/%d/g'  %s", NLIBID_TOT, SIMLIB_DUMPFILE);
+  system(cmd_sed);
+
+  sprintf(cmd_sed, "sed -i 's/NOBS_XXX/%d/g'  %s", NOBS_TOT, SIMLIB_DUMPFILE);
+  system(cmd_sed);  
+  
+  return ;
+} // end append_stats_SIMLIB_DUMP
 
 
 // ===================================

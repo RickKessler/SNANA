@@ -2192,6 +2192,7 @@ void update_SIMLIB_DUMP_AVGALL(int OPT);
 void prep_SIMLIB_DUMP(void);
 void write_docana_SIMLIB_DUMP(FILE *fp, int OPT);
 void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX, char *FILENAME);
+void append_stats_SIMLIB_DUMP(int NLIBID_TOT, int NOBS_TOT, char *SIMLIB_DUMPFILE);
 
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;

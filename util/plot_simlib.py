@@ -61,7 +61,7 @@ def get_args():
     msg = "name of simlib/cadence file to read and make plots"
     parser.add_argument("-s", "--simlib_file", help=msg, type=str, default=None)
 
-    msg = "mjd min max binsize"
+    msg = "select MJD min & max (2 args)"
     parser.add_argument("--mjd_range", help=msg, nargs="+", default=None)
 
     msg = "select FIELD"
@@ -283,7 +283,7 @@ def prepare_plot_table_OBS(args, plot_info, var, label):
         cmd += f"@@TITLE '{var} for {survey} {band}-band' "
         cmd += f"@@ALPHA 0.9 "
         cmd += f"@@OPT GRID MEDIAN HIST LOGZ  "
-        cmd += f"@@NBIN_AUTO_SCALE 2 "  
+        cmd += f"@@NBIN_AUTO_SCALE 4 "  
         cmd += f"{cmd_last}"
         cmd_list.append(cmd)
         
@@ -321,9 +321,9 @@ def prepare_plot_table_commands(args, plot_info):
     command_list.append(command)
 
     VARLIST_AVG = {
-        'N'  :     "Nobs", 
-        'ZPT':     "ZPT (ADU)" ,
-        'PSF':     "PSF-sigma (pixels)",
+        'NOBS' :   "Nobs", 
+        'ZPT'  :   "ZPT (ADU)" ,
+        'PSF'  :   "PSF-sigma (pixels)",
         'M5SIG':   "$m_{5\sigma}$"
     }
 
@@ -353,10 +353,14 @@ def execute_plot_commands(plot_command_list):
 
     nplot_per_group = 6
     t_delay         = 10.0  # sleep time between launch next group
+    n_plot_tot      = len(plot_command_list)
     n_plot = 0
+    
     for plot_command in plot_command_list:
         n_plot += 1
-        logging.info(f"Launch plot command {n_plot}: \n\t {plot_command}")
+        logging.info('# ----------------------------------------------------')
+        logging.info(f"Launch plot command {n_plot} of {n_plot_tot}: \n" \
+                     f"\t {plot_command}")
         os.system(plot_command)
         if n_plot % nplot_per_group == 0:  time.sleep(t_delay)
         
@@ -366,12 +370,13 @@ def wait_for_plots(args, plot_info):
 
     t_wait = 3.0  # wait time bewteen each check
     
-    n_log_expect   = len(plot_info.plot_command_list)
+    n_log_expect   = plot_info.n_plot_total
     n_log_file     = 0
     while n_log_file < n_log_expect:
         log_file_list = glob.glob(f"{WILDCARD_LOGS}")
         n_log_file    = len(log_file_list)
-        logging.info(f"Found {n_log_file} {WILDCARD_LOGS} files out of {n_log_expect}")
+        logging.info(f"Found {n_log_file} {WILDCARD_LOGS} files " \
+                     f"(expect {n_log_expect})")
         time.sleep(t_wait)
 
     # check if all plot files exist
@@ -381,7 +386,8 @@ def wait_for_plots(args, plot_info):
     while n_plot_file < n_log_expect and t_wait_tot < 20 :
         plot_file_list = glob.glob(f"{WILDCARD_PLOTS}")
         n_plot_file    = len(plot_file_list)
-        logging.info(f"Found {n_plot_file} {PLOT_SUFFIX} files (expect {n_log_expect}) ")
+        logging.info(f"Found {n_plot_file} {WILDCARD_PLOTS} files " \
+                     f"(expect {n_log_expect}) ")
         time.sleep(t_wait)
         t_wait_tot += t_wait
         if n_plot_file > n_plot_last: t_wait_tot = 0
@@ -431,7 +437,8 @@ if __name__ == "__main__":
 
     # prepare all of the plot_table commands, but don't plot anything [yet]
     plot_info.plot_command_list = prepare_plot_table_commands(args, plot_info)
-
+    plot_info.n_plot_total = len(plot_info.plot_command_list)
+    
     # execute plot_table commands
     execute_plot_commands(plot_info.plot_command_list)
 

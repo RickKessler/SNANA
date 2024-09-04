@@ -2153,7 +2153,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     
     plt.legend()
 
-    fsize_title   = 14 * args.FONTSIZE_SCALE    
+    len_title = len(args.TITLE)
+    fsize_title   = 14 * args.FONTSIZE_SCALE
+    if len_title > 50:
+        fsize_title *= (50.0/len_title)**0.9 # reduce font size to fit on page
+        
     plt.title(args.TITLE, fontsize=fsize_title)
 
     # auto-generated text; eg., chi2/dof for chi2 option

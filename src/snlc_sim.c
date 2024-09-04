@@ -30290,7 +30290,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
       sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
-      fprintf(fpdmp0,"N_%s ZPT_%s PSF_%s M5SIG_%s ", 
+      fprintf(fpdmp0,"NOBS_%s ZPT_%s PSF_%s M5SIG_%s ", 
 	      cfilt, cfilt, cfilt, cfilt );
             
     }

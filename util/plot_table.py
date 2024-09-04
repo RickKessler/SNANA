@@ -875,7 +875,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
         if valid_str_last:
             split_list.append(str_last)
-            if is_number(str_last) or "'" in str_last:
+            if is_number(str_last) or "'" in str_last or '"' in str_last :
                 strtype_list.append(STRTYPE_NUM)
             elif str_last in FUNC_LIST:
                 strtype_list.append(STRTYPE_FUNC)
@@ -2181,7 +2181,8 @@ if __name__ == "__main__":
 
     setup_logging()
     logging.info("# ========== BEGIN plot_table.py  ===============")
-
+    logging.info(f"Full command: {' '.join(sys.argv)}")
+    
     args = get_args()
                               
     # prepare input args

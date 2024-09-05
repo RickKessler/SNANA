@@ -272,7 +272,7 @@ def prepare_plot_table_OBS(args, plot_info, var, label):
     # first generate single 2D plot of meadian(val) vs. MJD
     # with all bands overlaid on same plot
     cmd_cut    = '@@CUT '
-    cmd_legend = '@@LEGEND '
+    cmd_legend = '@@LEGEND_SIDE '
     cmd_marker = '@@MARKER '
     for band, mk in zip(filter_list, marker_list):
         cmd_cut += f'\'BAND=\"{band}\"\' '

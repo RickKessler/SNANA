@@ -9,7 +9,7 @@
 #   + abort on invalid variable name in @V or @@CUT
 #   + prescale select of table rows (useful for large tables)
 #          every_nth_row = df.iloc[::7]  # every 7th row
-#   - push legend outside plot for busy plots
+#   + push legend outside plot for busy plots
 #   - try to catch multiple VARNAME rows in table file ??
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -102,6 +102,16 @@ STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC]
 
 FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
 
+# Define default sequence of linewidth and linestyle.
+# First 3 histograms are solid with different line thickness;
+# next 3 are dashed; next 3 are dot-dashed.
+HIST_LINE_ARGS = [
+    (2.0,'-' ), (1.6, '-' ), (1.2, '-' ),   # solid
+    (2.0,'--'), (1.6, '--'), (1.2, '--'),   # dashed
+    (2.0,':' ), (1.6, ':' ), (1.2, ':' ),   # dot-dashed
+    (None,None)  # dummy that has no comma
+]
+                   
 # internal DEBUG flags
 DEBUG_FLAG_REFAC           =  2
 DEBUG_FLAG_LEGACY          = -2
@@ -411,17 +421,17 @@ def get_args():
     parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
-    parser.add_argument("@@CUT", "@@cut", default =[None], help=msg, nargs="+")
+    parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
     msg = "integer prescale for selecting table rows"
-    parser.add_argument("@@PRESCALE", "@@prescale", default =[1],
+    parser.add_argument('@@PRESCALE', '@@prescale', default =[1],
                         type=int, help=msg, nargs="+" )
         
     msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
-    parser.add_argument("@@WEIGHT", "@@weight", default=[None], help=msg, nargs="+" )
+    parser.add_argument('@@WEIGHT', '@@weight', default=[None], help=msg, nargs="+" )
 
     msg = "number of rows to read (for large files)"
-    parser.add_argument("@@NROWS", "@@nrows", default=None, help=msg, type=int )
+    parser.add_argument('@@NROWS', '@@nrows', default=None, help=msg, type=int )
     
     # -------- decorative options below ---------
     
@@ -442,13 +452,16 @@ def get_args():
     parser.add_argument('@@YLABEL', '@@ylabel', default=None, help=msg, type=str)        
     
     msg = "Override default plot title"
-    parser.add_argument("@@TITLE", "@@title", default=None, help=msg, type=str )
+    parser.add_argument('@@TITLE', '@@title', default=None, help=msg, type=str )
 
     msg = "Extra text on plot"
-    parser.add_argument("@@TEXT", "@@text", default=None, help=msg, nargs="+")    
+    parser.add_argument('@@TEXT', '@@text', default=None, help=msg, nargs="+")    
 
     msg = "Override default legend on plot (space sep list per TFILE)"
     parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
+
+    msg = "Same as @@LEGEND, but place outside plot on right side"
+    parser.add_argument('@@LEGEND_SIDE', '@@legend_side', default=None, help=msg, nargs="+")
 
     msg = "Override default marker='o'"
     parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
@@ -473,13 +486,13 @@ def get_args():
     parser.add_argument('@@SAVE', '@@save', default=None, help=msg )
 
     msg = "options; see @@HELP"
-    parser.add_argument("@@OPT", "@@opt", help=msg, nargs="+", default = [])
+    parser.add_argument('@@OPT', '@@opt', help=msg, nargs="+", default = [])
 
     msg = "debug options (for development only)"
-    parser.add_argument("@@DEBUG_FLAG", "@@debug_flag", help=msg, type=int, default=0)    
+    parser.add_argument('@@DEBUG_FLAG', "@@debug_flag", help=msg, type=int, default=0)    
 
     msg = "Full help menu printed to stdout"
-    parser.add_argument("@H", "@@HELP", help=msg, action="store_true")
+    parser.add_argument('@H', '@@HELP', help=msg, action="store_true")
 
     args    = parser.parse_args()
     
@@ -758,6 +771,9 @@ def arg_prep_DEBUG_FLAG(args):
 
 def arg_prep_legend(args):
 
+    if args.LEGEND_SIDE:
+        args.LEGEND = args.LEGEND_SIDE
+        
     LEGEND_orig = args.LEGEND
     LEGEND_out  = LEGEND_orig   # default is user input
 
@@ -1618,11 +1634,14 @@ def plotter_func_driver(args, plot_info):
         
         plt_alpha   = df_dict['alpha']  # fixed by user
         plt_marker  = df_dict['marker'] # fixed by user
+
+        lwid = HIST_LINE_ARGS[numplot][0]  # for 1D hist only
+        lsty = HIST_LINE_ARGS[numplot][1]          
         # - - - - -        
         
         if do_plot_errorbar :
             # default
-            if plt_alpha > 0:
+            if plt_alpha > 0 :
                 plt.errorbar(xval_list, yval_list,
                              xerr=xerr_list, yerr=yerr_list, 
                              fmt=plt_marker, label=plt_legend,
@@ -1633,8 +1652,8 @@ def plotter_func_driver(args, plot_info):
 
         elif do_plot_hist and NDIM == 1 :
             plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
-                     label = plt_legend)
-
+                     label = plt_legend, linewidth=lwid, linestyle=lsty)
+            
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
             counts, xedges, yedges, im = \
@@ -1652,7 +1671,8 @@ def plotter_func_driver(args, plot_info):
         elif do_plot_hist_ov1d and NDIM == 1:
             # 1D, typically sim overlaid on data
             plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype='step',
-                     weights = wgt_ov, label = plt_legend)
+                     weights = wgt_ov, label = plt_legend,
+                     linewidth=lwid, linestyle=lsty)
             
         else:
             # nothing to plot; e.g, 1st file for DIFF or RATIO option
@@ -2172,8 +2192,14 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     plt.xlabel(xlabel, fontsize=fsize_label)  
     if ylabel is not None:
         plt.ylabel(ylabel, fontsize=fsize_label)
+
     
-    plt.legend()
+    if args.LEGEND_SIDE:
+        # push legend outside of box on right side
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
+    else:
+        # default; let matplotlib find best place for legend
+        plt.legend(loc=None, bbox_to_anchor=None)            
 
     len_title = len(args.TITLE)
     fsize_title   = 14 * args.FONTSIZE_SCALE

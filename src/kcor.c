@@ -2,9 +2,15 @@
   Created Dec 2004 by R.Kessler
 
   Collect and compute all calibration and Kcor info and store
-  in a single file (hbook and/or fits).  K corrections  are 
-  computed on a grid of redshift, rest-frame epoch, and 
-  AVWARP parameter, where the latter is needed to warp the
+  in a single fits file.  
+
+  SALTSHAKER SYNERGY WARNING: 
+    The SALT3 training code (SALTshaker; https://github.com/djones1040/SALTShaker)
+    reads the output from this code, so make sure to coordinate any changes in the
+    output.
+
+  K corrections  are computed on a grid of redshift, rest-frame epoch,
+  and AVWARP parameter, where the latter is needed to warp the
   SN spectrum to match observed colors.
 
   The following are input via user input file:
@@ -14,13 +20,12 @@
     - redshfit range for K correction grid
 
   Lambda binning notes.
-  The SN templates with 10 A bins defines the nominal output 
-  binning. The filter resposes are stored in the original 
-  binning (can be non-uniform), but interpolation is used to
-  multiply and plot the response with the same binning
-  as the SN SED.  The primary ref (Vega,BD17..) can have can
-  have different (non-uniform( different binning because it 
-  is immediately converted to have the same binning as the SN. 
+  The SN templates with 10 A bins defines the nominal output binning. The filter 
+  responses are stored in the original binning, which can be non-uniform, and
+  therefore interpolation is used to multiply filter transmission with the same 
+  binning as the SN SED.  The primary ref (AB, Vega, BD17..) can have can have 
+  different (non-uniform) binning because it is immediately interpolated to have 
+  the same binning as the SN. 
 
   Usage:
     

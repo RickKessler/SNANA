@@ -39,6 +39,8 @@ STRING_LAST  = "LAST"
 
 MARKER_LIST = [ 's' , '+', 'o', 'x', '^', 'v', 'd', '4' ]
 
+NCORE_DEFAULT =  8  # default number of interactive cores
+
 # ============================
 def setup_logging():
 
@@ -66,6 +68,9 @@ def get_args():
 
     msg = "prescale cadences written to SIMLIB DUMP file"
     parser.add_argument("--prescale", help=msg, type=int, default=None )
+
+    msg = f"Number of interactive cores (default={NCORE_DEFAULT})"
+    parser.add_argument("--ncore", help=msg, type=int, default=NCORE_DEFAULT )    
     
     msg = f"do NOT remove temporary {PREFIX_TEMP_FILES}* files (for debugging)"
     parser.add_argument("--noclean", help=msg, action="store_true")    
@@ -318,10 +323,10 @@ def prepare_plot_table_MJD_DIF(args, plot_info):
         cmd_first = command_append_auto(STRING_FIRST, plot_info, STRING_OBS)
         cmd_last  = command_append_auto(STRING_LAST,  plot_info, STRING_OBS)
         title     = f'Cadence gaps for {survey} {band}-band'        
-        xlabel    = f'MJD({band}-band) $-$ MJD(previous observation)' 
+        xlabel    = f'log10[ MJD({band}-band) $-$ MJD(previous observation) ] ' 
         
         cmd  = f"{cmd_first}  "
-        cmd += f"@V MJD_DIF MJD_DIF_BAND  "
+        cmd += f"@V  'log10(MJD_DIF+0.00001)'  'log10(MJD_DIF_BAND+0.00001)'  "
         cmd += f"@@CUT  \"MJD_DIF_BAND<999 & BAND=\'{band}\'\"  "
         cmd += f"@@LEGEND 'Any band'  'Same {band}-band' "
         cmd += f"@@MARKER o x "
@@ -397,25 +402,55 @@ def prepare_plot_table_commands(args, plot_info):
     return command_list   # end prepare_plot_table_commands
 
 
-def execute_plot_commands(plot_command_list):
+def execute_plot_commands(args, plot_info):
 
-    nplot_per_group = 6
-    t_delay         = 10.0  # sleep time between launch next group
-    n_plot_tot      = len(plot_command_list)
-    n_plot = 0
+    # launch ncore jobs together, then wait for ncore plot files to appear;
+    # then launch next set of ncore jobs, etc ...
+    
+    ncore             = args.ncore    
+    plot_command_list = plot_info.plot_command_list
+    n_plot_tot        = len(plot_command_list)
+    t_check           = 5.0  # sleep time between checking plot-file count
+
+    n_plot_submit = 0
+    n_plot_exist  = 0
     
     for plot_command in plot_command_list:
-        n_plot += 1
+
+        n_plot_submit += 1
         logging.info('# ----------------------------------------------------')
-        logging.info(f"Launch plot command {n_plot} of {n_plot_tot}: \n" \
+        logging.info(f"Launch plot command {n_plot_submit} of {n_plot_tot}: \n" \
                      f"\t {plot_command}")
         os.system(plot_command)
-        if n_plot % nplot_per_group == 0:  time.sleep(t_delay)
+        time.sleep(0.5)
+        wait_for_plots = (n_plot_submit % ncore == 0 or n_plot_submit == n_plot_tot)
         
-    return  # end execute_plot_commands
+        if wait_for_plots :
+            t_wait_tot = 0.0 ;
+            n_plot_last = n_plot_exist
+            n_plot_wait = n_plot_submit - n_plot_last
+            logging.info('')
+            logging.info(f"Wait for next {n_plot_wait} {WILDCARD_PLOTS} files ...")
+            while n_plot_exist < n_plot_submit and t_wait_tot < 40 :
+                time.sleep(t_check)
+                t_wait_tot += t_check
+                
+                n_plot_exist  = len(glob.glob(f"{WILDCARD_PLOTS}"))  
+                logging.info(f"Found {n_plot_exist:2d} {WILDCARD_PLOTS} files " \
+                             f"(expect {n_plot_submit}) ")
+
+                if n_plot_exist > n_plot_last : t_wait_tot = 0.0
+                n_plot_last = n_plot_exist
+    # - - - - - - 
+    # final check on number of plots found
+    n_plot_exist  = len(glob.glob(f"{WILDCARD_PLOTS}"))
+    all_plots_found = ( n_plot_exist == n_plot_tot )
+    return  all_plots_found   # end execute_plot_commands
+
 
 def wait_for_plots(args, plot_info):
 
+    # xxxxxxxx OBSOLETE xxxxxxxx
     t_wait = 3.0  # wait time bewteen each check
     
     n_log_expect   = plot_info.n_plot_total
@@ -427,6 +462,8 @@ def wait_for_plots(args, plot_info):
                      f"(expect {n_log_expect})")
         time.sleep(t_wait)
 
+    # xxxxxxxx OBSOLETE xxxxxxxx
+    
     # check if all plot files exist
     n_plot_file    = 0
     n_plot_last    = 0
@@ -441,13 +478,14 @@ def wait_for_plots(args, plot_info):
         if n_plot_file > n_plot_last: t_wait_tot = 0
         n_plot_last = n_plot_file
         
+    # xxxxxxxx OBSOLETE xxxxxxxx
     
     #ret = subprocess.run( [ command ], cwd=os.getcwd(),
     #                      shell=True, capture_output=False, text=True )
 
     found_all_plots = (n_plot_file == n_log_expect)
-    
-    return found_all_plots  # end wait_for_plots
+
+    return found_all_plots  #    xxxxxxxx OBSOLETE xxxxxxxx
 
 def combine_all_plots(args, plot_info):
 
@@ -490,10 +528,10 @@ if __name__ == "__main__":
     plot_info.n_plot_total = len(plot_info.plot_command_list)
     
     # execute plot_table commands
-    execute_plot_commands(plot_info.plot_command_list)
+    all_plots_found = execute_plot_commands(args, plot_info)
 
     # wait for everything to finish
-    all_plots_found = wait_for_plots(args, plot_info)
+    # xxx mark all_plots_found = wait_for_plots(args, plot_info)
 
     # combine all plots into single pdf file;
     # note that not all plots may exist (yet) if plot_table takes too long.

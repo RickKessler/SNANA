@@ -5,7 +5,12 @@
 # Refactor to have __main__, and add translate_VARIABLE and tranlate_CUT
 # methods to automatically append data commands to simplified user input.
 # 
-
+# TO DO LIST:
+#   + abort on invalid variable name in @V or @@CUT
+#   + prescale select of table rows (useful for large tables)
+#          every_nth_row = df.iloc[::7]  # every 7th row
+#   - push legend outside plot for busy plots
+#   - try to catch multiple VARNAME rows in table file ??
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -37,6 +42,7 @@ BAR   = '|'
 # define pandas strings to add into VARIABLE and CUT strings.
 STR_df         = 'df.'
 STR_df_loc     = 'df.loc'
+STR_df_iloc    = 'df.iloc'
 STR_np         = 'np.'
 
 # define strings for @@OPT
@@ -200,6 +206,12 @@ and two types of command-line input delimeters
   results in 3 overlaid plots, and default legend shows each cut.
   While math functions (sqrt, exp, log ...) are allowed for variables,
   they cannot be used for cuts.
+
+@@PRESCALE
+  Select prescaled subset of rows; useful to make plots more quickly
+  from very large tables, or to see more detail in a 2D plot.
+      @@PRESCALE 7    # select every 7th row for all tables
+      @@PRESCALE 1 7  # select every 7th row for 2nd table (e.g., large sim)
 
 @@WEIGHT
   Reweight 1D bin contents with arbitrary math function of x-axis using
@@ -393,31 +405,29 @@ def get_args():
     parser.add_argument('@V', '@@VARIABLE', '@v', help=msg, nargs="+")
 
     msg = 'variable to use for error bar in 2D plot, and for weighted avg per bin'
-    parser.add_argument('@E', '@@ERROR', help=msg, nargs="+", default=None)
+    parser.add_argument('@E', '@@ERROR', default=None, help=msg, nargs="+")
 
     msg = 'variable to only for weight avg per bin; do not show error bard in 2D plot'
-    parser.add_argument('@e', '@@error', help=msg, nargs="+", default=None)        
+    parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
-    parser.add_argument("@@CUT", "@@cut", help=msg, nargs="+", default =[None])
-    
-    msg = "Plot difference in y-axis between files.\n" \
-          "ALL plots median difference between first file and subsequent ones.\n" \
-          "CID plots per-CID difference."
-    parser.add_argument('@@DIFF', '@@diff', default=None, type=str, help=msg )
+    parser.add_argument("@@CUT", "@@cut", default =[None], help=msg, nargs="+")
 
-    
+    msg = "integer prescale for selecting table rows"
+    parser.add_argument("@@PRESCALE", "@@prescale", default =[1],
+                        type=int, help=msg, nargs="+" )
+        
     msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
-    parser.add_argument("@@WEIGHT", "@@weight", help=msg, nargs="+", default=[None] ) 
+    parser.add_argument("@@WEIGHT", "@@weight", default=[None], help=msg, nargs="+" )
 
     msg = "number of rows to read (for large files)"
-    parser.add_argument("@@NROWS", "@@nrows", help=msg, type=int, default=None)
+    parser.add_argument("@@NROWS", "@@nrows", default=None, help=msg, type=int )
     
     # -------- decorative options below ---------
     
     msg = "AUTO (default): optional bounds min, max and binsize of plot parameters.\n" \
           "For 2D plot, must specify both x and y bounds. y-binsize is ignored."
-    parser.add_argument('@@BOUNDS', '@@bounds', default=None, help=msg, nargs = '+')
+    parser.add_argument('@@BOUNDS', '@@bounds', default=None, help=msg, nargs = '+' )
 
     msg = "scale auto NBIN  (no @@BOUNDS input)"
     parser.add_argument('@@NBIN_AUTO_SCALE', '@@nbin_auto_scale',
@@ -432,7 +442,7 @@ def get_args():
     parser.add_argument('@@YLABEL', '@@ylabel', default=None, help=msg, type=str)        
     
     msg = "Override default plot title"
-    parser.add_argument("@@TITLE", "@@title", default=None, help=msg )
+    parser.add_argument("@@TITLE", "@@title", default=None, help=msg, type=str )
 
     msg = "Extra text on plot"
     parser.add_argument("@@TEXT", "@@text", default=None, help=msg, nargs="+")    
@@ -497,7 +507,6 @@ def arg_prep_driver(args):
     # - - - - - - -
     # for variable(s)
     if args.VARIABLE:
-        # xxx marek args.VARIABLE      = ''.join([str(elem) for elem in args.VARIABLE])        
         args.VARIABLE_ORIG = args.VARIABLE[0]
     else:
         sys.exit(f"\n ERROR: must define variable(s) to plot with @@VARIABLE or @@V")
@@ -588,9 +597,10 @@ def arg_prep_driver(args):
     args = args_prep_DIFF(args)
     
     # if only 1 alpha, make sure there is alpha for each file/cut
-    args.alpha_list  = arg_prep_extend_list(args, narg_tfile, args.ALPHA)
-    args.marker_list = arg_prep_extend_list(args, narg_tfile, args.MARKER) 
-
+    args.alpha_list    = arg_prep_extend_list(args, narg_tfile, args.ALPHA,  1.0   )
+    args.marker_list   = arg_prep_extend_list(args, narg_tfile, args.MARKER, 'XXX' )
+    args.prescale_list = arg_prep_extend_list(args, narg_tfile, args.PRESCALE, 1   )
+    
     args.TITLE       = arg_prep_TITLE(args)
     args.legend_list = arg_prep_legend(args) # must be after prep_DIFF
 
@@ -619,11 +629,7 @@ def get_list_match(list0, list1):
 def args_prep_DIFF(args):
 
     # set args.DIFF internally, and append args.OPT with MEDIAN
-    # if no stat option is given.
-    
-    if args.DIFF:
-        sys.exit(f"\n ERROR: @@DIFF {args.DIFF} is obsolete and no longer valid;\n" \
-                 f"\t instead, use @@OPT DIFF_{args.DIFF}" )
+    # if no stat option is given.    
 
     narg_tfile = len(args.tfile_list)
     
@@ -799,19 +805,20 @@ def arg_prep_legend(args):
     # end arg_prep_legend
 
     
-def arg_prep_extend_list(args, narg_tfile, arg_list_orig):
+def arg_prep_extend_list(args, narg_tfile, arg_list_orig, arg_missing):
 
     # if arg_list_orig has fewer elements than number of table files,
     # extend list to be same length as number or table files;
     # else return original list.  This allows users to specify one
     # value (e.g. for alpha or maker) that is used on all plots.
-
+    # Input arg_missing is used to fill missing arg.
+    
     narg_orig = len(arg_list_orig)
     
     # check option to allow one missing 
     allow_missing = args.DIFF or  OPT_RATIO in args.OPT
     if allow_missing and narg_orig == narg_tfile-1:
-        arg_list_out = ['dummy'] + arg_list_orig    
+        arg_list_out = [ arg_missing ] + arg_list_orig    
         return arg_list_out
     
     if narg_orig == 1 and narg_tfile > 1:
@@ -944,10 +951,13 @@ def translate_VARIABLE(VARIABLE):
         
     # next, put df. in front of each variable, and np. in front of functions
     VARIABLE_df = ''
+    table_var_list = []  # list of all collumn var names used in VARIABLE.
+    
     for tmp_str, tmp_type in zip(split_list, strtype_list):
         tmp_append = tmp_str  # default string to append
         if tmp_type == STRTYPE_VAR:
             tmp_append = STR_df + tmp_str
+            table_var_list.append(tmp_str)
         elif tmp_type == STRTYPE_FUNC :
             tmp_append = STR_np + tmp_str
         else:
@@ -958,7 +968,8 @@ def translate_VARIABLE(VARIABLE):
     logging.info(f"Translate VARIABLE {VARIABLE_ORIG}")
     logging.info(f"             ->    {VARIABLE_df}")
     
-    return VARIABLE_df
+    return VARIABLE_df, table_var_list
+
     # end translate_VARIABLE
     
 def translate_CUT(CUT):
@@ -971,8 +982,8 @@ def translate_CUT(CUT):
     #   then wrap each item as '(df.' + item + ')'
 
     CUT_ORIG = CUT
-    if not CUT:       return CUT
-    if STR_df in CUT: return CUT
+    if not CUT:       return CUT, []
+    if STR_df in CUT: return CUT, []
 
     CUT = CUT.replace(' ','')
     
@@ -994,7 +1005,8 @@ def translate_CUT(CUT):
 
     # for each cut item, append parentheses and df.
     cut_list_df = []
-
+    raw_var_list = []
+    
     for cut in cut_list:
         
         # append df. in from of each string to allow cutting on
@@ -1011,6 +1023,7 @@ def translate_CUT(CUT):
             tmp_append = tmp_str
             if tmp_type == STRTYPE_VAR:
                 tmp_append = STR_df + tmp_str
+                if tmp_str not in raw_var_list: raw_var_list.append(tmp_str)
             elif tmp_type == STRTYPE_FUNC:
                 tmp_append = STR_np + tmp_str
                 sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
@@ -1047,9 +1060,8 @@ def translate_CUT(CUT):
 
     logging.info(f"Translate CUT {CUT}  ")
     logging.info(f"          ->  {CUT_df}")
-    #print(f"\n xxx var_list = {var_list}")
     
-    return CUT_df
+    return CUT_df, raw_var_list
 
 
 def is_number(string): 
@@ -1068,22 +1080,15 @@ def set_axis_dict(args, plot_info, var):
     
     # - - - -
     NDIM         = args.NDIM
-    VAR_LIST     = var.split(COLON)     
-    # xxx mark VAR_LIST     = args.VARIABLE[0].split(COLON)     
+    VAR_LIST     = var.split(COLON)  
     VARERR_LIST  = args.ERROR.split(COLON)
-
-    # list of all vars and varerr that may be used to check existence
-    # (this list is not used for nominal plots)
-    all_var_list = []  
     
     for n, VAR in enumerate(VAR_LIST):
 
-        all_var_list.append(VAR)
         
         STR_VAR      = str(VAR)
         VARERR  = VARERR_LIST[n]
         if len(VARERR) > 0:
-            all_var_list.append(VARERR)
             STR_VARERR   = STR_df + str(VARERR)
         else:
             STR_VARERR   = None            
@@ -1092,11 +1097,10 @@ def set_axis_dict(args, plot_info, var):
             axis_dict['x']       = STR_VAR
             axis_dict['xerr']    = STR_VARERR            
         else:
-            axis_dict['y']            = STR_VAR
-            axis_dict['yerr']         = STR_VARERR
+            axis_dict['y']       = STR_VAR
+            axis_dict['yerr']    = STR_VARERR
 
     axis_dict['set_ylim'] = (NDIM == 2 or OPT_RATIO in args.OPT)
-    axis_dict['all_var_list'] = all_var_list
     
     plot_info.axis_dict_list.append(axis_dict)
     
@@ -1285,7 +1289,8 @@ def read_tables(args, plot_info):
     tfile_list      = args.tfile_list
     tfile_base_list = args.tfile_base_list
     var_list        = args.var_list
-    cut_list        = args.cut_list    
+    cut_list        = args.cut_list
+    ps_list         = args.prescale_list
     weight_list     = args.weight_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
@@ -1293,8 +1298,7 @@ def read_tables(args, plot_info):
     NROWS           = args.NROWS
 
     axis_dict_list = plot_info.axis_dict_list
-    
-    # xxx mark axis_dict      = plot_info.axis_dict
+
             
     MASTER_DF_DICT = {}  # dictionary of variables to plot (was MASTERLIST)
     nf = 0
@@ -1302,9 +1306,9 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, weight, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, prescale, weight, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, weight_list, legend_list, alpha_list, marker_list):
+            cut_list, ps_list, weight_list, legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1346,7 +1350,7 @@ def read_tables(args, plot_info):
                      f"among {VARNAME_IDROW_LIST}")
 
         # make sure that all requested variables (and error-vars) exist in df
-        # xxx ?? check_vars_exist(args, df, plot_info)
+        check_vars_exist(args, df, tfile)
         
         try:
             df[varname_idrow] = df[varname_idrow].astype(str)
@@ -1354,9 +1358,13 @@ def read_tables(args, plot_info):
             logging.warn(f"No {varname_idrow} present in this file. OK for some file types.")
 
         # apply user cuts
+
         if cut:
             df = eval(cut)
 
+        if prescale > 1:
+            df = df.iloc[::prescale]
+            
         # drop duplicates for DIFF CID matching
         if args.DIFF == OPT_DIFF_CID:
             df.drop_duplicates(varname_idrow, inplace=True)
@@ -1506,18 +1514,24 @@ def count_rows_to_skip(tfile):
     return nrow_skip
     # end count_rows_to_skip
 
-def check_vars_exist(args, df, plot_info):
+def check_vars_exist(args, df, tfile):
 
-    # Tricky because all_var_list can include math symbols.
+    # strip off list of variables used for plotting (@V) or cut (@@CUT).
+    # This list has no df. so it's easy to check existence.
+    
+    raw_var_list = args.raw_var_list
+
     varlist_missing = []
-    for tmp_var_df in plot_info.all_var_list:
-        tmp_var = tmp_var_df.split(STR_df)[1]  # remove df.
+    for tmp_var in raw_var_list:
         if tmp_var not in df:
             varlist_missing.append(tmp_var)
-            logging.warning(f"Could not find requested {tmp_var} for {tfile}")
-    assert (len(varlist_missing) == 0),  \
-        f"\n ERROR: Missing {varlist_missing} in df; " + \
-        f"check @@VARIABLE and  @@ERROR args" 
+            logging.error(f"Could not find requested {tmp_var} for {tfile}")
+
+    n_var_missing = len(varlist_missing)
+    if  n_var_missing > 0 :
+        logging.fatal(f"Missing {n_var_missing} variables in table file(s); " + \
+                      f"check @@VARIABLE and  @@ERROR args")
+        sys.exit(f"\n\t ABORT")
     return
 
 def poisson_interval(k, alpha=0.32):
@@ -2231,19 +2245,28 @@ if __name__ == "__main__":
     # prepare input args
     arg_prep_driver(args)
 
+    # add df. as needed to args.VARIABLE
+    args.raw_var_list = []
     for ivar, var in enumerate(args.var_list):
-        args.var_list[ivar] = translate_VARIABLE(var)   # add df. as needed to args.VARIABLE
+        df_var, raw_plotvar_list = translate_VARIABLE(var)
+        args.var_list[ivar]      = df_var
+        args.raw_var_list       += raw_plotvar_list  # used to check existence of vars
     logging.info('')
     
     for icut, cut in enumerate(args.cut_list):
-        args.cut_list[icut] = translate_CUT(cut)  # add df. and df.loc as needed
+        cut_list, raw_cutvar_list = translate_CUT(cut)  # add df. and df.loc as needed
+        args.cut_list[icut]       = cut_list
+        args.raw_var_list        += raw_cutvar_list
     logging.info('')
+
+    args.raw_var_list = list(set(args.raw_var_list))
     
     if args.DEBUG_FLAG_DUMP_TRANSLATE :
+        print(f" xxx raw_var_list = {args.raw_var_list}")
         sys.exit(f"\n xxx bye .")
     
     plot_info = Namespace()  # someplace to store internally computed info
-
+    
     # set axis info (var names, labels, ...)
     plot_info.axis_dict_list = []
     for var in  args.var_list: 

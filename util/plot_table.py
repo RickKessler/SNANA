@@ -313,8 +313,15 @@ and two types of command-line input delimeters
       @@LEGEND 'No cuts'  'SALT2c < 0'  'SALT2c>0'
    For 2 files and "@@OPT DIFF_CID", only need to give one @@LEGEND arg.
   
+@@LEGEND_SIDE
+  For a busy plot with insufficient space for legend, this option is the
+  same as @@LEGEND, except that the legend appears on the right side of 
+  the plot (outside the plot box).
+
 @@TITLE
-  Text of title to dispaly above plot 
+  Text of title to dispaly above plot. For text length > 50 chars,
+  the font size is scaled by 50/len(text) so that it doesn't run off
+  the plot page.
 
 @@TEXT
   Provide relative coordinates (0 to 1) per axis and text to add on plot.
@@ -942,6 +949,36 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
     # end split_var_string
     
 
+def translate_driver(args):
+
+    # add df. as needed to args.VARIABLE
+    args.raw_var_list = []
+    for ivar, var in enumerate(args.var_list):
+        df_var, raw_plotvar_list = translate_VARIABLE(var)
+        args.var_list[ivar]      = df_var
+        args.raw_var_list       += raw_plotvar_list  # used to check existence of vars
+    logging.info('')
+    
+    for icut, cut in enumerate(args.cut_list):
+        cut_list, raw_cutvar_list = translate_CUT(cut)  # add df. and df.loc as needed
+        args.cut_list[icut]       = cut_list
+        args.raw_var_list        += raw_cutvar_list
+    logging.info('')
+    
+    # tack on error vars
+    if args.ERROR :
+        var_err_list = args.ERROR.split(COLON)
+        for var in var_err_list:
+            if len(var) > 0: args.raw_var_list += [var]
+    
+    # remove duplicates
+    args.raw_var_list = list(set(args.raw_var_list))
+    
+    if args.DEBUG_FLAG_DUMP_TRANSLATE :
+        print(f" xxx raw_var_list = {args.raw_var_list}")
+        sys.exit(f"\n xxx bye .")
+    
+    return  # end translate_driver
 
 def translate_VARIABLE(VARIABLE):
     # add df. as needed to VARIABLE
@@ -1346,27 +1383,39 @@ def read_tables(args, plot_info):
             df = copy.deepcopy(df_ref)
         else:
             logging.info(f"Read {tfile_base}")
+            # Get varname info including number of rows to skip (e.g. skip DOCANA),
+            # name of first column identifier, and check that requested
+            # variables exist.
             # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
-            nrow_skip = count_rows_to_skip(tfile)        
-            df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
-                              skiprows=nrow_skip, nrows=NROWS)
-
-        if store_df_ref:  df_ref = copy.deepcopy(df)
+            varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
+            plot_info.varname_idrow  = varname_idrow            
+            usecol_list = [ varname_idrow ] + args.raw_var_list
             
-        # figure out KEYNAME to id events
-        plot_info.varname_idrow = None
-        for varname_idrow in VARNAME_IDROW_LIST:
-            if varname_idrow in df:
-                plot_info.varname_idrow = varname_idrow
-                
-        varname_idrow = plot_info.varname_idrow
-        
-        if varname_idrow is None:
-            sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
-                     f"among {VARNAME_IDROW_LIST}")
+            # read table and store in data frame.
+            # only read needed columms to reduce memory consumption.
+            df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
+                              usecols  = usecol_list,
+                              skiprows = nrow_skip,
+                              nrows    = NROWS )
 
+        if store_df_ref:    df_ref = copy.deepcopy(df)
+
+        # xxxxxxxx mark delete Sep 5 2024 xxxxxxxx
+        # figure out KEYNAME to id events
+        USE_OBSOLETE = False
+        if USE_OBSOLETE:
+            plot_info.varname_idrow = None
+            for varname_idrow in VARNAME_IDROW_LIST:
+                if varname_idrow in df:
+                    plot_info.varname_idrow = varname_idrow
+            varname_idrow = plot_info.varname_idrow
+            if varname_idrow is None:
+                sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
+                         f"among {VARNAME_IDROW_LIST}")
+        # xxxxxxx end mark xxxxxxxxxx
+        
         # make sure that all requested variables (and error-vars) exist in df
-        check_vars_exist(args, df, tfile)
+        # xxx mark check_vars_exist(args, df, tfile)
         
         try:
             df[varname_idrow] = df[varname_idrow].astype(str)
@@ -1396,7 +1445,7 @@ def read_tables(args, plot_info):
             
         logging.info(f"\t Read nrow={nrow}  for {name_legend}")
 
-        if nrow == 0: # .xyz
+        if nrow == 0: 
             logging.warning(f"zero rows read for {name_legend}")
 
         MASTER_DF_DICT[key] = {
@@ -1502,8 +1551,12 @@ def set_xbins(args, plot_info):
     
     return   # end set_xbins
 
-def count_rows_to_skip(tfile):
+def check_table_varnames(tfile, var_list):
 
+    # count number of rows to skip before VARNAMES key,
+    # and read name of first column after VARNAMES key
+    # Also check that all variables in var_list are specified in VARNAMES.
+    
     nrow_skip = 0
     if '.gz' in tfile:
         t = gzip.open(tfile,'rt')
@@ -1519,19 +1572,32 @@ def count_rows_to_skip(tfile):
             continue
 
         if wdlist[0] == 'VARNAMES:' :
+            varname_idrow = wdlist[1]
+            n_missing = 0
+
+            for var in var_list:
+                if var not in wdlist:
+                    n_missing += 1
+                    logging.error(f"Missing {var} in {tfile}")
+            if n_missing > 0:
+                logging.fatal(f"Missing {n_missing} variables; check @V and @@ERROR args.")
+                sys.exit(f"\n\t ABORT")
             break
         else:
             nrow_skip += 1            
             continue
 
     t.close()
-    logging.info(f"\t found {nrow_skip} rows to skip before 'VARNAMES:' key")
+    logging.info(f"\t Found {nrow_skip} rows to skip before 'VARNAMES:' key")
 
-    return nrow_skip
+    return varname_idrow, nrow_skip
+
     # end count_rows_to_skip
 
 def check_vars_exist(args, df, tfile):
 
+    # xxxxxx OBSOLETE xxxxxxxx
+    
     # strip off list of variables used for plotting (@V) or cut (@@CUT).
     # This list has no df. so it's easy to check existence.
     
@@ -1543,12 +1609,16 @@ def check_vars_exist(args, df, tfile):
             varlist_missing.append(tmp_var)
             logging.error(f"Could not find requested {tmp_var} for {tfile}")
 
+    # xxxxxx OBSOLETE xxxxxxxx            
     n_var_missing = len(varlist_missing)
     if  n_var_missing > 0 :
         logging.fatal(f"Missing {n_var_missing} variables in table file(s); " + \
                       f"check @@VARIABLE and  @@ERROR args")
         sys.exit(f"\n\t ABORT")
+    # xxxxxx OBSOLETE xxxxxxxx
     return
+
+
 
 def poisson_interval(k, alpha=0.32):
     """  
@@ -2271,25 +2341,9 @@ if __name__ == "__main__":
     # prepare input args
     arg_prep_driver(args)
 
-    # add df. as needed to args.VARIABLE
-    args.raw_var_list = []
-    for ivar, var in enumerate(args.var_list):
-        df_var, raw_plotvar_list = translate_VARIABLE(var)
-        args.var_list[ivar]      = df_var
-        args.raw_var_list       += raw_plotvar_list  # used to check existence of vars
-    logging.info('')
+    # translate @@VARIABLE, @@CUT, @@ERROR to dataframe syntaix
+    translate_driver(args)
     
-    for icut, cut in enumerate(args.cut_list):
-        cut_list, raw_cutvar_list = translate_CUT(cut)  # add df. and df.loc as needed
-        args.cut_list[icut]       = cut_list
-        args.raw_var_list        += raw_cutvar_list
-    logging.info('')
-
-    args.raw_var_list = list(set(args.raw_var_list))
-    
-    if args.DEBUG_FLAG_DUMP_TRANSLATE :
-        print(f" xxx raw_var_list = {args.raw_var_list}")
-        sys.exit(f"\n xxx bye .")
     
     plot_info = Namespace()  # someplace to store internally computed info
     

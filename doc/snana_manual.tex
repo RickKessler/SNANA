@@ -14285,7 +14285,9 @@ Additional reformat options can be specified using {\tt SNLCINP} input mask
     OPT_REFORMAT_FITS = 128 ! include spectra
     OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
 
-    OPT_REFORMAT_SPECTRA = 1 ! re-write only the spectra in text: lam Flam Flamerr
+    # options to re-write only the spectra (no photometry); e.g., to prepare
+    # input to spectroscopic analyzer for redshifts or classification
+    OPT_REFORMAT_SPECTRA = 1 ! 3-column text file: lam Flam Flamerr
     OPT_REFORMAT_SPECTRA = 2 ! write FLUX instead of FLam for astrodash
 \end{verbatim}
 %

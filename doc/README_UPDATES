@@ -22625,5 +22625,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.car
       + enable LRDFLAG_SPEC if SIMLIB_OUTFILE is defined so that TAKE_SPECTRUM
         keys appear in output SIMLIB file.
+
+    sntools_dataformat_fits.c
+      + fix a few bugs related to reformatting spectra (TEXT -> FITS), and reading
+        spectra; see new fits_get_colnum() call to skip over unknown number of
+	sim-only keys.
 	
 END: 

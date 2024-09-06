@@ -3,14 +3,11 @@
 # Created by B.Popovic during his graduate career at Duke University.
 # Installed into SNANA Jun 24 2024 by R.Kessler
 # Refactor to have __main__, and add translate_VARIABLE and tranlate_CUT
-# methods to automatically append data commands to simplified user input.
+# methods to automatically append df, df.loc and np to input variables
+# to simplified user input.
 # 
 # TO DO LIST:
-#   + abort on invalid variable name in @V or @@CUT
-#   + prescale select of table rows (useful for large tables)
-#          every_nth_row = df.iloc[::7]  # every 7th row
-#   + push legend outside plot for busy plots
-#   - try to catch multiple VARNAME rows in table file ??
+#   - ??
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -1390,7 +1387,7 @@ def read_tables(args, plot_info):
             varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
-            
+
             # read table and store in data frame.
             # only read needed columms to reduce memory consumption.
             df  = pd.read_csv(tfile, comment="#", sep=r"\s+",

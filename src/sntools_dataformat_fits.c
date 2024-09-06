@@ -143,7 +143,10 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   // Aug 2023: write format mask info, mainly to check for COMPACT output
   SNFITSIO_WRITE_MASK_HEAD = writeFlag ;
   SNFITSIO_WRITE_MASK_PHOT = writeFlag ;
-  SNFITSIO_WRITE_MASK_SPEC = INPUTS_SPECTRO.WRITE_MASK ;
+
+  // ??  INPUTS_SPECTRO.WRITE_MASK = WRITE_MASK_SPEC_DEFAULT; // .xyz ?
+  // xxx mark delete Sep 2024  SNFITSIO_WRITE_MASK_SPEC = INPUTS_SPECTRO.WRITE_MASK ;
+  SNFITSIO_WRITE_MASK_SPEC = writeFlag ;  
 
   // - - - -
   // Check option to write spectra
@@ -814,7 +817,8 @@ void wr_snfitsio_init_spec(void) {
   //
   // July 29 2023: see new use of logicals WRITE_DEFAULT[SED_TRUE]
 
-  int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  // xxx mark delete Sep 2024 int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  int WRITE_MASK     =  SNFITSIO_WRITE_MASK_SPEC ; // Sep 6 2024 bug fix
   int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
   int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
 
@@ -2502,7 +2506,8 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // Feb 2021: write GENFLAM for sim
   // Oct 2021: check for legacy vs. refac table
 
-  int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  // xxx mark delete Sep 2024 int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
+  int WRITE_MASK     =  SNFITSIO_WRITE_MASK_SPEC ; // Sep 6 2024 bug fix
   int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
   int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
 
@@ -4225,7 +4230,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     istat   = 0 ;
     fp      = fp_rd_snfitsio[itype] ;
     fits_movrel_hdu( fp, nmove, &hdutype, &istat );
-    sprintf(c1err,"movrel to %s table", snfitsType[itype] ) ;
+    sprintf(c1err,"movrel to %s table (%s)", snfitsType[itype], fnam ) ;
     snfitsio_errorCheck(c1err, istat);
   }
 
@@ -5033,7 +5038,11 @@ void  rd_snfitsio_specFile( int ifile ) {
   // April 2019
   // Open SPECTROGRAPH file and read first two tables
   // to prepare for reading arbitrary spectrum from 3rd table.
-
+  //
+  // Beware that sim-only keys are sandwiched between required data-or-sim keys,
+  // so fits_get_colnum(...) is used to jump over sim keys and find NBIN_LAM;
+  // this logic should be robust if more SIM keys are added in the future.
+  
   int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
@@ -5062,7 +5071,7 @@ void  rd_snfitsio_specFile( int ifile ) {
 
   // move to next table : HEADER (one row per spectrum)
   fits_movrel_hdu( fp, nmove, &hdutype, &istat );
-  sprintf(c1err,"movrel to %s table", snfitsType[itype] ) ;
+  sprintf(c1err,"movrel to %s HEADER table", snfitsType[itype] ) ;
   snfitsio_errorCheck(c1err, istat);
 
   // ??  if ( RDSPEC_SNFITSIO_HEADER.NROW > 0 ) { rd_snfitsio_mallocSpec(-1,ifile); }
@@ -5089,14 +5098,31 @@ void  rd_snfitsio_specFile( int ifile ) {
   fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
 		    RDSPEC_SNFITSIO_HEADER.MJD, &anynul, &istat ); 
 
-  icol=3 ;
-  fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+  // Sep 2024: skip over sim keys and jump to column with name 'NBIN_LAM'
+  char NEXT_COL[] = "NBIN_LAM" ;
+  int ICOL_NBIN_LAM;
+  fits_get_colnum(fp, CASEINSEN, NEXT_COL, &ICOL_NBIN_LAM, &istat);
+  icol = ICOL_NBIN_LAM-1; ; // decrement here because it is incremented below.
+  
+  // xxx printf("\n xxx %s: icol(NBIN_LAM)= %d  istat=%d", fnam, ICOL_NBIN_LAM, istat);
+  // xxx debugexit(fnam);
+  
+
+  
+  /* xxxxxxx mark delete Sep 6 2024 xxxxxxx
+    icol=3 ;
+   fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
 		    RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
+  
 
-
-  icol = 6;
-  if ( SNFITSIO_CODE_IVERSION >= 22 ) { icol = 7 ; }
-
+  // Sep 2024: advance icol only for sim. Unfortunately the extra sim info
+  //           is sandwiched between real-data keys, so this logic is clumsy.
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
+    icol = 6;
+    if ( SNFITSIO_CODE_IVERSION >= 22 ) { icol = 7 ; }
+  }
+  xxxxxxxxxxx end mark xxxxxxx */
+  
   icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1I,
 		    RDSPEC_SNFITSIO_HEADER.NLAMBIN, &anynul, &istat ); 
@@ -5111,7 +5137,7 @@ void  rd_snfitsio_specFile( int ifile ) {
 
   // move to next table : SPECTRAL FLUX vs. wave
   fits_movrel_hdu( fp, nmove, &hdutype, &istat );
-  sprintf(c1err,"movrel to %s table", snfitsType[itype] ) ;
+  sprintf(c1err,"movrel to %s SPECTRAL_FLUX table", snfitsType[itype] ) ;
   snfitsio_errorCheck(c1err, istat);
 
   return ;

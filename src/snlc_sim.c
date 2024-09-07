@@ -10339,6 +10339,7 @@ void GENSPEC_MJD_OBS(void) {
       GENSPEC.INDEX_TAKE_SPECTRUM[NMJD] = NMJD ;
       GENSPEC.INV_TAKE_SPECTRUM[NMJD]   = NMJD ;
       GENSPEC.SKIP[NMJD] = false;
+      sprintf(GENSPEC.INSTRUMENT_LIST[NMJD],"%s", INPUTS_SPECTRO.INSTRUMENT_NAME);
       
       NMJD++ ;
     }
@@ -10379,7 +10380,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.TEXPOSE_LIST[imjd]        = -9.0 ;
     GENSPEC.OPT_TEXPOSE_LIST[imjd]    = -9 ;
     GENSPEC.INDEX_TAKE_SPECTRUM[imjd] = -9 ;
-
+    GENSPEC.INSTRUMENT_LIST[imjd][0]  = 0 ;
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
     GENSPEC.IS_HOST[imjd]          = false;
@@ -11097,6 +11098,8 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   if ( INDX < 0 )         { return ; } // not from TAKE_SPECTRUM key
   if ( OPT_TEXPOSE != 2 ) { return ; } // not SNR option
 
+  sprintf(GENSPEC.INSTRUMENT_LIST[imjd], "%s", INPUTS_SPECTRO.INSTRUMENT_NAME);
+  
   SNR_REQUEST = eval_GENPOLY(z,GENZPOLY_SNR,fnam);
   GENSPEC.SNR_REQUEST_LIST[imjd] = SNR_REQUEST ;
 
@@ -20443,7 +20446,8 @@ void store_GENSPEC(double *VAL_STORE) {
   GENSPEC.TREST_LIST[imjd]        = TREST; 
   GENSPEC.TEXPOSE_LIST[imjd]      = TEXPOSE ;      
   GENSPEC.OPT_TEXPOSE_LIST[imjd]  = OPT_TEXPOSE ;
-
+  sprintf(GENSPEC.INSTRUMENT_LIST[imjd],"%s", INPUTS_SPECTRO.INSTRUMENT_NAME);
+  
   if ( MJD > 0.0 ) 
     { GENSPEC.IS_HOST[imjd] = 0; }  // SN spectrum
   else

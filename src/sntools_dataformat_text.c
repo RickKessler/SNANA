@@ -1178,10 +1178,14 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
       fprintf(fp,"SPECTRUM_SCALE_HOST_CONTAM: %.3f\n", SCALE);
     }
 
+    
     fprintf(fp,"SPECTRUM_TEXPOSE:  %9.1f            "
             "# seconds\n",
             GENSPEC.TEXPOSE_LIST[imjd] );
 
+    fprintf(fp, "SPECTRUM_INSTRUMENT:  %s \n",
+	    GENSPEC.INSTRUMENT_LIST[imjd]);
+    
     fprintf(fp,"SPECTRUM_SNR_COMPUTE:  %9.3f        "
             "# from user SNR request\n",
             GENSPEC.SNR_COMPUTE_LIST[imjd] );

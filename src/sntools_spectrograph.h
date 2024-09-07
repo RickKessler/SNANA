@@ -80,6 +80,7 @@ struct {
   double MJD_LIST[MXSPEC], TOBS_LIST[MXSPEC], TREST_LIST[MXSPEC];
   int    IMJD_NEARPEAK;   // imjd for SN spectrum closest to peak
 
+  char   INSTRUMENT_LIST[MXSPEC][40]; 
   int    OPT_TEXPOSE_LIST[MXSPEC] ; // =1(user-fixe), =2(compute from SNR)
   double TEXPOSE_LIST[MXSPEC];
   double TEXPOSE_TEMPLATE ;            // passed from SIMLIB or computed

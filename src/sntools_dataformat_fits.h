@@ -208,6 +208,7 @@ struct {
   int    *NLAMBIN ;
   double *MJD;
   float  *TEXPOSE;
+  char  **INSTRUMENT ; // Sep 2024
   int    *PTRSPEC_MIN, *PTRSPEC_MAX ;
 } RDSPEC_SNFITSIO_HEADER ;
 

@@ -849,7 +849,7 @@ void wr_snfitsio_init_spec(void) {
   sprintf(TBLname, "%s", "SPECTRO_HEADER" );
   wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
   wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
-  wr_snfitsio_addCol( "1E",  "Texpose",     itype   ) ;
+  wr_snfitsio_addCol( "1D",  "Texpose",     itype   ) ;
   wr_snfitsio_addCol( "20A", "INSTRUMENT",  itype   ) ;
     
   if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
@@ -2550,12 +2550,13 @@ void  wr_snfitsio_update_spec(int imjd)  {
   WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.MJD_LIST[imjd] ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
 
-  // Texpose
   if ( SNFITSIO_CODE_IVERSION >= 26 )  {  // Sep 6 2024
+    // Texpose    
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.TEXPOSE_LIST[imjd] ;
     wr_snfitsio_fillTable ( ptrColnum, "Texpose", itype );
 
+    // instrument name
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_A = GENSPEC.INSTRUMENT_LIST[imjd] ;
     wr_snfitsio_fillTable ( ptrColnum, "INSTRUMENT", itype );
@@ -2563,7 +2564,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   
   if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
 
-    if ( SNFITSIO_CODE_IVERSION < 26 ) {
+    if ( SNFITSIO_CODE_IVERSION < 26 ) { // legacy write
       // Texpose
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
@@ -3795,7 +3796,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       GENSPEC.NBLAM_VALID[ispec]   = NBLAM ;
       GENSPEC.MJD_LIST[ispec]      = RDSPEC_SNFITSIO_HEADER.MJD[irow];
       GENSPEC.TEXPOSE_LIST[ispec]  = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];
-      sprintf(GENSPEC.INSTRUMENT_LIST[ispec],"%s",RDSPEC_SNFITSIO_HEADER.INSTRUMENT[irow]);
+      sprintf(GENSPEC.INSTRUMENT_LIST[ispec],"%s",
+	      RDSPEC_SNFITSIO_HEADER.INSTRUMENT[irow]);
       GENSPEC.ID_LIST[ispec]       = ispec+1 ;  // ID starts at 1
 
       RD_SNFITSIO_SPECDATA(irow  

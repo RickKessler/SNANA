@@ -2008,7 +2008,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
   char fnam[] = "RD_SNTEXTIO_EVENT";
 
   // ------------ BEGIN ----------
-
+  
   if ( ifile < 0 || ifile >= NFILE_TOT ) {
     sprintf(c1err,"Invalid ifile=%d", ifile);
     sprintf(c2err,"Valid ifile is 0 to %d", NFILE_TOT-1);
@@ -3148,7 +3148,8 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   // Look for SPECTRUM keys, and load GENSPEC struct (part of reading)
   // Sep 21 2022 RK - abort if actual number of SPEC keys does not match
   //                  NBLAM
-
+  // Sep 06 2024: RK - read SPECTRUM_INSTRUMENT
+  
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;
   int  ID, ivar, NBLAM, ilam ; 
@@ -3194,6 +3195,10 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   else if ( strcmp(word0,"SPECTRUM_TEXPOSE:") == 0 ) {
     iwd++; get_PARSE_WORD_DBL(langC, iwd, &GENSPEC.TEXPOSE_LIST[ISPEC] );
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_INSTRUMENT:") == 0 ) {
+    iwd++; get_PARSE_WORD(langC, iwd, GENSPEC.INSTRUMENT_LIST[ISPEC] );
   }
 
   else if ( strcmp(word0,"SPECTRUM_SNR_COMPUTE:") == 0 ) {

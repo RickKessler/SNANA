@@ -8322,33 +8322,29 @@ int init_SNDATA_EVENT(void) {
 // =================================================
 void init_GENSPEC_GLOBAL(void) {
   int ispec;
+  char fnam[] = "init_GENSPEC_GLOBAL";
+  // -------- BEGIN ---------
+  
   GENSPEC.NMJD_PROC = 0 ;
   GENSPEC.USE_WARP  = 0 ;
   for(ispec=0; ispec < MXSPECTRA; ispec++ )  { 
     GENSPEC.NBLAM_VALID[ispec] = 0;
     GENSPEC.SKIP[ispec]        = false;
+    GENSPEC.TEXPOSE_LIST[ispec] = 0.0 ;
+    sprintf(GENSPEC.INSTRUMENT_LIST[ispec], "UNKNOWN");
   } 
   return;
 } // end init_GENSPEC_GLOBAL
 
 void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
-  
   char fnam[] = "init_GENSPEC_EVENT";
 
-  //  printf(" xxx %s: ispec=%d NB=%d  last NB=%d\n",
-  //	 fnam, ispec, NBLAM, GENSPEC.NBLAM_VALID[ispec]  );
-
-  if  ( ispec < 0 ) { init_GENSPEC_GLOBAL(); return; }
+  // --------- BEGIN -----------
   
-  /* xxx
-  if ( GENSPEC.NBLAM_VALID[ispec] > 0 ) {
-    malloc_GENSPEC(-1, 0);
-  }
-  xxx */
-
+  if  ( ispec < 0 ) { init_GENSPEC_GLOBAL(); return; } 
+  
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
-  // xxx mark   int MEMD = NBLAM * sizeof(double) ;
 
   if ( GENSPEC.IS_MALLOC[ispec] ) { malloc_GENSPEC(-1, ispec, 0); }
 
@@ -8357,7 +8353,7 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   
   // Jul 1 2021: init wave-dependent arrays in case they aren't filled
   int ilam;
-  for(ilam=0; ilam < NBLAM; ilam++ ) {
+  for(ilam=0; ilam < NBLAM; ilam++ ) {    
     GENSPEC.FLAM_LIST[ispec][ilam]     = -9.0 ;
     GENSPEC.FLAMERR_LIST[ispec][ilam]  = -9.0 ;
     GENSPEC.FLAMWARP_LIST[ispec][ilam] =  1.0 ;

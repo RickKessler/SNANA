@@ -1396,24 +1396,7 @@ def read_tables(args, plot_info):
                               nrows    = NROWS )
 
         if store_df_ref:    df_ref = copy.deepcopy(df)
-
-        # xxxxxxxx mark delete Sep 5 2024 xxxxxxxx
-        # figure out KEYNAME to id events
-        USE_OBSOLETE = False
-        if USE_OBSOLETE:
-            plot_info.varname_idrow = None
-            for varname_idrow in VARNAME_IDROW_LIST:
-                if varname_idrow in df:
-                    plot_info.varname_idrow = varname_idrow
-            varname_idrow = plot_info.varname_idrow
-            if varname_idrow is None:
-                sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
-                         f"among {VARNAME_IDROW_LIST}")
-        # xxxxxxx end mark xxxxxxxxxx
-        
-        # make sure that all requested variables (and error-vars) exist in df
-        # xxx mark check_vars_exist(args, df, tfile)
-        
+                
         try:
             df[varname_idrow] = df[varname_idrow].astype(str)
         except KeyError:
@@ -2077,8 +2060,8 @@ def get_info_plot2d(args, info_plot_dict):
         # if there is no user-supplied legend, construct legend using
         # auto-generated legend from each plot
         if args.LEGEND is None:
-            info_plot_dict['plt_legend'] = f"{name_legend} - {name_legend_ref}"
-            # xxx mark info_plot_dict['plt_legend']=name_legend_ref + ' - ' + name_legend
+            info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
+            # xxx mark delete info_plot_dict['plt_legend'] = f"{name_legend}-{name_legend_ref}"
         
         if args.DIFF == OPT_DIFF_CID :
             #need to do an inner join with each entry in dic, then plot the diff
@@ -2087,8 +2070,8 @@ def get_info_plot2d(args, info_plot_dict):
             join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
                                  how='inner', lsuffix='_0', rsuffix='_1')
             xval_list = join.x_plot_val_0.values
-            # xxx mark delete yval_list=join.y_plot_val_0.values-join.y_plot_val_1.values
-            yval_list = join.y_plot_val_1.values - join.y_plot_val_0.values            
+            yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
+            # xxx mark delete yval_list = join.y_plot_val_1.values-join.y_plot_val_0.values 
 
             info_plot_dict['xval_list']     = xval_list
             info_plot_dict['yval_list']     = yval_list

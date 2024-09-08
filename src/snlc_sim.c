@@ -30292,14 +30292,12 @@ void SIMLIB_DUMP_DRIVER(void) {
   sprintf(PREFIX, "%s", INPUTS.SIMLIB_FILE);
   basename = strrchr(PREFIX, '/');
   if ( basename != NULL ) { sprintf(PREFIX, "%s", basename+1 ); }
-  ptr_substr = strstr(PREFIX,".SIMLIB");
-  if ( ptr_substr == NULL ) { ptr_substr = strstr(PREFIX,".simlib"); }
-  int j = ptr_substr - PREFIX;
-  PREFIX[j] = 0;
 
+  ptr_substr = strrchr(PREFIX,'.'); // string remaining after last dot
+  int j = ptr_substr - PREFIX ;
+  PREFIX[j] = 0;
   
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
-
   if ( LDMP_AVG_TEXT ) {
 
     get_filename_SIMLIB_DUMP("AVG", PREFIX,  SIMLIB_DUMPFILE_AVG);    

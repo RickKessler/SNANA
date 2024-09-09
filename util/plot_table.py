@@ -31,7 +31,8 @@ NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
 NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
-DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=', '*', '+', '-', '/' ]  # for @@CUT
+DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',
+                        '==', '!=', '=', '*', '+', '-', '/' ]  # for @@CUT
 
 COLON = ':'
 BAR   = '|'
@@ -905,16 +906,27 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
               f"\t STRING_local({len_str}) = {STRING_local}")
         
             
-    j_last = 0
-    for j in range(0,len_str):
+    j_last = 0 ; j=0
+    while j < len_str :
         ch         = STRING_local[j:j+1]  # current char
+        ch2        = STRING_local[j:j+2]  # allow 2-char delim; e.g., >=
         is_last    = (j == len_str-1)
-        is_delim   = (ch in DELIM_LIST)
+
+        delim = None
+        if ch2 in DELIM_LIST:            
+            delim = ch2  # 2-char delims take priority over single-char delim
+        elif ch in DELIM_LIST:
+            delim = ch
+            
+        is_delim  = delim is not None        
+        
         str_last = None
         j_last_dump = j_last
         if is_delim:
+            len_delim = len(delim)            
             str_last = STRING_local[j_last:j].replace(' ','')
-            j_last = j+1
+            # xxx mark delete j_last = j+1
+            j_last = j + len_delim 
         elif is_last:
             str_last = STRING_local[j_last:j+1].replace(' ','')
             
@@ -931,15 +943,22 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
                 
         if is_delim:
-            split_list.append(ch)
+            if delim == '=' : delim = '=='  # allow user to specify single '='
+            split_list.append(delim)
             strtype_list.append(STRTYPE_DELIM)
 
         if args.DEBUG_FLAG_DUMP_TRANSLATE2 :
             print(f"\t xxx - - - - - - - - ")
-            print(f"\t xxx j={j}  j_last={j_last_dump}  ch={ch}  " \
+            print(f"\t xxx j={j}  j_last={j_last_dump}  ch='{ch}' or '{ch2}'  " \
                   f"is_[last,delim]={is_last},{is_delim}  " \
                   f"str_last={str_last}  valid_str_last={valid_str_last}")
             print(f"\t xxx split_list -> {split_list}")
+
+        # increment char counter by 1, unless delimiter has 2 chars
+        if is_delim:
+            j += len_delim  # advance 1 or 2 chars for delimeter
+        else:
+            j += 1          # advance 1 char for everything else
         
     # - - - -
     return split_list, strtype_list
@@ -1036,14 +1055,15 @@ def translate_CUT(CUT):
     if STR_df in CUT: return CUT, []
 
     CUT = CUT.replace(' ','')
-    
+
+    # xxxxxxx mark delete Sep 8 2024 xxxxxxxx
     # '=' is the only delimeter where user might use '==' instead,
     # and 2-char delimiter totally breaks the logic below. Rather 
     # than abort, just fix it here so that FIELD='C3' or FIELD=='C3' 
     # will both work.
-    if '==' in CUT:
-        CUT = CUT.replace('==', '=')
-
+    #if '==' in CUT:
+    #    CUT = CUT.replace('==', '=')
+    # xxxxx end mark xxxxxx
 
     # split into sections separated by boolean &, |, or ()
     cut_list = re.split(r"\(|\)|\&|\|", CUT.replace(' ',''))
@@ -1097,13 +1117,17 @@ def translate_CUT(CUT):
         if args.DEBUG_FLAG_DUMP_TRANSLATE:
             print(f" xxx \t replace user cut {cut} --> {cut_df} ")
 
+
+    # xxxxxxx prepare to delete xxxxxxxxxxxx
     # replace input for '=' with '==', but be careful not change '!='
     # This logic is a bit goofy; is there a  simpler logic?
-    if '=' in CUT_df:
-        CUT_df = CUT_df.replace('=', '==')
-    if '!==' in CUT_df:
-        CUT_df = CUT_df.replace('!==', '!=')        
-            
+    USE_OBSOLETE = False
+    if USE_OBSOLETE :
+        if '=' in CUT_df:
+            CUT_df = CUT_df.replace('=', '==')
+        if '!==' in CUT_df:
+            CUT_df = CUT_df.replace('!==', '!=')        
+    # xxxxxxxxxxxx
 
     # finally, wrap entire cut in df.loc[ CUT ]
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    
@@ -1505,7 +1529,11 @@ def set_xbins(args, plot_info):
         xmax = -1.0e20
         for key_tf  in MASTER_DF_DICT:
             xmin = min(xmin,MASTER_DF_DICT[key_tf]['xmin'])
-            xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])            
+            xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])
+
+        if xmin == xmax:
+            xmin -= 1.0  # hack to avoid crash
+            xmax += 1.0
         nxbin = NXBIN_AUTO * args.NBIN_AUTO_SCALE
         
     #  - - - - 

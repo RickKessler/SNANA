@@ -18565,6 +18565,13 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
 	  PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 	  SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
+
+	  if ( PIXSIZE <= .000001 ) {
+	    sprintf(c1err,"Undefined pixel size; ");
+	    sprintf(c2err,"PIXSIZE: <size>   must be in global SIMLIB header "
+		    "or each LIBID");
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 	      
+	  }
 	  
 	  // set 'not from spectrograph' values
 	  SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[ISTORE]   = -9 ;

@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
   if (argc < 2) { print_sim_help();  exit(0); }
 
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
+
   print_banner(BANNER);
 
   //  errmsg(SEV_FATAL, 0, "main", "testing CodeTest", "Remove this" ); 
@@ -12907,6 +12908,10 @@ double gen_MWEBV(double RA, double DEC) {
   // apply user scale (June 2017)
   GENLC.MWEBV_SMEAR *= INPUTS.MWEBV_SCALE ;
 
+  // added by epeterson and dbrout 9/12/24
+  GENLC.MWEBV += get_zvariation(GENLC.REDSHIFT_CMB,"EBV_IGM");
+
+
   if ( LDMP ) {
     printf(" xxx --------------------------------------- \n");
     printf(" xxx CID=%2d NEWC=%d  RA=%.6f  DEC=%.6f  "
@@ -16961,7 +16966,6 @@ double gen_AV(void) {
     AV = getRan_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_AV);
     
   }
- 
 
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,
@@ -21397,7 +21401,7 @@ void init_zvariation(void) {
     
     sprintf(parName,"%s_AV", GENPREFIX );
     update_PARDEF_ZVAR( parName );
-    
+
     if ( INPUTS.NPAR_SIMSED > 0 ) { 
       for ( ipar=0; ipar < INPUTS.NPAR_SIMSED; ipar++ ) {
 	ptrPar = INPUTS.PARNAME_SIMSED[ipar] ;
@@ -21429,6 +21433,7 @@ void init_zvariation(void) {
 
       sprintf(parName,"%s_STRETCH", GENPREFIX );
       update_PARDEF_ZVAR( parName );
+
     }
     
   } // end i loop over PREFIX_GENGAUSS
@@ -21450,6 +21455,8 @@ void init_zvariation(void) {
 
     update_PARDEF_ZVAR( "VSI"                ); // Si velocity for VCR model
     update_PARDEF_ZVAR( "GENMAG_OFF_GLOBAL"  ); // added July 2017
+
+    update_PARDEF_ZVAR( "EBV_IGM" ); //added by epeterson and dbrout 9/12/24
   }
 
   // ---------------------------------

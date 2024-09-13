@@ -30303,12 +30303,18 @@ void SIMLIB_DUMP_DRIVER(void) {
   // Sep 2024 RK - determine dump file prefix to be simlib file name before the .SIMLIB
   // e.g., SIMLIB_FILE = LSST_baseline_v3.4.SIMLIB -> prefix = LSST_baseline_v3.4
   char PREFIX[MXPATHLEN], *ptr_substr, *basename;
+  int j;
   sprintf(PREFIX, "%s", INPUTS.SIMLIB_FILE);
   basename = strrchr(PREFIX, '/');
   if ( basename != NULL ) { sprintf(PREFIX, "%s", basename+1 ); }
 
+  // remove .COADD
+  ptr_substr = strstr(PREFIX,".COADD");
+  if ( ptr_substr != NULL )
+    {  j = ptr_substr - PREFIX ; PREFIX[j] = 0 ; }
+   
   ptr_substr = strrchr(PREFIX,'.'); // string remaining after last dot
-  int j = ptr_substr - PREFIX ;
+  j = ptr_substr - PREFIX ;
   PREFIX[j] = 0;
   
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
@@ -30718,6 +30724,7 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX,
   char CUT_STRING[100], cut_add[60];
   char   *FIELD  = INPUTS.SIMLIB_FIELDLIST;
   double *ptrMJD = INPUTS.GENRANGE_MJD;
+  int    MINOBS  = INPUTS.SIMLIB_MINOBS ;
   int    PRESCALE = INPUTS.SIMLIB_PRESCALE ;
   
   char   fnam[] = "get_filename_SIMLIB_DUMP" ;
@@ -30734,6 +30741,11 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX,
   if ( ptrMJD[0] > 21000. || ptrMJD[1] < 79000. ) {	      
     sprintf(cut_add,"_%d-%d", (int)ptrMJD[0], (int)ptrMJD[1] );
     strcat(CUT_STRING, cut_add);
+  }
+
+  if ( MINOBS > 1 ) {
+    sprintf(cut_add,"_MINOBS%d", MINOBS);
+    strcat(CUT_STRING, cut_add);    
   }
 
   if ( PRESCALE > 1 ) {

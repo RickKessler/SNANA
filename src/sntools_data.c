@@ -1122,6 +1122,12 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
   else if ( strcmp(key,"TEXPOSE") == 0 ) 
     { copy_dbl(copyFlag, parVal, &GENSPEC.TEXPOSE_LIST[ispec] );  }
 
+  // xxxxxxxxxxx
+  // ?? no string passed ??
+  //else if ( strcmp(key,"INSTRUMENT") == 0 ) {
+  // copy_str(copyFlag, stringVal, GENSPEC.INSTRUMENT_LIST[ispec] ); 
+  // xxxxx
+  
   // lam-dependent arrays
 
   else if ( strcmp(key,"LAMMIN") == 0 ) {

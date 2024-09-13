@@ -31,7 +31,8 @@ NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
 NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
-DELIMITER_CUT_LIST  = [ '&', '|', '>', '<', '=', '*', '+', '-', '/' ]  # for @@CUT
+DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',
+                        '==', '!=', '=', '*', '+', '-', '/' ]  # for @@CUT
 
 COLON = ':'
 BAR   = '|'
@@ -905,16 +906,27 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
               f"\t STRING_local({len_str}) = {STRING_local}")
         
             
-    j_last = 0
-    for j in range(0,len_str):
+    j_last = 0 ; j=0
+    while j < len_str :
         ch         = STRING_local[j:j+1]  # current char
+        ch2        = STRING_local[j:j+2]  # allow 2-char delim; e.g., >=
         is_last    = (j == len_str-1)
-        is_delim   = (ch in DELIM_LIST)
+
+        delim = None
+        if ch2 in DELIM_LIST:            
+            delim = ch2  # 2-char delims take priority over single-char delim
+        elif ch in DELIM_LIST:
+            delim = ch
+            
+        is_delim  = delim is not None        
+        
         str_last = None
         j_last_dump = j_last
         if is_delim:
+            len_delim = len(delim)            
             str_last = STRING_local[j_last:j].replace(' ','')
-            j_last = j+1
+            # xxx mark delete j_last = j+1
+            j_last = j + len_delim 
         elif is_last:
             str_last = STRING_local[j_last:j+1].replace(' ','')
             
@@ -931,15 +943,22 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
                 
         if is_delim:
-            split_list.append(ch)
+            if delim == '=' : delim = '=='  # allow user to specify single '='
+            split_list.append(delim)
             strtype_list.append(STRTYPE_DELIM)
 
         if args.DEBUG_FLAG_DUMP_TRANSLATE2 :
             print(f"\t xxx - - - - - - - - ")
-            print(f"\t xxx j={j}  j_last={j_last_dump}  ch={ch}  " \
+            print(f"\t xxx j={j}  j_last={j_last_dump}  ch='{ch}' or '{ch2}'  " \
                   f"is_[last,delim]={is_last},{is_delim}  " \
                   f"str_last={str_last}  valid_str_last={valid_str_last}")
             print(f"\t xxx split_list -> {split_list}")
+
+        # increment char counter by 1, unless delimiter has 2 chars
+        if is_delim:
+            j += len_delim  # advance 1 or 2 chars for delimeter
+        else:
+            j += 1          # advance 1 char for everything else
         
     # - - - -
     return split_list, strtype_list
@@ -1036,14 +1055,15 @@ def translate_CUT(CUT):
     if STR_df in CUT: return CUT, []
 
     CUT = CUT.replace(' ','')
-    
+
+    # xxxxxxx mark delete Sep 8 2024 xxxxxxxx
     # '=' is the only delimeter where user might use '==' instead,
     # and 2-char delimiter totally breaks the logic below. Rather 
     # than abort, just fix it here so that FIELD='C3' or FIELD=='C3' 
     # will both work.
-    if '==' in CUT:
-        CUT = CUT.replace('==', '=')
-
+    #if '==' in CUT:
+    #    CUT = CUT.replace('==', '=')
+    # xxxxx end mark xxxxxx
 
     # split into sections separated by boolean &, |, or ()
     cut_list = re.split(r"\(|\)|\&|\|", CUT.replace(' ',''))
@@ -1097,13 +1117,17 @@ def translate_CUT(CUT):
         if args.DEBUG_FLAG_DUMP_TRANSLATE:
             print(f" xxx \t replace user cut {cut} --> {cut_df} ")
 
+
+    # xxxxxxx prepare to delete xxxxxxxxxxxx
     # replace input for '=' with '==', but be careful not change '!='
     # This logic is a bit goofy; is there a  simpler logic?
-    if '=' in CUT_df:
-        CUT_df = CUT_df.replace('=', '==')
-    if '!==' in CUT_df:
-        CUT_df = CUT_df.replace('!==', '!=')        
-            
+    USE_OBSOLETE = False
+    if USE_OBSOLETE :
+        if '=' in CUT_df:
+            CUT_df = CUT_df.replace('=', '==')
+        if '!==' in CUT_df:
+            CUT_df = CUT_df.replace('!==', '!=')        
+    # xxxxxxxxxxxx
 
     # finally, wrap entire cut in df.loc[ CUT ]
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    
@@ -1396,24 +1420,7 @@ def read_tables(args, plot_info):
                               nrows    = NROWS )
 
         if store_df_ref:    df_ref = copy.deepcopy(df)
-
-        # xxxxxxxx mark delete Sep 5 2024 xxxxxxxx
-        # figure out KEYNAME to id events
-        USE_OBSOLETE = False
-        if USE_OBSOLETE:
-            plot_info.varname_idrow = None
-            for varname_idrow in VARNAME_IDROW_LIST:
-                if varname_idrow in df:
-                    plot_info.varname_idrow = varname_idrow
-            varname_idrow = plot_info.varname_idrow
-            if varname_idrow is None:
-                sys.exit(f"\n ERROR: could not find valid VARNAME_IDROW " \
-                         f"among {VARNAME_IDROW_LIST}")
-        # xxxxxxx end mark xxxxxxxxxx
-        
-        # make sure that all requested variables (and error-vars) exist in df
-        # xxx mark check_vars_exist(args, df, tfile)
-        
+                
         try:
             df[varname_idrow] = df[varname_idrow].astype(str)
         except KeyError:
@@ -1522,7 +1529,11 @@ def set_xbins(args, plot_info):
         xmax = -1.0e20
         for key_tf  in MASTER_DF_DICT:
             xmin = min(xmin,MASTER_DF_DICT[key_tf]['xmin'])
-            xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])            
+            xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])
+
+        if xmin == xmax:
+            xmin -= 1.0  # hack to avoid crash
+            xmax += 1.0
         nxbin = NXBIN_AUTO * args.NBIN_AUTO_SCALE
         
     #  - - - - 
@@ -2077,8 +2088,8 @@ def get_info_plot2d(args, info_plot_dict):
         # if there is no user-supplied legend, construct legend using
         # auto-generated legend from each plot
         if args.LEGEND is None:
-            info_plot_dict['plt_legend'] = f"{name_legend} - {name_legend_ref}"
-            # xxx mark info_plot_dict['plt_legend']=name_legend_ref + ' - ' + name_legend
+            info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
+            # xxx mark delete info_plot_dict['plt_legend'] = f"{name_legend}-{name_legend_ref}"
         
         if args.DIFF == OPT_DIFF_CID :
             #need to do an inner join with each entry in dic, then plot the diff
@@ -2087,8 +2098,8 @@ def get_info_plot2d(args, info_plot_dict):
             join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
                                  how='inner', lsuffix='_0', rsuffix='_1')
             xval_list = join.x_plot_val_0.values
-            # xxx mark delete yval_list=join.y_plot_val_0.values-join.y_plot_val_1.values
-            yval_list = join.y_plot_val_1.values - join.y_plot_val_0.values            
+            yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
+            # xxx mark delete yval_list = join.y_plot_val_1.values-join.y_plot_val_0.values 
 
             info_plot_dict['xval_list']     = xval_list
             info_plot_dict['yval_list']     = yval_list

@@ -849,9 +849,12 @@ void wr_snfitsio_init_spec(void) {
   sprintf(TBLname, "%s", "SPECTRO_HEADER" );
   wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
   wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
-
+  wr_snfitsio_addCol( "1D",  "Texpose",     itype   ) ;
+  wr_snfitsio_addCol( "20A", "INSTRUMENT",  itype   ) ;
+    
   if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
-    wr_snfitsio_addCol( "1E",  "Texpose",     itype   ) ; 
+    // xxx mark delete Sep 6 2024 wr_snfitsio_addCol( "1E",  "Texpose", itype );
+    wr_snfitsio_addCol( "1E",  "INSTRUMENT",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 
@@ -988,9 +991,10 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
   //  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
   //  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
-
-  SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
-
+  //   SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
+  
+  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
+  
   // - - - - - - - 
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
@@ -2546,12 +2550,26 @@ void  wr_snfitsio_update_spec(int imjd)  {
   WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.MJD_LIST[imjd] ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
 
-
-  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
-    // Texpose
+  if ( SNFITSIO_CODE_IVERSION >= 26 )  {  // Sep 6 2024
+    // Texpose    
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.TEXPOSE_LIST[imjd] ;
     wr_snfitsio_fillTable ( ptrColnum, "Texpose", itype );
+
+    // instrument name
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_A = GENSPEC.INSTRUMENT_LIST[imjd] ;
+    wr_snfitsio_fillTable ( ptrColnum, "INSTRUMENT", itype );
+  }
+  
+  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
+
+    if ( SNFITSIO_CODE_IVERSION < 26 ) { // legacy write
+      // Texpose
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
+      wr_snfitsio_fillTable ( ptrColnum, "Texpose", itype );
+    }
     
     // - - - - - -
     // SNR_COMPUTE
@@ -3778,6 +3796,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       GENSPEC.NBLAM_VALID[ispec]   = NBLAM ;
       GENSPEC.MJD_LIST[ispec]      = RDSPEC_SNFITSIO_HEADER.MJD[irow];
       GENSPEC.TEXPOSE_LIST[ispec]  = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];
+      sprintf(GENSPEC.INSTRUMENT_LIST[ispec],"%s",
+	      RDSPEC_SNFITSIO_HEADER.INSTRUMENT[irow]);
       GENSPEC.ID_LIST[ispec]       = ispec+1 ;  // ID starts at 1
 
       RD_SNFITSIO_SPECDATA(irow  
@@ -5042,6 +5062,8 @@ void  rd_snfitsio_specFile( int ifile ) {
   // Beware that sim-only keys are sandwiched between required data-or-sim keys,
   // so fits_get_colnum(...) is used to jump over sim keys and find NBIN_LAM;
   // this logic should be robust if more SIM keys are added in the future.
+  // Since sim keys are skipped, translating FITS -> TEXT doesn't include
+  // the sim-only header keys for each spectrum.
   
   int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
@@ -5098,25 +5120,27 @@ void  rd_snfitsio_specFile( int ifile ) {
   fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
 		    RDSPEC_SNFITSIO_HEADER.MJD, &anynul, &istat ); 
 
-  // Sep 2024: skip over sim keys and jump to column with name 'NBIN_LAM'
+  if ( SNFITSIO_CODE_IVERSION >= 26 ) {
+    icol=3 ;
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
+
+    icol=4 ;
+    fits_read_col_str(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_A,
+		      RDSPEC_SNFITSIO_HEADER.INSTRUMENT, &anynul, &istat );     
+  } 
+  
+  // Sep 2024: skip over optional LAMMIN/LAMMAX/LAMBIN keys and jump
+  // to column with name 'NBIN_LAM'
   char NEXT_COL[] = "NBIN_LAM" ;
   int ICOL_NBIN_LAM;
   fits_get_colnum(fp, CASEINSEN, NEXT_COL, &ICOL_NBIN_LAM, &istat);
   icol = ICOL_NBIN_LAM-1; ; // decrement here because it is incremented below.
-  
-  // xxx printf("\n xxx %s: icol(NBIN_LAM)= %d  istat=%d", fnam, ICOL_NBIN_LAM, istat);
-  // xxx debugexit(fnam);
-  
-
-  
+    
   /* xxxxxxx mark delete Sep 6 2024 xxxxxxx
     icol=3 ;
    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
 		    RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
-  
-
-  // Sep 2024: advance icol only for sim. Unfortunately the extra sim info
-  //           is sandwiched between real-data keys, so this logic is clumsy.
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     icol = 6;
     if ( SNFITSIO_CODE_IVERSION >= 22 ) { icol = 7 ; }
@@ -5291,10 +5315,12 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
     RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
     RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
 
-    RDSPEC_SNFITSIO_HEADER.SNID  = (char**) malloc (MEMC) ;
+    RDSPEC_SNFITSIO_HEADER.SNID       = (char**) malloc (MEMC) ;
+    RDSPEC_SNFITSIO_HEADER.INSTRUMENT = (char**) malloc (MEMC) ;    
     for(irow=0; irow<NROW; irow++ ) {
-      RDSPEC_SNFITSIO_HEADER.SNID[irow] = (char*) malloc(MEMSNID);
-      MEMTOT += (double)MEMSNID;
+      RDSPEC_SNFITSIO_HEADER.SNID[irow]       = (char*) malloc(MEMSNID);
+      RDSPEC_SNFITSIO_HEADER.INSTRUMENT[irow] = (char*) malloc(MEMSNID);      
+      MEMTOT += 2.0 * (double)MEMSNID;
     }
 
 

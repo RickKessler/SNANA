@@ -10340,6 +10340,7 @@ void GENSPEC_MJD_OBS(void) {
       GENSPEC.INDEX_TAKE_SPECTRUM[NMJD] = NMJD ;
       GENSPEC.INV_TAKE_SPECTRUM[NMJD]   = NMJD ;
       GENSPEC.SKIP[NMJD] = false;
+      sprintf(GENSPEC.INSTRUMENT_LIST[NMJD],"%s", INPUTS_SPECTRO.INSTRUMENT_NAME);
       
       NMJD++ ;
     }
@@ -10380,7 +10381,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.TEXPOSE_LIST[imjd]        = -9.0 ;
     GENSPEC.OPT_TEXPOSE_LIST[imjd]    = -9 ;
     GENSPEC.INDEX_TAKE_SPECTRUM[imjd] = -9 ;
-
+    GENSPEC.INSTRUMENT_LIST[imjd][0]  = 0 ;
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
     GENSPEC.IS_HOST[imjd]          = false;
@@ -11098,6 +11099,8 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   if ( INDX < 0 )         { return ; } // not from TAKE_SPECTRUM key
   if ( OPT_TEXPOSE != 2 ) { return ; } // not SNR option
 
+  sprintf(GENSPEC.INSTRUMENT_LIST[imjd], "%s", INPUTS_SPECTRO.INSTRUMENT_NAME);
+  
   SNR_REQUEST = eval_GENPOLY(z,GENZPOLY_SNR,fnam);
   GENSPEC.SNR_REQUEST_LIST[imjd] = SNR_REQUEST ;
 
@@ -18566,6 +18569,13 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
 	  PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 	  SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
+
+	  if ( PIXSIZE <= .000001 ) {
+	    sprintf(c1err,"Undefined pixel size; ");
+	    sprintf(c2err,"PIXSIZE: <size>   must be in global SIMLIB header "
+		    "or each LIBID");
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 	      
+	  }
 	  
 	  // set 'not from spectrograph' values
 	  SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[ISTORE]   = -9 ;
@@ -20447,7 +20457,8 @@ void store_GENSPEC(double *VAL_STORE) {
   GENSPEC.TREST_LIST[imjd]        = TREST; 
   GENSPEC.TEXPOSE_LIST[imjd]      = TEXPOSE ;      
   GENSPEC.OPT_TEXPOSE_LIST[imjd]  = OPT_TEXPOSE ;
-
+  sprintf(GENSPEC.INSTRUMENT_LIST[imjd],"%s", INPUTS_SPECTRO.INSTRUMENT_NAME);
+  
   if ( MJD > 0.0 ) 
     { GENSPEC.IS_HOST[imjd] = 0; }  // SN spectrum
   else
@@ -30295,14 +30306,12 @@ void SIMLIB_DUMP_DRIVER(void) {
   sprintf(PREFIX, "%s", INPUTS.SIMLIB_FILE);
   basename = strrchr(PREFIX, '/');
   if ( basename != NULL ) { sprintf(PREFIX, "%s", basename+1 ); }
-  ptr_substr = strstr(PREFIX,".SIMLIB");
-  if ( ptr_substr == NULL ) { ptr_substr = strstr(PREFIX,".simlib"); }
-  int j = ptr_substr - PREFIX;
-  PREFIX[j] = 0;
 
+  ptr_substr = strrchr(PREFIX,'.'); // string remaining after last dot
+  int j = ptr_substr - PREFIX ;
+  PREFIX[j] = 0;
   
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
-
   if ( LDMP_AVG_TEXT ) {
 
     get_filename_SIMLIB_DUMP("AVG", PREFIX,  SIMLIB_DUMPFILE_AVG);    

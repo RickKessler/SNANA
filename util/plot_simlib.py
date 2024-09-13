@@ -66,6 +66,9 @@ def get_args():
     msg = "select FIELD"
     parser.add_argument("--field", help=msg, type=str, default=None)    
 
+    msg = "min NOBS for LIBID-averaged plots"
+    parser.add_argument("--nobs_min", help=msg, type=int, default=0)    
+    
     msg = "prescale cadences written to SIMLIB DUMP file"
     parser.add_argument("--prescale", help=msg, type=int, default=None )
 

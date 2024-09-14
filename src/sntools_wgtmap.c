@@ -43,6 +43,12 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
   if ( IGNOREFILE(WGTMAP_FILE) ) { return 0; }
   
   fp = open_TEXTgz(WGTMAP_FILE, TEXTMODE_read, &gzipFlag );
+
+  if ( !fp ) {
+    sprintf(c1err,"Unable to open WGTMAP file");
+    sprintf(c2err,"%s", WGTMAP_FILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
+  }
   
   if ( FLAG_VERBOSE ) {
     if ( FLAG_VARNAMES_ONLY ) 

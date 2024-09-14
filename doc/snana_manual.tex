@@ -4048,27 +4048,12 @@ However, for large variations it would be prudent to make an
 explicit crosscheck by re-generating another kcor/calib file.
 
 
-\bigskip
-WARNING: {\tt EXTINC\_MILKYWAY} is obsolete and will cause the
-simulation to abort.
 
-\subsubsection{Correcting FLUXCAL for Galactic Extinction}
-\label{sss:FLUXCOR_MWEBV}
-By default, the reported {\tt FLUXCAL} and \uncs\ in the data
-files include the effect of Galactic extinction. The analysis
-codes must therefore account for this effect.
-In some cases it is convenient to provide de-reddened data files. 
-Simulated {\tt FLUXCAL} in the data files can be internally 
-corrected by setting {\tt OPT\_MWEBV} to be negative:
-e.g., ``{\tt OPT\_MWEBV: -2}'' will apply a smeared SFD98 map 
-to redden the observed fluxes, and then correct the observed 
-fluxes ({\tt FLUXCAL}) using the SFD98 map value and central
-wavelength of each filter.
-Although the fluxes are MWEBV-corrected, the SNR is degraded 
-from the reduced photo-statistics.
-Because of MWEBV \unc, the true extinction differs from the map value
-and this true value is used to correct {\tt SIM\_MAGOBS} (each epoch)
-and {\tt SIM\_PEAKMAG}.
+\subsubsection{Simulating Intergalactic Extinction}
+\label{sss:IGM}
+
+...
+
 
 % ------------------------------------
 \clearpage

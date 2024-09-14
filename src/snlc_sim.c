@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
   if (argc < 2) { print_sim_help();  exit(0); }
 
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
+
   print_banner(BANNER);
 
   //  errmsg(SEV_FATAL, 0, "main", "testing CodeTest", "Remove this" ); 
@@ -12913,6 +12914,10 @@ double gen_MWEBV(double RA, double DEC) {
   // apply user scale (June 2017)
   GENLC.MWEBV_SMEAR *= INPUTS.MWEBV_SCALE ;
 
+  // added by epeterson and dbrout 9/12/24
+  GENLC.MWEBV += get_zvariation(GENLC.REDSHIFT_CMB,"EBV_IGM");
+
+
   if ( LDMP ) {
     printf(" xxx --------------------------------------- \n");
     printf(" xxx CID=%2d NEWC=%d  RA=%.6f  DEC=%.6f  "
@@ -16967,7 +16972,6 @@ double gen_AV(void) {
     AV = getRan_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_AV);
     
   }
- 
 
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,
@@ -21411,7 +21415,7 @@ void init_zvariation(void) {
     
     sprintf(parName,"%s_AV", GENPREFIX );
     update_PARDEF_ZVAR( parName );
-    
+
     if ( INPUTS.NPAR_SIMSED > 0 ) { 
       for ( ipar=0; ipar < INPUTS.NPAR_SIMSED; ipar++ ) {
 	ptrPar = INPUTS.PARNAME_SIMSED[ipar] ;
@@ -21443,6 +21447,7 @@ void init_zvariation(void) {
 
       sprintf(parName,"%s_STRETCH", GENPREFIX );
       update_PARDEF_ZVAR( parName );
+
     }
     
   } // end i loop over PREFIX_GENGAUSS
@@ -21464,6 +21469,8 @@ void init_zvariation(void) {
 
     update_PARDEF_ZVAR( "VSI"                ); // Si velocity for VCR model
     update_PARDEF_ZVAR( "GENMAG_OFF_GLOBAL"  ); // added July 2017
+
+    update_PARDEF_ZVAR( "EBV_IGM" ); //added by epeterson and dbrout 9/12/24
   }
 
   // ---------------------------------
@@ -30296,12 +30303,18 @@ void SIMLIB_DUMP_DRIVER(void) {
   // Sep 2024 RK - determine dump file prefix to be simlib file name before the .SIMLIB
   // e.g., SIMLIB_FILE = LSST_baseline_v3.4.SIMLIB -> prefix = LSST_baseline_v3.4
   char PREFIX[MXPATHLEN], *ptr_substr, *basename;
+  int j;
   sprintf(PREFIX, "%s", INPUTS.SIMLIB_FILE);
   basename = strrchr(PREFIX, '/');
   if ( basename != NULL ) { sprintf(PREFIX, "%s", basename+1 ); }
 
+  // remove .COADD
+  ptr_substr = strstr(PREFIX,".COADD");
+  if ( ptr_substr != NULL )
+    {  j = ptr_substr - PREFIX ; PREFIX[j] = 0 ; }
+   
   ptr_substr = strrchr(PREFIX,'.'); // string remaining after last dot
-  int j = ptr_substr - PREFIX ;
+  j = ptr_substr - PREFIX ;
   PREFIX[j] = 0;
   
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
@@ -30711,6 +30724,7 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX,
   char CUT_STRING[100], cut_add[60];
   char   *FIELD  = INPUTS.SIMLIB_FIELDLIST;
   double *ptrMJD = INPUTS.GENRANGE_MJD;
+  int    MINOBS  = INPUTS.SIMLIB_MINOBS ;
   int    PRESCALE = INPUTS.SIMLIB_PRESCALE ;
   
   char   fnam[] = "get_filename_SIMLIB_DUMP" ;
@@ -30727,6 +30741,11 @@ void get_filename_SIMLIB_DUMP(char *WHICH, char *SIMLIB_PREFIX,
   if ( ptrMJD[0] > 21000. || ptrMJD[1] < 79000. ) {	      
     sprintf(cut_add,"_%d-%d", (int)ptrMJD[0], (int)ptrMJD[1] );
     strcat(CUT_STRING, cut_add);
+  }
+
+  if ( MINOBS > 1 ) {
+    sprintf(cut_add,"_MINOBS%d", MINOBS);
+    strcat(CUT_STRING, cut_add);    
   }
 
   if ( PRESCALE > 1 ) {

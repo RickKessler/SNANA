@@ -125,6 +125,9 @@ def get_cut_string(args):
         imjd_max = int(args.mjd_range[1])        
         cut_string += f"_{imjd_min}-{imjd_max}"
 
+    if args.nobs_min:
+        cut_string += f"_MINOBS{args.nobs_min}"
+        
     if args.prescale:
         cut_string += f"_PS{args.prescale}"
 
@@ -171,8 +174,10 @@ def prepare_simlib_dump(args, plot_info):
             arg_sim += f"SIMLIB_FIELDLIST {args.field} "
         if args.mjd_range:
             arg_sim += f"GENRANGE_MJD {args.mjd_range[0]} {args.mjd_range[1]} "
+        if args.nobs_min :
+            arg_sim += f"SIMLIB_MINOBS {args.nobs_min} "
         if args.prescale:
-            arg_sim += f"SIMLIB_PRESCALE {args.prescale} "
+            arg_sim += f"SIMLIB_PRESCALE {args.prescale} "            
             
         command = f"{PROGRAM_SIM} {arg_sim} >& {log_file} "
         ret = subprocess.run( [ command ], cwd=os.getcwd(),

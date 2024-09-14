@@ -182,7 +182,7 @@ void read_BAYESN_inputs(char *filename)
           if (strcmp(event.data.scalar.value, "SIGMA0")==0)
           {
               datatype = 1;
-              bayesn_var_dptr = &BAYESN_MODEL_INFO.sigma0;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.SIGMA0;
               break;
           }
           if (strcmp(event.data.scalar.value, "RV")==0)
@@ -194,7 +194,7 @@ void read_BAYESN_inputs(char *filename)
           if (strcmp(event.data.scalar.value, "TAUA")==0)
           {
               datatype = 1;
-              bayesn_var_dptr = &BAYESN_MODEL_INFO.tauA;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.TAUA;
               break;
           }
     
@@ -396,12 +396,31 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
         printf("DEBUG: %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
     }
 
-    // intrinsic scatter is enabled by default
-    // but is disabled if OPTMASK bit is set explicitly - usually only with GENPERFECT
-    ENABLE_SCATTER_BAYESN = (optmask & OPTMASK_BAYESN_NOSCATTER) == 0;
-    // HACK HACK HACK
-    // REMOVE THIS - hardcoding ENABLE_SCATTER_BAYESN for now
-    printf("ENABLE_SCATTER_BAYESN flag is %d\n", ENABLE_SCATTER_BAYESN);
+    // new OPTMASK behaviour implemented by ST (14 Sep 24)
+    // intrinsic scatter (DELTAM and EPSILON) is enabled if OPTMASK & 1
+    // that should be the default behaviour
+    // OPTMASK bit 2 or 4 turns on only EPSILON or only DELTAM
+    // if default scatter bit is set
+    if (optmask & OPTMASK_BAYESN_SCATTER_DEFAULT) {
+        // sanity check and abort on confusing input
+        if ( optmask & OPTMASK_BAYESN_SCATTER_ALL ) {
+            sprintf(c1err, "Ambiguous scatter configuration requested! Found %d in OPTMASK!", 
+                    optmask & (OPTMASK_BAYESN_SCATTER_DEFAULT + OPTMASK_BAYESN_SCATTER_ALL) );
+            sprintf(c2err, "If bit 1 is set (enable default scatter), no other scatter bits can be set!");
+            errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+        }
+        // set internal ENABLE_SCATTER_BAYESN int with defualt setting (EPSILON + DELTAM = 6)
+        else {
+            ENABLE_SCATTER_BAYESN = OPTMASK_BAYESN_EPSILON + OPTMASK_BAYESN_DELTAM;
+        }
+    }
+    // otherwise, turn on a specific combination of scatter terms
+    else {
+        ENABLE_SCATTER_BAYESN = optmask & OPTMASK_BAYESN_SCATTER_ALL;
+    }
+    // print the scatter flag we ended up with
+    printf("ENABLE_SCATTER_BAYESN flag is %d (DELTAM %scluded; EPSILON %scluded)\n", 
+            ENABLE_SCATTER_BAYESN, (ENABLE_SCATTER_BAYESN & 4) ? "in" : "ex", (ENABLE_SCATTER_BAYESN & 2) ? "in" : "ex");
     
 
     // GN - there is one of these further below but unsure yet how RK wants us to use these
@@ -1038,18 +1057,25 @@ gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gs
 	return epsilon_mat;
 } // end sample_epsilon
 
-// this updates the EPSILON value stored in BAYESN_MODEL_INFO
-// HACK HACK HACK (etc.)
+// this updates the EPSILON and/or DELTAM value stored in BAYESN_MODEL_INFO
 // gets called from snlc_sim directly so scatter gets preserved across bands
-void genEPSILON_BAYESN() {
+// renamed by ST Sep 14 2024
+void genSCATTER_BAYESN() {
     // only actually do the update if ENABLE_SCATTER is on
-    // HACK HACK HACK
-    if (ENABLE_SCATTER_BAYESN) {
+    // if ENABLE_SCATTER_BAYESN = 2, only EPSILON is included
+    // if ENABLE_SCATTER_BAYESN = 4, only DELTAM is included
+    // if ENABLE_SCATTER_BAYESN = 6, EPSILON and DELTAM are included
+    // sample EPSILON
+    if (ENABLE_SCATTER_BAYESN & OPTMASK_BAYESN_EPSILON) {
         gsl_vector * nu = sample_nu(BAYESN_MODEL_INFO.n_lam_knots,
                 BAYESN_MODEL_INFO.n_tau_knots);
         BAYESN_MODEL_INFO.EPSILON = sample_epsilon(BAYESN_MODEL_INFO.n_lam_knots,
                 BAYESN_MODEL_INFO.n_tau_knots, nu, BAYESN_MODEL_INFO.L_Sigma_epsilon);
         gsl_vector_free(nu);
+    }
+    // sample DELTAM
+    if (ENABLE_SCATTER_BAYESN & OPTMASK_BAYESN_DELTAM) {
+        BAYESN_MODEL_INFO.DELTAM = BAYESN_MODEL_INFO.SIGMA0*getRan_Gauss(1);
     }
 }
 

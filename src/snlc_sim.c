@@ -12148,8 +12148,11 @@ void gen_event_driver(int ilc) {
     // this calls a function from genmag_BAYESN.c
     // there is a running epsilon variable inside the BAYESN_MODEL_INFO
     // struct that will be modified by this call
+    // Sep 09 2024
+    // updated to more general genSCATTER function
+    // sets a running EPSILON and DELTAM
     if ( INDEX_GENMODEL == MODEL_BAYESN ) {
-        genEPSILON_BAYESN();
+        genSCATTER_BAYESN();
     }
 
     // check for SN params in HOSTLIB
@@ -25247,10 +25250,7 @@ void init_genmodel(void) {
 
     // model-specific init
     OPTMASK = INPUTS.GENMODEL_MSKOPT;
-    if (INPUTS.GENPERFECT > 0 && !GENPERFECT.enable_intrinsic_scatter)
-    {
-        OPTMASK += OPTMASK_BAYESN_NOSCATTER; // BEWARE NOT TESTED - GN 20230707
-    }
+
     istat = init_genmag_BAYESN(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
 

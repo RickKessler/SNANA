@@ -317,7 +317,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
-    fp  = open_TEXTgz(fileName, "rt", &GZIPFLAG);
+    fp  = open_TEXTgz(fileName, "rt", 0, &GZIPFLAG, fnam);
     while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
       if ( tmpLine[0] == '#' ) { continue ; }
       // parse words on this line  
@@ -2440,7 +2440,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   }
   else if ( DO_FILE ) {
     // read text file
-    fp = open_TEXTgz(FILENAME,"rt", &GZIPFLAG );
+    fp = open_TEXTgz(FILENAME,"rt", 0, &GZIPFLAG, fnam );
     if ( !fp ) {
       sprintf(c1err,"Could not open text file (called from %s)", callFun);
       sprintf(c2err,"%s", FILENAME);
@@ -6221,7 +6221,7 @@ int nrow_read(char *file, char *callFun) {
   char line[1000];
   char fnam[] = "nrow_read" ;
 
-  fp = open_TEXTgz(file, "rt", &GZIPFLAG );
+  fp = open_TEXTgz(file, "rt", 0, &GZIPFLAG, fnam );
 
   if ( fp == NULL ) {
     sprintf(c1err,"Could not open file '%s'", file);
@@ -6266,7 +6266,7 @@ int rd2columnFile(
 
   // -------------- BEGIN ---------
 
-  fp = open_TEXTgz(file, "rt", &GZIPFLAG );
+  fp = open_TEXTgz(file, "rt", 0, &GZIPFLAG, fnam );
   if ( fp == NULL ) {
     if ( (OPT & 1) > 0 ) {
       return ERROR;
@@ -7406,6 +7406,7 @@ int rd_sedFlux(
 
   Dec 5 2023: return nflux_nan.
 
+  Sep 16 2024: pass OPTMASK_NOFILE=2 to try opening file twice in case of disk glith
   **********/
 
   FILE *fpsed;
@@ -7439,9 +7440,10 @@ int rd_sedFlux(
 
   // open SED file.
 
-  fpsed = open_TEXTgz(sedFile, "rt", &GZIPFLAG );
+  int OPTMASK_NOFILE = 2; 
+  fpsed = open_TEXTgz(sedFile, "rt", OPTMASK_NOFILE, &GZIPFLAG, fnam );
   if ( !fpsed  ) {
-    sprintf(c1err,"Cannot open SED file: " );
+    sprintf(c1err,"Cannot open SED file (GZIPFLAG=%d): ", GZIPFLAG );
     sprintf(c2err,"  '%s' ", sedFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
@@ -9369,7 +9371,8 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
 } // end find_pathfile
 
 // ==================================
-FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
+FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
+		  int *GZIPFLAG, char *callFun ) {
 
   // Dec 1 2017:
   // Shell to call fopen.
@@ -9378,9 +9381,23 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
   // try again ... if both still exist then ABORT.
   // Return GZIPFLAG=1 if gzip file is opened
   //
+  // Input OPTMASK_NOFILE:
+  //    == 0  --> return if no file is found
+  //    += 1  --> abort if no file is found
+  //    += 2  --> try again after 5 seconds (allow for disk glitch)
+  //
   // Mar 6 2019: replace zcat with 'gunzip -c' so that it works on Mac.
   // Dec 17 2021: add logic to wait 5 sec if file and file.gz both exist.
   //
+  // Sep 16 2024:
+  //  + pass OPTMASK_NOFILE
+  //  + pass calling function *callFun for error or warning messages.
+  //  + if 0 files found for full path (has leading slash), try again in 5 sec.
+  //
+
+  bool NOFILE_ABORT      = (OPTMASK_NOFILE & 1) > 0;
+  bool NOFILE_TRY_AGAIN  = (OPTMASK_NOFILE & 2) > 0;
+  
   FILE *fp ;
   struct stat statbuf ;
   int istat_gzip, istat_unzip, LEN, N_ITER=0;
@@ -9418,14 +9435,27 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
     //    printf(" xxx istat=%3d for '%s' \n", istat_gzip,  gzipFile);
     //    printf(" xxx istat=%3d for '%s' \n", istat_unzip, unzipFile);
 
-    bool FOUND_2FILES = ( istat_gzip==0 && istat_unzip==0 );
+    bool FOUND_2FILES = ( istat_gzip == 0  &&  istat_unzip == 0 );
+    bool FOUND_0FILES = ( istat_gzip != 0  &&  istat_unzip != 0 );    
+
     if ( FOUND_2FILES && N_ITER==1 ) { 
-      printf("\t found gzip and unzip file ... try again in 5 sec... \n");
-      fflush(stdout);
-      sleep(5.0); 
-      goto START;    
+      printf("\n WARNING(%s): Found gzip and unzip file for \n"
+	     "\t %s\n"
+	     "\t ... callFun=%s ... try again in 5 sec ... \n",
+	     fnam, unzipFile, callFun);
+      fflush(stdout);      sleep(5.0);       goto START;    
     }
 
+    if ( FOUND_0FILES && N_ITER == 1 && NOFILE_TRY_AGAIN ) {
+      printf("\n WARNING(%s): Could not find gzip or unzip file:  \n"
+	     "\t %s\n"
+	     "\t (callFun=%s   istat_gzip = %d    istat_unzip=%d)\n"
+	     "\t ... try again in 5 sec ... \n",
+	     fnam, unzipFile, callFun, istat_gzip, istat_unzip);
+      fflush(stdout);      sleep(5.0);       goto START;    
+    }
+    
+    
     if ( FOUND_2FILES ) {
       print_preAbort_banner(fnam);
       printf("  Found %s \n", gzipFile );
@@ -9435,6 +9465,13 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
+    if ( FOUND_0FILES && NOFILE_ABORT ) {
+      sprintf(c1err, "Cannot open unzip or gzip file for:");
+      sprintf(c2err, "%s", unzipFile);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+    
+    
     if ( istat_gzip == 0 ) {
       sprintf(cmd_zcat, "gunzip -c %s", gzipFile);
       fp = popen(cmd_zcat,"r");
@@ -9471,7 +9508,7 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
-    fp = open_TEXTgz(FILENAME, "rt", &gzipFlag);
+    fp = open_TEXTgz(FILENAME, "rt", 0, &gzipFlag, fnam );
   }
 
 } // end snana_rewind
@@ -9536,7 +9573,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
   sprintf(fullName, "%s", fileName );
 
-  fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+  fp = open_TEXTgz(fullName,TEXTMODE_read, 0, gzipFlag, fnam );
   if ( fp != NULL ) {       
     if ( VBOSE )  { printf("\t Opened : %s \n", fullName ); }
     goto DONE ;
@@ -9554,7 +9591,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
     if ( IS_OPEN ) { continue ; }
 
     sprintf(fullName, "%s/%s", PATH[ipath],  fileName );
-    fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+    fp = open_TEXTgz(fullName,TEXTMODE_read, 0, gzipFlag, fnam );
 
     if ( fp != NULL ) {
       IS_OPEN = true ;
@@ -9595,9 +9632,11 @@ bool key_in_file(char *fileName, char *key, int nwd_check) {
   bool found_key = false ;
   char c_get[MXPATHLEN];
   FILE *fp;
+  char fnam[] = "key_in_file" ;
+  
   // ------------- BEGIN -----------
 
-  fp  = open_TEXTgz(fileName, "rt", &gzipFlag);
+  fp  = open_TEXTgz(fileName, "rt", 0, &gzipFlag, fnam);
 
   while( fscanf(fp,"%s", c_get )!= EOF ) {
     if ( strcmp(c_get,key) == 0 ) { found_key=true; break; }
@@ -9636,7 +9675,7 @@ int colnum_in_table(char *fileName, char *varName) {
 
   // ------------ BEGIN --------------
 
-  fp  = open_TEXTgz(fileName, "rt", &gzipFlag);
+  fp  = open_TEXTgz(fileName, "rt", 0, &gzipFlag, fnam);
 
   colnum = -1;
   if ( !fp ) { return(colnum); }

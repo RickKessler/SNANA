@@ -1475,7 +1475,7 @@ void read_genSmear_SALT2disp(char *smearFile, double COLOR_DISP_MAX ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
-  fp = open_TEXTgz(smearFile, "rt", &GZIPFLAG ) ;
+  fp = open_TEXTgz(smearFile, "rt", 0, &GZIPFLAG, fnam ) ;
 
   if ( fp == NULL ) {
       sprintf(c1err,"Cannot open smearFile " );

@@ -22632,5 +22632,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	sim-only keys.
       + advance SNFITSIO_CODE_IVERSION = 26 to read & write TEXPOSE and INSTRUMENT
         in header for each spectrum, for both real and sim data.
-	
+
+    sntools.c[h]
+       + pass OPTMASK_NOFILE and fnam args to open_TEXTgz(...) so that error/warning message
+         indicates who called it. OPTMASK_NOFILE=2 will make 2nd attempt to open file
+	 to allow for disk glitch.
+	 
 END: 

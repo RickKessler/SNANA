@@ -262,7 +262,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   //
 
   int   OPTMASK = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
-  FILE *fp;
+  FILE *fp = NULL;
   int   REQUIRE_EFF_FILE=0, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
   char  file_local[MXPATHLEN], c_get[100], *ptrFile_user, *ptrFile_final ;   
@@ -296,10 +296,14 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
     REQUIRE_EFF_FILE = 1 ;
   }
 
-  // use utility to check local dir and path.
-  fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, file_local, 
-			  ptrFile_final, &gzipFlag ); // returned
 
+  // use utility to check local dir and path.
+  if ( REQUIRE_EFF_FILE ) {
+    fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, file_local, 
+			    ptrFile_final, &gzipFlag ); // returned
+  }
+
+  
   if ( fp == NULL ) { 
 
     if ( REQUIRE_EFF_FILE ) {
@@ -856,9 +860,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   else
     { sprintf(logicFile,"%s", ptrFile_user);  }
 
-
-  //  printf(" xxx logic file -> '%s' \n", logicFile); 
-
+  
   fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, logicFile,
 			  ptrFile_final, &gzipFlag ); // returned
 
@@ -1035,7 +1037,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
     ,fnam[] = "init_SEARCHEFF_SPEC" 
     ;
 
-  FILE *fp ;
+  FILE *fp = NULL ;
 
   int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
   int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
@@ -1108,9 +1110,11 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
 
   // use utility to check local dir and path.
-  fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, effspec_file_local, 
-			  ptrFile_final, &gzipFlag ); // returned
-
+  if ( REQUIRE_SPEC_FILE ) {
+    fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, effspec_file_local, 
+			    ptrFile_final, &gzipFlag ); // returned
+  }
+  
   if ( fp == NULL ) { 
     if ( REQUIRE_SPEC_FILE ) {
       abort_openTextFile("SEARCHEFF_SPEC_FILE",
@@ -1300,7 +1304,7 @@ FILE *open_zHOST_FILE(int OPT) {
   char *ptrFile_user ;
   char *ptrFile_final ;
   char localFile[MXPATHLEN];
-  FILE *fp ;
+  FILE *fp = NULL;
   char fnam[] = "open_zHOST_FILE" ;
 
   // --------------- BEGIN ------------------
@@ -1336,16 +1340,17 @@ FILE *open_zHOST_FILE(int OPT) {
 
   // use utility to check local dir and path.
   int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
-  fp = snana_openTextFile(OPTMASK_OPEN, PATH_SEARCHEFF, localFile, 
-			  ptrFile_final, &gzipFlag); // returned
-  
-  // examine if there is no zHOST file
-  if ( fp == NULL ) { 
-    if ( REQUIRE_zHOST_FILE ) {
+  if ( REQUIRE_zHOST_FILE ) {
+    fp = snana_openTextFile(OPTMASK_OPEN, PATH_SEARCHEFF, localFile, 
+			    ptrFile_final, &gzipFlag); // returned
+
+    // examine if there is no zHOST file
+    if ( !fp  ) {    
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
-    }
+    }    
   }
+  
 
   // --------------------------------------------
 

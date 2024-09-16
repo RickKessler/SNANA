@@ -20829,7 +20829,7 @@ void write_fitres_driver(char* fileName) {
   for(ifile=0; ifile < nfile; ifile++ ) {
 
     ptrFile = INPUTS.dataFile[ifile];
-    finp  = open_TEXTgz(ptrFile, "rt", &GZIPFLAG); 
+    finp  = open_TEXTgz(ptrFile, "rt", 0, &GZIPFLAG, fnam); 
 
     while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
@@ -21343,7 +21343,7 @@ void write_cat_info(FILE *fout) {
   // --------- BEGIN --------
 
   // check for DOCUMENTATION block (Aug 21 2023)
-  finp  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); 
+  finp  = open_TEXTgz(INPUTS.dataFile[0], "rt", 0, &GZIPFLAG, fnam ); 
   while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line, fnam);    
@@ -23179,7 +23179,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
   SUBPROCESS.ISFLAT_SIM = false ; 
 
-  finp  = open_TEXTgz(input_simref_file, "rt", &GZIPFLAG);
+  finp  = open_TEXTgz(input_simref_file, "rt", 0, &GZIPFLAG, fnam );
   if (!finp) {
     SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Could not open input simref file:");

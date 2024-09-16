@@ -914,9 +914,11 @@ void append_HOSTLIB_STOREPAR(void) {
 
   // - - - - - - - 
   // check PDF maps for populations
-
-  // xxx mark delete fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
-  fp = open_TEXTgz(INPUTS.GENPDF.MAP_FILE, "rt", &gzipFlag );  
+  if ( IGNOREFILE(INPUTS.GENPDF.MAP_FILE) )
+    { fp = NULL; }
+  else
+    { fp = open_TEXTgz(INPUTS.GENPDF.MAP_FILE, "rt", 0, &gzipFlag, fnam );  }
+  
   if ( fp ) {
     int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
     char **VARNAMES;
@@ -9967,7 +9969,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   
   // open orig HOSTLIB without checking for DOCANA so that
   // we don't skip DOCUMENTATION key
-  FP_ORIG = open_TEXTgz(HLIB_ORIG, "rt", &gzipFlag );
+  FP_ORIG = open_TEXTgz(HLIB_ORIG, "rt", 0, &gzipFlag, fnam );
   FP_NEW  = fopen(HLIB_NEW, "wt");
 
   if ( !FP_ORIG ) {

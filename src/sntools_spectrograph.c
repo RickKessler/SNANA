@@ -142,7 +142,7 @@ void read_spectrograph_text(char *inFile) {
   // get number of rows in file to get malloc size.
   NROW_FILE = nrow_read(inFile,fnam);
 
-  fp = open_TEXTgz(inFile, "rt", &GZIPFLAG );
+  fp = open_TEXTgz(inFile, "rt", 0, &GZIPFLAG, fnam );
   // xxx mark delete Mar 2024  fp = fopen(inFile,"rt");
 
   if ( !fp ) {

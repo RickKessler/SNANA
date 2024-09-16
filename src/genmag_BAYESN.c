@@ -855,6 +855,7 @@ void genmag_BAYESN(
 
       magobs_list[o] = 
 	BAYESN_MODEL_INFO.M0 +
+    BAYESN_MODEL_INFO.DELTAM +
 	DLMAG -
 	2.5*log10(flux_list[o]/hc_local) +  // RK
 	ZP; 

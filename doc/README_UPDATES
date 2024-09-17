@@ -22639,5 +22639,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          indicates who called it. rd_sedflux() passes OPTMASK_NOFILE=2 to make 2nd attempt
 	 to open file in case of disk-access glitch (and hopefully avoid abort after many
 	 hours of generating NON1ASED model)
-	 
+       + fix memory leak in strcmp_ignoreCase(..)
+       
 END: 

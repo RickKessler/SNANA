@@ -339,7 +339,6 @@ void initvar_HOSTLIB(void) {
     
   malloc_HOSTGAL_PROPERTY();
 
-
   HOSTLIB.ZGAPMAX       = -9. ;
   HOSTLIB.Z_ATGAPMAX[0] = -9. ;
   HOSTLIB.Z_ATGAPMAX[1] = -9. ;
@@ -432,6 +431,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
   int MEM, nbr, i, index;
   char *varName, *BASENAME;
   char fnam[] = "malloc_HOSTGAL_PROPERTY";
+  
   // ------------ BEGIN ------------
 
   N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, 
@@ -968,8 +968,6 @@ void append_HOSTLIB_STOREPAR(void) {
 
   if ( NVAR_WGTMAP > 0 ) {
     catVarList_with_comma(STOREPAR, VARLIST_WGTMAP_noSNVAR);
-    // xxx mark if ( strlen(STOREPAR) > 0 ) { strcat(STOREPAR,COMMA); }
-    // xxx mark strcat(STOREPAR,VARLIST_WGTMAP);
   }
     
   return ;
@@ -1998,8 +1996,6 @@ void  read_specTable_HOSTLIB(void) {
   printf("    Found %d spectral %s templates and stored %d of %d wavelength bins\n\n",
 	 NSPEC, HOSTSPEC.TABLENAME, NBIN_WAVE_KEEP, NBIN_WAVE_ORIG );
   fflush(stdout);
-
-  //  debugexit(fnam); // xxx REMOVE
 
   return;
 
@@ -3716,7 +3712,7 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
   int ivar, I8, I8p, I4, ICp, MEMC, DO_FIELD, DO_NBR, igal ;
   int LDMP = 0 ;
-  //  char fnam[] = "malloc_HOSTLIB";
+  char fnam[] = "malloc_HOSTLIB";
 
   // ------------- BEGIN ----------
 
@@ -3808,6 +3804,8 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
     for(igal=NGAL_READ; igal < NGAL_READ+MALLOCSIZE_HOSTLIB; igal++ ) 
       { HOSTLIB.LIBINDEX_READ[igal] = -9; }
   }
+
+  return ;
   
 } // end of malloc_HOSTLIB
 

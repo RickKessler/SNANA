@@ -117,8 +117,6 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,int OPTMASK       // bit-mask of options
 		       ) {   
 
-  // TO DO: add WGTMAP_FILE as option argument X_WGT+
-
   // OPTMASK +=  1 --> create binary file if it doesn't exist
   // OPTMASK +=  2 --> force creation of SED.BINARY
   // OPTMASK +=  4 --> force creaton of flux-table binary
@@ -296,7 +294,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // check to change default logz binning
   set_SIMSED_LOGZBIN();
 
-  set_SIMSED_WGT_SUM(WGTMAP_FILE); // use internal WGT or external WGTMAP  X_WGT-
+  set_SIMSED_WGT_SUM(WGTMAP_FILE); // use internal WGT or external WGTMAP 
 
   // =======================================================
   // allocate memory for storing flux-integral tables
@@ -772,7 +770,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   ptrFile = SIMSED_INFO_FILENAME_FULL ;
   sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
   SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
-  SEDMODEL.IPAR_WGT            = -9; // Feb 28 2024    X_WGT+
+  SEDMODEL.IPAR_WGT            = -9; // Feb 28 2024 
 
   // read number of rows to use for malloc (Jan 2024)
   NSED_COUNT = count_SIMSED_INFO(PATHMODEL);
@@ -875,9 +873,6 @@ int read_SIMSED_INFO(char *PATHMODEL) {
           SEDMODEL.IPAR_WGT = ipar;
         }  
 
-	// X_WGT-: set SEDMODEL.IPAR_WGT : ???
-	// define analogous IS_WGT_SIMSED(tmpName) -->  set SEDMODEL.IPAR_WGT       
-
       } 
 
       if ( NPAR_INDEX > 1 ) {
@@ -961,8 +956,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   for(k=0; k < NKEY_REQUIRE_SIMSED; k++ ) {
     if ( !FOUND_REQUIRE_LIST[k] ) {
       key = KEYNAME_REQUIRE_LIST[k] ;
-      printf(" ERROR: SED.INFO missing require key %s\n", key)/
-	fflush(stdout);
+      printf(" ERROR: SED.INFO missing require key %s\n", key); fflush(stdout);
       catVarList_with_comma(keyname_missing,key);
       NKEY_MISSING++ ;
     }
@@ -1029,7 +1023,7 @@ int count_SIMSED_INFO(char *PATHMODEL ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
   printf("\n Read number of SEDs  from \n  %s \n", FILENAME );
-
+  fflush(stdout);
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     if ( strcmp(c_get,"SED:")==0 ) { NSED++ ; }
@@ -1168,12 +1162,6 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
     // need to fill SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT]
     // if SEDMODEL.IPAR_WGT doesn't exist, force it to exist and increment NPAR(?).
     // SIMSED_WGTMAP
-
-    /*if ( SEDMODEL.IPAR_TEMPLATE_INDEX < 0 ) {
-      sprintf(c1err,"missing required INDEX column in SED.INFO file.");
-      sprintf(c2err,"INDEX column is required for SIMSED_WGTMAP option.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    }* mark delete */
     
     GRIDMAP_DEF GRIDMAP; 
     int OPTMASK = 0;
@@ -1185,7 +1173,7 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
 
     //A.G
     if ( SEDMODEL.IPAR_WGT < 0 ) {
-      printf("\tdefine WGT column for SIMSED WGTMAP");
+      printf("\tdefine WGT column for SIMSED WGTMAP"); fflush(stdout);
       SEDMODEL.IPAR_WGT = SEDMODEL.NPAR;
       sprintf(SEDMODEL.PARNAMES[SEDMODEL.NPAR], "%s", VARNAME_WGT_REQUIRED);
       SEDMODEL.NPAR++;
@@ -1194,10 +1182,7 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
     /*
     for (j = 0; j < 1; j++){
       //printf("xxx %s VARNAME = %s\n", fnam, GRIDMAP.VARNAMES[j]);
-    }
-    */
-
-    //debugexit(fnam);
+    }    */
     
     WGT_SUM = 0;
 
@@ -1205,7 +1190,6 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       for ( IPAR_WGTMAP = 0; IPAR_WGTMAP < GRIDMAP.NDIM; IPAR_WGTMAP++ ){
         IPAR_SED = IPAR_SEDMODEL (GRIDMAP.VARNAMES[IPAR_WGTMAP]);
 	PARVALUES[IPAR_WGTMAP] = SEDMODEL.PARVAL[ISED][IPAR_SED];
-	//printf("xxx %s ISED = %d IPAR_WGTMAP = %d PARVALUE = %f\n", fnam, ISED, IPAR_WGTMAP, PARVALUES[IPAR_WGTMAP]);
       }
 
       istat = interp_GRIDMAP(&GRIDMAP, PARVALUES, &WGT_INTERP) ;
@@ -1219,19 +1203,19 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
     //debugexit(fnam);
 
   }
-  // X_WGT+
 
   SEDMODEL.WGT_MIN = SEDMODEL.WGT_SUM[0];
   SEDMODEL.WGT_MAX = SEDMODEL.WGT_SUM[NSED];
  
   printf("\t Loaded %d cumulative WGTS from column %d \n",
       NSED, SEDMODEL.IPAR_WGT); fflush(stdout);
-
+  fflush(stdout);
+  
   return ;
 } //end set_SIMSED_WGT_SUM
   
 //**************************************
-// A.G.
+// A.Gagliano
 int pick_SIMSED_BY_WGT(void){
   int ISED = -9;
   double ranCDF;
@@ -1249,7 +1233,7 @@ int pick_SIMSED_BY_WGT(void){
   if ( LDMP ) {
     printf(" xxx - - - - - - - -\n");
     printf(" xxx %s: ranCDF=%f WGTrange=(%f,%f) ... \n", 
-	   fnam, ranCDF, WGTrange[0], WGTrange[1] ); fflush(stdout);
+	   fnam, ranCDF, WGTrange[0], WGTrange[1] ); fflush(stdout);    
   }
 
   ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE+1, 
@@ -1268,7 +1252,7 @@ int pick_SIMSED_BY_WGT(void){
     { printf(" xxx %s: ISED = %d \n", fnam, ISED ); fflush(stdout); }
 
 
-  return ISED; // X_WGT+
+  return ISED; 
 
 } //end pick_SIMSED_BY_WGT
 

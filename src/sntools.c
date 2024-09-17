@@ -4518,16 +4518,18 @@ int strcmp_ignoreCase(char *str1, char *str2) {
   //           before testing so that result is case-insensitive.
   //
   // return strcmp on lower-case comparison.
-
+  //
+  // Sep 17 2024: fix memory leak by returning before malloc if len1 != len2
+  
   int len1 = strlen(str1) ;
   int len2 = strlen(str2) ;
+  if ( len1 != len2 ) { return -1; }
+  
   int j ;
   char *str1_lc = (char*) malloc ( len1 * sizeof(char) + 10 );
   char *str2_lc = (char*) malloc ( len2 * sizeof(char) + 10 );
 
   // --------- BEGIN ----------
-
-  if ( len1 != len2 ) { return -1 ; }
 
   for(j=0; j<len1; j++ ) { str1_lc[j] = tolower ( str1[j] ) ;  }
   for(j=0; j<len2; j++ ) { str2_lc[j] = tolower ( str2[j] ) ;  }

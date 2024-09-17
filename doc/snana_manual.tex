@@ -4228,7 +4228,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_MAXDDLR2:     xxx          # default=7 (for HOST_CONFUSION calculation)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
-   HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
+   HOSTLIB_GENRANGE_DEC:   xxx yyy    # default= -999 to +999)   
    HOSTLIB_STOREPAR:  var1,var2,var3  # default = ''
    HOSTLIB_MINDAYSEP_SAMEGAL: xxx     # default=9999999
    HOSTLIB_DZTOL:  a0,a1,a2,,,aN      # default=0.002,0.040
@@ -4248,6 +4248,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_FIXRAN_PHI:     #.##       # fix phi random number (0-1)
    HOSTLIB_FIXSERSIC:  a b n a_rot    # a,b in arcsec, a_rot in deg
    HOSTLIB_ABMAG_FORCE:   #.##        # force mag for galmag and host spectrum
+   HOSTLIB_ABMAG_OFFSET:  #.##        # add this mag offset to all galmags
 \end{Verbatim}
 Only the {\tt HOSTLIB\_FILE} key is required, while the
 other keys are optional. Ideally all surveys would use

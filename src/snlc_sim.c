@@ -1148,6 +1148,7 @@ void set_user_defaults(void) {
   // debug options
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
   INPUTS.HOSTLIB_ABMAG_FORCE   = -9.0 ;
+  INPUTS.HOSTLIB_ABMAG_OFFSET  =  0.0 ;  
   INPUTS.HOSTLIB_FIXRAN_RADIUS = -9;
   INPUTS.HOSTLIB_FIXRAN_PHI    = -9;
   INPUTS.HOSTLIB_FIXSERSIC[0]  =  0.0   ; // a
@@ -3843,6 +3844,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_ABMAG_FORCE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_ABMAG_FORCE );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_ABMAG_OFFSET", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_ABMAG_OFFSET );
   }
   else if ( keyMatchSim(1, "HOSTLIB_FIXRAN_RADIUS", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS );

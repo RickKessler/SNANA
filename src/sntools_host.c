@@ -3521,15 +3521,21 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   // May 16 2022; fix bug reading too-short char.
   //              Replace WDLIST with global TMPWORD_HOSTLIB.
   //
+  // Sep 16 2024: check HOSTLIB_ABMAG_OFFSET;
+  
+  int MXCHAR          = MXCHAR_LINE_HOSTLIB;
+  double ABMAG_FORCE  = INPUTS.HOSTLIB_ABMAG_FORCE;
+  double ABMAG_OFFSET = INPUTS.HOSTLIB_ABMAG_OFFSET;
 
-  int MXCHAR         = MXCHAR_LINE_HOSTLIB;
-  double ABMAG_FORCE = INPUTS.HOSTLIB_ABMAG_FORCE;
+  int len_suffix_magobs = strlen(HOSTLIB_SUFFIX_MAGOBS);
+  int len_varName;
+  
   int MXWD = NVAL;
   int ival_FIELD, ival_NBR_LIST, ival, NWD=0, len, NCHAR ;
-  // xxx char WDLIST[MXVAR_HOSTLIB][100], *ptrWDLIST[MXVAR_HOSTLIB] ;
   char sepKey[] = " " ;
   char tmpWORD[200], tmpLine[MXCHAR_LINE_HOSTLIB], *pos, *varName ;
   char fnam[] = "read_galRow_HOSTLIB" ;
+  
   // ---------------- BEGIN -----------------
 
   // scoop up rest of line with fgets
@@ -3573,7 +3579,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   for(ival=0; ival < NVAL; ival++ ) {
     VALUES[ival] = -9.0 ; 
     varName      = HOSTLIB.VARNAME_ALL[ival] ;
-
+    len_varName  = strlen(varName);
+      
     if ( ival == ival_FIELD )  { 
       sprintf(tmpWORD, "%s", TMPWORD_HOSTLIB[ival] );
       len = strlen(tmpWORD);
@@ -3610,6 +3617,14 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
       // float or int (non-string) value
       sscanf(TMPWORD_HOSTLIB[ival], "%le", &VALUES[ival] ); 
 
+      bool MATCH_STRMAG = ( strstr(varName,HOSTLIB_SUFFIX_MAGOBS) != NULL );
+      bool MATCH_STRLEN = ( len_varName == len_suffix_magobs+1 ) ;
+      if ( MATCH_STRMAG && MATCH_STRLEN ) {
+	if ( ABMAG_FORCE   > -8.0 ) {  VALUES[ival]  = ABMAG_FORCE  ; }
+	if ( ABMAG_OFFSET !=  0.0 ) {  VALUES[ival] += ABMAG_OFFSET ; } 	
+      }
+      
+      /* xxx mark delete sep 16 2024 xxxxxx
       // check option to force override for gal mags (May 2021)
       if ( ABMAG_FORCE > -8.0 ) {	
 	int lenvar = strlen(varName);
@@ -3618,7 +3633,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 	if ( MATCHMAG && lenvar == lensuf+1 ) 
 	  { VALUES[ival] = ABMAG_FORCE ; }
       }
-
+      xxxxxxx end mark xxxxxxx */
+      
       // check for NaN (NaN abort is after reading entire HOSTLIB)
       if ( isnan(VALUES[ival]) )  {
 	HOSTLIB.NERR_NAN++ ;
@@ -4784,8 +4800,6 @@ void init_GALMAG_HOSTLIB(void) {
 
     IVAR = IVAR_HOSTLIB(cvar,MATCH_FLAG) ;
     IVAR_ERR = IVAR_HOSTLIB(cvar_err,MATCH_FLAG) ;
-    //printf("xxx cvar_err = %s, ivar_err = %d\n", cvar_err, IVAR_ERR);
-
 
     if ( IVAR > 0 ) {
       NMAGOBS++ ;

@@ -22621,7 +22621,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         GENRANGE_MJD (if given) to distinguish from nominal dump with all LIBIDs
       + new sim input SIMLIB_PRESCALE to select prescale subset of cadences
          Initial use is to reduce size of SIMLIB_DUMP for plotting.
-	 
+      + new sim input HOSTLIB_ABMAG_OFFSET
+      
     snana.car
       + enable LRDFLAG_SPEC if SIMLIB_OUTFILE is defined so that TAKE_SPECTRUM
         keys appear in output SIMLIB file.
@@ -22635,7 +22636,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     sntools.c[h]
        + pass OPTMASK_NOFILE and fnam args to open_TEXTgz(...) so that error/warning message
-         indicates who called it. OPTMASK_NOFILE=2 will make 2nd attempt to open file
-	 to allow for disk glitch.
+         indicates who called it. rd_sedflux() passes OPTMASK_NOFILE=2 to make 2nd attempt
+	 to open file in case of disk-access glitch (and hopefully avoid abort after many
+	 hours of generating NON1ASED model)
 	 
 END: 

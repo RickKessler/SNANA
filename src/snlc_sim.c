@@ -1582,6 +1582,11 @@ int read_input_file(char *input_file, int keySource ) {
   sprintf(msg_die, "DEBUG DIE for refac %s: NWD = %d", fnam, NWD_FILE );
   //  debugexit(msg_die) ;
 
+  // Sep 2024: free temp INPUTS.WORDLIST
+  for(iwd=0; iwd < NWD_FILE; iwd++ ) { free(INPUTS.WORDLIST[iwd]); }
+  free(INPUTS.WORDLIST);
+
+  // end program on dump flag
   if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
 
   return(SUCCESS) ;

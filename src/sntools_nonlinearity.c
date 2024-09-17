@@ -4,14 +4,14 @@
   [initial use for WFIRST sims]
 
   Sim-input key  NONLINEARITY_FILE:  <inFile>
-  read file of the form
+  read file of the form:
 
   MODEL:  READOUT_RATE  ! obsolete xxxx
   MODEL:  FLUX_pe       ! May 27 2016
 
   START_MAP:
   FILTERS: abcdef
-  NONLIN:   4.0  0.982  # 
+  NONLIN:   4.0  0.982  #   Ftot(pe, includes source+sky+host)  and Flux scale
   NONLIN:  40.0  0.986  # 
   NONLIN: 400.0  0.988  # 
   etc .

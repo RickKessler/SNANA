@@ -488,7 +488,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
 		       &N_item, &tmp_item_list ); // this is returned 
 
     for (i=0; i<N_item; i++){
-      sprintf(item, "%s",tmp_item_list[i]); // presevre original tmp_item_list 
+      sprintf(item, "%s", tmp_item_list[i]); // presevre original tmp_item_list 
       extractStringOpt(item, basename);  // beaware that item is altered
       sscanf(item, "%le", &scale ) ; //convert string item to double scale
       index = getindex_HOSTGAL_PROPERTY(basename);
@@ -500,7 +500,12 @@ void malloc_HOSTGAL_PROPERTY(void) {
       }
       HOSTLIB.HOSTGAL_PROPERTY_IVAR[index].SCALE_ERR = scale;
       printf("\t Scale %s error by %.2f\n", basename, scale);
-    } 
+    }
+
+    // free tmp_item_list (Sep 2024)
+    for (i=0; i<N_item; i++) { free(tmp_item_list[i]); }
+    free(tmp_item_list);
+    
   } // end of if SCALE_PROPERTY_ERR given
 
   return;

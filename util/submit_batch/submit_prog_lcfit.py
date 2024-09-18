@@ -511,16 +511,19 @@ class LightCurveFit(Program):
         msgerr  = []
         nerr_validate = 0
         opt_validate  = OPT_VALIDATE_VERSION
-
+        
         logging.info("\n Search for VERSION wildcards and paths: ")
         for v_tmp in version_list_tmp :  # may include wild cards
-            found = False
-            for path in path_check_list :
+            found     = False
+            full_path = v_tmp[0] == '/'  # .xyz allow full path ??
+
+            for path in path_check_list :                    
                 v_list  = sorted(glob.glob(f"{path}/{v_tmp}"))
+                
                 for v in v_list:
                     found   = True
-                    #j_slash = v.rindex('/');    version = v[j_slash+1:]
                     version = os.path.basename(v)
+                    
                     # avoid tar files and gz files
                     if '.tar' in v : continue
                     if '.gz'  in v : continue

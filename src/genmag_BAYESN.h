@@ -34,13 +34,18 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots);
 gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gsl_matrix * L_Sigma_epsilon);
 
-void genEPSILON_BAYESN(); // added by ST Mar 22 2024 (HACK HACK)
+void genSCATTER_BAYESN(); // renamed by ST Sep 14 2024
 
 char BAYESN_MODELPATH[MXPATHLEN];
 int VERBOSE_BAYESN;
 #define OPTMASK_BAYESN_VERBOSE 128
+
+// ST (14 Sep 2024)
 int ENABLE_SCATTER_BAYESN;
-#define OPTMASK_BAYESN_NOSCATTER 1024 // disable intrinsic scatter
+#define OPTMASK_BAYESN_EPSILON 2 // enable only the non-gray (EPSILON) component of intrinsic scatter
+#define OPTMASK_BAYESN_DELTAM  4 // enable only the gray (DELTAM) component of intrinsic scatter
+#define OPTMASK_BAYESN_SCATTER_ALL 6 // sum of all non-default scatter bits
+#define OPTMASK_BAYESN_SCATTER_DEFAULT 1 // enable all scatter components (default behaviour)
 
 struct {
    int    n_lam_knots;
@@ -56,9 +61,9 @@ struct {
    // variables that define the SED 
    // scalars
    double M0;
-   double sigma0;
+   double SIGMA0;
    double RV;
-   double tauA;
+   double TAUA;
 
    // vectors
    double *lam_knots;
@@ -71,6 +76,8 @@ struct {
 
    // running epsilon variable (yikes)
    gsl_matrix *EPSILON;
+   // running DELTAM variable (double yikes)
+   double DELTAM;
 
    // for the base SED - typically Hsiao
    SEDMODEL_FLUX_DEF S0; 

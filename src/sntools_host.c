@@ -339,7 +339,6 @@ void initvar_HOSTLIB(void) {
     
   malloc_HOSTGAL_PROPERTY();
 
-
   HOSTLIB.ZGAPMAX       = -9. ;
   HOSTLIB.Z_ATGAPMAX[0] = -9. ;
   HOSTLIB.Z_ATGAPMAX[1] = -9. ;
@@ -432,6 +431,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
   int MEM, nbr, i, index;
   char *varName, *BASENAME;
   char fnam[] = "malloc_HOSTGAL_PROPERTY";
+  
   // ------------ BEGIN ------------
 
   N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, 
@@ -488,7 +488,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
 		       &N_item, &tmp_item_list ); // this is returned 
 
     for (i=0; i<N_item; i++){
-      sprintf(item, "%s",tmp_item_list[i]); // presevre original tmp_item_list 
+      sprintf(item, "%s", tmp_item_list[i]); // presevre original tmp_item_list 
       extractStringOpt(item, basename);  // beaware that item is altered
       sscanf(item, "%le", &scale ) ; //convert string item to double scale
       index = getindex_HOSTGAL_PROPERTY(basename);
@@ -500,7 +500,12 @@ void malloc_HOSTGAL_PROPERTY(void) {
       }
       HOSTLIB.HOSTGAL_PROPERTY_IVAR[index].SCALE_ERR = scale;
       printf("\t Scale %s error by %.2f\n", basename, scale);
-    } 
+    }
+
+    // free tmp_item_list (Sep 2024)
+    for (i=0; i<N_item; i++) { free(tmp_item_list[i]); }
+    free(tmp_item_list);
+    
   } // end of if SCALE_PROPERTY_ERR given
 
   return;
@@ -914,9 +919,11 @@ void append_HOSTLIB_STOREPAR(void) {
 
   // - - - - - - - 
   // check PDF maps for populations
-
-  // xxx mark delete fp = fopen(INPUTS.GENPDF.MAP_FILE,"rt");
-  fp = open_TEXTgz(INPUTS.GENPDF.MAP_FILE, "rt", &gzipFlag );  
+  if ( IGNOREFILE(INPUTS.GENPDF.MAP_FILE) )
+    { fp = NULL; }
+  else
+    { fp = open_TEXTgz(INPUTS.GENPDF.MAP_FILE, "rt", 0, &gzipFlag, fnam );  }
+  
   if ( fp ) {
     int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
     char **VARNAMES;
@@ -966,8 +973,6 @@ void append_HOSTLIB_STOREPAR(void) {
 
   if ( NVAR_WGTMAP > 0 ) {
     catVarList_with_comma(STOREPAR, VARLIST_WGTMAP_noSNVAR);
-    // xxx mark if ( strlen(STOREPAR) > 0 ) { strcat(STOREPAR,COMMA); }
-    // xxx mark strcat(STOREPAR,VARLIST_WGTMAP);
   }
     
   return ;
@@ -1996,8 +2001,6 @@ void  read_specTable_HOSTLIB(void) {
   printf("    Found %d spectral %s templates and stored %d of %d wavelength bins\n\n",
 	 NSPEC, HOSTSPEC.TABLENAME, NBIN_WAVE_KEEP, NBIN_WAVE_ORIG );
   fflush(stdout);
-
-  //  debugexit(fnam); // xxx REMOVE
 
   return;
 
@@ -3519,15 +3522,21 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   // May 16 2022; fix bug reading too-short char.
   //              Replace WDLIST with global TMPWORD_HOSTLIB.
   //
+  // Sep 16 2024: check HOSTLIB_ABMAG_OFFSET;
+  
+  int MXCHAR          = MXCHAR_LINE_HOSTLIB;
+  double ABMAG_FORCE  = INPUTS.HOSTLIB_ABMAG_FORCE;
+  double ABMAG_OFFSET = INPUTS.HOSTLIB_ABMAG_OFFSET;
 
-  int MXCHAR         = MXCHAR_LINE_HOSTLIB;
-  double ABMAG_FORCE = INPUTS.HOSTLIB_ABMAG_FORCE;
+  int len_suffix_magobs = strlen(HOSTLIB_SUFFIX_MAGOBS);
+  int len_varName;
+  
   int MXWD = NVAL;
   int ival_FIELD, ival_NBR_LIST, ival, NWD=0, len, NCHAR ;
-  // xxx char WDLIST[MXVAR_HOSTLIB][100], *ptrWDLIST[MXVAR_HOSTLIB] ;
   char sepKey[] = " " ;
   char tmpWORD[200], tmpLine[MXCHAR_LINE_HOSTLIB], *pos, *varName ;
   char fnam[] = "read_galRow_HOSTLIB" ;
+  
   // ---------------- BEGIN -----------------
 
   // scoop up rest of line with fgets
@@ -3571,7 +3580,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   for(ival=0; ival < NVAL; ival++ ) {
     VALUES[ival] = -9.0 ; 
     varName      = HOSTLIB.VARNAME_ALL[ival] ;
-
+    len_varName  = strlen(varName);
+      
     if ( ival == ival_FIELD )  { 
       sprintf(tmpWORD, "%s", TMPWORD_HOSTLIB[ival] );
       len = strlen(tmpWORD);
@@ -3608,6 +3618,14 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
       // float or int (non-string) value
       sscanf(TMPWORD_HOSTLIB[ival], "%le", &VALUES[ival] ); 
 
+      bool MATCH_STRMAG = ( strstr(varName,HOSTLIB_SUFFIX_MAGOBS) != NULL );
+      bool MATCH_STRLEN = ( len_varName == len_suffix_magobs+1 ) ;
+      if ( MATCH_STRMAG && MATCH_STRLEN ) {
+	if ( ABMAG_FORCE   > -8.0 ) {  VALUES[ival]  = ABMAG_FORCE  ; }
+	if ( ABMAG_OFFSET !=  0.0 ) {  VALUES[ival] += ABMAG_OFFSET ; } 	
+      }
+      
+      /* xxx mark delete sep 16 2024 xxxxxx
       // check option to force override for gal mags (May 2021)
       if ( ABMAG_FORCE > -8.0 ) {	
 	int lenvar = strlen(varName);
@@ -3616,7 +3634,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 	if ( MATCHMAG && lenvar == lensuf+1 ) 
 	  { VALUES[ival] = ABMAG_FORCE ; }
       }
-
+      xxxxxxx end mark xxxxxxx */
+      
       // check for NaN (NaN abort is after reading entire HOSTLIB)
       if ( isnan(VALUES[ival]) )  {
 	HOSTLIB.NERR_NAN++ ;
@@ -3698,7 +3717,7 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
   int ivar, I8, I8p, I4, ICp, MEMC, DO_FIELD, DO_NBR, igal ;
   int LDMP = 0 ;
-  //  char fnam[] = "malloc_HOSTLIB";
+  char fnam[] = "malloc_HOSTLIB";
 
   // ------------- BEGIN ----------
 
@@ -3790,6 +3809,8 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
     for(igal=NGAL_READ; igal < NGAL_READ+MALLOCSIZE_HOSTLIB; igal++ ) 
       { HOSTLIB.LIBINDEX_READ[igal] = -9; }
   }
+
+  return ;
   
 } // end of malloc_HOSTLIB
 
@@ -4782,8 +4803,6 @@ void init_GALMAG_HOSTLIB(void) {
 
     IVAR = IVAR_HOSTLIB(cvar,MATCH_FLAG) ;
     IVAR_ERR = IVAR_HOSTLIB(cvar_err,MATCH_FLAG) ;
-    //printf("xxx cvar_err = %s, ivar_err = %d\n", cvar_err, IVAR_ERR);
-
 
     if ( IVAR > 0 ) {
       NMAGOBS++ ;
@@ -9967,7 +9986,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   
   // open orig HOSTLIB without checking for DOCANA so that
   // we don't skip DOCUMENTATION key
-  FP_ORIG = open_TEXTgz(HLIB_ORIG, "rt", &gzipFlag );
+  FP_ORIG = open_TEXTgz(HLIB_ORIG, "rt", 0, &gzipFlag, fnam );
   FP_NEW  = fopen(HLIB_NEW, "wt");
 
   if ( !FP_ORIG ) {

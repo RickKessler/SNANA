@@ -181,7 +181,7 @@ int init_genmag_mlcs2k2(
     // Abort on error only if optical filter is missing.
     // IR filters are allowed to be missing.
 
-    file_ptr = open_TEXTgz(tempFilename, "rt", &GZIPFLAG ) ;
+    file_ptr = open_TEXTgz(tempFilename, "rt", 0, &GZIPFLAG, fnam ) ;
       
     if ( file_ptr == NULL ) {
       if ( ifilt < NFILT_MLCS2k2_REQUIRED ) {
@@ -539,7 +539,7 @@ void rd_mlcs2k2_cov(char *covFile, float scale_covar) {
 
 
   // Open file for reading 
-  fp = open_TEXTgz(covFile_loc, "rt", &GZIPFLAG );
+  fp = open_TEXTgz(covFile_loc, "rt", 0, &GZIPFLAG, fnam );
   if ( fp  == NULL ) {
     printf("\n ERROR in %s \n", fnam );
     printf("    Could not open '%s' \n ", covFile_loc );

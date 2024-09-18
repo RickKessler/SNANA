@@ -1,24 +1,25 @@
 /* =====================================================
 
-  Package to compute non-linearity.
+  Package to read and apply non-linearity from map(s) in file.
   [initial use for WFIRST sims]
 
   Sim-input key  NONLINEARITY_FILE:  <inFile>
-  read file of the form
+  where inFile is of the form:
 
-  MODEL:  READOUT_RATE  ! obsolete xxxx
-  MODEL:  FLUX_pe       ! May 27 2016
+  MODELNAME:  WHATEVER
 
   START_MAP:
   FILTERS: abcdef
-  NONLIN:   4.0  0.982  # 
-  NONLIN:  40.0  0.986  # 
-  NONLIN: 400.0  0.988  # 
+  NONLIN:   4.0E0  0.982  #   Ftot(pe)  and Flux-scale
+  NONLIN:   4.0E1  0.986
+  NONLIN:   4.0E2  0.988 
   etc .
   END_MAP:
 
-  Then repeat as many maps as needed in case
-  different filters have different non-linearities.
+  Beware that Ftot should be the sum of Fsource + Fsky + Fgal.
+
+  Repeat as many maps as needed in case different filters have 
+  different non-linearities.
 
 ======================================================= */
 
@@ -45,7 +46,7 @@ void INIT_NONLIN(char *inFile) {
   // ------------ BEGIN --------------
 
   NMAP_NONLIN = 0 ;
-  MODEL_NONLIN[0] = 0 ;
+  MODELNAME_NONLIN[0] = 0 ;
   NONLIN_README.NLINE = NLINE = 0 ;
 
   if ( IGNOREFILE(inFile) ) { return ; }
@@ -63,12 +64,12 @@ void INIT_NONLIN(char *inFile) {
   // first pass read to count how many tables for malloc
   // and to determine the model
   while( (fscanf(fp, "%s", c_get)) != EOF) {
-    if ( strcmp(c_get,"MODEL:"    ) == 0 ) { 
-      readchar(fp,MODEL_NONLIN); 
+    if ( strcmp(c_get,"MODELNAME:"    ) == 0 ) { 
+      readchar(fp,MODELNAME_NONLIN); 
 
       NONLIN_README.LINE[NLINE][0] = 0 ; NLINE++ ;
       sprintf(NONLIN_README.LINE[NLINE],
-	      "  Apply NONLINEARITY MODEL '%s'", MODEL_NONLIN);
+	      "  Apply NONLINEARITY MODEL '%s'", MODELNAME_NONLIN);
       NLINE++ ;
     }
 
@@ -77,8 +78,8 @@ void INIT_NONLIN(char *inFile) {
 
   rewind(fp);
 
-  if ( strlen(MODEL_NONLIN) == 0 ) {
-    sprintf(c1err,"Must specify  MODEL: <model>" );
+  if ( strlen(MODELNAME_NONLIN) == 0 ) {
+    sprintf(c1err,"Must specify  MODELNAME: <model>" );
     sprintf(c2err,"in %s", inFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
@@ -93,6 +94,7 @@ void INIT_NONLIN(char *inFile) {
   }
   DUMPFLAG_NONLIN = 0 ;
 
+  
   // read again and store each map
   imap = RDFLAG = MAPSIZE = 0 ;
   while( (fscanf(fp, "%s", c_get)) != EOF) {

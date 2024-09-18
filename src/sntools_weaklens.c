@@ -228,7 +228,7 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
 	 NZ, LENSING_PROBMAP.z_LIST[0], LENSING_PROBMAP.z_LIST[NZ-1] );
   fflush(stdout);
 
-  //  debugexit(fnam); // xxx REMOVE
+  for(iwd=0; iwd < MXWD; iwd++ )  { free(ptrWORD[iwd]); }
 
   return ;
 

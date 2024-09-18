@@ -453,7 +453,8 @@ int NSURFACE_SALT2(void) {
   for(i=0; i < 3; i++ ) {
     sprintf(template_file, "%s/%s_template_%d.dat", 
 	    SALT2_MODELPATH, SALT2_PREFIX_FILENAME, i);
-    fp = open_TEXTgz(template_file, "rt", &gzipFlag );
+    
+    fp = open_TEXTgz(template_file, "rt", 0, &gzipFlag, fnam );
     if ( fp != NULL ) { N++; fclose(fp); }
   }
 

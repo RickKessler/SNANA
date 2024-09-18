@@ -1148,6 +1148,7 @@ void set_user_defaults(void) {
   // debug options
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
   INPUTS.HOSTLIB_ABMAG_FORCE   = -9.0 ;
+  INPUTS.HOSTLIB_ABMAG_OFFSET  =  0.0 ;  
   INPUTS.HOSTLIB_FIXRAN_RADIUS = -9;
   INPUTS.HOSTLIB_FIXRAN_PHI    = -9;
   INPUTS.HOSTLIB_FIXSERSIC[0]  =  0.0   ; // a
@@ -1581,6 +1582,11 @@ int read_input_file(char *input_file, int keySource ) {
   sprintf(msg_die, "DEBUG DIE for refac %s: NWD = %d", fnam, NWD_FILE );
   //  debugexit(msg_die) ;
 
+  // Sep 2024: free temp INPUTS.WORDLIST
+  for(iwd=0; iwd < NWD_FILE; iwd++ ) { free(INPUTS.WORDLIST[iwd]); }
+  free(INPUTS.WORDLIST);
+
+  // end program on dump flag
   if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
 
   return(SUCCESS) ;
@@ -3110,7 +3116,7 @@ void parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource) {
 } // end  parse_input_HOSTLIB_SNR_SCALE
 
 // ===============================================
-void parse_input_GENZPHOT_FUEGEMAP(char *string) {
+void parse_input_GENZPHOT_FUDGEMAP(char *string) {
 
   // Created Nov 15 2021 by R.Kessler
   // Parse input *string of the form
@@ -3122,7 +3128,7 @@ void parse_input_GENZPHOT_FUEGEMAP(char *string) {
   int MAX_NzBIN = 50, MXCHAR=200, NzBIN, iz, Nsplit2 ;
   double z, rms;
   char **split_string, **split_string2;
-  char fnam[] = "parse_input_GENZPHOT_FUEGEMAP" ;
+  char fnam[] = "parse_input_GENZPHOT_FUDGEMAP" ;
 
   // ------------- BEGIN ------------
 
@@ -3740,7 +3746,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEMAP",WORDS[0],keySource)){
     ptr_str = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.STRING ;
     N++ ; sscanf(WORDS[N], "%s", ptr_str);
-    parse_input_GENZPHOT_FUEGEMAP(ptr_str);
+    parse_input_GENZPHOT_FUDGEMAP(ptr_str);
   }
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float
@@ -3843,6 +3849,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_ABMAG_FORCE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_ABMAG_FORCE );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_ABMAG_OFFSET", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_ABMAG_OFFSET );
   }
   else if ( keyMatchSim(1, "HOSTLIB_FIXRAN_RADIUS", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS );
@@ -5690,9 +5699,7 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
   else if ( keyMatchSim(MXPAR,"SIMSED_WGTMAP_FILE", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N],"%s", INPUTS.WGTMAP_FILE_SIMSED );  
     INPUTS.OPTMASK_SIMSED  = 
-     OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_WGT;
-    // X_WGT+
-    
+     OPTMASK_GEN_SIMSED_GRIDONLY + OPTMASK_GEN_SIMSED_WGT;   
   }
   else if ( keyMatchSim(1,"SIMSED_REDCOR SIMSED_COV", WORDS[0], keySource) ) {
     N += parse_input_SIMSED_COV(WORDS, keySource);
@@ -13472,7 +13479,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     ISIMSED_SEQUENTIAL  = NGENLC_TOT ; // IGEN = ISED (legacy; mark dekete)
   }
 
-  // A.G.
+  // A.Gagliano
   OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT) || (strlen(INPUTS.WGTMAP_FILE_SIMSED) > 0);
 
   if ( OVP > 0 )  { 

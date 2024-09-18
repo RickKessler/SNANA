@@ -2995,7 +2995,7 @@ bool found_fluxerr_SEDMODEL(char *sedFile) {
 
   // -------------- BEGIN ------------
 
-  fp = open_TEXTgz(sedFile, "rt", &gzipFlag);
+  fp = open_TEXTgz(sedFile, "rt", 0, &gzipFlag, fnam);
   if ( !fp ) {
     sprintf(c1err,"Could not open sedFile:");
     sprintf(c2err,"%s", sedFile);

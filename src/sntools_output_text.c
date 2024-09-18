@@ -149,7 +149,8 @@ extern"C" {
   // misc. sntools functions
   void  readint(FILE *fp, int nint, int *list) ;
   void  readchar(FILE *fp, char *clist) ;
-  FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG);
+  FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
+		    int *GZIPFLAG, char *callFun);
   int   store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun );
   void  get_PARSE_WORD(int langFlag, int iwd, char *word);
   void  trim_blank_spaces(char *string);
@@ -265,7 +266,7 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
 
   // - - - - - - - - - - - -
    // open text file  
-  TABLEINFO_TEXT.FP[NTAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, &GZIPFLAG) ;
+  TABLEINFO_TEXT.FP[NTAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, 0, &GZIPFLAG, fnam) ;
   if ( !TABLEINFO_TEXT.FP[NTAB] ) {
     sprintf(MSGERR1, "Could not open TEXT FILE = ");
     sprintf(MSGERR2, "%s", FILENAME);    
@@ -732,7 +733,7 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
 
   char fnam[] = "OPEN_TEXTFILE" ;
 
-  PTRFILE_TEXT = open_TEXTgz(FILENAME,mode, &GZIPFLAG_TEXT);
+  PTRFILE_TEXT = open_TEXTgz(FILENAME,mode, 0, &GZIPFLAG_TEXT, fnam);
 
   sprintf(FILENAME_TEXT, "%s", FILENAME);  // Dec 2 2017
 
@@ -808,7 +809,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   sprintf(listFile,   "%s.%s", PREFIX, SUFFIX_LCLIST_TEXT );
   sprintf(lcplotFile, "%s.%s", PREFIX, SUFFIX_LCPLOT_TEXT );
 
-  PTRFILE_LCLIST = open_TEXTgz(listFile,TEXTMODE_wt, &GZIPFLAG);
+  PTRFILE_LCLIST = open_TEXTgz(listFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCLIST ) {
     sprintf(MSGERR1, "Could not open ascii LC list-file = ");
     sprintf(MSGERR2, "%s", listFile);    
@@ -816,7 +817,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   }
 
   //  PTRFILE_LCPLOT = fopen(lcplotFile,"wt");
-  PTRFILE_LCPLOT = open_TEXTgz(lcplotFile,TEXTMODE_wt, &GZIPFLAG );
+  PTRFILE_LCPLOT = open_TEXTgz(lcplotFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCPLOT ) {
     sprintf(MSGERR1, "Could not open ascii LCPLOT file = ");
     sprintf(MSGERR2, "%s", lcplotFile);    
@@ -962,7 +963,7 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
   LENF = strlen(FILENAME) ;
 
   if ( LENF > 0 ) 
-    { fp = open_TEXTgz(FILENAME,TEXTMODE_rt, &GZIPFLAG); }
+    { fp = open_TEXTgz(FILENAME,TEXTMODE_rt, 0, &GZIPFLAG, fnam ); }
   else
     { fp = PTRFILE_TEXT ; } // already opened
 
@@ -1060,7 +1061,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
   VARNAMES[0] = 0 ;
   print_banner(fnam);
 
-  fp = open_TEXTgz(FILENAME, "rt", &GZIPFLAG ) ;
+  fp = open_TEXTgz(FILENAME, "rt", 0, &GZIPFLAG, fnam ) ;
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
     NWD++ ;
@@ -1157,7 +1158,7 @@ int  SNTABLE_READPREP_TEXT(void) {
   // close file and re-open because rewind does not work on
   // gzipped files 
   fclose(PTRFILE_TEXT);
-  PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, &GZIPFLAG);
+  PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, 0, &GZIPFLAG, fnam);
 
   free(VARLIST);
   return NVAR;
@@ -1767,7 +1768,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
   // ------------- BEGIN -------------
 
   sprintf(specFile, "%s.%s", PREFIX, SUFFIX_SPECLIST_TEXT );
-  PTRFILE_SPECLIST = open_TEXTgz(specFile,TEXTMODE_wt, &GZIPFLAG );
+  PTRFILE_SPECLIST = open_TEXTgz(specFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_SPECLIST ) {
     sprintf(MSGERR1, "Could not open ascii SPECLIST file = ");
     sprintf(MSGERR2, "%s", specFile);    
@@ -1775,7 +1776,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
   }
 
   sprintf(specFile, "%s.%s", PREFIX, SUFFIX_SPECPLOT_TEXT );
-  PTRFILE_SPECPLOT = open_TEXTgz(specFile,TEXTMODE_wt, &GZIPFLAG );
+  PTRFILE_SPECPLOT = open_TEXTgz(specFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_SPECPLOT ) {
     sprintf(MSGERR1, "Could not open ascii SPECPLOT file = ");
     sprintf(MSGERR2, "%s", specFile);    

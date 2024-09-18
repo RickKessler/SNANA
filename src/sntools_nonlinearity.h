@@ -3,7 +3,7 @@
 // -------------------------------
 #define MXBIN_NONLIN 100 
 
-char MODEL_NONLIN[100];
+char MODELNAME_NONLIN[100];
 int  NMAP_NONLIN ;
 int  DUMPFLAG_NONLIN ;
 

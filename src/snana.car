@@ -24231,7 +24231,7 @@ c PKMJDINI (e.g., from max-flux clump method)
 
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
-     &           VARLIST, ITEXT_NO, LENBLOCK, 20 )
+     &           VARLIST, ITEXT_YES, LENBLOCK, 20 ) ! needed by SNN classifier
 
       VARLIST = 'FITPROB_ITER1:F' // char(0)
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, FITPROB_ITER1, 

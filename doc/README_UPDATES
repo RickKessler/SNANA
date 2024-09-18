@@ -22592,7 +22592,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05p (Aug 23 2024) <-- start date of git tag
 
          *****  IMPORTANT(v11_05p) *****
-      
+
+   snana.car
+      + restore PKMJDINI to SNANA/FITRES tables; needed by SNN classifier.
+        Not sure how it was removed, but likely from a minor refactor.
+	
          *****  USEFUL(v11_05p) *****
 
    submit_batch_jobs.sh:

@@ -225,12 +225,15 @@ class LightCurveFit(Program):
         self.fit_prep_subclass()
 
         # read/store &SNLCINP namelist (for SNANA subclass only
+        self.config_prep['snlcinp'] = None
         if LCFIT_SUBCLASS == LCFIT_SNANA:
             nml = f90nml.read(input_file)
             self.config_prep['snlcinp'] = nml['snlcinp']
             self.fit_prep_check_SNLCINP()
-        else:
-            self.config_prep['snlcinp'] = None
+        elif LCFIT_SUBCLASS == LCFIT_BAYESN:
+            tmp = util.extract_yaml(input_file, None, None)
+            del tmp['CONFIG']  # Avoid confusion with submit_batch keys
+            self.config_prep['snlcinp'] = tmp
 
 
         # assemble list all possible paths where data/sim could be
@@ -455,14 +458,11 @@ class LightCurveFit(Program):
         key      = 'private_data_path'
         private_data_path       = None
 
-        if LCFIT_SUBCLASS == LCFIT_SNANA:
+        if LCFIT_SUBCLASS == LCFIT_SNANA or LCFIT_SUBCLASS == LCFIT_BAYESN:
             snlcinp  = self.config_prep['snlcinp']
             if key in snlcinp :
                 private_data_path = snlcinp[key] # keep env in path name
 
-        elif LCFIT_SUBCLASS == LCFIT_BAYESN :
-            pass  # MG: finish this
-        
         elif LCFIT_SUBCLASS == LCFIT_SALT3 :
             pass        
 

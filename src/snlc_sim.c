@@ -24698,7 +24698,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
-    psfsig   = 1./2.355 ;     // typical PSF in arcsec .xyz BUG
+    psfsig   = 1./2.355 ;     // typical PSF in arcsec .xyz harmless BUG
     mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;
     mag_dif  = mag_GAL - mag_SN ;

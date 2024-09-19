@@ -161,6 +161,7 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
 
   sprintf(TEXT,"NULL");
 
+
   // ----------------------------------------
   if ( strcmp(nameOpt,"MWCOLORLAW") == 0  || 
        strcmp(nameOpt,"COLORLAW"  ) == 0 ) {
@@ -174,11 +175,11 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_ODON94 ) 
       { sprintf(TEXT,"CCM89+ODonell94");  }  
 
-    else if ( OPT == OPT_MWCOLORLAW_FITZ99 ) 
-      { sprintf(TEXT,"Fitzpatrick99");  }
+    else if ( OPT == OPT_MWCOLORLAW_FITZ99_APPROX ) 
+      { sprintf(TEXT,"Fitzpatrick99 (approx fit to F99/ODonnel94)");  }
 
     else if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) 
-      { sprintf(TEXT,"Fitzpatrick99 (exact cubic spline implementation)");  }
+      { sprintf(TEXT,"Fitzpatrick99 (exact cubic spline)");  }
     
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
@@ -241,7 +242,7 @@ void modify_MWEBV_SFD(int OPT, double RA, double DECL,
   MWEBV_INP = *MWEBV ;
   MWEBV_OUT = -999.0 ;
 
-  // check trival option with no Galactic extictio
+  // check trival option with no Galactic extiction
   if ( OPT == OPT_MWEBV_OFF )  { 
     MWEBV_OUT = MWEBV_ERR_OUT = 0.0 ; 
     goto LOAD_OUTPUT ; 
@@ -269,15 +270,6 @@ void modify_MWEBV_SFD(int OPT, double RA, double DECL,
   } 
 
   else if ( OPT == OPT_MWEBV_Sch11_PS2013 ) {
-
-    /* xxxxxxxxxxxxxx
-    // Based on D. Scolnic & E. Schlafly, private communication.
-    // See middle panel of Fig 8 in Schlafly  2011.
-    if ( MWEBV_SFD98 < 0.1 ) 
-      { MWEBV_OUT = 0.94 * MWEBV_SFD98 ; } // low EBV corr
-    else
-      { MWEBV_OUT = 0.86 * MWEBV_SFD98 ; } // high EBV corr
-    xxxxxxxxxxxxxxxxx */
 
     MWEBV_OUT = 0.86 * MWEBV_SFD98 ;  // Apr 13 2018: Dan suggests this
 
@@ -362,10 +354,18 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   if ( AV == 0.0  )  {  return XT ; }
 
   // -----------------------------------------
-  // if opt=9999, bypass everything else and call ST's F99exact function
-  if ( OPT == 9999 ) { return F99exact(RV, AV, WAVE); }
+  // if seleting exact Fitz99 option,
+  // bypass everything else and call S. Thorp's function
+  
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT )  {
+    XT = GALextinct_Fitz99_exact(RV, AV, WAVE);
+    return XT ;
+  }
+
+  
   // -----------------------------------------
-  DO94 = (OPT == 94 || OPT == 99 ) ;
+  DO94 = (OPT == OPT_MWCOLORLAW_ODON94 ||
+	  OPT == OPT_MWCOLORLAW_FITZ99_APPROX ) ;
 
   x = 10000./WAVE;    // inverse wavelength in microns
   y = x - 1.82;
@@ -436,15 +436,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   // Sep 18 2013 RK/DS - Check option for Fitzptrack 99
 
 #define NPOLY_FITZ99 11 //Dillon and Dan upped to 10, Oct 9 2021
-  if ( OPT == 99 ) {  
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_APPROX ) {  
 
-    double XTcor, wpow[NPOLY_FITZ99] ;
-
-    // xxx mark delete double F99_over_O94[NPOLY_FITZ99] = {  // From D.Scolnic, Sep 18 2013
-    //  0.485382, 0.791117, -0.534349, 0.191105,
-    //  -0.0380031, 0.00416853,  -0.000235077, 5.31309e-06 
-    //} ;
-    
+    double XTcor, wpow[NPOLY_FITZ99] ;    
     double F99_over_O94[NPOLY_FITZ99] = {  // Dillon and Dan, Oct 9 2021
       8.55929205e-02,  1.91547833e+00, -1.65101945e+00,  7.50611119e-01,
       -2.00041118e-01,  3.30155576e-02, -3.46344458e-03,  2.30741420e-04,
@@ -487,6 +481,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 // ============= EXACT F99 EXTINCTION LAW ==============
 double F99exact(double RV, double AV, double WAVE) {
 /*** 
+  Created by S. Thorp, Sep 19 2024
+
   Input : 
     AV   = V band (defined to be at 5495 Angstroms) extinction
     RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)

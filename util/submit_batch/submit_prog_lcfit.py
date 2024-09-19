@@ -53,6 +53,10 @@
 # Aug 28 2024 RK
 #    + allow new kind of FITOPT to give JOBNAME <jobname> to easily run tests
 #      over many old code versions. See -H LCFIT for help.
+#
+# Sep 18 2024 M.Grayling, RK
+#    + check private_data_path for bayesn.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -231,6 +235,7 @@ class LightCurveFit(Program):
             self.config_prep['snlcinp'] = nml['snlcinp']
             self.fit_prep_check_SNLCINP()
         elif LCFIT_SUBCLASS == LCFIT_BAYESN:
+            # M. Grayling, Sep 2024
             tmp = util.extract_yaml(input_file, None, None)
             del tmp['CONFIG']  # Avoid confusion with submit_batch keys
             self.config_prep['snlcinp'] = tmp

@@ -1,13 +1,20 @@
 // =======================================
 //      SNANA control flags
+//
+// Sep 19 2024: S. Thorp
+//    define OPT_MWCOLORLAW_FITZ99_EXACT = 9999 and leave original
+//    OPT_MWCOLORLAW_FITZ99_APPROX = 99. After more testing, the plan is
+//    make OPT_MWCOLORLAW_FITZ99_EXACT=99 the new default and allow
+//    OPT_MWCOLORLAW_FITZ99_APPROX = -99 to revert back to old approximation.
+//            
 // =======================================
 
 
 #define OPT_MWCOLORLAW_OFF      0  // No Extinction applied.
 #define OPT_MWCOLORLAW_CCM89   89  // Clayton,Cardelli,Matheson, 1989
 #define OPT_MWCOLORLAW_ODON94  94  // O'Donnel 1994 update
-#define OPT_MWCOLORLAW_FITZ99  99  // Fitzpatrick 1999
-#define OPT_MWCOLORLAW_FITZ99_EXACT 9999 // ST exact Fitzpatrick 1999 implementation
+#define OPT_MWCOLORLAW_FITZ99_APPROX  99   // approx Fitzpatrick 1999 (D.Scolnic, 2013)
+#define OPT_MWCOLORLAW_FITZ99_EXACT   9999 // exact Fitzpatrick 1999 (S.Thorp, 2024)
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)
@@ -15,6 +22,7 @@
 #define OPT_MWEBV_Sch11_PS2013   3  // PS1-2013 implementation of Schlafly 2011
 
 #define WAVEMAX_FITZ99 25000.0  // Oct 2021 Dillon and Dan switched from 12000
+
 
 // =======================================
 //      SNANA-interface functons
@@ -25,7 +33,9 @@ void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 // functions moved from sntools.c (Sep 2013)
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
-double F99exact(double RV, double AV, double WAVE);
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE);
+
+// xxx mark double F99exact(double RV, double AV, double WAVE);
 
 void   text_MWoption(  char *what, int  OPT, char *TEXT) ; // return TEXT
 void   text_mwoption__(char *what, int *OPT, char *TEXT) ; 

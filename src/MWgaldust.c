@@ -613,9 +613,9 @@ Returns :
         if (0 < q < 8) {
             double d2yq = 0;
             double d2yq1 = 0;
-            for (i=0; i<7; i++) {
-                d2yq  += F99_KINVD[i][q] * yF[q];
-                d2yq1 += F99_KINVD[i][q+1] * yF[q+1];
+            for (i=0; i<9; i++) {
+                d2yq  += F99_KINVD[q-1][i] * yF[i];
+                d2yq1 += F99_KINVD[q][i] * yF[i];
             }
             y += c*d2yq + d*d2yq1;
         }

@@ -312,6 +312,11 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
               O'94 is the opt=94 option and F'99 was computed from 
               http://idlastro.gsfc.nasa.gov/ftp/pro/astro/fm_unred.pro
 
+    OPT=9999 => use Fitzpatrick 99 (PASP 111, 63) as implemented by S. Thorp.
+                This version directly evaluates the cubic spline in inverse
+                wavelength, as defined by the fm_unred.pro code. Consistent
+                with extinction.py by K. Barbary, and BAYESN F99 implementation.
+
   Returns magnitudes of extinction.
 
  Nov 1, 2006: Add option to use new/old NIR coefficients
@@ -337,6 +342,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
      Recall that negative AV are used for warping spectra in kcor.c.
      This bug caused all AV<0 to have same mag as AV=0.
 
+  Sep 19 2024 ST
+   + add an exact Fitzpatrick 99 implementation with opt=9999.
+
  ***/
 
   int i, DO94  ;
@@ -350,6 +358,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
   if ( AV == 0.0  )  {  return XT ; }
 
+  // -----------------------------------------
+  // if opt=9999, bypass everything else and call ST's F99exact function
+  if ( OPT == 9999 ) { return F99exact(RV, AV, WAVE); }
   // -----------------------------------------
   DO94 = (OPT == 94 || OPT == 99 ) ;
 
@@ -469,6 +480,146 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
 }  // end of GALextinct
 
+
+// ============= EXACT F99 EXTINCTION LAW ==============
+double F99exact(double RV, double AV, double WAVE) {
+/*** 
+  Input : 
+    AV   = V band (defined to be at 5495 Angstroms) extinction
+    RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
+    WAVE = wavelength in angstroms
+Returns :
+    XT = magnitudes of extinction
+***/
+
+    char fnam[] = "F99exact" ;
+
+    // constants
+    double x02, gamma2, c1, c2, c3, c4, c5;
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    // spline result
+    double y;
+
+    // constants
+    x02 = 21.123216; // 4.596*4.596
+    gamma2 = 0.9801; // 0.99*0.99
+    c2 = -0.824 + 4.717/RV;
+    c1 = 2.03 - 3.007*c2;
+    c3 = 3.23;
+    c4 = 0.41;
+    c5 = 5.90;
+
+    if (WAVE < 2700.0) { //analytic formula for UV
+        //extra terms
+        double x2, y2, d, k;
+        x2 = x*x;
+        y = x2 - x02;
+        d = x2 / (y*y + x2*gamma2);
+        k = c1 + c2*x + c3*d;
+        if (x >= c5) {
+            y = x - c5;
+            y2 = y * y;
+            k += c4 * (0.5392*y2 + 0.05644*y2*y);
+        }
+        return AV * (1.0 + k/RV);
+    } else { //spline for optical/IR
+        // extra constants
+        double d1, d2, x82, x92, x8x02, x9x02;
+        // powers of RV
+        double RV2, RV3, RV4;
+        // terms in the cubic spline equation
+        double a, b, c, d, deltax, deltax2;
+
+        // spline knot locations in inverse microns
+        double xF1 = 0.0, xF2 = 1.0/2.65, xF3 = 1.0/1.22, xF4 = 1.0/0.60, 
+               xF5 = 1.0/0.547, xF6 = 1.0/0.467, xF7 = 1.0/0.411,
+                xF8 = 1.0/0.270, xF9 = 1.0/0.260;
+        // spline knot values
+        double yF1, yF2, yF3, yF4, yF5, yF6, yF7, yF8, yF9;
+
+        // y''/y matrix
+        const double F99_KINVD[7][9] = {
+            { 10.250658602, -20.740327299, 11.788924891, -3.715854641, 2.664586253, 
+                -0.310340815, 0.064481288, -0.008016093, 0.005887814 },
+            { -2.044608805, 10.254039610, -13.024855859, 13.772048671, -9.875739260, 
+                1.150214211, -0.238986593, 0.029709995, -0.021821969 },
+            { 0.871617871, -4.371302789, 9.117884190, -31.624036073, 28.674517818, 
+                -3.339682936, 0.693905048, -0.086263899, 0.063360769 },
+            { -0.162541946, 0.815173814, -1.700330722, 48.803145329, -76.266394662, 
+                35.679620964, -7.413359167, 0.921603416, -0.676917025 },
+            { 0.043265924, -0.216985519, 0.452599357, -12.990574083, 36.584795098, 
+                -45.257439481, 22.114244617, -2.749167134, 2.019261221 },
+            { -0.004943575, 0.024792817, -0.051714110, 1.484306083, -4.180187385, 
+                13.224682565, -13.261048442, 10.410939076, -7.646827029 },
+            { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
+                -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
+        };
+
+        // counters
+        int i, q;
+
+        // constants
+        x82 = xF8*xF8;
+        x92 = xF9*xF9;
+        x8x02 = x82 - x02;
+        x9x02 = x92 - x02;
+        d1 = x82 / (x8x02*x8x02 + gamma2*x82);
+        d2 = x92 / (x9x02*x9x02 + gamma2*x92);
+        // powers of RV
+        RV2 = RV*RV;
+        RV3 = RV2*RV;
+        RV4 = RV2*RV2;
+
+        // RV-dependent spline knot values
+        // polynomial coeffs match FM_UNRED.pro
+        yF1 = -RV;
+        yF2 = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
+        yF3 = -0.7325*RV; // 0.82925*(RV/3.1) - RV
+        yF4 = -0.422809 + 0.00270*RV -  2.13572e-04*RV2;
+        yF5 = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
+        yF6 =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
+        yF7 =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
+            7.97809e-04*RV3 - 4.45636e-05*RV4;
+        yF8 = c1 + c2*xF8 + c3*d1;
+        yF9 = c1 + c2*xF9 + c3*d2;
+
+        // put xF and yF in an array
+        double xF[9] = {xF1, xF2, xF3, xF4, xF5, xF6, xF7, xF8, xF9};
+        double yF[9] = {yF1, yF2, yF3, yF4, yF5, yF6, yF7, yF8, yF9};
+
+        // find index in knot list
+        q = 0;
+        while (q < 8) {
+            if (x < xF[q+1]) { 
+                break; 
+            } else {
+                q++;
+            }
+        }
+
+        // evaluate the spline
+        deltax = xF[q+1] - xF[q];
+        deltax2 = deltax * deltax;
+        a = (xF[q+1] - x) / deltax;
+        b = 1.0 - a;
+        c = (a*a*a - a) * deltax2 / 6.0;
+        d = (b*b*b - b) * deltax2 / 6.0;
+        y = a*yF[q] + b*yF[q+1];
+        // compute 2nd derivatives
+        if (0 < q < 8) {
+            double d2yq = 0;
+            double d2yq1 = 0;
+            for (i=0; i<7; i++) {
+                d2yq  += F99_KINVD[i][q] * yF[q];
+                d2yq1 += F99_KINVD[i][q+1] * yF[q+1];
+            }
+            y += c*d2yq + d*d2yq1;
+        }
+        return AV*(1.0 + y/RV);
+    }
+
+} // end of F99exact
 
 
 // ========== FUNCTION TO RETURN EBV(SFD) =================

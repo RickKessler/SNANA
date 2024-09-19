@@ -7,6 +7,7 @@
 #define OPT_MWCOLORLAW_CCM89   89  // Clayton,Cardelli,Matheson, 1989
 #define OPT_MWCOLORLAW_ODON94  94  // O'Donnel 1994 update
 #define OPT_MWCOLORLAW_FITZ99  99  // Fitzpatrick 1999
+#define OPT_MWCOLORLAW_FITZ99_EXACT 9999 // ST exact Fitzpatrick 1999 implementation
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)
@@ -24,6 +25,7 @@ void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 // functions moved from sntools.c (Sep 2013)
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
+double F99exact(double RV, double AV, double WAVE);
 
 void   text_MWoption(  char *what, int  OPT, char *TEXT) ; // return TEXT
 void   text_mwoption__(char *what, int *OPT, char *TEXT) ; 
@@ -34,7 +36,6 @@ void   modify_mwebv_sfd__(int *OPT, double *RA, double *DECL,
 			  double *MWEBV, double *MWEBV_ERR) ;
 
 // =======================================
-
 #ifndef __INCinterface_h
 #define __INCinterface_h
 

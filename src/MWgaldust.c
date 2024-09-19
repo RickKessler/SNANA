@@ -177,6 +177,9 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_FITZ99 ) 
       { sprintf(TEXT,"Fitzpatrick99");  }
 
+    else if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) 
+      { sprintf(TEXT,"Fitzpatrick99 (exact cubic spline implementation)");  }
+    
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
       sprintf(c2err,"Check OPT_MWCOLORAW_* in sntools.h");

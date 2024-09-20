@@ -204,7 +204,6 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
 
     else if ( OPT == OPT_MWEBV_Sch11_PS2013 ) 
       { sprintf(TEXT,"Schlafly11+PS2013: 0.86*MWEBV(SFD98)" );  }
-    // { sprintf(TEXT,"Schlafly11+PS2013: -.06,-.14, for EBV<.1,EBV>.1");  }
 
     else {
       sprintf(c1err,"Invalid OPT_MWEBV = %d", OPT);

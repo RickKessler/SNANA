@@ -25855,7 +25855,7 @@ c     --------- check color law ------------
 
       LENTEXT = INDEX(CTEXT,char(0)) - 1
       write(6,30) OPT_MWCOLORLAW, CTEXT(1:LENTEXT)
- 30   format(T5,'OPT_MWCOLORLAW =  ', I3,' -> ', A )
+ 30   format(T5,'OPT_MWCOLORLAW =  ', I4,' -> ', A )
       call flush(6)
 
 c ---------------------------------------------

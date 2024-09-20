@@ -12890,7 +12890,9 @@ double gen_MWEBV(double RA, double DEC) {
 
     if ( NEWCOORD ) 
       { modify_MWEBV_SFD(OPT, RA,DEC, &GENLC.MWEBV, &GENLC.MWEBV_ERR); }
-   
+
+    // add optional Inter Galactic dust ( epeterson and dbrout 9/12/24)
+    GENLC.MWEBV += get_zvariation(GENLC.REDSHIFT_CMB,"EBV_IGM");
   }
 
 
@@ -12921,8 +12923,9 @@ double gen_MWEBV(double RA, double DEC) {
   // apply user scale (June 2017)
   GENLC.MWEBV_SMEAR *= INPUTS.MWEBV_SCALE ;
 
+  // xxx wrong place to update MWEBV 
   // added by epeterson and dbrout 9/12/24
-  GENLC.MWEBV += get_zvariation(GENLC.REDSHIFT_CMB,"EBV_IGM");
+  // xxx mark deete GENLC.MWEBV += get_zvariation(GENLC.REDSHIFT_CMB,"EBV_IGM");
 
 
   if ( LDMP ) {

@@ -6,7 +6,7 @@
 //    OPT_MWCOLORLAW_FITZ99_APPROX = 99. After more testing, the plan is
 //    make OPT_MWCOLORLAW_FITZ99_EXACT=99 the new default and allow
 //    OPT_MWCOLORLAW_FITZ99_APPROX = -99 to revert back to old approximation.
-// Sep XX 2024: S. Thorp, R. Kessler
+// Sep 25 2024: S. Thorp, R. Kessler
 //    define OPT_MWCOLORLAW_FITZ99_EXACT = 99
 //    define OPT_MWCOLORLAW_FITZ99_APPROX = -99
 // =======================================

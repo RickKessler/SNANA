@@ -479,7 +479,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
 
 // ============= EXACT F99 EXTINCTION LAW ==============
-double F99exact(double RV, double AV, double WAVE) {
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE) {
 /*** 
   Created by S. Thorp, Sep 19 2024
 

@@ -1906,7 +1906,7 @@ def get_info_plot1d(args, info_plot_dict):
         logging.info(f"{name0_legend}/{name_legend} {text_chi2}")
         xmin = xbins[0];  xmax = xbins[-1]
         x_text = xmin + 0.7*(xmax-xmin)
-        y_text = 1.0 * np.max(yval0_list)  # warning; fragile coord calc
+        y_text = 0.9 * np.max(yval0_list)  # warning; fragile coord calc
         plt_text_dict = { 'x_text': x_text, 'y_text': y_text,
                           'text': text_chi2 }
 

@@ -14628,7 +14628,11 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // Created March 2024
   // write one row per spectrum summary if SPECTROGRAPH is used.
-
+  //
+  // Seo 23 2024:
+  // Fix logic so that DUMP.SPEC is created for either TAKE_SPECTRUM
+  // keys in sim-input file or in SIMLIB header.
+  
   double OVERLAP, SYNMAG, SYNMAGERR, LAMWID ;
   int    NFILT_WARN=0,  IFILTOBS_WARN[MXFILTINDX];
   int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
@@ -14642,7 +14646,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ----------- BEGIN ---------
 
-  if ( NPEREVT_TAKE_SPECTRUM <= 0 ) { return; }
+  bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || INPUTS.USE_SIMLIB_SPECTRA ) ;
+  if ( !IS_SPECTRA ) { return; }
 
   // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {

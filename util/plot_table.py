@@ -1750,22 +1750,22 @@ def plotter_func_driver(args, plot_info):
                 overlay2d_binned_stat(args, info_plot_dict, None)
 
         elif do_plot_hist and NDIM == 1 :
-            (contents, xbins_tmp, patches) = \
+            (contents_1d, xedges, patches) = \
                 plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
                      label = plt_legend, linewidth=lwid, linestyle=lsty)
 
-            dump_hist1d_contents(args, xbins, contents)
+            dump_hist1d_contents(args, xedges, contents_1d)
             
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
-            contents, xedges, yedges, im = \
+            contents_2d, xedges, yedges, im = \
                 plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
                            cmin=.1, alpha=plt_alpha, cmap='rainbow_r', 
                            bins  = hist2d_args.bins,
                            range = hist2d_args.range,
                            norm  = hist2d_args.norm  )
             plt.colorbar(im)
-            dump_hist2d_contents(args, xedges, yedges, contents) 
+            dump_hist2d_contents(args, xedges, yedges, contents_2d) 
             
             if do_ov2d_binned_stat and NDIM == 2 :
                 overlay2d_binned_stat(args, info_plot_dict, 'ORANGE')
@@ -1796,7 +1796,7 @@ def plotter_func_driver(args, plot_info):
     return   # end plotter_func_driver
 
 
-def dump_hist1d_contents(args, xbins, contents):
+def dump_hist1d_contents(args, xedges, contents_1d):
     # dump 1d-histogram contents to text file.
 
     dump_file = args.DUMP
@@ -1804,18 +1804,22 @@ def dump_hist1d_contents(args, xbins, contents):
 
     logging.info(f"Dump HIST1D bin contents to {dump_file}")
     f = open(dump_file, "wt")
-
-
     
-    xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
-    contents[np.isnan(contents)] = 0
-    sum_contents = sum(contents)
-
-    varname = args.VARIABLE[0]
+    xbins_cen   = ( xedges[1:] + xedges[:-1] ) / 2.  # central value for each xbin
+    contents_1d[np.isnan(contents_1d)] = 0
+    sum_contents = sum(contents_1d)
+    nbin         = len(contents_1d)
+    
+    var_orig = args.VARIABLE[0]
+    varname = get_varname_dump(var_orig)
     f.write(f"# Sum of contents: {sum_contents}\n")
-    f.write(f"VARNAMES:  ROW  BINCENTER_{varname}  CONTENTS\n")    
+    f.write(f"# Number of {var_orig} bins:  {nbin}\n")    
+    f.write(f"# x-axis: {var_orig}\n")
+    f.write(f"\n")
+    f.write(f"VARNAMES:  ROW  {varname}  CONTENTS\n")
+    
     rownum = 0
-    for x, x_content in zip(xbins_cen, contents) :
+    for x, x_content in zip(xbins_cen, contents_1d) :
         rownum += 1
         f.write(f"ROW:  {rownum:3d}   {x:.5f}  {x_content}\n")
         
@@ -1823,7 +1827,7 @@ def dump_hist1d_contents(args, xbins, contents):
     
     return  # end dump_hist1d_contents
 
-def dump_hist2d_contents(args, xedges, yedges, contents) :
+def dump_hist2d_contents(args, xedges, yedges, contents_2d) :
 
     # dump 2D histogram contents to text file
     dump_file = args.DUMP
@@ -1831,22 +1835,30 @@ def dump_hist2d_contents(args, xedges, yedges, contents) :
 
     logging.info(f"Dump HIST2D bin contents to {dump_file}")
 
-    #sys.exit(f"\n xxx VAR = {args.VARIABLE}")
-    
-    varname_x = args.VARIABLE[0].split(COLON)[0]
-    varname_y = args.VARIABLE[0].split(COLON)[1]
+    var_list  = args.VARIABLE[0].split(COLON)
+    varname_x = get_varname_dump(var_list[0])
+    varname_y = get_varname_dump(var_list[1])
     
     xbins_cen   = ( xedges[1:] + xedges[:-1] ) / 2.  # central value for each xbin
     ybins_cen   = ( yedges[1:] + yedges[:-1] ) / 2.  # central value for each ybin
-    contents[np.isnan(contents)] = 0  # set NaN contents to zero
-    sum_contents = sum(sum(contents))
+    contents_2d[np.isnan(contents_2d)] = 0  # set NaN contents to zero
+    sum_contents = sum(sum(contents_2d))
+    nxbin        = len(contents_2d)
+    nybin        = len(contents_2d[0])
+    nbin         = nxbin * nybin
     rownum = 0
 
     f = open(dump_file, "wt")
-    f.write(f"# Sum of contents: {sum_contents}\n")    
-    f.write(f"VARNAMES:  ROW  BINCENTER_{varname_x}  BINCENTER_{varname_y}  CONTENTS\n")
+    f.write(f"# Sum of contents: {sum_contents}\n")
+    f.write(f"# Number of {var_list[0]:<12} bins:  {nxbin}\n")
+    f.write(f"# Number of {var_list[1]:<12} bins:  {nybin}\n")    
+    f.write(f"# Number of 2D bins:  {nbin}\n")    
+    f.write(f"# x-axis: {var_list[0]}\n")
+    f.write(f"# y-axis: {var_list[1]}\n")
+    f.write(f"\n")
+    f.write(f"VARNAMES:  ROW  {varname_x}  {varname_y}  CONTENTS\n")
     
-    for x, y_slice in zip(xbins_cen, contents) :
+    for x, y_slice in zip(xbins_cen, contents_2d) :
         for y, xy_content in zip(ybins_cen, y_slice):
             rownum += 1
             f.write(f"ROW:  {rownum:3d}   {x:10.5f}  {y:10.5f}    {xy_content}\n")
@@ -1854,6 +1866,27 @@ def dump_hist2d_contents(args, xedges, yedges, contents) :
     f.close()
     
     return   # end dump_hist2d_contents 
+
+def get_varname_dump(varname_orig):
+    varname_dump = f"BINCENTER_{varname_orig}"
+
+    # replace or remove special symbols that should not be used for
+    # variables name
+    # e.g.,
+    #   BINCENTER_sqrt(q+3)  -> BINCENTER_sqrt_q+3
+    #   BINCENTER_q*5        -> BINCENTER_sqrt_q_x_5
+
+    replace_dict = {
+        ' ' : ''  ,
+        '(' : '_' ,
+        ')' : ''  ,
+        '*' : '_x_'
+    }
+
+    for ch0, ch1 in replace_dict.items():   
+        varname_dump = varname_dump.replace(ch0,ch1)    
+    
+    return varname_dump
 
 def get_info_plot1d(args, info_plot_dict):
 

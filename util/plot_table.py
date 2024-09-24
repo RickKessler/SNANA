@@ -1805,11 +1805,15 @@ def dump_hist1d_contents(args, xbins, contents):
     logging.info(f"Dump HIST1D bin contents to {dump_file}")
     f = open(dump_file, "wt")
 
-    varname = args.VARIABLE[0]
-    f.write(f"VARNAMES:  ROW  BINCENTER_{varname}  CONTENTS\n")
+
     
     xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
     contents[np.isnan(contents)] = 0
+    sum_contents = sum(contents)
+
+    varname = args.VARIABLE[0]
+    f.write(f"# Sum of contents: {sum_contents}\n")
+    f.write(f"VARNAMES:  ROW  BINCENTER_{varname}  CONTENTS\n")    
     rownum = 0
     for x, x_content in zip(xbins_cen, contents) :
         rownum += 1
@@ -1826,19 +1830,21 @@ def dump_hist2d_contents(args, xedges, yedges, contents) :
     if dump_file is None: return
 
     logging.info(f"Dump HIST2D bin contents to {dump_file}")
-    f = open(dump_file, "wt")
 
     #sys.exit(f"\n xxx VAR = {args.VARIABLE}")
     
     varname_x = args.VARIABLE[0].split(COLON)[0]
     varname_y = args.VARIABLE[0].split(COLON)[1]
     
-    f.write(f"VARNAMES:  ROW  BINCENTER_{varname_x}  BINCENTER_{varname_y}  CONTENTS\n")
-    
     xbins_cen   = ( xedges[1:] + xedges[:-1] ) / 2.  # central value for each xbin
     ybins_cen   = ( yedges[1:] + yedges[:-1] ) / 2.  # central value for each ybin
-    contents[np.isnan(contents)] = 0  # set NaN contents to zero    
+    contents[np.isnan(contents)] = 0  # set NaN contents to zero
+    sum_contents = sum(sum(contents))
     rownum = 0
+
+    f = open(dump_file, "wt")
+    f.write(f"# Sum of contents: {sum_contents}\n")    
+    f.write(f"VARNAMES:  ROW  BINCENTER_{varname_x}  BINCENTER_{varname_y}  CONTENTS\n")
     
     for x, y_slice in zip(xbins_cen, contents) :
         for y, xy_content in zip(ybins_cen, y_slice):

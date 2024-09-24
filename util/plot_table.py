@@ -50,7 +50,9 @@ OPT_NEVT      = "NEVT"      # append N={nevt} to legend
 OPT_AVG       = "AVG"       # 1D->append avg to legend; 2D->overlay avg in x-bins
 OPT_MEAN      = "MEAN"      # same as AVG
 OPT_STDDEV    = "STDDEV"    # append stddev to legend
-OPT_CHI2      = "CHI2"      # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1
+OPT_OV        = "OV"        # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1;
+OPT_OVCHI2    = "OVCHI2"    # exec OPT_OV and also print CHI2/dof on plot
+OPT_CHI2      = "CHI2"      # legacy option; same as OVCHI2
 OPT_MEDIAN    = "MEDIAN"
 OPT_DIAG_LINE = "DIAG_LINE"  # draw diagonal line on plot
 OPT_LOGY      = "LOGY"       # log scale along Y axis (1D or 2D)
@@ -63,8 +65,8 @@ OPT_DIFF_CID  = "DIFF_CID"   # 2 files and 2D: plot y-axis diff for each CID
 OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
 OPT_RATIO     = "RATIO"      # 1D: plot ratio between 2 files or 2 cuts
 
-VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL, 
-                   OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_CHI2,
+VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
+                   OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_OV, OPT_OVCHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
                    OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_LIST_CID, OPT_LIST_ROW,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
@@ -269,7 +271,8 @@ and two types of command-line input delimeters
    {OPT_MEDIAN:<12} ==> overlay y-axis median in x-bins (2D only).
    {OPT_STDDEV:<12} ==> 1D -> append stddev on each legend;
                     2D -> mean error bar is STDDEV instead of STDDEV/sqrt(N)
-   {OPT_CHI2:<12} ==> display chi2/dof on plot for two table files (1D only).
+   {OPT_OV:<12} ==> overlay two 1D plots (2 files or 2 cuts); do not print chi2/dof on plot
+   {OPT_OVCHI2:<12} ==> execut OPT_OV and display chi2/dof on plot
    {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot.
 
    {OPT_LOGY:<12} ==> log scale for vertical axis (1D or 2D)
@@ -382,6 +385,11 @@ and two types of command-line input delimeters
   but not both. This enables pipelines to make post-processing plots
   without worrying about pop-windows in slurm jobs.
 
+@@DUMP
+  Dump histogram contentes to text file; e.g.
+     @@DUMP plot_hist1d.text
+  Works only with @@OPT HIST option (1D or 2D)
+
 Examples:
 
 plot_table.py @@TFILE File1.FITRES File2.FITRES \\
@@ -490,6 +498,9 @@ def get_args():
     msg = "Filename to save plot.  Default: does not save plots."
     parser.add_argument('@@SAVE', '@@save', default=None, help=msg )
 
+    msg = "Filename to dump histogram contents (works only with @@OPT HIST)"
+    parser.add_argument('@@DUMP', '@@dump', default=None, help=msg )
+    
     msg = "options; see @@HELP"
     parser.add_argument('@@OPT', '@@opt', help=msg, nargs="+", default = [])
 
@@ -623,7 +634,7 @@ def arg_prep_driver(args):
     args.legend_list = arg_prep_legend(args) # must be after prep_DIFF
 
     args.text_list   = arg_prep_TEXT(args)
-    
+
     # - - - - - - -
     args.OPT = arg_prep_OPT(args)            
     
@@ -749,7 +760,17 @@ def arg_prep_OPT(args):
     # the LIST_CID flag
     if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
         OPT_out.append(OPT_LIST_CID)
-        
+
+    # check OV[CHI2] options
+    if OPT_CHI2 in OPT_out: # check for legacy option that means OVCHI2
+        OPT_out.append(OPT_OVCHI2)
+
+    if OPT_OVCHI2 in OPT_out and OPT_OV not in OPT_out:
+        OPT_out.append(OPT_OV)
+
+    if OPT_HISTFILL in OPT_out :
+        OPT_out.append(OPT_HIST)
+
     return OPT_out
 
 def arg_prep_DEBUG_FLAG(args):
@@ -1264,7 +1285,7 @@ def more_human_readable(label_orig):
 def set_hist2d_args(args, plot_info):
 
     
-    do_hist2d   = args.NDIM == 2 and (OPT_HIST in args.OPT  or  OPT_HISTFILL in args.OPT)
+    do_hist2d   = args.NDIM == 2 and (OPT_HIST in args.OPT)
     if not do_hist2d:
         plot_info.hist2d_args = None
         return None
@@ -1729,19 +1750,23 @@ def plotter_func_driver(args, plot_info):
                 overlay2d_binned_stat(args, info_plot_dict, None)
 
         elif do_plot_hist and NDIM == 1 :
-            plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
+            (contents, xbins_tmp, patches) = \
+                plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
                      label = plt_legend, linewidth=lwid, linestyle=lsty)
+
+            dump_hist1d_contents(args, xbins, contents)
             
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
-            counts, xedges, yedges, im = \
+            contents, xedges, yedges, im = \
                 plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
-                           cmin=.1, alpha=plt_alpha, cmap='rainbow_r', # cmap='Greys',
+                           cmin=.1, alpha=plt_alpha, cmap='rainbow_r', 
                            bins  = hist2d_args.bins,
                            range = hist2d_args.range,
-                           norm  = hist2d_args.norm )
+                           norm  = hist2d_args.norm  )
             plt.colorbar(im)
-
+            dump_hist2d_contents(args, xedges, yedges, contents) 
+            
             if do_ov2d_binned_stat and NDIM == 2 :
                 overlay2d_binned_stat(args, info_plot_dict, 'ORANGE')
 
@@ -1771,10 +1796,64 @@ def plotter_func_driver(args, plot_info):
     return   # end plotter_func_driver
 
 
+def dump_hist1d_contents(args, xbins, contents):
+    # dump 1d-histogram contents to text file.
+
+    dump_file = args.DUMP
+    if dump_file is None: return
+
+    logging.info(f"Dump HIST1D bin contents to {dump_file}")
+    f = open(dump_file, "wt")
+
+    varname = args.VARIABLE[0]
+    f.write(f"VARNAMES:  ROW  BINCENTER_{varname}  CONTENTS\n")
+    
+    xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
+    contents[np.isnan(contents)] = 0
+    rownum = 0
+    for x, x_content in zip(xbins_cen, contents) :
+        rownum += 1
+        f.write(f"ROW:  {rownum:3d}   {x:.5f}  {x_content}\n")
+        
+    f.close()
+    
+    return  # end dump_hist1d_contents
+
+def dump_hist2d_contents(args, xedges, yedges, contents) :
+
+    # dump 2D histogram contents to text file
+    dump_file = args.DUMP
+    if dump_file is None: return
+
+    logging.info(f"Dump HIST2D bin contents to {dump_file}")
+    f = open(dump_file, "wt")
+
+    #sys.exit(f"\n xxx VAR = {args.VARIABLE}")
+    
+    varname_x = args.VARIABLE[0].split(COLON)[0]
+    varname_y = args.VARIABLE[0].split(COLON)[1]
+    
+    f.write(f"VARNAMES:  ROW  BINCENTER_{varname_x}  BINCENTER_{varname_y}  CONTENTS\n")
+    
+    xbins_cen   = ( xedges[1:] + xedges[:-1] ) / 2.  # central value for each xbin
+    ybins_cen   = ( yedges[1:] + yedges[:-1] ) / 2.  # central value for each ybin
+    contents[np.isnan(contents)] = 0  # set NaN contents to zero    
+    rownum = 0
+    
+    for x, y_slice in zip(xbins_cen, contents) :
+        for y, xy_content in zip(ybins_cen, y_slice):
+            rownum += 1
+            f.write(f"ROW:  {rownum:3d}   {x:10.5f}  {y:10.5f}    {xy_content}\n")
+        
+    f.close()
+    
+    return   # end dump_hist2d_contents 
+
 def get_info_plot1d(args, info_plot_dict):
 
-    do_hist   = OPT_HIST   in args.OPT  or  OPT_HISTFILL in args.OPT
-    do_chi2   = OPT_CHI2   in args.OPT
+    do_hist   = OPT_HIST   in args.OPT
+    do_ov     = OPT_OV     in args.OPT
+    do_chi2   = OPT_OVCHI2 in args.OPT
     do_nevt   = OPT_NEVT   in args.OPT
     do_avg    = OPT_AVG    in args.OPT  or  OPT_MEAN in args.OPT
     do_ratio  = OPT_RATIO  in args.OPT
@@ -1849,7 +1928,7 @@ def get_info_plot1d(args, info_plot_dict):
         errl0_list   = info_plot_dict['errl0_list']
         erru0_list   = info_plot_dict['erru0_list']        
         name0_legend = info_plot_dict['name0_legend']         
-        if do_chi2:
+        if do_ov:
             # re-scale overlay plot only if chi2 option is requested
             ov_scale = np.sum(yval0_list) / np.sum(yval_list)
             do_plot_errorbar   = False
@@ -1888,7 +1967,7 @@ def get_info_plot1d(args, info_plot_dict):
     # ---------------
 
     # check for overlay weights with chi2
-    if numplot > 0 and do_chi2:
+    if numplot > 0 and do_ov:
         wgt_ov = [ ov_scale ] * len(df.x_plot_val)
         if weight :
             wgt_user = get_weights_user(df.x_plot_val,weight) 
@@ -1904,11 +1983,12 @@ def get_info_plot1d(args, info_plot_dict):
         ndof  = len(xbins) - 1 
         text_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
         logging.info(f"{name0_legend}/{name_legend} {text_chi2}")
-        xmin = xbins[0];  xmax = xbins[-1]
-        x_text = xmin + 0.7*(xmax-xmin)
-        y_text = 0.9 * np.max(yval0_list)  # warning; fragile coord calc
-        plt_text_dict = { 'x_text': x_text, 'y_text': y_text,
-                          'text': text_chi2 }
+        if do_chi2:
+            xmin = xbins[0];  xmax = xbins[-1]
+            x_text = xmin + 0.6*(xmax-xmin)
+            y_text = 0.9 * np.max(yval0_list)  # warning; fragile coord calc
+            plt_text_dict = { 'x_text': x_text, 'y_text': y_text,
+                              'text': text_chi2 }
 
 
     # - - - - - - -
@@ -2030,7 +2110,7 @@ def get_info_plot2d(args, info_plot_dict):
 
     # prepare arguments for matplotlib's plt.errobar.
 
-    do_hist      = OPT_HIST in args.OPT  or  OPT_HISTFILL in args.OPT
+    do_hist      = OPT_HIST in args.OPT 
     do_nevt      = OPT_NEVT in args.OPT
 
     numplot      = info_plot_dict['numplot']

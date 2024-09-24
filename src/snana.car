@@ -24556,7 +24556,8 @@ c Feb 23 2024: pass ITEXT for HOST MAGS so that they appear with
 c              SNTABLE_LIST = 'SNANA(text:key,text:host)'
 c
 c Jul 13 2024: fix bug in which all gal property indices were 1 instead of IGAL.
-c 
+c Sep 24 2024: fix so that MAGOBS works for IGAL > 1
+
       IMPLICIT NONE
 
 c subroutine args
@@ -24681,12 +24682,25 @@ c physical properties
      &           VARLIST, ITEXT_LOCAL,     LENBLOCK, 40 )
       ENDIF
 
-      IF ( EXIST_SNHOST_MAGOBS .and. IGAL == 1 ) THEN    ! host mags
+c Sep 24 2024: update to allow writing MAGOBS for both host matches.
+      IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags      
+        CALL TABLE_VARLIST_FILTERS( PREFIX(1:LP)//'MAG', 'F',
+     &       ADDCOL_FILTERS, VARLIST, LENLIST)
+        CALL SNTABLE_ADDCOL_flt(ID,CBLOCK,ADDCOL_SNHOST_MAGOBS(1,IGAL),
+     &      VARLIST(1:LENLIST)//char(0),
+     &      ITEXT_LOCAL, LENBLOCK, LENLIST)
+      ENDIF
+
++SELF,IF=DELXXX.
+c xxxxxxxxx mark delete Sep 23 2024 xxxxxxxx
+      IF ( EXIST_SNHOST_MAGOBS .and. IGAL == 1 ) THEN    ! host mags      
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
      &           VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
      &      VARLIST(1:LENLIST)//char(0), ITEXT, LENBLOCK, LENLIST)
       ENDIF
+c xxxxxxxxxxxxxxx
++SELF.
 
       RETURN
       END    ! INIT_TABLE_HOSTVAR

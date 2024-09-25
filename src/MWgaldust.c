@@ -301,15 +301,18 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
     OPT=94 => use update from O'Donell
 
-    OPT=99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by 
+    OPT=-99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by 
               D.Scolnic with polynomial fit to ratio of F'99/O'94 vs. lambda.
               O'94 is the opt=94 option and F'99 was computed from 
               http://idlastro.gsfc.nasa.gov/ftp/pro/astro/fm_unred.pro
+              Deprecated to OPT=-99 from OPT=99 September 25 2024.
+              Only reliable for RV=3.1.
 
-    OPT=9999 => use Fitzpatrick 99 (PASP 111, 63) as implemented by S. Thorp.
+    OPT=99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by S. Thorp.
                 This version directly evaluates the cubic spline in inverse
                 wavelength, as defined by the fm_unred.pro code. Consistent
                 with extinction.py by K. Barbary, and BAYESN F99 implementation.
+                Promoted to OPT=99 September 25 2024.
 
   Returns magnitudes of extinction.
 
@@ -338,6 +341,10 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
   Sep 19 2024 ST
    + add an exact Fitzpatrick 99 implementation with opt=9999.
+
+  Sep 25 2024 ST
+   + Exact F'99 spline implementation promoted to opt=99
+   - Old F'99 based on F'99/O'94 ratio deprecated to opt=-99
 
  ***/
 
@@ -482,6 +489,8 @@ double GALextinct_Fitz99_exact(double RV, double AV, double WAVE) {
 /*** 
   Created by S. Thorp, Sep 19 2024
 
+  Default Fitzpatrick (1999) implementation since Sep 25 2024
+
   Input : 
     AV   = V band (defined to be at 5495 Angstroms) extinction
     RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
@@ -490,7 +499,7 @@ Returns :
     XT = magnitudes of extinction
 ***/
 
-    char fnam[] = "F99exact" ;
+    char fnam[] = "GALextinct_Fitz99_exact" ;
 
     // constants
     double x02, gamma2, c1, c2, c3, c4, c5;

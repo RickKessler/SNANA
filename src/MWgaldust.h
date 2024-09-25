@@ -6,15 +6,17 @@
 //    OPT_MWCOLORLAW_FITZ99_APPROX = 99. After more testing, the plan is
 //    make OPT_MWCOLORLAW_FITZ99_EXACT=99 the new default and allow
 //    OPT_MWCOLORLAW_FITZ99_APPROX = -99 to revert back to old approximation.
-//            
+// Sep 25 2024: S. Thorp, R. Kessler
+//    define OPT_MWCOLORLAW_FITZ99_EXACT = 99
+//    define OPT_MWCOLORLAW_FITZ99_APPROX = -99
 // =======================================
 
 
 #define OPT_MWCOLORLAW_OFF      0  // No Extinction applied.
 #define OPT_MWCOLORLAW_CCM89   89  // Clayton,Cardelli,Matheson, 1989
 #define OPT_MWCOLORLAW_ODON94  94  // O'Donnel 1994 update
-#define OPT_MWCOLORLAW_FITZ99_APPROX  99   // approx Fitzpatrick 1999 (D.Scolnic, 2013)
-#define OPT_MWCOLORLAW_FITZ99_EXACT   9999 // exact Fitzpatrick 1999 (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_FITZ99_APPROX  -99   // approx Fitzpatrick 1999 (D.Scolnic, 2013)
+#define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick 1999 (S.Thorp, 2024)
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)

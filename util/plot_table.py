@@ -771,6 +771,9 @@ def arg_prep_OPT(args):
     if OPT_HISTFILL in OPT_out :
         OPT_out.append(OPT_HIST)
 
+    if args.DUMP and OPT_HIST not in OPT_out:
+        sys.exit(f"\n ERROR: invalid @@DUMP without @@OPT HIST ")
+        
     return OPT_out
 
 def arg_prep_DEBUG_FLAG(args):

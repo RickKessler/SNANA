@@ -22616,7 +22616,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu.c :
       + add restore_bug_sigint0=1 -> restore bug in prepNextFit (was fixed Feb 2022)
       + add more explicit WARNING messages for a few restore_bug flags.
-
+      + begin refactor of CUTWIN so that new PARSHIFT uses same tools as CUTWIN.
+      
     plot_table.py:
       + lots of continued development.
       
@@ -22650,5 +22651,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 to open file in case of disk-access glitch (and hopefully avoid abort after many
 	 hours of generating NON1ASED model)
        + fix memory leak in strcmp_ignoreCase(..)
-       
+    
 END: 

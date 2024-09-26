@@ -291,8 +291,11 @@ For help, run code with no arguments
 
  Dec 19 2023: begin refactor to integrate new WGT_biasCor_population() function
 
- Jun 24 204: finally fix recycle feature to write correct output fitres without
-             leaving duplicate CUTMASK MU MUMODEL etc ... see IS_RECYCLED
+ Jun 24 2024: finally fix recycle feature to write correct output fitres without
+              leaving duplicate CUTMASK MU MUMODEL etc ... see IS_RECYCLED
+
+ Sep 26 2024: add PARSHIFT feature to shift value of any parameter in the
+              input file.
 
  ******************************************************/
 
@@ -472,7 +475,9 @@ double  M0_DEFAULT;
 
 #define INDEX_z   5  // for internal flags,  not for arrays
 
-#define MXCUTWIN 20 // max number of CUTWIN definitions in input file.
+#define MXSELECT_VAR 20 // max number of CUTWIN or PARSHIFT keys
+#define MXCUTWIN   20 // max number of CUTWIN definitions in input file.
+#define MXPARSHIFT 10 // max number of PARSHIFT keys in input file
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
 
@@ -961,8 +966,36 @@ struct {
 #define ORDER_ZPOLY_COVMAT 3   // 3rd order polynom for intrinsic scatter cov.
 #define MXSURVEY_ZPOLY_COVMAT 10 
 
+// Sep 26 2024: define type def struct to select multiple variables for
+//   CUTWIN, PARSHIFT, ...
+typedef struct {
+  int    NVAR ;  // size of lists
+  
+  char   NAME_LIST[MXSELECT_VAR][MXCHAR_VARNAME];
+  double RANGE_LIST[MXSELECT_VAR][2];
+ 
+  bool  L_RDFLAG_LIST[MXSELECT_VAR] ;        // T=> read, 0=> use existing var
+  bool  L_ABORTFLAG_LIST[MXSELECT_VAR] ;     // T=> abort if var does not exist
+  bool  L_DATAONLY_LIST[MXSELECT_VAR] ;      // T=> cut on real or sim data 
+  bool  L_BIASCORONLY_LIST[MXSELECT_VAR];    // T=> cut on biasCor only
+  bool  L_DISABLE;                      // T=> command line override to disable all 
+
+  // for CUTWIN only:
+  bool  L_FITWGT0_LIST[MXSELECT_VAR];        // T=> MUERR->888 instead of CUTWIN
+  
+  int   NIDSAMPLE[MXSELECT_VAR];
+  int   NIDSURVEY[MXSELECT_VAR];
+  int   IDSAMPLE_LIST[MXSELECT_VAR][20];
+  char  STRING_IDSURVEY_LIST[MXSELECT_VAR][20];
+  
+  bool  APPLY_pIa ; // // T=> apply action to pIa variable
+
+} SELECT_VAR_DEF ;
 
 
+
+// --------------------------------
+// store values from input file and from command line overrides.
 struct INPUTS {
 
   bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
@@ -1064,10 +1097,20 @@ struct INPUTS {
   double *chi2max_list;    // list vs. IDSURVEY
   int    iflag_chi2max;    // 1->cut, 2->fitwgt0; 4->global, 8-> vs. IDSURVEY
 
-  int    NCUTWIN ;
-  char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
-  double CUTWIN_RANGE[MXCUTWIN][2];
+  
+  SELECT_VAR_DEF SELECT_CUTWIN ;
+  SELECT_VAR_DEF SELECT_PARSHIFT;
 
+  
+  // xxx mark delete Sep 26 2024 xxx
+  int    NPARSHIFT;
+  char   PARSHIFT_NAME_LIST[MXPARSHIFT][MXCHAR_VARNAME];
+  double PARSHIFT_VAL_LIST[MXPARSHIFT];
+   
+  int    NCUTWIN ;
+  char   CUTWIN_NAME_LIST[MXCUTWIN][MXCHAR_VARNAME];
+  double CUTWIN_RANGE_LIST[MXCUTWIN][2];
+ 
   bool  LCUTWIN_RDFLAG[MXCUTWIN] ;     // T=> read, 0=> use existing var
   bool  LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // T=> abort if var does not exist
   bool  LCUTWIN_DATAONLY[MXCUTWIN] ;   // T=> cut on real or sim data 
@@ -1078,8 +1121,9 @@ struct INPUTS {
   int   CUTWIN_NIDSURVEY[MXCUTWIN];
   int   CUTWIN_IDSAMPLE_LIST[MXCUTWIN][20];
   char  CUTWIN_IDSURVEY_LIST[MXCUTWIN][20];
-  bool  APPLY_CUTWIN_pIa ;
-
+  bool  APPLY_CUTWIN_pIa ; 
+  // xxx end mark xxxx
+  
   int    NFIELD ;
   char   *FIELDLIST[MXFIELD_OVERLAP] ;
 
@@ -1411,6 +1455,7 @@ double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 
 double hack_covint_scale(double z);
 
+void parse_PARSHIFT(char *item);
 void parse_CUTWIN(char *item);
 void parse_FIELDLIST(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
@@ -5262,8 +5307,9 @@ void set_defaults(void) {
   INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT ;
 
 
-  INPUTS.NCUTWIN = 0 ;
-  INPUTS.NFIELD  = 0 ;
+  INPUTS.NCUTWIN   = 0 ;
+  INPUTS.NPARSHIFT = 0 ;
+  INPUTS.NFIELD    = 0 ;
 
   INPUTS.uM0   = M0FITFLAG_ZBINS_FLAT;
   INPUTS.uzsim = 0 ; // option to set z=simz (i.e., to cheat)
@@ -6759,7 +6805,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   int MEMTOT = 0;
   int MEMF   = LEN_MALLOC * sizeof(float);
   int debug_malloc = INPUTS.debug_malloc ;
-  char *CUTNAME = INPUTS.CUTWIN_NAME[icut] ;
+  char *CUTNAME = INPUTS.CUTWIN_NAME_LIST[icut] ;
   char *varname_pIa = INPUTS.varname_pIa ;
   char fnam[] = "malloc_TABLEVAR_CUTVAL" ;
 
@@ -7199,7 +7245,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   // - - - - - - -
   //read CUTWIN variables 
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
-    cutname = INPUTS.CUTWIN_NAME[icut]; 
+    cutname = INPUTS.CUTWIN_NAME_LIST[icut]; 
     RDFLAG  = INPUTS.LCUTWIN_RDFLAG[icut] ;
     sprintf(vartmp, "%s:F", cutname );
     if ( strcmp(cutname,"IDSURVEY")==0 ) {sprintf(vartmp,"%s:S",cutname );}
@@ -16222,7 +16268,7 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
   int  CUTMASK_SET  = CUTMASK_LIST[bitnum] ;
   bool LCUTWIN_DISABLE  = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
   bool APPLY ;
-  //  char fnam[] = "setbit_CUTMASK" ;
+  char fnam[] = "setbit_CUTMASK" ;
 
   // ------------- BEGIN -------------
 
@@ -16979,7 +17025,10 @@ int ppar(char* item) {
     { INPUTS.zpolyflag = 1;  parse_ZPOLY_COVMAT(item); return(1); } 
 
   if ( !strncmp(item,"CUTWIN",6) )  // multiple CUTWIN keys allowed
-    { parse_CUTWIN(item); return(1); } 
+    { parse_CUTWIN(item); return(1); }
+
+  if ( !strncmp(item,"PARSHIFT",8) )  // multiple PARSHIFT keys allowed
+    { parse_CUTWIN(item); return(1); }   
 
   if ( uniqueOverlap(item,"fieldlist=") ) 
     { parse_FIELDLIST(&item[10]); return(1); } 
@@ -17980,6 +18029,41 @@ void parse_sigint_fix(char *item) {
 
 } // end parse_sigint_fix
 
+
+// **************************************************
+void parse_PARSHIFT(char *line_PARSHIFT) {
+
+  // Created Sep 26 2024: read and store PARSHIFT key(s)
+  // Input line_PARSHIFT has the form:
+  //   PARSHIFT LOGMASS 0.2
+  //   PARSHIFT zHD     1.0E-4
+  //
+  //     or
+  //  PARSHIFT([stringOpt]) LOGMASS 0.2
+  //
+  // where stringOpt can be: NOABORT DATAONLY BIASCORONLY FITWGT0
+  //
+  // Note that PARSHIFT can inlcude multiple options, e.g., 
+  //    PARSHIFT(OPT1,OPT2,..ETC)
+  //
+  // Fill following globals:
+  //   INPUTS.PARSHIFT
+  //   INPUTS.PARSHIFT_NAME_LIST
+  //   INPUTS.PARSHIFT_LIST
+  //
+  // 
+  // Beware that shift value in BBC (after LCFIT) may not be the
+  // same as shifting value at input to LCFIT stage.
+  
+  char fnam[] = "parse_PARSHIFT";
+
+  // ------------ BEGIN ------------
+
+  
+  return;
+  
+} // end parse_PARSHIFT
+  
 // **************************************************
 void parse_CUTWIN(char *line_CUTWIN) {
 
@@ -17996,8 +18080,8 @@ void parse_CUTWIN(char *line_CUTWIN) {
   //
   // Fill following globals:
   //   INPUTS.NCUTWIN
-  //   INPUTS.CUTWIN_NAME
-  //   INPUTS.CUTWIN_RANGE
+  //   INPUTS.CUTWIN_NAME_LIST
+  //   INPUTS.CUTWIN_RANGE_LIST
   //
   //   INPUTS.LCUTWIN_DATAONLY
   //   INPUTS.LCUTWIN_BIASCORONLY
@@ -18023,9 +18107,9 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
   ICUT = INPUTS.NCUTWIN ;
 
-  INPUTS.CUTWIN_NAME[ICUT][0]      = 0 ;
-  INPUTS.CUTWIN_RANGE[ICUT][0]     = -99999.0 ;
-  INPUTS.CUTWIN_RANGE[ICUT][1]     = -99999.0 ;
+  INPUTS.CUTWIN_NAME_LIST[ICUT][0]      = 0 ;
+  INPUTS.CUTWIN_RANGE_LIST[ICUT][0]     = -99999.0 ;
+  INPUTS.CUTWIN_RANGE_LIST[ICUT][1]     = -99999.0 ;
 
   INPUTS.LCUTWIN_ABORTFLAG[ICUT]   = true ;   //  abort on missing var
   INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
@@ -18128,17 +18212,17 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
 
     if ( i == 1 ) { 
-      nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME[ICUT] ); 
+      nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME_LIST[ICUT] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
         
     if ( i == 2 ) {
-      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE[ICUT][0] ); 
+      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE_LIST[ICUT][0] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
 
     if ( i == 3 ) {
-      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE[ICUT][1] ); 
+      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE_LIST[ICUT][1] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
 
@@ -18149,9 +18233,9 @@ void parse_CUTWIN(char *line_CUTWIN) {
   // 9.15.2021: allow command line override of CUTWIN with looser
   //   cut by repacing previous CUTWIN with same variable name.
   int icut;
-  char *name, *NAME = INPUTS.CUTWIN_NAME[ICUT];
+  char *name, *NAME = INPUTS.CUTWIN_NAME_LIST[ICUT];
   for(icut=0; icut < ICUT; icut++ ) {
-    name = INPUTS.CUTWIN_NAME[icut] ;
+    name = INPUTS.CUTWIN_NAME_LIST[icut] ;
     if ( strcmp(NAME,name) == 0 ) {
       fprintf(FP_STDOUT,"\t replace previous CUTWIN %s\n", name);
       copy_CUTWIN(ICUT,icut);
@@ -18168,9 +18252,9 @@ void parse_CUTWIN(char *line_CUTWIN) {
   fprintf(FP_STDOUT, 
 	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
 	  " (ABORTFLAG=%d,%s)\n"
-	 ,INPUTS.CUTWIN_NAME[ICUT]
-	 ,INPUTS.CUTWIN_RANGE[ICUT][0]
-	 ,INPUTS.CUTWIN_RANGE[ICUT][1]
+	 ,INPUTS.CUTWIN_NAME_LIST[ICUT]
+	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][0]
+	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][1]
 	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
 	 ,cMUERR
 	  ) ;
@@ -18195,9 +18279,9 @@ void copy_CUTWIN(int icut0,int icut1) {
 
   // ---------- BEGIN ---------
 
-  sprintf(INPUTS.CUTWIN_NAME[icut1], "%s", INPUTS.CUTWIN_NAME[icut0] );
-  INPUTS.CUTWIN_RANGE[icut1][0] = INPUTS.CUTWIN_RANGE[icut0][0];
-  INPUTS.CUTWIN_RANGE[icut1][1] = INPUTS.CUTWIN_RANGE[icut0][1];
+  sprintf(INPUTS.CUTWIN_NAME_LIST[icut1], "%s", INPUTS.CUTWIN_NAME_LIST[icut0] );
+  INPUTS.CUTWIN_RANGE_LIST[icut1][0] = INPUTS.CUTWIN_RANGE_LIST[icut0][0];
+  INPUTS.CUTWIN_RANGE_LIST[icut1][1] = INPUTS.CUTWIN_RANGE_LIST[icut0][1];
 
   INPUTS.LCUTWIN_ABORTFLAG[icut1]   = INPUTS.LCUTWIN_ABORTFLAG[icut0] ;
   INPUTS.LCUTWIN_DATAONLY[icut1]    = INPUTS.LCUTWIN_DATAONLY[icut0] ;
@@ -18280,8 +18364,8 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
     if ( !IS_DATA ) { DOFLAG = DOFLAG_CUTWIN_APPLY; }
 
     CUTVAL = CUTVAL_LIST[icut];
-    CUTWIN = &INPUTS.CUTWIN_RANGE[icut][0];
-    NAME   = INPUTS.CUTWIN_NAME[icut] ;
+    CUTWIN = &INPUTS.CUTWIN_RANGE_LIST[icut][0];
+    NAME   = INPUTS.CUTWIN_NAME_LIST[icut] ;
 
     if ( LDMP ) {
       printf(" xxx cut on %s = %f  (cutwin=%.3f to %.3f, EVENT_TYPE=%d)\n",
@@ -18371,7 +18455,7 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   bool  L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
   bool  L_FITWGT0     = INPUTS.LCUTWIN_FITWGT0[icut];
   bool  L_DISABLE     = INPUTS.LCUTWIN_DISABLE ;
-  char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
+  char *VARNAME     = INPUTS.CUTWIN_NAME_LIST[icut];
   bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
   int   DOFLAG ;
   char  DATATYPE[12]; // DATA or BIASCOR
@@ -18434,7 +18518,7 @@ int usesim_CUTWIN(char *varName) {
 int icut_CUTWIN(char *varName) {
 
   // Created Nov 2022
-  // for input *varName, return icut index in INPUTS.CUTWIN_NAME array.
+  // for input *varName, return icut index in INPUTS.CUTWIN_NAME_LIST array.
   // Return -9 if there is no CUTWIN for *varName.
 
   int  i, icut = -9;
@@ -18444,7 +18528,7 @@ int icut_CUTWIN(char *varName) {
   // ---------- BEGIN -----------
 
   for(i=0; i < INPUTS.NCUTWIN; i++ ) {
-    tmpName = INPUTS.CUTWIN_NAME[i] ;
+    tmpName = INPUTS.CUTWIN_NAME_LIST[i] ;
     if ( strcmp(tmpName,varName) == 0 ) { icut = i ; }
   }
 
@@ -19562,9 +19646,9 @@ void  prep_input_gamma(void) {
   if ( !FOUND_GAMMA ) {
     INPUTS.NCUTWIN++ ;
     icut = INPUTS.NCUTWIN - 1;
-    sprintf(INPUTS.CUTWIN_NAME[icut],"%s", varname_gamma);       
-    INPUTS.CUTWIN_RANGE[icut][0] = -9.0E12 ;
-    INPUTS.CUTWIN_RANGE[icut][1] = +9.0E12 ;
+    sprintf(INPUTS.CUTWIN_NAME_LIST[icut],"%s", varname_gamma);       
+    INPUTS.CUTWIN_RANGE_LIST[icut][0] = -9.0E12 ;
+    INPUTS.CUTWIN_RANGE_LIST[icut][1] = +9.0E12 ;
   }
 
 
@@ -20696,9 +20780,9 @@ void write_fitres_driver(char* fileName) {
     fprintf(fout,"# CUTWIN Selection: \n");
     for ( icut=0; icut<NCUT; icut++ ) {
       fprintf(fout, "#\t %10.4f <= %12s <= %10.4f \n"
-	     ,INPUTS.CUTWIN_RANGE[icut][0]
-	     ,INPUTS.CUTWIN_NAME[icut]
-	     ,INPUTS.CUTWIN_RANGE[icut][1]
+	     ,INPUTS.CUTWIN_RANGE_LIST[icut][0]
+	     ,INPUTS.CUTWIN_NAME_LIST[icut]
+	     ,INPUTS.CUTWIN_RANGE_LIST[icut][1]
 	     ) ;
     }
   }

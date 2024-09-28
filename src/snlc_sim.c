@@ -14652,7 +14652,9 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
-    int MEMC = MXCHAR_CCID * NFILT_SEDMODEL * sizeof(char) ;
+    // make sure to allocdate enough string memory to hold NFILT_SEDMODEL filters
+    // with full name, for mag and mag_err.
+    int MEMC = 2 * MXCHAR_CCID * NFILT_SEDMODEL * sizeof(char) ;
     char *VARLIST         = (char*) malloc( MEMC + 100 );
     char *VARLIST_SYNMAG  = (char*) malloc( MEMC );
     char varname_tmp[60]; // .xyz

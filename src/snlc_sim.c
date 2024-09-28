@@ -14640,8 +14640,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   FILE *fp;
   char *INSTRUMENT_NAME = INPUTS_SPECTRO.INSTRUMENT_NAME;
 
+  char cval[40];
   char *ptrFile = SIMFILE_AUX->DUMP_SPEC ;  
-  char VARLIST[200], VARLIST_SYNMAG[100], varname_tmp[40], cval[40];
   char fnam[] = "wr_SIMGEN_DUMP_SPEC" ;
 
   // ----------- BEGIN ---------
@@ -14652,6 +14652,12 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
+    int MEMC = MXCHAR_CCID * NFILT_SEDMODEL * sizeof(char) ;
+    char *VARLIST         = (char*) malloc( MEMC + 100 );
+    char *VARLIST_SYNMAG  = (char*) malloc( MEMC );
+    char varname_tmp[60]; // .xyz
+    VARLIST[0] = VARLIST_SYNMAG[0] = 0 ;
+	  
     sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
     print_banner(BANNER);
 
@@ -14724,6 +14730,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fprintf(fp,"VARNAMES: %s\n\n", VARLIST);
     fflush(fp);
 
+    free(VARLIST);  free(VARLIST_SYNMAG);
+    
   } // end OPT_DUMP==1
 
 

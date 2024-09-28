@@ -22651,5 +22651,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 to open file in case of disk-access glitch (and hopefully avoid abort after many
 	 hours of generating NON1ASED model)
        + fix memory leak in strcmp_ignoreCase(..)
-    
+
+
+# =============================================================
+         v11_05q (Sep 26 2024) <-- start date of git tag
+
+         *****  IMPORTANT(v11_05q) *****
+       
+         *****  USEFUL(v11_05q) *****
+	  
+         *****  MISCELLANEOUS(v11_05q) *****
+
 END: 

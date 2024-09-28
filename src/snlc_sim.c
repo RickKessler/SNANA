@@ -14632,11 +14632,13 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Seo 23 2024:
   // Fix logic so that DUMP.SPEC is created for either TAKE_SPECTRUM
   // keys in sim-input file or in SIMLIB header.
+  //
+  // Sep 28 2024: allocate correct memory to strings holding list of band info.
   
   double OVERLAP, SYNMAG, SYNMAGERR, LAMWID ;
   int    NFILT_WARN=0,  IFILTOBS_WARN[MXFILTINDX];
   int    NFILT_SYNMAG =  0, ifilt, ifilt_obs;
-  char   BAND_STRING[MXFILTINDX], cfilt[4];
+  char   cfilt[4];
   FILE *fp;
   char *INSTRUMENT_NAME = INPUTS_SPECTRO.INSTRUMENT_NAME;
 
@@ -14657,13 +14659,13 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     int MEMC = 2 * MXCHAR_CCID * NFILT_SEDMODEL * sizeof(char) ;
     char *VARLIST         = (char*) malloc( MEMC + 100 );
     char *VARLIST_SYNMAG  = (char*) malloc( MEMC );
+    char *BAND_STRING     = (char*) malloc(MXFILTINDX * sizeof(char) );
     char varname_tmp[60]; // .xyz
-    VARLIST[0] = VARLIST_SYNMAG[0] = 0 ;
 	  
     sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
     print_banner(BANNER);
 
-    BAND_STRING[0] = VARLIST_SYNMAG[0] = 0 ;
+    BAND_STRING[0] = VARLIST[0] = VARLIST_SYNMAG[0] = 0 ;
     for(ifilt=1; ifilt<=NFILT_SEDMODEL; ifilt++ ) {
       ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
       OVERLAP = GENSPEC.OVERLAP_SYNFILT[ifilt_obs];
@@ -14732,7 +14734,7 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fprintf(fp,"VARNAMES: %s\n\n", VARLIST);
     fflush(fp);
 
-    free(VARLIST);  free(VARLIST_SYNMAG);
+    free(BAND_STRING); free(VARLIST);  free(VARLIST_SYNMAG);
     
   } // end OPT_DUMP==1
 
@@ -14740,10 +14742,14 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // - - - - 
   int i, IDSPEC;
   int ROWNUM = NGENSPEC_WRITE - GENSPEC.NMJD_PROC ; 
-  char line[MXPATHLEN], line_synmag[MXPATHLEN];
+  
   if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
     fp = SIMFILE_AUX->FP_DUMP_SPEC ;
 
+    int MEMC = 2 * 20 * NFILT_SEDMODEL * sizeof(char) ;
+    char *line_synmag = (char*) malloc( MEMC );
+    char *line        = (char*) malloc( MEMC + 100 );    
+    
     for(i=0; i < GENSPEC.NMJD_TOT; i++ ) {
 
       if ( GENSPEC.SKIP[i] ) { continue ; }
@@ -14773,6 +14779,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       fprintf(fp,"%s   %s\n", line, line_synmag);
     } // end i loop over spectra
 
+    free(line_synmag); free(line);
+    
   } // end OPT_DUMP == 2
 
   // - - - - - - - -  -

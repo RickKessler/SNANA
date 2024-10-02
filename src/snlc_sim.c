@@ -14650,17 +14650,19 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || INPUTS.USE_SIMLIB_SPECTRA ) ;
   if ( !IS_SPECTRA ) { return; }
-
+  
+  if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) { return ; }
+  
   // - - - - - -
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
-    // make sure to allocdate enough string memory to hold NFILT_SEDMODEL filters
-    // with full name, for mag and mag_err.
+    // make sure to allocate enough string memory to hold NFILT_SEDMODE
+    // filters for mag and mag_err.
     int MEMC = 2 * MXCHAR_CCID * NFILT_SEDMODEL * sizeof(char) ;
     char *VARLIST         = (char*) malloc( MEMC + 100 );
     char *VARLIST_SYNMAG  = (char*) malloc( MEMC );
     char *BAND_STRING     = (char*) malloc(MXFILTINDX * sizeof(char) );
-    char varname_tmp[60]; // .xyz
+    char varname_tmp[60]; 
 	  
     sprintf(BANNER,"Init SIMGEN_DUMP_SPEC file for each spectrum" );
     print_banner(BANNER);
@@ -30820,7 +30822,6 @@ void write_docana_SIMLIB_DUMP(FILE *fp, int OPT) {
   fprintf(fp, "%sNLIBID_TOT:  NLIBID_XXX \n", pad);
   fprintf(fp, "%sNOBS_TOT:    NOBS_XXX \n", pad);
   
-  // .xyz
   if ( OPT == SIMLIB_DUMPMASK_OBS ) {
     fprintf(fp,"\n");    
     fprintf(fp,"%sCOLUMN_NOTES:\n", pad);

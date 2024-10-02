@@ -970,10 +970,11 @@ struct {
 //   CUTWIN, PARSHIFT, ...
 typedef struct {
   int    NVAR ;  // size of lists
-  
+  // .xyz
   char   NAME_LIST[MXSELECT_VAR][MXCHAR_VARNAME];
-  double RANGE_LIST[MXSELECT_VAR][2];
- 
+  double RANGE_LIST[MXSELECT_VAR][2]; // read either RANGE (min & max) ...
+  double VAL_LIST[MXSELECT_VAR];      // or single value
+  
   bool  L_RDFLAG_LIST[MXSELECT_VAR] ;        // T=> read, 0=> use existing var
   bool  L_ABORTFLAG_LIST[MXSELECT_VAR] ;     // T=> abort if var does not exist
   bool  L_DATAONLY_LIST[MXSELECT_VAR] ;      // T=> cut on real or sim data 
@@ -988,7 +989,7 @@ typedef struct {
   int   IDSAMPLE_LIST[MXSELECT_VAR][20];
   char  STRING_IDSURVEY_LIST[MXSELECT_VAR][20];
   
-  bool  APPLY_pIa ; // // T=> apply action to pIa variable
+  bool  APPLY_pIa ; // // T => apply action to pIa variable
 
 } SELECT_VAR_DEF ;
 
@@ -1455,8 +1456,12 @@ double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 
 double hack_covint_scale(double z);
 
+void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR);
+void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
+			  SELECT_VAR_DEF *SELECT_VAR);
 void parse_PARSHIFT(char *item);
 void parse_CUTWIN(char *item);
+void parse_CUTWIN_LEGACY(char *item);
 void parse_FIELDLIST(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
@@ -5306,9 +5311,12 @@ void set_defaults(void) {
 
   INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT ;
 
-
-  INPUTS.NCUTWIN   = 0 ;
-  INPUTS.NPARSHIFT = 0 ;
+  reset_SELECT_VAR(&INPUTS.SELECT_CUTWIN);
+  reset_SELECT_VAR(&INPUTS.SELECT_PARSHIFT);  
+  
+  INPUTS.NCUTWIN   = 0 ; // xxx soon to be obsolete (Oct 1 2024)
+  INPUTS.NPARSHIFT = 0 ; // xxx soon to be obsolete
+  
   INPUTS.NFIELD    = 0 ;
 
   INPUTS.uM0   = M0FITFLAG_ZBINS_FLAT;
@@ -15044,13 +15052,6 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
   MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
     
-  if ( INPUTS.debug_flag == 720 ) {
-    MUZMAP->cosPar[0] = OMEGA_LAMBDA_DEFAULT ;
-    MUZMAP->cosPar[1] = 0.0 ;
-    MUZMAP->cosPar[2] = w0_DEFAULT ;
-    MUZMAP->cosPar[3] = wa_DEFAULT ;
-  }
-
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
   // starts alpha,beta way off.
@@ -17025,10 +17026,15 @@ int ppar(char* item) {
     { INPUTS.zpolyflag = 1;  parse_ZPOLY_COVMAT(item); return(1); } 
 
   if ( !strncmp(item,"CUTWIN",6) )  // multiple CUTWIN keys allowed
-    { parse_CUTWIN(item); return(1); }
+    {
+      if ( INPUTS.debug_flag == 929 ) 
+	{ parse_CUTWIN(item); return(1); }
+      else
+	{ parse_CUTWIN_LEGACY(item); return(1); }	
+    }
 
   if ( !strncmp(item,"PARSHIFT",8) )  // multiple PARSHIFT keys allowed
-    { parse_CUTWIN(item); return(1); }   
+    { parse_PARSHIFT(item); return(1); }   
 
   if ( uniqueOverlap(item,"fieldlist=") ) 
     { parse_FIELDLIST(&item[10]); return(1); } 
@@ -18067,7 +18073,7 @@ void parse_PARSHIFT(char *line_PARSHIFT) {
 // **************************************************
 void parse_CUTWIN(char *line_CUTWIN) {
 
-  // Created 4/24/2012 by R.Kessler
+  // Refactor Sep 2024
   // parse *line_CUTWIN with four space-separated items:
   //   CUTWIN <VARNAME>  <MIN> <MAX>
   //     or
@@ -18105,21 +18111,11 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
   // ---------- BEGIN ------------
 
-  ICUT = INPUTS.NCUTWIN ;
+  printf("\n xxx %s REFACTORED %s \n", fnam);
+  
+  ICUT = INPUTS.SELECT_CUTWIN.NVAR; // .xyz
 
-  INPUTS.CUTWIN_NAME_LIST[ICUT][0]      = 0 ;
-  INPUTS.CUTWIN_RANGE_LIST[ICUT][0]     = -99999.0 ;
-  INPUTS.CUTWIN_RANGE_LIST[ICUT][1]     = -99999.0 ;
-
-  INPUTS.LCUTWIN_ABORTFLAG[ICUT]   = true ;   //  abort on missing var
-  INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
-  INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
-  INPUTS.LCUTWIN_FITWGT0[ICUT]     = false ;  //  MUERR->888 instead of cut
-
-  INPUTS.CUTWIN_NIDSURVEY[ICUT]   = 0;
-  INPUTS.CUTWIN_NIDSAMPLE[ICUT]   = 0;
-
-  // - - - - - -  -
+  // - - - - - - -
   // strip each line_CUTWIN item into item_list, and check for missing items
   sprintf(line_local,"%s", line_CUTWIN);
   ptrtok = strtok(line_local," ");
@@ -18129,7 +18125,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
     //    printf(" xxx %s: i=%d item='%s' \n", fnam, i, item_list[i]);
     // check disable option with "CUTWIN NONE" 
     if ( i==1 && strcmp(item_list[i],"NONE") == 0 )  {  
-      INPUTS.LCUTWIN_DISABLE = true ; 
+      INPUTS.SELECT_CUTWIN.L_DISABLE = true ; 
       printf("\n\t DISABLE CUTS EXCEPT CIDLIST,BIASCOR,z,BADCOV\n"); 
       fflush(stdout); 
       return;
@@ -18144,7 +18140,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
     }
   }
 
-  INPUTS.NCUTWIN++ ;
+  INPUTS.SELECT_CUTWIN.NVAR++ ;
 
   // - - - - - 
   bool IS_CUTWIN_IDSAMPLE=false, IS_CUTWIN_SURVEY=false;
@@ -18210,7 +18206,6 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
     } // end i= loop over CUTWIN(option) item
 
-
     if ( i == 1 ) { 
       nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME_LIST[ICUT] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
@@ -18227,7 +18222,6 @@ void parse_CUTWIN(char *line_CUTWIN) {
     } 
 
   } // end i loop
-
 
   // - - - - -
   // 9.15.2021: allow command line override of CUTWIN with looser
@@ -18261,6 +18255,422 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
   return ;
 } // end of parse_CUTWIN
+
+// ==================
+void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR) {
+
+  int ivar ;
+  char fnam[] = "reset_SELECT_VAR";
+
+  // --------- BEGIN ----------
+  SELECT_VAR->NVAR = 0 ;
+  SELECT_VAR->L_DISABLE = false;
+  SELECT_VAR->APPLY_pIa = false;  
+  
+  for(ivar=0; ivar < MXSELECT_VAR; ivar++ ) {
+    SELECT_VAR->NAME_LIST[ivar][0] = 0;
+
+    SELECT_VAR->RANGE_LIST[ivar][0] = -999.0 ;
+    SELECT_VAR->RANGE_LIST[ivar][1] = -999.0 ;
+    SELECT_VAR->VAL_LIST[ivar]      = -999.0 ; 
+
+    SELECT_VAR->L_RDFLAG_LIST[ivar]      = false;
+    SELECT_VAR->L_ABORTFLAG_LIST[ivar]   = true;
+    SELECT_VAR->L_DATAONLY_LIST[ivar]    = false;
+    SELECT_VAR->L_BIASCORONLY_LIST[ivar] = false;
+    SELECT_VAR->L_FITWGT0_LIST[ivar]     = false;
+
+    SELECT_VAR->IDSAMPLE_LIST[ivar][0] = -9 ;
+    SELECT_VAR->NIDSAMPLE[ivar] = 0 ;
+    SELECT_VAR->NIDSURVEY[ivar] = 0 ;
+
+    SELECT_VAR->STRING_IDSURVEY_LIST[ivar][0] = 0 ;
+  }
+
+  
+  return ;
+    
+} // end reset_SELECT_VAR
+
+
+// ***************************************************
+void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
+			  SELECT_VAR_DEF *SELECT_VAR) {
+
+  // Created Oct 2024
+  // Generalize original parse_CUTWIN to parse an input line
+  // containing *KEY_SELECT.
+
+  int  ICUT, NWD_LINE, i, opt, NOPT, NID, ID, nread ;
+  char item_list[4][60], line_local[200], string[60], KEY[60], KEY_TMP[60] ;
+  char  *item, *ptrtok, *selectOpt, **selectOpt_list ;
+  char fnam[] = "parseLine_SELECT_VAR" ;
+
+  // ------------ BEGIN -----------
+
+  ICUT = SELECT_VAR->NVAR ;   // .xyz
+
+  NWD_LINE = 2 + NARG;  // either 3 or 4 words to parse per line
+  
+  // - - - - - - -
+  // strip each *line item into item_list, and check for missing items
+  sprintf(line_local,"%s", line );
+  ptrtok = strtok(line_local," ");
+  for ( i=0; i < NWD_LINE ; i++ ) {
+    sprintf(item_list[i], "%s", ptrtok);
+
+    //    printf(" xxx %s: i=%d item='%s' \n", fnam, i, item_list[i]);
+    // check disable option with "CUTWIN NONE" 
+    if ( i==1 && strcmp(item_list[i],"NONE") == 0 )  {  
+      SELECT_VAR->L_DISABLE = true ; 
+      printf("\n\t DISABLE CUTS EXCEPT CIDLIST,BIASCOR,z,BADCOV\n"); // ???
+      fflush(stdout); 
+      return;
+    }
+
+    ptrtok = strtok(NULL, " ");
+    // Oct 8 2020: check for missing element
+    if ( i < NWD_LINE-1 && ptrtok == NULL ) {
+      sprintf(c1err,"Problem reading %s element i=%d", KEYNAME_SELECT, i+1 );
+      sprintf(c2err,"for line = '%s' ", line );
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+    }
+  }
+
+  SELECT_VAR->NVAR++ ;
+
+  // - - - - - 
+  bool IS_IDSAMPLE=false,  IS_SURVEY=false;
+
+  for ( i=0; i < NWD_LINE ; i++ ) {
+
+    item = item_list[i];
+
+    if ( i == 0 ) {
+      
+      // check for option in CUTWIN(string)
+      sscanf ( item, "%s", KEY ); 
+      extractStringOpt(KEY, string); // return string
+
+      // return list of args separated by commas.
+      // E.g., if string = 'DATAONLY,FITWGT0' then
+      // stringOpt_list = 'DATAONLY', 'FITWGT0'
+      parse_commaSepList(fnam, string,
+			 NWD_LINE, 40,   // Max number of options and strlen 
+			 &NOPT, &selectOpt_list); // <== returned
+      
+      //      printf(" xxx %s: string='%s' -> NOPT=%d \n",
+      //	     fnam, string, NOPT); fflush(stdout);
+
+      // Dec 2022: check if CUTWIN_IDSAMPLE or CUTWIN_SURVEY key
+
+      sprintf(KEY_TMP,"%s_IDSAMPLE", KEYNAME_SELECT );
+      IS_IDSAMPLE = ( strstr(KEY,KEY_TMP) != NULL );
+
+      sprintf(KEY_TMP,"%s_SURVEY", KEYNAME_SELECT );
+      IS_SURVEY   = ( strstr(KEY,"CUTWIN_SURVEY"  ) != NULL );
+
+      for ( opt=0; opt < NOPT; opt++ ) {
+	selectOpt = selectOpt_list[opt];
+
+	if ( strcmp(selectOpt,"NOABORT") == 0 ) 
+	  { SELECT_VAR->L_ABORTFLAG_LIST[ICUT] = false; } // allow missing var 
+
+	else if ( strcmp(selectOpt,"DATAONLY") == 0 ) 
+	  { SELECT_VAR->L_DATAONLY_LIST[ICUT] = true ; } // cut on data only
+	
+	else if ( strcmp(selectOpt,"BIASCORONLY") == 0 ) 
+	  { SELECT_VAR->L_BIASCORONLY_LIST[ICUT] = true ; } // cut on sim & biascor
+
+	else if ( strcmp(selectOpt,STRING_FITWGT0) == 0 ) 
+	  { SELECT_VAR->L_FITWGT0_LIST[ICUT] = true ; }  // ?? CUTWIN only ??
+      
+	else if ( IS_IDSAMPLE ) {
+	  sscanf(selectOpt, "%d", &ID);
+	  NID = SELECT_VAR->NIDSAMPLE[ICUT];
+	  SELECT_VAR->IDSAMPLE_LIST[ICUT][NID] = ID;
+	  SELECT_VAR->NIDSAMPLE[ICUT]++ ;
+	}
+	else if ( IS_SURVEY ) {
+	  ID  = get_IDSURVEY(selectOpt);
+	  NID = INPUTS.CUTWIN_NIDSURVEY[ICUT];
+	  INPUTS.CUTWIN_IDSURVEY_LIST[ICUT][NID] = ID;
+	  INPUTS.CUTWIN_NIDSURVEY[ICUT]++ ;
+	}
+	else {
+	  sprintf(c1err,"Invalid %s option: '%s'", KEYNAME_SELECT, selectOpt);
+	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+	}
+
+      } // end opt loop
+
+    } // end i= loop over CUTWIN(option) item
+
+    if ( i == 1 ) { 
+      nread = sscanf ( item, "%s", SELECT_VAR->NAME_LIST[ICUT] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
+        
+    if ( i == 2 ) {
+      nread = sscanf (item, "%le", SELECT_VAR->RANGE_LIST[ICUT][0] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
+
+    if ( i == 3 ) {
+      nread = sscanf (item, "%le", SELECT_VAR->RANGE_LIST[ICUT][1] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
+
+  } // end i loop
+
+  /* xxxxxxxxxx
+
+  // - - - - -
+  // 9.15.2021: allow command line override of CUTWIN with looser
+  //   cut by repacing previous CUTWIN with same variable name.
+  int icut;
+  char *name, *NAME = INPUTS.CUTWIN_NAME_LIST[ICUT];
+  for(icut=0; icut < ICUT; icut++ ) {
+    name = SELECT_VAR->NAME_LIST[icut] ;
+    if ( strcmp(NAME,name) == 0 ) {
+      fprintf(FP_STDOUT,"\t replace previous CUTWIN %s\n", name); // ??
+      copy_CUTWIN(ICUT,icut);
+      INPUTS.NCUTWIN-- ;
+    }
+  }
+
+  // - - - - - -
+  char cMUERR[20] = "" ;
+
+  if ( INPUTS.LCUTWIN_FITWGT0[ICUT] )
+    { sprintf(cMUERR,"MUERR->%.1f", MUERR_FITWGT0); }
+
+  fprintf(FP_STDOUT, 
+	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
+	  " (ABORTFLAG=%d,%s)\n"
+	 ,INPUTS.CUTWIN_NAME_LIST[ICUT]
+	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][0]
+	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][1]
+	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
+	 ,cMUERR
+	  ) ;
+  xxxxxxxxx */
+  
+  return;
+  
+} // end parseLine_SELECT_VAR
+
+// **************************************************
+void parse_CUTWIN_LEGACY(char *line_CUTWIN) {
+
+  // Created 4/24/2012 by R.Kessler
+  // parse *line_CUTWIN with four space-separated items:
+  //   CUTWIN <VARNAME>  <MIN> <MAX>
+  //     or
+  //   CUTWIN([stringOpt]) <VARNAME>  <MIN> <MAX>
+  //
+  // where stringOpt can be: NOABORT DATAONLY BIASCORONLY FITWGT0
+  //
+  // Note that CUTWIN can inlcude multiple options, e.g., 
+  //    CUTWIN(OPT1,OPT2,..ETC)
+  //
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+  // Fill following globals:
+  //   INPUTS.NCUTWIN
+  //   INPUTS.CUTWIN_NAME_LIST
+  //   INPUTS.CUTWIN_RANGE_LIST
+  //
+  //   INPUTS.LCUTWIN_DATAONLY
+  //   INPUTS.LCUTWIN_BIASCORONLY
+  //   INPUTS.LCUTWIN_ABORTFLAG   ! Sep 2016
+  //   INPUTS.LCUTWIN_FITWGT0     ! Jan 2021
+  //
+  //
+  // Oct 8 2020: check for bad input
+  // Jan 19 2021: 
+  //   + check FITWGT0 option
+  //   + enable comma-sep list of options
+  //   + abort on invalid option
+  //
+
+  int   NITEM = 4;
+  char  item_list[4][60], line_local[200], string[60], KEY[60] ;
+  char  *item, *ptrtok, *cutwinOpt, **cutwinOpt_list ;
+
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+  
+  int   ICUT, i, opt, nread, NOPT, ID, NID ;
+  char  fnam[] = "parse_CUTWIN_LEGACY" ;
+
+  // ---------- BEGIN ------------
+
+  ICUT = INPUTS.NCUTWIN ;
+
+  INPUTS.CUTWIN_NAME_LIST[ICUT][0]      = 0 ;
+  INPUTS.CUTWIN_RANGE_LIST[ICUT][0]     = -99999.0 ;
+  INPUTS.CUTWIN_RANGE_LIST[ICUT][1]     = -99999.0 ;
+
+  INPUTS.LCUTWIN_ABORTFLAG[ICUT]   = true ;   //  abort on missing var
+  INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
+  INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
+  INPUTS.LCUTWIN_FITWGT0[ICUT]     = false ;  //  MUERR->888 instead of cut
+
+  INPUTS.CUTWIN_NIDSURVEY[ICUT]   = 0;
+  INPUTS.CUTWIN_NIDSAMPLE[ICUT]   = 0;
+
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+  
+  // - - - - - -  -
+  // strip each line_CUTWIN item into item_list, and check for missing items
+  sprintf(line_local,"%s", line_CUTWIN);
+  ptrtok = strtok(line_local," ");
+  for ( i=0; i < 4 ; i++ ) {
+    sprintf(item_list[i], "%s", ptrtok);
+
+    //    printf(" xxx %s: i=%d item='%s' \n", fnam, i, item_list[i]);
+    // check disable option with "CUTWIN NONE" 
+    if ( i==1 && strcmp(item_list[i],"NONE") == 0 )  {  
+      INPUTS.LCUTWIN_DISABLE = true ; 
+      printf("\n\t DISABLE CUTS EXCEPT CIDLIST,BIASCOR,z,BADCOV\n"); 
+      fflush(stdout); 
+      return;
+    }
+
+    ptrtok = strtok(NULL, " ");
+    // Oct 8 2020: check for missing CUTWIN element
+    if ( i < 3 && ptrtok == NULL ) {
+      sprintf(c1err,"Problem reading CUTWIN element i=%d", i+1 );
+      sprintf(c2err,"for line_CUTWIN = '%s' ", line_CUTWIN);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+    }
+  }
+
+  INPUTS.NCUTWIN++ ;
+
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+  
+  // - - - - - 
+  bool IS_CUTWIN_IDSAMPLE=false, IS_CUTWIN_SURVEY=false;
+
+  for ( i=0; i < NITEM ; i++ ) {
+
+    item = item_list[i];
+
+    if ( i == 0 ) {
+      
+      // check for option in CUTWIN(string)
+      sscanf ( item, "%s", KEY ); 
+      extractStringOpt(KEY, string); // return string
+
+      // return list of args separated by commas.
+      // E.g., if string = 'DATAONLY,FITWGT0' then
+      // stringOpt_list = 'DATAONLY', 'FITWGT0'
+      parse_commaSepList("CUTWIN_OPTION", string,
+			 NITEM, 40,   // Max number of options and strlen 
+			 &NOPT, &cutwinOpt_list); // <== returned
+      
+      //      printf(" xxx %s: string='%s' -> NOPT=%d \n",
+      //	     fnam, string, NOPT); fflush(stdout);
+
+      // Dec 2022: check if CUTWIN_IDSAMPLE or CUTWIN_SURVEY key
+      IS_CUTWIN_IDSAMPLE = ( strstr(KEY,"CUTWIN_IDSAMPLE") != NULL );
+      IS_CUTWIN_SURVEY   = ( strstr(KEY,"CUTWIN_SURVEY"  ) != NULL );
+
+      // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+      
+      for ( opt=0; opt < NOPT; opt++ ) {
+	cutwinOpt = cutwinOpt_list[opt];
+
+	if ( strcmp(cutwinOpt,"NOABORT") == 0 ) 
+	  { INPUTS.LCUTWIN_ABORTFLAG[ICUT] = false; } // allow missing var 
+
+	else if ( strcmp(cutwinOpt,"DATAONLY") == 0 ) 
+	  { INPUTS.LCUTWIN_DATAONLY[ICUT] = true ; } // cut on data only
+	
+	else if ( strcmp(cutwinOpt,"BIASCORONLY") == 0 ) 
+	  { INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
+
+	else if ( strcmp(cutwinOpt,STRING_FITWGT0) == 0 ) 
+	  { INPUTS.LCUTWIN_FITWGT0[ICUT] = true ; } 
+      
+	else if ( IS_CUTWIN_IDSAMPLE ) {
+	  sscanf(cutwinOpt, "%d", &ID);
+	  NID = INPUTS.CUTWIN_NIDSAMPLE[ICUT];
+	  INPUTS.CUTWIN_IDSAMPLE_LIST[ICUT][NID] = ID;
+	  INPUTS.CUTWIN_NIDSAMPLE[ICUT]++ ;
+	}
+	else if ( IS_CUTWIN_SURVEY ) {
+	  ID  = get_IDSURVEY(cutwinOpt);
+	  NID = INPUTS.CUTWIN_NIDSURVEY[ICUT];
+	  INPUTS.CUTWIN_IDSURVEY_LIST[ICUT][NID] = ID;
+	  INPUTS.CUTWIN_NIDSURVEY[ICUT]++ ;
+	}
+	else {
+	  sprintf(c1err,"Invalid CUTWIN option: '%s'", cutwinOpt);
+	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+	}
+
+      } // end opt loop
+
+    } // end i= loop over CUTWIN(option) item
+
+    // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+    
+    if ( i == 1 ) { 
+      nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME_LIST[ICUT] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
+        
+    if ( i == 2 ) {
+      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE_LIST[ICUT][0] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
+
+    if ( i == 3 ) {
+      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE_LIST[ICUT][1] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
+
+  } // end i loop
+
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+  
+  // - - - - -
+  // 9.15.2021: allow command line override of CUTWIN with looser
+  //   cut by repacing previous CUTWIN with same variable name.
+  int icut;
+  char *name, *NAME = INPUTS.CUTWIN_NAME_LIST[ICUT];
+  for(icut=0; icut < ICUT; icut++ ) {
+    name = INPUTS.CUTWIN_NAME_LIST[icut] ;
+    if ( strcmp(NAME,name) == 0 ) {
+      fprintf(FP_STDOUT,"\t replace previous CUTWIN %s\n", name);
+      copy_CUTWIN(ICUT,icut);
+      INPUTS.NCUTWIN-- ;
+    }
+  }
+
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@
+  // - - - - - -
+  char cMUERR[20] = "" ;
+
+  if ( INPUTS.LCUTWIN_FITWGT0[ICUT] )
+    { sprintf(cMUERR,"MUERR->%.1f", MUERR_FITWGT0); }
+
+  fprintf(FP_STDOUT, 
+	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
+	  " (ABORTFLAG=%d,%s)\n"
+	 ,INPUTS.CUTWIN_NAME_LIST[ICUT]
+	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][0]
+	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][1]
+	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
+	 ,cMUERR
+	  ) ;
+
+  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@  
+  return ;
+} // end of parse_CUTWIN_LEGACY
 
 // **************************************************
 void copy_CUTWIN(int icut0,int icut1) {
@@ -19813,7 +20223,6 @@ void get_COVINT_model(int IDSAMPLE, double z, double (*COVINT)[NLCPAR] ) {
 
   COVINT[0][0] += SQSIGINT ;
 
-  if ( INPUTS.debug_flag == 116 ) { COVINT[0][0] *= hack_covint_scale(z); }
 
   return ;
 

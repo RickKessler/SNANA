@@ -970,7 +970,6 @@ struct {
 //   CUTWIN, PARSHIFT, ...
 typedef struct {
   int    NVAR ;  // size of lists
-  // .xyz
   char   NAME_LIST[MXSELECT_VAR][MXCHAR_VARNAME];
   double RANGE_LIST[MXSELECT_VAR][2]; // read either RANGE (min & max) ...
   double VAL_LIST[MXSELECT_VAR];      // or single value
@@ -987,7 +986,7 @@ typedef struct {
   int   NIDSAMPLE[MXSELECT_VAR];
   int   NIDSURVEY[MXSELECT_VAR];
   int   IDSAMPLE_LIST[MXSELECT_VAR][20];
-  char  STRING_IDSURVEY_LIST[MXSELECT_VAR][20];
+  char  STRING_IDSURVEY_LIST[MXSELECT_VAR][20][60];
   
   bool  APPLY_pIa ; // // T => apply action to pIa variable
 
@@ -1457,10 +1456,10 @@ double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 double hack_covint_scale(double z);
 
 void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR);
+void copy_SELECT_VAR(int ivar0,int ivar1, SELECT_VAR_DEF *SELECT_VAR);
 void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 			  SELECT_VAR_DEF *SELECT_VAR);
 void parse_PARSHIFT(char *item);
-void parse_CUTWIN(char *item);
 void parse_CUTWIN_LEGACY(char *item);
 void parse_FIELDLIST(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
@@ -16584,6 +16583,8 @@ void parse_parFile(char *parFile ) {
   fprintf(FP_STDOUT,"\n");
   fclose(fdef);
 
+  if ( INPUTS.debug_flag == 929 ) { debugexit(fnam); } // xxx REMOVE
+  
   if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
 
   return ;
@@ -17028,7 +17029,9 @@ int ppar(char* item) {
   if ( !strncmp(item,"CUTWIN",6) )  // multiple CUTWIN keys allowed
     {
       if ( INPUTS.debug_flag == 929 ) 
-	{ parse_CUTWIN(item); return(1); }
+	{   parseLine_SELECT_VAR(item, "CUTWIN", 2,
+				 &INPUTS.SELECT_CUTWIN );; return(1);
+	}
       else
 	{ parse_CUTWIN_LEGACY(item); return(1); }	
     }
@@ -18070,191 +18073,6 @@ void parse_PARSHIFT(char *line_PARSHIFT) {
   
 } // end parse_PARSHIFT
   
-// **************************************************
-void parse_CUTWIN(char *line_CUTWIN) {
-
-  // Refactor Sep 2024
-  // parse *line_CUTWIN with four space-separated items:
-  //   CUTWIN <VARNAME>  <MIN> <MAX>
-  //     or
-  //   CUTWIN([stringOpt]) <VARNAME>  <MIN> <MAX>
-  //
-  // where stringOpt can be: NOABORT DATAONLY BIASCORONLY FITWGT0
-  //
-  // Note that CUTWIN can inlcude multiple options, e.g., 
-  //    CUTWIN(OPT1,OPT2,..ETC)
-  //
-  // Fill following globals:
-  //   INPUTS.NCUTWIN
-  //   INPUTS.CUTWIN_NAME_LIST
-  //   INPUTS.CUTWIN_RANGE_LIST
-  //
-  //   INPUTS.LCUTWIN_DATAONLY
-  //   INPUTS.LCUTWIN_BIASCORONLY
-  //   INPUTS.LCUTWIN_ABORTFLAG   ! Sep 2016
-  //   INPUTS.LCUTWIN_FITWGT0     ! Jan 2021
-  //
-  //
-  // Oct 8 2020: check for bad input
-  // Jan 19 2021: 
-  //   + check FITWGT0 option
-  //   + enable comma-sep list of options
-  //   + abort on invalid option
-  //
-
-  int   NITEM = 4;
-  char  item_list[4][60], line_local[200], string[60], KEY[60] ;
-  char  *item, *ptrtok, *cutwinOpt, **cutwinOpt_list ;
-
-  int   ICUT, i, opt, nread, NOPT, ID, NID ;
-  char  fnam[] = "parse_CUTWIN" ;
-
-  // ---------- BEGIN ------------
-
-  printf("\n xxx %s REFACTORED %s \n", fnam);
-  
-  ICUT = INPUTS.SELECT_CUTWIN.NVAR; // .xyz
-
-  // - - - - - - -
-  // strip each line_CUTWIN item into item_list, and check for missing items
-  sprintf(line_local,"%s", line_CUTWIN);
-  ptrtok = strtok(line_local," ");
-  for ( i=0; i < 4 ; i++ ) {
-    sprintf(item_list[i], "%s", ptrtok);
-
-    //    printf(" xxx %s: i=%d item='%s' \n", fnam, i, item_list[i]);
-    // check disable option with "CUTWIN NONE" 
-    if ( i==1 && strcmp(item_list[i],"NONE") == 0 )  {  
-      INPUTS.SELECT_CUTWIN.L_DISABLE = true ; 
-      printf("\n\t DISABLE CUTS EXCEPT CIDLIST,BIASCOR,z,BADCOV\n"); 
-      fflush(stdout); 
-      return;
-    }
-
-    ptrtok = strtok(NULL, " ");
-    // Oct 8 2020: check for missing CUTWIN element
-    if ( i < 3 && ptrtok == NULL ) {
-      sprintf(c1err,"Problem reading CUTWIN element i=%d", i+1 );
-      sprintf(c2err,"for line_CUTWIN = '%s' ", line_CUTWIN);
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-    }
-  }
-
-  INPUTS.SELECT_CUTWIN.NVAR++ ;
-
-  // - - - - - 
-  bool IS_CUTWIN_IDSAMPLE=false, IS_CUTWIN_SURVEY=false;
-
-  for ( i=0; i < NITEM ; i++ ) {
-
-    item = item_list[i];
-
-    if ( i == 0 ) {
-      
-      // check for option in CUTWIN(string)
-      sscanf ( item, "%s", KEY ); 
-      extractStringOpt(KEY, string); // return string
-
-      // return list of args separated by commas.
-      // E.g., if string = 'DATAONLY,FITWGT0' then
-      // stringOpt_list = 'DATAONLY', 'FITWGT0'
-      parse_commaSepList("CUTWIN_OPTION", string,
-			 NITEM, 40,   // Max number of options and strlen 
-			 &NOPT, &cutwinOpt_list); // <== returned
-      
-      //      printf(" xxx %s: string='%s' -> NOPT=%d \n",
-      //	     fnam, string, NOPT); fflush(stdout);
-
-      // Dec 2022: check if CUTWIN_IDSAMPLE or CUTWIN_SURVEY key
-      IS_CUTWIN_IDSAMPLE = ( strstr(KEY,"CUTWIN_IDSAMPLE") != NULL );
-      IS_CUTWIN_SURVEY   = ( strstr(KEY,"CUTWIN_SURVEY"  ) != NULL );
-
-      for ( opt=0; opt < NOPT; opt++ ) {
-	cutwinOpt = cutwinOpt_list[opt];
-
-	if ( strcmp(cutwinOpt,"NOABORT") == 0 ) 
-	  { INPUTS.LCUTWIN_ABORTFLAG[ICUT] = false; } // allow missing var 
-
-	else if ( strcmp(cutwinOpt,"DATAONLY") == 0 ) 
-	  { INPUTS.LCUTWIN_DATAONLY[ICUT] = true ; } // cut on data only
-	
-	else if ( strcmp(cutwinOpt,"BIASCORONLY") == 0 ) 
-	  { INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
-
-	else if ( strcmp(cutwinOpt,STRING_FITWGT0) == 0 ) 
-	  { INPUTS.LCUTWIN_FITWGT0[ICUT] = true ; } 
-      
-	else if ( IS_CUTWIN_IDSAMPLE ) {
-	  sscanf(cutwinOpt, "%d", &ID);
-	  NID = INPUTS.CUTWIN_NIDSAMPLE[ICUT];
-	  INPUTS.CUTWIN_IDSAMPLE_LIST[ICUT][NID] = ID;
-	  INPUTS.CUTWIN_NIDSAMPLE[ICUT]++ ;
-	}
-	else if ( IS_CUTWIN_SURVEY ) {
-	  ID  = get_IDSURVEY(cutwinOpt);
-	  NID = INPUTS.CUTWIN_NIDSURVEY[ICUT];
-	  INPUTS.CUTWIN_IDSURVEY_LIST[ICUT][NID] = ID;
-	  INPUTS.CUTWIN_NIDSURVEY[ICUT]++ ;
-	}
-	else {
-	  sprintf(c1err,"Invalid CUTWIN option: '%s'", cutwinOpt);
-	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
-	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-	}
-
-      } // end opt loop
-
-    } // end i= loop over CUTWIN(option) item
-
-    if ( i == 1 ) { 
-      nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME_LIST[ICUT] ); 
-      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
-    } 
-        
-    if ( i == 2 ) {
-      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE_LIST[ICUT][0] ); 
-      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
-    } 
-
-    if ( i == 3 ) {
-      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE_LIST[ICUT][1] ); 
-      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
-    } 
-
-  } // end i loop
-
-  // - - - - -
-  // 9.15.2021: allow command line override of CUTWIN with looser
-  //   cut by repacing previous CUTWIN with same variable name.
-  int icut;
-  char *name, *NAME = INPUTS.CUTWIN_NAME_LIST[ICUT];
-  for(icut=0; icut < ICUT; icut++ ) {
-    name = INPUTS.CUTWIN_NAME_LIST[icut] ;
-    if ( strcmp(NAME,name) == 0 ) {
-      fprintf(FP_STDOUT,"\t replace previous CUTWIN %s\n", name);
-      copy_CUTWIN(ICUT,icut);
-      INPUTS.NCUTWIN-- ;
-    }
-  }
-
-  // - - - - - -
-  char cMUERR[20] = "" ;
-
-  if ( INPUTS.LCUTWIN_FITWGT0[ICUT] )
-    { sprintf(cMUERR,"MUERR->%.1f", MUERR_FITWGT0); }
-
-  fprintf(FP_STDOUT, 
-	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
-	  " (ABORTFLAG=%d,%s)\n"
-	 ,INPUTS.CUTWIN_NAME_LIST[ICUT]
-	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][0]
-	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][1]
-	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
-	 ,cMUERR
-	  ) ;
-
-  return ;
-} // end of parse_CUTWIN
 
 // ==================
 void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR) {
@@ -18284,13 +18102,56 @@ void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR) {
     SELECT_VAR->NIDSAMPLE[ivar] = 0 ;
     SELECT_VAR->NIDSURVEY[ivar] = 0 ;
 
-    SELECT_VAR->STRING_IDSURVEY_LIST[ivar][0] = 0 ;
   }
 
   
   return ;
     
 } // end reset_SELECT_VAR
+
+// **************************************************
+void copy_SELECT_VAR(int ivar0,int ivar1, SELECT_VAR_DEF *SELECT_VAR) {
+
+  // Created Oct 2024
+  // Copy SELECT_VAR contents from ivar0 to ivar1.
+  // Used to enable command line overrides with different values.
+  //
+
+  int i;
+  char fnam[] = "copy_SELECT_VAR" ;
+
+  // ---------- BEGIN ---------
+
+  sprintf(SELECT_VAR->NAME_LIST[ivar1], "%s", SELECT_VAR->NAME_LIST[ivar0] );
+  SELECT_VAR->RANGE_LIST[ivar1][0] = SELECT_VAR->RANGE_LIST[ivar0][0];  
+  SELECT_VAR->RANGE_LIST[ivar1][1] = SELECT_VAR->RANGE_LIST[ivar0][1];
+  SELECT_VAR->VAL_LIST[ivar1]      = SELECT_VAR->VAL_LIST[ivar0];
+
+ 
+  SELECT_VAR->L_ABORTFLAG_LIST[ivar1]   = SELECT_VAR->L_ABORTFLAG_LIST[ivar0] ;
+  SELECT_VAR->L_DATAONLY_LIST[ivar1]    = SELECT_VAR->L_DATAONLY_LIST[ivar0] ;
+  SELECT_VAR->L_BIASCORONLY_LIST[ivar1] = SELECT_VAR->L_BIASCORONLY_LIST[ivar0] ;
+  SELECT_VAR->L_FITWGT0_LIST[ivar1]     = SELECT_VAR->L_FITWGT0_LIST[ivar0] ;
+
+  
+  SELECT_VAR->NIDSAMPLE[ivar1]   = SELECT_VAR->NIDSAMPLE[ivar0] ;
+  SELECT_VAR->NIDSURVEY[ivar1]   = SELECT_VAR->NIDSURVEY[ivar0] ;
+
+  
+  for(i=0; i < SELECT_VAR->NIDSAMPLE[ivar0]; i++ )  { 
+    SELECT_VAR->IDSAMPLE_LIST[ivar1][i] =  SELECT_VAR->IDSAMPLE_LIST[ivar0][i] ;
+  }
+
+  
+  for(i=0; i < SELECT_VAR->NIDSURVEY[ivar0]; i++ )  { 
+    sprintf(SELECT_VAR->STRING_IDSURVEY_LIST[ivar1][i], "%s",
+	    SELECT_VAR->STRING_IDSURVEY_LIST[ivar0][i]  );
+  }
+
+  
+  return;
+  
+} // end copy_SELECT_VAR
 
 
 // ***************************************************
@@ -18341,7 +18202,8 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 
   // - - - - - 
   bool IS_IDSAMPLE=false,  IS_SURVEY=false;
-
+  double tmp_val;
+  
   for ( i=0; i < NWD_LINE ; i++ ) {
 
     item = item_list[i];
@@ -18411,51 +18273,69 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
       nread = sscanf ( item, "%s", SELECT_VAR->NAME_LIST[ICUT] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
-        
+
+    
     if ( i == 2 ) {
-      nread = sscanf (item, "%le", SELECT_VAR->RANGE_LIST[ICUT][0] ); 
+      nread = sscanf (item, "%le", &tmp_val);
+      SELECT_VAR->RANGE_LIST[ICUT][0] = tmp_val ;
+      SELECT_VAR->VAL_LIST[ICUT]      = tmp_val ;      
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
 
     if ( i == 3 ) {
-      nread = sscanf (item, "%le", SELECT_VAR->RANGE_LIST[ICUT][1] ); 
+      nread = sscanf (item, "%le", &tmp_val);
+      SELECT_VAR->RANGE_LIST[ICUT][1] = tmp_val ;
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
 
   } // end i loop
 
-  /* xxxxxxxxxx
-
   // - - - - -
-  // 9.15.2021: allow command line override of CUTWIN with looser
-  //   cut by repacing previous CUTWIN with same variable name.
+  // 9.15.2021: allow command line override with looser
+  //   cut by repacing previous KEYNAME with same variable name.
   int icut;
-  char *name, *NAME = INPUTS.CUTWIN_NAME_LIST[ICUT];
+  char *name;
+  char *NAME = SELECT_VAR->NAME_LIST[ICUT];
   for(icut=0; icut < ICUT; icut++ ) {
     name = SELECT_VAR->NAME_LIST[icut] ;
     if ( strcmp(NAME,name) == 0 ) {
-      fprintf(FP_STDOUT,"\t replace previous CUTWIN %s\n", name); // ??
-      copy_CUTWIN(ICUT,icut);
-      INPUTS.NCUTWIN-- ;
+      fprintf(FP_STDOUT,"\t replace previous %s %s\n", KEYNAME_SELECT, name); 
+      copy_SELECT_VAR(ICUT, icut, SELECT_VAR);
+      SELECT_VAR->NVAR-- ;
     }
   }
 
+  
   // - - - - - -
   char cMUERR[20] = "" ;
-
-  if ( INPUTS.LCUTWIN_FITWGT0[ICUT] )
+  if ( SELECT_VAR->L_FITWGT0_LIST[ICUT] )
     { sprintf(cMUERR,"MUERR->%.1f", MUERR_FITWGT0); }
 
+
+  // - - - - - -
+  char string_values[40];
+  if ( NARG == 1 ) {
+    // PARSHIFT
+    sprintf(string_values,"%10.4f", SELECT_VAR->VAL_LIST[ICUT] );
+  }
+  else {
+    // CUTWIN
+    sprintf(string_values,"%10.4f to %10.4f",
+	    SELECT_VAR->RANGE_LIST[ICUT][0], SELECT_VAR->RANGE_LIST[ICUT][1] );
+  }
+    
   fprintf(FP_STDOUT, 
-	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
-	  " (ABORTFLAG=%d,%s)\n"
-	 ,INPUTS.CUTWIN_NAME_LIST[ICUT]
-	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][0]
-	 ,INPUTS.CUTWIN_RANGE_LIST[ICUT][1]
-	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
-	 ,cMUERR
+	  "\t Apply %s(%12s)  =  %s  (ABORTFLAG=%d,%s)\n"
+	  ,KEYNAME_SELECT
+	  ,SELECT_VAR->NAME_LIST[ICUT]
+	  ,string_values
+	  ,SELECT_VAR->L_ABORTFLAG_LIST[ICUT]
+	  ,cMUERR
 	  ) ;
-  xxxxxxxxx */
+    
+  
+  
+  fflush(FP_STDOUT);
   
   return;
   
@@ -18860,18 +18740,37 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
 
   bool  L_VALID_VAR   = ( ivar >= 0 );
   bool  L_NOVAR       = !L_VALID_VAR ;
-  bool  L_ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
-  bool  L_DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
-  bool  L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
-  bool  L_FITWGT0     = INPUTS.LCUTWIN_FITWGT0[icut];
-  bool  L_DISABLE     = INPUTS.LCUTWIN_DISABLE ;
-  char *VARNAME     = INPUTS.CUTWIN_NAME_LIST[icut];
-  bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
+  
+  bool  L_ABORTFLAG, L_DATAONLY, L_BIASCORONLY, L_FITWGT0, L_DISABLE, ISVAR_PROB ;
+  char *VARNAME;
+  
   int   DOFLAG ;
   char  DATATYPE[12]; // DATA or BIASCOR
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
 
+  
   // ------------- BEGIN -------------
+
+  if ( INPUTS.debug_flag == 929 ) {
+    // refac
+    L_ABORTFLAG   = INPUTS.SELECT_CUTWIN.L_ABORTFLAG_LIST[icut];
+    L_DATAONLY    = INPUTS.SELECT_CUTWIN.L_DATAONLY_LIST[icut];
+    L_BIASCORONLY = INPUTS.SELECT_CUTWIN.L_BIASCORONLY_LIST[icut];
+    L_FITWGT0     = INPUTS.SELECT_CUTWIN.L_FITWGT0_LIST[icut];
+    L_DISABLE     = INPUTS.SELECT_CUTWIN.L_DISABLE ;
+    VARNAME       = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
+    ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL );
+  }
+  else {
+    // legacy
+    L_ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
+    L_DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
+    L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
+    L_FITWGT0     = INPUTS.LCUTWIN_FITWGT0[icut];
+    L_DISABLE     = INPUTS.LCUTWIN_DISABLE ;
+    VARNAME       = INPUTS.CUTWIN_NAME_LIST[icut];
+    ISVAR_PROB    = (strstr(VARNAME,"PROB_") != NULL );
+  }
   
   if ( L_DATAONLY    && !isData ) { return(DOFLAG_CUTWIN_IGNORE); }
   if ( L_BIASCORONLY &&  isData ) { return(DOFLAG_CUTWIN_IGNORE); }

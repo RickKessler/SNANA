@@ -769,15 +769,15 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
     DCR_lam = FAC_DCR * (n_site-1.0) * tan_ZENITH ; // arcsec
 
     ST      = sedFlux * trans ;
-    sum0_SED += ( ST ) ;
-    sum1_SED += ( ST * DCR_lam );
+    sum0_SED += ( ST * lam ) ;
+    sum1_SED += ( ST * lam * DCR_lam );
 
     sum0_LAM += ( ST );
     sum1_LAM += ( ST * lam);
 
     ST      = calFlux * trans ;
-    sum0_CAL += ( ST ) ;
-    sum1_CAL += ( ST * DCR_lam );
+    sum0_CAL += ( ST * lam ) ;
+    sum1_CAL += ( ST * lam * DCR_lam );
 
   } // end ilam loop
   

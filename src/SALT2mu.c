@@ -986,7 +986,7 @@ typedef struct {
   int   NIDSAMPLE[MXSELECT_VAR];
   int   NIDSURVEY[MXSELECT_VAR];
   int   IDSAMPLE_LIST[MXSELECT_VAR][20];
-  char  STRING_IDSURVEY_LIST[MXSELECT_VAR][20][60];
+  int   IDSURVEY_LIST[MXSELECT_VAR][20];
   
   bool  APPLY_pIa ; // // T => apply action to pIa variable
 
@@ -1120,7 +1120,7 @@ struct INPUTS {
   int   CUTWIN_NIDSAMPLE[MXCUTWIN];
   int   CUTWIN_NIDSURVEY[MXCUTWIN];
   int   CUTWIN_IDSAMPLE_LIST[MXCUTWIN][20];
-  char  CUTWIN_IDSURVEY_LIST[MXCUTWIN][20];
+  int   CUTWIN_IDSURVEY_LIST[MXCUTWIN][20];
   bool  APPLY_CUTWIN_pIa ; 
   // xxx end mark xxxx
   
@@ -6281,7 +6281,6 @@ void read_data_override(void) {
   free(VARNAMES_STRING_DATA);
   free(VARNAMES_STRING_OVER);
 
-  //  debugexit(fnam); // xxx remove
   return ;
 
 } // end  read_data_override
@@ -6521,7 +6520,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
   long long MEMTOT=0;
   float f_MEMTOT, f_MEM ;
-  int  i, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
+  int  i, MEMF_TMP2, MEMF_TMP1, MEMF_TMP, NCUTWIN ;
   int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "malloc_TABLEVAR" ;
 
@@ -6617,7 +6616,13 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     TABLEVAR->ICUTWIN_GAMMA       = -9 ;
     TABLEVAR->ICUTWIN_VARNAME_PIA = -9 ;
-    for(i=0; i < INPUTS.NCUTWIN; i++ ) 
+
+    if ( INPUTS.debug_flag == 929 )
+      { NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR ; }
+    else
+      { NCUTWIN = INPUTS.NCUTWIN; } // legacy
+    
+    for(i=0; i < NCUTWIN; i++ ) 
       { MEMTOT += malloc_TABLEVAR_CUTVAL(LEN_MALLOC, i, TABLEVAR ); }
   
     TABLEVAR->SIM_TEMPLATE_INDEX  = (short int *) malloc(MEMS); MEMTOT+=MEMS;
@@ -6698,8 +6703,19 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->IZBIN);
     free(TABLEVAR->CUTMASK);
 
-    for(i=0; i < INPUTS.NCUTWIN; i++ ) { 
-      if ( INPUTS.LCUTWIN_RDFLAG[i] ) { free(TABLEVAR->CUTVAL[i]); }
+    if ( INPUTS.debug_flag == 929 )
+      { NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR ; }
+    else
+      { NCUTWIN = INPUTS.NCUTWIN; } // legacy      
+    
+    for(i=0; i < NCUTWIN; i++ ) {
+      bool RDFLAG;
+      if ( INPUTS.debug_flag == 929 )
+	{ RDFLAG = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[i]; }
+      else
+	{ RDFLAG = INPUTS.LCUTWIN_RDFLAG[i] ; } // legacy
+      
+      if ( RDFLAG ) { free(TABLEVAR->CUTVAL[i]); }
     }
 
     free(TABLEVAR->SIM_TEMPLATE_INDEX);
@@ -6812,13 +6828,19 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   int MEMTOT = 0;
   int MEMF   = LEN_MALLOC * sizeof(float);
   int debug_malloc = INPUTS.debug_malloc ;
-  char *CUTNAME = INPUTS.CUTWIN_NAME_LIST[icut] ;
+  bool RDFLAG = false;
+  char *CUTNAME; 
   char *varname_pIa = INPUTS.varname_pIa ;
   char fnam[] = "malloc_TABLEVAR_CUTVAL" ;
 
   // --------------- BEGIN -----------------
 
-  INPUTS.LCUTWIN_RDFLAG[icut] = false ;
+  if ( INPUTS.debug_flag == 929 )
+    { CUTNAME = INPUTS.SELECT_CUTWIN.NAME_LIST[icut] ; }
+  else
+    { CUTNAME = INPUTS.CUTWIN_NAME_LIST[icut] ; } // legacy
+  
+  // xxx mark delete Oct 2 2024  INPUTS.LCUTWIN_RDFLAG[icut] = false ;
 
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
@@ -6855,7 +6877,8 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   else {
     print_debug_malloc(+1*debug_malloc,fnam);
-    INPUTS.LCUTWIN_RDFLAG[icut] = true ;
+    RDFLAG = true;
+    // xxx mark delete INPUTS.LCUTWIN_RDFLAG[icut] = true ;
     TABLEVAR->CUTVAL[icut] = (float*)malloc(MEMF);  MEMTOT += MEMF ; 
 
     if ( strcmp(CUTNAME,INPUTS.varname_gamma) == 0 ) 
@@ -6863,7 +6886,11 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   }
 
-
+  if ( INPUTS.debug_flag == 929 ) 
+    { INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] = RDFLAG ; }
+  else 
+    { INPUTS.LCUTWIN_RDFLAG[icut] = RDFLAG ; }    // legacy
+ 
   return(MEMTOT) ;
 
 } // end malloc_TABLEVAR_CUTVAL
@@ -6973,7 +7000,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   bool USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
   bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
-  int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0 ;
+  int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0, NCUTWIN ;
   bool RDFLAG ;
   char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
   char str_zerr[MXCHAR_VARNAME]; 
@@ -6982,6 +7009,11 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   // ----------- BEGIN -------------
 
+  if ( INPUTS.debug_flag == 929 )
+    { NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR; }
+  else
+    { NCUTWIN = INPUTS.NCUTWIN; } // legacy
+  
   // init flags on first file
   if ( FIRSTFILE ) {
     TABLEVAR->NSN_ALL           = 0;
@@ -7001,7 +7033,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     for(icut=0; icut < MXCUTBIT; icut++ ) 
       { TABLEVAR->NSN_CUTBIT[icut] = 0 ; }    
 
-    for(icut=0; icut < INPUTS.NCUTWIN; icut++ )  
+    for(icut=0; icut < NCUTWIN; icut++ )  
       { TABLEVAR->DOFLAG_CUTWIN[icut] = 0; }
 
     for(id=0; id<MXIDSURVEY; id++ ) {
@@ -7251,9 +7283,19 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   // - - - - - - -
   //read CUTWIN variables 
-  for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
-    cutname = INPUTS.CUTWIN_NAME_LIST[icut]; 
-    RDFLAG  = INPUTS.LCUTWIN_RDFLAG[icut] ;
+  for(icut=0; icut < NCUTWIN; icut++ ) {
+
+    if ( INPUTS.debug_flag == 929 )   {
+      // refac
+      cutname = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
+      RDFLAG  = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] ;
+    }
+    else  {
+      // legacy
+      cutname = INPUTS.CUTWIN_NAME_LIST[icut];
+      RDFLAG  = INPUTS.LCUTWIN_RDFLAG[icut] ; 
+    }
+      
     sprintf(vartmp, "%s:F", cutname );
     if ( strcmp(cutname,"IDSURVEY")==0 ) {sprintf(vartmp,"%s:S",cutname );}
 
@@ -11302,8 +11344,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     istat_bias = 
       get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		     &FITPARBIAS[ia][ib][ig] ); // <== returned
-
-    //  DUMPFLAG = 0 ; // xxx REMOVE
 
     // skip if bias cannot be computed, just like for data
     if ( istat_bias <= 0 ) { continue ; }
@@ -16036,16 +16076,15 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   bool IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   bool IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
   bool IS_CCPRIOR = ( event_type == EVENT_TYPE_CCPRIOR );  
-  bool  LCUTWIN_DISABLE   = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
 
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
 
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
-  int  CUTMASK, REJECT, ACCEPT ;
+  int  CUTMASK, REJECT, ACCEPT, NCUTWIN ;
   int  sntype, SIM_TEMPLATE_INDEX, idsample, idsurvey, IZBIN ;
-  bool BADERR=false, BADCOV=false, sel ;
+  bool BADERR=false, BADCOV=false, sel, LCUTWIN_DISABLE ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
@@ -16054,9 +16093,19 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   // ---------- BEGIN ---------
 
+  if ( INPUTS.debug_flag == 929 ) {
+    NCUTWIN          = INPUTS.SELECT_CUTWIN.NVAR ;
+    LCUTWIN_DISABLE  = IS_DATA && INPUTS.SELECT_CUTWIN.L_DISABLE ;
+  }
+  else {
+    // legacy
+    NCUTWIN          = INPUTS.NCUTWIN ;
+    LCUTWIN_DISABLE  = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
+  } 
+  
   // strip off local variables
 
-  for ( icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
+  for ( icut=0; icut < NCUTWIN; icut++ ) {
     DOFLAG_CUTWIN[icut] = (int)TABLEVAR->DOFLAG_CUTWIN[icut];
     cutvar_local[icut]  = (double)TABLEVAR->CUTVAL[icut][isn] ; 
   }
@@ -16266,12 +16315,17 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
   bool IS_DATA      = ( EVENT_TYPE == EVENT_TYPE_DATA );
   int  *CUTMASK     = &TABLEVAR->CUTMASK[isn];
   int  CUTMASK_SET  = CUTMASK_LIST[bitnum] ;
-  bool LCUTWIN_DISABLE  = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
-  bool APPLY ;
+  bool APPLY, LCUTWIN_DISABLE ;
   char fnam[] = "setbit_CUTMASK" ;
 
   // ------------- BEGIN -------------
 
+  if ( INPUTS.debug_flag == 929 )
+    { LCUTWIN_DISABLE  = IS_DATA && INPUTS.SELECT_CUTWIN.L_DISABLE ;  }
+  else
+    { LCUTWIN_DISABLE  = IS_DATA && INPUTS.LCUTWIN_DISABLE ;  } // legacy
+
+  
   if ( LCUTWIN_DISABLE ) {
     // if cuts are disabled for data, only allow cuts on
     // CID (read from list), biasCor, and few others
@@ -16583,7 +16637,7 @@ void parse_parFile(char *parFile ) {
   fprintf(FP_STDOUT,"\n");
   fclose(fdef);
 
-  if ( INPUTS.debug_flag == 929 ) { debugexit(fnam); } // xxx REMOVE
+  //  if ( INPUTS.debug_flag == 929 ) { debugexit(fnam); } // xxx REMOVE
   
   if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
 
@@ -17028,16 +17082,18 @@ int ppar(char* item) {
 
   if ( !strncmp(item,"CUTWIN",6) )  // multiple CUTWIN keys allowed
     {
-      if ( INPUTS.debug_flag == 929 ) 
-	{   parseLine_SELECT_VAR(item, "CUTWIN", 2,
-				 &INPUTS.SELECT_CUTWIN );; return(1);
-	}
+      if ( INPUTS.debug_flag == 929 ) {
+	parseLine_SELECT_VAR(item, "CUTWIN", 2, &INPUTS.SELECT_CUTWIN );
+	return(1);
+      }
       else
 	{ parse_CUTWIN_LEGACY(item); return(1); }	
     }
 
-  if ( !strncmp(item,"PARSHIFT",8) )  // multiple PARSHIFT keys allowed
-    { parse_PARSHIFT(item); return(1); }   
+  if ( !strncmp(item,"PARSHIFT",8) )  { // multiple PARSHIFT keys allowed
+    parseLine_SELECT_VAR(item, "PARSHIFT", 1, &INPUTS.SELECT_PARSHIFT );
+    return(1);
+  }
 
   if ( uniqueOverlap(item,"fieldlist=") ) 
     { parse_FIELDLIST(&item[10]); return(1); } 
@@ -18144,8 +18200,7 @@ void copy_SELECT_VAR(int ivar0,int ivar1, SELECT_VAR_DEF *SELECT_VAR) {
 
   
   for(i=0; i < SELECT_VAR->NIDSURVEY[ivar0]; i++ )  { 
-    sprintf(SELECT_VAR->STRING_IDSURVEY_LIST[ivar1][i], "%s",
-	    SELECT_VAR->STRING_IDSURVEY_LIST[ivar0][i]  );
+    SELECT_VAR->IDSURVEY_LIST[ivar1][i] = SELECT_VAR->IDSURVEY_LIST[ivar0][i];
   }
 
   
@@ -18255,9 +18310,9 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 	}
 	else if ( IS_SURVEY ) {
 	  ID  = get_IDSURVEY(selectOpt);
-	  NID = INPUTS.CUTWIN_NIDSURVEY[ICUT];
-	  INPUTS.CUTWIN_IDSURVEY_LIST[ICUT][NID] = ID;
-	  INPUTS.CUTWIN_NIDSURVEY[ICUT]++ ;
+	  NID = SELECT_VAR->NIDSURVEY[ICUT];
+	  SELECT_VAR->IDSURVEY_LIST[ICUT][NID] = ID;
+	  SELECT_VAR->NIDSURVEY[ICUT]++ ;
 	}
 	else {
 	  sprintf(c1err,"Invalid %s option: '%s'", KEYNAME_SELECT, selectOpt);
@@ -18555,6 +18610,8 @@ void parse_CUTWIN_LEGACY(char *line_CUTWIN) {
 // **************************************************
 void copy_CUTWIN(int icut0,int icut1) {
 
+  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
+  //
   // Created Sep 15 2021
   // Copy CUTWIN contents from icut0 to icut1.
   // Used to enable command line CUTWIN overrides with relaxed cut
@@ -18567,6 +18624,8 @@ void copy_CUTWIN(int icut0,int icut1) {
   int i;
   char fnam[] = "copy_CUTWIN" ;
 
+  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
+  
   // ---------- BEGIN ---------
 
   sprintf(INPUTS.CUTWIN_NAME_LIST[icut1], "%s", INPUTS.CUTWIN_NAME_LIST[icut0] );
@@ -18580,6 +18639,8 @@ void copy_CUTWIN(int icut0,int icut1) {
 
   INPUTS.CUTWIN_NIDSAMPLE[icut1]   = INPUTS.CUTWIN_NIDSAMPLE[icut0] ;
   INPUTS.CUTWIN_NIDSURVEY[icut1]   = INPUTS.CUTWIN_NIDSURVEY[icut0] ;
+
+  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
   
   for(i=0; i < INPUTS.CUTWIN_NIDSAMPLE[icut0]; i++ )  { 
     INPUTS.CUTWIN_IDSAMPLE_LIST[icut1][i] = 
@@ -18591,6 +18652,8 @@ void copy_CUTWIN(int icut0,int icut1) {
       INPUTS.CUTWIN_IDSURVEY_LIST[icut0][i] ; 
   }
 
+  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
+  
   return;
 } // end copy_CUTWIN
 
@@ -18625,7 +18688,7 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
   int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR );
 
   int LDMP = 0 ; // (OPT==666);
-  int icut, reject, DOFLAG; 
+  int icut, reject, DOFLAG, NCUTWIN ; 
   bool  APPLY_IDSURVEY, APPLY_IDSAMPLE, PASS_CUTWIN ;
   double CUTVAL, *CUTWIN ;
   char *NAME;
@@ -18638,7 +18701,12 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 
   reject = 0 ;    // init to pass cuts
 
-  for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
+  if ( INPUTS.debug_flag == 929 )
+    { NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR; }
+  else
+    { NCUTWIN = INPUTS.NCUTWIN; } // legacy
+  
+  for(icut=0; icut < NCUTWIN; icut++ ) {
    
     DOFLAG = DOFLAG_CUTWIN[icut] ;
     if ( DOFLAG == DOFLAG_CUTWIN_IGNORE ) { continue; }
@@ -18654,9 +18722,18 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
     if ( !IS_DATA ) { DOFLAG = DOFLAG_CUTWIN_APPLY; }
 
     CUTVAL = CUTVAL_LIST[icut];
-    CUTWIN = &INPUTS.CUTWIN_RANGE_LIST[icut][0];
-    NAME   = INPUTS.CUTWIN_NAME_LIST[icut] ;
 
+    if ( INPUTS.debug_flag == 929 ) {
+      // refac
+      CUTWIN = &INPUTS.SELECT_CUTWIN.RANGE_LIST[icut][0];
+      NAME   = INPUTS.SELECT_CUTWIN.NAME_LIST[icut] ;
+    }
+    else {
+      // legacy
+      CUTWIN = &INPUTS.CUTWIN_RANGE_LIST[icut][0];
+      NAME   = INPUTS.CUTWIN_NAME_LIST[icut] ;
+    }
+    
     if ( LDMP ) {
       printf(" xxx cut on %s = %f  (cutwin=%.3f to %.3f, EVENT_TYPE=%d)\n",
 	     NAME, CUTVAL, CUTWIN[0], CUTWIN[1], EVENT_TYPE ); 
@@ -18689,28 +18766,56 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 
 // =======================================================
 bool APPLY_CUTWIN_IDSAMPLE(int ID, int icut) {
-  int i, NID = INPUTS.CUTWIN_NIDSAMPLE[icut];
+  int i, NID, *CUTWIN_IDSAMPLE;
   bool APPLY = true;
+  char fnam[] = "APPLY_CUTWIN_IDSAMPLE" ;
+  
+  // -------- BEGIN ---------
+  if ( INPUTS.debug_flag == 929 )  {
+    NID = INPUTS.SELECT_CUTWIN.NIDSAMPLE[icut];
+    CUTWIN_IDSAMPLE = INPUTS.SELECT_CUTWIN.IDSAMPLE_LIST[icut];
+  }
+  else {
+    // legacy
+    NID = INPUTS.CUTWIN_NIDSAMPLE[icut];
+    CUTWIN_IDSAMPLE = INPUTS.CUTWIN_IDSAMPLE_LIST[icut];
+  } 
 
+    
   if ( NID > 0 ) { 
     APPLY = false;
     for(i=0; i < NID; i++ ) {
-      if ( ID == INPUTS.CUTWIN_IDSAMPLE_LIST[icut][i] ) { APPLY=true; }
+      if ( ID == CUTWIN_IDSAMPLE[i] ) { APPLY=true; }
     }
   }
+  
   return APPLY;
 
 } // end APPLY_CUTWIN_IDSAMPLE
 
 
 bool APPLY_CUTWIN_IDSURVEY(int ID, int icut) {
-  int i, NID = INPUTS.CUTWIN_NIDSURVEY[icut];
+  int i, NID, *CUTWIN_IDSURVEY ;
   bool APPLY = true;
+  char fnam[] = "APPLY_CUTWIN_IDSURVEY" ;
+  
+  // -------- BEGIN ---------
+
+  if ( INPUTS.debug_flag == 929 ) {
+    NID             = INPUTS.SELECT_CUTWIN.NIDSURVEY[icut];
+    CUTWIN_IDSURVEY = INPUTS.SELECT_CUTWIN.IDSURVEY_LIST[icut];
+  }
+  else {
+    // legacy
+    NID             = INPUTS.CUTWIN_NIDSURVEY[icut];
+    CUTWIN_IDSURVEY = INPUTS.CUTWIN_IDSURVEY_LIST[icut];
+  } 
+
 
   if ( NID > 0 ) {
     APPLY = false;
     for(i=0; i < NID; i++ ) {
-      if ( ID == INPUTS.CUTWIN_IDSURVEY_LIST[icut][i] ) { APPLY=true; }
+      if ( ID == CUTWIN_IDSURVEY[i] ) { APPLY=true; }
     }
   }
   return APPLY;
@@ -18748,7 +18853,6 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   char  DATATYPE[12]; // DATA or BIASCOR
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
 
-  
   // ------------- BEGIN -------------
 
   if ( INPUTS.debug_flag == 929 ) {
@@ -18836,11 +18940,20 @@ int icut_CUTWIN(char *varName) {
 
   // ---------- BEGIN -----------
 
-  for(i=0; i < INPUTS.NCUTWIN; i++ ) {
-    tmpName = INPUTS.CUTWIN_NAME_LIST[i] ;
-    if ( strcmp(tmpName,varName) == 0 ) { icut = i ; }
+  if ( INPUTS.debug_flag == 929 ) {
+    for(i=0; i < INPUTS.SELECT_CUTWIN.NVAR; i++ ) {
+      tmpName = INPUTS.SELECT_CUTWIN.NAME_LIST[i] ;
+      if ( strcmp(tmpName,varName) == 0 ) { icut = i ; }
+    }   
   }
-
+  else {
+    // legacy
+    for(i=0; i < INPUTS.NCUTWIN; i++ ) {
+      tmpName = INPUTS.CUTWIN_NAME_LIST[i] ;
+      if ( strcmp(tmpName,varName) == 0 ) { icut = i ; }
+    }   
+  }
+  
   return icut;
 
 } // end icut_CUTWIN
@@ -19953,11 +20066,21 @@ void  prep_input_gamma(void) {
   }
 
   if ( !FOUND_GAMMA ) {
-    INPUTS.NCUTWIN++ ;
-    icut = INPUTS.NCUTWIN - 1;
-    sprintf(INPUTS.CUTWIN_NAME_LIST[icut],"%s", varname_gamma);       
-    INPUTS.CUTWIN_RANGE_LIST[icut][0] = -9.0E12 ;
-    INPUTS.CUTWIN_RANGE_LIST[icut][1] = +9.0E12 ;
+    if ( INPUTS.debug_flag == 929 ) {
+      icut = INPUTS.SELECT_CUTWIN.NVAR ;    
+      sprintf(INPUTS.SELECT_CUTWIN.NAME_LIST[icut],"%s", varname_gamma);       
+      INPUTS.SELECT_CUTWIN.RANGE_LIST[icut][0] = -9.0E12 ;
+      INPUTS.SELECT_CUTWIN.RANGE_LIST[icut][1] = +9.0E12 ;
+      INPUTS.SELECT_CUTWIN.NVAR++ ;      
+    }
+    else {
+      INPUTS.NCUTWIN++ ;
+      icut = INPUTS.NCUTWIN - 1;    
+      sprintf(INPUTS.CUTWIN_NAME_LIST[icut],"%s", varname_gamma);       
+      INPUTS.CUTWIN_RANGE_LIST[icut][0] = -9.0E12 ;
+      INPUTS.CUTWIN_RANGE_LIST[icut][1] = +9.0E12 ;
+    }
+    
   }
 
 
@@ -20998,7 +21121,7 @@ void write_fitres_driver(char* fileName) {
   double VAL, ERR, PULL ;
   FILE  *fout, *finp;
 
-  int n, ivar, indx, NCUT, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
+  int n, ivar, indx, NCUTWIN, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
   int idsample, NSN_DATA, nfile, ifile, MSKOPT_PARSE_WORDS;
   bool VALID_ROWKEY;
   char  line[MXCHAR_LINE], tmpName[60], *ptrFile, *ptrName ;
@@ -21083,15 +21206,30 @@ void write_fitres_driver(char* fileName) {
 
   if ( cat_only ) { goto WRITE_TABLE_ROWS; }
 
-  NCUT = INPUTS.NCUTWIN ;
-  if ( NCUT > 0 ) {
+  if ( INPUTS.debug_flag == 929 ) 
+    { NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR ; }
+  else
+    { NCUTWIN = INPUTS.NCUTWIN ; } // legacy    
+  
+  if ( NCUTWIN > 0 ) {
     fprintf(fout,"# CUTWIN Selection: \n");
-    for ( icut=0; icut<NCUT; icut++ ) {
-      fprintf(fout, "#\t %10.4f <= %12s <= %10.4f \n"
-	     ,INPUTS.CUTWIN_RANGE_LIST[icut][0]
-	     ,INPUTS.CUTWIN_NAME_LIST[icut]
-	     ,INPUTS.CUTWIN_RANGE_LIST[icut][1]
-	     ) ;
+    char *NAME ;
+    double *RANGE;
+    for ( icut=0; icut < NCUTWIN; icut++ ) {
+
+      if ( INPUTS.debug_flag == 929 ) {
+	NAME  = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
+	RANGE = INPUTS.SELECT_CUTWIN.RANGE_LIST[icut];
+      }
+      else {
+	// legacy
+	NAME  = INPUTS.CUTWIN_NAME_LIST[icut];
+	RANGE = INPUTS.CUTWIN_RANGE_LIST[icut];
+      }
+      
+      fprintf(fout, "#\t %10.4f <= %12s <= %10.4f \n" ,
+	      RANGE[0], NAME, RANGE[1] );
+
     }
   }
 

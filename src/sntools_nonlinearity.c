@@ -8,6 +8,8 @@
 
   MODELNAME:  WHATEVER
 
+  OPTMASK_NONLIN:  1  # 1=count tot, 2=count rate
+
   START_MAP:
   FILTERS: abcdef
   NONLIN:   4.0E0  0.982  #   Ftot(pe)  and Flux-scale
@@ -37,10 +39,16 @@
 // =====================================
 void INIT_NONLIN(char *inFile) {
 
+  // Oct 2024:
+  // Refactor to only require "FILTERS:" and "NONLIN:".
+  // No longer need START_MAP and END_MAP keys.
+  
+  int langC = LANGFLAG_PARSE_WORDS_C;
   FILE *fp ;
-  int  imap, RDFLAG, MAPSIZE, NLINE ;
+  int  imap, nmap_read, MAPSIZE, NLINE, NWD ;
   double tmpD[4];
-  char c_get[100], MSG[100] ;
+  bool  RDFLAG, END_OF_MAP, ISKEY_FILTERS, ISKEY_NONLIN ;
+  char c_get[MXPATHLEN], LINE[MXPATHLEN], KEY[40], MSG[100] ;
   char fnam[] = "INIT_NONLIN" ;
   
   // ------------ BEGIN --------------
@@ -48,7 +56,8 @@ void INIT_NONLIN(char *inFile) {
   NMAP_NONLIN = 0 ;
   MODELNAME_NONLIN[0] = 0 ;
   NONLIN_README.NLINE = NLINE = 0 ;
-
+  OPTMASK_NONLIN = 0 ;
+  
   if ( IGNOREFILE(inFile) ) { return ; }
 
   fp = fopen(inFile,"rt");
@@ -58,7 +67,8 @@ void INIT_NONLIN(char *inFile) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  sprintf(BANNER,"%s : prepare non-linearity map \n", fnam);
+  sprintf(BANNER,"%s : prepare non-linearity map(s) in \n\t %s",
+	  fnam, inFile);
   print_banner(BANNER);
 
   // first pass read to count how many tables for malloc
@@ -66,14 +76,16 @@ void INIT_NONLIN(char *inFile) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
     if ( strcmp(c_get,"MODELNAME:"    ) == 0 ) { 
       readchar(fp,MODELNAME_NONLIN); 
-
       NONLIN_README.LINE[NLINE][0] = 0 ; NLINE++ ;
       sprintf(NONLIN_README.LINE[NLINE],
 	      "  Apply NONLINEARITY MODEL '%s'", MODELNAME_NONLIN);
       NLINE++ ;
     }
 
-    if ( strcmp(c_get,"START_MAP:") == 0 ) { NMAP_NONLIN++ ; }
+    if ( strcmp(c_get,"OPTMASK_NONLIN:") == 0 ) 
+      {  readint(fp, 1, &OPTMASK_NONLIN); }
+    
+    if ( strcmp(c_get,"FILTERS:") == 0 ) { NMAP_NONLIN++ ; }    
   }
 
   rewind(fp);
@@ -84,7 +96,18 @@ void INIT_NONLIN(char *inFile) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
+  int NOPT_REQUIRE = 0;
 
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT ) > 0 ) { NOPT_REQUIRE++; }
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE) > 0 ) { NOPT_REQUIRE++; }  
+  if ( NOPT_REQUIRE != 1 ) {
+    sprintf(c1err,"Invalid NOPT_REQUIRE=%d; must require EITHER",
+	    NOPT_REQUIRE);
+    sprintf(c2err,"OPTMASK_NONLIN+=1(COUNT-TOTAL)  or +=2(COUNT-RATE) " );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  // - - - -- 
   NONLIN_MAP = (NONLIN_DEF*) malloc( NMAP_NONLIN * sizeof(NONLIN_DEF));
 
   // init all maps
@@ -94,45 +117,53 @@ void INIT_NONLIN(char *inFile) {
   }
   DUMPFLAG_NONLIN = 0 ;
 
-  
+  // - - - - - - -
   // read again and store each map
-  imap = RDFLAG = MAPSIZE = 0 ;
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-    if ( strcmp(c_get,"START_MAP:") == 0 ) { RDFLAG = 1;  MAPSIZE=0 ; }
-    
-    if ( strcmp(c_get,"FILTERS:") == 0 ) 
-      { readchar(fp, NONLIN_MAP[imap].FILTERS ); }
+  nmap_read = MAPSIZE = RDFLAG = END_OF_MAP = 0 ;
+  
+  while ( fgets(LINE, MXPATHLEN, fp) != NULL ) {
 
-    if ( strcmp(c_get,"NONLIN:") == 0 ) {
-      readdouble(fp, 2, tmpD );
+    KEY[0] = 0 ;
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, LINE, fnam);
+
+    if ( NWD >= 2 ) { get_PARSE_WORD(langC, 0, KEY); }
+	    
+    ISKEY_FILTERS = ( strcmp(KEY,"FILTERS:" ) == 0 );
+    ISKEY_NONLIN  = ( strcmp(KEY,"NONLIN:"  ) == 0 );
+
+    // check for end of map
+    END_OF_MAP = RDFLAG && (NWD==0 || ISKEY_FILTERS );
+    if ( END_OF_MAP ) {
+      if ( MAPSIZE <= 0 ) {
+	sprintf(c1err,"Found map with %d entries", MAPSIZE);
+	sprintf(c2err,"Check %s", inFile);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+      }
+      sprintf(MSG,"    Read NONLIN MAP%2.2d with %2d rows for %s",
+	     imap, MAPSIZE, NONLIN_MAP[imap].FILTERS); 
+      printf("%s\n", MSG);      fflush(stdout);
+      sprintf(NONLIN_README.LINE[NLINE],"%s", MSG);
+      NLINE++ ;
+      RDFLAG = 0 ;
+    }
+
+    
+    if ( ISKEY_FILTERS ) {
+      MAPSIZE=0 ;  nmap_read++ ;  imap=nmap_read-1;  RDFLAG=1;
+      get_PARSE_WORD(langC, 1, NONLIN_MAP[imap].FILTERS );
+    }
+
+    if ( ISKEY_NONLIN ) {
+      get_PARSE_WORD_DBL(langC, 1, &tmpD[0] );
+      get_PARSE_WORD_DBL(langC, 2, &tmpD[1] );      
       NONLIN_MAP[imap].MAPVAL[0][MAPSIZE]  = tmpD[0];
       NONLIN_MAP[imap].MAPVAL[1][MAPSIZE]  = tmpD[1];
       MAPSIZE++ ;
       NONLIN_MAP[imap].MAPSIZE = MAPSIZE ;
     }
 
-    if ( strcmp(c_get,"DUMPFLAG:") == 0 ) 
-      { readint(fp, 1, &DUMPFLAG_NONLIN ); }
-
-    if ( strcmp(c_get,"END_MAP:") == 0 ) {       
-
-      if ( MAPSIZE <= 0 ) {
-	sprintf(c1err,"Found map with %d entries", MAPSIZE);
-	sprintf(c2err,"Check %s", inFile);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-      }
-
-      sprintf(MSG,"    Read NONLIN MAP%2.2d with %2d rows for %s",
-	     imap, MAPSIZE, NONLIN_MAP[imap].FILTERS); 
-      printf("%s\n", MSG);      fflush(stdout);
-      imap++ ; RDFLAG=0;       
-
-      sprintf(NONLIN_README.LINE[NLINE],"%s", MSG);
-      NLINE++ ;
-    }
 
   } // end while
-
 
   fclose(fp);
 
@@ -141,6 +172,7 @@ void INIT_NONLIN(char *inFile) {
   NONLIN_README.LINE[NLINE][0] = 0 ; NLINE++ ;
   NONLIN_README.NLINE = NLINE ;
 
+  debugexit(fnam); // xxx REMOVE
   return ;
 
 } // end INIT_NONLIN

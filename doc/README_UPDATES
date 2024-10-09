@@ -22675,5 +22675,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + start option for "PARSHIFT: <varname> <value>" to shift
        arbitrary parameter such as zHD or HOST_LOGMASS.
        
-      
+   sntools_nonlinearity.c[h]:
+     + read OPTMASK_NONLIN from NONLINEARITY_FILE,
+       and read maps without redundant START_MAP or END_MAP keys.
+     
 END: 

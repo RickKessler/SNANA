@@ -10,18 +10,21 @@
 
   OPTMASK_NONLIN:  1  # 1=count tot, 2=count rate
 
-  START_MAP:
   FILTERS: abcdef
   NONLIN:   4.0E0  0.982  #   Ftot(pe)  and Flux-scale
   NONLIN:   4.0E1  0.986
   NONLIN:   4.0E2  0.988 
   etc .
-  END_MAP:
 
-  Beware that Ftot should be the sum of Fsource + Fsky + Fgal.
-
-  Repeat as many maps as needed in case different filters have 
-  different non-linearities.
+  Notes:
+    + interpolation is done in log10(Ftot) space
+    + Ftot should be the sum of Fsource + Fsky + Fgal.
+    + Repeat as many maps as needed in case different filters have 
+      different non-linearities.
+    + for OPTMASK_NONLIN += 2 (count-rate), first NONLIN arg is
+      Ftot_pe/TEXPOSE, where TEXPOSE per observation is read from
+      the PHOT data stream. For sims, add TEXPOSE([FIELD]) keys in 
+      global header to automatically fill TEXPOSE in data.
 
 ======================================================= */
 
@@ -98,8 +101,15 @@ void INIT_NONLIN(char *inFile) {
 
   int NOPT_REQUIRE = 0;
 
-  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT ) > 0 ) { NOPT_REQUIRE++; }
-  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE) > 0 ) { NOPT_REQUIRE++; }  
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT ) > 0 ) {
+    printf("\t Compute NONLIN from COUNT-TOTAL\n");
+    NOPT_REQUIRE++;
+  }
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE) > 0 ) {
+    printf("\t Compute NONLIN from COUNT/Texpose\n");    
+    NOPT_REQUIRE++;
+  }
+  
   if ( NOPT_REQUIRE != 1 ) {
     sprintf(c1err,"Invalid NOPT_REQUIRE=%d; must require EITHER",
 	    NOPT_REQUIRE);
@@ -109,13 +119,13 @@ void INIT_NONLIN(char *inFile) {
 
   // - - - -- 
   NONLIN_MAP = (NONLIN_DEF*) malloc( NMAP_NONLIN * sizeof(NONLIN_DEF));
-
+  
   // init all maps
   for(imap=0 ; imap < NMAP_NONLIN; imap++ ) {
     NONLIN_MAP[imap].FILTERS[0] = 0 ;
     NONLIN_MAP[imap].MAPSIZE  = 0 ;
   }
-  DUMPFLAG_NONLIN = 0 ;
+  DUMPFLAG_NONLIN = (OPTMASK_NONLIN & OPTMASK_NONLIN_DUMPFLAG);
 
   // - - - - - - -
   // read again and store each map
@@ -139,7 +149,7 @@ void INIT_NONLIN(char *inFile) {
 	sprintf(c2err,"Check %s", inFile);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
       }
-      sprintf(MSG,"    Read NONLIN MAP%2.2d with %2d rows for %s",
+      sprintf(MSG,"\t Read NONLIN MAP%2.2d with %2d rows for %s",
 	     imap, MAPSIZE, NONLIN_MAP[imap].FILTERS); 
       printf("%s\n", MSG);      fflush(stdout);
       sprintf(NONLIN_README.LINE[NLINE],"%s", MSG);
@@ -156,8 +166,8 @@ void INIT_NONLIN(char *inFile) {
     if ( ISKEY_NONLIN ) {
       get_PARSE_WORD_DBL(langC, 1, &tmpD[0] );
       get_PARSE_WORD_DBL(langC, 2, &tmpD[1] );      
-      NONLIN_MAP[imap].MAPVAL[0][MAPSIZE]  = tmpD[0];
-      NONLIN_MAP[imap].MAPVAL[1][MAPSIZE]  = tmpD[1];
+      NONLIN_MAP[imap].MAPVAL[0][MAPSIZE]  = log10(tmpD[0]);
+      NONLIN_MAP[imap].MAPVAL[1][MAPSIZE]  = tmpD[1] ;
       MAPSIZE++ ;
       NONLIN_MAP[imap].MAPSIZE = MAPSIZE ;
     }
@@ -172,7 +182,7 @@ void INIT_NONLIN(char *inFile) {
   NONLIN_README.LINE[NLINE][0] = 0 ; NLINE++ ;
   NONLIN_README.NLINE = NLINE ;
 
-  debugexit(fnam); // xxx REMOVE
+  //  debugexit(fnam); // xxx REMOVE
   return ;
 
 } // end INIT_NONLIN
@@ -181,13 +191,16 @@ void   init_nonlin__(char *inFile) { INIT_NONLIN(inFile); }
 
 
 // ====================================
-double GET_NONLIN(char *cfilt, double Fpe_source, double Fpe_sky, 
+double GET_NONLIN(char *cfilt, double Texpose,
+		  double Fpe_source, double Fpe_sky, double Fpe_galaxy,
 		  double mag ) {
 
   // Inputs
   //   + cfilt      = 1-char filter band
+  //   + Texpose    = exposure time (sec); for count-rate nonlin option
   //   + Fpe_source = the total source flux in photo-electrons.
   //   + Fpe_sky    = sky flux inside effective [NEA] aperture
+  //   + Fpe_galaxy = galaxy flux inside NEA aperture
   //   + mag        = true magnitude of object (not used yet)
   //
   // Returns F_meas/F_true .
@@ -196,6 +209,9 @@ double GET_NONLIN(char *cfilt, double Fpe_source, double Fpe_sky,
   //         function returns 1.0000
   //
 
+  bool NONLIN_COUNT_TOT  = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT  ) > 0 ;
+  bool NONLIN_COUNT_RATE = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE ) > 0 ;
+  
   int    OPT_INTERP = 1;  // 1=linear interp
   int    imap ;
   double F_scale,  Fpe_tot;
@@ -206,19 +222,24 @@ double GET_NONLIN(char *cfilt, double Fpe_source, double Fpe_sky,
 
   F_scale = 1.000 ; // default is no non-linearity
 
-  /*
-  // xxxxxxxxxxxxx
-  printf(" xxx NMAP=%d band=%s Fpe=%le  F_scale=%f\n",
-	 NMAP_NONLIN, cfilt, Fpe, F_scale); fflush(stdout);
-  // xxxxxxxxxxxxx
-  */
-
   // bail if there are no maps.
   if ( NMAP_NONLIN == 0    ) { return(F_scale); }
   if ( Fpe_sky    <   0.0  ) { return(F_scale); }
 
-  Fpe_tot = Fpe_source + Fpe_sky ;
+  Fpe_tot = Fpe_source + Fpe_sky + Fpe_galaxy ;
+  if ( NONLIN_COUNT_RATE ) {
+    if ( Texpose < 2 ) {
+      sprintf(c1err,"Invalid Texpose = %.3f for band=%s", Texpose, cfilt);
+      sprintf(c2err,"Cannot compute count-rate NONLIN");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );	
+    }
+    Fpe_tot /= Texpose ;
+  }
 
+  
+  // interpolate in log space
+  double log10_Fpe = log10(Fpe_tot);
+  
   // find which map contains *cfilt.
   for(imap=0; imap < NMAP_NONLIN; imap++ ) {
     ptrFilters = NONLIN_MAP[imap].FILTERS ;
@@ -227,8 +248,7 @@ double GET_NONLIN(char *cfilt, double Fpe_source, double Fpe_sky,
       sprintf(msg,"%s: band=%s imap=%d Fpe_tot=%le", 
 	      fnam, cfilt, imap, Fpe_tot);
 
-
-      F_scale = interp_1DFUN(OPT_INTERP, Fpe_tot,
+      F_scale = interp_1DFUN(OPT_INTERP, log10_Fpe,
 			     NONLIN_MAP[imap].MAPSIZE,
 			     NONLIN_MAP[imap].MAPVAL[0], // Ftot(pe)
 			     NONLIN_MAP[imap].MAPVAL[1], // F_scale
@@ -239,9 +259,11 @@ double GET_NONLIN(char *cfilt, double Fpe_source, double Fpe_sky,
 
   int LDMP = DUMPFLAG_NONLIN ;
   if ( LDMP ) {
-    printf(" xxx %s-mag=%6.3f  Fpe(sky,src)=%10.5le,%10.5le "
-	   "--> F_scale=%6.4f \n",
-	   cfilt, mag, Fpe_sky, Fpe_source, F_scale); 
+    printf(" xxx %s-mag=%6.3f  Fpe(src,sky,gal)=%10.5le,%10.5le,%10.5le "
+	   "  Texpose=%5d \n"
+	   "\t\t --> F_scale=%6.4f \n",
+	   cfilt, mag, Fpe_source, Fpe_sky, Fpe_galaxy, (int)Texpose,
+	   F_scale); 
     fflush(stdout);
   }
 
@@ -250,10 +272,12 @@ double GET_NONLIN(char *cfilt, double Fpe_source, double Fpe_sky,
 } // end GET_NONLIN
 
 
-double get_nonlin__(char *cfilt, double *Fpe_source, double *Fpe_sky,
+double get_nonlin__(char *cfilt, double *Texpose,
+		    double *Fpe_source, double *Fpe_sky, double *Fpe_galaxy,
 		    double *genmag) {
   
-  double F_scale = GET_NONLIN(cfilt, *Fpe_source, *Fpe_sky, *genmag);
+  double F_scale = GET_NONLIN(cfilt, *Texpose,
+			      *Fpe_source, *Fpe_sky, *Fpe_galaxy, *genmag);
   return(F_scale);
 }
 

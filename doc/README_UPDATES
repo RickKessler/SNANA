@@ -22660,8 +22660,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        
          *****  USEFUL(v11_05q) *****
 	 
-     Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.
-     
+   + Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.
+   + NONLINEARITY_FILE has new OPTMASK_NONLIN to select count-tot
+      or count-rate option
+      
          *****  MISCELLANEOUS(v11_05q) *****
 
    snlc_sim.c[h]:
@@ -22678,5 +22680,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools_nonlinearity.c[h]:
      + read OPTMASK_NONLIN from NONLINEARITY_FILE,
        and read maps without redundant START_MAP or END_MAP keys.
-     
+     + OPTMASK_NONLIN += 1 -> use count-total
+       OPTMASK_NONLIN += 2 -> use count-rate
+       
 END: 

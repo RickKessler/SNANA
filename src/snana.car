@@ -19013,8 +19013,8 @@ c local var
      &  ,RDNOISE_pe, FLUXCAL, FLUXCAL_BUG, FLUXADU
      &  ,AREA, NEA, PSFSIG1, PSFSIG2, PSFRATIO  
      &  ,GALMAG, SBMAG, SBFLUX, SNSEP, NOISEPAR(2)
-     &  ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20)
-     &  ,SQTMP, Fscale, Fpe_source, Fpe_sky, GENMAG
+     &  ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20), Texpose
+     &  ,SQTMP, Fscale, Fpe_source, Fpe_sky, Fpe_galaxy, GENMAG
 
       INTEGER*8 GALID
       INTEGER IFILT_OBS, IFILT, OPT, NPAR, LL
@@ -19195,13 +19195,15 @@ c check GET_NONLIN option in sntools_nonlinearity.c
       ! sum noise over pixels in effective background area
         FLUXADU = FLUXCAL * 10.0**(0.4*ZPDIF)
 
+        Texpose    = SNLC_TEXPOSE(ep)
         Fpe_source = FLUXADU * GAIN
         IF ( Fpe_source < 0.0 ) Fpe_source = 0.01 ! must be positive
-        Fpe_sky    = NEA * (SKYSIG*GAIN)**2 
+        Fpe_sky    = NEA * (SKYSIG*GAIN)**2
+        Fpe_galaxy = 0.0  ! ?? NEA * SBMAG * GAIN ! ??
         GENMAG     = DBLE( SNLC_MAG(ep) )
 
-        Fscale = GET_NONLIN(cfilt(1:1)//char(0),
-     &                      Fpe_source, Fpe_sky, GENMAG, 2 )
+        Fscale = GET_NONLIN(cfilt(1:1)//char(0), Texpose,
+     &                      Fpe_source, Fpe_sky, Fpe_galaxy, GENMAG, 2 )
         SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * SNGL(Fscale)
         CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
       ENDIF

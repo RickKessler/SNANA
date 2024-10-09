@@ -8300,7 +8300,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.ZEROPT[i_epoch]         = NULLFLOAT ;
     SNDATA.ZEROPT_ERR[i_epoch]     = 0.0; 
     SNDATA.ZEROPT_SIG[i_epoch]     = 0.0; 
-
+    SNDATA.TEXPOSE[i_epoch]        = 0.0 ;
+    
     SNDATA.PHOTFLAG[i_epoch]       = 0   ;
     SNDATA.PHOTPROB[i_epoch]       = 0.0 ;
 

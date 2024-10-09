@@ -22659,7 +22659,21 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  IMPORTANT(v11_05q) *****
        
          *****  USEFUL(v11_05q) *****
-	  
+	 
+     Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.
+     
          *****  MISCELLANEOUS(v11_05q) *****
 
+   snlc_sim.c[h]:
+      + read optional
+               TEXPOSE(DEEP): <list of Texpose per filter>
+               TEXPOSE(WIDE): <list of Texpose per filter>
+	       etc ...
+        from global simlib header
+	
+   SALT2mu.c
+     + start option for "PARSHIFT: <varname> <value>" to shift
+       arbitrary parameter such as zHD or HOST_LOGMASS.
+       
+      
 END: 

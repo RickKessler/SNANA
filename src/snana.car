@@ -902,6 +902,7 @@ c
      &  ,SNLC_ZEROPT(MXEPOCH)
      &  ,SNLC_ZEROPT_ERR(MXEPOCH)
      &  ,SNLC_ZEROPT_forCUT(MXEPOCH)  ! depends on CUTWIN_ZPADU or CUTWIN_ZPNPE
+     &  ,SNLC_TEXPOSE(MXEPOCH)     
      &  ,SNLC_DLMAG                   ! 5*log10(10pc/DL)
      &  ,SNLC_SKYFLUXCAL(MXEPOCH)     ! calculated sky fluxcal/pixel
      &  ,SNLC_MWXT_MAG(MXFILT_OBS)        ! mag stellar extinct
@@ -974,6 +975,7 @@ c
      &    ,SNLC_FLUXCAL_FIT,SNLC_FLUXCAL_ERR_FIT,SNLC_FLUXCAL_ERRTOT_FIT
      &    ,SNLC_MAG, SNLC_MAG_ERRPLUS, SNLC_MAG_ERRMINUS
      &    ,SNLC_ZEROPT, SNLC_ZEROPT_ERR, SNLC_ZEROPT_forCUT
+     &    ,SNLC_TEXPOSE
      &    ,SNLC_SKYFLUXCAL, SNLC_DLMAG
      &    ,SNLC_DTOBS, SNLC_DTOBS_SAMEFILT
 
@@ -5307,6 +5309,10 @@ c - - - - -
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SNLC_ZEROPT_ERR(o)=SNGL(DARRAY(o)); ENDDO
 
+      CALL FETCH_SNDATA_WRAPPER("TEXPOSE",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_TEXPOSE(o)=SNGL(DARRAY(o)); ENDDO
+      
       CALL FETCH_SNDATA_WRAPPER("GAIN",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SNLC_GAIN(o)=SNGL(DARRAY(o)); ENDDO
@@ -15720,6 +15726,7 @@ C ------------- BEGIN ------------
       SNLC_RDNOISE(ep1)        = SNLC_RDNOISE(ep2)
       SNLC_ZEROPT(ep1)         = SNLC_ZEROPT(ep2)
       SNLC_ZEROPT_ERR(ep1)     = SNLC_ZEROPT_ERR(ep2)
+      SNLC_TEXPOSE(ep1)        = SNLC_TEXPOSE(ep2)      
       SNLC_GAIN(ep1)           = SNLC_GAIN(ep2)
       SNLC_XPIX(ep1)           = SNLC_XPIX(ep2)
       SNLC_YPIX(ep1)           = SNLC_YPIX(ep2)
@@ -15976,6 +15983,7 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         
         SNLC_ZEROPT(iep)          =  0.0
         SNLC_ZEROPT_ERR(iep)      =  0.0
+        SNLC_TEXPOSE(iep)         =  0.0	
 
         SNLC_XPIX(iep) = -9.0 
         SNLC_YPIX(iep) = -9.0 

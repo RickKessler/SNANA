@@ -1230,7 +1230,7 @@ struct GENLC {
 
   int NEWMJD ;
   int EPOCH_RANGE_NEWMJD[MXEPSIM][2];
-
+  
   char  FIELDNAME[MXEPSIM][MXCHAR_FIELDNAME] ;  // name of field for each obs
   int   IFLAG_GENSOURCE ;     // specifies GENSOURCE
 
@@ -1903,7 +1903,8 @@ int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
 			char *cfiltList, int *ifiltList) ;
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
-void   parse_SIMLIB_TEXPOSE(char *inString, char *field);
+bool   parse_SIMLIB_TEXPOSE(char *inString, char *field);
+double get_TEXPOSE(int epoch);
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header
 int    check_SIMLIB_GENRANGE(double *GENRANGE_ORIG, double *GENRANGE_NEW);
 
@@ -2134,6 +2135,7 @@ void   checkpar_SIMSED(void);
 double get_zvariation(double z, char *parname);
 GENGAUSS_ASYM_DEF  get_zvariation_GENGAUSS(double z, char *parName,
 					   GENGAUSS_ASYM_DEF *GENGAUSS_LOCAL );
+
 void   cp_zvariation(char *outFile_zvar);
 void   genmag_boost(void);
 void   genmag_MWXT_fromKcor(void);   // apply MW extinct for rest-frame models

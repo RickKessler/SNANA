@@ -994,6 +994,12 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_flt(copyFlag, &parVal[obs], &SNDATA.ZEROPT_ERR[OBS]) ; 
     }  
   }
+  else if ( strcmp(key,"TEXPOSE") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.TEXPOSE[OBS]) ; 
+    }  
+  }
   else if ( strcmp(key,"GAIN") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
       OBS = SNDATA.OBS_STORE_LIST[obs];  

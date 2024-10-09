@@ -284,6 +284,7 @@ struct SNDATA {
   float ZEROPT[MXEPOCH] ;         // zero point for template 
   float ZEROPT_ERR[MXEPOCH] ;     // zero point error on mean
   float ZEROPT_SIG[MXEPOCH] ;     // zero point sigma
+  float TEXPOSE[MXEPOCH];         // exposure time (sec)
   float SKYSUB_ERR[MXEPOCH] ;     // sky-subtraction error
   float GALSUB_ERR[MXEPOCH] ;     // gal-subtraction error
   int   NPRESN[MXFILTINDX] ;      // number of pre-SN epochs

@@ -69,6 +69,7 @@
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band] for ATMOS
  Dec 22 2023: write SIM_WGT_POPULATION
  Mar 28 2024: add logic to close SPEC file and free SPEC memory to fix memory leak.
+ Oct 08 2024: add TEXPOSE per observation
 
 **************************************************/
 
@@ -761,7 +762,8 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E" , "SKY_SIG_T"  , itype ) ; 
     wr_snfitsio_addCol( "1E" , "RDNOISE"    , itype ) ; // e- per pix
     wr_snfitsio_addCol( "1E" , "ZEROPT"     , itype ) ; 
-    wr_snfitsio_addCol( "1E" , "ZEROPT_ERR" , itype ) ; 
+    wr_snfitsio_addCol( "1E" , "ZEROPT_ERR" , itype ) ;
+    wr_snfitsio_addCol( "1E" , "TEXPOSE"    , itype ) ; 
     wr_snfitsio_addCol( "1E" , "GAIN"       , itype ) ; 
     wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
     wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
@@ -2434,6 +2436,10 @@ void wr_snfitsio_update_phot(int ep) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZEROPT_ERR[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "ZEROPT_ERR", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.TEXPOSE[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "TEXPOSE", itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.GAIN[ep] ;
@@ -3729,6 +3735,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_FLT(isn, "ZEROPT", &SNDATA.ZEROPT[ep0], 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
     j++; NRD = RD_SNFITSIO_FLT(isn, "ZEROPT_ERR", &SNDATA.ZEROPT_ERR[ep0], 
+			       &SNFITSIO_READINDX_PHOT[j] ) ;
+    j++; NRD = RD_SNFITSIO_FLT(isn, "TEXPOSE", &SNDATA.TEXPOSE[ep0], 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
     j++; NRD = RD_SNFITSIO_FLT(isn, "GAIN", &SNDATA.GAIN[ep0], 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;

@@ -17278,10 +17278,11 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
       NFILT    = strlen(SIMLIB_GLOBAL_HEADER.FILTERS);
       readdouble(fp_SIMLIB, NFILT,
 		 SIMLIB_GLOBAL_HEADER.TEXPOSE_LIST[ifld] );
-      parse_SIMLIB_TEXPOSE(c_get,fld); // return field name
-      sprintf(SIMLIB_GLOBAL_HEADER.FIELD_TEXPOSE[ifld], "%s", fld);
-      
-      SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE++ ;
+      bool ISKEY = parse_SIMLIB_TEXPOSE(c_get,fld); // return field name
+      if ( ISKEY ) {
+	sprintf(SIMLIB_GLOBAL_HEADER.FIELD_TEXPOSE[ifld], "%s", fld);
+	SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE++ ;
+      }
     }
     
     else if ( strcmp(c_get,"PIXSIZE:") == 0 ) {      
@@ -18157,7 +18158,7 @@ int IFIELD_OVP_SIMLIB(int OPT, char *FIELD) {
   // OPT=1 --> use stage, so check global ZPT
 
   int  IFIELD, NFIELD, i  ;
-  //  char fnam[] = "IFIELD_OVP_SIMLIB" ;
+  char fnam[] = "IFIELD_OVP_SIMLIB" ;
   // ---------------- BEGIN ------------
 
   IFIELD = -9;
@@ -20611,20 +20612,69 @@ void init_SIMLIB_HEADER(void) {
 
 
 // =============================================
-void parse_SIMLIB_TEXPOSE(char *inString, char *field) {
+bool parse_SIMLIB_TEXPOSE(char *inString, char *field) {
 
   // Created Oct 2024
   // For inString = TEXPOSE:       -> return field = 'ALL'
   // For inString = TEXPOSE(DEEP): -> return field = 'DEEP'
-  // xxx need to test !!!
+
+  int LDMP = 0;
   char fnam[] = "parse_SIMLIB_TEXPOSE" ;
   // -------- BEGIN --------
   // extract contents of optional ()
   extractStringOpt(inString,field) ;
-  if ( strlen(field) == 0 )  {  sprintf(field,"%s", ALL); } 
-  return ;
+
+  if ( strcmp(inString,"TEXPOSE:") != 0 ) { return false; }
+  
+  if ( strlen(field) == 0 )  {  sprintf(field,"%s", ALL); }
+
+  if ( LDMP ) {
+    printf(" xxx %s: inStr=%s  field = %s \n",
+	   fnam, inString, field); fflush(stdout);
+  }
+  
+  return true ;
   
 } // end parse_SIMLIB_TEXPOSE
+
+double get_TEXPOSE(int epoch) {
+
+  // Created Oct 2024
+  // For input "epoch" index, return the
+  // exposure time (seconds) read from SIMLIB header.
+  // If TEXPOSE is not provided, return zero.
+
+  double TEXPOSE = 0.0 ;
+  int    NFIELD_TEXPOSE = SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE ;
+  int    ifilt, ifilt_obs, ifld, ifld_match = -9 ;
+  int    LDMP = 0; // (epoch<10);
+  char   *FIELD, *FIELD_TMP;
+  char fnam[] = "get_TEXPOSE" ;
+
+  // ---------- BEGIN --------
+
+  if ( NFIELD_TEXPOSE == 0 ) { return TEXPOSE; }
+
+  FIELD     = GENLC.FIELDNAME[epoch] ;  
+  ifilt_obs = GENLC.IFILT_OBS[epoch] ;
+  ifilt     = GENLC.IFILTINVMAP_OBS[ifilt_obs];
+	
+  for(ifld = 0; ifld < NFIELD_TEXPOSE; ifld++ ) {
+    FIELD_TMP = SIMLIB_GLOBAL_HEADER.FIELD_TEXPOSE[ifld] ;
+    if ( strcmp(FIELD,FIELD_TMP) == 0 )  { ifld_match = ifld; }
+  }
+
+  if ( ifld_match >= 0 )
+    { TEXPOSE = SIMLIB_GLOBAL_HEADER.TEXPOSE_LIST[ifld_match][ifilt]; }
+
+    if ( LDMP ) {
+      printf(" xxx %s: CID=%d  ep=%d  FIELD=%s  ifld_match=%d  TEXPOSE=%d\n",
+	     fnam, GENLC.CID, epoch, FIELD, ifld_match, (int)TEXPOSE ); 
+    }
+  
+  return TEXPOSE ;
+  
+} // end get_TEXPOSE
 
 // ================================================
 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
@@ -24298,7 +24348,8 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.ZEROPT[epoch]      = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
     SNDATA.ZEROPT_ERR[epoch]  = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
     SNDATA.ZEROPT_SIG[epoch]  = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
-
+    SNDATA.TEXPOSE[epoch]     = get_TEXPOSE(epoch);
+    
     // mar 18 2018: store SNR at fixed mag to monitor data quality 
     SNDATA.SIMEPOCH_SNRMON[epoch] = GENLC.SNR_MON[epoch];
 

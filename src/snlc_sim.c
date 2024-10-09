@@ -17178,6 +17178,8 @@ void SIMLIB_initGlobalHeader(void) {
   SIMLIB_GLOBAL_HEADER.USERNAME[0]        = 0 ;
   SIMLIB_GLOBAL_HEADER.PIXSIZE            = 0.0 ;
   SIMLIB_GLOBAL_HEADER.SOLID_ANGLE        = 0.0 ;
+  SIMLIB_GLOBAL_HEADER.NLIBID             = 0 ;
+  SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE     = 0 ;
   SIMLIB_GLOBAL_HEADER.NGENSKIP_PEAKMJD   = 0 ;
   sprintf(SIMLIB_GLOBAL_HEADER.FIELD,  "%s", FIELD_NONAME);
 
@@ -17231,6 +17233,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   if (REQUIRE_DOCANA) { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
   char c_get[200];
   int  NTMP, NFILT;
+  char fld[MXCHAR_FIELDNAME];
   char fnam[] = "SIMLIB_readGlobalHeader_TEXT" ;
 
   // ---------- BEGIN ----------
@@ -17268,6 +17271,19 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     else if ( strcmp(c_get,"FIELD:") == 0 ) {      
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.FIELD );
     }
+    
+    else if ( strstr(c_get,"TEXPOSE") != NULL ) {
+      // must be read after reading FILTERS key
+      int ifld = SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE;
+      NFILT    = strlen(SIMLIB_GLOBAL_HEADER.FILTERS);
+      readdouble(fp_SIMLIB, NFILT,
+		 SIMLIB_GLOBAL_HEADER.TEXPOSE_LIST[ifld] );
+      parse_SIMLIB_TEXPOSE(c_get,fld); // return field name
+      sprintf(SIMLIB_GLOBAL_HEADER.FIELD_TEXPOSE[ifld], "%s", fld);
+      
+      SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE++ ;
+    }
+    
     else if ( strcmp(c_get,"PIXSIZE:") == 0 ) {      
       readdouble(fp_SIMLIB, 1, &SIMLIB_GLOBAL_HEADER.PIXSIZE );
     }
@@ -18368,6 +18384,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   NMAG_notZeroFlux = 0 ;
   SIMLIB_LIST_forSORT.MJD_LAST = -9.0 ;
   SIMLIB_TEMPLATE.NFIELD_OVP = 0;
+  
   NTRY++ ;
 
   if ( NTRY >= MXREAD_SIMLIB ) {
@@ -20546,7 +20563,7 @@ void init_SIMLIB_HEADER(void) {
   // Created Apr 2016 to initialize SIMLIB_HEADER struct.
   // Called for each event.
 
-  int i;
+  int i, o;
   char fnam[] = "init_SIMLIB_HEADER" ;
 
   // ------------ BEGIN ------------
@@ -20585,10 +20602,29 @@ void init_SIMLIB_HEADER(void) {
 
   if ( INPUTS.USE_SIMLIB_SPECTRA ) { NPEREVT_TAKE_SPECTRUM = 0 ; }
 
+
+  
+  
   return ;
 
 } // end init_SIMLIB_HEADER
 
+
+// =============================================
+void parse_SIMLIB_TEXPOSE(char *inString, char *field) {
+
+  // Created Oct 2024
+  // For inString = TEXPOSE:       -> return field = 'ALL'
+  // For inString = TEXPOSE(DEEP): -> return field = 'DEEP'
+  // xxx need to test !!!
+  char fnam[] = "parse_SIMLIB_TEXPOSE" ;
+  // -------- BEGIN --------
+  // extract contents of optional ()
+  extractStringOpt(inString,field) ;
+  if ( strlen(field) == 0 )  {  sprintf(field,"%s", ALL); } 
+  return ;
+  
+} // end parse_SIMLIB_TEXPOSE
 
 // ================================================
 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {

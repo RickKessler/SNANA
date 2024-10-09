@@ -1507,6 +1507,13 @@ struct SIMLIB_GLOBAL_HEADER {
   char SUBSURVEY_LIST[MXPATHLEN];
   char FILTERS[MXFILTINDX];  // global list of all filters
   char FIELD[60];            // Nov 2021
+
+  // Oct 2024: allow for exposure times that are needed for
+  // count-rate non-linearity
+  int    NFIELD_TEXPOSE;
+  char   FIELD_TEXPOSE[MXFIELD_OVP][MXCHAR_FIELDNAME];
+  double TEXPOSE_LIST[MXFIELD_OVP][MXFILTINDX];
+  
   // xxx mark delete  char TELESCOPE[60];
   char PSF_UNIT[40] ;
   bool NEA_PSF_UNIT;
@@ -1577,10 +1584,9 @@ struct SIMLIB_HEADER {
   char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
-  // xxx mark del  char TELESCOPE[60] ; // July 2016
   char FIELD[60], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
   int  NFIELD_OVP ;
-
+  
   // optional GENRANGES to re-generate
   int    REGEN_FLAG ;
   GENGAUSS_ASYM_DEF GENGAUSS_PEAKMJD ;
@@ -1897,7 +1903,7 @@ int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
 			char *cfiltList, int *ifiltList) ;
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
-
+void   parse_SIMLIB_TEXPOSE(char *inString, char *field);
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header
 int    check_SIMLIB_GENRANGE(double *GENRANGE_ORIG, double *GENRANGE_NEW);
 

@@ -549,6 +549,8 @@ double  M0_DEFAULT;
 #define VARNAME_LOGSFR     "HOST_LOGSFR"
 #define VARNAME_LOGsSFR    "HOST_LOGsSFR"
 #define VARNAME_COLOR      "HOST_COLOR"
+#define VARNAME_mB         "mB"
+#define VARNAME_mx         "mx"
 
 #define VARNAME_IZBIN    "IZBIN"
 
@@ -1504,7 +1506,7 @@ int   force_probcc0(int itype, int idsurvey);
 int   ppar(char* string);
 void  read_data(void);
 void  read_data_override(void);
-void  parshift_data(int EVENT_TYPE, SELECT_VAR_DEF *PARSHIFT) ;
+void  parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) ;
 
 double zhd_data_override(int isn, double vpec_over ) ;
 double zhderr_data_override(int isn, double vpecerr_over ) ;
@@ -5608,6 +5610,7 @@ void read_data(void) {
   int  EVENT_TYPE = EVENT_TYPE_DATA;
   int  NEVT_TOT, NEVT[MXFILE_DATA], ifile, NVAR_ORIG, IFILETYPE, LEN_MALLOC ;
   int  ISTART, NROW, isn ;
+  TABLEVAR_DEF *TABLEVAR = &INFO_DATA.TABLEVAR;
   char *dataFile ;
   char fnam[] = "read_data" ;
 
@@ -5631,7 +5634,7 @@ void read_data(void) {
    
   // malloc arrays to read fitres data file
   LEN_MALLOC = NEVT_TOT + 10 ;
-  INFO_DATA.TABLEVAR.LEN_MALLOC = LEN_MALLOC ;
+  TABLEVAR->LEN_MALLOC = LEN_MALLOC ;
   malloc_INFO_DATA(+1,LEN_MALLOC);
 
   // loop again over each data file: read and append INFO_DATA arrays
@@ -5639,22 +5642,25 @@ void read_data(void) {
     dataFile    = INPUTS.dataFile[ifile];
     IFILETYPE   = TABLEFILE_OPEN(dataFile,"read");
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");
-    ISTART      = INFO_DATA.TABLEVAR.NSN_ALL ;
+    ISTART      = TABLEVAR->NSN_ALL ;
 
-    SNTABLE_READPREP_TABLEVAR(ifile,ISTART,NEVT[ifile],&INFO_DATA.TABLEVAR);
+    SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile],
+			      TABLEVAR);
 
     if ( INPUTS.cat_only ) 
       { NROW = NEVT[ifile];  SNTABLE_CLOSE_TEXT(); }
     else
       { NROW = SNTABLE_READ_EXEC(); }    // read entire file; load arrays
-    INFO_DATA.TABLEVAR.NSN_ALL += NROW ;
+    TABLEVAR->NSN_ALL += NROW ;
 
-    INFO_DATA.TABLEVAR.EVENT_RANGE[ifile][0] = ISTART ;
-    INFO_DATA.TABLEVAR.EVENT_RANGE[ifile][1] = ISTART + NROW - 1;
-    sprintf(INFO_DATA.TABLEVAR.INPUT_FILE[ifile],"%s", dataFile);
-    store_input_varnames(ifile, &INFO_DATA.TABLEVAR) ;
+    TABLEVAR->EVENT_RANGE[ifile][0] = ISTART ;
+    TABLEVAR->EVENT_RANGE[ifile][1] = ISTART + NROW - 1;
+    sprintf(TABLEVAR->INPUT_FILE[ifile],"%s", dataFile);
+    store_input_varnames(ifile, TABLEVAR) ;
   }
 
+  parshift_data(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ;
+  
   // store comma-sep list of VERSION_PHOTOMETRY; note that
   // SNTABLE_VERSION_PHOTOMETRY appends comma-sep list internally
   // so here we just do a simple copy.
@@ -5667,23 +5673,23 @@ void read_data(void) {
   store_output_varnames(); // May 2020
 
   // compute more table variables
-  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
-    compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); 
+  for(isn=0; isn < TABLEVAR->NSN_ALL; isn++ ) { 
+    compute_more_TABLEVAR(isn, TABLEVAR ); 
   }
 
 
   // Nov 2020: e.g., replace VPEC, HOST_LOGMASS, etc ..
   read_data_override(); 
-  parshift_data(EVENT_TYPE_DATA, &INPUTS.SELECT_PARSHIFT) ;
+
   
   prepare_IDSAMPLE_biasCor(); 
 
     
   // apply cuts after data override
   int NPASS=0;
-  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
-    compute_CUTMASK(isn, &INFO_DATA.TABLEVAR ); 
-    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] == 0 ) { NPASS++ ; }
+  for(isn=0; isn < TABLEVAR->NSN_ALL; isn++ ) { 
+    compute_CUTMASK(isn, TABLEVAR ); 
+    if ( TABLEVAR->CUTMASK[isn] == 0 ) { NPASS++ ; }
   }
 
 
@@ -5980,17 +5986,96 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
 
 // ****************************************
-void parshift_data(int EVENT_TYPE, SELECT_VAR_DEF *PARSHIFT) {
+void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
 
   // Created Oct 2024
+  // xxx WARNING: while it works in memory, still need to update
+  //     output fitres to have the shifted value; use OVERRIDE structure??
+  //
+  int NVAR_TABLE = TABLEVAR->NVAR[0];
+  int EVENT_TYPE = TABLEVAR->EVENT_TYPE ;
+  char *STRTYPE  = STRING_EVENT_TYPE[EVENT_TYPE];
+  bool IS_DATA   = ( EVENT_TYPE == EVENT_TYPE_DATA);
+  bool DOFLAG, MATCH;
+  int ivar, ipar, ivar_table_list[20], icast_list[20], nvar_shift=0 ;
+  double SHIFT_VAL, shift_list[20] ;
+
+  int IPAR_SHIFT_zHD     = -9;
+  int IPAR_SHIFT_VPEC    = -9;
+  int IPAR_SHIFT_LOGMASS = -9;
+  int IPAR_SHIFT_mB      = -9;    
   
+  char *varName_table, *varName_parshift ;
   char fnam[] = "parshift_data" ;
   
   // --------- BEGIN ----------
 
   if ( PARSHIFT->NVAR == 0 ) { return; }
-
   
+  for(ivar=0; ivar < NVAR_TABLE; ivar++ ) { 
+    varName_table = TABLEVAR->VARNAMES_LIST[0][ivar];
+    
+    for ( ipar=0; ipar < PARSHIFT->NVAR ; ipar++ ) {
+      varName_parshift = PARSHIFT->NAME_LIST[ipar];
+      SHIFT_VAL        = PARSHIFT->VAL_LIST[ipar];
+      
+      MATCH  = ( strcmp(varName_table,varName_parshift) == 0 ) ;
+      DOFLAG = set_DOFLAG_SELECT_VAR(ivar, ipar, IS_DATA, PARSHIFT ) ;
+      
+      if ( MATCH && DOFLAG ) {
+
+	printf("   %s: shift %-20s by %7.3e for %s\n",
+	       fnam, varName_table, SHIFT_VAL, STRTYPE );
+	fflush(stdout);
+	
+	if ( strcmp(VARNAME_zHD,varName_table) == 0 )
+	  { IPAR_SHIFT_zHD = ipar; }
+	else if ( strcmp(VARNAME_VPEC,varName_table) == 0 )
+	  { IPAR_SHIFT_VPEC = ipar; }
+	else if ( strcmp(VARNAME_LOGMASS,varName_table) == 0 )
+	  { IPAR_SHIFT_LOGMASS = ipar; }
+	else if ( strcmp(VARNAME_mB,varName_table) == 0 )
+	  { IPAR_SHIFT_mB = ipar; }
+	else if ( strcmp(VARNAME_mx,varName_table) == 0 )
+	  { IPAR_SHIFT_mB = ipar; }			
+	else {
+	  sprintf(c1err,"PARSHIFT for %s is not defined", varName_table);
+	  sprintf(c2err,"Need to update function %s", fnam);
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);	  
+	}
+	
+      }
+    }  // end ipar loop over user parshift keys
+    
+  } // end ivar loop over table vars
+
+
+  // - - - - - - - - - - - - - - - - - - - - -
+  //.xyz
+  
+  int isn, ipar_shift ;
+  for (isn=0; isn < TABLEVAR->NSN_ALL; isn++ ) {   
+
+    ipar = IPAR_SHIFT_zHD ;
+    if ( ipar >= 0 )
+      { TABLEVAR->zhd[isn] += PARSHIFT->VAL_LIST[ipar]; }
+
+    ipar = IPAR_SHIFT_VPEC ;
+    if ( ipar >= 0 )
+      { TABLEVAR->vpec[isn] += PARSHIFT->VAL_LIST[ipar]; }
+
+    ipar = IPAR_SHIFT_LOGMASS ;
+    if ( ipar >= 0 )
+      { TABLEVAR->host_logmass[isn] += PARSHIFT->VAL_LIST[ipar]; }
+
+    ipar = IPAR_SHIFT_mB ;
+    if ( ipar >= 0 )
+      { TABLEVAR->fitpar[INDEX_d][isn] += PARSHIFT->VAL_LIST[ipar]; }
+    
+  } // end isn loop
+  
+  
+  //debugexit(fnam);
   return ;
 
 } // end parshift_data
@@ -6040,8 +6125,8 @@ void read_data_override(void) {
   ifile_data = 0 ; // primary file index
   NVAR_DATA = INFO_DATA.TABLEVAR.NVAR[ifile_data];
   for(ivar_data=0; ivar_data < NVAR_DATA; ivar_data++ ) { 
-      varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile_data][ivar_data];
-      catVarList_with_comma(VARNAMES_STRING_DATA,varName);
+    varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile_data][ivar_data];
+    catVarList_with_comma(VARNAMES_STRING_DATA,varName);
   }
 
 
@@ -9983,12 +10068,15 @@ void  read_simFile_biasCor(void) {
 
   t_read_biasCor[1] = time(NULL); 
 
+  parshift_data(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ; 
+  
   char str_cputime[60];
   sprintf(str_cputime,"%s(read_BIASCOR)", STRING_CPUTIME_INIT);
   print_cputime(t_read_biasCor[0], str_cputime, UNIT_TIME_MINUTE, 0);
 
   
-  if ( INPUTS.check_duplicates_biasCor ) { check_duplicates_util(EVENT_TYPE_BIASCOR); }
+  if ( INPUTS.check_duplicates_biasCor )
+    { check_duplicates_util(EVENT_TYPE_BIASCOR); }
 
   check_valid_biasCor(TABLEVAR);
     
@@ -18263,7 +18351,7 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 
   // ------------ BEGIN -----------
 
-  ICUT = SELECT_VAR->NVAR ;   // .xyz
+  ICUT = SELECT_VAR->NVAR ;  
 
   NWD_LINE = 2 + NARG;  // either 3 or 4 words to parse per line
   
@@ -21624,7 +21712,7 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
   // this variable gets an override value fval:
   float fval = INFO_DATA.PTRVAL_OVERRIDE[ivar_over][indx];
 
-  // for formatting, check of variable contains zHD
+  // for formatting, check if variable contains zHD
   varName   = OUTPUT_VARNAMES.LIST[ivar_tot]; 
   IS_z      = ( varName[0] == 'z' );
 

@@ -193,17 +193,18 @@ void   init_nonlin__(char *inFile) { INIT_NONLIN(inFile); }
 
 
 // ====================================
-double GET_NONLIN(char *cfilt, double Texpose,
-		  double Fpe_source, double Fpe_sky, double Fpe_galaxy,
+double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list, 
 		  double mag ) {
 
   // Inputs
-  //   + cfilt      = 1-char filter band
-  //   + Texpose    = exposure time (sec); for count-rate nonlin option
-  //   + Fpe_source = the total source flux in photo-electrons.
-  //   + Fpe_sky    = sky flux inside effective [NEA] aperture
-  //   + Fpe_galaxy = galaxy flux inside NEA aperture
-  //   + mag        = true magnitude of object (not used yet)
+  //   + cfilt       = 1-char filter band
+  //   + Texpose     = exposure time (sec); for count-rate nonlin option
+  //   + NEA         = noise equiv area, in pixels
+  //                    WARNING: do not pass NEA in arcsec^2
+  //   + Fpe_list[0] = Fpe(source)
+  //   + Fpe_list[1] = Fpe(sky) within NEA aperture
+  //   + Fpe_list[2] = Fpe(galaxy)  
+  //   + mag         = true magnitude of object (not used yet)
   //
   // Returns F_meas/F_true .
   //
@@ -211,6 +212,10 @@ double GET_NONLIN(char *cfilt, double Texpose,
   //         function returns 1.0000
   //
 
+  double Fpe_source      = Fpe_list[0];
+  double Fpe_sky         = Fpe_list[1];
+  double Fpe_galaxy      = Fpe_list[2];
+  
   bool NONLIN_COUNT_TOT  = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT  ) > 0 ;
   bool NONLIN_COUNT_RATE = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE ) > 0 ;
 
@@ -287,12 +292,10 @@ double GET_NONLIN(char *cfilt, double Texpose,
 } // end GET_NONLIN
 
 
-double get_nonlin__(char *cfilt, double *Texpose,
-		    double *Fpe_source, double *Fpe_sky, double *Fpe_galaxy,
+double get_nonlin__(char *cfilt, double *Texpose, double *NEA, double *Fpe_list, 
 		    double *genmag) {
   
-  double F_scale = GET_NONLIN(cfilt, *Texpose,
-			      *Fpe_source, *Fpe_sky, *Fpe_galaxy, *genmag);
+  double F_scale = GET_NONLIN(cfilt, *Texpose, *NEA, Fpe_list,  *genmag);
   return(F_scale);
 }
 

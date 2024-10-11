@@ -19015,6 +19015,7 @@ c local var
      &  ,GALMAG, SBMAG, SBFLUX, SNSEP, NOISEPAR(2)
      &  ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20), Texpose
      &  ,SQTMP, Fscale, Fpe_source, Fpe_sky, Fpe_galaxy, GENMAG
+     &  ,Fpe_list(3)
 
       INTEGER*8 GALID
       INTEGER IFILT_OBS, IFILT, OPT, NPAR, LL
@@ -19201,9 +19202,12 @@ c check GET_NONLIN option in sntools_nonlinearity.c
         Fpe_sky    = NEA * (SKYSIG*GAIN)**2
         Fpe_galaxy = 0.0  ! ?? NEA * SBMAG * GAIN ! ??
         GENMAG     = DBLE( SNLC_MAG(ep) )
-
-        Fscale = GET_NONLIN(cfilt(1:1)//char(0), Texpose,
-     &                      Fpe_source, Fpe_sky, Fpe_galaxy, GENMAG, 2 )
+        Fpe_list(1) = Fpe_source
+        Fpe_list(2) = Fpe_sky
+        Fpe_list(3) = Fpe_galaxy
+	
+        Fscale = GET_NONLIN(cfilt(1:1)//char(0), Texpose, NEA, 
+     &                      Fpe_list, GENMAG, 2 )
         SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * SNGL(Fscale)
         CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
       ENDIF

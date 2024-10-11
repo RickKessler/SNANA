@@ -33,10 +33,8 @@ struct {
 void   INIT_NONLIN(char *inFile) ;
 void   init_nonlin__(char *inFile);
 
-double GET_NONLIN(char *cfilt, double Texpose,
-		  double Fpe_source, double Fpe_sky, double Fpe_galaxy,
+double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list, 
 		  double genmag) ;
 
-double get_nonlin__(char *cfilt, double *Texpose,
-		    double *Fpe_source, double *Fpe_sky, double *Fpe_galaxy,
+double get_nonlin__(char *cfilt, double *Texpose, double *NEA, double *Fpe_list,
 		    double *genmag);

@@ -125,8 +125,10 @@ void INIT_NONLIN(char *inFile) {
     NONLIN_MAP[imap].FILTERS[0] = 0 ;
     NONLIN_MAP[imap].MAPSIZE  = 0 ;
   }
-  DUMPFLAG_NONLIN = (OPTMASK_NONLIN & OPTMASK_NONLIN_DUMPFLAG);
-
+  DUMPFLAG_NONLIN  = (OPTMASK_NONLIN & OPTMASK_NONLIN_DUMPFLAG);
+  DEBUGFLAG_NONLIN = (OPTMASK_NONLIN & OPTMASK_NONLIN_DEBUGFLAG); 
+  printf(" xxx %s: DEBUGFLAG_NONLIN = %d \n", fnam, DEBUGFLAG_NONLIN);
+	 
   // - - - - - - -
   // read again and store each map
   nmap_read = MAPSIZE = RDFLAG = END_OF_MAP = 0 ;
@@ -211,6 +213,8 @@ double GET_NONLIN(char *cfilt, double Texpose,
 
   bool NONLIN_COUNT_TOT  = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT  ) > 0 ;
   bool NONLIN_COUNT_RATE = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE ) > 0 ;
+
+  bool   DO_SPEED_TEST_PSF = 0; // (DEBUGFLAG_NONLIN>0) ; // temp hack/test
   
   int    OPT_INTERP = 1;  // 1=linear interp
   int    imap ;
@@ -220,6 +224,17 @@ double GET_NONLIN(char *cfilt, double Texpose,
 
   // --------------- BEGIN ----------------
 
+  if ( DO_SPEED_TEST_PSF ) {
+    double rsq, PSF_DUMMY, sigsq = 0.334 ;
+    int ncalc = 0.0 ;
+    for(rsq = 0.01; rsq< 1.0; rsq += 0.01 ) {
+      PSF_DUMMY = exp(-rsq/sigsq);
+      ncalc++ ;
+    }
+    printf(" xxx %s: finished %s SPEED_TEST_PSF with %d exp calcs.\n",
+	   fnam, cfilt, ncalc); fflush(stdout);
+  }
+  
   F_scale = 1.000 ; // default is no non-linearity
 
   // bail if there are no maps.

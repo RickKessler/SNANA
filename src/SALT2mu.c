@@ -6051,7 +6051,6 @@ void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
 
 
   // - - - - - - - - - - - - - - - - - - - - -
-  //.xyz
   
   int isn, ipar_shift ;
   for (isn=0; isn < TABLEVAR->NSN_ALL; isn++ ) {   

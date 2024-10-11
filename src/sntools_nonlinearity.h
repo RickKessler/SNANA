@@ -5,12 +5,14 @@
 #define OPTMASK_NONLIN_COUNT_TOT  1  // nonlin from total counts (e-)
 #define OPTMASK_NONLIN_COUNT_RATE 2  // nonlin from count rate (e-/sec)
 #define OPTMASK_NONLIN_DUMPFLAG   1024  // dump flag
+#define OPTMASK_NONLIN_DEBUGFLAG  2048  // internal test/debug flag
 
 
 char MODELNAME_NONLIN[100];
 int  NMAP_NONLIN ;
 int  OPTMASK_NONLIN;
 int  DUMPFLAG_NONLIN ;
+int  DEBUGFLAG_NONLIN ;
 
 typedef struct {
   char   FILTERS[MXFILTINDX];

@@ -99,23 +99,7 @@ void INIT_NONLIN(char *inFile) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  int NOPT_REQUIRE = 0;
-
-  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT ) > 0 ) {
-    printf("\t Compute NONLIN from COUNT-TOTAL\n");
-    NOPT_REQUIRE++;
-  }
-  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE) > 0 ) {
-    printf("\t Compute NONLIN from COUNT/Texpose\n");    
-    NOPT_REQUIRE++;
-  }
-  
-  if ( NOPT_REQUIRE != 1 ) {
-    sprintf(c1err,"Invalid NOPT_REQUIRE=%d; must require EITHER",
-	    NOPT_REQUIRE);
-    sprintf(c2err,"OPTMASK_NONLIN+=1(COUNT-TOTAL)  or +=2(COUNT-RATE) " );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
+  check_OPTMASK_NONLIN();
 
   // - - - -- 
   NONLIN_MAP = (NONLIN_DEF*) malloc( NMAP_NONLIN * sizeof(NONLIN_DEF));
@@ -168,7 +152,7 @@ void INIT_NONLIN(char *inFile) {
     if ( ISKEY_NONLIN ) {
       get_PARSE_WORD_DBL(langC, 1, &tmpD[0] );
       get_PARSE_WORD_DBL(langC, 2, &tmpD[1] );      
-      NONLIN_MAP[imap].MAPVAL[0][MAPSIZE]  = log10(tmpD[0]);
+      NONLIN_MAP[imap].MAPVAL[0][MAPSIZE]  = log10(tmpD[0]); //map is in flux, but stored in log flux!
       NONLIN_MAP[imap].MAPVAL[1][MAPSIZE]  = tmpD[1] ;
       MAPSIZE++ ;
       NONLIN_MAP[imap].MAPSIZE = MAPSIZE ;
@@ -189,7 +173,53 @@ void INIT_NONLIN(char *inFile) {
 
 } // end INIT_NONLIN
 
+
 void   init_nonlin__(char *inFile) { INIT_NONLIN(inFile); }
+
+
+void check_OPTMASK_NONLIN(){
+    char fnam[] = "check_OPTMASK_NONLIN" ;
+    
+  int NOPT_REQUIRE = 0;
+
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT ) > 0 ) {
+    printf("\t Compute NONLIN from COUNT-TOTAL\n");
+    NOPT_REQUIRE++;
+  }
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE) > 0 ) {
+    printf("\t Compute NONLIN from COUNT/Texpose\n");    
+    NOPT_REQUIRE++;
+  }
+  
+  if ( NOPT_REQUIRE != 1 ) {
+    sprintf(c1err,"Invalid NOPT_REQUIRE=%d; must require EITHER",
+	    NOPT_REQUIRE);
+    sprintf(c2err,"OPTMASK_NONLIN+=1(COUNT-TOTAL)  or +=2(COUNT-RATE) " );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  // xxx
+
+  NOPT_REQUIRE = 0;
+
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_NEA ) > 0 ) {
+    printf("\t Compute NONLIN for total flux in NEA\n");
+    NOPT_REQUIRE++;
+  }
+  if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX) > 0 ) {
+    printf("\t Convert NONLIN per pixel to NEA\n");    
+    NOPT_REQUIRE++;
+  }
+  
+  if ( NOPT_REQUIRE != 1 ) {
+    sprintf(c1err,"Invalid NOPT_REQUIRE=%d; must require EITHER",
+	    NOPT_REQUIRE);
+    sprintf(c2err,"OPTMASK_NONLIN+=4(PER-NEA)  or +=8(PER-PIX) " );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+
+;}
 
 
 // ====================================
@@ -218,6 +248,8 @@ double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list,
   
   bool NONLIN_COUNT_TOT  = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT  ) > 0 ;
   bool NONLIN_COUNT_RATE = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE ) > 0 ;
+  bool NONLIN_PER_NEA  = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_NEA  ) > 0 ;
+  bool NONLIN_PER_PIX = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX ) > 0 ;
 
   bool   DO_SPEED_TEST_PSF = 0; // (DEBUGFLAG_NONLIN>0) ; // temp hack/test
   
@@ -245,6 +277,33 @@ double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list,
   // bail if there are no maps.
   if ( NMAP_NONLIN == 0    ) { return(F_scale); }
   if ( Fpe_sky    <   0.0  ) { return(F_scale); }
+
+
+  if (NONLIN_PER_NEA) { 
+    // do nothing
+  }
+
+  else if (NONLIN_PER_PIX) {
+    // convert nonlin per pix to nea
+    double S = Fpe_sky/NEA; //sky per pixel
+
+    int Npix = (int)NEA+2;
+
+    double *PSF = (double*) malloc(Npix * sizeof(double));
+
+    double sigPSF = sqrt(NEA/(4.*3.14159)); // gaussian psf
+    
+    //int ix, iy, NpixTOT;
+
+    //for(ix=0; ix < Npix; ix++ ) {
+    //  for(ix=0; ix < Npix; ix++ ) {
+
+    //  }
+    //}
+
+    free(PSF);
+
+  }
 
   Fpe_tot = Fpe_source + Fpe_sky + Fpe_galaxy ;
   if ( NONLIN_COUNT_RATE ) {

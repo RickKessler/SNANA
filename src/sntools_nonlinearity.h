@@ -4,6 +4,8 @@
 #define MXBIN_NONLIN 100 
 #define OPTMASK_NONLIN_COUNT_TOT  1  // nonlin from total counts (e-)
 #define OPTMASK_NONLIN_COUNT_RATE 2  // nonlin from count rate (e-/sec)
+#define OPTMASK_NONLIN_PER_NEA  4  // nonlin map provided for total flux 
+#define OPTMASK_NONLIN_PER_PIX  8  // nonlin map provided for each pixel (will convert to total flux)
 #define OPTMASK_NONLIN_DUMPFLAG   1024  // dump flag
 #define OPTMASK_NONLIN_DEBUGFLAG  2048  // internal test/debug flag
 
@@ -38,3 +40,5 @@ double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list,
 
 double get_nonlin__(char *cfilt, double *Texpose, double *NEA, double *Fpe_list,
 		    double *genmag);
+
+void check_OPTMASK_NONLIN(void) ;

@@ -19206,8 +19206,9 @@ c check GET_NONLIN option in sntools_nonlinearity.c
         Fpe_list(2) = Fpe_sky
         Fpe_list(3) = Fpe_galaxy
 	
-        Fscale = GET_NONLIN(cfilt(1:1)//char(0), Texpose, NEA, 
-     &                      Fpe_list, GENMAG, 2 )
+        Fscale = GET_NONLIN(SNLC_CCID(1:ISNLC_LENCCID)//char(0),
+     &                  cfilt(1:1)//char(0), Texpose, NEA, 
+     &                  Fpe_list, GENMAG, ISNLC_LENCCID, 2 )
         SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * SNGL(Fscale)
         CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
       ENDIF

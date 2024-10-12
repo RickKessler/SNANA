@@ -35,10 +35,12 @@ struct {
 void   INIT_NONLIN(char *inFile) ;
 void   init_nonlin__(char *inFile);
 
-double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list, 
+double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *Fpe_list, 
 		  double genmag) ;
 
-double get_nonlin__(char *cfilt, double *Texpose, double *NEA, double *Fpe_list,
+double get_nonlin__(char *CCID, char *cfilt, double *Texpose, double *NEA, double *Fpe_list,
 		    double *genmag);
 
 void check_OPTMASK_NONLIN(void) ;
+double get_flux_scale_NONLIN(char *cfilt, double flux);
+

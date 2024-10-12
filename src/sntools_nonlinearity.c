@@ -110,8 +110,7 @@ void INIT_NONLIN(char *inFile) {
     NONLIN_MAP[imap].MAPSIZE  = 0 ;
   }
   DUMPFLAG_NONLIN  = (OPTMASK_NONLIN & OPTMASK_NONLIN_DUMPFLAG);
-  DEBUGFLAG_NONLIN = (OPTMASK_NONLIN & OPTMASK_NONLIN_DEBUGFLAG); 
-  printf(" xxx %s: DEBUGFLAG_NONLIN = %d \n", fnam, DEBUGFLAG_NONLIN);
+  DEBUGFLAG_NONLIN = (OPTMASK_NONLIN & OPTMASK_NONLIN_DEBUGFLAG);
 	 
   // - - - - - - -
   // read again and store each map
@@ -207,7 +206,7 @@ void check_OPTMASK_NONLIN(){
     NOPT_REQUIRE++;
   }
   if ( (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX) > 0 ) {
-    printf("\t Convert NONLIN per pixel to NEA\n");    
+    printf("\t Convert NONLIN per pixel to NONLIN for flux in NEA\n");    
     NOPT_REQUIRE++;
   }
   
@@ -223,10 +222,11 @@ void check_OPTMASK_NONLIN(){
 
 
 // ====================================
-double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list, 
+double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *Fpe_list, 
 		  double mag ) {
 
   // Inputs
+  //   + CCID        = char CCID; for abort and dump messages
   //   + cfilt       = 1-char filter band
   //   + Texpose     = exposure time (sec); for count-rate nonlin option
   //   + NEA         = noise equiv area, in pixels
@@ -248,19 +248,29 @@ double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list,
   
   bool NONLIN_COUNT_TOT  = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT  ) > 0 ;
   bool NONLIN_COUNT_RATE = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE ) > 0 ;
-  bool NONLIN_PER_NEA  = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_NEA  ) > 0 ;
-  bool NONLIN_PER_PIX = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX ) > 0 ;
-
+  bool NONLIN_PER_NEA    = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_NEA  ) > 0 ;
+  bool NONLIN_PER_PIX    = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX ) > 0 ;
+  int LDMP = DUMPFLAG_NONLIN ;
+  
   bool   DO_SPEED_TEST_PSF = 0; // (DEBUGFLAG_NONLIN>0) ; // temp hack/test
   
-  int    OPT_INTERP = 1;  // 1=linear interp
   int    imap ;
-  double F_scale,  Fpe_tot;
+  double scale_nonlin,  Fpe_tot, flux_scale_count;
   char  *ptrFilters, msg[100] ;
   char   fnam[] = "GET_NONLIN" ;
 
   // --------------- BEGIN ----------------
 
+  if ( LDMP ) {
+    printf(" xxx ----------------------------------------------- \n");
+    printf(" xxx %s dump for CCID=%s  BAND=%s  Texpose=%d  NEA=%.3f  mag=%6.3f \n",
+	   fnam, CCID, cfilt, (int)Texpose, NEA, mag);
+    printf(" xxx \t Fpe_total(src,sky,gal) = %10.3le  %10.3le  %10.3le  (e-)\n",	 
+	   Fpe_source, Fpe_sky, Fpe_galaxy);
+    fflush(stdout);
+  }
+  
+  
   if ( DO_SPEED_TEST_PSF ) {
     double rsq, PSF_DUMMY, sigsq = 0.334 ;
     int ncalc = 0.0 ;
@@ -270,93 +280,156 @@ double GET_NONLIN(char *cfilt, double Texpose, double NEA, double *Fpe_list,
     }
     printf(" xxx %s: finished %s SPEED_TEST_PSF with %d exp calcs.\n",
 	   fnam, cfilt, ncalc); fflush(stdout);
-  }
+  } // end SPEED_TEST
   
-  F_scale = 1.000 ; // default is no non-linearity
+  
+  scale_nonlin = 1.000 ; // default is no non-linearity
 
   // bail if there are no maps.
-  if ( NMAP_NONLIN == 0    ) { return(F_scale); }
-  if ( Fpe_sky    <   0.0  ) { return(F_scale); }
+  if ( NMAP_NONLIN == 0    ) { return(scale_nonlin); }
+  if ( Fpe_sky    <   0.0  ) { return(scale_nonlin); }
 
 
-  if (NONLIN_PER_NEA) { 
-    // do nothing
-  }
+  // - - - - - - - -
 
-  else if (NONLIN_PER_PIX) {
-    // convert nonlin per pix to nea
-    double S = Fpe_sky/NEA; //sky per pixel
-
-    int Npix = (int)NEA+2;
-
-    double *PSF = (double*) malloc(Npix * sizeof(double));
-
-    double sigPSF = sqrt(NEA/(4.*3.14159)); // gaussian psf
-    
-    //int ix, iy, NpixTOT;
-
-    //for(ix=0; ix < Npix; ix++ ) {
-    //  for(ix=0; ix < Npix; ix++ ) {
-
-    //  }
-    //}
-
-    free(PSF);
-
-  }
-
-  Fpe_tot = Fpe_source + Fpe_sky + Fpe_galaxy ;
+  // convert Fpe-count to count-rate if count-rate option is selected  
   if ( NONLIN_COUNT_RATE ) {
     if ( Texpose < 2 ) {
       sprintf(c1err,"Invalid Texpose = %.3f for band=%s", Texpose, cfilt);
       sprintf(c2err,"Cannot compute count-rate NONLIN");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );	
     }
-    Fpe_tot /= Texpose ;
+    flux_scale_count = 1.0/Texpose ; 
+    Fpe_source *= flux_scale_count ;
+    Fpe_sky    *= flux_scale_count ;
+    Fpe_galaxy *= flux_scale_count ;
+
+    printf(" xxx \t Fpe_rate(src,sky,gal)  = %10.3le  %10.3le  %10.3le  (e-/sec)\n",	 
+	   Fpe_source, Fpe_sky, Fpe_galaxy);    
+  }
+  
+  // - - - - - - - -
+
+  if (NONLIN_PER_NEA) { 
+    Fpe_tot = (Fpe_source + Fpe_sky + Fpe_galaxy) ;
+    scale_nonlin = get_flux_scale_NONLIN(cfilt, Fpe_tot);
+  }
+  else if ( NONLIN_PER_PIX ) {
+    // convert nonlin per pix to nea
+    double  Fpix_sky   = (Fpe_sky/NEA) ; //sky per pixel
+    int    MXpix       = (int)NEA + 2; // max number of pixels for NEA
+    double *PSF_grid   = (double*) malloc(MXpix * sizeof(double));
+    double sum_PSF     = 0.0, invsum_PSF, PSF ;
+    double sigsq_PSF   = NEA/(2.*TWOPI); // sigma^2 for effective Gauss PSF
+    double RSQ_BORDER  = NEA/3.14159 ;   // effective RSQ at border of NEA
+    int    npix_psf = 0, i ;
+    double x, x_half  = sqrt(NEA*4.0/3.14)/2.0 + 1.0 ; 
+    double y, y_half  = x_half ;
+    double xoff=0.0, yoff=0.0; // perhaps later, select these randomly
+    double rsq, rsq_min=9999999.0, PSFmax=0.0  ;
+    
+    for(x=-x_half; x < x_half; x+=1.0 ) {
+      for(y=-y_half; y < y_half; y+=1.0 ) {
+	rsq = (x-xoff)*(x-xoff) + (y-yoff)*(y-yoff);
+	if ( rsq < RSQ_BORDER ) {
+	  if ( npix_psf < MXpix) {
+	    PSF                = exp(-0.5*rsq/sigsq_PSF);
+	    PSF_grid[npix_psf] = PSF;
+	    sum_PSF += PSF ;
+	  }
+	  if ( rsq < rsq_min ) { rsq_min=rsq; PSFmax = PSF; }
+	  npix_psf++ ;
+	}
+      } // end y
+    } // end x
+    
+    if ( npix_psf >= MXpix ) {
+      sprintf(c1err,"Invalid npix_psf=%d  exceeds  MXpix=%d", npix_psf, MXpix);
+      sprintf(c2err,"BAND=%s  NEA=%.3f  RSQ_BORDER=%.3f",
+	      cfilt, NEA, RSQ_BORDER );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );	
+    }
+
+    double Fpix_sky_nonlin = Fpix_sky * get_flux_scale_NONLIN(cfilt,Fpix_sky);
+    
+    if ( LDMP ) {
+      printf(" xxx \t Fpix_sky = %.4f -> %.4f(nonlin)\n", Fpix_sky, Fpix_sky_nonlin );
+      printf(" xxx \t npix_psf=%d  MXpix=%d  sum_PSF=%.4f  PSFmax/sum_PSF = %.3f\n",
+	     npix_psf, MXpix, sum_PSF, PSFmax/sum_PSF ); fflush(stdout);
+    }
+    
+    // loop over PSF and compute weighted sums
+    double Fpix_tot, Fpix_tot_nonlin ;
+    double Fpix_wgtsum_src = 0.0, Fpix_wgtsum_nonlin=0.0 ;
+    invsum_PSF = 1.0/sum_PSF;
+
+    
+    for(i=0; i < npix_psf; i++ ) {
+      PSF_grid[i] *= invsum_PSF;
+      PSF          = PSF_grid[i] ;
+      Fpix_wgtsum_src += ( Fpe_source * PSF * PSF); // denominator
+      
+      Fpix_tot        = (Fpe_source * PSF + Fpix_sky) ;
+      Fpix_tot_nonlin = Fpix_tot * get_flux_scale_NONLIN(cfilt,Fpix_tot) ;
+
+      Fpix_wgtsum_nonlin += (Fpix_tot_nonlin - Fpix_sky_nonlin)* PSF;
+    }
+
+    
+    scale_nonlin = Fpix_wgtsum_nonlin / Fpix_wgtsum_src ;
+    
+    free(PSF_grid);
+
+  } // NONLIN_PER_PIX
+  
+  // - - - - - - 
+  if ( LDMP ) { 
+    printf(" xxx \t --> scale_nonlin=%6.4f \n",  scale_nonlin); 
+    fflush(stdout);
   }
 
+  return(scale_nonlin);
+
+} // end GET_NONLIN
+
+double get_nonlin__(char *CCID, char *cfilt, double *Texpose, double *NEA, double *Fpe_list, 
+		    double *genmag) {
   
-  // interpolate in log space
-  double log10_Fpe = log10(Fpe_tot);
+  double F_scale = GET_NONLIN(CCID, cfilt, *Texpose, *NEA, Fpe_list,  *genmag);
+  return(F_scale);
+}
+
+// =============================
+double get_flux_scale_NONLIN(char *cfilt, double flux) {
+
+  // Return F(+nonlin) / F(perfect linearity)
   
+  double log10_flux = log10(flux);
+  double f_scale = 0.0 ;
+  int    OPT_INTERP = 1;  // 1=linear interp
+  int    imap ;
+  char  *ptrFilters, msg[100] ;
+  char fnam[] = "get_flux_scale_NONLIN";
+
+  // ---------- BEGIN ---------
+
   // find which map contains *cfilt.
   for(imap=0; imap < NMAP_NONLIN; imap++ ) {
     ptrFilters = NONLIN_MAP[imap].FILTERS ;
 
     if ( strstr(ptrFilters,cfilt) != NULL )  {
-      sprintf(msg,"%s: band=%s imap=%d Fpe_tot=%le", 
-	      fnam, cfilt, imap, Fpe_tot);
+      sprintf(msg,"%s: band=%s imap=%d Flux = %le", 
+	      fnam, cfilt, imap, flux);
 
-      F_scale = interp_1DFUN(OPT_INTERP, log10_Fpe,
+      f_scale = interp_1DFUN(OPT_INTERP, log10_flux,
 			     NONLIN_MAP[imap].MAPSIZE,
-			     NONLIN_MAP[imap].MAPVAL[0], // Ftot(pe)
+			     NONLIN_MAP[imap].MAPVAL[0], // log10(flux)
 			     NONLIN_MAP[imap].MAPVAL[1], // F_scale
-			     msg ) ;      
+			     msg ) ;
+      return f_scale;
     }
   }  // end imap loop
 
-
-  int LDMP = DUMPFLAG_NONLIN ;
-  if ( LDMP ) {
-    printf(" xxx %s-mag=%6.3f  Fpe(src,sky,gal)=%10.5le,%10.5le,%10.5le "
-	   "  Texpose=%5d \n"
-	   "\t\t --> F_scale=%6.4f \n",
-	   cfilt, mag, Fpe_source, Fpe_sky, Fpe_galaxy, (int)Texpose,
-	   F_scale); 
-    fflush(stdout);
-  }
-
-  return(F_scale);
-
-} // end GET_NONLIN
-
-
-double get_nonlin__(char *cfilt, double *Texpose, double *NEA, double *Fpe_list, 
-		    double *genmag) {
+  return f_scale ;
   
-  double F_scale = GET_NONLIN(cfilt, *Texpose, *NEA, Fpe_list,  *genmag);
-  return(F_scale);
-}
-
-
-
+} // end get_flux_scale_NONLIN

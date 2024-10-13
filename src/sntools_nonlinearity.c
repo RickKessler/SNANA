@@ -304,8 +304,11 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
     Fpe_sky    *= flux_scale_count ;
     Fpe_galaxy *= flux_scale_count ;
 
-    printf(" xxx \t Fpe_rate(src,sky,gal)  = %10.3le  %10.3le  %10.3le  (e-/sec)\n",	 
-	   Fpe_source, Fpe_sky, Fpe_galaxy);    
+    if ( LDMP ) {
+      printf(" xxx \t Fpe_rate(src,sky,gal)  = %10.3le  %10.3le  %10.3le  "
+	     "(e-/sec)\n",	 
+	     Fpe_source, Fpe_sky, Fpe_galaxy);
+    }
   }
   
   // - - - - - - - -

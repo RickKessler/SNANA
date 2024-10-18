@@ -245,14 +245,14 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
   double Fpe_source      = Fpe_list[0];
   double Fpe_sky         = Fpe_list[1];
   double Fpe_galaxy      = Fpe_list[2];
+
+  // if ( DEBUGFLAG_NONLIN ) { Fpe_sky = 0.0; } // test
   
   bool NONLIN_COUNT_TOT  = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_TOT  ) > 0 ;
   bool NONLIN_COUNT_RATE = (OPTMASK_NONLIN & OPTMASK_NONLIN_COUNT_RATE ) > 0 ;
   bool NONLIN_PER_NEA    = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_NEA  ) > 0 ;
   bool NONLIN_PER_PIX    = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX ) > 0 ;
   int LDMP = DUMPFLAG_NONLIN ;
-  
-  bool   DO_SPEED_TEST_PSF = 0; // (DEBUGFLAG_NONLIN>0) ; // temp hack/test
   
   int    imap ;
   double scale_nonlin,  Fpe_tot, flux_scale_count;
@@ -261,6 +261,7 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
 
   // --------------- BEGIN ----------------
 
+  
   if ( LDMP ) {
     printf(" xxx ----------------------------------------------- \n");
     printf(" xxx %s dump for CCID=%s  BAND=%s  Texpose=%d  NEA=%.3f  mag=%6.3f \n",
@@ -270,7 +271,8 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
     fflush(stdout);
   }
   
-  
+
+  /* xxxxxxxx mark delete Oct 15 2024 xxxxxxxxxxx
   if ( DO_SPEED_TEST_PSF ) {
     double rsq, PSF_DUMMY, sigsq = 0.334 ;
     int ncalc = 0.0 ;
@@ -281,7 +283,7 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
     printf(" xxx %s: finished %s SPEED_TEST_PSF with %d exp calcs.\n",
 	   fnam, cfilt, ncalc); fflush(stdout);
   } // end SPEED_TEST
-  
+  xxxxxxxxxxx end mark xxxxxxxxx */
   
   scale_nonlin = 1.000 ; // default is no non-linearity
 
@@ -319,17 +321,22 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
   }
   else if ( NONLIN_PER_PIX ) {
     // convert nonlin per pix to nea
+    double NEA_over_PI = NEA/3.14159 ;
     double  Fpix_sky   = (Fpe_sky/NEA) ; //sky per pixel
-    int    MXpix       = (int)NEA + 2; // max number of pixels for NEA
+    int    MXpix       = (int)4.*NEA_over_PI + 2; // max Npix for NEA
     double *PSF_grid   = (double*) malloc(MXpix * sizeof(double));
     double sum_PSF     = 0.0, invsum_PSF, PSF ;
-    double sigsq_PSF   = NEA/(2.*TWOPI); // sigma^2 for effective Gauss PSF
-    double RSQ_BORDER  = NEA/3.14159 ;   // effective RSQ at border of NEA
+    double sigsq_PSF   = 0.25*NEA_over_PI; // sigma^2 for effective Gauss PSF
+    double RSQ_BORDER  = NEA_over_PI ;   // effective RSQ at border of NEA
     int    npix_psf = 0, i ;
-    double x, x_half  = sqrt(NEA*4.0/3.14)/2.0 + 1.0 ; 
+
+    // area of square containing NEA is 4*NEA/pi ... half size of
+    // side is therefore 0.5*sqrt(4*NEA/PI)
+    double x, x_half  = (int)(0.5*sqrt(4.*NEA_over_PI)) + 1.0 ; 
     double y, y_half  = x_half ;
     double xoff=0.0, yoff=0.0; // perhaps later, select these randomly
     double rsq, rsq_min=9999999.0, PSFmax=0.0  ;
+    double Fpix_sky_nonlin;
     
     for(x=-x_half; x < x_half; x+=1.0 ) {
       for(y=-y_half; y < y_half; y+=1.0 ) {
@@ -337,6 +344,7 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
 	if ( rsq < RSQ_BORDER ) {
 	  if ( npix_psf < MXpix) {
 	    PSF                = exp(-0.5*rsq/sigsq_PSF);
+	    if ( DEBUGFLAG_NONLIN && rsq != 0.0 ) { PSF=0.0; } // test
 	    PSF_grid[npix_psf] = PSF;
 	    sum_PSF += PSF ;
 	  }
@@ -353,10 +361,19 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );	
     }
 
-    double Fpix_sky_nonlin = Fpix_sky * get_flux_scale_NONLIN(cfilt,Fpix_sky);
+    if ( sum_PSF <= 0.0 ) {
+      sprintf(c1err,"Invalid sum_PSF = %le (npix_psf=%d)", sum_PSF, npix_psf);
+      sprintf(c2err,"BAND=%s  NEA=%.3f  RSQ_BORDER=%.3f",
+	      cfilt, NEA, RSQ_BORDER );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );	
+    }
+
+
+    Fpix_sky_nonlin = Fpix_sky * get_flux_scale_NONLIN(cfilt,Fpix_sky);
     
     if ( LDMP ) {
-      printf(" xxx \t Fpix_sky = %.4f -> %.4f(nonlin)\n", Fpix_sky, Fpix_sky_nonlin );
+      printf(" xxx \t Fpix_sky = %.4f -> %.4f(nonlin)\n",
+	     Fpix_sky, Fpix_sky_nonlin );
       printf(" xxx \t npix_psf=%d  MXpix=%d  sum_PSF=%.4f  PSFmax/sum_PSF = %.3f\n",
 	     npix_psf, MXpix, sum_PSF, PSFmax/sum_PSF ); fflush(stdout);
     }
@@ -406,6 +423,8 @@ double get_nonlin__(char *CCID, char *cfilt, double *Texpose, double *NEA, doubl
 double get_flux_scale_NONLIN(char *cfilt, double flux) {
 
   // Return F(+nonlin) / F(perfect linearity)
+
+  if ( flux <= 0.0 ) { return 1.000; }
   
   double log10_flux = log10(flux);
   double f_scale = 0.0 ;

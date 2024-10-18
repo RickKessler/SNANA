@@ -9099,7 +9099,7 @@ void  init_event_GENLC(void) {
   GENLC.IEPOCH_SNRMAX_GLOBAL    = -9 ;
   GENLC.IEPOCH_NEARPEAK         = -9 ;
   GENLC.DTPEAK_MIN              = 99999. ;
-
+  
   GENLC.GENMAG_OFF_GLOBAL = 0.0 ;
   GENLC.LENSDMU = 0.0 ;
   GENLC.DLMU    = 0.0 ;
@@ -9123,7 +9123,10 @@ void  init_event_GENLC(void) {
     GENLC.IEPOCH_PEAK[ifilt_obs]     = -9 ; 
     GENLC.IEPOCH_TEMPLATE[ifilt_obs] = -9 ; 
     GENLC.IEPOCH_SNRMAX[ifilt_obs]   = -9 ;
-  
+
+    GENLC.DTPEAK_MIN_FILTER[ifilt_obs]        = 9999.0 ;
+    GENLC.IEPOCH_NEARPEAK_FILTER[ifilt_obs]   = -9;
+    
     GENLC.genmag_obs_template[ifilt_obs] = 99.0 ; // zero flux in template
     if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
       { GENLC.SIMLIB_USEFILT_ENTRY[ifilt_obs] = 1 ; }
@@ -14490,7 +14493,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 
   char COMMENT_DUMP_NOISE[4][100] = {
     "dummy",
-    "Dump only the observation closest to PEAKMJD",
+    "Dump only the observation (per band) closest to PEAKMJD",
     "Dump all observations with defined transient model mag",
     "dummy"
   } ;
@@ -14500,6 +14503,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
   double SNR, FLUXCAL, FLUXCALERR;
   char *ptrFile, OUTLINE[MXPATHLEN],  band[2] ;
   char fileName_orig[MXPATHLEN];
+  bool  IS_NEARPEAK ;
   
   char VARLIST[] =
     "CID GALID LIBID MJD BAND ZCMB   "
@@ -14596,7 +14600,9 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
     sprintf(band,  "%c", FILTERSTRING[ifilt_obs] );      
 
     if ( mag_sn > 90.0 ) { return ; }
-    if ( DO_DUMP_NEARPEAK && ep != GENLC.IEPOCH_NEARPEAK ) { return; }
+
+    IS_NEARPEAK = ( ep == GENLC.IEPOCH_NEARPEAK_FILTER[ifilt_obs] );
+    if ( DO_DUMP_NEARPEAK && !IS_NEARPEAK ) { return; }
     
     sprintf(OUTLINE, "SN: %8d %8lld %4d %.4f "
 	    "%s %.3f   %.3f %.3f %.2f %.3f "
@@ -19556,9 +19562,15 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   
     // keep track of MJD nearest peak
     DT = MJD - GENLC.PEAKMJD ; 
-    if ( fabs(DT) < fabs(GENLC.DTPEAK_MIN) ) 
-      { GENLC.IEPOCH_NEARPEAK = NEP ; GENLC.DTPEAK_MIN   = DT ;  }
+    if ( fabs(DT) < fabs(GENLC.DTPEAK_MIN) )  {
+      GENLC.IEPOCH_NEARPEAK = NEP ;
+      GENLC.DTPEAK_MIN      = DT ;
+    }
 
+    if ( fabs(DT) < fabs(GENLC.DTPEAK_MIN_FILTER[IFILT_OBS]) ) {
+      GENLC.IEPOCH_NEARPEAK_FILTER[IFILT_OBS]   = NEP ;
+      GENLC.DTPEAK_MIN_FILTER[IFILT_OBS]        = DT ; 
+    }
 
   } // end isort loop (REFACTOR)
 

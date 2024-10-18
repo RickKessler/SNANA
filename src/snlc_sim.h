@@ -1205,6 +1205,9 @@ struct GENLC {
   int     IEPOCH_NEARPEAK ;    // epoch-index closest to peak (for trigger)
   double  DTPEAK_MIN ;        // t-Tpeak for nearest obs.
 
+  int     IEPOCH_NEARPEAK_FILTER[MXFILTINDX];
+  double  DTPEAK_MIN_FILTER[MXFILTINDX];
+  
   // variables used for cuts
   int   NOBS_MJDDIF ;   // NOBS passing MJD dif cut
   int   NOBS_SNR ;      // NOBS passing SNR cut

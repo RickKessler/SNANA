@@ -181,6 +181,15 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) 
       { sprintf(TEXT,"Fitzpatrick99 (exact cubic spline)");  }
     
+    else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) 
+      { sprintf(TEXT,"Fitzpatrick04 (exact cubic spline)");  }
+
+    else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
+      { sprintf(TEXT,"Gordon16 (exact cubic spline)");  }
+
+    else if ( OPT == OPT_MWCOLORLAW_GORD23 ) 
+      { sprintf(TEXT,"Gordon23");  }
+
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
       sprintf(c2err,"Check OPT_MWCOLORAW_* in sntools.h");
@@ -314,6 +323,20 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
                 with extinction.py by K. Barbary, and BAYESN F99 implementation.
                 Promoted to OPT=99 September 25 2024.
 
+    OPT=204 => use Fitzpatrick 04 (ASP Conf. Ser. 309, 33) as implemented by S. Thorp.
+                This uses the same curve as Fitzpatrick 99, but with updated
+                behaviour in the IR. Checked against implementation by
+                Gordon 24 (JOSS 9, 7023): github.com/karllark/dust_extinction.
+
+    OPT=216 => use Gordon et al. 16 (ApJ 826, 104) as implemented by S. Thorp.
+                This has an extra free parameter, FA. The final curve is a
+                mixture of Fitzpatrick 99 and Gordon et al. 03 (ApJ 594, 279), 
+                where the latter is SMC bar-like dust with RV=2.74 and no
+                UV bump. FA=1 reverts to Fitzpatrick 99. FA=0 gives
+                Gordon et al. 03. Effective RV = 1/[FA/RV + (1-FA)/2.74]
+                Tested against Gordon 24 implementation.
+                Currently has FA=0.0 hardcoded => Gordon et al. 03.
+
   Returns magnitudes of extinction.
 
  Nov 1, 2006: Add option to use new/old NIR coefficients
@@ -346,28 +369,37 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
    + Exact F'99 spline implementation promoted to opt=99
    - Old F'99 based on F'99/O'94 ratio deprecated to opt=-99
 
+  Oct 19 2024 ST
+   + Begun adding more dust laws
  ***/
 
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
+  double FA ;
   char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 
   XT = 0.0 ;
+  FA = 0.0 ; // hardcoded for now
 
   if ( AV == 0.0  )  {  return XT ; }
 
   // -----------------------------------------
-  // if seleting exact Fitz99 option,
-  // bypass everything else and call S. Thorp's function
+  // if seleting exact Fitz99-like option,
+  // bypass everything else and call S. Thorp's functions
   
-  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT )  {
-    XT = GALextinct_Fitz99_exact(RV, AV, WAVE);
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 )  {
+    XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
     return XT ;
   }
-
+  else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
+      double XTA, XTB;
+      XTA = GALextinct_Fitz99_exact(RV, AV, WAVE, 99);
+      XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);
+      return FA*XTA + (1-FA)*XTB ;
+    }
   
   // -----------------------------------------
   DO94 = (OPT == OPT_MWCOLORLAW_ODON94 ||
@@ -485,22 +517,34 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
 
 // ============= EXACT F99 EXTINCTION LAW ==============
-double GALextinct_Fitz99_exact(double RV, double AV, double WAVE) {
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT) {
 /*** 
   Created by S. Thorp, Sep 19 2024
 
   Default Fitzpatrick (1999) implementation since Sep 25 2024
 
+  Also used to compute Fitzpatrick (2004), Gordon et al. (2003),
+  and Gordon et al. (2016) laws.
+
   Input : 
     AV   = V band (defined to be at 5495 Angstroms) extinction
     RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
     WAVE = wavelength in angstroms
+    OPT  = Option from (99, 203, 204, 216)
 Returns :
     XT = magnitudes of extinction
 ***/
 
     char fnam[] = "GALextinct_Fitz99_exact" ;
 
+    if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
+      sprintf(c1err,"Requested OPT=%d and RV=%.2f", OPT, RV);
+      sprintf(c2err,"Gordon et al. 03 only valid for RV=2.74");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    //number of knots
+    int Nk;
     // constants
     double x02, gamma2, c1, c2, c3, c4, c5;
     // target wavelength in inverse microns
@@ -509,15 +553,31 @@ Returns :
     double y;
 
     // constants
-    x02 = 21.123216; // 4.596*4.596
-    gamma2 = 0.9801; // 0.99*0.99
     c2 = -0.824 + 4.717/RV;
-    c1 = 2.03 - 3.007*c2;
-    c3 = 3.23;
-    c4 = 0.41;
     c5 = 5.90;
+    if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) {
+        x02 = 21.123216; // 4.596*4.596
+        gamma2 = 0.9801; // 0.99*0.99
+        c1 = 2.03 - 3.007*c2;
+        c3 = 3.23;
+        c4 = 0.41;
+        Nk = 9;
+    } 
+    else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+        x02 = 21.086464; // 4.592*4.592
+        gamma2 = 0.850084; // 0.922*0.922
+        c1 = 2.18 - 2.91*c2;
+        c3 = 2.991;
+        c4 = 0.319;
+        Nk = 10;
+    }
+    else {
+      sprintf(c1err,"Requested OPT=%d", OPT);
+      sprintf(c2err,"Only 99, 204 are implemented!");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
 
-    if (WAVE < 2700.0) { //analytic formula for UV
+    if (WAVE <= 2700.0) { //FM90 curve in UV
         //extra terms
         double x2, y2, d, k;
         x2 = x*x;
@@ -529,7 +589,7 @@ Returns :
             y2 = y * y;
             k += c4 * (0.5392*y2 + 0.05644*y2*y);
         }
-        return AV * (1.0 + k/RV);
+        return AV * (1.0 + k/RV); 
     } else { //spline for optical/IR
         // extra constants
         double d1, d2, x82, x92, x8x02, x9x02;
@@ -539,36 +599,69 @@ Returns :
         double a, b, c, d, deltax, deltax2;
 
         // spline knot locations in inverse microns
-        double xF1 = 0.0, xF2 = 1.0/2.65, xF3 = 1.0/1.22, xF4 = 1.0/0.60, 
-               xF5 = 1.0/0.547, xF6 = 1.0/0.467, xF7 = 1.0/0.411,
-                xF8 = 1.0/0.270, xF9 = 1.0/0.260;
+        double xF[Nk];
+        if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+            // Use FM07 knots for Fitzpatrick (2004) curve
+            xF[0] = 0.0;
+            xF[1] = 0.5;
+            xF[2] = 0.75;
+            xF[3] = 1.0;
+        } else {
+            xF[0] = 0.0;
+            xF[1] = 1.0/2.65;
+            xF[2] = 1.0/1.22;
+        }
+        xF[Nk-6] = 1.0/0.60;
+        xF[Nk-5] = 1.0/0.547;
+        xF[Nk-4] = 1.0/0.467; 
+        xF[Nk-3] = 1.0/0.411;
+        xF[Nk-2] = 1.0/0.270;
+        xF[Nk-1] = 1.0/0.260;
         // spline knot values
-        double yF1, yF2, yF3, yF4, yF5, yF6, yF7, yF8, yF9;
+        double yF[Nk];
 
         // y''/y matrix
+        const double F04_KINVD[8][10] = {
+                { 8.363001444, -29.445021665, 26.136103994, -5.423174767, 0.894742338,
+                    -0.579592918, 0.067504416, -0.014025779, 0.001743637, -0.001280700 },
+                { -2.178008666, 32.670129992, -60.816623962, 32.539048603, -5.368454030,
+                    3.477557505, -0.405026495, 0.084154674, -0.010461821, 0.007684200 },
+                { 0.349033220, -5.235498303, 25.130391856, -28.733019647, 20.579073782,
+                    -13.330637103, 1.552601566, -0.322592918, 0.040103646, -0.029456099 },
+                { -0.143088106, 2.146321587, -10.302343618, 17.313660802, -41.079282639,
+                    35.355167970, -4.117769370, 0.855572522, -0.106361845, 0.078122696 },
+                { 0.026683504, -0.400252565, 1.921212312, -3.228704024, 50.566388411,
+                    -77.512222582, 35.824720884, -7.443507408, 0.925351342, -0.679669874 },
+                { -0.007102699, 0.106540481, -0.511394311, 0.859426550, -13.459919650,
+                    36.916413476, -45.296062632, 22.122269570, -2.750164769, 2.019993983 },
+                { 0.000811556, -0.012173341, 0.058432036, -0.098198282, 1.537933619,
+                    -4.218078179, 13.229095656, -13.261965375, 10.411053066, -7.646910755 },
+                { -0.000364872, 0.005473077, -0.026270768, 0.044149485, -0.691447712,
+                    1.896428085, -5.947739106, 7.633399832, -21.255428514, 18.341800494 }
+        };
         const double F99_KINVD[7][9] = {
-            { 10.250658602, -20.740327299, 11.788924891, -3.715854641, 2.664586253, 
-                -0.310340815, 0.064481288, -0.008016093, 0.005887814 },
-            { -2.044608805, 10.254039610, -13.024855859, 13.772048671, -9.875739260, 
-                1.150214211, -0.238986593, 0.029709995, -0.021821969 },
-            { 0.871617871, -4.371302789, 9.117884190, -31.624036073, 28.674517818, 
-                -3.339682936, 0.693905048, -0.086263899, 0.063360769 },
-            { -0.162541946, 0.815173814, -1.700330722, 48.803145329, -76.266394662, 
-                35.679620964, -7.413359167, 0.921603416, -0.676917025 },
-            { 0.043265924, -0.216985519, 0.452599357, -12.990574083, 36.584795098, 
-                -45.257439481, 22.114244617, -2.749167134, 2.019261221 },
-            { -0.004943575, 0.024792817, -0.051714110, 1.484306083, -4.180187385, 
-                13.224682565, -13.261048442, 10.410939076, -7.646827029 },
-            { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
-                -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
+                { 10.250658602, -20.740327299, 11.788924891, -3.715854641, 2.664586253, 
+                    -0.310340815, 0.064481288, -0.008016093, 0.005887814 },
+                { -2.044608805, 10.254039610, -13.024855859, 13.772048671, -9.875739260, 
+                    1.150214211, -0.238986593, 0.029709995, -0.021821969 },
+                { 0.871617871, -4.371302789, 9.117884190, -31.624036073, 28.674517818, 
+                    -3.339682936, 0.693905048, -0.086263899, 0.063360769 },
+                { -0.162541946, 0.815173814, -1.700330722, 48.803145329, -76.266394662, 
+                    35.679620964, -7.413359167, 0.921603416, -0.676917025 },
+                { 0.043265924, -0.216985519, 0.452599357, -12.990574083, 36.584795098, 
+                    -45.257439481, 22.114244617, -2.749167134, 2.019261221 },
+                { -0.004943575, 0.024792817, -0.051714110, 1.484306083, -4.180187385, 
+                    13.224682565, -13.261048442, 10.410939076, -7.646827029 },
+                { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
+                    -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
         };
 
         // counters
         int i, q;
 
         // constants
-        x82 = xF8*xF8;
-        x92 = xF9*xF9;
+        x82 = xF[Nk-2]*xF[Nk-2];
+        x92 = xF[Nk-1]*xF[Nk-1];
         x8x02 = x82 - x02;
         x9x02 = x92 - x02;
         d1 = x82 / (x8x02*x8x02 + gamma2*x82);
@@ -579,25 +672,33 @@ Returns :
         RV4 = RV2*RV2;
 
         // RV-dependent spline knot values
-        // polynomial coeffs match FM_UNRED.pro
-        yF1 = -RV;
-        yF2 = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
-        yF3 = -0.7325*RV; // 0.82925*(RV/3.1) - RV
-        yF4 = -0.422809 + 0.00270*RV +  2.13572e-04*RV2;
-        yF5 = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
-        yF6 =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
-        yF7 =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
+        // polynomial coeffs match FM_UNRED.pro and extinction.py
+        // NOTE: the optical coefficients differ from Gordon 24 implementation
+        double yFNIR;
+        if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+            yFNIR = (0.63*RV -0.84);
+            yF[0] = -RV;
+            yF[1] = yFNIR*pow(xF[1], 1.84) - RV;
+            yF[2] = yFNIR*pow(xF[2], 1.84) - RV;
+            yF[3] = yFNIR*pow(xF[3], 1.84) - RV;
+        }
+        else {
+            yF[0] = -RV;
+            yF[1] = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
+            yF[2] = -0.7325*RV; // 0.82925*(RV/3.1) - RV
+        }
+        yF[Nk-6] = -0.422809 + 0.00270*RV +  2.13572e-04*RV2;
+        yF[Nk-5] = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
+        yF[Nk-4] =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
+        yF[Nk-3] =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
             7.97809e-04*RV3 - 4.45636e-05*RV4;
-        yF8 = c1 + c2*xF8 + c3*d1;
-        yF9 = c1 + c2*xF9 + c3*d2;
+        yF[Nk-2] = c1 + c2*xF[Nk-2] + c3*d1;
+        yF[Nk-1] = c1 + c2*xF[Nk-1] + c3*d2;
 
-        // put xF and yF in an array
-        double xF[9] = {xF1, xF2, xF3, xF4, xF5, xF6, xF7, xF8, xF9};
-        double yF[9] = {yF1, yF2, yF3, yF4, yF5, yF6, yF7, yF8, yF9};
 
         // find index in knot list
         q = 0;
-        while (q < 8) {
+        while (q < Nk-1) {
             if (x < xF[q+1]) { 
                 break; 
             } else {
@@ -614,15 +715,26 @@ Returns :
         d = (b*b*b - b) * deltax2 / 6.0;
         y = a*yF[q] + b*yF[q+1];
         // compute 2nd derivatives
-        if (0 < q < 8) {
-            double d2yq = 0;
-            double d2yq1 = 0;
-            for (i=0; i<9; i++) {
-                d2yq  += F99_KINVD[q-1][i] * yF[i];
-                d2yq1 += F99_KINVD[q][i] * yF[i];
+        double d2yq = 0;
+        double d2yq1 = 0;
+        for (i=0; i<Nk; i++) {
+            if (q > 0) {
+                if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+                    d2yq  += F04_KINVD[q-1][i] * yF[i];
+                } else {
+                    d2yq  += F99_KINVD[q-1][i] * yF[i];
+                }
             }
-            y += c*d2yq + d*d2yq1;
+            if (q < Nk-1) {
+                if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+                    d2yq1 += F04_KINVD[q][i] * yF[i];
+                } else {
+                    d2yq1 += F99_KINVD[q][i] * yF[i];
+                }
+            }
         }
+        y += c*d2yq + d*d2yq1;
+
         return AV*(1.0 + y/RV);
     }
 

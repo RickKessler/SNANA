@@ -9,6 +9,10 @@
 // Sep 25 2024: S. Thorp, R. Kessler
 //    define OPT_MWCOLORLAW_FITZ99_EXACT = 99
 //    define OPT_MWCOLORLAW_FITZ99_APPROX = -99
+//  Oct 19 2024: S. Thorp
+//    define OPT_MWCOLORLAW_FITZ04 = 204
+//           OPT_MWCOLORLAW_GORD16 = 216
+//           OPT_MWCOLORLAW_GORD23 = 223
 // =======================================
 
 
@@ -17,6 +21,10 @@
 #define OPT_MWCOLORLAW_ODON94  94  // O'Donnel 1994 update
 #define OPT_MWCOLORLAW_FITZ99_APPROX  -99   // approx Fitzpatrick 1999 (D.Scolnic, 2013)
 #define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick 1999 (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_FITZ04  204 // Fitzpatrick 2004 (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_GORD03  203 // Gordon et al. 2003 (S. Thorp, 2024)
+#define OPT_MWCOLORLAW_GORD16  216 // Gordon et al. 2016 (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. 2023 (S.Thorp, 2024)
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)
@@ -35,7 +43,7 @@ void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 // functions moved from sntools.c (Sep 2013)
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
-double GALextinct_Fitz99_exact(double RV, double AV, double WAVE);
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
 
 // xxx mark double F99exact(double RV, double AV, double WAVE);
 

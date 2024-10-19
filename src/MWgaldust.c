@@ -179,13 +179,16 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
       { sprintf(TEXT,"Fitzpatrick99 (approx fit to F99/ODonnel94)");  }
 
     else if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) 
-      { sprintf(TEXT,"Fitzpatrick99 (exact cubic spline)");  }
+      { sprintf(TEXT,"Fitzpatrick99 (cubic spline)");  }
+    
+    else if ( OPT == OPT_MWCOLORLAW_GORD03 ) 
+      { sprintf(TEXT,"Gordon03 (cubic spline)");  }
     
     else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) 
-      { sprintf(TEXT,"Fitzpatrick04 (exact cubic spline)");  }
+      { sprintf(TEXT,"Fitzpatrick04 (cubic spline)");  }
 
     else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
-      { sprintf(TEXT,"Gordon16 (exact cubic spline)");  }
+      { sprintf(TEXT,"Gordon16 (cubic spline)");  }
 
     else if ( OPT == OPT_MWCOLORLAW_GORD23 ) 
       { sprintf(TEXT,"Gordon23");  }
@@ -323,6 +326,13 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
                 with extinction.py by K. Barbary, and BAYESN F99 implementation.
                 Promoted to OPT=99 September 25 2024.
 
+    OPT=203 => use Gordon et al. 03 (ApJ 594, 279) as implemented by S. Thorp.
+                This is the SMC bar dust law. No significant UV bump. Only
+                defined for RV=2.74, will abort for all other values. This
+                is the refined version from Gordon et al. 16 (ApJ, 826, 104),
+                based on the implementation in Gordon 24 (JOSS 9, 7023).
+                Not recommended for use as a standalone dust law.
+
     OPT=204 => use Fitzpatrick 04 (ASP Conf. Ser. 309, 33) as implemented by S. Thorp.
                 This uses the same curve as Fitzpatrick 99, but with updated
                 behaviour in the IR. Checked against implementation by
@@ -390,7 +400,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   // if seleting exact Fitz99-like option,
   // bypass everything else and call S. Thorp's functions
   
-  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 )  {
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
     XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
     return XT ;
   }
@@ -399,7 +409,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
       XTA = GALextinct_Fitz99_exact(RV, AV, WAVE, 99);
       XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);
       return FA*XTA + (1-FA)*XTB ;
-    }
+  }
   
   // -----------------------------------------
   DO94 = (OPT == OPT_MWCOLORLAW_ODON94 ||
@@ -539,7 +549,7 @@ Returns :
 
     if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
       sprintf(c1err,"Requested OPT=%d and RV=%.2f", OPT, RV);
-      sprintf(c2err,"Gordon et al. 03 only valid for RV=2.74");
+      sprintf(c2err,"Gordon et al. 2003 only valid for RV=2.74");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 

@@ -313,39 +313,45 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
     OPT=94 => use update from O'Donell
 
-    OPT=-99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by 
+    OPT=-99 => use Fitzpatrick 1999 (PASP 111, 63) as implemented by 
               D.Scolnic with polynomial fit to ratio of F'99/O'94 vs. lambda.
               O'94 is the opt=94 option and F'99 was computed from 
               http://idlastro.gsfc.nasa.gov/ftp/pro/astro/fm_unred.pro
               Deprecated to OPT=-99 from OPT=99 September 25 2024.
               Only reliable for RV=3.1.
 
-    OPT=99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by S. Thorp.
+    OPT=99 => use Fitzpatrick 1999 (PASP 111, 63) as implemented by S. Thorp.
                 This version directly evaluates the cubic spline in inverse
                 wavelength, as defined by the fm_unred.pro code. Consistent
                 with extinction.py by K. Barbary, and BAYESN F99 implementation.
                 Promoted to OPT=99 September 25 2024.
 
-    OPT=203 => use Gordon et al. 03 (ApJ 594, 279) as implemented by S. Thorp.
+    OPT=203 => use Gordon et al. 2003 (ApJ 594, 279) as implemented by S. Thorp.
                 This is the SMC bar dust law. No significant UV bump. Only
                 defined for RV=2.74, will abort for all other values. This
-                is the refined version from Gordon et al. 16 (ApJ, 826, 104),
-                based on the implementation in Gordon 24 (JOSS 9, 7023).
+                is the refined version from Gordon et al. 2016 (ApJ, 826, 104),
+                based on the implementation in Gordon 2024 (JOSS 9, 7023).
                 Not recommended for use as a standalone dust law.
 
-    OPT=204 => use Fitzpatrick 04 (ASP Conf. Ser. 309, 33) as implemented by S. Thorp.
+    OPT=204 => use Fitzpatrick 2004 (ASP Conf. Ser. 309, 33) as implemented by S. Thorp.
                 This uses the same curve as Fitzpatrick 99, but with updated
                 behaviour in the IR. Checked against implementation by
-                Gordon 24 (JOSS 9, 7023): github.com/karllark/dust_extinction.
+                Gordon 2024 (JOSS 9, 7023): github.com/karllark/dust_extinction.
 
-    OPT=216 => use Gordon et al. 16 (ApJ 826, 104) as implemented by S. Thorp.
+    OPT=216 => use Gordon et al. 2016 (ApJ 826, 104) as implemented by S. Thorp.
                 This has an extra free parameter, FA. The final curve is a
-                mixture of Fitzpatrick 99 and Gordon et al. 03 (ApJ 594, 279), 
+                mixture of Fitzpatrick 1999 and Gordon et al. 2003 (ApJ 594, 279), 
                 where the latter is SMC bar-like dust with RV=2.74 and no
-                UV bump. FA=1 reverts to Fitzpatrick 99. FA=0 gives
-                Gordon et al. 03. Effective RV = 1/[FA/RV + (1-FA)/2.74]
-                Tested against Gordon 24 implementation.
-                Currently has FA=0.0 hardcoded => Gordon et al. 03.
+                UV bump. FA=1 reverts to Fitzpatrick 1999. FA=0 gives
+                Gordon et al. 2003. Effective RV = 1/[FA/RV + (1-FA)/2.74]
+                Tested against Gordon 2024 implementation.
+                Currently has FA=0.0 hardcoded => Gordon et al. 2003.
+
+    OPT=223 => use Gordon et al. 2023 (ApJ 950, 86) as implemented by S. Thorp.
+                This is a full UV-OPT-IR extinction law parameterized by RV.
+                Defined by a combination of Fitzpatrick & Massa 1990 (ApJS 72, 163)
+                in the UV plus various other functions composed together at
+                other wavelengths. Tested against Gordon 2024 (JOSS 9, 7023).
 
   Returns magnitudes of extinction.
 
@@ -397,7 +403,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   if ( AV == 0.0  )  {  return XT ; }
 
   // -----------------------------------------
-  // if seleting exact Fitz99-like option,
+  // if selecting non-CCM89-like option,
   // bypass everything else and call S. Thorp's functions
   
   if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
@@ -409,6 +415,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
       XTA = GALextinct_Fitz99_exact(RV, AV, WAVE, 99);
       XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);
       return FA*XTA + (1-FA)*XTB ;
+  } else if ( OPT == OPT_MWCOLORLAW_GORD23 ) {
+    XT = GALextinct_Gord23(RV, AV, WAVE);
+    return XT;
   }
   
   // -----------------------------------------
@@ -800,8 +809,190 @@ Returns :
         return AV*(1.0 + y/RV);
     }
 
-} // end of F99exact
+} // end of GALextinct_Fitz99_exact
 
+// ============= GORDON ET AL. 2023 EXTINCTION LAW ==============
+double GALextinct_Gord23(double RV, double AV, double WAVE) {
+/*** 
+  Created by S. Thorp, Oct 20 2024
+
+  Input : 
+    AV   = V band (defined to be at 5495 Angstroms) extinction
+    RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
+    WAVE = wavelength in angstroms
+  Returns :
+    XT = magnitudes of extinction
+***/
+
+    char fnam[] = "GALextinct_Gord23" ;
+
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    
+    double x2, x3, x4; // powers of x
+    x2 = x*x;
+    x3 = x2*x;
+    x4 = x2*x2;
+
+    // variables for a and b part of curve
+    // w = weighting function in overlap regions
+    double a, b, w, f;
+    a = 0.0;
+    b = 0.0;
+
+    // terms for the optical part
+    double x01, x02, x03, FW1, FW2; //Drude params
+    double FX1, FX2, FX3, XX1, XX2, XX3, D1, D2, D3; //derived terms
+
+    // constants for the N-MIR part
+    double scale=0.38526, alpha=1.68467, alpha2=0.78791, swave=4.30578, swidth=4.78338,
+        sil1_amp=0.06652, sil1_center=9.8434, sil1_fwhm=2.21205, sil1_asym=-0.24703,
+        sil2_amp=0.0267, sil2_center=19.58294, sil2_fwhm=17.0, sil2_asym=-0.27;
+    double mwave = WAVE / 10000.0; //wavelength in microns
+    double fweight, pweight, ratio; //power law transition
+    double sil1_gamma, sil2_gamma, sil1_gx2, sil2_gx2, sil1_xx, sil2_xx; //Si drude params
+
+    // Abort if out of bounds
+    if ( x < 1.0/35.0 || x > 1.0/0.09 ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms; X=%.3f inv. microns", WAVE, x);
+      sprintf(c2err,"Gordon et al. 2023 only valid from 900-350000 Angstroms");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // UV / OPT / NIR
+    if ( 1.0/0.33 <= x && x <= 1.0/0.09 ) { //UV (including UV-OPT overlap)
+        // weighting function
+        if ( x > 1.0/0.30 ) {
+            w = 1.0;
+        } else {
+            // Gordon "smoothstep" function
+            f = (mwave - 0.3)/0.03;
+            w = 3.0 - 2.0*f;
+            w = 1.0 - w*f*f;
+        }
+        // a component: 21.16 = 4.6*4.6; 0.9801 = 0.99*0.99
+        a += w*GALextinct_FM90(x, 0.81297, 0.2775, 1.06295, 0.11303, 5.90, 21.16, 0.9801);
+        // b component 
+        b += w*GALextinct_FM90(x, -2.97868, 1.89808, 3.10334, 0.65484, 5.90, 21.16, 0.9801);
+    }
+    if ( 1.0/1.1 <= x && x < 1.0/0.3 ) { //OPT (including both overlaps)
+        // weighting function
+        if ( 1.0/0.9 < x && x < 1.0/0.33 ) { //internal
+            w = 1.0;
+        } else if ( x >= 1.0/0.33 ) { //overlap with UV
+            // Gordon "smoothstep" function
+            f = (mwave - 0.3)/0.03;
+            w = 3.0 - 2.0*f;
+            w = w*f*f;
+        } else if ( x <= 1.0/0.9 ) { //overlap with IR
+            // Gordon "smoothstep" function
+            f = (mwave - 0.9)/0.2;
+            w = 3.0 - 2.0*f;
+            w = 1.0 - w*f*f;
+        }
+
+        // polynomial terms
+        a += w*(-0.35848 + 0.7122*x + 0.08746*x2 - 0.05403*x3 + 0.00674*x4);
+        b += w*(0.12354 - 2.68335*x + 2.01901*x2 - 0.39299*x3 + 0.03355*x4);
+
+        //the Drude abides
+        // shared terms
+        x01 = 2.288;
+        x02 = 2.054;
+        x03 = 1.587;
+        FW1 = 0.243; //FW3 = FW1
+        FW2 = 0.179;
+        FX1 = (FW1*FW1)/(x01*x01);
+        FX2 = (FW2*FW2)/(x02*x02);
+        FX3 = (FW1*FW1)/(x03*x03);
+        XX1 = (x/x01 - x01/x);
+        XX2 = (x/x02 - x02/x);
+        XX3 = (x/x03 - x03/x);
+        D1 = FX1 / (XX1*XX1 + FX1);
+        D2 = FX2 / (XX2*XX2 + FX2);
+        D3 = FX3 / (XX3*XX3 + FX3);
+        // add contributions to a and b curves
+        a += w*(0.03893*D1 + 0.02965*D2 + 0.01747*D3);
+        b += w*(0.18453*D1 + 0.19728*D2 + 0.1713*D3);
+
+    }
+    if ( 1.0/35.0 <= x && x < 1.0/0.9 ) { //IR (including OPT-IR overlap)
+        // weighting function
+        if ( x < 1.0/1.1 ) {
+            w = 1.0;
+        } else {
+            // Gordon "smoothstep" function
+            f = (mwave - 0.9)/0.2;
+            w = 3.0 - 2.0*f;
+            w = w*f*f;
+        }
+        // a curve Gordon21 double power law
+        // Gordon smoothstep
+        fweight = (mwave - (swave - 0.5*swidth))/swidth;
+        if (fweight < 0) {
+            pweight = 0.0;
+        } else if (fweight > 1) {
+            pweight = 1.0;
+        } else {
+            pweight = (3.0 - 2.0*fweight)*fweight*fweight;
+        }
+        // ratio
+        ratio = pow(swave, -alpha)/pow(swave, -alpha2);
+        // power law 1
+        a += w * scale * (1.0 - pweight) * pow(mwave, -alpha);
+        // power law 2
+        a += w * scale * ratio * pweight * pow(mwave, -alpha2);
+        // silicate features
+        sil1_gamma = 2.0 * sil1_fwhm / (1.0 + exp(sil1_asym*(mwave - sil1_center)));
+        sil2_gamma = 2.0 * sil2_fwhm / (1.0 + exp(sil2_asym*(mwave - sil2_center)));
+        sil1_gx2 = sil1_gamma*sil1_gamma/(sil1_center*sil1_center);
+        sil2_gx2 = sil2_gamma*sil2_gamma/(sil2_center*sil2_center);
+        sil1_xx = (mwave/sil1_center) - (sil1_center/mwave);
+        sil2_xx = (mwave/sil2_center) - (sil2_center/mwave);
+        a += w * sil1_amp * sil1_gx2 / (sil1_xx*sil1_xx + sil1_gx2);
+        a += w * sil2_amp * sil2_gx2 / (sil2_xx*sil2_xx + sil2_gx2);
+
+        // b curve power law
+        b+= -1.01251 * w * pow(x, 1.06099);
+    } 
+
+    return AV * ( a + b*((1.0/RV) - (1.0/3.1)) );
+
+} // end of GALextinct_Gord23
+ 
+// ============= FITZPATRICK & MASSA 1990 ====================
+double GALextinct_FM90(double x, double c1, double c2, double c3, double c4, 
+        double c5, double x02, double g2) {
+  /*
+  Created by S. Thorp, Oct 20 2024
+
+  Input : 
+    x   = wavenumber (inverse microns)
+    c1  = y-intercept of linear component
+    c2  = slope of linear component
+    c3  = bump amplitude
+    c4  = FUV rise amplitude
+    c5  = FUV transition point
+    x02 = x0*x0, centroid of bump squared
+    g2  = gamma*gamma, width of bump squared
+Returns :
+    E(x-V)/E(B-V)
+  */
+
+    char fnam[] = "GALextinct_FM90" ;
+
+    double x2, y, y2, b, k;
+    x2 = x*x;
+    b = x2 / ((x2-x02)*(x2-x02) + x2*g2);
+    k = c1 + c2*x + c3*b;
+    if (x >= c5) {
+        y = x - c5;
+        y2 = y * y;
+        k += c4 * (0.5392*y2 + 0.05644*y2*y);
+    }
+    return k;
+
+} // end of GALextinct_FM90
 
 // ========== FUNCTION TO RETURN EBV(SFD) =================
 void MWgaldust(

@@ -19,6 +19,7 @@
 
 #define OPT_MWCOLORLAW_OFF      0  // No Extinction applied.
 #define OPT_MWCOLORLAW_CCM89   89  // Clayton,Cardelli,Matheson, 1989
+#define OPT_MWCOLORLAW_FM90    90  // Fitzpatrick & Massa, 1990
 #define OPT_MWCOLORLAW_ODON94  94  // O'Donnel 1994 update
 #define OPT_MWCOLORLAW_FITZ99_APPROX  -99   // approx Fitzpatrick 1999 (D.Scolnic, 2013)
 #define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick 1999 (S.Thorp, 2024)
@@ -45,6 +46,9 @@ void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
 double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
+double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
+                        double c5, double x02, double g2);
+double GALextinct_Gord23(double RV, double AV, double WAVE);
 
 // xxx mark double F99exact(double RV, double AV, double WAVE);
 

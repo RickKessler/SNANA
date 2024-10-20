@@ -603,21 +603,9 @@ Returns :
     }
 
     if (WAVE <= 2700.0) { //FM90 curve in UV
-        //extra terms
-        double x2, y2, d, k;
-        x2 = x*x;
-        y = x2 - x02;
-        d = x2 / (y*y + x2*gamma2);
-        k = c1 + c2*x + c3*d;
-        if (x >= c5) {
-            y = x - c5;
-            y2 = y * y;
-            k += c4 * (0.5392*y2 + 0.05644*y2*y);
-        }
-        return AV * (1.0 + k/RV); 
+        y = GALextinct_FM90(x, c1, c2, c3, c4, c5, x02, gamma2);
+        return AV * (1.0 + y/RV); 
     } else { //spline for optical/IR
-        // extra constants
-        double d1, d2, x82, x92, x8x02, x9x02;
         // powers of RV
         double RV2, RV3, RV4;
         // terms in the cubic spline equation
@@ -715,14 +703,6 @@ Returns :
         // counters
         int i, q;
 
-        // constants
-        x82 = xF[Nk-2]*xF[Nk-2];
-        x92 = xF[Nk-1]*xF[Nk-1];
-        x8x02 = x82 - x02;
-        x9x02 = x92 - x02;
-        d1 = x82 / (x8x02*x8x02 + gamma2*x82);
-        d2 = x92 / (x9x02*x9x02 + gamma2*x92);
-
         // RV-dependent spline knot values
         // polynomial coeffs match FM_UNRED.pro and extinction.py
         // NOTE: the optical coefficients differ from Gordon 24 implementation
@@ -759,8 +739,9 @@ Returns :
             yF[Nk-3] =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
                 7.97809e-04*RV3 - 4.45636e-05*RV4;
         }
-        yF[Nk-2] = c1 + c2*xF[Nk-2] + c3*d1;
-        yF[Nk-1] = c1 + c2*xF[Nk-1] + c3*d2;
+        // UV knots using FM90
+        yF[Nk-2] = GALextinct_FM90(xF[Nk-2], c1, c2, c3, c4, c5, x02, gamma2);
+        yF[Nk-1] = GALextinct_FM90(xF[Nk-1], c1, c2, c3, c4, c5, x02, gamma2);
 
 
         // find index in knot list

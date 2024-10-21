@@ -179,8 +179,20 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
       { sprintf(TEXT,"Fitzpatrick99 (approx fit to F99/ODonnel94)");  }
 
     else if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) 
-      { sprintf(TEXT,"Fitzpatrick99 (exact cubic spline)");  }
+      { sprintf(TEXT,"Fitzpatrick99 (cubic spline)");  }
     
+    else if ( OPT == OPT_MWCOLORLAW_GORD03 ) 
+      { sprintf(TEXT,"Gordon03 (cubic spline)");  }
+    
+    else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) 
+      { sprintf(TEXT,"Fitzpatrick04 (cubic spline)");  }
+
+    else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
+      { sprintf(TEXT,"Gordon16 (cubic spline)");  }
+
+    else if ( OPT == OPT_MWCOLORLAW_GORD23 ) 
+      { sprintf(TEXT,"Gordon23");  }
+
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
       sprintf(c2err,"Check OPT_MWCOLORAW_* in sntools.h");
@@ -301,18 +313,45 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
     OPT=94 => use update from O'Donell
 
-    OPT=-99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by 
+    OPT=-99 => use Fitzpatrick 1999 (PASP 111, 63) as implemented by 
               D.Scolnic with polynomial fit to ratio of F'99/O'94 vs. lambda.
               O'94 is the opt=94 option and F'99 was computed from 
               http://idlastro.gsfc.nasa.gov/ftp/pro/astro/fm_unred.pro
               Deprecated to OPT=-99 from OPT=99 September 25 2024.
               Only reliable for RV=3.1.
 
-    OPT=99 => use Fitzpatrick 99 (PASP 111, 63) as implemented by S. Thorp.
+    OPT=99 => use Fitzpatrick 1999 (PASP 111, 63) as implemented by S. Thorp.
                 This version directly evaluates the cubic spline in inverse
                 wavelength, as defined by the fm_unred.pro code. Consistent
                 with extinction.py by K. Barbary, and BAYESN F99 implementation.
                 Promoted to OPT=99 September 25 2024.
+
+    OPT=203 => use Gordon et al. 2003 (ApJ 594, 279) as implemented by S. Thorp.
+                This is the SMC bar dust law. No significant UV bump. Only
+                defined for RV=2.74, will abort for all other values. This
+                is the refined version from Gordon et al. 2016 (ApJ, 826, 104),
+                based on the implementation in Gordon 2024 (JOSS 9, 7023).
+                Not recommended for use as a standalone dust law.
+
+    OPT=204 => use Fitzpatrick 2004 (ASP Conf. Ser. 309, 33) as implemented by S. Thorp.
+                This uses the same curve as Fitzpatrick 99, but with updated
+                behaviour in the IR. Checked against implementation by
+                Gordon 2024 (JOSS 9, 7023): github.com/karllark/dust_extinction.
+
+    OPT=216 => use Gordon et al. 2016 (ApJ 826, 104) as implemented by S. Thorp.
+                This has an extra free parameter, FA. The final curve is a
+                mixture of Fitzpatrick 1999 and Gordon et al. 2003 (ApJ 594, 279), 
+                where the latter is SMC bar-like dust with RV=2.74 and no
+                UV bump. FA=1 reverts to Fitzpatrick 1999. FA=0 gives
+                Gordon et al. 2003. Effective RV = 1/[FA/RV + (1-FA)/2.74]
+                Tested against Gordon 2024 implementation.
+                Currently has FA=0.0 hardcoded => Gordon et al. 2003.
+
+    OPT=223 => use Gordon et al. 2023 (ApJ 950, 86) as implemented by S. Thorp.
+                This is a full UV-OPT-IR extinction law parameterized by RV.
+                Defined by a combination of Fitzpatrick & Massa 1990 (ApJS 72, 163)
+                in the UV plus various other functions composed together at
+                other wavelengths. Tested against Gordon 2024 (JOSS 9, 7023).
 
   Returns magnitudes of extinction.
 
@@ -346,28 +385,40 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
    + Exact F'99 spline implementation promoted to opt=99
    - Old F'99 based on F'99/O'94 ratio deprecated to opt=-99
 
+  Oct 19 2024 ST
+   + Begun adding more dust laws
  ***/
 
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
+  double FA ;
   char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 
   XT = 0.0 ;
+  FA = 0.0 ; // hardcoded for now
 
   if ( AV == 0.0  )  {  return XT ; }
 
   // -----------------------------------------
-  // if seleting exact Fitz99 option,
-  // bypass everything else and call S. Thorp's function
+  // if selecting non-CCM89-like option,
+  // bypass everything else and call S. Thorp's functions
   
-  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT )  {
-    XT = GALextinct_Fitz99_exact(RV, AV, WAVE);
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
+    XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
     return XT ;
   }
-
+  else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
+      double XTA, XTB;
+      XTA = GALextinct_Fitz99_exact(RV, AV, WAVE, 99);
+      XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);
+      return FA*XTA + (1-FA)*XTB ;
+  } else if ( OPT == OPT_MWCOLORLAW_GORD23 ) {
+    XT = GALextinct_Gord23(RV, AV, WAVE);
+    return XT;
+  }
   
   // -----------------------------------------
   DO94 = (OPT == OPT_MWCOLORLAW_ODON94 ||
@@ -485,22 +536,42 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
 
 // ============= EXACT F99 EXTINCTION LAW ==============
-double GALextinct_Fitz99_exact(double RV, double AV, double WAVE) {
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT) {
 /*** 
   Created by S. Thorp, Sep 19 2024
 
   Default Fitzpatrick (1999) implementation since Sep 25 2024
 
+  Also used to compute Fitzpatrick (2004), Gordon et al. (2003),
+  and Gordon et al. (2016) laws.
+
   Input : 
     AV   = V band (defined to be at 5495 Angstroms) extinction
     RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
     WAVE = wavelength in angstroms
+    OPT  = Option from (99, 203, 204, 216)
 Returns :
     XT = magnitudes of extinction
 ***/
 
     char fnam[] = "GALextinct_Fitz99_exact" ;
 
+    //Check RV=2.74 for Gordon et al. (2003)
+    if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
+      sprintf(c1err,"Requested OPT=%d and RV=%.2f", OPT, RV);
+      sprintf(c2err,"Gordon et al. 2003 only valid for RV=2.74");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    //Check wavelengths in valid range
+    if ( WAVE < WAVEMIN_FITZ99_EXACT || WAVE > WAVEMAX_FITZ99_EXACT ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
+      sprintf(c2err,"F99-like curves only valid in [%.1f, %.1f]A",
+              WAVEMIN_FITZ99_EXACT, WAVEMAX_FITZ99_EXACT);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    //number of knots
+    int Nk;
     // constants
     double x02, gamma2, c1, c2, c3, c4, c5;
     // target wavelength in inverse microns
@@ -509,95 +580,181 @@ Returns :
     double y;
 
     // constants
-    x02 = 21.123216; // 4.596*4.596
-    gamma2 = 0.9801; // 0.99*0.99
     c2 = -0.824 + 4.717/RV;
-    c1 = 2.03 - 3.007*c2;
-    c3 = 3.23;
-    c4 = 0.41;
     c5 = 5.90;
+    if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) {
+        x02 = 21.123216; // 4.596*4.596
+        gamma2 = 0.9801; // 0.99*0.99
+        c1 = 2.03 - 3.007*c2;
+        c3 = 3.23;
+        c4 = 0.41;
+        Nk = 9;
+    } else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+        x02 = 21.086464; // 4.592*4.592
+        gamma2 = 0.850084; // 0.922*0.922
+        c1 = 2.18 - 2.91*c2;
+        c3 = 2.991;
+        c4 = 0.319;
+        Nk = 10;
+    } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+        x02 = 21.16; // 4.6*4.6
+        gamma2 = 1.0;
+        c1 = -4.959;
+        c2 = 2.264;
+        c3 = 0.389;
+        c4 = 0.461;
+        Nk = 11;
+    } else {
+      sprintf(c1err,"Requested OPT=%d", OPT);
+      sprintf(c2err,"Only 99, 203, 204 are implemented!");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
 
-    if (WAVE < 2700.0) { //analytic formula for UV
-        //extra terms
-        double x2, y2, d, k;
-        x2 = x*x;
-        y = x2 - x02;
-        d = x2 / (y*y + x2*gamma2);
-        k = c1 + c2*x + c3*d;
-        if (x >= c5) {
-            y = x - c5;
-            y2 = y * y;
-            k += c4 * (0.5392*y2 + 0.05644*y2*y);
-        }
-        return AV * (1.0 + k/RV);
+    if (WAVE <= 2700.0) { //FM90 curve in UV
+        y = GALextinct_FM90(x, c1, c2, c3, c4, c5, x02, gamma2);
+        return AV * (1.0 + y/RV); 
     } else { //spline for optical/IR
-        // extra constants
-        double d1, d2, x82, x92, x8x02, x9x02;
         // powers of RV
         double RV2, RV3, RV4;
         // terms in the cubic spline equation
         double a, b, c, d, deltax, deltax2;
 
         // spline knot locations in inverse microns
-        double xF1 = 0.0, xF2 = 1.0/2.65, xF3 = 1.0/1.22, xF4 = 1.0/0.60, 
-               xF5 = 1.0/0.547, xF6 = 1.0/0.467, xF7 = 1.0/0.411,
-                xF8 = 1.0/0.270, xF9 = 1.0/0.260;
+        double xF[Nk];
+        xF[0] = 0.0; // always put an anchor at 1/lambda = 0
+        if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+            xF[1] = 1.0/2.198;
+            xF[2] = 1.0/1.65;
+            xF[3] = 1.0/1.25;
+            xF[4] = 1.0/0.81;
+            xF[5] = 1.0/0.65;
+            xF[6] = 1.0/0.55;
+            xF[7] = 1.0/0.44;
+            xF[8] = 1.0/0.37;
+        } else {
+            if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+                // Use FM07 knots for Fitzpatrick (2004) curve
+                xF[1] = 0.5;
+                xF[2] = 0.75;
+                xF[3] = 1.0;
+            } else {
+                xF[1] = 1.0/2.65;
+                xF[2] = 1.0/1.22;
+            }
+            xF[Nk-6] = 1.0/0.60;
+            xF[Nk-5] = 1.0/0.547;
+            xF[Nk-4] = 1.0/0.467; 
+            xF[Nk-3] = 1.0/0.411;
+        }
+        // always anchor in the UV
+        xF[Nk-2] = 1.0/0.270;
+        xF[Nk-1] = 1.0/0.260;
         // spline knot values
-        double yF1, yF2, yF3, yF4, yF5, yF6, yF7, yF8, yF9;
+        double yF[Nk];
 
         // y''/y matrix
+        const double G03_KINVD[9][11] = {
+            { 11.201467969, -52.690684767, 48.582659722, -7.705696847, 0.877386748,
+                    -0.339951733, 0.084865232, -0.012693276, 0.002893244, -0.000773202, 0.000526911 },
+            { -2.577981004, 72.607477248, -126.932370504, 61.814312666, -7.038306836,
+                    2.727058064, -0.680780219, 0.101824167, -0.023209310, 0.006202551, -0.004226824 },
+            { 0.445803247, -12.555813672, 49.535686460, -54.424709215, 24.360360763,
+                    -9.438650490, 2.356255861, -0.352424737, 0.080329996, -0.021467717, 0.014629505 },
+            { -0.139009606, 3.915132347, -15.446133037, 26.877514442, -35.551419507,
+                    26.084847406, -6.511796855, 0.973968207, -0.222001619, 0.059328621, -0.040430400 },
+            { 0.038088042, -1.072729653, 4.232174924, -7.364324932, 27.542244488,
+                    -48.305810848, 28.277886834, -4.229518114, 0.964055974, -0.257638265, 0.175571551 },
+            { -0.007912506, 0.222851560, -0.879202677, 1.529883408, -5.721695235,
+                    25.965646157, -34.240788600, 16.590961977, -3.781663909, 1.010627344, -0.688707519 },
+            { 0.002124685, -0.059840637, 0.236085620, -0.410807977, 1.536403382,
+                    -6.972357831, 16.992309734, -21.958789087, 11.624418183, -3.106557101, 2.117011029 },
+            { -0.000376913, 0.010615545, -0.041880863, 0.072876073, -0.272553239,
+                    1.236874853, -3.014383528, 9.652605092, -11.374737045, 11.712886024, -7.981925999 },
+            { 0.000164979, -0.004646535, 0.018331691, -0.031898618, 0.119299397,
+                    -0.541393033, 1.319427134, -4.225046000, 7.599853858, -26.165792468, 21.911699595 }
+        };
+        const double F04_KINVD[8][10] = {
+                { 8.363001444, -29.445021665, 26.136103994, -5.423174767, 0.894742338,
+                    -0.579592918, 0.067504416, -0.014025779, 0.001743637, -0.001280700 },
+                { -2.178008666, 32.670129992, -60.816623962, 32.539048603, -5.368454030,
+                    3.477557505, -0.405026495, 0.084154674, -0.010461821, 0.007684200 },
+                { 0.349033220, -5.235498303, 25.130391856, -28.733019647, 20.579073782,
+                    -13.330637103, 1.552601566, -0.322592918, 0.040103646, -0.029456099 },
+                { -0.143088106, 2.146321587, -10.302343618, 17.313660802, -41.079282639,
+                    35.355167970, -4.117769370, 0.855572522, -0.106361845, 0.078122696 },
+                { 0.026683504, -0.400252565, 1.921212312, -3.228704024, 50.566388411,
+                    -77.512222582, 35.824720884, -7.443507408, 0.925351342, -0.679669874 },
+                { -0.007102699, 0.106540481, -0.511394311, 0.859426550, -13.459919650,
+                    36.916413476, -45.296062632, 22.122269570, -2.750164769, 2.019993983 },
+                { 0.000811556, -0.012173341, 0.058432036, -0.098198282, 1.537933619,
+                    -4.218078179, 13.229095656, -13.261965375, 10.411053066, -7.646910755 },
+                { -0.000364872, 0.005473077, -0.026270768, 0.044149485, -0.691447712,
+                    1.896428085, -5.947739106, 7.633399832, -21.255428514, 18.341800494 }
+        };
         const double F99_KINVD[7][9] = {
-            { 10.250658602, -20.740327299, 11.788924891, -3.715854641, 2.664586253, 
-                -0.310340815, 0.064481288, -0.008016093, 0.005887814 },
-            { -2.044608805, 10.254039610, -13.024855859, 13.772048671, -9.875739260, 
-                1.150214211, -0.238986593, 0.029709995, -0.021821969 },
-            { 0.871617871, -4.371302789, 9.117884190, -31.624036073, 28.674517818, 
-                -3.339682936, 0.693905048, -0.086263899, 0.063360769 },
-            { -0.162541946, 0.815173814, -1.700330722, 48.803145329, -76.266394662, 
-                35.679620964, -7.413359167, 0.921603416, -0.676917025 },
-            { 0.043265924, -0.216985519, 0.452599357, -12.990574083, 36.584795098, 
-                -45.257439481, 22.114244617, -2.749167134, 2.019261221 },
-            { -0.004943575, 0.024792817, -0.051714110, 1.484306083, -4.180187385, 
-                13.224682565, -13.261048442, 10.410939076, -7.646827029 },
-            { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
-                -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
+                { 10.250658602, -20.740327299, 11.788924891, -3.715854641, 2.664586253, 
+                    -0.310340815, 0.064481288, -0.008016093, 0.005887814 },
+                { -2.044608805, 10.254039610, -13.024855859, 13.772048671, -9.875739260, 
+                    1.150214211, -0.238986593, 0.029709995, -0.021821969 },
+                { 0.871617871, -4.371302789, 9.117884190, -31.624036073, 28.674517818, 
+                    -3.339682936, 0.693905048, -0.086263899, 0.063360769 },
+                { -0.162541946, 0.815173814, -1.700330722, 48.803145329, -76.266394662, 
+                    35.679620964, -7.413359167, 0.921603416, -0.676917025 },
+                { 0.043265924, -0.216985519, 0.452599357, -12.990574083, 36.584795098, 
+                    -45.257439481, 22.114244617, -2.749167134, 2.019261221 },
+                { -0.004943575, 0.024792817, -0.051714110, 1.484306083, -4.180187385, 
+                    13.224682565, -13.261048442, 10.410939076, -7.646827029 },
+                { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
+                    -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
         };
 
         // counters
         int i, q;
 
-        // constants
-        x82 = xF8*xF8;
-        x92 = xF9*xF9;
-        x8x02 = x82 - x02;
-        x9x02 = x92 - x02;
-        d1 = x82 / (x8x02*x8x02 + gamma2*x82);
-        d2 = x92 / (x9x02*x9x02 + gamma2*x92);
-        // powers of RV
-        RV2 = RV*RV;
-        RV3 = RV2*RV;
-        RV4 = RV2*RV2;
-
         // RV-dependent spline knot values
-        // polynomial coeffs match FM_UNRED.pro
-        yF1 = -RV;
-        yF2 = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
-        yF3 = -0.7325*RV; // 0.82925*(RV/3.1) - RV
-        yF4 = -0.422809 + 0.00270*RV +  2.13572e-04*RV2;
-        yF5 = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
-        yF6 =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
-        yF7 =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
-            7.97809e-04*RV3 - 4.45636e-05*RV4;
-        yF8 = c1 + c2*xF8 + c3*d1;
-        yF9 = c1 + c2*xF9 + c3*d2;
+        // polynomial coeffs match FM_UNRED.pro and extinction.py
+        // NOTE: the optical coefficients differ from Gordon 24 implementation
+        double yFNIR;
+        yF[0] = -RV;
+        if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+            // knot values have 1 subtracted and are multiplied by RV
+            yF[1] = -2.4386; //0.11*RV-RV
+            yF[2] = -2.27694; //0.169*RV-RV
+            yF[3] = -2.055; //0.25*RV-RV
+            yF[4] = -1.18642; //0.567*RV-RV
+            yF[5] = -0.54526; //0.801*RV-RV
+            yF[6] = 0.0;
+            yF[7] = 1.02476; //1.374*RV-RV 
+            yF[8] = 1.84128; //1.672*RV-RV
+        } else {
+            // powers of RV
+            RV2 = RV*RV;
+            RV3 = RV2*RV;
+            RV4 = RV2*RV2;
+            if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+                yFNIR = (0.63*RV -0.84);
+                yF[1] = yFNIR*pow(xF[1], 1.84) - RV;
+                yF[2] = yFNIR*pow(xF[2], 1.84) - RV;
+                yF[3] = yFNIR*pow(xF[3], 1.84) - RV;
+            }
+            else {
+                yF[1] = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
+                yF[2] = -0.7325*RV; // 0.82925*(RV/3.1) - RV
+            }
+            yF[Nk-6] = -0.422809 + 0.00270*RV +  2.13572e-04*RV2;
+            yF[Nk-5] = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
+            yF[Nk-4] =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
+            yF[Nk-3] =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
+                7.97809e-04*RV3 - 4.45636e-05*RV4;
+        }
+        // UV knots using FM90
+        yF[Nk-2] = GALextinct_FM90(xF[Nk-2], c1, c2, c3, c4, c5, x02, gamma2);
+        yF[Nk-1] = GALextinct_FM90(xF[Nk-1], c1, c2, c3, c4, c5, x02, gamma2);
 
-        // put xF and yF in an array
-        double xF[9] = {xF1, xF2, xF3, xF4, xF5, xF6, xF7, xF8, xF9};
-        double yF[9] = {yF1, yF2, yF3, yF4, yF5, yF6, yF7, yF8, yF9};
 
         // find index in knot list
         q = 0;
-        while (q < 8) {
+        while (q < Nk-1) {
             if (x < xF[q+1]) { 
                 break; 
             } else {
@@ -614,20 +771,218 @@ Returns :
         d = (b*b*b - b) * deltax2 / 6.0;
         y = a*yF[q] + b*yF[q+1];
         // compute 2nd derivatives
-        if (0 < q < 8) {
-            double d2yq = 0;
-            double d2yq1 = 0;
-            for (i=0; i<9; i++) {
-                d2yq  += F99_KINVD[q-1][i] * yF[i];
-                d2yq1 += F99_KINVD[q][i] * yF[i];
+        double d2yq = 0;
+        double d2yq1 = 0;
+        for (i=0; i<Nk; i++) {
+            if (q > 0) {
+                if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+                    d2yq  += F04_KINVD[q-1][i] * yF[i];
+                } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+                    d2yq  += G03_KINVD[q-1][i] * yF[i];
+                } else {
+                    d2yq  += F99_KINVD[q-1][i] * yF[i];
+                }
             }
-            y += c*d2yq + d*d2yq1;
+            if (q < Nk-1) {
+                if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+                    d2yq1 += F04_KINVD[q][i] * yF[i];
+                } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+                    d2yq1 += G03_KINVD[q][i] * yF[i];
+                } else {
+                    d2yq1 += F99_KINVD[q][i] * yF[i];
+                }
+            }
         }
+        y += c*d2yq + d*d2yq1;
+
         return AV*(1.0 + y/RV);
     }
 
-} // end of F99exact
+} // end of GALextinct_Fitz99_exact
 
+// ============= GORDON ET AL. 2023 EXTINCTION LAW ==============
+double GALextinct_Gord23(double RV, double AV, double WAVE) {
+/*** 
+  Created by S. Thorp, Oct 20 2024
+
+  Input : 
+    AV   = V band (defined to be at 5495 Angstroms) extinction
+    RV   = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
+    WAVE = wavelength in angstroms
+  Returns :
+    XT = magnitudes of extinction
+***/
+
+    char fnam[] = "GALextinct_Gord23" ;
+
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    
+    double x2, x3, x4; // powers of x
+    x2 = x*x;
+    x3 = x2*x;
+    x4 = x2*x2;
+
+    // variables for a and b part of curve
+    // w = weighting function in overlap regions
+    double a, b, w, f;
+    a = 0.0;
+    b = 0.0;
+
+    // terms for the optical part
+    double x01, x02, x03, FW1, FW2; //Drude params
+    double FX1, FX2, FX3, XX1, XX2, XX3, D1, D2, D3; //derived terms
+
+    // constants for the N-MIR part
+    double scale=0.38526, alpha=1.68467, alpha2=0.78791, swave=4.30578, swidth=4.78338,
+        sil1_amp=0.06652, sil1_center=9.8434, sil1_fwhm=2.21205, sil1_asym=-0.24703,
+        sil2_amp=0.0267, sil2_center=19.58294, sil2_fwhm=17.0, sil2_asym=-0.27;
+    double mwave = WAVE / 10000.0; //wavelength in microns
+    double fweight, pweight, ratio; //power law transition
+    double sil1_gamma, sil2_gamma, sil1_gx2, sil2_gx2, sil1_xx, sil2_xx; //Si drude params
+
+    // Abort if out of bounds
+    if ( WAVE > WAVEMAX_GORD23 || WAVE < WAVEMIN_GORD23 ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms; X=%.3f inv. microns", WAVE, x);
+      sprintf(c2err,"Gordon et al. 2023 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_GORD23, WAVEMAX_GORD23);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // UV / OPT / NIR
+    if ( 1.0/0.33 <= x && x <= 1.0/0.09 ) { //UV (including UV-OPT overlap)
+        // weighting function
+        if ( x > 1.0/0.30 ) {
+            w = 1.0;
+        } else {
+            // Gordon "smoothstep" function
+            f = (mwave - 0.3)/0.03;
+            w = 3.0 - 2.0*f;
+            w = 1.0 - w*f*f;
+        }
+        // a component: 21.16 = 4.6*4.6; 0.9801 = 0.99*0.99
+        a += w*GALextinct_FM90(x, 0.81297, 0.2775, 1.06295, 0.11303, 5.90, 21.16, 0.9801);
+        // b component 
+        b += w*GALextinct_FM90(x, -2.97868, 1.89808, 3.10334, 0.65484, 5.90, 21.16, 0.9801);
+    }
+    if ( 1.0/1.1 <= x && x < 1.0/0.3 ) { //OPT (including both overlaps)
+        // weighting function
+        if ( 1.0/0.9 < x && x < 1.0/0.33 ) { //internal
+            w = 1.0;
+        } else if ( x >= 1.0/0.33 ) { //overlap with UV
+            // Gordon "smoothstep" function
+            f = (mwave - 0.3)/0.03;
+            w = 3.0 - 2.0*f;
+            w = w*f*f;
+        } else if ( x <= 1.0/0.9 ) { //overlap with IR
+            // Gordon "smoothstep" function
+            f = (mwave - 0.9)/0.2;
+            w = 3.0 - 2.0*f;
+            w = 1.0 - w*f*f;
+        }
+
+        // polynomial terms
+        a += w*(-0.35848 + 0.7122*x + 0.08746*x2 - 0.05403*x3 + 0.00674*x4);
+        b += w*(0.12354 - 2.68335*x + 2.01901*x2 - 0.39299*x3 + 0.03355*x4);
+
+        //the Drude abides
+        // shared terms
+        x01 = 2.288;
+        x02 = 2.054;
+        x03 = 1.587;
+        FW1 = 0.243; //FW3 = FW1
+        FW2 = 0.179;
+        FX1 = (FW1*FW1)/(x01*x01);
+        FX2 = (FW2*FW2)/(x02*x02);
+        FX3 = (FW1*FW1)/(x03*x03);
+        XX1 = (x/x01 - x01/x);
+        XX2 = (x/x02 - x02/x);
+        XX3 = (x/x03 - x03/x);
+        D1 = FX1 / (XX1*XX1 + FX1);
+        D2 = FX2 / (XX2*XX2 + FX2);
+        D3 = FX3 / (XX3*XX3 + FX3);
+        // add contributions to a and b curves
+        a += w*(0.03893*D1 + 0.02965*D2 + 0.01747*D3);
+        b += w*(0.18453*D1 + 0.19728*D2 + 0.1713*D3);
+
+    }
+    if ( 1.0/35.0 <= x && x < 1.0/0.9 ) { //IR (including OPT-IR overlap)
+        // weighting function
+        if ( x < 1.0/1.1 ) {
+            w = 1.0;
+        } else {
+            // Gordon "smoothstep" function
+            f = (mwave - 0.9)/0.2;
+            w = 3.0 - 2.0*f;
+            w = w*f*f;
+        }
+        // a curve Gordon21 double power law
+        // Gordon smoothstep
+        fweight = (mwave - (swave - 0.5*swidth))/swidth;
+        if (fweight < 0) {
+            pweight = 0.0;
+        } else if (fweight > 1) {
+            pweight = 1.0;
+        } else {
+            pweight = (3.0 - 2.0*fweight)*fweight*fweight;
+        }
+        // ratio
+        ratio = pow(swave, -alpha)/pow(swave, -alpha2);
+        // power law 1
+        a += w * scale * (1.0 - pweight) * pow(mwave, -alpha);
+        // power law 2
+        a += w * scale * ratio * pweight * pow(mwave, -alpha2);
+        // silicate features
+        sil1_gamma = 2.0 * sil1_fwhm / (1.0 + exp(sil1_asym*(mwave - sil1_center)));
+        sil2_gamma = 2.0 * sil2_fwhm / (1.0 + exp(sil2_asym*(mwave - sil2_center)));
+        sil1_gx2 = sil1_gamma*sil1_gamma/(sil1_center*sil1_center);
+        sil2_gx2 = sil2_gamma*sil2_gamma/(sil2_center*sil2_center);
+        sil1_xx = (mwave/sil1_center) - (sil1_center/mwave);
+        sil2_xx = (mwave/sil2_center) - (sil2_center/mwave);
+        a += w * sil1_amp * sil1_gx2 / (sil1_xx*sil1_xx + sil1_gx2);
+        a += w * sil2_amp * sil2_gx2 / (sil2_xx*sil2_xx + sil2_gx2);
+
+        // b curve power law
+        b+= -1.01251 * w * pow(x, 1.06099);
+    } 
+
+    return AV * ( a + b*((1.0/RV) - (1.0/3.1)) );
+
+} // end of GALextinct_Gord23
+ 
+// ============= FITZPATRICK & MASSA 1990 ====================
+double GALextinct_FM90(double x, double c1, double c2, double c3, double c4, 
+        double c5, double x02, double g2) {
+  /*
+  Created by S. Thorp, Oct 20 2024
+
+  Input : 
+    x   = wavenumber (inverse microns)
+    c1  = y-intercept of linear component
+    c2  = slope of linear component
+    c3  = bump amplitude
+    c4  = FUV rise amplitude
+    c5  = FUV transition point
+    x02 = x0*x0, centroid of bump squared
+    g2  = gamma*gamma, width of bump squared
+Returns :
+    E(x-V)/E(B-V)
+  */
+
+    char fnam[] = "GALextinct_FM90" ;
+
+    double x2, y, y2, b, k;
+    x2 = x*x;
+    b = x2 / ((x2-x02)*(x2-x02) + x2*g2);
+    k = c1 + c2*x + c3*b;
+    if (x >= c5) {
+        y = x - c5;
+        y2 = y * y;
+        k += c4 * (0.5392*y2 + 0.05644*y2*y);
+    }
+    return k;
+
+} // end of GALextinct_FM90
 
 // ========== FUNCTION TO RETURN EBV(SFD) =================
 void MWgaldust(

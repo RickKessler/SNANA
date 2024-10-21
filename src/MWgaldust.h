@@ -18,15 +18,14 @@
 
 
 #define OPT_MWCOLORLAW_OFF      0  // No Extinction applied.
-#define OPT_MWCOLORLAW_CCM89   89  // Clayton,Cardelli,Matheson, 1989
-#define OPT_MWCOLORLAW_FM90    90  // Fitzpatrick & Massa, 1990
-#define OPT_MWCOLORLAW_ODON94  94  // O'Donnel 1994 update
-#define OPT_MWCOLORLAW_FITZ99_APPROX  -99   // approx Fitzpatrick 1999 (D.Scolnic, 2013)
-#define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick 1999 (S.Thorp, 2024)
-#define OPT_MWCOLORLAW_GORD03  203 // Gordon et al. 2003 (S. Thorp, 2024)
-#define OPT_MWCOLORLAW_FITZ04  204 // Fitzpatrick 2004 (S.Thorp, 2024)
-#define OPT_MWCOLORLAW_GORD16  216 // Gordon et al. 2016 (S.Thorp, 2024)
-#define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. 2023 (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_CCM89   89  // Cardelli, Clayton, & Mathis (1989)
+#define OPT_MWCOLORLAW_ODON94  94  // O'Donnel (1994) update
+#define OPT_MWCOLORLAW_FITZ99_APPROX  -99   // approx Fitzpatrick (1999) (D.Scolnic, 2013)
+#define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick (1999) (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_GORD03  203 // Gordon et al. (2003) (S. Thorp, 2024)
+#define OPT_MWCOLORLAW_FITZ04  204 // Fitzpatrick (2004) (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_GORD16  216 // Gordon et al. (2016) (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. (2023) (S.Thorp, 2024)
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)

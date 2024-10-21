@@ -1,4 +1,6 @@
 latex snana_manual
+bibtex snana_manual
+latex snana_manual
 latex snana_manual
 dvips -P pdf -G0 snana_manual
 ps2pdf snana_manual.ps

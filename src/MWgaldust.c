@@ -652,7 +652,7 @@ Returns :
         // spline knot values
         double yF[Nk];
 
-        // y''/y matrix
+        /* DELETEME : y''/y matrix
         const double G03_KINVD[9][11] = {
             { 11.201467969, -52.690684767, 48.582659722, -7.705696847, 0.877386748,
                     -0.339951733, 0.084865232, -0.012693276, 0.002893244, -0.000773202, 0.000526911 },
@@ -706,7 +706,7 @@ Returns :
                     13.224682565, -13.261048442, 10.410939076, -7.646827029 },
                 { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
                     -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
-        };
+        }; END DELETEME */
 
         // counters
         int i, q;
@@ -771,8 +771,42 @@ Returns :
         d = (b*b*b - b) * deltax2 / 6.0;
         y = a*yF[q] + b*yF[q+1];
         // compute 2nd derivatives
-        double d2yq = 0;
-        double d2yq1 = 0;
+        double d2yq = 0.0;
+        double d2yq1 = 0.0;
+        double Kdiag[Nk-2]; //main diagonal in tridiagonal system
+        double Koffdiag[Nk-3]; //off-diagonal in td system
+        double Vrhs[Nk-2]; //right hand side
+        double wj, d2yj; //scratch variables
+        int j; //counter
+        // forward substitution
+        Kdiag[0] = (xF[2] - xF[0])/3.0;
+        Vrhs[0] = (yF[2] - yF[1])/(xF[2] - xF[1]) - (yF[1] - yF[0])/(xF[1] - xF[0]);
+        for (j=1; j<Nk-2; j++) {
+            Koffdiag[j-1] = (xF[j+1] - xF[j])/6.0; //fill off-diag
+            wj = Koffdiag[j-1] / Kdiag[j-1]; //w term
+            Kdiag[j] = (xF[j+2] - xF[j])/3.0; //compute this diag
+            Kdiag[j] -= wj*Koffdiag[j-1]; //update diag
+            Vrhs[j] = (yF[j+2] - yF[j+1])/(xF[j+2] - xF[j+1]) 
+                - (yF[j+1] - yF[j])/(xF[j+1] - xF[j]); // right hand side
+            Vrhs[j] -= wj*Vrhs[j-1]; //update rhs vector
+        } // forward substitution complete
+        // back substitution (stop at q)
+        if (q==Nk-2) {
+            d2yq = Vrhs[Nk-3]/Kdiag[Nk-3];
+        } else {
+            d2yj = Vrhs[Nk-3]/Kdiag[Nk-3]; //final non-zero d2y
+            for (j=Nk-3; j>0; j--) { //loop backwards
+                if (j==q) {
+                    d2yq1 = d2yj;
+                    d2yq = (Vrhs[j-1]-Koffdiag[j-1]*d2yj)/Kdiag[j-1];
+                    break;
+                } else {
+                    d2yj = (Vrhs[j-1]-Koffdiag[j-1]*d2yj)/Kdiag[j-1];
+                }
+            }
+            if (q==0) { d2yq1 = d2yj; }
+        }
+        /* DELETEME : Old version using KinvD matrix
         for (i=0; i<Nk; i++) {
             if (q > 0) {
                 if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
@@ -793,6 +827,7 @@ Returns :
                 }
             }
         }
+        END DELETEME */
         y += c*d2yq + d*d2yq1;
 
         return AV*(1.0 + y/RV);

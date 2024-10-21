@@ -17,7 +17,8 @@
 # ------------
 
 import  os, sys, shutil, yaml, configparser, glob
-import  logging, coloredlogs
+import  logging
+#import  coloredlogs
 import  datetime, time, subprocess
 import  submit_util        as util
 import  submit_train_util  as train_util

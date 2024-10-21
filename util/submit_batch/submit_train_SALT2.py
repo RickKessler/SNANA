@@ -17,7 +17,8 @@
 #              each band in separate row to SUBMIT.INFO
 #
 import  os, sys, shutil, yaml, glob
-import  logging, coloredlogs
+import  logging
+#impoort coloredlogs
 import  datetime, time, subprocess
 import  submit_util as util
 from    submit_params    import *

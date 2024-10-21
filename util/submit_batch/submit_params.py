@@ -14,7 +14,7 @@ import os
 import datetime
 import time
 import getpass
-from colorama import Fore, Style
+#from colorama import Fore, Style
 
 # start with flags that should be switched to command-line args
 NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge

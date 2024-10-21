@@ -33,8 +33,17 @@
 #define OPT_MWEBV_SFD98          2  // use SFD98 value
 #define OPT_MWEBV_Sch11_PS2013   3  // PS1-2013 implementation of Schlafly 2011
 
+// RV limits (not enforced)
+#define RVMIN_FITZ99 2.0 //from dust_extinction (FM_UNRED quotes 2.3-5.3)
+#define RVMAX_FITZ99 6.0 //from dust_extinction
+#define RVMIN_GORD23 2.3 //from dust_extinction
+#define RVMAX_GORD23 5.6 //from dust_extinction
+// wavelength limits in Angstroms (enforced)
+#define WAVEMIN_FITZ99_EXACT 912.0 //from FM_UNRED
+#define WAVEMAX_FITZ99_EXACT 35000.0 //from FM_UNRED
 #define WAVEMAX_FITZ99 25000.0  // Oct 2021 Dillon and Dan switched from 12000
-
+#define WAVEMIN_GORD23 912.0 //from dust_extinction
+#define WAVEMAX_GORD23 320000.0 //from dust_extinction (not a typo, really goes to MIR)
 
 // =======================================
 //      SNANA-interface functons

@@ -556,9 +556,17 @@ Returns :
 
     char fnam[] = "GALextinct_Fitz99_exact" ;
 
+    //Check RV=2.74 for Gordon et al. (2003)
     if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
       sprintf(c1err,"Requested OPT=%d and RV=%.2f", OPT, RV);
       sprintf(c2err,"Gordon et al. 2003 only valid for RV=2.74");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    //Check wavelengths in valid range
+    if ( WAVE < WAVEMIN_FITZ99_EXACT || WAVE > WAVEMAX_FITZ99_EXACT ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
+      sprintf(c2err,"F99-like curves only valid in [%.1f, %.1f]A",
+              WAVEMIN_FITZ99_EXACT, WAVEMAX_FITZ99_EXACT);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -834,9 +842,10 @@ double GALextinct_Gord23(double RV, double AV, double WAVE) {
     double sil1_gamma, sil2_gamma, sil1_gx2, sil2_gx2, sil1_xx, sil2_xx; //Si drude params
 
     // Abort if out of bounds
-    if ( x < 1.0/35.0 || x > 1.0/0.09 ) {
+    if ( WAVE > WAVEMAX_GORD23 || WAVE < WAVEMIN_GORD23 ) {
       sprintf(c1err,"Requested WAVE=%.3f Angstroms; X=%.3f inv. microns", WAVE, x);
-      sprintf(c2err,"Gordon et al. 2023 only valid from 900-350000 Angstroms");
+      sprintf(c2err,"Gordon et al. 2023 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_GORD23, WAVEMAX_GORD23);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 

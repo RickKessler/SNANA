@@ -14,6 +14,8 @@
 # Jun 15 2023: move some utilities into submit_train_util.py to share
 #              methods with BayeSN training.
 #
+# Oct 21 2024: add 'modelconfig' to list of keys with config file to copy.
+#
 # ------------
 
 import  os, sys, shutil, yaml, configparser, glob
@@ -39,8 +41,8 @@ KEY_CONFIG_FILE = 'SALT3_CONFIG_FILE'
 # create list of config keys whose argument is a file that
 # gets copied to script_dir
 SECTION_FILE_COPY  = 'iodata'
-KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist', 
-                       'loggingconfig' ]
+KEY_LIST_FILE_COPY = [ 'trainingconfig', 'modelconfig', 'tmaxlist', 'snparlist', 
+                       'loggingconfig',  ]
 
 # ====================================================
 #    BEGIN FUNCTIONS

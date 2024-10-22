@@ -54,6 +54,7 @@ void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
 double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
+double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk);
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
                         double c5, double x02, double g2);
 double GALextinct_Gord23(double RV, double AV, double WAVE);

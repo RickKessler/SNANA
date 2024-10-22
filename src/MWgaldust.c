@@ -574,7 +574,7 @@ Returns :
     int Nk;
     // constants
     double x02, gamma2, c1, c2, c3, c4, c5;
-    // target wavelength in inverse microns
+    // target wavenumber in inverse microns
     double x = 10000.0/WAVE;
     // spline result
     double y;
@@ -616,8 +616,6 @@ Returns :
     } else { //spline for optical/IR
         // powers of RV
         double RV2, RV3, RV4;
-        // terms in the cubic spline equation
-        double a, b, c, d, deltax, deltax2;
 
         // spline knot locations in inverse microns
         double xF[Nk];
@@ -708,9 +706,6 @@ Returns :
                     -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
         }; END DELETEME */
 
-        // counters
-        int i, q;
-
         // RV-dependent spline knot values
         // polynomial coeffs match FM_UNRED.pro and extinction.py
         // NOTE: the optical coefficients differ from Gordon 24 implementation
@@ -751,61 +746,8 @@ Returns :
         yF[Nk-2] = GALextinct_FM90(xF[Nk-2], c1, c2, c3, c4, c5, x02, gamma2);
         yF[Nk-1] = GALextinct_FM90(xF[Nk-1], c1, c2, c3, c4, c5, x02, gamma2);
 
-
-        // find index in knot list
-        q = 0;
-        while (q < Nk-1) {
-            if (x < xF[q+1]) { 
-                break; 
-            } else {
-                q++;
-            }
-        }
-
-        // evaluate the spline
-        deltax = xF[q+1] - xF[q];
-        deltax2 = deltax * deltax;
-        a = (xF[q+1] - x) / deltax;
-        b = 1.0 - a;
-        c = (a*a*a - a) * deltax2 / 6.0;
-        d = (b*b*b - b) * deltax2 / 6.0;
-        y = a*yF[q] + b*yF[q+1];
-        // compute 2nd derivatives
-        double d2yq = 0.0;
-        double d2yq1 = 0.0;
-        double Kdiag[Nk-2]; //main diagonal in tridiagonal system
-        double Koffdiag[Nk-3]; //off-diagonal in td system
-        double Vrhs[Nk-2]; //right hand side
-        double wj, d2yj; //scratch variables
-        int j; //counter
-        // forward substitution
-        Kdiag[0] = (xF[2] - xF[0])/3.0;
-        Vrhs[0] = (yF[2] - yF[1])/(xF[2] - xF[1]) - (yF[1] - yF[0])/(xF[1] - xF[0]);
-        for (j=1; j<Nk-2; j++) {
-            Koffdiag[j-1] = (xF[j+1] - xF[j])/6.0; //fill off-diag
-            wj = Koffdiag[j-1] / Kdiag[j-1]; //w term
-            Kdiag[j] = (xF[j+2] - xF[j])/3.0; //compute this diag
-            Kdiag[j] -= wj*Koffdiag[j-1]; //update diag
-            Vrhs[j] = (yF[j+2] - yF[j+1])/(xF[j+2] - xF[j+1]) 
-                - (yF[j+1] - yF[j])/(xF[j+1] - xF[j]); // right hand side
-            Vrhs[j] -= wj*Vrhs[j-1]; //update rhs vector
-        } // forward substitution complete
-        // back substitution (stop at q)
-        if (q==Nk-2) {
-            d2yq = Vrhs[Nk-3]/Kdiag[Nk-3];
-        } else {
-            d2yj = Vrhs[Nk-3]/Kdiag[Nk-3]; //final non-zero d2y
-            for (j=Nk-3; j>0; j--) { //loop backwards
-                if (j==q) {
-                    d2yq1 = d2yj;
-                    d2yq = (Vrhs[j-1]-Koffdiag[j-1]*d2yj)/Kdiag[j-1];
-                    break;
-                } else {
-                    d2yj = (Vrhs[j-1]-Koffdiag[j-1]*d2yj)/Kdiag[j-1];
-                }
-            }
-            if (q==0) { d2yq1 = d2yj; }
-        }
+        y = GALextinct_FM_spline(x, Nk, xF, yF);
+        
         /* DELETEME : Old version using KinvD matrix
         for (i=0; i<Nk; i++) {
             if (q > 0) {
@@ -828,7 +770,6 @@ Returns :
             }
         }
         END DELETEME */
-        y += c*d2yq + d*d2yq1;
 
         return AV*(1.0 + y/RV);
     }
@@ -1018,6 +959,93 @@ Returns :
     return k;
 
 } // end of GALextinct_FM90
+
+// ============= FM_UNRED SPLINE ====================
+double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk) {
+  /*
+  Created by S. Thorp, Oct 22 2024
+
+  Natural cubic spline (a la FM_UNRED).
+
+  Input :
+    x   =  Target to evaluate curve at (inverse microns)
+    Nk  =  Number of spline knots (including edges)
+    xk  =  Locations of spline knots (inverse microns)
+    yk  =  Value of curve at knot locations
+Returns :
+    y   =  Value of curve at x.
+  */
+
+    char fnam[] = "GALextinct_FM_spline" ;
+
+    // abort on x out of knot range
+    if (x < xk[0] || x > xk[Nk-1]) {
+      sprintf(c1err,"Spline interpolation out of bounds!");
+      sprintf(c2err,"Requested %.3f. Limits are [%.3f, %.3f].", 
+              x, xk[0], xk[Nk-1]);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    int j, q; //indexes
+    double A, B, C, D; //coefficients
+    double deltax, deltax2; // gap between bounding knots
+    double y; //result
+
+    // find index in knot list
+    q = 0; // qmin = 0; qmax = Nk-2
+    while (q < Nk-1) {
+        if (x < xk[q+1]) { 
+            break; 
+        } else {
+            q++;
+        }
+    }
+
+    // evaluate the spline (linear part & coeffs)
+    deltax = xk[q+1] - xk[q];
+    deltax2 = deltax * deltax;
+    A = (xk[q+1] - x) / deltax;
+    B = 1.0 - A;
+    C = (A*A*A - A) * deltax2 / 6.0;
+    D = (B*B*B - B) * deltax2 / 6.0;
+    y = A*yk[q] + B*yk[q+1];
+
+    // compute 2nd derivatives
+    // tridiagonal solve using Thomas algorithm
+    double d2yq = 0.0;
+    double d2yq1 = 0.0;
+    double Kb[Nk-2]; //main diagonal in tridiagonal system
+    double Kc[Nk-3]; //off-diagonal in tridiagonal system
+    double Vd[Nk-2]; //right hand side
+    double wj; //scratch variable
+    // fill vectors
+    for (j=0; j<Nk-2; j++) {
+        Kb[j] = (xk[j+2] - xk[j])/3.0;
+        if (j<Nk-3) { Kc[j] = (xk[j+2] - xk[j+1])/6.0; }
+        Vd[j] = (yk[j+2] - yk[j+1])/(xk[j+2] - xk[j+1]) - (yk[j+1] - yk[j])/(xk[j+1] - xk[j]);
+    }
+    // forward substitution
+    for (j=1; j<Nk-2; j++) {
+        wj = Kc[j-1]/Kb[j-1]; //w factor
+        Kb[j] -= wj*Kc[j-1]; //update diagonal
+        Vd[j] -= wj*Vd[j-1]; //update rhs
+    } // forward substitution complete
+    // back substitution (stop at q)
+    d2yq = Vd[Nk-3]/Kb[Nk-3]; //final element of solution
+    // if q=Nk-2, terminate straight away
+    // otherwise enter, the loop and work back to q
+    for (j=Nk-4; j>q-2; j--) { //loop backwards
+        d2yq1 = d2yq; //shift previous element
+        if (j<0) { //we've gone far enough
+            d2yq = 0;
+            break;
+        } else { //find next element
+            d2yq = (Vd[j] - Kc[j]*d2yq1)/Kb[j];
+        }
+    }
+    y += C*d2yq + D*d2yq1;
+    return y;
+} //end GALextinct_FM_spline
 
 // ========== FUNCTION TO RETURN EBV(SFD) =================
 void MWgaldust(

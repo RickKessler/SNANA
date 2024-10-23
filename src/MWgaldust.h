@@ -25,6 +25,8 @@
 #define OPT_MWCOLORLAW_GORD03  203 // Gordon et al. (2003) (S. Thorp, 2024)
 #define OPT_MWCOLORLAW_FITZ04  204 // Fitzpatrick (2004) (S.Thorp, 2024)
 #define OPT_MWCOLORLAW_GORD16  216 // Gordon et al. (2016) (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // Fitzpatrick et al. (2019), linear interp.
+#define OPT_MWCOLORLAW_FITZ19_CUBIC  219 // Fitzpatrick et al. (2019), cubic interp.
 #define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. (2023) (S.Thorp, 2024)
 
 #define OPT_MWEBV_OFF            0  // no extinction
@@ -35,12 +37,16 @@
 // RV limits (not enforced)
 #define RVMIN_FITZ99 2.0 //from dust_extinction (FM_UNRED quotes 2.3-5.3)
 #define RVMAX_FITZ99 6.0 //from dust_extinction
+#define RVMIN_FITZ19 2.0 //from dust_extinction (paper quotes 2.5)
+#define RVMAX_FITZ19 6.0 //from dust_extinction
 #define RVMIN_GORD23 2.3 //from dust_extinction
 #define RVMAX_GORD23 5.6 //from dust_extinction
 // wavelength limits in Angstroms (enforced)
 #define WAVEMIN_FITZ99_EXACT 912.0 //from FM_UNRED
 #define WAVEMAX_FITZ99_EXACT 35000.0 //from FM_UNRED
 #define WAVEMAX_FITZ99 25000.0  // Oct 2021 Dillon and Dan switched from 12000
+#define WAVEMIN_FITZ19 1150.0
+#define WAVEMAX_FITZ19 35000.0
 #define WAVEMIN_GORD23 912.0 //from dust_extinction
 #define WAVEMAX_GORD23 320000.0 //from dust_extinction (not a typo, really goes to MIR)
 
@@ -54,9 +60,10 @@ void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
 double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
-double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk);
+double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin);
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
                         double c5, double x02, double g2);
+double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC);
 double GALextinct_Gord23(double RV, double AV, double WAVE);
 
 // xxx mark double F99exact(double RV, double AV, double WAVE);

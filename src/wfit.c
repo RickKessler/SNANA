@@ -74,7 +74,7 @@
      (for large NSN, calc was slow because of matrix inversion each step)
 
  Dec 01 2021 RK :
-   in get_chi2wOM(), skip off-diag computation if chi2(diag) is 
+   in get_chi2_fit(), skip off-diag computation if chi2(diag) is 
    > 30 sigma above naive chi2=Ndof.
    With 1800^2 cov matrix (unbinned data), speed increase is 
    about x2.6 for wCDM fit.
@@ -168,6 +168,9 @@
       avoid original nearest bin approximation and round-off error on error. 
     + add -mucovtot_inv_file option to read already inverted cov matrix.
       This goes with create_covariancy.py update to write covtot_inv_[nnn].txt
+
+  Oct 23 2024:
+    write mu_obs in resid file, where mu_obs is from HDIBC method.
 
 *****************************************************************************/
 
@@ -329,7 +332,6 @@ struct  {
 
   double   *snprob,     *extprob,      *snchi,      *extchi ;
   double ***snprob3d, ***extprob3d,  ***snchi3d,  ***extchi3d;
-  double *mu_dif;
 
   int    Ndof, Ndof_prior, Ndof_data;
   double sig_chi2min_naive; // sqrt(2*Ndof)
@@ -374,7 +376,7 @@ typedef struct  {
 // define structure to hold hubble diagram (Oct 1 2021)
 typedef struct {
   int    NSN, NSN_ORIG ; // NSN after cuts, before cuts
-  char   **cid;
+  char   **cid ;
   bool   *pass_cut;
   double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
   int    *nfit_perbin;  
@@ -388,6 +390,7 @@ typedef struct {
 } HD_DEF ;
 
 HD_DEF HD_LIST[2];
+HD_DEF HD_FINAL ;  // differs for HDIBC
 
 Cosparam COSPAR_SIM ; // cosmo params from simulated data 
 Cosparam COSPAR_LCDM; // w0,wa = -1,0
@@ -491,8 +494,8 @@ void wfit_FoM(void);
 void wfit_Covariance(void);
 
 
-void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
-		   double *mu_off, double *chi2sn, double *chi2tot );
+void get_chi2_fit(double w0, double wa, double OM, double sqmurms_add,
+		  double *z_list, double *mu_list, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
 double get_DMU_chi2wOM(double z, double rz, double mu); 
@@ -688,7 +691,6 @@ int main(int argc,char *argv[]){
 
   // ----------------------------
   // free memory
-  // ??  malloc_HDarrays(-1,0);
   malloc_workspace(-1);
   CPU_summary();
 
@@ -1388,7 +1390,7 @@ void read_HD(char *inFile, HD_DEF *HD) {
   HD->ISDATA_REAL = ISDATA_REAL ;
 
   TABLEFILE_INIT();
-  NROW = SNTABLE_NEVT(inFile,TBNAME);
+  NROW      = SNTABLE_NEVT(inFile,TBNAME);
   IFILETYPE = TABLEFILE_OPEN(inFile,"read");
   NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,TBNAME);
 
@@ -2898,7 +2900,9 @@ void wfit_minimize(void) {
   int    use_mucov         = INPUTS.use_mucov;
   Cosparam cpar;
   Cosparam cpar_fixed;
-  double snchi_tmp, extchi_tmp, muoff_tmp;
+  double snchi_tmp, extchi_tmp ;
+  double *z_obs_list  = (double*)malloc(HD_LIST[0].NSN*sizeof(double));
+  double *mu_obs_list = (double*)malloc(HD_LIST[0].NSN*sizeof(double));  
   bool UPDATE_STDOUT;
   int  i, kk, j;
   int  imin = -9, kmin = -9, jmin = -9;
@@ -2923,8 +2927,8 @@ void wfit_minimize(void) {
     INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
     cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
     cpar_fixed.mushift = 0.0 ;
-    get_chi2wOM(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
-		&muoff_tmp, &snchi_tmp, &extchi_tmp ); 
+    get_chi2_fit(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
+		 z_obs_list, mu_obs_list, &snchi_tmp, &extchi_tmp ); 
     printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
 	   "= %.1f %.1f \n", snchi_tmp, extchi_tmp);
     fflush(stdout);
@@ -2946,8 +2950,8 @@ void wfit_minimize(void) {
 	cpar.omm = INPUTS.omm_min + j*INPUTS.omm_stepsize; 
 	cpar.ome = 1 - cpar.omm;
 	
-	get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms, 
-		      &muoff_tmp, &snchi_tmp, &extchi_tmp ); 
+	get_chi2_fit ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms, 
+		       z_obs_list, mu_obs_list, &snchi_tmp, &extchi_tmp ); 
 
 	WORKSPACE.snchi3d[i][kk][j]  = snchi_tmp ; 
 	WORKSPACE.extchi3d[i][kk][j] = extchi_tmp ;
@@ -3776,7 +3780,7 @@ void wfit_final(void) {
   double w0_final, wa_final, omm_final ;
   double w0_sig_final, wa_sig_final, omm_sig_final ;
   double w0_ran=0.0,  wa_ran=0.0, omm_ran=0.0 ;
-  double muoff_final, chi2_final, sigint_binsize ;
+  double chi2_final, sigint_binsize ;
   int i;
   char fnam[] = "wfit_final" ;
 
@@ -3852,13 +3856,14 @@ void wfit_final(void) {
   WORKSPACE.w0_ran  = w0_ran ;
   WORKSPACE.wa_ran  = wa_ran ;
   WORKSPACE.omm_ran = omm_ran ;
-    
-  // get final chi2 and mu-offset from final parameters.
-  get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms,  // inputs
-		&muoff_final, &snchi_tmp, &chi2_final );   // return args
+
+  // get final chi2 and mu_obs_list from final parameters.
+  malloc_HDarrays(+1, HD_LIST[0].NSN, &HD_FINAL);
+  HD_FINAL.NSN = HD_LIST[0].NSN;
+  get_chi2_fit ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms,  // inputs
+		 HD_FINAL.z, HD_FINAL.mu, &snchi_tmp, &chi2_final );   // return args
 
   WORKSPACE.chi2_final  = chi2_final;
-  WORKSPACE.muoff_final = muoff_final ;
 
     // summarize chi2 and chi2 for each prior (Apr 2024)
   double chi2_om, chi2_cmb, chi2_bao, chi2_rd, rd ;
@@ -4064,12 +4069,13 @@ void check_invertMatrix(int N, double *COV, double *COVINV ) {
 } // end check_invertMatrix
 
 // ===========================
-void get_chi2wOM ( 
+void get_chi2_fit ( 
 	      double w0             // (I) 
 	      ,double wa           // (I)
 	      ,double OM           // (I) 
 	      ,double sqmurms_add  // (I) anomalous mu-error squared
-	      ,double *mu_off      // (O) distance offset
+	      ,double *z_obs_list  // (O) redshifts used in fit
+	      ,double *mu_obs_list // (O) mu per event (for HDIBC)
 	      ,double *chi2sn      // (O) SN-only chi2
 	      ,double *chi2tot     // (O) SN+prior chi2
 	      ) {
@@ -4111,7 +4117,7 @@ void get_chi2wOM (
   int n_logz, iz;
   double z ;
 
-  char fnam[] = "get_chi2wOM";
+  char fnam[] = "get_chi2_fit";
 
   // --------- BEGIN --------
 
@@ -4186,6 +4192,9 @@ void get_chi2wOM (
       mu_obs = HD0->mu[k];
     }
 
+    mu_obs_list[k] = mu_obs; // Oct 23 2024 RK
+    z_obs_list[k]  = z; // Oct 23 2024 RK    
+    
     dmu_list[k] = mu_obs - mu_cos; 
 
     n_count++ ;
@@ -4256,7 +4265,7 @@ void get_chi2wOM (
   }  // end do_offdiag
 
   //  - - - - - -
-  *mu_off  = Bsum/Csum ;  // load function output before adding H0-prior corr
+  // xxx mark delete Oct 23 2024  *mu_off  = Bsum/Csum ; 
 
   /* Analytic marginalization over H0.  
      See appendices in Goliath et al, A&A, 2001 ,
@@ -4282,7 +4291,7 @@ void get_chi2wOM (
 
   return ;
 
-}  // end of get_chi2wOM
+}  // end of get_chi2_fit
 
 // =======================
 void get_chi2_priors(Cosparam *cpar, double *chi2_om, double *chi2_cmb,
@@ -4482,10 +4491,12 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
   double 
      w0cen_tmp ,omcen_tmp, wacen_tmp
     ,w0_tmp, wa_tmp, om_tmp
-    ,snchi_tmp, extchi_tmp, snchi_min, extchi_min, muoff_tmp
+    ,snchi_tmp, extchi_tmp, snchi_min, extchi_min
     ;
 
-
+  double *z_obs_list  = (double*)malloc(HD_LIST[0].NSN*sizeof(double));
+  double *mu_obs_list = (double*)malloc(HD_LIST[0].NSN*sizeof(double));  
+  
   double w0step_tmp  = INPUTS.w0_stepsize / 10.0; 
   double wastep_tmp  = INPUTS.wa_stepsize / 10.0;
   double omstep_tmp  = INPUTS.omm_stepsize/ 10.0; 
@@ -4531,8 +4542,8 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 	  fflush(stdout);
 	}
 
-	get_chi2wOM(w0_tmp, wa_tmp, om_tmp, INPUTS.sqsnrms, 
-		  &muoff_tmp, &snchi_tmp, &extchi_tmp );
+	get_chi2_fit(w0_tmp, wa_tmp, om_tmp, INPUTS.sqsnrms, 
+		     z_obs_list, mu_obs_list, &snchi_tmp, &extchi_tmp );
 
 	if ( extchi_tmp < extchi_min ) 
 	  { extchi_min = extchi_tmp ;  imin=i; kmin = kk; jmin=j; }
@@ -4972,11 +4983,10 @@ void WRITE_OUTPUT_DRIVER(void) {
   // primary output is the cosmo params
   write_output_cospar();
 
-  // Print residuals (not used for long time; beware)
+  // Print residuals
   write_output_resid();
  
   // write chi2 & prob maps to fits files;
-  // not used for VERY long time ... beware.
   write_output_chi2grid();
 
   return;
@@ -5188,7 +5198,8 @@ void write_output_resid(void) {
 
   // Jan 31 2023 R.Kessler
   // resurrect to write MU-resids and chi2 per SN
-
+  // Oct 2024: Use HD_FINAL struct to write info.
+  
   Cosparam cpar;
   FILE *fpresid;
   char *outFile = INPUTS.outFile_resid ;
@@ -5209,7 +5220,7 @@ void write_output_resid(void) {
 
   int i;
   char   *cid ;
-  double z, rz, ld_cos, mu_cos, mu_dif, mu_sig, chi2;
+  double z, rz, ld_cos, mu_obs, mu_cos, mu_dif, mu_sig, chi2;
   double H0 = H0_SALT2;
 
   fprintf(fpresid,"# mu_res = mu - mu(bestFit model)\n");
@@ -5217,20 +5228,21 @@ void write_output_resid(void) {
   fprintf(fpresid,"\n");
 
   fprintf(fpresid,"VARNAMES: " 
-	  "CID   zHD  mu_model  mu_res  mu_sig  chi2_diag\n");
+	  "CID   zHD  mu_obs  mu_model  mu_res  mu_sig  chi2_diag\n");
 
-  for (i=0; i<HD_LIST[0].NSN; i++) {
-    cid    = HD_LIST[0].cid[i] ;
-    z      = HD_LIST[0].z[i] ;
-    rz           =  codist( z, &cpar) ;
-    mu_cos       =  get_mu_cos(z, rz) ; // best fit model mu
-    mu_dif       =  HD_LIST[0].mu[i] - mu_cos;  // muresid
+  for (i=0; i < HD_FINAL.NSN; i++) {
+    cid          = HD_LIST[0].cid[i] ;    
+    z            = HD_FINAL.z[i] ;  // can differ from HD_LIST[0] for HDIBC
+    mu_obs       = HD_FINAL.mu[i];  // idem
+    rz           =  codist( z, &cpar) ;    
+    mu_cos       =  get_mu_cos(z, rz) ; // best fit model mu    
+    mu_dif       =  mu_obs - mu_cos;  // muresid
     mu_sig       =  HD_LIST[0].mu_sig[i];
     chi2         =  (mu_dif*mu_dif) / ( mu_sig*mu_sig );
 
     fprintf(fpresid,"SN: "
-	    "%-12s %7.4f %7.4f  %7.4f %7.4f %7.3f\n", 
-	    cid, z, mu_cos, mu_dif, mu_sig, chi2 );
+	    "%-12s %7.4f %7.4f %7.4f  %7.4f %7.4f %7.3f\n", 
+	    cid, z, mu_obs, mu_cos, mu_dif, mu_sig, chi2 );
     fflush(fpresid);
 
   }

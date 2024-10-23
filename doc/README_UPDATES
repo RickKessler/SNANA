@@ -22688,5 +22688,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        works with salt3train_jax env. A while back I had tried using
        color codes in MERGE.LOG, but ran into problems and gave up.
        
+  wfit.c:
+     + write actual mu_obs in -outfile_resid; needed to see actual distances
+       for HDIBC method/
        
 END: 

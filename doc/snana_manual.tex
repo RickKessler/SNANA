@@ -3977,15 +3977,17 @@ way to see the current options is to grep the definition keys,
 %
 \begin{Verbatim}[frame=single]
 grep  OPT_MWCOLORLAW  $SNANA_DIR/src/MWgaldust.h
-#define OPT_MWCOLORLAW_OFF      0  // No Extinction applied.
-#define OPT_MWCOLORLAW_CCM89   89  // Cardelli, Clayton, & Mathis (1989)
-#define OPT_MWCOLORLAW_ODON94  94  // O'Donnell (1994) update
-#define OPT_MWCOLORLAW_FITZ99_APPROX  -99   // approx Fitzpatrick (1999)
-#define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick (1999)
-#define OPT_MWCOLORLAW_GORD03  203 // Gordon et al. (2003)
-#define OPT_MWCOLORLAW_FITZ04  204 // Fitzpatrick (2004)
-#define OPT_MWCOLORLAW_GORD16  216 // Gordon et al. (2016)
-#define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. (2023)
+#define OPT_MWCOLORLAW_OFF              0 // No Extinction applied.
+#define OPT_MWCOLORLAW_CCM89           89 // Cardelli, Clayton, & Mathis (1989)
+#define OPT_MWCOLORLAW_ODON94          94 // O'Donnel (1994) update
+#define OPT_MWCOLORLAW_FITZ99_APPROX  -99 // approx Fitzpatrick (1999)
+#define OPT_MWCOLORLAW_FITZ99_EXACT    99 // exact Fitzpatrick (1999)
+#define OPT_MWCOLORLAW_GORD03         203 // Gordon et al. (2003)
+#define OPT_MWCOLORLAW_FITZ04         204 // Fitzpatrick (2004)
+#define OPT_MWCOLORLAW_GORD16         216 // Gordon et al. (2016)
+#define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // approx Fitzpatrick et al. (2019)
+#define OPT_MWCOLORLAW_FITZ19_CUBIC   219 // Fitzpatrick et al. (2019)
+#define OPT_MWCOLORLAW_GORD23         223 // Gordon et al. (2023)
 
 grep  OPT_MWEBV  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWEBV_OFF            0  // no extinction
@@ -4004,7 +4006,7 @@ or the entry value is zero, then {\tt MWEBV} is calculated
 internally using the dust maps from \cite{Schlegel_98},
 which is equivalent to {\tt OPT\_MWEBV=2}.
 {\tt OPT\_MWEBV>2} are intended for SFD98 recalibrations
-such as in Schlafly 2011. 
+such as in Schlafly \& Finkbeiner \cite{Schlafly_11}. 
 For each simulated SN, the nominal map-value of $E(B-V)$ and its
 uncertainty are written to the header, and this value is used
 in the fitting programs (\S\ref{subsec:fit_MWEBV}).
@@ -4065,10 +4067,13 @@ form used is selected by the {\tt OPT\_MWCOLORLAW} key.
 The default option is the CCM89 law with O'Donnell's
 modification \cite{Cardelli1989, ODonnell1994}. Also
 included are variants of the Fitzpatrick law 
-\cite{Fitzpatrick1999, Fitzpatrick2004}, and a new UV--optical--NIR--MIR
+\cite{Fitzpatrick1999, Fitzpatrick2004}, 
+the more recent Fitzpatrick et al. curve \cite{Fitzpatrick2019},
+and a new UV--optical--NIR--MIR
 curve from Gordon et al.~\cite{Gordon2023}. All of these are $R_V$-dependent.
 The `\texttt{GALextinct}' function will abort if called 
 outside the valid wavelength range of these models.
+
 Also included is the two-parameter $(R_V^A,f_A)$-dependent curve
 from Gordon et al.~\cite{Gordon2016}. This gives a mixture of MW-like \cite{Fitzpatrick1999}
 and SMC-bar-like \cite{Gordon2003} dust. At the time of writing, $f_A$ 
@@ -4093,7 +4098,15 @@ $R_V=3.1$. For legacy reasons, this remains available via the
 `\verb!OPT_MWCOLORLAW : -99!' key. Another caveat to keep in mind is that
 the F99-like curves currently have $\sim$mmag disagreements with the public
 \verb!dust_extinction! package \cite{Gordon2024} due to differences in
-the spline boundary conditions.
+the spline boundary conditions. 
+
+Similar caveats apply to the 
+F19 \cite{Fitzpatrick2019} curve; our implementation
+uses either a natural cubic spline, or a faster linear interpolation of
+the tabulated values from table 3 of ref.\ \cite{Fitzpatrick2019}. The 
+reference implementation in \verb!dust_extinction! uses a B-spline. Our
+cubic spline implementation agrees with this excellently below $10000$~\AA, 
+and well (within $\sim2$~mmag) below $20000$~\AA.
 
 \subsubsection{Simulating Intergalactic Extinction}
 \label{sss:IGM}

@@ -61,6 +61,12 @@ D.~J. {Schlegel}, D.~P. {Finkbeiner}, and M.~{Davis}.
   and Cosmic Microwave Background Radiation Foregrounds}.
 \newblock {\em Astrophys.\ J.}, 500:525, June 1998.
 
+\bibitem{Schlafly_11}
+E.~F. {Schlafly} and D.~P. {Finkbeiner}.
+\newblock {Measuring Reddening with Sloan Digital Sky Survey Stellar Spectra
+  and Recalibrating SFD}.
+\newblock {\em Astrophys.\ J.}, 737(2):103, August 2011.
+
 \bibitem{Cardelli1989}
 J.~A. {Cardelli}, G.~C. {Clayton}, and J.~S. {Mathis}.
 \newblock {The Relationship between Infrared, Optical, and Ultraviolet
@@ -83,6 +89,13 @@ E.~L. {Fitzpatrick}.
 \newblock In A.~N. {Witt}, G.~C. {Clayton}, and B.~T. {Draine}, editors, {\em
   Astrophysics of Dust}, volume 309 of {\em ASP Conf.\ Series}, page~33, May
   2004.
+
+\bibitem{Fitzpatrick2019}
+E.~L. {Fitzpatrick} et~al.
+\newblock {An Analysis of the Shapes of Interstellar Extinction Curves. VII.
+  Milky Way Spectrophotometric Optical-through-ultraviolet Extinction and Its
+  R-dependence}.
+\newblock {\em Astrophys.\ J.}, 886(2):108, December 2019.
 
 \bibitem{Gordon2023}
 K.~D. {Gordon} et~al.

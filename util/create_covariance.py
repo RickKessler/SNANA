@@ -952,12 +952,14 @@ def get_covsys_from_covopt(covopt, contributions, base, calibrators):
     fitopt_filter = bracket_content1_list[0]
     muopt_filter  = bracket_content1_list[1]
     covopt_scale     = 1.0
-    logging.info(f"    compute cov for {label}")
+
 
     if len(bracket_content1_list) > 2 :  # err_scale (3rd item) is optional
         sig_scale    = float(bracket_content1_list[2])
         covopt_scale = sig_scale * sig_scale
-        
+
+    logging.info(f"    compute cov for {label:14}  [scale={covopt_scale:.3f}]")
+    
     # generic message-content for debug or error
     msg_content1 =  \
         f"COV({label}): FITOPT/MUOPT filters = " \

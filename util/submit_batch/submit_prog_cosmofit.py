@@ -55,6 +55,9 @@
 # Jul 24 2024: in WFIT_SUMNMARY[_AVG].FITRES files, write comment for each
 #              VARNAME columns.
 #
+# Oct 23 2024: new CONFIG key USE_COVSYS_INV: False/True (default is true) to
+#              ignore COVSYS_INV file and let cosmofit code invert the matrix.
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -94,6 +97,8 @@ KEYNAME_BLIND_SIM     = "BLIND_SIM"
 KEYNAME_FITAVG_LIST  = [ "FITAVG",           # new default, Apr 6 2023
                          "WFITAVG", "FCAVG", 
                          "WEIGHT_AVG" ]      # legacy
+
+KEYNAME_USE_COVSYS_INV = "USE_COVSYS_INV"
 
 # WARING: blind flag Works for wfit but not for firecrown 
 ARG_BLIND   = { COSMOFIT_CODE_WFIT       : '-blind',
@@ -265,12 +270,12 @@ class cosmofit(Program):
             inpdir_split = inpdir.split(',')
             
             yaml_info, dict_info = \
-                self.read_hd_info_file(inpdir_split[0], covsys_select_list)
+                self.read_hd_info_file(0, inpdir_split[0], covsys_select_list)
 
             # for HDIBC method using two HDs, make sure that yaml info is the same
             if len(inpdir_split) == 2:
                 yaml_info2, dict_info2 = \
-		    self.read_hd_info_file(inpdir_split[1], covsys_select_list)
+		    self.read_hd_info_file(1, inpdir_split[1], covsys_select_list)
                 key_check_list = [ 'hd_file', 'covsys_file_list', 'covsys_num_list',
                                    'isdata' ]
                 for key in key_check_list:
@@ -474,13 +479,14 @@ class cosmofit(Program):
 
 
         
-    def read_hd_info_file(self, inpdir, covsys_select_list):
+    def read_hd_info_file(self, index_HD, inpdir, covsys_select_list):
 
         # Ceated Oct 13 2022 by RK
         # Read Hubble-diagram (HD) info file created by create_covariance.py.
         # Translate yaml contents into a more practical dictionary.
         #
         # Inputs:
+        #  index_HD = 0 or 1
         #  inpdir: directory containing INFO.YML
         #  covsys_select_list: list of covsys labels to select for 
         #       separate wfit task;
@@ -506,6 +512,16 @@ class cosmofit(Program):
         yaml_file = f"{inpdir}/{INFO_FILENAME}"
         yaml_info = util.extract_yaml(yaml_file, None, None )
 
+        # check option to use COVSYS_INV (default) or to perform inversion
+        # USE_COVSYS_INV .xyz
+        USE_COVSYS_INV = True  # default
+        CONFIG     = self.config_yaml['CONFIG']
+        if KEYNAME_USE_COVSYS_INV in CONFIG:
+            USE_COVSYS_INV = CONFIG[KEYNAME_USE_COVSYS_INV]
+            
+        if index_HD == 0 :
+            logging.info(f"\t USE_COVSYS_INV = {USE_COVSYS_INV}")
+        
         # - - - - - -
         # load separate info dictionary to store info in more convenient way
 
@@ -543,12 +559,12 @@ class cosmofit(Program):
             covsys_label_list.append(covsys_label)
             covsys_file_list.append(covsys_file)
 
-            if len(covinfo_split) > 2 :
+            if len(covinfo_split) > 2 and USE_COVSYS_INV:
                 covtot_inv_file = covinfo_split[2] 
                 covtot_inv_file_list.append(covtot_inv_file)  # 4.2024
             else:
                 covtot_inv_file_list.append(None)
-                
+
         # - - - - -
         # check optional subset of covsys options to store
         if covsys_select_list is not None :

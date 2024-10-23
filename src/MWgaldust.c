@@ -190,6 +190,12 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
       { sprintf(TEXT,"Gordon16 (cubic spline)");  }
 
+    else if ( OPT == OPT_MWCOLORLAW_FITZ19_LINEAR ) 
+      { sprintf(TEXT,"Fitzpatrick19 (linear interpolation)");  }
+    
+    else if ( OPT == OPT_MWCOLORLAW_FITZ19_CUBIC ) 
+      { sprintf(TEXT,"Fitzpatrick19 (cubic spline)");  }
+    
     else if ( OPT == OPT_MWCOLORLAW_GORD23 ) 
       { sprintf(TEXT,"Gordon23");  }
 

@@ -78,7 +78,8 @@
 # ==========================================
 
 import os,sys,glob,yaml,shutil
-import logging, coloredlogs
+import logging
+#import coloredlogs
 
 import submit_util  as  util
 from   submit_params    import *

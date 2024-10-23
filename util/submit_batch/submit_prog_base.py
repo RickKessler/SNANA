@@ -37,7 +37,8 @@
 
 #import argparse
 import os, sys, shutil, yaml
-import logging, coloredlogs
+import logging
+#import coloredlogs
 import datetime, time, subprocess
 import getpass, ntpath, glob
 

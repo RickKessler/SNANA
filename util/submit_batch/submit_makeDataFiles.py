@@ -6,7 +6,8 @@
 #
 
 import  os, sys, shutil, yaml, configparser, glob
-import  logging, coloredlogs, tarfile
+import  logging, tarfile
+#import  coloredlogs
 import  datetime, time, subprocess
 import  submit_util as util
 from    submit_params    import *

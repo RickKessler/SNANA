@@ -22682,5 +22682,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        and read maps without redundant START_MAP or END_MAP keys.
      + OPTMASK_NONLIN += 1 -> use count-total
        OPTMASK_NONLIN += 2 -> use count-rate
+
+  submit_batch/
+     + remove "import coloredlogs" and "import colorama" so that it
+       works with salt3train_jax env. A while back I had tried using
+       color codes in MERGE.LOG, but ran into problems and gave up.
+       
        
 END: 

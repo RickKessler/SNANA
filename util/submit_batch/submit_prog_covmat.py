@@ -7,7 +7,8 @@
 #
 
 import os, sys, shutil, yaml, glob
-import logging, coloredlogs
+import logging
+#import coloredlogs
 import datetime, time
 import submit_util as util
 import numpy as np

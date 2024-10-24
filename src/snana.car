@@ -1712,7 +1712,9 @@ c
       INTEGER 
      &   OPT_MWCOLORLAW    ! I: MW color law opt (89, 94, 99 ...)
      &  ,OPT_MWEBV         ! I: option to modify SFD maps
-
+      REAL
+     &   PARLIST_MWCOLORLAW(10) ! I: params for MWCOLORLAW calc
+     
       LOGICAL 
      &   USE_MWCOR          ! I:  T=> correct data flux for MW extinc;
                             ! I:  F=> leave data, correct fit model for MW.
@@ -1755,7 +1757,7 @@ c
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_ERROR_FILT
      &   ,FUDGE_MAG_COVERR, FUDGE_MAG_COVERR_FILT
      &   ,SIM_FUDGE_MAG_ERROR, SIM_FUDGE_MAG_ERROR_FILT
-     &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
+     &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, PARLIST_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
      &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
@@ -2135,7 +2137,7 @@ c
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_COVERR, SIM_FUDGE_MAG_ERROR
      &   ,FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
-     &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
+     &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, PARLIST_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
      &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
@@ -6026,10 +6028,7 @@ C ==================================
 +CDE,FILTCOM.
 
 c
-c Jan 5 2016: if NMLFILE = 'NOFILE', then skip reading file
-c             and jump to SNLCINP_OVERRIDE. Allows running snana
-c             with only command-line options and no nml file.
-c
+
 c Feb 27 2018: check CUTWIN_ZP
 c Apr 07 2022; use function VALIDFILENAME
 c
@@ -6252,6 +6251,10 @@ c default is to reject nothing (accept everything)
       OPT_MWEBV      = -9   ! idem
       RV_MWCOLORLAW  = -9.0 ! idem
 
+      DO i = 1, 10
+         PARLIST_MWCOLORLAW(i) = 0.0
+      ENDDO
+	
       HOSTGAL_PHOTOZ_SHIFT = 0.0 
       HOSTGAL_SPECZ_SHIFT  = 0.0 
       REDSHIFT_FINAL_SHIFT = 0.0
@@ -8416,6 +8419,10 @@ c - - - - - - -
         else if ( MATCH_NMLKEY('OPT_MWCOLORLAW',
      &            1, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) OPT_MWCOLORLAW
+
+        else if ( MATCH_NMLKEY('PARLIST_MWCOLORLAW',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) PARLIST_MWCOLORLAW(1)  ! just read 1 param for now (Oct 2024)
 
         else if ( MATCH_NMLKEY('OPT_MWEBV',
      &            1, iArg, ARGLIST) ) then
@@ -16343,12 +16350,12 @@ c --------------------------------------------
 
 c local var
 
-      INTEGER IFILT, IFILT_OBS, NEWMJD, EPMIN, EPMAX, ep, OPT
+      INTEGER IFILT, IFILT_OBS, NEWMJD, EPMIN, EPMAX, ep, OPT, i
 
       REAL*8  
      &   XTMW8,  XTMW8_PLUSERR
      &  ,AVMW8,  AVMW8_PLUSERR
-     &  ,MWEBV8, MWEBV8_PLUSERR
+     &  ,MWEBV8, MWEBV8_PLUSERR, PARLIST_MWCOLORLAW8(10)
      &  ,LAM8, GALextinct, RV8
 
       REAL    XTMW_cor, arg
@@ -16365,7 +16372,8 @@ C ------------ BEGIN -------------
          SNLC_MWEBV_ERR = 0.0
       ENDIF
 
-
+      if ( .NOT. EXIST_KCOR_FILE ) RETURN ! Oct 2024
+      
 c determin MW extinction in each passband
 
        MWEBV8          = DBLE(SNLC_MWEBV )
@@ -16374,9 +16382,13 @@ c determin MW extinction in each passband
        RV8             = DBLE(RV_MWCOLORLAW)
        AVMW8           = RV8 * MWEBV8
        AVMW8_PLUSERR   = RV8 * MWEBV8_PLUSERR
+       
+       OPT = OPT_MWCOLORLAW
 
-       OPT = OPT_MWCOLORLAW  ! RK : 9/18/2013
-
+       DO i = 1, 10
+         PARLIST_MWCOLORLAW8(i) = DBLE(PARLIST_MWCOLORLAW(i))
+       ENDDO
+       
        if (  LDMP ) THEN
           write(6,122) SNLC_CCID(1:ISNLC_LENCCID), 
      &       SURVEY_FILTERS(1:NFILTDEF_SURVEY), MWEBV8, OPT
@@ -16390,9 +16402,11 @@ c determin MW extinction in each passband
           LAM8      = DBLE ( FILTOBS_LAMAVG(ifilt_obs) )
 
           XTMW8     = 
-     &           GALextinct ( RV8, AVMW8, LAM8, OPT );
+     &           GALextinct ( RV8, AVMW8, LAM8,
+     &                OPT, PARLIST_MWCOLORLAW8 );
           XTMW8_PLUSERR  = 
-     &           GALextinct ( RV8, AVMW8_PLUSERR, LAM8, OPT );
+     &           GALextinct ( RV8, AVMW8_PLUSERR, LAM8,
+     &                OPT, PARLIST_MWCOLORLAW8 );
 
           SNLC_MWXT_MAG(ifilt)    = SNGL(XTMW8)
           SNLC_MWXT_MAGERR(ifilt) = SNGL(XTMW8_PLUSERR-XTMW8)

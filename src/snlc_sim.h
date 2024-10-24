@@ -817,6 +817,7 @@ struct INPUTS {
   double GENRANGE_MWEBV[2] ;     // useful for effic. maps.
   double RV_MWCOLORLAW ;          // Galactic RV (default=3.1)
   int    OPT_MWCOLORLAW ;        // 89(CCM89), 94(Odonnel), 99(Fitzpat)
+  double PARLIST_MWCOLORLAW[10]; // optional params to control color law calc. (Oct 2024)
   int    OPT_MWEBV ;             // option to modify MWEBV_SFD
   int    APPLYFLAG_MWEBV;        // flag to apply MWEBV analysis corrections
   char   STR_MWCOLORLAW[60] ;    // char-string for comments

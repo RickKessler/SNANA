@@ -93,6 +93,7 @@ struct FILTER_SEDMODEL {
 
 struct MWXT_SEDMODEL {
   int    OPT_COLORLAW ; // 89, 94, 99 ...
+  double PARLIST_COLORLAW[10];
   double RV ;
 } MWXT_SEDMODEL ; // Galactic extinction
 
@@ -283,7 +284,7 @@ void filtdump_SEDMODEL(void);   // one-line dump per filter.
 
 void init_redshift_SEDMODEL(int NZbin, double Zmin,  double Zmax);
 
-void init_MWXT_SEDMODEL(int OPT_COLORLAW, double RV) ;
+void init_MWXT_SEDMODEL(int OPT_COLORLAW, double *PARLIST_COLORLAW, double RV) ;
 
 double interp_primaryFlux_SEDMODEL(double lam) ;
 double interp_primaryMag_SEDMODEL(double lam) ;  // for SPECTROGRAPH bins
@@ -401,7 +402,7 @@ int init_filter_sedmodel__(int *ifilt_obs, char *filter_name,
 
 void init_redshift_sedmodel__(int *NZbin, double *Zmin,  double *Zmax) ;
 
-void init_mwxt_sedmodel__(int *OPT_COLORLAW, double *RV) ;
+void init_mwxt_sedmodel__(int *OPT_COLORLAW, double *PARLIST_COLORLAW, double *RV) ;
 
 void get_lamrange_sedmodel__(int *opt, double *lammin, double *lammax);
 

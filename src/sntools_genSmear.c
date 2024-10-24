@@ -983,13 +983,14 @@ double get_CCM89_RV(void) {
 
   int ilam;
   int OPT = 89 ;
+  double PARDUM=0.0 ;
   double LAM, Color, XT, XT0, XTDIF ;
   Color = GENSMEAR.COLOR ;  // SALT2 'c' parameter
 
   for ( ilam=0; ilam < GENSMEAR_CCM89.NLAM_MAP; ilam++ ) {
     LAM  = GENSMEAR_CCM89.LAM_MAP[ilam] ;
-    XT   = GALextinct(RV,  Color, LAM, OPT ) ;
-    XT0  = GALextinct(RV0, Color, LAM, OPT ) ;
+    XT   = GALextinct(RV,  Color, LAM, OPT, &PARDUM ) ;
+    XT0  = GALextinct(RV0, Color, LAM, OPT, &PARDUM ) ;
     XTDIF = XT - XT0 ;
     GENSMEAR_CCM89.XTDIF_MAP[ilam]  = XTDIF ;
   }
@@ -1006,7 +1007,6 @@ void get_genSmear_CCM89(double Trest, int NLam, double *Lam,
   double *ptrLam, *ptrXTDIF ;
 
   int ilam, NLAM;
-  //  int OPT=89;
 
   char fnam[] = "get_genSmear_CCM89";
 

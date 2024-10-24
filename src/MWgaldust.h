@@ -57,16 +57,14 @@
 void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 
 // functions moved from sntools.c (Sep 2013)
-double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
-double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);
+double GALextinct (double  RV, double  AV, double  WAVE, int  OPT, double *PARLIST);
+double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST);
 double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
 double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin);
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
                         double c5, double x02, double g2);
 double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC);
 double GALextinct_Gord23(double RV, double AV, double WAVE);
-
-// xxx mark double F99exact(double RV, double AV, double WAVE);
 
 void   text_MWoption(  char *what, int  OPT, char *TEXT) ; // return TEXT
 void   text_mwoption__(char *what, int *OPT, char *TEXT) ; 

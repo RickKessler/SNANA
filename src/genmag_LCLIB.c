@@ -699,7 +699,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   int  IFLAG_NONRECUR = (LCLIB_INFO.IFLAG_RECUR_CLASS==IFLAG_RECUR_NONRECUR);
   LCLIB_EVENT.MWEBV   = *mwebv ;
 
-  double AV_MW, XT_MW;
+  double AV_MW, XT_MW, PARDUM=0.0 ;
   int obs, ifilt, NEXT_SIMEVENT, NEXT_LCLIBEVENT ;
   double Tobs, Tobs_shifted, mag_S ;
   char fnam[] = "genmag_LCLIB" ;
@@ -755,7 +755,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   // compute galactic extinction
   *mwebv  = LCLIB_EVENT.MWEBV ; // return func arg
   AV_MW   = RV_MWDUST * LCLIB_EVENT.MWEBV ;
-  XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94 );
+  XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94, &PARDUM );
 
   // get template mag
   store_magTemplate_LCLIB(EXTERNAL_ID,ifilt,XT_MW);  

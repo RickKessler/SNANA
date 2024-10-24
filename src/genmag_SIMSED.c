@@ -1458,7 +1458,7 @@ void genmag_SIMSED(
   double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
   int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSED_SELECT ;
-  double AV, XT_MW, XT_HOST ;
+  double AV, XT_MW, XT_HOST, *PARLIST_COLORLAW, PARDUM=0.0 ;
   double magobs, magerr, tmpPar;
   char *cfilt ;
 
@@ -1503,12 +1503,13 @@ void genmag_SIMSED(
 
   // get approx Galactic extinction using central wavelength of filter
   AV   = RV_MWDUST * mwebv ;
-  OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW ;
-  XT_MW = GALextinct(RV_MWDUST,AV,meanlam_obs,OPT_COLORLAW); 
+  OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW ;
+  PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW ;
+  XT_MW = GALextinct(RV_MWDUST,AV,meanlam_obs,OPT_COLORLAW, PARLIST_COLORLAW); 
 
   // get approx extinction from host in rest-frame (Mar 1 2017)
   if ( AV_host > 1.0E-9 ) 
-    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94 ); }
+    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94, &PARDUM ); }
   else
     { XT_HOST = 0.0 ; }
 

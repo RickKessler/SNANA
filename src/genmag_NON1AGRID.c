@@ -91,7 +91,7 @@ void genmag_NON1AGRID (int ifilt_obs, double mwebv, double z,
 
   int obs, indx, N_INDEX, i, ifilt ;
   double MAGSMEAR, MAGSMEAR_SIGMA, MAGOFF, z1, Tobs, Trest, MAG, magInterp ;
-  double AV_MW, XT_MW, XT_HOST, meanlam_obs ;
+  double AV_MW, XT_MW, XT_HOST, meanlam_obs, PARDUM=0.0 ;
   int LDMP = 0; // (ifilt_obs==1 );
   char fnam[] = "genmag_NON1AGRID" ;
 
@@ -140,10 +140,10 @@ void genmag_NON1AGRID (int ifilt_obs, double mwebv, double z,
   // get approx Galactic extinction using central wavelength of filter 
   meanlam_obs = NON1AGRID.FILTER_LAMAVG[ifilt];
   AV_MW       = RV_MWDUST * mwebv ;
-  XT_MW       = GALextinct ( RV_MWDUST, AV_MW, meanlam_obs, 94 );
+  XT_MW       = GALextinct ( RV_MWDUST, AV_MW, meanlam_obs, 94, &PARDUM );
 
   // get extinction from host in rest-frame 
-  XT_HOST = GALextinct ( RVhost, AVhost, meanlam_obs/z1, 94 ); 
+  XT_HOST = GALextinct ( RVhost, AVhost, meanlam_obs/z1, 94, &PARDUM ); 
 
 
   /*

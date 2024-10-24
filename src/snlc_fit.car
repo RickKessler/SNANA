@@ -3101,7 +3101,7 @@ c local var
 +CDE,SNLCINP.
 
       INTEGER 
-     &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY, OPT_FRAME
+     &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY, OPT_FRAME, i
      &  ,LEN1, LEN2, LEN_NAME, ISTAT, NLAM, OPTMASK
      &  ,NZBIN, OPT_FILTER_UPDATE_SAVE
 
@@ -3110,7 +3110,7 @@ c local var
      &  ,VALa(MXLAMBIN_PRIM)
      &  ,VALb(MXLAMBIN_PRIM)
      &  ,LAMSHIFT, MAGPRIM, LAMRANGE(2)
-     &  ,ZMIN, ZMAX, LOGZDIF, RVMW
+     &  ,ZMIN, ZMAX, LOGZDIF, RVMW, PARLIST(10)
 
       CHARACTER 
      &   tmpname*40
@@ -3157,7 +3157,10 @@ c init primary spectrum
       ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
 
       RVMW = DBLE(RV_MWCOLORLAW)
-      CALL init_MWXT_SEDMODEL( OPT_MWCOLORLAW, RVMW ) ;
+      DO i = 1, 10
+        PARLIST(i) = DBLE( PARLIST_MWCOLORLAW(i) ) 
+      ENDDO
+      CALL init_MWXT_SEDMODEL(OPT_MWCOLORLAW, PARLIST, RVMW) ;
 
 c set entire redshift range if same filters are used for each SN;
 c for SN-dependent filters, set exact z-range (and 1 Z-bin) 
@@ -5400,7 +5403,7 @@ c local args
      &  ,AVMW, LAMAVG, LAMREST, WGT1, WGT2
      &  ,LAMDIF12, LAMDIF13, DIF
      &  ,ERRTMP1, ERRTMP2
-     &  ,MUTMP, MWEBV_MODEL, RVMW
+     &  ,MUTMP, MWEBV_MODEL, RVMW, PARDUM(10)
 
       INTEGER 
      &   istat
@@ -5517,7 +5520,8 @@ c check for special case where IFILT_OBS is really a rest-filter
 
 c get approx MW extinction (for printout only ... not for calculation)
       AVMW     = RVMW * mwebv_model ; 
-      MAG_XTMW = GALextinct ( RVMW, AVMW, LAMAVG, 94 );
+      PARDUM(1) = 0.0
+      MAG_XTMW = GALextinct ( RVMW, AVMW, LAMAVG, 94, PARDUM );
 
 c if we have observer-frame model, then skip all 
 c the rest-frame stuff.

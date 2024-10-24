@@ -135,8 +135,8 @@
 
 // *****************************
 // mangled routines for fortran
-double galextinct_(double *RV, double *AV, double *WAVE, int *OPT ) {
-  return GALextinct(*RV, *AV, *WAVE, *OPT);
+double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST ) {
+  return GALextinct(*RV, *AV, *WAVE, *OPT, PARLIST);
 }
 void text_mwoption__(char *nameOpt, int  *OPT, char *TEXT) {
   text_MWoption(nameOpt,*OPT,TEXT);
@@ -305,7 +305,7 @@ void modify_MWEBV_SFD(int OPT, double RA, double DECL,
 
 
 // **********************************************
-double GALextinct(double RV, double AV, double WAVE, int OPT) {
+double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
 
 /*** 
   
@@ -359,6 +359,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
                 in the UV plus various other functions composed together at
                 other wavelengths. Tested against Gordon 2024 (JOSS 9, 7023).
 
+   PARLIST => optional set of double-precision parameters to refine calculations
+              Number of PARLIST params and their meaning depend on OPT.
+
   Returns magnitudes of extinction.
 
  Nov 1, 2006: Add option to use new/old NIR coefficients
@@ -374,11 +377,6 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
       c2 = [ 0.,  1.952,    2.908,   -3.989, -7.985,    $    ;(1994)
                  11.102,    5.491,  -10.805,  3.347 ]
 
-  Sep 18 2013 RK 
-    - add opt=99 option to use Fitzpatrick 99 update.
-    - reduce/remove pow calls to save CPU
-    - rename CCMextinct -> GALextinct
-
   Aug 4 2019 RK
    + fix subtle bug by returning XT=0 only if AV=0, and not if AV<1E-9.
      Recall that negative AV are used for warping spectra in kcor.c.
@@ -387,12 +385,17 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   Sep 19 2024 ST
    + add an exact Fitzpatrick 99 implementation with opt=9999.
 
-  Sep 25 2024 ST
+  Sep 25 2024 S.Thorp
    + Exact F'99 spline implementation promoted to opt=99
    - Old F'99 based on F'99/O'94 ratio deprecated to opt=-99
 
-  Oct 19 2024 ST
+  Oct 19 2024 S. Thorp
    + Begun adding more dust laws
+
+  Oct 24 2024 R.Kessler
+   + pass PARLIST based on sim-input key PARLIST_MWCOLORLAW: p0,p1,p2,...
+     PARLIST is not used yet, but is available for future development.
+
  ***/
 
   int i, DO94  ;
@@ -411,6 +414,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   // -----------------------------------------
   // if selecting non-CCM89-like option,
   // bypass everything else and call S. Thorp's functions
+
+  //  printf(" xxx %s: PARLIST = %f %f %f \n", PARLIST[0], PARLIST[1], PARLIST[2] ); fflush(stdout);
   
   if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
     XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
@@ -418,9 +423,15 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   }
   else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
       double XTA, XTB;
-      XTA = GALextinct_Fitz99_exact(RV, AV, WAVE, 99);
-      XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);
+      double RV_Fitz2003 = 2.74; // R,K. -- ensure double cast for this param
+
+      XTA = GALextinct_Fitz99_exact(RV,          AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT);
+      XTB = GALextinct_Fitz99_exact(RV_Fitz2003, AV, WAVE, OPT_MWCOLORLAW_GORD03);
+
+      // xxx mark delete XTA = GALextinct_Fitz99_exact(RV,   AV, WAVE,  99);
+      // xxx mark delete XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);      
       return FA*XTA + (1-FA)*XTB ;
+      
   } else if ( abs(OPT) == OPT_MWCOLORLAW_FITZ19_CUBIC ) {
       XT = GALextinct_Fitz19(RV, AV, WAVE, (OPT>0) ? 1 : 0);
       return XT;

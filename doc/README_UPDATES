@@ -22663,7 +22663,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    + Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.
    + NONLINEARITY_FILE has new OPTMASK_NONLIN to select count-tot
       or count-rate option
-      
+
+   + lots of new Galactic dust laws for SIM and LCFIT;
+     see 4.21 Simulating Galactic Extinction
+
+   + new sim-input "PARLIST_MWCOLORLAW: p0,p1,p2,..." is passed to GALextinct()
+     function calls with extra PARLIST_MWCOLORLAW arg. New param list is not used
+     yet (inside MWgaldust.c), but it may be used later.
+     
          *****  MISCELLANEOUS(v11_05q) *****
 
    snlc_sim.c[h]:

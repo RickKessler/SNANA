@@ -518,10 +518,11 @@ void  PSNID_INIT_XTMW(int OPT_MWCOLORLAW) {
   //
   // Sep 18 2013: pass OPT_MWCOLORLAW as argument for GALextinct
 
-  double LAMAVG, RV, AV, XTMW, NXTMW ; ;
+  double LAMAVG, RV, AV, XTMW, NXTMW ;
+  double PARDUM = 0.0 ;
   int ifilt ;
   char cfilt[2] ;
-  //  char fnam[] = "PSNID_INIT_XTMW" ;
+  char fnam[] = "PSNID_INIT_XTMW" ;
 
   // ----------------- BEGIN ------------
 
@@ -536,7 +537,7 @@ void  PSNID_INIT_XTMW(int OPT_MWCOLORLAW) {
     LAMAVG = (double)SNGRID_PSNID[TYPEINDX_SNIA_PSNID].FILTER_LAMAVG[ifilt];
     if ( LAMAVG <= 0.0 ) { continue; }
 
-    XTMW   = GALextinct ( RV, AV, LAMAVG, OPT_MWCOLORLAW );
+    XTMW   = GALextinct ( RV, AV, LAMAVG, OPT_MWCOLORLAW, &PARDUM );
     PSNID_INPUTS.XTMW_at_AV1[ifilt] = XTMW ; // store in global
     NXTMW++ ;
 

@@ -9111,7 +9111,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,sigFrac, RcenFrac, GALFRAC
     ,GaussOvp[NMAGPSF_HOSTLIB+1] 
     ,AV, LAMOBS_AVG, MWXT[MXFILTINDX]
-    ,RVMW = 3.1
+    ,RVMW = 3.1, PARDUM = 0.0 
     ;
   
   double lamavg, lamrms, lammin, lammax ;
@@ -9135,7 +9135,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 			    &lamavg, &lamrms, &lammin, &lammax);
 
     LAMOBS_AVG = lamavg ;
-    MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94 );
+    MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94, &PARDUM );    
 
     // compute & store galaxy mag if they are defined
     IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;

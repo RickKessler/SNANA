@@ -526,8 +526,9 @@ void genmag_BAYESN(
     double AV    = parList_SN[2] ;
     double RV    = parList_SN[3] ;
 
-    int    OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW;
-    double z1, meanlam_obs,  meanlam_rest, ZP; 
+    int     OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW;
+    double *PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW;
+    double z1, meanlam_obs,  meanlam_rest, ZP, PARDUM=0.0 ; 
     double t0, t1, f0, f1, flux ;
 
     int MEMD = sizeof(double)*Nobs ;
@@ -735,7 +736,7 @@ void genmag_BAYESN(
 	double RV_MW = MWXT_SEDMODEL.RV;
 	double AV_MW = RV_MW * mwebv;
 	// problem: the 99 arg (colorlaw) is hard-wired ??
-	double XTMAG_MW = GALextinct(RV_MW, AV_MW, this_lam, OPT_COLORLAW);
+	double XTMAG_MW = GALextinct(RV_MW, AV_MW, this_lam, OPT_COLORLAW, PARLIST_COLORLAW);
 	eA_lam_MW   = pow(10.0, -0.4*XTMAG_MW);
       }
 	
@@ -743,7 +744,7 @@ void genmag_BAYESN(
 	eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
       } else {
 	
-	double XTMAG_host = GALextinct(RV, AV, lam_model, OPT_COLORLAW );
+	double XTMAG_host = GALextinct(RV, AV, lam_model, OPT_COLORLAW, PARLIST_COLORLAW );
 	eA_lam_host = pow(10.0, -0.4*XTMAG_host);
       }
       

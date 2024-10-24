@@ -194,7 +194,7 @@ double eval_XTMAG_AV1(int ifilt, double Trest, double RVinv) {
   double RV     = 1.0/RVinv ;
 
   int  ilam_filt, ilam_sed, it, jflux ;
-  double XTMAG_AV1, XTMAG_TMP, LAM, TRANS ;
+  double XTMAG_AV1, XTMAG_TMP, LAM, TRANS, PARDUM=0.0 ;
   double FLUX, FT, arg, FLUX_RATIO, XTFRAC, FLUXSUM=0.0, FLUXSUMXT=0.0 ;
   char fnam[] = "eval_XTMAG_AV1" ;
 
@@ -207,7 +207,7 @@ double eval_XTMAG_AV1(int ifilt, double Trest, double RVinv) {
     LAM       = FILTERCAL_REST->LAM[ifilt][ilam_filt];
     TRANS     = FILTERCAL_REST->TRANS[ifilt][ilam_filt];
 
-    XTMAG_TMP = GALextinct ( RV, AV1, LAM, OPT_MWCOLORLAW_XTMAG );
+    XTMAG_TMP = GALextinct ( RV, AV1, LAM, OPT_MWCOLORLAW_XTMAG, &PARDUM );
 
     // get index for SN flux
     ilam_sed  = FILTERCAL_REST->ILAM_SED[ifilt][ilam_filt];

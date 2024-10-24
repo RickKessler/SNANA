@@ -183,6 +183,7 @@ void genmag_NON1ASED (
   int  ifilt, epobs, ILAMPOW = 0 ;
   double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
   double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magerr, magobs;
+  double  PARDUM = 0.0;
   char *cfilt;
   char fnam[] = "genmag_NON1ASED" ;
 
@@ -200,11 +201,11 @@ void genmag_NON1ASED (
   // get approx Galactic extinction using central wavelength of filter
   // No need to be as precise as SALT2.
   AV_MW = RV_MWDUST * mwebv ; 
-  XT_MW = GALextinct ( RV_MWDUST, AV_MW, meanlam_obs, 94 );
+  XT_MW = GALextinct ( RV_MWDUST, AV_MW, meanlam_obs, 94, &PARDUM );  
 
   // get extinction from host in rest-frame
   if ( AV_host > 1.0E-9 ) 
-    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94 ); }
+    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94, &PARDUM ); }
   else
     { XT_HOST = 0.0 ; }
 

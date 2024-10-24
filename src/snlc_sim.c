@@ -917,6 +917,9 @@ void set_user_defaults(void) {
   // --- Galactic extinction params
   INPUTS.RV_MWCOLORLAW       = RV_MWDUST ;
   INPUTS.OPT_MWCOLORLAW      = OPT_MWCOLORLAW_ODON94 ; // default
+
+  for(i=0; i < 10; i++ ) { INPUTS.PARLIST_MWCOLORLAW[i]  = 0.0; }
+  
   INPUTS.OPT_MWEBV           = OPT_MWEBV_FILE   ;      // default
   INPUTS.APPLYFLAG_MWEBV     = 0 ;    // default: do NOT correct fluxes
   INPUTS.MWEBV_FLAG          = 1 ;    // default is to do MW extinction
@@ -1661,7 +1664,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   ISKEY_RANSYSTPAR = (strstr(WORDS[0],"RANSYSTPAR") != NULL);
 
   ISKEY_MWEBV = 
-    (strstr(WORDS[0],"MWEBV") != NULL || 
+    (strstr(WORDS[0],"MWEBV")      != NULL || 
      strstr(WORDS[0],"MWCOLORLAW") != NULL )  
     && !(ISKEY_CUTWIN || ISKEY_RANSYSTPAR);
 		 
@@ -4773,9 +4776,11 @@ int  parse_input_CID(char **WORDS, int keySource ) {
 // =====================================================
 int parse_input_MWEBV(char **WORDS, int keySource ) {
 
-
+  // Oct 24 2024: read PARLIST_MWCOLORAW
+  
   bool skip_readme_store = false;  
   int ITMP=0, N=0;
+  char ctmp[60];
   char fnam[] = "parse_input_MWEBV" ;
   // ------------- BEGIN -------------
 
@@ -4786,6 +4791,19 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
     N++; sscanf(WORDS[N], "%d", &INPUTS.OPT_MWCOLORLAW ) ;
     skip_readme_store = true ;  
   }
+  else if ( keyMatchSim(1, "PARLIST_MWCOLORLAW", WORDS[0],keySource) ) {
+    // read and split comma-sep list
+    N++; sscanf(WORDS[N], "%s", ctmp ) ;     //.xyz
+
+    char **str_list;  int NPAR;
+    parse_commaSepList(fnam, ctmp, 10, 60, &NPAR, &str_list);
+    for(ITMP=0; ITMP < NPAR; ITMP++ )   {
+      sscanf(str_list[ITMP], "%le", &INPUTS.PARLIST_MWCOLORLAW[ITMP] );
+      free(str_list[ITMP]);
+    }
+    free(str_list);	    
+  }
+  
   else if ( keyMatchSim(1, "OPT_MWEBV", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%d", &ITMP );
     INPUTS.OPT_MWEBV = abs(ITMP);
@@ -12951,12 +12969,13 @@ double gen_MWEBV(double RA, double DEC) {
   double AV_MAP   = RV * GENLC.MWEBV;        // reported from map
   double AV_TRUE  = RV * GENLC.MWEBV_SMEAR ; // yes, smear=true
   OPT      = INPUTS.OPT_MWCOLORLAW ;
+  double *PARLIST = INPUTS.PARLIST_MWCOLORLAW ;
   
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
     LAMOBS     = (double)INPUTS.LAMAVG_OBS[ifilt_obs];
-    MCOR_MAP   = GALextinct( RV, AV_MAP,  LAMOBS, OPT );
-    MCOR_TRUE  = GALextinct( RV, AV_TRUE, LAMOBS, OPT );
+    MCOR_MAP   = GALextinct( RV, AV_MAP,  LAMOBS, OPT, PARLIST );
+    MCOR_TRUE  = GALextinct( RV, AV_TRUE, LAMOBS, OPT, PARLIST );
     GENLC.MWXT_MAG[ifilt_obs] = MCOR_TRUE ; // Nov 2023
 
     // check PLASTICC option to actually correct fluxes for MW
@@ -25662,7 +25681,7 @@ void init_genSEDMODEL(void) {
 			 genSEDMODEL.lam, genSEDMODEL.primaryFlux );
 
 
-  init_MWXT_SEDMODEL(INPUTS.OPT_MWCOLORLAW, INPUTS.RV_MWCOLORLAW);
+  init_MWXT_SEDMODEL(INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW, INPUTS.RV_MWCOLORLAW);
 
   // init z-range; include safety margin for zcmb->zhelio 
   // and for VPEC

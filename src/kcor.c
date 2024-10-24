@@ -428,7 +428,8 @@ int rd_input(void) {
   MAGSYSTEM.DO_TRANSFORM = 0 ;
 
   INPUTS.OPT_MWCOLORLAW = OPT_MWCOLORLAW_ODON94 ; 
-
+  for(i=0; i<10; i++ ) { INPUTS.PARLIST_MWCOLORLAW[i] = 0.0 ; }
+  
   INPUTS.FASTDEBUG    = 0 ;
   INPUTS.SKIPKCOR     = 0 ;
   INPUTS.FLUXERR_FLAG = 0 ;
@@ -3684,7 +3685,8 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 
 	 for ( iebv=0; iebv <= MXMWEBV; iebv++ ) {
 	   mwav = INPUTS.RV_MWCOLORLAW * MWEBV_LIST[iebv] ;
-	   tmp  = 0.4 * GALextinct ( RV, mwav, lam, INPUTS.OPT_MWCOLORLAW );
+	   tmp  = 0.4 * GALextinct ( RV, mwav, lam,
+				     INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW );
 	   mwxt = 1./pow(ten,tmp) ;
 	   flux_obs[iebv]  += mwxt * wflux * flux * trans_obs  ; 
 	   flux_obs[iebv]  += 0.1E-8;
@@ -3934,7 +3936,8 @@ double snflux( double epoch, double lambda, double redshift, double av ) {
 
    if ( INPUTS.AV_OPTION == 2 ) {
      RV          = INPUTS.RV_MWCOLORLAW ;
-     tmp         = 0.4 * GALextinct ( RV, av, LAMZ, INPUTS.OPT_MWCOLORLAW );
+     tmp         = 0.4 * GALextinct ( RV, av, LAMZ,
+				      INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW);
      warp        = 1.0/pow(TEN,tmp) ;
      flux       *= warp ;
    }

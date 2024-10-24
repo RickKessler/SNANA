@@ -121,8 +121,9 @@ struct INPUTS {
   int IRD_ZPOFF ;  // 1 => read ZPOFF file.
 
   double RV_MWCOLORLAW ;    // (I) A(V)/E(B-V) in LMC
-  int   OPT_MWCOLORLAW ;    // color law option for Galactic extinction
-  char  STR_MWCOLORLAW[60]; // definition text string
+  int    OPT_MWCOLORLAW ;    // color law option for Galactic extinction
+  double PARLIST_MWCOLORLAW[10];
+  char   STR_MWCOLORLAW[60]; // definition text string
 
   // inputs for SNMAG text dump
   int    DUMP_SNMAG;     // text-dump option of SN mag vs. epoch and filter

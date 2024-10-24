@@ -427,14 +427,15 @@ void filtdump_SEDMODEL(void) {
 
 
 // ***********************************
-void init_MWXT_SEDMODEL(int OPT_COLORLAW, double RV) {
-
-  // Created Sep 2013
+void init_MWXT_SEDMODEL(int OPT_COLORLAW, double *PARLIST_COLORLAW, double RV) {
   // ------------------------
-  
   MWXT_SEDMODEL.OPT_COLORLAW = OPT_COLORLAW ;
   MWXT_SEDMODEL.RV = RV ;
 
+  int i;  
+  for (i=0; i < 10; i++ ) 
+    { MWXT_SEDMODEL.PARLIST_COLORLAW[i] = PARLIST_COLORLAW[i] ; }
+  
 } // end of init_MWXT_SEDMODEL
 
 // **************************************
@@ -2193,8 +2194,8 @@ void init_redshift_sedmodel__(int *NZbin, double *Zmin, double *Zmax) {
   init_redshift_SEDMODEL(*NZbin, *Zmin, *Zmax);
 }
 
-void init_mwxt_sedmodel__(int *OPT_COLORLAW, double *RV) {
-  init_MWXT_SEDMODEL(*OPT_COLORLAW,*RV)  ;
+void init_mwxt_sedmodel__(int *OPT_COLORLAW, double *PARLIST_COLORLAW, double *RV) {
+  init_MWXT_SEDMODEL(*OPT_COLORLAW, PARLIST_COLORLAW, *RV)  ;
 }
 
 void get_lamrange_sedmodel__(int *opt, double *lammin, double *lammax) {
@@ -2590,7 +2591,8 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
 
   int  NLAMFILT, NBSPEC, ilam, I8, I8p, ifilt, ifilt_min ;
   int  OPT_COLORLAW ;
-  double LAMOBS, AV, XT_MAG, XT_FRAC, arg    ;
+  double *PARLIST_COLORLAW ;
+  double LAMOBS, AV, XT_MAG, XT_FRAC, arg, PARDUM=0.0    ;
   char fnam[] = "fill_TABLE_MWXT_SEDMODEL";
   
   // ------------- BEGIN ------------------
@@ -2618,7 +2620,8 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
   if ( mwebv == SEDMODEL_MWEBV_LAST ) { return ; }
 
   AV  = RV * mwebv ; 
-  OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW ;
+  OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW ;
+  PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW ;  
   NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   if ( NBSPEC>0 ) { ifilt_min=0; } else { ifilt_min=1; }
 
@@ -2628,7 +2631,7 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
 
     for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
       LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilam] ;
-      XT_MAG     = GALextinct ( RV, AV, LAMOBS, OPT_COLORLAW ) ;
+      XT_MAG     = GALextinct ( RV, AV, LAMOBS, OPT_COLORLAW, PARLIST_COLORLAW ) ;
       arg        = -0.4*XT_MAG ;
       XT_FRAC    = pow(TEN,arg);    // flux-fraction thru MW
       SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam]  = XT_FRAC ;
@@ -2679,7 +2682,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_obs, ifilt_min ;
   int  OPT_COLORLAW, NBSPEC ;
-
+  double *PARLIST_COLORLAW ;
   double  LAMOBS, LAMREST, XT_MAG, XT_FRAC, arg    ;
 
   char fnam[] = "fill_TABLE_HOSTXT_SEDMODEL";
@@ -2714,7 +2717,8 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   if ( z  != SEDMODEL_HOSTXT_LAST.z  ) { update_hostxt = true; }
   if ( !update_hostxt ) { return; } // put back, July 13 2020
 
-  OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW ;
+  OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW ;
+  PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW ;
   NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   if ( NBSPEC>0 ) { ifilt_min=0; } else { ifilt_min=1; }
 
@@ -2725,7 +2729,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
     for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
       LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilam] ;
       LAMREST    = LAMOBS/(1.0 + z);
-      XT_MAG     = GALextinct ( RV, AV, LAMREST, OPT_COLORLAW ) ;
+      XT_MAG     = GALextinct ( RV, AV, LAMREST, OPT_COLORLAW, PARLIST_COLORLAW ) ;
       arg        = -0.4*XT_MAG ;
       XT_FRAC    = pow(TEN,arg);    // flux-fraction thru host
       SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam]  = XT_FRAC ;
@@ -3576,8 +3580,9 @@ void genSpec_SEDMODEL(int ised,
   int    IFILT  = JFILT_SPECTROGRAPH ;
   int    NBSPEC = FILTER_SEDMODEL[IFILT].NLAM ;
   double z1     = 1.0 + z ;
+  double PARDUM = 0.0 ;
   bool   DOXT = ( AV_host > 1.0E-9 ) ;
-
+  
   double LAMTMP_OBS, LAMTMP_REST, LAM0, LAM1, LAMAVG, lamBin, lam ;
   double ZP, MAG, FLUXGEN_forSPEC, FLUXGEN_forMAG;
   double FTMP, MWXT_FRAC, x0fac ;
@@ -3648,7 +3653,7 @@ void genSpec_SEDMODEL(int ised,
     HOSTXT_FRAC = 1.0; 
     if ( DOXT ) { // host
       LAMTMP_REST = LAMAVG/z1 ;
-      HOSTXT_MAGOFF = GALextinct ( RV_host, AV_host, LAMTMP_REST, 94 ); 
+      HOSTXT_MAGOFF = GALextinct ( RV_host, AV_host, LAMTMP_REST, 94, &PARDUM ); 
       HOSTXT_FRAC   = pow(TEN, -0.4*HOSTXT_MAGOFF);
     }
 
@@ -3682,22 +3687,6 @@ void genSpec_SEDMODEL(int ised,
   // ------------------------------------------------
   // ------- apply host galaxy extinction -----------
 
-
-  /* xxx mark xxxxxxxxx
-  // check before removing: int NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  if ( MAGOFF == 0.0  &&  DOXT==0 ) { return ; }
-  for(ispec=0; ispec < NBSPEC; ispec++ ) {  
-    // get extinction from host in rest-frame (Jan 15, 2012)
-    if ( DOXT ) {
-      LAM       = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ispec] ;
-      MAGOFF_XT = GALextinct ( RV_host, AV_host, LAM, 94 ); 
-      FRAC_XT   = pow(TEN, -0.4*MAGOFF_XT);
-    }
-
-    GENMAG_LIST[ispec]  += ( MAGOFF + MAGOFF_XT ) ;
-    GENFLUX_LIST[ispec] *= ( FRAC * FRAC_XT );
-  }
-  xxxx  end mark xxxxx */
 
   // - - - - - - - - - - - - - - - -  
   if ( LDMP ) { debugexit(fnam); }

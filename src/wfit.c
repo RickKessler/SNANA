@@ -5234,10 +5234,11 @@ void write_output_resid(void) {
     cid          = HD_LIST[0].cid[i] ;    
     z            = HD_FINAL.z[i] ;  // can differ from HD_LIST[0] for HDIBC
     mu_obs       = HD_FINAL.mu[i];  // idem
+    mu_sig       = HD_LIST[0].mu_sig[i];
+    
     rz           =  codist( z, &cpar) ;    
     mu_cos       =  get_mu_cos(z, rz) ; // best fit model mu    
     mu_dif       =  mu_obs - mu_cos;  // muresid
-    mu_sig       =  HD_LIST[0].mu_sig[i];
     chi2         =  (mu_dif*mu_dif) / ( mu_sig*mu_sig );
 
     fprintf(fpresid,"SN: "

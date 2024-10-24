@@ -47,19 +47,80 @@ P.~Nugent et~al.
 J.~{Carretero} et~al.
 \newblock {An algorithm to build mock galaxy catalogues using MICE
   simulations}.
-\newblock {\em mnras}, 447:646--670, February 2015.
+\newblock {\em MNRAS}, 447:646--670, February 2015.
 
 \bibitem{LogNormal2013}
 V.~{Marra}, M.~{Quartin}, and L.~{Amendola}.
 \newblock {Accurate weak lensing of standard candles. I. Flexible cosmological
   fits}.
-\newblock {\em prd}, 88(6):063004, September 2013.
+\newblock {\em Phys. Rev. D}, 88(6):063004, September 2013.
 
 \bibitem{Schlegel_98}
 D.~J. {Schlegel}, D.~P. {Finkbeiner}, and M.~{Davis}.
 \newblock {Maps of Dust Infrared Emission for Use in Estimation of Reddening
   and Cosmic Microwave Background Radiation Foregrounds}.
 \newblock {\em Astrophys.\ J.}, 500:525, June 1998.
+
+\bibitem{Schlafly_11}
+E.~F. {Schlafly} and D.~P. {Finkbeiner}.
+\newblock {Measuring Reddening with Sloan Digital Sky Survey Stellar Spectra
+  and Recalibrating SFD}.
+\newblock {\em Astrophys.\ J.}, 737(2):103, August 2011.
+
+\bibitem{Cardelli1989}
+J.~A. {Cardelli}, G.~C. {Clayton}, and J.~S. {Mathis}.
+\newblock {The Relationship between Infrared, Optical, and Ultraviolet
+  Extinction}.
+\newblock {\em Astrophys.\ J.}, 345:245, October 1989.
+
+\bibitem{ODonnell1994}
+J.~E. {O'Donnell}.
+\newblock {$R_V$-dependent Optical and Near-Ultraviolet Extinction}.
+\newblock {\em Astrophys.\ J.}, 422:158, February 1994.
+
+\bibitem{Fitzpatrick1999}
+E.~L. {Fitzpatrick}.
+\newblock {Correcting for the Effects of Interstellar Extinction}.
+\newblock {\em PASP}, 111(755):63--75, January 1999.
+
+\bibitem{Fitzpatrick2004}
+E.~L. {Fitzpatrick}.
+\newblock {Interstellar Extinction in the Milky Way Galaxy}.
+\newblock In A.~N. {Witt}, G.~C. {Clayton}, and B.~T. {Draine}, editors, {\em
+  Astrophysics of Dust}, volume 309 of {\em ASP Conf.\ Series}, page~33, May
+  2004.
+
+\bibitem{Fitzpatrick2019}
+E.~L. {Fitzpatrick} et~al.
+\newblock {An Analysis of the Shapes of Interstellar Extinction Curves. VII.
+  Milky Way Spectrophotometric Optical-through-ultraviolet Extinction and Its
+  R-dependence}.
+\newblock {\em Astrophys.\ J.}, 886(2):108, December 2019.
+
+\bibitem{Gordon2023}
+K.~D. {Gordon} et~al.
+\newblock {One Relation for All Wavelengths: The Far-ultraviolet to
+  Mid-infrared Milky Way Spectroscopic R(V)-dependent Dust Extinction
+  Relationship}.
+\newblock {\em Astrophys.\ J.}, 950(2):86, June 2023.
+
+\bibitem{Gordon2016}
+K.~D. {Gordon} et~al.
+\newblock {The Panchromatic Hubble Andromeda Treasury. XV. The BEAST: Bayesian
+  Extinction and Stellar Tool}.
+\newblock {\em Astrophys.\ J.}, 826(2):104, August 2016.
+
+\bibitem{Gordon2003}
+K.~D. {Gordon} et~al.
+\newblock {A Quantitative Comparison of the Small Magellanic Cloud, Large
+  Magellanic Cloud, and Milky Way Ultraviolet to Near-Infrared Extinction
+  Curves}.
+\newblock {\em Astrophys.\ J.}, 594(1):279--293, September 2003.
+
+\bibitem{Gordon2024}
+K.~{Gordon}.
+\newblock {dust\_extinction: Interstellar Dust Extinction Models}.
+\newblock {\em J.\ Open Source Software}, 9(100):7023, August 2024.
 
 \bibitem{PSNID_2011}
 M.~Sako et~al.
@@ -82,13 +143,13 @@ J.~{Marriner} et~al.
 R.~{Kessler} and D.~{Scolnic}.
 \newblock {Correcting Type Ia Supernova Distances for Selection Biases and
   Contamination in Photometrically Identified Samples}.
-\newblock {\em apj}, 836:56, February 2017.
+\newblock {\em Astrophys.\ J.}, 836:56, February 2017.
 
 \bibitem{Hui_06}
 L.~Hui and P.~B. Greene.
 \newblock {Correlated Fluctuations in Luminosity Distance and the Importance of
   Peculiar Motion in Supernova Surveys}.
-\newblock {\em Phys. Rev.}, 73(12):123526, 2006.
+\newblock {\em Phys. Rev. D}, 73(12):123526, 2006.
 
 \bibitem{Goliath2001}
 M.~Goliath et~al.

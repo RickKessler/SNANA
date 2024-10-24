@@ -190,6 +190,12 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
       { sprintf(TEXT,"Gordon16 (cubic spline)");  }
 
+    else if ( OPT == OPT_MWCOLORLAW_FITZ19_LINEAR ) 
+      { sprintf(TEXT,"Fitzpatrick19 (linear interpolation)");  }
+    
+    else if ( OPT == OPT_MWCOLORLAW_FITZ19_CUBIC ) 
+      { sprintf(TEXT,"Fitzpatrick19 (cubic spline)");  }
+    
     else if ( OPT == OPT_MWCOLORLAW_GORD23 ) 
       { sprintf(TEXT,"Gordon23");  }
 
@@ -415,6 +421,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
       XTA = GALextinct_Fitz99_exact(RV, AV, WAVE, 99);
       XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);
       return FA*XTA + (1-FA)*XTB ;
+  } else if ( abs(OPT) == OPT_MWCOLORLAW_FITZ19_CUBIC ) {
+      XT = GALextinct_Fitz19(RV, AV, WAVE, (OPT>0) ? 1 : 0);
+      return XT;
   } else if ( OPT == OPT_MWCOLORLAW_GORD23 ) {
     XT = GALextinct_Gord23(RV, AV, WAVE);
     return XT;
@@ -574,7 +583,7 @@ Returns :
     int Nk;
     // constants
     double x02, gamma2, c1, c2, c3, c4, c5;
-    // target wavelength in inverse microns
+    // target wavenumber in inverse microns
     double x = 10000.0/WAVE;
     // spline result
     double y;
@@ -616,8 +625,6 @@ Returns :
     } else { //spline for optical/IR
         // powers of RV
         double RV2, RV3, RV4;
-        // terms in the cubic spline equation
-        double a, b, c, d, deltax, deltax2;
 
         // spline knot locations in inverse microns
         double xF[Nk];
@@ -651,65 +658,6 @@ Returns :
         xF[Nk-1] = 1.0/0.260;
         // spline knot values
         double yF[Nk];
-
-        // y''/y matrix
-        const double G03_KINVD[9][11] = {
-            { 11.201467969, -52.690684767, 48.582659722, -7.705696847, 0.877386748,
-                    -0.339951733, 0.084865232, -0.012693276, 0.002893244, -0.000773202, 0.000526911 },
-            { -2.577981004, 72.607477248, -126.932370504, 61.814312666, -7.038306836,
-                    2.727058064, -0.680780219, 0.101824167, -0.023209310, 0.006202551, -0.004226824 },
-            { 0.445803247, -12.555813672, 49.535686460, -54.424709215, 24.360360763,
-                    -9.438650490, 2.356255861, -0.352424737, 0.080329996, -0.021467717, 0.014629505 },
-            { -0.139009606, 3.915132347, -15.446133037, 26.877514442, -35.551419507,
-                    26.084847406, -6.511796855, 0.973968207, -0.222001619, 0.059328621, -0.040430400 },
-            { 0.038088042, -1.072729653, 4.232174924, -7.364324932, 27.542244488,
-                    -48.305810848, 28.277886834, -4.229518114, 0.964055974, -0.257638265, 0.175571551 },
-            { -0.007912506, 0.222851560, -0.879202677, 1.529883408, -5.721695235,
-                    25.965646157, -34.240788600, 16.590961977, -3.781663909, 1.010627344, -0.688707519 },
-            { 0.002124685, -0.059840637, 0.236085620, -0.410807977, 1.536403382,
-                    -6.972357831, 16.992309734, -21.958789087, 11.624418183, -3.106557101, 2.117011029 },
-            { -0.000376913, 0.010615545, -0.041880863, 0.072876073, -0.272553239,
-                    1.236874853, -3.014383528, 9.652605092, -11.374737045, 11.712886024, -7.981925999 },
-            { 0.000164979, -0.004646535, 0.018331691, -0.031898618, 0.119299397,
-                    -0.541393033, 1.319427134, -4.225046000, 7.599853858, -26.165792468, 21.911699595 }
-        };
-        const double F04_KINVD[8][10] = {
-                { 8.363001444, -29.445021665, 26.136103994, -5.423174767, 0.894742338,
-                    -0.579592918, 0.067504416, -0.014025779, 0.001743637, -0.001280700 },
-                { -2.178008666, 32.670129992, -60.816623962, 32.539048603, -5.368454030,
-                    3.477557505, -0.405026495, 0.084154674, -0.010461821, 0.007684200 },
-                { 0.349033220, -5.235498303, 25.130391856, -28.733019647, 20.579073782,
-                    -13.330637103, 1.552601566, -0.322592918, 0.040103646, -0.029456099 },
-                { -0.143088106, 2.146321587, -10.302343618, 17.313660802, -41.079282639,
-                    35.355167970, -4.117769370, 0.855572522, -0.106361845, 0.078122696 },
-                { 0.026683504, -0.400252565, 1.921212312, -3.228704024, 50.566388411,
-                    -77.512222582, 35.824720884, -7.443507408, 0.925351342, -0.679669874 },
-                { -0.007102699, 0.106540481, -0.511394311, 0.859426550, -13.459919650,
-                    36.916413476, -45.296062632, 22.122269570, -2.750164769, 2.019993983 },
-                { 0.000811556, -0.012173341, 0.058432036, -0.098198282, 1.537933619,
-                    -4.218078179, 13.229095656, -13.261965375, 10.411053066, -7.646910755 },
-                { -0.000364872, 0.005473077, -0.026270768, 0.044149485, -0.691447712,
-                    1.896428085, -5.947739106, 7.633399832, -21.255428514, 18.341800494 }
-        };
-        const double F99_KINVD[7][9] = {
-                { 10.250658602, -20.740327299, 11.788924891, -3.715854641, 2.664586253, 
-                    -0.310340815, 0.064481288, -0.008016093, 0.005887814 },
-                { -2.044608805, 10.254039610, -13.024855859, 13.772048671, -9.875739260, 
-                    1.150214211, -0.238986593, 0.029709995, -0.021821969 },
-                { 0.871617871, -4.371302789, 9.117884190, -31.624036073, 28.674517818, 
-                    -3.339682936, 0.693905048, -0.086263899, 0.063360769 },
-                { -0.162541946, 0.815173814, -1.700330722, 48.803145329, -76.266394662, 
-                    35.679620964, -7.413359167, 0.921603416, -0.676917025 },
-                { 0.043265924, -0.216985519, 0.452599357, -12.990574083, 36.584795098, 
-                    -45.257439481, 22.114244617, -2.749167134, 2.019261221 },
-                { -0.004943575, 0.024792817, -0.051714110, 1.484306083, -4.180187385, 
-                    13.224682565, -13.261048442, 10.410939076, -7.646827029 },
-                { 0.002222608, -0.011146734, 0.023250420, -0.667337025, 1.879392562,
-                    -5.945755002, 7.632987583, -21.255377265, 18.341762851 }
-        };
-
-        // counters
-        int i, q;
 
         // RV-dependent spline knot values
         // polynomial coeffs match FM_UNRED.pro and extinction.py
@@ -751,54 +699,90 @@ Returns :
         yF[Nk-2] = GALextinct_FM90(xF[Nk-2], c1, c2, c3, c4, c5, x02, gamma2);
         yF[Nk-1] = GALextinct_FM90(xF[Nk-1], c1, c2, c3, c4, c5, x02, gamma2);
 
-
-        // find index in knot list
-        q = 0;
-        while (q < Nk-1) {
-            if (x < xF[q+1]) { 
-                break; 
-            } else {
-                q++;
-            }
-        }
-
-        // evaluate the spline
-        deltax = xF[q+1] - xF[q];
-        deltax2 = deltax * deltax;
-        a = (xF[q+1] - x) / deltax;
-        b = 1.0 - a;
-        c = (a*a*a - a) * deltax2 / 6.0;
-        d = (b*b*b - b) * deltax2 / 6.0;
-        y = a*yF[q] + b*yF[q+1];
-        // compute 2nd derivatives
-        double d2yq = 0;
-        double d2yq1 = 0;
-        for (i=0; i<Nk; i++) {
-            if (q > 0) {
-                if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
-                    d2yq  += F04_KINVD[q-1][i] * yF[i];
-                } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
-                    d2yq  += G03_KINVD[q-1][i] * yF[i];
-                } else {
-                    d2yq  += F99_KINVD[q-1][i] * yF[i];
-                }
-            }
-            if (q < Nk-1) {
-                if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
-                    d2yq1 += F04_KINVD[q][i] * yF[i];
-                } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
-                    d2yq1 += G03_KINVD[q][i] * yF[i];
-                } else {
-                    d2yq1 += F99_KINVD[q][i] * yF[i];
-                }
-            }
-        }
-        y += c*d2yq + d*d2yq1;
-
+        y = GALextinct_FM_spline(x, Nk, xF, yF, 0);
+        
         return AV*(1.0 + y/RV);
     }
 
 } // end of GALextinct_Fitz99_exact
+
+// ============= FITZPATRICK ET AL. 2019 EXTINCTION LAW ==============
+double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC) {
+/*** 
+  Created by S. Thorp, Oct 20 2024
+
+  Input : 
+    AV    = V band (defined to be at 5495 Angstroms) extinction
+    RV    = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
+    WAVE  = wavelength in angstroms
+    CUBIC = if 1, uses cubic interpolation; else linear interpolation
+  Returns :
+    XT = magnitudes of extinction
+***/
+
+    char fnam[] = "GALextinct_Fitz19";
+
+    // Abort if out of bounds
+    if ( WAVE > WAVEMAX_FITZ19 || WAVE < WAVEMIN_FITZ19 ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
+      sprintf(c2err,"Fitzpatrick et al. 2019 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_FITZ19, WAVEMAX_FITZ19);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    // curve at WAVE
+    double y;
+
+    // number of tabulated values
+    int Nk = 102;
+
+    //tabulated values of E(x-V)/E(B-V)
+    //based on dust_extinction / Table 3 in Fitzpatrick+19
+    double xk[102] = { 0.000, 0.455, 0.606, 0.800, 1.000, 1.100, 1.200, 1.250,
+        1.300, 1.350, 1.400, 1.450, 1.500, 1.550, 1.600, 1.650, 1.700, 1.750,
+        1.800, 1.818, 1.850, 1.900, 1.950, 2.000, 2.050, 2.100, 2.150, 2.200,
+        2.250, 2.273, 2.300, 2.350, 2.400, 2.450, 2.500, 2.550, 2.600, 2.650,
+        2.700, 2.750, 2.800, 2.850, 2.900, 2.950, 3.000, 3.100, 3.200, 3.300,
+        3.400, 3.500, 3.600, 3.700, 3.800, 3.900, 4.000, 4.100, 4.200, 4.300,
+        4.400, 4.500, 4.600, 4.700, 4.800, 4.900, 5.000, 5.100, 5.200, 5.300,
+        5.400, 5.500, 5.600, 5.700, 5.800, 5.900, 6.000, 6.100, 6.200, 6.300,
+        6.400, 6.500, 6.600, 6.700, 6.800, 6.900, 7.000, 7.100, 7.200, 7.300,
+        7.400, 7.500, 7.600, 7.700, 7.800, 7.900, 8.000, 8.100, 8.200, 8.300,
+        8.400, 8.500, 8.600, 8.700 }; //knot positions in inverse microns
+    double k302k[102] = { -3.020, -2.747, -2.528, -2.222, -1.757, -1.567, -1.300,
+        -1.216, -1.070, -0.973, -0.868, -0.750, -0.629, -0.509, -0.407, -0.320,
+        -0.221, -0.133, -0.048, 0.000, 0.071, 0.188, 0.319, 0.438, 0.575, 0.665,
+        0.744, 0.838, 0.951, 1.000, 1.044, 1.113, 1.181, 1.269, 1.346, 1.405,
+        1.476, 1.558, 1.632, 1.723, 1.791, 1.869, 1.948, 2.009, 2.090, 2.253,
+        2.408, 2.565, 2.746, 2.933, 3.124, 3.328, 3.550, 3.815, 4.139, 4.534,
+        5.012, 5.560, 6.118, 6.565, 6.767, 6.681, 6.394, 6.038, 5.704, 5.432,
+        5.226, 5.078, 4.978, 4.913, 4.877, 4.862, 4.864, 4.879, 4.904, 4.938,
+        4.982, 5.038, 5.105, 5.181, 5.266, 5.359, 5.460, 5.569, 5.684, 5.805,
+        5.933, 6.067, 6.207, 6.352, 6.502, 6.657, 6.817, 6.981, 7.150, 7.323,
+        7.500, 7.681, 7.866, 8.054, 8.246, 8.441 }; //k function [R(5500)=3.02]
+    double sk[102] = { -1.000, -0.842, -0.728, -0.531, -0.360, -0.284, -0.223,
+        -0.198, -0.173, -0.150, -0.130, -0.110, -0.096, -0.081, -0.063, -0.048,
+        -0.032, -0.017, -0.005, 0.000, 0.007, 0.013, 0.012, 0.010, 0.004, 0.003,
+        0.000, 0.002, 0.001, 0.000, -0.000, 0.001, 0.001, -0.002, 0.000, -0.002,
+        -0.002, -0.006, -0.009, -0.011, -0.017, -0.025, -0.029, -0.037, -0.043,
+        -0.064, -0.092, -0.122, -0.161, -0.201, -0.249, -0.303, -0.366, -0.437,
+        -0.517, -0.603, -0.692, -0.774, -0.843, -0.888, -0.908, -0.903, -0.880,
+        -0.849, -0.816, -0.785, -0.760, -0.741, -0.729, -0.722, -0.722, -0.726,
+        -0.734, -0.745, -0.760, -0.778, -0.798, -0.820, -0.845, -0.870, -0.898,
+        -0.926, -0.956, -0.988, -1.020, -1.053, -1.087, -1.122, -1.158, -1.195,
+        -1.232, -1.270, -1.309, -1.349, -1.389, -1.429, -1.471, -1.513, -1.555,
+        -1.598, -1.641, -1.685 }; //s function
+                                  
+    double kRVk[102];
+    for (int i=0; i<Nk; i++) { kRVk[i] = k302k[i] + sk[i]*(RV-3.10)*0.99; }
+
+    y = GALextinct_FM_spline(x, Nk, xk, kRVk, CUBIC ? 0 : 1);
+
+    return AV*(1.0 + y/RV);
+
+} //end of GALextinct_Fitz19
 
 // ============= GORDON ET AL. 2023 EXTINCTION LAW ==============
 double GALextinct_Gord23(double RV, double AV, double WAVE) {
@@ -983,6 +967,98 @@ Returns :
     return k;
 
 } // end of GALextinct_FM90
+
+// ============= FM_UNRED SPLINE ====================
+double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin) {
+  /*
+  Created by S. Thorp, Oct 22 2024
+
+  Natural cubic spline (a la FM_UNRED).
+
+  Option to return after linear term computed.
+
+  Input :
+    x   =  Target to evaluate curve at (inverse microns)
+    Nk  =  Number of spline knots (including edges)
+    xk  =  Locations of spline knots (inverse microns)
+    yk  =  Value of curve at knot locations
+    lin =  If 1, quit early and return a linear interpolation.
+Returns :
+    y   =  Value of curve at x.
+  */
+
+    char fnam[] = "GALextinct_FM_spline" ;
+
+    // abort on x out of knot range
+    if (x < xk[0] || x > xk[Nk-1]) {
+      sprintf(c1err,"Spline interpolation out of bounds!");
+      sprintf(c2err,"Requested %.3f. Limits are [%.3f, %.3f].", 
+              x, xk[0], xk[Nk-1]);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    int j, q; //indexes
+    double A, B, C, D; //coefficients
+    double deltax, deltax2; // gap between bounding knots
+    double y; //result
+
+    // find index in knot list
+    q = 0; // qmin = 0; qmax = Nk-2
+    while (q < Nk-1) {
+        if (x < xk[q+1]) { 
+            break; 
+        } else {
+            q++;
+        }
+    }
+
+    // evaluate the spline (linear part & coeffs)
+    deltax = xk[q+1] - xk[q];
+    deltax2 = deltax * deltax;
+    A = (xk[q+1] - x) / deltax;
+    B = 1.0 - A;
+    y = A*yk[q] + B*yk[q+1];
+    if ( lin == 1 ) { return y; } //stop at linear part
+    // cubic part below
+    C = (A*A*A - A) * deltax2 / 6.0;
+    D = (B*B*B - B) * deltax2 / 6.0;
+
+    // compute 2nd derivatives
+    // tridiagonal solve using Thomas algorithm
+    double d2yq = 0.0;
+    double d2yq1 = 0.0;
+    double Kb[Nk-2]; //main diagonal in tridiagonal system
+    double Kc[Nk-3]; //off-diagonal in tridiagonal system
+    double Vd[Nk-2]; //right hand side
+    double wj; //scratch variable
+    // fill vectors
+    for (j=0; j<Nk-2; j++) {
+        Kb[j] = (xk[j+2] - xk[j])/3.0;
+        if (j<Nk-3) { Kc[j] = (xk[j+2] - xk[j+1])/6.0; }
+        Vd[j] = (yk[j+2] - yk[j+1])/(xk[j+2] - xk[j+1]) - (yk[j+1] - yk[j])/(xk[j+1] - xk[j]);
+    }
+    // forward substitution
+    for (j=1; j<Nk-2; j++) {
+        wj = Kc[j-1]/Kb[j-1]; //w factor
+        Kb[j] -= wj*Kc[j-1]; //update diagonal
+        Vd[j] -= wj*Vd[j-1]; //update rhs
+    } // forward substitution complete
+    // back substitution (stop at q)
+    d2yq = Vd[Nk-3]/Kb[Nk-3]; //final element of solution
+    // if q=Nk-2, terminate straight away
+    // otherwise enter, the loop and work back to q
+    for (j=Nk-4; j>q-2; j--) { //loop backwards
+        d2yq1 = d2yq; //shift previous element
+        if (j<0) { //we've gone far enough
+            d2yq = 0;
+            break;
+        } else { //find next element
+            d2yq = (Vd[j] - Kc[j]*d2yq1)/Kb[j];
+        }
+    }
+    y += C*d2yq + D*d2yq1;
+    return y;
+} //end GALextinct_FM_spline
 
 // ========== FUNCTION TO RETURN EBV(SFD) =================
 void MWgaldust(

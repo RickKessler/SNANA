@@ -1353,6 +1353,7 @@ void set_user_defaults(void) {
   INPUTS.PRESCALE_SIMGEN_DUMP = 1 ; // prescale
 
   INPUTS.SIMGEN_DUMP_NOISE = 0 ;
+  INPUTS.SIMGEN_DUMP_TRAINSALT = 0 ;
   
 #ifdef MODELGRID_GEN
   sprintf(GRIDGEN_INPUTS.FORMAT, "%s", "BLANK" );
@@ -4647,6 +4648,10 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_NOISE", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_NOISE );
+    return(N);
+  }
+  else if ( keyMatchSim(1, "SIMGEN_DUMP_TRAINSALT", WORDS[0], keySource) ) {
+    N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_TRAINSALT );
     return(N);
   }
 
@@ -14819,6 +14824,70 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   return;
 } // end wr_SIMGEN_DUMP_SPEC
+
+
+// ***********************************************
+void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
+
+  // Created Oct 2024
+  // Write TMAX (PEAKMJD) estimate needed by trainsalt (see tmaxlist key).
+  //
+
+  bool ADD_PKMJD_TRUE = true ;
+  FILE *fp ;
+  char *ptrFile = SIMFILE_AUX->DUMP_TRAINSALT ;  
+  char fnam[]   = "wr_SIMGEN_DUMP_TRAINSALT" ;
+
+  // ----------- BEGIN ---------
+
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+
+	  
+    sprintf(BANNER,"Init SIMGEN_DUMP_TRAINSALT file for each PEAKMJD estimate" );
+    print_banner(BANNER);
+
+
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_TRAINSALT = fopen(ptrFile, "wt")) == NULL ) {       
+      sprintf ( c1err, "Cannot open SIMGEN TRAINSALT-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_TRAINSALT ;
+
+    if ( ADD_PKMJD_TRUE ) 
+      { fprintf(fp,"#SNID  PKMJD  PKMJD_TRUE\n"); }
+    else
+      { fprintf(fp,"#SNID  PKMJD \n"); }
+    
+    
+  } // end OPT_DUMP==1
+
+
+  // - - - - 
+  
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
+    fp = SIMFILE_AUX->FP_DUMP_TRAINSALT ;
+
+    if ( ADD_PKMJD_TRUE )
+      { fprintf(fp,"%8d  %.4f  %.4f\n",  GENLC.CID, GENLC.PEAKMJD_SMEAR, GENLC.PEAKMJD ); }
+    else
+      { fprintf(fp,"%8d  %.4f \n",  GENLC.CID, GENLC.PEAKMJD_SMEAR ); }
+
+  } // end OPT_DUMP == 2
+
+  // - - - - - - - -  -
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
+    fp = SIMFILE_AUX->FP_DUMP_TRAINSALT ;
+    fclose(SIMFILE_AUX->FP_DUMP_TRAINSALT);
+    printf("  %s\n", ptrFile );     fflush(stdout);
+  }
+
+  return;
+} // end wr_SIMGEN_DUMP_TRAINSALT
 
 // ******************************************
 int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
@@ -29510,6 +29579,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->DUMP_DCR,   "%s.DCR",         prefix ); // Jun 2023
   sprintf(SIMFILE_AUX->DUMP_NOISE, "%s.NOISE",       prefix ); // Aug 2024
   sprintf(SIMFILE_AUX->DUMP_SPEC,  "%s.SPEC",        prefix ); // Mar 2024
+  sprintf(SIMFILE_AUX->DUMP_TRAINSALT, "%s.TRAINSALT",  prefix ); // Oct 2024  
 
   // Aug 10 2020: for batch mode, write YAML file locally so that
   //              it is easily found by batch script.
@@ -29545,6 +29615,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);         // DCR per epoch
   wr_SIMGEN_DUMP_NOISE(FLAG,SIMFILE_AUX, dummy);  // NOISE per epoch  
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);          // spectrograph
+  wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt
   wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );  // SED_TRUE
 
   // - - - - - 
@@ -29638,6 +29709,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);    // DCR
   // wr_SIMGEN_DUMP_NOISE(FLAG,SIMFILE_AUX);  // NOISE
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);   // SPECTRA
+  wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt  
 
 
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
@@ -29728,6 +29800,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP_DCR(FLAG,SIMFILE_AUX);
   wr_SIMGEN_DUMP_NOISE(FLAG,SIMFILE_AUX, dummy);  
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);
+  wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt  
   wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero);
 
   // copy ZVARATION file to SIM/[VERSION]

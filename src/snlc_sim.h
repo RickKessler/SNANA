@@ -109,15 +109,15 @@
 #define  STRING_REDSHIFT_FLAG (char*[5]){ "NONE", "SNSPEC", "HOSTSPEC", "HOSTPHOT", "WRONGHOST" }
 
 // define write flags
-#define FORMAT_MASK_VBOSE     1   // legacy verbose output
-#define FORMAT_MASK_TEXT      2   // terse/text output: MJD FLUX etc ...
-#define FORMAT_MASK_MODEL     4   // dump obs model mag vs. Tobs
-#define FORMAT_MASK_BLINDTEST 8   // suppress SIM_XXX and other info
-#define FORMAT_MASK_CIDRAN   16   // use random CID (1-MXCID)
-#define FORMAT_MASK_FITS     32   // write to fits file instead of ascii
-#define FORMAT_MASK_COMPACT  64   // suppress non-essential PHOT output
-#define FORMAT_MASK_ATMOS    128  // write RA,DEC,AIRMASS per obs, for atmos corr
-#define FORMAT_MASK_FILTERS  256  // write filterTrans files (Aug 2016)
+#define FORMAT_MASK_VBOSE        1   // legacy verbose output
+#define FORMAT_MASK_TEXT         2   // terse/text output: MJD FLUX etc ...
+#define FORMAT_MASK_MODEL        4   // dump obs model mag vs. Tobs
+#define FORMAT_MASK_BLINDTEST    8   // suppress SIM_XXX and other info
+#define FORMAT_MASK_CIDRAN      16   // use random CID (1-MXCID)
+#define FORMAT_MASK_FITS        32   // write to fits file instead of ascii
+#define FORMAT_MASK_COMPACT     64   // suppress non-essential PHOT output
+#define FORMAT_MASK_ATMOS      128  // write RA,DEC,AIRMASS per obs, for atmos corr
+#define FORMAT_MASK_FILTERS    256  // write filterTrans files (Aug 2016)
 #define FORMAT_MASK_noSPEC  2048  // suppress SPEC.FITS data; keep VERSION.SPEC dump file
 
 #define FLAG_NWD_ZERO 100 // flag that override word is a key with no arg
@@ -186,6 +186,7 @@ typedef struct { // SIMFILE_AUX_DEF
   FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXPATHLEN] ;
   FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXPATHLEN] ;  
   FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
+  FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXPATHLEN] ;  
   FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -1013,6 +1014,7 @@ struct INPUTS {
   int  PRESCALE_SIMGEN_DUMP ;  // prescale on writing to SIMGEN_DUMP file
 
   int  SIMGEN_DUMP_NOISE; // Aug 30 2014: diagnostic dump of noise per obs.
+  int  SIMGEN_DUMP_TRAINSALT; // OCt 2024: write aux file with TMAX for trainsalt
   
   // inputs for intrinsic scatter matrix (July 27, 2011)
   int    NCOVMAT_SCATTER ;           // number of non-zero elements
@@ -2219,7 +2221,7 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			  double *NOISE_PAR_LIST);
 void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
-
+void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);

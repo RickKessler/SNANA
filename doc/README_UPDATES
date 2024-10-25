@@ -22679,7 +22679,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
                TEXPOSE(WIDE): <list of Texpose per filter>
 	       etc ...
         from global simlib header
-	
+     + new sim input SIMGEN_DUMP_TRAINSALT to write tmaxlist file for trainsalt
+     
    SALT2mu.c
      + start option for "PARSHIFT: <varname> <value>" to shift
        arbitrary parameter such as zHD or HOST_LOGMASS.

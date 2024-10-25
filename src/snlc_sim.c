@@ -17296,7 +17296,10 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     else if ( strcmp(c_get,"FIELD:") == 0 ) {      
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.FIELD );
     }
-    
+
+    else if ( strcmp(c_get,"TEMPLATE_TEXPOSE_SPECTROGRAPH:") == 0 ) {
+      readdouble(fp_SIMLIB, 1, &SIMLIB_TEMPLATE.TEXPOSE_SPECTROGRAPH);
+    }
     else if ( strstr(c_get,"TEXPOSE") != NULL ) {
       // must be read after reading FILTERS key
       int ifld = SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE;

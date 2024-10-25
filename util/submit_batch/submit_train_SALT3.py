@@ -15,6 +15,7 @@
 #              methods with BayeSN training.
 #
 # Oct 21 2024: add 'modelconfig' to list of keys with config file to copy.
+# Oct 25 2024: add more files to move into misc/ dir (*.pkl, options.json, etc...)
 #
 # ------------
 
@@ -474,7 +475,7 @@ class train_SALT3(Program):
         if not done_misc :
             os.mkdir(misc_dir)
             mv_string = "*.png *.pdf *.npy gauss* *parameters* " \
-                        "salt3train_snparams.txt"
+                "*.pkl *.pickle options.json testing.log salt3train_snparams.txt"
             cmd = f"cd {model_dir} ; mv {mv_string} {SUBDIR_MISC}/"
             os.system(cmd)
 

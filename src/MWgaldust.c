@@ -187,6 +187,9 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) 
       { sprintf(TEXT,"Fitzpatrick04 (cubic spline)");  }
 
+    else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) 
+      { sprintf(TEXT,"Goobar08 (power law)");  }
+    
     else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
       { sprintf(TEXT,"Gordon16 (cubic spline)");  }
 
@@ -201,7 +204,7 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
 
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
-      sprintf(c2err,"Check OPT_MWCOLORAW_* in sntools.h");
+      sprintf(c2err,"Check OPT_MWCOLORAW_* in MWgaldust.h");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 

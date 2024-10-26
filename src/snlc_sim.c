@@ -918,7 +918,9 @@ void set_user_defaults(void) {
   INPUTS.RV_MWCOLORLAW       = RV_MWDUST ;
   INPUTS.OPT_MWCOLORLAW      = OPT_MWCOLORLAW_ODON94 ; // default
 
-  for(i=0; i < 10; i++ ) { INPUTS.PARLIST_MWCOLORLAW[i]  = 0.0; }
+  // ST: changed the default to -99 to force functions using
+  // this to abort if not provided
+  for(i=0; i < 10; i++ ) { INPUTS.PARLIST_MWCOLORLAW[i]  = -99.0; }
   
   INPUTS.OPT_MWEBV           = OPT_MWEBV_FILE   ;      // default
   INPUTS.APPLYFLAG_MWEBV     = 0 ;    // default: do NOT correct fluxes

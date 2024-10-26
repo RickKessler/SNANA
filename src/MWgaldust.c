@@ -345,13 +345,17 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
                 Gordon 2024 (JOSS 9, 7023): github.com/karllark/dust_extinction.
 
     OPT=216 => use Gordon et al. 2016 (ApJ 826, 104) as implemented by S. Thorp.
-                This has an extra free parameter, FA. The final curve is a
-                mixture of Fitzpatrick 1999 and Gordon et al. 2003 (ApJ 594, 279), 
-                where the latter is SMC bar-like dust with RV=2.74 and no
-                UV bump. FA=1 reverts to Fitzpatrick 1999. FA=0 gives
-                Gordon et al. 2003. Effective RV = 1/[FA/RV + (1-FA)/2.74]
+                This is a two parameter model, controlled by RVA and FA.
+                RVA is read from PARLIST[0];
+                FA is read from PARLIST[1].
+                RV argument is ignored.
+                Aborts if these are not present or within the valid ranges.
+                The final curve is a mixture of Fitzpatrick 1999 and
+                Gordon et al. 2003 (ApJ 594, 279), where the latter is SMC bar-like
+                dust with RV=2.74 and no UV bump. FA=1 reverts to Fitzpatrick 1999 
+                with RV=RVA. FA=0 gives Gordon et al. 2003 with RV=2.74. 
+                Effective RV = 1/[FA/RV + (1-FA)/2.74].
                 Tested against Gordon 2024 implementation.
-                Currently has FA=0.0 hardcoded => Gordon et al. 2003.
 
     OPT=223 => use Gordon et al. 2023 (ApJ 950, 86) as implemented by S. Thorp.
                 This is a full UV-OPT-IR extinction law parameterized by RV.
@@ -361,6 +365,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
 
    PARLIST => optional set of double-precision parameters to refine calculations
               Number of PARLIST params and their meaning depend on OPT.
+              OPT=216 : PARLIST[0]=RVA, PARLIST[1]=FA;
 
   Returns magnitudes of extinction.
 
@@ -396,18 +401,18 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
    + pass PARLIST based on sim-input key PARLIST_MWCOLORLAW: p0,p1,p2,...
      PARLIST is not used yet, but is available for future development.
 
+  Oct 26 2024 S. Thorp
+   + use the new PARLIST for Gordon '16 dust law
  ***/
 
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
-  double FA ;
   char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 
   XT = 0.0 ;
-  FA = 0.0 ; // hardcoded for now
 
   if ( AV == 0.0  )  {  return XT ; }
 
@@ -423,13 +428,33 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
   }
   else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
       double XTA, XTB;
-      double RV_Fitz2003 = 2.74; // R,K. -- ensure double cast for this param
+      double RVB = 2.74; // R,K. -- ensure double cast for this param
+      double RVA = PARLIST[0]; // extract RVA from PARLIST
+      double FA  = PARLIST[1]; // extract FA from PARLIST
+      // sanity check arguments from PARLIST
+      // try to catch missing arguments
+      if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
+          sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f and PARLIST[1]=%.1f",
+                  PARLIST[0], PARLIST[1]);
+          sprintf(c2err,"Gordon et al. (2016) requires two values in PARLIST_MWCOLORLAW : RVA, FA.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      // check parameter ranges
+      if ( RVA > RVMAX_FITZ99 || RVA < RVMIN_FITZ99 ){
+          sprintf(c1err,"Read invalid RVA=%.1f from PARLIST_MWCOLORLAW!", RVA);
+          sprintf(c2err,"Gordon et al. (2016) only valid for %.1f<=RVA<=%.1f.",
+                  RVMIN_FITZ99, RVMAX_FITZ99);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( FA > 1.0 || FA < 0.0 ){
+          sprintf(c1err,"Read invalid FA=%.1f from PARLIST_MWCOLORLAW!", FA);
+          sprintf(c2err,"Gordon et al. (2016) only valid for 0.0<=FA<=1.0.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
 
-      XTA = GALextinct_Fitz99_exact(RV,          AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT);
-      XTB = GALextinct_Fitz99_exact(RV_Fitz2003, AV, WAVE, OPT_MWCOLORLAW_GORD03);
+      XTA = GALextinct_Fitz99_exact(RVA, AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT);
+      XTB = GALextinct_Fitz99_exact(RVB, AV, WAVE, OPT_MWCOLORLAW_GORD03);
 
-      // xxx mark delete XTA = GALextinct_Fitz99_exact(RV,   AV, WAVE,  99);
-      // xxx mark delete XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);      
       return FA*XTA + (1-FA)*XTB ;
       
   } else if ( abs(OPT) == OPT_MWCOLORLAW_FITZ19_CUBIC ) {

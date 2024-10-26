@@ -190,6 +190,9 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) 
       { sprintf(TEXT,"Goobar08 (power law)");  }
     
+    else if ( OPT == OPT_MWCOLORLAW_MAIZ14 ) 
+      { sprintf(TEXT,"MaizApellaniz14 (cubic spline)");  }
+    
     else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
       { sprintf(TEXT,"Gordon16 (cubic spline)");  }
 
@@ -357,6 +360,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
                 stellar dust (G08 fit to Draine 2003). P=-2.5, A=0.8 gives
                 LMC-like circumstellar dust (G08 fit to Weingartner & Draine 2001).
 
+    OPT=214=> use Maiz Apellaniz et al. 2014 (A&A 564, A63) CCM-like curve.
+                Only valid above 0.3 microns. Tested against Gordon 2024 version.
+
     OPT=216 => use Gordon et al. 2016 (ApJ 826, 104) as implemented by S. Thorp.
                 This is a two parameter model, controlled by RVA and FA.
                 RVA is read from PARLIST[0];
@@ -418,6 +424,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
   Oct 26 2024 S. Thorp
    + use the new PARLIST for Gordon '16 dust law
    + add Goobar '08 circumstellar dust law
+   + add Maiz Apellaniz '14
  ***/
 
   int i, DO94  ;
@@ -474,6 +481,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
       // power law (eq. 3 in G08)
       XT = 1.0 - A + A*pow(WAVE/WAVE0, P);
       return AV*XT;
+  } else if ( OPT == OPT_MWCOLORLAW_MAIZ14 ) {
+      XT = GALextinct_Maiz14(RV, AV, WAVE);
+      return XT;
   } else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
       double XTA, XTB;
       double RVB = 2.74; // R,K. -- ensure double cast for this param
@@ -789,6 +799,96 @@ Returns :
     }
 
 } // end of GALextinct_Fitz99_exact
+
+// ============= MAIZ APELLANIZ ET AL. 2014 EXTINCTION LAW ==============
+double GALextinct_Maiz14(double RV, double AV, double WAVE) {
+/*** 
+  Created by S. Thorp, Oct 26 2024
+
+  Input : 
+    AV    = V band (defined to be at 5495 Angstroms) extinction
+    RV    = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
+    WAVE  = wavelength in angstroms
+  Returns :
+    XT = magnitudes of extinction
+***/
+
+    char fnam[] = "GALextinct_Maiz14";
+
+    // Abort if out of bounds
+    if ( WAVE > WAVEMAX_MAIZ14 || WAVE < WAVEMIN_MAIZ14 ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
+      sprintf(c2err,"Maiz Apellaniz et al. 2014 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_MAIZ14, WAVEMAX_MAIZ14);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    // curve at WAVE
+    double y;
+
+    // terms we'll compute
+    double a, b; //a and b curves at x
+
+    // evaluate the a and b curves
+    if (x < 1.0) { // just do the IR power law above 1 micron
+        a =  0.574 * pow(x, 1.61);
+        b = -0.527 * pow(x, 1.61);
+    } else { // do the spline
+        // all knots are independent of RV
+        // coefficients extracted from Gordon's SciPy spline implementation
+        double xk[11] = { 1.0, 1.15, 1.81984, 2.1, 2.27015, 2.7, 3.5,
+            3.9, 4.0, 4.1, 4.2 }; // knot positions
+        double a3[10] = { -3.09348541,  2.28902153e-1,  5.41605406e-1,
+            -6.37404842e-1,  3.52950213e-1, -5.91231605e-2,
+            -5.56727269,  48.1384135, -11.6556097, -12.6892172 }; //x^3
+        double a2[10] = { 5.57088021e-1, -8.34980412e-1, -3.74996957e-1,
+            8.02115549e-2, -2.45151747e-1,  2.09995201e-1,  6.80996157e-2,
+            -6.61262761, 7.82889643,  4.33221353 };  //x^2
+        double a1[10] = { 9.24140000e-1,  8.82456141e-1,  7.19649009e-2,
+            -1.06221772e-2, -3.86867508e-2, -5.37987921e-2, 1.68677061e-1,
+            -2.44913414, -2.32750725, -1.11139626 }; //x^1
+        double a0[10] = { 5.74000000e-1,  7.14714967e-1,  9.99971669e-1,
+            1.00260970,  9.99984676e-1,  9.66090893e-1, 1.02717773,  
+            7.49239041e-1,  4.86337764e-1, 3.20220393e-1 }; //x^0
+        double b3[10] = { 6.11543973, -4.71924979e-1, -3.75700076,
+            3.30710701, -6.80610047e-1,  4.81511488e-1, 17.8352808,
+            -124.325934,  12.0120271, 48.1516935 }; //x^3
+        double b2[10] = { -2.49479124e-1,  2.50246875,  1.55412607,
+            -1.60355793,  8.45548471e-2, -7.93125839e-1, 3.62501733e-1,
+            21.7648387, -15.5329415, -11.9293334 }; //x^2
+        double b1[10] = { -8.48470000e-1, -5.10521556e-1,  2.20674792,
+            2.19289909,  1.93444072,  1.62986148, 1.28536219,
+            10.1362984,  10.7594881, 8.01326059 }; //x^1
+        double b0[10] = { -5.27000000e-1, -6.39244171e-1, -2.26082358e-4,
+            6.57384043e-1,  1.00037205,  1.79345802, 2.83628055,  
+            4.54988367,  5.65683596, 6.58946738 };
+       
+
+        // find index in knot list
+        int q = 0; // qmin = 0; qmax = 9
+        while (q < 10) {
+            if (x < xk[q+1]) { 
+                break; 
+            } else {
+                q++;
+            }
+        }
+
+        //powers of x
+        double x1 = x - xk[q];
+        double x2 = x1*x1;
+        double x3 = x2*x1;
+        
+        // interpolate
+        a = a3[q]*x3 + a2[q]*x2 + a1[q]*x1 + a0[q];
+        b = b3[q]*x3 + b2[q]*x2 + b1[q]*x1 + b0[q];
+
+    }
+    return AV * (a + b/RV);
+
+} // end of GALextinct_Maiz14
 
 // ============= FITZPATRICK ET AL. 2019 EXTINCTION LAW ==============
 double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC) {

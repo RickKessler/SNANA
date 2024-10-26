@@ -135,11 +135,14 @@ class train_SALT3(Program):
 
         for key in KEY_LIST_FILE_COPY :
             if key in config[SECTION_FILE_COPY]:
-                input_file = config[SECTION_FILE_COPY][key]
-                if len(input_file) > 0:
-                    input_file_list.append(input_file)
-                    key_file_list.append(key)
-                
+                file_string = config[SECTION_FILE_COPY][key].replace(' ','')
+                input_files = file_string.split(',')                
+                if len(file_string)>0 and len(input_files) > 0 :
+                    for inp in input_files :
+                        inp = os.path.expandvars(inp)
+                        input_file_list.append(inp)
+                        key_file_list.append(key)
+        
         for input_file, key in zip(input_file_list,key_file_list):
             if not os.path.exists(input_file):
                 msgerr.append(f"Input file '{input_file}'")

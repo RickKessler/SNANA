@@ -344,6 +344,16 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
                 behaviour in the IR. Checked against implementation by
                 Gordon 2024 (JOSS 9, 7023): github.com/karllark/dust_extinction.
 
+    OPT=208 => use Goobar 2008 (ApJ 686, L103) power law for circumstellar dust.
+                This is a two parameter model, controlled by P and A.
+                P is read from PARLIST[0];
+                A is read from PARLIST[1].
+                RV argument is ignored.
+                Aborts if the required PARLIST entries are not present or
+                within the valid ranges. P=-1.5, A=0.9 gives MW-like circum-
+                stellar dust (G08 fit to Draine 2003). P=-2.5, A=0.8 gives
+                LMC-like circumstellar dust (G08 fit to Weingartner & Draine 2001).
+
     OPT=216 => use Gordon et al. 2016 (ApJ 826, 104) as implemented by S. Thorp.
                 This is a two parameter model, controlled by RVA and FA.
                 RVA is read from PARLIST[0];
@@ -365,6 +375,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
 
    PARLIST => optional set of double-precision parameters to refine calculations
               Number of PARLIST params and their meaning depend on OPT.
+              OPT=208 : PARLIST[0]=P, PARLIST[1]=A;
               OPT=216 : PARLIST[0]=RVA, PARLIST[1]=FA;
 
   Returns magnitudes of extinction.
@@ -403,6 +414,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
 
   Oct 26 2024 S. Thorp
    + use the new PARLIST for Gordon '16 dust law
+   + add Goobar '08 circumstellar dust law
  ***/
 
   int i, DO94  ;
@@ -423,10 +435,43 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
   //  printf(" xxx %s: PARLIST = %f %f %f \n", PARLIST[0], PARLIST[1], PARLIST[2] ); fflush(stdout);
   
   if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
-    XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
-    return XT ;
-  }
-  else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
+      XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
+      return XT ;
+  } else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) {
+      double WAVE0 = 5495.0; // reference V-band wavelength
+      double P = PARLIST[0]; //extract power law index from PARLIST
+      double A = PARLIST[1]; //extract prefactor from PARLIST
+      // try to catch missing arguments
+      if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
+          sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f and PARLIST[1]=%.1f",
+                  PARLIST[0], PARLIST[1]);
+          sprintf(c2err,"Goobar (2008) requires two values in PARLIST_MWCOLORLAW: P,A.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      // check parameter ranges
+      if ( P > PMAX_GOOB08 || P < PMIN_GOOB08 ){
+          sprintf(c1err,"Read invalid P=%.1f from PARLIST_MWCOLORLAW!", P);
+          sprintf(c2err,"Goobar (2008) only recommended for %.1f<=P<=%.1f.",
+                  PMIN_GOOB08, PMAX_GOOB08);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( A > 1.0 || A <= 0.0 ){
+          sprintf(c1err,"Read invalid A=%.1f from PARLIST_MWCOLORLAW!", A);
+          sprintf(c2err,"Goobar (2008) only valid for 0.0<A<=1.0.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      // check wavelength range
+      if ( WAVE < WAVEMIN_GOOB08 || WAVE > WAVEMAX_GOOB08 ) {
+          sprintf(c1err,"WAVE=%.1f out of range for Goobar (2008)", WAVE);
+          sprintf(c2err,"Recommended limits are %.1f<=WAVE<=%.1f.", 
+                  WAVEMIN_GOOB08, WAVEMAX_GOOB08);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+      // power law (eq. 3 in G08)
+      XT = 1.0 - A + A*pow(WAVE/WAVE0, P);
+      return AV*XT;
+  } else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
       double XTA, XTB;
       double RVB = 2.74; // R,K. -- ensure double cast for this param
       double RVA = PARLIST[0]; // extract RVA from PARLIST
@@ -436,7 +481,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
       if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
           sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f and PARLIST[1]=%.1f",
                   PARLIST[0], PARLIST[1]);
-          sprintf(c2err,"Gordon et al. (2016) requires two values in PARLIST_MWCOLORLAW : RVA, FA.");
+          sprintf(c2err,"Gordon et al. (2016) requires two values in PARLIST_MWCOLORLAW: RVA,FA.");
           errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       // check parameter ranges

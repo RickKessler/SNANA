@@ -1,46 +1,46 @@
-This is BibTeX, Version 0.99d (TeX Live 2020)
+This is BibTeX, Version 0.99d (TeX Live 2022)
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: snana_manual.aux
 The style file: unsrt.bst
 Database file #1: snana_manual.bib
-You've used 27 entries,
+You've used 32 entries,
             1791 wiz_defined-function locations,
-            642 strings with 7435 characters,
-and the built_in function-call counts, 5454 in all, are:
-= -- 463
-> -- 226
+            673 strings with 8256 characters,
+and the built_in function-call counts, 6586 in all, are:
+= -- 567
+> -- 258
 < -- 2
-+ -- 85
-- -- 58
-* -- 388
-:= -- 914
-add.period$ -- 81
-call.type$ -- 27
-change.case$ -- 27
++ -- 98
+- -- 66
+* -- 481
+:= -- 1090
+add.period$ -- 96
+call.type$ -- 32
+change.case$ -- 32
 chr.to.int$ -- 0
-cite$ -- 27
-duplicate$ -- 251
-empty$ -- 556
-format.name$ -- 58
-if$ -- 1202
+cite$ -- 32
+duplicate$ -- 296
+empty$ -- 677
+format.name$ -- 66
+if$ -- 1455
 int.to.chr$ -- 0
-int.to.str$ -- 27
-missing$ -- 27
-newline$ -- 138
-num.names$ -- 29
-pop$ -- 34
+int.to.str$ -- 32
+missing$ -- 32
+newline$ -- 163
+num.names$ -- 34
+pop$ -- 39
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 104
+skip$ -- 122
 stack$ -- 0
-substring$ -- 310
-swap$ -- 35
+substring$ -- 421
+swap$ -- 40
 text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
 warning$ -- 0
-while$ -- 54
-width$ -- 29
-write$ -- 299
+while$ -- 64
+width$ -- 34
+write$ -- 354

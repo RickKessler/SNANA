@@ -90,6 +90,13 @@ E.~L. {Fitzpatrick}.
   Astrophysics of Dust}, volume 309 of {\em ASP Conf.\ Series}, page~33, May
   2004.
 
+\bibitem{MaizApellaniz2014}
+J.~{Ma{\'\i}z Apell{\'a}niz} et~al.
+\newblock {The VLT-FLAMES Tarantula Survey. XVI. The optical and NIR extinction
+  laws in 30 Doradus and the photometric determination of the effective
+  temperatures of OB stars}.
+\newblock {\em A\&A}, 564:A63, April 2014.
+
 \bibitem{Fitzpatrick2019}
 E.~L. {Fitzpatrick} et~al.
 \newblock {An Analysis of the Shapes of Interstellar Extinction Curves. VII.
@@ -121,6 +128,28 @@ K.~D. {Gordon} et~al.
 K.~{Gordon}.
 \newblock {dust\_extinction: Interstellar Dust Extinction Models}.
 \newblock {\em J.\ Open Source Software}, 9(100):7023, August 2024.
+
+\bibitem{Goobar2008}
+A.~{Goobar}.
+\newblock {Low R$_{V}$ from Circumstellar Dust around Supernovae}.
+\newblock {\em Astrophys.\ J.}, 686(2):L103--L106, October 2008.
+
+\bibitem{Amanullah2015}
+R.~{Amanullah} et~al.
+\newblock {Diversity in extinction laws of Type Ia supernovae measured between
+  0.2 and 2 {\ensuremath{\mu}}m}.
+\newblock {\em MNRAS}, 453(3):3300--3328, November 2015.
+
+\bibitem{Weingartner2001}
+J.~C. {Weingartner} and B.~T. {Draine}.
+\newblock {Dust Grain-Size Distributions and Extinction in the Milky Way, Large
+  Magellanic Cloud, and Small Magellanic Cloud}.
+\newblock {\em Astrophys.\ J.}, 548(1):296--309, February 2001.
+
+\bibitem{Draine2003}
+B.~T. {Draine}.
+\newblock {Scattering by Interstellar Dust Grains. I. Optical and Ultraviolet}.
+\newblock {\em Astrophys.\ J.}, 598(2):1017--1025, December 2003.
 
 \bibitem{PSNID_2011}
 M.~Sako et~al.

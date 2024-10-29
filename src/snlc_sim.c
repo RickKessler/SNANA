@@ -14840,6 +14840,8 @@ void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ----------- BEGIN ---------
 
+  if ( INPUTS.SIMGEN_DUMP_TRAINSALT <= 0 ) { return; }
+  
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
 	  

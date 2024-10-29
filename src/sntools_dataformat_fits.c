@@ -855,7 +855,6 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "20A", "INSTRUMENT",  itype   ) ;
     
   if ( SNFITSIO_SIMFLAG_SNANA && WRITE_SPECTRA ) {
-    wr_snfitsio_addCol( "1E",  "INSTRUMENT",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 

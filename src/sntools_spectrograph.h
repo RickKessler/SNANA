@@ -13,8 +13,10 @@
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
 #define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
 
+/* xxx mark delete Oct 29 2024 xxxxx
 #define WRITE_MASK_SPEC_DEFAULT  2  // lammin lammax Flam FlamERR SIM_FLAM
 #define WRITE_MASK_SPEC_SED_TRUE 4  // <lam> and SIM_FLAM only 
+xxxx end mark */
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;

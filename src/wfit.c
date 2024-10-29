@@ -4193,7 +4193,7 @@ void get_chi2_fit (
     }
 
     mu_obs_list[k] = mu_obs; // Oct 23 2024 RK
-    z_obs_list[k]  = z; // Oct 23 2024 RK    
+    z_obs_list[k]  = z;      // Oct 23 2024 RK    
     
     dmu_list[k] = mu_obs - mu_cos; 
 

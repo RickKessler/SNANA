@@ -45,6 +45,7 @@
 
 \newcommand{\mlcs}{{\tt MLCS2k2}}
 \newcommand{\SALTII}{{\sc salt-ii}}
+\newcommand{\BAYESN}{{\sc BayeSN}}
 \newcommand{\snoopy}{{\tt SNooPy}}
 \newcommand{\SIMSED}{{\tt SIMSED}}
 \newcommand{\BYOSED}{{\tt BYOSED}}
@@ -181,11 +182,12 @@ SN~Ia lightcurves for an arbitrary survey.
 Current SN models include 
 \mlcs\ \cite{JRK07}, 
 \SALTII\ \cite{Guy07},
+\BAYESN\ \cite{Mandel2022},
 \snoopy\ \cite{Burns11},
 stretch \cite{Gold01}, 
-two-stretch\cite{Hayden09}, 
+two-stretch \cite{Hayden09}, 
   and
-Core Collapse\cite{K10_challenge}.
+Core Collapse \cite{K10_challenge}.
 
 
 The simulation is designed to be fast, generating $\sim 10^2$-$10^3$
@@ -4040,7 +4042,7 @@ sim-input keys work the same for both.
 The discussion here is relevant for both the simulation
 and fitting programs.
 
-For observer-frame models (e.g., SALT2, S11DM15) 
+For observer-frame models (e.g., SALT2, BAYESN, S11DM15) 
 the extinction is computed exactly for each filter-wavelength 
 bin in the flux integrals.
 For rest-frame models that require K-corrections (e.g., mlcs2k2, snoopy) 
@@ -11445,18 +11447,18 @@ the \snfitter\ program.
 
 
 {\tt GENMODEL} specification is based on a directory path 
-(class=\SALTII,\SIMSED,\NONIA,\BYOSED\footnote{\url{https://byosed.readthedocs.io/en/latest}}) 
-or a file (class=\NONIAGRID,\LCLIB).
+(class=\SALTII, \BAYESN, \SIMSED, \NONIA, \BYOSED\footnote{\url{https://byosed.readthedocs.io/en/latest}}) 
+or a file (class=\NONIAGRID, \LCLIB).
 Examples are
 
 \begin{Verbatim}[frame=single]
    # models based on directory: model class name is between slash and dot
-   GENMODEL:  [PATH]/SALT2.JLA-B14       
+   GENMODEL:  [PATH]/SALT2.JLA-B14
+   GENMODEL:  [PATH]/BAYESN.T21    
    GENMODEL:  [PATH]/SIMSED.SNII-MOSFIT
    GENMODEL:  [PATH]/NONIASED.UV2IR
 
    GENMODEL: BYOSED [AnyPathName]   # option without PATH name restriction
-   GENMODEL: BAYESN [AnyPathName]   # idem
 
    # models based on file; no restriction on PATH or fileName
    GENMODEL:  LCLIB      [PATH]/fileName
@@ -11503,9 +11505,9 @@ an asymmetric Gaussian.
 \label{subsec:host_extinct}
 
 The following host-galaxy extinction parameters can be included
-with any of the SN models below. RV and AV specifications are
-required for MKCS2k2 and SNooPy, and optional for the other models.
-The color law (e.g., SFD98, Fitzpatrick99) is the same
+with any of the SN models below. $R_V$ and $A_V$ specifications are
+required for \BAYESN, \mlcs and \snoopy, and optional for the other models.
+The color law (e.g., CCM89, Fitzpatrick99) is the same
 as that chosen for Galactic extinction
 (see {\tt OPT\_MWCOLORLAW} in \S\ref{subsec:sim_MWEBV}).
 
@@ -11536,8 +11538,9 @@ Simulation input keys  for  {\tt snlc\_sim.exe} :
 \label{subsec:mlcs}
 
 \noindent
-Reference: Jha, Riess, Kirshner, {\bf AJ 659}, 122 (2007). 
-Note that host-galaxy extinction parameters (for AV,RV) 
+Reference: Jha, Riess, Kirshner, {\bf AJ 659}, 122 (2007). \cite{JRK07}
+
+Note that host-galaxy extinction parameters (for $A_V$,$R_V$) 
 are required from \S\ref{subsec:host_extinct}.
 
 \noindent
@@ -11578,8 +11581,9 @@ Simulation input keys  for  {\tt snlc\_sim.exe} :
 
 % ------------------------
 \clearpage
-\subsection{{\SALTII} {\small (J. Guy et al., {\bf A\&A 466}, 11, 2007)} }
+\subsection{{\SALTII}}
 \label{subsec:salt2}
+Reference: J. Guy et al., {\bf A\&A 466}, 11 (2007). \cite{Guy07}
 
 \noindent
 Simulation input keys  for {\tt snlc\_sim.exe} :
@@ -11609,7 +11613,7 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
 %
 and special grid keys for BBC are described in 
 \S\ref{sec:SALT2mu}.
-Note that host-galaxy extinction parameters (AV,RV) 
+Note that host-galaxy extinction parameters ($A_V$,$R_V$) 
 are optional from \S\ref{subsec:host_extinct}.
 
 \bigskip
@@ -11728,6 +11732,45 @@ to disable these keys,
      GENMODEL_OPTMSK: 12  ! disable both
      GENMODEL_OPTMSK: 16  ! if Flam<0; Flam=0 (test only)
 \end{verbatim}
+% ------------------------
+\clearpage
+\subsection{\BAYESN}
+\label{subsec:bayesn}
+References: K.~S.\ Mandel et al., {\bf MNRAS 510}, 3939 (2022); S.\ Thorp et al., {\bf MNRAS 508}, 4310 (2021); M.\ Grayling et al., {\bf MNRAS 531}, 953 (2024). \cite{Mandel2022, Thorp2021, Grayling2024}.
+
+Note that host-galaxy extinction parameters (for $A_V$,$R_V$) 
+are required from \S\ref{subsec:host_extinct}. The form of the host-galaxy
+dust extinction curve will be inherited from the Milky-Way color law.
+Only $R_V$-dependent extinction curves are currently supported (\S\ref{sss:GALextinc_curves}).
+
+\noindent
+Simulation input keys for for {\tt snlc\_sim.exe} :
+\begin{Verbatim}[frame=single]
+   GENMEAN_THETA:    xxx        # shape parameter
+   GENRANGE_THETA:   xxx  xxx
+   GENSIGMA_THETA:   xxx  xxx
+
+   GENMODEL_MSKOPT:  <mask>     # additional settings
+\end{Verbatim}
+The additional settings that can be enabled via setting bits in {\tt GENMODEL\_MSKOPT}
+are as follows:
+\begin{itemize}
+  \item \verb!GENMODEL_MSKOPT+=1!: Enable \BAYESN's default (recommended)
+   residual scatter model. Includes a gray component, $\delta_M\sim N(0,\sigma_0^2)$,
+   and a time- and wavelength-dependent component, 
+   $\mathbf{\epsilon}\sim N(\mathbf{0},\mathbf{\Sigma}_\epsilon)$.
+   The (co)variance of these components is set by the YAML file defining the version
+   of the \BAYESN\ \texttt{GENMODEL} specified in the sim input.
+  \item \verb!GENMODEL_MSKOPT+=2!: Enable the non-gray ($\mathbf{\epsilon}$)
+   component of the \BAYESN\ residual scatter model.
+  \item \verb!GENMODEL_MSKOPT+=4!: Enable the gray ($\delta_M$) component of the
+   \BAYESN\ residual scatter model.
+  \item \verb!GENMODEL_MSKOPT+=128!: Enable a ``verbose'' mode for debugging purposes.
+\end{itemize}
+Multiple bits can be combined, when this is unambiguous. For example, \verb!GENMODEL_MSKOPT=6!
+would enable both components of the residual scatter model (equivalent to 
+\verb!GENMODEL_MSKOPT=1!). An ambiguous combination of bits will cause the program
+to abort.
 
 % ------------------------
 \clearpage
@@ -11735,12 +11778,13 @@ to disable these keys,
 \label{subsec:snoopy}
 
 \noindent
-Reference: C. Burns et al., arXiv:1010.4040. 
-Note that host-galaxy extinction parameters (for AV,RV) 
+Reference: C.\ Burns et al., {\bf AJ 141}, 19 (2011). \cite{Burns11} 
+
+Note that host-galaxy extinction parameters (for $A_V$,$R_V$) 
 are required from \S\ref{subsec:host_extinct}.
 
 \noindent
-Simulation input keys  for {\tt snlc\_sim.exe} :
+Simulation input keys for {\tt snlc\_sim.exe} :
 \begin{Verbatim}[frame=single]
    GENPEAK_DM15:    xxx         # shape parameter
    GENRANGE_DM15:   xxx  xxx
@@ -12623,13 +12667,12 @@ to compute broadbad fluxes and noise in the same way as
 any other SED model (e.g., SALT2, NON1ASED ...). 
 The internal parameters are not used by the C-code, 
 but are passed to the output data files and/or {\tt SIMGEN\_DUMP} file.
-There are currently 3 python models under development which
+There are currently 2 python models under development which
 can be called with the following syntax:
 %
 \begin{Verbatim}[frame=single]
    GENMODEL:  BYOSED  [path]  # Build-Your-Own SED
    GENMODEL:  SNEMO   [path]  # based on SNFactory data
-   GENMODEL:  BAYESN  [path]  # optical+NIR
 
    GENMODEL_MSKOPT: [mask] # integer option or mask
    GENMODEL_ARGLIST: `key0 val0 key1 val1 key2 x0,x1,x2,x3 etc ...'

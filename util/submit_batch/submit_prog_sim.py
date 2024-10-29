@@ -2174,14 +2174,15 @@ class Simulation(Program):
             
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
         for suffix in SUFFIX_DUMP_LIST :
-            split_list  = glob.glob(f"{from_dir}/TMP*.{suffix}")
+            # xxx mark split_list  = glob.glob(f"{from_dir}/TMP*.{suffix}")
+            split_list  = sorted(glob.glob(f"{from_dir}/TMP*.{suffix}"))
             if len(split_list) > 0:
                 dump_file_merge = f"{target_dir}/{genversion_combine}.{suffix}"
                 DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge
                 DUMP_FILE_LIST_DICT[suffix]  = split_list
                 logging.info(f"\t Merge SIMGEN-{suffix} files")
 
-            split_list  = glob.glob(f"{from_dir}/HIDE*.{suffix}")  # for blind option
+            split_list  = sorted(glob.glob(f"{from_dir}/HIDE*.{suffix}"))  # for blind option
             if len(split_list) > 0:
                 dump_file_merge = f"{target_dir}/HIDE_{genversion_combine}.{suffix}"
                 DUMP_FILE_MERGE_DICT[suffix] = dump_file_merge

@@ -821,8 +821,8 @@ void wr_snfitsio_init_spec(void) {
 
   // xxx mark delete Sep 2024 int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
   int WRITE_MASK     =  SNFITSIO_WRITE_MASK_SPEC ; // Sep 6 2024 bug fix
-  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
-  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
+  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SED_TRUE );  
+  int WRITE_SPECTRA  = ( WRITE_MASK & WRITE_MASK_SPECTRA  ) && !WRITE_SED_TRUE ;
 
   long  NROW = 0 ;
   int itype, ncol, istat, ipar ;
@@ -854,16 +854,14 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "1D",  "Texpose",     itype   ) ;
   wr_snfitsio_addCol( "20A", "INSTRUMENT",  itype   ) ;
     
-  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
-    // xxx mark delete Sep 6 2024 wr_snfitsio_addCol( "1E",  "Texpose", itype );
-    wr_snfitsio_addCol( "1E",  "INSTRUMENT",  itype   ) ; 
+  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_SPECTRA ) {
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "SCALE_HOST_CONTAM",  itype   ) ; 
   }
 
-  if ( WRITE_SED_TRUE ) {
+  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_SED_TRUE ) {
     // Store LAMMIN/LAMMAX/LAMBIN to avoid re-writing same lambda grid for
     // each true SED. LAMMIN to LAMMAX are histogram min/max and
     // NBIN_LAM = (LAMMAX - LAMMIN)/LAMBIN
@@ -901,7 +899,7 @@ void wr_snfitsio_init_spec(void) {
 
   sprintf(TBLname, "%s", "SPECTRO_FLUX" );
 
-  if ( WRITE_DEFAULT ) {
+  if ( WRITE_SPECTRA ) {
     wr_snfitsio_addCol( "1E", "LAMMIN",      itype   ) ; 
     wr_snfitsio_addCol( "1E", "LAMMAX",      itype   ) ; 
     wr_snfitsio_addCol( "1E", "FLAM",        itype   ) ;  
@@ -2518,9 +2516,14 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // xxx mark delete Sep 2024 int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
   int WRITE_MASK     =  SNFITSIO_WRITE_MASK_SPEC ; // Sep 6 2024 bug fix
-  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
-  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );
+  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SED_TRUE );
+  int WRITE_SPECTRA  = ( WRITE_MASK & WRITE_MASK_SPECTRA) && !WRITE_SED_TRUE ;
 
+  /* xxx mark delete Oct 29 2024 xxxx
+  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
+  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );  
+  xxxxxxxx end mark xxx */
+  
   int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
   if ( WRITE_SED_TRUE ) { NBLAM_WR = NBLAM_TOT; }
@@ -2568,7 +2571,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
     wr_snfitsio_fillTable ( ptrColnum, "INSTRUMENT", itype );
   }
   
-  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_DEFAULT ) {
+  if ( SNFITSIO_SIMFLAG_SNANA && WRITE_SPECTRA ) {
 
     if ( SNFITSIO_CODE_IVERSION < 26 ) { // legacy write
       // Texpose
@@ -2676,13 +2679,13 @@ void  wr_snfitsio_update_spec(int imjd)  {
     }
 
     // skip unphysical values  
-    if ( !EOE && WRITE_DEFAULT && FLAMERR <= 0.0 ) { continue ; } 
+    if ( !EOE && WRITE_SPECTRA && FLAMERR <= 0.0 ) { continue ; } 
 
     LOC=0 ;
     WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW++ ;
     
 
-    if ( WRITE_DEFAULT ) {
+    if ( WRITE_SPECTRA ) {
       // refactored Oct 2021
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMIN ;

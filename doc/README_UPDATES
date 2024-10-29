@@ -22657,7 +22657,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05q (Sep 26 2024) <-- start date of git tag
 
          *****  IMPORTANT(v11_05q) *****
-       
+
+   + sim: fixed nasty (September) logic bugs for writing spectra vs. true SEDs.
+   
+   
          *****  USEFUL(v11_05q) *****
 	 
    + Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.
@@ -22670,6 +22673,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    + new sim-input "PARLIST_MWCOLORLAW: p0,p1,p2,..." is passed to GALextinct()
      function calls with extra PARLIST_MWCOLORLAW arg. New param list is not used
      yet (inside MWgaldust.c), but it may be used later.
+
+   + new sim-input "SIMGEN_DUMP_TRAINSALT: 1" to write tmaxlist file for
+     saltshaker.
      
          *****  MISCELLANEOUS(v11_05q) *****
 

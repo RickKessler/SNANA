@@ -13,8 +13,7 @@ J.~Guy et~al.
 \newblock {\em A\&A}, 466:11--21, 2007.
 
 \bibitem{Mandel2022}
-Kaisey~S. {Mandel}, Stephen {Thorp}, Gautham {Narayan}, Andrew~S. {Friedman},
-  and Arturo {Avelino}.
+K.~S. {Mandel} et~al.
 \newblock {A hierarchical Bayesian SED model for Type Ia supernovae in the
   optical to near-infrared}.
 \newblock {\em MNRAS}, 510(3):3939--3966, March 2022.
@@ -170,15 +169,13 @@ M.~{Sako} et~al.
 \newblock {\em arXiv:1401.3317}, 2014.
 
 \bibitem{Thorp2021}
-Stephen {Thorp}, Kaisey~S. {Mandel}, David~O. {Jones}, Sam~M. {Ward}, and
-  Gautham {Narayan}.
+S.~{Thorp} et~al.
 \newblock {Testing the consistency of dust laws in SN Ia host galaxies: a
   BAYESN examination of Foundation DR1}.
 \newblock {\em MNRAS}, 508(3):4310--4331, December 2021.
 
 \bibitem{Grayling2024}
-Matthew {Grayling}, Stephen {Thorp}, Kaisey~S. {Mandel}, Suhail {Dhawan}, Ana
-  Sofia~M. {Uzsoy}, Benjamin~M. {Boyd}, Erin~E. {Hayes}, and Sam~M. {Ward}.
+M.~{Grayling} et~al.
 \newblock {Scalable hierarchical BayeSN inference: investigating dependence of
   SN Ia host galaxy dust properties on stellar mass and redshift}.
 \newblock {\em MNRAS}, 531(1):953--976, June 2024.

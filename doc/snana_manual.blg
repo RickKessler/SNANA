@@ -5,15 +5,15 @@ The style file: unsrt.bst
 Database file #1: snana_manual.bib
 You've used 35 entries,
             1791 wiz_defined-function locations,
-            693 strings with 9073 characters,
-and the built_in function-call counts, 7474 in all, are:
+            693 strings with 8756 characters,
+and the built_in function-call counts, 7315 in all, are:
 = -- 634
-> -- 318
+> -- 282
 < -- 2
-+ -- 119
-- -- 84
-* -- 572
-:= -- 1238
++ -- 107
+- -- 72
+* -- 542
+:= -- 1202
 add.period$ -- 105
 call.type$ -- 35
 change.case$ -- 35
@@ -21,8 +21,8 @@ chr.to.int$ -- 0
 cite$ -- 35
 duplicate$ -- 323
 empty$ -- 753
-format.name$ -- 84
-if$ -- 1643
+format.name$ -- 72
+if$ -- 1619
 int.to.chr$ -- 0
 int.to.str$ -- 35
 missing$ -- 35
@@ -32,7 +32,7 @@ pop$ -- 42
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 131
+skip$ -- 134
 stack$ -- 0
 substring$ -- 496
 swap$ -- 43

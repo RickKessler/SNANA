@@ -22657,7 +22657,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05q (Sep 26 2024) <-- start date of git tag
 
          *****  IMPORTANT(v11_05q) *****
-       
+
+   + sim: fixed nasty (September) logic bugs for writing spectra vs. true SEDs.
+   
+   
          *****  USEFUL(v11_05q) *****
 	 
    + Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.

@@ -7021,6 +7021,7 @@ void prep_user_input(void) {
       { INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE = 10.0 ; }
   }
 
+  
   // init all of the WRFLAGs to zero
   WRFLAG_VBOSE     = 0 ;
   WRFLAG_TEXT      = 0 ;
@@ -29629,16 +29630,30 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // DCR leverages SPECTROGRAPH infrastructure. However, if original user input
   // requests SED output, then do it.
   
-  bool WRITE_SPECTRA = SPECTROGRAPH_USEFLAG && !WRFLAG_noSPEC;
+  bool WRITE_SPECTRA  = SPECTROGRAPH_USEFLAG && !WRFLAG_noSPEC;
+  bool WRITE_SED_TRUE = false;
+  
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) {
     int OPTMASK_ORIG = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK_ORIG; // original user intent
+
     if ( (OPTMASK_ORIG & SPECTROGRAPH_OPTMASK_SEDMODEL) == 0 ) 
       { WRITE_SPECTRA = false; }
+    else
+      { WRITE_SPECTRA = true; WRITE_SED_TRUE = true; }
   }
-  if ( WRITE_SPECTRA )  { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
+  
+  if ( WRITE_SPECTRA  )  { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA  ; }
+  if ( WRITE_SED_TRUE )  { INPUTS.WRITE_MASK += WRITE_MASK_SED_TRUE ; } // Oct 29 2024
 
-
-
+  /* xxx mark delete Oct 29 2024 xxxxxxx
+  printf(" xxx %s: FORMAT_MASK=%d  SPECTROGRAPH_OPTIONS.OPTMASK =%d \n",
+	 fnam, INPUTS.FORMAT_MASK, INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK);    
+  printf(" xxx %s: INPUTS_ATMOSPHERE.OPTMASK = %d \n", fnam,  INPUTS_ATMOSPHERE.OPTMASK);
+  printf(" xxx %s: WRITE(SPECTRA,SED_TRUE) = %d %d \n",
+	 fnam, WRITE_SPECTRA, WRITE_SED_TRUE );
+  debugexit(fnam);
+  xxxxx  end mark xxxx */
+  
   // - - - - 
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 

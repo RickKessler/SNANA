@@ -219,6 +219,7 @@
 #define SIMKEY_w0_LAMBDA      "w0_LAMBDA:"
 #define SIMKEY_wa_LAMBDA      "wa_LAMBDA:"
 
+
 // Define default grid for each fitted parameter.
 // They can be modified via command line args; for help type "wfit.exe"
 #define DEFAULT_omm_steps  81   // number of steps
@@ -3262,6 +3263,7 @@ void wfit_uncertainty_fitpar(char *varname) {
   double val_sum,  probsum, cdf_find, cdf_max ;
   double *val_array, *prob_array, *cdf_array, STD_WARN ;
   int  i, n_steps;
+  bool ISVAR_w = false ;
   char fnam[] = "wfit_uncertainty_fitpar";
 
   // ---------- BEGIN -----------
@@ -3282,6 +3284,7 @@ void wfit_uncertainty_fitpar(char *varname) {
     cdf_array     =  WORKSPACE.omm_cdf;
   }
   else if ( strcmp(varname,varname_w) == 0 ) {
+    ISVAR_w = true ;
     sig_std   = &WORKSPACE.w0_sig_std ;
     sig_lower = &WORKSPACE.w0_sig_lower ;
     sig_upper = &WORKSPACE.w0_sig_upper ;
@@ -3297,6 +3300,7 @@ void wfit_uncertainty_fitpar(char *varname) {
     cdf_array      =  WORKSPACE.w0_cdf;
   }
   else if ( strcmp(varname,varname_wa) == 0 ) {
+    ISVAR_w = true ;
     sig_std   = &WORKSPACE.wa_sig_std ;
     sig_lower = &WORKSPACE.wa_sig_lower ;
     sig_upper = &WORKSPACE.wa_sig_upper ;
@@ -3350,7 +3354,7 @@ void wfit_uncertainty_fitpar(char *varname) {
   printf("\t STD %s_sig estimate = %.4f (use=%d)\n",
 	 varname, *sig_std, INPUTS.use_sig_std );
 
-  if ( INPUTS.dofit_w0wa  &&  *sig_std < 0.01 ) {
+  if ( INPUTS.dofit_w0wa  &&  *sig_std < 0.01 && ISVAR_w ) {
     WORKSPACE.NWARN++ ;
     printf(" WARNING-%s: STD too small, likley BBC problem with MUERR\n", varname);
   }

@@ -187,6 +187,12 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) 
       { sprintf(TEXT,"Fitzpatrick04 (cubic spline)");  }
 
+    else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) 
+      { sprintf(TEXT,"Goobar08 (power law)");  }
+    
+    else if ( OPT == OPT_MWCOLORLAW_MAIZ14 ) 
+      { sprintf(TEXT,"MaizApellaniz14 (cubic spline)");  }
+    
     else if ( OPT == OPT_MWCOLORLAW_GORD16 ) 
       { sprintf(TEXT,"Gordon16 (cubic spline)");  }
 
@@ -201,7 +207,7 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
 
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
-      sprintf(c2err,"Check OPT_MWCOLORAW_* in sntools.h");
+      sprintf(c2err,"Check OPT_MWCOLORAW_* in MWgaldust.h");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -344,14 +350,31 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
                 behaviour in the IR. Checked against implementation by
                 Gordon 2024 (JOSS 9, 7023): github.com/karllark/dust_extinction.
 
+    OPT=208 => use Goobar 2008 (ApJ 686, L103) power law for circumstellar dust.
+                This is a two parameter model, controlled by P and A.
+                P is read from PARLIST[0];
+                A is read from PARLIST[1].
+                RV argument is ignored.
+                Aborts if the required PARLIST entries are not present or
+                within the valid ranges. P=-1.5, A=0.9 gives MW-like circum-
+                stellar dust (G08 fit to Draine 2003). P=-2.5, A=0.8 gives
+                LMC-like circumstellar dust (G08 fit to Weingartner & Draine 2001).
+
+    OPT=214=> use Maiz Apellaniz et al. 2014 (A&A 564, A63) CCM-like curve.
+                Only valid above 0.3 microns. Tested against Gordon 2024 version.
+
     OPT=216 => use Gordon et al. 2016 (ApJ 826, 104) as implemented by S. Thorp.
-                This has an extra free parameter, FA. The final curve is a
-                mixture of Fitzpatrick 1999 and Gordon et al. 2003 (ApJ 594, 279), 
-                where the latter is SMC bar-like dust with RV=2.74 and no
-                UV bump. FA=1 reverts to Fitzpatrick 1999. FA=0 gives
-                Gordon et al. 2003. Effective RV = 1/[FA/RV + (1-FA)/2.74]
+                This is a two parameter model, controlled by RVA and FA.
+                RVA is read from PARLIST[0];
+                FA is read from PARLIST[1].
+                RV argument is ignored.
+                Aborts if these are not present or within the valid ranges.
+                The final curve is a mixture of Fitzpatrick 1999 and
+                Gordon et al. 2003 (ApJ 594, 279), where the latter is SMC bar-like
+                dust with RV=2.74 and no UV bump. FA=1 reverts to Fitzpatrick 1999 
+                with RV=RVA. FA=0 gives Gordon et al. 2003 with RV=2.74. 
+                Effective RV = 1/[FA/RV + (1-FA)/2.74].
                 Tested against Gordon 2024 implementation.
-                Currently has FA=0.0 hardcoded => Gordon et al. 2003.
 
     OPT=223 => use Gordon et al. 2023 (ApJ 950, 86) as implemented by S. Thorp.
                 This is a full UV-OPT-IR extinction law parameterized by RV.
@@ -361,6 +384,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
 
    PARLIST => optional set of double-precision parameters to refine calculations
               Number of PARLIST params and their meaning depend on OPT.
+              OPT=208 : PARLIST[0]=P, PARLIST[1]=A;
+              OPT=216 : PARLIST[0]=RVA, PARLIST[1]=FA;
 
   Returns magnitudes of extinction.
 
@@ -396,18 +421,20 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
    + pass PARLIST based on sim-input key PARLIST_MWCOLORLAW: p0,p1,p2,...
      PARLIST is not used yet, but is available for future development.
 
+  Oct 26 2024 S. Thorp
+   + use the new PARLIST for Gordon '16 dust law
+   + add Goobar '08 circumstellar dust law
+   + add Maiz Apellaniz '14
  ***/
 
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
-  double FA ;
   char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 
   XT = 0.0 ;
-  FA = 0.0 ; // hardcoded for now
 
   if ( AV == 0.0  )  {  return XT ; }
 
@@ -418,18 +445,74 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
   //  printf(" xxx %s: PARLIST = %f %f %f \n", PARLIST[0], PARLIST[1], PARLIST[2] ); fflush(stdout);
   
   if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
-    XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
-    return XT ;
-  }
-  else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
+      XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
+      return XT ;
+  } else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) {
+      double WAVE0 = 5495.0; // reference V-band wavelength
+      double P = PARLIST[0]; //extract power law index from PARLIST
+      double A = PARLIST[1]; //extract prefactor from PARLIST
+      // try to catch missing arguments
+      if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
+          sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f and PARLIST[1]=%.1f",
+                  PARLIST[0], PARLIST[1]);
+          sprintf(c2err,"Goobar (2008) requires two values in PARLIST_MWCOLORLAW: P,A.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      // check parameter ranges
+      if ( P > PMAX_GOOB08 || P < PMIN_GOOB08 ){
+          sprintf(c1err,"Read invalid P=%.1f from PARLIST_MWCOLORLAW!", P);
+          sprintf(c2err,"Goobar (2008) only recommended for %.1f<=P<=%.1f.",
+                  PMIN_GOOB08, PMAX_GOOB08);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( A > 1.0 || A <= 0.0 ){
+          sprintf(c1err,"Read invalid A=%.1f from PARLIST_MWCOLORLAW!", A);
+          sprintf(c2err,"Goobar (2008) only valid for 0.0<A<=1.0.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      // check wavelength range
+      if ( WAVE < WAVEMIN_GOOB08 || WAVE > WAVEMAX_GOOB08 ) {
+          sprintf(c1err,"WAVE=%.1f out of range for Goobar (2008)", WAVE);
+          sprintf(c2err,"Recommended limits are %.1f<=WAVE<=%.1f.", 
+                  WAVEMIN_GOOB08, WAVEMAX_GOOB08);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+      // power law (eq. 3 in G08)
+      XT = 1.0 - A + A*pow(WAVE/WAVE0, P);
+      return AV*XT;
+  } else if ( OPT == OPT_MWCOLORLAW_MAIZ14 ) {
+      XT = GALextinct_Maiz14(RV, AV, WAVE);
+      return XT;
+  } else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
       double XTA, XTB;
-      double RV_Fitz2003 = 2.74; // R,K. -- ensure double cast for this param
+      double RVB = 2.74; // R,K. -- ensure double cast for this param
+      double RVA = PARLIST[0]; // extract RVA from PARLIST
+      double FA  = PARLIST[1]; // extract FA from PARLIST
+      // sanity check arguments from PARLIST
+      // try to catch missing arguments
+      if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
+          sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f and PARLIST[1]=%.1f",
+                  PARLIST[0], PARLIST[1]);
+          sprintf(c2err,"Gordon et al. (2016) requires two values in PARLIST_MWCOLORLAW: RVA,FA.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      // check parameter ranges
+      if ( RVA > RVMAX_FITZ99 || RVA < RVMIN_FITZ99 ){
+          sprintf(c1err,"Read invalid RVA=%.1f from PARLIST_MWCOLORLAW!", RVA);
+          sprintf(c2err,"Gordon et al. (2016) only valid for %.1f<=RVA<=%.1f.",
+                  RVMIN_FITZ99, RVMAX_FITZ99);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( FA > 1.0 || FA < 0.0 ){
+          sprintf(c1err,"Read invalid FA=%.1f from PARLIST_MWCOLORLAW!", FA);
+          sprintf(c2err,"Gordon et al. (2016) only valid for 0.0<=FA<=1.0.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
 
-      XTA = GALextinct_Fitz99_exact(RV,          AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT);
-      XTB = GALextinct_Fitz99_exact(RV_Fitz2003, AV, WAVE, OPT_MWCOLORLAW_GORD03);
+      XTA = GALextinct_Fitz99_exact(RVA, AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT);
+      XTB = GALextinct_Fitz99_exact(RVB, AV, WAVE, OPT_MWCOLORLAW_GORD03);
 
-      // xxx mark delete XTA = GALextinct_Fitz99_exact(RV,   AV, WAVE,  99);
-      // xxx mark delete XTB = GALextinct_Fitz99_exact(2.74, AV, WAVE, 203);      
       return FA*XTA + (1-FA)*XTB ;
       
   } else if ( abs(OPT) == OPT_MWCOLORLAW_FITZ19_CUBIC ) {
@@ -716,6 +799,96 @@ Returns :
     }
 
 } // end of GALextinct_Fitz99_exact
+
+// ============= MAIZ APELLANIZ ET AL. 2014 EXTINCTION LAW ==============
+double GALextinct_Maiz14(double RV, double AV, double WAVE) {
+/*** 
+  Created by S. Thorp, Oct 26 2024
+
+  Input : 
+    AV    = V band (defined to be at 5495 Angstroms) extinction
+    RV    = assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
+    WAVE  = wavelength in angstroms
+  Returns :
+    XT = magnitudes of extinction
+***/
+
+    char fnam[] = "GALextinct_Maiz14";
+
+    // Abort if out of bounds
+    if ( WAVE > WAVEMAX_MAIZ14 || WAVE < WAVEMIN_MAIZ14 ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
+      sprintf(c2err,"Maiz Apellaniz et al. 2014 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_MAIZ14, WAVEMAX_MAIZ14);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    // curve at WAVE
+    double y;
+
+    // terms we'll compute
+    double a, b; //a and b curves at x
+
+    // evaluate the a and b curves
+    if (x < 1.0) { // just do the IR power law above 1 micron
+        a =  0.574 * pow(x, 1.61);
+        b = -0.527 * pow(x, 1.61);
+    } else { // do the spline
+        // all knots are independent of RV
+        // coefficients extracted from Gordon's SciPy spline implementation
+        double xk[11] = { 1.0, 1.15, 1.81984, 2.1, 2.27015, 2.7, 3.5,
+            3.9, 4.0, 4.1, 4.2 }; // knot positions
+        double a3[10] = { -3.09348541,  2.28902153e-1,  5.41605406e-1,
+            -6.37404842e-1,  3.52950213e-1, -5.91231605e-2,
+            -5.56727269,  48.1384135, -11.6556097, -12.6892172 }; //x^3
+        double a2[10] = { 5.57088021e-1, -8.34980412e-1, -3.74996957e-1,
+            8.02115549e-2, -2.45151747e-1,  2.09995201e-1,  6.80996157e-2,
+            -6.61262761, 7.82889643,  4.33221353 };  //x^2
+        double a1[10] = { 9.24140000e-1,  8.82456141e-1,  7.19649009e-2,
+            -1.06221772e-2, -3.86867508e-2, -5.37987921e-2, 1.68677061e-1,
+            -2.44913414, -2.32750725, -1.11139626 }; //x^1
+        double a0[10] = { 5.74000000e-1,  7.14714967e-1,  9.99971669e-1,
+            1.00260970,  9.99984676e-1,  9.66090893e-1, 1.02717773,  
+            7.49239041e-1,  4.86337764e-1, 3.20220393e-1 }; //x^0
+        double b3[10] = { 6.11543973, -4.71924979e-1, -3.75700076,
+            3.30710701, -6.80610047e-1,  4.81511488e-1, 17.8352808,
+            -124.325934,  12.0120271, 48.1516935 }; //x^3
+        double b2[10] = { -2.49479124e-1,  2.50246875,  1.55412607,
+            -1.60355793,  8.45548471e-2, -7.93125839e-1, 3.62501733e-1,
+            21.7648387, -15.5329415, -11.9293334 }; //x^2
+        double b1[10] = { -8.48470000e-1, -5.10521556e-1,  2.20674792,
+            2.19289909,  1.93444072,  1.62986148, 1.28536219,
+            10.1362984,  10.7594881, 8.01326059 }; //x^1
+        double b0[10] = { -5.27000000e-1, -6.39244171e-1, -2.26082358e-4,
+            6.57384043e-1,  1.00037205,  1.79345802, 2.83628055,  
+            4.54988367,  5.65683596, 6.58946738 };
+       
+
+        // find index in knot list
+        int q = 0; // qmin = 0; qmax = 9
+        while (q < 10) {
+            if (x < xk[q+1]) { 
+                break; 
+            } else {
+                q++;
+            }
+        }
+
+        //powers of x
+        double x1 = x - xk[q];
+        double x2 = x1*x1;
+        double x3 = x2*x1;
+        
+        // interpolate
+        a = a3[q]*x3 + a2[q]*x2 + a1[q]*x1 + a0[q];
+        b = b3[q]*x3 + b2[q]*x2 + b1[q]*x1 + b0[q];
+
+    }
+    return AV * (a + b/RV);
+
+} // end of GALextinct_Maiz14
 
 // ============= FITZPATRICK ET AL. 2019 EXTINCTION LAW ==============
 double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC) {

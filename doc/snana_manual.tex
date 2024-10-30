@@ -3942,6 +3942,7 @@ Galactic extinction:
 \begin{Verbatim}[frame=single]
   RV_MWCOLORLAW:        3.1    # default
   OPT_MWCOLORLAW:       94     # default: CCM89+ODonnel94
+  PARLIST_MWCOLORLAW:   p0,p1, # optional: additional parameters
   OPT_MWEBV:            1      # default: MWEBV key in SIMLIB file
   GENSIGMA_MWEBV_RATIO: 0.16   # default: smear by sig(MWEBV) = .16*MWEBV
 
@@ -3965,7 +3966,12 @@ and `{\tt modify\_MWEBV\_SFD}' determines $E(B-V)$
 according to {\tt OPT\_MWEBV}. The color laws currently
 implemented within the `{\tt GALextinct}' function are mostly
 $R_V$-dependent extinction laws derived from observations
-in the Milky Way (\S\ref{sss:GALextinc_curves}).
+in the Milky Way (\S\ref{sss:GALextinc_curves}). However,
+there are curves with different parameters, which must be
+passed as a comma-separated list via the key
+\verb!PARLIST_MWCOLORLAW!. To see what these curves require,
+see \S\ref{sss:GALextinc_altparam}, or search for \verb!PARLIST!
+in the `{\tt GALextinct}' function.
 
 To turn off Galactic extinction, set either
 {\tt OPT\_MWCOLORLAW} or {\tt OPT\_MWEBV} to zero.
@@ -3986,6 +3992,8 @@ grep  OPT_MWCOLORLAW  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWCOLORLAW_FITZ99_EXACT    99 // exact Fitzpatrick (1999)
 #define OPT_MWCOLORLAW_GORD03         203 // Gordon et al. (2003)
 #define OPT_MWCOLORLAW_FITZ04         204 // Fitzpatrick (2004)
+#define OPT_MWCOLORLAW_GOOB08         208 // Goobar (2008) power law
+#define OPT_MWCOLORLAW_MAIZ14         214 // Maiz Apellaniz et al. (2014)
 #define OPT_MWCOLORLAW_GORD16         216 // Gordon et al. (2016)
 #define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // approx Fitzpatrick et al. (2019)
 #define OPT_MWCOLORLAW_FITZ19_CUBIC   219 // Fitzpatrick et al. (2019)
@@ -4069,21 +4077,17 @@ form used is selected by the {\tt OPT\_MWCOLORLAW} key.
 The default option is the CCM89 law with O'Donnell's
 modification \cite{Cardelli1989, ODonnell1994}. Also
 included are variants of the Fitzpatrick law 
-\cite{Fitzpatrick1999, Fitzpatrick2004}, 
-the more recent Fitzpatrick et al. curve \cite{Fitzpatrick2019},
+\cite{Fitzpatrick1999, Fitzpatrick2004}, the CCM-like law
+by Ma\'{i}z Apell\'{a}niz et al.~\cite{MaizApellaniz2014},
+the more recent Fitzpatrick et al.\ curve \cite{Fitzpatrick2019},
 and a new UV--optical--NIR--MIR
 curve from Gordon et al.~\cite{Gordon2023}. All of these are $R_V$-dependent.
 The `\texttt{GALextinct}' function will abort if called 
-outside the valid wavelength range of these models.
-
-Also included is the two-parameter $(R_V^A,f_A)$-dependent curve
-from Gordon et al.~\cite{Gordon2016}. This gives a mixture of MW-like \cite{Fitzpatrick1999}
-and SMC-bar-like \cite{Gordon2003} dust. At the time of writing, $f_A$ 
-is not available as a free parameter, and is hardcoded as $f_A=0$. This
-reverts to the SMC bar dust law with $R_V=2.74$ \cite{Gordon2003}. This 
-can also be accessed via its own key, although it will abort for $R_V\neq2.74$.
-Other than this example, $R_V$ restrictions are not enforced, 
-but they are defined via the variables \verb!RVMIN_*! and \verb!RVMAX_*! in 
+outside the valid wavelength range of these models. Some curves with
+alternative (beyond $R_V$) parameterizations are included
+in \texttt{SNANA} and described in \S\ref{sss:GALextinc_altparam}.
+Any $R_V$ restrictions are not enforced, but they are defined via 
+the variables \verb!RVMIN_*! and \verb!RVMAX_*! in 
 \verb!$SNANA_DIR/src/MWgaldust.h!.
 
 \textbf{A Note About F99-like Dust Laws:} Extinction laws of the
@@ -4109,6 +4113,47 @@ the tabulated values from table 3 of ref.\ \cite{Fitzpatrick2019}. The
 reference implementation in \verb!dust_extinction! uses a B-spline. Our
 cubic spline implementation agrees with this excellently below $10000$~\AA, 
 and well (within $\sim2$~mmag) below $20000$~\AA.
+
+\subsubsection{Different Extinction Curve Parameterizations}
+\label{sss:GALextinc_altparam}
+There are several extinction curves that are not neatly
+parameterized by $R_V$. For these, the \verb!RV_MWCOLORLAW!
+simulation input key will be ignored, and a list of parameters
+will be read from a comma seperated list passed via the
+\verb!PARLIST_MWCOLORLAW! key. The `\texttt{GALextinct}' function
+should abort if it cannot find valid instances of these parameters,
+for whatever color law has been requested.
+
+\texttt{SNANA} now includes the two-parameter $(R_V^A,f_A)$-dependent curve
+from Gordon et al.~\cite{Gordon2016}. This gives a mixture of $A$-type MW-like 
+\cite{Fitzpatrick1999} and $B$-type SMC-bar-like \cite{Gordon2003} dust. 
+The fraction of $A$-type dust with $R_V=R_V^A$ is set by $f_A$. The
+$B$-type component has $R_V=R_V^B=2.74$ and no UV bump.
+\texttt{SNANA} will try to read $R_V^A$ and $f_A$ from, respectively, 
+the first and second entries in the list given to \verb!PARLIST_MWCOLORLAW!.
+The curve generated will have an effective $R_V$ given by
+$R_V^\mathrm{eff}=[f_A/R_V^A + (1-f_A)/R_V^B]^{-1}$, where $R_V^B=2.74$ 
+\cite{Gordon2016}. This is only valid for $0.0\leq f_A\leq1.0$ 
+and $2.0\leq R_V^A\leq6.0$, and will abort outside these ranges.
+The space of $R_V^\mathrm{eff}$ accessible can be seen in 
+fig.\ 7 of ref. \cite{Gordon2016}.
+
+The SMC bar curve \cite{Gordon2003} can also be accessed via its own key, 
+although it will abort for $R_V\neq2.74$.
+
+The two-parameter $(p, a)$-dependent G08 power-law from Goobar \cite{Goobar2008}
+is also available, with power-law index $p$, and amplitude $a$ being read
+from the first and second entries in the list given to \texttt{PARLIST\_MWCOLORLAW}. 
+This form of extinction law is motivated by circumstellar dust, and is defined by
+$A(\lambda) = A_V\times[1 - a + a\times(\lambda/5495)^p]$. Requires
+$0.0<a\leq 1.0$ to ensure the resulting $A(\lambda)$ is positive, and
+$-2.5\leq p\leq -0.5$ based on the range of literature values used 
+\cite{Goobar2008, Amanullah2015}. Has $R_V^\mathrm{eff}=[a\times (0.8^p-1)]^{-1}$,
+based on eq.\ 4 in ref. \cite{Goobar2008}. Ref.\ \cite{Goobar2008} quote 
+parameter values of $(p,a)=(-2.5,0.8)$ and $(-1.5, 0.9)$ for fits to the 
+scattering properties of LMC-like \cite{Weingartner2001}
+and MW-like \cite{Draine2003} dust.
+
 
 \subsubsection{Simulating Intergalactic Extinction}
 \label{sss:IGM}

@@ -24,6 +24,8 @@
 #define OPT_MWCOLORLAW_FITZ99_EXACT   99 // exact Fitzpatrick (1999) (S.Thorp, 2024)
 #define OPT_MWCOLORLAW_GORD03  203 // Gordon et al. (2003) (S. Thorp, 2024)
 #define OPT_MWCOLORLAW_FITZ04  204 // Fitzpatrick (2004) (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_GOOB08  208 // Goobar (2008) power law for circumstellar dust
+#define OPT_MWCOLORLAW_MAIZ14  214 // Maiz Apellaniz et al. (2014) update to CCM
 #define OPT_MWCOLORLAW_GORD16  216 // Gordon et al. (2016) (S.Thorp, 2024)
 #define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // Fitzpatrick et al. (2019), linear interp.
 #define OPT_MWCOLORLAW_FITZ19_CUBIC  219 // Fitzpatrick et al. (2019), cubic interp.
@@ -37,14 +39,23 @@
 // RV limits (not enforced)
 #define RVMIN_FITZ99 2.0 //from dust_extinction (FM_UNRED quotes 2.3-5.3)
 #define RVMAX_FITZ99 6.0 //from dust_extinction
+#define RVMIN_MAIZ14 2.0 //from dust_extinction
+#define RVMAX_MAIZ14 7.0 //from M14 paper
 #define RVMIN_FITZ19 2.0 //from dust_extinction (paper quotes 2.5)
 #define RVMAX_FITZ19 6.0 //from dust_extinction
 #define RVMIN_GORD23 2.3 //from dust_extinction
 #define RVMAX_GORD23 5.6 //from dust_extinction
+// other parameter limits
+#define PMAX_GOOB08 -0.5 //flattest fit from Amanullah et al. (2015)
+#define PMIN_GOOB08 -2.5 //Goobar (2008) fit to LMC CS scattering
 // wavelength limits in Angstroms (enforced)
 #define WAVEMIN_FITZ99_EXACT 912.0 //from FM_UNRED
 #define WAVEMAX_FITZ99_EXACT 35000.0 //from FM_UNRED
 #define WAVEMAX_FITZ99 25000.0  // Oct 2021 Dillon and Dan switched from 12000
+#define WAVEMIN_GOOB08 2000.0 // lower limit of validation in Amanullah et al. (2015)
+#define WAVEMAX_GOOB08 22000.0 // upper limit of data used in Goobar (2008)
+#define WAVEMIN_MAIZ14 3000.0 //prone to artefacts in the UV
+#define WAVEMAX_MAIZ14 35000.0 //power law fails beyond NIR
 #define WAVEMIN_FITZ19 1150.0
 #define WAVEMAX_FITZ19 35000.0
 #define WAVEMIN_GORD23 912.0 //from dust_extinction
@@ -63,6 +74,7 @@ double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
 double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin);
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
                         double c5, double x02, double g2);
+double GALextinct_Maiz14(double RV, double AV, double WAVE);
 double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC);
 double GALextinct_Gord23(double RV, double AV, double WAVE);
 

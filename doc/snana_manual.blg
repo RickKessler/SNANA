@@ -3,44 +3,44 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: snana_manual.aux
 The style file: unsrt.bst
 Database file #1: snana_manual.bib
-You've used 30 entries,
+You've used 35 entries,
             1791 wiz_defined-function locations,
-            662 strings with 8252 characters,
-and the built_in function-call counts, 6342 in all, are:
-= -- 530
-> -- 286
+            693 strings with 8756 characters,
+and the built_in function-call counts, 7315 in all, are:
+= -- 634
+> -- 282
 < -- 2
-+ -- 106
-- -- 76
-* -- 479
-:= -- 1062
-add.period$ -- 90
-call.type$ -- 30
-change.case$ -- 30
++ -- 107
+- -- 72
+* -- 542
+:= -- 1202
+add.period$ -- 105
+call.type$ -- 35
+change.case$ -- 35
 chr.to.int$ -- 0
-cite$ -- 30
-duplicate$ -- 278
-empty$ -- 632
-format.name$ -- 76
-if$ -- 1390
+cite$ -- 35
+duplicate$ -- 323
+empty$ -- 753
+format.name$ -- 72
+if$ -- 1619
 int.to.chr$ -- 0
-int.to.str$ -- 30
-missing$ -- 30
-newline$ -- 153
-num.names$ -- 32
-pop$ -- 37
+int.to.str$ -- 35
+missing$ -- 35
+newline$ -- 178
+num.names$ -- 37
+pop$ -- 42
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 113
+skip$ -- 134
 stack$ -- 0
-substring$ -- 385
-swap$ -- 38
+substring$ -- 496
+swap$ -- 43
 text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
 warning$ -- 0
-while$ -- 60
-width$ -- 32
-write$ -- 332
+while$ -- 70
+width$ -- 37
+write$ -- 387

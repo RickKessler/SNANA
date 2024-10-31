@@ -1577,7 +1577,8 @@ void compute_mu_biascor(char *inFile, HD_DEF *HD) {
   // for HDIBC method, read cospar_biascor from INFO.YML in same
   // directory as HD; then compute mu_biascor for each event;
   // these distances are used later to interpolate.
-  
+
+  int NSN = HD->NSN_ORIG ; // orignal number before cuts
   char *e, path[MXCHAR_FILENAME], info_yml_file[MXCHAR_FILENAME];
   int  irow, jslash = -9 ;
   double ztmp, rz, mu_cos ;
@@ -1598,7 +1599,7 @@ void compute_mu_biascor(char *inFile, HD_DEF *HD) {
     read_cospar_biascor(info_yml_file, &HD->cospar_biasCor);
 
     // for each data event, store mu(z,cospar_biascor)
-    for(irow=0; irow < HD->NSN; irow++ ) {
+    for(irow=0; irow < NSN; irow++ ) {
       ztmp    = HD->z[irow] ;
       rz      = codist(ztmp, &HD->cospar_biasCor);
       mu_cos  = get_mu_cos(ztmp, rz);
@@ -5287,7 +5288,7 @@ void write_output_resid(void) {
   
   Cosparam cpar;
   FILE *fpresid;
-  char TEMP_STRING[MXPATHLEN], cval[20] ;
+  char TEMP_STRING[MXPATHLEN], HDIBC_STRING[200] ;
   char *outFile = INPUTS.outFile_resid ;
   char fnam[] = "write_output_resid" ;
 
@@ -5357,11 +5358,11 @@ void write_output_resid(void) {
       mu_bcor0 = HD_LIST[0].mu_cospar_biascor[i] + mushift0 ;
       mu_bcor1 = HD_LIST[1].mu_cospar_biascor[i] + mushift1 ; 	
 	
-      sprintf(cval,"  %7.4f %7.4f %7.4f %7.4f "
+      sprintf(HDIBC_STRING,"  %7.4f %7.4f %7.4f %7.4f "
 	      "%7.4f %.3f",
 	      mu_obs0, mu_obs1, mu_bcor0, mu_bcor1,
 	      z_dif, f_interp);
-      strcat(TEMP_STRING,cval);
+      strcat(TEMP_STRING,HDIBC_STRING);
     }
     fprintf(fpresid,"%s\n", TEMP_STRING);	    
     fflush(fpresid);

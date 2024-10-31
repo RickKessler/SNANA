@@ -469,6 +469,7 @@ void writemodel(char*, float, float, float);
 void printerror( int status);
 void read_HD(int index_HD, char *inFile, HD_DEF *HD);
 bool read_ISDATA_REAL(char *inFile);
+void compute_mu_biascor(char *inFile, HD_DEF *HD) ;
 void read_cospar_biascor(char *info_yml_file, Cosparam *cospar);
 void malloc_HDarrays(int opt, int NSN, HD_DEF *HD);
 void malloc_COVMAT(int opt, COVMAT_DEF *COV);
@@ -1492,6 +1493,11 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
   } // end irow
 
 
+  // - - - - - - - - - - - -
+  // compute mu_biascor before applutCut_HD re-shuffles lists.
+  if ( INPUTS.USE_HDIBC ) {  compute_mu_biascor(inFile, HD);  } 
+
+  
   // apply cuts by removing rejected events from HD lists
   // and from cov matrix.
   HD->NSN = applyCut_HD(HD->pass_cut, HD);
@@ -1547,14 +1553,39 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
   fflush(stdout);
   //  debugexit(fnam);
 
-  // - - - - - - 
-  // for HDIBC method, read cospar_biascor from INFO.YML in same
-  // directory as HD
 
-  if ( INPUTS.USE_HDIBC ) {
-    char *e, path[MXCHAR_FILENAME], info_yml_file[MXCHAR_FILENAME];
-    int  jslash = -9 ;
-    if ( strchr(inFile,'/') != NULL ) {
+  // - - - -
+  if ( index_HD == 0 ) {
+    int MEMD = (NROW+10) * sizeof(double) ;
+    printf("\t malloc temp[0,1,2]_list (NROW=%d) for get_chi2_fit calls.\n",
+	   NROW);
+    temp0_list  = (double*)malloc(MEMD);
+    temp1_list  = (double*)malloc(MEMD);
+    temp2_list  = (double*)malloc(MEMD);
+  }
+  
+  printf("\n"); fflush(stdout);
+
+  return;
+
+} // end read_HD
+
+
+// ============================================================
+void compute_mu_biascor(char *inFile, HD_DEF *HD) {
+
+  // for HDIBC method, read cospar_biascor from INFO.YML in same
+  // directory as HD; then compute mu_biascor for each event;
+  // these distances are used later to interpolate.
+  
+  char *e, path[MXCHAR_FILENAME], info_yml_file[MXCHAR_FILENAME];
+  int  irow, jslash = -9 ;
+  double ztmp, rz, mu_cos ;
+  char fnam[] = "compute_mu_biascor" ;
+
+  // ------------- BEGIN ------------
+
+  if ( strchr(inFile,'/') != NULL ) {
       e      = strrchr(inFile, '/');
       jslash = (int)(e - inFile);
       sprintf(path,"%s", inFile); path[jslash] = 0;
@@ -1573,26 +1604,11 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
       mu_cos  = get_mu_cos(ztmp, rz);
       HD->mu_cospar_biascor[irow] = mu_cos;
     }
-  } // end HDIBC
-
-
-  // - - - -
-  if ( index_HD == 0 ) {
-    int MEMD = (NROW+10) * sizeof(double) ;
-    printf("\t malloc temp[0,1,2]_list (NROW=%d) for get_chi2_fit calls.\n",
-	   NROW);
-    temp0_list  = (double*)malloc(MEMD);
-    temp1_list  = (double*)malloc(MEMD);
-    temp2_list  = (double*)malloc(MEMD);
-  }
   
-  printf("\n"); fflush(stdout);
-
   return;
+} // end compute_mu_biascor
 
-} // end read_HD
-
-// ==========================
+// ============================================================
 void read_cospar_biascor(char *info_yml_file, Cosparam *cospar) {
 
   // Created Mar 2023
@@ -1890,7 +1906,7 @@ int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
   // Use PASS_CUT_LIST to update HD arrays for elements passing cuts.
   //
   // Oct 31 2024:
-  //  + adjust mu_ref & mu_cospar_biascor ... bug fixes
+  //  + adjust mu_ref  ... bug fixes
   //  + adjust new mu_sim
   
   int NSN_ORIG = HD->NSN_ORIG;
@@ -1923,8 +1939,10 @@ int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
     HD->mu_ref[NSN_STORE]   = HD->mu_ref[irow];
     HD->mu_sim[NSN_STORE]   = HD->mu_sim[irow];
 
-    HD->mu_cospar_biascor[NSN_STORE] = HD->mu_cospar_biascor[irow];
-      
+
+    if ( INPUTS.USE_HDIBC )
+      {  HD->mu_cospar_biascor[NSN_STORE] = HD->mu_cospar_biascor[irow]; }
+    
     if ( ztmp < HD->zmin ) { HD->zmin = ztmp; }
     if ( ztmp > HD->zmax ) { HD->zmax = ztmp; }
 

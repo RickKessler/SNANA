@@ -379,7 +379,7 @@ typedef struct {
   int    NSN, NSN_ORIG ; // NSN after cuts, before cuts
   char   **cid ;
   bool   *pass_cut;
-  double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
+  double *mu, *mu_sig, *mu_ref, *mu_sim, *mu_sqsig, *z, *logz, *z_sig ;
   int    *nfit_perbin;  
   double zmin, zmax;
   bool   ISDATA_REAL;
@@ -387,7 +387,8 @@ typedef struct {
   // for HDIBC method (Mar 2023)
   Cosparam cospar_biasCor;
   double *mu_cospar_biascor; // store distance(z_data) using biasCor cosmology
-
+  double *f_interp;
+  
 } HD_DEF ;
 
 HD_DEF HD_LIST[2];
@@ -395,6 +396,10 @@ HD_DEF HD_FINAL ;  // differs for HDIBC
 
 Cosparam COSPAR_SIM ; // cosmo params from simulated data 
 Cosparam COSPAR_LCDM; // w0,wa = -1,0
+
+double *temp0_list ;
+double *temp1_list ;
+double *temp2_list ;
 
 struct {
   double R, sigR;    // CMB R shift parameter and error
@@ -461,7 +466,7 @@ void parse_args(int argc, char **argv) ;
 int  compare_double_reverse (const void *, const void *);
 void writemodel(char*, float, float, float);
 void printerror( int status);
-void read_HD(char *inFile, HD_DEF *HD);
+void read_HD(int index_HD, char *inFile, HD_DEF *HD);
 bool read_ISDATA_REAL(char *inFile);
 void read_cospar_biascor(char *info_yml_file, Cosparam *cospar);
 void malloc_HDarrays(int opt, int NSN, HD_DEF *HD);
@@ -496,7 +501,8 @@ void wfit_Covariance(void);
 
 
 void get_chi2_fit(double w0, double wa, double OM, double sqmurms_add,
-		  double *z_list, double *mu_list, double *chi2sn, double *chi2tot );
+		  double *z_list, double *mu_list, double *f_interp_list,
+		  double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
 double get_DMU_chi2wOM(double z, double rz, double mu); 
@@ -607,9 +613,9 @@ int main(int argc,char *argv[]){
     /*** Read in the data ***/
     /************************/
     
-    read_HD(INPUTS.HD_infile_list[0], &HD_LIST[0]); 
+    read_HD(0, INPUTS.HD_infile_list[0], &HD_LIST[0]); 
     if ( INPUTS.USE_HDIBC ) 
-      { read_HD(INPUTS.HD_infile_list[1], &HD_LIST[1]); }
+      { read_HD(1, INPUTS.HD_infile_list[1], &HD_LIST[1]); }
 
     // for large samples, setup logz grid to interpolate rz(z)
     init_rz_interp(&HD_LIST[0]);
@@ -1315,6 +1321,8 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
   // opt < 0 -> free
 
   int i;
+  char fnam[] = "malloc_HDarrays" ;
+  
   // --------- BEGIN --------
 
   if ( opt > 0 ) {
@@ -1325,10 +1333,13 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
     HD->mu          = (double *)calloc(NSN,sizeof(double));
     HD->mu_sig      = (double *)calloc(NSN,sizeof(double));
     HD->mu_ref      = (double *)calloc(NSN,sizeof(double));
+    HD->mu_sim      = (double *)calloc(NSN,sizeof(double));    
     HD->mu_sqsig    = (double *)calloc(NSN,sizeof(double));   
     HD->z           = (double *)calloc(NSN,sizeof(double));
     HD->logz        = (double *)calloc(NSN,sizeof(double));
     HD->z_sig       = (double *)calloc(NSN,sizeof(double));
+    HD->f_interp    = (double *)calloc(NSN,sizeof(double));    
+    
     HD->nfit_perbin = (int    *)calloc(NSN,sizeof(int));
     if ( INPUTS.USE_HDIBC ) 
       { HD->mu_cospar_biascor = (double*)calloc(NSN,sizeof(double)); }
@@ -1337,11 +1348,13 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
     free(HD->pass_cut);
     free(HD->mu); 
     free(HD->mu_sig); 
-    free(HD->mu_ref); 
+    free(HD->mu_ref);
+    free(HD->mu_sim);     
     free(HD->mu_sqsig); 
     free(HD->z); 
     free(HD->logz); 
-    free(HD->z_sig); 
+    free(HD->z_sig);
+    free(HD->f_interp);
     free(HD->nfit_perbin); 
     for(i=0; i < NSN; i++ ) { free(HD->cid[i]); } 
     free(HD->cid);
@@ -1369,7 +1382,7 @@ void malloc_COVMAT(int opt, COVMAT_DEF *COVMAT) {
 } // end malloc_COVMAT
 
 // ==================================
-void read_HD(char *inFile, HD_DEF *HD) {
+void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
 
   // Created Oct 1 2021 by R.Kessler
   // Refactored routine to read Hubble diagram from fitres-formatted file
@@ -1452,7 +1465,8 @@ void read_HD(char *inFile, HD_DEF *HD) {
   }
 
   // - - - - - -
-
+  // apply cuts and store mu_sim per event
+  
   int    PASSCUTS,  NFIT, NROW2=0 ;  
   HD->zmin = 99999.0;  HD->zmax = -9999.90 ;
 
@@ -1469,9 +1483,14 @@ void read_HD(char *inFile, HD_DEF *HD) {
 
     HD->pass_cut[irow]  = PASSCUTS ;
 
+    rz                = codist(ztmp, &COSPAR_SIM);
+    HD->mu_sim[irow]  = get_mu_cos(ztmp, rz);
+      
   } // end irow
 
 
+  // apply cuts by removing rejected events from HD lists
+  // and from cov matrix.
   HD->NSN = applyCut_HD(HD->pass_cut, HD);
 
   printf("   Keep %d of %d z-bins with z cut\n", 
@@ -1553,6 +1572,17 @@ void read_HD(char *inFile, HD_DEF *HD) {
     }
   } // end HDIBC
 
+
+  // - - - -
+  if ( index_HD == 0 ) {
+    int MEMD = (NROW+10) * sizeof(double) ;
+    printf("\t malloc temp[0,1,2]_list (NROW=%d) for get_chi2_fit calls.\n",
+	   NROW);
+    temp0_list  = (double*)malloc(MEMD);
+    temp1_list  = (double*)malloc(MEMD);
+    temp2_list  = (double*)malloc(MEMD);
+  }
+  
   printf("\n"); fflush(stdout);
 
   return;
@@ -1855,30 +1885,43 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
 
   // Use PASS_CUT_LIST to update HD arrays for elements passing cuts.
-
+  //
+  // Oct 31 2024:
+  //  + adjust mu_ref ... bug fix for output resid file
+  //  + adjust new mu_sim
+  
   int NSN_ORIG = HD->NSN_ORIG;
   int irow, NSN_STORE=0;
-  double ztmp ;
+  double ztmp, mu_sig ;
+  char *cid;
   char fnam[] = "applyCut_HD";
 
   // ------------ BEGIN ------------
 
   for(irow = 0; irow < NSN_ORIG; irow++ ) {
 
-    ztmp = HD->z[irow];
 
+  
     if ( !PASS_CUT_LIST[irow] ) { continue; }
+
+    ztmp        = HD->z[irow];
+    mu_sig      = HD->mu_sig[irow];
+    cid         = HD->cid[irow] ;
     
-    sprintf(HD->cid[NSN_STORE], "%s", HD->cid[irow] );
-    HD->mu[NSN_STORE]       = HD->mu[irow];
-    HD->mu_sig[NSN_STORE]   = HD->mu_sig[irow];
-    if ( INPUTS.muerr_force > 0.0 ) { HD->mu_sig[NSN_STORE] = INPUTS.muerr_force; }
+    sprintf(HD->cid[NSN_STORE], "%s", cid );
+    HD->mu[NSN_STORE]       = HD->mu[irow];      
+  
+    if ( INPUTS.muerr_force > 0.0 ) { mu_sig = INPUTS.muerr_force; }    
+    HD->mu_sig[NSN_STORE]   = mu_sig;
+    HD->mu_sqsig[NSN_STORE] = mu_sig*mu_sig ;
 
     HD->z[NSN_STORE]        = ztmp;
     HD->logz[NSN_STORE]     = log10(ztmp); 
     HD->z_sig[NSN_STORE]    = HD->z_sig[irow];
-    HD->mu_sqsig[NSN_STORE] = HD->mu_sig[irow]*HD->mu_sig[irow];
 
+    HD->mu_ref[NSN_STORE]   = HD->mu_ref[irow];
+    HD->mu_sim[NSN_STORE]   = HD->mu_sim[irow];
+    
     if ( ztmp < HD->zmin ) { HD->zmin = ztmp; }
     if ( ztmp > HD->zmax ) { HD->zmax = ztmp; }
 
@@ -2051,7 +2094,7 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
     rz1_new      = codist(z0, &HD1->cospar_biasCor);
     mu1_orig     = HD1->mu[i];
     
-    mu1_dif = -(get_mu_cos(z0, rz1_new) - get_mu_cos(z1, rz1_orig) ) ;
+    mu1_dif = (get_mu_cos(z0, rz1_new) - get_mu_cos(z1, rz1_orig) ) ;
     
     HD1->z[i]   = z0;  // force same redshift
     HD1->mu[i] += mu1_dif;
@@ -2902,8 +2945,7 @@ void wfit_minimize(void) {
   Cosparam cpar;
   Cosparam cpar_fixed;
   double snchi_tmp, extchi_tmp ;
-  double *z_obs_list  = (double*)malloc(HD_LIST[0].NSN*sizeof(double));
-  double *mu_obs_list = (double*)malloc(HD_LIST[0].NSN*sizeof(double));  
+
   bool UPDATE_STDOUT;
   int  i, kk, j;
   int  imin = -9, kmin = -9, jmin = -9;
@@ -2929,7 +2971,8 @@ void wfit_minimize(void) {
     cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
     cpar_fixed.mushift = 0.0 ;
     get_chi2_fit(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
-		 z_obs_list, mu_obs_list, &snchi_tmp, &extchi_tmp ); 
+		 temp0_list, temp1_list, temp2_list,
+		 &snchi_tmp, &extchi_tmp ); 
     printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
 	   "= %.1f %.1f \n", snchi_tmp, extchi_tmp);
     fflush(stdout);
@@ -2952,7 +2995,8 @@ void wfit_minimize(void) {
 	cpar.ome = 1 - cpar.omm;
 	
 	get_chi2_fit ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms, 
-		       z_obs_list, mu_obs_list, &snchi_tmp, &extchi_tmp ); 
+		       temp0_list, temp1_list, temp2_list,
+		       &snchi_tmp, &extchi_tmp ); 
 
 	WORKSPACE.snchi3d[i][kk][j]  = snchi_tmp ; 
 	WORKSPACE.extchi3d[i][kk][j] = extchi_tmp ;
@@ -3865,7 +3909,8 @@ void wfit_final(void) {
   malloc_HDarrays(+1, HD_LIST[0].NSN, &HD_FINAL);
   HD_FINAL.NSN = HD_LIST[0].NSN;
   get_chi2_fit ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms,  // inputs
-		 HD_FINAL.z, HD_FINAL.mu, &snchi_tmp, &chi2_final );   // return args
+		 HD_FINAL.z, HD_FINAL.mu, HD_FINAL.f_interp,
+		 &snchi_tmp, &chi2_final );   // return args
 
   WORKSPACE.chi2_final  = chi2_final;
 
@@ -4080,6 +4125,7 @@ void get_chi2_fit (
 	      ,double sqmurms_add  // (I) anomalous mu-error squared
 	      ,double *z_obs_list  // (O) redshifts used in fit
 	      ,double *mu_obs_list // (O) mu per event (for HDIBC)
+	      ,double *f_interp_list // (O) interp frac per event (for HDIBC)
 	      ,double *chi2sn      // (O) SN-only chi2
 	      ,double *chi2tot     // (O) SN+prior chi2
 	      ) {
@@ -4120,6 +4166,7 @@ void get_chi2_fit (
   // rz-interp variables
   int n_logz, iz;
   double z ;
+  double mu_obs0, mu_obs1, f_interp;
 
   char fnam[] = "get_chi2_fit";
 
@@ -4151,7 +4198,6 @@ void get_chi2_fit (
   for(k=0; k < NSN; k++ )  { 
 
     z = HD0->z[k] ;
-    if ( INPUTS.USE_HDIBC ) { z = 0.5*(HD0->z[k] + HD1->z[k]); }
 
     if ( USE_SPEED_INTERP )  { 
       exec_rz_interp(k, &cparloc, &rz, &mu_cos); 
@@ -4181,9 +4227,9 @@ void get_chi2_fit (
 	debugexit(fnam);
       }
 
-      double mu_obs0 = HD0->mu[k] ;
-      double mu_obs1 = HD1->mu[k] ;
-      double f_interp = (mu_cos - mu_bcor0) / (mu_bcor1 - mu_bcor0) ;
+      mu_obs0 = HD0->mu[k] ;
+      mu_obs1 = HD1->mu[k] ;
+      f_interp = (mu_cos - mu_bcor0) / (mu_bcor1 - mu_bcor0) ;
 
       // avoid too much extrapolation
       if ( f_interp < -0.5 ) { f_interp = -0.5; }
@@ -4194,10 +4240,12 @@ void get_chi2_fit (
     else {
       // conventional : just one HD from one biasCor sim
       mu_obs = HD0->mu[k];
+      f_interp = 0.0 ;
     }
 
-    mu_obs_list[k] = mu_obs; // Oct 23 2024 RK
-    z_obs_list[k]  = z;      // Oct 23 2024 RK    
+    z_obs_list[k]    = z;      // Oct 23 2024 RK    
+    mu_obs_list[k]   = mu_obs; // Oct 23 2024 RK
+    f_interp_list[k] = f_interp;
     
     dmu_list[k] = mu_obs - mu_cos; 
 
@@ -4498,8 +4546,6 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
     ,snchi_tmp, extchi_tmp, snchi_min, extchi_min
     ;
 
-  double *z_obs_list  = (double*)malloc(HD_LIST[0].NSN*sizeof(double));
-  double *mu_obs_list = (double*)malloc(HD_LIST[0].NSN*sizeof(double));  
   
   double w0step_tmp  = INPUTS.w0_stepsize / 10.0; 
   double wastep_tmp  = INPUTS.wa_stepsize / 10.0;
@@ -4547,7 +4593,8 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 	}
 
 	get_chi2_fit(w0_tmp, wa_tmp, om_tmp, INPUTS.sqsnrms, 
-		     z_obs_list, mu_obs_list, &snchi_tmp, &extchi_tmp );
+		     temp0_list, temp1_list, temp2_list,
+		     &snchi_tmp, &extchi_tmp );
 
 	if ( extchi_tmp < extchi_min ) 
 	  { extchi_min = extchi_tmp ;  imin=i; kmin = kk; jmin=j; }
@@ -5206,6 +5253,7 @@ void write_output_resid(void) {
   
   Cosparam cpar;
   FILE *fpresid;
+  char TEMP_STRING[MXPATHLEN], cval[20] ;
   char *outFile = INPUTS.outFile_resid ;
   char fnam[] = "write_output_resid" ;
 
@@ -5224,30 +5272,50 @@ void write_output_resid(void) {
 
   int i;
   char   *cid ;
-  double z, rz, ld_cos, mu_obs, mu_cos, mu_dif, mu_sig, chi2;
+  double z, rz, ld_cos, mu_obs, mu_model, mu_sim, mu_dif, mu_sig;
+  double chi2, f_interp, mu_obs0, mu_obs1 ;
   double H0 = H0_SALT2;
 
   fprintf(fpresid,"# mu_res = mu - mu(bestFit model)\n");
   fprintf(fpresid,"# chi2_diag = mu_res^2 / mu_sig^2 \n");
+  fprintf(fpresid,"# mu_sim computed from { OM, ODE, w0, wa } = "
+	  "{ %.3f %.3f %.3f %.3f } \n",
+	  COSPAR_SIM.omm, COSPAR_SIM.ome, COSPAR_SIM.w0, COSPAR_SIM.wa);
   fprintf(fpresid,"\n");
 
-  fprintf(fpresid,"VARNAMES: " 
-	  "CID   zHD  mu_obs  mu_model  mu_res  mu_sig  chi2_diag\n");
-
+  sprintf(TEMP_STRING,"VARNAMES: "
+	  "CID   zHD  mu_obs  mu_model  mu_sim  mu_res  mu_sig  chi2_diag");
+  if ( INPUTS.USE_HDIBC )
+    { strcat(TEMP_STRING,"  mu_obs0_hdibc mu_obs1_hdibc f_interp_hdibc"); }
+  
+  fprintf(fpresid,"%s\n", TEMP_STRING);
+  
   for (i=0; i < HD_FINAL.NSN; i++) {
     cid          = HD_LIST[0].cid[i] ;    
     z            = HD_FINAL.z[i] ;  // can differ from HD_LIST[0] for HDIBC
     mu_obs       = HD_FINAL.mu[i];  // idem
     mu_sig       = HD_LIST[0].mu_sig[i];
+    mu_sim       = HD_LIST[0].mu_sim[i];
     
     rz           =  codist( z, &cpar) ;    
-    mu_cos       =  get_mu_cos(z, rz) ; // best fit model mu    
-    mu_dif       =  mu_obs - mu_cos;  // muresid
+    mu_model     =  get_mu_cos(z, rz) ; // best fit model mu    
+    mu_dif       =  mu_obs - mu_model;  // muresid
     chi2         =  (mu_dif*mu_dif) / ( mu_sig*mu_sig );
 
-    fprintf(fpresid,"SN: "
-	    "%-12s %7.4f %7.4f %7.4f  %7.4f %7.4f %7.3f\n", 
-	    cid, z, mu_obs, mu_cos, mu_dif, mu_sig, chi2 );
+    sprintf(TEMP_STRING,"SN: "
+	    "%-12s %7.4f %7.4f %7.4f %7.4f "
+	    " %7.4f %7.4f %7.1f  ", 
+	    cid, z, mu_obs, mu_model, mu_sim,
+	    mu_dif, mu_sig, chi2 );
+    
+    if ( INPUTS.USE_HDIBC )  {
+      f_interp = HD_FINAL.f_interp[i];
+      mu_obs0  = HD_LIST[0].mu[i];
+      mu_obs1  = HD_LIST[1].mu[i];      	       
+      sprintf(cval,"  %7.4f %7.4f %.3f", mu_obs0, mu_obs1, f_interp);
+      strcat(TEMP_STRING,cval);
+    }
+    fprintf(fpresid,"%s\n", TEMP_STRING);	    
     fflush(fpresid);
 
   }

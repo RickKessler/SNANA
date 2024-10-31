@@ -388,6 +388,7 @@ typedef struct {
   Cosparam cospar_biasCor;
   double *mu_cospar_biascor; // store distance(z_data) using biasCor cosmology
   double *f_interp;
+  double *z_orig ;
   
 } HD_DEF ;
 
@@ -1338,7 +1339,8 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
     HD->z           = (double *)calloc(NSN,sizeof(double));
     HD->logz        = (double *)calloc(NSN,sizeof(double));
     HD->z_sig       = (double *)calloc(NSN,sizeof(double));
-    HD->f_interp    = (double *)calloc(NSN,sizeof(double));    
+    HD->f_interp    = (double *)calloc(NSN,sizeof(double));
+    HD->z_orig      = (double *)calloc(NSN,sizeof(double));        
     
     HD->nfit_perbin = (int    *)calloc(NSN,sizeof(int));
     if ( INPUTS.USE_HDIBC ) 
@@ -1355,6 +1357,7 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
     free(HD->logz); 
     free(HD->z_sig);
     free(HD->f_interp);
+    free(HD->z_orig);    
     free(HD->nfit_perbin); 
     for(i=0; i < NSN; i++ ) { free(HD->cid[i]); } 
     free(HD->cid);
@@ -2069,7 +2072,8 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
   double rz1_orig, rz1_new, mu1_dif, mu1_orig;
   double *zdif_list   = (double*)malloc(MEMD);
   double *mu1dif_list = (double*)malloc(MEMD);
-  
+
+  bool CHEAT_COSPAR_SIM = false;  // default is false; use only for debugging
   char fnam[] = "sync_HD_redshifts" ;
 
   // ------------- BEGIN ----------
@@ -2081,6 +2085,8 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
   for(i=0; i < NSN; i++ ) {
     z0 = HD0->z[i];
     z1 = HD1->z[i];
+    HD0->z_orig[i]   = z0;
+    HD1->z_orig[i]   = z1;         
     zdif = z1 - z0 ;
 
     if ( zdif == 0.0 ) { continue; }
@@ -2090,15 +2096,24 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
     if ( fabs(zdif) > fabs(zdif_max) ) { zdif_max = zdif; }
 
     // compute Mu1 shift corresponding to z1 shift
-    rz1_orig     = codist(z1, &HD1->cospar_biasCor);
-    rz1_new      = codist(z0, &HD1->cospar_biasCor);
+    if ( CHEAT_COSPAR_SIM ) {
+      // cheat mode for testing only
+      rz1_orig     = codist(z1, &COSPAR_SIM);
+      rz1_new      = codist(z0, &COSPAR_SIM);
+    }
+    else {
+      // nominal default is to use cospar from biasCor.
+      rz1_orig     = codist(z1, &HD1->cospar_biasCor);
+      rz1_new      = codist(z0, &HD1->cospar_biasCor);
+    }
+    
     mu1_orig     = HD1->mu[i];
     
     mu1_dif = (get_mu_cos(z0, rz1_new) - get_mu_cos(z1, rz1_orig) ) ;
     
     HD1->z[i]   = z0;  // force same redshift
     HD1->mu[i] += mu1_dif;
-
+    
     zdif_list[i]   = zdif;
     mu1dif_list[i] = mu1_dif;
   }
@@ -5273,7 +5288,7 @@ void write_output_resid(void) {
   int i;
   char   *cid ;
   double z, rz, ld_cos, mu_obs, mu_model, mu_sim, mu_dif, mu_sig;
-  double chi2, f_interp, mu_obs0, mu_obs1 ;
+  double chi2, z_dif, f_interp, mu_obs0, mu_obs1 ;
   double H0 = H0_SALT2;
 
   fprintf(fpresid,"# mu_res   = mu_obs - mu_model \n");
@@ -5286,8 +5301,10 @@ void write_output_resid(void) {
 
   sprintf(TEMP_STRING,"VARNAMES: "
 	  "CID   zHD  mu_obs  mu_model  mu_sim  mu_res  mu_sig  chi2_diag");
-  if ( INPUTS.USE_HDIBC )
-    { strcat(TEMP_STRING,"  mu_obs0_hdibc mu_obs1_hdibc f_interp_hdibc"); }
+  if ( INPUTS.USE_HDIBC ) {
+    strcat(TEMP_STRING,"  mu_obs0_hdibc mu_obs1_hdibc "
+	   "z_dif_hdibc f_interp_hdibc");
+  }
   
   fprintf(fpresid,"%s\n", TEMP_STRING);
   
@@ -5310,10 +5327,12 @@ void write_output_resid(void) {
 	    mu_dif, mu_sig, chi2 );
     
     if ( INPUTS.USE_HDIBC )  {
+      z_dif    = HD_LIST[1].z_orig[i] - HD_LIST[0].z_orig[i];
       f_interp = HD_FINAL.f_interp[i];
       mu_obs0  = HD_LIST[0].mu[i];
       mu_obs1  = HD_LIST[1].mu[i];      	       
-      sprintf(cval,"  %7.4f %7.4f %.3f", mu_obs0, mu_obs1, f_interp);
+      sprintf(cval,"  %7.4f %7.4f %7.4f %.3f",
+	      mu_obs0, mu_obs1, z_dif, f_interp);
       strcat(TEMP_STRING,cval);
     }
     fprintf(fpresid,"%s\n", TEMP_STRING);	    

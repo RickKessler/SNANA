@@ -5276,11 +5276,12 @@ void write_output_resid(void) {
   double chi2, f_interp, mu_obs0, mu_obs1 ;
   double H0 = H0_SALT2;
 
-  fprintf(fpresid,"# mu_res = mu - mu(bestFit model)\n");
-  fprintf(fpresid,"# chi2_diag = mu_res^2 / mu_sig^2 \n");
-  fprintf(fpresid,"# mu_sim computed from { OM, ODE, w0, wa } = "
+  fprintf(fpresid,"# mu_res   = mu_obs - mu_model \n");
+  fprintf(fpresid,"# mu_model = distance computed from best-fit cosmology model.\n");
+  fprintf(fpresid,"# mu_sim   = distance computed from { OM, ODE, w0, wa } = "
 	  "{ %.3f %.3f %.3f %.3f } \n",
 	  COSPAR_SIM.omm, COSPAR_SIM.ome, COSPAR_SIM.w0, COSPAR_SIM.wa);
+  fprintf(fpresid,"# chi2_diag = mu_res^2 / mu_sig^2 \n");
   fprintf(fpresid,"\n");
 
   sprintf(TEMP_STRING,"VARNAMES: "

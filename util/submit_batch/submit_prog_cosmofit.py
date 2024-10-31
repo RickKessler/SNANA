@@ -58,6 +58,8 @@
 # Oct 23 2024: new CONFIG key USE_COVSYS_INV: False/True (default is true) to
 #              ignore COVSYS_INV file and let cosmofit code invert the matrix.
 #
+# Oct 31 2024 if -outfile_resid is passed, replace its arg
+#               with a standard file name.
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -659,20 +661,26 @@ class cosmofit(Program):
         self.config_prep['fitopt_global'] = fitopt_global
 
         # - - - - - 
-        # check for wa in fit
+        # check for wa in fit; also check optional outputs
         use_wa          = False
         outdir_chi2grid = None
+        outdir_resid    = None
         tmp_list = fitopt_arg_list + [ fitopt_global ]
         for tmp in tmp_list:
             if '-wa'               in tmp : 
                 use_wa = True
             if '-outfile_chi2grid' in tmp : 
-                outdir_chi2grid = f"{output_dir}/CHI2GRID"
+                outdir_chi2grid = f"{output_dir}/WFIT_CHI2GRID"
                 if not os.path.exists(outdir_chi2grid):
                     os.mkdir(outdir_chi2grid)
+            if '-outfile_resid' in tmp : 
+                outdir_resid = f"{output_dir}/WFIT_RESIDUALS"
+                if not os.path.exists(outdir_resid):
+                    os.mkdir(outdir_resid)
 
         self.config_prep['use_wa'] = use_wa
         self.config_prep['outdir_chi2grid'] = outdir_chi2grid
+        self.config_prep['outdir_resid']    = outdir_resid
 
         return
 
@@ -826,8 +834,9 @@ class cosmofit(Program):
         arg_global   = self.config_prep['fitopt_global']
         covsys_base  = self.config_prep['covsys_file_list2d'][idir][icov]
         covtot_inv_base  = self.config_prep['covtot_inv_file_list2d'][idir][icov] 
-        hd_base      = self.config_prep['hd_file_list'][idir]
-        outdir_chi2grid = self.config_prep['outdir_chi2grid']
+        hd_base          = self.config_prep['hd_file_list'][idir]
+        outdir_chi2grid  = self.config_prep['outdir_chi2grid']
+        outdir_resid     = self.config_prep['outdir_resid']        
         
         prefix = self.cosmofit_num_string(idir,icov,ifit)
 
@@ -855,7 +864,10 @@ class cosmofit(Program):
         if outdir_chi2grid is not None :
             outfile  = f"{outdir_chi2grid}/{prefix}_CHI2GRID.DAT"
             arg_list = util.replace_arg(arg_list,"-outfile_chi2grid",outfile)
-            #print(f" xxx arg_list -> {arg_list}")
+        if outdir_resid is not None :
+            outfile  = f"{outdir_resid}/{prefix}_RESIDUALS.DAT"
+            arg_list = util.replace_arg(arg_list,"-outfile_resid",outfile)
+
 
         # define covsys file from create_cov
         if covtot_inv_file:

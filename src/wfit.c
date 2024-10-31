@@ -1890,7 +1890,7 @@ int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
   // Use PASS_CUT_LIST to update HD arrays for elements passing cuts.
   //
   // Oct 31 2024:
-  //  + adjust mu_ref ... bug fix for output resid file
+  //  + adjust mu_ref & mu_cospar_biascor ... bug fixes
   //  + adjust new mu_sim
   
   int NSN_ORIG = HD->NSN_ORIG;
@@ -1903,8 +1903,6 @@ int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
 
   for(irow = 0; irow < NSN_ORIG; irow++ ) {
 
-
-  
     if ( !PASS_CUT_LIST[irow] ) { continue; }
 
     ztmp        = HD->z[irow];
@@ -1924,7 +1922,9 @@ int applyCut_HD(bool *PASS_CUT_LIST, HD_DEF *HD) {
 
     HD->mu_ref[NSN_STORE]   = HD->mu_ref[irow];
     HD->mu_sim[NSN_STORE]   = HD->mu_sim[irow];
-    
+
+    HD->mu_cospar_biascor[NSN_STORE] = HD->mu_cospar_biascor[irow];
+      
     if ( ztmp < HD->zmin ) { HD->zmin = ztmp; }
     if ( ztmp > HD->zmax ) { HD->zmax = ztmp; }
 
@@ -4177,7 +4177,8 @@ void get_chi2_fit (
 
   double mushift0 = HD0->cospar_biasCor.mushift ;
   double mushift1 = HD1->cospar_biasCor.mushift ;
-  
+
+    
   // rz-interp variables
   int n_logz, iz;
   double z ;
@@ -5288,7 +5289,7 @@ void write_output_resid(void) {
   int i;
   char   *cid ;
   double z, rz, ld_cos, mu_obs, mu_model, mu_sim, mu_dif, mu_sig;
-  double chi2, z_dif, f_interp, mu_obs0, mu_obs1 ;
+  double chi2;
   double H0 = H0_SALT2;
 
   fprintf(fpresid,"# mu_res   = mu_obs - mu_model \n");
@@ -5302,7 +5303,7 @@ void write_output_resid(void) {
   sprintf(TEMP_STRING,"VARNAMES: "
 	  "CID   zHD  mu_obs  mu_model  mu_sim  mu_res  mu_sig  chi2_diag");
   if ( INPUTS.USE_HDIBC ) {
-    strcat(TEMP_STRING,"  mu_obs0_hdibc mu_obs1_hdibc "
+    strcat(TEMP_STRING,"  mu_obs0_hdibc mu_obs1_hdibc mu_bcor0_hdibc mu_bcor1_hdibc "
 	   "z_dif_hdibc f_interp_hdibc");
   }
   
@@ -5327,12 +5328,21 @@ void write_output_resid(void) {
 	    mu_dif, mu_sig, chi2 );
     
     if ( INPUTS.USE_HDIBC )  {
+      double z_dif, f_interp, mu_obs0, mu_obs1, mu_bcor0, mu_bcor1;
+      double mushift0 = HD_LIST[0].cospar_biasCor.mushift;
+      double mushift1 = HD_LIST[1].cospar_biasCor.mushift;      
+      
       z_dif    = HD_LIST[1].z_orig[i] - HD_LIST[0].z_orig[i];
       f_interp = HD_FINAL.f_interp[i];
       mu_obs0  = HD_LIST[0].mu[i];
-      mu_obs1  = HD_LIST[1].mu[i];      	       
-      sprintf(cval,"  %7.4f %7.4f %7.4f %.3f",
-	      mu_obs0, mu_obs1, z_dif, f_interp);
+      mu_obs1  = HD_LIST[1].mu[i];
+      mu_bcor0 = HD_LIST[0].mu_cospar_biascor[i] + mushift0 ;
+      mu_bcor1 = HD_LIST[1].mu_cospar_biascor[i] + mushift1 ; 	
+	
+      sprintf(cval,"  %7.4f %7.4f %7.4f %7.4f "
+	      "%7.4f %.3f",
+	      mu_obs0, mu_obs1, mu_bcor0, mu_bcor1,
+	      z_dif, f_interp);
       strcat(TEMP_STRING,cval);
     }
     fprintf(fpresid,"%s\n", TEMP_STRING);	    

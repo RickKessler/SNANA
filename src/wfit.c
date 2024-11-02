@@ -496,7 +496,6 @@ void wfit_normalize(void);
 void wfit_marginalize(void);
 void wfit_uncertainty(void);
 void wfit_uncertainty_fitpar(char *varname);
-void wfit_uncertainty_legacy(void);
 void wfit_final(void);
 void wfit_FoM(void);
 void wfit_Covariance(void);
@@ -510,8 +509,8 @@ void getname(char *basename, char *tempname, int nrun);
 double get_DMU_chi2wOM(double z, double rz, double mu); 
 double get_mu_cos(double z, double rz) ;
 
-double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
-		   double *OM_atchimin ); 
+double get_minimized_cospar( double *w0_atchimin, double *wa_atchimin, 
+			       double *OM_atchimin ); 
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
@@ -661,18 +660,11 @@ int main(int argc,char *argv[]){
     // Normalize probability distributions 
     wfit_normalize();
 
-    // Marginalize 
-    wfit_marginalize();
+    wfit_marginalize();  // marginalize
 
     // get uncertainties
-    if ( INPUTS.debug_flag == -426 )
-      { wfit_uncertainty_legacy(); }
-    else
-      { wfit_uncertainty(); }  // refactored Apr 26 2024
-
-    // Compute covriance with fitted parameters
-    // xxx mark wfit_Covariance();
-    
+    wfit_uncertainty();
+      
     // determine "final" quantities, including sigma_mu^int
     wfit_final();
 
@@ -2991,8 +2983,8 @@ void wfit_minimize(void) {
   int NB=0;
 
   printf("\n# ======================================= \n");
-  printf(" Get prob at %d grid points, and approx mimimized values: \n", 
-	 NBTOT );
+  printf(" %s: Get prob at %d grid points, and approx mimimized values \n", 
+	 fnam, NBTOT );
   printf("\t USE_SPEED_OFFDIAG = %d \n", INPUTS.USE_SPEED_OFFDIAG);
   printf("\t USE_SPEED_INTERP  = %d \n", INPUTS.USE_SPEED_INTERP);
   fflush(stdout);
@@ -3059,7 +3051,6 @@ void wfit_minimize(void) {
 	  print_elapsed_time(t0, comment, UNIT_TIME_SECOND);
 	}
 
-
       } // j loop
     }  // end of k-loop
   }  // end of i-loop
@@ -3067,16 +3058,18 @@ void wfit_minimize(void) {
 
   // get w,OM at min chi2 by using more refined grid
   // Pass approx w,OM,  then return w,OM at true min
-  //  printf("  Get minimized w,OM from refined chi2grid \n");
+
   WORKSPACE.w0_atchimin = INPUTS.w0_min  + imin * INPUTS.w0_stepsize ;
   WORKSPACE.wa_atchimin = INPUTS.wa_min  + kmin * INPUTS.wa_stepsize ;
   WORKSPACE.omm_atchimin= INPUTS.omm_min + jmin * INPUTS.omm_stepsize ;
   
   if ( !INPUTS.use_marg  ) {
+    //printf("  Repeat minimization with refined parameter grid \n");
+    fflush(stdout);
     WORKSPACE.chi2atmin  = 
-      get_minwOM( &WORKSPACE.w0_atchimin, 
-		  &WORKSPACE.wa_atchimin,  
-		  &WORKSPACE.omm_atchimin ); 
+      get_minimized_cospar( &WORKSPACE.w0_atchimin, 
+			    &WORKSPACE.wa_atchimin,  
+			    &WORKSPACE.omm_atchimin ); 
     printf("   Final chi2min(SN+prior) = %f \n", WORKSPACE.chi2atmin);
     fflush(stdout);
   }
@@ -3190,6 +3183,7 @@ void wfit_marginalize(void) {
 
   // ----------- BEGIN ------------
 
+  
   printf("\n# =================================================== \n");
   printf(" Get Marginalized values (speed_flag_chi2=%d): \n", 
 	 INPUTS.speed_flag_chi2) ;
@@ -3275,31 +3269,31 @@ void wfit_marginalize(void) {
   // print update 
   if ( INPUTS.blind ) { return ; }
 
+  /* xxxxxxxxx  mark delete Nov 1 2024 xxxxxxxxx
   char str[20];
   if ( INPUTS.use_marg ) {
-    sprintf(str,"marg");
+    sprintf(str,"marginalize");
     w0  = WORKSPACE.w0_mean;  wa = WORKSPACE.wa_mean;
     omm = WORKSPACE.omm_mean;
   }
   else {
-    sprintf(str,"min") ;
+    sprintf(str,"minimimize") ;
     w0  = WORKSPACE.w0_atchimin ; wa = WORKSPACE.wa_atchimin ;
     omm = WORKSPACE.omm_atchimin ;
     chi2 = WORKSPACE.chi2atmin;
   }
-
   printf("  CHECK:  %s(%s) = %f \n",  varname_w, str, w0);
   if ( INPUTS.dofit_w0wa )
     { printf("  CHECK:  %s(%s) = %f \n",  varname_wa, str, wa);  }
-
   printf("  CHECK:  %s(%s) = %f \n",  varname_omm, str, omm);
-
   if(!INPUTS.use_marg) { printf("  CHECK:  ChiSq(min) = %f \n", chi2); }
 
   printf("\n" );
 
   fflush(stdout);
+  xxxxxxxxx end mark xxxxxxxxxxx */
 
+  
   return;
 
 } // end wfit_marginalize
@@ -3313,7 +3307,7 @@ void wfit_uncertainty(void) {
   // without repeating so much code.
   
   printf("\n# ============================================ \n");
-  printf(" Estimate uncertainties (refac): \n");
+  printf(" Estimate uncertainties: \n");
   fflush(stdout);
 
   wfit_uncertainty_fitpar(varname_omm);
@@ -3459,301 +3453,6 @@ void wfit_uncertainty_fitpar(char *varname) {
   return;
   
 } // end wfit_uncertainty_fitpar
-
-// =========================================
-void wfit_uncertainty_legacy(void) {
-
-  // Created Oct 2 2021
-  // Estimate uncertainties
-
-  double omm, w0, wa, delta, sqdelta ;
-  int i, kk, j ;
-  char fnam[] = "wfit_uncertainty_legacy" ;
-
-  // ------------- BEGIN ------------
-
-  printf("\n# ============================================ \n");
-  printf(" Estimate uncertainties (legacy code): \n");
-  fflush(stdout);
-
-  WORKSPACE.w0_sig_std = 0.0 ;
-  WORKSPACE.w0_sig_upper = WORKSPACE.w0_sig_lower = 0.0;
-
-  WORKSPACE.wa_sig_std = 0.0;
-  WORKSPACE.wa_sig_upper = WORKSPACE.wa_sig_lower = 0.0;
-
-  WORKSPACE.omm_sig_std = 0.0;
-  WORKSPACE.omm_sig_upper = WORKSPACE.omm_sig_lower = 0.0;
-
-  // Get std dev for the weighted mean.  This is a reasonable   
-  //  measure of uncertainty in w if distribution is ~Gaussian
-
-  // omm ...  
-  sqdelta = 0.0;
-  for(i=0; i < INPUTS.omm_steps; i++){ 	
-    omm      = INPUTS.omm_min + i*INPUTS.omm_stepsize;    
-    WORKSPACE.omm_prob[i] /= WORKSPACE.omm_probsum;  
-    delta    = omm - WORKSPACE.omm_mean ;
-    sqdelta += WORKSPACE.omm_prob[i] * (delta*delta);
-    WORKSPACE.omm_sort[i] = WORKSPACE.omm_prob[i];
-  }
-  WORKSPACE.omm_sig_std = sqrt(sqdelta/WORKSPACE.omm_probsum);
-  printf("\t std %s_sig_estimate = %.4f\n", 
-	 varname_omm, WORKSPACE.omm_sig_std);
-
-
-  // w0
-  sqdelta = 0.0 ;
-  for(i=0; i < INPUTS.w0_steps; i++){
-    w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
-    WORKSPACE.w0_prob[i] /= WORKSPACE.w0_probsum;  
-    delta       = w0 - WORKSPACE.w0_mean ;
-    sqdelta    += WORKSPACE.w0_prob[i] * (delta*delta);
-    WORKSPACE.w0_sort[i] = WORKSPACE.w0_prob[i];  
-  }
-  WORKSPACE.w0_sig_std = sqrt(sqdelta/WORKSPACE.w0_probsum);
-  printf("\t std %s_sig estimate = %.4f  (probsum=%le)\n", 
-	 varname_w, WORKSPACE.w0_sig_std, WORKSPACE.w0_probsum);
-    
-
-  // wa
-  if ( INPUTS.dofit_w0wa ) {
-    sqdelta = 0.0 ;
-    for(kk=0; kk < INPUTS.wa_steps; kk++){
-      wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
-      WORKSPACE.wa_prob[kk] /=WORKSPACE.wa_probsum; 
-      delta    = wa - WORKSPACE.wa_mean ;
-      sqdelta += WORKSPACE.wa_prob[kk]*(delta*delta);
-      WORKSPACE.wa_sort[kk] = WORKSPACE.wa_prob[kk];        // make a copy 
-    }
-    WORKSPACE.wa_sig_std = sqrt(sqdelta/WORKSPACE.wa_probsum);
-    printf("\t std %s_sig estimate = %.4f\n", 
-	   varname_wa, WORKSPACE.wa_sig_std);
-  } // end dofit_w0wa 
-     
-  
-  // - - - - - - - - -
-  double delta_omm = 10.0, delta_w0=200.0, delta_wa=200.0 ;
-  double omm_sum, omm_sort_1sigma;
-  double w0_sum,  w0_sort_1sigma;
-  double wa_sum,  wa_sort_1sigma;
-  int    iomm_mean, iw0_mean, iwa_mean, memd=sizeof(double) ;
-  // Find location of mean in the prob vector
-  for (i=0; i < INPUTS.omm_steps; i++){
-    omm = INPUTS.omm_min + i*INPUTS.omm_stepsize;
-    if (fabs(omm - WORKSPACE.omm_mean) < delta_omm) { 
-      delta_omm = fabs(omm - WORKSPACE.omm_mean);
-      iomm_mean = i;
-    }
-  }
-
-  for (i=0; i < INPUTS.w0_steps; i++){
-    w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
-    if (fabs(w0 - WORKSPACE.w0_mean) < delta_w0){
-      delta_w0 = fabs(w0 - WORKSPACE.w0_mean);
-      iw0_mean = i;
-    }
-  }
-  
-  if ( INPUTS.dofit_w0wa ) {
-    for (kk=0; kk < INPUTS.wa_steps; kk++){
-      wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
-      if (fabs(wa - WORKSPACE.wa_mean) < delta_wa){
-	delta_wa = fabs(wa - WORKSPACE.wa_mean);
-	iwa_mean = kk;
-      }
-    }
-  }
-
-  // Sort probability
-  qsort(WORKSPACE.omm_sort, INPUTS.omm_steps, memd,
-	compare_double_reverse);
-  qsort(WORKSPACE.w0_sort, INPUTS.w0_steps, memd,
-	compare_double_reverse);  
-  if (INPUTS.dofit_w0wa) {
-    qsort(WORKSPACE.wa_sort, INPUTS.wa_steps, memd,
-	  compare_double_reverse);
-  }
-
-  // - - - - - - -
-  // Add up probability until you get to 68.3%, use that value to 
-  // determine the upper/lower limits on w 
-  omm_sum=0.;
-  omm_sort_1sigma=-1;
-  for (i=0; i < INPUTS.omm_steps; i++){
-    omm_sum += WORKSPACE.omm_sort[i];
-    if (omm_sum > PROBSUM_1SIGMA ) {
-      omm_sort_1sigma = WORKSPACE.omm_sort[i];  // omm_sort value for 68.3%
-      break;
-    }
-  }
-
-  w0_sum=0.;
-  w0_sort_1sigma=-1;
-  for (i=0; i < INPUTS.w0_steps; i++){
-    w0_sum += WORKSPACE.w0_sort[i];
-    if (w0_sum > PROBSUM_1SIGMA ) {
-      w0_sort_1sigma = WORKSPACE.w0_sort[i];  // w0_sort value for 68.3%
-      break;
-    }
-  }
-
-  if (INPUTS.dofit_w0wa){
-    wa_sum=0.;
-    wa_sort_1sigma=-1;
-    for (kk=0; kk < INPUTS.wa_steps; kk++){
-      wa_sum += WORKSPACE.wa_sort[kk];
-      if (wa_sum > PROBSUM_1SIGMA ) {
-	wa_sort_1sigma = WORKSPACE.wa_sort[kk]; // w0_sort value for 68.3
-	break;
-      }
-    }
-  }
-
-  // - - - - - - - -
-  // ERROR checking ... 
- 
-  if (omm_sort_1sigma < 0 ) {
-    printf("ERROR: omm grid encloses %.4f prob <  0.683 !\n", omm_sum);
-    exit(EXIT_ERRCODE_wfit);
-  }
-
-  if (w0_sort_1sigma < 0 ) {
-    printf("ERROR: w0 grid encloses %.4f prob <  0.683 !\n", w0_sum);
-    exit(EXIT_ERRCODE_wfit);
-  }
-
-  if ( INPUTS.dofit_w0wa ) {
-    if (wa_sort_1sigma < 0 ) {
-      printf("ERROR: wa grid encloses %.3f prob < 0.683 !\n", wa_sum);
-      exit(EXIT_ERRCODE_wfit);
-    }
-  }
-
-
-  // Prob array is in order of ascending w.  Count from i=iw0_mean
-  // towards i=0 to get lower 1-sigma bound on w 
-  for (i=iw0_mean; i>=0; i--) {
-    if (WORKSPACE.w0_prob[i] < w0_sort_1sigma) {
-      WORKSPACE.w0_sig_lower = WORKSPACE.w0_mean - 
-	(INPUTS.w0_min + i*INPUTS.w0_stepsize);
-      break;
-    }
-  }
-
-  if ( INPUTS.dofit_w0wa ) {
-    for (kk=iwa_mean; kk>=0; kk--){
-      if (WORKSPACE.wa_prob[kk] < wa_sort_1sigma){
-	WORKSPACE.wa_sig_lower = WORKSPACE.wa_mean - 
-	  (INPUTS.wa_min + kk*INPUTS.wa_stepsize);
-	break;
-      }
-    }
-  }
-
-  if ( INPUTS.dofit_lcdm ) { return; }
-
-  // Error checking 
-  if(i==0){
-    printf("WARNING-w0: lower 1-sigma limit outside range explored\n");
-    WORKSPACE.w0_sig_lower = 100;
-    WORKSPACE.NWARN++ ;
-  }
-  
-  if ( INPUTS.dofit_w0wa ) {
-    if(kk==0){
-      printf("WARNING-wa: lower 1-sigma limit outside range explored\n");
-      WORKSPACE.wa_sig_lower = 100;
-      WORKSPACE.NWARN++ ;
-    }
-  }
-
-  if ( WORKSPACE.w0_sig_lower <= INPUTS.w0_stepsize ) {   
-    printf("WARNING-w0: 1. w0 grid is too coarse to resolve "
-	   "lower 1-sigma limit\n");
-    WORKSPACE.w0_sig_lower = INPUTS.w0_stepsize;
-    WORKSPACE.NWARN++ ;
-  }
-  if (INPUTS.dofit_w0wa){
-    if (WORKSPACE.wa_sig_lower <= INPUTS.wa_stepsize) {  
-      printf("WARNING-wa: 1. wa grid is too coarse to resolve "
-	     "lower 1-sigma limit\n");
-      WORKSPACE.wa_sig_lower = INPUTS.wa_stepsize;
-      WORKSPACE.NWARN++ ;
-    }
-  }
-
-    
-  // Count from i=iw0_mean towards i=w0_steps to get   
-  //  upper 1-sigma bound on w 
-  for (i=iw0_mean; i < INPUTS.w0_steps; i++){
-    if (WORKSPACE.w0_prob[i] < w0_sort_1sigma){
-      WORKSPACE.w0_sig_upper = 
-	(INPUTS.w0_min + i*INPUTS.w0_stepsize) - WORKSPACE.w0_mean;
-      break;
-    }
-  }
-
-  if ( INPUTS.dofit_w0wa ) {
-    for (kk=iwa_mean; kk < INPUTS.wa_steps; kk++){
-      if (WORKSPACE.wa_prob[kk] < wa_sort_1sigma){
-        WORKSPACE.wa_sig_upper = 
-	  (INPUTS.wa_min + kk*INPUTS.wa_stepsize) - WORKSPACE.wa_mean;
-        break;
-      }
-    }
-  }
-
-    
-  // Error checking 
-  if(i==(INPUTS.w0_steps-1)){
-    printf("WARNING-w0: upper 1-sigma limit outside range explored\n");
-    WORKSPACE.w0_sig_lower = 100;
-    WORKSPACE.NWARN++ ;
-  } 
-  
-
-  if ( WORKSPACE.w0_sig_upper <= INPUTS.w0_stepsize){
-    printf("WARNING-w0: 2. w0 grid is too coarse to resolve "
-	   "upper 1-sigma limit\n %f, %f\n", 
-	   WORKSPACE.w0_sig_upper, INPUTS.w0_stepsize);
-    WORKSPACE.w0_sig_upper = INPUTS.w0_stepsize; 
-    WORKSPACE.NWARN++ ;
-  }
-
-  if ( INPUTS.dofit_w0wa ) {
-    if(kk==(INPUTS.wa_steps-1)){
-      printf("WARNING-wa: upper 1-sigma limit outside range explored\n");
-      WORKSPACE.wa_sig_lower = 100;	
-      WORKSPACE.NWARN++ ;
-    }
-    if (WORKSPACE.wa_sig_upper <= INPUTS.wa_stepsize){
-      printf("WARNING-wa: 2. wa grid is too coarse to resolve "
-	     "upper 1-sigma limit\n %f, %f\n", 
-	     WORKSPACE.wa_sig_upper, INPUTS.wa_stepsize);
-      WORKSPACE.wa_sig_upper = INPUTS.wa_stepsize;
-      WORKSPACE.NWARN++ ;
-    }
-  }    
-
-    
-  //printf("\n---------------------------------------\n")
-  printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
-	 varname_omm, WORKSPACE.omm_sig_lower, WORKSPACE.omm_sig_upper);
-
-  printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
-	 varname_w, WORKSPACE.w0_sig_lower, WORKSPACE.w0_sig_upper);
-
-  if ( INPUTS.dofit_w0wa ) {
-    printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
-	   varname_wa, WORKSPACE.wa_sig_lower, WORKSPACE.wa_sig_upper);
-  }
-  
-  fflush(stdout);
-
-  return ;
-
-} // end wfit_uncertainty_legacy
 
 
 // ==========================================x 
@@ -4555,8 +4254,8 @@ double get_mu_cos(double z, double rz)  {
 
 
 // ==============================================
-double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
-		   double *omm_atchimin ) {
+double get_minimized_cospar( double *w0_atchimin, double *wa_atchimin, 
+			     double *omm_atchimin ) {
 
   // Jan 23, 2009: 
   // search min chi2 on refined grid with smaller step size.
@@ -4586,10 +4285,10 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
   double wastep_tmp  = INPUTS.wa_stepsize / 10.0;
   double omstep_tmp  = INPUTS.omm_stepsize/ 10.0; 
   int    nbw0, nbwa, nbm,i, j, kk, imin=0, kmin =0, jmin=0 ;
-  double nb_factor = 4.0;
+  double nb_factor = 3.0;
 
   int  LDMP = 0;
-  char fnam[] = "get_minwOM";
+  char fnam[] = "get_minimized_cospar";
 
   // ---------- BEGIN ------------
 
@@ -4601,14 +4300,17 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
   printf("   Minimize with refined %sstep=%6.4f (%d bins, %s=%7.4f) \n", 
 	 varname_w, w0step_tmp, 2*nbw0, varname_w, *w0_atchimin);
+
   if(INPUTS.dofit_w0wa){
     printf("   Minimize with refined wastep=%6.4f (%d bins, wa=%7.4f) \n",
 	   wastep_tmp, 2*nbwa, *wa_atchimin);
   }
-  printf("   Minimize with refined OMstep=%6.4f (%d bins, OMcen=%6.4f) \n", 
+  printf("   Minimize with refined OMstep=%6.4f (%d bins, omm=%6.4f) \n", 
 	 omstep_tmp, 2*nbm, *omm_atchimin );
   printf("---------------------------------------\n");
 
+  fflush(stdout);
+  
   w0cen_tmp  = *w0_atchimin ;
   wacen_tmp  = *wa_atchimin ;
   omcen_tmp  = *omm_atchimin ;
@@ -4644,7 +4346,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
   *omm_atchimin = omcen_tmp + (double)jmin * omstep_tmp ;
   return extchi_min;
 
-} // end of get_minwOM
+} // end of get_minimized_cospar
 
 // ==================================
 void printerror(int status) {

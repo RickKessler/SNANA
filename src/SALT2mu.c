@@ -341,7 +341,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define FLAG_EXEC_STOP   1
 #define FLAG_EXEC_REPEAT 2
 int     NCALL_SALT2mu_DRIVER_EXEC;
-#define MXVAR_OVERRIDE 10
+#define MXVAR_OVERRIDE 20
 
 #define MXCHAR_DATAFILE_STRING  8*MXPATHLEN // max len of input dataFile_string
 
@@ -476,13 +476,10 @@ double  M0_DEFAULT;
 #define INDEX_z   5  // for internal flags,  not for arrays
 
 #define MXSELECT_VAR 20 // max number of CUTWIN or PARSHIFT keys
-//xxx #define MXCUTWIN   20 // max number of CUTWIN definitions in input file.
-//xxx #define MXPARSHIFT 10 // max number of PARSHIFT keys in input file
+
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
 
-// B.P.Done - generalise these away from SALT, e.g.
-// CUTBIT_x1 -> CUTBIT_s done :) 
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
@@ -808,7 +805,10 @@ struct {
   int  NVAR_OVERRIDE;
   char **VARNAMES_OVERRIDE ;           // list of override varnames
   float *PTRVAL_OVERRIDE[MXVAR_OVERRIDE]; // pointers to override values
-  int  *IVAR_OUTPUT_INVMAP;  // map ivar_out to ivar_over
+  int  *IVAR_OVERRIDE_OUTPUT_INVMAP;  // map ivar_out to ivar_over
+
+  float *PTRVAL_PARSHIFT[MXSELECT_VAR]; // pointers to values with parshift 
+  int  *IVAR_PARSHIFT_OUTPUT_INVMAP;  // map ivar_out to ivar_parshift
 
   bool USE_IZBIN_from_CIDFILE ;
   int *IZBIN_from_CIDFILE; // Apri 2022
@@ -1104,7 +1104,7 @@ struct INPUTS {
   SELECT_VAR_DEF SELECT_CUTWIN ;
   SELECT_VAR_DEF SELECT_PARSHIFT;
 
-  
+  // xxxxxxxxxxxxxxxxxxxxxxxxxx
   // xxx mark delete Sep 26 2024 xxx
   int    NPARSHIFT;
    
@@ -1124,6 +1124,7 @@ struct INPUTS {
   int   CUTWIN_IDSURVEY_LIST[MXSELECT_VAR][20];
   bool  APPLY_CUTWIN_pIa ; 
   // xxx end mark xxxx
+  // xxxxxxxxxxxxxxxxxxxxxxxxxx
   
   int    NFIELD ;
   char   *FIELDLIST[MXFIELD_OVERLAP] ;
@@ -1391,6 +1392,7 @@ struct {
 struct {
   int  NVAR_TOT ; 
   int  IVARMAP[MXFILE_DATA][MXVAR_TABLE];  // = original ivar from each file
+  int  IVARMAP_INV[MXFILE_DATA][MXVAR_TABLE];  // inverse of above (Nov 2024)
   char *LIST[MXVAR_TABLE];   // output array of varnames
 
   int  NVAR_DROP;
@@ -1506,11 +1508,12 @@ int   force_probcc0(int itype, int idsurvey);
 int   ppar(char* string);
 void  read_data(void);
 void  read_data_override(void);
-void  parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) ;
+void  apply_data_parshift(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) ;
 
 double zhd_data_override(int isn, double vpec_over ) ;
 double zhderr_data_override(int isn, double vpecerr_over ) ;
 void  write_word_override(int ivar_tot, int indx, char *word) ;
+void  write_word_parshift(int ivar_tot, int indx, char *word) ;
 
 void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) ;
 void  store_output_varnames(void);
@@ -5659,7 +5662,7 @@ void read_data(void) {
     store_input_varnames(ifile, TABLEVAR) ;
   }
 
-  parshift_data(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ;
+  // xxx mark  parshift_data(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ;
   
   // store comma-sep list of VERSION_PHOTOMETRY; note that
   // SNTABLE_VERSION_PHOTOMETRY appends comma-sep list internally
@@ -5671,12 +5674,14 @@ void read_data(void) {
   apply_blindpar();
 
   store_output_varnames(); // May 2020
-
+  
   // compute more table variables
   for(isn=0; isn < TABLEVAR->NSN_ALL; isn++ ) { 
     compute_more_TABLEVAR(isn, TABLEVAR ); 
   }
 
+  // Nov 2024: shift data values
+  apply_data_parshift(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ;
 
   // Nov 2020: e.g., replace VPEC, HOST_LOGMASS, etc ..
   read_data_override(); 
@@ -5986,7 +5991,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
 
 // ****************************************
-void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
+void apply_data_parshift(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
 
   // Created Oct 2024
   // xxx WARNING: while it works in memory, still need to update
@@ -5996,8 +6001,10 @@ void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE ;
   char *STRTYPE  = STRING_EVENT_TYPE[EVENT_TYPE];
   bool IS_DATA   = ( EVENT_TYPE == EVENT_TYPE_DATA);
+  int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;
+    
   bool DOFLAG, MATCH;
-  int ivar, ipar, ivar_table_list[20], icast_list[20], nvar_shift=0 ;
+  int ivar, ivartot, ipar, ivar_table_list[20], icast_list[20], nvar_shift=0 ;
   double SHIFT_VAL, shift_list[20] ;
 
   int IPAR_SHIFT_zHD     = -9;
@@ -6006,11 +6013,19 @@ void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
   int IPAR_SHIFT_mB      = -9;    
   
   char *varName_table, *varName_parshift ;
-  char fnam[] = "parshift_data" ;
+  char fnam[] = "apply_data_parshift" ;
   
   // --------- BEGIN ----------
 
   if ( PARSHIFT->NVAR == 0 ) { return; }
+
+  // map ivar_out to ivar_parshift so that output function can
+  // quickly identify which output variables get replaced.
+  if ( IS_DATA ) {
+    INFO_DATA.IVAR_PARSHIFT_OUTPUT_INVMAP = (int*) malloc(NVAR_TOT*sizeof(int));
+    for(ivar=0; ivar < NVAR_TOT; ivar++ ) 
+      { INFO_DATA.IVAR_PARSHIFT_OUTPUT_INVMAP[ivar] = -9; }
+  }
   
   for(ivar=0; ivar < NVAR_TABLE; ivar++ ) { 
     varName_table = TABLEVAR->VARNAMES_LIST[0][ivar];
@@ -6024,6 +6039,9 @@ void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
       
       if ( MATCH && DOFLAG ) {
 
+	// store ivar -> ipar map to use later when writing output FITRES file.
+	if(IS_DATA) { INFO_DATA.IVAR_PARSHIFT_OUTPUT_INVMAP[ivar] = ipar ; }
+	
 	printf("   %s: shift %-20s by %7.3e for %s\n",
 	       fnam, varName_table, SHIFT_VAL, STRTYPE );
 	fflush(stdout);
@@ -6056,20 +6074,28 @@ void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
   for (isn=0; isn < TABLEVAR->NSN_ALL; isn++ ) {   
 
     ipar = IPAR_SHIFT_zHD ;
-    if ( ipar >= 0 )
-      { TABLEVAR->zhd[isn] += PARSHIFT->VAL_LIST[ipar]; }
+    if ( ipar >= 0 ) {
+      TABLEVAR->zhd[isn] += PARSHIFT->VAL_LIST[ipar];
+      INFO_DATA.PTRVAL_PARSHIFT[ipar] = TABLEVAR->zhd ;
+    }
 
     ipar = IPAR_SHIFT_VPEC ;
-    if ( ipar >= 0 )
-      { TABLEVAR->vpec[isn] += PARSHIFT->VAL_LIST[ipar]; }
+    if ( ipar >= 0 ) {
+      TABLEVAR->vpec[isn] += PARSHIFT->VAL_LIST[ipar];
+      INFO_DATA.PTRVAL_PARSHIFT[ipar] = TABLEVAR->vpec ;
+    }
 
     ipar = IPAR_SHIFT_LOGMASS ;
-    if ( ipar >= 0 )
-      { TABLEVAR->host_logmass[isn] += PARSHIFT->VAL_LIST[ipar]; }
+    if ( ipar >= 0 ) {
+      TABLEVAR->host_logmass[isn] += PARSHIFT->VAL_LIST[ipar];
+      INFO_DATA.PTRVAL_PARSHIFT[ipar] = TABLEVAR->host_logmass ;
+    }
 
     ipar = IPAR_SHIFT_mB ;
-    if ( ipar >= 0 )
-      { TABLEVAR->fitpar[INDEX_d][isn] += PARSHIFT->VAL_LIST[ipar]; }
+    if ( ipar >= 0 ) {
+      TABLEVAR->fitpar[INDEX_d][isn] += PARSHIFT->VAL_LIST[ipar];
+      INFO_DATA.PTRVAL_PARSHIFT[ipar] = TABLEVAR->fitpar[INDEX_d] ;
+    }
     
   } // end isn loop
   
@@ -6077,7 +6103,7 @@ void parshift_data(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
   //debugexit(fnam);
   return ;
 
-} // end parshift_data
+} // end apply_data_parshift
 
 
 // ****************************************
@@ -6367,12 +6393,12 @@ void read_data_override(void) {
   // Finally, map ivar_out to ivar_over so that output function can
   // quickly identify which output variables get replaced.
   int ivar_out, NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
-  INFO_DATA.IVAR_OUTPUT_INVMAP = (int*) malloc(NVAR_TOT*sizeof(int));
+  INFO_DATA.IVAR_OVERRIDE_OUTPUT_INVMAP = (int*) malloc(NVAR_TOT*sizeof(int));
   for(ivar_out=0; ivar_out < NVAR_TOT; ivar_out++ ) {
     varName   = OUTPUT_VARNAMES.LIST[ivar_out] ; 
     ivar_over = ivar_matchList(varName, NVAR_OVER, 
 			       INFO_DATA.VARNAMES_OVERRIDE );   
-    INFO_DATA.IVAR_OUTPUT_INVMAP[ivar_out] = ivar_over ;
+    INFO_DATA.IVAR_OVERRIDE_OUTPUT_INVMAP[ivar_out] = ivar_over ;
   }
 
   // - - - - -
@@ -8203,7 +8229,7 @@ void store_output_varnames(void) {
   // Created May 2020
   // Analyze columns for each input data file and prepare
   // final varnames list for output fitres file, and also
-  // a map from final column (ivar) location back to origina
+  // a map from final column (ivar) location back to original
   // column (ivar) in each input data file.
   // 
   // Here is the logic for keeping output variables:
@@ -8240,8 +8266,10 @@ void store_output_varnames(void) {
   print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < MXVAR; ivar++ ) {
     OUTPUT_VARNAMES.LIST[ivar] = (char*) malloc(MXVAR*sizeof(char) ) ;
-    for(ifile=0; ifile < NFILE; ifile++ ) 
-      { OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = -888 ; }
+    for(ifile=0; ifile < NFILE; ifile++ )  {
+      OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = -888 ;
+      OUTPUT_VARNAMES.IVARMAP_INV[ifile][ivar] = -888 ;
+    }
   }
 
  
@@ -8256,7 +8284,8 @@ void store_output_varnames(void) {
       
       if ( CHOP_VAR ) { break; }
       sprintf(OUTPUT_VARNAMES.LIST[ivar],"%s", varName);
-      OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = ivar ; 
+      OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = ivar ;
+      OUTPUT_VARNAMES.IVARMAP_INV[ifile][ivar] = ivar ; 
       NVAR_KEEP++ ;
     }
 
@@ -8281,7 +8310,9 @@ void store_output_varnames(void) {
       NVAR2 = INFO_DATA.TABLEVAR.NVAR[ifile] ;
       ivar2 = ivar_matchList(varName, NVAR2, 
 			     INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile]);
-      OUTPUT_VARNAMES.IVARMAP[ifile][NVAR_TOT] = ivar2 ; 
+      OUTPUT_VARNAMES.IVARMAP[ifile][NVAR_TOT] = ivar2 ;
+      OUTPUT_VARNAMES.IVARMAP_INV[ifile][ivar2] = NVAR_TOT ;
+      
       if ( ivar2 >= 0 ) { NMATCH++ ; }
       /*
       printf(" xxx %s: ivar0=%2d(%s) ->  ivar[ifile=%d]=%d \n",
@@ -10067,7 +10098,7 @@ void  read_simFile_biasCor(void) {
 
   t_read_biasCor[1] = time(NULL); 
 
-  parshift_data(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ; 
+  apply_data_parshift(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ; 
   
   char str_cputime[60];
   sprintf(str_cputime,"%s(read_BIASCOR)", STRING_CPUTIME_INIT);
@@ -18273,7 +18304,7 @@ void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR) {
     SELECT_VAR->RANGE_LIST[ivar][0] = -999.0 ;
     SELECT_VAR->RANGE_LIST[ivar][1] = -999.0 ;
     SELECT_VAR->VAL_LIST[ivar]      = -999.0 ; 
-
+    
     SELECT_VAR->L_RDFLAG_LIST[ivar]      = false;
     SELECT_VAR->L_ABORTFLAG_LIST[ivar]   = true;
     SELECT_VAR->L_DATAONLY_LIST[ivar]    = false;
@@ -21667,8 +21698,9 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
 	     fnam, ivar_tot,ivar_file,ivar_word, word); fflush(stdout);
     }
 
-    // Nov 15 2020: check for data override 
-    write_word_override(ivar_tot,indx,word); 
+    // Nov 15 2020: check for data override and parshift override
+    write_word_override(ivar_tot,  indx, word);
+    write_word_parshift(ivar_tot,  indx, word);     
 
     strcat(line_out,word);
     strcat(line_out,blank);
@@ -21687,12 +21719,22 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
 
 } // end write_fitres_line
 
-// ===================
+// ================================================
 void  write_word_override(int ivar_tot, int indx, char *word) {
 
   // Nov 15 2020
   // Check to overwrite word for ivar_tot and SN indx.
   //
+  // Inputs:
+  //   ivar_tot : index of variable to check
+  //   indx     : SN index
+  //   word     : string containing original FITRES value
+  //
+  // Output
+  //   word     : final string containing value;
+  //               either original or override value.
+  //
+  
   // Jan 27 2021: write any zXXX variable with %.5f format.
 
   int NVAR_OVERRIDE  = INFO_DATA.NVAR_OVERRIDE ;
@@ -21705,7 +21747,7 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
 
   if ( NVAR_OVERRIDE == 0 ) { return; }
 
-  ivar_over = INFO_DATA.IVAR_OUTPUT_INVMAP[ivar_tot];
+  ivar_over = INFO_DATA.IVAR_OVERRIDE_OUTPUT_INVMAP[ivar_tot];
   if ( ivar_over < 0 ) { return; }
 
   // this variable gets an override value fval:
@@ -21724,6 +21766,54 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
   return;
 
 } // end write_word_override
+
+// ================================================
+void  write_word_parshift(int ivar_tot, int indx, char *word) {
+
+  // Nov 3 2024
+  // Check to shift value in word for ivar_tot and SN indx.
+  //
+  // Inputs:
+  //   ivar_tot  : absolute index of variable 
+  //   indx      : SN index
+  //   word      : string containing original FITRES value
+  //
+  // Output
+  //   word     : final string containing value;
+  //               either original or override value.
+  //
+  
+  int NPARSHIFT = INPUTS.SELECT_PARSHIFT.NVAR;
+  int ivar_parshift ;
+  float fval ;
+  bool IS_z;
+  char *varName ;
+  char fnam[] = "write_word_parshift";
+
+  // ---------- BEGIN -------------
+
+  if ( NPARSHIFT == 0 ) { return; }
+
+  ivar_parshift = INFO_DATA.IVAR_PARSHIFT_OUTPUT_INVMAP[ivar_tot];
+  if ( ivar_parshift < 0 ) { return; }
+
+  // this variable gets an parshifted value fval:
+  fval = INFO_DATA.PTRVAL_PARSHIFT[ivar_parshift][indx];
+
+  // for formatting, check if variable contains zHD
+  varName   = OUTPUT_VARNAMES.LIST[ivar_tot]; 
+  IS_z      = ( varName[0] == 'z' );
+
+  // replace word string
+  if ( IS_z ) 
+    { sprintf(word,"%.5f", fval); }
+  else
+    { sprintf(word,"%.3f", fval); }
+
+  
+  return;
+
+} // end write_word_parshift
 
 // ===============================================
 void define_varnames_append(void) {
@@ -22248,12 +22338,6 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // this CID.
   // indx is the data index for INFO_DATA.TABLEVAR arrays.
   //
-  // Mar 1 2018: add M0
-  // Sep 26 2019: write probcc_beams
-  // Apr 18 2020: write extra digit of precision for bias(mb,c,mu)
-  // May 13 2020: write to char line, then single fprintf for entire line.
-  // Nov 12 2020: write muerr_vpec for Dan.
-  // Dec 02 2020: write izbin
   // Apr 22 2022: mu/mumodel/muerr -> %8.5f format instead of %7.4f
   //              Might be needed later for high-precision tests.
   //
@@ -23264,6 +23348,12 @@ void print_SALT2mu_HELP(void) {
     "                  # e.g., useful with cid_select_file",
     "CUTWIN_IDSAMPLE(0,3,4):   zHD .01 .03  # apply cut only to IDSAMPLE 0,3 & 4",
     "CUTWIN_SURVEY(CFA3,CFA4): zHD .01 .03  # apply cut only to CFA3 & CFA4 surveys",
+    "",
+    "PARSHIFT(DATAONLY)     zHD          1.0E-4   # shift all data zHD",  
+    "PARSHIFT(DATAONLY)     HOST_LOGMASS 0.02     # shift all data LOGMASS",
+    "PARSHIFT(BIASCORONLY)  VPEC         22       # shift all biasCor VPEC",
+    "PARSHIFT               mB           1.0E-4   # shift mB in both DATA and BIASCOR",
+    "# Beware that PARSHIFT in BBC is not the same as shifting parameter at LCFIT stage",
     "",
     "fieldlist=X1,X2   # select X1 and X2 fields",
     "fieldlist=X3      # select X3 field only",

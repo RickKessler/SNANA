@@ -22686,7 +22686,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	       etc ...
         from global simlib header
      + new sim input SIMGEN_DUMP_TRAINSALT to write tmaxlist file for trainsalt
-     
+
+     + in function setz_unconfirmed;
+       for zphot, set SNHOSTGAL_DDLR_SORT[m].ZSPEC[_ERR] = -9 in addtion
+       to true SNHOSTGAL.ZSPEC[_ERR] = -9.
+       This bug was causing specz for 2nd host, even if EFF(zHOST)=0,
+       and occassional REDSHIFT_SOURCE setting bit for zSPEC.
+
    SALT2mu.c
      + start option for "PARSHIFT: <varname> <value>" to shift
        arbitrary parameter such as zHD or HOST_LOGMASS.

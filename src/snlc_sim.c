@@ -23729,7 +23729,10 @@ void  setz_unconfirmed(void) {
   //    ZCMB & ZHELIO that look like a bug.
   //
   // Sep 2 2022: fix bug setting GENLC.REDSHIFT_FLAG for zPHOT and wrong host
-
+  //
+  // Nov 8 2024
+  //  for zphot, set SNHOSTGAL_DDLR_SORT[m].ZSPEC[_ERR] = -9
+  //
   double RA        = GENLC.RA ;
   double DEC       = GENLC.DEC ;
   double ZPHOT     = SNHOSTGAL.ZPHOT ;
@@ -23737,7 +23740,7 @@ void  setz_unconfirmed(void) {
   double ZCMB_ORIG = GENLC.REDSHIFT_CMB_SMEAR ;
   double ZHEL;
 
-  int    FOUND_zHOST ;
+  int    FOUND_zHOST, m ;
   int LDMP = 0 ;
   char fnam[] = "setz_unconfirmed" ;
 
@@ -23781,6 +23784,11 @@ void  setz_unconfirmed(void) {
     // no host galaxy redshift (and no SN redshift)
     SNHOSTGAL.ZSPEC            = -9.0 ;
     SNHOSTGAL.ZSPEC_ERR        = -9.0 ;
+
+    for(m=0; m < MXHOSTGAL; m++ ) {
+      SNHOSTGAL_DDLR_SORT[m].ZSPEC = -9.0 ;
+      SNHOSTGAL_DDLR_SORT[m].ZSPEC_ERR = -9.0 ;
+    }
 
     if ( ZPHOT < 0.0 ) { // if no host photoz ...
       GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_NONE ; 

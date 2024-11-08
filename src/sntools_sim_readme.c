@@ -1273,6 +1273,12 @@ void readme_docana_searcheff(int *iline, char *pad) {
   sprintf(cptr,"%s%-*s %s", 
 	  pad, lenkey, "SEARCHEFF_SPEC_FILE:", ORIG_FILE_README);
 
+  if ( INPUTS_SEARCHEFF.USER_SPECEFF_SCALE != 1.0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s%-*s %s", 
+	    pad, lenkey, "SEARCHEFF_SPEC_SCALE:", INPUTS_SEARCHEFF.USER_SPECEFF_SCALE);
+  }
+  
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   ENVrestore(INPUTS_SEARCHEFF.USER_zHOST_FILE, ORIG_FILE_README);
   sprintf(cptr,"%s%-*s %s", 

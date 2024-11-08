@@ -22706,5 +22706,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   wfit.c:
      + write actual mu_obs in -outfile_resid; needed to see actual distances
        for HDIBC method/
-       
+
+  snana.car:
+    + fix subtle bug that filled SNANA table twice for photo-z fits that failed.
+    
 END: 

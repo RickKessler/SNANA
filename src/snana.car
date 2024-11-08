@@ -1938,6 +1938,7 @@ c
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
      &  ,RESTORE_MWEBV_ERR_BUG ! I: bug used MWEBV/6 if MWEBV_ERR < 0.001
+     &  ,FORCE_STDOUT_BATCH    ! I: force all stdout in batch mode
      
 c LC plot info
 
@@ -2026,7 +2027,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG
-     &    , REQUIRE_DOCANA
+     &    , REQUIRE_DOCANA, FORCE_STDOUT_BATCH
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
@@ -2080,7 +2081,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG
-     &    , REQUIRE_DOCANA
+     &    , REQUIRE_DOCANA, FORCE_STDOUT_BATCH
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
@@ -6076,6 +6077,9 @@ c set namelist defaults
       REFORMAT_SIMTRUTH        = .TRUE.
       REFORMAT_KEYS     = 'NULL'
 
+      REDUCE_STDOUT_BATCH = .FALSE.
+      FORCE_STDOUT_BATCH  = .FALSE.
+      
       NONSURVEY_FILTERS = ''
       SNRMAX_FILTERS    = ''  ! blank -> use all filters
       FILTER_REPLACE    = ''
@@ -8048,6 +8052,10 @@ c - - - -
            SNFIELD_LIST(1) = ARGLIST(1)(1:60)
            SNFIELD_LIST(2) = ''
 
+         else if ( MATCH_NMLKEY('FORCE_STDOUT_BATCH',
+     &             2, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) FORCE_STDOUT_BATCH
+
          else if ( MATCH_NMLKEY('JOBSPLIT',
      &             2, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) JOBSPLIT(1)
@@ -9811,7 +9819,7 @@ c check dump-option for SN that fail cuts.
 41       format(T20,'SNANA cuts REJECT CID = ',A8, 2x,'=> SKIP ')
 	 CALL FLUSH(6)
          IF ( LDMP_SNFAIL ) CALL DMP_SNFAIL()
-         CALL MON_SNANA(IFLAG_ANA)       ! update ntuples for rejected SN
+         CALL MON_SNANA(IFLAG_ANA)       ! update tables for rejected SN
          RETURN  ! skip this SN
       ENDIF
 
@@ -9950,7 +9958,7 @@ c pack the meta data
 
 c Beware that SNANA table gets filled after FITRES table.
       CALL MON_SNANA(IFLAG_ANA)     ! monitor-driver
-
+	 
       CALL MAKE_SIMLIB_FILE(2)   ! update SIMLIB Feb 2016
 
 +SELF,IF=TESTFUNS.
@@ -10003,16 +10011,19 @@ c much slower. So use this only when a serious fit problem is found.
 
       endif
 
-c Aug 16, 2009 : check for 1st-iteration cuts, 
++SELF,IF=DELETE.
+c xxx mark delete Nov 7 2024 xxxxxxxx
+c check for 1st-iteration cuts, 
 c such as from filter dropouts  in photoZ fit.
-
-      if ( .NOT.LAST_ITER .and.  ERRFLAG .GT. 0) then  
+      if ( .NOT. LAST_ITER .and.  ERRFLAG .GT. 0) then  
          if ( STDOUT_UPDATE ) write(6,441) SNLC_CCID
  441     format(T4,'MNFIT_DRIVER: ', 
      &        'CUTS AFTER 1st FIT-ITER REJECT CID ', A8,' => SKIP')
-         CALL MON_SNANA(IFLAG_ANA) ! update ntuples for failed fit
+         CALL MON_SNANA(IFLAG_ANA) ! update tables for failed fit
          RETURN
       endif
+c xxxxxxxxxxxxxxxxxx
++SELF.
 
 c check option to redo fit-iteration 
       if ( ERRFLAG .EQ. -1 ) then
@@ -14551,10 +14562,14 @@ c determine STDOUT_UPDATE logical to dump info
       ELSE
          PS_UPDATE = 100
       ENDIF
-      
-      STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
 
-cc      if ( DEBUG_FLAG == 100 ) STDOUT_UPDATE =.FALSE. ! XXX REMOVE
+      IF ( FORCE_STDOUT_BATCH ) THEN
+         STDOUT_UPDATE = .TRUE.  ! for interactive debug only
+      ELSE
+         STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
+      ENDIF
+
+
       if ( .NOT. STDOUT_UPDATE ) RETURN
 
       print*,' *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-' //

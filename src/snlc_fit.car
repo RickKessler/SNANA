@@ -522,6 +522,7 @@ c
      &  ,PHOTODZ1Z_MIN(MXITER)  ! idem ind dZ/(1+z) space
 c  
      &  ,PHOTOZ_RANGE_KCOR(2)
+     &  ,PHOTODZ_REJECT_ORIG  ! in case PHOTODZ_REJECT is altered for zSpec
 c 
 c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
 
@@ -544,7 +545,7 @@ c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
      &  ,PHOTOZ_DROPFILTER_MIN, PHOTOZ_DROPFILTER_MAX
      &  ,PHOTOZ_DROPFILTER, PHOTOZ_ADDFILTER
      &  ,PHOTODZ_MIN, PHOTODZ1Z_MIN, IFILT_NEARDROP
-     &  ,PHOTOZ_RANGE_KCOR
+     &  ,PHOTOZ_RANGE_KCOR, PHOTODZ_REJECT_ORIG
 
 c define variables for prior on each fit variable.
 c CHI2GRID_PRIOR is a grid storing chi2-values to add.
@@ -3394,7 +3395,7 @@ c  IFILT_NEARDROP     ! filter-index closest to being dropped
 c
 c
 c April 2024: check FITWIN_PROB_ITER
-c
+c Nov 2024: add more info for dump (LDMP)
 c -----------------------------------------------------------
 
       IMPLICIT NONE
@@ -3435,7 +3436,7 @@ c local var
      &  ,NTCUT, LENF
 
       LOGICAL   LCUT, LDMP, LZTEST, LDROP, LADD
-      CHARACTER cfilt1*12, cfiltdrop*12, cfiltadd*12, ccid*(MXCHAR_CCID)
+      CHARACTER cfilt1*12, cfiltdrop*20, cfiltadd*20, ccid*(MXCHAR_CCID)
       character VERB*8
 
 c function
@@ -3454,6 +3455,10 @@ c check for cheater flag.
         ELSE
            DOFIT_PHOTOZ_CHEAT = .FALSE.
         ENDIF
+
+c    Nov 2024: preserve original PHOTODZ_REJECT in case it gets altered
+c              for subset of zSpec
+        PHOTODZ_REJECT_ORIG = PHOTODZ_REJECT 
 
         PHOTOZ_RANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
         PHOTOZ_RANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
@@ -3559,7 +3564,7 @@ c only check FILTLIST_FIT filters specified by user
 c get min/max redshift allowed by model
           ZMIN = LAMOBS/RESTLAMBDA_USEFIT(2) - 1.0
           ZMAX = LAMOBS/RESTLAMBDA_USEFIT(1) - 1.0
-
+          
 c print filter range in ITER=0 only
           if ( ITER .EQ. 0 ) then
              write(6,600) cfilt1(1:1), ZMIN, ZMAX
@@ -3617,10 +3622,14 @@ c set cut logical only on first iteration
           ENDIF
 
           if ( LDMP ) then                        
-            print*,'  DROPFILTER(', cfilt1(1:1), ') = ', LCUT
+            print*,' xxx DROPFILTER(', cfilt1(1:1), ') = ', LCUT
             write(6,666) ZMIN, ZMAX, DZatmin, DZatMAX
-666         format(T10,'ZMIN,ZMAX=',2F6.3, 3x, 'DZatMIN/MAX=',2F7.3)
-            CALL FLUSH(6)
+666         format('  xxx ', T10,'ZMIN,ZMAX=',2F6.3, 
+     &           3x, 'DZatMIN/MAX=',2F7.3)
+            print*,' xxx    ITER, LREPEAT_ITER=', ITER, LREPEAT_ITER
+            print*,' xxx    PHOTODZ_REJECT, PHOTODZ1Z_REJECT=',
+     &             PHOTODZ_REJECT, PHOTODZ1Z_REJECT
+            CALL FLUSH(6)  ! .xyz
           endif
 
 c 4/24/2011: check if a filter will be added
@@ -8699,6 +8708,7 @@ c   + add IERR argument based on init_zPDF_spline
 c   + fix bug and use MASK_PHOTOZ_SOURCE instead of OPT_PHOTOZ
 c
 c Aug 06 2024: implement BIT_PHOTOZ_AUTO_INISTP bit in OPT_PHOTOZ
+c Nov 07 2024: fix bug setting PHOTODZ_REJECT for zSPEC
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -8812,6 +8822,7 @@ c set initial value and step size.
       LZDONE    = .FALSE.
       MASK      = MASK_PHOTOZ_SOURCE
       STD       = 0.0 
+      PHOTODZ_REJECT = PHOTODZ_REJECT_ORIG ! Nov 2024
 
       IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
@@ -8821,11 +8832,15 @@ c set initial value and step size.
 
 c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
-        PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
+
+        if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
+           PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
+        endif
 
         goto 777        ! Jan 2021
 
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
+
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = zhost

@@ -22709,5 +22709,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
   snana.car:
     + fix subtle bug that filled SNANA table twice for photo-z fits that failed.
-    
+
+  snlc_fit.car:
+    + fix subtle PHOTODZ_REJECT bug when there is a mix of zSPEC and zPHOT;
+       see https://github.com/RickKessler/SNANA/issues/1442
+       
 END: 

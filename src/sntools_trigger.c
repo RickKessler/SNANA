@@ -157,8 +157,9 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
 
   int  APPLYMASK_ALLOWED=0 , OVP ;
   int  IFLAG_SPEC_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO;
+  int  IFLAG_SPEC_EFFONE  = INPUTS_SEARCHEFF.IFLAG_SPEC_EFFONE ;  
   int  NMAP_SPEC          = INPUTS_SEARCHEFF.NMAP_SPEC ;
-  int  LSPEC              = IFLAG_SPEC_EFFZERO || NMAP_SPEC>0 ;
+  int  LSPEC              = IFLAG_SPEC_EFFZERO || IFLAG_SPEC_EFFONE || NMAP_SPEC>0 ;
 
   char fnam[] = "check_APPLYMASK_SEARCHEFF" ;
 
@@ -1056,8 +1057,9 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   sprintf(cptr, "\t %s", "No spec-eff option specified ==> 100% efficiency.");
   N++;  SEARCHEFF_SPEC_INFO.NLINE_README = N ;  
 
-  INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO=0;
-  SEARCHEFF_SPEC_INFO.IVARTYPE_MASK = 0 ;
+  INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO = 0 ;
+  INPUTS_SEARCHEFF.IFLAG_SPEC_EFFONE  = 0 ;  
+  SEARCHEFF_SPEC_INFO.IVARTYPE_MASK   = 0 ;
   SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY = 0 ;
   SEARCHEFF_SPEC_INFO.BOOLEAN_OR        = 1 ; // default logic is OR
   SEARCHEFF_SPEC_INFO.BOOLEAN_AND       = 0 ; 
@@ -1099,6 +1101,13 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
     INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO = 1 ;
     sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ZERO -> Force EFF_SPEC=0. \n");
+    printf("\n %s\n", cptr);
+    fflush(stdout);
+    return ;
+  }
+  else if ( strcmp(ptrFile_user,"ONE") == 0  ) {
+    INPUTS_SEARCHEFF.IFLAG_SPEC_EFFONE = 1 ;
+    sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ONE -> Force EFF_SPEC=1. \n");
     printf("\n %s\n", cptr);
     fflush(stdout);
     return ;
@@ -2533,6 +2542,8 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   if ( NMAP == 0 )  { 
     if ( INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO ) 
       { *EFF_SPEC = 0.0 ; LFIND=0 ; }
+    else if ( INPUTS_SEARCHEFF.IFLAG_SPEC_EFFONE ) 
+      { *EFF_SPEC = 1.0 ; LFIND=1 ; }
     else
       { *EFF_SPEC = EFF ; LFIND=1 ; }
 

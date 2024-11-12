@@ -89,6 +89,12 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
     + check option for single detections from sim-input
        APPLY_SEARCHEFF_SINGLE
 
+  Nov 2024
+    + check new options for IFLAG_zHOST_EFFONE and IFLAG_SPEC_EFFONE
+      corresponding to sim-inputs
+         SEARCH_SPEC_FILE:  ONE
+         SEARCH_zHOST_FILE: ONE
+
   *************/
 
   int  NMAP=0 ;
@@ -1130,7 +1136,6 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 			 PATH_SEARCHEFF, effspec_file_local, fnam );
     }
     else  { 
-      //      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
       printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> EFF_SPEC=1 \n");
       fflush(stdout);
       NONZERO_SEARCHEFF_SPEC++; // default EFFspec = 100%
@@ -1320,7 +1325,9 @@ FILE *open_zHOST_FILE(int OPT) {
 
   fp = NULL ;
 
+
   INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0;
+  INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE  = 0;  
   INPUTS_SEARCHEFF.NMAP_zHOST = 0 ;
 
   ptrFile_user  = INPUTS_SEARCHEFF.USER_zHOST_FILE ; // from sim-input
@@ -1339,6 +1346,13 @@ FILE *open_zHOST_FILE(int OPT) {
     INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 1;
     if ( LPRINT ) 
       { printf("\n  SEARCHEFF_zHOST_FILE=ZERO -> Force EFF_zHOST=0 \n"); }
+    return(fp) ;
+  }
+  else if ( strcmp(ptrFile_user,"ONE") == 0 ) {
+    // no file to read, but set all EFF_zHOST=1  (Nov 2024)
+    INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE = 1;
+    if ( LPRINT ) 
+      { printf("\n  SEARCHEFF_zHOST_FILE=ONE -> Force EFF_zHOST=1 \n"); }
     return(fp) ;
   }
   else { 
@@ -2670,12 +2684,16 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
 
   LFIND = 1 ;  *EFF_zHOST = 0.0 ;
 
-  // if there is no spec-eff file, return 100% eff and True
+  // check options if there is no zHOST-eff file
   if ( NMAP == 0 )  { 
     if ( INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO ) 
       { *EFF_zHOST = 0.0;  LFIND=0; }
-    else
-      { *EFF_zHOST = 1.0 ; LFIND=1; }
+    else if ( INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE ) 
+      { *EFF_zHOST = 1.0;  LFIND=1; }
+    else {
+      // no user option
+      *EFF_zHOST = 1.0 ; LFIND=1 ;
+    }
 
     return LFIND ;  
   }

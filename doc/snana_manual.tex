@@ -3204,6 +3204,8 @@ An example is shown here,
   SEARCHEFF_SPEC_FILE:  ZERO  # force EFF_SPEC=0 without map
        or
   SEARCHEFF_SPEC_FILE:  ONE   # force EFF_SPEC=1 without map
+       or
+  SEARCHEFF_SPEC_FILE:  NONE  # force EFF_SPEC=1 without map
 \end{verbatim}
 % $
 %illustrating both the format and the default location.
@@ -3408,9 +3410,11 @@ However, a redshift-dependent fraction of unconfirmed
 \begin{verbatim}
       SEARCHEFF_zHOST_FILE:  <fileName>
           or
-      SEARCHEFF_zHOST_FILE:  NONE      # Eff(zHOST) = 1.0
+      SEARCHEFF_zHOST_FILE:  ONE       # Eff(zHOST) = 1.0
           or
       SEARCHEFF_zHOST_FILE:  ZERO      # Eff(zHOST) = 0.0
+          or
+      SEARCHEFF_zHOST_FILE:  NONE      # Eff(zHOST) = 1.0
 \end{verbatim}
 %
 where the file contains an \eff\ map.  There are two kinds of maps:

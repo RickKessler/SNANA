@@ -99,8 +99,11 @@ struct  {
   char   zHOST_FILE[MXPATHLEN] ;   
 
   int    IFLAG_zHOST_EFFZERO;      // flag to set EFF_zHOST=0
+  int    IFLAG_zHOST_EFFONE;       // flag to set EFF_zHOST=1 (Nov 2024)
+  
   int    IFLAG_SPEC_EFFZERO;       // flag to set EFF_SPEC=0
   int    IFLAG_SPEC_EFFONE;        // flag to set EFF_SPEC=1 (Nov 2024)
+  
   int    IVERSION_zHOST;           // 1=legacy, 2=multi-D
 
   int    APPLY_DETECT_SINGLE;    // check EFF(pipe) on each exposure, not coadd

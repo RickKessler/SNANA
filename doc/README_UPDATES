@@ -22694,6 +22694,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        and occassional REDSHIFT_SOURCE setting bit for zSPEC.
 
      + new feature "SEARCHEFF_SPEC_FILE: ONE" to set EFF(SPEC) = 100%
+     + new feature "SEARCHEFF_zHOST_FILE: ONE" to set EFF(zHOST) = 100%     
      
    SALT2mu.c
      + start option for "PARSHIFT: <varname> <value>" to shift

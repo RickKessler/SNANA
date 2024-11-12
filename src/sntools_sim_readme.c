@@ -630,8 +630,15 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%sNACC_PER_SEASON:   %.0f +_ %.0f  "
-	    "# NSN(ACCEPT) after trigger+cuts", 
+	    "# NSN(ACCEPT) per season  after trigger+cuts", 
 	    pad, NACC_PER_SEASON, NACCERR_PER_SEASON);
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNACC:  [ %d, %d, %d ]   "
+	    "# NSN(ACCEPT) for [ SpecID, noSpecID, zHOST]",
+	    pad,
+	    GENLC.NTYPE_SPEC_CUTS, GENLC.NTYPE_PHOT_CUTS, GENLC.NTYPE_zHOST_CUTS);
+   
   }
 
   // - - - - - 

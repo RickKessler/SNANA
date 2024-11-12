@@ -1381,6 +1381,8 @@ struct GENLC {
   int NTYPE_PHOT_WRONGHOST;  // idem with wrong host (4.2019)
   float FRAC_PHOT_WRONGHOST; // true fraction with wrong host
 
+  int  NTYPE_zHOST_CUTS; // number of zHOST events after cuts
+  
   // misc.
   int   STOPGEN_FLAG;
   int   FUDGE_SNRMAX_FLAG ;  // 0 or 1 or 2

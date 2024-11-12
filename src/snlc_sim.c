@@ -8856,7 +8856,8 @@ void init_simvar(void) {
   GENLC.NTYPE_PHOT      = 0 ;
   GENLC.NTYPE_PHOT_WRONGHOST = 0;
   GENLC.FRAC_PHOT_WRONGHOST  = 0.0 ;
-
+  GENLC.NTYPE_zHOST_CUTS = 0 ;
+  
   GENLC.NON1ASED.ISPARSE    = -9 ;  //  (non1a sparse index: 1-NINDEX)
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
@@ -23757,7 +23758,8 @@ void  setz_unconfirmed(void) {
   if ( FOUND_zHOST ) {
 
     GENLC.REDSHIFT_FLAG = REDSHIFT_FLAG_HOSTSPEC ; 
-
+   
+    
     // update redshift only if we have the wrong host
     if ( !GENLC.CORRECT_HOSTMATCH  ) {
 
@@ -26157,7 +26159,7 @@ int gen_TRIGGER_zHOST(void) {
   int  APPLY_OPT     = INPUTS.APPLY_SEARCHEFF_OPT ;
   int  REQUIRE_SPEC  = (APPLY_OPT & APPLYMASK_SEARCHEFF_SPEC) ;
   int  REQUIRE_zHOST = (APPLY_OPT & APPLYMASK_SEARCHEFF_zHOST);
-  //  char fnam[] = "gen_TRIGGER_zHOST" ;
+  char fnam[] = "gen_TRIGGER_zHOST" ;
 
   // -------------- BEGIN ------------------
 
@@ -29434,6 +29436,10 @@ void update_accept_counters(void) {
     }
 
   }
+
+  if ( GENLC.REDSHIFT_FLAG == REDSHIFT_FLAG_HOSTSPEC )
+    { GENLC.NTYPE_zHOST_CUTS++ ; } // Nov 12 2024
+  
   // check screen update
   if ( INPUTS.NGEN_LC > 0 )  { screen_update(); }
       

@@ -810,14 +810,27 @@ def check_file_exists(file_name,msg_user):
 def read_merge_file(merge_file) :
     comment_lines = []
     input_lines   = []
-    with open(merge_file, 'r') as f :        
-        for line in f:
-            #line_new = re.sub('[^a-zA-Z0-9\n\.]', '', line) # YELLOW            
-            #logging.info(f" xxx line: {line} ----> {line_new}")
-            input_lines.append(line)
-            if line[0] == '#' :
-                comment_lines.append(line[1:].strip("\n"))
 
+    # os.system(f"chmod -rw {merge_file}")  # to test open file error
+    
+    try:
+        with open(merge_file, 'r') as f :        
+            for line in f:
+                #line_new = re.sub('[^a-zA-Z0-9\n\.]', '', line) # YELLOW            
+                #logging.info(f" xxx line: {line} ----> {line_new}")
+                input_lines.append(line)
+                if line[0] == '#' :
+                    comment_lines.append(line[1:].strip("\n"))
+    except:
+        # Nov 13 2024: print more info on failed open ;
+        # original use is to diagnose mysterious permission error at NERSC
+        stat = os.stat(merge_file)
+        msgerr = []        
+        msgerr.append(f"Could not open merge file: {merge_file}")
+        msgerr.append(f"os.stat = {stat}")        
+        log_assert(False, msgerr)   
+        return None
+        
     input_yaml = yaml.safe_load("\n".join(input_lines))
     return input_yaml,comment_lines
 

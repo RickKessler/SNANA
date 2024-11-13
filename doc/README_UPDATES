@@ -22711,7 +22711,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + remove "import coloredlogs" and "import colorama" so that it
        works with salt3train_jax env. A while back I had tried using
        color codes in MERGE.LOG, but ran into problems and gave up.
-       
+
+     + in read_merge_file(), add try/except block around open;
+       on failure, print os.stat(merge_file). Based on NERSC ticket request
+       to diagnose mysterious MERGE.LOG permission error when running
+       submit_batch_jobs.py with BayeSN LCFIT code.
+     
   wfit.c:
      + write actual mu_obs in -outfile_resid; needed to see actual distances
        for HDIBC method/

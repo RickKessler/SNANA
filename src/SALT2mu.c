@@ -8499,7 +8499,9 @@ void prepare_IDSAMPLE_biasCor(void) {
   //   determining IDSAMPLE.
   //
   // Apr 2 2023: check IDSURVEY_SELECT
-
+  // Nov 13 2024: load SURVEYGROUP = SURVEYDEF for FIELDGROUP;
+  //   only impacts stdout for IDSAMPLE summary.
+  //
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
 
@@ -8637,7 +8639,12 @@ void prepare_IDSAMPLE_biasCor(void) {
     if ( strlen(STRINGOPT) == 0 ) {
       match_surveyGroup(NAME_SN, IDSURVEY,        // (I)
 			SURVEYGROUP, STRINGOPT ); // (O)
-    }	
+    }
+    else {
+      // Nov 13 2024: set SURVEYGROUP to survey for this event;
+      //   used for printing IDSAMPLE-summary info to stdout
+      sprintf(SURVEYGROUP, "%s", SURVEYDEF);
+    }
 
     IS_SPECZ  = IS_SPECZ_TABLEVAR(isn,&INFO_DATA.TABLEVAR);
     IS_PHOTOZ = !IS_SPECZ ;
@@ -8666,7 +8673,7 @@ void prepare_IDSAMPLE_biasCor(void) {
       if ( IGNOREFILE(FIELDGROUP) ) { 
 	sprintf(NAME_SAMPLE,"%s%s", SURVEYGROUP, zGROUP ); 
 	SAMPLE_BIASCOR[N].IFLAG_ORIGIN = USERFLAG_SURVEYGROUP_SAMPLE ;
-	// warning: this IFLAG_ORGIN does not distinguish USER and AUTO
+	// warning: this IFLAG_ORIGIN does not distinguish USER and AUTO
       }
       else { 
 	sprintf(NAME_SAMPLE,"%s%s(%s)", SURVEYGROUP, zGROUP, FIELDGROUP ); 
@@ -23230,8 +23237,9 @@ void print_SALT2mu_HELP(void) {
     "prescale_biascor=<subset>,<prescale> ! select <subset> from <prescale>",
     "                                     ! <subset> can be 0,1,2 .. <prescale>-1",
     "",
-    "fieldGroup_biascor='shallow,medium,deep'     #  for biasCor & CCprior",
-    "fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2' ",
+    "fieldGroup_biascor='SHALLOW,MEDIUM,DEEP'     #  generic field names",
+    "fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'   # DES ",
+    "fieldGroup_biascor='WFD(zbin=.05),DDF(zbin=0.10)'    # LSST ",
     "",
     "surveygroup_biascor='CFA3+CSP,PS1MD'   # combine CFA3+CSP into one biasCor",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' ",

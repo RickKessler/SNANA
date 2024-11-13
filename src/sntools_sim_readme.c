@@ -614,7 +614,12 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   sprintf(cptr,"%sEFF(SEARCH+CUTS): %7.4f +- %7.4f", 
 	  pad, GENLC.GENEFF, GENLC.GENEFFERR);
 
-
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNACC:  [ %d, %d, %d ]   "
+	  "# NSN(ACCEPT) for [ SpecID, noSpecID, zHOST]",
+	  pad, GENLC.NTYPE_SPEC_CUTS, GENLC.NTYPE_PHOT_CUTS,
+	  GENLC.NTYPE_zHOST_CUTS);
+  
   // --- number of events per season: calc and accepted
   if ( NLINE_RATE_INFO > 0 ) {
     NGEN_PER_SEASON =  
@@ -632,12 +637,6 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
     sprintf(cptr,"%sNACC_PER_SEASON:   %.0f +_ %.0f  "
 	    "# NSN(ACCEPT) per season  after trigger+cuts", 
 	    pad, NACC_PER_SEASON, NACCERR_PER_SEASON);
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%sNACC:  [ %d, %d, %d ]   "
-	    "# NSN(ACCEPT) for [ SpecID, noSpecID, zHOST]",
-	    pad,
-	    GENLC.NTYPE_SPEC_CUTS, GENLC.NTYPE_PHOT_CUTS, GENLC.NTYPE_zHOST_CUTS);
    
   }
 

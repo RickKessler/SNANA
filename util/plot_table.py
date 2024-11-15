@@ -6,8 +6,6 @@
 # methods to automatically append df, df.loc and np to input variables
 # to simplified user input.
 # 
-# TO DO LIST:
-#   - ??
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -232,12 +230,12 @@ and two types of command-line input delimeters
 
   A weighted plot can be overlaid on original plot (single @@TFILE arg)
   with list of two weight functions, 
-     @@TFILE A.TEXT  @@WEIGHT  1   '1-x+x**2'
+     @@TFILE A.TXT  @@WEIGHT  1   '1-x+x**2'
   where the "1" arg means that first plot is not modified. Finally,
   when overlaying plots from two different files, providing two 
   weights applies a separate weight to each file, e.g.
-     @@TFILE A.TEXT B.TEXT  @@WEIGHT 1  'exp(-x/2)'
-  aplplies unit weight to A.TEXT and exp(-x/2) weight to B.TEXT.
+     @@TFILE A.TXT B.TXT  @@WEIGHT 1  'exp(-x/2)'
+  aplplies unit weight to A.TXT and exp(-x/2) weight to B.TXT.
 
   Vertical axis label shows Counts * WEIGHT.  Quotes are required 
   around @@WEIGHT arg to avoid conflicts with unix commands.
@@ -1681,12 +1679,12 @@ def plotter_func_driver(args, plot_info):
     bounds_dict          = plot_info.bounds_dict
     varname_idrow        = plot_info.varname_idrow  # e.g., 'CID' or 'GALID' 
     
-
     xbins          = bounds_dict['xbins']
     xbins_cen      = bounds_dict['xbins_cen']    
     # - - - - - - - 
 
-    numplot = 0 
+    numplot = 0
+    numplot_tot = len(MASTER_DF_DICT)
     info_plot_dict = { }
     
     for key_name, df_dict in MASTER_DF_DICT.items():
@@ -1791,7 +1789,8 @@ def plotter_func_driver(args, plot_info):
             print_cid_list(df, name_legend)
 
         # check for misc plt options (mostly decoration)
-        apply_plt_misc(args, plot_info, plt_text_dict)            
+        if numplot == numplot_tot-1:
+            apply_plt_misc(args, plot_info, plt_text_dict)            
 
         numplot += 1
         
@@ -2381,7 +2380,6 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     # - - - -
     ymin, ymax    = plt.ylim() # valid for auto or custom bounds
 
-    
     if do_diag_line:
         x = np.linspace(xmin,xmax,100);  y = x
         plt.plot(x,y, zorder=10)

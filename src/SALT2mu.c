@@ -7263,13 +7263,14 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
  
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->name[ISTART], 
 				 LEN, OPTMASK_WARN) ;
-  if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+  if ( ivar < 0 ) { NVAR_REQ_MISS++; } 
 
   if ( USE_FIELD ) {
+    // need better check on whether field is required (Nov 2024)
     sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID ); 
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->field[ISTART], 
 				   LEN, OPTMASK_WARN ) ;
-    if ( ivar < 0 ) { NVAR_REQ_MISS++; }
+    // xxx mark  if ( ivar < 0 ) { NVAR_REQ_MISS++; }
   }
 
   sprintf(vartmp,"IDSURVEY:S" ); // S -> short int

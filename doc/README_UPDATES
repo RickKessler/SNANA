@@ -22730,5 +22730,20 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   snlc_fit.car:
     + fix subtle PHOTODZ_REJECT bug when there is a mix of zSPEC and zPHOT;
        see https://github.com/RickKessler/SNANA/issues/1442
-       
+
+# =============================================================
+         v11_05r (Nov 16 2024) <-- start date of git tag
+
+         *****  IMPORTANT(v11_05r) *****
+
+      
+         *****  USEFUL(v11_05r) *****
+	 
+     
+         *****  MISCELLANEOUS(v11_05r) *****
+
+    SALT2mu.c
+       + input nmax now works on FIELD  as well as survey; see help with
+          SALT2mu.exe | grep nmax
+	  
 END: 

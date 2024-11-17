@@ -22658,16 +22658,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05q) *****
 
-   + sim: fixed nasty (September) logic bugs for writing spectra vs. true SEDs.
-   
-   
+   + sim:
+      * fixed nasty (September) logic bugs for writing spectra vs. true SEDs.
+      * change default OPT_MWCOLORLAW = 94 to 99 (Fitz99) [Nov 15 2024]
+   + snana.car
+      * change default OPT_MWCOLORAW=94 to 99 for analysis
+      
          *****  USEFUL(v11_05q) *****
 	 
    + Add TEXPOSE into PHOT data stream; needed for count-rate nonlinearity.
    + NONLINEARITY_FILE has new OPTMASK_NONLIN to select count-tot
       or count-rate option
 
-   + lots of new Galactic dust laws for SIM and LCFIT;
+   + lots of new Galactic dust laws for SIM and LCFIT (from S.Thorp)
      see 4.21 Simulating Galactic Extinction
 
    + new sim-input "PARLIST_MWCOLORLAW: p0,p1,p2,..." is passed to GALextinct()

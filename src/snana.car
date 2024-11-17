@@ -221,7 +221,7 @@ c
      &  ,OPTMASK_SNDATA_REQUIRE= 64     ! flag to require variable
 c
      &  ,RV_MWCOLORLAW_DEFAULT  = 3.1   ! A_V/E(B-V)
-     &  ,OPT_MWCOLORLAW_DEFAULT = 94    ! ODonnel 94
+     &  ,OPT_MWCOLORLAW_DEFAULT = 99    ! Fitzpatrick 99
      &  ,OPT_MWEBV_DEFAULT      =  1    ! whatever is in the data file
 c
      &  ,MXLINE_ARGS      = 100  ! max number of command line args

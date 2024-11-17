@@ -916,7 +916,7 @@ void set_user_defaults(void) {
 
   // --- Galactic extinction params
   INPUTS.RV_MWCOLORLAW       = RV_MWDUST ;
-  INPUTS.OPT_MWCOLORLAW      = OPT_MWCOLORLAW_ODON94 ; // default
+  INPUTS.OPT_MWCOLORLAW      = OPT_MWCOLORLAW_FITZ99_EXACT ;
 
   // ST: changed the default to -99 to force functions using
   // this to abort if not provided
@@ -8424,13 +8424,14 @@ void init_DNDZ_Rate(void) {
   Jul  05 2022: move init_stronglens from main to here so that it gets
                 used to weight rate model
   Jun 24 2023: check special case for CL AGN model
-	       
+  Nov 15 2024: include dV/dz in stdout
+
   *****/
 
   double Z0, Z1, Z_AVG, ZVtmp[2], ZVint[2], ZVOL, VT;
   double dOmega, dOmega_user, dphi, dth, sin0, sin1;
   double delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum;
-  double ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A;
+  double ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A, dVdz_tmp;
 
   int i, iz, OPT_DVDZ ;
   char cH0[8], cnum[20], key_model_rate[60];
@@ -8667,13 +8668,15 @@ void init_DNDZ_Rate(void) {
   if ( DNDZFLAG ) {
     ztmp = Z0 ;   ctmp_pec1a[0] = 0 ;
     while ( ztmp <= Z1 ) {
+      dVdz_tmp = dVdz (ztmp, &INPUTS.HzFUN_INFO);
       rtmp1 = genz_wgt(ztmp,&INPUTS.RATEPAR) ;   
       rtmp2 = genz_wgt(ztmp,&INPUTS.RATEPAR_PEC1A) ; 
       rtmp  = rtmp1 + rtmp2 ;
       FRAC_PEC1A = rtmp2/rtmp ;
       if ( rtmp2 > 0.0 ) { sprintf(ctmp_pec1a,"(%.3f PEC1a)", FRAC_PEC1A); }
-      sprintf(ctmp_z,"    %s(z=%4.2f) = %8.3e/Mpc^3/yr   %s ", 
-	      key_model_rate, ztmp, rtmp, ctmp_pec1a );
+      
+      sprintf(ctmp_z,"    %s(z=%4.2f) = %8.3e/Mpc^3/yr  dV/dz=%.3le  %s ", 
+	      key_model_rate, ztmp, rtmp,  dVdz_tmp, ctmp_pec1a ); 
       i++; sprintf(LINE_RATE_INFO[i],"%s", ctmp_z);
       ztmp += 0.2 ;
     }

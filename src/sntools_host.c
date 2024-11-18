@@ -882,6 +882,7 @@ void append_HOSTLIB_STOREPAR(void) {
   // Nov 18 2024: print append comments to stdout
   
   char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
+  char *COMMENTPAR = INPUTS.HOSTLIB_COMMENTPAR_LIST; // maybe fill and use for later ???
   int  ivar, NVAR_zHOST, gzipFlag ;
   char *ptrVarName;
   FILE *fp ;
@@ -889,7 +890,7 @@ void append_HOSTLIB_STOREPAR(void) {
 
   // -------------- BEGIN ------------
 
-
+    
   // If zHOST_FILE exists,  copy variables from zHOST efficiency map to 
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.

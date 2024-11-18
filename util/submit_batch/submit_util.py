@@ -9,6 +9,7 @@
 # Aug 28 2022: wsig_hi -> wsig_up to match minimized wfit output (bug fix)
 # Sep 26 2022: in nrow_table_TEXT(), check for nan
 # Mar 18 2023: add gzip_list_by_chunks
+# Nov    2024: add diagnostices  in read_merge_file if merge_log cannot be opened.
 #
 # ==============================================
 
@@ -811,7 +812,7 @@ def read_merge_file(merge_file) :
     comment_lines = []
     input_lines   = []
 
-    # os.system(f"chmod -rw {merge_file}")  # to test open file error
+    #  os.system(f"chmod -rw {merge_file}")  # to test open file error
     
     try:
         with open(merge_file, 'r') as f :        
@@ -824,10 +825,15 @@ def read_merge_file(merge_file) :
     except:
         # Nov 13 2024: print more info on failed open ;
         # original use is to diagnose mysterious permission error at NERSC
-        stat = os.stat(merge_file)
-        msgerr = []        
+        stat    = os.stat(merge_file)
+        access  = os.access(merge_file,os.R_OK)
+        ls      = subprocess.check_output(f"ls -l {merge_file}", shell=True)
+        ls      = (ls.rstrip()).decode('utf-8')
+        msgerr  = []  
         msgerr.append(f"Could not open merge file: {merge_file}")
-        msgerr.append(f"os.stat = {stat}")        
+        msgerr.append(f"os.stat   = {stat}")
+        msgerr.append(f"os.access(os.R_OK) = {access}")
+        msgerr.append(f"ls -l -> {ls}")
         log_assert(False, msgerr)   
         return None
         

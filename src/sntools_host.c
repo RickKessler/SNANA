@@ -533,19 +533,6 @@ int getindex_HOSTGAL_PROPERTY(char *PROPERTY){
 }  // end of getindex_HOSTGAL_PROPERTY
 
 
-/* xxx mark delete xxxx
-double get_VALUE_HOSTGAL_PROPERTY(char *PROPERTY, char *WHICH) {
-  // Created Aug 28 2024
-  // Return hostgal property value for input *PROPERTY (e..g, LOGMASS, LOGSFR)
-  // and input *WHICH = 'TRUE' , 'OBS' or 'ERR'
-  int    i_prop = getindex_HOSTGAL_PROPERTY(PROPERTY);
-  double VAL = -9.0 ;
-  char fnam[] = "get_VALUE_HOSTGAL_PROPERTY" ;
-  // ------------ BEGIN ------------
-  // HOSTLIB.HOSTGAL_PROPERTY_IVAR[index].SCALE_ERR = scale;
-  return VAL;
-} // end get_VALUE_HOSTGAL_PROPERTY
-xxxxxxx end mark xxx */
 
 // ==========================================
 void init_OPTIONAL_HOSTVAR(void) {
@@ -863,8 +850,6 @@ int load_VARNAME_STORE(char *varName) {
   int N ;
   char fnam[] = "load_VARNAME_STORE";
 
-  if ( strcmp(varName,"x1") == 0 )
-    { printf(" xxx %s: varName=%s \n", fnam, varName); } // xxxx
 
   if ( IVAR_HOSTLIB(varName,0) < 0 ) {
     N = HOSTLIB.NVAR_STORE ;
@@ -893,6 +878,8 @@ void append_HOSTLIB_STOREPAR(void) {
   // Jun 12 2020: set NVAR_zHOST after reading zHOST file
   // May 20 2024: use open_TEXTgz instead of fopen for GENPDF map file
   //               so that it reads gzipped or unzipped file
+  //
+  // Nov 18 2024: print append comments to stdout
   
   char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
   int  ivar, NVAR_zHOST, gzipFlag ;
@@ -913,6 +900,8 @@ void append_HOSTLIB_STOREPAR(void) {
     NVAR_zHOST = SEARCHEFF_zHOST[0].NVAR ; // Jun 12 2020
     for(ivar=0; ivar < NVAR_zHOST; ivar++ ) {
       ptrVarName = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar];
+      printf("\t append HOSTLIB_STOREPAR with %s from SEARCHEFF_zHOST_FILE\n",
+	     ptrVarName); fflush(stdout);
       catVarList_with_comma(STOREPAR,ptrVarName);
     } // end ivar
   }
@@ -938,8 +927,11 @@ void append_HOSTLIB_STOREPAR(void) {
     for(ivar=0; ivar < NVAR; ivar++ ) {
       ptrVarName = VARNAMES[ivar] ;
       if ( strcmp(ptrVarName,"PROB") == 0 ) { continue; }
-      if ( UNIQUE[ivar] ) 
-	{ catVarList_with_comma(STOREPAR,ptrVarName); }
+      if ( UNIQUE[ivar] )  {
+	catVarList_with_comma(STOREPAR,ptrVarName);
+	printf("\t append HOSTLIB_STOREPAR with %s from GENPDF_FILE\n",
+	       ptrVarName); fflush(stdout);
+      }
 
       
      /* printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
@@ -973,6 +965,8 @@ void append_HOSTLIB_STOREPAR(void) {
 
   if ( NVAR_WGTMAP > 0 ) {
     catVarList_with_comma(STOREPAR, VARLIST_WGTMAP_noSNVAR);
+    printf("\t append HOSTLIB_STOREPAR with %s from HOSTLIB_WGTMAP_FILE\n",
+	   VARLIST_WGTMAP_noSNVAR); fflush(stdout);  
   }
     
   return ;
@@ -2180,7 +2174,6 @@ void read_specTable_EAZY(char *spec_list_file) {
   // the eazy template reside in same dirname.
   basename = strrchr(spec_list_file, '/');
   int parentLen = strlen(spec_list_file) - strlen(basename+1);
-  // xxx mark delete Feb 256 2024 strncpy(eazy_dir, spec_list_file, parentLen);
   sprintf(eazy_dir, "%s", spec_list_file);
   eazy_dir[parentLen-1] = 0 ; // terminate after dir name
 
@@ -2430,7 +2423,6 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     // May 2021: check force ABMAG (constant, NOT z-dependent)
     if ( DO_ABMAG_FORCE ) {
-      // xxx mark      FLAM_SUM = 3.631E-20 * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
       FLAM_SUM = FNU_AB * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
       HOSTSPEC.FLAM_EVT[ilam_basis] = FLAM_SUM * ABMAG_SCALE ;
     }
@@ -2794,12 +2786,6 @@ void read_head_HOSTLIB(FILE *fp) {
 
   DONEMATCH:
 
-    // xxxxxxxxx
-    if ( strcmp(c_var,"x1") == 0 ) {
-      printf(" xxx %s: MATCH=%d for ivar=%d c_var=%s \n",
-	     fnam, MATCH, ivar, c_var);  //.xyz
-    }  // xxxxxxxx    
-
     if ( MATCH && VBOSE ) {
       IS_SNPAR = HOSTLIB.IS_SNPAR_STORE[IVAR_STORE];
       sprintf(wd,"HOSTLIB");
@@ -2812,7 +2798,8 @@ void read_head_HOSTLIB(FILE *fp) {
     if ( !MATCH  ) {
       sprintf(c1err,"Could not find required HOSTLIB var '%s' (IVAR_STORE=%d)", 
 	      c_var, IVAR_STORE );
-      sprintf(c2err,"Check HOSTLIB VARNAMES, WGTMAP & HOSTLIB_STOREPAR key.");
+      sprintf(c2err,"Check HOSTLIB_STOREPAR key and "
+	      "VARNAMES in HOSTLIB, GENPDF, zHOST, WGTMAP files.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
    
@@ -3149,10 +3136,6 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
     sprintf(varName_replace, "%s_TRUE", BASENAME);
     replace_varName_HOSTLIB(varName, varName_check, varName_replace );
 
-    /* xxx mark delete 
-    if ( strcmp(varName, BASENAME) == 0 ) 
-      { sprintf(varName,"%s_TRUE", BASENAME); }
-    */
   }
   
 
@@ -3624,17 +3607,6 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 	if ( ABMAG_FORCE   > -8.0 ) {  VALUES[ival]  = ABMAG_FORCE  ; }
 	if ( ABMAG_OFFSET !=  0.0 ) {  VALUES[ival] += ABMAG_OFFSET ; } 	
       }
-      
-      /* xxx mark delete sep 16 2024 xxxxxx
-      // check option to force override for gal mags (May 2021)
-      if ( ABMAG_FORCE > -8.0 ) {	
-	int lenvar = strlen(varName);
-	int lensuf = strlen(HOSTLIB_SUFFIX_MAGOBS);
-	bool MATCHMAG = ( strstr(varName,HOSTLIB_SUFFIX_MAGOBS) != NULL );
-	if ( MATCHMAG && lenvar == lensuf+1 ) 
-	  { VALUES[ival] = ABMAG_FORCE ; }
-      }
-      xxxxxxx end mark xxxxxxx */
       
       // check for NaN (NaN abort is after reading entire HOSTLIB)
       if ( isnan(VALUES[ival]) )  {
@@ -7823,17 +7795,6 @@ void GEN_SNHOST_POS(int IGAL) {
   // SN coords must correspond to the galaxy location.
   if ( LSN2GAL ) { load_SNHOST_GENLC_COORDS(); }
 
-  /* xxxxxxxxx mark delete Jun 4 2024 xxxxxxx
-  if ( LSN2GAL ) {
-    GENLC.RA   = GENLC.RA_OBS_AVG =  SNHOSTGAL.RA_SN_DEG ;
-    GENLC.DEC  = GENLC.DEC_OBS_AVG = SNHOSTGAL.DEC_SN_DEG ;
-
-    // compute MWEBV with SN coords (was skipped in snlc_sim)
-    // Note that return MWEBV is not used here.
-    double MWEBV = gen_MWEBV(GENLC.RA, GENLC.DEC); 
-  }
-  xxxxxx end mark xxxxxxx*/
-
   
   // compute SN-host separation in arcsec.
   SNSEP = angSep(SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG,
@@ -8822,11 +8783,6 @@ void SORT_SNHOST_byDDLR(void) {
 	     // xxx DDLR, SNSEP ); 
       printf("\t xxx %s: RA_GAL=%f DEC_GAL=%f \n",
 	     fnam, SNHOSTGAL_DDLR_SORT[i].RA, SNHOSTGAL_DDLR_SORT[i].DEC);
-
-      /* xxx mark delete Aug 28 2024 xxx
-      printf("\t xxx %s: LOGMASS = %f \n",
-	     fnam, SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE );
-      xxxxx */
       
       fflush(stdout);      
     }
@@ -8889,7 +8845,6 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
     zq  = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
   }
 
-  // xxx mark delete   zq += SNHOSTGAL.ZDIF; // shift is  zSN - zGAL
 
   // Correct for zSN/zGAL ratio, but don't bother correcting 
   // if zq=-9 (no match)
@@ -8999,20 +8954,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     // VPEC will be re-applied below
     zHEL = ( 1.0 + GENLC.REDSHIFT_HELIO ) / ( 1.0 + zPEC ) - 1.0 ;   
   }
-
-
-  /* xxx mark delete
-  // - - - - - - - - - 
-  // May 25 2020 add zPEC to zHEL
-  if ( DO_VPEC ) 
-    { zPEC = zPEC_HOSTLIB ; 
-      vPEC = SNHOSTGAL.VPEC ;
-    }  // from VPEC key in HOSTLIB
-  else
-    { zPEC = zPEC_GAUSIG ; 
-      vPEC = GENLC.VPEC ;
-    }  // from sim-input GENSIGMA_VPEC key
-  xxx delete */
 
   // - - - - - - - - - - - - - - - - - - - - - 
   // check for transferring SN redshift to host redshift.

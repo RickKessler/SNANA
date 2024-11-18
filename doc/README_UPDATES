@@ -22745,5 +22745,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu.c
        + input nmax now works on FIELD  as well as survey; see help with
           SALT2mu.exe | grep nmax
-	  
+
+    sntools_host.c
+       + print info for each appended HOSTLIB_STOREPAR to help track
+         abort on missing HOSTLIB variable.
+	 See function append_HOSTLIB_STOREPAR() and
+          https://github.com/RickKessler/SNANA/issues/1444
+	 
 END: 

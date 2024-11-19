@@ -124,6 +124,10 @@
 #   sort unbinned data frame by zHD,CID (instead of only CID) ;
 #   see https://github.com/RickKessler/SNANA/issues/1390
 #
+# Nov 19 2024:
+#   write output cov in chunks of 1 million elements to avoid excess memory consumption
+#   for very large cov. Search for CHUNK
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -202,8 +206,9 @@ KEYLIST_COSPAR_SIM = [ 'OMEGA_MATTER', 'OMEGA_LAMBDA', 'w0_LAMBDA', 'wa_LAMBDA',
 def setup_logging():
 
     #logging.basicConfig(level=logging.DEBUG, 
-    logging.basicConfig(level=logging.INFO, 
-        format="[%(levelname)8s |%(filename)21s:%(lineno)3d]   %(message)s")
+    logging.basicConfig(level=logging.INFO,
+        format="[%(levelname)6s |%(filename)10s] %(message)s")                        
+    # xxx mark format="[%(levelname)8s |%(filename)21s:%(lineno)3d]   %(message)s")
 
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
     logging.getLogger("seaborn").setLevel(logging.ERROR)
@@ -573,7 +578,11 @@ def get_hubble_diagrams(folder, args, config):
     # FITOPTs and MUOPTs
     if is_unbinned or is_rebin:
         HD_list = get_common_set_of_sne(HD_list)
-        
+
+    label0 = label_list[0]
+    nsn = len(HD_list[label0])
+    logging.info(f"Hubble diagram size for {label0}: {nsn}")
+    
     # - - - - -    
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
 
@@ -730,7 +739,8 @@ def rebin_hubble_diagram(config, HD_unbinned):
     wgtmu     = wgt1 * col_mu
 
     # - - - - -
-    OM_ref = 0.30  # .xyz should read OM_ref from BBC output
+    # xxx mark Nov 18 2024 OM_ref = 0.30   # .xyz should read OM_ref from BBC output
+    OM_ref = 0.315  # .xyz should read OM_ref from BBC output    
     zcalc_grid, mucalc_grid = get_HDcalc(OM_ref)
 
     for i in range(0,nbin_HD):
@@ -747,8 +757,6 @@ def rebin_hubble_diagram(config, HD_unbinned):
         row_name     = f"BIN{i:04d}_z{iz:02d}-x{ix1}-c{ic}"
         muerr_wgtavg = math.sqrt(1.0/wgt1sum)
         muref_wgtavg = np.sum(wgtmuref[binmask]) / wgt0sum
-        #mudif_wgtavg = np.sum(wgtmudif[binmask]) / wgt1sum
-        #mu_wgtavg    = muref_wgtavg + mudif_wgtavg
         mu_wgtavg    = np.sum(wgtmu[binmask]) / wgt1sum
         z_invert     = np.interp(muref_wgtavg, mucalc_grid.value, zcalc_grid)
 
@@ -771,9 +779,10 @@ def rebin_hubble_diagram(config, HD_unbinned):
 def get_HDcalc(OM):
 
     # return calculated HD for input OM and flat LCDM.
-    zmin    = 1.0E-04
-    zmax    = 4.0
-    z_grid  = np.geomspace(zmin, zmax, 500)
+    zmin    = 0.001
+    zmax    = 4.001
+    # xxx mark delete z_grid  = np.geomspace(zmin, zmax, 500)
+    z_grid  = np.geomspace(zmin, zmax, 4000)    
     cosmo   = FlatLambdaCDM(H0=70, Om0=OM)
     mu_grid = cosmo.distmod(z_grid)
     return z_grid, mu_grid
@@ -989,7 +998,6 @@ def get_covsys_from_covopt(covopt, contributions, base, calibrators):
 
         if apply_fitopt and apply_muopt :
             if final_cov is None:
-                # xxx mark core dump on RCC: final_cov = cov.copy()*0
                 final_cov = cov.copy()
                 final_cov *= 0.0
             if True:
@@ -1065,13 +1073,6 @@ def is_unitary(matrix: np.ndarray) -> bool:
     # Return true if input matrix is unitary
     unitary = True
     n = len(matrix)
-
-    # xxxxx mark delete Jan 2024 xxxxxx
-    # Jan 2024: RK -
-    # this one-line error calc causes core dump on RCC-midway, so break it
-    # into smaller pieces
-    #error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
-    # xxxxxx end mark xxxxxxxx
 
     tmp1 = np.eye(n)
     tmp2 = matrix.dot( matrix.transpose().conjugate())
@@ -1462,11 +1463,13 @@ def write_covariance(path, cov, opt_cov):
     logging.info(f"Write cov to {file_base}")
 
     # RK - write diagnostic to stdout for regression test
-    (sgn, logcovdet)  = np.linalg.slogdet(cov)
-    logging.info(f"    {file_base}: size={nrow}  " \
-                 f"log|det(cov)| = {logcovdet:.1f}")
-    sys.stdout.flush() 
-
+    if nrow < 2000 :
+        (sgn, logcovdet)  = np.linalg.slogdet(cov)
+        logging.info(f"    {file_base}: size={nrow}  " \
+                     f"log|det(cov)| = {logcovdet:.1f}")
+    else:
+        logging.info(f"   skip det(cov) test for large cov");  # Nov 2024
+        
     # - - - - -
     # Write out the matrix
     nwr = 0 ; rownum = -1; colnum=-1
@@ -1493,10 +1496,34 @@ def write_covariance(path, cov, opt_cov):
                 label = ""
         f.write(f"{c:13.6e}  {label}\n")
     else:
-        # write cov without an labels
-        str_cov = '\n'.join([str(f"{x:13.6e}") for x in cov.flatten() ] )
-        f.write(f"{str_cov}\n")
+        # write cov without labels
+        # write in chunks to handle VERY large arrays (Nov 2024)
+        cov_flat  = cov.flatten()
+        CHUNK     = 1000000      # write this many elements per f.write
+        n_wr      = 0
+        n_tot     = nrow * nrow
+        n_chunk_expect = int(n_tot / CHUNK ) + 1
+        n_chunk   = 0
+        while n_wr < n_tot:
+            j0 = n_wr
+            j1 = min(j0 + CHUNK, n_tot)
+            str_cov = '\n'.join([str(f"{x:13.6e}") for x in cov_flat[j0:j1]  ] )
+            n_wr    += CHUNK
+            n_chunk += 1
+            M = j1 * 1.0E-6  # number of elements, millions
+            if M > 0.2:
+                str_stat = f"({M:.1f} million)"  # write total stats for large matrix
+            else:
+                str_stat = ""   # write nothing for small cov
+                
+            logging.info(f"\t\t Write chunk {n_chunk} of {n_chunk_expect}  {str_stat}")
+            f.write(f"{str_cov}\n")
 
+        # xxxxx mark delete Nov 19 2024 xxxxxxx
+        #str_cov = '\n'.join([str(f"{x:13.6e}") for x in cov.flatten() ] )
+        #f.write(f"{str_cov}\n")
+        # xxxxxxx end mark xxxxxxxxxx
+        
     f.close()
 
     # end write_covariance
@@ -1742,7 +1769,7 @@ def create_covariance(config, args):
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
 
-    # Now that we have the data, figure out how each much each
+    # Now that we have the data, figure out how much each
     # FITOPT/MUOPT pair contributes to cov
     contributions, summary = get_contributions(data, fitopt_scales,
                                                muopt_labels, 

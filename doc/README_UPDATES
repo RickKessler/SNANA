@@ -22751,5 +22751,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          abort on missing HOSTLIB variable.
 	 See function append_HOSTLIB_STOREPAR() and
           https://github.com/RickKessler/SNANA/issues/1444
-	 
+
+    create_covariance.py
+       + write cov in chunks of 1 million elements
+       
 END: 

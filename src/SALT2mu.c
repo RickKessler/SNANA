@@ -22589,7 +22589,7 @@ double cosmodl_forFit(double zhel, double zcmb, double *cosPar) {
   int IPAR_OL = 0 ;
   double dl, DL[2], OL, slp, cosPar_local[10] ;
   double OL_extrap[2] = { 0.97, 0.99 } ;
-  //  char fnam[] = "cosmodl_forFit" ;
+  char fnam[] = "cosmodl_forFit" ;
 
   // -------------- BEGIN -------------
 

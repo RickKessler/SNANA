@@ -175,6 +175,11 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Feb 22 2022: set DEBUG_SALT2 with OPTMASK += 1024
  Dec    2023: integrate 2nd component.
 
+ Nov 2024: 
+   + remove lots of _legacy codes from when hard-wried 2D cov was
+      updated to handle both 2D and 3D covs.
+   + print bad errmap values before abort.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -447,8 +452,6 @@ int NSURFACE_SALT2(void) {
   char fnam[] = "NSURFACE_SALT2";
 
   // ------------ BEGIN -------------
-
-  if ( !REFAC_SALT2_COV ) { return 2; } // legacy
 
   for(i=0; i < 3; i++ ) {
     sprintf(template_file, "%s/%s_template_%d.dat", 
@@ -851,8 +854,6 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   // ----------- BEGIN -----------    
 
-  if ( !REFAC_SALT2_COV ) { read_SALT2errmaps_legacy(Trange,Lrange); return; }
-
   printf("\n Read SALT%d ERROR MAPS: \n", IMODEL_SALT );
   fflush(stdout);
 
@@ -969,123 +970,6 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
 } // end of read_SALT2errmaps
 
-
-// ***********************************************
-void read_SALT2errmaps_legacy(double Trange[2], double Lrange[2] ) {
-  // Mar 2011
-  // Read error maps that depend on Trest vs. lambda
-  // (move code from init_genmag_SALT2).
-  //
-  // May 2011: check array bound
-  // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
-  // Jul 23 2020: for SALT3, remove _relative from file names
-  // Apr 27 2021: skip reading ERRSCAL map for SALT3
-  //
-  int imap, NDAY, NLAM, NBTOT, nflux_nan ;
-  double DUMMY[20];
-
-  char tmpFile[200], sedcomment[80], lc_string[20] ;
-  char *prefix = SALT2_PREFIX_FILENAME ;
-  char fnam[] = "read_SALT2errmaps_legacy" ;
-
-  // ----------- BEGIN -----------    
-
-  printf("\n Read SALT2 ERROR MAPS: \n");
-  fflush(stdout);
-
-  NERRMAP_BADRANGE_SALT2 = 0 ;
-  NERRMAP_BADVALUE_SALT2 = 0 ; // July 2020
-
-  // ****** LEGACY *********
-
-  // hard-wire filenames for error maps
-  if ( ISMODEL_SALT2 ) 
-    { sprintf(lc_string,"lc_relative"); }
-  else if ( ISMODEL_SALT3 ) 
-    { sprintf(lc_string,"lc"); }
-
-  // ****** LEGACY *********
-
-  INDEX_SALT2_ERRMAP.VAR[0]       = 0;
-  INDEX_SALT2_ERRMAP.VAR[1]       = 1;
-  INDEX_SALT2_ERRMAP.COVAR[0][1]  = 2 ;
-  INDEX_SALT2_ERRMAP.COVAR[1][0]  = 2 ;
-  INDEX_SALT2_ERRMAP.ERRSCALE     = 3 ;
-  INDEX_SALT2_ERRMAP.COLORDISP    = 4 ;
-  NERRMAP_SALT2 = 5; // hard wired
-
-  sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
-  sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
-  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix,lc_string);
-  sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
-  sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
-
-  sprintf(SALT2_ERRMAP_COMMENT[0],  "VAR0" );
-  sprintf(SALT2_ERRMAP_COMMENT[1],  "VAR1" );
-  sprintf(SALT2_ERRMAP_COMMENT[2],  "COVAR" );
-  sprintf(SALT2_ERRMAP_COMMENT[3],  "ERRSCALE" );
-  sprintf(SALT2_ERRMAP_COMMENT[4],  "COLOR-DISP" ); // 10 chars long
-
-  // ****** LEGACY *********
-  
-  for ( imap=0; imap < NERRMAP_SALT2; imap++ ) {
-
-    init_BADVAL_SALT2errmap_legacy(imap);
-     
-    if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; } // read elsewhere
-
-    if ( ISMODEL_SALT3 && imap==INDEX_SALT2_ERRMAP.ERRSCALE ) { continue; }
-
-    sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
-    sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
-    // ****** LEGACY *********
-
-    rd_sedFlux(tmpFile, sedcomment, Trange, Lrange
-	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0   // inputs
-	       ,&SALT2_ERRMAP[imap].NDAY    // outputs
-	       ,SALT2_ERRMAP[imap].DAY      // idem ...
-	       ,&SALT2_ERRMAP[imap].DAYSTEP
-	       ,&SALT2_ERRMAP[imap].NLAM
-	       ,SALT2_ERRMAP[imap].LAM
-	       ,&SALT2_ERRMAP[imap].LAMSTEP
-	       ,SALT2_ERRMAP[imap].VALUE 
-	       ,DUMMY, &nflux_nan
-	       );
-
-    NLAM = SALT2_ERRMAP[imap].NLAM ;
-    SALT2_ERRMAP[imap].LAMMIN  = SALT2_ERRMAP[imap].LAM[0] ;
-    SALT2_ERRMAP[imap].LAMMAX  = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
-
-    // ****** LEGACY *********
-
-    NDAY = SALT2_ERRMAP[imap].NDAY ;
-    SALT2_ERRMAP[imap].DAYMIN  = SALT2_ERRMAP[imap].DAY[0] ;
-    SALT2_ERRMAP[imap].DAYMAX  = SALT2_ERRMAP[imap].DAY[NDAY-1] ;
-
-    NBTOT = NLAM*NDAY ;
-    if ( NBTOT >= MXBIN_VAR_SALT2 ) {
-      sprintf(c1err,"NLAM*NDAY=%d*%d = %d exceeds bound of "
-	      "MXBIN_VAR_SALT2=%d",
-	      NLAM, NDAY, NBTOT, MXBIN_VAR_SALT2);
-      sprintf(c2err,"See '%s'", tmpFile);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-
-    // ****** LEGACY *********
-
-    // Sep 2019: make sure wave range covers SED wave range
-    check_lamRange_SALT2errmap(imap);
-    check_dayRange_SALT2errmap(imap);
-    check_BADVAL_SALT2errmap(imap);
-
-    fflush(stdout);
-
-  }   //  imap
-
-  // ****** LEGACY *********  
-  return; 
-
-} // end of read_SALT2errmaps_legacy
 
 
 // ***************************************
@@ -1747,8 +1631,12 @@ void  init_BADVAL_SALT2errmap(int imap) {
   int i,i2,  NSED = SEDMODEL.NSURFACE ;
   // --------------- BEGIN ------------
 
-  SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
-  SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
+  SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval   = 0 ;
+  SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval = 0 ; 
+  
+  // xxx mark SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
+  // xxx mark SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
+  
   SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
   SALT2_ERRMAP[imap].RANGE_FOUND[1] = -1.0E8 ;
   SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E5 ; 
@@ -1790,62 +1678,6 @@ void  init_BADVAL_SALT2errmap(int imap) {
 
 } // end init_check_BADVAL_SALT2errmap 
 
-// ==========================================================
-void  init_BADVAL_SALT2errmap_legacy(int imap) {
-
-  // ******* LEGACY *********
-  // Created July 26 2020
-  // Init stuff to count bad values in error maps.
-  // Goal is to quickly catch retraining pathologies.
-  //
-  // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
-  // Oct 18 2021: extend valid COVAR range to -30 (was -10)
-  //
-  // ****** Dec 28 2023: will soon be OBSOLETE ********
-  // --------------- BEGIN ------------
-
-  SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
-  SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
-  SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
-  SALT2_ERRMAP[imap].RANGE_FOUND[1] = -1.0E8 ;
-  SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E5 ; 
-  SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E5 ;
-
-  // ******* LEGACY *********
-
-  // - - - - - - - - 
-  // set valid ranges for SALT2
-  if ( imap == INDEX_SALT2_ERRMAP.VAR[0] ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -10.0 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =   500.0 ;
-  }
-  else if ( imap == INDEX_SALT2_ERRMAP.VAR[1] ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -10.0 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  500.0 ;
-  }
-  else if ( imap == INDEX_SALT2_ERRMAP.COVAR[0][1] ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -30.0 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  100.0 ;
-  }
-  else if ( imap == INDEX_SALT2_ERRMAP.ERRSCALE ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  200. ;
-  }
-  else if ( imap == INDEX_SALT2_ERRMAP.COLORDISP ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
-  }
-
-  // - - - - - - - - 
-  // make valid range adjustments for SALT3 
-  if ( ISMODEL_SALT3 ) { 
-    // for D'Arcy, David, Mi ??
-  }
-
-  // ******* LEGACY *********
-  return ;
-
-} // end init_check_BADVAL_SALT2errmap_legacy
 
 // ==========================================================
 void  check_BADVAL_SALT2errmap(int imap) {
@@ -1856,8 +1688,8 @@ void  check_BADVAL_SALT2errmap(int imap) {
   //   imap >= 0 --> check entire map for bad values
   //   imap <  0 --> abort on any bad values; print stats for each map
 
-  int    iday, ilam, jtmp, NDAY, NLAM ;
-  double ERRTMP, NERR_LOCAL = 0 ;
+  int    iday, ilam, jtmp, NDAY, NLAM, n, j, NERR_LOCAL = 0 ;
+  double ERRTMP ;
   double *RANGE_FOUND = SALT2_ERRMAP[imap].RANGE_FOUND ;
   double *RANGE_VALID = SALT2_ERRMAP[imap].RANGE_VALID ;
   int    BADVAL_ABORT = INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT;
@@ -1877,33 +1709,64 @@ void  check_BADVAL_SALT2errmap(int imap) {
   if ( imap < 0 ) {
     printf("\n");
     printf("              NBADVAL NBADVAL       "
-	   "ERRMAP-value    ERRMAP-value\n");
+	   "ERRMAP-value      ERRMAP-value\n");
     printf("    ERRMAP     (NaN)  (crazy^)      "
-	   "actual-range^   [valid-range]\n");
-    printf("# --------------------------------------"
+	   "actual-range^     [valid-range]\n");
+    printf("# ------------------------------------------"
 	   "---------------------------------\n");
 
     int NBAD_NAN, NBAD_CRAZY;  char *COMMENT;
     for(jtmp = 0; jtmp < NERRMAP_SALT2; jtmp++ ) {
-      NBAD_NAN    = SALT2_ERRMAP[jtmp].NBADVAL_NAN; 
-      NBAD_CRAZY  = SALT2_ERRMAP[jtmp].NBADVAL_CRAZY; 
+      // xxx mark  NBAD_NAN    = SALT2_ERRMAP[jtmp].NBADVAL_NAN; 
+      // xxx mark  NBAD_CRAZY  = SALT2_ERRMAP[jtmp].NBADVAL_CRAZY;
+
+      NBAD_NAN    = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.n_badval ;
+      NBAD_CRAZY  = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.n_badval ;      
       COMMENT     = SALT2_ERRMAP_COMMENT[jtmp];
       RANGE_FOUND = SALT2_ERRMAP[jtmp].RANGE_FOUND ;
       RANGE_VALID = SALT2_ERRMAP[jtmp].RANGE_VALID ;
-      printf(" %10s  %5d    %5d    %8.2le - %8.2le  [%8.1f - %8.1f]\n",
+      printf(" %10s  %5d    %5d    %9.2le - %9.2le  [%8.1f - %8.1f]\n",
 	     COMMENT, NBAD_NAN, NBAD_CRAZY, 
 	     RANGE_FOUND[0], RANGE_FOUND[1],
 	     RANGE_VALID[0], RANGE_VALID[1]);
       fflush(stdout);
     }
-    printf("# --------------------------------------"
+    printf("# ------------------------------------------"
 	   "---------------------------------\n");
     printf("#         ^restricted to %.1f < DAY < %.1f days\n",
 	   DAYMIN_CRAZY, DAYMAX_CRAZY);
     printf("\n"); fflush(stdout);
 
+    // - - - - 
     if ( NERRMAP_BADVALUE_SALT2 > 0 && BADVAL_ABORT ) {
-      print_preAbort_banner(fnam);       
+      print_preAbort_banner(fnam);
+      float val; 
+      for(jtmp = 0; jtmp < NERRMAP_SALT2; jtmp++ ) {
+
+	n = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.n_badval ;
+	if ( n > 0 ) {
+	  printf("\n {day,lam} for ERRMAP = NaN  for %s: \n", SALT2_ERRMAP_FILES[jtmp] );	  
+	  for(j=0; j < n; j++ ) {
+	    day = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.day[j];
+	    lam = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.lam[j];
+	    val = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.value[j];
+	    printf("\t day = %.2f  lam = %.2f  \n", day, lam );
+	  }
+	} // end loop over n NaN values
+
+        n = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.n_badval ;
+	if ( n > 0 ) {
+	  printf("\n Crazy ERRMAP values for %s: \n", SALT2_ERRMAP_FILES[jtmp] );
+	  for(j=0; j < n; j++ ) {
+	    day = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.day[j];
+	    lam = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.lam[j];
+	    val = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.value[j];
+	    printf("\t day = %.2f  lam = %.2f  val = %.4le \n", day, lam, val );
+	  }
+	} // end loop over n crazy values
+	
+      } //.xyz	
+      
       sprintf(c1err,"%d bad ERRMAP values (NaN and/or crazy)", 
 	      NERRMAP_BADVALUE_SALT2);
       sprintf(c2err,"Check bad-value stats above");
@@ -1923,13 +1786,20 @@ void  check_BADVAL_SALT2errmap(int imap) {
     for ( ilam=0; ilam < NLAM ; ilam++ ) {
       day    = SALT2_ERRMAP[imap].DAY[iday] ;
       lam    = SALT2_ERRMAP[imap].LAM[ilam] ;
-
       jtmp   = NLAM *iday + ilam ;
       ERRTMP = SALT2_ERRMAP[imap].VALUE[jtmp] ;
 
       // always check for NaN
-      if ( isnan(ERRTMP) ) { 
-	SALT2_ERRMAP[imap].NBADVAL_NAN++ ; NERR_LOCAL++; 
+      if ( isnan(ERRTMP) ) {
+	n = SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval ;
+	if ( n < MXSTORE_BADVAL_ERRMAP ) {
+	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.day[n]   = day;
+	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.lam[n]   = lam;
+	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.value[n] = ERRTMP;	  
+	}
+	SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval++ ;
+	NERR_LOCAL++; 
+	// xxx mark SALT2_ERRMAP[imap].NBADVAL_NAN++ ; 
 	continue ;
       }
 
@@ -1939,7 +1809,16 @@ void  check_BADVAL_SALT2errmap(int imap) {
       if ( NDAY == 1 ) { DO_CRAZY_CHECK = true; }
       if ( DO_CRAZY_CHECK ) {
 	if ( ERRTMP < RANGE_VALID[0] || ERRTMP > RANGE_VALID[1] ) {
-	  SALT2_ERRMAP[imap].NBADVAL_CRAZY++ ; NERR_LOCAL++; 
+
+	  n = SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval ;
+	  if ( n < MXSTORE_BADVAL_ERRMAP ) {
+	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.day[n]   = day;
+	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.lam[n]   = lam;
+	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.value[n] = ERRTMP;	  
+	  }
+	  SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval++ ;
+	  NERR_LOCAL++ ;
+	  // xxx mark delete SALT2_ERRMAP[imap].NBADVAL_CRAZY++ ; NERR_LOCAL++; 
 	}
 	if ( ERRTMP < RANGE_FOUND[0] )  { RANGE_FOUND[0] = ERRTMP ; }
 	if ( ERRTMP > RANGE_FOUND[1] )  { RANGE_FOUND[1] = ERRTMP ; }
@@ -2530,11 +2409,6 @@ double SALT2magerr(double Trest, double lamRest, double z,
 
   // ---------------- BEGIN ---------------
   
-  if ( !REFAC_SALT2_COV ) {
-    // legacy magerr for only 2 components
-    return SALT2magerr_legacy(Trest, lamRest, z, x1, Finteg_errPar, LDMP );
-  }
-
   lamObs = lamRest * ( 1. + z );
 
   // Make sure that Trest is within range of map.
@@ -2576,21 +2450,15 @@ double SALT2magerr(double Trest, double lamRest, double z,
   else if ( ISMODEL_SALT3 ) {
     // Dave and D'Arcy's vartot has flux units (M0 + x1*M1), not relative units
     double flux_train   = Finteg_errPar ;  // M0 + x1*M1; no Gal extinc and c=0    
-
-    if ( REFAC_SALT2_COV ) {
-      double x_loop[3]    = { 1.0, x1, x2 };
-      vartot_flux = 0.0 ;
-      for(i=0; i < NSED; i++ ) {
-	for(i2=i; i2 < NSED; i2++ ) {
-	  covtmp = x_loop[i] * x_loop[i2] * covar[i][i2] ;
-	  vartot_flux += covtmp;
-	  if ( i != i2 ) { vartot_flux += covtmp; } // add other off-diag element
-	}
+    double x_loop[3]    = { 1.0, x1, x2 };
+    vartot_flux = 0.0 ;
+    for(i=0; i < NSED; i++ ) {
+      for(i2=i; i2 < NSED; i2++ ) {
+	covtmp = x_loop[i] * x_loop[i2] * covar[i][i2] ;
+	vartot_flux += covtmp;
+	if ( i != i2 ) { vartot_flux += covtmp; } // add other off-diag element
       }
-    } // end REFAC_SALT2_COV
-
-    if ( !REFAC_SALT2_COV ) 
-      { vartot_flux = var[0] + var[1]*x1*x1 + (2.0 * x1 * covar[0][1]) ; } // legacy
+    }
 
     if ( vartot_flux < 0   ) { vartot_flux = -vartot_flux ; }  // W.A.G
     if ( flux_train  < 0.0 ) { flux_train  = -flux_train  ; }  // W.A.G
@@ -2651,145 +2519,6 @@ double SALT2magerr(double Trest, double lamRest, double z,
 } // end of SALT2magerr
 
 
-// *****************************************
-double SALT2magerr_legacy(double Trest, double lamRest, double z,
-			  double x1, double Finteg_errPar, int LDMP ) {
-
-
-  // Created Jun 2011 by R.Kessler
-  // return mag-error for this epoch and rest-frame <lamRest>.
-  //
-  // Inputs:
-  //   - Trest   : rest-frame epoch relative to peak brightness (days)
-  //   - lamRest : <lamObs>/(1+z) = mean wavelength in rest-frame
-  //   - z       : redshift
-  //   - x1      : stretch parameter.
-  //   - Finteg_errPar 
-  //         : for SALT2, Finteg[1] / Finteg[0]
-  //         : for SALT3, (M0 + x1*M1) 
-  //
-  //
-  //   - LDMP : dump-and-exit flag
-  //
-  // Nov 7 2019: for SALT3 (retraining), set relx1=0. We don't understand
-  //             the origin of this term, so scrap it for SALT3.
-  // 
-  // Oct 16 2020: vartot 
-  //   + pass new arg Finteg_noMW
-  //   + vartot_flux for SALT3 (relative for SALT2)
-  //
-  // Oct 01 2021: no longer set magerr=5.0 to avoid discontinuity in LC fit.
-
-  double 
-     ERRMAP[MXERRMAP_SALT2], Trest_tmp
-    ,vartot_rel, vartot_flux, var0, var1, relsig0, relsig1
-    ,covar01, rho, errscale, fracerr_snake, fracerr_kcor, fracerr_TOT
-    ,magerr_model, magerr, lamObs
-    ,ONE = 1.0, relx1=0.0 ;
-    ;
-
-  char fnam[] = "SALT2magerr_legacy" ;
-
-  // ---------------- BEGIN ---------------
-  
-  lamObs = lamRest * ( 1. + z );
-
-  // ********* LEGACY **********
-
-  // Make sure that Trest is within range of map.
-
-  if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
-    { Trest_tmp = SALT2_ERRMAP[0].DAYMAX ; }
-  else if ( Trest < SALT2_ERRMAP[0].DAYMIN ) 
-    { Trest_tmp = SALT2_ERRMAP[0].DAYMIN ; }
-  else
-    { Trest_tmp = Trest ; }
-
-  get_SALT2_ERRMAP(Trest_tmp, lamRest, ERRMAP ) ;
-
-  // strip off the goodies
-  var0     = ERRMAP[INDEX_SALT2_ERRMAP.VAR[0]] ;  // sigma(S0)/S0
-  var1     = ERRMAP[INDEX_SALT2_ERRMAP.VAR[1]] ;  // sigma(S1)/S0
-  covar01  = ERRMAP[INDEX_SALT2_ERRMAP.COVAR[0][1]] ;  // 
-  errscale = ERRMAP[INDEX_SALT2_ERRMAP.ERRSCALE] ;  // error fudge  
-
-  vartot_rel = vartot_flux = 0.0 ;
-
-  // ********* LEGACY **********
-
-  if ( ISMODEL_SALT2 ) {
-    // SALT2: fractional error as in  Guy's ModelRelativeError function
-    double Fratio = Finteg_errPar;    // Finteg[1]/Finteg[0], no MW 
-    relx1         = x1 * Fratio ;
-    vartot_rel    = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;
-    if ( vartot_rel < 0 ) { vartot_rel = 0.01*0.01 ; } // 7/2013: follow JG 
-    fracerr_snake = errscale * sqrt(vartot_rel) / fabs(ONE + relx1) ;   
-  }
-  else if ( ISMODEL_SALT3 ) {
-    // Dave and D'Arcy's vartot has flux units (M0+x1*M1), not relative units
-    double flux_train   = Finteg_errPar ;  // M0+x1*M1; no Gal extinc and c=0
-    vartot_flux = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;
-
-    if ( vartot_flux < 0   ) { vartot_flux = -vartot_flux ; }  // W.A.G
-    if ( flux_train  < 0.0 ) { flux_train  = -flux_train  ; }  // W.A.G
-    fracerr_snake = sqrt(vartot_flux) / flux_train ;
-  }
-
-  // ********* LEGACY **********
-
-  // kcor/color error is the same for SALT2,SALT3
-  fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
-
-  // get total fractional  error.
-  fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
-
-  // convert frac-error to mag-error, and load return array
-  magerr_model  = (2.5/LNTEN) * fracerr_TOT ;   // exact
-
-  // check for error fudges
-  magerr = magerrFudge_SALT2(magerr_model, lamObs, lamRest );
-
-  // ********* LEGACY **********
-
-  // ------------- DEBUG DUMP ONLY ------------------
-  if ( LDMP ) {
-    relsig0 = sqrt(var0);
-    relsig1 = sqrt(var1);
-    rho = covar01 / (relsig0*relsig1);
-
-    // printf("\n xxxx ================================================= \n");
-    printf(" xxxx \t SALT2magerr dump \n" );
-
-    printf(" xxxx Trest=%6.2f  lamRest = %6.0f   z=%6.4f\n", 
-	   Trest, lamRest, z );
-
-    printf(" xxx Finteg_errPar = %le \n",
-	   Finteg_errPar );
-
-    printf(" xxxx var0=%le  var1=%le  vartot_[rel,flux]=%le,%le  \n", 
-	   var0, var1, vartot_rel, vartot_flux );
-
-    printf(" xxxx relsig0=%f  relsig1=%f  rho=%f  scale=%f\n", 
-	   relsig0, relsig1, rho, errscale );
-
-    printf(" xxxx fracerr[snake,kcor] = %f , %f \n", 
-	   fracerr_snake, fracerr_kcor );
-
-    printf(" xxxx fracerr_TOT=%f   x1*S1/S0=%f \n", 
-	   fracerr_TOT, relx1 );
-    printf(" xxxx magerr(model,final) = %7.3f , %7.3f \n", 
-	   magerr_model, magerr );
-
-  // ********* LEGACY **********
-
-    //    debugexit("SALT2 MODEL DUMP");
-
-  }
-    // -------- END OF DEBUG DUMP  ------------
-
-  return magerr ;
-
-} // end of SALT2magerr_legacy
 
 
 // **********************************************
@@ -3539,11 +3268,6 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 
 	magerr = SALT2magerr(Trest, meanlam_rest, z, xx1, x2, 
 			     Finteg_errPar, LDMP );
-
-	/* xxxxxxxxxxxxxxxx mark delte July 29 2024 xxxxxxxxx
-		magerr = SALT2magerr(Trest, meanlam_rest, z, x1, x2, 
-			     Finteg_errPar, LDMP );
-	xxxxxxxxxxxxxxxxxxxxx  */
 	
 	COV_DIAG = magerr*magerr ;
 	COV_TMP = COV_DIAG ;

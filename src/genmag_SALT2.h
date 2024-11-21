@@ -39,8 +39,6 @@
 #define GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE   64  // abort on bad model-LAMRANGE
 #define GENMODEL_MSKOPT_SALT2_DEBUG   1024    // Refactor for developer only
 
-//#define REFAC_SALT2_COV false
-#define REFAC_SALT2_COV true
 
 int  DEBUG_SALT2;
 int  NCALL_DBUG_SALT2 ; 
@@ -70,6 +68,12 @@ struct  { // define indices for ERROR maps
 } INDEX_SALT2_ERRMAP;
 
 
+#define MXSTORE_BADVAL_ERRMAP 100
+typedef struct {
+  int   n_badval ;
+  float day[MXSTORE_BADVAL_ERRMAP], lam[MXSTORE_BADVAL_ERRMAP] ;
+  float value[MXSTORE_BADVAL_ERRMAP];
+} STORE_BADVAL_ERRMAP_DEF ;
 
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
@@ -84,7 +88,10 @@ struct SALT2_ERRMAP {
   int     INDEX_SPLINE ;   
   int     ISGN[MXBIN_VAR_SALT2];  // sign of value since log10|err| is stored
 
-  int NBADVAL_NAN, NBADVAL_CRAZY; // July 2020 (for retraining)
+  // xxx mark delete   int NBADVAL_NAN, NBADVAL_CRAZY; 
+  STORE_BADVAL_ERRMAP_DEF STORE_NAN_VALUES;
+  STORE_BADVAL_ERRMAP_DEF STORE_CRAZY_VALUES;  
+  
   double  RANGE_VALID[2] ;  // valid range for each map
   double  RANGE_FOUND[2] ;  // actual min/max for each map
 } SALT2_ERRMAP[MXERRMAP_SALT2]; // SALT2_VAR[2], SALT2_COVAR, SALT2_ERRSCALE ;
@@ -222,8 +229,6 @@ double SALT2mBcalc(double x0);
 double SALT2magerr(double Trest, double lamRest,  double z,
 		   double x1, double x2, double Finteg_errPar, int LDMP);
 
-double SALT2magerr_legacy(double Trest, double lamRest,  double z,
-			  double x1, double Finteg_errPar, int LDMP);
 
 double SALT2colorDisp(double lam, char *callFun);
 
@@ -232,14 +237,12 @@ void   setFlags_ISMODEL_SALT2(char *version);
 void getFileName_SALT2colorDisp(char *fileName) ;
 void read_SALT2_INFO_FILE(int OPTMASK);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );
-void read_SALT2errmaps_legacy(double Trange[2], double Lrange[2] );
 void read_SALT2colorDisp(void);
 
 void check_lamRange_SALT2errmap(int imap);
 void check_dayRange_SALT2errmap(int imap);
 void check_BADVAL_SALT2errmap(int imap);  // check for Nan & crazy values
 void init_BADVAL_SALT2errmap(int imap);  
-void init_BADVAL_SALT2errmap_legacy(int imap);  
 
 void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP );
 

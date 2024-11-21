@@ -1785,6 +1785,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   else if ( INPUTS.use_mucov == 2 )
     { printf("  Process MUCOVTOT^{-1} file  \n");  }    
 
+  fflush(stdout);
   sprintf(MUCOV->fileName, "%s", inFile);
   
   // Open File using the utility
@@ -1853,7 +1854,8 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   // if all COV elements are zero, this is a request for stat-only fit,
   // so disable cov
   if ( MUCOV->N_NONZERO == 0 ) { 
-    printf("\t -> disable off-diag COV computations.\n"); 
+    printf("\t -> disable off-diag COV computations.\n");
+    fflush(stdout);
     INPUTS.use_mucov = 0; 
     INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
     return; 

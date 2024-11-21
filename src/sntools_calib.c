@@ -241,13 +241,13 @@ void  read_calib_open(void) {
 void read_calib_head(void) {
 
   // Read FITS header keys
-
+  // Nov 20 2024: abort if FILTER_NAME is too long
+  
   fitsfile *FP = CALIB_INFO.FP;
   int istat = 0, i, IFILTDEF, len ;
   char KEYWORD[40], comment[100], tmpStr[100], cfilt[2] ;
   int  NUMPRINT =  14;
   int  MEMC     = 80*sizeof(char); // for malloc
-  //  int  memc     =  8*sizeof(char); // for malloc
 
   int *IPTR; double *DPTR; char *SPTR;
   char fnam[] = "read_calib_head" ;
@@ -304,8 +304,11 @@ void read_calib_head(void) {
 
     if ( SPTR[0] == '*' ) { CALIB_INFO.ISLAMSHIFT[i] = true; }
 
-    // store absolute filter index 
-    len = strlen(CALIB_INFO.FILTER_NAME[i]);
+    abort_on_string_tooLong(CALIB_INFO.FILTER_NAME[i],
+			    MXCHAR_FILTNAME, "MXCHAR_FILTNAME", fnam);
+
+    // store absolute filter index    
+    len = strlen(CALIB_INFO.FILTER_NAME[i]);    
     sprintf(cfilt, "%c", CALIB_INFO.FILTER_NAME[i][len-1] ) ;
     IFILTDEF = INTFILTER(cfilt) ;
     CALIB_INFO.IFILTDEF[i] = IFILTDEF ;

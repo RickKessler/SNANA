@@ -8042,9 +8042,8 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.PHOTFLAG_DETECT  = 0 ; // July 2022
 
   for(ep=0; ep < MXEPOCH; ep++ ) {
-    // xxx mark  SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
-    SNDATA.FILTNAME[ep]  = (char*)malloc( 20 * sizeof(char) );
-    SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
+    SNDATA.FILTNAME[ep]  = (char*)malloc( MXCHAR_FILTNAME  * sizeof(char) );
+    SNDATA.FIELDNAME[ep] = (char*)malloc( MXCHAR_FIELDNAME * sizeof(char) );
   }
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
@@ -9774,6 +9773,20 @@ void abort_bad_input(char *key, char *word, int iArg, char *callFun) {
   sprintf(c2err,"for KEY = %s (check N_arg after input key)", key );
   errmsg(SEV_FATAL, 0, callFun, c1err, c2err ) ;
 } // end abort_bad_input
+
+void abort_on_string_tooLong(char *string, int MXLEN, char *PARNAME_MXLEN, char *callFun) {
+
+  char fnam[] = "abort_on_string_tooLong";
+  int len = strlen(string);
+  // --------- BEGIN ---------
+  if ( len  >= MXLEN ) {
+    sprintf(c1err,"len(%s)=%d exceeds %s=%d  in functon %s",
+	    string, len, PARNAME_MXLEN, MXLEN, callFun);
+    sprintf(c2err,"Check %s in SNANA code.", PARNAME_MXLEN );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+  }
+  
+} // end abort_on_string_tooLong
 
 void react_missing_docana(bool REQUIRE_DOCANA, char *fileName) {
   // Calling function has already determined that DOCANA is missing;

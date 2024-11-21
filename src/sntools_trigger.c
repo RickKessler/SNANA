@@ -1335,7 +1335,8 @@ FILE *open_zHOST_FILE(int OPT) {
   
   if( IGNOREFILE(ptrFile_user) ) {
     // NULL or NONE, etc ... -> EFF=1
-    if ( LPRINT )   { 
+    if ( LPRINT )   {
+      INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE = 1; // Nov 19 2024      
       printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
 	     "-> Eff=1.0 \n"); 
     }

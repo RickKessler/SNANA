@@ -13341,7 +13341,7 @@ c check SN field
 
           IF ( IDFIELD > 0 ) THEN
              NFIELD_SURVEY = NFIELD_SURVEY + 1
-             SURVEY_FIELDNAME(NFIELD_SURVEY)=cfield(1:MXCHAR_FIELDNAME)
+             SURVEY_FIELDNAME(NFIELD_SURVEY)= cfield(1:MXCHAR_FIELDNAME)
              SURVEY_IDFIELD(NFIELD_SURVEY)  = IDFIELD
           ENDIF
        

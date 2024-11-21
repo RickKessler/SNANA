@@ -708,12 +708,13 @@ void wr_snfitsio_init_phot(void) {
 
   // Init HEADER table.
   // Jun 2024: band string size = 2 for sim, 20 for real data
-
+  // Nov 2024: always define 20 char for BAND (data and sim)
+  
   long  NROW = 0 ;
   int itype, ncol, istat ;
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
   fitsfile *fp;
-  char TBLname[40] ;
+  char TBLname[40], FMT[20] ;
   char fnam[] = "wr_snfitsio_init_phot" ;
 
   // ------------- BEGIN --------------
@@ -724,10 +725,15 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
 
+  sprintf(FMT,"%dA", MXCHAR_FILTNAME);
+  wr_snfitsio_addCol( FMT,  "BAND" , itype ) ; 
+
+  /* xxxxxx mark delete Nov 20 2024 xxxx
   if ( SNFITSIO_DATAFLAG ) 
     { wr_snfitsio_addCol( "20A",  "BAND" , itype ) ;  } // full string for data
   else
     { wr_snfitsio_addCol( "2A", "BAND"   , itype ) ;  } // single char for sim
+  xxxxxxxx  end mark xxxxx */
   
   if (WRFULL ) {
     wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
@@ -735,7 +741,8 @@ void wr_snfitsio_init_phot(void) {
     if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
       { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
 
-    wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
+    sprintf(FMT,"%dA", MXCHAR_FIELDNAME); // was 12A
+    wr_snfitsio_addCol( FMT, "FIELD"       , itype ) ; 
     
     wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
     wr_snfitsio_addCol( "1E",  "PHOTPROB"    , itype ) ; 

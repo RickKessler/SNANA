@@ -850,7 +850,8 @@ void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);
 void abort_docana_tooLong(char *file, char *callFun);
 
 void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
-
+void abort_on_string_tooLong(char *string, int MXLEN, char *PARNAME_MXLEN, char *callFun);
+	   
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);
 

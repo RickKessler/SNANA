@@ -1890,7 +1890,7 @@ void  check_BADVAL_SALT2errmap(int imap) {
       COMMENT     = SALT2_ERRMAP_COMMENT[jtmp];
       RANGE_FOUND = SALT2_ERRMAP[jtmp].RANGE_FOUND ;
       RANGE_VALID = SALT2_ERRMAP[jtmp].RANGE_VALID ;
-      printf(" %10s  %5d    %5d    %8.1f - %8.1f  [%8.1f - %8.1f]\n",
+      printf(" %10s  %5d    %5d    %8.2le - %8.2le  [%8.1f - %8.1f]\n",
 	     COMMENT, NBAD_NAN, NBAD_CRAZY, 
 	     RANGE_FOUND[0], RANGE_FOUND[1],
 	     RANGE_VALID[0], RANGE_VALID[1]);

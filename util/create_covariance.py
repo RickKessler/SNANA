@@ -1107,7 +1107,7 @@ def write_standard_output(config, args, covsys_list, covtot_inv_list,
 
     unbinned       = args.unbinned
     label_cov_rows = args.label_cov_rows
-    outdir         = Path(config["OUTDIR"])
+    outdir         = Path(os.path.expandvars(config["OUTDIR"]))
     os.makedirs(outdir, exist_ok=True)
 
     # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
@@ -1731,7 +1731,7 @@ def create_covariance(config, args):
 
     # read optional sys scales 
     if KEYNAME_SYS_SCALE_FILE in config:
-        sys_scale_file  = Path(config[KEYNAME_SYS_SCALE_FILE])
+        sys_scale_file  = Path(os.path.expandvars(config[KEYNAME_SYS_SCALE_FILE]))
         sys_scale       = read_yaml(sys_scale_file)
     else:
         sys_scale = { 0: (None,1.0) }

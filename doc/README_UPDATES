@@ -22739,7 +22739,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
          *****  USEFUL(v11_05r) *****
 	 
-     
+    sim: write full filter names to data files (instead of one char)
+    
          *****  MISCELLANEOUS(v11_05r) *****
 
     SALT2mu.c

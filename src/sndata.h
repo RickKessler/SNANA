@@ -18,6 +18,7 @@
   Aug 05 2023: MXEPOCH -> 15000 (was 5000) for Roman+LSST catalog sim
   Sep 30 2023: MXSPECTRA -> 2000 (was 1000); for Roman+LSST SED TRUE
   Jul 26 2024: define TRANSIENT_NAME and move MXCHAR_CCID here (from sntools_output.h)
+  Nov 20 2024: defie MXCHAR_FIELDNAME and MXCHAR_FILTNAME
 
 *****************************************************/
 
@@ -101,7 +102,10 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 //  disk pointers defined in init_SNDATA
 
-#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
+#define MXCHAR_CCID       20  // should be same as MXCHAR_CCID in snana.car
+#define MXCHAR_FIELDNAME  20
+#define MXCHAR_FILTNAME   20
+
 #define MXPATHLEN            300  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
@@ -248,7 +252,6 @@ struct SNDATA {
   int  IDTEL[MXEPOCH];             // integer telescope id
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
-  // xxx mark Jun 11 2024  char *FILTCHAR[MXEPOCH]; // char string for filter
   char *FILTNAME[MXEPOCH];        // full name of filter
   char  FILTCHAR_1D[MXEPOCH*2];   // for fortran interface
 

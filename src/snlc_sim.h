@@ -51,7 +51,7 @@
 #define  MXCUTWIN_PEAKMJD_BYFIELD 10
 #define  MXNON1A_TYPE 1200     // max number of non1a types/indices
 #define  MXNON1A_KEY  10      // max number of non1a keys
-#define  MXCHAR_FIELDNAME 20
+// xxx mark Nov 2024  #define  MXCHAR_FIELDNAME 20
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
 #define  MXGROUPID_SIMLIB 60      // max number of groupIDs per LIBID entry
@@ -1515,7 +1515,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char SURVEY_NAME[60];
   char SUBSURVEY_LIST[MXPATHLEN];
   char FILTERS[MXFILTINDX];  // global list of all filters
-  char FIELD[60];            // Nov 2021
+  char FIELD[2*MXCHAR_FIELDNAME];            // Nov 2021
 
   // Oct 2024: allow for exposure times that are needed for
   // count-rate non-linearity
@@ -1523,7 +1523,6 @@ struct SIMLIB_GLOBAL_HEADER {
   char   FIELD_TEXPOSE[MXFIELD_OVP][MXCHAR_FIELDNAME];
   double TEXPOSE_LIST[MXFIELD_OVP][MXFILTINDX];
   
-  // xxx mark delete  char TELESCOPE[60];
   char PSF_UNIT[40] ;
   bool NEA_PSF_UNIT;
   char SKYSIG_UNIT[40];
@@ -1593,7 +1592,7 @@ struct SIMLIB_HEADER {
   char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
-  char FIELD[60], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
+  char FIELD[2*MXCHAR_FIELDNAME], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
   int  NFIELD_OVP ;
   
   // optional GENRANGES to re-generate

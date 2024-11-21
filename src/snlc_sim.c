@@ -17336,7 +17336,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   int  OPENMASK       = OPENMASK_VERBOSE ;
   if (REQUIRE_DOCANA) { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
   char c_get[200];
-  int  NTMP, NFILT;
+  int  NTMP, NFILT, len;
   char fld[MXCHAR_FIELDNAME];
   char fnam[] = "SIMLIB_readGlobalHeader_TEXT" ;
 
@@ -17374,6 +17374,8 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     }
     else if ( strcmp(c_get,"FIELD:") == 0 ) {      
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.FIELD );
+      abort_on_string_tooLong(SIMLIB_GLOBAL_HEADER.FIELD,
+			      MXCHAR_FIELDNAME, "MXCHAR_FIELDNAME", fnam);
     }
 
     else if ( strcmp(c_get,"TEMPLATE_TEXPOSE_SPECTROGRAPH:") == 0 ) {
@@ -18578,6 +18580,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	sscanf(wd1, "%s", field ); 
 
+	abort_on_string_tooLong(field, MXCHAR_FIELDNAME, "MXCHAR_FIELDNAME", fnam);
+      
 	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", field);
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
@@ -24392,12 +24396,18 @@ void snlc_to_SNDATA(int FLAG) {
 
     if ( !GENLC.OBSFLAG_GEN[epoch] ) { continue; }
 
-    ifilt_obs    = GENLC.IFILT_OBS[epoch];
-
-    // for sims, only store single char representation of filter band
+    ifilt_obs  = GENLC.IFILT_OBS[epoch];
+    ifilt      = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[ifilt_obs] ;
+    
+    /*
+    printf(" xxx %s ep=%d  ifilt_obs=%d  ifilt=%d \n",
+	   fnam, epoch, ifilt_obs, ifilt );
+    */
+      
     SNDATA.FILTINDX[epoch]  = ifilt_obs ;
-    sprintf(SNDATA.FILTNAME[epoch], "%c",  FILTERSTRING[ifilt_obs] );
-
+    sprintf(SNDATA.FILTNAME[epoch], "%s", CALIB_INFO.FILTERCAL_OBS.FILTER_NAME[ifilt]);
+    // xxx mark delete sprintf(SNDATA.FILTNAME[epoch],"%c",FILTERSTRING[ifilt_obs]);
+  
     MCOR_TRUE_MW  = GENLC.MAGCOR_MWEBV_TRUE[ifilt_obs]; 
     MCOR_MAP_MW   = GENLC.MAGCOR_MWEBV_MAP[ifilt_obs];
 

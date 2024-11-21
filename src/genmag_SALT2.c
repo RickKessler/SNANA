@@ -1688,7 +1688,7 @@ void  check_BADVAL_SALT2errmap(int imap) {
   //   imap >= 0 --> check entire map for bad values
   //   imap <  0 --> abort on any bad values; print stats for each map
 
-  int    iday, ilam, jtmp, NDAY, NLAM, n, j, NERR_LOCAL = 0 ;
+  int    iday, ilam, jtmp, NDAY, NLAM, j, NERR_LOCAL = 0, n_nan, n_crazy ;
   double ERRTMP ;
   double *RANGE_FOUND = SALT2_ERRMAP[imap].RANGE_FOUND ;
   double *RANGE_VALID = SALT2_ERRMAP[imap].RANGE_VALID ;
@@ -1702,6 +1702,7 @@ void  check_BADVAL_SALT2errmap(int imap) {
 
   double day, lam;
   double DO_CRAZY_CHECK ;
+  char  *ERRMAP_FILE ;
   char fnam[] = "check_BADVAL_SALT2errmap" ;
 
   // ----------- BEGIN --------------
@@ -1743,29 +1744,38 @@ void  check_BADVAL_SALT2errmap(int imap) {
       float val; 
       for(jtmp = 0; jtmp < NERRMAP_SALT2; jtmp++ ) {
 
-	n = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.n_badval ;
-	if ( n > 0 ) {
-	  printf("\n {day,lam} for ERRMAP = NaN  for %s: \n", SALT2_ERRMAP_FILES[jtmp] );	  
-	  for(j=0; j < n; j++ ) {
-	    day = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.day[j];
-	    lam = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.lam[j];
-	    val = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.value[j];
-	    printf("\t day = %.2f  lam = %.2f  \n", day, lam );
+	ERRMAP_FILE  = SALT2_ERRMAP_FILES[jtmp] ;	
+	n_nan        = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.n_badval ;
+	n_crazy      = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.n_badval ;
+	
+	if ( n_nan > 0 ) {
+	  printf("\n Found %d NaN ERRMAP values for %s: \n", n_nan, ERRMAP_FILE);
+	  for(j=0; j < n_nan; j++ ) {
+	    if ( j < MXSTORE_BADVAL_ERRMAP ) {
+	      day = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.day[j];
+	      lam = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.lam[j];
+	      val = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.value[j];
+	      printf("  ERRMAP_NaN-%3.3d[%s]:  day = %.2f  lam = %.2f \n",
+		     j, ERRMAP_FILE, day, lam ); fflush(stdout);
+	    }
 	  }
 	} // end loop over n NaN values
 
-        n = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.n_badval ;
-	if ( n > 0 ) {
-	  printf("\n Crazy ERRMAP values for %s: \n", SALT2_ERRMAP_FILES[jtmp] );
-	  for(j=0; j < n; j++ ) {
-	    day = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.day[j];
-	    lam = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.lam[j];
-	    val = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.value[j];
-	    printf("\t day = %.2f  lam = %.2f  val = %.4le \n", day, lam, val );
+
+	if ( n_crazy > 0 ) {
+	  printf("\n Found %d CRAZY ERRMAP values for %s: \n", n_crazy, ERRMAP_FILE);
+	  for(j=0; j < n_crazy; j++ ) {
+	    if ( j < MXSTORE_BADVAL_ERRMAP ) {
+	      day = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.day[j];
+	      lam = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.lam[j];
+	      val = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.value[j];
+	      printf("  ERRMAP_CRAZY-%3.3d[%s]: day = %.2f  lam = %.2f  val = %.4le \n",
+		     j, ERRMAP_FILE, day, lam, val );
+	    }
 	  }
 	} // end loop over n crazy values
 	
-      } //.xyz	
+      } 
       
       sprintf(c1err,"%d bad ERRMAP values (NaN and/or crazy)", 
 	      NERRMAP_BADVALUE_SALT2);
@@ -1791,11 +1801,11 @@ void  check_BADVAL_SALT2errmap(int imap) {
 
       // always check for NaN
       if ( isnan(ERRTMP) ) {
-	n = SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval ;
-	if ( n < MXSTORE_BADVAL_ERRMAP ) {
-	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.day[n]   = day;
-	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.lam[n]   = lam;
-	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.value[n] = ERRTMP;	  
+	n_nan = SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval ; 
+	if ( n_nan < MXSTORE_BADVAL_ERRMAP ) {
+	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.day[n_nan]   = day;
+	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.lam[n_nan]   = lam;
+	  SALT2_ERRMAP[imap].STORE_NAN_VALUES.value[n_nan] = ERRTMP;	  
 	}
 	SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval++ ;
 	NERR_LOCAL++; 
@@ -1810,11 +1820,11 @@ void  check_BADVAL_SALT2errmap(int imap) {
       if ( DO_CRAZY_CHECK ) {
 	if ( ERRTMP < RANGE_VALID[0] || ERRTMP > RANGE_VALID[1] ) {
 
-	  n = SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval ;
-	  if ( n < MXSTORE_BADVAL_ERRMAP ) {
-	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.day[n]   = day;
-	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.lam[n]   = lam;
-	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.value[n] = ERRTMP;	  
+	  n_crazy = SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval ;
+	  if ( n_crazy < MXSTORE_BADVAL_ERRMAP ) {
+	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.day[n_crazy]   = day;
+	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.lam[n_crazy]   = lam;
+	    SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.value[n_crazy] = ERRTMP;	  
 	  }
 	  SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval++ ;
 	  NERR_LOCAL++ ;

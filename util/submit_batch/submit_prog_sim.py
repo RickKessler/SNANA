@@ -1501,7 +1501,8 @@ class Simulation(Program):
         # For this icpu, write full set of sim commands to 
         # already-opened command file with pointer f.
         # Function returns number of jobs for this cpu
-
+        # Nov 2024: create 20 blank list2d entries instead of 10
+        
         n_job_tot      = self.config_prep['n_job_tot']
         n_job_split    = self.config_prep['n_job_split']
         n_core         = self.config_prep['n_core']
@@ -1514,7 +1515,8 @@ class Simulation(Program):
         # keep track of TMP version names for MERGE process
         if icpu == 0 :
             n_genv      = self.config_prep['n_genversion']
-            list2d = [['' for j in range(0,10)] for i in range(0,n_genv)]
+            # xxx mark list2d = [['' for j in range(0,10)] for i in range(0,n_genv)]
+            list2d = [['' for j in range(0,20)] for i in range(0,n_genv)]            
             self.config_prep['TMP_genversion'] = list2d
     
         TMP_list2d = self.config_prep['TMP_genversion']  # init array

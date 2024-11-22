@@ -1633,10 +1633,7 @@ void  init_BADVAL_SALT2errmap(int imap) {
 
   SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval   = 0 ;
   SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval = 0 ; 
-  
-  // xxx mark SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
-  // xxx mark SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
-  
+    
   SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
   SALT2_ERRMAP[imap].RANGE_FOUND[1] = -1.0E8 ;
   SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E5 ; 
@@ -1718,9 +1715,6 @@ void  check_BADVAL_SALT2errmap(int imap) {
 
     int NBAD_NAN, NBAD_CRAZY;  char *COMMENT;
     for(jtmp = 0; jtmp < NERRMAP_SALT2; jtmp++ ) {
-      // xxx mark  NBAD_NAN    = SALT2_ERRMAP[jtmp].NBADVAL_NAN; 
-      // xxx mark  NBAD_CRAZY  = SALT2_ERRMAP[jtmp].NBADVAL_CRAZY;
-
       NBAD_NAN    = SALT2_ERRMAP[jtmp].STORE_NAN_VALUES.n_badval ;
       NBAD_CRAZY  = SALT2_ERRMAP[jtmp].STORE_CRAZY_VALUES.n_badval ;      
       COMMENT     = SALT2_ERRMAP_COMMENT[jtmp];
@@ -1809,7 +1803,6 @@ void  check_BADVAL_SALT2errmap(int imap) {
 	}
 	SALT2_ERRMAP[imap].STORE_NAN_VALUES.n_badval++ ;
 	NERR_LOCAL++; 
-	// xxx mark SALT2_ERRMAP[imap].NBADVAL_NAN++ ; 
 	continue ;
       }
 
@@ -1828,7 +1821,6 @@ void  check_BADVAL_SALT2errmap(int imap) {
 	  }
 	  SALT2_ERRMAP[imap].STORE_CRAZY_VALUES.n_badval++ ;
 	  NERR_LOCAL++ ;
-	  // xxx mark delete SALT2_ERRMAP[imap].NBADVAL_CRAZY++ ; NERR_LOCAL++; 
 	}
 	if ( ERRTMP < RANGE_FOUND[0] )  { RANGE_FOUND[0] = ERRTMP ; }
 	if ( ERRTMP > RANGE_FOUND[1] )  { RANGE_FOUND[1] = ERRTMP ; }
@@ -2479,7 +2471,6 @@ double SALT2magerr(double Trest, double lamRest, double z,
   fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
 
   // get total fractional  error.
-  // xxx mark  fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
   fracerr_TOT  = sqrt(fracerr_snake*fracerr_snake + fracerr_kcor*fracerr_kcor) ;
 
   // convert frac-error to mag-error, and load return array
@@ -3244,7 +3235,6 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
       // set covariances only for same passband.
       if ( ifilt_col == ifilt_row )
 	{ COV_TMP = FAC * cDispsq[ifilt_row] ;  }
-      // xxx mark delete { COV_TMP = FAC * pow(cDisp[ifilt_row],2.0);  }
 
       // check for local dump option
       LDMP  = (COV_TMP != 0.0 || ISDIAG) && 
@@ -3650,7 +3640,6 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
     DEFINED = ( ZP > 0.0 && FTMP > 0.0 ) ;
 
-    // xxxxxxx mark: this extrap should be deleted when FLAM method is well tested
     if ( DEFINED && DO_EXTRAP_LOCAL ) {
       MAG_DAYMAX  = -2.5*log10(FTMP) + ZP; 
       FTMP_DAYMAX = FTMP ;
@@ -3670,7 +3659,6 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
                fnam, MAG_DAYMAX, MAG );
         fflush(stdout);
       } 
-      // xxxxxxxx end mark xxxxxxxxx
 
     }
     else if ( DEFINED ) {

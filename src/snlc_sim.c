@@ -1864,25 +1864,39 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "WRSPEC_PRESCALE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.WRSPEC_PRESCALE );
+    README_KEYPLUSARGS_load(MXSPECTRA, 1, WORDS, keySource,
+			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
   }
   // - - - -
   else if ( keyMatchSim(1, "NPE_PIXEL_SATURATE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NPE_PIXEL_SATURATE );
+    README_KEYPLUSARGS_load(10, 1, WORDS, keySource,
+			    &README_KEYS_PHOTFLAG, fnam) ;    
   }
   else if ( keyMatchSim(1, "PHOTFLAG_SATURATE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.PHOTFLAG_SATURATE );
+    README_KEYPLUSARGS_load(10, 1, WORDS, keySource,
+			    &README_KEYS_PHOTFLAG, fnam) ;        
   }
   else if ( keyMatchSim(1, "PHOTFLAG_SNRMAX", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.PHOTFLAG_SNRMAX );
+    README_KEYPLUSARGS_load(10, 1, WORDS, keySource,
+			    &README_KEYS_PHOTFLAG, fnam) ;        
   }
   else if ( keyMatchSim(1, "PHOTFLAG_NEARPEAK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.PHOTFLAG_NEARPEAK );
+    README_KEYPLUSARGS_load(10, 1, WORDS, keySource,
+			    &README_KEYS_PHOTFLAG, fnam) ;        
   }
   else if ( keyMatchSim(1, "PHOTFLAG_DETECT", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.PHOTFLAG_DETECT );
+    README_KEYPLUSARGS_load(10, 1, WORDS, keySource,
+			    &README_KEYS_PHOTFLAG, fnam) ;    
   }
   else if ( keyMatchSim(1, "PHOTFLAG_TRIGGER", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER );
+    README_KEYPLUSARGS_load(10, 1, WORDS, keySource,
+			    &README_KEYS_PHOTFLAG, fnam) ;        
   }
   // - - - - - -
   else if ( strstr(WORDS[0],"SIMGEN_DUMP") != NULL ) {

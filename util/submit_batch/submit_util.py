@@ -813,16 +813,24 @@ def read_merge_file(merge_file) :
     input_lines   = []
 
     #  os.system(f"chmod -rw {merge_file}")  # to test open file error
-    
-    try:
-        with open(merge_file, 'r') as f :        
-            for line in f:
-                #line_new = re.sub('[^a-zA-Z0-9\n\.]', '', line) # YELLOW            
-                #logging.info(f" xxx line: {line} ----> {line_new}")
-                input_lines.append(line)
-                if line[0] == '#' :
-                    comment_lines.append(line[1:].strip("\n"))
-    except:
+    n_try = 0
+    n_try_max = 2
+
+    while n_try < n_try_max:
+        try:
+            with open(merge_file, 'r') as f :        
+                for line in f:
+                    input_lines.append(line)
+                    if line[0] == '#' :
+                        comment_lines.append(line[1:].strip("\n"))
+            n_try = 9999 # ensure no more attemps
+        except:
+            print(f" xxx read_merge_util failed on n_try = {n_try}; try again after 1 sec delay")
+            time.sleep(1.0) 
+            n_try += 1
+        
+    # if not able to read merge_file, print diagnostics
+    if len(input_lines) == 0:
         # Nov 13 2024: print more info on failed open ;
         # original use is to diagnose mysterious permission error at NERSC
         stat    = os.stat(merge_file)
@@ -831,12 +839,14 @@ def read_merge_file(merge_file) :
         ls      = (ls.rstrip()).decode('utf-8')
         msgerr  = []  
         msgerr.append(f"Could not open merge file: {merge_file}")
+        msgerr.append(f"n_try = {n_try}")
         msgerr.append(f"os.stat   = {stat}")
         msgerr.append(f"os.access(os.R_OK) = {access}")
         msgerr.append(f"ls -l -> {ls}")
         log_assert(False, msgerr)   
         return None
-        
+
+    # - - - - - 
     input_yaml = yaml.safe_load("\n".join(input_lines))
     return input_yaml,comment_lines
 
@@ -1204,7 +1214,6 @@ def get_simInput_key_values(sim_input_file, key_list):
     #
     # Initial use is for pippin to read GENMODEL keys, so here
     # is just a public place to store this utility.
-    # .xyz
 
 
     INPUT_FILE_LIST = [ sim_input_file ]

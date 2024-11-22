@@ -75,6 +75,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     README_KEYPLUSARGS_init(&README_KEYS_RANSYSTPAR);
     README_KEYPLUSARGS_init(&README_KEYS_ZVARIATION);
     README_KEYPLUSARGS_init(&README_KEYS_GRIDGEN);
+    README_KEYPLUSARGS_init(&README_KEYS_PHOTFLAG);
     README_KEYPLUSARGS_init(&README_KEYS_CUTWIN);
     README_KEYPLUSARGS_init(&README_KEYS_COVMAT_SCATTER);
     README_KEYPLUSARGS_init(&README_KEYS_SIMGEN_DUMP);
@@ -1305,7 +1306,8 @@ void readme_docana_output(int *iline, char *pad) {
 
   // Store GENVERSTION, FORMAT_MASK, etc ...
   // Aug 2022: add CIDRAN_SKIPLIST
-
+  // Nov 2024: add WRFLAG_MODELPAR
+  
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
   char *cptr, noComment[]="" ;
@@ -1331,6 +1333,10 @@ void readme_docana_output(int *iline, char *pad) {
 		    " += 2,32,16 -> TEXT, FITS, randomCID", 
 		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
 
+  dval = (double)INPUTS.WRFLAG_MODELPAR ;
+  VERSION_INFO_load(&i, pad, "WRFLAG_MODELPAR:",  noComment,
+		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
+  
   // - - - -- types - - - - -
   dval = (double)GENLC.SIM_GENTYPE ;
   VERSION_INFO_load(&i, pad, "GENTYPE:", "true type", 

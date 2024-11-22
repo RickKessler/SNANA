@@ -3851,7 +3851,8 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   // SNANA compatibility.
   // 
   // Sep 2020: use checkval_D to check values.
-
+  // Nov 2024: increase LAM_MAX range from 18000 to 25000
+  //
   double LAM_B, LAM_V, LAM_MIN, LAM_MAX, XN, params[10] ;
   int nparams, i  ;
   double constant = log(10.0)/2.5 ;
@@ -3887,7 +3888,7 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   checkval_D("CL1-LAM_B",   1, &LAM_B,   4000.0,  4500.0 );
   checkval_D("CL1-LAM_V",   1, &LAM_V,   5000.0,  6000.0 );
   checkval_D("CL1-LAM_MIN", 1, &LAM_MIN, 1000.0,  6000.0 );
-  checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 18000.0 );
+  checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 25000.0 );
 
   // ------------------------------
 

@@ -22755,5 +22755,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     create_covariance.py
        + write cov in chunks of 1 million elements
+
+   submit_prog_sim.py:
+       for 10 NONIa sim-input files (for submit_batch_jobs), the script
+       confusing NONIaMODEL1* with NONIaMODEL10, and hangs. The fix is
+       to use 2 digit numbers in the GENVERSION name;
+       e.g. NONIaMODEL01, NONIaMODEL02, etc ...
        
 END: 

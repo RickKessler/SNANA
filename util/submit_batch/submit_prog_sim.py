@@ -74,6 +74,8 @@
 # Apr 07 2024: gzip SIMGEN-DUMP files
 # Aug 07 2024: write PATH_SNDATA_SIM to bottom of MERGE.LOG file
 # Sep 01 2024: add 'NOISE' to SUFFIX_DUMP_LIST
+# Nov 22 2024: genversion names have 2 digit index to allow for 10 NONIaMODELs.
+#              See def model_string_suffix
 #
 # ==========================================
 
@@ -1515,7 +1517,7 @@ class Simulation(Program):
         # keep track of TMP version names for MERGE process
         if icpu == 0 :
             n_genv      = self.config_prep['n_genversion']
-            # xxx mark list2d = [['' for j in range(0,10)] for i in range(0,n_genv)]
+            # fragile alert: assumes <20 NONIa sim-input files (Nov 2024)
             list2d = [['' for j in range(0,20)] for i in range(0,n_genv)]            
             self.config_prep['TMP_genversion'] = list2d
     
@@ -1723,7 +1725,8 @@ class Simulation(Program):
         # end prep_JOB_INFO_sim
 
     def model_string_suffix(self,model,ifile):
-        model_string = f"{model}MODEL{ifile}"     # e.g., SNIaMODEL0
+        # xxx mark model_string = f"{model}MODEL{ifile}"     # e.g., SNIaMODEL0
+        model_string = f"{model}MODEL{ifile:02d}"     # e.g., SNIaMODEL00 or NONIaMODEL01
         return model_string
         # end model_string_suffix
 

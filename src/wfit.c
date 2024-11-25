@@ -172,6 +172,11 @@
   Oct 23 2024:
     write mu_obs in resid file, where mu_obs is from HDIBC method.
 
+  Nov 25 2024:
+    +  use long long int for size of covmat malloc to handle
+       matrices with more than few GB size.
+    +  when reading cov, print update every 2 million elements
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -937,8 +942,6 @@ void parse_args(int argc, char **argv) {
 
   if ( INPUTS.NHD == 2 ) { INPUTS.USE_HDIBC = true; }
 
-  // xxx mark  strcpy(INPUTS.HD_infile,argv[1]); // positional arg is HD
-
   for (iarg=2; iarg<argc; iarg++) {
     if (argv[iarg][0]=='-') {
 
@@ -1364,7 +1367,7 @@ void  malloc_HDarrays(int opt, int NSN, HD_DEF *HD) {
 void malloc_COVMAT(int opt, COVMAT_DEF *COVMAT) {
 
   int NDIM = COVMAT->NDIM ;
-  int MEMD = NDIM * NDIM * sizeof(double);
+  long long int MEMD = NDIM * NDIM * sizeof(double);
   // ------------ BEGIN ------------
 
   if ( opt > 0 )  {
@@ -1763,15 +1766,18 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
   int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
   int NDIM_STORE   = NSN_STORE ;
+  int NMAT_READ_UPDATE = 2000000;  // 2 million
   
   char ctmp[200], SN[2][12], locFile[1000] ;
-  int NSPLIT, NROW_read=0, NDIM_ORIG = 0;
+  int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NMAT_ORIG=0 ;
   int NMAT_read=0,  NMAT_store = 0;
   float f_MEM;
-  double cov;
+  double cov, XM, XMTOT, dt_read;
   int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
-  char  **ptrSplit;
+  char  **ptrSplit, covtype[60];
   FILE *fp;
+  bool UPDSTD;
+  time_t t_start_read, t_read;
   char fnam[] = "read_mucov" ;
 
   // ---------- BEGIN ----------------
@@ -1781,11 +1787,11 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   printf("\n# ======================================= \n");
 
   if ( INPUTS.use_mucov == 1 ) 
-    { printf("  Process MUCOV systematic file  \n");  }
+    { sprintf(covtype, "MUCOVSYS");  }
   else if ( INPUTS.use_mucov == 2 )
-    { printf("  Process MUCOVTOT^{-1} file  \n");  }    
+    { printf(covtype, "MUCOVTOT^{-1}");  }    
 
-  fflush(stdout);
+  printf("  Process %s file  \n", covtype);   fflush(stdout);
   sprintf(MUCOV->fileName, "%s", inFile);
   
   // Open File using the utility
@@ -1807,6 +1813,8 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   
   i0 = i1 = 0 ;
   k0 = k1 = 0 ;
+  t_start_read = time(NULL);
+  
   while ( fgets(ctmp, 100, fp) != NULL ) {
     // ignore comment lines 
     if ( commentchar(ctmp) ) { continue; }
@@ -1829,12 +1837,26 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
       MUCOV->NDIM    = NDIM_ORIG; // read entire COV without cuts
       malloc_COVMAT(+1,MUCOV);
+
+      NMAT_ORIG = NDIM_ORIG * NDIM_ORIG ;
+      XMTOT = (double)(NMAT_ORIG) * 1.0E-6 ;
     }
     else {
       // store entire cov matrix (no cuts yet)
       sscanf( ptrSplit[0],"%le",&cov);
       MUCOV->ARRAY1D[NMAT_read] = cov;
       NMAT_read++ ;
+      UPDSTD = ( (NMAT_read % NMAT_READ_UPDATE) == 0 ||
+		 NMAT_read == NMAT_ORIG);
+      if ( UPDSTD ) {
+	t_read  = time(NULL);
+	dt_read = t_read - t_start_read;
+	XM  = (double)NMAT_read * 1.0E-6 ;
+	printf("\t Finished reading %.3f of %.3f million "
+	       "%s elements (%.0f seconds)\n",
+	       XM, XMTOT, covtype, dt_read );
+	fflush(stdout);
+      }
     }
     
     NROW_read += 1 ;
@@ -1848,7 +1870,8 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   NMAT_store = NDIM_STORE*NDIM_STORE;
 
-  printf("\t Read %d non-zero COV elements.\n", MUCOV->N_NONZERO );
+  printf("\t Read %d non-zero %s elements in %.0f seconds.\n",
+	 MUCOV->N_NONZERO, covtype, dt_read );
   fflush(stdout);
 
   // if all COV elements are zero, this is a request for stat-only fit,
@@ -3270,31 +3293,6 @@ void wfit_marginalize(void) {
   //---------------------
   // print update 
   if ( INPUTS.blind ) { return ; }
-
-  /* xxxxxxxxx  mark delete Nov 1 2024 xxxxxxxxx
-  char str[20];
-  if ( INPUTS.use_marg ) {
-    sprintf(str,"marginalize");
-    w0  = WORKSPACE.w0_mean;  wa = WORKSPACE.wa_mean;
-    omm = WORKSPACE.omm_mean;
-  }
-  else {
-    sprintf(str,"minimimize") ;
-    w0  = WORKSPACE.w0_atchimin ; wa = WORKSPACE.wa_atchimin ;
-    omm = WORKSPACE.omm_atchimin ;
-    chi2 = WORKSPACE.chi2atmin;
-  }
-  printf("  CHECK:  %s(%s) = %f \n",  varname_w, str, w0);
-  if ( INPUTS.dofit_w0wa )
-    { printf("  CHECK:  %s(%s) = %f \n",  varname_wa, str, wa);  }
-  printf("  CHECK:  %s(%s) = %f \n",  varname_omm, str, omm);
-  if(!INPUTS.use_marg) { printf("  CHECK:  ChiSq(min) = %f \n", chi2); }
-
-  printf("\n" );
-
-  fflush(stdout);
-  xxxxxxxxx end mark xxxxxxxxxxx */
-
   
   return;
 
@@ -4053,7 +4051,6 @@ void get_chi2_fit (
   }  // end do_offdiag
 
   //  - - - - - -
-  // xxx mark delete Oct 23 2024  *mu_off  = Bsum/Csum ; 
 
   /* Analytic marginalization over H0.  
      See appendices in Goliath et al, A&A, 2001 ,
@@ -4589,7 +4586,6 @@ double simpint(double (*func)(double, Cosparam *), double x1,
 	 x1, x2, vptr->omm, vptr->w0, s_frac);
   fflush(stdout);
   
-  // xxx mark delete Sep 13 2022  return 0.0; xxxxxxxxx
   return s;
 }
 
@@ -4832,7 +4828,6 @@ void write_output_cospar(void) {
   if ( use_marg ) {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_w); 
     sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_final ) ;
-    // xxx mark sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_marg ) ;
     NVAR++ ;
   }
   else {
@@ -4852,7 +4847,6 @@ void write_output_cospar(void) {
     if ( use_marg ) {
       sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_wa); 
       sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_sig_final ) ;
-      // xxx mark sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_sig_marg ) ;      
       NVAR++ ;
     }
     else {
@@ -4874,7 +4868,6 @@ void write_output_cospar(void) {
   if ( use_marg ) {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
     sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_final ) ;
-    // xxx mark sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_marg ) ;    
     NVAR++ ;
   }
   else {
@@ -5246,13 +5239,5 @@ void CPU_summary(void) {
   printf("# =================================== \n");
   printf(" CPU Summary \n");
   print_cputime(t_end_init, STRING_CPUTIME_PROC_ALL, UNIT_TIME_SECOND, 0);
-
-  /* xxx mark delete xxx
-    double dt_init = (double)(t_end_init - t_start)   / 60.0 ;
-  double dt_fit  = (double)(t_end_fit  - t_end_init)/ 60.0 ;
-  printf("\t init/fit: %.2f / %.2f minutes \n",	 dt_init, dt_fit);
-  fflush(stdout);
-  xxx end mark xxx */
-
   return;
 } // end CPU_summary

@@ -1789,9 +1789,9 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   if ( INPUTS.use_mucov == 1 ) 
     { sprintf(covtype, "MUCOVSYS");  }
   else if ( INPUTS.use_mucov == 2 )
-    { printf(covtype, "MUCOVTOT^{-1}");  }    
+    { sprintf(covtype, "MUCOVTOT^{-1}");  }    
 
-  printf("  Process %s file  \n", covtype);   fflush(stdout);
+  printf("  Process %s file \n", covtype);   fflush(stdout);
   sprintf(MUCOV->fileName, "%s", inFile);
   
   // Open File using the utility

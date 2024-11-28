@@ -5,6 +5,8 @@
 #
 # Typically N BBC_SUBDIRs reflect N independent sim samples.
 #
+# Nov 2024: read SIZE_COVMAT from yaml file written by create_covaraince.py,
+#           and incluce new SIZE_COVMAT colummn in MERGE.LOG
 
 import os, sys, shutil, yaml, glob
 import logging
@@ -28,8 +30,9 @@ KEY_SYS_SCALE_FILE = 'SYS_SCALE_FILE'
 COLNUM_COVMAT_MERGE_COVMATOPT    = 1
 COLNUM_COVMAT_MERGE_BBCDIR       = 2
 COLNUM_COVMAT_MERGE_SUBDIR       = 3
-COLNUM_COVMAT_MERGE_NCOVMAT      = 4 
-COLNUM_COVMAT_MERGE_CPU          = 5
+COLNUM_COVMAT_MERGE_NCOVMAT      = 4
+COLNUM_COVMAT_MERGE_COVSIZE      = 5
+COLNUM_COVMAT_MERGE_CPU          = 6  # xxx mark delete 5
 
 PREFIX_JOB_FILES = 'COVMAT'  # for LOG, DONE, YAML 
 
@@ -373,7 +376,7 @@ class create_covmat(Program):
 
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
-                f" STATE  COVMATOPT  BBCDIR  SUBDIR  NCOVMAT  CPU "
+                f" STATE  COVMATOPT  BBCDIR  SUBDIR  NCOVMAT SIZE_COVMAT  CPU "
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 
@@ -397,6 +400,7 @@ class create_covmat(Program):
             ROW_MERGE.append(bbc_label)
             ROW_MERGE.append(bbc_subdir)
             ROW_MERGE.append(0)       # N_COVMAT
+            ROW_MERGE.append(0)       # SIZE_COVMAT  # Nov 2024
             ROW_MERGE.append(0.0)     # CPU
             INFO_MERGE['row_list'].append(ROW_MERGE)  
 
@@ -425,15 +429,18 @@ class create_covmat(Program):
         COLNUM_BBCDIR    = COLNUM_COVMAT_MERGE_BBCDIR
         COLNUM_SUBDIR    = COLNUM_COVMAT_MERGE_SUBDIR
         COLNUM_NCOVMAT   = COLNUM_COVMAT_MERGE_NCOVMAT
+        COLNUM_COVSIZE   = COLNUM_COVMAT_MERGE_COVSIZE        
         COLNUM_CPU       = COLNUM_COVMAT_MERGE_CPU
         NROW_DUMP   = 0
 
         key_ncov, key_ncov_sum, key_ncov_list = \
                 self.keynames_for_job_stats('N_COVMAT')
+        key_covsize, key_covsize_sum, key_covsize_list = \
+                self.keynames_for_job_stats('SIZE_COVMAT') 
         key_cpu, key_cpu_sum, key_cpu_list = \
                 self.keynames_for_job_stats('CPU_MINUTES')
 
-        key_list = [ key_ncov, key_cpu ] 
+        key_list = [ key_ncov, key_covsize, key_cpu ] 
 
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
@@ -481,9 +488,16 @@ class create_covmat(Program):
                     # check for failures in snlc_fit jobs.
                     nfail = covmat_stats['nfail']
                     if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
-                 
+
+                    logging.info(f" xxx --------------------------------")
+                    logging.info(f" xxx covmat_stats = {covmat_stats} ")
+                    logging.info(f" xxx key_covsize = {key_covsize}")
+                    logging.info(f" xxx key_covsize_sum = {key_covsize_sum}")
+                    logging.info(f" xxx key_covsize_list = {key_covsize_list}")  
+
                     row[COLNUM_STATE]     = NEW_STATE
                     row[COLNUM_NCOVMAT]   = covmat_stats[key_ncov_sum]
+                    row[COLNUM_COVSIZE]   = covmat_stats[key_covsize_list][0]
                     row[COLNUM_CPU]       = covmat_stats[key_cpu_sum]
                     
                     row_list_merge_new[irow] = row  # update new row

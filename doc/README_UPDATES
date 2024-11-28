@@ -22754,12 +22754,22 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           https://github.com/RickKessler/SNANA/issues/1444
 
     create_covariance.py
-       + write cov in chunks of 1 million elements
-
+      + write cov in chunks of 1 million elements
+      + write SIZE_HD to INFO.YML, and write SIZE_COVMAT to --yaml_file
+        so that submit_batch can include SIZE column in MERGE.LOG
+	
    submit_prog_sim.py:
        for 10 NONIa sim-input files (for submit_batch_jobs), the script
        confusing NONIaMODEL1* with NONIaMODEL10, and hangs. The fix is
        to use 2 digit numbers in the GENVERSION name;
        e.g. NONIaMODEL01, NONIaMODEL02, etc ...
-       
+
+   submit_prog_covmat.py
+      Add new SIZE_COVMAT column in MERGE.LOG
+	
+   snana.car
+     + write NEVT for each MASK_REDSHIFT_SOURCE in outout YAML
+       file; intended to help extract science output from pippin.
+
+  
 END: 

@@ -23780,8 +23780,7 @@ void  setz_unconfirmed(void) {
   if ( FOUND_zHOST ) {
 
     GENLC.REDSHIFT_FLAG = REDSHIFT_FLAG_HOSTSPEC ; 
-   
-    
+       
     // update redshift only if we have the wrong host
     if ( !GENLC.CORRECT_HOSTMATCH  ) {
 
@@ -24420,7 +24419,11 @@ void snlc_to_SNDATA(int FLAG) {
       
     SNDATA.FILTINDX[epoch]  = ifilt_obs ;
     sprintf(SNDATA.FILTNAME[epoch], "%s", CALIB_INFO.FILTERCAL_OBS.FILTER_NAME[ifilt]);
-    // xxx mark delete sprintf(SNDATA.FILTNAME[epoch],"%c",FILTERSTRING[ifilt_obs]);
+
+    if ( INPUTS.DEBUG_FLAG == -1120 ) {
+      SNDATA.FILTNAME[epoch][0] = 0;
+      sprintf(SNDATA.FILTNAME[epoch],"%c",FILTERSTRING[ifilt_obs]);
+    }
   
     MCOR_TRUE_MW  = GENLC.MAGCOR_MWEBV_TRUE[ifilt_obs]; 
     MCOR_MAP_MW   = GENLC.MAGCOR_MWEBV_MAP[ifilt_obs];
@@ -24563,13 +24566,18 @@ void zsource_to_SNDATA(int FLAG){
   // to clearly indicate the sources of redshift in the datafile
   // This variable works for both simulation and real data
 
-  
+
+  bool FOUND_zHOST_SPEC = (GENLC.REDSHIFT_FLAG == REDSHIFT_FLAG_HOSTSPEC) ; 
   double ztmp, ztmp_err; 
   char fnam[] = "zsource_to_SNDATA" ;
+
   SNDATA.MASK_REDSHIFT_SOURCE = 0;
-  
-  ztmp_err = SNDATA.HOSTGAL_SPECZ_ERR[0];  
-  if(ztmp_err>=0 && ztmp_err<0.05){
+
+  /* xxx mark delete Nov 26 2024 xxx
+  ztmp_err = SNDATA.HOSTGAL_SPECZ_ERR[0];
+  if(ztmp_err>=0.0 && ztmp_err<0.05){
+  xxxxxxxx*/
+  if ( FOUND_zHOST_SPEC ) {
     SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_SPEC  ;
   }
 

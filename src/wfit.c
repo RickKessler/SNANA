@@ -1766,7 +1766,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
   int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
   int NDIM_STORE   = NSN_STORE ;
-  int NMAT_READ_UPDATE = 2000000;  // 2 million
+  int NMAT_READ_UPDATE = 5000000;  // 5 million
   
   char ctmp[200], SN[2][12], locFile[1000] ;
   int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NMAT_ORIG=0 ;

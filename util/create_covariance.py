@@ -128,6 +128,8 @@
 #   write output cov in chunks of 1 million elements to avoid excess memory consumption
 #   for very large cov. Search for CHUNK
 #
+# Nov 2024: write SIZE_HD to INFO.YML and SIZE_COVMAT to --yaml_file
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -1547,12 +1549,13 @@ def write_summary_output(args, config, covsys_list, base):
         covtot_inv_file = None
         if config['write_covsys']:
             covsys_file = get_covsys_filename(i)
-
+        
         if config['write_covtot_inv']:
             covtot_inv_file = get_covtot_inv_filename(i)
             
         covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
-
+        if i==0:
+            SIZE_HD = covsys.shape[0]
             
     info["COVOPTS"] = covsys_info
     
@@ -1561,7 +1564,7 @@ def write_summary_output(args, config, covsys_list, base):
 
     sim_version = None
     for key,item in config['header_info'].items() :
-        info[key] = item     # store stuff from BBC table 
+        info[key] = item       # store stuff from BBC table 
         if 'BIASCOR' in key :  # fetch biasCor sim version
             sim_version    = item[0]
  
@@ -1574,6 +1577,8 @@ def write_summary_output(args, config, covsys_list, base):
         f.write(f"#\n")
         yaml.safe_dump(info, f )
 
+        f.write(f"\nSIZE_HD: {SIZE_HD}\n\n")  # Nov 2024
+        
     # - - - - - - - - - - - - - 
     # append cospar_biascor so that it's at the end, rather than 
     # at the beginning with default alphabetical ordering
@@ -1837,7 +1842,10 @@ def create_covariance(config, args):
 
     # write YAML output to communicate with submit_batch_jobs
     if args.yaml_file is not None:
-        write_yaml(args, len(covsys_list) )
+        n_covmat = len(covsys_list)
+        label0, covsys0  = covsys_list[0]
+        covsize  = covsys0.shape[0]  # Nov 2024        
+        write_yaml(args, n_covmat, covsize)
 
     return
     # end create_covariance
@@ -1933,12 +1941,13 @@ def loginfo_cpu_summary(args):
 
     # end loginfo_cpu_summary
 
-def write_yaml(args, n_cov):
+def write_yaml(args, n_cov, covsize):
 
     cpu_minutes  = (args.tend_all - args.tstart_all)/60.0
 
     with open(args.yaml_file,"wt") as y:
         y.write(f"N_COVMAT:       {n_cov}\n")
+        y.write(f"SIZE_COVMAT:    {covsize}    # {covsize} x {covsize}\n")
         y.write(f"ABORT_IF_ZERO:  {n_cov}    # same as N_COVMAT\n")
         y.write(f"CPU_MINUTES:    {cpu_minutes:.3f} \n")
 

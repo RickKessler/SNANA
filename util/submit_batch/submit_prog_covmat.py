@@ -489,12 +489,14 @@ class create_covmat(Program):
                     nfail = covmat_stats['nfail']
                     if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
 
-                    logging.info(f" xxx --------------------------------")
-                    logging.info(f" xxx covmat_stats = {covmat_stats} ")
-                    logging.info(f" xxx key_covsize = {key_covsize}")
-                    logging.info(f" xxx key_covsize_sum = {key_covsize_sum}")
-                    logging.info(f" xxx key_covsize_list = {key_covsize_list}")  
-
+                    # xxxx mark delete Nov 2024 xxxxxxx
+                    #logging.info(f" xxx --------------------------------")
+                    #logging.info(f" xxx covmat_stats = {covmat_stats} ")
+                    #logging.info(f" xxx key_covsize = {key_covsize}")
+                    #logging.info(f" xxx key_covsize_sum = {key_covsize_sum}")
+                    #logging.info(f" xxx key_covsize_list = {key_covsize_list}")  
+                    # xxxxx end mark xxxxxx
+                    
                     row[COLNUM_STATE]     = NEW_STATE
                     row[COLNUM_NCOVMAT]   = covmat_stats[key_ncov_sum]
                     row[COLNUM_COVSIZE]   = covmat_stats[key_covsize_list][0]

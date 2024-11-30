@@ -25265,11 +25265,21 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_PEAKMJD,  
      &               VARLIST, 1,     LENBLOCK, LENLIST)
 
-      if ( SIM_MJD_EXPLODE > 0.0 ) then
-        VARLIST = 'SIM_MJD_EXPLODE:F' // char(0)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MJD_EXPLODE,  
-     &                VARLIST, 1,    LENBLOCK, LENLIST)
-      endif
+c xxxxxxxxxxxx mark delete of fix Nov 30 2024 xxxxxxxxxxx
+c
+c With submit_batch_jobs,  SIM_MJD_EXPLODE can appear in some of the
+c first-event SPLIT samples, but not in others; this can lead to
+c ROOT-MERGE error where SIM_MJD_EXPLODE exists in first ROOT file, but
+c not in another ROOT file. For now, I remove SIM_MJD_EXPLODE from
+c output table since it is set only for SIMSED models and not for
+c SNIa, nor V19_CC models, and hence not very useful.
+c
+c      if ( SIM_MJD_EXPLODE > 0.0 ) then
+c        VARLIST = 'SIM_MJD_EXPLODE:F' // char(0)
+c        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MJD_EXPLODE,  
+c     &                VARLIST, 1,    LENBLOCK, LENLIST)
+c      endif
+c xxxxxxxxxxxxxxxxxxxxxxxxx
 
 c - - 
       VARLIST = 'SIM_WGT_POP' // ':F'   // char(0)

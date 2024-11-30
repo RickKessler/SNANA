@@ -22736,11 +22736,22 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05r) *****
 
-      
+    create_covariance.py
+      + this is not an update, but a warning to-do item. I recently
+        ran this script on a sample with 19k events and 30 systematics,
+	and had to declare 128GB of memory, which limits the number
+	of simultaneous jobs allowed by RCC. Most of the memory is
+	wasted on keeping the individual sub-matrix of 30 systematics:
+   	     30 x 19k^2 x 8 = 86.6 GB. 
+        A refactor is needed to keep a running sum of COVSYS_TOT and release
+	the memory for each systematic.
+	
          *****  USEFUL(v11_05r) *****
 	 
     sim: write full filter names to data files (instead of one char)
-    
+       BEWARE: this update required minor fix to SCONE classifier and
+               also to pippin treatment of SNN classifier.
+	       
          *****  MISCELLANEOUS(v11_05r) *****
 
     SALT2mu.c
@@ -22760,16 +22771,30 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	
    submit_prog_sim.py:
        for 10 NONIa sim-input files (for submit_batch_jobs), the script
-       confusing NONIaMODEL1* with NONIaMODEL10, and hangs. The fix is
+       confuses NONIaMODEL1* with NONIaMODEL10, and hangs. The fix is
        to use 2 digit numbers in the GENVERSION name;
        e.g. NONIaMODEL01, NONIaMODEL02, etc ...
 
    submit_prog_covmat.py
-      Add new SIZE_COVMAT column in MERGE.LOG
+      + Add new SIZE_COVMAT column in MERGE.LOG
+   creat_covariance.py
+      + write SIZE_COVMAT to output YAML file (used by submit_batch_jobs)
+      
 	
    snana.car
      + write NEVT for each MASK_REDSHIFT_SOURCE in outout YAML
        file; intended to help extract science output from pippin.
+       After validating this output on bigger analysis jobs, will
+       update submit_batch_jobs to parse and summarize this info.
+       Goal is to quickly see NEVT(zspec_host, zspec_SN, zphot..)
+       to see if it corresponds to intended mix. Currently we lose
+       a lot of time making z-source mistakes that take a long time
+       to track down.
+       
+     + remove SIM_MJD_EXPLODE variables from output tables;
+       quick fix to avoid submit_batch_jobs abort when this variable
+       is missing from one of the merged ROOT files.
+       See https://github.com/RickKessler/SNANA/issues/1452
 
-  
+
 END: 

@@ -1,7 +1,7 @@
 /*******************************************
 Created by J. Marriner.
 Installed into snana v8_38, January 2010. 
-
+ 
 Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters
 2.  Output a file of bias-corrected distances for cosmological fits
@@ -598,6 +598,7 @@ typedef struct {
   int  NSN_ALL ;         // total number of SN rows read from file
   int  NSN_PASSCUTS ;    // total number passing cuts
   int  NCONTAM_PASSCUTS;  // contaminaton passing cuts:  CC, PecIA, AGN ...
+  int  NSN_SPECIA;       // Number of spec-confirmed SNIa (force_probcc=0)
   int  NSN_REJECT;       // number rejected by cuts
   int  NSN_CUTBIT[MXCUTBIT]; // number cut per CUTBIT
 
@@ -613,7 +614,7 @@ typedef struct {
   float  *host_logmass, *host_logsfr, *host_logssfr, *host_color ;
   float  *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ, *IDFIELD ; 
-  bool   *IS_PHOTOZ;
+  bool   *IS_PHOTOZ, *IS_SPEC_CONFIRMED ;
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal, *peakmjd ;
 
   // SIM_[PROPERTY] read from table file
@@ -1337,7 +1338,8 @@ typedef struct {
   double chi2sum_tot, chi2sum_Ia ;
   double nsnfitIa, nsnfitcc ;   // note double for sum of BBC Probs
   int    nsnfit, nsnfit_truecc ;
-
+  int    nsnspecIa ; // Dec 1 2024
+  
 } thread_chi2sums_def ;
 
 
@@ -1351,15 +1353,16 @@ struct {
   int   MNSTAT ;       // store istat returned from mnstat call (7/2020)
   double CHI2SUM_MIN;  // global min chi2
   double CHI2RED_ALL;  // global reduced chi2
-  double CHI2SUM_1A;   // chi2 sum for Ia subset
-  double CHI2RED_1A;   // reduced chi2 for Ia subset
+  double CHI2SUM_IA;   // chi2 sum for Ia subset
+  double CHI2RED_IA;   // reduced chi2 for Ia subset
   double ALPHA, BETA, GAMMA;  
 
   // maybe replace these with CONTAMIN_INFO ??
-  double NSNFIT_1A;    // Sum of PROB(Ia)
+  double NSNFIT_IA;    // Sum of PROB(Ia)
   double NSNFIT_CC;    // Sum of PROB(CC)
   int NSNFIT_TRUECC;   // for sim, number of true CC
-
+  int NSNSPEC_IA ;     // NSN with force_probcc=0 (e.g. low-z samples)
+  
   double AVEMAG0 ; // average M0 among z bins
   double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.M0
 
@@ -1470,7 +1473,6 @@ void parse_FIELDLIST(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
-int  set_DOFLAG_CUTWIN_LEGACY(int ivar, int icut, int isData );
 void copy_CUTWIN(int icut0,int icut1);
 int  icut_CUTWIN(char *varName) ;
 bool APPLY_CUTWIN_IDSAMPLE(int ID, int icut);
@@ -3731,7 +3733,7 @@ int prepNextFit(void) {
 
   // ----------------------------------
 
-  redchi2 = FITRESULT.CHI2RED_1A ; 
+  redchi2 = FITRESULT.CHI2RED_IA ; 
 
   // check reasons to stop fitting
   STOP_TOL    = ( fabs(redchi2-1.0) < INPUTS.redchi2_tol ) ;
@@ -3993,13 +3995,15 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
   // sum each thread
   int nsnfit = 0, nsnfit_truecc=0;
-  double chi2sum_Ia=0.0, chi2sum_tot=0.0, nsnfitIa=0.0, nsnfitcc=0.0 ;
+  double chi2sum_Ia=0.0, chi2sum_tot=0.0;
+  double nsnfitIa=0.0, nsnfitcc=0.0, nsnspecIa=0.0 ;
   //  double alpha, beta, gamma, logmass  ;
   for ( t = 0; t < nthread; t++ ) { 
     nsnfit        += thread_chi2sums[t].nsnfit ;
     nsnfit_truecc += thread_chi2sums[t].nsnfit_truecc ;
     nsnfitIa      += thread_chi2sums[t].nsnfitIa ;
     nsnfitcc      += thread_chi2sums[t].nsnfitcc ;
+    nsnspecIa     += thread_chi2sums[t].nsnspecIa ;
     chi2sum_Ia    += thread_chi2sums[t].chi2sum_Ia ;
     chi2sum_tot   += thread_chi2sums[t].chi2sum_tot ;
   }
@@ -4012,11 +4016,12 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     
   if ( *iflag == 3 )  {   // done with fit
     double xdof = nsnfitIa - (double)FITINP.NFITPAR_FLOAT ;
-    FITRESULT.CHI2SUM_1A = chi2sum_Ia ;
-    FITRESULT.CHI2RED_1A = chi2sum_Ia/xdof ;
-    FITRESULT.NSNFIT_1A  = nsnfitIa ; 
+    FITRESULT.CHI2SUM_IA = chi2sum_Ia ;
+    FITRESULT.CHI2RED_IA = chi2sum_Ia/xdof ;
+    FITRESULT.NSNFIT_IA  = nsnfitIa ; 
     FITRESULT.NSNFIT_CC  = nsnfitcc ; 
-
+    FITRESULT.NSNSPEC_IA = nsnspecIa ; // Dec 01 2024
+      
     // a,b,g stored for re-computing COV between fit iterations
     FITRESULT.ALPHA      = xval[IPAR_ALPHA0];
     FITRESULT.BETA       = xval[IPAR_BETA0];
@@ -4076,12 +4081,12 @@ void *MNCHI2FUN(void *thread) {
   double muerr_raw, muerrsq_raw, muerr_vpec, muerrsq_vpec;
   double muerrsq_tmp, muerr_update, muerrsq_update ; 
   double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
-  int    n, nsnfit, nsnfit_truecc, ipar, ipar2 ;
+  int    n, nsnfit, nsnfit_truecc, nsnspecIa, ipar, ipar2 ;
   int    cutmask, idsample, SIM_TEMPLATE_INDEX, IS_SIM ; 
   int    ia, ib, ig, optmask_muerrsq, nevt_biascor ;
   int    dumpFlag_muerrsq=0, DUMPFLAG=0 ;
   int    USE_CCPRIOR=0, USE_CCPRIOR_H11=0 ;
-  bool   set_fitwgt0 = false ;
+  bool   set_fitwgt0 = false, IS_SPEC_CONFIRMED ;
   MUZMAP_DEF  *CCPRIOR_MUZMAP ;
 
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
@@ -4151,7 +4156,7 @@ void *MNCHI2FUN(void *thread) {
   chi2sum_tot = chi2sum_Ia    = 0.0;
   nsnfit      = nsnfit_truecc = 0 ;
   nsnfitIa    = nsnfitcc      = 0.0 ;
-
+  nsnspecIa   = 0 ;
 
   // - - - - - - - - - - - - - - - - -
   for ( n = isn_min; n < isn_max; n++ ) {
@@ -4179,6 +4184,8 @@ void *MNCHI2FUN(void *thread) {
 
     mumodel_store   = (double)INFO_DATA.TABLEVAR.mumodel[n] ; 
 
+    IS_SPEC_CONFIRMED = INFO_DATA.TABLEVAR.IS_SPEC_CONFIRMED[n];
+    
     SIM_TEMPLATE_INDEX = (int)INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[n];
     IS_SIM          = (INFO_DATA.TABLEVAR.IS_SIM == true);
     
@@ -4485,7 +4492,9 @@ void *MNCHI2FUN(void *thread) {
 	nsnfitIa    +=  ProbRatio_Ia ; 
 	nsnfitcc    +=  ProbRatio_CC ; 
 	chi2sum_Ia  += (ProbRatio_Ia * chi2evt_Ia) ; 
-	
+
+	if ( IS_SPEC_CONFIRMED ) { nsnspecIa++ ; }
+
 	if ( iflag == 3 ) { INFO_DATA.probcc_beams[n] = ProbRatio_CC;}
 
 	Prob_SUM    *= (0.15/PIFAC)  ;  
@@ -4555,7 +4564,8 @@ void *MNCHI2FUN(void *thread) {
   thread_chi2sums->nsnfit_truecc = nsnfit_truecc ;
   thread_chi2sums->nsnfitIa      = nsnfitIa ;
   thread_chi2sums->nsnfitcc      = nsnfitcc ;
-
+  thread_chi2sums->nsnspecIa     = nsnspecIa ; // Dec 1 1024
+  
   thread_chi2sums->chi2sum_tot   = chi2sum_tot ;
   thread_chi2sums->chi2sum_Ia    = chi2sum_Ia  ;
 
@@ -6773,9 +6783,11 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
     TABLEVAR->snrmax        = (float *) malloc(MEMF); MEMTOT+=MEMF;
 
-    if ( REQUIRE_pIa ) 
-      { TABLEVAR->pIa  = (float *) malloc(MEMF); MEMTOT+=MEMF; } 
-
+    if ( REQUIRE_pIa )  {
+      TABLEVAR->pIa                = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    } 
+    TABLEVAR->IS_SPEC_CONFIRMED  = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
+      
     MEMTOT += malloc_TABLEVAR_HOST(LEN_MALLOC,TABLEVAR,VARNAME_LOGMASS);
 
     TABLEVAR->IDSURVEY      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
@@ -6898,7 +6910,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->SIM_AV);
     free(TABLEVAR->SIM_WGT_POPULATION);
 
-    if ( REQUIRE_pIa ) { free(TABLEVAR->pIa); }
+    if ( REQUIRE_pIa ) { free(TABLEVAR->pIa);  }
+    free(TABLEVAR->IS_SPEC_CONFIRMED);
 
     if ( IS_DATA ) {
       free(TABLEVAR->mumodel);
@@ -7178,6 +7191,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->NSN_REJECT        = 0;
     TABLEVAR->NSN_PASSCUTS      = 0;
     TABLEVAR->NCONTAM_PASSCUTS  = 0;
+    TABLEVAR->NSN_SPECIA        = 0;
     TABLEVAR->NSN_REJECT        = 0;
     TABLEVAR->IS_SIM            = false ;
     TABLEVAR->IS_DATA           = false ;
@@ -7213,7 +7227,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->IDSAMPLE[irow]   = -9 ;
     TABLEVAR->CUTMASK[irow]    =  0 ;
     TABLEVAR->OPT_PHOTOZ[irow] =  0 ;
-    TABLEVAR->IS_PHOTOZ[irow]  =  false ;
+    TABLEVAR->IS_PHOTOZ[irow]          =  false ;
     TABLEVAR->SNTYPE[irow]     = -9 ;
 
     TABLEVAR->vpec[irow]       =  0.0 ;
@@ -7227,7 +7241,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->zhelerr[irow]    = -9.0 ;
     TABLEVAR->host_logmass[irow] = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
-
+    
     if ( INPUTS.zspec_errmax_idsample > 0.0 ) 
       { TABLEVAR->zprior[irow]  = TABLEVAR->zpriorerr[irow]  = -9.0 ; }
 
@@ -7646,6 +7660,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   //
   // Jul 8 2023: refactor to isolate SALT2-dependent code; lots of reshuffling.
   // Nov 17 2024: store list of FIELDS for data only
+  // Dec 01 2024: set IS_SPEC_CONFIRMED
   
   int EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
   bool IS_DATA     = (EVENT_TYPE == EVENT_TYPE_DATA);
@@ -7955,8 +7970,12 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   } // end IS_DATA  
 
   // check option to force pIa = 1 for spec confirmed SNIa
-  if ( force_probcc0(SNTYPE,IDSURVEY) && REQUIRE_pIa ) 
-    { TABLEVAR->pIa[ISN] = 1.0 ;  } 
+  TABLEVAR->IS_SPEC_CONFIRMED[ISN] = false;
+  if ( force_probcc0(SNTYPE,IDSURVEY) && REQUIRE_pIa )   {
+    TABLEVAR->pIa[ISN] = 1.0 ;
+    TABLEVAR->IS_SPEC_CONFIRMED[ISN] = true; // Dec 1 1024
+  }
+  
   
 
   TABLEVAR->IDFIELD[ISN] = get_IDFIELD(field); // Nov 2024
@@ -16156,6 +16175,7 @@ void print_eventStats(int event_type) {
   //
   // Sep 18 2021: increment NPASS_CUTMASK_BYSAMPLE for YAML print out later.
 
+  int  IS_DATA      = (event_type == EVENT_TYPE_DATA);
   int  IS_DATA_SIM  = (event_type == EVENT_TYPE_DATA && INFO_DATA.TABLEVAR.IS_SIM);
   
   int  NSN_TOT      = *NALL_CUTMASK_POINTER[event_type];
@@ -16163,6 +16183,7 @@ void print_eventStats(int event_type) {
   int  NSN_REJ=0, NSN_PASS=0, NCONTAM_PASS = 0 ;
   int  *NBIT, bit, isn, cutmask, idsample, NCUT=0 ;
   int  *CUTMASK_PTR, SIM_TEMPLATE_INDEX=0, NCUT_SOLO[MXCUTBIT];
+  bool IS_SPEC;
   short int *IDSAMPLE_PTR ;
   char fnam[] = "print_eventStats" ;
 
@@ -16195,6 +16216,12 @@ void print_eventStats(int event_type) {
 	SIM_TEMPLATE_INDEX = INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[isn];
 	if ( SIM_TEMPLATE_INDEX > 0 ) { INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS++ ; }
       }
+
+      if ( IS_DATA ) {
+	IS_SPEC = INFO_DATA.TABLEVAR.IS_SPEC_CONFIRMED[isn];
+	if ( IS_SPEC ) { INFO_DATA.TABLEVAR.NSN_SPECIA++; }  // Dec 1 2024
+      }
+      
       continue; 
     }
     // check if one and only 1 bit is set
@@ -18866,88 +18893,6 @@ int set_DOFLAG_SELECT_VAR(int ivar_table, int ivar_select, int isData,
 
 } // end set_DOFLAG_SELECT_VAR
 
-// **************************************************
-int set_DOFLAG_CUTWIN_LEGACY(int ivar, int icut, int isData) {
-
-  // Return 1 if ivar >= 0 -> apply explicit cut.
-  // Return 2 to set MUERR = large (implicit cut by deweight) [Jan 2021]
-  // Return 0 to ignore this cut.
-  //
-  // If ivar<0 and abortflag is set for icut, then abort.
-  // isData=1 for datafile argument (real or sim dat);
-  // isData=0 for biasCor sample.
-  //
-  // Oct 23 2018: 
-  //  + new input arg isData=1 for data, zero for sim biasCor 
-  //  + check DATAONLY flag.
-  //
-  // May 18 2020:
-  //   + check BIASCORONLY flag.
-  //
-  // Oct 28 2020: new ISVAR_PROB logic
-  // Jan 21 2021: minor refac using DOFLAG_SELECT_XXX params
-  // May 22 2021: check L_DISABLE
-  //
-  //   @@@@@@@@@ SOON TO BE OBSOLETE @@@@@@@@@@@@@
-  
-  bool  L_VALID_VAR   = ( ivar >= 0 );
-  bool  L_NOVAR       = !L_VALID_VAR ;
-  
-  bool  L_ABORTFLAG, L_DATAONLY, L_BIASCORONLY, L_FITWGT0, L_DISABLE, ISVAR_PROB ;
-  char *VARNAME;
-  
-  int   DOFLAG ;
-  char  DATATYPE[12]; // DATA or BIASCOR
-  char  fnam[] = "set_DOFLAG_CUTWIN_LEGACY" ;
-
-  // ------------- BEGIN -------------
-
-  //   @@@@@@@@@ SOON TO BE OBSOLETE @@@@@@@@@@@@@
-  
-  L_ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
-  L_DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
-  L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
-  L_FITWGT0     = INPUTS.LCUTWIN_FITWGT0[icut];
-  L_DISABLE     = INPUTS.LCUTWIN_DISABLE ;
-  VARNAME       = INPUTS.CUTWIN_NAME_LIST[icut];
-  ISVAR_PROB    = (strstr(VARNAME,"PROB_") != NULL );
-  
-  if ( L_DATAONLY    && !isData ) { return(DOFLAG_SELECT_IGNORE); }
-  if ( L_BIASCORONLY &&  isData ) { return(DOFLAG_SELECT_IGNORE); }
-
-  //   @@@@@@@@@ SOON TO BE OBSOLETE @@@@@@@@@@@@@
-  
-  // Oct 28 2020: Apply cut to biasCor sample if varname doesn't exist
-  //    and starts with PROB. This assumes that idsurvey_list_probcc0
-  //    sets pIa=1 ... if not, all these events will be rejected. 
-  //    This logic is not needed for data because the data-catenate 
-  //    process ensures existing PROB columns.
-  if ( !isData && ivar < 0 && ISVAR_PROB ) { return(DOFLAG_SELECT_APPLY); }
-
-  if ( L_NOVAR && L_ABORTFLAG ) {
-    if ( isData ) { sprintf(DATATYPE,"DATA"); }
-    else          { sprintf(DATATYPE,"BIASCOR"); }
-
-    sprintf(c1err,"Invalid CUTWIN on '%s' for %s (ivar=%d, icut=%d)", 
-	    VARNAME, DATATYPE, ivar, icut );
-    sprintf(c2err,"Check CUTWIN keys in input file" ); 
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
-  //   @@@@@@@@@ SOON TO BE OBSOLETE @@@@@@@@@@@@@
-  
-  if ( L_VALID_VAR ) { 
-    DOFLAG = DOFLAG_SELECT_APPLY ;    
-    if ( L_FITWGT0 )  { DOFLAG = DOFLAG_SELECT_FITWGT0; }
-  }
-  else
-    { DOFLAG = DOFLAG_SELECT_IGNORE ; }
-
-  //   @@@@@@@@@ SOON TO BE OBSOLETE @@@@@@@@@@@@@
-  
-  return(DOFLAG);
-} // end set_DOFLAG_CUTWIN_LEGACY
-
 
 // **************************************************
 int usesim_CUTWIN(char *varName) {
@@ -20632,6 +20577,7 @@ void write_yaml_info(char *fileName) {
   // Sep 21 2022: write NWARN_CRAZYERR
   // Aug 22 2023: replace -12.12s format with -20s to avoid truncation from long varnames
   // Jul 24 2024: write CONTAM_TRUE for sim data
+  // Dec 01 2024: fix CONTAM_[DATA,TRUE] to exclude spec-Ia from denominator
   
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -20757,23 +20703,27 @@ void write_yaml_info(char *fileName) {
   }
 
 
-  double XNIa, XNCC, XNTOT ;
+  double XNIa, XNCC, XNSPECIa, XNTOT ;
   if ( INFO_CCPRIOR.USE ) {
-    XNCC = FITRESULT.NSNFIT_CC;
-    XNIa = FITRESULT.NSNFIT_1A ;
-    VAL = XNCC / ( XNIa + XNCC );
-    ERR = 0.0 ;
-    fprintf(fp,"  - %-20s  %.5f  %.5f \n", "CONTAM_DATA:", VAL, ERR ) ;
+    char comment[] = "LC-classified subset" ;
+    XNCC     = FITRESULT.NSNFIT_CC;
+    XNIa     = FITRESULT.NSNFIT_IA ;
+    XNSPECIa = FITRESULT.NSNSPEC_IA ; // Dec 1 2024
+    XNTOT    = (XNIa-XNSPECIa) + XNCC ;
+    VAL  = XNCC / XNTOT;
+    ERR  = 0.0 ;
+    fprintf(fp,"  - %-20s  %.5f  %.5f   # %s \n",
+	    "CONTAM_DATA:", VAL, ERR, comment ) ;
 
     // write true contam for sim even though it's not a fit result
     if ( INFO_DATA.TABLEVAR.IS_SIM ) {
-      XNCC  = (double)INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS ;
-      XNTOT = (double)INFO_DATA.TABLEVAR.NSN_PASSCUTS ;
-            
-      VAL =  XNCC / XNTOT ;
+      XNCC     = (double)INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS ;
+      XNSPECIa = (double)INFO_DATA.TABLEVAR.NSN_SPECIA ;
+      XNTOT    = (double)INFO_DATA.TABLEVAR.NSN_PASSCUTS - XNSPECIa ;
+      VAL =  XNCC / XNTOT  ;
       ERR =  sqrt(XNCC)/ XNTOT ;
-      fprintf(fp,"  - %-20s  %.5f  %.5f    # for sim data only \n",
-	      "CONTAM_TRUE:", VAL, ERR ) ;
+      fprintf(fp,"  - %-20s  %.5f  %.5f    # %s (sim data only) \n",
+	      "CONTAM_TRUE:", VAL, ERR, comment ) ;
     }
   } 
 
@@ -21864,15 +21814,15 @@ void write_fitres_misc(FILE *fout) {
   
 
   if ( !USE_CCPRIOR  ) {
-    chi2min = FITRESULT.CHI2SUM_1A; 
-    chi2red = FITRESULT.CHI2RED_1A; 
+    chi2min = FITRESULT.CHI2SUM_IA; 
+    chi2red = FITRESULT.CHI2RED_IA; 
     NDOF    = FITRESULT.NDOF;
     NSNFIT  = FITRESULT.NSNFIT ;
   }
   else {
-    chi2min = FITRESULT.CHI2SUM_1A ;
-    chi2red = FITRESULT.CHI2RED_1A ; 
-    NDOF    = (int)FITRESULT.NSNFIT_1A - FITINP.NFITPAR_FLOAT ;
+    chi2min = FITRESULT.CHI2SUM_IA ;
+    chi2red = FITRESULT.CHI2RED_IA ; 
+    NDOF    = (int)FITRESULT.NSNFIT_IA - FITINP.NFITPAR_FLOAT ;
     NSNFIT  = FITRESULT.NSNFIT ;
   }
 
@@ -21892,19 +21842,23 @@ void write_fitres_misc(FILE *fout) {
   fprintf(fout,"#  NSNFIT        = %d \n", NSNFIT );
 
   if ( USE_CCPRIOR ) { // write out contamination info
-    double xn1a = FITRESULT.NSNFIT_1A;
-    double xncc = FITRESULT.NSNFIT_CC;
+    double xn1a      = FITRESULT.NSNFIT_IA - FITRESULT.NSNSPEC_IA;
+    double xncc      = FITRESULT.NSNFIT_CC;
     double xncc_true = (double)FITRESULT.NSNFIT_TRUECC ;
-    double xnsn      = (double)FITRESULT.NSNFIT;
+    double xnsn      = (double)FITRESULT.NSNFIT - (double)FITRESULT.NSNSPEC_IA ;
     double contam = xncc/(xn1a+xncc);
     double contam_true = xncc_true/xnsn;
-    fprintf(fout,"#  SUM_PROBIa    = %.2f \n", xn1a);
-    fprintf(fout,"#  SUM_PROBCC    = %.2f \n", xncc);
+    char comment[] = "LC-classified subset";
+    fprintf(fout,"#  SUM_PROBIa    = %9.2f    "
+	    "# %s \n", xn1a, comment);
+    fprintf(fout,"#  SUM_PROBCC    = %9.2f    "
+	    "# %s \n", xncc, comment);
     fprintf(fout,"#  CONTAM_DATA   = %.4f    "
-	    "# SUM_PROB ratio\n", contam);
+	    "# SUM_PROB ratio for %s\n", contam, comment);
     if ( IS_SIM ) {
       fprintf(fout,"#  CONTAM_TRUE   = %.4f    "  
-	      "# true NCC/(NIa+NCC) for sim-data\n", contam_true );
+	      "# true NCC/(NIa+NCC) for %s (sim-data only)\n",
+	      contam_true, comment );
     }
     
     fflush(FP_STDOUT);

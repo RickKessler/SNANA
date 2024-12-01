@@ -22745,7 +22745,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    	     30 x 19k^2 x 8 = 86.6 GB. 
         A refactor is needed to keep a running sum of COVSYS_TOT and release
 	the memory for each systematic.
-	
+
+    SALT2mu.c:
+      + fix CONTAM_DATA[TRUE] outputs to ignore spec-confirmed subsets
+        from user-input probcc0 key, and compute CONTAM only for LC-classified
+	subsets. This fix will increase CONTAM estimates, but it has no impact
+	on BBC fitted parameters.
+      
          *****  USEFUL(v11_05r) *****
 	 
     sim: write full filter names to data files (instead of one char)
@@ -22757,7 +22763,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu.c
        + input nmax now works on FIELD  as well as survey; see help with
           SALT2mu.exe | grep nmax
-
+       
     sntools_host.c
        + print info for each appended HOSTLIB_STOREPAR to help track
          abort on missing HOSTLIB variable.

@@ -297,6 +297,8 @@ For help, run code with no arguments
  Sep 26 2024: add PARSHIFT feature to shift value of any parameter in the
               input file.
 
+ Dec 01 2024: fix CONTAM computation to ignore spec-confirmed subsets.
+
  ******************************************************/
 
 #include "sntools.h" 

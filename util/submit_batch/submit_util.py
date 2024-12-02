@@ -825,7 +825,7 @@ def read_merge_file(merge_file) :
                         comment_lines.append(line[1:].strip("\n"))
             n_try = 9999 # ensure no more attemps
         except:
-            print(f" xxx read_merge_util failed on n_try = {n_try}; try again after 1 sec delay")
+            print(f" read_merge_util failed on n_try = {n_try}; try again after 1 sec delay")
             time.sleep(1.0) 
             n_try += 1
         

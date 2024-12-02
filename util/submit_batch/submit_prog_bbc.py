@@ -97,7 +97,7 @@ from submit_prog_base import Program
 USE_INPDIR = True
 
 # for preparing catenated input fitres files using sntable_cat.py,
-# define number of interactice jobs to parallelize this slow task.
+# define number of interactive jobs to parallelize this slow task.
 NJOB_PREP_INPUT_FITRES     = 10
 DOFAST_PREP_INPUT_FILES    = True
 
@@ -1217,9 +1217,23 @@ class BBC(Program):
                          f"({njob_prep_run} of {njob_prep_tot})")
 
             cmd_prep = f"cd {script_dir} ; ./{prep_script} > {prep_log} & "
-            ret = subprocess.run( [ cmd_prep ], cwd=script_dir,
-                                  shell=True, capture_output=False, text=True )
 
+            # Dec 2 2024: hack repeat attempts to run PREP script to overcome
+            # permission denied error on Perlmutter ... looks to be same error
+            # Mat had recently with reading MERGE.LOG. Hopefully NERSC admin
+            # will fix this permission problem soon.
+            n_try = 0
+            while n_try < 2:
+                try:
+                    ret = subprocess.run([cmd_prep ],cwd=script_dir,
+                                         shell=True, capture_output=False,text=True)
+                    n_try = 9999 # ensure no more attempts
+                except:
+                    print(f" xxxx PREP script faile on n_try = {n_try}; " \
+                          f"try again after 1 sec delay")
+                    time.sleep(1.0)
+                    n_try += 1
+                    
             check_gz = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
                        (njob_prep_run < NJOB_PREP_INPUT_FITRES)      or \
                        (njob_prep_run == njob_prep_tot )     # Aug 2024

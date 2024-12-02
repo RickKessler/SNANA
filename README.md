@@ -1,8 +1,8 @@
 # SNANA
 Supernova Analysis package.
 
-Public data/filters/models/etc are in SNDATA_ROOT (~1 GB):
-   https://zenodo.org/record/4015325
+Public data/filters/models/etc are in SNDATA_ROOT (~2 GB):
+   https://zenodo.org/records/12655677
 
 Read documentation in SNANA/doc.
 

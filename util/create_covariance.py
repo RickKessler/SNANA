@@ -130,6 +130,8 @@
 #
 # Nov 2024: write SIZE_HD to INFO.YML and SIZE_COVMAT to --yaml_file
 #
+# Dec 04 2024: search for INPUT_KEYS_SNIaMODEL00 with two zeros instead of MODEL0
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -200,7 +202,7 @@ f_REF = 0  # FITOPT reference number for cov
 
 # define list of sim-input keys for cosmology params; needed to recover biasCor cospar
 KEY_DOCANA    = "DOCUMENTATION"
-KEY_SIM_INPUT = "INPUT_KEYS_SNIaMODEL0"
+KEY_SIM_INPUT = "INPUT_KEYS_SNIaMODEL00"
 KEYLIST_COSPAR_SIM = [ 'OMEGA_MATTER', 'OMEGA_LAMBDA', 'w0_LAMBDA', 'wa_LAMBDA',
                        'MUSHIFT' ]
 

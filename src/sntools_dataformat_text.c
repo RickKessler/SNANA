@@ -3301,7 +3301,7 @@ void check_nblam_sntextio_spec(void) {
     sprintf(c2err,"CID = %s", SNDATA.CCID);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
+  
   return;
 } // end check_nblam_sntextio_spec
 

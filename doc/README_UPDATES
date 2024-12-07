@@ -22802,5 +22802,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        is missing from one of the merged ROOT files.
        See https://github.com/RickKessler/SNANA/issues/1452
 
+   snlc_fit.car
+      + check CRAZYFITERR even if OPT_SNID_LIST > 0
 
 END: 

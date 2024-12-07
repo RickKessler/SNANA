@@ -2326,7 +2326,8 @@ c May 18 2021: skip crazyflux check of OPT_SNCID_LIST > 0
 c Jul 23 2024: apply user defined 1st-iteration cuts on FITPROB, shape, color;
 c              see FITWIN_[FITPROB,SHAPE,COLOR]_ITER1
 c
-c --------------------------------------------------
+c Dec 7 2024: check CRAZYFITERR even if OPT_SNCID_LIST > 0
+c -------------------------------------------------------------
 
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -2454,10 +2455,10 @@ c check optional IDEAL fit with FLUX=TRUEFLUX (Aug 2017)
 c -------------------------------------------------
 c check for crazy errors, unless:
 c   + plotchi2-debugger is on, or
-c   + OPT_SNCID_LIST is set
 
       CRAZY = CRAZYFITERR(isn,iter) .and. 
-     &    (.not. LPLOTCHI2 .and. OPT_SNCID_LIST==0)
+     &    (.not. LPLOTCHI2 )
+c xxx mark delete Dec 2024   & (.not. LPLOTCHI2 .and. OPT_SNCID_LIST==0)
 
       IF ( CRAZY ) THEN
         write(6,222) CCID(1:LCID)

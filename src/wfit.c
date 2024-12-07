@@ -177,6 +177,9 @@
        matrices with more than few GB size.
     +  when reading cov, print update every 2 million elements
 
+ Dec 7 2024
+   + mu_obs -= B/C in residual output file 
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -388,7 +391,8 @@ typedef struct {
   int    *nfit_perbin;  
   double zmin, zmax;
   bool   ISDATA_REAL;
-
+  double muresid_avg;
+  
   // for HDIBC method (Mar 2023)
   Cosparam cospar_biasCor;
   double *mu_cospar_biascor; // store distance(z_data) using biasCor cosmology
@@ -508,7 +512,7 @@ void wfit_Covariance(void);
 
 void get_chi2_fit(double w0, double wa, double OM, double sqmurms_add,
 		  double *z_list, double *mu_list, double *f_interp_list,
-		  double *chi2sn, double *chi2tot );
+		  double *muresid_avg, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
 double get_DMU_chi2wOM(double z, double rz, double mu); 
@@ -2995,7 +2999,7 @@ void wfit_minimize(void) {
   int    use_mucov         = INPUTS.use_mucov;
   Cosparam cpar;
   Cosparam cpar_fixed;
-  double snchi_tmp, extchi_tmp ;
+  double snchi_tmp, extchi_tmp, mures_tmp ;
 
   bool UPDATE_STDOUT;
   int  i, kk, j;
@@ -3023,7 +3027,7 @@ void wfit_minimize(void) {
     cpar_fixed.mushift = 0.0 ;
     get_chi2_fit(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
 		 temp0_list, temp1_list, temp2_list,
-		 &snchi_tmp, &extchi_tmp ); 
+		 &mures_tmp, &snchi_tmp, &extchi_tmp ); 
     printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
 	   "= %.1f %.1f \n", snchi_tmp, extchi_tmp);
     fflush(stdout);
@@ -3047,7 +3051,7 @@ void wfit_minimize(void) {
 	
 	get_chi2_fit ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms, 
 		       temp0_list, temp1_list, temp2_list,
-		       &snchi_tmp, &extchi_tmp ); 
+		       &mures_tmp, &snchi_tmp, &extchi_tmp ); 
 
 	WORKSPACE.snchi3d[i][kk][j]  = snchi_tmp ; 
 	WORKSPACE.extchi3d[i][kk][j] = extchi_tmp ;
@@ -3643,8 +3647,11 @@ void wfit_final(void) {
   HD_FINAL.NSN = HD_LIST[0].NSN;
   get_chi2_fit ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms,  // inputs
 		 HD_FINAL.z, HD_FINAL.mu, HD_FINAL.f_interp,
-		 &snchi_tmp, &chi2_final );   // return args
+		 &HD_FINAL.muresid_avg, &snchi_tmp, &chi2_final );   // return args
 
+  // correctd HD_FINAL.mu so that wgt avg resid is zero (Dec 2024)
+  // .xyz
+  
   WORKSPACE.chi2_final  = chi2_final;
 
     // summarize chi2 and chi2 for each prior (Apr 2024)
@@ -3859,6 +3866,7 @@ void get_chi2_fit (
 	      ,double *z_obs_list  // (O) redshifts used in fit
 	      ,double *mu_obs_list // (O) mu per event (for HDIBC)
 	      ,double *f_interp_list // (O) interp frac per event (for HDIBC)
+	      ,double *muresid_avg   // (O) wgt-avg mu-residual (B/C)
 	      ,double *chi2sn      // (O) SN-only chi2
 	      ,double *chi2tot     // (O) SN+prior chi2
 	      ) {
@@ -4060,6 +4068,9 @@ void get_chi2_fit (
   Csum    += 1./SQSIG_MUOFF ;  // H0 prior term
   *chi2sn  =  chi_hat - Bsum*Bsum/Csum ;
 
+
+  *muresid_avg = Bsum/Csum; // Dec 7 2024
+  
   // Ignore constant term:
   //  logCsum  = log(Csum/(2.*M_PI));
   //  *chi2sn += logCsum;
@@ -4276,7 +4287,7 @@ double get_minimized_cospar( double *w0_atchimin, double *wa_atchimin,
   double 
      w0cen_tmp ,omcen_tmp, wacen_tmp
     ,w0_tmp, wa_tmp, om_tmp
-    ,snchi_tmp, extchi_tmp, snchi_min, extchi_min
+    ,snchi_tmp, extchi_tmp, snchi_min, extchi_min, mures_tmp
     ;
 
   
@@ -4330,7 +4341,7 @@ double get_minimized_cospar( double *w0_atchimin, double *wa_atchimin,
 
 	get_chi2_fit(w0_tmp, wa_tmp, om_tmp, INPUTS.sqsnrms, 
 		     temp0_list, temp1_list, temp2_list,
-		     &snchi_tmp, &extchi_tmp );
+		     &mures_tmp, &snchi_tmp, &extchi_tmp );
 
 	if ( extchi_tmp < extchi_min ) 
 	  { extchi_min = extchi_tmp ;  imin=i; kmin = kk; jmin=j; }
@@ -5029,6 +5040,7 @@ void write_output_resid(void) {
     cid          = HD_LIST[0].cid[i] ;    
     z            = HD_FINAL.z[i] ;  // can differ from HD_LIST[0] for HDIBC
     mu_obs       = HD_FINAL.mu[i];  // idem
+    mu_obs      -= HD_FINAL.muresid_avg; // Dec 7 2024
     mu_sig       = HD_LIST[0].mu_sig[i];
     mu_sim       = HD_LIST[0].mu_sim[i];
     

@@ -12631,6 +12631,7 @@ c - - - - - - -
 
       IF ( IS_CIDINT_LIST .or. IS_CCID_LIST ) THEN
          CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
+	 SIM_PRESCALE = 1  ! disable prescale Dec 11 2024
       ENDIF
 
 c      print*,' xxx IS_CID/FILE/INT = ', 

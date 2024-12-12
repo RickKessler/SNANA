@@ -118,7 +118,9 @@ struct {
   // true synthetic mag (and uncertainty) per ifilt_obs
   double  GENMAG_SYNFILT[MXSPEC][MXFILTINDX]; 
   double  GENMAGERR_SYNFILT[MXSPEC][MXFILTINDX];
-
+  double  SNR_REST_V[MXSPEC]; // SNR from 5000-6000 A in rest-frame
+  double  SNRSUM_REST_V;
+  
   double  OVERLAP_MIN; // internal cut to compute syn mags
   double  OVERLAP_SYNFILT[MXFILTINDX]; // bandpass integral over spectrograph
   bool    DO_SYNFILT[MXFILTINDX] ;

@@ -9269,7 +9269,8 @@ void  init_event_GENLC(void) {
     GENSPEC.IMJD_HOST = -9 ;
     for(imjd=0; imjd < MXSPEC; imjd++ )  { GENSPEC_INIT(1,imjd); }
   }
-
+  GENSPEC.SNRSUM_REST_V = 0.0 ;
+  
   // keep track of last coord to skip parts of gen_MWEBV
   if ( NGENLC_TOT == 1 ) {
     // no previous RA,DEC on 1st event
@@ -10842,6 +10843,51 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 } // end GENSPEC_SYNMAG
 
 
+// ==================================
+double GENSPEC_SNR(double *LAMRANGE,  double *FLAM_LIST, double *FLAMERR_LIST) {
+
+  // Created Dec 2024
+  // Compute SNR over obs-frame LAMRANGE.
+  // Initial use is to compute V-band SNR from 5000-6000 A rest-frame;
+  // make sure to pass LAMRAGE = 5000*(1+z) to 6000*(1+z).
+  
+  double  SNR = 0.0 ;
+  int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
+  int     ilam ;
+  double LAMOBS, flam, flamerr, flux_sum=0.0, varflux_sum=0.0 ;  
+  int  OPT_INTERP = 1;     // linear
+  char fnam[] = "GENSPEC_SNR" ;
+
+  // --------- BEGIN ------------
+
+  for ( ilam=0; ilam < NLAMSPEC; ilam++ ) {
+
+    LAMOBS = LAMAVG_LIST[ilam];
+    if ( LAMOBS < LAMRANGE[0] ) { continue; }
+    if ( LAMOBS > LAMRANGE[1] ) { continue; }
+    
+    flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
+			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );   
+
+    flux_sum    += ( flam * LAMOBS );
+    
+
+    flamerr = interp_1DFUN(OPT_INTERP, LAMOBS, 
+			   NLAMSPEC, LAMAVG_LIST, FLAMERR_LIST, fnam );
+    varflux_sum += ( flamerr*flamerr * LAMOBS * LAMOBS );
+    
+  } // end ilam
+
+  if ( varflux_sum > 0.0 ) {
+    SNR = flux_sum / sqrt(varflux_sum) ;
+  }
+  
+  return SNR ;
+
+} // end GENSPEC_SNR
+
+
 // ==================================================
 void set_ALARM_SED_TRUE(int ifilt_obs, double genmag_obs, double synmag_obs) {
 
@@ -11873,6 +11919,18 @@ void  GENSPEC_FLAM(int imjd) {
     GENSPEC.GENMAGERR_SYNFILT[imjd][ifilt_obs] = GENMAGERR_SYN;
   }
 
+  // Dec 2024:  compute SNR in rest-frame V-tophat[5000-6000]
+  double z1, SNR, SQSNR, LAMOBS_RANGE[2];
+  double LAMREST_RANGE_V[2] = { 5000.0, 6000.0 };
+  z1 =  1.0 + GENLC.REDSHIFT_CMB;
+  LAMOBS_RANGE[0] = LAMREST_RANGE_V[0] * z1;
+  LAMOBS_RANGE[1] = LAMREST_RANGE_V[1] * z1;  
+  SNR = GENSPEC_SNR(LAMOBS_RANGE,
+		    GENSPEC.GENFLAM_LIST[imjd], GENSPEC.FLAMERR_LIST[imjd] );
+  GENSPEC.SNR_REST_V[imjd] = SNR ;
+  SQSNR                  = GENSPEC.SNRSUM_REST_V * GENSPEC.SNRSUM_REST_V;
+  GENSPEC.SNRSUM_REST_V  = sqrt(SQSNR + SNR*SNR);
+  
   return ;
 
 } // end GENSPEC_FLAM
@@ -14750,13 +14808,14 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     sprintf(VARLIST,
 	    "ROW CID GENTYPE FIELD zHEL MJD TOBS TEXPOSE " \
-	    "IDSPEC IS_HOST %s", VARLIST_SYNMAG);
+	    "IDSPEC IS_HOST SNR_REST_V  %s", VARLIST_SYNMAG);
 
     fprintf(fp,"# SPECTROGRPAH SUMMARY: one row per spectrum.\n");
     fprintf(fp,"# Spectrograph instrument  :  %s  (%.0f < LAM < %.0f A)\n", 
 	    INPUTS_SPECTRO.INSTRUMENT_NAME, 
 	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
 
+    fprintf(fp,"# SNR_REST_V  = SNR for rest wave range = 5000 to 6000 A\n");
     fprintf(fp,"# Synthetic [band]_mag_syn and [band]_magerr_syn "
 	    "are stored for bands:\n#    %s \n", BAND_STRING);
 
@@ -14811,12 +14870,12 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       ROWNUM++ ;
       IDSPEC = i+1;
       sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f "
-	      "%3d %d" , 
+	      "%3d %d %.2f  " , 
 	      ROWNUM, SNDATA.CID, SNDATA.SIM_GENTYPE,
 	      GENLC.FIELDNAME[1], GENLC.REDSHIFT_HELIO, 
 	      GENSPEC.MJD_LIST[i], GENSPEC.TOBS_LIST[i],
 	      GENSPEC.TEXPOSE_LIST[i],
-	      IDSPEC, GENSPEC.IS_HOST[i]);
+	      IDSPEC, GENSPEC.IS_HOST[i], GENSPEC.SNR_REST_V[i] );
 
       // load up synthetic mags & magerr into line_synmag string
       line_synmag[0] = 0;
@@ -15873,7 +15932,9 @@ void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void) {
   // user only needs to include the usual SIMGEN_DUMP key in the
   // sim-input file. User does NOT add TAKE_SPECTRUM variables
   // since these are added here by default.
-
+  //
+  // Dec 2024: add NSPEC and SPEC_SNRSUM_REST_V
+  
   int i, imjd, IDSPEC, OPT_TEXPOSE, NOPT_SNR=0;
   int idump_inp, idump_list;
   int NVAR_SIMGEN_DUMP_START = NVAR_SIMGEN_DUMP ;
@@ -15882,7 +15943,20 @@ void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void) {
   char fnam[] = "PREP_SIMGEN_DUMP_TAKE_SPECTRUM" ;
 
   // ------------- BEGIN ----------
+  
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"NSPEC") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENSPEC.NMJD_PROC ;
+  NVAR_SIMGEN_DUMP++ ;
 
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SPEC_SNRSUM_REST_V") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENSPEC.SNRSUM_REST_V ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  // Dec 2024: skip stuff below that is too detailed.
+  return ;
+  
   // logic is tricky because GENSPEC.OPT_TEXPOSE is not
   // set until first event, and we don't know the mapping
   // between INPUTS.TAKE_SPECTRUM and GENSPEC. 

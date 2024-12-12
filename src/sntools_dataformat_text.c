@@ -1117,11 +1117,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
   int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SED_TRUE );
   int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPECTRA  ) && !WRITE_SED_TRUE ;
-
-  /* xxx mark delete Oct 29 2024 xxx
-  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT  );
-  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );  
-  xxxx end mark xxx */
   
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;

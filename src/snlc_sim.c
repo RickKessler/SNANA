@@ -9269,7 +9269,8 @@ void  init_event_GENLC(void) {
     GENSPEC.IMJD_HOST = -9 ;
     for(imjd=0; imjd < MXSPEC; imjd++ )  { GENSPEC_INIT(1,imjd); }
   }
-  GENSPEC.SNRSUM_REST_V = 0.0 ;
+  GENSPEC.SNRSUM_REST_U = 0.0 ;
+  GENSPEC.SNRSUM_REST_V = 0.0 ;  
   
   // keep track of last coord to skip parts of gen_MWEBV
   if ( NGENLC_TOT == 1 ) {
@@ -10443,7 +10444,9 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.IS_HOST[imjd]          = false;
   }
 
-
+  GENSPEC.SNR_REST_U[imjd] = 0.0 ;
+  GENSPEC.SNR_REST_V[imjd] = 0.0 ;  
+  
   // init arrays
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     GENSPEC.GENMAG_LIST[imjd][ilam]           =  0.0 ;
@@ -11922,8 +11925,18 @@ void  GENSPEC_FLAM(int imjd) {
 
   // Dec 2024:  compute SNR in rest-frame V-tophat[5000-6000]
   double z1, SNR, SQSNR, LAMOBS_RANGE[2];
-  double LAMREST_RANGE_V[2] = { 5000.0, 6000.0 };
+  double LAMREST_RANGE_U[2] = { 3000.0, 4000.0 };
+  double LAMREST_RANGE_V[2] = { 5000.0, 6000.0 };  
   z1 =  1.0 + GENLC.REDSHIFT_CMB;
+  
+  LAMOBS_RANGE[0] = LAMREST_RANGE_U[0] * z1;
+  LAMOBS_RANGE[1] = LAMREST_RANGE_U[1] * z1;  
+  SNR = GENSPEC_SNR(LAMOBS_RANGE,
+		    GENSPEC.GENFLAM_LIST[imjd], GENSPEC.FLAMERR_LIST[imjd] );
+  GENSPEC.SNR_REST_U[imjd] = SNR ;
+  SQSNR                  = GENSPEC.SNRSUM_REST_U * GENSPEC.SNRSUM_REST_U;
+  GENSPEC.SNRSUM_REST_U  = sqrt(SQSNR + SNR*SNR);
+
   LAMOBS_RANGE[0] = LAMREST_RANGE_V[0] * z1;
   LAMOBS_RANGE[1] = LAMREST_RANGE_V[1] * z1;  
   SNR = GENSPEC_SNR(LAMOBS_RANGE,
@@ -14809,14 +14822,17 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     sprintf(VARLIST,
 	    "ROW CID GENTYPE FIELD zHEL MJD TOBS TEXPOSE " \
-	    "IDSPEC IS_HOST SNR_REST_V  %s", VARLIST_SYNMAG);
+	    "IDSPEC IS_HOST SNR_REST_U SNR_REST_V  %s", VARLIST_SYNMAG);
 
     fprintf(fp,"# SPECTROGRPAH SUMMARY: one row per spectrum.\n");
     fprintf(fp,"# Spectrograph instrument  :  %s  (%.0f < LAM < %.0f A)\n", 
 	    INPUTS_SPECTRO.INSTRUMENT_NAME, 
 	    INPUTS_SPECTRO.LAM_MIN, INPUTS_SPECTRO.LAM_MAX );
 
-    fprintf(fp,"# SNR_REST_V  = SNR for rest wave range = 5000 to 6000 A\n");
+    fprintf(fp,"# SNR_REST_U = SNR quadrature sum over rest-frame wave range "
+	    "3000 to 4000 A\n");
+    fprintf(fp,"# SNR_REST_V = SNR quadrature sum over rest-frame wave range "
+	    "5000 to 6000 A\n");    
     fprintf(fp,"# Synthetic [band]_mag_syn and [band]_magerr_syn "
 	    "are stored for bands:\n#    %s \n", BAND_STRING);
 
@@ -14871,12 +14887,13 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       ROWNUM++ ;
       IDSPEC = i+1;
       sprintf(line,"ROW:  %5d %6d %2d %8s  %.3f %9.3f %6.1f %5.0f "
-	      "%3d %d %.2f  " , 
+	      "%3d %d %.2f %.2f " , 
 	      ROWNUM, SNDATA.CID, SNDATA.SIM_GENTYPE,
 	      GENLC.FIELDNAME[1], GENLC.REDSHIFT_HELIO, 
 	      GENSPEC.MJD_LIST[i], GENSPEC.TOBS_LIST[i],
 	      GENSPEC.TEXPOSE_LIST[i],
-	      IDSPEC, GENSPEC.IS_HOST[i], GENSPEC.SNR_REST_V[i] );
+	      IDSPEC, GENSPEC.IS_HOST[i],
+	      GENSPEC.SNR_REST_U[i], GENSPEC.SNR_REST_V[i] );
 
       // load up synthetic mags & magerr into line_synmag string
       line_synmag[0] = 0;
@@ -15951,10 +15968,15 @@ void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void) {
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SPEC_SNRSUM_REST_U") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENSPEC.SNRSUM_REST_U ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"SPEC_SNRSUM_REST_V") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENSPEC.SNRSUM_REST_V ;
   NVAR_SIMGEN_DUMP++ ;
-
+  
   // Dec 2024: skip stuff below that is too detailed.
   return ;
   

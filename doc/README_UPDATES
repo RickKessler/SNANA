@@ -22788,8 +22788,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       
 
    snlc_sim.c[h]:
-     + add NSPEC and SPEC_SNRSUM_REST_V to list of SIMGEN_DUMP variables
-       Also add SNR_REST_V to DUMP.SPEC file.
+     + add NSPEC and  SPEC_SNRSUM_REST_[U,V] to list of SIMGEN_DUMP variables
+       Also add SNR_REST_[U,V] to DUMP.SPEC file.
 
    snana.car
      + write NEVT for each MASK_REDSHIFT_SOURCE in outout YAML

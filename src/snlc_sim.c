@@ -10850,8 +10850,10 @@ double GENSPEC_SNR(double *LAMRANGE,  double *FLAM_LIST, double *FLAMERR_LIST) {
   // Compute SNR over obs-frame LAMRANGE.
   // Initial use is to compute V-band SNR from 5000-6000 A rest-frame;
   // make sure to pass LAMRAGE = 5000*(1+z) to 6000*(1+z).
+  //
+  // Follow Eq. 1 in https://arxiv.org/pdf/2206.10632
   
-  double  SNR = 0.0 ;
+  double  SNR = 0.0, SQSNR = 0.0 ;
   int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
   int     ilam ;
@@ -10868,20 +10870,19 @@ double GENSPEC_SNR(double *LAMRANGE,  double *FLAM_LIST, double *FLAMERR_LIST) {
     if ( LAMOBS > LAMRANGE[1] ) { continue; }
     
     flam = interp_1DFUN(OPT_INTERP, LAMOBS, 
-			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );   
-
-    flux_sum    += ( flam * LAMOBS );
+			NLAMSPEC, LAMAVG_LIST, FLAM_LIST, fnam );     
     
-
     flamerr = interp_1DFUN(OPT_INTERP, LAMOBS, 
 			   NLAMSPEC, LAMAVG_LIST, FLAMERR_LIST, fnam );
-    varflux_sum += ( flamerr*flamerr * LAMOBS * LAMOBS );
+
+    if ( flamerr > 0.0 ) {
+      SNR   = flam/flamerr;
+      SQSNR = SQSNR + SNR*SNR;
+    }
     
   } // end ilam
 
-  if ( varflux_sum > 0.0 ) {
-    SNR = flux_sum / sqrt(varflux_sum) ;
-  }
+  SNR = sqrt(SQSNR);    
   
   return SNR ;
 

@@ -22786,7 +22786,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    creat_covariance.py
       + write SIZE_COVMAT to output YAML file (used by submit_batch_jobs)
       
-	
+
+   snlc_sim.c[h]:
+     + add NSPEC and SPEC_SNRSUM_REST_V to list of SIMGEN_DUMP variables
+       Also add SNR_REST_V to DUMP.SPEC file.
+
    snana.car
      + write NEVT for each MASK_REDSHIFT_SOURCE in outout YAML
        file; intended to help extract science output from pippin.

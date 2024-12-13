@@ -22806,6 +22806,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        is missing from one of the merged ROOT files.
        See https://github.com/RickKessler/SNANA/issues/1452
 
+     + new OPT_REFORMAT_SPECTR=4 option to write spectra in keyed format
+       so that plot_table.py can make spectra plots.
+       
    snlc_fit.car
       + check CRAZYFITERR even if OPT_SNID_LIST > 0
 

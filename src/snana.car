@@ -7633,7 +7633,6 @@ c local var
       CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       LOGICAL LSNIGNORE, DO_STOP, FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
       LOGICAL FOUND_MATCH, LDMP
-c xxx mark      LOGICAL HAS_EQUAL, VALID_ARGLIST, LDMP
 
 c functions
       LOGICAL MATCH_NMLKEY, FOUND_MATCH_NMLKEY
@@ -8571,7 +8570,6 @@ c   _REFAC  is for "KEY=VAL" (single string)
         endif
 +SELF.
 
-c xxx mark delete Aug 14 2024  IF(FOUND_MATCH_LEGACY.or.FOUND_MATCH_REFAC) THEN
          FOUND_MATCH = FOUND_MATCH_NMLKEY(iArg,ilast,ARG,ARGLIST(1))
          IF ( FOUND_MATCH ) THEN
            DO iuse = ilast, iArg
@@ -10077,20 +10075,6 @@ c much slower. So use this only when a serious fit problem is found.
 
       endif
 
-+SELF,IF=DELETE.
-c xxx mark delete Nov 7 2024 xxxxxxxx
-c check for 1st-iteration cuts, 
-c such as from filter dropouts  in photoZ fit.
-      if ( .NOT. LAST_ITER .and.  ERRFLAG .GT. 0) then  
-         if ( STDOUT_UPDATE ) write(6,441) SNLC_CCID
- 441     format(T4,'MNFIT_DRIVER: ', 
-     &        'CUTS AFTER 1st FIT-ITER REJECT CID ', A8,' => SKIP')
-         CALL MON_SNANA(IFLAG_ANA) ! update tables for failed fit
-         RETURN
-      endif
-c xxxxxxxxxxxxxxxxxx
-+SELF.
-
 c check option to redo fit-iteration 
       if ( ERRFLAG .EQ. -1 ) then
          ITER         = ITER - 1 
@@ -10340,11 +10324,13 @@ c OPT_REFORMAT_SPECTRA bits:
 c  lsb  mask 
 c   0    1      3-column text format: lam, Flam, Flam_err
 c   1    2      3-column text format: lam, Flux, Flux_err 
+c   2    4      SNANA keyed format for plot_table ; include SIM_FLAM for sims
 c
 c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 c
 c       HISTORY
 c July 2023: check OPT_REFORMAT_SPECTRA
+c Dec  2024: new OPT_REFORMAT_SPECTRA = 4 for SNANA keyed format
 c
 c -------------------------
       IMPLICIT NONE
@@ -11156,9 +11142,9 @@ c
 +CDE,SPECCOM.
   
       INTEGER LENV, LENC, ispec, NLAMBIN, ilam
-      REAL*8  MJD, LAM, LAMBIN, F, FERR
+      REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, z
       CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80
-      LOGICAL WR_FLAM, WR_FLUX
+      LOGICAL WR_FLAM, WR_FLUX, WR_KEY
 C ------------- BEGIN -----------
 
       LENV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
@@ -11166,12 +11152,16 @@ C ------------- BEGIN -----------
 
       WR_FLAM = BTEST(OPT_REFORMAT_SPECTRA,0)
       WR_FLUX = BTEST(OPT_REFORMAT_SPECTRA,1)
+      WR_KEY  = BTEST(OPT_REFORMAT_SPECTRA,2)      
 
+      z       = SNLC_REDSHIFT
+      
       DO 400 ispec = 1, NSPECTRUM
 
          CALL RDSPEC_DRIVER(ispec)  ! load LAM and FLAM arrays
 
          MJD     = MJD_SPECTRUM(ispec)
+	 TOBS    = TOBS_SPECTRUM(ispec)
          NLAMBIN = NLAMBIN_SPECTRUM(ispec)
 
          if ( MJD > 0.0 ) THEN
@@ -11189,26 +11179,38 @@ C ------------- BEGIN -----------
 c write comments
 
          MSG = 'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:LENV)
-	 write(LUNTMP,300) MSG
+	 write(LUNTMP,350) MSG
 
-         write(MSG,301) MJD
-301      format('MJD:      ', F9.3)
-	 write(LUNTMP,300) MSG
+         write(MSG,301) 'MJD:      ', MJD
+	 write(LUNTMP,350) MSG
 
-         write(MSG,302) NLAMBIN
-302      format('NLAMBIN: ', I5)
-	 write(LUNTMP,300) MSG
+         write(MSG,301) 'TOBS:     ', TOBS
+	 write(LUNTMP,350) MSG
 
-         write(LUNTMP,300) ' ' 
+         write(MSG,301) 'REDSHIFT: ', z
+	 write(LUNTMP,350) MSG
+	 
+301      format(A, 3x, F9.3)
 
-         if ( WR_FLAM ) then 
-              MSG = 'WAVE FLAM FLAMERR'
-         else 
-              MSG = 'WAVE FLUX FLUXERR'
+         write(MSG,302) 'NLAMBIN:  ', NLAMBIN
+302      format(A, 3x, I5)
+	 write(LUNTMP,350) MSG
+
+         write(LUNTMP,350) ' ' 
+
+         if ( WR_FLAM ) then
+     	      write(MSG,350) 'WAVE FLAM FLAMERR'
+         else if ( WR_FLUX ) then
+              write(MSG,350)	'WAVE FLUX FLUXERR'
+	 else if ( WR_KEY ) then
+              write(MSG,351)	'ROW WAVE FLAM FLAMERR' 
+	      if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
          endif
+         write(LUNTMP,360) MSG(1:50)
 
-	 write(LUNTMP,300) MSG
-300      format('# ', A)
+350      format('# ', A)
+351      format('VARNAMES: ', A)
+360      format(A)
 
 c write spectrum
          DO 401 ilam = 1, NLAMBIN
@@ -11220,8 +11222,23 @@ c write spectrum
               F    = F * LAMBIN
               FERR = FERR * LAMBIN
            endif
-           WRITE(LUNTMP,440) LAM, F, FERR
-440        format(F8.2, 3x, 2E14.5 )
+
+           if ( WR_FLAM .or. WR_FLUX ) THEN
+              WRITE(MSG,440) '', LAM, F, FERR
+440           format(A,F8.2, 3x, 2E14.5 )  ! .xyz	      
+           else if ( WR_KEY ) THEN
+	   ! write SNANA keyed format for plot_table.py
+	      if ( LSIM_SNANA) then
+	        FSIM = SIM_FLAM_SPECTRUM(ilam)
+                WRITE(MSG,443) 'ROW: ', ilam, LAM, F, FERR, FSIM
+443             format(A,I5, 2x, F8.2, 3x, 3E14.5 ) 
+              else
+                WRITE(MSG,442) 'ROW: ', ilam, LAM, F, FERR
+442             format(A, I5, 2x, F8.2, 3x, 2E14.5 ) 		
+	      endif
+           endif
+	   
+	   write(LUNTMP,360) MSG
 
 401      CONTINUE         
          
@@ -24809,17 +24826,6 @@ c Sep 24 2024: update to allow writing MAGOBS for both host matches.
      &      ITEXT_LOCAL, LENBLOCK, LENLIST)
       ENDIF
 
-+SELF,IF=DELXXX.
-c xxxxxxxxx mark delete Sep 23 2024 xxxxxxxx
-      IF ( EXIST_SNHOST_MAGOBS .and. IGAL == 1 ) THEN    ! host mags      
-        CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
-     &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
-     &      VARLIST(1:LENLIST)//char(0), ITEXT, LENBLOCK, LENLIST)
-      ENDIF
-c xxxxxxxxxxxxxxx
-+SELF.
-
       RETURN
       END    ! INIT_TABLE_HOSTVAR
 
@@ -25199,7 +25205,6 @@ C ---------------- BEGIN ---------------
      &                VARLIST, 0,     LENBLOCK, LENLIST)  
       ENDIF
 
-      ! xxx mark delete  VARLIST = 'SIM_TYPE_INDEX:I' //char(0)
       VARLIST = 'SIM_GENTYPE:I' //char(0) 
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
      &                   LENBLOCK, LENLIST)
@@ -26771,7 +26776,7 @@ c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
       IF (LEXIST_SN) THEN
 cc      print*, ' Interpolate SN file', NLAM_STORE
         DO 70 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 
 
             LAM = FLAM_STORE(ilam)
             FTRANSSN_STORE(ilam) = 0.0 
@@ -26782,7 +26787,7 @@ cc      print*, ' Interpolate SN file', NLAM_STORE
             Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
      &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
 
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) 
             FTRANSSN_STORE(ilam) = Trans_upd
 
 70      CONTINUE  ! ILAM loop over original lambda binning

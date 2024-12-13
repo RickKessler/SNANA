@@ -3582,7 +3582,8 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   bool EXTRAP_METHOD_MAG     = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_MAG );
   bool EXTRAP_METHOD_SEDFLUX = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_SEDFLUX );
   bool EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
-
+  bool VALID_ZP;
+  
   double Tobs_SED = Tobs; // Tobs to fetch SED
 
   double Trest, Finteg, Finteg_errPar, MWXT_FRAC ;
@@ -3632,13 +3633,14 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP    = (LAM/hc8) * GENFLUX * MWXT_FRAC;
-
+    
     /*xxxx
     printf(" xxx %s: ilam=%d LAM=%.1f ZP=%.3f  GENFLUX=%le\n",
 	   fnam, ilam, LAM, ZP, GENFLUX); fflush(stdout);
     */
 
-    DEFINED = ( ZP > 0.0 && FTMP > 0.0 ) ;
+    VALID_ZP = ( ZP > ZPMIN_SPECTROGRAPH && ZP < ZPMAX_SPECTROGRAPH );
+    DEFINED = ( VALID_ZP && FTMP > 0.0 ) ;
 
     if ( DEFINED && DO_EXTRAP_LOCAL ) {
       MAG_DAYMAX  = -2.5*log10(FTMP) + ZP; 

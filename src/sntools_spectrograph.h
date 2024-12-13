@@ -12,6 +12,8 @@
 #define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
 #define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
+#define ZPMIN_SPECTROGRAPH  0.0 
+#define ZPMAX_SPECTROGRAPH 30.0
 
 /* xxx mark delete Oct 29 2024 xxxxx
 #define WRITE_MASK_SPEC_DEFAULT  2  // lammin lammax Flam FlamERR SIM_FLAM

@@ -3331,11 +3331,12 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // Nov 6 2023: store FILTER_SEDMODEL[IFILT].lam[ilam] 
   //     to fix bug where MWXT_FRA=1.0 for spectra
   //
-
+  // Dec 2024: print ZPMIN/MAX as diagnostic, along with number of invalid ZP
+  
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
-  int  ilam, DUMPFLAG_ZP ;
-  double L0, L1, LAVG;
+  int  ilam, DUMPFLAG_ZP, NZP_INVALID=0 ;
+  double L0, L1, LAVG, ZP, ZPMIN=1.0E8, ZPMAX=-1.0E8, LAM_at_ZPMIN, LAM_at_ZPMAX;
   char fnam[] = "INIT_SPECTROGRAPH_SEDMODEL" ;
 
   // ---------- BEGIN ----------
@@ -3361,13 +3362,18 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
 
     // get zero point needed to get source mag in each lambin
     DUMPFLAG_ZP = 0; // ( fabs(L0-4210.0) < 2.0 ) ;
-    SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
-      = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
+    ZP = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
 
-    FILTER_SEDMODEL[IFILT].lam[ilam] = LAVG; // Nov 2023  
+    SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] = ZP;
+    FILTER_SEDMODEL[IFILT].lam[ilam] = LAVG; // Nov 2023
+
+    // track min and max ZP, and how many invalid ZP there are
+    if ( ZP < ZPMIN ) { ZPMIN = ZP; LAM_at_ZPMIN = LAVG; }
+    if ( ZP > ZPMAX ) { ZPMAX = ZP; LAM_at_ZPMAX = LAVG; }
+    if ( ZP < ZPMIN_SPECTROGRAPH || ZP > ZPMAX_SPECTROGRAPH ) { NZP_INVALID++; }
   }
 
-
+  
   // store global min/max wavelength  
   L0 = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[0];
   L1 = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[NBLAM-1];
@@ -3385,10 +3391,16 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   char   *cfilt      = FILTER_SEDMODEL[IFILT].name ;
   sprintf(cfilt, "%s", "SPECTROGRAPH");
 
-  printf("\t %d wavelength bins, %.1f to %.1f A \n", NBLAM,
+  printf("\t Found %d wave bins, %.1f to %.1f A \n", NBLAM,
          SPECTROGRAPH_SEDMODEL.LAMMIN, SPECTROGRAPH_SEDMODEL.LAMMAX );
-  fflush(stdout);
 
+
+  printf("\t ZP_SPECTROGRAPH[min,max] = %.3f, %.3f  at wave = %.1f, %.1f\n",
+	 ZPMIN, ZPMAX, LAM_at_ZPMIN, LAM_at_ZPMAX);
+  printf("\t NZP_INVALID = %d of %d wave bins (valid ZP_SPECTROGRAPH range is %.0f to %.0f)\n",
+	 NZP_INVALID, NBLAM, ZPMIN_SPECTROGRAPH, ZPMAX_SPECTROGRAPH) ;
+  fflush(stdout);
+  
   // --------------------------------------------
   // sort primary mags vs. increasing wavelength, to interpolate
   // primary mag at arbitrary wavelength.

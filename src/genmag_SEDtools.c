@@ -3331,7 +3331,9 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // Nov 6 2023: store FILTER_SEDMODEL[IFILT].lam[ilam] 
   //     to fix bug where MWXT_FRA=1.0 for spectra
   //
-  // Dec 2024: print ZPMIN/MAX as diagnostic, along with number of invalid ZP
+  // Dec 2024:
+  //  + print ZPMIN/MAX as diagnostic, along with number of invalid ZP
+  //  + abort on too many invalid ZP
   
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
@@ -3400,6 +3402,16 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   printf("\t NZP_INVALID = %d of %d wave bins (valid ZP_SPECTROGRAPH range is %.0f to %.0f)\n",
 	 NZP_INVALID, NBLAM, ZPMIN_SPECTROGRAPH, ZPMAX_SPECTROGRAPH) ;
   fflush(stdout);
+
+  // Dec 13 2024: check alarm on invalid ZP
+  double frac_invalid = (double)NZP_INVALID / (double)NBLAM ;
+  double FRAC_ZP_INVALID_ABORT = 0.02 ;
+  if ( frac_invalid > FRAC_ZP_INVALID_ABORT ) {   
+    sprintf(c1err,"Invalid ZP_SPECTROGRAPH frac = %.3f; exceeds FRAC_ZP_INVALID_ABORT=%.3f",
+	    frac_invalid, FRAC_ZP_INVALID_ABORT);
+    sprintf(c2err,"Check MAGREF_LIST in spectrograph table");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+  }
   
   // --------------------------------------------
   // sort primary mags vs. increasing wavelength, to interpolate

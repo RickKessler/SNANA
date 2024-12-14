@@ -9740,7 +9740,7 @@ c in the data or sim.
 
       INTEGER NEVT, NEVT2, MASK, MASK2, NEVT_or
       INTEGER N_MASK_LOCAL(0:MXMASK_zSOURCE)
-      CHARACTER KEY*20
+      CHARACTER KEY*28
       
 c ----------  BEGIN ------------
 
@@ -9760,7 +9760,7 @@ c ----------  BEGIN ------------
       write(LUN,28) KEY // '   # redshift sources for ' // WHICH
       write(LUN,38) '   += 1 -> zSPEC_HOST'
       write(LUN,38) '   += 2 -> zSPEC_SN'
-      write(LUN,38) '   += 4 -> zPHOT_HOST(mean,stdev)'
+      write(LUN,38) '   += 4 -> zPHOT_HOST(mean+stdev or quantiles)'
       write(LUN,38) '   += 8 -> zPHOT_HOST(quantiles)'
       write(LUN,38)
      &   '    MASK:     NEVT(MASK=val)    NEVT(MASK&val)'

@@ -2542,7 +2542,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP  = (LAMOBS/(hc8*z1)) * FLUX_TMP;
-    if ( ZP > 0.0 && FTMP > 0.0 ) 
+    if ( ZP > ZPMIN_SPECTROGRAPH && FTMP > 0.0 ) 
       { MAG = -2.5*log10(FTMP) + ZP; }
     else
       { MAG = MAG_UNDEFINED; }

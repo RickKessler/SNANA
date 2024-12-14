@@ -100,6 +100,7 @@ c
      &  ,MASK_FLUXCOR_SNANA, MASK_FLUXERRCOR_SNANA
      &  ,EXIT_ERRCODE_SNANA, EXIT_ERRCODE_SNFIT, EXIT_ERRCODE_PSNID
      &  ,ERRFLAG_MNFIT_INITPAR, ERRFLAG_MNFIT_FIXPAR, ERRFLAG_MNFIT_NAN
+     &  ,MXMASK_zSOURCE
      
       REAL*8 
      &   ZERO8, ONE8, TEN8,  PI, LOGTEN
@@ -321,6 +322,7 @@ c
      &  ,ERRFLAG_MNFIT_INITPAR = 91
      &  ,ERRFLAG_MNFIT_FIXPAR  = 92
      &  ,ERRFLAG_MNFIT_NAN     = 93
+     &  ,MXMASK_zSOURCE        = 128  ! max mask value for MASK_zSOURCE
      &      )
 
 c physical constants
@@ -484,7 +486,8 @@ c global survey info
      &  ,N_SNLC_COVFIX         ! Number of SN with fixed COV to be invertible
      &  ,N_SNHOST_ZSPEC        ! for YAML out file
      &  ,N_SNHOST_ZPHOT        ! idem
-     &  ,N_MASK_REDSHIFT_SOURCE(0:128)  ! Nevt per bit mask 
+     &  ,N_MASK_zSOURCE_LC_CUTS(0:MXMASK_zSOURCE)     ! Nevt per bit mask (after SNANA/LC cuts)
+     &  ,N_MASK_zSOURCE_LCFIT_CUTS(0:MXMASK_zSOURCE)  ! Nevt per bit mask (after LCFIT & cuts)
      &  ,N_DUPLICATE_CID       ! Number of duplicate CIDs 
      &  ,N_DUPLICATE_MJD       ! Number of duplicate MJD+BAND (Jun 2017)
      &  ,NSTORE_DUPLICATE_MJD  ! Number stored
@@ -531,7 +534,8 @@ c global survey info
      &    ,ISTAGE_SNANA
      &    ,N_VERSION, N_SNLC_READ, N_SNLC_PROC, N_SNLC_CUTS, N_SNLC_SPEC
      &    ,N_SNLC_FIT, N_SNLC_FITCUTS, N_SNLC_COVFIX
-     &    ,N_SNHOST_ZSPEC, N_SNHOST_ZPHOT, N_MASK_REDSHIFT_SOURCE
+     &    ,N_SNHOST_ZSPEC, N_SNHOST_ZPHOT
+     &    ,N_MASK_zSOURCE_LC_CUTS, N_MASK_zSOURCE_LCFIT_CUTS
      &    ,N_SNFILE, N_SNFILE_LAST, N_DUPLICATE_CID
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
@@ -9690,7 +9694,8 @@ c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
 
 c write NEVT per redshift source
-      CALL PRINT_JOBSPLIT_zSRC(LUNDAT)
+      CALL PRINT_JOBSPLIT_zSRC(LUNDAT, "LC_CUTS")
+      CALL PRINT_JOBSPLIT_zSRC(LUNDAT, "LCFIT_CUTS")      
 
       write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
 19    format(A, A)
@@ -9717,7 +9722,7 @@ c check options for ABORT_IF_ZERO (AIZ)
 
 C ==================================
 +DECK,PRINT_JOBSPLIT_zSRC.
-      SUBROUTINE PRINT_JOBSPLIT_zSRC(LUN)
+      SUBROUTINE PRINT_JOBSPLIT_zSRC(LUN, WHICH)
 
 c Created Nov 26 2024
 c write NEVT per redshift source to YAML file;
@@ -9726,6 +9731,7 @@ c in the data or sim.
 
       IMPLICIT NONE
       INTEGER LUN  ! (I)
+      CHARACTER WHICH*(*)  ! LC_CUTS or LCFIT_CUTS
       
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -9733,22 +9739,36 @@ c in the data or sim.
 +CDE,FILTCOM.
 
       INTEGER NEVT, NEVT2, MASK, MASK2, NEVT_or
-
+      INTEGER N_MASK_LOCAL(0:MXMASK_zSOURCE)
+      CHARACTER KEY*20
+      
 c ----------  BEGIN ------------
 
+      IF ( WHICH(1:7) .EQ. 'LC_CUTS' ) THEN
+         KEY = 'MASK_zSOURCE_LC_CUTS:'
+	 DO mask = 0, MXMASK_zSOURCE
+	     N_MASK_LOCAL(mask) = N_MASK_zSOURCE_LC_CUTS(mask)
+	 ENDDO
+      ELSE
+         KEY = 'MASK_zSOURCE_LCFIT_CUTS:'
+	 DO mask = 0, MXMASK_zSOURCE
+	     N_MASK_LOCAL(mask) = N_MASK_zSOURCE_LCFIT_CUTS(mask)
+	 ENDDO	 
+      ENDIF
+      
       write(LUN,28) ' '
-      write(LUN,28) 'MASK_REDSHIFT_SOURCE:'	
+      write(LUN,28) KEY // '   # redshift sources for ' // WHICH
       write(LUN,38) '   += 1 -> zSPEC_HOST'
       write(LUN,38) '   += 2 -> zSPEC_SN'
       write(LUN,38) '   += 4 -> zPHOT_HOST(mean,stdev)'
       write(LUN,38) '   += 8 -> zPHOT_HOST(quantiles)'
       write(LUN,38)
      &   '    MASK:     NEVT(MASK=val)    NEVT(MASK&val)'
-      DO 200 MASK = 0, 128
-         NEVT    = N_MASK_REDSHIFT_SOURCE(MASK)
+      DO 200 MASK = 0, MXMASK_zSOURCE
+         NEVT    = N_MASK_LOCAL(MASK)
          NEVT_or = 0
-         DO 202 MASK2 = 0, 128
-	    NEVT2 = N_MASK_REDSHIFT_SOURCE(MASK2)
+         DO 202 MASK2 = 0, MXMASK_zSOURCE
+	    NEVT2 = N_MASK_LOCAL(MASK2)
 	    if ( NEVT2 == 0 ) GOTO 202
 	    if ( IAND(MASK,MASK2) == MASK ) then
 	        NEVT_or = NEVT_or + NEVT2
@@ -10062,6 +10082,10 @@ C ------------ BEGIN ----------
             CUTFLAG_SNANA  = IBSET(CUTFLAG_SNANA,1) ! for SNANA ntuple
             NPASSCUT_FIT(ISNLC_TYPE) = NPASSCUT_FIT(ISNLC_TYPE)+1
             NPASSCUT_FIT(-1)         = NPASSCUT_FIT(-1)+1 ! all types
+	    
+            N_MASK_zSOURCE_LCFIT_CUTS(ISNLC_zSOURCE) =
+     &      N_MASK_zSOURCE_LCFIT_CUTS(ISNLC_zSOURCE) + 1  ! Dec 2024
+     
          endif
 
 c check option to redo entire fit with MINUIT's MINOS option;
@@ -11966,8 +11990,9 @@ c - - - - -
       N_DUPLICATE_MJD = 0
       NSTORE_DUPLICATE_MJD = 0
 
-      do i = 1, 128
-        N_MASK_REDSHIFT_SOURCE(i) = 0
+      do i = 0, MXMASK_zSOURCE
+        N_MASK_zSOURCE_LC_CUTS(i)    = 0
+        N_MASK_zSOURCE_LCFIT_CUTS(i) = 0	
       enddo
       
       ABSO_OFFSET = 0
@@ -19891,7 +19916,6 @@ c -------------------------------------------
       IF ( OPT_FLAG == 1 ) THEN
        
 +SELF,IF=SNANA.
-
         if ( NFILTDEF_TMP == 0 ) then
            C1ERR = 'NFILTDEF_OBS=0 --> no defined obs-frame filters'
            C2ERR = 'Check &SNLCINP input KCOR_FILE'
@@ -22029,8 +22053,10 @@ c set SN cut-logical
 	 
          if(SNHOST_ZSPEC(1) > 0.) N_SNHOST_ZSPEC = N_SNHOST_ZSPEC+1
          if(SNHOST_ZPHOT(1) > 0.) N_SNHOST_ZPHOT = N_SNHOST_ZPHOT+1
-	 N_MASK_REDSHIFT_SOURCE(ISNLC_zSOURCE) =
-     &   N_MASK_REDSHIFT_SOURCE(ISNLC_zSOURCE) + 1
+
+	 N_MASK_zSOURCE_LC_CUTS(ISNLC_zSOURCE) =
+     &   N_MASK_zSOURCE_LC_CUTS(ISNLC_zSOURCE) + 1
+
       ENDIF
 
 c Jan 3, 2013

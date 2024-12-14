@@ -3688,7 +3688,7 @@ void genSpec_SEDMODEL(int ised,
 
 
     MAG  = MAG_UNDEFINED ;
-    if ( ZP > 0.0 && FLUXGEN_forMAG > 1.0E-50 ) 
+    if ( ZP > ZPMIN_SPECTROGRAPH && FLUXGEN_forMAG > 1.0E-50 ) 
       { MAG = ZP - 2.5*log10(FLUXGEN_forMAG) ; }
 
 

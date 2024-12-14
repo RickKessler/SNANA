@@ -1224,7 +1224,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
     LAM  = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP   = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP = ( LAM/ hc8 ) * GENFLUX_LIST[ilam] ;
-    if ( ZP > 0.0 && FTMP > 0.0 )   {
+    if ( ZP > ZPMIN_SPECTROGRAPH && FTMP > 0.0 )   {
       MAG = -2.5*log10(FTMP) + ZP ;
     }
     else  {

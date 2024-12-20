@@ -579,7 +579,7 @@ c namelist input variables.
 
       CHARACTER 
      &    FITMODEL_NAME*(MXCHAR_FILENAME)    ! I: path/model
-     &   ,FITCOVAR_FILE*(MXCHAR_FILENAME)    ! I: '' => default, 'SIM' => from sim
+     &   ,FITCOVAR_FILE*(MXCHAR_FILENAME)    ! I: '' => default, 'SIM' => from sim (for MLCS2k2)
      &   ,SIMEFF_FILE*(MXCHAR_FILENAME)      ! sim-eff file for PRIOR
      &   ,STRETCH_TEMPLATE_FILE*(MXCHAR_FILENAME)  ! template for stretch model
      &   ,SALT2_DICTFILE*(MXCHAR_FILENAME)    ! output for SALT2's HUBBLEFIT
@@ -718,7 +718,7 @@ c
      &  ,PRIOR_COLOR_SIGMA     ! I: sigma for guassian roll-off on FLAT prior
      &  ,PRIOR_LUMIPAR_RANGE(2)  ! I: idem, legacy variable
      &  ,PRIOR_LUMIPAR_SIGMA     ! I: idem, legacy variable
-     &  ,PRIOR_DELTA_PROFILE(4)  ! I: DELTA-prior pars: sig(low,up) & min
+     &  ,PRIOR_DELTA_PROFILE(4)  ! I: DELTA-prior pars: sig(low,up) & min (for MLCS2k2)
 c
      &  ,FUDGE_COVAR      ! I: fudge normalized covariances (0=> no fudge)
      &  ,SCALE_COVAR      ! I: scale entire covariance matrix by this factor
@@ -3630,7 +3630,7 @@ c set cut logical only on first iteration
             print*,' xxx    ITER, LREPEAT_ITER=', ITER, LREPEAT_ITER
             print*,' xxx    PHOTODZ_REJECT, PHOTODZ1Z_REJECT=',
      &             PHOTODZ_REJECT, PHOTODZ1Z_REJECT
-            CALL FLUSH(6)  ! .xyz
+            CALL FLUSH(6) 
           endif
 
 c 4/24/2011: check if a filter will be added
@@ -8733,6 +8733,8 @@ c local var
       LOGICAL  LDMP_Q, LPZ_AUTO_INISTP
       CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
+      REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
+
 c FCNSNLC args
 
       INTEGER IFLAG, q, IERR_ZPDF
@@ -8801,6 +8803,7 @@ c  seems to be the solution.
       ENDIF
 +SELF.
 
+
 c continue processing only on 1st fit iteration, 
       IF ( LREPEAT_ITER  ) RETURN
       IF ( ITER > 1      ) RETURN
@@ -8829,7 +8832,7 @@ c set initial value and step size.
         INIVAL(ipar) = SNLC_REDSHIFT
         STD          = SNLC_REDSHIFT_ERR
         LZDONE       = .TRUE.
-        CZTMP        = 'REDSHIFT_FINAL'
+        CZTMP   = 'REDSHIFT_FINAL'
 
 c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
@@ -8838,16 +8841,15 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
            PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
         endif
 
-        goto 777        ! Jan 2021
+        if ( DEBUG_FLAG .NE. 1219 ) goto 777     ! .xyz
 
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
-
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = zhost
            STD          = zhost_err
            LZDONE       = .TRUE.
-           CZTMP        = 'Zhost'
+           CZTMP   = 'Zhost'
         else
            CZTMP        = 'AVG[PHOTOZ_BOUND]'
            INIVAL(IPAR) = (PHOTOZ_BOUND(2) + PHOTOZ_BOUND(1))/2.0 
@@ -8906,6 +8908,26 @@ c check cheat option (4/30/2012)
         INIVAL(ipar) = SNLC_REDSHIFT
         STD          = 0.001
         LZDONE       = .TRUE.
+      ENDIF
+
+c - - - - - - - -
+c Dec 2024
+      IF ( DOFIT_PHOTOZ_HOST .and. DEBUG_FLAG == 1219 ) THEN
+
+c    if prior STD/z is below threshold, fix zPHOT in initial parameter estimate (LZDONE=T);
+c    otherwise search for initial zPHOT along with other SALT3 params
+         MXRATIO_INIVAL_ZPHOT = 0.2 ! Dec 2024 rough guess
+         LZDONE  =  ( (STD/INIVAL(ipar)) < MXRATIO_INIVAL_ZPHOT )
+
++SELF,IF=DELETE.
+         print*,' xxx z, std, mask = ', 
+     &        sngl(INIVAL(ipar)), sngl(std), mask
+         print*,' xxx DOFIT_PHOTOZ_HOST, LZDONE = ' , 
+     &        DOFIT_PHOTOZ_HOST, LZDONE
+         print*,' xxx zhost = ', zhost, ' +_ ', zhost_err
+         call flush(6)
++SELF.
+
       ENDIF
 
 c -------------------------------------------------
@@ -8969,7 +8991,7 @@ c set INISTP for photoz
         if ( LPZ_AUTO_INISTP .and. STD > 0.0 ) then
            STP = PRIOR_ZERRSCALE * STD/3.0  ! step size
            if ( STP > 0.05   ) STP = 0.05
-           if ( STP < 1.0E-4 ) STP = 1.0E-4 ! ??? .xyz test this
+           if ( STP < 1.0E-4 ) STP = 1.0E-4
            INISTP(IPAR) = STP
            write(BANNER,551) STP
         else
@@ -12155,8 +12177,6 @@ c define variables for polynomial interpolation
       REAL*8   INTERP_1DFUN
       EXTERNAL INTERP_1DFUN
 
-      REAL*8 CHI2_PRIOR_LEGACY
-
 C -------------- BEGIN --------------
 
       CHI2_PRIOR = 0.0  ! init
@@ -12193,244 +12213,6 @@ c check trivial case of flat-prior region
       RETURN
       END  ! end CHI2_PRIOR
 
-
-C ==========================================
-+DECK,CHI2_PRIOR_LEGACY.
-      DOUBLE PRECISION FUNCTION CHI2_PRIOR_LEGACY(ipar, PARVAL)
-c
-c Return chi2 penality for prior.
-c IPAR is the fitpar index;
-c FITPAR is the value to look up the prior.
-c
-c Apr 3 2018: NPINT=5 only for OPT_PRIOR_AV (not for SALT2c)
-c             This fixes subtle numerical problem with new color-prior.
- 
-c ------------------------
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
-
-c function args.
-
-      INTEGER IPAR    ! (I) fitpar index
-      REAL*8  PARVAL  ! (I) fitpar value to compute chi2
-
-c local var
-
-      INTEGER NPMAX, NBEDGE_LININTERP
-      PARAMETER ( 
-     &    NPMAX = 5           ! max  Ngrid points for interpolation
-     &   ,NBEDGE_LININTERP =2 ! do lin-interp when this close to edge (bins)
-     &       )   
-
-      INTEGER 
-     &   NPINT, NPHALF, ibin(NPMAX)
-     &  ,ibcen, ibtmp, i
-
-      REAL*8  
-     &   dif, bin, parmin, parmax
-     &  ,XTMP, XLO, XHI, XBIN
-     &  ,dchi2_up, dchi2_dn
-     &  ,arg, prob  ! debug args
-
-      LOGICAL LTMP, LAV, LDMP
-
-c define variables for polynomial interpolation
-
-      REAL*8 XINT8(NPMAX), CHI2INT8(NPMAX), R8
-
-C -------------- BEGIN --------------
-
-      CHI2_PRIOR_LEGACY = 0.0  ! init
-
-      if ( .NOT. USE_PRIOR(ipar) ) RETURN
-
-c check trivial case of flat-prior region
-      if ( PARVAL .GE. FLATPRIOR_RANGE(1,ipar) .and.
-     &     PARVAL .LE. FLATPRIOR_RANGE(2,ipar) ) then
-         CHI2_PRIOR_LEGACY = 0.0
-
-cc         if ( IPAR .EQ. IPAR_SHAPE2 ) then ! xxxx
-cc              print*,' xxx chi2_prior=0 for ', sngl(PARVAL)
-cc         endif
-
-         RETURN
-      endif
-
-c get bin for lookup
-      bin   = PRIOR_binsize(ipar)
-
-      parmin  = PRIOR_RANGE(1,ipar) + NBEDGE_LININTERP * bin
-      parmax  = PRIOR_RANGE(2,ipar) - NBEDGE_LININTERP * bin
-
-c near the edge (defined by parmin & parmax),  
-c use linear interp to ensure that we get large chi2 when 
-c [MINUIT] parameter values are way out there.
-c With parabolic interp, the function can roll over at
-c very large par-values and give a small (incorrect) chi2.
-
-      IF ( PARVAL .LE. parmin ) then  ! linear interp near lo edge
-          NPINT    = 2 
-          ibcen    = NBEDGE_LININTERP
-      ELSE IF ( PARVAL .GE. parmax ) then  ! linear interp near hi edge
-          NPINT    = 2
-          ibcen    = NBIN_PRIOR - NBEDGE_LININTERP
-
-      ELSE      ! parabolic interp
-
-         dif   = PARVAL - PRIOR_RANGE(1,ipar)     
-         ibcen = int( (dif-bin + 1.0E-8 ) / bin ) + 1 ! central lookup bin
-
-c avoid edges where linear interp is done.
-         if ( ibcen .LE. NBEDGE_LININTERP ) then
-           ibcen = NBEDGE_LININTERP + 1
-         endif
-
-         if ( ibcen .GE. NBIN_PRIOR - NBEDGE_LININTERP ) then
-           ibcen = NBIN_PRIOR - NBEDGE_LININTERP - 1
-         endif
-
-c check if we are in FLAT-PRIOR region; if so, then move out so that
-c we don't have two interp bins in the flat-prior region.
-c Note that PARVAL must be outside FLAT-PRIOR region to get here,
-c so this is just a check of the central interp bin.
-
-         XTMP = PRIOR_VALGRID(ibcen,ipar)   
-
-         IBTMP = FLATPRIOR_BINRANGE(1,IPAR)
-         IF ( IBCEN .GE. IBTMP .and. IBCEN .LE. IBTMP+2 ) then
-           IBCEN = IBCEN - 1  ! move out of flat-prior region
-         ENDIF
-
-         IBTMP = FLATPRIOR_BINRANGE(2,IPAR)
-         IF ( IBCEN .LE. IBTMP .and. IBCEN .GE. IBTMP-2 ) then
-           IBCEN = IBCEN + 1  ! move out of flat-prior region
-         ENDIF
-
-         if ( ibcen .LE. 0 ) then
- 
-            print*,' '
-            print*,' ---------------------------------------- '
-            print*,' XXXX PARMIN, PARMAX = ', PARMIN, PARMAX
-            print*,' XXXX IBCEN    = ', IBCEN
-            print*,' XXXX PARVAL   = ', PARVAL
-
-            write(c1err,23) ibcen, DIF, PARNAME_STORE(ipar), parval
-23          format('IBCEN=',I4,' for DIF=',F8.3,' and ',A,'=',F10.3)
-
-            write(c2err,24) 
-     &          PRIOR_RANGE(1,ipar),PRIOR_RANGE(2,ipar) 
-     &         ,PRIOR_BINSIZE(ipar)
-24          format('PRIOR_RANGE,BINSIZE=', 3F10.3 )
-
-            CALL MADABORT ( "CHI2_PRIOR_LEGACY", c1err, c2err )            
-         endif
-
-c if upstream and downstream slopes are withing 5%, use 3 interp bins;
-c else use 5 interp bins near rapidly changing regions.
-
-         dchi2_up = PRIOR_CHI2GRID(ibcen,   ipar) 
-     &            - PRIOR_CHI2GRID(ibcen-1, ipar) 
-         dchi2_dn = PRIOR_CHI2GRID(ibcen+1, ipar) 
-     &            - PRIOR_CHI2GRID(ibcen,   ipar) 
-
-         if ( dchi2_dn .NE. 0.0)  then 
-            dif = dchi2_up/dchi2_dn
-         else
-            dif = 1.0
-         endif
-
-         LTMP = dif.GT.0.0 .and. abs(dif-1.0) .GT. 0.05
-         LAV  = (IPAR .EQ. IPAR_AV) .and. USE_PRIOR_AV
-         if ( LTMP .and. LAV) then
-            NPINT = NPMAX
-         else
-            NPINT = 3
-         endif
-       ENDIF
-
-c -----------------------------
-
-      NPHALF = (NPINT-1)/2
-
-c load table for POLINT ... note 4-byte reals
-
-      DO i = 1, NPMAX
-        if ( i .LE. NPINT ) then
-          ibin(i)     = ibcen - (NPHALF+1) + i
-          XTMP        = PRIOR_VALGRID(ibin(i),ipar)   ! fitpar grid
-          CHI2INT8(i) = PRIOR_CHI2GRID(ibin(i),ipar)  ! chi2 grid
-
-c if GRID point is in a flat-prior region, pull it to the
-c edge of the flat-prior region to avoid discontinuity
-c Note that the chi2 need not change since it is the same
-c in the flat-prior region.
-
-          XBIN = 5. * PRIOR_BINSIZE(ipar)
-
-          XLO  = FLATPRIOR_RANGE(1,ipar) 
-          LTMP = (XTMP .GT. XLO) .and. (XTMP .LT. XLO+XBIN)
-          IF ( LTMP ) XTMP = XLO
-
-          XHI  = FLATPRIOR_RANGE(2,ipar) 
-          LTMP = (XTMP .LT. XHI) .and. (XTMP .GT. XHI-XBIN)
-          IF ( LTMP ) XTMP = XHI
-
-          XINT8(i)    = XTMP
-        else
-          ibin(i)     = -9
-          XINT8(i)    = 0.0
-          CHI2INT8(i) = 0.0
-        endif
-      END DO
-
-c call CERNLIB routine to interpolate ...
-c R8 is returned.
-
-      CALL POLINT8 ( CHI2INT8, XINT8, NPINT, PARVAL, R8 )
-      CHI2_PRIOR_LEGACY = R8
-
-+SELF,IF=PRIORBUG.
-c xxxxxxxxxxxxxxxxxx
-      if ( IPAR .EQ. IPAR_AV .and. 
-     &     abs(abs(PARVAL) - 0.01) .LT. 1.0E-4 ) then
-
-         arg   = min(40.0,chi2_prior_legacy/2.0)
-         prob  = dexp(-arg)
-
-         print*,' -------------------------------------- '
-         write(6,666) PARVAL, chi2_prior_legacy,prob,NPINT,IBCEN
-666      format(T2,' xxx AV=',F7.4, 2x, 'CHI2=', G12.5, 2x, 
-     &       'PROB=',F12.5, 2x, 'NPINT,IBCEN=', I2,',', I5)
-
-         print*,'      xxx PARVAL(interp) = ', 
-     &          XINT8(1), XINT8(2), XINT8(3)
-         print*,'      xxx chi2(interp)   = ', 
-     &          CHI2INT8(1), CHI2INT8(2), CHI2INT8(3)
-      endif
-c xxxxxxxxxxxxxxxx
-+SELF.
-
-      LDMP = (IPAR .EQ. -IPAR_COLOR)
-      if ( LDMP ) then
-         print*,' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX '
-         print*,' XXX PARNAME      = ', PARNAME_STORE(ipar),'=',PARVAL
-         print*,' XXX IBCEN        = ', IBCEN
-         print*,' XXX IBIN(GRID)   = ', IBIN
-         print*,' XXX dchi2(up,dn) = ', SNGL(dchi2_up), SNGL(dchi2_dn)
-         print*,' XXX PAR(solve)   = ', SNGL(PARVAL),' NPINT=',NPINT
-         print*,' XXX PAR(GRID)    = ', (SNGL(XINT8(i)),i=1,NPMAX)
-         print*,' XXX CHI2(GRID)   = ', (SNGL(CHI2INT8(i)),i=1,NPMAX)
-         print*,' XXX CHI2(fun)    = ', SNGL(CHI2_PRIOR_LEGACY)
-         print*,' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX '
-      endif
-
-
-      RETURN
-      END  ! end PRIOR_CHI2_LEGACY
 
 C =================================
 +DECK,PRIOR_ZPULL.

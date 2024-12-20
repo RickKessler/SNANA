@@ -2391,13 +2391,19 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     if ylabel is not None:
         plt.ylabel(ylabel, fontsize=fsize_label)
 
-    
+    # adjust tick label sizes (Dec 15 2024)
+    fsize_ticklabel = 10*args.FONTSIZE_SCALE
+    plt.xticks(fontsize=fsize_ticklabel)  # numbers under x-axis tick marks
+    plt.yticks(fontsize=fsize_ticklabel)  # numbers left of y-axis tick marks
+
+        
     if args.LEGEND_SIDE:
         # push legend outside of box on right side
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
     else:
         # default; let matplotlib find best place for legend
-        plt.legend(loc=None, bbox_to_anchor=None)            
+        fsize_legend = 10 * args.FONTSIZE_SCALE
+        plt.legend(loc=None, bbox_to_anchor=None, fontsize = fsize_legend)
 
     len_title = len(args.TITLE)
     fsize_title   = 14 * args.FONTSIZE_SCALE

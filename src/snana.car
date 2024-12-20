@@ -3433,6 +3433,7 @@ c local var
 
       INTEGER   NSN_VERS, LEN_VERS, LEN_PATH, OPTRD
       INTEGER   IJOB, NJOBTOT, ISN, ISTAT
+      INTEGER*8 JTIME_EVENTSTART
       LOGICAL   LRDFLAG_GLOBAL, LRDFLAG_ALL, LRDFLAG_SPEC
       LOGICAL   REFORMAT_LOCAL, WR_SIMLIB_OUTFILE
       CHARACTER cVERSION*(MXCHAR_VERSION), cPATH*(MXCHAR_PATH)
@@ -3442,6 +3443,8 @@ c functions
       LOGICAL  LDONE_CIDLIST, IGNOREFILE_fortran
       INTEGER  RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
       EXTERNAL RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
+      EXTERNAL PRINT_CPUTIME
+      
 C --------------- BEGIN -----------
 
       FNAM = 'EXEC_READ_DATA'
@@ -3512,7 +3515,7 @@ c ------------------------------------------------------
 c LOOP OVER EVENTS
 
       DO 100 isn = IJOB, NSN_VERS, NJOBTOT ! every NJOBTOT'th SN
-
+	 
          IF ( N_SNLC_FITCUTS >= MXLC_FIT ) GOTO 100 
 
          CALL INIT_SNLC()
@@ -3533,8 +3536,6 @@ c transfer from C struct to global fortran variables
         CALL RDHEAD_DRIVER(istat) 
 
         if ( ISTAT < 0 ) GOTO 100    ! failed cut on header var/CID
- 
-
 
 c Read observations for event and load SNDATA C-struct.
 c Read optional SPECTRA and load GENSPEC C-struct.
@@ -3562,9 +3563,9 @@ c ---------------------------------------------------------------
          IF ( ISTAT .EQ. 0 ) THEN
             N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
             call PRINT_RDSN()      ! print one-line summary
-
             CALL SNANA_DRIVER(ISN,N_SNLC_PROC)
          ENDIF
+
 
 c stop reading if/when all CIDs are processed
         IF ( LDONE_CIDLIST() ) GOTO 500  
@@ -6287,6 +6288,7 @@ c default is to reject nothing (accept everything)
       SHIFT_SETPKMJD    =  0.0  ! for systematic test only
 
       DEBUG_FLAG          =  0
+c xxx mark      DEBUG_FLAG          =  1219  ! xxx REMOVE
       LDMP_SNFAIL         = .FALSE.
       LDMP_SNANA_VERSION  = .FALSE.
       LDMP_SATURATE       = .FALSE.
@@ -9806,6 +9808,7 @@ c Jun 21 2018:
 c   if ERRFLAG_FIT > 0 on any iteraton, REJECT fit immediately
 c   See REJECT_FIT logical.
 c
+c Dec 19 2024: print CPU time per event in stdout update
 c ----------------------
 
       IMPLICIT NONE
@@ -9825,6 +9828,7 @@ c ----------------------
 
       INTEGER IERR
       REAL*8  PS8
+      REAL t_start, t_end  ! Dec 2024
       LOGICAL REJECT_PRESCALE, USE_MINOS_LOCAL
       CHARACTER FNAM*14
 
@@ -9832,6 +9836,8 @@ c ----------------- BEGIN -------------
 
       FNAM = 'SNANA_DRIVER' 
 
+      if ( STDOUT_UPDATE ) CALL CPU_TIME(t_start)
+      
       if ( ISN_PROC > MXSNLC-1 ) THEN
         write(c1err,666) N_SNLC_PROC
 666     format('ISN_PROC=',I8,' exceeds MXSNLC array bound.')
@@ -10010,8 +10016,10 @@ c check ERRFLAG_FIT
 410     CONTINUE  ! end of iteration loop
 
         if ( STDOUT_UPDATE ) THEN
-          print*,'    Finished fitting CID = ',
-     &         SNLC_CCID(1:ISNLC_LENCCID)
+          CALL CPU_TIME(t_end)
+	  write(6,450) SNLC_CCID(1:ISNLC_LENCCID), t_end-t_start
+450       format(T5,'Finished fitting CID = ', A,
+     &           ' in ', F6.3,' seconds')
           CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Apr 4 2024
           call flush(6)
         endif

@@ -22814,5 +22814,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        
    snlc_fit.car
       + check CRAZYFITERR even if OPT_SNID_LIST > 0
-
+      + estimate initial params for photo-z fit when there is
+        zphot(host) prior; see https//github...
+      + stdout " Finished fitting CID = 1039" now includes
+        CPU time to fit this event.
+	
+	 
+     
 END: 

@@ -22818,7 +22818,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         zphot(host) prior; see https//github...
       + stdout " Finished fitting CID = 1039" now includes
         CPU time to fit this event.
-	
+      + DEBUG_FLAG = 1219 ->
+         * zphot init searches over z/1+z instead of z (fewer bins)
+	 * search initial salt3 params for zphot(host) instead of
+	    just setting z= zphot(host)
 	 
      
 END: 

@@ -66,7 +66,7 @@ CC   = gcc
 #  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-#EXTRA_FLAGS = -O2 # XXX RESTORE
+EXTRA_FLAGS = -O2  # xxx RESTORE
 #EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)

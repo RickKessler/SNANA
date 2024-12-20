@@ -523,7 +523,7 @@ c
 c  
      &  ,PHOTOZ_RANGE_KCOR(2)
      &  ,PHOTODZ_REJECT_ORIG  ! in case PHOTODZ_REJECT is altered for zSpec
-c 
+c  
 c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
 
       LOGICAL  
@@ -536,12 +536,14 @@ c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
       INTEGER MASK_PHOTOZ_SOURCE  ! set used OPT_PHOTOZ bits
 
       INTEGER IFILT_NEARDROP  ! used filt-index nearest to gettinng dropped
- 
+
+      CHARACTER PRIOR_COMMENT*20  ! text for stdout print
+      
       COMMON / PHOTOZCOM / MASK_PHOTOZ_SOURCE
      &  ,DOFIT_PHOTOZ_HOST, DOFIT_PHOTOZ_noHOST, DOFIT_PHOTOZ_CHEAT
      &  ,PHOTOZ_ERR_SNFIT, PHOTOZ_ERR_SNHOST, PHOTOZ_ERR_SNMAG 
      &  ,PHOTOZ_ERR_ZPULL
-     &  ,PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR  ! Feb 2022
+     &  ,PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR, PRIOR_COMMENT
      &  ,PHOTOZ_DROPFILTER_MIN, PHOTOZ_DROPFILTER_MAX
      &  ,PHOTOZ_DROPFILTER, PHOTOZ_ADDFILTER
      &  ,PHOTODZ_MIN, PHOTODZ1Z_MIN, IFILT_NEARDROP
@@ -8710,6 +8712,7 @@ c   + fix bug and use MASK_PHOTOZ_SOURCE instead of OPT_PHOTOZ
 c
 c Aug 06 2024: implement BIT_PHOTOZ_AUTO_INISTP bit in OPT_PHOTOZ
 c Nov 07 2024: fix bug setting PHOTODZ_REJECT for zSPEC
+c Dec 19 2024: print time to process this function
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -8730,6 +8733,7 @@ c local var
       INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
       REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
+      REAL   t_start, t_end
       LOGICAL  LDMP_Q, LPZ_AUTO_INISTP
       CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
@@ -8749,7 +8753,7 @@ c FCNSNLC args
 C --------------- BEGIN -----------------
 
       IERR = 0 
-
+      FNAM = 'FITINI_PHOTOZ'
       LPRINT = STDOUT_UPDATE
       IPRINT = 0 
       if (LPRINT) IPRINT = 1
@@ -8758,12 +8762,13 @@ C --------------- BEGIN -----------------
       IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
          c2err = 'not allowed with photo-z fits'
-         CALL MADABORT('FITINI_PHOTOZ', c1err, c2err)    
+         CALL MADABORT(FNAM, c1err, c2err)    
       ENDIF
 
       IF ( LFIXPAR_ALL  ) RETURN  
       IF ( LSIM_SNANA .and. USESIM_REDSHIFT ) RETURN
 
+      if ( STDOUT_UPDATE ) CALL CPU_TIME(t_start)
       PHOTOZ_ERR_SNFIT  = -9.0
       PHOTOZ_ERR_SNHOST = -9.0
       PHOTOZ_ERR_SNMAG  = -9.0
@@ -8809,8 +8814,8 @@ c continue processing only on 1st fit iteration,
       IF ( ITER > 1      ) RETURN
       
       IF ( LPRINT) THEN
-         write(BANNER,10) SNLC_CCID(1:ISNLC_LENCCID)
-10       format('FITINI_PHOTOZ for CID=',A )
+         write(BANNER,10) FNAM, SNLC_CCID(1:ISNLC_LENCCID)
+10       format(A, ' for CID=',A )
          CALL PRBANNER ( BANNER )
       endif
 
@@ -8819,6 +8824,11 @@ c --------------------------------------------
 
 c ----------------------------------------
 c set initial value and step size.
+
+      print*,' xxx FITINI_PHOTOZ: init PRIOR_PHOTOZ[_ERR] = -9 '
+      call flush(6)
+      PRIOR_PHOTOZ     =  -9.0
+      PRIOR_PHOTOZ_ERR =  -9.0
 
       Zhost     =  SNHOST_ZPHOT(1)
       Zhost_err =  SNHOST_ZPHOT_ERR(1)
@@ -8831,8 +8841,8 @@ c set initial value and step size.
       IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
         STD          = SNLC_REDSHIFT_ERR
-        LZDONE       = .TRUE.
-        CZTMP   = 'REDSHIFT_FINAL'
+c xxx mark        LZDONE       = .TRUE.
+        CZTMP        = 'zBEST-Gauss'
 
 c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
@@ -8841,18 +8851,19 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
            PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
         endif
 
-        if ( DEBUG_FLAG .NE. 1219 ) goto 777     ! .xyz
+        if ( DEBUG_FLAG .NE. 1219 ) goto 777    ! legacy jump
 
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = zhost
            STD          = zhost_err
-           LZDONE       = .TRUE.
-           CZTMP   = 'Zhost'
+c xxx mark           LZDONE       = .TRUE.
+           CZTMP        = 'HOST-Gauss'
         else
            CZTMP        = 'AVG[PHOTOZ_BOUND]'
            INIVAL(IPAR) = (PHOTOZ_BOUND(2) + PHOTOZ_BOUND(1))/2.0 
+           STD          = 9999.
            IF( SKIP_PHOTOZ_INIT ) GOTO 888
         endif
       
@@ -8866,7 +8877,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
             c2err = 'but there are no zPDF quantiles in the data.'
-            CALL MADABORT("FITINI_PHOTOZ", c1err, c2err)
+            CALL MADABORT(FNAM, c1err, c2err)
         endif
         do q = 1, SNHOST_NZPHOT_Q
             ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
@@ -8898,37 +8909,38 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
 
 c     initialize at Q50
           INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)  ! Fragile alert !!! 
-          LZDONE       = .TRUE.
-          CZTMP        = 'ZPHOT_Q50'
+c xxxx mark          LZDONE       = .TRUE.
+          CZTMP        = 'QUANTILES'
       ENDIF
 
 c check cheat option (4/30/2012)
       IF ( DOFIT_PHOTOZ_CHEAT ) THEN  ! cheat option
-        CZTMP        = 'Z(Cheat)'
         INIVAL(ipar) = SNLC_REDSHIFT
         STD          = 0.001
         LZDONE       = .TRUE.
+        CZTMP        = 'zCheat'
       ENDIF
+
+c - - - - - -
+c Dec 2024: load global zprior summary here instead of in PHOTOZ_STORE
+      PRIOR_PHOTOZ     =  INIVAL(ipar)
+      PRIOR_PHOTOZ_ERR =  max(0.001, STD * PRIOR_ZERRSCALE)
+      PRIOR_COMMENT    =  CZTMP
 
 c - - - - - - - -
 c Dec 2024
       IF ( DOFIT_PHOTOZ_HOST .and. DEBUG_FLAG == 1219 ) THEN
-
-c    if prior STD/z is below threshold, fix zPHOT in initial parameter estimate (LZDONE=T);
-c    otherwise search for initial zPHOT along with other SALT3 params
-         MXRATIO_INIVAL_ZPHOT = 0.2 ! Dec 2024 rough guess
+         MXRATIO_INIVAL_ZPHOT = 0.05 ! Dec 2024 rough guess
          LZDONE  =  ( (STD/INIVAL(ipar)) < MXRATIO_INIVAL_ZPHOT )
-
-+SELF,IF=DELETE.
-         print*,' xxx z, std, mask = ', 
-     &        sngl(INIVAL(ipar)), sngl(std), mask
-         print*,' xxx DOFIT_PHOTOZ_HOST, LZDONE = ' , 
-     &        DOFIT_PHOTOZ_HOST, LZDONE
-         print*,' xxx zhost = ', zhost, ' +_ ', zhost_err
-         call flush(6)
-+SELF.
-
       ENDIF
+
+c xxxxxxxx mark delete Dec 20 2024 xxxxxxx
+c      print*,' xxx FITINI_PHOTOZ: PRIOR_PHOTOZ     = ', PRIOR_PHOTOZ
+c      print*,' xxx FITINI_PHOTOZ: PRIOR_PHOTOZ_ERR = ', PRIOR_PHOTOZ_ERR
+c      print*,' xxx FITINI_PHOTOZ: PRIOR_COMMENT    = ', PRIOR_COMMENT
+c      print*,' xxx FITINI_PHOTOZ" LZDONE           = ', LZDONE
+c      call flush(6)
+c xxxxxxxx end mark xxxxxx
 
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
@@ -9012,6 +9024,14 @@ c - - - -
 888   CONTINUE
 
       REDSHIFT_FIT = INIVAL(IPAR_zPHOT) 
+
+      if ( STDOUT_UPDATE ) then
+         CALL CPU_TIME(t_end)
+         write(6,890) FNAM, SNLC_CCID(1:ISNLC_LENCCID), t_end-t_start
+890      format(T5,'Finished ', A,' for CID=',A,
+     &         '  in ', F6.3,' seconds.')
+         call flush(6)
+      endif
 
       RETURN
       END   ! end of FITINI_PHOTOZ
@@ -9099,6 +9119,7 @@ c local args
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
++CDE,SNLCINP.  ! for DEBUG_FLAG
 
       REAL*8 Z_SAVE, ZMIN, ZMAX, ZBIN, z
       REAL*8 S_SAVE, SMIN, SMAX, SBIN, s
@@ -9131,15 +9152,28 @@ C ------------- BEGIN ------------
 
 c loop over redshift, color, stretch to estimate INIVAL
       
+
       IF ( LZFIX ) THEN
+        ! delta function for precise zPrior
         ZMIN = Z_SAVE
         ZMAX = Z_SAVE       
+      ELSE IF ( DOFIT_PHOTOZ_HOST ) THEN
+        ! zprior that is not super precise  -> +_ 2 sigma window
+        if ( DEBUG_FLAG == 1219 ) then  ! refac
+          ! .xyz
+        else
+          ZMIN  = INIBND(1,IPAR_zPHOT)  ! legacy
+          ZMAX  = INIBND(2,IPAR_zPHOT)  ! legacy
+        endif
       ELSE
+        ! no zprior -> use entire z-range
         ZMIN  = INIBND(1,IPAR_zPHOT)
         ZMAX  = INIBND(2,IPAR_zPHOT)
       ENDIF
+
       NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1
       ZBIN  = (ZMAX - ZMIN) / DBLE(NZBIN)
+
 
       CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER, 
      &                 NCBIN,CBIN,CMIN,CMAX)  ! output
@@ -9476,7 +9510,7 @@ c hard-code color range for SALT2 model (Dec 2014)
       DO_SHAPE = ( IPAR == IPAR_SHAPE ) 
 
       IF ( DO_SALT2 .and. DO_COLOR ) THEN
-        BND_LOCAL(1) = -0.2  ! -0.3 -> -0.2 (July 3 2019)
+        BND_LOCAL(1) = -0.2    ! -0.3 -> -0.2 (July 3 2019)
         BND_LOCAL(2) = +0.4
       ENDIF
 
@@ -12234,6 +12268,7 @@ c
 c Mar 02 2022: load global PRIOR_PHOTOZ[_ERR]
 c Apr 16 2024: set zerr floor to E-3 instead of E-5 to avoid pathologically large prior-chi2.
 c
+c Dec 20 2024: PRIOR_PHOTOZ[_ERR] is loaded before fit in FITINI_PHOTOZ
 c ------------------------------------------------
 
       IMPLICIT NONE
@@ -13730,9 +13765,6 @@ c ---------------- BEGIN ---------------
 
       REDSHIFT_FIT = SNLC_REDSHIFT  ! start with "best" Z
 
-      PRIOR_PHOTOZ     = -9.0
-      PRIOR_PHOTOZ_ERR = -9.0
-
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
 c -------------------------------
@@ -13773,12 +13805,6 @@ c - - - - - - -  -
         REDSHIFT_FIT = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
       endif
 
-c xxxxxxxxxxxxxxxxxxxxx
-c      write(6,61) iter, REDSHIFT_FIT, DOFIT_PHOTOZ_HOST
-c61    format(' xxx iter=',I2,'  zFIT=',F8.4,'  DO_PHOTOZ_HOST=',L1)
-c      call flush(6)
-c xxxxxxxxxxxxxxxxxxxxx
-
       RETURN
       END   ! end SET_REDSHIFT_FIT
 
@@ -13810,12 +13836,12 @@ c local var
      &  ,zdif, zerr, zpull, Z1
      &  ,TCOR
 
-      INTEGER NFTMIN, NFTMAX
+      INTEGER NFTMIN, NFTMAX, LENC
 
       REAL*8  MU8(2), Z8(2), DZ8, DZDMU, MUREF
 
-      character CZPRIOR*12
-      LOGICAL LPZ_PHOT, LPZ_BEST, LPZ_QUANTILE
+      character CZPRIOR*20
+c xxx mark      LOGICAL LPZ_PHOT, LPZ_BEST, LPZ_QUANTILE
 c functions
 
       REAL*8  DLMAG8_REF
@@ -13828,7 +13854,21 @@ c extract fit photoZ and determine total error.
 
       zfit    = LCVAL_STORE(IPAR_zPHOT) 
       zfiterr = LCERR_STORE(IPAR_zPHOT) 
-         
+
+      zhost    = PRIOR_PHOTOZ 
+      zhosterr = PRIOR_PHOTOZ_ERR 
+      czprior  = PRIOR_COMMENT
+
+c xxxxxxxx mark delete Dec 20 2024 xxxxxxx
+c      print*,' xxx PHOTOZ_STORE: PRIOR_PHOTOZ     = ', PRIOR_PHOTOZ
+c      print*,' xxx PHOTOZ_STORE: PRIOR_PHOTOZ_ERR = ', PRIOR_PHOTOZ_ERR
+c      print*,' xxx PHOTOZ_STORE: PRIOR_COMMENT    = ', PRIOR_COMMENT
+c      call flush(6)
+c xxxxxx end mark xxxxx
+
+
++SELF,IF=OBSOLETE.
+c xxxxxxxxx mark delete Dec 20 2024 xxxxxxxxx
       LPZ_PHOT     = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
       LPZ_BEST     = BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS) 
       LPZ_QUANTILE = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
@@ -13861,7 +13901,8 @@ c scale the error by user-scale:
 c Jun 3 2024 [moved from PRIOR_ZPULL]
       PRIOR_PHOTOZ     =  zhost
       PRIOR_PHOTOZ_ERR =  max(zhosterr,0.001) 
-      
+c xxxxxxxxx end mark xxxxxxxxxxx
++SELF.
 
 c ---------------------
 c Compute photoZ-error from intrinsic MAG-dispersion.
@@ -13903,7 +13944,8 @@ c print PHOTOZ info
      &   , PHOTOZ_ERR_SNFIT
      &   , PHOTOZ_ERR_SNMAG
 
-        write(6,30) SNLC_CID, CZPRIOR, ZHOST
+        LENC = INDEX(CZPRIOR,' ') - 1
+        write(6,30) SNLC_CID, CZPRIOR(1:LENC), ZHOST
      &   , PHOTOZ_ERR_SNHOST
      &   , PHOTOZ_ERR_ZPULL
       ENDIF

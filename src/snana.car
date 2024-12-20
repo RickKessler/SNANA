@@ -10018,7 +10018,7 @@ c check ERRFLAG_FIT
         if ( STDOUT_UPDATE ) THEN
           CALL CPU_TIME(t_end)
 	  write(6,450) SNLC_CCID(1:ISNLC_LENCCID), t_end-t_start
-450       format(T5,'Finished fitting CID = ', A,
+450       format(T5,'Finished fitting CID = ', A12,
      &           ' in ', F6.3,' seconds')
           CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Apr 4 2024
           call flush(6)

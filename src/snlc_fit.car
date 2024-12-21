@@ -4315,7 +4315,7 @@ c local arguments
      &  ,chi2filt_sigma(MXFILT_OBS),chi2sum_sigma,chi2filt(MXFILT_OBS)
      &  ,errfrac, DEL_FLUX(MXFIT_DATA)
      &  ,FF, COV_INV, x1, DT1, DT2, CHI2PRIOR(0:MXFITPAR)
-     &  ,LAMAVG, XVAL4COV(MXFITPAR)
+     &  ,LAMAVG, LAMREST, XVAL4COV(MXFITPAR)
 
       LOGICAL 
      &   LFLAG_FIRST_MN  ! first call from MINUIT (IFLAG=2)
@@ -4331,7 +4331,6 @@ c local arguments
      &  ,DO_LOGDET, DUMP_FCNCHI2
 
       CHARACTER CVAR*8, star*1
-      REAL*4 LAMREST4
       REAL*8 logdet, LAST_FLUXERR, logdet_offset
 
  
@@ -4355,7 +4354,6 @@ C ----------- BEGIN ------------
       LFLAG_SIGMA_ONLY = IFLAG .EQ. FCNFLAG_SIGMA_ONLY
 
       LAST = LFLAG_LAST_MN .or. LFLAG_USER .or. LFLAG_USESIM
-cc      LAST = LFLAG_LAST_MN .or. LFLAG_USESIM ! xxx TEST
 
       R4SN_FFSUM_DATA  = 0.0
       R4SN_FFSUM_MODEL = 0.0
@@ -4450,12 +4448,12 @@ c ------------------------------------
         ifilt_obs = I4EP_ALL(epoch,IEP_IFILT_OBS)
         cfilt     = filtdef_string(ifilt_obs:ifilt_obs) ! for debug only
 
-c    protect model against invalid rest-frame lambda values (Mar 29, 2011)
+c    protect model against invalid rest-frame lambda values 
         LAMAVG    = DBLE( FILTOBS_LAMAVG(ifilt_obs) )
-        LAMREST4  = SNGL(LAMAVG /ZZ)
+        LAMREST   = LAMAVG /ZZ
 
-        if ( LAMREST4 > RESTLAMBDA_USEFIT(2) ) GOTO 102
-        if ( LAMREST4 < RESTLAMBDA_USEFIT(1) ) GOTO 102
+        if ( LAMREST > RESTLAMBDA_USEFIT(2) ) GOTO 102
+        if ( LAMREST < RESTLAMBDA_USEFIT(1) ) GOTO 102
 
         MJD                = R8EP_MJD(ifitdata)
         MJDFIT             = MJD - MJDOFF
@@ -4781,17 +4779,6 @@ c check for epochs to reject at end of 1st iteration only (note LAST=T here)
      &               + (flux_model**2)*inv_sqsig
                 R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  
      &               + (flux_data*flux_model)*inv_sqsig
-
-c xxxxxxxxxxx
-c           write(6,691) epoch, SNR_RAW, flux_data, flux_model, inv_sqsig
-c691        format(' xxx  ep=', I3, '  SNR_RAW=',F9.2,
-c     &          ' f[data,model] = ', 2E10.2,'  inv_sqsig=', E10.2)
-c           print*,' xxx     FFSUMs = ', 
-c     &         sngl(R4SN_FFSUM_DATA), 
-c     &         sngl(R4SN_FFSUM_MODEL), sngl(R4SN_FFSUM_CROSS)
-c           call flush(6)
-c xxxxxxxxxxxx
-
              endif
 
            endif

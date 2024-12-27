@@ -109,7 +109,13 @@ HIST_LINE_ARGS = [
     (2.0,':' ), (1.6, ':' ), (1.2, ':' ),   # dot-dashed
     (None,None)  # dummy that has no comma
 ]
-                   
+
+
+STAT_NAME_N       = 'N'
+STAT_NAME_AVG     = 'avg'
+STAT_NAME_MEDIAN  = 'median'
+STAT_NAME_STDDEV  = 'stddev'
+
 # internal DEBUG flags
 DEBUG_FLAG_REFAC           =  2
 DEBUG_FLAG_LEGACY          = -2
@@ -2073,19 +2079,24 @@ def get_info_plot1d(args, info_plot_dict):
     median  = np.median(df.x_plot_val)
     stddev  = np.std(df.x_plot_val)
 
-    stat_dict = {
-        'N'       : [ int(nevt),  do_nevt,   'd'     ],
-        'avg'     : [ avg,        do_avg,   '.2f'   ],
-        'median'  : [ median,     False,     '.2f'   ],
-        'stddev'  : [ stddev,     do_stddev, '.2f'   ]
+    stat_dict = {  # value        add legend    format
+        STAT_NAME_N       : [ int(nevt),  do_nevt,
+                              stat_format(STAT_NAME_N,nevt)         ],
+        STAT_NAME_AVG     : [ avg,        do_avg,
+                              stat_format(STAT_NAME_AVG,avg)        ],
+        STAT_NAME_MEDIAN  : [ median,     False,
+                              stat_format(STAT_NAME_MEDIAN,median)  ],
+        STAT_NAME_STDDEV  : [ stddev,     do_stddev,
+                              stat_format(STAT_NAME_STDDEV,stddev)  ]
         # overflow/underflow ??
     }
+    
     for str_stat, tmp_list in stat_dict.items():
         val           = tmp_list[0]
         add_to_legend = tmp_list[1]
-        fmt_legend    = tmp_list[2]
         logging.info(f"\t {str_stat:8} value for {name_legend}:  {val:.3f}")
         if add_to_legend:
+            fmt_legend  = tmp_list[2]                
             plt_legend += f'  {str_stat}={val:{fmt_legend}}'            
 
     # - - - - - -
@@ -2103,6 +2114,25 @@ def get_info_plot1d(args, info_plot_dict):
     info_plot_dict['wgt_ov']            = wgt_ov
      
     return  # end get_info_plot1d
+
+def stat_format(stat_name, stat_value):
+
+    # Created Dec 27 2024
+    # return format string to use on plot.
+    # Format can depend on name of variables (stat_name)
+    # and value (stat_value).
+
+    if stat_name == STAT_NAME_N :
+        return 'd'
+
+    if abs(stat_value) > 1000:  # e.g., peakmjd
+        fmt = '.1f'        
+    elif abs(stat_value) < 5:   # e.g., mean color, stretch, or resid
+        fmt = '.3f'
+    else:
+        fmt = '.2f'
+        
+    return fmt
 
 
 def is_cid_subset(plot_dict, df0, df1):

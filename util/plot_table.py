@@ -1067,7 +1067,7 @@ def translate_CUT(CUT):
 
     # add df.loc, df. and () as needed to input cut
     # Add "(df." in front of each var_list element that is NOT a number.
-    # Add ")" after each var_list eleement that is a number.
+    # Add ")" after each var_list element that is a number.
     #
     # July 24 2024 rewrite logic to split by bool and (),
     #   then wrap each item as '(df.' + item + ')'
@@ -1078,15 +1078,7 @@ def translate_CUT(CUT):
 
     CUT = CUT.replace(' ','')
 
-    # xxxxxxx mark delete Sep 8 2024 xxxxxxxx
-    # '=' is the only delimeter where user might use '==' instead,
-    # and 2-char delimiter totally breaks the logic below. Rather 
-    # than abort, just fix it here so that FIELD='C3' or FIELD=='C3' 
-    # will both work.
-    #if '==' in CUT:
-    #    CUT = CUT.replace('==', '=')
-    # xxxxx end mark xxxxxx
-
+    
     # split into sections separated by boolean &, |, or ()
     cut_list = re.split(r"\(|\)|\&|\|", CUT.replace(' ',''))
     cut_list = list(filter(None, cut_list))
@@ -1098,14 +1090,24 @@ def translate_CUT(CUT):
     # for each cut item, append parentheses and df.
     cut_list_df = []
     raw_var_list = []
+    is_func_list   = []
+    icut = 0
+    icut_func = -9
     
     for cut in cut_list:
+
+        if cut in NUMPY_FUNC_DICT:
+            is_func = True
+            icut_func = icut
+        else:
+            is_func = False
+        is_func_list.append(is_func)  
         
         # append df. in from of each string to allow cutting on
         # math functions of variables.
         split_list, strtype_list = \
             split_var_string(cut, DELIMITER_CUT_LIST, NUMPY_FUNC_LIST)
-
+        
         cut_df = ''
         for tmp_str, tmp_type in zip(split_list, strtype_list ):
             if args.DEBUG_FLAG_DUMP_TRANSLATE:
@@ -1117,39 +1119,56 @@ def translate_CUT(CUT):
                 tmp_append = STR_df + tmp_str
                 if tmp_str not in raw_var_list: raw_var_list.append(tmp_str)
             elif tmp_type == STRTYPE_FUNC:
-                tmp_append = STR_np + tmp_str
-                sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
-                         f"remove '{tmp_str}' from @@CUT arg")
+                tmp_append = tmp_str
+                #sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
+                #         f"remove '{tmp_str}' from @@CUT arg")
             else:
                 pass
             cut_df += tmp_append
             
 
-        if STR_np not in cut_df:
-            cut_df = '(' + cut_df + ')'
-        cut_list_df.append(cut_df)
+        #if STR_np not in cut_df:
+        add_parenth = True
 
+        # Dec 26 2024: special logic for functions; add np. instead of ()
+        if is_func:
+            add_parenth = False
+            cut_df = STR_np + cut_df
+        if icut - icut_func <= 2:
+            add_parenth = False
+        
+        if add_parenth:
+            cut_df = '(' + cut_df + ')'
+
+        cut_list_df.append(cut_df)
+        icut += 1
+        
+    # - - - - -
     if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx cut_list_df = {cut_list_df}")
         
     # replace each original cut with cut_df in CUT
     CUT_df = CUT
-    for cut, cut_df in zip(cut_list, cut_list_df):
+
+    # xxxxxxx mark delete Dec 26 2024 xxxxxxx
+    #n_cut = len(cut_list)
+    #for icut in range(0,n_cut):
+    #    cut     = cut_list[icut]
+    #    cut_df  = cut_list_df[icut]
+    #    is_func = is_func_list[icut]        
+    #    
+    #    CUT_df  = CUT_df.replace(cut,cut_df) 
+    #    if args.DEBUG_FLAG_DUMP_TRANSLATE:
+    #        print(f" xxx \t {icut}: replace user cut {cut} --> {cut_df} " \
+    #              f" (is_func={is_func})")
+    #    icut += 1
+    # xxxxxxxxxxx end mark xxxxxxxxx
+    
+
+    for cut, cut_df, is_func in zip(cut_list, cut_list_df, is_func_list):
         CUT_df = CUT_df.replace(cut,cut_df)
         if args.DEBUG_FLAG_DUMP_TRANSLATE:
-            print(f" xxx \t replace user cut {cut} --> {cut_df} ")
-
-
-    # xxxxxxx prepare to delete xxxxxxxxxxxx
-    # replace input for '=' with '==', but be careful not change '!='
-    # This logic is a bit goofy; is there a  simpler logic?
-    USE_OBSOLETE = False
-    if USE_OBSOLETE :
-        if '=' in CUT_df:
-            CUT_df = CUT_df.replace('=', '==')
-        if '!==' in CUT_df:
-            CUT_df = CUT_df.replace('!==', '!=')        
-    # xxxxxxxxxxxx
+            print(f" xxx \t replace user cut {cut} --> {cut_df}  (is_func={is_func})")
 
     # finally, wrap entire cut in df.loc[ CUT ]
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    

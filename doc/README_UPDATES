@@ -22814,14 +22814,26 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        
    snlc_fit.car
       + check CRAZYFITERR even if OPT_SNID_LIST > 0
-      + estimate initial params for photo-z fit when there is
-        zphot(host) prior; see https//github...
       + stdout " Finished fitting CID = 1039" now includes
         CPU time to fit this event.
       + DEBUG_FLAG = 1219 ->
          * zphot init searches over z/1+z instead of z (fewer bins)
 	 * search initial salt3 params for zphot(host) instead of
 	    just setting z= zphot(host)
-	 
-     
+           see https://github.com/RickKessler/SNANA/issues/1460
+           After more testing, will eventually make this new feature default
+	   
+# =============================================================
+         v11_05s (Dec 23 2024) <-- start date of git tag
+
+         *****  IMPORTANT(v11_05s) *****
+      
+         *****  USEFUL(v11_05s) *****
+	 	       
+         *****  MISCELLANEOUS(v11_05s) *****
+
+     plot_table.py
+       + finaly fix @@CUT to work with functions; e.g.
+           @@CUT 'abs(c)>0.1'
+	   
 END: 

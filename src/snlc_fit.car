@@ -8727,7 +8727,7 @@ c local var
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
       REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
       REAL   t_start, t_end
-      LOGICAL  LDMP_Q, LPZ_AUTO_INISTP
+      LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC, LEGACY, LDMP_REFAC
       CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
       REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
@@ -8744,6 +8744,9 @@ c FCNSNLC args
       EXTERNAL USRFUN, init_zPDF_spline
 
 C --------------- BEGIN -----------------
+
+      REFAC = (DEBUG_FLAG == 1219 )
+      LEGACY = .NOT. REFAC
 
       IERR = 0 
       FNAM = 'FITINI_PHOTOZ'
@@ -8833,7 +8836,7 @@ c set initial value and step size.
       IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
         STD          = SNLC_REDSHIFT_ERR
-c xxx mark        LZDONE       = .TRUE.
+        if ( LEGACY ) LZDONE       = .TRUE.
         CZTMP        = 'zBEST-Gauss'
 
 c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
@@ -8843,14 +8846,14 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
            PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
         endif
 
-        if ( DEBUG_FLAG .NE. 1219 ) goto 777    ! legacy jump
+        if ( LEGACY ) goto 777    ! legacy jump
 
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = zhost
            STD          = zhost_err
-c xxx mark           LZDONE       = .TRUE.
+           if ( LEGACY ) LZDONE       = .TRUE.
            CZTMP        = 'HOST-Gauss'
         else
            CZTMP        = 'AVG[PHOTOZ_BOUND]'
@@ -8901,7 +8904,7 @@ c xxx mark           LZDONE       = .TRUE.
 
 c     initialize at Q50
           INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)  ! Fragile alert !!! 
-c xxxx mark          LZDONE       = .TRUE.
+          if ( LEGACY ) LZDONE       = .TRUE.
           CZTMP        = 'QUANTILES'
       ENDIF
 
@@ -8921,18 +8924,22 @@ c Dec 2024: load global zprior summary here instead of in PHOTOZ_STORE
 
 c - - - - - - - -
 c Dec 2024
-      IF ( DOFIT_PHOTOZ_HOST .and. DEBUG_FLAG == 1219 ) THEN
+      IF ( DOFIT_PHOTOZ_HOST .and. REFAC ) THEN
          MXRATIO_INIVAL_ZPHOT = 0.05 ! Dec 2024 rough guess
          LZDONE  =  ( (STD/INIVAL(ipar)) < MXRATIO_INIVAL_ZPHOT )
       ENDIF
 
-c xxxxxxxx mark delete Dec 20 2024 xxxxxxx
-c      print*,' xxx FITINI_PHOTOZ: PRIOR_PHOTOZ     = ', PRIOR_PHOTOZ
-c      print*,' xxx FITINI_PHOTOZ: PRIOR_PHOTOZ_ERR = ', PRIOR_PHOTOZ_ERR
-c      print*,' xxx FITINI_PHOTOZ: PRIOR_COMMENT    = ', PRIOR_COMMENT
-c      print*,' xxx FITINI_PHOTOZ" LZDONE           = ', LZDONE
-c      call flush(6)
-c xxxxxxxx end mark xxxxxx
+c xxxxxxxxxxxxxxx
+      LDMP_REFAC = .FALSE.
+      if ( LDMP_REFAC ) then
+        print*,'xxx FITINI_PHOTOZ: REFAC = ', REFAC
+        print*,'xxx FITINI_PHOTOZ: PRIOR_PHOTOZ     =',PRIOR_PHOTOZ
+        print*,'xxx FITINI_PHOTOZ: PRIOR_PHOTOZ_ERR =',PRIOR_PHOTOZ_ERR
+        print*,'xxx FITINI_PHOTOZ: PRIOR_COMMENT    =',PRIOR_COMMENT
+        print*,'xxx FITINI_PHOTOZ" LZDONE           =',LZDONE
+        call flush(6)
+      endif
+c xxxxxxxxxxxxx
 
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
@@ -9120,7 +9127,7 @@ c local args
       REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
       REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
       INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER, ISCALE
-      LOGICAL LZ1BIN
+      LOGICAL LZ1BIN, REFAC
       
       CHARACTER FNAM*28, NAME_ZVAR*12
       REAL*8 GET_DIST8, USRFUN
@@ -9129,6 +9136,7 @@ c local args
 C ------------- BEGIN ------------
 
       FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
+      REFAC = (DEBUG_FLAG == 1219)
       
       ITER  = 1
       IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
@@ -9159,7 +9167,7 @@ c loop over redshift, color, stretch to estimate INIVAL
         ZMAX = Z_SAVE       
       ELSE IF ( DOFIT_PHOTOZ_HOST ) THEN
         ! zprior that is not super precise  -> +_ 2 sigma window
-        if ( DEBUG_FLAG == 1219 ) then  ! refac
+        if ( REFAC ) then 
           ZMIN = MAX(ZBND_MIN, PRIOR_PHOTOZ - 2.0*PRIOR_PHOTOZ_ERR)
           ZMAX = MIN(ZBND_MAX, PRIOR_PHOTOZ + 2.0*PRIOR_PHOTOZ_ERR)
         else
@@ -9175,13 +9183,14 @@ c loop over redshift, color, stretch to estimate INIVAL
 c  Dec 20 2204: prepare bining in z/(1+z) instead of z
 c    so that fewer bins are needed and hence faster init.
 
-      IF ( DEBUG_FLAG == 1219 ) then
-         LZ1BIN = .TRUE.
+      IF ( REFAC ) then
+         LZ1BIN   = .TRUE.
          ZVAR_MIN = ZMIN / (1.0+ZMIN)
          ZVAR_MAX = ZMAX / (1.0+ZMAX)
          NZBIN = ISCALE * int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is new guess
 	 NAME_ZVAR = 'zPH/(1+zPH)'
       ELSE
+         ! legacy
          LZ1BIN = .FALSE.      
          ZVAR_MIN = ZMIN
          ZVAR_MAX = ZMAX

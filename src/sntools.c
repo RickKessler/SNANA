@@ -4452,7 +4452,7 @@ void warn_oldInputs(char *varName_old, char *varName_new) {
   if ( strcmp(varName_old,"list") == 0 ) {
     if ( NWARN == 0 ) { return ; }
 
-    return ; // remove this when new system goes live
+    // xxx mark Dec 29 2024    return ; // remove this when new system goes live
     printf("\n");
     for(i=0; i < NWARN; i++ ) {
       printf("  WARNING: REPLACE OLD INPUT  %s  with %s \n"

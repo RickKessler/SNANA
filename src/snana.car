@@ -112,7 +112,7 @@ c
      &  ,RV_MWCOLORLAW_DEFAULT
      &  ,CUTVAL_OPEN, IGNORE_HEADVAL
      
-      REAL NULLVAL, MAG_SATURATE
+      REAL NULLVAL, MAG_SATURATE, LEGACY_INIT_VAL
 
       PARAMETER (                   ! BEGIN SNANA PARAMS
      &   SNTABLE_LIST_DEFAULT = 'SNANA  FITRES  LCPLOT'
@@ -276,6 +276,7 @@ c
      &  ,MODEL_FIXMAG     = 20
      &  ,MXMODEL_INDEX    = 20
      &  ,NULLVAL          = -99999.
+     &  ,LEGACY_INIT_VAL  = 1.0E8
      &  ,IGNORE_HEADVAL   = -5555.
 c
      &  ,MXCHAR_CCID       = 20   ! max len of CCID string (i.e, SN name)
@@ -1725,9 +1726,11 @@ c
                             ! I:  F=> leave data, correct fit model for MW.
       REAL 
      &   REDSHIFT_FINAL_SHIFT     ! I: artificial z-shift
-     &  ,HOSTGAL_PHOTOZ_SHIFT     ! I: apply only when zFINAL = HOST_ZPHOT
-     &  ,HOSTGAL_SPECZ_SHIFT      ! I: apply only when zFINAL = HOST_ZPHOT
-     &  ,FLUXERRCALC_ZPTERR 
+     &  ,HOSTGAL_PHOTOZ_SHIFT     ! I: obsolete 
+     &  ,HOSTGAL_SPECZ_SHIFT      ! I: obsolete 
+     &  ,HOSTGAL_ZPHOT_SHIFT      ! I: apply only when zFINAL = HOST_ZPHOT
+     &  ,HOSTGAL_ZSPEC_SHIFT      ! I: apply only when zFINAL = HOST_ZPHOT     
+     &  ,FLUXERRCALC_ZPTERR
 
       COMMON / SNCUTCOM / CUTMASK8_SN, CUTMASK8_MJD
      &   ,CUTMASK8_SN_ALL, CUTMASK8_MJD_ALL
@@ -1764,7 +1767,8 @@ c
      &   ,SIM_FUDGE_MAG_ERROR, SIM_FUDGE_MAG_ERROR_FILT
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, PARLIST_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
-     &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
+     &   ,HOSTGAL_ZPHOT_SHIFT, HOSTGAL_ZSPEC_SHIFT
+     &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT   ! obsolete Dec 2024
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE
 
@@ -2145,7 +2149,8 @@ c
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, PARLIST_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
-     &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
+     &   ,HOSTGAL_ZPHOT_SHIFT, HOSTGAL_ZSPEC_SHIFT
+     &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT   ! obsolete
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE, CUTWIN_NMJD_INCLUDE
 
@@ -6265,8 +6270,10 @@ c default is to reject nothing (accept everything)
          PARLIST_MWCOLORLAW(i) = 0.0
       ENDDO
 	
-      HOSTGAL_PHOTOZ_SHIFT = 0.0 
-      HOSTGAL_SPECZ_SHIFT  = 0.0 
+      HOSTGAL_ZPHOT_SHIFT  = 0.0 
+      HOSTGAL_ZSPEC_SHIFT  = 0.0
+      HOSTGAL_PHOTOZ_SHIFT = LEGACY_INIT_VAL
+      HOSTGAL_SPECZ_SHIFT  = LEGACY_INIT_VAL
       REDSHIFT_FINAL_SHIFT = 0.0
       FLUXERRCALC_ZPTERR  = -9.9
 
@@ -6288,7 +6295,6 @@ c default is to reject nothing (accept everything)
       SHIFT_SETPKMJD    =  0.0  ! for systematic test only
 
       DEBUG_FLAG          =  0
-c xxx mark      DEBUG_FLAG          =  1219  ! xxx REMOVE
       LDMP_SNFAIL         = .FALSE.
       LDMP_SNANA_VERSION  = .FALSE.
       LDMP_SATURATE       = .FALSE.
@@ -8462,14 +8468,25 @@ c - - - - - - -
      &            1, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) REDSHIFT_FINAL_SHIFT
 
+c - - - - 
+        else if ( MATCH_NMLKEY('HOSTGAL_ZSPEC_SHIFT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) HOSTGAL_ZSPEC_SHIFT
+
+        else if ( MATCH_NMLKEY('HOSTGAL_ZPHOT_SHIFT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) HOSTGAL_ZPHOT_SHIFT
+
+c Dec 2024: obsolete/legacy keys
         else if ( MATCH_NMLKEY('HOSTGAL_SPECZ_SHIFT',
      &            1, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) HOSTGAL_SPECZ_SHIFT
+          READ(ARGLIST(1),*) HOSTGAL_ZSPEC_SHIFT
 
         else if ( MATCH_NMLKEY('HOSTGAL_PHOTOZ_SHIFT',
      &            1, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) HOSTGAL_PHOTOZ_SHIFT
+          READ(ARGLIST(1),*) HOSTGAL_ZPHOT_SHIFT
 
+c - - - -
 
         else if ( MATCH_NMLKEY('VPEC_ERR_OVERRIDE',
      &            1, iArg, ARGLIST) ) then
@@ -9124,15 +9141,37 @@ c Jan 12 2021: check option to fix sign VPEC for older data
          CALL FLUSH(6)
 
 c set flag for systematic zshift (Jun 2021)
-      DOzSHIFT = 
+      CALL CHECK_LEGACY_INPUT(HOSTGAL_SPECZ_SHIFT,HOSTGAL_ZSPEC_SHIFT)
+      CALL CHECK_LEGACY_INPUT(HOSTGAL_PHOTOZ_SHIFT,HOSTGAL_ZPHOT_SHIFT)      
+
+      DOzSHIFT =  
      &    ( REDSHIFT_FINAL_SHIFT .NE. 0.0 ) .or.
-     &    ( HOSTGAL_SPECZ_SHIFT  .NE. 0.0 ) .or.
-     &    ( HOSTGAL_PHOTOZ_SHIFT .NE. 0.0 )
+     &    ( HOSTGAL_ZSPEC_SHIFT  .NE. 0.0 ) .or.
+     &    ( HOSTGAL_ZPHOT_SHIFT  .NE. 0.0 )
 
       RETURN
       END  ! end PROCSNNML
 
+C ========================================
++DECK,CHECK_LEGACY_INPUT.
+      SUBROUTINE CHECK_LEGACY_INPUT(VAL_LEGACY, VAL_NOMINAL)
 
+c Created Dec 29 2024
+c If the legacy value has been set, transfer it to the VAL_NOMINAL
+
+      IMPLICIT NONE
+      REAL VAL_LEGACY   ! Input
+      REAL VAL_NOMINAL  ! Output
+
++CDE,SNPAR.
+
+      IF(VAL_LEGACY < .99*LEGACY_INIT_VAL ) THEN
+         VAL_NOMINAL = VAL_LEGACY
+      ENDIF
+      
+      RETURN
+      END  ! end CHECK_LEGACY_INPUT
+      
 C ==================================
 +DECK,RDSNIGNORE.
       SUBROUTINE RDSNIGNORE
@@ -11257,7 +11296,7 @@ c write spectrum
 
            if ( WR_FLAM .or. WR_FLUX ) THEN
               WRITE(MSG,440) '', LAM, F, FERR
-440           format(A,F8.2, 3x, 2E14.5 )  ! .xyz	      
+440           format(A,F8.2, 3x, 2E14.5 )  
            else if ( WR_KEY ) THEN
 	   ! write SNANA keyed format for plot_table.py
 	      if ( LSIM_SNANA) then
@@ -18518,15 +18557,17 @@ C =============================================
   
 c Created Jun 5 2021
 c Apply systematic z-shifts passed from &SNLCINP
+c
+c Dec 29 2024: allow ztol of 1E-5 to allow for slop in round-off in TEXT format
 
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      LOGICAL LSHIFT_FINAL, LSHIFT_HOST_PHOTOZ, LSHIFT_HOST_SPECZ
+      LOGICAL LSHIFT_FINAL, LSHIFT_HOST_ZPHOT, LSHIFT_HOST_ZSPEC
       INTEGER OPT
-      REAL    zshift
+      REAL    zshift, ztol, zdif
 
       REAL*8 zhelio_zcmb_translator ! function
 C -------------- BEGIN ----------------
@@ -18535,29 +18576,34 @@ c bail if none of the zSHIFT options are used
       if ( .not. DOzSHIFT ) RETURN
 
       LSHIFT_FINAL       = ( REDSHIFT_FINAL_SHIFT .NE. 0.0 )
-      LSHIFT_HOST_SPECZ  = ( HOSTGAL_SPECZ_SHIFT  .NE. 0.0 )
-      LSHIFT_HOST_PHOTOZ = ( HOSTGAL_PHOTOZ_SHIFT .NE. 0.0 )
+      LSHIFT_HOST_ZSPEC  = ( HOSTGAL_ZSPEC_SHIFT  .NE. 0.0 )
+      LSHIFT_HOST_ZPHOT  = ( HOSTGAL_ZPHOT_SHIFT  .NE. 0.0 )
 
       zshift = -9.0
       IF ( LSHIFT_FINAL ) THEN
          zshift  = REDSHIFT_FINAL_SHIFT 
       ENDIF
 
-      IF ( LSHIFT_HOST_SPECZ ) THEN
-         if ( SNHOST_ZSPEC(1) == SNLC_REDSHIFT ) then
-            zshift = HOSTGAL_SPECZ_SHIFT + REDSHIFT_FINAL_SHIFT
+c Dec 29 2024: allow tolerance for round-off in text format
+      ZTOL = 1.0E-5 
+      
+      IF ( LSHIFT_HOST_ZSPEC ) THEN
+         zdif = SNHOST_ZSPEC(1) - SNLC_REDSHIFT 
+         if ( abs(zdif) < ztol ) then
+            zshift = HOSTGAL_ZSPEC_SHIFT + REDSHIFT_FINAL_SHIFT
             SNHOST_ZSPEC = SNHOST_ZSPEC + zshift
          endif
       ENDIF
 
-      IF ( LSHIFT_HOST_PHOTOZ ) THEN
-         if ( SNHOST_ZPHOT(1) == SNLC_REDSHIFT ) then
-            zshift = HOSTGAL_PHOTOZ_SHIFT + REDSHIFT_FINAL_SHIFT
+      IF ( LSHIFT_HOST_ZPHOT ) THEN
+         zdif = SNHOST_ZPHOT(1) - SNLC_REDSHIFT
+         if ( abs(zdif) < ztol ) then
+            zshift = HOSTGAL_ZPHOT_SHIFT + REDSHIFT_FINAL_SHIFT
             SNHOST_ZPHOT = SNHOST_zPHOT + zshift
          endif
       ENDIF
-
-      IF ( zshift > 0.0 ) THEN
+      
+      IF ( zshift .NE. -9.0 ) THEN
          if ( SNLC_REDSHIFT > 0.) SNLC_REDSHIFT = SNLC_REDSHIFT+ zshift
          if ( SNLC_ZHELIO   > 0.) SNLC_ZHELIO   = SNLC_ZHELIO  + zshift
          if ( SNLC_ZCMB     > 0.) SNLC_ZCMB     = SNLC_ZCMB    + zshift
@@ -28497,7 +28543,6 @@ c  a minimal bandwidth.
   70    continue
         n1 = n+1
 
-ccc        if(nx-ny) 80,120,100  ! obsolete
         if( (nx-ny) .LT. 0 ) goto  80
         if( (nx-ny) .EQ. 0 ) goto 120
         if( (nx-ny) .GT. 0 ) goto 100
@@ -28656,7 +28701,7 @@ c  test whether the least-squares spline is an acceptable solution.
         if(iopt.lt.0) go to 820
         fpms = fp-s
         if(abs(fpms).le.acc) then
-ccc           if(fp) 815,815,820  ! obsolete
+
            if ( fp .LT. 0 ) GOTO 815
            if ( fp .EQ. 0 ) GOTO 815
            if ( fp .GT. 0 ) GOTO 820
@@ -29038,7 +29083,7 @@ c  if not, interchange x and y once more.
         ty(i) = store
  870  continue
       n1 = n+1
-ccc      if(nx-ny) 880,920,900  ! obsolete
+
       if( (nx-ny) .LT. 0 ) GOTO 880
       if( (nx-ny) .EQ. 0 ) GOTO 920
       if( (nx-ny) .GT. 0 ) GOTO 900
@@ -29544,7 +29589,6 @@ c  are invalid control is immediately repassed to the calling program.
       lwest = (kx+1)*mx+(ky+1)*my
       if(lwrk.lt.lwest) go to 100
       if(kwrk.lt.(mx+my)) go to 100
-ccc      if(mx-1) 100,30,10  ! obsolete
       if ( (mx-1) .LT. 0 ) GOTO  100
       if ( (mx-1) .EQ. 0 ) GOTO  30
       if ( (mx-1) .GT. 0 ) GOTO  10
@@ -29554,7 +29598,7 @@ ccc      if(mx-1) 100,30,10  ! obsolete
   20  continue
 
   30  continue  
-ccc if(my-1) 100,60,40  ! obsolete
+
       if ( (my-1) .LT. 0 ) goto 100
       if ( (my-1) .EQ. 0 ) goto 60
       if ( (my-1) .GT. 0 ) goto 40

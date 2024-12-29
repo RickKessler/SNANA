@@ -132,6 +132,9 @@
 #
 # Dec 04 2024: search for INPUT_KEYS_SNIaMODEL00 with two zeros instead of MODEL0
 #
+# Dec 29 2024: add few comments in get_cov_from_diff to remind how to treat
+#              systematics that modify redshift.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -483,7 +486,6 @@ def load_hubble_diagram(hd_file, args, config):
     # --> ensure direct subtraction comparison
     if "CID" in df.columns:
         df["CID"] = df["CID"].astype(str)
-        # xxx mark delete df = df.sort_values([ "CID"])
         df = df.sort_values([ "zHD", "CID"])  # July 2024: protect HDIBC
         df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
 
@@ -829,24 +831,35 @@ def get_cov_from_diff(df1, df2, scale):
                f"for your systematic and this is not good."
     assert len1 == len2, errmsg
 
-
+    # Dec 29 2024 RK - remind explanation:
+    # naive diff is df1['mu'] - df2['mu'], which works fine if redshifts
+    # are the same in all systematics. For syst that change redshift
+    # (e.g., zshift, vpec, and all zPHOT syst), need to subtract
+    # df1['MUREF'] - df2['MUREF'] so that distance is shifted to correspond
+    # to redshift of reference HD. Beware that MUREF/MUMODEL is an
+    # approximation since we don't yet know the final fitted cosmology.
     diff = scale * ((df1[VARNAME_MU] - df1[VARNAME_MUREF]) - \
                     (df2[VARNAME_MU] - df2[VARNAME_MUREF])).to_numpy()
+
+    # set infinite (or NaN) values to zero
     diff[~np.isfinite(diff)] = 0
+    
     cov = diff[:, None] @ diff[None, :]
 
     # Determine the gradient using simple linear regression
+    # ?? Dec 2024: What is this regression fit for ??
     reg = LinearRegression()
     weights = 1 / np.sqrt(0.003**2 + df1[VARNAME_MUERR].to_numpy()**2 \
                           + df2[VARNAME_MUERR].to_numpy()**2)
     mask = np.isfinite(weights)
-
-    reg.fit(df1.loc[mask, [VARNAME_zHD]], diff[mask], 
+    
+    reg.fit(df1.loc[mask, [VARNAME_zHD]],
+            diff[mask], 
             sample_weight=weights[mask])
-    coef = reg.coef_[0]
-
+    coef = reg.coef_[0]    
+    
     mean_abs_deviation = np.average(np.abs(diff), weights=weights)
-    max_abs_deviation = np.max(np.abs(diff))
+    max_abs_deviation  = np.max(np.abs(diff))
     return cov, (coef, mean_abs_deviation, max_abs_deviation)
     # end get_cov_from_diff
 
@@ -914,6 +927,7 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
     #now loop over extracov_labels
     for key,value in extracovdict.items():
         cov, summary = get_covsys_from_covfile(df, os.path.expandvars(value), muopt_scales[key])
+        
         fitopt_label = 'DEFAULT'
         muopt_label = key
         result[f"{fitopt_label}|{muopt_label}"] = cov

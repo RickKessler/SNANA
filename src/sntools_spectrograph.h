@@ -1,5 +1,6 @@
 
 // Created July 2016 by R.Kessler
+// Dec 30 2024: ZPMIN_SPECTROGRAPH -> -10 (was 0)
 
 #define MXSPEC                 MXSPECTRA  // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
@@ -12,8 +13,8 @@
 #define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
 #define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
-#define ZPMIN_SPECTROGRAPH  0.0 
-#define ZPMAX_SPECTROGRAPH 30.0
+#define ZPMIN_SPECTROGRAPH -10.0 
+#define ZPMAX_SPECTROGRAPH  30.0
 
 /* xxx mark delete Oct 29 2024 xxxxx
 #define WRITE_MASK_SPEC_DEFAULT  2  // lammin lammax Flam FlamERR SIM_FLAM

@@ -22827,7 +22827,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05s (Dec 23 2024) <-- start date of git tag
 
          *****  IMPORTANT(v11_05s) *****
-      
+
+    create_covariance.py:
+       + refactor to save memory by computing and deleting cov matrix
+         contributions on-the-fly. Same for cov inverse. See internal
+	 global FLAG_REDUCE_MEMORY. Also noticed that performing
+	 "positive definite" test takes much longer than matrix inversion,
+	 so this test now runs only for size < 2000.
+	
+	 
          *****  USEFUL(v11_05s) *****
 	 	       
          *****  MISCELLANEOUS(v11_05s) *****
@@ -22835,5 +22843,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      plot_table.py
        + finaly fix @@CUT to work with functions; e.g.
            @@CUT 'abs(c)>0.1'
-	   
+
+     
 END: 

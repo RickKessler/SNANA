@@ -177,12 +177,12 @@ HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 
 # Apr 28 2024: setup masks to control which COV matrice are written.
-#  start with default of writing both, but eventually the default shuold
+#  start with default of writing both, but eventually the default should
 #  be to write only COVTOT_INT (to conserve disk space). Command line
 #  arg --write_mask_cov can override default.
 WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
-WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by ddefault (4/28/2024)
+WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
 
 VARNAME_CID          = "CID"  # for unbinned fitres files
 VARNAME_ROW          = "ROW"  # for binned M0DIF files
@@ -317,6 +317,11 @@ def get_args():
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
+    
+    msg = "Max HD size to run posdef test on covtot_inv (beware it's slow for big matrix)"
+    parser.add_argument("--mxsize_test_posdef", help=msg,
+                        nargs='?', type=int, default=2000 )
+    
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 
                         nargs='?', type=str, default=None )
@@ -1115,16 +1120,17 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
     # end get_covsys_from_covopt
 
 
-def get_cov_invert(label, cov_sys, muerr_stat_list):
+def get_cov_invert(args, label, cov_sys, muerr_stat_list):
     
     # Created Jan 5 2024 by R.Kessler
     # move this code out of get_cov_from_covopt() so that a flag
     # can be easily put around calling this method.
 
     
-    logging.info(f"\t Invert covtot for {label}")
+    #logging.info(f"\t Invert covtot for {label}")
     t_start = time.time()
-    size = len(muerr_stat_list)
+    size    = len(muerr_stat_list)
+    do_test_posdef = size <= args.mxsize_test_posdef 
     
     try:
         # CosmoMC will add the diag terms, 
@@ -1135,40 +1141,49 @@ def get_cov_invert(label, cov_sys, muerr_stat_list):
         # First just try and invert it to catch singular matrix errors
         # precision -> covtot_inv
         covtot_inv = np.linalg.inv(covtot)    
+        t_inv = time.time()
+        str_tproc = f"({t_inv-t_start:.2f} sec)"
+        logging.info(f"\t\t {label} covtot has been inverted {str_tproc}")
         
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
         pr   = np.dot(covtot,covtot_inv)
         pr   = np.round(pr,decimals=3)
         flag = is_unitary(np.round(pr,decimals=2))
+        t_uni= time.time()
+        str_tproc = f"({t_uni-t_inv:.2f} sec)"
         if flag :
-            logging.info(f"\t\t {label} Matrix is UNITARY")
+            logging.info(f"\t\t {label} covtot is UNITARY {str_tproc}")
         else :
-            logging.info(f"\t\t WARNING: {label} Matrix is not UNITARY")
-
+            logging.warning(f"\t {label} covtot is not UNITARY {str_tproc}")
+        
         # Jan 2025: skip pos-def check on large matrices since it can be very slow
-        if size < 2000 :
-            flag2 = is_pos_def(np.round(covtot_inv,decimals=3))
+        if do_test_posdef:
+            flag2     = is_pos_def(np.round(covtot_inv,decimals=3))
+            t_posdef  = time.time()
+            str_tproc = f"({t_posdef-t_uni:.2f} sec)"
             if flag2:
-                logging.info(f"\t\t {label} Matrix is Positive-Definite")
+                logging.info(f"\t\t {label} covtot_inv is Pos-Definite {str_tproc}")
             else :
-                logging.warning(f"\t\t {label} Matrix is not Positive-Definite")
+                logging.warning(f"\t {label} covtot_inv is not Pos-Definite {str_tproc}")
         
             # check that COV is well conditioned to deal with float precision
             epsilon = sys.float_info.epsilon
             cond    = np.linalg.cond(covtot_inv)
-            assert cond < 1 / epsilon, f"{label} matrix is ill-conditioned and cannot be inverted"
-        
-        #logging.info(f"Covar condition for COVOPT {label} is {cond:.3f}")
+            t_cond  = time.time()
+            str_tproc = f"({t_cond-t_posdef:.2f} sec)"            
+            logging.info(f"\t\t {label} covtot_inv condition = {cond:.3f} {str_tproc}") 
+            msgerr  = f"{label} covtot_inv is ill-conditioned and cannot be inverted"
+            assert cond < 1 / epsilon, msgerr
 
     except np.linalg.LinAlgError as ex:
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
         raise ex
 
-    t_invert = time.time() - t_start
-    logging.info(f"\t\t {label} invert time: {t_invert:.1f} sec")
+    t_tot = time.time() - t_start
+    logging.info(f"\t\t TOTAL {label} invert+diagnostic time: {t_tot:.1f} sec")
     
-    return covtot_inv, t_invert
+    return covtot_inv, t_tot
 
     # end check_cov_invertible
                 
@@ -1257,7 +1272,7 @@ def write_standard_output(config, args, covsys_list, base,
 
             # perform inversion here, then delete it from memory after writing it to file.
             covtot_inv, t_invert  = \
-                get_cov_invert(label, covsys, base[VARNAME_MUERR])            
+                get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
             base_file   = get_covtot_inv_filename(i)
             cov_file    = outdir / base_file
             write_covariance(cov_file, covtot_inv, opt_cov)
@@ -2055,6 +2070,8 @@ def prep_config(config,args):
     logging.info(f"WRITE_COVSYS:       {config['write_covsys']}")
     logging.info(f"WRITE_COVTOT_INV:   {config['write_covtot_inv']}")
     logging.info(f"FLAG_REDUCE_MEMORY: {FLAG_REDUCE_MEMORY} ")
+    logging.info(f"Check pos-def on covtot_inv for HD size <= {args.mxsize_test_posdef}")
+    
     # - - - - -
     # check override args (RK, Feb 15 2021)
     if args.input_dir is not None :

@@ -147,6 +147,8 @@
 #   FLAG_REDUCE_MEMORY = T or F ; after this update is deemed robust, this extra
 #   baggage will need cleanup and memory-save mode should be the only option.
 #
+#   Change write-CHUNK size from 1M to 5M
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -1675,7 +1677,7 @@ def write_covariance(path, cov, opt_cov):
         # write cov without labels
         # write in chunks to handle VERY large arrays (Nov 2024)
         cov_flat  = cov.flatten()
-        CHUNK     = 1000000      # write this many elements per f.write
+        CHUNK     = 5000000      # write this many elements per f.write
         n_wr      = 0
         n_tot     = nrow * nrow
         n_chunk_expect = int(n_tot / CHUNK ) + 1

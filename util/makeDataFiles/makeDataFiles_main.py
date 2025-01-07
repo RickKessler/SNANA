@@ -26,6 +26,9 @@
  Dec 20 2021: add --des_folder for SMP
 
  Jul 05 2022: add --lsst-tom for reading alerts from LSST Tom --rknop
+
+ Jan 2025: add --lsst-fastdb
+
 """
 
 # ============================================
@@ -51,24 +54,34 @@ try:
 except ImportError:
     pass
 
+from read_data_lsst_tom      import data_lsst_tom_db
+from read_data_lsst_fastdb   import data_lsst_fastdb
 from read_data_des_folder    import data_des_folder
-from read_data_lsst_ap       import data_lsst_ap
-from read_data_lsst_drp      import data_lsst_drp
+#xxx from read_data_lsst_ap       import data_lsst_ap
+#xxx from read_data_lsst_drp      import data_lsst_drp
 from read_data_sirah_folder  import data_sirah_folder
 from read_data_snana_folder  import data_snana_folder
 from read_data_ztf           import data_ztf_folder
-from read_data_lsst_tom      import data_lsst_tom_db
+
 
 # =====================================
 def get_args():
     parser = argparse.ArgumentParser()
 
-    msg = "Data source: LSST AP"
-    parser.add_argument("--lsst_ap", help=msg, action="store_true")
+    # xxxxxxxx mark delete Jan 2025 xxxxxxx
+    #msg = "Data source: LSST AP"
+    #parser.add_argument("--lsst_ap", help=msg, action="store_true")
+    #
+    #msg = "Data source: LSST_DRP"
+    #parser.add_argument("--lsst_drp", help=msg, action="store_true")
+    # xxxxxxxx
+    
+    msg = "Data source: LSST TOM; format: 'username:password@url"
+    parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
 
-    msg = "Data source: LSST_DRP"
-    parser.add_argument("--lsst_drp", help=msg, action="store_true")
-
+    msg = "Data source: LSST FASTDB"
+    parser.add_argument("--lsst_fastdb", help=msg, type=str, default=None )    
+    
     msg = "Data source: SIRAH pkl folder"
     parser.add_argument("--sirah_folder", help=msg, type=str, default=None )
 
@@ -77,9 +90,6 @@ def get_args():
 
     msg = "Data source: ZTF folder"
     parser.add_argument("--ztf_folder", help=msg, type=str, default=None )
-
-    msg = "Data source: LSST TOM; format: 'username:password@url"
-    parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
 
     msg = "Data source: SNANA sim-data folder (for testing)"
     parser.add_argument("--snana_folder", help=msg, type=str, default=None )
@@ -175,22 +185,36 @@ def restore_args_from_readme(args, readme_yaml):
     # restore user args from readme_yaml that was 
     # read from README file.
     
-    args.lsst_ap      = False
-    args.lsst_drp     = False
+
+    args.lsst_tom_db  = None
+    args.lsst_fastdb  = None    
     args.sirah_folder = None
     args.des_folder   = None
     args.ztf_folder   = None
-    args.lsst_tom_db  = None
     args.snana_folder = None
 
-    key = 'SOURCE_LSST_AP'
+    # xxxxxxxxx mark xxxxxxxx
+    #xxx args.lsst_ap      = False
+    #xxx args.lsst_drp     = False    
+    #key = 'SOURCE_LSST_AP'
+    #if key in readme_yaml:
+    #    args.lsst_ap = readme_yaml[key]
+    #
+    #key = 'SOURCE_LSST_DRP'
+    #if key in readme_yaml:
+    #    args.lsst_drp = readme_yaml[key]
+    # xxxxxxx end mark xxxxxxxx
+    
+    key = 'SOURCE_LSST_TOM'
     if key in readme_yaml:
-        args.lsst_ap = readme_yaml[key]
+        args.lsst_tom_db = readme_yaml[key]
 
-    key = 'SOURCE_LSST_DRP'
+    key = 'SOURCE_LSST_FASTDB'
     if key in readme_yaml:
-        args.lsst_drp = readme_yaml[key]
+        args.lsst_fastdb = readme_yaml[key]
 
+    # - - - -
+    
     key = 'SOURCE_SIRAH_FOLDER'
     if key in readme_yaml:
         args.sirah_folder = readme_yaml[key]
@@ -202,10 +226,6 @@ def restore_args_from_readme(args, readme_yaml):
     key = 'SOURCE_ZTF_FOLDER'
     if key in readme_yaml:
         args.ztf_folder = readme_yaml[key]
-
-    key = 'SOURCE_LSST_TOM'
-    if key in readme_yaml:
-        args.lsst_tom_db = readme_yaml[key]
         
     key = 'SOURCE_SNANA_FOLDER'
     if key in readme_yaml:
@@ -238,24 +258,33 @@ def which_read_class(args):
             restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
 
     # - - - - - - - -
-    if args.lsst_ap:
-        read_class = data_lsst_ap
+    #if args.lsst_ap:
+    #    read_class = data_lsst_ap
+    #    args.survey = "LSST"
+    #elif args.lsst_drp:
+    #    read_class = data_lsst_drp
+    #    args.survey = "LSST"
+
+    
+    if args.lsst_tom_db is not None:
+        read_class = data_lsst_tom_db
         args.survey = "LSST"
-    elif args.lsst_drp:
-        read_class = data_lsst_drp
+    elif args.lsst_fastdb is not None:
+        read_class = data_lsst_fastdb
         args.survey = "LSST"
+        
     elif args.sirah_folder is not None:
         read_class = data_sirah_folder
         args.survey = "SIRAH"
+        
     elif args.des_folder is not None:
         read_class = data_des_folder
         args.survey = "DES"
+        
     elif args.ztf_folder is not None:
         read_class = data_ztf_folder
         args.survey = "ZTF"
-    elif args.lsst_tom_db is not None:
-        read_class = data_lsst_tom_db
-        args.survey = "LSST"
+
     elif args.snana_folder is not None:
         read_class = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)

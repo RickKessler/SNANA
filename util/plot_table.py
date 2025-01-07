@@ -5,7 +5,9 @@
 # Refactor to have __main__, and add translate_VARIABLE and tranlate_CUT
 # methods to automatically append df, df.loc and np to input variables
 # to simplified user input.
-# 
+#
+# Jan 7 2025: input "@@LEGEND NONE" suppresses legend.
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -34,6 +36,9 @@ DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',
 
 COLON = ':'
 BAR   = '|'
+
+DEFAULT  = 'DEFAULT'
+SUPPRESS = 'SUPPRESS'
 
 # define pandas strings to add into VARIABLE and CUT strings.
 STR_df         = 'df.'
@@ -317,7 +322,8 @@ and two types of command-line input delimeters
    E.g., For 3 sets of cuts, 
       @@LEGEND 'No cuts'  'SALT2c < 0'  'SALT2c>0'
    For 2 files and "@@OPT DIFF_CID", only need to give one @@LEGEND arg.
-  
+   To suppress legend,  @@LEGEND NONE / @@legend none
+
 @@LEGEND_SIDE
   For a busy plot with insufficient space for legend, this option is the
   same as @@LEGEND, except that the legend appears on the right side of 
@@ -817,7 +823,7 @@ def arg_prep_legend(args):
     narg_cut = len(args.CUT)
     
     if LEGEND_orig is None:
-        # no user supplied legend, so make up reasonable legend
+        # no user supplied legend, so make up reasonable default legend
         LEGEND_out = [ None ] * len(args.TFILE)
 
         if narg_var > 1:
@@ -835,6 +841,9 @@ def arg_prep_legend(args):
             LEGEND_human_readable.append(more_human_readable(legend))
         LEGEND_out = LEGEND_human_readable
         
+    elif LEGEND_orig[0].upper() == "NONE" :
+        args.LEGEND = SUPPRESS
+
     # - - - - - 
     narg_legend  = len(LEGEND_out)
     narg_tfile   = len(args.tfile_list)
@@ -1514,11 +1523,9 @@ def read_tables(args, plot_info):
             xmax = np.amax(df['x_plot_val'])
             logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}") 
             if varname_xerr is not None:
-                # xxx MASTER_DF_DICT[key]['df']['x_plot_err'] = eval(varname_xerr)       
                 MASTER_DF_DICT[key]['df'].loc[:,'x_plot_err'] = eval(varname_xerr)
             
             if args.NDIM == 2:
-                # xxx MASTER_DF_DICT[key]['df']['y_plot_val'] = eval(varname_y)
                 MASTER_DF_DICT[key]['df'].loc[:,'y_plot_val'] = eval(varname_y)
                 ymin = np.amin(df['y_plot_val'])
                 ymax = np.amax(df['y_plot_val'])
@@ -2444,11 +2451,12 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     fsize_ticklabel = 10*args.FONTSIZE_SCALE
     plt.xticks(fontsize=fsize_ticklabel)  # numbers under x-axis tick marks
     plt.yticks(fontsize=fsize_ticklabel)  # numbers left of y-axis tick marks
-
-        
+    
     if args.LEGEND_SIDE:
         # push legend outside of box on right side
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
+    elif args.LEGEND == SUPPRESS:
+        pass  # no legend
     else:
         # default; let matplotlib find best place for legend
         fsize_legend = 10 * args.FONTSIZE_SCALE

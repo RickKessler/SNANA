@@ -22844,5 +22844,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + finaly fix @@CUT to work with functions; e.g.
            @@CUT 'abs(c)>0.1'
 
-     
+     snlc_fit.car
+        + in FITPAR_PREP, skip nominal inits if using FITPAR from SNCID_LIST_FILE.
+	  This is just to save CPU; should not impact fits.
+	  
 END: 

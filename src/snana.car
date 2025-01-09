@@ -34,7 +34,7 @@ c parameters used by snana code
      &  ,MXERRTYPE, ERRTYPE_MINOS, ERRTYPE_PARAB, ERRTYPE_MARG
      &  ,ERRTYPE_BAD
      &  ,FCNFLAG_USER, FCNFLAG_FAST, FCNFLAG_LAST, FCNFLAG_USESIM
-     &  ,FCNFLAG_PRIOR_ONLY, FCNFLAG_SIGMA_ONLY
+     &  ,FCNFLAG_PRIOR_ONLY, FCNFLAG_SIGMA_ONLY, FCNFLAG_MAX
      &  ,OPT_INTEGPDF_QUITCHI2, OPT_INTEGPDF_FULL
      &  ,OPT_SNXT_CCM89, OPT_SNXT_SJPAR
      &  ,OPT_MWCOLORLAW_DEFAULT, OPT_MWEBV_DEFAULT
@@ -51,9 +51,9 @@ c parameters used by snana code
      &  ,IDTABLE_MCMC
      &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_OUTLIER
      &  ,ITABLE_SNLCPAK, ITABLE_SPECPAK
-     &  ,ITABLE_MODELSPEC, ITABLE_MARZ, MXTABLE
+     &  ,ITABLE_MODELSPEC, ITABLE_MARZ, ITABLE_DMPFCN, MXTABLE
      &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_OUTLIER
-     &  ,IDTABLE_MODELSPEC, IDTABLE_CIDPTR, IDTABLE_MARZ
+     &  ,IDTABLE_MODELSPEC, IDTABLE_CIDPTR, IDTABLE_MARZ, IDTABLE_DMPFCN
      &  ,OPT_PARSTORE_TEXTTABLE
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
@@ -198,7 +198,8 @@ C
      &  ,FCNFLAG_FAST     = 91   ! go as fast as possible (no LAST if-block)
      &  ,FCNFLAG_PRIOR_ONLY = 92
      &  ,FCNFLAG_SIGMA_ONLY = 93
-     &  ,FCNFLAG_USESIM   = 99   ! pass this IFLAG to use SIM params
+     &  ,FCNFLAG_USESIM     = 99   ! pass this IFLAG to use SIM params
+     &  ,FCNFLAG_MAX        = 100
 c     
      &  ,PI     = 3.1415926535898
      &  ,PDFMIN      = 1.0E-5   ! used to speed up PDF integration
@@ -245,13 +246,14 @@ c
 c
      &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_OUTLIER=3
      &  ,ITABLE_SNLCPAK=4, ITABLE_SPECPAK=5
-     &  ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7
+     &  ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7, ITABLE_DMPFCN=8
      &  ,MXTABLE = 10
      &  ,IDTABLE_SNANA     = 7100  ! anaysis variables, every event
      &  ,IDTABLE_FITRES    = 7788  ! SNANA table + fit results, passing cuts
      &  ,IDTABLE_OUTLIER   = 7800  ! outlier fluxes (Mar 2021)
      &  ,IDTABLE_MODELSPEC = 8000  ! SALT2 model spectra from LC fit
      &  ,IDTABLE_MARZ      = 8100  ! MARZ table for spectra
+     &  ,IDTABLE_DMPFCN    = 8200  ! for DMPFCN (jan 2025)
      &  ,IDTABLE_CIDPTR    = 1600  
      &  ,IDTABLE_MCMC      = 7711  ! obsolete ?
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
@@ -409,7 +411,8 @@ c control variables and counters.
      &  ,NACCEPT_Z             ! idem with valid redshift
      &  ,NACCEPT_ZERR          ! idem with valid redshift error
 c
-     &  ,NCALL_SNANA_DRIVER  
+     &  ,NCALL_SNANA_DRIVER
+     &  ,NCALL_FCNFLAG(FCNFLAG_MAX)
 c
      &  ,NPASSCUT_INCREMENT(-1:MXTYPE,100)  ! 100 > NCUTBIT_SNLC 
      &  ,NPASSCUT_FIT(-1:MXTYPE)
@@ -453,7 +456,9 @@ c
      &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
      &  ,UNIT_PSF_NEA          ! T => read NEA from data; else it's PSF
      &  ,FOUND_ATMOS           ! T=> found atmos variables (dRA,dDEC,AIRMASS)
-
+     &  ,USE_SNCID_FILE         ! bit0 of OPT_SNCID_LIST
+     &  ,USE_FITPAR_SNCID_FILE  ! bit1 if OPT_SNCID_LIST
+     
       CHARACTER
      &    SNANA_VERSION*60        ! e.g., v11_04h-[commit-id]
      &   ,SNANA_VERSION_DATA*60   ! SNANA version used create FITS data
@@ -547,8 +552,9 @@ c global survey info
      &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
      &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
-     &    ,DOzSHIFT
-     &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
+     &    ,DOzSHIFT,  USE_SNCID_FILE, USE_FITPAR_SNCID_FILE
+     &    ,NCALL_SNANA_DRIVER, NCALL_FCNFLAG
+     &    ,NPASSCUT_INCREMENT, NPASSCUT_FIT
      &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA, FOUND_ATMOS
      &    ,EXIT_ERRCODE
 
@@ -1909,7 +1915,7 @@ c
      &  ,OPT_SIMLIB_OUT       ! I: bit mask of SIMLIB_OUT options
      &  ,SIMLIB_OUT_TMINFIX   ! I: choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
      &  ,REQUIRE_DOCANA 
-     &  ,OPT_SNCID_LIST      ! I: 1=force all and ignore cuts; 2=use PKMJDINI
+     &  ,OPT_SNCID_LIST      ! I: 1=force all and ignore cuts; 2=set INIVAL=FITPAR
      &  ,OPT_VPEC_COR        ! I: 1=apply vpec cor (default)
      
       LOGICAL 
@@ -6040,7 +6046,6 @@ C ==================================
 +CDE,FILTCOM.
 
 c
-
 c Feb 27 2018: check CUTWIN_ZP
 c Apr 07 2022; use function VALIDFILENAME
 c
@@ -6585,6 +6590,10 @@ c disalbe PRIVATE_DATA_PATH.
       IF ( PRIVATE_DATA_PATH.EQ.SNDATA_ROOT(1:LL)//'/lcmerge')THEN
           PRIVATE_DATA_PATH = ' '
       ENDIF
+
+c Jan 2025; set global flags for reading SNIDs from separate file
+      USE_SNCID_FILE        = BTEST(OPT_SNCID_LIST,0) ! use CIDs from file
+      USE_FITPAR_SNCID_FILE = BTEST(OPT_SNCID_LIST,1) ! set INIVAL = FITPAR from file
 
 
 c Nov 15 2019: abort on obsolete key
@@ -9865,7 +9874,7 @@ c ----------------------
       LOGICAL LAST_ITER, REJECT_FIT
 +SELF.
 
-      INTEGER IERR
+      INTEGER IERR, i
       REAL*8  PS8
       REAL t_start, t_end  ! Dec 2024
       LOGICAL REJECT_PRESCALE, USE_MINOS_LOCAL
@@ -9973,6 +9982,9 @@ c do the fit
        NCALL_MNFIT   = 0
        
        N_SNLC_FIT = N_SNLC_FIT + 1
+       DO i = 1, FCNFLAG_MAX
+         NCALL_FCNFLAG(i) = 0
+       ENDDO
 
        DO 410 WHILE( iter < NFIT_ITERATION .and. .NOT.REJECT_FIT)
 
@@ -16226,7 +16238,6 @@ c zero out the FITVAL_STORE array if fit-option is chosen
       NSEASON_TOT      = 0
       NSEASON_ACTIVE    = 0
 
-
       ISNLC_CUTFLAG_REQEP    = 1
       ISNLC_CUTFLAG_PRIVATE  = 1
       ISNLC_CUTFLAG_SIMVAR   = 1
@@ -16294,7 +16305,7 @@ C -------------- BEGIN -------------------
 
 c Jan 2021: check option to require ONLY CID-select.
 
-      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+      if ( USE_SNCID_FILE ) THEN
           CUTMASK8_SN_ALL = 0
           CUTMASK8_SN_ALL = IBSET(CUTMASK8_SN_ALL,CUTBIT_CID-1)
           print*,' '
@@ -22148,7 +22159,7 @@ c increment all types with ITYPE=-1 (Aug 2013)
 
 C ==============================================
 +DECK,LCIDSELECT.
-      LOGICAL FUNCTION LCIDSELECT(CID,CCID,IAUC)
+      LOGICAL FUNCTION LCIDSELECT(CID,CCID,NAME_IAUC)
 c
 c Created Dec 4, 2012 by R.Kessler
 c Returns TRUE if current CID/CCID is accepted by
@@ -22166,14 +22177,17 @@ c to avoid declaring such a large array.
 c
 c
 c Oct 10 2020: fix bug checking SNCCID_IGNORE_ALL
-c Jan 04 2021: check OPT_SNCID_LIST for option to use alternate PKMJDINI
+c
+c Jan 08 2025: set INDEX_CID_MATCH inside check for SNCID_LIST in case SNCID_LIST
+c              has overlap with CID in SNCID_LIST_FILE.
+c
 C ---------------------------
 
       IMPLICIT NONE
 
 c input function args
       INTEGER CID
-      CHARACTER CCID*(*), IAUC*(*)
+      CHARACTER CCID*(*), NAME_IAUC*(*)
 
 +CDE,SNPAR. 
 +CDE,SNCUTS.
@@ -22183,7 +22197,7 @@ c input function args
    
       INTEGER i, LEN, LENCCID, LENIAUC, ISN_MATCH
       REAL XCID     
-      CHARACTER CCIDTMP*(MXCHAR_CCID)
+      CHARACTER CCID_forC*(MXCHAR_CCID), CCIDTMP*(MXCHAR_CCID)
 
 c functions
       LOGICAL   STRINGMATCH
@@ -22192,7 +22206,8 @@ c functions
 c ------------------ BEGIN ---------------
 
       LCIDSELECT = .FALSE.
-      LENCCID = INDEX(CCID//' ' , ' ') - 1
+      LENCCID    = INDEX(CCID//' ' , ' ') - 1
+      CCID_forC  = CCID(1:LENCCID) // char(0)      
       INDEX_CID_MATCH = -9
 c ----------------------------
 c first check IGNORE Lists
@@ -22219,25 +22234,26 @@ c Check integer window
         GOTO 800
       ENDIF
 
-c Since  integer list is small, use brute-force looping.
+c Since integer list is small, use brute-force looping.
       i = 1
       DO 130 WHILE ( SNCID_LIST(i) .GE. 1 ) 
-         if ( CID .EQ. SNCID_LIST(i) ) then
-            LCIDSELECT = .TRUE.
-            GOTO 800
-         endif
-         i = i + 1
+        if ( CID .EQ. SNCID_LIST(i) ) then
+          LCIDSELECT = .TRUE.
+          INDEX_CID_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID) ! Jan 2024
+          GOTO 800
+        endif
+        i = i + 1
 130   CONTINUE
 
 c use hash table to check list of CID strings since this list
 c can be quite large.
-      CCIDTMP = CCID(1:LENCCID) // char(0)
-      ISN_MATCH = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
+
+      ISN_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID)
       if ( ISN_MATCH  < 0 ) then   ! try IAUC name
-         LENIAUC = INDEX(IAUC,' ') - 1
-         CCIDTMP = IAUC(1:LENIAUC) // char(0)
-         ISN_MATCH  = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
-         if ( ISN_MATCH .GE. 0 ) CCID = IAUC ! write IAUC to output table 
+         LENIAUC    = INDEX(NAME_IAUC,' ') - 1
+         CCID_forC  = NAME_IAUC(1:LENIAUC) // char(0)
+         ISN_MATCH  = MATCH_CIDLIST_EXEC(CCID_forC,LENIAUC) ! use hash table
+         if ( ISN_MATCH .GE. 0 ) CCID = NAME_IAUC ! write IAUC to output table 
       endif
       INDEX_CID_MATCH = ISN_MATCH     ! load global 
       LCIDSELECT = (ISN_MATCH .GE. 0)
@@ -22249,14 +22265,15 @@ c see &SNLCINP namelist input SNMJD_LIST_FILE
 
       DO 240 i = 1, N_INTERP_MJDLIST
         CCIDTMP = INTERP_CCIDLIST(i)
+	
         IF ( STRINGMATCH(CCIDTMP,CCID) ) THEN
            LCIDSELECT = .TRUE.
            GOTO 800
         ENDIF
 
 c Dec 2015: also check match with IAUC name
-        IF ( STRINGMATCH(CCIDTMP,IAUC) ) THEN
-           CCID       = IAUC  ! so that IAUC is written to output
+        IF ( STRINGMATCH(CCIDTMP,NAME_IAUC) ) THEN
+           CCID       = NAME_IAUC  ! so that IAUC is written to output
            LCIDSELECT = .TRUE.
            GOTO 800
         ENDIF
@@ -31266,7 +31283,7 @@ C -------------------- BEGIN -------------------------
 C  
 C Initialize MINUIT, input unit, output unit, save unit
 C
-
+      
 +SELF,IF=MINUIT.
       CALL MNINIT(IUNIN,IUOUT,IUWRI)
 

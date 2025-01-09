@@ -469,6 +469,8 @@ HELP_CONFIG_COSMOFIT = f"""
   - /CMBpri/    -cmb_sim -sigma_Rcmb 0.007
   - /CMB+BAO/   -cmb_sim -sigma_Rcmb 0.007 -bao_sim
   - /w0wa+CMB/  -wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007
+  - /w0wa+CMB/  -wa -wasteps 51 -w0steps 51 -outfile_chi2grid -outfile_resid 
+#      (for outfile_xxx options, output files are stored in separate subdir)
       or
   FCOPT:
   - /label1/ <firecrown options> 

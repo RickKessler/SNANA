@@ -106,7 +106,6 @@ C =======================================
 +CDE,SNFITVAR.
 +CDE,SNFITINP.
 
-
 +KEEP,SNFITPAR.
 
       INTEGER 
@@ -607,8 +606,6 @@ c namelist input variables.
      &    DOFIT_FILT(0:MXFILT_ALL)  
      &   ,LDMPFCN(0:MXFILT_ALL)
      &   ,LDMPFUN(MXFILT_ALL)
-     &   ,LDMPFCN_PLOTCHI2(MXFILT_ALL)
-     &   ,LDMPFUN_PLOTCHI2(MXFILT_ALL)
      &   ,LFIXPAR_ALL       ! I: T=> fix all paramters; FITVAL = INIVAL
      &   ,LFIXPAR_ADJUST    ! I: T=> leave params based on FITINI_ADJUST
      &   ,LKCOR_STRETCH     ! I: T=> get Kcor from stretched template
@@ -633,7 +630,6 @@ c namelist input variables.
      &   ,MINOS_ERRMAX_BAD  ! I: T=> flag too-small errors (def=T)
      &   ,UCOR_BXB          ! I: T=> correct U-band with BX-B
      &   ,LTRACE            ! I: T=> debug tool to identify crashes
-     &   ,LPLOTCHI2         ! I: T=> plot chi2 vs. each fitpar & filter
      &   ,DOCHI2_SIGMA      ! I: T=> add chi2 from model-error
      &   ,CHECK_CRAZYFITERR ! I: T=> check for crazy fit errors (default)
 
@@ -754,7 +750,6 @@ c
      &  ,MAX_INTEGPDF  ! I: max # times to integrate PDFs
      &  ,CONTOUR_LIST(4,20)  ! I: define contour plots: CID,IPAR1,IPAR2,NPT
      &  ,OPT_SALT2FIT  ! I: fit 0=> fit x0;  1=> fit log10(x0); 2=> fit delta-mu
-     &  ,IPAR_PLOTCHI2 ! I: HFUNMIN only for this parameter
      &  ,NFIT_VERBOSE  ! I: number of verbose printouts (avoid huge logs)
      &  ,OPT_CHI2_SIGMA  ! I: 1= SIGMA_LAST= Total Error, 2= SIGMA_LAST= Data Error, 128= Compute but don't use
 
@@ -828,7 +823,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
      &   ,DOFIT_FILT, DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
      &   ,LDMP_PHOTOZ_DROPFILTER
-     &   ,LDMPFCN, LDMPFUN, LDMPFCN_PLOTCHI2, LDMPFUN_PLOTCHI2
+     &   ,LDMPFCN, LDMPFUN
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
      &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, OPT_CHI2_SIGMA
      &   , LAMREST_MODEL_SMOOTH
@@ -879,7 +874,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE
      &   ,MINOS_ERR_DLMAG, MINOS_ERR_REQALL0, MINOS_ERR_REQALL1
      &   ,MINOS_ERRMAX_BAD
-     &   ,CONTOUR_LIST, LTRACE, LPLOTCHI2, IPAR_PLOTCHI2, NFIT_VERBOSE
+     &   ,CONTOUR_LIST, LTRACE, NFIT_VERBOSE
      &   ,FUDGE_FITERR_MAXFRAC, FUDGE_FITERR_TREST
      &   ,FUDGE_FITERR_PASSBANDS, DOFUDGE_FITERR, USE_FUDGE_FITERR
      &   ,FUDGE_FITERR_RESTLAM, FUDGE_MAGERR_MODEL, FUDGE_FITERR_MAXITER
@@ -955,7 +950,7 @@ c ------
      &   ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE
      &   ,MINOS_ERR_DLMAG, MINOS_ERR_REQALL0, MINOS_ERR_REQALL1
      &   ,MINOS_ERRMAX_BAD
-     &   ,CONTOUR_LIST, LTRACE, LPLOTCHI2, IPAR_PLOTCHI2, NFIT_VERBOSE
+     &   ,CONTOUR_LIST, LTRACE, NFIT_VERBOSE
      &   ,FUDGE_FITERR_MAXFRAC, FUDGE_FITERR_TREST
      &   ,FUDGE_FITERR_PASSBANDS
      &   ,FUDGE_FITERR_RESTLAM, FUDGE_MAGERR_MODEL,FUDGE_FITERR_MAXITER
@@ -1027,8 +1022,9 @@ c - - - - - -
 c
      &  ,NFILTOBS_TABLE, IFILTOBS_MAP_TABLE, IFILT_MAP_TABLE
      &  ,SURVEY_FILTERS_TABLE
-c
-     &  ,NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
+
+      COMMON / TABLEVARCOM4_SPEC /
+     &   NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
      &  ,TBLSPEC_CCDNUM, TBLSPEC_IMGNUM
      &  ,TBLSPEC_CFILT, TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
      &  ,TBLSPEC_LAMREST
@@ -1037,7 +1033,23 @@ c
      &  ,TBLSPEC_MAG_MODEL, TBLSPEC_MAG_MODEL_ERR
      &  ,TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST
 
-      COMMON / TABLEVARCOM8 / TBLSPEC8_MJD
+      COMMON / TABLEVARCOM8_SPEC / TBLSPEC8_MJD
+
+c define table var for DMPFCN
+      INTEGER 
+     &   TBLDMPFCN_ISN, TBLDMPFCN_IFLAG, TBLDMPFCN_ITER, TBLDMPFCN_NCALL
+      REAL 
+     &   TBLDMPFCN_ZSN
+     &  ,TBLDMPFCN_PEAKMJD, TBLDMPFCN_DISTANCE
+     &  ,TBLDMPFCN_SHAPEPAR, TBLDMPFCN_COLORPAR
+     &  ,TBLDMPFCN_CHI2PRIOR(0:MXFITPAR), TBLDMPFCN_CHI2TOT
+
+      COMMON / TABLEVARCOM_DMPFCN / 
+     &   TBLDMPFCN_ISN, TBLDMPFCN_NCALL
+     &  ,TBLDMPFCN_IFLAG, TBLDMPFCN_ITER, TBLDMPFCN_ZSN
+     &  ,TBLDMPFCN_PEAKMJD, TBLDMPFCN_DISTANCE
+     &  ,TBLDMPFCN_SHAPEPAR, TBLDMPFCN_COLORPAR
+     &  ,TBLDMPFCN_CHI2PRIOR, TBLDMPFCN_CHI2TOT
 
 +KEEP,ALLFILTCOM.
 c
@@ -1821,9 +1833,14 @@ c not yet been filled.
          CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_INI) 
       ENDIF
 
-      IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
-     &     FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN    
-         CALL TABLE_SNSPEC_SALT2(0)
+      if ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN 
+         IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 ) then
+            CALL TABLE_SNSPEC_SALT2(0)
+         ENDIF
+         IF ( LDMPFCN(0) ) then
+            OPT_TABLE(ITABLE_DMPFCN) = 1 ! auto-enable this table
+            CALL TABLE_DMPFCN(0)
+         ENDIF
       ENDIF
 
       IF ( SALT2_DICTFILE .NE. ' ' ) THEN 
@@ -2189,16 +2206,38 @@ c init linear FITCOV arrays
       CALL FITINI_COV(OPT, ITER, FITVAL(1,ITER-1), IERR)
       IF ( IERR .NE. 0 ) RETURN
 
+      if ( FIRST_ITER .and. USE_FITPAR_SNCID_FILE ) then
+c           Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
+          CALL FITINI_LIST_FILE(iter)
+          if ( DOFIT_PHOTOZ ) then
+            INIBND(1,ipar_zPHOT)  =  PHOTOZ_BOUND(1)
+            INIBND(2,ipar_zPHOT)  =  PHOTOZ_BOUND(2)
+          endif
+      else
+c                Nominal param init    
+       !check photoz
+        IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter, IERR)
+        IF ( IERR .NE. 0 ) RETURN
+
+        !adjust fitpar based on initial Fdata/Fmodel ratios.
+        CALL FITINI_ADJUST(iter,IERR)
+        IF ( IERR .NE. 0 ) RETURN
+      endif
+
++SELF,IF=DELETE.
+c xxxxxx mark delete Jan 8 2025 xxxxxxx
 c check for photoZ fit (after FITINI_COV)
       IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter, IERR)
       IF ( IERR .NE. 0 ) RETURN
-
+   
 c adjust fitpar based on initial Fdata/Fmodel ratios.
       CALL FITINI_ADJUST(iter,IERR)
       IF ( IERR .NE. 0 ) RETURN
 
 c Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
       CALL FITINI_LIST_FILE(iter)
+c xxxxxxx end mark xxxxxx
++SELF.
 
       IF ( LREST_FITMODEL .and. ITER .EQ. NFIT_ITERATION ) THEN 
         CALL FITINI_PRKCOR()   ! print Kcor info
@@ -2458,9 +2497,7 @@ c -------------------------------------------------
 c check for crazy errors, unless:
 c   + plotchi2-debugger is on, or
 
-      CRAZY = CRAZYFITERR(isn,iter) .and. 
-     &    (.not. LPLOTCHI2 )
-c xxx mark delete Dec 2024   & (.not. LPLOTCHI2 .and. OPT_SNCID_LIST==0)
+      CRAZY = CRAZYFITERR(isn,iter) 
 
       IF ( CRAZY ) THEN
         write(6,222) CCID(1:LCID)
@@ -2561,8 +2598,6 @@ c book plots for this SN; all plots are vs. relative epoch
 
         CALL SNLCPLOT()
 
-        IF ( LPLOTCHI2 ) CALL HFUNMIN()    ! plot fun near minium
-
         CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
 
       ENDIF
@@ -2577,9 +2612,10 @@ c check tables to fill
           CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_ANA)
       ENDIF
 
-      IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
-     &     FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN    
-         CALL TABLE_SNSPEC_SALT2(isn)
+      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN    
+         if ( OPT_TABLE(ITABLE_MODELSPEC) > 0 ) then
+            CALL TABLE_SNSPEC_SALT2(isn)
+         endif
       ENDIF
 
 
@@ -4279,7 +4315,7 @@ c ---------------------------------------------------
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,FITIDEALCOM.
-
++CDE,TABLEVARCOM.
 c subroutine ars
 
       INTEGER  
@@ -4352,8 +4388,9 @@ C ----------- BEGIN ------------
       LFLAG_FAST       = IFLAG .EQ. FCNFLAG_FAST
       LFLAG_PRIOR_ONLY = IFLAG .EQ. FCNFLAG_PRIOR_ONLY
       LFLAG_SIGMA_ONLY = IFLAG .EQ. FCNFLAG_SIGMA_ONLY
-
       LAST = LFLAG_LAST_MN .or. LFLAG_USER .or. LFLAG_USESIM
+
+      NCALL_FCNFLAG(IFLAG) = NCALL_FCNFLAG(IFLAG) + 1
 
       R4SN_FFSUM_DATA  = 0.0
       R4SN_FFSUM_MODEL = 0.0
@@ -4528,12 +4565,25 @@ c print non-zero chi2prior contributions
 690               format(T8,'CHI2PRIOR(', A8, ') = ', G12.4 )
                 endif
                 CALL FLUSH(6)
+                TBLDMPFCN_CHI2PRIOR(ipar) = sngl(CHI2PRIOR(ipar))
               ENDDO
 
 c always print total prior-chi2
               print*,'      CHI2PRIOR(TOTAL) = ', SNGL(CHI2INI)
              
               CALL FLUSH(6)
+
+             ! Jan 2025  store Table variables
+              TBLDMPFCN_ISN       = ISN
+              TBLDMPFCN_NCALL     = NCALL_FCNFLAG(IFLAG)
+              TBLDMPFCN_IFLAG     = IFLAG
+              TBLDMPFCN_ITER      = ITER
+              TBLDMPFCN_ZSN       = ZSN
+              TBLDMPFCN_PEAKMJD   = PEAKMJD
+              TBLDMPFCN_DISTANCE  = DISTPAR
+              TBLDMPFCN_SHAPEPAR  = SHAPEPAR(1)
+              TBLDMPFCN_COLORPAR  = COLORPAR
+              TBLDMPFCN_CHI2PRIOR(0) = SNGL(CHI2INI) 
          endif  ! end of DUMP
 
          IF ( FIRSTFILT ) FIRSTFILT = .FALSE.
@@ -4815,8 +4865,7 @@ c check DUMP flags.
 
           ENDIF
         ENDDO
-        print*,'   CHI2-TOT(all filters) = ', chi2
-        print*,'      ********* END OF FCN DUMP ********** '
+        print*,'   CHI2-DIAGONAL(all filters) = ', chi2
         CALL FLUSH(6)
       ENDIF
 
@@ -4876,7 +4925,7 @@ c loop over COV_INV elements and compute chi2
          endif
 
          if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
-             CALL PRINT_FCNCHI2(iter, irow, icol, delchi2)
+             CALL PRINT_FCNCHI2_MATRIX(iter, irow, icol, delchi2)
          endif
 
 802     CONTINUE
@@ -4899,13 +4948,23 @@ c   check option to include determinant term log[det(COV_INC)]
           call flush(6)
       endif
 
+c - - - - - - -
+      IF ( LDMPFCN_LOC ) THEN
+         print*,'   CHI2-FINAL(all filters)    = ', chi2
+         print*,'      ********* END OF FCN DUMP ********** '
+         CALL FLUSH(6)
+
+         TBLDMPFCN_CHI2TOT = sngl(chi2)
+         CALL TABLE_DMPFCN(isn)
+      ENDIF
+
       RETURN
       END           ! FCNSNLC
 
 
 C ===============================
-+DECK,PRINT_FCNCHI2.
-      SUBROUTINE  PRINT_FCNCHI2(iter, irow, icol, delchi2)
++DECK,PRINT_FCNCHI2_MATRIX.
+      SUBROUTINE  PRINT_FCNCHI2_MATRIX(iter, irow, icol, delchi2)
 
 c Created Jul 2024
 c print chi2 matrix contribution for irow,icol
@@ -4975,7 +5034,7 @@ c print more info for large delchi2
       call flush(6)
 
       RETURN
-      END    ! end PRINT_FCNCHI2
+      END    ! end PRINT_FCNCHI2_MATRIX
 
 C ==============================================================
 +DECK,FCNCHI2_PRIOR.
@@ -7070,8 +7129,6 @@ C ------------------- BEGIN ---------------------
       CUTINI(2) = +9.0E8
 
       LTRACE = .FALSE.
-      LPLOTCHI2 = .FALSE.
-      IPAR_PLOTCHI2 = 0
       NFIT_VERBOSE  = 20
 
 c init namelist defaults
@@ -7361,8 +7418,6 @@ c Aug 17 2015: from snlc_sim.defaults since this is no longer read
           DOFIT_FILT(ifilt)  = .FALSE.
           LDMPFCN(ifilt)     = .FALSE.          
           LDMPFUN(ifilt)     = .FALSE.      
-          LDMPFCN_PLOTCHI2(ifilt)     = .FALSE.          
-          LDMPFUN_PLOTCHI2(ifilt)     = .FALSE.          
           DOFUDGE_FITERR(ifilt)       = .FALSE.
       ENDDO
 
@@ -7607,14 +7662,8 @@ c  skip DUMP options after 20 filters
              c2err = 'Check &FITINP namelist'
              CALL MADABORT(FNAM, c1err, c2err)
            endif
-           if ( LPLOTCHI2 ) then
-              ! either plot ...
-              LDMPFCN_PLOTCHI2(ifilt) = .TRUE.
-           else
-              ! or stdout dump ...
               LDMPFCN(ifilt) = .TRUE.
               LDMPFCN(0)     = .TRUE.
-           endif
         endif
 
         ctmp = FILTLIST_DMPFUN(i:i)
@@ -7625,11 +7674,7 @@ c  skip DUMP options after 20 filters
              c2err = 'Check &FITINP namelist'
              CALL MADABORT(FNAM, c1err, c2err)
            endif
-           if ( LPLOTCHI2 ) then
-              LDMPFUN_PLOTCHI2(ifilt) = .TRUE.
-           else
-              LDMPFUN(ifilt) = .TRUE.
-           endif
+           LDMPFUN(ifilt) = .TRUE.
         endif
 
         ctmp = NEARFILT_IGNORE_REST(i:i)
@@ -8153,12 +8198,6 @@ c
 
         else if(MATCH_NMLKEY('LFIXPAR_ADJUST',1,i,ARGLIST)) then
             READ(ARGLIST(1),*) LFIXPAR_ADJUST
-
-        else if(MATCH_NMLKEY('LPLOTCHI2',1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) LPLOTCHI2
-
-        else if(MATCH_NMLKEY('IPAR_PLOTCHI2',1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) IPAR_PLOTCHI2
 
         else if(MATCH_NMLKEY('MINOS_ERRMAX_BAD', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) MINOS_ERRMAX_BAD
@@ -8754,7 +8793,7 @@ C --------------- BEGIN -----------------
       IPRINT = 0 
       if (LPRINT) IPRINT = 1
       CCID_forC = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
-
+      
       IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
          c2err = 'not allowed with photo-z fits'
@@ -8820,7 +8859,6 @@ c --------------------------------------------
 
 c ----------------------------------------
 c set initial value and step size.
-
 
       PRIOR_PHOTOZ     =  -9.0
       PRIOR_PHOTOZ_ERR =  -9.0
@@ -9954,7 +9992,7 @@ C ==========================
       SUBROUTINE FITINI_LIST_FILE(iter)
 
 C Created Apr 29 2022 by R.Kessler
-c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2 fit
+c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2/SALT3 fit
 c values to use as INIVAL when iter=1.
 c If INISTP(ipar)=0 [fixed parameter value], 
 c apply previous SALT2 fit value for all iterations.
@@ -9970,7 +10008,6 @@ c apply previous SALT2 fit value for all iterations.
 
       INTEGER IPAR_LIST(20), NPAR, i, ipar 
       INTEGER ABORT_FLAG, LENV
-      LOGICAL USE_FITPAR_LIST_FILE
       REAL*8  DVAL
       CHARACTER cVAR*40
       LOGICAL LDMP, FIRST_ITER, LSET
@@ -9980,8 +10017,7 @@ c apply previous SALT2 fit value for all iterations.
 
 C ----------- BEGIN ----------
 
-      USE_FITPAR_LIST_FILE = BTEST(OPT_SNCID_LIST,1)
-      IF ( .NOT. USE_FITPAR_LIST_FILE ) RETURN
+      IF ( .NOT. USE_FITPAR_SNCID_FILE ) RETURN
 
       FIRST_ITER = (ITER==1 .and. .not. LREPEAT_ITER) 
 
@@ -10013,7 +10049,10 @@ c construct list of params to check in SNCID_LIST file
          IF (.not. LSET) GOTO 50
          LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
          cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
-         if ( IPAR == IPAR_zPHOT ) cVAR = 'zHD' // char(0)
+         if ( IPAR == IPAR_zPHOT ) then
+	     cVAR = 'zHD' // char(0)
+	     LENV = 3
+	 endif
          
          DVAL = 
      &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,40)
@@ -12654,7 +12693,7 @@ C ----------------- BEGIN ----------------
 c Jan 4 2021
 c check option to use SNCID list and skip cuts ... but always
 c reject events that are pegged to the edge of the shape prior range
-      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+      if ( USE_SNCID_FILE  ) THEN
          xval = LCVAL_STORE(ipar_shape)
          if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
          if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
@@ -19549,6 +19588,183 @@ C -------------------- BEGIN ----------------
 
 
 C ===================================================
++DECK,TABLE_DMPFCN.
+      SUBROUTINE TABLE_DMPFCN(isn)   
+c
+c Created Jan 2025
+c *** FIT DEBUG UTILITY ***
+c Prepare table to dump FCN chi2 info per fit step.
+c Beware that the output is huge, so use this only for a few events.
+c
+c -------------------------------
+      IMPLICIT NONE
+      INTEGER   ISN   ! 0->init, otherwise fill
+
+c local var
+
++CDE,SNDATCOM.
++CDE,SNFITCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,TABLEVARCOM.
+
+      INTEGER ID, i, ep, LENNAME, LENFMT
+      INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
+      REAL    Tobs, z, x0, x1, c, MWEBV
+      REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
+      CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+
+c ----------------- BEGIN ------------------------
+      
+      ID = IDTABLE_DMPFCN
+
+c ----------------------------------
+
+      IF ( ISN .EQ. 0 ) THEN
+
+         NAME    = 'DMPFCN' // char(0)
+         LENNAME  = INDEX(NAME,   ' ') - 1
+
+         TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_FITRES)
+         LENFMT   = INDEX(TEXTFMT,' ') - 1
+         TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+
+         CALL SNTABLE_CREATE(ID,NAME,TEXTFMT_forC, LENNAME,LENFMT)  ! C fun
+
+         CALL INIT_TABLE_DMPFCN(ID, 'DMPFCN' )
+
+        RETURN
+      ENDIF
+
+c ------------------------------------
+c  fill table
+      
+c   terminate strings for C table-functions (snana.car routine)
+      CALL TABLE_STRING_TERMINATION(+1)
+
+      call flush(6) ! xxxxx
+      
+      CALL SNTABLE_FILL(ID)  ! generic C function
+
+400   CONTINUE
+
+      CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+
+c ------------------------------------
+
+      RETURN
+      END     ! TABLE_DMPFCN
+
+C =====================================
++DECK,INIT_TABLE_DMPFCN.
+      SUBROUTINE INIT_TABLE_DMPFCN(ID,BLOCK)
+c
+c Created Jan 2025
+c
+c --------------
+
+      IMPLICIT NONE
+      INTEGER   ID          ! (I) table id
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
+
+c local var
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+c +CDE,FILTCOM.
+c +CDE,SNLCINP.
+c +CDE,USRTAGCM.
++CDE,TABLEVARCOM.
+c +CDE,VMAXCOM.
+
+      INTEGER 
+     &    IPAR, IFILT, IFILT_OBS
+     &   ,LENLIST, LENNAME, LENBLOCK, LENPACK
+
+      CHARACTER VARNAME*60, CBLOCK*40
+
+      EXTERNAL
+     &     SNTABLE_ADDCOL_int
+     &    ,SNTABLE_ADDCOL_flr
+     &    ,SNTABLE_ADDCOL_dbl
+     &    ,SNTABLE_ADDCOL_str
+
+C ---------------- BEGIN ------------
+
+      write(6,10) BLOCK, ID
+ 10   format(T6,'Create BLOCK = ',A,'  for TABLE ID = ', I5)
+      call flush(6)
+
+      LENBLOCK = INDEX(BLOCK//' ',' ') - 1
+      CBLOCK   = BLOCK(1:LENBLOCK) // char(0)
+
+c - - - - 
+      VARNAME = 'CCID:C*20' // char(0)
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'ISN:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLDMPFCN_ISN, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'NCALL:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLDMPFCN_NCALL, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'IFLAG:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLDMPFCN_IFLAG, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'ITER:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLDMPFCN_ITER, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'ZSN:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_ZSN, 
+     &             VARNAME, 1,     LENBLOCK, 20 )
+
+      VARNAME = 'PEAKMJD:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_PEAKMJD, 
+     &             VARNAME, 1,     LENBLOCK, 20 )
+     
+      VARNAME = 'x0:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_DISTANCE, 
+     &             VARNAME, 1,     LENBLOCK, 20 )
+
+      VARNAME = 'x1:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_SHAPEPAR, 
+     &             VARNAME, 1,     LENBLOCK, 20 )
+
+      VARNAME = 'c:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_COLORPAR, 
+     &             VARNAME, 1,     LENBLOCK, 20 )
+
+c - - - - 
+      VARNAME = 'CHI2_TOT:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_CHI2TOT, 
+     &              VARNAME, 1,     LENBLOCK, 20 )	 
+
+      VARNAME = 'CHI2PRIOR_TOT:F' // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_CHI2PRIOR(0), 
+     &              VARNAME, 1,     LENBLOCK, 20 )	 
+
+      DO 900 ipar = 1, IPAR_MAX
+         if ( ipar == IPAR_ITER )  GOTO 900
+         if ( ipar == IPAR_ISN  )  GOTO 900
+         if ( ipar == IPAR_SHAPE2) GOTO 900
+         if ( ipar == IPAR_MB	 ) GOTO 900	 
+         VARNAME = 'CHI2PRIOR_' // PARNAME_STORE(ipar)
+	 LENNAME = INDEX(VARNAME,' ') -1
+	 VARNAME = VARNAME(1:LENNAME) // ':F' // char(0)
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_CHI2PRIOR(ipar), 
+     &              VARNAME, 1,     LENBLOCK, 20 )	 
+900   CONTINUE
+
+      RETURN
+      END     ! INIT_TABLE_DMPFCN
+
+C ===================================================
 +DECK,TABLE_SNSPEC_SALT2.
       SUBROUTINE TABLE_SNSPEC_SALT2(isn)   
 c
@@ -19676,7 +19892,7 @@ c ------------------------------------
       END  ! TABLE_SNSPEC_SALT2
 
 C =====================================
-+DECK,TBSPECVAR.
++DECK,INIT_TABLE_SPECVAR.
       SUBROUTINE INIT_TABLE_SNSPECVAR(ID,BLOCK)
 c
 c Created Nov 18 2016
@@ -20100,212 +20316,6 @@ c      check FITRESTMAG variables
 
 C =====================================================
 +PATCH,*HFUNS.
-
-
-C =====================
-+DECK,HFUNMIN.
-      SUBROUTINE HFUNMIN()
-c
-c Oct 22, 2008
-c
-c Plot function (chi2) around minimum for each fit-parameter.
-c Plot 2D functions of chi2 vs. filter, where filter=0 
-c corresponds to the data chi2 that excludes the prior,
-c
-c Useful namelist control variables
-c
-c   LPLOTCHI2 = T             ! global flag to call HFUNMIN
-c   IPAR_PLOTCHI2     = 9     ! plot only this IPAR (default=all)
-c   FILTLIST_DMPFCN   = 'r'   ! dump FCN for r 
-c   FILTLIST_DMPFUN   = 'r'   ! dump USRFUN for r and TREST_DMPFUN below
-c   SCALE_PLOTCHI2    = 1.0   ! scale range to plot chi2
-c   TREST_DMPFUN      = 12.07, 12.09
-c
-c
-c Aug 31, 2009: check IPAR_PLOTCHI2 for option to plot chi2
-c               for just one parameter.
-c
-c               If FILTLIST_DMPFCN[FUN] is set, then apply dump
-c               only within +-10 bins of chi2 minimum.
-c               See internal arrays LDMPFCN_PLOTCHI2
-c               and LDMPFUN_PLOTCHI2. 
-c               
-c Jun 22, 2012:
-c   Plot only filters used in fit so that hid=1 has correct 
-c   filter-list for generic snana#chi2nearmin macro.
-c   See NFILT_OBS_USEFIT.
-c
-c Feb 6, 2013: replace hbook calls with SNHIST_XXX routines.
-c
-c ----------------------
-
-      IMPLICIT NONE
-
-c hard-wire  a few things
-      INTEGER HOFF, NFITSIG, NBFITPAR
-      PARAMETER ( 
-     &    HOFF      = 2000  ! hbook offset
-     &   ,NFITSIG   = 10    ! go out +-NSIG sigma from central value
-     &   ,NBFITPAR  = 100   ! Number of fitpar bins to compute chi2
-c     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
-     &      )
-
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.  
-+CDE,SNFITCOM.   private fitter info
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-  
-      CHARACTER chis*80
-
-      INTEGER 
-     &   hid, NBx, NBf, NHB(2), ipar, ix, i, LL, LF
-     &  ,ifilt, ifilt_obs, NFUSE
-     &  ,IPAR_LOOP1, IPAR_LOOP2
-     &  ,NDIM1, NDIM2
-
-c SNHIST args
-
-      REAL*8
-     &    xmin, xmax, dx, xcen, xbin, xtmp, x(2)
-     &  , fmin, fmax, f, XHMIN(2), XHMAX(2)
-     &  , chi2
-
-      LOGICAL LBK2, LTEST, LDMPCHECK
-
-c FCNSNLC args
-      INTEGER IFLAG
-
-      DOUBLE PRECISION
-     &    GRAD8(MXFITPAR)
-     &   ,FITSAVE8(MXFITPAR)
-     &   ,FITPARLOC8(MXFITPAR)
-     &   ,FITERRLOC8(MXFITPAR)
-     &   ,chi8, USRFUN
-
-      EXTERNAL USRFUN
-
-C ------------------- BEGIN ---------------------
-
-      NDIM1 = 1
-      NDIM2 = 2
-
-      print*,'  '
-      print*,'    CALL HFUNMIN for CID = ', SNLC_CCID
-      CALL FLUSH(6)
-
-      IFLAG = FCNFLAG_USER
-      NBx   = NBFITPAR  ! number of bins to plot chi2
-  
-      fmin  = -0.5
-      fmax  = float(NFILT_OBS_USEFIT) + 0.5
-      NBf   = int(fmax - fmin + 0.001 )
-
-      DO ipar = 1, IPAR_MAX
-         FITPARLOC8(ipar) = FITVAL(ipar,NFIT_ITERATION)
-         FITERRLOC8(ipar) = FITERR(ipar,NFIT_ITERATION)
-         FITSAVE8(ipar)   = FITPARLOC8(ipar)
-      ENDDO
-
-
-      IF ( IPAR_PLOTCHI2 .GT. 0 ) THEN
-         IPAR_LOOP1 = IPAR_PLOTCHI2
-         IPAR_LOOP2 = IPAR_PLOTCHI2
-      ELSE
-         IPAR_LOOP1 = 1
-         IPAR_LOOP2 = IPAR_MAX
-      ENDIF
-
-      DO 100 ipar = IPAR_LOOP1, IPAR_LOOP2
-
-         if ( FITERRLOC8(ipar) .LE. 0.0 ) goto 100
-
-         print*,'      Plot chi2 around minimum of : ', 
-     &          PARNAME_STORE(ipar)
-
-         xcen = FITPARLOC8(ipar)
-         dx   = FITERRLOC8(ipar) * float(NFITSIG)
-
-         dx = dx * SCALE_PLOTCHI2
-
-         xmin =  -dx 
-         xmax =  +dx 
-         xbin = (xmax - xmin) / float(NBx)
-         
-c book chi2 vs. par - par(at min) vs. filter
- 
-        LL = INDEX(PARNAME_STORE(ipar),' ' ) - 1
-        LF = INDEX(FILTLIST_FIT_USE,   ' ' ) - 1
-        chis = 'FUN-chi2  vs.  [D]' // PARNAME_STORE(ipar)(1:LL) // 
-     &    ' and filters ' // FILTLIST_FIT_USE(1:LF) // char(0)
-
-        hid      = HOFF + ipar
-        NHB(1)   = NBX  ; NHB(2)   = NBF
-        XHMIN(1) = xmin ; XHMIN(2) = fmin
-        XHMAX(1) = xmax ; XHMAX(2) = fmax
-    
-        CALL SNHIST_INIT ( NDIM2, hid, chis, 
-     &             NHB, XHMIN, XHMAX, LEN(chis) )
-
-         DO ix = 1, NBx
-
-             LDMPCHECK = ( IPAR .EQ. IPAR_PLOTCHI2 )
-cc     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
-
-             FCN_FITCHI2(0) = 0.0
-             do ifilt = 1, NFILTDEF_SURVEY
-               FCN_FITCHI2(ifilt) = 0.0
-
-c check for filters to dump near the minimum
-               ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-               if ( LDMPCHECK ) then
-                 LDMPFCN(ifilt_obs) = LDMPFCN_PLOTCHI2(ifilt_obs)
-                 LDMPFUN(ifilt_obs) = LDMPFUN_PLOTCHI2(ifilt_obs)
-                 LDMPFCN(0)         = .true. ! xxx ?? 9.30.2021
-               else
-                 LDMPFCN(ifilt_obs) = .FALSE.
-                 LDMPFUN(ifilt_obs) = .FALSE.
-               endif
-
-             enddo ! ifilt
-
-            xtmp = Xcen + Xmin + ( float(ix) - 0.5 ) * xbin
-            FITPARLOC8(ipar) = DBLE(xtmp)
-
-            CALL FITINI_EPVAR(NFIT_ITERATION)
-            CALL FCNSNLC(NFITPAR_MN,GRAD8,CHI8,FITPARLOC8,IFLAG,USRFUN)
-
-            NFUSE = 0
-            do 444 ifilt = 0, NFILTDEF_SURVEY
-
-               if ( ifilt .GT. 0 ) then
-                 ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-                 if ( .NOT. USE_FILT(ifilt_obs) ) goto 444
-                 NFUSE = NFUSE + 1
-               endif
-
-               x(1)     = xtmp - xcen
-               x(2)     = float(NFUSE)
-               chi2     = FCN_FITCHI2(ifilt)  ! chi2 excluding prior
-               CALL SNHIST_FILL(NDIM2, HID, X, CHI2)
-444          continue
-
-         ENDDO  ! end ix loop over fitpar
-
-         FITPARLOC8(ipar) = FITSAVE8(ipar)
-
-100   CONTINUE  ! end if IPAR loop
-
-      DO ifilt_obs = 1, MXFILT_ALL
-         LDMPFCN(ifilt_obs) = .FALSE. 
-         LDMPFUN(ifilt_obs) = .FALSE. 
-      ENDDO
-      print*, ' ' 
-
-      RETURN
-      END
 
 
 C ================================

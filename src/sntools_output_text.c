@@ -23,7 +23,7 @@
 //
 // Jan 4 2021: MXCHAR_LINE -> 3200 (was 2500)
 // Sep 07 2021: abort if found too few variables (SNTABLE_READ_EXEC_TEXT)
-//
+// Jan 07 2025: MXCHAR_LINE -> 4000 (was 3200)
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -31,7 +31,7 @@ char FILEPREFIX_TEXT[100];
 #define MXTABLE_TEXT 10 
 #define MXVAR_TEXT   MXVAR_TABLE
 #define MXEPVAR_TEXT 50   // for light curve epoch
-#define MXCHAR_LINE  3200 
+#define MXCHAR_LINE  4000 
 
 #define OPT_FORMAT_KEY   1
 #define OPT_FORMAT_CSV   2

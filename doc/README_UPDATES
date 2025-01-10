@@ -22834,8 +22834,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 global FLAG_REDUCE_MEMORY. Also noticed that performing
 	 "positive definite" test takes much longer than matrix inversion,
 	 so this test now runs only for size < 2000.
+
+    snlc_fit.car
+       + New option "OPT_SNCID_LIST += 4" to use previous FITPAR as Gauss prior;
+         see https://github.com/RickKessler/SNANA/issues/1463
 	
-	 
          *****  USEFUL(v11_05s) *****
 	 	       
          *****  MISCELLANEOUS(v11_05s) *****
@@ -22845,7 +22848,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
            @@CUT 'abs(c)>0.1'
 
      snlc_fit.car
-        + in FITPAR_PREP, skip nominal inits if using FITPAR from SNCID_LIST_FILE.
+        + in FITPAR_PREP, skip nominal param-init if using FITPAR from SNCID_LIST_FILE.
 	  This is just to save CPU; should not impact fits.
-	  
+	+ FILTLIST_DMPFCN now automatically writes table file with fitpar and chi2
+	  info for each step in the minimization.
+	  Table file name is [TEXTFILE_PREFIX].DMPFCN.TEXT.
+   	  
 END: 

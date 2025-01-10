@@ -457,7 +457,8 @@ c
      &  ,UNIT_PSF_NEA          ! T => read NEA from data; else it's PSF
      &  ,FOUND_ATMOS           ! T=> found atmos variables (dRA,dDEC,AIRMASS)
      &  ,USE_SNCID_FILE         ! bit0 of OPT_SNCID_LIST
-     &  ,USE_FITPAR_SNCID_FILE  ! bit1 if OPT_SNCID_LIST
+     &  ,USE_INIVAL_SNCID_FILE  ! bit1 of OPT_SNCID_LIST
+     &  ,USE_PRIOR_SNCID_FILE   ! bit2 of OPT_SNCID_LIST     
      
       CHARACTER
      &    SNANA_VERSION*60        ! e.g., v11_04h-[commit-id]
@@ -552,7 +553,8 @@ c global survey info
      &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
      &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
-     &    ,DOzSHIFT,  USE_SNCID_FILE, USE_FITPAR_SNCID_FILE
+     &    ,DOzSHIFT
+     &    ,USE_SNCID_FILE, USE_INIVAL_SNCID_FILE, USE_PRIOR_SNCID_FILE
      &    ,NCALL_SNANA_DRIVER, NCALL_FCNFLAG
      &    ,NPASSCUT_INCREMENT, NPASSCUT_FIT
      &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA, FOUND_ATMOS
@@ -1915,7 +1917,9 @@ c
      &  ,OPT_SIMLIB_OUT       ! I: bit mask of SIMLIB_OUT options
      &  ,SIMLIB_OUT_TMINFIX   ! I: choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
      &  ,REQUIRE_DOCANA 
-     &  ,OPT_SNCID_LIST      ! I: 1=force all and ignore cuts; 2=set INIVAL=FITPAR
+     &  ,OPT_SNCID_LIST      ! I: 1=force all and ignore cuts;
+                             ! I: 2=set INIVAL=FITPAR
+                             ! I: 4=use each FITPAR and ERROR as prior
      &  ,OPT_VPEC_COR        ! I: 1=apply vpec cor (default)
      
       LOGICAL 
@@ -6593,7 +6597,8 @@ c disalbe PRIVATE_DATA_PATH.
 
 c Jan 2025; set global flags for reading SNIDs from separate file
       USE_SNCID_FILE        = BTEST(OPT_SNCID_LIST,0) ! use CIDs from file
-      USE_FITPAR_SNCID_FILE = BTEST(OPT_SNCID_LIST,1) ! set INIVAL = FITPAR from file
+      USE_INIVAL_SNCID_FILE = BTEST(OPT_SNCID_LIST,1) ! set each INIVAL = FITPAR from file
+      USE_PRIOR_SNCID_FILE  = BTEST(OPT_SNCID_LIST,2) ! use each FITPAR & ERR as prior
 
 
 c Nov 15 2019: abort on obsolete key
@@ -12693,7 +12698,7 @@ c this match utility uses hash table for faster access.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER i, LENF, LENC, NCCID_TMP, NCCID_FILE, OPTMASK
+      INTEGER i, LENF, LENV, LENC, NCCID_TMP, NCCID_FILE, OPTMASK
       CHARACTER FNAM*20, cFILE*(MXCHAR_FILENAME)
       CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
       CHARACTER cBLANK*4, cVARLIST_STORE*60
@@ -12770,13 +12775,14 @@ c check CIDs from separate file (table format, or unformatted)
          IF ( IS_FILE ) THEN
             if ( NFIT_ITERATION > 0 ) then
            ! store SALT2 fit pars for INIVAL in snlc_fit evt sync
-              cVARLIST_STORE = 'zHD,PKMJD,x0,x1,c' // char(0) 
+              cVARLIST_STORE = 'zHD,PKMJD,x0,x1,c' // ',' //
+     & 	              'zHDERR,PKMJDERR,x0ERR,x1ERR,cERR' // char(0) 
             else
               cVARLIST_STORE = cBLANK
             endif
             OPTMASK = 8 ! send reset for AUTOSTORE
             NCCID_FILE = 
-     &        MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF,20)
+     &        MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF, 60)
          ENDIF
 
          write(6,31) NCCID_LIST, 'SNCCID_LIST'

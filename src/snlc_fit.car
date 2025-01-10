@@ -560,15 +560,16 @@ c CHI2GRID_PRIOR is a grid storing chi2-values to add.
      &  ,PRIOR_VALGRID(NBIN_PRIOR,IPAR_MAX)
      &  ,PRIOR_RANGE(2,IPAR_MAX)
      &  ,PRIOR_BINSIZE(IPAR_MAX)
+     &  ,PRIOR_SNCID_FILE(2,IPAR_MAX) ! Gauss mean and sigma per fit par (Jan 2025)     
      &  ,FLATPRIOR_RANGE(2,IPAR_MAX)  ! used to interp near discontinuity
-
+       
       LOGICAL USE_PRIOR(IPAR_MAX), USE_PRIOR_AV
 
       INTEGER FLATPRIOR_BINRANGE(2,IPAR_MAX)
 
       COMMON / PRIORCOM8 / 
      &    PRIOR_CHI2GRID, PRIOR_PROBGRID, PRIOR_VALGRID
-     &  , PRIOR_RANGE, PRIOR_BINSIZE
+     &  , PRIOR_RANGE, PRIOR_BINSIZE, PRIOR_SNCID_FILE
      &  , FLATPRIOR_RANGE, FLATPRIOR_BINRANGE
 
       COMMON / PRIORCOM4 / USE_PRIOR, USE_PRIOR_AV
@@ -2206,7 +2207,10 @@ c init linear FITCOV arrays
       CALL FITINI_COV(OPT, ITER, FITVAL(1,ITER-1), IERR)
       IF ( IERR .NE. 0 ) RETURN
 
-      if ( FIRST_ITER .and. USE_FITPAR_SNCID_FILE ) then
+c -------
++SELF,IF=DELETE.
+c xxxxxxxxxxxxxxx
+      if ( FIRST_ITER .and. USE_INIVAL_SNCID_FILE ) then
 c           Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
           CALL FITINI_LIST_FILE(iter)
           if ( DOFIT_PHOTOZ ) then
@@ -2223,9 +2227,9 @@ c                Nominal param init
         CALL FITINI_ADJUST(iter,IERR)
         IF ( IERR .NE. 0 ) RETURN
       endif
+c xxxxxxxxxxxxxxx
++SELF.
 
-+SELF,IF=DELETE.
-c xxxxxx mark delete Jan 8 2025 xxxxxxx
 c check for photoZ fit (after FITINI_COV)
       IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter, IERR)
       IF ( IERR .NE. 0 ) RETURN
@@ -2236,8 +2240,6 @@ c adjust fitpar based on initial Fdata/Fmodel ratios.
 
 c Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
       CALL FITINI_LIST_FILE(iter)
-c xxxxxxx end mark xxxxxx
-+SELF.
 
       IF ( LREST_FITMODEL .and. ITER .EQ. NFIT_ITERATION ) THEN 
         CALL FITINI_PRKCOR()   ! print Kcor info
@@ -5047,7 +5049,7 @@ c Apr 3 2018: include color-prior chi2
 c
 c Jun 2022: check option to use zphot quantiles
 c Jan 2024: check prior for IPAR_SHAPE2 (2nd SHAPE param)
-c
+c Jan 2025: call CHI2_PRIOR_SNCID_FILE for USE_PRIOR_SNCID_FILE = T
 c --------------
 
       IMPLICIT NONE
@@ -5069,7 +5071,7 @@ c local args
       REAL*8
      &   CHI2INI, CHI2TMP
      &  ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN
-     &  ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ 
+     &  ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ, DVAL
 
       LOGICAL LTMP, LBADVAL, DO_QUANTILES, DO_BESTZ_GAUSS
 
@@ -5086,7 +5088,7 @@ c to prevent MINUIT from probing extreme values.
 
 c functions
       REAL*8 
-     &   CHI2_PRIOR
+     &   CHI2_PRIOR, CHI2_PRIOR_SNCID_FILE
      &  ,PRIOR_ZPULL
      &  ,PRIOR_MUPULL
      &  ,GET_RV8
@@ -5205,6 +5207,7 @@ c  load local variables for user-specified options from &SNLCINP OPT_PHOTOZ
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
         endif
         
+
         if ( DEBUG_FLAG == 908 ) then
            CALL DUMP_ZPHOT_PRIOR(ZSN,PROBZ)
         endif
@@ -5225,6 +5228,7 @@ c prior on 2nd shape par
         CHI2PRIOR(IPAR_SHAPE2) 
      &          = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
       ENDIF
+
 
 c ----------------------
 c prior on SALT2 color (Apr 2018)
@@ -5258,6 +5262,35 @@ c Prior on AV
 
 
 888   CONTINUE
+
+
+c Jan 2025: add prior on each param based on fitpar read from external file
+      IF ( USE_PRIOR_SNCID_FILE ) THEN
+        IPAR = IPAR_PEAKMJD; DVAL = PEAKMJD
+        CHI2PRIOR(IPAR) = CHI2PRIOR(IPAR) 
+     &                  + CHI2_PRIOR_SNCID_FILE(IPAR,DVAL)
+
+        IPAR = IPAR_DIST ; DVAL = DIST
+        CHI2PRIOR(IPAR) = CHI2PRIOR(IPAR)
+     &                  + CHI2_PRIOR_SNCID_FILE(IPAR,DVAL)
+
+        IPAR = IPAR_SHAPE ; DVAL = SHAPE(1)
+        CHI2PRIOR(IPAR) = CHI2PRIOR(IPAR)
+     &                  + CHI2_PRIOR_SNCID_FILE(IPAR,DVAL)
+
+        IPAR = IPAR_COLOR; DVAL = COLOR
+        CHI2PRIOR(IPAR) = CHI2PRIOR(IPAR)
+     &                  + CHI2_PRIOR_SNCID_FILE(IPAR,DVAL)
+
+        if ( OPT_PHOTOZ > 0 ) then
+          IPAR = IPAR_zPHOT; DVAL = ZSN
+          CHI2PRIOR(IPAR) = CHI2PRIOR(IPAR) 
+     &                    + CHI2_PRIOR_SNCID_FILE(IPAR,DVAL)
+        endif
+
+      ENDIF   ! USE_PRIOR_SNCID_FILE
+
+c - - - - - - -
 c sum all the pieces
       DO IPAR = 0, MXFITPAR
          FCNCHI2_PRIOR = FCNCHI2_PRIOR + CHI2PRIOR(ipar) 
@@ -8979,6 +9012,11 @@ c xxxxxxxxxxxxxxx
       endif
 c xxxxxxxxxxxxx
 
+
+c skip search grid if initial params are going to be over-written
+c from fit params in external FITRES file
+      if ( USE_INIVAL_SNCID_FILE ) RETURN
+      
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
 c search course grid to find min chi2.
@@ -9996,7 +10034,9 @@ c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2/SALT3 fit
 c values to use as INIVAL when iter=1.
 c If INISTP(ipar)=0 [fixed parameter value], 
 c apply previous SALT2 fit value for all iterations.
-
+c
+c Jan 2025: check new option (4-bit) to use FITPAR as prior
+c
       IMPLICIT NONE
 
       INTEGER ITER ! (I) fit iteration
@@ -10007,17 +10047,20 @@ c apply previous SALT2 fit value for all iterations.
 +CDE,SNLCINP.
 
       INTEGER IPAR_LIST(20), NPAR, i, ipar 
-      INTEGER ABORT_FLAG, LENV
-      REAL*8  DVAL
-      CHARACTER cVAR*40
-      LOGICAL LDMP, FIRST_ITER, LSET
+      INTEGER ABORT_FLAG, LENV, N_NOTVALID_INIVAL, N_NOTVALID_PRIOR
+      REAL*8  DVAL, DVALERR
+      CHARACTER cVAR*40, cERR*40, CTMP*40
+      CHARACTER STATUS_INIVAL*20, STATUS_PRIOR*20
+      LOGICAL VBOSE, FIRST_ITER, LSET, USE_FITPAR
+      LOGICAL VALID_INIVAL, VALID_PRIOR
 
       REAL*8   MATCH_CIDLIST_PARVAL
       EXTERNAL MATCH_CIDLIST_PARVAL
 
 C ----------- BEGIN ----------
 
-      IF ( .NOT. USE_FITPAR_SNCID_FILE ) RETURN
+      USE_FITPAR = USE_INIVAL_SNCID_FILE .OR. USE_PRIOR_SNCID_FILE
+      IF ( .NOT. USE_FITPAR ) RETURN
 
       FIRST_ITER = (ITER==1 .and. .not. LREPEAT_ITER) 
 
@@ -10041,32 +10084,82 @@ c construct list of params to check in SNCID_LIST file
       
       ABORT_FLAG = 0 ! do not abort on missing variable.
 
-      LDMP = STDOUT_UPDATE 
-
+      VBOSE = STDOUT_UPDATE 
+      N_NOTVALID_INIVAL = 0
+      N_NOTVALID_PRIOR  = 0      
+      
       DO 50 i = 1, NPAR
          IPAR = IPAR_LIST(i)
          LSET = (FIRST_ITER .or. INISTP(IPAR)==0.)
          IF (.not. LSET) GOTO 50
          LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
-         cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
+         cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)	  
          if ( IPAR == IPAR_zPHOT ) then
 	     cVAR = 'zHD' // char(0)
 	     LENV = 3
 	 endif
-         
+
+c  Jan 2025: construct column of fit par ERROR
+         cERR = cVAR(1:LENV) // 'ERR' // char(0)
+	 
          DVAL = 
-     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,40)
-         if ( DVAL > -999.0 ) THEN
-             INIVAL(IPAR) = DVAL
-             if ( LDMP ) then
-               write(6,44) PARNAME_STORE(IPAR), DVAL, SNLC_CCID
- 44            format(T8, 'INIVAL ', A8,' -> ', G12.5, 
-     &             ' from list file: CID=',A12)
-             endif
-         ENDIF
+     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,LENV)
+         DVALERR = 
+     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,LENV)
+
+         VALID_INIVAL = ( DVAL > -999.0  )
+         VALID_PRIOR  = ( DVAL > -999.0 .and. DVALERR > 0.0 )
+	 STATUS_INIVAL = '' ; STATUS_PRIOR = ''
+	 if ( .NOT. VALID_INIVAL ) then
+	     N_NOTVALID_INIVAL = N_NOTVALID_INIVAL + 1
+	     STATUS_INIVAL = '*** INVALID *** '
+	  endif
+	 if ( .NOT. VALID_PRIOR ) then
+	     N_NOTVALID_PRIOR = N_NOTVALID_PRIOR + 1
+	     STATUS_PRIOR = '*** INVALID *** '
+	  endif
+	 
+         if ( USE_INIVAL_SNCID_FILE ) then
+            INIVAL(IPAR) = DVAL	   ! load initial value for fit
+            if ( VBOSE ) then
+	      CTMP = 'INIVAL-' // cVAR(1:LENV)
+              write(6,44) CTMP, DVAL, SNLC_CCID, STATUS_INIVAL
+           endif
+	 endif ! end USE_INIVAL_SNCID_FILE
+
+	 if ( USE_PRIOR_SNCID_FILE ) then
+            INIVAL(IPAR) = DVAL	  
+	    PRIOR_SNCID_FILE(1,IPAR) = DVAL     ! Gauss mean
+	    PRIOR_SNCID_FILE(2,IPAR) = DVALERR  ! Gauss sigma
+	    if ( VBOSE ) then
+	      CTMP = 'PRIOR-' // cVAR(1:LENV)	    
+              write(6,45) CTMP, DVAL, DVALERR,SNLC_CCID, STATUS_PRIOR
+            endif
+	endif
+	     
  50   CONTINUE
 
+ 44     format(T8, A14, ' : ', G12.5, 
+     &            ' from list file: CID=',A10, 3x, A)
+ 45     format(T8, A14, ' : ', G12.5, ' +_ ', G12.5,
+     &            ' from list file: CID=',A10, 3x, A)
+     
       CALL FLUSH(6)
+c - - - - 
+      if ( USE_PRIOR_SNCID_FILE .and. N_NOTVALID_PRIOR > 0 ) then
+        write(c1err,662) N_NOTVALID_PRIOR, NPAR, 'PRIORs', SNLC_CCID
+        write(c2err,663)
+        CALL MADABORT ( "FITINI_LIST_FILE", c1err, c2err )
+      endif
+
+662     format(I2,' of ', I2,' fitpar ',A,' are invalid for ', A12)
+663     format('check fit pars in argument of SNCID_LIST_FILE')
+
+      if ( USE_INIVAL_SNCID_FILE .and. N_NOTVALID_INIVAL > 0 ) then
+        write(c1err,662) N_NOTVALID_INIVAL, NPAR, 'INIVALs', SNLC_CCID
+        write(c2err,663)
+        CALL MADABORT ( "FITINI_LIST_FILE", c1err, c2err )
+      endif
 
       RETURN
       END  ! end FITINI_LIST_FILE
@@ -11299,6 +11392,9 @@ c initialize prior ranges to zero
          FLATPRIOR_BINRANGE(1,IPAR) = +999999
          FLATPRIOR_BINRANGE(2,IPAR) = -999999
 
+         PRIOR_SNCID_FILE(1,IPAR) = 0.0     ! Gauss mean
+         PRIOR_SNCID_FILE(2,IPAR) = 1.0E20  ! infinite Gauss sigma
+	 
       ENDDO
       USE_PRIOR_AV = .FALSE.
 
@@ -11409,7 +11505,6 @@ c make plot with very fine binning to check interpolation
          xmin(1) = PRIOR_RANGE(1,IPAR) - xbin/2.0
          xmax(1) = PRIOR_RANGE(2,IPAR) + xbin/2.0
          nb(1)   = int( (xmax(1) - xmin(1) + 0.1*xbin)/xbin )
-
 
          LL = INDEX ( PARNAME_STORE(ipar), ' ' ) - 1
          LCHIS = 25+2*LL
@@ -12328,7 +12423,37 @@ c check trivial case of flat-prior region
       RETURN
       END  ! end CHI2_PRIOR
 
+C ============================================
++DECK,CHI2_PRIOR_SNCID_FILE.
+      DOUBLE PRECISION FUNCTION CHI2_PRIOR_SNCID_FILE(IPAR,VAL)
 
+c Created Jan 2025
+c Return Gauss prior chi2 for OPT_SNCID_LIST += 4 option;
+c prior in each fit variable from previous fit stored in SNCID_LIST_FILE
+
+      IMPLICIT NONE
+
+c function inputs
+      INTEGER IPAR ! (I) fit par index
+      REAL*8  VAL  ! (I) param value
+
+c local
+
+      REAL DIF, MEAN, ERR
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
+c --------- BEGIN ------------
+
+      MEAN = PRIOR_SNCID_FILE(1,IPAR)
+      ERR  = PRIOR_SNCID_FILE(2,IPAR)      
+      DIF  = VAL - MEAN
+      CHI2_PRIOR_SNCID_FILE = (DIF/ERR)**2
+      
+      RETURN
+      END    ! CHI2_PRIOR_SNCID_FILE
+      
 C =================================
 +DECK,PRIOR_ZPULL.
       DOUBLE PRECISION FUNCTION PRIOR_ZPULL(ZSN)
@@ -18883,7 +19008,7 @@ c  Protect adding non-PKMJD covariance columns if there aren't any
 c  when stretch and color are both fixed instead of floated.
 c
 c Mar 02 2022: add zPRIOR and zPRIOR_ERR
-c
+c Jan 10 2025: add FILTLIST_FIT_USE
 c --------------
 
       IMPLICIT NONE
@@ -18932,7 +19057,15 @@ C ---------------- BEGIN ------------
       LENLIST  = LEN(VARLIST)
       CBLOCK   = BLOCK(1:LENBLOCK) // char(0)
 
-c mar 18 2018: write OPT_PHOTOZ if ZPHOT output is suppressed 
+c Jan 2025: add list of bands used in fit;
+c   (40 should be enough for joint LSST+ROMAN+EUCLID)
+      VARLIST = 'BANDLIST:C*40' // char(0)
+      LENLIST = INDEX(VARLIST, ' ') - 1      
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, FILTLIST_FIT_USE, 
+     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, 40 )
+
+
+c Mar 18 2018: write OPT_PHOTOZ if ZPHOT output is suppressed 
       IF ( .not. WRTABLEFILE_ZPHOT ) then
          VARLIST = 'OPT_PHOTOZ:I' // char(0)
          LENLIST = INDEX(VARLIST, ' ') - 1
@@ -18940,6 +19073,7 @@ c mar 18 2018: write OPT_PHOTOZ if ZPHOT output is suppressed
      &           VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST )
       ENDIF
 
+     
 c - - - - start with SNANA-analogs that could not be computed in snana
 
       CALL TABLE_VARLIST_FILTERS('SNRMAX','F',SURVEY_FILTERS_TABLE,

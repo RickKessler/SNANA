@@ -1349,11 +1349,13 @@ int ICAST_for_textVar(char *varName) {
   // Jul 26 2024:
   //   + check NAME_IAUC and NAME_TRANSIENT
   //   + refactor to define list of strings to allow.
+  //
+  // Jan 2025: add BANDLIST
   
-#define NVARNAME_STRING_TABLE 15
+#define NVARNAME_STRING_TABLE 16
   char ALLOWED_STRING_COLUMN_LIST[NVARNAME_STRING_TABLE][20] =
     { "CID",            "SNID",         "CCID",        "GALID",
-      "ROW",            "STARID",      "FIELD",        "BAND",
+      "ROW",            "STARID",      "FIELD",        "BAND",  "BANDLIST", 
       "NAME_TRANSIENT", "NAME_IAUC",   "IAUC",         "CATALOG",
       "VERSION",        "PARNAME",     "OBJID" } ;
 
@@ -1378,7 +1380,6 @@ int ICAST_for_textVar(char *varName) {
   // when these integer IDs are very large
   if ( strstr(varName,"GALID" ) != NULL ) { return ICAST_C; }
   if ( strstr(varName,"OBJID" ) != NULL ) { return ICAST_C; }
-
 
   // if not a string, return float cast which really means
   // that it's not a char.

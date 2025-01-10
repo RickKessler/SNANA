@@ -8821,8 +8821,8 @@ c FCNSNLC args
 
 C --------------- BEGIN -----------------
 
-      REFAC = (DEBUG_FLAG == 1219 )
-      LEGACY = .NOT. REFAC
+      LEGACY = (DEBUG_FLAG == -1219 )
+      REFAC  = (.NOT.LEGACY)
 
       IERR = 0 
       FNAM = 'FITINI_PHOTOZ'
@@ -9216,7 +9216,7 @@ c local args
 C ------------- BEGIN ------------
 
       FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
-      REFAC = (DEBUG_FLAG == 1219)
+      REFAC = (DEBUG_FLAG .NE. -1219)  ! -1219 -> legacy
       
       ITER  = 1
       IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC

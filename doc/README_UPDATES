@@ -22855,5 +22855,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	  Table file name is [TEXTFILE_PREFIX].DMPFCN.TEXT.
         + write BANDLIST to FITRES file. Initial use is to force systematics
 	  tests to use same bands as in FITOPT000.
+        + photo-z course-grid search from last snana version (DEBUG_FLAG=1219)
+	  is now default. Legacy treatment is with DEBUG_FLAG = -1219
 	  
 END: 

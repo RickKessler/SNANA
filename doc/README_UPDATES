@@ -22838,7 +22838,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_fit.car
        + New option "OPT_SNCID_LIST += 4" to use previous FITPAR as Gauss prior;
          see https://github.com/RickKessler/SNANA/issues/1463
-	
+	 Gauss prior is implement, but forcing same BANDLIST will be
+	 implemented next SNANA code version.
+	 
          *****  USEFUL(v11_05s) *****
 	 	       
          *****  MISCELLANEOUS(v11_05s) *****
@@ -22850,12 +22852,29 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      snlc_fit.car
         + in FITPAR_PREP, skip nominal param-init if using FITPAR from SNCID_LIST_FILE.
 	  This is just to save CPU; should not impact fits.
+	  
 	+ FILTLIST_DMPFCN now automatically writes table file with fitpar and chi2
 	  info for each step in the minimization.
 	  Table file name is [TEXTFILE_PREFIX].DMPFCN.TEXT.
+	  
         + write BANDLIST to FITRES file. Initial use is to force systematics
 	  tests to use same bands as in FITOPT000.
+
         + photo-z course-grid search from last snana version (DEBUG_FLAG=1219)
 	  is now default. Legacy treatment is with DEBUG_FLAG = -1219
-	  
+	  This update results is small photo-z fit changes in regression test,
+	  so need to tag this SNANA version now (Jan 10 2025) and start a
+	  new version.
+
+
+# =============================================================
+         v11_05t (Jan 10 2025) <-- start date of git tag
+
+         *****  IMPORTANT(v11_05t) *****
+	 
+         *****  USEFUL(v11_05t) *****
+	 	       
+         *****  MISCELLANEOUS(v11_05t) *****
+
+
 END: 

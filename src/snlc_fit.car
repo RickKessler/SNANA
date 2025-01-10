@@ -560,16 +560,20 @@ c CHI2GRID_PRIOR is a grid storing chi2-values to add.
      &  ,PRIOR_VALGRID(NBIN_PRIOR,IPAR_MAX)
      &  ,PRIOR_RANGE(2,IPAR_MAX)
      &  ,PRIOR_BINSIZE(IPAR_MAX)
-     &  ,PRIOR_SNCID_FILE(2,IPAR_MAX) ! Gauss mean and sigma per fit par (Jan 2025)     
      &  ,FLATPRIOR_RANGE(2,IPAR_MAX)  ! used to interp near discontinuity
-       
+
+c define prior info from external SNCID_LIST_FILE
+      REAL*8    PRIOR_FITPAR_SNCID_FILE(2,IPAR_MAX) ! Gauss mean/sigma per fit par
+      CHARACTER PRIOR_BANDLIST_SNCID_FILE*40        ! bands used in fit
+      
       LOGICAL USE_PRIOR(IPAR_MAX), USE_PRIOR_AV
 
       INTEGER FLATPRIOR_BINRANGE(2,IPAR_MAX)
 
       COMMON / PRIORCOM8 / 
      &    PRIOR_CHI2GRID, PRIOR_PROBGRID, PRIOR_VALGRID
-     &  , PRIOR_RANGE, PRIOR_BINSIZE, PRIOR_SNCID_FILE
+     &  , PRIOR_RANGE, PRIOR_BINSIZE
+     &  , PRIOR_FITPAR_SNCID_FILE, PRIOR_BANDLIST_SNCID_FILE
      &  , FLATPRIOR_RANGE, FLATPRIOR_BINRANGE
 
       COMMON / PRIORCOM4 / USE_PRIOR, USE_PRIOR_AV
@@ -10107,6 +10111,8 @@ c  Jan 2025: construct column of fit par ERROR
          DVALERR = 
      &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,LENV)
 
+c .xyz need to fetch BANDLIST string here.
+
          VALID_INIVAL = ( DVAL > -999.0  )
          VALID_PRIOR  = ( DVAL > -999.0 .and. DVALERR > 0.0 )
 	 STATUS_INIVAL = '' ; STATUS_PRIOR = ''
@@ -10129,8 +10135,9 @@ c  Jan 2025: construct column of fit par ERROR
 
 	 if ( USE_PRIOR_SNCID_FILE ) then
             INIVAL(IPAR) = DVAL	  
-	    PRIOR_SNCID_FILE(1,IPAR) = DVAL     ! Gauss mean
-	    PRIOR_SNCID_FILE(2,IPAR) = DVALERR  ! Gauss sigma
+	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = DVAL     ! Gauss mean
+	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = DVALERR  ! Gauss sigma
+	  ! xxx ?? PRIOR_BANDLIST_SNCID_FILE       = BANDLIST 
 	    if ( VBOSE ) then
 	      CTMP = 'PRIOR-' // cVAR(1:LENV)	    
               write(6,45) CTMP, DVAL, DVALERR,SNLC_CCID, STATUS_PRIOR
@@ -11392,8 +11399,8 @@ c initialize prior ranges to zero
          FLATPRIOR_BINRANGE(1,IPAR) = +999999
          FLATPRIOR_BINRANGE(2,IPAR) = -999999
 
-         PRIOR_SNCID_FILE(1,IPAR) = 0.0     ! Gauss mean
-         PRIOR_SNCID_FILE(2,IPAR) = 1.0E20  ! infinite Gauss sigma
+         PRIOR_FITPAR_SNCID_FILE(1,IPAR) = 0.0     ! Gauss mean
+         PRIOR_FITPAR_SNCID_FILE(2,IPAR) = 1.0E20  ! infinite Gauss sigma
 	 
       ENDDO
       USE_PRIOR_AV = .FALSE.
@@ -12446,8 +12453,8 @@ c local
 
 c --------- BEGIN ------------
 
-      MEAN = PRIOR_SNCID_FILE(1,IPAR)
-      ERR  = PRIOR_SNCID_FILE(2,IPAR)      
+      MEAN = PRIOR_FITPAR_SNCID_FILE(1,IPAR)
+      ERR  = PRIOR_FITPAR_SNCID_FILE(2,IPAR)      
       DIF  = VAL - MEAN
       CHI2_PRIOR_SNCID_FILE = (DIF/ERR)**2
       

@@ -12775,7 +12775,7 @@ c check CIDs from separate file (table format, or unformatted)
          IF ( IS_FILE ) THEN
             if ( NFIT_ITERATION > 0 ) then
            ! store SALT2 fit pars for INIVAL in snlc_fit evt sync
-              cVARLIST_STORE = 'zHD,PKMJD,x0,x1,c' // ',' //
+              cVARLIST_STORE = 'BANDLIST,zHD,PKMJD,x0,x1,c' // ',' //
      & 	              'zHDERR,PKMJDERR,x0ERR,x1ERR,cERR' // char(0) 
             else
               cVARLIST_STORE = cBLANK

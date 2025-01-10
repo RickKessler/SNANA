@@ -337,9 +337,6 @@ class LightCurveFit(Program):
             argdict_same_sncid['arg_opt']        = arg_opt
             argdict_same_sncid['arg_file_list']  = arg_file_list
 
-        #print(f" xxx opt_sncid_list = {opt_sncid_list} ")
-        #print(f" xxx argdict_same_sncid = {argdict_same_sncid} ")
-
         # load the goodies
         self.config_prep['argdict_same_sncid'] = argdict_same_sncid
 

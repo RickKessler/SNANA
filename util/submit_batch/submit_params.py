@@ -389,9 +389,13 @@ HELP_CONFIG_LCFIT = f"""
 
   # Option to use events from FITOPT000 in all FITOPTs ...
   # except those with NOREJECT in label.
-  OPT_SNCID_LIST: 1         # original SNANA key
+  OPT_SNCID_LIST: 1         # use CIDs from FITOPT000 (original SNANA key)
+  OPT_SNCID_LIST: 3         # use CIDs and use FITPAR as INIVAL
+  OPT_SNCID_LIST: 7         # use CIDs and use FITPAR as INIVAL and Gauss prior
      or
   FLAG_USE_SAME_EVENTS: 1   # alternate key used by Pippin
+  FLAG_USE_SAME_EVENTS: 3   # idem
+  FLAG_USE_SAME_EVENTS: 7   # idem
 
   # optional append variables from root/hbook into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)

@@ -22853,5 +22853,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	+ FILTLIST_DMPFCN now automatically writes table file with fitpar and chi2
 	  info for each step in the minimization.
 	  Table file name is [TEXTFILE_PREFIX].DMPFCN.TEXT.
-   	  
+        + write BANDLIST to FITRES file. Initial use is to force systematics
+	  tests to use same bands as in FITOPT000.
+	  
 END: 

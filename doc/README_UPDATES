@@ -22876,5 +22876,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 	       
          *****  MISCELLANEOUS(v11_05t) *****
 
+     snlc_fit, sntools:
+        + add tools to read BANDLIST from FITRES file using AUTOSTORE util.
+	  Previously only float/int/double could be read; now it also
+	  handles strings.
+	+ for OPT_SNCID_LIST += 4, BANDLIST is read from FITRES file and
+	  these bands are forced in current fit.
+	  
 
 END: 

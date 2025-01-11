@@ -65,11 +65,11 @@ void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST);
 
 // mangled functions for fortran
 void copy_sndata_global__(int *copyFlag, char *key,
-                          int *NVAL, char *stringVal,double *parVal);
+                          int *NVAL, char *stringVal, double *parVal);
 void copy_sndata_head__(int *copyFlag, char *key,
-                        int *NVAL, char *stringVal,double *parVal);
+                        int *NVAL, char *stringVal, double *parVal);
 void copy_sndata_obs__(int *copyFlag, char *key,
-                       int *NVAL,char *stringVal,double *parVal);
+                       int *NVAL,char *stringVal, double *parVal);
 int  select_mjd_sndata__(double *MJD_WINDOW);
 void host_property_list_sndata__(char *HOST_PROPERTY_LIST);
 

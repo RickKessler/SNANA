@@ -16608,7 +16608,7 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
   bool match_on_cid_only = INPUTS.match_on_cid_only;
   int ACCEPT = 1, REJECT = 0,   isn_match ;
   bool MATCH ;
-  char STRINGID[60];
+  char STRINGID[60], CVAL[20];
   char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
@@ -16632,7 +16632,10 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
   isn_match = match_cidlist_exec(STRINGID);
   MATCH     = (isn_match >= 0);
   if ( INFO_DATA.USE_IZBIN_from_CIDFILE && MATCH ) {
-    *IZBIN = match_cidlist_parval(isn_match, VARNAME_IZBIN, 1);
+    // xxx mark delete Jan 2025  *IZBIN=match_cidlist_parval(isn_match,VARNAME_IZBIN,1);
+    double DVAL;
+    match_cidlist_parval(isn_match, VARNAME_IZBIN, 1, &DVAL, CVAL);
+    *IZBIN = (int)DVAL ;
   }
 
   /* xxx
@@ -17710,7 +17713,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // If IZBIN column exists, store it for use with event syncing (Apr 2022)
 
   int  ncidList_data = INPUTS.ncidList_data  ;
-  int  ncid, isn, ISNOFF=0, IZBIN, IVAR_IZBIN, IFILE, ifile ;
+  int  ncid, isn, ISNOFF=0, IZBIN, IVAR_IZBIN, IFILE, ifile, ICAST ;
   int  OPTMASK_MATCH=1; //match CID_IDSURVEY
   double DVAL;
   char id_name[20], VARLIST_STORE[40]="" ;
@@ -17727,7 +17730,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // set logical if IZBIN was found.
   if ( use_izbin ) {
-    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
+    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN, &ICAST);
     if ( IVAR_IZBIN >=0 ) { INFO_DATA.USE_IZBIN_from_CIDFILE = true; }
   }
 

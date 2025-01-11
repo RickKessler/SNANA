@@ -2288,10 +2288,10 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
   // Oct 27 2020: if varName == LIST, list all varNames and return 0
   // Dec 13 2021: refactor to use IVAR_VARNAME_AUTOSTORE
   //
-  int ivar;
+  int ivar, icast ;
   // ------- BEGIN ---------
 
-  ivar = IVAR_VARNAME_AUTOSTORE(varName);
+  ivar = IVAR_VARNAME_AUTOSTORE(varName, &icast);
 
   if ( ivar >=  0 ) 
     { return 1; }  // true
@@ -2306,11 +2306,11 @@ int exist_varname_autostore__(char *varName) {
 
 
 // ============================================
-int IVAR_VARNAME_AUTOSTORE(char *varName) {
+int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST) {
 
   // Created Dec 13 2021
   // Returns ivar [0:NVAR-1] if varName exists; else return -9
-  // 
+  // Jan 2025: return *ICAST to allow for double and chars
 
   int ivar, ifile, ivar_tot, NVAR_USR ;
   char *varName_autostore;
@@ -2322,9 +2322,11 @@ int IVAR_VARNAME_AUTOSTORE(char *varName) {
     NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
       varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
+      *ICAST            = SNTABLE_AUTOSTORE[ifile].ICAST_READ[ivar];
       if ( PRINT_LIST ) {
-	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s\n", 
-	       ifile, ivar, varName_autostore); fflush(stdout);
+	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s  (CAST=%s) \n", 
+	       ifile, ivar, varName_autostore, CCAST_TABLEVAR[*ICAST]);
+	fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
 	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(ivar_tot) ; }

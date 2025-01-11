@@ -227,6 +227,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   //
   // Function returns number of stored CIDs.
   //
+  // Jan 2025: allow double or char strings; see ICAST
 
   bool IS_FILE = ( strstr(fileName,DOT) != NULL );
   bool USE_IDSURVEY       = ( *OPTMASK & 1 );
@@ -240,15 +241,15 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  NCID, NWD, isn, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
   int  ILIST = 0, LDMP=0, OPT_AUTOSTORE ;
-  double DVAL;
-  char CCID[40], STRINGID[40], CVAL[12] ;
+  double DVAL;  char CVAL[40];
+  char CCID[40], STRINGID[40] ;
   char VARNAME_IDSURVEY[] = "IDSURVEY";
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
 
   if ( LDMP ) {
-    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
+    printf(" xxx %s: fileName = '%s'   OPTMASK=%d\n", fnam, fileName, OPTMASK);
     fflush(stdout);
   }
 
@@ -349,25 +350,25 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     if ( FIRST_FILE ) { SNTABLE_AUTOSTORE_RESET(); }
 
     NCID = SNTABLE_AUTOSTORE_INIT(fileName,"CIDLIST", "ALL", OPT_AUTOSTORE);
-
+    
     if ( IFILE == 0 ) {
       printf("\n %s: store hash table to match CID list.\n", fnam);
       fflush(stdout);
     }
 
-    int ifile, IVAR_IDSURVEY=-9, ISNOFF = 0, ivar, NVAR=0, MEMD, IVAR_TABLE;
+    int ifile, IVAR_IDSURVEY=-9, ISNOFF = 0, ivar, NVAR=0, MEMD, IVAR_TABLE, ICAST;
     char *ptr_varname;
 
     // get isn offset to allow for multiple cid_select files
     for(ifile=0; ifile < NFILE_AUTOSTORE-1; ifile++ ) 
       { ISNOFF += SNTABLE_AUTOSTORE[ifile].NROW; }
-
+    
     // current IFILE file index
     IFILE = NFILE_AUTOSTORE-1 ;
 
     // get column index for IDSURVEY
     if ( USE_IDSURVEY ) 
-      { IVAR_IDSURVEY = IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY); }
+      { IVAR_IDSURVEY = IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY, &ICAST); }
 
     // check for additional columns to store (Apr 29 2022)
     if ( !IGNOREFILE(varList_store) ) {
@@ -375,16 +376,17 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	parse_commaSepList(fnam, varList_store, 20,60, 
 			   &HASH_STORAGE.NVAR, &HASH_STORAGE.VARNAME_LIST);
 	NVAR = HASH_STORAGE.NVAR ;
-	MEMD = NCID * sizeof(double);
-	HASH_STORAGE.VAL_LIST   = (double**)malloc(NVAR*sizeof(double*) );
-	HASH_STORAGE.IVAR_TABLE = (int   * )malloc(NVAR*sizeof(int));
+	malloc_HASH_STORAGE(NVAR);
+	
 	for(ivar=0; ivar < NVAR; ivar++ ) {
 	  ptr_varname = HASH_STORAGE.VARNAME_LIST[ivar] ;
-	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname);
+	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST);
 	  HASH_STORAGE.IVAR_TABLE[ivar] = IVAR_TABLE ;
 	  if ( IVAR_TABLE >= 0 ) {
-	    printf("\t store %12s with CID hash table\n", ptr_varname);
-	    HASH_STORAGE.VAL_LIST[ivar] = (double*)malloc(MEMD);
+	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, 0);
+
+	    // xxx mark MEMD = NCID * sizeof(double);	    
+	    // xxx mark HASH_STORAGE.VAL_LIST[ivar] = (double*)malloc(MEMD);
 	  }
 	  else {
 	    printf("\t Could not find %12s for CID hash table "
@@ -396,20 +398,23 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       else {
 	// additional files ...
 	NVAR = HASH_STORAGE.NVAR ;
-	MEMD = (ISNOFF+NCID) * sizeof(double);
 	// beware: realloc is not tested ...
         for(ivar=0; ivar < NVAR; ivar++ ) {
-	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname);
+	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST);
 	  if ( IVAR_TABLE >= 0 ) {
-	    HASH_STORAGE.VAL_LIST[ivar] = 
-	      (double*)realloc(HASH_STORAGE.VAL_LIST[ivar],MEMD);
+	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, ISNOFF);
+	    // xxx mark MEMD = (ISNOFF+NCID) * sizeof(double);
+	    // xxx mark HASH_STORAGE.VAL_LIST[ivar] = 
+	    // xxx mark (double*)realloc(HASH_STORAGE.VAL_LIST[ivar],MEMD);
 	  }
-	}	
+	}  
       }
 
     } // end varList_store
 
+    
     for(isn=0; isn < NCID; isn++ ) {
+      
       sprintf(CCID,"%s", SNTABLE_AUTOSTORE[IFILE].CCID[isn]);
       if ( USE_IDSURVEY ) {
 	DVAL     = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IDSURVEY][isn];
@@ -425,9 +430,17 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       // check option to store extra columns of info
       for(ivar=0; ivar < NVAR; ivar++ ) {
 	IVAR_TABLE = HASH_STORAGE.IVAR_TABLE[ivar];
-	if ( IVAR_TABLE >= 0 ) {
-	  DVAL  = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_TABLE][isn];
-	  HASH_STORAGE.VAL_LIST[ivar][ISNOFF+isn] = DVAL ;
+	ICAST      = HASH_STORAGE.ICAST[ivar];
+	if ( IVAR_TABLE >= 0 ) { 
+
+	  if ( ICAST == ICAST_C ) {
+	    HASH_STORAGE.STR_LIST[ivar][ISNOFF+isn] =
+	      SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR_TABLE][isn];
+	  }
+	  else {
+	    DVAL  = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_TABLE][isn];
+	    HASH_STORAGE.VAL_LIST[ivar][ISNOFF+isn] = DVAL ;
+	  }
 	}
       }
 
@@ -449,6 +462,84 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
 } // end match_cidlist_init
 
+// ==================================
+void malloc_HASH_STORAGE(int NVAR) {
+
+  // Created Jan 2025
+  // One time malloc for NVAR variables
+  
+  int MEMD    = NVAR * sizeof(double*) ;
+  int MEMI    = NVAR * sizeof(int   *) ;  
+  int MEMC    = NVAR * sizeof(char **) ;
+  //  int MEMC1   = 40   * sizeof(char  *) ;
+  int ivar;
+  char fnam[] = "malloc_HASH_STORAGE" ;
+  
+  // --------- BEGIN --------
+
+  HASH_STORAGE.VAL_LIST   = (double**)malloc(MEMD);
+  HASH_STORAGE.STR_LIST   = (char ***)malloc(MEMC);
+  HASH_STORAGE.IVAR_TABLE = (int   * )malloc(MEMI);
+  HASH_STORAGE.ICAST      = (int   * )malloc(MEMI);  
+
+  return;
+} // end malloc_HASH_STORAGE
+
+
+void malloc_HASH_STORAGE2(int IVAR, char *VARNAME, int ICAST, int NCID, int ISNOFF) {
+
+  // Created Jan 2025
+  // malloc NCID elements for element IVAR of HASH_STORAGE.
+  // Use ICAST to determine storing dobule VAL_LIST or char STR_LIST.
+  // If ISNOFF > 0, use realloc.
+  // VARNAME is for diagnostic print.
+
+  int MEMD  = (NCID+ISNOFF) * sizeof(double);
+  int MEMC  = (NCID+ISNOFF) * sizeof(char *);
+  int MEMC2 = 40 * sizeof(char);
+  int i;
+  int LDMP =  0 ;
+  char fnam[] = "malloc_HASH_STORAGE2";
+
+  // --------- BEGIN ---------
+
+  if ( LDMP ) {
+    printf(" xxx %s: IVAR=%d for %s  ICAST=%d  NCID=%d  ISNOFF=%d \n",
+	   fnam, IVAR, VARNAME, ICAST, NCID, ISNOFF); fflush(stdout);
+  }
+  
+  printf("\t store %12s with CID hash table (cast=%c)\n",
+	 VARNAME, CCAST_TABLEVAR[ICAST] );
+
+  HASH_STORAGE.ICAST[IVAR] = ICAST;
+  
+  if ( ISNOFF == 0 ) {
+    if ( ICAST == ICAST_C ) {
+      HASH_STORAGE.STR_LIST[IVAR] = (char**)malloc(MEMC);
+      for(i=0; i < NCID; i++ ) { HASH_STORAGE.STR_LIST[IVAR][i] = (char*)malloc(MEMC2); }
+    }
+    else {
+      HASH_STORAGE.VAL_LIST[IVAR] = (double*)malloc(MEMD);
+    }
+  }
+  else {
+    // append array using realloc
+    if ( ICAST == ICAST_C ) {
+      HASH_STORAGE.STR_LIST[IVAR] =
+	(char**)realloc(HASH_STORAGE.STR_LIST[IVAR], MEMC);
+      for(i=NCID; i < NCID+ISNOFF; i++ )
+	{ HASH_STORAGE.STR_LIST[IVAR][i] = (char*)malloc(MEMC2); }
+    }
+    else {
+      HASH_STORAGE.VAL_LIST[IVAR] = 
+	(double*)realloc(HASH_STORAGE.VAL_LIST[IVAR],MEMD);
+    }
+  }
+
+  fflush(stdout);
+  return;
+  
+} // end malloc_HASH_STORAGE2
 
 int match_cidlist_exec(char *cid) {
   // Created June 2021
@@ -466,37 +557,61 @@ int match_cidlist_exec(char *cid) {
 } // end match_cidlist_exec
 
 
-double  match_cidlist_parval(int isn_match, char *varName, int abort_flag) {
+void match_cidlist_parval(int isn_match, char *varName, int abort_flag,
+			  double *DVAL, char *CVAL ) {
   
   // Created Apr 29 2022 
   // return table value corresponding to isn_match (from hash table)
   // and *varName column name.
   //
-  // abort_flag = 1 -> abort on missing varName
-  // abort_flag = 0 -> return NULLVAL in missing varName
-
-  int  IVAR_TABLE, ivar, NVAR = HASH_STORAGE.NVAR;
+  // Inputs:
+  //   isn_match : sparse SN row in table
+  //   varName   : name of column in table
+  //   abort_flag = 1 -> abort on missing varName
+  //   abort_flag = 0 -> return NULLVAL in missing varName
+  //
+  // Outputs:
+  //   *DVAL:  double precision value (if not a string)
+  //   *CVAL:  char value for string
+  //
+  // Jan 2025: refactor to return DVAL and CVAL args to allow for
+  //           double or string valiue. 
+  //           User needs to know which output arg to use.
+  //
+  
+  int  IVAR_TABLE, ivar, ICAST, NVAR = HASH_STORAGE.NVAR;
+  bool FOUND_VAR = false ;
   char *ptr_varName;
-  double DVAL, DVAL_MISSING = -9999.0 ;
+  double DVAL_MISSING = -9999.0 ;
   char fnam[] = "match_cidlist_parval";
 
   // ---------- BEGIN --------------
 
+  *DVAL = DVAL_MISSING;
+  CVAL[0] = 0 ;
+  
   for(ivar=0; ivar < NVAR; ivar++ ) {
     IVAR_TABLE  = HASH_STORAGE.IVAR_TABLE[ivar];
+    ICAST       = HASH_STORAGE.ICAST[ivar];    
     if ( IVAR_TABLE >= 0 ) {
       ptr_varName = HASH_STORAGE.VARNAME_LIST[ivar];
       if ( strcmp(varName,ptr_varName) == 0 ) {
-	DVAL = HASH_STORAGE.VAL_LIST[ivar][isn_match];
-	return DVAL;
+	FOUND_VAR = true;
+	
+	if ( ICAST == ICAST_C ) {
+	  sprintf(CVAL,"%s", HASH_STORAGE.STR_LIST[ivar][isn_match]);
+	}
+	else {
+	  *DVAL = HASH_STORAGE.VAL_LIST[ivar][isn_match];
+	}
+
+	return;
       }
     }
   }
 
-  if ( abort_flag == 0 ) {
-    return DVAL_MISSING ;
-  }
-  else {
+  // check option to abort on missing var
+  if ( !FOUND_VAR && abort_flag > 0 ) {
     // if we get here, abort on error.
     print_preAbort_banner(fnam);
     for(ivar=0; ivar<NVAR; ivar++ ) {
@@ -508,7 +623,7 @@ double  match_cidlist_parval(int isn_match, char *varName, int abort_flag) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  return DVAL_MISSING;
+  return ;
 
 } // end match_cidlist_parval
 
@@ -519,8 +634,9 @@ int match_cidlist_init__(char *fileName, int *OPTMASK, char *varList_store)
 int match_cidlist_exec__(char *cid) 
 { return match_cidlist_exec(cid); }
 
-double  match_cidlist_parval__(int *isn_match, char *varName, int *abort_flag) 
-{ return match_cidlist_parval(*isn_match, varName, *abort_flag); }
+void match_cidlist_parval__(int *isn_match, char *varName, int *abort_flag,
+			    double *DVAL, char *CVAL) 
+{  match_cidlist_parval(*isn_match, varName, *abort_flag, DVAL, CVAL); }
 
 // ******************************************
 #include "uthash.h"

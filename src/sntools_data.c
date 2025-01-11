@@ -1372,14 +1372,14 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL) {
   //
   // July 25 2024: return *STRVAL if VARNAME cast is string (e.g., for IAUC)
   
-  int  ISTAT, NRD, IVAR, NTMP ;
+  int  ISTAT, NRD, IVAR, NTMP, ICAST ;
   char fnam[] = "RD_OVERRIDE_FETCH";
 
   // ----------- BEGIN -----------
   *DVAL = 0.0;
   if ( !RD_OVERRIDE.USE ) { return 0; }
 
-  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME);
+  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
   if ( IVAR < 0 ) { return 0; }
 
   // read from override table; ISTAT and DVALare returned

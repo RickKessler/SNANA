@@ -563,8 +563,9 @@ c CHI2GRID_PRIOR is a grid storing chi2-values to add.
      &  ,FLATPRIOR_RANGE(2,IPAR_MAX)  ! used to interp near discontinuity
 
 c define prior info from external SNCID_LIST_FILE
-      REAL*8    PRIOR_FITPAR_SNCID_FILE(2,IPAR_MAX) ! Gauss mean/sigma per fit par
+      REAL*4    PRIOR_FITPAR_SNCID_FILE(2,IPAR_MAX) ! Gauss mean/sigma per fit par
       CHARACTER PRIOR_BANDLIST_SNCID_FILE*40        ! bands used in fit
+      LOGICAL   PRIOR_USE_FILT_SNCID_FILE(MXFILT_ALL)
       
       LOGICAL USE_PRIOR(IPAR_MAX), USE_PRIOR_AV
 
@@ -573,11 +574,11 @@ c define prior info from external SNCID_LIST_FILE
       COMMON / PRIORCOM8 / 
      &    PRIOR_CHI2GRID, PRIOR_PROBGRID, PRIOR_VALGRID
      &  , PRIOR_RANGE, PRIOR_BINSIZE
-     &  , PRIOR_FITPAR_SNCID_FILE, PRIOR_BANDLIST_SNCID_FILE
      &  , FLATPRIOR_RANGE, FLATPRIOR_BINRANGE
 
       COMMON / PRIORCOM4 / USE_PRIOR, USE_PRIOR_AV
-
+     &  , PRIOR_FITPAR_SNCID_FILE, PRIOR_BANDLIST_SNCID_FILE
+     &  , PRIOR_USE_FILT_SNCID_FILE
 
 +KEEP,SNFITINP.
 
@@ -1758,7 +1759,7 @@ c blown up. Set logical(s) DOFUDGE_FITERR(ifilt_obs) to use later.
 c -----------------------------------------------    
 c initialize priors 
 
-      CALL FITINI_PRIORS
+      CALL FITINI_PRIORS()
 
 c rest-frame init
       IF ( LREST_FITMODEL ) THEN
@@ -2132,6 +2133,11 @@ c flag any changes in the 2nd iteration.
          ENDDO
       endif
 
+c Jan 2025: for photo-z fit, read BANDLIST to force fitting same bands again
+      IF ( USE_PRIOR_SNCID_FILE .and. DOFIT_PHOTOZ ) THEN
+         CALL FORCE_BANDLIST_SNCID_FILE()
+      ENDIF
+
       DO ifilt     = 1, NFILTDEF_SURVEY
          
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
@@ -2185,7 +2191,7 @@ c print message if observer-filter is dropped or added on 2nd iteration
          endif
 
       ENDDO
- 
+     
 c set range of observer filters to evaluate for each obs filter.
 c This is needed for the color transformation and for U -> U-BX+B
 
@@ -2205,6 +2211,9 @@ c init EP_XXX arrays ( before calling FITINI_ADJUST)
 
 c set INIVAL and INISTP arrays.
       CALL FITINI_PARVAL(iter)
+
+c Check 1st iter override from SNCID_LIST_FILE
+      IF ( FIRST_ITER ) CALL FITINI_LIST_FILE(iter)
 
 c init linear FITCOV arrays
       OPT = 1  ! bit 1 => print info to stdout
@@ -2242,8 +2251,9 @@ c adjust fitpar based on initial Fdata/Fmodel ratios.
       CALL FITINI_ADJUST(iter,IERR)
       IF ( IERR .NE. 0 ) RETURN
 
+
 c Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
-      CALL FITINI_LIST_FILE(iter)
+c xxx mark delete      IF ( FIRST_ITER ) CALL FITINI_LIST_FILE(iter)
 
       IF ( LREST_FITMODEL .and. ITER .EQ. NFIT_ITERATION ) THEN 
         CALL FITINI_PRKCOR()   ! print Kcor info
@@ -9736,7 +9746,7 @@ C --------------- BEGIN -------------
       IERR = 0 
 
       if ( DOFIT_PHOTOZ_MCMC_ADJUST ) RETURN
-
+ 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 0")
 
 c process only 1st fit iteration
@@ -9747,7 +9757,8 @@ c process only 1st fit iteration
       IF ( LFIXPAR_ALL      ) RETURN  
       IF ( USESIM_INIVAL    ) RETURN  ! May 2022
       IF ( DOFIT_IDEAL      ) RETURN  ! Dec 2023
-
+      IF ( USE_PRIOR_SNCID_FILE  ) RETURN  ! Jan 2025
+      
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
 
       LPRINT = STDOUT_UPDATE
@@ -10029,6 +10040,65 @@ c and minimized PEAKMJD
       RETURN
       END  ! end FITINI_ADJUST
 
+C ===========================================
++DECK,FORCE_BANDLIST.
+      SUBROUTINE FORCE_BANDLIST_SNCID_FILE()
+
+c Created Jan 2025
+c Force filters used in previous fit and read from argument of SNCID_LIST_FILE.
+c Set FILTLIST_FIT_USE and also USE_FILT(ifilt) array.
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,SNFITCOM.
++CDE,SNLCINP.
+
+      INTEGER LENV, LENB, ABORT_FLAG
+      INTEGER ifilt, ifilt_obs
+      REAL*8 DVAL
+      CHARACTER cVAR*40, CTMP*40, BANDLIST*40, cfilt*2
+
+c --------- BEGIN ---------
+
+      cVAR = 'BANDLIST' // char(0) ; LENV = 8
+      ABORT_FLAG = 1
+	 
+      CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,
+     &        DVAL, BANDLIST, LENV, LENB)  ! ignore DVAL
+
+      LENB = INDEX(BANDLIST, char(0)) - 1
+      PRIOR_BANDLIST_SNCID_FILE = BANDLIST(1:LENB)    
+     
+      if ( STDOUT_UPDATE ) then
+         CTMP = 'PRIOR-' // cVAR(1:LENV)	  
+         write(6,54) CTMP, BANDLIST(1:LENB), SNLC_CCID
+         call FLUSH(6)	           
+      endif
+
+ 54    format(T8, A14, ' : ', A, ' from list file: CID=', A10)
+
+c load global info to use these bands
+
+      DO ifilt     = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+	 if ( INDEX(BANDLIST, cfilt(1:1) ) > 0 ) then
+            PRIOR_USE_FILT_SNCID_FILE(ifilt_obs) = .TRUE.
+         else
+            PRIOR_USE_FILT_SNCID_FILE(ifilt_obs) = .FALSE.	 
+	 endif	
+      ENDDO
+
+c disable feature to add/drop filters
+      PHOTODZ_REJECT   = -99.0
+      PHOTODZ1Z_REJECT = -99.0
+
+      RETURN
+      END   ! FORCE_BANDLIST_SNCID_FILE
+      
 C ==========================
 +DECK,FITINI_LIST_FILE.
       SUBROUTINE FITINI_LIST_FILE(iter)
@@ -10051,14 +10121,13 @@ c
 +CDE,SNLCINP.
 
       INTEGER IPAR_LIST(20), NPAR, i, ipar 
-      INTEGER ABORT_FLAG, LENV, N_NOTVALID_INIVAL, N_NOTVALID_PRIOR
+      INTEGER ABORT_FLAG, LENV, N_NOTVALID_INIVAL,N_NOTVALID_PRIOR
       REAL*8  DVAL, DVALERR
-      CHARACTER cVAR*40, cERR*40, CTMP*40
-      CHARACTER STATUS_INIVAL*20, STATUS_PRIOR*20
+      CHARACTER cVAR*40, cERR*40, CTMP*40, FNAM*20
+      CHARACTER STATUS_INIVAL*16, STATUS_PRIOR*16
       LOGICAL VBOSE, FIRST_ITER, LSET, USE_FITPAR
       LOGICAL VALID_INIVAL, VALID_PRIOR
 
-      REAL*8   MATCH_CIDLIST_PARVAL
       EXTERNAL MATCH_CIDLIST_PARVAL
 
 C ----------- BEGIN ----------
@@ -10067,7 +10136,11 @@ C ----------- BEGIN ----------
       IF ( .NOT. USE_FITPAR ) RETURN
 
       FIRST_ITER = (ITER==1 .and. .not. LREPEAT_ITER) 
+      VBOSE = STDOUT_UPDATE
 
+      FNAM = 'FITINI_LIST_FILE'
+      if ( VBOSE ) CALL PRBANNER(FNAM)
+      
 c construct list of params to check in SNCID_LIST file
 
       NPAR = 0
@@ -10087,8 +10160,6 @@ c construct list of params to check in SNCID_LIST file
       ENDIF
       
       ABORT_FLAG = 0 ! do not abort on missing variable.
-
-      VBOSE = STDOUT_UPDATE 
       N_NOTVALID_INIVAL = 0
       N_NOTVALID_PRIOR  = 0      
       
@@ -10106,12 +10177,10 @@ c construct list of params to check in SNCID_LIST file
 c  Jan 2025: construct column of fit par ERROR
          cERR = cVAR(1:LENV) // 'ERR' // char(0)
 	 
-         DVAL = 
-     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,LENV)
-         DVALERR = 
-     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,LENV)
-
-c .xyz need to fetch BANDLIST string here.
+	 CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,
+     &        DVAL,    CTMP, LENV, 40)  ! return DVAL
+         CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,
+     &        DVALERR, CTMP, LENV, 40)  ! return DVALERR
 
          VALID_INIVAL = ( DVAL > -999.0  )
          VALID_PRIOR  = ( DVAL > -999.0 .and. DVALERR > 0.0 )
@@ -10137,20 +10206,28 @@ c .xyz need to fetch BANDLIST string here.
             INIVAL(IPAR) = DVAL	  
 	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = DVAL     ! Gauss mean
 	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = DVALERR  ! Gauss sigma
-	  ! xxx ?? PRIOR_BANDLIST_SNCID_FILE       = BANDLIST 
 	    if ( VBOSE ) then
 	      CTMP = 'PRIOR-' // cVAR(1:LENV)	    
               write(6,45) CTMP, DVAL, DVALERR,SNLC_CCID, STATUS_PRIOR
+              call FLUSH(6)	      
             endif
 	endif
-	     
+
  50   CONTINUE
 
- 44     format(T8, A14, ' : ', G12.5, 
-     &            ' from list file: CID=',A10, 3x, A)
- 45     format(T8, A14, ' : ', G12.5, ' +_ ', G12.5,
-     &            ' from list file: CID=',A10, 3x, A)
-     
+c - - - -
+c xxxxxxxxx mark delete 
+c Jan 2025: for photo-z fit, read BANDLIST to force fitting same bands again
+c      IF ( DOFIT_PHOTOZ .or. DEBUG_FLAG == 110) THEN
+c         CALL FORCE_BANDLIST_SNCID_FILE()	 
+c      ENDIF
+c xxxxxxxxxxx
+
+ 44     format(T8, A14, ' : ', G10.3, 
+     &            ' from list file: CID=', A10, 3x, A)
+ 45     format(T8, A14, ' : ', G10.3, ' +_ ', G10.3,
+     &            ' from list file: CID=', A10, 3x, A)
+
       CALL FLUSH(6)
 c - - - - 
       if ( USE_PRIOR_SNCID_FILE .and. N_NOTVALID_PRIOR > 0 ) then
@@ -11335,8 +11412,9 @@ c check options that depend on TREST, LAMREST and filter
 
 C ==========================================
 +DECK,FITINI_PRIOR.
-      SUBROUTINE FITINI_PRIORS
+      SUBROUTINE FITINI_PRIORS()
 c
+c One time init:
 c Initialize -2 * ln(prob) for prior on each fit variable.
 c Fills PRIOR_CHI2GRID array so that chi2-contribution
 c can be looked up via interpolation in CHI2_PRIOR function.
@@ -11366,7 +11444,7 @@ c ------------------------
 
 c histogram args
 
-      INTEGER NB(2), LL, NDIM, LCHIS, HOFF, hid
+      INTEGER NB(2), LL, NDIM, LCHIS, HOFF, hid, ifilt
       CHARACTER chis*80
 
 c function
@@ -11405,6 +11483,11 @@ c initialize prior ranges to zero
       ENDDO
       USE_PRIOR_AV = .FALSE.
 
+      PRIOR_BANDLIST_SNCID_FILE = ''
+      DO ifilt = 1, MXFILT_ALL
+         PRIOR_USE_FILT_SNCID_FILE(ifilt) = .FALSE.
+      ENDDO
+      
       NPRIOR = 0
 
 c Set peak-MJD PRIOR for all models, and even if OPT_PRIOR=0.
@@ -17112,6 +17195,8 @@ c
 c ZTEST > 0 => make z-dependent tests
 c ZTEST < 0 => skip z-dependent tests
 c
+c Jan 2025: add logic for USE_PRIOR_SNCID_FILE
+c
 c ---------------------
 
       IMPLICIT NONE
@@ -17146,13 +17231,20 @@ c did user request this filter.
       if ( .NOT. DOFIT_FILT(ifilt_obs) ) RETURN
 
 c are there any epochs with this filter.
-      ifilt = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+      ifilt    = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
       ISSURVEY = .NOT. LFILTDEF_NONSURVEY(ifilt_obs) 
       NOEPOCHS = .NOT. EXIST_FILT(ifilt) 
       if ( ISSURVEY .and. NOEPOCHS ) RETURN
 
       IF ( DOFIT_PHOTOZ ) THEN
         if ( PHOTOZ_DROPFILTER(ifilt_obs)) RETURN ! drop this filter
+
+	! check option to force filters from previous fit stored in external file
+	if ( USE_PRIOR_SNCID_FILE ) then
+          LFITFUN_FILT = PRIOR_USE_FILT_SNCID_FILE(ifilt_obs)
+	  RETURN
+	endif
+	
       ENDIF
 
 c -----------------------------------

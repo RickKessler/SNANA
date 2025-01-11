@@ -10805,7 +10805,8 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
     LINE_APPEND[0] = 0;
     for( ivar = 0 ; ivar < NVAR_APPEND; ivar++ ) {
       varName = append_varname_list[ivar];
-      dVAL = match_cidlist_parval(isn_match, varName, 1);
+      // xxx mark delete 1.2025 dVAL = match_cidlist_parval(isn_match,varName,1);
+      match_cidlist_parval(isn_match, varName, 1, &dVAL, cVAL);
 
       if ( isn_match >= 0  ) {
 	if ( dVAL == 0.0 ) 

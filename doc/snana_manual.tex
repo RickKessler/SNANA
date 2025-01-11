@@ -9708,7 +9708,7 @@ are not evaluated and {\tt M0\_X=999}.
 
 
 % ------------------------------------
-%   \clearpage
+   \clearpage
    \subsection{Peak-Mag Crosschecks: {\tt FITMAGDIF}}
    \label{subsec:FITMAGDIF}
 % ------------------------------------
@@ -9745,7 +9745,7 @@ The {\tt MAGDIF} variable is in the fitres table (ntuple 7788)
 and also in the fitres-text outout.
 
 % ------------------------------------
-%   \clearpage
+   \clearpage
    \subsection{Selecting SNID(s), Field(s), and Telescope(s) }
    \label{subsec:select}
 % ------------------------------------
@@ -9778,9 +9778,13 @@ a list of CIDs:
                                             ! separate CIDs by space or <CR>
 
    OPT_SNCID_LIST = 1    ! ignore SN cuts & process all CIDs in list 
-   OPT_SNCID_LIST = 2    ! if FITRES format, use SALT2 params as initial values in LCFIT
-   OPT_SNCID_LIST = 3    ! both of the above
-
+   OPT_SNCID_LIST = 2    ! if FITRES format, use SALT2 params as initial values
+                         !    in LCFIT
+   OPT_SNCID_LIST = 3    ! 1+2: both of the above 
+   OPT_SNCID_LIST = 5    ! 1+4: process CIDs in list;  use all FITPAR +_ SIGMA
+                         !   as Gauss prior; force same bands for photo-z fit
+   OPT_SNCID_LIST = 7    ! 1+2+4: 
+   
    MXEVT_PROCESS = 20    ! stop processing after 20 events
    MXEVT_CUTS    =  5    ! stop processing after 5 events pass cuts
 \end{Verbatim}
@@ -9808,15 +9812,30 @@ However, for a survey using integer CIDs that start at 1000,
 Using any of the ``{\tt \_LIST}'' options (e.g., {\tt SNCID\_LIST}),
 the analysis codes internally set {\tt CUTWIN\_CID=0,0}
 so that only the list CIDs are processed.
-Setting the 1 bit of {\tt OPT\_SNCID\_LIST} ignores cuts and
-forces all CIDs to be processed; example use is for systematics
-tests with small calibration shifts that could migrate events
-in and out of SNR cuts. Beware that while SN-select cuts are ignored,
+For large sets of events, it is more practical to store CIDs
+in a file and use {\tt SNCID\_LIST\_FILE}, which allows two
+kinds of formats: 1) list of CIDs with no other strings or keys, and
+2) FITRES formatted table file with {\tt VARNAMES} key; the CID column
+is the list of CIDs.
+
+If the argument of {\tt SNCID\_LIST\_FILE} is in table format,
+{\tt OPT\_SNCID\_LIST} provides several additional options that
+are motivated by systematics studies.
+Setting the 1-bit of {\tt OPT\_SNCID\_LIST} ignores all cuts and
+forces all CIDs in the {\tt SNCID\_LIST\_FILE} to be processed;
+example use is for systematics tests with small calibration shifts that
+could migrate events in and out of SNR or SALT2 parameter cuts.
+Beware that while SN-select cuts are ignored,
 epoch-select cuts are still applied.
-The 2 bit of {\tt OPT\_SNCID\_LIST} reads and uses SALT2 parameters as initial
-values for LC fit. If {\tt \&FITINP} namelist input {\tt INISTP\_COLOR=0}, 
-the SALT2 color parameter from the FITRES file is fixed for all fit iterations,
-and similarly for the other {\tt INISTP} inputs.   
+The 2-bit of {\tt OPT\_SNCID\_LIST} uses the fitted
+SALT2 parameters as initial values for LC fit.
+The 4-bit of {\tt OPT\_SNCID\_LIST} defines a Guassian prior on each
+SALT2 fit parameter using the previously fitted value and uncertainty in
+{\tt SNCID\_LIST\_FILE} for the Gaussian mean and $\sigma$.
+For photo-$z$ fits, the list of filters ({\tt BANDLIST} column in FITRES file)
+is forced in the fit. For spec-$z$ fits, the same filters are used without
+forcing the issue.
+
 
 Finally, {\tt MXEVT\_PROCESS} stops processing after this many
 events, regardless of of how the other ``{\tt CID}'' inputs are set.

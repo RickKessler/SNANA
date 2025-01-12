@@ -57,8 +57,6 @@ except ImportError:
 from read_data_lsst_tom      import data_lsst_tom_db
 from read_data_lsst_fastdb   import data_lsst_fastdb
 from read_data_des_folder    import data_des_folder
-#xxx from read_data_lsst_ap       import data_lsst_ap
-#xxx from read_data_lsst_drp      import data_lsst_drp
 from read_data_sirah_folder  import data_sirah_folder
 from read_data_snana_folder  import data_snana_folder
 from read_data_ztf           import data_ztf_folder
@@ -68,14 +66,6 @@ from read_data_ztf           import data_ztf_folder
 def get_args():
     parser = argparse.ArgumentParser()
 
-    # xxxxxxxx mark delete Jan 2025 xxxxxxx
-    #msg = "Data source: LSST AP"
-    #parser.add_argument("--lsst_ap", help=msg, action="store_true")
-    #
-    #msg = "Data source: LSST_DRP"
-    #parser.add_argument("--lsst_drp", help=msg, action="store_true")
-    # xxxxxxxx
-    
     msg = "Data source: LSST TOM; format: 'username:password@url"
     parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
 
@@ -192,18 +182,6 @@ def restore_args_from_readme(args, readme_yaml):
     args.des_folder   = None
     args.ztf_folder   = None
     args.snana_folder = None
-
-    # xxxxxxxxx mark xxxxxxxx
-    #xxx args.lsst_ap      = False
-    #xxx args.lsst_drp     = False    
-    #key = 'SOURCE_LSST_AP'
-    #if key in readme_yaml:
-    #    args.lsst_ap = readme_yaml[key]
-    #
-    #key = 'SOURCE_LSST_DRP'
-    #if key in readme_yaml:
-    #    args.lsst_drp = readme_yaml[key]
-    # xxxxxxx end mark xxxxxxxx
     
     key = 'SOURCE_LSST_TOM'
     if key in readme_yaml:
@@ -256,15 +234,6 @@ def which_read_class(args):
         if readme_file is not None:
             readme_yaml = util.read_yaml(readme_file)
             restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
-
-    # - - - - - - - -
-    #if args.lsst_ap:
-    #    read_class = data_lsst_ap
-    #    args.survey = "LSST"
-    #elif args.lsst_drp:
-    #    read_class = data_lsst_drp
-    #    args.survey = "LSST"
-
     
     if args.lsst_tom_db is not None:
         read_class = data_lsst_tom_db

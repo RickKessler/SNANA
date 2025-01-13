@@ -123,8 +123,11 @@ def get_args():
     msg = "select isplitran (1-nsplitran): default=-1 -> all"
     parser.add_argument("--isplitran", help=msg, type=int, default=-1 )
 
-    msg = "select year index (1-Nyear); default = -1 -> all"
+    msg = "select YEAR index (1-Nyear); default = -1 -> all"
     parser.add_argument("-y", "--year", help=msg, type=int, default=-1 )
+
+    msg = "select SEASON index (1-Nseason); default = -1 -> all (same as --year)"
+    parser.add_argument("-y", "--season", help=msg, type=int, default=-1 )    
 
     msg = "Select LSST events with MJD(first detection) "\
            "in this NITE range (i.e. sunset to sunrise)"
@@ -159,6 +162,11 @@ def get_args():
     if args.outdir_snana:
         args.outdir_snana = os.path.expandvars(args.outdir_snana)
 
+    if args.season:
+        args.year = args.season
+    elif args.year:
+        args.season = args.year
+        
     if args.outdir_csv:
         args.outdir_csv = os.path.expandvars(args.outdir_csv)
 

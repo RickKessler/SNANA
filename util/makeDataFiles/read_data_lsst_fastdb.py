@@ -11,10 +11,12 @@ import makeDataFiles_params as gpar
 from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
 
-
-path_fastdb_api=os.path.expandvars("$TD_SOFTWARE/tom_deployment/tom_desc_fastdb_dev/fastdb_api")
-sys.path.insert(1, path_fastdb_api)
-from fastdb_api import FASTDB
+try:
+    path_fastdb_api=os.path.expandvars("$TD_SOFTWARE/tom_deployment/tom_desc_fastdb_dev/fastdb_api")
+    sys.path.insert(1, path_fastdb_api)
+    from fastdb_api import FASTDB
+except:
+    pass
 
 # hard wire here for now, but should read from map SNANA <--> FASTDB
 
@@ -46,6 +48,8 @@ class data_lsst_fastdb(Program):
     def __init__(self, config_inputs) :
         config_data = {}
         print("Init data_lsst_fastdb class.")
+        gpar.PREFIX_SEASON = "SEASON"  # intermediate prefix on data files
+        
         super().__init__(config_inputs, config_data)
 
     def init_read_data(self):

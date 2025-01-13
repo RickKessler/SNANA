@@ -22883,5 +22883,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	+ for OPT_SNCID_LIST += 4, BANDLIST is read from FITRES file and
 	  these bands are forced in current fit.
 	  
-
+        + new FITINP  FITWIN_PEAKMJD
+	
 END: 

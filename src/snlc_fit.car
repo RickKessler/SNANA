@@ -670,6 +670,7 @@ c Jun 2015: FITWIN_AV -> FITWIN_COLOR
      &  ,FITWIN_CHI2SIGMA(2)   ! I: cut on chi2-contribution from sigma-term
      &  ,FITWIN_TREST(2)       ! I: cut on T - T0 (to replace TREST_REJECT)
      &  ,FITWIN_MJD(2)         ! I: cut on absolute MJD range.
+     &  ,FITWIN_PEAKMJD(2)     ! I: cut on final fitted peakmjd
 c
      &  ,FITWIN_COV_OFFDIAG(2) ! I: global cut on offDiag fitted cov (9/2016)
      &  ,FITWIN_PEAKMJD_ERR(2) ! I: cut on PEAKMJDerr (9/2016)
@@ -839,7 +840,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
-     &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
+     &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD, FITWIN_PEAKMJD
      &   ,FITWIN_PROB, FITWIN_PROB_ITER1
      &   ,FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
      &   ,FITWIN_CHI2RED_INI, FITWIN_CHI2RED_INI2
@@ -914,7 +915,7 @@ c ------
      &   ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
-     &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD
+     &   ,FITWIN_COLOR, FITWIN_SHAPE, FITWIN_MJD, FITWIN_PEAKMJD
      &   ,FITWIN_PROB, FITWIN_PROB_ITER1
      &   ,FITWIN_SHAPE_ITER1, FITWIN_COLOR_ITER1
      &   ,FITWIN_CHI2RED_INI, FITWIN_CHI2RED_INI2
@@ -1653,8 +1654,11 @@ c set optional filter-dependent cuts on TREST
 
 c ----------------------------------------------
 
-      CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_MJD(1)  ! 9/16/2016
-      CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_MJD(2)
+c xxx  mark del  CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_MJD(1)  
+c xxx  mark del  CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_MJD(2)
+
+      CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_PEAKMJD(1)  
+      CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_PEAKMJD(2)
       CUTWIN_FITPAR(1,IPAR_SHAPE) = FITWIN_SHAPE(1)
       CUTWIN_FITPAR(2,IPAR_SHAPE) = FITWIN_SHAPE(2)
       CUTWIN_FITPAR(1,IPAR_AV)    = FITWIN_COLOR(1)
@@ -1711,6 +1715,8 @@ c print cuts to reject epochs at 2nd epoch
       print*,'    REJECT  Trest        > ', FITWIN_TREST(2)
       print*,'    REJECT  MJD          < ', FITWIN_MJD(1)
       print*,'    REJECT  MJD          > ', FITWIN_MJD(2)
+      print*,'    REJECT  PEAKMJD      < ', FITWIN_PEAKMJD(1)
+      print*,'    REJECT  PEAKMJD      > ', FITWIN_PEAKMJD(2)
       print*,'  ' 
 
       print*,' '
@@ -7193,8 +7199,10 @@ c set defgaults to no rejected epochs at 2nd iteration
   
       FITWIN_TREST_FILTER = ' '
 
-      FITWIN_MJD(1)    = 20000.0
-      FITWIN_MJD(2)    = 80000.0
+      FITWIN_MJD(1)        = 20000.0
+      FITWIN_MJD(2)        = 90000.0
+      FITWIN_PEAKMJD(1)    = 20000.0
+      FITWIN_PEAKMJD(2)    = 90000.0
 
       PEAKMJD_SANITY(1) = 0.0   ! 0 => -20/+5 days from start/end of season
       PEAKMJD_SANITY(2) = 1.0E6
@@ -7223,6 +7231,7 @@ c set defgaults to no rejected epochs at 2nd iteration
         FITWIN_CHI2SIGMA(i)    = CUTINI(i)
         FITWIN_TREST(i)        = CUTINI(i)
         FITWIN_MJD(i)          = CUTINI(i)
+        FITWIN_PEAKMJD(i)      = CUTINI(i)
 
         FITWIN_COV_OFFDIAG(i)  = CUTINI(i)
 
@@ -7816,6 +7825,9 @@ c --- keep legacy variables TREST_REJECT and MJD_REJECT
         else if ( MATCH_NMLKEY('FITWIN_MJD', 2, i, ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_MJD(1)
             READ(ARGLIST(2),*) FITWIN_MJD(2)
+        else if ( MATCH_NMLKEY('FITWIN_PEAKMJD', 2, i, ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PEAKMJD(1)
+            READ(ARGLIST(2),*) FITWIN_PEAKMJD(2)
 
         else if ( MATCH_NMLKEY('ADD_SALT2ERR_FROMZ', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) ADD_SALT2ERR_FROMz
@@ -7898,14 +7910,6 @@ c --- keep legacy variables TREST_REJECT and MJD_REJECT
         else if ( MATCH_NMLKEY('FITWIN_CHI2SIGMA', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_CHI2SIGMA(1)
             READ(ARGLIST(2),*) FITWIN_CHI2SIGMA(2)
-
-        else if ( MATCH_NMLKEY('FITWIN_TREST', 2,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FITWIN_TREST(1)
-            READ(ARGLIST(2),*) FITWIN_TREST(2)
-
-        else if ( MATCH_NMLKEY('FITWIN_MJD', 2,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FITWIN_MJD(1)
-            READ(ARGLIST(2),*) FITWIN_MJD(2)
 
         else if ( MATCH_NMLKEY('FITWIN_ZPULL', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) FITWIN_ZPULL(1)

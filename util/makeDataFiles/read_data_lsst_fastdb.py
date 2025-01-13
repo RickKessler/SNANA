@@ -165,21 +165,28 @@ class data_lsst_fastdb(Program):
             # event with no observations; perhaps with cuts such as PSF/ZP/PHOTFLAG ?
             snana_phot_raw = self.init_phot_dict(0)
 
-        # - - - - - - -
+        # - - - - - -
+        nobs = snana_phot_raw['NOBS']
+        
         if DEBUG_DUMP:
-            nobs = snana_phot_raw['NOBS']
             str_warn = ''
             if nobs == 0: str_warn = "BEWARE NO OBSERVATIONS !!!"
             logging.debug(f"\t store {nobs} sources for SNID = {SNID}   {str_warn}")
-        
-        return {
+
+        # construct SNANA dictionary
+        snana_data_dict = {
             'head_raw'  : snana_head_raw,
             'head_calc' : snana_head_calc,
             'phot_raw'  : snana_phot_raw
         }
 
-
-        
+        # reject this event if there are no observations ...
+        # might need a warning somewhere ?
+        if nobs == 0:
+            snana_data_dict['select'] = False
+           
+        return snana_data_dict
+    
     # end read_event
 
 

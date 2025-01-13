@@ -685,12 +685,18 @@ class Program:
 
             index_unit   = data_unit_name_list.index(name)
 
-            # create yaml file even if there are zero events.
-            if args.output_yaml_file:
-                self.write_yaml_file(index_unit)
 
+            # force creating yaml file even if there are zero events
+            # to avoid merge problem later. This gets overwritten below
+            # for nevent > 0.
+            if index_unit == 0 and args.output_yaml_file:
+                self.write_yaml_file(index_unit)
+            
             if nevent == 0 : continue
 
+            if args.output_yaml_file:
+                self.write_yaml_file(index_unit)
+                
             if args.outdir_snana:
                 write_data_snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:

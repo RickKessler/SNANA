@@ -52,19 +52,6 @@ def write_event_text_snana(args, config_data, data_event_dict):
     if nevent == 0 :
         util.create_output_folder(data_dir)
 
-        # xxxx mark delete Jul 20 2022 xxxxxxxxx
-        # remove folder if it already exists
-        #if exist_folder :
-        #    cmd_rm = f"rm -r {data_dir}"
-        #    os.system(cmd_rm)
-        #if exist_tar_file :
-        #    cmd_rm = f"rm -r {tar_file}"
-        #    os.system(cmd_rm)
-        # create folder
-        #logging.info(f"\t Create folder {folder}")
-        #sys.stdout.flush()
-        #os.mkdir(data_dir)
-
     # - - - - -
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
@@ -426,12 +413,6 @@ def convert2fits_snana(args, config_data):
 
         # - - - - -
         # clean up
-
-        # xxxxxxxxx Jan 6 mark delete since translate code does gzip
-        # gzip FITS files and make compressed tar file from TEXT dir
-        ### cmd_gzip_fits = f"cd {outdir_fits} ; gzip *.FITS"
-        ### os.system(cmd_gzip_fits)
-        # xxxxxxxxxxxxx end mark xxxxxxxxxx
 
         tar_file = f"{folder_text}.tar"
         cmd_tar_text  = f"cd {outdir} ; " \

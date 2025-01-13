@@ -366,15 +366,6 @@ class LsstAlertWriter:
         # NOTE : Assuming here that mjd is coming in order, which is
         # correct for SNANA sims (even of SIMLIB is not MJD-ordered).
         #
-        # xxxx mark delete Sep 5 2022 by R.Kessler ? xxxxx
-        # tmpmjd = [ i for i in mjds ]
-        # tmpmjd.sort()
-        # tmpmjd = numpy.array( tmpmjd )
-        # if not numpy.all( mjds == tmpmjd ):
-        #     self.logger.warning( f"MJDS not sorted for diaObjectId = {diaObject['diaObjectId']}" )
-        # else:
-        #     self.logger.info( f"MJDs are sorted for diaObjectId = {diaObject['diaObjectId']}" )
-        # xxxxxx end mark xxxxxxxxxxxxx
 
         for obsnum in range( nobs ):
             diaSourceId = snid * self.max_alerts_per_obj + obsnum

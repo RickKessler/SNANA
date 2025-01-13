@@ -271,12 +271,6 @@ def write_readme(args, readme_dict, walltime=-1.0):
     line_list.append(f"PURPOSE:  transient lightcurve data files " \
                 f"for analysis")
 
-    if args.lsst_ap :
-        line_list.append(f"SOURCE_LSST_AP:   {args.lsst_ap} ")
-
-    if args.lsst_drp :
-        line_list.append(f"SOURCE_LSST_DRP:  {args.lsst_drp} ")
-
     if args.sirah_folder is not None :
         line_list.append(f"SOURCE_SIRAH_FOLDER:  {args.sirah_folder}")
 

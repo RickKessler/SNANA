@@ -70,7 +70,7 @@ def get_args():
     parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
 
     msg = "Data source: LSST FASTDB"
-    parser.add_argument("--lsst_fastdb", help=msg, type=str, default=None )    
+    parser.add_argument("--lsst_fastdb", help=msg, action="store_true")
     
     msg = "Data source: SIRAH pkl folder"
     parser.add_argument("--sirah_folder", help=msg, type=str, default=None )

@@ -123,18 +123,20 @@ class MakeDataFiles(Program):
         Prepare input arguments from config file
         '''
         CONFIG            = self.config_yaml['CONFIG']
-        inputs_list_orig  = CONFIG.get('MAKEDATAFILE_INPUTS', None)
+        inputs_list_orig  = CONFIG.get('MAKEDATAFILE_INPUTS', [] )
         input_source      = CONFIG.get('MAKEDATAFILE_SOURCE', None)
         nevt              = CONFIG.get('NEVT', None)
 
         input_file    = self.config_yaml['args'].input_file  # for msgerr
         msgerr        = []
 
-        if inputs_list_orig is None:
-            msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
-            msgerr.append(f"Check {input_file}")
-            util.log_assert(False,msgerr) # just abort, no done stamp
-
+        # xxxxxxx mark delete Jan 12 2025 xxxxxxxxxx
+        #if inputs_list_orig is None:
+        #    msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
+        #    msgerr.append(f"Check {input_file}")
+        #    util.log_assert(False,msgerr) # just abort, no done stamp
+        # xxxxxxxxxxxxxxxxx
+        
         # if input_list includes a wildcard, scoop up files with glob.
         inputs_list      = []
         n_wildcard       = 0
@@ -211,10 +213,12 @@ class MakeDataFiles(Program):
         # catenate the SIMGEN-DUMP files into a single csv file with
         # truth info per object.
 
-        logging.info(f"\n Write object-truth table from SIMGEN-DUMP files " )
-        #.xyz
         output_dir  = self.config_prep['output_dir']
         inputs_list = self.config_prep['inputs_list']
+        if len(inputs_list) == 0 : return
+        
+        logging.info(f"\n Write object-truth table from SIMGEN-DUMP files " )
+        
         df_all = {}
         for inp in inputs_list:  # folder
             genversion = os.path.basename(inp)
@@ -266,7 +270,7 @@ class MakeDataFiles(Program):
                                        split_mjd['max_edge'])
 
         else:
-            isplitnote_temp_list = [(-1, -1, -1),]
+            isplitnite_temp_list = [(-1, -1, -1),]
 
         # When using zip in Python 3, you get an iterator, not a list,
         # and thus if you print the iterator or cause anything to loop

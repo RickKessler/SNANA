@@ -792,6 +792,8 @@ HELP_CONFIG_MAKEDATAFILES = f"""
   FIELD:         WFD
   NSPLITRAN:     5
   
+  OUTDIR_SNANA: <outDir>
+
 """
 
 

@@ -130,12 +130,10 @@ class MakeDataFiles(Program):
         input_file    = self.config_yaml['args'].input_file  # for msgerr
         msgerr        = []
 
-        # xxxxxxx mark delete Jan 12 2025 xxxxxxxxxx
-        #if inputs_list_orig is None:
-        #    msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
-        #    msgerr.append(f"Check {input_file}")
-        #    util.log_assert(False,msgerr) # just abort, no done stamp
-        # xxxxxxxxxxxxxxxxx
+        if inputs_list_orig is None:
+            msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
+            msgerr.append(f"Check {input_file}")
+            util.log_assert(False,msgerr) # just abort, no done stamp
         
         # if input_list includes a wildcard, scoop up files with glob.
         inputs_list      = []
@@ -213,9 +211,10 @@ class MakeDataFiles(Program):
         # catenate the SIMGEN-DUMP files into a single csv file with
         # truth info per object.
 
-        output_dir  = self.config_prep['output_dir']
-        inputs_list = self.config_prep['inputs_list']
-        if len(inputs_list) == 0 : return
+        output_dir   = self.config_prep['output_dir']
+        inputs_list  = self.config_prep['inputs_list']
+        input_source = self.config_prep['input_source']
+        if 'FASTDB' in input_source: return  # Jan 2025
         
         logging.info(f"\n Write object-truth table from SIMGEN-DUMP files " )
         
@@ -290,20 +289,23 @@ class MakeDataFiles(Program):
                 isplitnite_list.append(isplitnite)
 
                 # identifying source input to makeDataFiles.sh is very fragile here
-                if 'fastdb' in input_src :
+                if 'fastdb' in input_src.lower() :
                     args_list.append(f'--lsst_fastdb')  # Jan 12 2025
                 else:
                     args_list.append(f'--snana_folder {input_src}') ### HACK 
 
                 args_list.append(f'{output_args}')
-                args_list.append(f'--field {field}')
+
+                if field is not None:
+                    args_list.append(f'--field {field}')
+                    
                 if n_splitnite > 1:
                     args_list.append(f'{split_mjd_option} {min_edge} {max_edge}')
                 if n_splitran > 1:
                     args_list.append(f'--nsplitran {n_splitran}')
                     # args_list.append(f'--isplitran {isplitran+1}') # note that argument for isplitran starts with 1
                 makeDataFiles_args_list.append(args_list)
-
+        
         n_job       = len(makeDataFiles_args_list)
         n_job_tot   = n_job*n_splitran
         n_job_split = n_splitran
@@ -360,8 +362,11 @@ class MakeDataFiles(Program):
 
         # called from base to prepare makeDataFile arguments for batch.
 
+        args          = self.config_yaml['args']
+        input_file    = args.input_file
+        output_format = args.output_format
+        
         CONFIG       = self.config_yaml['CONFIG']
-        input_file   = self.config_yaml['args'].input_file
         script_dir   = self.config_prep['script_dir']
         output_dir   = self.config_prep['output_dir']
 
@@ -374,9 +379,11 @@ class MakeDataFiles(Program):
         shutil.copy(input_file,script_dir)
 
         # create ALERTS subdir for final mjd-tar files
-        alerts_dir    = f"{output_dir}/{ALERT_SUBDIR}"
-        self.config_prep['alerts_dir'] = alerts_dir
-        os.mkdir(alerts_dir)
+
+        if output_format == OUTPUT_FORMAT_LSST_ALERTS:
+            alerts_dir    = f"{output_dir}/{ALERT_SUBDIR}"
+            self.config_prep['alerts_dir'] = alerts_dir
+            os.mkdir(alerts_dir)
 
         # end submit_prepare_driver
 
@@ -444,7 +451,7 @@ class MakeDataFiles(Program):
         script_dir        = self.config_prep['script_dir']
         output_dir        = self.config_prep['output_dir']
         nevt              = self.config_prep['nevt']
-
+        
         args = self.config_yaml['args']
         kill_on_fail      = args.kill_on_fail
         output_format     = args.output_format
@@ -599,7 +606,6 @@ class MakeDataFiles(Program):
         output_format       = self.config_yaml['args'].output_format
         prefix_output_list  = self.config_prep['prefix_output_list']
         input_source        = self.config_prep['input_source']
-        alerts_dir          = self.config_prep['alerts_dir']
         split_mjd_key_name  = self.config_prep['split_mjd_key_name']
         split_mjd           = self.config_prep['split_mjd']
         nsplitnite          = split_mjd['nbin']
@@ -610,7 +616,11 @@ class MakeDataFiles(Program):
 
         f.write(f"MAKEDATAFILE_SOURCE: {input_source} \n")
         f.write(f"OUTPUT_FORMAT:   {output_format} \n")
-        f.write(f"ALERTS_DIR:      {alerts_dir}\n")
+
+        if 'alerts_dir' in self.config_prep:
+            alerts_dir          = self.config_prep['alerts_dir']
+            f.write(f"ALERTS_DIR:      {alerts_dir}\n")
+            
         f.write(f"\n")
 
         f.write(f"KEYNAME_SPLITMJD:  {split_mjd_key_name}\n")
@@ -903,7 +913,6 @@ class MakeDataFiles(Program):
 
         # run  all tarballs with one os command
         if n_compress > 0:
-            # xxx mark cmd_tar += f"mv {ALERT_DAY_NAME}*.tar.gz {ALERT_SUBDIR}"
             os.system(cmd_tar)
             t2     = datetime.datetime.now()
             dt_tar = (t2-t1).total_seconds()
@@ -1005,7 +1014,6 @@ class MakeDataFiles(Program):
             wildcard_base = f"{BASE_PREFIX}*.csv.gz"
         
             wildcard      = f"{script_dir}/{wildcard_base}"
-            # xxx mark delete combined_file=f"{output_dir}/ALERTS_TRUTH.csv.gz"
             combined_file  = f"{output_dir}/{TRUTH_ALERTS_FILENAME}.gz"
             util.combine_csv_files(wildcard, combined_file, True)
 
@@ -1025,17 +1033,6 @@ class MakeDataFiles(Program):
             logging.info(f"\t Compress {w}")
             util.compress_files(+1, script_dir, w, suf, "" )
             
-        # xxx mark delete Jun 26 2022 
-        # xxx wildcard_list = [ 'MAKEDATA', 'CPU',  ]
-#        for w in wildcard_list :
-#            wstar = f"{w}*"
-#            tmp_list = glob.glob1(script_dir,wstar)
-#            if len(tmp_list) == 0 : continue
-#            print(f"\t Compress {wstar}")
-#            sys.stdout.flush()
-#            util.compress_files(+1, script_dir, wstar, w, "" )
-        # xxxxxxx
-
         # - - - -
         # tar up entire script dir
         util.compress_subdir(+1, script_dir)

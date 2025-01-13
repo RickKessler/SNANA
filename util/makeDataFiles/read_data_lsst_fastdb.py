@@ -47,7 +47,7 @@ FASTDB_KEYNAME_SNID = KEYMAP[DATAKEY_SNID]
 class data_lsst_fastdb(Program):
     def __init__(self, config_inputs) :
         config_data = {}
-        print("Init data_lsst_fastdb class.")
+        logging.info("Init data_lsst_fastdb class.")
         gpar.PREFIX_SEASON = "SEASON"  # intermediate prefix on data files
         
         super().__init__(config_inputs, config_data)
@@ -64,6 +64,9 @@ class data_lsst_fastdb(Program):
         
     def prep_read_data_subgroup(self, i_subgroup):
         #
+
+        if i_subgroup != 0 :            return -1
+        
         data_access = self.data_access
         args        = self.config_inputs['args'] 
         nsplit = args.nsplitran
@@ -71,62 +74,60 @@ class data_lsst_fastdb(Program):
 
         logging.info(f"# ----------------------------------------------- ")
         logging.info(f"Prepare isplit = {isplit} of {nsplit}")
-        if i_subgroup == 0:
 
-            # break up query into small pieces that can be debugged more easily
-            q_season = f"season=1"
-            q_nobs   = f"nobs>5"
-            q_mod    = f"mod({FASTDB_KEYNAME_SNID},{nsplit})+1={isplit}"            
-            q_list   = [ q_season, q_nobs, q_mod ]
-            q_join   = " and ".join(q_list)
+        # break up query into small pieces that can be debugged more easily
+        q_season = f"season=1"
+        q_nobs   = f"nobs>5"
+        q_mod    = f"mod({FASTDB_KEYNAME_SNID},{nsplit})+1={isplit}"            
+        q_list   = [ q_season, q_nobs, q_mod ]
+        q_join   = " and ".join(q_list)
             
-            query = f"select * from dia_object where {q_join}"
-            logging.info(f"\t select dia objects with query = \n\t {query}")
-            dia_object_all = data_access.submit_short_query(query)
-            self.dia_object_all = dia_object_all  # store for later
+        query = f"select * from dia_object where {q_join}"
+        logging.info(f"  Select dia objects with query = \n\t {query}")
+        dia_object_all = data_access.submit_short_query(query)
+        self.dia_object_all = dia_object_all  # store for later
             
-            nobj = len(dia_object_all)
-            snid_first = dia_object_all[0][FASTDB_KEYNAME_SNID]
-            snid_last  = dia_object_all[nobj-1][FASTDB_KEYNAME_SNID]
+        nobj = len(dia_object_all)
+        snid_first = dia_object_all[0][FASTDB_KEYNAME_SNID]
+        snid_last  = dia_object_all[nobj-1][FASTDB_KEYNAME_SNID]
             
-            logging.info(f"\t Found {nobj} objects; first/last SNID = " \
-                         f"{snid_first} / {snid_last}")
+        logging.info(f"  Found {nobj} objects; first/last SNID = " \
+                     f"{snid_first} / {snid_last}")
+        logging.info('')
+            
+        # read all of the light curves on single query
+        snid_list = [ obj[FASTDB_KEYNAME_SNID] for obj in dia_object_all ]
+        query = "select * FROM dia_source_current WHERE dia_object IN %(objs)s"
+        logging.info(f"  Select dia sources with query = \n\t {query}")
+        dia_source_all = data_access.submit_short_query( query,
+                                                         subdict={'objs': snid_list} )
+        self.dia_source_all = dia_source_all
+        nsrc = len(dia_source_all)
+        logging.info(f"  Found {nsrc} sources among {nobj} objects")
 
-            # read all of the light curves on single query
-            snid_list = [ obj[FASTDB_KEYNAME_SNID] for obj in dia_object_all ]
-            query = "select * FROM dia_source_current WHERE dia_object IN %(objs)s"
-            logging.info(f"\t select dia sources with query = \n\t {query}")
-            dia_source_all = data_access.submit_short_query( query,
-                                                              subdict={'objs': snid_list} )
-            self.dia_source_all = dia_source_all
-            nsrc = len(dia_source_all)
-            logging.info(f"\t Found {nsrc} sources among {nobj} objects")
+        # finally, load pointer dictionary element for each snid to avoid duplicate
+        # searching in read_event.
+        uuid_snid_pointer = {}
+        ptr_uuid = 0 
+        for uuid in dia_source_all:
+            snid = str(uuid[FASTDB_KEYNAME_SNID])
+            if snid not in uuid_snid_pointer:
+                ptr_uuid_min = ptr_uuid                    
+            uuid_snid_pointer[snid] = [ ptr_uuid_min, ptr_uuid ]                    
+            ptr_uuid += 1
 
-            # finally, load pointer dictionary element for each snid to avoid duplicate
-            # searching in read_event.
-            uuid_snid_pointer = {}
-            ptr_uuid = 0 
-            for uuid in dia_source_all:
-                snid = str(uuid[FASTDB_KEYNAME_SNID])
-                if snid not in uuid_snid_pointer:
-                    ptr_uuid_min = ptr_uuid
-                    
-                uuid_snid_pointer[snid] = [ ptr_uuid_min, ptr_uuid ]                    
-                ptr_uuid += 1
+        CHECK_NPTR = False
+        if CHECK_NPTR:
+            nptr = len(uuid_snid_pointer)
+            if nptr != nobj :
+                errmsg = [ f"Found {nobj} objects, but found {nptr} snid pointers",
+                           f"Something is WRONG !!" ]                
+                util.log_assert( False, errmsg )
 
-            CHECK_NPTR = False
-            if CHECK_NPTR:
-                nptr = len(uuid_snid_pointer)
-                if nptr != nobj :
-                    errmsg = [ f"Found {nobj} objects, but found {nptr} snid pointers",
-                               f"Something is WRONG !!" ]                
-                    util.log_assert( False, errmsg )
+        self.uuid_snid_pointer = uuid_snid_pointer
+        logging.info('')
+        return nobj
 
-            self.uuid_snid_pointer = uuid_snid_pointer
-            logging.info('')
-            return nobj
-        else:
-            return -1
         # end prep_read_data_subgroup
          
     def read_event(self, evt ):

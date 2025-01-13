@@ -127,7 +127,7 @@ def get_args():
     parser.add_argument("-y", "--year", help=msg, type=int, default=-1 )
 
     msg = "select SEASON index (1-Nseason); default = -1 -> all (same as --year)"
-    parser.add_argument("-y", "--season", help=msg, type=int, default=-1 )    
+    parser.add_argument("-s", "--season", help=msg, type=int, default=-1 )    
 
     msg = "Select LSST events with MJD(first detection) "\
            "in this NITE range (i.e. sunset to sunrise)"

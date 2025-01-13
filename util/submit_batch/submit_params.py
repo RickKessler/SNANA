@@ -780,6 +780,20 @@ HELP_CONFIG_TRAIN_BAYESN = f"""
 
 """
 
+HELP_CONFIG_MAKEDATAFILES = f"""
+    ***** HELP/MENU for MAKEDATAFILES Input *****
+  """  +  f"{HELP_CONFIG_GENERIC}" +  \
+  f"""
+
+  MAKEDATAFILE_SOURCE:  SNANA_FOLDER #  or DES or SIRAH_FOLDER or LSST_FASTDB
+  
+  NEVT: 500  # process this many from each input (for test only)
+  
+  FIELD:         WFD
+  NSPLITRAN:     5
+  
+"""
+
 
 
 HELP_MERGE = f"""
@@ -929,16 +943,17 @@ A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
 
 # - - - - - - -
 HELP_MENU = {
-    'SIM'         : HELP_CONFIG_SIM,
-    'LCFIT'       : HELP_CONFIG_LCFIT,
-    'BBC'         : HELP_CONFIG_BBC,
-    'COVMAT'      : HELP_CONFIG_COVMAT,
-    'COSMOFIT'    : HELP_CONFIG_COSMOFIT,
-    'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
-    'TRAIN_SALT3' : HELP_CONFIG_TRAIN_SALT3,
-    'TRAIN_BAYESN': HELP_CONFIG_TRAIN_BAYESN,
-    'MERGE'       : HELP_MERGE,
-    'AIZ'         : HELP_AIZ     # ABORT_IF_ZERO
+    'SIM'           : HELP_CONFIG_SIM,
+    'LCFIT'         : HELP_CONFIG_LCFIT,
+    'BBC'           : HELP_CONFIG_BBC,
+    'COVMAT'        : HELP_CONFIG_COVMAT,
+    'COSMOFIT'      : HELP_CONFIG_COSMOFIT,
+    'TRAIN_SALT2'   : HELP_CONFIG_TRAIN_SALT2,
+    'TRAIN_SALT3'   : HELP_CONFIG_TRAIN_SALT3,
+    'TRAIN_BAYESN'  : HELP_CONFIG_TRAIN_BAYESN,
+    'MAKEDATAFILES' : HELP_CONFIG_MAKEDATAFILES,
+    'MERGE'         : HELP_MERGE,
+    'AIZ'           : HELP_AIZ     # ABORT_IF_ZERO
 }
 
 # === END ===

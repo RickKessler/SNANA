@@ -285,7 +285,11 @@ class MakeDataFiles(Program):
                 prefix_output_list.append(prefix_output)
                 isplitnite_list.append(isplitnite)
 
-                args_list.append(f'--snana_folder {input_src}') ### HACK need to generalize for other inputs
+                # identifying source input to makeDataFiles.sh is very fragile here
+                if 'fastdb' in input_src :
+                    args_list.append(f'--lsst_fastdb')  # Jan 12 2025
+                else:
+                    args_list.append(f'--snana_folder {input_src}') ### HACK 
 
                 args_list.append(f'{output_args}')
                 args_list.append(f'--field {field}')

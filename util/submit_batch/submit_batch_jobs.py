@@ -52,7 +52,7 @@ def get_args():
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
                         choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT",
                                    "TRAIN_SALT2", "TRAIN_SALT3", "TRAIN_BAYESN",
-                                   "MERGE", "AIZ" ])
+                                   "MAKEDATAFILES", "MERGE", "AIZ" ])
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
@@ -452,12 +452,6 @@ if __name__ == "__main__":
     
     args  = get_args()
     store = util.setup_logging(args)
-
-    # xxx mark delete 
-    # program_path = "/home/s1/rkessler/SNANA/bin/combine_fitres.exe"
-    # found = util.program_exists(program_path, 50, True)
-    # sys.exit(f" xxx found_program = {found}")
-    # xxxxxxxxxxx
     
     # check option for long HELP menus
     if args.HELP : 

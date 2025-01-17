@@ -263,7 +263,8 @@ def write_readme(args, readme_dict, walltime=-1.0):
 
     # input args are the user-command line args.
     # input readme_dict is prepared by write_data_xxx module.
-
+    # Jan 2025: check for LSST_FASTDB
+    
     readme_file  = readme_dict['readme_file']
     readme_stats = readme_dict['readme_stats']
     data_format  = readme_dict['data_format']
@@ -277,8 +278,11 @@ def write_readme(args, readme_dict, walltime=-1.0):
     line_list.append(f"PURPOSE:  transient lightcurve data files " \
                 f"for analysis")
 
+    if args.lsst_fastdb is not None :
+        line_list.append(f"SOURCE_LSST_FASTDB:  {True}")  
+
     if args.sirah_folder is not None :
-        line_list.append(f"SOURCE_SIRAH_FOLDER:  {args.sirah_folder}")
+        line_list.append(f"SOURCE_SIRAH_FOLDER:  {args.sirah_folder}")        
 
     if args.snana_folder is not None:
         line_list.append(f"SOURCE_SNANA_FOLDER:  {args.snana_folder}")

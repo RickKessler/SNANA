@@ -59,7 +59,7 @@ class Program:
 
         args = config_inputs['args']
         self.config_inputs = config_inputs
-        self.config_data = config_data
+        self.config_data   = config_data
 
         logging.info("  Base init")
 
@@ -559,7 +559,8 @@ class Program:
         logging.info("\n FINAL MAKE-DATA-FILE SUMMARY: \n")
         logging.info(f" Total number of data units created: {NUNIT_TOT}")
         logging.info(f" Total number of events written:     {NEVT_TOT}")
-        logging.info(f" Total processing time ({t_unit}):    {t_dif:.1f}" )
+        logging.info(f" CPUTIME(total):   {t_dif:.1f} {t_unit}" )
+        # xxx mark logging.info(f" Total processing time ({t_unit}):    {t_dif:.1f}" )        
         sys.stdout.flush()
 
         # end final_summary

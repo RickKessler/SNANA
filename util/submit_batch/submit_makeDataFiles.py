@@ -527,8 +527,11 @@ class MakeDataFiles(Program):
         output_format       = self.config_yaml['args'].output_format
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
+        COLNAME_ISPLIT_NITE = ''
+        if out_lsst_alert: COLNAME_ISPLIT_NITE = 'ISPLIT_NITE'
+        
         # 1. required MERGE table
-        header_line_merge = f"    STATE   ISPLIT_NITE  {DATA_UNIT_STR}  " \
+        header_line_merge = f"    STATE  {COLNAME_ISPLIT_NITE}  {DATA_UNIT_STR}  " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
         if out_lsst_alert :
             header_line_merge += "NOBS_ALERT  ALERT/sec"
@@ -544,7 +547,7 @@ class MakeDataFiles(Program):
         for prefix, isplitnite in zip(prefix_output_list,isplitnite_list):
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
-            ROW_MERGE.append(isplitnite)
+            if out_lsst_alert: ROW_MERGE.append(isplitnite)
             ROW_MERGE.append(prefix)    # data unit name
             ROW_MERGE.append(0)         # NEVT
             ROW_MERGE.append(0)         # NEVT_SPECZ
@@ -569,6 +572,7 @@ class MakeDataFiles(Program):
         nsplitnite           = split_mjd['nbin']
         min_edge_list        = split_mjd['min_edge']
         max_edge_list        = split_mjd['max_edge']
+        
         header_line_compress = \
             f"    STATE   ISPLIT_NITE NITE-RANGE  NDIR_{ALERT_DAY_NAME}  " \
             f"Nsec NDIR/sec"

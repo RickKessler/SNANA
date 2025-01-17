@@ -191,10 +191,14 @@ def restore_args_from_readme(args, readme_yaml):
     args.ztf_folder   = None
     args.snana_folder = None
     
+    key = 'SOURCE_LSST_FASTDB'
+    if key in readme_yaml:
+        args.lsst_fastdb = readme_yaml[key]  # Jan 2025
+
     key = 'SOURCE_LSST_TOM'
     if key in readme_yaml:
         args.lsst_tom_db = readme_yaml[key]
-
+        
     key = 'SOURCE_LSST_FASTDB'
     if key in readme_yaml:
         args.lsst_fastdb = readme_yaml[key]
@@ -246,6 +250,7 @@ def which_read_class(args):
     if args.lsst_tom_db is not None:
         read_class = data_lsst_tom_db
         args.survey = "LSST"
+        
     elif args.lsst_fastdb is not None:
         read_class = data_lsst_fastdb
         args.survey = "LSST"
@@ -275,14 +280,14 @@ def which_read_class(args):
 
 # =============================================
 if __name__ == "__main__":
-
+    
     args  = get_args()
     logger_store = util.setup_logging(args)
 
     logging.info("# =========== Begin makeDataFiles ================ ")
     command = " ".join(sys.argv)
     logging.info(f"# Command: {command}")
-
+    
     # determine which program class (AP, DRP, test data)
     read_class  = which_read_class(args)
 
@@ -314,7 +319,6 @@ if __name__ == "__main__":
     # translate TEXT -> FITS; allow multiple output formats
     if args.outdir_snana is not None:
         write_snana.convert2fits_snana(args, program.config_data)
-
 
     # final summary
     program.final_summary()

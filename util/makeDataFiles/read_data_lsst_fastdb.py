@@ -1,8 +1,7 @@
 # Created Jan 2025 by R.Kessler
 # Read from F.A.S.T data base (for LSST-DESC) 
 
-import os, sys, glob, yaml, shutil
-import logging 
+import os, sys, glob, yaml, shutil, time, logging
 import numpy  as np
 import pandas as pd
 import makeDataFiles_util  as    util
@@ -84,29 +83,35 @@ class data_lsst_fastdb(Program):
             
         query = f"select * from dia_object where {q_join}"
         logging.info(f"  Select dia objects with query = \n\t {query}")
+        t0 = time.time()
         dia_object_all = data_access.submit_short_query(query)
+        util.print_elapsed_time(t0, "Perform dia_object query")
         self.dia_object_all = dia_object_all  # store for later
             
-        nobj = len(dia_object_all)
+        nobj       = len(dia_object_all)
         snid_first = dia_object_all[0][FASTDB_KEYNAME_SNID]
         snid_last  = dia_object_all[nobj-1][FASTDB_KEYNAME_SNID]
             
         logging.info(f"  Found {nobj} objects; first/last SNID = " \
-                     f"{snid_first} / {snid_last}")
+                     f"{snid_first} / {snid_last} ")
         logging.info('')
             
         # read all of the light curves on single query
         snid_list = [ obj[FASTDB_KEYNAME_SNID] for obj in dia_object_all ]
-        query = "select * FROM dia_source_current WHERE dia_object IN %(objs)s"
+        query = "select * FROM dia_source  WHERE dia_object IN %(objs)s"
         logging.info(f"  Select dia sources with query = \n\t {query}")
+        t0 = time.time()
         dia_source_all = data_access.submit_short_query( query,
                                                          subdict={'objs': snid_list} )
+        util.print_elapsed_time(t0, "Perform dia_source query" )
+
         self.dia_source_all = dia_source_all
         nsrc = len(dia_source_all)
-        logging.info(f"  Found {nsrc} sources among {nobj} objects")
+        logging.info(f"  Found {nsrc} sources among {nobj} objects ")
 
         # finally, load pointer dictionary element for each snid to avoid duplicate
         # searching in read_event.
+        t0 = time.time()
         uuid_snid_pointer = {}
         ptr_uuid = 0 
         for uuid in dia_source_all:
@@ -115,6 +120,7 @@ class data_lsst_fastdb(Program):
                 ptr_uuid_min = ptr_uuid                    
             uuid_snid_pointer[snid] = [ ptr_uuid_min, ptr_uuid ]                    
             ptr_uuid += 1
+        util.print_elapsed_time(t0, "Set pointers in returned dia_source list" )
 
         CHECK_NPTR = False
         if CHECK_NPTR:
@@ -129,7 +135,8 @@ class data_lsst_fastdb(Program):
         return nobj
 
         # end prep_read_data_subgroup
-         
+
+    
     def read_event(self, evt ):
 
         # init output dictionaries

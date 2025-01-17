@@ -22,7 +22,7 @@ from argparse import Namespace
 parser=argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, prefix_chars='@')
 from scipy.stats import binned_statistic
 from collections import Counter
-import distutils.util 
+#import distutils.util 
 
 # ====================
 # globals
@@ -1584,15 +1584,18 @@ def set_xbins(args, plot_info):
         for key_tf  in MASTER_DF_DICT:
             xmin = min(xmin,MASTER_DF_DICT[key_tf]['xmin'])
             xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])
-
-        if xmin == xmax:
+                
+        if xmin == xmax :
             xmin -= 1.0  # hack to avoid crash
             xmax += 1.0
+            
         nxbin = NXBIN_AUTO * args.NBIN_AUTO_SCALE
         
-    #  - - - - 
+    #  - - - -
+
     xbins       = np.linspace(xmin, xmax, nxbin+1)
     xbins_cen   = ( xbins[1:] + xbins[:-1] ) / 2.  # central value for each xbin
+        
     bounds_dict['xbins']     = xbins
     bounds_dict['xbins_cen'] = xbins_cen
 

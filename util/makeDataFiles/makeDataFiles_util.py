@@ -3,7 +3,7 @@
 # Mar 30 2022: add extract_sim_readme_info(...)
 # Sep 16 2022: in extract_sim_readme_info, only store str type
 #
-import os, sys, glob, math, yaml, tarfile
+import os, sys, glob, math, yaml, tarfile, time
 import logging, shutil, subprocess
 
 import numpy as np
@@ -23,6 +23,12 @@ except ImportError as e:
     pass
 from astropy.time import Time
 
+
+# ========================================
+def print_elapsed_time(t0, comment):
+    tend = time.time() - t0
+    logging.info(f"\t CPUTIME({comment}): {tend:.1f} seconds")
+    return
 
 # ===============================================
 def create_output_folder(data_dir):

@@ -209,7 +209,7 @@ def which_program_class(config):
         program_class = create_covmat
 
     else :
-        sys.exit("\nERROR: Could not determine program_class")
+        sys.exit("\nERROR: Could not determine program_class for submit_batch_jobs")
 
     # keep quiet for merge process
     if not merge_flag :

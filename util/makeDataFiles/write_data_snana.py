@@ -2,21 +2,13 @@
 # utilities to write data in snana format
 #
 # Jun 24 2022 RK - avoid writing HOSTGAL2_MAG[ERR] of there is no 2nd host.
-#
-import datetime
-import glob
-import logging
-import math
-import os
-import shutil
-import subprocess
-import sys
+# Jan 16 2025 RK - write directly to gzip file and skip unix gzip
 
+import os, sys, gzip, glob, yaml, shutil, subprocess, logging, math, datetime
 import numpy as np
-import yaml
 
 import makeDataFiles_params as gpar
-import makeDataFiles_util as util
+import makeDataFiles_util   as util
 
 #from makeDataFiles_params import *
 
@@ -74,8 +66,9 @@ def write_event_text_snana(args, config_data, data_event_dict):
     if SNID.isdigit(): str_SNID = f"{int(SNID):010d}"
 
     data_file     = f"{data_dir}/{prefix}_{str_SNID}.DAT"
+    data_file_gz  = f"{data_file}.gz"
 
-    with open(data_file, "wt") as f :
+    with gzip.open(data_file_gz, "wt", compresslevel=6 ) as f :
 
         # write header info
         write_header_snana(f,head_raw)
@@ -212,11 +205,13 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
             val = phot_raw[varname][obs]
             if val == None:  val = val_undef
 
-            if val == 12345.333 :  # gpar.VAL_ABORT :  # problem for DES??
-                msgerr.append(f"Missing required PHOT column {varname}")
-                msgerr.append(f"Check SNID = {SNID}")
-                util.log_assert(False,msgerr)
-
+            # xxxxxxxx mark delete Jan 16 2024 xxxxxxx
+            #if val == 12345.333 :  # gpar.VAL_ABORT :  # problem for DES??
+            #    msgerr.append(f"Missing required PHOT column {varname}")
+            #    msgerr.append(f"Check SNID = {SNID}")
+            #    util.log_assert(False,msgerr)
+            # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            
             if varname == 'BAND' :
                 band = val[-1]
                 if band not in FILTERS:
@@ -319,14 +314,15 @@ def write_aux_files_snana(name, args, config_data):
     logging.info(msg)
 
     data_dir      = f"{outdir}/{folder_out}"
-    search_string = f"{prefix}*{gpar.TEXTFILE_SUFFIX}"
+    search_string = f"{prefix}*{gpar.TEXTFILE_SUFFIX}*"
 
     data_file_list = glob.glob1(data_dir, f"{search_string}" )
     list_file      = f"{data_dir}/{folder_out}.LIST"
     readme_file    = f"{data_dir}/{folder_out}.README"
 
     with open(list_file,"wt") as f:
-        for data_file in data_file_list:
+        for data_file in data_file_list:            
+            if '.gz' in data_file:   data_file = data_file.split('.gz')[0]
             f.write(f"{data_file}\n")
 
     # prepare standard readme dictionary for global utility write_readme
@@ -338,10 +334,12 @@ def write_aux_files_snana(name, args, config_data):
     }
     util.write_readme(args, readme_dict)
 
+    # xxxxx mark delete Jan 16 2025 xxxxxxx
     # gzip data files
-    cmd = f"cd {data_dir} ; gzip {search_string}"
-    os.system(cmd)
-
+    #cmd = f"cd {data_dir} ; gzip {search_string}"
+    #os.system(cmd)
+    # xxxxxxxx end mark xxxxxxxxx
+    
     # end write_aux_files_snana
 
 def convert2fits_snana(args, config_data):

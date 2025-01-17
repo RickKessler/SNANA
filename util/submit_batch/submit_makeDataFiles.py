@@ -997,6 +997,7 @@ class MakeDataFiles(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
+        program          = self.config_prep['program']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         cwd              = submit_info_yaml['CWD']
         output_format    = submit_info_yaml['OUTPUT_FORMAT']
@@ -1005,7 +1006,7 @@ class MakeDataFiles(Program):
         msgerr = []
 
         if isfmt_snana :
-            command_list = ['makeDataFiles.sh',
+            command_list = [f'{program}',
                             '--outdir_snana', output_dir, '--merge']
             ret = subprocess.run(command_list, 
                                  capture_output=False, text=True )

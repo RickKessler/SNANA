@@ -267,7 +267,7 @@ def which_read_class(args):
         snana_folder_base = os.path.basename(args.snana_folder)
         args.survey = util.get_survey_snana(snana_folder_base)
     else:
-        sys.exit("\nERROR: Could not determine program_class")
+        sys.exit("\nERROR: Could not determine program_class for makeDataFiles.")
 
     return read_class
 
@@ -279,7 +279,9 @@ if __name__ == "__main__":
     args  = get_args()
     logger_store = util.setup_logging(args)
 
-    logging.info("Begin makeDataFiles")
+    logging.info("# =========== Begin makeDataFiles ================ ")
+    command = " ".join(sys.argv)
+    logging.info(f"# Command: {command}")
 
     # determine which program class (AP, DRP, test data)
     read_class  = which_read_class(args)

@@ -1,7 +1,7 @@
 # Created Jan 2025 by R.Kessler
 # Read from F.A.S.T data base (for LSST-DESC) 
 
-import os, sys, glob, yaml, shutil, time, logging
+import os, sys, glob, yaml, shutil, time, logging, math
 import numpy  as np
 import pandas as pd
 import makeDataFiles_util  as    util
@@ -39,6 +39,9 @@ DATAKEY_HEAD_LIST = [ DATAKEY_RA, DATAKEY_DEC ]
 DATAKEY_PHOT_LIST = [ DATAKEY_MJD, DATAKEY_BAND, DATAKEY_FLUXCAL, DATAKEY_FLUXCALERR ]
 
 FASTDB_KEYNAME_SNID = KEYMAP[DATAKEY_SNID]  
+
+FASTDB_ZP = 31.4  # nJy
+FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
 
 
 # ======================================================
@@ -176,9 +179,15 @@ class data_lsst_fastdb(Program):
             dia_source_evt          = dia_source_all[ptrmin:ptrmax+1]
             
             for key_snana in DATAKEY_PHOT_LIST:
-                key_fastdb = KEYMAP[key_snana]                
-                snana_phot_raw[key_snana] = [ tmp[key_fastdb] for \
-                                              tmp in dia_source_evt ]
+                key_fastdb = KEYMAP[key_snana]
+                scale      = 1.0                
+                if 'FLUXCAL' in key_snana:
+                    scale = FLUXSCALE_SNANA
+                    snana_phot_raw[key_snana] = [ scale * tmp[key_fastdb] for \
+                                                  tmp in dia_source_evt ]
+                else:
+                    snana_phot_raw[key_snana] = [ tmp[key_fastdb] for \
+                                                  tmp in dia_source_evt ]                    
         else:
             # event with no observations; perhaps with cuts such as PSF/ZP/PHOTFLAG ?
             snana_phot_raw = self.init_phot_dict(0)

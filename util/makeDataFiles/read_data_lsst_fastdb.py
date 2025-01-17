@@ -70,7 +70,8 @@ class data_lsst_fastdb(Program):
         args        = self.config_inputs['args'] 
         nsplit = args.nsplitran
         isplit = args.isplitran
-
+        nevt   = args.nevt
+        
         logging.info(f"# ----------------------------------------------- ")
         logging.info(f"Prepare isplit = {isplit} of {nsplit}")
 
@@ -89,15 +90,20 @@ class data_lsst_fastdb(Program):
         self.dia_object_all = dia_object_all  # store for later
             
         nobj       = len(dia_object_all)
-        snid_first = dia_object_all[0][FASTDB_KEYNAME_SNID]
-        snid_last  = dia_object_all[nobj-1][FASTDB_KEYNAME_SNID]
+        snid_list  = [ obj[FASTDB_KEYNAME_SNID] for obj in dia_object_all ]        
             
-        logging.info(f"  Found {nobj} objects; first/last SNID = " \
-                     f"{snid_first} / {snid_last} ")
-        logging.info('')
+        logging.info(f"  Found {nobj} objects.")
             
         # read all of the light curves on single query
-        snid_list = [ obj[FASTDB_KEYNAME_SNID] for obj in dia_object_all ]
+        if nevt < nobj:
+            logging.info(f"  Truncate number of objects to {nevt} (--nevt arg)")
+            snid_list = snid_list[0:nevt]
+
+        snid_first = snid_list[0]
+        snid_last  = snid_list[-1]
+        logging.info(f"  First/Last SNID = {snid_first} / {snid_last} ")                        
+        logging.info('')
+        
         query = "select * FROM dia_source  WHERE dia_object IN %(objs)s"
         logging.info(f"  Select dia sources with query = \n\t {query}")
         t0 = time.time()

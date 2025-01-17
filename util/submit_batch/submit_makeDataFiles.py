@@ -16,13 +16,17 @@ import numpy as np
 import pandas as pd
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
-COLNUM_MKDATA_MERGE_ISPLITNITE  = 1
-COLNUM_MKDATA_MERGE_DATAUNIT    = 2
-COLNUM_MKDATA_MERGE_NEVT        = 3
-COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 4
-COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 5
-COLNUM_MKDATA_MERGE_NOBS_ALERT  = 6  # for lsst alerts only
-COLNUM_MKDATA_MERGE_RATE        = 6  # or add 1 for lsst_alerts
+
+COLNUM_MKDATA_MERGE_DATAUNIT    = 1
+COLNUM_MKDATA_MERGE_NEVT        = 2
+COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 3
+COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 4
+COLNUM_MKDATA_MERGE_RATE        = 5
+
+# for lsst alerts only
+COLNUM_MKDATA_MERGE_ISPLITNITE  = 6
+COLNUM_MKDATA_MERGE_NOBS_ALERT  = 7  # for lsst alerts only
+
 
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
@@ -527,16 +531,12 @@ class MakeDataFiles(Program):
         output_format       = self.config_yaml['args'].output_format
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
-        COLNAME_ISPLIT_NITE = ''
-        if out_lsst_alert: COLNAME_ISPLIT_NITE = 'ISPLIT_NITE'
         
         # 1. required MERGE table
-        header_line_merge = f"    STATE  {COLNAME_ISPLIT_NITE}  {DATA_UNIT_STR}  " \
-                            f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
+        header_line_merge = f"    STATE  {DATA_UNIT_STR}  " \
+                            f"NEVT NEVT_SPECZ NEVT_PHOTOZ  NEVT/sec"
         if out_lsst_alert :
-            header_line_merge += "NOBS_ALERT  ALERT/sec"
-        else:
-            header_line_merge += "NEVT/sec"
+            header_line_merge += "ISPLIT_NOTE NOBS_ALERT"
 
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
@@ -547,13 +547,15 @@ class MakeDataFiles(Program):
         for prefix, isplitnite in zip(prefix_output_list,isplitnite_list):
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
-            if out_lsst_alert: ROW_MERGE.append(isplitnite)
             ROW_MERGE.append(prefix)    # data unit name
             ROW_MERGE.append(0)         # NEVT
             ROW_MERGE.append(0)         # NEVT_SPECZ
             ROW_MERGE.append(0)         # NEVT_PHOTOZ
-            if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
-            ROW_MERGE.append(0.0)       # rate/sec
+            ROW_MERGE.append(0.0)       # rate/sec            
+            if out_lsst_alert:
+                ROW_MERGE.append(isplitnite)
+                ROW_MERGE.append(0)  # NOBS_ALERT
+
 
             INFO_MERGE['row_list'].append(ROW_MERGE)
 
@@ -669,7 +671,7 @@ class MakeDataFiles(Program):
         COLNUM_NEVT_PHOTOZ = COLNUM_MKDATA_MERGE_NEVT_PHOTOZ
         COLNUM_NOBS_ALERT  = COLNUM_MKDATA_MERGE_NOBS_ALERT
         COLNUM_RATE        = COLNUM_MKDATA_MERGE_RATE
-        if out_lsst_alert: COLNUM_RATE += 1
+        # xxx mark if out_lsst_alert: COLNUM_RATE += 1
 
         # init outputs of function
         n_state_change     = 0

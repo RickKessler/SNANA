@@ -13,13 +13,6 @@
 general data file parsers.
 """
 
-# import getpass
-# import glob
-# import ntpath
-# import shutil
-# import subprocess
-# import time
-
 import os
 import sys
 import logging
@@ -28,7 +21,6 @@ import datetime
 # import numpy as np
 # import yaml
 
-# from abc import ABC
 from abc import abstractmethod
 
 
@@ -37,14 +29,6 @@ import makeDataFiles_util as util
 import write_data_snana 
 
 from write_data_csv import csvWriter
-
-try:
-    # import write_data_lsst_alert as lsst_alert
-    from write_data_lsst_alert import LsstAlertWriter
-except ImportError:
-    #util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
-    #raise
-    pass
 
 
 # =============================================================================
@@ -71,7 +55,6 @@ class Program:
         # create top-level outdir
         outdir_list = [
             args.outdir_snana,
-            args.outdir_lsst_alert,
             args.outdir_csv
         ]
 
@@ -90,9 +73,6 @@ class Program:
         # store info for phot varnames
         self.store_varlist_obs()
 
-        # for lsst alert, add extra NOBS_ALERT column to readme_stats
-        if args.outdir_lsst_alert:
-            gpar.KEYLIST_README_STATS += [gpar.KEYNAME_NOBS_ALERT]
 
         # end Program __init__
 
@@ -111,7 +91,6 @@ class Program:
         survey        = args.survey
         peakmjd_range      = args.peakmjd_range
         nite_detect_range  = args.nite_detect_range
-        outdir_lsst_alert  = args.outdir_lsst_alert
         outdir_csv         = args.outdir_csv
         n_season           = gpar.MXSEASON
 
@@ -149,7 +128,7 @@ class Program:
                     continue
 
                 do_all_seasons = (isplit == 0 or isplit_select>0) and iseason==0
-                do_one_season  = (not outdir_lsst_alert)
+                do_one_season  = True  # (not outdir_lsst_alert)
                 if outdir_csv : 
                     do_all_seasons = True
                     do_one_season  = False
@@ -602,9 +581,6 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        if args.outdir_lsst_alert is not None:  # R.Knop, June 2022
-            lsst_alert_writer = LsstAlertWriter( args, self.config_data )
-
         if args.outdir_csv is not None:   # R.Kessler, July 2022
             csv_writer = csvWriter( args, self.config_data )
 
@@ -650,9 +626,6 @@ class Program:
                 if args.outdir_snana :
                     write_data_snana.write_event_text_snana(args, self.config_data,
                                                             data_event_dict)
-
-                elif args.outdir_lsst_alert :
-                    lsst_alert_writer.write_alerts_for_event( data_event_dict )
 
                 elif args.outdir_csv :
                     csv_writer.write_event_csv(data_event_dict)
@@ -700,8 +673,6 @@ class Program:
                 
             if args.outdir_snana:
                 write_data_snana.write_aux_files_snana(name, args, self.config_data)
-            elif args.outdir_lsst_alert:
-                lsst_alert_writer.finalize() 
 
             elif args.outdir_csv :
                 csv_writer.end_write(index_unit)
@@ -716,15 +687,6 @@ class Program:
         readme_stats = self.config_data['readme_stats_list'][index_unit]
         t_proc       = self.config_data['t_proc'] # seconds
 
-        # check to add NOBS_ALERT for lsst_alert format.
-        # Beware that if zero events are processed,
-        # the 'n_alert_write' element doesn't exist
-        if args.outdir_lsst_alert :
-            key = 'n_alert_write'
-            n_alert = 0
-            if key in self.config_data:
-                n_alert = self.config_data[key]
-            readme_stats[gpar.KEYNAME_NOBS_ALERT] = n_alert
 
         readme_dict = {
             'readme_file'  : args.output_yaml_file,

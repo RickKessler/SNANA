@@ -49,10 +49,6 @@ import write_data_snana     as write_snana
 
 from write_data_csv import csvWriter
 
-try:
-    import write_data_lsst_alert as write_lsst_alert
-except ImportError:
-    pass
 
 from read_data_lsst_tom      import data_lsst_tom_db
 from read_data_lsst_fastdb   import data_lsst_fastdb
@@ -95,23 +91,6 @@ def get_args():
     parser.add_argument("--outdir_csv",
                         help=msg, type=str, default=None )
 
-    # - - - - specialized args to create fake lsst alerts - - - - - -
-    msg = "output LSST-ALERT format: top-directory for data"
-    parser.add_argument("--outdir_lsst_alert",
-                        help=msg, type=str, default=None )
-    msg = "file with LSST-ALERT schema (required with --outdir_lsst_alert)"
-    parser.add_argument("--lsst_alert_schema",
-                        help=msg, type=str, default=None )
-    msg = "file with list of MJD(sunset) to avoid slow astroplan calls"
-    parser.add_argument("--mjd_sunset_file",
-                        help=msg, type=str, default=None )
-    msg = "out file with truth info for each alert"
-    parser.add_argument("--outfile_alert_truth",
-                        help=msg, type=str, default=None )
-
-    #msg = "out file with truth info for each object"
-    #parser.add_argument("--outfile_object_truth",
-    #                    help=msg, type=str, default=None )
     # - - - - - - - -
 
     msg = "number of random sub-samples (default=1)"
@@ -237,8 +216,7 @@ def which_read_class(args):
             outdir      = args.outdir_snana
             folder      = glob.glob1(outdir, f"[!_TEXT]*")[0]
             readme_file = f"{outdir}/{folder}/{folder}.README"
-        elif args.outdir_lsst_alert:
-            outdir   = args.outdir_lsst_alert
+
         elif args.outdir_csv :
             outdir   = args.outdir_csv
             readme_file = f"{outdir}/DATA.README"
@@ -303,8 +281,7 @@ if __name__ == "__main__":
     if args.merge:
         if args.outdir_snana:
             write_snana.merge_snana_driver(args)
-        elif args.outdir_lsst_alert:
-            pass
+
         elif args.outdir_csv :
             csv_writer = csvWriter( args, program.config_data )
             csv_writer.merge_csv_driver()

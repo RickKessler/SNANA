@@ -786,7 +786,13 @@ HELP_CONFIG_MAKEDATAFILES = f"""
   f"""
 
   MAKEDATAFILE_SOURCE:  SNANA_FOLDER #  or DES or SIRAH_FOLDER or LSST_FASTDB
-  
+
+  MAKEDATAFILE_INPUTS:
+  - <input1>  # data folder or db name
+  - <input2>  
+
+  MAKEDATAFILE_ARGS:  <optional args for makeDataFiles.sh>
+
   NEVT: 500  # process this many from each input (for test only)
   
   FIELD:         WFD

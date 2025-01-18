@@ -297,6 +297,8 @@ class data_lsst_fastdb(Program):
         # real detection and also for forced snr_detect.
         
         photflag_list = phot_raw[KEY_PHOTFLAG]
+        if photflag_list[0] is None: return
+        
         #print(f" xxx photflag_list = {photflag_list[0:20]}")
         detect_list   = [ (int(x) & photflag_detect)>0 for x in photflag_list ]
         

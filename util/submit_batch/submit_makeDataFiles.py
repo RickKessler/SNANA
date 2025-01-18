@@ -404,6 +404,7 @@ class MakeDataFiles(Program):
 
                 job_info_merge = \
                     self.prep_JOB_INFO_merge(icpu,n_job_local,False)
+                
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         #print(f" xxx n_core={n_core}   n_job_cpu = {n_job_cpu}  " \
@@ -453,6 +454,9 @@ class MakeDataFiles(Program):
         arg_list.append(f"--output_yaml_file {yaml_file}")
         # if do_fast   : arg_list.append("--fast")        # may need later
 
+        key = 'MAKEDATAFILE_ARGS'
+        if key in CONFIG:  arg_list.append(f"{CONFIG[key]}")
+            
         JOB_INFO = {}
         JOB_INFO['program']       = f"{program}"
         JOB_INFO['input_file']    = ""

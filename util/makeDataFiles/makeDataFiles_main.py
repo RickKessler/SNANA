@@ -216,9 +216,18 @@ def which_read_class(args):
         readme_file = None
         if args.outdir_snana:
             outdir      = args.outdir_snana
-            folder      = glob.glob1(outdir, f"[!_TEXT]*")[0]
+            folder_list = glob.glob1(outdir, f"[!_TEXT]*")
+            for folder in folder_list:
+                if os.path.isdir(folder): break
+                
             readme_file = f"{outdir}/{folder}/{folder}.README"
 
+            logging.info(f" xxx ------------------------------")
+            logging.info(f" xxx outdir = {outdir}")
+            logging.info(f" xxx folder_list = {folder_list[0:5]}")     
+            logging.info(f" xxx readme_file = {readme_file}")
+            logging.info(f" xxx ------------------------------")
+            
         elif args.outdir_csv :
             outdir   = args.outdir_csv
             readme_file = f"{outdir}/DATA.README"

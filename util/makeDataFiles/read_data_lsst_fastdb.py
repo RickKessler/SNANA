@@ -45,8 +45,8 @@ FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
 
 
 TABLENAME_DIA_OBJECT = "dia_object"
-TABLENAME_DIA_SOURCE = "dia_source"         # detections only
-#TABLENAME_DIA_SOURCE = "dia_forced_source"  # forced photo, including detections
+#TABLENAME_DIA_SOURCE = "dia_source"         # detections only
+TABLENAME_DIA_SOURCE = "dia_forced_source"  # forced photo, including detections
 
 
 # ======================================================

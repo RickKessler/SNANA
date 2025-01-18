@@ -73,7 +73,10 @@ class Program:
         # store info for phot varnames
         self.store_varlist_obs()
 
-
+        self.NEVT_WRITE            = 0
+        self.NEVT_REJECT_CUTS      = 0
+        self.NEVT_REJECT_DATA_UNIT = 0
+        
         # end Program __init__
 
     def init_data_unit(self):
@@ -213,20 +216,12 @@ class Program:
         DEC        = d_raw[gpar.DATAKEY_DEC]
         FIELD      = d_raw[gpar.DATAKEY_FIELD]
         PEAKMJD    = d_calc[gpar.DATAKEY_PEAKMJD]
-        MJD_DETECT = d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+        MJD_DETECT_FIRST  = d_calc.setdefault(gpar.DATAKEY_MJD_DETECT_FIRST, -9.0)
+        MJD_DETECT_SECOND = d_calc.setdefault(gpar.DATAKEY_MJD_DETECT_SECOND,-9.0)
 
         # - - - - - - - - - - - - - - - - -
         # check match for field
         #
-        ### Could this block be just??:
-        ### define the match_field and break:
-        ## match_field = (field_select == gpar.FIELD_VOID) or (field_select == FIELD)
-        ## if not match_field: return None
-        
-        ### or just
-        ## if field_select!=gpar.FIELD_VOID and field_select != FIELD:
-        ##    return None
-
         if field_select == gpar.FIELD_VOID:
             match_field = True  # no --field arg
         else:
@@ -244,11 +239,11 @@ class Program:
         if n_season > 1:
         # create dictionary needed to determine iyear
             small_event_dict = {
-                'peakmjd':PEAKMJD,
-                'mjd_detect':MJD_DETECT,
-                'ra':RA,
-                'dec':DEC,
-                'field':FIELD
+                'peakmjd'   :  PEAKMJD,
+                'mjd_detect':  [ MJD_DETECT_FIRST, MJD_DETECT_SECOND ],
+                'ra':          RA,
+                'dec':         DEC,
+                'field':       FIELD
             }
             YY = util.iyear_survey(survey, small_event_dict)
 
@@ -536,10 +531,13 @@ class Program:
 
 
         logging.info("\n FINAL MAKE-DATA-FILE SUMMARY: \n")
-        logging.info(f" Total number of data units created: {NUNIT_TOT}")
-        logging.info(f" Total number of events written:     {NEVT_TOT}")
+        logging.info(f" Total number of data units created :  {NUNIT_TOT}")
+        logging.info(f" Total number of events written     :  {NEVT_TOT}")
+        logging.info(f" Total events rejected by cuts      :  {self.NEVT_REJECT_CUTS}")
+        logging.info(f" Total events with invalid data unit:  {self.NEVT_REJECT_DATA_UNIT}")
+        
         logging.info(f" CPUTIME(total):   {t_dif:.1f} {t_unit}" )
-        # xxx mark logging.info(f" Total processing time ({t_unit}):    {t_dif:.1f}" )        
+
         sys.stdout.flush()
 
         # end final_summary
@@ -554,15 +552,15 @@ class Program:
             #self.config_data['time_0'] =  time_0
             self.config_data['time_0'] = datetime.datetime.now()
             return
-
         rmd = evt % gpar.NEVT_SCREEN_UPDATE
         if rmd == 0 or evt == NEVT_TOT-1:
+            read_class  = self.config_inputs['args'].read_class            
             time_0   = self.config_data['time_0']
             time_now = datetime.datetime.now()
             time_dif = (time_now - time_0).total_seconds()
             rate     = int(float(evt)/float(time_dif))
-            logging.info(f"\t\t Read evt={evt+1:6d} of {NEVT_TOT} "
-                         f" ({rate}/sec)")
+            logging.info(f"\t Read {read_class} event = {evt+1:6d} of {NEVT_TOT} "
+                         f" ({rate}/sec) --> wrote {self.NEVT_WRITE}")
             sys.stdout.flush()
 
         return
@@ -608,11 +606,13 @@ class Program:
                     sel = self.select_subsample(data_event_dict)
 
                 if sel is False:
+                    self.NEVT_REJECT_CUTS += 1
                     continue
 
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
                 if data_unit_name is None:
+                    self.NEVT_REJECT_DATA_UNIT += 1                    
                     continue
 
                 # add computed variables; e.g., zCMB, MWEBV ...
@@ -630,6 +630,8 @@ class Program:
                 elif args.outdir_csv :
                     csv_writer.write_event_csv(data_event_dict)
 
+                self.NEVT_WRITE += 1
+                
                 # increment number of events for this data unit
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1

@@ -44,6 +44,11 @@ FASTDB_ZP = 31.4  # nJy
 FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
 
 
+TABLENAME_DIA_OBJECT = "dia_object"
+TABLENAME_DIA_SOURCE = "dia_source"         # detections only
+#TABLENAME_DIA_SOURCE = "dia_forced_source"  # forced photo, including detections
+
+
 # ======================================================
 
 class data_lsst_fastdb(Program):
@@ -79,13 +84,17 @@ class data_lsst_fastdb(Program):
         logging.info(f"Prepare isplit = {isplit} of {nsplit}")
 
         # break up query into small pieces that can be debugged more easily
-        q_season = f"season=1"
+        if args.season >=0 :
+            q_season = f"season={args.season}"
+        else:
+            q_season = 'season>=0'
+            
         q_nobs   = f"nobs>5"
         q_mod    = f"mod({FASTDB_KEYNAME_SNID},{nsplit})+1={isplit}"            
         q_list   = [ q_season, q_nobs, q_mod ]
         q_join   = " and ".join(q_list)
             
-        query = f"select * from dia_object where {q_join}"
+        query = f"select * from {TABLENAME_DIA_OBJECT} where {q_join}"
         logging.info(f"  Select dia objects with query = \n\t {query}")
         t0 = time.time()
         dia_object_all = data_access.submit_short_query(query)
@@ -99,6 +108,7 @@ class data_lsst_fastdb(Program):
             
         # read all of the light curves on single query
         if nevt < nobj:
+            nobj = nevt
             logging.info(f"  Truncate number of objects to {nevt} (--nevt arg)")
             snid_list = snid_list[0:nevt]
 
@@ -107,7 +117,7 @@ class data_lsst_fastdb(Program):
         logging.info(f"  First/Last SNID = {snid_first} / {snid_last} ")                        
         logging.info('')
         
-        query = "select * FROM dia_source  WHERE dia_object IN %(objs)s"
+        query = f"select * FROM {TABLENAME_DIA_SOURCE}  WHERE dia_object IN %(objs)s"
         logging.info(f"  Select dia sources with query = \n\t {query}")
         t0 = time.time()
         dia_source_all = data_access.submit_short_query( query,
@@ -148,6 +158,7 @@ class data_lsst_fastdb(Program):
     
     def read_event(self, evt ):
 
+        args            = self.config_inputs['args']
         # init output dictionaries
         DEBUG_DUMP = True
         dia_object_all    = self.dia_object_all
@@ -158,7 +169,7 @@ class data_lsst_fastdb(Program):
         SNID = str(dia_object_evt[FASTDB_KEYNAME_SNID])
 
         if DEBUG_DUMP:
-            logging.debug(f"Read event {evt} : SNID = {SNID}")
+            logging.debug(f"Read {args.read_class} event {evt} : SNID = {SNID}")
         
         snana_head_raw, snana_head_calc, snana_head_sim = util.reset_data_event_dict()
         snana_head_raw[DATAKEY_SNID]  = str(SNID)
@@ -187,8 +198,8 @@ class data_lsst_fastdb(Program):
                                                   tmp in dia_source_evt ]
                 else:
                     snana_phot_raw[key_snana] = [ tmp[key_fastdb] for \
-                                                  tmp in dia_source_evt ]                    
-        else:
+                                                  tmp in dia_source_evt ] 
+        else :
             # event with no observations; perhaps with cuts such as PSF/ZP/PHOTFLAG ?
             snana_phot_raw = self.init_phot_dict(0)
 
@@ -207,16 +218,111 @@ class data_lsst_fastdb(Program):
             'phot_raw'  : snana_phot_raw
         }
 
-        # reject this event if there are no observations ...
-        # might need a warning somewhere ?
-        if nobs == 0:
+
+        # check option to fudge detections with SNR; this is a placeholder
+        # until detections are passed from fastdb
+        if args.snr_detect:
+            self.force_snr_detections(snana_data_dict)
+
+        # store first/second/last MJD_DETECT            
+        self.store_mjd_detections(snana_data_dict)  
+        
+        # reject this event if there are no detections
+        MJD_DETECT_FIRST = snana_data_dict['head_calc'][gpar.DATAKEY_MJD_DETECT_FIRST]
+        if MJD_DETECT_FIRST < 1000.0 :
             snana_data_dict['select'] = False
-           
+            
         return snana_data_dict
     
     # end read_event
 
+    def force_snr_detections(self, snana_data_dict):
+        # if args.snr_detect is set, compute detection for each obs and set
+        # args.photflag_detect mask of PHOTFLAG.
+        #
+        
+        args            = self.config_inputs['args']
+        snr_detect      = args.snr_detect
+        photflag_detect = args.photflag_detect
+        if snr_detect is None: return 
+        
+        head_raw   = snana_data_dict['head_raw']
+        head_calc  = snana_data_dict['head_calc']
+        phot_raw   = snana_data_dict['phot_raw']
+        
+        KEY_PHOTFLAG    = gpar.DATAKEY_PHOTFLAG
+        KEY_FLUXCAL     = gpar.DATAKEY_FLUXCAL
+        KEY_FLUXCALERR  = gpar.DATAKEY_FLUXCALERR
 
+        fluxcal_list    = phot_raw[KEY_FLUXCAL]
+        fluxcalerr_list = phot_raw[KEY_FLUXCALERR]
+        snr_list        = [x / y for x, y in zip(fluxcal_list, fluxcalerr_list)]
+        detect_list     = [x > snr_detect for x in snr_list ]
+        #self.detect_list = detect_list
+        
+        if True in detect_list:
+            photflag_list   = [ photflag_detect if x else 0 for x in detect_list ]
+        else:
+            photflag_list = [0] * len(snr_list)
+
+
+        phot_raw[KEY_PHOTFLAG] = photflag_list            
+        #print(f" xxx -----------")
+        #print(f" xxx force_snr_detect: photflag_list = \n{photflag_list[0:20]}")
+        
+        return 
+
+    def store_mjd_detections(self,snana_data_dict):
+
+        # compute and store MJD_DETECT_[FIRST/SECOND/LAST]
+        args            = self.config_inputs['args']        
+        photflag_detect = args.photflag_detect
+        
+        head_calc    = snana_data_dict['head_calc']
+        phot_raw     = snana_data_dict['phot_raw']
+        KEY_MJD      = gpar.DATAKEY_MJD
+        KEY_PHOTFLAG = gpar.DATAKEY_PHOTFLAG
+
+        if KEY_PHOTFLAG not in phot_raw : return
+
+        mjd_detect_first  = -9.0
+        mjd_detect_second = -9.0
+        mjd_detect_last   = -9.0
+
+        j_first  = -9
+        j_second = -9
+        j_last   = -9
+        
+        # make list of detections per observation. This should work for
+        # real detection and also for forced snr_detect.
+        
+        photflag_list = phot_raw[KEY_PHOTFLAG]
+        #print(f" xxx photflag_list = {photflag_list[0:20]}")
+        detect_list   = [ (int(x) & photflag_detect)>0 for x in photflag_list ]
+        
+        # find MJD for first/second/last detection
+        if True in detect_list:        
+            j_first  = detect_list.index(True)
+            j_last   = len(detect_list) - detect_list[::-1].index(True) - 1
+
+            mjd_detect_first  = phot_raw[KEY_MJD][j_first]
+            mjd_detect_last   = phot_raw[KEY_MJD][j_last]
+            
+            tmp_list = detect_list[j_first+1:]
+            if True in tmp_list:
+                j_second = tmp_list.index(True) + j_first+1
+                mjd_detect_second = phot_raw[KEY_MJD][j_second]
+                
+            #print(f" xxx j = {j_first}  {j_second}  {j_last}")
+        
+        #print(f" xxx mjd_detect = {mjd_detect_first}  {mjd_detect_second}  {mjd_detect_last} ")
+        # store output
+        head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]  = mjd_detect_first
+        head_calc[gpar.DATAKEY_MJD_DETECT_SECOND] = mjd_detect_second        
+        head_calc[gpar.DATAKEY_MJD_DETECT_LAST]   = mjd_detect_last        
+
+        return
+    
     def end_read_data_subgroup(self):
         pass
     def end_read_data(self):

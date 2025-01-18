@@ -98,6 +98,8 @@ def get_args():
 
     msg = "photflag mask for detections (default=4096)"
     parser.add_argument("--photflag_detect", help=msg, type=int, default=4096)
+    msg = "define detction with this SNR (if no PHOTFLAG bit)"
+    parser.add_argument("--snr_detect", help=msg, type=float, default=None)    
 
     msg = "select isplitran (1-nsplitran): default=-1 -> all"
     parser.add_argument("--isplitran", help=msg, type=int, default=-1 )
@@ -228,27 +230,33 @@ def which_read_class(args):
     if args.lsst_tom_db is not None:
         read_class = data_lsst_tom_db
         args.survey = "LSST"
+        args.read_class  = "LSST_TOM"  # comment string
         
     elif args.lsst_fastdb is not None:
-        read_class = data_lsst_fastdb
-        args.survey = "LSST"
+        read_class       = data_lsst_fastdb
+        args.survey      = "LSST"
+        args.read_class  = "LSST_FASTDB"  # just a comment string
         
     elif args.sirah_folder is not None:
-        read_class = data_sirah_folder
-        args.survey = "SIRAH"
+        read_class       = data_sirah_folder
+        args.survey      = "SIRAH"
+        args.read_class  = "SIRAH_DATA_FOLDER"
         
     elif args.des_folder is not None:
-        read_class = data_des_folder
-        args.survey = "DES"
+        read_class       = data_des_folder
+        args.survey      = "DES"        
+        args.read_class  = "DES_DATA_FOLDER"  # comment string
         
     elif args.ztf_folder is not None:
-        read_class = data_ztf_folder
-        args.survey = "ZTF"
-
+        read_class       = data_ztf_folder
+        args.survey      = "ZTF"
+        args.read_class  = "ZTF_DATA_FOLDER"
+        
     elif args.snana_folder is not None:
-        read_class = data_snana_folder
+        read_class        = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)
-        args.survey = util.get_survey_snana(snana_folder_base)
+        args.survey       = util.get_survey_snana(snana_folder_base)
+        args.read_class   = "SNANA_DATA_FOLDER"        
     else:
         sys.exit("\nERROR: Could not determine program_class for makeDataFiles.")
 

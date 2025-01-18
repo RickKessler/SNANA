@@ -158,8 +158,8 @@ def select_subsample(args, var_dict):
     # The selection here is intened to be a CPU sub-sample
     # rather than a traditional cut.
 
-    SNID       = var_dict[gpar.DATAKEY_SNID]    # int
-    PEAKMJD    = var_dict[gpar.DATAKEY_PEAKMJD] # float
+    SNID             = var_dict[gpar.DATAKEY_SNID]    # str/int
+    PEAKMJD          = var_dict[gpar.DATAKEY_PEAKMJD] # float
     MJD_DETECT_FIRST = var_dict[gpar.DATAKEY_MJD_DETECT_FIRST] # float
 
     nsplitran         = args.nsplitran  # from command line input
@@ -381,30 +381,34 @@ def iyear_survey(survey, event_dict):
 
 def iyear_LSST(event_dict):
 
-    # need to read season map to replace fixed MJD range.
-    mjd   = event_dict['peakmjd']
-    ra    = event_dict['ra']
-    dec   = event_dict['dec']
-    field = event_dict['field']  # DDF or WFD
+    mjd_detect_first  = event_dict['mjd_detect'][0]
+    mjd_detect_second = event_dict['mjd_detect'][1]    
+    ra                = event_dict['ra']
+    dec               = event_dict['dec']
+    field             = event_dict['field']  # DDF or WFD
     iyear = -1
-    if mjd < 59800:
-        iyear = 1
-    elif mjd < 60100 :
-        iyear = 2
+
+    mjd_start = 60750 ## ?? pass this from input or read a map
+
+    # Jan 2025: for now just hack a simple method ... later need
+    # an RA-dependence
+    if mjd_detect_second > 1000. :
+        mjd = mjd_detect_second  # use 2nd detection to avoid spurious fluctuation
+    elif mjd_detect_first > 1000. :
+        mjd = mjd_detect_first   # if only 1 detection, use first detection
     else:
-        iyear = 3
+        return -9
+    
+    iyear = int((mjd - mjd_start)/365.0) + 1
 
     return iyear
 
 def iyear_DES(event_dict):
-
     # DES year/season starts at 1.
     # SV is technically year 0, but there is no SV data in
     # final DES-SN data.
-
     mjd       = event_dict['peakmjd']
-    mjd_start = 56500.0  # July 27 2013 -> start of Y1
-
+    mjd_start = 56500.0                  # July 27 2013 -> start of Y1
     iyear = int((mjd - mjd_start)/365.0) + 1
     return iyear
 
@@ -869,10 +873,13 @@ class READ_SNANA_FOLDER:
         head_calc[gpar.DATAKEY_PEAKMJD]   = table_head.PEAKMJD[evt]
 
         KEY0 = gpar.DATAKEY_MJD_DETECT_FIRST
-        KEY1 = gpar.DATAKEY_MJD_DETECT_LAST
+        KEY1 = gpar.DATAKEY_MJD_DETECT_SECOND        
+        KEY2 = gpar.DATAKEY_MJD_DETECT_LAST
         if gpar.DATAKEY_MJD_DETECT_FIRST in head_names:
             head_calc[KEY0] =  table_head.MJD_DETECT_FIRST[evt]
-            head_calc[KEY1] =  table_head.MJD_DETECT_LAST[evt]
+            head_calc[KEY1] =  table_head.MJD_DETECT_SECOND[evt]                 
+            head_calc[KEY2] =  table_head.MJD_DETECT_LAST[evt]
+
         else:
             # data does not have [MJD_DETECT_FIRST,LAST], so abort if
             # if nite-range selection is requsted

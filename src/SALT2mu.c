@@ -15338,7 +15338,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     for(ia=0; ia<NBINa; ia++ )
       { SUMa += (*BININFO_SIM_ALPHA).avg[ia]; }
     for(ib=0; ib<NBINb; ib++ )
-      { SUMb += (*BININFO_SIM_BETA).avg[ib]; }
+      { SUMb += (*BININFO_SIM_BETA).avg[ib]; } 
 
     if ( NBINa>0  && NBINb>0 ) {
       MUZMAP->alpha = SUMa / (double)NBINa ;
@@ -15463,7 +15463,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     mB   = TABLEVAR->fitpar[INDEX_d][icc] ;
     name = TABLEVAR->name[icc] ;
     
-    mu = mB + a*x1 - b*c - M0 ;
+    mu = mB + a*x1 - b*c - M0 ;  
     
     // apply mu-bias Correction if simfile_bias is given
     muBias = muBiasErr = 0.0 ;  muCOVscale = 1.0 ;
@@ -15771,7 +15771,8 @@ void print_contam_CCprior(FILE *fp) {
   //   -4.0 to -0.5
   //   -0.5 to +0.5
   //
-
+  // Jan 20 2025: fix denominator to be only photo-id events (ignore spec-confirmed)
+  
   CONTAM_INFO_DEF CONTAM_MURES_BINS;
   CONTAM_INFO_DEF CONTAM_REDSHIFT_BINS;
 
@@ -15789,6 +15790,9 @@ void print_contam_CCprior(FILE *fp) {
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[i] ;
     if ( cutmask ) { continue; }
 
+    if ( INFO_DATA.TABLEVAR.IS_SPEC_CONFIRMED[i] ) { continue; }
+	
+    //.xyz
     zhd      = INFO_DATA.TABLEVAR.zhd[i] ;
     mures    = INFO_DATA.mures[i];
     probcc   = INFO_DATA.probcc_beams[i] ;

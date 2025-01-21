@@ -79,7 +79,7 @@ NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
 
 # define dictuionay of user-defined functions (key)
 # and the np.xxx replacement for pandas. These functions
-# can be used in variables (@V) and weigts (@@WEIGHT).
+# can be used in variables (@V) and weigts (@@WGTFUN).
 NUMPY_FUNC_DICT = {
     'exp'         :  'np.exp'  ,
     'log10'       :  'np.log'  ,   # works for log and log10        
@@ -443,6 +443,9 @@ def get_args():
     msg = 'variable to only for weight avg per bin; do not show error bard in 2D plot'
     parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
+    msg = 'variable to reweight 1D plot'
+    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg, nargs="+")
+    
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
@@ -451,7 +454,7 @@ def get_args():
                         type=int, help=msg, nargs="+" )
         
     msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
-    parser.add_argument('@@WEIGHT', '@@weight', default=[None], help=msg, nargs="+" )
+    parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
 
     msg = "number of rows to read (for large files)"
     parser.add_argument('@@NROWS', '@@nrows', default=None, help=msg, type=int )
@@ -563,18 +566,18 @@ def arg_prep_driver(args):
     n_tfile_orig    = len(args.TFILE)
     n_var_orig      = len(args.VARIABLE)
     n_cut_orig      = len(args.CUT)
-    n_weight_orig   = len(args.WEIGHT)
+    n_wgtfun_orig   = len(args.WGTFUN)
     tfile_list      = copy.copy(args.TFILE)
     var_list        = copy.copy(args.VARIABLE)
     cut_list        = copy.copy(args.CUT)
-    weight_list     = copy.copy(args.WEIGHT)
+    wgtfun_list     = copy.copy(args.WGTFUN)
 
-    name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WEIGHT' ]
-    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_weight_orig ]
-    arg_list_list  = [ tfile_list,   var_list,   cut_list,   weight_list   ]
+    name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN' ]
+    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig ]
+    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list   ]
 
     # abort if more than 1 table file and more than 1 cut are requested.
-    # However, allow 2 table files and 2 WEIGHTs 
+    # However, allow 2 table files and 2 WGTFUNs
     n_multiple = sum(n > 1 for n in n_orig_list)
     if n_tfile_orig> 1 and n_cut_orig > 1:
         sys.exit("\n ERROR: cannot specify >1 tfile and >1 cut: \n" \
@@ -590,7 +593,7 @@ def arg_prep_driver(args):
     tfile_list   = arg_list_list[0]
     var_list     = arg_list_list[1]
     cut_list     = arg_list_list[2]
-    weight_list  = arg_list_list[3]    
+    wgtfun_list  = arg_list_list[3]    
         
     # - - - -
 
@@ -616,7 +619,7 @@ def arg_prep_driver(args):
 
     args.var_list        = var_list
     args.cut_list        = cut_list
-    args.weight_list     = weight_list
+    args.wgtfun_list     = wgtfun_list
     
     # - - - - -
 
@@ -1250,9 +1253,9 @@ def set_axis_labels(args, plot_info):
 
     VAR_LIST2D    = args.VARIABLE[0].split(COLON)  # x or x & y varnames of first set of vars
     
-    WEIGHT       = args.WEIGHT[0]  # remove [] for axis title 
-    if len(args.WEIGHT) > 1:
-        WEIGHT = '[' + ' , '.join(args.WEIGHT) +']'    # show list of all weights for overlay
+    WGTFUN       = args.WGTFUN[0]  # remove [] for axis title 
+    if len(args.WGTFUN) > 1:
+        WGTFUN = '[' + ' , '.join(args.WGTFUN) +']'    # show list of all weights for overlay
             
     axis_dict = plot_info.axis_dict_list[0]  # ?? fragile ??
     xbin      = plot_info.bounds_dict['xbin']
@@ -1283,7 +1286,7 @@ def set_axis_labels(args, plot_info):
             # for 1D plots, set default y-axis label based on user optons
             if NDIM == 1:
                 ylabel  = f'Counts per {str_xbin}' 
-                if WEIGHT           : ylabel = f'Counts * {WEIGHT} per {str_xbin}'
+                if WGTFUN           : ylabel = f'Counts * {WGTFUN} per {str_xbin}'
                 if OPT_RATIO in OPT : ylabel = 'Ratio' 
 
             # check user overrides
@@ -1421,7 +1424,7 @@ def read_tables(args, plot_info):
     var_list        = args.var_list
     cut_list        = args.cut_list
     ps_list         = args.prescale_list
-    weight_list     = args.weight_list
+    wgtfun_list     = args.wgtfun_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
     marker_list     = args.marker_list
@@ -1436,9 +1439,9 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, prescale, weight, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, prescale, wgtfun, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, ps_list, weight_list, legend_list, alpha_list, marker_list):
+            cut_list, ps_list, wgtfun_list, legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1510,7 +1513,7 @@ def read_tables(args, plot_info):
 
         MASTER_DF_DICT[key] = {
             'df'           : df,
-            'weight'       : weight,
+            'wgtfun'       : wgtfun,
             'name_legend'  : name_legend,
             'alpha'        : alpha,
             'marker'       : marker
@@ -1941,7 +1944,7 @@ def get_info_plot1d(args, info_plot_dict):
     df_dict   = info_plot_dict['df_dict']
     
     df             = df_dict['df']
-    weight         = df_dict['weight']
+    wgtfun         = df_dict['wgtfun']
     name_legend    = df_dict['name_legend']
     plt_legend     = name_legend
     plt_text_dict  = None
@@ -1972,10 +1975,10 @@ def get_info_plot1d(args, info_plot_dict):
         
     do_plot_hist_ov1d     = False
 
-    # apply option user-weight function (see @@WEIGHT arg)
-    if weight:
-        wgt_user   = get_weights_user(xbins_cen, weight)
-        yval_list *= wgt_user
+    # apply option user-weight function (see @@WGTFUN arg)
+    if wgtfun:
+        wgtfun_user   = get_wgtfun_user(xbins_cen, wgtfun)
+        yval_list    *= wgtfun_user
 
     nevt = np.sum(yval_list)  # sum before re-normalizing (for printing only)
     if is_empty:
@@ -2045,10 +2048,10 @@ def get_info_plot1d(args, info_plot_dict):
     # check for overlay weights with chi2
     if numplot > 0 and do_ov:
         wgt_ov = [ ov_scale ] * len(df.x_plot_val)
-        if weight :
-            wgt_user = get_weights_user(df.x_plot_val,weight) 
-            wgt_ov   = np.multiply(wgt_ov,wgt_user)
-            len_wgt_ov = len(wgt_ov)
+        if wgtfun :
+            wgtfun_user = get_wgtfun_user(df.x_plot_val,wgtfun) 
+            wgt_ov      = np.multiply(wgt_ov,wgtfun_user)
+            len_wgt_ov  = len(wgt_ov)
 
         # check option to compute and print chi2/dof info on plot
         # Froce min error =1 in chi2 calc so that it's ok to plot
@@ -2492,22 +2495,22 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     # end apply_plt_misc
     
 
-def get_weights_user(xcen,weight):
+def get_wgtfun_user(xcen,wgtfun):
 
     n_val     = len(xcen)
 
-    if weight == '1' :
+    if wgtfun == '1' :
         wgt_vals  = [1.0] * n_val   # default weights are 1
-    elif weight:
+    elif wgtfun:
 
         # create numpy array x (from xcen) and x varname must be used to
-        # match variable in user-define WEIGHT (e.g., 1-x).
+        # match variable in user-define WGTFUN (e.g., 1-x).
         x   = np.array(xcen)
-        weight_plus_np = weight        
+        wgt_plus_np = wgtfun
         for str_orig, str_final in NUMPY_FUNC_DICT.items(): 
-            weight_plus_np = weight_plus_np.replace(str_orig,str_final)
+            wgt_plus_np = wgt_plus_np.replace(str_orig,str_final)
 
-        wgt_vals = eval(weight_plus_np)
+        wgt_vals = eval(wgt_plus_np)
         
     return wgt_vals
 

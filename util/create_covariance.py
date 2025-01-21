@@ -320,7 +320,7 @@ def get_args():
     
     msg = "Max HD size to run posdef test on covtot_inv (beware it's slow for big matrix)"
     parser.add_argument("--mxsize_test_posdef", help=msg,
-                        nargs='?', type=int, default=2000 )
+                        nargs='?', type=int, default=6000 )
     
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 

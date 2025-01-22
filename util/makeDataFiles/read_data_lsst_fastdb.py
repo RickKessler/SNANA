@@ -1,7 +1,7 @@
 # Created Jan 2025 by R.Kessler
 # Read from F.A.S.T data base (for LSST-DESC) 
 
-import os, sys, glob, yaml, shutil, time, logging, math
+import os, sys, glob, yaml, shutil, time, logging, math, io, copy
 import numpy  as np
 import pandas as pd
 import makeDataFiles_util  as    util
@@ -28,6 +28,7 @@ KEYMAP = { # SNANA -> fastdb
 
     # PHOT
     gpar.DATAKEY_MJD         : 'mid_point_tai',
+    gpar.DATAKEY_PHOTFLAG    : 'valid_flag',   # temp until real photflag is there
     gpar.DATAKEY_BAND        : 'filter_name',
     gpar.DATAKEY_FLUXCAL     : 'ps_flux',
     gpar.DATAKEY_FLUXCALERR  : 'ps_flux_err',    
@@ -35,19 +36,42 @@ KEYMAP = { # SNANA -> fastdb
     "DUMMY"       : "dummmy"  # no comma here
 }
 
+
 DATAKEY_HEAD_LIST = [ DATAKEY_RA, DATAKEY_DEC ]
-DATAKEY_PHOT_LIST = [ DATAKEY_MJD, DATAKEY_BAND, DATAKEY_FLUXCAL, DATAKEY_FLUXCALERR ]
+DATAKEY_PHOT_LIST = [ DATAKEY_MJD, gpar.DATAKEY_PHOTFLAG,
+                      DATAKEY_BAND, DATAKEY_FLUXCAL, DATAKEY_FLUXCALERR ]
 
 FASTDB_KEYNAME_SNID = KEYMAP[DATAKEY_SNID]  
+FASTDB_KEYNAME_MJD  = KEYMAP[gpar.DATAKEY_MJD]
 
 FASTDB_ZP = 31.4  # nJy
 FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
 
-
+# hard-wired stuff
 TABLENAME_DIA_OBJECT = "dia_object"
 #TABLENAME_DIA_SOURCE = "dia_source"         # detections only
 TABLENAME_DIA_SOURCE = "dia_forced_source"  # forced photo, including detections
 
+QUERY_INTERFACE_LONG  = "LONG"   # recommended
+QUERY_INTERFACE_SHORT = "SHORT"
+QUERY_INTERFACE       = QUERY_INTERFACE_LONG
+
+QMAXWAIT_OBJECT = 500   # max query wait (seconds) for dia_object query
+QMAXWAIT_SOURCE = 3000  # max query wait (seconds) for dia_source query
+
+SELECT_PARAMS_DICT = {
+
+    # cuts to select events
+    'NDETECT_MIN'        : 2,
+    'MJDDIF_DETECT_MIN'  : 0.5,     # 2 detections must be separated by at least 0.5 days
+
+    # - - - -
+    # cuts to select observations
+    
+    # select obs 30 days before 1st detection, and up to 60 days after last detection
+    'MJD_DETECT_SELECT_RANGE' : [ -30, 60 ]
+    # PHOTFLAG mask ?? (TBD)
+}
 
 # ======================================================
 
@@ -70,104 +94,96 @@ class data_lsst_fastdb(Program):
 
         
     def prep_read_data_subgroup(self, i_subgroup):
-        #
+        
+        # read fast data base for isplitran and store in data frame;
+        # will parse it later for writing. Objects and sources are stored separately.
 
         if i_subgroup != 0 :            return -1
         
         data_access = self.data_access
         args        = self.config_inputs['args'] 
-        nsplit = args.nsplitran
-        isplit = args.isplitran
-        nevt   = args.nevt
         
         logging.info(f"# ----------------------------------------------- ")
-        logging.info(f"Prepare isplit = {isplit} of {nsplit}")
+        logging.info(f"Prepare isplit = {args.isplitran} of {args.nsplitran}")
 
-        # break up query into small pieces that can be debugged more easily
-        if args.season >=0 :
-            q_season = f"season={args.season}"
-        else:
-            q_season = 'season>=0'
-            
-        q_nobs   = f"nobs>5"
-        q_mod    = f"mod({FASTDB_KEYNAME_SNID},{nsplit})+1={isplit}"            
-        q_list   = [ q_season, q_nobs, q_mod ]
-        q_join   = " and ".join(q_list)
-            
-        query = f"select * from {TABLENAME_DIA_OBJECT} where {q_join}"
-        logging.info(f"  Select dia objects with query = \n\t {query}")
+        query = self.construct_query_object()
+        
+        logging.info(f"  Select dia objects with {QUERY_INTERFACE} query = \n\t {query}")
         t0 = time.time()
-        dia_object_all = data_access.submit_short_query(query)
+
+        if QUERY_INTERFACE == QUERY_INTERFACE_LONG :
+            # return csv, then convert to data frame
+            csv_obj_tmp     = data_access.synchronous_long_query(query,
+                                                             checkeach=5,   # check every 5 sec
+                                                             maxwait=QMAXWAIT_OBJECT ) # abort after this time
+            df_dia_object  = pd.read_csv(io.StringIO(csv_obj_tmp), sep=',')
+        else:
+            # return dictionary; then convert to data frame
+            dict_obj_tmp      = data_access.submit_short_query(query)
+            df_dia_object     = pd.DataFrame(dict_obj_tmp)
+
+        
         util.print_elapsed_time(t0, "Perform dia_object query")
-        self.dia_object_all = dia_object_all  # store for later
+        self.df_dia_object = df_dia_object  # store for later
             
-        nobj       = len(dia_object_all)
-        snid_list  = [ obj[FASTDB_KEYNAME_SNID] for obj in dia_object_all ]        
-            
+        nobj       = len(df_dia_object)
+        snid_list  = list(df_dia_object['dia_object'])
+        snid_list  = list(map(int,snid_list))
         logging.info(f"  Found {nobj} objects.")
-            
-        # read all of the light curves on single query
-        if nevt < nobj:
-            nobj = nevt
-            logging.info(f"  Truncate number of objects to {nevt} (--nevt arg)")
-            snid_list = snid_list[0:nevt]
 
         snid_first = snid_list[0]
         snid_last  = snid_list[-1]
-        logging.info(f"  First/Last SNID = {snid_first} / {snid_last} ")                        
+        logging.info(f"  First/Last SNID = {snid_first} / {snid_last} ")
+        logging.info(f"  dia_object columns: {df_dia_object.columns}")
         logging.info('')
+
         
-        query = f"select * FROM {TABLENAME_DIA_SOURCE}  WHERE dia_object IN %(objs)s"
-        logging.info(f"  Select dia sources with query = \n\t {query}")
+        query = f"select * FROM {TABLENAME_DIA_SOURCE}  WHERE dia_object IN %(objs)s order by " \
+            f"{FASTDB_KEYNAME_SNID}, {FASTDB_KEYNAME_MJD} "
+        logging.info(f"  Select dia sources with {QUERY_INTERFACE} query = \n\t {query}")
         t0 = time.time()
-        dia_source_all = data_access.submit_short_query( query,
-                                                         subdict={'objs': snid_list} )
+
+        if QUERY_INTERFACE == QUERY_INTERFACE_LONG :
+            csv_src_tmp = data_access.synchronous_long_query(query,
+                                                           subdict={'objs': snid_list},
+                                                           checkeach=5,             # check every 5 sec
+                                                           maxwait=QMAXWAIT_SOURCE ) # abort after this time
+            df_dia_source  = pd.read_csv(io.StringIO(csv_src_tmp),sep=',')            
+        else:
+            dict_src_tmp = data_access.submit_short_query( query,
+                                                           subdict={'objs': snid_list} )
+            df_dia_source = pd.DataFrame(dict_src_tmp)
+            
         util.print_elapsed_time(t0, "Perform dia_source query" )
 
-        self.dia_source_all = dia_source_all
-        nsrc = len(dia_source_all)
+        self.df_dia_source = df_dia_source
+        nsrc = len(df_dia_source)
         logging.info(f"  Found {nsrc} sources among {nobj} objects ")
+        logging.info(f"  dia_source columns: {df_dia_source.columns}")    
 
-        # finally, load pointer dictionary element for each snid to avoid duplicate
-        # searching in read_event.
-        t0 = time.time()
-        uuid_snid_pointer = {}
-        ptr_uuid = 0 
-        for uuid in dia_source_all:
-            snid = str(uuid[FASTDB_KEYNAME_SNID])
-            if snid not in uuid_snid_pointer:
-                ptr_uuid_min = ptr_uuid                    
-            uuid_snid_pointer[snid] = [ ptr_uuid_min, ptr_uuid ]                    
-            ptr_uuid += 1
-        util.print_elapsed_time(t0, "Set pointers in returned dia_source list" )
-
-        CHECK_NPTR = False
-        if CHECK_NPTR:
-            nptr = len(uuid_snid_pointer)
-            if nptr != nobj :
-                errmsg = [ f"Found {nobj} objects, but found {nptr} snid pointers",
-                           f"Something is WRONG !!" ]                
-                util.log_assert( False, errmsg )
-
-        self.uuid_snid_pointer = uuid_snid_pointer
+        # - - - - -
+            
         logging.info('')
         return nobj
 
         # end prep_read_data_subgroup
-
-    
+        
     def read_event(self, evt ):
 
         args            = self.config_inputs['args']
         # init output dictionaries
         DEBUG_DUMP = True
-        dia_object_all    = self.dia_object_all
-        dia_source_all    = self.dia_source_all
-        uuid_snid_pointer = self.uuid_snid_pointer
-        dia_object_evt    = dia_object_all[evt]
+        df_dia_object        = self.df_dia_object
+        df_dia_source        = self.df_dia_source
+
+        #import pdb
+        #pdb.set_trace()
+        
+        dia_object_evt    = df_dia_object.iloc[evt]
         
         SNID = str(dia_object_evt[FASTDB_KEYNAME_SNID])
-
+        nobs     = dia_object_evt['nobs']
+        
         if DEBUG_DUMP:
             logging.debug(f"Read {args.read_class} event {evt} : SNID = {SNID}")
         
@@ -178,33 +194,27 @@ class data_lsst_fastdb(Program):
             snana_head_raw[key]   = dia_object_evt[KEYMAP[key]]
 
         # - - - - - - --  -
-        # load light curve info using pointers to extract list of dia-dictionary elements
-
-        if SNID in uuid_snid_pointer :
-            ptrmin    = uuid_snid_pointer[SNID][0]
-            ptrmax    = uuid_snid_pointer[SNID][1]
-            nobs      = ptrmax - ptrmin + 1
-            
-            snana_phot_raw          = self.init_phot_dict(nobs)
-            snana_phot_raw['NOBS']  = nobs
-            dia_source_evt          = dia_source_all[ptrmin:ptrmax+1]
-            
-            for key_snana in DATAKEY_PHOT_LIST:
-                key_fastdb = KEYMAP[key_snana]
-                scale      = 1.0                
+        # load light curve info 
+        snana_phot_raw          = self.init_phot_dict(nobs)
+        snana_phot_raw['NOBS']  = nobs
+        df_lightcurve    = df_dia_source[df_dia_source[FASTDB_KEYNAME_SNID] == int(SNID)]
+        
+        keylist_snana_phot_store = []
+        for key_snana in DATAKEY_PHOT_LIST:
+            key_fastdb = KEYMAP[key_snana]
+            if key_fastdb in df_lightcurve.columns :
+                val_list   = list(df_lightcurve[key_fastdb])
                 if 'FLUXCAL' in key_snana:
-                    scale = FLUXSCALE_SNANA
-                    snana_phot_raw[key_snana] = [ scale * tmp[key_fastdb] for \
-                                                  tmp in dia_source_evt ]
-                else:
-                    snana_phot_raw[key_snana] = [ tmp[key_fastdb] for \
-                                                  tmp in dia_source_evt ] 
-        else :
-            # event with no observations; perhaps with cuts such as PSF/ZP/PHOTFLAG ?
-            snana_phot_raw = self.init_phot_dict(0)
+                    val_list = [ x*FLUXSCALE_SNANA for x in val_list ]
 
+                snana_phot_raw[key_snana] = val_list
+                keylist_snana_phot_store.append(key_snana)
+
+        # zero out PHOTFLAG for placeholder 'valid_flag'; detection bits are added below
+        if KEYMAP[gpar.DATAKEY_PHOTFLAG] == 'valid_flag':
+            snana_phot_raw[gpar.DATAKEY_PHOTFLAG] = [0] * nobs
+            
         # - - - - - -
-        nobs = snana_phot_raw['NOBS']
         
         if DEBUG_DUMP:
             str_warn = ''
@@ -227,15 +237,49 @@ class data_lsst_fastdb(Program):
         # store first/second/last MJD_DETECT            
         self.store_mjd_detections(snana_data_dict)  
         
-        # reject this event if there are no detections
-        MJD_DETECT_FIRST = snana_data_dict['head_calc'][gpar.DATAKEY_MJD_DETECT_FIRST]
-        if MJD_DETECT_FIRST < 1000.0 :
+        # Apply event selection requirements
+        select = self.select_event(snana_data_dict)
+        if select:
+            pass  # do NOT set 'select' to True
+        else:
             snana_data_dict['select'] = False
-            
+
+        # select observations using MJD cuts
+        if select :
+            self.select_obs(snana_data_dict, keylist_snana_phot_store )
+                            
         return snana_data_dict
     
     # end read_event
 
+    def construct_query_object(self):
+        args        = self.config_inputs['args']
+        season      = args.season
+        nsplit      = args.nsplitran
+        isplit      = args.isplitran
+        
+        # break up query into small pieces that can be debugged more easily
+
+        if season >=0 :
+            q_season = f"season={season}"
+        else:
+            q_season = 'season>=0'
+            
+        q_nobs   = f"nobs>5"
+        
+        q_mod    = f"mod({FASTDB_KEYNAME_SNID},{nsplit})+1={isplit}"
+        
+        
+        q_list   = [ q_season, q_nobs, q_mod ]
+        q_join   = " and ".join(q_list)
+
+        if args.nevt:
+            q_join  += f" order by dia_object limit {args.nevt}"    
+        
+        query = f"select * from {TABLENAME_DIA_OBJECT} where {q_join} "
+        
+        return query
+    
     def force_snr_detections(self, snana_data_dict):
         # if args.snr_detect is set, compute detection for each obs and set
         # args.photflag_detect mask of PHOTFLAG.
@@ -288,7 +332,8 @@ class data_lsst_fastdb(Program):
         mjd_detect_first  = -9.0
         mjd_detect_second = -9.0
         mjd_detect_last   = -9.0
-
+        ndetect = 0
+        
         j_first  = -9
         j_second = -9
         j_last   = -9
@@ -301,6 +346,7 @@ class data_lsst_fastdb(Program):
         
         #print(f" xxx photflag_list = {photflag_list[0:20]}")
         detect_list   = [ (int(x) & photflag_detect)>0 for x in photflag_list ]
+        ndetect       = detect_list.count(True)
         
         # find MJD for first/second/last detection
         if True in detect_list:        
@@ -322,7 +368,61 @@ class data_lsst_fastdb(Program):
         head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]  = mjd_detect_first
         head_calc[gpar.DATAKEY_MJD_DETECT_SECOND] = mjd_detect_second        
         head_calc[gpar.DATAKEY_MJD_DETECT_LAST]   = mjd_detect_last        
+        head_calc[gpar.DATAKEY_NDETECT]           = ndetect
+        return
 
+    def select_event(self, snana_data_dict):
+        
+        # return true if this event passes selection cuts:
+        #  * at least 2 detections separated by a night
+        #    -> Avoids spurious detections and moving objects
+
+        head_calc         = snana_data_dict['head_calc']        
+        MJD_DETECT_FIRST  = head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+        MJD_DETECT_LAST   = head_calc[gpar.DATAKEY_MJD_DETECT_LAST]
+        NDETECT           = head_calc[gpar.DATAKEY_NDETECT]
+
+        NDETECT_MIN       = SELECT_PARAMS_DICT['NDETECT_MIN']
+        MJDDIF_DETECT_MIN = SELECT_PARAMS_DICT['MJDDIF_DETECT_MIN']
+        
+        if NDETECT < NDETECT_MIN :
+            return False
+
+        MJDDIF_DETECT = MJD_DETECT_LAST - MJD_DETECT_FIRST
+        if MJDDIF_DETECT < MJDDIF_DETECT_MIN:
+            return False
+
+        return True
+    
+    def select_obs(self, snana_data_dict, keylist_snana_phot_store):
+
+        # Truncate MJD-dependent arrays based on MJD cut
+        # Inputs:
+        #   snana_data_dict : data dictionary; modify phot_raw arrays
+        #   keylist_snana_phot_store : list of phot keys to modify
+        
+        head_calc = snana_data_dict['head_calc']
+        phot_raw  = snana_data_dict['phot_raw']   
+        
+        MJD_DETECT_FIRST = head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+        MJD_DETECT_LAST  = head_calc[gpar.DATAKEY_MJD_DETECT_LAST]
+
+        MJD_DETECT_SELECT_RANGE = SELECT_PARAMS_DICT['MJD_DETECT_SELECT_RANGE']
+        mjdmin           = MJD_DETECT_FIRST + MJD_DETECT_SELECT_RANGE[0]
+        mjdmax           = MJD_DETECT_LAST  + MJD_DETECT_SELECT_RANGE[1]
+
+        # store original mjd_list in separate memory using deepcopy
+        mjd_list         = copy.deepcopy(phot_raw[gpar.DATAKEY_MJD])
+        
+        for key_snana in keylist_snana_phot_store :
+            val_list_orig = phot_raw[key_snana]
+            val_list_trim = [x for x,t in zip(val_list_orig,mjd_list)  if mjdmin<t<mjdmax ]
+            phot_raw[key_snana] = val_list_trim  # overwrite input
+            
+        # - - - - - 
+        del mjd_list
+        nobs = len(phot_raw[gpar.DATAKEY_MJD])  # updated nobs
+        phot_raw['NOBS']  = nobs                      # overwrite input
         return
     
     def end_read_data_subgroup(self):

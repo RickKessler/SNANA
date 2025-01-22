@@ -7831,8 +7831,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
       
       mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
       TABLEVAR->fitpar[INDEX_mu][ISN]      = (float)mu_obs ; 
-      TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = (float)SIM_MUz ;
-
+      TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = (float)SIM_MUz ;      
+      
     } // end DO_BIASCOR_MU if block
 
   } // end ISMODEL_LCFIT_SALT2
@@ -9880,7 +9880,7 @@ void prepare_biasCor(void) {
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
   for(ievt=0; ievt < INFO_BIASCOR.TABLEVAR.NSN_ALL; ievt++ )  { 
-    compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR );
+    compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR ); // from prepare_biasCor
     compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR );
   }
   if ( NDIM_BIASCOR >=5 ) { store_index_abg_biasCor(); }
@@ -15772,7 +15772,8 @@ void print_contam_CCprior(FILE *fp) {
   //   -0.5 to +0.5
   //
   // Jan 20 2025: fix denominator to be only photo-id events (ignore spec-confirmed)
-  
+  //              (for diagnositic only; has no impact on fit results)
+  //
   CONTAM_INFO_DEF CONTAM_MURES_BINS;
   CONTAM_INFO_DEF CONTAM_REDSHIFT_BINS;
 
@@ -15792,7 +15793,6 @@ void print_contam_CCprior(FILE *fp) {
 
     if ( INFO_DATA.TABLEVAR.IS_SPEC_CONFIRMED[i] ) { continue; }
 	
-    //.xyz
     zhd      = INFO_DATA.TABLEVAR.zhd[i] ;
     mures    = INFO_DATA.mures[i];
     probcc   = INFO_DATA.probcc_beams[i] ;

@@ -33,6 +33,8 @@
 # Jul 14 2023: fix pid-check logic to avoid jobs finishing before all
 #               jobs are launched. See update_slurm_pid_list().
 #
+# Jan 23 2025: fix nomerge_last() to work properly when OUTDIR is not under CWD.
+#
 # ============================================
 
 #import argparse
@@ -1730,12 +1732,15 @@ class Program:
         # for --nomerge option, create RUN_MERGE_[inputFile] script and
         # create tar file of outdir. The output RUN_MERGE script is a
         # debug tool to quickly run the merge process interactively.
-
+        #
+        # Jan 23 2025: fix to work if outdir is not in same place in submit-input file.
+        
         output_dir          = self.config_prep['output_dir'] 
         args                = self.config_yaml['args']
         submit_info_yaml    = self.config_prep['submit_info_yaml'] 
         input_file          = args.input_file
-        
+
+        output_dir_path = os.path.dirname(output_dir)
         output_dir_base = os.path.basename(output_dir)
         input_file_base = os.path.basename(input_file.split('.')[0])
 
@@ -1749,9 +1754,12 @@ class Program:
         logging.info(f"\n Create {merge_script} ")
         with open(merge_script,"wt") as s:
             s.write(f"# test merge process interactively. \n")
+            s.write(f"echo 'Update OUTDIR before merge process ...' \n")
+            s.write(f"cd {output_dir_path} \n")
             s.write(f"rm -r   {output_dir_base}\n")
             s.write(f"tar -xf {output_dir_base}.tar\n")
             s.write(f"\n")
+            s.write(f"cd {CWD}\n")            
             s.write(f"{program_submit} \\\n")
             s.write(f"  {input_file}   \\\n")
             s.write(f"  -M \n")
@@ -1761,12 +1769,13 @@ class Program:
 
         # - - - - - - - - - - - - 
         # create tar file of output dir
-        tar_file = f"{output_dir_base}.tar"
+        tar_file      = f"{output_dir_base}.tar"
+        tar_file_path = f"{output_dir_path}/{output_dir_base}.tar"        
 
         # remove old tar file if it exists
-        if os.path.exists(tar_file):  os.remove(tar_file)
+        if os.path.exists(tar_file_path):  os.remove(tar_file_path)
 
-        cmd = f"tar -cf {tar_file} {output_dir_base}"
+        cmd = f"cd {output_dir_path} ;  tar -cf {tar_file} {output_dir_base}"
         os.system(cmd)
         
         logging.info(f" Create {tar_file}")

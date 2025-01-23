@@ -22884,5 +22884,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	  these bands are forced in current fit.
 	  
         + new FITINP  FITWIN_PEAKMJD
-	
+
+    submit_batch_jobs:
+       + fix nomerge_last() to work properly when OUTDIR is not under CWD.
+       
 END: 

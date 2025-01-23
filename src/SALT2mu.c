@@ -9889,19 +9889,20 @@ void prepare_biasCor(void) {
     compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR );
   }
   if ( NDIM_BIASCOR >=5 ) { store_index_abg_biasCor(); }
-  
+
+  // xxx .xyz adjust_M0_biasCor(); 
   print_eventStats(EVENT_TYPE);
 
   //  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
   if ( NDIM_BIASCOR == 1 && !DOCOR_1D5DCUT ) { goto CHECK_1DCOR ; }
 
-  // make sparse list for faster looping below (Dec 21 2017)
+  // make sparse list for each IDSAMPLE: for faster looping below
   makeSparseList_biasCor();
 
   // determine sigInt for biasCor sample BEFORE makeMap since
   // sigInt is needed for 1/muerr^2 weight
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ )  {  
-    init_sigInt_biasCor_SNRCUT(IDSAMPLE);      
+    init_sigInt_biasCor_SNRCUT(IDSAMPLE);
   } 
 
 
@@ -9909,7 +9910,7 @@ void prepare_biasCor(void) {
   // idsample, redshift, alpha, beta
   init_COVINT_biasCor();
 
-
+  
   // get wgted-average z in each user redshift bin for M0-vs-z output
   calc_zM0_biasCor();
 
@@ -12629,14 +12630,14 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   int  NROW_TOT, NROW_malloc, istat_cov, NCOVFIX, MEMD, cutmask ;
-  int  i, ia, ib, ig ;
+  int  i, isp, ia, ib, ig ;
   int  LDMP = 0 ;
 
-  double muErrsq,  muDif, SNRMAX, sigInt, WGT, WGTSUM ;
+  double muErrsq,  muDif, sigInt, WGT, WGTSUM ;
   int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, USEMASK, DOPRINT ;
   int        *ptr_CUTMASK ;
   short int  *ptr_IDSAMPLE ;
-  float      *ptr_SNRMAX;
+  // xxx mark  float      *ptr_SNRMAX;
 
   int      NUSE[MXa][MXb][MXg];
   double  *MUDIF[MXa][MXb][MXg];
@@ -12660,7 +12661,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   NBINg        = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
   ptr_CUTMASK  = INFO_BIASCOR.TABLEVAR.CUTMASK;
   ptr_IDSAMPLE = INFO_BIASCOR.TABLEVAR.IDSAMPLE ;
-  ptr_SNRMAX   = INFO_BIASCOR.TABLEVAR.snrmax ;
+  // xxx mark  ptr_SNRMAX   = INFO_BIASCOR.TABLEVAR.snrmax ;
 
   // ---------------------------------------
   // check option for user to fix sigmb_biascor
@@ -12700,12 +12701,11 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
   fflush(FP_STDOUT) ;
 
-  // ---------------------------------------
+  /* xxxxx mark delete Jan 22 2025 xxxxxxxxxxxxx
+
   // quick pass with SNR cut to estimate size for malloc  
   NROW_malloc = 0 ;
   for(i=0; i < NROW_TOT; i++ ) {
-
-  
     // apply selection without BIASCOR-z cut (but keep global z cut)
     cutmask  = ptr_CUTMASK[i] ;
     cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
@@ -12715,10 +12715,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     if ( SNRMAX < INPUTS.snrmin_sigint_biasCor) { continue ; }
     NROW_malloc++ ;
   }
-
-
   NROW_malloc += 100; // safety margin
-  MEMD = NROW_malloc * sizeof(double) ;
+  xxxxxxxxxxxx end mark xxxxxxxxxx */
+  
+  
+  NROW_malloc = INFO_BIASCOR.NCUT_SNRMIN_SIGINT ;
+  MEMD        = NROW_malloc * sizeof(double) ;
   print_debug_malloc(+1*debug_malloc,fnam);
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {
@@ -12736,12 +12738,17 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
   NSNRCUT=0;
 
-  for(i=0; i < NROW_TOT; i++ ) {
+  for(isp = 0; isp < INFO_BIASCOR.NCUT_SNRMIN_SIGINT; isp++ ) {
 
-    // get variables defining GRID map
-    SNRMAX = (double)(ptr_SNRMAX[i]) ;
-    if ( SNRMAX < INPUTS.snrmin_sigint_biasCor ) { continue ; }
-
+    i = INFO_BIASCOR.IROW_SNRMIN_SIGINT[isp];
+    
+    /* xxx mark delete
+       for(i=0; i < NROW_TOT; i++ ) {
+       // get variables defining GRID map
+       SNRMAX = (double)(ptr_SNRMAX[i]) ;
+       if ( SNRMAX < INPUTS.snrmin_sigint_biasCor ) { continue ; }
+    xxx  end mark */
+      
     // apply selection without BIASCOR-z cut (but keep global z cut)
     cutmask  = ptr_CUTMASK[i] ;
     cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
@@ -12751,7 +12758,6 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     // check option for IDSAMPLE-dependent sigint (Oct 2018)
     if ( DO_SIGINT_SAMPLE && (IDSAMPLE != ptr_IDSAMPLE[i]) ) 
       { continue ; }
-    
 
     NSNRCUT++ ;
     NAME   = INFO_BIASCOR.TABLEVAR.name[i] ;

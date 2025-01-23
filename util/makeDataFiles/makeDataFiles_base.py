@@ -605,23 +605,26 @@ class Program:
                     # read_event did not select subsample, so do it here.
                     sel = self.select_subsample(data_event_dict)
 
-                if sel is False:
-                    self.NEVT_REJECT_CUTS += 1
-                    continue
-
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
                 if data_unit_name is None:
-                    self.NEVT_REJECT_DATA_UNIT += 1                    
+                    self.NEVT_REJECT_DATA_UNIT += 1
+                    continue
+
+                # add index_unit to data_event_dict BEFORE rejecting event ..
+                # to enable rejected event count-vs-data_unit
+                index_unit  = data_unit_name_list.index(data_unit_name)
+                data_event_dict['data_unit_name'] = data_unit_name
+                data_event_dict['index_unit']     = index_unit
+                
+                if sel is False:
+                    self.NEVT_REJECT_CUTS += 1
+                    self.update_readme_stats(gpar.STRING_REJECT, data_event_dict)     
                     continue
 
                 # add computed variables; e.g., zCMB, MWEBV ...
                 self.compute_data_event(data_event_dict)
 
-                # add more info to data event dictionary
-                index_unit  = data_unit_name_list.index(data_unit_name)
-                data_event_dict['data_unit_name'] = data_unit_name
-                data_event_dict['index_unit']     = index_unit
 
                 if args.outdir_snana :
                     write_data_snana.write_event_text_snana(args, self.config_data,
@@ -636,7 +639,7 @@ class Program:
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1
 
-                self.update_readme_stats(data_event_dict)
+                self.update_readme_stats(gpar.STRING_SELECT, data_event_dict)
 
                 self.screen_update(evt,nevent_subgroup)
 
@@ -710,48 +713,75 @@ class Program:
         return
         # end walltime_read_data
 
-    def update_readme_stats(self, data_event_dict):
+    def update_readme_stats(self, status, data_event_dict):
         """Evaluate stats for readme of datafile. Has no impact on actual 
         datafiles. 
+        Status values:
+            "SELECT"  ->  selected and written to disk
+            "REJECT"  ->  rejected (e.g., too few detections)
+            "UNDEFINED -> undefined data unit (e.g., could not assign season)
+
         """
+
+        # - - - - - -
         head_raw   = data_event_dict['head_raw']
         head_calc  = data_event_dict['head_calc']
-        n_spectra  = data_event_dict['n_spectra']
+        n_spectra  = data_event_dict.setdefault('n_spectra',0)
         index_unit = data_event_dict['index_unit']
 
-        # update stats that will eventually written to README file
-        specz = -9.0
-        photoz = -9.0
+        readme_stats = self.config_data['readme_stats_list'][index_unit]
+        readme_sum   = self.config_data['readme_stats_sum']
+        
+        # always increment total number processed, regardless of status
+        readme_stats[gpar.KEY_README_NEVT_PROCESS_ALL] += 1
 
+        # check on reject
+        if status == gpar.STRING_REJECT :
+            readme_stats[gpar.KEY_README_NEVT_REJECT] += 1
+            return
+        
+        # update stats that will eventually written to README file
+        specz  = -9.0
+        photoz = -9.0
+        
         if gpar.HOSTKEY_SPECZ  in head_raw:
             specz  = head_raw[gpar.HOSTKEY_SPECZ]
         if gpar.HOSTKEY_PHOTOZ in head_calc:
             photoz = head_calc[gpar.HOSTKEY_PHOTOZ]
 
-        readme_stats = self.config_data['readme_stats_list'][index_unit]
-        readme_sum   = self.config_data['readme_stats_sum']
 
-        key = 'NEVT_ALL'
-        readme_stats[key] += 1
-        readme_sum[key]   += 1
+        keylist_subset = [ gpar.KEY_README_NEVT_WRITE_ALL,
+                           gpar.KEY_README_NEVT_WRITE_HOST_ZSPEC,
+                           gpar.KEY_README_NEVT_WRITE_HOST_ZPHOT,
+                           gpar.KEY_README_NEVT_WRITE_SPECTRA ]
+        is_subset_list   = [ True,
+                             specz > 0.0,
+                             photoz > 0.0,
+                             n_spectra > 0 ]
 
-        if specz > 0.0:
-            key = 'NEVT_HOSTGAL_SPECZ'
-            readme_stats[key] += 1
-            readme_sum[key]   += 1
+        for key, is_subset in zip(keylist_subset, is_subset_list):
+            if is_subset:
+                readme_stats[key] += 1
+                readme_sum[key]   += 1
+        
+        #if specz > 0.0:
+        #    key =  KEY_README_NEVT_WRITE_HOST_ZSPEC
+        #    readme_stats[key] += 1
+        #    readme_sum[key]   += 1
+        #
+        #if photoz > 0.0:
+        #    key =  KEY_README_NEVT_WRITE_HOST_ZPHOT
+        #    readme_stats[key] += 1
+        #    readme_sum[key]   += 1
+        #
+        #if n_spectra > 0:
+        #    key = KEY_README_NEVT_WRITE_SPECTRA
+        #    readme_stats[key] += 1  # increment this data unit
+        #    readme_sum[key]   += 1  # increment this data unit
+        #    # ?? self.config_data[key] += 1  # sum over all data units
 
-        if photoz > 0.0:
-            key = 'NEVT_HOSTGAL_PHOTOZ'
-            readme_stats[key] += 1
-            readme_sum[key] += 1
-
-        if n_spectra > 0:
-            key = 'NEVT_SPECTRA'
-            readme_stats[key] += 1  # increment this data unit
-            readme_sum[key]   += 1  # increment this data unit
-            self.config_data[key] += 1  # sum over all data units
-
-        # end update_readme_stats
+        return
+    # end update_readme_stats
 
     # ====================================
     @abstractmethod

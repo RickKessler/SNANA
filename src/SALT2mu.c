@@ -761,11 +761,11 @@ typedef struct {
 
   // Dec 2017: store sparse list of rows for each IDSAMPLE with cuts
   int  NBIASCOR_CUTS;
-  int *IROW_CUTS ;  // points to rawdata biasCor row
-
+  int *IROW_CUTS ;  // points to rawdata biasCor row  
   double zMIN_DATA ; // zMIN among data in SAMPLE
   double zMAX_DATA ; // zMAX among data in SAMPLE
 
+  
   // define CELLINFO [ranges and Nbin]
   double  BINSIZE_REDSHIFT, RANGE_REDSHIFT[2]; 
   double  BINSIZE_LOGMASS,  RANGE_LOGMASS[2]; 
@@ -869,6 +869,10 @@ struct {
   float  *muerr_raw, *muerr, *mu, *mures ;
   int    *J1D_COV;
 
+  // Jan 2025: store spare list of rows passing SNRMIN_SIGINT cut
+  int NCUT_SNRMIN_SIGINT;
+  int *IROW_SNRMIN_SIGINT ;
+  
 } INFO_BIASCOR;
 
 
@@ -1439,6 +1443,7 @@ void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
 void check_valid_biasCor(TABLEVAR_DEF *TABLEVAR);
+void store_hiSNRMAX_biasCor(TABLEVAR_DEF *TABLEVAR);
 void applyCut_nmax(void);
 void applyCut_chi2max(void);
 void merge_duplicates(int N, int *isnList);
@@ -10188,10 +10193,58 @@ void  read_simFile_biasCor(void) {
     { check_duplicates_util(EVENT_TYPE_BIASCOR); }
 
   check_valid_biasCor(TABLEVAR);
-    
+
+  // Jan 2025: store subset with SNRMAX > snrmin_sigint
+  store_hiSNRMAX_biasCor(TABLEVAR);
+  
   return ;
 } // end read_simFile_biasCor
 
+
+// =================================================
+void store_hiSNRMAX_biasCor(TABLEVAR_DEF *TABLEVAR) {
+
+  // Created Jan 22 2025
+  // Store sparse list of biasCor events with SNRMAX > INPUTS.snrmin_sigint
+
+  int    NROW_ALL    = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
+  double SNRMAX_MIN  = INPUTS.snrmin_sigint_biasCor  ;
+  float *ptr_SNRMAX  = INFO_BIASCOR.TABLEVAR.snrmax  ;
+  
+  int i, NROW_malloc ;
+  double SNRMAX;
+  char fnam[] = "store_hiSNRMAX_biasCor" ;
+
+  // ------------- BEGIN -------------
+
+  // quick pass with SNR cut to determin size for malloc  
+  NROW_malloc = 0 ;
+  for(i=0; i < NROW_ALL; i++ ) {
+    SNRMAX = (double)(ptr_SNRMAX[i]) ;
+    if ( SNRMAX < SNRMAX_MIN ) { continue ; }
+    NROW_malloc++ ;
+  }
+
+  INFO_BIASCOR.NCUT_SNRMIN_SIGINT = NROW_malloc;  
+  INFO_BIASCOR.IROW_SNRMIN_SIGINT = (int*)malloc(NROW_malloc * sizeof(int) );
+
+  // loop again to make sparse list of rows
+  NROW_malloc = 0 ;
+  for(i=0; i < NROW_ALL; i++ ) {
+    SNRMAX = (double)(ptr_SNRMAX[i]) ;
+    if ( SNRMAX < SNRMAX_MIN ) { continue ; }
+    INFO_BIASCOR.IROW_SNRMIN_SIGINT[NROW_malloc] = i ;
+    NROW_malloc++ ;
+  }
+
+  fprintf(FP_STDOUT, "\t Stored list of %d biasCor events with SNRMAX > %.1f\n",
+	  INFO_BIASCOR.NCUT_SNRMIN_SIGINT, SNRMAX_MIN );
+  fflush(FP_STDOUT);
+  
+  //.xyz
+  return;
+  
+} // end store_hiSNRMAX_biasCor
 
 // ====================================================
 void check_valid_biasCor(TABLEVAR_DEF *TABLEVAR) {
@@ -12652,6 +12705,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   NROW_malloc = 0 ;
   for(i=0; i < NROW_TOT; i++ ) {
 
+  
     // apply selection without BIASCOR-z cut (but keep global z cut)
     cutmask  = ptr_CUTMASK[i] ;
     cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);

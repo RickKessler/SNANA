@@ -122,14 +122,14 @@ class data_lsst_fastdb(Program):
             dict_obj_tmp      = data_access.submit_short_query(query)
             df_dia_object     = pd.DataFrame(dict_obj_tmp)
 
-        
-        util.print_elapsed_time(t0, "Perform dia_object query")
-        self.df_dia_object = df_dia_object  # store for later
-            
-        nobj       = len(df_dia_object)
+        nobj       = len(df_dia_object)            
+        msg = f"Query dia_object for {nobj:,d} objects"
+        util.print_elapsed_time(t0, msg)
+        self.df_dia_object = df_dia_object  # store for later            
+
         snid_list  = list(df_dia_object['dia_object'])
         snid_list  = list(map(int,snid_list))
-        logging.info(f"  Found {nobj} objects.")
+        # xxx mark logging.info(f"  Found {nobj} objects.")
 
         snid_first = snid_list[0]
         snid_last  = snid_list[-1]
@@ -146,19 +146,20 @@ class data_lsst_fastdb(Program):
         if QUERY_INTERFACE == QUERY_INTERFACE_LONG :
             csv_src_tmp = data_access.synchronous_long_query(query,
                                                            subdict={'objs': snid_list},
-                                                           checkeach=5,             # check every 5 sec
-                                                           maxwait=QMAXWAIT_SOURCE ) # abort after this time
+                                                           checkeach=10,  # check every 10 sec
+                                                           maxwait=QMAXWAIT_SOURCE ) 
             df_dia_source  = pd.read_csv(io.StringIO(csv_src_tmp),sep=',')            
         else:
             dict_src_tmp = data_access.submit_short_query( query,
                                                            subdict={'objs': snid_list} )
             df_dia_source = pd.DataFrame(dict_src_tmp)
-            
-        util.print_elapsed_time(t0, "Perform dia_source query" )
+
+        nsrc = len(df_dia_source)            
+        msg = f"Query dia_source for {nsrc:,d} sources among {nobj:,d} objects"
+        util.print_elapsed_time(t0, msg)
 
         self.df_dia_source = df_dia_source
-        nsrc = len(df_dia_source)
-        logging.info(f"  Found {nsrc} sources among {nobj} objects ")
+        # xxx mark logging.info(f"  Found {nsrc} sources among {nobj} objects ")
         logging.info(f"  dia_source columns: {df_dia_source.columns}")    
 
         # - - - - -

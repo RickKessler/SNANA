@@ -68,7 +68,8 @@ def write_event_text_snana(args, config_data, data_event_dict):
     data_file     = f"{data_dir}/{prefix}_{str_SNID}.DAT"
     data_file_gz  = f"{data_file}.gz"
 
-    with gzip.open(data_file_gz, "wt", compresslevel=6 ) as f :
+    #with gzip.open(data_file_gz, "wt", compresslevel=6 ) as f :
+    with open(data_file, "wt" ) as f :        
 
         # write header info
         write_header_snana(f,head_raw)
@@ -334,11 +335,11 @@ def write_aux_files_snana(name, args, config_data):
     }
     util.write_readme(args, readme_dict)
 
-    # xxxxx mark delete Jan 16 2025 xxxxxxx
-    # gzip data files
-    #cmd = f"cd {data_dir} ; gzip {search_string}"
-    #os.system(cmd)
-    # xxxxxxxx end mark xxxxxxxxx
+    # don't gzip here; instead gzip entire directory using & to return control
+    GZIP_DATA_FILES = False
+    if GZIP_DATA_FILES:
+        cmd = f"cd {data_dir} ; gzip {search_string}"
+        os.system(cmd)
     
     # end write_aux_files_snana
 
@@ -348,7 +349,7 @@ def convert2fits_snana(args, config_data):
     # to fits format ... then tar up TEXT folder.
 
     outdir        = args.outdir_snana
-    text          = args.text
+    text_fmt      = args.text
     nevent_list   = config_data['data_unit_nevent_list']
     name_list     = config_data['data_unit_name_list']
     prefix        = config_data['data_folder_prefix']
@@ -411,16 +412,34 @@ def convert2fits_snana(args, config_data):
 
         # - - - - -
         # clean up
+        make_tar_file = not text_fmt
 
-        tar_file = f"{folder_text}.tar"
-        cmd_tar_text  = f"cd {outdir} ; " \
-                        f"tar -cf {tar_file} {folder_text} ; " \
-                        f"gzip {tar_file} ; " \
-                        f"rm -r {folder_text} "
+        if make_tar_file:
+            tar_file       = f"{folder_text}.tar"
+            cmd0           = f"cd {outdir} ; tar -cf {tar_file} {folder_text}  "
+            txt0           = f"Create {tar_file}"
+            
+            cmd1           = f"cd {outdir} ; rm -r {folder_text}"
+            txt1           = f"Remove {folder_text}"
+            
+            cmd2           = f"cd {outdir} ; gzip {tar_file} & "   # note & to return control
+            txt2           = f"gzip {tar_file} and return control"
+            
+            cmd_list     = [ cmd0, cmd1, cmd2 ]
+            comment_list = [ txt0, txt1, txt2 ]
 
-        if not text:
-            os.system(cmd_tar_text)
+            for cmd, comment in zip(cmd_list,comment_list):
+                logging.info(f"\t {comment}")
+                os.system(cmd)
 
+            # xxxxx mark delete 
+            #cmd_tar_text  = f"cd {outdir} ; " \
+            #    f"tar -cf {tar_file} {folder_text} ; " \
+            #    f"gzip {tar_file} ; " \
+            #    f"rm -r {folder_text} "
+            # os.system(cmd_tar_text)
+            # xxx end mark delete
+            
         # remove YAML file
         cmd_rm = f"rm {yaml_file}"
         os.system(cmd_rm)
@@ -438,7 +457,8 @@ def convert2fits_snana(args, config_data):
         time_1   = datetime.datetime.now()
         time_dif = (time_1 - time_0).total_seconds()
         rate     = int(float(nevent)/float(time_dif))
-        logging.info(f"\t Rate(convert+cleanup): {rate}/sec ")
+        logging.info(f"\t CPUTIME(TEXT->FITS): {time_dif:.0f} sec ({rate}/s)")
+        # logging.info(f"\t Rate(convert+cleanup): {rate}/sec ")        
         sys.stdout.flush()
 
     # - - - - -

@@ -4,6 +4,7 @@
 # 
 # May 25 2022: for alerts, catenate SIMGEN-dump files to object-truth table.
 # Jan 17 2025: remove alert code
+# Jan 23 2025: sync to new keys in makeDataFiles_params.py
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, tarfile
@@ -14,6 +15,10 @@ from    submit_params    import *
 from    submit_prog_base import Program
 import numpy as np
 import pandas as pd
+
+MKDATADIR=os.path.expandvars("$SNANA_DIR/util/makeDataFiles")
+sys.path.insert(1, MKDATADIR)
+import  makeDataFiles_params as gpar
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
 
@@ -562,7 +567,6 @@ class MakeDataFiles(Program):
 
         output_format       = submit_info_yaml['OUTPUT_FORMAT']
 
-
         COLNUM_STATE       = COLNUM_MERGE_STATE
         COLNUM_DATAUNIT    = COLNUM_MKDATA_MERGE_DATAUNIT
         COLNUM_NEVT        = COLNUM_MKDATA_MERGE_NEVT
@@ -577,17 +581,24 @@ class MakeDataFiles(Program):
 
         # keynames_for_job_stats returns 3 keynames :
         #   {base}, {base}_sum, {base}_list
+
+        key_stat = gpar.KEY_README_NEVT_WRITE_ALL
         key_nall, key_nall_sum, key_nall_list = \
-                self.keynames_for_job_stats('NEVT_ALL')
+                self.keynames_for_job_stats(key_stat)
+
+        key_stat = gpar.KEY_README_NEVT_WRITE_HOST_ZSPEC
         key_nspecz, key_nspecz_sum, key_nspecz_list = \
-                 self.keynames_for_job_stats('NEVT_HOSTGAL_SPECZ')
+                 self.keynames_for_job_stats(key_stat)
+
+        key_stat = gpar.KEY_README_NEVT_WRITE_HOST_ZPHOT
         key_nphotz, key_nphotz_sum, key_nphotz_list = \
-                 self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')
+                 self.keynames_for_job_stats(key_stat)
+        
         key_tproc, key_tproc_sum, key_tproc_list = \
                  self.keynames_for_job_stats('WALLTIME')
 
         key_list = [ key_nall, key_nspecz, key_nphotz, key_tproc ]
-
+        
         nrow_check = 0
         for row in row_list_merge :
             row_list_merge_new.append(row) # default output is same as input

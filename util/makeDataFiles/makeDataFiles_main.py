@@ -222,12 +222,6 @@ def which_read_class(args):
                 
             readme_file = f"{outdir}/{folder}/{folder}.README"
 
-            logging.info(f" xxx ------------------------------")
-            logging.info(f" xxx outdir = {outdir}")
-            logging.info(f" xxx folder_list = {folder_list[0:5]}")     
-            logging.info(f" xxx readme_file = {readme_file}")
-            logging.info(f" xxx ------------------------------")
-            
         elif args.outdir_csv :
             outdir   = args.outdir_csv
             readme_file = f"{outdir}/DATA.README"

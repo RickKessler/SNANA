@@ -663,18 +663,8 @@ class Program:
         for nevent, name in zip(nevent_list, name_list):
 
             index_unit   = data_unit_name_list.index(name)
-
-
-            # force creating yaml file even if there are zero events
-            # to avoid merge problem later. This gets overwritten below
-            # for nevent > 0.
-            if index_unit == 0 and args.output_yaml_file:
-                self.write_yaml_file(index_unit)
             
             if nevent == 0 : continue
-
-            if args.output_yaml_file:
-                self.write_yaml_file(index_unit)
                 
             if args.outdir_snana:
                 write_data_snana.write_aux_files_snana(name, args, self.config_data)
@@ -682,16 +672,19 @@ class Program:
             elif args.outdir_csv :
                 csv_writer.end_write(index_unit)
 
+        if args.output_yaml_file:
+            self.write_yaml_file()
+                
         # end read_data_driver
 
-    def write_yaml_file(self, index_unit):
+    def write_yaml_file(self):
 
         # write yaml file to be parsed by pipeline.
-        # This is the same file as README file in output directory.
+        # This is the same file as README file in output directory,
+        # but stats are summed over readme files.
         args         = self.config_inputs['args']
-        readme_stats = self.config_data['readme_stats_list'][index_unit]
+        readme_stats = self.config_data['readme_stats_sum']
         t_proc       = self.config_data['t_proc'] # seconds
-
 
         readme_dict = {
             'readme_file'  : args.output_yaml_file,

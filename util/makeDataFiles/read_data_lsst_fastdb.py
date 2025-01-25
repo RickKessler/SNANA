@@ -17,8 +17,37 @@ try:
 except:
     pass
 
-# hard wire here for now, but should read from map SNANA <--> FASTDB
+# =======================================================================
+# hard-wired stuff for fastdb access
+MXOBJ_PER_SOURCE_QUERY = 5000 ; # max number of objects per sourec query
 
+TABLENAME_DIA_OBJECT = "dia_object"
+#TABLENAME_DIA_SOURCE = "dia_source"         # detections only
+TABLENAME_DIA_SOURCE = "dia_forced_source"  # forced photo, including detections
+
+QUERY_INTERFACE_LONG  = "LONG"   # recommended
+QUERY_INTERFACE_SHORT = "SHORT"
+QUERY_INTERFACE       = QUERY_INTERFACE_LONG
+
+QMAXWAIT_OBJECT = 500   # max query wait (seconds) for dia_object query
+QMAXWAIT_SOURCE = 3000  # max query wait (seconds) for dia_source query
+
+SELECT_PARAMS_DICT = {
+
+    # cuts to select events
+    'NDETECT_MIN'        : 2,
+    'MJDDIF_DETECT_MIN'  : 0.5,     # 2 detections must be separated by at least 0.5 days
+
+    # - - - -
+    # cuts to select observations
+    
+    # select obs 30 days before 1st detection, and up to 60 days after last detection
+    'MJD_DETECT_SELECT_RANGE' : [ -30, 60 ]
+    # PHOTFLAG mask ?? (TBD)
+}
+
+# - - - -
+# hard wire key name map here for now, but should read from map SNANA <--> FASTDB
 KEYMAP = { # SNANA -> fastdb
 
     # header
@@ -47,31 +76,6 @@ FASTDB_KEYNAME_MJD  = KEYMAP[gpar.DATAKEY_MJD]
 FASTDB_ZP = 31.4  # nJy
 FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
 
-# hard-wired stuff
-TABLENAME_DIA_OBJECT = "dia_object"
-#TABLENAME_DIA_SOURCE = "dia_source"         # detections only
-TABLENAME_DIA_SOURCE = "dia_forced_source"  # forced photo, including detections
-
-QUERY_INTERFACE_LONG  = "LONG"   # recommended
-QUERY_INTERFACE_SHORT = "SHORT"
-QUERY_INTERFACE       = QUERY_INTERFACE_LONG
-
-QMAXWAIT_OBJECT = 500   # max query wait (seconds) for dia_object query
-QMAXWAIT_SOURCE = 3000  # max query wait (seconds) for dia_source query
-
-SELECT_PARAMS_DICT = {
-
-    # cuts to select events
-    'NDETECT_MIN'        : 2,
-    'MJDDIF_DETECT_MIN'  : 0.5,     # 2 detections must be separated by at least 0.5 days
-
-    # - - - -
-    # cuts to select observations
-    
-    # select obs 30 days before 1st detection, and up to 60 days after last detection
-    'MJD_DETECT_SELECT_RANGE' : [ -30, 60 ]
-    # PHOTFLAG mask ?? (TBD)
-}
 
 # ======================================================
 
@@ -85,8 +89,11 @@ class data_lsst_fastdb(Program):
 
     def init_read_data(self):
 
-        args = self.config_inputs['args']  # command line args
-        logging.info("Connect to FASTDB\n")
+        args = self.config_inputs['args']  # command line args        
+        logging.info(f" One-time init for " \
+                     f" CPU-isplit = {args.isplitran:3d} of {args.nsplitran:3d}")
+        
+        logging.info(" Connect to FASTDB\n")
         self.data_access = FASTDB()
     
         return
@@ -95,87 +102,152 @@ class data_lsst_fastdb(Program):
         
     def prep_read_data_subgroup(self, i_subgroup):
         
-        # read fast data base for isplitran and store in data frame;
-        # will parse it later for writing. Objects and sources are stored separately.
-
-        if i_subgroup != 0 :            return -1
+        # read fast data base for this subgroup;
+        # will parse it later for writing.
+        # Objects and sources are stored separately.
         
         data_access = self.data_access
         args        = self.config_inputs['args'] 
         
-        logging.info(f"# ----------------------------------------------- ")
-        logging.info(f"Prepare isplit = {args.isplitran} of {args.nsplitran}")
 
-        query = self.construct_query_object()
+        # on i_subgroup 0, query for ALL objects.
+        if i_subgroup == 0:
+            query = self.construct_query_object()            
+            self.read_fastdb_objects(query)  # load self.df_dia_objects_all
+            self.get_subgroup_lists()        # break snid_list into subgroup lists
+
+        # when i_subgroup reaches n_subgroup, return -1 as flag that we are done.
+        if i_subgroup >= self.n_subgroup :       return -1
+
+        snid_list      = self.snid_subgroup_list[i_subgroup]
+        snid_first     = snid_list[0]
+        snid_last      = snid_list[-1]
+        nobj_subgroup  = len(snid_list)
+        
+        logging.info(f"# ----------------------------------------------- ")
+        logging.info(f" Read sources for subgroup {i_subgroup:3d} of {self.n_subgroup} ")
+        logging.info(f" First/Last snid for this subgroup: {snid_first} / {snid_last} ")
+
+        # extract object table subset for this subgroup
+        df_all   = self.df_dia_object_all
+        key_snid = FASTDB_KEYNAME_SNID
+        self.df_dia_object = df_all[df_all[key_snid].isin(snid_list)]
+        
+        # - - - - - - - -
+        # select sources for objects in this subgroup
+        query = f"select * FROM {TABLENAME_DIA_SOURCE}  WHERE dia_object IN %(objs)s order by " \
+            f"{FASTDB_KEYNAME_SNID}, {FASTDB_KEYNAME_MJD} "
+        self.read_fastdb_sources(query, snid_list)
+
+        #sys.exit(f"\n xxx bye ")
+        # - - - - -
+            
+        logging.info('')
+        return nobj_subgroup
+
+        # end prep_read_data_subgroup
+
+
+    def read_fastdb_objects(self, query):
+
+        # read fast db for objects using input query.
+        data_access = self.data_access
         
         logging.info(f"  Select dia objects with {QUERY_INTERFACE} query = \n\t {query}")
         t0 = time.time()
 
         if QUERY_INTERFACE == QUERY_INTERFACE_LONG :
             # return csv, then convert to data frame
-            csv_obj_tmp     = data_access.synchronous_long_query(query,
+            csv_obj_tmp = data_access.synchronous_long_query(query,
                                                              checkeach=5,   # check every 5 sec
                                                              maxwait=QMAXWAIT_OBJECT ) # abort after this time
-            df_dia_object  = pd.read_csv(io.StringIO(csv_obj_tmp), sep=',')
+            df_dia_object_all  = pd.read_csv(io.StringIO(csv_obj_tmp), sep=',')
         else:
             # return dictionary; then convert to data frame
             dict_obj_tmp      = data_access.submit_short_query(query)
-            df_dia_object     = pd.DataFrame(dict_obj_tmp)
+            df_dia_object_all = pd.DataFrame(dict_obj_tmp)
 
-        nobj       = len(df_dia_object)            
-        msg = f"Query dia_object for {nobj:,d} objects"
+        # - - - - 
+        nobj  = len(df_dia_object_all)            
+        msg   = f"Query dia_object for {nobj:,d} objects"
         util.print_elapsed_time(t0, msg)
-        self.df_dia_object = df_dia_object  # store for later            
-
-        snid_list  = list(df_dia_object['dia_object'])
-        snid_list  = list(map(int,snid_list))
-        # xxx mark logging.info(f"  Found {nobj} objects.")
-
-        snid_first = snid_list[0]
-        snid_last  = snid_list[-1]
-        logging.info(f"  First/Last SNID = {snid_first} / {snid_last} ")
-        logging.info(f"  dia_object columns: {df_dia_object.columns}")
+    
+        logging.info(f"  dia_object columns: {df_dia_object_all.columns}")
         logging.info('')
 
+        self.nobj_all          = len(df_dia_object_all)
+        self.df_dia_object_all = df_dia_object_all
         
-        query = f"select * FROM {TABLENAME_DIA_SOURCE}  WHERE dia_object IN %(objs)s order by " \
-            f"{FASTDB_KEYNAME_SNID}, {FASTDB_KEYNAME_MJD} "
+        return
+
+    def read_fastdb_sources(self, query, snid_list):
+
+        # read fast db for source using input query.
+        data_access = self.data_access
+
         logging.info(f"  Select dia sources with {QUERY_INTERFACE} query = \n\t {query}")
         t0 = time.time()
-
+        
         if QUERY_INTERFACE == QUERY_INTERFACE_LONG :
             csv_src_tmp = data_access.synchronous_long_query(query,
-                                                           subdict={'objs': snid_list},
-                                                           checkeach=10,  # check every 10 sec
-                                                           maxwait=QMAXWAIT_SOURCE ) 
+                                                             subdict={'objs': snid_list},
+                                                             checkeach=10,  # check every 10 sec
+                                                             maxwait=QMAXWAIT_SOURCE ) 
             df_dia_source  = pd.read_csv(io.StringIO(csv_src_tmp),sep=',')            
         else:
             dict_src_tmp = data_access.submit_short_query( query,
                                                            subdict={'objs': snid_list} )
             df_dia_source = pd.DataFrame(dict_src_tmp)
 
-        nsrc = len(df_dia_source)            
+        nsrc = len(df_dia_source)
+        nobj = len(snid_list)
         msg = f"Query dia_source for {nsrc:,d} sources among {nobj:,d} objects"
         util.print_elapsed_time(t0, msg)
+        logging.info(f"  dia_source columns: {df_dia_source.columns}")
 
-        self.df_dia_source = df_dia_source
-        # xxx mark logging.info(f"  Found {nsrc} sources among {nobj} objects ")
-        logging.info(f"  dia_source columns: {df_dia_source.columns}")    
-
-        # - - - - -
-            
-        logging.info('')
-        return nobj
-
-        # end prep_read_data_subgroup
+        self.df_dia_source = df_dia_source 
         
+        return
+    
+    def get_subgroup_lists(self):
+
+        # extract full snid and convert to integers
+        snid_list  = list(self.df_dia_object_all[FASTDB_KEYNAME_SNID])
+        snid_list  = list(map(int,snid_list))
+
+        # print 1st/last snid as diagnostic
+        snid_first = snid_list[0]
+        snid_last  = snid_list[-1]
+        logging.info(f"  First/Last SNID = {snid_first} / {snid_last} ")
+
+        nobj = len(snid_list)
+        snid_subgroup_list = []  # init list of lists
+        n_per_group        = MXOBJ_PER_SOURCE_QUERY
+        
+        for i in range(0, nobj, n_per_group):
+            subgroup_list = snid_list[i:i + n_per_group]
+            snid_subgroup_list.append(subgroup_list)
+
+        n_subgroup         = len(snid_subgroup_list)
+        logging.info(f"  Divide {nobj} objects into {n_subgroup} subgroups " \
+                     f"({n_per_group} objects per subgroup)")
+        
+        self.n_subgroup         = n_subgroup
+        self.snid_list          = snid_list
+        self.snid_subgroup_list = snid_subgroup_list
+        
+        return
+            
     def read_event(self, evt ):
 
+        # read event for event number "evt" in this subgroup.
         args            = self.config_inputs['args']
         # init output dictionaries
         DEBUG_DUMP = True
-        df_dia_object        = self.df_dia_object
-        df_dia_source        = self.df_dia_source
+
+        # local tables for this subgroup
+        df_dia_object        = self.df_dia_object 
+        df_dia_source        = self.df_dia_source 
 
         #import pdb
         #pdb.set_trace()
@@ -425,7 +497,8 @@ class data_lsst_fastdb(Program):
         nobs = len(phot_raw[gpar.DATAKEY_MJD])  # updated nobs
         phot_raw['NOBS']  = nobs                      # overwrite input
         return
-    
+
+    # ----------------------------------------------
     def end_read_data_subgroup(self):
         pass
     def end_read_data(self):
@@ -437,4 +510,6 @@ class data_lsst_fastdb(Program):
         # see VARNAMES_OBS in makeDataFiles_params.py
         return [ 'PSF_SIG1', 'ZEROPT',  'SKY_SIG', 'XPIX', 'YPIX', 'GAIN',
                  'CCDNUM', 'IMGNUM' ]
+    
+
     

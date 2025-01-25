@@ -59,15 +59,14 @@ class Program:
         ]
 
         for outdir in outdir_list:
-            if outdir is None:
-                continue
+            if outdir:
+                args.outdir = outdir  # for diagnostic printout at end of job
+                if not os.path.exists(outdir):
+                    logging.info(f" Create top-dir for light curves: {outdir}")
+                    sys.stdout.flush()
+                    os.mkdir(outdir)
 
-            if not os.path.exists(outdir):
-                logging.info(f" Create top-dir for light curves: {outdir}")
-                sys.stdout.flush()
-                os.mkdir(outdir)
-
-
+        # - - - - -
         self.extend_DATAKEY_LIST()
 
         # store info for phot varnames
@@ -508,17 +507,20 @@ class Program:
 
     def final_summary(self):
 
+        args          = self.config_inputs['args']
+        nevent_list   = self.config_data['data_unit_nevent_list']
+        t_start       = self.config_data['t_start']
+        outdir        = args.outdir
+        
         # comput total number of events and number of data units created
         NEVT_TOT  = 0
         NUNIT_TOT = 0
-        nevent_list   = self.config_data['data_unit_nevent_list']
         for nevent in nevent_list:
             if nevent == 0 : continue
             NEVT_TOT  += nevent
             NUNIT_TOT += 1
 
         # get total process time
-        t_start = self.config_data['t_start']
         t_end   = datetime.datetime.now()  # xxx self.config_data['t_end']
         t_dif_sec  = (t_end-t_start).total_seconds()
 
@@ -535,8 +537,8 @@ class Program:
         logging.info(f" Total number of events written     :  {NEVT_TOT}")
         logging.info(f" Total events rejected by cuts      :  {self.NEVT_REJECT_CUTS}")
         logging.info(f" Total events with invalid data unit:  {self.NEVT_REJECT_DATA_UNIT}")
-        
         logging.info(f" CPUTIME(total):   {t_dif:.1f} {t_unit}" )
+        logging.info(f" Output data dir: {outdir}")
 
         sys.stdout.flush()
 
@@ -579,14 +581,15 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        if args.outdir_csv is not None:   # R.Kessler, July 2022
+        if args.outdir_csv is not None: 
             csv_writer = csvWriter( args, self.config_data )
 
+        # - - - - - - - - - - - - - - - 
         while nevent_subgroup >= 0:
 
             nevent_subgroup = self.prep_read_data_subgroup(i_subgroup)
 
-            if nevent_subgroup <  0:    break
+            if nevent_subgroup <  0:   break  # done reading subgroups
 
             self.screen_update(-1,0)  # init clock for rate monitor
 

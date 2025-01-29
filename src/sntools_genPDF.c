@@ -523,8 +523,8 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
     prob = funVal_GENGAUSS_ASYM(x, GENGAUSS);
   }
 
-  if ( prob < -1.0E-6 || prob > 1.0000000001 ) {
-    sprintf(c1err,"Invalid prob = %le for x=%f  parName=%s (IMAP=%d)", 
+  if ( prob < -1.0E-6 || prob > 1.000001 ) {
+    sprintf(c1err,"Invalid prob = %12.9f for x=%f  parName=%s (IMAP=%d)", 
 	    prob, x, parName, IMAP);
     sprintf(c2err,"Need either GENPDF map or GENGAUSS");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);

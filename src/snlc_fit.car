@@ -188,6 +188,7 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &  ,BIT_BESTZ_GAUSS   ! idem, but with best redshift (e.g., zSpec)
      &  ,BIT_PHOTOZ_QUANTILES ! use photo-z quantiles for prior
      &  ,BIT_PHOTOZ_QUANTILES_STEFFEN ! replace default cubic with Steffen
+     &  ,BIT_PHOTOZ_QUANTILES_LINEAR ! replace default cubic with LINEAR
      &  ,BIT_PHOTOZ_CHEAT  ! use correct redshift and filters
      &  ,BIT_PHOTOZ_AUTO_INISTP  ! automatically set INISTP_PHOTOZ (Aug 2024)
 
@@ -197,8 +198,9 @@ c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
      &  ,BIT_BESTZ_GAUSS             = 1  ! OPT_PHOTOZ += 2
      &  ,BIT_PHOTOZ_QUANTILES        = 2  ! OPT_PHOTOZ += 4
      &  ,BIT_PHOTOZ_QUANTILES_STEFFEN = 3  ! OPT_PHOTOZ += 8 ! note: set OPT_PHOTOZ = 12 for this option
-     &  ,BIT_PHOTOZ_CHEAT            = 4  ! OPT_PHOTOZ += 16
+     &  ,BIT_PHOTOZ_QUANTILES_LINEAR = 4  ! OPT_PHOTOZ += 16  
      &  ,BIT_PHOTOZ_AUTO_INISTP      = 5  ! OPT_PHOTOZ += 32
+     &  ,BIT_PHOTOZ_CHEAT            = 6  ! OPT_PHOTOZ += 64
      &    )
 
 c Declare masks for how to treat log sigma term in fit April 26 2024 W.D. Kenworthy
@@ -11672,7 +11674,8 @@ C -------------- BEGIN ---------------
       IPAR     = IPAR_zPHOT  ! local variable
       global_banner = ''
 
-      if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_STEFFEN)) then
+      if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_STEFFEN) .or. 
+     &    BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_LINEAR)) then
          OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix user mistake
       endif
 
@@ -11687,7 +11690,10 @@ c check quantile mask independent of other mask bits
       if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
         METHOD_SPLINE_QUANTILES = "CUBIC"    ! default 28 Mar, 2024 
         if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN)) then
-          METHOD_SPLINE_QUANTILES = "STEFFEN"  ! newer option  
+          METHOD_SPLINE_QUANTILES = "STEFFEN"  ! BEWARE requires gsl 2.7 or higher
+        endif
+        if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_LINEAR)) then
+          METHOD_SPLINE_QUANTILES = "LINEAR"  
         endif
         write(global_banner,23) 
      &          PRIOR_ZERRSCALE,METHOD_SPLINE_QUANTILES

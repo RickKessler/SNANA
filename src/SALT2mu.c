@@ -9890,7 +9890,6 @@ void prepare_biasCor(void) {
   }
   if ( NDIM_BIASCOR >=5 ) { store_index_abg_biasCor(); }
 
-  // xxx .xyz adjust_M0_biasCor(); 
   print_eventStats(EVENT_TYPE);
 
   //  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
@@ -10242,7 +10241,6 @@ void store_hiSNRMAX_biasCor(TABLEVAR_DEF *TABLEVAR) {
 	  INFO_BIASCOR.NCUT_SNRMIN_SIGINT, SNRMAX_MIN );
   fflush(FP_STDOUT);
   
-  //.xyz
   return;
   
 } // end store_hiSNRMAX_biasCor
@@ -14432,7 +14430,7 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
   // Jul 16 2019: process SIM_gammaDM
   // Mar 31 2020: allow 1 bin for beta as well as gamma; see OK1BIN
   // May 08 2024: adapt for BAYESN
-  
+
   bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
   bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   double val_lo, val_hi, VAL_MIN, VAL_MAX, VAL_BIN;
@@ -14544,7 +14542,9 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
   fprintf(FP_STDOUT, "  %s: define %2d %2s bins from %6.3f to %6.3f \n",
 	 fnam, nbin, NAME, BININFO->lo[0], BININFO->hi[nbin-1] );
 
-  if ( nbin > MAXBIN || nbin >= MXpar ) {
+  
+  // xxx mark delete Jan 31 2025  if ( nbin > MAXBIN || nbin >= MXpar ) {
+  if ( nbin > MAXBIN ) {
     sprintf(c1err,"nbin = %d exceeds MAXBIN=%d or MXpar=%d", 
 	    nbin, MAXBIN, MXpar );
     sprintf(c2err,"Check %s binning.", NAME);

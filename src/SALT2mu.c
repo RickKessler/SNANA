@@ -11539,7 +11539,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     for(ib=0; ib< NBINb; ib++ ) {  
       for(ig=0; ig< NBINg; ig++ ) {  
 	MUCOVSCALE[ia][ib][ig] = 1.0 ; // dummy arg for get_muBias below
-	MUCOVADD[ia][ib][ig] = 1.0 ; // dummy arg for get_muBias below
+	MUCOVADD[ia][ib][ig] = 1.0 ;   // dummy arg for get_muBias below
 	for(iz=0; iz < NBINz; iz++ ) {
 	  for(im=0; im < NBINm; im++ ) {
 	    for(ic=0; ic < NBINc; ic++ ) {

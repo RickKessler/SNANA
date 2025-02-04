@@ -1734,13 +1734,15 @@ class Program:
         # debug tool to quickly run the merge process interactively.
         #
         # Jan 23 2025: fix to work if outdir is not in same place in submit-input file.
-        
+        # Feb 04 2025: fix Jan 23 bug when output_dir has no slashes
+
         output_dir          = self.config_prep['output_dir'] 
         args                = self.config_yaml['args']
         submit_info_yaml    = self.config_prep['submit_info_yaml'] 
         input_file          = args.input_file
 
-        output_dir_path = os.path.dirname(output_dir)
+        #xxx mark output_dir_path = os.path.dirname(output_dir)
+        output_dir_path = output_dir + '/..'
         output_dir_base = os.path.basename(output_dir)
         input_file_base = os.path.basename(input_file.split('.')[0])
 
@@ -1776,9 +1778,10 @@ class Program:
         if os.path.exists(tar_file_path):  os.remove(tar_file_path)
 
         cmd = f"cd {output_dir_path} ;  tar -cf {tar_file} {output_dir_base}"
-        os.system(cmd)
-        
         logging.info(f" Create {tar_file}")
+        logging.info(f" with command: {cmd}")
+        os.system(cmd)        
+
         logging.info(f" Done.")
 
         return

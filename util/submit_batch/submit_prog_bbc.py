@@ -81,6 +81,9 @@
 #
 # Apr 10 2024: if using wfit afterburner, record CPU in MERGE_wfit.LOG
 #
+# Feb 04 2025: fix BBC_SUMMARY_FITPAR.YAML to be yaml compliant and add comments with
+#              VERSION FITOPT_MUOPT to enable clever grepping out results
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -2156,7 +2159,7 @@ class BBC(Program):
             for iwfit, opt_wfit in enumerate(opt_wfit_list):
                 self.make_wfit_summary(iwfit, opt_wfit)
             self.make_wfit_cpu_summary()
-            # tar up all the wfit yaml files (May 2024) .xyz
+            # tar up all the wfit yaml files (May 2024) 
             wildcard = "wfit*YAML"
             logging.info(f"  BBC cleanup: compress {wildcard} files")
             for vout in self.config_prep['version_out_list']:
@@ -2510,8 +2513,6 @@ class BBC(Program):
         iter2            = submit_info_yaml['ITER2']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
-        FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
-        MUOPT_LIST       = submit_info_yaml['MUOPT_OUT_LIST']
         
         if n_splitran > 1 : return
 
@@ -2523,83 +2524,117 @@ class BBC(Program):
         # - - - 
         SUMMARYF_FILE     = f"{output_dir}/{FITPAR_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"wt") 
-        version_last = "BLEH"
 
+        # write a few header comments
+        snana_version = util.get_snana_version()
+        f.write(f"# BBC fitpar summary: human and machine readable.\n")
+        f.write(f"# SNANA_VERSION:    {snana_version}\n")
+        f.write(f"# OUTDIR:  {output_dir}\n")
+
+        # collect list of versions in MERGE.LOG file
+        version_list = []
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
-            version    = row[COLNUM_BBC_MERGE_VERSION] # sim data version
-            fitopt_num = row[COLNUM_BBC_MERGE_FITOPT]  # e.g., FITOPT002
-            muopt_num  = row[COLNUM_BBC_MERGE_MUOPT]   # e.g., MUOPT003
+            version    = row[COLNUM_BBC_MERGE_VERSION]  # sim data version
+            if version not in version_list:
+                version_list.append(version)
+
+        # sort output by VERSION/FITOPT_MUOPT, which isn't the same order
+        # as in MERGE.LOG
+
+        for version in version_list:
+            f.write(f"\n# ================================================= \n")
+            f.write(f"{version}: \n")
+            for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+                if version == row[COLNUM_BBC_MERGE_VERSION]:
+                    self.write_fitpar_summary_row(f,row)
+
+        f.close()
+        #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
+
+        return
+
+        # end make_fitpar_summary
+
+    def write_fitpar_summary_row(self,f,row):
+        # created Feb 2025
+        # Write summary for this row to file pointer f
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
+        MUOPT_LIST       = submit_info_yaml['MUOPT_OUT_LIST']
+        iter2            = submit_info_yaml['ITER2']
+
+        version    = row[COLNUM_BBC_MERGE_VERSION]  # sim data version
+        fitopt_num = row[COLNUM_BBC_MERGE_FITOPT]   # e.g., FITOPT002
+        muopt_num  = row[COLNUM_BBC_MERGE_MUOPT]    # e.g., MUOPT003
             
-            # get indices for summary file
-            ifit = int(f"{fitopt_num[6:]}")
-            imu  = int(f"{muopt_num[5:]}")
+        # get indices for summary file
+        ifit = int(f"{fitopt_num[6:]}")
+        imu  = int(f"{muopt_num[5:]}")
             
-            # figure out name of BBC-YAML file and read it 
-            prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-            YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
-            #print(f"  YAML_FILE = {YAML_FILE}")
-            bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
-            BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
+        # figure out name of BBC-YAML file and read it 
+        prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
+        YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
+        #print(f"  YAML_FILE = {YAML_FILE}")
+        bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+        BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
 
-            NEVT_DATA            = bbc_yaml['NEVT_DATA']
-            NEVT_BIASCOR         = bbc_yaml['NEVT_BIASCOR']
-            NEVT_CCPRIOR         = bbc_yaml['NEVT_CCPRIOR']
-            NEVT_REJECT_BIASCOR  = bbc_yaml['NEVT_REJECT_BIASCOR']
-            frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
+        NEVT_DATA            = bbc_yaml['NEVT_DATA']
+        NEVT_BIASCOR         = bbc_yaml['NEVT_BIASCOR']
+        NEVT_CCPRIOR         = bbc_yaml['NEVT_CCPRIOR']
+        NEVT_REJECT_BIASCOR  = bbc_yaml['NEVT_REJECT_BIASCOR']
+        frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
 
-            is_new_version  = version != version_last
-            version_last = version
 
-            if is_new_version: 
-                f.write(f"\n# ==================================== \n")
-                f.write(f"{version}: \n")
+        key_opt      = f"{fitopt_num}_{muopt_num}"
+        comment_grep = f"{version}  {key_opt}"
 
-            f.write(f" \n")
-            f.write(f"- {fitopt_num}_{muopt_num}: \n")
+        f.write(f" \n")
+        f.write(f"- {key_opt}: \n")
 
-            # check list sizes to accomodate noINPDIR option
-            n_list = 0
-            if FITOPT_LIST : n_list = len(FITOPT_LIST)
-            if n_list > 0 :
-                f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+        # check list sizes to accomodate noINPDIR option
+        n_list = 0
+        if FITOPT_LIST : n_list = len(FITOPT_LIST)
+        if n_list > 0 :
+            f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
 
-            n_list = 0
-            if MUOPT_LIST : n_list = len(MUOPT_LIST)
-            if n_list > 0 :
-                f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+        n_list = 0
+        if MUOPT_LIST : n_list = len(MUOPT_LIST)
+        if n_list > 0 :
+            f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
-            f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
-                    f"        # DATA, BIASCOR, CCPRIOR\n")
+        f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
+                f"        # DATA, BIASCOR, CCPRIOR for {comment_grep}\n")
 
-            f.flush()
+        f.flush()
 
-            # - - - - - - - - -
-            # check for NEVT by sample (9.19.2021)
-            if 'SAMPLE_LIST' in bbc_yaml :
-                # split string by commas and remove white space
-                tmp         = bbc_yaml['SAMPLE_LIST']
-                SAMPLE_LIST = [x.strip() for x in tmp.split(',')]
+        # - - - - - - - - -
+        # check for NEVT by sample (9.19.2021)
+        if 'SAMPLE_LIST' in bbc_yaml :
+            # split string by commas and remove white space
+            tmp         = bbc_yaml['SAMPLE_LIST']
+            SAMPLE_LIST = [x.strip() for x in tmp.split(',')]
 
-                tmp = bbc_yaml['NEVT_DATA_bySAMPLE']
-                NEVT_DATA_bySAMPLE    = [x.strip() for x in tmp.split(',')]
+            tmp = bbc_yaml['NEVT_DATA_bySAMPLE']
+            NEVT_DATA_bySAMPLE    = [x.strip() for x in tmp.split(',')]
 
-                tmp = bbc_yaml['NEVT_BIASCOR_bySAMPLE']
-                NEVT_BIASCOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+            tmp = bbc_yaml['NEVT_BIASCOR_bySAMPLE']
+            NEVT_BIASCOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
 
-                tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
-                NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+            tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
+            NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
 
-                f.write(f"    NEVT_bySAMPLE:"
-                        f"                # DATA, BIASCOR, CCPRIOR\n")
-                for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
-                                                  NEVT_DATA_bySAMPLE,
-                                                  NEVT_BIASCOR_bySAMPLE,
-                                                  NEVT_CCPRIOR_bySAMPLE) :
-                    key = f"{sample}:"
-                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
-                    f.flush()
+            f.write(f"    NEVT_bySAMPLE:"
+                    f"                # DATA, BIASCOR, CCPRIOR\n")
 
-            # - - - - -
+            for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
+                                              NEVT_DATA_bySAMPLE,
+                                              NEVT_BIASCOR_bySAMPLE,
+                                              NEVT_CCPRIOR_bySAMPLE) :
+                key = f"{sample}:"                
+                f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}  # {comment_grep}\n")
+                f.flush()
+
             nrej = NEVT_REJECT_BIASCOR
             if iter2:
                 comment = f"{nrej} evts have no biasCor at ITER2; check ITER1"
@@ -2616,13 +2651,10 @@ class BBC(Program):
                     val = str(result[key].split()[0])
                     err = str(result[key].split()[1])
                     KEY = f"{key}:"
-                    f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8} \n")
+                    f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8}    # {comment_grep}\n")
                     f.flush()
-        f.close()
 
-        #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
-
-        # end make_fitpar_summary
+        return  # end write_fitpar_summary_row
 
     def make_wfit_summary(self, iwfit, opt_wfit):
 
@@ -2751,6 +2783,9 @@ class BBC(Program):
         
         return
         # end make_wfit_summary
+
+
+        
 
     def make_wfit_cpu_summary(self):
 

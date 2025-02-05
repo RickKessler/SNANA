@@ -16,7 +16,7 @@
 #include "sntools_weaklens.h"
 
 // =============================================
-void init_lensDMU(char *mapFileName, float dsigma_dz) {
+void init_lensDMU(void) {
 
   // Created May 1 2017
   // Read lensing map of Prob(z,dMu) from input *mapFileName.
@@ -30,7 +30,14 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   //
   // Oct 10 2021: require DOCANA
   // Apr 12 2024: apply bound checks on NZ and NDUM (number of bins)
-  
+  // Feb 04 2025: refactor to use INPUTS_WEAKLENS global input & print more info
+
+  char  *PROBMAP_FILE = INPUTS_WEAKLENS.PROBMAP_FILE ;
+  double DMUSCALE     = INPUTS_WEAKLENS.DMUSCALE ;
+  double DMUERR_FRAC  = INPUTS_WEAKLENS.DMUERR_FRAC ;
+  double DSIGMADZ     = INPUTS_WEAKLENS.DSIGMADZ;
+
+
   FILE *FPMAP;
   int    OPENMASK = OPENMASK_VERBOSE + OPENMASK_REQUIRE_DOCANA ;
   int    MEMD, NROW_TOT, NROW_TABLE, irow;
@@ -50,28 +57,30 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
 
   LENSING_PROBMAP.USEFLAG = 0 ;
 
-  if ( dsigma_dz > 1.0E-8 ) {
+  if ( DSIGMADZ > 1.0E-8 ) {
     print_banner(fnam);
-    printf("\t Symmetric Gaussian model: sigma = %.3f * z \n", 
-	   dsigma_dz );
+    printf("\t Symmetric Gaussian model: sigma = %.3f * z \n", 	 DSIGMADZ );
+    fflush(stdout);
     return ;
   }
 
   // check option to ignore lensing if mapFileName = 'NULL', 'NONE', 'BLANK'
-  if ( IGNOREFILE(mapFileName) ) { return; }
+  if ( IGNOREFILE(PROBMAP_FILE) ) { return; }
 
   print_banner(fnam);
 
+  ENVreplace(PROBMAP_FILE, fnam, 1);
+  
   sprintf(PATH_DEFAULT,"%s %s/models/lensing", 
 	  PATH_USER_INPUT, PATH_SNDATA_ROOT);
   
   // check mapFileName in user dir, then under PATH_DEFAULT
-  FPMAP = snana_openTextFile(OPENMASK, PATH_DEFAULT, mapFileName, 
+  FPMAP = snana_openTextFile(OPENMASK, PATH_DEFAULT, PROBMAP_FILE, 
 			     MAPFILENAME, &gzipFlag );
 
   if ( FPMAP == NULL ) {
     abort_openTextFile("WEAKLENS_PROBMAP_FILE", 
-		       PATH_DEFAULT, mapFileName, fnam);
+		       PATH_DEFAULT, PROBMAP_FILE, fnam);
   }
 
 
@@ -112,12 +121,6 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
 
     splitString(tmpLine, " ", fnam, MXWD, &NWD, ptrWORD);
     if ( NWD != 3 ) { continue; }
-
-    /* xxxxxx
-    if ( NROW_TABLE == 0 ) {
-      printf(" xxx %s: first table line: '%s' \n", fnam, tmpLine);
-    }
-    xxx */
 
     // we have a line after DOCANA that is not a comment line; parse it
     sscanf(ptrWORD[0], "%le", &z_TMP1D[NROW_TABLE] );
@@ -224,15 +227,43 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   // print summary 
   printf("\t Done initializing Prob(%.3f < DeltaMU < %.3f) \n",
 	 LENSING_PROBMAP.dmu_LIST[0], LENSING_PROBMAP.dmu_LIST[NDMU-1] );
-  printf("\t in %d redshfit bins from %.3f to %.3f \n",
+  printf("\t   in %d redshfit bins from %.3f to %.3f \n",
 	 NZ, LENSING_PROBMAP.z_LIST[0], LENSING_PROBMAP.z_LIST[NZ-1] );
   fflush(stdout);
 
   for(iwd=0; iwd < MXWD; iwd++ )  { free(ptrWORD[iwd]); }
 
+  printf("\t LENSDMU_SCALE   = %.2f \n", DMUSCALE);
+  printf("\t LENSDMU_ERR     = %.2f * LENSDMU \n", DMUERR_FRAC);
+  fflush(stdout);
+
   return ;
 
 } // end init_lensDMU
+
+
+// =====================================================
+double gen_lensDMU_smear(double lensDMU) {
+
+  // Created Feb 2025
+  // Apply simle/naive lensDMU error based on fraction of lensDMU
+
+  double lensDMU_smear = lensDMU;
+  double lensDMU_err, lensDMU_shift = 0.0, gran ;
+  char fnam[] = "gen_lensDMU_smear" ;
+
+  // -------------- BEGIN --------------
+
+  if ( INPUTS_WEAKLENS.DMUERR_FRAC > 0.0 ) {
+    lensDMU_err    = lensDMU * INPUTS_WEAKLENS.DMUERR_FRAC ; 
+    gran           = getRan_Gauss(2);  // burn randon only if used ... maybe change later
+    lensDMU_shift  = lensDMU_err * gran ;  
+    lensDMU_smear += lensDMU_shift;
+  }
+
+  return lensDMU_smear;
+
+} // end gen_lensDMU_smear
 
 
 // ============================================

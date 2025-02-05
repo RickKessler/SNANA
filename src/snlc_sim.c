@@ -167,7 +167,8 @@ int main(int argc, char **argv) {
     INIT_HOSTLIB();
     
     // init weak and strong lensing 
-    init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
+    // xxx mark dele init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
+    init_lensDMU(); 
   }
 
   unit_test_driver(INPUTS.UNIT_TEST) ;
@@ -989,10 +990,19 @@ void set_user_defaults(void) {
   INPUTS.GENMAG_SMEAR_MODELARG[0] = 0;
   INPUTS.GENMAG_SMEAR_MSKOPT      = 0 ;
 
+  
   sprintf(INPUTS.STRONGLENS_FILE,       "NONE");
+
+  /* xxxxxx mark delete Feb 4 2025 
   sprintf(INPUTS.WEAKLENS_PROBMAP_FILE, "NONE");
   INPUTS.WEAKLENS_DMUSCALE = 1.0 ;
   INPUTS.WEAKLENS_DSIGMADZ = 0.0 ;
+  xxxx end mark */
+
+  sprintf(INPUTS_WEAKLENS.PROBMAP_FILE, "NONE");
+  INPUTS_WEAKLENS.DMUSCALE         = 1.0 ;
+  INPUTS_WEAKLENS.DMUERR_FRAC      = 0.0 ;
+  INPUTS_WEAKLENS.DSIGMADZ         = 0.0 ;
 
   INPUTS.NPAR_GENSMEAR_USRFUN     = 0 ;
   for (i=0; i < 100; i++ ) 
@@ -3958,22 +3968,30 @@ int parse_input_LENS(char **WORDS, int keySource) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS.STRONGLENS_FILE );
   }
+
   else if ( keyMatchSim(1, "NPSFSIGMA_MINSEP_DETECT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT );
   }
+
   else if ( keyMatchSim(1, "WEAKLENS_PROBMAP_FILE  LENSING_PROBMAP_FILE",  
 			WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++;  sscanf(WORDS[N], "%s", INPUTS.WEAKLENS_PROBMAP_FILE );
-  }
-  else if ( keyMatchSim(1, "WEAKLENS_DMUSCALE  LENSING_DMUSCALE",
-			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.WEAKLENS_DMUSCALE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS_WEAKLENS.PROBMAP_FILE );
   }
 
-  else if ( keyMatchSim(1, "WEAKLENS_DSIGMADZ LENSING_DSIGMADZ",
-			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.WEAKLENS_DSIGMADZ );
+  else if ( keyMatchSim(1, "WEAKLENS_DMUSCALE  LENSING_DMUSCALE",
+			WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS_WEAKLENS.DMUSCALE );
+  }
+
+  else if ( keyMatchSim(1, "WEAKLENS_DMUERR_FRAC",
+			WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS_WEAKLENS.DMUERR_FRAC );
+  }
+
+  else if ( keyMatchSim(1, "WEAKLENS_DSIGMADZ  LENSING_DSIGMADZ",
+			WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS_WEAKLENS.DSIGMADZ );
   }
 
 
@@ -4815,7 +4833,7 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "PARLIST_MWCOLORLAW", WORDS[0],keySource) ) {
     // read and split comma-sep list
-    N++; sscanf(WORDS[N], "%s", ctmp ) ;     //.xyz
+    N++; sscanf(WORDS[N], "%s", ctmp ) ;  
 
     char **str_list;  int NPAR;
     parse_commaSepList(fnam, ctmp, 10, 60, &NPAR, &str_list);
@@ -6374,7 +6392,6 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.NON1ASED.PATH,fnam,1);
   ENVreplace(INPUTS.NON1AGRID_FILE,fnam,1);
   ENVreplace(INPUTS.NONLINEARITY_FILE,fnam,1);
-  ENVreplace(INPUTS.WEAKLENS_PROBMAP_FILE,fnam,1);
   ENVreplace(INPUTS.STRONGLENS_FILE,fnam,1);
   ENVreplace(INPUTS.LCLIB_FILE,fnam,1);
   ENVreplace(INPUTS.MODELPATH,fnam,1);
@@ -8318,7 +8335,7 @@ void genperfect_override(void) {
     GENPERFECT.partype[NVAR]   = 1 ;
 
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE");
-    sprintf(INPUTS.WEAKLENS_PROBMAP_FILE,  "NONE"); // Mar 2023
+    sprintf(INPUTS_WEAKLENS.PROBMAP_FILE,  "NONE"); // Mar 2023
   }
 
   OVP = MASK & (1 <<  BITPERFECT_HOSTLIB ) ;
@@ -12293,7 +12310,7 @@ void gen_event_driver(int ilc) {
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
 
-    // xxx ??? gen_lensDMU_smear(INPUTS.GENSIGMA_REDSHIFT);
+    GENLC.LENSDMU_SMEAR = gen_lensDMU_smear(GENLC.LENSDMU); // Feb 2025
     
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
@@ -15282,9 +15299,15 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DLMU ;
   NVAR_SIMGEN_DUMP++ ;
 
+  // weak lensing effects
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"LENSDMU") ; // from weak lensing
+  sprintf(cptr,"LENSDMU") ; 
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.LENSDMU ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"LENSDMU_SMEAR") ; 
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.LENSDMU_SMEAR ;
   NVAR_SIMGEN_DUMP++ ;
 
   //GENSL.LIBEVENT.IDLENS
@@ -16649,21 +16672,21 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
   }
 
 
-  bool USE_WEAKLENS_MAP = !IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE);
+  bool USE_WEAKLENS_MAP     = !IGNOREFILE(INPUTS_WEAKLENS.PROBMAP_FILE);
   bool USE_WEAKLENS_HOSTLIB = HOSTLIB.IVAR_WEAKLENS_DMU > 0;
   lensDMU = 0.0;
   if ( USE_WEAKLENS_MAP ) {
-    lensDMU = gen_lensDMU(zCMB,ran1,DUMP_FLAG);
+    lensDMU = gen_lensDMU(zCMB, ran1, DUMP_FLAG);
   } 
   else if ( USE_WEAKLENS_HOSTLIB ) {
     lensDMU = SNHOSTGAL.WEAKLENS_DMU;
   }
 
-  if ( INPUTS.WEAKLENS_DSIGMADZ > 1.0E-8 ) {
-    lensDMU = zCMB * INPUTS.WEAKLENS_DSIGMADZ * getRan_Gauss(1) ;
+  if ( INPUTS_WEAKLENS.DSIGMADZ > 1.0E-8 ) {
+    lensDMU = zCMB * INPUTS_WEAKLENS.DSIGMADZ * getRan_Gauss(1) ;
   }
 
-  lensDMU *= INPUTS.WEAKLENS_DMUSCALE ; // user-scale
+  lensDMU *= INPUTS_WEAKLENS.DMUSCALE ; // user-scale
 
   // load return args
   *MU      = gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);
@@ -24348,8 +24371,8 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.VPEC                = GENLC.VPEC_SMEAR;
   SNDATA.VPEC_ERR            = INPUTS.VPEC_ERR;
 
-  SNDATA.LENSDMU        = 0.0 ; // placeholder to fill in later
-  SNDATA.LENSDMU_ERR    = 0.0 ;  
+  SNDATA.LENSDMU        = GENLC.LENSDMU_SMEAR ;
+  SNDATA.LENSDMU_ERR    = GENLC.LENSDMU * INPUTS_WEAKLENS.DMUERR_FRAC ;
   
   zsource_to_SNDATA(FLAG) ;
 
@@ -30493,7 +30516,7 @@ void DASHBOARD_DRIVER(void) {
   ENVrestore(INPUT_ZVARIATION_FILE,fileName_orig);
   printf("ZVARIATION_FILE:        %s\n", fileName_orig );
 
-  ENVrestore(INPUTS.WEAKLENS_PROBMAP_FILE,fileName_orig);
+  ENVrestore(INPUTS_WEAKLENS.PROBMAP_FILE,fileName_orig);
   printf("WEAKLENS_PROBMAP_FILE:  %s\n", fileName_orig);
 
   ENVrestore(INPUTS.STRONGLENS_FILE,fileName_orig);
@@ -31881,6 +31904,10 @@ void print_sim_help(void) {
     "MUSHIFT:     <mushift>    # constant distance modulus shift (mag)",
     "ANISTROPY_MODELNAME: xyz  # name of model for anisotropy",
     "",
+    "WEAKLENS_PROBMAP_FILE:  <file>  # map of z deltaMU prob (deltaMU = -2.5*log10(magnification) ",
+    "WEAKLENS_DMUSCALE:     <scale>  # scale all lensDMU",
+    "WEAKLENS_DMUERR_FRAC:  <frac>   # sigma(lensDMU) = frac*lensDMU",
+    "",
     "#  - - - - - - Source model - - - - - - - ",
     "GENMODEL:  <model>                #  SN model name (manual Sec 9)",
     "           # e.g., SALT2.[name]  SIMSED.[name]  NONIASED.[name] ... ",
@@ -32004,6 +32031,8 @@ void print_sim_help(void) {
     "SIMGEN_DUMP: BLABLA  # bad variable -> sim aborts and prints valid list",
     "",
     "SIMGEN_DUMPALL: ... # same as SIMGEN_DUMP, but write every generated event",
+    "",
+    "SIMGEN_DUMPADD:  SALT2c,SALT2x1  # add these to list of SIMGEN_DUMP variables",
     "",
     "# - - - - - - - - Random Systematic Errors - - - - - - - ",
     "# See manual Sec 4.42 Applying Systematic Errors (RANSYSTPAR)",

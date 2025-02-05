@@ -850,8 +850,6 @@ struct INPUTS {
   char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
   float  GENMAG_SMEAR_ADDPHASECOR[2]; // magSmear and coh time
   char   GENMAG_SMEAR_SCALE[100];
-  // GENMAG_SMEAR_SCALE(c): 0.98,.1,-0.02,0.3,-5.0
-  // GENMAG_SMEAR_SCALE(x1): 0.98,.1,-0.02
 
   int    NPAR_GENSMEAR_USRFUN ;
   double GENMAG_SMEAR_USRFUN[100];   // intrinsic smear with function
@@ -861,9 +859,12 @@ struct INPUTS {
 
   char   STRONGLENS_FILE[MXPATHLEN] ;
 
+  /* xxx mark delete Feb 4 2025 xxxxx
   char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
   float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
+  float  WEAKLENS_DMUERR_FRAC;         // frac error on lensdmu (Feb 2025)
   float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
+  xxxxxxx end mark xxxxxx */
 
   float GENMODEL_ERRSCALE ;    // scale model-errors for intrinsic color-smear
   float GENMODEL_ERRSCALE_CORRELATION; // correlation with GENMAG_SMEAR

@@ -858,6 +858,8 @@ c
      &  ,SNLC_REDSHIFT_ERR  ! error on above 
      &  ,SNLC_VPEC          ! pec. velocity
      &  ,SNLC_VPEC_ERR      ! error on above
+     &  ,SNLC_LENSDMU       ! measured LENSDMU  from WL (Jan 2025)
+     &  ,SNLC_LENSDMU_ERR   ! error on measurement
      &  ,SNLC_ZPEC
      &  ,SNLC_ZPEC_ERR
      &  ,SNLC_Trestmin  ! earliest epoch, rest frame days since peak
@@ -966,6 +968,7 @@ c
      &    ,SNLC_ZSN, SNLC_ZSN_ERR
      &    ,SNLC_REDSHIFT, SNLC_REDSHIFT_ERR
      &    ,SNLC_VPEC, SNLC_VPEC_ERR, SNLC_ZPEC, SNLC_ZPEC_ERR
+     &    ,SNLC_LENSDMU, SNLC_LENSDMU_ERR
      &    ,SNLC_TRESTMIN, SNLC_TRESTMAX, SNLC_TrestRange, SNLC_TREST
      &    ,SNLC_TGAPMAX,  SNLC_T0GAPMAX
      &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
@@ -4908,6 +4911,15 @@ c otherwise use Z_CMB
          SNLC_REDSHIFT      = SNLC_zCMB
          SNLC_REDSHIFT_ERR  = SNLC_zCMB_ERR
       ENDIF
+
+c ---------------------------
+c LENSDMU (Feb 2025)
+
+      CALL FETCH_SNDATA_WRAPPER("LENSDMU", ONE, STRING, DARRAY, OPT)
+      SNLC_LENSDMU = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("LENSDMU_ERR", ONE, STRING, DARRAY, OPT)
+      SNLC_LENSDMU_ERR = SNGL(DARRAY(1))
 
 c -------------------------
 c VPEC 

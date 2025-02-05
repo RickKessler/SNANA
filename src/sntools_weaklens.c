@@ -44,7 +44,7 @@ void init_lensDMU(void) {
   int    jj, iz, imu, gzipFlag, NZ=0, NDMU=0 ;  
   bool   DOCANA_END = false;
   double Prob, dmu, ztmp, z=0.0, zLAST=-9.9 ;
-  double SUM_WGT, SUM_dmu, dmu_avg, SUM_Prob ;
+  double WGT, SUM_WGT, SUM_SQWGT, SUM_dmu, dmu_avg, dmu_std, SUM_Prob ;
 
   char PATH_DEFAULT[2*MXPATHLEN], MAPFILENAME[MXPATHLEN];
   char tmpLine[MXPATHLEN], tmpLine_copy[MXPATHLEN];
@@ -179,13 +179,16 @@ void init_lensDMU(void) {
   // transfer 1D contents to 2D PROBMAP
   irow=0;
   for(iz=0; iz < NZ; iz++ ) {
-    SUM_WGT = SUM_Prob = 0.0 ;
+
+    SUM_WGT = SUM_Prob = SUM_SQWGT = 0.0 ;
     for(imu=0; imu < NDMU; imu++ ) {
       z     = z_TMP1D[irow] ;
-      dmu   = dmu_TMP1D[irow] ;
+      dmu   = dmu_TMP1D[irow] * DMUSCALE;
       Prob  = Prob_TMP1D[irow] ;
-      SUM_WGT  += (Prob*dmu) ;
-      SUM_Prob += (Prob);
+
+      SUM_WGT    += (Prob*dmu) ;
+      SUM_SQWGT  += (Prob*dmu*dmu);
+      SUM_Prob   += (Prob);
 
       LENSING_PROBMAP.z_LIST[iz]    = z;
       LENSING_PROBMAP.dmu_LIST[imu] = dmu;
@@ -203,14 +206,22 @@ void init_lensDMU(void) {
     for(imu=0; imu < NDMU; imu++ ) 
       { LENSING_PROBMAP.FUNPROB[iz][imu] /= SUM_Prob; }
 
-    // compute <dmu> to check how close to zero
-    SUM_dmu = LENSING_PROBMAP.dmu_LIST[NDMU-1] - LENSING_PROBMAP.dmu_LIST[0] ;
-    dmu_avg = SUM_WGT/SUM_dmu ;
+    // compute <dmu> to check how close to zero, and stddev
+    // xxx mark delete  SUM_dmu = LENSING_PROBMAP.dmu_LIST[NDMU-1] - LENSING_PROBMAP.dmu_LIST[0] ;
+    // xxx mark delete  dmu_avg = SUM_WGT/SUM_dmu ;
 
-    for(jj=1; jj<=4; jj++ ) {
-      ztmp = (double)jj;
+    dmu_avg = SUM_WGT/SUM_Prob ;
+    dmu_std = sqrt(SUM_SQWGT/SUM_Prob - dmu_avg*dmu_avg);
+    // xxx   double ARG = SQSUM/XN - AVG*AVG;
+
+    // xxx avg = sum/XN ;
+    // xxx   std = STD_from_SUMS(N, sum, sqsum);
+
+
+    for(jj=1; jj<=8; jj++ ) {
+      ztmp = 0.5*(double)jj;
       if ( fabs(z-ztmp) < .02 ) 
-	{ printf("\t\t <dmu>[z=%5.3f] = %12.4le \n", z, dmu_avg); }
+	{ printf("\t\t <dmu>[z=%5.3f] = %12.4le   STDDEV = %5.3f\n", z, dmu_avg, dmu_std); }
     }
 
   } // end iz

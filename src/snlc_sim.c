@@ -16686,7 +16686,7 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
     lensDMU = zCMB * INPUTS_WEAKLENS.DSIGMADZ * getRan_Gauss(1) ;
   }
 
-  lensDMU *= INPUTS_WEAKLENS.DMUSCALE ; // user-scale
+  // xxx mark delete Feb 5 2025  lensDMU *= INPUTS_WEAKLENS.DMUSCALE ; 
 
   // load return args
   *MU      = gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);

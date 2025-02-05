@@ -24213,7 +24213,7 @@ c Mar 19 2021: add NEP_OUTLIER if OUTLIER table is defined
 c Aug 13 2021: include HOST_SBMAG, and HOST_SB -> HOST_SBFLUXCAL
 c Sep 09 2023: update to write 2nd HOST match.
 c Jul 23 2024: add FITPROB_ITER1, FITCHI2RED_INI[2]
-c
+c Feb 05 2025: add LENSDMU[ERR]
 c -------------------------------------------------------------
 
       IMPLICIT NONE
@@ -24420,6 +24420,11 @@ c data redshifts to allow plotting zHD-z resids
 c tack on VPEC
       VARLIST = 'VPEC:F,VPECERR:F'  // char(0)
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_VPEC, VARLIST, 1,
+     &                       LENBLOCK, 20 )
+
+c tack on LENSDMU (Feb 2025)
+      VARLIST = 'LENSDMU:F,LENSDMUERR:F'  // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_LENSDMU, VARLIST, 1,
      &                       LENBLOCK, 20 )
 
 c - - - - -  Galactic extinction - - - -  -

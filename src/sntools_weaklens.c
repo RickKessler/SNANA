@@ -255,7 +255,7 @@ double gen_lensDMU_smear(double lensDMU) {
   // -------------- BEGIN --------------
 
   if ( INPUTS_WEAKLENS.DMUERR_FRAC > 0.0 ) {
-    lensDMU_err    = lensDMU * INPUTS_WEAKLENS.DMUERR_FRAC ; 
+    lensDMU_err    = fabs(lensDMU * INPUTS_WEAKLENS.DMUERR_FRAC) ; 
     gran           = getRan_Gauss(2);  // burn randon only if used ... maybe change later
     lensDMU_shift  = lensDMU_err * gran ;  
     lensDMU_smear += lensDMU_shift;

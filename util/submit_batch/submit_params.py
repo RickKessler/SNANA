@@ -113,16 +113,19 @@ STOP_ALL_ON_MERGE_ERROR = False
 SNANA_ABORT_STRING    = "FATAL ERROR ABORT"
 FAIL_SUMMARY_FILE     = "FAIL_SUMMARY.LOG"
 
-FAIL_MODE_STRINGS  = [ 'TOTAL', 'ABORT', 'ZERO_EVENTS', 'UNKNOWN' ]
+
 FAIL_MODE_COMMENTS = [ '', \
                        'tail LOG file for more info', \
                        'check cuts, genRanges, etc...', \
                        'segFault? diskQuota? wallTime?'   ]
 
 # FAIL_INDEX_XXX are used to select FAIL_MODE and FAIL_COMMENT (above)
-FAIL_INDEX_ABORT    = 1
-FAIL_INDEX_ZERO     = 2
-FAIL_INDEX_UNKNOWN  = 3
+FAIL_INDEX_ABORT    = 1  # explicit abort from code
+FAIL_INDEX_ZERO     = 2  # zero events in output
+FAIL_INDEX_BAD      = 3  # bad output detected (e.g.. crazy fit params)
+FAIL_INDEX_UNKNOWN  = 4  # undetectable error such as crash 
+FAIL_MODE_STRINGS  = [ 'TOTAL', 'ABORT', 'ZERO_EVENTS', 'BAD_OUTPUT', 'UNKNOWN' ]
+
 CMD_wildcard        = "CPU*.CMD"  # need to read all CMD files
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 

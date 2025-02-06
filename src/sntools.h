@@ -132,8 +132,6 @@
 #define TEN        (double)10.0
 #define LNTEN      (double)2.30259  // ln(10)
 
-//#define JD2000 2451545.0 // JD at Jan 1, noon, 2000
-
 #define REJECT_FLAG    -1
 #define ACCEPT_FLAG    +1
 #define ERROR          -1  // use these as return args for int functions
@@ -193,7 +191,7 @@
 
 // keep this in sync with the fortran FILTDEF_STRING
 // Oct 22 2015: add 27 special chars to hack an IFU
-#define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx" //     ~!@#$%^&*()-_=+[]{}<>,|;`'"
+#define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx" 
 
 // [moved from sntools_kcor.h on Nov 17 2022]
 #define MASK_FRAME_REST 1
@@ -217,6 +215,10 @@
 #define STRING_CPUTIME_INIT        "CPUTIME_INITIALIZE"
 #define STRING_CPUTIME_PROC_ALL    "CPUTIME_PROCESS_ALL"
 #define STRING_CPUTIME_PROC_RATE   "CPUTIME_PROCESS_RATE"
+
+// Feb 2025: define a few required YAML keys for communication with submit_batch_jobs
+#define YAMLKEY_ABORT_IF_ZERO  "ABORT_IF_ZERO"
+#define YAMLKEY_BAD_OUTPUT     "BAD_OUTPUT" 
 
 // generic process flags for INIT, UPDATE, END
 #define  FLAG_PROCESS_INIT     1  

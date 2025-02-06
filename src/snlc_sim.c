@@ -14123,7 +14123,7 @@ void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   fprintf(fp, "NGENLC_WRITE:    %d\n",    NGENLC_WRITE   );
   fprintf(fp, "NGENSPEC_WRITE:  %d\n",    NGENSPEC_WRITE );
   fprintf(fp, "CPU_MINUTES:     %.2f\n",  t_gen/60.0     );
-  fprintf(fp, "ABORT_IF_ZERO:   %d\n",    NGENLC_WRITE   );
+  fprintf(fp, "%s:   %d\n",    YAMLKEY_ABORT_IF_ZERO, NGENLC_WRITE   );
   
   // write a few extras when creating binary flux table for SIMSED model
   if ( SIMSED_BINARY_INFO.WRFLAG_FLUX ) {

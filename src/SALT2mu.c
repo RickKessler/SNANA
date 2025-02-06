@@ -298,6 +298,7 @@ For help, run code with no arguments
               input file.
 
  Dec 01 2024: fix CONTAM computation to ignore spec-confirmed subsets.
+ Feb 06 2025: tune crazy_M0_errors to account for muCOVscale
 
  ******************************************************/
 
@@ -1703,6 +1704,7 @@ int keep_cutmask(int errcode) ;
 
 int     prepNextFit(void);
 bool    crazy_M0_errors(void);
+void    compute_AVG_muCOVscale(double *AVG_muCOVscale);
 void    conflict_check(void);
 double  next_covFitPar(double redchi2, double orig_parval, double parstep);
 void    recalc_dataCov(void); 
@@ -3826,13 +3828,15 @@ bool crazy_M0_errors(void) {
   // calculation goes wild.
   //
   // Dec 12 2023: ERRMIN_FRAC_CRAZY -> 0.67 (was 0.5)
-  //
+  // Feb 06 2025: account for muCOVscale
+
   bool crazy_error_flag= false;
   bool ISFLOAT, ISM0;
   double sigint_ref = 0.100; // M0 error should be at least sigint/sqrt(N)
-  double VAL, ERR, ERRMIN_COMPUTE, XN, z;
-  int    n, iz, NEVT, n_crazy_M0_error = 0;
+  double VAL, ERR, ERRMIN_COMPUTE, XN, z, AVG_muCOVscale[MXz];
+  int    n, iz, isn, NEVT, n_crazy_M0_error = 0;
 
+  double ERRMIN_CRAZY;
   double ERRMAX_CRAZY      = 1.5;   // changed to 1.5 by M.Vincenzi on 2/10/2023
   double ERRMIN_FRAC_CRAZY = 0.67;  // crazy err of ERR/ERRMIN < this value
   int    N_CRAZYERR_SETFLAG = 3;
@@ -3841,14 +3845,19 @@ bool crazy_M0_errors(void) {
   char  STRING_HAS_CRAZY_ERRORS[] = "HAS_CRAZY_ERRORS";
   char  STRING_COV_PROBLEM[]      = "HAS_COV_PROBLEM";
   
+  int  LDMP = 0 ;
   char fnam[] = "crazy_M0_errors";
 
   // ----------- BEGIN -------------
 
   if ( SUBPROCESS.USE ) { return crazy_error_flag; }
 
-  sprintf(BANNER,"Check for Crazy Fitted M0 Errors" );
+  sprintf(BANNER,"%s: Check for Crazy Fitted M0 Errors", fnam );
   fprint_banner(FP_STDOUT,BANNER);   
+
+  
+  // Compute mean muCOVscale per izbin; used to scale <sigint>
+  compute_AVG_muCOVscale(AVG_muCOVscale);
 
   sprintf(string_flag,"%s ", STRING_NO_CRAZY_ERRORS);
 
@@ -3862,17 +3871,24 @@ bool crazy_M0_errors(void) {
     iz    = INPUTS.izpar[n] ;
     z     = INPUTS.BININFO_z.avg[iz];
     NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin
+    ERR   = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
+
     if ( NEVT < 3 ) { continue; }  
 
-    XN    = (double)NEVT;
-    ERRMIN_COMPUTE = sigint_ref / sqrt(XN);
-    ERR            = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
-
+    XN             = (double)NEVT;
+    ERRMIN_COMPUTE = AVG_muCOVscale[iz] * sigint_ref / sqrt(XN); 
+    ERRMIN_CRAZY   = ERRMIN_COMPUTE * ERRMIN_FRAC_CRAZY ;
     
-    if ( ERR < ERRMIN_COMPUTE * ERRMIN_FRAC_CRAZY ) { 
+    if( LDMP ) {
+      printf(" xxx iz=%2d z=%.3f N=%4d:  <muCOVscale>=%.3f  ERRMIN_[COMPUTE,CRAZY] = %.3f, %.3f  M0ERR=%.3f\n",
+	     iz, z, NEVT,  AVG_muCOVscale[iz], ERRMIN_COMPUTE, ERRMIN_CRAZY, ERR);
+      fflush(stdout);
+    }
+
+    if ( ERR < ERRMIN_CRAZY ) { 
       printf(" CrazyERR WARNING: iz=%d  z=%.3f "
-	     "M0ERR=%.5f ERRMIN_COMPUTE=%.2f/sqrt(%d) = %.5f \n", 
-	     iz, z, ERR, sigint_ref, NEVT, ERRMIN_COMPUTE); 
+	     "M0ERR=%.5f ERRMIN_COMPUTE=%.2f/sqrt(%d) = %.5f   <muCOVscale>=%.3f\n", 
+	     iz, z, ERR, sigint_ref, NEVT, ERRMIN_COMPUTE, AVG_muCOVscale[iz] ); 
       fflush(stdout);
       n_crazy_M0_error++ ; 
 
@@ -3907,6 +3923,39 @@ bool crazy_M0_errors(void) {
   return crazy_error_flag ;
  
 } // end crazy_M0_errors
+
+// =========================================================
+void  compute_AVG_muCOVscale(double *AVG_muCOVscale) {
+
+  int  NSN_DATA  = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  NBINz     = INPUTS.BININFO_z.nbin ;
+  int  iz, isn;
+  double SUM_z[MXz], SUM_muCOVscale[MXz], COVscale;
+  char fnam[] = "compute_AVG_muCOVscale" ;
+
+  // ----------- BEGIN ------------
+
+  for(iz=0; iz < NBINz; iz++ ) 
+    { SUM_z[iz] = SUM_muCOVscale[iz] = 0 ;   AVG_muCOVscale[iz]=1.0; }
+
+  if ( INPUTS.opt_biasCor == 0 ) { return; }
+
+  for ( isn=0; isn < NSN_DATA; isn++ ) {
+    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] > 0 ) { continue; }
+    iz       = INFO_DATA.TABLEVAR.IZBIN[isn];
+    COVscale = INFO_DATA.muCOVscale[isn];
+    if ( COVscale <= 0.01 ) { continue ; }
+    SUM_z[iz]          +=  1.0 ;
+    SUM_muCOVscale[iz] +=  COVscale;
+  }
+  for(iz=0; iz < NBINz; iz++ ) { 
+    if ( SUM_z[iz] > 0.0 ) {  AVG_muCOVscale[iz] = SUM_muCOVscale[iz]/SUM_z[iz] ; }
+  }
+
+
+  return ;
+
+} // end compute_AVG__muCOVscale
 
 // ******************************************
 void printmsg_repeatFit(char *msg) {
@@ -5796,7 +5845,6 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   NBINb    = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
   NBINg    = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;  
 
-  //  ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];   
 
   // redshift bins are same as for biasCor
   copy_BININFO(&CELLINFO_BIASCOR[IDSAMPLE].BININFO_z, 
@@ -20647,9 +20695,11 @@ void write_yaml_info(char *fileName) {
   // Aug 22 2023: replace -12.12s format with -20s to avoid truncation from long varnames
   // Jul 24 2024: write CONTAM_TRUE for sim data
   // Dec 01 2024: fix CONTAM_[DATA,TRUE] to exclude spec-Ia from denominator
-  
+  // Feb 06 2025: write BAD_OUTPUT flag if NWARN_CRAZYERR > 0
+
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
+  int  NERR        = NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC];
 
   double t_cpu = (t_end_fit-t_start)/60.0 ;
 
@@ -20683,11 +20733,27 @@ void write_yaml_info(char *fileName) {
   sprintf(KEY,"NEVT_REJECT_BIASCOR:");
   fprintf(fp,"%-22.22s %d\n", KEY, NDATA_REJECT_BIASCOR );
 
-  sprintf(KEY,"ABORT_IF_ZERO:");
+  sprintf(KEY,"%s:", YAMLKEY_ABORT_IF_ZERO);
   fprintf(fp,"%-22.22s %d\n", KEY, NDATA_PASS );
 
+
   sprintf(KEY,"NWARN_CRAZYERR:");
-  fprintf(fp,"%-22.22s %d\n", KEY, NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC]);
+  fprintf(fp,"%-22.22s %d\n", KEY, NERR);
+
+  // xxxxxxxxxxxx
+  if ( INPUTS.debug_flag == 206 ) {
+    if ( (NDATA_PASS % 5) == 0 ) { NERR += 1; }
+    // printf(" xxx %s: NDATA_PASS = %d  NERR=%d \n", fnam, NDATA_PASS, NERR);
+    fflush(stdout);
+  }
+  // xxxxxxxxxxxx .xyz
+
+  if ( NERR > 0 ) {     
+    sprintf(KEY,"%s:", YAMLKEY_BAD_OUTPUT);
+    fprintf(fp,"%-22.22s True \n", KEY);  // Feb 2025
+    fprintf(FP_STDOUT,"\n !!!! %s ERROR detected; see CRAZY messages above !!! \n", YAMLKEY_BAD_OUTPUT);
+  }
+
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);

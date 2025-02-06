@@ -119,7 +119,7 @@ c
      &  ,MXVERS        = 50         ! max number of versions to read
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
-     &  ,MXSNLC        = 8000000    ! max number of SNe (fits format)
+     &  ,MXSNLC        = 10000000    ! max number of SNe (fits format)
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates

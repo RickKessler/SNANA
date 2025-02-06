@@ -34,6 +34,8 @@
 #               jobs are launched. See update_slurm_pid_list().
 #
 # Jan 23 2025: fix nomerge_last() to work properly when OUTDIR is not under CWD.
+# Feb 06 2025: check for BAD_OUTPUT flag in output YAML files.
+#              Initial use is to check for crazy errors in BBC fit.
 #
 # ============================================
 
@@ -2100,7 +2102,7 @@ class Program:
             self.log_assert(exist, msgerr)
     # end check_file_exists
 
-    def check_for_failure(self, log_file, nevt, isplit):
+    def check_for_failure(self, log_file, nevt, bad_output, isplit):
 
         # Top-level function to check for failures. External
         # program must determine nevt.
@@ -2109,6 +2111,7 @@ class Program:
         # This function returns true if failure is identified.
         #
         # Mar 26 2021: create=True always. isplit<4 missing too much.
+        # Feb 06 2025: pass bad_output logical
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         cleanup_flag     = submit_info_yaml['CLEANUP_FLAG']
@@ -2119,15 +2122,15 @@ class Program:
         found_fail       = (fail_no_output or fail_zero_evt)
         create           = True   # Mar 26 2021
 
-        if found_fail :
+        if found_fail or bad_output :
             cleanup_flag   = 0 # STOP all cleanup activities
-            self.failure_update(log_file, create, fail_zero_evt )
+            self.failure_update(log_file, create, fail_zero_evt, bad_output )
 
         return found_fail
 
         # end check_for_failure
     
-    def failure_update(self, job_log_file, create_script, found_zero):
+    def failure_update(self, job_log_file, create_script, found_zero, bad_output ):
 
         # Generic diagnostic for jobs that do not finish successfully.
         # Inspect job_log_file in log_dir to determine if
@@ -2143,6 +2146,7 @@ class Program:
         #   job_log_file  : file to search for ABORT message
         #   create_script : True to create script to repeate failure
         #   found_zero    : T -> job finished ok, but zero events processed.
+        #   bad_output    : T -> bad output detected by science code
         #
         # Beware that fail-stats are not stored in memory because the 
         # merge/monitor tasks exit and re-start. Therefore, failure 
@@ -2212,6 +2216,8 @@ class Program:
             FAIL_INDEX = FAIL_INDEX_ABORT
         elif found_zero :
             FAIL_INDEX = FAIL_INDEX_ZERO
+        elif bad_output :
+            FAIL_INDEX = FAIL_INDEX_BAD    # Feb 2025
         else :
             FAIL_INDEX = FAIL_INDEX_UNKNOWN
 
@@ -2222,7 +2228,7 @@ class Program:
         n_job_fail          = n_job_fail_list[0]
         msg = f"    *** FAIL {n_job_fail:3d} for " \
               f"{job_log_file}   FAIL_MODE={FAIL_MODE}  " \
-              f"found_zero={found_zero}"
+              f"found_zero={found_zero}  bad_output={bad_output}"
         logging.info(msg)
 
         # - - - - - - - - - - - - - - -
@@ -2414,14 +2420,18 @@ class Program:
         # check_for_failures so that ABORT message can be
         # extracted elsewhere .
         #
-        
+        # Feb 2025: check for BAD_OUTPUT key
+
         n_key              = len(yaml_key_list)
         n_split            = len(log_file_list)
         key_AIZ            = 'ABORT_IF_ZERO'
-        aiz_list           = [ -9 ] * n_split
+        key_BAD            = 'BAD_OUTPUT'   
+        aiz_list           = [ -9 ]    * n_split
+        bad_list           = [ False ] * n_split
         aiz_max            = 0
         n_aiz_zero         = 0
-        
+        n_bad              = 0
+
         # init output dictionary
         job_stats = { 'nfail' : 0 }
         for key in yaml_key_list :
@@ -2438,11 +2448,14 @@ class Program:
 
             if os.path.isfile(YAML_FILE) :
                 stats_yaml       = util.extract_yaml(YAML_FILE, None, None )
-            
-                aiz              = stats_yaml[key_AIZ]
+                aiz              = stats_yaml[key_AIZ]                    # required key
+                bad              = stats_yaml.setdefault(key_BAD,False)   # optional key (Feb 2025)
+
                 aiz_list[isplit] = aiz
+                bad_list[isplit] = bad
                 if aiz > aiz_max : aiz_max = aiz
                 if aiz == 0 : n_aiz_zero += 1
+                if bad      : n_bad += 1
             
                 for item in yaml_key_list :
                     key, key_sum, key_list  = self.keynames_for_job_stats(item)
@@ -2483,7 +2496,8 @@ class Program:
         for isplit in range(0,n_split):
             log_file   = log_file_list[isplit]
             aiz        = aiz_list[isplit]            
-            found_fail =  self.check_for_failure(log_file, aiz, isplit+1)
+            bad        = bad_list[isplit]            
+            found_fail =  self.check_for_failure(log_file, aiz, bad, isplit+1)
             if found_fail : job_stats['nfail'] += 1
 
         return job_stats

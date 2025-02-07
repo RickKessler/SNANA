@@ -298,7 +298,9 @@ For help, run code with no arguments
               input file.
 
  Dec 01 2024: fix CONTAM computation to ignore spec-confirmed subsets.
- Feb 06 2025: tune crazy_M0_errors to account for muCOVscale
+ Feb 06 2025: 
+   + tune crazy_M0_errors to account for muCOVscale
+   + allow up to 2 repeated fit attempts to avoid crazy M0 errors
 
  ******************************************************/
 
@@ -2225,8 +2227,8 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   //  if M0 errors are crazy small, repeat fit, but only one repeat.
   // May 27 2024: repeat if MNSTAT=2 (Suspect fit; errors forced positive)
   bool IS_CRAZYERR = crazy_M0_errors();
-  if ( IS_CRAZYERR &&  NCALL_SALT2mu_DRIVER_EXEC == 1 ) {
-    double delta_alpha = 0.001;
+  if ( IS_CRAZYERR &&  NCALL_SALT2mu_DRIVER_EXEC <=2 ) {
+    double delta_alpha = 0.001;  //
     double delta_beta  = 0.01;
     INPUTS.parval[IPAR_ALPHA0] += delta_alpha ;
     INPUTS.parval[IPAR_BETA0]  += delta_beta  ;
@@ -3876,7 +3878,7 @@ bool crazy_M0_errors(void) {
     if ( NEVT < 3 ) { continue; }  
 
     XN             = (double)NEVT;
-    ERRMIN_COMPUTE = AVG_muCOVscale[iz] * sigint_ref / sqrt(XN); 
+    ERRMIN_COMPUTE = sqrt(AVG_muCOVscale[iz]) * sigint_ref / sqrt(XN); 
     ERRMIN_CRAZY   = ERRMIN_COMPUTE * ERRMIN_FRAC_CRAZY ;
     
     if( LDMP ) {
@@ -19207,6 +19209,21 @@ int SPLITRAN_ACCEPT(int isn, int snid) {
 // ======================================
 void  CPU_SUMMARY(void) {
 
+
+
+  int NFIT = NCALL_SALT2mu_DRIVER_EXEC;
+  fprintf(FP_STDOUT,"\n NFIT_EXEC = %d\n", NFIT);
+  if ( NFIT > 1 )
+    { fprintf(FP_STDOUT,"   (first %d FIT attempts resulted in crazy M0 errors)\n", NFIT-1); }
+
+  //.xyz
+  int  NERR  = NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC];
+  if ( NERR > 0 ) {     
+    fprintf(FP_STDOUT,"\n !!!! %s ERROR detected; see CRAZY messages above !!! \n", YAMLKEY_BAD_OUTPUT);
+  }
+
+
+  // - - - - - - - - 
   // Created Nov 22 2017
   fprintf(FP_STDOUT, "\n PROCESS-TIME SUMMARY: \n");
 
@@ -20740,20 +20757,8 @@ void write_yaml_info(char *fileName) {
   sprintf(KEY,"NWARN_CRAZYERR:");
   fprintf(fp,"%-22.22s %d\n", KEY, NERR);
 
-  // xxxxxxxxxxxx
-  if ( INPUTS.debug_flag == 206 ) {
-    if ( (NDATA_PASS % 5) == 0 ) { NERR += 1; }
-    // printf(" xxx %s: NDATA_PASS = %d  NERR=%d \n", fnam, NDATA_PASS, NERR);
-    fflush(stdout);
-  }
-  // xxxxxxxxxxxx .xyz
-
-  if ( NERR > 0 ) {     
-    sprintf(KEY,"%s:", YAMLKEY_BAD_OUTPUT);
-    fprintf(fp,"%-22.22s True \n", KEY);  // Feb 2025
-    fprintf(FP_STDOUT,"\n !!!! %s ERROR detected; see CRAZY messages above !!! \n", YAMLKEY_BAD_OUTPUT);
-  }
-
+  sprintf(KEY,"NFIT_EXEC:");
+  fprintf(fp,"%-22.22s %d\n", KEY, NCALL_SALT2mu_DRIVER_EXEC );
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);

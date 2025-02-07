@@ -149,9 +149,11 @@
 #
 #   Change write-CHUNK size from 1M to 5M
 #
+# Feb 07 2025: fix CPU write-time to exclude matrix invert time.
+#
 # ===============================================
 
-import os, argparse, logging, shutil, time, subprocess
+import os, argparse, logging, shutil, time, datetime, subprocess
 import re, yaml, sys, gzip, math, gc
 import numpy  as np
 import pandas as pd
@@ -225,6 +227,10 @@ KEY_DOCANA    = "DOCUMENTATION"
 KEY_SIM_INPUT = "INPUT_KEYS_SNIaMODEL00"
 KEYLIST_COSPAR_SIM = [ 'OMEGA_MATTER', 'OMEGA_LAMBDA', 'w0_LAMBDA', 'wa_LAMBDA',
                        'MUSHIFT' ]
+
+# define date stamp to mark backup version
+tnow       = datetime.datetime.now()
+DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 # ============================
 def setup_logging():
@@ -1185,7 +1191,7 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
     
     return covtot_inv, t_tot
 
-    # end check_cov_invertible
+    # end get_cov_invert
                 
 
 def is_unitary(matrix: np.ndarray) -> bool:
@@ -1233,11 +1239,16 @@ def write_standard_output(config, args, covsys_list, base,
     outdir         = Path(os.path.expandvars(config["OUTDIR"]))
     os.makedirs(outdir, exist_ok=True)
 
+    args.t_invert_sum = 0.0
+    args.t_write_sum  = 0.0 
+
     # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
     muerr_sys_list = get_muerr_sys(covsys_list)
             
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
+    t0 = time.time()
+
     for label in label_list:
         base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
 
@@ -1252,11 +1263,12 @@ def write_standard_output(config, args, covsys_list, base,
         else:
             write_HD_binned(data_file, data[label], muerr_sys_list)
 
+    args.t_write_sum += (time.time() - t0)
     
     # write covariance matrices and datasets
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
-    args.t_invert_sum = 0.0
+
     
     for i, (label, covsys) in enumerate(covsys_list):
 
@@ -1265,7 +1277,8 @@ def write_standard_output(config, args, covsys_list, base,
         if config['write_covsys']:
             base_file   = get_covsys_filename(i)
             cov_file    = outdir / base_file
-            write_covariance(cov_file, covsys, opt_cov)
+            t_write     = write_covariance(cov_file, covsys, opt_cov)
+            args.t_write_sum += t_write
 
         # Apr 2024: check writing covtot_inv 
         if config['write_covtot_inv']:
@@ -1275,7 +1288,8 @@ def write_standard_output(config, args, covsys_list, base,
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
             base_file   = get_covtot_inv_filename(i)
             cov_file    = outdir / base_file
-            write_covariance(cov_file, covtot_inv, opt_cov)
+            t_write     = write_covariance(cov_file, covtot_inv, opt_cov)
+            args.t_write_sum += t_write
 
             # resource control/monitor
             del covtot_inv   # avoid memory pile up (Jan 2025)
@@ -1286,65 +1300,7 @@ def write_standard_output(config, args, covsys_list, base,
 
     # end write_standard_output
 
-def write_standard_output_legacy(config, args, covsys_list, covtot_inv_list,
-                                 data, label_list):
 
-    # Created 9.22.2021 by R.Kessler
-    # Write standard cov matrices and HD for cosmology fitting programs;
-    # e.g., wfit, CosmoSIS, firecrown ...
-    # Note that CosmoMC uses a more specialized output created
-    # by write_cosmomc_output().
-
-    # P. Armstrong 05 Aug 2022
-    # Add option to create hubble_diagram.txt for each systematic as well
-
-
-    unbinned       = args.unbinned
-    label_cov_rows = args.label_cov_rows
-    outdir         = Path(os.path.expandvars(config["OUTDIR"]))
-    os.makedirs(outdir, exist_ok=True)
-
-    # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
-    muerr_sys_list = get_muerr_sys(covsys_list)
-            
-    # - - - -
-    # P. Armstrong 05 Aug 2022: Write HD for each label
-    for label in label_list:
-        base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
-
-        # If creating HD for nominal, write to hubble_diagram.txt
-        if label == base_name:
-            data_file = outdir / HD_FILENAME
-        else:
-            data_file = outdir / f"{label}_{HD_FILENAME}"
-
-        if unbinned :
-            write_HD_unbinned(data_file, data[label], muerr_sys_list)
-        else:
-            write_HD_binned(data_file, data[label], muerr_sys_list)
-
-    
-    # write covariance matrices and datasets
-    opt_cov = 0  # no comment in cov file
-    if label_cov_rows: opt_cov+=1
-    for i, (label, covsys) in enumerate(covsys_list):
-
-        if config['write_covsys']:
-            base_file   = get_covsys_filename(i)
-            cov_file    = outdir / base_file
-            write_covariance(cov_file, covsys, opt_cov)
-
-        # Apr 2024: check writing covtot_inv 
-        if config['write_covtot_inv']:
-            covtot_inv  = covtot_inv_list[i]
-            base_file   = get_covtot_inv_filename(i)
-            cov_file    = outdir / base_file
-            write_covariance(cov_file, covtot_inv, opt_cov)
-    
-    return
-
-    # end write_standard_output_legacy
-    
 def get_covsys_filename(i):
     # Created Oct 13 2022 by R.Kessler: 
     # return name of covsys file for systematic index i
@@ -1417,7 +1373,7 @@ def write_cosmomc_output(config, args, covs, base):
         dataset_file = out / f"dataset_{i}.txt"
         covsyst_file = out / f"{prefix_covsys}_{i}.txt" 
 
-        write_covariance(covsyst_file, cov, opt_cov)
+        t_write = write_covariance(covsyst_file, cov, opt_cov)
         write_cosmomc_dataset(dataset_file, data_file, 
                               covsyst_file, dataset_template)
         dataset_files.append(dataset_file)
@@ -1648,10 +1604,13 @@ def write_HD_comments(f, unbinned, wrflag_syserr, wrflag_pbeams):
     # end write_HD_comments
 
 def write_covariance(path, cov, opt_cov):
-    
+
+    # write cov matrix to path; return time to write (seconds)
+
     add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
     nrow           = cov.shape[0]
+    t0             = time.time()
 
     logging.info(f"Write to {file_base}")
 
@@ -1712,12 +1671,10 @@ def write_covariance(path, cov, opt_cov):
             logging.info(f"\t\t Write chunk {n_chunk} of {n_chunk_expect}  {str_stat}")
             f.write(f"{str_cov}\n")
 
-        # xxxxx mark delete Nov 19 2024 xxxxxxx
-        #str_cov = '\n'.join([str(f"{x:13.6e}") for x in cov.flatten() ] )
-        #f.write(f"{str_cov}\n")
-        # xxxxxxx end mark xxxxxxxxxx
-        
     f.close()
+    t_write = time.time() - t0
+    return t_write
+
 
     # end write_covariance
 
@@ -1999,20 +1956,6 @@ def create_covariance(config, args):
         
     args.tend_cov = time.time()
 
-    # xxxxxxxxx mark delete Jan 1 2025 xxxxxxxx
-    # Compute & validate covtot_inv only if it is requested
-    #covtot_inv_list = []
-    #if config['write_covtot_inv']:
-    #    logging.info("")
-    #    logging.info("# ========== fetch inverse ===============")
-    #    for (label, cov) in covsys_list:
-    #        if FLAG_WAIT: input("Press Enter to continue...")
-    #        covtot_inv = get_cov_invert(label, cov, base[VARNAME_MUERR])
-    #        covtot_inv_list.append(covtot_inv)
-    #    args.tend_cov_invert = time.time()  
-    # xxxxxxx
-
-
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
     if args.systematic_HD:
@@ -2021,14 +1964,12 @@ def create_covariance(config, args):
     else:
         label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
 
-    args.tstart_write = time.time()
+    # xxx mark delete args.tstart_write = time.time()
 
     logging.info("")
     logging.info("# ================  OUTPUT ================= ")
 
     # write standard output for cov(s) and hubble diagram (9.22.2021)
-    #write_standard_output_legacy(config, args, covsys_list, covtot_inv_list,
-    #                             data, label_list)
 
     write_standard_output(config, args, covsys_list, base,
                           data, label_list)    
@@ -2039,7 +1980,7 @@ def create_covariance(config, args):
 
     write_summary_output(args, config, covsys_list, base)
 
-    args.tend_write = time.time()
+    # xxx mark del args.tend_write = time.time()
 
     args.tend_all = time.time()
 
@@ -2138,7 +2079,8 @@ def loginfo_cpu_summary(args):
         cpu_minutes = args.t_invert_sum / 60.0
         logging.info(f"CPUTIME_COV_INVERT   = {cpu_minutes:.3f} minutes")
     
-    cpu_minutes = (args.tend_write - args.tstart_write)/60.0
+    # xxx mark cpu_minutes = (args.tend_write - args.tstart_write)/60.0
+    cpu_minutes = args.t_write_sum / 60.0
     logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")
 
     cpu_minutes = (args.tend_all - args.tstart_all)/60.0
@@ -2164,7 +2106,7 @@ if __name__ == "__main__":
 
     try:
         setup_logging()
-        logging.info("# ========== BEGIN create_covariance ===============")
+        logging.info(f"# ========== BEGIN create_covariance {tnow} ===============")
         
         command = " ".join(sys.argv)
         logging.info(f"# Command: {command}")

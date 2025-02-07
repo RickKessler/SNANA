@@ -1146,8 +1146,9 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
 
         # First just try and invert it to catch singular matrix errors
         # precision -> covtot_inv
+        logging.info(f"\t\t WAIT for {label} covtot invert process ... ")
         covtot_inv = np.linalg.inv(covtot)    
-        t_inv = time.time()
+        t_inv      = time.time()
         str_tproc = f"({t_inv-t_start:.2f} sec)"
         logging.info(f"\t\t {label} covtot has been inverted {str_tproc}")
         
@@ -1155,6 +1156,7 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         # Check if matrix is unitary and pos-definite.
         pr   = np.dot(covtot,covtot_inv)
         pr   = np.round(pr,decimals=3)
+        logging.info(f"\t\t WAIT for {label} unitarity check ... ")
         flag = is_unitary(np.round(pr,decimals=2))
         t_uni= time.time()
         str_tproc = f"({t_uni-t_inv:.2f} sec)"

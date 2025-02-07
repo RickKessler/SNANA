@@ -12,12 +12,9 @@ SNANA tutorial:
   https://kicp.uchicago.edu/~kessler/SNANA_Tutorial/SNANA_Tutorial_2023-05.pdf
 
 
-For NERSC TD Perlmutter version,during git operations
-  If you get "detected dubious ownership" error, apply this line before :
-  
-  git config --global --add safe.directory /global/cfs/cdirs/desc-td/SOFTWARE/SNANA
-
-  Git pull should work now
-
+If 'git pull' results in  "detected dubious ownership" error on a compute cluster, 
+try the following :
+     git config --global --add safe.directory <SNANA_DIR>
+     git pull
 
 

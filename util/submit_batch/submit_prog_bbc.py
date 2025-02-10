@@ -84,6 +84,8 @@
 # Feb 04 2025: fix BBC_SUMMARY_FITPAR.YAML to be yaml compliant and add comments with
 #              VERSION FITOPT_MUOPT to enable clever grepping out results
 #
+# Feb 07 2025: fix a few bugs so that --ignore_fitopt works
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -280,6 +282,7 @@ class BBC(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file 
+        ignore_fitopt   = self.config_yaml['args'].ignore_fitopt
         devel_flag      = self.config_yaml['args'].devel_flag
         IS_FITOPT_MAP   = BLOCKNAME_FITOPT_MAP in self.config_yaml
         msgerr = []
@@ -419,7 +422,9 @@ class BBC(Program):
         # - - - - -
         # abort if n_fitopt is different for any INPDIR
         SAME = len(set(n_fitopt_list)) == 1
-        if not SAME and not IS_FITOPT_MAP :
+        IGNORE_SAME_TEST = IS_FITOPT_MAP or ignore_fitopt
+        # xxx mark if not SAME and not IS_FITOPT_MAP :
+        if not SAME and not IGNORE_SAME_TEST :
             msgerr = []
             msgerr.append(f"Mis-match number of FITOPT; "\
                           f"n_fitopt = {n_fitopt_list} for") 
@@ -732,11 +737,7 @@ class BBC(Program):
         #  2) use FITOPT_MAP (likely created by Pippin)
         #
 
-        if not USE_INPDIR : 
-            self.config_prep['n_fitopt']            = 1
-            self.config_prep['fitopt_num_outlist']  = [ 'FITOPT000' ]
-            self.config_prep['FITOPT_OUT_LIST']     = [ ]
-            return 
+        ignore_fitopt   = self.config_yaml['args'].ignore_fitopt
 
         IS_FITOPT_MAP = BLOCKNAME_FITOPT_MAP in self.config_yaml
         n_inpdir            = self.config_prep['n_inpdir']
@@ -747,6 +748,16 @@ class BBC(Program):
         fitopt_num_outlist     = []
         fitopt_num_outlist_map = []
         msgerr = []
+
+        if not USE_INPDIR or ignore_fitopt : 
+            self.config_prep['n_fitopt']                = 1
+            self.config_prep['fitopt_num_outlist']      = [ 'FITOPT000' ]
+            self.config_prep['fitopt_num_outlist_map']  = [[ 'FITOPT000' ]*n_inpdir ]  # Feb 2025
+            self.config_prep['FITOPT_OUT_LIST']         = [ ]
+
+            #fitopt_num_outlist_map = self.config_prep['fitopt_num_outlist_map']
+            #sys.exit(f"\n xxx fitopt_num_outlist_map = \n{fitopt_num_outlist_map}")
+            return 
 
         if IS_FITOPT_MAP :
             FITOPT_MAP = self.config_yaml[BLOCKNAME_FITOPT_MAP]
@@ -815,6 +826,8 @@ class BBC(Program):
         # - - - - - - - - - - - - - 
         # prepare FITOPT_OUT_LIST table for SUBMIT.INFO file
         self.make_FITOPT_OUT_LIST()
+
+        return
 
         # end bbc_prep_fitopt_outlist(self)
 

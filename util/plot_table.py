@@ -7,6 +7,7 @@
 # to simplified user input.
 #
 # Jan 7 2025: input "@@LEGEND NONE" suppresses legend.
+# Feb 11 2025: add @@YMAX_SCALE argument
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -261,6 +262,9 @@ and two types of command-line input delimeters
   Mean, Median, stdev only include entries within the plot bounds; 
   overflows are ignored.
 
+@@YMAX_SCALE 
+  scale ymax for 1D histogram; useful to give more space for legend
+
 @@NBIN_AUTO_SCALE
   scale number of bins with automatic bounds; must be integer
 
@@ -464,6 +468,9 @@ def get_args():
     msg = "AUTO (default): optional bounds min, max and binsize of plot parameters.\n" \
           "For 2D plot, must specify both x and y bounds. y-binsize is ignored."
     parser.add_argument('@@BOUNDS', '@@bounds', default=None, help=msg, nargs = '+' )
+
+    msg = "Scale YMAX for 1D histogram"
+    parser.add_argument('@@YMAX_SCALE', '@@ymax_scale', default=None, help=msg, type=float )
 
     msg = "scale auto NBIN  (no @@BOUNDS input)"
     parser.add_argument('@@NBIN_AUTO_SCALE', '@@nbin_auto_scale',
@@ -2163,7 +2170,7 @@ def is_cid_subset(plot_dict, df0, df1):
     # This result is used to determine if errors on a ratio are independent
     # or correlated-binomial.
 
-    MIN_OVERLAP_SUBSET = 0.98
+    MIN_OVERLAP_SUBSET = 0.97
     is_subset     = False
     varname_idrow = plot_dict['varname_idrow']
 
@@ -2173,6 +2180,7 @@ def is_cid_subset(plot_dict, df0, df1):
     ndif = len(temp)
     overlap = 1.0 - ndif/n0
 
+    logging.info(f"\t CID overlap: {overlap:.4f}")
     is_subset = ( overlap > MIN_OVERLAP_SUBSET)
         
     return is_subset
@@ -2440,7 +2448,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
             plt.ylim(ymin, ymax)
 
     # - - - -
-    ymin, ymax    = plt.ylim() # valid for auto or custom bounds
+    ymin, ymax = plt.ylim() # valid for auto or custom bounds
+
+    if args.YMAX_SCALE:  # Feb 2025
+        ymax *= args.YMAX_SCALE
+        plt.ylim(ymin,ymax) 
 
     if do_diag_line:
         x = np.linspace(xmin,xmax,100);  y = x

@@ -10,10 +10,11 @@
 #
 # ==============================================
 
-import os
+import os, sys
 import datetime
 import time
 import getpass
+
 #from colorama import Fore, Style
 
 # start with flags that should be switched to command-line args
@@ -113,18 +114,24 @@ STOP_ALL_ON_MERGE_ERROR = False
 SNANA_ABORT_STRING    = "FATAL ERROR ABORT"
 FAIL_SUMMARY_FILE     = "FAIL_SUMMARY.LOG"
 
-
-FAIL_MODE_COMMENTS = [ '', \
-                       'tail LOG file for more info', \
-                       'check cuts, genRanges, etc...', \
-                       'segFault? diskQuota? wallTime?'   ]
-
 # FAIL_INDEX_XXX are used to select FAIL_MODE and FAIL_COMMENT (above)
 FAIL_INDEX_ABORT    = 1  # explicit abort from code
 FAIL_INDEX_ZERO     = 2  # zero events in output
 FAIL_INDEX_BAD      = 3  # bad output detected (e.g.. crazy fit params)
 FAIL_INDEX_UNKNOWN  = 4  # undetectable error such as crash 
+
 FAIL_MODE_STRINGS  = [ 'TOTAL', 'ABORT', 'ZERO_EVENTS', 'BAD_OUTPUT', 'UNKNOWN' ]
+
+FAIL_MODE_COMMENTS = [ '', \
+                       'tail LOG file for more info', \
+                       'check cuts, genRanges, etc...', \
+                       'band output', \
+                       'segFault? diskQuota? wallTime?'   ]
+
+
+if len(FAIL_MODE_STRINGS) != len(FAIL_MODE_COMMENTS) :
+    sys.exit(f"\n ERROR: sizes of FAIL_MODE_STRINGS & FAIL_MODE_COMMENTS are different. \n" \
+             f"\t Fix it in submit_params.py !!!")
 
 CMD_wildcard        = "CPU*.CMD"  # need to read all CMD files
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]

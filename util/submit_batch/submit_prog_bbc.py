@@ -1669,10 +1669,11 @@ class BBC(Program):
         #print(f" xxx iver={iver}, ifit={ifit}, imu={imu} ", \
             #flush=True)
 
-        input_file    = self.config_yaml['args'].input_file 
-        prescale      = self.config_yaml['args'].prescale
-        kill_on_fail  = self.config_yaml['args'].kill_on_fail
-        iter2         = self.config_yaml['args'].iter2
+        args = self.config_yaml['args']
+        input_file    = args.input_file 
+        prescale      = args.prescale
+        kill_on_fail  = args.kill_on_fail
+        iter2         = args.iter2
         iter1         = not iter2
 
         program      = self.config_prep['program']
@@ -1765,7 +1766,9 @@ class BBC(Program):
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
-                # xxx?? f" {STRING_SUCCESS}" # require SUCCESS in file
+                if args.refac_file_check :
+                    wait_file += f" {STRING_SUCCESS}" # require SUCCESS in file
+                    JOB_INFO['refac_file_check'] = True
                 select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
@@ -1776,6 +1779,7 @@ class BBC(Program):
 
         # - - - - - 
         JOB_INFO['arg_list'] = arg_list
+
 
         return JOB_INFO
 

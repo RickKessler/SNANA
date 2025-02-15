@@ -2316,9 +2316,15 @@ class LightCurveFit(Program):
             label = row[1]  
             fitres_file = f"{num}.{SUFFIX_FITRES}"
             FITRES_FILE = f"{fitres_dir}/{fitres_file}"
+
+            # Feb 2025: if it's a symbolic link with .gz, resolve it to get realpath
+            if os.path.islink(FITRES_FILE+'.gz'):
+                real_ff     = os.path.realpath(FITRES_FILE+'.gz')
+                FITRES_FILE = real_ff.split('.gz')[0]  # remove .gz
+
             NOREJECT    = FITOPT_STRING_NOREJECT in label
             if NOREJECT : continue
-            #print(f" xxx process {FITRES_FILE}")
+
             df = pd.read_csv(FITRES_FILE, delim_whitespace=True, comment="#")
             if combined is None:
                 combined = df.index

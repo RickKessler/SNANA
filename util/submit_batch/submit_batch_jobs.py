@@ -151,6 +151,9 @@ def get_args():
     msg = "INTERNAL:  2nd iteration"
     parser.add_argument("--iter2", help=msg, action="store_true")
 
+    msg = "Refactor file checks in CPU*.CMD; use new wait_for_file.py util"
+    parser.add_argument("--refac_file_check", help=msg, action="store_true")
+
     args = parser.parse_args()
 
     # internally set prescale arg

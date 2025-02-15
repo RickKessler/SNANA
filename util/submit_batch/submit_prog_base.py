@@ -1212,8 +1212,13 @@ class Program:
 
 
         arg_list   = sys.argv 
-        if not args.kill_on_fail: arg_list.append('--kill_on_fail')  # Jun 27 2022
+        if not args.kill_on_fail: 
+            arg_list.append('--kill_on_fail')  # Jun 27 2022
+
         arg_list.append('--iter2')
+
+        if args.refac_file_check:
+            args_list.append('--refac_file_check')  # temporary, Feb 14 2025
 
         arg_string = " ".join(arg_list) 
         logging.info(f"\n submit_iter2 with \n  {arg_string}\n")

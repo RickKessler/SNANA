@@ -957,9 +957,11 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
         msg = f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})"
         logging.info(msg)
 
+    return
+
     # end wait_for_file
 
-def write_job_info(f,JOB_INFO,icpu):
+def write_job_info(f, JOB_INFO, icpu):
 
     # write job program plus arguemnts to file pointer f.
     # All job-info params are passed via JOB_INFO dictionary.
@@ -977,6 +979,8 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
     msgerr       = []
+
+    refac_file_check = JOB_INFO.setdefault('refac_file_check',False) # temporary. Feb 2025
 
     check_abort    = JOB_INFO.get(arg_check_abort,False)
     kill_on_fail   = JOB_INFO.get(arg_kill_on_fail,False)
@@ -999,24 +1003,13 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"if [ -f {all_done_file} ] ; then \n")
         msg_echo = f"Found unexpected {DEFAULT_DONE_FILE} -> something FAILED."
         f.write(f"  echo '  {msg_echo}' \n")
-
-        if kill_on_fail :
-            msg_echo = f"Kill all remaining jobs."
-            cmd_kill = f"  cd {CWD}\n"\
-                       f"  {sys.argv[0]} \\\n" \
-                       f"     {sys.argv[1]} --cpunum {icpu} -k "
-        else:
-            msg_echo = "Continue with next job."
-
-        f.write(f"  echo '  {msg_echo}' \n")
-        if kill_on_fail: f.write(f"{cmd_kill} \n")
+        write_kill_jobs(f, kill_on_fail, icpu)
         f.write(f"fi \n\n")
 
     if CHECK_CODE_EXISTS :
         # wait for program to appear in case SNANA make is in progress
 
         program_plus_path = find_program(program)
-
         wait_for_code = f"while [ ! -x {program_plus_path} ]; " \
                         f"do sleep 5; done"
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
@@ -1029,24 +1022,37 @@ def write_job_info(f,JOB_INFO,icpu):
         #               exit if SUCCESS is not in file.
         
         tmp_list      = JOB_INFO['wait_file'].split()
-
         wait_file     = tmp_list[0]  # wait for this file to exist
-        wait_for_file = f"while [ ! -f {wait_file} ]; " \
-                        f"do sleep 10; done"
         f.write(f"echo 'Wait for {wait_file}'\n")
-        f.write(f"{wait_for_file}\n")
 
-        # Jun 2022 - check for optional string to require in wait_file
-        if len(tmp_list) > 1 :
-            str_require = tmp_list[1]
-            f.write(f"if ! grep -q {str_require} {wait_file}\n")
-            f.write(f"then\n")
-            f.write(f"  echo ' '  \n")
-            f.write(f"  echo 'Did not find required {str_require} string " \
-                    f" in {wait_file} -> exit' \n")
-            f.write(f"  exit 1 \n")
-            # problem; need to create ALL.DONE file with FAIL ???
+        if refac_file_check:
+            cmd_wait = "{PROGRAM_NAME_WAIT_FOR_FILE} {wait_file} "
+            if len(tmp_list) > 1 :  
+                string_require = tmp_list[1]
+                cmd_wait += f"-s {string_require} "  # require this string in file
+
+            f.write(f"{cmd_wait}\n")
+            f.write(f"if [ $? != 0 ] ; then \n")
+            write_kill_jobs(f, kill_on_fail, icpu)
             f.write(f"fi \n\n")
+
+        else:
+            cmd_wait = f"while [ ! -f {wait_file} ]; do sleep 10; done"
+            f.write(f"{cmd_wait}\n")
+
+        # xxxx mark delete Feb 14 2025 xxxxxxxx
+        # Jun 2022 - check for optional string to require in wait_file
+        #if len(tmp_list) > 1 :
+        #    str_require = tmp_list[1]
+        #    f.write(f"if ! grep -q {str_require} {wait_file}\n")
+        #    f.write(f"then\n")
+        #    f.write(f"  echo ' '  \n")
+        #    f.write(f"  echo 'Did not find required {str_require} string " \
+        #            f" in {wait_file} -> exit' \n")
+        #    f.write(f"  exit 1 \n")
+        #    # problem; need to create ALL.DONE file with FAIL ???
+        #    f.write(f"fi \n\n")
+        # xxxxxxxxxxxxx
 
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 
@@ -1086,8 +1092,28 @@ def write_job_info(f,JOB_INFO,icpu):
             f.write(f"{link} \n")
         f.write(f"\n")
 
+    return
+
     # end write_job_info
 
+def write_kill_jobs(f, kill_on_fail, icpu):
+
+    # Created Feb 14 2025
+    # write bash comments to kill remaining jobs.
+    # f  is file pointer of bash script; icpu is cpu number for this task.
+
+    if kill_on_fail :
+        msg_echo = f"Kill all remaining jobs."
+        cmd_kill = f"  cd {CWD}\n"\
+                   f"  {sys.argv[0]} \\\n" \
+                   f"     {sys.argv[1]} --cpunum {icpu} -k "
+        f.write(f"  echo '  {msg_echo}' \n")
+        f.write(f"{cmd_kill} \n")
+    else:
+        f.write(f"  echo '  Continue' \n")
+
+    return
+    
 def find_program(program):
 
     # Created Oct 11 2021 by R.Kessler

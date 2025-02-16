@@ -519,9 +519,9 @@ def load_hubble_diagram(hd_file, args, config):
 
     # Sort by CID for unbinned; sort by z for M0DIF
     # --> ensure direct subtraction comparison
-    if "CID" in df.columns:
-        df["CID"] = df["CID"].astype(str)
-        df = df.sort_values([ "zHD", "CID"])  # July 2024: protect HDIBC
+    if VARNAME_CID in df.columns:
+        df[VARNAME_CID] = df[VARNAME_CID].astype(str)
+        df = df.sort_values([ VARNAME_zHD, VARNAME_CID])  # July 2024: protect HDIBC
         df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
 
         if args.subtract_vpec:
@@ -534,13 +534,15 @@ def load_hubble_diagram(hd_file, args, config):
             logging.debug(f"Subtracted {VARNAME_MUERR_VPEC} " \
                           f"from {VARNAME_MUERR}")
 
-        df['CIDstr'] = df['CID'].astype(str) + "_" + \
-                       df['IDSURVEY'].astype(str)
+        # - - - - - - - - -
+
+        df['CIDstr'] = df[VARNAME_CID].astype(str) + "_" + \
+                       df[VARNAME_IDSURVEY].astype(str)
 
         # we need to make a new column to index the dataframe on 
         # unique rows for merging two different systematic dfs - Dillon
-        df['CIDindex'] = df['CID'].astype(str) + "_" + \
-                         df['IDSURVEY'].astype(str)
+        df['CIDindex'] = df[VARNAME_CID].astype(str) + "_" + \
+                         df[VARNAME_IDSURVEY].astype(str)
         df = df.set_index("CIDindex")
 
     elif 'z' in df.columns:  # for M0DIF file that has z instead of zHD
@@ -1144,6 +1146,10 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         diag_muerr_cov = np.diag(muerr_stat_list**2)
         covtot         = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
 
+        if args.debug_flag == 215 : 
+            covtot *= 20.0
+            logging.info(f" xxx covtot *= 20 before invert")
+
         # First just try and invert it to catch singular matrix errors
         # precision -> covtot_inv
         logging.info(f"\t\t WAIT for {label} covtot invert process ... ")
@@ -1152,6 +1158,10 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         str_tproc = f"({t_inv-t_start:.2f} sec)"
         logging.info(f"\t\t {label} covtot has been inverted {str_tproc}")
         
+        if args.debug_flag == 215 : 
+            covtot /= 20.0
+            covtot_inv *= 20.0
+
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
         pr   = np.dot(covtot,covtot_inv)

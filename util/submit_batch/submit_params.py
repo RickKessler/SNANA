@@ -55,6 +55,7 @@ PROGRAM_NAME_WAIT_FOR_FILE = "wait_for_file.py"  # util to wait for file and opt
 
 SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"
+SBATCH_COMMAND    = 'sbatch'
 
 # define subDir for batch scripts
 SUBDIR_SCRIPTS_SIM    = ""

@@ -1026,14 +1026,17 @@ def write_job_info(f, JOB_INFO, icpu):
         f.write(f"echo 'Wait for {wait_file}'\n")
 
         if refac_file_check:
-            cmd_wait = "{PROGRAM_NAME_WAIT_FOR_FILE} {wait_file} "
+            cmd_wait = f"{PROGRAM_NAME_WAIT_FOR_FILE} {wait_file} "
             if len(tmp_list) > 1 :  
                 string_require = tmp_list[1]
                 cmd_wait += f"-s {string_require} "  # require this string in file
 
             f.write(f"{cmd_wait}\n")
             f.write(f"if [ $? != 0 ] ; then \n")
-            write_kill_jobs(f, kill_on_fail, icpu)
+            if icpu == 0:
+                write_kill_jobs(f, kill_on_fail, icpu)
+            else:
+                f.write("  exit\n")  # let icpu=0 kill all the jobs
             f.write(f"fi \n\n")
 
         else:

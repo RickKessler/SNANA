@@ -37,6 +37,9 @@
 # Feb 06 2025: check for BAD_OUTPUT flag in output YAML files.
 #              Initial use is to check for crazy errors in BBC fit.
 #
+# Feb 16 2025: fix kill-job logic to work properly when first iteration BBC job fails,
+#              so that both iterations are stopped and produce STOP in ALL.DONE file.
+#
 # ============================================
 
 #import argparse
@@ -218,6 +221,7 @@ class Program:
     
         # check of SSH or BATCH, and parse relevant strings
 
+
         NODELIST      = ''
         n_core        = 0
         submit_mode   = "NULL"
@@ -302,6 +306,7 @@ class Program:
         config_prep['maxjob']      = maxjob
         config_prep['nthreads']    = nthreads
         config_prep['batch_single_node'] = batch_single_node
+
         return
         
     # end parse_batch_info
@@ -379,19 +384,47 @@ class Program:
         # create_output_dir sets dir names, but won't create anything
         # because kill flag is set
         self.create_output_dir()
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep.setdefault('submit_info_yaml',None)
 
-        output_dir    = self.config_prep['output_dir']
-        done_list     = self.config_prep['done_stamp_list']
-        submit_mode   = self.config_prep['submit_mode'] 
-        batch_command = self.config_prep['batch_command'] 
+        if submit_info_yaml is None:
+            INFO_PATHFILE    = f"{output_dir}/{SUBMIT_INFO_FILE}"
+            submit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None )
+
+        # xxxxxxxx
+        #print(f"\n xxx kill_jobs: submit_info_yaml = \n{submit_info_yaml}\n") # .xyz
+        #print(f"\n xxx kill_jobs: config_prep = \n{self.config_prep} \n\n")
+        #sys.stdout.flush() # xxxx
+        # xxxxxxx
+
+        done_list     = submit_info_yaml['DONE_STAMP_LIST']
+        submit_mode   = submit_info_yaml['SUBMIT_MODE'] 
+        batch_command = SBATCH_COMMAND   # fragile alert warning
+
+        # xxxx mark delete Feb 16 2025 xxxxxxx
+        #output_dir    = self.config_prep['output_dir']
+        #done_list     = self.config_prep['done_stamp_list']
+        #submit_mode   = self.config_prep['submit_mode'] 
+        #batch_command = self.config_prep['batch_command'] 
+        # xxxxxxxxxxxx
+
         IS_SSH        = submit_mode == SUBMIT_MODE_SSH
         IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
 
 
+        # write FAIL stamps before killing the jobs
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
+        time_now            = datetime.datetime.now()
+        with open(MERGE_LOG_PATHFILE, 'a') as f:
+            f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
+
+        util.write_done_stamp(output_dir, done_list, STRING_STOP)
+
+        # - - - - - - - - - 
         if IS_SSH :
             self.kill_ssh_jobs()
 
-        elif IS_BATCH and batch_command == 'sbatch' :
+        elif IS_BATCH and batch_command == SBATCH_COMMAND :
             self.kill_sbatch_jobs()
 
         else:
@@ -401,14 +434,16 @@ class Program:
             msgerr.append(f"  batch_command = '{batch_command}")
             util.log_assert(False,msgerr)
 
-        # - - - - - - - - 
-        # if we get here, leave notice in both MERGE.LOG and ALL.DONE files
-        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
-        time_now            = datetime.datetime.now()
-        with open(MERGE_LOG_PATHFILE, 'a') as f:
-            f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
 
-        util.write_done_stamp(output_dir, done_list, STRING_STOP)
+        # xxxxxxxxxxx mark delete Feb 2025 xxxxxxxxxxxx
+        # if we get here, leave notice in both MERGE.LOG and ALL.DONE files
+        #MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
+        #time_now            = datetime.datetime.now()
+        #with open(MERGE_LOG_PATHFILE, 'a') as f:
+        #    f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
+        #        util.write_done_stamp(output_dir, done_list, STRING_STOP)
+        # xxxxxxxxxxxxxxxxxx end mark xxxxxxxxxx
+
 
         # end kill_jobs
 
@@ -1218,7 +1253,7 @@ class Program:
         arg_list.append('--iter2')
 
         if args.refac_file_check:
-            args_list.append('--refac_file_check')  # temporary, Feb 14 2025
+            arg_list.append('--refac_file_check')  # temporary, Feb 14 2025
 
         arg_string = " ".join(arg_list) 
         logging.info(f"\n submit_iter2 with \n  {arg_string}\n")
@@ -1235,7 +1270,7 @@ class Program:
         script_dir        = self.config_prep['script_dir']
 
         msgerr = []
-        if batch_command != 'sbatch' : return
+        if batch_command != SBATCH_COMMAND : return
 
         # prep squeue command with format: i=pid, j=jobname            
         cmd = f"squeue -u {USERNAME} -h -o '%i %j' "
@@ -1308,7 +1343,7 @@ class Program:
         batch_single_node = self.config_prep['batch_single_node']
 
         msgerr = []
-        if batch_command != 'sbatch' : return
+        if batch_command != SBATCH_COMMAND : return
 
         # for single-node option, there is only one pid to check
         if batch_single_node:
@@ -1627,6 +1662,7 @@ class Program:
 
         # parse batch info to enable kill_jobs
         self.parse_batch_info(self.config_yaml,self.config_prep)
+
 
         output_dir    = self.config_prep['output_dir']
         submit_mode   = self.config_prep['submit_mode'] 

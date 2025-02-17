@@ -1720,6 +1720,8 @@ def write_summary_output(args, config, covsys_list, base):
         if i==0:
             SIZE_HD = covsys.shape[0]
             
+    # - - - - - - -
+    info['SIZE_HD'] = SIZE_HD
     info["COVOPTS"] = covsys_info
     
     SNANA_VERSION = get_snana_version()
@@ -1741,7 +1743,7 @@ def write_summary_output(args, config, covsys_list, base):
         f.write(f"#\n")
         yaml.safe_dump(info, f )
 
-        f.write(f"\nSIZE_HD: {SIZE_HD}\n\n")  # Nov 2024
+        # xxx mark f.write(f"\nSIZE_HD: {SIZE_HD}\n\n")  # Nov 2024
         
     # - - - - - - - - - - - - - 
     # append cospar_biascor so that it's at the end, rather than 

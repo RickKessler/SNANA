@@ -149,7 +149,8 @@
 #
 #   Change write-CHUNK size from 1M to 5M
 #
-# Feb 07 2025: fix CPU write-time to exclude matrix invert time.
+# Feb 07 2025: fix CPU write-time to exclude matrix invert time
+# Feb 17 2025: write BBC_DIR to INFO.YAML file 
 #
 # ===============================================
 
@@ -1697,11 +1698,13 @@ def write_summary_output(args, config, covsys_list, base):
     # each covsys label & file, name of hubble diagram file.
     # and ISDATA_REAL flag.
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
-
+    # Feb 17 2025: write BBC_DIR 
     out  = Path(config["OUTDIR"])
     info = {} # init dictionary to dump to info file
 
-    info['HD'] = HD_FILENAME
+    BBC_DIR         = Path(config['data_dir'])
+    info['BBC_DIR'] = str(BBC_DIR)  # Feb 17 2025
+    info['HD']      = HD_FILENAME
 
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):
@@ -1886,11 +1889,16 @@ def remove_nans(data):
 
 def create_covariance(config, args):
     # Define all our pathing to be super obvious about where it all is
-    input_dir       = Path(config["INPUT_DIR"])
+
+
     version         = config["VERSION"]
-    data_dir        = input_dir / version
+    input_dir       = Path(config["INPUT_DIR"])
+    data_dir        = config['data_dir']
+    #xxx mark data_dir        = input_dir / version
+
     extra_covs      = config.get("EXTRA_COVS",[])
     use_cosmomc     = config['use_cosmomc']
+
 
     # Read in all the needed data
     submit_info   = read_yaml(input_dir / "SUBMIT.INFO")
@@ -2073,10 +2081,11 @@ def prep_config(config,args):
         config['use_cosmomc'] = True
 
     # WARNING: later add option to read from input file
-    config['nbin_x1'] = args.nbin_x1
-    config['nbin_c']  = args.nbin_c
+    config['nbin_x1']  = args.nbin_x1
+    config['nbin_c']   = args.nbin_c
 
-        
+    config['data_dir'] = Path(config["INPUT_DIR"]) / config["VERSION"]  # Feb 2025
+
     # end prep_config
 
 def loginfo_cpu_summary(args):

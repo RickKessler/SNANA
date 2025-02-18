@@ -150,7 +150,9 @@
 #   Change write-CHUNK size from 1M to 5M
 #
 # Feb 07 2025: fix CPU write-time to exclude matrix invert time
-# Feb 17 2025: write BBC_DIR to INFO.YAML file 
+# Feb 17 2025: 
+#   + write BBC_DIR to INFO.YAML file 
+#   + fix --lable_cov_rows and write more output per cov row.
 #
 # ===============================================
 
@@ -1652,18 +1654,24 @@ def write_covariance(path, cov, opt_cov, data):
         string_tmp = ""
         n_tmp = 0
         
-        # might be slower with f.write for each cov element
+        HD_TMP     = data['FITOPT000_MUOPT000']
+        row_info_dict = {
+            'CID_LIST'      : HD_TMP[VARNAME_CID].to_list(),
+            'IDSURVEY_LIST' : HD_TMP[VARNAME_IDSURVEY].to_list(),
+            'zHD_LIST'      : HD_TMP[VARNAME_zHD].to_list()
+        }
+
+        # this is slower with f.write for each cov element
         for c in cov.flatten():
-            label = get_cov_flatten_label(nwr, nrow, data)
+            label = get_label_cov_flatten(nwr, nrow, row_info_dict )
             string_tmp += f"{c:13.6e} {label}\n"
             n_tmp += 1
-            nwr += 1
-            if n_tmp == 10000 :
-                logging.info(f"Write next cov chunk = {nwr}")
-                f.write(f"{string_tmp}")
-                f.flush()
-                n_tmp = 0
-                string_tmp = ""
+            nwr   += 1
+            if n_tmp == 50000 :
+                logging.info(f"\t Write next cov chunk at n_write = {nwr}")
+                f.write(f"{string_tmp}") ;       f.flush()
+                n_tmp = 0;    string_tmp = ""
+
     else:
         # write cov without labels
         # write in chunks to handle VERY large arrays (Nov 2024)
@@ -1696,7 +1704,7 @@ def write_covariance(path, cov, opt_cov, data):
 
     # end write_covariance
 
-def get_cov_flatten_label(nwr, nrow, data):    
+def get_label_cov_flatten(nwr, nrow, row_info_dict):
 
     # return diagnostic label
     # this method doesnot impact scientific output\
@@ -1704,18 +1712,19 @@ def get_cov_flatten_label(nwr, nrow, data):
     label = "NO LABEL"
     is_new_row = False
     colnum = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
-    rownum = (nwr) % nrow
-    tmp = data['FITOPT000_MUOPT000']
-    CID0 = tmp.iloc[rownum]['CID'];
-    IDSURVEY0 = tmp.iloc[rownum]['IDSURVEY'];
-    zHD0 = tmp.iloc[rownum]['zHD'];
+    rownum = nwr % nrow
 
-    CID1 = tmp.iloc[colnum]['CID'];
-    IDSURVEY1 = tmp.iloc[colnum]['IDSURVEY'];
-    zHD1 = tmp.iloc[colnum]['zHD'];    
+    cid_row       = row_info_dict['CID_LIST'][rownum]
+    cid_col       = row_info_dict['CID_LIST'][colnum]
+    idsurvey_row  = row_info_dict['IDSURVEY_LIST'][rownum]
+    idsurvey_col  = row_info_dict['IDSURVEY_LIST'][colnum]
+    zhd_row       = row_info_dict['zHD_LIST'][rownum]
+    zhd_col       = row_info_dict['zHD_LIST'][colnum]
     
-    label = f"# CID, IDSURVEY, zHD, index = [ {CID0}, {IDSURVEY0} ,{zHD0} , {rownum},] x [ {CID1}, {IDSURVEY1} ,{zHD1} , {colnum}]"
-    #label = ""  
+    label = f"# CID, IDSURVEY, zHD, index   =   " \
+            f"[ {cid_row:>8}, {idsurvey_row:3d}, {zhd_row:.5f}, {rownum} ] x " \
+            f"[ {cid_col:>8}, {idsurvey_col:3d}, {zhd_row:.5f}, {colnum} ]"
+
     return label
     
 def write_summary_output(args, config, covsys_list, base):

@@ -295,8 +295,7 @@ def get_args():
     #                    nargs='?', type=float, default=1.0 ) 
     
     msg = "Add labels in covariance matrix output (visual debug)"                                                                                      
-    parser.add_argument("--label_cov_rows", help=msg,                                                                                                      
-                        nargs='?', type=bool, default=False )
+    parser.add_argument("--label_cov_rows", help=msg, action="store_true" )
 
     msg = "Use each SN instead of BBC binning (unbinned)"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
@@ -1281,7 +1280,6 @@ def write_standard_output(config, args, covsys_list, base,
     # write covariance matrices and datasets
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
-
     
     for i, (label, covsys) in enumerate(covsys_list):
 
@@ -1290,7 +1288,7 @@ def write_standard_output(config, args, covsys_list, base,
         if config['write_covsys']:
             base_file   = get_covsys_filename(i)
             cov_file    = outdir / base_file
-            t_write     = write_covariance(cov_file, covsys, opt_cov)
+            t_write     = write_covariance(cov_file, covsys, opt_cov, data)
             args.t_write_sum += t_write
 
         # Apr 2024: check writing covtot_inv 
@@ -1301,7 +1299,7 @@ def write_standard_output(config, args, covsys_list, base,
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
             base_file   = get_covtot_inv_filename(i)
             cov_file    = outdir / base_file
-            t_write     = write_covariance(cov_file, covtot_inv, opt_cov)
+            t_write     = write_covariance(cov_file, covtot_inv, opt_cov, data)
             args.t_write_sum += t_write
 
             # resource control/monitor
@@ -1386,7 +1384,7 @@ def write_cosmomc_output(config, args, covs, base):
         dataset_file = out / f"dataset_{i}.txt"
         covsyst_file = out / f"{prefix_covsys}_{i}.txt" 
 
-        t_write = write_covariance(covsyst_file, cov, opt_cov)
+        t_write = write_covariance(covsyst_file, cov, opt_cov, None)
         write_cosmomc_dataset(dataset_file, data_file, 
                               covsyst_file, dataset_template)
         dataset_files.append(dataset_file)
@@ -1616,8 +1614,12 @@ def write_HD_comments(f, unbinned, wrflag_syserr, wrflag_pbeams):
     return
     # end write_HD_comments
 
-def write_covariance(path, cov, opt_cov):
-
+def write_covariance(path, cov, opt_cov, data):
+    # Inputs :
+    # path : the filename of the output covariance matrix
+    # cov : covariance matrix
+    # opt_cov : 1 --> label each row (for diagnostics)
+    # data : information for opt_cov = 1 
     # write cov matrix to path; return time to write (seconds)
 
     add_labels     = (opt_cov == 1) # label some elements for human readability
@@ -1646,20 +1648,22 @@ def write_covariance(path, cov, opt_cov):
 
     f.write(f"{nrow}\n")
 
-    
-    if add_labels:  
+    if add_labels:
+        string_tmp = ""
+        n_tmp = 0
+        
         # might be slower with f.write for each cov element
         for c in cov.flatten():
+            label = get_cov_flatten_label(nwr, nrow, data)
+            string_tmp += f"{c:13.6e} {label}\n"
+            n_tmp += 1
             nwr += 1
-            is_new_row = False
-            if (nwr-1) % nrow == 0 : 
-                is_new_row = True ; rownum += 1 ; colnum = -1
-                colnum += 1
-            if colnum == 0 or colnum == rownum : 
-                label = f"# ({rownum},{colnum})"
-            else:
-                label = ""
-        f.write(f"{c:13.6e}  {label}\n")
+            if n_tmp == 10000 :
+                logging.info(f"Write next cov chunk = {nwr}")
+                f.write(f"{string_tmp}")
+                f.flush()
+                n_tmp = 0
+                string_tmp = ""
     else:
         # write cov without labels
         # write in chunks to handle VERY large arrays (Nov 2024)
@@ -1683,6 +1687,7 @@ def write_covariance(path, cov, opt_cov):
                 
             logging.info(f"\t\t Write chunk {n_chunk} of {n_chunk_expect}  {str_stat}")
             f.write(f"{str_cov}\n")
+            f.flush()
 
     f.close()
     t_write = time.time() - t0
@@ -1691,6 +1696,28 @@ def write_covariance(path, cov, opt_cov):
 
     # end write_covariance
 
+def get_cov_flatten_label(nwr, nrow, data):    
+
+    # return diagnostic label
+    # this method doesnot impact scientific output\
+        
+    label = "NO LABEL"
+    is_new_row = False
+    colnum = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
+    rownum = (nwr) % nrow
+    tmp = data['FITOPT000_MUOPT000']
+    CID0 = tmp.iloc[rownum]['CID'];
+    IDSURVEY0 = tmp.iloc[rownum]['IDSURVEY'];
+    zHD0 = tmp.iloc[rownum]['zHD'];
+
+    CID1 = tmp.iloc[colnum]['CID'];
+    IDSURVEY1 = tmp.iloc[colnum]['IDSURVEY'];
+    zHD1 = tmp.iloc[colnum]['zHD'];    
+    
+    label = f"# CID, IDSURVEY, zHD, index = [ {CID0}, {IDSURVEY0} ,{zHD0} , {rownum},] x [ {CID1}, {IDSURVEY1} ,{zHD1} , {colnum}]"
+    #label = ""  
+    return label
+    
 def write_summary_output(args, config, covsys_list, base):
 
     # write information to INFO.YAML that is intended to be 

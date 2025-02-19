@@ -1735,11 +1735,10 @@ def write_summary_output(args, config, covsys_list, base):
     # and ISDATA_REAL flag.
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
     # Feb 17 2025: write BBC_DIR 
-    out  = Path(config["OUTDIR"])
-    info = {} # init dictionary to dump to info file
 
-    BBC_DIR         = Path(config['data_dir'])
-    info['BBC_DIR'] = str(BBC_DIR)  # Feb 17 2025
+    out   = Path(config["OUTDIR"])
+    info  = {} # init dictionary to dump to info file
+
     info['HD']      = HD_FILENAME
 
     covsys_info = {}
@@ -1769,6 +1768,15 @@ def write_summary_output(args, config, covsys_list, base):
         if 'BIASCOR' in key :  # fetch biasCor sim version
             sim_version    = item[0]
 
+    # - - - - - - - 
+    info2 = {}
+    BBC_DIR         = str(Path(config['data_dir']))
+    BBC_INFO_FILE   = f"{os.path.dirname(BBC_DIR)}/SUBMIT.INFO" 
+    info2['BBC_DIR']        = BBC_DIR  # Feb 17 2025    
+    info2['BBC_INFO_FILE']  = BBC_INFO_FILE
+    info2[KEYNAME_SYS_SCALE_FILE] = config[KEYNAME_SYS_SCALE_FILE]
+
+    # - - - - - 
     logging.info("# - - - - - - - - - - - - - - - - - - - - - - - - - -")
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
@@ -1776,8 +1784,12 @@ def write_summary_output(args, config, covsys_list, base):
         f.write(f"# index:  <sysLabel>  <name of covsys file>   " \
                 f"<name of covtot_inv file>\n")
         f.write(f"#  (file name = None -> not written)\n")
+
         f.write(f"#\n")
         yaml.safe_dump(info, f )
+
+        f.write(f"\n")
+        yaml.safe_dump(info2, f )
 
         # xxx mark f.write(f"\nSIZE_HD: {SIZE_HD}\n\n")  # Nov 2024
         

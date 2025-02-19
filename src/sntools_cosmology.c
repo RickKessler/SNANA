@@ -542,7 +542,8 @@ double dLmag ( double zCMB, double zHEL, double vPEC,
   rz    *= (1.0E6*PC_km);  // H -> 1/sec units
   dl     = ( 1.0 + zHEL ) * rz ; 
 
-  if ( DO_VPEC_COR ) { dl *= (1 + vPEC/LIGHT_km); } // Jan 2024: B.Carreres
+  // vpec correction; see Eq 11 in https://arxiv.org/pdf/1012.2912
+  if ( DO_VPEC_COR ) { dl *= (1 + vPEC/LIGHT_km); } 
 
   arg    = dl / (10.0 * PC_km);
   mu     = 5.0 * log10( arg );

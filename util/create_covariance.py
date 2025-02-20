@@ -936,7 +936,7 @@ def get_covsys_from_covfile(data, covfile, scale):
         #    print('skipping, not doing same SN diagonals')
         #    continue
         covout[ww1,ww2] = row['MU_COV']
-        mudifout = ww1  # RK total guess ... needs to be debugged .xyz
+        mudifout = ww1  # RK total guess ... needs to be debugged .xyz  ??DJB??
         
     return covout, mudifout, (0, 0, 0)
 
@@ -959,8 +959,8 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         muopt_label = muopt_labels[m] if m else "DEFAULT"
         muopt_scale = muopt_scales.get(muopt_label, 1.0)
 
-        logging.debug(f"FITOPT {f} has scale {fitopt_scale}, " \
-                      f"MUOPT {m} has scale {muopt_scale}")
+        logging.info(f"\t FITOPT{f:03d} has scale {fitopt_scale}, " \
+                     f"MUOPT{m:03d} has scale {muopt_scale}") 
 
         #if FLAG_WAIT: input(f"Press Enter to continue get_contribution for f={f} m={m}")
         
@@ -1962,6 +1962,7 @@ def create_covariance(config, args):
 
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
 
+    
     # Also need to get the MUOPT labels from the original LCFIT directory
     muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in  \
                     submit_info.get("MUOPT_OUT_LIST", [])}

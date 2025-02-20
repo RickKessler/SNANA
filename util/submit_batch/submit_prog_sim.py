@@ -77,6 +77,8 @@
 # Nov 22 2024: genversion names have 2 digit index to allow for 10 NONIaMODELs.
 #              See def model_string_suffix
 #
+# Feb 20 2025: add TAKE_SPECTRUM to GENOPT_GLOBAL_IGNORE_SIMnorm
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -130,7 +132,7 @@ SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
 # makes no difference in result, but in case of debug there is no need
 # to sift thru so many unused arguments.
 GENOPT_GLOBAL_IGNORE_SIMnorm = [
-    "SIMGEN_DUMP", "HOSTLIB_", "SEARCHEFF_" ,  "GENMODEL_EXTRAP" ]
+    "SIMGEN_DUMP", "HOSTLIB_", "SEARCHEFF_" ,  "GENMODEL_EXTRAP", "TAKE_SPECTRUM" ]
 
 # format mask options for output data files
 FORMAT_MASK_TEXT   = 2    # TEXT format
@@ -281,6 +283,7 @@ class Simulation(Program):
 
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
+
             for key,value in GENOPT_GLOBAL.items():
                 key_protect   = util.protect_parentheses(key)
                 value_protect = util.protect_parentheses(value)

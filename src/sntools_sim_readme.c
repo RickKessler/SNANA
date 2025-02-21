@@ -884,9 +884,9 @@ void readme_docana_instr(int *iline, char *pad) {
 	  pad, lenkey, "GENFILTERS:", INPUTS.GENFILTERS);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  ENVrestore(INPUTS.KCOR_FILE, ORIG_FILE_README);
-  sprintf(cptr,"%s%-*s %s ",
-	  pad, lenkey, "KCOR_FILE:", ORIG_FILE_README);
+  ENVrestore(INPUTS.CALIB_FILE, ORIG_FILE_README);
+  sprintf(cptr,"%s%-*s %s    # aka KCOR_FILE",
+	  pad, lenkey, "CALIB_FILE:", ORIG_FILE_README);
 
   readme_docana_load_list(&i, pad, &README_KEYS_SIMLIB);
 

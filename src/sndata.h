@@ -192,7 +192,7 @@ struct SNDATA {
 
   int   SIMLIB_MSKOPT ;                // mask of options (Dec 2015)
   char  SIMLIB_FILE[MXPATHLEN];        // name of simlib file
-  char  KCOR_FILE[MXPATHLEN];
+  char  CALIB_FILE[MXPATHLEN];
   char  SPEC_FILE[MXPATHLEN];
 
   int   PHOTFLAG_DETECT; // mask in PHOTFLAG for detection

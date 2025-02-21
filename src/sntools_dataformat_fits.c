@@ -1113,7 +1113,7 @@ void wr_snfitsio_create(int itype ) {
 
   //  fitsfile *fptr, char *keyname, char *longstr, char *comment
   istat = 0;
-  fits_write_key_longstr(fp, "KCOR_FILE", SNDATA.KCOR_FILE,
+  fits_write_key_longstr(fp, "CALIB_FILE", SNDATA.CALIB_FILE,
 			 "KCOR/calibration file", &istat );
   sprintf(c1err,"Write KCOR file name") ;
   snfitsio_errorCheck(c1err, istat) ;

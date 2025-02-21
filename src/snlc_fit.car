@@ -16381,7 +16381,7 @@ c Abort if any filter is missing.
          IF ( .NOT. LFILTDEF_OBS(ifiltdef)  ) THEN
            c1err = 'FILTLIST_FITRESTMAG = ' // cfilt // 
      &            ' is not in kcor file.'
-           c2err = 'Check ' // KCOR_FILE
+           c2err = 'Check ' // CALIB_FILE
            CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
          ENDIF
 200   CONTINUE

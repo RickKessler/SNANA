@@ -16,7 +16,7 @@ c parameters used by snana code
       INTEGER 
      &   MXVERS, MXSURVEY, MXSNLC,MXCID, MXCID_CHECK,MXEPOCH, MXITER
      &  ,MXFILT_ALL, MXFILT_OBS, MXFILT_REST, ONE
-     &  ,MXFILT_KCOR, MXFILT_SNRMAX, MXEP_MODELGRID
+     &  ,MXFILT_CALIB, MXFILT_SNRMAX, MXEP_MODELGRID
      &  ,MXIDFIELD, MXFIELD_OVP, MXSEASON
      &  ,MXSNHOST, MXZPHOT_Q
      &  ,MXTABLE1D_KCOR,MXTABLE1D_LCMAG,MXTABLE1D_MWXT,MXTABLE1D_AVWARP
@@ -138,13 +138,13 @@ c
      &  ,MXFILT_OBS  = 80    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
      &  ,MXFILT_REST = 40    ! max number of rest-frame filter types (was 12)
-     &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
+     &  ,MXFILT_CALIB = MXFILT_REST ! max number of filters used in calib table
      &  ,MXFILT_SNRMAX =  8       ! no more than this many SNRMAX(filt) cuts
      &  ,MNTYPE       =   1       ! min sn "type"
      &  ,MXTYPE       = 1000      ! max sn "type"
      &  ,MXZBIN_KCOR  = 100       ! max # Z-bins for KCOR tables
      &  ,MXTBIN_KCOR  = 150       ! max # Epochs for KCOR tables
-     &  ,MXAVBIN_KCOR = 100       ! max # AV bins for KCOR tables
+     &  ,MXAVBIN_KCOR = 100      ! max # AV bins for KCOR tables
      &  ,MXCBIN_AVWARP = 100      ! max color index for AVWARP table
      &  ,MXTABLE1D_KCOR   = 10 000 000  ! max number of KCOR bins
      &  ,MXTABLE1D_AVWARP =  1 500 000  ! max number of bins for AVWARP table
@@ -513,7 +513,7 @@ c global survey info
      &  ,NSURVEY_LIST          ! size of SURVEY_NAME_LIST & IDSURVEY_LIST
 
       LOGICAL*1
-     &    EXIST_KCOR_FILE 
+     &    EXIST_CALIB_FILE 
      &   ,EXIST_FILT(MXFILT_OBS)  ! T => at least one point per filt
      &   ,FOUND_SURVEY
      &   ,FORMAT_TEXT    ! ascii/txt for input data
@@ -564,7 +564,7 @@ c global survey info
 
 c logical *1 stuff
 
-      COMMON / SNDATCOM1 / EXIST_KCOR_FILE, EXIST_FILT, FOUND_SURVEY
+      COMMON / SNDATCOM1 / EXIST_CALIB_FILE, EXIST_FILT, FOUND_SURVEY
      &    ,FORMAT_TEXT, FORMAT_FITS
 
 c SNTABLE control variables (May 2014)
@@ -1840,7 +1840,6 @@ c
 
 c define general input to program: 
 c SN flux version, hbook files, cut-windows, etc ...
-c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
 c
       CHARACTER*(MXCHAR_FILENAME)  ! user input files
      &   NMLFILE          ! name of input namelist file
@@ -1851,7 +1850,8 @@ c
      &  ,SNTABLE_LIST     ! I: list of SNTABLEs to create; e.g., 'SNANA FITRES'
      &  ,SNTABLE_APPEND_VARNAME  ! I: add this varname to output tables
      &  ,SNTABLE_FILTER_REMAP ! I: remap filters in tables
-     &  ,KCOR_FILE            ! I: fits-formatted KCOR/calib tables
+     &  ,CALIB_FILE           ! I: fits-formatted KCOR/calib tables
+     &  ,KCOR_FILE            ! I: legacy key for CALIB_FILE 
      &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! I: for kcors; e.g., '5100(gV) 6200(rV)'
      &  ,EPOCH_IGNORE_FILE    ! I: user file with epochs to ignore
      &  ,OUT_EPOCH_IGNORE_FILE ! I: write this file with discarded epochs
@@ -2034,7 +2034,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
-     &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
+     &    , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY
+     &    , USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
@@ -2087,7 +2088,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
-     &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
+     &    , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY
+     &    , USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE, NONLINEARITY_FILE
      &    , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR
@@ -3298,10 +3300,11 @@ c [uses refactored C code]
 +CDE,FILTCOM.
 
       INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL IGNOREFILE_fortran, USE_KCOR 
+      LOGICAL IGNOREFILE_fortran, USE_CALIB
 
       INTEGER LENF, OPT_FRAME, IFILT, IFILTDEF_OBS, IFILTDEF_REST
-      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
+      CHARACTER*(MXCHAR_FILENAME) cCALIB_FILE, cFILTERS
+      LOGICAL EXIST_KCOR_FILE
 
       REAL*8 
      &   D_MAGOBS_SHIFT_PRIM(MXFILT_ALL)
@@ -3326,23 +3329,29 @@ c ---------- BEGIN ---------
    
       IERR = 0 
 
-      EXIST_KCOR_FILE = .NOT. IGNOREFILE_fortran(KCOR_FILE)
 
-      if ( .NOT. EXIST_KCOR_FILE ) RETURN
+c Feb 20 2025: check for legacy KCOR_FILE input
+      EXIST_KCOR_FILE  = .NOT. IGNOREFILE_fortran(KCOR_FILE)
+      IF ( EXIST_KCOR_FILE ) CALIB_FILE = KCOR_FILE
 
-      USE_KCOR = .false.
+c ----------
+      EXIST_CALIB_FILE = .NOT. IGNOREFILE_fortran(CALIB_FILE)
+
+      if ( .NOT. EXIST_CALIB_FILE ) RETURN
+
+      USE_CALIB = .false.
 +SELF,IF=SNFIT.
-      USE_KCOR = .true.
+      USE_CALIB = .true.
 +SELF.
 
 
 c prep arguments ...
 
-      CALL ENVreplace(KCOR_FILE)  ! Mar 2016
+      CALL ENVreplace(CALIB_FILE)  ! Mar 2016
 
-      LENF = INDEX(KCOR_FILE,' ') - 1
-      cKCOR_FILE = KCOR_FILE(1:LENF) // char(0)
-      cFILTERS   = SURVEY_FILTERS(1:NFILTDEF_SURVEY) // char(0)
+      LENF = INDEX(CALIB_FILE,' ') - 1
+      cCALIB_FILE = CALIB_FILE(1:LENF) // char(0)
+      cFILTERS    = SURVEY_FILTERS(1:NFILTDEF_SURVEY) // char(0)
 
 c convert primary mag-shifts from sngl to double precision
       CALL FLOAT2DOUBLE(MXFILT_ALL, MAGREST_SHIFT_PRIMARY_FILT,
@@ -3355,7 +3364,7 @@ c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 c read kcor file and store information (C code)
 
-      CALL READ_CALIB_DRIVER(cKCOR_FILE, cFILTERS, USE_KCOR,
+      CALL READ_CALIB_DRIVER(cCALIB_FILE, cFILTERS, USE_CALIB,
      &           D_MAGREST_SHIFT_PRIM, D_MAGOBS_SHIFT_PRIM)
 
 c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -6189,7 +6198,8 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       EPOCH_IGNORE_FILE = 'DEFAULT' 
       OUT_EPOCH_IGNORE_FILE = ''
 
-      KCOR_FILE    = 'NULL'
+      CALIB_FILE    = 'NULL'
+      KCOR_FILE     = 'NULL'
       OVERRIDE_RESTLAM_BOUNDARY = ''
 
       hfile_out         = ' '
@@ -7782,9 +7792,14 @@ c ------------- BEGIN -------------
      &             1, iArg, ARGLIST) ) then 
            VPEC_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
 
-         else if ( MATCH_NMLKEY('KCOR_FILE',
+         else if ( MATCH_NMLKEY('CALIB_FILE',
      &             1, iArg, ARGLIST) ) then 
-           KCOR_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+           CALIB_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+         else if ( MATCH_NMLKEY('KCOR_FILE',  ! legacy key for CALIB_FILE
+     &             1, iArg, ARGLIST) ) then 
+           CALIB_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
          else if ( MATCH_NMLKEY('OVERRIDE_RESTLAM_BOUNDARY',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) OVERRIDE_RESTLAM_BOUNDARY 
@@ -16576,7 +16591,7 @@ C ------------ BEGIN -------------
          SNLC_MWEBV_ERR = 0.0
       ENDIF
 
-      if ( .NOT. EXIST_KCOR_FILE ) RETURN ! Oct 2024
+      if ( .NOT. EXIST_CALIB_FILE ) RETURN ! Oct 2024
       
 c determin MW extinction in each passband
 
@@ -18166,7 +18181,7 @@ c Mar 22 2023 restore LLAM test that was mistakenly removed when
 c             fortran-KCOR code was replaced with C code.
 c 
           LZ = ( Z > 0 .and. Z < 998 )
-          IF ( LZ .and. EXIST_KCOR_FILE ) THEN
+          IF ( LZ .and. EXIST_CALIB_FILE ) THEN
             LAMOBS = FILTOBS_LAMAVG(ifilt_obs)
             LAMZ1  = LAMOBS / Z1
             LLAM   =
@@ -20001,7 +20016,7 @@ c -------------------------------------------
 +SELF,IF=SNANA.
         if ( NFILTDEF_TMP == 0 ) then
            C1ERR = 'NFILTDEF_OBS=0 --> no defined obs-frame filters'
-           C2ERR = 'Check &SNLCINP input KCOR_FILE'
+           C2ERR = 'Check &SNLCINP input CALIB_FILE'
            CALL MADABORT(FNAM, c1err, c2err)
         endif
 +SELF.

@@ -900,7 +900,7 @@ struct INPUTS {
   float EXPOSURE_TIME_FILTER[MXFILTINDX]; // exposure per filter
   int   EXPOSURE_TIME_MSKOPT ;   // bits 1,2,3 => scale ZPT, SKYSIG,READNOISE
 
-  char KCOR_FILE[MXPATHLEN];        // name of kcor Lookup file
+  char CALIB_FILE[MXPATHLEN];        // name of kcor Lookup file
 
   // define fudges on seeing conditions
   float FORCEVAL_PSF ;         // force PSF value if > 0

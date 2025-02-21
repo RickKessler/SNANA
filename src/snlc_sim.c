@@ -1057,7 +1057,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS.GENSOURCE,       "RANDOM" );
   sprintf(INPUTS.GENMODEL,        "BLANK" );
   INPUTS.GENMODEL_EXTRAP_LATETIME[0] = 0 ;
-  sprintf(INPUTS.KCOR_FILE, "NONE" );
+  sprintf(INPUTS.CALIB_FILE, "NONE" );
 
   sprintf(INPUTS.GENSNXT, "CCM89" );
   INPUTS.OPT_SNXT = OPT_SNXT_CCM89;
@@ -2362,9 +2362,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "EXPOSURE_TIME_MSKOPT", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%d", &INPUTS.EXPOSURE_TIME_MSKOPT );
   }
-  else if ( keyMatchSim(1, "KCOR_FILE", WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "KCOR_FILE CALIB_FILE", WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++ ; sscanf(WORDS[N], "%s", INPUTS.KCOR_FILE );
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.CALIB_FILE );
   }
 
   //  - - - - - cosmology params - - - - - - 
@@ -6378,7 +6378,7 @@ void prep_user_input(void) {
   // ---------- BEGIN ----------
 
   // replace ENV names in inputs
-  ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
+  ENVreplace(INPUTS.CALIB_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_WGTMAP_FILE,fnam,1);
@@ -6894,11 +6894,11 @@ void prep_user_input(void) {
 
 
 
-  // 9.28.2020: find kcor file and update INPUTS.KCOR_FILE if needed
-  char PATH_KCOR_LIST[2*MXPATHLEN], kcorFile[MXPATHLEN];
-  sprintf(kcorFile, "%s", INPUTS.KCOR_FILE);
+  // 9.28.2020: find kcor file and update INPUTS.CALIB_FILE if needed
+  char PATH_KCOR_LIST[2*MXPATHLEN], calibFile[MXPATHLEN];
+  sprintf(calibFile, "%s", INPUTS.CALIB_FILE);
   sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  find_pathfile(kcorFile, PATH_KCOR_LIST, INPUTS.KCOR_FILE, fnam ); 
+  find_pathfile(calibFile, PATH_KCOR_LIST, INPUTS.CALIB_FILE, fnam ); 
 
   prep_user_cosmology(); // Oct 16 2020 
 
@@ -6935,7 +6935,7 @@ void prep_user_input(void) {
     printf("\t HzFUN from file: %s \n", INPUTS.HzFUN_FILE);
   }
 
-  printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
+  printf("\t CALIB/KCOR  file : %s \n", INPUTS.CALIB_FILE );
 
   printf("\t Observer Gen-FILTERS  :  %s ", INPUTS.GENFILTERS );
 
@@ -24183,7 +24183,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIMLIB_MSKOPT   = INPUTS.SIMLIB_MSKOPT ;
   SNDATA.PHOTFLAG_DETECT = PHOTFLAG_DETECT ; // Jul 2022 
   sprintf(SNDATA.SIMLIB_FILE,    "%s", INPUTS.SIMLIB_FILE );
-  sprintf(SNDATA.KCOR_FILE,      "%s", INPUTS.KCOR_FILE   );
+  sprintf(SNDATA.CALIB_FILE,     "%s", INPUTS.CALIB_FILE   );
 
   sprintf(SNDATA.HOSTLIB_FILE,   "%s", INPUTS.HOSTLIB_FILE );
   sprintf(SNDATA.SIM_MODEL_NAME, "%s", INPUTS.MODELNAME );
@@ -25681,7 +25681,7 @@ void init_genmodel(void) {
     istat = init_genmag_SIMSED (INPUTS.GENMODEL
 			       ,INPUTS.PATH_BINARY_SIMSED
 			       ,GENLC.SURVEY_NAME
-			       ,INPUTS.KCOR_FILE
+			       ,INPUTS.CALIB_FILE
 			       ,INPUTS.WGTMAP_FILE_SIMSED
 			       ,OPTMASK );
 
@@ -26132,11 +26132,11 @@ void init_read_calib_wrapper(void) {
     { MAGOBS_SHIFT[ifilt] = MAGREST_SHIFT[ifilt] = 0.0 ; }
 
   bool USE_KCOR = GENFRAME_OPT == GENFRAME_REST;
-  READ_CALIB_DRIVER(INPUTS.KCOR_FILE, INPUTS.GENFILTERS, USE_KCOR,
+  READ_CALIB_DRIVER(INPUTS.CALIB_FILE, INPUTS.GENFILTERS, USE_KCOR,
 		    MAGREST_SHIFT, MAGOBS_SHIFT );
 
   // check for spectrograph information (for sim only)
-  read_spectrograph_fits(INPUTS.KCOR_FILE) ;
+  read_spectrograph_fits(INPUTS.CALIB_FILE) ;
   if ( SPECTROGRAPH_USEFLAG ) {
     //    dump_INPUTS_SPECTRO(4,"");
     extend_spectrograph_lambins();
@@ -30489,8 +30489,8 @@ void DASHBOARD_DRIVER(void) {
 	 NREAD_SIMLIB, 
 	 (int)SIMLIB_DUMP_AVGALL.MJDMIN, (int)SIMLIB_DUMP_AVGALL.MJDMAX);
 
-  ENVrestore(INPUTS.KCOR_FILE,fileName_orig);
-  printf("KCOR_FILE:              %s\n", fileName_orig);
+  ENVrestore(INPUTS.CALIB_FILE,fileName_orig);
+  printf("CALIB_FILE:            %s\n", fileName_orig);
 
   ENVrestore(INPUTS.HOSTLIB_FILE,fileName_orig);
   printf("HOSTLIB_FILE:           %s\n", fileName_orig);
@@ -31413,7 +31413,7 @@ void prep_SIMLIB_DUMP(void) {
   // and prepare filter lists as if kcor init had run
   int ifilt, ifilt_obs, NF;
   char cfilt[2];
-  if ( IGNOREFILE(INPUTS.KCOR_FILE) ) {  
+  if ( IGNOREFILE(INPUTS.CALIB_FILE) ) {  
     SIMLIB_readGlobalHeader_TEXT();      fclose(fp_SIMLIB);
     sprintf(INPUTS.GENFILTERS,"%s", SIMLIB_GLOBAL_HEADER.FILTERS);
     NF = strlen(INPUTS.GENFILTERS);
@@ -31925,7 +31925,9 @@ void print_sim_help(void) {
     "",
     "# - - - - - - Instrumental inputs - - - - - ",
     "GENFILTERS: <filters>   # list of filter band; e.g, ugriz ",
-    "KCOR_FILE:    <name>    # file name of kcor/calibration file",
+    "CALIB_FILE:   <name>    # file name of kcor/calibration file",
+    "    or",
+    "KCOR_FILE:    <name>    # legacy key for CALIB_FILE",
     "",
     "SIMLIB_FILE:  <name>    # file name of cadence library",
     "# for more SIMLIB options, ",

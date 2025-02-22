@@ -498,12 +498,6 @@ def load_hubble_diagram(hd_file, args, config):
     logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {hd_file}")
 
     #sys.exit("\n xxx DEBUG STOP xxx\n")
-
-    # xxxxxxxx mark delete Jun 19 2024 xxxxxxxx
-    # Do a bit of data cleaning: replace 999 with nan 
-    # (beware that 999 in BBC output means no info, does not mean nan)
-    # df = df.replace(999.00, np.nan)
-    # xxxxxxxx end mark xxxxxxx
     
     # Jun 2024: if MUERR or MUDIFERR = 999, replace with NaN
     #   [replaces old logic of replacing any 999 with NaN]
@@ -526,6 +520,7 @@ def load_hubble_diagram(hd_file, args, config):
         df = df.sort_values([ VARNAME_zHD, VARNAME_CID])  # July 2024: protect HDIBC
         df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
 
+        # - - - - - -
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {hd_file}"
@@ -537,24 +532,24 @@ def load_hubble_diagram(hd_file, args, config):
                           f"from {VARNAME_MUERR}")
 
         # - - - - - - - - -
-
         df['CIDstr'] = df[VARNAME_CID].astype(str) + "_" + \
                        df[VARNAME_IDSURVEY].astype(str)
 
         # we need to make a new column to index the dataframe on 
-        # unique rows for merging two different systematic dfs - Dillon
+        # unique rows for merging two different systematic ...
+        # or combining sims with different surveys that have random CID overlaps.
         df['CIDindex'] = df[VARNAME_CID].astype(str) + "_" + \
-                         df[VARNAME_IDSURVEY].astype(str)
+                         df[VARNAME_IDSURVEY].astype(str) 
         df = df.set_index("CIDindex")
 
-    elif 'z' in df.columns:  # for M0DIF file that has z instead of zHD
+    elif VARNAME_zHD in df.columns:   # for z-binned (M0DIF) hubble diagram
+        df = df.sort_values(VARNAME_zHD) # sort, but likely not needed
+
+    elif 'z' in df.columns:  # for really old M0DIF file that has z instead of zHD
         # should not need z-sorting here for M0DIF, but what the heck
         df = df.rename(columns={"z": VARNAME_zHD})  # Nov 9 2022
         df = df.sort_values(VARNAME_zHD)
-    elif VARNAME_zHD in df.columns:
-        df = df.sort_values(VARNAME_zHD) # sort, but likely not needed
-        pass
-
+        
     # - - - -  -
     
     return df
@@ -998,7 +993,8 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         result_cov[f"{fitopt_label}|{muopt_label}"]   = cov
         result_mudif[f"{fitopt_label}|{muopt_label}"] = mudif                           
         slopes.append([name, fitopt_label, muopt_label, *summary])
-
+        
+    # - - - - 
     summary_df = pd.DataFrame(slopes, columns=["name", "fitopt_label", "muopt_label", "slope", "mean_abs_deviation", "max_abs_deviation"])
     summary_df = summary_df.sort_values(["slope", "mean_abs_deviation", "max_abs_deviation"], ascending=False)
     return result_cov, result_mudif, summary_df

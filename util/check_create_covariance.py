@@ -100,6 +100,9 @@ def parse_cidpair(args):
     
     return args
 
+def get_idrow(cid,idsurvey):
+    idrow = str(cid) + '+' + str(idsurvey)
+    return idrow
 
 def compute_scaled_covpair(args, sys_scale_list):  
     """
@@ -142,13 +145,16 @@ def compute_scaled_covpair(args, sys_scale_list):
     for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
         matching_rows = df_ref[(df_ref[VARNAME_CID] == cid) & \
                                (df_ref[VARNAME_IDSURVEY] == idsurvey)]
-        if matching_rows.empty:
+        if matching_rows.empty :
             msgerr = f"ERROR: no matching row for CID={cid} IDSURVEY={idsurvey} ; " \
                      f"\n\t see {ref_file}"
             sys.exit(f"\n{msgerr}")
         else:
-            ref_mu[cid]      = matching_rows.iloc[0][VARNAME_MU]
-            ref_mumodel[cid] = matching_rows.iloc[0][VARNAME_MUMODEL]
+            idrow              = get_idrow(cid,idsurvey)
+            ref_mu[idrow]      = matching_rows.iloc[0][VARNAME_MU]
+            ref_mumodel[idrow] = matching_rows.iloc[0][VARNAME_MUMODEL]
+
+    #sys.exit(f"\n xxx ref_mu = {ref_mu}")
 
     # ----------------------------------------------------------------------------------------------
 
@@ -183,10 +189,6 @@ def compute_scaled_covpair(args, sys_scale_list):
         for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
             matching_rows = df[ (df[VARNAME_CID]      == cid) & \
                                 (df[VARNAME_IDSURVEY] == idsurvey) ]
-            #print('XXX matching rows ', matching_rows)
-            #if matching_rows.empty:
-            #    print(f"{fitopt_str}: No matching row found for CID {cid} IDSURVEY {idsurvey}")
-            #    break  # Skip this FITRES file if one of the pairs is missing
 
             # Use the first matching row
             row         = matching_rows.iloc[0]
@@ -195,8 +197,9 @@ def compute_scaled_covpair(args, sys_scale_list):
 
             # Use the reference MU from FITOPT000 as MU0.
             # Note that subtracting mumodel is needed for zshift sytematics;
-            reference_mu      = ref_mu.get(cid)
-            reference_mumodel = ref_mumodel.get(cid)
+            idrow             = get_idrow(cid,idsurvey)
+            reference_mu      = ref_mu[idrow]
+            reference_mumodel = ref_mumodel[idrow]
             delta_val    = (mu_val - mumodel_val) - \
                            (reference_mu - reference_mumodel)  # compute delta as current MU minus reference MU
 
@@ -214,15 +217,15 @@ def compute_scaled_covpair(args, sys_scale_list):
 
         # Build a dictionary with all the desired fields.
         row_dict = {
-            "FITOPT": fitopt_str,
-            "CID1"  : cid1,
-            "MU1"   : mu1,
-            "RefMU1": ref_mu1,
-            "Delta1": scaled_delta1,
-            "CID2"  : cid2,
-            "MU2"   : mu2,
-            "RefMU2": ref_mu2,
-            "Delta2": scaled_delta2,
+            "FITOPT"  : fitopt_str,
+            "CID1"    : cid1,
+            "MU1"     : mu1,
+            "RefMU1"  : ref_mu1,
+            "Delta1"  : scaled_delta1,
+            "CID2"    : cid2,
+            "MU2"     : mu2,
+            "RefMU2"  : ref_mu2,
+            "Delta2"  : scaled_delta2,
             "SysScale"   : sys_scale,
             "Covariance" : final_delta
         }
@@ -372,7 +375,7 @@ def print_cov_results(args, results_dict):
     comment_list.append(f"Read from create_covariance : {cov_string} = {cov_from_create_covariance}")
 
     ratio = cov_check/cov_from_create_covariance
-    comment_list.append(f"Ratio(computed/read) : {ratio}  for {cov_string}")
+    comment_list.append(f"Ratio(computed/read) : {ratio:10.5f}  for {cov_string}")
     
     for comment in comment_list:
         print(f"# {comment}")

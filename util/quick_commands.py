@@ -19,8 +19,8 @@
 #
 # Jul 19 2023: --extract_spectra_format
 # Jan 31 2024: fix bug finding DOCANA keys for --extract_sim_input  option
-#
-# =========================
+# Feb 21 2025: add option --table_file_dupl
+# ==================================================================
 
 import os, sys, argparse, subprocess, yaml, tarfile, fnmatch, glob
 import pandas as pd
@@ -158,6 +158,10 @@ def get_args():
     msg = "two data folders (full paths) to analyse stat difference of contents"
     parser.add_argument("-D", "--diff_data", nargs='+', 
                         help=msg, type=str,default=None)
+
+    msg = "table file name to search for duplicates and print list to stdout"
+    parser.add_argument("--table_file_dupl", help=msg, type=str,default=None)
+
 
 # SIMLIB_OUT ...
 
@@ -849,95 +853,6 @@ def analyze_diff_fitres(args):
 
     # end analyze_diff_fitres
 
-def analyze_diff_fitres_legacy(args):
-
-    # suppress strange pandas warnings
-    pd.options.mode.chained_assignment = None 
-
-    # local variables with names of fitres files
-    ff_ref  = os.path.expandvars(args.diff_fitres[0])
-    ff_test = os.path.expandvars(args.diff_fitres[1])
-
-    if not os.path.exists(ff_ref):
-        msgerr = f"Could not find REF-input fitres file: \n\t {ff_ref}"
-        assert False, msgerr
-
-    if not os.path.exists(ff_test):
-        msgerr = f"Could not find TEST-input fitres file: \n\t {ff_test}"
-        assert False, msgerr
-
-    print(f"\n Analyze statistical differences between")
-    print(f"\t REF  fitres file: {ff_ref}")
-    print(f"\t TEST fitres file: {ff_test}")
-    print(f"\t Definition: dif_X = X(TEST) - X(REF)")
-    sys.stdout.flush()
-
-    # remove pre-existing combine-fitres file to avoid confusion
-    # if new file fails to be created.
-    if os.path.exists(combine_fitres_file):
-        os.remove(combine_fitres_file)
-
-    cmd = f"{combine_fitres_program} "
-    cmd += f"{ff_ref} {ff_test} "
-    cmd += f"t "    # only text output; no HBOOK or ROOT
-
-    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
-                          shell=True, capture_output=True, text=True )
-
-    if not os.path.exists(combine_fitres_file):
-        msgerr = f"Could not find combined fitres file: {combine_fitres_file}"
-        assert False, msgerr
-
-    df  = pd.read_csv(combine_fitres_file, comment="#", delim_whitespace=True)
-    df["CID"] = df["CID"].astype(str)
-
-    # define ref variables to check; test var name is {var}_2
-    var_check_list = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
-
-    # Apr 22 2022: add MU if it's there (e.g., output of BBC)
-    if 'MU' in df:
-        var_check_list.append('MU')
-        var_check_list.append('MUERR')
-
-    # define dfsel = table rows where both ref and test are defined
-    #dfsel        = df.loc[df['c_2']>-8.0]
-    dfsel        = df.loc[df['c_2']>-8.0]
-    dfcut        = df.loc[df['c_2']<-8.0]
-
-    len_tot = len(df)
-    len_sel = len(dfsel)
-    CID_lost_list = dfcut['CID'].to_numpy()
-
-    print(f" TEST table contains {len_sel} of {len_tot} REF events ")
-    print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
-
-    print("")
-    print("   quantity          avg       median      std          " \
-          f"min/max      CIDmin/CIDmax")
-    print("# --------------------------------------------------" \
-          "--------------------------- ")
-    for var in var_check_list:
-        var_2   = f"{var}_2"
-        var_dif = f"dif_{var}"
-        dfsel[var_dif] = dfsel[var_2] - dfsel[var]
-        mean  = dfsel[var_dif].mean()
-        med   = dfsel[var_dif].median()
-        std   = dfsel[var_dif].std()
-        mn    = dfsel[var_dif].min()
-        mx    = dfsel[var_dif].max()
-
-        CIDmin = None ; CIDmax=None
-        if mn < 0.0 :
-            CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
-        if mx > 0.0 :
-            CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
-
-        print(f"  {var_dif:16} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
-              f" {mn:8.5f}/{mx:8.5f}  {CIDmin}/{CIDmax}")
-        sys.stdout.flush()
-
-    return
-    # end analyze_diff_fitres_legacy
 
 def rewrite_cov_file(args):
 
@@ -1000,7 +915,36 @@ def rewrite_cov_file(args):
 
     return 
     # end rewrite_cov_file
-   
+
+def find_duplicates(args) :
+    # Created Feb 21 2025
+    table_file = args.table_file_dupl
+
+    # define possible ID keys for table
+    COLNAME_ID_LIST = [ 'ROW', 'CID', 'GAL' ]
+
+    df  = pd.read_csv(table_file, comment="#", delim_whitespace=True)
+    column_names = df.columns.tolist()
+    colname_id   = None
+
+    for col in COLNAME_ID_LIST:
+        if col in column_names:
+            colname_id = col
+        
+    if colname_id :
+        print(f" Found column {colname_id} to search for duplicates")
+    else:
+        sys.exit(f"\n ERROR: Could not find any of {COLNAME_ID_LIST} \n\t to search duplicates ")
+
+    id_list = df[colname_id].astype(str).to_list()
+
+    seen = set()
+    dupes = [x for x in id_list if x in seen or seen.add(x)]
+
+    ndup = len(dupes)
+    print(f"\n Found {ndup} duplicates: \n\t {dupes}")
+
+    return
 
 
 def print_HELP():
@@ -1057,11 +1001,13 @@ if __name__ == "__main__":
         extract_spectra(args)
 
     if args.diff_fitres :
-        #analyze_diff_fitres_legacy(args)
         analyze_diff_fitres(args)
 
     if args.diff_data :
         analyze_diff_data(args)
+
+    if args.table_file_dupl :
+        find_duplicates(args)
 
     # END main
 

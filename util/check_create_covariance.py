@@ -17,6 +17,8 @@ VARNAME_IDSURVEY = 'IDSURVEY'
 VARNAME_MU       = 'MU'
 VARNAME_MUMODEL  = 'MUMODEL'
 
+OUTFILE_COV_DELTAS = "covariance_deltas.csv"
+
 # ===================================================
 
 def get_args():
@@ -143,7 +145,9 @@ def compute_scaled_covpair(args, sys_scale_list):
         matching_rows = df_ref[(df_ref[VARNAME_CID] == cid) & \
                                (df_ref[VARNAME_IDSURVEY] == idsurvey)]
         if matching_rows.empty:
-            print(f"Reference: No matching row found for CID {cid} IDSURVEY {idsurvey} in FITOPT000")
+            msgerr = f"ERROR: no matching row for CID={cid} IDSURVEY={idsurvey} ; " \
+                     f"\n\t see {ref_file}"
+            sys.exit(f"\n{msgerr}")
         else:
             ref_mu[cid]      = matching_rows.iloc[0][VARNAME_MU]
             ref_mumodel[cid] = matching_rows.iloc[0][VARNAME_MUMODEL]
@@ -337,15 +341,15 @@ def get_cov_from_create_covariance(args):
     hd_file = os.path.join(cov_dir, "hubble_diagram.txt")
     covsys_file = os.path.join(cov_dir, f"covsys_{cov_num:03d}.txt.gz")
 
-    print(f"\n Read create_covariance element from \n\t {covsys_file}")
+
 
     # --- Step 1: Read the Hubble diagram file ---
     # The hubble diagram file is assumed to be space-delimited with commented header lines.
-    df_hd = pd.read_csv(hd_file, comment='#', delim_whitespace=True)
-    #print("Columns:", df_hd.columns.tolist())
-    #print("Data types:\n", df_hd.dtypes)
-    #print(df_hd.head())
 
+    print(f"\n Find hubble diagram rows in \n {hd_file}")
+    sys.stdout.flush()
+
+    df_hd = pd.read_csv(hd_file, comment='#', delim_whitespace=True)
     df_hd[VARNAME_CID]      = df_hd[VARNAME_CID].astype(str).str.strip()
     df_hd[VARNAME_IDSURVEY] = df_hd[VARNAME_IDSURVEY].astype(int)
 
@@ -354,23 +358,34 @@ def get_cov_from_create_covariance(args):
     for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
         # Note: Ensure the data types match (CID as string, IDSURVEY as integer)
         idx = df_hd[(df_hd['CID'] == (cid)) & (df_hd['IDSURVEY'] == (idsurvey))].index
-        #print('XXX idx =', idx)
         if idx.empty:
-            print(f"No row found for CID {cid}, IDSURVEY {idsurvey} in the hubble diagram.")
+            msgerr = f"ERROR: No row found for CID={cid}, IDSURVEY={idsurvey} "\
+                     f"in hubble diagram file {hd_file}"
+            sys.exit(f"\n{msgerr}")
         else:
             # We take the first matching row
             row_indices.append(idx[0])
     
-    print("\t Found row indices in hubble diagram:", row_indices)
+    print(" Found row indices in hubble diagram:")
+    for cid, idsurvey, row in zip(args.cid_list, args.idsurvey_list, row_indices):
+        print(f"\t HD row = {row:5d} for CID={cid:<10}  IDSURVEY={idsurvey}")
+        sys.stdout.flush()
     
     # Check that you have at least two indices to compare.
-    if len(row_indices) < 2:
-        print("Not enough rows found to extract a covariance element.")
+    nrow = len(row_indices)
+    if nrow < 2:
+        msgerr = f"ERROR: found only {nrow} rows (expected 2) in " \
+                 f"\n\t HD file {hd_file}"
+        sys.exit(f"\n {msgerr}")
         return None
 
     # --- Step 2: Read the flattened covariance matrix file ---
     # The file is assumed to be gzipped, with the first line as the dimension (e.g. 1802)
     # and subsequent lines as the matrix elements (row-major order).
+
+    print(f"\n Read create_covariance element from \n\t {covsys_file}")
+    sys.stdout.flush()
+
     with gzip.open(covsys_file, 'rt') as f:
         # Read the first non-empty line which gives the dimension.
         first_line = f.readline().strip()
@@ -380,7 +395,7 @@ def get_cov_from_create_covariance(args):
         try:
             dim = int(first_line)
         except ValueError:
-            print("Unable to parse the dimension from the covariance file:", first_line)
+            sys.exit("\n ERROR: Unable to parse the dimension from the covariance file:", first_line)
             return None
 
         # Now read the rest of the file and parse the covariance elements as floats.
@@ -414,7 +429,30 @@ def get_cov_from_create_covariance(args):
     return covariance_value
 
 
+def print_cov_results(args, cov_check, cov_from_create_covariance):
 
+    comment_list  = [
+        "covariance = (delta1 * sys scale) * (delta2 * sys scale)",
+        "delta_i = MU_i - MU0 "
+    ]
+
+    cid_list   = args.cid_list
+    idsrv_list = args.idsurvey_list
+    id0        = f"{cid_list[0]}/{idsrv_list[0]}"
+    id1        = f"{cid_list[1]}/{idsrv_list[1]}"
+    cov_string = f"cov( {id0} , {id1} )"
+    comment_list.append(f"Computed for crosscheck     : {cov_string} = {cov_check}")
+    comment_list.append(f"Read from create_covariance : {cov_string} = {cov_from_create_covariance}")
+
+    ratio = cov_check/cov_from_create_covariance
+    comment_list.append(f"Ratio(computed/read) : {ratio}")
+    
+    for comment in comment_list:
+        print(f"{comment}")
+        sys.stdout.flush()
+
+    return
+    # end print_cov_results
 
 # ============================================================    
 # ============================================================    
@@ -429,26 +467,17 @@ if __name__ == "__main__":
     sys_scale_list = get_sys_scale(args)
     
     # compute cov(cid0,cid1)
-    dff, sum_cov_terms = compute_scaled_covpair(args, sys_scale_list)
+    dff, cov_check = compute_scaled_covpair(args, sys_scale_list)
     
-    # write info to file
-    dff.to_csv("Covariance_deltas.csv",  sep=' ', index=False)
+    # write info to stdout and to file
+    print(dff,'\n');     sys.stdout.flush()
+    dff.to_csv(OUTFILE_COV_DELTAS,  sep=' ', index=False)
+    print(f"Write cov_check terms to {OUTFILE_COV_DELTAS}") ;    sys.stdout.flush()
 
     # fetch cov(cid0,cid1) from output of create_covariance
     cov_from_create_covariance = get_cov_from_create_covariance(args)
 
-    comment  = "# covariance = (delta1 * sys scale) * (delta2 * sys scale)\n"
-    comment2 = "# delta_i = MU_i - MU0 " 
-    print('\n', comment)
-    print( "",comment2, '\n')
-    print(dff,'\n')
-    print('File saved as Covariance_deltas.csv')
-    
-    cov_string = f"cov({args.cid_list[0]}, {args.cid_list[1]})"
-    print(f"Computed for crosscheck     : {cov_string} = {sum_cov_terms}")
-    print(f"Read from create_covariance : {cov_string} = {cov_from_create_covariance}")
-    
-    ratio = sum_cov_terms/cov_from_create_covariance
-    print(f"Ratio(computed/read) : {ratio}")
+    # print results to stdout
+    print_cov_results(args, cov_check, cov_from_create_covariance)
 
     # === END: ===

@@ -11,13 +11,14 @@ import re, yaml, sys, gzip, math, gc, glob
 import numpy  as np
 import pandas as pd
 
-
+# ===================================
 VARNAME_CID      = 'CID'
 VARNAME_IDSURVEY = 'IDSURVEY'
 VARNAME_MU       = 'MU'
 VARNAME_MUMODEL  = 'MUMODEL'
 
-OUTFILE_COV_DELTAS = "covariance_deltas.csv"
+#xxx mark OUTFILE_COV_INFO    = "cov_info.csv"
+OUTFILE_PREFIX      = "out_check_cov"
 
 # ===================================================
 
@@ -116,8 +117,6 @@ def compute_scaled_covpair(args, sys_scale_list):
       [ 'FITOPT', 'CID1', 'MU1', 'RefMU1', 'Delta1', 
         'CID2', 'MU2', 'RefMU2', 'Delta2', 'SysScale', 'FinalDelta' ]
     """
-    import pandas as pd  # ensure pandas is imported
-    import re, os, glob
 
     bbc_dir = args.bbc_dir
     wildcard = os.path.join(bbc_dir, 'FITOPT*FITRES.gz')
@@ -131,8 +130,7 @@ def compute_scaled_covpair(args, sys_scale_list):
             ref_file = f
             break
     if not ref_file:
-        print("No FITOPT000 file found! Cannot obtain reference MU values.")
-        return pd.DataFrame()  # or raise an error
+        sys.exit("\n ERROR: No FITOPT000 file found! Cannot obtain reference MU values.")
 
     # Load the reference file and extract MU for each CID/IDSURVEY pair (using the first matching row)
     df_ref = pd.read_csv(ref_file, comment='#', sep='\s+')
@@ -154,9 +152,9 @@ def compute_scaled_covpair(args, sys_scale_list):
 
     # ----------------------------------------------------------------------------------------------
 
-    results_list = []  # list to store each row's information as a dictionary
+    cov_info_list = []  # list to store each row's information as a dictionary
 
-    sum_cov_terms = 0.
+    cov_check = 0.0
     # Loop over each FITRES file
     for fitres in fitres_list:
 
@@ -212,7 +210,7 @@ def compute_scaled_covpair(args, sys_scale_list):
 
         # Compute final delta as the product of the two scaled deltas
         final_delta    = scaled_delta1 * scaled_delta2
-        sum_cov_terms += final_delta
+        cov_check     += final_delta
 
         # Build a dictionary with all the desired fields.
         row_dict = {
@@ -225,113 +223,18 @@ def compute_scaled_covpair(args, sys_scale_list):
             "MU2"   : mu2,
             "RefMU2": ref_mu2,
             "Delta2": scaled_delta2,
-            "SysScale": sys_scale,
-            "Covariance": final_delta
+            "SysScale"   : sys_scale,
+            "Covariance" : final_delta
         }
-        results_list.append(row_dict)
+        cov_info_list.append(row_dict)
 
     # Create a DataFrame from the collected results
-    df_results = pd.DataFrame(results_list)
+    df_cov_info = pd.DataFrame(cov_info_list)
     #print('XXX df_result covar', df_results['Covariance'])
     
-    return df_results, sum_cov_terms
-
-
-def compute_covpair(args, sys_scale_list):
-
-    # xxxxxxx OBDSOLETE xxxxxxxx
-    #
-    # Compute thecovariance matrix elements 
-    # Not the matrix, just a single element
-    # Print this element to screen and return
-    # element values
-
-    cov_dir = args.cov_dir
-    cov_num = args.cov_num
-
-    bbc_dir = args.bbc_dir
-    wildcard = f'{bbc_dir}/FITOPT*FITRES.gz'
-
-    fitres_list = sorted(glob.glob(wildcard))  # Load all FITOPT files
-    mu_dict = {}  # Dictionary to store MU values for each CID pair
-
-    print("\n=== Processing FITRES Files ===")
     
-    # xxxxxxx OBDSOLETE xxxxxxxx
-
-    for fitres in fitres_list:
-        print('\n ------')
-        print(f"\nReading FITRES file: {fitres}")  
-        
-
-        # Load the FITRES data
-        df = pd.read_csv(fitres, comment='#', sep='\s+')
-
-        df['CID'] = df['CID'].astype(str)
-        df['IDSURVEY'] = df['IDSURVEY'].astype(int)
-
-        for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
-            
-            print('CID , IDSURVEY ', (cid,idsurvey))
-            matching_rows = df[(df['CID'] == cid) & (df['IDSURVEY'] == idsurvey)]
-
-            if not matching_rows.empty:
-                print(f"\n CID {cid} found in {fitres}")
-                print(matching_rows[['CID', 'MU', 'MUMODEL']])  # Debugging actual MU & MUMODEL values
-
-                mu_values = matching_rows['MU'].tolist()
-                muref_values = matching_rows['MUMODEL'].tolist()
-                mudif_values = [(mu - muref) for mu, muref in zip(mu_values, muref_values)]
-
-                print(f" Computed MUDIF values: {mudif_values}")
-
-                # Ensure dictionary has correct structure
-                if (cid, idsurvey) not in mu_dict:
-                    mu_dict[(cid, idsurvey)] = {"all": [], "by_fitres": {}}
-
-                # Store values by FITRES file and in a global list
-                mu_dict[(cid, idsurvey)]["by_fitres"][fitres] = mudif_values
-                mu_dict[(cid, idsurvey)]["all"].extend(mudif_values)
-
-                # Debugging: Print dictionary updates
-                print(f" Updated mu_dict[{(cid, idsurvey)}]['by_fitres'][{fitres}] = {mudif_values}")
-    '''            
-    # xxxxxxx OBDSOLETE xxxxxxxx
-    print("\n=== Collected MUDIF values for CID pairs (All FITOPT Files) ===")
-    for key, fitres_data in mu_dict.items():
-        print(f"\n CID {key[0]}, IDSURVEY {key[1]}:")
-        for fitres, mudif_vals in fitres_data["by_fitres"].items():
-            print(f"   {fitres}: {mudif_vals}")
-    '''
-    
-    # Compute covariance of 2 CID pairs
-    cid_pairs = list(mu_dict.keys())
-    if len(cid_pairs) >= 2:
-        cid1, idsurvey1 = cid_pairs[0]
-        cid2, idsurvey2 = cid_pairs[1]
-        print('CID1',cid1,cid2)
-        print('cid2', mu_dict[(cid1, idsurvey1)])
-        mudif_values_1 = mu_dict[(cid1, idsurvey1)]["all"]
-        mudif_values_2 = mu_dict[(cid2, idsurvey2)]["all"]
-
-        # xxxxxxx OBDSOLETE xxxxxxxx
-        if len(mudif_values_1) == len(mudif_values_2):
-            covariance_matrix = np.cov(mudif_values_1, mudif_values_2)
-            print('Covariance matrix \n', covariance_matrix)
-            covariance = covariance_matrix[0, 1]
-            print(f"\n Covariance between CID {cid1} and CID {cid2}: {covariance}")
-
-            # Check matrix conditioning
-            cond_number = np.linalg.cond(covariance_matrix)
-            if cond_number > 1e10:
-                print("Warning: Covariance matrix is poorly conditioned, inversion may be unstable.")
-        else:
-            print("\n Error: MUDIF lists have different lengths, covariance cannot be computed.")
-    else:
-        print("\n Error: Less than two CID pairs found, covariance cannot be computed.")
-
-    # xxxxxxx OBDSOLETE xxxxxxxx
-    return mu_dict
+    return df_cov_info, cov_check
+    # end compute_scaled_covpair
 
 
 def get_cov_from_create_covariance(args):
@@ -340,8 +243,6 @@ def get_cov_from_create_covariance(args):
     cov_num = args.cov_num
     hd_file = os.path.join(cov_dir, "hubble_diagram.txt")
     covsys_file = os.path.join(cov_dir, f"covsys_{cov_num:03d}.txt.gz")
-
-
 
     # --- Step 1: Read the Hubble diagram file ---
     # The hubble diagram file is assumed to be space-delimited with commented header lines.
@@ -390,13 +291,13 @@ def get_cov_from_create_covariance(args):
         # Read the first non-empty line which gives the dimension.
         first_line = f.readline().strip()
         if not first_line:
-            print("Covariance file is empty or does not contain dimension info.")
-            return None
+            sys.exit("\n ERROR: Covariance file is empty or does not contain dimension info.")
         try:
             dim = int(first_line)
+            print(f"\t cov dimention to read: {dim} x {dim}")
+            sys.stdout.flush()
         except ValueError:
-            sys.exit("\n ERROR: Unable to parse the dimension from the covariance file:", first_line)
-            return None
+            sys.exit("\n ERROR: Unable to parse cov_dim = '{first_line}' from first row of cov file.")
 
         # Now read the rest of the file and parse the covariance elements as floats.
         cov_elements = []
@@ -411,12 +312,13 @@ def get_cov_from_create_covariance(args):
     
     # Check if we have the correct number of elements.
     if len(cov_elements) != dim * dim:
-        print("Warning: Expected", dim * dim, "elements, but got", len(cov_elements))
+        sys.exit("\n ERROR: Expected", dim * dim, "elements, but got", len(cov_elements))
     
     # Convert the list of elements to a NumPy array and reshape it.
     cov_matrix = np.array(cov_elements).reshape(dim, dim)
     print("Covariance matrix shape:", cov_matrix.shape)
-    
+    sys.stdout.flush()
+
     # --- Step 3: Extract the covariance entry for the two selected rows ---
     # For example, if you have two indices (row_i, row_j):
     row_i = row_indices[0]
@@ -425,30 +327,55 @@ def get_cov_from_create_covariance(args):
     print(f"         Covariance between row {row_i} and row {row_j}: {covariance_value}")
     print(f"Reversed Covariance between row {row_j} and row {row_i}: {covariance_value}")
     print(f"")
+    sys.stdout.flush()
 
     return covariance_value
 
 
-def print_cov_results(args, cov_check, cov_from_create_covariance):
-
-    comment_list  = [
-        "covariance = (delta1 * sys scale) * (delta2 * sys scale)",
-        "delta_i = MU_i - MU0 "
-    ]
+def print_cov_results(args, results_dict):
 
     cid_list   = args.cid_list
     idsrv_list = args.idsurvey_list
-    id0        = f"{cid_list[0]}/{idsrv_list[0]}"
-    id1        = f"{cid_list[1]}/{idsrv_list[1]}"
-    cov_string = f"cov( {id0} , {id1} )"
+    id0        = f"{cid_list[0]}+{idsrv_list[0]}"
+    id1        = f"{cid_list[1]}+{idsrv_list[1]}"
+
+    dff_cov_info                  = results_dict['dff_cov_info']
+    cov_check                     = results_dict['cov_check']
+    cov_from_create_covariance    = results_dict['cov_from_create_covariance']
+
+    # - - - - - - - - - - - 
+    # write info to stdout and to file
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 0)  # Adjust to your console width if needed
+    pd.set_option('display.expand_frame_repr', True)
+
+    print(df_cov_info,'\n');         sys.stdout.flush()
+
+    tmp_string = f"{id0}_{id1}"
+    outfile    = f"{OUTFILE_PREFIX}_{tmp_string}.csv"
+
+    df_cov_info.to_csv(outfile,  sep=' ', index=False)
+    print(f"# Write cov_check terms to {outfile}") ; 
+    sys.stdout.flush()
+
+    # - - - - - - - - 
+    comment_list  = [
+        "covariance = (delta1 * sys scale) * (delta2 * sys scale)",
+        "delta_i = MU_i - MU0 ",
+        " ",
+    ]
+
+
+    cov_string = f"cov[ {id0} , {id1} ]"
     comment_list.append(f"Computed for crosscheck     : {cov_string} = {cov_check}")
     comment_list.append(f"Read from create_covariance : {cov_string} = {cov_from_create_covariance}")
 
     ratio = cov_check/cov_from_create_covariance
-    comment_list.append(f"Ratio(computed/read) : {ratio}")
+    comment_list.append(f"Ratio(computed/read) : {ratio}  for {cov_string}")
     
     for comment in comment_list:
-        print(f"{comment}")
+        print(f"# {comment}")
         sys.stdout.flush()
 
     return
@@ -467,17 +394,17 @@ if __name__ == "__main__":
     sys_scale_list = get_sys_scale(args)
     
     # compute cov(cid0,cid1)
-    dff, cov_check = compute_scaled_covpair(args, sys_scale_list)
+    df_cov_info, cov_check = compute_scaled_covpair(args, sys_scale_list)
     
-    # write info to stdout and to file
-    print(dff,'\n');     sys.stdout.flush()
-    dff.to_csv(OUTFILE_COV_DELTAS,  sep=' ', index=False)
-    print(f"Write cov_check terms to {OUTFILE_COV_DELTAS}") ;    sys.stdout.flush()
-
     # fetch cov(cid0,cid1) from output of create_covariance
     cov_from_create_covariance = get_cov_from_create_covariance(args)
 
     # print results to stdout
-    print_cov_results(args, cov_check, cov_from_create_covariance)
+    results_dict = {
+        'dff_cov_info'  :  df_cov_info,
+        'cov_check'     :  cov_check,
+        'cov_from_create_covariance' : cov_from_create_covariance
+    }
+    print_cov_results(args, results_dict)
 
     # === END: ===

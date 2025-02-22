@@ -22871,6 +22871,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          v11_05t (Jan 10 2025) <-- start date of git tag
 
          *****  IMPORTANT(v11_05t) *****
+
+    CALIB_FILE key can replace KCOR_FILE in sim and snlc_fit inputs.
+    Legacy KCOR_FILE key still allowed. Internally, the code variables
+    with KCOR_ have also been replaced with CALIB_.
 	 
          *****  USEFUL(v11_05t) *****
 	 	       
@@ -22887,5 +22891,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     submit_batch_jobs:
        + fix nomerge_last() to work properly when OUTDIR is not under CWD.
-       
+    
+    new utility check_create_covariance.py to compute a single element
+    of a sys-covariance matrix using pair of cid/idsurvey.
+
+    quick_commands.py
+     + new option --table_file_dupl <FITRES or HD file>
+       to find and print duplicate CIDs.
+
 END: 

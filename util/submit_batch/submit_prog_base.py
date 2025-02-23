@@ -1252,8 +1252,13 @@ class Program:
 
         arg_list.append('--iter2')
 
-        if args.refac_file_check:
-            arg_list.append('--refac_file_check')  # temporary, Feb 14 2025
+        # xxxxxxx mark delete Feb 23 2025 xxxxxxxx
+        #if args.refac_file_check:
+        #    arg_list.append('--refac_file_check')  # temporary, Feb 14 2025
+        # xxxxxxxx end mark xxxxxxxxxxxxxxxxxxxxx
+        if args.refac_cid_unique :
+            arg_list.append('--refac_cid_unique')  # temporary, Feb 23 2025
+
 
         arg_string = " ".join(arg_list) 
         logging.info(f"\n submit_iter2 with \n  {arg_string}\n")

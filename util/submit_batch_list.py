@@ -174,11 +174,17 @@ def scancel_all_jobs(submit_info_file):
     sys.exit()
     return
 
-def check_file_exists(file_name):
-    # abort if file does not exist
-    exist = os.path.isfile(file_name)
+def check_file_exists(file_name_list):
+    # abort if none of the input files exist;
+    # i.e., only 1 of the input files must exixt
+
+    exist = False
+    for ftmp in file_name_list:        
+        if os.path.isfile(ftmp):
+            exist = True
+            
     if not exist:
-        msgerr = f"ERROR: Cannot find required file: {file_name}"
+        msgerr = f"ERROR(submit_batch_list.py): Cannot find any required file: {file_name_list}"
         logging.info(f"{msgerr}")
         scancel_all_jobs("dum.log")
         sys.exit(f"\n ABORT {sys.argv[0]}")
@@ -275,9 +281,11 @@ def run_submit(infile_list, outdir_list, SUBMIT_INFO ):
     done_file_list = []
     info_file_list = []
     for infile, outdir in zip(infile_list, outdir_list) :
-        merge_file = f"{submit_dir}/{outdir}/{MERGE_LOG_FILE}"
-        info_file  = f"{submit_dir}/{outdir}/{SUBMIT_INFO_FILE}"
-        done_file  = f"{submit_dir}/{outdir}/{ALL_DONE_FILE}"      
+        merge_file       = f"{submit_dir}/{outdir}/{MERGE_LOG_FILE}"
+        merge_iter1_file = f"{submit_dir}/{outdir}_ITER1/{MERGE_LOG_FILE}"
+        info_file        = f"{submit_dir}/{outdir}/{SUBMIT_INFO_FILE}"
+        info_iter1_file  = f"{submit_dir}/{outdir}_ITER1/{SUBMIT_INFO_FILE}"
+        done_file        = f"{submit_dir}/{outdir}/{ALL_DONE_FILE}"      
         info_file_list.append(info_file)
         done_file_list.append(done_file)
         logging.info(f" submit {infile}  -> {outdir}")
@@ -298,8 +306,8 @@ def run_submit(infile_list, outdir_list, SUBMIT_INFO ):
                               shell=True, capture_output=True, text=True )
 
         time.sleep(1)
-        check_file_exists(merge_file)
-        check_file_exists(info_file)
+        check_file_exists( [ merge_file, merge_iter1_file] )
+        check_file_exists( [ info_file,  info_iter1_file ] )
         time.sleep(3)
 
     # - - - - - - - 

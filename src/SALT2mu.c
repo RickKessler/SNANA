@@ -16784,7 +16784,6 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
   isn_match = match_cidlist_exec(STRINGID);
   MATCH     = (isn_match >= 0);
   if ( INFO_DATA.USE_IZBIN_from_CIDFILE && MATCH ) {
-    // xxx mark delete Jan 2025  *IZBIN=match_cidlist_parval(isn_match,VARNAME_IZBIN,1);
     double DVAL;
     match_cidlist_parval(isn_match, VARNAME_IZBIN, 1, &DVAL, CVAL);
     *IZBIN = (int)DVAL ;
@@ -21809,7 +21808,7 @@ void define_varnames_append(void) {
       sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_muCOVADD");   NVAR_APPEND++ ;
     }
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"IDSAMPLE");          NVAR_APPEND++ ;  
-    sprintf(VARNAMES_APPEND[NVAR_APPEND],VARNAME_IZBIN);    NVAR_APPEND++ ;  
+    sprintf(VARNAMES_APPEND[NVAR_APPEND],VARNAME_IZBIN);     NVAR_APPEND++ ;  
 
   }
 

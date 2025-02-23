@@ -151,8 +151,8 @@ def get_args():
     msg = "INTERNAL:  2nd iteration"
     parser.add_argument("--iter2", help=msg, action="store_true")
 
-    msg = "Refactor file checks in CPU*.CMD; use new wait_for_file.py util"
-    parser.add_argument("--refac_file_check", help=msg, action="store_true")
+    msg = "Refactor unique cid to use CID+IDSURVEY+FIELD (BBC class)"
+    parser.add_argument("--refac_cid_unique", help=msg, action="store_true")
 
     args = parser.parse_args()
 
@@ -160,6 +160,8 @@ def get_args():
     args.prescale = 1
     if args.fast   : args.prescale = FASTFAC
     if args.faster : args.prescale = FASTFAC2
+
+    args.refac_file_check = True  # hard-wire Feb 23 2025
 
     if len(sys.argv) == 1:
         parser.print_help()

@@ -1770,7 +1770,7 @@ def write_summary_output(args, config, covsys_list, base):
     BBC_INFO_FILE   = f"{os.path.dirname(BBC_DIR)}/SUBMIT.INFO" 
     info2['BBC_DIR']        = BBC_DIR  # Feb 17 2025    
     info2['BBC_INFO_FILE']  = BBC_INFO_FILE
-    info2[KEYNAME_SYS_SCALE_FILE] = config[KEYNAME_SYS_SCALE_FILE]
+    info2[KEYNAME_SYS_SCALE_FILE] = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
 
     # - - - - - 
     logging.info("# - - - - - - - - - - - - - - - - - - - - - - - - - -")

@@ -319,7 +319,6 @@ def print_info(info_fitres):
             id_list += id_rows
 
     # be careful here to remove duplicates AND preserve original order
-    # xxx mark delte Aug 23 2024  id_list = list(set(id_list))
     id_list = list(dict.fromkeys(id_list))  # trick to preserve order and remove duplicates
     
     # Only print if id_list defined either by cid or nrow
@@ -327,7 +326,6 @@ def print_info(info_fitres):
         # add back keynam_id [e.g., CID or GALID] and then print
         # without index ... this avoids index name (CID) printed
         # to a separate row compared to other varnames
-        # xxx mark Aug 23 2024 df = df.loc[sorted(id_list), [keyname_id] + var_list]
         df = df.loc[ id_list, [keyname_id] + var_list]
         print(df.to_string(index=False))                     
 

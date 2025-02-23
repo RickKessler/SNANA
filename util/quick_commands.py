@@ -32,6 +32,8 @@ snana_program          = "snana.exe"
 combine_fitres_program = "combine_fitres.exe"
 combine_fitres_file    = "combine_fitres.text"
 
+get_fitres_values_script = "get_fitres_values.py"
+
 LOG_FILE = "quick_command.log"
 MXCHAR_VERSION = 72 # should match same parameter in snana.car
 
@@ -203,7 +205,7 @@ def make_ztable(args):
     command += arg_cidlist(cidlist,typelist)
 
     # extract info from SNANA table and present in human-readable form
-    table_script = "get_fitres_values.py"
+    table_script = get_fitres_values_script
     table_file   = f"{prefix_temp}.SNANA.TEXT"
     zvar_list    = "zHEL,zHELERR,zCMB,zCMBERR,zHD,zHDERR,VPEC,VPECERR"
     cmd_table    = f"{table_script} -f {table_file} --nrow 10 -v {zvar_list}"
@@ -944,8 +946,27 @@ def find_duplicates(args) :
     ndup = len(dupes)
     print(f"\n Found {ndup} duplicates: \n\t {dupes}")
 
-    return
+    # - - - - - - - - - - - - -  -
+    # print more information for each duplicate:
+    COLNAME_EXTRA_LIST = [ 'IDSURVEY', 'FIELD', 'zHD', 'ZTRUE', 'ZTRUE_CMB' ]
+    colname_extras     = []
+    for col in COLNAME_EXTRA_LIST:
+        if col in column_names:
+            colname_extras.append(col)
+    print(f"\n Found extra columns: {colname_extras}")
 
+    if len(colname_extras) > 0:
+        arg_cid_dupes = ','.join(dupes)
+        arg_var_extra = ','.join(colname_extras)
+        cmd_table    = f"{get_fitres_values_script} "\
+                       f"-f {table_file} " \
+                       f"-c {arg_cid_dupes} " \
+                       f"-v {arg_var_extra} "
+        os.system(cmd_table)
+        #istat0, istat1 = exec_command(command_list,args,0)
+
+    return
+    # end find_duplicates
 
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")

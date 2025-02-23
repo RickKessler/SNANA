@@ -2231,11 +2231,10 @@ class BBC(Program):
         #
         # Jan 12 2021: write ACCEPT file as well. Return if n_splitran>1
         # Nov 23 2022: continue with n_splitran>1
-
-        # xxx mark delete xxx
-        # n_splitran    = self.config_prep['n_splitran']
-        # if n_splitran > 1 : return
-        # xxxxxxxxxxxxxxxx
+        #
+        # Feb 23 2025: match duplicate by CID+IDSURVEY+FIELD 
+        #   Prevous matching by CID+IDSURVEY isn't enough for same survey
+        #   simulated multiple times, each with different field.
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
@@ -2433,7 +2432,6 @@ class BBC(Program):
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
-
         cid_unique, n_count = np.unique(ucid_list, return_counts=True)
         HAS_IZBIN = TABLE_VARNAME_IZBIN in df0
 

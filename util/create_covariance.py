@@ -154,6 +154,9 @@
 #   + write BBC_DIR to INFO.YAML file 
 #   + fix --lable_cov_rows and write more output per cov row.
 #
+# Feb 25 2025: for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
+#              Write FIELD to unbinned hubble_diagram.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -192,6 +195,7 @@ WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/20
 VARNAME_CID          = "CID"  # for unbinned fitres files
 VARNAME_ROW          = "ROW"  # for binned M0DIF files
 VARNAME_IDSURVEY     = "IDSURVEY"
+VARNAME_FIELD        = "FIELD"
 VARNAME_MU           = "MU"
 VARNAME_M0DIF        = "M0DIF"
 VARNAME_MUDIF        = "MUDIF"
@@ -532,14 +536,16 @@ def load_hubble_diagram(hd_file, args, config):
                           f"from {VARNAME_MUERR}")
 
         # - - - - - - - - -
-        df['CIDstr'] = df[VARNAME_CID].astype(str) + "_" + \
-                       df[VARNAME_IDSURVEY].astype(str)
-
+        df['CIDstr'] = df[VARNAME_CID].astype(str)         + "_" + \
+                       df[VARNAME_IDSURVEY].astype(str)    + "_" + \
+                       df[VARNAME_FIELD].astype(str)     # Feb 25 2025
+                       
         # we need to make a new column to index the dataframe on 
         # unique rows for merging two different systematic ...
         # or combining sims with different surveys that have random CID overlaps.
-        df['CIDindex'] = df[VARNAME_CID].astype(str) + "_" + \
-                         df[VARNAME_IDSURVEY].astype(str) 
+        df['CIDindex'] = df[VARNAME_CID].astype(str)       + "_" + \
+                         df[VARNAME_IDSURVEY].astype(str)  + "_" + \
+                         df[VARNAME_FIELD].astype(str)     # Feb 25 2025
         df = df.set_index("CIDindex")
 
     elif VARNAME_zHD in df.columns:   # for z-binned (M0DIF) hubble diagram
@@ -1527,6 +1533,7 @@ def write_HD_unbinned(path, base, muerr_sys_list):
 
     name_list   = base[VARNAME_CID].to_numpy()
     idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
+    field_list  = base[VARNAME_FIELD].to_numpy()  # Feb 23 2025
     zHD_list    = base[VARNAME_zHD].to_numpy()
     zHEL_list   = base[VARNAME_zHEL].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
@@ -1556,12 +1563,7 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     else:
         pbeams_list = muerr_list # anything for zip command
 
-        # .xyz
-
     # - - - - - - -
-    #foo = ["c", "b", "a"] ???
-    #bar = [1, 2, 3] ???
-    #foo, bar = zip(*sorted(zip(foo, bar)))
 
     with open(path, "w") as f:
         write_HD_comments(f, unbinned, found_muerr_sys, found_pbeams )

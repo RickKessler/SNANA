@@ -162,6 +162,7 @@ def get_args():
     if args.faster : args.prescale = FASTFAC2
 
     args.refac_file_check = True  # hard-wire Feb 23 2025
+    args.refac_cid_unique = True  # Feb 23 2025
 
     if len(sys.argv) == 1:
         parser.print_help()

@@ -703,9 +703,14 @@ class Program:
         arg_t   = f"-t {t_stamp}"
         arg_m   = f"--merge"
         arg_M   = f"--MERGE_LAST"
-
+            
         merge_args       = f"{input_file} {arg_m} {arg_t} {arg_cpu}"
         merge_args_final = f"{input_file} {arg_M} {arg_t} {arg_cpu}"
+
+        args_debug = self.get_args_debug()
+        if args_debug: 
+            merge_args_final += f" {args_debug}"  # Feb 23 2025
+
         wildcard = "CPU*DONE"
         wildcard_echo = "CPU\*DONE"
 
@@ -879,6 +884,8 @@ class Program:
 
         JOB_INFO = {}
 
+        args_debug = self.get_args_debug()
+
         # determine if this is last job for this cpu
         last_job_cpu  = (n_job_tot - ijob) < n_core
 
@@ -902,7 +909,10 @@ class Program:
 
         m_arg = "--merge"
         if merge_force:  m_arg = "--merge_force"
-        if last_merge :  m_arg = "--MERGE_LAST" 
+        if last_merge :  
+            m_arg = "--MERGE_LAST" 
+            if args_debug: 
+                m_arg += f" {args_debug}" # Feb 23 2025
 
         arg_list = f"{m_arg} -t {Nsec} --cpunum {icpu}"
         
@@ -1241,13 +1251,8 @@ class Program:
 
         arg_list.append('--iter2')
 
-        # xxxxxxx mark delete Feb 23 2025 xxxxxxxx
-        #if args.refac_file_check:
-        #    arg_list.append('--refac_file_check')  # temporary, Feb 14 2025
-        # xxxxxxxx end mark xxxxxxxxxxxxxxxxxxxxx
-        if args.refac_cid_unique :
-            arg_list.append('--refac_cid_unique')  # temporary, Feb 23 2025
-
+        args_debug = self.get_args_debug()
+        if args_debug:  arg_list.append(args_debug) 
 
         arg_string = " ".join(arg_list) 
         logging.info(f"\n submit_iter2 with \n  {arg_string}\n")
@@ -1255,6 +1260,22 @@ class Program:
         ret  = subprocess.call( arg_list )
 
         # end launch_jobs_iter2
+
+    def get_args_debug(self):
+        # Created Feb 23 2025
+        # return debug args to be included to submit_batch_jobs in merge mode.
+        # For nominal usage, this method returns None;
+        # other values are intended only for expert debugging.
+
+        args        = self.config_yaml['args']
+        args_debug  = None
+
+        if args.refac_cid_unique :
+            args_debug = '--refac_cid_unique'
+            
+        return args_debug
+
+        # end get_args_debug
 
     def update_slurm_pid_list(self, slurm_pid_list, slurm_job_name_list):
 
@@ -1790,6 +1811,8 @@ class Program:
         if merge_mode == MERGE_MODE_BACKGROUND:
             return
 
+        args_debug = self.get_args_debug()
+
         logging.info(f"\n Create {merge_script} ")
         with open(merge_script,"wt") as s:
             s.write(f"# test merge process interactively. \n")
@@ -1801,7 +1824,9 @@ class Program:
             s.write(f"cd {CWD}\n")            
             s.write(f"{program_submit} \\\n")
             s.write(f"  {input_file}   \\\n")
-            s.write(f"  -M \n")
+            s.write(f"  -M  \\\n")
+            if args_debug:   s.write(f"  {args_debug} \\\n")
+            s.write(f"\n")
 
         cmd = f"chmod +x {merge_script}"
         os.system(cmd)

@@ -2322,7 +2322,7 @@ class BBC(Program):
                     idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
                     field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
                     if nrej>0: 
-                        f.write(f"SN:  {cid:<12} {idsurv} {field} {nrej:3d} \n")
+                        f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {nrej:3d} \n")
             else:
                 f.write(f"{KEYVAR}: CID NJOB_REJECT \n")
                 for cid,nrej in zip(cid_unique,n_reject) :
@@ -2352,7 +2352,7 @@ class BBC(Program):
                     field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
                     izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
                     if nrej==0: 
-                        f.write(f"SN:  {cid:<12} {idsurv} {field} {izbin}\n")
+                        f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {izbin:2d}\n")
             else:
                 f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} "\
                         f" {TABLE_VARNAME_IZBIN}\n")
@@ -2579,8 +2579,10 @@ class BBC(Program):
 
         if not refac_cid_unique:
             # legacy as of Feb 23 2025
-            self.get_cid_list_dupl_legacy(fitres_list, VOUT)
-            return
+            logging.info(f" xxxx call LEGACY get_cid_list_dupl_legacy")
+            cid_dict = self.get_cid_list_dupl_legacy(fitres_list, VOUT)
+            return cid_dict
+
 
         n_ff        = len(fitres_list)
         unique_dict = {}

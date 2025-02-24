@@ -391,22 +391,11 @@ class Program:
             INFO_PATHFILE    = f"{output_dir}/{SUBMIT_INFO_FILE}"
             submit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None )
 
-        # xxxxxxxx
-        #print(f"\n xxx kill_jobs: submit_info_yaml = \n{submit_info_yaml}\n") # .xyz
-        #print(f"\n xxx kill_jobs: config_prep = \n{self.config_prep} \n\n")
-        #sys.stdout.flush() # xxxx
-        # xxxxxxx
 
         done_list     = submit_info_yaml['DONE_STAMP_LIST']
         submit_mode   = submit_info_yaml['SUBMIT_MODE'] 
         batch_command = SBATCH_COMMAND   # fragile alert warning
 
-        # xxxx mark delete Feb 16 2025 xxxxxxx
-        #output_dir    = self.config_prep['output_dir']
-        #done_list     = self.config_prep['done_stamp_list']
-        #submit_mode   = self.config_prep['submit_mode'] 
-        #batch_command = self.config_prep['batch_command'] 
-        # xxxxxxxxxxxx
 
         IS_SSH        = submit_mode == SUBMIT_MODE_SSH
         IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH

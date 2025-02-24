@@ -238,6 +238,7 @@ def get_outdir_list(config):
     submit_dir  = config[KEY_SUBMIT_DIR]
 
     for submit in config[KEY_SUBMIT_LIST]:
+
         set_list = ''
         for infile in submit.split() :
             INFILE = (f"{submit_dir}/{infile}")
@@ -252,8 +253,10 @@ def get_outdir_list(config):
             outdir = None 
             if 'OUTDIR' in CONFIG :
                 outdir = CONFIG['OUTDIR']
-            if 'LOGDIR' in CONFIG :
+            elif 'LOGDIR' in CONFIG :
                 outdir = CONFIG['LOGDIR']
+            elif 'GENPREFIX' in CONFIG :
+                outdir = 'SIMLOGS_' + CONFIG['GENPREFIX']  # Feb 23 2025
 
             set_list += f"{outdir} "
 
@@ -369,7 +372,7 @@ if __name__ == "__main__":
     SUBMIT_INFO.update( {'config' : config} )
     infile_submit_list = config[KEY_SUBMIT_LIST]
     submit_dir         = config[KEY_SUBMIT_DIR]
-    
+
     nset = 0
     for infile_set in infile_submit_list:
         nset += 1

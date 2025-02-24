@@ -1143,7 +1143,7 @@ struct INPUTS {
   int   CUTWIN_IDSURVEY_LIST[MXSELECT_VAR][20];
 
   
-  int    NFIELD ;  // number of overlap fields for this event
+  int    NFIELDLIST ;  // number of fields to use for selection
   char   *FIELDLIST[MXFIELD_OVERLAP] ;
 
   // integer value lists to select:
@@ -1158,7 +1158,7 @@ struct INPUTS {
 
   int   ncidList_data;  //number of cids provided in listfile(s)
   int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
-  bool  match_on_cid_idsurvey, match_on_cid_only ; 
+  bool  match_on_cid_idsurvey_field, match_on_cid_only ; 
   // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
   int     nlogzbin;  // number of log-spaced redshift bins
@@ -1487,7 +1487,7 @@ int  set_DOFLAG_SELECT_VAR(int ivar_table, int ivar_select, int isData,
 			   SELECT_VAR_DEF *SELECT_VAR );
 
 void parse_PARSHIFT(char *item);
-void parse_FIELDLIST(char *item);
+void parse_FIELDLIST_SELECT(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
@@ -1674,7 +1674,7 @@ int   prescale_reject_simData(int SIM_TEMPLATE_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
-int selectCID_data(char *cid, int IDSURVEY, int *IZBIN); 
+int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN); 
 
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -5442,7 +5442,7 @@ void set_defaults(void) {
   INPUTS.NCUTWIN   = 0 ; // xxx soon to be obsolete (Oct 1 2024)
   INPUTS.NPARSHIFT = 0 ; // xxx soon to be obsolete
   
-  INPUTS.NFIELD    = 0 ;
+  INPUTS.NFIELDLIST   = 0 ;
 
   INPUTS.uM0   = M0FITFLAG_ZBINS_FLAT;
   INPUTS.uzsim = 0 ; // option to set z=simz (i.e., to cheat)
@@ -6767,7 +6767,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   int  NLCPAR_LOCAL = NLCPAR ; // beware that ILCPAR_MIN/MAX isn't set yet
   if ( DOBIAS_MU ) { NLCPAR_LOCAL++ ; }
 
-  // xxx mark bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
   bool USE_FIELD = true; // Nov 2024 
   long long MEMTOT=0;
   float f_MEMTOT, f_MEM ;
@@ -7238,7 +7237,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   int OPTMASK_WARN  = 1+4; // 1=verbose; 4=give warning if missing
   
   bool FIRSTFILE = ( ISTART == 0 ) ;
-  // xxx mark bool USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
   bool USE_FIELD = true;
   bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
@@ -16468,7 +16466,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // Jun 25 2019: fux bug setting CUTBIT_IDSAMPLE for IS_BIASCOR
   // May 28 2021: fix COV cut bug; cut on cov(mB,X) instead of cov(x0,X)
   // Dec 16 2022: use select_FIELD(field) to apply fieldlist cut
-
+  // Feb 24 2025: always parse field (do not require INPUTS.NFIELD>0)
+  //
   int  event_type = TABLEVAR->EVENT_TYPE;
   bool IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   bool IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
@@ -16485,7 +16484,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   double cutvar_local[MXSELECT_VAR];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
-  char   *name, *field ;
+  char   *name, field[60]="VOID" ;
   char fnam[]=  "set_CUTMASK";
 
   // ---------- BEGIN ---------
@@ -16547,11 +16546,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // -----------------
   // check fieldlist cut. Beware that FIELD column is read/stored
   // only if field is used as cut or biasCor group.
-  if ( INPUTS.NFIELD > 0 ) {
-    field     =  TABLEVAR->field[isn];  
-    sel = select_FIELD(field);
-    if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); } 
-  }
+  sprintf(field, "%s", TABLEVAR->field[isn] );
+  sel = select_FIELD(field);
+  if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); } 
 
   // -----------------------------------------
   // apply legacy cuts 
@@ -16638,8 +16635,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     if ( REJECT )
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
-    // djb we only want to apply the cid list for the data                 
-    ACCEPT = selectCID_data(name, idsurvey, &IZBIN);
+    // djb we only want to apply the cid list for the data (real or sim)
+    ACCEPT = selectCID_data(name, idsurvey, field, &IZBIN);
     if ( !ACCEPT )
       { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); } //the mask is in tablevar
 
@@ -16743,20 +16740,21 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 
 // ===========================================
-int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
+int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN) {
 
   // Created Sep 5 2019 by D.Brout
-  // for file= data. determines if cid is in cidlist_data
+  //
+  // For function input, check if this CID_IDSURVEY_FIELD is in the data set.
   //
   // Sep 2020 RK - Refactor to accept or reject based on user input.
   // Jun 2021 RK - use match_cidlist_exec util based on hash table.
   // Jun 2021 DB - added boolean logic to match on IDSURVERY
   // Apr 2022 RK - return IZBIN if it is part of cid_select table
-
+  // Feb 2425 RK - add FIELD arg for better event matching.
   
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
-  bool match_on_cid_idsurvey = INPUTS.match_on_cid_idsurvey;
+  bool match_on_cid_idsurvey_field = INPUTS.match_on_cid_idsurvey_field;
   bool match_on_cid_only = INPUTS.match_on_cid_only;
   int ACCEPT = 1, REJECT = 0,   isn_match ;
   bool MATCH ;
@@ -16769,15 +16767,16 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
 
   if ( ncidList == 0 ) { return ACCEPT ; }
 
-  if (match_on_cid_only) {
-      sprintf(STRINGID,"%s",cid);
-    }
-  else if (match_on_cid_idsurvey) {
-      sprintf(STRINGID,"%s_%d",cid,IDSURVEY);
-    }
+  if ( match_on_cid_only ) {
+      sprintf(STRINGID, "%s", cid);
+  }
+  else if ( match_on_cid_idsurvey_field ) {
+    sprintf(STRINGID, "%s_%d_%s", cid, IDSURVEY, FIELD);
+    // xxx mark delete Feb 24 2025: sprintf(STRINGID, "%s_%d", cid, IDSURVEY);
+  }
   else {
     sprintf(c1err,"Boolean logic failed, unable to match.");
-    sprintf(c2err,"match_on_cid_only=false and match_on_cid_idsurvey=false");
+    sprintf(c2err,"match_on_cid_only=false and match_on_cid_idsurvey_field=false");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
@@ -17484,7 +17483,7 @@ int ppar(char* item) {
   }
 
   if ( uniqueOverlap(item,"fieldlist=") ) 
-    { parse_FIELDLIST(&item[10]); return(1); } 
+    { parse_FIELDLIST_SELECT(&item[10]); return(1); } 
 
 
   if ( uniqueOverlap(item,"select_trueIa=") ) 
@@ -17866,12 +17865,16 @@ void parse_cidFile_data(int OPT, char *fileName) {
   //
   // If IDSURVEY column exists, match by CID_SURVEY
   // If IZBIN column exists, store it for use with event syncing (Apr 2022)
-
+  //
+  // Feb 24 2025: if IDSURVEY & FIELD exist, match buy CID_IDSURVEY_FIELD
+  //              (previously, FIELD was not present)
+  //
   int  ncidList_data = INPUTS.ncidList_data  ;
   int  ncid, isn, ISNOFF=0, IZBIN, IVAR_IZBIN, IFILE, ifile, ICAST ;
-  int  OPTMASK_MATCH=1; //match CID_IDSURVEY
+  // xxx mark delete Feb 24 2025 :  int  OPTMASK_MATCH = 1;  //match CID_IDSURVEY
+  int  OPTMASK_MATCH = 3;  //match CID_IDSURVEY_FIELD
   double DVAL;
-  char id_name[20], VARLIST_STORE[40]="" ;
+  char id_name[28], VARLIST_STORE[60]="" ;
   char fnam[] = "parse_cidFile_data" ;
 
   int use_izbin = INPUTS.izbin_from_cidFile ;
@@ -17893,14 +17896,16 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // - - - - - - - - 
   // D.Brout Jun 2021
   if ( (OPTMASK_MATCH & 1) == 0) {
-    INPUTS.match_on_cid_idsurvey = false;
-    INPUTS.match_on_cid_only     = true;
+    // legacy ... should not be using this
+    INPUTS.match_on_cid_idsurvey_field = false;
+    INPUTS.match_on_cid_only           = true;
     sprintf(id_name,"CID");
   }
   else {
-    INPUTS.match_on_cid_idsurvey = true;
-    INPUTS.match_on_cid_only     = false;
-    sprintf(id_name,"CID_IDSURVEY");
+    // default
+    INPUTS.match_on_cid_idsurvey_field = true;
+    INPUTS.match_on_cid_only          = false;
+    sprintf(id_name,"CID_IDSURVEY_FIELD");
   }
 
   INPUTS.ncidList_data += ncid ;
@@ -18399,7 +18404,7 @@ bool select_FIELD(char *field) {
   // Created Dec 16 2022
   // Return True of input *field satsifies cut from user input fieldlist.
 
-  int  icut, NFIELD = INPUTS.NFIELD ;
+  int  icut, NFIELD = INPUTS.NFIELDLIST ;
   bool select = true;
   char *tmpField;
   char fnam[] = "select_FIELD" ;
@@ -19096,15 +19101,15 @@ int icut_CUTWIN(char *varName) {
 } // end icut_CUTWIN
 
 // **************************************************
-void parse_FIELDLIST(char *item) {
+void parse_FIELDLIST_SELECT(char *item) {
 
   // Created May 2020
-  // break comma-separated list and load NFIELD values
+  // break comma-separated list and load NFIELD values to select events
 
   int  i ;
   int debug_malloc = INPUTS.debug_malloc ;
   int LDMP = 0 ;
-  char fnam[] = "parse_FIELDLIST" ;
+  char fnam[] = "parse_FIELDLIST_SELECT" ;
 
   // ------------ BEGIN ------------
   
@@ -19113,18 +19118,18 @@ void parse_FIELDLIST(char *item) {
     { INPUTS.FIELDLIST[i] = (char*) malloc(20*sizeof(char) ); }
 
   splitString(item, COMMA, fnam, MXFIELD_OVERLAP,               // inputs
-	      &INPUTS.NFIELD, INPUTS.FIELDLIST ); // outputs
+	      &INPUTS.NFIELDLIST, INPUTS.FIELDLIST ); // outputs
   
   if ( LDMP ) {
-    for(i=0; i < INPUTS.NFIELD; i++ ) {
-      printf(" xxx %s: select FIELD = '%s' \n", 
+    for(i=0; i < INPUTS.NFIELDLIST; i++ ) {
+      printf(" %s: select FIELD = '%s' \n", 
 	     fnam, INPUTS.FIELDLIST[i] ); fflush(stdout);
     }
   }
 
   return ;
 
-} // end parse_FIELDLIST
+} // end parse_FIELDLIST_SELECT
 
 // **************************************************
 void prep_input_repeat(void) {
@@ -19792,7 +19797,6 @@ void prep_input_driver(void) {
     INPUTS.iflag_chi2max = 0;
   }
 
-  // xxx mark delete Nov 17 2024  prep_input_nmax(INPUTS.nmaxString);
 
   INFO_DATA.USE_IZBIN_from_CIDFILE = false;
   INFO_DATA.NCHANGE_IZBIN = 0;

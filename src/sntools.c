@@ -209,10 +209,17 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   //
   // if fileName == "", init hash table and return.
   //
-  // OPTMASK += 1: use CID_IDSURVEY for matching, else CID
+  // OPTMASK += 1: use CID_IDSURVEY  for matching, else CID
+  // OPTMASK += 2: use _FIELD        for matching, else CID
   //    WARNING: returned OPTMASK value is changed if 
   //             IDSURVEY doesnt exist.
   //
+  // Matching string options are :
+  //    OPTMASK=0 -> CID                  
+  //    OPTMASK=1 -> CID_IDSURVEY    (handles duplicate CIDs in different surveys)
+  //    OPTMASK=2 -> CID_FIELD           
+  //    OPTMASK=3 -> CID_IDSURVEY_FIELD  
+
   // OPTMASK += 8 -> this is first file, so reset AUTOSTORE
   //
   // varList_store : optional comma-sep list of variables to store,
@@ -228,22 +235,28 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // Function returns number of stored CIDs.
   //
   // Jan 2025: allow double or char strings; see ICAST
+  // Feb 24 2025: new OPTMASK += 2 option to match on FIELD.
+
+  int  OPTMASK_IDSURVEY = 1;
+  int  OPTMASK_FIELD    = 2;
 
   bool IS_FILE = ( strstr(fileName,DOT) != NULL );
-  bool USE_IDSURVEY       = ( *OPTMASK & 1 );
+  bool USE_IDSURVEY       = ( *OPTMASK & OPTMASK_IDSURVEY );
+  bool USE_FIELD          = ( *OPTMASK & OPTMASK_FIELD    ); // feb 24 2025
   bool FIRST_FILE         = ( *OPTMASK & 8 );
-  bool REFAC        = ( *OPTMASK & 64 );
-  bool LEGACY       = !REFAC ;
+  bool REFAC              = ( *OPTMASK & 64 );
+  bool LEGACY            = !REFAC ;
 
   bool FORMAT_TABLE = false ; // FITRES table format
   bool FORMAT_NONE  = false ; // cid list with no format
-  int  colnum_idsurvey;
+  int  colnum_idsurvey, colnum_field;
   int  NCID, NWD, isn, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
   int  ILIST = 0, LDMP=0, OPT_AUTOSTORE ;
-  double DVAL;  char CVAL[40];
-  char CCID[40], STRINGID[40] ;
+  double DVAL;  char *CVAL;
+  char CCID[40], STRINGID[60], ctmp[60], STRING_MATCH[60] ;
   char VARNAME_IDSURVEY[] = "IDSURVEY";
+  char VARNAME_FIELD[]    = "FIELD";
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
@@ -252,6 +265,11 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     printf(" xxx %s: fileName = '%s'   OPTMASK=%d\n", fnam, fileName, OPTMASK);
     fflush(stdout);
   }
+
+  // construct comment STRING_MATCH to print below
+  sprintf(STRING_MATCH,"CID");
+  if ( USE_IDSURVEY ) { strcat(STRING_MATCH,"_IDSURVEY"); }
+  if ( USE_FIELD    ) { strcat(STRING_MATCH,"_FIELD"); }
 
   // init hash table
   if ( strlen(fileName) == 0 )  { 
@@ -273,15 +291,19 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     //   colnum = -3 => VARNAMES key exists, but *varname not found.
 
     colnum_idsurvey = colnum_in_table(fileName, VARNAME_IDSURVEY);
+    colnum_field    = colnum_in_table(fileName, VARNAME_FIELD); 
     
     // if there is no IDSURVEY column, disable user's request 
     // to use IDSURVEY.
     if ( USE_IDSURVEY && colnum_idsurvey < 0 ) 
-      { *OPTMASK -= 1;  USE_IDSURVEY = false; }
+      { *OPTMASK -= OPTMASK_IDSURVEY;  USE_IDSURVEY = false; }
 
-    if ( colnum_idsurvey == -1 ){ 
-      sprintf(c1err,"CID TABLE DOES NOT EXIST");
-      sprintf(c2err,"Check file %s",fileName);
+    if ( USE_FIELD && colnum_field < 0 ) 
+      { *OPTMASK -= OPTMASK_FIELD;  USE_FIELD = false; } //.xyz
+
+    if ( colnum_idsurvey == -1 ) { 
+      sprintf(c1err,"Requested CID-match table does not exist.");
+      sprintf(c2err,"Check file %s", fileName);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     } 
 
@@ -352,11 +374,12 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     NCID = SNTABLE_AUTOSTORE_INIT(fileName,"CIDLIST", "ALL", OPT_AUTOSTORE);
     
     if ( IFILE == 0 ) {
-      printf("\n %s: store hash table to match CID list.\n", fnam);
+      printf("\n %s: store hash table to match %s list.\n", fnam, STRING_MATCH);
       fflush(stdout);
     }
 
-    int ifile, IVAR_IDSURVEY=-9, ISNOFF = 0, ivar, NVAR=0, MEMD, IVAR_TABLE, ICAST;
+    int ifile, IVAR_IDSURVEY=-9, IVAR_FIELD=-9, ISNOFF = 0;
+    int ivar, NVAR=0, MEMD, IVAR_TABLE, ICAST;
     char *ptr_varname;
 
     // get isn offset to allow for multiple cid_select files
@@ -366,9 +389,12 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     // current IFILE file index
     IFILE = NFILE_AUTOSTORE-1 ;
 
-    // get column index for IDSURVEY
+    // get column index for IDSURVEY & FIELD
     if ( USE_IDSURVEY ) 
       { IVAR_IDSURVEY = IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY, &ICAST); }
+
+    if ( USE_FIELD ) 
+      { IVAR_FIELD = IVAR_VARNAME_AUTOSTORE(VARNAME_FIELD, &ICAST); }
 
     // check for additional columns to store (Apr 29 2022)
     if ( !IGNOREFILE(varList_store) ) {
@@ -384,9 +410,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	  HASH_STORAGE.IVAR_TABLE[ivar] = IVAR_TABLE ;
 	  if ( IVAR_TABLE >= 0 ) {
 	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, 0);
-
-	    // xxx mark MEMD = NCID * sizeof(double);	    
-	    // xxx mark HASH_STORAGE.VAL_LIST[ivar] = (double*)malloc(MEMD);
 	  }
 	  else {
 	    printf("\t Could not find %12s for CID hash table "
@@ -403,9 +426,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST);
 	  if ( IVAR_TABLE >= 0 ) {
 	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, ISNOFF);
-	    // xxx mark MEMD = (ISNOFF+NCID) * sizeof(double);
-	    // xxx mark HASH_STORAGE.VAL_LIST[ivar] = 
-	    // xxx mark (double*)realloc(HASH_STORAGE.VAL_LIST[ivar],MEMD);
 	  }
 	}  
       }
@@ -414,8 +434,26 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
     
     for(isn=0; isn < NCID; isn++ ) {
-      
+
+      // construct matching STRINGID based on match options
+
       sprintf(CCID,"%s", SNTABLE_AUTOSTORE[IFILE].CCID[isn]);
+      sprintf(STRINGID,"%s", CCID); 
+
+      if ( USE_IDSURVEY ) {
+	DVAL     = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IDSURVEY][isn];
+	IDSURVEY = (int)DVAL ;
+	sprintf(ctmp, "_%d", IDSURVEY);
+	strcat(STRINGID, ctmp);
+      }
+
+      if ( USE_FIELD ) {
+	CVAL     = SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR_FIELD][isn];
+	sprintf(ctmp, "_%s", CVAL);
+	strcat(STRINGID, ctmp);
+      }
+      
+      /* xxxxxxxxxxxxxxx mark delete Feb 24 2025 xxxx
       if ( USE_IDSURVEY ) {
 	DVAL     = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IDSURVEY][isn];
 	IDSURVEY = (int)DVAL ;
@@ -424,6 +462,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       else {
 	sprintf(STRINGID,"%s", CCID); 
       }
+      xxxxxxx end mark xxxxxxxxx */
 
       match_cid_hash(STRINGID, ILIST, ISNOFF+isn);
       

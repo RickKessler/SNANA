@@ -1968,6 +1968,7 @@ int main(int argc,char* argv[ ]) {
   SALT2mu_DRIVER_INIT(argc,argv);
   
   NCALL_SALT2mu_DRIVER_EXEC = 0;
+
  DRIVER_EXEC:
   NCALL_SALT2mu_DRIVER_EXEC++ ;
 
@@ -2122,7 +2123,10 @@ void SALT2mu_DRIVER_EXEC(void) {
   
   if ( INPUTS.NSPLITRAN > 1 ) { 
     SPLITRAN_cutmask();     // check for random sub-samples
-    prep_input_repeat();  // re-initialize a few things (May 2019)
+  }
+
+  if ( INPUTS.NSPLITRAN > 1 || NCALL_SALT2mu_DRIVER_EXEC > 1 ) {  
+    prep_input_repeat();  
   }
 
   FITRESULT.NCALL_FCN = 0 ;
@@ -19138,12 +19142,19 @@ void prep_input_repeat(void) {
   // Examples:
   //   + NSPLITRAN>1
   //   + SUBPROCESS called from python fitter
-  //
+  //   + after crazy fitpar detected
 
   char fnam[] = "prep_input_repeat" ;
 
   // ------------ BEGIN -----------
 
+  // Feb 24 2025 : reset INFO_DATA counters
+  INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS = 0;
+  INFO_DATA.TABLEVAR.NSN_SPECIA       = 0;
+  INFO_DATA.TABLEVAR.NSN_PASSCUTS     = 0;
+
+
+  // - - - - - -
   FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ; 
   FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
   INPUTS.covint_param_step1 = INPUTS.sigint_step1 ; // default COVINT param
@@ -20915,6 +20926,10 @@ void write_yaml_info(char *fileName) {
       XNTOT    = (double)INFO_DATA.TABLEVAR.NSN_PASSCUTS - XNSPECIa ;
       VAL =  XNCC / XNTOT  ;
       ERR =  sqrt(XNCC)/ XNTOT ;
+
+      printf("\n xxx %s: XNCC=%.0f  XNSPECIa=%.0f  NXTOT=%.0f \n", 
+	     fnam,  XNCC, XNSPECIa, XNTOT);      fflush(stdout);
+
       fprintf(fp,"  - %-20s  %.5f  %.5f    # %s (sim data only) \n",
 	      "CONTAM_TRUE:", VAL, ERR, comment ) ;
     }

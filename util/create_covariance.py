@@ -154,8 +154,10 @@
 #   + write BBC_DIR to INFO.YAML file 
 #   + fix --lable_cov_rows and write more output per cov row.
 #
-# Feb 25 2025: for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
-#              Write FIELD to unbinned hubble_diagram.
+# Feb 25 2025: 
+#   + for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
+#   + Write FIELD to unbinned hubble_diagram.
+#   + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
 #
 # ===============================================
 
@@ -172,6 +174,9 @@ import matplotlib.pyplot as plt
 import astropy.units as u
 from   astropy.cosmology import Planck13, z_at_value
 from   astropy.cosmology import FlatLambdaCDM
+from   astropy.cosmology import w0waCDM
+
+
 
 FLAG_REDUCE_MEMORY  = True   # flag to redece memory by computing/deleting each cov on-the-fly
 FLAG_WAIT           = False  # flag to wait for user input at each step (for pmap)
@@ -433,7 +438,7 @@ def read_header_info(hd_file):
     # Created oct 6 2021 by R.Kessler
     # read first few lines of hd_file and look for ISDATA_REAL  key
     # that is in a comment field ... hence read as yaml.
-    # SALT2mu begain wriring ISDATA_REAL key on Oct 6 2021;
+    # SALT2mu begain writing ISDATA_REAL key on Oct 6 2021;
     # Function returns ISDATA_REAL = 0 or 1 if key is found;
     # returns -1 (unknown) if key not found.
     # Mar 2023: rename isdata_real to read_header_info
@@ -501,7 +506,6 @@ def load_hubble_diagram(hd_file, args, config):
     df = pd.read_csv(hd_file, delim_whitespace=True, comment="#")
     logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {hd_file}")
 
-    #sys.exit("\n xxx DEBUG STOP xxx\n")
     
     # Jun 2024: if MUERR or MUDIFERR = 999, replace with NaN
     #   [replaces old logic of replacing any 999 with NaN]
@@ -608,16 +612,18 @@ def get_hubble_diagrams(folder, args, config):
             infile_list.append(infile)
             label_list.append(label)
             hd_file = folder_expand/infile
-            # grab contents of every M0DIF(binned) or FITRES(unbinned) file 
+
+            # grab contents of every M0DIF(binned) or FITRES(unbinned) hd file 
             HD_list[label] = load_hubble_diagram(hd_file, args, config)
             if first_load:  
-                header_info = read_header_info(hd_file)
+                hd_header_info  = read_header_info(hd_file)
+                cospar_biascor  = get_cospar_sim(hd_header_info)
             first_load = False
 
-    #sys.exit(f"\n xxx\n result = {result} \n")
 
-    config[KEYNAME_ISDATA] = header_info[KEYNAME_ISDATA]
-    config['header_info']  = header_info
+    config[KEYNAME_ISDATA]    = hd_header_info[KEYNAME_ISDATA]
+    config['hd_header_info']  = hd_header_info
+    config['cospar_biascor']  = cospar_biascor  # Feb 26 2025
 
     # - - - - -  -
     # for unbinned or rebin, select SNe that are common to all 
@@ -730,8 +736,6 @@ def get_rebin_info(config,HD):
     if dump_flag :
         print(f" xxx bins_x1 = {bins_x1} ")
         print(f" xxx bins_c  = {bins_c} ")
-        #print(f"\n xxx col(ix) = \n{col_ix1}")
-        #print(f"\n xxx col(ic) = \n{col_ic}")
         print(f"\n xxx col(iHD) = \n{col_iHD}")
 
     # - - - - -
@@ -746,7 +750,6 @@ def get_rebin_info(config,HD):
     config['col_ix1']        = col_ix1
     config['col_ic']         = col_ic
 
-    #sys.exit(f"\n xxx DEBUG DIE from get_rebins xxx ")
     return
 
     # end get_rebin_info
@@ -785,9 +788,10 @@ def rebin_hubble_diagram(config, HD_unbinned):
     wgtmu     = wgt1 * col_mu
 
     # - - - - -
-    # xxx mark Nov 18 2024 OM_ref = 0.30   # .xyz should read OM_ref from BBC output
-    OM_ref = 0.315  # .xyz should read OM_ref from BBC output    
-    zcalc_grid, mucalc_grid = get_HDcalc(OM_ref)
+    # get cospar used for biasCor to compute ref HD that is used to determin <z> in each rebin
+
+    # xxx mark OM_ref = 0.315  # .xyz should read OM_ref from BBC output 
+    zcalc_grid, mucalc_grid = get_HDcalc(config)
 
     for i in range(0,nbin_HD):
         binmask       = (col_iHD == i)
@@ -822,15 +826,23 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
     # end rebin_hubble_diagram
 
-def get_HDcalc(OM):
+def get_HDcalc(config):
 
-    # return calculated HD for input OM and flat LCDM.
+    cospar_biascor = config['cospar_biascor']  # from BBCs M0DIF or FITRES output
+    OM_BBC   = cospar_biascor['OMEGA_MATTER']
+    ODE_BBC  = cospar_biascor['OMEGA_LAMBDA']
+    w0_BBC   = cospar_biascor['w0_LAMBDA']  # fragile alert; is this cheating ?
+    wa_BBC   = cospar_biascor['wa_LAMBDA']  # idem
+
+    # return calculated HD for input cospar
     zmin    = 0.001
     zmax    = 4.001
-    # xxx mark delete z_grid  = np.geomspace(zmin, zmax, 500)
+
     z_grid  = np.geomspace(zmin, zmax, 4000)    
-    cosmo   = FlatLambdaCDM(H0=70, Om0=OM)
+    # xxx mark delete Feb 26 2025  cosmo   = FlatLambdaCDM(H0=70, Om0=OM)
+    cosmo   = w0waCDM(H0=70, Om0=OM_BBC, Ode0=ODE_BBC, w0=w0_BBC, wa=wa_BBC) 
     mu_grid = cosmo.distmod(z_grid)
+
     return z_grid, mu_grid
 
 def get_fitopt_muopt_from_name(name):
@@ -1047,7 +1059,6 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
     fitopt_filter = bracket_content1_list[0]
     muopt_filter  = bracket_content1_list[1]
     covopt_scale     = 1.0
-
 
     if len(bracket_content1_list) > 2 :  # err_scale (3rd item) is optional
         sig_scale    = float(bracket_content1_list[2])
@@ -1760,11 +1771,13 @@ def write_summary_output(args, config, covsys_list, base):
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
 
-    sim_version = None
-    for key,item in config['header_info'].items() :
-        info[key] = item       # store stuff from BBC table 
-        if 'BIASCOR' in key :  # fetch biasCor sim version
-            sim_version    = item[0]
+    # xxxxxxxxxx mark delete Feb 26 2 205 xxxxxxxxxx
+    #sim_version = None
+    #for key,item in config['hd_header_info'].items() :
+    #    info[key] = item       # store stuff from BBC table 
+    #    if 'BIASCOR' in key :  # fetch biasCor sim version
+    #        sim_version    = item[0]
+    # xxxxxxxxxxxx end mark xxxxxxxxxx
 
     # - - - - - - - 
     info2 = {}
@@ -1794,26 +1807,51 @@ def write_summary_output(args, config, covsys_list, base):
     # - - - - - - - - - - - - - 
     # append cospar_biascor so that it's at the end, rather than 
     # at the beginning with default alphabetical ordering
+
+    cospar_biascor = config['cospar_biascor']
+    with open(out / INFO_YML_FILENAME, "at") as f:
+        info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
+        yaml.safe_dump(info_cospar, f )
+
+    # xxxxxxxxx mark delete Feb 26 2025 xxxxxxxxx
+    #cospar_biascor = []
+    #if sim_version is not None:
+    #    cospar_biascor = get_cospar_sim_legacy(sim_version)
+    #    with open(out / INFO_YML_FILENAME, "at") as f:
+    #        info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
+    #        yaml.safe_dump(info_cospar, f )
+    # xxxxxxxx end mark xxxxxxx
+
+    return
+    # end write_summary_output
+
+def get_cospar_sim(hd_header_info):
+
+    # for input 'hd_header_info' (from BBC M0 or FITRES file) 
+    #  + determine snana_folder 'sim_version', 
+    #  + run snana.exe GETINFO folder to extract name of README file
+    #  + parse README to get cosmo params
+    #
     # Beware that this method of fetching cospar_biascor requries
     # original biasCor sim folder to still exist on disk; if this folder
     # is purged (e.g., to deal with quota crisis) then cospar will not
     # be found using this method.
 
-    cospar_biascor = []
-    if sim_version is not None:
-        cospar_biascor = get_cospar_sim(sim_version)
-        with open(out / INFO_YML_FILENAME, "at") as f:
-            info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
-            yaml.safe_dump(info_cospar, f )
 
-    return
-    # end write_summary_output
+    # figure out first sim version from biasCor sims; 
+    # assumes same cospar in all biasCor sims.
+    sim_version = None
+    for key,item in hd_header_info.items() :
+        if 'BIASCOR' in key :  # fetch biasCor sim version
+            sim_version    = item[0]
 
-def get_cospar_sim(sim_version):
+    if sim_version is None:
+        print(f"\n Pre-abort:  hd_header_info =  \n{hd_header_info}")
+        sys.stdout.flush()
+        msgerr = f" Cannot find sim_version for biasCor in BBC-HD header info"
+        assert False, msgerr    
 
-    # for input snana_folder 'sim_version', run snana.exe GETINFO folder 
-    # to extract name of README file, then parse README to get cosmo params
-
+    # - - - - -
     cospar_sim = {}  # init output dictionary
     msgerr     = '\n'
 
@@ -1830,7 +1868,7 @@ def get_cospar_sim(sim_version):
         msgerr += f"\t Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
         logging.warning(msgerr)
         return cospar_sim
-        #assert False, msgerr
+
 
     if key_readme not in ret_stdout:
         msgerr += f"  Cannot find {key_readme} key from command\n"
@@ -1857,6 +1895,61 @@ def get_cospar_sim(sim_version):
     return cospar_sim
 
     # end get_cospar_sim
+
+
+def get_cospar_sim_legacy(sim_version):
+
+    # for input snana_folder 'sim_version', run snana.exe GETINFO folder 
+    # to extract name of README file, then parse README to get cosmo params
+
+    cospar_sim = {}  # init output dictionary
+    msgerr     = '\n'
+
+    cmd = f"snana.exe GETINFO {sim_version}"
+    
+    ret = subprocess.run( [cmd], shell=True,
+                          capture_output=True, text=True )
+    ret_stdout = ret.stdout.split()
+
+    # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxxxxx
+
+    key_readme = "README_FILE:"
+    if 'FATAL' in ret_stdout:
+        msgerr  = f"Cannot find biasCor sim-data folder {sim_version}\n"
+        msgerr += f"\t May need to regenerate biasCor {sim_version}  \n"
+        msgerr += f"\t Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
+        logging.warning(msgerr)
+        return cospar_sim
+        #assert False, msgerr
+
+    if key_readme not in ret_stdout:
+        msgerr += f"  Cannot find {key_readme} key from command\n"
+        msgerr += f"     {cmd}\n"
+        assert False, msgerr
+
+    k           = ret_stdout.index(key_readme)
+    readme_file = ret_stdout[k+1]
+
+    readme_contents = read_yaml(readme_file)
+    docana          = readme_contents[KEY_DOCANA] # DOCUMENTATION block
+    
+    # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxxxxx
+
+    if KEY_SIM_INPUT in docana :
+        sim_inputs      = docana[KEY_SIM_INPUT]
+        if sim_inputs is None: sim_inputs = [] # sim-readme bug protection (May 2023)
+    else :
+        sim_inputs = []  # allow for for older SNANA versions 
+        logging.warning(f"did not find {KEY_SIM_INPUT} in biasCor sim README")
+
+    for cospar in KEYLIST_COSPAR_SIM:
+        if cospar in sim_inputs :
+            cospar_sim[cospar] = sim_inputs[cospar]
+
+    return cospar_sim
+
+    # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxxxxx
+    # end get_cospar_sim_legacy
 
 def write_correlation(path, label, base_cov, diag, base):
     logging.debug(f"\tWrite out cov for COVOPT {label}")

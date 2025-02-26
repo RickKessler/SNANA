@@ -22901,4 +22901,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + new option --table_file_dupl <FITRES or HD file>
        to find and print duplicate CIDs.
 
+    create_covariance.py: few small fixes
+     + for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
+     + Write FIELD to unbinned hubble_diagram.
+     + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
+      
 END: 

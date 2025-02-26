@@ -14,6 +14,8 @@
 //           OPT_MWCOLORLAW_FITZ04 = 204
 //           OPT_MWCOLORLAW_GORD16 = 216
 //           OPT_MWCOLORLAW_GORD23 = 223
+//  Feb 26 2025: S. Thorp
+//    define OPT_MWCOLORLAW_SOMM25 = 225
 // =======================================
 
 
@@ -30,6 +32,7 @@
 #define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // Fitzpatrick et al. (2019), linear interp.
 #define OPT_MWCOLORLAW_FITZ19_CUBIC  219 // Fitzpatrick et al. (2019), cubic interp.
 #define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. (2023) (S.Thorp, 2024)
+#define OPT_MWCOLORLAW_SOMM25  225 // Sommovigo et al. (2025) Learning the Universe
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)
@@ -60,6 +63,8 @@
 #define WAVEMAX_FITZ19 35000.0
 #define WAVEMIN_GORD23 912.0 //from dust_extinction
 #define WAVEMAX_GORD23 320000.0 //from dust_extinction (not a typo, really goes to MIR)
+#define WAVEMIN_SOMM25 700.0 // based on the plot/text in the paper
+#define WAVEMAX_SOMM25 9134.0 // based on the plots in the paper
 
 // =======================================
 //      SNANA-interface functons
@@ -72,11 +77,13 @@ double GALextinct (double  RV, double  AV, double  WAVE, int  OPT, double *PARLI
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST);
 double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
 double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin);
+double GALextinct_Pei4(double x, double c1, double c2, double c3, double c4);
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
                         double c5, double x02, double g2);
 double GALextinct_Maiz14(double RV, double AV, double WAVE);
 double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC);
 double GALextinct_Gord23(double RV, double AV, double WAVE);
+double GALextinct_Somm25(double AV, double WAVE);
 
 void   text_MWoption(  char *what, int  OPT, char *TEXT) ; // return TEXT
 void   text_mwoption__(char *what, int *OPT, char *TEXT) ; 

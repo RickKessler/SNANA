@@ -4004,6 +4004,7 @@ grep  OPT_MWCOLORLAW  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // approx Fitzpatrick et al. (2019)
 #define OPT_MWCOLORLAW_FITZ19_CUBIC   219 // Fitzpatrick et al. (2019)
 #define OPT_MWCOLORLAW_GORD23         223 // Gordon et al. (2023)
+#define OPT_MWCOLORLAW_SOMM25         225 // Sommovigo et al. (2025)
 
 grep  OPT_MWEBV  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWEBV_OFF            0  // no extinction
@@ -4160,8 +4161,20 @@ parameter values of $(p,a)=(-2.5,0.8)$ and $(-1.5, 0.9)$ for fits to the
 scattering properties of LMC-like \cite{Weingartner2001}
 and MW-like \cite{Draine2003} dust.
 
+The one-parameter $A_V$-dependent attenuation curve from the Learning the
+Universe (LtU) collaboration \cite{Sommovigo2025} is available. This is based
+on a four-parameter $(c_1, c_2, c_3, c_4)$ fitting function \cite{Pei1992, Li2008},
+with the four shape parameters being tied to $A_V$ using some scaling relations
+from the Sommovigo et al.\ LtU paper \cite{Sommovigo2025}. 
+Specifically, $\log_{10}(c_1)=-0.37\times\log_{10}(A_V) + 0.75$, $c_2=1.88$, 
+$c_3 = 1.21\times\log_{10}(c_1) - 1.33$, 
+and $\log_{10}(c_4) = -0.59\times\log_{10}(A_V) - 1.42$.
+The `\texttt{GALextinct}' function does not need any extra parameters from 
+\verb!PARLIST_MWCOLORLAW! here, and will ignore the input $R_V$; the shape of 
+the curve and the amount of extinction are completely set by $A_V$.
 
-\subsubsection{Simulating Intergalactic Extinction}
+
+\subsection{Simulating Intergalactic Extinction}
 \label{sss:IGM}
 
 ...

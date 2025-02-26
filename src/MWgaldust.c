@@ -205,6 +205,9 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else if ( OPT == OPT_MWCOLORLAW_GORD23 ) 
       { sprintf(TEXT,"Gordon23");  }
 
+    else if ( OPT == OPT_MWCOLORLAW_SOMM25 ) 
+      { sprintf(TEXT,"Sommovigo25 (Learning the Universe)");  }
+    
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
       sprintf(c2err,"Check OPT_MWCOLORAW_* in MWgaldust.h");
@@ -382,6 +385,13 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
                 in the UV plus various other functions composed together at
                 other wavelengths. Tested against Gordon 2024 (JOSS 9, 7023).
 
+    OPT=225 => use Sommovigo et al. 2025 (arXiv:2502.13240) as implemented by S. Thorp.
+                This is a one-parameter extinction law based on a 4-parameter Pei-like
+                functional form, and some scaling relations for the coefficients
+                (c1, c2, c3, c4) as a function of AV. RV is ignored as the shape is
+                entirely set by AV. See Eq. 2, 7, 8, 9 in the Sommovigo paper. 
+                Based on fits to simulations by the Learning the Universe collaboration.
+
    PARLIST => optional set of double-precision parameters to refine calculations
               Number of PARLIST params and their meaning depend on OPT.
               OPT=208 : PARLIST[0]=P, PARLIST[1]=A;
@@ -425,6 +435,10 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
    + use the new PARLIST for Gordon '16 dust law
    + add Goobar '08 circumstellar dust law
    + add Maiz Apellaniz '14
+
+  Feb 26 2025 S. Thorp
+   + add Sommovigo '25
+   + add 4-parameter Pei '92 curve (Li '08)
  ***/
 
   int i, DO94  ;
@@ -520,6 +534,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
       return XT;
   } else if ( OPT == OPT_MWCOLORLAW_GORD23 ) {
     XT = GALextinct_Gord23(RV, AV, WAVE);
+    return XT;
+  } else if ( OPT == OPT_MWCOLORLAW_SOMM25 ) {
+    XT = GALextinct_Somm25(AV, WAVE);
     return XT;
   }
   
@@ -1117,6 +1134,45 @@ double GALextinct_Gord23(double RV, double AV, double WAVE) {
     return AV * ( a + b*((1.0/RV) - (1.0/3.1)) );
 
 } // end of GALextinct_Gord23
+
+// ============= SOMMOVIGO ET AL. 2025 =======================
+double GALextinct_Somm25(double AV, double WAVE) {
+/*** 
+  Created by S. Thorp, Feb 26 2025
+
+  Input : 
+    AV   = V band (defined to be at 5495 Angstroms) extinction
+    WAVE = wavelength in angstroms
+  Returns :
+    XT = magnitudes of extinction
+***/
+    char fnam[] = "GALextinct_Somm25" ;
+    
+    // target wavelength in inverse microns
+    double x = 10000.0/WAVE;
+    
+    // Abort if out of bounds
+    if ( WAVE > WAVEMAX_SOMM25 || WAVE < WAVEMIN_SOMM25 ) {
+      sprintf(c1err,"Requested WAVE=%.3f Angstroms; X=%.3f inv. microns", WAVE, x);
+      sprintf(c2err,"Sommovigo et al. 2025 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_SOMM25, WAVEMAX_SOMM25);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // coefficients as a function of AV
+    double c1, c2, c3, c4;
+    double logc1, logc4, logAV;
+    logAV = log10(AV);
+    logc1 = -0.37*logAV + 0.75; // Eq. 7
+       c1 = pow(10.0, logc1);
+       c2 =  1.88;              // median for TNG galaxies
+       c3 =  1.21*logc1 - 1.33; // Eq. 8
+    logc4 = -0.59*logAV - 1.42; // Eq. 9
+       c4 = pow(10.0, logc4);
+    
+    return AV*GALextinct_Pei4(x, c1, c2, c3, c4);
+
+} // end of GALextinct_Somm25
  
 // ============= FITZPATRICK & MASSA 1990 ====================
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4, 
@@ -1151,6 +1207,44 @@ Returns :
     return k;
 
 } // end of GALextinct_FM90
+
+// ============= PEI 1992 / LI ET AL. 2008 ===================
+double GALextinct_Pei4(double x, double c1, double c2, double c3, double c4) {
+  /*
+  Created by S. Thorp, Feb 26 2025
+
+  Four-parameter version of the Pei 1992 (ApJ 395, 130) extinction curve.
+  From Li et al. 2008 (ApJ 685, 1046) and Sommovigo et al. 2025 (arXiv:2502.13240).
+
+  Input : 
+    x   = wavenumber (inverse microns)
+    c1  = UV rise
+    c2  = slope
+    c3  = FUV shape
+    c4  = bump strength
+  Returns :
+    Ax/AV
+  */
+
+    char fnam[] = "GALextinct_Pei4" ;
+
+    double x08, x046, x2175;
+    double y08, y046, y2175;
+    double k, b; 
+    x08 = x*0.08;
+    x046 = x*0.046;
+    x2175 = x*0.2175;
+    y08 = pow(x08, c2);
+    y046 = x046*x046;
+    y2175 = x2175*x2175;
+    b = pow(0.145, c2);
+
+    k = c1 / (y08 + 1.0/y08 + c3);
+    k += 233.0*(1.0 - c4/4.60 - c1/(b + 1.0/b + c3)) / (y046 + 1.0/y046 + 90.0);
+    k += c4 / (y2175 + 1.0/y2175 - 1.95);
+    return k;
+
+} // end of GALextinct_Pei4
 
 // ============= FM_UNRED SPLINE ====================
 double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin) {

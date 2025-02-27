@@ -887,7 +887,7 @@ void print_wfit_help(void) {
 	  " w0-wa Fit:\n"
 	  "   -ommin/-ommax/-omsteps   OM default grid [%4.1f / %4.1f / %3d] \n"
 	  "   -w0min/-w0max/-w0steps   w0 default grid [%4.1f / %4.1f / %3d] \n"
-	  "   -wamin/-wamax/-wasteps   w0 default grid [%4.1f / %4.1f / %3d] \n" 
+	  "   -wamin/-wamax/-wasteps   wa default grid [%4.1f / %4.1f / %3d] \n" 
 	  "\n",
 	  DEFAULT_omm_min, DEFAULT_omm_max, DEFAULT_omm_steps,
 	  DEFAULT_w0_min,  DEFAULT_w0_max,  DEFAULT_w0_steps,

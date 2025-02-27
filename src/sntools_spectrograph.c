@@ -119,7 +119,7 @@ void read_spectrograph_text(char *inFile) {
   FILE *fp ;
   int NROW_FILE, ikey, NKEY_FOUND, DONE_MALLOC ;
   int NBL, NBT, NRDCOL, t, GZIPFLAG ;
-  char c_get[60], tmpLine[200] ;
+  char c_get[200], tmpLine[200] ;
 
 #define NKEY_REQ_SPECTROGRAPH 3
 #define IKEY_INSTRUMENT 0

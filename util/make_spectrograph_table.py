@@ -119,9 +119,6 @@ def read_single_flux_table(flux_table, wave_scale ):
     # Read 3-column file of "wave flux fluxerr",
     # Next, scale wave.
     
-    if not os.path.exists(flux_table):
-        sys.exit(f"\n ERROR: cannot find flux-table file: \n\t {flux_table}")
-
     df = pd.read_csv(flux_table, comment="#", delim_whitespace=True)
 
     wave_list     = df.iloc[:, 0].to_list()
@@ -145,6 +142,30 @@ def read_single_flux_table(flux_table, wave_scale ):
     return flux_dict
     # end read_single_flux_table
 
+def sanity_check(magref, texpose, flux_table):
+
+    # abort on crazy value or missing file
+
+    
+    msgerr = None
+
+    if magref < 10 or magref > 30 :
+        msgerr = f"Insane value for magref={magref} " \
+                 f"\n\t (flux_table={flux_table})"
+
+    if texpose < 10 or texpose > 100000 :
+        msgerr = f"Insane value for texpose={texpose}" \
+                 f"\n\t (flux_table={flux_table})"
+
+    if not os.path.exists(flux_table):
+        msgerr  = f"cannot find flux-table file: \n\t {flux_table}"
+
+    # - - - - - - 
+    if msgerr:
+        sys.exit(f"\nERROR: {msgerr}")
+
+    return
+
 
 def read_sedflux_tables(args, config, spectro_data):
 
@@ -164,10 +185,16 @@ def read_sedflux_tables(args, config, spectro_data):
     wave_min_global = 9.0E9
     wave_max_global = 0.0
     
+    texpose_dict = {}
+
     for row in SEDFLUX_TABLES:
         magref     = row.split()[0]
         texpose    = row.split()[1]
         flux_table = os.path.expandvars(row.split()[2])
+        sanity_check( float(magref), float(texpose), flux_table)
+
+        if magref not in texpose_dict :  texpose_dict[magref] = []
+        texpose_dict[magref].append(texpose)
 
         logging.info(f"  Read flux table for magref={magref} and Texpose={texpose}: ")
         logging.info(f"\t {flux_table}")
@@ -176,14 +203,6 @@ def read_sedflux_tables(args, config, spectro_data):
         flux_dict['magref']  = magref
         flux_dict['texpose'] = texpose
         flux_dict['flux_table_file'] = os.path.basename(flux_table)
-
-        # xxxxxxxxx
-        if str(texpose) == '3601' :  # debug hack; to be removed xxxxxx
-            flux_list    = flux_dict['flux_list']
-            fluxerr_list = flux_dict['fluxerr_list']            
-            flux_dict['flux_list']    = [ 3.00*x for x in flux_list    ]
-            flux_dict['fluxerr_list'] = [ 1.73*x for x in fluxerr_list ]            
-        # xxxxxxxxxx
         
         flux_dict_list.append(flux_dict)
         
@@ -202,12 +221,46 @@ def read_sedflux_tables(args, config, spectro_data):
     logging.info(f" Global wave[min,max] = " \
                  f"{wave_min_global:.1f} to {wave_max_global:.1f}")
     
+
+    check_texpose(texpose_dict)
+
     spectro_data['flux_dict_list']  = flux_dict_list
     spectro_data['wave_min_global'] = wave_min_global
     spectro_data['wave_max_global'] = wave_max_global
     
     return
     # end read_sedflux_tables
+
+def check_texpose(texpose_dict):
+
+    # check that the same Texpose values are defined for each magref;
+    # if not, then abort
+ 
+    n_magref = len(texpose_dict)
+    magref_list = list(texpose_dict.keys())
+    if n_magref != 2:
+        msgerr = f"\n ERROR: Found {n_magref} magref values {magref_list}; " \
+                 f"must be exactly 2 values"
+        sys.exit(msgerr)
+
+    unique_texpose_dict = {}
+    for magref, texpose_list in texpose_dict.items():
+        unique_texpose_list = sorted(list(set(texpose_list)))
+        unique_texpose_dict[magref] = unique_texpose_list
+
+    magref0 = magref_list[0]
+    magref1 = magref_list[1]
+    texpose_list0 = unique_texpose_dict[magref0]
+    texpose_list1 = unique_texpose_dict[magref1]
+
+    if texpose_list0 != texpose_list1:
+        print(f"\n\n")
+        print(f"ERROR: Texpose lists are different for each magref:")
+        print(f"\t magref={magref0} -> Texpose_list = {texpose_list0}")
+        print(f"\t magref={magref1} -> Texpose_list = {texpose_list1}")
+        sys.exit("\n ABORT")
+
+    return
 
 def rebin_sedflux_tables(args, config, spectro_data):
 

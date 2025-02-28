@@ -26,7 +26,7 @@ UNIT_CONVERT_DICT = {
 
 # define config key names
 KEYNAME_INSTRUMENT      = 'INSTRUMENT'
-KEYNAME_WAVE_RES        = 'WAVE_RES'
+KEYNAME_WAVE_R          = 'WAVE_R'
 KEYNAME_WAVE_UNIT       = 'WAVE_UNIT'
 KEYNAME_WAVE_BIN_SIZE   = 'WAVE_BIN_SIZE'
 KEYNAME_OUTFILE_SNANA   = 'OUTFILE_SNANA'
@@ -35,7 +35,7 @@ KEYNAME_SEDFLUX_TABLES  = 'SEDFLUX_TABLES'
 
 KEYLIST_DICT_REQUIRE = { 
     KEYNAME_INSTRUMENT     :   'name of instrument', 
-    KEYNAME_WAVE_RES       :   'wavelength resolution, A',  
+    KEYNAME_WAVE_R         :   'resolving power, wave/FWHM_wave',  
     KEYNAME_WAVE_UNIT      :   'unit of input wavelength (nm, A, um)', 
     KEYNAME_WAVE_BIN_SIZE  :   'defines SPECTROGRAPH wavelength binning, A' ,
     KEYNAME_OUTFILE_SNANA  :   'name of output SPECTROGRAPH table file for SNANA sim', 
@@ -119,6 +119,9 @@ def read_single_flux_table(flux_table, wave_scale ):
     # Read 3-column file of "wave flux fluxerr",
     # Next, scale wave.
     
+    if not os.path.exists(flux_table):
+        sys.exit(f"\n ERROR: cannot find flux-table file: \n\t {flux_table}")
+
     df = pd.read_csv(flux_table, comment="#", delim_whitespace=True)
 
     wave_list     = df.iloc[:, 0].to_list()
@@ -368,7 +371,7 @@ def write_specbins(o, args, config, specto_data):
     # - - - - - -
     # write spec bin info
     wave_bin_size = config[KEYNAME_WAVE_BIN_SIZE]
-    wave_res      = config[KEYNAME_WAVE_RES]
+    wave_r        = config[KEYNAME_WAVE_R]
     str_magref0   = str(magref_unique[0])
     str_magref1   = str(magref_unique[1])
 
@@ -377,7 +380,9 @@ def write_specbins(o, args, config, specto_data):
     
     for iwave, wave_lo in enumerate(wave_list) :
         wave_hi = wave_lo + wave_bin_size
-        line = f"{KEYNAME_SPECBIN}:  {wave_lo:9.3f}  {wave_hi:9.3f}  {wave_res:6.1f}  "
+
+        wave_res = (wave_lo/wave_r)/2.235  # convert FWHM to sigma
+        line = f"{KEYNAME_SPECBIN}:  {wave_lo:9.3f}  {wave_hi:9.3f}  {wave_res:6.2f}  "
 
         n_snr_cut = 0
         for texpose in texpose_unique:

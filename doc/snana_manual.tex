@@ -604,7 +604,7 @@ the $\lambda$-shifted band(s) in the fitting program.
 
 
 % ---------------------------------
-   \clearpage
+ \clearpage
 \subsection{Defining a {\SPEC} }
 \label{subsec:kcor_spectrograph}
 % ---------------------------------
@@ -636,7 +636,7 @@ $m_2-m_1 < 2.5\log_{10}({\rm SNR}_1/{\rm SNR}_2)$.
 %
 To account for exposure-time ($\Texpose$) dependence, 
 $\SNRlam$ can be defined for multiple $\Texpose$ values.
-The \SPEC\ is defined in a separate text file as shown 
+The \SPEC\ is defined in a custom table file as shown 
 in Fig.~\ref{fig:spectro_table}.
 %
 \begin{figure} [ht] 
@@ -691,6 +691,8 @@ filters and calibration references.
 If the above file is named {\tt MYSPECDEVICE.DAT},
 the following keys can be added to a kcor-input file,
 after a {\tt FILTPATH} key:
+
+\clearpage
 %
 \begin{Verbatim}[frame=single]
 SPECTROGRAPH:  MYSPECDEVICE.DAT
@@ -753,6 +755,34 @@ is that SNR increases by $\sqrt{2}$.
 With default $\RRabort=1.2$, the kcor program aborts if
 the SNR-ratio differs by more than 20\% from the
 $\sqrt{2}$ expectation.
+
+
+% -----------------------------------------------
+\newcommand{\makeSpec}{{\tt make\_spectrograph\_table.py}}
+\subsubsection{{\makeSpec}: Convert ETC output into {\SPEC} Table }
+
+Spectroscopic instruments typically provide an exposure time calculator (ETC)
+to estimate SNR vs. wavelength for an arbitrary magnitude. To convert the ETC
+output into a \SPEC\ table, first translate the ETC output into a simple
+csv format with 3 columns: ``wave flux fluxerr.'' 
+The flux and fluxerr units don't matter here.
+Run the ETC for 2 reference mags that roughly correspond to brightest and
+faintest source, and also for several $\Texpose$ value in roughly logarithmic bins.
+If there are separate spectra for blue and red wavelength regions,
+create separate blue and red csv files. As an example, with 2 reference mags,
+four $\Texpose$ values and blue \& red components, 
+the total number of ETC-generated
+files should be $2\times 4\times 2 = 16$.
+To combine these 16 files into a single \SPEC\ table file for \SNANA,
+run the following commands
+\begin{verbatim}
+    make_spectrograph_table.py -H
+     [follow directions to construct config_file that 
+      includes all ETC-generated csv files ]
+
+    make_spectrograph_table.py <config_file>
+\end{verbatim}
+
 
 % ##########################################
    \clearpage

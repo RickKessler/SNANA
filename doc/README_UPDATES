@@ -22877,7 +22877,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     with KCOR_ have also been replaced with CALIB_.
 	 
          *****  USEFUL(v11_05t) *****
-	 	       
+	 	
+    New util make_spectrograph_table.py; see new manual section
+      3.2.1 make_spectrograph_table.py: Convert ETC output into SPECTROGRAPH Table
+       
          *****  MISCELLANEOUS(v11_05t) *****
 
      snlc_fit, sntools:

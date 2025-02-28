@@ -361,6 +361,8 @@ def write_specbins(o, args, config, specto_data):
     string_texpose = "TEXPOSE_LIST: "  + ' '.join(texpose_unique) 
     o.write(f"{string_magref}\n")
     o.write(f"{string_texpose}\n")
+    o.write(f"SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 2.0  " \
+            f"# allow SNR ~ sqrt[Texpose] within x2 factor\n")
     o.write(f"\n")    
 
     # - - - - - -

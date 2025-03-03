@@ -152,7 +152,7 @@ def read_single_flux_table(flux_table, wave_scale ):
     elif found_snr:
         snr_list      = df.iloc[:, 1].to_list()
         flux_list     = [100.0] * nbin   # flux unit doesn't matter here
-        fluxerr_list  = [x/y for x,y in zip(flux_list,snr_list) ]
+        fluxerr_list  = [x/(y+1.0e-9) for x,y in zip(flux_list,snr_list) ]
     else:
         sys.exit(f"\n ERROR: did not find {colname_flux} or {colname_snr} column in {flux_table}")
 

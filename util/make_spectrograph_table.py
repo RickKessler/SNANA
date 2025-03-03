@@ -119,16 +119,43 @@ def read_single_flux_table(flux_table, wave_scale ):
     # Read 3-column file of "wave flux fluxerr",
     # Next, scale wave.
     
+    colname_wave    = 'wave'
+    colname_flux    = 'flux'
+    colname_fluxerr = 'fluxerr'
+    colname_snr     = 'snr'
+
     df = pd.read_csv(flux_table, comment="#", delim_whitespace=True)
+    key_list = df.keys().to_list()
+    
+    found_wave    = colname_wave in key_list[0].lower()
+    found_flux    = colname_flux in key_list[1].lower()
+    found_snr     = colname_snr  in key_list[1].lower()
+    if len(key_list) > 2:
+        found_fluxerr = colname_fluxerr in key_list[2].lower()
 
+    if not found_wave:
+        sys.exit(f"\n ERROR: did not find 'wave' in first column of {flux_table}")
+
+    
+    logging.info(f"\t Read {flux_table}")
+    logging.info(f"\t Found columns {key_list}")
+    
     wave_list     = df.iloc[:, 0].to_list()
-    flux_list     = df.iloc[:, 1].to_list()
-    fluxerr_list  = df.iloc[:, 2].to_list()    
-
-    wave_list     = [wave * wave_scale for wave in wave_list]
     nbin          = len(wave_list)
+    wave_list     = [wave * wave_scale for wave in wave_list]
     wave_min      = wave_list[0]
     wave_max      = wave_list[-1]
+
+    if found_flux :
+        flux_list     = df.iloc[:, 1].to_list()
+        fluxerr_list  = df.iloc[:, 2].to_list()    
+    elif found_snr:
+        snr_list      = df.iloc[:, 1].to_list()
+        flux_list     = [100.0] * nbin   # flux unit doesn't matter here
+        fluxerr_list  = [x/y for x,y in zip(flux_list,snr_list) ]
+    else:
+        sys.exit(f"\n ERROR: did not find {colname_flux} or {colname_snr} column in {flux_table}")
+
     
     flux_dict = {
         'nbin'           : nbin,
@@ -196,8 +223,7 @@ def read_sedflux_tables(args, config, spectro_data):
         if magref not in texpose_dict :  texpose_dict[magref] = []
         texpose_dict[magref].append(texpose)
 
-        logging.info(f"  Read flux table for magref={magref} and Texpose={texpose}: ")
-        logging.info(f"\t {flux_table}")
+        logging.info(f"Process flux table for magref={magref} and Texpose={texpose}: ")
         
         flux_dict = read_single_flux_table(flux_table, wave_scale)
         flux_dict['magref']  = magref

@@ -62,6 +62,7 @@ OPT_DIAG_LINE = "DIAG_LINE"  # draw diagonal line on plot
 OPT_LOGY      = "LOGY"       # log scale along Y axis (1D or 2D)
 OPT_LOGZ      = "LOGZ"       # log scale along Z axis (2D only)
 OPT_GRID      = "GRID"       # draw grid on plot
+OPT_SUM       = "SUM"        # show sum of plots over files or cuts (Mar 2025 ... maybe later ??
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
 OPT_LIST_ROW  = "LIST_ROW"   # list ROWS passing cuts (same as LIST_CID)
 
@@ -72,7 +73,7 @@ OPT_RATIO     = "RATIO"      # 1D: plot ratio between 2 files or 2 cuts
 VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
                    OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_OV, OPT_OVCHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
-                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_LIST_CID, OPT_LIST_ROW,
+                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID, OPT_LIST_ROW,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
 
 NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST

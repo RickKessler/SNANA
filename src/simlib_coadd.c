@@ -111,6 +111,8 @@
    + define SIMLIB_INPUT_TEMP as global instead of local to avoid
      too much local memory inside function (was causing crash)
 
+ Mar 03 2025: fix bug copying IDEXPT when SORT_BAND option is used.
+
 ***************************************/
 
 #include <stdio.h>
@@ -124,7 +126,7 @@
 #include "simlib_tools.c"
 
 #define MXMJD     100000    // max MJDs per LIBID
-#define MXLIBID   6000
+// xxx mark #define MXLIBID   6000
 #define MWEBV_MAX    2.0    // reject fields with such large MWEBV
 #define MXLINE_HEADER 200    // max lines for simlib header
 #define MXCHAR_LINE   200     
@@ -1159,7 +1161,9 @@ void copy_SIMLIB_CONTENTS_OBS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
 			      int o_inp,  int o_out ) {
 
   // Created Mar 2022
-
+  // Mar 2025: fix bug, copy IDEXPT & STRING_IDEXPT that had been forgotten.
+  //           Hopefully this was a harmless bug.
+  
   int ipar;
   // --------- BEGIN -----------
 
@@ -1170,7 +1174,9 @@ void copy_SIMLIB_CONTENTS_OBS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
   
   CONTENTS_OUT->IFILT[o_out] = CONTENTS_INP->IFILT[o_inp];
   CONTENTS_OUT->NEXPOSE_IDEXPT[o_out] = CONTENTS_INP->NEXPOSE_IDEXPT[o_inp];
-  
+  CONTENTS_OUT->IDEXPT[o_out]         = CONTENTS_INP->IDEXPT[o_inp];
+  sprintf(CONTENTS_OUT->STRING_IDEXPT[o_out], "%s", CONTENTS_INP->STRING_IDEXPT[o_inp] ); // Mar 2025
+    
   for(ipar=0; ipar < NPAR_OBS; ipar++ ) {  
     CONTENTS_OUT->INFO_OBS[o_out][ipar] = 
       CONTENTS_INP->INFO_OBS[o_inp][ipar]; 

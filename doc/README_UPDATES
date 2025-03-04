@@ -22892,6 +22892,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	  
         + new FITINP  FITWIN_PEAKMJD
 
+    snana.car
+      + SNTABLE_LIST = 'SNANA' now produces TEXT file by default, similar to FITRES table;
+        no longer need 'SNANA(text:key)'
+
     submit_batch_jobs:
        + fix nomerge_last() to work properly when OUTDIR is not under CWD.
        + fix bbc class to define unique cid using CID+IDSURVEY+FIELD
@@ -22908,5 +22912,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
      + Write FIELD to unbinned hubble_diagram.
      + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
-      
+    
+    simlib_coadd.c
+      + fix bug copying IDEXPT when SORT_BAND option is used.
+
 END: 

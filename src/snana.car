@@ -7127,7 +7127,8 @@ c FITRES table only ... just as before. To get ascii table for
 c SNANA or LC, user must explicitly request it in the &SNLCINP
 c namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
 
-      TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'none'
+c xxx mark delete      TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'none'
+      TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'key'  ! Mar 2025
       TEXTFORMAT_TABLE(ITABLE_FITRES)    = 'key'
       TEXTFORMAT_TABLE(ITABLE_OUTLIER)   = 'key'
       TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'none'
@@ -23348,7 +23349,7 @@ c local var
 
       REAL*8 MJD, MJD_LAST
       INTEGER IFILTOBS, IFILTOBS_LAST, i
-      CHARACTER CFILT*2
+      CHARACTER CFILT*2, cLIBID*40
 
 c ---------------- BEGIN --------------
 
@@ -23375,12 +23376,17 @@ c check if this MJD was already flagged as duplicate
       if ( NSTORE_DUPLICATE_MJD < 200 ) then
          DUPLICATE_MJDLIST(NSTORE_DUPLICATE_MJD) = MJD
          CFILT = filtdef_string(ifiltobs:ifiltobs)
+	 CLIBID = ''
+	 IF ( LSIM_SNANA ) THEN
+            write(CLIBID,600) SIM_LIBID
+600	    format('LIBID=',I9)
+         ENDIF
          write(6,666) SNLC_CCID(1:ISNLC_LENCCID), MJD, CFILT,
-     &        SNLC_FIELDLIST
-666      format(/,T5,'*** DUPLICATE MJD WARNING *** CID=',A, 3x,
-     &        'MJD=', F9.3, 3x, 'BAND=', A, 2x,'FIELD=',A6, /)
+     &        SNLC_FIELDLIST, cLIBID
+666      format(/,T3,'*** DUPLICATE MJD WARNING *** CID=',A, 3x,
+     &        'MJD=', F10.4, 3x, 'BAND=', A, 2x,'FIELD=',A6,2x, A20 /)
          CALL FLUSH(6)
-      endif
+      endif  ! .xyz
 
       RETURN
       END     

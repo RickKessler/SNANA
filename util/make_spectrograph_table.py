@@ -111,6 +111,20 @@ def print_help():
     print(f"  -   22    3000    spec_mag22_blue_texpose3000.dat")
     print(f"  -   22    3000    spec_mag22_red_texpose3000.dat")
     print(f"#")
+    print(f"#")
+    print(f"# If you have SNR information for only a single exposure time,")
+    print(f"# and want to scale SNR to other exposure times, re-use each flux-table")
+    print(f"# with different snr scales:")
+    print(f"#")
+    print(f"SEDFLUX_TABLES:   ")
+    print(f"#   magref Texpose   spec_table_file")
+    print(f"  -   19      600    spec_snr_19.txt*0.577    # divide snr by sqrt(3) ")
+    print(f"  -   21      600    spec_snr_21.txt*0.577")
+    print(f"  -   19     1800    spec_snr_19.txt          # info only for this Texpose")
+    print(f"  -   21     1800    spec_snr_21.txt          # info only for this Texpose" )
+    print(f"  -   19     3600    spec_snr_19.txt*1.41     # multiply SNR by sqrt(2)")
+    print(f"  -   21     3600    spec_snr_21.txt*1.41" )
+    
 
     sys.exit(0)
 
@@ -217,18 +231,30 @@ def read_sedflux_tables(args, config, spectro_data):
     for row in SEDFLUX_TABLES:
         magref     = row.split()[0]
         texpose    = row.split()[1]
-        flux_table = os.path.expandvars(row.split()[2])
+        flux_table = row.split()[2]
+
+        # check for <flux_table>*<snr_scale>
+        if '*' in flux_table:
+            tmp        = flux_table.split('*')  # [ flux_table, snr_scale ]
+            flux_table = tmp[0]
+            snr_scale  = float(tmp[1])
+        else:
+            snr_scale  = 1.0
+        
+        flux_table = os.path.expandvars(flux_table)
+        
         sanity_check( float(magref), float(texpose), flux_table)
 
         if magref not in texpose_dict :  texpose_dict[magref] = []
         texpose_dict[magref].append(texpose)
 
-        logging.info(f"Process flux table for magref={magref} and Texpose={texpose}: ")
+        logging.info(f"Process flux table for magref={magref} | Texpose={texpose} | snr_scale={snr_scale}: ")
         
         flux_dict = read_single_flux_table(flux_table, wave_scale)
         flux_dict['magref']  = magref
         flux_dict['texpose'] = texpose
         flux_dict['flux_table_file'] = os.path.basename(flux_table)
+        flux_dict['snr_scale']       = snr_scale
         
         flux_dict_list.append(flux_dict)
         
@@ -326,6 +352,8 @@ def rebin_sedflux_tables(args, config, spectro_data):
         magref          = flux_dict['magref']
         texpose         = flux_dict['texpose']
         flux_table_file = flux_dict['flux_table_file']
+        snr_scale       = flux_dict['snr_scale']
+        
         wave_list    = flux_dict['wave_list']
         flux_list    = flux_dict['flux_list']
         fluxerr_list = flux_dict['fluxerr_list']
@@ -368,6 +396,7 @@ def rebin_sedflux_tables(args, config, spectro_data):
             flux_rebin_dict['key_unique'] = key_unique
             flux_rebin_dict['magref']     = magref
             flux_rebin_dict['texpose']    = texpose
+            flux_rebin_dict['snr_scale']  = snr_scale            
             flux_rebin_dict['flux_table_file'] = flux_table_file
             logging.info(f"\t load   {key_unique} for {flux_table_file} ")
             key_unique_list.append(key_unique)
@@ -378,7 +407,8 @@ def rebin_sedflux_tables(args, config, spectro_data):
     for j, flux_rebin_dict in enumerate(flux_rebin_dict_list):
         flux_list    = flux_rebin_dict['flux_list']
         fluxvar_list = flux_rebin_dict['fluxvar_list']
-        snr_list     = [x/np.sqrt(y+1.0E-9) for x, y in zip(flux_list,fluxvar_list) ]
+        snr_scale    = flux_rebin_dict['snr_scale'] 
+        snr_list     = [ snr_scale*x/np.sqrt(y+1.0E-9) for x, y in zip(flux_list,fluxvar_list) ]
         flux_rebin_dict_list[j]['snr_list'] = snr_list
 
     

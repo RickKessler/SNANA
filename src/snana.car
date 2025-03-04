@@ -6699,7 +6699,15 @@ c check for wild card; e.g.,
          print*,'     ', VERSION_PHOTOMETRY_WILDCARD(1:LENV)
          call flush(6)
 
+         cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV) // char(0) 
          NVERS = STORE_GLOB_FILE_LIST(cSTRING,LENV)
+
+         if ( NVERS == 0 ) then
+	    C1ERR = 'Found zero data versions matching wildcard'
+	    C2ERR = 'Check &SNLCINP  VERSION_PHOTOMETRY_WILDCARD'
+            CALL MADABORT(FNAM, C1ERR, C2ERR)
+ 	 endif
+	 
          langFlag = 1 ! fortran
          DO i = 1, NVERS
             index_C = i - 1  ! C index

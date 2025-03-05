@@ -17,6 +17,8 @@
 
 **************************************************/
 
+#define REFAC_SNFITSIO 1
+
 // ==================================
 // global variables
 
@@ -29,6 +31,7 @@
 #define OPTMASK_SNFITSIO_HEAD    2  // matches snana.car
 #define OPTMASK_SNFITSIO_PHOT    4
 #define OPTMASK_SNFITSIO_SPEC    8
+#define OPTMASK_SNFITSIO_DONE   16
 
 #define MXFILE_SNFITSIO     500  // max number of fits-files to read
 #define MXPAR_SNFITSIO      600  // max number of header variables
@@ -294,6 +297,7 @@ int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
 void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR, double *GENFLAM);
 
+int   ifile_snfitsio(int isn);
 
 void  check_required_headkeys(int OPTMASK) ; 
 int   formIndex_snfitsio(char *form) ;

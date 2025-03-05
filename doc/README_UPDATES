@@ -22916,4 +22916,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     simlib_coadd.c
       + fix bug copying IDEXPT when SORT_BAND option is used.
 
+    sntools_dataformat_fits.c[h]
+      + refactor to explicitly pass "done reading event" flag to RD_SNFITSIO_EVENT,
+        which enables closing the last FITS file. This fixes bug reading
+        NONIASED sim data followed by SALT3 sim data with list of multiple data versions
+        in VERSION_PHOTOMETRY.
+
 END: 

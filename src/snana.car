@@ -41,7 +41,7 @@ c parameters used by snana code
      &  ,OPT_KCORERR_SJ, OPT_KCORERR_SJ5, OPT_KCORERR_SMOOTH
      &  ,OPTMASK_SNDATA_GLOBAL, OPTMASK_SNDATA_HEAD, OPTMASK_SNDATA_OBS
      &  ,OPTMASK_SNDATA_SPEC, OPTMASK_SNDATA_DUMP, OPTMASK_SNDATA_ALL
-     &  ,OPTMASK_SNDATA_REQUIRE
+     &  ,OPTMASK_SNDATA_REQUIRE, OPTMASK_SNDATA_DONE
      &  ,MXLINE_ARGS, MXKEY_ARGS, MXEPOCH_IGNORE
      &  ,NPAR_ANYLC, MXPAR_SIMSED, MXPAR_LCLIB
      &  ,MXLAMBIN_SNSED, MXCUTBIT
@@ -219,6 +219,7 @@ c
      &  ,OPTMASK_SNDATA_OBS    =  4
      &  ,OPTMASK_SNDATA_SPEC   =  8
      &  ,OPTMASK_SNDATA_ALL    = 2+4+8  ! HEAD + OBS + SPEC
+     &  ,OPTMASK_SNDATA_DONE   = 16     ! done reading event
      &  ,OPTMASK_SNDATA_DUMP   = 32     ! flag to dump variable
      &  ,OPTMASK_SNDATA_REQUIRE= 64     ! flag to require variable
 c
@@ -3469,7 +3470,7 @@ c local var
 c functions
       LOGICAL  LDONE_CIDLIST, IGNOREFILE_fortran
       INTEGER  RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
-      EXTERNAL RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
+      EXTERNAL RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP, RD_SNFITSIO_EVENT
       EXTERNAL PRINT_CPUTIME
       
 C --------------- BEGIN -----------
@@ -3572,6 +3573,8 @@ c All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
            IF ( LRDFLAG_SPEC ) THEN
               CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_SPEC,ISN)
            ENDIF
+           CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_DONE,ISN) ! Mar 4 2025
+
         ELSE IF ( FORMAT_TEXT ) THEN
            CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_OBS, ISN) 
            IF ( LRDFLAG_SPEC ) THEN
@@ -3579,6 +3582,7 @@ c All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
            ENDIF
         ENDIF
 
+        ! .xyz
 c transfer variables from C struct to fortran global variables
 
         CALL RDOBS_DRIVER()  
@@ -4460,7 +4464,7 @@ c
 c functions
       INTEGER  GET_IDSURVEY
       LOGICAL  PASS_SNTYPE
-      EXTERNAL RD_SNFITSIO_EVENT, RD_SNTEXTIO_EVENT
+cc xxx mark      EXTERNAL RD_SNFITSIO_EVENT, RD_SNTEXTIO_EVENT
 
 C -------------- BEGIN ------------
 

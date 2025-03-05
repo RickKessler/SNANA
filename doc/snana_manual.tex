@@ -6727,6 +6727,36 @@ To use a command-line override to change the Gaussian function in the
   snlc_sim.exe  <inputFile>  GENPDF_IGNORE SALT2ALPHA   GENPEAK_SALT2ALPHA 0.16
 \end{Verbatim}
 
+
+% - - - - - - -
+\subsubsection{Reweight Probability to Enhannce Low-Prob Regions}
+\label{sss:GENPDF_REWGT}
+
+\newcommand{\Pphys}{P_{\rm Phys}}
+\newcommand{\Prewgt}{P_{\rm REWGT}}
+
+To simulate bias corrections, low-probability regions are difficult
+to population with adequate statistics for a reliable bias correction.
+The following sim-input enhances low-prob regions:
+\begin{verbatim}
+   GENPDF_EXPON_REWGT:  <REWGT>
+\end{verbatim}
+%
+where the physical probabilty ($\Pphys$) is replaced with
+$\Prewgt = \Pphys^{\rm REWGT}$. 
+For example, {\tt REWGT=1/2} and $\Pphys=0.01$ (e.g., very red color and or low-stretch)
+is modified to have $\Prewgt=\sqrt{0.01} = 0.1$.
+In the analysis, each event has a weight of $\Pphys/\Prewgt$,
+and this weight is stored in the data file as {\tt SIM\_WGT\_POPULATION}.
+For light curve fitting with {\tt snlc\_fit.exe}, the output FITRES table
+includes {\tt SIM\_WGT\_POP} that is automatically used by the 
+{\tt SALT2mu/BBC} code.
+
+Prior to using this feature for large sims, always run a short test with and without
+this feature and verify that distributions reweighted by {\tt SIM\_WGT\_POP}
+match the distribution with {\tt REWGT=1}.
+
+
 % ------------------------------------
    \clearpage
    \subsection{Redshift-Dependent Parameters}

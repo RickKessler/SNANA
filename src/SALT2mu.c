@@ -7524,7 +7524,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
   
   if ( IS_DATA ) { // Jan 28 2021
-      sprintf(vartmp,"PKMJD:F" ) ;
+      sprintf(vartmp,"PKMJD:F  PEAKMJD:F" ) ;
       ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->peakmjd[ISTART], 
 				     LEN, OPTMASK_WARN );
   }

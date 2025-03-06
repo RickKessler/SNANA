@@ -16988,6 +16988,8 @@ C --------------- BEGIN --------------
       SELECT_EARLYLC = .TRUE.
       IF ( EARLYLC_STRING .EQ. '' ) RETURN
 
+cc      print*,' xxx HELOO from SELECT_EARLYLC: ep = ', ep
+
 c strip off info for this epoch.
       IFILT_OBS = ISNLC_IFILT_OBS(ep)
       CFILT     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
@@ -17037,7 +17039,6 @@ c set cut-logicals.
 
       LCUTS = (LFILT .and. LSNR .and. LPHOTPROB .and. LPHOTMASK )
 
-
 c apply all cuts to increment number of early obs.
       IF ( LCUTS ) THEN
          NOBS_EARLYLC = NOBS_EARLYLC + 1
@@ -17078,21 +17079,26 @@ c      print*,' xxx --> NMJD_DIF=', NMJD_DIF,
 c     &     '   SELECT=', SELECT_EARLYLC
 c xxxxxxxxxxxxxxx
 
-      LDMP = .false.  ! (PROB < 1.0E9)
+      LDMP = .FALSE.  ! (PROB < 1.0E9)
       if ( LDMP ) THEN
          print*,' xxx ------------------------------------- '
          write(6,666) EP, CFILT, LFILT,
-     &           MJD-56000, PROB, NOBS_EARLYLC, NNIGHT_EARLYLC
-666      format(' xxx EP=',I3'-',A1, '(',L1,')', 2x, 
-     &         'MJD=',F7.2, 2x, 'PROB=',F5.2, 2x,
+     &           MJD, PROB, NOBS_EARLYLC, NNIGHT_EARLYLC
+666      format(T2, 'xxx EP=',I3'-',A1, '(',L1,')', 2x, 
+     &         'MJD=',F9.3, 2x, 'PROB=',F5.2, 2x,
      &         'N[OBS,NITE]=',2I3 )
 
+         print*,' xxx SNR, SNRMIN_EARLYLC = ', SNR, SNRMIN_EARLYLC
+         print*,' xxx MAXOBS_EARLYLC, MAXNIGHT_EARLYLC = ',
+     &                MAXOBS_EARLYLC, MAXNIGHT_EARLYLC
+
          print*,' xxx NPHOTMASK_START_EARLYLC = ', 
-     &       NPHOTMASK_START_EARLYLC
+     &                NPHOTMASK_START_EARLYLC
 
          write(6,667) LFILT, LSNR, LPHOTPROB, LPHOTMASK
-667      format(' xxx LCUT(FILT,SNR,PHOTPROB,PHOTMASK) = ',4L3)
+667      format(T2, 'xxx LCUT(FILT,SNR,PHOTPROB,PHOTMASK) = ',4L3)
          print*,' xxx LCUTS, SELECT = ', LCUTS, SELECT_EARLYLC
+         call flush(6)
       endif
 
       RETURN

@@ -1686,7 +1686,10 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   int iwd, lenkey, k, LENKEY=0, LENARG=0 ;
   char *KEY, *ARG, *ARG_TMP, *KEY_TMP ;
   char BLANK[] = " ";
-  char fnam[] = "README_KEYPLUSARGS_load" ; 
+
+
+  char fnam[60] ; 
+  concat_callfun_plus_fnam(callFun, "README_KEYPLUSARGS_load", fnam);
 
   // ------------ BEGIN ----------
 

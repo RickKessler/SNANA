@@ -868,7 +868,7 @@ int rd_input(void) {
   printf("\t RV = A(V)/E(B-V) : %4.2f  \n", INPUTS.RV_MWCOLORLAW );
     
   char *ptrStr = INPUTS.STR_MWCOLORLAW ;
-  text_MWoption("COLORLAW", INPUTS.OPT_MWCOLORLAW, ptrStr );
+  text_MWoption("COLORLAW", INPUTS.OPT_MWCOLORLAW, ptrStr, fnam );
   printf("\t Galactic extinction law: %s \n", ptrStr );
 
 
@@ -3570,6 +3570,8 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
      , ten = 10.0
      ;
 
+   char fnam[] = "kcor_eval";
+
    /* ------------------ BEGIN ------------------- */
 
    // init output 
@@ -3686,7 +3688,7 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 	 for ( iebv=0; iebv <= MXMWEBV; iebv++ ) {
 	   mwav = INPUTS.RV_MWCOLORLAW * MWEBV_LIST[iebv] ;
 	   tmp  = 0.4 * GALextinct ( RV, mwav, lam,
-				     INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW );
+				     INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW, fnam );
 	   mwxt = 1./pow(ten,tmp) ;
 	   flux_obs[iebv]  += mwxt * wflux * flux * trans_obs  ; 
 	   flux_obs[iebv]  += 0.1E-8;
@@ -3845,6 +3847,8 @@ double snflux( double epoch, double lambda, double redshift, double av ) {
    int iepoch, ilambda, ilam1, ilam, i;
    int idebug = 0;
 
+   char fnam[] = "snflux";
+
    /* --------------------- BEGIN -------------------- */
 
    flux    = 0.0 ;             // init output 
@@ -3937,7 +3941,7 @@ double snflux( double epoch, double lambda, double redshift, double av ) {
    if ( INPUTS.AV_OPTION == 2 ) {
      RV          = INPUTS.RV_MWCOLORLAW ;
      tmp         = 0.4 * GALextinct ( RV, av, LAMZ,
-				      INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW);
+				      INPUTS.OPT_MWCOLORLAW, INPUTS.PARLIST_MWCOLORLAW, fnam);
      warp        = 1.0/pow(TEN,tmp) ;
      flux       *= warp ;
    }

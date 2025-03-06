@@ -1505,11 +1505,11 @@ void genmag_SIMSED(
   AV   = RV_MWDUST * mwebv ;
   OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW ;
   PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW ;
-  XT_MW = GALextinct(RV_MWDUST,AV,meanlam_obs,OPT_COLORLAW, PARLIST_COLORLAW); 
+  XT_MW = GALextinct(RV_MWDUST,AV,meanlam_obs,OPT_COLORLAW, PARLIST_COLORLAW, fnam); 
 
   // get approx extinction from host in rest-frame (Mar 1 2017)
   if ( AV_host > 1.0E-9 ) 
-    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94, &PARDUM ); }
+    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94, &PARDUM, fnam ); }
   else
     { XT_HOST = 0.0 ; }
 

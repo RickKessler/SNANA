@@ -3582,7 +3582,6 @@ c All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
            ENDIF
         ENDIF
 
-        ! .xyz
 c transfer variables from C struct to fortran global variables
 
         CALL RDOBS_DRIVER()  
@@ -13476,6 +13475,7 @@ c  are ignored since they are already defined.
 c ----------------------------------------
 c create IFILTDEF_MAP_SURVEY
 
+
        do i = 1, NFILTDEF_SURVEY
           cfilt1    = SURVEY_FILTERS(i:i)
           IFILT_OBS = FILTINDX(cfilt1) 
@@ -16562,15 +16562,8 @@ c
 c Compute MW extinction in each defined passband,
 c and correct SNLC_FLUXCAL[_ERRTOT]
 c
-c May 7, 2012: 
-c   Apply  USE_MWCOR log here so that the following arrays
-c   are always filled:
-c     SNLC_MWXT_[MAG,MAGERR,FLUXFRAC]
 c
-c May 17, 2012: pass ISN as argument and remove local ISN loop.
-c May 21, 2012: remove unused ISN arg.
-c Sep 18, 2013: use OPT_MWCOLORLAW as last arg to GALextinct
-c
+c Mar 06, 2025: make explicit check on <lam> for each SURVEY_FILTER
 c --------------------------------------------
 
       IMPLICIT NONE
@@ -16591,7 +16584,7 @@ c local var
      &  ,LAM8, GALextinct, RV8
 
       REAL    XTMW_cor, arg
-      CHARACTER CFILT*2
+      CHARACTER CFILT*2, FNAM*14
 
       LOGICAL LDMP 
 
@@ -16599,6 +16592,7 @@ C ------------ BEGIN -------------
 
       LDMP = .FALSE.
 
+      FNAM = 'MWEBV_FLUXCOR'
       IF ( USESIM_TRUEFLUX .and. LSIM_SNANA ) THEN
          SNLC_MWEBV     = SIM_MWEBV
          SNLC_MWEBV_ERR = 0.0
@@ -16632,19 +16626,28 @@ c determin MW extinction in each passband
       DO ifilt = 1, NFILTDEF_SURVEY  
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
           LAM8      = DBLE ( FILTOBS_LAMAVG(ifilt_obs) )
+          CFILT     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+
+          if ( LAM8 < 1.0 ) THEN
+             write(c1err,601) cfilt, LAM8
+601          format('SURVEY_FILTER ', A1,' has invalid <lam> = ', 
+     &            F8.2, ' A' )
+             c2err = 'Check if ' // CFILT(1:1) //
+     &           '-band is defined in kcor/calib file.'
+             CALL MADABORT(FNAM, c1err, c2err )
+          endif
 
           XTMW8     = 
      &           GALextinct ( RV8, AVMW8, LAM8,
-     &                OPT, PARLIST_MWCOLORLAW8 );
+     &                OPT, PARLIST_MWCOLORLAW8, FNAM//char(0), 20 )
           XTMW8_PLUSERR  = 
      &           GALextinct ( RV8, AVMW8_PLUSERR, LAM8,
-     &                OPT, PARLIST_MWCOLORLAW8 );
+     &                OPT, PARLIST_MWCOLORLAW8, FNAM//char(0), 20 )
 
           SNLC_MWXT_MAG(ifilt)    = SNGL(XTMW8)
           SNLC_MWXT_MAGERR(ifilt) = SNGL(XTMW8_PLUSERR-XTMW8)
 
           if ( LDMP ) then
-            CFILT = FILTDEF_STRING(ifilt_obs:ifilt_obs)
             write(6,123) CFILT, LAM8, XTMW8
 123         format(T5,'xxx ', A,' : <LAM>=',F7.0, 2x, 'XTMW=',F6.4)
             call flush(6)
@@ -23408,7 +23411,7 @@ c check if this MJD was already flagged as duplicate
 666      format(/,T3,'*** DUPLICATE MJD WARNING *** CID=',A, 3x,
      &        'MJD=', F10.4, 3x, 'BAND=', A, 2x,'FIELD=',A6,2x, A20 /)
          CALL FLUSH(6)
-      endif  ! .xyz
+      endif  
 
       RETURN
       END     

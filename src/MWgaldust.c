@@ -135,11 +135,11 @@
 
 // *****************************
 // mangled routines for fortran
-double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST ) {
-  return GALextinct(*RV, *AV, *WAVE, *OPT, PARLIST);
+double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST, char *callFun ) {
+  return GALextinct(*RV, *AV, *WAVE, *OPT, PARLIST, callFun);
 }
-void text_mwoption__(char *nameOpt, int  *OPT, char *TEXT) {
-  text_MWoption(nameOpt,*OPT,TEXT);
+void text_mwoption__(char *nameOpt, int  *OPT, char *TEXT, char *callFun) {
+  text_MWoption(nameOpt,*OPT,TEXT, callFun);
 }
 void modify_mwebv_sfd__(int *OPT, double *RA, double *DECL, 
 			double *MWEBV, double *MWEBV_ERR) {
@@ -147,7 +147,7 @@ void modify_mwebv_sfd__(int *OPT, double *RA, double *DECL,
 }
 
 // **********************************************
-void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
+void text_MWoption(char *nameOpt, int OPT, char *TEXT, char *callFun) {
 
   // Created Sep 19 2013
   // Return corresponding *TEXT description of 
@@ -155,7 +155,8 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
   // *nameOpt = "MWCOLORLAW" or "COLORLAW" or "MWEBV" or "EBV"
   // ABORT on invalid OPT.
 
-  char fnam[] = "text_MWoption" ;
+  char fnam[60] ;
+  concat_callfun_plus_fnam(callFun, "text_MWoption", fnam); // return fnam
 
   // ------------------ BEGIN ------------------
 
@@ -211,9 +212,8 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT) {
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
       sprintf(c2err,"Check OPT_MWCOLORAW_* in MWgaldust.h");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
     }
-
   }
 
   // ----------------------------------------
@@ -314,7 +314,7 @@ void modify_MWEBV_SFD(int OPT, double RA, double DECL,
 
 
 // **********************************************
-double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
+double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, char *callFun) {
 
 /*** 
   
@@ -444,7 +444,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
-  char fnam[] = "GALextinct" ;
+
+
+  char fnam[60];  concat_callfun_plus_fnam(callFun, "GALextinct", fnam); // return fnam
 
   // ------------------- BEGIN --------------
 
@@ -459,8 +461,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
   //  printf(" xxx %s: PARLIST = %f %f %f \n", PARLIST[0], PARLIST[1], PARLIST[2] ); fflush(stdout);
   
   if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
-      XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT);
-      return XT ;
+    XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT, callFun);
+    return XT ;
   } else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) {
       double WAVE0 = 5495.0; // reference V-band wavelength
       double P = PARLIST[0]; //extract power law index from PARLIST
@@ -496,8 +498,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
       XT = 1.0 - A + A*pow(WAVE/WAVE0, P);
       return AV*XT;
   } else if ( OPT == OPT_MWCOLORLAW_MAIZ14 ) {
-      XT = GALextinct_Maiz14(RV, AV, WAVE);
-      return XT;
+    XT = GALextinct_Maiz14(RV, AV, WAVE, callFun);
+    return XT;
   } else if ( OPT == OPT_MWCOLORLAW_GORD16 ) {
       double XTA, XTB;
       double RVB = 2.74; // R,K. -- ensure double cast for this param
@@ -524,19 +526,19 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
           errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
 
-      XTA = GALextinct_Fitz99_exact(RVA, AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT);
-      XTB = GALextinct_Fitz99_exact(RVB, AV, WAVE, OPT_MWCOLORLAW_GORD03);
+      XTA = GALextinct_Fitz99_exact(RVA, AV, WAVE, OPT_MWCOLORLAW_FITZ99_EXACT, callFun);
+      XTB = GALextinct_Fitz99_exact(RVB, AV, WAVE, OPT_MWCOLORLAW_GORD03,       callFun);
 
       return FA*XTA + (1-FA)*XTB ;
       
   } else if ( abs(OPT) == OPT_MWCOLORLAW_FITZ19_CUBIC ) {
-      XT = GALextinct_Fitz19(RV, AV, WAVE, (OPT>0) ? 1 : 0);
-      return XT;
+    XT = GALextinct_Fitz19(RV, AV, WAVE, (OPT>0) ? 1 : 0,  callFun);
+    return XT;
   } else if ( OPT == OPT_MWCOLORLAW_GORD23 ) {
-    XT = GALextinct_Gord23(RV, AV, WAVE);
+    XT = GALextinct_Gord23(RV, AV, WAVE, callFun);
     return XT;
   } else if ( OPT == OPT_MWCOLORLAW_SOMM25 ) {
-    XT = GALextinct_Somm25(AV, WAVE);
+    XT = GALextinct_Somm25(AV, WAVE, callFun);
     return XT;
   }
   
@@ -656,7 +658,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST) {
 
 
 // ============= EXACT F99 EXTINCTION LAW ==============
-double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT) {
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT, char *callFun) {
 /*** 
   Created by S. Thorp, Sep 19 2024
 
@@ -674,151 +676,152 @@ Returns :
     XT = magnitudes of extinction
 ***/
 
-    char fnam[] = "GALextinct_Fitz99_exact" ;
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "GALextinct_Fitz99_exact", fnam); // return fnam
 
-    //Check RV=2.74 for Gordon et al. (2003)
-    if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
-      sprintf(c1err,"Requested OPT=%d and RV=%.2f", OPT, RV);
-      sprintf(c2err,"Gordon et al. 2003 only valid for RV=2.74");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    //Check wavelengths in valid range
-    if ( WAVE < WAVEMIN_FITZ99_EXACT || WAVE > WAVEMAX_FITZ99_EXACT ) {
-      sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
-      sprintf(c2err,"F99-like curves only valid in [%.1f, %.1f]A",
-              WAVEMIN_FITZ99_EXACT, WAVEMAX_FITZ99_EXACT);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+  //Check RV=2.74 for Gordon et al. (2003)
+  if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
+    sprintf(c1err,"Requested OPT=%d and RV=%.2f", OPT, RV);
+    sprintf(c2err,"Gordon et al. 2003 only valid for RV=2.74");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  //Check wavelengths in valid range
+  if ( WAVE < WAVEMIN_FITZ99_EXACT || WAVE > WAVEMAX_FITZ99_EXACT ) {
+    sprintf(c1err,"Requested WAVE=%.3f Angstroms", WAVE);
+    sprintf(c2err,"F99-like curves only valid in [%.1f, %.1f]A",
+	    WAVEMIN_FITZ99_EXACT, WAVEMAX_FITZ99_EXACT);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
+  //number of knots
+  int Nk;
+  // constants
+  double x02, gamma2, c1, c2, c3, c4, c5;
+  // target wavenumber in inverse microns
+  double x = 10000.0/WAVE;
+  // spline result
+  double y;
 
-    //number of knots
-    int Nk;
-    // constants
-    double x02, gamma2, c1, c2, c3, c4, c5;
-    // target wavenumber in inverse microns
-    double x = 10000.0/WAVE;
-    // spline result
-    double y;
+  // constants
+  c2 = -0.824 + 4.717/RV;
+  c5 = 5.90;
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) {
+    x02 = 21.123216; // 4.596*4.596
+    gamma2 = 0.9801; // 0.99*0.99
+    c1 = 2.03 - 3.007*c2;
+    c3 = 3.23;
+    c4 = 0.41;
+    Nk = 9;
+  } else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+    x02 = 21.086464; // 4.592*4.592
+    gamma2 = 0.850084; // 0.922*0.922
+    c1 = 2.18 - 2.91*c2;
+    c3 = 2.991;
+    c4 = 0.319;
+    Nk = 10;
+  } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+    x02 = 21.16; // 4.6*4.6
+    gamma2 = 1.0;
+    c1 = -4.959;
+    c2 = 2.264;
+    c3 = 0.389;
+    c4 = 0.461;
+    Nk = 11;
+  } else {
+    sprintf(c1err,"Requested OPT=%d", OPT);
+    sprintf(c2err,"Only 99, 203, 204 are implemented!");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
-    // constants
-    c2 = -0.824 + 4.717/RV;
-    c5 = 5.90;
-    if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT ) {
-        x02 = 21.123216; // 4.596*4.596
-        gamma2 = 0.9801; // 0.99*0.99
-        c1 = 2.03 - 3.007*c2;
-        c3 = 3.23;
-        c4 = 0.41;
-        Nk = 9;
-    } else if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
-        x02 = 21.086464; // 4.592*4.592
-        gamma2 = 0.850084; // 0.922*0.922
-        c1 = 2.18 - 2.91*c2;
-        c3 = 2.991;
-        c4 = 0.319;
-        Nk = 10;
-    } else if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
-        x02 = 21.16; // 4.6*4.6
-        gamma2 = 1.0;
-        c1 = -4.959;
-        c2 = 2.264;
-        c3 = 0.389;
-        c4 = 0.461;
-        Nk = 11;
+  if (WAVE <= 2700.0) { //FM90 curve in UV
+    y = GALextinct_FM90(x, c1, c2, c3, c4, c5, x02, gamma2);
+    return AV * (1.0 + y/RV); 
+  } else { //spline for optical/IR
+    // powers of RV
+    double RV2, RV3, RV4;
+    
+    // spline knot locations in inverse microns
+    double xF[Nk];
+    xF[0] = 0.0; // always put an anchor at 1/lambda = 0
+    if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+      xF[1] = 1.0/2.198;
+      xF[2] = 1.0/1.65;
+      xF[3] = 1.0/1.25;
+      xF[4] = 1.0/0.81;
+      xF[5] = 1.0/0.65;
+      xF[6] = 1.0/0.55;
+      xF[7] = 1.0/0.44;
+      xF[8] = 1.0/0.37;
     } else {
-      sprintf(c1err,"Requested OPT=%d", OPT);
-      sprintf(c2err,"Only 99, 203, 204 are implemented!");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+	// Use FM07 knots for Fitzpatrick (2004) curve
+	xF[1] = 0.5;
+	xF[2] = 0.75;
+	xF[3] = 1.0;
+      } else {
+	xF[1] = 1.0/2.65;
+	xF[2] = 1.0/1.22;
+      }
+      xF[Nk-6] = 1.0/0.60;
+      xF[Nk-5] = 1.0/0.547;
+      xF[Nk-4] = 1.0/0.467; 
+      xF[Nk-3] = 1.0/0.411;
     }
+    // always anchor in the UV
+    xF[Nk-2] = 1.0/0.270;
+    xF[Nk-1] = 1.0/0.260;
+    // spline knot values
+    double yF[Nk];
 
-    if (WAVE <= 2700.0) { //FM90 curve in UV
-        y = GALextinct_FM90(x, c1, c2, c3, c4, c5, x02, gamma2);
-        return AV * (1.0 + y/RV); 
-    } else { //spline for optical/IR
-        // powers of RV
-        double RV2, RV3, RV4;
-
-        // spline knot locations in inverse microns
-        double xF[Nk];
-        xF[0] = 0.0; // always put an anchor at 1/lambda = 0
-        if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
-            xF[1] = 1.0/2.198;
-            xF[2] = 1.0/1.65;
-            xF[3] = 1.0/1.25;
-            xF[4] = 1.0/0.81;
-            xF[5] = 1.0/0.65;
-            xF[6] = 1.0/0.55;
-            xF[7] = 1.0/0.44;
-            xF[8] = 1.0/0.37;
-        } else {
-            if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
-                // Use FM07 knots for Fitzpatrick (2004) curve
-                xF[1] = 0.5;
-                xF[2] = 0.75;
-                xF[3] = 1.0;
-            } else {
-                xF[1] = 1.0/2.65;
-                xF[2] = 1.0/1.22;
-            }
-            xF[Nk-6] = 1.0/0.60;
-            xF[Nk-5] = 1.0/0.547;
-            xF[Nk-4] = 1.0/0.467; 
-            xF[Nk-3] = 1.0/0.411;
-        }
-        // always anchor in the UV
-        xF[Nk-2] = 1.0/0.270;
-        xF[Nk-1] = 1.0/0.260;
-        // spline knot values
-        double yF[Nk];
-
-        // RV-dependent spline knot values
-        // polynomial coeffs match FM_UNRED.pro and extinction.py
-        // NOTE: the optical coefficients differ from Gordon 24 implementation
-        double yFNIR;
-        yF[0] = -RV;
-        if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
-            // knot values have 1 subtracted and are multiplied by RV
-            yF[1] = -2.4386; //0.11*RV-RV
-            yF[2] = -2.27694; //0.169*RV-RV
-            yF[3] = -2.055; //0.25*RV-RV
-            yF[4] = -1.18642; //0.567*RV-RV
-            yF[5] = -0.54526; //0.801*RV-RV
-            yF[6] = 0.0;
-            yF[7] = 1.02476; //1.374*RV-RV 
-            yF[8] = 1.84128; //1.672*RV-RV
-        } else {
-            // powers of RV
-            RV2 = RV*RV;
-            RV3 = RV2*RV;
-            RV4 = RV2*RV2;
-            if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
-                yFNIR = (0.63*RV -0.84);
-                yF[1] = yFNIR*pow(xF[1], 1.84) - RV;
-                yF[2] = yFNIR*pow(xF[2], 1.84) - RV;
-                yF[3] = yFNIR*pow(xF[3], 1.84) - RV;
-            }
-            else {
-                yF[1] = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
-                yF[2] = -0.7325*RV; // 0.82925*(RV/3.1) - RV
-            }
-            yF[Nk-6] = -0.422809 + 0.00270*RV +  2.13572e-04*RV2;
-            yF[Nk-5] = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
-            yF[Nk-4] =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
-            yF[Nk-3] =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
-                7.97809e-04*RV3 - 4.45636e-05*RV4;
-        }
-        // UV knots using FM90
-        yF[Nk-2] = GALextinct_FM90(xF[Nk-2], c1, c2, c3, c4, c5, x02, gamma2);
-        yF[Nk-1] = GALextinct_FM90(xF[Nk-1], c1, c2, c3, c4, c5, x02, gamma2);
-
-        y = GALextinct_FM_spline(x, Nk, xF, yF, 0);
-        
-        return AV*(1.0 + y/RV);
+    // RV-dependent spline knot values
+    // polynomial coeffs match FM_UNRED.pro and extinction.py
+    // NOTE: the optical coefficients differ from Gordon 24 implementation
+    double yFNIR;
+    yF[0] = -RV;
+    if ( OPT == OPT_MWCOLORLAW_GORD03 ) {
+      // knot values have 1 subtracted and are multiplied by RV
+      yF[1] = -2.4386; //0.11*RV-RV
+      yF[2] = -2.27694; //0.169*RV-RV
+      yF[3] = -2.055; //0.25*RV-RV
+      yF[4] = -1.18642; //0.567*RV-RV
+      yF[5] = -0.54526; //0.801*RV-RV
+      yF[6] = 0.0;
+      yF[7] = 1.02476; //1.374*RV-RV 
+      yF[8] = 1.84128; //1.672*RV-RV
+    } else {
+      // powers of RV
+      RV2 = RV*RV;
+      RV3 = RV2*RV;
+      RV4 = RV2*RV2;
+      if ( OPT == OPT_MWCOLORLAW_FITZ04 ) {
+	yFNIR = (0.63*RV -0.84);
+	yF[1] = yFNIR*pow(xF[1], 1.84) - RV;
+	yF[2] = yFNIR*pow(xF[2], 1.84) - RV;
+	yF[3] = yFNIR*pow(xF[3], 1.84) - RV;
+      }
+      else {
+	yF[1] = -0.914616129*RV; // 0.26469*(RV/3.1) - RV
+	yF[2] = -0.7325*RV; // 0.82925*(RV/3.1) - RV
+      }
+      yF[Nk-6] = -0.422809 + 0.00270*RV +  2.13572e-04*RV2;
+      yF[Nk-5] = -5.13540e-02 + 0.00216*RV - 7.35778e-05*RV2;
+      yF[Nk-4] =  7.00127e-01 + 0.00184*RV - 3.32598e-05*RV2;
+      yF[Nk-3] =  1.19456 + 0.01707*RV - 5.46959e-03*RV2 +  
+	7.97809e-04*RV3 - 4.45636e-05*RV4;
     }
+    // UV knots using FM90
+    yF[Nk-2] = GALextinct_FM90(xF[Nk-2], c1, c2, c3, c4, c5, x02, gamma2);
+    yF[Nk-1] = GALextinct_FM90(xF[Nk-1], c1, c2, c3, c4, c5, x02, gamma2);
+    
+    y = GALextinct_FM_spline(x, Nk, xF, yF, 0);
+    
+    return AV*(1.0 + y/RV);
+  }
 
 } // end of GALextinct_Fitz99_exact
 
 // ============= MAIZ APELLANIZ ET AL. 2014 EXTINCTION LAW ==============
-double GALextinct_Maiz14(double RV, double AV, double WAVE) {
+double GALextinct_Maiz14(double RV, double AV, double WAVE, char *callFun) {
 /*** 
   Created by S. Thorp, Oct 26 2024
 
@@ -830,7 +833,8 @@ double GALextinct_Maiz14(double RV, double AV, double WAVE) {
     XT = magnitudes of extinction
 ***/
 
-    char fnam[] = "GALextinct_Maiz14";
+    char fnam[60] ;
+    concat_callfun_plus_fnam(callFun, "GALextinct_Maiz14", fnam); // return fnam
 
     // Abort if out of bounds
     if ( WAVE > WAVEMAX_MAIZ14 || WAVE < WAVEMIN_MAIZ14 ) {
@@ -908,7 +912,7 @@ double GALextinct_Maiz14(double RV, double AV, double WAVE) {
 } // end of GALextinct_Maiz14
 
 // ============= FITZPATRICK ET AL. 2019 EXTINCTION LAW ==============
-double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC) {
+double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC, char *callFun) {
 /*** 
   Created by S. Thorp, Oct 20 2024
 
@@ -921,7 +925,8 @@ double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC) {
     XT = magnitudes of extinction
 ***/
 
-    char fnam[] = "GALextinct_Fitz19";
+    char fnam[60] ;
+    concat_callfun_plus_fnam(callFun, "GALextinct_Fitz19", fnam); // return fnam
 
     // Abort if out of bounds
     if ( WAVE > WAVEMAX_FITZ19 || WAVE < WAVEMIN_FITZ19 ) {
@@ -986,7 +991,7 @@ double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC) {
 } //end of GALextinct_Fitz19
 
 // ============= GORDON ET AL. 2023 EXTINCTION LAW ==============
-double GALextinct_Gord23(double RV, double AV, double WAVE) {
+double GALextinct_Gord23(double RV, double AV, double WAVE, char *callFun) {
 /*** 
   Created by S. Thorp, Oct 20 2024
 
@@ -998,7 +1003,8 @@ double GALextinct_Gord23(double RV, double AV, double WAVE) {
     XT = magnitudes of extinction
 ***/
 
-    char fnam[] = "GALextinct_Gord23" ;
+    char fnam[60] ;
+    concat_callfun_plus_fnam(callFun, "GALextinct_Gord23", fnam); // return fnam
 
     // target wavelength in inverse microns
     double x = 10000.0/WAVE;
@@ -1136,7 +1142,7 @@ double GALextinct_Gord23(double RV, double AV, double WAVE) {
 } // end of GALextinct_Gord23
 
 // ============= SOMMOVIGO ET AL. 2025 =======================
-double GALextinct_Somm25(double AV, double WAVE) {
+double GALextinct_Somm25(double AV, double WAVE, char *callFun) {
 /*** 
   Created by S. Thorp, Feb 26 2025
 
@@ -1146,7 +1152,9 @@ double GALextinct_Somm25(double AV, double WAVE) {
   Returns :
     XT = magnitudes of extinction
 ***/
-    char fnam[] = "GALextinct_Somm25" ;
+
+    char fnam[60] ;
+    concat_callfun_plus_fnam(callFun, "GALextinct_Somm25", fnam); // return fnam
     
     // target wavelength in inverse microns
     double x = 10000.0/WAVE;

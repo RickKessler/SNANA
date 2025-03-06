@@ -2048,8 +2048,8 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
   double LAMREST_MIN, LAMREST_MAX, z1 ;
   char  *cfilt ;
 
-  char fnam[] = "checkLamRange_SEDMODEL" ;
-
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "checkLamRange_SEDMODEL", fnam); 
   // ------------------ BEGIN -----------------
   
   z1 = 1.0 + z ;
@@ -2065,9 +2065,7 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
   // if we get here then abort
   cfilt  = FILTER_SEDMODEL[ifilt].name ;
   print_preAbort_banner(fnam);
-  printf("  Calling function '%s' passed ifilt=%d('%s') and z=%.4f \n", 
-	 callFun, ifilt, cfilt, z);
-
+  printf("  Input args ifilt=%d('%s') and z=%.4f \n",  ifilt, cfilt, z);
   printf("  Rest-frame Lambda-Range (LAMREST_MIN/MAX)  = %f to %f \n",
 	 LAMREST_MIN, LAMREST_MAX) ;
 
@@ -2076,8 +2074,7 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
 
   printf("  LAMFAIL_LO/HI = %d, %d \n", LAMFAIL_LO, LAMFAIL_HI);
 
-  sprintf(c1err,"%s lambda range is outside defined SED range.",
-	  cfilt);
+  sprintf(c1err,"%s lambda range is outside defined SED range.", cfilt);
   sprintf(c2err,"Consider using &FITINP variable RESTLAMBDA_FITRANGE.");
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
 
@@ -2631,7 +2628,7 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
 
     for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
       LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilam] ;
-      XT_MAG     = GALextinct ( RV, AV, LAMOBS, OPT_COLORLAW, PARLIST_COLORLAW ) ;
+      XT_MAG     = GALextinct ( RV, AV, LAMOBS, OPT_COLORLAW, PARLIST_COLORLAW, fnam ) ;
       arg        = -0.4*XT_MAG ;
       XT_FRAC    = pow(TEN,arg);    // flux-fraction thru MW
       SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam]  = XT_FRAC ;
@@ -2729,7 +2726,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
     for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
       LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilam] ;
       LAMREST    = LAMOBS/(1.0 + z);
-      XT_MAG     = GALextinct ( RV, AV, LAMREST, OPT_COLORLAW, PARLIST_COLORLAW ) ;
+      XT_MAG     = GALextinct ( RV, AV, LAMREST, OPT_COLORLAW, PARLIST_COLORLAW, fnam ) ;
       arg        = -0.4*XT_MAG ;
       XT_FRAC    = pow(TEN,arg);    // flux-fraction thru host
       SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam]  = XT_FRAC ;
@@ -3677,7 +3674,7 @@ void genSpec_SEDMODEL(int ised,
     HOSTXT_FRAC = 1.0; 
     if ( DOXT ) { // host
       LAMTMP_REST = LAMAVG/z1 ;
-      HOSTXT_MAGOFF = GALextinct ( RV_host, AV_host, LAMTMP_REST, 94, &PARDUM ); 
+      HOSTXT_MAGOFF = GALextinct ( RV_host, AV_host, LAMTMP_REST, 94, &PARDUM, fnam ); 
       HOSTXT_FRAC   = pow(TEN, -0.4*HOSTXT_MAGOFF);
     }
 

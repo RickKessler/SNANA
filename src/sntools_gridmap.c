@@ -78,8 +78,11 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
   char  LINE[200], word[80] ;
-  char fnam[] = "read_GRIDMAP" ;
- 
+
+  
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "read_GRIDMAP", fnam);
+
   // ----------- BEGIN -------------
 
   // create generic MAPNAME using row key and IDMAP
@@ -108,8 +111,8 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
     if ( NLINE > 20 && NROW_READ==0 ) {
       sprintf(c1err,"Found no '%s' keys after reading %d lines.",
 	      KEY_ROW, NLINE);
-      sprintf(c2err,"NDIM=%d, NFUN=%d, callFun=%s", 
-	      NDIM, NFUN, callFun );
+      sprintf(c2err,"NDIM=%d, NFUN=%d", 
+	      NDIM, NFUN );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
 
@@ -146,8 +149,8 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 	printf("  LINE = '%s' \n", LINE);
 	sprintf(c1err,"Expected NVARTOT=%d words after '%s' key,",
 		NVARTOT, KEY_ROW);
-	sprintf(c2err,"but found %d. (NDIM=%d, NFUN=%d, ROW=%d, callFun=%s)", 
-		NWD-1, NDIM, NFUN, NROW_READ, callFun );
+	sprintf(c2err,"but found %d. (NDIM=%d, NFUN=%d, ROW=%d)", 
+		NWD-1, NDIM, NFUN, NROW_READ );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
       }
 
@@ -179,8 +182,8 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
       NROW_READ++ ;
       if ( NROW_READ >= MXROW ) {
 	sprintf(c1err,"NROW_READ=%d exceeds MXROW=%d", NROW_READ, MXROW);
-	sprintf(c2err,"NDIM=%d  NFUN=%d  callFun=%s", 
-		NDIM, NFUN, callFun );
+	sprintf(c2err,"NDIM=%d  NFUN=%d ", 
+		NDIM, NFUN);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
       }
 
@@ -193,8 +196,8 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 	printf("   Last line read: %s\n", LINE);
 	sprintf(c1err,"Read %d rows without valid row-key, "
 		"stop-key, or blank line.", NROW_SKIP );
-	sprintf(c2err,"KEY_ROW='%s'  KEY_STOP='%s'  callFun=%s", 
-		KEY_ROW, KEY_STOP, callFun );
+	sprintf(c2err,"KEY_ROW='%s'  KEY_STOP='%s'  ", 
+		KEY_ROW, KEY_STOP );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
       }
     }

@@ -2936,7 +2936,10 @@ int nearest_ifiltdef_rest(int OPT, int IFILTDEF, int RANK_WANT, double z,
   FILTERCAL_DEF *FILTERCAL_OBS  = &CALIB_INFO.FILTERCAL_OBS  ; 
   FILTERCAL_DEF *FILTERCAL_REST = &CALIB_INFO.FILTERCAL_REST ; 
   char *filter_name; 
-  char fnam[] = "nearest_ifiltdef_rest" ;
+
+  
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "nearest_ifiltdef_rest", fnam);
 
   // ------------- BEGIN ---------------
 
@@ -3062,8 +3065,8 @@ int nearest_ifiltdef_rest(int OPT, int IFILTDEF, int RANK_WANT, double z,
   if ( nearest_ifiltdef_rest < 0 && ABORT_FLAG ) {
     sprintf(c1err,"Could not find nearest rest-frame filter for IFILTDEF=%d(%s)",
 	    IFILTDEF, filter_name);
-    sprintf(c2err,"OPT_FRAME=%d  RANK_WANT=%d  z=%.4f  callFun=%s", 
-	    OPT_FRAME, RANK_WANT, z, callFun);
+    sprintf(c2err,"OPT_FRAME=%d  RANK_WANT=%d  z=%.4f", 
+	    OPT_FRAME, RANK_WANT, z);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 						     

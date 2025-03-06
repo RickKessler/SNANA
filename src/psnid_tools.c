@@ -537,7 +537,7 @@ void  PSNID_INIT_XTMW(int OPT_MWCOLORLAW) {
     LAMAVG = (double)SNGRID_PSNID[TYPEINDX_SNIA_PSNID].FILTER_LAMAVG[ifilt];
     if ( LAMAVG <= 0.0 ) { continue; }
 
-    XTMW   = GALextinct ( RV, AV, LAMAVG, OPT_MWCOLORLAW, &PARDUM );
+    XTMW   = GALextinct ( RV, AV, LAMAVG, OPT_MWCOLORLAW, &PARDUM, fnam );
     PSNID_INPUTS.XTMW_at_AV1[ifilt] = XTMW ; // store in global
     NXTMW++ ;
 

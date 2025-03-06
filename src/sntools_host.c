@@ -9077,7 +9077,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 			    &lamavg, &lamrms, &lammin, &lammax);
 
     LAMOBS_AVG = lamavg ;
-    MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94, &PARDUM );    
+    MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94, &PARDUM, fnam );    
 
     // compute & store galaxy mag if they are defined
     IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;

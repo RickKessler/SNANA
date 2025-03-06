@@ -266,6 +266,7 @@ void  dumpStuff_S11DM15(void) {
   // are not used anywhere else.
 
   double dm15, s, lam, AV, RV, arg, XT_MAG, XT_FRAC, PARDUM=0.0 ;
+  char fnam[] = "dumpStuff_S11DM15" ;
 
   // ------- BEGIN ---------
 
@@ -282,7 +283,7 @@ void  dumpStuff_S11DM15(void) {
   printf("\n  Host Transmission with RV=%3.1f and AV=%3.1f : \n", RV, AV);
 
   for ( lam=1000.0; lam <= 10000.0 ; lam += 1000.0 ) {
-    XT_MAG   = GALextinct ( RV, AV, lam, 89, &PARDUM ); // host XT
+    XT_MAG   = GALextinct ( RV, AV, lam, 89, &PARDUM, fnam ); // host XT
     arg      = -0.4*XT_MAG ;
     XT_FRAC  = pow(TEN,arg);    // flux-fraction thru host
     printf("\t Host-Trans(Lam=%7.1f) = %.5f \n", lam, XT_FRAC );
@@ -427,7 +428,7 @@ void  fill_TABLE_FLUXSCALE_S11DM15(double dm15, double RV,
       LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilam] ;
       LAMREST    = LAMOBS/z1 ;
 
-      XT_MAG   = GALextinct ( RV, AV, LAMREST, 89, &PARDUM ); // host XT
+      XT_MAG   = GALextinct ( RV, AV, LAMREST, 89, &PARDUM, fnam ); // host XT
       arg      = -0.4*XT_MAG ;
       XT_FRAC  = pow(TEN,arg);    // flux-fraction thru MW
 

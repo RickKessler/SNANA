@@ -5547,7 +5547,7 @@ c local args
 
       INTEGER*8 MSKFILT8(2), MSKTMP8(2)
 
-      CHARACTER CFILT*2, CTMP2*2, CCID*(MXCHAR_CCID)
+      CHARACTER CFILT*2, CTMP2*2, CCID*(MXCHAR_CCID), FNAM*8
       REAL*4 Z4, LAMDIF4(3)
 
 c KCORFUN8 args
@@ -5593,6 +5593,8 @@ c     &  ,FILTINDX
      &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
 c ------------- BEGIN ------------
+
+      FNAM = 'USRFUN'
 
 c init output args
       AVWARP       = NULLVAL
@@ -5640,7 +5642,8 @@ c check for special case where IFILT_OBS is really a rest-filter
 c get approx MW extinction (for printout only ... not for calculation)
       AVMW     = RVMW * mwebv_model ; 
       PARDUM(1) = 0.0
-      MAG_XTMW = GALextinct ( RVMW, AVMW, LAMAVG, 94, PARDUM );
+      MAG_XTMW = GALextinct(RVMW, AVMW, LAMAVG, 94, PARDUM,
+     &               FNAM//char(0), 8);
 
 c if we have observer-frame model, then skip all 
 c the rest-frame stuff.
@@ -5793,7 +5796,7 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
      &               FILTDEF_STRING(IFILT_REST:IFILT_REST)
                c2err = 'Valid rest-frame filters: ' // 
      &               FILTLIST_MODEL(1:NFILT_MODEL)
-               CALL MADABORT("USRFUN", c1err, c2err )   
+               CALL MADABORT(FNAM, c1err, c2err )   
              endif
              
              istat = genmag_mlcs2k2(
@@ -5816,7 +5819,7 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
      &               FILTDEF_STRING(IFILT_REST:IFILT_REST)
                c2err = 'Valid rest-frame filters: ' // 
      &               FILTLIST_MODEL(1:NFILT_MODEL)
-               CALL MADABORT("USRFUN", c1err, c2err )   
+               CALL MADABORT(FNAM, c1err, c2err )   
             endif
 
             istat = genmag_snoopy(ifilt_tmp, DM15, Nepoch, Trest
@@ -6182,7 +6185,7 @@ c
      &    .and. SHAPE(1)     .LT. PRIOR_SHAPE_RANGE(2) 
      &    .and. abs(AVHOST)  .LT. 10.0 ) then
 
-           CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
+           CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 8)
            cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
            print*,' Filter = ', cfilt,' : '
            print*,' MAG(LANDOLT)-MAG(BESSELL) = ',
@@ -6360,7 +6363,7 @@ c  11. observed mag
          CALL FLUSH(6)
 
          IF ( ABORT_ON_DMP ) THEN
-           CALL MADABORT("USRFUN", c1err, c2err )   
+           CALL MADABORT(FNAM, c1err, c2err )   
          ENDIF
 
       ENDIF  ! end of dump for rest-frame model
@@ -6416,7 +6419,7 @@ c Now check dump for observer-frame model
         call FLUSH(6)
 
         IF ( ABORT_ON_DMP ) THEN
-          CALL MADABORT("USRFUN", c1err, c2err )   
+          CALL MADABORT(FNAM, c1err, c2err )   
         ENDIF
 
       END IF  ! end of dump for observer-frame model

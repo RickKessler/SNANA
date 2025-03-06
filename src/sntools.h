@@ -658,6 +658,7 @@ void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) ;
 void  errlog ( FILE *fp, int  isev, char *fnam, char *msg1, char *msg2 );
 void  errmsg ( int  isev, int iprompt, char *fnam, char *msg1, char *msg2 );
 void  errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 );
+void  concat_callfun_plus_fnam(char *callFun, char *fnam, char *fnam_concat);
 
 void  prompt(char *msg) ;
 void  madend(FILE *fp, int flag);   // indicates bad end of program

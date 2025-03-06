@@ -755,7 +755,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   // compute galactic extinction
   *mwebv  = LCLIB_EVENT.MWEBV ; // return func arg
   AV_MW   = RV_MWDUST * LCLIB_EVENT.MWEBV ;
-  XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94, &PARDUM );
+  XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94, &PARDUM, fnam );
 
   // get template mag
   store_magTemplate_LCLIB(EXTERNAL_ID,ifilt,XT_MW);  

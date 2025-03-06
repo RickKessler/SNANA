@@ -989,8 +989,8 @@ double get_CCM89_RV(void) {
 
   for ( ilam=0; ilam < GENSMEAR_CCM89.NLAM_MAP; ilam++ ) {
     LAM  = GENSMEAR_CCM89.LAM_MAP[ilam] ;
-    XT   = GALextinct(RV,  Color, LAM, OPT, &PARDUM ) ;
-    XT0  = GALextinct(RV0, Color, LAM, OPT, &PARDUM ) ;
+    XT   = GALextinct(RV,  Color, LAM, OPT, &PARDUM, fnam ) ;
+    XT0  = GALextinct(RV0, Color, LAM, OPT, &PARDUM, fnam ) ;
     XTDIF = XT - XT0 ;
     GENSMEAR_CCM89.XTDIF_MAP[ilam]  = XTDIF ;
   }

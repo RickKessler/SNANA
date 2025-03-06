@@ -22922,4 +22922,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         NONIASED sim data followed by SALT3 sim data with list of multiple data versions
         in VERSION_PHOTOMETRY.
 
+    MWgaldust.c[h]:
+      add char *callFun arg to help track aborts. Add fnam arg to GALextinct function call
+      in many codes.
+
 END: 

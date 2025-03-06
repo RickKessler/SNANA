@@ -3322,7 +3322,9 @@ double SALT2colorDisp(double lam, char *callFun) {
   int imap, NLAM ;
   double cDisp, LAMMIN, LAMMAX ;
   double *mapLam, *mapDisp ;
-  char fnam[] = "SALT2colorDisp" ;
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "SALT2colorDisp", fnam); // return fnam
 
   // ------------ BEGIN --------------
 
@@ -3342,15 +3344,13 @@ double SALT2colorDisp(double lam, char *callFun) {
 
   // first some sanity checks
   if ( lam < LAMMIN || lam > LAMMAX ) {  
-    sprintf(c1err,"lam=%f outside lookup range (called from %s)", 
-	    lam, callFun );
+    sprintf(c1err,"lam=%f outside lookup range",  lam );
     sprintf(c2err,"Valid range is %7.1f to %7.1f A ", LAMMIN, LAMMAX);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   if ( NLAM <= 1 ) {
-    sprintf(c1err,"Cannot do map-lookup with %d lambda bins (callFun=%s).", 
-	    NLAM, callFun);
+    sprintf(c1err,"Cannot do map-lookup with %d lambda bins.",  NLAM);
     sprintf(c2err,"Check %s",  SALT2_ERRMAP_FILES[imap] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }

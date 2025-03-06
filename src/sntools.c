@@ -1995,7 +1995,11 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
   char *tmpString;
   bool LDMP ;
   char dumpString[] = "XXXZZZQQQ" ;  // "CLEAR" ;
-  char fnam[] = "checkStringUnique" ;
+
+  
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "checkStringUnique", fnam);
+
   // --------------- BEGIN ------------
 
   if ( strcmp(string,STRINGMATCH_INIT) == 0 ) { 
@@ -2030,7 +2034,7 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
     if ( NFOUND > MAX ) {
       sprintf(c1err,"%d  '%s' keys exceeds limit=%d in %s.", 
 	      NFOUND, string, MAX, msgSource);
-      sprintf(c2err,"Calling function is %s .", callFun);
+      sprintf(c2err," ");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
@@ -2050,7 +2054,7 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
   if ( MAX == 0 ) {
     sprintf(c1err,"Must remove obsolete '%s' key in %s", 
 	    string, msgSource);
-    sprintf(c2err,"Calling function is %s .", callFun);
+    sprintf(c2err,"  ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -2508,10 +2512,11 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   int NWD_APPROX, i;
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
-  char fnam[] = "store_PARSE_WORDS" ;
-
   PARSE_WORDS.DEBUG_FLAG = 0; // (LENF > 6665000);
   int LDMP =  PARSE_WORDS.DEBUG_FLAG ;
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "store_PARSE_WORDS", fnam);
   // ------------- BEGIN --------------------
 
   if ( LENF == 0  ) { PARSE_WORDS.NWD = 0 ; return(0); }
@@ -2569,7 +2574,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
 
     if ( NWD >= MXWD ) {
       sprintf(c1err,"NWD=%d exceeds bound of  MXWD=%d", NWD, MXWD);
-      sprintf(c2err,"NWD_APPROX=%d (called from %s)", NWD_APPROX, callFun);
+      sprintf(c2err,"NWD_APPROX=%d ", NWD_APPROX);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
   
@@ -2586,8 +2591,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
 	printf("  split tmpLine = \n '%s' \n", tmpLine);
 	sprintf(c1err,"split string len = %d for iwd=%d " 
 		"(see tmpLine above)",	 lwd, iwd);
-	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d (called from %s)", 
-		MXCHARWORD_PARSE_WORDS, callFun);
+	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d ", 
+		MXCHARWORD_PARSE_WORDS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
     }
@@ -2598,7 +2603,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
     // read text file
     fp = open_TEXTgz(FILENAME,"rt", 0, &GZIPFLAG, fnam );
     if ( !fp ) {
-      sprintf(c1err,"Could not open text file (called from %s)", callFun);
+      sprintf(c1err,"Could not open text file ");
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -2637,14 +2642,14 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   }
   else {
     sprintf(c1err,"Invalid OPT=%d with FILENAME='%s'", OPT, FILENAME);
-    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c (%s)", callFun);
+    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
 
   if ( NWD >= MXWORDFILE_PARSE_WORDS ) {
-    sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d (%s)",
-	    NWD, MXWORDFILE_PARSE_WORDS, callFun );
+    sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d ",
+	    NWD, MXWORDFILE_PARSE_WORDS);
     sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -2654,7 +2659,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   for(iwd=0; iwd < NWD; iwd++ ) 
     {  if ( PARSE_WORDS.WDLIST[iwd][0] == '\t' ) { NTAB++ ; }   }
   if ( NTAB > 0 ) {
-    sprintf(c1err,"Found %d invalid tabs. (called from %s)", NTAB, callFun);
+    sprintf(c1err,"Found %d invalid tabs.", NTAB);
     sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
@@ -2889,7 +2894,7 @@ void init_GENPOLY(GENPOLY_DEF *GENPOLY) {
 void parse_GENPOLY(char *stringPoly, char *varName, 
 		   GENPOLY_DEF *GENPOLY, char *callFun) {
 
-  // Mar 23 2019
+  // Mar 23 2019  
   // parse input stringPoly and load GENPOLY structure with 
   // polynomial of arbitrary order (up to 20).
   //
@@ -2915,7 +2920,9 @@ void parse_GENPOLY(char *stringPoly, char *varName,
   double DVAL0, DVAL1 ;
   char *splitValue[MXORDER_GENPOLY], *splitRange[2];
   char *tmpVal, colon[] = ":", comma[] = "," ;
-  char fnam[] = "parse_GENPOLY" ;
+
+  char fnam[60] ; 
+  concat_callfun_plus_fnam(callFun, "parse_GENPOLY", fnam);
 
   // ----------- BEGIN ------------
 
@@ -2946,8 +2953,8 @@ void parse_GENPOLY(char *stringPoly, char *varName,
       if ( NRANGE != 2 ) {
 	sprintf(c1err,"NRANGE=%d for order=%d. Expect 2 args"
 		" around one colon.", 	NRANGE, o);
-	sprintf(c2err,"Check %s element of %s (callFun=%s)", 
-		tmpVal, stringPoly, callFun );
+	sprintf(c2err,"Check %s element of %s", 
+		tmpVal, stringPoly );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       sscanf(splitRange[0], "%le", &DVAL0 ); 
@@ -2955,8 +2962,7 @@ void parse_GENPOLY(char *stringPoly, char *varName,
     }
     
     if ( DVAL1 < DVAL0 ) {
-      sprintf(c1err,"Invalid range for poly-order %d (callFun=%s)", 
-	      o, callFun);
+      sprintf(c1err,"Invalid range for poly-order %d ",  o);
       sprintf(c2err,"%s has 2nd value smaller than 1st.", tmpVal);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -3049,8 +3055,11 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   double VALPOLY = 0.0 ;
   double VALPOW  = 1.0 ;
   double COEFF_RANGE[2], RANCOEFF;
-  char fnam[] = "eval_GENPOLY";
   int LDMP = 0 ;
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "eval_GENPOLY", fnam);
+
   // ---------- begin ------------
 
   for(o=0; o <= ORDER; o++ ) {
@@ -3067,7 +3076,7 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   }
 
   if ( ORDER < 0 ) {
-    sprintf(c1err,"Undefined POLYNOMIAL passed from fun=%s", callFun);
+    sprintf(c1err,"Undefined POLYNOMIAL " );
     sprintf(c2err,"VAL=%le  POLYSTRING='%s' ", VAL, GENPOLY->STRING);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -4513,8 +4522,10 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
 
   int LL, i, FOUNDSLASH, SEV, NFILE; ;
   char firstChar[2], c1[2], ENVname[MXPATHLEN], suffix[MXPATHLEN] ;
-  char fnam[] = "ENVreplace" ;  
-  
+
+  char fnam[60] ;  
+  concat_callfun_plus_fnam(callFun, "ENVreplace", fnam);
+
   // ------------- BEGIN -------------
 
   if ( strcmp(fileName,"init") == 0 || strcmp(fileName,"INIT") ==0 ) 
@@ -4552,7 +4563,7 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
 
     if ( getenv(ENVname) == NULL ) {
       if ( ABORTFLAG ) { SEV = SEV_FATAL; } else { SEV = SEV_WARN; }
-      sprintf(c1err,"getenv(%s) failed (callFun=%s)", ENVname, callFun);
+      sprintf(c1err,"getenv(%s) failed", ENVname);
       sprintf(c2err,"check fileName='%s'", fileName);
       errmsg(SEV, 0, fnam, c1err, c2err);     
       return(ERROR);
@@ -5785,8 +5796,10 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
-  char fnam[] = "sigint_muresid_list";
-  
+
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "sigint_muresid_list", fnam);
   // ---------------- BEGIN -------------
 
   // determine max wgt
@@ -5810,8 +5823,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     WGT /= WGTMAX;  // avoid very small numbers 
     
     if ( MUCOV <= 0.0 ) {
-      print_preAbort_banner(fnam);
-      printf("  %s called from %s\n", fnam, callFun);
       sprintf(c1err,"Invalid MUCOV = %le ", MUCOV);
       sprintf(c2err,"i=%d  MURES=%le", i, MURES);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -5834,8 +5845,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   
   bool INVALID_SIGINT_APPROX = (STD_MURES_ORIG < AVG_MUERR);
   if  ( INVALID_SIGINT_APPROX && LABORT ) {
-      print_preAbort_banner(fnam);
-      printf("  %s called from %s\n", fnam, callFun);
       sprintf(c1err,"Cannot compute sigint because STD < AVG_MUERR ??");
       sprintf(c2err,"STD=%.3f, sqrt(AVG_COV)=%.3f  N=%d",
 	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
@@ -5884,8 +5893,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     
     if ( sigTmp < sigint_min ) {
       if ( LABORT ) {
-	print_preAbort_banner(fnam);
-	printf("  %s called from %s\n", fnam, callFun);
 	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",
 		sigint_min );
 	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d",
@@ -5951,7 +5958,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   bool ONE_TEST = ONE >= rmsPull_store[0] && ONE <= rmsPull_store[NBIN_SIGINT-1];
   if (!ONE_TEST){ 
     print_preAbort_banner(fnam);
-    printf("  called from: '%s' \n", callFun);
     printf("  sigTmp_store range is %f to %f \n", 
 	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
     printf("  NBIN_SIGINT=%d N_EVT=%d sigint_approx=%f\n", 
@@ -6175,7 +6181,10 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
   bool ISTERM;
   int LEN, N;
   char *localString, *ptrtok, lastc[2] ;
-  char fnam[] = "splitString" ;
+
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "splitString", fnam);
 
   // ------------ BEGIN ---------------
   LEN         = strlen(string);
@@ -6198,11 +6207,8 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
   }
 
   if ( N > MXsplit ) {
-    print_preAbort_banner(fnam);  
-    printf("  string to split: '%s' \n", string);
-    printf("  split separator: '%s' \n", sep);
     sprintf(c1err, "Nsplit = %d  exceeds bound MXsplit=%d", N, MXsplit );
-    sprintf(c2err, "called by function  %s", callFun);
+    sprintf(c2err, "string to split= '%s'  ; split separator= '%s' ", string, sep);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 
@@ -6377,13 +6383,14 @@ int nrow_read(char *file, char *callFun) {
   int NROW = 0, GZIPFLAG ;
   FILE *fp;
   char line[1000];
-  char fnam[] = "nrow_read" ;
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "nrow_read", fnam);
 
   fp = open_TEXTgz(file, "rt", 0, &GZIPFLAG, fnam );
 
   if ( fp == NULL ) {
-    sprintf(c1err,"Could not open file '%s'", file);
-    sprintf(c2err,"Called from function %s", callFun );
+    sprintf(c1err,"Could not open file:");
+    sprintf(c2err," %s", file );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
@@ -8894,7 +8901,9 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
   int  IVAR_EXIST, LDMP = 0 ;
   char c_get[60], LINE[100], tmpName[60] ;
-  char fnam[] = "read_VARNAMES_KEYS" ;
+
+  char fnam[60] ;
+  concat_callfun_plus_fnam(callFun, "read_VARNAMES_KEYS", fnam);
 
   // -------------- BEGIN ------------
 
@@ -8940,7 +8949,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 
   if ( NVAR_STORE >= MXVAR ) {
     sprintf(c1err,"NVAR_STORE=%d exceeds MXVAR=%d", NVAR_STORE, MXVAR);
-    sprintf(c2err,"called by %s, VARNAMES[0]=%s", callFun, VARNAMES[0] );
+    sprintf(c2err,"VARNAMES[0]=%s", VARNAMES[0] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -8978,7 +8987,9 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
   int n_key, k ;
   char **key_list, c_get[MXWORDLINE_PARSE_WORDS];
   FILE *fp;
-  char fnam[] = "read_YAML_VALS" ;
+
+  char fnam[60] ;
+  concat_callfun_plus_fnam(callFun, "read_YAML_VALS", fnam);
 
   // --------------- BEGIN -----------
 
@@ -9081,7 +9092,7 @@ void  check_magUndefined(double mag, char *varName, char *callFun) {
 
   if ( mag == MAG_UNDEFINED ) {
     sprintf(c1err,"Undefined %s = %f", varName, mag);
-    sprintf(c2err,"Found in function %s", callFun );
+    sprintf(c2err," " );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );   
   }
 }  // end check_magUndefined
@@ -9561,8 +9572,9 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
   int istat_gzip, istat_unzip, LEN, N_ITER=0;
   char gzipFile[MXPATHLEN], unzipFile[MXPATHLEN];
   char cmd_zcat[MXPATHLEN] ;
-  char fnam[]=  "open_TEXTgz" ;
 
+  char fnam[60] ;
+  concat_callfun_plus_fnam(callFun, "open_TEXTgz", fnam);
   // -------------- BEGIN ------------
 
  START:
@@ -9932,12 +9944,15 @@ void abort_bad_input(char *key, char *word, int iArg, char *callFun) {
 
 void abort_on_string_tooLong(char *string, int MXLEN, char *PARNAME_MXLEN, char *callFun) {
 
-  char fnam[] = "abort_on_string_tooLong";
   int len = strlen(string);
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "abort_on_string_tooLong", fnam);
+
   // --------- BEGIN ---------
   if ( len  >= MXLEN ) {
-    sprintf(c1err,"len(%s)=%d exceeds %s=%d  in functon %s",
-	    string, len, PARNAME_MXLEN, MXLEN, callFun);
+    sprintf(c1err,"len(%s)=%d exceeds %s=%d",
+	    string, len, PARNAME_MXLEN, MXLEN);
     sprintf(c2err,"Check %s in SNANA code.", PARNAME_MXLEN );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
   }
@@ -10236,14 +10251,20 @@ void missingKey_ABORT(char *key, char *file, char *callFun) {
 } // end of missingKey_ABORT
 
 void tabs_ABORT(int NTAB, char *fileName, char *callFun) {
-  char fnam[] = "tabs_ABORT";
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "tabs_ABORT", fnam);
+
   if ( NTAB > 0 ) {
-    sprintf(c1err,"%s found %d invalid tabs in file ", 
-	    callFun, NTAB);
+    sprintf(c1err,"Found %d invalid tabs in file ", NTAB);
     sprintf(c2err,"%s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 } // end tabs_ABORT
+
+
+void  concat_callfun_plus_fnam(char *callFun,char *fnam, char *fnam_concat)
+{ sprintf(fnam_concat,"%s->%s", callFun, fnam); }
+
 
 // ************************************************
 void errmsg(

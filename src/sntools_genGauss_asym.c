@@ -851,7 +851,10 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   int   NDIM = 1, NFUN = 1, ibin=0, ivar;
   double XVAL, funVal;
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
-  char fnam[]  = "compute_genGauss_GRIDMAP" ;
+
+  
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "compute_genGauss_GRIDMAP", fnam);
 
   // -------------- BEGIN --------------
 

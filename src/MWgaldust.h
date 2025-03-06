@@ -16,6 +16,9 @@
 //           OPT_MWCOLORLAW_GORD23 = 223
 //  Feb 26 2025: S. Thorp
 //    define OPT_MWCOLORLAW_SOMM25 = 225
+//
+//  Mar 06 2025 R.Kessler - add callFun args to better track aborts
+//
 // =======================================
 
 
@@ -73,20 +76,22 @@
 void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 
 // functions moved from sntools.c (Sep 2013)
-double GALextinct (double  RV, double  AV, double  WAVE, int  OPT, double *PARLIST);
-double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST);
-double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT);
+double GALextinct (double  RV, double  AV, double  WAVE, int  OPT, double *PARLIST, char *callFun);
+double galextinct_(double *RV, double *AV, double *WAVE, int *OPT, double *PARLIST, char *callFun);
+
+double GALextinct_Fitz99_exact(double RV, double AV, double WAVE, int OPT, char *callFun);
 double GALextinct_FM_spline(double x, int Nk, double *xk, double *yk, int lin);
 double GALextinct_Pei4(double x, double c1, double c2, double c3, double c4);
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4,
                         double c5, double x02, double g2);
-double GALextinct_Maiz14(double RV, double AV, double WAVE);
-double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC);
-double GALextinct_Gord23(double RV, double AV, double WAVE);
-double GALextinct_Somm25(double AV, double WAVE);
 
-void   text_MWoption(  char *what, int  OPT, char *TEXT) ; // return TEXT
-void   text_mwoption__(char *what, int *OPT, char *TEXT) ; 
+double GALextinct_Maiz14(double RV, double AV, double WAVE, char *callFun);
+double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC, char *callFun);
+double GALextinct_Gord23(double RV, double AV, double WAVE, char *callFun);
+double GALextinct_Somm25(double AV, double WAVE, char *callFun);
+
+void   text_MWoption(  char *what, int  OPT, char *TEXT, char *callFun) ; // return TEXT
+void   text_mwoption__(char *what, int *OPT, char *TEXT, char *callFun) ; 
 
 void   modify_MWEBV_SFD  (int OPT, double RA, double DECL,    // (I)
 			  double *MWEBV, double *MWEBV_ERR) ; // (I->O)

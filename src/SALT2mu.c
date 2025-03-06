@@ -4853,7 +4853,9 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   double a_bound_min, a_bound_max, b_bound_min, b_bound_max ;
   double g_bound_min, g_bound_max ;
   double a_interp, b_interp, g_interp ;
-  char fnam[] = "get_INTERPWGT_abg" ;
+
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "get_INTERPWGT_abg", fnam);
 
   // ------------------ BEGIN ---------------
 
@@ -4985,7 +4987,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
       }
     }
 
-    sprintf(c1err,"Invalid SUMWGT=%f  (called from %s)", SUMWGT, callFun);
+    sprintf(c1err,"Invalid SUMWGT=%f ", SUMWGT);
     sprintf(c2err,"IA=%d  IB=%d  IG=%d", IA, IB, IG);
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
@@ -5032,7 +5034,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   } // end LDMP
 
   if ( NEGWGT ) {
-    sprintf(c1err,"Invalid Negative weight (called from %s)", callFun);
+    sprintf(c1err,"Invalid Negative weight ");
     sprintf(c2err,"See dump above.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }

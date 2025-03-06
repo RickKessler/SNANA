@@ -4357,12 +4357,12 @@ double colorFudge(double lambda, double colorVal) {
 
   }
   else if ( INDEX_COLORFUN ==  INDEX_CCM89 ) {
-    XTMAG = GALextinct( *ptrpar, colorVal, lambda, 89, &PARDUM ) ;
+    XTMAG = GALextinct( *ptrpar, colorVal, lambda, 89, &PARDUM, fnam ) ;
     arg   = -0.4*XTMAG ;
     return pow(TEN,arg);
   }
   else if ( INDEX_COLORFUN ==  INDEX_CCM94 ) {
-    XTMAG = GALextinct( *ptrpar, colorVal, lambda, 94, &PARDUM );
+    XTMAG = GALextinct( *ptrpar, colorVal, lambda, 94, &PARDUM, fnam );
     arg   = -0.4*XTMAG ;
     return pow(TEN,arg);
   }

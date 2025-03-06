@@ -6847,12 +6847,12 @@ void prep_user_input(void) {
   
   // get string describing Galactic reddening color law
   OPT  = INPUTS.OPT_MWCOLORLAW ;
-  text_MWoption("COLORLAW", OPT, INPUTS.STR_MWCOLORLAW ); // return STR
+  text_MWoption("COLORLAW", OPT, INPUTS.STR_MWCOLORLAW, fnam ); // return STR
   if ( OPT == 0 ) { INPUTS.MWEBV_FLAG = 0; } // turn off
 
   // get string describing option to modify MWEBV_SFD
   OPT  = INPUTS.OPT_MWEBV ;
-  text_MWoption(PARNAME_EBV, OPT, INPUTS.STR_MWEBV ); // return STR
+  text_MWoption(PARNAME_EBV, OPT, INPUTS.STR_MWEBV, fnam ); // return STR
   if ( OPT == 0 ) { INPUTS.MWEBV_FLAG = 0; } // turn off
   
   // --------------------------------------------------
@@ -13090,8 +13090,8 @@ double gen_MWEBV(double RA, double DEC) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
     LAMOBS     = (double)INPUTS.LAMAVG_OBS[ifilt_obs];
-    MCOR_MAP   = GALextinct( RV, AV_MAP,  LAMOBS, OPT, PARLIST );
-    MCOR_TRUE  = GALextinct( RV, AV_TRUE, LAMOBS, OPT, PARLIST );
+    MCOR_MAP   = GALextinct( RV, AV_MAP,  LAMOBS, OPT, PARLIST, fnam );
+    MCOR_TRUE  = GALextinct( RV, AV_TRUE, LAMOBS, OPT, PARLIST, fnam );
     GENLC.MWXT_MAG[ifilt_obs] = MCOR_TRUE ; // Nov 2023
 
     // check PLASTICC option to actually correct fluxes for MW

@@ -17168,8 +17168,12 @@ c set defaults
 
       DO 10 iwd = 1, NWD
 
+          cwd0 = '' ; cwd1 = ''
+      
           CALL get_PARSE_WORD_fortran(iwd+0, cwd0, L0)
-          CALL get_PARSE_WORD_fortran(iwd+1, cwd1, L1)
+          if ( iwd < NWD ) then
+             CALL get_PARSE_WORD_fortran(iwd+1, cwd1, L1)
+          endif
 
           if ( cwd0(1:6) .EQ. 'MAXOBS' ) then
              read(cwd1,* ) MAXOBS_EARLYLC

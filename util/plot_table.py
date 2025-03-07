@@ -96,7 +96,7 @@ NUMPY_FUNC_DICT = {
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 
 # list possible VARNAME to identify row
-VARNAME_IDROW_LIST = [ 'CID', 'GALID', 'ROW' ]
+VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW' ]
 
 # internal strings to identify type of string in @V or @@CUT
 STRTYPE_VAR   = "VARIABLE"

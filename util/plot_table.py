@@ -8,6 +8,7 @@
 #
 # Jan 7 2025: input "@@LEGEND NONE" suppresses legend.
 # Feb 11 2025: add @@YMAX_SCALE argument
+# Mar 07 2025: fix to work with genuine csv (no keys) as well as SNANA table format with keys.
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -40,6 +41,9 @@ BAR   = '|'
 
 DEFAULT  = 'DEFAULT'
 SUPPRESS = 'SUPPRESS'
+
+FORMAT_CSV         = 'CSV'
+FORMAT_SNANA_TABLE = 'SNANA_TABLE'
 
 # define pandas strings to add into VARIABLE and CUT strings.
 STR_df         = 'df.'
@@ -1486,7 +1490,8 @@ def read_tables(args, plot_info):
                               skiprows = nrow_skip,
                               nrows    = NROWS )
 
-        if store_df_ref:    df_ref = copy.deepcopy(df)
+        if store_df_ref:    
+            df_ref = copy.deepcopy(df)
                 
         try:
             df[varname_idrow] = df[varname_idrow].astype(str)
@@ -1494,7 +1499,6 @@ def read_tables(args, plot_info):
             logging.warn(f"No {varname_idrow} present in this file. OK for some file types.")
 
         # apply user cuts
-
         if cut:
             df = eval(cut)
 
@@ -1507,8 +1511,8 @@ def read_tables(args, plot_info):
 
         # increment MASTER_DF_DICT dictionary; note that filename index is dict key.
         key = f"tf{nf}"
-        nf += 1
-        
+        nf += 1        
+
         MASTER_DF_DICT[key] = df
         nrow = len(df)
         nrow_tot   += nrow
@@ -1629,9 +1633,12 @@ def set_xbins(args, plot_info):
 
 def check_table_varnames(tfile, var_list):
 
-    # count number of rows to skip before VARNAMES key,
-    # and read name of first column after VARNAMES key
-    # Also check that all variables in var_list are specified in VARNAMES.
+    # Check if format is SNANA_TABLE (keyed csv) or pure csv.
+    # For SNANA_TABLE format, count number of rows to skip before VARNAMES key,
+    # Read "ID" name of first column, and check that input var_list all
+    # exist in the table.
+    # If not VARNAMES key is found, assume we have a genuine csv file
+    # with no keys.
     
     nrow_skip = 0
     if '.gz' in tfile:
@@ -1639,61 +1646,63 @@ def check_table_varnames(tfile, var_list):
     else:
         t = open(tfile,'rt')
 
-    nrow_skip = 0
-    
+    nrow_read = 0
+    first_line_nocomment = None  # only for genuine csv
+
+    MXROW_SKIP = 200 # stop checking after this many lines
+
+    format_table = None
+
     for line in t:
         wdlist = line.split()
         if len(wdlist) == 0 :
-            nrow_skip += 1
+            nrow_read += 1
             continue
 
-        if wdlist[0] == 'VARNAMES:' :
-            varname_idrow = wdlist[1]
-            n_missing = 0
+        if nrow_read > MXROW_SKIP : break
 
-            for var in var_list:
-                if var not in wdlist:
-                    n_missing += 1
-                    logging.error(f"Missing {var} in {tfile}")
-            if n_missing > 0:
-                logging.fatal(f"Missing {n_missing} variables; check @V and @@ERROR args.")
-                sys.exit(f"\n\t ABORT")
+        if line[0] != '#' and not first_line_nocomment:
+            first_line_nocomment = line
+            table_var_list = wdlist
+            format_table   = FORMAT_CSV
+
+        if wdlist[0] == 'VARNAMES:' :            
+            table_var_list = wdlist[1:]
+            format_table = FORMAT_SNANA_TABLE
             break
         else:
-            nrow_skip += 1            
-            continue
+            nrow_read += 1    
 
+    # - - - - - -
     t.close()
-    logging.info(f"\t Found {nrow_skip} rows to skip before 'VARNAMES:' key")
+
+    if format_table == FORMAT_SNANA_TABLE:
+        nrow_skip = nrow_read
+        logging.info(f"\t Format = {FORMAT_SNANA_TABLE}: found {nrow_skip} rows to skip before 'VARNAMES:' key")
+    elif format_table == FORMAT_CSV:
+        nrow_skip = 0
+        logging.info(f"\t Format = {FORMAT_CSV}")
+    else:
+        sys.exit(f"\n ERROR: unable to detect format after reading {nrow_skip} rows " \
+                 f"({FORMAT_SNANA_TABLE} or {FORMAT_CSV})")
+
+    # - - - - - - -
+    # extract info from list of variables
+    varname_idrow = table_var_list[0]
+    n_missing = 0
+
+    for var in var_list:
+        if var not in table_var_list:
+            n_missing += 1
+            logging.error(f"Missing {var} in {tfile}")
+        if n_missing > 0:
+            logging.fatal(f"Missing {n_missing} variables; check @V and @@ERROR args.")
+            sys.exit(f"\n\t ABORT")
+
 
     return varname_idrow, nrow_skip
 
-    # end count_rows_to_skip
-
-def check_vars_exist(args, df, tfile):
-
-    # xxxxxx OBSOLETE xxxxxxxx
-    
-    # strip off list of variables used for plotting (@V) or cut (@@CUT).
-    # This list has no df. so it's easy to check existence.
-    
-    raw_var_list = args.raw_var_list
-
-    varlist_missing = []
-    for tmp_var in raw_var_list:
-        if tmp_var not in df:
-            varlist_missing.append(tmp_var)
-            logging.error(f"Could not find requested {tmp_var} for {tfile}")
-
-    # xxxxxx OBSOLETE xxxxxxxx            
-    n_var_missing = len(varlist_missing)
-    if  n_var_missing > 0 :
-        logging.fatal(f"Missing {n_var_missing} variables in table file(s); " + \
-                      f"check @@VARIABLE and  @@ERROR args")
-        sys.exit(f"\n\t ABORT")
-    # xxxxxx OBSOLETE xxxxxxxx
-    return
-
+    # end check_table_varnames
 
 
 def poisson_interval(k, alpha=0.32):

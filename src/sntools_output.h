@@ -196,9 +196,10 @@ bool SPECPAK_USE_MARZ  ;
 int NCALL_SPECPAK_FILL ; // number of calls to SPECPAK_FILL
 
 // define flags for epoch info
-#define SNLCPAK_EPFLAG_FLUXDATA    1 // data flux 
-#define SNLCPAK_EPFLAG_REJECT      2 // for data only
-#define SNLCPAK_EPFLAG_CHI2        3 // for fitted data only
+#define SNLCPAK_EPFLAG_FLUXDATA    1  // data flux 
+#define SNLCPAK_EPFLAG_FLUXMODEL   11 // fit-model flux 
+#define SNLCPAK_EPFLAG_REJECT      2  // for data only
+#define SNLCPAK_EPFLAG_CHI2        3  // for fitted data only
 #define SNLCPAK_EPFLAG_FITFUN      4
 #define SNLCPAK_EPFLAG_FLUXSIM     5  // simulated flux (May 20 2016)
 #define SNLCPAK_EPFLAG_FLUXREST    6  // k-corrected rest-frame fluxes

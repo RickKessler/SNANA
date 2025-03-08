@@ -1479,9 +1479,6 @@ int ICAST_for_textVar_obsolete(char *varName) {
 // ==========================================
 void SNLCPAK_FILL_TEXT(void) {
 
-  // Oct 15 2013: fix aweful bug; move close(ptr) inside ifilt loop.
-  // Jan 22 2014: write optional rest-frame info (filter and flux)
-  // Sep 07 2014: open 1 file per SN rather than per SN/filter
 
   int ifilt, USE, obs, FLAG, OUTFLAG, i ;
   int NOBS_DATA, NOBS_FITFUN, NOBS, REJECT, ISDATA, ISFIT ;
@@ -1527,7 +1524,7 @@ void SNLCPAK_FILL_TEXT(void) {
       NOBS = SNLCPAK_OUTPUT.NOBS[FLAG];
 
       ISDATA = ( FLAG == SNLCPAK_EPFLAG_FLUXDATA  ) ;
-      ISFIT  = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;
+      ISFIT  = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;  // fit-fun on grid
       OUTFLAG = -9 ;  REJECT=0;
 
       for(obs=0; obs<NOBS; obs++ )  {  

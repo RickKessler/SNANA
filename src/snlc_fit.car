@@ -18580,10 +18580,6 @@ c
 c Pack light curve & best-fit function for snlc_fit.exe.
 c Also pack optional info such as marginalized distributions.
 c
-c Jul 19, 2013: add MJD list to SNLCPAK_DATA
-c Jan 25, 2014: use new I4EP_FIT and R4EP_FIT arrays.
-c Dec 10, 2017: fix to work with SNTABLE_FILTER_REMAP
-c Jan 23, 2020: pack KCOR and AVWARP for rest-frame model
 c ---------------------------------------------
 
       IMPLICIT NONE
@@ -18723,14 +18719,16 @@ c Dec 10 2017: check for filter-remap option
             VFILTOBS(NOBS)  = IFILTOBS_REMAP 
          ENDIF
 
-         VMJD(NOBS)         = R4EP_FIT(i,JEP_MJD) + MJDOFF
-         VTOBS(NOBS)        = R4EP_FIT(i,JEP_TOBS)
-         VFLUXOBS(NOBS)     = R4EP_FIT(i,JEP_DATAFLUX)
-         VFLUXOBS_ERR(NOBS) = R4EP_FIT(i,JEP_DATAFLUX_ERR)
-         VREJECT(NOBS)      = I4EP_FIT(i,IEP_REJECT)
-         VCHI2(NOBS)        = R4EP_FIT(i,JEP_DELCHI2)
-         VSIMFLUXOBS(NOBS)  = R4EP_FIT(i,JEP_SIM_FLUXCAL)  ! May 20 2016
-         VZERO(NOBS)        = 0.0 
+         VMJD(NOBS)           = R4EP_FIT(i,JEP_MJD) + MJDOFF
+         VTOBS(NOBS)          = R4EP_FIT(i,JEP_TOBS)
+         VFLUXOBS(NOBS)       = R4EP_FIT(i,JEP_DATAFLUX)
+         VFLUXOBS_ERR(NOBS)   = R4EP_FIT(i,JEP_DATAFLUX_ERR)
+c         VMODELFLUX(NOBS)     = R4EP_FIT(i,JEP_MODELFLUX)       ! Mar 2025
+c         VMODELFLUX_ERR(NOBS) = R4EP_FIT(i,JEP_MODELFLUX_ERR)   ! Mar 2025
+         VREJECT(NOBS)        = I4EP_FIT(i,IEP_REJECT)
+         VCHI2(NOBS)          = R4EP_FIT(i,JEP_DELCHI2)
+         VSIMFLUXOBS(NOBS)    = R4EP_FIT(i,JEP_SIM_FLUXCAL)  ! May 20 2016
+         VZERO(NOBS)          = 0.0 
 
          IF ( DO_RESTFLUX ) THEN
            VFILTREST(NOBS)    = I4EP_FIT(i,IEP_IFILT_REST1)
@@ -18743,6 +18741,13 @@ c Dec 10 2017: check for filter-remap option
 
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VFLUXOBS, VFLUXOBS_ERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_FLUXDATA, LENCCID)
+
+c xxxxxxxx mark delete Mar 2025 xxxxxx
+c  don't do this because model-flux has separate DATAFLAG
+c      CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, 
+c     &     VMODELFLUX, VMODELFLUX_ERR, 
+c     &     VFILTOBS, SNLCPAK_EPFLAG_FLUXMODEL, LENCCID)   ! Mar 2025
+c xxxxxxxx
 
 c store REJECT flags
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VREJECT, VDUMERR, 
@@ -19918,11 +19923,7 @@ c local var
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
-c +CDE,FILTCOM.
-c +CDE,SNLCINP.
-c +CDE,USRTAGCM.
 +CDE,TABLEVARCOM.
-c +CDE,VMAXCOM.
 
       INTEGER 
      &    IPAR, IFILT, IFILT_OBS

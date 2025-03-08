@@ -82,6 +82,7 @@ c
      &  ,FLAG_DOCANA_START, FLAG_DOCANA_END, FLAG_DOCANA_ERROR
 c
      &  ,SNLCPAK_EPFLAG_FLUXDATA     ! DATA flux per epoch
+     &  ,SNLCPAK_EPFLAG_FLUXMODEL    ! MODEL flux per epoch
      &  ,SNLCPAK_EPFLAG_REJECT   ! REJECT flag (1=> excluded from fit)
      &  ,SNLCPAK_EPFLAG_CHI2     ! data-fit chi2 per epoch
      &  ,SNLCPAK_EPFLAG_FITFUN   ! smooth  fitfun curve
@@ -300,13 +301,14 @@ c
      &  ,FLAG_DOCANA_ERROR  = -1  ! flags missing DOCANA keys
 
      &  ,SNLCPAK_EPFLAG_FLUXDATA    = 1    ! epoch-dependent
+     &  ,SNLCPAK_EPFLAG_FLUXMODEL   = 11
      &  ,SNLCPAK_EPFLAG_REJECT      = 2
      &  ,SNLCPAK_EPFLAG_CHI2        = 3
      &  ,SNLCPAK_EPFLAG_FITFUN      = 4
      &  ,SNLCPAK_EPFLAG_FLUXSIM     = 5    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_FLUXREST    = 6
-     &  ,SNLCPAK_EPFLAG_KCOR        =   7
-     &  ,SNLCPAK_EPFLAG_AVWARP      =   8
+     &  ,SNLCPAK_EPFLAG_KCOR        = 7
+     &  ,SNLCPAK_EPFLAG_AVWARP      = 8
      &  ,SNLCPAK_EPFLAG_SIMFLUXREST = 9
      &  ,SNLCPAK_EPFLAG_ERRCALC     = 10
      &  ,SNLCPAK_BANDFLAG_NDOF    = 100
@@ -18912,16 +18914,18 @@ c Check hard-coded SIM_xxx names, and also check SIMSED_xxx names.
 c
 c Nov 25 2019: check NEP_SIM_MAGOBS = number os SIM_MAGOBS < 99
 c Jun 23 2020: abort of VARNAME not found
+c Mar 07 2025: check SIM_PEAKMAG_[band]
 
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,FILTCOM.
 
       LOGICAL FOUND
-      INTEGER i, ipar, LENTMP
+      INTEGER i, ipar, LENTMP, ifilt, ifilt_obs
       REAL*8  VMIN, VMAX
-      CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60, FNAM*20
+      CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60, FNAM*20, cfilt*1
 
 C --------------- BEGIN ------------
 
@@ -18970,6 +18974,20 @@ c check SIMSED variables
                if ( SIMSED_PARVAL(ipar) > VMAX ) PASS_SIMCUTS = .FALSE.
             endif
          ENDDO
+
+c  Mar 2025: check PEAKMAG
+         do ifilt = 1, NFILTDEF_SURVEY
+            ! .xyz
+            ifilt_obs   = IFILTDEF_MAP_SURVEY(ifilt)
+            cfilt       = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+            VARNAME_TMP = 'SIM_PEAKMAG_' // cfilt
+            if ( VARNAME .EQ. VARNAME_TMP ) then
+               FOUND   = .TRUE.
+               if ( SIM_PEAKMAG(ifilt) < VMIN ) PASS_SIMCUTS = .FALSE.
+               if ( SIM_PEAKMAG(ifilt) > VMAX ) PASS_SIMCUTS = .FALSE.
+            endif
+         enddo
+
 
          if ( .NOT. FOUND ) then
             c1err = 'Could not evaluate cut on ' // VARNAME(1:20)
@@ -23017,7 +23035,7 @@ c SNLCPAK arrays
      &  ,VTOBS(MXEP_SNLCPAK)
      &  ,VFLUX(MXEP_SNLCPAK)
      &  ,VFLUX_ERR(MXEP_SNLCPAK)
-     &  ,VSIMFLUX(MXEP_SNLCPAK)  ! Jan 2020
+     &  ,VSIMFLUX(MXEP_SNLCPAK) 
      &  ,VCHI2(MXEP_SNLCPAK)
      &  ,VREJECT(MXEP_SNLCPAK)
      &  ,VERRCALC(MXEP_SNLCPAK)

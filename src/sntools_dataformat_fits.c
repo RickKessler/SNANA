@@ -204,7 +204,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
     ptrType = snfitsType[itype] ;
 
     // malloc each file name - Oct 8 2021
-    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]       = (char*)malloc(MEMC);
+    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]          = (char*)malloc(MEMC);
     wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] = (char*)malloc(MEMC);
 
     ptrFile = wr_snfitsFile[IFILE_WR_SNFITSIO][itype] ; // short fileName
@@ -729,13 +729,6 @@ void wr_snfitsio_init_phot(void) {
 
   sprintf(FMT,"%dA", MXCHAR_FILTNAME);
   wr_snfitsio_addCol( FMT,  "BAND" , itype ) ; 
-
-  /* xxxxxx mark delete Nov 20 2024 xxxx
-  if ( SNFITSIO_DATAFLAG ) 
-    { wr_snfitsio_addCol( "20A",  "BAND" , itype ) ;  } // full string for data
-  else
-    { wr_snfitsio_addCol( "2A", "BAND"   , itype ) ;  } // single char for sim
-  xxxxxxxx  end mark xxxxx */
   
   if (WRFULL ) {
     wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
@@ -828,7 +821,6 @@ void wr_snfitsio_init_spec(void) {
   //
   // July 29 2023: see new use of logicals WRITE_DEFAULT[SED_TRUE]
 
-  // xxx mark delete Sep 2024 int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
   int WRITE_MASK     =  SNFITSIO_WRITE_MASK_SPEC ; // Sep 6 2024 bug fix
   int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SED_TRUE );  
   int WRITE_SPECTRA  = ( WRITE_MASK & WRITE_MASK_SPECTRA  ) && !WRITE_SED_TRUE ;
@@ -2523,15 +2515,9 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // Feb 2021: write GENFLAM for sim
   // Oct 2021: check for legacy vs. refac table
 
-  // xxx mark delete Sep 2024 int WRITE_MASK     =  INPUTS_SPECTRO.WRITE_MASK;
   int WRITE_MASK     =  SNFITSIO_WRITE_MASK_SPEC ; // Sep 6 2024 bug fix
   int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SED_TRUE );
   int WRITE_SPECTRA  = ( WRITE_MASK & WRITE_MASK_SPECTRA) && !WRITE_SED_TRUE ;
-
-  /* xxx mark delete Oct 29 2024 xxxx
-  int WRITE_DEFAULT  = ( WRITE_MASK & WRITE_MASK_SPEC_DEFAULT);
-  int WRITE_SED_TRUE = ( WRITE_MASK & WRITE_MASK_SPEC_SED_TRUE );  
-  xxxxxxxx end mark xxx */
   
   int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
@@ -2997,7 +2983,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
   malloc_GENSPEC(0, 0,0) ;
-
+						
   if ( init_num == 1 ) {
     init_SNDATA_GLOBAL();
     init_GENSPEC_GLOBAL();
@@ -3063,8 +3049,8 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   if ( (MSKOPT & 1) > 0 ) { // check if FITS format; don't read
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
-    malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
-    return istat ; 
+    // xxx mark delete Mar 9 2025: malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
+    return istat ;  // it's in FITS format
   }
 
   // print summary
@@ -3151,11 +3137,12 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   // Jul 26 2024; read new NAME_IAUC, but also check for legacy IAUC key name.
   //
   // Mar 04 2025: open and close FITS files here instead of in RD_SNFITSIO_PARVAL
+  // Mar 09 2025: fix memory leak bug from Mar 04
 
-  bool LRD_HEAD = ( OPT & OPTMASK_SNFITSIO_HEAD );
-  bool LRD_PHOT = ( OPT & OPTMASK_SNFITSIO_PHOT );
-  bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
-  bool LRD_DONE = ( OPT & OPTMASK_SNFITSIO_DONE );
+  bool LRD_HEAD  = ( OPT & OPTMASK_SNFITSIO_HEAD );
+  bool LRD_PHOT  = ( OPT & OPTMASK_SNFITSIO_PHOT );
+  bool LRD_SPEC  = ( OPT & OPTMASK_SNFITSIO_SPEC );
+  bool LVER_DONE = ( OPT & OPTMASK_SNFITSIO_DONE );
 
   int  NFILT    = SNDATA_FILTER.NDEF;
   int  ifile    = ifile_snfitsio(isn);  
@@ -3176,17 +3163,18 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
   // ------------- BEGIN ------------
 
-  /* xxxxxxx mark xxxxxxxxxxxxxx
-  if ( REFAC_SNFITSIO ) {
-    printf(" xxx %s start: REFAC OPT=%d  ifile=%d  isn=%d  IFILE_RD_SNFITSIO=%d \n", 
-	   fnam, OPT, ifile, isn, IFILE_RD_SNFITSIO);    fflush(stdout);
+  // Mar 9 2025:
+  // close out last version; this only matters if processing multiple data versions
+  if ( LVER_DONE ) { 
+    RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; 
+    return(SUCCESS) ; 
   }
-  xxxxx end mark xxxxx */
 
   if ( REFAC_SNFITSIO  &&  ifile != IFILE_RD_SNFITSIO ) {
-    IFILE_RD_SNFITSIO = ifile ;           // update global file index
-    ISNFIRST_SNFITSIO = isn ;             // first ISN in file
-    rd_snfitsio_file(IFILE_RD_SNFITSIO);  // open next fits file.
+    RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; 
+    IFILE_RD_SNFITSIO = ifile ;              // update global file index
+    ISNFIRST_SNFITSIO = isn ;                // first ISN in file
+    rd_snfitsio_file(IFILE_RD_SNFITSIO);     // open next fits file.
     rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
   }
   
@@ -3853,14 +3841,15 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   } // end LRD_SPEC
 
   
+  /* xxx
   // close file on last event
   if ( REFAC_SNFITSIO ) {
     //    printf(" xxx %s end: isn=%d  ifile=%d  N_SUM=%d \n",
     //	   fnam, isn, ifile, NSNLC_RD_SNFITSIO_SUM[ifile] ); fflush(stdout);
-
     if ( LRD_DONE && isn == NSNLC_RD_SNFITSIO_SUM[ifile] ) 
       { RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; }
   }
+  xxx */
 
   return(SUCCESS);
 
@@ -3876,6 +3865,8 @@ void RD_SNFITSIO_CLOSE(char *version) {
   char fnam[] = "RD_SNFITSIO_CLOSE" ;
 
   // ------------- BEGIN --------------
+
+  printf("\t %s  %s\n", fnam, version); fflush(stdout);
 
   if ( strcmp(version,SNFITSIO_PHOT_VERSION) != 0 ) {
     sprintf(c1err,"Cannot close fits-files for version %s", version);
@@ -4001,28 +3992,43 @@ void malloc_rd_snfitsFiles(int opt, int ifile) {
   // Created Oct 2021 by R.Kessler
   // opt > 0 -> malloc to store each fits-file filename (HEAD,PHOT,SPEC)
   // opt < 0 -> free memory
+  // opt = 0 -> init bool flags to false (Mar 2025)
 
   int LDMP = 0 ;
   int itype;
   int MEMC = MXPATHLEN * sizeof(char);
+  bool is_malloc ;
   char fnam[] = "malloc_rd_snfitsFiles" ;
   // ------------ BEGIN ------------
 
   if ( opt > 0 ) {
     for( itype=0; itype < MXTYPE_SNFITSIO; itype++ ) {
-      rd_snfitsFile[ifile][itype]          = (char*) malloc(MEMC);
-      rd_snfitsFile_plusPath[ifile][itype] = (char*) malloc(MEMC);
-      if ( LDMP ) 
-	{ printf(" xxx %s: malloc ifile=%d, itype=%d\n", fnam,ifile,itype);} 
+      is_malloc = is_malloc_rd_snfitsFile[ifile][itype] ;
+      if ( !is_malloc ) {
+	rd_snfitsFile[ifile][itype]          = (char*) malloc(MEMC);
+	rd_snfitsFile_plusPath[ifile][itype] = (char*) malloc(MEMC);
+	is_malloc_rd_snfitsFile[ifile][itype] = true;
+	if ( LDMP ) 
+	  { printf(" xxx %s: malloc ifile=%d, itype=%d\n", fnam,ifile,itype); fflush(stdout);  } 
+      }
     }
   }
-  else {
+  else if ( opt < 0 ) {
     for( itype=0; itype < MXTYPE_SNFITSIO; itype++ ) {
       free( rd_snfitsFile[ifile][itype] );
       free( rd_snfitsFile_plusPath[ifile][itype] );
       if ( LDMP ) 
-	{ printf(" xxx %s: free ifile=%d, itype=%d\n", fnam,ifile,itype);} 
+	{ printf(" xxx %s: free ifile=%d, itype=%d\n", fnam,ifile,itype); fflush(stdout); } 
     }
+  }
+  else if ( opt == 0 ) {
+    int i;
+    for (i=0; i < MXFILE_SNFITSIO; i++ ) {
+      for ( itype = 0; itype < MXTYPE_SNFITSIO; itype++ ) {
+	is_malloc_rd_snfitsFile[i][itype] = false;
+      }
+    }
+
   }
 
   return;
@@ -4708,20 +4714,26 @@ void rd_snfitsio_free(int ifile, int itype ) {
   // free memory in reverse order to how it was allocated.
   // Oct 17 2012 set   MALLOC_LEN_SNFITSIO[itype] = 0 ; 
 
-  int iform, ipar, npar, LEN, i ;
+  int iform, ipar, npar, LEN, i, MEMTOT=0 ;
+  char fnam[] = "rd_snfitsio_free" ;
 
   // --------------- BEGIN ----------
 
   LEN = MALLOC_LEN_SNFITSIO[itype] ;
   if ( LEN <= 0 ) { return ; }
 
-  printf("\t Free allocated SNFITSIO memory for %s \n",
-	 rd_snfitsFile[ifile][itype] );
+  printf("\t Free memory for ifile=%d : %s \n",
+	 ifile, rd_snfitsFile[ifile][itype] );
   fflush(stdout);
 
   for ( iform=1; iform < MXFORM_SNFITSIO; iform++ ) {
 
     npar = RD_SNFITSIO_TABLEVAL[itype].NPAR[iform] ; 
+
+    /* xxxx
+    printf("\t xxx %s: iform=%d npar=%d \n", 
+	   fnam, iform, npar); fflush(stdout); // xxx .xyz
+    xxxxx */
 
     if ( npar <= 0 ) { continue ; }
 
@@ -4777,12 +4789,12 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   //
   // Jun 17 2018: if LEN==0, set to 10 and avoid abort.
 
-  int LEN_LOCAL = LEN ;
+  int LEN_LOCAL  = LEN ;
+  int MALLOC_LEN = MALLOC_LEN_SNFITSIO[itype];
+  char *ptrFile  = rd_snfitsFile[ifile][itype];
 
-  int 
-    iform, npar, ipar, i, NPARTOT
-    ,mem, MEM, MSTR, MEMTOT, sizeof_mem, sizeof_MEM
-    ;
+  int  iform, npar, ipar, i ;
+  int  mem, MEM, MSTR, MEMTOT, sizeof_mem, sizeof_MEM    ;
 
   float FMEM ;
   fitsfile *fp ;
@@ -4790,33 +4802,31 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
   // ------------ BEGIN --------------
 
-
   // avoid re-allocating if already allocated.
   // Call _free routine first.
-
-  if ( MALLOC_LEN_SNFITSIO[itype] > 0 ) 
-    { rd_snfitsio_free(ifile,itype); }
+  
+  if ( MALLOC_LEN > 0 ) 
+    { rd_snfitsio_free(ifile-1,itype); }  
 
 
   if (LEN_LOCAL == 0 ) { LEN_LOCAL = 10 ; }
 
   fp     = fp_rd_snfitsio[itype] ;
-  MEMTOT = NPARTOT = 0 ;
+  MEMTOT = 0 ;
 
   for ( iform=1; iform < MXFORM_SNFITSIO; iform++ ) {
 
     // get number of parameters stored with this form
     npar = RD_SNFITSIO_TABLEVAL[itype].NPAR[iform] ; 
-    NPARTOT += npar ;
 
     if ( npar <= 0 ) { continue ; }
 
-
     if ( iform == IFORM_A ) {
 
-      sizeof_mem = sizeof(char*) ;
+      // xxx mark delete Mar 9 2024 sizeof_mem = sizeof(char*) ;
+      sizeof_mem = sizeof(char**) ;
       sizeof_MEM = sizeof(char*) ;
-      mem = (npar+1) * sizeof_mem;
+      mem = (npar+1)       * sizeof_mem;
       MEM = (LEN_LOCAL+1)  * sizeof_MEM;
       MSTR  = 40 ;
 
@@ -4835,7 +4845,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
     else if ( iform == IFORM_1J ) {
       sizeof_mem = sizeof(int*);
       sizeof_MEM = sizeof(int);
-      mem = (npar+1)* sizeof_mem;
+      mem = (npar+1)      * sizeof_mem;
       MEM = (LEN_LOCAL+1) * sizeof_MEM ;
 
       RD_SNFITSIO_TABLEVAL_1J[itype] = (int**)malloc(mem); 
@@ -4848,7 +4858,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
     else if ( iform == IFORM_1I ) {
       sizeof_mem = sizeof(short*);
       sizeof_MEM = sizeof(short);
-      mem  = (npar+1) * sizeof_mem;
+      mem  = (npar+1)       * sizeof_mem;
       MEM  = (LEN_LOCAL+1)  * sizeof_MEM;
       RD_SNFITSIO_TABLEVAL_1I[itype] = (short**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
@@ -4860,7 +4870,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
     else if ( iform == IFORM_1E ) {
       sizeof_mem = sizeof(float*);
       sizeof_MEM = sizeof(float);
-      mem = (npar+1) * sizeof_mem;
+      mem = (npar+1)       * sizeof_mem;
       MEM = (LEN_LOCAL+1)  * sizeof_MEM;
       RD_SNFITSIO_TABLEVAL_1E[itype] = (float**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
@@ -4872,7 +4882,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
     else if ( iform == IFORM_1D ) {
       sizeof_mem = sizeof(double*);
       sizeof_MEM = sizeof(double);
-      mem = (npar+1) * sizeof_mem ;
+      mem = (npar+1)       * sizeof_mem ;
       MEM = (LEN_LOCAL+1)  * sizeof_MEM ;
       RD_SNFITSIO_TABLEVAL_1D[itype] = (double**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
@@ -4884,7 +4894,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
     else if ( iform == IFORM_1K ) {
       sizeof_mem = sizeof(long long*);
       sizeof_MEM = sizeof(long long);
-      mem = (npar+1)* sizeof_mem;
+      mem = (npar+1)      * sizeof_mem;
       MEM = (LEN_LOCAL+1) * sizeof_MEM ;
 
       RD_SNFITSIO_TABLEVAL_1K[itype] = (long long**)malloc(mem); 
@@ -4912,8 +4922,8 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
   // print summary of allocated memory
   FMEM = 1.0E-6*(float)(MEMTOT) ;  
-  printf("   Allocated %6.3f MB of memory for %s table (LEN=%d). \n", 
-	 FMEM, snfitsType[itype], LEN_LOCAL );
+  printf("   Allocate %6.3f MB memory for %s (IFILE=%d, LEN=%d). \n", 
+	 FMEM, ptrFile, ifile, LEN_LOCAL );
   fflush(stdout); 
 
   return ;
@@ -5005,7 +5015,7 @@ void rd_snfitsio_head(int ifile) {
 
   int  itype,  icol, ipar, isn, NOBS, NCOL, NSNLC, OPTMASK  ;
   fitsfile *fp ;
-  //  char  fnam[] = "rd_snfitsio_head" ;
+  char  fnam[] = "rd_snfitsio_head" ;
 
   // ------------ BEGIN --------------
 
@@ -5187,17 +5197,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   int ICOL_NBIN_LAM;
   fits_get_colnum(fp, CASEINSEN, NEXT_COL, &ICOL_NBIN_LAM, &istat);
   icol = ICOL_NBIN_LAM-1; ; // decrement here because it is incremented below.
-    
-  /* xxxxxxx mark delete Sep 6 2024 xxxxxxx
-    icol=3 ;
-   fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
-		    RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
-  if ( SNFITSIO_SIMFLAG_SNANA ) {
-    icol = 6;
-    if ( SNFITSIO_CODE_IVERSION >= 22 ) { icol = 7 ; }
-  }
-  xxxxxxxxxxx end mark xxxxxxx */
-  
+      
   icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1I,
 		    RDSPEC_SNFITSIO_HEADER.NLAMBIN, &anynul, &istat ); 
@@ -5562,12 +5562,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   NPARVAL      =  0 ;  
   parList[0]   = -9.0 ;
   parString[0] =  0 ;
-
-  /* xxxxxxxxxx mark delete 
-  if ( REFAC_SNFITSIO ) 
-    { ifile = ifile_snfitsio(isn); }
-    xxxxxxxxxx  */
-
 
   // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   if ( !REFAC_SNFITSIO ) {

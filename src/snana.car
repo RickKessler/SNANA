@@ -1,4 +1,4 @@
-+KEEP,HISTORY. 
++KEEP,HISTORY.   
 c
 c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
@@ -220,7 +220,7 @@ c
      &  ,OPTMASK_SNDATA_OBS    =  4
      &  ,OPTMASK_SNDATA_SPEC   =  8
      &  ,OPTMASK_SNDATA_ALL    = 2+4+8  ! HEAD + OBS + SPEC
-     &  ,OPTMASK_SNDATA_DONE   = 16     ! done reading event
+     &  ,OPTMASK_SNDATA_DONE   = 16     ! done reading data version
      &  ,OPTMASK_SNDATA_DUMP   = 32     ! flag to dump variable
      &  ,OPTMASK_SNDATA_REQUIRE= 64     ! flag to require variable
 c
@@ -2257,7 +2257,6 @@ c Nov 16 2023: 80k -> 160k
      &  ,RD_SNFITSIO_FLT
      &  ,RD_SNFITSIO_DBL
      &  ,SET_RDMASK_SNFITSIO ! void
-     &  ,RD_SNFITSIO_CLOSE   ! void function
 
 c Define index-lookup arrays used for faster reading of fits files
       INTEGER MXFITSPAR
@@ -3575,7 +3574,6 @@ c All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
            IF ( LRDFLAG_SPEC ) THEN
               CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_SPEC,ISN)
            ENDIF
-           CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_DONE,ISN) ! Mar 4 2025
 
         ELSE IF ( FORMAT_TEXT ) THEN
            CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_OBS, ISN) 
@@ -3605,6 +3603,11 @@ c stop reading if/when all CIDs are processed
  100  CONTINUE          ! end ISN loop
 
  500  CONTINUE
+
+c Mar 2025: indicate DONE for this version so that last FITS files can be closed
+      IF ( FORMAT_FITS ) THEN
+         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_DONE, 0)
+      ENDIF
 
       ABSO_OFFSET = ABSO_OFFSET + N_SNLC_READ(IVERS)
 

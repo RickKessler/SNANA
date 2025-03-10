@@ -31,7 +31,7 @@
 #define OPTMASK_SNFITSIO_HEAD    2  // matches snana.car
 #define OPTMASK_SNFITSIO_PHOT    4
 #define OPTMASK_SNFITSIO_SPEC    8
-#define OPTMASK_SNFITSIO_DONE   16
+#define OPTMASK_SNFITSIO_DONE   16  // done reading data version
 
 #define MXFILE_SNFITSIO     500  // max number of fits-files to read
 #define MXPAR_SNFITSIO      600  // max number of header variables
@@ -52,8 +52,10 @@ fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
 #define  snfitsType  (char*[MXTYPE_SNFITSIO]) { "HEAD", "PHOT", "SPEC", "SPECTMP"  }
 
 // name of FITS file without/with path
+bool  is_malloc_rd_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO];
 char  *rd_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];   
 char  *rd_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN]; 
+
 char  *wr_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];   
 char  *wr_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; //[MXPATHLEN]; 
 

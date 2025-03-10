@@ -1846,10 +1846,16 @@ def get_cospar_sim(hd_header_info):
             sim_version    = item[0]
 
     if sim_version is None:
-        print(f"\n Pre-abort:  hd_header_info =  \n{hd_header_info}")
-        sys.stdout.flush()
-        msgerr = f" Cannot find sim_version for biasCor in BBC-HD header info"
-        assert False, msgerr    
+        logging.info(f" Cannot find sim_version for biasCor in BBC-HD header info")
+        return {}
+
+        # xxxxx mark delete Mar 09 2025 xxxxxxxxx
+        #logging.info('')
+        #logging.info(f" Pre-abort:  hd_header_info =  \n{hd_header_info}")
+        #sys.stdout.flush()
+        #msgerr = f" Cannot find sim_version for biasCor in BBC-HD header info"
+        #assert False, msgerr    
+        # xxxxxxxxxxxxx
 
     # - - - - -
     cospar_sim = {}  # init output dictionary

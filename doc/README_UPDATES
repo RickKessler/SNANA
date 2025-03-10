@@ -22896,6 +22896,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + SNTABLE_LIST = 'SNANA' now produces TEXT file by default, similar to FITRES table;
         no longer need 'SNANA(text:key)'
 
+      + new &SNLCINP inputs CUTWIN_TOBS_PREDETECT and CUTWIN_NOBS_PREDETECT (see manual)
+
     submit_batch_jobs:
        + fix nomerge_last() to work properly when OUTDIR is not under CWD.
        + fix bbc class to define unique cid using CID+IDSURVEY+FIELD
@@ -22917,7 +22919,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix bug copying IDEXPT when SORT_BAND option is used.
 
     sntools_dataformat_fits.c[h]
-      + refactor to explicitly pass "done reading event" flag to RD_SNFITSIO_EVENT,
+      + refactor to explicitly pass "done reading version" flag to RD_SNFITSIO_EVENT,
         which enables closing the last FITS file. This fixes bug reading
         NONIASED sim data followed by SALT3 sim data with list of multiple data versions
         in VERSION_PHOTOMETRY.

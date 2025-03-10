@@ -5383,8 +5383,8 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
   }
   else {
-    printf("\t Free allocated SNFITSIO memory for %s \n",
-	   rd_snfitsFile[ifile][ITYPE_SNFITSIO_SPEC] );
+    printf("\t Free memory for ifile=%d : %s \n",
+	   ifile, rd_snfitsFile[ifile][ITYPE_SNFITSIO_SPEC] );
     fflush(stdout);
 
     free(RDSPEC_SNFITSIO_HEADER.MJD);

@@ -813,17 +813,16 @@ c analysis-related variables.
      &  ,ISNLC_NFILT_NEWMJD(MXEPOCH)   ! # observed filters per NEWMJD
      &  ,ISNLC_NFILT_SNRMAX      ! number of filters passing SNR cut
      &  ,ISNLC_NFILT_SNRMAX2     ! idem for 2nd SNRMAX cut
-     &  ,ISNLC_NFILT_TRESTMIN     ! Nfilt passing TRESTMIN cut
-     &  ,ISNLC_NFILT_TRESTMAX     ! idem for TRESTMAX
-     &  ,ISNLC_NFILT_TREST2       ! Nfilt passing CUTWIN_TREST2 cut
-     &  ,ISNLC_NEPOCH_FOUND  ! actual number of epochs found
-     &  ,ISNLC_NEPOCH_STORE  ! number of epochs stored in memory
+     &  ,ISNLC_NFILT_TRESTMIN   ! Nfilt passing TRESTMIN cut
+     &  ,ISNLC_NFILT_TRESTMAX   ! idem for TRESTMAX
+     &  ,ISNLC_NFILT_TREST2     ! Nfilt passing CUTWIN_TREST2 cut
+     &  ,ISNLC_NEPOCH_FOUND     ! actual number of epochs found
+     &  ,ISNLC_NEPOCH_STORE     ! number of epochs stored in memory
      &  ,ISNLC_NEPOCH_USE       ! used after PHOTMASK cuts
      &  ,ISNLC_NEPOCH_PHOTPROB  ! NEPOCH with PHOTPROB >= 0
-     &  ,ISNLC_NEPOCH_DETECT    ! NEPOCH with detection
      &  ,ISNLC_NEPOCH_FILT(MXFILT_OBS)  ! NEPOCH vs. filter
-     &  ,ISNLC_NEPOCH_PRESN(MXFILT_OBS) ! pre-explosion epochs
-     &  ,ISNLC_NMJD_INCLUDE             ! NOBS in CUTWIN_MJD_INCLUDE window
+     &  ,ISNLC_NOBS_DETECT      ! NOBS with detection
+     &  ,ISNLC_NOBS_PREDETECT   ! NOBS in CUTWIN_TOBS_PREDETECT window
 c
      &  ,ISNLC_FAKE             ! => real data, else it's a fake
      &  ,ISNLC_CCDNUM(MXEPOCH)  ! read from header (May 2017)
@@ -1008,8 +1007,8 @@ c
      &    ,ISNLC_NEWMJD_CUTS, ISNLC_EPOCH_RANGE_NEWMJD
      &    ,ISNLC_NEPOCH_FOUND, ISNLC_NEPOCH_STORE
      &    ,ISNLC_NEPOCH_USE, ISNLC_NEPOCH_PHOTPROB
-     &    ,ISNLC_NEPOCH_FILT,  ISNLC_NEPOCH_PRESN, ISNLC_NMJD_INCLUDE
-     &    ,ISNLC_NEPOCH_DETECT, SNLC_TLIVE_DETECT
+     &    ,ISNLC_NEPOCH_FILT,  ISNLC_NOBS_PREDETECT
+     &    ,ISNLC_NOBS_DETECT, SNLC_TLIVE_DETECT
      &    ,ISNLC_FAKE, ISNLC_CCDNUM, ISNLC_IMGNUM
      &    ,ISNLC_NFILT_SNRMAX, ISNLC_NFILT_SNRMAX2
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
@@ -1453,7 +1452,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_Tobsmin,  CUTBIT_Tobsmax
      &  ,CUTBIT_SEARCH           ! sim only
      &  ,CUTBIT_PEAKMJD
-     &  ,CUTBIT_NMJD_INCLUDE    ! Aug 11 2015
+     &  ,CUTBIT_NOBS_PREDETECT     ! Mar 2025
      &  ,CUTBIT_NEPOCH
      &  ,CUTBIT_SNRMAX         ! global SNRMAX cut; any filter(s)
      &  ,CUTBIT_SNRMAX2        ! 2nd global SNRMAX cut; any filter(s)
@@ -1499,20 +1498,22 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_TobsMIN        = 14 
      &  ,CUTBIT_TobsMAX        = 15
      &  ,CUTBIT_PEAKMJD        = 16
-     &  ,CUTBIT_NMJD_INCLUDE   = 17
-     &  ,CUTBIT_NEPOCH         = 18  ! total # of measurements
-     &  ,CUTBIT_SEARCH         = 19  ! found by search (SIM only)
-     &  ,CUTBIT_NFILT_SNRMAX   = 20
-     &  ,CUTBIT_NFILT_SNRMAX2  = 21
-     &  ,CUTBIT_NFILT_TRESTMIN = 22
-     &  ,CUTBIT_NFILT_TRESTMAX = 23
-     &  ,CUTBIT_NFILT_TREST2   = 24
-     &  ,CUTBIT_SNRMAX         = 25
-     &  ,CUTBIT_SNRMAX2        = 26
-     &  ,CUTBIT_SNRSUM         = 27  ! Jul 2024
-     &  ,CUTBIT_NFIELD         = 28
-     &  ,CUTBIT_MWEBV          = 29 
-     &  ,CUTBIT_NSEASON_ACTIVE = 30  ! May 2019
+c
+     &  ,CUTBIT_NOBS_PREDETECT = 17  ! Mar 2025
+     &  ,CUTBIT_NSEASON_ACTIVE = 18  ! May 2019
+c
+     &  ,CUTBIT_NEPOCH         = 19  ! total # of measurements
+     &  ,CUTBIT_SEARCH         = 20  ! found by search (SIM only)
+     &  ,CUTBIT_NFILT_SNRMAX   = 21
+     &  ,CUTBIT_NFILT_SNRMAX2  = 22
+     &  ,CUTBIT_NFILT_TRESTMIN = 23
+     &  ,CUTBIT_NFILT_TRESTMAX = 24
+     &  ,CUTBIT_NFILT_TREST2   = 25
+     &  ,CUTBIT_SNRMAX         = 26
+     &  ,CUTBIT_SNRMAX2        = 27
+     &  ,CUTBIT_SNRSUM         = 28  ! Jul 2024
+     &  ,CUTBIT_NFIELD         = 29
+     &  ,CUTBIT_MWEBV          = 30 
      &  ,CUTBIT_REQEP          = 31  ! required epochs (9/17/2017)
      &  ,CUTBIT_PRIVATE        = 32  ! all private-var cuts
      &  ,CUTBIT_SIMVAR         = 33  ! 
@@ -1616,7 +1617,7 @@ c# -----------  SN-dependent cut-window  ! I: --------------------------------
      &  ,cutwin_snrsum(2)        ! I: cut on sqrt[  sum(SNR_i^2) ]
      &  ,cutwin_nfield(2)        ! I: number of fields (usually 1)
      &  ,cutwin_mwebv(2)         ! I: Galactic extinction
-     &  ,cutwin_nseason_active(2) 
+     &  ,cutwin_nseason_active(2)      ! I: number of seasons with detection
      &  ,cutwin_cutflag_reqep(2)       ! for internal use only
      &  ,cutwin_cutflag_private(2)     ! for internal use only
      &  ,cutwin_cutflag_simvar(2)      ! for internal use only
@@ -1630,11 +1631,13 @@ c# -----------  SN-dependent cut-window  ! I: --------------------------------
      &  ,cutwin_Trestmax(2)      ! I: cut on  latest epoch, rest frame day
      &  ,cutwin_TrestRange(2)    ! I: cut on Trestmax - Trestmin
      &  ,cutwin_Trest2(2)        ! I: cut on CUTWIN_NFILT_TREST2
-     &  ,cutwin_Tgapmax(2)       ! I: max Trest-gap within cutwin_TREST(2)
-     &  ,cutwin_T0gapmax(2)      ! I: max Trest-gap near peak 
-     &  ,cutwin_Tobsmin(2)       ! I: cut on min Tobs
-     &  ,cutwin_Tobsmax(2)       ! I: cut on max Tobs
-     &  ,cutwin_peakmjd(2)       ! I: cut on search peakMJD
+     &  ,cutwin_Tgapmax(2)         ! I: max Trest-gap within cutwin_TREST(2)
+     &  ,cutwin_T0gapmax(2)        ! I: max Trest-gap near peak 
+     &  ,cutwin_Tobsmin(2)         ! I: cut on min Tobs
+     &  ,cutwin_Tobsmax(2)         ! I: cut on max Tobs
+     &  ,cutwin_peakmjd(2)         ! I: cut on search peakMJD
+     &  ,cutwin_tobs_predetect(2)  ! I: pre-detection Tobs window  e.g. -10, 0 w.r.t. MJD_DETECT_FIRST
+     &  ,cutwin_nobs_predetect(2)  ! I: Nobs required in pre-detect time window
 c  
 c  Below are Epoch-dependent cuts
 c# -----------  epoch-dependent cut windows  ! I: --------------------------------
@@ -1651,9 +1654,7 @@ c# -----------  epoch-dependent cut windows  ! I: ------------------------------
      &  ,cutwin_Trest(2)         ! I: cut on all epochs, rest frame days
      &  ,cutwin_Tobs(2)          ! I: cut on all epochs, obs-frame days
      &  ,cutwin_MJD(2)           ! I: cut on MJD range
-     &  ,CUTWIN_MJD_EXCLUDE(2)   ! I: MJD window to exclude
-     &  ,CUTWIN_MJD_INCLUDE(2)   ! I: require 1 or more MJD in this window
-     &  ,CUTWIN_NMJD_INCLUDE(2)         ! for internal use only
+     &  ,cutwin_mjd_exclude(2)   ! I: MJD window to exclude
      &  ,cutwin_SEARCHEFF_MASK(2)       ! I: cut on SIM_SEARCHEFF_MASK
      &  ,cutwin_snrmin_filt(2,MXFILT_OBS) ! filled from EPCUT_SNRMIN
      &  ,cutwin_restlam(2)                ! I: cut on <LAMREST>, no cutBit
@@ -1784,7 +1785,7 @@ c
      &   ,HOSTGAL_ZPHOT_SHIFT, HOSTGAL_ZSPEC_SHIFT
      &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT   ! obsolete Dec 2024
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
-     &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE
+     &   ,CUTWIN_MJD_EXCLUDE
 
       COMMON / BYTEMASKCOM / MJDMASK
 
@@ -1822,14 +1823,14 @@ c
      &   ,( cutwin_var(1,cutbit_Tobs),      cutwin_Tobs )
      &   ,( cutwin_var(1,cutbit_MJD),       cutwin_MJD   )
      &   ,( cutwin_var(1,cutbit_peakmjd),   cutwin_peakmjd )
-     &   ,( cutwin_var(1,cutbit_NMJD_INCLUDE),  cutwin_NMJD_INCLUDE )
-     &   ,( cutwin_var(1,cutbit_search),        cutwin_searcheff_mask )
+     &   ,( cutwin_var(1,cutbit_nobs_predetect),cutwin_nobs_predetect)
+     &   ,( cutwin_var(1,cutbit_nseason_active),cutwin_nseason_active)
+     &   ,( cutwin_var(1,cutbit_search),        cutwin_searcheff_mask)
      &   ,( cutwin_var(1,cutbit_snrmax),        cutwin_snrmax  )
      &   ,( cutwin_var(1,cutbit_snrmax2),       cutwin_snrmax2  )
      &   ,( cutwin_var(1,cutbit_snrsum),        cutwin_snrsum  )     
      &   ,( cutwin_var(1,cutbit_nfield),        cutwin_nfield  )
      &   ,( cutwin_var(1,cutbit_mwebv),         cutwin_mwebv  )
-     &   ,( cutwin_var(1,cutbit_nseason_active),cutwin_nseason_active)
      &   ,( cutwin_var(1,cutbit_reqep),        cutwin_cutflag_reqep)
      &   ,( cutwin_var(1,cutbit_private),      cutwin_cutflag_private)
      &   ,( cutwin_var(1,cutbit_simvar),       cutwin_cutflag_simvar)
@@ -2073,6 +2074,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
      &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
      &    , CUTWIN_ZPADU, CUTWIN_ZPNPE, CUTWIN_TREST_TRUEFLUX
+     &    , cutwin_tobs_predetect
 
       COMMON / SNLCINP8 /
      &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
@@ -2141,7 +2143,7 @@ c
      &   ,cutwin_TrestRange, cutwin_Trest, cutwin_Tobs
      &   ,cutwin_Tgapmax,  cutwin_T0gapmax
      &   ,cutwin_Tobsmin,  cutwin_Tobsmax
-     &   ,cutwin_peakmjd,  cutwin_mjd
+     &   ,cutwin_peakmjd,  cutwin_nobs_predetect, cutwin_mjd
 c
      &   ,cutwin_psf, cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
      &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest, cutwin_simpull
@@ -2170,7 +2172,7 @@ c
      &   ,HOSTGAL_ZPHOT_SHIFT, HOSTGAL_ZSPEC_SHIFT
      &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT   ! obsolete
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
-     &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE, CUTWIN_NMJD_INCLUDE
+     &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_TOBS_PREDETECT
 
 
 c ---------- end of SNLCINP ---------
@@ -6153,8 +6155,8 @@ c set namelist defaults
       CUTWIN_MJD_EXCLUDE(1) = 0.0 
       CUTWIN_MJD_EXCLUDE(2) = 0.0 
 
-      CUTWIN_MJD_INCLUDE(1) = -CUTVAL_OPEN
-      CUTWIN_MJD_INCLUDE(2) = +CUTVAL_OPEN
+      CUTWIN_TOBS_PREDETECT(1) = -CUTVAL_OPEN
+      CUTWIN_TOBS_PREDETECT(2) = +CUTVAL_OPEN
 
       CUTWIN_SNR_NODETECT(1) = -CUTVAL_OPEN
       CUTWIN_SNR_NODETECT(2) = +CUTVAL_OPEN
@@ -8260,11 +8262,18 @@ c - - - -
           READ(ARGLIST(1),*) CUTWIN_MJD_EXCLUDE(1)
           READ(ARGLIST(2),*) CUTWIN_MJD_EXCLUDE(2)
 
-        else if ( MATCH_NMLKEY('CUTWIN_MJD_INCLUDE',
+c - - -
+        else if ( MATCH_NMLKEY('CUTWIN_NOBS_PREDETECT',
      &            2, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) CUTWIN_MJD_INCLUDE(1)
-          READ(ARGLIST(2),*) CUTWIN_MJD_INCLUDE(2)
+          READ(ARGLIST(1),*) CUTWIN_NOBS_PREDETECT(1)
+          READ(ARGLIST(2),*) CUTWIN_NOBS_PREDETECT(2)
 
+        else if ( MATCH_NMLKEY('CUTWIN_TOBS_PREDETECT',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TOBS_PREDETECT(1)
+          READ(ARGLIST(2),*) CUTWIN_TOBS_PREDETECT(2)
+
+c - - -
         else if ( MATCH_NMLKEY('CUTWIN_REDSHIFT',
      &            2, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) CUTWIN_REDSHIFT(1)
@@ -12154,7 +12163,6 @@ c init HIDKCOR array to 0
          CUTWIN_VAR(1,ibit) = -CUTVAL_OPEN
          CUTWIN_VAR(2,ibit) = +CUTVAL_OPEN
       ENDDO    
-         CUTWIN_VAR(1,CUTBIT_NMJD_INCLUDE) = 0.99
               
       NEPOCH_IGNORE =  0
       EPOCH_IGNORE_LASTFILE = ''
@@ -16043,7 +16051,6 @@ c ------------- BEGIN -------------
       ISNLC_NEWMJD_FOUND  =  0
       ISNLC_NEWMJD_STORE  =  0
       ISNLC_NEWMJD_CUTS   =  0
-      ISNLC_NMJD_INCLUDE  =  0 ! Aug 2015
       ISNLC_NEPOCH_FOUND  =  0
       ISNLC_NEPOCH_STORE  =  0
       ISNLC_NEPOCH_PHOTPROB = 0  ! NEPOCH with PHOTPROB >= 0
@@ -16055,7 +16062,8 @@ c ------------- BEGIN -------------
       ISNLC_NFILT_TRESTMAX =  0
       ISNLC_NFILT_TREST2   =  0  
 
-      ISNLC_NEPOCH_DETECT    =  0 
+      ISNLC_NOBS_PREDETECT   =  0
+      ISNLC_NOBS_DETECT      =  0 
       SNLC_TLIVE_DETECT      = -9.0
       SNLC8_MJD_TRIGGER      = -99.0
       SNLC8_MJD_DETECT_FIRST = -99.0 
@@ -16129,7 +16137,6 @@ c --------
       
       DO ifilt = 1, MXFILT_OBS
          ISNLC_NEPOCH_FILT(ifilt)    =   0
-         ISNLC_NEPOCH_PRESN(ifilt)   =  -9
          EXIST_FILT(ifilt)          = .FALSE.
          SNLC_FLUXCALMAX(ifilt)     = -9.
          SNLC_FLUXCALMAX_ERR(ifilt) = -9.
@@ -16514,7 +16521,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_TobsMIN)      = 'TobsMin:'
       cutvar_name(CUTBIT_TobsMAX)      = 'TobsMax:'
       cutvar_name(CUTBIT_PEAKMJD)      = 'PEAKMJD:'
-      cutvar_name(CUTBIT_NMJD_INCLUDE) = 'NMJD_INCLUDE:'
+      cutvar_name(CUTBIT_NOBS_PREDETECT) = 'NOBS_PREDETECT:'
       cutvar_name(CUTBIT_Nepoch)       = 'Nepoch:'
       cutvar_name(CUTBIT_REDSHIFT)     = 'Redshift:'
       cutvar_name(CUTBIT_REDSHIFT_ERR) = 'Redshift-ERROR:'
@@ -18299,10 +18306,12 @@ c or it is within the Trest window.
 
           SNLC_SNR(ep) = Xnsig
 
+c xxxxxxx mark delete Mar 2025 xxxxxxxx
 c check how many obs are in the INCLUDE_MJD window (Aug 2015)
-          LINCMJD = MJD8 .GE. CUTWIN_MJD_INCLUDE(1) .and. 
-     &              MJD8 .LE. CUTWIN_MJD_INCLUDE(2)
-          IF ( LINCMJD ) ISNLC_NMJD_INCLUDE = ISNLC_NMJD_INCLUDE + 1
+c          LINCMJD = MJD8 .GE. CUTWIN_MJD_INCLUDE(1) .and. 
+c     &              MJD8 .LE. CUTWIN_MJD_INCLUDE(2)
+c          IF ( LINCMJD ) ISNLC_NMJD_INCLUDE = ISNLC_NMJD_INCLUDE + 1
+c xxxxxxxxxxxxxxxx
 
 c check MJD-exclude window to reject epochs (but keep LC)
           LXMJD = MJD8 .GE. CUTWIN_MJD_EXCLUDE(1) .and. 
@@ -18383,8 +18392,8 @@ c check PHOTPROB (Mar 2018)
 c if PHOTFLAG detection bit is set by user, compute MJD of first & last detection
           PHOTFLAG = ISNLC_PHOTFLAG(ep)
           if ( IAND(PHOTFLAG,PHOTFLAG_DETECT) > 0 ) then
-             ISNLC_NEPOCH_DETECT = ISNLC_NEPOCH_DETECT + 1
-             if ( ISNLC_NEPOCH_DETECT == 1 ) then
+             ISNLC_NOBS_DETECT = ISNLC_NOBS_DETECT + 1
+             if ( ISNLC_NOBS_DETECT == 1 ) then
                 SNLC8_MJD_DETECT_FIRST = MJD8
              endif
              SNLC8_MJD_DETECT_LAST = MJD8
@@ -18401,6 +18410,13 @@ c check for trigger bit set by survey (5.2019)
              SUM_AREAFRAC = SUM_AREAFRAC + SNLC_AREAFRAC(ep)
           ENDIF
 +SELF.
+
+c Mar 2025 : count NOBS_PREDETECT
+          TMP = MJD8 - SNLC8_MJD_DETECT_FIRST  ! TMP < 0 for pre-detection
+          if ( TMP .GE.  CUTWIN_TOBS_PREDETECT(1) .and.
+     &         TMP .LE.  CUTWIN_TOBS_PREDETECT(2)  ) then
+             ISNLC_NOBS_PREDETECT =  ISNLC_NOBS_PREDETECT + 1
+          endif
 
 201     CONTINUE     ! come here of LSIG fails
 
@@ -22018,8 +22034,8 @@ c so that NEWMJD_CUTS can be evaluated correctly.
          SNLC_CUTVAR(CUTBIT_PEAKMJD)  = 
      &       SNLC_SEARCH_PEAKMJD
 
-         SNLC_CUTVAR(CUTBIT_NMJD_INCLUDE)  = 
-     &       float ( ISNLC_NMJD_INCLUDE )  
+         SNLC_CUTVAR(CUTBIT_NOBS_PREDETECT)  = 
+     &       float ( ISNLC_NOBS_PREDETECT )  
 
          SNLC_CUTVAR(CUTBIT_SNRMAX)  = 
      &       SNLC_SNRMAX_FILT(0)
@@ -24446,8 +24462,8 @@ c Mar 2018: add info about PHOTPROB
 c Sep 2018: add optonal info about detections
 c Nov 2020: write to TEXT file 
       IF ( PHOTFLAG_DETECT > 0 ) THEN
-         VARLIST = 'NEPOCH_DETECT:I' // char(0)
-         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_DETECT,
+         VARLIST = 'NOBS_DETECT:I' // char(0)
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NOBS_DETECT,
      &                VARLIST,1, LENBLOCK, 20 )
          VARLIST = 'TLIVE_DETECT:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TLIVE_DETECT, 

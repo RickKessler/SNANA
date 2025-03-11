@@ -3497,7 +3497,7 @@ int passCuts_HOSTLIB(double *xval ) {
     int NCOEFF_NONZERO = 0 ;
     double COEFF;
     for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
-      ivar_ALL = HOSTLIB.IVAR_COEFF_SPECBASIS00 + i;
+      ivar_ALL = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_COEFF_SPECBASIS00] + i ;
       COEFF    = xval[ivar_ALL];
       if ( COEFF > 0.0 ) { NCOEFF_NONZERO++; }
     }

@@ -11054,7 +11054,10 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   // Jun 07 2021: fix IMJD_HOST
   // Sep 20 2022: for HOSTSNFRAC integration, require both 
   //               FLAM_HOST>0 and FLAM_PEAK>0
-
+  //
+  // Mar 10 2025: scale store host flux so that plotting Flam(host) on Flam(SN_host)
+  //              makes sense
+  
   int    IS_HOST    = GENSPEC.IS_HOST[imjd];
   double HOSTFRAC   = (double)INPUTS.TAKE_SPECTRUM_HOSTFRAC;
   double HOSTSNFRAC = (double)INPUTS.TAKE_SPECTRUM_HOSTSNFRAC;
@@ -11155,12 +11158,19 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] = SCALE_FLAM_HOST_CONTAM; 
 
   for(ilam=0; ilam < NBLAM; ilam++ ) {
+
+    GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam] *= SCALE_FLAM_HOST_CONTAM ;  // Mar 2025
+    FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
     FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
     if ( FLAM_SN < 1.0E-30 ) { FLAM_SN = 1.0E-30; } 
 
+    FLAM_TOT = FLAM_SN + FLAM_HOST;
+
+    /* xxx mark delete Mar 10 2025 xxxx
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
     FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
-    
+    xxxxx*/
+
     GENSPEC.GENFLUX_LIST[imjd][ilam] = FLAM_TOT ;
 
     arg      =  FLAM_TOT/FLAM_SN ;

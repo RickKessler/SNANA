@@ -11340,9 +11340,9 @@ c write comments
          write(LUNTMP,350) ' ' 
 
          if ( WR_FLAM ) then
-     	      write(MSG,350) 'WAVE FLAM FLAMERR'
+     	      write(MSG,360) 'WAVE FLAM FLAMERR'
          else if ( WR_FLUX ) then
-              write(MSG,350)	'WAVE FLUX FLUXERR'
+              write(MSG,360)	'WAVE FLUX FLUXERR'
 	 else if ( WR_KEY ) then
               write(MSG,351)	'ROW WAVE FLAM FLAMERR' 
 	      if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '

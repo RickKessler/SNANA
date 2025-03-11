@@ -267,6 +267,7 @@ struct HOSTLIB_DEF {
   int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
+  int IVAR_COEFF_SPECBASIS00 ;       // location of first specbasis coeff (mar 2025)
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
   char filterList[MXFILTINDX]; // filter list for gal-mag

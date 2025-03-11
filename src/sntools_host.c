@@ -2879,10 +2879,16 @@ void read_head_HOSTLIB(FILE *fp) {
   IVAR_DEC[1]  = IVAR_HOSTLIB(HOSTLIB_VARNAME_DEC_HOST,0);
   IVAR_DEC[2]  = IVAR_HOSTLIB(HOSTLIB_VARNAME_DEC_GAL,0) ;
   HOSTLIB.IVAR_RA = HOSTLIB.IVAR_DEC = -9 ;
+  
   for(i = 0; i < 3; i++ ) {
     if ( IVAR_RA[i]  > 0 ) { HOSTLIB.IVAR_RA  = IVAR_RA[i] ; }
     if ( IVAR_DEC[i] > 0 ) { HOSTLIB.IVAR_DEC = IVAR_DEC[i] ; }
   }
+
+
+  // Mar 2025 check for specbasis coeff
+  HOSTLIB.IVAR_COEFF_SPECBASIS00 = IVAR_HOSTLIB("COEFF_SPECBASIS00", 0);
+  
 
   // Mmake sure that these WGTMAP variables are really defined.
   // Also flag user-STOREPAR [EXTRA] variables that are also in WGTMAP (7.2019)
@@ -3215,6 +3221,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Feb 25 2020: set VALMIN & VALMAX for float; skip for ISCHAR.
   // Jan 22 2021: print WARNING if HOSTLIB.NSTAR > 0
   // Apr 30 2021: abort on NaN.
+  // Mar 10 2025: increment and print NCUT_FAIL (extra diagnostic)
 
   bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT)>0 ;
   bool DO_PLUSNBR   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0;
@@ -3227,7 +3234,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
-  int  NPRIORITY ;
+  int  NPRIORITY, NCUT_FAIL = 0 ;
   bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
 
@@ -3279,7 +3286,7 @@ void read_gal_HOSTLIB(FILE *fp) {
       if ( HOSTLIB.NGAL_READ > INPUTS.HOSTLIB_MAXREAD ) 
 	{ goto DONE_RDGAL ; } 
 
-      if ( passCuts_HOSTLIB(xval) == 0 ) { continue; }
+      if ( passCuts_HOSTLIB(xval) == 0 ) { NCUT_FAIL++; continue; }
 
       // count how many priority entries (for print summary below)
       if ( GALID_MIN < GALID_MAX ) {
@@ -3347,8 +3354,8 @@ void read_gal_HOSTLIB(FILE *fp) {
   HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE]; // min zHELIO
   HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE]; // max zHELIO
 
-  printf("\t Stored %d galaxies from HOSTLIB (from %d total). \n",
-	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ );
+  printf("\t Stored %d galaxies from HOSTLIB (from %d total, %d fail cuts). \n",
+	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ, NCUT_FAIL );
 
   if ( NPRIORITY > 0 ) {
     printf("\t   --> %d galaxies have priority "
@@ -3452,7 +3459,7 @@ void check_redshift_HOSTLIB(void) {
 int passCuts_HOSTLIB(double *xval ) {
 
   // Return 1 if cuts are satisfied; zero otherwise.
-  int ivar_ALL, LRA ,LRA2;
+  int ivar_ALL, i, LRA ,LRA2;
   double ZTRUE, RA, RA2, DEC;
   char fnam[] = "passCuts_HOSTLIB" ;
 
@@ -3482,6 +3489,19 @@ int passCuts_HOSTLIB(double *xval ) {
     DEC         = xval[ivar_ALL];   
     if ( DEC  < HOSTLIB_CUTS.DECWIN[0] ) { return(0) ; }
     if ( DEC  > HOSTLIB_CUTS.DECWIN[1] ) { return(0) ; }
+  }
+
+  // Mar 10 2025
+  // if host-spectrum using basis is requested, require at least one COEFF != 0 
+  if ( HOSTSPEC.NSPECBASIS > 0 ) {
+    int NCOEFF_NONZERO = 0 ;
+    double COEFF;
+    for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
+      ivar_ALL = HOSTLIB.IVAR_COEFF_SPECBASIS00 + i;
+      COEFF    = xval[ivar_ALL];
+      if ( COEFF > 0.0 ) { NCOEFF_NONZERO++; }
+    }
+    if ( NCOEFF_NONZERO == 0 ) { return(0); }
   }
 
   return(1);

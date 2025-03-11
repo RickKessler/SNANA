@@ -1997,7 +1997,7 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
   char dumpString[] = "XXXZZZQQQ" ;  // "CLEAR" ;
 
   
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "checkStringUnique", fnam);
 
   // --------------- BEGIN ------------
@@ -2515,7 +2515,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   PARSE_WORDS.DEBUG_FLAG = 0; // (LENF > 6665000);
   int LDMP =  PARSE_WORDS.DEBUG_FLAG ;
 
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "store_PARSE_WORDS", fnam);
   // ------------- BEGIN --------------------
 
@@ -2921,7 +2921,7 @@ void parse_GENPOLY(char *stringPoly, char *varName,
   char *splitValue[MXORDER_GENPOLY], *splitRange[2];
   char *tmpVal, colon[] = ":", comma[] = "," ;
 
-  char fnam[60] ; 
+  char fnam[200] ; 
   concat_callfun_plus_fnam(callFun, "parse_GENPOLY", fnam);
 
   // ----------- BEGIN ------------
@@ -3057,7 +3057,7 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   double COEFF_RANGE[2], RANCOEFF;
   int LDMP = 0 ;
 
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "eval_GENPOLY", fnam);
 
   // ---------- begin ------------
@@ -4523,7 +4523,7 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
   int LL, i, FOUNDSLASH, SEV, NFILE; ;
   char firstChar[2], c1[2], ENVname[MXPATHLEN], suffix[MXPATHLEN] ;
 
-  char fnam[60] ;  
+  char fnam[200] ;  
   concat_callfun_plus_fnam(callFun, "ENVreplace", fnam);
 
   // ------------- BEGIN -------------
@@ -5798,7 +5798,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
 
 
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "sigint_muresid_list", fnam);
   // ---------------- BEGIN -------------
 
@@ -6183,7 +6183,7 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
   char *localString, *ptrtok, lastc[2] ;
 
 
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "splitString", fnam);
 
   // ------------ BEGIN ---------------
@@ -6383,7 +6383,7 @@ int nrow_read(char *file, char *callFun) {
   int NROW = 0, GZIPFLAG ;
   FILE *fp;
   char line[1000];
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "nrow_read", fnam);
 
   fp = open_TEXTgz(file, "rt", 0, &GZIPFLAG, fnam );
@@ -8902,7 +8902,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   int  IVAR_EXIST, LDMP = 0 ;
   char c_get[60], LINE[100], tmpName[60] ;
 
-  char fnam[60] ;
+  char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "read_VARNAMES_KEYS", fnam);
 
   // -------------- BEGIN ------------
@@ -8988,7 +8988,7 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
   char **key_list, c_get[MXWORDLINE_PARSE_WORDS];
   FILE *fp;
 
-  char fnam[60] ;
+  char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "read_YAML_VALS", fnam);
 
   // --------------- BEGIN -----------
@@ -9573,7 +9573,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
   char gzipFile[MXPATHLEN], unzipFile[MXPATHLEN];
   char cmd_zcat[MXPATHLEN] ;
 
-  char fnam[60] ;
+  char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "open_TEXTgz", fnam);
   // -------------- BEGIN ------------
 
@@ -9946,7 +9946,7 @@ void abort_on_string_tooLong(char *string, int MXLEN, char *PARNAME_MXLEN, char 
 
   int len = strlen(string);
 
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "abort_on_string_tooLong", fnam);
 
   // --------- BEGIN ---------
@@ -10251,7 +10251,7 @@ void missingKey_ABORT(char *key, char *file, char *callFun) {
 } // end of missingKey_ABORT
 
 void tabs_ABORT(int NTAB, char *fileName, char *callFun) {
-  char fnam[60];
+  char fnam[200];
   concat_callfun_plus_fnam(callFun, "tabs_ABORT", fnam);
 
   if ( NTAB > 0 ) {

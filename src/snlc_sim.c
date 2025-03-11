@@ -11157,14 +11157,14 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   // - - - - - -
   GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] = SCALE_FLAM_HOST_CONTAM; 
 
-  for(ilam=0; ilam < NBLAM; ilam++ ) {
+  // do NOT scale host flux because the scale is different for each SN spectrum
 
-    GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam] *= SCALE_FLAM_HOST_CONTAM ;  // Mar 2025
+  for(ilam=0; ilam < NBLAM; ilam++ ) {
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
     FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
     if ( FLAM_SN < 1.0E-30 ) { FLAM_SN = 1.0E-30; } 
 
-    FLAM_TOT = FLAM_SN + FLAM_HOST;
+    FLAM_TOT = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
 
     /* xxx mark delete Mar 10 2025 xxxx
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];

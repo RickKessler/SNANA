@@ -9,7 +9,7 @@
 # Jan 7 2025: input "@@LEGEND NONE" suppresses legend.
 # Feb 11 2025: add @@YMAX_SCALE argument
 # Mar 07 2025: fix to work with genuine csv (no keys) as well as SNANA table format with keys.
-#
+# Mar 12 2025: add @@FRACTION arg to select random fraction of rows
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -238,6 +238,10 @@ and two types of command-line input delimeters
       @@PRESCALE 7    # select every 7th row for all tables
       @@PRESCALE 1 7  # select every 7th row for 2nd table (e.g., large sim)
 
+@@FRACTION 
+   Select fraction for subset of rows;
+      @@FRACTION 0.44 0.142  # select random 44% for first plot, and 14.2% of second plot
+
 @@WEIGHT
   Reweight 1D bin contents with arbitrary math function of x-axis using
   syntax with 'x' as variable:
@@ -458,9 +462,13 @@ def get_args():
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
-    msg = "integer prescale for selecting table rows"
+    msg = "integer prescale for selecting table rows (e.g., 7 -> select 1/7 of rows)"
     parser.add_argument('@@PRESCALE', '@@prescale', default =[1],
                         type=int, help=msg, nargs="+" )
+
+    msg = "float fraction for selecting random subset of rows"
+    parser.add_argument('@@FRACTION', '@@fraction', default = [1.0],
+                        type=float, help=msg, nargs="+" )
         
     msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
     parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
@@ -654,6 +662,7 @@ def arg_prep_driver(args):
     args.alpha_list    = arg_prep_extend_list(args, narg_tfile, args.ALPHA,  1.0   )
     args.marker_list   = arg_prep_extend_list(args, narg_tfile, args.MARKER, 'XXX' )
     args.prescale_list = arg_prep_extend_list(args, narg_tfile, args.PRESCALE, 1   )
+    args.fraction_list = arg_prep_extend_list(args, narg_tfile, args.FRACTION, 1.0 )
     
     args.TITLE       = arg_prep_TITLE(args)
     args.legend_list = arg_prep_legend(args) # must be after prep_DIFF
@@ -1436,6 +1445,7 @@ def read_tables(args, plot_info):
     var_list        = args.var_list
     cut_list        = args.cut_list
     ps_list         = args.prescale_list
+    frac_list       = args.fraction_list
     wgtfun_list     = args.wgtfun_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
@@ -1451,9 +1461,9 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, prescale, wgtfun, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, ps_list, wgtfun_list, legend_list, alpha_list, marker_list):
+            cut_list, ps_list, frac_list, wgtfun_list, legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1504,6 +1514,9 @@ def read_tables(args, plot_info):
 
         if prescale > 1:
             df = df.iloc[::prescale]
+
+        if fraction < 1.0 :
+            df = df.sample(frac=fraction)  # Mar 12 2025
             
         # drop duplicates for DIFF CID matching
         if args.DIFF == OPT_DIFF_CID:

@@ -2196,8 +2196,6 @@ c check NN option and call init routines in sntools_nearnbr.c .
      &  ,NEARNBR_SEPMAX_VARNAME(NN_MXVAR)*20   ! list of varnames
      &  ,NEARNBR_SEPMAX_IGNORE*40        ! list of VAR to IGNORE
      &  ,NEARNBR_TRUETYPE_VARNAME*60
-
-      LOGICAL NEARNBR_TRAIN_ODDEVEN ! odd SNID from ref; even from train
     
       INTEGER 
      &   NN_ITYPE_FIX       ! fix NN_ITYPE for spec-confirmed sample
@@ -2217,7 +2215,7 @@ c results
      &   ,NEARNBR_TRAINFILE_SCALE_NON1A
      &   ,NEARNBR_SEPMAX_VARDEF,  NEARNBR_SEPMAX_IGNORE
      &   ,NEARNBR_SEPMAX_VARNAME
-     &   ,NEARNBR_TRUETYPE_VARNAME, NEARNBR_TRAIN_ODDEVEN
+     &   ,NEARNBR_TRUETYPE_VARNAME
      &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
      &   ,NNSUM_UNKNOWN, NNSUM_IA, NNSUM_NON1A
 c results
@@ -2228,7 +2226,7 @@ c results
      &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
      &   ,NEARNBR_TRAINFILE_SCALE_NON1A
      &   ,NEARNBR_SEPMAX_VARDEF, NEARNBR_SEPMAX_IGNORE
-     &   ,NEARNBR_TRUETYPE_VARNAME, NEARNBR_TRAIN_ODDEVEN
+     &   ,NEARNBR_TRUETYPE_VARNAME
      &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
 
 +KEEP,FITSCOM.
@@ -8941,10 +8939,6 @@ C -------------- BEGIN --------------
      &             1, i, ARGLIST) ) then
            READ(ARGLIST(1),*) NEARNBR_TRUETYPE_VARNAME
 
-        else if ( MATCH_NMLKEY('NEARNBR_TRAIN_ODDEVEN',
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_TRAIN_ODDEVEN
-
         else if ( MATCH_NMLKEY('NEARNBR_SEPMAX_IGNORE', 
      &             1, i, ARGLIST) ) then
            READ(ARGLIST(1),*) NEARNBR_SEPMAX_IGNORE
@@ -9954,11 +9948,6 @@ c ----------------- BEGIN -------------
       if ( LSIM_SNANA ) THEN
          PS8 = DBLE(SIM_PRESCALE)
          if ( REJECT_PRESCALE(N_SNLC_PROC,PS8) ) RETURN
-
-c Apr 2019: special NNtrain option to pick only EVEN CID
-         if ( NEARNBR_TRAIN_ODDEVEN ) then
-            if ( MOD(SNLC_CID,2) .EQ. 1 ) RETURN
-         endif
       endif
 
 c - - - - - - - - - - - 
@@ -12302,7 +12291,6 @@ c init &NNINP values.
       NEARNBR_SEPMAX_VARDEF     = ' '
       NEARNBR_SEPMAX_IGNORE     = ' '
       NEARNBR_TRAINFILE_LIST    = ' '
-      NEARNBR_TRAIN_ODDEVEN     = .FALSE.
       NEARNBR_TRAINFILE_SCALE_NON1A = 1.0 
 
       NN_ITYPE_FIX    = -99
@@ -12359,12 +12347,6 @@ c call init functions in sntools_nearnbr.c
         CALL NEARNBR_SET_TRAINPATH(PATH(1:LSTR)//char(0), LSTR)
       ENDIF
 
-c -----------------------------
-      IF ( NEARNBR_TRAIN_ODDEVEN ) THEN
-         CALL NEARNBR_SET_ODDEVEN()  ! Apr 5 2019
-         print*,'   ODDEVEN flag -> Select even CIDs'
-         call flush(6)
-      ENDIF
 
 c init TRAINFILE
 
@@ -24254,7 +24236,7 @@ c check option to store MODEL-MAG on epoch grid (Feb 2019)
         ENDIF
 
         PS  = DBLE(PRESCALE_TABLE(ITABLE_SNANA))
-        LPS = REJECT_PRESCALE(NCALL_SNANA_DRIVER,PS)
+        LPS = REJECT_PRESCALE(NCALL_SNANA_DRIVER,PS) 
         IF ( .not. LPS ) THEN
           CALL SNTABLE_FILL(IDTABLE)  ! generic C function
         ENDIF

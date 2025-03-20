@@ -22,7 +22,9 @@ from argparse import RawTextHelpFormatter
 from argparse import Namespace
 
 parser=argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, prefix_chars='@')
-from scipy.stats import binned_statistic
+from scipy.stats    import binned_statistic
+from scipy.optimize import curve_fit
+
 from collections import Counter
 #import distutils.util 
 
@@ -536,6 +538,9 @@ def get_args():
     
     msg = "options; see @@HELP"
     parser.add_argument('@@OPT', '@@opt', help=msg, nargs="+", default = [])
+
+    msg = "1D fit function and optional initial values; see @@HELP"
+    parser.add_argument('@@FIT', '@@fit', help=msg, nargs="+", default = [])
 
     msg = "debug options (for development only)"
     parser.add_argument('@@DEBUG_FLAG', "@@debug_flag", help=msg, type=int, default=0)    
@@ -1824,7 +1829,12 @@ def plotter_func_driver(args, plot_info):
                      label = plt_legend, linewidth=lwid, linestyle=lsty)
 
             dump_hist1d_contents(args, xedges, contents_1d)
-            
+
+            if args.FIT:
+                popt, pcov = curve_fit(func_Gauss, xbins_cen, contents_1d)
+                logging.info(f"Fit params: {popt}")
+                plt.plot(xbins_cen, func_Gauss(xbins_cen, *popt), label='Fit' )
+
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
             contents_2d, xedges, yedges, im = \
@@ -2557,6 +2567,24 @@ def print_cid_list(df, name_legend) :
     print(f"\n {varname_idrow}s passing cuts for '{name_legend}' : \n{id_list}" )
     sys.stdout.flush()
     return
+
+
+# ===============================================
+# Simple fit functions (Mar 2025)
+
+def func_p1(x,a,b):
+    return a + b*x
+
+def func_p2(x,a,b,c):
+    return a + b*x + c*x*x
+
+def func_exp(x,a,b):
+    return a * np.exp(b*x)
+
+def func_Gauss(x, Amp,mean,sigma):
+    dx  = x - mean
+    arg = 0.5 * dx*dx / (sigma*sigma)
+    return Amp*np.exp(-arg)
 
 
 # ===================================================

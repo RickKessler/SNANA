@@ -302,6 +302,9 @@ For help, run code with no arguments
    + tune crazy_M0_errors to account for muCOVscale
    + allow up to 2 repeated fit attempts to avoid crazy M0 errors
 
+ Mar 20 2205: replace a few SIM_TEMPLATE_INDEX>0 with SIM_TEMPLATE_INDEX!=0 ..
+              because 91bg is a contaminant with SIM_TEMPLATE_INDEX = -9
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -4614,7 +4617,8 @@ void *MNCHI2FUN(void *thread) {
 				  optmask_dump );
       }
       
-      if ( IS_SIM && SIM_TEMPLATE_INDEX > 0 ) { nsnfit_truecc++ ; } 
+      // xxx mark delete Mar 20 2025 if ( IS_SIM && SIM_TEMPLATE_INDEX > 0 ) { nsnfit_truecc++ ; } 
+      if ( IS_SIM && SIM_TEMPLATE_INDEX !=0 ) { nsnfit_truecc++ ; } 
 
       // store reference errors for 1/sigma term
       if ( DOFIT_FLAG == FITFLAG_CHI2 ) {
@@ -16372,7 +16376,8 @@ void print_eventStats(int event_type) {
 
       if ( IS_DATA_SIM ) {
 	SIM_TEMPLATE_INDEX = INFO_DATA.TABLEVAR.SIM_TEMPLATE_INDEX[isn];
-	if ( SIM_TEMPLATE_INDEX > 0 ) { INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS++ ; }
+	// xxx mark delete Mar 20 2025 if ( SIM_TEMPLATE_INDEX > 0 ) { INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS++ ; }
+	if ( SIM_TEMPLATE_INDEX !=0 ) { INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS++ ; }
       }
 
       if ( IS_DATA ) {
@@ -16848,7 +16853,8 @@ int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
   if ( fmodf( XN, XNPS ) != 0 )  { REJECT = 1 ; }
 
   // increment separate NSIMCC counter
-  if ( SIM_TEMPLATE_INDEX > 0 ) {
+  // xxx mark delete Mar 20 2025   if ( SIM_TEMPLATE_INDEX > 0 ) {
+  if ( SIM_TEMPLATE_INDEX != 0 ) {
     NSIMCC++ ;
     XN    = (float)NSIMCC ;
     XNPS  = (float)INPUTS.prescale_simCC ;
@@ -24230,7 +24236,8 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     SUBPROCESS.KEEP_AFTER_REWGT[isn] = KEEP = false;
     LDMP            = SUBPROCESS.DUMPFLAG_REWGT[isn];
 
-    if ( SIM_TEMPLATE_INDEX > 0 ) { continue; } // reject of not true SNIa
+    // xxx mark delete Mar 20 2025 if ( SIM_TEMPLATE_INDEX > 0 ) { continue; } // reject of not true SNIa
+    if ( SIM_TEMPLATE_INDEX !=0 ) { continue; } // reject of not true SNIa
     //    if ( CUTMASK != 0        ) { continue; }
 
     NKEEP_ORIG++ ;

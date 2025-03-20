@@ -22876,6 +22876,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Legacy KCOR_FILE key still allowed. Internally, the code variables
     with KCOR_ have also been replaced with CALIB_.
 	 
+    SALT2mu.c: replace a few SIM_TEMPLATE_INDEX>0 with SIM_TEMPLATE_INDEX!=0 ...
+              because 91bg is a contaminant with SIM_TEMPLATE_INDEX = -9.
+              This fix should NOT impact fitted results, but may impact
+              reported TRUE contamination for sims.
+
          *****  USEFUL(v11_05t) *****
 	 	
     New util make_spectrograph_table.py; see new manual section

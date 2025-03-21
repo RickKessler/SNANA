@@ -26,6 +26,13 @@
 #define IPAR_ZPT0     7
 #define IPAR_MAG      9
 
+
+// Mar 2025: define MAX values here instead of hard-coding in CHECK_SIMLIB_VAL args
+#define MXLIBID_SIMLIB_TOOLS    1000000
+#define MXOBS_SIMLIB_TOOLS        70000  
+#define MXMWEBV_SIMLIB_TOOLS        2.0
+#define MXPIXSIZE_SIMLIB_TOOLS      2.0  // arc sec
+
 // - - - - - -
 void simlib_open_write(char *filename, char *surveyname, char *filters, 
 		       char *comment, char *headFile );

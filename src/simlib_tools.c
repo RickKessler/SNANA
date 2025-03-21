@@ -286,14 +286,13 @@ void simlib_add_header(
   SIMLIB_TOOLS.NSIMLIB++ ;
 
   // make sanity checks on input values.
-
   if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
-    istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, 1000000. );
-    istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, 30000.  );
+    istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, (float)MXLIBID_SIMLIB_TOOLS );
+    istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, (float)MXOBS_SIMLIB_TOOLS   );
+    istat = CHECK_SIMLIB_VAL("MWEBV",   MWEBV,         0.0,  MXMWEBV_SIMLIB_TOOLS       );
+    istat = CHECK_SIMLIB_VAL("PIXSIZE", PIXSIZE,       0.0,  MXPIXSIZE_SIMLIB_TOOLS     );
     istat = CHECK_SIMLIB_VAL("RA",      RA,           -200., 400.0  );
     istat = CHECK_SIMLIB_VAL("DEC",     DEC,          -200., 400.0  );
-    istat = CHECK_SIMLIB_VAL("MWEBV",   MWEBV,         0.0, 2.0     );
-    istat = CHECK_SIMLIB_VAL("PIXSIZE", PIXSIZE,       0.0, 2.0     );
   }
 
   return ;
@@ -430,17 +429,13 @@ void simlib_add_mjd(
 
   if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
     
-    istat = CHECK_SIMLIB_VAL("MJD",         MJD,     20000., 80000. );
-    istat = CHECK_SIMLIB_VAL("CCDGAIN",     CCDGAIN, 0.0, 100. );
-    istat = CHECK_SIMLIB_VAL("CCDNOISE",    CCDNOISE,0.0, 100. );
-    istat = CHECK_SIMLIB_VAL("SKYSIG",      SKYSIG,  0.0,2000. );
-
-    istat = CHECK_SIMLIB_VAL("PSF(inner)",  PSF[0], 0.0, 550. );
-    //    istat = CHECK_SIMLIB_VAL("PSF(outer)",  PSF[1], 0.0, 50. );
-    //    istat = CHECK_SIMLIB_VAL("PSF-ratio",   PSF[2], 0.0, 10. );
-    
-    istat = CHECK_SIMLIB_VAL("ZeroPoint",       ZPT[0], 10.0, 40. );
-    istat = CHECK_SIMLIB_VAL("ZeroPoint-sigma", ZPT[1],  0.0, 4.0 );
+    istat = CHECK_SIMLIB_VAL("MJD",          MJD,     20000.0, 90000. );
+    istat = CHECK_SIMLIB_VAL("CCDGAIN",      CCDGAIN,     0.0,   100. );
+    istat = CHECK_SIMLIB_VAL("CCDNOISE",     CCDNOISE,    0.0,   100. );
+    istat = CHECK_SIMLIB_VAL("SKYSIG",       SKYSIG,      0.0,  2000. );
+    istat = CHECK_SIMLIB_VAL("PSF(inner)",   PSF[0],      0.0,   550. );    
+    istat = CHECK_SIMLIB_VAL("ZeroPoint",       ZPT[0],  10.0,    40. );
+    istat = CHECK_SIMLIB_VAL("ZeroPoint-sigma", ZPT[1],   0.0,     4. );
   }
 
   return ;

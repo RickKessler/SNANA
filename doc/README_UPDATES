@@ -22933,4 +22933,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       add char *callFun arg to help track aborts. Add fnam arg to GALextinct function call
       in many codes.
 
+   simlib_tools.h[c]:
+     Allow reading up to 70k observations per libid (was 30k) for simlib_coadd.
+
 END: 

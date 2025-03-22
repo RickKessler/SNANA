@@ -11265,6 +11265,9 @@ c
 c Iniitial code writes only one format, but later this could be expanded
 c to write different formats.
 c
+c Mar 20 2025: update output to include SIM_FLAM for all options
+c              (instead of only KEY option)
+c
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
@@ -11334,8 +11337,10 @@ c write comments
               write(MSG,360)	'WAVE FLUX FLUXERR'
 	 else if ( WR_KEY ) then
               write(MSG,351)	'ROW WAVE FLAM FLAMERR' 
-	      if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
+c xxx mark Mar 21 2025	if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
          endif
+
+         if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
          write(LUNTMP,360) MSG(1:50)
 
 350      format('# ', A)
@@ -11355,19 +11360,20 @@ c write spectrum
 
            if ( WR_FLAM .or. WR_FLUX ) THEN
               WRITE(MSG,440) '', LAM, F, FERR
-440           format(A,F8.2, 3x, 2E14.5 )  
+440           format(A, F8.2, 3x, 2E14.5 )  
+              LENC = 42
            else if ( WR_KEY ) THEN
-	   ! write SNANA keyed format for plot_table.py
-	      if ( LSIM_SNANA) then
-	        FSIM = SIM_FLAM_SPECTRUM(ilam)
-                WRITE(MSG,443) 'ROW: ', ilam, LAM, F, FERR, FSIM
-443             format(A,I5, 2x, F8.2, 3x, 3E14.5 ) 
-              else
-                WRITE(MSG,442) 'ROW: ', ilam, LAM, F, FERR
-442             format(A, I5, 2x, F8.2, 3x, 2E14.5 ) 		
-	      endif
+              WRITE(MSG,442) 'ROW: ', ilam, LAM, F, FERR
+442           format(A, I5, 2x, F8.2, 3x, 2E14.5 )
+              LENC = 60
            endif
-	   
+	
+	   if ( LSIM_SNANA) then
+	      FSIM = SIM_FLAM_SPECTRUM(ilam)
+	      write(MSG,446) MSG(1:LENC), FSIM
+446           format(A,E14.5)
+           endif
+   
 	   write(LUNTMP,360) MSG
 
 401      CONTINUE         

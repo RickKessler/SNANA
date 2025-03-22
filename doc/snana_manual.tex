@@ -14563,8 +14563,6 @@ to ensure they don't cheat using sim-truth.
 Below are spectral reformat options to re-write only the spectra (no photometry) 
 to text tables, which can be used for
 spectroscopic analyzer codes or plotting. 
-While there are no spectroscopic analysis codes in \SNANA,
-the \SNANA\ plot utility {\tt plot\_table.py} works on all output formats.
 Each option writes a single text file per spectrum in the cwd 
 (i.e., does not create an output folder); 
 the calling code should organize a folder structure.
@@ -14577,6 +14575,8 @@ For simulations, {\tt SIM\_FLAM} is automatically appended as last column.
 \end{verbatim}
 
 
+
+\noindent 
 Example to extract spectra for three CIDs:
 %
 \begin{verbatim}      
@@ -14586,6 +14586,10 @@ snana.exe NOFILE \
   SNCID_LIST 8,14,25
 \end{verbatim}
 
+
+While there are no spectroscopic analysis codes in \SNANA,
+the \SNANA\ plot utility {\tt plot\_table.py} works on 
+output with {\tt OPT\_REFORMAT\_SPECTRA=4}.
 
 % --------------------------------------
   \clearpage

@@ -11274,7 +11274,7 @@ c
 +CDE,SNLCINP.
 +CDE,SPECCOM.
   
-      INTEGER LENV, LENC, ispec, NLAMBIN, ilam
+      INTEGER LENV, LENC, LENROW, ispec, NLAMBIN, ilam
       REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, z
       CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80
       LOGICAL WR_FLAM, WR_FLUX, WR_KEY
@@ -11361,16 +11361,16 @@ c write spectrum
            if ( WR_FLAM .or. WR_FLUX ) THEN
               WRITE(MSG,440) '', LAM, F, FERR
 440           format(A, F8.2, 3x, 2E14.5 )  
-              LENC = 42
+              LENROW = 42
            else if ( WR_KEY ) THEN
               WRITE(MSG,442) 'ROW: ', ilam, LAM, F, FERR
 442           format(A, I5, 2x, F8.2, 3x, 2E14.5 )
-              LENC = 60
+              LENROW = 60
            endif
 	
 	   if ( LSIM_SNANA) then
 	      FSIM = SIM_FLAM_SPECTRUM(ilam)
-	      write(MSG,446) MSG(1:LENC), FSIM
+	      write(MSG,446) MSG(1:LENROW), FSIM
 446           format(A,E14.5)
            endif
    

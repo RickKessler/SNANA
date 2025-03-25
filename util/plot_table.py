@@ -10,6 +10,8 @@
 # Feb 11 2025: add @@YMAX_SCALE argument
 # Mar 07 2025: fix to work with genuine csv (no keys) as well as SNANA table format with keys.
 # Mar 12 2025: add @@FRACTION arg to select random fraction of rows
+# Mar 25 2025: @@FIT is working for a few basic functions 
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -24,6 +26,8 @@ from argparse import Namespace
 parser=argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, prefix_chars='@')
 from scipy.stats    import binned_statistic
 from scipy.optimize import curve_fit
+
+#from lmfit import Model
 
 from collections import Counter
 #import distutils.util 
@@ -100,6 +104,16 @@ NUMPY_FUNC_DICT = {
     'heaviside'   :  'np.heaviside'
 }
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
+
+
+# define user input strings for fit functions
+FITFUN_GAUSS = [ 'G', 'GAUSS' ]
+FITFUN_EXP   = [ 'E', 'EXP' ]
+FITFUN_P1    = [ 'P1' ]
+FITFUN_P2    = [ 'P2' ]
+FITFUN_P3    = [ 'P3' ]
+FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P1, FITFUN_P2, FITFUN_P3 ]
+
 
 # list possible VARNAME to identify row
 VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW' ]
@@ -218,7 +232,7 @@ and two types of command-line input delimeters
   To use errors for weight-average computation and plot data points WITHOUT error bars,
   replace @@ERROR @E --> @@error @e.
 
-  
+
 @@CUT 
   Apply selection cuts on the sample. As with @@VARIABLE, CUT is internally 
   translated to append df and df.loc as needed. Beware that quotes (single or 
@@ -233,6 +247,20 @@ and two types of command-line input delimeters
   results in 3 overlaid plots, and default legend shows each cut.
   While math functions (sqrt, exp, log ...) are allowed for variables,
   they cannot be used for cuts.
+
+
+@@FIT
+  Apply pre-defined fit function to 1D plot:
+     @@FIT G        # Gaussian      (also accepts 'g' or 'Gauss' or 'GAUSS')
+     @@FIT E        # exponential   (also accepts 'e' or 'Exp'  or 'EXP')
+     @@FIT P1       # linear fit    (also accepts 'p1')
+     @@FIT P2       # quadratic fit (also accepts 'p2')
+     @@FIT P3       # cubic     fit (also accepts 'p3')
+
+  The best fit curve is overlaid on plot, and fit chi2/dof is printed in legend.
+  Chi2 calc assumes that variance = bin contents.
+  Beware that HIST option includes zero-content bins while default plot.errorbar
+  does not; hence there can be slight difference in ndof depending on plot option.
 
 @@PRESCALE
   Select prescaled subset of rows; useful to make plots more quickly
@@ -539,7 +567,7 @@ def get_args():
     msg = "options; see @@HELP"
     parser.add_argument('@@OPT', '@@opt', help=msg, nargs="+", default = [])
 
-    msg = "1D fit function and optional initial values; see @@HELP"
+    msg = "1D fit function (G, EXP, P1, P2) and optional initial values; see @@HELP"
     parser.add_argument('@@FIT', '@@fit', help=msg, nargs="+", default = [])
 
     msg = "debug options (for development only)"
@@ -677,6 +705,16 @@ def arg_prep_driver(args):
     # - - - - - - -
     args.OPT = arg_prep_OPT(args)            
     
+    # check valid fit function
+    if args.FIT:
+        valid = False
+        fitfun = args.FIT[0].upper()
+        for fitfun_tmp in FITFUN_LIST:
+            if fitfun in fitfun_tmp:
+                valid = True
+        if not valid:
+            sys.exit(f"\n ERROR: invalid @@FIT {fitfun}; \n Valid FITFUNs are {FITFUN_LIST}")
+
     return  # end arg_prep_driver
 
 
@@ -1823,6 +1861,10 @@ def plotter_func_driver(args, plot_info):
             if do_ov2d_binned_stat and NDIM == 2  :
                 overlay2d_binned_stat(args, info_plot_dict, None)
 
+            if args.FIT:
+                xfit_data   = np.array(xval_list)
+                yfit_data   = np.array(yval_list) 
+
         elif do_plot_hist and NDIM == 1 :
             (contents_1d, xedges, patches) = \
                 plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
@@ -1831,9 +1873,8 @@ def plotter_func_driver(args, plot_info):
             dump_hist1d_contents(args, xedges, contents_1d)
 
             if args.FIT:
-                popt, pcov = curve_fit(func_Gauss, xbins_cen, contents_1d)
-                logging.info(f"Fit params: {popt}")
-                plt.plot(xbins_cen, func_Gauss(xbins_cen, *popt), label='Fit' )
+                xfit_data = xbins_cen
+                yfit_data = contents_1d
 
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
@@ -1865,6 +1906,10 @@ def plotter_func_driver(args, plot_info):
         # check option to dump CIDs (or ROWs) for events passing cuts
         if do_list_cid:
             print_cid_list(df, name_legend)
+
+        # check for fit fun option
+        if NDIM==1 and args.FIT:
+            apply_plt_fit(args, xfit_data, yfit_data)
 
         # check for misc plt options (mostly decoration)
         if numplot == numplot_tot-1:
@@ -2539,6 +2584,55 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     return
     # end apply_plt_misc
     
+def apply_plt_fit(args, xbins_cen, ybins_contents):
+    # apply 1D fit based on user fit fun (Gaussianm, exponential, p1, p2
+
+    fitfun = args.FIT[0]
+    FITFUN = args.FIT[0].upper()
+    if len(args.FIT) > 1:
+        init_fitpar = args.FIT[1:]
+    else:
+        init_fitpar = None
+    
+    logging.info(f"Fit 1D histogram with {fitfun}")
+
+    #print(f" xxx xbins_cen = {xbins_cen}")
+    #print(f" xxx ybins_contents = {ybins_contents}")
+
+    # this brute-force logic is ugly; maybe later can be more clever
+    if FITFUN in FITFUN_GAUSS:
+        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents)
+        yfun_cen   = func_gauss(xbins_cen, *popt)
+    elif FITFUN in FITFUN_EXP:
+        popt, pcov = curve_fit(func_exp, xbins_cen, ybins_contents)
+        yfun_cen   = func_exp(xbins_cen, *popt)        
+    elif FITFUN in FITFUN_P1:
+        popt, pcov = curve_fit(func_p1, xbins_cen, ybins_contents)
+        yfun_cen   = func_p1(xbins_cen, *popt)
+    elif FITFUN in FITFUN_P2:
+        popt, pcov = curve_fit(func_p2, xbins_cen, ybins_contents)
+        yfun_cen   = func_p2(xbins_cen, *popt)
+    elif FITFUN in FITFUN_P3:
+        popt, pcov = curve_fit(func_p3, xbins_cen, ybins_contents)
+        yfun_cen   = func_p3(xbins_cen, *popt)
+    else:
+        sys.exit(f"\n ERROR: unknown user fitfun = {fitfun}; \n Valid fit funs: {FITFUN_LIST}")
+
+
+    logging.info(f"{fitfun} fit params: {popt}")
+
+    # manually compute chi2/dof since curve_fit does not return chi2
+    # Note that sigma^2 = 1 if  ydata< 1 in a bin (to avoid crazy chi2)
+    nfitpar   = len(popt)
+    ndata     = len(xbins_cen)
+    ndof      = ndata - nfitpar
+    chi2_bins = [ (ydata-yfun)**2/max(ydata,1.0) for ydata, yfun in zip(ybins_contents, yfun_cen) ]
+    chi2      = sum(chi2_bins)
+
+    label_fit = f'{fitfun} Fit chi2/dof = {chi2:.1f}/{ndof}'
+    plt.plot(xbins_cen, yfun_cen, label=label_fit )
+
+    return
 
 def get_wgtfun_user(xcen,wgtfun):
 
@@ -2578,10 +2672,13 @@ def func_p1(x,a,b):
 def func_p2(x,a,b,c):
     return a + b*x + c*x*x
 
+def func_p3(x,a,b,c,d):
+    return a + b*x + c*(x*x) + d*(x*x*x)
+
 def func_exp(x,a,b):
     return a * np.exp(b*x)
 
-def func_Gauss(x, Amp,mean,sigma):
+def func_gauss(x, Amp,mean,sigma):
     dx  = x - mean
     arg = 0.5 * dx*dx / (sigma*sigma)
     return Amp*np.exp(-arg)
@@ -2603,7 +2700,6 @@ if __name__ == "__main__":
 
     # translate @@VARIABLE, @@CUT, @@ERROR to dataframe syntaix
     translate_driver(args)
-    
     
     plot_info = Namespace()  # someplace to store internally computed info
     

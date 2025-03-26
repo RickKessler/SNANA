@@ -22936,4 +22936,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    simlib_tools.h[c]:
      Allow reading up to 70k observations per libid (was 30k) for simlib_coadd.
 
+   snlc_sim.c
+     allow excluding an INCLUDE file in primary so that a different INCLUDE
+     file can be specified on command line args; see manual.
+
 END: 

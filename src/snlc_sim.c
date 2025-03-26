@@ -604,11 +604,114 @@ void get_user_input(void) {
      + check a few command-line args before reading any files.
   Jun 25 2021: update logic to implment priority list above.
 
+  Mar 2025: refactor to allow command-line EXCLUCE_INCLUDE_FILE to exclude
+            INCLUDE files in primary input file
+
+  ***********/
+  int i, ifile, j ;
+  bool FOUNDARG_INCLUDE, FOUNDARG_EXCLUDE ;
+  int  NARG_INCLUDE=0, NARG_EXCLUDE=0 ;
+  char *INCLUDE_FILE, *EXCLUDE_FILE ;
+  char ARG_INCLUDE_LIST[MXINPUT_FILE_SIM][MXPATHLEN] ;
+  char ARG_EXCLUDE_LIST[MXINPUT_FILE_SIM][MXPATHLEN] ;
+  char fnam[] = "get_user_input"    ;
+
+  // ------------ BEGIN ---------------
+
+  // set hard-wired default values
+
+  set_user_defaults();
+
+  // read primary input file (ifile=0), which internally
+  // appends INPUTS.INPUT_FILE_LIST if there are INCLUDE files.
+  ifile=0;
+  read_input_file(INPUTS.INPUT_FILE_LIST[ifile], KEYSOURCE_FILE ); 
+
+  // read command line args and store lits of INCLUDE and EXCLUDE files
+  for ( i = 2; i < NARGV_LIST ; i++ ) {
+
+    FOUNDARG_INCLUDE = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE", COLON)  ||
+			 keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE", COLON)  );
+    FOUNDARG_EXCLUDE =  keyMatch(ARGV_LIST[i],"EXCLUDE_INCLUDE_FILE", COLON);
+
+    if ( FOUNDARG_INCLUDE ) {
+      sprintf(ARG_INCLUDE_LIST[NARG_INCLUDE],"%s", ARGV_LIST[i+1] );
+      NARG_INCLUDE++ ;
+    }
+
+    // check to wipe out INCLUDE file
+    if ( FOUNDARG_EXCLUDE ) {
+      EXCLUDE_FILE = ARGV_LIST[i+1];
+      sprintf(ARG_EXCLUDE_LIST[NARG_EXCLUDE],"%s", EXCLUDE_FILE );
+      NARG_EXCLUDE++ ;
+      for ( j=1; j < MXINPUT_FILE_SIM; j++ ) {
+	INCLUDE_FILE = INPUTS.INPUT_FILE_LIST[j];
+	bool MATCH = strstr(INCLUDE_FILE, EXCLUDE_FILE) != NULL ;
+	if ( MATCH ) { 
+	  printf("  EXCLUDE %s  \n", INCLUDE_FILE); fflush(stdout);
+	  INCLUDE_FILE[0] = 0 ; 
+	}
+      }
+    } // end FOUNDARG_EXCLUDE
+
+  } 
+
+
+  // read INCLUDE files specified in primary input file
+  for(ifile=1; ifile < MXINPUT_FILE_SIM ; ifile++ ) {
+    if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[ifile])  ) {
+      read_input_file(INPUTS.INPUT_FILE_LIST[ifile], KEYSOURCE_FILE ); 
+    }
+  }
+
+  // -------
+  // check for INCLUDE files on command-line override;
+  // read these AFTER reading include files from primary input.  
+  for ( ifile=0; ifile < NARG_INCLUDE; ifile++ ) 
+    { read_input_file(ARG_INCLUDE_LIST[ifile], KEYSOURCE_ARG );  } 
+
+  // ------------------------------------------------------
+  // check for command line overrides after reading all input files
+  // -----------------------------------------------------
+
+  sim_input_override(); 
+
+  // check that all command-line args were used
+  check_argv(); 
+
+  // check for "PERFECT" options
+  genperfect_override();
+
+  return;
+
+}  // end of get_user_input
+
+// ******************************************
+void get_user_input_legacy(void) {
+
+  /**********
+
+  Get user input from four different priority levels:
+  (higher priority number overrides value from lower number)
+  
+  1 primary input file
+  2 INCLUDE files in primary
+  3 INCLUDE files on command line
+  4 command line args
+
+  @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
+
+  Jun 18 2017: move prep_user_input into main, after ranSeed init
+  Jul 30 2018: check input_file_include2
+  Jul 20 2020: 
+     + check a few command-line args before reading any files.
+  Jun 25 2021: update logic to implment priority list above.
+
   ***********/
   int i, ifile ;
   bool FOUNDKEY[2];
 
-  char fnam[] = "get_user_input"    ;
+  char fnam[] = "get_user_input_legacy"    ;
 
   // ------------ BEGIN ---------------
 
@@ -625,6 +728,8 @@ void get_user_input(void) {
     }
   }
 
+  // @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
+
   // -------
   // check for INCLUDE files on command-line override;
   // read these AFTER reading include files from primary input.  
@@ -637,6 +742,8 @@ void get_user_input(void) {
     }
   } 
 
+  // @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
+
   // ------------------------------------------------------
   // check for command line overrides after reading all input files
   // -----------------------------------------------------
@@ -648,7 +755,7 @@ void get_user_input(void) {
 
   // check for "PERFECT" options
   genperfect_override();
-
+  // @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
 
   // -------------------------------------------
   // make a few checks, compute a few flags and print user input to screen
@@ -656,7 +763,7 @@ void get_user_input(void) {
 
   return;
 
-}  // end of get_user_input
+}  // end of get_user_input_legacy
 
 
 
@@ -1594,10 +1701,6 @@ int read_input_file(char *input_file, int keySource ) {
     iwd += NWD_READ ;
   }
 
-  // ------------------- 
-  char msg_die[100] ;
-  sprintf(msg_die, "DEBUG DIE for refac %s: NWD = %d", fnam, NWD_FILE );
-  //  debugexit(msg_die) ;
 
   // Sep 2024: free temp INPUTS.WORDLIST
   for(iwd=0; iwd < NWD_FILE; iwd++ ) { free(INPUTS.WORDLIST[iwd]); }
@@ -1635,12 +1738,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // May 3 2022: avoid conflict between MWEBV and RANSYSTPAR
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
-  int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
+  int j, ITMP, NFILTDEF, NPAR, NFILT, inc, N = 0 ;
   double TMPVAL[2];
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
   bool ISKEY_CID, ISKEY_RANSYSTPAR, ISKEY_ATMOS ;
+  bool ISKEY_EXCLUDE;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
@@ -1695,16 +1799,21 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       keyMatchSim(MXINPUT_FILE_SIM-1, "INPUT_INCLUDE_FILE",
 		  WORDS[0], keySource)    );
 
+  ISKEY_EXCLUDE = keyMatchSim(MXINPUT_FILE_SIM-1, "EXCLUDE_INCLUDE_FILE", 
+			      WORDS[0], keySource)  ;
+
   ISKEY_ATMOS = (strstr(WORDS[0],"ATMOSPHERE_")    != NULL );
 
   // - - - - - - -
+
+  if ( ISKEY_EXCLUDE ) { N++; return(N); } // already parsed earlier
 
   if ( ISKEY_INCLUDE ) {
 
     // command-line INCLUDE files are read elsewhere
     if ( keySource == KEYSOURCE_ARG ) { N++; return(N); }
 
-    int inc; bool LOAD_INCLUDE = false, IS_NULL;
+    bool LOAD_INCLUDE = false, IS_NULL;
     for(inc=1; inc < MXINPUT_FILE_SIM; inc++ ) { // skip inc=0 = primary inp
       IS_NULL = (strlen(INPUTS.INPUT_FILE_LIST[inc]) == 0);
       if ( !LOAD_INCLUDE && IS_NULL ) {
@@ -1721,7 +1830,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-  }
+  } // end ISKEY_INCLUDE
+
 
   else if ( keyMatchSim(1, "DASHBOARD", WORDS[0], keySource) ) {
     INPUTS.DASHBOARD_DUMPFLAG = true ; // restore, Mar 9 2021
@@ -31895,7 +32005,8 @@ void print_sim_help(void) {
     "\t ***** snlc_sim help menu *****",
     "snlc_sim.exe <inputFile>   <keyopt1=arg1> <keyopt2=arg2> etc ...",    
     "",
-    "INPUT_INCLUDE_FILE: <include_file>   # up to 2 inc files with sim-input keys",
+    "INPUT_INCLUDE_FILE: <include_file>   # up to 3 inc files with sim-input keys",
+    "EXCLUDE_INCLUDE_FILE <partial_string_match> # command-line only",
     "",  
     "#  - - - - - Output data - - - - - ",
     "GENVERSION: <name>        #  name of output data folder",

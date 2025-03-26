@@ -109,10 +109,11 @@ NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 # define user input strings for fit functions
 FITFUN_GAUSS = [ 'G', 'GAUSS' ]
 FITFUN_EXP   = [ 'E', 'EXP' ]
+FITFUN_P0    = [ 'P0' ]
 FITFUN_P1    = [ 'P1' ]
 FITFUN_P2    = [ 'P2' ]
 FITFUN_P3    = [ 'P3' ]
-FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P1, FITFUN_P2, FITFUN_P3 ]
+FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P0, FITFUN_P1, FITFUN_P2, FITFUN_P3 ]
 
 
 # list possible VARNAME to identify row
@@ -258,9 +259,11 @@ and two types of command-line input delimeters
      @@FIT P3       # cubic     fit (also accepts 'p3')
 
   The best fit curve is overlaid on plot, and fit chi2/dof is printed in legend.
-  Chi2 calc assumes that variance = bin contents.
-  Beware that HIST option includes zero-content bins while default plot.errorbar
-  does not; hence there can be slight difference in ndof depending on plot option.
+  Chi2 calc assumes that variance = bin contents, so chi2 accuracy may be poor
+  for low statistics.
+  Beware that "@@OPT HIST" includes zero-content bins while default plot.errorbar
+  does not; hence if there are bins with zero contents, there can be slight 
+  fitpar differences depending on whether or not "@@OPT HIST" is used.
 
 @@PRESCALE
   Select prescaled subset of rows; useful to make plots more quickly
@@ -2144,7 +2147,7 @@ def get_info_plot1d(args, info_plot_dict):
         sqdif = (yval0_list-yval_list)**2
         sqerr = np.maximum((yval0_list + yval_list*ov_scale*ov_scale), 1.0)
         chi2  = np.sum( sqdif / sqerr )
-        ndof  = len(xbins) - 1 
+        ndof  = len(xbins) - 1
         text_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
         logging.info(f"{name0_legend}/{name_legend} {text_chi2}")
         if do_chi2:
@@ -2585,7 +2588,10 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     # end apply_plt_misc
     
 def apply_plt_fit(args, xbins_cen, ybins_contents):
-    # apply 1D fit based on user fit fun (Gaussianm, exponential, p1, p2
+    # Created Mar 2025
+    # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
+
+    verbose = False
 
     fitfun = args.FIT[0]
     FITFUN = args.FIT[0].upper()
@@ -2596,8 +2602,11 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
     
     logging.info(f"Fit 1D histogram with {fitfun}")
 
-    #print(f" xxx xbins_cen = {xbins_cen}")
-    #print(f" xxx ybins_contents = {ybins_contents}")
+    if verbose :
+        print(f"\n xxxx VERBOSE DUMP for apply_plt_fit xxxx ")
+        print(f" xxx xbins_cen      = \n{xbins_cen}")
+        print(f" xxx ybins_contents = \n{ybins_contents}")
+        sys.stdout.flush()
 
     # this brute-force logic is ugly; maybe later can be more clever
     if FITFUN in FITFUN_GAUSS:
@@ -2606,6 +2615,9 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
     elif FITFUN in FITFUN_EXP:
         popt, pcov = curve_fit(func_exp, xbins_cen, ybins_contents)
         yfun_cen   = func_exp(xbins_cen, *popt)        
+    elif FITFUN in FITFUN_P0:
+        popt, pcov = curve_fit(func_p0, xbins_cen, ybins_contents)
+        yfun_cen   = func_p0(xbins_cen, *popt)
     elif FITFUN in FITFUN_P1:
         popt, pcov = curve_fit(func_p1, xbins_cen, ybins_contents)
         yfun_cen   = func_p1(xbins_cen, *popt)
@@ -2619,15 +2631,24 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
         sys.exit(f"\n ERROR: unknown user fitfun = {fitfun}; \n Valid fit funs: {FITFUN_LIST}")
 
 
-    logging.info(f"{fitfun} fit params: {popt}")
-
     # manually compute chi2/dof since curve_fit does not return chi2
     # Note that sigma^2 = 1 if  ydata< 1 in a bin (to avoid crazy chi2)
+
     nfitpar   = len(popt)
     ndata     = len(xbins_cen)
     ndof      = ndata - nfitpar
     chi2_bins = [ (ydata-yfun)**2/max(ydata,1.0) for ydata, yfun in zip(ybins_contents, yfun_cen) ]
     chi2      = sum(chi2_bins)
+
+    if verbose :
+        print(f" xxx ybins_contents = \n{ybins_contents}")
+        print(f" xxx yfun_cen       = \n{yfun_cen}")
+        print(f" xxx chi2_bins      = \n{chi2_bins}")
+        print(f"")
+        sys.stdout.flush()
+
+    logging.info(f"{fitfun} fit params: {popt}")
+    logging.info(f"Fit chi2/dof = {chi2:.2f} / {ndof}")
 
     label_fit = f'{fitfun} Fit chi2/dof = {chi2:.1f}/{ndof}'
     plt.plot(xbins_cen, yfun_cen, label=label_fit )
@@ -2665,6 +2686,9 @@ def print_cid_list(df, name_legend) :
 
 # ===============================================
 # Simple fit functions (Mar 2025)
+
+def func_p0(x,a):
+    return a + x*1.0E-44
 
 def func_p1(x,a,b):
     return a + b*x

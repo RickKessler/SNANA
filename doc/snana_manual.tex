@@ -7450,29 +7450,40 @@ model-dependent parameter. To dump rest-frame mags,
 set the redshift to 2.335E-9 (10 pc).
 
 % ------------------------------------
-   \subsection{Including a Second Sim-Input File}
+   \subsection{Including a Mutlipe Sim-Input Files}
    \label{subsec:split_siminput}
 % ------------------------------------
 
-A sim-input file can be split into two files
-using the keyword 
+A sim-input file can be split into mutliple input files
+using this keyword in primary input file:
 \begin{verbatim}
-    INPUT_FILE_INCLUDE:  my2nd.input
+    INPUT_INCLUDE_FILE:  my2nd.input
+    INPUT_INCLUDE_FILE:  my3rd.input
+    INPUT_INCLUDE_FILE:  my4th.input
 \end{verbatim}
 %
-which instructs the simulation to read and parse
-``{\tt my2nd.input}'' in exactly the same way as
-the original sim-input file. To see why this might
-be useful, consider the {\NONIA} model that has
-many ``{\tt NON1ASED:}'' keywords. 
+which instructs the simulation to read and parse these additional input files
+in exactly the same way as the original sim-input file. To see how this might
+be useful, consider the {\NONIA} model that has many ``{\tt NON1ASED:}'' keywords. 
 The {\tt NON1ASED} keys can be stripped out into a separate 
 file such as {\tt NON1ASED\_keys.input}, and then included
 in many sim-input files. 
-Thus a dozen sim-input files can each include
-{\tt NON1ASED\_keys.input}.
+Thus a dozen sim-input files can each include {\tt NON1ASED\_keys.input}.
 To modify or add a \NONIA\ key for all of the 
 sim-input files, only one file needs to be modified.
 
+{\tt INPUT\_INCLUDE\_FILE} can be specified on the command line, but beware
+that this feature adds an additional sim-input file without overriding previous
+include files. To replace an already-specified INCLUDE file on the command line,
+a previous INCLUDE file must be explicitly excluded;
+\begin{verbatim} 
+    snlc_sim.exe <primary_input>  \
+        EXCLUDE_INCLUDE_FILE 3rd \
+        INPUT_INCLUDE_FILE   other3rd.input
+\end{verbatim}
+The argument '{\tt 3rd}' excludes INCLUDE file names containing this string, and will
+remove only the {\tt my3rd.input} INCLUDE file. If the EXCLUDE argument is replaced
+with '{\tt my}', then all of the INCLUDE files would be excluded for this example.
 
 % ------------------------------------
    \clearpage

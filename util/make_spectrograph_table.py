@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python  
 #
 # Created Feb 25 2025                
 # Read 'wave flux fluxerr' from multiple files, presumably created by
@@ -30,6 +30,7 @@ KEYNAME_WAVE_R          = 'WAVE_R'
 KEYNAME_WAVE_UNIT       = 'WAVE_UNIT'
 KEYNAME_WAVE_BIN_SIZE   = 'WAVE_BIN_SIZE'
 KEYNAME_OUTFILE_SNANA   = 'OUTFILE_SNANA'
+KEYNAME_OUTFILE_TABLE   = 'OUTFILE_TABLE'  # optional output for plot_table.py
 KEYNAME_SEDFLUX_TABLES  = 'SEDFLUX_TABLES'
 
 
@@ -46,6 +47,7 @@ KEYLIST_DICT_REQUIRE = {
 #COMMENT_KEY_LIST = [ 'name of instrument
 
 KEYNAME_SPECBIN         = 'SPECBIN'  # for output spectrographi file
+KEYNAME_TABLE           = 'ROW'      # for plot_table.py 
 
 # =======================================                                                              
 def get_args():
@@ -76,56 +78,70 @@ def read_config(args):
 
 def print_help():
 
-    print('')
-    print(f"# Description of input config file used for command")
-    print(f"#    make_spectrograph_table.py <config_file>")
-    print('')
+    text = """
+
+# Description of input config file used for command
+#    make_spectrograph_table.py <config_file>
+
+"""
 
     for key, comment in KEYLIST_DICT_REQUIRE.items():
         if 'SEDFLUX' not in key:
             key_plus_colon = key + ':'
-            print(f"{key_plus_colon:<16}  <{comment}> ")
+            line = f"{key_plus_colon:<16}  <{comment}>"
+            text += f"{line}\n"
+
+    line = f"{KEYNAME_OUTFILE_TABLE}:   optional output table formatted for plot_table.py"
+    text += f"{line}\n"
+
+    print(f"{text}")
 
     # - - - - -
-    print('')
-    print('# The example below has separate blue and red spectra that are')
-    print('# combined into a single SNR map in the output SPECTROGRAPH file,')
-    print('# which results in a single blue+red spectrum from the simulation. ')
-    print('# Beware that the Texpose range below must cover Texpose requests')
-    print('# in the TEXPOSE argument of sim-input TAKE_SPECTRUM keys.')
-    print('')
-    print(f"{KEYNAME_SEDFLUX_TABLES}:   ")
-    print(f"#   magref Texpose   spec_table_file")
-    print(f"  -   19     500    spec_mag19_blue_texpose500.dat     # table contents: wave flux fluxerr")
-    print(f"  -   19     500    spec_mag19_red_texpose500.dat")
-    print(f"  -   22     500    spec_mag22_blue_texpose500.dat")
-    print(f"  -   22     500    spec_mag22_red_texpose500.dat")
-    print(f"#")
-    print(f"  -   19    1200    spec_mag19_blue_texpose1200.dat")
-    print(f"  -   19    1200    spec_mag19_red_texpose1200.dat")
-    print(f"  -   22    1200    spec_mag22_blue_texpose1200.dat")
-    print(f"  -   22    1200    spec_mag22_red_texpose1200.dat")
-    print(f"#")
-    print(f"  -   19    3000    spec_mag19_blue_texpose3000.dat")
-    print(f"  -   19    3000    spec_mag19_red_texpose3000.dat")
-    print(f"  -   22    3000    spec_mag22_blue_texpose3000.dat")
-    print(f"  -   22    3000    spec_mag22_red_texpose3000.dat")
-    print(f"#")
-    print(f"#")
-    print(f"# If you have SNR information for only a single exposure time,")
-    print(f"# and want to scale SNR to other exposure times, re-use each flux-table")
-    print(f"# with different snr scales:")
-    print(f"#")
-    print(f"SEDFLUX_TABLES:   ")
-    print(f"#   magref Texpose   spec_table_file")
-    print(f"  -   19      600    spec_snr_19.txt*0.577    # divide snr by sqrt(3) ")
-    print(f"  -   21      600    spec_snr_21.txt*0.577")
-    print(f"  -   19     1800    spec_snr_19.txt          # info only for this Texpose")
-    print(f"  -   21     1800    spec_snr_21.txt          # info only for this Texpose" )
-    print(f"  -   19     3600    spec_snr_19.txt*1.41     # multiply SNR by sqrt(2)")
-    print(f"  -   21     3600    spec_snr_21.txt*1.41" )
+    # start another text string
+    text = """
+# The example below has separate blue and red spectra that are
+# combined into a single SNR map in the output SPECTROGRAPH file,
+# which results in a single blue+red spectrum from the simulation.
+# Beware that the Texpose range below must cover Texpose requests'
+# in the TEXPOSE argument of sim-input TAKE_SPECTRUM keys.
+#
+""" \
++ f"{KEYNAME_SEDFLUX_TABLES}:" + \
+"""
+#   magref Texpose   spec_table_file
+  -   19     500    spec_mag19_blue_texpose500.dat     # table contents: wave flux fluxerr"
+  -   19     500    spec_mag19_red_texpose500.dat
+  -   22     500    spec_mag22_blue_texpose500.dat
+  -   22     500    spec_mag22_red_texpose500.dat
+#
+  -   19    1200    spec_mag19_blue_texpose1200.dat
+  -   19    1200    spec_mag19_red_texpose1200.dat
+  -   22    1200    spec_mag22_blue_texpose1200.dat
+  -   22    1200    spec_mag22_red_texpose1200.dat
+#
+  -   19    3000    spec_mag19_blue_texpose3000.dat
+  -   19    3000    spec_mag19_red_texpose3000.dat
+  -   22    3000    spec_mag22_blue_texpose3000.dat
+  -   22    3000    spec_mag22_red_texpose3000.dat
+#
+#  
+# If you have SNR information for only a single exposure time,
+# and want to scale SNR to other exposure times, re-use each flux-table
+# with different snr scales:
+#
+""" \
++ f"{KEYNAME_SEDFLUX_TABLES}:" + \
+"""
+#   magref Texpose   spec_table_file
+  -   19      600    spec_snr_19.txt*0.577    # divide snr by sqrt(3)
+  -   21      600    spec_snr_21.txt*0.577
+  -   19     1800    spec_snr_19.txt          # info only for this Texpose
+  -   21     1800    spec_snr_21.txt          # info only for this Texpose
+  -   19     3600    spec_snr_19.txt*1.41     # multiply SNR by sqrt(2)
+  -   21     3600    spec_snr_21.txt*1.41
+"""
     
-
+    print(f"{text}")
     sys.exit(0)
 
 def read_single_flux_table(flux_table, wave_scale ):
@@ -420,35 +436,46 @@ def open_outfile(args, config):
 
     # open spectrograph output file, write DOCANA, and write some header info
     
-    outfile = config['OUTFILE_SNANA']
+    outfile_sim   = config['OUTFILE_SNANA']
+    outfile_table = config.setdefault('OUTFILE_TABLE',None)
+
     instr   = config[KEYNAME_INSTRUMENT]
     CWD     = os.getcwd()
     command = ' '.join(sys.argv)
     
     logging.info('')
     logging.info('# ===========================================================')    
-    logging.info(f" Open output spectrograph file for SNANA sim: {outfile}")
+    logging.info(f" Open output spectrograph file for SNANA sim: {outfile_sim}")
 
-    o = open(outfile,"wt")
+    o_sim = open(outfile_sim,"wt")
+    if outfile_table:
+        o_tbl = open(outfile_table,"wt")
+    else:
+        o_tbl = None
 
-    o.write(f'DOCUMENTATION:\n')
-    o.write(f'  PURPOSE:   SNR-vs-wavelength and Texpose; to simulate {instr} spectra:\n')
-    o.write(f'  USAGE_KEY:      SPECTROGRAPH \n')
-    o.write(f'  USAGE_CODE:     kcor.exe \n')
-    o.write(f'  CREATE_DATE:    {DATE_STAMP}\n')
-    o.write(f'  CREATE_USER:    {USERNAME} \n')
-    o.write(f'  CREATE_COMMAND: {command} \n')    
-    o.write(f'  CREATE_DIRNAME: {CWD} \n')
-    o.write(f'DOCUMENTATION_END:\n')
+    o_sim.write(f'DOCUMENTATION:\n')
+    o_sim.write(f'  PURPOSE:   SNR-vs-wavelength and Texpose; to simulate {instr} spectra:\n')
+    o_sim.write(f'  USAGE_KEY:      SPECTROGRAPH \n')
+    o_sim.write(f'  USAGE_CODE:     kcor.exe \n')
+    o_sim.write(f'  CREATE_DATE:    {DATE_STAMP}\n')
+    o_sim.write(f'  CREATE_USER:    {USERNAME} \n')
+    o_sim.write(f'  CREATE_COMMAND: {command} \n')    
+    o_sim.write(f'  CREATE_DIRNAME: {CWD} \n')
+    o_sim.write(f'DOCUMENTATION_END:\n')
+    o_sim.write('\n\n')
+    o_sim.write(f'INSTRUMENT:  {instr}\n')
 
-    o.write('\n\n')
+    if o_tbl:
+        o_tbl.write(f"# SPECTROGRAPH table formatted for plot_table.py\n")
+        o_tbl.write(f'# INSTRUMENT:  {instr}\n')
 
+    return o_sim, o_tbl
+    # end open_outfile
 
-    o.write(f'INSTRUMENT:  {instr}\n')
+def write_specbins(o_sim, o_tbl, args, config, specto_data):
 
-    return o
-    
-def write_specbins(o, args, config, specto_data):
+    # o_sim is pointer to spectrograph table read by SNANA simulation
+    # o_tbl is optional pointer to same table, but in format for plot_table.py
 
     flux_rebin_dict_list = specto_data['flux_rebin_dict_list']
 
@@ -468,14 +495,11 @@ def write_specbins(o, args, config, specto_data):
         if texpose not in texpose_unique:
             texpose_unique.append(str(texpose))
 
+    n_texpose = len(texpose_unique)
     string_magref  = "MAGREF_LIST:  "  + ' '.join(magref_unique) + \
-        '      # defines SNR0 & SNR1'
-    string_texpose = "TEXPOSE_LIST: "  + ' '.join(texpose_unique) 
-    o.write(f"{string_magref}\n")
-    o.write(f"{string_texpose}\n")
-    o.write(f"SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 2.0  " \
-            f"# allow SNR ~ sqrt[Texpose] within x2 factor\n")
-    o.write(f"\n")    
+                     '      # defines SNR0 & SNR1'
+    string_texpose = "TEXPOSE_LIST: "  + ' '.join(texpose_unique) + \
+                     '      # defines T0, T1, etc ...'
 
     # - - - - - -
     # write spec bin info
@@ -484,12 +508,31 @@ def write_specbins(o, args, config, specto_data):
     str_magref0   = str(magref_unique[0])
     str_magref1   = str(magref_unique[1])
 
-    comment_snr = '       '.join(['SNR0   SNR1' ] * len(texpose_unique))
-    o.write(f"#          wave_min   wave_max wave_res   {comment_snr}\n")
-    
-    for iwave, wave_lo in enumerate(wave_list) :
-        wave_hi = wave_lo + wave_bin_size
+    varnames_snr = ''
+    for i in range(0,n_texpose):
+        varnames_snr += f'  SNR0_T{i} SNR1_T{i}'
 
+    # - - - - - -
+    o_sim.write(f"{string_magref}\n")
+    o_sim.write(f"{string_texpose}\n")
+    o_sim.write(f"SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 2.0  " \
+            f"# allow SNR ~ sqrt[Texpose] within x2 factor\n")
+    o_sim.write(f"\n")    
+
+    o_sim.write(f"#          WAVE_MIN   WAVE_MAX  WAVE_RES  {varnames_snr}\n")
+
+
+    if o_tbl:
+        o_tbl.write(f"# {string_magref}\n")
+        o_tbl.write(f"# {string_texpose}\n")
+        o_tbl.write('\n')
+        o_tbl.write(f"VARNAMES:  ROW  WAVE_MIN   WAVE_MAX  WAVE_RES  {varnames_snr}\n")
+
+    # - - - - - - - - 
+
+    for iwave, wave_lo in enumerate(wave_list) :
+
+        wave_hi = wave_lo + wave_bin_size
         wave_res = (wave_lo/wave_r)/2.235  # convert FWHM to sigma
         line = f"{KEYNAME_SPECBIN}:  {wave_lo:9.3f}  {wave_hi:9.3f}  {wave_res:6.2f}  "
 
@@ -507,9 +550,16 @@ def write_specbins(o, args, config, specto_data):
             line += string_snr_dict[str_magref0]
             line += string_snr_dict[str_magref1]
             line += '    '
+
         if n_snr_cut == 0:
-            o.write(f"{line}\n")
-        
+            o_sim.write(f"{line}\n")
+            if o_tbl:
+                rownum   = iwave + 1  # plot_table output starts at row 1, not 0
+                str_rem  = KEYNAME_SPECBIN + ':'
+                str_add  = f"{KEYNAME_TABLE}:  {rownum:4d}"
+                line_tbl = line.replace(str_rem,str_add)
+                o_tbl.write(f"{line_tbl}\n")
+
     #sys.exit(f"\n xxx flux_rebin_dict_list = \n{flux_rebin_dict_list}")
     
     return
@@ -534,10 +584,11 @@ if __name__ == "__main__":
 
     rebin_sedflux_tables(args, config, spectro_data)
 
-    o = open_outfile(args, config)    
-    write_specbins(o, args, config, spectro_data)
+    o_sim, o_tbl = open_outfile(args, config)    
+    write_specbins(o_sim, o_tbl, args, config, spectro_data)
 
-    o.close()
+    o_sim.close()
+    if o_tbl: o_tbl.close()
 
     # === END: ===
 

@@ -2586,7 +2586,9 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
         
     return
     # end apply_plt_misc
-    
+
+
+# =================================================================    
 def apply_plt_fit(args, xbins_cen, ybins_contents):
     # Created Mar 2025
     # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
@@ -2655,6 +2657,31 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
 
     return
 
+# ===============================================
+# Simple fit functions (Mar 2025)
+
+def func_p0(x,a):
+    return a + x*1.0E-44
+
+def func_p1(x,a,b):
+    return a + b*x
+
+def func_p2(x,a,b,c):
+    return a + b*x + c*x*x
+
+def func_p3(x,a,b,c,d):
+    return a + b*x + c*(x*x) + d*(x*x*x)
+
+def func_exp(x,a,b):
+    return a * np.exp(b*x)
+
+def func_gauss(x, Amp,mean,sigma):
+    dx  = x - mean
+    arg = 0.5 * dx*dx / (sigma*sigma)
+    return Amp * np.exp(-arg)
+
+# =============================
+
 def get_wgtfun_user(xcen,wgtfun):
 
     n_val     = len(xcen)
@@ -2683,29 +2710,6 @@ def print_cid_list(df, name_legend) :
     sys.stdout.flush()
     return
 
-
-# ===============================================
-# Simple fit functions (Mar 2025)
-
-def func_p0(x,a):
-    return a + x*1.0E-44
-
-def func_p1(x,a,b):
-    return a + b*x
-
-def func_p2(x,a,b,c):
-    return a + b*x + c*x*x
-
-def func_p3(x,a,b,c,d):
-    return a + b*x + c*(x*x) + d*(x*x*x)
-
-def func_exp(x,a,b):
-    return a * np.exp(b*x)
-
-def func_gauss(x, Amp,mean,sigma):
-    dx  = x - mean
-    arg = 0.5 * dx*dx / (sigma*sigma)
-    return Amp*np.exp(-arg)
 
 
 # ===================================================

@@ -24,15 +24,17 @@ UNIT_CONVERT_DICT = {
     'A'   : 1.0
 }
 
-# define config key names
+# define required config key names
 KEYNAME_INSTRUMENT      = 'INSTRUMENT'
 KEYNAME_WAVE_R          = 'WAVE_R'
 KEYNAME_WAVE_UNIT       = 'WAVE_UNIT'
 KEYNAME_WAVE_BIN_SIZE   = 'WAVE_BIN_SIZE'
 KEYNAME_OUTFILE_SNANA   = 'OUTFILE_SNANA'
-KEYNAME_OUTFILE_TABLE   = 'OUTFILE_TABLE'  # optional output for plot_table.py
 KEYNAME_SEDFLUX_TABLES  = 'SEDFLUX_TABLES'
 
+# optional config keys
+KEYNAME_OUTFILE_TABLE   = 'OUTFILE_TABLE'  # optional output for plot_table.py
+KEYNAME_NBOX_SMOOTH     = 'NBOX_SMOOTH'    
 
 KEYLIST_DICT_REQUIRE = { 
     KEYNAME_INSTRUMENT     :   'name of instrument', 
@@ -43,8 +45,11 @@ KEYLIST_DICT_REQUIRE = {
     KEYNAME_SEDFLUX_TABLES :   'list of flux tables'
 }
 
-# define comments for --HELP option
-#COMMENT_KEY_LIST = [ 'name of instrument
+KEYLIST_DICT_OPTIONAL = { 
+    KEYNAME_OUTFILE_TABLE  :   'SPECTROGRAPH table reformatted for plot_table.py',
+    KEYNAME_NBOX_SMOOTH    :   'number of points for boxcar smoothing (default=1)'
+}
+
 
 KEYNAME_SPECBIN         = 'SPECBIN'  # for output spectrographi file
 KEYNAME_TABLE           = 'ROW'      # for plot_table.py 
@@ -73,6 +78,10 @@ def read_config(args):
     for key in KEYLIST_DICT_REQUIRE.keys():
         if key not in config:
             sys.exit(f"\n ERROR: missing required config key {key}")
+
+    NBOX_SMOOTH = config.setdefault(KEYNAME_NBOX_SMOOTH,1)
+    config[KEYNAME_NBOX_SMOOTH] = NBOX_SMOOTH
+
     return config
     # end read_config
 
@@ -85,14 +94,18 @@ def print_help():
 
 """
 
+    text += '# Required keys:\n'
     for key, comment in KEYLIST_DICT_REQUIRE.items():
         if 'SEDFLUX' not in key:
             key_plus_colon = key + ':'
             line = f"{key_plus_colon:<16}  <{comment}>"
             text += f"{line}\n"
 
-    line = f"{KEYNAME_OUTFILE_TABLE}:   optional output table formatted for plot_table.py"
-    text += f"{line}\n"
+    text += '\n# Optional keys: \n'
+    for key, comment in KEYLIST_DICT_OPTIONAL.items():
+        key_plus_colon = key + ':'
+        line = f"{key_plus_colon:<16}  <{comment}>"
+        text += f"{line}\n"
 
     print(f"{text}")
 
@@ -144,6 +157,12 @@ def print_help():
     print(f"{text}")
     sys.exit(0)
 
+
+def box_smooth(y, nbox_pts):
+    box = np.ones(nbox_pts)/nbox_pts
+    y_smooth = np.convolve(y, box, mode='same')
+    return y_smooth
+
 def read_single_flux_table(flux_table, wave_scale ):
 
     # Read 3-column file of "wave flux fluxerr",
@@ -159,7 +178,7 @@ def read_single_flux_table(flux_table, wave_scale ):
     
     found_wave    = colname_wave in key_list[0].lower()
     found_flux    = colname_flux in key_list[1].lower()
-    found_snr     = colname_snr  in key_list[1].lower()
+    found_snr     = colname_snr  in key_list[1].lower()  # index [1] is for flux or snr
     if len(key_list) > 2:
         found_fluxerr = colname_fluxerr in key_list[2].lower()
 
@@ -432,6 +451,27 @@ def rebin_sedflux_tables(args, config, spectro_data):
     return
     # end rebin_sedflux_tables
 
+def smooth_sedflux_tables(args, config, spectro_data):
+
+    # check optional boxcar smoothing
+    flux_rebin_dict_list = spectro_data['flux_rebin_dict_list']
+    n = len(flux_rebin_dict_list)
+
+    NBOX_SMOOTH = config[KEYNAME_NBOX_SMOOTH]
+
+    
+    for j in range(0,n):
+        snr_list = flux_rebin_dict_list[j]['snr_list'] 
+        if NBOX_SMOOTH == 1:
+            snr_smooth_list = snr_list      
+        else:
+            snr_smooth_list = box_smooth(snr_list, NBOX_SMOOTH)
+        # .xyz
+
+        flux_rebin_dict_list[j]['snr_smooth_list'] = snr_smooth_list
+
+    return
+
 def open_outfile(args, config):
 
     # open spectrograph output file, write DOCANA, and write some header info
@@ -442,7 +482,7 @@ def open_outfile(args, config):
     instr   = config[KEYNAME_INSTRUMENT]
     CWD     = os.getcwd()
     command = ' '.join(sys.argv)
-    
+
     logging.info('')
     logging.info('# ===========================================================')    
     logging.info(f" Open output spectrograph file for SNANA sim: {outfile_sim}")
@@ -461,6 +501,16 @@ def open_outfile(args, config):
     o_sim.write(f'  CREATE_USER:    {USERNAME} \n')
     o_sim.write(f'  CREATE_COMMAND: {command} \n')    
     o_sim.write(f'  CREATE_DIRNAME: {CWD} \n')
+
+    itmp = config[KEYNAME_WAVE_BIN_SIZE]
+    o_sim.write(f'  WAVE_BIN_SIZE:  {itmp:5d}      # Angstroms\n')  
+
+    itmp = config[KEYNAME_WAVE_R]
+    o_sim.write(f'  WAVE_R:         {itmp:5d}      # lam/dlam\n')  
+
+    itmp = config[KEYNAME_NBOX_SMOOTH]
+    o_sim.write(f'  NBOX_SMOOTH:    {itmp:5d}      # npoints for boxcar smoothing\n')
+
     o_sim.write(f'DOCUMENTATION_END:\n')
     o_sim.write('\n\n')
     o_sim.write(f'INSTRUMENT:  {instr}\n')
@@ -472,21 +522,19 @@ def open_outfile(args, config):
     return o_sim, o_tbl
     # end open_outfile
 
-def write_specbins(o_sim, o_tbl, args, config, specto_data):
+def unique_mag_and_texpose(spectro_data):
 
-    # o_sim is pointer to spectrograph table read by SNANA simulation
-    # o_tbl is optional pointer to same table, but in format for plot_table.py
+    # extrac unique list of mags and texpose and append these lists to input spectro_data dict.
 
-    flux_rebin_dict_list = specto_data['flux_rebin_dict_list']
+    flux_rebin_dict_list = spectro_data['flux_rebin_dict_list']
 
-    magref_unique = []
+    magref_unique  = []
     texpose_unique = []
-    wave_list      = flux_rebin_dict_list[0]['wave_list']
     
     # make list of unique magref and texpose    
     for flux_rebin_dict in flux_rebin_dict_list:
-        magref  = flux_rebin_dict['magref']
-        texpose = flux_rebin_dict['texpose']
+        magref          = flux_rebin_dict['magref']
+        texpose         = flux_rebin_dict['texpose']
         flux_table_file = flux_rebin_dict['flux_table_file']
 
         if magref not in magref_unique:
@@ -495,14 +543,29 @@ def write_specbins(o_sim, o_tbl, args, config, specto_data):
         if texpose not in texpose_unique:
             texpose_unique.append(str(texpose))
 
+    spectro_data['magref_unique']  = magref_unique
+    spectro_data['texpose_unique'] = texpose_unique
+    return
+
+                 
+def write_specbins(o_sim, o_tbl, args, config, spectro_data):
+
+    # o_sim is pointer to spectrograph table read by SNANA simulation
+    # o_tbl is optional pointer to same table, but in format for plot_table.py
+
+    flux_rebin_dict_list = spectro_data['flux_rebin_dict_list']
+    wave_list      = flux_rebin_dict_list[0]['wave_list']
+    magref_unique  = spectro_data['magref_unique'] 
+    texpose_unique = spectro_data['texpose_unique']
     n_texpose = len(texpose_unique)
+
+    # define string info for spectrograph header 
     string_magref  = "MAGREF_LIST:  "  + ' '.join(magref_unique) + \
                      '      # defines SNR0 & SNR1'
     string_texpose = "TEXPOSE_LIST: "  + ' '.join(texpose_unique) + \
                      '      # defines T0, T1, etc ...'
-
     # - - - - - -
-    # write spec bin info
+    # define varnames for SNR columns; these are for comment field only
     wave_bin_size = config[KEYNAME_WAVE_BIN_SIZE]
     wave_r        = config[KEYNAME_WAVE_R]
     str_magref0   = str(magref_unique[0])
@@ -513,14 +576,13 @@ def write_specbins(o_sim, o_tbl, args, config, specto_data):
         varnames_snr += f'  SNR0_T{i} SNR1_T{i}'
 
     # - - - - - -
+    # write header info
     o_sim.write(f"{string_magref}\n")
     o_sim.write(f"{string_texpose}\n")
     o_sim.write(f"SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 2.0  " \
             f"# allow SNR ~ sqrt[Texpose] within x2 factor\n")
     o_sim.write(f"\n")    
-
     o_sim.write(f"#          WAVE_MIN   WAVE_MAX  WAVE_RES  {varnames_snr}\n")
-
 
     if o_tbl:
         o_tbl.write(f"# {string_magref}\n")
@@ -543,7 +605,8 @@ def write_specbins(o_sim, o_tbl, args, config, specto_data):
                 magref_tmp  = flux_rebin_dict['magref']
                 texpose_tmp = flux_rebin_dict['texpose']
                 if texpose_tmp == texpose :
-                    snr     = flux_rebin_dict['snr_list'][iwave]
+                    # xxx mark delete snr     = flux_rebin_dict['snr_list'][iwave]
+                    snr     = flux_rebin_dict['snr_smooth_list'][iwave]
                     if snr <= SNR_MIN : n_snr_cut += 1 
                     string_snr_dict[ str(magref_tmp)]  += f"{snr:6.3f} "
                     
@@ -583,6 +646,10 @@ if __name__ == "__main__":
     read_sedflux_tables(args, config, spectro_data)
 
     rebin_sedflux_tables(args, config, spectro_data)
+
+    smooth_sedflux_tables(args, config, spectro_data)
+
+    unique_mag_and_texpose(spectro_data)
 
     o_sim, o_tbl = open_outfile(args, config)    
     write_specbins(o_sim, o_tbl, args, config, spectro_data)

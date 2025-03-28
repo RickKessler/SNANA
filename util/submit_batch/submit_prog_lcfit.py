@@ -947,6 +947,7 @@ class LightCurveFit(Program):
         iver_list        = self.config_prep['iver_list']
         iopt_list        = self.config_prep['iopt_list']
         isplit_list      = self.config_prep['isplit_list']
+        opt_sncid_list   = self.config_prep['opt_sncid_list']
 
         n_version        = self.config_prep['n_version']
         n_fitopt         = self.config_prep['n_fitopt']
@@ -958,15 +959,17 @@ class LightCurveFit(Program):
 
         n_job_local = 0 ;   n_job_real=0 
 
-        
-
         for iver, iopt, isplit in zip(iver_list, iopt_list, isplit_list):
 
             index_dict = {
                 'iver':iver, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu
             }  
             n_job_local += 1
-            if self.is_sym_link(fitopt_arg_list[iopt]) : continue
+
+            # xxx mark delete Mar 28 2025  if self.is_sym_link(fitopt_arg_list[iopt]) : 
+            if opt_sncid_list==0 and self.is_sym_link(fitopt_arg_list[iopt]) : 
+                continue
+
             n_job_real += 1  # use this to skip links
 
             if ( (n_job_real-1) % n_core ) == icpu :

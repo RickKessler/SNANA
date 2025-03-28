@@ -95,44 +95,6 @@
   ~~~~~~~~~~
 
 
- Feb 2019: 
-   new OOB key to specify out-of-band transmission.
-       OOB: [bandList]  [minLam] [maxLam] [trans_max_ratio]
-   where trans_max_ratio is trans(OOB)/TransMax.
-
- Mar 12 2019: 
-   + fix opening spectrograph file.
-   + fix wr_fits_PRIMARY(fp) for unused primary refs so that
-     Astropy and fv don't choke on blank string or undefined flux.
-
- Apr 28 2019:
-   + new debug input SN_SED_POWERLAW -> flux(SN) = (lam/5000)^POWERLAW.
-    
- Apr 11 2020
-   + new option to transform primary mag systems with, e.g., 
-        MAGSYSTEM: VEGA->AB
-        MAGSYSTEM: VEGA->BD17
-     which will read in VEGA offsets and transform internally
-     to AB [BD17] system. This option allows mixing mag systems.
-
- Apr 14 2020:
-    + fix subtle bug computing lam-weighted averages in rd_filter;
-      matters only for non-uniform wavelength bins.
-
- May 22 2020:
-    in func ADDFILTERS_LAMSHIFT_GLOBAL(), load MAGSYSTEM_INDX_INPUT
-
- Jul 8 2020:
-   + write input file name and filter paths into output FITS header ...
-     can be used later to chase down DOCANA notes.
-
- Nov 15 2020
-   + read optional list of surveys for each MAGSYSTEM, and write
-     SURVEY=%s as part of each filter comment in kcor header.
-
- Dec 07 2020:
-    + alow multiple FILTPATH keys
-
  Jan 15 2021: new ZPOFF_FILE input key (for each FILTPATH) to override
               default ZPOFF.DAT
 
@@ -144,6 +106,8 @@
  Mar 2 2023: abort on invalide filter char; see call to INTFILTER()
 
  July 2023: write CWD into header (to help find kcor-input file)
+
+ Mar 28 2025; allow command-line override for SPECTROGRAPH
 
 ****************************************************/
 
@@ -1320,9 +1284,11 @@ void kcor_input_override(int OPT) {
   //
   // Feb 2019: read FILTER_OOB
   // Jan 15 2021: check ZPOFF_FILE
+  // Mar 28 2025: check SPECTROGRAPH
 
   int i, ilast, iuse ;
   char tmpName[60], tmpFile[MXPATHLEN] ;
+  char fnam[] = "kcor_input_override" ;
 
   // ------------ BEGIN -----------
 
@@ -1442,6 +1408,10 @@ void kcor_input_override(int OPT) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &SNSED.TREST_MAX );
     }
 
+
+    if ( strcmp( ARGV_LIST[i], "SPECTROGRAPH" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.inFile_spectrograph );
+    }
 
     
     // filter lam-shifts entered via command-line only

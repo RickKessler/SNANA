@@ -22897,6 +22897,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	  
         + new FITINP  FITWIN_PEAKMJD
 
+        + added CRAZYERR check on zPHOT (other 4 params already have check)
+          Motivated by Roman sim event with zHDERR=0
+
     snana.car
       + SNTABLE_LIST = 'SNANA' now produces TEXT file by default, similar to FITRES table;
         no longer need 'SNANA(text:key)'

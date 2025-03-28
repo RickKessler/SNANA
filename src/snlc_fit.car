@@ -2664,6 +2664,7 @@ C ================================================
 
 c Returns TRUE if a crazy fit error is identified.
 c Jan 28 2020: check for crazy-small errors too, only if floated.
+c Mar 28 2025: check ZPHOT
 
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -2673,8 +2674,10 @@ c Jan 28 2020: check for crazy-small errors too, only if floated.
 +CDE,FILTCOM.
 
       INTEGER ISN, ITER ! (I) ! SN index & fit-iteration
-      REAL ERR_COLOR, ERR_SHAPE, ERR_DIST, ERR_PKMJD
-      LOGICAL LNAN, FLOAT_COLOR, FLOAT_SHAPE, FLOAT_DIST, FLOAT_PKMJD
+      REAL ERR_COLOR, ERR_SHAPE, ERR_DIST, ERR_PKMJD, ERR_ZPHOT
+      LOGICAL 
+     &  LNAN, 
+     &  FLOAT_COLOR, FLOAT_SHAPE, FLOAT_DIST, FLOAT_PKMJD, FLOAT_ZPHOT
 
 C --------------- BEGIN ----------------
 
@@ -2684,11 +2687,13 @@ C --------------- BEGIN ----------------
       ERR_SHAPE =  FITERR(IPAR_SHAPE,ITER)  
       ERR_DIST  =  FITERR(IPAR_DLMAG,ITER)  
       ERR_PKMJD =  FITERR(IPAR_PEAKMJD,ITER)
+      ERR_ZPHOT =  FITERR(IPAR_ZPHOT,ITER)
 
       FLOAT_COLOR = FLOATPAR(IPAR_COLOR)
       FLOAT_SHAPE = FLOATPAR(IPAR_SHAPE)
       FLOAT_DIST  = FLOATPAR(IPAR_DLMAG)
       FLOAT_PKMJD = FLOATPAR(IPAR_PEAKMJD)
+      FLOAT_ZPHOT = FLOATPAR(IPAR_ZPHOT)
 
 c xxxxxxxxxxxxxxxxxxx
 c      print*, ' xxx '
@@ -2710,6 +2715,7 @@ c check for NaN on every fit iteration
       if ( ISNAN(ERR_SHAPE) ) LNAN = .TRUE.
       if ( ISNAN(ERR_DIST)  ) LNAN = .TRUE.
       if ( ISNAN(ERR_PKMJD) ) LNAN = .TRUE.
+      if ( ISNAN(ERR_ZPHOT) ) LNAN = .TRUE.  ! Mar 2025
 
       IF ( LNAN ) THEN
          CRAZYFITERR = .TRUE. 
@@ -2739,6 +2745,12 @@ c last fit iteration
 
       IF ( FLOAT_PKMJD ) THEN
         IF ( ERR_PKMJD > 10.0 .or. ERR_PKMJD < 1.0E-8  ) RETURN
+      ENDIF
+
+      IF ( FLOAT_ZPHOT ) THEN  ! Mar 2025
+c  min based on Roman sims
+c  max is a guess
+        IF ( ERR_ZPHOT > 2.0 .or. ERR_ZPHOT < 1.0E-4  ) RETURN
       ENDIF
 
       CRAZYFITERR = .FALSE.
@@ -10224,13 +10236,6 @@ c  Jan 2025: construct column of fit par ERROR
 
  50   CONTINUE
 
-c - - - -
-c xxxxxxxxx mark delete 
-c Jan 2025: for photo-z fit, read BANDLIST to force fitting same bands again
-c      IF ( DOFIT_PHOTOZ .or. DEBUG_FLAG == 110) THEN
-c         CALL FORCE_BANDLIST_SNCID_FILE()	 
-c      ENDIF
-c xxxxxxxxxxx
 
  44     format(T8, A14, ' : ', G10.3, 
      &            ' from list file: CID=', A10, 3x, A)

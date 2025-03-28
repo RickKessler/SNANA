@@ -263,9 +263,6 @@ class LightCurveFit(Program):
         # check OPT_SNCID_LIST option to use same SNe as in FITOPT000
         self.fit_prep_same_sncid()
 
-        # Mar 2025; check to reorder lists for iver, iopt, isplit
-        self.reorder_cpu_list()
-
 
         # end submit_prepare_driver
 
@@ -737,7 +734,7 @@ class LightCurveFit(Program):
         # - - - - - - - -
         logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
         logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
-
+        logging.info('')
         self.config_prep['n_fitopt']            = n_fitopt
         self.config_prep['fitopt_num_list']     = fitopt_num_list
         self.config_prep['fitopt_arg_list']     = fitopt_arg_list
@@ -792,7 +789,9 @@ class LightCurveFit(Program):
         # note that n_job_tot does NOT include symbolic links
         n_job_tot = n_job_split * n_job_tmp
 
-        logging.info(f"  Determine number of split jobs that are not sym links:")
+
+        logging.info(f"  Prepare index lists:")
+        logging.info(f"    Determine number of split jobs that are not sym links:")
         logging.info(f"    n_version x n_fitopt = {n_version} x {n_fitopt_tmp} "\
                      f"= {n_job_tmp}   # excludes sym links")
         logging.info(f"    n_job[tot,split] = {n_job_tot},{n_job_split}" \
@@ -813,7 +812,7 @@ class LightCurveFit(Program):
                     isplit_list.append(isplit)
                     size_sparse_list += 1  # n_job(proc+links)
 
-        self.config_prep['size_sparse_list'] = size_sparse_list
+        # xxx mark del self.config_prep['size_sparse_list'] = size_sparse_list
         self.config_prep['n_job_tot']     = n_job_tot  # excluded symLinks
         self.config_prep['n_done_tot']    = size_sparse_list # proc+links
         self.config_prep['n_job_split']   = n_job_split
@@ -824,6 +823,10 @@ class LightCurveFit(Program):
         # store number of jobs that are simply symbolic links
         n_job_link = n_version * n_fitopt_link * n_job_split
         self.config_prep['n_job_link']    = n_job_link
+
+        # Mar 2025; check to reorder lists to be more optimal when
+        #           only subset of cores can run simultaneously
+        self.reorder_index_list()
 
         # end fit_prep_index_lists
 
@@ -939,7 +942,7 @@ class LightCurveFit(Program):
         # Function returns number of jobs for this cpu 
 
         # loop over version, fitopt
-        size_sparse_list = self.config_prep['size_sparse_list'] 
+        # xxx mark size_sparse_list = self.config_prep['size_sparse_list'] 
         n_job_tot        = self.config_prep['n_job_tot']  # does NOT include symlinks
         iver_list        = self.config_prep['iver_list']
         iopt_list        = self.config_prep['iopt_list']
@@ -989,7 +992,7 @@ class LightCurveFit(Program):
 
         # end write_command_file
 
-    def reorder_cpu_list(self):
+    def reorder_index_list(self):
 
         # Created Mar 27 2025
         # Called for event-sync to FITOPT000 
@@ -1006,67 +1009,58 @@ class LightCurveFit(Program):
         REFAC = (devel_flag == 327)
         if not REFAC: return
 
-        
         n_core           = self.config_prep['n_core']
         n_version        = self.config_prep['n_version']
-        iver_list        = self.config_prep['iver_list']
-        iopt_list        = self.config_prep['iopt_list']
-        isplit_list      = self.config_prep['isplit_list']
+        n_fitopt         = self.config_prep['n_fitopt']  # all FITOPT
 
         # default logic is n_core_per_version = n_core, but here we
         # allocate only a few cores per version
         n_core_per_version = max(int(n_core/n_version),1)
-        n_core_use = n_core_per_version * n_version
+        n_core_use         = n_core_per_version * n_version
 
-        #icpu_version = icpu % n_core_per_version
-        logging.info(f"\t Reorder_cpu_lst: allocate {n_core_per_version} cores per version -> " \
+        n_job_split         = n_core_per_version
+        n_job_tot           = n_job_split * n_version * n_fitopt
+        iver_list_reorder   = [] 
+        iopt_list_reorder   = []
+        isplit_list_reorder = []
+
+        logging.info(f"  Re-order index lists to optimize subset of cores running simultaneously.")
+        logging.info(f"    allocate {n_core_per_version} cores per version -> " \
                      f"use {n_core_use} of {n_core} requested cores.")
+        logging.info(f"    Update n_job[tot,split] --> {n_job_tot},{n_job_split} for {n_core_use} cores.")
+        logging.info('')
 
-        
-        size = len(iver_list)
-        iver_list_reorder   = [-1] * size
-        iopt_list_reorder   = [-1] * size
-        isplit_list_reorder = [-1] * size
-        ijob = 0
-        iver_last = -9  # # for diagnostic print only; not for calc
+        for iopt in range(0,n_fitopt):
+            for iver in range(0,n_version):
+                for isplit in range(0,n_job_split):
+                    iver_list_reorder.append(iver)
+                    iopt_list_reorder.append(iopt)
+                    isplit_list_reorder.append(isplit)
 
-        for iver, iopt, isplit in zip(iver_list, iopt_list, isplit_list):    
-            icpu_default =  ijob % n_core_use
-            icpu_reorder =  icpu_default % n_core_per_version + iver*n_core_per_version
+        dump = False
+        if dump:
+            print(f"\n xxx -------------------------------------")
+            print(f" xxx n_core = {n_core}   n_version={n_version}")
+            print(f" xxx iver_list -> \n{iver_list_reorder}")
+            print(f" xxx iopt_list -> \n{iopt_list_reorder}")
+            print(f" xxx ispl_list -> \n{isplit_list_reorder}")  # .xyz    
 
-            if ijob < 50:
-                if iver != iver_last: print(f" xxxx ------------------------------- ")
-                print(f"xxxx {ijob:4d}: iver, iopt, isplit = {iver}/{iopt:2d}/{isplit:2d}  " \
-                      f" icpu[default,reorder] = {icpu_default} , {icpu_reorder}")
+        # ---- reload globals ----
 
-            # nake this original logic work: if (n_job_real % n_core ) == icpu_default :
-            ijob_reorder = icpu_reorder 
-            # ijob % n_core_use = n_core_use - ijob/n_core_use
+        self.config_prep['iver_list']     = iver_list_reorder
+        self.config_prep['iopt_list']     = iopt_list_reorder
+        self.config_prep['isplit_list']   = isplit_list_reorder
 
-            iver_list_reorder[ijob_reorder]   = iver
-            iopt_list_reorder[ijob_reorder]   = iopt
-            isplit_list_reorder[ijob_reorder] = isplit
+        self.config_prep['n_core']        = n_core_use
+        self.config_prep['n_job_tot']     = n_job_tot 
+        self.config_prep['n_done_tot']    = n_job_tot
+        self.config_prep['n_job_split']   = n_job_split
 
-            ijob += 1
-            iver_last = iver 
-
-
-
-        print(f"\n xxx -------------------------------------")
-        print(f"\n xxx n_core = {n_core}   n_version={n_version}")
-        print(f"\n xxx iver_list -> \n{iver_list_reorder}")
-        print(f"\n xxx iopt_list -> \n{iopt_list_reorder}")
-        print(f"\n xxx ispl_list -> \n{isplit_list_reorder}")  # .xyz    
-
-        self.config_prep['iver_list']   = iver_list_reorder
-        self.config_prep['iopt_list']   = iopt_list_reorder
-        self.config_prep['isplit_list'] = isplit_list_reorder
-
-        sys.exit(f"\n xxx DEBUG BYE BYE xxx ")
+        #sys.exit(f"\n xxx DEBUG BYE BYE xxx ")
 
         return 
 
-        # end reorder_cpu_list
+        # end reorder_index_list
 
     def is_sym_link(self,fitopt_arg):
         # for input fitopt argument, return True if it means

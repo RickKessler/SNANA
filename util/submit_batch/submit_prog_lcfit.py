@@ -1006,8 +1006,9 @@ class LightCurveFit(Program):
         if opt_sncid_list <= 0 : return
 
         # do this only with explicit devel flag ... for now
-        REFAC = (devel_flag == 327)
-        if not REFAC: return
+        # xxx mark delete REFAC = (devel_flag == 327)
+        LEGACY = (devel_flag == -327)
+        if LEGACY: return
 
         n_core           = self.config_prep['n_core']
         n_version        = self.config_prep['n_version']

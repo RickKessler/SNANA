@@ -17878,7 +17878,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // If IDSURVEY column exists, match by CID_SURVEY
   // If IZBIN column exists, store it for use with event syncing (Apr 2022)
   //
-  // Feb 24 2025: if IDSURVEY & FIELD exist, match buy CID_IDSURVEY_FIELD
+  // Feb 24 2025: if IDSURVEY & FIELD exist, match with CID_IDSURVEY_FIELD
   //              (previously, FIELD was not present)
   //
   int  ncidList_data = INPUTS.ncidList_data  ;

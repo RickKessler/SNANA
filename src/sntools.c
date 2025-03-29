@@ -330,9 +330,9 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // - - - - - - - -
   // if we get here, read file with appropriate format
 
-  int  GZIPFLAG,  MXCHAR_LINE = 400, IDSURVEY, IFILE=0, ISTAT;
+  int  GZIPFLAG,  IDSURVEY, IFILE=0, ISTAT;
   bool IS_ROWKEY, LOAD_CID ;
-  char tmpLine[MXCHAR_LINE], key[60], tmpWord[60] ;
+  char key[60], tmpWord[60] ;
   FILE *fp;
   NCID = 0;
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
@@ -340,9 +340,26 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
+
+    int MXCHAR_LINE = 400; // xxx MXCHARLINE_PARSE_WORDS;
+    char *tmpLine = (char*) malloc( MXCHAR_LINE * sizeof(char)) ;
+    int len_tmp ;
+
     fp  = open_TEXTgz(fileName, "rt", 0, &GZIPFLAG, fnam);
+
     while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
       if ( tmpLine[0] == '#' ) { continue ; }
+
+      len_tmp = strlen(tmpLine);
+      if ( len_tmp > MXCHAR_LINE - 5 ) {
+	print_preAbort_banner(fnam);
+	printf("\n unformatted line triggering abort: \n%s\n", tmpLine);
+	sprintf(c1err,"length of line likely exceeds bound of %d", MXCHAR_LINE);
+	sprintf(c2err,"Check file %s", fileName);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);	
+      }
+
+
       // parse words on this line  
       NWD = store_PARSE_WORDS(MSKOPT,tmpLine, fnam);
       if ( NWD == 0 ) { continue ; }
@@ -352,7 +369,9 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	get_PARSE_WORD(langC, iwd, CCID);
 	match_cid_hash(CCID, ILIST, NCID);
 	NCID++ ;
-        if ( strstr(CCID,COMMA) != NULL || strstr(CCID,COLON) != NULL ||
+
+        if ( strstr(CCID,COMMA) != NULL || 
+	     strstr(CCID,COLON) != NULL ||
              strstr(CCID,"=")   != NULL )   {
           sprintf(c1err,"Invalid cid string = '%s'", CCID);
           sprintf(c2err,"Check cid_select_file %s",fileName);
@@ -363,6 +382,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     } // end loop over lines in file
 
     fclose(fp);
+    free(tmpLine);
   } // end FORMAT_NONE
 
 

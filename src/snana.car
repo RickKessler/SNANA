@@ -12756,6 +12756,8 @@ C ----------- BEGIN ------------
 
       cBLANK = ""//char(0)
 
+      CALL ENVreplace(SNCID_LIST_FILE)  ! Mar 30 2025
+
       LENF    = INDEX(SNCID_LIST_FILE,' ') - 1
       cFILE   = SNCID_LIST_FILE(1:LENF) // char(0)
 

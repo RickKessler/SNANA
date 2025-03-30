@@ -2229,27 +2229,6 @@ c init linear FITCOV arrays
       IF ( IERR .NE. 0 ) RETURN
 
 c -------
-+SELF,IF=DELETE.
-c xxxxxxxxxxxxxxx
-      if ( FIRST_ITER .and. USE_INIVAL_SNCID_FILE ) then
-c           Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
-          CALL FITINI_LIST_FILE(iter)
-          if ( DOFIT_PHOTOZ ) then
-            INIBND(1,ipar_zPHOT)  =  PHOTOZ_BOUND(1)
-            INIBND(2,ipar_zPHOT)  =  PHOTOZ_BOUND(2)
-          endif
-      else
-c                Nominal param init    
-       !check photoz
-        IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter, IERR)
-        IF ( IERR .NE. 0 ) RETURN
-
-        !adjust fitpar based on initial Fdata/Fmodel ratios.
-        CALL FITINI_ADJUST(iter,IERR)
-        IF ( IERR .NE. 0 ) RETURN
-      endif
-c xxxxxxxxxxxxxxx
-+SELF.
 
 c check for photoZ fit (after FITINI_COV)
       IF ( DOFIT_PHOTOZ ) CALL FITINI_PHOTOZ(iter, IERR)
@@ -9238,7 +9217,7 @@ c local args
       REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
       REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
       INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER, ISCALE
-      LOGICAL LZ1BIN, REFAC
+      LOGICAL LZ1BIN
       
       CHARACTER FNAM*28, NAME_ZVAR*12
       REAL*8 GET_DIST8, USRFUN
@@ -9247,7 +9226,6 @@ c local args
 C ------------- BEGIN ------------
 
       FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
-      REFAC = (DEBUG_FLAG .NE. -1219)  ! -1219 -> legacy
       
       ITER  = 1
       IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
@@ -9278,13 +9256,8 @@ c loop over redshift, color, stretch to estimate INIVAL
         ZMAX = Z_SAVE       
       ELSE IF ( DOFIT_PHOTOZ_HOST ) THEN
         ! zprior that is not super precise  -> +_ 2 sigma window
-        if ( REFAC ) then 
           ZMIN = MAX(ZBND_MIN, PRIOR_PHOTOZ - 2.0*PRIOR_PHOTOZ_ERR)
           ZMAX = MIN(ZBND_MAX, PRIOR_PHOTOZ + 2.0*PRIOR_PHOTOZ_ERR)
-        else
-          ZMIN  = ZBND_MIN  ! legacy
-          ZMAX  = ZBND_MAX  ! legacy
-        endif
       ELSE
         ! no zprior -> use entire z-range
         ZMIN  = ZBND_MIN
@@ -9294,20 +9267,12 @@ c loop over redshift, color, stretch to estimate INIVAL
 c  Dec 20 2204: prepare bining in z/(1+z) instead of z
 c    so that fewer bins are needed and hence faster init.
 
-      IF ( REFAC ) then
-         LZ1BIN   = .TRUE.
-         ZVAR_MIN = ZMIN / (1.0+ZMIN)
-         ZVAR_MAX = ZMAX / (1.0+ZMAX)
-         NZBIN = ISCALE * int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is new guess
-	 NAME_ZVAR = 'zPH/(1+zPH)'
-      ELSE
-         ! legacy
-         LZ1BIN = .FALSE.      
-         ZVAR_MIN = ZMIN
-         ZVAR_MAX = ZMAX
-         NZBIN = ISCALE * int(25.*(ZVAR_MAX-ZVAR_MIN)) + 1
-	 NAME_ZVAR = 'zPHOT'	 
-      ENDIF
+
+       LZ1BIN   = .TRUE.
+       ZVAR_MIN = ZMIN / (1.0+ZMIN)
+       ZVAR_MAX = ZMAX / (1.0+ZMAX)
+       NZBIN = ISCALE * int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is new guess
+       NAME_ZVAR = 'zPH/(1+zPH)'
              
       ZVAR_BIN = (ZVAR_MAX - ZVAR_MIN) / DBLE(NZBIN)
 
@@ -9396,17 +9361,6 @@ c load inital redshift and re-run FCNSNLC to update EP_FLUX_MODEL
       INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
       INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
       INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
-
-c xxxxxxxxxxxxxxxxxx mark delete Dec 20 20 24 xxxxxxxxxx
-c      print*,' xxx z,c,d,s = ',
-c     &   Z_SAVE, C_SAVE, D_SAVE, S_SAVE
-c      print*,' xxx chi2 = ', chi2ini, ' -> ', chi2min
-c      print*,' xxx STOP '
-c      STOP      
-c      call flush(6)
-c xxxxxxxxxxxxxxxxxx
-
-
 
       RETURN
       END     ! end INIPAR_PHOTOZ_COURSEGRID
@@ -10143,12 +10097,14 @@ c
 
       INTEGER IPAR_LIST(20), NPAR, i, ipar 
       INTEGER ABORT_FLAG, LENV, N_NOTVALID_INIVAL,N_NOTVALID_PRIOR
-      REAL*8  DVAL, DVALERR
+      REAL*8  DVAL, DVAL_ERR, PRIOR_VAL, PRIOR_ERR
       CHARACTER cVAR*40, cERR*40, CTMP*40, FNAM*20
       CHARACTER STATUS_INIVAL*16, STATUS_PRIOR*16
       LOGICAL VBOSE, FIRST_ITER, LSET, USE_FITPAR
       LOGICAL VALID_INIVAL, VALID_PRIOR
 
+c functions
+      REAL*8   SET_PRIOR_FITPAR_ERR
       EXTERNAL MATCH_CIDLIST_PARVAL
 
 C ----------- BEGIN ----------
@@ -10188,6 +10144,8 @@ c construct list of params to check in SNCID_LIST file
          IPAR = IPAR_LIST(i)
          LSET = (FIRST_ITER .or. INISTP(IPAR)==0.)
          IF (.not. LSET) GOTO 50
+
+c  first iteration below
          LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
          cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)	  
          if ( IPAR == IPAR_zPHOT ) then
@@ -10201,10 +10159,10 @@ c  Jan 2025: construct column of fit par ERROR
 	 CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,
      &        DVAL,    CTMP, LENV, 40)  ! return DVAL
          CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,
-     &        DVALERR, CTMP, LENV, 40)  ! return DVALERR
+     &        DVAL_ERR, CTMP, LENV, 40)  ! return DVAL_ERR
 
          VALID_INIVAL = ( DVAL > -999.0  )
-         VALID_PRIOR  = ( DVAL > -999.0 .and. DVALERR > 0.0 )
+         VALID_PRIOR  = ( DVAL > -999.0 .and. DVAL_ERR > 0.0 )
 	 STATUS_INIVAL = '' ; STATUS_PRIOR = ''
 	 if ( .NOT. VALID_INIVAL ) then
 	     N_NOTVALID_INIVAL = N_NOTVALID_INIVAL + 1
@@ -10225,11 +10183,15 @@ c  Jan 2025: construct column of fit par ERROR
 
 	 if ( USE_PRIOR_SNCID_FILE ) then
             INIVAL(IPAR) = DVAL	  
-	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = DVAL     ! Gauss mean
-	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = DVALERR  ! Gauss sigma
+            PRIOR_VAL = DVAL
+            PRIOR_ERR = SET_PRIOR_FITPAR_ERR(IPAR,DVAL_ERR)
+	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = PRIOR_VAL     ! Gauss mean
+	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = PRIOR_ERR     ! Gauss sigma
+
 	    if ( VBOSE ) then
-	      CTMP = 'PRIOR-' // cVAR(1:LENV)	    
-              write(6,45) CTMP, DVAL, DVALERR,SNLC_CCID, STATUS_PRIOR
+	      CTMP = 'PRIOR-' // cVAR(1:LENV)
+              write(6,45) 
+     &           CTMP, PRIOR_VAL, PRIOR_ERR, SNLC_CCID, STATUS_PRIOR
               call FLUSH(6)	      
             endif
 	endif
@@ -10261,6 +10223,45 @@ c - - - -
 
       RETURN
       END  ! end FITINI_LIST_FILE
+
+C =======================================
++DECK,SET_PRIOR_FITPAR_ERR.
+      DOUBLE PRECISION FUNCTION SET_PRIOR_FITPAR_ERR(IPAR,DVALERR)
+
+      IMPLICIT NONE
+
+      INTEGER IPAR     ! (I) fit par index
+      REAL*8  DVALERR  ! (I) fitpar error read from previous fit
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,SNLCINP.
+
+c local args
+      REAL*8  PRIOR_ERR
+      LOGICAL LX2, LX3, LNOzPRIOR
+
+C ------------- BEGIN ----------
+      PRIOR_ERR = DVALERR
+
+      LX2       = (IAND(DEBUG_FLAG,2) > 0)
+      LX3       = (IAND(DEBUG_FLAG,4) > 0)
+      LNOzPRIOR = (IAND(DEBUG_FLAG,64) > 0)
+
+      IF ( LX2 ) then
+         PRIOR_ERR = 2.0*DVALERR
+      ELSE IF ( LX3 ) THEN
+         PRIOR_ERR = 3.0*DVALERR
+      ENDIF
+
+      if ( LNOzPRIOR .and. IPAR == IPAR_zPHOT ) then
+         PRIOR_ERR = 99.0
+      endif
+
+      SET_PRIOR_FITPAR_ERR = PRIOR_ERR
+      RETURN
+      END     ! end SET_PRIOR_FITPAR_ERR
 
 C =====================================
 +DECK,FITINI_TABLEVAR.

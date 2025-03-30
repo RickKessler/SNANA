@@ -688,9 +688,10 @@ def arg_prep_driver(args):
     args.UNITS = arg_prep_axis(ndim, 'UNITS', args.UNITS)
     args.ERROR = arg_prep_axis(ndim, 'ERROR', args.ERROR)
 
-    
     if args.BOUNDS:
         args.BOUNDS = ' '.join([str(elem) for elem in args.BOUNDS])
+        if args.BOUNDS == '' : args.BOUNDS = None
+
 
     args = args_prep_DIFF(args)
     
@@ -1284,7 +1285,6 @@ def set_axis_dict(args, plot_info, var):
     VARERR_LIST  = args.ERROR.split(COLON)
     
     for n, VAR in enumerate(VAR_LIST):
-
         
         STR_VAR      = str(VAR)
         VARERR  = VARERR_LIST[n]
@@ -1911,7 +1911,8 @@ def plotter_func_driver(args, plot_info):
             print_cid_list(df, name_legend)
 
         # check for fit fun option
-        if NDIM==1 and args.FIT:
+        # xxx mark if NDIM==1 and args.FIT:
+        if args.FIT:
             apply_plt_fit(args, xfit_data, yfit_data)
 
         # check for misc plt options (mostly decoration)
@@ -2633,6 +2634,13 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
         sys.exit(f"\n ERROR: unknown user fitfun = {fitfun}; \n Valid fit funs: {FITFUN_LIST}")
 
 
+    # - - - - - - - - - - -
+    perr = np.sqrt(np.diag(pcov))
+    logging.info(f"{fitfun} fit params: {popt}")
+    logging.info(f"{fitfun} cov params: {pcov}")
+    for val, err in zip(popt,perr):
+        logging.info(f"\t {fitfun} param = {val:.4e} +_ {err:.4e}")
+
     # manually compute chi2/dof since curve_fit does not return chi2
     # Note that sigma^2 = 1 if  ydata< 1 in a bin (to avoid crazy chi2)
 
@@ -2641,6 +2649,11 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
     ndof      = ndata - nfitpar
     chi2_bins = [ (ydata-yfun)**2/max(ydata,1.0) for ydata, yfun in zip(ybins_contents, yfun_cen) ]
     chi2      = sum(chi2_bins)
+    if args.NDIM== 1:
+        label_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
+        logging.info(f"chi2/dof = {chi2:.2f} / {ndof}")
+    else:
+        label_chi2 = ''
 
     if verbose :
         print(f" xxx ybins_contents = \n{ybins_contents}")
@@ -2649,10 +2662,8 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
         print(f"")
         sys.stdout.flush()
 
-    logging.info(f"{fitfun} fit params: {popt}")
-    logging.info(f"Fit chi2/dof = {chi2:.2f} / {ndof}")
 
-    label_fit = f'{fitfun} Fit chi2/dof = {chi2:.1f}/{ndof}'
+    label_fit = f'{fitfun} Fit {label_chi2}'
     plt.plot(xbins_cen, yfun_cen, label=label_fit )
 
     return

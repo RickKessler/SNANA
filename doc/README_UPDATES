@@ -22943,4 +22943,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      allow excluding an INCLUDE file in primary so that a different INCLUDE
      file can be specified on command line args; see manual.
 
+   plot_table.py
+     new args @@LEGEND_UL and @@LEGEND_UR to force legend placement in 
+     upper left[right] corner
 END: 

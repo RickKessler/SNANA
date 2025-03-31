@@ -11,7 +11,7 @@
 # Mar 07 2025: fix to work with genuine csv (no keys) as well as SNANA table format with keys.
 # Mar 12 2025: add @@FRACTION arg to select random fraction of rows
 # Mar 25 2025: @@FIT is working for a few basic functions 
-#
+# Mar 31 2025: add @@LEGEND_UL and @@LEGEND_UR options
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -369,11 +369,16 @@ and two types of command-line input delimeters
       @@LEGEND 'No cuts'  'SALT2c < 0'  'SALT2c>0'
    For 2 files and "@@OPT DIFF_CID", only need to give one @@LEGEND arg.
    To suppress legend,  @@LEGEND NONE / @@legend none
+   Legend placement is auto-computed by matplotlib.
+   To force legend placement:
 
-@@LEGEND_SIDE
-  For a busy plot with insufficient space for legend, this option is the
-  same as @@LEGEND, except that the legend appears on the right side of 
-  the plot (outside the plot box).
+   @@LEGEND_SIDE  <same args as for @@LEGEND>
+     same as @@LEGEND, except that the legend appears on the right side of 
+     the plot (outside the plot box).
+   @@LEGEND_UL  <same args as for @@LEGEND>
+     Force legend in upper left corner
+   @@LEGEND_UR  <same args as for @@LEGEND>
+     Force legend in upper right corner
 
 @@TITLE
   Text of title to dispaly above plot. For text length > 50 chars,
@@ -536,13 +541,15 @@ def get_args():
     msg = "Extra text on plot"
     parser.add_argument('@@TEXT', '@@text', default=None, help=msg, nargs="+")    
 
-    msg = "Override default legend on plot (space sep list per TFILE)"
+    msg = "Override default legend on plot (space sep list per TFILE); auto-compute location"
     parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
 
     msg = "Same as @@LEGEND, but place outside plot on right side"
     parser.add_argument('@@LEGEND_SIDE', '@@legend_side', default=None, help=msg, nargs="+")
     msg = "Same as @@LEGEND, but force in upper left corner"
     parser.add_argument('@@LEGEND_UL', '@@legend_ul', default=None, help=msg, nargs="+")
+    msg = "Same as @@LEGEND, but force in upper right corner"
+    parser.add_argument('@@LEGEND_UR', '@@legend_ur', default=None, help=msg, nargs="+")
 
     msg = "Override default marker='o'"
     parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
@@ -883,8 +890,17 @@ def arg_prep_DEBUG_FLAG(args):
 
 def arg_prep_legend(args):
 
-    if args.LEGEND_SIDE or args.LEGEND_UL:
-        args.LEGEND = args.LEGEND_SIDE
+    arg_legend_list = [ args.LEGEND, args.LEGEND_SIDE, args.LEGEND_UL, args.LEGEND_UR ]
+    args.LEGEND = next((el for el in arg_legend_list if el is not None), None)
+    args.legend_loc         = None
+    args.legend_bbox2anchor = None
+    if args.LEGEND_SIDE:
+        args.legend_loc = 'center left' ; args.legend_bbox2anchor = (1, 0.5)
+    elif args.LEGEND_UL:
+        args.legend_loc = 'upper left' 
+    elif args.LEGEND_UR:
+        args.legend_loc = 'upper right' 
+
         
     LEGEND_orig = args.LEGEND
     LEGEND_out  = LEGEND_orig   # default is user input
@@ -2555,17 +2571,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     plt.yticks(fontsize=fsize_ticklabel)  # numbers left of y-axis tick marks
     
     # - - - - -
-    lg_loc = None
-    lg_bbox2anchor = None
-    fsize_legend = 10 * args.FONTSIZE_SCALE
-    if args.LEGEND_SIDE:
-        lg_loc = 'center left' ; lg_bbox2anchor = (1, 0.5)
-    if args.LEGEND_UL:
-        lg_loc = 'upper left' 
-    if args.LEGEND == SUPPRESS:
-        pass # no legend
-    else:
-        plt.legend(loc=lg_loc, bbox_to_anchor=lg_bbox2anchor, fontsize = fsize_legend )
+    fsize_legend   = 10 * args.FONTSIZE_SCALE
+
+    if args.LEGEND != SUPPRESS:
+        plt.legend(loc=args.legend_loc, bbox_to_anchor=args.legend_bbox2anchor, 
+                   fontsize = fsize_legend )
 
     # xxxxxxx mark delete Mar 31 2025 xxxxxxx
     #if args.LEGEND_SIDE:

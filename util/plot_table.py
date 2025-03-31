@@ -541,6 +541,8 @@ def get_args():
 
     msg = "Same as @@LEGEND, but place outside plot on right side"
     parser.add_argument('@@LEGEND_SIDE', '@@legend_side', default=None, help=msg, nargs="+")
+    msg = "Same as @@LEGEND, but force in upper left corner"
+    parser.add_argument('@@LEGEND_UL', '@@legend_ul', default=None, help=msg, nargs="+")
 
     msg = "Override default marker='o'"
     parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
@@ -881,7 +883,7 @@ def arg_prep_DEBUG_FLAG(args):
 
 def arg_prep_legend(args):
 
-    if args.LEGEND_SIDE:
+    if args.LEGEND_SIDE or args.LEGEND_UL:
         args.LEGEND = args.LEGEND_SIDE
         
     LEGEND_orig = args.LEGEND
@@ -2552,15 +2554,30 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     plt.xticks(fontsize=fsize_ticklabel)  # numbers under x-axis tick marks
     plt.yticks(fontsize=fsize_ticklabel)  # numbers left of y-axis tick marks
     
+    # - - - - -
+    lg_loc = None
+    lg_bbox2anchor = None
+    fsize_legend = 10 * args.FONTSIZE_SCALE
     if args.LEGEND_SIDE:
-        # push legend outside of box on right side
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
-    elif args.LEGEND == SUPPRESS:
-        pass  # no legend
+        lg_loc = 'center left' ; lg_bbox2anchor = (1, 0.5)
+    if args.LEGEND_UL:
+        lg_loc = 'upper left' 
+    if args.LEGEND == SUPPRESS:
+        pass # no legend
     else:
-        # default; let matplotlib find best place for legend
-        fsize_legend = 10 * args.FONTSIZE_SCALE
-        plt.legend(loc=None, bbox_to_anchor=None, fontsize = fsize_legend)
+        plt.legend(loc=lg_loc, bbox_to_anchor=lg_bbox2anchor, fontsize = fsize_legend )
+
+    # xxxxxxx mark delete Mar 31 2025 xxxxxxx
+    #if args.LEGEND_SIDE:
+    #    # push legend outside of box on right side
+    #    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
+    #elif args.LEGEND == SUPPRESS:
+    #    pass  # no legend
+    #else:
+    #    # default; let matplotlib find best place for legend
+    #    fsize_legend = 10 * args.FONTSIZE_SCALE
+    #    plt.legend(loc=None, bbox_to_anchor=None, fontsize = fsize_legend)
+    # xxxxxxxxxx end mark
 
     len_title = len(args.TITLE)
     fsize_title   = 14 * args.FONTSIZE_SCALE

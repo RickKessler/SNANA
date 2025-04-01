@@ -905,6 +905,7 @@ def arg_prep_legend(args):
     LEGEND_orig = args.LEGEND
     LEGEND_out  = LEGEND_orig   # default is user input
 
+
     NDIM     = args.NDIM
     do_diff  = args.DIFF
     do_ratio = OPT_RATIO in args.OPT
@@ -943,7 +944,7 @@ def arg_prep_legend(args):
         LEGEND_out = ['dummy'] + LEGEND_out
         narg_legend  = len(LEGEND_out)
 
-    match_narg   = narg_tfile == narg_legend
+    match_narg   = (args.LEGEND == SUPPRESS) or (narg_tfile == narg_legend)
     if  not match_narg:
         sys.exit(f"ERROR: narg_tfile={narg_tfile} but narg_legend={narg_legend}; " \
                  f"narg_legend must match number of table files.")

@@ -159,6 +159,7 @@
 #   + Write FIELD to unbinned hubble_diagram.
 #   + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
 #
+# Apr 1 2025: write MUSIM(biasCor) column to hubble_diagram (diagnostic for sim only)
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -618,6 +619,8 @@ def get_hubble_diagrams(folder, args, config):
             if first_load:  
                 hd_header_info  = read_header_info(hd_file)
                 cospar_biascor  = get_cospar_sim(hd_header_info)
+                logging.info(f" cospar_biascor = {cospar_biascor}")
+                logging.info('')
             first_load = False
 
 
@@ -625,6 +628,11 @@ def get_hubble_diagrams(folder, args, config):
     config['hd_header_info']  = hd_header_info
     config['cospar_biascor']  = cospar_biascor  # Feb 26 2025
 
+    
+    zcalc_grid, mucalc_grid = get_HDcalc(config)
+    config['zcalc_grid']  = zcalc_grid
+    config['mucalc_grid'] = mucalc_grid
+    
     # - - - - -  -
     # for unbinned or rebin, select SNe that are common to all 
     # FITOPTs and MUOPTs
@@ -635,14 +643,16 @@ def get_hubble_diagrams(folder, args, config):
     nsn = len(HD_list[label0])
     logging.info(f"Hubble diagram size for {label0}: {nsn}")
     
+
     # - - - - -    
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
 
     if is_rebin : 
         label0 = label_list[0]
         get_rebin_info(config,HD_list[label0])
+
         for label in label_list:
-            print(f"   Rebin {label}")
+            logging.info(f"   Rebin {label}")
             HD_list[label]['iHD'] = config['col_iHD']
             HD_list[label] = rebin_hubble_diagram(config,HD_list[label])
 
@@ -717,6 +727,9 @@ def get_rebin_info(config,HD):
     bins_x1 = np.linspace(x1min, x1max, num=nbin_x1+1, endpoint=True)
     bins_c  = np.linspace(cmin,   cmax, num=nbin_c+1,  endpoint=True)
 
+    logging.info(f"\t bins_x1 = {bins_x1}")
+    logging.info(f"\t bins_c  = {bins_c}")
+
     # get ix1 and ic index for each event.
     # Beware that digitize return fortran-like index starting at 1
     col_ix1 = np.digitize( HD[VARNAME_x1], bins_x1)
@@ -732,17 +745,17 @@ def get_rebin_info(config,HD):
     col_iHD  = col_ic + (col_ix1*nbin_c)  + (col_iz*nbin_x1*nbin_c)
 
     logging.info(f"\t iHD(min,max) = {col_iHD.min()}  {col_iHD.max()}  ")
-    dump_flag = False
-    if dump_flag :
-        print(f" xxx bins_x1 = {bins_x1} ")
-        print(f" xxx bins_c  = {bins_c} ")
-        print(f"\n xxx col(iHD) = \n{col_iHD}")
 
     # - - - - -
     # load bins into config
     config['nbin_z']         = nbin_z
     config['bins_x1']        = bins_x1
     config['bins_c']         = bins_c
+
+    config['str_bins_x1']    = ' '.join([ str(f"{x:.4f}") for x in bins_x1 ])
+    config['str_bins_c']     = ' '.join([ str(f"{c:.4f}") for c in bins_c ])
+
+
     config['nbin_HD']        = nbin_x1 * nbin_c * nbin_z
     config['col_iHD']        = col_iHD
 
@@ -768,6 +781,9 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_ix1      = config['col_ix1']
     col_ic       = config['col_ic']
 
+    zcalc_grid   = config['zcalc_grid']
+    mucalc_grid  = config['mucalc_grid']
+
     col_iHD      = HD_unbinned['iHD']
     col_c        = HD_unbinned[VARNAME_c]
     col_z        = HD_unbinned[VARNAME_zHD]
@@ -789,9 +805,6 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
     # - - - - -
     # get cospar used for biasCor to compute ref HD that is used to determin <z> in each rebin
-
-    # xxx mark OM_ref = 0.315  # .xyz should read OM_ref from BBC output 
-    zcalc_grid, mucalc_grid = get_HDcalc(config)
 
     for i in range(0,nbin_HD):
         binmask       = (col_iHD == i)
@@ -839,11 +852,27 @@ def get_HDcalc(config):
     zmax    = 4.001
 
     z_grid  = np.geomspace(zmin, zmax, 4000)    
-    # xxx mark delete Feb 26 2025  cosmo   = FlatLambdaCDM(H0=70, Om0=OM)
-    cosmo   = w0waCDM(H0=70, Om0=OM_BBC, Ode0=ODE_BBC, w0=w0_BBC, wa=wa_BBC) 
+
+    legacy = False
+    if legacy:
+        cosmo  = FlatLambdaCDM(H0=70, Om0=0.315)
+    else:
+        cosmo  = w0waCDM(H0=70, Om0=OM_BBC, Ode0=ODE_BBC, w0=w0_BBC, wa=wa_BBC) 
+
     mu_grid = cosmo.distmod(z_grid)
 
+    dumpz = False
+    if dumpz:
+        print(f" xxx -------------------------------------- ")
+        print(f" xxx dump mu_grid for OM_BBC={OM_BBC} w0_BBC={w0_BBC}  wa_BBC={wa_BBC}")
+        for iz in range(0, len(z_grid), 400):
+            z = z_grid[iz]
+            mu = mu_grid[iz]
+            print(f" xxx z = {z:.5f}  mu = {mu:.5f}")
+            sys.stdout.flush()
+     
     return z_grid, mu_grid
+    # end get_HDcalc
 
 def get_fitopt_muopt_from_name(name):
     f = int(name.split("FITOPT")[1][:3])
@@ -1270,8 +1299,8 @@ def write_standard_output(config, args, covsys_list, base,
     args.t_write_sum  = 0.0 
 
     # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
-    muerr_sys_list = get_muerr_sys(covsys_list)
-            
+    config['muerr_sys_list']    = get_muerr_sys(covsys_list)
+    
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
     t0 = time.time()
@@ -1286,9 +1315,10 @@ def write_standard_output(config, args, covsys_list, base,
             data_file = outdir / f"{label}_{HD_FILENAME}"
 
         if unbinned :
-            write_HD_unbinned(data_file, data[label], muerr_sys_list)
+            write_HD_unbinned(config, data_file, data[label] )
         else:
-            write_HD_binned(data_file, data[label], muerr_sys_list)
+            is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
+            write_HD_binned(config, data_file, data[label])
 
     args.t_write_sum += (time.time() - t0)
     
@@ -1470,14 +1500,14 @@ def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 # ========= end cosmomc utils ====================
 
 
-def write_HD_binned(path, base, muerr_sys_list):
+def write_HD_binned(config, path, base):
 
     # Dec 2020
     # Write standard binned HD format for BBC method
     # Sep 30 2021: replace csv format with SNANA fitres format
     # Apr 30 3022: check muerr_sys_list
 
-    #if "CID" in df.columns:
+    muerr_sys_list = config['muerr_sys_list']
 
     unbinned = False
 
@@ -1485,6 +1515,7 @@ def write_HD_binned(path, base, muerr_sys_list):
 
     wrflag_nevt   = (VARNAME_NEVT_BIN in base)
     wrflag_syserr = (muerr_sys_list is not None)
+    wrflag_musim  = not config[KEYNAME_ISDATA]   # Apr 1 2025
 
     keyname_row = f"{VARNAME_ROW}:"
     varlist = f"{VARNAME_ROW} {VARNAME_zHD} {VARNAME_zHEL} " \
@@ -1507,21 +1538,33 @@ def write_HD_binned(path, base, muerr_sys_list):
     else:
         syserr_list = muerr_list # anything to allow zip loop
 
+    if wrflag_musim:
+        varlist += ' MUSIM' 
+        zcalc_grid    = config['zcalc_grid']
+        mucalc_grid   = config['mucalc_grid']    
+
     with open(path, "w") as f:
-        write_HD_comments(f, unbinned, wrflag_syserr, False )
+        write_HD_comments(f, config, unbinned, wrflag_syserr, False, wrflag_musim )
+        
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr, nevt, syserr) in \
             zip(name_list, zHD_list, mu_list, muerr_list, 
                 nevt_list, syserr_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
-            if wrflag_nevt: val_list += f" {nevt} "
-            if wrflag_syserr: val_list += f" {syserr:8.5f}"
+            if wrflag_nevt:   
+                val_list += f" {nevt:4d} "
+            if wrflag_syserr: 
+                val_list += f" {syserr:8.5f}"
+            if wrflag_musim:
+                musim  = np.interp(z, zcalc_grid, mucalc_grid.value )
+                val_list += f" {musim:7.4f}"
+
             f.write(f"{keyname_row} {val_list}\n")
     return
 
     # end write_HD_binned
 
-def write_HD_unbinned(path, base, muerr_sys_list):
+def write_HD_unbinned(path, base):
 
     # Dec 2020
     # Write standard unbinned HD format for BBC method
@@ -1529,6 +1572,8 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     # Apr 30 2022: pass muerr_sys_list
 
     #if "CID" in df.columns:
+
+    muerr_sys_list = config['muerr_sys_list']
 
     unbinned = True
     logging.info(f"Write unbinned HD to {path}")
@@ -1554,7 +1599,8 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     found_muerr_vpec   = VARNAME_MUERR_VPEC in base
     found_muerr_sys    = muerr_sys_list is not None
     found_pbeams       = VARNAME_PROBCC_BEAMS in base  # Jan 2024
- 
+    found_musim_cospar_biascor = not config[KEYNAME_ISDATA] 
+
     if found_muerr_vpec :   
         varlist += f" {VARNAME_MUERR_VPEC}"
         muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
@@ -1574,10 +1620,16 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     else:
         pbeams_list = muerr_list # anything for zip command
 
+
+    if found_musim_cospar_biascor:
+        varlist += f" MUSIM"
+        zcalc_grid    = config['zcalc_grid']
+        mucalc_grid   = config['mucalc_grid']    
+
     # - - - - - - -
 
     with open(path, "w") as f:
-        write_HD_comments(f, unbinned, found_muerr_sys, found_pbeams )
+        write_HD_comments(f, config, unbinned, found_muerr_sys, found_pbeams, found_musim_cospar_biascor )
         f.write(f"VARNAMES: {varlist}\n")
         
         for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr, pbeams) in \
@@ -1585,16 +1637,24 @@ def write_HD_unbinned(path, base, muerr_sys_list):
                 mu_list, muerr_list, muerr2_list, syserr_list, pbeams_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
                        f"{zHD:6.5f} {zHEL:6.5f} " \
-                       f"{mu:8.5f} {muerr:8.5f}"
+                       f"{mu:8.5f}  {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
             if found_muerr_sys:  val_list += f" {syserr:8.5f}"
             if found_pbeams:     val_list += f" {pbeams:8.5f}"
+
+            if found_musim_cospar_biascor:
+                musim  = np.interp(zHD, zcalc_grid, mucalc_grid)
+                val_list += f" {musim:7.4f}"
 
             f.write(f"{keyname_row} {val_list}\n")
     return
     # end write_HD_unbinned
 
-def write_HD_comments(f, unbinned, wrflag_syserr, wrflag_pbeams):
+def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_musim ):
+
+    # Apr 2025: write rebin info is rebin options is set
+
+    is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
 
     f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
 
@@ -1616,10 +1676,27 @@ def write_HD_comments(f, unbinned, wrflag_syserr, wrflag_pbeams):
         f.write(f"# PROB1A_BEAMS = SNIa BEAMS probability from BBC " \
             "(diagnostic)\n")
 
+    if wrflag_musim :
+        f.write(f"# MUSIM     = mu computed with biasCor cosmology " \
+                "(diagnostic)\n")
+
     # write ISDATA flag as comment in HD 
     ISDATA = config[KEYNAME_ISDATA]
     f.write(f"# {KEYNAME_ISDATA}: {ISDATA}   "\
             "# flag for cosmology fitter to choose blind option\n")
+
+    if is_rebin:
+        f.write(f"#\n")
+        nbin_z  = config['nbin_z']
+        nbin_x1 = config['nbin_x1']
+        nbin_c  = config['nbin_c']
+        str_bins_x1 = config['str_bins_x1']
+        str_bins_c  = config['str_bins_c']
+        f.write(f"# nrebin(z/x1/c) = {nbin_z} / {nbin_x1} / {nbin_c} \n")
+        f.write(f"# rebin(z):  see IZBIN in BBC-output FITRES file\n")
+        f.write(f"# rebin(x1): {str_bins_x1} \n")
+        f.write(f"# rebin(c):  {str_bins_c} \n")
+
     f.write(f"#\n")
 
     return
@@ -1813,15 +1890,6 @@ def write_summary_output(args, config, covsys_list, base):
         info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
         yaml.safe_dump(info_cospar, f )
 
-    # xxxxxxxxx mark delete Feb 26 2025 xxxxxxxxx
-    #cospar_biascor = []
-    #if sim_version is not None:
-    #    cospar_biascor = get_cospar_sim_legacy(sim_version)
-    #    with open(out / INFO_YML_FILENAME, "at") as f:
-    #        info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
-    #        yaml.safe_dump(info_cospar, f )
-    # xxxxxxxx end mark xxxxxxx
-
     return
     # end write_summary_output
 
@@ -1902,60 +1970,6 @@ def get_cospar_sim(hd_header_info):
 
     # end get_cospar_sim
 
-
-def get_cospar_sim_legacy(sim_version):
-
-    # for input snana_folder 'sim_version', run snana.exe GETINFO folder 
-    # to extract name of README file, then parse README to get cosmo params
-
-    cospar_sim = {}  # init output dictionary
-    msgerr     = '\n'
-
-    cmd = f"snana.exe GETINFO {sim_version}"
-    
-    ret = subprocess.run( [cmd], shell=True,
-                          capture_output=True, text=True )
-    ret_stdout = ret.stdout.split()
-
-    # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxxxxx
-
-    key_readme = "README_FILE:"
-    if 'FATAL' in ret_stdout:
-        msgerr  = f"Cannot find biasCor sim-data folder {sim_version}\n"
-        msgerr += f"\t May need to regenerate biasCor {sim_version}  \n"
-        msgerr += f"\t Only need to recreate README, so try --faster with submit_batch_jobs.sh\n"
-        logging.warning(msgerr)
-        return cospar_sim
-        #assert False, msgerr
-
-    if key_readme not in ret_stdout:
-        msgerr += f"  Cannot find {key_readme} key from command\n"
-        msgerr += f"     {cmd}\n"
-        assert False, msgerr
-
-    k           = ret_stdout.index(key_readme)
-    readme_file = ret_stdout[k+1]
-
-    readme_contents = read_yaml(readme_file)
-    docana          = readme_contents[KEY_DOCANA] # DOCUMENTATION block
-    
-    # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxxxxx
-
-    if KEY_SIM_INPUT in docana :
-        sim_inputs      = docana[KEY_SIM_INPUT]
-        if sim_inputs is None: sim_inputs = [] # sim-readme bug protection (May 2023)
-    else :
-        sim_inputs = []  # allow for for older SNANA versions 
-        logging.warning(f"did not find {KEY_SIM_INPUT} in biasCor sim README")
-
-    for cospar in KEYLIST_COSPAR_SIM:
-        if cospar in sim_inputs :
-            cospar_sim[cospar] = sim_inputs[cospar]
-
-    return cospar_sim
-
-    # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxxxxx
-    # end get_cospar_sim_legacy
 
 def write_correlation(path, label, base_cov, diag, base):
     logging.debug(f"\tWrite out cov for COVOPT {label}")

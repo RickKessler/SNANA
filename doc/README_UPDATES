@@ -22946,4 +22946,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    plot_table.py
      new args @@LEGEND_UL and @@LEGEND_UR to force legend placement in 
      upper left[right] corner
+
+   SALT2mu.c
+     + skip muerr_renorm() if BEAMS/CCPRIOR is not used.
+     + for "CUTWIN NONE" option, allow sim prescale cut to be applied.
+
+
 END: 

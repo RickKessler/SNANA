@@ -21777,6 +21777,7 @@ void define_varnames_append(void) {
 
   // Nov 12 2020: add MUERR_VPEC
   // Dec 02 2020: add IZBIN & M0DIFERR
+  // Apr 02 2025: write MUERR_RENORM only if INFO_CCPRIOR.USE=True
 
   bool DO_BIASCOR_MU  = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool DO_COVSCALE    = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
@@ -21799,7 +21800,7 @@ void define_varnames_append(void) {
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");        NVAR_APPEND++ ;  
 
   // see ??
-  if ( !SUBPROCESS.USE )
+  if ( INFO_CCPRIOR.USE && !SUBPROCESS.USE )
     { sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RENORM"); NVAR_APPEND++ ; }
 
   // contribution from LC fit only (no sigInt, no VPEC, no scale)
@@ -22303,6 +22304,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   //              Might be needed later for high-precision tests.
   //
   // Mar 31 2023: add nevt_biascor
+  // Apr 02 2025; write muerr_renorm only if INFO_CCPRIOR.USE = True
 
   bool DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool DO_COVSCALE   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
@@ -22371,11 +22373,12 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   sprintf(word, "%8.5f ", mumodel);       NWR++ ; strcat(line,word);
   sprintf(word, "%8.5f ", muerr  );       NWR++ ; strcat(line,word);
 
-  if ( !SUBPROCESS.USE ) {
+  if ( INFO_CCPRIOR.USE && !SUBPROCESS.USE ) {
     // Jun 21 2021: beware that muerr_renorm is not malloced or filled
     //     for SUBPROCESS   
     muerr_renorm  = INFO_DATA.muerr_renorm[n];
     sprintf(word, "%7.4f ", muerr_renorm ); NWR++ ; strcat(line,word);
+
   }
   sprintf(word, "%7.4f ", muerr_raw );    NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", muerr_vpec );   NWR++ ; strcat(line,word);
@@ -22538,6 +22541,7 @@ void muerr_renorm(void) {
   // M0DIF-mean and M0DIF-error; flag discrepancies > 0.001 mag.
   //
   // Oct 17 2022: avoid pia=0 for WGT computation
+  // Apr 02 2025: return if there is no CCPRIOR/BEAMS
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
   int MEMD       = NSN_DATA * sizeof(double);
@@ -22552,6 +22556,9 @@ void muerr_renorm(void) {
   char fnam[] = "muerr_renorm" ;
 
   // --------- BEGIN -----------
+
+
+  if ( !INFO_CCPRIOR.USE ) { return; }  // Apr 2025
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) { return; }

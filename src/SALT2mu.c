@@ -16491,7 +16491,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int  DOFLAG_CUTWIN[MXSELECT_VAR], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT, NCUTWIN ;
   int  sntype, SIM_TEMPLATE_INDEX, idsample, idsurvey, IZBIN ;
-  bool BADERR=false, BADCOV=false, sel, LCUTWIN_DISABLE ;
+  bool BADERR=false, BADCOV=false, sel ;
   double cutvar_local[MXSELECT_VAR];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
@@ -16501,7 +16501,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // ---------- BEGIN ---------
 
   NCUTWIN          = INPUTS.SELECT_CUTWIN.NVAR ;
-  LCUTWIN_DISABLE  = IS_DATA && INPUTS.SELECT_CUTWIN.L_DISABLE ;
+  // xxx mark delet Apr 2 2025 LCUTWIN_DISABLE  = IS_DATA && INPUTS.SELECT_CUTWIN.L_DISABLE ;
   
   // strip off local variables
 
@@ -16687,7 +16687,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
   else if ( IS_CCPRIOR ) {
    
-    if ( SIM_TEMPLATE_INDEX == 0 ) // require true SNCC
+    if ( SIM_TEMPLATE_INDEX == 0 ) // if true SNIa, set cut-fail bit for TRUE SNCC
       { setbit_CUTMASK(isn, CUTBIT_TRUESNCC, TABLEVAR); }
     
     if ( idsample < 0 )
@@ -16708,6 +16708,7 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
   //   bitnum     : bit to set
   //   TABLEVAR   : structure with arrays and cutmask
   //
+  // Apr 2 2025: add CUTWIN_SIMPS to list of exceptions
 
   int  EVENT_TYPE   = TABLEVAR->EVENT_TYPE ;
   bool IS_DATA      = ( EVENT_TYPE == EVENT_TYPE_DATA );
@@ -16718,19 +16719,18 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
   // ------------- BEGIN -------------
 
-
   LCUTWIN_DISABLE  = IS_DATA && INPUTS.SELECT_CUTWIN.L_DISABLE ;
-
 
   
   if ( LCUTWIN_DISABLE ) {
-    // if cuts are disabled for data, only allow cuts on
-    // CID (read from list), biasCor, and few others
+    // if cuts are disabled for data, define a few excptions to allow cuts
+    // on CID (read from list), biasCor, and few others
     APPLY = 
       (bitnum == CUTBIT_CID     ) || 
       (bitnum == CUTBIT_BIASCOR ) ||
       (bitnum == CUTBIT_z       ) ||
-      (bitnum == CUTBIT_BADCOV  ) 
+      (bitnum == CUTBIT_BADCOV  ) ||
+      (bitnum == CUTBIT_SIMPS  )       // Apr 2 2025
       ;
     if ( !APPLY ) { return; }
   }
@@ -19963,6 +19963,9 @@ void  prep_input_trueIa(void) {
   INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa  = false;
   for(ifile=0; ifile < NFILE; ifile++ ) 
     { INFO_DATA.TABLEVAR.IVAR_pIa[ifile] = -9;  }
+
+  // disable scalePCC (Apr 3 2025) ... probably redundant
+  INPUTS.ipar[IPAR_scalePCC]  = 0 ; 
 
   return;
 
@@ -23306,8 +23309,10 @@ void print_SALT2mu_HELP(void) {
     "CUTWIN(BIASCORONLY) LOGMASS  5 12 # cut on biasCor (not on data)",
     "CUTWIN varname_pIa  0.9 1.0   # substitute argument of varname_pIa",
     "CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut",
-    "CUTWIN NONE       #  command-line override to disable all cuts",
-    "                  # e.g., useful with cid_select_file",
+    "CUTWIN NONE       #  command-line override to disable cuts",
+    "                  #  exceptions applied for z, biasCor, sim-prescale, badcov",
+    "                  #  e.g., useful with cid_select_file",
+    "",
     "CUTWIN_IDSAMPLE(0,3,4):   zHD .01 .03  # apply cut only to IDSAMPLE 0,3 & 4",
     "CUTWIN_SURVEY(CFA3,CFA4): zHD .01 .03  # apply cut only to CFA3 & CFA4 surveys",
     "",

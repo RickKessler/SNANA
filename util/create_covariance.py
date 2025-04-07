@@ -1564,7 +1564,7 @@ def write_HD_binned(config, path, base):
 
     # end write_HD_binned
 
-def write_HD_unbinned(path, base):
+def write_HD_unbinned(config, path, base):
 
     # Dec 2020
     # Write standard unbinned HD format for BBC method
@@ -1643,7 +1643,7 @@ def write_HD_unbinned(path, base):
             if found_pbeams:     val_list += f" {pbeams:8.5f}"
 
             if found_musim_cospar_biascor:
-                musim  = np.interp(zHD, zcalc_grid, mucalc_grid)
+                musim  = np.interp(zHD, zcalc_grid, mucalc_grid.value )
                 val_list += f" {musim:7.4f}"
 
             f.write(f"{keyname_row} {val_list}\n")

@@ -22558,27 +22558,26 @@ void muerr_renorm(void) {
   // --------- BEGIN -----------
 
 
-  if ( !INFO_CCPRIOR.USE ) { return; }  // Apr 2025
+  // if ( !INFO_CCPRIOR.USE ) { return; }  // Apr 2025
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) { return; }
 #endif
 
   fprintf(FP_STDOUT,
-	  "\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n",
-	 fnam );
+	  "\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n", fnam );
   fflush(FP_STDOUT);
-
+  
   print_debug_malloc(+1*debug_malloc,fnam);
   INFO_DATA.muerr_renorm = (double*) malloc(MEMD);
-
+  
   for(iz=0; iz < MXz; iz++ )  { SUM_WGT[iz] = SUM_MURES[iz] = 0.0 ; }
-
+  
   for(isn=0; isn < NSN_DATA; isn++ ) {
-
+  
     cutmask    = INFO_DATA.TABLEVAR.CUTMASK[isn]  ;
     if ( cutmask ) { continue; }
-
+    
     iz         = INFO_DATA.TABLEVAR.IZBIN[isn] ;
     mumodel    = INFO_DATA.mumodel[isn];
     mu         = INFO_DATA.mu[isn] - FITRESULT.SNMAG0; 

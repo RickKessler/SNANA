@@ -119,7 +119,11 @@ void print_elapsed_time(time_t t0, char *comment, char *unit_time) {
   dt *= scale;
 
   char msg[100];
-  sprintf(msg,"Elapsed time = %.3f %s for: %s", dt, unit_time, comment);
+  if ( scale == 1.0 ) 
+    { sprintf(msg,"Elapsed time = %8.1f %s for: %s", dt, unit_time, comment); }
+  else
+    { sprintf(msg,"Elapsed time = %.3f %s for: %s", dt, unit_time, comment); }
+
   printf("\t %s\n", msg);
   fflush(stdout);
 
@@ -5810,13 +5814,12 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
 #define MXSTORE_PULL 100
 
-  int i, NEFF ;
+  int i, NEVT_EFFECTIVE ;
   double STD_MURES_ORIG, SQMURES, MURES, MUCOV;
   double WGTMAX = 0.0, WGT, SUM_WGT = 0.0 ;
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
-
 
   char fnam[200];
   concat_callfun_plus_fnam(callFun, "sigint_muresid_list", fnam);
@@ -5848,18 +5851,18 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
 
-    SUM_MUCOV   += WGT*MUCOV ;
-    SUM_MURES   += WGT*MURES ;
-    SUM_SQMURES += WGT*SQMURES ;
-    SUM_WGT     += WGT ;
+    SUM_MUCOV   += (WGT * MUCOV);
+    SUM_MURES   += (WGT * MURES);
+    SUM_SQMURES += (WGT * SQMURES);
+    SUM_WGT     += (WGT  ) ;
   }
 
   AVG_MURES = SUM_MURES / SUM_WGT ;
   AVG_MUCOV = SUM_MUCOV / SUM_WGT ;
   AVG_MUERR = sqrt(AVG_MUCOV);
-  NEFF      = (int)(SUM_WGT+0.5) ;
+  NEVT_EFFECTIVE   = (int)(SUM_WGT+0.5) ;
   // STD_MURES_ORIG = STD_from_SUMS(N_LIST, SUM_MURES, SUM_SQMURES);
-  STD_MURES_ORIG = STD_from_SUMS( NEFF, SUM_MURES, SUM_SQMURES);
+  STD_MURES_ORIG = STD_from_SUMS( NEVT_EFFECTIVE, SUM_MURES, SUM_SQMURES);
 
   tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
   
@@ -5944,8 +5947,8 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     
     // xxx     rmsPull = STD_from_SUMS(N_LIST, sum_pull, sum_sqpull);
 
-    NEFF      = (int)(SUM_WGT+0.5) ;
-    rmsPull = STD_from_SUMS( NEFF, sum_pull, sum_sqpull);
+    NEVT_EFFECTIVE = (int)(SUM_WGT+0.5) ;
+    rmsPull = STD_from_SUMS( NEVT_EFFECTIVE, sum_pull, sum_sqpull);
     if ( rmsPull == 0.0 ) { debugexit("xxx rmsPull = 0");  }
 
     if (NBIN_SIGINT < MXSTORE_PULL) {

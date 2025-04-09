@@ -180,6 +180,9 @@
  Dec 7 2024
    + mu_obs -= B/C in residual output file 
 
+ Apr 8 2025
+   + speed_flag_chi2 += 4 adds new speed trick to stop chi2(diag) calc when chi2>threshold.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -199,10 +202,11 @@
 
 #define MXSN 100000 // max number of SN to read & fit
 
-// bit-mask options for speed_flag_chio2
-#define SPEED_MASK_OFFDIAG 1  // skip off-diag calc if chi2(diag)>threshold
-#define SPEED_MASK_INTERP  2  // interplate r(z) and mu_cos(z)
-#define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG + SPEED_MASK_INTERP
+// bit-mask options for speed_flag_chi2
+#define SPEED_MASK_INTERP       1  // interplate r(z) and mu_cos(z)
+#define SPEED_MASK_SKIP_OFFDIAG 2  // skip off-diag calc if chi2(diag)>threshold
+#define SPEED_MASK_STOP_DIAG    4  // stop diag calc if chi2(diag)>threshold (4.08.2025)
+#define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_INTERP + SPEED_MASK_SKIP_OFFDIAG // +SPEED_MASK_STOP_DIAG ??
 
 #define PROBSUM_1SIGMA  0.683
 
@@ -260,8 +264,9 @@ struct INPUTS {
   char string_muerr_ideal[100];
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
-  bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
   bool  USE_SPEED_INTERP;  // internal: intero r(z) and mu(z)
+  bool  USE_SPEED_SKIP_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
+  bool  USE_SPEED_STOP_DIAG;    // internal: stop diag calc when chi2>threshold
 
   int fitnumber;   // default=1; legacy for iterative fit after sigint calc
 
@@ -500,7 +505,7 @@ void exec_rz_interp(int k, Cosparam *cospar, double *rz, double *dmu);
 void check_refit(void);
 
 void wfit_minimize(void);
-void prep_speed_offdiag(double extchi_tmp);
+void prep_speed_skip_offdiag(double extchi_tmp);
 void wfit_normalize(void);
 void wfit_marginalize(void);
 void wfit_uncertainty(void);
@@ -867,7 +872,7 @@ void print_wfit_help(void) {
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
-    "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick",
+    "   -speed_flag_chi2   +=1->interp trick, +=2->skip offdiag, +=4->stop diag",
     "   -debug_flag 91\t compare calc mu(wfit) vs. mu(sim)",
     "   -muerr_ideal  replace all mu with mu_true + Gauss(0,muerr);",
     "                 e.g.,  muerr_ideal 0.1,0.01,0.05 -> "
@@ -1179,7 +1184,8 @@ void parse_args(int argc, char **argv) {
   // - - - - - - 
   char var_w[20], str_marg_min[20];
 	   
-  INPUTS.USE_SPEED_OFFDIAG = (INPUTS.speed_flag_chi2 & SPEED_MASK_OFFDIAG)>0;
+  INPUTS.USE_SPEED_SKIP_OFFDIAG = (INPUTS.speed_flag_chi2 & SPEED_MASK_SKIP_OFFDIAG) > 0;
+  INPUTS.USE_SPEED_STOP_DIAG    = (INPUTS.speed_flag_chi2 & SPEED_MASK_STOP_DIAG   ) > 0;
 
   printf(" ****************************************\n");
   if ( INPUTS.dofit_w0wa )  { 
@@ -1884,7 +1890,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
     printf("\t -> disable off-diag COV computations.\n");
     fflush(stdout);
     INPUTS.use_mucov = 0; 
-    INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
+    INPUTS.USE_SPEED_SKIP_OFFDIAG = false; // disable speed flag for approx min chi2 
     return; 
   }
 
@@ -2842,7 +2848,8 @@ void init_rz_interp(HD_DEF *HD) {
 
   WORKSPACE.n_exec_interp = 0;
 
-  if ( NSN > 1000 ) 
+  // xxx mark delete Apr 8 2025    if ( NSN > 1000 ) 
+  if ( NSN > 500 ) 
     { INPUTS.USE_SPEED_INTERP  = (INPUTS.speed_flag_chi2 & SPEED_MASK_INTERP )>0; }
   else
     { INPUTS.USE_SPEED_INTERP = false; }
@@ -2991,14 +2998,21 @@ void wfit_minimize(void) {
   // Created Oct 2 2021
   // Driver function to minimize chi2 on grid,
   // Outputs loaded to WORKSPACE struct.
+  //
+  // Apr 8 2025: 
+  //  + for SPEED flag, replace cpar_fixed with COSPAR_SIM
+  //  + check for new STOP_DIAG speed trick
 
   int Ndof                 = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
-  bool   USE_SPEED_OFFDIAG = INPUTS.USE_SPEED_OFFDIAG ;
-  
+
   int    use_mucov         = INPUTS.use_mucov;
+  bool   USE_SPEED_SKIP_OFFDIAG = INPUTS.USE_SPEED_SKIP_OFFDIAG && use_mucov ;
+  bool   USE_SPEED_STOP_DIAG    = INPUTS.USE_SPEED_STOP_DIAG ;
+  bool   USE_SPEED_TRICK        = ( USE_SPEED_SKIP_OFFDIAG || USE_SPEED_STOP_DIAG);
+
   Cosparam cpar;
-  Cosparam cpar_fixed;
+  // xxx mark  Cosparam cpar_fixed;
   double snchi_tmp, extchi_tmp, mures_tmp ;
 
   bool UPDATE_STDOUT;
@@ -3014,26 +3028,47 @@ void wfit_minimize(void) {
   printf("\n# ======================================= \n");
   printf(" %s: Get prob at %d grid points, and approx mimimized values \n", 
 	 fnam, NBTOT );
-  printf("\t USE_SPEED_OFFDIAG = %d \n", INPUTS.USE_SPEED_OFFDIAG);
-  printf("\t USE_SPEED_INTERP  = %d \n", INPUTS.USE_SPEED_INTERP);
+  printf("\t USE_SPEED_INTERP       = %d \n", INPUTS.USE_SPEED_INTERP);
+  printf("\t USE_SPEED_SKIP_OFFDIAG = %d \n", INPUTS.USE_SPEED_SKIP_OFFDIAG);
+  printf("\t USE_SPEED_STOP_DIAG    = %d \n", INPUTS.USE_SPEED_STOP_DIAG);
   fflush(stdout);
     
   // prep speed trick
-  if ( use_mucov && USE_SPEED_OFFDIAG ) {
-    printf("   Prepare speed trick to reduce off-diagonal calculation\n");
 
-    INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
+  if ( USE_SPEED_TRICK ) {
+
+    if ( USE_SPEED_SKIP_OFFDIAG ) 
+      { printf("   Prepare speed trick to skip off-diagonal calculation\n"); }
+    if ( USE_SPEED_STOP_DIAG ) 
+      { printf("   Prepare speed trick to stop diagonal calculation\n"); }
+    fflush(stdout);
+
+    bool SAVE_USE_SPEED_STOP_DIAG    = INPUTS.USE_SPEED_STOP_DIAG;
+    bool SAVE_USE_SPEED_SKIP_OFFDIAG = INPUTS.USE_SPEED_SKIP_OFFDIAG;
+
+    INPUTS.USE_SPEED_STOP_DIAG    = false ;
+    INPUTS.USE_SPEED_SKIP_OFFDIAG = false ; // disable speed flag for approx min chi2 
+
+    /* xxx mark delete Apr 8 2025 xxxxx
     cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
     cpar_fixed.mushift = 0.0 ;
     get_chi2_fit(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
+		 temp0_list, temp1_list, temp2_list,
+		 &mures_tmp, &snchi_tmp, &extchi_tmp ); 
+    xxxxx */
+
+    get_chi2_fit(COSPAR_SIM.w0, COSPAR_SIM.wa, COSPAR_SIM.omm, INPUTS.sqsnrms, 
 		 temp0_list, temp1_list, temp2_list,
 		 &mures_tmp, &snchi_tmp, &extchi_tmp ); 
     printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
 	   "= %.1f %.1f \n", snchi_tmp, extchi_tmp);
     fflush(stdout);
 
-    INPUTS.USE_SPEED_OFFDIAG = true ; // restore speed flag
-    prep_speed_offdiag(extchi_tmp);
+    // restore global speed flags
+    INPUTS.USE_SPEED_STOP_DIAG    = SAVE_USE_SPEED_STOP_DIAG ;
+    INPUTS.USE_SPEED_SKIP_OFFDIAG = SAVE_USE_SPEED_SKIP_OFFDIAG ;
+
+    prep_speed_skip_offdiag(extchi_tmp);
   }
 
   // - - - - - - - - 
@@ -3109,22 +3144,27 @@ void wfit_minimize(void) {
 
 
 // =============================
-void prep_speed_offdiag(double chi2min_approx) {
+void prep_speed_skip_offdiag(double chi2min_approx) {
 
   // Prepare speed trick for computing chi2 by ignoring 
   // off-diagonal terms when diagonal sum is greater than threshold.
   // Input is appriximate chi2min.
+  //
+  // Apr 8 2025: check for new STOP_DIAG speed trick; same logic as for SKIP_OFFDIAG
 
-  bool USE_SPEED_OFFDIAG   = INPUTS.USE_SPEED_OFFDIAG ;
+  bool USE_SPEED_SKIP_OFFDIAG   = INPUTS.USE_SPEED_SKIP_OFFDIAG ;
+  bool USE_SPEED_STOP_DIAG      = INPUTS.USE_SPEED_STOP_DIAG ;
+  bool USE_SPEED_TRICK          = USE_SPEED_SKIP_OFFDIAG || USE_SPEED_STOP_DIAG ;
+
   int Ndof                 = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
 
   double nsig, Xdof=(double)Ndof;
-  char fnam[] = "prep_speed_offdiag";
+  char fnam[] = "prep_speed_skip_offdiag";
 
   // -------------- BEGIN -----------
 
-  if ( !USE_SPEED_OFFDIAG ) { return; }
+  if ( !USE_SPEED_TRICK ) { return; }
 
   // compute nsig_chi2 above naive chi2min=Ndof and compare
   // with nsig_chi2_skip used for speed trick
@@ -3133,9 +3173,10 @@ void prep_speed_offdiag(double chi2min_approx) {
   printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  
 	 nsig);
   
-  if ( INPUTS.use_mucov ) {
+  if ( INPUTS.use_mucov || INPUTS.USE_SPEED_STOP_DIAG ) {
     double nsig_chi2min_skip;
-    double NSIG_MULTIPLIER = 10.0 ;
+    // xxx mark del Apr 8 2025  double NSIG_MULTIPLIER = 10.0 ;
+    double NSIG_MULTIPLIER = 6.0 ;
     if ( nsig < 1.0 )
       { nsig_chi2min_skip = NSIG_MULTIPLIER; } 
     else
@@ -3143,7 +3184,7 @@ void prep_speed_offdiag(double chi2min_approx) {
 
     WORKSPACE.nsig_chi2min_skip = nsig_chi2min_skip;
 
-    printf("\t Skip off-diag chi2-calc if nsig(diag) > %.1f\n", 
+    printf("\t Skip chi2-calc if nsig(diag) > %.1f\n", 
 	  nsig_chi2min_skip );
 
   }
@@ -3151,7 +3192,7 @@ void prep_speed_offdiag(double chi2min_approx) {
 
   return;
 
-} // end prep_speed_offdiag
+} // end prep_speed_skip_offdiag
 
 // ==================================
 void wfit_normalize(void) {
@@ -3878,9 +3919,14 @@ void get_chi2_fit (
   // Apr 22 2022:
   //   + use dmu_list to avoid redundant log10 calculations in get_DMU_chi2wOM
   //   + implement rz-interpolation option
+  //
+  //
+  // Apr 8 2025: 
+  //   + implement additional STOP_DIAG speedup by bailing on chi2_diag calc early
 
-  bool USE_SPEED_OFFDIAG = INPUTS.USE_SPEED_OFFDIAG ;
-  bool USE_SPEED_INTERP  = INPUTS.USE_SPEED_INTERP ;
+  bool USE_SPEED_INTERP       = INPUTS.USE_SPEED_INTERP ;
+  bool USE_SPEED_SKIP_OFFDIAG = INPUTS.USE_SPEED_SKIP_OFFDIAG ;
+  bool USE_SPEED_STOP_DIAG    = INPUTS.USE_SPEED_STOP_DIAG ;
   int  use_mucov = INPUTS.use_mucov ;
   int  NSN       = HD_LIST[0].NSN;
   int  Ndof      = WORKSPACE.Ndof ;
@@ -3904,13 +3950,15 @@ void get_chi2_fit (
   double mushift0 = HD0->cospar_biasCor.mushift ;
   double mushift1 = HD1->cospar_biasCor.mushift ;
 
-    
+  bool do_offdiag=false,  skip_offdiag;
+
   // rz-interp variables
   int n_logz, iz;
   double z ;
   double mu_obs0, mu_obs1, f_interp;
 
   char fnam[] = "get_chi2_fit";
+
 
   // --------- BEGIN --------
 
@@ -3937,6 +3985,7 @@ void get_chi2_fit (
 
   // Compute diag part first and precompute rz in each z bin to 
   // avoid redundant calculations when using covariance matrix.
+
   for(k=0; k < NSN; k++ )  { 
 
     z = HD0->z[k] ;
@@ -4005,6 +4054,15 @@ void get_chi2_fit (
     Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
     chi_hat    += sqmusiginv * dmu*dmu ;
 
+    // for STOP_DIAG speed trick, check every 9th event to reduce
+    // extra chi_tmp computations.
+    if ( USE_SPEED_STOP_DIAG && k%9==0 ) {
+      chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
+      nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
+      skip_offdiag = nsig_chi2 > nsig_chi2min_skip ; 
+      if ( skip_offdiag ) { goto MARG_H0 ; }
+    }
+
   } // end k
 
   
@@ -4012,30 +4070,19 @@ void get_chi2_fit (
   // check for adding off-diagonal terms from cov matrix.
   // If chi_hat(diag) is already > 10 sigma above naive chi2 -> 
   // skip off-diag computation to save time.
-  bool do_offdiag = false;
+
   if ( use_mucov ) {
-    if ( USE_SPEED_OFFDIAG ) {
+    if ( USE_SPEED_SKIP_OFFDIAG ) {
       chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
       nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
       do_offdiag = nsig_chi2 < nsig_chi2min_skip ;
-
-      /* xxxx
-      if ( fabs(w0+1.0) < 0.06  &&  fabs(OM-0.3)<0.02 ) {
-	printf(" xxx %s: ------------------------------ \n", fnam);
-	printf(" xxx %s: w0=%f  wa=%f  OM=%f \n",
-	       fnam, w0, wa, OM);
-	printf(" xxx %s: nsig=%.1f chi(hat,naive)=%.1f,%.1f  "
-	       "sig_naive=%.1f \n",
-	       fnam, nsig_chi2, chi_tmp, chi_hat_naive, sig_chi2min_naive);
-	debugexit(fnam); // xxxx remove
-	} xxxxx*/
-
     }
     else {
       do_offdiag = true ; 
     }
   }
 
+  // - - - - - - - - - - -  - - 
   // add off-diag elements if using cov matrix
   if ( do_offdiag ) {
     for ( k0=0; k0 < NSN-1; k0++) {
@@ -4065,6 +4112,8 @@ void get_chi2_fit (
      and add contribution from PRIOR(H0) = Gaussian instead of flat.
   */
   
+ MARG_H0:
+
   Csum    += 1./SQSIG_MUOFF ;  // H0 prior term
   *chi2sn  =  chi_hat - Bsum*Bsum/Csum ;
 

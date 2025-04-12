@@ -841,19 +841,23 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
 def get_HDcalc(config):
 
+    
     cospar_biascor = config['cospar_biascor']  # from BBCs M0DIF or FITRES output
-    OM_BBC   = cospar_biascor['OMEGA_MATTER']
-    ODE_BBC  = cospar_biascor['OMEGA_LAMBDA']
-    w0_BBC   = cospar_biascor['w0_LAMBDA']  # fragile alert; is this cheating ?
-    wa_BBC   = cospar_biascor['wa_LAMBDA']  # idem
+    legacy = False
+
+    if len(cospar_biascor) > 0:
+        OM_BBC   = cospar_biascor['OMEGA_MATTER']
+        ODE_BBC  = cospar_biascor['OMEGA_LAMBDA']
+        w0_BBC   = cospar_biascor['w0_LAMBDA']  # fragile alert; is this cheating ?
+        wa_BBC   = cospar_biascor['wa_LAMBDA']  # idem
+    else:
+        legacy = True
 
     # return calculated HD for input cospar
     zmin    = 0.001
     zmax    = 4.001
-
     z_grid  = np.geomspace(zmin, zmax, 4000)    
 
-    legacy = False
     if legacy:
         cosmo  = FlatLambdaCDM(H0=70, Om0=0.315)
     else:

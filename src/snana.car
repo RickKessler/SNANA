@@ -2378,7 +2378,7 @@ c
      &  ,FILTOBS_MAG_PRIMARY(MXFILT_ALL)      ! primary mag vs. ifilt_obs
      &  ,FILTOBS_ZPOFF_PRIMARY(MXFILT_ALL)    ! mag(native) - mag(synth)
      &  ,FILTOBS_ZPOFF_SNPHOT(MXFILT_ALL)     ! apply these ZPOFF to SNphot
-     &  ,FILTOBS_LAMSHIFT(MXFILT_ALL)         ! lambda shift per filter
+c xxx mark      &  ,FILTOBS_LAMSHIFT(MXFILT_ALL)         ! lambda shift per filter
 c
      &  ,FILTREST_TRANS(MXLAMBIN_FILT,MXFILT_ALL)   ! filter transmissions
      &  ,FILTREST_TRANSMAX(MXFILT_ALL)              ! max trans
@@ -2417,7 +2417,7 @@ c
      &   ,FILTOBS_LAMBDA, FILTOBS_LAMAVG, FILTOBS_LAMRMS
      &   ,FILTOBS_LAMRANGE
      &   ,FILTOBS_MAG_PRIMARY, FILTOBS_ZPOFF_PRIMARY
-     &   ,FILTOBS_ZPOFF_SNPHOT, FILTOBS_LAMSHIFT
+     &   ,FILTOBS_ZPOFF_SNPHOT     ! xxx mark , FILTOBS_LAMSHIFT
 c
      &   ,NLAMBIN_FILTREST, FILTREST_TRANS, FILTREST_TRANSMAX
      &   ,FILTREST_LAMBDA,  FILTREST_LAMAVG, FILTREST_LAMRMS
@@ -12015,7 +12015,7 @@ c define filter indices for Legacy filters
           FILTOBS_LAMRMS(ifilt)           = -9.0
           FILTOBS_LAMRANGE(1,ifilt)       = -9.0
           FILTOBS_LAMRANGE(2,ifilt)       = -9.0
-          FILTOBS_LAMSHIFT(ifilt)         =  0.0
+c xxx mark           FILTOBS_LAMSHIFT(ifilt)         =  0.0
           NLAMBIN_FILTOBS(ifilt)          =  0
 
           FILTREST_TRANSMAX(ifilt)         =  0.0

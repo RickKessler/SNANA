@@ -597,7 +597,7 @@ c namelist input variables.
      &   ,FILTLIST_DMPFCN*20      ! I: idem for CHI2FUN [FCN] dump
      &   ,FILTLIST_DMPFUN*20      ! I: idem for USRFUN [flux-fun] dump
      &   ,NEARFILT_IGNORE_REST*20 ! I: ignore these nearest rest-filters
-     &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
+c xxx mark      &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
      &   ,FILTER_FITMAGDIF*4      ! I: fit magObs in this filter 2 ways for test
      &   ,CCID_DUMP_CHI2_MATRIX*20  ! I: CID to print each chi2 term in matrix
      
@@ -829,7 +829,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
      &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
-     &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
+     &   ,NEARFILT_IGNORE_REST    ! xxxx mark , FILTLAM_SHIFT
      &   ,DOFIT_FILT, DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
      &   ,LDMP_PHOTOZ_DROPFILTER
      &   ,LDMPFCN, LDMPFUN
@@ -905,7 +905,7 @@ c ------
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
      &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
-     &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
+     &   ,NEARFILT_IGNORE_REST    ! xxxx mark , FILTLAM_SHIFT
      &   ,DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
      &   ,LDMP_PHOTOZ_DROPFILTER
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
@@ -1424,11 +1424,13 @@ c Parse filter lambda-shifts;
 c OPT=0 to NOT error-check filter because Bessell-B 
 c is usually not an observer-frame filter.
 
-      CALL PARSE_FILTSTRING(0, FILTLAM_SHIFT, NF_DEF, iafilt, xafilt )
-      DO i = 1, NF_DEF
-         ifiltdef            = IAFILT(i)
-         FILTOBS_LAMSHIFT(ifiltdef) = xafilt(i)  ! global R*4 storage
-      ENDDO
+c xxxxxxx mark delete Apr 12 2025 xxxxxxxx
+c      CALL PARSE_FILTSTRING(0, FILTLAM_SHIFT, NF_DEF, iafilt, xafilt )
+c      DO i = 1, NF_DEF
+c         ifiltdef            = IAFILT(i)
+c         FILTOBS_LAMSHIFT(ifiltdef) = xafilt(i)  ! global R*4 storage
+c      ENDDO
+c xxxxxxxxxxxxxxxxx
 
 c ---------------------
 c print WARNING if fitting subset of filters.
@@ -3252,7 +3254,9 @@ c now init each filter.
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
          cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
 
-         LAMSHIFT = DBLE(FILTOBS_LAMSHIFT(ifilt_obs))
+	 ! xxx mark delete Apr 12 2025 LAMSHIFT = DBLE(FILTOBS_LAMSHIFT(ifilt_obs))
+
+         LAMSHIFT = FILTER_LAMSHIFT_FILT(ifilt_obs) ! Apr 12 2025 fix
 
 c pass ifilt_obs; everything else is returned.
 c VALa = transSN, VALb = transREF8
@@ -7458,7 +7462,7 @@ c Aug 17 2015: from snlc_sim.defaults since this is no longer read
       FILTLIST_FIT    = ''
       FILTLIST_DMPFCN = ''
       FILTLIST_DMPFUN = ''
-      FILTLAM_SHIFT   = ''
+c xxx mark       FILTLAM_SHIFT   = ''
       TREST_DMPFUN(1) = -999.
       TREST_DMPFUN(2) = +999.
       SCALE_PLOTCHI2 = 1.0  ! scale range to plot chi2
@@ -7785,8 +7789,10 @@ C -------------- BEGIN --------------
         else if ( MATCH_NMLKEY('OPT_SALT2FIT', 1,i,ARGLIST) ) then
             READ(ARGLIST(1),*) OPT_SALT2FIT
 
-        else if ( MATCH_NMLKEY('FILTLAM_SHIFT', 1,i,ARGLIST) ) then
-            READ(ARGLIST(1),*) FILTLAM_SHIFT 
+c xxxxxxxx mark delete xxxx
+c        else if ( MATCH_NMLKEY('FILTLAM_SHIFT', 1,i,ARGLIST) ) then
+c            READ(ARGLIST(1),*) FILTLAM_SHIFT 
+c xxxxx mark
 
         else if ( MATCH_NMLKEY('SIMEFF_FILE', 1,i,ARGLIST) ) then
             READ(ARGLIST(1),*) SIMEFF_FILE

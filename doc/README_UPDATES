@@ -22951,5 +22951,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + skip muerr_renorm() if BEAMS/CCPRIOR is not used.
      + for "CUTWIN NONE" option, allow sim prescale cut to be applied.
 
+   wfit.c
+     + add new (optional) speed trick to stop chi2(diag) > threshold;
+       speed_flag_chi2=7 (default is 3) 
 
 END: 

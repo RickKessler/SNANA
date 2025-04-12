@@ -224,6 +224,8 @@ void  relabel_rownum(int ifile);
 #define MXSTRLEN_VERSION  32 // photometry versoin, added Dec 2016
 
 #define IVARSTR_CCID  0   // CCID index for CVAR_XXX arrays
+int IVARSTR_SURVEY ;      // optinal match to CCID_SURVEY
+int IVARSTR_FIELD  ;      // optional match to CCID_SURVEY_FIELD
 
 // logicals to control which output files to create
 int CREATEFILE_HBOOK, CREATEFILE_ROOT, CREATEFILE_TEXT ;

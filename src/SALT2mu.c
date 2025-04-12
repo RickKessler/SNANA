@@ -7365,8 +7365,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
 
   sprintf(vartmp,"IDSURVEY:S" ); // S -> short int
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->IDSURVEY[ISTART], 
-			  LEN, OPTMASK_WARN );
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->IDSURVEY[ISTART], 
+				 LEN, OPTMASK_WARN );
 
   sprintf(vartmp,"OPT_PHOTOZ:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->OPT_PHOTOZ[ISTART],
@@ -7698,7 +7698,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 #endif
 
 
-  if ( NVAR_REQ_MISS > 0 ) {
+  if ( NVAR_REQ_MISS > 0 && !INPUTS.cat_only ) {
     sprintf(c1err,"%d required variables missing.", NVAR_REQ_MISS);
     sprintf(c2err,"Scroll back to see SNTABLE_READPREP_VARDEF  warnings.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 

@@ -477,17 +477,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	strcat(STRINGID, ctmp);
       }
       
-      /* xxxxxxxxxxxxxxx mark delete Feb 24 2025 xxxx
-      if ( USE_IDSURVEY ) {
-	DVAL     = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IDSURVEY][isn];
-	IDSURVEY = (int)DVAL ;
-	sprintf(STRINGID,"%s_%d", CCID, IDSURVEY); 
-      }
-      else {
-	sprintf(STRINGID,"%s", CCID); 
-      }
-      xxxxxxx end mark xxxxxxxxx */
-
       match_cid_hash(STRINGID, ILIST, ISNOFF+isn);
       
       // check option to store extra columns of info

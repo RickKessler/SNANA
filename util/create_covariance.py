@@ -198,6 +198,13 @@ WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
 
+WRITE_FORMAT_COV_TEXT = "text"
+WRITE_FORMAT_COV_NPZ  = "npz"
+SUFFIX_COV_DICT = {
+    WRITE_FORMAT_COV_TEXT:  'txt.gz' ,
+    WRITE_FORMAT_COV_NPZ :  'npz'
+}
+
 VARNAME_CID          = "CID"  # for unbinned fitres files
 VARNAME_ROW          = "ROW"  # for binned M0DIF files
 VARNAME_IDSURVEY     = "IDSURVEY"
@@ -335,6 +342,10 @@ def get_args():
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
+    msg = f"output cov format: default = {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}"
+    parser.add_argument("--write_format_cov", help=msg,
+                        nargs='?', type=str, default=WRITE_FORMAT_COV_TEXT )
+
     
     msg = "Max HD size to run posdef test on covtot_inv (beware it's slow for big matrix)"
     parser.add_argument("--mxsize_test_posdef", help=msg,
@@ -348,10 +359,6 @@ def get_args():
     parser.add_argument("--debug_flag", help=msg,
                         nargs='?', type=int, default=0 ) 
     
-    msg = "write cov in compressed npz file"
-    parser.add_argument("--write_npz", help=msg, 
-                        action="store_true")
-
     # parse it
     args = parser.parse_args()
     if args.subtract_vpec:
@@ -360,15 +367,22 @@ def get_args():
     if (args.nbin_x1>0 or args.nbin_c>0): 
         args.unbinned = False  # recommended by D.Brout, Aug 8 2022
 
+    
+    if args.write_format_cov == WRITE_FORMAT_COV_TEXT:
+        args.write_cov_text = True
+        args.write_cov_npz  = False
+    elif args.write_format_cov == WRITE_FORMAT_COV_NPZ:
+        args.write_cov_text = False
+        args.write_cov_npz  = True
+    else:
+        sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}") 
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit()
 
     if args.HELP : 
         print_help_menu()
-
-    if args.debug_flag == -125:
-        global FLAG_REDUCE_MEMORY ; FLAG_REDUCE_MEMORY = False
     
     return args
     # end get_args
@@ -1300,7 +1314,6 @@ def write_standard_output(config, args, covsys_list, base,
 
     unbinned       = args.unbinned
     label_cov_rows = args.label_cov_rows
-    write_npz      = args.write_npz
     outdir         = Path(os.path.expandvars(config["OUTDIR"]))
     os.makedirs(outdir, exist_ok=True)
 
@@ -1340,12 +1353,14 @@ def write_standard_output(config, args, covsys_list, base,
         logging.info(f"# - - - - - - - - - - - - - - - - - - - -")
         
         if config['write_covsys']:
-            base_file   = get_covsys_filename(i, npz=write_npz)
+            base_file   = get_covsys_filename(i, args.write_format_cov)
             cov_file    = outdir / base_file
-            if write_npz:
+
+            if args.write_cov_npz:
                 t_write = write_covariance_npz(cov_file, covsys)
             else:  
-                t_write = write_covariance(cov_file, covsys, opt_cov, data)
+                t_write = write_covariance_text(cov_file, covsys, opt_cov, data)
+
             args.t_write_sum += t_write
 
         # Apr 2024: check writing covtot_inv 
@@ -1356,10 +1371,11 @@ def write_standard_output(config, args, covsys_list, base,
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
             base_file   = get_covtot_inv_filename(i)
             cov_file    = outdir / base_file
-            if write_npz:
+
+            if args.write_cov_npz:
                 t_write = write_covariance_npz(cov_file, covtot_inv)
             else:  
-                t_write = write_covariance(cov_file, covtot_inv, opt_cov, data)
+                t_write = write_covariance_text(cov_file, covtot_inv, opt_cov, data)
             args.t_write_sum += t_write
 
             # resource control/monitor
@@ -1372,13 +1388,12 @@ def write_standard_output(config, args, covsys_list, base,
     # end write_standard_output
 
 
-def get_covsys_filename(i, npz=False):
+def get_covsys_filename(i, write_format_cov):
     # Created Oct 13 2022 by R.Kessler: 
     # return name of covsys file for systematic index i
-    if npz:
-        cov_file   = f"{PREFIX_COVSYS}_{i:03d}.npz"
-    else:
-        cov_file   = f"{PREFIX_COVSYS}_{i:03d}.txt.gz"
+    prefix     = f"{PREFIX_COVSYS}_{i:03d}"
+    suffix     = SUFFIX_COV_DICT[write_format_cov]
+    cov_file   = prefix + '.' + suffix
     return cov_file
     # end get_covsys_filename
 
@@ -1447,7 +1462,7 @@ def write_cosmomc_output(config, args, covs, base):
         dataset_file = out / f"dataset_{i}.txt"
         covsyst_file = out / f"{prefix_covsys}_{i}.txt" 
 
-        t_write = write_covariance(covsyst_file, cov, opt_cov, None)
+        t_write = write_covariance_text(covsyst_file, cov, opt_cov, None)
         write_cosmomc_dataset(dataset_file, data_file, 
                               covsyst_file, dataset_template)
         dataset_files.append(dataset_file)
@@ -1720,12 +1735,12 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
     return
     # end write_HD_comments
 
-def write_covariance(path, cov, opt_cov, data):
-    # Inputs :
-    # path : the filename of the output covariance matrix
-    # cov : covariance matrix
+def write_covariance_text(path, cov, opt_cov, data):
+    # Inputs  :
+    # path    : the filename of the output covariance matrix
+    # cov     : covariance matrix
     # opt_cov : 1 --> label each row (for diagnostics)
-    # data : information for opt_cov = 1 
+    # data    :  information for opt_cov = 1 
     # write cov matrix to path; return time to write (seconds)
 
     add_labels     = (opt_cov == 1) # label some elements for human readability
@@ -1804,21 +1819,21 @@ def write_covariance(path, cov, opt_cov, data):
     f.close()
     t_write = time.time() - t0
     return t_write
-    # end write_covariance
+    # end write_covariance_text
 
 
 def write_covariance_npz(path, cov):
     # Inputs :
-    # path : the filename of the output covariance matrix
-    # cov : covariance matrix
-    # write cov matrix to path; return time to write (seconds)
+    #   path : the filename of the output covariance matrix
+    #   cov  : covariance matrix
+    # write cov matrix to path in npz format; 
+    # return time to write (seconds)
 
     file_base      = os.path.basename(path)
     path_no_ext    = os.path.splitext(path)[0]
     t0             = time.time()
 
     logging.info(f"Write to {file_base}")
-
     np.savez_compressed(path_no_ext, cov=cov[np.triu_indices_from(cov)])
 
     t_write = time.time() - t0
@@ -1862,15 +1877,13 @@ def write_summary_output(args, config, covsys_list, base):
     info  = {} # init dictionary to dump to info file
 
     info['HD']      = HD_FILENAME
-    write_npz       = args.write_npz
-
 
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):
         covsys_file     = None
         covtot_inv_file = None
         if config['write_covsys']:
-            covsys_file = get_covsys_filename(i, npz=write_npz)
+            covsys_file = get_covsys_filename(i, args.write_format_cov)
         
         if config['write_covtot_inv']:
             covtot_inv_file = get_covtot_inv_filename(i)
@@ -1885,14 +1898,6 @@ def write_summary_output(args, config, covsys_list, base):
     
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
-
-    # xxxxxxxxxx mark delete Feb 26 2 205 xxxxxxxxxx
-    #sim_version = None
-    #for key,item in config['hd_header_info'].items() :
-    #    info[key] = item       # store stuff from BBC table 
-    #    if 'BIASCOR' in key :  # fetch biasCor sim version
-    #        sim_version    = item[0]
-    # xxxxxxxxxxxx end mark xxxxxxxxxx
 
     # - - - - - - - 
     info2 = {}

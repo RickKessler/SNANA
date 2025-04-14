@@ -187,6 +187,7 @@ SUFFIX_FITRES = "FITRES"
 
 PREFIX_COVSYS     = "covsys"
 PREFIX_COVTOT_INV = "covtot_inv"
+PREFIX_COVTOT = "covtot"
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 
@@ -196,7 +197,9 @@ INFO_YML_FILENAME = "INFO.YML"
 #  arg --write_mask_cov can override default.
 WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
+WRITE_MASK_COVTOT       = 4
 WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
+
 
 WRITE_FORMAT_COV_TEXT = "text"
 WRITE_FORMAT_COV_NPZ  = "npz"
@@ -1382,9 +1385,23 @@ def write_standard_output(config, args, covsys_list, base,
             del covtot_inv   # avoid memory pile up (Jan 2025)
             gc.collect()     # ensure release of memory               
             args.t_invert_sum += t_invert            
-            
-    return
+        
+        if config['write_covtot']:
+            base_file  = get_covtot_filename(i, args.write_format_cov)
+            cov_file   = outdir / base_file
+            covtot     = covsys + np.diag(base[VARNAME_MUERR]**2) # cov
 
+            if args.write_cov_npz:
+                t_write = write_covariance_npz(cov_file, covtot)
+            else:  
+                t_write = write_covariance_text(cov_file, covtot, opt_cov, data)
+            args.t_write_sum += t_write
+
+            # resource control/monitor
+            del covtot
+            gc.collect() 
+
+    return
     # end write_standard_output
 
 
@@ -1397,6 +1414,7 @@ def get_covsys_filename(i, write_format_cov):
     return cov_file
     # end get_covsys_filename
 
+
 def get_covtot_inv_filename(i, write_format_cov):
     # Created Apr 2024
     # return name of covtot_inv file for systematic index i
@@ -1406,6 +1424,18 @@ def get_covtot_inv_filename(i, write_format_cov):
     cov_file   = prefix + '.' + suffix
     return cov_file
     # end get_covtot_inv_filename
+
+
+def get_covtot_filename(i, write_format_cov):
+    # Created Apr 2024
+    # return name of covtot file for systematic index i
+
+    prefix     = f"{PREFIX_COVTOT}_{i:03d}"
+    suffix     = SUFFIX_COV_DICT[write_format_cov]
+    cov_file   = prefix + '.' + suffix
+    return cov_file
+    # end get_covtot_filename
+
 
 def get_muerr_sys(covs):
 
@@ -1837,7 +1867,11 @@ def write_covariance_npz(path, cov):
     t0             = time.time()
 
     logging.info(f"Write to {file_base}")
-    np.savez_compressed(path_no_ext, cov=cov[np.triu_indices_from(cov)])
+    np.savez_compressed(
+        path_no_ext,
+        nsn=[len(cov)],
+        cov=cov[np.triu_indices_from(cov)].astype(np.float32),
+        allow_pickle=False)
 
     t_write = time.time() - t0
     return t_write
@@ -2231,13 +2265,18 @@ def prep_config(config,args):
     # Apr 28 2024: check which COV(s) to write
     config['write_covsys']     = False
     config['write_covtot_inv'] = False
+    config['write_covtot']     = False
+
     if args.write_mask_cov & WRITE_MASK_COVSYS:
         config['write_covsys'] = True
     if args.write_mask_cov & WRITE_MASK_COVTOT_INV:
         config['write_covtot_inv'] = True  
+    if args.write_mask_cov & WRITE_MASK_COVTOT:
+        config['write_covtot'] = True
 
     logging.info(f"WRITE_COVSYS:       {config['write_covsys']}")
     logging.info(f"WRITE_COVTOT_INV:   {config['write_covtot_inv']}")
+    logging.info(f"WRITE_COVTOT:   {config['write_covtot']}")
     logging.info(f"FLAG_REDUCE_MEMORY: {FLAG_REDUCE_MEMORY} ")
     logging.info(f"Check pos-def on covtot_inv for HD size <= {args.mxsize_test_posdef}")
     

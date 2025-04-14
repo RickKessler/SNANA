@@ -1,11 +1,6 @@
 # $Source: /cvs/sdss/snana/src/Makefile,v $
 # $Revision: 1.500 $    Last Modified: $Date: 2019/05/02 20:24:47 $
 #
-# TO DO (Sep 2022):
-#     You can define C macro variables via -D gcc flag, 
-#     for example -D USE_PYTHON -D MY_VARIABLE=206265. 
-#      In Makefile you can add it to pre-processor flags, e.g. CPPFLAGS 
-#
 #
 #  R.Kessler 
 #
@@ -43,6 +38,7 @@
 # Feb 24 2024: switch -O1 to -O2 optimizer (20% faster photo-z fits)
 # Mar 22 2024: fix kcor to link with genmag_SEDtools.o
 # Apr 12 2024: few tweaks to handle sntools_wgtmap.c[h]
+# Apr 13 2025: add cnpy for wfit to read cov matrix in optional npz format
 #
 # ------------------------------------------------------------------------
 
@@ -134,9 +130,7 @@ ifeq ($(USE_ROOT),0)
    CPPLIB   = 
    SNTOOLS_ROOT = 
 else
-#   $(info EXTRA_FLAGS_CPLUS = $(EXTRA_FLAGS_CPLUS))
    CCoutput    = c++ $(EXTRA_FLAGS_CPLUS)
-#   CCoutput    = $(EXTRA_FLAGS_CPLUS)
    CPPLIB      = -lstdc++
    IROOT       = -I/$(ROOT_DIR)/include -I/opt/local/include/freetype2
    ROOT_LIBDIR = $(LIB_SDIR)
@@ -412,17 +406,25 @@ $(OBJ)/minuit.o :  minuit.F
 $(OBJ)/yaml.o : $(SRC)/yaml.c $(SRC)/yaml.h
 	(cd $(OBJ); $(CC) $(SNCFLAGS)  $(SRC)/yaml.c )
 
+$(OBJ)/cnpy.o : $(SRC)/cnpy.cpp $(SRC)/cnpy.h
+	(cd $(OBJ); $(CC) $(SNCFLAGS)  $(SRC)/cnpy.cpp )
+
 # -----------------------------------------------------
 #  cosmology fitter (from Alex Connelly, modified by G.Miknaitis & RK)
 
 $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/wfit.c ) 
 
-$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
+$(OBJ)/sntools_npz.o : $(SRC)/sntools_npz.c
+	(cd $(OBJ); $(CCoutput) $(SNCFLAGS)  $(SRC)/sntools_npz.c )
+
+$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o  $(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/wfit.o  \
 	$(OBJ)/sntools.o  \
 	$(OBJ)/sntools_output.o  \
+	$(OBJ)/sntools_npz.o 	\
+	$(OBJ)/cnpy.o 		\
 	$(OBJ)/sntools_cosmology.o \
 	$(LCERN) $(LROOT) $(CPPLIB) \
 	$(LCFITSIO)  \
@@ -447,10 +449,6 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 
 # -------------------------------------------
 # SALT2mu : convert SALT2 parameters (c,x1,x0) into distances
-
-#$(OBJ)/sntools_eigen.o :  sntools_eigen.F
-#	(cd $(OBJ); \
-#	$(FFC) $(SNFFLAGS) $(SRC)/sntools_eigen.F)
 
 
 $(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F

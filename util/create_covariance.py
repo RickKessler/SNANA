@@ -1369,7 +1369,7 @@ def write_standard_output(config, args, covsys_list, base,
             # perform inversion here, then delete it from memory after writing it to file.
             covtot_inv, t_invert  = \
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
-            base_file   = get_covtot_inv_filename(i)
+            base_file   = get_covtot_inv_filename(i, args.write_format_cov)
             cov_file    = outdir / base_file
 
             if args.write_cov_npz:
@@ -1397,10 +1397,13 @@ def get_covsys_filename(i, write_format_cov):
     return cov_file
     # end get_covsys_filename
 
-def get_covtot_inv_filename(i):
+def get_covtot_inv_filename(i, write_format_cov):
     # Created Apr 2024
     # return name of covtot_inv file for systematic index i
-    cov_file   = f"{PREFIX_COVTOT_INV}_{i:03d}.txt.gz"
+
+    prefix     = f"{PREFIX_COVTOT_INV}_{i:03d}"
+    suffix     = SUFFIX_COV_DICT[write_format_cov]
+    cov_file   = prefix + '.' + suffix
     return cov_file
     # end get_covtot_inv_filename
 
@@ -1886,7 +1889,7 @@ def write_summary_output(args, config, covsys_list, base):
             covsys_file = get_covsys_filename(i, args.write_format_cov)
         
         if config['write_covtot_inv']:
-            covtot_inv_file = get_covtot_inv_filename(i)
+            covtot_inv_file = get_covtot_inv_filename(i, args.write_format_cov)
             
         covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
         if i==0:

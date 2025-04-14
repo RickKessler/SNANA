@@ -160,6 +160,14 @@
 #   + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
 #
 # Apr 1 2025: write MUSIM(biasCor) column to hubble_diagram (diagnostic for sim only)
+#
+# Apr 14 2205 R.Kessler and B.Carreres
+#   + new input --write_format_cov text [or npz] to. Current default is still text,
+#     but will soon change default to npz. See corresponding wfit change to read npz.
+#   + npz output is upper-triangle and 4-byte float (to reduce disk output)
+#   + default output is now COVTOT_INV only (no more COVSYS unless specifically requested)
+#   + new option to write COVTOT (--write_mask_cov += 4)
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -198,7 +206,8 @@ INFO_YML_FILENAME = "INFO.YML"
 WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
-WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
+WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
+# xxx mark WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
 
 
 WRITE_FORMAT_COV_TEXT = "text"
@@ -340,8 +349,9 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
-    msg = "Define which COV(s) to write: 1=only covsys, " \
-        "2=only covtot_inv, 3=both (default)"
+    msg = "Define which COV(s) to write: covsys/covtot_inv/covtot -> +=  " \
+          f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT} ;  " \
+          f"7 -> write all 3 covs"
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
@@ -1356,7 +1366,8 @@ def write_standard_output(config, args, covsys_list, base,
         logging.info(f"# - - - - - - - - - - - - - - - - - - - -")
         
         if config['write_covsys']:
-            base_file   = get_covsys_filename(i, args.write_format_cov)
+            # xxx mark base_file   = get_covsys_filename(i, args.write_format_cov)
+            base_file   = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
             cov_file    = outdir / base_file
 
             if args.write_cov_npz:
@@ -1372,7 +1383,8 @@ def write_standard_output(config, args, covsys_list, base,
             # perform inversion here, then delete it from memory after writing it to file.
             covtot_inv, t_invert  = \
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
-            base_file   = get_covtot_inv_filename(i, args.write_format_cov)
+            # xxx mark base_file   = get_covtot_inv_filename(i, args.write_format_cov)
+            base_file   = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
             cov_file    = outdir / base_file
 
             if args.write_cov_npz:
@@ -1387,7 +1399,8 @@ def write_standard_output(config, args, covsys_list, base,
             args.t_invert_sum += t_invert            
         
         if config['write_covtot']:
-            base_file  = get_covtot_filename(i, args.write_format_cov)
+            # xxx mark base_file  = get_covtot_filename(i, args.write_format_cov)
+            base_file   = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
             cov_file   = outdir / base_file
             covtot     = covsys + np.diag(base[VARNAME_MUERR]**2) # cov
 
@@ -1405,37 +1418,14 @@ def write_standard_output(config, args, covsys_list, base,
     # end write_standard_output
 
 
-def get_covsys_filename(i, write_format_cov):
+def get_cov_filename(i, prefix, write_format_cov):
     # Created Oct 13 2022 by R.Kessler: 
-    # return name of covsys file for systematic index i
-    prefix     = f"{PREFIX_COVSYS}_{i:03d}"
+    # return name of cov file for input prefix and systematic index i
+    prefix_plus_index  = f"{prefix}_{i:03d}"
     suffix     = SUFFIX_COV_DICT[write_format_cov]
-    cov_file   = prefix + '.' + suffix
+    cov_file   = prefix_plus_index + '.' + suffix
     return cov_file
-    # end get_covsys_filename
-
-
-def get_covtot_inv_filename(i, write_format_cov):
-    # Created Apr 2024
-    # return name of covtot_inv file for systematic index i
-
-    prefix     = f"{PREFIX_COVTOT_INV}_{i:03d}"
-    suffix     = SUFFIX_COV_DICT[write_format_cov]
-    cov_file   = prefix + '.' + suffix
-    return cov_file
-    # end get_covtot_inv_filename
-
-
-def get_covtot_filename(i, write_format_cov):
-    # Created Apr 2024
-    # return name of covtot file for systematic index i
-
-    prefix     = f"{PREFIX_COVTOT}_{i:03d}"
-    suffix     = SUFFIX_COV_DICT[write_format_cov]
-    cov_file   = prefix + '.' + suffix
-    return cov_file
-    # end get_covtot_filename
-
+    # end get_cov_filename
 
 def get_muerr_sys(covs):
 
@@ -1866,12 +1856,13 @@ def write_covariance_npz(path, cov):
     path_no_ext    = os.path.splitext(path)[0]
     t0             = time.time()
 
-    logging.info(f"Write to {file_base}")
+    logging.info(f"Write to {file_base} ")
+
     np.savez_compressed(
         path_no_ext,
-        nsn=[len(cov)],
-        cov=cov[np.triu_indices_from(cov)].astype(np.float32),
-        allow_pickle=False)
+        nsn = [len(cov)],
+        cov = cov[np.triu_indices_from(cov)].astype(np.float32),
+        allow_pickle = False)
 
     t_write = time.time() - t0
     return t_write
@@ -1920,10 +1911,10 @@ def write_summary_output(args, config, covsys_list, base):
         covsys_file     = None
         covtot_inv_file = None
         if config['write_covsys']:
-            covsys_file = get_covsys_filename(i, args.write_format_cov)
+            covsys_file = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
         
         if config['write_covtot_inv']:
-            covtot_inv_file = get_covtot_inv_filename(i, args.write_format_cov)
+            covtot_inv_file = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
             
         covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
         if i==0:
@@ -1996,14 +1987,6 @@ def get_cospar_sim(hd_header_info):
     if sim_version is None:
         logging.info(f" Cannot find sim_version for biasCor in BBC-HD header info")
         return {}
-
-        # xxxxx mark delete Mar 09 2025 xxxxxxxxx
-        #logging.info('')
-        #logging.info(f" Pre-abort:  hd_header_info =  \n{hd_header_info}")
-        #sys.stdout.flush()
-        #msgerr = f" Cannot find sim_version for biasCor in BBC-HD header info"
-        #assert False, msgerr    
-        # xxxxxxxxxxxxx
 
     # - - - - -
     cospar_sim = {}  # init output dictionary

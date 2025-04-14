@@ -7,7 +7,7 @@
 extern"C" {
 #endif
 
-  int read_npz_array(char *npz_file, double *array1d);
+  int read_npz_covmat(char *npz_file, double *array1d);
 
   void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
   void  print_banner ( const char *banner ) ;

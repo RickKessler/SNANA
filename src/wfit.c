@@ -1818,6 +1818,9 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   // - - - - - - -
   t_start_read = time(NULL);
 
+  MUCOV->NDIM    = NSN_ORIG; // read entire COV without cuts
+  malloc_COVMAT(+1,MUCOV);
+
   if ( ISFORMAT_TEXT ) {
     NMAT_read = read_mucov_text(inFile, NSN_ORIG, MUCOV);
   }
@@ -1934,8 +1937,10 @@ int read_mucov_text(char *inFile, int NSN,  COVMAT_DEF *MUCOV) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
+      /*** xxx mark delete xxxx
       MUCOV->NDIM    = NDIM_ORIG; // read entire COV without cuts
       malloc_COVMAT(+1,MUCOV);
+      xxxxx end mark xxxx*/
 
       NMAT_ORIG = NDIM_ORIG * NDIM_ORIG ;
       XMTOT = (double)(NMAT_ORIG) * 1.0E-6 ;
@@ -1976,21 +1981,27 @@ int read_mucov_text(char *inFile, int NSN,  COVMAT_DEF *MUCOV) {
 
 
 // ===========================================================
-int  read_mucov_npz(char *npz_cov_file, int NSN, COVMAT_DEF *MUCOV) {
+int read_mucov_npz(char *npz_cov_file, int NSN, COVMAT_DEF *MUCOV) {
 
   // Created Apr 2025
   // Read cov matrix writtin by python in npz format.
-
   int NMAT_read = 0 ;
-  char fnam[] = "read_mucov_npz" ;
+  char fnam[] = "read_npz_covmat" ;
 
   // ---------- BEGIN -----------
 
-  NMAT_read = read_npz_array(npz_cov_file, MUCOV->ARRAY1D);
+  NMAT_read = read_npz_covmat(npz_cov_file, MUCOV->ARRAY1D);
+
+  if ( NMAT_read != NSN ) {
+    sprintf(c1err,"Expected %d^2 cov matrix", NSN) ;
+    sprintf(c2err,"but read %d^2 cov matrix", NMAT_read );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
 
   return NMAT_read;
-
 } // end read_mucov_npz
+
+
 
 // =================================================================
 void read_mucov_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){

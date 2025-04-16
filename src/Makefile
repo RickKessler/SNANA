@@ -418,7 +418,7 @@ $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 $(OBJ)/sntools_npz.o : $(SRC)/sntools_npz.c
 	(cd $(OBJ); $(CCoutput) $(SNCFLAGS)  $(SRC)/sntools_npz.c )
 
-$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o  $(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
+$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/wfit.o  \
 	$(OBJ)/sntools.o  \

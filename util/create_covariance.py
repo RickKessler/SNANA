@@ -212,6 +212,8 @@ WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14
 
 WRITE_FORMAT_COV_TEXT = "text"
 WRITE_FORMAT_COV_NPZ  = "npz"
+WRITE_FORMAT_COV_DEFAULT = WRITE_FORMAT_COV_NPZ
+
 SUFFIX_COV_DICT = {
     WRITE_FORMAT_COV_TEXT:  'txt.gz' ,
     WRITE_FORMAT_COV_NPZ :  'npz'
@@ -349,15 +351,21 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
-    msg = "Define which COV(s) to write: covsys/covtot_inv/covtot -> +=  " \
-          f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT} ;  " \
-          f"7 -> write all 3 covs"
+    mmm = f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT}"
+    msg = f"Define which COV(s) to write: +={mmm} -> covsys/covtot_inv/covtot ; " \
+          f"{WRITE_MASK_COV_DEFAULT}=default;  7 -> write all 3 covs "
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
-    msg = f"output cov format: default = {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}"
+    # xxxx mark delete
+    #msg = f"output cov format: default = {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}"
+    #parser.add_argument("--write_format_cov", help=msg,
+    #                    nargs='?', type=str, default=WRITE_FORMAT_COV_TEXT )
+    # xxxxx
+
+    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ} (default: {WRITE_FORMAT_COV_DEFAULT})"
     parser.add_argument("--write_format_cov", help=msg,
-                        nargs='?', type=str, default=WRITE_FORMAT_COV_TEXT )
+                        nargs='?', type=str, default=WRITE_FORMAT_COV_DEFAULT )
 
     
     msg = "Max HD size to run posdef test on covtot_inv (beware it's slow for big matrix)"

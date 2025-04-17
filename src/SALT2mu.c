@@ -5488,8 +5488,8 @@ void set_defaults(void) {
 
   INPUTS.nbinc_mucovscale  = 3 ;
 
-  INPUTS.logmass_min  = -20.0 ;
-  INPUTS.logmass_max  = +20.0 ;
+  INPUTS.logmass_min  = -40.0 ;
+  INPUTS.logmass_max  = +40.0 ;
   INPUTS.nbin_logmass =  1 ; 
 
   INPUTS.chi2max       = 1.0E9 ;
@@ -8906,10 +8906,17 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT  = dif / (double)nb ;
 
   // logmass 
-  dif = INPUTS.logmass_max - INPUTS.logmass_min; nb=INPUTS.nbin_logmass ;
+  dif = INPUTS.logmass_max - INPUTS.logmass_min; nb=INPUTS.nbin_logmass ;  
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =  INPUTS.logmass_min ;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  INPUTS.logmass_max ;
   SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =  dif / (double)nb ;
+
+  // sanity check, Apr 17 2025
+  if ( nb > 1 && INPUTS.logmass_min == -40.0 && INPUTS.logmass_max == 40.0 ) {
+    sprintf(c1err,"nbin_logmass=%d but did not specify log mass range;", nb);
+    sprintf(c2err,"Must provide inputs logmass_min and logmass_max");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
     SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  

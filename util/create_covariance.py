@@ -168,6 +168,8 @@
 #   + default output is now COVTOT_INV only (no more COVSYS unless specifically requested)
 #   + new option to write COVTOT (--write_mask_cov += 4)
 #
+# Apr 17 2025: read VERSION_PHOTOMETRY keys from BBC FITRES file and write them to INFO.YAML
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -1909,7 +1911,9 @@ def write_summary_output(args, config, covsys_list, base):
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
     # Feb 17 2025: write BBC_DIR 
 
-    out   = Path(config["OUTDIR"])
+    out        = Path(config["OUTDIR"])
+    BBC_DIR    = str(Path(config['data_dir']))
+
     info  = {} # init dictionary to dump to info file
 
     info['HD']      = HD_FILENAME
@@ -1935,9 +1939,12 @@ def write_summary_output(args, config, covsys_list, base):
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
 
+    version_phot_dict = get_version_photomety(BBC_DIR)
+    for key, val  in version_phot_dict.items():
+        info[key] = val
+
     # - - - - - - - 
     info2 = {}
-    BBC_DIR         = str(Path(config['data_dir']))
     BBC_INFO_FILE   = f"{os.path.dirname(BBC_DIR)}/SUBMIT.INFO" 
     info2['BBC_DIR']        = BBC_DIR  # Feb 17 2025    
     info2['BBC_INFO_FILE']  = BBC_INFO_FILE
@@ -1971,6 +1978,34 @@ def write_summary_output(args, config, covsys_list, base):
 
     return
     # end write_summary_output
+
+
+def get_version_photomety(BBC_DIR):
+    # read top of FITOPT000_MUOPT000.FITRES.gz and extract
+    # all of the commented VERSION_PHOTOMETRY keys;
+    # return dictionary.
+    version_phot_dict = {}
+
+    # define a few hard-wired goodies:
+    base_fitopt_file = 'FITOPT000_MUOPT000.FITRES.gz'
+    key_version_phot = 'VERSION_PHOTOMETRY'
+
+    FF               = f"{BBC_DIR}/{base_fitopt_file}"
+    with gzip.open(FF,"r") as f:
+        line_list = f.readlines()
+        
+    for line in line_list:
+        line  = line.decode('utf-8')
+        wdlist = line.split()
+        if key_version_phot in line:
+            key = wdlist[1].replace(':','')
+            val = wdlist[2]
+            version_phot_dict[key] = val
+
+        if 'SNANA_VERSION' in line: break
+
+    # .xyz
+    return version_phot_dict
 
 def get_cospar_sim(hd_header_info):
 

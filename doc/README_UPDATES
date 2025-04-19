@@ -22906,6 +22906,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
       + new &SNLCINP inputs CUTWIN_TOBS_PREDETECT and CUTWIN_NOBS_PREDETECT (see manual)
 
+      + OPT_REFORMAT_FITS += 32 -> replace [band] with [SURVEY]-[band] in reformat.
+
     submit_batch_jobs:
        + fix nomerge_last() to work properly when OUTDIR is not under CWD.
        + fix bbc class to define unique cid using CID+IDSURVEY+FIELD

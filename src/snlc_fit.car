@@ -1,5 +1,5 @@
 c *********************************************************
-c Created June 2006   by R.Kessler
+c Created June 2006   by R.Kessler 
 c   
 c Generic SNIa lightcurve fitter.
 c "Generic" means that any SNIa model can be fit to the data.
@@ -4276,7 +4276,7 @@ c store marginalized chi2 per filter
 
 C ============================================
 +DECK,FCNSNLC.
-      SUBROUTINE FCNSNLC(NVAR,GRAD,CHI2,XVAL,IFLAG, USRFUN )
+      SUBROUTINE FCNSNLC(NVAR,GRAD, CHI2TOT,XVAL,IFLAG, USRFUN )
 c
 c User function to be minimized (chi2, log-likelihood, etc ...).
 c "USRFUN" is an optional function, for example from MC.
@@ -4341,7 +4341,7 @@ c subroutine ars
      &    NVAR    ! numnber of VARIABLE params only
      &   ,IFLAG
 
-      DOUBLE PRECISION  GRAD(*), XVAL(*), chi2, USRFUN
+      DOUBLE PRECISION  GRAD(*), XVAL(*), chi2tot, USRFUN
 
       EXTERNAL USRFUN
 
@@ -4397,7 +4397,7 @@ c functions
 
 C ----------- BEGIN ------------
 
-      CHI2 = 1.0E7
+      CHI2TOT = 1.0E7
 
       LFLAG_FIRST_MN   = IFLAG .EQ.  2   ! first MINUIT call
       LFLAG_LAST_MN    = IFLAG .EQ.  3   ! last MINUIT call here => store info
@@ -4472,11 +4472,11 @@ c Get initial CHI2 from priors.
         CHI2INI = FCNCHI2_PRIOR(XVAL,CHI2PRIOR)      
       ENDIF
 
-      CHI2    = CHI2INI
+      CHI2TOT    = CHI2INI
       chi2sum_sigma = 0.0
 
 c bail on large CHI2INI unless we are dumping.
-      if ( CHI2 .GT. 1.0E7  .and. .not. LDMPFCN(0) ) RETURN
+      if ( CHI2TOT .GT. 1.0E7  .and. .not. LDMPFCN(0) ) RETURN
       if ( LFLAG_PRIOR_ONLY ) RETURN
 
 c -------------------------------------------
@@ -4684,20 +4684,20 @@ c sum chi2_sigma over all epochs ... sum used only for OPT_COVAR_FLUX > 0
           chi2sum_sigma = chi2sum_sigma   + delchi2_sigma
 
           if ( USE_FITCOV ) then
-             chi2  = chi2  + delchi2_diag   ! diag part of chi2
+             chi2tot  = chi2tot  + delchi2_diag   ! diag part of chi2
           else  
-             chi2  = chi2  + delchi2        ! add conventional chi2
+             chi2tot  = chi2tot  + delchi2        ! add conventional chi2
           endif
 
 c always tack on chi2 from log(sigma) term
-          chi2  = chi2 + delchi2_sigma 
+          chi2tot  = chi2tot + delchi2_sigma 
 
         ENDIF
 
 c if fast-flag is set, quit when chi2 is too big;
 c this corresponds to tiny pdf in integral.
 
-        if ( LFLAG_FAST .and.  chi2 .GT. FITCHI2_QUIT ) return
+        if ( LFLAG_FAST .and.  chi2tot .GT. FITCHI2_QUIT ) return
    
 c check dump-flag again; print every epoch here
 
@@ -4785,7 +4785,7 @@ c data/Model ratio
            R4EP_ALL(epoch,JEP_TOBS)        = Tobs
            R4EP_ALL(epoch,JEP_MJD)         = MJDFIT
            R4EP_ALL(epoch,JEP_DELCHI2)     = DELCHI2   
-           FCN_FITCHI2(0)          = chi2 - CHI2INI
+           FCN_FITCHI2(0)          = chi2tot - CHI2INI
 
            DT1 = abs(Trest)
            DT2 = abs( R4BAND_TREST_NEARPEAK(ifilt_obs) )
@@ -4884,7 +4884,7 @@ c check DUMP flags.
 
           ENDIF
         ENDDO
-        print*,'   CHI2-DIAGONAL(all filters) = ', chi2
+        print*,'   CHI2-DIAGONAL(all filters) = ', chi2tot
         CALL FLUSH(6)
       ENDIF
 
@@ -4894,13 +4894,13 @@ c ----------------------------------
       IF ( LFLAG_USESIM     ) RETURN
 
 c ----------------------
-c compute chi2 from covariance matrix
+c compute chi2tot from covariance matrix
        
       DUMP_FCNCHI2 =  CCID_DUMP_CHI2_MATRIX(1:ISNLC_LENCCID) .EQ.
      &                SNLC_CCID(1:ISNLC_LENCCID)
 
       IF ( USE_FITCOV ) THEN
-        chi2    = CHI2INI + chi2sum_sigma
+        chi2tot    = CHI2INI + chi2sum_sigma
 
 c  check option to re-compute covariance inside minuit function
         if ( OPT_COVAR_FLUX .EQ. 2 ) then
@@ -4936,11 +4936,11 @@ c loop over COV_INV elements and compute chi2
             logdet_offset = logdet_offset + 2.* log( LAST_FLUXERR )   
            ENDIF
            delchi2   = (FF * COV_INV)
-           chi2      = chi2 + delchi2
+           chi2tot   = chi2tot + delchi2
          else
            delchi2         = (FF * COV_INV * 2.)   ! include ij + ji terms
            chi2_offdiag    = chi2_offdiag + delchi2
-           chi2            = chi2         + delchi2    
+           chi2tot         = chi2tot      + delchi2    
          endif
 
          if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
@@ -4953,15 +4953,15 @@ c loop over COV_INV elements and compute chi2
 c   check option to include determinant term log[det(COV_INC)] 
         IF (DO_LOGDET) THEN
          logdet= getlogdeterminant(NFITDATA, COVMAT1) - logdet_offset 
-         chi2= chi2+ logdet
+         chi2tot = chi2tot + logdet
         ENDIF
 
-        FCN_FITCHI2(0) = chi2 - chi2ini
+        FCN_FITCHI2(0) = chi2tot - chi2ini
 
       ENDIF  ! end of USE_FITCOV if block
 
       if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
-          write(6,6655) chi2, chi2-chi2_offdiag, chi2_offdiag
+          write(6,6655) chi2tot, chi2tot-chi2_offdiag, chi2_offdiag
 6655      format(' xxx FCN_CHI2(tot, diag, offdiag) = ', 3F12.1)
           print*,' '
           call flush(6)
@@ -4969,11 +4969,11 @@ c   check option to include determinant term log[det(COV_INC)]
 
 c - - - - - - -
       IF ( LDMPFCN_LOC ) THEN
-         print*,'   CHI2-FINAL(all filters)    = ', chi2
+         print*,'   CHI2-FINAL(all filters)    = ', chi2tot
          print*,'      ********* END OF FCN DUMP ********** '
          CALL FLUSH(6)
 
-         TBLDMPFCN_CHI2TOT = sngl(chi2)
+         TBLDMPFCN_CHI2TOT = sngl(chi2tot)
          CALL TABLE_DMPFCN(isn)
       ENDIF
 
@@ -7360,6 +7360,8 @@ c  2 => use covaraince matrix evaluated each fit trial (slower)
 c option for covariance errors on Galactic-extinction
       OPT_XTMW_ERR      = -9 ! Sep 22: legacy variable off
       OPT_COVAR_MWXTERR =  1 ! Aug 28, 2012: default is ON
+
+      FUDGE_MAG_COVERR = ' '
 
 c extinction options (also see GET_SNXT8 in snana.car):
 c  1 => use default extinction from CCM89 law

@@ -844,10 +844,11 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
   //   *key  : name of variable to copy to/from SNDATA struct
   //   NVAL  : number of values to copy
   // 
+  // Apr 19 2025; fix to set SNDATA.FILTNAME[obs] for 'FLT' or 'BAND' with copyFlag>0
 
   int  NOBS       = SNDATA.NOBS ;
   int  NOBS_STORE = SNDATA.NOBS_STORE ;
-  int  obs, OBS, NSPLIT ;
+  int  obs, OBS, NSPLIT, MSKOPT, NVAL_TMP ;
   char **str2d ;
   char fnam[] = "copy_SNDATA_OBS" ;
 
@@ -870,27 +871,39 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"FLT") == 0 || strcmp(key,"BAND") == 0 ) {
 
     if ( copyFlag > 0 ) {
-      sprintf(c1err,"key = %s doesn't work with copyFlag=%d", key, copyFlag);
-      sprintf(c2err,"Needs a code fix here");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+      MSKOPT     = MSKOPT_PARSE_WORDS_STRING ;
+      NVAL_TMP   = store_PARSE_WORDS(MSKOPT, stringVal, fnam);
+      if ( NVAL != NVAL_TMP ) {
+	print_preAbort_banner(fnam);
+	printf("  %s stringVAL = \n%s \n", key, stringVal);
+	sprintf(c1err,"Expected %d BAND names, but found %d", NVAL, NVAL_TMP);
+	sprintf(c2err,"Check stringVal printed above.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+      // load SNDATA struct for each obs
+      for(obs=0; obs < NOBS_STORE; obs++ ) {
+	OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
+	get_PARSE_WORD(0, obs, SNDATA.FILTNAME[OBS]);  
+      }
+
     }
+    else {
 
-    // FILTCHAR_1D includes every observation; here we pick out subset
-    // subset of FILTCHAR_1D that are on STORE_LIST
-
-    /* xxx mark delete Jun 11 2024: leave full SNDATA.FILTCHAR
-    splitString(SNDATA.FILTCHAR_1D, COMMA, fnam, MXEPOCH,    // inputs    
-		&NSPLIT, &SNDATA.FILTCHAR[1] );            // outputs 
-    xxxxxx end mark xxxxxx */
+      // FILTCHAR_1D includes every observation; here we pick out subset
+      // subset of FILTCHAR_1D that are on STORE_LIST
     
-    stringVal[0] = 0 ;
-    for(obs=0; obs < NOBS_STORE; obs++ ) { 
-      OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
-      catVarList_with_comma(stringVal, SNDATA.FILTNAME[OBS] );
-    }
+      stringVal[0] = 0 ;
+      for(obs=0; obs < NOBS_STORE; obs++ ) { 
+	OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
+	catVarList_with_comma(stringVal, SNDATA.FILTNAME[OBS] );
+      }
+    } 
 
   }
   else if ( strcmp(key,"FIELD") == 0 ) {
+
     if ( copyFlag > 0 ) {
       sprintf(c1err,"key = %s doesn't work with copyFlag=%d", key, copyFlag);
       sprintf(c2err,"Needs a code fix here");

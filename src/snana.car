@@ -445,7 +445,8 @@ c
      &  ,REDUCE_STDOUT_BATCH   ! T => suppress stdout for JOBSPLIT(1)>1
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
-     &  ,REFORMAT_SAVE_BADEPOCHS ! include reject epochs (default=F)
+     &  ,REFORMAT_SAVE_BADEPOCHS ! T => include reject epochs (default=F)
+     &  ,REFORMAT_BAND_NAME    ! T => [band] -> [SURVEY]-[band]
      &  ,REFORMAT_SPECTRA_INCLUDE ! include spectra in data reformat (default=F)
      &  ,REFORMAT_SPECTRA_ONLY    ! reformat only spectra (OPT_REFORMAT_SPECTRA>0)
      &  ,REFORMAT_PRIVATE      ! T-> include private variables (default=T)
@@ -552,7 +553,7 @@ c global survey info
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,ABSO_OFFSET, ABSO_INDEX
      &    ,REFORMAT, REFORMAT_SPECTRA_INCLUDE, REFORMAT_SPECTRA_ONLY
-     &    ,REFORMAT_SNANA, REFORMAT_PRIVATE
+     &    ,REFORMAT_SNANA, REFORMAT_PRIVATE, REFORMAT_BAND_NAME
      &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
      &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
@@ -6120,6 +6121,7 @@ c set namelist defaults
       OPT_REFORMAT_FITS     = 0 
       OPT_REFORMAT_SPECTRA  = 0
       REFORMAT_SAVE_BADEPOCHS  = .FALSE.
+      REFORMAT_BAND_NAME       = .FALSE.
       REFORMAT_SPECTRA_INCLUDE = .FALSE.
       REFORMAT_SPECTRA_ONLY    = .FALSE.
       REFORMAT_PRIVATE         = .TRUE.
@@ -10443,7 +10445,7 @@ c   1     2    include rejected epochs
 c   2     4     SPARE
 c   3     8     SPARE
 c   4    16     SPARE
-c   5    32     SPARE
+c   5    32    rename band -> [SURVEY]-[band]
 c   6    64    exclude private variables
 c   7   128    include spectra
 c   8   256    exclude SIM-truth so that output looks like real data
@@ -10461,7 +10463,8 @@ c
 c       HISTORY
 c July 2023: check OPT_REFORMAT_SPECTRA
 c Dec  2024: new OPT_REFORMAT_SPECTRA = 4 for SNANA keyed format
-c
+c Apr  2025: new OPT += 32 to rename band -> [SURVEY]-band
+c            Minor refactor using IAND and MASKs instead of BTEST
 c -------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -10469,8 +10472,14 @@ c -------------------------
 
       INTEGER OPT
 
-      INTEGER LEN_VER
-      LOGICAL LEXIST, VALIDFILENAME
+      INTEGER MASK_REFMT_INCLUDE_REJECT  /  2 /   ! include rejected epochs
+      INTEGER MASK_REFMT_BAND_NAME       / 32 /   ! band -> [SURVEY]-[band]
+      INTEGER MASK_REFMT_EXCLUDE_PRIVATE / 64 /   ! exclude private variables
+      INTEGER MASK_REFMT_INCLUDE_SPECTRA / 128 /  ! include spectra
+      INTEGER MASK_REFMT_EXCLUDE_SIM     / 256 /  ! exclude SIM truth to look like real data
+
+      INTEGER LEN_VER, MASK_REFMT
+      LOGICAL LEXIST, VALIDFILENAME, LMASK
       CHARACTER 
      &   FNAM*14
      &  ,LIST_FILE*(MXCHAR_FILENAME), IGNORE_FILE*(MXCHAR_FILENAME)
@@ -10493,31 +10502,37 @@ c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
       ENDIF
 
 c check option to save bad epochs for OPT_REFORMAT
-      IF ( BTEST(OPT_REFORMAT_FITS,1) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,1) ) THEN 
-         REFORMAT_SAVE_BADEPOCHS = .TRUE.
-      ENDIF
+      MASK_REFMT = MASK_REFMT_INCLUDE_REJECT
+      LMASK = IAND(OPT_REFORMAT_FITS,MASK_REFMT) > 0 .or.
+     &        IAND(OPT_REFORMAT_TEXT,MASK_REFMT) > 0
+      REFORMAT_SAVE_BADEPOCHS = LMASK
+
+c check option to alter band names
+      MASK_REFMT = MASK_REFMT_BAND_NAME
+      LMASK = IAND(OPT_REFORMAT_FITS,MASK_REFMT) > 0 .or.
+     &        IAND(OPT_REFORMAT_TEXT,MASK_REFMT) > 0
+      REFORMAT_BAND_NAME = LMASK
 
 c check option to suppress PRIVATE variables: MASK+=64 or bit 6 (lsb=0)
-      IF ( BTEST(OPT_REFORMAT_FITS,6) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,6) ) THEN 
-         REFORMAT_PRIVATE = .FALSE.
-      ENDIF
+      MASK_REFMT = MASK_REFMT_EXCLUDE_PRIVATE
+      LMASK = IAND(OPT_REFORMAT_FITS,MASK_REFMT) > 0 .or.
+     &        IAND(OPT_REFORMAT_TEXT,MASK_REFMT) > 0
+      REFORMAT_PRIVATE = .NOT. LMASK
 
 c check option to reformat spectra: note that for TEXT -> FITS,
 c spectra may not appear in 1st text file, so user must explicitly
 c request reformatting spectra. MASK=128 -> bit 7
-c 
-      IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
-         REFORMAT_SPECTRA_INCLUDE = .TRUE.
-      ENDIF
+
+      MASK_REFMT = MASK_REFMT_INCLUDE_SPECTRA
+      LMASK = IAND(OPT_REFORMAT_FITS,MASK_REFMT) > 0 .or.
+     &        IAND(OPT_REFORMAT_TEXT,MASK_REFMT) > 0
+      REFORMAT_SPECTRA_INCLUDE = LMASK
 
 c check option to exclude SIM truth; MASK += 256
-      IF ( BTEST(OPT_REFORMAT_FITS,8) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,8) ) THEN 
-         REFORMAT_SIMTRUTH = .FALSE.
-      ENDIF
+      MASK_REFMT = MASK_REFMT_EXCLUDE_SIM
+      LMASK = IAND(OPT_REFORMAT_FITS,MASK_REFMT) > 0 .or.
+     &        IAND(OPT_REFORMAT_TEXT,MASK_REFMT) > 0
+      REFORMAT_SIMTRUTH = .NOT. LMASK  
 
 c - - - - - - - - - - - - - - - - - -
 c check for reformat option using SNANA format
@@ -10570,12 +10585,14 @@ c print info
      &              OPT_REFORMAT_FITS, OPT_REFORMAT_TEXT
          print*,'     REFORMAT_BADEPOCHS       = ', 
      &                 REFORMAT_SAVE_BADEPOCHS
+         print*,'     REFORMAT_BAND_NAME       = ', 
+     &                 REFORMAT_BAND_NAME
          print*,'     REFORMAT_SPECTRA_INCLUDE = ', 
-     &                REFORMAT_SPECTRA_INCLUDE
+     &                  REFORMAT_SPECTRA_INCLUDE
          print*,'     REFORMAT_PRIVATE         = ', 
-     &                REFORMAT_PRIVATE         
+     &                  REFORMAT_PRIVATE         
          print*,'     REFORMAT_SIMTRUTH        = ', 
-     &                REFORMAT_SIMTRUTH
+     &                  REFORMAT_SIMTRUTH
       ENDIF
 
       IF ( REFORMAT_SPECTRA_ONLY ) THEN
@@ -10989,6 +11006,8 @@ c  + write new TEXT file for TEXT output
 c
 c Jan 20 2022: move copy_SNDATA_MISC() to work for either TEXT for FITS.
 c Jul 18 2023: check OPT_REFORMAT_SPECTRA
+c Apr 19 2025: check new option for BAND_NAME
+c
 c -------------
 
       IMPLICIT NONE
@@ -11079,7 +11098,7 @@ c   + MJD_DETECT_FIRST   # if PHOTFLAG_DETECT > 0
 c   + MJD_DETECT_LAST    # idem
 c   
 c   + MWMAGCOR_[band]  # Nov 2023
-c
+c   + BAND name        # Apr 2025
 c -------------
 
       IMPLICIT NONE
@@ -11088,9 +11107,10 @@ c -------------
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
 +CDE,FILTCOM.
++CDE,FITSCOM.
 
       INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
-      INTEGER IFILT, IFILT_OBS
+      INTEGER IFILT, IFILT_OBS, LEN_SURVEY
       REAL*8 DVAL(MXEPOCH)
       CHARACTER cKEY*20, cSTRING*20, cfilt*2
       EXTERNAL COPY_SNDATA_HEAD
@@ -11195,6 +11215,26 @@ c ------
          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF
+ 
+c Apr 19 2025: check modifying band name
+      IF ( REFORMAT_BAND_NAME ) THEN
+         cKEY = "BAND" // char(0)
+         LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
+         STRFITS = ''
+         LEN_STR = 0
+         DO o=1,NOBS
+            IFILT_OBS  = ISNLC_IFILT_OBS(o)
+            cfilt      = filtdef_string(ifilt_obs:ifilt_obs) 
+            cSTRING    = SURVEY_NAME(1:LEN_SURVEY) // '-' // cfilt(1:1)
+            STRFITS    = STRFITS(1:LEN_STR) // ' ' // cSTRING
+            LEN_STR    = LEN_STR + LEN_SURVEY + 3
+         ENDDO  ! .xyz
+
+         CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 
+     &        STRFITS(1:LEN_STR)//char(0), DVAL, LEN_KEY, LEN_STR)
+         LEN_STR = 20
+      ENDIF
+
 
 c Sep 2023: update MJD_TRIGGER and MJD_DETECT_XYZ variables
 c           if they have been computed from PHOTFLAG .
@@ -14691,7 +14731,7 @@ cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
          if ( LVAR_FIELD .and. isn .EQ. 1 .and. iwd .lt. 5 ) then
            print*,' xxx iwd=',iwd,
      &         '  FIELD=',SNLC_FIELD(iwd), ISNLC_IDFIELD(iwd)
-         endi
+         endif
 +SELF.
 
 100   CONTINUE
@@ -18986,7 +19026,6 @@ c check SIMSED variables
 
 c  Mar 2025: check PEAKMAG
          do ifilt = 1, NFILTDEF_SURVEY
-            ! .xyz
             ifilt_obs   = IFILTDEF_MAP_SURVEY(ifilt)
             cfilt       = FILTDEF_STRING(ifilt_obs:ifilt_obs)
             VARNAME_TMP = 'SIM_PEAKMAG_' // cfilt

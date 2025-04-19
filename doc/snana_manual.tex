@@ -14530,10 +14530,11 @@ a max limit of 20 data files can be extracted.
 Additional reformat options can be specified using {\tt SNLCINP} input mask
 {\tt OPT\_REFORMAT\_FITS} or {\tt OPT\_REFORMAT\_TEXT}
 \begin{verbatim}  
-    OPT_REFORMAT_FITS = 2   ! include rejected epochs
-    OPT_REFORMAT_FITS = 64  ! exclude private variables
-    OPT_REFORMAT_FITS = 128 ! include spectra
-    OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
+    OPT_REFORMAT_FITS += 2   ! include rejected epochs
+    OPT_REFORMAT_FITS += 32  ! rename band -> [SURVEY]-[band]
+    OPT_REFORMAT_FITS += 64  ! exclude private variables
+    OPT_REFORMAT_FITS += 128 ! include spectra
+    OPT_REFORMAT_FITS += 256 ! exclude SIM truth to look like real data
 \end{verbatim}
 %
 Here is an example command to convert a simulation into a data-like

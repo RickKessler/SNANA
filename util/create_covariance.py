@@ -268,6 +268,9 @@ KEYLIST_COSPAR_SIM = [ 'OMEGA_MATTER', 'OMEGA_LAMBDA', 'w0_LAMBDA', 'wa_LAMBDA',
 tnow       = datetime.datetime.now()
 DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
+
+MAXROW_DETCOV_TEST = 2000  # compute and print det(cov) for regression tests if fewer than 2000 rows
+
 # ============================
 def setup_logging():
 
@@ -1376,7 +1379,6 @@ def write_standard_output(config, args, covsys_list, base,
         logging.info(f"# - - - - - - - - - - - - - - - - - - - -")
         
         if config['write_covsys']:
-            # xxx mark base_file   = get_covsys_filename(i, args.write_format_cov)
             base_file   = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
             cov_file    = outdir / base_file
 
@@ -1393,7 +1395,6 @@ def write_standard_output(config, args, covsys_list, base,
             # perform inversion here, then delete it from memory after writing it to file.
             covtot_inv, t_invert  = \
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
-            # xxx mark base_file   = get_covtot_inv_filename(i, args.write_format_cov)
             base_file   = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
             cov_file    = outdir / base_file
 
@@ -1784,12 +1785,7 @@ def write_covariance_text(path, cov, opt_cov, data):
     logging.info(f"Write to {file_base}")
 
     # RK - write diagnostic to stdout for regression test
-    if nrow < 2000 :
-        (sgn, logcovdet)  = np.linalg.slogdet(cov)
-        logging.info(f"    {file_base}: size={nrow}  " \
-                     f"log|det(cov)| = {logcovdet:.1f}")
-    else:
-        logging.info(f"   skip det(cov) test for large cov");  # Nov 2024
+    detcov_test(path,cov)
         
     # - - - - -
     # Write out the matrix
@@ -1868,6 +1864,8 @@ def write_covariance_npz(path, cov):
 
     logging.info(f"Write to {file_base} ")
 
+    detcov_test(path,cov)
+
     np.savez_compressed(
         path_no_ext,
         nsn = [len(cov)],
@@ -1877,6 +1875,21 @@ def write_covariance_npz(path, cov):
     t_write = time.time() - t0
     return t_write
     # end write_covariance_npz
+
+def detcov_test(path,cov):
+
+    # if nrow is not too big, compute and write det(cov) to use for regression testing
+
+    file_base      = os.path.basename(path)
+    nrow           = cov.shape[0]
+    if nrow < MAXROW_DETCOV_TEST:
+        (sgn, logcovdet)  = np.linalg.slogdet(cov)
+        logging.info(f"    {file_base}: size={nrow}  " \
+                     f"log|det(cov)| = {logcovdet:.1f}")
+    else:
+        logging.info(f"   skip det(cov) test for large cov");  # Nov 2024
+
+    return
 
 
 def get_label_cov_flatten(nwr, nrow, row_info_dict):

@@ -849,7 +849,7 @@ def analyze_diff_fitres(args):
         os.remove(combine_fitres_file)
 
     var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
-    var_list_optional = [ 'FITPROB', 'MU', 'MUERR' ]
+    var_list_optional = [ 'FITPROB', 'MU', 'MUERR', 'HOST_LOGMASS', 'HOST_LOGSFR' ]
 
     util_analyze_diff_EXEC(diff_fitres_expand, var_list_require, var_list_optional)
 

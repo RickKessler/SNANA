@@ -12,6 +12,8 @@
 # Mar 12 2025: add @@FRACTION arg to select random fraction of rows
 # Mar 25 2025: @@FIT is working for a few basic functions 
 # Mar 31 2025: add @@LEGEND_UL and @@LEGEND_UR options
+# Apr 21 2025: fix fit chi2 calc to work for 2D plot where @ERROR is given for y-axis.
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -1886,6 +1888,10 @@ def plotter_func_driver(args, plot_info):
             if args.FIT:
                 xfit_data   = np.array(xval_list)
                 yfit_data   = np.array(yval_list) 
+                if yerr_list is None:
+                    yerr_data   = yerr_list
+                else:
+                    yerr_data   = np.array(yerr_list)
 
         elif do_plot_hist and NDIM == 1 :
             (contents_1d, xedges, patches) = \
@@ -1897,7 +1903,8 @@ def plotter_func_driver(args, plot_info):
             if args.FIT:
                 xfit_data = xbins_cen
                 yfit_data = contents_1d
-
+                yerr_data = max(1.0,sqrt(yfit_data))
+                
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
             contents_2d, xedges, yedges, im = \
@@ -1930,9 +1937,8 @@ def plotter_func_driver(args, plot_info):
             print_cid_list(df, name_legend)
 
         # check for fit fun option
-        # xxx mark if NDIM==1 and args.FIT:
         if args.FIT:
-            apply_plt_fit(args, xfit_data, yfit_data)
+            apply_plt_fit(args, xfit_data, yfit_data, yerr_data)
 
         # check for misc plt options (mostly decoration)
         if numplot == numplot_tot-1:
@@ -2618,7 +2624,7 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
 
 # =================================================================    
-def apply_plt_fit(args, xbins_cen, ybins_contents):
+def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     # Created Mar 2025
     # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
 
@@ -2637,26 +2643,27 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
         print(f"\n xxxx VERBOSE DUMP for apply_plt_fit xxxx ")
         print(f" xxx xbins_cen      = \n{xbins_cen}")
         print(f" xxx ybins_contents = \n{ybins_contents}")
+        print(f" xxx ybins_sigma    = \n{ybins_sigma}")
         sys.stdout.flush()
 
     # this brute-force logic is ugly; maybe later can be more clever
     if FITFUN in FITFUN_GAUSS:
-        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents)
+        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_gauss(xbins_cen, *popt)
     elif FITFUN in FITFUN_EXP:
-        popt, pcov = curve_fit(func_exp, xbins_cen, ybins_contents)
+        popt, pcov = curve_fit(func_exp, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_exp(xbins_cen, *popt)        
     elif FITFUN in FITFUN_P0:
-        popt, pcov = curve_fit(func_p0, xbins_cen, ybins_contents)
+        popt, pcov = curve_fit(func_p0, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_p0(xbins_cen, *popt)
     elif FITFUN in FITFUN_P1:
-        popt, pcov = curve_fit(func_p1, xbins_cen, ybins_contents)
+        popt, pcov = curve_fit(func_p1, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_p1(xbins_cen, *popt)
     elif FITFUN in FITFUN_P2:
-        popt, pcov = curve_fit(func_p2, xbins_cen, ybins_contents)
+        popt, pcov = curve_fit(func_p2, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_p2(xbins_cen, *popt)
     elif FITFUN in FITFUN_P3:
-        popt, pcov = curve_fit(func_p3, xbins_cen, ybins_contents)
+        popt, pcov = curve_fit(func_p3, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_p3(xbins_cen, *popt)
     else:
         sys.exit(f"\n ERROR: unknown user fitfun = {fitfun}; \n Valid fit funs: {FITFUN_LIST}")
@@ -2670,25 +2677,28 @@ def apply_plt_fit(args, xbins_cen, ybins_contents):
         logging.info(f"\t {fitfun} param = {val:.4e} +_ {err:.4e}")
 
     # manually compute chi2/dof since curve_fit does not return chi2
-    # Note that sigma^2 = 1 if  ydata< 1 in a bin (to avoid crazy chi2)
 
     nfitpar   = len(popt)
     ndata     = len(xbins_cen)
     ndof      = ndata - nfitpar
-    chi2_bins = [ (ydata-yfun)**2/max(ydata,1.0) for ydata, yfun in zip(ybins_contents, yfun_cen) ]
-    chi2      = sum(chi2_bins)
-    if args.NDIM== 1:
+
+    if ybins_sigma is None:
+        label_chi2 = ''
+    else:
+        ycov_contents  = ybins_sigma*ybins_sigma
+        chi2_bins = [ (ydata-yfun)**2/ycov for ydata, yfun, ycov in \
+                      zip(ybins_contents, yfun_cen, ycov_contents) ]
+        chi2      = sum(chi2_bins)
+
         label_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
         logging.info(f"chi2/dof = {chi2:.2f} / {ndof}")
-    else:
-        label_chi2 = ''
 
-    if verbose :
-        print(f" xxx ybins_contents = \n{ybins_contents}")
-        print(f" xxx yfun_cen       = \n{yfun_cen}")
-        print(f" xxx chi2_bins      = \n{chi2_bins}")
-        print(f"")
-        sys.stdout.flush()
+        if verbose :
+            print(f" xxx ybins_contents = \n{ybins_contents}")
+            print(f" xxx yfun_cen       = \n{yfun_cen}")
+            print(f" xxx chi2_bins      = \n{chi2_bins}")
+            print(f"")
+            sys.stdout.flush()
 
 
     label_fit = f'{fitfun} Fit {label_chi2}'

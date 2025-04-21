@@ -1270,9 +1270,11 @@ class Program:
         args        = self.config_yaml['args']
         args_debug  = None
 
-        if args.refac_cid_unique :
-            args_debug = '--refac_cid_unique'
-            
+        # xxx mark delete Apr 21 2205 xxxxxxx
+        #if args.refac_cid_unique :
+        #    args_debug = '--refac_cid_unique'
+        # xxxxxxxxxxx
+
         return args_debug
 
         # end get_args_debug

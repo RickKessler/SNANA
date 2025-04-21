@@ -60,6 +60,9 @@
 #
 # Oct 31 2024 if -outfile_resid is passed, replace its arg
 #               with a standard file name.
+#
+# Apr 21 2025: add ndof collumn to summary file
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -136,7 +139,7 @@ COSMOFIT_PARNAME_omm_sig   = 'omm_sig'
 COSMOFIT_PARNAME_rho_womm  = 'rho_womm'
 COSMOFIT_PARNAME_rho_w0wa  = 'rho_w0wa'
 COSMOFIT_PARNAME_chi2      = 'chi2'
-COSMOFIT_PARNAME_Ndof      = 'Ndof'
+COSMOFIT_PARNAME_Ndof      = 'ndof'
 COSMOFIT_PARNAME_sigint    = 'sigint'
 COSMOFIT_PARNAME_blind     = 'blind'
 COSMOFIT_PARNAME_nwarn     = 'nwarn'
@@ -1291,6 +1294,7 @@ class cosmofit(Program):
             omm_sig  = fit_values_dict[COSMOFIT_PARNAME_omm_sig]
             rho_womm = fit_values_dict[COSMOFIT_PARNAME_rho_womm]
             chi2     = fit_values_dict[COSMOFIT_PARNAME_chi2] 
+            ndof     = fit_values_dict[COSMOFIT_PARNAME_Ndof]   # 4.2025
             sigint   = fit_values_dict[COSMOFIT_PARNAME_sigint]
             blind    = fit_values_dict[COSMOFIT_PARNAME_blind]
             nwarn    = fit_values_dict[COSMOFIT_PARNAME_nwarn]
@@ -1357,7 +1361,7 @@ class cosmofit(Program):
                 str_results += f"{omm:.5f} {omm_sig:.5f}  "
                 str_results += f"{rho_womm:6.3f} "
 
-            str_misc    = f"{chi2:6.1f} {blind} {nwarn} "
+            str_misc    = f"{chi2:6.1f} {ndof:3d} {blind} {nwarn} "
             str_labels  = f"{covopt_label:<10} {fitopt_label}"
             line = f"ROW: {nrow:3d} {str_nums} {str_results}" \
                                   f"{str_misc} {str_labels}"
@@ -1422,7 +1426,7 @@ class cosmofit(Program):
 
         VARNAMES_STRING = \
             f"ROW  iDIR iCOV iFIT {varnames_w} "  \
-            f"{varnames_om} chi2 blind nwarn COVOPT FITOPT"
+            f"{varnames_om} chi2 ndof blind nwarn COVOPT FITOPT"
 
         w_ran   = int(fit_values_dict['w_ran']) 
         wa_ran  = int(fit_values_dict['wa_ran'])
@@ -1444,6 +1448,9 @@ class cosmofit(Program):
             
         lines_list.append(f"#   chi2:    " \
                           f"chi2 for cosmolofy fit.")
+        lines_list.append(f"#   ndof:    " \
+                          f"Ndof for cosmology fit.")
+
         lines_list.append(f"#   blind:   " \
                           f"0 -> unblinded; 1=blinded. SimData should always be unblinded.")
         lines_list.append(f"#   nwarn:   " \

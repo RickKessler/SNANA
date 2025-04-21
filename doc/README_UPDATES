@@ -22912,6 +22912,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + fix nomerge_last() to work properly when OUTDIR is not under CWD.
        + fix bbc class to define unique cid using CID+IDSURVEY+FIELD
           (previous CID+IDSURVEY may not be enough)
+       + add ndof column to wfit summary
+       + for BBC iterations, add symbolic link {output}_ITER1 for clarity
 
     new utility check_create_covariance.py to compute a single element
     of a sys-covariance matrix using pair of cid/idsurvey.

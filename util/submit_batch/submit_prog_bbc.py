@@ -158,6 +158,7 @@ MUOPT_STRING           = "MUOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 
 OUTDIR_ITER1_SUFFIX    = "_ITER1"
+OUTDIR_ITER2_SUFFIX    = "_ITER2"
 
 
 KEYNAME_VARNAMES = "VARNAMES"
@@ -244,11 +245,12 @@ class BBC(Program):
         self.bbc_prep_copy_files()
 
         # if sync-FITOPT000 option, change output for 1st iteration
-        self.change_outdir_iter1()
+        self.prep_outdir_iter()
+
 
         logging.info("")
-        #sys.exit(f"\n xxx DEBUG DIE xxx \n")
-        # end submit_prepare_driver
+        return
+        # end submit_prepare_driver  
 
     def bbc_read_input_file(self):
 
@@ -1658,21 +1660,41 @@ class BBC(Program):
 
         # end bbc_prep_copy_files
 
-    def change_outdir_iter1(self):
+    def prep_outdir_iter(self):
 
         output_dir   = self.config_prep['output_dir']  
         sync_evt     = self.config_prep['sync_evt_list'][0]
         iter2        = self.config_yaml['args'].iter2
         iter1        = not iter2
 
-        if not sync_evt : return
+        if sync_evt:
+            if iter1: 
+                self.prep_outdir_iter1()
+            else:
+                self.prep_outdir_iter2()
 
-        # set submit_iter for global control
-        if iter1: 
-            self.config_prep['submit_iter'] = 1
-        else:
-            self.config_prep['submit_iter'] = 2 
-            return
+        return
+
+        # end prep_outdir_iter
+
+    def prep_outdir_iter2(self):
+        output_dir       = self.config_prep['output_dir']  
+        output_subdir    = os.path.basename(output_dir)
+        output_topdir    = os.path.dirname(output_dir)
+
+        self.config_prep['submit_iter'] = 2
+
+        # Apr 2025: set {output}_ITER2 symbolic link for visual clarity
+        sym_link = f"{output_subdir}{OUTDIR_ITER2_SUFFIX}"
+        os.symlink(output_subdir, sym_link)
+
+        return
+
+    def prep_outdir_iter1(self):
+
+        output_dir   = self.config_prep['output_dir']  
+
+        self.config_prep['submit_iter'] = 1
 
         # change config arguments
         override_output_dir = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
@@ -1694,8 +1716,9 @@ class BBC(Program):
 
         # do the move
         shutil.move(output_subdir,override_output_subdir)
+        return
 
-        # end change_outdir_iter1
+        # end prep_outdir_iter1
 
     # ===================================================
     def write_command_file(self, icpu, f):
@@ -1913,9 +1936,8 @@ class BBC(Program):
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
-                if args.refac_file_check :
-                    wait_file += f" {STRING_SUCCESS}" # require SUCCESS in file
-                    JOB_INFO['refac_file_check'] = True
+                wait_file += f" {STRING_SUCCESS}" # require SUCCESS in file
+                # xxx mark delete 4.21.2025 JOB_INFO['refac_file_check'] = True
                 select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
@@ -2384,11 +2406,6 @@ class BBC(Program):
         #   simulated multiple times, each with different field.
 
         args   = self.config_yaml['args']  
-        if not args.refac_cid_unique:
-            # legacy as of Feb 23 2025
-            self.make_reject_summary_legacy(vout)  # use CID+IDSURVEY to define unique event
-            return
-
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
@@ -2514,155 +2531,6 @@ class BBC(Program):
         return
         # end make_reject_summary
 
-    def make_reject_summary_legacy(self,vout):
-
-        # get list of all FITRES files in /vout, then find number
-        # of matches for each SN. Finally, write file with
-        #   VARNAMES: CID  NJOB_REJECT
-        # where NJOB_REJECT is the number of FITRES files where
-        # CID was rejected.
-        # Goal is to use this file in 2nd round of BBC and include
-        # only events that pass in all FITOPT and MUOPTs.
-        #
-        # Jan 12 2021: write ACCEPT file as well. Return if n_splitran>1
-        # Nov 23 2022: continue with n_splitran>1
-        #
-        # Feb 23 2025: match duplicate by CID+IDSURVEY+FIELD 
-        #   Prevous matching by CID+IDSURVEY isn't enough for same survey
-        #   simulated multiple times, each with different field.
-
-        # xxxxxxxxxx LEGACY xxxxxxxxxxx
-
-        output_dir    = self.config_prep['output_dir']
-        VOUT          = f"{output_dir}/{vout}"
-        fitres_list   = self.get_fflist_reject_summary(VOUT)
-
-        reject_file   = BBC_REJECT_SUMMARY_FILE
-        REJECT_FILE   = f"{VOUT}/{reject_file}"
-
-        accept_file   = BBC_ACCEPT_SUMMARY_FILE
-        ACCEPT_FILE   = f"{VOUT}/{accept_file}"
-
-        logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
-        logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
-
-        n_ff     = len(fitres_list) # number of FITRES files
-        
-        first_fitres_file = VOUT + "/" + fitres_list[0]
-
-        # check for duplicates from 
-        # same data light curve measured by multiple surveys, or
-        # multiple sims (e.g., LOWZ + HIGHZ) with random overlap CIDs
-
-        # xxxxxxxxxx LEGACY xxxxxxxxxxx
-
-        df_first  = pd.read_csv(first_fitres_file, 
-                                comment="#", delim_whitespace=True)
-        first_cids  = df_first[TABLE_VARNAME_CID]
-        first_cids_unique, counts = np.unique(first_cids,return_counts=True)
-        n_dupl   = len(counts[counts>1])
-        has_dupl = n_dupl > 0
-
-        dump_dupl = False 
-        if dump_dupl:
-            for cid,cnt in zip(first_cids_unique,counts) :
-                if cnt > 1:
-                    print(f" xxx duplicate cid={cid} has cnt={cnt}")
-                
-        # - - - - - - - - 
-        if has_dupl :
-            logging.info(f"\t {n_dupl} duplicates found in first fitres file.")
-            cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
-            unique_dict = cid_dict['unique_dict']
-        else:
-            cid_dict = self.get_cid_list(fitres_list, VOUT)
-
-        cid_list        = cid_dict['cid_list']
-        cid_unique      = cid_dict['cid_unique']
-        n_count         = cid_dict['n_count']
-        n_reject        = cid_dict['n_reject']
-
-        # xxxxxxxxxx LEGACY xxxxxxxxxxx
-                    
-        cid_all_pass    = cid_unique[n_count == n_ff]
-        cid_some_fail   = cid_unique[n_count <  n_ff]
-        n_all           = len(cid_unique)
-        n_some_fail     = len(cid_some_fail)
-        n_all_pass      = len(cid_all_pass)
-        f_some_fail     = float(n_some_fail)/float(n_all)
-        str_some_fail   = f"{f_some_fail:.4f}"
-
-        KEYVAR = KEYNAME_VARNAMES
-
-        # xxxxxxxxxx LEGACY xxxxxxxxxxx
-        # - - - - - - - -
-        with open(REJECT_FILE,"wt") as f:
-            f.write(f"# BBC-FF = BBC FITRES file.\n")
-            f.write(f"# Total number of BBC-FF: " \
-                    f"{n_ff} (FITOPT x MUOPT). \n")
-            f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
-                    f"fail cuts in 1 or more BBC-FF\n")
-            f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
-            f.write(f"# These CIDs are rejected in {PROGRAM_NAME_BBC} with\n")
-            f.write(f"#    reject_list_file={reject_file} \n")
-            f.write(f"\n")
-            # xxxxxxxxxx LEGACY xxxxxxxxxxx
-            if has_dupl :
-                f.write(f"# Beware of Duplicate CIDs "
-                        f"(each CID + IDSURVEY is unique) \n")
-                f.write(f"{KEYVAR}: CID IDSURVEY NJOB_REJECT \n")
-                for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
-                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
-                    if nrej>0: 
-                        f.write(f"SN:  {cid:<12} {idsurv}  {nrej:3d} \n")
-            else:
-                f.write(f"{KEYVAR}: CID NJOB_REJECT \n")
-                for cid,nrej in zip(cid_unique,n_reject) :
-                    if nrej>0: 
-                        f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
-            f.write(f"\n")
-
-        # - - - - 
-
-        # xxxxxxxxxx LEGACY xxxxxxxxxxx
-        with open(ACCEPT_FILE,"wt") as f:
-            f.write(f"# BBC-FF = BBC FITRES file.\n")
-            f.write(f"# Total number of BBC-FF: " \
-                    f"{n_ff} (FITOPT x MUOPT). \n")
-            f.write(f"# {n_all_pass} CIDs " \
-                    f"pass cuts in all BBC-FF\n")
-            f.write(f"# These CIDs are selected in {PROGRAM_NAME_BBC} with\n")
-            f.write(f"#    accept_list_file={accept_file} \n")
-            f.write(f"\n")
-            # xxxxxxxxxx LEGACY xxxxxxxxxxx
-            if has_dupl :
-                f.write(f"# Beware of Duplicate CIDs " \
-                        f"(each CID + IDSURVEY is unique) \n")
-                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
-                        f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_IZBIN}\n")
-                for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
-                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
-                    izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
-                    if nrej==0: 
-                        f.write(f"SN:  {cid:<12} {idsurv}  {izbin}\n")
-            else:
-                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} "\
-                        f" {TABLE_VARNAME_IZBIN}\n")
-                izbin_unique      = cid_dict['izbin_unique']
-
-                for cid, izbin, nrej in \
-                    zip(cid_unique,izbin_unique,n_reject) :
-                    if nrej==0: 
-                        f.write(f"SN:  {cid:<12}  {izbin}\n")
-
-            f.write(f"\n")
-
-        # xxxxxxxxxx LEGACY xxxxxxxxxxx
-        # - - - - -
-        return
-        # end make_reject_summary_legacy
 
     def get_cid_list(self,fitres_list,VOUT):
         # get cid_list of all CIDs in all files. If same events appear in 
@@ -2720,14 +2588,6 @@ class BBC(Program):
 
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag
-        refac_cid_unique = args.refac_cid_unique
-
-        if not refac_cid_unique:
-            # legacy as of Feb 23 2025
-            logging.info(f" xxxx call LEGACY get_cid_list_dupl_legacy")
-            cid_dict = self.get_cid_list_dupl_legacy(fitres_list, VOUT)
-            return cid_dict
-
 
         n_ff        = len(fitres_list)
         unique_dict = {}
@@ -2788,73 +2648,6 @@ class BBC(Program):
         return cid_dict 
 
         # end of get_cid_list_duplicates
-
-    def get_cid_list_dupl_legacy(self,fitres_list,VOUT):
-        # get cid_list of all CIDs in all files. If same events appear in 
-        # each file, each CID appears n_ff times. If a CID appears less 
-        # than n_ff times, it goes into reject list.
-
-        devel_flag = self.config_yaml['args'].devel_flag
-
-        # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxx
-        n_ff        = len(fitres_list)
-        unique_dict = {}
-        ucid_list   = []
-        found_first_file = False
-
-        for ff in fitres_list:
-            FF       = f"{VOUT}/{ff}"
-            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
-            ucid_list = np.concatenate((ucid_list, 
-                                        df.CID.astype(str)+"__"+df.IDSURVEY.astype(str)))
-
-            if not found_first_file:
-                df0 = df.copy()
-                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
-                found_first_file = True
-
-        # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxx
-
-        # - - - - - - - - - - - - -
-        # get list of unique CIDs, and how many times each CID appears
-        cid_unique, n_count = np.unique(ucid_list, return_counts=True)
-        HAS_IZBIN = TABLE_VARNAME_IZBIN in df0
-
-        for ucid in cid_unique:
-            unique_dict[ucid] = {}
-            cid      = str(ucid.split("__")[0])
-            idsurvey = int(ucid.split("__")[1])
-
-            if HAS_IZBIN:
-                izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
-                                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey)][TABLE_VARNAME_IZBIN].values
-            else:
-                izbin_list = []
-
-            if len(izbin_list) > 0 :
-                izbin = int(izbin_list[0])
-            else:
-                izbin = -9
-
-            # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxx
-            unique_dict[ucid][TABLE_VARNAME_CID]      = cid
-            unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
-            unique_dict[ucid][TABLE_VARNAME_IZBIN]    = izbin
-
-        # number of times each CID does not appear in a fitres file
-        n_reject        = n_ff - n_count
-
-        cid_dict = {}
-        cid_dict['cid_list']    = ucid_list
-        cid_dict['cid_unique']  = cid_unique
-        cid_dict['unique_dict'] = unique_dict
-        cid_dict['n_count']     = n_count
-        cid_dict['n_reject']    = n_reject
-
-        # xxxxxxxxxxxxx LEGACY xxxxxxxxxxxx
-        return cid_dict 
-
-        # end of get_cid_list_dupl_legacy
 
 
     def get_fflist_reject_summary(self,VOUT):

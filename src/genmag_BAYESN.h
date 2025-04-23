@@ -2,9 +2,6 @@
 #include "gsl/gsl_rng.h"
 #include "gsl/gsl_randist.h"
 
-// define pre-processor command to use python interface
-// xxx mark delete (RK) #define USE_BAYESNxxx
-
 int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask);
 int init_genmag_bayesn__( char *model_version, char *model_extrap, int *optmask);
 void read_BAYESN_inputs(char *filename);
@@ -27,7 +24,6 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	       	double *magerr_list);
 
 void dump_SED_element(FILE * file, double wave, double value);
-int print_matrix(FILE *f, const gsl_matrix *m);
 
 gsl_matrix *invKD_irr(int Nk, double *xk);
 gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);
@@ -86,9 +82,5 @@ struct {
    gsl_matrix *KD_tau;
    gsl_matrix *KD_lam;
    gsl_matrix *J_lam;
-
-   //double **KD_tau;
-   //double **KD_lam;
-   //double **J_lam;
 
 } BAYESN_MODEL_INFO;

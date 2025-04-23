@@ -23,8 +23,6 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	       	double *Tobs_list, double *magobs_list,
 	       	double *magerr_list);
 
-void dump_SED_element(FILE * file, double wave, double value);
-
 gsl_matrix *invKD_irr(int Nk, double *xk);
 gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);
 gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots);

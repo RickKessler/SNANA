@@ -43,15 +43,36 @@ Each sample counts as 0.01 seconds.
 // #include "sntools_genSmear.h" // Aug 30 2019
 
 // ============ MANGLED FORTRAN FUNCTIONS =============
-int init_genmag_bayesn__( char *model_version, char *model_extrap, int *optmask) {
+int init_genmag_bayesn__(
+         char * model_version
+        ,char * model_extrap
+        ,int  * optmask
+) {
     int istat;
-    istat = init_genmag_BAYESN ( model_version, model_extrap, *optmask) ;
+    istat = init_genmag_BAYESN(model_version, model_extrap, *optmask) ;
     return istat;
 }
 
+void genmag_bayesn__(
+         int    * OPTMASK
+        ,int    * ifilt_obs
+        ,double * parlist_SN
+        ,double * mwebv
+        ,double * z
+        ,int    * Nobs
+        ,double * Tobs_list
+        ,double * magobs_list
+        ,double * magerr_list
+) {
+    genmag_BAYESN(*OPTMASK, *ifilt_obs, parlist_SN, *mwebv, *z
+                  ,*Nobs, Tobs_list, magobs_list, magerr_list);
+    return;
+}
 
-void read_BAYESN_inputs(char *filename)
-{
+// =====================================================
+// ============ MAIN BAYESN C FUNCTIONS =============
+void read_BAYESN_inputs(char * filename) {
+    
     char fnam[] = "read_BAYESN_inputs";
 
     // -------------- BEGIN -------------
@@ -331,12 +352,12 @@ void read_BAYESN_inputs(char *filename)
     BAYESN_MODEL_INFO.n_lam_knots = (int) N_LAM;
     BAYESN_MODEL_INFO.n_tau_knots = (int) N_TAU;
     BAYESN_MODEL_INFO.n_sig_knots = (int) N_SIG;
-    BAYESN_MODEL_INFO.W0 = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots, 
-                                            BAYESN_MODEL_INFO.n_tau_knots);
-    BAYESN_MODEL_INFO.W1 = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots, 
-                                            BAYESN_MODEL_INFO.n_tau_knots);
-    BAYESN_MODEL_INFO.L_Sigma_epsilon = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_sig_knots, 
-                                                         BAYESN_MODEL_INFO.n_sig_knots);
+    BAYESN_MODEL_INFO.W0 = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots 
+                                            ,BAYESN_MODEL_INFO.n_tau_knots);
+    BAYESN_MODEL_INFO.W1 = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots 
+                                            ,BAYESN_MODEL_INFO.n_tau_knots);
+    BAYESN_MODEL_INFO.L_Sigma_epsilon = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_sig_knots 
+                                                         ,BAYESN_MODEL_INFO.n_sig_knots);
 
     // finally initalize the GSL matrices 
     int k = 0, j;
@@ -362,22 +383,26 @@ void read_BAYESN_inputs(char *filename)
 
 } // end read_BAYESN_inputs
 
-int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
-  // Created by. S.Thorp and G.Narayan
-  // Read & initialize BAYESN model.
-  //
-  //  HISTORY
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Sep 18 2023: 
-  //     RK - add MODEL_EXTRAP argument. 
-  // Apr 23 2025:
-  //     ST - update extrapolation behaviour
-  //        - now uses BayeSN's default linear extrap rule for -20<Trest<85
-  //        - uses flux=0 for Trest<-20 and SNANA linear extrap for Trest>85
-
-  // Old To Dos (from RK?):
-  // -  Implement MODEL_EXTRAP following logic in genmag_SALT2.c
-  // -  make sure that default modelflux_extrap(...) is called correctly.
+int init_genmag_BAYESN(
+         char * MODEL_VERSION // (I) BayeSN model version
+        ,char * MODEL_EXTRAP  // (I) Extrap behaviour (NOT IMPLEMENTED)
+        ,int    optmask       // (I) Option mask
+) {
+    // Created by. S.Thorp and G.Narayan
+    // Read & initialize BAYESN model.
+    //
+    //  HISTORY
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Sep 18 2023: 
+    //     RK - add MODEL_EXTRAP argument. 
+    // Apr 23 2025:
+    //     ST - update extrapolation behaviour
+    //        - now uses BayeSN's default linear extrap rule for -20<Trest<85
+    //        - uses flux=0 for Trest<-20 and SNANA linear extrap for Trest>85
+  
+    // Old To Dos (from RK?):
+    // -  Implement MODEL_EXTRAP following logic in genmag_SALT2.c
+    // -  make sure that default modelflux_extrap(...) is called correctly.
 
     int  ised;
     int  retval = 0   ;
@@ -404,8 +429,8 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
     if (optmask & OPTMASK_BAYESN_SCATTER_DEFAULT) {
         // sanity check and abort on confusing input
         if ( optmask & OPTMASK_BAYESN_SCATTER_ALL ) {
-            sprintf(c1err, "Ambiguous scatter configuration requested! Found %d in OPTMASK!", 
-                    optmask & (OPTMASK_BAYESN_SCATTER_DEFAULT + OPTMASK_BAYESN_SCATTER_ALL) );
+            sprintf(c1err, "Ambiguous scatter configuration requested! Found %d in OPTMASK!"
+                    ,optmask & (OPTMASK_BAYESN_SCATTER_DEFAULT + OPTMASK_BAYESN_SCATTER_ALL) );
             sprintf(c2err, "If bit 1 is set (enable default scatter), no other scatter bits can be set!");
             errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
         }
@@ -419,11 +444,10 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
         ENABLE_SCATTER_BAYESN = optmask & OPTMASK_BAYESN_SCATTER_ALL;
     }
     // print the scatter flag we ended up with
-    printf("ENABLE_SCATTER_BAYESN flag is %d (DELTAM %scluded; EPSILON %scluded)\n", 
-            ENABLE_SCATTER_BAYESN, 
-            (ENABLE_SCATTER_BAYESN & 4) ? "in" : "ex",
-            (ENABLE_SCATTER_BAYESN & 2) ? "in" : "ex"
-          );
+    printf("ENABLE_SCATTER_BAYESN flag is %d (DELTAM %scluded; EPSILON %scluded)\n" 
+           ,ENABLE_SCATTER_BAYESN
+           ,(ENABLE_SCATTER_BAYESN & 4) ? "in" : "ex"
+           ,(ENABLE_SCATTER_BAYESN & 2) ? "in" : "ex");
     
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
     char version[60];
@@ -446,8 +470,8 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
     double Tlower    = -20.0 ; // formerly BAYESN_MODEL_INFO.tau_knots[0]
     double Tupper    =  85.0 ; // formerly BAYESN_MODEL_INFO.tau_knots[BAYESN_MODEL_INFO.n_tau_knots-1] ;
     double Trange[2] = {Tlower, Tupper};
-    double Lrange[2] = {BAYESN_MODEL_INFO.lam_knots[0], 
-                        BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1]};
+    double Lrange[2] = {BAYESN_MODEL_INFO.lam_knots[0]
+                        ,BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1]};
     
     istat = rd_sedFlux(SED_filepath, "Hsiao Template", Trange, Lrange
                        ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
@@ -464,33 +488,37 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
 
     filtdump_SEDMODEL();
 
-    SEDMODEL.LAMMIN_ALL = BAYESN_MODEL_INFO.lam_knots[0] ;  // rest-frame SED range
-    SEDMODEL.LAMMAX_ALL = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_min ; // rest-frame central wavelength range
+    // rest-frame wavelength range of SED
+    SEDMODEL.LAMMIN_ALL           = BAYESN_MODEL_INFO.lam_knots[0] ;
+    SEDMODEL.LAMMAX_ALL           = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
+    // rest-frame central wavelength range allowed for filters
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_min ; 
     SEDMODEL.RESTLAMMAX_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_max ;
 
     if ( VERBOSE_BAYESN > 0 ) {
-        printf("DEBUG: LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n",
-                SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN);
-        printf("DEBUG: LIMITS OF SED WAVELENGTH: %.1f, %.1f\n",
-                SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
+        printf("DEBUG: LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n"
+               ,SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN);
+        printf("DEBUG: LIMITS OF SED WAVELENGTH: %.1f, %.1f\n"
+               ,SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
     }
 
     //compute the inverse KD matrices and J_lam 
-    BAYESN_MODEL_INFO.KD_tau = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots,
-            BAYESN_MODEL_INFO.tau_knots);
-    BAYESN_MODEL_INFO.KD_lam = invKD_irr(BAYESN_MODEL_INFO.n_lam_knots,
-            BAYESN_MODEL_INFO.lam_knots);
-    BAYESN_MODEL_INFO.J_lam = spline_coeffs_irr(BAYESN_MODEL_INFO.S0.NLAM,
-            BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.S0.LAM,
-            BAYESN_MODEL_INFO.lam_knots, BAYESN_MODEL_INFO.KD_lam);
+    BAYESN_MODEL_INFO.KD_tau = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots
+                                         ,BAYESN_MODEL_INFO.tau_knots);
+    BAYESN_MODEL_INFO.KD_lam = invKD_irr(BAYESN_MODEL_INFO.n_lam_knots
+                                         ,BAYESN_MODEL_INFO.lam_knots);
+    BAYESN_MODEL_INFO.J_lam = spline_coeffs_irr(BAYESN_MODEL_INFO.S0.NLAM
+                                                ,BAYESN_MODEL_INFO.n_lam_knots
+                                                ,BAYESN_MODEL_INFO.S0.LAM
+                                                ,BAYESN_MODEL_INFO.lam_knots
+                                                ,BAYESN_MODEL_INFO.KD_lam);
 
     // allocate memory for epsilon (which will keep being overwritten)
     // the genEPSILON_BAYESN() function will update this when it gets
     // invoked in snlc_sim
     // added by ST on Mar 22 2024 (sorry)
-    BAYESN_MODEL_INFO.EPSILON = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
-                                                 BAYESN_MODEL_INFO.n_tau_knots);
+    BAYESN_MODEL_INFO.EPSILON = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots
+                                                 ,BAYESN_MODEL_INFO.n_tau_knots);
     gsl_matrix_set_zero(BAYESN_MODEL_INFO.EPSILON);
 
     // init _LAST variables for extinction storage
@@ -505,45 +533,44 @@ int init_genmag_BAYESN(char *MODEL_VERSION, char *MODEL_EXTRAP, int optmask){
 
 } // end init_genmag_BAYESN
 
-// =====================================================
 void genmag_BAYESN(
-         int     OPTMASK      // (I) bit-mask of options (LSB=0)
-        ,int     ifilt_obs    // (I) absolute filter index
-        ,double *parList_SN   // (I) DLMAG, THETA, AV, RV
-        ,double  mwebv        // (I) Galactic extinction: E(B-V)
-        ,double  z            // (I) Supernova redshift
-        ,int     Nobs         // (I) number of epochs
-        ,double *Tobs_list    // (I) list of Tobs (w.r.t peakMJD) 
-        ,double *magobs_list  // (O) observed mag values
-        ,double *magerr_list  // (O) model mag errors
-    ) {
+         int      OPTMASK      // (I) bit-mask of options (LSB=0)
+        ,int      ifilt_obs    // (I) absolute filter index
+        ,double * parList_SN   // (I) DLMAG, THETA, AV, RV
+        ,double   mwebv        // (I) Galactic extinction: E(B-V)
+        ,double   z            // (I) Supernova redshift
+        ,int      Nobs         // (I) number of epochs
+        ,double * Tobs_list    // (I) list of Tobs (w.r.t peakMJD) 
+        ,double * magobs_list  // (O) observed mag values
+        ,double * magerr_list  // (O) model mag errors
+) {
 
     double DLMAG = parList_SN[0] ;
     double THETA = parList_SN[1] ;
     double AV    = parList_SN[2] ;
     double RV    = parList_SN[3] ;
 
-    int     OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW;
-    double *PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW;
-    double  z1, meanlam_obs, meanlam_rest, ZP, PARDUM=0.0 ; 
-    double  t0, t1, f0, f1, flux ;
+    int      OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW;
+    double * PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW;
+    double   z1, meanlam_obs, meanlam_rest, ZP, PARDUM=0.0 ; 
+    double   t0, t1, f0, f1, flux ;
 
-    int     MEMD        = sizeof(double)*Nobs;
-    double *flux_list   = malloc(MEMD); // RK
-    double *Trest_list  = malloc(MEMD); 
-    int    *extrap_flag = malloc(MEMD);  
-    int    *preexp_flag = malloc(MEMD); // ST
+    int      MEMD        = sizeof(double)*Nobs;
+    double * flux_list   = malloc(MEMD); // RK
+    double * Trest_list  = malloc(MEMD); 
+    int    * extrap_flag = malloc(MEMD);  
+    int    * preexp_flag = malloc(MEMD); // ST
 
-    char   *cfilt ;
-    int     ifilt = 0, i, o ; 
+    char   * cfilt ;
+    int      ifilt = 0, i, o ; 
     
     // allocate matrices for the spline operations
-    gsl_vector_view  j_lam;
-    gsl_matrix      *J_tau;
-    gsl_matrix      *W       = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
-                                                BAYESN_MODEL_INFO.n_tau_knots);
-    gsl_matrix      *WJ      = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots, Nobs);
-    gsl_vector      *jWJ     = gsl_vector_alloc(Nobs);
+    gsl_vector_view j_lam;
+    gsl_matrix    * J_tau;
+    gsl_matrix    * W   = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots
+                                           ,BAYESN_MODEL_INFO.n_tau_knots);
+    gsl_matrix    * WJ  = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots, Nobs);
+    gsl_vector    * jWJ = gsl_vector_alloc(Nobs);
 
     int     nlam_filt, ilam_filt;
     int     nday_model, nlam_model, ilam_model_blue, ilam_model_red ;
@@ -600,21 +627,21 @@ void genmag_BAYESN(
     daystep_model    = BAYESN_MODEL_INFO.S0.DAYSTEP; // RK
 
     // compute ilam_model_blue[red] instead of brute-force search (RK)
-    dlam_tmp = lam_filt_array[0] - z1*lam_model_array[0];
-    ilam_model_blue = (int)( dlam_tmp / (z1*lamstep_model) ) + 1 ; // RK
-    dlam_tmp = lam_filt_array[nlam_filt-1] - z1*lam_model_array[0];
-    ilam_model_red  = (int)( dlam_tmp / (z1*lamstep_model) ) ; // RK
+    dlam_tmp         = lam_filt_array[0] - z1*lam_model_array[0];
+    ilam_model_blue  = (int)( dlam_tmp / (z1*lamstep_model) ) + 1 ; // RK
+    dlam_tmp         = lam_filt_array[nlam_filt-1] - z1*lam_model_array[0];
+    ilam_model_red   = (int)( dlam_tmp / (z1*lamstep_model) ) ; // RK
 
     // compute the matrix for time interpolation
-    J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
-              Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+    J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots, Trest_list
+                              ,BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
 
     // compute W0 + THETA*W1 + EPSILON
     int wx, wy;
     int nx = BAYESN_MODEL_INFO.n_lam_knots;
     int ny = BAYESN_MODEL_INFO.n_tau_knots;
-    for (wx=0; wx < nx; wx++)    {
-        for (wy=0; wy < ny; wy++)   {
+    for (wx=0; wx < nx; wx++) {
+        for (wy=0; wy < ny; wy++) {
             double W0_val = gsl_matrix_get(BAYESN_MODEL_INFO.W0, wx, wy) ;
             double W1_val = gsl_matrix_get(BAYESN_MODEL_INFO.W1, wx, wy) ;
             double EP_val = gsl_matrix_get(BAYESN_MODEL_INFO.EPSILON, wx, wy);
@@ -630,26 +657,26 @@ void genmag_BAYESN(
     // interpolate the filter wavelengths on to the model in the observer frame
     // usually this is OK because the filters are more coarsely defined than the model
     // that may not be the case with future surveys and we should revisit
-    int    this_nlam = ilam_model_red - ilam_model_blue + 1;
-    int    OPT_INTERP = 1; // 1=linear, 2=quadratic
+    int    this_nlam  = ilam_model_red - ilam_model_blue + 1;
+    int    OPT_INTERP = 1 ;         // 1=linear, 2=quadratic
     int    q_lam, q_day;
     double this_lam, lam_model ;
     double this_trans, tr0, tr1, frac ;
-    double eA_lam_MW, eA_lam_host; // store MW and host dust law at current wl
-    double eW, S0_lam; // store other SED  bits
+    double eA_lam_MW, eA_lam_host ; // store MW and host dust law at current wl
+    double eW, S0_lam ;             // store other SED  bits
 
     // loop over model wavelengths within the filter
     for (q_lam = ilam_model_blue; q_lam < ilam_model_red; q_lam++) {
 
-        lam_model  = lam_model_array[q_lam]; // rest-frame model lam
-        this_lam   = lam_model_array[q_lam]*z1; // obs-frame
+        lam_model = lam_model_array[q_lam]; // rest-frame model lam
+        this_lam  = lam_model_array[q_lam]*z1; // obs-frame
 
         // RK - get lam-index for filter
         ilam_filt   = (int)((this_lam - lam_filt_array[0])/lamstep_filt);
         if ( ilam_filt < 0 || ilam_filt >= nlam_filt ) {
             sprintf(c1err,"Invalid ilam_filt=%d", ilam_filt);
-            sprintf(c2err,"Nlam_filt=%d for %s lam=%f ", 
-                    nlam_filt, cfilt, this_lam);
+            sprintf(c2err,"Nlam_filt=%d for %s lam=%f "
+                    ,nlam_filt, cfilt, this_lam);
             errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
         }
 
@@ -658,9 +685,9 @@ void genmag_BAYESN(
         // (for slight speed improvement, create this_trans_map[ifilt][q_lam]
         //  in init_genmag_BAYESN)
         if ( ilam_filt < nlam_filt-1 ) {
-            tr0  = trans_filt_array[ilam_filt];
-            tr1  = trans_filt_array[ilam_filt+1];
-            frac = ( this_lam - lam_filt_array[ilam_filt] ) / lamstep_filt;
+            tr0        = trans_filt_array[ilam_filt];
+            tr1        = trans_filt_array[ilam_filt+1];
+            frac       = ( this_lam - lam_filt_array[ilam_filt] ) / lamstep_filt;
             this_trans = tr0 + frac*(tr1-tr0);
         } else {
             this_trans = trans_filt_array[ilam_filt];
@@ -675,20 +702,20 @@ void genmag_BAYESN(
         if ( USE_TABLE_XTMW  ) {
             eA_lam_MW = SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilam_filt] ; // RK
         } else {
-            double RV_MW = MWXT_SEDMODEL.RV;
-            double AV_MW = RV_MW * mwebv;
-            double XTMAG_MW = GALextinct(RV_MW, AV_MW, this_lam,
-                                         OPT_COLORLAW, PARLIST_COLORLAW, fnam);
-            eA_lam_MW = pow(10.0, -0.4*XTMAG_MW);
+            double RV_MW    = MWXT_SEDMODEL.RV;
+            double AV_MW    = RV_MW * mwebv;
+            double XTMAG_MW = GALextinct(RV_MW, AV_MW, this_lam
+                                         ,OPT_COLORLAW, PARLIST_COLORLAW, fnam);
+            eA_lam_MW       = pow(10.0, -0.4*XTMAG_MW);
         }
 
         // get host extinction
         if ( USE_TABLE_XThost ) {
             eA_lam_host = SEDMODEL_TABLE_HOSTXT_FRAC[ifilt][ilam_filt]; // RK
         } else {
-            double XTMAG_host = GALextinct(RV, AV, lam_model,
-                                           OPT_COLORLAW, PARLIST_COLORLAW, fnam );
-            eA_lam_host = pow(10.0, -0.4*XTMAG_host);
+            double XTMAG_host = GALextinct(RV, AV, lam_model
+                                           ,OPT_COLORLAW, PARLIST_COLORLAW, fnam);
+            eA_lam_host       = pow(10.0, -0.4*XTMAG_host);
         }
       
         // loop over observations and accumulate the contribution of the
@@ -731,11 +758,11 @@ void genmag_BAYESN(
     gsl_vector_free(jWJ);
 
     if (VERBOSE_BAYESN > 0) {
-        printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f   THETA: %.2f   AV: %.2f\n",
-                BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
+        printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f   THETA: %.2f   AV: %.2f\n"
+               ,BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
     }
 
-    //double hc_local   = hc ; // ST - why do we do this? I've commented it out
+    double hc_local = hc ; // ST - why do we do this? not having it breaks everything
     /* XXX mark delete XXX
     double Trest_edge     = BAYESN_MODEL_INFO.S0.DAY[BAYESN_MODEL_INFO.S0.NDAY-1] ; // ST - updated 
     int    EXTRAPFLAG_DMP = 0 ;
@@ -747,10 +774,8 @@ void genmag_BAYESN(
     for (o = 0; o < Nobs; o++) {
         // ST - I am deprecating the below in favour of BayeSN's inbuilt extrap
         //    - For things beyond the Hsiao07 base template, return undefined
+        //    - For things within Hsiao07, use the BayeSN extrap rule
         /* XXX mark delete XXX
-        // RK - check extrap flag to allow slop in fitted PEAKMJD
-        // ST - this will be triggered if Trest exceeds the base template
-        //    - updates flux based on SNANA extrapolation rule
         if ( extrap_flag[o] ) {
             flux_edge    = flux_list[o];
             slope_flux   = -flux_edge * 0.05; // dF/dt hack
@@ -773,7 +798,7 @@ void genmag_BAYESN(
         // otherwise fill out the magobs list
         } else {
             magobs_list[o] = BAYESN_MODEL_INFO.M0 + BAYESN_MODEL_INFO.DELTAM
-                           + DLMAG - 2.5*log10(flux_list[o]/hc) + ZP; 
+                           + DLMAG - 2.5*log10(flux_list[o]/hc_local) + ZP; 
             magerr_list[o] = 0.01; // RK 0.1 is too big for LCfit
         }
     } // end second o loop over Nobs bins
@@ -793,23 +818,13 @@ void genmag_BAYESN(
 
 } //End of genmag_BAYESN
 
+// =====================================================
+// ============ SPLINE FUNCTIONS =============
 
-// =================================
- 
-void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
-                     double *mwebv, double *z, int *Nobs,
-                     double *Tobs_list, double *magobs_list,
-                     double *magerr_list) {
-    genmag_BAYESN(*OPTMASK, *ifilt_obs, parlist_SN, *mwebv, *z,
-                    *Nobs, Tobs_list, magobs_list, magerr_list);
-    return;
-}
-
-void dump_SED_element(FILE * file, double wave, double value) {
-   fprintf(file, "%.2f %e", wave, value);
-}
-
-gsl_matrix *invKD_irr(int Nk, double *xk) {
+gsl_matrix * invKD_irr(
+         int      Nk // (I) Number of spline knots
+        ,double * xk // (I) Spline knot locations
+) {
     //FIXME I'm pretty sure this whole thing could be done better by using 
     //the GSL tridiagonal solver. This is just a direct port of my python.
     
@@ -856,11 +871,16 @@ gsl_matrix *invKD_irr(int Nk, double *xk) {
     gsl_matrix_free(D);
 
     return M;
-}
+} // end invKD_irr
 
-// =======================================
-gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, 
-                              gsl_matrix *invKD) {
+
+gsl_matrix * spline_coeffs_irr(
+         int          N      // (I) Number of points to evaluate spline at
+        ,int          Nk     // (I) Number of spline knots
+        ,double     * x      // (I) Locations to evaluate at
+        ,double     * xk     // (I) Locations of knots
+        ,gsl_matrix * invKD  // (I) K^{-1}D matrix
+) {
 
     gsl_matrix * J = gsl_matrix_alloc(N, Nk); 
     gsl_matrix_set_zero(J);
@@ -878,8 +898,8 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk,
             gsl_matrix_set(J, i, Nk-1, b);
             //FIXME I can probably do this by accessing a row and modifying
             for (j=0; j<Nk; j++) {
-                gsl_matrix_set(  J, i, j, gsl_matrix_get(J, i, j)
-                                 + f*gsl_matrix_get(invKD, Nk-2, j)  );
+                gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                        + f*gsl_matrix_get(invKD, Nk-2, j));
             }
         } else if (x[i] < xk[0]) {
             h = xk[1] - xk[0];
@@ -890,8 +910,8 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk,
             gsl_matrix_set(J, i, 0, a);
             gsl_matrix_set(J, i, 1, b);
             for (j=0; j<Nk; j++) {
-                gsl_matrix_set(  J, i, j, gsl_matrix_get(J, i, j)
-                                 - f*gsl_matrix_get(invKD, 1, j)  );
+                gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                        - f*gsl_matrix_get(invKD, 1, j));
             }
         } else {
             q = 0;
@@ -909,9 +929,9 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk,
             gsl_matrix_set(J, i, q,   a);
             gsl_matrix_set(J, i, q+1, b);
             for (j=0; j<Nk; j++) {
-                gsl_matrix_set(  J, i, j, gsl_matrix_get(J, i, j)
-                                 + c*gsl_matrix_get(invKD, q,   j)
-                                 + d*gsl_matrix_get(invKD, q+1, j)  );
+                gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                        + c*gsl_matrix_get(invKD, q,   j)
+                                        + d*gsl_matrix_get(invKD, q+1, j));
             }
         }
     }
@@ -920,11 +940,15 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk,
 
 } // end spline_coeffs_irr 
 
-// =================================================
+// =====================================================
+// ============ EPSILON (RESIDUAL SCATTER) FUNCTIONS =============
+
 // This function creates a vector of N(0,1) draws
-gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots) {
-    int i;
-    int n_knots = (n_lam_knots-2)*n_tau_knots;
+gsl_vector * sample_nu(
+         int n_lam_knots // (I) Number of wavelength knots
+        ,int n_tau_knots // (I) Number of phase knots
+) {
+    int i, n_knots  = (n_lam_knots-2)*n_tau_knots;
     gsl_vector * nu = gsl_vector_alloc(n_knots);
     for (i=0; i<n_knots; i++) {
         gsl_vector_set(nu, i, getRan_Gauss(1));
@@ -933,7 +957,12 @@ gsl_vector *sample_nu(int n_lam_knots, int n_tau_knots) {
 } // end sample_nu
 
 // This function translates a vector of N(0,1) draws into epsilon
-gsl_matrix *sample_epsilon(int n_lam_knots, int n_tau_knots, gsl_vector * nu, gsl_matrix * L_Sigma_epsilon) {
+gsl_matrix * sample_epsilon(
+         int          n_lam_knots     // (I) Number of wavelength knots
+        ,int          n_tau_knots     // (I) Number of phase knots
+        ,gsl_vector * nu              // (I) Vector of Gaussian RVs
+        ,gsl_matrix * L_Sigma_epsilon // (I) Cholesky factor of residual cov.
+) {
     gsl_vector * epsilon_vec = gsl_vector_alloc((n_lam_knots-2)*n_tau_knots);
     gsl_matrix * epsilon_mat = gsl_matrix_alloc(n_lam_knots, n_tau_knots);
 
@@ -966,15 +995,18 @@ void genSCATTER_BAYESN() {
     // if ENABLE_SCATTER_BAYESN = 6, EPSILON and DELTAM are included
     // sample EPSILON
     if (ENABLE_SCATTER_BAYESN & OPTMASK_BAYESN_EPSILON) {
-        gsl_vector * nu = sample_nu(BAYESN_MODEL_INFO.n_lam_knots,
-                BAYESN_MODEL_INFO.n_tau_knots);
-        BAYESN_MODEL_INFO.EPSILON = sample_epsilon(BAYESN_MODEL_INFO.n_lam_knots,
-                BAYESN_MODEL_INFO.n_tau_knots, nu, BAYESN_MODEL_INFO.L_Sigma_epsilon);
+        gsl_vector * nu = sample_nu(BAYESN_MODEL_INFO.n_lam_knots
+                                    ,BAYESN_MODEL_INFO.n_tau_knots);
+
+        BAYESN_MODEL_INFO.EPSILON = sample_epsilon(BAYESN_MODEL_INFO.n_lam_knots
+                                                   ,BAYESN_MODEL_INFO.n_tau_knots, nu
+                                                   ,BAYESN_MODEL_INFO.L_Sigma_epsilon);
         gsl_vector_free(nu);
     }
     // sample DELTAM
     if (ENABLE_SCATTER_BAYESN & OPTMASK_BAYESN_DELTAM) {
         BAYESN_MODEL_INFO.DELTAM = BAYESN_MODEL_INFO.SIGMA0*getRan_Gauss(1);
     }
-}
+} // end genSCATTER_BAYESN()
 
+// =====================================================

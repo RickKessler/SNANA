@@ -4724,7 +4724,7 @@ c read ZPHOT_Q (May 2022)
         DO q = 1, SNHOST_NZPHOT_Q
           KEY = VARNAME_ZPHOT_Q(igal,q)
           CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-          SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
+          SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1)) 
         ENDDO
 
         SNHOST_QZPHOT_MEAN(igal) = -9.0
@@ -11228,7 +11228,7 @@ c Apr 19 2025: check modifying band name
             cSTRING    = SURVEY_NAME(1:LEN_SURVEY) // '-' // cfilt(1:1)
             STRFITS    = STRFITS(1:LEN_STR) // ' ' // cSTRING
             LEN_STR    = LEN_STR + LEN_SURVEY + 3
-         ENDDO  ! .xyz
+         ENDDO  
 
          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 
      &        STRFITS(1:LEN_STR)//char(0), DVAL, LEN_KEY, LEN_STR)
@@ -18104,7 +18104,7 @@ c prepare redshifts; e.g. use photo-z, apply systematic shifts, etc ...
 
 c - - - - -
       Z    = SNLC_REDSHIFT
-      
+
       if ( Z > 0.0 ) then
          Z1 = 1.0  + z
       else
@@ -18680,6 +18680,7 @@ c Created Jun 5 2021
 c Apply systematic z-shifts passed from &SNLCINP
 c
 c Dec 29 2024: allow ztol of 1E-5 to allow for slop in round-off in TEXT format
+c Apr 22 2025: fix bug and shift ZPHOT_Q (quantiles)
 
       IMPLICIT NONE
 
@@ -18687,7 +18688,7 @@ c Dec 29 2024: allow ztol of 1E-5 to allow for slop in round-off in TEXT format
 +CDE,SNLCINP.
 
       LOGICAL LSHIFT_FINAL, LSHIFT_HOST_ZPHOT, LSHIFT_HOST_ZSPEC
-      INTEGER OPT
+      INTEGER OPT, q, igal
       REAL    zshift, ztol, zdif
 
       REAL*8 zhelio_zcmb_translator ! function
@@ -18720,7 +18721,15 @@ c Dec 29 2024: allow tolerance for round-off in text format
          zdif = SNHOST_ZPHOT(1) - SNLC_REDSHIFT
          if ( abs(zdif) < ztol ) then
             zshift = HOSTGAL_ZPHOT_SHIFT + REDSHIFT_FINAL_SHIFT
-            SNHOST_ZPHOT = SNHOST_zPHOT + zshift
+            SNHOST_ZPHOT = SNHOST_zPHOT + zshift  
+         endif
+
+         if ( SNHOST_NZPHOT_Q > 0 ) then
+            do q    = 1, SNHOST_NZPHOT_Q
+            do igal = 1, MXSNHOST
+	      SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
+            enddo  ! .xyz
+            enddo
          endif
       ENDIF
       

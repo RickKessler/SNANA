@@ -62,6 +62,7 @@
 #               with a standard file name.
 #
 # Apr 21 2025: add ndof collumn to summary file
+# Apr 24 2025: add <omm_sig> column to WFIT_SUMMARY_AVG
 #
 # ====================================================================
 
@@ -1576,6 +1577,7 @@ class cosmofit(Program):
         # Driver utility to compute means and std err on mean among directories
         # See MEAN_STDERRMEAN key in input CONFIG file
         # July 5 2023: exclude results with nwarn > 0
+        # Apr 24 2025: include <omm_sig> in summary-avg
 
         CONFIG           = self.config_yaml['CONFIG']
         COSMOFIT_CODE    = self.config_prep['COSMOFIT_CODE']
@@ -1602,9 +1604,9 @@ class cosmofit(Program):
         nrow = 0
         
         if use_wa: 
-            VARNAME_FOM = "<w_sig> <wa_sig> <FoM> <FoM>_sig"
+            VARNAME_FOM = "<w_sig> <wa_sig> <omm_sig> <FoM> <FoM>_sig"
         else: 
-            VARNAME_FOM = "<w_sig>"
+            VARNAME_FOM = "<w_sig> <omm_sig>"
 
         comment_lines = []
         comment_lines.append(f"# =================================== " )
@@ -1619,13 +1621,18 @@ class cosmofit(Program):
         comment_lines.append(f"#   <wa>_sig  : error on <wa> [ RMS/sqrt(N_DIR) ]")
         comment_lines.append(f"#   <omm>     : mean fitted OM among N_DIRs samples.")
         comment_lines.append(f"#   <omm>_sig : error on <omm> [ RMS/sqrt(N_DIR) ]")
-        comment_lines.append(f"#   <w_sig>   : mean fitted w-uncertainty")
+
 
         if use_wa:
+            comment_lines.append(f"#   <w0_sig>  : mean fitted w0-uncertainty")
             comment_lines.append(f"#   <wa_sig>  : mean fitted wa-uncertainty")
+            comment_lines.append(f"#   <omm_sig> : mean fitted omm-uncertainty")
             comment_lines.append(f"#   <FoM>     : mean Figure of Merit = 1/area(w0wa)")
             comment_lines.append(f"#   <FoM>_sig : error on <FoM> = RMS(FoM)/sqrt(N_DIRs)")
-            
+        else:
+            comment_lines.append(f"#   <w_sig>   : mean fitted w-uncertainty")
+            comment_lines.append(f"#   <omm_sig> : mean fitted omm-uncertainty")
+
         comment_lines.append(f"#   N_DIRs    : number of data samples for mean.")
         comment_lines.append(f"#   COVOPT    : " \
                              f"label for covsys option (ALL=all syst, NOSYS=stat only)")
@@ -1687,7 +1694,7 @@ class cosmofit(Program):
                             idir += 1
                     # - - -
                     omm_list = []; w_list = []; wa_list = []
-                    wsig_list = []; wasig_list = []; FoM_list = []
+                    wsig_list = []; wasig_list = []; ommsig_list = [] ; FoM_list = []
                     unique_key_list = []
 
                     for dir_ in fitavg_list1:
@@ -1702,13 +1709,14 @@ class cosmofit(Program):
                         wa_list.append(summary_table['wa'])
                         wsig_list.append(summary_table['w_sig'])
                         wasig_list.append(summary_table['wa_sig'])
+                        ommsig_list.append(summary_table['omm_sig'])  # Apr 2025 .xyz
                         FoM_list.append(summary_table['FoM'])
                     covopt_label  = summary_table['covopt_label']
                     fitopt_label  = summary_table['fitopt_label']
 
                     if fitavg_list2 is not None:
                         omm_list2  = []; w_list2 = []; wa_list2 = []
-                        wsig_list2 = []; wasig_list2 = []; FoM_list2 = []
+                        wsig_list2 = []; wasig_list2 = []; ommsig_list2 = [] ; FoM_list2 = []
 
                         for dir2_ in fitavg_list2:
                             if nwarn_dict[dir2_] > 0 : continue
@@ -1719,17 +1727,19 @@ class cosmofit(Program):
                             wa_list2.append(summary_table['wa'])
                             wsig_list2.append(summary_table['w_sig'])
                             wasig_list2.append(summary_table['wa_sig'])
+                            ommsig_list2.append(summary_table['omm_sig'])
                             FoM_list2.append(summary_table['FoM'])
                     else: 
                         # if theres no second set of dirs, this is not a 
                         # difference so just set x_list2 to zero                         
-                        zero_list2  = np.zeros(len(w_list))
-                        omm_list2   = zero_list2
-                        w_list2     = zero_list2
-                        wa_list2    = zero_list2
-                        wsig_list2  = zero_list2
-                        wasig_list2 = zero_list2
-                        FoM_list2   = zero_list2
+                        zero_list2   = np.zeros(len(w_list))
+                        omm_list2    = zero_list2
+                        w_list2      = zero_list2
+                        wa_list2     = zero_list2
+                        wsig_list2   = zero_list2
+                        wasig_list2  = zero_list2
+                        ommsig_list2 = zero_list2
+                        FoM_list2    = zero_list2
                     
                     ##compute mean and std err on mean
                     logging.info(f"\t Compute averages for '{fitopt_label}' " \
@@ -1741,6 +1751,9 @@ class cosmofit(Program):
                         self.compute_average(np.array(w_list)-np.array(w_list2))
                     wsig_avg, wsig_avg_std = \
                         self.compute_average(np.array(wsig_list)-np.array(wsig_list2))
+                    ommsig_avg, ommsig_avg_std = \
+                        self.compute_average(np.array(ommsig_list)-np.array(ommsig_list2))
+
                     if use_wa:
                         wa_avg, wa_avg_std = \
                             self.compute_average(np.array(wa_list)-np.array(wa_list2))
@@ -1756,12 +1769,13 @@ class cosmofit(Program):
                     str_results  = f"{w_avg:7.4f} {w_avg_std:7.4f} "
                     str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
                     str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
-                    str_results += f"{wsig_avg:7.4f}  "
                     # xxx mark delete : str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
                     
                     if use_wa:
                         str_FoM      = f"{FoM_avg:5.0f} {FoM_avg_std:5.1f} "
-                        str_results += f"{wasig_avg:7.4f}  {str_FoM}"
+                        str_results += f"{wsig_avg:7.4f} {wasig_avg:7.4f} {ommsig_avg:7.4f} {str_FoM}"
+                    else:
+                        str_results += f"{wsig_avg:7.4f} {ommsig_avg:7.4f} "
 
                     str_misc    = f"{len(w_list)}"
                     str_labels  = f"{covopt_label:<10} {fitopt_label}"

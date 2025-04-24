@@ -63,7 +63,7 @@ CC   = gcc
 #  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-EXTRA_FLAGS = -O2  # xxx RESTORE
+# EXTRA_FLAGS = -O2  # xxx RESTORE
 #EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
@@ -102,6 +102,8 @@ endif
 # define libraries
 
 # default lib-subdir name is just 'lib'.
+# To see where include files are pulled from, add -H to compiler flags
+
   LIB_SDIR  = lib
 
   LGSL    =  -L$(GSL_DIR)/$(LIB_SDIR) -lgsl  \

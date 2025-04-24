@@ -39,7 +39,8 @@
 # Mar 22 2024: fix kcor to link with genmag_SEDtools.o
 # Apr 12 2024: few tweaks to handle sntools_wgtmap.c[h]
 # Apr 13 2025: add cnpy for wfit to read cov matrix in optional npz format
-#
+# Apr 24 2025: fix make for wfit to work on both midway and perlmutter
+#             
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -409,7 +410,7 @@ $(OBJ)/yaml.o : $(SRC)/yaml.c $(SRC)/yaml.h
 	(cd $(OBJ); $(CC) $(SNCFLAGS)  $(SRC)/yaml.c )
 
 $(OBJ)/cnpy.o : $(SRC)/cnpy.cpp $(SRC)/cnpy.h
-	(cd $(OBJ); $(CC) $(SNCFLAGS)  $(SRC)/cnpy.cpp )
+	(cd $(OBJ); $(CC) $(SNCFLAGS) -I/$(CONDA_PREFIX)/include  $(SRC)/cnpy.cpp )
 
 # -----------------------------------------------------
 #  cosmology fitter (from Alex Connelly, modified by G.Miknaitis & RK)
@@ -418,7 +419,7 @@ $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/wfit.c ) 
 
 $(OBJ)/sntools_npz.o : $(SRC)/sntools_npz.c
-	(cd $(OBJ); $(CCoutput) $(SNCFLAGS)  $(SRC)/sntools_npz.c )
+	(cd $(OBJ); $(CCoutput) $(SNCFLAGS) -I/$(CONDA_PREFIX)/include $(SRC)/sntools_npz.c )
 
 $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
@@ -430,7 +431,8 @@ $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_n
 	$(OBJ)/sntools_cosmology.o \
 	$(LCERN) $(LROOT) $(CPPLIB) \
 	$(LCFITSIO)  \
-	-lm $(LGSL) 
+	-lm $(LGSL) \
+	-lz 
 	(cd $(OBJ);  rm wfit.o )
 
 

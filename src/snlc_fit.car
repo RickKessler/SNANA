@@ -10081,7 +10081,7 @@ c
       LOGICAL VALID_INIVAL, VALID_PRIOR
 
 c functions
-      REAL*8   SET_PRIOR_FITPAR_ERR
+      REAL*8   SET_PRIOR_FITPAR_SIG
       EXTERNAL MATCH_CIDLIST_PARVAL
 
 C ----------- BEGIN ----------
@@ -10161,7 +10161,7 @@ c  Jan 2025: construct column of fit par ERROR
 	 if ( USE_PRIOR_SNCID_FILE ) then
             INIVAL(IPAR) = DVAL	  
             PRIOR_VAL = DVAL
-            PRIOR_ERR = SET_PRIOR_FITPAR_ERR(IPAR,DVAL_ERR)
+            PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
 	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = PRIOR_VAL     ! Gauss mean
 	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = PRIOR_ERR     ! Gauss sigma
 
@@ -10202,13 +10202,17 @@ c - - - -
       END  ! end FITINI_LIST_FILE
 
 C =======================================
-+DECK,SET_PRIOR_FITPAR_ERR.
-      DOUBLE PRECISION FUNCTION SET_PRIOR_FITPAR_ERR(IPAR,DVALERR)
++DECK,SET_PRIOR_FITPAR_SIG.
+      DOUBLE PRECISION FUNCTION SET_PRIOR_FITPAR_SIG(IPAR,DVALSIG)
+
+c return Gaussian sigma to use as prior; this sigma is based
+c on previous LC fit, and intended to use for systmatics to 
+c prevent large/unphysical deviations.
 
       IMPLICIT NONE
 
       INTEGER IPAR     ! (I) fit par index
-      REAL*8  DVALERR  ! (I) fitpar error read from previous fit
+      REAL*8  DVALSIG  ! (I) fitpar sigma read from previous fit
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
@@ -10216,29 +10220,32 @@ C =======================================
 +CDE,SNLCINP.
 
 c local args
-      REAL*8  PRIOR_ERR
+      REAL*8  PRIOR_SIG, SCALE_SIGMA
       LOGICAL LX2, LX3, LNOzPRIOR
 
 C ------------- BEGIN ----------
-      PRIOR_ERR = DVALERR
+      PRIOR_SIG = DVALSIG
 
+c hard-wire scale on previous fitted sigma to avoid suppressing systematic 
+c while still avoiding crazy outliers. This is not well tuned so may
+c need more study.
+      SCALE_SIGMA = 2.0  
+
+c few debug option to play with scale
       LX2       = (IAND(DEBUG_FLAG,2) > 0)
       LX3       = (IAND(DEBUG_FLAG,4) > 0)
-      LNOzPRIOR = (IAND(DEBUG_FLAG,64) > 0)
 
       IF ( LX2 ) then
-         PRIOR_ERR = 2.0*DVALERR
+         SCALE_SIGMA = 1.0
       ELSE IF ( LX3 ) THEN
-         PRIOR_ERR = 3.0*DVALERR
+         SCALE_SIGMA = 3.0
       ENDIF
 
-      if ( LNOzPRIOR .and. IPAR == IPAR_zPHOT ) then
-         PRIOR_ERR = 99.0
-      endif
+      PRIOR_SIG = SCALE_SIGMA*DVALSIG
 
-      SET_PRIOR_FITPAR_ERR = PRIOR_ERR
+      SET_PRIOR_FITPAR_SIG = PRIOR_SIG
       RETURN
-      END     ! end SET_PRIOR_FITPAR_ERR
+      END     ! end SET_PRIOR_FITPAR_SIG
 
 C =====================================
 +DECK,FITINI_TABLEVAR.

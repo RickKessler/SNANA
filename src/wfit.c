@@ -278,6 +278,7 @@ struct INPUTS {
   char outFile_cospar[MXCHAR_FILENAME] ; // output name of cospar file
   char outFile_resid[MXCHAR_FILENAME] ;
   char outFile_chi2grid[MXCHAR_FILENAME];
+  double weightmin;  // min weight for outfile_chi2grid (Apr 28 2025)
   char outFile_mucovtot_inv[MXCHAR_FILENAME];
   
   char **mucov_file ;  // input cov matrix(es); e.g., produced by create_cov
@@ -748,6 +749,7 @@ void init_stuff(void) {
   INPUTS.outFile_cospar[0]   = 0 ;
   INPUTS.outFile_resid[0]    = 0 ;
   INPUTS.outFile_chi2grid[0] = 0 ;
+  INPUTS.weightmin           = 1.0E-20;
   INPUTS.outFile_mucovtot_inv[0] = 0 ;
   INPUTS.use_mucov           = 0 ;
   sprintf(INPUTS.label_cospar,"none");
@@ -917,6 +919,7 @@ void print_wfit_help(void) {
     "   -outfile_resid\tname of output file with mu-residuals",
     "   -resid\t\t  [same as previous]" ,
     "   -outfile_chi2grid\tname of output file containing chi2-grid",
+    "   -weightmin\t min weight for outfile_chi2grid (default=1.0E-20)",
     "   -label\tstring-label for cospar file.",
     "   -outfile_mucovtot_inv\t Write mucovtot_inv to file",
     "",
@@ -1155,9 +1158,10 @@ void parse_args(int argc, char **argv) {
 	{ strcpy(INPUTS.outFile_resid,argv[++iarg]);  }
 
       else if (strcasecmp(argv[iarg]+1,"outfile_chi2grid")==0)  
-	{ strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
-      // xxx else if (strcasecmp(argv[iarg]+1,"chi2grid")==0)  
-      // xxx { strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
+	{ strcpy(INPUTS.outFile_chi2grid, argv[++iarg]); }
+      else if (strcasecmp(argv[iarg]+1,"weightmin")==0)  
+	{ INPUTS.weightmin = atof(argv[++iarg]); }
+
 
       else if (strcasecmp(argv[iarg]+1,"outfile_mucovtot_inv")==0)  
 	{ strcpy(INPUTS.outFile_mucovtot_inv,argv[++iarg]); }
@@ -5418,11 +5422,14 @@ void write_output_chi2grid(void) {
   //
   // Jan 31 2023: add blind offsets
   //
+  // Apr 28 2025: Write prob colummn for chainconsumer 
+  //
   char *outFile  = INPUTS.outFile_chi2grid;
   bool float_w0  = (INPUTS.w0_steps  > 1);
   bool float_wa  = (INPUTS.wa_steps  > 1);
   bool float_omm = (INPUTS.omm_steps > 1);
 
+  double weightmin = INPUTS.weightmin;
   FILE *fp;
   char VARLIST[100];
   char fnam[] = "write_output_chi2grid" ;
@@ -5443,19 +5450,48 @@ void write_output_chi2grid(void) {
   if ( float_w0  )  { strcat(VARLIST,"w0 "); }
   if ( float_wa  )  { strcat(VARLIST,"wa "); }
   if ( float_omm )  { strcat(VARLIST,"omm "); }
-  strcat(VARLIST,"  chi2_sn chi2_tot ");
+  strcat(VARLIST,"  chi2_sn chi2_tot weight");
 
-  fprintf(fp,"VARNAMES: ROW %s\n", VARLIST);
+ 
 
   // - - - -
+  int nrow_tot=0, nrow_wr=0;
   int i, kk, j, rownum=0;
-  double snchi, extchi, w0, wa, omm ;
+  double snchi, extchi, extprob, w0, wa, omm ;
   char   line[100], cval[3][40];
+
+  // dummy loop to count rows passing weightmin; write stats at top of file.
   for(i=0; i < INPUTS.w0_steps; i++){
     for(kk=0; kk < INPUTS.wa_steps;kk++) {
       for(j=0; j < INPUTS.omm_steps; j++) {
-	snchi =  WORKSPACE.snchi3d[i][kk][j]  - WORKSPACE.snchi_min;
-	extchi = WORKSPACE.extchi3d[i][kk][j] - WORKSPACE.extchi_min;
+	nrow_tot++ ;
+	extprob =  WORKSPACE.extprob3d[i][kk][j] + 1.0e-50;
+	if ( extprob > weightmin || weightmin==0.0 ) { nrow_wr++; }
+      }
+    }
+  }
+
+  // - - - - -
+  // write some header info
+  fprintf(fp,"# Write %d of %d rows passing weight > %.2le \n",	  
+	  nrow_wr, nrow_tot, weightmin); fflush(fp);
+  
+  fprintf(fp, "# chi2_sn:   chi2 contribution from SN only\n");
+  fprintf(fp, "# chi2_tot:  total chi2 from SN plus priors\n");
+  fprintf(fp, "# weight:    weight used by chainconsumer (added April 2025)\n");
+  fprintf(fp, "\n");
+  fprintf(fp, "VARNAMES: ROW %s\n", VARLIST);
+
+  // - - - - - -
+  // Loop again and write rows
+  for(i=0; i < INPUTS.w0_steps; i++){
+    for(kk=0; kk < INPUTS.wa_steps;kk++) {
+      for(j=0; j < INPUTS.omm_steps; j++) {
+	snchi   =  WORKSPACE.snchi3d[i][kk][j]  - WORKSPACE.snchi_min;
+	extchi  =  WORKSPACE.extchi3d[i][kk][j] - WORKSPACE.extchi_min;
+	extprob =  WORKSPACE.extprob3d[i][kk][j] + 1.0e-50 ;  // Apr 28 2025
+
+	if ( extprob < weightmin && weightmin!=0.0 ) { continue; }
 
 	w0      = INPUTS.w0_min  + i  * INPUTS.w0_stepsize;
 	wa      = INPUTS.wa_min  + kk * INPUTS.wa_stepsize ;
@@ -5474,10 +5510,10 @@ void write_output_chi2grid(void) {
 
 	rownum++ ;
 	sprintf(line,"ROW: %4d   "
-		"%s %s %s   %12.5le %12.5le", 
+		"%s %s %s   %12.5le %12.5le  %12.5le", 
 		rownum, 
 		cval[0], cval[1], cval[2],
-		snchi, extchi );	
+		snchi, extchi, extprob ); 
 	fprintf(fp,"%s\n", line);
 	if ( rownum % 10 == 0 ) { fflush(fp); }
       }

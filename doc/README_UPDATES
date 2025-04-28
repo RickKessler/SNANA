@@ -22963,5 +22963,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    wfit.c
      + add new (optional) speed trick to stop chi2(diag) > threshold;
        speed_flag_chi2=7 (default is 3) 
+     + -ranseed_Rcmb now works on -ompri
 
 END: 

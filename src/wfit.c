@@ -1,5 +1,5 @@
 /***************************************************************************** 
-   wfit [refactored release, Oct 4 2021] 
+   wfit [refactored release, Oct 4 2021]  
 
    Read Hubble diagram in SNANA's "FITRES" format with VARNAMES key,
    and optionally read cov_syst matrix from create_covariance;
@@ -544,7 +544,7 @@ double DV_bao_prior(double z, Cosparam *cpar);
 void   dump_bao_prior(void);
 
 void   init_cmb_prior(int OPT) ;
-double get_Rcmb_ranshift(void) ;
+double get_prior_ranshift(char *varname_prior) ;
 double chi2_bao_prior(Cosparam *cpar, double *rd);
 double chi2_cmb_prior(Cosparam *cpar);
 void   get_chi2_priors(Cosparam *cpar, double *chi2_om, double *chi2_cmb,
@@ -865,7 +865,7 @@ void print_wfit_help(void) {
     "   -sig_type std\tUncertainty from STD of marginalized pdf",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
-    "   -ranseed_Rcmb random seed to fluctuate Rcmb (1-> internally compute seed)",
+    "   -ranseed_Rcmb random seed to fluctuate Rcmb or ompri (1-> internally compute seed)",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
     "   -muerr_force\tforce this mu_sig on all events",
     "   -zmin\tFit only data with z>zmin",
@@ -2509,7 +2509,9 @@ void set_priors(void) {
   } 
   else if ( INPUTS.omm_prior_sig < 1. ) {
     noprior = false;
-    printf("   Gaussian Omega_m prior: %5.3f +/- %5.3f\n",
+    double omm_ranshift = get_prior_ranshift("omm");
+    INPUTS.omm_prior += omm_ranshift ;
+    printf("   Gaussian Omega_m prior: %6.4f +/- %5.3f\n",
 	   INPUTS.omm_prior, INPUTS.omm_prior_sig);
   }
 
@@ -2523,7 +2525,7 @@ void set_priors(void) {
   if ( noprior ) 
     { printf("\t None.\n"); }
   else {
-    printf("\t OM,w0,wa for priors: %.3f  %.3f  %.3f \n",
+    printf("\t SIM OM,w0,wa for priors: %.3f  %.3f  %.3f \n",
 	   INPUTS.OMEGA_MATTER_SIM, INPUTS.w0_SIM, INPUTS.wa_SIM );
   }
 
@@ -2589,7 +2591,7 @@ void init_cmb_prior(int OPT) {
   else if ( INPUTS.use_cmb == 2 ) {
     //recompute R from sim
     HzFUN_INFO_DEF HzFUN ;
-    double Rcmb_ranshift = get_Rcmb_ranshift();
+    double Rcmb_ranshift = get_prior_ranshift("Rcmb");
     char str_ranshift[40]; str_ranshift[0] = 0 ;
 
     a = CMB_PRIOR.a ;  // 1/(1+z)
@@ -2620,7 +2622,7 @@ void init_cmb_prior(int OPT) {
 
 
 // ==============================
-double get_Rcmb_ranshift(void) {
+double get_prior_ranshift(char *varname_prior) {
 
   // Created Oct 17 2023
   // Return random Rcmb shift (if user-selects this option)
@@ -2629,7 +2631,8 @@ double get_Rcmb_ranshift(void) {
   int NSTREAM = 1, istream=0 ;
   int iseed;
   double gran, ranshift = 0.0 ;
-  char fnam[] = "get_Rcmb_ranshift";
+  char str_random_info[40];
+  char fnam[] = "get_prior_ranshift";
 
   // ---------- BEGIN -------------
 
@@ -2646,14 +2649,28 @@ double get_Rcmb_ranshift(void) {
 
   init_random_seed(iseed, NSTREAM);
   gran      = unix_getRan_Gauss(istream);
-  ranshift  = gran * CMB_PRIOR.sigR;
+  sprintf(str_random_info, "(ISEED=%d, Gaussran=%.4f)", iseed, gran );
 
-  printf(" %s: random Rcmb shift = %.4f (ISEED=%d, Gaussran=%.4f)\n",
-	 fnam, iseed, ranshift, iseed, gran); fflush(stdout);
+  if ( strcmp(varname_prior,"Rcmb") == 0 ) {
+    ranshift  = gran * CMB_PRIOR.sigR;
+    printf(" %s: random Rcmb prior shift = %.4f  %s\n",
+	   fnam, ranshift, str_random_info); fflush(stdout);
+  }
+  else if ( strcmp(varname_prior,"omm") == 0 ) {
+    // Apr 28 2025
+    ranshift  = gran * INPUTS.omm_prior_sig;
+    printf(" %s: random omm prior shift = %.4f  %s\n",
+	   fnam, ranshift, str_random_info); fflush(stdout);    
+  }
+  else {
+    sprintf(c1err,"Invalid input for varname_prior = %s", varname_prior);
+    sprintf(c2err,"Valid options are 'Rcmb' and 'omm'" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
 
   return ranshift;
 
-} // end get_Rcmb_ranshift
+} // end get_prior_ranshift
 
 
 // ===============================

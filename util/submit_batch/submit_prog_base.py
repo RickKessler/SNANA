@@ -564,6 +564,7 @@ class Program:
             COMMAND_FILE_LIST.append(COMMAND_FILE)
             job_name_list.append(job_name)
 
+
             # write few global things to COMMAND_FILE
             with open(COMMAND_FILE, 'w') as f :
 
@@ -573,8 +574,7 @@ class Program:
                 f.write(f"#!/usr/bin/env bash \n")
 
                 # print actual start time for this batch job
-                f.write(f"echo TIME_START: " \
-                        f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+                f.write(f"echo TIME_START:  {ECHO_TIME}\n")
 
                 # set ENV for global/uniform start time that propagates
                 # into all sim-output READMEs. 
@@ -603,6 +603,7 @@ class Program:
 
                 f.write(f"echo SNANA_DIR = $SNANA_DIR \n")
                 f.write(f"python --version \n")  # Dec 2023
+                f.write(f"echo \n" )
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 
@@ -730,8 +731,7 @@ class Program:
             f.write(f"  echo '# ======== MERGE_BACKGROUND CHECK ==========' \n")
 
             f.write(f"  echo Found $n_done of {n_core} {wildcard_echo} files.\n")
-            f.write(f"  echo Run merge at "
-                    f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+            f.write(f"  echo Run merge at {ECHO_TIME} \n")
 
             f.write(f"  cd {CWD}\n")
             f.write(f"  {merge_script} {merge_args} \n")

@@ -1014,7 +1014,7 @@ def write_job_info(f, JOB_INFO, icpu):
                         f"do sleep 5; done"
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo '{program} exists -> continue' \n\n")
+        f.write(f"echo {program} exists -\> continue at {ECHO_TIME} \n\n")
 
     if CHECK_WAIT_FILE:
         # wait_file = abc.dat -> wait for abc.dat to exist
@@ -1043,20 +1043,6 @@ def write_job_info(f, JOB_INFO, icpu):
             cmd_wait = f"while [ ! -f {wait_file} ]; do sleep 10; done"
             f.write(f"{cmd_wait}\n")
 
-        # xxxx mark delete Feb 14 2025 xxxxxxxx
-        # Jun 2022 - check for optional string to require in wait_file
-        #if len(tmp_list) > 1 :
-        #    str_require = tmp_list[1]
-        #    f.write(f"if ! grep -q {str_require} {wait_file}\n")
-        #    f.write(f"then\n")
-        #    f.write(f"  echo ' '  \n")
-        #    f.write(f"  echo 'Did not find required {str_require} string " \
-        #            f" in {wait_file} -> exit' \n")
-        #    f.write(f"  exit 1 \n")
-        #    # problem; need to create ALL.DONE file with FAIL ???
-        #    f.write(f"fi \n\n")
-        # xxxxxxxxxxxxx
-
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 
     if check_abort:  # leave human readable marker for each job
@@ -1077,14 +1063,15 @@ def write_job_info(f, JOB_INFO, icpu):
             f.write(f"   {arg} \\\n")
         
     f.write(f"  &>  {log_file} \n" )   # write to stdout and stderr
-
+    f.write(f"echo Finished {program} at {ECHO_TIME}\n")
     # Apr 2022: for lcfit program, remove minuit stdout from log file
     if PROGRAM_NAME_LCFIT in program:
         f.write(f"remove_minuit_stdout.py {log_file}\n")
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")
-        f.write(f"echo 'Finished {program} -> create {done_file}' \n")
+        f.write(f"echo 'Create {done_file}' \n")
+        f.write(f"echo  \n")
 
     f.write(f"\n")
 
@@ -1161,10 +1148,11 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     if match_cpu and do_merge :
         merge_task = f"{sys.argv[0]} {merge_input_file} {merge_arg_list}"
         f.write(f"cd {CWD} \n")
-        f.write(f"echo Run merge_driver monitor task. \n")
+        f.write(f"echo Run merge_driver monitor task at {ECHO_TIME}. \n")
         f.write(f"{merge_task} \n")
         if not check_abort: 
-            f.write(f"echo $?")
+            f.write(f"echo $?\n")
+            f.write(f"echo Finished merge_driver at {ECHO_TIME} \n")  # 4.30.2025
         f.write(f"\n")
 
     # end write_jobmerge_info

@@ -22919,6 +22919,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           (previous CID+IDSURVEY may not be enough)
        + add ndof column to wfit summary
        + for BBC iterations, add symbolic link {output}_ITER1 for clarity
+       + in CPU*LOG, write Start and Finished time stamps for science job and for merge
+          (for extra diagnostics)
 
     new utility check_create_covariance.py to compute a single element
     of a sys-covariance matrix using pair of cid/idsurvey.

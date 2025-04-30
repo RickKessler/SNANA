@@ -24,6 +24,8 @@ NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
 # debug feature: copy each MERGE.LOG to MERGE.LOG_{Nsec}
 KEEP_EVERY_MERGELOG = False
 
+ECHO_TIME = f"`date +%Y-%m-%d` `date +%H:%M:%S`"
+
 # --fast option prescales by this factor
 FASTFAC   = 10    # for --fast
 FASTFAC2 = 100    # for --faster

@@ -1446,7 +1446,8 @@ def set_custom_bounds_dict(args,plot_info):
 
     # set plot_info.bounds_dict for @@BOUNDS input.
     # Also set hist2d_args if this option is set.
-    
+    # Apr 30 2025: fix nbin-integer check to work when bound numbers are small; see epsilon.
+
     bounds_dict     = {}  # user/custom bounds
     bounds_dict['custom'] = False
     
@@ -1465,10 +1466,14 @@ def set_custom_bounds_dict(args,plot_info):
         amax = float(axis_bounds_values[1])   # axis max val
         abin = float(axis_bounds_values[2])   # axis bin size
         if abin > 0.0:
-            nbin = (amax-amin+1.0e-8)/abin        # axis nbin
+            epsilon   = (amax-amin) * 1.0e-8
+            nbin_float = (amax-amin+epsilon)/abin        # axis nbin
+            # xxx mark nbin_float = (amax-amin+1.0e-8)/abin        # axis nbin BUG
         else:
+            nbin_float = 0.0
             nbin = 0  # allowed for y-axis if not used
                 
+        nbin        = int(nbin_float)
         load_xbound = (n == 0)
         load_ybound = (n  > 0)
             
@@ -1476,23 +1481,25 @@ def set_custom_bounds_dict(args,plot_info):
         # or for hist2d y-axis
         do_check_nbin = load_xbound or (load_ybound and OPT_HIST in args.OPT)
         if do_check_nbin:
-            if abs(nbin-int(nbin)) > 1.0e-5 :
-                sys.exit(f"\n ERROR: invalid bin size for  " \
-                         f"min max bin = '{axis_bounds}' in @@BOUNDS {BOUNDS}")
+            diff_nbin = abs( nbin_float-nbin )
+            if diff_nbin > 1.0e-5 :
+                sys.exit(f"\n ERROR: invalid bin size for  @@BOUNDS {BOUNDS} \n" \
+                         f"\t amin = {amin}   amax = {amax}   abin = {abin}  \n" \
+                         f"\t nbin[float/int]= {nbin_float}/{nbin}    diff_nbin = {diff_nbin} \n")
             
         if load_xbound:
             bounds_dict['x']     = axis_bounds_values
             bounds_dict['xmin']  = amin
             bounds_dict['xmax']  = amax
             bounds_dict['xbin']  = abin
-            bounds_dict['nxbin'] = int(nbin)
+            bounds_dict['nxbin'] = nbin
 
         if load_ybound:
             bounds_dict['y']     = axis_bounds_values
             bounds_dict['ymin']  = amin
             bounds_dict['ymax']  = amax
             bounds_dict['ybin']  = abin
-            bounds_dict['nybin'] = int(nbin)
+            bounds_dict['nybin'] = nbin
 
     # - - - - - -  - - 
     # error checks 

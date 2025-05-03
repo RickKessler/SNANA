@@ -1043,6 +1043,8 @@ struct INPUTS {
   int    cat_prescale; // scale to reduce file size for debugging
   char   cat_file_out[MXCHAR_FILENAME] ;
   
+  bool   cutwin_only ;   // apply cuts and re-write FITRES file; no fit
+
   int    write_yaml;  // used by submit_batch_jobs.py
   int    write_csv ;  // M0DIF formatted for CosmoMC
   int    write_chi2grid; // number of chi2 grid bins for alpha & beta
@@ -1693,6 +1695,7 @@ int   write_fitres_line(int indx, int ifile, char *rowkey,
 			char *line, FILE *fout) ;
 void  write_fitres_line_append(FILE *fp, int indx);
 void  write_cat_info(FILE *fout) ;
+void  write_cutwin_info(FILE *fout) ;
 void  prep_blindVal_strings(void);
 void  write_blindFlag_message(FILE *fout) ;
 void  get_CCIDindx(char *CCID, int *indx) ;
@@ -3871,6 +3874,8 @@ bool crazy_M0_errors(void) {
 
   if ( SUBPROCESS.USE ) { return crazy_error_flag; }
 
+  if ( INPUTS.fixpar_all > 0 ) { return crazy_error_flag; }
+
   sprintf(BANNER,"%s: Check for Crazy Fitted M0 Errors", fnam );
   fprint_banner(FP_STDOUT,BANNER);   
 
@@ -5397,6 +5402,9 @@ void set_defaults(void) {
   INPUTS.ISMODEL_LCFIT_SALT2  = false  ;
   INPUTS.ISMODEL_LCFIT_BAYESN = false  ;
   sprintf(INPUTS.model_lcfit,"SALT2");
+
+  INPUTS.cutwin_only   = false ; // same as fixpar_all, but no biasCor and no output MU,MUERR ...
+  INPUTS.fixpar_all    = 0;
 
   INPUTS.cat_only   = false ;
   INPUTS.cat_prescale = 1;
@@ -17155,6 +17163,10 @@ int ppar(char* item) {
     sscanf(&item[13],"%s",s); remove_quote(s); return(1);
   }
 
+  if ( uniqueOverlap(item,"cutwin_only") ) {
+    INPUTS.cutwin_only = true; return(1);
+  }
+
   // Aug 2020: check for flag to write YAML formatted output; 
   // intended for submit_batch_jobs
   if ( uniqueOverlap(item,"write_yaml=") ) {
@@ -19491,8 +19503,24 @@ void prep_input_driver(void) {
 
   // ------------ BEGIN -----------
 
-  if ( INPUTS.cat_only ) { prep_input_varname_missing(); return; }
+  if ( INPUTS.cat_only ) 
+    { prep_input_varname_missing(); return; }
 
+  if ( INPUTS.cutwin_only ) {
+    if ( INPUTS.nfile_biasCor > 0 ) {
+      INPUTS.nfile_biasCor = 0 ;
+      INPUTS.simFile_biasCor[0][0] = 0 ;
+      INPUTS.opt_biasCor = 0 ;
+    }
+    if ( INPUTS.nfile_CCprior > 0 ){
+      INPUTS.nfile_CCprior = 0 ;
+      INPUTS.simFile_CCprior[0][0] = 0 ;
+    }
+
+    INPUTS.fixpar_all = 1;
+    // .xyz
+  }
+  
   // July 2023: check for alternate LC fit model(s)
   if ( strcmp(INPUTS.model_lcfit,"SALT2") == 0 ) {
     INPUTS.ISMODEL_LCFIT_SALT2  = true ;
@@ -21045,6 +21073,8 @@ void  write_M0_fitres(char *fileName) {
 
   if ( INPUTS.cutmask_write == -9 ) { return ; } // July 2016
 
+  if ( INPUTS.cutwin_only ) { return; }
+
   calc_zM0_data(); // fill FITRESULT.zM0[iz]
 
   fp = fopen(fileName,"wt");
@@ -21223,6 +21253,7 @@ void write_M0_cov(char *fileName) {
   // ---------- BEGIN -----------
 
   if ( INPUTS.cutmask_write == -9 ) { return ; } 
+  if ( INPUTS.cutwin_only ) { return; }
 
   fp = fopen(fileName,"wt");
 
@@ -21367,6 +21398,7 @@ void write_fitres_driver(char* fileName) {
   // Jun 15 2022: set IGNORECOMMA for store_PARSE_WORDS
 
   bool  cat_only         = INPUTS.cat_only ;
+  bool  cutwin_only      = INPUTS.cutwin_only ;
   int   IWD_KEY  = 0;
   int   IWD_CCID = 1;
 
@@ -21414,6 +21446,9 @@ void write_fitres_driver(char* fileName) {
   if ( cat_only ) {
     write_cat_info(fout); // write cat info to output file header
   }
+  else if ( cutwin_only ) {
+    write_cutwin_info(fout); // write cutwin info to output file header
+  }
   else {
     write_version_info(fout);
     fprintf(fout,"# %s\n", STRING_MINUIT_ERROR[INPUTS.minos]);
@@ -21456,7 +21491,7 @@ void write_fitres_driver(char* fileName) {
     // no SN lines, hence no header keys
   }
 
-  if ( cat_only ) { goto WRITE_TABLE_ROWS; }
+  if ( cat_only || cutwin_only ) { goto WRITE_TABLE_ROWS; }
 
   NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR ; 
   
@@ -21479,8 +21514,8 @@ void write_fitres_driver(char* fileName) {
 
 
   fprintf(fout,"\n\n# SALT2mu fit results: \n");
-
   write_fitres_misc(fout);
+  
 
   // ---------------- now write fitted params ----------------
 
@@ -21725,7 +21760,8 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   }
 
   fprintf(fout,"%s", line_out);
-  if ( !INPUTS.cat_only) { write_fitres_line_append(fout, indx); }
+  bool skip_line_append = INPUTS.cat_only || INPUTS.cutwin_only ;
+  if ( !skip_line_append ) { write_fitres_line_append(fout, indx); }
 
   fprintf(fout,"\n");
 
@@ -21851,7 +21887,7 @@ void define_varnames_append(void) {
   // ----------- BEGIN -----------
 
   NVAR_APPEND = 0 ;
-  if ( INPUTS.cat_only) { return; }
+  if ( INPUTS.cat_only || INPUTS.cutwin_only ) { return; }
 
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"CUTMASK");      NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MU");           NVAR_APPEND++ ;  
@@ -22274,6 +22310,27 @@ void write_cat_info(FILE *fout) {
 } // end write_cat_info
 
 
+// ================================
+void write_cutwin_info(FILE *fout) {
+
+  // Write header info at top of file. 
+  int NFILE = INPUTS.nfile_data; 
+  int ifile;
+  // --------------- BEGIN -----------
+
+  fprintf(fout,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
+
+  fprintf(fout,"# Apply CUTWIN cuts to data files: \n");
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    fprintf(fout,"#   + %s \n", INPUTS.dataFile[ifile] );
+  }
+
+  fprintf(fout,"\n");
+
+  return;
+
+} // end write_cutwin_info
+
 // =====================================
 int ISBLIND_FIXPAR(int ipar) {
 
@@ -22635,6 +22692,7 @@ void muerr_renorm(void) {
   if ( SUBPROCESS.USE ) { return; }
 #endif
 
+  if ( INPUTS.fixpar_all > 0 ) { return; }
   fprintf(FP_STDOUT,
 	  "\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n", fnam );
   fflush(FP_STDOUT);
@@ -22755,6 +22813,8 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
   char tmpName[MXCHAR_VARNAME], msg[100];
 
   // --------- BEGIN ----------
+
+  if ( INPUTS.cat_only || INPUTS.cutwin_only ) { return; }
 
   if ( NPARz_write > MXCOSPAR ) 
     { sprintf(msg, "Reduced COV matrix:"); }

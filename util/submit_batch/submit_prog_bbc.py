@@ -1686,6 +1686,7 @@ class BBC(Program):
 
         # Apr 2025: set {output}_ITER2 symbolic link for visual clarity
         sym_link = f"{output_subdir}{OUTDIR_ITER2_SUFFIX}"
+        if os.path.exists(sym_link) : os.unlink(sym_link)
         os.symlink(output_subdir, sym_link)
 
         return

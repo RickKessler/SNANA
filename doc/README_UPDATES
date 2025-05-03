@@ -22961,6 +22961,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu.c
      + skip muerr_renorm() if BEAMS/CCPRIOR is not used.
      + for "CUTWIN NONE" option, allow sim prescale cut to be applied.
+     + new command line input "cutwin_only" to apply CUTWIN cuts
+       and skip fit; write out input data file  with cuts applied.
 
    wfit.c
      + add new (optional) speed trick to stop chi2(diag) > threshold;

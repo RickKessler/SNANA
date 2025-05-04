@@ -89,6 +89,8 @@
 # Apr 01 2025: allow Nsample per survey to be either 1 or N; this allows, for example,
 #              using the same LOWZ sample withi 25 high-z sample (devel_flag=41).
 #
+# May 03 2025: create DIAGNOSTIC_INPUT_FITOPT000.FITRES with CUTWIN cuts applied.
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -211,7 +213,14 @@ class BBC(Program):
         else:
             CONFIG[KEY_WFITMUDIF_OPT] = []
 
-            
+        # store code name for internal use during init (May 2025)
+        snana_dir    = self.config_yaml['args'].snana_dir
+        if snana_dir is None:
+            code_name = PROGRAM_NAME_BBC
+        else:
+            code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
+        self.config_prep['code_name'] = code_name
+
         # - - - - - - -
         # read C code inputs (not YAML block)
         self.bbc_read_input_file()
@@ -236,13 +245,15 @@ class BBC(Program):
         # create output dir for each version or each version-splitran
         self.bbc_prep_mkdir()
 
+        self.bbc_prep_copy_files()
+
         # copy & combine tables from INPDIR+ directories
         if DOFAST_PREP_INPUT_FILES :
             self.bbc_prep_input_tables_fast()  # refactored/parallel 
         else:           
             self.bbc_prep_input_tables_slow()  # original/slow code
 
-        self.bbc_prep_copy_files()
+        # xxx mark del May 3 2025   self.bbc_prep_copy_files()
 
         # if sync-FITOPT000 option, change output for 1st iteration
         self.prep_outdir_iter()
@@ -699,7 +710,6 @@ class BBC(Program):
         # that can be matched by the splitsim index. Note that splitsim is 
         # different than splitran used elsewhere.
 
-        # .xyz 4.01.2025: fix to allow 1 or N data versions
 
         # extract number of unique n_version; either 1 or N allowed
         n_uniq_list = np.unique(n_version_list).tolist()
@@ -1290,6 +1300,7 @@ class BBC(Program):
         iver_list2         = self.config_prep['iver_list2'] 
         ifit_list2         = self.config_prep['ifit_list2']
         fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
+        code_name          = self.config_prep['code_name']
         n_splitran         = self.config_prep['n_splitran']
         USE_SPLITRAN       = n_splitran > 1
         idir0              = 0  # some things just need first INPDIR index
@@ -1352,6 +1363,16 @@ class BBC(Program):
                     f.write(f"{cat_command}\n")
                     f.write(f"{gzip_command}\n")
                     f.write('\n')
+
+                    # for ifit=0, create diagnostic FITRES file with cuts applied and no fit
+                    if ifit == 0 :  # .xyz
+                        input_file    = self.config_yaml['args'].input_file
+                        prefix = "DIAGNOSTIC_INPUT_FITOPT000"
+                        cmd    = f"{code_name} {input_file} datafile={cat_file_out} " \
+                                 f"cutwin_only prefix={prefix}"
+                        f.write(f"{cmd}\n")
+                        f.write(f"mv {prefix}.FITRES ../{v_dir}")
+                        f.write('\n')
 
         # - - - - - - 
         # set execute priv on all PREP files
@@ -1519,11 +1540,15 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        snana_dir    = self.config_yaml['args'].snana_dir
-        if snana_dir is None:
-            code_name = PROGRAM_NAME_BBC
-        else:
-            code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
+        code_name = self.config_prep['code_name'] 
+
+        # xxxxxxxx mark delete May 3 2025 xxxxxxxx
+        #snana_dir    = self.config_yaml['args'].snana_dir
+        #if snana_dir is None:
+        #    code_name = PROGRAM_NAME_BBC
+        #else:
+        #    code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
+        # xxxxxxxxxxxxx end mark xxxxxxxxxxxx
 
         cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \

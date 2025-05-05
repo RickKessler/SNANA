@@ -44,6 +44,9 @@ def get_args():
     msg = "name of output table file with added column"
     parser.add_argument("--outfile", help=msg, nargs="?", default=DEFAULT_OUTFILE )
 
+    msg = "List of comment string to write at top of output file"
+    parser.add_argument("--comments", help=msg, nargs="+", default=None )
+
 
     # parse it
     args = parser.parse_args()
@@ -76,6 +79,19 @@ def read_input_tables(args):
         df_list.append(df)    
 
     return df_list
+
+def write_output(args, df):
+
+    logging.info(f"Write {args.outfile} ")
+
+    with  open(args.outfile, "wt") as f:
+        if args.comments is not None:
+            for comment in args.comments:
+                f.write(f"# {comment} \n")
+    
+    df_ref.to_csv(args.outfile, mode='a', sep=' ', index=False)
+
+    return
 
 # ===================================================
 if __name__ == "__main__":
@@ -114,8 +130,7 @@ if __name__ == "__main__":
     # remove UCID column before writing it to csv file
     df_ref = df_ref.drop(COLNAME_UCID, axis=1)
 
-    logging.info(f"Write {args.outfile} ")
-    df_ref.to_csv(args.outfile, sep=' ', index=False)
+    write_output(args,df_ref)
 
     # - - - - - -
     debug_dump = False

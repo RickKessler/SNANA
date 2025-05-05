@@ -914,7 +914,11 @@ class Program:
             if args_debug: 
                 m_arg += f" {args_debug}" # Feb 23 2025
 
-        arg_list = f"{m_arg} -t {Nsec} --cpunum {icpu}"
+        arg_list = f"{m_arg} -t {Nsec} --cpunum {icpu} "
+
+        # check for private snana_dir
+        if args.snana_dir :
+            arg_list += f"--snana_dir {args.snana_dir}"  # May 2025
         
         # check for outdir override (May 24 2021)
         if output_dir_override is not None:

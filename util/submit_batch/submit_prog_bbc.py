@@ -89,7 +89,8 @@
 # Apr 01 2025: allow Nsample per survey to be either 1 or N; this allows, for example,
 #              using the same LOWZ sample withi 25 high-z sample (devel_flag=41).
 #
-# May 03 2025: create DIAGNOSTIC_INPUT_FITOPT000.FITRES with CUTWIN cuts applied.
+# May 03 2025: create BBC_REJECT_MONITOR.FITRES and remove code that wrote BBC_REJECT_SUMMARY.FITRES
+#              Rename make_reject_summary to make_accept_summary().
 #
 # ================================================================
 
@@ -147,8 +148,9 @@ BBC_ACCEPT_SUMMARY_FILE  = "BBC_ACCEPT_SUMMARY.LIST"
 BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
 BBC_REJECT_MONITOR_FILE  = "BBC_REJECT_MONITOR.FITRES"
 
-TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"
-TAG_REJECT_STAGE_BIASCOR     = "BIASCOR"
+TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"    # check CUTWIN (2_LCFIT) loss in all systematics
+TAG_REJECT_STAGE_BIASCOR     = "BIASCOR"   # check events rejected from biasCor in all systematics
+TAG_REJECT_STAGE_BIASCOR0    = "BIASCOR0"  # check events rejected from biasCor in FITOPT000 only
 
 KEY_ROW               = "ROW:"
 
@@ -1448,7 +1450,7 @@ class BBC(Program):
         return
         # end bbc_prep_input_tables_fast
     
-    def tag_missing_events(self,stage, v_dir):
+    def tag_missing_events(self, stage, v_dir):
 
         # Created May 5 2025
         # Input stage = "CUTWIN" or "BIASCOR";
@@ -1461,12 +1463,16 @@ class BBC(Program):
         n_version       = self.config_prep['n_version_out']    
         script_dir      = self.config_prep['script_dir']
         output_dir      = self.config_prep['output_dir']  
+        n_fitopt        = self.config_prep['n_fitopt']  
+
         input_file_bbc  = self.config_yaml['args'].input_file
         snana_dir       = self.config_yaml['args'].snana_dir
 
         prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
         idir0           = 0
-        colname_add     = 'NFITOPT_REJECT_' + stage
+
+        colname_prefix  = 'NFITOPT_REJECT_'
+        colname_add     = colname_prefix + stage
 
         bbc_code    = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
         tag_script  = util.get_program_name("tag_missing_events.py", snana_dir)
@@ -1475,22 +1481,39 @@ class BBC(Program):
         tmp_outfile_tag = 'TMP_' + BBC_REJECT_MONITOR_FILE 
 
         # - - - - -
-        if stage == TAG_REJECT_STAGE_CUTWIN:
+        if stage == TAG_REJECT_STAGE_CUTWIN :
             wildcard          = "INPUT_FITOPT*.FITRES.gz"
             do_create         = True
             verb              = "Create"
-        elif stage == TAG_REJECT_STAGE_BIASCOR: 
-            wildcard          = "FITOPT*.FITRES.gz"  # what about test FITOPT/MUOPT that are not for systematics?
+        elif stage == TAG_REJECT_STAGE_BIASCOR : 
+            # what about special tests (FITOPT/MUOPT) that are not for systematics?
+            wildcard          = "FITOPT*.FITRES.gz"  
+            do_create         = False  # append only
+            verb              = "Append"
+        elif stage == TAG_REJECT_STAGE_BIASCOR0 : 
+            # what about special tests (FITOPT/MUOPT) that are not for systematics?
+            wildcard          = "FITOPT000_MUOPT000.FITRES.gz"    # no wildcard; just pick nominal output
             do_create         = False  # append only
             verb              = "Append"
 
-        logging.info(f"\t {verb} table file to monitor {v_dir} loss from {stage}")
+        logging.info(f"\t {verb} table file to monitor {v_dir} loss from {stage} (snana_dir={snana_dir})")
 
         V_DIR            = f"{output_dir}/{v_dir}"
         cmd_cd           = f"cd {V_DIR}"
-            
+
         if do_create:                
-            data_file_list   = sorted(glob.glob1(V_DIR,wildcard))  
+            # use SALT2mu(BBC) code to apply BBC cuts and skip fit
+            n_try = 0
+            data_file_list = []
+            # keep checking for files in case gzip isn't finished or other disk-access problem
+            while len(data_file_list) == 0 :
+                data_file_list = sorted(glob.glob1(V_DIR,wildcard))    
+                n_try += 1
+                if n_try > 5:
+                    msgerr = [ f'ERROR: could not find {wildcard} files in ', f'{V_DIR}' ]
+                    self.log_assert(False,msgerr)
+                elif n_try > 1:
+                    time.sleep(3.0)
 
             data_file0       = data_file_list[0]
             cmd_bbc    = f"{bbc_code} {script_dir}/{input_file_bbc} " \
@@ -1507,11 +1530,51 @@ class BBC(Program):
                   f"--tfile_list {wildcard} " \
                   f"--ref_colname_add {colname_add}  " \
                   f"--outfile  {tmp_outfile_tag}  "
+
+        write_comments = True
+        if write_comments:
+            colcut   = f"{colname_prefix}{TAG_REJECT_STAGE_CUTWIN}"
+            colbcor  = f"{colname_prefix}{TAG_REJECT_STAGE_BIASCOR}"
+            colbcor0 = f"{colname_prefix}{TAG_REJECT_STAGE_BIASCOR0}"
+            comment_list_global = [ 
+                f"=========================================================================",
+                f"Examples on selecting events using the appended {colname_prefix}* columns:",
+                f"  {colcut}>0   -> ",
+                f"\t rejected by 2_LCFIT cuts on FITOPTnnn systematics (nnn>=1)" 
+            ]
+            comment_list_bcor = [
+                f"  {colcut}=0 & {colbcor} >0 -> ",
+                f"\t invalid biasCor in any FITOPT (nnn >= 0)",
+                f"  {colcut}=0 & {colbcor} ={n_fitopt} -> " ,
+                f"\t invalid biasCor in all FITOPTs",
+                f"  {colcut}=0 & {colbcor0}=1 -> ",
+                f"\t invalid biasCor in FITOPT000_MUOPT000 (regardless of systematics FITOPTs)",
+                f"  {colcut}=0 & {colbcor}>0 & {colbcor0}=0 -> ",
+                f"\t valid bcor in FITOPT000_MUOPT000, invalid bcor in systematic ",
+                f"  {colcut}=0 & {colbcor} =0 -> " \
+                f"\t nominal output sample from BBC"
+            ]
+            
+            comment_list = comment_list_global
+            if 'BIASCOR' in stage: comment_list += comment_list_bcor
+            comment_list += [' ']
+
+            comments = ""
+            for comment in comment_list:   comments += f"'{comment}' " # string list arg for tag_missing_events
+            cmd_tag   += f"--comments {comments}  "
+
         cmd_mv   = f"mv {tmp_outfile_tag} {BBC_REJECT_MONITOR_FILE}"
         cmd_full = f"{cmd_cd} ; {cmd_tag} ; {cmd_mv}"
+
+
+        #logging.info(" xxx ")
+        #logging.info(f" xxx cmd_full = {cmd_full}")
+        #logging.info(" xxx ")
+
         os.system(cmd_full)
 
         return
+        # end tag_missing_events
 
     def create_reject_monitor_file(self, f, data_file):
 
@@ -2294,7 +2357,10 @@ class BBC(Program):
         self.config_prep['version_out_list'] = vout_list
         self.config_prep['n_splitran']       = n_splitran
         self.config_prep['n_version_out']    = n_version    # added May 2025
+        self.config_prep['n_fitopt']         = n_fitopt     # added May 2025
+        self.config_prep['n_muopt']          = n_muopt      # added May 2025
         self.config_prep['script_dir']       = script_dir   # added May 2025
+
 
         # end merge_config_prep
 
@@ -2477,8 +2543,11 @@ class BBC(Program):
 
         logging.info(f"  BBC cleanup: create {FITPAR_SUMMARY_FILE}") 
         self.make_fitpar_summary()
+
+        # create fitres file to monitor biasCor rejections (May 2025)
         for v_dir in vout_list:
-            self.tag_missing_events(TAG_REJECT_STAGE_BIASCOR,v_dir)  # May 2025
+            self.tag_missing_events(TAG_REJECT_STAGE_BIASCOR,  v_dir) 
+            self.tag_missing_events(TAG_REJECT_STAGE_BIASCOR0, v_dir) 
 
         if use_wfit :
             opt_wfit_list   = submit_info_yaml['OPT_WFIT']
@@ -2508,7 +2577,7 @@ class BBC(Program):
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             vout    = row[COLNUM_BBC_MERGE_VERSION]
             if vout not in vout_proc_list:
-                self.make_reject_summary(vout)
+                self.make_accept_summary(vout)
                 vout_proc_list.append(vout)
 
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
@@ -2528,7 +2597,7 @@ class BBC(Program):
 
         # end merge_cleanup_final
 
-    def make_reject_summary(self,vout):
+    def make_accept_summary(self,vout):
 
         # get list of all FITRES files in /vout, then find number
         # of matches for each SN. Finally, write file with
@@ -2605,33 +2674,35 @@ class BBC(Program):
         KEYVAR = KEYNAME_VARNAMES
 
         # - - - - - - - -
-        with open(REJECT_FILE,"wt") as f:
-            f.write(f"# BBC-FF = BBC FITRES file.\n")
-            f.write(f"# Total number of BBC-FF: " \
-                    f"{n_ff} (FITOPT x MUOPT). \n")
-            f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
-                    f"fail cuts in 1 or more BBC-FF\n")
-            f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
-            f.write(f"# These CIDs are rejected in {PROGRAM_NAME_BBC} with\n")
-            f.write(f"#    reject_list_file={reject_file} \n")
-            f.write(f"\n")
-            if has_dupl :
-                f.write(f"# Beware of Duplicate CIDs "
-                        f"(each CID + IDSURVEY + FIELD is unique) \n")
-                f.write(f"{KEYVAR}: CID IDSURVEY FIELD NJOB_REJECT \n")
-                for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
-                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
-                    field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
-                    if nrej>0: 
-                        f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {nrej:3d} \n")
-            else:
-                f.write(f"{KEYVAR}: CID NJOB_REJECT \n")
-                for cid,nrej in zip(cid_unique,n_reject) :
-                    if nrej>0: 
-                        f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
-            f.write(f"\n")
-
+        WRITE_REJECT = False
+        if WRITE_REJECT :
+            # xxxx mark for delete
+            with open(REJECT_FILE,"wt") as f:
+                f.write(f"# BBC-FF = BBC FITRES file.\n")
+                f.write(f"# Total number of BBC-FF: " \
+                        f"{n_ff} (FITOPT x MUOPT). \n")
+                f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
+                        f"fail cuts in 1 or more BBC-FF\n")
+                f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
+                f.write(f"# These CIDs are rejected in {PROGRAM_NAME_BBC} with\n")
+                f.write(f"#    reject_list_file={reject_file} \n")
+                f.write(f"\n")
+                if has_dupl :
+                    f.write(f"# Beware of Duplicate CIDs "
+                            f"(each CID + IDSURVEY + FIELD is unique) \n")
+                    f.write(f"{KEYVAR}: CID IDSURVEY FIELD NJOB_REJECT \n")
+                    for ucid,nrej in zip(cid_unique,n_reject) :
+                        cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                        idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
+                        field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
+                        if nrej>0: 
+                            f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {nrej:3d} \n")
+                    else:
+                        f.write(f"{KEYVAR}: CID NJOB_REJECT \n")
+                        for cid,nrej in zip(cid_unique,n_reject) :
+                            if nrej>0: 
+                                f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
+                        f.write(f"\n")
         # - - - - 
 
         with open(ACCEPT_FILE,"wt") as f:
@@ -2669,7 +2740,7 @@ class BBC(Program):
 
         # - - - - -
         return
-        # end make_reject_summary
+        # end make_accept_summary
 
 
     def get_cid_list(self,fitres_list,VOUT):

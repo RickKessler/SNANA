@@ -26,6 +26,17 @@ def print_elapse_time(t0,comment):
     logging.info(f"\t elapse time: {dt_sec} sec for: {comment}")
     # ----
 
+def get_program_name(base_code_name, snana_dir):
+    if snana_dir is None:
+        code_name = base_code_name
+    else:
+        if '.exe' in base_code_name:
+            code_name = f"{snana_dir}/bin/{base_code_name}"
+        else:
+            code_name = f"{snana_dir}/util/{base_code_name}"
+
+    return code_name
+
 def get_snana_version():
 
     # fetch snana version that includes tag + commit;

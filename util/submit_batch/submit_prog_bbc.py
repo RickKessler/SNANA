@@ -147,6 +147,9 @@ BBC_ACCEPT_SUMMARY_FILE  = "BBC_ACCEPT_SUMMARY.LIST"
 BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
 BBC_REJECT_MONITOR_FILE  = "BBC_REJECT_MONITOR.FITRES"
 
+TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"
+TAG_REJECT_STAGE_BIASCOR     = "BIASCOR"
+
 KEY_ROW               = "ROW:"
 
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
@@ -213,13 +216,6 @@ class BBC(Program):
         else:
             CONFIG[KEY_WFITMUDIF_OPT] = []
 
-        # store code name for internal use during init (May 2025)
-        snana_dir    = self.config_yaml['args'].snana_dir
-        if snana_dir is None:
-            code_name = PROGRAM_NAME_BBC
-        else:
-            code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
-        self.config_prep['code_name'] = code_name
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -1311,6 +1307,7 @@ class BBC(Program):
         prep_script_list = []
         prep_log_list    = []
         prep_nfit_list   = []
+        prep_vdir_list   = []
 
         for iver in range(0,n_version):
             # get ifit list for this version
@@ -1318,6 +1315,8 @@ class BBC(Program):
             for iver_tmp,ifit_tmp in zip(iver_list2, ifit_list2):
                 if iver_tmp == iver:
                     ifit_list.append(ifit_tmp)
+
+            # xxx ifit_list = ifit_list[:4]  # xxx REMOVE 
 
             v_dir   = v_out_list[idir0][iver]
             v_dir  += self.suffix_splitran(n_splitran,1)
@@ -1331,6 +1330,7 @@ class BBC(Program):
             prep_script_list.append(prep_script)
             prep_log_list.append(prep_log)
             prep_nfit_list.append(len(ifit_list))
+            prep_vdir_list.append(v_dir)
 
             logging.info(f"\t Create {prep_script}")
 
@@ -1363,12 +1363,6 @@ class BBC(Program):
                     f.write(f"{gzip_command}\n")
                     f.write('\n')
 
-                    # for ifit=0, create diagnostic FITRES file with cuts applied and no fit
-                    if ifit == 0 : 
-                        f.write(f"cd ../{v_dir}\n")
-                        self.create_reject_monitor_file(f, cat_file_out)
-                        f.write(f"cd ../{SUBDIR_SCRIPTS_BBC} \n")
-
         # - - - - - - 
         # set execute priv on all PREP files
         cmd_x = f"cd {script_dir} ; chmod +x PREP*"
@@ -1381,8 +1375,8 @@ class BBC(Program):
         njob_prep_tot = len(prep_script_list)
 
         logging.info(f"  Run PREP-INPUT*FITRES jobs interactively ... ")
-        for prep_script, prep_log, nfit in \
-            zip(prep_script_list, prep_log_list, prep_nfit_list) :
+        for prep_script, prep_log, nfit, vdir in \
+            zip(prep_script_list, prep_log_list, prep_nfit_list, prep_vdir_list ) :
 
             njob_prep_run += 1
             nfit_prep_run += nfit  # expected total number of INPUT*FITRES.gz
@@ -1436,6 +1430,9 @@ class BBC(Program):
 
                     time.sleep(5.0)
 
+            # - - - - - - -
+            self.tag_missing_events(TAG_REJECT_STAGE_CUTWIN,vdir)  # May 2025
+
         # - - - - - - -
         t_end  = time.time()
         t_prep = (t_end - t_start)
@@ -1444,10 +1441,81 @@ class BBC(Program):
               f"{t_prep:.0f} seconds."
         logging.info(f"  {msg}")
 
+        # create reject-monitor file with info about events cut by LCFIT and BBC CUTWIN;
+        # after BBC jobs finish, this file is updated again with BiasCor loss info
+
+
         return
         # end bbc_prep_input_tables_fast
     
+    def tag_missing_events(self,stage, v_dir):
+
+        # Created May 5 2025
+        # Input stage = "CUTWIN" or "BIASCOR";
+        # For CUTWIN stage, use BBC program to apply CUTWIN cuts and skip fit;
+        # output fitres file is a base monitor file.
+        # Next, append NFITOPT_REJECT_CUTWIN column to store number of
+        # LCFIT/BBC cut options that result in a missing event.
+        # For BIASCOR stage, append NFITOPT_REJECT_BIASCOR.
+
+        n_version       = self.config_prep['n_version_out']    
+        script_dir      = self.config_prep['script_dir']
+        output_dir      = self.config_prep['output_dir']  
+        input_file_bbc  = self.config_yaml['args'].input_file
+        snana_dir       = self.config_yaml['args'].snana_dir
+
+        prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
+        idir0           = 0
+        colname_add     = 'NFITOPT_REJECT_' + stage
+
+        bbc_code    = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
+        tag_script  = util.get_program_name("tag_missing_events.py", snana_dir)
+
+        tmp_logfile_bbc = 'TMP_' + prefix + '.LOG'
+        tmp_outfile_tag = 'TMP_' + BBC_REJECT_MONITOR_FILE 
+
+        # - - - - -
+        if stage == TAG_REJECT_STAGE_CUTWIN:
+            wildcard          = "INPUT_FITOPT*.FITRES.gz"
+            do_create         = True
+            verb              = "Create"
+        elif stage == TAG_REJECT_STAGE_BIASCOR: 
+            wildcard          = "FITOPT*.FITRES.gz"  # what about test FITOPT/MUOPT that are not for systematics?
+            do_create         = False  # append only
+            verb              = "Append"
+
+        logging.info(f"\t {verb} table file to monitor {v_dir} loss from {stage}")
+
+        V_DIR            = f"{output_dir}/{v_dir}"
+        cmd_cd           = f"cd {V_DIR}"
+            
+        if do_create:                
+            data_file_list   = sorted(glob.glob1(V_DIR,wildcard))  
+
+            data_file0       = data_file_list[0]
+            cmd_bbc    = f"{bbc_code} {script_dir}/{input_file_bbc} " \
+                         f"datafile={data_file0} " \
+                         f"cutwin_only prefix={prefix}  " \
+                         f">& {tmp_logfile_bbc}   "
+            cmd_rm     = f"rm {tmp_logfile_bbc} "   
+            cmd_full   = f"{cmd_cd} ; {cmd_bbc} ; {cmd_rm}"
+            os.system(cmd_full)
+
+        # use tag_missing_event script to append NFITOPT_REJET_[stage]
+        cmd_tag = f"{tag_script} " \
+                  f"--tfile_ref {BBC_REJECT_MONITOR_FILE}  " \
+                  f"--tfile_list {wildcard} " \
+                  f"--ref_colname_add {colname_add}  " \
+                  f"--outfile  {tmp_outfile_tag}  "
+        cmd_mv   = f"mv {tmp_outfile_tag} {BBC_REJECT_MONITOR_FILE}"
+        cmd_full = f"{cmd_cd} ; {cmd_tag} ; {cmd_mv}"
+        os.system(cmd_full)
+
+        return
+
     def create_reject_monitor_file(self, f, data_file):
+
+        # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
 
         # Input data_file is input fitres file to run bbc with cutwin_only flag
         # output monitor_outfile is created by the commands written here.
@@ -1457,12 +1525,15 @@ class BBC(Program):
         snana_dir       = self.config_yaml['args'].snana_dir
         code_name_bbc   = self.config_prep['code_name']
         prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
+        code_name_bbc   = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
 
         f.write(f"\n# Create table file to monitor loss from CUTWIN and BIASCOR\n")
 
         cmd    = f"{code_name_bbc} {script_dir}/{input_file} datafile={data_file} " \
                  f"cutwin_only prefix={prefix}"
         f.write(f"{cmd}\n")
+
+        # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
 
         # - - - - 
         # append NFITOPT_REJECT_CUTWIN column
@@ -1478,12 +1549,15 @@ class BBC(Program):
               f"--outfile  {outfile_tmp}  "
         f.write(f"{cmd} \n")
 
+        # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
         # overwrite monitor file with monitor file that has appended column
         f.write(f"mv {outfile_tmp} {BBC_REJECT_MONITOR_FILE} \n")
         f.write('\n')
 
+
         return
-        # end create_reject_monitor_file
+        # end create_reject_monitor_file         # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
 
     def bbc_prep_input_tables_slow(self):
 
@@ -1573,7 +1647,9 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        code_name = self.config_prep['code_name'] 
+        # xxx .xyz code_name = self.config_prep['code_name'] 
+        snana_dir   = self.config_yaml['args'].snana_dir
+        code_name  = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
 
         # xxxxxxxx mark delete May 3 2025 xxxxxxxx
         #snana_dir    = self.config_yaml['args'].snana_dir
@@ -1618,7 +1694,6 @@ class BBC(Program):
         fitopt_num_out   = fitopt_num_list[ifit]
         nmissing         = 0 ; msgerr=[]
 
-        # .xyz
         for idir in range(0,n_inpdir):  
             n_version    = n_version_list[idir]
             inpdir       = inpdir_list[idir]
@@ -2213,9 +2288,13 @@ class BBC(Program):
         n_fitopt    = submit_info_yaml['NFITOPT']
         n_muopt     = submit_info_yaml['NMUOPT']
         n_splitran  = submit_info_yaml['NSPLITRAN']
+        n_version   = submit_info_yaml['NVERSION']
+        script_dir  = submit_info_yaml['SCRIPT_DIR']
 
         self.config_prep['version_out_list'] = vout_list
         self.config_prep['n_splitran']       = n_splitran
+        self.config_prep['n_version_out']    = n_version    # added May 2025
+        self.config_prep['script_dir']       = script_dir   # added May 2025
 
         # end merge_config_prep
 
@@ -2398,7 +2477,9 @@ class BBC(Program):
 
         logging.info(f"  BBC cleanup: create {FITPAR_SUMMARY_FILE}") 
         self.make_fitpar_summary()
-        
+        for v_dir in vout_list:
+            self.tag_missing_events(TAG_REJECT_STAGE_BIASCOR,v_dir)  # May 2025
+
         if use_wfit :
             opt_wfit_list   = submit_info_yaml['OPT_WFIT']
             for iwfit, opt_wfit in enumerate(opt_wfit_list):
@@ -2756,8 +2837,8 @@ class BBC(Program):
 
         # Mar 28 2021: 
         # write summary info for each version/fitopt/muopt.
-        # Output is YAML, but designed mainly for human readability.
-        # When this function was written, there were no codes expected
+        # Output is YAML designed mainly for human readability.
+        # When this method was written, there were no codes expected
         # to read this; only for human eyes.
         #
         # Nov 17 2021: 

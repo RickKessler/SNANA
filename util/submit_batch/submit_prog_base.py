@@ -73,7 +73,7 @@ class Program:
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
-
+            
         config_prep['snana_version'] = util.get_snana_version()
         
         # default is 1 submit, so iter is None

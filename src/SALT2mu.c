@@ -3100,8 +3100,6 @@ void applyCut_chi2max(void) {
     
     muoff        = sum_mures / sum_wgt;
     INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
-    //    printf(" xxx %s: M0 = %.3f -> %.3f  (for H0 marg)\n", 
-    //	   fnam, M0_ORIG, INPUTS.M0 ); 
     printf("\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
     fflush(stdout);
 
@@ -19518,7 +19516,8 @@ void prep_input_driver(void) {
     }
 
     INPUTS.fixpar_all = 1;
-    // .xyz
+    INFO_CCPRIOR.USE = INFO_CCPRIOR.USEH11 = 0;
+    varname_pIa[0] = 0;
   }
   
   // July 2023: check for alternate LC fit model(s)

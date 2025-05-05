@@ -10229,14 +10229,14 @@ C ------------- BEGIN ----------
 c hard-wire scale on previous fitted sigma to avoid suppressing systematic 
 c while still avoiding crazy outliers. This is not well tuned so may
 c need more study.
-      SCALE_SIGMA = 2.0  
+      SCALE_SIGMA = 1.0  
 
 c few debug option to play with scale
       LX2       = (IAND(DEBUG_FLAG,2) > 0)
       LX3       = (IAND(DEBUG_FLAG,4) > 0)
 
       IF ( LX2 ) then
-         SCALE_SIGMA = 1.0
+         SCALE_SIGMA = 2.0
       ELSE IF ( LX3 ) THEN
          SCALE_SIGMA = 3.0
       ENDIF

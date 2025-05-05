@@ -22325,6 +22325,8 @@ void write_cutwin_info(FILE *fout) {
     fprintf(fout,"#   + %s \n", INPUTS.dataFile[ifile] );
   }
 
+  fprintf(fout,"# and skip BBC fit. \n");
+  fprintf(fout,"# This file is for DIAGNOSTIC only, and not used in any part of BBC task. \n");
   fprintf(fout,"\n");
 
   return;

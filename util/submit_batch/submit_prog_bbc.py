@@ -142,10 +142,10 @@ KEY_WFITMUDIF_OPT = "WFITMUDIF_OPT"
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_PREFIX   = "BBC_SUMMARY_wfit"
-# xxx mark WFIT_MERGE_LOG        = "MERGE_wfit.LOG"
 
-BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
 BBC_ACCEPT_SUMMARY_FILE  = "BBC_ACCEPT_SUMMARY.LIST"
+BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
+BBC_REJECT_MONITOR_FILE  = "BBC_REJECT_MONITOR.FITRES"
 
 KEY_ROW               = "ROW:"
 
@@ -1365,9 +1365,9 @@ class BBC(Program):
                     f.write('\n')
 
                     # for ifit=0, create diagnostic FITRES file with cuts applied and no fit
-                    if ifit == 0 :  # .xyz
-                        input_file    = self.config_yaml['args'].input_file
-                        prefix = "DIAGNOSTIC_INPUT_FITOPT000"
+                    if ifit == 0 : 
+                        input_file  = self.config_yaml['args'].input_file
+                        prefix = BBC_REJECT_MONITOR_FILE.split('.')[0]
                         cmd    = f"{code_name} {input_file} datafile={cat_file_out} " \
                                  f"cutwin_only prefix={prefix}"
                         f.write(f"{cmd}\n")
@@ -2779,7 +2779,7 @@ class BBC(Program):
 
     def write_fitpar_summary_row(self,f,row):
         # created Feb 2025
-        # Write summary for this row to file pointer f
+        # Write summary for this MERGE.LOG row to file pointer f
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
@@ -2805,6 +2805,7 @@ class BBC(Program):
         NEVT_BIASCOR         = bbc_yaml['NEVT_BIASCOR']
         NEVT_CCPRIOR         = bbc_yaml['NEVT_CCPRIOR']
         NEVT_REJECT_BIASCOR  = bbc_yaml['NEVT_REJECT_BIASCOR']
+
         frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
 
 
@@ -2863,7 +2864,20 @@ class BBC(Program):
             else:
                 comment = f"{nrej} evts have no biasCor "
 
-            f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
+            # - - - -
+            tmp = bbc_yaml['NREJECT_BIASCOR_bySAMPLE']  # May 4 2025
+            BIASCOR_LOSS_bySAMPLE = [ x.strip() for x in tmp.split(',')]
+            f.write(f"    BIASCOR_LOSS_bySAMPLE:       # {comment}\n")
+            for sample, ndata, bcor_loss in zip(SAMPLE_LIST,NEVT_DATA_bySAMPLE,BIASCOR_LOSS_bySAMPLE):
+                ndata_tot_f = float(ndata) + float(bcor_loss) 
+                bcor_loss_f = float(bcor_loss)
+                frac        = bcor_loss_f / (ndata_tot_f + 1.0E-9)
+                key   = f"{sample}:"
+                f.write(f"      {key:<20} {bcor_loss:>5s}  {frac:.3f}    " \
+                        f"# LOSS  LOSS/(NDATA+LOSS)  |  {comment_grep}\n")
+                f.flush()
+
+            # xxx mark f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
             f.flush()
 
             # - - - - 

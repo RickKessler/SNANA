@@ -4125,6 +4125,7 @@ void *MNCHI2FUN(void *thread) {
   // Apr 8 2021: subtract muerr_vpec from muerr_raw
   // Sep 24 2021: abort on muerrsq < 0
   // Sep 27 2021: require muCOVadd>0 to implement; fixes rare muerrsq<0 problem.
+  // May 05 2025: abort if PIa < 0 or > 1
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4269,6 +4270,11 @@ void *MNCHI2FUN(void *thread) {
     
     if ( USE_CCPRIOR ) { 
       PTOTRAW_Ia  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
+      if ( PTOTRAW_Ia < -1.0E-09 || PTOTRAW_Ia > 1.0000001 ) {
+	sprintf(c1err,"Invalid PIa = %f for CID=%s", PTOTRAW_Ia, name);
+	sprintf(c2err,"Consider option:  SALT2mu.exe | grep  idsurvey_list_probcc0 ");
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+      }
     }
 
     muerrsq_last   = INFO_DATA.muerrsq_last[n] ;
@@ -4508,7 +4514,7 @@ void *MNCHI2FUN(void *thread) {
     
     if ( USE_CCPRIOR  ) {
       // BEAMS-like chi2 = -2ln [ PIa + PCC ]
-      DUMPFLAG = 0; (strcmp(name,"1078961") == 0) ; // (n==13198) 
+      DUMPFLAG = 0 ; // (strcmp(name,"ATLAS16cxr") == 0) ; // (n==13198) 
       nsnfit++ ;
 
       if ( INPUTS.ipar[IPAR_scalePCC] <= 1 ) {

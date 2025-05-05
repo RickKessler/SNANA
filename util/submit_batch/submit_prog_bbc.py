@@ -1300,7 +1300,6 @@ class BBC(Program):
         iver_list2         = self.config_prep['iver_list2'] 
         ifit_list2         = self.config_prep['ifit_list2']
         fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
-        code_name          = self.config_prep['code_name']
         n_splitran         = self.config_prep['n_splitran']
         USE_SPLITRAN       = n_splitran > 1
         idir0              = 0  # some things just need first INPDIR index
@@ -1366,13 +1365,9 @@ class BBC(Program):
 
                     # for ifit=0, create diagnostic FITRES file with cuts applied and no fit
                     if ifit == 0 : 
-                        input_file  = self.config_yaml['args'].input_file
-                        prefix = BBC_REJECT_MONITOR_FILE.split('.')[0]
-                        cmd    = f"{code_name} {input_file} datafile={cat_file_out} " \
-                                 f"cutwin_only prefix={prefix}"
-                        f.write(f"{cmd}\n")
-                        f.write(f"mv {prefix}.FITRES ../{v_dir}")
-                        f.write('\n')
+                        f.write(f"cd ../{v_dir}\n")
+                        self.create_reject_monitor_file(f, cat_file_out)
+                        f.write(f"cd ../{SUBDIR_SCRIPTS_BBC} \n")
 
         # - - - - - - 
         # set execute priv on all PREP files
@@ -1452,6 +1447,44 @@ class BBC(Program):
         return
         # end bbc_prep_input_tables_fast
     
+    def create_reject_monitor_file(self, f, data_file):
+
+        # Input data_file is input fitres file to run bbc with cutwin_only flag
+        # output monitor_outfile is created by the commands written here.
+
+        script_dir      = self.config_prep['script_dir']
+        input_file      = self.config_yaml['args'].input_file
+        snana_dir       = self.config_yaml['args'].snana_dir
+        code_name_bbc   = self.config_prep['code_name']
+        prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
+
+        f.write(f"\n# Create table file to monitor loss from CUTWIN and BIASCOR\n")
+
+        cmd    = f"{code_name_bbc} {script_dir}/{input_file} datafile={data_file} " \
+                 f"cutwin_only prefix={prefix}"
+        f.write(f"{cmd}\n")
+
+        # - - - - 
+        # append NFITOPT_REJECT_CUTWIN column
+        tag_script = "tag_missing_events.py"
+        if snana_dir is not None:
+            tag_script = f"{snana_dir}/util/{tag_script}"
+
+        outfile_tmp = BBC_REJECT_MONITOR_FILE + '_TMP'
+        cmd = f"{tag_script} " \
+              f"--tfile_ref {BBC_REJECT_MONITOR_FILE}  " \
+              f"--tfile_list INPUT_FITOPT*.FITRES.gz  " \
+              f"--ref_colname_add NFITOPT_REJECT_CUTWIN  " \
+              f"--outfile  {outfile_tmp}  "
+        f.write(f"{cmd} \n")
+
+        # overwrite monitor file with monitor file that has appended column
+        f.write(f"mv {outfile_tmp} {BBC_REJECT_MONITOR_FILE} \n")
+        f.write('\n')
+
+        return
+        # end create_reject_monitor_file
+
     def bbc_prep_input_tables_slow(self):
 
         # Catenate FITRES files from INPDIR+ so that each copied

@@ -1460,13 +1460,15 @@ class BBC(Program):
         # LCFIT/BBC cut options that result in a missing event.
         # For BIASCOR stage, append NFITOPT_REJECT_BIASCOR.
 
-        n_version       = self.config_prep['n_version_out']    
-        script_dir      = self.config_prep['script_dir']
-        output_dir      = self.config_prep['output_dir']  
-        n_fitopt        = self.config_prep['n_fitopt']  
+        n_version        = self.config_prep['n_version_out']    
+        script_dir       = self.config_prep['script_dir']
+        output_dir       = self.config_prep['output_dir']  
+        n_fitopt         = self.config_prep['n_fitopt']  
 
-        input_file_bbc  = self.config_yaml['args'].input_file
-        snana_dir       = self.config_yaml['args'].snana_dir
+        input_file_bbc   = self.config_yaml['args'].input_file
+        snana_dir        = self.config_yaml['args'].snana_dir
+
+
 
         prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
         idir0           = 0
@@ -1496,6 +1498,7 @@ class BBC(Program):
             do_create         = False  # append only
             verb              = "Append"
 
+        
         logging.info(f"\t {verb} table file to monitor {v_dir} loss from {stage} (snana_dir={snana_dir})")
 
         V_DIR            = f"{output_dir}/{v_dir}"
@@ -1525,9 +1528,17 @@ class BBC(Program):
             os.system(cmd_full)
 
         # use tag_missing_event script to append NFITOPT_REJET_[stage]
+        if stage == TAG_REJECT_STAGE_BIASCOR : 
+            tfile_list   = self.get_fflist_accept_summary(V_DIR)  # exclude NOREJECT labels
+        else:
+            tfile_list = sorted(glob.glob1(V_DIR,wildcard)) 
+
+        tfile_string = ' '.join(tfile_list)
+        #logging.info(f" xxx tfile_list = {tfile_string}")
+
         cmd_tag = f"{tag_script} " \
                   f"--tfile_ref {BBC_REJECT_MONITOR_FILE}  " \
-                  f"--tfile_list {wildcard} " \
+                  f"--tfile_list {tfile_string} " \
                   f"--ref_colname_add {colname_add}  " \
                   f"--outfile  {tmp_outfile_tag}  "
 
@@ -1551,7 +1562,7 @@ class BBC(Program):
                 f"\t invalid biasCor in FITOPT000_MUOPT000 (regardless of systematics FITOPTs)",
                 f"  {colcut}=0 & {colbcor}>0 & {colbcor0}=0 -> ",
                 f"\t valid bcor in FITOPT000_MUOPT000, invalid bcor in systematic ",
-                f"  {colcut}=0 & {colbcor} =0 -> " \
+                f"  {colcut}=0 & {colbcor} =0 -> ", 
                 f"\t nominal output sample from BBC"
             ]
             
@@ -1575,52 +1586,6 @@ class BBC(Program):
 
         return
         # end tag_missing_events
-
-    def create_reject_monitor_file(self, f, data_file):
-
-        # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
-
-        # Input data_file is input fitres file to run bbc with cutwin_only flag
-        # output monitor_outfile is created by the commands written here.
-
-        script_dir      = self.config_prep['script_dir']
-        input_file      = self.config_yaml['args'].input_file
-        snana_dir       = self.config_yaml['args'].snana_dir
-        code_name_bbc   = self.config_prep['code_name']
-        prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
-        code_name_bbc   = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
-
-        f.write(f"\n# Create table file to monitor loss from CUTWIN and BIASCOR\n")
-
-        cmd    = f"{code_name_bbc} {script_dir}/{input_file} datafile={data_file} " \
-                 f"cutwin_only prefix={prefix}"
-        f.write(f"{cmd}\n")
-
-        # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
-
-        # - - - - 
-        # append NFITOPT_REJECT_CUTWIN column
-        tag_script = "tag_missing_events.py"
-        if snana_dir is not None:
-            tag_script = f"{snana_dir}/util/{tag_script}"
-
-        outfile_tmp = BBC_REJECT_MONITOR_FILE + '_TMP'
-        cmd = f"{tag_script} " \
-              f"--tfile_ref {BBC_REJECT_MONITOR_FILE}  " \
-              f"--tfile_list INPUT_FITOPT*.FITRES.gz  " \
-              f"--ref_colname_add NFITOPT_REJECT_CUTWIN  " \
-              f"--outfile  {outfile_tmp}  "
-        f.write(f"{cmd} \n")
-
-        # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
-
-        # overwrite monitor file with monitor file that has appended column
-        f.write(f"mv {outfile_tmp} {BBC_REJECT_MONITOR_FILE} \n")
-        f.write('\n')
-
-
-        return
-        # end create_reject_monitor_file         # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
 
     def bbc_prep_input_tables_slow(self):
 
@@ -1695,7 +1660,6 @@ class BBC(Program):
         logging.info(f"  {msg}")
 
         return
-
         # end bbc_prep_input_tables_slow
     
         
@@ -1710,17 +1674,9 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        # xxx .xyz code_name = self.config_prep['code_name'] 
         snana_dir   = self.config_yaml['args'].snana_dir
         code_name  = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
 
-        # xxxxxxxx mark delete May 3 2025 xxxxxxxx
-        #snana_dir    = self.config_yaml['args'].snana_dir
-        #if snana_dir is None:
-        #    code_name = PROGRAM_NAME_BBC
-        #else:
-        #    code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
-        # xxxxxxxxxxxxx end mark xxxxxxxxxxxx
 
         cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
@@ -2614,11 +2570,16 @@ class BBC(Program):
         #   Prevous matching by CID+IDSURVEY isn't enough for same survey
         #   simulated multiple times, each with different field.
 
-        args   = self.config_yaml['args']  
-
+        args          = self.config_yaml['args']  
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
-        fitres_list   = self.get_fflist_reject_summary(VOUT)
+
+        # xxxxxxxxx mark xxxx
+        #wildcard          = "FITOPT*MUOPT*.FITRES.gz"
+        #fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
+        #fitres_list       = remove_NOREJECT_from_list(fitres_list_all)
+        # xxxxxxxx
+        fitres_list   = self.get_fflist_accept_summary(VOUT)
 
         reject_file   = BBC_REJECT_SUMMARY_FILE
         REJECT_FILE   = f"{VOUT}/{reject_file}"
@@ -2861,7 +2822,50 @@ class BBC(Program):
         # end of get_cid_list_duplicates
 
 
-    def get_fflist_reject_summary(self,VOUT):
+    def remove_NOREJECT_from_list(self, inp_fitres_list):
+
+        # May 2025 ????????????????
+        #
+        # If NOREJECT string is part of user label, remove associated fitres
+        # file(s) from list. This allows adding  FITOPT /NOREJECT_TEST/
+        # to FITOPT /SYST_BLA/, and the NOREJECT tests won't affect the 
+        # reject.list used in Pippin's 2nd BBC iteration.
+
+        # .xyz
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        FITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
+        MUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
+
+        wildcard          = "FITOPT*MUOPT*.FITRES.gz"
+        fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
+        fitres_list       = []
+        NOREJECT_list     = []
+        
+        if FITOPT_OUT_LIST is None: 
+            FITOPT_OUT_LIST = []   # Dec 2022
+
+        for row in FITOPT_OUT_LIST:
+            fitnum = row[0]
+            label  = row[2]
+            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(fitnum)
+
+        for row in MUOPT_OUT_LIST:
+            munum = row[0]
+            label = row[1]
+            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(munum)
+
+        # loop thru fitres_list and remove anything on NOREJECT_list
+        for ff in fitres_list_all :
+            EXCLUDE = False
+            for string in NOREJECT_list :
+                if string in ff:  EXCLUDE = True
+            if not EXCLUDE : fitres_list.append(ff)
+
+        return fitres_list
+
+        # end remove_NOREJECT_from_list
+
+    def get_fflist_accept_summary(self,VOUT):
 
         # Oct 29 2020
         # get list of fitres_files needed to create reject summary.
@@ -2902,7 +2906,7 @@ class BBC(Program):
 
         return fitres_list
 
-        # end get_fflist_reject_summary
+        # end get_fflist_accept_summary
 
     def make_fitpar_summary(self):
 
@@ -3086,7 +3090,6 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         n_splitran       = submit_info_yaml['NSPLITRAN']
-        # xxx mark delete  opt_wfit         = submit_info_yaml['OPT_WFIT']
         fitopt_list      = submit_info_yaml['FITOPT_OUT_LIST']
         muopt_list       = submit_info_yaml['MUOPT_OUT_LIST']
 

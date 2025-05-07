@@ -60,6 +60,9 @@ def read_input_tables(args):
     ucid_list = []
     tfile_local_list = [ args.tfile_ref ] + args.tfile_list
 
+    ntf = len(args.tfile_list)
+    logging.info(f"Read ref table + {ntf} tables to check for missing events.")
+
     for tf in tfile_local_list: 
         if '.gz' in tf:
             df = pd.read_csv(tf, compression='gzip',sep='\s+',comment="#")

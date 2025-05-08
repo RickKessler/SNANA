@@ -977,8 +977,8 @@ class BBC(Program):
         # prepare FITOPT_OUT_LIST table for SUBMIT.INFO file
         self.make_FITOPT_OUT_LIST()
 
-        return
 
+        return
         # end bbc_prep_fitopt_outlist(self)
 
     def make_FITOPT_OUT_LIST(self):
@@ -1061,6 +1061,7 @@ class BBC(Program):
         self.config_prep['FITOPT_OUT_LIST'] = FITOPT_OUT_LIST
         return
         # end make_FITOPT_OUT_LIST
+
 
     def bbc_prep_index_lists(self):
         # construct sparse 1D lists to loop over version and FITOPT
@@ -1484,17 +1485,17 @@ class BBC(Program):
 
         # - - - - -
         if stage == TAG_REJECT_STAGE_CUTWIN :
-            wildcard          = "INPUT_FITOPT*.FITRES.gz"
+            search_pattern    = "INPUT_FITOPT*.FITRES.gz"
             do_create         = True
             verb              = "Create"
         elif stage == TAG_REJECT_STAGE_BIASCOR : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
-            wildcard          = "FITOPT*.FITRES.gz"  
+            search_pattern    = "FITOPT*.FITRES.gz"  
             do_create         = False  # append only
             verb              = "Append"
         elif stage == TAG_REJECT_STAGE_BIASCOR0 : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
-            wildcard          = "FITOPT000_MUOPT000.FITRES.gz"    # no wildcard; just pick nominal output
+            search_pattern    = "FITOPT000_MUOPT000.FITRES.gz"    # no wildcard; just pick nominal output
             do_create         = False  # append only
             verb              = "Append"
 
@@ -1510,10 +1511,10 @@ class BBC(Program):
             data_file_list = []
             # keep checking for files in case gzip isn't finished or other disk-access problem
             while len(data_file_list) == 0 :
-                data_file_list = sorted(glob.glob1(V_DIR,wildcard))    
+                data_file_list = sorted(glob.glob1(V_DIR,search_pattern))    
                 n_try += 1
                 if n_try > 5:
-                    msgerr = [ f'ERROR: could not find {wildcard} files in ', f'{V_DIR}' ]
+                    msgerr = [ f'ERROR: could not find {search_pattern} files in ', f'{V_DIR}' ]
                     self.log_assert(False,msgerr)
                 elif n_try > 1:
                     time.sleep(3.0)
@@ -1527,11 +1528,15 @@ class BBC(Program):
             cmd_full   = f"{cmd_cd} ; {cmd_bbc} ; {cmd_rm}"
             os.system(cmd_full)
 
-        # use tag_missing_event script to append NFITOPT_REJET_[stage]
-        if stage == TAG_REJECT_STAGE_BIASCOR : 
-            tfile_list   = self.get_fflist_accept_summary(V_DIR)  # exclude NOREJECT labels
-        else:
-            tfile_list = sorted(glob.glob1(V_DIR,wildcard)) 
+        # get fitres file list using search pattern
+        tfile_list   = self.get_fflist_accept_summary(V_DIR,search_pattern)  # exclude NOREJECT labels
+
+        # xxxxxxxxxx mark xxxxxx
+        #if stage == TAG_REJECT_STAGE_BIASCOR : 
+        #    tfile_list   = self.get_fflist_accept_summary(V_DIR,search_pattern)  # exclude NOREJECT labels
+        #else:
+        #    tfile_list = sorted(glob.glob1(V_DIR,search_pattern)) 
+        # xxxxxxxxxxx end mark xxxxx
 
         tfile_string = ' '.join(tfile_list)
         #logging.info(f" xxx tfile_list = {tfile_string}")
@@ -1778,7 +1783,26 @@ class BBC(Program):
         self.config_prep['muopt_num_list']   = muopt_num_list
         self.config_prep['muopt_label_list'] = muopt_label_list
 
+        # May 2025: prepare MUOPT_OUT_LIST table for SUBMIT.INFO file
+        self.make_MUOPT_OUT_LIST()
+
         # end bbc_prep_muopt_list
+
+    def make_MUOPT_OUT_LIST(self):
+        # Created May 2025
+        MUOPT_OUT_LIST   = []
+        muopt_num_list   = self.config_prep['muopt_num_list'] 
+        muopt_arg_list   = self.config_prep['muopt_arg_list']
+        muopt_label_list = self.config_prep['muopt_label_list'] 
+
+        for num,arg,label in zip(muopt_num_list, muopt_arg_list,  muopt_label_list):
+            if arg == '' : arg = None 
+            row   = [ num, label, arg ]
+            MUOPT_OUT_LIST.append(row)
+
+        self.config_prep['MUOPT_OUT_LIST'] = MUOPT_OUT_LIST
+        return
+        # end make_MUOPT_OUT_LIST
 
 
     def bbc_prep_splitran(self) :
@@ -2162,6 +2186,7 @@ class BBC(Program):
 
     def append_info_file(self,f):
         # append info to SUBMIT.INFO file
+        # May 8 2025: use pre-defined MUOPT_OUT_LIST (analog of FITOPT_OUT_LIST) to write MUOPTs
 
         vout_list         = self.config_prep['version_out_list']
         n_version         = self.config_prep['n_version_out']
@@ -2180,6 +2205,7 @@ class BBC(Program):
         iter2             = self.config_yaml['args'].iter2
         sync_evt          = self.config_prep['sync_evt_list'][0]
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
+        MUOPT_OUT_LIST    = self.config_prep['MUOPT_OUT_LIST']
         CONFIG            = self.config_yaml['CONFIG']
         FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
 
@@ -2233,21 +2259,23 @@ class BBC(Program):
 
         # - - - - - -
         f.write("\n")
-        f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
-                f"'user_label'   'user_args'\n")
+        f.write("FITOPT_OUT_LIST:  # FITOPTNUM   SURVEY  USER_LABEL   USER_ARGS\n") 
         for row in FITOPT_OUT_LIST: 
             f.write(f"  - {row}\n")
 
         # - - - - -
         f.write("\n")
-        f.write("MUOPT_OUT_LIST:  " \
-                "# 'MUOPTNUM'  'user_label'  'user_args'\n")
-        for num,arg,label in zip(muopt_num_list, muopt_arg_list,
-                                 muopt_label_list):
-            if arg == '' : arg = None  # 9.19.2021
-            row   = [ num, label, arg ]
+        f.write("MUOPT_OUT_LIST:  # MUOPTNUM  USER_LABEL   USER_ARGS \n")
+        for row in MUOPT_OUT_LIST:
             f.write(f"  - {row} \n")
-        f.write("\n")
+
+        # xxxxxxxxx mark delete May 8 2025 xxxxxxx
+        #for num,arg,label in zip(muopt_num_list, muopt_arg_list, muopt_label_list):
+        #   if arg == '' : arg = None  # 9.19.2021
+        #    row   = [ num, label, arg ]
+        #    f.write(f"  - {row} \n")
+        #f.write("\n")
+        # xxxxxxxxx end mark 
 
         # end append_info_file
 
@@ -2302,21 +2330,20 @@ class BBC(Program):
 
     def merge_config_prep(self,output_dir):
 
+        # Having already ready SUBMIT_INFO file (stored int submit_info_yaml),
+        # transfer some of the info back to self.config_prep that is needed
+        # in merge process.
+
         submit_info_yaml = self.config_prep['submit_info_yaml']
-        vout_list   = submit_info_yaml['VERSION_OUT_LIST']
-        n_fitopt    = submit_info_yaml['NFITOPT']
-        n_muopt     = submit_info_yaml['NMUOPT']
-        n_splitran  = submit_info_yaml['NSPLITRAN']
-        n_version   = submit_info_yaml['NVERSION']
-        script_dir  = submit_info_yaml['SCRIPT_DIR']
 
-        self.config_prep['version_out_list'] = vout_list
-        self.config_prep['n_splitran']       = n_splitran
-        self.config_prep['n_version_out']    = n_version    # added May 2025
-        self.config_prep['n_fitopt']         = n_fitopt     # added May 2025
-        self.config_prep['n_muopt']          = n_muopt      # added May 2025
-        self.config_prep['script_dir']       = script_dir   # added May 2025
-
+        self.config_prep['version_out_list'] = submit_info_yaml['VERSION_OUT_LIST']
+        self.config_prep['n_splitran']       = submit_info_yaml['NSPLITRAN']
+        self.config_prep['n_version_out']    = submit_info_yaml['NVERSION']
+        self.config_prep['n_fitopt']         = submit_info_yaml['NFITOPT']
+        self.config_prep['n_muopt']          = submit_info_yaml['NMUOPT']
+        self.config_prep['script_dir']       = submit_info_yaml['SCRIPT_DIR']
+        self.config_prep['FITOPT_OUT_LIST']  = submit_info_yaml['FITOPT_OUT_LIST']
+        self.config_prep['MUOPT_OUT_LIST']   = submit_info_yaml['MUOPT_OUT_LIST']
 
         # end merge_config_prep
 
@@ -2574,12 +2601,8 @@ class BBC(Program):
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
 
-        # xxxxxxxxx mark xxxx
-        #wildcard          = "FITOPT*MUOPT*.FITRES.gz"
-        #fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
-        #fitres_list       = remove_NOREJECT_from_list(fitres_list_all)
-        # xxxxxxxx
-        fitres_list   = self.get_fflist_accept_summary(VOUT)
+        search_pattern  = "FITOPT*MUOPT*.FITRES.gz"
+        fitres_list     = self.get_fflist_accept_summary(VOUT, search_pattern)
 
         reject_file   = BBC_REJECT_SUMMARY_FILE
         REJECT_FILE   = f"{VOUT}/{reject_file}"
@@ -2822,22 +2845,26 @@ class BBC(Program):
         # end of get_cid_list_duplicates
 
 
-    def remove_NOREJECT_from_list(self, inp_fitres_list):
+    def get_fflist_accept_summary(self, search_path, search_pattern ):
 
-        # May 2025 ????????????????
-        #
-        # If NOREJECT string is part of user label, remove associated fitres
-        # file(s) from list. This allows adding  FITOPT /NOREJECT_TEST/
-        # to FITOPT /SYST_BLA/, and the NOREJECT tests won't affect the 
-        # reject.list used in Pippin's 2nd BBC iteration.
+        # Oct 29 2020 [updated May 2025]
+        # Return list of fitres_files needed to create accept summary and reject-monitor.
+        # Default is all files in directory "search_path" using fitres files matching 
+        # string pattern "search_pattern";  e.g. search_pattern = FITOPT*.FITRES.gz.
+        # If NOREJECT string is part of user label in a FITOPT (from LCFIT stage) or a
+        # MUOPT (BBC stage), then exclude associated fitres # file(s) from list. 
+        # This feature allows adding  /NOREJECT_TEST/ [test args]
+        # to the FITOPT and/or MUOPT list, and the NOREJECT tests won't affect the 
+        # accept list used in BBC's 2nd fit iteration.
 
-        # .xyz
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        FITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
-        MUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
+        FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
+        MUOPT_OUT_LIST  = self.config_prep['MUOPT_OUT_LIST'] 
 
-        wildcard          = "FITOPT*MUOPT*.FITRES.gz"
-        fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
+        #xxxsubmit_info_yaml = self.config_prep['submit_info_yaml']
+        #xxxFITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
+        #xxxMUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
+
+        fitres_list_all   = sorted(glob.glob1(search_path,search_pattern))
         fitres_list       = []
         NOREJECT_list     = []
         
@@ -2846,56 +2873,15 @@ class BBC(Program):
 
         for row in FITOPT_OUT_LIST:
             fitnum = row[0]
-            label  = row[2]
-            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(fitnum)
+            label  = row[2] 
+            if label:
+                if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(fitnum)
 
         for row in MUOPT_OUT_LIST:
             munum = row[0]
-            label = row[1]
-            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(munum)
-
-        # loop thru fitres_list and remove anything on NOREJECT_list
-        for ff in fitres_list_all :
-            EXCLUDE = False
-            for string in NOREJECT_list :
-                if string in ff:  EXCLUDE = True
-            if not EXCLUDE : fitres_list.append(ff)
-
-        return fitres_list
-
-        # end remove_NOREJECT_from_list
-
-    def get_fflist_accept_summary(self,VOUT):
-
-        # Oct 29 2020
-        # get list of fitres_files needed to create reject summary.
-        # Default is all files using wildcard. However, if NOREJECT
-        # string is part of user label, then remove associated fitres
-        # file(s) from list. This allows adding  FITOPT /NOREJECT_TEST/
-        # to FITOPT /SYST_BLA/, and the NOREJECT tests won't affect the 
-        # reject.list used in Pippin's 2nd BBC iteration.
-
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        FITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
-        MUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
-
-        wildcard          = "FITOPT*MUOPT*.FITRES.gz"
-        fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
-        fitres_list       = []
-        NOREJECT_list     = []
-        
-        if FITOPT_OUT_LIST is None: 
-            FITOPT_OUT_LIST = []   # Dec 2022
-
-        for row in FITOPT_OUT_LIST:
-            fitnum = row[0]
-            label  = row[2]
-            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(fitnum)
-
-        for row in MUOPT_OUT_LIST:
-            munum = row[0]
-            label = row[1]
-            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(munum)
+            label = row[1]  # note different index compared to FITOPT above (no SURVEY column here)
+            if label:
+                if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(munum)
 
         # loop thru fitres_list and remove anything on NOREJECT_list
         for ff in fitres_list_all :

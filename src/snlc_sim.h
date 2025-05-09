@@ -1908,8 +1908,8 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
-int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
-			char *cfiltList, int *ifiltList) ;
+//xxx int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
+//xxx			char *cfiltList, int *ifiltList) ;
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
 bool   parse_SIMLIB_TEXPOSE(char *inString, char *field);

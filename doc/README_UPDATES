@@ -22881,6 +22881,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
               This fix should NOT impact fitted results, but may impact
               reported TRUE contamination for sims.
 
+    All nearest neighbor code (NEARNBR) has been removed ;
+    all classifiers are external to SNANA, including NN that is part of pippin.
+
          *****  USEFUL(v11_05t) *****
 	 	
     New util make_spectrograph_table.py; see new manual section

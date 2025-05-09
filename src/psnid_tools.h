@@ -169,10 +169,6 @@ struct PSNID_FITRES {
 } PSNID_FITRES ;
 
 
-struct PSNID_NEARNBR {
-  int NVAR ;
-} PSNID_NEARNBR ;
-
 
 // dump variables
 #define MXLCDUMP_PSNID 10  // avoid huge accidental dumps

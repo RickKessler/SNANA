@@ -315,7 +315,7 @@
 #include "sntools_cosmology.h"    // dLmag
 #include "sntools_modelgrid.h"
 #include "sntools_output.h"
-#include "sntools_nearnbr.h"
+// xxx #include "sntools_nearnbr.h"
 #include "psnid_tools.h"
 
 
@@ -373,7 +373,6 @@ extern void init_table_snanavar__(int *ID_TABLE, char *BLOCK, int *IFLAG,
 
 extern void init_table_simvar__(int *ID_TABLE, char *BLOCK, int len);
 
-extern int snana_nearnbr_rdinput__(void);  // Apr 16 2013 - RK
 
 /************************************************************************/
 /*************  BEGIN: Masao's routines and global variables ************/
@@ -400,9 +399,6 @@ extern int snana_nearnbr_rdinput__(void);  // Apr 16 2013 - RK
 
 #define PSNID_TABLE_ID    7788     // RK - for SNTABLE
 #define PSNID_TABLE_NAME "FITRES"  // idem
-
-#define PSNID_BEST_NEARNBR_NVAR 3 // 3 variables for NN analysis
-#define IGNORE_for_NEARNBR -9
 
 #define H0_PSNID 72.0/(1.e6*PC_km) // Sep 2013 RK
 
@@ -566,7 +562,7 @@ F_RESIDS_PSNID_DOFIT_DEF  F_RESIDS_PSNID_DOFIT ; // for best-type only
 ///////////////////////////////////////////////////////////////////////////
 
 
-void psnid_best_define_TableVARNAMES(int DO_ADDCOL, int DO_NN);
+void psnid_best_define_TableVARNAMES(int DO_ADDCOL);
 void psnid_best_define_TableRESIDS();
 void psnid_best_malloc_resids(void);
 
@@ -622,8 +618,6 @@ void psnid_best_check_lc_quality(int itype, int z, int ***ind,
 				 double *fluxerr);
 void psnid_best_check_ind_bounds(int ipass, int itype, int ***ind);
 
-
-void psnid_best_nearnbr(char *CCID); 
 
 /* core psnid functions */
 void psnid_best_grid_compare(int itype, int zpind, int nobs,
@@ -1017,11 +1011,6 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
   if ( ERRFLAG != 0 ) {
     printf("\t Skip PSNID fit on CID = %s : ERRFLAG=%d\n", CCID, ERRFLAG);
     fflush(stdout);
-  }
-
-  // check option for nearest nbr analysis
-  if ( ERRFLAG == 0 ) {
-    psnid_best_nearnbr(CCID);  // check for nearest nbr analysis
   }
 
 
@@ -5688,14 +5677,6 @@ void PSNID_BEST_INIT(void) {
   psnid_best_check_for_dmu();
   psnid_best_reset_results(); // set PSNID_TYPE_NAME
 
-  NVAR = snana_nearnbr_rdinput__();
-
-  if ( NVAR>0 && NVAR != PSNID_BEST_NEARNBR_NVAR ) {
-    sprintf(c1err,"&SNLCINP NEARNBR_XXX specified NVAR=%d", NVAR);
-    sprintf(c2err,"but PSNID_BEST requires NVAR=%d", PSNID_BEST_NEARNBR_NVAR);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  PSNID_NEARNBR.NVAR = NVAR ;
 
   // Feb 2017 RK - setup cut-array to fix fragile logic elsewhere
   PSNID_FITPROB_CUTLIST[PSNID_ITYPE_SNIA]   = PSNID_INPUTS.FITPROB_IA_CUT;
@@ -5784,8 +5765,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   psnid_best_split_nonia_types(nonia_types, 0 );
   
   int DO_ADDCOL = 1; // add columns to FITRES table
-  int DO_NN     = 0 ; // hard-wire until passed via &PSNIDNML
-  psnid_best_define_TableVARNAMES(DO_ADDCOL,DO_NN);
+  psnid_best_define_TableVARNAMES(DO_ADDCOL);
 
   // check option to init residuals for table
   if ( OPT == 2 ) { psnid_best_define_TableRESIDS() ; }
@@ -5899,13 +5879,12 @@ void  psnid_best_malloc_resids(void) {
 
 
 // *****************************************************
-void psnid_best_define_TableVARNAMES(int DO_ADDCOL, int DO_NN ) {
+void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
 
   // Created Mar 2013  by RK
   // Define output variables for the following options,
   //
   //  DO_ADDCOL -> load columns for SNTABLE
-  //  DO_NN    -> for nearest neighbor (sets USE4NN array)
   //
   // Here there is just one place to define a variable that
   // serves any of three functions.
@@ -5937,10 +5916,6 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL, int DO_NN ) {
   printf("     Create BLOCK = %s for TABLE ID = %d \n", CBLOCK, ID);
   fflush(stdout);
 
-  if ( DO_NN ) {
-    for(ivar=0; ivar < PSNID_MXVAR_FITRES; ivar++ ) 
-      { PSNID_FITRES.USE4NN[ivar] = IGNORE_for_NEARNBR ;  }
-  }
 
   ivar = 0 ;
 
@@ -5969,7 +5944,6 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL, int DO_NN ) {
   ivar++ ; ptrVARNAME =  PSNID_FITRES.VARNAMES[ivar] ;
   sprintf(ptrVARNAME,"SIM_ITYPE");   
   //  psnid_dump_VARNAME(LDMP,ptrVARNAME);
-  if ( DO_NN ) { PSNID_FITRES.USE4NN[ivar] = 99; }
   if ( DO_ADDCOL) {
     sprintf(TABLENAME,"%s:I", ptrVARNAME);
     IPTR = &SIMVAR_PSNID.ITYPE ;
@@ -6018,13 +5992,6 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL, int DO_NN ) {
 
       sprintf(ptrVARNAME,"%s_%s", PREFIX, CTYPE);   
       //      psnid_dump_VARNAME(LDMP,ptrVARNAME);
-
-      if ( DO_NN && ISIA ) {
-	USE4NN  = &PSNID_FITRES.USE4NN[ivar] ;
-	if ( IPAR == PSNID_PARAM_LOGZ     )    { *USE4NN = IPAR; }
-	if ( IPAR == PSNID_PARAM_COLORPAR )    { *USE4NN = IPAR; }
-	if ( IPAR == PSNID_PARAM_SHAPEPAR )    { *USE4NN = IPAR; }
-      }
 
       if ( DO_ADDCOL) {
 	sprintf(TABLENAME,"%s:D", ptrVARNAME);
@@ -6268,32 +6235,3 @@ void PSNID_BEST_SUMMARY(void) {
 
 
 
-// ============================================
-void psnid_best_nearnbr(char *CCID) {
-
-  double DVAL ;
-  int z, t, IPAR, ivar, USE4NN ;
-  char *VARNAME_PSNID;
-  //  char fnam[] = "psnid_best_nearnbr" ;
-
-  // --------------- BEGIN ----------
-
-  if ( PSNID_NEARNBR.NVAR <= 0 ) { return ; }
-
-  z = 0 ; t = PSNID_ITYPE_SNIA ; 
-
-  // search for variables with USE4NN flag
-
-  for ( ivar=0; ivar <= PSNID_FITRES.NVAR; ivar++ ) {
-    USE4NN = PSNID_FITRES.USE4NN[ivar] ;
-    //    if ( USE4NN < 0  || USE4NN == 99 ) { continue ; }
-    if ( USE4NN < 0 ) { continue ; }
-    IPAR    = USE4NN ;
-    DVAL    = PSNID_BEST_RESULTS.FINAL_PARVAL[z][t][IPAR] ;
-    VARNAME_PSNID  = PSNID_FITRES.VARNAMES[ivar] ;
-    NEARNBR_LOADVAL(CCID, VARNAME_PSNID, DVAL ) ; // see sntools_nearnbr.c
-  } 
-
-  NEARNBR_APPLY(CCID); // do the NN analysis
-
-} // end of  psnid_best_nearnbr

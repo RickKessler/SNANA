@@ -412,10 +412,13 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   char stringOpt[20] ;
   stringOpt[0] = 0 ;
   if ( OPEN_FLAG == OPENFLAG_NEW ) 
-    { sprintf(stringOpt,"%sN", stringOpt); }
+    { strcat(stringOpt,"N"); }
+  // xxx mark { sprintf(stringOpt,"%sN", stringOpt); }
 
   if ( OPT_Q  ) 
-    { sprintf(stringOpt,"%sQ", stringOpt); }
+    { strcat(stringOpt,"Q"); }
+  // xxx mark    { sprintf(stringOpt,"%sQ", stringOpt); }
+
 
   // open file based on its type.
 
@@ -1238,7 +1241,9 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
     NVAR_TOT++ ;
     if ( istat >= 0 ) { 
       ISTAT = istat ;  
-      sprintf(VARLIST_FOUND, "%s %s", VARLIST_FOUND, VARNAME_withCast);
+      strcat(VARLIST_FOUND," ") ;
+      strcat(VARLIST_FOUND,VARNAME_withCast);
+      // xxx mark sprintf(VARLIST_FOUND, "%s %s", VARLIST_FOUND, VARNAME_withCast);
       NVAR_FOUND++ ; 
       break; // Feb 2023
     }
@@ -2325,7 +2330,7 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST) {
       *ICAST            = SNTABLE_AUTOSTORE[ifile].ICAST_READ[ivar];
       if ( PRINT_LIST ) {
 	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s  (CAST=%s) \n", 
-	       ifile, ivar, varName_autostore, CCAST_TABLEVAR[*ICAST]);
+	       ifile, ivar, varName_autostore, CCAST_TABLEVAR[*ICAST] );
 	fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {

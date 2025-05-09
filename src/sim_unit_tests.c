@@ -177,12 +177,12 @@ void test_kcor_nearfilt_rest(void) {
   FILTERCAL_DEF *FILTERCAL_REST = &CALIB_INFO.FILTERCAL_REST ;
   int NFILTDEF_OBS = FILTERCAL_OBS->NFILTDEF ;
   int OPT_REFAC    = MASK_FRAME_OBS + 8;
-  int OPT_LEGACY   = OPT_REFAC ;
+  //  int OPT_LEGACY   = OPT_REFAC ;
   double z = 0.24;
 
   int ifiltdef, ifilt, ifiltdef_rest, ifilt_r, irank ;
   double lamdif_min; 
-  char *filter_name_obs, *filter_name_rest, *TEXT ;
+  char *filter_name_obs, *filter_name_rest ;
   char fnam[] = "test_kcor_nearfilt_rest" ;
 
   // ----------- BEGIN ----------
@@ -219,7 +219,7 @@ void test_kcor_table_avwarp(void) {
   int ifiltdef_a_list[10], ifiltdef_b_list[10];
   double C_list[10];
   double Trest = 4.5 ;
-  double z = ZAT10PC;
+  //  double z = ZAT10PC;
 
   char fnam[] = "test_kcor_table_avwarp" ;
 
@@ -249,7 +249,6 @@ void test_kcor_table_avwarp(void) {
 
   printf("  filtdef_a      ifiltdef_b      Color     AVwarp    istat\n");
   FILTERCAL_DEF  *FILTERCAL_REST = &CALIB_INFO.FILTERCAL_REST ;
-  char *TEXT;
   double AVWARP = 0.0, C, mag_a, mag_b ; ;
   int ifiltdef_a, ifiltdef_b, ifilt_a, ifilt_b, istat ;
   char *name_a, *name_b ;
@@ -288,7 +287,7 @@ void test_kcor_table_kcor(void) {
   double T_list[20], z_list[20], AV_list[20];
   double T, z, AV, kcor;
   int  i, NTEST, len_o, len_r ;
-  char *TEXT, *name_o, *name_r, kcor_sym[20] ;
+  char *name_o, *name_r, kcor_sym[20] ;
   char fnam[] = "test_kcor_table_kcor" ;
 
   // ------------- BEGIN -----------
@@ -350,7 +349,6 @@ void test_GET_KCOR_DRIVER(void) {
   double lamdif_min, LAMDIF[6], LAMAVG[6], MAG_REST_LIST[6], AVWARP_LIST[6] ;
   double kcor, lamavg, AVwarp = 0.1 ;
   int inear, ifiltdef_rest, ifilt_r;
-  char *TEXT ;
   char fnam[] = "test_GET_KCOR_DRIVER" ;
 
   // ------------- BEGIN ----------
@@ -428,7 +426,7 @@ void test_fortran(void) {
 void test_zcmb_dLmag_invert(void) {
 
   char fnam[] = "test_zcmb_dLmag_invert" ;
-  double MU, zCMB=0.0 ;
+  double MU, zCMB ;
   // ----------- RETURN ------------
   for(MU=32.0; MU < 49.0; MU+=1.0 ) {
     zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
@@ -537,8 +535,8 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   // distribution and comparing random distribution to 
   // funVal-computed distribution
 
-  double range[2], xval[10];
-  char   parName[40], parName2[40] ;
+  double range[2] ;
+  char   parName[40] ;
   int    IMAP ;
   bool IS_LOGPARAM;
   GENGAUSS_ASYM_DEF     GENGAUSS ;
@@ -626,7 +624,7 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   double *funVal_PER_BIN = (double *) malloc(MEMD) ;
   double *x_PER_BIN      = (double *) malloc(MEMD) ;
   int    *NGEN_PER_BIN   = (int    *) malloc(MEMI) ;
-  int i, bin, MX_PER_BIN=0, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
+  int i, bin, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
 
   printf("\t Generate %d random numbers from %s:\n",
 	 NRANGEN, FUNVAL_NAME);
@@ -638,13 +636,12 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     x_PER_BIN[bin] = range[0] + ((double)bin + 0.5) * BINSIZE_HIST; // bin center
   }
 
-  int NWRAP, NWRAP_LAST = -9,  N_fill_RANLISTs=0;
+  int NWRAP;
 
   for(i=0; i < NRANGEN; i++ ) {
 
     NWRAP = GENRAN_INFO.NWRAP[1] ;
     if ( NWRAP == 1 )  { fill_RANLISTs();  }
-    //    NWRAP_LAST = NWRAP ;
 
     if ( GENGAUSS.USE ) 
       { r   = getRan_GENGAUSS_ASYM(&GENGAUSS) ; }
@@ -678,9 +675,7 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
       funVal_edge[1] = funVal_GEN_EXP_HALFGAUSS(xmax, &GENEXP) ;
     }
     else if ( NMAP_GENPDF > 0 ) {
-      xval[0] = xmin; 
       funVal_edge[0] = funVal_genPDF(parName, xmin, &GENGAUSS) ;
-      xval[0] = xmax; 
       funVal_edge[1] = funVal_genPDF(parName, xmax, &GENGAUSS) ;
     }
 

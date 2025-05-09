@@ -45,6 +45,7 @@ typedef struct GRIDMAP1D_DEF {
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap 
 #define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap 
 #define IDGRIDMAP_GENPDF                60  // populations
+#define IDGRIDMAP_SALT2ERR              80  // salt2/3 error maps (May 2025)
 #define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap 
 
 

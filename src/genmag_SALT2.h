@@ -84,9 +84,12 @@ struct SALT2_ERRMAP {
   double  DAY[MXBIN_DAYSED_SEDMODEL];    // epoch array
   double  VALUE[MXBIN_VAR_SALT2];      // variance values
 
-  // stuff for spline
-  int     INDEX_SPLINE ;   
+  // stuff for spline/interp
+  int     INDEX_SPLINE ; 
   int     ISGN[MXBIN_VAR_SALT2];  // sign of value since log10|err| is stored
+
+  int     IDGRIDMAP;
+  GRIDMAP_DEF GRIDMAP ;   // May 2025
 
   // xxx mark delete   int NBADVAL_NAN, NBADVAL_CRAZY; 
   STORE_BADVAL_ERRMAP_DEF STORE_NAN_VALUES;

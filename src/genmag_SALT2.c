@@ -267,7 +267,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     printf("\t Re-init %s -> skip reading files. \n", version);
     fflush(stdout);
     init_SALT2interp_SEDFLUX();
-    init_SALT2interp_ERRMAP();
+    // xxx mark delete May 8 2025    init_SALT2interp_ERRMAP();
     SKIPREAD = 1;  // set logical in case we need it later
     return retval ;
   }
@@ -350,7 +350,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // init interp (for splines only)
   init_SALT2interp_SEDFLUX();
-  init_SALT2interp_ERRMAP();
+  // xxx mark delete May 8 2025  init_SALT2interp_ERRMAP();
 
   NCALL_DBUG_SALT2 = 0;
 
@@ -389,8 +389,8 @@ void setFlags_ISMODEL_SALT2(char *version) {
   // ISMODEL_SALT2 and ISMODEL_SALT3
   //
   // Models are of the form
-  //   [path]/SALT2.XYZ  or
-  //   [path]/SALT3.XYZ
+  //   [path]/SALT2.ABC  or
+  //   [path]/SALT3.ABC
   //
   // So check 5 characters before the dot. 
   //
@@ -988,15 +988,19 @@ void init_SALT2interp_SEDFLUX(void) {
 } // end of init_SALT2interp_SEDFLUX
 
 
+/* xxxxxxxx mark delete May 8 2025 xxxxxxxxxxxxxxx
 // ***************************************
 void init_SALT2interp_ERRMAP(void) {
 
   // if spline-option is set for error maps,
   // then init splines
 
-  int OPT, imap, ispline, iday, ilam, N2DBIN, jtmp, IERR ;
-  double ERRTMP, XM, SS ;
-
+  
+  int OPT, IDGRIDMAP, imap, ispline, iday, ilam, N2DBIN, jtmp, IERR, NDIM=2 ;
+  int NDAY, NLAM ;
+  int OPT_EXTRAP = 0 ; //  0 -> return error outside map  
+  double ERRTMP, XM, SS, **ERRMAP2D_TMP ;
+  float  MEM;
 
   char fnam[] = "init_SALT2interp_ERRMAP" ;
 
@@ -1009,54 +1013,79 @@ void init_SALT2interp_ERRMAP(void) {
 
     if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; }
 
-      ispline = SALT2_TABLE.INDEX_SPLINE[1] + imap + 1 ; 
-      SALT2_ERRMAP[imap].INDEX_SPLINE = ispline ; 
-
-      SALT2_SPLINE_ARGS.DAYLIM[0] = SALT2_ERRMAP[imap].DAYMIN ;
-      SALT2_SPLINE_ARGS.DAYLIM[1] = SALT2_ERRMAP[imap].DAYMAX ;
-      SALT2_SPLINE_ARGS.LAMLIM[0] = SALT2_ERRMAP[imap].LAMMIN ;
-      SALT2_SPLINE_ARGS.LAMLIM[1] = SALT2_ERRMAP[imap].LAMMAX ;
-
-      // for spline, use every other day and every other lambda bin
-      N2DBIN = 0;
-      for ( iday=0; iday <  SALT2_ERRMAP[imap].NDAY ; iday+=2 ) {
-	for ( ilam=0; ilam <  SALT2_ERRMAP[imap].NLAM ; ilam+=2 ) {
-	  N2DBIN++ ;
-
-	  jtmp = SALT2_ERRMAP[imap].NLAM *iday + ilam ;
-	  ERRTMP = SALT2_ERRMAP[imap].VALUE[jtmp] ;
-          if ( ERRTMP == 0.0 ) ERRTMP = 1.0E-9 ;
-
-	  SALT2_SPLINE_ARGS.DAY[N2DBIN-1] = SALT2_ERRMAP[imap].DAY[iday] ;
-	  SALT2_SPLINE_ARGS.LAM[N2DBIN-1] = SALT2_ERRMAP[imap].LAM[ilam] ;
-	  SALT2_SPLINE_ARGS.VALUE[N2DBIN-1] = log10(ERRTMP*ERRTMP) ;
-
-	}// ilam
-      } // iday
-     
-      XM  = (double)N2DBIN ;  SS  = XM ;
-
-      in2dex_(&ispline, &N2DBIN
-	      , SALT2_SPLINE_ARGS.DAY
-	      , SALT2_SPLINE_ARGS.LAM
-	      , SALT2_SPLINE_ARGS.VALUE
-	      , SALT2_SPLINE_ARGS.DAYLIM
-	      , SALT2_SPLINE_ARGS.LAMLIM
-	      , &SS, &IERR ) ; 
-
-      printf("\t Init SPLINE %2d  for error map: %d nodes (IERR=%d) \n", 
-	     ispline, N2DBIN, IERR);
-
-      if ( IERR > 0 ) {
-	sprintf(c1err,"IN2DEX SPLINE-INIT is bad: IERR=%d", IERR );
-	sprintf(c2err,"ispline=%d  SS=%le \n", ispline, SS);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      }
-
+    // xxx mark delete ispline = SALT2_TABLE.INDEX_SPLINE[1] + imap + 1 ; 
+    ispline   = imap + 1 ; 
+    IDGRIDMAP = IDGRIDMAP_SALT2ERR + imap ; 
+    SALT2_ERRMAP[imap].INDEX_SPLINE = ispline ; 
+    SALT2_ERRMAP[imap].IDGRIDMAP    = IDGRIDMAP; 
     
+    SALT2_SPLINE_ARGS.DAYLIM[0] = SALT2_ERRMAP[imap].DAYMIN ;
+    SALT2_SPLINE_ARGS.DAYLIM[1] = SALT2_ERRMAP[imap].DAYMAX ;
+    SALT2_SPLINE_ARGS.LAMLIM[0] = SALT2_ERRMAP[imap].LAMMIN ;
+    SALT2_SPLINE_ARGS.LAMLIM[1] = SALT2_ERRMAP[imap].LAMMAX ;
+    
+    NDAY = SALT2_ERRMAP[imap].NDAY ;
+    NLAM = SALT2_ERRMAP[imap].NLAM ;
+    MEM  = malloc_double2D(+1, 3, NDAY*NLAM, &ERRMAP2D_TMP);
+
+    // for spline, use every other day and every other lambda bin
+    N2DBIN = 0;
+    for ( iday=0; iday <  SALT2_ERRMAP[imap].NDAY ; iday+=2 ) {
+      for ( ilam=0; ilam <  SALT2_ERRMAP[imap].NLAM ; ilam+=2 ) {
+
+	jtmp = SALT2_ERRMAP[imap].NLAM *iday + ilam ;
+	ERRTMP = SALT2_ERRMAP[imap].VALUE[jtmp] ;
+	if ( ERRTMP == 0.0 ) { ERRTMP = 1.0E-9 ; }
+
+	SALT2_SPLINE_ARGS.DAY[N2DBIN] = SALT2_ERRMAP[imap].DAY[iday] ;
+	SALT2_SPLINE_ARGS.LAM[N2DBIN] = SALT2_ERRMAP[imap].LAM[ilam] ;
+	SALT2_SPLINE_ARGS.VALUE[N2DBIN] = log10(ERRTMP*ERRTMP) ;
+
+	ERRMAP2D_TMP[0][N2DBIN]  = SALT2_ERRMAP[imap].DAY[iday] ;
+	ERRMAP2D_TMP[1][N2DBIN]  = SALT2_ERRMAP[imap].LAM[iday] ;
+	ERRMAP2D_TMP[2][N2DBIN]  = log10(ERRTMP*ERRTMP) ;
+
+	N2DBIN++ ;
+      }// ilam
+    } // iday
+     
+
+    init_interp_GRIDMAP(IDGRIDMAP, "SALT2ERR", N2DBIN, NDIM, 1, OPT_EXTRAP,
+			ERRMAP2D_TMP, &ERRMAP2D_TMP[2],
+			&SALT2_ERRMAP[imap].GRIDMAP );
+    
+    XM  = (double)N2DBIN ;  SS  = XM ;
+    in2dex_(&ispline, &N2DBIN
+	    , SALT2_SPLINE_ARGS.DAY
+	    , SALT2_SPLINE_ARGS.LAM
+	    , SALT2_SPLINE_ARGS.VALUE
+	    , SALT2_SPLINE_ARGS.DAYLIM
+	    , SALT2_SPLINE_ARGS.LAMLIM
+	    , &SS, &IERR ) ; 
+
+    // .xyz
+    IERR = 0 ;
+    printf("\t Init SPLINE %2d  for error map: %d nodes (IERR=%d) \n", 
+	   ispline, N2DBIN, IERR);
+
+    if ( IERR > 0 ) {
+      sprintf(c1err,"IN2DEX SPLINE-INIT is bad: IERR=%d", IERR );
+      sprintf(c2err,"ispline=%d  SS=%le \n", ispline, SS);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    
+    // free GRIDMAP memory (May 2025)
+    MEM  = malloc_double2D(-1, NDAY, NLAM, &ERRMAP2D_TMP);
+
   } // imap
 
+  return ;
 } // end of init_SALT2interp_ERRMAP
+
+xxxxxxxxx end mark xxxxxxxxxx */
+
+
+
 
 
 // **************************************
@@ -3071,8 +3100,9 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
   int imap, jval, iday_min, iday_max, ilam_min, ilam_max ;
   int NLAM, NDAY, IND, IERR ;
 
-  double val, val0, val1, valdif, val_linear, val_spline, tmp;
+  double val, val0, val1, valdif, val_linear, val_spline, tmp_old, tmp_new;
   double LMIN, LSTEP, LDIF, TMIN, TSTEP, TDIF, val_atlammin, val_atlammax ;
+  double val_list[2];
 
   char fnam[] = "get_SALT2_ERRMAP";
 
@@ -3128,30 +3158,33 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     LDIF       = Lrest - SALT2_ERRMAP[imap].LAM[ilam_min];
     valdif     = val_atlammax - val_atlammin ;
     val_linear = val_atlammin + (valdif * LDIF/LSTEP) ;
-    val        = val_linear ;
 
-    if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 0 ) 
-      { val = 0.0 ; }
+    if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 0 ) {
+      val = 0.0 ; 
+    }
+    else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT = 1 ) {
+      val = val_linear ;
+    }
+    else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 2 ) {
 
-    if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 2 ) {
+      val = val_linear ; // May 8 2025: no more spline, just linear interp
 
-      IND    = SALT2_ERRMAP[imap].INDEX_SPLINE ; 
-      tmp    = ge2dex_ ( &IND, &Trest, &Lrest, &IERR ) 	;
-      val_spline  = sqrt(pow(TEN,tmp)) ;
-
+      /* xxxxxxxxxxxx mark delete May 8 2025 xxxxxxxx
+      //      IND      = SALT2_ERRMAP[imap].INDEX_SPLINE ; 
+      //      tmp_old  = ge2dex_ ( &IND, &Trest, &Lrest, &IERR ) 	;
+      val_list[0] = Trest ;
+      val_list[1] = Lrest ;
+      IERR     = interp_GRIDMAP(&SALT2_ERRMAP[imap].GRIDMAP, val_list, &tmp_new ); // .xyz     
+      val_spline  = sqrt(pow(TEN,tmp_old)) ;
+      printf(" xxx %s: Trest = %5.1f  Lrest=%7.1f   val[lin,spl] = %f  %f \n",
+	     fnam, Trest, Lrest, val_linear, val_spline); fflush(stdout);
       // Use the sign of the linear interp because
       // the sign in storing the error-squared is lost.
 
       if ( val_linear < 0.0 ) { val = -val_spline ; }
       else                    { val = +val_spline ; }
+      xxxxxxxxxx end mark xxxxxxxxxx */
 
-      /*
-      NCALL_DBUG_SALT2++ ;
-      printf(" xxx imap=%d  Trest=%6.2f Lrest=%6.0f : ",
-	     imap, Trest, Lrest );
-      printf("val(lin,spline)= %le, %le \n", val_linear, val );
-      if ( NCALL_DBUG_SALT2 > 50 )  debugexit("SALT2 sline");
-      */
 
     }  // SPLINE option
 

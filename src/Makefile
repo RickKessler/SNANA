@@ -40,8 +40,8 @@
 # Apr 12 2024: few tweaks to handle sntools_wgtmap.c[h]
 # Apr 13 2025: add cnpy for wfit to read cov matrix in optional npz format
 # Apr 24 2025: fix make for wfit to work on both midway and perlmutter
-#             
-# ------------------------------------------------------------------------
+# May 08 2025: replace FFC with CC for C codes, and remove libsnana.lib and libsnfit.lib
+# -------------------------------------------------------------------------------------------
 
 SHELL = /bin/sh
 
@@ -57,14 +57,13 @@ endif
 # ================================
 
 FFC  = gfortran
-#CC   = cc
 CC   = gcc
 
  EXTRA_FLAGS =
 #  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-EXTRA_FLAGS = -O2  # xxx RESTORE
+EXTRA_FLAGS = -O2    # xxx RESTORE
 #EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
@@ -217,8 +216,6 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/snlc_fit.exe		\
 	$(BIN)/psnid.exe		\
 	$(BIN)/kcor.exe			\
-	$(BIN)/nearnbr_maxFoM.exe	\
-	$(BIN)/nearnbr_apply.exe	\
 	$(BIN)/wfit.exe			\
 	$(BIN)/SALT2mu.exe		\
 	$(BIN)/combine_fitres.exe 	\
@@ -230,6 +227,9 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/SIMSED_rebin.exe		\
 	$(BIN)/simlib_coadd.exe		\
 	$(BIN)/unfold_snpar.exe
+
+#	$(BIN)/nearnbr_maxFoM.exe	\
+#	$(BIN)/nearnbr_apply.exe	\
 
 # ----------------------
 # check for executables that depend explicitly on output format
@@ -288,13 +288,13 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_data.o 			\
 	$(OBJ)/sntools_modelgrid_read.o \
 	$(OBJ)/sntools_calib.o \
-	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/yaml.o	\
-	$(OBJ)/minuit.o		\
 	$(OBJ)/MWgaldust.o	\
 	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/multiseason.o
+
+#	$(OBJ)/minuit.o		\
 
 OBJ_SNTOOLS_DATA =  \
 	$(OBJ)/sntools_dataformat_fits.o        \
@@ -309,7 +309,8 @@ OBJ_OUTPUT = $(OBJ)/sntools_output.o
 
 OBJ_SNANA	 = 	\
 	$(OBJ)/snana.o	\
-	$(OBJ_SNTOOLS_SNANA)
+	$(OBJ_SNTOOLS_SNANA) \
+	$(OBJ)/minuit.o
 
 OBJ_SNFIT	 = 		\
 	$(OBJ)/snlc_fit.o	\
@@ -317,6 +318,7 @@ OBJ_SNFIT	 = 		\
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o    \
 	$(OBJ)/sntools_zPDF_spline.o \
+	$(OBJ)/minuit.o  	\
 	$(OBJ_GENMAG_FIT)
 
 OBJ_PSNID	=  		\
@@ -324,7 +326,8 @@ OBJ_PSNID	=  		\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/psnid_tools.o 	\
 	$(OBJ)/psnid_BEST.o 	\
-	$(OBJ)/psnid_BEST2.o
+	$(OBJ)/psnid_BEST2.o 	\
+	$(OBJ)/minuit.o 
 
 OBJ_SIM	 = 	\
 	$(OBJ)/snlc_sim.o	\
@@ -363,11 +366,11 @@ SNTOOLS_OUTPUT = \
 LIBSNANA  =   $(LIB)/libsnana.a
 LIBSNFIT  =   $(LIB)/libsnfit.a
 
-CLEAN_FILES =  $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
+CLEAN_FILES =  $(FPP_EXECUTABLES)  $(EXECUTABLES)
 
 # --------------------------
 
-all: set_Cpreproc_flags makeDirs $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
+all: set_Cpreproc_flags makeDirs $(FPP_EXECUTABLES)  $(EXECUTABLES)
 
 debug:	EXTRA_FLAGS = -g -fbounds-check  
 debug:  all
@@ -422,7 +425,7 @@ $(OBJ)/sntools_npz.o : $(SRC)/sntools_npz.c
 	(cd $(OBJ); $(CCoutput) $(SNCFLAGS) -I/$(CONDA_PREFIX)/include $(SRC)/sntools_npz.c )
 
 $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
-	$(FFC) -o  $@ $(SNLDFLAGS) \
+	$(CC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/wfit.o  \
 	$(OBJ)/sntools.o  \
 	$(OBJ)/sntools_output.o  \
@@ -435,21 +438,6 @@ $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_n
 	-lz 
 	(cd $(OBJ);  rm wfit.o )
 
-
-# -----------------------------------------------------
-#  MCMC cosmology fitter (Parkinson, Marriner)
-#  Mar 2012: Finally just pure C code (no more f90)
-
-$(OBJ)/sncosmo_mcmc.o : $(SRC)/sncosmo_mcmc.c $(SRC)/sntools.c
-	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(SRC)/sncosmo_mcmc.c ) 
-
-$(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
-	$(FFC) -o  $@ $(SNLDFLAGS) \
-	$(OBJ)/sncosmo_mcmc.o  \
-	$(OBJ)/sntools.o \
-	$(OBJ)/sntools_output.o \
-	$(LCERN) $(LROOT) -lm $(LGSL) 
-	(cd $(OBJ);  rm sncosmo_mcmc.o ) 
 
 # -------------------------------------------
 # SALT2mu : convert SALT2 parameters (c,x1,x0) into distances
@@ -496,29 +484,6 @@ $(LIB)/libsnana.a:   snana.car
 	rm -f $(TMPANA)/*.o
 	rm -f $(TMPANA)/*.f
 
-# -------------------------------------------------
-# May 15 2008:   make libsnfit.a 
-#
-
-$(LIB)/libsnfit.a:   snlc_fit.car snana.car
-	for item in snana snlc_fit ; do \
-	    rm -f $$item.lnk; \
-	    ln -s $(SRC)/$$item.car $$item.lnk; \
-	done
-	@ rm -rf $(TMPFIT)
-	mkdir $(TMPFIT)
-	$(UTIL)/ypatchy.pl - $(TMPFIT)/snlc_fit.f snlc_fit.cra .go
-	rm snana.lnk snlc_fit.lnk
-	(cd $(TMPFIT); \
-	    ../$(BIN)/fcasplit -f gfortran snlc_fit.f "$(SNFFLAGS)" " " ;  \
-	    echo "Compiling"; \
-	    .  ./snlc_fit.shfca; \
-	)
-	echo "Creating Library"; \
-	rm -f $(TMPFIT)/main.o
-	ar cr $@ $(TMPFIT)/*.o
-	rm -f $(TMPFIT)/*.o
-	rm -f $(TMPFIT)/*.f
 
 # -------------------------------------------------
 # SN analysis shell (reads DATA Files, makes cuts ...)
@@ -608,7 +573,7 @@ $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 
 
 $(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/genmag_SEDtools.o $(OBJ_SNTOOLS_DATA)
-	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcor.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ)/MWgaldust.o 	\
@@ -629,7 +594,7 @@ $(OBJ)/combine_fitres.o :  $(SRC)/combine_fitres.c
 
 $(BIN)/combine_fitres.exe : \
 	$(OBJ)/combine_fitres.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
-	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/combine_fitres.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
@@ -645,7 +610,7 @@ $(OBJ)/sntable_dump.o : $(SRC)/sntable_dump.c $(SNTOOLS_OUTPUT)
 
 $(BIN)/sntable_dump.exe :  \
 	$(OBJ)/sntable_dump.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
-	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/sntable_dump.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
@@ -662,7 +627,7 @@ $(OBJ)/sntable_combine.o : $(SRC)/sntable_combine.c $(SNTOOLS_OUTPUT)
 
 $(BIN)/sntable_combine.exe :  \
 	$(OBJ)/sntable_combine.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
-	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/sntable_combine.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
@@ -670,39 +635,6 @@ $(BIN)/sntable_combine.exe :  \
 	(cd $(OBJ); rm sntable_combine.o )
 
 # --------------------
-# nearnbr_maxFoM (Jun 2013)
-# Link to libsnana.a to get forclose(LUN) wrapper
-
-$(OBJ)/nearnbr_maxFoM.o : $(SRC)/nearnbr_maxFoM.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
-	$(SRC)/nearnbr_maxFoM.c )
-
-$(BIN)/nearnbr_maxFoM.exe :  \
-	$(OBJ)/nearnbr_maxFoM.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/nearnbr_maxFoM.o \
-	$(OBJ)/sntools.o  	\
-	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO)  -lm $(CPPLIB)
-	(cd $(OBJ); rm nearnbr_maxFoM.o )
-
-# --------------------
-# nearnbr_apply (Jan 2017)
-
-$(OBJ)/nearnbr_apply.o : $(SRC)/nearnbr_apply.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO)  \
-	$(SRC)/nearnbr_apply.c )
-
-$(BIN)/nearnbr_apply.exe :  \
-	$(OBJ)/nearnbr_apply.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o  $(OBJ)/sntools_nearnbr.o 
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/nearnbr_apply.o \
-	$(OBJ)/sntools.o  	\
-	$(OBJ)/sntools_gridmap.o \
-	$(OBJ)/sntools_nearnbr.o \
-	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
-	(cd $(OBJ); rm nearnbr_apply.o )
 
 
 # -------------------------------------------------
@@ -858,16 +790,6 @@ $(OBJ)/sntools_spectrograph.o : $(SRC)/sntools_spectrograph.c  $(SRC)/sntools_sp
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_spectrograph.c )
 
-# -------------------------------------------------
-# compile sntools_nearnbr (.o only)
-
-$(OBJ)/sntools_nearnbr.o : $(SRC)/sntools_nearnbr.c $(SRC)/sntools_nearnbr.h
-	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS)  $(SRC)/sntools_nearnbr.c )
-
-$(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
-	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS)  $(SRC)/kdtree.c )
 
 # -------------------------------------------------
 # compile sntools_output (.o only)
@@ -996,14 +918,14 @@ $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 
-$(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
-	$(FFC) -o $@ $(SNLDFLAGS) \
+$(BIN)/snlc_sim.exe : $(OBJ_SIM) 
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ_SIM)	  	\
-	$(LIB)/libsnana.a  	\
 	$(LCFITSIO) $(LGSL)  	\
 	$(LPY)  $(LCERN) $(LROOT)  -lm  $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
+#	$(LIB)/libsnana.a  	\
 # -------------------------------------------------
 # program to compact the SIMLIB into one measure per night
 
@@ -1012,7 +934,7 @@ $(OBJ)/simlib_coadd.o : $(SRC)/simlib_coadd.c $(SRC)/simlib_tools.c
 
 $(BIN)/simlib_coadd.exe : \
 	$(OBJ)/simlib_coadd.o $(OBJ)/MWgaldust.o
-	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/simlib_coadd.o  \
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
@@ -1039,26 +961,12 @@ $(OBJ)/merge_root.o : $(SRC)/merge_root.c $(SNTOOLS_OUTPUT)
 
 $(BIN)/merge_root.exe :  \
 	$(OBJ)/merge_root.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o
-	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/merge_root.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
 	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm merge_root.o )
-
-# -------------
-# sim filter-calib
-
-$(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/filtercal_sim.c )
-
-$(BIN)/filtercal_sim.exe : \
-	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/filtercal_sim.o  \
-	$(OBJ)/sntools.o \
-	$(LCERN)  -lm $(LGSL)
-	(cd $(OBJ); rm filtercal_sim.o )
 
 # -------------
 # SIMSED_fudge
@@ -1082,9 +990,11 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/sntools_wgtmap.o \
 	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/MWgaldust.o \
-	$(LIB)/libsnana.a  \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_fudge.o )
+
+#	$(LIB)/libsnana.a  \
+
 
 # -------------
 # SIMSED_extractSpec
@@ -1154,6 +1064,42 @@ $(BIN)/SIMSED_check.exe : \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_check.o )
 
+
+# -------------
+# unfold_snpar
+
+$(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/unfold_snpar.c )
+
+$(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
+	$(FFC) -o $@ $(SNLDFLAGS) \
+	$(OBJ)/unfold_snpar.o	\
+	$(OBJ)/sntools.o 	\
+	$(OBJ_OUTPUT)		\
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
+	(cd $(OBJ); rm unfold_snpar.o )
+
+
+# ================================================
+# legacy codes no longer compiled by default
+# ================================================
+
+
+# -------------
+# sim filter-calib
+
+$(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/filtercal_sim.c )
+
+$(BIN)/filtercal_sim.exe : \
+	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
+	$(CC) -o $@ $(SNLDFLAGS) \
+	$(OBJ)/filtercal_sim.o  \
+	$(OBJ)/sntools.o \
+	$(LCERN)  -lm $(LGSL)
+	(cd $(OBJ); rm filtercal_sim.o )
+
+
 # -------------
 # simualate effects of atmosphere
 
@@ -1169,18 +1115,51 @@ $(BIN)/atmosphere_sim.exe : \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm atmosphere_sim.o )
 
-# -------------
-# unfold_snpar
 
-$(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/unfold_snpar.c )
+# -------------------------------------------------
+# compile sntools_nearnbr (.o only)
 
-$(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/unfold_snpar.o	\
-	$(OBJ)/sntools.o 	\
+$(OBJ)/sntools_nearnbr.o : $(SRC)/sntools_nearnbr.c $(SRC)/sntools_nearnbr.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(SRC)/sntools_nearnbr.c )
+
+$(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(SRC)/kdtree.c )
+
+# nearnbr_maxFoM (Jun 2013)
+# Link to libsnana.a to get forclose(LUN) wrapper
+
+$(OBJ)/nearnbr_maxFoM.o : $(SRC)/nearnbr_maxFoM.c $(SNTOOLS_OUTPUT)
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
+	$(SRC)/nearnbr_maxFoM.c )
+
+$(BIN)/nearnbr_maxFoM.exe :  \
+	$(OBJ)/nearnbr_maxFoM.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
+	$(CC) -o $@ $(SNLDFLAGS) \
+	$(OBJ)/nearnbr_maxFoM.o \
+	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
-	(cd $(OBJ); rm unfold_snpar.o )
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO)  -lm $(CPPLIB)
+	(cd $(OBJ); rm nearnbr_maxFoM.o )
+
+# --------------------
+# nearnbr_apply (Jan 2017)
+
+$(OBJ)/nearnbr_apply.o : $(SRC)/nearnbr_apply.c $(SNTOOLS_OUTPUT)
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO)  \
+	$(SRC)/nearnbr_apply.c )
+
+$(BIN)/nearnbr_apply.exe :  \
+	$(OBJ)/nearnbr_apply.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o  $(OBJ)/sntools_nearnbr.o 
+	$(CC) -o $@ $(SNLDFLAGS) \
+	$(OBJ)/nearnbr_apply.o \
+	$(OBJ)/sntools.o  	\
+	$(OBJ)/sntools_gridmap.o \
+	$(OBJ)/sntools_nearnbr.o \
+	$(OBJ_OUTPUT)		\
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	(cd $(OBJ); rm nearnbr_apply.o )
+
 
 ####################  END ##########################################

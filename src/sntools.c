@@ -68,7 +68,6 @@ void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
   dt *= scale;
 
   // check option to report time per event
-  char str_rate[60] = "" ;
   char msg[100];
   double rate = 0.0 ;
   if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
@@ -159,7 +158,7 @@ void load_PySEDMODEL_CHOICE_LIST(void) {
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_AGN    ); N++ ;
 
   if ( N != NCHOICE_PySEDMODEL ) {
-    sprintf(c1err,"Expected %d PySEDMODEL choices");
+    sprintf(c1err,"Expected %d PySEDMODEL choices", NCHOICE_PySEDMODEL);
     sprintf(c2err,"but loaded %d", N);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
@@ -249,7 +248,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   bool USE_FIELD          = ( *OPTMASK & OPTMASK_FIELD    ); // feb 24 2025
   bool FIRST_FILE         = ( *OPTMASK & 8 );
   bool REFAC              = ( *OPTMASK & 64 );
-  bool LEGACY            = !REFAC ;
+  // xxx   bool LEGACY            = !REFAC ;
 
   bool FORMAT_TABLE = false ; // FITRES table format
   bool FORMAT_NONE  = false ; // cid list with no format
@@ -266,7 +265,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // ------------- BEGIN ------------
 
   if ( LDMP ) {
-    printf(" xxx %s: fileName = '%s'   OPTMASK=%d\n", fnam, fileName, OPTMASK);
+    printf(" xxx %s: fileName = '%s'   OPTMASK=%d\n", fnam, fileName, *OPTMASK);
     fflush(stdout);
   }
 
@@ -334,9 +333,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // - - - - - - - -
   // if we get here, read file with appropriate format
 
-  int  GZIPFLAG,  IDSURVEY, IFILE=0, ISTAT;
-  bool IS_ROWKEY, LOAD_CID ;
-  char key[60], tmpWord[60] ;
+  int  GZIPFLAG,  IDSURVEY, IFILE=0 ;
   FILE *fp;
   NCID = 0;
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
@@ -403,7 +400,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     }
 
     int ifile, IVAR_IDSURVEY=-9, IVAR_FIELD=-9, ISNOFF = 0;
-    int ivar, NVAR=0, MEMD, IVAR_TABLE, ICAST;
+    int ivar, NVAR=0, IVAR_TABLE, ICAST;
     char *ptr_varname;
 
     // get isn offset to allow for multiple cid_select files
@@ -447,6 +444,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	NVAR = HASH_STORAGE.NVAR ;
 	// beware: realloc is not tested ...
         for(ivar=0; ivar < NVAR; ivar++ ) {
+	  ptr_varname = HASH_STORAGE.VARNAME_LIST[ivar] ;  // bug fix May 8 2025
 	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST);
 	  if ( IVAR_TABLE >= 0 ) {
 	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, ISNOFF);
@@ -524,7 +522,6 @@ void malloc_HASH_STORAGE(int NVAR) {
   int MEMI    = NVAR * sizeof(int   *) ;  
   int MEMC    = NVAR * sizeof(char **) ;
   //  int MEMC1   = 40   * sizeof(char  *) ;
-  int ivar;
   char fnam[] = "malloc_HASH_STORAGE" ;
   
   // --------- BEGIN --------
@@ -898,7 +895,7 @@ double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
     }
 
     sprintf(c1err,"Invalid string = %s for DICTIONARY=%s",
-	    string, DICT);
+	    string, NAME );
     sprintf(c2err,"Check valid string items above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -1179,7 +1176,6 @@ void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
   bool DO_WRITE = false ;
   FILE *FP_OUT     = WRITE_EPOCH_LIST.FP_OUT;
   int  NVAR        = WRITE_EPOCH_LIST.NVAR ;
-  int  CUTMASK_ALL = WRITE_EPOCH_LIST.CUTMASK_ALL ;
 
   int  ivar, MASK, CUTTYPE, CUTMODE, MASK_SELECT, CUTMASK_EPOCH ;
   double VAL, *CUTWIN ;
@@ -1193,7 +1189,6 @@ void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
   // on 1st event, write VARNAMES list (set in addvar)
   if ( WRITE_EPOCH_LIST.NEPOCH_ALL == 0 ) {
     fprintf(FP_OUT,"#\n");
-    //  fprintf(FP_OUT,"CUTMASK_ALL: %d\n", WRITE_EPOCH_LIST.CUTMASK_ALL);
     fprintf(FP_OUT,"VARNAMES: %s CUTMASK\n", WRITE_EPOCH_LIST.VARNAMES_LIST);
     fflush(FP_OUT);
   }
@@ -1676,7 +1671,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( omin<0 || omax<0 || omin>= NOBS || omax>= NOBS ) {
       print_preAbort_banner(fnam);
 
-      printf("\t WGT_SNRCUT_MAXSUM = %d \n", WGT_SNRCUT_MAXSUM);
+      printf("\t WGT_SNRCUT_MAXSUM = %le \n", WGT_SNRCUT_MAXSUM);
       printf("\t WGT_SNRCUT[]  = %.2f, %.2f, %.2f, %.2f, %.2f ... \n",
 	     WGT_SNRCUT[0], WGT_SNRCUT[1], WGT_SNRCUT[2],
 	     WGT_SNRCUT[3], WGT_SNRCUT[4]);
@@ -1883,7 +1878,7 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   // calls with KEY = GENSMEAR, and again with KEY = GEN_SMEAR
 
   bool IS_FILE = (keySource == KEYSOURCE_FILE);
-  bool IS_ARG  = (keySource == KEYSOURCE_ARG );
+  //  bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   bool match = false ;
   int  MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   int  NKEY, ikey;
@@ -2797,7 +2792,7 @@ void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val) {
 void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val) {
   // Created Dec 10 2021
   // return NFLT floats from store_PARSE_WORDS starting at iwd
-  char word[100];   int i;
+  int i;
   for(i=0; i < NFLT; i++ ) { 
     get_PARSE_WORD_FLT(langFlag, iwd+i, &f_val[i]);
   }
@@ -7989,8 +7984,8 @@ void clr_VERSION ( char *version, int prompt ) {
 
   char fnam[] = "clr_VERSION" ;
   char cmd[200];
-  char listFile[200];
-  char vprefix[200];
+  char listFile[2*MXPATHLEN];
+  char vprefix[2*MXPATHLEN];
   int  RMFILE_PHOTOMETRY, RMFILE_LCMERGE, RMFILE_SIM, DO_RMFILE, isys ;
   FILE *fp;
 
@@ -9025,7 +9020,7 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
   fp = fopen(fileName,"rt");
   if ( ! fp  ) {
     sprintf(c1err,"Cannot open yaml file '%s'", fileName);
-    sprintf(c2err,"Trying to read yaml keys: '%s' ", key_list);
+    sprintf(c2err,"Trying to read yaml keys: '%s' '%s'  ...", key_list[0], key_list[1]);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -9236,7 +9231,7 @@ int Landolt_ini(
 
   int   ifilt, k ;
   float kval, kerr,  magtmp ;
-  char c_get[40], c_tmp[60], c_k[6], kfile[40], kfile_full[120]  ;
+  char c_get[40], c_tmp[60], c_k[6], kfile[MXPATHLEN], kfile_full[MXPATHLEN]  ;
   FILE *fp;
   char fnam[] = "Landolt_ini" ;
 
@@ -9281,8 +9276,7 @@ int Landolt_ini(
   }
 
   sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
-  sprintf(kfile_full,"%s/filters/Landolt/%s", 
-	  PATH_SNDATA_ROOT, kfile );
+  sprintf(kfile_full,"%s/filters/Landolt/%s",  PATH_SNDATA_ROOT, kfile );
 
   if ( (fp = fopen(kfile_full, "rt"))==NULL ) {
     sprintf(c1err,"Cannot open: %s", kfile_full );
@@ -9513,7 +9507,7 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, &PATH[1] ); // <== returned
 
-  NPATH++; sprintf(PATH[0],"");
+  NPATH++;  sprintf(PATH[0],"");
 
   for ( ipath=0; ipath < NPATH; ipath++ ) {
     path = PATH[ipath] ;
@@ -9583,7 +9577,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
   struct stat statbuf ;
   int istat_gzip, istat_unzip, LEN, N_ITER=0;
   char gzipFile[MXPATHLEN], unzipFile[MXPATHLEN];
-  char cmd_zcat[MXPATHLEN] ;
+  char cmd_zcat[2*MXPATHLEN] ;
 
   char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "open_TEXTgz", fnam);

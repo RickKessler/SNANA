@@ -1293,7 +1293,6 @@ c define functions
      &   INIT_GENMAG_STRETCH2  ! 1 or 2-par stretch
      &  ,INIT_GENMAG_MLCS2k2
      &  ,INIT_GENMAG_SNOOPY
-     &  ,SNANA_NEARNBR_RDINPUT
      &  ,get_NSURFACE_SEDMODEL
 
       EXTERNAL 
@@ -1315,8 +1314,6 @@ C ------------------- BEGIN ---------------------
       CALL RDMCMCNML(IERR)
       if ( IERR .NE. 0 ) RETURN
 
-c check for NN option (read &NNINP namelist)
-      NVAR_NEARNBR = SNANA_NEARNBR_RDINPUT()
 
 c set FITANA_CUTWIN_XXX for cuts that might change for photoZ fits.
 c This allows using the same FITANA_CUTWIN_XXX array in FITANA
@@ -2608,8 +2605,6 @@ c book plots for this SN; all plots are vs. relative epoch
       ENDIF
 
 c ---------------------------------
-c check for NN-analysis (Apr 2014) after CDTOPDIR_OUTPUT
-      IF ( NVAR_NEARNBR > 0 ) CALL FITPAR_NEARNBR_APPLY()
 
 c check tables to fill
       IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
@@ -20283,185 +20278,6 @@ c - - - - -
       RETURN
       END     ! INIT_TABLE_SNSPECVAR
 
-C ===================================================
-+DECK,FITPAR_NEARNBR_APPLY.
-      SUBROUTINE FITPAR_NEARNBR_APPLY
-
-C
-C Jun 2013
-C shell to call NEARNBR_LOADVAL and NEARNBR_APPLY
-c Can be used for both training and apply mode, but here it
-c is used only for training mode.
-c
-c Apr 23 2014: call IPAR = IPAR_PARNAME_STORE(VARNAME) 
-c              to associate each NN-sepmax variable with snana variable.
-c              Replaces original hard-wired IPAR_LIST.
-c
-c Jan 18 2016: check NN_ITYPE_FIX
-c Oct  7 2016: pass CCID to NEARNBR_LOADVAL
-c
-C ----------
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
-+CDE,NNCOM.
-+CDE,FITRESTCOM.
-
-      REAL*8    DVAL, MAGVAL, MAGERR
-      INTEGER   LV, i, IPAR, IPAR_ABS
-      CHARACTER CCID_forC*(MXCHAR_CCID)
-      CHARACTER VARNAME_forC*80, tmpName*80, FNAM*20
-      CHARACTER VARNAME*80
-
-c results
-      INTEGER ITYPE, ITYPE_BEST, NCELL_TOT, NCELL, NTYPE
-      INTEGER 
-     &   ITYPE_LIST(NN_MXTYPE)
-     &  ,NCELL_TRAIN_LIST(NN_MXTYPE)
-
-      REAL XCELL_TRAIN, XNTOT_TRAIN
-
-c function
-      INTEGER IPAR_PARNAME_STORE
-
-C -------------- BEGIN -----------------
-
-      NN_ITYPE = -9
-      NN_NCELL =  0
-
-      CCID_forC = SNLC_CCID(1:ISNLC_LENCCID)//char(0)
-
-c check option to fix NN_ITYPE for spec-confirmed sample so that
-c output table has NN info to match that of photoID table
-      IF ( NN_ITYPE_FIX .GE. 0 ) THEN
-         NN_ITYPE     = NN_ITYPE_FIX
-         NN_NCELL     = 0
-         RETURN
-      ENDIF
-
-c ----------
-
-      IF ( NVAR_NEARNBR .EQ. 0 ) RETURN
-
-      FNAM = 'FITPAR_NEARNBR_APPLY'
-
-      DO 30 i = 1, NVAR_NEARNBR
-         ! get snlc_fit IPAR  index for this NN variable index
-         VARNAME  = NEARNBR_SEPMAX_VARNAME(i)
-         IPAR     = IPAR_PARNAME_STORE(VARNAME)
-         IPAR_ABS = abs(IPAR)
-
-         IF ( IPAR_ABS .EQ. 0  .or. IPAR_ABS > MXFITPAR ) THEN
-            write(c1err,661) IPAR, i, VARNAME
- 661        format('Invalid IPAR = ', I4, '  for i=',I2, '  = ', A8)
-            c2err = 'Something is messed up.'
-            CALL MADABORT(FNAM, c1err, c2err )  
-         ENDIF
-
-c translate snana parname of 'REDSHIFT' to 'z', unless photoz fit.
-         tmpName = VARNAME   ! xxxx PARNAME_STORE(IPAR_ABS)
-         IF ( IPAR_ABS .EQ. IPAR_zPHOT ) THEN
-            IF ( .NOT. DOFIT_PHOTOZ ) tmpName = 'z'
-         ENDIF
-
-         LV = INDEX(tmpName,' ') - 1
-         VARNAME_forC = tmpName(1:LV) // char(0)
-
-         IF ( IPAR > 0 ) THEN 
-            DVAL = LCVAL_STORE(IPAR_ABS)
-         ELSE
-            DVAL = LCERR_STORE(IPAR_ABS)
-         ENDIF
-
-c xxxxxxxxxxxxxxxxxxxxxx
-c         print*,' xxx IPAR=', IPAR,'  VARNAME=', VARNAME_forC(1:LV),
-c     &            '  DVAL=', SNGL(DVAL)
-c xxxxxxxxxxxxxxxxxxxxxx
-
-         CALL NEARNBR_LOADVAL(CCID_forC, VARNAME_forC, DVAL, 
-     &       ISNLC_LENCCID, LV )  
- 30   CONTINUE
-
-c --------------------------------------------------
-c load true sim-type only when doing the training.
-
-      IF (  FLAG_NEARNBR == NNFLAG_TRAIN ) THEN
-         tmpName      = NEARNBR_TRUETYPE_VARNAME
-         LV           = index(tmpName,' ') - 1
-         VARNAME_forC = tmpName(1:LV) // char(0)
-
-         IF ( tmpName .EQ. 'SIM_TYPE_INDEX' ) THEN
-            DVAL    = DBLE(SIM_GENTYPE)
-         ELSE IF ( tmpName .EQ. 'SIM_NON1A' ) THEN ! legacy name
-            DVAL  = DBLE(SIM_TEMPLATE_INDEX)
-         ELSE IF ( tmpName .EQ. 'SIM_TEMPLATE_INDEX' ) THEN  ! 7.31.2018
-            DVAL  = DBLE(SIM_TEMPLATE_INDEX)
-         ELSE
-            c1err = 'Unrecognized true-type index: '
-            c2err = tmpName
-            CALL MADABORT(FNAM, c1err, c2err )  
-         ENDIF        
-
-         CALL NEARNBR_LOADVAL(CCID_forC, VARNAME_forC, DVAL, 
-     &        ISNLC_LENCCID, LV )  
-      ENDIF
-
-c -------------------------------------------
-c run the analysis.
-      CALL  NEARNBR_APPLY(CCID_forC, ISNLC_LENCCID)
-
-c ---------------------
-c Apr 7 2014
-      CALL NEARNBR_GETRESULTS(CCID_forC, ITYPE_BEST, 
-     &      NTYPE, ITYPE_LIST, NCELL_TRAIN_LIST, ISNLC_LENCCID )
-
-      XNTOT_TRAIN  = 0.0 
-      DO  i = 1, NTYPE
-         XNTOT_TRAIN = XNTOT_TRAIN + float(NCELL_TRAIN_LIST(i))
-      ENDDO
-
-      NN_ITYPE     = ITYPE_BEST        ! most probably ITYPE 
-      NN_NCELL     = INT(XNTOT_TRAIN)
-
-c apply user-ITYPE ranges to determine NN_PROB_XX
-      NN_PROB_IA  = 0.0
-      NN_PROB_II  = 0.0
-      NN_PROB_IBC = 0.0
-
-c increment how many for each ITYPE_BEST
-      IF ( ITYPE_BEST == 1 ) THEN
-          NNSUM_IA = NNSUM_IA + 1
-      ELSE IF ( ITYPE_BEST .GE. 0 ) THEN
-          NNSUM_NON1A = NNSUM_NON1A + 1
-      ELSE
-          NNSUM_UNKNOWN = NNSUM_UNKNOWN + 1
-          RETURN
-      ENDIF
-
-c - - - -  - - - - - - - -
-      DO 202 i = 1, NTYPE
-         ITYPE = ITYPE_LIST(i)
-         NCELL = NCELL_TRAIN_LIST(i)        
-         XCELL_TRAIN = FLOAT( NCELL_TRAIN_LIST(i) )
-
-         if ( ITYPE == NN_ITYPE_SNIA ) THEN
-              NN_PROB_IA  = NN_PROB_IA    + XCELL_TRAIN
-          endif  
-
-c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
-333       format(' xxx ITYPE=',I3, 3x,'NCELL=',I4,'/',I4,
-     &          3x,'NN_IA=',I4)
-202   CONTINUE
-     
-      IF( XNTOT_TRAIN > 0.0 ) THEN
-         NN_PROB_IA   = NN_PROB_IA  / XNTOT_TRAIN
-      ENDIF
-
-      RETURN
-      END      ! end FITPAR_NEARNBR_APPLY
 
 C ===============================
 +DECK,IPAR_PARNAME_STORE.

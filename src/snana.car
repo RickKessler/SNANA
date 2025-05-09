@@ -419,7 +419,6 @@ c
 c
      &  ,NPASSCUT_INCREMENT(-1:MXTYPE,100)  ! 100 > NCUTBIT_SNLC 
      &  ,NPASSCUT_FIT(-1:MXTYPE)
-     &  ,NVAR_NEARNBR          ! Number of NEARNBR variables to analyze
      &  ,NSTORE_MAGCOR         ! number of stored MAGCOR values
      &  ,NUSE_MAGCOR           ! number of used MAGCOR values
      &  ,SIGN_MAGCOR           ! add or subtract
@@ -539,7 +538,7 @@ c global survey info
      &    ,ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
-     &    ,DO_FIT, DO_GETINFO, DO_FLUXERRCALC, NVAR_NEARNBR 
+     &    ,DO_FIT, DO_GETINFO, DO_FLUXERRCALC
      &    ,NSTORE_MAGCOR, NUSE_MAGCOR, SIGN_MAGCOR, FORCEMASK_FLUXCOR
      &    ,LSIM_SNANA, LSIM_MAGOBS
      &    ,ISTAGE_SNANA
@@ -2177,58 +2176,7 @@ c
 
 
 c ---------- end of SNLCINP ---------
-+KEEP,NNCOM.
 
-c    *** LEGACY ***
-c Created Apr 2013 for Nearest Neighbor method.
-c Define namelist inputs so that main snana job can
-c check NN option and call init routines in sntools_nearnbr.c .
-
-      INTEGER  NNFLAG_IGNORE,  NNFLAG_TRAIN, NNFLAG_APPLY, NN_MXVAR
-      INTEGER  NN_MXTYPE
-      PARAMETER ( NNFLAG_IGNORE=0, NNFLAG_TRAIN=1,  NNFLAG_APPLY=2)
-      PARAMETER ( NN_MXVAR=10, NN_MXTYPE=10 )
-      INTEGER  FLAG_NEARNBR
-
-      CHARACTER 
-     &   NEARNBR_TRAINFILE_PATH*(MXCHAR_FILENAME)
-     &  ,NEARNBR_TRAINFILE_LIST*(MXCHAR_FILENAME)  ! training set file
-     &  ,NEARNBR_SEPMAX_VARDEF*(MXCHAR_FILENAME)  ! list of 'VAR min max bin'
-     &  ,NEARNBR_SEPMAX_VARNAME(NN_MXVAR)*20   ! list of varnames
-     &  ,NEARNBR_SEPMAX_IGNORE*40        ! list of VAR to IGNORE
-     &  ,NEARNBR_TRUETYPE_VARNAME*60
-    
-      INTEGER 
-     &   NN_ITYPE_FIX       ! fix NN_ITYPE for spec-confirmed sample
-     &  ,NN_ITYPE_SNIA      ! NN type for SNIa
-
-c results
-      INTEGER 
-     &   NN_ITYPE, NN_NCELL
-     &  ,NNSUM_UNKNOWN, NNSUM_IA, NNSUM_NON1A 
-
-      REAL  
-     &   NN_PROB_Ia, NN_PROB_II, NN_PROB_IBC
-     &  ,NEARNBR_TRAINFILE_SCALE_NON1A
-
-      COMMON / NNCOM /
-     &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
-     &   ,NEARNBR_TRAINFILE_SCALE_NON1A
-     &   ,NEARNBR_SEPMAX_VARDEF,  NEARNBR_SEPMAX_IGNORE
-     &   ,NEARNBR_SEPMAX_VARNAME
-     &   ,NEARNBR_TRUETYPE_VARNAME
-     &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
-     &   ,NNSUM_UNKNOWN, NNSUM_IA, NNSUM_NON1A
-c results
-     &   ,FLAG_NEARNBR
-     &   ,NN_ITYPE, NN_NCELL, NN_PROB_Ia, NN_PROB_II, NN_PROB_IBC
-
-      NAMELIST / NNINP /
-     &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
-     &   ,NEARNBR_TRAINFILE_SCALE_NON1A
-     &   ,NEARNBR_SEPMAX_VARDEF, NEARNBR_SEPMAX_IGNORE
-     &   ,NEARNBR_TRUETYPE_VARNAME
-     &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
 
 +KEEP,FITSCOM.
 
@@ -8888,86 +8836,6 @@ c set logical flag for used LINE_ARGS
       END   ! end of MCMCINP_OVERRIDE
 
 
-C ========================================
-+DECK,NNINP_OVERRIDE.
-      SUBROUTINE NNINP_OVERRIDE()
-
-c Created Apr 23, 2014 R.Kessler
-c
-c Check command-line args for user-option to override
-c &NNINP namelist values.
-c
-c ----------------------
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,NNCOM.
-
-c local var
-      INTEGER  i, LL, ilast, iuse
-      CHARACTER INPUT_ARG*(MXCHAR_ARG)
-      CHARACTER ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
-      LOGICAL   MATCH_NMLKEY
-
-C -------------- BEGIN --------------
-
-      i = 2
-      ilast = 2
-
-      DO WHILE ( i .LT. NLINE_ARGS )
-
-        CALL GETARG(i, INPUT_ARG )  ! read command-line args
-
-         LL = INDEX ( INPUT_ARG, ' ' ) - 1
-
-        if ( MATCH_NMLKEY('NEARNBR_TRAINFILE_PATH',
-     &            1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_TRAINFILE_PATH
-
-        else if ( MATCH_NMLKEY('NEARNBR_TRAINFILE_LIST', 
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_TRAINFILE_LIST
-
-        else if ( MATCH_NMLKEY('NEARNBR_TRAINFILE_SCALE_NON1A',
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_TRAINFILE_SCALE_NON1A
-
-        else if ( MATCH_NMLKEY('NEARNBR_SEPMAX_VARDEF',
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_SEPMAX_VARDEF
-
-        else if ( MATCH_NMLKEY('NEARNBR_TRUETYPE_VARNAME',
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_TRUETYPE_VARNAME
-
-        else if ( MATCH_NMLKEY('NEARNBR_SEPMAX_IGNORE', 
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NEARNBR_SEPMAX_IGNORE
-
-        else if ( MATCH_NMLKEY('NN_ITYPE_FIX',
-     &             1, i, ARGLIST) ) then
-           READ(ARGLIST(1),*) NN_ITYPE_FIX
-
-         endif
-
-
-
-c set logical flag for used LINE_ARGS
- 
-         IF ( i .GT. ilast ) THEN
-           DO iuse = ilast, i
-              USE_LINE_ARGS(iuse) = .TRUE.
-           ENDDO
-         ENDIF
-
-         i = i + 1
-         ilast = i
-
-      ENDDO
-
-      RETURN
-      END
 
 
 C ==================================
@@ -9921,7 +9789,6 @@ c ----------------------
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
 +CDE,SNCONTCM.
-+CDE,NNCOM.
 
 +SELF,IF=SNFIT.
       INTEGER NCALL_MNFIT, ITER
@@ -10233,7 +10100,6 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
-+CDE,NNCOM.
 
       INTEGER IERR, LENF
       EXTERNAL write_epoch_list_summary
@@ -10276,12 +10142,6 @@ c      In this case, create blank text-table file for each table
       IF ( USE_TABLEFILE_MARZ ) THEN  ! April 2019
          LENF = index(MARZFILE_OUT,' ') - 1
          CALL TABLEFILE_CLOSE(MARZFILE_OUT(1:LENF)//char(0), LENF)
-      ENDIF
-
-      IF ( FLAG_NEARNBR == NNFLAG_TRAIN ) THEN
-         CALL SNANA_NEARNBR_TRAIN_END()
-      ELSE IF ( FLAG_NEARNBR == NNFLAG_APPLY ) THEN
-         CALL SNANA_NEARNBR_APPLY_END()
       ENDIF
 
       CALL MAKE_SIMLIB_FILE(3)  ! end optional SIMLIB FILE 
@@ -11953,7 +11813,6 @@ c +CDE,PARSECOM.
 +CDE,FILTCOM.
 +CDE,PKMJDCOM.
 +CDE,PRIVCOM.
-+CDE,NNCOM.
 +CDE,EARLYCOM.
 +CDE,SPECCOM.
 
@@ -12262,9 +12121,6 @@ c misc.
       FILTER_REPLACE    = ''
       FILTLIST_LAMSHIFT = ''
 
-      NVAR_NEARNBR = 0
-      FLAG_NEARNBR = NNFLAG_IGNORE 
-
       DO i = 1, MXFITSTORE
          PARNAME_STORE(i) = ''
          PAROPT_STORE(i)  = 0
@@ -12278,486 +12134,6 @@ c misc.
 
       RETURN
       END   ! end of INIT_SNVAR
-
-C ===============================================
-+DECK,NNRDINP.
-      INTEGER FUNCTION SNANA_NEARNBR_RDINPUT()
-
-c Created Apr 2013 by R.Kessler
-c Check NEARNBR_XXX parameters from optioanl &NNINP namelist,
-c and run initialization functions in sntools_nearnbr.c.
-c This is a generic interface for any snana program so that
-c the NN inputs can go into the same nml file as the other
-c inputs.
-c
-c Returns NVAR 
-c   = number of variables to analyze (flag that NN option is set)
-c   = 0 -> NN option is NOT selected (flag to ignore NN option)
-c
-c Jun 12 2019:
-c   pass TRUETYPE_SNIa to NEARNBR_SET_TRUETYPE().
-c   Needed if SCALE_NON1A != 1.
-c
-c Jan 29 2020: abort if TRAINFILE_PATH is set, but TRAINFILE_LIST is not.
-c
-c -----------------
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,NNCOM.  
-
-      INTEGER   iocheck, LSTR,  LV, NVAR, NVAL, ISPLIT, N_IGNORE
-      INTEGER   jskip, j, iwd, ign, NWD, MSKOPT, TRUETYPE_SNIa
-      CHARACTER 
-     &   STRING*(MXCHAR_FILENAME)
-     &  ,VARLIST_IGNORE(NN_MXVAR)*(MXCHAR_FILEWORD)
-     &  ,PATH*(MXCHAR_FILENAME)
-     &  ,FNAM*24, VARNAME*(MXCHAR_FILEWORD)
-     &  ,cwd*(MXCHAR_FILEWORD), c1, cMODE*8
-     &  ,name_forC*(MXCHAR_FILENAME)
-
-      LOGICAL   INPUT_ISVARNAME(4*NN_MXVAR)
-      LOGICAL   IS_TRAINPATH, IS_TRAINFILE
-      CHARACTER INPUT_VARNAME(4*NN_MXVAR)*(MXCHAR_FILEWORD)
-      REAL*8    INPUT_VALUE(4*NN_MXVAR)
-      REAL*8    SEPMAX(3), RATIO
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-
-C ------------- BEGIN -----------
-
-      SNANA_NEARNBR_RDINPUT = 0
-      FNAM = 'SNANA_NEARNBR_RDINPUT'
-
-c init &NNINP values.      
-      NEARNBR_TRAINFILE_PATH    = ' '
-      NEARNBR_TRUETYPE_VARNAME  = ' '
-      NEARNBR_SEPMAX_VARDEF     = ' '
-      NEARNBR_SEPMAX_IGNORE     = ' '
-      NEARNBR_TRAINFILE_LIST    = ' '
-      NEARNBR_TRAINFILE_SCALE_NON1A = 1.0 
-
-      NN_ITYPE_FIX    = -99
-      NN_ITYPE_SNIa   = 1  
-
-c init sums for each best-type
-      NNSUM_UNKNOWN=0; NNSUM_IA=0;  NNSUM_NON1A=0
-
-c re-open nml file
-      OPEN (UNIT=LUNNML, file=nmlfile, status='OLD',ERR=900 )   
-   
-c try reading NNINP; if not there, just return quietly.    
-      READ ( LUNNML, NML = NNINP, ERR = 900, IOSTAT = iocheck )         
-      CLOSE ( UNIT = LUNNML )        
-      if ( iocheck .NE. 0 ) return     
-
-c make sure required output file (root or hbook) is specified
-c to make NN-specific 1D and 2D histograms.
-      if ( .NOT. USE_TABLEFILE ) then
-         C1ERR = 'Must specify HFILE_OUT or ROOTFILE_OUT in &SNLCINP'
-         C2ERR = 'to create required histograms for NN-training.'
-         CALL MADABORT(FNAM, C1ERR, C2ERR)  
-      endif
-
-c namelist &NNINP  exists ==> read it.
-      CALL PRBANNER ( " FOUND and READ &NNINP NAMELIST. " )               
-      WRITE ( 6 , NML = NNINP )   
-      CALL FLUSH(6)
-
-c check for command-line override
-      CALL NNINP_OVERRIDE()
-      
-      IS_TRAINPATH = ( NEARNBR_TRAINFILE_PATH .NE. ' ' )
-      IS_TRAINFILE = ( NEARNBR_TRAINFILE_LIST .NE. ' ' )
-
-c make sure there is a training file to continue
-      IF ( .not. IS_TRAINFILE ) THEN
-         IF ( IS_TRAINPATH ) THEN
-           c1err = 'NEARNBR_TRAINFILE_PATH is set, '
-           c2err = 'but NEARNBR_TRAINFILE_LIST is not.'
-           CALL  MADABORT(FNAM, C1ERR, C2ERR)
-         ENDIF
-         RETURN 
-      ENDIF
-
-c ----------------------------------------------
-c call init functions in sntools_nearnbr.c
-
-      CALL NEARNBR_INIT()  ! C function 
-      
-      IF ( IS_TRAINPATH  ) THEN
-        CALL SNANA_NEARNBR_RDPATH(PATH)  ! return PATH
-        LSTR = INDEX(PATH,' ') - 1
-        CALL NEARNBR_SET_TRAINPATH(PATH(1:LSTR)//char(0), LSTR)
-      ENDIF
-
-
-c init TRAINFILE
-
-      STRING = NEARNBR_TRAINFILE_LIST
-      LSTR = INDEX(STRING,' ') - 1
-      CALL NEARNBR_SET_TRAINFILE(STRING(1:LSTR)//char(0), 
-     &            NEARNBR_TRAINFILE_SCALE_NON1A, LSTR)
-
-c ----------------
-c set variable name with TRUETYPE
-
-      STRING = NEARNBR_TRUETYPE_VARNAME
-      LSTR = INDEX(STRING,' ') - 1
-      TRUETYPE_SNIa = 1 ! beware this is hard-coded
-      CALL NEARNBR_SET_TRUETYPE(STRING(1:LSTR)//char(0), 
-     &                          TRUETYPE_SNIa, LSTR)
-
-c get list of sepmax variables to IGNORE
-      N_IGNORE = 0
-      MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      IF ( NEARNBR_SEPMAX_IGNORE .NE. ' ' ) THEN
-         LSTR      = INDEX(NEARNBR_SEPMAX_IGNORE,' ') -1 
-         NAME_forC = NEARNBR_SEPMAX_IGNORE(1:LSTR)//char(0)
-         N_IGNORE = STORE_PARSE_WORDS(MSKOPT,NAME_forC,
-     &                 FNAM//char(0), LSTR, 24)
-         do jskip = 1, N_IGNORE
-            CALL get_PARSE_WORD_fortran(jskip,
-     &           VARLIST_IGNORE(jskip),LSTR)  ! returned
-            write(6,678) VARLIST_IGNORE(jskip)
- 678        format(T15,'Will IGNORE SEPMAX variable ' , A)
-            call flush(6)
-         enddo
-      ENDIF
-
-c -----------------------------
-c break up each SEPMAX strings into VARNAME and SEPMAX(3) = MIN,MAX,BIN
-c Example 1:  NEARNBR_SEPMAX_VARDEF = 'z .10' ->
-c             VARNAME = 'z' and SEPMAX(3) = 0.10, 0, 0
-c
-c Example 1:  NEARNBR_SEPMAX_VARDEF = 'z .04 .20 .01' ->
-c             VARNAME = 'z' and SEPMAX(3) = 0.04, 0.20, 0.01
-c
-c IGNORE any variable on the IGNORE list ... allows removing
-c variables with FITOPT option in split_and_fit.
-
-      LSTR = INDEX(NEARNBR_SEPMAX_VARDEF,' ', BACK=.TRUE.) - 1
-      NAME_forC = NEARNBR_SEPMAX_VARDEF(1:LSTR)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT,NAME_forC,
-     &                 FNAM//char(0), LSTR, 24)
-c --------------------------------------------------------------
-c check which words are variables names (i.e., strings) or values;
-c check is based on first char of each word. Fill INPUT_XXX arrays.
-
-      NVAR = 0 ;  NVAL = 0
-
-      DO 100 iwd = 1, NWD
-         INPUT_ISVARNAME(iwd) = .FALSE.
-         INPUT_VALUE(iwd)     = 99999.
-         INPUT_VARNAME(iwd)   = 'NULL'
-
-         CALL get_PARSE_WORD_fortran(iwd,cwd,LSTR)
-
-         c1   = cwd(1:1)
-         j    = index('0123456789.', c1)
-         if ( j <= 0 ) then
-            INPUT_ISVARNAME(iwd) = .TRUE. 
-            INPUT_VARNAME(iwd)   = cwd
-            NVAR = NVAR + 1
-         else
-            READ(cwd,*) INPUT_VALUE(iwd)
-            NVAL = NVAL + 1
-         endif
-
-        if ( NVAR > NN_MXVAR ) then
-           c1err = 'Too many SEPMAX variables in NEARNBR_SEPMAX_VARDEF'
-           c2err = 'See NN_MXVAR in snana.car'
-           CALL  MADABORT(FNAM, C1ERR, C2ERR)
-        endif
-
-+SELF,IF=BLADEBUG.
-         print*,' xxx ------------------------------ '
-         write(6,40) iwd, cwd, c1, j
-         write(6,41)
-     &     INPUT_ISVARNAME(iwd), INPUT_VARNAME(iwd), INPUT_VALUE(iwd)         
- 40      format(' xxx iwd=',I2, 2x, 'wd=',A6, 2x, 'c1=',A2, 2x,'j=',I4)
- 41      format(' xxx ', 10x,'ISVAR=',L2, 3x,
-     &       'NAME=',A6,3x, 'VAL=',F12.3)
-          call flush(6)
-+SELF.
-
- 100  CONTINUE
-
-c --------------------------------------------------------------
-c if NVAL = NVAR, then we do analysis with fixed sepmax params.
-c if NVAL = 3*NVAR then we do training.
-c Abort on any other ratio.
-
-
-      RATIO = 0.0
-      IF ( NVAR > 0 ) RATIO = DBLE(NVAL)/DBLE(NVAR)
-      IF ( RATIO == 1.0 ) THEN
-         FLAG_NEARNBR = NNFLAG_APPLY ; jskip = 2
-          cMODE = 'ANALYSIS'
-      ELSE IF ( RATIO == 3.0 ) THEN
-         FLAG_NEARNBR = NNFLAG_TRAIN ; jskip = 4
-         cMODE = 'TRAINING'
-      ELSE
-         write(c1err,651) NVAL, NVAR, RATIO
- 651     format('Invalid ratio [NVAL=',I3,'/NVAR=',I3,'] =',F5.2,2x,
-     &       '(must be 1 or 3)'  )
-         c2err = 'Check NEARNBR_SEPMAX_VARDEF in &NNINP.'
-         CALL MADABORT(FNAM, C1ERR, C2ERR)  
-      ENDIF
-
-c ----------------------------------------------
-c Loop over VARDEF words again (with jskip = 2 or 4), and call 
-c NEARNBR_SET_SEPMAX (in sntools_nearnbr.c) for each variable.
-
-      NVAR = 0
-      DO 300 iwd = 1, NWD, jskip
-
-         VARNAME   = INPUT_VARNAME(iwd)
-
-c Dec 6 2014: skip any on the ignore list
-         do ign = 1, N_IGNORE
-            if ( VARLIST_IGNORE(ign) .EQ. VARNAME ) goto 300
-         enddo
-
-         NVAR = NVAR + 1
-         NEARNBR_SEPMAX_VARNAME(NVAR) = VARNAME(1:20) ! store globally 
-
-         if ( FLAG_NEARNBR == NNFLAG_APPLY ) then
-            SEPMAX(1) = INPUT_VALUE(iwd+1)
-            SEPMAX(2) = 0.0
-            SEPMAX(3) = 0.0
-         elseif ( FLAG_NEARNBR == NNFLAG_TRAIN ) then
-            SEPMAX(1) = INPUT_VALUE(iwd+1)
-            SEPMAX(2) = INPUT_VALUE(iwd+2)
-            SEPMAX(3) = INPUT_VALUE(iwd+3)
-         else
-            write(c1err,661) FLAG_NEARNBR
- 661        format('Invalid FLAG_NEARNBR = ',I6,' . ' )
-            c2err = 'Should be either 1(ANAL-mode) or 2(TRAIN mode).'
-            CALL  MADABORT(FNAM, C1ERR, C2ERR)
-         endif
-
-         LV = INDEX(VARNAME,' ') - 1
-         CALL NEARNBR_SET_SEPMAX(VARNAME(1:LV)//char(0), SEPMAX, LV)
- 300  CONTINUE
-
-      SNANA_NEARNBR_RDINPUT = NVAR  ! return arguement
-
-c --------------------------------------
-c 2nd init after passing all info
-
-      CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! climb out of MONINIT 
-      
-c set ISPLIT so that certain plots are made only on first split-job
-      ISPLIT = MAX(JOBSPLIT(1),JOBSPLIT_EXTERNAL(1))
-
-c init again after variable list is defined
-      CALL NEARNBR_INIT2(ISPLIT)    ! C code in sntools_nearnbr.c
-
-      RETURN
-c -------------
-
-900   CONTINUE   
-      C1err = 'Could not read  &NNINP namelist '   
-      C2err = 'Check ' // nmlfile(1:60)
-      CALL  MADABORT(FNAM, C1ERR, C2ERR)   
-
-
-      RETURN
-      END    ! end of SNANA_NEARNBR_RDINPUT
-
-
-C ==================================
-+DECK,NNRDPATH.
-      SUBROUTINE SNANA_NEARNBR_RDPATH(PATH) 
-
-c Created Dec 2014
-c
-c Return PATH of trainfile for NN.
-c If  NEARNBR_TRAINFILE_PATH has no dot, then assume
-c it's a path and return PATH = NEARNBR_TRAINFILE_PATH.
-c
-c However, if NEARNBR_TRAINFILE_PATH has a dot then 
-c assume it's a file containing a list of
-c
-c  VERSION:  [VERSION] [PATH]
-c
-c and read the file and return PATH associated with VERSION_PHOTOMETRY.
-c Note that the subroutine inputs (VERSION_PHOTOMETRY and 
-c NEARNBR_TRAINFILE_PATH) are passed via globals. This file
-c option is intended to be used with a NN-pipeline script.
-c
-c Aug 28 2016:  call ENVreplace(NEARNBR_TRAINFILE_PATH)
-
-      IMPLICIT NONE
-
-      CHARACTER PATH*(*) ! output path
-
-+CDE,SNPAR.
-+CDE,NNCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-c +CDE,PARSECOM.
-
-      INTEGER JDOT, JSLASH,  LREF, LTMP, NFOUND
-      CHARACTER
-     &    VER_TMP*(MXCHAR_VERSION)
-     &   ,VER_REF*(MXCHAR_VERSION)
-     &   ,PATH_TMP*200, KEY*20
-     &   ,FNAM*22, C1ERR*80, C2ERR*80
-
-C --------------- BEGIN -------------
-
-
-      FNAM = 'SNANA_NEARNBR_RDPATH'
-
-      call ENVreplace(NEARNBR_TRAINFILE_PATH) ! Aug 28 2016
-
-      PATH   = 'UNKNOWN'
-      JDOT   = INDEX(NEARNBR_TRAINFILE_PATH,'.', BACK=.TRUE.)
-      JSLASH = INDEX(NEARNBR_TRAINFILE_PATH,'/', BACK=.TRUE.)      
-
-c if last dot is before last slash, then it's a path already.
-      IF ( JDOT < JSLASH ) THEN
-         PATH = NEARNBR_TRAINFILE_PATH
-         RETURN
-      ENDIF
-
-c if last dot is after last slash, it's a file to be parsed below.
-
-c if we get here, read file to get path
-
-      print*,'   Read NEARNBR_TRAINFILE_PATH from '
-      print*,'   ', NEARNBR_TRAINFILE_PATH
-
-      VER_REF = VERSION_PHOTOMETRY(1)
-      LREF  = INDEX(VER_REF,' ' ) - 1
-      NFOUND = 0
-
-      OPEN ( UNIT=LUNTMP, FILE=NEARNBR_TRAINFILE_PATH, 
-     &       STATUS='OLD', ERR=900 )
-
-c - - - - - - - 
-c Note that PATH_TMP must be in quotes to handle the slash symbol.
-
-44    READ(LUNTMP,*, END=400) KEY, VER_TMP, PATH_TMP
-
-      LTMP  = INDEX(VER_TMP,' ') - 1
-      IF ( LTMP .NE. LREF ) GOTO 44
-      IF ( VER_TMP(1:LTMP) .NE. VER_REF(1:LREF) ) GOTO 44
-
-      NFOUND = NFOUND + 1
-      PATH   = PATH_TMP
-
-      GOTO 44
-c - - - - - - - 
-
-400   CLOSE(UNIT=LUNTMP)
-
-c make sure we found the matching version<->path once and only once.
-
-      IF ( NFOUND .NE. 1 ) THEN
-        write(c1err,661) NFOUND
-661     format('Found TRAINFILE_PATH ',I2,' times')
-        c2err = 'for VERSION = ' // VER_REF(1:LREF)
-        CALL MADABORT(FNAM, c1err, c2err)
-      ENDIF
-
-      RETURN
-
-c -----------------------------
-900   C1ERR = 'Could not open NEARNBR_TRAINFILE_PATH file:'
-      C2ERR = NEARNBR_TRAINFILE_PATH(1:72)
-      CALL MADABORT(FNAM, c1err, c2err)
-      RETURN
-
-      END  ! end of SNANA_NEARNBR_RDPATH
-
-
-C ===========================================
-+DECK,NNTRAIN_END.
-      SUBROUTINE SNANA_NEARNBR_TRAIN_END()
-
-c Created Apr 24 2014 by R.Kessler
-c Print message on how to finish training.
-c
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,NNCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-
-      INTEGER LENF
-      CHARACTER codeName*20
-
-C ----------- BEGIN --------
-
-      codeName = 'nearnbr_maxFoM.exe'
-
-      CALL PRINT_NN_BANNER()
-
-      print*,'   To optimize SEPMAX variables and finish NN training, '
-      print*,'   run the following command: '
-
-      if ( USE_TABLEFILE_HBOOK ) then
-         LENF = index(HFILE_OUT,' ') - 1
-         write(6,20) codeName, HFILE_OUT(1:LENF)
-      endif
-
-      if ( USE_TABLEFILE_ROOT ) then
-         LENF = index(ROOTFILE_OUT,' ') - 1
-         write(6,20) codeName, ROOTFILE_OUT(1:LENF)
-      endif
- 20   format(T7,A, 2x, A)
-
-      CALL PRINT_NN_BANNER()
-
-      RETURN
-      END    ! SNANA_NEARNBR_TRAIN_END
-
-C ==========================
-+DECK,PRNN_BANNER.
-      SUBROUTINE PRINT_NN_BANNER
-      print*,' ' 
-      print*,'# NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN'
-      print*,'# NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN-NN'
-      print*,' ' 
-      call flush(6)
-      RETURN
-      END
-
-C ===========================================
-+DECK,NNAPPLY_END.
-      SUBROUTINE SNANA_NEARNBR_APPLY_END()
-
-c Created Apr 24 2014 by R.Kessler
-c Print message on how to finish training.
-c
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,NNCOM.
-c+CDE,SNCUTS.
-c+CDE,SNLCINP.
-
-C -------------- BEGIN -------------
-
-      CALL PRINT_NN_BANNER()
-
-      print*,'  NN-APPLY Statistics Summary: '
-      print*,'     NEVT(NN-unknown) = ', NNSUM_UNKNOWN
-      print*,'     NEVT(NN-Ia)      = ', NNSUM_IA
-      print*,'     NEVT(NN-NON1A)   = ', NNSUM_NON1A
-
-      CALL PRINT_NN_BANNER()
-      
-      RETURN
-      END     ! SNANA_NEARNBR_APPLY_END
 
 
 C =======================================
@@ -24350,7 +23726,6 @@ c local var
 +CDE,SNLCINP.
 +CDE,USRTAGCM.
 +CDE,PRIVCOM.
-+CDE,NNCOM.
 +CDE,PKMJDCOM.
 +CDE,REQEPCOM.
 +CDE,OUTLIERCOM.
@@ -24849,29 +24224,6 @@ c variables re-evaluated after fit
          VARLIST = 'SNRSUM:F' // char(0)
          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRSUM_FIT,
      &                VARLIST, ITEXT_YES,   LENBLOCK, 20 ) 
-
-      ENDIF
-
-
-c - - - - - -  nearest nbr (Apr 2014) - - - - - 
-      LTMP = ( IFLAG .EQ. 2 )     .and.
-     &       ( NVAR_NEARNBR > 0 ) .and. 
-     &       ( FLAG_NEARNBR .EQ. NNFLAG_APPLY ) 
-      LTMP = LTMP .or. 
-     &       (IFLAG.EQ.2 .and. NN_ITYPE_FIX .GE. 0 )  ! Jan 18 2016
-
-      IF ( LTMP ) THEN
-         VARLIST = 'NN_ITYPE:I' // char(0) 
-         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_ITYPE, VARLIST,
-     &               ITEXT_YES, LENBLOCK, 20 )
-
-         VARLIST = 'NN_NCELL:I' // char(0)   ! with training cuts (no NN)
-         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_NCELL, VARLIST,
-     &               ITEXT_NO, LENBLOCK, 20 )
-
-         VARLIST = 'NN_PROB_IA:F' // char(0)  ! Bayesian prob with NN cut
-         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NN_PROB_IA, VARLIST, 
-     &               ITEXT_YES, LENBLOCK, 20) 
 
       ENDIF
 
@@ -33870,5 +33222,10 @@ C --------------- BEGIN -------------
 
       RETURN
       END
+
+
+C END:
+
+
 
 

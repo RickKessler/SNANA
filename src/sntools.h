@@ -229,7 +229,6 @@ char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list
 #define MXLIST_RAN      4  // max number of lists for stream0
-// xxx mark #define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
 #define MXSTORE_RAN  1001  // size of RANLIST per event; avoid harmonics with submit_batch
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
@@ -892,8 +891,6 @@ double host_confusion__(char *CID, int *N_DDLR, double *DDLR_LIST_SORTED);
 void   init_random_seed(int ISEED, int NSTREAM);
 void   fill_RANLISTs(void);
 void   sumstat_RANLISTs(int FLAG);
-// xxx double unix_random(int istream) ;
-// xxx double unix_GaussRan(int istream);
 
 double unix_getRan_Flat1(int istream) ;
 double unix_getRan_Gauss(int istream);
@@ -979,8 +976,7 @@ void system_pmap(char *code_name, char *call_fun);
 int  glob_file_list(char *wildcard, char ***file_list); // underlying util
 int  store_glob_file_list(char *wildcard) ; 
 int  store_glob_file_list__(char *wildcard) ;
-// xxx mark void fetch_glob_file(int lang_flag, int ifile, char *file_name);
-// xxx mark void fetch_glob_file__(int *lang_flag, int *ifile, char *file_name); 
+
 void reset_glob_file_list(void);
 void reset_glob_file_list__(void);
 

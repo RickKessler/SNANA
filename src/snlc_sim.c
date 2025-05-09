@@ -73,7 +73,7 @@
 // ******************************************
 int main(int argc, char **argv) {
 
-  int ilc, istat, i  ;
+  int ilc, i  ;
   char fnam[] = "main"; 
 
   // ------------- BEGIN --------------
@@ -614,7 +614,7 @@ void get_user_input(void) {
   char *INCLUDE_FILE, *EXCLUDE_FILE ;
   char ARG_INCLUDE_LIST[MXINPUT_FILE_SIM][MXPATHLEN] ;
   char ARG_EXCLUDE_LIST[MXINPUT_FILE_SIM][MXPATHLEN] ;
-  char fnam[] = "get_user_input"    ;
+  //  char fnam[] = "get_user_input"    ;
 
   // ------------ BEGIN ---------------
 
@@ -685,86 +685,6 @@ void get_user_input(void) {
   return;
 
 }  // end of get_user_input
-
-// ******************************************
-void get_user_input_legacy(void) {
-
-  /**********
-
-  Get user input from four different priority levels:
-  (higher priority number overrides value from lower number)
-  
-  1 primary input file
-  2 INCLUDE files in primary
-  3 INCLUDE files on command line
-  4 command line args
-
-  @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
-
-  Jun 18 2017: move prep_user_input into main, after ranSeed init
-  Jul 30 2018: check input_file_include2
-  Jul 20 2020: 
-     + check a few command-line args before reading any files.
-  Jun 25 2021: update logic to implment priority list above.
-
-  ***********/
-  int i, ifile ;
-  bool FOUNDKEY[2];
-
-  char fnam[] = "get_user_input_legacy"    ;
-
-  // ------------ BEGIN ---------------
-
-  // set hard-wired default values
-
-  set_user_defaults();
-
-  // force reading MXINPUT_FILE_SIM input files because
-  // the primary input file may have an INCLUDE file that
-  // is added to INPUTS.INPUT_FILE_LIST.
-  for(ifile=0; ifile < MXINPUT_FILE_SIM ; ifile++ ) {
-    if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[ifile])  ) {
-      read_input_file(INPUTS.INPUT_FILE_LIST[ifile], KEYSOURCE_FILE ); 
-    }
-  }
-
-  // @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
-
-  // -------
-  // check for INCLUDE files on command-line override;
-  // read these AFTER reading include files from primary input.  
-  for ( i = 2; i < NARGV_LIST ; i++ ) {   
-    FOUNDKEY[0] = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE", COLON)  );
-    FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE", COLON)  );
-    if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
-      char *include_file = ARGV_LIST[i+1] ;
-      read_input_file(include_file, KEYSOURCE_ARG );
-    }
-  } 
-
-  // @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
-
-  // ------------------------------------------------------
-  // check for command line overrides after reading all input files
-  // -----------------------------------------------------
-
-  sim_input_override(); 
-
-  // check that all command-line args were used
-  check_argv(); 
-
-  // check for "PERFECT" options
-  genperfect_override();
-  // @@@@@@@@@@@ LEGACY @@@@@@@@@@@@@
-
-  // -------------------------------------------
-  // make a few checks, compute a few flags and print user input to screen
-  // -------------------------------------------
-
-  return;
-
-}  // end of get_user_input_legacy
-
 
 
 // *********************************
@@ -1738,7 +1658,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // May 3 2022: avoid conflict between MWEBV and RANSYSTPAR
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
-  int j, ITMP, NFILTDEF, NPAR, NFILT, inc, N = 0 ;
+  int j, ITMP, NPAR, inc, N = 0 ;
   double TMPVAL[2];
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
@@ -1857,7 +1777,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     if ( INPUTS.DEBUG_FLAG == -28 ) { INPUTS.REFAC_WGTMAP = 0; }
   }
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.APPEND_SNID_SEDINDEX) ; 
+    N++;  sscanf(WORDS[N], "%i", &INPUTS.APPEND_SNID_SEDINDEX) ; 
   }
   else if ( keyMatchSim(1, "RESTORE_BUGS_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -2709,9 +2629,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
   bool FOUND_PRIMARY_KEY, CONTINUE ;
-  int  N=0, m, n, j, iz_tmp, nread, NMODEL_LIST, N_MODELPAR ;
-  int  MEMC = 100*sizeof(char);
-  double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
+  int  N=0, iz_tmp, nread, N_MODELPAR ;
+  double l=0.0, b=0.0,  R=0.0, TMPVAL ;
   char KEYNAME[40], TMPNAME[MXPATHLEN] ;
   char *NAME = RATEPAR->NAME;
   char fnam[] = "parse_input_RATEPAR" ;
@@ -2902,7 +2821,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->RATEMAX = 0.0 ;
       for(b=0.0; b < 90.0; b+=1.0 ) {
 	R = GALrate_model(l,b, RATEPAR);
-	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R; bmax=b; }
+	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R;  }
       }
     }
     else if ( strcmp(RATEPAR->NAME,"BPOLY") == 0 ) {
@@ -2915,7 +2834,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->RATEMAX = 0.0 ;
       for(b=0.0; b < 90.0; b+=1.0 ) {
 	R = GALrate_model(l,b, RATEPAR);
-	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R; bmax=b; }
+	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R;  }
       }
 
     }
@@ -3021,6 +2940,12 @@ void  read_DNDZ_rate(RATEPAR_DEF *RATEPAR ) {
 			&RATEPAR->NBIN_DNDZ_MAP,
 			RATEPAR->CONTENTS_DNDZ_MAP[0],
 			RATEPAR->CONTENTS_DNDZ_MAP[1],  0);
+
+  if ( ISTAT != SUCCESS ) {
+    sprintf(c1err,"error reading DNDZ file:") ;
+    sprintf(c2err,"%s", ptrFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   //  printf(" %s: read rate(z) table (nzbin=%d) from %s\n",
   //	 fnam, RATEPAR->NBIN_DNDZ_MAP, ptrFile);
@@ -3657,7 +3582,7 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
 
   // Created July 2020
   // parse keys containing SIMLIB_
-  int ITMP, N=0;
+  int N=0;
   char fnam[] = "parse_input_SIMLIB" ;
 
   // ---------------- BEGIN ------------
@@ -3782,9 +3707,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Jul 13 2024: set skip_readme_store=T for MAXDDLR cuts to avoid double-printing
   //              in the readme
   
-  int  j, ITMP, N=0, nread, MSKOPT_OLD ;
+  int  j, N=0, nread, MSKOPT_OLD ;
   bool skip_readme_store = false;
-  char *ptr_str ,ctmp[60];
+  char *ptr_str ;
   char fnam[] = "parse_input_HOSTLIB" ;
 
   // ------------ BEGIN ------------
@@ -4215,9 +4140,9 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
  }
  else if ( keyMatchSim(1, "CUTWIN_PEAKMAG_BYFIELD", WORDS[0],keySource)) {
    INPUTS.NCUTWIN_PEAKMAG_BYFIELD++ ;  NCUT = INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
-   N++;  sscanf(WORDS[N], "%f", INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][0] );
-   N++;  sscanf(WORDS[N], "%f", INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][1] );
-   N++;  sscanf(WORDS[N], "%s", INPUTS.CUTWIN_BYFIELDLIST[NCUT] );
+   N++;  sscanf(WORDS[N], "%f",  &INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][0] );
+   N++;  sscanf(WORDS[N], "%f",  &INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][1] );
+   N++;  sscanf(WORDS[N], "%s",  INPUTS.CUTWIN_BYFIELDLIST[NCUT] );
  }
  else if ( keyMatchSim(1, "CUTWIN_EPOCHS_SNRMIN", WORDS[0],keySource)) {
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_EPOCHS_SNRMIN );
@@ -4368,7 +4293,7 @@ int parse_input_ZVARIATION(char **WORDS, int keySource) {
   // Parse ZVARIATION file, or polynomial ... latter using read_genpoly.
 
   int  N=0, NPAR ;
-  char *parName, polyVarName[60] ;
+  char *parName ;
   char fnam[] = "parse_input_ZVARIATION" ;
 
   // ------------ BEGIN -----------
@@ -4417,7 +4342,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 
   int  NFILTDEF = INPUTS.NFILTDEF_OBS ;  
   int  N = 0 ;
-  int  i, igrp, ifilt, ifilt_obs, NFILTGROUP, NFILT_PER_GROUP[MXFILTINDX] ;
+  int  i, igrp, ifilt, NFILTGROUP, NFILT_PER_GROUP[MXFILTINDX] ;
   double tmpVal;
   float *ptrShift ;
   char KEYNAME[60], FILTGROUP_STRING[MXFILTINDX+10], **FILTGROUP_LIST ;
@@ -4755,7 +4680,6 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // local var to parse comma-sep list
   char *ptrSplit[MXSIMGEN_DUMP];
-  int MXCHARWD = MXCHARWORD_PARSE_WORDS;
   int MXVAR    = MXSIMGEN_DUMP ;
 
   char fnam[] = "parse_input_SIMGEN_DUMP";
@@ -5060,7 +4984,7 @@ int parse_input_GENMAG_OFF(char **WORDS, int keySource ) {
 int parse_input_GENMAG_SMEAR(char **WORDS, int keySource ) {
 
   int N=0;
-  int j, NFILT, ifilt ;
+  int j, NFILT ;
   char ctmp[60];
   char fnam[] = "parse_input_GENMAG_SMEAR" ;
   // ------------- BEGIN -------------
@@ -5250,7 +5174,7 @@ int parse_input_ATMOSPHERE(char **WORDS, int keySource) {
   }
 
   else if ( keyMatchSim(1, "ATMOSPHERE_SEDSTAR_FILE", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", &INPUTS_ATMOSPHERE.SEDSTAR_FILE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS_ATMOSPHERE.SEDSTAR_FILE );
   }
 
   else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_DCR_COORDRES_POLY, WORDS[0],keySource) ) {
@@ -5259,7 +5183,7 @@ int parse_input_ATMOSPHERE(char **WORDS, int keySource) {
 		  &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY, fnam);
   }
   else if ( keyMatchSim(1, "ATMOSPHERE_COORDRES_FLOOR", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS_ATMOSPHERE.DCR_COORDRES_FLOOR );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS_ATMOSPHERE.DCR_COORDRES_FLOOR );
   }
 
   else if ( keyMatchSim(1, KEYNAME_ATMOSPHERE_DCR_MAGSHIFT_POLY, WORDS[0],keySource) ) {
@@ -5404,19 +5328,18 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //
   bool READ_fp            = (fp != NULL);
   int  NTAKE              = NPEREVT_TAKE_SPECTRUM ;
-  int  iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
+  // xxx  int  iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP ;
   GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE;
   GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR ;
   char *WARP_SPECTRUM_STRING    =  INPUTS.WARP_SPECTRUM_STRING;
   int  N=0;  // track number of WORDS read
   
-  float *ptrRange, *ptrLam, *ptrStep ;
+  float *ptrRange, *ptrLam ;
   char string0[80], string1[80], string2[80], string3[80]; 
   char *ptrSplit[4], strValues[4][20], *ptrFrame ;
   int  NSPLIT, i ;
-  bool IS_REST=false, IS_OBS=false, IS_MJD=false;
-  bool IS_HOST = false;
+  bool IS_REST = false, IS_OBS = false, IS_MJD=false, IS_HOST = false;
   char stringTmp[80], stringOpt[200];
   char fnam[] = "parse_input_TAKE_SPECTRUM" ;
 
@@ -5464,7 +5387,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     char string_field[80], *sl ;
     char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
     int indx_slash;
-    double ps, WGT=1.0;
+    double ps ;
 
     extractStringOpt(string0,string_field); // return string_field; eg DEEP/2.2
     sprintf(FIELD,"%s", string_field);
@@ -6224,7 +6147,6 @@ void  parse_input_GENPOP_ASYMGAUSS(void) {
   // [and repeat for SALT2c]
   // MODEL_END:
 
-  FILE *fp;
   char *ptrFile  = INPUTS.GENPOP_ASYMGAUSS_FILE ;
   char *ptrModel = INPUTS.GENPOP_ASYMGAUSS_MODEL ;
   int   MSKOPT_PARSE = MSKOPT_PARSE_WORDS_FILE ;
@@ -7383,7 +7305,6 @@ void prep_user_cosmology(void) {
  
   double cosPar[NCOSPAR_HzFUN];
   char  *HzFUN_FILE = INPUTS.HzFUN_FILE ;
-  int ipar;
   char fnam[] = "prep_user_cosmology";
 
   // ------- BEGIN ----------
@@ -7813,7 +7734,7 @@ void  prep_RANSYSTPAR(void) {
   int   ISEED_GEN    = INPUTS.RANSYSTPAR.RANSEED_GEN ;
   int   ISEED_ORIG   = INPUTS.ISEED;
 
-  int   ifilt, ifilt_obs, NSET=0, ISEED; 
+  int   ifilt, ifilt_obs, NSET=0 ; 
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
   float tmp, tmpSigma, *tmpRange, Range ;
@@ -8571,7 +8492,7 @@ void init_DNDZ_Rate(void) {
   *****/
 
   double Z0, Z1, Z_AVG, ZVtmp[2], ZVint[2], ZVOL, VT;
-  double dOmega, dOmega_user, dphi, dth, sin0, sin1;
+  double dOmega, dOmega_user, dth, dphi, sin0, sin1;
   double delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum;
   double ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A, dVdz_tmp;
 
@@ -8858,7 +8779,7 @@ void init_DNDZ_Rate(void) {
     double XTOT  = (double)INPUTS.NGEN_SEASON * TOTsum * SCALE;
     if ( XTOT > (double)MXCID_SIM ) {
       sprintf(c1err,"NGENTOT_LC = %lld is too large", (long long)XTOT);
-      sprintf(c2err,"MXCID_SIM  = %lld", MXCID_SIM);
+      sprintf(c2err,"MXCID_SIM  = %d", MXCID_SIM);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -10076,8 +9997,7 @@ void GENSPEC_DRIVER(void) {
   if ( DO_SEDMODEL ) { GENSPEC_MJD_OBS();  }
 
   int    NMJD = GENSPEC.NMJD_TOT  ;
-  double MJD; 
-  double SNR_LAMMIN, SNR_LAMMAX;
+  double SNR_LAMMIN, SNR_LAMMAX, MJD;
   
   int    i, imjd ;
   char fnam[] = "GENSPEC_DRIVER" ;
@@ -10769,7 +10689,7 @@ void GENSPEC_TRUE(int imjd) {
   int    ifilt, ifilt_obs;
   int    VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE;
-  double SYNMAG, DUMERR, DUMLAM, genmag_obs, flux, lamavg, lambin, flam ;
+  double SYNMAG, DUMERR, genmag_obs, flux, lamavg, lambin ;
 
   // to compute synmags, first compute true Flam in each spectrograph bin.
   // Note that global GENSPEC.GENFLAM_LIST has not been filled yet, and thus
@@ -10904,9 +10824,8 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
   double LAMOBS, TRANS, flam, flamerr, flux;
   double flux_sum=0.0, varflux_sum=0.0, T_max=0.0, T_sum=0.0 ;
-  double lamstep, lambin, ZP, lammin, lammax, LT, frac_err ; 
-  int  ifilt, NLAMFILT, ilam, NFLAM_DEFINED = 0 ; 
-  char cfilt[4];
+  double lamstep, ZP, lammin, lammax, LT, frac_err ; 
+  int  ifilt, NLAMFILT, ilam ; 
   int  OPT_INTERP = 1;     // linear
   char fnam[] = "GENSPEC_SYNMAG" ;
 
@@ -11075,9 +10994,8 @@ void wr_VERIFY_SED_TRUE(int FLAG_PROC, int ifilt_obs, double MJD, double genmag_
   double TREST  = TOBS/z1;
 
   double MAG=0.0, LAMREST_CEN, lamstep, TRANS;
-  int  ifilt, NLAMFILT, ilam, NFIND_MAG = 0;
+  int  ifilt, NLAMFILT, ilam ;
   char cfilt[4];
-  int  OPT_INTERP = 1;     // linear
   FILE *FP ;
   int  VERIFY_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.VERIFY_SED_TRUE;
   char VERFIY_FILE_NAME[MXPATHLEN], VARLIST[MXPATHLEN] ;
@@ -12742,8 +12660,8 @@ void gen_event_stronglens(int ilc, int istage) {
 
   double TRESTMIN  = INPUTS.GENRANGE_TREST[0];
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
-  int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
-  int    MEMI      = MXIMG_STRONGLENS * sizeof(int);
+  //xxx  int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
+  //xxx  int    MEMI      = MXIMG_STRONGLENS * sizeof(int);
   double RAD       = RADIAN;
   int    LDMP      = 0; // (ilc < 4) ; 
 
@@ -12811,7 +12729,7 @@ void gen_event_stronglens(int ilc, int istage) {
       print_preAbort_banner(fnam);
       printf("  CID=%d  LIBID=%d \n",
 	     GENLC.CID,  GENLC.SIMLIB_ID);
-      printf("  IDLENS=%d  GALID(LENS)=%lld  \n",
+      printf("  IDLENS=%lld  GALID(LENS)=%lld  \n",
 	     GENSL.LIBEVENT.IDLENS, GENSL.GALID);
       printf("  RA_noSL=%f  DEC_noSL=%f \n",
 	     GENSL.RA_noSL, GENSL.DEC_noSL );
@@ -12934,7 +12852,7 @@ void gen_event_stronglens(int ilc, int istage) {
   if ( PEAKMJD < 2.0E4 || PEAKMJD > 1.0E5 ) {
     sprintf(c1err,"Insane PEAKMJD = %f (IMGNUM=%d of %d) ", 
 	    PEAKMJD, IMGNUM, GENSL.NIMG_GEN );
-    sprintf(c2err,"IDLENS=%d, tdelay = %f ", GENSL.LIBEVENT.IDLENS, tdelay);
+    sprintf(c2err,"IDLENS=%lld, tdelay = %f ", GENSL.LIBEVENT.IDLENS, tdelay);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -13259,7 +13177,7 @@ void gen_filtmap(int ilc) {
   int  colopt, irank, istat, ALLSKIP, NDOFILT_ZERO=0;
   int  ifilt, ifilt_obs, ifilt_rest[10], ep  ;
 
-  float  z4, lamdif4[10];
+  float  z4;
   double z, ztmp, lamz, lamdif[10] ;
   char fnam[] = "gen_filtmap" ;
 
@@ -17295,9 +17213,7 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
   // May 25 2018: Fix order of l,b arguments.
   // Sep 30 2020: switch to using polyEval or eval_GENPOLY
 
-  double Rate=0.0, b_val = 0.0 ;
-  double BPOW[MXPOLY_GALRATE+1], COSBPOW[MXPOLY_GALRATE+1], Rtest=0.0 ;
-  int i;
+  double Rate=0.0, b_val = 0.0, Rtest=0.0 ;
   char fnam[] = "GALrate_model" ;
 
   // -------------- BEGIN ---------------
@@ -18378,8 +18294,8 @@ void  GENFILTERS_CHECK(void) {
   CFILT_UNDEFINED[0] = 0 ;
 
   for(ifilt=0; ifilt < NFILT_GEN ; ifilt++ ) {
-    sprintf(cfilt, "%c ",  INPUTS.GENFILTERS[ifilt] );
-    ifilt_obs = filtindx_( cfilt, strlen(cfilt) ); 
+    sprintf(cfilt, "%c",  INPUTS.GENFILTERS[ifilt] );
+    ifilt_obs = INTFILTER(cfilt); 
 
     if ( GENLC.IFILTINVMAP_SIMLIB[ifilt_obs] < 0 ) {
       NFILT_UNDEFINED++ ;
@@ -21634,86 +21550,7 @@ int SKIP_SIMLIB_FIELD(char *field) {
 
 } // end of SKIP_SIMLIB_FIELD
 
-// ================================================
-int  parse_SIMLIB_ZPT(char *cZPT, double *ZPT, 
-		      char *cfiltList, int *ifiltList) {
 
-  // Created Dec 2011
-  // Parse string *cZPT to return either float ZPT
-  // or list of filters to sum and *ZPT = -9.0;
-  // Examples:
-  //  cZPT = 28.654   => *ZPT = 28.654 and cfiltList = unchanged 
-  //  cZPT = +28.654  => *ZPT = 28.654 and cfiltList = unchanged 
-  //  cZPT = 2+3+4+5  => *ZPT = -9     and cfiltList = 2345  
-  //
-  // Returned function value is strlen(cfiltList)
-  //
-  // Mar 1 2014: float *ZPT -> double
-
-  int NFILT, jplus, LEN, I, i, ifilt, ifilt_obs;
-  char *ptrPlus, cfilt[4], ctmp[4] ;
-
-  char fnam[] = "parse_SIMLIB_ZPT";
-
-  // -------------- BEGIN -------------
-
-  // init output args
-  NFILT = 0;
-  *ZPT = -999.0;
-
-  // check if there is a '+' sign in the cZPT string.
-  ptrPlus  = strstr(cZPT,"+");
-  jplus    = ptrPlus - cZPT ;  // = 1 few if '+' in there
-      
-  if ( jplus < 1 || jplus > 100 ) {
-    *ZPT = atof(cZPT);
-    sprintf(ctmp,"%s ", cfiltList );
-    ifiltList[0] = filtindx_( ctmp, strlen(ctmp) ); 
-  }
-  else  { 
-
-    *ZPT = 19.999 ; // 19.999
-    cfiltList[0] = 0 ;  // reset input value
-    // strip off the filter chars between the plus signs
-    LEN = strlen(cZPT);
-    i   = -1 ;
-
-    for ( I = 0 ; I < LEN; I++ ) {
-
-      sprintf(cfilt, "%c", cZPT[I] );
-      if ( strcmp(cfilt,"+") == 0 ) { continue; }
-
-      strcat(cfiltList, cfilt); // append filter list
-      i++ ;
-
-      // check that this is a valid filter.
-      // Note that we need a stupid blank space for filtindx_ function
-      sprintf(ctmp,"%s ", cfilt);
-      ifilt_obs    = filtindx_( ctmp, strlen(ctmp) ); 
-      ifiltList[i] = ifilt_obs ;
-      ifilt        = GENLC.IFILTINVMAP_OBS[ifilt_obs];
-      if ( ifilt < 0 || ifilt >= GENLC.NFILTDEF_OBS ) {
-	sprintf(c1err,"Invalid filter='%s'(%d) in cZPT='%s' ", 
-		cfilt, ifilt_obs, cZPT );
-	sprintf(c2err,"Check simlib file %s", INPUTS.SIMLIB_FILE );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-      }
-
-      
-    } // end loop over LEN
-  }
-      
-  // get number of filters in list for return function arg.
-  NFILT = strlen(cfiltList);
-
-  /*
-  printf(" ZZZZZ cZPT(%s) = '%s'  ZPT=%f   NFILT=%d  jplus=%d\n", 
-	 cfiltList, cZPT, *ZPT, NFILT, jplus );
-  */
-
-  return NFILT ;
-
-} // end of parse_SIMLIB_ZPT
 
 
 // ====================================

@@ -692,7 +692,11 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
     if ( IVAR_READ == 0  )
       { sprintf(scanString,"%s", ptrVar); }
     else
-      { sprintf(scanString,"%s:%s", scanString, ptrVar); }
+      { 
+	strcat(scanString,":");
+	strcat(scanString,ptrVar);
+	// xxx mark sprintf(scanString,"%s:%s", scanString, ptrVar); 
+      }
 
     // make sure VARNAME exists.
     if ( TREE_INFO_READ.tree->GetLeaf(ptrVar) == 0 ) {
@@ -956,7 +960,8 @@ int prepTreeString(char *treeName, char *string) {
     if ( (int)strlen(treeName) >= LENNAM ) {
       for(i=0; i < LENNAM; i++ ) {
 	sprintf(c1, "%c", treeName[i] );
-	sprintf(TREETMP, "%s%s", TREETMP, c1);
+	strcat(TREETMP,c1);
+	// xxx mark sprintf(TREETMP, "%s%s", TREETMP, c1);
       }
     }     
 

@@ -22884,6 +22884,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     All nearest neighbor code (NEARNBR) has been removed ;
     all classifiers are external to SNANA, including NN that is part of pippin.
 
+    Create_covariance.py:  restore missing ISDATA_REAL flag in INFO.YML (May 13 2025)
+
          *****  USEFUL(v11_05t) *****
 	 	
     New util make_spectrograph_table.py; see new manual section
@@ -22924,7 +22926,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + for BBC iterations, add symbolic link {output}_ITER1 for clarity
        + in CPU*LOG, write Start and Finished time stamps for science job and for merge
           (for extra diagnostics)
-
+      
     new utility check_create_covariance.py to compute a single element
     of a sys-covariance matrix using pair of cid/idsurvey.
 
@@ -22936,7 +22938,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
      + Write FIELD to unbinned hubble_diagram.
      + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
-    
+     + restore missing ISDATA_REAL flag in INFO.YML (May 13 2025)
+
     simlib_coadd.c
       + fix bug copying IDEXPT when SORT_BAND option is used.
 

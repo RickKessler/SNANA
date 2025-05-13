@@ -1420,6 +1420,8 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
 
   // --------------- BEGIN --------------
 
+  printf(" xxx %s: INPUTS.blind_auto = %d \n", fnam, INPUTS.blind_auto); fflush(stdout);
+
   if ( INPUTS.blind_auto ) { ISDATA_REAL = read_ISDATA_REAL(inFile); }
   HD->ISDATA_REAL = ISDATA_REAL ;
 

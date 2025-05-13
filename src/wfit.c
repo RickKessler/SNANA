@@ -183,6 +183,9 @@
  Apr 8 2025
    + speed_flag_chi2 += 4 adds new speed trick to stop chi2(diag) calc when chi2>threshold.
 
+ May 13 2025: if new  N_NONZERO_OFFDIAG == 0 (stat only), skip off-diag chi2 calculation for COVSYS
+              or COVTOT_INV ... previously COVTOT_INV was doing full off-diag calc in chi2.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -250,6 +253,10 @@
 
 
 #define OPT_RD_CALC     0  // 0=Planck; 1=compute with constant c_s, 2=c_s(z)
+
+#define FLAG_MUCOVNOSYS   0
+#define FLAG_MUCOVSYS     1
+#define FLAG_MUCOVTOT_INV 2
 
 // ======== global structures ==========
 
@@ -327,7 +334,8 @@ struct INPUTS {
 typedef struct COVMAT {
   char    fileName[MXCHAR_FILENAME]; // file name that was read
   double *ARRAY1D ;   // 1D representation of matrix
-  int     N_NONZERO ; // number of non-zero elements
+  int     N_NONZERO_TOT ;         // number of non-zero elements
+  int     N_NONZERO_OFFDIAG ;     // number of non-zero off-diag elements
   int     NDIM ;      // dimension size  
 } COVMAT_DEF ;
 
@@ -494,7 +502,6 @@ void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
 
 void read_mucov(char *inFile, int imat, COVMAT_DEF *COV);
-void read_mucov_legacy(char *inFile, int imat, COVMAT_DEF *COV);
 int  read_mucov_text(char *inFile, int NSN, COVMAT_DEF *MUCOV);
 int  read_mucov_npz(char *inFile, int NSN, COVMAT_DEF *MUCOV);
 
@@ -674,6 +681,7 @@ int main(int argc,char *argv[]){
 
     printf("\n# ======================================= \n");
     print_cputime(t_start, STRING_CPUTIME_INIT, UNIT_TIME_SECOND, 0);
+    printf(" cospar blind flag = %d \n", INPUTS.blind); fflush(stdout);
     t_end_init = time(NULL);
  
     // minimize chi2 on a grid
@@ -751,7 +759,7 @@ void init_stuff(void) {
   INPUTS.outFile_chi2grid[0] = 0 ;
   INPUTS.weightmin           = 1.0E-20;
   INPUTS.outFile_mucovtot_inv[0] = 0 ;
-  INPUTS.use_mucov           = 0 ;
+  INPUTS.use_mucov           = FLAG_MUCOVNOSYS ;
   sprintf(INPUTS.label_cospar,"none");
   INPUTS.format_cospar = 1; // csv like format
   INPUTS.fitnumber = 1;
@@ -1080,13 +1088,13 @@ void parse_args(int argc, char **argv) {
 
 	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
 			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
-	INPUTS.use_mucov =1 ;  // flag that mucovsys has been read
+	INPUTS.use_mucov = FLAG_MUCOVSYS ;  // flag that mucovsys has been read
 
       }
       else if (strcasecmp(argv[iarg]+1,"mucovtot_inv_file")==0) {
 	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
 			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
-	INPUTS.use_mucov = 2 ;  // flag that mucovtot_inv has been read
+	INPUTS.use_mucov = FLAG_MUCOVTOT_INV ;  // flag that mucovtot_inv has been read
 	
       }
       else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
@@ -1420,11 +1428,10 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
 
   // --------------- BEGIN --------------
 
-  printf(" xxx %s: INPUTS.blind_auto = %d \n", fnam, INPUTS.blind_auto); fflush(stdout);
-
   if ( INPUTS.blind_auto ) { ISDATA_REAL = read_ISDATA_REAL(inFile); }
   HD->ISDATA_REAL = ISDATA_REAL ;
 
+  
   TABLEFILE_INIT();
   NROW      = SNTABLE_NEVT(inFile,TBNAME);
   IFILETYPE = TABLEFILE_OPEN(inFile,"read");
@@ -1744,7 +1751,8 @@ bool read_ISDATA_REAL(char *inFile) {
   
   char c_get[200];
   while( (fscanf(fp, "%s", c_get)) != EOF) {
-    if ( strcmp(c_get,"VARNAMES:") == 0 ) { break; }
+    if ( strcmp(c_get,"VARNAMES:") == 0 ) 
+      { break; }
 
     if ( strcmp(c_get,KEYNAME_ISDATA_REAL) == 0 )  { 
       fscanf(fp, "%d", &ISDATA_REAL);  
@@ -1752,6 +1760,7 @@ bool read_ISDATA_REAL(char *inFile) {
       break; 
     }
   } // end while
+
 
   // - - - - 
   if ( FOUND_KEY_ISDATA ) {
@@ -1809,13 +1818,14 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   else
     { ISFORMAT_TEXT = true; }
 
-  MUCOV->N_NONZERO = 0;
+  MUCOV->N_NONZERO_TOT     = 0;
+  MUCOV->N_NONZERO_OFFDIAG = 0;
 
   printf("\n# ======================================= \n");
 
-  if ( INPUTS.use_mucov == 1 ) 
+  if ( INPUTS.use_mucov == FLAG_MUCOVSYS ) 
     { sprintf(covtype, "MUCOVSYS");  }
-  else if ( INPUTS.use_mucov == 2 )
+  else if ( INPUTS.use_mucov == FLAG_MUCOVTOT_INV )
     { sprintf(covtype, "MUCOVTOT^{-1}");  }    
 
   printf("  Process %s file \n", covtype);   fflush(stdout);
@@ -1842,19 +1852,28 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   NMAT_store = NDIM_STORE*NDIM_STORE;
 
-  printf("\t Read %d non-zero %s elements in %.0f seconds.\n",
-	 MUCOV->N_NONZERO, covtype, dt_read );
+  printf("\t Read %d/%d offdiag/total  non-zero %s elements in %.0f seconds.\n",
+	 MUCOV->N_NONZERO_OFFDIAG, MUCOV->N_NONZERO_TOT, 
+	 covtype,  dt_read );
   fflush(stdout);
 
-  // if all COV elements are zero, this is a request for stat-only fit,
+  // if all COV offdiag elements are zero, this is a request for stat-only fit,
   // so disable cov
-  if ( MUCOV->N_NONZERO == 0 ) { 
-    printf("\t -> disable off-diag COV computations.\n");
-    fflush(stdout);
-    INPUTS.use_mucov = 0; 
+
+  if ( MUCOV->N_NONZERO_OFFDIAG == 0 ) {
+    printf("\t -> disable off-diag COVSYS computations.\n"); fflush(stdout);
     INPUTS.USE_SPEED_SKIP_OFFDIAG = false; // disable speed flag for approx min chi2 
+
+    if ( INPUTS.use_mucov == FLAG_MUCOVSYS ) { INPUTS.use_mucov = FLAG_MUCOVNOSYS; }
+    return ;
+  }
+
+  /* xxx mark delete May 13 2025 xxxxxxx
+  if (INPUTS.use_mucov == FLAG_MUCOVSYS &&  MUCOV->N_NONZERO_TOT == 0 ) { 
+    INPUTS.use_mucov = FLAG_MUCOVNOSYS; 
     return; 
   }
+  xxxxxxxx end mark xxxxxxxxx */
 
   // - - - - - - - - - - - - - - - - -
 
@@ -1866,7 +1885,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   }
 
 
-  if ( INPUTS.use_mucov == 1 ) {
+  if ( INPUTS.use_mucov == FLAG_MUCOVSYS ) {
     // Add diagonal errors (from Hubble diagram) to covsys
     double COV_STAT ;
     for ( i=0; i<NDIM_STORE; i++ )  {
@@ -2009,185 +2028,6 @@ int read_mucov_npz(char *npz_cov_file, int NSN, COVMAT_DEF *MUCOV) {
 
 
 
-// =================================================================
-void read_mucov_legacy(char *inFile, int imat, COVMAT_DEF *MUCOV ){
-
-  // Created October 2021 by A.Mitra and R.Kessler
-  // Read option Cov_syst matrix, and invert it.
-  //
-  // Apr 14 2025: begin checking for npz format
-
-#define MXSPLIT_mucov 20
-
-  int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
-  int NSN_STORE    = HD_LIST[imat].NSN; // number passing cuts
-  int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
-  int NDIM_STORE   = NSN_STORE ;
-  int NMAT_READ_UPDATE = 5000000;  // 5 million
-
-  char ctmp[200], SN[2][12], locFile[1000] ;
-  int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NMAT_ORIG=0 ;
-  int NMAT_read=0,  NMAT_store = 0;
-  double cov, XM, XMTOT, dt_read;
-  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
-  char  **ptrSplit, covtype[60];
-  FILE *fp;
-  bool UPDSTD;
-  time_t t_start_read, t_read;
-  char fnam[] = "read_mucov_legacy" ;
-
-  // ---------- BEGIN ----------------
-
-  MUCOV->N_NONZERO = 0;
-
-  printf("\n# ======================================= \n");
-
-  if ( INPUTS.use_mucov == 1 ) 
-    { sprintf(covtype, "MUCOVSYS");  }
-  else if ( INPUTS.use_mucov == 2 )
-    { sprintf(covtype, "MUCOVTOT^{-1}");  }    
-
-  printf("  Process %s file \n", covtype);   fflush(stdout);
-  sprintf(MUCOV->fileName, "%s", inFile);
-  
-
-  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-
-  // Open File using the utility
-  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
-  fp = snana_openTextFile(OPENMASK, "", inFile,
-			  locFile, &gzipFlag );
-
-  if ( !fp ) {
-    sprintf(c1err,"Cannot open mucov_file") ;
-    sprintf(c2err,"%s", inFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // allocate strings to read each line ... in case there are comments
-  ptrSplit = (char **)malloc(MXSPLIT_mucov*sizeof(char*));
-  for(j=0;j<MXSPLIT_mucov;j++){
-    ptrSplit[j]=(char *)malloc(200*sizeof(char));
-  }
-  
-  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-
-  i0 = i1 = 0 ;
-  k0 = k1 = 0 ;
-  t_start_read = time(NULL);
-  
-  while ( fgets(ctmp, 100, fp) != NULL ) {
-    // ignore comment lines 
-    if ( commentchar(ctmp) ) { continue; }
-    
-    // break line into words
-    splitString(ctmp, " ", fnam, MXSPLIT_mucov,  // (I)
-		&NSPLIT, ptrSplit);       // (O)
-
-    if ( NROW_read == 0 ) {
-      sscanf(ptrSplit[0],"%d",&NDIM_ORIG);
-      printf("\t Found COV dimension %d\n", NDIM_ORIG);
-      printf("\t Store COV dimension %d\n", NDIM_STORE);
-
-      // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-      
-      if ( NDIM_ORIG != HD_LIST[imat].NSN_ORIG ) {
-	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
-		NDIM_ORIG, HD_LIST[imat].NSN_ORIG);
-	sprintf(c2err,"Above NDIM is before cuts.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-      }
-
-      MUCOV->NDIM    = NDIM_ORIG; // read entire COV without cuts
-      malloc_COVMAT(+1,MUCOV);
-
-      NMAT_ORIG = NDIM_ORIG * NDIM_ORIG ;
-      XMTOT = (double)(NMAT_ORIG) * 1.0E-6 ;
-    }
-    else {
-      // store entire cov matrix (no cuts yet)
-      sscanf( ptrSplit[0],"%le",&cov);
-      MUCOV->ARRAY1D[NMAT_read] = cov;
-      NMAT_read++ ;
-      UPDSTD = ( (NMAT_read % NMAT_READ_UPDATE) == 0 ||
-		 NMAT_read == NMAT_ORIG);
-
-      // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-
-      if ( UPDSTD ) {
-	t_read  = time(NULL);
-	dt_read = t_read - t_start_read;
-	XM  = (double)NMAT_read * 1.0E-6 ;
-	printf("\t Finished reading %.3f of %.3f million "
-	       "%s elements (%.0f seconds)\n",
-	       XM, XMTOT, covtype, dt_read );
-	fflush(stdout);
-      }
-    }
-    
-    NROW_read += 1 ;
-
-  } // end of read loop
-
-  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-
-  // - - - - - - - - - - -  -
-  // Trim cov matrix using pass_cuts; MUCOV->ARRAY1D gets overwritten
-  int NDIM_CHECK = applyCut_COVMAT(HD_LIST[imat].pass_cut, MUCOV);
-
-  NMAT_store = NDIM_STORE*NDIM_STORE;
-
-  printf("\t Read %d non-zero %s elements in %.0f seconds.\n",
-	 MUCOV->N_NONZERO, covtype, dt_read );
-  fflush(stdout);
-
-  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-
-  // if all COV elements are zero, this is a request for stat-only fit,
-  // so disable cov
-  if ( MUCOV->N_NONZERO == 0 ) { 
-    printf("\t -> disable off-diag COV computations.\n");
-    fflush(stdout);
-    INPUTS.use_mucov = 0; 
-    INPUTS.USE_SPEED_SKIP_OFFDIAG = false; // disable speed flag for approx min chi2 
-    return; 
-  }
-
-  // - - - - - - - - - - - - - - - - -
-  // sanity check
-  if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
-    sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
-	    NMAT_read, NDIM_ORIG, NDIM_ORIG*NDIM_ORIG);
-    sprintf(c2err,"Check %s", inFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-
-  if ( NMAT_store != NDIM_STORE*NDIM_STORE )  {
-    sprintf(c1err,"Store %d cov elements, but expected %d**2=%d",
-            NMAT_store, NDIM_STORE, NDIM_STORE*NDIM_STORE);
-    sprintf(c2err,"Check %s", inFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-
-  if ( INPUTS.use_mucov == 1 ) {
-    // Add diagonal errors (from Hubble diagram) to covsys
-    double COV_STAT ;
-    for ( i=0; i<NDIM_STORE; i++ )  {
-      kk = i*NDIM_STORE + i;
-      COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
-      MUCOV->ARRAY1D[kk] += COV_STAT ;
-    }
-  } 
-
-  // @@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@
-  
-  return ; 
-}
-// end of read_mucov_legacy
-
 
 
 // ===================================
@@ -2263,7 +2103,8 @@ int applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
   // ----------- BEGIN --------------
 
   i0 = i1 = k0 = k1 = 0 ;
-  MUCOV->N_NONZERO = 0 ;
+  MUCOV->N_NONZERO_TOT     = 0 ;
+  MUCOV->N_NONZERO_OFFDIAG = 0 ;
 
   // first find out how many pass cuts
   for(j=0; j < NDIM_ORIG; j++ ) {
@@ -2275,7 +2116,11 @@ int applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
     if( PASS_CUT_LIST[i0] && PASS_CUT_LIST[i1] ) {
 	kk = k1*NDIM_STORE + k0;
 	MUCOV->ARRAY1D[kk] = cov;
-	if ( cov != 0.0 ) { MUCOV->N_NONZERO++ ; }
+	if ( cov != 0.0 ) { 
+	  MUCOV->N_NONZERO_TOT++ ; 
+	  if ( k0 != k1 ) { MUCOV->N_NONZERO_OFFDIAG++ ; }  // May 13 2025
+	}
+
 	k0++;
 	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
       }
@@ -3328,14 +3173,6 @@ void wfit_minimize(void) {
     INPUTS.USE_SPEED_STOP_DIAG    = false ;
     INPUTS.USE_SPEED_SKIP_OFFDIAG = false ; // disable speed flag for approx min chi2 
 
-    /* xxx mark delete Apr 8 2025 xxxxx
-    cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
-    cpar_fixed.mushift = 0.0 ;
-    get_chi2_fit(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
-		 temp0_list, temp1_list, temp2_list,
-		 &mures_tmp, &snchi_tmp, &extchi_tmp ); 
-    xxxxx */
-
     get_chi2_fit(COSPAR_SIM.w0, COSPAR_SIM.wa, COSPAR_SIM.omm, INPUTS.sqsnrms, 
 		 temp0_list, temp1_list, temp2_list,
 		 &mures_tmp, &snchi_tmp, &extchi_tmp ); 
@@ -4081,7 +3918,7 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   char fnam[] = "invert_mucovar" ;
   // ---------------- BEGIN --------------
 
-  if ( INPUTS.use_mucov == 2 ) {
+  if ( INPUTS.use_mucov == FLAG_MUCOVTOT_INV ) {
     printf("\t COV already inverted, so nothing to invert here.\n");
     fflush(stdout);
     return;
@@ -4207,6 +4044,8 @@ void get_chi2_fit (
   bool USE_SPEED_SKIP_OFFDIAG = INPUTS.USE_SPEED_SKIP_OFFDIAG ;
   bool USE_SPEED_STOP_DIAG    = INPUTS.USE_SPEED_STOP_DIAG ;
   int  use_mucov = INPUTS.use_mucov ;
+  int  N_NONZERO_OFFDIAG = WORKSPACE.MUCOV[0].N_NONZERO_OFFDIAG; 
+
   int  NSN       = HD_LIST[0].NSN;
   int  Ndof      = WORKSPACE.Ndof ;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
@@ -4350,7 +4189,7 @@ void get_chi2_fit (
   // If chi_hat(diag) is already > 10 sigma above naive chi2 -> 
   // skip off-diag computation to save time.
 
-  if ( use_mucov ) {
+  if ( use_mucov && N_NONZERO_OFFDIAG > 0 ) { 
     if ( USE_SPEED_SKIP_OFFDIAG ) {
       chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
       nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;

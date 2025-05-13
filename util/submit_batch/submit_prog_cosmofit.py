@@ -726,6 +726,8 @@ class cosmofit(Program):
                 self.log_assert(False, msgerr)
 
         # check isdata flag per inpdir
+        # Here we give explicit -blind (or not) flag; 
+        # later could use -blind_auto for wfit, but may not work on other cosmology fitting codes
         inpdir_list      = self.config_prep['inpdir_list']
         isdata_list      = self.config_prep['isdata_list']
         arg_blind_list   = [] # set to either "-blind" or ""

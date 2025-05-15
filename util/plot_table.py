@@ -13,6 +13,7 @@
 # Mar 25 2025: @@FIT is working for a few basic functions 
 # Mar 31 2025: add @@LEGEND_UL and @@LEGEND_UR options
 # Apr 21 2025: fix fit chi2 calc to work for 2D plot where @ERROR is given for y-axis.
+# May 15 2025: new @@LEGEND_MSCALE to scale size of marker(s) in legend
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -382,6 +383,10 @@ and two types of command-line input delimeters
    @@LEGEND_UR  <same args as for @@LEGEND>
      Force legend in upper right corner
 
+
+   @@LEGEND_MSCALE
+     scale size of marker(s) in legend
+
 @@TITLE
   Text of title to dispaly above plot. For text length > 50 chars,
   the font size is scaled by 50/len(text) so that it doesn't run off
@@ -429,6 +434,7 @@ and two types of command-line input delimeters
      @@MARKER s ^  # square and triangle for 1st and 2nd file/cut
      @@MARKER s x  # square and X        for 1st and 2nd file/cut
      etc ... (see online doc on matplotlib markers)
+
 
 @@XSIZE_SCALE
 @@YSIZE_SCALE
@@ -552,6 +558,9 @@ def get_args():
     parser.add_argument('@@LEGEND_UL', '@@legend_ul', default=None, help=msg, nargs="+")
     msg = "Same as @@LEGEND, but force in upper right corner"
     parser.add_argument('@@LEGEND_UR', '@@legend_ur', default=None, help=msg, nargs="+")
+
+    msg = "marker scale for legend (default=1)"
+    parser.add_argument('@@LEGEND_MSCALE', '@@legend_mscale', default=1.0, help=msg, type=float)
 
     msg = "Override default marker='o'"
     parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
@@ -2588,20 +2597,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     fsize_legend   = 10 * args.FONTSIZE_SCALE
 
     if args.LEGEND != SUPPRESS:
-        plt.legend(loc=args.legend_loc, bbox_to_anchor=args.legend_bbox2anchor, 
-                   fontsize = fsize_legend )
+        #print(f"\n xxx make legend {args.legend_loc}")
+        leg = plt.legend(loc = args.legend_loc, 
+                         bbox_to_anchor = args.legend_bbox2anchor, 
+                         fontsize = fsize_legend, markerscale=args.LEGEND_MSCALE )
 
-    # xxxxxxx mark delete Mar 31 2025 xxxxxxx
-    #if args.LEGEND_SIDE:
-    #    # push legend outside of box on right side
-    #    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
-    #elif args.LEGEND == SUPPRESS:
-    #    pass  # no legend
-    #else:
-    #    # default; let matplotlib find best place for legend
-    #    fsize_legend = 10 * args.FONTSIZE_SCALE
-    #    plt.legend(loc=None, bbox_to_anchor=None, fontsize = fsize_legend)
-    # xxxxxxxxxx end mark
 
     len_title = len(args.TITLE)
     fsize_title   = 14 * args.FONTSIZE_SCALE

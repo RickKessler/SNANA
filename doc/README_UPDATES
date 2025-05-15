@@ -22991,6 +22991,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Changes to prepare for automake:
       + remove -static in Makefile
       + rename sntools_output.c -> sntools_output.cpp
-
+      + remove all hbook functions and variables 
+         (it's obsolete anyway because there is no 64 bit version of CERNLIB)
 
 END: 

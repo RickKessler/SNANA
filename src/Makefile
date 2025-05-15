@@ -83,15 +83,9 @@ endif
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
 #  PROFILEFLAG = -pg
 # ------------------------
-# compile default storage options for both ROOT and HBOOK ....
+# compile default storage options for both ROOT and BAYESN.
 USE_ROOT   = 1
-USE_HBOOK  = 1
 USE_BAYESN = 1
-
-# ... unless the product is not installed.
-ifndef CERN_DIR
-   USE_HBOOK = 0
-endif
 
 ifndef ROOT_DIR
    USE_ROOT = 0
@@ -116,11 +110,6 @@ endif
 
 # ---------------
 
-ifeq ($(USE_HBOOK),0)
-  LCERN  = 
-else
-  LCERN  = -L$(CERN_DIR)/$(LIB_SDIR) -lpacklib -lmathlib -lkernlib -lncurses
-endif
 
 # ----------------
 
@@ -237,11 +226,6 @@ SNANA_EXECUTABLES	=		\
 # ----------------------
 # check for executables that depend explicitly on output format
 
-ifeq ($(USE_HBOOK),1)
-	HBOOK_EXECUTABLES = $(BIN)/merge_hbook.exe
-else
-	HBOOK_EXECUTABLES =
-endif
 
 ifeq ($(USE_ROOT),1)
 	ROOT_EXECUTABLES = $(BIN)/merge_root.exe
@@ -252,8 +236,7 @@ endif
 
 EXECUTABLES = \
 	$(SNANA_EXECUTABLES) 	\
-	$(ROOT_EXECUTABLES) 	\
-	$(HBOOK_EXECUTABLES)
+	$(ROOT_EXECUTABLES)
 
 # -------------------------------------
 # Define list of object files for each program.
@@ -359,7 +342,6 @@ OBJ_SIM	 = 	\
 SNTOOLS_OUTPUT = \
 	$(SRC)/sntools_output.cpp \
 	$(SRC)/sntools_output.h \
-	$(SRC)/sntools_output_hbook.c \
 	$(SRC)/sntools_output_marz.c \
 	$(SRC)/sntools_output_text.c \
 	$(SNTOOLS_ROOT)
@@ -382,8 +364,8 @@ clean:
 	rm -f $(CLEAN_FILES) $(OBJ)/*.o
 
 # -----------------------------------
-# set define statements in sntools_output.cpp to pick HBOOK and/or ROOT
-# based on existance of $CERN_DIR and $ROOT_DIR.
+# set define statements in sntools_output.cpp to pick ROOT
+# based on existance of $ROOT_DIR.
 set_Cpreproc_flags :
 	$(UTIL)/set_Cpreproc_flags.py
 
@@ -433,7 +415,7 @@ $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_n
 	$(OBJ)/sntools_npz.o 	\
 	$(OBJ)/cnpy.o 		\
 	$(OBJ)/sntools_cosmology.o \
-	$(LCERN) $(LROOT) $(CPPLIB) \
+	$(LROOT) $(CPPLIB) \
 	$(LCFITSIO)  \
 	-lm $(LGSL) \
 	-lz 
@@ -456,7 +438,7 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o 
 	$(OBJ)/sntools_genGauss_asym.o \
 	$(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/minuit.o 	\
-	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
+	$(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	(cd $(OBJ);  rm SALT2mu.o ) 
 
 
@@ -479,7 +461,7 @@ $(BIN)/snana.exe :  $(OBJ_SNANA)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
 	$(OBJ_SNANA) \
 	$(LCFITSIO)  $(LGSL) \
-	$(LCERN) $(LROOT) -lm  $(CPPLIB)
+	$(LROOT) -lm  $(CPPLIB)
 	(cd $(OBJ); rm snana.o )	
 
 # -------------------------------------------------
@@ -500,7 +482,7 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
 	$(OBJ_SNFIT) 	\
 	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm $(CPPLIB)
+	$(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm snlc_fit.o )
 
 # -------------------------------------------------
@@ -538,7 +520,7 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ_PSNID) 		\
 	$(LCFITSIO) $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm  $(CPPLIB)
+	$(LROOT) -lm  $(CPPLIB)
 	(cd $(OBJ); rm psnid.o)
 
 # -------------------------------------------------
@@ -556,7 +538,7 @@ $(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntoo
 	$(OBJ_SNTOOLS_DATA) 	\
 	$(OBJ)/sntools_spectrograph.o  	\
 	$(OBJ)/genmag_SEDtools.o  	\
-	$(LCFITSIO)  $(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LCFITSIO)  $(LGSL) $(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm kcor.o )
 
 # -------------------------------------------------
@@ -574,7 +556,7 @@ $(BIN)/combine_fitres.exe : \
 	$(OBJ)/combine_fitres.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm combine_fitres.o )
 
 # --------------------
@@ -590,7 +572,7 @@ $(BIN)/sntable_dump.exe :  \
 	$(OBJ)/sntable_dump.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm sntable_dump.o )
 
 
@@ -607,7 +589,7 @@ $(BIN)/sntable_combine.exe :  \
 	$(OBJ)/sntable_combine.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm sntable_combine.o )
 
 # --------------------
@@ -898,7 +880,7 @@ $(BIN)/snlc_sim.exe : $(OBJ_SIM)
 	$(CC) -o $@ $(SNLDFLAGS) \
 	$(OBJ_SIM)	  	\
 	$(LCFITSIO) $(LGSL)  	\
-	$(LPY)  $(LCERN) $(LROOT)  -lm  $(CPPLIB)
+	$(LPY)  $(LROOT)  -lm  $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
 # -------------------------------------------------
@@ -915,21 +897,10 @@ $(BIN)/simlib_coadd.exe : \
 	$(OBJ)/sntools_output.o \
 	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/MWgaldust.o \
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm simlib_coadd.o )
 
-# ---------------------------------------
-# merge_hbook.exe program (to replace hmerge.exe)
-$(OBJ)/merge_hbook.o :  merge_hbook.F
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) $(SRC)/merge_hbook.F)
-
-$(BIN)/merge_hbook.exe : $(OBJ)/merge_hbook.o 
-	$(FFC) -o $@ $(SNLDFLAGS) $(OBJ)/merge_hbook.o  $(LCERN)
-	(cd $(OBJ); rm merge_hbook.o )
-
-
 # merge_root.exe program (Apr 2013)
-
 $(OBJ)/merge_root.o : $(SRC)/merge_root.c $(SNTOOLS_OUTPUT) 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/merge_root.c )
@@ -940,7 +911,7 @@ $(BIN)/merge_root.exe :  \
 	$(OBJ)/merge_root.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm merge_root.o )
 
 # -------------
@@ -965,7 +936,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/sntools_wgtmap.o \
 	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/MWgaldust.o \
-	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
+	-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_fudge.o )
 
 
@@ -991,7 +962,7 @@ $(BIN)/SIMSED_extractSpec.exe : \
 	$(OBJ)/genmag_SEDtools.o  \
 	$(OBJ)/sntools_wgtmap.o \
 	$(OBJ)/sntools_gridmap.o \
-	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
+	-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_extractSpec.o )
 
 # -------------
@@ -1011,7 +982,7 @@ $(BIN)/SIMSED_rebin.exe : \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
-	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
+	-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_rebin.o )
 
 # -------------
@@ -1034,7 +1005,7 @@ $(BIN)/SIMSED_check.exe : \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	$(OBJ)/genmag_SIMSED.o  \
-	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
+	-lm $(LCFITSIO) $(LGSL)  $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_check.o )
 
 
@@ -1049,7 +1020,7 @@ $(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
+	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
 	(cd $(OBJ); rm unfold_snpar.o )
 
 

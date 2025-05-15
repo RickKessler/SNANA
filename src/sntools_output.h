@@ -22,8 +22,6 @@
  Apr 11 2017: add MXCHAR_MODELNAME
 
  May 11 2017: declare IVAR_READTABLE_POINTER
-
- Apr 4 2019: preproc flags HBOOK,ROOT,TEXT -> USE_[HBOOK,ROOT,TEXT]
  
  Dec 11 2019: replace lots of [40] with [MXCHAR_VARNAME]
 
@@ -38,17 +36,15 @@
 // define flags for software packages
 
 
-#define USE_HBOOKxxx                            
-
 #define USE_ROOT   
-#define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
+#define USE_TEXT  // always leave this on; same logic as for ROOT, ...
 #define USE_MARZ  // always leave this on
 
 // ---------------------------------------
 // flags to identify TABLEFILE_TYPE 
 
 #define IFILETYPE_NULL   0   // undefined file type
-#define IFILETYPE_HBOOK  1
+#define IFILETYPE_HBOOK  1   // obsolete as of May 15 2025
 #define IFILETYPE_ROOT   2
 #define IFILETYPE_TEXT   3
 #define IFILETYPE_MARZ   4
@@ -95,8 +91,7 @@ char NAME_TABLEFILE[MXOPENFLAG][MXTABLEFILETYPE][MXCHAR_FILENAME] ;
 int  USE_TABLEFILE[MXOPENFLAG][MXTABLEFILETYPE]  ; 
 int  NOPEN_TABLEFILE ; // number of table files (should be >0)
 
-// logical flag for first call to root,hbook...
-// e.g., to call hlimit only once for hbook option.
+// logical flag for first call to root
 int  FIRSTCALL_TABLEFILE_OPEN[MXTABLEFILETYPE];
 
 
@@ -182,13 +177,13 @@ struct READTABLE_POINTERS {
 #define SPECPAK_INITDONE  98765
 #define MXFIT_PER_SN      10
 
-bool SNLCPAK_USE_HBOOK ; 
+// xxx mark bool SNLCPAK_USE_HBOOK ; 
 bool SNLCPAK_USE_ROOT  ;
 bool SNLCPAK_USE_HDF5  ;
 bool SNLCPAK_USE_TEXT  ;
 int NCALL_SNLCPAK_FILL ; // number of calls to SNLCPAK_FILL
 
-bool SPECPAK_USE_HBOOK ; 
+// xxx makrk bool SPECPAK_USE_HBOOK ; 
 bool SPECPAK_USE_ROOT  ;
 bool SPECPAK_USE_HDF5  ;
 bool SPECPAK_USE_TEXT  ;
@@ -340,7 +335,7 @@ struct SNTABLE_AUTOSTORE {
   char    VARNAME[MXVAR_TABLE][MXCHAR_VARNAME];
   int     EXIST[MXVAR_TABLE];
   int     ICAST_READ[MXVAR_TABLE] ; // cast read from file
-  int     IFILETYPE ;   // indicates ROOT,HBOOK,TEXT, etc ...
+  int     IFILETYPE ;   // indicates ROOT,,TEXT, etc ...
 
   int     NROW ;
   int     *LENCCID; // string len for each CCID (for faster lookup)
@@ -604,7 +599,7 @@ extern"C" {
   void specpak_fill__(char *CCID) ;
 
   // --- ISFILE_xxx functions
-  int ISFILE_HBOOK(char *fileName);
+  // xxxx mark delete  int ISFILE_HBOOK(char *fileName);
   int ISFILE_ROOT(char *fileName);
   int ISFILE_TEXT(char *fileName);
   int ISFILE_MARZ(char *fileName);

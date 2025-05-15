@@ -93,9 +93,6 @@
 #include "sntools_output.h"
 
 // include the package-specific code(s) here.
-#ifdef USE_HBOOK
-#include "sntools_output_hbook.c"
-#endif
 
 #ifdef USE_ROOT
 #include "sntools_output_root.c"
@@ -112,8 +109,8 @@
 
 // ===============================================
 void SNTABLE_DEBUG_DUMP(char *fnam, int idump) {
-  printf(" xxx DEBUG_DUMP(%s , %d): SNLCPAK_USE[HBOOK/ROOT]=%d/%d \n",
-	 fnam, idump, SNLCPAK_USE_HBOOK, SNLCPAK_USE_ROOT);
+  printf(" xxx DEBUG_DUMP(%s , %d): SNLCPAK_USE[ROOT]=%d/%d \n",
+	 fnam, idump, SNLCPAK_USE_ROOT);
   fflush(stdout);
 } // end of   void SNTABLE_DEBUG_DUMP
 void sntable_debug_dump__(char *fnam, int *idump) 
@@ -170,7 +167,7 @@ void TABLEFILE_INIT(void) {
   ADDCOL_VARLIST_LAST[0] = 0 ;
 
   s = STRING_TABLEFILE_TYPE[IFILETYPE_NULL]  ;  sprintf(s,"NULL");
-  s = STRING_TABLEFILE_TYPE[IFILETYPE_HBOOK] ;  sprintf(s,"HBOOK");
+  // xxx  s = STRING_TABLEFILE_TYPE[IFILETYPE_HBOOK] ;  sprintf(s,"HBOOK");
   s = STRING_TABLEFILE_TYPE[IFILETYPE_ROOT]  ;  sprintf(s,"ROOT");
   s = STRING_TABLEFILE_TYPE[IFILETYPE_TEXT]  ;  sprintf(s,"TEXT");
 
@@ -178,15 +175,15 @@ void TABLEFILE_INIT(void) {
   s = STRING_TABLEFILE_OPENFLAG[OPENFLAG_NEW]   ;  sprintf(s,"NEW" );
   s = STRING_TABLEFILE_OPENFLAG[OPENFLAG_READ]  ;  sprintf(s,"READ");
 
-  s = STRING_IDTABLE_SNANA[IFILETYPE_HBOOK] ; sprintf(s,"7100");
+  // xxx  s = STRING_IDTABLE_SNANA[IFILETYPE_HBOOK] ; sprintf(s,"7100");
   s = STRING_IDTABLE_SNANA[IFILETYPE_ROOT]  ; sprintf(s,"SNANA");
   s = STRING_IDTABLE_SNANA[IFILETYPE_TEXT]  ; sprintf(s,"SNANA");
 
-  s = STRING_IDTABLE_FITRES[IFILETYPE_HBOOK] ; sprintf(s,"7788"  );
+  // xxx   s = STRING_IDTABLE_FITRES[IFILETYPE_HBOOK] ; sprintf(s,"7788"  );
   s = STRING_IDTABLE_FITRES[IFILETYPE_ROOT]  ; sprintf(s,"FITRES");
   s = STRING_IDTABLE_FITRES[IFILETYPE_TEXT]  ; sprintf(s,"FITRES");
 
-  s = STRING_IDTABLE_OUTLIER[IFILETYPE_HBOOK] ; sprintf(s,"7800"  );
+  // xxx  s = STRING_IDTABLE_OUTLIER[IFILETYPE_HBOOK] ; sprintf(s,"7800"  );
   s = STRING_IDTABLE_OUTLIER[IFILETYPE_ROOT]  ; sprintf(s,"OUTLIER");
   s = STRING_IDTABLE_OUTLIER[IFILETYPE_TEXT]  ; sprintf(s,"OUTLIER");
 
@@ -195,8 +192,8 @@ void TABLEFILE_INIT(void) {
 
   // misc. for SNLCPAK & SPECPAK
 
-  SNLCPAK_USE_HBOOK = SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = 0 ;  
-  SPECPAK_USE_HBOOK = SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = 0 ;
+  SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = 0 ;  
+  SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = 0 ;
   SPECPAK_USE_MARZ  = 0;
 
   sprintf(SNLCPAK_OUTPUT.SURVEY,             "NULL" );
@@ -215,10 +212,6 @@ void tablefile_init__(void) {  TABLEFILE_INIT();  }
 
 // =====================================
 int get_TABLEFILE_TYPE(char *FILENAME) {
-
-#ifdef USE_HBOOK
-  if ( ISFILE_HBOOK(FILENAME) ) { return IFILETYPE_HBOOK; }
-#endif
 
 #ifdef USE_ROOT
   if ( ISFILE_ROOT (FILENAME) ) { return IFILETYPE_ROOT ; }
@@ -241,7 +234,7 @@ int get_TABLEFILE_TYPE(char *FILENAME) {
 int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
   // Created Apr 26 2014 by R.Kessler
-  // Determine file type (hbook, root, ...) based on suffix
+  // Determine file type ( root, ...) based on suffix
   // of file name, then open it. 
   //
   // STRINGOPT is a list of option-keys:
@@ -284,7 +277,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
   // define extensions
   char key_root[]  = "root";
-  char key_hbook[] = "hbook" ;
   char key_text[]  = "text" ;
 
   sprintf(local_STRINGOPT,"%s", STRINGOPT);
@@ -305,9 +297,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
     else if ( strcmp_ignoreCase(ctmp,key_root) == 0 ) 
       { TYPE_FLAG = IFILETYPE_ROOT ; }
 
-    else if ( strcmp_ignoreCase(ctmp,key_hbook) == 0 ) 
-      { TYPE_FLAG = IFILETYPE_HBOOK ; }
-
     else if ( strcmp_ignoreCase(ctmp,key_text) == 0 ) 
       { TYPE_FLAG = IFILETYPE_TEXT ; }
 
@@ -323,12 +312,11 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
   
   // make sure table file has some kind of extension (Jan 2020)
-  if ( TYPE_FLAG==IFILETYPE_ROOT || TYPE_FLAG==IFILETYPE_HBOOK ||
-       TYPE_FLAG==IFILETYPE_MARZ ) {
+  if ( TYPE_FLAG==IFILETYPE_ROOT  ||       TYPE_FLAG==IFILETYPE_MARZ ) {
     if ( strchr(FILENAME,'.') == NULL ) {
       sprintf(MSGERR1,"Missing extension for FILENAME = '%s' ", FILENAME);
       sprintf(MSGERR2,"Add valid extension: "
-	      "e.g., '.ROOT', '.HBOOK', '.TEXT', '.fits' " );
+	      "e.g., '.ROOT',  '.TEXT', '.fits' " );
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
     }
   }
@@ -339,10 +327,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
 
   if ( TYPE_FLAG == 0 ) {   
-#ifdef USE_HBOOK
-    if ( ISFILE_HBOOK(FILENAME) )  { TYPE_FLAG = IFILETYPE_HBOOK ; }
-    if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
-#endif
 
 #ifdef USE_ROOT
     if ( ISFILE_ROOT(FILENAME) )  {  TYPE_FLAG = IFILETYPE_ROOT ; }
@@ -421,32 +405,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
 
   // open file based on its type.
-
- 
-#ifdef USE_HBOOK
-  if ( TYPE_FLAG == IFILETYPE_HBOOK ) {
-    int  LUN;
-    char TOPDIR[20] ;    
-
-    LUN = 40 + 10*OPENFLAG_NEW + TYPE_FLAG; 
-
-    if ( OPEN_FLAG == OPENFLAG_NEW ) 
-      { sprintf(TOPDIR,"%s", HBOOK_TOPDIRNAM_NEW ); }
-    else
-      { sprintf(TOPDIR,"%s", HBOOK_TOPDIRNAM_READ ); }
-          
-    OPEN_HFILE(FILENAME, LUN, stringOpt, TOPDIR, &IERR);
-    NOPEN_TABLEFILE++ ;
-  }
-#endif
-
-#ifndef USE_HBOOK
-  if ( TYPE_FLAG == IFILETYPE_HBOOK ) {
-    FMT = STRING_TABLEFILE_TYPE[TYPE_FLAG]; // "HBOOK"
-    sprintf(ENV,"CERN_DIR");                // required ENV for make
-    TABLEFILE_notCompiled_ABORT(FILENAME, FMT, ENV);  
-  }
-#endif
 
 
 #ifdef USE_ROOT
@@ -551,10 +509,6 @@ void TABLEFILE_CLOSE(char *FILENAME) {
     }
   }
 
-#ifdef USE_HBOOK
-  if(TYPE_FLAG == IFILETYPE_HBOOK)  
-    { CLOSE_HFILE(FILENAME,OPEN_FLAG);  }
-#endif
 
 #ifdef USE_ROOT
   if(TYPE_FLAG == IFILETYPE_ROOT ) 
@@ -607,7 +561,6 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
 
   // Create/Initialize new table.
   // *IDTABLE and *NAME are integer and character udentifiers.
-  // HBOOK must have an integer id, while ROOT uses a char ID.
   // TEXT_FORMAT used only for TEXT: 'key', 'csv', 'col'
   
   int  ID, USE ; 
@@ -632,12 +585,7 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
 #endif
   
 
-#ifdef USE_HBOOK
-  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ; 
-  if ( USE ) { SNTABLE_CREATE_HBOOK(IDTABLE,NAME);  }
-#endif
-
-  if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
+  // xxx mark   if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
 
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
@@ -671,13 +619,7 @@ void SNTABLE_FILL(int IDTABLE ) {
   //  char fnam[] = "SNTABLE_FILL" ;
   // -------- BEGIN ----------
 
-
-#ifdef USE_HBOOK
-  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ; 
-  if ( USE ) { SNTABLE_FILL_HBOOK(IDTABLE);  }
-#endif
-
-  if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
+  // xxx mark if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
        
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
@@ -745,13 +687,7 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
   }
 
   
-#ifdef USE_HBOOK
-  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ; 
-  if ( USE ) 
-    { SNTABLE_ADDCOL_HBOOK(IDTABLE, BLOCK, PTRVAR, &ADDCOL_VARDEF); }
-#endif
-
-  if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
+  // xxx mark if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
 
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
@@ -1099,10 +1035,9 @@ int SNTABLE_READPREP(int IFILETYPE, char *TABLENAME) {
   // Functions returns number of variables in table.
   //
   // Inputs:
-  //   IFILETYPE  : specifiies hbook, root, text ...
+  //   IFILETYPE  : specifiies root, text ...
   //   TABLENAME  : name of table to read
   //
-  // For hbook, translate table name text into ntuple id.
 
   char fnam[] = "SNTABLE_READPREP" ;
   int  NVAR, ISOPEN_DEJA, ivar ;
@@ -1137,16 +1072,6 @@ int SNTABLE_READPREP(int IFILETYPE, char *TABLENAME) {
 	    STRING_TABLEFILE_TYPE[IFILETYPE] );
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
   }
-
-
-#ifdef USE_HBOOK
-  int ID ;
-  if ( IFILETYPE == IFILETYPE_HBOOK ) {
-    ID = TABLEID_HBOOK(TABLENAME);
-    sprintf(TBNAME_LOCAL, "%d", ID); //hbook table must be int ID
-    NVAR = SNTABLE_READPREP_HBOOK(ID);
-  }
-#endif
 
 
 #ifdef USE_ROOT
@@ -1564,12 +1489,6 @@ int SNTABLE_READ_EXEC(void) {
 
   NROW = -777 ;
 
-#ifdef USE_HBOOK
-  if ( IFILETYPE == IFILETYPE_HBOOK ) {
-    NROW = SNTABLE_READ_EXEC_HBOOK();
-  }
-#endif
-
 
 #ifdef USE_ROOT
   if ( IFILETYPE == IFILETYPE_ROOT ) {
@@ -1614,12 +1533,6 @@ void SNTABLE_LIST(char *FILENAME) {
 
   TABLEFILE_INIT_VERIFY(fnam, msg) ;
 
-#ifdef USE_HBOOK
-  if ( ISFILE_HBOOK(FILENAME) )  { 
-      SNTABLE_LIST_HBOOK(FILENAME) ; 
-      FOUND_FILE = 1; 
-  }
-#endif
 
 #ifdef USE_ROOT
   if ( ISFILE_ROOT(FILENAME) )  { 
@@ -1705,13 +1618,6 @@ void SNTABLE_DUMP_VARNAMES(char *FILENAME, char *TABLENAME) {
   sprintf(msg,"Dump Table = '%s'", TABLENAME);
   TABLEFILE_INIT_VERIFY(fnam, msg) ;
 
-#ifdef USE_HBOOK
-  if ( ISFILE_HBOOK(FILENAME) ) {
-    int NTID = atoi(TABLENAME);
-    SNTABLE_DUMP_VARNAMES_HBOOK(FILENAME,NTID) ;
-    FOUND_FILE = 1; 
-  }
-#endif
 
 #ifdef USE_ROOT
   if ( ISFILE_ROOT(FILENAME) )  { 
@@ -1737,7 +1643,7 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   // rows dumped.
   // 
   // Inputs:
-  //  FILENAME     name of table file to read (hbook or root)
+  //  FILENAME     name of table file to read (text or root)
   //  TABLENAME    name of table to read
   //  NVAR:        number of variables to read from table
   //  **VARLIST    list of variable names in table
@@ -1982,7 +1888,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   // your own memory, or if you need a fortran interface.
   // 
   // Inputs:
-  //  *fileName  : name of file, any format (root, hbook or ascii)
+  //  *fileName  : name of file, any format (root or ascii)
   //  *tableName : name of table to read
   //  *varList   : comma-separated list of variables to read/store
   //               varList = 'ALL' --> read everything.
@@ -2050,7 +1956,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   SNTABLE_AUTOSTORE[NF].NROW = 0 ;
   SNTABLE_AUTOSTORE[NF].IFILETYPE = -9;
 
-  // open file and return file type(root,hbook,text)
+  // open file and return file type(root,text)
   IFILETYPE = TABLEFILE_OPEN(fileName,readOpt) ;
   SNTABLE_READPREP(IFILETYPE,tableName );
 
@@ -2551,7 +2457,7 @@ void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES) {
   // CID/GALID.
   // Beware: works only for TEXT format
 
-  int  ISOPEN_DEJA, ISTYPE_HBOOK, ISTYPE_ROOT, ISTYPE_TEXT ;
+  int  ISOPEN_DEJA, ISTYPE_ROOT, ISTYPE_TEXT ;
   char fnam[] = "SNTABLE_VARNAMES";
 
   // ------- BEGIN ---------
@@ -2586,7 +2492,7 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   //
 
   int  ID ;
-  int  ISOPEN_DEJA, ISTYPE_HBOOK, ISTYPE_ROOT, ISTYPE_TEXT ;
+  int  ISOPEN_DEJA, ISTYPE_ROOT, ISTYPE_TEXT ;
   int  NEVT = 0 ;
   char msg[80] ;
   char fnam[] = "SNTABLE_NEVT";
@@ -2596,17 +2502,8 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   sprintf(msg,"search NROW from table = %s", TABLENAME);
   TABLEFILE_INIT_VERIFY(fnam, msg) ;
 
-  ISTYPE_HBOOK = ISTYPE_ROOT = ISTYPE_TEXT = 0 ;
+  ISTYPE_ROOT = ISTYPE_TEXT = 0 ;
 
-#ifdef USE_HBOOK
-  ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_HBOOK] ;
-  ISTYPE_HBOOK = ISFILE_HBOOK(FILENAME) ;
-  if ( ISOPEN_DEJA || ISTYPE_HBOOK ) {
-    ID   = TABLEID_HBOOK(TABLENAME) ;
-    NEVT = SNTABLE_NEVT_HBOOK(FILENAME,ID) ; 
-    return(NEVT);
-  }
-#endif
 
 
 #ifdef USE_ROOT
@@ -2652,11 +2549,6 @@ void SNHIST_INIT(int NDIM, int ID, char *TITLE,
     TABLEFILE_notOpen_ABORT(fnam, comment );
   }
   
-#ifdef USE_HBOOK
-  if ( SNLCPAK_USE_HBOOK ) 
-    { SNHIST_INIT_HBOOK( NDIM, ID, TITLE, NBIN, XMIN, XMAX ) ; }
-#endif
-
 
 #ifdef USE_ROOT
   if ( SNLCPAK_USE_ROOT ) 
@@ -2675,11 +2567,6 @@ void SNHIST_FILL(int NDIM, int ID, double *VALUE, double WGT) {
   
   // ---------------- BEGIN ----------
   
-#ifdef USE_HBOOK
-  if ( SNLCPAK_USE_HBOOK ) 
-    { SNHIST_FILL_HBOOK(NDIM,ID,VALUE,WGT); }
-#endif
-
 #ifdef USE_ROOT
   if ( SNLCPAK_USE_ROOT ) 
     { SNHIST_FILL_ROOT(NDIM,ID,VALUE,WGT); }
@@ -2721,13 +2608,6 @@ void SNHIST_RDBINS(int NDIM, int ID, char *CTIT, int *NBIN,
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
   }
 
-#ifdef USE_HBOOK
-  ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_HBOOK] ;
-  if ( ISOPEN_DEJA ) { 
-    SNHIST_RDBINS_HBOOK(NDIM,ID,CTIT,NBIN,XMIN,XMAX); 
-    return ;
-  }
-#endif
 
 #ifdef USE_ROOT
   ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_ROOT] ;
@@ -2774,13 +2654,6 @@ void SNHIST_RDCONT(int NDIM, int ID, int NRDBIN, double *CONTENTS) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
   }
 
-#ifdef USE_HBOOK
-  ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_HBOOK] ;
-  if ( ISOPEN_DEJA ) { 
-    SNHIST_RDCONT_HBOOK(NDIM,ID,NRDBIN,CONTENTS); 
-    return ;
-  }
-#endif
 
 #ifdef USE_ROOT
   ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_ROOT] ;
@@ -2812,7 +2685,7 @@ void MAKEDIR_OUTPUT( char *CCID, int CID ) {
 
   // create directory for this SN.
   // (I) CCID : character representation
-  // (I) CID  : integer representation (needed for HBOOK)
+  // (I) CID  : integer representation 
   //
   // if CID >= 0 then create subdir SN[CCID]
   // if CID < 0  then CCID is just a generic dirName 
@@ -2823,10 +2696,6 @@ void MAKEDIR_OUTPUT( char *CCID, int CID ) {
   // --------------- BEGIN --------------
 
   if ( NOPEN_TABLEFILE == 0 ) { return ; }
-
-#ifdef USE_HBOOK
-  if ( SNLCPAK_USE_HBOOK ) { MAKEDIR_HBOOK(CCID,CID); }
-#endif
 
 #ifdef USE_ROOT
   if ( SNLCPAK_USE_ROOT ) { MAKEDIR_ROOT(CCID,CID); }
@@ -2854,11 +2723,6 @@ void CDTOPDIR_OUTPUT(int VBOSE) {
   char fnam[] = "CDTOPDIR_OUTPUT" ;
 
   if ( NOPEN_TABLEFILE == 0 ) { return ; }
-
-#ifdef USE_HBOOK
-  NEW = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ;
-  if ( NEW && SNLCPAK_USE_HBOOK ) { CDTOPDIR_HBOOK(VBOSE);  }
-#endif
 
 #ifdef USE_ROOT
   NEW = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ;
@@ -2896,7 +2760,6 @@ void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
 
   print_banner(BANNER) ;
 
-  SNLCPAK_USE_HBOOK = 0 ; 
   SNLCPAK_USE_ROOT  = 0 ; 
   SNLCPAK_USE_TEXT  = 0 ; // Sep 7 2014
   SNLCPAK_USE_HDF5  = 0 ; 
@@ -2959,10 +2822,6 @@ void SNLCPAK_SURVEY(void) {
   // Store global info such as name of survey, filters, etc ...
 
   //  char fnam[] = "SNLCPAK_SURVEY" ;
-
-#ifdef USE_HBOOK
-  if ( SNLCPAK_USE_HBOOK ) { SNLCPAK_SURVEY_HBOOK(); }
-#endif
 
 #ifdef USE_ROOT
   if ( SNLCPAK_USE_ROOT ) { SNLCPAK_SURVEY_ROOT(); }
@@ -3185,11 +3044,6 @@ void SNLCPAK_FILL(char *CCID) {
   SNLCPAK_FILL_PREP();
   NCALL_SNLCPAK_FILL++ ;  
 
-#ifdef USE_HBOOK
-  if ( SNLCPAK_USE_HBOOK  ) { SNLCPAK_FILL_HBOOK(); }
-#endif
-
-
 #ifdef USE_ROOT
   if ( SNLCPAK_USE_ROOT  ) { SNLCPAK_FILL_ROOT(); }
 #endif
@@ -3325,7 +3179,7 @@ void SNLCPAK_CHECK(char *CCID, char *comment) {
 
 // ==========================================
 //    SPECPAK functions (April 2019)
-//    Only for TEXT output to feed external plotter. Ignore ROOT,HBOOK.
+//    Only for TEXT output to feed external plotter. Ignore ROOT
 // ==========================================
 
 
@@ -3344,7 +3198,6 @@ void SPECPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *TEXT_FORMAT) {
 
   print_banner(BANNER) ;
 
-  SPECPAK_USE_HBOOK = 0 ; 
   SPECPAK_USE_ROOT  = 0 ; 
   SPECPAK_USE_TEXT  = 0 ; // Sep 7 2014
   SPECPAK_USE_MARZ  = 0 ;
@@ -3491,7 +3344,7 @@ void SPECPAK_FILL(char *CCID) {
 
   NCALL_SPECPAK_FILL++ ; 
 
-  // do nothing for HBOOK or ROOT ... only for TEXT.
+  // do nothing for ROOT ... only for TEXT.
 
 #ifdef USE_TEXT
   if ( SPECPAK_USE_TEXT  ) { SPECPAK_FILL_TEXT(); }
@@ -3513,33 +3366,12 @@ void specpak_fill__(char *CCID) {  SPECPAK_FILL(CCID); }
 /*  =======================================
       ISFILE_XXX function
 
-   These functions are usable regardless of whether hbook,root
-   are defined, so at least we can figure out the file type.
+   These functions are usable regardless of format,
+   so at least we can figure out the file type.
 
  =========================================== */
 
 
-// ==============================
-int ISFILE_HBOOK(char *fileName) {
-
-  // returns true if suffix corresponds to hbook.
-
-#define NSUFFIX_HBOOK 6
-  int   isuf ;
-  char  SUFFIX_HBOOK[NSUFFIX_HBOOK][8] = 
-    { 
-      ".his" ,  ".HIS", 
-      ".tup",   ".TUP", 
-      ".hbook", ".HBOOK"  
-    } ;
-  
-  for ( isuf=0; isuf<NSUFFIX_HBOOK; isuf++ ) {
-    if ( strstr(fileName, SUFFIX_HBOOK[isuf] ) != NULL )  { return 1 ; }
-  }
-  
-  return 0;
-
-} // end of ISFILE_HBOOK
 
 // ==============================
 int ISFILE_ROOT(char *fileName) {

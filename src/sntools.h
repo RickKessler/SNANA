@@ -725,7 +725,6 @@ void load_PySEDMODEL_CHOICE_LIST(void) ;
 #define EXIT_ERRCODE_sntable_dump   14
 #define EXIT_ERRCODE_wfit           15
 #define EXIT_ERRCODE_merge_root     16
-#define EXIT_ERRCODE_merge_hbook    17
 #define EXIT_ERRCODE_UNKNOWN        99
 
 // define old useful functions for reading/parsing input file

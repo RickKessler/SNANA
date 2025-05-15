@@ -15,6 +15,7 @@
 # Sep 10 2020: minor refactor with BYOSED -> PySEDMODEL
 # Jun 10 2022: check VERSION_LIBPYTHON instead of SNANA_PYTHON_DIR
 # Jun 20 2023: remove USE_BAYESN/YAML_DIR/INCFILE_BAYESN from lists
+# May 15 2025: remove obsolete hbook dependence (preparing for automake)
 #
 import os
 import sys
@@ -29,9 +30,15 @@ INCFILE_BAYESN     = '../src/genmag_BAYESN.h'
 INCFILE_ZPDF_SPLINE= '../src/sntools_zPDF_spline.h'
 
 
-LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON', 'GSL_INTERP_STEFFEN' ]
-LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON', 'GSL_DIR 2.0' ]
-LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL, INCFILE_ZPDF_SPLINE ]
+# xxxxxxxxxxxxxx mark delete May 15 2025 (get rid of hbook) 
+#xxxLIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON', 'GSL_INTERP_STEFFEN' ]
+#xxxLIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON', 'GSL_DIR 2.0' ]
+#xxxLIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL, INCFILE_ZPDF_SPLINE ]
+#xxxxxxxxxxx end mark 
+
+LIST_CFLAG     = [ 'USE_ROOT' , 'USE_PYTHON', 'GSL_INTERP_STEFFEN' ]
+LIST_ENV       = [ 'ROOT_DIR' , 'VERSION_LIBPYTHON', 'GSL_DIR 2.0' ]
+LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_PySEDMODEL, INCFILE_ZPDF_SPLINE ]
 NCFLAG         = len(LIST_CFLAG)
 
 

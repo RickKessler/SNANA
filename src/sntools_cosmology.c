@@ -139,7 +139,7 @@ void write_HzFUN_FILE(HzFUN_INFO_DEF *HzFUN_INFO ) {
 
   fp = fopen(outFile,"wt");
   if ( !fp ) {
-    sprintf(c1err,"Unable to open '%s' in write-text mode");
+    sprintf(c1err,"Unable to open '%s' in write-text mode", outFile );
     sprintf(c2err,"Check permisssions and if file already exists.") ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }

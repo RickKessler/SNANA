@@ -9806,7 +9806,7 @@ void DUMP_GROUPID(int igal_start, int igal_end ) {
 
   printf(" %s for GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n",
 	 fnam, SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
-  printf("\t print subset with AngSep < %.0f degrees\n", fnam, ANGSEP_MAX);
+  printf("\t print subset with AngSep < %.0f degrees\n", ANGSEP_MAX);
   printf("\n");
 
   printf("                                                  AngSep \n" );

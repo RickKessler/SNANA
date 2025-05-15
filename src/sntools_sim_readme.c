@@ -110,7 +110,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   }
 
   if ( i > MXDOCLINE ) {    
-    sprintf(c1err,"%d DOCANA lines exceeds bound of MXDOCLINE=%d", i);
+    sprintf(c1err,"%d DOCANA lines exceeds bound of MXDOCLINE=%d", i, MXDOCLINE);
     sprintf(c2err,"Consider increasing MXDOCLINE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
@@ -1282,7 +1282,7 @@ void readme_docana_searcheff(int *iline, char *pad) {
 
   if ( INPUTS_SEARCHEFF.USER_SPECEFF_SCALE != 1.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%-*s %s", 
+    sprintf(cptr,"%s%-*s %f", 
 	    pad, lenkey, "SEARCHEFF_SPEC_SCALE:", INPUTS_SEARCHEFF.USER_SPECEFF_SCALE);
   }
   

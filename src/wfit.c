@@ -1472,12 +1472,12 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
   }
   if ( IVAR_MUERR < 0 ) {
     sprintf(c1err,"Could not find required distance-uncertainty column:");
-    sprintf(c2err,"MUERR or DLMAGERR or MUDIFERR", inFile);
+    sprintf(c2err,"MUERR or DLMAGERR or MUDIFERR");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
   if ( IVAR_zHD < 0 ) {
     sprintf(c1err,"Could not find required redshift column:");
-    sprintf(c2err,"zHD or z or Z or zCMB", inFile);
+    sprintf(c2err,"zHD or z or Z or zCMB");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
@@ -1731,7 +1731,7 @@ bool read_ISDATA_REAL(char *inFile) {
   // If ISDATA_REAL is not found, abort 
 
   FILE *fp;
-  int gzipFlag;
+  int gzipFlag, ITMP;  
   bool FOUND_KEY_ISDATA = false, ISDATA_REAL ;
   char locFile[MXPATHLEN];
   char fnam[] = "read_ISDATA_REAL" ;
@@ -1755,7 +1755,9 @@ bool read_ISDATA_REAL(char *inFile) {
       { break; }
 
     if ( strcmp(c_get,KEYNAME_ISDATA_REAL) == 0 )  { 
-      fscanf(fp, "%d", &ISDATA_REAL);  
+      // xxx mark delete May 14 2025 fscanf(fp, "%d", &ISDATA_REAL);  
+      fscanf(fp, "%d", &ITMP);  
+      ISDATA_REAL = (ITMP > 0 ) ;
       FOUND_KEY_ISDATA = true;
       break; 
     }
@@ -2283,7 +2285,7 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) {
   } // end NDIF
   
   zdif_avg = zdif_sum / (double)NSN;
-  printf("\t <zdif>= %le  zdif_max=%le\n", fnam, zdif_avg, zdif_max);
+  printf("\t <zdif>= %le  zdif_max=%le\n", zdif_avg, zdif_max);
   fflush(stdout);
 
   free(zdif_list); free(mu1dif_list);
@@ -2909,17 +2911,20 @@ void set_stepsizes(void) {
   printf("\n");
   printf("   --------   Grid parameters   -------- \n");
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
-	 varname_w, varname_w, 
-	 INPUTS.w0_min, INPUTS.w0_max, INPUTS.w0_steps, INPUTS.w0_stepsize);
+	 varname_w, INPUTS.w0_min,
+	 varname_w, INPUTS.w0_max, 
+	 INPUTS.w0_steps, INPUTS.w0_stepsize);
   
   if( INPUTS.dofit_w0wa ){
     printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
-	   varname_wa, varname_wa, 
-	   INPUTS.wa_min, INPUTS.wa_max, INPUTS.wa_steps, INPUTS.wa_stepsize);
+	   varname_wa, INPUTS.wa_min,
+	   varname_wa, INPUTS.wa_max,
+	   INPUTS.wa_steps, INPUTS.wa_stepsize);
   }
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
-	 varname_omm, varname_omm, 
-	 INPUTS.omm_min, INPUTS.omm_max, INPUTS.omm_steps, INPUTS.omm_stepsize);
+	 varname_omm, INPUTS.omm_min,
+	 varname_omm, INPUTS.omm_max,
+	 INPUTS.omm_steps, INPUTS.omm_stepsize);
 
   printf("   ------------------------------------\n");
 
@@ -3081,7 +3086,7 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
 
     if ( k == HD0->NSN-1 ) {
       printf("\t    Diagnostic: max|rz(interp)/rz(exact) - 1| "
-	     "= %8.2le \n",  fnam, WORKSPACE.rz_dif_max); fflush(stdout);
+	     "= %8.2le \n",  WORKSPACE.rz_dif_max);  fflush(stdout);
     }
   }
 

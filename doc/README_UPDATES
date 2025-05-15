@@ -22886,6 +22886,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     Create_covariance.py:  restore missing ISDATA_REAL flag in INFO.YML (May 13 2025)
 
+    genmag_mlvs2k2.c:
+      + fix abs(...) to fabs(...) which causes very small changes for regression test.
+
          *****  USEFUL(v11_05t) *****
 	 	
     New util make_spectrograph_table.py; see new manual section
@@ -22974,5 +22977,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + add new (optional) speed trick to stop chi2(diag) > threshold;
        speed_flag_chi2=7 (default is 3) 
      + -ranseed_Rcmb now works on -ompri
+
+
+# =============================================================
+         v11_05u (May 14 2025) <-- start date of git tag
+
+         *****  IMPORTANT(v11_05u) *****
+
+         *****  USEFUL(v11_05u) *****
+
+         *****  USEFUL(v11_05u) *****
 
 END: 

@@ -5310,13 +5310,13 @@ void RD_SNFITSIO_SPECDATA(int irow,
   icol++ ; ;  
   fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
 		    LAMMIN, &anynul, &istat ); 
-  sprintf(c1err,"Read LAMMIN for spectrum", snfitsType[itype] ) ;
+  sprintf(c1err,"Read LAMMIN for spectrum" ) ;
   snfitsio_errorCheck(c1err, istat);
   
   icol++ ; ;  
   fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
 		    LAMMAX, &anynul, &istat ); 
-  sprintf(c1err,"Read LAMMAX for spectrum", snfitsType[itype] ) ;
+  sprintf(c1err,"Read LAMMAX for spectrum" ) ;
   snfitsio_errorCheck(c1err, istat);    
 
   // - - - -

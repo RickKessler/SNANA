@@ -2935,7 +2935,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   if ( strstr(word0,"END")       != NULL ) { DONE_OBS = true; }
   if ( strcmp(word0,"NSPECTRA:") == 0    ) { DONE_OBS = true; }
-  if ( DONE_OBS ) { *iwd_file--; return false; }
+  if ( DONE_OBS ) { *iwd_file-- ; return false; }
 
 
   if ( strcmp(word0,"OBS:") == 0 ) {

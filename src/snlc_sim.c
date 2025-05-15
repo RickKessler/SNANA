@@ -15827,7 +15827,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_ind[3][20] = { "SIM_TEMPLATE_INDEX", "NON1A_INDEX", "NONIA_INDEX" };
   for ( i=0; i < 3; i++ )  {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,strList_ind[i]);
+    sprintf(cptr, "%s", strList_ind[i]); 
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -24303,7 +24303,7 @@ void snlc_to_SNDATA(int FLAG) {
   sprintf(SNDATA.NAME_IAUC,      "%s", "NONE" );
   sprintf(SNDATA.NAME_TRANSIENT, "%s", "NONE" );
 
-  if ( INPUTS.APPEND_SNID_SEDINDEX ) 
+  if ( INPUTS.APPEND_SNID_SEDINDEX > 0 ) 
     { sprintf(SNDATA.CCID, "%d-%d", SNDATA.CID, GENLC.TEMPLATE_INDEX ); } 
 
   SNDATA.SUBSAMPLE_INDEX = GENLC.SUBSAMPLE_INDEX ;
@@ -31810,10 +31810,10 @@ void DUMP_GENMAG_DRIVER(void) {
 	fprintf(FPDMP,"ROW: %8d  %s  %6.2f  %6.2f  %.3f  %.3f \n",
 		NROW, cfilt, Trest, shapepar,  magtmp, magerrtmp );
 
-	if ( fabsf(Trest) < .001 ) {
+	if ( fabs(Trest) < .001 ) {
 	  DM15_CALC[ifilt_obs][ishape]  = -magtmp ;
 	}
-	if ( fabsf(Trest-15.0) < .001 ) {
+	if ( fabs(Trest-15.0) < .001 ) {
 	  DM15_CALC[ifilt_obs][ishape] +=  magtmp ;
 	  fprintf(FPDMP,"DM15_CALC[%s] = %.3f\n",
 		  cfilt, DM15_CALC[ifilt_obs][ishape] );

@@ -363,8 +363,8 @@ SNTOOLS_OUTPUT = \
 
 # ------------------------------------------------------
 
-LIBSNANA  =   $(LIB)/libsnana.a
-LIBSNFIT  =   $(LIB)/libsnfit.a
+#xxx LIBSNANA  =   $(LIB)/libsnana.a
+#xxx LIBSNFIT  =   $(LIB)/libsnfit.a
 
 CLEAN_FILES =  $(FPP_EXECUTABLES)  $(EXECUTABLES)
 
@@ -377,8 +377,6 @@ debug:  all
 
 clean:
 	rm -f $(CLEAN_FILES) $(OBJ)/*.o
-	rm -rf $(TMPANA)
-	rm -rf $(TMPFIT)
 
 # -----------------------------------
 # set define statements in sntools_output.c to pick HBOOK and/or ROOT
@@ -458,31 +456,6 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o 
 	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	(cd $(OBJ);  rm SALT2mu.o ) 
 
-# -----------------------------------------------------
-# May 2006: 
-#   make libsnana.a fortran library for access by C-code
-#   Note that "main.o" is excluded from library
-#
-
-$(LIB)/libsnana.a:   snana.car
-	for item in  snana ; do \
-	    rm -f $$item.lnk; \
-	    ln -s $(SRC)/$$item.car $$item.lnk; \
-	done
-	@ rm -rf $(TMPANA)
-	mkdir $(TMPANA)
-	$(UTIL)/ypatchy.pl - $(TMPANA)/snana.f snana.cra .go
-	rm snana.lnk 
-	(cd $(TMPANA); \
-	    ../$(BIN)/fcasplit -f gfortran snana.f "$(SNFFLAGS)" " " ; \
-	    echo "Compiling"; \
-	    . ./snana.shfca; \
-	)
-	echo "Creating Library"; \
-	rm -f $(TMPANA)/main.o
-	ar cr $@ $(TMPANA)/*.o
-	rm -f $(TMPANA)/*.o
-	rm -f $(TMPANA)/*.f
 
 
 # -------------------------------------------------
@@ -925,7 +898,6 @@ $(BIN)/snlc_sim.exe : $(OBJ_SIM)
 	$(LPY)  $(LCERN) $(LROOT)  -lm  $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
-#	$(LIB)/libsnana.a  	\
 # -------------------------------------------------
 # program to compact the SIMLIB into one measure per night
 
@@ -992,8 +964,6 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/MWgaldust.o \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_fudge.o )
-
-#	$(LIB)/libsnana.a  \
 
 
 # -------------
@@ -1128,7 +1098,6 @@ $(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
 	$(CC) $(SNCFLAGS)  $(SRC)/kdtree.c )
 
 # nearnbr_maxFoM (Jun 2013)
-# Link to libsnana.a to get forclose(LUN) wrapper
 
 $(OBJ)/nearnbr_maxFoM.o : $(SRC)/nearnbr_maxFoM.c $(SNTOOLS_OUTPUT)
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \

@@ -32,9 +32,10 @@ AM_CFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
 
 sntable_dump_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
+sntable_combine_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
 # --------------------------------------------
-bin_PROGRAMS = sntable_dump
+bin_PROGRAMS = sntable_dump sntable_combine
 
 
 SNTOOLS_OUTPUT = \
@@ -43,4 +44,4 @@ SNTOOLS_OUTPUT = \
 sntable_dump_SOURCES = sntable_dump.c sntools.c sntools_output.cpp
 
 
-
+sntable_combine_SOURCES = sntable_combine.c sntools.c sntools_output.cpp

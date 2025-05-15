@@ -22,8 +22,14 @@ AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [GSLLIB="-lgsl"], [], [$LIBS])
 AC_SUBST([GSLLIB])
 AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [AC_MSG_ERROR([cfitsio library not found. Please install CFITSIO.])], [$LIBS])
 AC_SUBST([CFITSIOLIB])
-#AC_CHECK_LIB([curl], [curl_easy_init], [CURLLIB="-lcurl"], [], [$LIBS])
-#AC_SUBST([CURLLIB])
+
+AC_ARG_VAR(ROOTSYS)
+if test -n "$ROOTSYS"; then
+  root_avail=yes
+  AM_CONDITIONAL([USE_ROOT], [test "x$root_avail" = "xyes"])
+  AC_SUBST(USE_ROOT) 
+  echo "ROOTSYS is set to: $ROOTSYS"
+fi
 
 dnl set up C++ 17 flags
 m4_include([m4/m4_ax_cxx_compile_stdcxx.m4])

@@ -357,7 +357,7 @@ OBJ_SIM	 = 	\
 # list of dependencies for sntools_output.o
 
 SNTOOLS_OUTPUT = \
-	$(SRC)/sntools_output.c \
+	$(SRC)/sntools_output.cpp \
 	$(SRC)/sntools_output.h \
 	$(SRC)/sntools_output_hbook.c \
 	$(SRC)/sntools_output_marz.c \
@@ -382,7 +382,7 @@ clean:
 	rm -f $(CLEAN_FILES) $(OBJ)/*.o
 
 # -----------------------------------
-# set define statements in sntools_output.c to pick HBOOK and/or ROOT
+# set define statements in sntools_output.cpp to pick HBOOK and/or ROOT
 # based on existance of $CERN_DIR and $ROOT_DIR.
 set_Cpreproc_flags :
 	$(UTIL)/set_Cpreproc_flags.py
@@ -444,7 +444,7 @@ $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_n
 # SALT2mu : convert SALT2 parameters (c,x1,x0) into distances
 
 
-$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F
+$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.cpp $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
 $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o $(OBJ)/sntools_gridmap.o $(OBJ)/sntools_genGauss_asym.o $(OBJ)/sntools_genExpHalfGauss.o
@@ -772,7 +772,7 @@ $(OBJ)/sntools_spectrograph.o : $(SRC)/sntools_spectrograph.c  $(SRC)/sntools_sp
 
 $(OBJ)/sntools_output.o : $(SNTOOLS_OUTPUT)
 	(cd $(OBJ); \
-	$(CCoutput) $(SNCFLAGS) $(IROOT) $(ICFITSIO) $(SRC)/sntools_output.c )
+	$(CCoutput) $(SNCFLAGS) $(IROOT) $(ICFITSIO) $(SRC)/sntools_output.cpp )
 
 # -------------------------------------------------
 #   MWgaldust from D.Cinabro (.o only)

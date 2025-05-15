@@ -22988,7 +22988,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v11_05u) *****
 
-    Makefile:
-      + remove -static to prepare for automake
+    Changes to prepare for automake:
+      + remove -static in Makefile
+      + rename sntools_output.c -> sntools_output.cpp
+
 
 END: 

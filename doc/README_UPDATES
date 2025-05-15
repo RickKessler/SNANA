@@ -22986,6 +22986,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v11_05u) *****
 
-         *****  USEFUL(v11_05u) *****
+         *****  MISCELLANEOUS(v11_05u) *****
+
+    Makefile:
+      + remove -static to prepare for automake
 
 END: 

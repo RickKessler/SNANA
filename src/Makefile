@@ -164,13 +164,16 @@ endif
 
 # --------------------------------------------
 # set compile flags.
+STATIC = -static
+STATIC = 
+
 ifeq ($(BITNESS),i686)
-   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS_FORTRAN)
-   SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
+   SNFFLAGS  = -c $(STATIC) -fno-automatic -fsecond-underscore $(EXTRA_FLAGS_FORTRAN)
+   SNCFLAGS  = -c $(STATIC) -m64 $(EXTRA_FLAGS)
    SNLDFLAGS = -m64 -lg2c -lpthread $(PROFILEFLAG)
 else
-   SNFFLAGS  = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS_FORTRAN)
-   SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS_C)
+   SNFFLAGS  = -c $(STATIC) -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS_FORTRAN)
+   SNCFLAGS  = -c $(STATIC) -m64 $(EXTRA_FLAGS_C)
    SNLDFLAGS = -m64 -lpthread $(PROFILEFLAG)
 endif
 
@@ -180,11 +183,11 @@ endif
 ifeq ($(OSNAME),Darwin)
    OSXBITNESS = $(shell uname -m)
 ifeq ($(OSXBITNESS),x86_64)
-   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore -m64
+   SNFFLAGS  = -c $(STATIC) -fno-automatic -fsecond-underscore -m64
    SNCFLAGS  = -c -mdynamic-no-pic -m64
    SNLDFLAGS =
 else
-   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore -m64
+   SNFFLAGS  = -c $(STATIC) -fno-automatic -fsecond-underscore -m64
    SNCFLAGS  = -c -mdynamic-no-pic -m64
    SNLDFLAGS =
 endif

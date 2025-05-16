@@ -30,10 +30,8 @@ parser=argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, prefix_char
 from scipy.stats    import binned_statistic
 from scipy.optimize import curve_fit
 
-#from lmfit import Model
-
 from collections import Counter
-#import distutils.util 
+
 
 # ====================
 # globals
@@ -135,10 +133,10 @@ FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
 # First 3 histograms are solid with different line thickness;
 # next 3 are dashed; next 3 are dot-dashed.
 HIST_LINE_ARGS = [
-    (2.0,'-' ), (1.6, '-' ), (1.2, '-' ),   # solid
+    (2.0,'-' ), (1.6, '-' ), (1.2, '-' ),   # solid 
     (2.0,'--'), (1.6, '--'), (1.2, '--'),   # dashed
-    (2.0,':' ), (1.6, ':' ), (1.2, ':' ),   # dot-dashed
-    (None,None)  # dummy that has no comma
+    (2.0,':' ), (1.6, ':' ), (1.2, ':' ),   # dot-dashed 
+    (None,None)  # dummy that has no comma at end of line
 ]
 
 
@@ -152,6 +150,18 @@ DEBUG_FLAG_REFAC           =  2
 DEBUG_FLAG_LEGACY          = -2
 DEBUG_FLAG_DUMP_TRANSLATE  =  3
 DEBUG_FLAG_DUMP_TRANSLATE2 =  33  # info dump for each char of @V and @@CUT string
+
+
+# hack flags from @@hack input; used to make subtle refinements for a paper
+# without waiting to add more formal input flag
+HACK_FLAG_OpenUniverse24 =  1
+HACK_FLAG_HELP           = 99
+
+HACK_FLAG_DICT = {
+    'OpenUniverse2024'  : HACK_FLAG_OpenUniverse24,
+    'help'              : HACK_FLAG_HELP
+}
+
 
 # ================================
 
@@ -596,6 +606,9 @@ def get_args():
     msg = "debug options (for development only)"
     parser.add_argument('@@DEBUG_FLAG', "@@debug_flag", help=msg, type=int, default=0)    
 
+    msg = f"integer hack flag for publication (help={HACK_FLAG_HELP})"
+    parser.add_argument('@@HACK_FLAG', "@@hack_flag", help=msg, type=int, default=0)    
+
     msg = "Full help menu printed to stdout"
     parser.add_argument('@H', '@@HELP', help=msg, action="store_true")
 
@@ -603,6 +616,9 @@ def get_args():
     
     if args.HELP:
         print_help()    
+
+    if args.HACK_FLAG == HACK_FLAG_HELP:
+        dummy = hack_value('DUMMY', 0, args)
 
     return args
 
@@ -1833,6 +1849,7 @@ def plotter_func_driver(args, plot_info):
     xbins          = bounds_dict['xbins']
     xbins_cen      = bounds_dict['xbins_cen']    
     # - - - - - - - 
+    HIST_LINES = hack_value('HIST_LINE_ARGS', HIST_LINE_ARGS, args)
 
     numplot = 0
     numplot_tot = len(MASTER_DF_DICT)
@@ -1886,8 +1903,8 @@ def plotter_func_driver(args, plot_info):
         plt_alpha   = df_dict['alpha']  # fixed by user
         plt_marker  = df_dict['marker'] # fixed by user
 
-        lwid = HIST_LINE_ARGS[numplot][0]  # for 1D hist only
-        lsty = HIST_LINE_ARGS[numplot][1]          
+        lwid = HIST_LINES[numplot][0]  # for 1D hist only
+        lsty = HIST_LINES[numplot][1]          
         # - - - - -        
         
         if do_plot_errorbar :
@@ -2595,12 +2612,13 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     
     # - - - - -
     fsize_legend   = 10 * args.FONTSIZE_SCALE
+    fsize_legend   = hack_value('fsize_legend', fsize_legend, args)
 
     if args.LEGEND != SUPPRESS:
-        #print(f"\n xxx make legend {args.legend_loc}")
         leg = plt.legend(loc = args.legend_loc, 
                          bbox_to_anchor = args.legend_bbox2anchor, 
-                         fontsize = fsize_legend, markerscale=args.LEGEND_MSCALE )
+                         fontsize       = fsize_legend, 
+                         markerscale    = args.LEGEND_MSCALE )
 
 
     len_title = len(args.TITLE)
@@ -2712,6 +2730,42 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     plt.plot(xbins_cen, yfun_cen, label=label_fit )
 
     return
+
+# =======================================================
+def hack_value(parname, value_orig, args):
+
+    # invoked by user input @@HACK_FLAG, for publications only
+    # Inputs:
+    #   + parname is internal matplotlib parname to hack (e.g., 'fsize_legend');
+    #   + args.VARNAME[0] is the name of plotted variable
+    
+
+    value_hack = value_orig
+    HACK_FLAG  = args.HACK_FLAG
+    VARNAME    = args.VARIABLE[0]
+
+    if HACK_FLAG == 0 : 
+        return value_hack
+
+    elif HACK_FLAG == HACK_FLAG_OpenUniverse24:
+        is_zcmb = VARNAME == 'ZCMB'
+        if parname == 'fsize_legend' and is_zcmb: 
+            value_hack *= 2  # double default legend size
+
+        if parname == 'HIST_LINE_ARGS' and is_zcmb:
+            # different line style per hist, and thicker than default
+            value_hack = [ (4.0,'-' ), (3.0, '--' ), (2.8, ':' ) ]
+
+    elif HACK_FLAG == HACK_FLAG_HELP:
+        print('')
+        for hack_name, hack_flag in HACK_FLAG_DICT.items():
+            print(f"\t @@hack_flag = {hack_flag:2d} for {hack_name}")
+        sys.exit("\n Bye.")
+    else:
+        sys.exit(f"\n ERROR: invalid hack_flag = {HACK_FLAG}")
+
+    return value_hack
+    # end hack_value
 
 # ===============================================
 # Simple fit functions (Mar 2025)

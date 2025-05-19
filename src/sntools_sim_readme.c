@@ -846,9 +846,16 @@ void readme_docana_genmodel(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "wa_LAMBDA:", noComment,
 		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
 
-  dval = (double)INPUTS.MUSHIFT ;
+  if ( strlen(INPUTS.STRING_MUSHIFT) > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr, "%sMUSHIFT:    %s", pad, INPUTS.STRING_MUSHIFT);
+  }
+
+  /* xxx mark delete May 20 2025 xxxxxx
+  dval = (double)INPUTS.MUSHIFT[0] ;
   VERSION_INFO_load(&i, pad, "MUSHIFT:", noComment,
 		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
+  xxxxxxx end mark xxxxxxx */
 
   // - - - - 
   // check extra cosmology keys

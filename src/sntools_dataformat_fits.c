@@ -492,6 +492,7 @@ void wr_snfitsio_init_head(void) {
 
     wr_snfitsio_addCol( "1E",  "SIM_DLMU"           , itype );
     wr_snfitsio_addCol( "1E",  "SIM_LENSDMU"        , itype );
+    wr_snfitsio_addCol( "1E",  "SIM_MUSHIFT"        , itype ); // May 2025 
     wr_snfitsio_addCol( "1D",  "SIM_RA"             , itype );
     wr_snfitsio_addCol( "1D",  "SIM_DEC"            , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MWEBV"          , itype );
@@ -1971,6 +1972,12 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_LENSDMU ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_LENSDMU", itype );
+
+  // May 2025 user-defined MUSHIFT
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MUSHIFT ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_MUSHIFT", itype );
+
 
   // SIM_RA/DEC
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3544,6 +3551,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_LENSDMU", &SNDATA.SIM_LENSDMU ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, "SIM_MUSHIFT", &SNDATA.SIM_MUSHIFT,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_RA", &SNDATA.SIM_RA ,

@@ -1231,10 +1231,6 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   // March 18, 2010 R.Kessler
   // read SALT2.INFO file (or SALT3.INFO), and fill SALT2_INFO structure
   // 
-  // Aug  2, 2010: read COLORLAW_VERSION: <version>
-  // May  2, 2011: read SEDFLUX_INTERP_OPT 
-  // Nov 24, 2011: read MAG_OFFSET
-  // Oct 25, 2015: read optional RESTLAM_FORCEZEROFLUX
   // Sep 03, 2020: pass REQUIRE_DOCANA arg
   // Sep 17, 2020: read and use NPAR_POLY from COLORLAW line
   // Nov 10, 2020: read MAGSHIFT and WAVESHIFT keys

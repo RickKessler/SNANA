@@ -14,6 +14,7 @@
 # Mar 31 2025: add @@LEGEND_UL and @@LEGEND_UR options
 # Apr 21 2025: fix fit chi2 calc to work for 2D plot where @ERROR is given for y-axis.
 # May 15 2025: new @@LEGEND_MSCALE to scale size of marker(s) in legend
+# May 16 2025: add @@HACK_FLAG option and method hack_value for publication plots
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip

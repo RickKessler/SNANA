@@ -683,7 +683,10 @@ struct INPUTS {
   double w0_LAMBDA;
   double wa_LAMBDA;    // w = w0 + wa*(1-a)
   double H0;           // km/s per MPc
-  double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020)
+
+  char   STRING_MUSHIFT[60]; // e.g. '0.05:0.1' or just '0.05'  May 2025
+  double MUSHIFT[2];      // coherent MU shift at all redshifts (random between range)
+
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
   HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
   ANISOTROPY_INFO_DEF ANISOTROPY_INFO ;
@@ -1080,6 +1083,7 @@ struct GENLC {
   int    REDSHIFT_FLAG  ;   // indicates source of redshift
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
+  double MUSHIFT;            // user MUSHIFT
   double LENSDMU;            // weak lensing DMU (Apr 2017)
   double LENSDMU_SMEAR ;     // measured LENSDMU (Aug 2024)  
   double SL_MAGSHIFT;        // magshift from strong lens magnification
@@ -2039,7 +2043,7 @@ void   genshift_risefalltimes(void);
 
 double gen_dLmag (double zCMB, double zHEL, double vPEC, double GLON, double GLAT );
 void   gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT,
-		       double *MU, double *lensDMU);
+		       double *MU, double *lensDMU, double *MUSHIFT);
 
 double genz_hubble(double zmin, double zmax, RATEPAR_DEF *RATEPAR );
 

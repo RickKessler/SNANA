@@ -813,6 +813,7 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
 		 int *Nsplit, char **ptrSplit );
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
+void split2doubles(char *string, char *sep, double *dval) ;
 void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_comment(char *string) ;

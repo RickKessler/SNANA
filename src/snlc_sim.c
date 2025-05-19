@@ -776,7 +776,10 @@ void set_user_defaults(void) {
   INPUTS.w0_LAMBDA     =  (double)w0_DEFAULT ;
   INPUTS.wa_LAMBDA     =  (double)wa_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
-  INPUTS.MUSHIFT       =   0.0 ;
+
+  INPUTS.STRING_MUSHIFT[0] = 0 ;
+  INPUTS.MUSHIFT[0]       =   0.0 ;
+  INPUTS.MUSHIFT[1]       =   0.0 ;
   INPUTS.HzFUN_FILE[0] = 0 ;
 
   INPUTS.ANISOTROPY_INFO.USE_FLAG = false ;
@@ -2414,7 +2417,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
   }
   else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.STRING_MUSHIFT ); //.xyz
+    split2doubles(INPUTS.STRING_MUSHIFT, COLON, INPUTS.MUSHIFT );
   }
   else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
@@ -3116,7 +3120,7 @@ void parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource) {
 
   int  imjd, NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE;
   int  LDMP = 0 ;
-  double MJDMIN, MJDMAX, SNR_SCALE ;
+  double MJDMIN, MJDMAX, MJDRANGE[2], SNR_SCALE ;
   float  fMJD[2];
   char string_mjd_range[40];
   char fnam[] = "parse_input_HOSTLIB_SNR_SCALE" ;
@@ -3129,9 +3133,16 @@ void parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource) {
     MJDMIN = 20000.0; MJDMAX = 90000.0;
   }
   else {
+    split2doubles(string_mjd_range, COLON, MJDRANGE );
+    MJDMIN = MJDRANGE[0];
+    MJDMAX = MJDRANGE[1];
+
+    /* xxxxxx mark delete May 20 2025 xxxxxxxx
     split2floats(string_mjd_range, COLON, fMJD );
     MJDMIN = (double)fMJD[0];
     MJDMAX = (double)fMJD[1];
+    xxxxxxxxx end mark xxxxxxxx */
+
   }
 
   sscanf(WORDS[1], "%le", &SNR_SCALE);
@@ -8071,7 +8082,7 @@ void genmag_offsets(void) {
       + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]  // user-defined model offs
       - INPUTS.GENMAG_OFF_ZP[ifilt_obs]     // user-defined ZP offsets
       + GENLC.LENSDMU                       // lensing correction
-      + INPUTS.MUSHIFT                      // user distance offset (Oct 2020)
+      + GENLC.MUSHIFT                       // user distance offset (Oct 2020)
       + GENLC.SALT2gammaDM                  // gamma from SN-host corr
       + MAG_OFFSET_GENPDF                   // from GENPDF_FILE (May 21 2024)
     ;
@@ -9196,6 +9207,7 @@ void  init_event_GENLC(void) {
   GENLC.GENMAG_OFF_GLOBAL = 0.0 ;
   GENLC.LENSDMU = 0.0 ;
   GENLC.DLMU    = 0.0 ;
+  GENLC.MUSHIFT = 0.0 ;
 
   // ------- Aug 2016 ----------
   // for NON1AGRID model, set random numbers here so that
@@ -12283,7 +12295,7 @@ void gen_event_driver(int ilc) {
     gen_distanceMag( GENLC.REDSHIFT_CMB,            // input
 		     GENLC.REDSHIFT_HELIO, GENLC.VPEC,         // input 
 		     GENLC.GLON, GENLC.GLAT,        // input
-		     &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
+		     &GENLC.DLMU, &GENLC.LENSDMU, &GENLC.MUSHIFT ); // returned 
 
     // - - - - -   Tricky MWEBV LOGIC (Spaghetti alert) - - - - - - -
     // get MWEBV here if SNHOST_DRIVER will NOT change the SN coords; 
@@ -15337,6 +15349,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DLMU ;
   NVAR_SIMGEN_DUMP++ ;
 
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"MUSHIFT") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MUSHIFT ;
+  NVAR_SIMGEN_DUMP++ ;
+
   // weak lensing effects
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"LENSDMU") ; 
@@ -15347,6 +15364,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   sprintf(cptr,"LENSDMU_SMEAR") ; 
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.LENSDMU_SMEAR ;
   NVAR_SIMGEN_DUMP++ ;
+
 
   //GENSL.LIBEVENT.IDLENS
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -16519,7 +16537,7 @@ void gen_redshift_LCLIB(void) {
   gen_distanceMag( GENLC.REDSHIFT_CMB,            // input
 		   GENLC.REDSHIFT_HELIO, GENLC.VPEC,          // input 
 		   GENLC.GLON, GENLC.GLAT,        // input
-		   &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
+		   &GENLC.DLMU, &GENLC.LENSDMU, &GENLC.MUSHIFT ); // returned 
 
   /* xxxxxxxxx
   printf(" xxx zSpec = %.4f +- %.4f  (granz=%.4f) \n",
@@ -16677,13 +16695,14 @@ void gen_zsmear(double zerr) {
 
 // =====================================================
 void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT,
-		     double *MU, double *LENSDMU) {
+		     double *MU, double *LENSDMU, double *MUSHIFT  ) {
 
   // Created Apr 2017
   // for input CMB redshift zCMB, returns
-  //  MU = true distance modulus
+  //  MU      = true distance modulus
   //  LENSDMU = distance correction
-  //
+  //  MUSHIFT = random MUSHIFT defined by user (not physical)
+
   //  9/17/2017: 
   //    + allow new model with symmetric Gaussian
   //    + return true MU instead of corrected MU
@@ -16693,8 +16712,9 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
   // June 28 2022: Added option to use hostlib weak lens values
   //
   // Feb 14 2023: A.Sah and RK: pass galactic coords to enable anistropy models
-  //
-  double lensDMU, ran1 ;
+  // May 20 2025: return MUSHIFT
+
+  double lensDMU_local=0.0, MUSHIFT_local=0.0, ran1 ;
   int DUMP_FLAG = (GENLC.CID == -9999);
   char fnam[] = "gen_distanceMag" ;
 
@@ -16712,23 +16732,30 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
 
   bool USE_WEAKLENS_MAP     = !IGNOREFILE(INPUTS_WEAKLENS.PROBMAP_FILE);
   bool USE_WEAKLENS_HOSTLIB = HOSTLIB.IVAR_WEAKLENS_DMU > 0;
-  lensDMU = 0.0;
+
   if ( USE_WEAKLENS_MAP ) {
-    lensDMU = gen_lensDMU(zCMB, ran1, DUMP_FLAG);
+    lensDMU_local = gen_lensDMU(zCMB, ran1, DUMP_FLAG);
   } 
   else if ( USE_WEAKLENS_HOSTLIB ) {
-    lensDMU = SNHOSTGAL.WEAKLENS_DMU;
+    lensDMU_local = SNHOSTGAL.WEAKLENS_DMU;
   }
 
   if ( INPUTS_WEAKLENS.DSIGMADZ > 1.0E-8 ) {
-    lensDMU = zCMB * INPUTS_WEAKLENS.DSIGMADZ * getRan_Gauss(1) ;
+    lensDMU_local = zCMB * INPUTS_WEAKLENS.DSIGMADZ * getRan_Gauss(1) ;
   }
 
-  // xxx mark delete Feb 5 2025  lensDMU *= INPUTS_WEAKLENS.DMUSCALE ; 
+
+  if ( strlen(INPUTS.STRING_MUSHIFT) > 0 ) {
+    if ( INPUTS.MUSHIFT[1] == INPUTS.MUSHIFT[0] ) 
+      { MUSHIFT_local = INPUTS.MUSHIFT[0]; } // do NOT burn random 
+    else
+      { MUSHIFT_local = getRan_Flat(1, INPUTS.MUSHIFT);  } // burn random
+  }
 
   // load return args
-  *MU      = gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);
-  *LENSDMU = lensDMU ;
+  *MU      =  gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);
+  *LENSDMU =  lensDMU_local ;
+  *MUSHIFT =  MUSHIFT_local ;
 
   return;
 
@@ -21289,7 +21316,7 @@ int regen_SIMLIB_GENRANGES(void) {
     GENLC.REDSHIFT_CMB     = tmpVal ;
     gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB, GENLC.VPEC, // to fix later
 		    GENLC.GLON, GENLC.GLAT,
-		    &GENLC.DLMU, &GENLC.LENSDMU);
+		    &GENLC.DLMU, &GENLC.LENSDMU, &GENLC.MUSHIFT);
   }
 
   // check PEAKMJD update
@@ -24378,6 +24405,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_VPEC         = GENLC.VPEC ;
   SNDATA.SIM_DLMU         = GENLC.DLMU ; 
   SNDATA.SIM_LENSDMU      = GENLC.LENSDMU ;
+  SNDATA.SIM_MUSHIFT      = GENLC.MUSHIFT ; // May 19 2025
   SNDATA.SIM_AVTAU        = GENLC.AVTAU ;
   SNDATA.SIM_MWEBV        = GENLC.MWEBV_SMEAR ; // use smeared MWEBV
   SNDATA.SIM_PEAKMJD      = GENLC.PEAKMJD ;
@@ -31632,7 +31660,7 @@ void DUMP_GENMAG_DRIVER(void) {
 
   gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO, GENLC.VPEC,
 		  GENLC.GLON, GENLC.GLAT,
-		  &GENLC.DLMU, &GENLC.LENSDMU);
+		  &GENLC.DLMU, &GENLC.LENSDMU, &GENLC.MUSHIFT);
 
   GENLC.AV             =  0.0 ;
   GENLC.SALT2c         =  0.0 ;

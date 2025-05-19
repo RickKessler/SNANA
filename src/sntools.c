@@ -6276,7 +6276,61 @@ void splitString2(char *string, char *sep, int MXsplit,
 
 }  // end of splitString2
 
+void split2doubles(char *string, char *sep, double *dval) {
+
+  // Created May 29025 [copied from split2floats from Jun 26 2019]
+  // for *string = 'xxx[sep]yyy,
+  // returns dval[0]=xxx and dval[1]=yyy.
+  // Example:
+  //   Input string   = 1.3,4.6
+  //   Output dval[0] = 1.3
+  //   Output dval[1] = 4.6
+  //
+  // Example:
+  //   Input string   =  1.3
+  //   Output dval[0] =  1.3
+  //   Output dval[1] =  1.3
+  //
+  int Nsplit ;
+  char cnum[2][40], *cptr[2];  cptr[0]=cnum[0]; cptr[1]=cnum[1];
+  char fnam[] = "split2doubles" ;
+  // ---------------- BEGIN --------------------
+
+  dval[0] = dval[1] = -9.0 ;
+
+  if ( strstr(string,sep) == NULL ) 
+    { sscanf(string, "%le", &dval[0] ); dval[1]=dval[0];  return ;  }
+  
+
+  // split the string by the sep input
+  splitString(string, sep, fnam, 2, &Nsplit, cptr);
+  if ( Nsplit != 2 ) {
+    sprintf(c1err,"Invalid Nsplit=%d (expected 2)", Nsplit);
+    sprintf(c2err,"Input string='%s'  sep='%s' ", string, sep);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  sscanf(cnum[0], "%le", &dval[0] );
+  sscanf(cnum[1], "%le", &dval[1] );
+
+  return;
+} // end split2doubles
+
+
 void split2floats(char *string, char *sep, float *fval) {
+  // May 2025: See plit2doubles for explanation
+  double dval[2];
+  char fnam[] = "split2floats" ;
+  // ---------------- BEGIN --------------------
+  split2doubles(string, sep, dval);
+  fval[0] = (float)dval[0];
+  fval[1] = (float)dval[1];
+  return;
+} // end split2floats
+
+
+
+void split2floats_legacy(char *string, char *sep, float *fval) {
 
   // Created Jun 26 2019
   // for *string = 'xxx[sep]yyy,
@@ -6293,7 +6347,7 @@ void split2floats(char *string, char *sep, float *fval) {
   //
   int Nsplit ;
   char cnum[2][40], *cptr[2];  cptr[0]=cnum[0]; cptr[1]=cnum[1];
-  char fnam[] = "split2floats" ;
+  char fnam[] = "split2floats_legacy" ;
   // ---------------- BEGIN --------------------
 
   fval[0] = fval[1] = -9.0 ;
@@ -6314,7 +6368,7 @@ void split2floats(char *string, char *sep, float *fval) {
   sscanf(cnum[1], "%f", &fval[1] );
 
   return;
-} // end split2floats
+} // end split2float2_legacy
 
 
 // =====================================
@@ -8357,7 +8411,10 @@ int init_SNDATA_EVENT(void) {
   SNDATA.SIM_REDSHIFT_FLAG        = -9 ;
   SNDATA.SIM_REDSHIFT_COMMENT[0]  =  0 ;
 
-  SNDATA.SIM_DLMU     = NULLFLOAT ;
+  SNDATA.SIM_DLMU         = NULLFLOAT ;
+  SNDATA.SIM_LENSDMU      = 0.0;
+  SNDATA.SIM_MUSHIFT      = 0.0;
+
   SNDATA.SIM_RA       = NULLFLOAT ;
   SNDATA.SIM_DEC      = NULLFLOAT ;
   SNDATA.SIM_PEAKMJD  = NULLFLOAT ;

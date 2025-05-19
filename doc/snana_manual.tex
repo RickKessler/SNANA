@@ -1004,6 +1004,7 @@ use the following sim-input keys:
   HzFUN_FILE:  <fileName>  # non-wCDM:  2 columns with  z  H(z)
 
   MUSHIFT: <value>       # mag shift for all distances (default=0)
+  MUSHIFT: dmu0:dmu1     # random mag shift between dmu0 and dmu1
 \end{Verbatim}
 %
 It is recommended to {\it NOT} specify cosmological parameters and thus
@@ -1021,6 +1022,9 @@ the first map bin must have $z=0$ (sim aborts if not satisfied).
 Finally, {\tt MUSHIFT} is not a physical model, but may be useful
 to generate bias-corrections with different {\tt MUSHIFT} values
 in order to interpolate distances in a cosmology fitting program.
+{\tt SIM\_MUSHIFT} is written to the data files, and for non-zero values
+a {\tt SIM\_MUSHIFT} column is included in the {\tt SNANA} and {\tt FITRES} 
+output tables from light curve fitting.
 
 % ------------------------------------
    \clearpage

@@ -78,7 +78,7 @@
 #              See def model_string_suffix
 #
 # Feb 20 2025: add TAKE_SPECTRUM to GENOPT_GLOBAL_IGNORE_SIMnorm
-#
+# May 20 2025: fix JOBNAME arg udner GENOPT to work nicely with other GENOPTS
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -115,6 +115,8 @@ RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE', 'RANSEED_FIX' ]
 KEY_INPUT_INCLUDE_FILE = 'INPUT_INCLUDE_FILE' # Optional key
 
 KEY_NOGZIP_DATA_FILES = 'NOGZIP_DATA_FILES'
+
+KEY_JOBNAME = 'JOBNAME'
 
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
@@ -759,9 +761,10 @@ class Simulation(Program):
 
         # Aug 28 2024: check special JOBNAME option to use different code
         #   (e.g, older code version)
-        if 'JOBNAME' in genopt:
-            program  = os.path.expandvars(genopt.split()[1])
-            genopt   = ''
+        if KEY_JOBNAME in genopt:
+            program, genopt  = self.extract_sim_jobname(genopt)
+            #program  = os.path.expandvars(genopt.split()[1])
+            #genopt   = ''
         
         cddir         = f"cd {output_dir}"
         ngentot       = 0
@@ -1629,9 +1632,10 @@ class Simulation(Program):
 
         # Aug 28 2024: check special JOBNAME option to use different code
         #   (e.g, older code version)
-        if 'JOBNAME' in genopt:
-            program  = os.path.expandvars(genopt.split()[1])
-            genopt   = ''
+        if KEY_JOBNAME in genopt:
+            program, genopt  = self.extract_sim_jobname(genopt)
+            #xxx program  = os.path.expandvars(genopt.split()[1])
+            #xxx genopt   = ''
             
         # init JOB_INFO dictionary. Note that sim job runs in same
         # dir where simgen-master file resides; this avoids copying
@@ -1726,6 +1730,20 @@ class Simulation(Program):
         return JOB_INFO
 
         # end prep_JOB_INFO_sim
+
+    def extract_sim_jobname(self,genopt):
+        # May 2025
+        # for input string genopt, find job name after JOBNAME key,
+        # and return genopt_no_jobname = genopt with JOBNAME and its arg removed.
+        wdlist = genopt.split()
+        j      = wdlist.index(KEY_JOBNAME)
+        jobname        = wdlist[j+1]
+        jobname_expand = os.path.expandvars(jobname)
+        genopt_no_jobname = genopt
+        genopt_no_jobname = genopt_no_jobname.replace(KEY_JOBNAME,'')
+        genopt_no_jobname = genopt_no_jobname.replace(jobname,'')
+
+        return jobname_expand, genopt_no_jobname
 
     def model_string_suffix(self,model,ifile):
         # xxx mark model_string = f"{model}MODEL{ifile}"     # e.g., SNIaMODEL0

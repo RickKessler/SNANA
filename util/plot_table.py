@@ -2472,12 +2472,16 @@ def get_info_plot2d(args, info_plot_dict):
             # compute error on the mean diff as quadrature sum of each term
             y_dif_err = np.sqrt(y_std*y_std/y_cnt + y_ref_std*y_ref_std/y_ref_cnt)
 
-            print(f" xxx y_std = {y_std}")
-            print(f" xxx y_cnt = {y_cnt}")
-            print(f" xxx y_dif_err = {y_dif_err}")
-            print(f" xxx y_dif     = {y_dif}")
+            # xxxxxxxx mark delete 5.20.2025 xxxxxxxx
+            #print(f" xxx y_std = {y_std}")
+            #print(f" xxx y_cnt = {y_cnt}")
+            #print(f" xxx y_dif_err = {y_dif_err}")
+            #print(f" xxx y_dif     = {y_dif}")
+            # xxxxxxxxx
 
-            info_plot_dict['xval_list'] = info_plot_dict['xbins_cen']
+            xbins_cen = info_plot_dict['xbins_cen']
+            xbins_cen += (numplot*0.0003)  # xxx how to automate this ??
+            info_plot_dict['xval_list'] = xbins_cen
             info_plot_dict['yval_list'] = y_dif
             info_plot_dict['yerr_list'] = y_dif_err
         

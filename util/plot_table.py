@@ -15,6 +15,7 @@
 # Apr 21 2025: fix fit chi2 calc to work for 2D plot where @ERROR is given for y-axis.
 # May 15 2025: new @@LEGEND_MSCALE to scale size of marker(s) in legend
 # May 16 2025: add @@HACK_FLAG option and method hack_value for publication plots
+# May 20 2025: plot error on mean for DIFF_ALL option
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -2447,17 +2448,38 @@ def get_info_plot2d(args, info_plot_dict):
                 which_stat = 'mean'                
 
             xbins  = info_plot_dict['xbins']
-            y_ref  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+            y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
                                       bins=xbins, statistic=which_stat)[0]
+            y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                          bins=xbins, statistic='std')[0]
+            y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                          bins=xbins, statistic='count')[0]
+            y_ref_cnt = replace_zeros(y_ref_cnt)
+
             y      = binned_statistic(df.x_plot_val, df.y_plot_val,
                                       bins=xbins, statistic=which_stat)[0]            
+            y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                      bins=xbins, statistic='std')[0]            
+            y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                      bins=xbins, statistic='count')[0]            
+            y_cnt = replace_zeros(y_cnt)
 
             # convert NaN (empty bins) to zero to avoid crash when plotting
             y_ref[np.isnan(y_ref)] = 0
             y[np.isnan(y)]         = 0                        
+            y_dif     = y_ref - y
+
+            # compute error on the mean diff as quadrature sum of each term
+            y_dif_err = np.sqrt(y_std*y_std/y_cnt + y_ref_std*y_ref_std/y_ref_cnt)
+
+            print(f" xxx y_std = {y_std}")
+            print(f" xxx y_cnt = {y_cnt}")
+            print(f" xxx y_dif_err = {y_dif_err}")
+            print(f" xxx y_dif     = {y_dif}")
+
             info_plot_dict['xval_list'] = info_plot_dict['xbins_cen']
-            info_plot_dict['yval_list'] = y_ref - y
-            info_plot_dict['yerr_list'] = None            
+            info_plot_dict['yval_list'] = y_dif
+            info_plot_dict['yerr_list'] = y_dif_err
         
     return  # end  get_info_plot2d
 
@@ -2478,10 +2500,16 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
     
     y_err_stat = None
     
-    OPT = args.OPT
+    OPT          = args.OPT
     do_median    = OPT_MEDIAN  in OPT
     do_avg       = OPT_MEAN    in OPT or OPT_AVG in OPT
+    do_stddev    = OPT_STDDEV  in OPT
+    do_errmean   = not do_stddev
     do_wgtavg    = yerr_list is not None
+
+    do_diff_all  = (args.DIFF == OPT_DIFF_ALL)
+    if do_diff_all:
+        do_stddev = False; do_errmean = False; do_wgtavg = False
 
     DO_DUMP    = False
     
@@ -2503,12 +2531,14 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
         y_count = binned_statistic(xval_list, yval_list,
                                    bins=xbins, statistic='count')[0]
         
-        if OPT_STDDEV in OPT:
+        if do_stddev :
             y_err_stat = y_std  # stddev per bin (user input @@OPT STTDEV)
-        else:
+        elif do_errmean:
             y_count    = replace_zeros(y_count)  # avoid divide by zero
             y_err_stat = y_std/np.sqrt(y_count)  # error on mean per bin (default)
-        
+        elif do_diff_all:
+            y_err_stat = yerr_list  # May 20 2025
+
         if do_wgtavg:
             stat_legend = 'wgtavg'
             y_avg   = copy.deepcopy(y_stat)  # for diagnostic print

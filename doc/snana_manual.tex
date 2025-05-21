@@ -1025,6 +1025,8 @@ in order to interpolate distances in a cosmology fitting program.
 {\tt SIM\_MUSHIFT} is written to the data files, and for non-zero values
 a {\tt SIM\_MUSHIFT} column is included in the {\tt SNANA} and {\tt FITRES} 
 output tables from light curve fitting.
+{\tt SIM\_DLMAG} is the computed distance modulus, and it is {\it not}
+corrected for {\tt MUSHIFT} or {\tt LENSDMU}. 
 
 % ------------------------------------
    \clearpage
@@ -8269,7 +8271,7 @@ or $\toApprox$ can be extracted into a TEXT-formatted table
     snana.exe NOFILE \
       VERSION_PHOTOMETRY <VERSION>   \
       SNTABLE_LIST 'SNANA(text:key)' \
-      TABLEPREFIX_TEXT   <PREFIX>    \  
+      TEXTFILE_PREFIX    <PREFIX>    \  
       OPT_SETPKMJD <OPT_SETPKMJD>        > stdout.log
 \end{verbatim}
 %

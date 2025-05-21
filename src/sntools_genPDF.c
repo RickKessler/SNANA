@@ -95,7 +95,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   int  MXCHAR_TMPLINE = 800;
   int  MEMC_TMPLINE   = MXCHAR_TMPLINE * sizeof(char);
 
-  char c_get[200], fileName_full[MXPATHLEN];
+  char c_get[400], fileName_full[MXPATHLEN];
   char *LINE, *TMPLINE ;
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
@@ -121,7 +121,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   // init optional asymGauss params for SALT2alpha and beta
   init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );
-  init_GENGAUSS_ASYM(&gengauss_SALT2BETA, 0.0 );
+  init_GENGAUSS_ASYM(&gengauss_SALT2BETA,  0.0 );
   ptr_ITEMLIST = (char**)malloc( MXWD_TMPLINE*sizeof(char*));
   for(i=0; i<MXWD_TMPLINE; i++) 
     { ptr_ITEMLIST[i] = (char*)malloc(80*sizeof(char)); }
@@ -206,6 +206,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 				 &gengauss_SALT2BETA);
       NWD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
 				 &gengauss_SALT2ALPHA);      
+
+      //dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA); // .xyz
     }
 
     // try column name in FITRES file
@@ -388,6 +390,8 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   }
 
   // - - - -
+
+
   XNBIN = (float)NBIN_PER_SIGMA * (RANGE[1] - RANGE[0]) / sigavg ;
   NBIN  = (int)(XNBIN+0.5);
 

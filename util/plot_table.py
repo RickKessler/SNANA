@@ -2472,19 +2472,22 @@ def get_info_plot2d(args, info_plot_dict):
             # compute error on the mean diff as quadrature sum of each term
             y_dif_err = np.sqrt(y_std*y_std/y_cnt + y_ref_std*y_ref_std/y_ref_cnt)
 
+            xbins_cen = info_plot_dict['xbins_cen']
+            xmin      = xbins[0] ; xmax = xbins[-1]; dx = (xmax-xmin)/200
+            xbins_cen += dx*(numplot-1)  # automate x-shift to avoid overlapping points
+
+            info_plot_dict['xval_list'] = xbins_cen
+            info_plot_dict['yval_list'] = y_dif
+            info_plot_dict['yerr_list'] = y_dif_err
+      
             # xxxxxxxx mark delete 5.20.2025 xxxxxxxx
+            #print(f" xxx xbins_cen = {xbins_cen}")
             #print(f" xxx y_std = {y_std}")
             #print(f" xxx y_cnt = {y_cnt}")
             #print(f" xxx y_dif_err = {y_dif_err}")
             #print(f" xxx y_dif     = {y_dif}")
             # xxxxxxxxx
-
-            xbins_cen = info_plot_dict['xbins_cen']
-            xbins_cen += (numplot*0.0003)  # xxx how to automate this ??
-            info_plot_dict['xval_list'] = xbins_cen
-            info_plot_dict['yval_list'] = y_dif
-            info_plot_dict['yerr_list'] = y_dif_err
-        
+  
     return  # end  get_info_plot2d
 
 def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):

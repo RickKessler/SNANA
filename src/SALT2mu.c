@@ -20880,7 +20880,6 @@ void write_yaml_info(char *fileName) {
   sprintf(KEY,"%s:", YAMLKEY_ABORT_IF_ZERO);
   fprintf(fp,"%-22.22s %d\n", KEY, NDATA_PASS );
 
-
   sprintf(KEY,"NWARN_CRAZYERR:");
   fprintf(fp,"%-22.22s %d\n", KEY, NERR);
 
@@ -20899,8 +20898,9 @@ void write_yaml_info(char *fileName) {
     fprintf(fp,"\n") ;  
 
     char STR_SAMPLE_LIST[200], STR_NEVT_LIST[MXEVENT_TYPE][100];
+    char STR_IDSAMPLE_LIST[100];
 
-    STR_SAMPLE_LIST[0] = 0;
+    STR_SAMPLE_LIST[0] = STR_IDSAMPLE_LIST[0] = 0;
 
     for(evtype=1; evtype < MXEVENT_TYPE; evtype++ )
       { STR_NEVT_LIST[evtype][0] = 0 ; }
@@ -20913,6 +20913,9 @@ void write_yaml_info(char *fileName) {
       else
 	{ sprintf(ctmp," %s", SAMPLE_BIASCOR[idsample].NAME); }
       catVarList_with_comma(STR_SAMPLE_LIST, ctmp);
+
+      sprintf(ctmp," %d", idsample); 
+      catVarList_with_comma(STR_IDSAMPLE_LIST, ctmp);  // May 2025
 
 
       for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
@@ -20930,6 +20933,10 @@ void write_yaml_info(char *fileName) {
 
     sprintf(KEY,"SAMPLE_LIST:");
     fprintf(fp,"%-25.25s %s\n", KEY, STR_SAMPLE_LIST);
+
+    sprintf(KEY,"IDSAMPLE_LIST:");
+    fprintf(fp,"%-25.25s %s\n", KEY, STR_IDSAMPLE_LIST);
+
     for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
       str       =   STRING_EVENT_TYPE[evtype] ;
       sprintf(KEY,"NEVT_%s_bySAMPLE:", str);

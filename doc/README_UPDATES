@@ -22994,4 +22994,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + remove all hbook functions and variables 
          (it's obsolete anyway because there is no 64 bit version of CERNLIB)
 
+    submit_batch_jobs:
+      + for sim task, fix GENOPT parsing of JOBNAME so that it works with
+        other GENOPTs.
+
+    plot_table.py
+      + DIFF_ALL option includes error bars
+
 END: 

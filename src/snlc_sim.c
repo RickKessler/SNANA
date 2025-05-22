@@ -2672,6 +2672,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( keyMatchSim(1, "DNDZ_ZPOLY_REWGT", KEYNAME, keySource) ) {
       N += read_genpoly(KEYNAME, &WORDS[N+1], 3, &RATEPAR->DNDZ_ZPOLY_REWGT);
     }
+    else if ( keyMatchSim(1, "DNDZ_Z1POLY_REWGT", KEYNAME, keySource) ) {
+      N += read_genpoly(KEYNAME, &WORDS[N+1], 3, &RATEPAR->DNDZ_Z1POLY_REWGT);
+    }    
     else if ( keyMatchSim(1, "DNDZ_SCALE", KEYNAME, keySource) ) {
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[0] ); 
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[1] ); 
@@ -8617,7 +8620,7 @@ void init_DNDZ_Rate(void) {
   int  IMODEL_AB, IMODEL_PLAW, IMODEL_PLAW2, IMODEL_ZPOLY, IMODEL_FLAT ;
   int  IMODEL_CCS15, IMODEL_MD14, IMODEL_PISN, IMODEL_TDE, IMODEL_HUBBLE ;
   int  IMODEL_FILE;
-  int  IFLAG_REWGT_ZEXP, IFLAG_REWGT_ZPOLY ;
+  int  IFLAG_REWGT_ZEXP, IFLAG_REWGT_ZPOLY, IFLAG_REWGT_Z1POLY ;
   
   // model flags 
   NAME = INPUTS.RATEPAR.NAME ;
@@ -8641,7 +8644,8 @@ void init_DNDZ_Rate(void) {
   // re-wgt flags
   IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0    ) ;
   IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) ;
-
+  IFLAG_REWGT_Z1POLY = (INPUTS.RATEPAR.DNDZ_Z1POLY_REWGT.ORDER > 0 ) ;
+  
   // ----------------------------
 
   i=-1;
@@ -8734,7 +8738,11 @@ void init_DNDZ_Rate(void) {
     sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by ZPOLY(%s)",
 	    INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING);
   }
-
+  else if ( IFLAG_REWGT_Z1POLY ) {
+    i++;
+    sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by Z1POLY(%s)",
+            INPUTS.RATEPAR.DNDZ_Z1POLY_REWGT.STRING);
+  }
 
   // if DNDZFLAG is set then print MODEL-RATE in 0.2 z-bins
   // from 0 to Z1
@@ -16977,9 +16985,12 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   if ( zexp != 0.0 ) w *= pow(z,zexp);
 
   //check polynominal re-weight
-  wpoly = eval_GENPOLY(z, &RATEPAR->DNDZ_ZPOLY_REWGT, fnam) ; 
-  w *= wpoly ;
+  wpoly  = 1 ;
+  wpoly *= eval_GENPOLY(z, &RATEPAR->DNDZ_ZPOLY_REWGT, fnam) ;
+  wpoly *= eval_GENPOLY(z, &RATEPAR->DNDZ_Z1POLY_REWGT, fnam) ; // May 2025
+  w     *= wpoly ;
 
+  
   // global rate scale for all models.
   w *= RATEPAR->DNDZ_ALLSCALE ;
 
@@ -17015,6 +17026,7 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
 
   // init REWGT to 1.000
   parse_GENPOLY("1", "DNDZ_ZPOLY_REWGT", &RATEPAR->DNDZ_ZPOLY_REWGT, fnam);
+  parse_GENPOLY("1", "DNDZ_Z1POLY_REWGT", &RATEPAR->DNDZ_Z1POLY_REWGT, fnam);  // May 2025
 
   //  print_GENPOLY(&RATEPAR->DNDZ_ZPOLY_REWGT); // xxx REMOVE
   

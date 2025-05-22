@@ -297,6 +297,7 @@ typedef struct {  // RATEPAR_DEF
   char   NAME[MXPATHLEN] ;           // filled internally
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
+  GENPOLY_DEF DNDZ_Z1POLY_REWGT ;     // poly(1+z) to reweight rate-vs-(1+z). May 2025
   
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
   double DNDZ_ALLSCALE ;      // scale all SN models (Ia, SIMSED, etc ... )

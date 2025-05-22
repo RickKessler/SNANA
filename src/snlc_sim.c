@@ -16755,9 +16755,12 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
 
   if ( strlen(INPUTS.STRING_MUSHIFT) > 0 ) {
     if ( INPUTS.MUSHIFT[1] == INPUTS.MUSHIFT[0] ) 
-      { MUSHIFT_local = INPUTS.MUSHIFT[0]; } // do NOT burn random 
-    else
-      { MUSHIFT_local = getRan_Flat(1, INPUTS.MUSHIFT);  } // burn random
+      { MUSHIFT_local = INPUTS.MUSHIFT[0]; } // do NOT burn random for delta function
+    else { 
+      // burn random
+      MUSHIFT_local = getRan_Flat(1, INPUTS.MUSHIFT); 
+      // To do May 2025: implement DNDZ_Z[1]POLY_REWGT .xyz
+    }
   }
 
   // load return args
@@ -16965,6 +16968,7 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
 
   *******/
 
+  double z1 = 1.0+z;
   double w, zexp, wpoly ;
   char fnam[] = "genz_wgt" ;
 
@@ -16986,8 +16990,8 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
 
   //check polynominal re-weight
   wpoly  = 1 ;
-  wpoly *= eval_GENPOLY(z, &RATEPAR->DNDZ_ZPOLY_REWGT, fnam) ;
-  wpoly *= eval_GENPOLY(z, &RATEPAR->DNDZ_Z1POLY_REWGT, fnam) ; // May 2025
+  wpoly *= eval_GENPOLY(z,  &RATEPAR->DNDZ_ZPOLY_REWGT,  fnam) ;
+  wpoly *= eval_GENPOLY(z1, &RATEPAR->DNDZ_Z1POLY_REWGT, fnam) ; // May 2025
   w     *= wpoly ;
 
   

@@ -23001,4 +23001,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     plot_table.py
       + DIFF_ALL option includes error bars
 
+    snlc_sim:
+      + expand MUSHIFT input to be either
+            MUSHIFT: 0.1       # exact 0.1 mag shift
+            MUSHIFT: -0.2:0.2  # select randomly between -0.2 and 0.2
+
+        If MUSHIFT range is given, and DNDZ_ZPOLY_REWGT (or DNDZ_Z1POLY_REWGT)
+        is specified to reweight DNDZ vs. redshift, apply the same rewgt
+        to select MUSHIFT; see new functions prep_user_murewgt and gen_MUSHIFT.
+
 END: 

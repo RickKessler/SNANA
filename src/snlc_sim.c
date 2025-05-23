@@ -16911,10 +16911,9 @@ double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT ) {
 double gen_dLmag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT ) {
 
   // Returns lumi-distance mag with input cosmology
-  // Note that INPUTS.H0 ~ 70 km/s/Mpc, and H0 -> ~2E-18
 
-  double mu ;
-  if ( zCMB <= 1.0E-10 ) { return 0.0 ; }  // avoid inf, May 2013
+  double mu = 0.0 ;
+  if ( zCMB <= 1.0E-10 ) { return mu ; }  // avoid inf
 
   if ( INPUTS.ANISOTROPY_INFO.USE_FLAG ) {
     INPUTS.ANISOTROPY_INFO.GLON = GLON;

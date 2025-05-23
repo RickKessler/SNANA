@@ -327,6 +327,14 @@ typedef struct {  // RATEPAR_DEF
 } RATEPAR_DEF ;
 
 
+
+// May 2025: struct to store REWGT vs. MU and CDF vs. MU to select MUSHIFT (for SBI)
+typedef struct {
+  int    NMUBIN;
+  double *MU_LIST, *REWGT_LIST, *REWGT_CDF;
+} MUREWGT_DEF ;
+
+
 #define SPECTROGRAPH_OPTMASK_LAMSIGMAx0  1  // no lam smearing
 #define SPECTROGRAPH_OPTMASK_LAMSIGMAx2  2  // double LAMSMEAR
 #define SPECTROGRAPH_OPTMASK_LAMSPIKE    4  // flux only in center bin
@@ -711,6 +719,8 @@ struct INPUTS {
   RATEPAR_DEF RATEPAR ;
   RATEPAR_DEF RATEPAR_PEC1A ; // only for PEC1A in NON1A input
 
+  MUREWGT_DEF MUREWGT ; // to select weighted MUSHIFT
+
   char  STRING_FUDGE_SNRMAX[20];  // '[SNRMAX]'  or  '[BAND]=[SNRMAX]'
   float FUDGE_SNRMAX;      // adjust EXPOSURE_TIME to force SNR at peak
   int   IFILTOBS_FUDGE_SNRMAX; // -1=all, or get scale from this IFILTOBS
@@ -1085,6 +1095,7 @@ struct GENLC {
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
   double MUSHIFT;            // user MUSHIFT
+
   double LENSDMU;            // weak lensing DMU (Apr 2017)
   double LENSDMU_SMEAR ;     // measured LENSDMU (Aug 2024)  
   double SL_MAGSHIFT;        // magshift from strong lens magnification
@@ -1987,6 +1998,7 @@ void   checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) ;
 void   sim_input_override(void) ;  // parse command-line overrides
 void   prep_user_input(void);      // prepare user input for sim.
 void   prep_user_cosmology(void);
+void   prep_user_murewgt(MUREWGT_DEF *MUREWGT);
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
 void   prep_dustFlags(void);
@@ -2042,6 +2054,7 @@ double gen_peakmjd_IDEAL_GRID(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 
+double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT );
 double gen_dLmag (double zCMB, double zHEL, double vPEC, double GLON, double GLAT );
 void   gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT,
 		       double *MU, double *lensDMU, double *MUSHIFT);

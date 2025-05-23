@@ -820,6 +820,7 @@ void set_user_defaults(void) {
   init_RATEPAR ( &INPUTS.RATEPAR_PEC1A );
   INPUTS.RATEPAR.SEASON_FRAC           = 1.0 ;
   INPUTS.RATEPAR_PEC1A.SEASON_FRAC     = 0.0 ;
+  INPUTS.MUREWGT.NMUBIN = 0 ;
 
   INPUTS.GENRANGE_PEAKMAG[0] = -99990.0 ;
   INPUTS.GENRANGE_PEAKMAG[1] =  99999.0 ;
@@ -2417,7 +2418,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
   }
   else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N], "%s", INPUTS.STRING_MUSHIFT ); //.xyz
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.STRING_MUSHIFT ); 
     split2doubles(INPUTS.STRING_MUSHIFT, COLON, INPUTS.MUSHIFT );
   }
   else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
@@ -7332,11 +7333,76 @@ void prep_user_cosmology(void) {
   // init structure that gets passed later to cosmology functions
   int VBOSE = 1;
   init_HzFUN_INFO(VBOSE, cosPar, HzFUN_FILE, 
-		  &INPUTS.HzFUN_INFO ); // <== returned 
+		  &INPUTS.HzFUN_INFO );             // <== returned 
+
+  // May 2025 - check special option with MUSHIFT and DNDZ_XXX_REWGT option
+  bool USE_MUSHIFT_RANGE = (INPUTS.MUSHIFT[1] - INPUTS.MUSHIFT[0]) > 0;
+  bool USE_REWGT         = 
+    (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) || 
+    (INPUTS.RATEPAR.DNDZ_Z1POLY_REWGT.ORDER > 0) ;
+
+  if ( USE_MUSHIFT_RANGE && USE_REWGT ) 
+    { prep_user_murewgt(&INPUTS.MUREWGT); }
 
   return;
 
 } // end prep_user_cosmology
+
+void prep_user_murewgt(MUREWGT_DEF *MUREWGT) {
+
+  // Created May 2025
+  // Initialize REWGT vs. MU and CDF vs. MU based on user-defined REWGT.
+  // Original motivation is for SBI that needs re-weighted sim for training.
+
+  double zmin = INPUTS.GENRANGE_REDSHIFT[0] ;
+  double zmax = INPUTS.GENRANGE_REDSHIFT[1] + 0.1;
+  double dz   = 0.001 ;
+  double z, z1, mu, vpec=0.0, glon=0.0, glat=0.0, rewgt, rewgt_sum ;
+  int NZBIN, MEMD, iz ;
+  char fnam[] = "prep_user_murewgt" ;
+
+  // --------- BEGIN -------------
+
+  sprintf(BANNER,"%s to define MUSHIFT distribution", fnam);
+  print_banner(BANNER);
+
+  NZBIN = (int)((zmax-zmin)/dz) ; // approx for malloc
+  MEMD  = (NZBIN+10) * sizeof(double);
+  MUREWGT->MU_LIST    = (double*) malloc( MEMD );
+  MUREWGT->REWGT_LIST = (double*) malloc( MEMD );
+  MUREWGT->REWGT_CDF  = (double*) malloc( MEMD );
+
+  NZBIN = 0 ;
+  for (z=zmin; z < zmax; z+=dz) {
+    z1   =  1.0 + z;
+    mu   =  gen_dLmag(z, z, vpec, glon, glat);
+
+    rewgt  = 1.0;
+    rewgt *= eval_GENPOLY(z,  &INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT,  fnam) ;
+    rewgt *= eval_GENPOLY(z1, &INPUTS.RATEPAR.DNDZ_Z1POLY_REWGT, fnam) ; 
+    rewgt_sum += rewgt ;
+
+    MUREWGT->MU_LIST[NZBIN]    = mu ;
+    MUREWGT->REWGT_LIST[NZBIN] = rewgt ;
+    MUREWGT->REWGT_CDF[NZBIN]  = rewgt_sum ;
+
+    NZBIN++ ;
+  }
+
+  MUREWGT->NMUBIN = NZBIN ;
+
+  iz = 0;
+  printf("\t zmin = %.3f -> MU=%.3f  REWGT=%8.3f  CDF=%10.4le \n",
+	 zmin, MUREWGT->MU_LIST[iz], MUREWGT->REWGT_LIST[iz], MUREWGT->REWGT_CDF[iz] );
+
+  iz = NZBIN-1 ;
+  printf("\t zmax = %.3f -> MU=%.3f  REWGT=%8.3f  CDF=%10.4le \n",
+	 zmax, MUREWGT->MU_LIST[iz], MUREWGT->REWGT_LIST[iz], MUREWGT->REWGT_CDF[iz] );
+
+
+  return;
+
+} // end prep_user_murewgt
 
 // ===================================
 void prep_user_CUTWIN(void) {
@@ -8642,8 +8708,8 @@ void init_DNDZ_Rate(void) {
   IMODEL_FILE = ( INPUTS.RATEPAR.NBIN_DNDZ_MAP > 0 ) ;
   
   // re-wgt flags
-  IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0    ) ;
-  IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) ;
+  IFLAG_REWGT_ZEXP  =  (INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0    ) ;
+  IFLAG_REWGT_ZPOLY =  (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) ;
   IFLAG_REWGT_Z1POLY = (INPUTS.RATEPAR.DNDZ_Z1POLY_REWGT.ORDER > 0 ) ;
   
   // ----------------------------
@@ -16721,8 +16787,9 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
   //
   // Feb 14 2023: A.Sah and RK: pass galactic coords to enable anistropy models
   // May 20 2025: return MUSHIFT
+  // May 22 2025: call gen_MUSHIFT to get MUSHIFT
 
-  double lensDMU_local=0.0, MUSHIFT_local=0.0, ran1 ;
+  double MU_local, lensDMU_local=0.0, MUSHIFT_local=0.0, ran1 ;
   int DUMP_FLAG = (GENLC.CID == -9999);
   char fnam[] = "gen_distanceMag" ;
 
@@ -16741,6 +16808,8 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
   bool USE_WEAKLENS_MAP     = !IGNOREFILE(INPUTS_WEAKLENS.PROBMAP_FILE);
   bool USE_WEAKLENS_HOSTLIB = HOSTLIB.IVAR_WEAKLENS_DMU > 0;
 
+  MU_local   =  gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);
+
   if ( USE_WEAKLENS_MAP ) {
     lensDMU_local = gen_lensDMU(zCMB, ran1, DUMP_FLAG);
   } 
@@ -16757,20 +16826,83 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
     if ( INPUTS.MUSHIFT[1] == INPUTS.MUSHIFT[0] ) 
       { MUSHIFT_local = INPUTS.MUSHIFT[0]; } // do NOT burn random for delta function
     else { 
-      // burn random
-      MUSHIFT_local = getRan_Flat(1, INPUTS.MUSHIFT); 
-      // To do May 2025: implement DNDZ_Z[1]POLY_REWGT .xyz
+      
+      // xxx mark MUSHIFT_local = getRan_Flat(1, INPUTS.MUSHIFT); 
+      MUSHIFT_local = gen_MUSHIFT(MU_local, INPUTS.MUSHIFT, &INPUTS.MUREWGT);
     }
   }
 
   // load return args
-  *MU      =  gen_dLmag(zCMB, zHEL, vPEC, GLON, GLAT);
+  *MU      =  MU_local ;
   *LENSDMU =  lensDMU_local ;
   *MUSHIFT =  MUSHIFT_local ;
 
   return;
 
 } // end gen_distanceMag
+
+
+// ===========================================================================
+double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT ) {
+  // Created May 2025
+  // Return random MUSHIFT in range defined by user input INPUTS.MUSHIFT.
+  // If z-dependeint REWGT is defined, select MUSHIFT based on this same weight.
+  //
+  // Inputs:
+  //   MU = true distance modulus of event
+  //   MUSHIFT_RANGE[2] : MUSHIFT range to select from
+  //   MUREWGT          : optional structure of REWGT_CDF vs. MU if REWGT option is used.
+  //  
+  double MUSHIFT = 0.0, MU_REWGT ;
+  int    NMUBIN  = MUREWGT->NMUBIN ;
+  int    ILIST_RAN = 2;
+  char fnam[] = "gen_MUSHIFT" ;
+
+  // ---------- BEGIN ----------
+
+  if ( NMUBIN == 0 ) {
+    // if no REWGT, then flat distribution of MUSHIFT
+    MUSHIFT = getRan_Flat(ILIST_RAN, INPUTS.MUSHIFT);  
+  }
+  else {
+    // pick MU from REWGT_CDF
+    double *MU_LIST, *REWGT_CDF, MU_RANGE[2], REWGT_CDF_RANGE[2], RANCDF ;
+    double MU_MIN_GLOBAL, MU_MAX_GLOBAL;
+    int    OPT_INTERP = 1;
+    MU_LIST          = MUREWGT->MU_LIST ;
+    REWGT_CDF        = MUREWGT->REWGT_CDF ;
+    MU_RANGE[0]      = MU + MUSHIFT_RANGE[0];
+    MU_RANGE[1]      = MU + MUSHIFT_RANGE[1];
+    MU_MIN_GLOBAL    = MU_LIST[0];
+    MU_MAX_GLOBAL    = MU_LIST[NMUBIN-1];
+
+    if ( MU_RANGE[0] < MU_MIN_GLOBAL )  {  MU_RANGE[0] = MU_MIN_GLOBAL+0.001; }
+    if ( MU_RANGE[1] > MU_MAX_GLOBAL )  {  MU_RANGE[1] = MU_MAX_GLOBAL-0.001; }
+ 
+    REWGT_CDF_RANGE[0]   = interp_1DFUN(OPT_INTERP, MU_RANGE[0], NMUBIN, MU_LIST, REWGT_CDF, fnam);
+    REWGT_CDF_RANGE[1]   = interp_1DFUN(OPT_INTERP, MU_RANGE[1], NMUBIN, MU_LIST, REWGT_CDF, fnam);
+
+    // select random value of CDF
+    RANCDF = getRan_Flat(ILIST_RAN, REWGT_CDF_RANGE);
+
+    // invert RANCDF to get MU
+    MU_REWGT = interp_1DFUN(OPT_INTERP, RANCDF, NMUBIN, REWGT_CDF, MU_LIST, fnam);
+
+    // subtract original MU to get MUSHIFT
+    MUSHIFT  = MU_REWGT - MU ;
+
+    /* xxx
+    printf(" xxx %s: MU=%.3f RANCDF=%.1f from [%.1f-%.1f]  MU_REWGT=%.3f  MUSHIFT=%.3f \n",
+	   fnam, MU, RANCDF, REWGT_CDF_RANGE[0], REWGT_CDF_RANGE[1],
+	   MU_REWGT, MUSHIFT); fflush(stdout);
+    debugexit(fnam);
+    xxxx */
+
+  }
+
+  return MUSHIFT ;
+
+} //  end gen_MUSHIFT
 
 // ********************************
 double gen_dLmag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT ) {
@@ -16992,8 +17124,8 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   wpoly  = 1 ;
   wpoly *= eval_GENPOLY(z,  &RATEPAR->DNDZ_ZPOLY_REWGT,  fnam) ;
   wpoly *= eval_GENPOLY(z1, &RATEPAR->DNDZ_Z1POLY_REWGT, fnam) ; // May 2025
-  w     *= wpoly ;
 
+  w     *= wpoly ;
   
   // global rate scale for all models.
   w *= RATEPAR->DNDZ_ALLSCALE ;

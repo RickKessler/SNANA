@@ -7354,8 +7354,7 @@ void prep_user_murewgt(MUREWGT_DEF *MUREWGT) {
   // Initialize REWGT vs. MU and CDF vs. MU based on user-defined REWGT.
   // Original motivation is for SBI that needs re-weighted sim for training.
 
-  double zmin = INPUTS.GENRANGE_REDSHIFT[0] ;
-  double zmax = INPUTS.GENRANGE_REDSHIFT[1] + 0.1;
+  double zmin_user, zmax_user, zmin_grid, zmax_grid, mumax_grid, mumax ;
   double dz   = 0.001 ;
   double z, z1, mu, vpec=0.0, glon=0.0, glat=0.0, rewgt, rewgt_sum ;
   int NZBIN, MEMD, iz ;
@@ -7366,14 +7365,28 @@ void prep_user_murewgt(MUREWGT_DEF *MUREWGT) {
   sprintf(BANNER,"%s to define MUSHIFT distribution", fnam);
   print_banner(BANNER);
 
-  NZBIN = (int)((zmax-zmin)/dz) ; // approx for malloc
+
+  zmin_user = INPUTS.GENRANGE_REDSHIFT[0] ;
+  zmax_user = INPUTS.GENRANGE_REDSHIFT[1] ;
+  
+  mumax      = dLmag (zmax_user, zmax_user, vpec, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
+  mumax_grid = mumax + INPUTS.MUSHIFT[1];
+
+  zmin_grid  = zmin_user ;
+  zmax_grid  = zcmb_dLmag_invert(mumax_grid, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
+  zmax_grid += 0.1 ; // add padding for CMB <--> Helio, and/or vpec
+
+  printf("\t mumax_grid = %.2f(USER) + %.2f(MUSHIFT) = %.2f -> zmax_grid = %.2f\n",
+	 mumax, INPUTS.MUSHIFT[1], mumax_grid, zmax_grid); fflush(stdout);
+
+  NZBIN = (int)((zmax_grid-zmin_grid)/dz) ; // approx for malloc
   MEMD  = (NZBIN+10) * sizeof(double);
   MUREWGT->MU_LIST    = (double*) malloc( MEMD );
   MUREWGT->REWGT_LIST = (double*) malloc( MEMD );
   MUREWGT->REWGT_CDF  = (double*) malloc( MEMD );
 
   NZBIN = 0 ;
-  for (z=zmin; z < zmax; z+=dz) {
+  for (z=zmin_grid; z < zmax_grid; z+=dz) {
     z1   =  1.0 + z;
     mu   =  gen_dLmag(z, z, vpec, glon, glat);
 
@@ -7393,12 +7406,13 @@ void prep_user_murewgt(MUREWGT_DEF *MUREWGT) {
 
   iz = 0;
   printf("\t zmin = %.3f -> MU=%.3f  REWGT=%8.3f  CDF=%10.4le \n",
-	 zmin, MUREWGT->MU_LIST[iz], MUREWGT->REWGT_LIST[iz], MUREWGT->REWGT_CDF[iz] );
+	 zmin_grid, MUREWGT->MU_LIST[iz], MUREWGT->REWGT_LIST[iz], MUREWGT->REWGT_CDF[iz] );
 
   iz = NZBIN-1 ;
   printf("\t zmax = %.3f -> MU=%.3f  REWGT=%8.3f  CDF=%10.4le \n",
-	 zmax, MUREWGT->MU_LIST[iz], MUREWGT->REWGT_LIST[iz], MUREWGT->REWGT_CDF[iz] );
+	 zmax_grid, MUREWGT->MU_LIST[iz], MUREWGT->REWGT_LIST[iz], MUREWGT->REWGT_CDF[iz] );
 
+  fflush(stdout);
 
   return;
 
@@ -16878,10 +16892,20 @@ double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT ) {
     MU_MIN_GLOBAL    = MU_LIST[0];
     MU_MAX_GLOBAL    = MU_LIST[NMUBIN-1];
 
-    // TBD: what to do when MU_RANGE is outside nominal generation ???
-    if ( MU_RANGE[0] < MU_MIN_GLOBAL )  {  MU_RANGE[0] = MU_MIN_GLOBAL+0.001; }
-    if ( MU_RANGE[1] > MU_MAX_GLOBAL )  {  MU_RANGE[1] = MU_MAX_GLOBAL-0.001; }
- 
+    // high-side of CDF(mu) is protected in prep_user_murwgt by extending zmax,
+    // but lo side is not protected because negative redshifts don't compute.
+    // If smallest possible MU is outside CDF(mu) range, 
+    // switch to uniform-random selection and ignore CDF.
+    if ( MU_RANGE[0] < MU_MIN_GLOBAL )  {  
+      /*
+      printf(" %s WARNING: MU_RANGE[0]=%.2f is too low for CDF; pick uniform random instead of from CDF\n",
+	     fnam, MU_RANGE[0], MU_MIN_GLOBAL ); fflush(stdout);
+      */
+      MUSHIFT = getRan_Flat(ILIST_RAN, INPUTS.MUSHIFT);
+      return MUSHIFT ;
+    }
+
+
     REWGT_CDF_RANGE[0]   = interp_1DFUN(OPT_INTERP, MU_RANGE[0], NMUBIN, MU_LIST, REWGT_CDF, fnam);
     REWGT_CDF_RANGE[1]   = interp_1DFUN(OPT_INTERP, MU_RANGE[1], NMUBIN, MU_LIST, REWGT_CDF, fnam);
 

@@ -16823,11 +16823,10 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
 
 
   if ( strlen(INPUTS.STRING_MUSHIFT) > 0 ) {
-    if ( INPUTS.MUSHIFT[1] == INPUTS.MUSHIFT[0] ) 
-      { MUSHIFT_local = INPUTS.MUSHIFT[0]; } // do NOT burn random for delta function
-    else { 
-      
-      // xxx mark MUSHIFT_local = getRan_Flat(1, INPUTS.MUSHIFT); 
+    if ( INPUTS.MUSHIFT[1] == INPUTS.MUSHIFT[0] ) {
+      MUSHIFT_local = INPUTS.MUSHIFT[0];  // do NOT burn random for delta function
+    }
+    else {       
       MUSHIFT_local = gen_MUSHIFT(MU_local, INPUTS.MUSHIFT, &INPUTS.MUREWGT);
     }
   }
@@ -16844,12 +16843,14 @@ void gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double 
 
 // ===========================================================================
 double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT ) {
+
   // Created May 2025
   // Return random MUSHIFT in range defined by user input INPUTS.MUSHIFT.
   // If z-dependeint REWGT is defined, select MUSHIFT based on this same weight.
+  // Original useage is for SBI training (DESC project)
   //
   // Inputs:
-  //   MU = true distance modulus of event
+  //   MU               : true distance modulus of event
   //   MUSHIFT_RANGE[2] : MUSHIFT range to select from
   //   MUREWGT          : optional structure of REWGT_CDF vs. MU if REWGT option is used.
   //  
@@ -16865,7 +16866,8 @@ double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT ) {
     MUSHIFT = getRan_Flat(ILIST_RAN, INPUTS.MUSHIFT);  
   }
   else {
-    // pick MU from REWGT_CDF
+    // pick MU_REWGT from REWGT_CDF so that it has same rewgt
+    // as nominal event selection
     double *MU_LIST, *REWGT_CDF, MU_RANGE[2], REWGT_CDF_RANGE[2], RANCDF ;
     double MU_MIN_GLOBAL, MU_MAX_GLOBAL;
     int    OPT_INTERP = 1;
@@ -16876,13 +16878,14 @@ double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT ) {
     MU_MIN_GLOBAL    = MU_LIST[0];
     MU_MAX_GLOBAL    = MU_LIST[NMUBIN-1];
 
+    // TBD: what to do when MU_RANGE is outside nominal generation ???
     if ( MU_RANGE[0] < MU_MIN_GLOBAL )  {  MU_RANGE[0] = MU_MIN_GLOBAL+0.001; }
     if ( MU_RANGE[1] > MU_MAX_GLOBAL )  {  MU_RANGE[1] = MU_MAX_GLOBAL-0.001; }
  
     REWGT_CDF_RANGE[0]   = interp_1DFUN(OPT_INTERP, MU_RANGE[0], NMUBIN, MU_LIST, REWGT_CDF, fnam);
     REWGT_CDF_RANGE[1]   = interp_1DFUN(OPT_INTERP, MU_RANGE[1], NMUBIN, MU_LIST, REWGT_CDF, fnam);
 
-    // select random value of CDF
+    // select random value within CDF range
     RANCDF = getRan_Flat(ILIST_RAN, REWGT_CDF_RANGE);
 
     // invert RANCDF to get MU

@@ -10288,20 +10288,33 @@ void parse_err ( char *inFile, int NEWMJD, char *keyword ) {
 }
 
 // *********************************************************
-void  legacyKey_abort(char *callFun, char *legacyKey, char *newKey) {
+// xxx mark void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) {
+void  legacyInput_abort(char *callFun, char *type, char *legacyName, char *newName) {
 
-  if ( strlen(newKey) > 0 ) {
-    sprintf(c1err,"Legacy key '%s' is no longer valid.", legacyKey);
-    sprintf(c2err,"Use %s key instead .", newKey );
+  // Inputs:
+  //   callFun      : name of calling function
+  //   type         ; description of what is obsolete; e.g. "key" or "arg"
+  //   legacyName   : name of thing (key or arg) that is obsolete
+  //   newName      : if null, there is no replacement; else tell user to use this name
+  //
+  // May 2025: add *type input = "key" or "arg" or "whatever is obsolete
+
+  char fnam[] = "legacyInput_abort" ;
+
+  // ----------- BEGIN ----------
+
+  if ( strlen(newName) > 0 ) {
+    sprintf(c1err,"Legacy %s = '%s' is no longer valid.", type, legacyName);
+    sprintf(c2err,"Use %s = '%s' instead .", type, newName );
     errmsg(SEV_FATAL, 0, callFun, c1err, c2err );
   }
   else {
-    sprintf(c1err,"Legacy key '%s' is no longer valid.", legacyKey);
-    sprintf(c2err,"Remove key from file ."  );
+    sprintf(c1err,"Legacy %s '%s' is no longer valid.", type, legacyName);
+    sprintf(c2err,"Remove %s from file .", type  );
     errmsg(SEV_FATAL, 0, callFun, c1err, c2err );
   }
 
-} // end legacyKey_abort
+} // end legacyInpu_abort
 
 // *********************************************************
 void missingKey_ABORT(char *key, char *file, char *callFun) {

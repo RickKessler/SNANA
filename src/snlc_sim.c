@@ -6102,36 +6102,38 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
   // ABORT on obsolete keys, giving message about correct key to use.
   //
   // Note that abort call is via
-  //    legacyKey_abort(fnam, key_obsolete, key_new)
+  //    legacyInout_abort(fnam, KEY, key_obsolete, key_new)
   // to print name of valid key.
   //
   // Dec 23 2020: abort if CONFIG file key is found.
+  // May 26 2025: swith to use legacyInput_abort with KEY arg
 
+  char KEY[] = "KEY";
   char fnam[] = "parse_input_OBSOLETE";
 
   // ---------- BEGIN -------------
 
   if ( keyMatchSim(1, "NGRID_LUMIPAR", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
+    { legacyInput_abort(fnam, KEY, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
 
   else if ( keyMatchSim(1, "GEN_SNDATA_SIM", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
+    { legacyInput_abort(fnam, KEY, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
 
   else if ( keyMatchSim(1, "EXTINC_MILKYWAY", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
+    { legacyInput_abort(fnam, KEY, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
 
   else if ( keyMatchSim(1, "RVMW", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "RVMW:", "RV_MWCOLORLAW:"); }
+    { legacyInput_abort(fnam, KEY, "RVMW:", "RV_MWCOLORLAW:"); }
 
   else if ( keyMatchSim(1, "HUMAN_SEARCHEFF_OPT", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
+    { legacyInput_abort(fnam, KEY, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
 
 
   else if ( keyMatchSim(1, "SPECTYPE", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "SPECTYPE:", ""); }
+    { legacyInput_abort(fnam, KEY, "SPECTYPE:", ""); }
 
   else if ( keyMatchSim(1, "SMEARFLAG_HOSTGAL", WORDS[0], keySource) )
-    { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
+    { legacyInput_abort(fnam, KEY, "SMEARFLAG_HOSTGAL:", ""); }
 
  
   bool IS_CONFIG_FILE = 
@@ -14387,6 +14389,8 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     // check all user-variables before writing NVAR to dump-file;
     // abort if invalid variable is specified.
+    // ??? NVAR_ABORT_SIMGEN_DUMP = 0 ;
+
     for ( ivar = 0; ivar < NVAR ; ivar++ ) {
       pvar = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;
       INDEX_SIMGEN_DUMP[ivar] = MATCH_INDEX_SIMGEN_DUMP(pvar);
@@ -15158,7 +15162,7 @@ int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
   // If there are 0 matches, or more than 1 match, ABORT.
   //
 
-  int index, MATCH_INDEX, jcmp ;
+  int index, MATCH_INDEX, ABORT_INDEX, jcmp, jcmp_abort ;
   int NMATCH, NMATCH_EXACT, NMATCH_ignoreCase ;
   char fnam[] = "MATCH_INDEX_SIMGEN_DUMP" ;
 
@@ -15166,22 +15170,34 @@ int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
 
   NMATCH = NMATCH_EXACT = NMATCH_ignoreCase = 0 ;
   MATCH_INDEX = -9 ;
+  ABORT_INDEX = -9 ;
 
   // first try for exact match:
   for ( index=0; index < NVAR_SIMGEN_DUMP; index++ ) {
-    jcmp = strcmp(varName,SIMGEN_DUMP[index].VARNAME) ;
-    if ( jcmp == 0 ) {  NMATCH_EXACT++ ;  MATCH_INDEX = index ; }
+    jcmp       = strcmp(varName,SIMGEN_DUMP[index].VARNAME) ;
+    jcmp_abort = strcmp(varName,SIMGEN_DUMP[index].VARNAME_ABORT) ;
+    if ( jcmp == 0       ) {  MATCH_INDEX = index ;  NMATCH_EXACT++ ;  }
+    if ( jcmp_abort == 0 ) {  ABORT_INDEX = index ; }
   } 
   NMATCH = NMATCH_EXACT ;
-
 
   // if we don't find exact match, look for case-insensitive match
   if ( NMATCH_EXACT == 0 ) {
     for ( index=0; index < NVAR_SIMGEN_DUMP; index++ ) {
-      jcmp = strcmp_ignoreCase(varName,SIMGEN_DUMP[index].VARNAME) ; 
-      if ( jcmp == 0 ) {  NMATCH_ignoreCase++ ; MATCH_INDEX = index ;  }
+      jcmp       = strcmp_ignoreCase(varName,SIMGEN_DUMP[index].VARNAME) ;
+      jcmp_abort = strcmp_ignoreCase(varName,SIMGEN_DUMP[index].VARNAME_ABORT) ;
+
+      if ( jcmp == 0       ) { MATCH_INDEX = index ;  NMATCH_ignoreCase++ ;  }
+      if ( jcmp_abort == 0 ) { ABORT_INDEX = index ; }
     } 
-    NMATCH = NMATCH_ignoreCase ;    
+    NMATCH = NMATCH_ignoreCase ;
+  }
+
+
+  if ( ABORT_INDEX >= 0 ) {
+    legacyInput_abort( fnam, "SIMGEN_DUMP varname", 
+		       SIMGEN_DUMP[ABORT_INDEX].VARNAME_ABORT,
+		       SIMGEN_DUMP[ABORT_INDEX].VARNAME );
   }
 
   // ------------------------
@@ -15189,14 +15205,15 @@ int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
   
   if ( NMATCH == 0 ) {
     print_preAbort_banner(fnam);
-    PREP_SIMGEN_DUMP(0); // print list of valid varnames, then quit
+    PREP_SIMGEN_DUMP(0); // print list of valid varnames
     sprintf(c1err,"Undefined SIMGEN_DUMP variable: '%s'", varName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
+    sprintf(c2err,"See list of valid SIMGEN_DUMP variables above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
   
   if ( NMATCH > 1 ) {
     print_preAbort_banner(fnam);
-    PREP_SIMGEN_DUMP(0); // print list of valid varnames, then quit
+    PREP_SIMGEN_DUMP(0); // print list of valid varnames
     sprintf(c1err,"SIMGEN_DUMP variable '%s'", varName);
     sprintf(c2err,"defined %d times ??", NMATCH);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -15254,7 +15271,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // Jul 24 2020: for OPT_DUMP=0, do NOT quit
 
   int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP, q ;
-  char *cptr ;
+  char *cptr, *cptr_abort;
   char fnam[] = "PREP_SIMGEN_DUMP";
 
   // --------------- BEGIN -------------
@@ -15275,6 +15292,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     SIMGEN_DUMP[i].PTRINT4 = &SIMGEN_DUMMY.IVAL4 ;
     SIMGEN_DUMP[i].PTRINT8 = &SIMGEN_DUMMY.IVAL8 ;
     SIMGEN_DUMP[i].PTRCHAR =  SIMGEN_DUMMY.CVAL ;
+    SIMGEN_DUMP[i].VARNAME_ABORT[0] = 0 ; // May 26 2025
   }
 
 
@@ -15383,8 +15401,10 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_CMB_SMEAR ;
   NVAR_SIMGEN_DUMP++ ;
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"ZCMB");  // true zcmb
+  cptr       = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr_abort = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME_ABORT ;
+  sprintf(cptr,"ZCMB");     // true zcmb
+  sprintf(cptr_abort,"Z");  // abort on this varname
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_CMB ;
   NVAR_SIMGEN_DUMP++ ;
 
@@ -15415,11 +15435,6 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   // --------------------------------------
   // legacy redshift variables to avoid aborting on old input files
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"Z");
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_CMB ;
-  NVAR_SIMGEN_DUMP++ ;
-
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GENZ");
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_CMB ;
@@ -15503,13 +15518,10 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.ZPHOT ;
   NVAR_SIMGEN_DUMP++ ;
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"GALZERR") ;  // legacy name for ZPHOT ERROR
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.ZPHOT_ERR ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr       = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr_abort = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME_ABORT ;
   sprintf(cptr,"GALZPHOTERR") ;  // ZPHOT ERROR
+  sprintf(cptr_abort,"GALZERR") ;  // abort on this varname
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.ZPHOT_ERR ;
   NVAR_SIMGEN_DUMP++ ;
 
@@ -15622,14 +15634,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   }
 
   // -----------
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr       = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr_abort = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME_ABORT ;
   sprintf(cptr,"PEAKMJD") ;
+  sprintf(cptr_abort,"MJD0") ; // abort on this varname
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PEAKMJD ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"DTSEASON_PEAK") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DTSEASON_PEAK ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -15637,9 +15646,10 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PEAKMJD_SMEAR ;
   NVAR_SIMGEN_DUMP++ ;
 
+
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"MJD0") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PEAKMJD ;
+  sprintf(cptr,"DTSEASON_PEAK") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DTSEASON_PEAK ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -15657,20 +15667,13 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MJD_DETECT_LAST ;
   NVAR_SIMGEN_DUMP++ ;
 
-  // write true/calculated peakMag (not observed peak mag)
-  for ( ifilt=0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) {
-    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt]; 
-    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"MAGT0_%c", FILTERSTRING[ifilt_obs] ) ;
-    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.peakmag_obs[ifilt_obs] ;
-    NVAR_SIMGEN_DUMP++ ;
-  }
-
   // Aug 2017: allow traditional PEAKMAG_x for true peakmag (not observed)
   for ( ifilt=0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt]; 
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    cptr_abort = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME_ABORT ;
     sprintf(cptr,"PEAKMAG_%c", FILTERSTRING[ifilt_obs] ) ;
+    sprintf(cptr_abort, "MAGT0_%c",   FILTERSTRING[ifilt_obs] ) ; // abort on legacy varname
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.peakmag_obs[ifilt_obs] ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -15699,7 +15702,8 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_REST; ifilt++ ) {
       ifilt_rest = GENLC.IFILTMAP_REST[ifilt]; 
       cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-      sprintf(cptr,"magT0_%c", FILTERSTRING[ifilt_rest] ) ;
+      // xxx mark sprintf(cptr,"magT0_%c", FILTERSTRING[ifilt_rest] ) ;
+      sprintf(cptr,"PEAKMAG_%c", FILTERSTRING[ifilt_rest] ) ;
       SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8=&GENLC.peakmag_rest[ifilt_rest];
       NVAR_SIMGEN_DUMP++ ;
     }
@@ -15858,7 +15862,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     int iscat;
     for ( iscat=0; iscat < 3; iscat++ ) {
       cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-      sprintf(cptr,"SCAT%s", GENLC.COVMAT_SCATTER_NAME[iscat] );
+      sprintf(cptr,"COVMAT_SCAT%s", GENLC.COVMAT_SCATTER_NAME[iscat] );
       SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.COVMAT_SCATTER[iscat];
       NVAR_SIMGEN_DUMP++ ;   
     }
@@ -15996,15 +16000,13 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL4 = &GENLC.TRESTMIN ;  
   NVAR_SIMGEN_DUMP++ ;
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr       = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  cptr_abort = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME_ABORT ;
   sprintf(cptr,"TRESTMAX") ;
+  sprintf(cptr_abort,"TMAX") ; // abort on this varname
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL4 = &GENLC.TRESTMAX ;
   NVAR_SIMGEN_DUMP++ ;
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"TMAX") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL4 = &GENLC.TRESTMAX ;
-  NVAR_SIMGEN_DUMP++ ;
   // ---
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -16084,6 +16086,9 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
   }
 
+
+
+  // - - - - - - -
   //check option to LIST variables and quit
   if ( OPT_DUMP == 0 ) {
 

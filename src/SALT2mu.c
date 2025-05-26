@@ -17691,7 +17691,7 @@ int ppar(char* item) {
   }
 
   if ( uniqueOverlap(item,"pecv=")) {  // LEGACY key
-    legacyKey_abort(fnam, "pecv", "zpecerr" ); 
+    legacyInput_abort(fnam, "KEY", "pecv", "zpecerr" ); 
   }
 
   // lensing term (Sep 2016)

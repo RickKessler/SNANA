@@ -1787,7 +1787,8 @@ int NEVT_SIMGEN_DUMP ; // NEVT written to SIMGEN_DUMP file
 int NVAR_SIMGEN_DUMP ; // total define SIMGEN variables
                  // note that INPUTS.NVAR_SIMGEN_DUMP is how many user var
 int NVAR_SIMGEN_DUMP_GENONLY; // variables for generation only
-int INDEX_SIMGEN_DUMP[MXSIMGEN_DUMP]; // gives strucdt index vs. [user ivar]
+int INDEX_SIMGEN_DUMP[MXSIMGEN_DUMP]; // gives struct index vs. [user ivar]
+int NVAR_ABORT_SIMGEN_DUMP;    // count invalide SIMGEN_DUMP variables resulting in abort.
 
 struct SIMGEN_DUMP {
   float      *PTRVAL4 ;
@@ -1796,7 +1797,9 @@ struct SIMGEN_DUMP {
   long long  *PTRINT8 ;  // added Feb 2015 to handle galaxy ID
   char       *PTRCHAR ;  // allows FIELD (7.30.2014)
 
-  char  VARNAME[20] ;
+  char  VARNAME[40] ;
+  char  VARNAME_ABORT[40] ; // if not null, abort with message to use this varname
+
 } SIMGEN_DUMP[MXSIMGEN_DUMP] ;
 
 struct SIMGEN_DUMMY {

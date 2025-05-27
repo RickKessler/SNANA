@@ -1004,6 +1004,7 @@ use the following sim-input keys:
   HzFUN_FILE:  <fileName>  # non-wCDM:  2 columns with  z  H(z)
 
   MUSHIFT: <value>       # mag shift for all distances (default=0)
+  MUSHIFT: dmu0:dmu1     # random mag shift between dmu0 and dmu1
 \end{Verbatim}
 %
 It is recommended to {\it NOT} specify cosmological parameters and thus
@@ -1021,6 +1022,11 @@ the first map bin must have $z=0$ (sim aborts if not satisfied).
 Finally, {\tt MUSHIFT} is not a physical model, but may be useful
 to generate bias-corrections with different {\tt MUSHIFT} values
 in order to interpolate distances in a cosmology fitting program.
+{\tt SIM\_MUSHIFT} is written to the data files, and for non-zero values
+a {\tt SIM\_MUSHIFT} column is included in the {\tt SNANA} and {\tt FITRES} 
+output tables from light curve fitting.
+{\tt SIM\_DLMAG} is the computed distance modulus, and it is {\it not}
+corrected for {\tt MUSHIFT} or {\tt LENSDMU}. 
 
 % ------------------------------------
    \clearpage
@@ -5521,8 +5527,8 @@ can be obtained with
      or
   DNDZ_ZEXP_REWGT:  -2.0             # dN/dz *= 1/z^2
      or
-  DNDZ_ZPOLY_REWGT: a0,a1,,,,aN      # dN/dz *= [N'th prder polynom]
-  DNDZ_ZPOLY_REWGT: a0 a1 a2 a3      # LEGACY dN/dz *= [3rd prder polynom]
+  DNDZ_ZPOLY_REWGT: a0,a1,,,,aN      # dN/dz *= [N'th order polynom of z]
+  DNDZ_Z1POLY_REWGT: a0,a1,,,,aN     # dN/dz *= [N'th order polynom of (1+z)] 
 \end{verbatim}
 %
 The ``{\tt FLAT}'' command results in a flat redshift distribution,
@@ -7902,6 +7908,56 @@ with quick-command (\S\ref{sss:quick_commands})
 \end{verbatim}
 
 
+% --------------------------------------------
+   \clearpage
+   \subsection{Understanding {\tt NGENEV} and {\tt NGENLC} }
+   \label{ssec:NGEN}
+% --------------------------------------------
+
+There are 3 {\tt NGEN} quantities reported in the output README
+from the simulation:
+\begin{verbatim}
+   NGENEV_TOT:     400   # number of generated events based on reading SIMLIB entry
+   NGENLC_TOT:     400   # number of generated LCs (until reaching input NGENTOT_LC)
+   NGENLC_WRITE:   19    # number of LCs passing trigger and written to data files.
+\end{verbatim}
+
+{\tt NGENEV\_TOT} increments for each cadence read from the SIMLIB/cadence file.
+For most applications, a light curve is generated for each cadence and thus
+{\tt NGENEV\_TOT=NGENLC\_TOT} as indicated above. 
+For sim-inputs {\tt USE\_SIMLIB\_REDSHIFT} and {\tt USE\_SIMLIB\_PEAKMJD} 
+(\S~\ref{sssec:simlib_options}),
+\simlib\ entries failing user-defined {\tt GENRANGE\_REDSHIFT[PEAKMJD]} are
+counted as a generated events (hence {\tt NGENEV\_TOT} increments),
+but since the cadence is discarded there is no corresponding light curve
+and thus {\tt NGENLC\_TOT} is {\it not} incremented. In this case,
+{\tt NGENEV\_TOT > NGENLC\_TOT}, and the sim runs until {\tt NGENLC\_TOT}
+matches sim-input request {\tt NGENTOT\_LC}.
+
+The following sim-inputs control generation ranges that must be satisfied
+for {\tt NGENLC\_TOT} to increment:
+%
+\begin{verbatim}
+   GENRANGE_REDSHIFT:         <min>  <max>   # required
+   GENRANGE_PEAKMJD:          <min>  <max>   # required
+   GENRANGE_RA:               <min>  <max>   # optional
+   GENRANGE_DEC:              <min>  <max>   # optional
+   GENRANGE_PEAKMAG_[band]:   <min>  <max>   # optional
+\end{verbatim}
+%
+For \simlib\ files that do not contain {\tt REDSHIFT} or {\tt PEAKMJD},
+the corresponding {\tt GENRANGEs} are used to select these quantities and
+therefore the associated genrange cuts are satisifed.
+The default {\tt GENRANGE\_RA[DEC]} windows are wide open to select
+all coordinates in a \simlib. User defined {\tt GENRANGE\_RA[DEC]}
+can result in rejecting \simlib\ entries.
+{\tt GENRANGE\_PEAKMAG\_[band]} are wide open by default;
+an example use case is if the spectroscopic-selection 
+efficiency reaches zero at a particular mag in a particular band,
+or if a well-defined mag limit is noticed after analysis.
+
+
+
 % ##########################################
    \clearpage
    \section{The \snana\ Fitter:  \snfitter\ }
@@ -8265,7 +8321,7 @@ or $\toApprox$ can be extracted into a TEXT-formatted table
     snana.exe NOFILE \
       VERSION_PHOTOMETRY <VERSION>   \
       SNTABLE_LIST 'SNANA(text:key)' \
-      TABLEPREFIX_TEXT   <PREFIX>    \  
+      TEXTFILE_PREFIX    <PREFIX>    \  
       OPT_SETPKMJD <OPT_SETPKMJD>        > stdout.log
 \end{verbatim}
 %

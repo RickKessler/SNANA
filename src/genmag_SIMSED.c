@@ -211,7 +211,6 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   
   // set defaults
 
-  ISIMSED_SEQUENTIAL = -9 ;  // xxx mark delete 
   ISIMSED_SELECT     = -9 ;  // for SEQUENTIAL or WGT opton
 
   SEDMODEL.NSURFACE   = 0 ;

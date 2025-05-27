@@ -269,7 +269,7 @@ tnow       = datetime.datetime.now()
 DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 
-MAXROW_DETCOV_TEST = 2000  # compute and print det(cov) for regression tests if fewer than 2000 rows
+MAXROW_DETCOV_TEST = 1000  # compute and print det(cov) for regression tests if fewer than 1000 rows
 
 # ============================
 def setup_logging():
@@ -1923,13 +1923,15 @@ def write_summary_output(args, config, covsys_list, base):
     # and ISDATA_REAL flag.
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
     # Feb 17 2025: write BBC_DIR 
+    # May 13 2025; fix refactor bug and restore ISDATA_REAL
 
     out        = Path(config["OUTDIR"])
     BBC_DIR    = str(Path(config['data_dir']))
 
     info  = {} # init dictionary to dump to info file
 
-    info['HD']      = HD_FILENAME
+    info['HD']           = HD_FILENAME
+    info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]  # May 13 2025
 
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):

@@ -297,6 +297,7 @@ typedef struct {  // RATEPAR_DEF
   char   NAME[MXPATHLEN] ;           // filled internally
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
+  GENPOLY_DEF DNDZ_Z1POLY_REWGT ;     // poly(1+z) to reweight rate-vs-(1+z). May 2025
   
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
   double DNDZ_ALLSCALE ;      // scale all SN models (Ia, SIMSED, etc ... )
@@ -324,6 +325,14 @@ typedef struct {  // RATEPAR_DEF
   double SEASON_FRAC ;      // fracion among RATEPARs (SN,PEC1A)
 
 } RATEPAR_DEF ;
+
+
+
+// May 2025: struct to store REWGT vs. MU and CDF vs. MU to select MUSHIFT (for SBI)
+typedef struct {
+  int    NMUBIN;
+  double *MU_LIST, *REWGT_LIST, *REWGT_CDF;
+} MUREWGT_DEF ;
 
 
 #define SPECTROGRAPH_OPTMASK_LAMSIGMAx0  1  // no lam smearing
@@ -502,9 +511,9 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
-  bool REFAC_WGTMAP ;         // Temporary development flag; set internally from DEBUG_FLAG value
-  bool APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
+  int  APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
 
+  bool REFAC_WGTMAP ;         // Temporary development flag; set internally from DEBUG_FLAG value
   bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_BUGS_DES3YR;       // restore DES3YR bugs
@@ -683,7 +692,10 @@ struct INPUTS {
   double w0_LAMBDA;
   double wa_LAMBDA;    // w = w0 + wa*(1-a)
   double H0;           // km/s per MPc
-  double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020)
+
+  char   STRING_MUSHIFT[60]; // e.g. '0.05:0.1' or just '0.05'  May 2025
+  double MUSHIFT[2];      // coherent MU shift at all redshifts (random between range)
+
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
   HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
   ANISOTROPY_INFO_DEF ANISOTROPY_INFO ;
@@ -694,6 +706,8 @@ struct INPUTS {
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
   float MXRADIUS_RANDOM_SHIFT; // 0: random coord shift within MXRADIUS, deg
 
+  int    NFILT_GENRANGE_PEAKMAG; // counts number of GENRANGE_PEAKMAG keys
+  double GENRANGE_PEAKMAG[MXFILTINDX][2]; // May 2025: allow using PEAKMAG(s) to define physical unit
   double GENRANGE_REDSHIFT[2];  // generated zCMB range
   double GENSIGMA_REDSHIFT;     // smear reported redshift
   double GENBIAS_REDSHIFT ;     // measurement + local bubble
@@ -707,6 +721,8 @@ struct INPUTS {
   RATEPAR_DEF RATEPAR ;
   RATEPAR_DEF RATEPAR_PEC1A ; // only for PEC1A in NON1A input
 
+  MUREWGT_DEF MUREWGT ; // to select weighted MUSHIFT
+
   char  STRING_FUDGE_SNRMAX[20];  // '[SNRMAX]'  or  '[BAND]=[SNRMAX]'
   float FUDGE_SNRMAX;      // adjust EXPOSURE_TIME to force SNR at peak
   int   IFILTOBS_FUDGE_SNRMAX; // -1=all, or get scale from this IFILTOBS
@@ -715,7 +731,7 @@ struct INPUTS {
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
-  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
+  // xxx mark del  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
   float  GENRANGE_TREST[2];     // relative to peak, days
   float  GENRANGE_TOBS[2];      // for GRID option
   float  GENSIGMA_PEAKMJD;      // option to estimate PEAKMJD for data file
@@ -1080,6 +1096,8 @@ struct GENLC {
   int    REDSHIFT_FLAG  ;   // indicates source of redshift
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
+  double MUSHIFT;            // user MUSHIFT
+
   double LENSDMU;            // weak lensing DMU (Apr 2017)
   double LENSDMU_SMEAR ;     // measured LENSDMU (Aug 2024)  
   double SL_MAGSHIFT;        // magshift from strong lens magnification
@@ -1272,6 +1290,7 @@ struct GENLC {
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
+  int     ncall_genran_modelSmear; 
 
   double  SPECEFF_RAN[MXFILTINDX+1]  ;
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
@@ -1438,7 +1457,8 @@ struct GENFILT {
 } GENFILT ;
 
 
-int NGENLC_TOT ;             // actual number of generated LC
+int NGENEV_TOT;              // number of events generated (before LC)
+int NGENLC_TOT ;             // Number of LC generated LC passing GENRANGEs
 int NGENLC_WRITE ;           // number written
 int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
 int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
@@ -1771,7 +1791,8 @@ int NEVT_SIMGEN_DUMP ; // NEVT written to SIMGEN_DUMP file
 int NVAR_SIMGEN_DUMP ; // total define SIMGEN variables
                  // note that INPUTS.NVAR_SIMGEN_DUMP is how many user var
 int NVAR_SIMGEN_DUMP_GENONLY; // variables for generation only
-int INDEX_SIMGEN_DUMP[MXSIMGEN_DUMP]; // gives strucdt index vs. [user ivar]
+int INDEX_SIMGEN_DUMP[MXSIMGEN_DUMP]; // gives struct index vs. [user ivar]
+int NVAR_ABORT_SIMGEN_DUMP;    // count invalide SIMGEN_DUMP variables resulting in abort.
 
 struct SIMGEN_DUMP {
   float      *PTRVAL4 ;
@@ -1780,7 +1801,9 @@ struct SIMGEN_DUMP {
   long long  *PTRINT8 ;  // added Feb 2015 to handle galaxy ID
   char       *PTRCHAR ;  // allows FIELD (7.30.2014)
 
-  char  VARNAME[20] ;
+  char  VARNAME[40] ;
+  char  VARNAME_ABORT[40] ; // if not null, abort with message to use this varname
+
 } SIMGEN_DUMP[MXSIMGEN_DUMP] ;
 
 struct SIMGEN_DUMMY {
@@ -1982,6 +2005,7 @@ void   checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) ;
 void   sim_input_override(void) ;  // parse command-line overrides
 void   prep_user_input(void);      // prepare user input for sim.
 void   prep_user_cosmology(void);
+void   prep_user_murewgt(MUREWGT_DEF *MUREWGT);
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
 void   prep_dustFlags(void);
@@ -2037,9 +2061,10 @@ double gen_peakmjd_IDEAL_GRID(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 
+double gen_MUSHIFT(double MU, double *MUSHIFT_RANGE, MUREWGT_DEF *MUREWGT );
 double gen_dLmag (double zCMB, double zHEL, double vPEC, double GLON, double GLAT );
 void   gen_distanceMag(double zCMB, double zHEL, double vPEC, double GLON, double GLAT,
-		       double *MU, double *lensDMU);
+		       double *MU, double *lensDMU, double *MUSHIFT);
 
 double genz_hubble(double zmin, double zmax, RATEPAR_DEF *RATEPAR );
 
@@ -2057,7 +2082,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void hide_readme_file(char *readme_file, char *hide_readme_file);
 
 
-void update_accept_counters(void);
+void update_accept_counters(int ilc);
 void update_hostmatch_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
@@ -2067,7 +2092,8 @@ double  GENAV_WV07(void);
 double  gen_RV(void);          // generate RV from model
 void    gen_conditions(void);  // generate conditions for each field
 
-//int    gen_PEAKMAG_SPEC_TRIGGER(void); // call GENMAG_DRIVER for peak only
+void   dump_PEAKMAG(char *callFun);
+double gen_PEAKMAG(int ifilt_obs);     // get peakmag in this band before GENMAG_DRIVER
 int    gen_TRIGGER_PEAKMAG_SPEC(void); // call GENMAG_DRIVER for peak only
 int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 
@@ -2160,9 +2186,10 @@ double zHEL_WRONGHOST(void);
 
 int    gen_cutwin(void);
 int    gen_cutwin_PEAKMAG(int OPT, int ifilt_obs);
+
 int    geneff_calc(void);
 void   magdim_calc(void);
-void   screen_update(void);
+void   screen_update(int ilc);
 void   set_screen_update(int NGEN);
 
 int  setEpochGrid( double TMIN, double TMAX, double *TGRID);
@@ -2200,7 +2227,7 @@ void   init_DNDZ_Rate(void) ; // extraGalactic rate vs. redshift
 void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 
 int  GENRANGE_CUT(void);
-int  GENMAG_CUT(void);
+// xxx mark int  GENMAG_CUT(void);
 
 
 void DASHBOARD_DRIVER(void);

@@ -61,7 +61,6 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 
 #define MXOUTFILE     4
 #define FORMAT_FITS   1
-#define FORMAT_HBOOK  2
 
 double NULLVAL = 999.0 ;
 
@@ -131,7 +130,6 @@ struct INPUTS {
   double SN_MAGOFF ;   // (I) global mag-offset 
 
   int FASTDEBUG ;    // 1 => skip calculations to run thru quickly
-                     //      Mainly to debug hbook problems.
 
   int SKIPKCOR;      // (I) 1=> skip K-corrections (just do mags & zeropoints)
   int FLUXERR_FLAG;  // (I) flux errors are present => read & ignore
@@ -470,8 +468,6 @@ void flux_converter ( double lambda, double flux_wave,
 void rebin_primary ( int nblam_in, double  *lam_in, double *flux_in, 
 		     int *nblam_out, double *lam_out, double *flux_out );
 
-
-void wr_hbook(char *outFile);  // store KCOR with hbook 
 
 void wr_fits(char *outFile);   // store in FITS file
 void wr_fits_HEAD(fitsfile *fp);

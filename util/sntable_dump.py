@@ -176,7 +176,7 @@ def get_outfile_name(input_args,config):
 
     outfile    = input_args.outfile
     table_name = config.table_name 
-   
+  
     if outfile :  return outfile
 
     # default name is based on name of table

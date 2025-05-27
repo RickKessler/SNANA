@@ -1544,6 +1544,8 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
   // ---------- BEGIN ----------
 
   LDMP = ( fabs(Trest) > 2.0E9 ) ;
+  //  LDMP = ( fabs(Trest) < 5.0 ); /// xxx REMOVE
+
   if ( LDMP ) {
     printf(" xxx %s : Trest=%4.1f  NLAM=%d  lam=%7.1f  SIGCOH=%.3f\n",
 	   fnam, Trest, NLam, Lam[0], ptrSIGCOH[0] );

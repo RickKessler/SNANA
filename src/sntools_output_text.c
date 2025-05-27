@@ -180,7 +180,7 @@ void INIT_TEXTFILES(char *PREFIX) {
   char fnam[] = "INIT_TEXTFILES" ;
   char *FMT, comment[200];
 
-  sprintf(FILEPREFIX_TEXT,"%s", PREFIX);
+  sprintf(FILEPREFIX_TEXT, "%s", PREFIX);
 
   TABLEINFO_TEXT.NTABLE = 0 ;
   

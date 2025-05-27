@@ -1444,9 +1444,6 @@ class BBC(Program):
               f"{t_prep:.0f} seconds."
         logging.info(f"  {msg}")
 
-        # create reject-monitor file with info about events cut by LCFIT and BBC CUTWIN;
-        # after BBC jobs finish, this file is updated again with BiasCor loss info
-
 
         return
         # end bbc_prep_input_tables_fast
@@ -1468,8 +1465,6 @@ class BBC(Program):
 
         input_file_bbc   = self.config_yaml['args'].input_file
         snana_dir        = self.config_yaml['args'].snana_dir
-
-
 
         prefix          = BBC_REJECT_MONITOR_FILE.split('.')[0]
         idir0           = 0
@@ -1530,14 +1525,6 @@ class BBC(Program):
 
         # get fitres file list using search pattern
         tfile_list   = self.get_fflist_accept_summary(V_DIR,search_pattern)  # exclude NOREJECT labels
-
-        # xxxxxxxxxx mark xxxxxx
-        #if stage == TAG_REJECT_STAGE_BIASCOR : 
-        #    tfile_list   = self.get_fflist_accept_summary(V_DIR,search_pattern)  # exclude NOREJECT labels
-        #else:
-        #    tfile_list = sorted(glob.glob1(V_DIR,search_pattern)) 
-        # xxxxxxxxxxx end mark xxxxx
-
         tfile_string = ' '.join(tfile_list)
         #logging.info(f" xxx tfile_list = {tfile_string}")
 
@@ -2525,12 +2512,14 @@ class BBC(Program):
         script_subdir    = SUBDIR_SCRIPTS_BBC
 
         logging.info(f"  BBC cleanup: create {FITPAR_SUMMARY_FILE}") 
-        self.make_fitpar_summary()
+        # xxx self.make_fitpar_summary()
 
         # create fitres file to monitor biasCor rejections (May 2025)
         for v_dir in vout_list:
             self.tag_missing_events(TAG_REJECT_STAGE_BIASCOR,  v_dir) 
             self.tag_missing_events(TAG_REJECT_STAGE_BIASCOR0, v_dir) 
+
+        self.make_fitpar_summary()  # call this after tag_missing_events to use table to get info
 
         if use_wfit :
             opt_wfit_list   = submit_info_yaml['OPT_WFIT']
@@ -2658,36 +2647,6 @@ class BBC(Program):
         KEYVAR = KEYNAME_VARNAMES
 
         # - - - - - - - -
-        WRITE_REJECT = False
-        if WRITE_REJECT :
-            # xxxx mark for delete
-            with open(REJECT_FILE,"wt") as f:
-                f.write(f"# BBC-FF = BBC FITRES file.\n")
-                f.write(f"# Total number of BBC-FF: " \
-                        f"{n_ff} (FITOPT x MUOPT). \n")
-                f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
-                        f"fail cuts in 1 or more BBC-FF\n")
-                f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
-                f.write(f"# These CIDs are rejected in {PROGRAM_NAME_BBC} with\n")
-                f.write(f"#    reject_list_file={reject_file} \n")
-                f.write(f"\n")
-                if has_dupl :
-                    f.write(f"# Beware of Duplicate CIDs "
-                            f"(each CID + IDSURVEY + FIELD is unique) \n")
-                    f.write(f"{KEYVAR}: CID IDSURVEY FIELD NJOB_REJECT \n")
-                    for ucid,nrej in zip(cid_unique,n_reject) :
-                        cid    = unique_dict[ucid][TABLE_VARNAME_CID]
-                        idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
-                        field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
-                        if nrej>0: 
-                            f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {nrej:3d} \n")
-                    else:
-                        f.write(f"{KEYVAR}: CID NJOB_REJECT \n")
-                        for cid,nrej in zip(cid_unique,n_reject) :
-                            if nrej>0: 
-                                f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
-                        f.write(f"\n")
-        # - - - - 
 
         with open(ACCEPT_FILE,"wt") as f:
             f.write(f"# BBC-FF = BBC FITRES file.\n")
@@ -2941,6 +2900,7 @@ class BBC(Program):
         for version in version_list:
             f.write(f"\n# ================================================= \n")
             f.write(f"{version}: \n")
+            self.write_fitpar_summary_reject(f,version)  # May 2025
             for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
                 if version == row[COLNUM_BBC_MERGE_VERSION]:
                     self.write_fitpar_summary_row(f,row)
@@ -2951,6 +2911,24 @@ class BBC(Program):
         return
 
         # end make_fitpar_summary
+
+    def write_fitpar_summary_reject(self,f,version):
+
+        # Created May 22 2025
+        # Read BBC_REJECT_MONITOR_FILE and extract information about losses
+        # for each IDSURVEY; print info in YAML format to file f
+
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+
+        reject_file = f"{output_dir}/{version}/{BBC_REJECT_MONITOR_FILE}"
+        
+        df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
+        logging.info(f" xxx summarize reject for {version}") 
+        print(f" xxx \n df = \n{df}")
+
+        # .xyz
+        return
 
     def write_fitpar_summary_row(self,f,row):
         # created Feb 2025

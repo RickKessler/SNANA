@@ -2760,8 +2760,8 @@ double fit_AVWARP(int ifiltdef_a, int ifiltdef_b, double T, double C) {
     }
 
     // determine new AV_MIN,MAX for next iteration
-    av_min = av_best - abs(dif_av) - dif_color_converge;
-    av_max = av_best + abs(dif_av) + dif_color_converge;
+    av_min = av_best - fabs(dif_av) - dif_color_converge;
+    av_max = av_best + fabs(dif_av) + dif_color_converge;
      
     if ( av_min < AVRANGE_LOCAL[0] ) {  av_min = AVRANGE_LOCAL[0] ; }
     if ( av_max < AVRANGE_LOCAL[1] ) {  av_max = AVRANGE_LOCAL[1] ; }

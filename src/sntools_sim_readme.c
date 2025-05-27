@@ -110,7 +110,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   }
 
   if ( i > MXDOCLINE ) {    
-    sprintf(c1err,"%d DOCANA lines exceeds bound of MXDOCLINE=%d", i);
+    sprintf(c1err,"%d DOCANA lines exceeds bound of MXDOCLINE=%d", i, MXDOCLINE);
     sprintf(c2err,"Consider increasing MXDOCLINE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
@@ -554,21 +554,26 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   readme_docana_comment(&i, "");
 
   // ---- statistics
-  double t_gen, R_gen=0.0, R_write=0.0 ;
+  double t_gen, R_genev_tot=0.0, R_genlc_tot=0.0, R_write=0.0 ;
 
   t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
   
   if ( t_gen > 0.0 ) {
-    R_gen   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
-    R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
+    R_genev_tot  = (double)NGENEV_TOT/t_gen ;  // NGENEV/sec
+    R_genlc_tot  = (double)NGENLC_TOT/t_gen ;   // NGENLC/sec
+    R_write      = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sCPU_MINUTES:       %.2f  ",  pad, t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 
-	  pad, NGENLC_TOT, R_gen );
+  sprintf(cptr,"%sNGENEV_TOT:        %d    # (%.f/sec, total events)", 
+	  pad, NGENEV_TOT, R_genev_tot );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec, total LC)", 
+	  pad, NGENLC_TOT, R_genlc_tot );
 
   if ( GENSL.NGENLC_LENS_TOT > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -578,7 +583,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec)", 
+  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec, LC passing trigger)", 
 	  pad, NGENLC_WRITE, R_write );
 
   // Jan 2022
@@ -616,7 +621,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 	  pad, GENLC.GENEFF, GENLC.GENEFFERR);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNACC:  [ %d, %d, %d ]   "
+  sprintf(cptr,"%sNACCEPT:  [ %d, %d, %d ]   "
 	  "# NSN(ACCEPT) for [ SpecID, noSpecID, zHOST]",
 	  pad, GENLC.NTYPE_SPEC_CUTS, GENLC.NTYPE_PHOT_CUTS,
 	  GENLC.NTYPE_zHOST_CUTS);
@@ -632,7 +637,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%sNGEN_PER_SEASON:   %.0f       "
-	    "# NSN(GEN) in GENRANGE(z,MJD,dOmega)", pad, NGEN_PER_SEASON );
+	    "# NSN(GENLC) in GENRANGE(z,MJD,dOmega)", pad, NGEN_PER_SEASON );
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%sNACC_PER_SEASON:   %.0f +_ %.0f  "
@@ -646,11 +651,10 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNREJECT:  [%d,%d,%d,  %d,%d]   "
-	  "# [NEP<%d,GENRANGE,PEAKMAG,  SEARCHEFF,CUTWIN] ", pad,
-	  NGEN_REJECT.NEPOCH, 
+  sprintf(cptr,"%sNREJECT:  [%d,   %d, %d, %d]   "
+	  "# [GENRANGE,   NEP<%d, SEARCHEFF, CUTWIN] ", pad,
 	  NGEN_REJECT.GENRANGE,
-	  NGEN_REJECT.GENMAG,
+	  NGEN_REJECT.NEPOCH, 
 	  NGEN_REJECT.SEARCHEFF,
 	  NGEN_REJECT.CUTWIN,
 	  (int)INPUTS.CUTWIN_NEPOCH[0] ) ;
@@ -846,9 +850,16 @@ void readme_docana_genmodel(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "wa_LAMBDA:", noComment,
 		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
 
-  dval = (double)INPUTS.MUSHIFT ;
+  if ( strlen(INPUTS.STRING_MUSHIFT) > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr, "%sMUSHIFT:    %s", pad, INPUTS.STRING_MUSHIFT);
+  }
+
+  /* xxx mark delete May 20 2025 xxxxxx
+  dval = (double)INPUTS.MUSHIFT[0] ;
   VERSION_INFO_load(&i, pad, "MUSHIFT:", noComment,
 		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
+  xxxxxxx end mark xxxxxxx */
 
   // - - - - 
   // check extra cosmology keys
@@ -1137,9 +1148,12 @@ void readme_docana_epoch(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "GENRANGE_MJD:", noComment, 
 		    lenkey, false, nval2, dptr, 21000.0,79000.0, -1.0); 
 
+  /* xxx mark delete May 26 2025 xxxxxxx
   dptr = INPUTS.GENRANGE_PEAKMJD;
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMJD:", noComment, 
 		    lenkey, false, nval2, dptr, 1.0E3,1.0E5, -1.0); 
+  xxxxxxxx end mark xxxxx*/
+
 
   dval = (double)INPUTS.GENSIGMA_PEAKMJD;
   VERSION_INFO_load(&i, pad, "GENSIGMA_PEAKMJD:", noComment, 
@@ -1206,9 +1220,11 @@ void readme_docana_misc(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "DEBUG_FLAG:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
 
+  /* xxx
   dptr = INPUTS.GENRANGE_PEAKMAG;
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMAG:", noComment, 
 		    lenkey, false, nval2,dptr, 0.0,40.0, -999.0); 
+		    xxx */
 
   readme_docana_load_list(&i, pad, &README_KEYS_CID);
 
@@ -1282,7 +1298,7 @@ void readme_docana_searcheff(int *iline, char *pad) {
 
   if ( INPUTS_SEARCHEFF.USER_SPECEFF_SCALE != 1.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%-*s %s", 
+    sprintf(cptr,"%s%-*s %f", 
 	    pad, lenkey, "SEARCHEFF_SPEC_SCALE:", INPUTS_SEARCHEFF.USER_SPECEFF_SCALE);
   }
   

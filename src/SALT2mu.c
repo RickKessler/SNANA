@@ -1848,12 +1848,13 @@ void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_INIT_RANFLAT(int iter);
 void SUBPROCESS_STORE_EBV(void);
 void SUBPROCESS_READ_SIMREF_INPUTS(void);
-void SUBPROCESS_OUTPUT_TABLE_PREP(int itable);
-void SUBPROCESS_OUTPUT_LOAD(void);
-void SUBPROCESS_OUTPUT_TABLE_LOAD(int isn, int itable);
-void SUBPROCESS_OUTPUT_TABLE_RESET(int itable) ;
-void SUBPROCESS_OUTPUT_WRITE(void); 
-void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
+void SUBPROCESS_OUT_TABLE_PREP(int itable);
+void SUBPROCESS_OUT_LOAD(void);
+void SUBPROCESS_OUT_TABLE_LOAD(int isn, int itable);
+void SUBPROCESS_OUT_TABLE_RESET(int itable) ;
+void SUBPROCESS_OUT_WRITE(void); 
+void SUBPROCESS_OUT_TABLE_WRITE(int itable);
+void SUBPROCESS_OUT_TABLE_WRITE_UNBIN(void);
 void SUBPROCESS_COMPUTE_STD(int ITABLE) ;
 
 void SUBPROCESS_EXIT(void);
@@ -1861,7 +1862,7 @@ void SUBPROCESS_REMIND_STDOUT(void) ;
 
 void SUBPROCESS_STORE_BININFO(int itable, int ivar, char *string);
 void SUBPROCESS_MAP1D_BININFO(int itable);
-void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
+void SUBPROCESS_OUT_TABLE_HEADER(int itable);
 
 #include "sntools_genPDF.h" 
 #include "sntools_genPDF.c"
@@ -1900,6 +1901,7 @@ typedef struct {
   double *MURES_SUM_WGT, *SUM_WGT; // Brodie June 14 2021
   double **MURES_LIST;        // mures list per table bin; needed for median
   double *MURES_STD, *MURES_STD_ROBUST ;
+
 
 } SUBPROCESS_TABLE_DEF ;
 
@@ -3090,7 +3092,7 @@ void applyCut_chi2max(void) {
 
       pcc        = INFO_DATA.probcc_beams[n];
       pia        = 1.0 - pcc;
-      if ( pia < 1,0E-6 ) { pia = 1,0E-6; } 
+      if ( pia < 1.0E-6 ) { pia = 1.0E-6; } 
       muerr /= sqrt(pia);
 
       wgt   = 1.0/(muerr*muerr);
@@ -17258,7 +17260,7 @@ int ppar(char* item) {
     if ( uniqueOverlap(item,keyList_data[ikey]) ) {
 
       if ( strlen(item) > MXCHAR_DATAFILE_STRING ) {
-	sprintf(c1err,"'%s' arg length=%d exceeds bound of %d",
+	sprintf(c1err,"'%s' arg length=%=lu exceeds bound of %d",
 		keyList_data[ikey], strlen(item), MXCHAR_DATAFILE_STRING);
 	sprintf(c2err,"Reduce size of arg or increase MXCHAR_DATAFILE_STRING");
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -17689,7 +17691,7 @@ int ppar(char* item) {
   }
 
   if ( uniqueOverlap(item,"pecv=")) {  // LEGACY key
-    legacyKey_abort(fnam, "pecv", "zpecerr" ); 
+    legacyInput_abort(fnam, "KEY", "pecv", "zpecerr" ); 
   }
 
   // lensing term (Sep 2016)
@@ -19748,7 +19750,7 @@ void prep_input_driver(void) {
   }
   else {
     if ( strlen(varname_pIa) == 0 ) {
-      sprintf(c1err,"missing required varname_pIa with CC prior.", varname_pIa);
+      sprintf(c1err,"missing required varname_pIa with CC prior.");
       sprintf(c2err,"Must set varname_pIa with simfile_ccprior");
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
     }
@@ -20728,8 +20730,8 @@ void outFile_driver(void) {
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) {
-    SUBPROCESS_OUTPUT_LOAD();
-    SUBPROCESS_OUTPUT_WRITE();
+    SUBPROCESS_OUT_LOAD();
+    SUBPROCESS_OUT_WRITE();
 
     if ( INPUTS.write_yaml ) {
       sprintf(tmpFile,"%s.YAML", prefix );
@@ -20878,7 +20880,6 @@ void write_yaml_info(char *fileName) {
   sprintf(KEY,"%s:", YAMLKEY_ABORT_IF_ZERO);
   fprintf(fp,"%-22.22s %d\n", KEY, NDATA_PASS );
 
-
   sprintf(KEY,"NWARN_CRAZYERR:");
   fprintf(fp,"%-22.22s %d\n", KEY, NERR);
 
@@ -20897,8 +20898,9 @@ void write_yaml_info(char *fileName) {
     fprintf(fp,"\n") ;  
 
     char STR_SAMPLE_LIST[200], STR_NEVT_LIST[MXEVENT_TYPE][100];
+    char STR_IDSAMPLE_LIST[100];
 
-    STR_SAMPLE_LIST[0] = 0;
+    STR_SAMPLE_LIST[0] = STR_IDSAMPLE_LIST[0] = 0;
 
     for(evtype=1; evtype < MXEVENT_TYPE; evtype++ )
       { STR_NEVT_LIST[evtype][0] = 0 ; }
@@ -20911,6 +20913,9 @@ void write_yaml_info(char *fileName) {
       else
 	{ sprintf(ctmp," %s", SAMPLE_BIASCOR[idsample].NAME); }
       catVarList_with_comma(STR_SAMPLE_LIST, ctmp);
+
+      sprintf(ctmp," %d", idsample); 
+      catVarList_with_comma(STR_IDSAMPLE_LIST, ctmp);  // May 2025
 
 
       for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
@@ -20928,6 +20933,10 @@ void write_yaml_info(char *fileName) {
 
     sprintf(KEY,"SAMPLE_LIST:");
     fprintf(fp,"%-25.25s %s\n", KEY, STR_SAMPLE_LIST);
+
+    sprintf(KEY,"IDSAMPLE_LIST:");
+    fprintf(fp,"%-25.25s %s\n", KEY, STR_IDSAMPLE_LIST);
+
     for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
       str       =   STRING_EVENT_TYPE[evtype] ;
       sprintf(KEY,"NEVT_%s_bySAMPLE:", str);
@@ -20937,7 +20946,6 @@ void write_yaml_info(char *fileName) {
 
     fprintf(fp, "\n");
 
-    // .xyz
     sprintf(KEY,"NREJECT_CUTWIN_bySAMPLE:");
     write_yaml_line_by_idsample(fp, KEY, NREJECT_CUTWIN_BYSAMPLE[EVENT_TYPE_DATA] );
 
@@ -23803,7 +23811,7 @@ void  SUBPROCESS_INIT(void) {
   printf("\n");
 
   for(itable=0; itable < SUBPROCESS.N_OUTPUT_TABLE; itable++ )
-    { SUBPROCESS_OUTPUT_TABLE_PREP(itable) ; }
+    { SUBPROCESS_OUT_TABLE_PREP(itable) ; }
     // debugexit(fnam);
   
   // prep flat random for each event
@@ -24634,7 +24642,7 @@ void SUBPROCESS_INIT_DUMP(void) {
 } // end SUBPROCESS_INIT_DUMP
 
 // =======================================
-void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
+void SUBPROCESS_OUT_TABLE_PREP(int itable) {
 
   // Sep 17 2020
   // prep output tables.
@@ -24647,7 +24655,7 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
   int debug_malloc = INPUTS.debug_malloc ;
   char *ptrVarDef[MXVAR], DELIM[2]; 
   char BININFO_STRING[40];
-  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_PREP" ;
+  char fnam[] = "SUBPROCESS_OUT_TABLE_PREP" ;
 
   // ----------- BEGIN -----------
 
@@ -24677,7 +24685,7 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
   SUBPROCESS_MAP1D_BININFO(itable);
 
   // construct VARNAMES list for table header
-  SUBPROCESS_OUTPUT_TABLE_HEADER(itable);
+  SUBPROCESS_OUT_TABLE_HEADER(itable);
 
   // - - - - - 
 
@@ -24686,7 +24694,7 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
     { free(ptrVarDef[ivar]);  }
 
 
-} // end SUBPROCESS_OUTPUT_TABLE_PREP
+} // end SUBPROCESS_OUT_TABLE_PREP
 
 
 // ==============================================
@@ -24829,6 +24837,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
+
   // free local memory
   print_debug_malloc(-1*debug_malloc,fnam);
   for(i=0; i < 2; i++ ) { free(ptrSplit[i]);  free(ptrRange[i]); }
@@ -24917,7 +24926,7 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
 
 
 // ====================================
-void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) { 
+void SUBPROCESS_OUT_TABLE_HEADER(int ITABLE) { 
   //Brodie Jun 14 2021 Added WGT columns 
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int ivar;
@@ -24941,29 +24950,29 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
   sprintf(SUBPROCESS.OUTPUT_TABLE[ITABLE].VARNAMES_HEADER,"%s", VARNAMES);
 
   return ;
-} // SUBPROCESS_TABLE_HEADER
+} // SUBPROCESS_OUT_TABLE_HEADER
 
 
 // ===========================================
-void SUBPROCESS_OUTPUT_LOAD(void) {
+void SUBPROCESS_OUT_LOAD(void) {
 
   // driver function to load output tables after subprocess iteration
   int  NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  N_TABLE       = SUBPROCESS.N_OUTPUT_TABLE;
   int  isn, ITABLE, cutmask; 
-  char fnam[] = "SUBPROCESS_OUTPUT_LOAD" ;
+  char fnam[] = "SUBPROCESS_OUT_LOAD" ;
 
   // ---------- BEGIN ----------
 
   for(ITABLE=0; ITABLE < N_TABLE; ITABLE++ ) {
 
-    SUBPROCESS_OUTPUT_TABLE_RESET(ITABLE);
+    SUBPROCESS_OUT_TABLE_RESET(ITABLE);
 
     for(isn=0; isn < NSN_DATA; isn++ ) {
       cutmask = INFO_DATA.TABLEVAR.CUTMASK[isn]; 
       if ( !keep_cutmask(cutmask)  ) { continue; }
 
-      SUBPROCESS_OUTPUT_TABLE_LOAD(isn,ITABLE);
+      SUBPROCESS_OUT_TABLE_LOAD(isn,ITABLE);
     }  // end isn
 
     // RK 9.29.2021 compute and store STD and STD_ROBUST
@@ -24973,7 +24982,7 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
   
   return ;
 
-} // end SUBPROCESS_OUTPUT_LOAD
+} // end SUBPROCESS_OUT_LOAD
 
 
 // ========================================
@@ -25025,7 +25034,7 @@ void SUBPROCESS_COMPUTE_STD(int ITABLE) {
 }  // end SUBPROCESS_COMPUTE_STD
 
 // =====================================================
-void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
+void  SUBPROCESS_OUT_TABLE_RESET(int ITABLE) {
 
   // For each 1D bin in ITABLE, zero NEVT and MURES sums.
   int NBINTOT = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
@@ -25048,10 +25057,10 @@ void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
     
   }
   return;
-} // end  SUBPROCESS_OUTPUT_TABLE_RESET
+} // end  SUBPROCESS_OUT_TABLE_RESET
 
 // ==============================================================
-void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
+void SUBPROCESS_OUT_TABLE_LOAD(int ISN, int ITABLE) {
 
   // increment table info for event index ISN and table index ITABLE.
   // 
@@ -25075,7 +25084,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   bool  VALID = true;
   int   LPRINT_MALLOC = 0 ;
   char *varName;
-  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
+  char fnam[] = "SUBPROCESS_OUT_TABLE_LOAD" ;
 
   // ---------- BEGIN -----------
 
@@ -25155,14 +25164,14 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
   return;
 
-} // end SUBPROCESS_OUTPUT_TABLE_LOAD
+} // end SUBPROCESS_OUT_TABLE_LOAD
 
 
 // ===========================================
-void SUBPROCESS_OUTPUT_WRITE(void) {
+void SUBPROCESS_OUT_WRITE(void) {
 
   // write SALT2mu output:
-  //   + fit params
+  //   + fit params in comment lines
   //   + tables
 
   FILE *FP_OUT = SUBPROCESS.FP_OUT ;
@@ -25172,7 +25181,7 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
   char tmpName[40];
   int  ISFLOAT, ISM0, itable, n ;
   double VAL, ERR;
-  char fnam[] = "SUBPROCESS_OUTPUT_WRITE" ;
+  char fnam[] = "SUBPROCESS_OUT_WRITE" ;
 
   // ----------- BEGIN -------------
 
@@ -25228,14 +25237,17 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
   // - - - - - - 
 
   for(itable=0; itable < N_TABLE; itable++ )
-    { SUBPROCESS_OUTPUT_TABLE_WRITE(itable); }
+    { SUBPROCESS_OUT_TABLE_WRITE(itable); }
+
+  // May 2025: write unbineed table (testing)
+  SUBPROCESS_OUT_TABLE_WRITE_UNBIN();
 
   return ;
 
-} // end SUBPROCESS_OUTPUT_WRITE
+} // end SUBPROCESS_OUT_WRITE
 
 // ===================
-void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
+void SUBPROCESS_OUT_TABLE_WRITE(int ITABLE) {
 
   // Write table contents for ITABLE.
   // Write to global output file pointer SUBPROCESS.FP_OUT.
@@ -25249,7 +25261,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
   int  ivar, ibin1d, IBIN1D, NEVT, NEVT_SUM=0 ;
   double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT, STD, STD_ROBUST ;
   char cLINE[200], cVAL0[100] ;
-  char fnam[]  = "SUBPROCESS_OUTPUT_TABLE_WRITE" ;
+  char fnam[]  = "SUBPROCESS_OUT_TABLE_WRITE" ;
 
   // ----------- BEGIN ------------
 
@@ -25294,8 +25306,55 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
  
   return ;
 
-} //  end SUBPROCESS_OUTPUT_TABLE_WRITE
+} //  end SUBPROCESS_OUT_TABLE_WRITE
 
+
+void SUBPROCESS_OUT_TABLE_WRITE_UNBIN(void) {
+
+  // Created May 2025
+  // Write unbinned table to enable KS test
+
+  FILE *FP_OUT       = SUBPROCESS.FP_OUT ;
+  int  NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
+
+  bool WRITE_UNBIN = (INPUTS.debug_flag == 513);
+  int isn, CUTMASK, NEVT_SUM = 0 ;
+  char TABLE_NAME[]  = "UNBINNED" ;
+  char VARNAMES[] = "CID zHD x1 c HOST_LOGMASS MURES";
+  char fnam[] = "SUBPROCESS_OUT_TABLE_WRITE_UNBIN" ;
+  
+  // ---------- BEGIN ---------
+
+  if ( !WRITE_UNBIN ) { return; }
+
+  fprintf(FP_OUT,"\n\n");
+  fprintf(FP_OUT,"TABLE_NAME: %s\n", TABLE_NAME);
+  fprintf(FP_OUT,"VARNAMES: %s\n", VARNAMES);
+  fflush(FP_OUT);
+
+  for(isn=0; isn < NSN_DATA; isn++ ) {
+
+    CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[isn]; 
+    if ( !keep_cutmask(CUTMASK)  ) { continue; }
+
+    NEVT_SUM++ ;
+    fprintf(FP_OUT,"ROW: %12s  %.4f %6.3f %7.4f  %6.2f %6.3f\n",	   
+	    INFO_DATA.TABLEVAR.name[isn],
+	    INFO_DATA.TABLEVAR.zhd[isn],
+	    INFO_DATA.TABLEVAR.fitpar[INDEX_s][isn],
+	    INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn],
+	    INFO_DATA.TABLEVAR.host_logmass[isn],
+	    INFO_DATA.mures[isn] );
+    fflush(FP_OUT);    
+  }
+
+  fprintf(FP_OUT,"# NEVT_SUM: %d    # diagnostic\n", NEVT_SUM);
+  fflush(FP_OUT);
+
+
+  return ;
+
+} // end SUBPROCESS_OUT_TABLE_WRITE_UNBIN
 
 // =======================================
 void SUBPROCESS_REMIND_STDOUT(void) {

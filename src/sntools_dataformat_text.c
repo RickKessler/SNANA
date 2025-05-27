@@ -210,6 +210,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"LENSDMU:          %8.3f +- %.3f      # DMU from lensing\n", 
 	  SNDATA.LENSDMU, SNDATA.LENSDMU_ERR );  
+
   
   // HOST galaxy info
   fprintf(fp, "\n");
@@ -325,6 +326,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
   fprintf(fp, "SIM_LENSDMU:         %.4f   # mag \n", 
 	  SNDATA.SIM_LENSDMU );
+
+  fprintf(fp, "SIM_MUSHIFT:         %.4f   # user-defined shift \n", 
+	  SNDATA.SIM_MUSHIFT );
 
   fprintf(fp, "SIM_RA:              %f     # deg  \n", 
 	  SNDATA.SIM_RA );
@@ -2592,6 +2596,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     else if ( strcmp(word0,"SIM_LENSDMU:") == 0 ) {
       SNDATA.SIM_LENSDMU = FVAL;
     }
+    else if ( strcmp(word0,"SIM_MUSHIFT:") == 0 ) {
+      SNDATA.SIM_MUSHIFT = FVAL;
+    }
     else if ( strcmp(word0,"SIM_RA:") == 0 ) {
       SNDATA.SIM_RA = FVAL; // why float??
     }
@@ -2935,7 +2942,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   if ( strstr(word0,"END")       != NULL ) { DONE_OBS = true; }
   if ( strcmp(word0,"NSPECTRA:") == 0    ) { DONE_OBS = true; }
-  if ( DONE_OBS ) { *iwd_file--; return false; }
+  if ( DONE_OBS ) { *iwd_file-- ; return false; }
 
 
   if ( strcmp(word0,"OBS:") == 0 ) {

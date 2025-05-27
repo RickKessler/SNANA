@@ -17,8 +17,8 @@ char DLA_FILE[1024];
 double *lam1, *ALAF1, *ALAF2, *ALAF3, *ADLA1, *ADLA2;
 int NA;
 void read_Inoue_coeffs();
-double tLSLAF();
-double tLCLAF();
-double tLSDLA();
-double tLCDLA();
+double tLSLAF(double zS, double lobs);
+double tLCLAF(double zS, double lobs);
+double tLSDLA(double zS, double lobs);
+double tLCDLA(double zS, double lobs);
 

@@ -24,7 +24,7 @@ c parameters used by snana code
      &  ,MNTYPE, MXTYPE, MXLISTNML, MXIGNORE_LIST
      &  ,MXVAR_PRIVATE, MXCUT_PRIVATE, MXVAR_TERSE, MXBIT_PHOTFLAG
      &  ,HOFF_NOCUTS, HOFF_CUTS, HOFF_SIM
-     &  ,LUNHIS, LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
+     &  ,LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
      &  ,LUNCID, LUNOUT
      &  ,LUNRES1, LUNRES2, LUNINTERP, LUNLIST, LUNIGNORE, LUNSALT2
      &  ,LUNLIST2, LUNIGNORE2
@@ -53,7 +53,7 @@ c parameters used by snana code
      &  ,ITABLE_SNLCPAK, ITABLE_SPECPAK
      &  ,ITABLE_MODELSPEC, ITABLE_MARZ, ITABLE_DMPFCN, MXTABLE
      &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_OUTLIER
-     &  ,IDTABLE_MODELSPEC, IDTABLE_CIDPTR, IDTABLE_MARZ, IDTABLE_DMPFCN
+     &  ,IDTABLE_MODELSPEC, IDTABLE_MARZ, IDTABLE_DMPFCN
      &  ,OPT_PARSTORE_TEXTTABLE
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
@@ -157,7 +157,6 @@ c
      &  ,HOFF_NOCUTS = 100
      &  ,HOFF_CUTS   = 200
      &  ,HOFF_SIM    = 20000
-     &  ,LUNHIS    = 21  ! LUN for hbook output file
      &  ,LUNNML    = 22  ! LUN for input namelist
      &  ,LUNDAT    = 23  ! LUN for data      
      &  ,LUNTMP    = 24
@@ -256,7 +255,6 @@ c
      &  ,IDTABLE_MODELSPEC = 8000  ! SALT2 model spectra from LC fit
      &  ,IDTABLE_MARZ      = 8100  ! MARZ table for spectra
      &  ,IDTABLE_DMPFCN    = 8200  ! for DMPFCN (jan 2025)
-     &  ,IDTABLE_CIDPTR    = 1600  
      &  ,IDTABLE_MCMC      = 7711  ! obsolete ?
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
      &  ,MSKOPT_PARSE_WORDS_FILE    = 1   ! parse file
@@ -572,8 +570,7 @@ c logical *1 stuff
 
 c SNTABLE control variables (May 2014)
       LOGICAL
-     &   USE_TABLEFILE_HBOOK  ! write table in HBOOK format
-     &  ,USE_TABLEFILE_ROOT   ! write table in ROOT format
+     &   USE_TABLEFILE_ROOT   ! write table in ROOT format
      &  ,USE_TABLEFILE_TEXT   ! write table in TEXT format
      &  ,USE_TABLEFILE_MARZ   ! write table in MARZ/FITS format
      &  ,USE_TABLEFILE        ! T if either any of the above are set
@@ -604,7 +601,7 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
       REAL      TABLEVALUE_USER(MXVAR_PRIVATE)
  
       COMMON / SNTABLECOM / 
-     &     USE_TABLEFILE_HBOOK, USE_TABLEFILE_ROOT
+     &     USE_TABLEFILE_ROOT
      &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE_MARZ, USE_TABLEFILE
      &    ,OPT_TABLE, TEXTFORMAT_TABLE
      &    ,CUTMASK_SNANA_TABLE, WRTABLEFILE_IAUC, WRTABLEFILE_SIMVAR
@@ -1112,6 +1109,7 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_VPEC
      &  ,SIM_DLMAG
      &  ,SIM_LENSDMU
+     &  ,SIM_MUSHIFT 
      &  ,SIM_MWEBV
      &  ,SIM_MWRV
 c
@@ -1146,7 +1144,7 @@ c
      &  ,SIM_MODELGRID_TOBS(MXEP_MODELGRID)    ! for SNANA+SIM_MAGOBS table
      &  ,SIM_MODELGRID_MAGOBS(MXEP_MODELGRID,MXFILT_OBS/2) ! idem
 
-      REAL SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT ! read from README
+c xxx mark del May 19 2025  REAL SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT ! read from README
 
       INTEGER
      &   SIM_MODEL_INDEX      ! model index (MLCS,SALT2,NON1a ...)
@@ -1201,7 +1199,7 @@ c
       COMMON / SNSIMCOM / SIMNAME_MODEL, SIM_MODEL_INDEX
      &  ,SIM_REDSHIFT_HELIO, SIM_REDSHIFT_CMB, SIM_REDSHIFT_HOST
      &  ,SIM_REDSHIFT_FLAG
-     &  ,SIM_VPEC, SIM_DLMAG, SIM_LENSDMU
+     &  ,SIM_VPEC, SIM_DLMAG, SIM_LENSDMU, SIM_MUSHIFT
      &  ,SIM_WGT_POPULATION, SIM_SALT2x0, SIM_SALT2mb
      &  ,SIM_COLORPAR, SIM_COLORLAW, SIM_AV, SIM_RV
      &  ,SIM_SHAPEPAR, SIM_SHAPELAW, SIM_PEAKMJD, SIM_MJD_EXPLODE
@@ -1220,7 +1218,7 @@ c
      &  ,SIM_EPFILTREST, SIM_EPMAGREST,  SIM_MAGSMEAR_COH
      &  ,SIM_SALT2gammaDM
      &  ,NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
-     &  ,SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT
+c xxx mark delete      &  ,SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT
      &  ,LSIM_TRUE_SNIa, LSIM_TRUE_NONIa
 
       COMMON / SIMSEDCOM /
@@ -1561,7 +1559,7 @@ c Define cut-masks with 64-BIT integers
      &  ,CUTFLAG_SNANA   ! bits 0,1 -> LSNCUTS,LSNFITOK=T (for ntuple)
      &  ,ERRFLAG_FIT     ! error flag from fit (0=OK)
 
-c stuff for hbook
+c stuff cut vars
       CHARACTER CUTVAR_NAME(NCUTBIT)*28
 
 c define namelist cuts
@@ -1843,11 +1841,9 @@ c
 +KEEP,SNLCINP.
 
 c define general input to program: 
-c SN flux version, hbook files, cut-windows, etc ...
 c
       CHARACTER*(MXCHAR_FILENAME)  ! user input files
      &   NMLFILE          ! name of input namelist file
-     &  ,HFILE_OUT        ! I: output hbook filename for tables
      &  ,ROOTFILE_OUT     ! I: output filename for root for tables
      &  ,TEXTFILE_PREFIX  ! I: prefix for text file tables
      &  ,MARZFILE_OUT     ! I: output FITS file for input to MARZ (spectra)
@@ -2035,7 +2031,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
-     &    , hfile_out, rootfile_out, textfile_prefix
+     &    , rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
      &    , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY
@@ -2090,7 +2086,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
-     &    , hfile_out, rootfile_out, textfile_prefix
+     &    , rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE
      &    , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY
@@ -2707,30 +2703,6 @@ c Aug 30, 2010: add newer XTHOST - exact calculation
       COMMON / XTCOM / XTPAR_ZETA, XTPAR_ALPHA, XTPAR_BETA, 
      &                 XTHOST, RVINV_XTHOST
 
-+KEEP,SNCONTCM.
-
-      INTEGER  MXPLOT_CONT, MXBIN_CONT
-      PARAMETER ( 
-     &   MXPLOT_CONT  = 5    ! max number of contour plots per SN
-     &  ,MXBIN_CONT   = 100  ! max number of contour bins
-     &     )
-
-c define arrays to hold MNCONT informatino for contour plots
-
-      INTEGER 
-     &   NPLOT_CONT                 ! number of user-contour plots
-     &  ,HID_CONT(2,MXPLOT_CONT)    ! store hbook ids for vectors
-     &  ,IPAR_CONT(2,MXPLOT_CONT)   ! stores which IPAR for contours
-     &  ,NPT_CONT(MXPLOT_CONT)      ! stores Npt per contour plot
-     &  ,NPT_FOUND(MXPLOT_CONT)
-
-      REAL*8
-     &   VCONT8(MXBIN_CONT,2,MXPLOT_CONT)  ! vector array for IPAR1
-
-      COMMON / CONTOURCOM4 / NPLOT_CONT
-     &   ,HID_CONT, IPAR_CONT, NPT_CONT, NPT_FOUND
-
-      COMMON / CONTOURCOM8 /  VCONT8
 
 
 +KEEP,PKMJDCOM.
@@ -3861,7 +3833,7 @@ c Mar 2022: check option to re-write sims to look like real data
 
          CALL RDGLOBAL_SIM_HOSTLIB(OPT)
 
-         CALL RDGLOBAL_SIM_COSPAR()
+c xxx mark delete          CALL RDGLOBAL_SIM_COSPAR()
 
       ENDIF  ! end LSIM_SNANA block
 
@@ -4381,11 +4353,13 @@ c ------------- BEGIN --------------
 
 c store cosmo params in globals
 
-      SIM_OM = SIM_COSPAR(1)
-      SIM_OL = SIM_COSPAR(2)
-      SIM_w0 = SIM_COSPAR(3)
-      SIM_wa = SIM_COSPAR(4)
-      SIM_MUSHIFT = SIM_COSPAR(5)
+c xxxxxxx mark delete May 19 2025 xxxxxxx
+c      SIM_OM = SIM_COSPAR(1)
+c      SIM_OL = SIM_COSPAR(2)
+c      SIM_w0 = SIM_COSPAR(3)
+c      SIM_wa = SIM_COSPAR(4)
+c      SIM_MUSHIFT = SIM_COSPAR(5)
+c xxxxxxxxxxxxx end mark xxxxxxx
 
       RETURN
       END   ! end RDGLOBAL_SIM_COSPAR
@@ -5028,6 +5002,11 @@ C ----------- BEGIN ----------
       CALL FETCH_SNDATA_WRAPPER("SIM_LENSDMU",
      &    ONE, STRING, DARRAY, OPT)
       SIM_LENSDMU = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_MUSHIFT",
+     &    ONE, STRING, DARRAY, OPT)
+      SIM_MUSHIFT = SNGL(DARRAY(1))
+
 
       CALL FETCH_SNDATA_WRAPPER("SIM_MWEBV",
      &    ONE, STRING, DARRAY, OPT)
@@ -6160,7 +6139,6 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       KCOR_FILE     = 'NULL'
       OVERRIDE_RESTLAM_BOUNDARY = ''
 
-      hfile_out         = ' '
       rootfile_out      = ' '
       textfile_prefix   = ' '
       MARZFILE_OUT      = ' '  ! May 2020
@@ -6810,7 +6788,7 @@ C ========================================
 
 c Created Feb 2012
 c
-c Call appropriate init function for hbook, root, etc ...
+c Call appropriate init function for  root, etc ...
 c Note that multiple output files can be initialized
 c corresponding to different formats.
 c If no files are opened, print warning message but do not abort.
@@ -6918,7 +6896,6 @@ c set strings needed for the SNLCPAK_INIT functio
 c -------------------------------------------
 
       USE_TABLEFILE        = .FALSE.
-      USE_TABLEFILE_HBOOK  = .FALSE.  
       USE_TABLEFILE_ROOT   = .FALSE.      
       USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 (forgot init earlier)
       USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
@@ -6938,22 +6915,6 @@ c MARZ (host spectra only)
          IF ( IFILETYPE < 0 ) THEN
             C1ERR = 'Could not open MARZ fits-file'
             C2ERR = MARZFILE_OUT(1:LENFILE)
-            CALL  MADABORT(FNAM, C1ERR, C2ERR)
-         ENDIF
-      ENDIF
-
-
-      LENFILE   = INDEX(HFILE_OUT,' ') - 1
-      CFILE     = HFILE_OUT(1:LENFILE) // char(0)
-      IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
-         COPT          = "new hbook" // char(0)
-         USE_TABLEFILE_HBOOK = .TRUE.
-         USE_TABLEFILE       = .TRUE.
-         IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
-
-         IF ( IFILETYPE < 0 ) THEN
-            C1ERR = 'Could not open HBOOK table-file'
-            C2ERR = HFILE_OUT(1:LENFILE)
             CALL  MADABORT(FNAM, C1ERR, C2ERR)
          ENDIF
       ENDIF
@@ -7783,10 +7744,6 @@ c LSNIGNORE
          else if ( MATCH_NMLKEY('INTERP_OPT', 
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) INTERP_OPT
-
-         else if ( MATCH_NMLKEY('HFILE_OUT',
-     &             1, iArg, ARGLIST) ) then 
-           HFILE_OUT = ARGLIST(1)(1:MXCHAR_FILENAME)
 
          else if ( MATCH_NMLKEY('ROOTFILE_OUT',
      &             1, iArg, ARGLIST) ) then 
@@ -9788,7 +9745,6 @@ c ----------------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
-+CDE,SNCONTCM.
 
 +SELF,IF=SNFIT.
       INTEGER NCALL_MNFIT, ITER
@@ -9890,7 +9846,6 @@ c check dump-option for SN that fail cuts.
 
 c do the fit
 
-       NPLOT_CONT    = 0   ! rest number of contour plots
        ITER          = 0
        LREPEAT_ITER  = .FALSE.
        LREPEAT_MINOS = .FALSE.
@@ -10043,7 +9998,6 @@ c local var
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
-+CDE,SNCONTCM.
 
       LOGICAL LAST_ITER, ALREADY_MINOS
 
@@ -10121,11 +10075,6 @@ c -----------------------------
       CALL PRBANNER ( "CALL USREND" )
       CALL USREND ( IERR )
 
-c close hbook file using wrapper so that we don't need CERNLIB flag here.
-      IF ( USE_TABLEFILE_HBOOK ) THEN
-         LENF = index(HFILE_OUT,' ') - 1
-         CALL TABLEFILE_CLOSE(HFILE_OUT(1:LENF)//char(0), LENF)
-      ENDIF
       IF ( USE_TABLEFILE_ROOT ) THEN
          LENF = index(ROOTFILE_OUT,' ') - 1
          CALL TABLEFILE_CLOSE(ROOTFILE_OUT(1:LENF)//char(0), LENF)
@@ -10179,7 +10128,7 @@ c create empty TEXT table so that submit_batch_jobs finds all of
 c the expected TEXT-table files. The underlying problem is that
 c TEXT table file is not created until after 1st event is read ...
 c so if there is no 1st event then there is no text table file.
-c For ROOT and HBOOK, the file is created regardless of 1st event
+c For ROOT, the file is created regardless of 1st event
 c because these table formats hold multiple tables in one file.
 c --------
 
@@ -10237,16 +10186,6 @@ c - - - - - -
       RETURN
       END
 
-C ======================================
-+DECK,FORCLOSE.
-      SUBROUTINE FORCLOSE(LUN)
-c Apr 2014: 
-c Wrapper to close a fortran logical unit from C code;
-c needed by CLOSE_HFILE in sntools_output_hbook.c
-      INTEGER LUN
-      CLOSE(LUN)
-      RETURN
-      END
 
 C ===========================================
 +DECK,REJECTPS.
@@ -15577,7 +15516,8 @@ c --------
       SIM_COLORPAR    = -9.
       SIM_COLORLAW    = -9.
       SIM_DLMAG       = -9.
-      SIM_LENSDMU     = -9.
+      SIM_LENSDMU     =  0.
+      SIM_MUSHIFT     =  0.
 
       SIM_WGT_POPULATION = 1.0
       SIM_SHAPEPAR    = -9.
@@ -18104,7 +18044,7 @@ c Dec 29 2024: allow tolerance for round-off in text format
             do q    = 1, SNHOST_NZPHOT_Q
             do igal = 1, MXSNHOST
 	      SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
-            enddo  ! .xyz
+            enddo  
             enddo
          endif
       ENDIF
@@ -20724,11 +20664,7 @@ c fill OUTLIER table first so that SNANA table can include summary info
       IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
          CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)   
       ENDIF
-      
-      LTMP = ( IFLAG .EQ. IFLAG_INI .or. MADE_LCPLOT )  
-      IF ( LTMP ) THEN
-         CALL TABLE_CIDPTR(IFLAG)     ! init CID pointers for LC plots
-      ENDIF
+
 
       IF ( MARZFILE_OUT .NE. '' ) THEN
          CALL TABLE_MARZ(IDTABLE_MARZ,IFLAG)
@@ -22751,7 +22687,7 @@ C ==============================================
 
 c Apr 2019
 c Prepare spectra table for plotting (analog of SNLCPLOT)
-c Works only for TEXT output; not for HBOOK or ROOT
+c Works only for TEXT output; not for ROOT
 c
       IMPLICIT NONE
 
@@ -22797,7 +22733,7 @@ c load each spectrum into SPECPAK C-function util
      &       , LENCCID )
  100     CONTINUE
 
-c write out spectrum to TEXT table (HBOOK,ROOT not enabled)
+c write out spectrum to TEXT table (ROOT not enabled)
       IF ( NSPECTRUM > 0 ) then
          CALL SPECPAK_FILL(CCID_forC, LENCCID)
       ENDIF
@@ -24317,7 +24253,6 @@ c ------------- BEGIN ----------
 
 c store HOST_OBJID as double precision because
 c  * root tree supports Long64_t, but does not read back correctly
-c  * hbook cwnt does not support long long int.
 c  * sntable_dump extraction will write real*8 as integer.
 
       VARLIST =  PREFIX(1:LP) // 'OBJID:D' // char(0)
@@ -24861,6 +24796,12 @@ c Feb 4 2025: add SIM_LENSDMU to text fitres file
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_LENSDMU,  
      &               VARLIST, 1,    LENBLOCK, LENLIST)
 
+      IF ( SIM_MUSHIFT .NE. 0.0 ) THEN   ! hope that first events does not have SIM_MUSHIFT=0
+        VARLIST = 'SIM_MUSHIFT:F' // char(0)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MUSHIFT,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
+      ENDIF
+
       VARLIST = 'SIM_PEAKMJD:F' // char(0)
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_PEAKMJD,  
      &               VARLIST, 1,     LENBLOCK, LENLIST)
@@ -24987,67 +24928,6 @@ c - - - - - optional LCWIDTH for simulated MAGOBS -----
       RETURN
       END    ! end of INIT_TABLE_SIMVAR
 
-
-C ===========================
-+DECK,TBCIDPTR.
-      SUBROUTINE TABLE_CIDPTR(IFLAG)
-c
-c Created Feb 2013
-c
-c Replacement for obsolete function HFCIDPTR.
-c Plot list of CIDs with light curve plots.
-c Fits that fail have CID=-9.
-c Used by the lc-plotting tool
-c
-c Sep 22 2020: fix swapped args in SNTABLE_CREATE
-c ----------------------------------------------------
-
-      IMPLICIT NONE
-
-      INTEGER IFLAG  ! (I) see IFLAG_XXX params
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
-
-      INTEGER   ID, CID, IPLOT
-      INTEGER   LENNAME, LENBLOCK, LENLIST
-      CHARACTER CNAME*20, CBLOCK*20, VARLIST*20, TEXTFMT*4
-
-      COMMON / IPLOTCOM / CID, IPLOT 
-c function
-      INTEGER IPLOT_JOBSPLIT
-      EXTERNAL SNTABLE_ADDCOL, SNTABLE_ADDCOL_int
-
-C ------------ BEGIN ------------
-
-      ID    = IDTABLE_CIDPTR
-
-      IF ( IFLAG .EQ. IFLAG_INI ) THEN
-        CNAME    = 'CIDPTR' // char(0)
-        LENNAME  = INDEX(CNAME,' ') - 1
-        TEXTFMT  = ' ' // char(0)  ! never make a text table 
-        CALL SNTABLE_CREATE(ID, CNAME, TEXTFMT, LENNAME, 1 )  ! C function
-
-        CBLOCK = 'IPLOT' // char(0)
-        LENBLOCK = INDEX(CBLOCK,' ') - 1
-        LENLIST  = LEN(VARLIST)       
-        VARLIST = 'CID:I,IPLOT:I' // char(0)
-        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, CID,
-     &        VARLIST, 0, LENBLOCK,LENLIST)
-
-        RETURN
-      ENDIF
-
-c --------------------------
-c fill table.
-
-      IPLOT = IPLOT_JOBSPLIT(N_SNLC_PLOT)
-      CID   = SNLC_CID
-      CALL SNTABLE_FILL(ID)  ! generic C function
-
-      RETURN
-      END   ! end TABLE_CIDPTR
 
 
 C ===================================================
@@ -25285,12 +25165,9 @@ C ======================================
 
 c Created Jan 2014 by R.Kessler
 c For ROOT, terminate strings with char(0) to be used by C++/root code.
-c For HBOOK, leave blank-space padding for fortran/hbook code.
 c Note that the list of table string-variables is hard-wired;
 c initial set is SNLC_CCID and SNLC_FIELDLIST.
 c
-c Warning: if using both hbook and root, the hbook strings 
-c          will have lots of extra padding in the ntuple.
 c
 c OPT > 0 --> add termination
 c OPT < 0 --> remove termination
@@ -30724,7 +30601,6 @@ c local var
 
 +CDE,SNPAR.
 +CDE,CTRLCOM.
-+CDE,SNCONTCM.
 
       EXTERNAL FCNSNLC, USRFUN
       DOUBLE PRECISION  USRFUN
@@ -30938,22 +30814,7 @@ c          (After MIGRAD, this is the indication of normal convergence.)
 +SELF.
 
 c ----------------------------------
-c Prepare contours
 
-      DO i = 1, NPLOT_CONT
-  
-+SELF,IF=MINUIT.
-         CALL MNCONT ( FCNSNLC
-     &       , IPAR_CONT(1,i)  ! (I) 1st parameter for contour
-     &       , IPAR_CONT(2,i)  ! (I) 2nd param
-     &       , NPT_CONT(i)     ! (I) number of contour points
-     &       , VCONT8(1,1,i)   ! (O) par1 contour array
-     &       , VCONT8(1,2,i)   ! (O) par2 contour array
-     &       , NPT_FOUND(i)    ! (O) 
-     &       , USRFUN )
-+SELF.
-
-      ENDDO
 
 c Stop fit and make LAST call to function
 
@@ -31555,494 +31416,6 @@ C #################################################
       END  ! end of RDMCMCNML   
 
 
-C =============================================
-+DECK,MCMC_DRIVER.   
-      SUBROUTINE MCMC_DRIVER(HOFF_MARG
-     &     , NMCMC_CHAINS   
-     &     , NMCMC_EVAL   
-     &     , NMCMC_BURN   
-     &     , LTUP_MCMC   
-     &     , IMCMC_STORE   
-     &     , MCMC_NSIG_STEP   
-     &     , NSIG_MCMC_START   
-     &     )   
-c   
-c Created Nov 2009 by B. Dilday; 
-c installed in snana Nov 2009 by R.Kessler   
-c Markov Chain Monte Carlo driver   
-c   
-c   
-c Oct 1 2012 RK replace HBOOK1 and HFILL with LCPLOT utility
-c
-c Feb 10, 2012 RK - comment out call to MCMCTUP until it replaces
-c                   CERNLIB calls with SNTABLE_xxx functions
-c  
-c -------------------------------------   
-   
-      IMPLICIT NONE   
-+CDE,SNDATCOM.    
-+CDE,SNANAFIT.
-+CDE,SNLCINP.   
-+CDE,FILTCOM.   
-+CDE,MCMCTUP.  
- 
-c declare subroutine args   
-   
-      INTEGER HOFF_MARG    ! (I) hbook offset   
-      INTEGER NMCMC_CHAINS ! (I) number of chains to run (per SN)   
-      INTEGER NMCMC_EVAL   ! (I) number of evaluations (per chain, per SN)   
-      INTEGER NMCMC_BURN   ! (I) size of burn in   
-      LOGICAL LTUP_MCMC    ! (I) store mcmc in a ntuple?   
-      INTEGER IMCMC_STORE  ! (I) if ltup_mcmc set, store only every IMCMC_STORE values   
-      REAL MCMC_NSIG_STEP  ! (I)
-      REAL NSIG_MCMC_START ! (I) perturb MCMC starting point from minuit max-likelihood value   
-    
-c local variables   
-      INTEGER iv   
-     &     ,cid  
-     &     ,idum   
-     &     ,imcmc   
-     &     ,IFLAG   
-     &     ,NVAR   
-     &     ,IPAR   
-     &     ,JPAR  
-     &     ,oset   
-     &     ,ichain   
-     &     ,jmcmc   
-     &     ,NMCMC_TOT   
-     &     ,NMCMC_TOT_EVALS   
-     &     ,IERR   
-     &     ,nvtot  
-     &     ,hid  
-     &     ,nbin  
-     &     ,LL  
-  
-      CHARACTER sdir*20  
-     &     , subdirname*40  
-     &     , topdir*20  
-     &     ,chis*80  
-  
-      LOGICAL LDMP / .FALSE. /   
-       
-      REAL  XNTUP(MXNTVAR) 
-     &     ,MCMC_STORE(MXFITPAR, MAX_NMCMC_TOT) 
-       
-      REAL pchi2 , dum4, wgt
-     &     ,xmin(MXFITPAR), xmax(MXFITPAR)  
-       
-      REAL*8 CHI2    
-     &     , XVAL(MXFITPAR)     ! fit parameters    
-     &     , SVAL(MXFITPAR)     ! fit parameter errors   
-     &     , MVAL(MXFITPAR)     ! fit parameters     
-     &     , GRAD8(MXFITPAR)   
-c     &     ,PDFSUM_GRID(MXGRID,MXFITPAR) ! PDF vs. par to plot 1-d pdf   
-     &     ,MCMC_DENOM8   
-     &     ,CUR_DENOM8  
-     &     ,SQERR  
-  
-      REAL*8 
-     &      MCMC_SUM(MXFITPAR)   
-     &     ,MCMC_SUM2(MXFITPAR, MXFITPAR)   
-     &     ,MCMC_MEAN(MXFITPAR)  
-     &     ,MCMC_SIGMA(MXFITPAR)  
-  
-c functions   
-      REAL*8 PROB   
-      DOUBLE PRECISION USRFUN, GETRAN_GAUSS
-   
-      INTEGER  MCMCFUN   
-      EXTERNAL USRFUN   
-   
-C ------------------- BEGIN ---------------------   
-   
-      print*, ' '   
-      print*,'  MCMC_DRIVER called for CID=', SNLC_CCID
-      CALL FLUSH(6)   
-   
-      NMCMC_TOT = NMCMC_EVAL*NMCMC_CHAINS   
-      NMCMC_TOT_EVALS = NMCMC_TOT*N_SNLC_PROC   
-
-c init PDFVAL = FITVAL so that fixed params get transfered.
-      CALL PDF_INIT()
-   
-c there seems to be a limit for number of values that can be    
-c stored in an ntuple; abort right away if LTUP is set,    
-c and NMCMC_TOT_EVALS is larger than this   
-c the limit may be system dependent??  
- 
-      IF ( NMCMC_TOT_EVALS/IMCMC_STORE .GT. MAX_NMCMC_TOT .AND.  
-     &     LTUP_MCMC ) THEN   
-         c1err = "NMCMC_TOT_EVALS is too big!"   
-         write(c2err,660) NMCMC_TOT, MAX_NMCMC_TOT    
-660      format('NMCMC_TOT=',I10,' exceed limit of ', I8 )   
-         CALL MADABORT( "MCMC_DRIVER", c1err, c2err )   
-      ENDIF   
-  
-c book ntuple here  
-  
-      IF ( LTUP_MCMC ) THEN  
-cc         CALL MCMCTUP(0, MCMCNTUPN)  
-      ENDIF  
-  
-c compute denominator for computing mean, sigma and do a    
-c sanity check on length of burn-in   
-   
-      if ( NMCMC_BURN .GE. NMCMC_EVAL ) THEN   
-         c1err = "NMCMC_BURN cannot be greater than NMCMC_EVAL!"   
-         c2err = " "   
-         CALL MADABORT( "MCMC_DRIVER", c1err, c2err )   
-      ELSE   
-         MCMC_DENOM8 = DBLE((NMCMC_EVAL-NMCMC_BURN)*NMCMC_CHAINS)   
-         wgt = 1.0/MCMC_DENOM8  
-      ENDIF   
-   
-      iflag = FCNFLAG_USER   
-c      iflag = 4   
-      nvar = NFITPAR_MN    
-   
-      IF ( LDMP ) THEN   
-        print*,'nmcmc= ', nmcmc_eval   
-        print*,'nvar= ', nvar   
-      ENDIF   
-   
-      inival(1) = 1   
-      inival(9) = 0.05   
-   
-      DO 51 ipar = 1, nvar   
-         xval(ipar) = FITVAL_STORE(ipar)    
-         sval(ipar) = FITERR_STORE(ipar)   
-         mval(ipar) = xval(ipar)   
-c         xval(ipar) = xval(ipar) 
-c     &     + sval(ipar)*NSIG_MCMC_START*GETRAN_GAUSS()    
- 51   CONTINUE   
-   
-      call fcnsnlc(nvar, grad8, chi2, xval, iflag, usrfun)   
-   
-      IF ( LDMP ) THEN   
-        print*,'fcnsnlc= ', chi2   
-        print*,'iflag= ',iflag   
-c      idum = testy(nvar, grad8, chi2, xval, sval, iflag, usrfun)   
-        print*,'idum fortran= ', idum   
-      ENDIF   
-   
-c     initialize sumations to 0   
-c     initialize xmin and xmax 
-      DO ipar = 1, nvar   
-         xmin(ipar) =  9E9 
-         xmax(ipar) = -9E9 
-         MCMC_SUM(ipar) = 0.0   
-         DO jpar = 1, nvar              
-            MCMC_SUM2(ipar, jpar) = 0.0   
-         ENDDO   
-      ENDDO  
-  
-      CUR_DENOM8 = 0.0  
-   
-c loop over number of chains   
-      do ichain = 1, NMCMC_CHAINS   
-         oset = (ichain-1)*nmcmc_eval   
-   
-c     choose a new starting point   
-         DO 52 ipar = 1, nvar   
-   
-            if ( .not. FLOATPAR(ipar) ) goto 52   
-            xval(ipar) = FITVAL_STORE(ipar)    
-            sval(ipar) = FITERR_STORE(ipar)   
-            xval(ipar) = xval(ipar) + 
-     &         sval(ipar)*NSIG_MCMC_START*GETRAN_GAUSS(1)
-c     initialize the chi**2 for passing to snfit_mcmc_   
-            call fcnsnlc(nvar, grad8, chi2, xval, iflag, usrfun)    
- 52      CONTINUE   
-   
-c     loop over number of evaluations per chain   
-         do jmcmc = 1, nmcmc_eval   
-            imcmc = oset + jmcmc   
-   
-               idum = mcmcfun(nvar, chi2,    
-     &              mval, xval, sval, iflag   
-     &              , usrfun   
-     &              )   
-  
-       IF ( LDMP ) THEN   
-c       IF ( LDMP .or. .not. LDMP ) THEN   
-          DO jpar = 1, nvar  
-             print*,'ipar= ', jpar, ' val= ', xval(jpar)                 
-             CALL FLUSH(6)  
-          ENDDO  
-       ENDIF  
-c     now values have been returned   
-c     if we are not still in burn-in phase, then add to the mean and sigma sumations, fill pdf histograms...   
-               IF ( jmcmc .GT. NMCMC_BURN ) THEN   
-                  CUR_DENOM8 = CUR_DENOM8 + 1  
-                  DO ipar = 1, nvar   
-                     IF ( FLOATPAR(ipar) ) THEN  
-                         
-                        dum4 = sngl(xval(ipar)-mval(ipar))  
-                         
-                        IF ( dum4 .GT. xmax(ipar) ) THEN 
-                           xmax(ipar) = dum4 
-                        ENDIF 
-                         
-                        IF ( dum4 .LT. xmin(ipar) ) THEN 
-                           xmin(ipar) = dum4 
-                        ENDIF 
- 
-c     fill after fit is done, so that we know the min, max  
-c     hid = HOFF_MARG + ipar  
-c     CALL HFILL(hid, dum4, 0.0, wgt)  
-                         
-                        MCMC_STORE(ipar, int(CUR_DENOM8)) = xval(ipar) 
-  
-                        MCMC_SUM(ipar)  = MCMC_SUM(ipar)  + xval(ipar)   
-                          
-                        DO jpar = 1, nvar  
-                           IF ( FLOATPAR(jpar) ) THEN  
-                              MCMC_SUM2(ipar, jpar) =   
-     &                             MCMC_SUM2(ipar, jpar)   
-     &                             + xval(ipar)*xval(jpar)   
-                                
-                           ENDIF ! jpar is floated  
-                        ENDDO   ! jpar  
-                     ENDIF      ! ipar is floated  
-                  ENDDO         ! ipar  
-               ENDIF            ! jmcmc<nburn  
-                 
-c     check if we should fill the ntuple  
-               if ( LTUP_MCMC .AND. mod(imcmc, IMCMC_STORE)==0) THEN   
-c     need to fill the ntuple value array before calling MCMCTUP  
-                  iv = 0  
-                  DO ipar = 1, mxfitpar  
-                     if ( FLOATPAR(ipar) ) THEN  
-                        iv = iv + 1  
-                        mcmctupvals(iv) = xval(ipar)  
-                     ENDIF           
-                  ENDDO  
-c     we need the chi2 value  
-                  iv = iv + 1  
-                  mcmctupvals(iv) = chi2  
-           
-c     number of degrees of freedom  
-                  iv = iv + 1  
-                  mcmctupvals(iv) = NDOF_STORE(2)  
-  
-c     mcmc index           
-                  iv = iv + 1  
-                  mcmctupvals(iv) = float(imcmc)  
-           
-c     was the new point accepted?   
-                  iv = iv + 1  
-                  mcmctupvals(iv) = float(idum)  
-  
-c     done  
-                    
-cc                  IF ( LTUP_MCMC ) CALL MCMCTUP(1, MCMCNTUPN)  
-               ENDIF  
-                 
-               if ( mod(imcmc, 2000) .EQ. 0 ) then   
-                  print*, '     imcmc= ', imcmc, ' / ', nmcmc_tot   
-                  call flush(6)   
-               endif   
-            enddo               ! loop over evaluations   
-         enddo                  ! loop over chains   
-   
-c     now compute mean, sigma, fill marg arrays, etc...   
-         IERR = 0   
-   
-c     mean of distribution for each floated par  
-         DO ipar = 1, nvar   
-            if ( FLOATPAR(ipar) ) THEN  
-               MCMC_MEAN(ipar) = MCMC_SUM(ipar)/MCMC_DENOM8    
-               PDFVAL(ipar) = MCMC_MEAN(ipar)  
-            ENDIF  
-         ENDDO  
-           
-c     elements of covariance matrix  
-         DO ipar = 1, nvar   
-         if ( FLOATPAR(ipar) ) THEN  
-            DO jpar = 1, nvar   
-               if ( FLOATPAR(jpar) ) THEN  
-                  SQERR = MCMC_SUM2(ipar,jpar)/MCMC_DENOM8   
-     &                 -MCMC_MEAN(ipar)*MCMC_MEAN(jpar)   
-                  PDFERRMAT(ipar, jpar) = sngl(SQERR)  
-               ENDIF   
-            ENDDO  
-         ENDIF  
-      ENDDO  
-        
-c     check that diagonal elements are >0  
-      DO ipar = 1, nvar  
-         SQERR = PDFERRMAT(ipar, ipar)  
-         IF ( SQERR .GE. 0.0 ) THEN   
-            MCMC_SIGMA(ipar) = SQRT(SQERR)             
-            PDFERR(ipar) = MCMC_SIGMA(ipar)  
-         ELSE   
-            write(c1err,666) PARNAME_STORE(IPAR), SQERR, SNLC_CCID
- 666        format('SQERR(', A, ') = ', G12.4,'  for CID=',A )   
-            IERR = -1   
-            MCMC_SIGMA(ipar) = -SQRT(ABS(SQERR))   
-         ENDIF   
-      ENDDO  
-  
-      DO ipar = 1, nvar   
-         if ( FLOATPAR(ipar) ) THEN  
-            DO jpar = 1, nvar   
-               if ( FLOATPAR(jpar) ) THEN  
-                  SQERR = MCMC_SUM2(ipar,jpar)/MCMC_DENOM8   
-     &                 -MCMC_MEAN(ipar)*MCMC_MEAN(jpar)   
-                  PDFERRMAT(ipar, jpar) = SQERR  
-                  PDFCORMAT(ipar, jpar) = PDFERRMAT(ipar, jpar)/  
-     &                 (PDFERR(ipar)*PDFERR(jpar))  
-               ENDIF   
-            ENDDO  
-         ENDIF  
-      ENDDO  
-  
-c     --------------------------- 
-c     book 1d pdfs here  
-      nbin = 41  
-      IF ( HOFF_MARG .GT. 0 ) THEN  
-         DO ipar = 1, nvar   
-            if ( FLOATPAR(ipar) ) THEN   
-               hid = HOFF_MARG + ipar  
-               LL = index ( PARNAME_STORE(ipar), ' ' ) - 1  
-               write(chis,21)    
-     &              PARNAME_STORE(IPAR)(1:LL)  
-     &              , PARNAME_STORE(IPAR)(1:LL)  
-     &              , SNLC_CCID
-                
- 21            format(' margin. PDF(',A,'-',A,'?fit!) for CID=',A6)  
-            ENDIF  
-         ENDDO  
-      ENDIF  
-              
-c     store results and print to screen   
-      CALL PDF_STORE()
-        
-      IF ( IERR .LT. 0 ) THEN   
-         c2err = 'Check MCMC error calc.'   
-         CALL MADABORT( "MCMC_DRIVER", c1err, c2err )   
-      ENDIF   
-   
-      RETURN   
-      END   
-C =============================================
-+DECK,MCMCFUN.   
-      INTEGER FUNCTION MCMCFUN(nvar, chi2,    
-     &     mval, xval, sval, iflag, usrfun)   
-         
-c Created Nov 2009 by B.Dilday   
-c   
-c   
-c
-c This function constitutes one step of the MCMC algorithm.
-c The current parameters and the associated chi**2 value are 
-c passed in 'xval' and 'chi2'.  A new set of parameters is 
-c generated from a proposal distribution,  and accepted
-c with probability equal to the the ratio of the probabilities  
-c associated with each chi**2 value.  The proposal distribution 
-c is a gaussian with a diagonal covariance  matrix and with a 
-c step size in each dimension proportional to the estimated 
-c error (e.g., from minuit minimization) on the parameter 
-c (passed in 'sval'). the proportionality constant is given 
-c by the global variable 'MCMC_NSIG_STEP'. The proposal
-c distribution is independent of the current values of the 
-c parameters.  If the proposed point is accepted, then the 
-c values are returned in 'xval' and the function returns 1
-c (0 otherwise).
-c Possible improvements:
-c - use a non-diagonal covariance matrix
-c 
-c
-c Jan 2013 RK - replace CERNLIB random generator with 
-c               sntools random generators: snran1 & gaussran().
-c               WARNING - not tested !!!
-c -----------------------------   
-         
-      IMPLICIT NONE   
-   
-+CDE,SNDATCOM.    
-+CDE,SNANAFIT.
-+CDE,SNLCINP.   
-+CDE,FILTCOM.   
-+CDE,MCMCCOM.   
-         
-c declare function args   
-   
-      INTEGER nvar ! (I) number of variables   
-      REAL*8 CHI2  ! (I/O) chi**2 value   
-      REAL*8 XVAL(MXFITPAR) ! (I/O) parameter values   
-      REAL*8 SVAL(MXFITPAR) ! (I) parameter errors   
-      REAL*8 MVAL(MXFITPAR) ! (I) parameter starting value   
-      INTEGER IFLAG         ! (I) input option   
-      DOUBLE PRECISION USRFUN ! (I) optional user function   
-   
-c misc. args   
-   
-      EXTERNAL USRFUN   
-   
-      REAL*8 GRAD8(MXFITPAR)   
-   
-      INTEGER IMNFLAG   
-     &     , ipar, itest, ilist
-   
-      REAL*8 XVAL_SV(MXFITPAR)   
-     &     , delchi2, sig   
-     &     , c1, c2, gval    
-     &     , rtest, rtest2   
-     &     , nsig8, prob8   
-   
-c randon generators in sntools.c (RK - Jan 2013)
-      REAL*8  GETRAN_FLAT1, GETRAN_GAUSS
-
-C ===========================================   
-C ------------------- BEGIN -----------------   
-C ===========================================   
-      IMNFLAG = 90   
-      nsig8 = MCMC_NSIG_STEP   
-   
-      c1 = chi2   
-   
-      DO ipar = 1, NVAR   
-         XVAL_SV(ipar) = XVAL(ipar)   
-      ENDDO   
-   
-      ILIST = 1
-      DO ipar = 1, NVAR   
-         sig = SVAL(ipar)   
-c         IF ( sig .GT. 1E-9 ) THEN   
-c heres a better way to see if the variable is floated...   
-         IF ( FLOATPAR(ipar) ) THEN   
-            gval = GETRAN_GAUSS(ILIST)   
-            XVAL(ipar) = XVAL(ipar) + gval*sig*nsig8   
-         ENDIF   
-      ENDDO   
-   
-      CALL FCNSNLC(nvar, grad8, chi2, xval, imnflag, usrfun)   
-      c2 = chi2   
-      delchi2 = c2-c1   
-      prob8 = DEXP(-0.5*delchi2)   
-
-      rtest = GETRAN_FLAT1();   ! RK - Jan 2013
-      rtest2 = -2.0*DLOG(rtest)   
-   
-      itest = 0   
-      IF ( rtest2 .GT. delchi2 ) THEN   
-         itest = 1   
-      ENDIF   
-   
-      IF ( itest .GT. 0 ) THEN   
-         chi2 = c2   
-         c1 = c2   
-      ELSE   
-         DO ipar = 1, NVAR   
-            XVAL(ipar) = XVAL_SV(ipar)   
-         ENDDO   
-         chi2 = c1   
-      ENDIF   
-   
-      MCMCFUN = itest   
-      RETURN    
-      END   
 
 C =======================================
 +DECK,MARG_DRIVER.
@@ -32156,17 +31529,7 @@ c -----------------
       ISTAGE_SNANA = ISTAGE_TEST
 
 c --------------------------------------
-c book plots
 
-c start with monitor plot for FCNPDF value for each function call
-
-      IF ( HOFF_MARG .GT. 0 ) THEN
-         HID_PDF = HOFF_MARG ; NHDIM   = 1  
-         NBPDF(1) = 202 ;  XMIN(1)  = -20.1 ; XMAX(1)  =  +0.1
-         CHIS  = 'log10(PDF) for integration' // char(0)
-         CALL SNHIST_INIT(NHDIM, HID_PDF, CHIS,
-     &              NBPDF, XMIN, XMAX, LEN(CHIS) )
-      ENDIF
 
 c init PDFVAL = FITVAL so that fixed parameters get transfered.
 

@@ -652,7 +652,8 @@ int   landolt_convert__(int *opt, double *mag_in, double *mag_out);
 // errmsg" utilities
 void  tabs_ABORT(int NTAB, char *fileName, char *callFun);
 void  missingKey_ABORT(char *key, char *file, char *callFun) ;
-void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) ;
+// xxx mark void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) ;
+void  legacyInput_abort(char *callFun,  char *typeInput, char *legacyName, char *newName) ;
 
 void  errlog ( FILE *fp, int  isev, char *fnam, char *msg1, char *msg2 );
 void  errmsg ( int  isev, int iprompt, char *fnam, char *msg1, char *msg2 );
@@ -725,7 +726,6 @@ void load_PySEDMODEL_CHOICE_LIST(void) ;
 #define EXIT_ERRCODE_sntable_dump   14
 #define EXIT_ERRCODE_wfit           15
 #define EXIT_ERRCODE_merge_root     16
-#define EXIT_ERRCODE_merge_hbook    17
 #define EXIT_ERRCODE_UNKNOWN        99
 
 // define old useful functions for reading/parsing input file
@@ -814,6 +814,7 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
 		 int *Nsplit, char **ptrSplit );
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
+void split2doubles(char *string, char *sep, double *dval) ;
 void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_comment(char *string) ;

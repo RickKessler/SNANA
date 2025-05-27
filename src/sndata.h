@@ -395,6 +395,7 @@ struct SNDATA {
   float SIM_VPEC ;           // peculiar velocity, km/sec
   float SIM_DLMU ;
   float SIM_LENSDMU ;  
+  float SIM_MUSHIFT;           //  May 2025 user-define MU shift (random or fixed)
   float SIM_RA, SIM_DEC ;      //  simulated RA and DEC
   float SIM_PEAKMJD ;          //  peak MJD in g-band
   float SIM_MJD_EXPLODE;       //  MJD of explosion (see OPTMASK_T0SHIFT_EXPLODE)

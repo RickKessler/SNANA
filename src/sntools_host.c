@@ -8640,14 +8640,14 @@ void SORT_SNHOST_byDDLR(void) {
   ifilt_obs = GENLC.IFILTMAP_OBS[0];
   IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
   if ( IVAR >= 0 && !LSN2GAL_Z ) {
-    double HOST_DLMU, LENSDMU, zCMB, zHEL;
+    double HOST_DLMU, LENSDMU, MUSHIFT, zCMB, zHEL;
     zHEL = SNHOSTGAL.ZTRUE; 
     zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, COORDSYS_EQ, +1);
     if ( INPUTS.VEL_CMBAPEX == 0.0 ) { zCMB = zHEL; }
 
     gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT,
-		    &HOST_DLMU, &LENSDMU ); // <== returned
+		    &HOST_DLMU, &LENSDMU, &MUSHIFT ); // <== returned
     DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
 
     /* 
@@ -8991,7 +8991,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT, 
-		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
+		    &GENLC.DLMU, &GENLC.LENSDMU, &GENLC.MUSHIFT ); // <== returned
   }
 
   // - - - - - - - - - - - - - - - - - - - - - 
@@ -9010,7 +9010,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
     gen_distanceMag(zCMB, zHEL, vPEC,
 		    GENLC.GLON, GENLC.GLAT,
-		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
+		    &GENLC.DLMU, &GENLC.LENSDMU, &GENLC.MUSHIFT ); // <== returned
 
   }
 
@@ -9806,7 +9806,7 @@ void DUMP_GROUPID(int igal_start, int igal_end ) {
 
   printf(" %s for GROUPID_HOSTLIB(SIMLIB_HEADER) = %s\n",
 	 fnam, SIMLIB_HEADER.GROUPID_HOSTLIB_STRING );
-  printf("\t print subset with AngSep < %.0f degrees\n", fnam, ANGSEP_MAX);
+  printf("\t print subset with AngSep < %.0f degrees\n", ANGSEP_MAX);
   printf("\n");
 
   printf("                                                  AngSep \n" );

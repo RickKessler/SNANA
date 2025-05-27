@@ -4196,11 +4196,6 @@ c skip marg if chi2(sigma) fails cut since it won't change after marg.
 
 c ---------------------------------------------------------
       
-      IF ( DOPDFPLOT ) THEN
-         HOFF   = 700                ! hbook offset for 1d pdf plots
-      ELSE
-         HOFF = 0
-      ENDIF
 
 c Check for too-tiny errors.
       CALL FITERR_ADJUST()
@@ -4218,6 +4213,7 @@ c now check for reasons to quit FCNSNLC early (to save CPU time)
           OPT = OPT_INTEGPDF_QUITCHI2  
         ENDIF
 
+        HOFF = 0
         CALL MARG_DRIVER(HOFF, OPT, 
      &                MAX_INTEGPDF, NGRID_PDF, NSIGMA )
 
@@ -4237,12 +4233,8 @@ c   can happen if photoZ_marg - photoZ_fit is  large enough.
         ENDIF
 
       ELSE IF ( LMCMC ) THEN
-         CALL MCMC_DRIVER( HOFF
-     &        ,NMCMC_CHAINS, NMCMC_EVAL, NMCMC_BURN
-     &        ,LTUP_MCMC, IMCMC_STORE, MCMC_NSIG_STEP
-     &        ,NSIG_MCMC_START
-     &        )
-
+         print*,' ERROR: no MCMC option '
+         STOP
       ENDIF
 
 c store marginalized chi2 per filter
@@ -10387,7 +10379,7 @@ c init everything, even for unused filters.
         ifilt      = IFILT_MAP_TABLE(i)
         cfilt_obs  = FILTDEF_STRING(ifilt_obs:ifilt_obs)
 
-c check for duplicate 'HBOOK' filters such as g,G or r,R ...
+c check for duplicate filters such as g,G or r,R ...
 c perfectly allowed in snana, but ntuples cannot distinguish
 c since they are case-insensitive.
         IF ( DUPLICATE_FILTER(i,SURVEY_FILTERS_TABLE) ) THEN
@@ -19086,8 +19078,8 @@ c
 c Initialize variables for snfitres-analysis table.
 c Call generic function SNTABLE_ADDCOL() that loads a table 
 c for each selected format: CERNLIB, ROOT, HDF5 ...
-c The VARLIST string is constructed for HBNAME so that it trivially
-c works for HBOOK; will need extra parsing (in SNTABLE_ADDCOL)
+c The VARLIST string is constructed so that it trivially
+c works for ROOT; will need extra parsing (in SNTABLE_ADDCOL)
 c for root and hdf5.  
 c
 c This routine is intended to replace CWNT_HBNAMES_SNFITVAR()

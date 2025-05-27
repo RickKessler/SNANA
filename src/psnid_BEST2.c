@@ -21,7 +21,7 @@
 #include "sntools_cosmology.h"
 #include "sntools_modelgrid.h"
 #include "sntools_output.h"
-#include "sntools_nearnbr.h"
+//#include "sntools_nearnbr.h"
 #include "psnid_tools.h"
 
 

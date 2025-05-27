@@ -710,7 +710,6 @@ class cosmofit(Program):
         logging.info(f" ")
         logging.info(f"\t BLIND DATA: {blind_data}")
         logging.info(f"\t BLIND SIM:  {blind_sim}")
-        logging.info(f" ")
         
         # abort if any FITOPT has -blind ... to avoid interference
         # with BLIND_DATA and BLIND_SIM yaml flags
@@ -727,6 +726,8 @@ class cosmofit(Program):
                 self.log_assert(False, msgerr)
 
         # check isdata flag per inpdir
+        # Here we give explicit -blind (or not) flag; 
+        # later could use -blind_auto for wfit, but may not work on other cosmology fitting codes
         inpdir_list      = self.config_prep['inpdir_list']
         isdata_list      = self.config_prep['isdata_list']
         arg_blind_list   = [] # set to either "-blind" or ""
@@ -736,6 +737,10 @@ class cosmofit(Program):
             if isdata and not blind_data : arg_blind = ""
             if issim  and not blind_sim  : arg_blind = ""
             arg_blind_list.append(arg_blind)
+            
+        logging.info(f" isdata_list    = {isdata_list}")
+        logging.info(f" arg_blind_list = {arg_blind_list}")
+        logging.info(f" ")
 
         self.config_prep['arg_blind_list'] = arg_blind_list
 

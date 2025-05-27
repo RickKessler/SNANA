@@ -227,9 +227,6 @@ void checkFiles(void) {
 
 
   IFILETYPE = -9 ;
-#ifdef USE_HBOOK
-      if ( ISFILE_HBOOK(outFile) ) { IFILETYPE = IFILETYPE_HBOOK ;  }
-#endif
 
 #ifdef USE_ROOT
       if ( ISFILE_ROOT(outFile)  ) { IFILETYPE = IFILETYPE_ROOT  ; }

@@ -13,6 +13,9 @@
 # Mar 25 2025: @@FIT is working for a few basic functions 
 # Mar 31 2025: add @@LEGEND_UL and @@LEGEND_UR options
 # Apr 21 2025: fix fit chi2 calc to work for 2D plot where @ERROR is given for y-axis.
+# May 15 2025: new @@LEGEND_MSCALE to scale size of marker(s) in legend
+# May 16 2025: add @@HACK_FLAG option and method hack_value for publication plots
+# May 20 2025: plot error on mean for DIFF_ALL option
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -29,10 +32,8 @@ parser=argparse.ArgumentParser(formatter_class=RawTextHelpFormatter, prefix_char
 from scipy.stats    import binned_statistic
 from scipy.optimize import curve_fit
 
-#from lmfit import Model
-
 from collections import Counter
-#import distutils.util 
+
 
 # ====================
 # globals
@@ -134,10 +135,10 @@ FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
 # First 3 histograms are solid with different line thickness;
 # next 3 are dashed; next 3 are dot-dashed.
 HIST_LINE_ARGS = [
-    (2.0,'-' ), (1.6, '-' ), (1.2, '-' ),   # solid
+    (2.0,'-' ), (1.6, '-' ), (1.2, '-' ),   # solid 
     (2.0,'--'), (1.6, '--'), (1.2, '--'),   # dashed
-    (2.0,':' ), (1.6, ':' ), (1.2, ':' ),   # dot-dashed
-    (None,None)  # dummy that has no comma
+    (2.0,':' ), (1.6, ':' ), (1.2, ':' ),   # dot-dashed 
+    (None,None)  # dummy that has no comma at end of line
 ]
 
 
@@ -151,6 +152,18 @@ DEBUG_FLAG_REFAC           =  2
 DEBUG_FLAG_LEGACY          = -2
 DEBUG_FLAG_DUMP_TRANSLATE  =  3
 DEBUG_FLAG_DUMP_TRANSLATE2 =  33  # info dump for each char of @V and @@CUT string
+
+
+# hack flags from @@hack input; used to make subtle refinements for a paper
+# without waiting to add more formal input flag
+HACK_FLAG_OpenUniverse24 =  1
+HACK_FLAG_HELP           = 99
+
+HACK_FLAG_DICT = {
+    'OpenUniverse2024'  : HACK_FLAG_OpenUniverse24,
+    'help'              : HACK_FLAG_HELP
+}
+
 
 # ================================
 
@@ -382,6 +395,10 @@ and two types of command-line input delimeters
    @@LEGEND_UR  <same args as for @@LEGEND>
      Force legend in upper right corner
 
+
+   @@LEGEND_MSCALE
+     scale size of marker(s) in legend
+
 @@TITLE
   Text of title to dispaly above plot. For text length > 50 chars,
   the font size is scaled by 50/len(text) so that it doesn't run off
@@ -429,6 +446,7 @@ and two types of command-line input delimeters
      @@MARKER s ^  # square and triangle for 1st and 2nd file/cut
      @@MARKER s x  # square and X        for 1st and 2nd file/cut
      etc ... (see online doc on matplotlib markers)
+
 
 @@XSIZE_SCALE
 @@YSIZE_SCALE
@@ -553,6 +571,9 @@ def get_args():
     msg = "Same as @@LEGEND, but force in upper right corner"
     parser.add_argument('@@LEGEND_UR', '@@legend_ur', default=None, help=msg, nargs="+")
 
+    msg = "marker scale for legend (default=1)"
+    parser.add_argument('@@LEGEND_MSCALE', '@@legend_mscale', default=1.0, help=msg, type=float)
+
     msg = "Override default marker='o'"
     parser.add_argument('@@MARKER', '@@marker', default=['o'], help=msg, nargs="+")    
 
@@ -587,6 +608,9 @@ def get_args():
     msg = "debug options (for development only)"
     parser.add_argument('@@DEBUG_FLAG', "@@debug_flag", help=msg, type=int, default=0)    
 
+    msg = f"integer hack flag for publication (help={HACK_FLAG_HELP})"
+    parser.add_argument('@@HACK_FLAG', "@@hack_flag", help=msg, type=int, default=0)    
+
     msg = "Full help menu printed to stdout"
     parser.add_argument('@H', '@@HELP', help=msg, action="store_true")
 
@@ -594,6 +618,9 @@ def get_args():
     
     if args.HELP:
         print_help()    
+
+    if args.HACK_FLAG == HACK_FLAG_HELP:
+        dummy = hack_value('DUMMY', 0, args)
 
     return args
 
@@ -1824,6 +1851,7 @@ def plotter_func_driver(args, plot_info):
     xbins          = bounds_dict['xbins']
     xbins_cen      = bounds_dict['xbins_cen']    
     # - - - - - - - 
+    HIST_LINES = hack_value('HIST_LINE_ARGS', HIST_LINE_ARGS, args)
 
     numplot = 0
     numplot_tot = len(MASTER_DF_DICT)
@@ -1877,8 +1905,8 @@ def plotter_func_driver(args, plot_info):
         plt_alpha   = df_dict['alpha']  # fixed by user
         plt_marker  = df_dict['marker'] # fixed by user
 
-        lwid = HIST_LINE_ARGS[numplot][0]  # for 1D hist only
-        lsty = HIST_LINE_ARGS[numplot][1]          
+        lwid = HIST_LINES[numplot][0]  # for 1D hist only
+        lsty = HIST_LINES[numplot][1]          
         # - - - - -        
         
         if do_plot_errorbar :
@@ -2420,18 +2448,46 @@ def get_info_plot2d(args, info_plot_dict):
                 which_stat = 'mean'                
 
             xbins  = info_plot_dict['xbins']
-            y_ref  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+            y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
                                       bins=xbins, statistic=which_stat)[0]
+            y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                          bins=xbins, statistic='std')[0]
+            y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                          bins=xbins, statistic='count')[0]
+            y_ref_cnt = replace_zeros(y_ref_cnt)
+
             y      = binned_statistic(df.x_plot_val, df.y_plot_val,
                                       bins=xbins, statistic=which_stat)[0]            
+            y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                      bins=xbins, statistic='std')[0]            
+            y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                      bins=xbins, statistic='count')[0]            
+            y_cnt = replace_zeros(y_cnt)
 
             # convert NaN (empty bins) to zero to avoid crash when plotting
             y_ref[np.isnan(y_ref)] = 0
             y[np.isnan(y)]         = 0                        
-            info_plot_dict['xval_list'] = info_plot_dict['xbins_cen']
-            info_plot_dict['yval_list'] = y_ref - y
-            info_plot_dict['yerr_list'] = None            
-        
+            y_dif     = y_ref - y
+
+            # compute error on the mean diff as quadrature sum of each term
+            y_dif_err = np.sqrt(y_std*y_std/y_cnt + y_ref_std*y_ref_std/y_ref_cnt)
+
+            xbins_cen = info_plot_dict['xbins_cen']
+            xmin      = xbins[0] ; xmax = xbins[-1]; dx = (xmax-xmin)/200
+            xbins_cen += dx*(numplot-1)  # automate x-shift to avoid overlapping points
+
+            info_plot_dict['xval_list'] = xbins_cen
+            info_plot_dict['yval_list'] = y_dif
+            info_plot_dict['yerr_list'] = y_dif_err
+      
+            # xxxxxxxx mark delete 5.20.2025 xxxxxxxx
+            #print(f" xxx xbins_cen = {xbins_cen}")
+            #print(f" xxx y_std = {y_std}")
+            #print(f" xxx y_cnt = {y_cnt}")
+            #print(f" xxx y_dif_err = {y_dif_err}")
+            #print(f" xxx y_dif     = {y_dif}")
+            # xxxxxxxxx
+  
     return  # end  get_info_plot2d
 
 def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
@@ -2451,10 +2507,16 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
     
     y_err_stat = None
     
-    OPT = args.OPT
+    OPT          = args.OPT
     do_median    = OPT_MEDIAN  in OPT
     do_avg       = OPT_MEAN    in OPT or OPT_AVG in OPT
+    do_stddev    = OPT_STDDEV  in OPT
+    do_errmean   = not do_stddev
     do_wgtavg    = yerr_list is not None
+
+    do_diff_all  = (args.DIFF == OPT_DIFF_ALL)
+    if do_diff_all:
+        do_stddev = False; do_errmean = False; do_wgtavg = False
 
     DO_DUMP    = False
     
@@ -2476,12 +2538,14 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
         y_count = binned_statistic(xval_list, yval_list,
                                    bins=xbins, statistic='count')[0]
         
-        if OPT_STDDEV in OPT:
+        if do_stddev :
             y_err_stat = y_std  # stddev per bin (user input @@OPT STTDEV)
-        else:
+        elif do_errmean:
             y_count    = replace_zeros(y_count)  # avoid divide by zero
             y_err_stat = y_std/np.sqrt(y_count)  # error on mean per bin (default)
-        
+        elif do_diff_all:
+            y_err_stat = yerr_list  # May 20 2025
+
         if do_wgtavg:
             stat_legend = 'wgtavg'
             y_avg   = copy.deepcopy(y_stat)  # for diagnostic print
@@ -2586,22 +2650,14 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     
     # - - - - -
     fsize_legend   = 10 * args.FONTSIZE_SCALE
+    fsize_legend   = hack_value('fsize_legend', fsize_legend, args)
 
     if args.LEGEND != SUPPRESS:
-        plt.legend(loc=args.legend_loc, bbox_to_anchor=args.legend_bbox2anchor, 
-                   fontsize = fsize_legend )
+        leg = plt.legend(loc = args.legend_loc, 
+                         bbox_to_anchor = args.legend_bbox2anchor, 
+                         fontsize       = fsize_legend, 
+                         markerscale    = args.LEGEND_MSCALE )
 
-    # xxxxxxx mark delete Mar 31 2025 xxxxxxx
-    #if args.LEGEND_SIDE:
-    #    # push legend outside of box on right side
-    #    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5) )
-    #elif args.LEGEND == SUPPRESS:
-    #    pass  # no legend
-    #else:
-    #    # default; let matplotlib find best place for legend
-    #    fsize_legend = 10 * args.FONTSIZE_SCALE
-    #    plt.legend(loc=None, bbox_to_anchor=None, fontsize = fsize_legend)
-    # xxxxxxxxxx end mark
 
     len_title = len(args.TITLE)
     fsize_title   = 14 * args.FONTSIZE_SCALE
@@ -2712,6 +2768,42 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     plt.plot(xbins_cen, yfun_cen, label=label_fit )
 
     return
+
+# =======================================================
+def hack_value(parname, value_orig, args):
+
+    # invoked by user input @@HACK_FLAG, for publications only
+    # Inputs:
+    #   + parname is internal matplotlib parname to hack (e.g., 'fsize_legend');
+    #   + args.VARNAME[0] is the name of plotted variable
+    
+
+    value_hack = value_orig
+    HACK_FLAG  = args.HACK_FLAG
+    VARNAME    = args.VARIABLE[0]
+
+    if HACK_FLAG == 0 : 
+        return value_hack
+
+    elif HACK_FLAG == HACK_FLAG_OpenUniverse24:
+        is_zcmb = VARNAME == 'ZCMB'
+        if parname == 'fsize_legend' and is_zcmb: 
+            value_hack *= 2  # double default legend size
+
+        if parname == 'HIST_LINE_ARGS' and is_zcmb:
+            # different line style per hist, and thicker than default
+            value_hack = [ (4.0,'-' ), (3.0, '--' ), (2.8, ':' ) ]
+
+    elif HACK_FLAG == HACK_FLAG_HELP:
+        print('')
+        for hack_name, hack_flag in HACK_FLAG_DICT.items():
+            print(f"\t @@hack_flag = {hack_flag:2d} for {hack_name}")
+        sys.exit("\n Bye.")
+    else:
+        sys.exit(f"\n ERROR: invalid hack_flag = {HACK_FLAG}")
+
+    return value_hack
+    # end hack_value
 
 # ===============================================
 # Simple fit functions (Mar 2025)

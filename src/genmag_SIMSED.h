@@ -41,7 +41,6 @@ int     IVERSION_SIMSED_BINARY ;     // actual version
 double Trange_SIMSED[2] ; // used for rd_sedflux
 double Lrange_SIMSED[2] ;
 
-int ISIMSED_SEQUENTIAL ; // xxx mark obsolete Mar 7 2024
 int ISIMSED_SELECT;   // either SEQUENTIAL or WGT option
 
 bool ISBATCH_SIMSED;   // T => running in batch mode

@@ -578,6 +578,10 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_LENSDMU") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_LENSDMU) ; }  
 
+
+    else if ( strcmp(key,"SIM_MUSHIFT") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_MUSHIFT) ; }  
+
     else if ( strcmp(key,"SIM_RA") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_RA) ; }  
 

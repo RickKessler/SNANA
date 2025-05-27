@@ -470,9 +470,7 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
   int iz;
   LOGZMIN = log10(Zmin);
   LOGZMAX = log10(Zmax);
-  // xxx mark delete Jan 11 2022 LOGZBIN = (LOGZMAX-LOGZMIN) / (double)NZbin ;
   LOGZBIN = (LOGZMAX-LOGZMIN) / (double)(NZbin-1) ;
-  logz, z;
   for( iz = 0; iz <= NZbin ; iz++ ) { 
     if ( iz == 0 )  
       { z = 0.0; logz = -999. ; } 

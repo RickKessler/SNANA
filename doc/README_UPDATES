@@ -22884,6 +22884,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     All nearest neighbor code (NEARNBR) has been removed ;
     all classifiers are external to SNANA, including NN that is part of pippin.
 
+    Create_covariance.py:  restore missing ISDATA_REAL flag in INFO.YML (May 13 2025)
+
+    genmag_mlvs2k2.c:
+      + fix abs(...) to fabs(...) which causes very small changes for regression test.
+
          *****  USEFUL(v11_05t) *****
 	 	
     New util make_spectrograph_table.py; see new manual section
@@ -22924,7 +22929,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + for BBC iterations, add symbolic link {output}_ITER1 for clarity
        + in CPU*LOG, write Start and Finished time stamps for science job and for merge
           (for extra diagnostics)
-
+      
     new utility check_create_covariance.py to compute a single element
     of a sys-covariance matrix using pair of cid/idsurvey.
 
@@ -22936,7 +22941,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
      + Write FIELD to unbinned hubble_diagram.
      + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
-    
+     + restore missing ISDATA_REAL flag in INFO.YML (May 13 2025)
+
     simlib_coadd.c
       + fix bug copying IDEXPT when SORT_BAND option is used.
 
@@ -22971,5 +22977,51 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + add new (optional) speed trick to stop chi2(diag) > threshold;
        speed_flag_chi2=7 (default is 3) 
      + -ranseed_Rcmb now works on -ompri
+
+
+# =============================================================
+         v11_05u (May 14 2025) <-- start date of git tag
+
+         *****  IMPORTANT(v11_05u) *****
+
+         *****  USEFUL(v11_05u) *****
+
+         *****  MISCELLANEOUS(v11_05u) *****
+
+    Changes to prepare for automake:
+      + remove -static in Makefile
+      + rename sntools_output.c -> sntools_output.cpp
+      + remove all hbook functions and variables 
+         (it's obsolete anyway because there is no 64 bit version of CERNLIB)
+
+    submit_batch_jobs:
+      + for sim task, fix GENOPT parsing of JOBNAME so that it works with
+        other GENOPTs.
+
+    plot_table.py
+      + DIFF_ALL option includes error bars
+
+    snlc_sim:
+      + expand MUSHIFT input to be either
+            MUSHIFT: 0.1       # exact 0.1 mag shift
+            MUSHIFT: -0.2:0.2  # select randomly between -0.2 and 0.2
+
+        If MUSHIFT range is given, and DNDZ_ZPOLY_REWGT (or DNDZ_Z1POLY_REWGT)
+        is specified to reweight DNDZ vs. redshift, apply the same rewgt
+        to select MUSHIFT; see new functions prep_user_murewgt and gen_MUSHIFT.
+
+     + 	implement new sim input 
+           GENRANGE_PEAKMAG_[band] <min> <max>
+        which applies PEAKMAG cut at generation stage. See new gen_PEAKMAG() function.
+        Purpose is to reduce effective number generated for cases such as EFF_SPEC having 
+        well-defined cutoff. First case is SBI training with large MUSHIFT range and
+        EFFSPEC -> 0 around PEAKMAG_i ~ 24.
+
+        STDOUT now includes NGENLC_GENRANGE (in addition to NGENLC_TOT), where the former
+        counts events passing GENRANGEs defined by PEAKMJD, REDSHIFT, RA,DEC, PEAKMAG.
+
+        Older GENRANGE_PEAKMAG (logical OR for all bands) has been removed. 
+
+        xxx TO DO: describe GENRANGE concept in manual.
 
 END: 

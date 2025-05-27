@@ -1231,10 +1231,6 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   // March 18, 2010 R.Kessler
   // read SALT2.INFO file (or SALT3.INFO), and fill SALT2_INFO structure
   // 
-  // Aug  2, 2010: read COLORLAW_VERSION: <version>
-  // May  2, 2011: read SEDFLUX_INTERP_OPT 
-  // Nov 24, 2011: read MAG_OFFSET
-  // Oct 25, 2015: read optional RESTLAM_FORCEZEROFLUX
   // Sep 03, 2020: pass REQUIRE_DOCANA arg
   // Sep 17, 2020: read and use NPAR_POLY from COLORLAW line
   // Nov 10, 2020: read MAGSHIFT and WAVESHIFT keys
@@ -2656,7 +2652,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
     ,IDAY, NDAY, nday, iday, ised, ic
-    ,ISTAT_GENSMEAR, LABORT_ILAM, LABORT_FRAC, LDMP
+    ,ISTAT_GENSMEAR, LABORT_ILAM, LABORT_FRAC
     ;
 
   double
@@ -2675,11 +2671,11 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   bool zero_FLAM;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
-
+  int  LDMP = 0 ;
   bool   DO_EXTRAP_LOCAL       = false;
   bool   EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
   double DAYMIN_EXTRAP         = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
-
+  
   char *cfilt ;
   char fnam[] = "INTEG_zSED_SALT2" ;
 
@@ -2753,13 +2749,21 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   ISTAT_GENSMEAR = istat_genSmear();  
   if ( ISTAT_GENSMEAR  ) {
     lam = (double*) malloc(NLAMFILT*sizeof(double) );
-    //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
 
     parList_genSmear[0] = Trest_model;
     parList_genSmear[1] = x1;
     parList_genSmear[2] = c;
     parList_genSmear[3] = m_host ; 
+
+    /* xxxxx mark delet 5.2025 xxxxx
+    LDMP = 0; // ( fabs(Trest_model) < 1.0 && ifilt_obs == 4) ;
+    if ( LDMP ) 
+      { printf(" xxx %s: z=%.3f  Trest=%6.2f  x1=%.2f  c=%.3f  ifilt_obs=%d \n", 
+	       fnam, z, Trest_model, x1, c, ifilt_obs); }
+    xxxxxxx end mark */
+
+
 
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
@@ -2775,7 +2779,18 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
     get_genSmear(parList_genSmear, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
     free(lam);
-  }
+
+    /* xxxx mark delete May 26 2025 xxxx
+    if ( LDMP ) {  //.xyz
+      for ( ilamobs=10; ilamobs < 20; ilamobs++ ) {
+	get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
+	printf("\t xxx smear(lam=%7.1f) = %.3f \n", LAMOBS, GENSMEAR.MAGSMEAR_LIST[ilamobs] );
+      }
+    } // end LDMP
+    LDMP = 0;
+    xxxxxxx end mark xxxxxx */
+
+  } // end ISTAT_GENSMEAR
 
 
   // Loop over obs-filter lambda-bins. XTMW has the same binning,

@@ -1990,7 +1990,6 @@ void set_kcorFile_format(void) {
 
   // Created Feb 11, 2013
   // set INPUTS.FORMAT_FLAG[ifile] for each OUTFILE.
-  // If CERNLIB flag is not set and hbook file is requested, ABORT.
 
   int  i, FLAG ;
   char *SUFFIX, *suffix, *ptrFile;
@@ -2001,33 +2000,13 @@ void set_kcorFile_format(void) {
 
 
   sprintf( CFORMAT[FORMAT_FITS],  "FITS");
-  sprintf( CFORMAT[FORMAT_HBOOK], "HBOOK");
 
   for ( i=0; i < INPUTS.N_OUTFILE; i++ ) {
 
     ptrFile = INPUTS.OUTFILE[i] ;
-    SUFFIX  = strstr(ptrFile, ".HIS");
-    suffix  = strstr(ptrFile, ".his");
-    if ( suffix == NULL && SUFFIX == NULL ) 
-      { FLAG = FORMAT_FITS ; }
-    else
-      { FLAG = FORMAT_HBOOK ; }
-
+    FLAG = FORMAT_FITS ; // May 15 2025: default is FITS (no more hbook option)
     INPUTS.FORMAT_FLAG[i] = FLAG ;
-
     printf("\t OUTFILE: %s  ->  %s format\n", ptrFile, CFORMAT[FLAG] );
-
-
-    // if CERNLIB pre-processor flag is NOT set and hbook is requested,
-    // then abort with error message.
-#ifndef CERNLIB
-    if ( FLAG == FORMAT_HBOOK ) {
-      sprintf(c1err,"HBOOK format no longer supported.");
-      sprintf(c2err,"Use .fits (.FITS) extension for OUTFILE argument.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
-    }
-#endif
-
   }
 
   printf("\n");
@@ -2216,13 +2195,9 @@ int kcor_out(void) {
   int i, FLAG ;
   char *ptrFile ;
 
-  // check hbook option
-
-  for ( i=0; i < INPUTS.N_OUTFILE; i++ ) {
-   
+  for ( i=0; i < INPUTS.N_OUTFILE; i++ ) {  
     ptrFile = INPUTS.OUTFILE[i] ;
     FLAG    = INPUTS.FORMAT_FLAG[i] ;
-
     if ( FLAG == FORMAT_FITS  ) { wr_fits(ptrFile);  }  // fits option
   }
 

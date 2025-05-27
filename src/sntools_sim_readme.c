@@ -554,21 +554,26 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   readme_docana_comment(&i, "");
 
   // ---- statistics
-  double t_gen, R_gen=0.0, R_write=0.0 ;
+  double t_gen, R_gen_tot=0.0, R_genrange=0.0, R_write=0.0 ;
 
   t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
   
   if ( t_gen > 0.0 ) {
-    R_gen   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
-    R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
+    R_gen_tot   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
+    R_genrange  = (double)NGENLC_GENRANGE/ t_gen ;  // NGENRANGE/sec
+    R_write     = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sCPU_MINUTES:       %.2f  ",  pad, t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 
-	  pad, NGENLC_TOT, R_gen );
+  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec, total)", 
+	  pad, NGENLC_TOT, R_gen_tot );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNGENLC_GENRANGE:   %d    # (%.f/sec, in GENRANGEs)", 
+	  pad, NGENLC_GENRANGE, R_genrange );
 
   if ( GENSL.NGENLC_LENS_TOT > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -578,7 +583,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec)", 
+  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec, passing trigger)", 
 	  pad, NGENLC_WRITE, R_write );
 
   // Jan 2022
@@ -1144,9 +1149,12 @@ void readme_docana_epoch(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "GENRANGE_MJD:", noComment, 
 		    lenkey, false, nval2, dptr, 21000.0,79000.0, -1.0); 
 
+  /* xxx mark delete May 26 2025 xxxxxxx
   dptr = INPUTS.GENRANGE_PEAKMJD;
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMJD:", noComment, 
 		    lenkey, false, nval2, dptr, 1.0E3,1.0E5, -1.0); 
+  xxxxxxxx end mark xxxxx*/
+
 
   dval = (double)INPUTS.GENSIGMA_PEAKMJD;
   VERSION_INFO_load(&i, pad, "GENSIGMA_PEAKMJD:", noComment, 
@@ -1213,9 +1221,11 @@ void readme_docana_misc(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "DEBUG_FLAG:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
 
+  /* xxx
   dptr = INPUTS.GENRANGE_PEAKMAG;
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMAG:", noComment, 
 		    lenkey, false, nval2,dptr, 0.0,40.0, -999.0); 
+		    xxx */
 
   readme_docana_load_list(&i, pad, &README_KEYS_CID);
 

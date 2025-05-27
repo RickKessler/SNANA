@@ -250,7 +250,6 @@ int main(int argc, char **argv) {
   for ( ilc = 1; ilc <= INPUTS.NGEN ; ilc++ ) {
 
     NGENLC_TOT++;
-
     if ( INPUTS.TRACE_MAIN  ) { dmp_trace_main("01", ilc) ; }
 
     if ( fudge_SNR() == 2 ) { goto GETMAGS ; }
@@ -292,6 +291,7 @@ int main(int argc, char **argv) {
       goto GENEFF;
     }
 
+    NGENLC_GENRANGE++ ; // May 26, 2025
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("06", ilc) ; }
 
   GETMAGS:
@@ -312,10 +312,12 @@ int main(int argc, char **argv) {
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("07", ilc) ; }
     GENMAG_DRIVER();   // July 2016
 
+    /* xxxx mark del May 26 2025 xxxxxxx
     if ( GENMAG_CUT() == 0  ) {
       gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "GENMAG");
       goto GENEFF;
     }
+    xxxxxxxx end mark xxxx */
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("08", ilc) ; }
 
@@ -409,7 +411,7 @@ int main(int argc, char **argv) {
       { GENLC.SIMLIB_IDLOCK = GENLC.SIMLIB_ID ; }
 
     // update various counters for accepted event.
-    update_accept_counters();
+    update_accept_counters(ilc);
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("13", ilc) ; }
 
@@ -422,7 +424,7 @@ int main(int argc, char **argv) {
 
   GENEFF:
 
-    if ( INPUTS.NGENTOT_LC > 0 ) { screen_update(); }
+    if ( INPUTS.NGENTOT_LC > 0 ) { screen_update(ilc); }
 
     GENLC.STOPGEN_FLAG = geneff_calc();  // calc generation effic & error  
     if ( GENLC.STOPGEN_FLAG )  { goto ENDLOOP; }
@@ -690,11 +692,11 @@ void get_user_input(void) {
 // *********************************
 void set_user_defaults(void) {
 
-  int ifilt;
-  int i, iz;
+  int ifilt, i, iz;
   float x;
   double zero = 0.0 ;
   char fnam[] = "set_user_defaults" ;
+
   // --------------- BEGIN ---------------
 
 
@@ -806,6 +808,16 @@ void set_user_defaults(void) {
   INPUTS.GENTYPE_SPEC   =  -9 ; 
   INPUTS.GENTYPE_PHOT   =  -9 ;
 
+
+  INPUTS.NFILT_GENRANGE_PEAKMAG = 0 ;
+  for ( ifilt=0 ; ifilt < MXFILTINDX; ifilt++ )  { 
+    INPUTS.GENRANGE_PEAKMAG[ifilt][0] = -9999. ; 
+    INPUTS.GENRANGE_PEAKMAG[ifilt][1] = +9999. ; 
+  }
+  // xxx mark  INPUTS.GENRANGE_PEAKMAG[0] = -99990.0 ;
+  // xxx mark  INPUTS.GENRANGE_PEAKMAG[1] =  99999.0 ;
+
+
   INPUTS.GENRANGE_REDSHIFT[0] = 0.0 ;
   INPUTS.GENRANGE_REDSHIFT[1] = 0.0 ;
   INPUTS.GENSIGMA_REDSHIFT    = 0.0 ;
@@ -822,8 +834,7 @@ void set_user_defaults(void) {
   INPUTS.RATEPAR_PEC1A.SEASON_FRAC     = 0.0 ;
   INPUTS.MUREWGT.NMUBIN = 0 ;
 
-  INPUTS.GENRANGE_PEAKMAG[0] = -99990.0 ;
-  INPUTS.GENRANGE_PEAKMAG[1] =  99999.0 ;
+
   INPUTS.GENRANGE_PEAKMJD[0] = 0.0 ;
   INPUTS.GENRANGE_PEAKMJD[1] = 0.0 ;
   INPUTS.MJD_EXPLODE         = 0.0 ;
@@ -981,8 +992,6 @@ void set_user_defaults(void) {
 
     INPUTS.IFILT_SMEAR[ifilt]= 0;
     INPUTS.GENMAG_SMEAR_FILTER[ifilt] = 0.0 ;
-
-   
     INPUTS.MJD_TEMPLATE_FILTER[ifilt] = 0.0 ;
   }
   
@@ -1662,19 +1671,21 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // May 3 2022: avoid conflict between MWEBV and RANSYSTPAR
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
-  int j, ITMP, NPAR, inc, N = 0 ;
+  int j, ITMP, NPAR, inc, N = 0, LENWORD0 ;
   double TMPVAL[2];
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
   bool ISKEY_CID, ISKEY_RANSYSTPAR, ISKEY_ATMOS ;
-  bool ISKEY_EXCLUDE;
+  bool ISKEY_EXCLUDE, ISKEY_PEAKMAG;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
   // ------------- BEGIN -----------
 
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
+
+  LENWORD0 = strlen(WORDS[0]);
 
   ISKEY_CID      = ( strstr(WORDS[0], "CID") != NULL ) ;
 
@@ -1685,6 +1696,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   ISKEY_SIMLIB    = (strstr(WORDS[0],"SIMLIB_" ) != NULL );
 
   ISKEY_GENMODEL  = (strstr(WORDS[0],"GENMODEL") != NULL );
+
+  ISKEY_PEAKMAG  = (strstr(WORDS[0],"GENRANGE_PEAKMAG_") != NULL );
 
   ISKEY_CUTWIN    =
     (strstr(WORDS[0],"CUTWIN") != NULL ) && 
@@ -2139,10 +2152,23 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     // wrong host -> wrong redshift
     N++;  sscanf(WORDS[N], "%s", INPUTS.WRONGHOST_FILE);
   }
+  else if ( ISKEY_PEAKMAG ) {
+    char *cfilt    = &WORDS[0][LENWORD0-1];
+    int IFILT_OBS  = INTFILTER(cfilt);
+    //    printf(" xxx band = '%s' (ifilt_obs = %d)  for %s \n", 
+    //	   cfilt, IFILT_OBS, WORDS[0]); fflush(stdout);
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[IFILT_OBS][0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[IFILT_OBS][1] );
+    INPUTS.NFILT_GENRANGE_PEAKMAG++ ;
+  }
+
+  /* xxx mark del May 26 2025 xxxxxx
   else if ( keyMatchSim(1,"GENRANGE_PEAKMAG", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[1] );
   }
+  xxxxxxx end mark */
+
   else if ( keyMatchSim(1,"GENRANGE_MJD", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD[1] );
@@ -6360,7 +6386,6 @@ void sim_input_override(void) {
     iwd += NWD_READ ;
   }
 
-  // debugexit(fnam); // xxx REMOVE
   return ;
 
 } // end sim_input_override
@@ -7012,6 +7037,15 @@ void prep_user_input(void) {
 
   printf("\t Gen-Range for PEAKMJD  : %8.1f to %8.1f  \n", 
 	 INPUTS.GENRANGE_PEAKMJD[0], INPUTS.GENRANGE_PEAKMJD[1] );
+
+  for ( ifilt  = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) { 
+    ifilt_obs  = INPUTS.IFILTMAP_OBS[ifilt];
+    double *GEN_PEAKMAG = INPUTS.GENRANGE_PEAKMAG[ifilt_obs];
+    if ( GEN_PEAKMAG[0] > -99.0 ) {
+      printf("\t Gen-Range for PEAKMAG_%c  : %8.1f to %8.1f  \n",  // May 2025 
+	     FILTERSTRING[ifilt_obs],  GEN_PEAKMAG[0], GEN_PEAKMAG[1] );
+    }
+  }
 
   printf("\t Gen-Range for Trest    : %8.1f to %8.1f  days \n", 
 	 INPUTS.GENRANGE_TREST[0], INPUTS.GENRANGE_TREST[1] );
@@ -8557,7 +8591,6 @@ void init_RateModel(void) {
     printf("NGENTOT_RATECALC: %d\n", NGENTOT_CALC);
   }
 
-  // debugexit(fnam); // xxx REMOVE
 
   return ;
 
@@ -9000,7 +9033,7 @@ void init_simvar(void) {
 
   //  sprintf(FILTERSTRING,"%s", FILTERSTRING_DEFAULT );
 
-  NGENLC_TOT = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
+  NGENLC_TOT = NGENLC_GENRANGE = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
   for(i=0; i < MXIDSURVEY; i++ ) 
     { NGENLC_TOT_SUBSURVEY[i] = NGENLC_WRITE_SUBSURVEY[i] = 0; }
 
@@ -9349,6 +9382,8 @@ void  init_event_GENLC(void) {
 	 NGENLC_TOT, NEP_RESET, GENLC.NEPOCH );
   */
 
+
+  GENLC.ncall_genran_modelSmear = 0;
 
   GENLC.MAGSMEAR_COH[0] = 0.0 ;
   GENLC.MAGSMEAR_COH[1] = 0.0 ;
@@ -13018,7 +13053,7 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   int ilc_orig, ilc;
   bool doReject_DUMP = false ;
   bool REJECT= false;
-  int  LDMP = ( GENLC.CID == -102 );
+  int  LDMP = 0 ; // ( ilc > 20 && ilc < 26 );
   char fnam[] = "gen_event_reject" ;
 
   // ----------- BEGIN --------------
@@ -14058,13 +14093,20 @@ void genran_modelSmear(void) {
   //
   // Mar 24 2016: for GENGRID, return after all randoms are initalized to zero.
   // Jul 20 2019: return for repeat strong lens
- 
+  // May 26 2025: return if called more than once per event; see GENLC.ncall_genran_modelSmear
+
   int    ifilt ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
   double rr8, rho, RHO, rmax, rmin, rtot ;
+  bool ALLOW_ONE_CALL = ( SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY == 0 ) ; // temp until new SNANA tag
   char fnam[] = "genran_modelSmear" ;
 
   // -------------- BEGIN --------
+
+  GENLC.ncall_genran_modelSmear++ ;
+
+  
+  if ( ALLOW_ONE_CALL && GENLC.ncall_genran_modelSmear > 1 ) { return ; } 
 
   if ( GENSL.REPEAT_FLAG ) { return; } // same randoms for strong lens repeat
 
@@ -14077,7 +14119,6 @@ void genran_modelSmear(void) {
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return ; }
 
   // always generate randoms to stay synced, even if mag smear is zero.
-
   GENRAN_INFO.NSTORE_RAN[ILIST_RAN] = INPUTS.RANLIST_START_GENSMEAR ; // reset
 
   rmin = INPUTS.SIGMACLIP_MAGSMEAR[0] ;
@@ -14085,7 +14126,6 @@ void genran_modelSmear(void) {
 
 
   // for global coherent smearing
-  
   GENLC.GENSMEAR_RANGauss_FILTER[0] = getRan_GaussClip(1,rmin,rmax);
 
   // Jun 26 2019: check option for asymmetric smear
@@ -17195,7 +17235,6 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   parse_GENPOLY("1", "DNDZ_ZPOLY_REWGT", &RATEPAR->DNDZ_ZPOLY_REWGT, fnam);
   parse_GENPOLY("1", "DNDZ_Z1POLY_REWGT", &RATEPAR->DNDZ_Z1POLY_REWGT, fnam);  // May 2025
 
-  //  print_GENPOLY(&RATEPAR->DNDZ_ZPOLY_REWGT); // xxx REMOVE
   
   sprintf(RATEPAR->NAME, "NONE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
@@ -22999,9 +23038,10 @@ int GENRANGE_CUT(void) {
   // Aug 22 2018: skip REDSHIFT cut for LCLIB model.
   // Jul 24 2022: check gal lat cut GENRANGE_b
   // Nov 18 2023: include GENRANGE window for each trace-print
-  
-  int LTRACE = 0; 
-  int istat ;
+  // May 26 2025: check GENRANGE_PEAKMAG[ifilt_obs]
+
+  int LTRACE = 0 ; 
+  int istat, ifilt, ifilt_obs ;
   double *GENRANGE;
   char fnam[] = "GENRANGE_CUT" ;
 
@@ -23014,8 +23054,8 @@ int GENRANGE_CUT(void) {
   istat = 0 ;
 
   if(LTRACE) {
-    printf(" xxx %s: trace CID=%d LIBID=%d\n", 
-	   fnam, GENLC.CID, GENLC.SIMLIB_ID ); fflush(stdout);
+    printf(" xxx %s: trace CID=%d LIBID=%d z=%.3f\n", 
+	   fnam, GENLC.CID, GENLC.SIMLIB_ID, GENLC.REDSHIFT_CMB ); fflush(stdout);
   }
 
   GENRANGE = INPUTS.GENRANGE_RA; 
@@ -23067,6 +23107,31 @@ int GENRANGE_CUT(void) {
   if ( GENLC.PEAKMJD < GENRANGE[0] )  { return istat; }
   if ( GENLC.PEAKMJD > GENRANGE[1] )  { return istat; }
 
+
+  // xxx  LTRACE = 1; // xxx REMOVE
+  if ( INPUTS.NFILT_GENRANGE_PEAKMAG > 0 ) {
+    double PEAKMAG, *GEN_PEAKMAG ;
+    for ( ifilt  = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) { 
+      ifilt_obs  = INPUTS.IFILTMAP_OBS[ifilt];
+      GEN_PEAKMAG = INPUTS.GENRANGE_PEAKMAG[ifilt_obs];
+      if ( GEN_PEAKMAG[0] > -99.0 ) { // apply cut only if user defines cut for this ifilt_obs
+	PEAKMAG   = gen_PEAKMAG(ifilt_obs);
+
+	if(LTRACE) { 
+	  printf(" xxx %s: 4 check PEAKMAG_%c = %.2f in {%.2f to %.2f} \n", 
+		 fnam, FILTERSTRING[ifilt_obs], 
+		 PEAKMAG, GEN_PEAKMAG[0], GEN_PEAKMAG[1] ); fflush(stdout);
+	}
+
+	if ( PEAKMAG < GEN_PEAKMAG[0] ) { return istat; }
+	if ( PEAKMAG > GEN_PEAKMAG[1] ) { return istat; }
+      }
+    } // end ifilt
+    //     if ( LTRACE) { dump_PEAKMAG(fnam); }
+  }
+  // xxx  LTRACE = 0; // xxx REMOVE
+
+
   if ( INPUTS.HOSTLIB_USE && SNHOSTGAL.ZTRUE < 0.0 )  {  
     // if number of missing host-gals exceeds NGEN, then abort
     // to avoid infinite loop
@@ -23087,12 +23152,12 @@ int GENRANGE_CUT(void) {
 
   
   if ( INPUTS_STRONGLENS.USE_FLAG ) {
-    if(LTRACE) { printf(" xxx %s: 4 check Strong LENS NIMG=%d \n", 
+    if(LTRACE) { printf(" xxx %s: 5 check Strong LENS NIMG=%d \n", 
 			fnam, GENSL.NIMG_GEN); fflush(stdout); }
     if ( GENSL.NIMG_GEN <= 0 ) { return istat; }
   }
 
-  if(LTRACE) { printf(" xxx %s: 5 SUCCESS \n", fnam); fflush(stdout); }
+  if(LTRACE) { printf(" xxx %s: 6 SUCCESS \n", fnam); fflush(stdout); }
 
   istat = 1 ;
   return istat ;
@@ -23101,8 +23166,9 @@ int GENRANGE_CUT(void) {
 
 
 // **********************************
-int GENMAG_CUT(void) {
+int GENMAG_CUT_OBSOLETE(void) {
 
+  // xxxxxxxxxx May 26 2025 OBSOLETE xxxxxxxxxxxxxxxx
   // Created Mar 16 2016
   // Cut on PEAKMAG here after generation but before
   // the light curve is digitized.
@@ -23112,11 +23178,9 @@ int GENMAG_CUT(void) {
   int ifilt_obs, ifilt, PASS ;
   double PEAKMAG;
   //  char fnam[] = "GENMAG_CUT";
-
   // --------------- BEGIN ----------------
-
   PASS = 0 ;
-
+  /* xxxxxxxxxx May 26 2025 OBSOLETE xxxxxxxxxxxxxxxx
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];    
     PEAKMAG = GENLC.peakmag_obs[ifilt_obs] ;
@@ -23124,16 +23188,8 @@ int GENMAG_CUT(void) {
     if ( PEAKMAG > INPUTS.GENRANGE_PEAKMAG[1] ) { continue; }
     PASS = 1;
   }
-
-  /*
-  if ( PASS == 0 ) {
-    printf(" xxx fail PEAKMAG=%f for z=%f \n",
-	   PEAKMAG, GENLC.REDSHIFT_CMB );
-  }
-  */
-
   return(PASS);
-
+  xxxxxxxxxx May 26 2025 OBSOLETE xxxxxxxxxxxxxxxx */
 } // end GENMAG_CUT
 
 
@@ -25251,7 +25307,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
-    psfsig   = 1./2.355 ;     // typical PSF in arcsec .xyz harmless BUG
+    psfsig   = 1./2.355 ;     // typical PSF in arcsec 
     mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;
     mag_dif  = mag_GAL - mag_SN ;
@@ -26365,6 +26421,75 @@ void init_read_calib_wrapper(void) {
 
 } // end init_read_calib_wrapper
 
+
+// ===============================================================
+void dump_PEAKMAG(char *callFun) {
+
+  int ifilt, ifilt_obs;
+  double peakmag ;
+  char fnam[] = "dump_PEAKMAG" ;
+
+  // --------- BEGIN --------
+
+  printf(" xxx ------------------------------------------------- \n");
+  printf(" xxx %s for CID=%d  : called from %s \n", fnam, GENLC.CID, callFun);
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
+    peakmag = GENLC.peakmag_obs[ifilt_obs];
+    if ( peakmag > -8.99 ) {
+      printf("\t xxx %s: CID=%d  peakmag(%c) = %.3f \n",
+	     fnam, GENLC.CID, FILTERSTRING[ifilt_obs], peakmag ); 
+    }
+  }
+  fflush(stdout);
+
+  return;
+} // end dump_PEAKMAG
+
+// ==================================================
+double gen_PEAKMAG(int ifilt_obs) {
+  // Created May 26 2025
+  // return peakmag in this band before calling GENMAG_DRIVER   
+  // This function is used for input GENRANGE_PEAKMAG_[band] to enable
+  // rejecting events based on PEAKMAG and NOT counting them in NGEN.
+
+  double peakmag = MAG_UNDEFINED;
+  int ep=1, ncall_genmodel=1;
+  char fnam[] = "gen_PEAKMAG";
+
+  int NEPOCH_ORIG    = GENLC.NEPOCH;
+  int IFILT_OBS_ORIG = GENLC.IFILT_OBS[ep] ;
+  int ISPEAK_ORIG    = GENLC.OBSFLAG_PEAK[ep] ;
+  double MJD_ORIG    = GENLC.MJD[ep];
+  double TOBS_ORIG   = GENLC.epoch_obs[ep];
+  double TREST_ORIG  = GENLC.epoch_rest[ep] ;
+
+  // fudge GENLC array so that there is only 1 epoch that corresponds to a peakmag
+  GENLC.NEPOCH = 1 ;
+  GENLC.IFILT_OBS[ep]     = ifilt_obs ;
+  GENLC.OBSFLAG_PEAK[ep]  = 1 ;
+  GENLC.MJD[ep]           = GENLC.PEAKMJD ;
+  GENLC.epoch_obs[ep]     = 0.0 ;
+  GENLC.epoch_rest[ep]    = 0.0 ;
+  
+  genran_modelSmear();    // randoms for intrinsic scatter
+  genmodel(ifilt_obs, 1, ncall_genmodel ); 
+  genmag_offsets();
+
+  peakmag = GENLC.genmag_obs[ep];
+
+  // restore GENLC
+  GENLC.NEPOCH = NEPOCH_ORIG ;
+  GENLC.IFILT_OBS[ep]     = IFILT_OBS_ORIG ;
+  GENLC.OBSFLAG_PEAK[ep]  = ISPEAK_ORIG ;
+  GENLC.MJD[ep]           = MJD_ORIG ;
+  GENLC.epoch_obs[ep]     = TOBS_ORIG ;
+  GENLC.epoch_rest[ep]    = TREST_ORIG ;
+
+  return peakmag;
+
+} // endf gen_PEAKMAG
+
 // *********************************************
 int gen_TRIGGER_PEAKMAG_SPEC(void) {
 
@@ -26380,6 +26505,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   // Return 0 if trigger fails.       (nominal epochs NOT restored)
   //
   // Jun 2 2018: bail out for LCLIB model because PEAKMAG is ill-defined.
+  // May 26 2025: add optional peakmag dump
 
   int  LFIND_SPEC=0, NEP_PEAKONLY=0, iep  ;
   int  MEMI  = (GENLC.NEPOCH+1) * sizeof(int);
@@ -26393,9 +26519,11 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   } GENLC_ORIG ;
 
 
+  int LDMP = 0 ;
   char fnam[] = "gen_TRIGGER_PEAKMAG_SPEC" ;
 
   // -------------- BEGIN ----------------
+
 
   if ( DOSPEC == 0 ) 
     { return(1); }
@@ -26425,11 +26553,11 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
 
     if ( GENLC_ORIG.ISPEAK[iep] == 0 ) { continue ; }
     NEP_PEAKONLY++ ;
-    GENLC.OBSFLAG_PEAK[NEP_PEAKONLY]       = GENLC_ORIG.ISPEAK[iep] ;
+    GENLC.OBSFLAG_PEAK[NEP_PEAKONLY] = GENLC_ORIG.ISPEAK[iep] ;
     GENLC.IFILT_OBS[NEP_PEAKONLY]    = GENLC_ORIG.IFILT_OBS[iep] ;
     GENLC.MJD[NEP_PEAKONLY]          = GENLC_ORIG.MJD[iep] ;
-    GENLC.epoch_obs[NEP_PEAKONLY]   = GENLC_ORIG.TOBS[iep] ;
-    GENLC.epoch_rest[NEP_PEAKONLY]  = GENLC_ORIG.TREST[iep] ;
+    GENLC.epoch_obs[NEP_PEAKONLY]    = GENLC_ORIG.TOBS[iep] ;
+    GENLC.epoch_rest[NEP_PEAKONLY]   = GENLC_ORIG.TREST[iep] ;
   }
 
 
@@ -26439,6 +26567,8 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   LFIND_SPEC = gen_SEARCHEFF_SPEC(GENLC.CID, &EFF) ;  // return EFF 
     
   GENLC.NEPOCH = GENLC_ORIG.NEPOCH ; // always needed for init_event_GENLC
+
+  if ( LDMP ) { dump_PEAKMAG(fnam); } 
 
   // check to restore ALL epochs
   if ( LFIND_SPEC ) {
@@ -28317,8 +28447,8 @@ void genmodel(
     istat = 
       genmag_stretch2 
 	(
-	 stretch[0]              // (I) rise-time stretch
-	 ,stretch[1]             // (I) fall-time stretch
+	 stretch[0]           // (I) rise-time stretch
+	 ,stretch[1]          // (I) fall-time stretch
 	 ,ifilt_rest          // (I) absolute rest-filter index
 	 ,NEPFILT             // (I) number of epochs passed
 	 ,ptr_epoch           // (I) Tobs-Tpeak (days)
@@ -28813,11 +28943,6 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   //               NOTE THAT *ptr_genmag values are CHANGED
   //               based on smearing model !!!
   //
-  // Jul 19, 2010: return if DO_MODELSMEAR == 0.
-  // Oct 16, 2010: return for GRID option
-  //
-  // Apr 2012: cleanup with call to genSmear_ERRSCALE 
-  //           Also call new functino get_genSmear(...)
   //
   // Jun 14 2016: load GENLC.MAGSMEAR_COH at end of function
   // Nov 15 2022: float -> double for lam[xyz]
@@ -29719,7 +29844,7 @@ void sprintf_GENGAUSS(char *string, char *name,
 
 
 // ***************************************************
-void update_accept_counters(void) {
+void update_accept_counters(int ilc) {
 
   // Created June 2017
   // Called from main for accepted event, so here we
@@ -29761,7 +29886,7 @@ void update_accept_counters(void) {
     { GENLC.NTYPE_zHOST_CUTS++ ; } // Nov 12 2024
   
   // check screen update
-  if ( INPUTS.NGEN_LC > 0 )  { screen_update(); }
+  if ( INPUTS.NGEN_LC > 0 )  { screen_update(ilc); }
       
 
   // increment NGENWR per non1a index
@@ -30237,14 +30362,16 @@ void set_screen_update(int NGEN) {
 }
 
 // ===========================
-void screen_update(void) {
+void screen_update(int ilc ) {
+
+  // July 26 2021: print GenRate every 100 sec.
+  // May 25 2026: pass ilc and print both ilc and NGENLC_TOT
 
   int CID, NGEN;
   bool QUIT_NOREWIND = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND) >0;
   int  NLIBID        = SIMLIB_GLOBAL_HEADER.NLIBID_VALID ;
-  char ctmp[40];
-
-  // July 26 2021: print GenRate every 100 sec.
+  char str_rate[40];
+  char fnam[] = "screen_update";
 
   // ---------- BEGIN --------------
 
@@ -30253,6 +30380,7 @@ void screen_update(void) {
 
   if ( INPUTS.NGEN_LC > 0 ) {
 
+    // NOT recommended because NGEN_LC option can lead to infinite run time if eff=0.
     if ( LUPDGEN(NGENLC_WRITE)  ) {
       printf("\t Finished writing %6d of %d (CID=%8d, NEP=%3d) \n", 
 	     NGENLC_WRITE, INPUTS.NGEN_LC, CID, GENLC.NEPOCH );
@@ -30261,19 +30389,20 @@ void screen_update(void) {
 
   } else {
 
+    // recommended method here is fixed NGENTOT so that it is guaranteed
+    // to finish, even if efficiency = 0
     if ( LUPDGEN(NGENLC_TOT) ) {
 
       NGEN = INPUTS.NGENTOT_LC ; // expected number to generate at end
 
       if ( QUIT_NOREWIND && NLIBID > 0 ) {
 	// user set option to make 1 and only 1 pass thru SIMLIB
-	printf("\t Finished generating %8d of %d valid LIBIDs \n", 
-	       NGENLC_TOT, NLIBID );
+        printf("\t Finished generating %8d of %d valid LIBIDs \n",   NGENLC_TOT, NLIBID );
       }
       else {
 	// most likely to end up here
 
-	ctmp[0] = 0 ;
+	str_rate[0] = 0 ;
 	if ( INPUTS.NGEN_SCREEN_UPDATE > 50 && NGENLC_TOT > 100 ) {
 	  // time function has 1 sec resolution, so wait at least
 	  // 100 sec to update GenRate so we get 1% precision.
@@ -30284,14 +30413,19 @@ void screen_update(void) {
 	    double XNDIF         = (double)(NGENLC_TOT - NGENTOT_LAST) ;
 	    double TDIF          = (double)(t_now - t_update_last) ;
 	    int GenRate          = (int)( XNDIF/TDIF ) ;
-	    sprintf(ctmp,"GenRate=%d/sec", GenRate);
+	    sprintf(str_rate,"GenRate=%d/sec", GenRate);
 	    TIMERS.t_update_last = t_now ;
 	    TIMERS.NGENTOT_LAST  = NGENLC_TOT ;
 	  }
 	}
 
+	/* xxx mark
 	printf("\t Finished generating %8d of %d (CID=%d) %s\n", 
-	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID, ctmp );
+	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID, str_rate ); //.xyz
+	xxx */
+
+	printf("\t Finished %8d of %d in GENRANGE (CID=%d, NGENTOT=%d) %s\n", 
+	       ilc, INPUTS.NGENTOT_LC, CID, NGENLC_TOT, str_rate ); //.xyz
       }
 
       fflush(stdout);

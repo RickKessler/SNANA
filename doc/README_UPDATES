@@ -23010,4 +23010,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         is specified to reweight DNDZ vs. redshift, apply the same rewgt
         to select MUSHIFT; see new functions prep_user_murewgt and gen_MUSHIFT.
 
+     + 	implement new sim input 
+           GENRANGE_PEAKMAG_[band] <min> <max>
+        which applies PEAKMAG cut at generation stage. See new gen_PEAKMAG() function.
+        Purpose is to reduce effective number generated for cases such as EFF_SPEC having 
+        well-defined cutoff. First case is SBI training with large MUSHIFT range and
+        EFFSPEC -> 0 around PEAKMAG_i ~ 24.
+
+        STDOUT now includes NGENLC_GENRANGE (in addition to NGENLC_TOT), where the former
+        counts events passing GENRANGEs defined by PEAKMJD, REDSHIFT, RA,DEC, PEAKMAG.
+
+        Older GENRANGE_PEAKMAG (logical OR for all bands) has been removed. 
+
+        xxx TO DO: describe GENRANGE concept in manual.
+
 END: 

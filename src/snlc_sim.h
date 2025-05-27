@@ -706,6 +706,8 @@ struct INPUTS {
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
   float MXRADIUS_RANDOM_SHIFT; // 0: random coord shift within MXRADIUS, deg
 
+  int    NFILT_GENRANGE_PEAKMAG; // counts number of GENRANGE_PEAKMAG keys
+  double GENRANGE_PEAKMAG[MXFILTINDX][2]; // May 2025: allow using PEAKMAG(s) to define physical unit
   double GENRANGE_REDSHIFT[2];  // generated zCMB range
   double GENSIGMA_REDSHIFT;     // smear reported redshift
   double GENBIAS_REDSHIFT ;     // measurement + local bubble
@@ -729,7 +731,7 @@ struct INPUTS {
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
-  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
+  // xxx mark del  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
   float  GENRANGE_TREST[2];     // relative to peak, days
   float  GENRANGE_TOBS[2];      // for GRID option
   float  GENSIGMA_PEAKMJD;      // option to estimate PEAKMJD for data file
@@ -1288,6 +1290,7 @@ struct GENLC {
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
+  int     ncall_genran_modelSmear; 
 
   double  SPECEFF_RAN[MXFILTINDX+1]  ;
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
@@ -1455,6 +1458,7 @@ struct GENFILT {
 
 
 int NGENLC_TOT ;             // actual number of generated LC
+int NGENLC_GENRANGE;         // number generated witing GENRANGEs (May 2025)
 int NGENLC_WRITE ;           // number written
 int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
 int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
@@ -2078,7 +2082,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void hide_readme_file(char *readme_file, char *hide_readme_file);
 
 
-void update_accept_counters(void);
+void update_accept_counters(int ilc);
 void update_hostmatch_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
@@ -2088,7 +2092,8 @@ double  GENAV_WV07(void);
 double  gen_RV(void);          // generate RV from model
 void    gen_conditions(void);  // generate conditions for each field
 
-//int    gen_PEAKMAG_SPEC_TRIGGER(void); // call GENMAG_DRIVER for peak only
+void   dump_PEAKMAG(char *callFun);
+double gen_PEAKMAG(int ifilt_obs);     // get peakmag in this band before GENMAG_DRIVER
 int    gen_TRIGGER_PEAKMAG_SPEC(void); // call GENMAG_DRIVER for peak only
 int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 
@@ -2181,9 +2186,10 @@ double zHEL_WRONGHOST(void);
 
 int    gen_cutwin(void);
 int    gen_cutwin_PEAKMAG(int OPT, int ifilt_obs);
+
 int    geneff_calc(void);
 void   magdim_calc(void);
-void   screen_update(void);
+void   screen_update(int ilc);
 void   set_screen_update(int NGEN);
 
 int  setEpochGrid( double TMIN, double TMAX, double *TGRID);
@@ -2221,7 +2227,7 @@ void   init_DNDZ_Rate(void) ; // extraGalactic rate vs. redshift
 void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 
 int  GENRANGE_CUT(void);
-int  GENMAG_CUT(void);
+// xxx mark int  GENMAG_CUT(void);
 
 
 void DASHBOARD_DRIVER(void);

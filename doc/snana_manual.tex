@@ -7909,11 +7909,54 @@ with quick-command (\S\ref{sss:quick_commands})
 
 
 % --------------------------------------------
+   \clearpage
    \subsection{Understanding {\tt NGENEV} and {\tt NGENLC} }
    \label{ssec:NGEN}
 % --------------------------------------------
 
-.xyz
+There are 3 {\tt NGEN} quantities reported in the output README
+from the simulation:
+\begin{verbatim}
+   NGENEV_TOT:     400   # number of generated events based on reading SIMLIB entry
+   NGENLC_TOT:     400   # number of generated LCs (until reaching input NGENTOT_LC)
+   NGENLC_WRITE:   19    # number of LCs passing trigger and written to data files.
+\end{verbatim}
+
+{\tt NGENEV\_TOT} increments for each cadence read from the SIMLIB/cadence file.
+For most applications, a light curve is generated for each cadence and thus
+{\tt NGENEV\_TOT=NGENLC\_TOT} as indicated above. 
+For sim-inputs {\tt USE\_SIMLIB\_REDSHIFT} and {\tt USE\_SIMLIB\_PEAKMJD} 
+(\S~\ref{sssec:simlib_options}),
+\simlib\ entries failing user-defined {\tt GENRANGE\_REDSHIFT[PEAKMJD]} are
+counted as a generated events (hence {\tt NGENEV\_TOT} increments),
+but since the cadence is discarded there is no corresponding light curve
+and thus {\tt NGENLC\_TOT} is {\it not} incremented. In this case,
+{\tt NGENEV\_TOT > NGENLC\_TOT}, and the sim runs until {\tt NGENLC\_TOT}
+matches sim-input request {\tt NGENTOT\_LC}.
+
+The following sim-inputs control generation ranges that must be satisfied
+for {\tt NGENLC\_TOT} to increment:
+%
+\begin{verbatim}
+   GENRANGE_REDSHIFT:         <min>  <max>   # required
+   GENRANGE_PEAKMJD:          <min>  <max>   # required
+   GENRANGE_RA:               <min>  <max>   # optional
+   GENRANGE_DEC:              <min>  <max>   # optional
+   GENRANGE_PEAKMAG_[band]:   <min>  <max>   # optional
+\end{verbatim}
+%
+For \simlib\ files that do not contain {\tt REDSHIFT} or {\tt PEAKMJD},
+the corresponding {\tt GENRANGEs} are used to select these quantities and
+therefore the associated genrange cuts are satisifed.
+The default {\tt GENRANGE\_RA[DEC]} windows are wide open to select
+all coordinates in a \simlib. User defined {\tt GENRANGE\_RA[DEC]}
+can result in rejecting \simlib\ entries.
+{\tt GENRANGE\_PEAKMAG\_[band]} are wide open by default;
+an example use case is if the spectroscopic-selection 
+efficiency reaches zero at a particular mag in a particular band,
+or if a well-defined mag limit is noticed after analysis.
+
+
 
 % ##########################################
    \clearpage

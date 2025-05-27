@@ -12153,7 +12153,7 @@ void  GENSPEC_FLAM(int imjd) {
 } // end GENSPEC_FLAM
 
 // ************************************
-int fudge_SNR ( void ) {
+int fudge_SNR(void) {
 
   // Created Aug 22, 2009 by R.Kessler
   //
@@ -12324,7 +12324,7 @@ int fudge_SNR ( void ) {
     } // end of ep
   }  // end of ITER2
 
-  return ( GENLC.FUDGE_SNRMAX_FLAG );
+  return GENLC.FUDGE_SNRMAX_FLAG ;
 
 
 } // end of fudge_SNR
@@ -13667,9 +13667,6 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   // pick correlated Guass randoms among arbitrary number of
   // variables.
   //
-  // Dec 20 2018: set ISIMSED_SEQUENTIAL instead of PARVAL[0]
-  //     (part of refactor for SIMSED loops)
-  //
   // Apr 28 2019: return for GRIDGEN, after computing DLMU
   // Mar 11 2020: pass OPT_FRAME
 
@@ -13803,13 +13800,12 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   
   OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_SEQ);
   if ( OVP > 0 )  { 
-    ISIMSED_SELECT      = NGENLC_TOT ; // IGEN = ISED (refac)
-    ISIMSED_SEQUENTIAL  = NGENLC_TOT ; // IGEN = ISED (legacy; mark dekete)
+    // xxx mark delete ISIMSED_SELECT      = NGENLC_TOT ; // IGEN = ISED (refac)
+    ISIMSED_SELECT      = NGENEV_TOT ; // IGEN = ISED (refac)
   }
 
   // A.Gagliano
   OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_WGT) || (strlen(INPUTS.WGTMAP_FILE_SIMSED) > 0);
-
   if ( OVP > 0 )  { 
     ISIMSED_SELECT  = pick_SIMSED_BY_WGT();
   }
@@ -23123,21 +23119,21 @@ int GENRANGE_CUT(void) {
 
   // xxx  LTRACE = 1; // xxx REMOVE
   if ( INPUTS.NFILT_GENRANGE_PEAKMAG > 0 ) {
-    double PEAKMAG, *GEN_PEAKMAG ;
+    double PEAKMAG ;
     for ( ifilt  = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) { 
       ifilt_obs  = INPUTS.IFILTMAP_OBS[ifilt];
-      GEN_PEAKMAG = INPUTS.GENRANGE_PEAKMAG[ifilt_obs];
-      if ( GEN_PEAKMAG[0] > -99.0 ) { // apply cut only if user defines cut for this ifilt_obs
+      GENRANGE = INPUTS.GENRANGE_PEAKMAG[ifilt_obs];
+      if ( GENRANGE[0] > -99.0 ) { // apply cut only if user defines cut for this ifilt_obs
 	PEAKMAG   = gen_PEAKMAG(ifilt_obs);
 
 	if(LTRACE) { 
 	  printf(" xxx %s: 4 check PEAKMAG_%c = %.2f in {%.2f to %.2f} \n", 
 		 fnam, FILTERSTRING[ifilt_obs], 
-		 PEAKMAG, GEN_PEAKMAG[0], GEN_PEAKMAG[1] ); fflush(stdout);
+		 PEAKMAG, GENRANGE[0], GENRANGE[1] ); fflush(stdout);
 	}
 
-	if ( PEAKMAG < GEN_PEAKMAG[0] ) { return istat; }
-	if ( PEAKMAG > GEN_PEAKMAG[1] ) { return istat; }
+	if ( PEAKMAG < GENRANGE[0] ) { return istat; }
+	if ( PEAKMAG > GENRANGE[1] ) { return istat; }
       }
     } // end ifilt
     //     if ( LTRACE) { dump_PEAKMAG(fnam); }
@@ -23751,9 +23747,10 @@ int gen_cutwin(void) {
     }
 
     // fail event if SNRMAX-fudge is requested, but exposure time is normal
-    // Next time around with adjusted EXPOSURE_TIME, the event of processed
+    // Next time around with adjusted EXPOSURE_TIME, the event is processed
     if ( GENLC.FUDGE_SNRMAX_FLAG == 1 ) 
       { return ERROR; }
+
 
     if ( INPUTS.APPLY_CUTWIN_OPT == 0 )   
       { return SUCCESS ; }
@@ -29684,12 +29681,11 @@ int GEN_COVMAT_SCATTER ( double *randoms, double *SCATTER_VALUES  ) {
 // *******************************
 void INIT_FUDGE_SNRMAX(void) {
 
-
   // Created May 2015 by R.Kessler
   // Parse INPUTS.STRING_FUDGE_SNRMAX
   
-  //  char fnam[] = "INIT_FUDGE_SNRMAX" ;
   char *ptrStr, f1[2], strSNRMAX[20] ;
+  char fnam[] = "INIT_FUDGE_SNRMAX" ;
 
   // -------------- BEGIN -------------
 

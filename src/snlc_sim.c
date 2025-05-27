@@ -26482,7 +26482,14 @@ double gen_PEAKMAG(int ifilt_obs) {
   GENLC.MJD[ep]           = GENLC.PEAKMJD ;
   GENLC.epoch_obs[ep]     = 0.0 ;
   GENLC.epoch_rest[ep]    = 0.0 ;
-  
+
+  // back in gen_event_driver, if NEP=0 it will skip zCMB -> zHEL computation,
+  // leaving ZHELIO = -9 and causing PEAKMAG calculation to abort.
+  // To maintain bookkeeping stats on NGEN* counters, set missing zHELIO = zCMB 
+  // here to enable PEAKMAG calculation, even though the event will be discarded 
+  // later by the NEPOCH cut.
+  if ( GENLC.REDSHIFT_HELIO < 0.0 ) { GENLC.REDSHIFT_HELIO = GENLC.REDSHIFT_CMB; }
+
   genran_modelSmear();    // randoms for intrinsic scatter
   genmodel(ifilt_obs, 1, ncall_genmodel ); 
   genmag_offsets();

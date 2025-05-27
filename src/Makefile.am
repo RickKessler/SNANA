@@ -30,14 +30,18 @@ AM_LDFLAGS = $(MYLDFLAGS)
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
 
+bin_PROGRAMS = sntable_dump sntable_combine combine_fitres SALT2mu
+
 sntable_dump_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
 sntable_combine_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
 combine_fitres_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
-# --------------------------------------------
-bin_PROGRAMS = sntable_dump sntable_combine combine_fitres
+SALT2mu_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS) $(FLIBS)
+
+# Need to force automake to use gfortran as the linker
+SALT2mu_LINK = $(FC) -o SALT2mu
 
 
 SNTOOLS_OUTPUT = \
@@ -48,3 +52,5 @@ sntable_dump_SOURCES = sntable_dump.c sntools.c sntools_output.cpp
 sntable_combine_SOURCES = sntable_combine.c sntools.c sntools_output.cpp
 
 combine_fitres_SOURCES = combine_fitres.c sntools.c sntools_output.cpp
+
+SALT2mu_SOURCES = SALT2mu.c sntools.c sntools_output.cpp sntools_gridmap.c sntools_genGauss_asym.c minuit.F sntools_genExpHalfGauss.c

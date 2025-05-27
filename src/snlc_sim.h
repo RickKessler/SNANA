@@ -1457,8 +1457,8 @@ struct GENFILT {
 } GENFILT ;
 
 
-int NGENLC_TOT ;             // actual number of generated LC
-int NGENLC_GENRANGE;         // number generated witing GENRANGEs (May 2025)
+int NGENEV_TOT;              // number of events generated (before LC)
+int NGENLC_TOT ;             // Number of LC generated LC passing GENRANGEs
 int NGENLC_WRITE ;           // number written
 int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
 int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];

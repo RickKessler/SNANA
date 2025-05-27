@@ -167,7 +167,6 @@ int main(int argc, char **argv) {
     INIT_HOSTLIB();
     
     // init weak and strong lensing 
-    // xxx mark dele init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
     init_lensDMU(); 
   }
 
@@ -249,7 +248,7 @@ int main(int argc, char **argv) {
   // - - - - - 
   for ( ilc = 1; ilc <= INPUTS.NGEN ; ilc++ ) {
 
-    NGENLC_TOT++;
+    NGENEV_TOT++;
     if ( INPUTS.TRACE_MAIN  ) { dmp_trace_main("01", ilc) ; }
 
     if ( fudge_SNR() == 2 ) { goto GETMAGS ; }
@@ -263,12 +262,14 @@ int main(int argc, char **argv) {
 
     gen_event_driver(ilc); 
 
-    if ( GENLC.STOPGEN_FLAG ) { NGENLC_TOT--;  goto ENDLOOP ; }
+    if ( GENLC.STOPGEN_FLAG ) { NGENEV_TOT--;  goto ENDLOOP ; }
     
+    /* xxx mark delete May 27 2025: move this below after NGENLC_TOT++ 
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
       gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
       goto GENEFF; 
     }
+    xxxxxxxxx */
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("03", ilc) ; }
 
@@ -280,7 +281,6 @@ int main(int argc, char **argv) {
 
     // Quit if we get negative LIBID;
     // mainly to stop reading fakes at end of file.
-
     if ( GENLC.SIMLIB_ID < 0 ) { continue ; }
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("05", ilc) ;  }
@@ -291,8 +291,14 @@ int main(int argc, char **argv) {
       goto GENEFF;
     }
 
-    NGENLC_GENRANGE++ ; // May 26, 2025
+    NGENLC_TOT++ ; // May 26, 2025: increment just before generating LC
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("06", ilc) ; }
+
+    // skip small NEPOCH, but count this as generated LC for efficiency
+    if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   
+      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
+      goto GENEFF; 
+    }
 
   GETMAGS:
 
@@ -342,6 +348,7 @@ int main(int argc, char **argv) {
     // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
     // model is not defined.
     if ( GENLC.NOBS_MODELFLUX == 0 ) {
+      printf(" xxx %s NOBS_MODELFLUX = 0   for CID=%d ??\n", fnam, GENLC.CID); fflush(stdout); 
       gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
       goto GENEFF;
     }
@@ -521,8 +528,8 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // --------- BEGIN -------------
 
-  sprintf(BANNER, " Done generating %d SN lightcurves from %s source.", 
-	  NGENLC_TOT, INPUTS.GENSOURCE );
+  sprintf(BANNER, " Done generating %d[%d] lightcurves[events] from %s source.", 
+	  NGENLC_TOT, NGENEV_TOT, INPUTS.GENSOURCE );
   print_banner(BANNER);
   printf("\t (%d lightcurves requested => %d were written) \n",
 	 INPUTS.NGEN, NGENLC_WRITE );
@@ -531,10 +538,13 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   print_cputime(t_end_init, STRING_CPUTIME_PROC_ALL,  UNIT_TIME_MINUTE, 0);
 
-  sprintf(str_cputime,"%s(GEN)", STRING_CPUTIME_PROC_RATE);
+  sprintf(str_cputime,"%s(GENEV)", STRING_CPUTIME_PROC_RATE);
+  print_cputime(t_end_init, str_cputime, UNIT_TIME_SECOND, NGENEV_TOT);
+
+  sprintf(str_cputime,"%s(GENLC)", STRING_CPUTIME_PROC_RATE);
   print_cputime(t_end_init, str_cputime, UNIT_TIME_SECOND, NGENLC_TOT);
 
-  sprintf(str_cputime,"%s(ACC)", STRING_CPUTIME_PROC_RATE);
+  sprintf(str_cputime,"%s(ACCEP)", STRING_CPUTIME_PROC_RATE);
   print_cputime(t_end_init, str_cputime, UNIT_TIME_SECOND, NGENLC_WRITE);
 
   fflush(stdout);
@@ -9033,7 +9043,7 @@ void init_simvar(void) {
 
   //  sprintf(FILTERSTRING,"%s", FILTERSTRING_DEFAULT );
 
-  NGENLC_TOT = NGENLC_GENRANGE = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
+  NGENEV_TOT = NGENLC_TOT = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
   for(i=0; i < MXIDSURVEY; i++ ) 
     { NGENLC_TOT_SUBSURVEY[i] = NGENLC_WRITE_SUBSURVEY[i] = 0; }
 
@@ -9226,7 +9236,7 @@ void  init_event_GENLC(void) {
   GENLC.NOBS_SATURATE[0]  = 0 ; // NOBS NOT saturated
   GENLC.NOBS_SATURATE[1]  = 0 ; // NOBS saturated
 
-  if ( NGENLC_TOT == 1 ) 
+  if ( NGENEV_TOT == 1 ) 
     { NEP_RESET = MXEPSIM ; }
   else
     { NEP_RESET = GENLC.NEPOCH + 1; }
@@ -9388,6 +9398,7 @@ void  init_event_GENLC(void) {
   GENLC.MAGSMEAR_COH[0] = 0.0 ;
   GENLC.MAGSMEAR_COH[1] = 0.0 ;
      
+
   for ( epoch = 0; epoch < NEP_RESET; epoch++ ) {
     GENLC.IFILT_OBS[epoch] = NULLINT ;
 
@@ -9458,7 +9469,7 @@ void  init_event_GENLC(void) {
   GENSPEC.SNRSUM_REST_V = 0.0 ;  
   
   // keep track of last coord to skip parts of gen_MWEBV
-  if ( NGENLC_TOT == 1 ) {
+  if ( NGENEV_TOT == 1 ) {
     // no previous RA,DEC on 1st event
     GENLC.RA_LAST         = -999.0 ;
     GENLC.DEC_LAST        = -999.0 ;
@@ -12543,6 +12554,7 @@ void gen_event_driver(int ilc) {
     GENLC.OBSFLAG_GEN[NEP]     = false ;
     GENLC.IEPOCH_PEAK[ifilt_obs] = NEP ; 
 
+
   }  // ifilt_obs loop
 
     
@@ -13427,7 +13439,7 @@ void gen_filtmap(int ilc) {
   // Dec 22 2019: if any filter was excluded, set ISOBS[ep]=0
   if ( NDOFILT_ZERO > 0 ) {
     for ( ep = 1; ep <= GENLC.NEPOCH; ep++ )  {  
-      ifilt_obs = GENLC.IFILT_OBS[ep] ;    
+      ifilt_obs = GENLC.IFILT_OBS[ep] ;  
       if ( !GENLC.DOFILT[ifilt_obs] )  { GENLC.OBSFLAG_GEN[ep] = false ; }
     }
   }
@@ -13791,7 +13803,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   
   OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_SEQ);
   if ( OVP > 0 )  { 
-    ISIMSED_SELECT      = NGENLC_TOT ; // IGEN=ISED (refac)
+    ISIMSED_SELECT      = NGENLC_TOT ; // IGEN = ISED (refac)
     ISIMSED_SEQUENTIAL  = NGENLC_TOT ; // IGEN = ISED (legacy; mark dekete)
   }
 
@@ -14299,6 +14311,7 @@ void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   fprintf(fp, "SURVEY:          %s\n",    GENLC.SURVEY_NAME   );
   fprintf(fp, "IDSURVEY:        %d\n",    GENLC.IDSURVEY );
+  fprintf(fp, "NGENEV_TOT:      %d\n",    NGENEV_TOT     );
   fprintf(fp, "NGENLC_TOT:      %d\n",    NGENLC_TOT     );
   fprintf(fp, "NGENLC_WRITE:    %d\n",    NGENLC_WRITE   );
   fprintf(fp, "NGENSPEC_WRITE:  %d\n",    NGENSPEC_WRITE );
@@ -21651,7 +21664,7 @@ int USE_SAME_SIMLIB_ID(int IFLAG) {
   int IDLOCK = GENLC.SIMLIB_IDLOCK ;
   int OVP, OLD_SAMEFLAG=0, NEW_SAMEFLAG=0 ;
   int LDMP = 0 ; // (GENLC.SIMLIB_ID >= 0 && IFLAG>0 );
-  //  char fnam[] = "USE_SAME_SIMLIB_ID" ;
+  char fnam[] = "USE_SAME_SIMLIB_ID" ;
 
   // -------------- BEGIN --------------
 
@@ -21672,9 +21685,9 @@ int USE_SAME_SIMLIB_ID(int IFLAG) {
 
   if ( LDMP ) {
     printf(" xxx ------------------------------------ \n");
-    printf(" xxx IFLAG=%d CID=%6d  LIBID=%3d  NREPEAT=%d  NGENLC_TOT=%d \n",
+    printf(" xxx IFLAG=%d CID=%6d  LIBID=%3d  NREPEAT=%d  NGEN[EV,LC]_TOT=%d \n",
 	   IFLAG, GENLC.CID, GENLC.SIMLIB_ID,
-	   SIMLIB_HEADER.NREPEAT, NGENLC_TOT );
+	   SIMLIB_HEADER.NREPEAT, NGENEV_TOT, NGENLC_TOT );
     printf(" xxx --> SAMEFLAG[OLD,NEW] = %d, %d   IDLOCK=%d\n",
 	   OLD_SAMEFLAG, NEW_SAMEFLAG, IDLOCK );    
     fflush(stdout);
@@ -23220,7 +23233,8 @@ int geneff_calc(void) {
   // rejected by the search & by CUTWIN-cuts, but EXCLUDEs those
   // rejected by generation-ranges.
 
-  XN0 = (float)(NGENLC_TOT - NGEN_REJECT.GENRANGE );
+  // xxx mark del May 27 2025 : XN0 = (float)(NGENLC_TOT - NGEN_REJECT.GENRANGE );
+  XN0 = (float)(NGENLC_TOT); // after passing GENRANGE_CUTS
 
   if ( XN0 > 0.0 ) {
     EFF     = XN1 / XN0 ;
@@ -26761,6 +26775,7 @@ void GENFLUX_DRIVER(void) {
   
   // apply random noise to each flux
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
+
     if ( !GENLC.OBSFLAG_GEN[epoch]  )  { continue ; }
     gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
 
@@ -30391,7 +30406,7 @@ void screen_update(int ilc ) {
 
     // recommended method here is fixed NGENTOT so that it is guaranteed
     // to finish, even if efficiency = 0
-    if ( LUPDGEN(NGENLC_TOT) ) {
+    if ( LUPDGEN(NGENEV_TOT) ) {
 
       NGEN = INPUTS.NGENTOT_LC ; // expected number to generate at end
 
@@ -30413,19 +30428,19 @@ void screen_update(int ilc ) {
 	    double XNDIF         = (double)(NGENLC_TOT - NGENTOT_LAST) ;
 	    double TDIF          = (double)(t_now - t_update_last) ;
 	    int GenRate          = (int)( XNDIF/TDIF ) ;
-	    sprintf(str_rate,"GenRate=%d/sec", GenRate);
+	    sprintf(str_rate,"Rate(GENLC)=%d/sec", GenRate);
 	    TIMERS.t_update_last = t_now ;
 	    TIMERS.NGENTOT_LAST  = NGENLC_TOT ;
 	  }
 	}
 
-	/* xxx mark
+	/* xxx mark del May 26 2025 
 	printf("\t Finished generating %8d of %d (CID=%d) %s\n", 
 	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID, str_rate ); //.xyz
 	xxx */
 
-	printf("\t Finished %8d of %d in GENRANGE (CID=%d, NGENTOT=%d) %s\n", 
-	       ilc, INPUTS.NGENTOT_LC, CID, NGENLC_TOT, str_rate ); //.xyz
+	printf("\t Finished generating %6d of %d LightCurves (CID=%d, NGENEV_TOT=%d) %s\n", 
+	       ilc, INPUTS.NGENTOT_LC, CID, NGENEV_TOT, str_rate ); 
       }
 
       fflush(stdout);

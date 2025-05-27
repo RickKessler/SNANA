@@ -72,7 +72,7 @@ void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
   double rate = 0.0 ;
   if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
     if ( dt > 0.0 )  { rate = (double)nevt / dt ; }
-    sprintf(msg,"%-20s = %.3f evt/%s", key_cputime, rate, unit_time);
+    sprintf(msg,"%-20s = %.3f %s^-1", key_cputime, rate, unit_time);
   }
   else {
     sprintf(msg,"%-20s = %.3f %s", key_cputime, dt, unit_time);

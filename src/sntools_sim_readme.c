@@ -554,26 +554,26 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   readme_docana_comment(&i, "");
 
   // ---- statistics
-  double t_gen, R_gen_tot=0.0, R_genrange=0.0, R_write=0.0 ;
+  double t_gen, R_genev_tot=0.0, R_genlc_tot=0.0, R_write=0.0 ;
 
   t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
   
   if ( t_gen > 0.0 ) {
-    R_gen_tot   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
-    R_genrange  = (double)NGENLC_GENRANGE/ t_gen ;  // NGENRANGE/sec
-    R_write     = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
+    R_genev_tot  = (double)NGENEV_TOT/t_gen ;  // NGENEV/sec
+    R_genlc_tot  = (double)NGENLC_TOT/t_gen ;   // NGENLC/sec
+    R_write      = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sCPU_MINUTES:       %.2f  ",  pad, t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec, total)", 
-	  pad, NGENLC_TOT, R_gen_tot );
+  sprintf(cptr,"%sNGENEV_TOT:        %d    # (%.f/sec, total events)", 
+	  pad, NGENEV_TOT, R_genev_tot );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_GENRANGE:   %d    # (%.f/sec, in GENRANGEs)", 
-	  pad, NGENLC_GENRANGE, R_genrange );
+  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec, total LC)", 
+	  pad, NGENLC_TOT, R_genlc_tot );
 
   if ( GENSL.NGENLC_LENS_TOT > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -583,7 +583,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec, passing trigger)", 
+  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec, LC passing trigger)", 
 	  pad, NGENLC_WRITE, R_write );
 
   // Jan 2022
@@ -621,7 +621,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 	  pad, GENLC.GENEFF, GENLC.GENEFFERR);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNACC:  [ %d, %d, %d ]   "
+  sprintf(cptr,"%sNACCEPT:  [ %d, %d, %d ]   "
 	  "# NSN(ACCEPT) for [ SpecID, noSpecID, zHOST]",
 	  pad, GENLC.NTYPE_SPEC_CUTS, GENLC.NTYPE_PHOT_CUTS,
 	  GENLC.NTYPE_zHOST_CUTS);
@@ -637,7 +637,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%sNGEN_PER_SEASON:   %.0f       "
-	    "# NSN(GEN) in GENRANGE(z,MJD,dOmega)", pad, NGEN_PER_SEASON );
+	    "# NSN(GENLC) in GENRANGE(z,MJD,dOmega)", pad, NGEN_PER_SEASON );
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%sNACC_PER_SEASON:   %.0f +_ %.0f  "
@@ -651,11 +651,10 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNREJECT:  [%d,%d,%d,  %d,%d]   "
-	  "# [NEP<%d,GENRANGE,PEAKMAG,  SEARCHEFF,CUTWIN] ", pad,
-	  NGEN_REJECT.NEPOCH, 
+  sprintf(cptr,"%sNREJECT:  [%d,   %d, %d, %d]   "
+	  "# [GENRANGE,   NEP<%d, SEARCHEFF, CUTWIN] ", pad,
 	  NGEN_REJECT.GENRANGE,
-	  NGEN_REJECT.GENMAG,
+	  NGEN_REJECT.NEPOCH, 
 	  NGEN_REJECT.SEARCHEFF,
 	  NGEN_REJECT.CUTWIN,
 	  (int)INPUTS.CUTWIN_NEPOCH[0] ) ;

@@ -22986,6 +22986,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v11_05u) *****
 
+    RESTORE_DES5YR flag in sim and snana/snlc_fit:
+      see ...
+
          *****  MISCELLANEOUS(v11_05u) *****
 
     Changes to prepare for automake:
@@ -23022,6 +23025,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         Older GENRANGE_PEAKMAG (logical OR for all bands) has been removed. 
 
-        xxx TO DO: describe GENRANGE concept in manual.
+   To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
+          scatter are generated only once .... this will change random sync, so must
+          tag version immediately after this update.
 
 END: 

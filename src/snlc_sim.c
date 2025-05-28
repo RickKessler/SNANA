@@ -726,6 +726,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_FLUXERR    = false; // Jan 2020
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
   INPUTS.RESTORE_BUG_ZHEL       = true;
+  INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
   NLINE_RATE_INFO   = 0;
 
@@ -1806,6 +1807,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%i", &INPUTS.APPEND_SNID_SEDINDEX) ; 
   }
+
+  // - - - - - -
+  else if ( keyMatchSim(1, "RESTORE_DES5YR", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.RESTORE_DES5YR);   // May 28 2025
+  }
   else if ( keyMatchSim(1, "RESTORE_BUGS_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_BUGS_DES3YR = true; }    
@@ -1818,6 +1824,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     INPUTS.RESTORE_WRONG_VPEC = ( ITMP > 0 );
   }
+  // - - - - - -
+
   else if ( ISKEY_HOSTLIB ) {
     N += parse_input_HOSTLIB(WORDS, keySource);
   }
@@ -7343,9 +7351,20 @@ void prep_user_input(void) {
   if ( INPUTS.RESTORE_BUGS_DES3YR ) {
     INPUTS.RESTORE_BUG_HOSTLIB = true ;
     INPUTS.RESTORE_BUG_FLUXERR = true ;
-    printf("\t Restore bugs for DES3YR analysis.\n");
+    printf("\t Restore bugs for DES3YR sims.\n");
   }
     
+  if ( INPUTS.RESTORE_DES5YR ) {
+    if ( (INPUTS.RESTORE_DES5YR & 1) > 0 )  { 
+      printf("\t Restore DES-SN5YR: Approx Fitzpatrick99 colorlaw\n"); 
+      INPUTS.OPT_MWCOLORLAW = OPT_MWCOLORLAW_FITZ99_APPROX ;
+    }
+
+    if ( (INPUTS.RESTORE_DES5YR & 2) > 0 )  { 
+      printf("\t Restore DES-SN5YR: disable host neighbors (ignore NBR_LIST in HOSTLIB)\n"); 
+    }
+
+  }
 
   // malloc GENLC arrays based on user options
   malloc_GENLC();
@@ -30442,8 +30461,8 @@ void screen_update(int ilc ) {
 	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID, str_rate ); //.xyz
 	xxx */
 
-	printf("\t Finished generating %6d of %d LightCurves (CID=%d, NGENEV_TOT=%d) %s\n", 
-	       ilc, INPUTS.NGENTOT_LC, CID, NGENEV_TOT, str_rate ); 
+	printf("\t Finished generating %6d of %d LightCurves (NGENEV_TOT=%6d, CID=%d) %s\n", 
+	       ilc, INPUTS.NGENTOT_LC, NGENEV_TOT, CID, str_rate ); 
       }
 
       fflush(stdout);

@@ -405,7 +405,7 @@ int     NCALL_SALT2mu_DRIVER_EXEC;
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
-#define MXSTORE_DUPLICATE   800  // abort if more than this many
+#define MXSTORE_DUPLICATE   5000  // abort if more than this many
 #define MXSET_DUPLICATE     20   // abort if more than this many per dupl set
 
 #define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
@@ -3421,7 +3421,7 @@ void check_duplicates_util(int EVENT_TYPE) {
   }
   NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
 
-  // - - - - 
+  // - - - - - - - - - - - - - - - -
 
   for ( isn=0; isn < nsn-1; isn++ ) {
     unsort  = unsortList[isn];

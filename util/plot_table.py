@@ -2449,7 +2449,7 @@ def get_info_plot2d(args, info_plot_dict):
 
             xbins  = info_plot_dict['xbins']
             y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
-                                      bins=xbins, statistic=which_stat)[0]
+                                          bins=xbins, statistic=which_stat)[0]
             y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
                                           bins=xbins, statistic='std')[0]
             y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,

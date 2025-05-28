@@ -587,7 +587,7 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   for (j=0; j<N_HOSTGAL_PROPERTY; j++){
     init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME, &NVAR);
-    }
+  }
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
@@ -2868,7 +2868,8 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_WEAKLENS_DMU = IVAR_HOSTLIB(HOSTLIB_VARNAME_WEAKLENS_DMU, 0) ;
 
   // keep this debug flag to disable host NBR
-  if ( INPUTS.DEBUG_FLAG == 1012 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
+  if ( INPUTS.DEBUG_FLAG  == 1012      ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
+  if ( (INPUTS.RESTORE_DES5YR & 2) > 0 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; } // May 28 2025
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;

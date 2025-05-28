@@ -1960,6 +1960,7 @@ c
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
      &  ,RESTORE_MWEBV_ERR_BUG ! I: bug used MWEBV/6 if MWEBV_ERR < 0.001
+     &  ,RESTORE_DES5YR        ! I: restore features for DES-SN5YR/V24
      &  ,FORCE_STDOUT_BATCH    ! I: force all stdout in batch mode
      
 c LC plot info
@@ -2049,7 +2050,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
-     &    , RESTORE_MWEBV_ERR_BUG
+     &    , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR
      &    , REQUIRE_DOCANA, FORCE_STDOUT_BATCH
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2105,7 +2106,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
-     &    , RESTORE_MWEBV_ERR_BUG
+     &    , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR
      &    , REQUIRE_DOCANA, FORCE_STDOUT_BATCH
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -4473,9 +4474,10 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
       SNLC_MWEBV = SNGL(DARRAY(1))
       SNLC_MWEBV_ERR = SNLC_MWEBV * sngl(XTMW_FRACERR)  ! default error
 
+      CALL FETCH_SNDATA_WRAPPER("MWEBV_ERR", ONE, STRING, DARRAY, OPT)
+
       TMPCUT = 1.0E-12
       IF ( RESTORE_MWEBV_ERR_BUG ) TMPCUT = 0.001
-      CALL FETCH_SNDATA_WRAPPER("MWEBV_ERR", ONE, STRING, DARRAY, OPT)
       IF ( DARRAY(1) .GE. TMPCUT ) THEN 
          SNLC_MWEBV_ERR = SNGL(DARRAY(1))  ! override default error
       ENDIF
@@ -6229,7 +6231,7 @@ c default is to reject nothing (accept everything)
       MWEBV_SCALE    = 1.0
       MWEBV_SHIFT    = 0.0
       MWEBV_FORCE    = -9.0
-      OPT_MWCOLORLAW = -9   ! use default if not specified in &SNLCINP
+      OPT_MWCOLORLAW = -999   ! use default if not specified in &SNLCINP
       OPT_MWEBV      = -9   ! idem
       RV_MWCOLORLAW  = -9.0 ! idem
 
@@ -6277,6 +6279,8 @@ c default is to reject nothing (accept everything)
       RESTORE_WRONG_VPEC = .FALSE.    ! Nov 3 2020
       RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
+      RESTORE_DES5YR        = .FALSE. ! May 28 2025
+
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
@@ -7913,6 +7917,7 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USESIM_TRUEFLUX
 
+c - - - - - 
          else if ( MATCH_NMLKEY('RESTORE_MWEBV_ERR_BUG',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_MWEBV_ERR_BUG
@@ -7925,6 +7930,11 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_OVERRIDE_ZBUG
 
+         else if ( MATCH_NMLKEY('RESTORE_DES5YR',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) RESTORE_DES5YR
+
+c - - - - - 
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
@@ -25399,10 +25409,13 @@ c ------------------------------------------
 C ---------------- BEGIN -----------
 
       CALL PRBANNER("INIT_GALextinct") 
-                             
+        
+      IF ( RESTORE_DES5YR ) OPT_MWCOLORLAW = -99 ! restore approx Fitzpatrick99 CL
+                      
       LDATA         = .NOT. LSIM_SNANA
-      SETMWCL_USER  = ( OPT_MWCOLORLAW  > -1   ) 
-      SETEBV_USER   = ( OPT_MWEBV       > -1   ) 
+c xxx mark delete May 28 2025 SETMWCL_USER  = ( OPT_MWCOLORLAW  > -1   ) 
+      SETMWCL_USER  = ( OPT_MWCOLORLAW  > -998 )  ! allow -99 for approx Fitzpatrick (May 28 2025)
+      SETEBV_USER   = ( OPT_MWEBV       > -8   ) 
       SETRV_USER    = ( RV_MWCOLORLAW   > -0.01 ) 
 
 c ---------------------------------

@@ -602,6 +602,7 @@ class Program:
                     f.write(f"export PATH={path_list}\n" )
 
                 f.write(f"echo SNANA_DIR = $SNANA_DIR \n")
+                f.write(f"echo PATH      = $PATH \n")
                 f.write(f"python --version \n")  # Dec 2023
                 f.write(f"echo \n" )
 

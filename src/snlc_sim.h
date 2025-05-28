@@ -1037,7 +1037,8 @@ struct INPUTS {
 
   int  SIMGEN_DUMP_NOISE; // Aug 30 2014: diagnostic dump of noise per obs.
   int  SIMGEN_DUMP_TRAINSALT; // OCt 2024: write aux file with TMAX for trainsalt
-  
+  int  SIMGEN_DUMP_MWXT ;     // write aux file with CL-vs.wavelength for all MWCL options
+
   // inputs for intrinsic scatter matrix (July 27, 2011)
   int    NCOVMAT_SCATTER ;           // number of non-zero elements
   double COVMAT_SCATTER[3][3] ;

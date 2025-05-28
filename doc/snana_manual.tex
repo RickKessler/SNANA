@@ -3997,7 +3997,7 @@ Galactic extinction:
   GENRANGE_MWEBV:  xxx yyy       # genrate flat distrib between xxx and yyy
 \end{Verbatim}
 %
-The first four keys control the $R_V$ value, color law, 
+The first five keys control the $R_V$ value, color law, optional color law params (PARLIST), 
 source of {\mwebv}$= E(B-V)$,
 and the fractional uncertainty on $E(B-V)$. 
 The remaining keys are intended for additional systematic tests.
@@ -4048,6 +4048,15 @@ grep  OPT_MWEBV  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWEBV_SFD98          2  // use SFD98 value
 #define OPT_MWEBV_Sch11_PS2013   3  // PS1-2013 implementation of Schlafly 2011
 \end{Verbatim}
+
+An auxilary table of extinction mag vs. $R_V,\lambda$ for a few color law options
+is created with sim-input command:
+\begin{Verbatim}
+   SIMGEN_DUMP_MWCL: 1
+\end{Verbatim}
+which creates {\tt [GENVERSION].MWCL} table file in the same directory as
+the sim data files.
+
 %   # $
 The default keys are indicated above, and these defaults are 
 trivially implemented by running the simulation without specifying
@@ -4071,7 +4080,7 @@ If the smearing for a given SN results in negative extinction,
 the extinction is set to zero.
 
 Finally, the reported {\tt FLUXCAL} are corrected for {\tt MWEBV}
-if {\t APPLYFLAG\_MWEBV} is set, as was done for the PLASTICC 
+if {\tt APPLYFLAG\_MWEBV} is set, as was done for the PLASTICC 
 classification challenge. Use caution with this flag to avoid
 double-correcting in both the simulation and in the analysis.
 
@@ -4117,9 +4126,8 @@ explicit crosscheck by re-generating another kcor/calib file.
 There are a number of extinction laws now present and
 accessible via the `\texttt{GALextinct}' function. The
 form used is selected by the {\tt OPT\_MWCOLORLAW} key.
-The default option is the CCM89 law with O'Donnell's
-modification \cite{Cardelli1989, ODonnell1994}. Also
-included are variants of the Fitzpatrick law 
+The default option is 99 ({\tt FITZ99\_EXACT}(.
+Also included are variants of the Fitzpatrick law 
 \cite{Fitzpatrick1999, Fitzpatrick2004}, the CCM-like law
 by Ma\'{i}z Apell\'{a}niz et al.~\cite{MaizApellaniz2014},
 the more recent Fitzpatrick et al.\ curve \cite{Fitzpatrick2019},

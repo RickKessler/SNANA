@@ -22989,6 +22989,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     RESTORE_DES5YR flag in sim and snana/snlc_fit:
       see ...
 
+    New sim input "SIMGEN_DUMP_MXCL: 1" creates table file with 
+    RV WAVE magMWXT computed with several different color laws.
+    Out table is [GENVERSION].MWCL in same dir as sim data.
+
          *****  MISCELLANEOUS(v11_05u) *****
 
     Changes to prepare for automake:

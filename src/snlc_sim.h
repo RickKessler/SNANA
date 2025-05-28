@@ -187,6 +187,7 @@ typedef struct { // SIMFILE_AUX_DEF
   FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXPATHLEN] ;  
   FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
   FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXPATHLEN] ;  
+  FILE *FP_DUMP_MWCL;   char  DUMP_MWCL[MXPATHLEN] ;  
   FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -1037,7 +1038,7 @@ struct INPUTS {
 
   int  SIMGEN_DUMP_NOISE; // Aug 30 2014: diagnostic dump of noise per obs.
   int  SIMGEN_DUMP_TRAINSALT; // OCt 2024: write aux file with TMAX for trainsalt
-  int  SIMGEN_DUMP_MWXT ;     // write aux file with CL-vs.wavelength for all MWCL options
+  int  SIMGEN_DUMP_MWCL ;     // write aux file with CL-vs.wavelength for all MWCL options
 
   // inputs for intrinsic scatter matrix (July 27, 2011)
   int    NCOVMAT_SCATTER ;           // number of non-zero elements
@@ -2258,6 +2259,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			  double *NOISE_PAR_LIST);
 void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_MWCL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);

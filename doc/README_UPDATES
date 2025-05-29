@@ -22984,6 +22984,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_05u) *****
 
+    snana.car:
+       Modify snana inputs CID logic so that user lists (SNCID_LIST and SNCCID_LIST)
+       take priority over list in a file. Thus is SNCID_LIST = 23, and SNCID_LIST_FILE
+       has 5000 rows, the snana process only 1 event (CID=23), and not all 5000.
+       This update is intended to help debugging.
+
          *****  USEFUL(v11_05u) *****
 
     RESTORE_DES5YR flag in sim and snana/snlc_fit:

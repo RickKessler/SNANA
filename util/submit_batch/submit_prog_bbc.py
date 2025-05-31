@@ -2521,6 +2521,7 @@ class BBC(Program):
 
         self.make_fitpar_summary()  # call this after tag_missing_events to use table to get info
 
+        # - - - - -  -
         if use_wfit :
             opt_wfit_list   = submit_info_yaml['OPT_WFIT']
             for iwfit, opt_wfit in enumerate(opt_wfit_list):
@@ -2916,7 +2917,10 @@ class BBC(Program):
 
         # Created May 22 2025
         # Read BBC_REJECT_MONITOR_FILE and extract information about losses
-        # for each IDSURVEY; print info in YAML format to file f
+        # for each IDSAMPLE; print info in YAML format to file f
+
+        # PROBLEM: How to recover IDSAMPLE for each event ???
+        #  IDSAMPLE is defined for output of BBC, not for input events
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -2925,7 +2929,7 @@ class BBC(Program):
         
         df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
         logging.info(f" xxx summarize reject for {version}") 
-        print(f" xxx \n df = \n{df}")
+        #print(f" xxx \n df = \n{df}")
 
         # .xyz
         return

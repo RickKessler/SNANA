@@ -23035,6 +23035,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         Older GENRANGE_PEAKMAG (logical OR for all bands) has been removed. 
 
+     + new input key "USE_SIMLIB_SPECTROGRAPH: 1" to enable reading SPECTROGRAPH keys
+       from SIMLIB file. Need to properly initialize spectra since the first
+       SPECTROGRAPH key might not occur until after generating many events.
+
+     + fix some cobwebs using SPECTROGRAPH keys in SIMLIB file.
+
+
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.

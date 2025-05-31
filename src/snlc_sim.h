@@ -386,7 +386,7 @@ typedef struct {
   GENPOLY_DEF GENZPOLY_TEXPOSE ;  // TEXPOSE =poly fun of z
   GENPOLY_DEF GENZPOLY_SNR ;      // SNR = poly fun of z
   float   SNR_LAMRANGE[2];   // lam-range to define SNR
-  char    EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'HOST'
+  char    EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'MJD' or 'HOST'
   int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS or MJD
   int   OPT_FRAME_LAMBDA ; // for SNR opt below, LAMREST or LAMOBS
 
@@ -563,6 +563,7 @@ struct INPUTS {
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
   int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
+  int  USE_SIMLIB_SPECTROGRAPH;  // use SPECTROGRAPH keys in SIMLIB entries (May 30 2025)
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
@@ -1297,7 +1298,7 @@ struct GENLC {
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
   int     ncall_genran_modelSmear; 
-
+  
   double  SPECEFF_RAN[MXFILTINDX+1]  ;
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
 

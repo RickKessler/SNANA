@@ -23011,6 +23011,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + for sim task, fix GENOPT parsing of JOBNAME so that it works with
         other GENOPTs.
 
+    SALT2mu.c
+      + for CUTWIN(BIASCORONLY) SIM_XXX <min> <max>, skip reading real data to
+        avoid abort. Initial use is for SIM_ZFLAG<4.
+
     plot_table.py
       + DIFF_ALL option includes error bars
 

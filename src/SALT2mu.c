@@ -305,6 +305,8 @@ For help, run code with no arguments
  Mar 20 2205: replace a few SIM_TEMPLATE_INDEX>0 with SIM_TEMPLATE_INDEX!=0 ..
               because 91bg is a contaminant with SIM_TEMPLATE_INDEX = -9
 
+ Jun 2 2025: for CUTWIN(BIASCORONLY), skip reading SIM_XXX for data 
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -7266,7 +7268,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
   int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0, NCUTWIN=0, NPARSHIFT=0 ;
-  bool RDFLAG ;
+  bool L_RDFLAG, L_BCORONLY ;
   char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
   char str_zerr[MXCHAR_VARNAME]; 
 
@@ -7554,15 +7556,24 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //read CUTWIN variables 
   for(icut=0; icut < NCUTWIN; icut++ ) {
 
-    cutname = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
-    RDFLAG  = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] ;
-  
+    cutname    = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
+    L_RDFLAG   = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] ;
+    L_BCORONLY = INPUTS.SELECT_CUTWIN.L_BIASCORONLY_LIST[icut] ;
+
+
+    // June 2 2025: if reading SIM_XXX variable for biasCor cut (e.g. SIM_ZFLAG), skip for data
+    if ( IS_DATA && L_BCORONLY && strstr(cutname,"SIM_")!= NULL )  {  
+      printf("\t Skip reading %s for DATA ; this CUTWIN variable is for BiasCor only\n", cutname);
+      fflush(stdout);  
+      continue; 
+    }
+
     sprintf(vartmp, "%s:F", cutname );
     if ( strcmp(cutname,"IDSURVEY")==0 ) {sprintf(vartmp,"%s:S",cutname );}
 
     if ( !usesim_CUTWIN(vartmp)  ) { continue ; }
 
-    if ( RDFLAG ) {
+    if ( L_RDFLAG ) {
       ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->CUTVAL[icut][ISTART], 
 				     LEN, OPTMASK_WARN );
       if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
@@ -17097,7 +17108,6 @@ void override_parFile(int argc, char **argv) {
 
     item = argv[i];
     ntmp++;
-
 
     if ( !strncmp(item,"CUTWIN",6) ) {  // allow CUTWIN(option)
       bool IS_NONE = ( strcmp(argv[i+1],"NONE")==0 ) ;

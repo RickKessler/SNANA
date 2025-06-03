@@ -4097,9 +4097,10 @@ double host_confusion(char *CID, int N_DDLR, double *DDLR_LIST_SORTED) {
 
   D1 = DDLR_LIST_SORTED[0]; // D1 is Gupta notation; [0] is C index
   D2 = DDLR_LIST_SORTED[1];
-  if ( D2<=1.0E-6 ) {
+  if ( D2 <= 1.0E-6 ) {
     HC = +9.0 ;
-    printf ("WARNING: D2=%le for CID=%s, set HC=%.2f\n",D2,CID,HC);
+    printf ("WARNING(%s): 2nd DDLR=%.2f for CID=%s, set HC=%.2f\n", 
+	    fnam, D2,CID,HC);
     fflush(stdout);
     return HC; 
   } // protect against data error

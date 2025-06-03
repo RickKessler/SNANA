@@ -2031,6 +2031,7 @@ c load redshift to use in spec-z fit
          write(6,26) SNLC_CCID(1:LCHAR)
 26       format(T5,'Z-WARNING for CID=',A, 
      &      ' : no Z_helio => use ZCMB for lc fit' )
+         call flush(6)
       ENDIF
 c ------------------------------
 c set global REDSHIFT_FIT to use for things like
@@ -14053,7 +14054,9 @@ c ---------------- BEGIN ---------------
 
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
+
 c -------------------------------
+
       IF ( DOFIT_PHOTOZ ) THEN
 
 c check for host photoZ
@@ -14091,11 +14094,13 @@ c - - - - - - -  -
         REDSHIFT_FIT = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
       endif
 
-c xxxxxxx mark xxxx
-c         REDSHIFT_FIT = 1.04
-c         print*,' xxx ITER, REDSHIFT = ', ITER, REDSHIFT_FIT
-c         call flush(6)
-c xxxxxx mark xxxx
+c June 2025: abort on invalid redshift (likely missing in data file)
+      if ( REDSHIFT_FIT < 0.0 ) then
+         write(c1err,660) REDSHIFT_FIT, SNLC_CCID
+660      format('Undefined REDSHIFT_FIT=', F6.3,' for CID=',A8 )   
+         c2err = 'Check REDSHIFT info in data file'
+         CALL MADABORT("SET_REDSHIFT_FIT", c1err, c2err )
+      endif
 
       RETURN
       END   ! end SET_REDSHIFT_FIT

@@ -169,6 +169,7 @@
 #   + new option to write COVTOT (--write_mask_cov += 4)
 #
 # Apr 17 2025: read VERSION_PHOTOMETRY keys from BBC FITRES file and write them to INFO.YAML
+# Jun 03 2025: fix rebin to work if MUERR_RENORM isn't defied (e.g., spec-only sample)
 #
 # ===============================================
 
@@ -816,7 +817,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
     # Dec 29 2020
     # rebin unbinned results based on nbin_xxx user inputs
     #
-    # 
+    # Jun 3 2025: fix to work if VARNAME_MUERR_RENORM is not defined (e.g. spec-only sample)
 
     nbin_x1      = config['nbin_x1']
     nbin_c       = config['nbin_c']
@@ -836,7 +837,12 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_muref    = HD_unbinned[VARNAME_MUREF]
     col_mu       = HD_unbinned[VARNAME_MU]
     col_muerr    = HD_unbinned[VARNAME_MUERR]
-    col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
+
+    if VARNAME_MUERR_RENORM in HD_unbinned:
+        col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
+    else:
+        col_muerr_renorm = col_muerr  
+
     HD_rebin_dict = { VARNAME_ROW: [], 
                       VARNAME_zHD: [], VARNAME_MU: [] , VARNAME_MUERR: [],
                       VARNAME_MUREF: [], VARNAME_NEVT_BIN: [] }

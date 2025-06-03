@@ -350,7 +350,6 @@ int main(int argc, char **argv) {
     // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
     // model is not defined.
     if ( GENLC.NOBS_MODELFLUX == 0 ) {
-      printf(" xxx %s NOBS_MODELFLUX = 0   for CID=%d ??\n", fnam, GENLC.CID); fflush(stdout); 
       gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
       goto GENEFF;
     }

@@ -14095,7 +14095,7 @@ c - - - - - - -  -
       endif
 
 c June 2025: abort on invalid redshift (likely missing in data file)
-      if ( REDSHIFT_FIT < 0.0 ) then
+      if ( REDSHIFT_FIT < 0.0 .and. OPT_PHOTOZ == 0 ) then
          write(c1err,660) REDSHIFT_FIT, SNLC_CCID
 660      format('Undefined REDSHIFT_FIT=', F6.3,' for CID=',A8 )   
          c2err = 'Check REDSHIFT info in data file'

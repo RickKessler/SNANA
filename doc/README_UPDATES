@@ -22791,6 +22791,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + add NSPEC and  SPEC_SNRSUM_REST_[U,V] to list of SIMGEN_DUMP variables
        Also add SNR_REST_[U,V] to DUMP.SPEC file.
 
+     + update sntools_genPDF.c to read SALT2 asym gauss profile from GENPDF_FILE.
+       Relavant keys are GENPEAK_SALT2c, GENSIGMA_SALT2c, GENRANGE_SALT2c.
+
    genmag_SEDtools.c
       + add diagnostics for ZP_SPECTROGRAPH calculations in INIT_SPECTROGRAPH_SEDMODEL()
       
@@ -23045,7 +23048,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
      + fix some cobwebs using SPECTROGRAPH keys in SIMLIB file.
 
-
+   
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.

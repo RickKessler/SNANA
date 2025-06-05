@@ -2954,7 +2954,6 @@ class BBC(Program):
         # figure out name of BBC-YAML file and read it 
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
         YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
-        #print(f"  YAML_FILE = {YAML_FILE}")
         bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
         BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
 

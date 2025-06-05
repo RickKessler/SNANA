@@ -23021,6 +23021,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu.c
       + for CUTWIN(BIASCORONLY) SIM_XXX <min> <max>, skip reading real data to
         avoid abort. Initial use is for SIM_ZFLAG<4.
+      + for cutwin_only, append IDSAMPLE column to output table
 
     plot_table.py
       + DIFF_ALL option includes error bars

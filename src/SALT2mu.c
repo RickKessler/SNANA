@@ -8663,6 +8663,9 @@ void prepare_IDSAMPLE_biasCor(void) {
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
 
+  int   opt_biasCor   = INPUTS.opt_biasCor ;
+  bool  cutwin_only   = INPUTS.cutwin_only ;
+
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
   bool IS_SPECZ, IS_PHOTOZ, SELECT_FIELD, SELECT_SURVEY ;
@@ -8684,7 +8687,9 @@ void prepare_IDSAMPLE_biasCor(void) {
 
   SURVEYGROUP[0] = 0; // initalize blank string
 
-  if ( INPUTS.opt_biasCor == 0 ) { return ; }
+  bool DO_IDSAMPLE = ( cutwin_only || opt_biasCor > 0 );
+  if ( cutwin_only ) { opt_biasCor = MASK_BIASCOR_SAMPLE ; }
+  if ( !DO_IDSAMPLE ) { return ; }
 
   sprintf(BANNER,"Begin %s", fnam);
   fprint_banner(FP_STDOUT,BANNER);
@@ -8701,7 +8706,6 @@ void prepare_IDSAMPLE_biasCor(void) {
     SAMPLE_BIASCOR[i].NAME_SURVEYGROUP[0] = 0 ;
     SAMPLE_BIASCOR[i].NAME_FIELDGROUP[0]  = 0 ;
     SAMPLE_BIASCOR[i].STRINGOPT[0]        = 0 ;
-    // xxx    SAMPLE_BIASCOR[i].OPT_PHOTOZ          = 0 ; // zSPEC is default
     SAMPLE_BIASCOR[i].IS_PHOTOZ           = false ; // zSPEC is default
     SAMPLE_BIASCOR[i].NAME[0]             = 0 ;
     SAMPLE_BIASCOR[i].IDSURVEY            = -9 ;
@@ -8715,7 +8719,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 
   // --------------------------------------
   // check option to compute global biasCor for surveys lumped together
-  if ( ( INPUTS.opt_biasCor & MASK_BIASCOR_SAMPLE ) == 0 )  {
+  if ( ( opt_biasCor & MASK_BIASCOR_SAMPLE ) == 0 )  {
     NSAMPLE_BIASCOR     = 1 ;
     ONE_SAMPLE_BIASCOR  = 1;
     IDSAMPLE            = 0 ;
@@ -8905,7 +8909,6 @@ void prepare_IDSAMPLE_biasCor(void) {
   // check option to fix sigint for each IDSAMPLE
   parse_sigint_fix(INPUTS.sigint_fix);
    
-
   return ;
 
 } // end prepare_IDSAMPLE_biasCor
@@ -9068,8 +9071,12 @@ void set_FIELDGROUP_biasCor(void) {
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   char *ptrFIELD[MXNUM_SAMPLE] ;
   char fnam[] = "set_FIELDGROUP_biasCor"; 
+  int LDMP = 0 ;
 
   // ---------- BEGIN ----------
+
+  if ( LDMP ) 
+    { printf(" xxx %s: USE_FIELDGROUP = %d \n", fnam, USE_FIELDGROUP); fflush(stdout); }
 
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR = 0 ;
 
@@ -9081,11 +9088,21 @@ void set_FIELDGROUP_biasCor(void) {
   splitString(INPUTS.fieldGroup_biasCor, COMMA, fnam, MXNUM_SAMPLE, // inputs
 	      &NGRP, ptrFIELD );   // outputs
 
+  if ( LDMP ) 
+    { printf(" xxx %s: NGRP = %d \n", fnam, NGRP); fflush(stdout); }
+
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR = NGRP;
   for(i=0; i < NGRP; i++ ) {
     extractStringOpt(INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i],
 		     INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[i] );
-  }
+
+    if ( LDMP ) {
+      printf(" xxx %s: FIELDGROUP=%s -> OPTLIST = %s \n", fnam,
+	     INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i],
+	     INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[i] );
+      fflush(stdout);
+    }
+  } // end i loop over NGRP
 
   // To do:
   // Determine which survey(s) correspond to the fieldgroups, 
@@ -19508,6 +19525,7 @@ void prep_input_driver(void) {
 
   // May 9 2019: check INPUTS.fixpar_all
 
+  int  nfile_biasCor = INPUTS.nfile_biasCor ;
   char *varname_pIa  = INPUTS.varname_pIa ;
   bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
@@ -19519,14 +19537,22 @@ void prep_input_driver(void) {
 
   // ------------ BEGIN -----------
 
+  if ( nfile_biasCor > 0 ) {
+    if ( IGNOREFILE(INPUTS.fieldGroup_biasCor)==0 )
+      {  INPUTS.use_fieldGroup_biasCor = 1; }
+
+    if ( IGNOREFILE(INPUTS.surveyGroup_biasCor)==0 )
+      {  INPUTS.use_surveyGroup_biasCor = 1; }
+  }
+
   if ( INPUTS.cat_only ) 
     { prep_input_varname_missing(); return; }
 
   if ( INPUTS.cutwin_only ) {
     if ( INPUTS.nfile_biasCor > 0 ) {
-      INPUTS.nfile_biasCor = 0 ;
+      INPUTS.nfile_biasCor         = 0 ;
       INPUTS.simFile_biasCor[0][0] = 0 ;
-      INPUTS.opt_biasCor = 0 ;
+      INPUTS.opt_biasCor           = 0 ;
     }
     if ( INPUTS.nfile_CCprior > 0 ){
       INPUTS.nfile_CCprior = 0 ;
@@ -19536,7 +19562,7 @@ void prep_input_driver(void) {
     INPUTS.fixpar_all = 1;
     INFO_CCPRIOR.USE = INFO_CCPRIOR.USEH11 = 0;
     varname_pIa[0] = 0;
-  }
+  } // end cutwin_only
   
   // July 2023: check for alternate LC fit model(s)
   if ( strcmp(INPUTS.model_lcfit,"SALT2") == 0 ) {
@@ -19730,12 +19756,6 @@ void prep_input_driver(void) {
   if ( ISFILE_BIASCOR ) {
     if ( INPUTS.opt_biasCor == 0 ) 
       { INPUTS.opt_biasCor = MASK_BIASCOR_DEFAULT; }
-
-    if ( IGNOREFILE(INPUTS.fieldGroup_biasCor)==0 )
-      {  INPUTS.use_fieldGroup_biasCor = 1; }
-
-    if ( IGNOREFILE(INPUTS.surveyGroup_biasCor)==0 )
-      {  INPUTS.use_surveyGroup_biasCor = 1; }
 
     if ( INPUTS.use_fieldGroup_biasCor || INPUTS.use_surveyGroup_biasCor ) 
       { INPUTS.opt_biasCor |= MASK_BIASCOR_SAMPLE ;  }
@@ -21276,7 +21296,7 @@ void write_M0_cov(char *fileName) {
   // ---------- BEGIN -----------
 
   if ( INPUTS.cutmask_write == -9 ) { return ; } 
-  if ( INPUTS.cutwin_only ) { return; }
+  if ( INPUTS.cutwin_only )         { return; }
 
   fp = fopen(fileName,"wt");
 
@@ -21503,11 +21523,12 @@ void write_fitres_driver(char* fileName) {
 	{ fprintf(fout,"%s ", OUTPUT_VARNAMES.LIST[ivar] ); }
     }
     
-
     // tack on SALT2mu/BBC variables (e.g., MU, MURES, etc ...)
     for ( ivar=0; ivar < NVAR_APPEND; ivar++ )   {  
       fprintf(fout,"%s ", VARNAMES_APPEND[ivar] );  
     }
+
+    if ( cutwin_only ) {  fprintf(fout," IDSAMPLE ");    }
     fprintf(fout, "\n\n");
   }
   else {
@@ -21643,7 +21664,6 @@ void write_fitres_driver(char* fileName) {
   // re-read each data file
 
  WRITE_TABLE_ROWS:
-
   
   // ignore comma in case sntable_cat.py utility is used for HOSTLIB
   // that can have commas in the NBR_LIST column.
@@ -21697,9 +21717,15 @@ void write_fitres_driver(char* fileName) {
   fclose(fout);
 
   if ( cat_only ) {
-    fprintf(FP_STDOUT, " Wrote %d SN to cat table.\n", NWR); 
+    fprintf(FP_STDOUT, " Wrote %d events to cat table.\n", NWR); 
+  }
+  else if ( cutwin_only ) {
+    double fcut = 100.*(double)FITRESULT.NSNFIT / (double)NSN_DATA ;
+    fprintf(FP_STDOUT, " Wrote %d events passing cutwin_only (%.1f%% of %d input events). \n",
+	    NWR, FITRESULT.NSNFIT , fcut, NSN_DATA );
   }
   else {
+    // nominal with BBC fit
     fprintf(FP_STDOUT, " Wrote %d SN  (%d/%d used in fit) \n", 
 	   NWR, FITRESULT.NSNFIT , NSN_DATA );
   }
@@ -21744,7 +21770,7 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
 
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
   int ISTAT = 0 ;
-  int  ivar_tot, ivar_file, ivar_word ;
+  int  ivar_tot, ivar_file, ivar_word, idsample ;
   bool IS_RECYCLED = false; 
   char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;  
   char blank[] = " ";
@@ -21785,6 +21811,12 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   fprintf(fout,"%s", line_out);
   bool skip_line_append = INPUTS.cat_only || INPUTS.cutwin_only ;
   if ( !skip_line_append ) { write_fitres_line_append(fout, indx); }
+
+  // for cutwin_only option, append line only with IDSAMPLE
+  if ( INPUTS.cutwin_only ) {
+    idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[indx]  ;
+    fprintf(fout,"   %2d", idsample);
+  }
 
   fprintf(fout,"\n");
 
@@ -22026,15 +22058,9 @@ void write_NWARN(FILE *fp, int FLAG) {
     fprintf(fp,"# BCOR_LOSS: %d of %d events (%.1f %%) "
 	    "have no biasCor for %s   %s\n",
 	    NREJ, NTOT, frac_percent, NAME, str_warn );	   
-
-    /* xxx mark xxxx
-    if ( frac > INPUTS.frac_warn_nobiasCor ) {
-      fprintf(fp,"# WARNING(SEVERE): %d of %d events (%.1f %%) "
-	      "have no biasCor for %s\n",
-	      NREJ, NTOT, frac_percent, NAME );	   
-    }
-    xxxx end mark xxxx*/
   }
+
+  fprintf(fp,"\n"); fflush(fp);
 
   return ;
 
@@ -22338,7 +22364,7 @@ void write_cutwin_info(FILE *fout) {
 
   // Write header info at top of file. 
   int NFILE = INPUTS.nfile_data; 
-  int ifile;
+  int ifile, idsample ;
   // --------------- BEGIN -----------
 
   fprintf(fout,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
@@ -22350,7 +22376,14 @@ void write_cutwin_info(FILE *fout) {
 
   fprintf(fout,"# and skip BBC fit. \n");
   fprintf(fout,"# This file is for DIAGNOSTIC only, and not used in any part of BBC task. \n");
+  fprintf(fout,"#\n");
+  fprintf(fout,"#   IDSAMPLE definition \n");
+  //.xyz
+  for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+    fprintf(fout, "#    %2d       %s \n", idsample, SAMPLE_BIASCOR[idsample].NAME);
+  }
   fprintf(fout,"\n");
+  fflush(fout);
 
   return;
 
@@ -23477,6 +23510,8 @@ void print_SALT2mu_HELP(void) {
     "",
     "CUTWIN_IDSAMPLE(0,3,4):   zHD .01 .03  # apply cut only to IDSAMPLE 0,3 & 4",
     "CUTWIN_SURVEY(CFA3,CFA4): zHD .01 .03  # apply cut only to CFA3 & CFA4 surveys",
+    "",
+    "cutwin_only       # apply cuts and skip fit",
     "",
     "PARSHIFT(DATAONLY)     zHD          1.0E-4   # shift all data zHD",  
     "PARSHIFT(DATAONLY)     HOST_LOGMASS 0.02     # shift all data LOGMASS",

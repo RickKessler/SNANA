@@ -388,8 +388,9 @@ struct SNDATA {
   float SIM_SEARCHEFF_zHOST;   // EFF(zHOST) when not spec-confirmed
   float SIM_REDSHIFT_HELIO ;   // for SN
   float SIM_REDSHIFT_CMB   ;   // for SN
-  float SIM_REDSHIFT       ; // legacy variable, same as z_CMB
-  float SIM_REDSHIFT_HOST  ; // zhelio of host (Jan 2016)
+  // xxx mark Jun 5 2025  float SIM_REDSHIFT       ; // legacy variable, same as z_CMB
+  float SIM_REDSHIFT_HOST        ; // zhelio of true host (Jan 2016)
+  float SIM_REDSHIFT_HOST_MATCH  ; // zhelio of DDLR-matched host (June 2025)
   int   SIM_REDSHIFT_FLAG  ; // indicates source of redshift (4.19.2019)
   char  SIM_REDSHIFT_COMMENT[40];
   float SIM_VPEC ;           // peculiar velocity, km/sec

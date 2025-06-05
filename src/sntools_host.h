@@ -494,8 +494,7 @@ typedef struct {
   long long GALID ;
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
-  double RA, DEC, SNSEP, DLR, DDLR ;
-  // xxx mark Aug 28 2024  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
+  double RA, DEC, SNSEP, DLR, DDLR, REDSHIFT ;
   HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];

@@ -1097,10 +1097,10 @@ struct GENLC {
   double sin_GLON, cos_GLON;
   double sin_DEC,  cos_DEC ;
   
-  double REDSHIFT_HELIO ;   // true Helio redshift of SN
-  double REDSHIFT_CMB   ;   // true CMB   redshift of SN
-  double REDSHIFT_HOST  ;   // true Helio redshift of host
-  int    REDSHIFT_FLAG  ;   // indicates source of redshift
+  double REDSHIFT_HELIO ;     // true Helio redshift of SN
+  double REDSHIFT_CMB   ;     // true CMB   redshift of SN
+  double REDSHIFT_HOST  ;     // true zhel redshift of true host
+  int    REDSHIFT_FLAG  ;     // indicates source of redshift
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
   double MUSHIFT;            // user MUSHIFT

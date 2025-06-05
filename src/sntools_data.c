@@ -556,6 +556,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_CMB) ; }  
     else if ( strcmp(key,"SIM_REDSHIFT_HOST") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_HOST) ; }  
+    else if ( strcmp(key,"SIM_REDSHIFT_HOST_MATCH") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_HOST_MATCH) ; }  
     else if ( strcmp(key,"SIM_REDSHIFT_FLAG") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_FLAG) ; }  
     else if ( strcmp(key,"SIM_VPEC") == 0 ) 

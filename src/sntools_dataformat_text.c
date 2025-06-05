@@ -291,8 +291,11 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n",
 	  SNDATA.SIM_REDSHIFT_CMB );
 
-  fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f \n",
+  fprintf(fp, "SIM_REDSHIFT_HOST:       %.5f    # z of true host\n",
 	  SNDATA.SIM_REDSHIFT_HOST );
+
+  fprintf(fp, "SIM_REDSHIFT_HOST_MATCH: %.5f    # z of DDLR-matched host\n",
+	  SNDATA.SIM_REDSHIFT_HOST_MATCH );
 
   fprintf(fp,"SIM_REDSHIFT_FLAG:   %d  # %s\n", 
 	  SNDATA.SIM_REDSHIFT_FLAG, SNDATA.SIM_REDSHIFT_COMMENT );
@@ -2564,6 +2567,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     }
     else if ( strcmp(word0,"SIM_REDSHIFT_HOST:") == 0 ) {
       SNDATA.SIM_REDSHIFT_HOST = FVAL;
+    }
+    else if ( strcmp(word0,"SIM_REDSHIFT_HOST_MATCH:") == 0 ) {
+      SNDATA.SIM_REDSHIFT_HOST_MATCH = FVAL;
     }
     else if ( strcmp(word0,"SIM_REDSHIFT_FLAG:") == 0 ) {
       SNDATA.SIM_REDSHIFT_FLAG = IVAL;

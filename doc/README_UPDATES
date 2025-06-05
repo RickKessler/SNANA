@@ -23002,6 +23002,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     RV WAVE magMWXT computed with several different color laws.
     Out table is [GENVERSION].MWCL in same dir as sim data.
 
+    SIM_REDSHIFT_HOST_MATCH is stored in sim-data to help examine
+    incorrect host-matches. Output tables (snana and fitres) include
+    SIM_ZHOST_MATCH.
+
          *****  MISCELLANEOUS(v11_05u) *****
 
     Changes to prepare for automake:

@@ -8496,7 +8496,8 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].DDLR  = -9.0 ;  
     SNHOSTGAL_DDLR_SORT[i].RA    = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].DEC   = 999.0 ;
-    SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
+    SNHOSTGAL_DDLR_SORT[i].REDSHIFT     = -9.0 ;
+    SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH   = false ;
     SNHOSTGAL_DDLR_SORT[i].GALID2       = -9;
     SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = -9;
     SNHOSTGAL_DDLR_SORT[i].GROUPID      = -9;
@@ -8688,7 +8689,8 @@ void SORT_SNHOST_byDDLR(void) {
     // load global struct
     SNHOSTGAL_DDLR_SORT[i].DDLR  = DDLR ;
     SNHOSTGAL_DDLR_SORT[i].SNSEP = SNSEP ;
-    SNHOSTGAL_DDLR_SORT[i].GALID = get_GALID_HOSTLIB(IGAL);
+    SNHOSTGAL_DDLR_SORT[i].GALID    = get_GALID_HOSTLIB(IGAL);
+    SNHOSTGAL_DDLR_SORT[i].REDSHIFT = get_ZTRUE_HOSTLIB(IGAL);
 
     // if HOSTLIB coords don't match the SN, then use GAL-SN difference
     // to determine final host coords near SN. This feature allows using

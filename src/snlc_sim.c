@@ -12493,7 +12493,7 @@ void gen_event_driver(int ilc) {
     // Get redshift of host: equals SN helio redshift, or that of wrongHost.
     zHOST = gen_zHOST(GENLC.CID, GENLC.REDSHIFT_HELIO, 
 		      &GENLC.CORRECT_HOSTMATCH );
-    GENLC.REDSHIFT_HOST = zHOST ;  // helio frame
+    GENLC.REDSHIFT_HOST       = zHOST ;  // helio frame
 
     // Mar 14 2020: move modelPar before GEN_SNHOST so that WGTMAP
     // can depend on SN params (c,x1) without adding c,x1 in HOSTLIB
@@ -24821,6 +24821,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_REDSHIFT_CMB    = GENLC.REDSHIFT_CMB ;
   SNDATA.SIM_REDSHIFT_HELIO  = GENLC.REDSHIFT_HELIO ;
   SNDATA.SIM_REDSHIFT_HOST   = GENLC.REDSHIFT_HOST ; // Jan 2016
+  SNDATA.SIM_REDSHIFT_HOST_MATCH = SNHOSTGAL_DDLR_SORT[0].REDSHIFT ; // June 2025
 
   // 4.19.2019: store redshift flag to indicate where redshift is from
   zFLAG = GENLC.REDSHIFT_FLAG;

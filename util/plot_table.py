@@ -157,10 +157,12 @@ DEBUG_FLAG_DUMP_TRANSLATE2 =  33  # info dump for each char of @V and @@CUT stri
 # hack flags from @@hack input; used to make subtle refinements for a paper
 # without waiting to add more formal input flag
 HACK_FLAG_OpenUniverse24 =  1
+HACK_FLAG_M25            =  2
 HACK_FLAG_HELP           = 99
 
 HACK_FLAG_DICT = {
     'OpenUniverse2024'  : HACK_FLAG_OpenUniverse24,
+    'M25'               : HACK_FLAG_M25,
     'help'              : HACK_FLAG_HELP
 }
 

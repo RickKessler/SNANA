@@ -480,7 +480,8 @@ void wr_snfitsio_init_head(void) {
 
     wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HELIO" , itype );
     wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_CMB"   , itype );
-    wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST"  , itype ); 
+    wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST"      , itype ); 
+    wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST_MATCH", itype );   // 6.04.2025
     wr_snfitsio_addCol( "1I",  "SIM_REDSHIFT_FLAG"  , itype ); // 4.19.2019
     wr_snfitsio_addCol( "1E",  "SIM_VPEC"           , itype );
     wr_snfitsio_addCol( "1K",  "SIM_HOSTLIB_GALID"  , itype ); // Feb 2020
@@ -1927,10 +1928,15 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_CMB ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_CMB", itype );
 
-  // zhost (different from zhelio if wrong host)
+  // zhost 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HOST ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HOST", itype );
+
+  // true z of DDLR-matched host
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HOST_MATCH ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HOST_MATCH", itype );
 
   // integer redshift flag to indicate source of redshift
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3529,6 +3535,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_REDSHIFT_HOST", 
 				 &SNDATA.SIM_REDSHIFT_HOST,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_REDSHIFT_HOST_MATCH", 
+				 &SNDATA.SIM_REDSHIFT_HOST_MATCH,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
       j++; NRD = RD_SNFITSIO_INT(isn, "SIM_REDSHIFT_FLAG", 
 				 &SNDATA.SIM_REDSHIFT_FLAG,

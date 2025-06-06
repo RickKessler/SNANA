@@ -92,6 +92,7 @@
 # May 03 2025: create BBC_REJECT_MONITOR.FITRES and remove code that wrote BBC_REJECT_SUMMARY.FITRES
 #              Rename make_reject_summary to make_accept_summary().
 #
+# Jun 6 2025 : read BBC_REJECT_MONITOR.FITRES and write NREJECT_bySAMPLE dictionary in BBC_SUMMARY_FITPAR.YAML
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -2879,8 +2880,8 @@ class BBC(Program):
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         # - - - 
-        SUMMARYF_FILE     = f"{output_dir}/{FITPAR_SUMMARY_FILE}"
-        f = open(SUMMARYF_FILE,"wt") 
+        SUMMARY_FILE     = f"{output_dir}/{FITPAR_SUMMARY_FILE}"
+        f = open(SUMMARY_FILE,"wt") 
 
         # write a few header comments
         snana_version = util.get_snana_version()
@@ -2889,9 +2890,17 @@ class BBC(Program):
         f.write(f"# OUTDIR:  {output_dir}\n")
 
         # collect list of versions in MERGE.LOG file
-        version_list = []
+        version_list  = []   # list of unique versions
+        bbc_yaml_list = []   # per row in merge table
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             version    = row[COLNUM_BBC_MERGE_VERSION]  # sim data version
+
+            prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
+            YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
+            bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+            bbc_yaml_list.append(bbc_yaml)
+
+
             if version not in version_list:
                 version_list.append(version)
 
@@ -2900,20 +2909,28 @@ class BBC(Program):
 
         for version in version_list:
             f.write(f"\n# ================================================= \n")
-            f.write(f"{version}: \n")
-            self.write_fitpar_summary_reject(f,version)  # May 2025
-            for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
-                if version == row[COLNUM_BBC_MERGE_VERSION]:
-                    self.write_fitpar_summary_row(f,row)
+            f.write(f"{version}:   # data version\n")
 
+            self.write_fitpar_summary_reject(f,version, bbc_yaml_list[0] )  # May 2025
+
+            f.write(f"\n  # - - - - - - - - - - - - - -\n  BBC_PROCESS_LIST: \n")
+            for row, bbc_yaml in zip(MERGE_INFO_CONTENTS[TABLE_MERGE], bbc_yaml_list):
+                if version == row[COLNUM_BBC_MERGE_VERSION]:
+                    self.write_fitpar_summary_row(f,row, bbc_yaml)
+                            
         f.close()
         #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
 
+        DOTEST_READBACK = False
+        if DOTEST_READBACK:
+            readback = util.extract_yaml(SUMMARY_FILE, None, None )    
+            tmp = readback['OUTPUT_BBCFIT']['NREJECT_bySAMPLE']  # hard-wire for need
+            print(f"\n\n xxx test readback contents for {SUMMARY_FILE}: \n{tmp}\n")
         return
 
         # end make_fitpar_summary
 
-    def write_fitpar_summary_reject(self,f,version):
+    def write_fitpar_summary_reject(self,f, version, bbc_yaml):
 
         # Created May 22 2025
         # Read BBC_REJECT_MONITOR_FILE and extract information about losses
@@ -2927,14 +2944,72 @@ class BBC(Program):
 
         reject_file = f"{output_dir}/{version}/{BBC_REJECT_MONITOR_FILE}"
         
+        # get list of SAMPLES & IDSAMPLES from bbc yaml contents
+        tmp_sample           = bbc_yaml['SAMPLE_LIST']
+        tmp_idsample         = bbc_yaml['IDSAMPLE_LIST']
+        SAMPLE_LIST   = [x.strip() for x in tmp_sample.split(',')]   # string list such as CSP or DES(X3)
+        IDSAMPLE_LIST = [int(x) for x in tmp_idsample.split(',')] # integer IDSAMPLE list
+
         df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
-        logging.info(f" xxx summarize reject for {version}") 
+        ntot = len(df)
+        logging.info(f" Summarize reject stats for {version}") 
         #print(f" xxx \n df = \n{df}")
 
+        KEY_LCFIT_SYS = 'LCFIT_SYS'
+        KEY_BCOR_NOM  = 'BIASCOR_NOMINAL' 
+        KEY_BCOR_SYS  = 'BIASCOR_SYS' 
+
+        reject_cut_dict = {
+            KEY_LCFIT_SYS  : [ 'NFITOPT_REJECT_CUTWIN>0' ],
+            KEY_BCOR_NOM   : [ 'NFITOPT_REJECT_CUTWIN==0',  
+                               'NFITOPT_REJECT_BIASCOR0==1' ],
+            KEY_BCOR_SYS   : [ 'NFITOPT_REJECT_CUTWIN==0', 
+                               'NFITOPT_REJECT_BIASCOR>0',
+                               'NFITOPT_REJECT_BIASCOR0==0' ]
+        }
+        reject_comment_dict = {
+            KEY_LCFIT_SYS  : 'Loss from LCFIT systematics (FITOPT>0)',
+            KEY_BCOR_NOM   : 'Loss from valid biasCor requirement on nominal (FITOT000_MUOPT000)',
+            KEY_BCOR_SYS   : 'Loss from valid biasCor requirement on systematics (all FITOPT>0 or MUOPT>0)'
+        }
+
+        keys_reject  = '  '.join(list(reject_cut_dict.keys()))
+        f.write(f"\n  NREJECT_bySAMPLE:       #     {keys_reject}\n")
+        for sample, idsample in zip(SAMPLE_LIST, IDSAMPLE_LIST):
+            if idsample >= 0:
+                select_sample = f"(df.IDSAMPLE=={idsample})"
+            else:
+                select_sample = f"(df.IDSAMPLE>-9)"   # all
+
+            cut_norm   = f"df.loc[ {select_sample} ] "  # count total number of events for this IDSAMPLE
+            df_norm    = eval(cut_norm)
+            ntot       = len(df_norm)  # ntot for this idsample
+
+            ncut_list = []
+            frac_list = []
+            for key, cut_list in reject_cut_dict.items():
+                dfcut_list = [ "(df."+x+")" for x in cut_list ]
+                cut_join   = ' & '.join(dfcut_list)
+                cut        = f"df.loc[ {cut_join} & {select_sample} ] "
+                df_cut     = eval(cut)
+                ncut       = len(df_cut)   # pass cuts for this idsample
+                frac       = ncut/(ntot+1.0e-20)
+
+                ncut_list.append(ncut)
+                frac_list.append(frac)
+                
+            sample_plus_colon = sample + ':'
+            ncut_string = ' '.join( [ f"{n:7d} ({f:.3f})" for n,f in zip(ncut_list,frac_list) ] )
+            f.write(f"    {sample_plus_colon:<20}  {ncut_string}   # loss (fracLoss)  | {version}\n")
         # .xyz
+
+        # - - - - -
+        # write footnotes to explain columns
+        for key, comment in reject_comment_dict.items() :
+            f.write(f"      # {key:<16} -> {comment}\n")
         return
 
-    def write_fitpar_summary_row(self,f,row):
+    def write_fitpar_summary_row(self, f, row, bbc_yaml):
         # created Feb 2025
         # Write summary for this MERGE.LOG row to file pointer f
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -2950,11 +3025,14 @@ class BBC(Program):
         # get indices for summary file
         ifit = int(f"{fitopt_num[6:]}")
         imu  = int(f"{muopt_num[5:]}")
-            
+
+        # xxxxxx mark delete Jun 5 2025 xxxxxxxx
         # figure out name of BBC-YAML file and read it 
-        prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-        YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
-        bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+        #prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
+        #YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
+        #bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+        # xxxxxxxxx end mark xxxxxxxxxx
+
         BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
 
         NEVT_DATA            = bbc_yaml['NEVT_DATA']
@@ -2968,21 +3046,22 @@ class BBC(Program):
         key_opt      = f"{fitopt_num}_{muopt_num}"
         comment_grep = f"{version}  {key_opt}"
 
+        pad = '  '
         f.write(f" \n")
-        f.write(f"- {key_opt}: \n")
+        f.write(f"{pad }- {key_opt}: \n")
 
         # check list sizes to accomodate noINPDIR option
         n_list = 0
         if FITOPT_LIST : n_list = len(FITOPT_LIST)
         if n_list > 0 :
-            f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+            f.write(f"{pad}    FITOPT: {FITOPT_LIST[ifit][3]} \n")
 
         n_list = 0
         if MUOPT_LIST : n_list = len(MUOPT_LIST)
         if n_list > 0 :
-            f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+            f.write(f"{pad}    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
-        f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
+        f.write(f"{pad}    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
                 f"        # DATA, BIASCOR, CCPRIOR for {comment_grep}\n")
 
         f.flush()
@@ -3003,7 +3082,7 @@ class BBC(Program):
             tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
             NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
 
-            f.write(f"    NEVT_bySAMPLE:"
+            f.write(f"{pad}    NEVT_bySAMPLE:"
                     f"                # DATA, BIASCOR, CCPRIOR\n")
 
             for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
@@ -3011,7 +3090,7 @@ class BBC(Program):
                                               NEVT_BIASCOR_bySAMPLE,
                                               NEVT_CCPRIOR_bySAMPLE) :
                 key = f"{sample}:"                
-                f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}  # {comment_grep}\n")
+                f.write(f"{pad}      {key:<20} {ndata:>5s}  {nbias:>7s}  {ncc:>4s}  # {comment_grep}\n")
                 f.flush()
 
             nrej = NEVT_REJECT_BIASCOR
@@ -3023,17 +3102,14 @@ class BBC(Program):
             # - - - -
             tmp = bbc_yaml['NREJECT_BIASCOR_bySAMPLE']  # May 4 2025
             BIASCOR_LOSS_bySAMPLE = [ x.strip() for x in tmp.split(',')]
-            f.write(f"    BIASCOR_LOSS_bySAMPLE:       # {comment}\n")
+            f.write(f"{pad}    BIASCOR_LOSS_bySAMPLE:       # {comment}\n")
             for sample, ndata, bcor_loss in zip(SAMPLE_LIST,NEVT_DATA_bySAMPLE,BIASCOR_LOSS_bySAMPLE):
                 ndata_tot_f = float(ndata) + float(bcor_loss) 
                 bcor_loss_f = float(bcor_loss)
                 frac        = bcor_loss_f / (ndata_tot_f + 1.0E-9)
                 key   = f"{sample}:"
-                f.write(f"      {key:<20} {bcor_loss:>5s}  {frac:.3f}    " \
-                        f"# LOSS  LOSS/(NDATA+LOSS)  |  {comment_grep}\n")
-                f.flush()
-
-            # xxx mark f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
+                f.write(f"{pad}      {key:<20} {bcor_loss:>5s}  ({frac:.3f})    " \
+                        f"# loss (fracLoss)  |  {comment_grep}\n")                
             f.flush()
 
             # - - - - 
@@ -3043,7 +3119,7 @@ class BBC(Program):
                     val = str(result[key].split()[0])
                     err = str(result[key].split()[1])
                     KEY = f"{key}:"
-                    f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8}    # {comment_grep}\n")
+                    f.write(f"{pad}    {KEY:<12}  {val:>8} +_ {err:<8}    # {comment_grep}\n")
                     f.flush()
 
         return  # end write_fitpar_summary_row

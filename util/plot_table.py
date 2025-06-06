@@ -1613,6 +1613,7 @@ def read_tables(args, plot_info):
 
         # apply user cuts
         if cut:
+            #print(f" xxx cut = {cut}")
             df = eval(cut)
 
         if prescale > 1:

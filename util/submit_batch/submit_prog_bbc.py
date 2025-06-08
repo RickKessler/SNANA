@@ -2945,8 +2945,13 @@ class BBC(Program):
         reject_file = f"{output_dir}/{version}/{BBC_REJECT_MONITOR_FILE}"
         
         # get list of SAMPLES & IDSAMPLES from bbc yaml contents
-        tmp_sample           = bbc_yaml['SAMPLE_LIST']
-        tmp_idsample         = bbc_yaml['IDSAMPLE_LIST']
+        if 'SAMPLE_LIST' in bbc_yaml:
+            tmp_sample           = bbc_yaml['SAMPLE_LIST']
+            tmp_idsample         = bbc_yaml['IDSAMPLE_LIST']
+        else:
+            tmp_sample   = 'ALL'
+            tmp_idsample = '-1'
+
         SAMPLE_LIST   = [x.strip() for x in tmp_sample.split(',')]   # string list such as CSP or DES(X3)
         IDSAMPLE_LIST = [int(x) for x in tmp_idsample.split(',')] # integer IDSAMPLE list
 

@@ -426,7 +426,7 @@ VERSION:    <subDir under INPUT_DIR>
 {KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales>
   [allows legacy key SYSFILE: ]
 
-# Define extra cov matrices using covsys options:
+# Define multiple cov matrices using covsys options:
 #  [COVOPT-label]  [FITOPT-label,MUOPT-label,errSystScale]
 #   and no pad spaces allowed inside []
 COVOPTS:
@@ -442,6 +442,15 @@ COVOPTS:
 - '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 2, and covSys*= 1.2^2
 - '[ALL]    [,,1.4]              # scale ALL errSys by 1.4, covSys*= 1.4^2
 
+# Define extra covsys terms that can be evaluated without light curve fit or BBC,
+EXTRA_COVS:
+- tag1  wgt1   extra_mucov1.dat  # CID1, IDSURVEY1, CID2, IDSURVEY2, MU_COV  (can be diagonal only)
+- tag2  wgt2   extra_mucov2.dat  # idem ...
+# where tag1[2] are tag names, wgt1**2 and wgt2**2 are the weights used to
+# compute covsys, and the *.dat files contain the extra covsys matrix.
+# Example use case is to compute MU_COV based on vpec systematics, and avoid
+# burning CPU to re-fit all the data for each vpec systematic.
+
 MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
   CLAS_SNIRF:  1.0
   SCATTER_C11: 1.0
@@ -454,7 +463,7 @@ OUTDIR:  <name of output directory>
      -v VERSION   \\
      --sys_scale_file SYS_SCALE_FILE \\
 
-# specialized keys for CosmoMC
+# specialized (obsolete) keys for CosmoMC
 COSMOMC_TEMPLATES_PATH: <out path of ini files for Cosmomc>
   [allows legacy key COSMOMC_TEMPLATES:]
 

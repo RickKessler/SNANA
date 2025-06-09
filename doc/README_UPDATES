@@ -22993,6 +22993,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        has 5000 rows, the snana process only 1 event (CID=23), and not all 5000.
        This update is intended to help debugging.
 
+    SALT2mu/BBC:
+        fix some chi2max issues; see https://github.com/RickKessler/SNANA/issues/1520
+
          *****  USEFUL(v11_05u) *****
 
     RESTORE_DES5YR flag in sim and snana/snlc_fit:
@@ -23022,6 +23025,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + for CUTWIN(BIASCORONLY) SIM_XXX <min> <max>, skip reading real data to
         avoid abort. Initial use is for SIM_ZFLAG<4.
       + for cutwin_only, append IDSAMPLE column to output table
+
 
     plot_table.py
       + DIFF_ALL option includes error bars

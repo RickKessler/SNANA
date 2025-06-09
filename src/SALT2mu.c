@@ -1676,7 +1676,7 @@ void  set_fitPar(int ipar, double val, double step,
 void  init_CUTMASK(void);
 void  set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR );
 void  setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
-
+int   unsetbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
 
 void  countData_per_zbin(void) ;
 int   prescale_reject_simData(int SIM_TEMPLATE_INDEX);
@@ -3047,6 +3047,9 @@ void applyCut_chi2max(void) {
   //
   // Oct 28 2022: fix to work for any INPUTS.H0 by adjusting INPUTS.M0 accordingly
   //
+  // Jun 08 2025; if CUTWIN NONE is specified, skip this cut;
+  //              avoids need to set chi2max=1e9 for systematics
+
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;
   int  IFLAG_APPLY    = DOFLAG_SELECT_APPLY ;
@@ -3071,10 +3074,11 @@ void applyCut_chi2max(void) {
 
   // ----------- BEGIN ------------
 
-  if ( iflag_chi2max == 0 ) { return; }
-  if ( NCALL_SALT2mu_DRIVER_EXEC > 1 ) { return; }
+  if ( iflag_chi2max == 0 )             { return; }  // skip if chi2max ~ 1e9
+  if ( NCALL_SALT2mu_DRIVER_EXEC > 1 )  { return; }  // skip on 2nd fit (e.g., do over for crazy M0)
+  if ( INPUTS.SELECT_CUTWIN.L_DISABLE)  { return; }  // Jun 2025: CUTWIN NONE
 
-  printf("\n   Begin %s\n", fnam); fflush(stdout);
+  fprintf(FP_STDOUT, "\n Begin %s\n", fnam); fflush(FP_STDOUT);
 
   // call same chi2-function used for minimization
   strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
@@ -3104,8 +3108,8 @@ void applyCut_chi2max(void) {
     
     muoff        = sum_mures / sum_wgt;
     INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
-    printf("\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
-    fflush(stdout);
+    fprintf(FP_STDOUT, "\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
+    fflush(FP_STDOUT);
 
     exec_mnparm(); 
     mncomd_(fcn, mcom, &icondn, &null, len); 
@@ -3155,16 +3159,23 @@ void applyCut_chi2max(void) {
     
   } // end n loop over SN
 
+  fprintf(FP_STDOUT, "\t chi2max cut rejects %d events \n", NREJ);
 
-  if ( NREJ > 0 ) { 
-    printf("\t chi2max cut rejects %d events \n", NREJ);
-    printf("\n Setup z-bins again after chi2max cut: \n");
-    fflush(stdout);
+  if ( INPUTS.cutwin_only ) {
+    int n_unset = 0;
+    for ( n=0; n < NSN_DATA; n++ ) 
+      { n_unset += unsetbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR ) ; }
+    fprintf(FP_STDOUT,"\t For cutwin_only: restore %d events that failed valid BiasCor", n_unset);
+  }
+
+
+  if ( NREJ > 0 && !INPUTS.cutwin_only) { 
+    fprintf(FP_STDOUT, "\n Setup z-bins again after chi2max cut: \n");
     setup_zbins_fit(); 
   }  
-
-  fflush(FP_STDOUT);
  
+  fprintf(FP_STDOUT, " Finished %s\n", fnam); fflush(FP_STDOUT);
+  fflush(FP_STDOUT);
   return ;
 
 } // end applyCut_chi2max
@@ -4275,7 +4286,9 @@ void *MNCHI2FUN(void *thread) {
     if ( USE_CCPRIOR ) { 
       PTOTRAW_Ia  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
       if ( PTOTRAW_Ia < -1.0E-09 || PTOTRAW_Ia > 1.0000001 ) {
-	sprintf(c1err,"Invalid PIa = %f for CID=%s", PTOTRAW_Ia, name);
+	int idsurvey   = INFO_DATA.TABLEVAR.IDSURVEY[n]; 
+	char *survey   = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
+	sprintf(c1err,"Invalid PIa = %f for CID=%s (%s)", PTOTRAW_Ia, name, survey);
 	sprintf(c2err,"Consider option:  SALT2mu.exe | grep  idsurvey_list_probcc0 ");
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
       }
@@ -11956,7 +11969,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // -------------------------
   // print errBias info in z bins
 
-  int LPRINT = 1 ;
+  int LPRINT = !INPUTS.cutwin_only ;
 
   if ( LPRINT ) {
 
@@ -16800,6 +16813,19 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 } // end setbit_CUTMASK 
 
 
+int unsetbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
+  // Created Jun 2025
+  // disable bitnum if it is set in TABLEVAR->CUTMASK[isn].
+  // Function returns 1 if bit was already set
+  int is_set = 0;
+  int CUTMASK = TABLEVAR->CUTMASK[isn] ;
+  bool BITSET = (CUTMASK & CUTMASK_LIST[bitnum]) >0  ;
+  if ( BITSET ) { CUTMASK -= CUTMASK_LIST[bitnum] ; is_set=1; }
+  TABLEVAR->CUTMASK[isn] = CUTMASK;
+  return is_set ;
+
+} // end unsetbit_CUTMASK
+
 // ===========================================
 int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN) {
 
@@ -17130,7 +17156,7 @@ void override_parFile(int argc, char **argv) {
       bool IS_NONE = ( strcmp(argv[i+1],"NONE")==0 ) ;
       // glue together 4 contiguous words into one string
       if ( IS_NONE ) {
-	sprintf(tmpLine,"%s %s", argv[i],argv[i+1] ) ;
+	sprintf(tmpLine,"%s %s", argv[i],argv[i+1] ) ; // do not apply CUTWIN
 	i += 1;
       }
       else {
@@ -18136,6 +18162,15 @@ void parse_chi2max(char *item) {
   sprintf(string,"%s", item);
   extractStringOpt(string, stringOpt); // return stringOpt
   sscanf( &string[lenkey], "%le", &chi2max );
+
+
+  if ( chi2max > 1.0e8 ) {
+    // Jun 8 2025: as if chi2max were never defined
+    INPUTS.iflag_chi2max=0 ; 
+    printf("\t %s: disable chi2max cut from command line.", fnam);
+    fflush(stdout);
+    return; 
+  }  
 
   if ( LDMP ) {
     printf(" xxx %s: item=%s string=%s opt='%s'   chi2max=%.1f \n",
@@ -19548,22 +19583,32 @@ void prep_input_driver(void) {
   if ( INPUTS.cat_only ) 
     { prep_input_varname_missing(); return; }
 
-  if ( INPUTS.cutwin_only ) {
-    if ( INPUTS.nfile_biasCor > 0 ) {
-      INPUTS.nfile_biasCor         = 0 ;
-      INPUTS.simFile_biasCor[0][0] = 0 ;
-      INPUTS.opt_biasCor           = 0 ;
-    }
-    if ( INPUTS.nfile_CCprior > 0 ){
-      INPUTS.nfile_CCprior = 0 ;
-      INPUTS.simFile_CCprior[0][0] = 0 ;
-    }
 
+  // for cutwin_only, disable bcor and ccprior unless chi2max cut is set
+  if ( INPUTS.cutwin_only ) {
     INPUTS.fixpar_all = 1;
-    INFO_CCPRIOR.USE = INFO_CCPRIOR.USEH11 = 0;
-    varname_pIa[0] = 0;
-  } // end cutwin_only
-  
+    INPUTS.ndump_nobiasCor = 0;
+
+    if ( INPUTS.iflag_chi2max == 0 ) {
+      // if no chi2max cut, disable bcor and ccprior
+      if ( INPUTS.nfile_biasCor > 0 ) {
+	INPUTS.nfile_biasCor         = 0 ;
+	INPUTS.simFile_biasCor[0][0] = 0 ;
+	INPUTS.opt_biasCor           = 0 ;
+      }
+      if ( INPUTS.nfile_CCprior > 0 ) {
+	INPUTS.nfile_CCprior = 0 ;
+	INPUTS.simFile_CCprior[0][0] = 0 ;
+      }
+      
+      INFO_CCPRIOR.USE = INFO_CCPRIOR.USEH11 = 0;
+      varname_pIa[0]   = 0;
+    } // end cutwin_only
+    else {
+      //INPUTS.opt_biasCor |= MASK_BIASCOR_noCUT; // do not make biascor cut
+    }
+  }
+
   // July 2023: check for alternate LC fit model(s)
   if ( strcmp(INPUTS.model_lcfit,"SALT2") == 0 ) {
     INPUTS.ISMODEL_LCFIT_SALT2  = true ;
@@ -21720,9 +21765,9 @@ void write_fitres_driver(char* fileName) {
     fprintf(FP_STDOUT, " Wrote %d events to cat table.\n", NWR); 
   }
   else if ( cutwin_only ) {
-    double fcut = 100.*(double)FITRESULT.NSNFIT / (double)NSN_DATA ;
+    double fcut = 100.*(double)NWR / (double)NSN_DATA ;
     fprintf(FP_STDOUT, " Wrote %d events passing cutwin_only (%.1f%% of %d input events). \n",
-	    NWR, FITRESULT.NSNFIT , fcut, NSN_DATA );
+	    NWR, fcut, NSN_DATA );
   }
   else {
     // nominal with BBC fit
@@ -23441,11 +23486,11 @@ void print_SALT2mu_HELP(void) {
     "",
     "type_list_probcc0=1,2,11   # e.g., force pIa=1 for types 1,2,11",
     "                           # (integer TYPE values in data header)",
-    "idsurvey_list_probcc0=5,50,51,53  # force pIa=1 for these IDs in SURVEY.DEF",
+    "idsurvey_list_probcc0=5,50,51,53  # force pIa=1 for these IDSURVEYs in $SNDATA_ROOT/SURVEY.DEF",
     "   or ",
     "idsurvey_list_probcc0=CSP,JRK07,KAIT,CFA3  # list by SURVEY names",
     "   or ",
-    "idsurvey_list_probcc0=CSP,JRK07,51,53      # mix SURVEY names and IDs",
+    "idsurvey_list_probcc0=CSP,JRK07,51,53      # mix SURVEY names and IDSURVEYs ",
     "",
     "    Note: 'grep Force <stdout>'  to verify forcing pIa=1 ",
     "",

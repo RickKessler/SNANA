@@ -186,6 +186,8 @@
  May 13 2025: if new  N_NONZERO_OFFDIAG == 0 (stat only), skip off-diag chi2 calculation for COVSYS
               or COVTOT_INV ... previously COVTOT_INV was doing full off-diag calc in chi2.
 
+ Jun 07 2025: add -unblind flag to unblind real data
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -264,6 +266,7 @@ struct INPUTS {
 
   // misc flags
   int fitsflag ;
+  bool unblind ;   // user flag to unblind real data
   bool blind;      // blind cosmology results by adding sin(big number) 
   bool blind_auto; // automatically blind data and unblind sim
   int  blind_seed; // used to pick large random number for sin arg
@@ -740,6 +743,7 @@ void init_stuff(void) {
   INPUTS.USE_HDIBC = false;
   INPUTS.NHD       = 0 ;
 
+  INPUTS.unblind = 0;
   INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
   INPUTS.blind_seed = 48901 ;
 
@@ -1068,6 +1072,9 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"zmax")==0) { 
 	INPUTS.zmax = atof(argv[++iarg]); 	
 
+      }
+      else if (strcasecmp(argv[iarg]+1,"unblind")==0) { 
+	INPUTS.unblind = true ;  // for real data only
       }
       else if (strcasecmp(argv[iarg]+1,"blind")==0) { 
 	INPUTS.blind = true ;
@@ -1748,7 +1755,7 @@ bool read_ISDATA_REAL(char *inFile) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  
+ 
   char c_get[200];
   while( (fscanf(fp, "%s", c_get)) != EOF) {
     if ( strcmp(c_get,"VARNAMES:") == 0 ) 
@@ -1768,13 +1775,19 @@ bool read_ISDATA_REAL(char *inFile) {
   if ( FOUND_KEY_ISDATA ) {
     // adjust blind flag based on real or sim data
     char ctype[40];
-    if ( ISDATA_REAL ) 
-      { INPUTS.blind = true; sprintf(ctype,"blind REAL"); }
-    else
-      { INPUTS.blind = false; sprintf(ctype,"unblind SIM"); }
+    if ( ISDATA_REAL ) {
+      if ( INPUTS.unblind ) 
+	{ INPUTS.blind = false; sprintf(ctype,"unblind REAL"); }
+      else
+	{ INPUTS.blind = true; sprintf(ctype,"blind REAL"); }
+    }
+    else { 
+      INPUTS.blind = false; sprintf(ctype,"unblind SIM"); 
+    }
     
     printf("\t Found ISDATA_REAL = %d --> %s data\n", 
 	   ISDATA_REAL, ctype);
+
   }
   else {
     sprintf(c1err,"Could not find required ISDATA_REAL in HD file.") ;

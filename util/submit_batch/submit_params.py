@@ -505,7 +505,7 @@ HELP_CONFIG_COSMOFIT = f"""
 
 # Default blind flag is set for data, but not for sim.
 # These defaults can be changed with
-  BLIND_DATA: False   # no blinding -> show results
+  BLIND_DATA: False   # no blinding -> show results (check with your collaborators first!!!)
   BLIND_SIM:  True    # blind the sim results
 # The -blind flag cannot be included in WFITOPT above,
 # otherwise submit_batch will abort.

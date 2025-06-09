@@ -1476,7 +1476,7 @@ class BBC(Program):
         bbc_code    = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
         tag_script  = util.get_program_name("tag_missing_events.py", snana_dir)
 
-        tmp_logfile_bbc = 'TMP_' + prefix + '.LOG'
+        tmp_logfile_bbc = f'{script_dir}/PREP_{prefix}_{v_dir}.LOG'
         tmp_outfile_tag = 'TMP_' + BBC_REJECT_MONITOR_FILE 
 
         # - - - - -
@@ -1515,13 +1515,14 @@ class BBC(Program):
                 elif n_try > 1:
                     time.sleep(3.0)
 
-            data_file0       = data_file_list[0]
+            data_file0 = data_file_list[0]
             cmd_bbc    = f"{bbc_code} {script_dir}/{input_file_bbc} " \
                          f"datafile={data_file0} " \
                          f"cutwin_only prefix={prefix}  " \
                          f">& {tmp_logfile_bbc}   "
-            cmd_rm     = f"rm {tmp_logfile_bbc} "   
-            cmd_full   = f"{cmd_cd} ; {cmd_bbc} ; {cmd_rm}"
+
+            cmd_full   = f"{cmd_cd} ; {cmd_bbc} "
+            logging.info(f"\t run bbc with cuts only: {cmd_bbc}")
             os.system(cmd_full)
 
         # get fitres file list using search pattern
@@ -3003,9 +3004,10 @@ class BBC(Program):
                 ncut_list.append(ncut)
                 frac_list.append(frac)
                 
-            sample_plus_colon = sample + ':'
+            np=20  # number of chars to print for sample string; truncate string+colon to this len
+            sample_plus_colon = sample[0:np-1] + ':' 
             ncut_string = ' '.join( [ f"{n:7d} ({f:.3f})" for n,f in zip(ncut_list,frac_list) ] )
-            f.write(f"    {sample_plus_colon:<20}  {ncut_string}   # loss (fracLoss)  | {version}\n")
+            f.write(f"    {sample_plus_colon:<{np}}  {ncut_string}   # loss (fracLoss)  | {version}\n")
         # .xyz
 
         # - - - - -
@@ -3094,8 +3096,10 @@ class BBC(Program):
                                               NEVT_DATA_bySAMPLE,
                                               NEVT_BIASCOR_bySAMPLE,
                                               NEVT_CCPRIOR_bySAMPLE) :
-                key = f"{sample}:"                
-                f.write(f"{pad}      {key:<20} {ndata:>5s}  {nbias:>7s}  {ncc:>4s}  # {comment_grep}\n")
+
+                np = 20
+                key = f"{sample[0:np-1]}:"                
+                f.write(f"{pad}      {key:<{np}} {ndata:>5s}  {nbias:>7s}  {ncc:>4s}  # {comment_grep}\n")
                 f.flush()
 
             nrej = NEVT_REJECT_BIASCOR

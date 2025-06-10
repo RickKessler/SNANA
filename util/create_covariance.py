@@ -1449,10 +1449,17 @@ def write_standard_output(config, args, covsys_list, base,
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
     
+    non_zero_dict = {}
+    n_warn_zero = 0
+
     for i, (label, covsys) in enumerate(covsys_list):
 
         logging.info(f"# - - - - - - - - - - - - - - - - - - - -")
         
+        non_zero_count       = np.count_nonzero(covsys)
+        non_zero_dict[label] = non_zero_count
+        if non_zero_count == 0: n_warn_zero += 1
+
         if config['write_covsys']:
             base_file   = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
             cov_file    = outdir / base_file
@@ -1485,7 +1492,7 @@ def write_standard_output(config, args, covsys_list, base,
             args.t_invert_sum += t_invert            
         
         if config['write_covtot']:
-            base_file   = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
+            base_file  = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
             cov_file   = outdir / base_file
             covtot     = covsys + np.diag(base[VARNAME_MUERR]**2) # cov
 
@@ -1498,6 +1505,16 @@ def write_standard_output(config, args, covsys_list, base,
             # resource control/monitor
             del covtot
             gc.collect() 
+
+
+    # - - - - - -
+    # print warnings for covsys that have all zeros
+    if n_warn_zero > 0:
+        logging.info('')
+        for label, non_zero in non_zero_dict.items():
+            if non_zero == 0:
+                logging.info(f"\t *** WARNING: all covsys({label}) elements are 0 ***")
+        logging.info('')
 
     return
     # end write_standard_output
@@ -2242,7 +2259,6 @@ def remove_nans(data):
 
 def create_covariance(config, args):
     # Define all our pathing to be super obvious about where it all is
-
 
     version         = config["VERSION"]
     input_dir       = Path(config["INPUT_DIR"])

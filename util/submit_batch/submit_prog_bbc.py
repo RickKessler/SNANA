@@ -3116,8 +3116,10 @@ class BBC(Program):
                 ndata_tot_f = float(ndata) + float(bcor_loss) 
                 bcor_loss_f = float(bcor_loss)
                 frac        = bcor_loss_f / (ndata_tot_f + 1.0E-9)
-                key   = f"{sample}:"
-                f.write(f"{pad}      {key:<20} {bcor_loss:>5s}  ({frac:.3f})    " \
+
+                np=20
+                key   = f"{sample[0:np-1]}:"
+                f.write(f"{pad}      {key:<{np}} {bcor_loss:>5s}  ({frac:.3f})    " \
                         f"# loss (fracLoss)  |  {comment_grep}\n")                
             f.flush()
 

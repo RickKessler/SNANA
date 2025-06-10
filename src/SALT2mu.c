@@ -3049,6 +3049,7 @@ void applyCut_chi2max(void) {
   //
   // Jun 08 2025; if CUTWIN NONE is specified, skip this cut;
   //              avoids need to set chi2max=1e9 for systematics
+  //              For cutwin_only, restore events cut by valid bcor requirement.
 
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;

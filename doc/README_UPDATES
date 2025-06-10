@@ -22996,6 +22996,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu/BBC:
         fix some chi2max issues; see https://github.com/RickKessler/SNANA/issues/1520
 
+     create_covariance.py:
+       + fix refactor bug that ignored EXTRA_COVS (vpec syst) [CID_IDSURVEY != CID_IDSURVEY_FIELD]
+       + add --restore_des5yr flag to restore missing EXTRA_COV bug (different than current bug)
+
+
          *****  USEFUL(v11_05u) *****
 
     RESTORE_DES5YR flag in sim and snana/snlc_fit:

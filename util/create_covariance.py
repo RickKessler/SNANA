@@ -170,11 +170,14 @@
 #
 # Apr 17 2025: read VERSION_PHOTOMETRY keys from BBC FITRES file and write them to INFO.YAML
 # Jun 03 2025: fix rebin to work if MUERR_RENORM isn't defied (e.g., spec-only sample)
+# Jun 10 2025:
+#   + refactor parsing of extra_covs and fix bug comparing CID_IDSURVEY to CID_IDSURVEY_FIELD
+#   + new --restore_des5yr command line option, or "RESTORE_DES5YR: True" in config input file
 #
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
-import re, yaml, sys, gzip, math, gc
+import re, yaml, sys, gzip, math, gc, csv
 import numpy  as np
 import pandas as pd
 from   pathlib import Path
@@ -210,7 +213,6 @@ WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
 WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
-# xxx mark WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
 
 
 WRITE_FORMAT_COV_TEXT = "text"
@@ -357,19 +359,17 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
+    msg = "Restore DES-SN5YR bug that ignored VPEC systematic under EXTRA_COVs"
+    parser.add_argument("--restore_des5yr", help=msg, action="store_true")
+
     mmm = f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT}"
     msg = f"Define which COV(s) to write: +={mmm} -> covsys/covtot_inv/covtot ; " \
           f"{WRITE_MASK_COV_DEFAULT}=default;  7 -> write all 3 covs "
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
-    # xxxx mark delete
-    #msg = f"output cov format: default = {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}"
-    #parser.add_argument("--write_format_cov", help=msg,
-    #                    nargs='?', type=str, default=WRITE_FORMAT_COV_TEXT )
-    # xxxxx
-
-    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ} (default: {WRITE_FORMAT_COV_DEFAULT})"
+    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ} " \
+          f"(default: {WRITE_FORMAT_COV_DEFAULT})"
     parser.add_argument("--write_format_cov", help=msg,
                         nargs='?', type=str, default=WRITE_FORMAT_COV_DEFAULT )
 
@@ -730,6 +730,7 @@ def get_common_set_of_sne(datadict):
 
         n_sn = combined.shape[0]
         n_file += 1
+        logging.info(f"# - - - - - -  - - - - - - - - - - - - - - - - - - - - - ")
         logging.info(f"Common set from {label} has {n_sn} elements")
         logging.info(f"\n{missing}")
         assert combined.shape[0], "\t No common SNe ?!?!?"
@@ -1021,29 +1022,86 @@ def get_cov_from_diff(df1, df2, scale):
 
 def get_covsys_from_covfile(data, covfile, scale):
 
-    # ??DJB??
-    covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
-    covindf['CID1'] = covindf['CID1'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
-    covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
-    covout    = np.zeros((len(data),len(data)))
-    mudifout  = np.zeros( len(data) )    # RK Jan 2025
-                         
-    for i,row in covindf.iterrows():
-        if len(np.argwhere(data['CIDstr'].array == row['CID1'])) == 0:
-            print(row['CID1'],'1 missing from output/cosmomc/data_wCID.txt')
+    # Read and return extra covs (e.g., for VPEC)
+    # Jun 2025: major refact to fix broken code
+
+    logging.info(f"Read extra cov from {covfile}")
+
+    # convert data CID_IDSURVEY_FIELD back to CID_IDSURVEY because 
+    # there is no FIELD info extra_cov file.
+    cid_data_list = data['CIDstr'].array 
+    cid_data_list = [ '_'.join(c.split('_')[0:2]) for c in cid_data_list]
+    n_data        = len(cid_data_list)
+
+    if args.restore_des5yr:
+        logging.info(f"")
+        logging.info(f"     *** RESTORE_DES5YR: ignore EXTRA_COVS (vpec syst) ****")
+        logging.info(f"")
+
+    #  check delimeter in cov sys file (comma or blank spaces)
+    with open(covfile, 'r') as c:
+        lines = c.readlines()
+        for line in lines:
+            if line[0] == '#' : continue
+            if ',' in line:
+                covsep = ','    # allow reading older style with commas
+            else:
+                covsep = '\s+'  # spaces are default delimeter as of 6/2025
+
+
+    df_cov = pd.read_csv(covfile, float_precision='high', low_memory=False, 
+                         comment='#', delim_whitespace=False, sep=covsep )
+
+    nrow_cov = len(df_cov)
+    df_cov['CID1'] = df_cov['CID1'].astype(str) + "_" + df_cov['IDSURVEY1'].astype(str)
+    df_cov['CID2'] = df_cov['CID2'].astype(str) + "_" + df_cov['IDSURVEY2'].astype(str)
+    covout    = np.zeros( (n_data, n_data) )
+    mudifout  = np.zeros(n_data)
+
+    mask1 = df_cov['CID1'].isin(cid_data_list)
+    mask2 = df_cov['CID2'].isin(cid_data_list)
+    df_cov_select = df_cov[mask1 & mask2]
+    nrow_cov_sel  = len(df_cov_select)
+    logging.info(f"\t Require valid CID and reduce nrow(cov) = {nrow_cov} -> {nrow_cov_sel} ")
+    
+    n_missing = 0
+    n_use     = 0
+    n_tot     = 0
+    for i,row in df_cov_select.iterrows():
+
+        n_tot += 1
+        if n_tot % 10000 == 0 : logging.info(f"\t processing cov row {n_tot} ")
+
+        if args.restore_des5yr:
+            n_missing += 1
             continue
-        if len(np.argwhere(data['CIDstr'].array == row['CID2'])) == 0:
-            print(row['CID2'],'2 missing from output/cosmomc/data_wCID.txt')
-            continue
-        ww1 = np.argwhere(data['CIDstr'].array == row['CID1'])[0][0]
-        ww2 = np.argwhere(data['CIDstr'].array == row['CID2'])[0][0]
-        #if ww1 == ww2:
-        #    print('skipping, not doing same SN diagonals')
-        #    continue
-        covout[ww1,ww2] = row['MU_COV']
-        mudifout = ww1  # RK total guess ... needs to be debugged .xyz  ??DJB??
+
+        CID1 = row['CID1']
+        CID2 = row['CID2']
+        j1 = -9;  j2 = -9
+        if CID1 in cid_data_list: 
+            j1 = cid_data_list.index(CID1)
+        else:
+            n_missing += 1 ; continue
+
+        if CID2 in cid_data_list: 
+            j2 = cid_data_list.index(CID2)
+        else:
+            n_missing += 1 ; continue          
+
+        n_use += 1    
+        mu_cov        = row['MU_COV']
+        covout[j1,j2] = mu_cov
+
+        if j1 == j2 :
+            mudifout[j1]  = np.sqrt(mu_cov)
         
+    logging.info(f"\t {n_tot} extra COV rows processed.")
+    logging.info(f"\t {n_use} extra COV rows stored .")
+    logging.info(f"\t {n_missing} extra COV rows skipped that didn't match valid CID")
+
     return covout, mudifout, (0, 0, 0)
+    # end get_covsys_from_covfile
 
 def get_contributions(m0difs, fitopt_scales, muopt_labels, 
                       muopt_scales, extracovdict):
@@ -1073,8 +1131,9 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         if f == f_REF and m == m_REF :
             # This is the base file, so don't return anything.
             # CosmoMC will add the diag terms itself.
-            cov   = np.zeros((df[VARNAME_MU].size, df[VARNAME_MU].size))
-            mudif = np.zeros(df[VARNAME_MU].size)
+            size = df[VARNAME_MU].size
+            cov   = np.zeros((size, size))
+            mudif = np.zeros(size)
             summary = 0, 0, 0
         elif m != m_REF :
             # This is a muopt, to compare it against the MUOPT000 for the same FITOPT
@@ -1091,9 +1150,10 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         result_mudif[f"{fitopt_label}|{muopt_label}"] = mudif
         slopes.append([name, fitopt_label, muopt_label, *summary])
 
-    #now loop over extracov_labels
-    # need comment from ??DJB??
-    for key,value in extracovdict.items():
+    # loop over extracov_labels
+    for key, value in extracovdict.items():
+        logging.info("# - - - - - - - - - - - - - - - - ")
+        logging.info(f"Get extra cov for {key}")
         cov_file = os.path.expandvars(value)
         scale    = muopt_scales[key]
         cov, mudif, summary = get_covsys_from_covfile(df, cov_file, scale)
@@ -1425,7 +1485,6 @@ def write_standard_output(config, args, covsys_list, base,
             args.t_invert_sum += t_invert            
         
         if config['write_covtot']:
-            # xxx mark base_file  = get_covtot_filename(i, args.write_format_cov)
             base_file   = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
             cov_file   = outdir / base_file
             covtot     = covsys + np.diag(base[VARNAME_MUERR]**2) # cov
@@ -1994,8 +2053,6 @@ def write_summary_output(args, config, covsys_list, base):
 
         f.write(f"\n")
         yaml.safe_dump(info2, f )
-
-        # xxx mark f.write(f"\nSIZE_HD: {SIZE_HD}\n\n")  # Nov 2024
         
     # - - - - - - - - - - - - - 
     # append cospar_biascor so that it's at the end, rather than 
@@ -2034,7 +2091,6 @@ def get_version_photomety(BBC_DIR):
 
         if 'SNANA_VERSION' in line: break
 
-    # .xyz
     return version_phot_dict
 
 def get_cospar_sim(hd_header_info):
@@ -2191,11 +2247,9 @@ def create_covariance(config, args):
     version         = config["VERSION"]
     input_dir       = Path(config["INPUT_DIR"])
     data_dir        = config['data_dir']
-    #xxx mark data_dir        = input_dir / version
 
-    extra_covs      = config.get("EXTRA_COVS",[])
     use_cosmomc     = config['use_cosmomc']
-
+    extra_covs      = config.get("EXTRA_COVS",[])
 
     # Read in all the needed data
     submit_info   = read_yaml(input_dir / "SUBMIT.INFO")
@@ -2282,8 +2336,6 @@ def create_covariance(config, args):
     else:
         label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
 
-    # xxx mark delete args.tstart_write = time.time()
-
     logging.info("")
     logging.info("# ================  OUTPUT ================= ")
 
@@ -2297,8 +2349,6 @@ def create_covariance(config, args):
         write_cosmomc_output(config, args, covsys_list, base)
 
     write_summary_output(args, config, covsys_list, base)
-
-    # xxx mark del args.tend_write = time.time()
 
     args.tend_all = time.time()
 
@@ -2359,6 +2409,9 @@ def prep_config(config,args):
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
 
+    if 'RESTORE_DES5YR' in config:
+        args.restore_des5yr = config['RESTORE_DES5YR']
+        
     # - - -  - -    
 
     key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
@@ -2380,8 +2433,11 @@ def prep_config(config,args):
 
     # check special/legacy features for cosmoMC/JLA
     config['use_cosmomc'] = False
-    if 'COSMOMC_TEMPLATES_PATH' in config: 
-        config['use_cosmomc'] = True
+
+    # xxxxxx mark delete Jun 10 2025
+    #if 'COSMOMC_TEMPLATES_PATH' in config: 
+    #    config['use_cosmomc'] = True
+    # xxxxxxxxxx
 
     # WARNING: later add option to read from input file
     config['nbin_x1']  = args.nbin_x1
@@ -2403,7 +2459,6 @@ def loginfo_cpu_summary(args):
         cpu_minutes = args.t_invert_sum / 60.0
         logging.info(f"CPUTIME_COV_INVERT   = {cpu_minutes:.3f} minutes")
     
-    # xxx mark cpu_minutes = (args.tend_write - args.tstart_write)/60.0
     cpu_minutes = args.t_write_sum / 60.0
     logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")
 

@@ -1023,7 +1023,7 @@ def get_cov_from_diff(df1, df2, scale):
 def get_covsys_from_covfile(data, covfile, scale):
 
     # Read and return extra covs (e.g., for VPEC)
-    # Jun 2025: major refact to fix broken code
+    # Jun 2025: major refact to fix broken code; read gzip or unzip
 
     logging.info(f"Read extra cov from {covfile}")
 
@@ -1039,18 +1039,27 @@ def get_covsys_from_covfile(data, covfile, scale):
         logging.info(f"")
 
     #  check delimeter in cov sys file (comma or blank spaces)
-    with open(covfile, 'r') as c:
-        lines = c.readlines()
-        for line in lines:
-            if line[0] == '#' : continue
-            if ',' in line:
-                covsep = ','    # allow reading older style with commas
-            else:
-                covsep = '\s+'  # spaces are default delimeter as of 6/2025
+    if '.gz' in covfile:
+        c = gzip.open(covfile, 'r') 
+        is_gzip = True
+    else:
+        c = open(covfile, 'r')         
+        is_gzip = False
 
+    lines = c.readlines()
+    for line in lines:
+        if is_gzip:  line  = line.decode('utf-8')
+        if line[0] == '#' : continue
+        if ',' in line:
+            covsep = ','    # allow reading older style with commas
+        else:
+            covsep = '\s+'  # spaces are default delimeter as of 6/2025
+
+        break
+    c.close()
 
     df_cov = pd.read_csv(covfile, float_precision='high', low_memory=False, 
-                         comment='#', delim_whitespace=False, sep=covsep )
+                         compression='infer', comment='#', delim_whitespace=False, sep=covsep )
 
     nrow_cov = len(df_cov)
     df_cov['CID1'] = df_cov['CID1'].astype(str) + "_" + df_cov['IDSURVEY1'].astype(str)
@@ -1067,6 +1076,8 @@ def get_covsys_from_covfile(data, covfile, scale):
     n_missing = 0
     n_use     = 0
     n_tot     = 0
+    covsum    = 0.0 
+
     for i,row in df_cov_select.iterrows():
 
         n_tot += 1
@@ -1092,13 +1103,18 @@ def get_covsys_from_covfile(data, covfile, scale):
         n_use += 1    
         mu_cov        = row['MU_COV']
         covout[j1,j2] = mu_cov
+        covsum       += mu_cov  # diagnostic for regression test
 
         if j1 == j2 :
             mudifout[j1]  = np.sqrt(mu_cov)
-        
+
+    # - - - - - -
+    (sgn, logcovdet)  = np.linalg.slogdet(covout)
+
     logging.info(f"\t {n_tot} extra COV rows processed.")
     logging.info(f"\t {n_use} extra COV rows stored .")
     logging.info(f"\t {n_missing} extra COV rows skipped that didn't match valid CID")
+    logging.info(f"\t Diagnostic covsum = {covsum:.5e}")
 
     return covout, mudifout, (0, 0, 0)
     # end get_covsys_from_covfile

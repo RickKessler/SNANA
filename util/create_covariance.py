@@ -359,8 +359,9 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
-    msg = "Restore DES-SN5YR bug that ignored VPEC systematic under EXTRA_COVs"
-    parser.add_argument("--restore_des5yr", help=msg, action="store_true")
+    # xxx ??
+    #msg = "Restore DES-SN5YR bug that ignored VPEC systematic under EXTRA_COVs"
+    #parser.add_argument("--restore_des5yr", help=msg, action="store_true")
 
     mmm = f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT}"
     msg = f"Define which COV(s) to write: +={mmm} -> covsys/covtot_inv/covtot ; " \
@@ -1033,11 +1034,6 @@ def get_covsys_from_covfile(data, covfile, scale):
     cid_data_list = [ '_'.join(c.split('_')[0:2]) for c in cid_data_list]
     n_data        = len(cid_data_list)
 
-    if args.restore_des5yr:
-        logging.info(f"")
-        logging.info(f"     *** RESTORE_DES5YR: ignore EXTRA_COVS (vpec syst) ****")
-        logging.info(f"")
-
     #  check delimeter in cov sys file (comma or blank spaces)
     if '.gz' in covfile:
         c = gzip.open(covfile, 'r') 
@@ -1082,10 +1078,6 @@ def get_covsys_from_covfile(data, covfile, scale):
 
         n_tot += 1
         if n_tot % 10000 == 0 : logging.info(f"\t processing cov row {n_tot} ")
-
-        if args.restore_des5yr:
-            n_missing += 1
-            continue
 
         CID1 = row['CID1']
         CID2 = row['CID2']
@@ -2441,8 +2433,9 @@ def prep_config(config,args):
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
 
-    if 'RESTORE_DES5YR' in config:
-        args.restore_des5yr = config['RESTORE_DES5YR']
+    # xxx ??? xxx
+    #if 'RESTORE_DES5YR' in config:
+    #    args.restore_des5yr = config['RESTORE_DES5YR']
         
     # - - -  - -    
 

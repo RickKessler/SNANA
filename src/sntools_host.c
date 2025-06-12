@@ -460,7 +460,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
 
   for (i=0; i<N_PROP; i++){
     BASENAME = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
-    get_PARSE_WORD(0,i,BASENAME);
+    get_PARSE_WORD(0,i,BASENAME, fnam);
     HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = 1.0; //default
   } 
 
@@ -994,7 +994,7 @@ void strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
   NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARLIST_WGTMAP, fnam);
 
   for(ivar=0; ivar < NWD; ivar++ ) {
-    get_PARSE_WORD(0, ivar, VARNAME);
+    get_PARSE_WORD(0, ivar, VARNAME, fnam );
     IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME); // Mar 2020
     if ( !IS_SNVAR ) {
       catVarList_with_comma(VARLIST_WGTMAP_noSNVAR, VARNAME);
@@ -1058,7 +1058,7 @@ void  init_OUTVAR_HOSTLIB(void) {
 
   for(ivar=0; ivar < NVAR_STOREPAR; ivar++ ) {
 
-    get_PARSE_WORD(0,ivar,varName); // return varName
+    get_PARSE_WORD(0,ivar,varName, fnam ); // return varName
 
     if ( LDMP ) {
       printf(" xxx %s: --------------------------- \n", fnam);
@@ -1381,7 +1381,7 @@ void parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string) {
 
   for ( ivar=0; ivar < NVAR_WGTMAP ; ivar++ ) {
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0,ivar,VARNAME) ;
+    get_PARSE_WORD(0,ivar,VARNAME, fnam ) ;
 
     checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
 
@@ -1483,7 +1483,7 @@ void prep_HOSTLIB_WGTMAP(void){
   for ( ivar=0; ivar < NDIM ; ivar++ ) {
     
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0, ivar, VARNAME);		  
+    get_PARSE_WORD(0, ivar, VARNAME, fnam );	  
 
     checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
 
@@ -1618,7 +1618,7 @@ int read_VARNAMES_WGTMAP_LEGACY(char *VARLIST_WGTMAP) {
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam);
      
       for(ivar=0; ivar < NWD; ivar++ ) {
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam );
 
 	if ( strcmp(VARNAME,"WGT") == 0 )
 	  { FOUNDVAR_WGT = true; continue; }
@@ -2183,7 +2183,7 @@ void read_specTable_EAZY(char *spec_list_file) {
   // - - - -
   while ( fgets(line, MXPATHLEN, fp_list) != NULL ) {
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line,fnam);
-    get_PARSE_WORD(0, ICOL_FILENAME, fileName_tmp);
+    get_PARSE_WORD(0, ICOL_FILENAME, fileName_tmp, fnam );
     basename = strrchr(fileName_tmp, '/'); // basename include slash
     printf("\t Read & store  EAZY template %s \n",
 	   &basename[1] ); fflush(stdout);
@@ -2648,7 +2648,7 @@ void read_head_HOSTLIB(FILE *fp) {
 
       // parse the VARNAMES from LINE string
       for ( ivar=0; ivar < NVAR; ivar++ ) {
-	get_PARSE_WORD(0,ivar,c_var);
+	get_PARSE_WORD(0,ivar,c_var, fnam);
 	sprintf( HOSTLIB.VARNAME_ORIG[ivar], "%s", c_var); // 9.16.2021
 
 	checkAlternateVarNames_HOSTLIB(c_var);
@@ -10044,7 +10044,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     LINE_APPEND[0] = 0 ;
 
     if ( NWD_LINE > 2 ) {
-      get_PARSE_WORD(0, 0, FIRSTWORD);
+      get_PARSE_WORD(0, 0, FIRSTWORD, fnam );
       if ( strcmp(FIRSTWORD,"VARNAMES:") == 0 ) 
 	{ sprintf(LINE_APPEND,"%s", VARNAMES); }
 
@@ -10062,7 +10062,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 		 fnam, igal_unsort, GALID); fflush(stdout);
 	}
 
-	get_PARSE_WORD(0, 1, NEXTWORD);    // read GALID
+	get_PARSE_WORD(0, 1, NEXTWORD, fnam);    // read GALID
 	sscanf(NEXTWORD, "%lld", &GALID_orig);
 	if ( GALID != GALID_orig ) {
 	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
@@ -10773,7 +10773,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   append_varname_list = (char**) malloc( NVAR_TOT* sizeof(char*) );
   int MEMC = MXCHAR_VARNAME * sizeof(char);
   for (ivar=0; ivar < NVAR_TOT; ivar++ ) {
-    get_PARSE_WORD(0, ivar, tmp_varName);
+    get_PARSE_WORD(0, ivar, tmp_varName, fnam);
     if ( IVAR_HOSTLIB(tmp_varName,0) > 0 ) { 
       printf("\t WARNING: remove duplicate varname '%s' from append list\n",
 	     tmp_varName); fflush(stdout) ;

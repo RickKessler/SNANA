@@ -12607,7 +12607,8 @@ c local args
 
 C ------------- BEGIN -----------
       iwd_C = iwd-1
-      CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C, LEN)
+      CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C, 
+     &        "get_PARSE_WORD_fortran"//char(0), LEN, 20)
       LEN  = INDEX(WORD_C, ' ' ) - 1
       WORD = WORD_C(1:LEN)
       RETURN

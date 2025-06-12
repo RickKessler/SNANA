@@ -270,7 +270,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
     NRD += NWD;
 
     // check first word in line
-    iwd=0;  get_PARSE_WORD(0, iwd,  wd0);
+    iwd=0;  get_PARSE_WORD(0, iwd,  wd0, fnam);
 
     // skip parsing DOCANA and obsolete comment lines
     IS_COMMENT = ( strcmp(wd0,"COMMENT:") == 0 );
@@ -282,8 +282,8 @@ void read_GLOBAL_HEADER_LCLIB(void) {
     for ( iwd=0; iwd < NWD; iwd++ ) {
 
       wd0[0] = wd1[0] = 0;
-      get_PARSE_WORD(0, iwd,  wd0);
-      if ( iwd < NWD-1 ) { get_PARSE_WORD(0, iwd+1, wd1); }
+      get_PARSE_WORD(0, iwd,  wd0, fnam);
+      if ( iwd < NWD-1 ) { get_PARSE_WORD(0, iwd+1, wd1, fnam); }
 
       if ( strcmp(wd0,"NEVENT:") == 0 ) { 
 	sscanf(wd1, "%d", &LCLIB_INFO.NEVENT ); iwd++ ;
@@ -322,13 +322,13 @@ void read_GLOBAL_HEADER_LCLIB(void) {
       // read redshift range to pass back to snlc_sim for initializing
       // HOSTLIB.
       if ( strcmp(wd0,"REDSHIFT_RANGE:") == 0 ) { 
-	get_PARSE_WORD(0, iwd+2, wd2);
+	get_PARSE_WORD(0, iwd+2, wd2, fnam);
 	sscanf(wd1, "%le", &LCLIB_INFO.REDSHIFT_RANGE[0] ); iwd++ ;
 	sscanf(wd2, "%le", &LCLIB_INFO.REDSHIFT_RANGE[1] ); iwd++ ;
       } 
 
       if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
-	get_PARSE_WORD(0, iwd+2, wd2);
+	get_PARSE_WORD(0, iwd+2, wd2, fnam);
 	
 	// check DEBUG mag ranges
 	if ( strcmp(wd0,"GENRANGE_RANMAG:") == 0 )  {  

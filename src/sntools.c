@@ -319,7 +319,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     MSKOPT  = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
     NCID    = store_PARSE_WORDS(MSKOPT,fileName, fnam);
     for(iwd = 0; iwd < NCID; iwd++ ) {
-      get_PARSE_WORD(langC, iwd, CCID);
+      get_PARSE_WORD(langC, iwd, CCID, fnam );
       match_cid_hash(CCID, ILIST, iwd);
     }
     return NCID ;
@@ -367,7 +367,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
       // loop over words on this line     
       for ( iwd = 0; iwd < NWD; iwd++ ) {
-	get_PARSE_WORD(langC, iwd, CCID);
+	get_PARSE_WORD(langC, iwd, CCID, fnam );
 	match_cid_hash(CCID, ILIST, NCID);
 	NCID++ ;
 
@@ -1888,7 +1888,7 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   // ------------ BEGIN --------------                                          
   NKEY = store_PARSE_WORDS(MSKOPT,KEY, fnam);
   for(ikey=0; ikey < NKEY; ikey++ ) {
-    get_PARSE_WORD(0, ikey, tmpKey);
+    get_PARSE_WORD(0, ikey, tmpKey, fnam );
     if ( IS_FILE ) {
       // read from file; key must have colon
       sprintf(KEY_PLUS_COLON, "%s%s", tmpKey, COLON);
@@ -2751,14 +2751,17 @@ void malloc_PARSE_WORDS(int NWD) {
 } // end malloc_PARSE_WORDS
 
 
-void get_PARSE_WORD(int langFlag, int iwd, char *word) {
+void get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun) {
 
   // Code-language flag:
   // langFlag=0 ==> called by C code  ==> do NOT leave pad space
   // langFlag=1 ==> called by fortran ==> leave pad space
+  //
+  // Jun 12 2025: long overdue addition of *callFun arg to use in abort message
 
   int NWD = PARSE_WORDS.NWD ;
-  char fnam[] = "get_PARSE_WORD" ;
+  char fnam[200] = "get_PARSE_WORD" ;
+  concat_callfun_plus_fnam(callFun, "get_PARSE_WORDS", fnam);
 
   // ----------- BEGIN ---------
 
@@ -2779,52 +2782,53 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
   else
     { strcat(word," "); }     // extra space for fortran
   
+  return ;
 } // end get_PARSE_WORD
 
-void get_PARSE_WORD_INT(int langFlag, int iwd, int *i_val) {
-  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+void get_PARSE_WORD_INT(int langFlag, int iwd, int *i_val, char *callFun) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word, callFun);
   sscanf(word, "%d", i_val);
 }
-void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val) {
-  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val, char *callFun) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word, callFun);
   sscanf(word, "%f", f_val);
 }
-void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val) {
+void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val, char *callFun) {
   // Created Dec 10 2021
   // return NFLT floats from store_PARSE_WORDS starting at iwd
   int i;
   for(i=0; i < NFLT; i++ ) { 
-    get_PARSE_WORD_FLT(langFlag, iwd+i, &f_val[i]);
+    get_PARSE_WORD_FLT(langFlag, iwd+i, &f_val[i], callFun);
   }
 }  // end get_PARSE_WORD_NFLT
 
-void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val) {
+void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val, char *callFun) {
   // Created Dec 10 2021
   // load NFILT words and store into f_val[ifilt_obs]
   int ifilt, ifilt_obs, NFILT = SNDATA_FILTER.NDEF;
   for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-    get_PARSE_WORD_FLT(langFlag, iwd+ifilt, &f_val[ifilt_obs] ); 
+    get_PARSE_WORD_FLT(langFlag, iwd+ifilt, &f_val[ifilt_obs], callFun ); 
   }
 
 } // end get_PARSE_WORD_NFILTDEF
 
-void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val) {
-  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val, char *callFun) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word, callFun );
   sscanf(word, "%le", d_val);
 }
 
-void get_parse_word__(int *langFlag, int *iwd, char *word) 
-{ get_PARSE_WORD(*langFlag, *iwd, word); }
+void get_parse_word__(int *langFlag, int *iwd, char *word, char *callFun) 
+{ get_PARSE_WORD(*langFlag, *iwd, word, callFun ); }
 
-void get_parse_word_int__(int *langFlag, int *iwd, int *i_val) 
-{ get_PARSE_WORD_INT(*langFlag, *iwd, i_val); }
+void get_parse_word_int__(int *langFlag, int *iwd, int *i_val, char *callFun) 
+{ get_PARSE_WORD_INT(*langFlag, *iwd, i_val, callFun); }
 
-void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val) 
-{ get_PARSE_WORD_FLT(*langFlag, *iwd, f_val); }
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val, char *callFun) 
+{ get_PARSE_WORD_FLT(*langFlag, *iwd, f_val, callFun); }
 
-void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val) 
-{ get_PARSE_WORD_DBL(*langFlag, *iwd, d_val); }
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val, char *callFun) 
+{ get_PARSE_WORD_DBL(*langFlag, *iwd, d_val, callFun); }
 
 
 // ******************************************
@@ -8991,7 +8995,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
       }
 		       
       for ( ivar=ivar_start; ivar < ivar_end; ivar++ ) {
-	get_PARSE_WORD(0, ivar, tmpName);
+	get_PARSE_WORD(0, ivar, tmpName, fnam );
 	IVAR_EXIST = ivar_matchList(tmpName, NVAR_STORE, VARNAMES );
 	if ( LDMP ) {
 	  printf(" xxx %s: ivar=%d(%s) EXIST=%d  \n",
@@ -9922,7 +9926,7 @@ int colnum_in_table(char *fileName, char *varName) {
       fgets(VARNAME_STRING, MXPATHLEN, fp);
       nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING, fnam);
       for(ivar=0; ivar < nvar; ivar++ ) {
-	get_PARSE_WORD(0, ivar, c_get);
+	get_PARSE_WORD(0, ivar, c_get, fnam );
 	if ( strcmp(varName,c_get) == 0 ) { colnum = ivar; }
       }
       break; 
@@ -9990,7 +9994,7 @@ void check_file_docana(int optmask, char *fileName) {
   NWD = store_PARSE_WORDS(MSKOPT, fileName, fnam );
 
   for(iwd=0; iwd < NWD; iwd++ ) {
-    get_PARSE_WORD(langFlag, iwd, key);
+    get_PARSE_WORD(langFlag, iwd, key, fnam);
     if ( strcmp(key,KEYNAME_DOCANA_REQUIRED)==0 ) 
       { FOUND_DOCANA = true; }
   }

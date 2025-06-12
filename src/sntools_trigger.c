@@ -1177,7 +1177,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = SEARCHEFF_SPEC[NMAP].VARNAMES[ivar] ;
 	VARLIST = SEARCHEFF_SPEC[NMAP].GRIDMAP.VARLIST ;
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam);
 	assign_SPECEFF(NMAP,ivar,VARNAME); 
 	if ( ivar == 0 ) 
 	  { sprintf(VARLIST,"%s", VARNAME ); }
@@ -1547,7 +1547,7 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
     varName_H = varName_HOSTLIB[ivar];
     ivar_H    = &ivar_HOSTLIB[ivar];
 
-    get_PARSE_WORD(0,ivar,varName_H);
+    get_PARSE_WORD(0,ivar,varName_H, fnam);
     checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
     *ivar_H  = IVAR_HOSTLIB(varName_H,0);
     

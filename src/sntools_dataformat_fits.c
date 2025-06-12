@@ -694,7 +694,7 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
   // -------------- BEGIN ------------
 
   for(i=0; i < N_PROP; i++ ) {
-    get_PARSE_WORD(0,i,PROPERTY);
+    get_PARSE_WORD(0,i,PROPERTY, fnam );
     sprintf(KEY,     "%s_%s",     PREFIX_HOSTGAL, PROPERTY);
     sprintf(KEY_ERR, "%s_%s_ERR", PREFIX_HOSTGAL, PROPERTY);
 

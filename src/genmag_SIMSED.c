@@ -858,7 +858,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       tmpName_index[0] = 0 ;
       tmpName_WGT[0] = 0;
       for(ipar=0; ipar < NPAR; ipar++ ) {
-	get_PARSE_WORD(0, ipar, tmpName);
+	get_PARSE_WORD(0, ipar, tmpName, fnam);
 	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
 	if ( IS_INDEX_SIMSED(tmpName) ) { 
 	  NPAR_INDEX++ ; 

@@ -222,7 +222,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
       FLUXERRMAP[NMAP].NVAR = NVAR ;
 
       for(ivar=0; ivar < NVAR; ivar++ ) { 
-	get_PARSE_WORD(0,ivar,TMP_STRING);
+	get_PARSE_WORD(0,ivar,TMP_STRING, fnam );
 	FLUXERRMAP[NMAP].IVARLIST[ivar] = IVARLIST_FLUXERRMAP(TMP_STRING);
 	sprintf(FLUXERRMAP[NMAP].VARNAMES[ivar],"%s", TMP_STRING);
 	if ( ivar>0 && ivar < NVAR-1) 

@@ -69,14 +69,14 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
     if ( NWD < 2 ) { continue ; }
 
     iwd = 0;
-    get_PARSE_WORD(0, iwd, WORD);
+    get_PARSE_WORD(0, iwd, WORD, fnam);
     for ( i = 0; i < 2; i++ ) {
       if ( strcmp(KEYLIST_VARNAMES[i], WORD) == 0) {
 
 	FOUND_VARNAMES = true;
 
         for ( iwd = 1; iwd < NWD; iwd++ ) {
-	  get_PARSE_WORD(0, iwd, WORD);
+	  get_PARSE_WORD(0, iwd, WORD, fnam );
 	  if ( strcmp(WORD, VARNAME_WGT_REQUIRED) == 0 ){
 	    NDIM = iwd - 1;
 	    NFUN = NWD - NDIM - 1; // subtract WGT and KEYWORD
@@ -180,7 +180,7 @@ int read_VARNAMES_WGTMAP(char *WGTMAP_FILE, char *VARLIST_WGTMAP) {
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam);
      
       for(ivar=0; ivar < NWD; ivar++ ) {
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam );
 
 	if ( strcmp(VARNAME,"WGT") == 0 )
 	  { FOUNDVAR_WGT = true; continue; }

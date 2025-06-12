@@ -1610,7 +1610,8 @@ int read_input_file(char *input_file, int keySource ) {
 
   printf("  Read %d words from user input file %d: \n\t %s \n", 
 	 NWD_FILE, INPUTS.NREAD_INPUT_FILE, input_file );
-    fflush(stdout);
+  fflush(stdout);
+
 
   // Dec 28 2021: try to fix issue on Cori where file isn't read properly
   if ( NWD_FILE==0 && NTRY <= 2 ) { 
@@ -1629,25 +1630,25 @@ int read_input_file(char *input_file, int keySource ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
+
   // - - - - - - - - 
   // copy input file contents to another [WORDLIST] buffer because
   // store_PARSE_WORDS may be used later to parse some of the input
   INPUTS.NWORDLIST = NWD_FILE ;
   INPUTS.WORDLIST  = (char**) malloc ( sizeof(char*) * NWD_FILE );
   for(iwd=0; iwd < NWD_FILE; iwd++ ) {    
-    get_PARSE_WORD(0,iwd,tmpWord);
+    printf(" xxx 2b  %s iwd=%d \n", fnam, iwd); fflush(stdout);
+    get_PARSE_WORD(0, iwd, tmpWord, fnam );
     LENWD = strlen(tmpWord) ;
     if ( LENWD < MXCHARWORD_PARSE_WORDS ) { LENWD = MXCHARWORD_PARSE_WORDS; }
     INPUTS.WORDLIST[iwd] = (char*) malloc ( sizeof(char) * (LENWD+10) );
     sprintf(INPUTS.WORDLIST[iwd], "%s", tmpWord );
   }
 
-
   for(iwd=0; iwd < NWD_FILE; iwd++ ) {
     NWD_READ = parse_input_key_driver(&INPUTS.WORDLIST[iwd], KEYSOURCE_FILE);
     iwd += NWD_READ ;
   }
-
 
   // Sep 2024: free temp INPUTS.WORDLIST
   for(iwd=0; iwd < NWD_FILE; iwd++ ) { free(INPUTS.WORDLIST[iwd]); }
@@ -1655,6 +1656,7 @@ int read_input_file(char *input_file, int keySource ) {
 
   // end program on dump flag
   if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
+
 
   return(SUCCESS) ;
 
@@ -6250,7 +6252,7 @@ void  parse_input_GENPOP_ASYMGAUSS(void) {
   WORDS = (char**) malloc( NWD_TOT * sizeof(char*) );
   for ( iwd=0; iwd < NWD_TOT; iwd++ ) {
     WORDS[iwd]    = (char*) malloc( 100*sizeof(char) ); 
-    get_PARSE_WORD(0, iwd, WORDS[iwd] );
+    get_PARSE_WORD(0, iwd, WORDS[iwd], fnam );
   }
 
   // - - - - - -

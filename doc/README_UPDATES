@@ -23061,7 +23061,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        SPECTROGRAPH key might not occur until after generating many events.
 
      + fix some cobwebs using SPECTROGRAPH keys in SIMLIB file.
-
+  
+     + get_PARSE_WORDS(... *callFun); finally add *callFun arg to help identify
+       internal abort. Add fnam arg to more than 100 calls ):
    
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must

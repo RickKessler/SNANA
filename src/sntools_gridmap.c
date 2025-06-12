@@ -122,7 +122,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
     if ( NROW_READ > 0  && NWD == 0 )  { READ_NEXTLINE=0; }
     if ( NWD == 0 ) { continue ; }
 
-    get_PARSE_WORD(0,0,word);  
+    get_PARSE_WORD(0,0,word, fnam);  
 
     ISKEY_ROW = 0 ;
     if ( strcmp(word,KEY_ROW) ==0 ) { ISKEY_ROW = 1; }
@@ -138,7 +138,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
       // allow comment string on same line as grid data
       EXTRA_WORD_OK = 1 ;
       if ( NWD-1 > NVARTOT ) {
-	get_PARSE_WORD(0,NVARTOT+1,word);
+	get_PARSE_WORD(0,NVARTOT+1,word, fnam);
 	EXTRA_WORD_OK = ( word[0] == '#' ) ;
       }
       //  printf(" xxx extra word = '%s'  OK=%d \n",word, EXTRA_WORD_OK);
@@ -155,7 +155,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
       }
 
       for(ivar=0; ivar < NVARTOT; ivar++ ) {
-	get_PARSE_WORD(0,1+ivar,word);
+	get_PARSE_WORD(0,1+ivar,word, fnam);
 	sscanf ( word, "%le", &TMPVAL[ivar] );
 	TMPMAP2D[ivar][NROW_READ] = TMPVAL[ivar];
 

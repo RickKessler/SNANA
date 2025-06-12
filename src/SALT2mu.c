@@ -21733,7 +21733,7 @@ void write_fitres_driver(char* fileName) {
       store_PARSE_WORDS(MSKOPT_PARSE_WORDS,line, fnam);
 
       // skip if first wd of line is not a valid row key
-      get_PARSE_WORD(0, IWD_KEY, KEY);
+      get_PARSE_WORD(0, IWD_KEY, KEY, fnam);
       VALID_ROWKEY = 
 	( strcmp(KEY,"SN:" )    == 0 ) ||
 	( strcmp(KEY,"ROW:")    == 0 ) ||
@@ -21747,7 +21747,7 @@ void write_fitres_driver(char* fileName) {
       }
       else {
 	// check cutmask for writing events
-	get_PARSE_WORD(0, IWD_CCID, CCID);
+	get_PARSE_WORD(0, IWD_CCID, CCID, fnam);
 	get_CCIDindx(CCID, &indx) ;      
 	cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx]; 
 	if ( !keep_cutmask(cutmask)  ) { continue; }
@@ -21831,7 +21831,7 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
     ivar_file = OUTPUT_VARNAMES.IVARMAP[ifile][ivar_tot];
     ivar_word = ivar_file + 1; // add 1 to skip SN: key
     if ( ivar_word >=0 ) 
-      { get_PARSE_WORD(0, ivar_word, word); }
+      { get_PARSE_WORD(0, ivar_word, word, fnam ); }
     else 
       { sprintf(word,"-9.0"); }
 
@@ -22327,7 +22327,7 @@ void write_cat_info(FILE *fout) {
 
       nline_read++ ;
       // skip if first wd of line is not a valid row key
-      get_PARSE_WORD(0, 0, KEY);
+      get_PARSE_WORD(0, 0, KEY, fnam);
 
       if ( strcmp(KEY,KEYNAME_DOCANA_REQUIRED)==0 )  { FOUND_DOCANA = 1; }
 
@@ -24908,7 +24908,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     char VARNAME_VALID_TMP[60];
     NVAR_VALID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARNAME_VALID_LIST, fnam);
     for(ivar=0; ivar < NVAR_VALID; ivar++ ) {
-      get_PARSE_WORD(0, ivar, VARNAME_VALID_TMP);
+      get_PARSE_WORD(0, ivar, VARNAME_VALID_TMP, fnam );
       if ( strcmp(VARNAME,VARNAME_VALID_TMP) == 0  ) 
 	{ PTRVAL = PTRVAL_VALID_LIST[ivar];  MATCH=true; ivar_match=ivar; }
     } 

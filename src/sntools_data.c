@@ -891,7 +891,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       // load SNDATA struct for each obs
       for(obs=0; obs < NOBS_STORE; obs++ ) {
 	OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
-	get_PARSE_WORD(0, obs, SNDATA.FILTNAME[OBS]);  
+	get_PARSE_WORD(0, obs, SNDATA.FILTNAME[OBS], fnam);  
       }
 
     }

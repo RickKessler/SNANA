@@ -152,7 +152,7 @@ extern"C" {
   FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 		    int *GZIPFLAG, char *callFun);
   int   store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun );
-  void  get_PARSE_WORD(int langFlag, int iwd, char *word);
+  void  get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun );
   void  trim_blank_spaces(char *string);
   void  debugexit(char *string);
   void  snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
@@ -1122,7 +1122,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       if ( MATCH ) {
 	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
 	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST, fnam);
-	iwd=1;   get_PARSE_WORD(0, iwd, vtmp) ; 
+	iwd=1;   get_PARSE_WORD(0, iwd, vtmp, fnam) ; 
 	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
       } // end MATCH
       continue ;
@@ -1136,7 +1136,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST, fnam );
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam );
 	READTABLE_POINTERS.ICAST_STORE[ivar] = ICAST_for_textVar(VARNAME);
 	READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST_for_textVar(VARNAME);
       }

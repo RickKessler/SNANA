@@ -599,7 +599,7 @@ void SIMLIB_open_read(void) {
     if ( strlen(cline) < 2 ) { continue; }
 
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline, fnam);
-    iwd=0; get_PARSE_WORD(langC, iwd, key); 
+    iwd=0; get_PARSE_WORD(langC, iwd, key, fnam); 
 
     if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 )  
       { FOUND_DOCANA = true; }
@@ -639,7 +639,7 @@ void SIMLIB_open_read(void) {
       { NLINE_HEADER--; continue ; }
 
     if ( strcmp(key,"PSF_UNIT:") == 0 ) {
-      iwd++ ; get_PARSE_WORD(langC, iwd, c_tmp ); 
+      iwd++ ; get_PARSE_WORD(langC, iwd, c_tmp, fnam ); 
       if ( strcmp(c_tmp,"NEA_PIXEL") == 0 ) { PSF_NEA_UNIT = true; }
     }
 
@@ -651,9 +651,9 @@ void SIMLIB_open_read(void) {
     // look for FILTERS keyword
 
     while ( !FOUND_FILTERS && iwd < NWD-1 ) {
-      iwd++ ; get_PARSE_WORD(langC, iwd, key);
+      iwd++ ; get_PARSE_WORD(langC, iwd, key, fnam);
       if (strcmp(key,"FILTERS:") == 0 ) {
-	iwd++ ; get_PARSE_WORD(langC, iwd, SIMLIB_FILTERS );
+	iwd++ ; get_PARSE_WORD(langC, iwd, SIMLIB_FILTERS, fnam );
 	printf(" Found SIMLIB_FILTERS: %s \n", SIMLIB_FILTERS );
 	fflush(stdout);
 	FOUND_FILTERS = true;

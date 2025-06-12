@@ -121,7 +121,7 @@ void INIT_NONLIN(char *inFile) {
     KEY[0] = 0 ;
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, LINE, fnam);
 
-    if ( NWD >= 2 ) { get_PARSE_WORD(langC, 0, KEY); }
+    if ( NWD >= 2 ) { get_PARSE_WORD(langC, 0, KEY, fnam); }
 	    
     ISKEY_FILTERS = ( strcmp(KEY,"FILTERS:" ) == 0 );
     ISKEY_NONLIN  = ( strcmp(KEY,"NONLIN:"  ) == 0 );
@@ -145,12 +145,12 @@ void INIT_NONLIN(char *inFile) {
     
     if ( ISKEY_FILTERS ) {
       MAPSIZE=0 ;  nmap_read++ ;  imap=nmap_read-1;  RDFLAG=1;
-      get_PARSE_WORD(langC, 1, NONLIN_MAP[imap].FILTERS );
+      get_PARSE_WORD(langC, 1, NONLIN_MAP[imap].FILTERS, fnam );
     }
 
     if ( ISKEY_NONLIN ) {
-      get_PARSE_WORD_DBL(langC, 1, &tmpD[0] );
-      get_PARSE_WORD_DBL(langC, 2, &tmpD[1] );      
+      get_PARSE_WORD_DBL(langC, 1, &tmpD[0], fnam );
+      get_PARSE_WORD_DBL(langC, 2, &tmpD[1], fnam );      
       NONLIN_MAP[imap].MAPVAL[0][MAPSIZE]  = log10(tmpD[0]); //map is in flux, but stored in log flux!
       NONLIN_MAP[imap].MAPVAL[1][MAPSIZE]  = tmpD[1] ;
       MAPSIZE++ ;

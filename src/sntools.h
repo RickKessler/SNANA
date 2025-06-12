@@ -596,17 +596,17 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 
 int  store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun);
 void malloc_PARSE_WORDS(int NWD);
-void get_PARSE_WORD(int langFlag, int iwd, char *word);
-void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
-void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);
-void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val);
-void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val);
+void get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun );
+void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val, char *callFun );
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val, char *callFun );
+void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val, char *callFun );
+void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val, char *callFun);
 
-void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val);
-void get_parse_word__(int *langFlag, int *iwd, char  *word );
-void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
-void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
-void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val, char *callFun );
+void get_parse_word__(int *langFlag, int *iwd, char  *word, char *callFun );
+void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val, char *callFun );
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val, char *callFun );
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val, char *callFun );
 
 void malloc_HASH_STORAGE(int NVAR);
 void malloc_HASH_STORAGE2(int IVAR, char *VARNAME, int ICAST, int NCID, int ISNOFF) ;

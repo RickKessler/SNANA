@@ -13,7 +13,7 @@
 
 import os, sys, argparse, csv
 
-VALID_ROWID_LIST = [ "CID", "SNID", "ROW", "GALID", "STARID" ]
+VALID_ROWID_LIST = [ "CID", "SNID", "snid", "ROW", "GALID", "STARID" ]
 ROWID_DEFAULT    = "ROW" 
 
 ROWKEY = "ROW:"  # default row key

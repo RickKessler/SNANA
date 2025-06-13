@@ -1352,12 +1352,12 @@ int ICAST_for_textVar(char *varName) {
   //
   // Jan 2025: add BANDLIST
   
-#define NVARNAME_STRING_TABLE 16
+#define NVARNAME_STRING_TABLE 17
   char ALLOWED_STRING_COLUMN_LIST[NVARNAME_STRING_TABLE][20] =
     { "CID",            "SNID",         "CCID",        "GALID",
       "ROW",            "STARID",      "FIELD",        "BAND",  "BANDLIST", 
       "NAME_TRANSIENT", "NAME_IAUC",   "IAUC",         "CATALOG",
-      "VERSION",        "PARNAME",     "OBJID" } ;
+      "VERSION",        "PARNAME",     "OBJID",  "snid" } ;
 
   int ivar;
   char *varname_tmp;
@@ -1417,6 +1417,8 @@ int ICAST_for_textVar_obsolete(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"CID"  )  == 0 ) 
     { return ICAST_C; }
   if ( strcmp_ignoreCase(varName,(char*)"SNID" )  == 0 ) 
+    { return ICAST_C; }
+  if ( strcmp_ignoreCase(varName,(char*)"snid" )  == 0 ) 
     { return ICAST_C; }
   if ( strcmp_ignoreCase(varName,(char*)"CCID" )  == 0 ) 
     { return ICAST_C; }

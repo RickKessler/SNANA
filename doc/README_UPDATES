@@ -23064,7 +23064,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   
      + get_PARSE_WORDS(... *callFun); finally add *callFun arg to help identify
        internal abort. Add fnam arg to more than 100 calls ):
-   
+      
+     + combine_fitres.exe : works on csv (CSV) files by internally converting to
+          SNANA-key format using convertcsv2snana.py
+
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.

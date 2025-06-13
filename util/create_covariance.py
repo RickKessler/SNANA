@@ -173,6 +173,8 @@
 # Jun 10 2025:
 #   + refactor parsing of extra_covs and fix bug comparing CID_IDSURVEY to CID_IDSURVEY_FIELD
 #   + new --restore_des5yr command line option, or "RESTORE_DES5YR: True" in config input file
+# Jun 13 2025:
+#   + fix EXTRA_COVs again to use cov instead of mudif x mudif; based on SOURCE_COV_MUDIF[FILE]
 #
 # ===============================================
 
@@ -213,7 +215,6 @@ WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
 WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
-
 
 WRITE_FORMAT_COV_TEXT = "text"
 WRITE_FORMAT_COV_NPZ  = "npz"
@@ -273,6 +274,9 @@ DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 
 MAXROW_DETCOV_TEST = 1000  # compute and print det(cov) for regression tests if fewer than 1000 rows
+
+SOURCE_COV_MUDIF = "MUDIF"
+SOURCE_COV_FILE  = "FILE"
 
 # ============================
 def setup_logging():
@@ -1115,6 +1119,7 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
                       muopt_scales, extracovdict):
     """ Gets a dict mapping 'FITOPT_LABEL|MUOPT_LABEL' to covariance)"""
     result_cov, result_mudif, slopes = {}, {}, []
+    source_cov = {} # Jun 13 2025
 
     for name, df in m0difs.items():
         f, m = get_fitopt_muopt_from_name(name)
@@ -1132,6 +1137,8 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
 
         logging.info(f"\t FITOPT{f:03d} has scale {fitopt_scale}, " \
                      f"MUOPT{m:03d} has scale {muopt_scale}") 
+
+        cov_label = f"{fitopt_label}|{muopt_label}"
 
         #if FLAG_WAIT: input(f"Press Enter to continue get_contribution for f={f} m={m}")
         
@@ -1154,28 +1161,31 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
             cov, mudif, summary = \
                 get_cov_from_diff(df, df_compare, fitopt_scale)
         
-        result_cov[f"{fitopt_label}|{muopt_label}"]   = cov
-        result_mudif[f"{fitopt_label}|{muopt_label}"] = mudif
+        result_cov[cov_label]   = cov
+        result_mudif[cov_label] = mudif
+        source_cov[cov_label]   = SOURCE_COV_MUDIF
         slopes.append([name, fitopt_label, muopt_label, *summary])
 
-    # loop over extracov_labels
+    # loop over EXTRA_COV labels
     for key, value in extracovdict.items():
         logging.info("# - - - - - - - - - - - - - - - - ")
-        logging.info(f"Get extra cov for {key}")
+        logging.info(f"Get extra cov from file for {key}")
         cov_file = os.path.expandvars(value)
         scale    = muopt_scales[key]
         cov, mudif, summary = get_covsys_from_covfile(df, cov_file, scale)
         
         fitopt_label = 'DEFAULT'
-        muopt_label = key
-        result_cov[f"{fitopt_label}|{muopt_label}"]   = cov
-        result_mudif[f"{fitopt_label}|{muopt_label}"] = mudif                           
+        muopt_label  = key
+        cov_label    = f"{fitopt_label}|{muopt_label}"
+        result_cov[cov_label]   = cov
+        result_mudif[cov_label] = mudif
+        source_cov[cov_label]   = SOURCE_COV_FILE
         slopes.append([name, fitopt_label, muopt_label, *summary])
         
     # - - - - 
     summary_df = pd.DataFrame(slopes, columns=["name", "fitopt_label", "muopt_label", "slope", "mean_abs_deviation", "max_abs_deviation"])
     summary_df = summary_df.sort_values(["slope", "mean_abs_deviation", "max_abs_deviation"], ascending=False)
-    return result_cov, result_mudif, summary_df
+    return result_cov, result_mudif, source_cov, summary_df
     # end get_contributions
 
 def apply_filter(string, pattern):
@@ -1193,7 +1203,7 @@ def apply_filter(string, pattern):
         raise ValueError(f"Unable to parse COVOPT matching pattern {pattern}")
 
 
-def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base, calibrators):
+def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contributions_source, base, calibrators):
 
     # Parse covopts (from input config file) that look like 
     #        "[cal] [+cal,=DEFAULT]"
@@ -1253,6 +1263,10 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
     
     for key, tmp  in contributions.items():
             
+        source = contributions_source[key]
+
+        #print(f" xxxx key = {key}  source = {source}")
+
         fitopt_label, muopt_label = key.split("|")
 
         apply_fitopt = apply_filter(fitopt_label, fitopt_filter)
@@ -1267,8 +1281,11 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
             if FLAG_REDUCE_MEMORY:
                 cov = tmp[:, None] @ tmp[None, :]    # tmp = mudif array
             else:
-                cov = tmp                          # tmp is cov for this contribution
-            
+                cov = tmp                            # tmp is cov for this contribution
+
+            if source == SOURCE_COV_FILE: 
+                cov = contributions_cov[key]  # cannot build cov-from-file using mudif (6.2025)
+
             if final_cov is None:
                 final_cov = cov.copy()
                 final_cov *= 0.0
@@ -1283,7 +1300,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
                     cov2[:, mask_calib] = 0
                     final_cov += cov2 * covopt_scale
                     del cov2
-                    gc.collect()  # for release of memory                    
+                    gc.collect()  # for release of memory
                 else:
                     # nominal usage here
                     final_cov += cov * covopt_scale
@@ -2008,10 +2025,12 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
     zhd_row       = row_info_dict['zHD_LIST'][rownum]
     zhd_col       = row_info_dict['zHD_LIST'][colnum]
     
-    label = f"# CID, IDSURVEY, zHD, index   =   " \
+    label = f"# CID,IDSURVEY,zHD,index = " \
             f"[ {cid_row:>8}, {idsurvey_row:3d}, {zhd_row:.5f}, {rownum} ] x " \
             f"[ {cid_col:>8}, {idsurvey_col:3d}, {zhd_row:.5f}, {colnum} ]"
 
+    if rownum == colnum :
+        label += '  diag'
     return label
     
 def write_summary_output(args, config, covsys_list, base):
@@ -2321,7 +2340,7 @@ def create_covariance(config, args):
 
     # Now that we have the data, figure out how much each
     # FITOPT/MUOPT pair contributes to cov
-    contributions_cov, contributions_mudif, summary = \
+    contributions_cov, contributions_mudif, contributions_source, summary = \
             get_contributions(data, fitopt_scales,
                               muopt_labels, 
                               muopt_scales, 
@@ -2346,6 +2365,7 @@ def create_covariance(config, args):
         label, covsys = get_covsys_from_covopt(c,
                                                contributions_cov,
                                                contributions_mudif,
+                                               contributions_source,
                                                base,
                                                config.get("CALIBRATORS") )
         covsys_list.append( (label, covsys) )

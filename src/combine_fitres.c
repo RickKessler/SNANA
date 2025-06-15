@@ -210,6 +210,7 @@ struct INPUTS {
 } INPUTS ;
 
 int NFILE_CSV;
+char PREFIX_CSV[MXPATHLEN];
 
 #define  NVARNAME_1ONLY 4  // NVAR to include only once
 char VARNAME_1ONLY[NVARNAME_1ONLY][20] = 
@@ -435,7 +436,8 @@ void  init_misc(void) {
   for(i=0; i < MXFFILE; i++ )  
     { NEVT_MISSING[i] = NEVT_READ[i] = 0; }
 
-  NFILE_CSV = 0 ;
+  NFILE_CSV = PREFIX_CSV[0] = 0 ;
+  
 } // end init_misc
 
 // ===============================
@@ -698,7 +700,13 @@ void ADD_FITRES(int ifile) {
       sprintf(c2err,"2nd, 3rd ... file(s) can be csv.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
     }
-    sprintf(FFILE, "TMP_ADD_FITRES_IFILE%3.3d.FITRES", ifile );
+
+    if ( NFILE_CSV == 0 ) {
+      // define prefix with unique hash to avoid conflicts with multiple jobs
+      unsigned ihash = hash(INPUTS.FFILE[0]);
+      sprintf(PREFIX_CSV, "TMP_%d", ihash );
+    }
+    sprintf(FFILE, "%s_ADD_IFILE%3.3d.FITRES", PREFIX_CSV, ifile );
     sprintf(cmd,"/home/rkessler/SNANA/util/convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
     printf(" Convert csv format to SNANA-key format with command\n\t %s\n", cmd);
     fflush(stdout);
@@ -897,8 +905,9 @@ void ADD_FITRES(int ifile) {
   
   // remove lingering tmp-fitres file converted from input csv.
   if ( NFILE_CSV > 0 && ifile == INPUTS.NFFILE - 1 ) {
-    sprintf(cmd,"rm TMP_ADD_FITRES_IFILE*.FITRES");
-    //    system(cmd);
+    sprintf(cmd,"rm %s*.FITRES", PREFIX_CSV );
+    printf("\n xxx %s \n\n", cmd);
+    system(cmd);
   }
 
   return ;

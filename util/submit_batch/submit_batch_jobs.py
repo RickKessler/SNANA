@@ -30,14 +30,13 @@ import sys, yaml, argparse, subprocess, logging
 import submit_util      as util
 
 
-from   submit_params      import *
-from   submit_prog_sim    import Simulation
-from   submit_prog_lcfit  import LightCurveFit
-
-
+from   submit_params        import *
+from   submit_prog_sim      import Simulation
+from   submit_prog_lcfit    import LightCurveFit
 from   submit_prog_bbc      import BBC
 from   submit_prog_covmat   import create_covmat
 from   submit_prog_cosmofit import cosmofit
+from   submit_prog_combine  import combine_fitres       # 6.13.2025
 from   submit_train_SALT2   import train_SALT2
 from   submit_train_SALT3   import train_SALT3
 from   submit_train_BAYESN  import train_BAYESN
@@ -176,6 +175,7 @@ def which_program_class(config):
     input_file    = config['args'].input_file
     merge_flag    = config_yaml['args'].merge_flag
     CONFIG        = config['CONFIG']
+
     if "GENVERSION_LIST" in config :
         program_class = Simulation
 
@@ -208,6 +208,9 @@ def which_program_class(config):
 
     elif "INPUT_COVMAT_FILE" in CONFIG:  # create_covariance, Sep 30 2022
         program_class = create_covmat
+        
+    elif "COMBINE_FITRES" in config:  # June 2025
+        program_class = combine_fitres
 
     else :
         sys.exit("\nERROR: Could not determine program_class for submit_batch_jobs")

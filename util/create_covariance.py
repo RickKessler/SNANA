@@ -399,6 +399,8 @@ def get_args():
     if (args.nbin_x1>0 or args.nbin_c>0): 
         args.unbinned = False  # recommended by D.Brout, Aug 8 2022
 
+    if args.label_cov_rows:
+        args.write_format_cov = WRITE_FORMAT_COV_TEXT  # Jun 13 2025
     
     if args.write_format_cov == WRITE_FORMAT_COV_TEXT:
         args.write_cov_text = True
@@ -408,6 +410,8 @@ def get_args():
         args.write_cov_npz  = True
     else:
         sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}") 
+
+
 
     if len(sys.argv) == 1:
         parser.print_help()

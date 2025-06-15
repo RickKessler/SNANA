@@ -205,6 +205,29 @@ double smooth_stepfun(double sep, double sepmax) {
 
 } // end smooth_stepfun
 
+
+// ==================================================
+unsigned int hash(const char *word) {
+
+  // convert string to hash integer (from AI/web, so beware)
+
+  unsigned int hash = 0;
+  unsigned int c; // Use unsigned int for character values to avoid undefined behavior
+
+  for (size_t i = 0; word[i] != '\0'; i++) {
+    c = (unsigned char)word[i]; // Cast to unsigned char to avoid potential undefined behavior with signed chars
+    // This is a simple hash combining current hash value with character value, multiplied by 31
+    hash = 31 * hash + c;
+  }
+
+  // Optional: If you need to fit the hash into a specific table size,
+  // apply the modulo operation here. For example, for a hash table of size SIZE:
+  // return hash % SIZE;
+
+  return hash; // Return the calculated hash value
+}
+
+
 // =====================================
 int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 

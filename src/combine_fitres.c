@@ -703,8 +703,8 @@ void ADD_FITRES(int ifile) {
 
     if ( NFILE_CSV == 0 ) {
       // define prefix with unique hash to avoid conflicts with multiple jobs
-      unsigned ihash = hash(INPUTS.FFILE[0]);
-      sprintf(PREFIX_CSV, "TMP_%d", ihash );
+      unsigned long long int ihash = hash(INPUTS.FFILE[0]);
+      sprintf(PREFIX_CSV, "TMP_%lld", ihash );
     }
     sprintf(FFILE, "%s_ADD_IFILE%3.3d.FITRES", PREFIX_CSV, ifile );
     sprintf(cmd,"/home/rkessler/SNANA/util/convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
@@ -906,7 +906,7 @@ void ADD_FITRES(int ifile) {
   // remove lingering tmp-fitres file converted from input csv.
   if ( NFILE_CSV > 0 && ifile == INPUTS.NFFILE - 1 ) {
     sprintf(cmd,"rm %s*.FITRES", PREFIX_CSV );
-    printf("\n xxx %s \n\n", cmd);
+    // printf("\n xxx %s \n\n", cmd);
     system(cmd);
   }
 

@@ -608,7 +608,7 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val, char *callFun )
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val, char *callFun );
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val, char *callFun );
 
-unsigned int hash(const char *word) ;
+unsigned long long int hash(const char *word) ;
 
 void malloc_HASH_STORAGE(int NVAR);
 void malloc_HASH_STORAGE2(int IVAR, char *VARNAME, int ICAST, int NCID, int ISNOFF) ;

@@ -20911,7 +20911,7 @@ void write_yaml_info(char *fileName) {
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
-  int  NERR        = NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC];
+  int  NERR        = NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC] ;
 
   double t_cpu = (t_end_fit-t_start)/60.0 ;
 

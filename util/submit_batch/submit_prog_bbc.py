@@ -1,5 +1,4 @@
-# Created July 2020 by R.Kessler
-#
+# Created July 2020 by R.Kessler#
 # Improvements w.r.t. SALT2mu_fit.pl:
 #
 #  + if there is 1 and only 1 version per INPDIR, there is no

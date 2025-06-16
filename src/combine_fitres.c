@@ -93,7 +93,7 @@
  
  Jun 13 2025: allow .csv (.CSV) file as 2nd, 3rd ... appended file. 
               Inernally translate to temp-keyed file. Original motivation is for
-              new merge_lcfit+classifier.py to be called by pippin to replace 4_AGG and 5_MERGE.
+              integration into submit_batch_jobs to replace 4_AGG and 5_MERGE in pippin.
 
 ******************************/
 
@@ -144,6 +144,7 @@ void malloc_NMATCH_PER_EVT(int N);
 
 void  relabel_rownum(int ifile);
 
+void WRITE_YAML(void) ; // for submit_batch only
 bool is_csv_file(char *file_name);
 
 // ================================
@@ -194,7 +195,8 @@ struct INPUTS {
   int  NFFILE ;   // number of input fitres files to combine
   char FFILE[MXFFILE][2*MXPATHLEN] ;
   char OUTPREFIX_COMBINE[MXPATHLEN] ;
-  char OUTFILE_TEXT[MXPATHLEN] ;
+  char OUTFILE_TEXT[MXPATHLEN] ;   // text file name for output table
+  char OUTFILE_YAML[MXPATHLEN] ;   // yaml file name to communicate with submit_batch (not a table)
   int  MXROW_READ ;
   int  MATCHFLAG ;
   double CUTWIN_zHD[2];
@@ -277,7 +279,7 @@ int  NEVT_COMMON;   // number of events common to all FITRES files
 int  NEVT_READ[MXFFILE];    // NEVT read from each file
 int  NEVT_MISSING[MXFFILE]; // NEVT missing w.r.t. 1st FITRES file
 
-time_t t_start ;
+time_t t_start, t_end ;
 
 // =========================================
 int main(int argc, char **argv) {
@@ -324,6 +326,9 @@ int main(int argc, char **argv) {
   // ---------------
 
   WRITE_SNTABLE() ;
+
+  t_end = time(NULL);
+  WRITE_YAML() ; // for submit_batch only
 
   sprintf(str_cputime,"%s(write_output_tables)", STRING_CPUTIME_PROC_ALL);
   print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
@@ -456,6 +461,7 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.MATCHFLAG    = MATCHFLAG_HASH_UTIL ;  // Jun 2021  
 
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
+  INPUTS.OUTFILE_YAML[0]  = 0 ;
   INPUTS.CUTWIN_zHD[0] = -9.0 ;  
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
   INPUTS.DOzCUT = 0 ;
@@ -482,6 +488,10 @@ void  PARSE_ARGV(int argc, char **argv) {
 
     if ( keyarg_match(argv[i],"outfile_text"))  {
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
+      continue ;
+    }
+    if ( keyarg_match(argv[i],"outfile_yaml"))  {
+      i++ ; sprintf(INPUTS.OUTFILE_YAML,"%s", argv[i]);
       continue ;
     }
 
@@ -684,7 +694,7 @@ void ADD_FITRES(int ifile) {
   int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST ;
   int  index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
   bool is_csv ;
-  char FFILE[MXPATHLEN];
+  char FFILE[2*MXPATHLEN];
   char *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME] ;
   char *ptr_CTAG, ccid[60],  cmd[2*MXPATHLEN];
   char fnam[] = "ADD_FITRES" ;
@@ -707,7 +717,8 @@ void ADD_FITRES(int ifile) {
       sprintf(PREFIX_CSV, "TMP_%lld", ihash );
     }
     sprintf(FFILE, "%s_ADD_IFILE%3.3d.FITRES", PREFIX_CSV, ifile );
-    sprintf(cmd,"/home/rkessler/SNANA/util/convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
+    // xxx sprintf(cmd,"/home/rkessler/SNANA/util/convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
+    sprintf(cmd,"convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
     printf(" Convert csv format to SNANA-key format with command\n\t %s\n", cmd);
     fflush(stdout);
     system(cmd);
@@ -1605,6 +1616,28 @@ void relabel_rownum(int ifile) {
   return;
 } // end relabel_rownum
 
+
+
+void WRITE_YAML(void) {
+  
+  FILE *fp;
+  char *outfile = INPUTS.OUTFILE_YAML;
+  double t_tot = (t_end - t_start)/60.0;  // total proc time, minutes
+  char fnam[] = "WRITE_YAML";
+  
+  // ------------ BEGIN ---------------
+  if ( strlen(outfile) == 0 ) { return; }
+
+  fp = fopen(outfile, "wt") ;
+  fprintf(fp,"%s:  %d  # number of common events in combined file\n", 
+	  YAMLKEY_ABORT_IF_ZERO, NWRITE_SNTABLE);
+  fprintf(fp,"NFILE_COMBINE: %d \n", INPUTS.NFFILE);
+  fprintf(fp,"NEVT_COMMON:   %d \n", NWRITE_SNTABLE );
+  fprintf(fp,"CPU_MINUTES:   %.3f\n", t_tot );
+  fclose(fp) ;
+
+  return;
+} // end WRITE_YAML
 
 bool is_csv_file(char *file_name) {
   bool is_csv = false;

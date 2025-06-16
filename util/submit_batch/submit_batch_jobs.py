@@ -509,7 +509,9 @@ if __name__ == "__main__":
         program.create_output_dir()
 
         # prepare files, lists, program args
+        logging.info(f"\n# =========== START submit_prepare_driver ========================")
         program.submit_prepare_driver()
+        logging.info(f"\n# =========== DONE with submit_prepare_driver ========================\n")
 
         # write .BATCH and .CMD scripts
         program.write_script_driver()

@@ -853,7 +853,7 @@ class Program:
         return
         #end append_batch_file
 
-    def prep_JOB_INFO_merge(self,icpu,ijob,merge_force):
+    def prep_JOB_INFO_merge(self, icpu, ijob, merge_force):
         # Return JOB_INFO dictionary of strings to run merge process.
         # Inputs:
         #   icpu = 0 to n_core-1
@@ -872,6 +872,7 @@ class Program:
         #  May 24 2021: check outdir override from command line
         #  Apr 08 2022: pass merge_force arg
 
+
         args                = self.config_yaml['args']
         input_file          = args.input_file
         nomerge             = args.nomerge
@@ -889,6 +890,11 @@ class Program:
 
         # determine if this is last job for this cpu
         last_job_cpu  = (n_job_tot - ijob) < n_core
+
+        # xxxx mark
+        #print(f" xxx prep_JOB_INFO_merge: icpu={icpu}  ijob={ijob} \n " \
+        #      f"xxx n_job_tot={n_job_tot}  n_core={n_core}")
+        # xxxx
 
         # if check_abort, skip merge except for last job
         # xxx skip_merge = check_abort and not last_job_cpu
@@ -1483,7 +1489,7 @@ class Program:
 
         # if last merge call (-M), then must wait for all of the done
         # files since there will be no more chances to merge.
-        
+
         if MERGE_LAST : 
             self.merge_last_wait()
             if nomerge and not merge_background :

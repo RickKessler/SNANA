@@ -705,8 +705,6 @@ void   close_HOSTLIB(FILE *fp);
 
 void   init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END);
 void   read_HOSTLIB_WGTMAP(void);
-void   read_HOSTLIB_WGTMAP_LEGACY(void);
-void   parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string);
 void   prep_HOSTLIB_WGTMAP(void);
 int    read_VARNAMES_WGTMAP_LEGACY(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);

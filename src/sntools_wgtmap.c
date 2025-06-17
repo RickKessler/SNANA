@@ -94,7 +94,8 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
 	if ( FLAG_VARNAMES_ONLY ) { 
 	  GRIDMAP->NDIM = NDIM;
 	  GRIDMAP->NFUN = NFUN;
-	  return (NDIM+NFUN); 
+	  goto CHECK_NVAR ;
+	  // xxx mark delete return (NDIM+NFUN); 
 	}
 
       } // end of VALID_VARNAME 
@@ -115,9 +116,16 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
 
   // close WGTMAP file
   if ( gzipFlag ){ pclose(fp); }     else { fclose(fp); }
+  
+ CHECK_NVAR:
 
+  if ( NDIM == 0 || NFUN == 0 ) {
+    sprintf(c1err,"Invalid VARNAMES_WGTMAP; NDIM=%d  NFUN=%d", NDIM, NFUN );
+    sprintf(c2err,"Check file keys");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
+  }
   return (NDIM+NFUN);
- 
+  
 }//end read_WGTMAP
 
 // ============================================

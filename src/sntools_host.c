@@ -157,11 +157,7 @@ void INIT_HOSTLIB(void) {
   initvar_HOSTLIB();
 
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
-  if ( INPUTS.REFAC_WGTMAP ){
-    read_HOSTLIB_WGTMAP();
-  } else {
-    read_HOSTLIB_WGTMAP_LEGACY();
-  }
+  read_HOSTLIB_WGTMAP();
 
   // open hostlib and start reading
   open_HOSTLIB(&fp_hostlib);     // open and return file pointer
@@ -953,16 +949,10 @@ void append_HOSTLIB_STOREPAR(void) {
   int OPTMASK_WGTMAP = 
     OPTMASK_WGTMAP_READ_VARNAMES_ONLY + OPTMASK_WGTMAP_VERBOSE;
 
-
-  if ( INPUTS.REFAC_WGTMAP ) {
-    NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, 
-			      &HOSTLIB_WGTMAP.GRIDMAP); // <= returned
-    
-    strip_SNVAR_from_VARLIST_WGTMAP(VARLIST_WGTMAP,VARLIST_WGTMAP_noSNVAR);
-  } 
-  else {
-    NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP_noSNVAR);
-  }
+  NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, 
+			    &HOSTLIB_WGTMAP.GRIDMAP); // <= returned
+  
+  strip_SNVAR_from_VARLIST_WGTMAP(VARLIST_WGTMAP,VARLIST_WGTMAP_noSNVAR); 
 
   if ( NVAR_WGTMAP > 0 ) {
     catVarList_with_comma(STOREPAR, VARLIST_WGTMAP_noSNVAR);
@@ -1259,189 +1249,6 @@ void  read_HOSTLIB_WGTMAP(void) {
 
 } // end of read_HOSTLIB_WGTMAP
 
-// ====================================
-void  read_HOSTLIB_WGTMAP_LEGACY(void) {
-
-  // Function to read OPTIONAL weight-map to over-ride
-  // weight map in the HOSTLIB. If the weight map is read
-  // here, then the corresponding weight-map in the HOSTLIB
-  // will be ignored. Note that this function must be called
-  // before read_head_HOSTLIB().
-  //
-  // July 14 2020: replace PATH_USER_INPUT with PATH_DEFAULT_HOSTLIB
-  // Feb  07 2024: return if FORCE_GALID > 0 (no need for WGTMAP)
-  //
-  FILE *fp ;
-  int  gzipFlag ;
-  char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
-  char fnam[] = "read_HOSTLIB_WGTMAP_LEGACY"  ;
-
-  // ------------- BEGIN --------------
-
-  HOSTLIB_WGTMAP.READSTAT = false ;
-
-  ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
-  if ( IGNOREFILE(ptrFile) )  { return ; }
-
-  if ( INPUTS.HOSTLIB_GALID_FORCE > 0 ) { //
-    sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,"NONE");
-    return; 
-  }
-
-  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
-			  PATH_DEFAULT_HOSTLIB, ptrFile,
-			  fileName_full, &gzipFlag );  // <== returned
-
-  if ( !fp ) {
-      abort_openTextFile("HOSTLIB_WGTMAP_FILE", 
-			 PATH_DEFAULT_HOSTLIB, ptrFile, fnam);
-  }
-
-  // if we get here, open and read WGTMAP file.
-
-  printf("\t Read WEIGHT-MAP from supplemental file:\n\t   %s\n", ptrFile );
-  fflush(stdout);
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) 
-    { parse_HOSTLIB_WGTMAP_LEGACY(fp,c_get);  }
-
-  if ( gzipFlag ) { pclose(fp); }   else { fclose(fp); }
-
-  HOSTLIB_WGTMAP.READSTAT = true ;
-
-  if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
-    { printf("\t Implement SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
-  else
-    { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
-
-
-  int NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
-  if ( NVAR_WGTMAP == 0 ) {
-    sprintf(c1err, "Found no VARNAMES_WGTMAP key in HOSTLIB_WGTMAP_FILE ;");
-    sprintf(c2err, "Check argument of HOSTLIB_WGTMAP_FILE");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  return;
-
-} // end of read_HOSTLIB_WGTMAP_LEGACY
-
-
-// ====================================
-void parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string) {
-
-  // Parse WGTMAP variables from file *fp.
-  // *string is the current string value to check
-  // if this is one of the WGTMAP keys.
-  //
-  // Mar 14 2019: refactor to use read_GRIDMAP().
-  // Apr 12 2019: return if string != VARNAMES_WGTMAP
-  // Jun 20 2020: fix what seems like a cut-and-paste bug for N_SNVAR
-  // Nov 18 2021: check HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT
-
-  int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
-  long long GALID ;
-  bool FOUND_VARNAMES, IS_SNVAR, IS_STORED ;
-  int NVAR_WGTMAP, IVAR_STORE, NDIM, NFUN, ivar, N, N_SNVAR=0 ;
-
-  char LINE[100], *VARNAME ;
-  char fnam[] = "parse_HOSTLIB_WGTMAP_LEGACY"  ;
-
-  // ----------- BEGIN -------------
-
-  if ( strcmp(string,"NVAR_WGTMAP:")==0 ) {
-    printf("\n WARNING: Should remove obsolete "
-	   "NVAR_WGTMAP key from %s\n", INPUTS.HOSTLIB_FILE );
-  }
-
-  IVAR_STORE = HOSTLIB.NVAR_STORE ;
-
-  if ( strcmp(string,"OPT_EXTRAP_WGTMAP:") == 0 ) 
-    { HOSTLIB_WGTMAP.OPT_EXTRAP = 1;  } // Jun 11 2021
-
-  FOUND_VARNAMES = ( strcmp(string,"VARNAMES_WGTMAP:") ==0 );
-  if ( !FOUND_VARNAMES) { return ; }
- 
-  fgets(LINE,100,fp);
-  NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
-
-  NFUN = 1;    // WGT is required fun-val
-  if ( HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT )  { NFUN++; }
-  NDIM = NVAR_WGTMAP-NFUN ; 
-
-  if ( NDIM < 1 ) {
-    sprintf(c1err, "Invalid NDIM=%d for %s", NDIM, string);
-    sprintf(c2err, "VARNAMES_WGTMAP must inclulde WGT & SNMAGSHIFT");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  
-  // - - - - - - -  -
-  // read in names used for weight map
-  HOSTLIB_WGTMAP.GRIDMAP.VARLIST[0] = 0 ;
-
-  for ( ivar=0; ivar < NVAR_WGTMAP ; ivar++ ) {
-    VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0,ivar,VARNAME, fnam ) ;
-
-    checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
-
-    // check SN properties (e..g, x1, c) that are not in HOSTLIB
-    IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME); // Mar 2020
-    HOSTLIB_WGTMAP.IS_SNVAR[ivar] = IS_SNVAR ; 
-    if ( IS_SNVAR ) { 
-      N = HOSTLIB_WGTMAP.N_SNVAR;
-      HOSTLIB_WGTMAP.ISPARSE_SNVAR[N]       = ivar ;
-      HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar]  = N ;
-      HOSTLIB_WGTMAP.N_SNVAR++ ; 
-      N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
-    }
-
-    catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
-    
-    // load variable if it's not already loaded, and NOT SN var.
-    IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 
-    if ( !IS_STORED && !IS_SNVAR && ivar < NDIM ) {
-      sprintf(HOSTLIB.VARNAME_STORE[IVAR_STORE], "%s", VARNAME );
-      IVAR_STORE++ ;
-    }  
-  } // end of ivar loop
-  
-  // temporary hack until we remove this function.
-  int MXROW_WGTMAP = 25000000;
-
-  // read WGT keys and load GRIDMAP struct.
-  read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 
-	       HOSTLIB_WGTMAP.OPT_EXTRAP,
-	       MXROW_WGTMAP, fnam,
-	       &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
-  
-  HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
-
-  // update global counter
-  HOSTLIB.NVAR_STORE = IVAR_STORE ;
-
-
-  // check for optional WGTMAP_CHECK key to verify
-  // WGTMAP interpolation.
-  double TMPVAL[10];
-  if ( strcmp(string,"WGTMAP_CHECK:") == 0  && N_SNVAR==0  ) {
-    readlong  (fp, 1, &GALID ); // Feb 2015
-    readdouble(fp, 2, TMPVAL  );
-    N = HOSTLIB_WGTMAP.NCHECKLIST ;
-    HOSTLIB_WGTMAP.CHECKLIST_GALID[N] = GALID ;
-    HOSTLIB_WGTMAP.CHECKLIST_ZTRUE[N] = TMPVAL[0] ;
-    HOSTLIB_WGTMAP.CHECKLIST_WGT[N]   = TMPVAL[1] ;
-    HOSTLIB_WGTMAP.CHECKLIST_SNMAG[N] = TMPVAL[2] ;
-    HOSTLIB_WGTMAP.NCHECKLIST++ ;  
-  }
-
-  // - - - - - - -
-
-  prep_SNVAR_HOSTLIB_WGTMAP();
-
-  return ;
-
-} // end of parse_HOSTLIB_WGTMAP_LEGACY
 
 // ====================================
 void prep_HOSTLIB_WGTMAP(void){
@@ -2713,13 +2520,6 @@ void read_head_HOSTLIB(FILE *fp) {
     // look for fixed Sersic index 'n#_Sersic' outside of VARNAMES list
     if ( FOUND_VARNAMES ) 
       { parse_Sersic_n_fixed(fp,c_get); }
-
-    // -----------
-    // look for variables to use in weight-map 
-    // (unless already read from elsewhere)
-
-    if ( !HOSTLIB_WGTMAP.READSTAT  )
-      { parse_HOSTLIB_WGTMAP_LEGACY(fp,c_get); }
 
 
     // check for fixed VPEC_ERR or VPECERR

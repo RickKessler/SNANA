@@ -514,7 +514,6 @@ struct INPUTS {
   int  DEBUG_FLAG ;           // arbitrary debug usage
   int  APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
 
-  bool REFAC_WGTMAP ;         // Temporary development flag; set internally from DEBUG_FLAG value
   bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_BUGS_DES3YR;       // restore DES3YR bugs
@@ -567,7 +566,7 @@ struct INPUTS {
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
-  int  SIMLIB_REFAC ; // temporary to apply GENRANGE_MJD on simlib read
+
 
   // ---- end simlib inputs -----
 

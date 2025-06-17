@@ -717,8 +717,6 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
-  INPUTS.REFAC_WGTMAP = 1; // turn on by default, Aug 28 2024 (RK)
-  INPUTS.SIMLIB_REFAC = 1;
   INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
 
@@ -1045,11 +1043,6 @@ void set_user_defaults(void) {
   
   sprintf(INPUTS.STRONGLENS_FILE,       "NONE");
 
-  /* xxxxxx mark delete Feb 4 2025 
-  sprintf(INPUTS.WEAKLENS_PROBMAP_FILE, "NONE");
-  INPUTS.WEAKLENS_DMUSCALE = 1.0 ;
-  INPUTS.WEAKLENS_DSIGMADZ = 0.0 ;
-  xxxx end mark */
 
   sprintf(INPUTS_WEAKLENS.PROBMAP_FILE, "NONE");
   INPUTS_WEAKLENS.DMUSCALE         = 1.0 ;
@@ -1637,7 +1630,6 @@ int read_input_file(char *input_file, int keySource ) {
   INPUTS.NWORDLIST = NWD_FILE ;
   INPUTS.WORDLIST  = (char**) malloc ( sizeof(char*) * NWD_FILE );
   for(iwd=0; iwd < NWD_FILE; iwd++ ) {    
-    printf(" xxx 2b  %s iwd=%d \n", fnam, iwd); fflush(stdout);
     get_PARSE_WORD(0, iwd, tmpWord, fnam );
     LENWD = strlen(tmpWord) ;
     if ( LENWD < MXCHARWORD_PARSE_WORDS ) { LENWD = MXCHARWORD_PARSE_WORDS; }
@@ -1807,7 +1799,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ;
-    if ( INPUTS.DEBUG_FLAG == -28 ) { INPUTS.REFAC_WGTMAP = 0; }
   }
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%i", &INPUTS.APPEND_SNID_SEDINDEX) ; 
@@ -3748,9 +3739,6 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MSKOPT );
   }
 
-  else if ( keyMatchSim(1, "SIMLIB_REFAC",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_REFAC );
-  }
 
   if ( N > 0 ) {
     README_KEYPLUSARGS_load(100, N, WORDS, keySource,

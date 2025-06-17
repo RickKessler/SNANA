@@ -1246,6 +1246,8 @@ struct INPUTS {
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
+  bool REFAC_CCPRIOR_BETA; // ( debug_flag = 616  ) Jun 16
+  bool REFAC_CCPRIOR_Z; // ( DEBUG_FLAG = 617 ) Jun 17. debug_flag = 618 is when both above flags are on
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   
   int  check_duplicates_biasCor; // if enabled, check z & c duplicates then quit.
@@ -5645,7 +5647,9 @@ void set_defaults(void) {
   // ======== misc ======
   INPUTS.NDUMPLOG = 1000 ;
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
-  INPUTS.debug_flag        = 0 ; 
+  INPUTS.debug_flag        = 0 ;
+  INPUTS.REFAC_CCPRIOR_BETA=0;
+  INPUTS.REFAC_CCPRIOR_Z=0;
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
   INPUTS.check_duplicates_biasCor = 0 ;
@@ -15528,7 +15532,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     for(ia=0; ia<NBINa; ia++ )
       { SUMa += (*BININFO_SIM_ALPHA).avg[ia]; }
     for(ib=0; ib<NBINb; ib++ )
-      { SUMb += (*BININFO_SIM_BETA).avg[ib]; } 
+      { SUMb += (*BININFO_SIM_BETA).avg[ib]; }  // XXX Might be wrong BETA. A.M. JUN 2025
 
     if ( NBINa>0  && NBINb>0 ) {
       MUZMAP->alpha = SUMa / (double)NBINa ;
@@ -15539,6 +15543,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
       MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
     }
+    if (INPUTS.REFAC_CCPRIOR_BETA ){MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;  }
   }
 
 
@@ -15645,8 +15650,9 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     if( idsample != IDSAMPLE ) { continue ; }
 
     // keep only CC events in current IZ bin
-    iz   = TABLEVAR->IZBIN[icc] ;   // redshift bin
-    z    = TABLEVAR->zhd[icc] ;
+    iz   = TABLEVAR->IZBIN[icc] ;   // redshift bin 
+    z    = TABLEVAR->zhd[icc] ;     // XXX Replace with true redshift ?? A.M. Jun 2026
+    if (INPUTS.REFAC_CCPRIOR_Z ) {z    = TABLEVAR->SIM_ZCMB[icc] ; }  
     c    = TABLEVAR->fitpar[INDEX_c][icc] ;
     x1   = TABLEVAR->fitpar[INDEX_s][icc] ;
     mB   = TABLEVAR->fitpar[INDEX_d][icc] ;
@@ -20154,7 +20160,26 @@ void prep_debug_flag(void) {
 
   // - - - - - -
 
+  if (INPUTS.debug_flag == 616)
+    {
+      INPUTS.REFAC_CCPRIOR_BETA=true;
+      printf("\n debug flag set to %d : Refactored CCPRIOR beta \n", INPUTS.debug_flag);
+    }
+  if (INPUTS.debug_flag == 617)	
+    {
+      INPUTS.REFAC_CCPRIOR_Z=true;
+      printf("\n debug flag set to %d : Refactored CCPRIOR redshift \n", INPUTS.debug_flag);
+    }
+  if (INPUTS.debug_flag == 618)	
+    {
+      INPUTS.REFAC_CCPRIOR_BETA=true;
+      INPUTS.REFAC_CCPRIOR_Z=true;
+      printf("\n debug flag set to %d : Refactored CCPRIOR beta & redshift \n", INPUTS.debug_flag);
+    }
+  
+  
   fflush(FP_STDOUT);
+  
 
   return ;
 

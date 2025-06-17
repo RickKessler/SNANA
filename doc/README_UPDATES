@@ -23037,6 +23037,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     plot_table.py
       + DIFF_ALL option includes error bars
 
+    match_cidlist_init ( inside sntools.c ) 
+      + IS_FILE if '.' or '/' in passed filename (add slash option in case there is no dot)
+
     snlc_sim:
       + expand MUSHIFT input to be either
             MUSHIFT: 0.1       # exact 0.1 mag shift

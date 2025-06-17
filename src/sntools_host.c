@@ -10590,10 +10590,10 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
 
   // - - - -
-  OPTMASK = 0 ;
+  OPTMASK = 1 ; // match CID only
   match_cidlist_init(BLANK_STRING, &OPTMASK, BLANK_STRING);
 
-  OPTMASK = 0 ;
+  OPTMASK = 1 ; // match CID only
   NROW = match_cidlist_init(append_file, &OPTMASK, append_varname_string); 
 
   // - - - -

@@ -12173,8 +12173,7 @@ c check integer lists the old way
       ENDIF
 
       IF ( IS_CCID_LIST ) THEN
-         OPTMASK = 0
-cc xxx mark delete  NCCID_TMP = MATCH_CIDLIST_INIT(cBLANK,OPTMASK,cBLANK, 4,4) ! init hash table
+         OPTMASK = 1  ! match CID only
 
 c  check SNCCID_LIST in &SNLCINP ...
          i = 1; CCID = SNCCID_LIST(i)
@@ -12197,7 +12196,7 @@ c check CIDs from separate file (table format, or unformatted)
          else
             cVARLIST_STORE = cBLANK
          endif
-         OPTMASK = 8 ! send reset for AUTOSTORE
+         OPTMASK = 1+8 ! send reset for AUTOSTORE
          NCCID_FILE = 
      &      MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF, 60)
       ENDIF
@@ -12208,46 +12207,6 @@ c check CIDs from separate file (table format, or unformatted)
 
  31   format(T5,'Store ',I6,  ' string  CIDs from ', A)
 
-
-
-
-+SELF,IF=REMOVE.
-c xxx mark delete May 20 2025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      IF ( IS_CCID_LIST ) THEN
-         NCCID_TMP = MATCH_CIDLIST_INIT(cBLANK,OPTMASK,cBLANK, 4,4) ! init hash table
-     
-c  check SNCCID_LIST in &SNLCINP ... 
-         i = 1; CCID = SNCCID_LIST(i) 
-         DO WHILE( CCID .NE. ' ' )
-            CALL NMLCHECK_SNCCID("SNCCID_LIST",CCID)
-            LENC = INDEX(CCID,' ') - 1
-            cCCID = CCID(1:LENC) // char(0)
-            NCCID_TMP = MATCH_CIDLIST_INIT(cCCID,OPTMASK,cBLANK,LENC,4)
-            i = i + 1 ; CCID = SNCCID_LIST(i)
-         END DO
-         NCCID_LIST = i - 1
-
-c check CIDs from separate file (table format, or unformatted)
-         IF ( IS_FILE ) THEN
-            if ( NFIT_ITERATION > 0 .and. OPT_SNCID_LIST>1 ) then
-           ! store SALT2 fit pars for INIVAL in snlc_fit evt sync
-              cVARLIST_STORE = 'BANDLIST,zHD,PKMJD,x0,x1,c' // ',' //
-     & 	              'zHDERR,PKMJDERR,x0ERR,x1ERR,cERR' // char(0) 
-            else
-              cVARLIST_STORE = cBLANK
-            endif
-            OPTMASK = 8 ! send reset for AUTOSTORE
-            NCCID_FILE = 
-     &        MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF, 60)
-         ENDIF
-
-         write(6,31) NCCID_LIST, 'SNCCID_LIST'
-         write(6,31) NCCID_FILE, 'SNCID_LIST_FILE'
- 31      format(T5,'Store ',I6,  ' string  CIDs from ', A)
-
-      ENDIF   ! end IS_CCID_LIST
-c xxxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxx
-+SELF.
 
       CALL FLUSH(6)
 

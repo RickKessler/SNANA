@@ -17979,8 +17979,8 @@ void parse_cidFile_data(int OPT, char *fileName) {
   //
   int  ncidList_data = INPUTS.ncidList_data  ;
   int  ncid, isn, ISNOFF=0, IZBIN, IVAR_IZBIN, IFILE, ifile, ICAST ;
-  // xxx mark delete Feb 24 2025 :  int  OPTMASK_MATCH = 1;  //match CID_IDSURVEY
-  int  OPTMASK_MATCH = 3;  //match CID_IDSURVEY_FIELD
+
+  int  OPTMASK_MATCH = 7;  //match CID_IDSURVEY_FIELD
   double DVAL;
   char id_name[28], VARLIST_STORE[60]="" ;
   char fnam[] = "parse_cidFile_data" ;
@@ -17989,9 +17989,12 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // ------------- BEGIN ------------
 
-  // NOTE: OPTMASK_MATCH->0 in this function if IDSURVEY column doesnt exist
+  fprintf(FP_STDOUT, "  %s for\n\t %s\n",  fnam, fileName); fflush(FP_STDOUT);
+
+
   if ( use_izbin ) { sprintf(VARLIST_STORE,"%s", VARNAME_IZBIN);  }
 
+  // NOTE: OPTMASK_MATCH->1 in this function if IDSURVEY column doesnt exist
   ncid = match_cidlist_init(fileName, &OPTMASK_MATCH, VARLIST_STORE); 
 
   // set logical if IZBIN was found.
@@ -18003,8 +18006,8 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // - - - - - - - - 
   // D.Brout Jun 2021
-  if ( (OPTMASK_MATCH & 1) == 0) {
-    // legacy ... should not be using this
+  if ( OPTMASK_MATCH  == 1 ) {
+    // legacy file with only CIDs and nothing else (unformatted file)
     INPUTS.match_on_cid_idsurvey_field = false;
     INPUTS.match_on_cid_only           = true;
     sprintf(id_name,"CID");
@@ -18019,12 +18022,10 @@ void parse_cidFile_data(int OPT, char *fileName) {
   INPUTS.ncidList_data += ncid ;
  
   if ( OPT > 0 ) {
-    printf("  %s: Accept only %d %s in %s\n", 
-	   fnam, ncid, id_name, fileName);
+    printf("\t Accept only %d event matching %s \n", ncid, id_name);
   }
   else {
-    printf("  %s: Reject %d  %s in %s\n", 
-	   fnam, ncid, id_name, fileName);
+    printf("\t Reject %d  events matching %s \n", ncid, id_name);
   }
   fflush(stdout);
 
@@ -19957,7 +19958,7 @@ void prep_input_driver(void) {
   if ( INPUTS.ncidFile_data > 0 ) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
-    OPTMASK = 0;
+    OPTMASK = 1; // match CID only
     if ( INPUTS.izbin_from_cidFile ) { OPTMASK += 64; }
 
     // init hash table 
@@ -22456,7 +22457,7 @@ void write_cutwin_info(FILE *fout) {
   fprintf(fout,"# This file is for DIAGNOSTIC only, and not used in any part of BBC task. \n");
   fprintf(fout,"#\n");
   fprintf(fout,"#   IDSAMPLE definition \n");
-  //.xyz
+
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     fprintf(fout, "#    %2d       %s \n", idsample, SAMPLE_BIASCOR[idsample].NAME);
   }

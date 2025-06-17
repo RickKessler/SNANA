@@ -236,16 +236,16 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   //
   // if fileName == "", init hash table and return.
   //
-  // OPTMASK += 1: use CID_IDSURVEY  for matching, else CID
-  // OPTMASK += 2: use _FIELD        for matching, else CID
+  // OPTMASK += 2: use CID_IDSURVEY  for matching, else CID
+  // OPTMASK += 3: use _FIELD        for matching, else CID
   //    WARNING: returned OPTMASK value is changed if 
   //             IDSURVEY doesnt exist.
   //
   // Matching string options are :
-  //    OPTMASK=0 -> CID                  
-  //    OPTMASK=1 -> CID_IDSURVEY    (handles duplicate CIDs in different surveys)
-  //    OPTMASK=2 -> CID_FIELD           
-  //    OPTMASK=3 -> CID_IDSURVEY_FIELD  
+  //    OPTMASK=1 -> CID                  
+  //    OPTMASK=3 -> CID_IDSURVEY    (handles duplicate CIDs in different surveys)
+  //    OPTMASK=5 -> CID_FIELD           
+  //    OPTMASK=7 -> CID_IDSURVEY_FIELD    <<<=== recommended
 
   // OPTMASK += 8 -> this is first file, so reset AUTOSTORE
   //
@@ -262,36 +262,36 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // Function returns number of stored CIDs.
   //
   // Jan 2025: allow double or char strings; see ICAST
-  // Feb 24 2025: new OPTMASK += 2 option to match on FIELD.
+  // Feb 24 2025: new OPTMASK += 4 option to match on FIELD.
+  //
+  // Jun 17 2025: 
+  //   + shift OPTMASK bits so that OPTMASK=1 for CID only and not OPTMASK=0.
+  //   + for IS_FILE, check presence of '/' in addition to DOT.
 
-  int  OPTMASK_IDSURVEY = 1;
-  int  OPTMASK_FIELD    = 2;
+  int  OPTMASK_CID      = 1;
+  int  OPTMASK_IDSURVEY = 2;
+  int  OPTMASK_FIELD    = 4;
 
-  bool IS_FILE = ( strstr(fileName,DOT) != NULL );
+  bool IS_FILE = ( strstr(fileName,DOT) != NULL || ( strstr(fileName,"/") != NULL ) ) ;
   bool USE_IDSURVEY       = ( *OPTMASK & OPTMASK_IDSURVEY );
   bool USE_FIELD          = ( *OPTMASK & OPTMASK_FIELD    ); // feb 24 2025
   bool FIRST_FILE         = ( *OPTMASK & 8 );
   bool REFAC              = ( *OPTMASK & 64 );
-  // xxx   bool LEGACY            = !REFAC ;
+  char VARNAME_IDSURVEY[] = "IDSURVEY";
+  char VARNAME_FIELD[]    = "FIELD";
 
   bool FORMAT_TABLE = false ; // FITRES table format
   bool FORMAT_NONE  = false ; // cid list with no format
+
   int  colnum_idsurvey, colnum_field;
   int  NCID, NWD, isn, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
-  int  ILIST = 0, LDMP=0, OPT_AUTOSTORE ;
+  int  ILIST = 0, LDMP=1, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
   char CCID[40], STRINGID[60], ctmp[60], STRING_MATCH[60] ;
-  char VARNAME_IDSURVEY[] = "IDSURVEY";
-  char VARNAME_FIELD[]    = "FIELD";
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
-
-  if ( LDMP ) {
-    printf(" xxx %s: fileName = '%s'   OPTMASK=%d\n", fnam, fileName, *OPTMASK);
-    fflush(stdout);
-  }
 
   // construct comment STRING_MATCH to print below
   sprintf(STRING_MATCH,"CID");
@@ -304,6 +304,14 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     HASH_STORAGE.NVAR = 0;
     SNTABLE_AUTOSTORE_RESET();  // May 2022
     return 0; 
+  }
+
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------------------- \n") ;
+    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
+    printf(" xxx %s: IS_FILE  =  %d  \n", fnam, IS_FILE);
+    printf(" xxx %s: OPTMASK  =  %d  \n", fnam, *OPTMASK);
+    fflush(stdout);
   }
 
 
@@ -326,7 +334,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       { *OPTMASK -= OPTMASK_IDSURVEY;  USE_IDSURVEY = false; }
 
     if ( USE_FIELD && colnum_field < 0 ) 
-      { *OPTMASK -= OPTMASK_FIELD;  USE_FIELD = false; } //.xyz
+      { *OPTMASK -= OPTMASK_FIELD;  USE_FIELD = false; } 
 
     if ( colnum_idsurvey == -1 ) { 
       sprintf(c1err,"Requested CID-match table does not exist.");
@@ -346,12 +354,14 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       get_PARSE_WORD(langC, iwd, CCID, fnam );
       match_cid_hash(CCID, ILIST, iwd);
     }
-    return NCID ;
+    goto DONE ;
+    // xxx mark delete Jun 17 2025   return NCID ;
   }
 
   if ( LDMP ) {
-    printf(" xxx %s: FORMAT_TABLE = %d  COLNUM_IDSURVEY = %d\n", 
-	   fnam, FORMAT_TABLE, colnum_idsurvey );
+    printf(" xxx %s: FORMAT_TABLE = %d  COLNUM_[IDSURVEY,FIELD] = %d, %d\n", 
+	   fnam, FORMAT_TABLE, colnum_idsurvey, colnum_field ); 
+    fflush(stdout);
   }
 
   // - - - - - - - -
@@ -361,7 +371,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   FILE *fp;
   NCID = 0;
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
-
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
@@ -525,10 +534,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
   } // end FORMAT_TABLE
 
-
+ DONE:
   if ( LDMP ) {
-    printf(" xxx %s: IS_FILE=%d  NCID=%d \n", 
-	   fnam, IS_FILE, NCID );
+    printf(" xxx %s: done with NCID=%d \n",  fnam, NCID );
+    printf(" xxx ------------------------------------------------------ \n");
     fflush(stdout);
   }
 

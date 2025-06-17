@@ -615,7 +615,6 @@ void malloc_HASH_STORAGE2(int IVAR, char *VARNAME, int ICAST, int NCID, int ISNO
 int  match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store);
 int  match_cidlist_init__(char *fileName, int *OPTMASK, char *varList_store);
 
-
 int  match_cidlist_exec(char *cid);
 int  match_cidlist_exec__(char *cid);
 

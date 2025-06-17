@@ -1246,8 +1246,12 @@ struct INPUTS {
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
-  bool REFAC_CCPRIOR_BETA; // ( debug_flag = 616  ) Jun 16
-  bool REFAC_CCPRIOR_Z; // ( DEBUG_FLAG = 617 ) Jun 17. debug_flag = 618 is when both above flags are on
+
+  // xxx temp refactor flags Jun 2025 xxxxxxxx
+  bool REFAC_CCPRIOR_BETA;   // debug_flag = 616  ) Jun 16
+  bool REFAC_CCPRIOR_Z;      // debug_flag = 617 )  Jun 17. debug_flag = 618 enables both flags
+  // xxxxxxxxxxxxxxxxxxxx
+
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   
   int  check_duplicates_biasCor; // if enabled, check z & c duplicates then quit.
@@ -3871,6 +3875,8 @@ bool crazy_M0_errors(void) {
   bool crazy_error_flag= false;
   bool ISFLOAT, ISM0;
   double sigint_ref = 0.100; // M0 error should be at least sigint/sqrt(N)
+  if ( INFO_BIASCOR.DUST_FLAG ) { sigint_ref /= 2.0; }  // Jun 17 2025  avoid false alarms for dust model
+
   double VAL, ERR, ERRMIN_COMPUTE, XN, z, AVG_muCOVscale[MXz];
   int    n, iz, isn, NEVT, n_crazy_M0_error = 0;
 
@@ -15543,7 +15549,11 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
       MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
     }
-    if (INPUTS.REFAC_CCPRIOR_BETA ){MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;  }
+
+    printf(" xxx %s: IDSAMPLE=%d  NBINa=%d NBINb=%d <alpha, beta> = %.3f, %.3f \n", 
+	   fnam ,IDSAMPLE, NBINa, NBINb, MUZMAP->alpha, MUZMAP->beta ); fflush(stdout);
+    
+    if (INPUTS.REFAC_CCPRIOR_BETA ){ MUZMAP->beta = INPUTS.parval[IPAR_BETA0]; }
   }
 
 
@@ -20160,22 +20170,19 @@ void prep_debug_flag(void) {
 
   // - - - - - -
 
-  if (INPUTS.debug_flag == 616)
-    {
-      INPUTS.REFAC_CCPRIOR_BETA=true;
-      printf("\n debug flag set to %d : Refactored CCPRIOR beta \n", INPUTS.debug_flag);
-    }
-  if (INPUTS.debug_flag == 617)	
-    {
-      INPUTS.REFAC_CCPRIOR_Z=true;
-      printf("\n debug flag set to %d : Refactored CCPRIOR redshift \n", INPUTS.debug_flag);
-    }
-  if (INPUTS.debug_flag == 618)	
-    {
-      INPUTS.REFAC_CCPRIOR_BETA=true;
-      INPUTS.REFAC_CCPRIOR_Z=true;
-      printf("\n debug flag set to %d : Refactored CCPRIOR beta & redshift \n", INPUTS.debug_flag);
-    }
+  if (INPUTS.debug_flag == 616)    {
+    INPUTS.REFAC_CCPRIOR_BETA = true;
+    printf("\n debug flag set to %d : Refactor CCPRIOR beta \n", INPUTS.debug_flag);
+  }
+  if (INPUTS.debug_flag == 617)	    {
+    INPUTS.REFAC_CCPRIOR_Z = true;
+    printf("\n debug flag set to %d : Refactor CCPRIOR redshift \n", INPUTS.debug_flag);
+  }
+  if (INPUTS.debug_flag == 618)	    {
+    INPUTS.REFAC_CCPRIOR_BETA = true;
+    INPUTS.REFAC_CCPRIOR_Z    = true;
+    printf("\n debug flag set to %d : Refactor CCPRIOR beta & redshift \n", INPUTS.debug_flag);
+  }
   
   
   fflush(FP_STDOUT);
@@ -22807,7 +22814,7 @@ void muerr_renorm(void) {
   double SUM_WGT[MXz], SUM_MURES[MXz], MURES_check[MXz], M0ERR_check[MXz];
   double RATIO_MUERR[MXz], DIF_MURES[MXz], DIF_VARIANCE[MXz];
   double mumodel, mu, muerr, mures, WGT, ratio, dif, pcc, pia ;
-  double tol_warn = 0.001;
+  double tol_warn = 0.002; // increase .001 -> .002 June 17 2025
   double pia_min  = 1.0E-6;
   char star_mures[2] ;
   char fnam[] = "muerr_renorm" ;

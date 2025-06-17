@@ -22994,7 +22994,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        This update is intended to help debugging.
 
     SALT2mu/BBC:
-        fix some chi2max issues; see https://github.com/RickKessler/SNANA/issues/1520
+       + fix some chi2max issues; see https://github.com/RickKessler/SNANA/issues/1520
+       + for dust model, set crazyerr alarm to be x2 smaller to avoid false alarms and
+         needless fit-repeats (Jun 17 2025)
 
      create_covariance.py:
        + fix refactor bug that ignored EXTRA_COVS (vpec syst) [CID_IDSURVEY != CID_IDSURVEY_FIELD]

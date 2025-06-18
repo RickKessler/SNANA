@@ -31,6 +31,8 @@
 #   + fix to preserve output order to match user order of input cid (galid)
 #   + fix bug writing to output file (-o option)
 #
+# Jun 17 2025: refactor selection of CID list to avoid strange crash
+
 import os, sys, argparse, gzip, math
 import numpy as np
 import pandas as pd
@@ -46,6 +48,8 @@ STRING_FORMAT_EAZY  = "eazy"
 ZP_nJy              = 31.4
 ZP_SNANA            = 27.5
 MAGERR_DEFAULT      = 0.05
+
+REFAC_SELECT_CID_LIST = True
 
 # =====================================
 def get_args():
@@ -179,6 +183,7 @@ def parse_inputs(args):
             else:
                 raise ValueError(f"Valid select functions are <, >, and ==. None of these were not found in {sel}")
 
+
     nrow       = args.nrow
 
     info_fitres = {
@@ -261,7 +266,6 @@ def read_fitres_file(info_fitres, reformat_option):
 
     # - - - -
     var_list_local =  [ keyname_id ] + var_list
-
     # - - - - 
     if info_fitres['nrow'] > 0:
         df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
@@ -271,11 +275,11 @@ def read_fitres_file(info_fitres, reformat_option):
 
     else:
         df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
-                          skiprows=nrow_skip, dtype=str,
-                          usecols=var_list_local)
-
-    df             = df.set_index(keyname_id, drop=False)
-
+                          skiprows = nrow_skip, dtype=str,
+                          usecols  = var_list_local)
+    # - - - - - -
+    if not REFAC_SELECT_CID_LIST:
+        df = df.set_index(keyname_id, drop=False)
 
     # load data frame
     info_fitres['df'] = df
@@ -303,6 +307,7 @@ def print_info(info_fitres):
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)
 
+
     # check option to use IDs from first 'nrow' rows
     if nrow > 0 :
         id_rows = df[keyname_id].head(nrow).tolist()
@@ -318,6 +323,9 @@ def print_info(info_fitres):
                 id_rows = df[df[sel[0]] == sel[2]][keyname_id].tolist()
             id_list += id_rows
 
+    #else:
+    #    sys.exit(f"\n ERROR: no events were selected from user CID (-c) list")
+
     # be careful here to remove duplicates AND preserve original order
     id_list = list(dict.fromkeys(id_list))  # trick to preserve order and remove duplicates
     
@@ -326,12 +334,15 @@ def print_info(info_fitres):
         # add back keynam_id [e.g., CID or GALID] and then print
         # without index ... this avoids index name (CID) printed
         # to a separate row compared to other varnames
-        df = df.loc[ id_list, [keyname_id] + var_list]
-        print(df.to_string(index=False))                     
+    
+        if  REFAC_SELECT_CID_LIST:
+            df = df.loc[ df[keyname_id].isin(id_list) ]
+        else:
+            df = df.loc[ id_list, [keyname_id] + var_list ]
 
+        print(df.to_string(index=False))        
         if outfile is not None:
             write_outfile_fitres(df, info_fitres)
-
     else:
         df = df.loc[df[keyname_id].to_list(), var_list]
 
@@ -343,7 +354,7 @@ def print_info(info_fitres):
         if func == 'max':
             print("\n",df.max().to_frame('Max'),"\n")
 
-    # warning: this plotter may be obsolete when plot_fitres.py is installed 
+    # warning: this plotter may be obsolete later ...
     if plot == "hist":
         for var in var_list:
             data = df[var]

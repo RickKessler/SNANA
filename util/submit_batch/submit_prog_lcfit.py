@@ -57,6 +57,8 @@
 # Sep 18 2024 M.Grayling, RK
 #    + check private_data_path for bayesn.
 #
+# Jun 18 2025: set n_split=n_core if only single FITOPT000
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -773,12 +775,16 @@ class LightCurveFit(Program):
         n_fitopt_tmp = n_fitopt_tot - n_fitopt_link # number of FITOPTs to process
         n_job_tmp    = n_version * n_fitopt_tmp  # N_job if no splitting
         n_job_split  = int(n_core/n_job_tmp)
-
+        
         # - - - - - - -
         # check special cases to alter n_job_split
 
         # require at least 1 job
         if n_job_split == 0 : n_job_split = 1
+
+        # Jun 18 2025: if only 1 FITOPT, set n_job_split=n_core so that each
+        #  data version gets lots of cores (e.g., fitting many ELASTICC samples)
+        if n_fitopt_tmp == 1: n_job_split = n_core
 
         # if waiting for FITOPT000, distribute over all cores to avoid
         # long wait for FITOPT000. But no more than 100 splits

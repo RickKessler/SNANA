@@ -734,6 +734,7 @@ struct INPUTS {
   int   OPT_FUDGE_SNRMAX ;     // 1=adjust EXPOSURE_TIME; 2=adjust sigSKY only
 
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
+  double GENRANGE_MJD_EXCLUDE[2]; // exclude this MJD region (6/2025)
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
   // xxx mark del  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)

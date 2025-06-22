@@ -860,6 +860,8 @@ void set_user_defaults(void) {
   INPUTS.GENSIGMA_PEAKMJD  = 0.0 ;
   INPUTS.GENRANGE_MJD[0]   = 20000.0 ; // wide open 
   INPUTS.GENRANGE_MJD[1]   = 80000.0 ;
+  INPUTS.GENRANGE_MJD_EXCLUDE[0]   = 0 ;
+  INPUTS.GENRANGE_MJD_EXCLUDE[1]   = 0 ;
   INPUTS.NEWMJD_DIF  = 0.007 ; // default: same "epoch" for obs within 10'
 
   INPUTS.GENRANGE_TREST[0]   = 0.0 ;
@@ -2187,6 +2189,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD[1] );
   }
+  else if ( keyMatchSim(1,"GENRANGE_MJD_EXCLUDE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD_EXCLUDE[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD_EXCLUDE[1] );
+  }
+
   else if ( keyMatchSim(1,"GENRANGE_PEAKMJD", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMJD[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMJD[1] );
@@ -19259,7 +19266,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  );
        
 	KEEP_MJD =  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
-	
+	if ( MJD > INPUTS.GENRANGE_MJD_EXCLUDE[0] && 
+	     MJD < INPUTS.GENRANGE_MJD_EXCLUDE[1] ) { KEEP_MJD = 0; }
+
 	// code aborts below if ISTORE is too big, but to avoid corrupting
 	// abort messages, don't exceed array bound here.
 	if ( KEEP_MJD &&  ISTORE < MXOBS_SIMLIB ) {

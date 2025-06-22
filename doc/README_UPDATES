@@ -22775,6 +22775,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + write SIZE_HD to INFO.YML, and write SIZE_COVMAT to --yaml_file
         so that submit_batch can include SIZE column in MERGE.LOG
 	
+
+
    submit_prog_sim.py:
        for 10 NONIa sim-input files (for submit_batch_jobs), the script
        confuses NONIaMODEL1* with NONIaMODEL10, and hangs. The fix is
@@ -22948,6 +22950,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     simlib_coadd.c
       + fix bug copying IDEXPT when SORT_BAND option is used.
+      + sort by MJD ... may have fixed subtle bug with ddf_ocean that
+          had a few double-entries per night before fix
+      + if LIBID > LIBID_MAX, stop reading original simlib.
 
     sntools_dataformat_fits.c[h]
       + refactor to explicitly pass "done reading version" flag to RD_SNFITSIO_EVENT,
@@ -23073,6 +23078,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + combine_fitres.exe : works on csv (CSV) files by internally converting to
           SNANA-key format using convertcsv2snana.py
 
+   
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.

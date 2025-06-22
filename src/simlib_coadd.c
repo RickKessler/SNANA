@@ -112,6 +112,10 @@
      too much local memory inside function (was causing crash)
 
  Mar 03 2025: fix bug copying IDEXPT when SORT_BAND option is used.
+ 
+ Jun 22 2025:
+   + sort MJD by default (see REFAC_SORT_OBS_byMJD)
+   + if LIBID > LIBID_MAX, then stop to avoid waiting to read all entries
 
 ***************************************/
 
@@ -130,6 +134,8 @@
 #define MWEBV_MAX    2.0    // reject fields with such large MWEBV
 #define MXLINE_HEADER 200    // max lines for simlib header
 #define MXCHAR_LINE   200     
+
+#define REFAC_SORT_OBS_byMJD 1  // Jun 22 2025: sort by MJD
 
 // global variables.
 
@@ -191,6 +197,7 @@ typedef struct {
   // info is: CCDGAIN, CCDNOISE, SKYSIG, PSF[0-2], ZPTAVG, ZPTSIG, MAG
   double INFO_OBS[MXMJD][NPAR_OBS];
 
+
 } SIMLIB_CONTENTS_DEF ;
 
 
@@ -213,6 +220,8 @@ void  SIMLIB_read(int *RDSTAT);
 void  SIMLIB_sort_band(void);
 void  SIMLIB_coadd(void);
 void  insert_NLIBID(void);
+
+void sort_OBS_byMJD(int NOBS, double *MJD_UNSORT);
 
 void  init_summary_info(void);
 void  update_summary_info(int obs);
@@ -273,7 +282,7 @@ int main(int argc, char **argv) {
 
     XN = (float)NLIBID_FOUND;
     if ( fmodf(XN,XNMOD) == 0.0 && LIBID >= 0 ) 
-      { printf("  Process LIBID %4d \n", LIBID); }
+      { printf("  Process LIBID %4d \n", LIBID);       fflush(stdout);  }
 
     sprintf(BANNER,"Loop 03: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
@@ -289,6 +298,7 @@ int main(int argc, char **argv) {
     if ( NOBS < INPUTS.MINOBS_ACCEPT ) {
       printf("\t Skipping LIBID %d : only %d compact exposures. \n", 
 	     LIBID, NOBS );
+      fflush(stdout);
       continue ;
     }
 
@@ -333,6 +343,9 @@ int main(int argc, char **argv) {
 
     sprintf(BANNER,"Loop 07: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
+
+
+    if ( SIMLIB_INPUT.LIBID > INPUTS.LIBID_MAX ) { break; }
 
   } // end of while loop
 
@@ -538,7 +551,7 @@ void  parse_args(int argc, char **argv) {
 
   // dump compact-header info to stdout (screen)
   for ( i=0; i < N ; i++ ) 
-    { printf("HEADER_ADD: %s\n", HEADER_ADD[i] ); }
+    { printf("HEADER_ADD: %s\n", HEADER_ADD[i] );       fflush(stdout); }
 
   return ;
 
@@ -564,6 +577,7 @@ void SIMLIB_open_read(void) {
   // ---------------- BEGIN --------------
 
   printf("\n SIMLIB_open_read(): \n ");
+  fflush(stdout);
 
   ENVreplace(SIMLIB_INPUT.FILE, fnam, 1);
 
@@ -579,7 +593,7 @@ void SIMLIB_open_read(void) {
 
   rewind(fp_simlib_input);
 
-  printf("\t Opened %s \n", SIMLIB_INPUT.FILE );
+  printf("\t Opened %s \n", SIMLIB_INPUT.FILE );       fflush(stdout);
   fflush(stdout);
 
   // read header keywords. Stop when we reach "BEGIN"
@@ -692,7 +706,7 @@ void SIMLIB_open_read(void) {
   }
 
 
-  printf("\t Opened %s \n", SIMLIB_OUTPUT.FILE );
+  printf("\t Opened %s \n", SIMLIB_OUTPUT.FILE );       fflush(stdout);
 
   for ( i=0; i < NLINE_HEADER; i++ ) {
     fprintf(fp_simlib_output, "%s", HEADER[i] );
@@ -723,6 +737,7 @@ void SIMLIB_read(int *RDSTAT) {
   int i, o, NOBS_READ, NOBS_ACCEPT, LIBID ;
   int OPTLINE, NOBS_EXPECT, ENDLIB, OKLIBID, iwd, NWD    ;
 
+  double *MJD_UNSORT = (double*) malloc( MXMJD * sizeof(double) ) ;
   double MJD, CCDGAIN, CCDNOISE, SKYSIG, NEA, PSF[3], ZPT[2] ;
   double MAG, RA, DEC, XMW[20], MWEBV    ;
 
@@ -835,7 +850,8 @@ void SIMLIB_read(int *RDSTAT) {
       SIMLIB_INPUT.NEXPOSE_IDEXPT[o] = NEXPOSE ;
 
       sprintf(SIMLIB_INPUT.BAND[o], "%s", cfilt);
-
+      
+      MJD_UNSORT[o] = MJD;
       SIMLIB_INPUT.INFO_OBS[o][IPAR_MJD]       = MJD ;
       SIMLIB_INPUT.INFO_OBS[o][IPAR_CCDGAIN]   = CCDGAIN ;
       SIMLIB_INPUT.INFO_OBS[o][IPAR_CCDNOISE]  = CCDNOISE ;
@@ -865,10 +881,14 @@ void SIMLIB_read(int *RDSTAT) {
     } // end of OPTLINE if-block
 
 
-    if ( strcmp(c_get,"END_LIBID:") == 0         ) ENDLIB = 1;
-    if ( strcmp(c_get,"#") == 0 && NOBS_READ > 3 ) ENDLIB = 1;
+    if ( strcmp(c_get,"END_LIBID:") == 0         ) { ENDLIB = 1; }
+    if ( strcmp(c_get,"#") == 0 && NOBS_READ > 3 ) { ENDLIB = 1; }
 
     if ( ENDLIB == 1 ) {
+
+      if ( REFAC_SORT_OBS_byMJD ) 
+	{ sort_OBS_byMJD(NOBS_ACCEPT, MJD_UNSORT); }
+      free(MJD_UNSORT);
 
       if ( NOBS_READ != NOBS_EXPECT && INPUTS.OPT_MJD_DMP == 0 ) {
 	sprintf(c1err,"NOBS_READ = %d, but expected NOBS=%d (LIBID=%d)",
@@ -881,9 +901,11 @@ void SIMLIB_read(int *RDSTAT) {
       if ( LIBID >= INPUTS.LIBID_MIN && LIBID <= INPUTS.LIBID_MAX ) 
 	{ OKLIBID = 1; }
 
+
+      if ( LIBID > INPUTS.LIBID_MAX ) { return; }  // Jun 22 2025
+
       //      printf("  LIBID=%d  OKLIBID = %d \n", LIBID, OKLIBID );
       if ( OKLIBID < 0 ) { SIMLIB_INPUT.LIBID = -9 ; }
-
 
       // if there are too few accepted exposures, set flag to skip LIBID
 
@@ -914,12 +936,40 @@ void SIMLIB_read(int *RDSTAT) {
 
   }  // end of while fscanf loop
 
+
   SIMLIB_INPUT.INFO_HEAD[IPAR_NEA_UNIT] = (float)PSF_NEA_UNIT ;
+
 
   return ;
   
 } // end of function SIMLIB_read
 
+
+// ========================================================
+void sort_OBS_byMJD(int NOBS, double *MJD_UNSORT) {
+
+  // Created Jun 22 2025
+  int *INDEX_SORT = (int*)malloc( NOBS * sizeof(int) );
+  int  o_sort, i, o ;
+  char fnam[] = "sort_OBS_byMJD";
+  // -------------- BEGIN ------------
+
+  copy_SIMLIB_CONTENTS(&SIMLIB_INPUT, &SIMLIB_INPUT_TEMP);
+  //.xyz
+  sortDouble(NOBS, MJD_UNSORT, +1, INDEX_SORT);
+  for(o=0; o < NOBS; o++ ) {
+    o_sort = INDEX_SORT[o]; 
+    copy_SIMLIB_CONTENTS_OBS(&SIMLIB_INPUT_TEMP,
+			     &SIMLIB_INPUT, o_sort, o);
+  }
+
+  free(INDEX_SORT);
+
+  //  debugexit(fnam); // xxx REMOVE
+
+  return;
+
+} // end sort_OBS_byMJD
 
 // *******************************************
 void SIMLIB_sort_band(void) {
@@ -928,7 +978,6 @@ void SIMLIB_sort_band(void) {
   // Sort SIMLIB by band so that co-add includes
   // non-sequential bands.
 
-  // xxx mark delete  SIMLIB_CONTENTS_DEF SIMLIB_INPUT_TEMP;
   int  NOBS_orig = SIMLIB_INPUT.NOBS;
   int  ifilt, NFILT, o, NOBS_copy=0 ;
   int  LDMP = 0;

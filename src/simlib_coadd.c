@@ -58,6 +58,10 @@
     simlib_coadd <simlib_file> SORT_BAND (sort by band before coadd) 
          # e.g., g,r,i,g,r,i -> gg,rr,ii so that each band is coadded.
 
+    simlib_coadd <simlib_file> --SIMLIB_COADD_FILE <file name>
+           (default file name is <simlib_file>.COADD
+
+
   History
   ---------
 
@@ -116,6 +120,7 @@
  Jun 22 2025:
    + sort MJD by default (see REFAC_SORT_OBS_byMJD)
    + if LIBID > LIBID_MAX, then stop to avoid waiting to read all entries
+   + new optional input --SIMLIB_COADD_FILE <file name>
 
 ***************************************/
 
@@ -425,6 +430,7 @@ void  parse_args(int argc, char **argv) {
   INPUTS.OPT_MWEBV   = 0 ;
   INPUTS.OPT_SORT_BAND = 0 ;
 
+
   // combine consecutive exposures in same filter 
   // within this time-diff (days)
   INPUTS.MAXTDIF_COMBINE  = 0.4  ; 
@@ -468,6 +474,10 @@ void  parse_args(int argc, char **argv) {
 
     if ( strcmp(argv[i], "--MINOBS" ) == 0 ) 
       { sscanf ( argv[i1], "%d", &INPUTS.MINOBS_ACCEPT ); }
+
+    if ( strcmp(argv[i], "--SIMLIB_COADD_FILE" ) == 0 )  { 
+      sscanf ( argv[i1], "%s", SIMLIB_OUTPUT.FILE );   // override default Jun 24 2025
+    }
 
     if ( strcmp(argv[i], "MWEBV" ) == 0 ) 
       { INPUTS.OPT_MWEBV = 1; }

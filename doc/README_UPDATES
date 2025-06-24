@@ -23079,6 +23079,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           SNANA-key format using convertcsv2snana.py
 
    
+   simlib_coadd:
+     + new input arg --SIMLIB_COADD_FILE to override default output file
+     + internally sort MJDs so that output is ordered by MJD
+
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.

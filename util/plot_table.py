@@ -1941,7 +1941,7 @@ def plotter_func_driver(args, plot_info):
             if args.FIT:
                 xfit_data = xbins_cen
                 yfit_data = contents_1d
-                yerr_data = max(1.0,sqrt(yfit_data))
+                yerr_data = [ max(1.0,math.sqrt(y)) for y in yfit_data]
                 
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
@@ -2751,7 +2751,7 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     if ybins_sigma is None:
         label_chi2 = ''
     else:
-        ycov_contents  = ybins_sigma*ybins_sigma
+        ycov_contents  = [y*y for y in ybins_sigma]
         chi2_bins = [ (ydata-yfun)**2/ycov for ydata, yfun, ycov in \
                       zip(ybins_contents, yfun_cen, ycov_contents) ]
         chi2      = sum(chi2_bins)

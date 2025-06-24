@@ -92,6 +92,8 @@
 #              Rename make_reject_summary to make_accept_summary().
 #
 # Jun 6 2025 : read BBC_REJECT_MONITOR.FITRES and write NREJECT_bySAMPLE dictionary in BBC_SUMMARY_FITPAR.YAML
+#        
+# Jun 24 2025: check optional MUOPT000_LABEL to override None as label
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1748,16 +1750,23 @@ class BBC(Program):
     def bbc_prep_muopt_list(self):
     
         # Jan 24 2021: refactor using prep_jobopt_list util
+        # Jun 24 2025: check optional MUOPT000_LABEL
 
         CONFIG   = self.config_yaml['CONFIG']
-        key      = MUOPT_STRING
-        if key in CONFIG  :
-            muopt_rows = CONFIG[key]
-        else:
-            muopt_rows = []
+        MUOPT000_LABEL = CONFIG.setdefault('MUOPT000_LABEL',None)
+
+        muopt_rows = []
+        ROW_START  = 1
+        if MUOPT000_LABEL:   # Jun 24 2025
+            muopt_rows = [ f'/{MUOPT000_LABEL}/   ' ]
+            ROW_START  = 0
+
+        key  = MUOPT_STRING
+        if key in CONFIG  :    muopt_rows += CONFIG[key]
 
         # - - - - - -
-        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, 1, None)
+        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, ROW_START, None)
+
 
         n_muopt          = muopt_dict['n_jobopt']
         muopt_arg_list   = muopt_dict['jobopt_arg_list']
@@ -1783,7 +1792,8 @@ class BBC(Program):
         muopt_arg_list   = self.config_prep['muopt_arg_list']
         muopt_label_list = self.config_prep['muopt_label_list'] 
 
-        for num,arg,label in zip(muopt_num_list, muopt_arg_list,  muopt_label_list):
+        for num, arg, label in zip(muopt_num_list, muopt_arg_list,  muopt_label_list):
+
             if arg == '' : arg = None 
             row   = [ num, label, arg ]
             MUOPT_OUT_LIST.append(row)
@@ -2256,14 +2266,6 @@ class BBC(Program):
         f.write("MUOPT_OUT_LIST:  # MUOPTNUM  USER_LABEL   USER_ARGS \n")
         for row in MUOPT_OUT_LIST:
             f.write(f"  - {row} \n")
-
-        # xxxxxxxxx mark delete May 8 2025 xxxxxxx
-        #for num,arg,label in zip(muopt_num_list, muopt_arg_list, muopt_label_list):
-        #   if arg == '' : arg = None  # 9.19.2021
-        #    row   = [ num, label, arg ]
-        #    f.write(f"  - {row} \n")
-        #f.write("\n")
-        # xxxxxxxxx end mark 
 
         # end append_info_file
 
@@ -2821,10 +2823,6 @@ class BBC(Program):
         FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
         MUOPT_OUT_LIST  = self.config_prep['MUOPT_OUT_LIST'] 
 
-        #xxxsubmit_info_yaml = self.config_prep['submit_info_yaml']
-        #xxxFITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
-        #xxxMUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
-
         fitres_list_all   = sorted(glob.glob1(search_path,search_pattern))
         fitres_list       = []
         NOREJECT_list     = []
@@ -3239,7 +3237,7 @@ class BBC(Program):
             string_values = \
                 f"{nrow:3d}  {version} {ifit_str} {imu_str} " \
                 f"{str_w}  {omm:6.4f} {omm_sig:6.4f} " \
-                f"{chi2:.1f} {ndof} {nwarn} {str_FoM}"
+                f"{chi2:5.1f} {ndof} {nwarn} {str_FoM}"
             
             if nrow == 1 and use_wfit_blind: 
                 f.write(f"# cosmology params blinded.\n")

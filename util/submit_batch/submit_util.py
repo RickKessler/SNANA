@@ -131,7 +131,7 @@ def prep_jobopt_list(config_rows, string_jobopt, start_jobopt, key_arg_file):
         jobopt_file_list  = []
     else:
         msgerr = []
-        msgerr.append(f"Invalie start_jobopt={start_jobopt} arg")
+        msgerr.append(f"Invalid start_jobopt={start_jobopt} arg")
         msgerr.append(f"in util.prep_jobopt_list")
         log_assert(False,msgerr)
 

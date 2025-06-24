@@ -565,11 +565,14 @@ HELP_CONFIG_BBC = f"""
 
   # BBC variations (for each VERSION and each FITOPT). Note that the
   # NOREJECT label excludes this MUOPT from defining reject.list.
+  # MUOPT000 corresponds to input config file with no alterations
+  # and hence it is not specified here (i.e., removing MUOPT key
+  # here results in MUOPT000 output)
   MUOPT:
-  - /SYST_ab/   p1=0.2 p2=3.3
-  - /SYST_tol/  redchi2_tol=.02
-  - /SYST_sig1/ sig1=0.14
-  - /NOREJECT/  simfile_biascor=[something_else]
+  - /SYST_ab/   p1=0.2 p2=3.3                     # MUOPT001
+  - /SYST_tol/  redchi2_tol=.02                   # MUOPT002
+  - /SYST_sig1/ sig1=0.14                         # MUOPT003
+  - /NOREJECT/  simfile_biascor=[something_else]  # MUOPT004
 
   # To run with older code versions, use JOBNAME key in MUOPT; e.g.
   MUOPT:
@@ -577,16 +580,22 @@ HELP_CONFIG_BBC = f"""
   - /v11_04f/  JOBNAME  /products/SNANA_v11_04f/bin/SALT2mu.exe
   etc ...
 
+  # default label for MUOPT000 is None; to output a more informative label
+  # (e.g., for downstream codes to parse);
+  MUOPT000_LABEL:  MY_NOMINAL_LABEL
+
   # Option to run wfit (fast, but ancient) as merge process. Useful
   # for quick cosmology cross-checks. To get help on argList,
   # run "wfit.exe" with no args. Output cosmology fit params are
-  # in YAML format.
+  # in YAML format. Since there is no config file with default params,
+  # WFITMUDIF_OPTs start at 0, not 1 as for MUOPTs.
+  #
   WFITMUDIF_OPT: <argList>
   #   or
   WFITMUDIF_OPT:   # labels below are optional
-  - /label0/  <argList0>   
-  - /lable1/  <argList1>
-  - /label2/  <argList2>
+  - /label0/  <argList0>         # wfit0
+  - /lable1/  <argList1>         # wfit1
+  - /label2/  <argList2>         # wfit2
   - etc ...
 
   # Process subset of FITOPT x MUOPT matrix. Examples are

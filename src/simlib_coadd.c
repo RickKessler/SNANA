@@ -400,6 +400,11 @@ void  print_simlib_coadd_help(void) {
     ""
     "SORT_BAND   # sort by band before coadd",
     "#   (e.g., g,r,i,g,r,i -> gg,rr,ii so that each band is coadded)",
+    "",
+    "# replace default outout name <simlib_file>.COADD to <coadd_file>",
+    "# For testing only; NOT recommended for science.",
+    "--SIMLIB_COADD_FILE  <coadd_file>    ",
+    "",
     0
   };
 
@@ -967,8 +972,8 @@ void sort_OBS_byMJD(int NOBS, double *MJD_UNSORT) {
   copy_SIMLIB_CONTENTS(&SIMLIB_INPUT, &SIMLIB_INPUT_TEMP);
 
   sortDouble(NOBS, MJD_UNSORT, +1, INDEX_SORT);
-  for(o=0; o < NOBS; o++ ) {
-    o_sort = INDEX_SORT[o]; 
+  for(o_sort=0; o_sort < NOBS; o_sort++ ) {
+    o = INDEX_SORT[o_sort]; 
     copy_SIMLIB_CONTENTS_OBS(&SIMLIB_INPUT_TEMP,
 			     &SIMLIB_INPUT, o, o_sort );
   }

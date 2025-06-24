@@ -3137,7 +3137,8 @@ class BBC(Program):
     def make_wfit_summary(self, iwfit, opt_wfit):
 
         # May 2024: pass index iwfit and opt_wfit as input args.
-        
+        # Jun 2025: add row label string made from FITOPT and MUOPT labels; see label_row
+
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -3168,7 +3169,7 @@ class BBC(Program):
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
-                   f"CHI2 NDOF NWARN {varname_FoM}"
+                   f"CHI2 NDOF NWARN {varname_FoM}  LABEL"
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
@@ -3195,6 +3196,12 @@ class BBC(Program):
             imu  = int(imu_str)
             label_fitopt = fitopt_list[ifit][2]
             label_muopt  = muopt_list[imu][1]
+
+            label_list = []
+            if label_fitopt != "None": label_list.append(label_fitopt)
+            if label_muopt  != "None": label_list.append(label_muopt)
+            if len(label_list) > 0: label_row = '/'.join(label_list)
+            else  :                 label_row = 'DEFAULT'
 
             # figure out name of wfit-YAML file and read it
             prefix_orig,prefix_final = self.bbc_prefix(f"wfit{iwfit}", row)
@@ -3252,7 +3259,7 @@ class BBC(Program):
                 f.write(f"# FITOPT{ifit_str}={label_fitopt} " \
                         f"  MUOPT{imu_str}={label_muopt}\n")
 
-            f.write(f"{KEY_ROW} {string_values}\n")
+            f.write(f"{KEY_ROW} {string_values}  {label_row}\n")
 
             ifit_last = ifit; imu_last = imu
         f.close()

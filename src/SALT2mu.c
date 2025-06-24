@@ -23458,6 +23458,8 @@ void print_SALT2mu_HELP(void) {
     "",
     "simfile_biascor=<name>           # sim fitres file to compute bias map",
     "simfile_biascor=name1,name2,etc  # idem with comma-sep list",
+    "simfile_biascor=datafile         # use data as biascor; should be 1D and only for quick tests",
+
     "",
     "opt_biascor=<option>    # grep MASK_BIASCOR  SALT2mu.c | grep define",
     "",

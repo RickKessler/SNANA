@@ -23032,6 +23032,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     submit_batch_jobs:
       + for sim task, fix GENOPT parsing of JOBNAME so that it works with
         other GENOPTs.
+      + in submit_prog_bbc.py, speed up izbin extraction for BBC_ACCEPT file 
+        in post-processing
 
     SALT2mu.c
       + for CUTWIN(BIASCORONLY) SIM_XXX <min> <max>, skip reading real data to

@@ -94,6 +94,9 @@
 # Jun 6 2025 : read BBC_REJECT_MONITOR.FITRES and write NREJECT_bySAMPLE dictionary in BBC_SUMMARY_FITPAR.YAML
 #        
 # Jun 24 2025: check optional MUOPT000_LABEL to override None as label
+# Jun 25 2025: in get_cid_list_duplicates(), speed up izbin extraction that was
+#               very slow for large samples [no more explicit df call inside ucid loop]
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -108,6 +111,8 @@ from submit_params    import *
 from submit_prog_base import Program
 
 USE_INPDIR = True
+
+WRITE_SUMMARY_REJECT = False  # Jun 24 2025: later, convert this to CONFIG flag for user
 
 # for preparing catenated input fitres files using sntable_cat.py,
 # define number of interactive jobs to parallelize this slow task.
@@ -175,6 +180,7 @@ TABLE_VARNAME_CID      = "CID"
 TABLE_VARNAME_IDSURVEY = "IDSURVEY"
 TABLE_VARNAME_FIELD    = "FIELD"     # Feb 23 2025
 TABLE_VARNAME_IZBIN    = "IZBIN"
+TABLE_VARNAME_UCID     = "UCID"      # unique CID__SURVEY__FIELD
 
 # keep these variables if they exist in some FITRES files but not others
 VARNAME_APPEND = 'PROB*,zPRIOR*,SNRSUM,SIM_c,SIM_x1'  
@@ -1460,6 +1466,8 @@ class BBC(Program):
         # LCFIT/BBC cut options that result in a missing event.
         # For BIASCOR stage, append NFITOPT_REJECT_BIASCOR.
 
+        if not WRITE_SUMMARY_REJECT: return  # later replace global flag with CONFIG input
+
         n_version        = self.config_prep['n_version_out']    
         script_dir       = self.config_prep['script_dir']
         output_dir       = self.config_prep['output_dir']  
@@ -1571,11 +1579,6 @@ class BBC(Program):
 
         cmd_mv   = f"mv {tmp_outfile_tag} {BBC_REJECT_MONITOR_FILE}"
         cmd_full = f"{cmd_cd} ; {cmd_tag} ; {cmd_mv}"
-
-
-        #logging.info(" xxx ")
-        #logging.info(f" xxx cmd_full = {cmd_full}")
-        #logging.info(" xxx ")
 
         os.system(cmd_full)
 
@@ -2577,9 +2580,9 @@ class BBC(Program):
 
         # get list of all FITRES files in /vout, then find number
         # of matches for each SN. Finally, write file with
-        #   VARNAMES: CID  NJOB_REJECT
-        # where NJOB_REJECT is the number of FITRES files where
-        # CID was rejected.
+        #   VARNAMES:CID IDSURVEY FIELD IZBIN
+        # with events common to all output fitres files.
+        #
         # Goal is to use this file in 2nd round of BBC and include
         # only events that pass in all FITOPT and MUOPTs.
         #
@@ -2589,31 +2592,41 @@ class BBC(Program):
         # Feb 23 2025: match duplicate by CID+IDSURVEY+FIELD 
         #   Prevous matching by CID+IDSURVEY isn't enough for same survey
         #   simulated multiple times, each with different field.
+        # Jun 25 2025: if SYNC_EVT=F, bail out.
 
-        args          = self.config_yaml['args']  
-        output_dir    = self.config_prep['output_dir']
+
+        args             = self.config_yaml['args']  
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+
+        sync_evt         = submit_info_yaml['SYNC_EVT']
+        if not sync_evt : return  # Jun 25 2025
+
         VOUT          = f"{output_dir}/{vout}"
 
         search_pattern  = "FITOPT*MUOPT*.FITRES.gz"
         fitres_list     = self.get_fflist_accept_summary(VOUT, search_pattern)
 
-        reject_file   = BBC_REJECT_SUMMARY_FILE
-        REJECT_FILE   = f"{VOUT}/{reject_file}"
-
         accept_file   = BBC_ACCEPT_SUMMARY_FILE
         ACCEPT_FILE   = f"{VOUT}/{accept_file}"
 
-        logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
+        logging.info(f"  - - - - - - - - - - - - - - - - - - - - - - - - -  ")
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
+
+        # xxx mark 
+        #reject_file   = BBC_REJECT_SUMMARY_FILE
+        #REJECT_FILE   = f"{VOUT}/{reject_file}"
+        # xxx mark delete logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
 
         n_ff     = len(fitres_list) # number of FITRES files
         
         first_fitres_file = VOUT + "/" + fitres_list[0]
 
-        # check for duplicates from 
+        # check for CID duplicates from 
         # same data light curve measured by multiple surveys, or
         # multiple sims (e.g., LOWZ + HIGHZ) with random overlap CIDs
-
+        # If there are duplicate CIDs, write out SURVEY and FIELD in
+        # accept/reject file to break degeneracy
         df_first  = pd.read_csv(first_fitres_file, 
                                 comment="#", delim_whitespace=True)
         first_cids  = df_first[TABLE_VARNAME_CID]
@@ -2621,19 +2634,12 @@ class BBC(Program):
         n_dupl   = len(counts[counts>1])
         has_dupl = n_dupl > 0
 
-        dump_dupl = False 
-        if dump_dupl:
-            for cid,cnt in zip(first_cids_unique,counts) :
-                if cnt > 1:
-                    print(f" xxx duplicate cid={cid} has cnt={cnt}")
-                
         # - - - - - - - - 
-        if has_dupl :
-            logging.info(f"\t {n_dupl} duplicates found in first fitres file.")
-            cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
-            unique_dict = cid_dict['unique_dict']
-        else:
-            cid_dict = self.get_cid_list(fitres_list, VOUT)
+
+        logging.info(f"\t {n_dupl} duplicate CIDs found in first fitres file.")
+        logging.info(f"\t --> include SURVEY and FIELD in ACCEPT/REJECT files")
+        cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
+        unique_dict = cid_dict['unique_dict']
 
         cid_list        = cid_dict['cid_list']
         cid_unique      = cid_dict['cid_unique']
@@ -2658,39 +2664,33 @@ class BBC(Program):
                     f"{n_ff} (FITOPT x MUOPT). \n")
             f.write(f"# {n_all_pass} CIDs " \
                     f"pass cuts in all BBC-FF\n")
-            f.write(f"# These CIDs are selected in {PROGRAM_NAME_BBC} with\n")
-            f.write(f"#    accept_list_file={accept_file} \n")
-            f.write(f"\n")
-            if has_dupl :
-                f.write(f"# Beware of Duplicate CIDs " \
-                        f"(each CID + IDSURVEY + FIELD is unique) \n")
-                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
-                        f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_FIELD} {TABLE_VARNAME_IZBIN}\n")
-                for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
-                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
-                    field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
-                    izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
-                    if nrej==0: 
-                        f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {izbin:2d}\n")
-            else:
-                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} "\
-                        f" {TABLE_VARNAME_IZBIN}\n")
-                izbin_unique      = cid_dict['izbin_unique']
-
-                for cid, izbin, nrej in \
-                    zip(cid_unique,izbin_unique,n_reject) :
-                    if nrej==0: 
-                        f.write(f"SN:  {cid:<12}  {izbin}\n")
-
+            f.write(f"# To select common events in all BBC-FF, " \
+                    f"these CIDs can be selected in {PROGRAM_NAME_BBC} with\n")
+            f.write(f"#    cid_select_file={accept_file} \n")
             f.write(f"\n")
 
+            f.write(f"# Beware of Duplicate CIDs " \
+                    f"(each CID + IDSURVEY + FIELD is unique) \n")
+            f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
+                    f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_FIELD} {TABLE_VARNAME_IZBIN}\n")
+            for ucid, nrej in zip(cid_unique,n_reject) :
+                cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
+                field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
+                izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
+
+                if nrej==0: 
+                    line = f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {izbin:2d}"
+                    f.write(f"{line}\n")
+
+            # - - - -
+            f.write(f"\n")
         # - - - - -
         return
         # end make_accept_summary
 
 
-    def get_cid_list(self,fitres_list,VOUT):
+    def get_cid_list_OBSOLETE(self,fitres_list,VOUT):
         # get cid_list of all CIDs in all files. If same events appear in 
         # each file, each CID appears n_ff times. If a CID appears less 
         # than n_ff times, it goes into reject list.
@@ -2698,6 +2698,8 @@ class BBC(Program):
         cid_list   = []
         izbin_list = []
         found_first_file = False
+
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
 
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
@@ -2708,6 +2710,8 @@ class BBC(Program):
                 df0 = df.copy()
                 df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
                 found_first_file = True
+
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
@@ -2722,6 +2726,8 @@ class BBC(Program):
         cid_dict['n_count']    = n_count
         cid_dict['n_reject']   = n_reject
 
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
+
         # Mar 28 2022: fetch list of izbin 
         if TABLE_VARNAME_IZBIN in df0:
             izbin_unique = []
@@ -2734,19 +2740,23 @@ class BBC(Program):
             ncid         = len(cid_unique)
             izbin_unique = [ -9 ] * ncid
 
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
         cid_dict['izbin_unique']  = izbin_unique
 
         return cid_dict
-        # end of get_cid_list
+        # end of get_cid_list_OBSOLETE
 
     def get_cid_list_duplicates(self,fitres_list,VOUT):
         # get cid_list of all CIDs in all files. If same events appear in 
         # each file, each CID appears n_ff times. If a CID appears less 
         # than n_ff times, it goes into reject list.
+        #
+        # Jun 25 2025: speed up slow extraction of izbin 
 
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag
-
+        sep_ucid         = '__'
+            
         n_ff        = len(fitres_list)
         unique_dict = {}
         ucid_list   = []
@@ -2755,38 +2765,32 @@ class BBC(Program):
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
             df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
-            df_id    = df.CID.astype(str) + "__" + df.IDSURVEY.astype(str) + "__" + \
-                       df.FIELD.astype(str)  
-            ucid_list = np.concatenate( (ucid_list, df_id) )
 
+            if TABLE_VARNAME_IZBIN not in df: df[TABLE_VARNAME_IZBIN] = -9
+
+            df_ucid  = df.CID.astype(str)      + sep_ucid + \
+                       df.IDSURVEY.astype(str) + sep_ucid + \
+                       df.FIELD.astype(str)    + sep_ucid + \
+                       df.IZBIN.astype(str)  
+            ucid_list = np.concatenate( (ucid_list, df_ucid) )
 
             if not found_first_file:
-                df0 = df.copy()
-                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
                 found_first_file = True
+                df0 = df.copy()
+                df0[TABLE_VARNAME_CID]   = df0[TABLE_VARNAME_CID].astype(str)
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
         cid_unique, n_count = np.unique(ucid_list, return_counts=True)
-        HAS_IZBIN = TABLE_VARNAME_IZBIN in df0
 
+        #sys.exit(f"\n xxx cid_unique = \n{cid_unique[0:100]}")
         for ucid in cid_unique:
             unique_dict[ucid] = {}
-            cid      = str(ucid.split("__")[0])
-            idsurvey = int(ucid.split("__")[1])
-            field    = str(ucid.split("__")[-1])  
-
-            if HAS_IZBIN:
-                izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
-                                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey) & \
-                                     (df0[TABLE_VARNAME_FIELD]==field) ][TABLE_VARNAME_IZBIN].values
-            else:
-                izbin_list = []
-
-            if len(izbin_list) > 0 :
-                izbin = int(izbin_list[0])
-            else:
-                izbin = -9
+            ucid_split = ucid.split(sep_ucid)
+            cid      = str(ucid_split[0])
+            idsurvey = int(ucid_split[1])
+            field    = str(ucid_split[2])  
+            izbin    = int(ucid_split[3])  
 
             unique_dict[ucid][TABLE_VARNAME_CID]      = cid
             unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
@@ -2909,7 +2913,8 @@ class BBC(Program):
             f.write(f"\n# ================================================= \n")
             f.write(f"{version}:   # data version\n")
 
-            self.write_fitpar_summary_reject(f,version, bbc_yaml_list[0] )  # May 2025
+            if WRITE_SUMMARY_REJECT:
+                self.write_fitpar_summary_reject(f,version, bbc_yaml_list[0] )  
 
             f.write(f"\n  # - - - - - - - - - - - - - -\n  BBC_PROCESS_LIST: \n")
             for row, bbc_yaml in zip(MERGE_INFO_CONTENTS[TABLE_MERGE], bbc_yaml_list):

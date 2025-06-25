@@ -30615,11 +30615,6 @@ void screen_update(int ilc ) {
 	  }
 	}
 
-	/* xxx mark del May 26 2025 
-	printf("\t Finished generating %8d of %d (CID=%d) %s\n", 
-	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID, str_rate ); //.xyz
-	xxx */
-
 	printf("\t Finished generating %6d of %d LightCurves (NGENEV_TOT=%6d, CID=%d) %s\n", 
 	       ilc, INPUTS.NGENTOT_LC, NGENEV_TOT, CID, str_rate ); 
       }
@@ -31061,6 +31056,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   // Sep 03 2024: modify PREFIX for output dump file to include prefix of SIMLIB file name;
   //              avoids clobbering if there are multiple simlib files for one survey.
   //
+  // Jun 25 2025; add FIELD to OBS table output
   // ----------------------------------
 
 #define MXSIMLIB_DUMP_STDOUT 50   // max simlib entries to screen-dump
@@ -31269,7 +31265,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     NVAR = 11 ;
    
     fprintf(fpdmp1,"VARNAMES: ROW "
-	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG   MJD_DIF MJD_DIF_BAND\n");
+	    "LIBID FIELD  RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG   MJD_DIF MJD_DIF_BAND\n");
     fprintf(fpdmp1,"\n");
   }
 
@@ -31361,6 +31357,7 @@ void SIMLIB_DUMP_DRIVER(void) {
       SKYSIG_ADU     = SIMLIB_OBS_GEN.SKYSIG[iep] ;
       PSF_SIMLIB     = SIMLIB_OBS_GEN.PSFSIG1[iep] ;
       PIXSIZE_SIMLIB = SIMLIB_OBS_GEN.PIXSIZE[1] ;
+      sprintf(FIELDNAME, "%s", SIMLIB_OBS_GEN.FIELDNAME[iep] ); // Jun 25 2025
 
       // convert PSF(pixels,sigma) into PSF(arcsec,FWHM)
       PSF = PSF_SIMLIB * PIXSIZE_SIMLIB * FWHM_SIGMA_RATIO ; 
@@ -31404,9 +31401,9 @@ void SIMLIB_DUMP_DRIVER(void) {
       if ( LDMP_OBS_TEXT ) {
 	NROW_MJD++ ;
 	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
-	fprintf(fpdmp1,"ROW: %3d %4d %.4f %.4f %.4f  "
+	fprintf(fpdmp1,"ROW: %3d %4d %s %.4f %.4f %.4f  "
 		"%s  %.3f  %.3f  %.3f %.3f   %.4f %.4f\n",
-		NROW_MJD, ID, RA, DEC, MJD, 
+		NROW_MJD, ID, FIELDNAME, RA, DEC, MJD, 
 		cfilt, ZPT_pe, SKYMAG, PSF,  M5SIG, MJD_DIF, MJD_DIF_FILTER );
       }
 

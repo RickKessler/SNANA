@@ -22,7 +22,7 @@
 
 *****************************************************/
 
-#define MXEPOCH  30000   // max Nepoch for data & simlib
+#define MXEPOCH  60000   // max Nepoch for data & simlib
 
 #define MXEPCOV  112     // max epochs to store in covariance matrix
 

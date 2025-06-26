@@ -373,10 +373,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
 
   // Juj 26 2025 : define list of invalid symbols in a CID name
-#define N_CID_SUBSTRING_INVALID 7 
+#define N_CID_SUBSTRING_INVALID 3
   char *substr;
   char CID_SUBSTRING_INVALID_LIST[N_CID_SUBSTRING_INVALID][12] = 
-    { ":", ",", "=", "SNID", "snid", "CID", "cid" } ;
+    { ":", ",", "=" } ;
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {

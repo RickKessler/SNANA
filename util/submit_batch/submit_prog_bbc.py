@@ -2600,8 +2600,8 @@ class BBC(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
 
         sync_evt         = submit_info_yaml['SYNC_EVT']
-        # if not sync_evt : return  # Jun 25 2025  ### RESTORE
-
+        if not sync_evt : return  # Jun 25 2025  ### RESTORE
+        
         VOUT          = f"{output_dir}/{vout}"
 
         search_pattern  = "FITOPT*MUOPT*.FITRES.gz"
@@ -2613,10 +2613,7 @@ class BBC(Program):
         logging.info(f"  - - - - - - - - - - - - - - - - - - - - - - - - -  ")
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
 
-        # xxx mark 
-        #reject_file   = BBC_REJECT_SUMMARY_FILE
-        #REJECT_FILE   = f"{VOUT}/{reject_file}"
-        # xxx mark delete logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
+        t_start = time.time()
 
         n_ff     = len(fitres_list) # number of FITRES files
         
@@ -2686,6 +2683,9 @@ class BBC(Program):
             # - - - -
             f.write(f"\n")
         # - - - - -
+        t_tot = time.time() - t_start
+        logging.info(f"\t time to create {accept_file}: {t_tot:.1f} sec")
+
         return
         # end make_accept_summary
 
@@ -2751,15 +2751,19 @@ class BBC(Program):
         # each file, each CID appears n_ff times. If a CID appears less 
         # than n_ff times, it goes into reject list.
         #
-        # Jun 25 2025: speed up slow extraction of izbin 
+        # Jun 26 2025: speed up slow extraction of izbin 
 
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag
+
+        LEGACY_IZBIN     = devel_flag == -626
+        REFAC_IZBIN      = not LEGACY_IZBIN
+
         sep_ucid         = '__'
             
         n_ff        = len(fitres_list)
-        unique_dict = {}
-        ucid_list   = []
+        unique_dict     = {}
+        ucid_list_all   = []
         found_first_file = False
 
         for ff in fitres_list:
@@ -2773,7 +2777,7 @@ class BBC(Program):
                        df.FIELD.astype(str)  
 
             df[TABLE_VARNAME_UCID] = df_ucid
-            ucid_list = np.concatenate( (ucid_list, df_ucid) )
+            ucid_list_all = np.concatenate( (ucid_list_all, df_ucid) )
 
             if not found_first_file:
                 found_first_file = True
@@ -2783,17 +2787,20 @@ class BBC(Program):
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
-        cid_unique, n_count = np.unique(ucid_list, return_counts=True)
+        cid_unique, n_count = np.unique(ucid_list_all, return_counts=True)
 
-        DEBUG_IZBIN = False
-        if DEBUG_IZBIN:
-            # xxx continue debugging this later ...
-            print(f"\n xxx df0 = \n{df0}")
-            print(f"\n xxx len cid_unique = {len(cid_unique)} \n{cid_unique[0:40]}")
-            mask       = df0[TABLE_VARNAME_UCID].isin(cid_unique)
-            izbin_list = list(df0[mask][TABLE_VARNAME_IZBIN])
-            #sys.exit(f"\n xxx mask = \n{mask} \n\n xxx len izbin_list = {len(izbin_list)} \n{izbin_list[0:40]}")
-            # xxxxxxxxxx
+        if REFAC_IZBIN :
+            # the mask of event that are in cid_unique are in a different order
+            # after using df0[mask] to select using isin(cid_unique).
+            # Thus we explicitly define izbin_unique to correspond to cid_unique
+            t0 = time.time()
+            mask           = df0[TABLE_VARNAME_UCID].isin(list(cid_unique))
+            ucid_tmp_list  = list(df0[mask][TABLE_VARNAME_UCID])
+            izbin_tmp_list = list(df0[mask][TABLE_VARNAME_IZBIN])    # wrong order
+            izbin_unique   = [ izbin_tmp_list[ucid_tmp_list.index(c)] for c in cid_unique ] # correct order
+            ncid           = len(cid_unique)
+            dt = time.time() - t0
+            logging.info(f"\t time to create IZBIN list for {ncid} CIDs: {dt:.1f} sec")
 
         for i, ucid in enumerate(cid_unique):
             unique_dict[ucid] = {}
@@ -2802,28 +2809,31 @@ class BBC(Program):
             idsurvey = int(ucid_split[1])
             field    = str(ucid_split[2])  
 
-
-            if DEBUG_IZBIN:
-                # try faster way, but still buggy ...
-                izbin    = izbin_list[i]
+            if REFAC_IZBIN:
+                izbin    = izbin_unique[i]
             else:
                 # legacy method that can be super slow for 100k samples
                 #izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
                 #                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey) & \
                 #                     (df0[TABLE_VARNAME_FIELD]==field) ][TABLE_VARNAME_IZBIN].values
                 izbin_list = df0.loc[ (df0[TABLE_VARNAME_UCID]==ucid) ][TABLE_VARNAME_IZBIN].values
-                izbin = izbin_list[0]
+                if len(izbin_list) > 0 :
+                    izbin = int(izbin_list[0])
+                else:
+                    izbin = -9
  
             unique_dict[ucid][TABLE_VARNAME_CID]      = cid
             unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
             unique_dict[ucid][TABLE_VARNAME_FIELD]    = field
             unique_dict[ucid][TABLE_VARNAME_IZBIN]    = izbin
 
+        # - - - -
+
         # number of times each CID does not appear in a fitres file
         n_reject        = n_ff - n_count
 
         cid_dict = {}
-        cid_dict['cid_list']    = ucid_list
+        cid_dict['cid_list']    = ucid_list_all
         cid_dict['cid_unique']  = cid_unique
         cid_dict['unique_dict'] = unique_dict
         cid_dict['n_count']     = n_count

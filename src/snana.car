@@ -7984,7 +7984,7 @@ c - - - -
      &             1, iArg, ARGLIST) ) then 
            if ( ARGLIST(1) .NE. 'NONE' ) then
               CALL PARSE_COMMASEP_LIST('SNCCID_LIST', ARGLIST(1))
-              CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+c xxx mark              CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
            endif
 
          else if ( MATCH_NMLKEY('SNCCID_IGNORE',  ! July 2023
@@ -7996,7 +7996,7 @@ c - - - -
          else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
      &             1, iArg, ARGLIST) ) then 
            SNCID_LIST_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
-           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+c xxx mark           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
          else if ( MATCH_NMLKEY('OPT_SNCID_LIST',
      &             1, iArg, ARGLIST) ) then 
@@ -8099,9 +8099,12 @@ c - - - -
      &             1, iArg, ARGLIST) ) then 
            STRING_LIST = ARGLIST(1)(1:60)
            NCID_LIST   = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
-           if ( SNCID_LIST(1) > 0 ) then
-               CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0 
-           endif
+
+c xxxx mark delete Jun 26 2025 xxx
+c           if ( SNCID_LIST(1) > 0 ) then
+c               CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0 
+c           endif
+c xxx end mark xxx
 c - - - -
         else if ( MATCH_NMLKEY('CUTWIN_NEPOCH',
      &            2, iArg, ARGLIST) ) then
@@ -12113,7 +12116,7 @@ c this match utility uses hash table for faster access.
       CHARACTER FNAM*20, cFILE*(MXCHAR_FILENAME)
       CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
       CHARACTER cBLANK*4, cVARLIST_STORE*60
-      LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
+      LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE, IS_LIST
 
       LOGICAL  VALIDFILENAME
       INTEGER  MATCH_CIDLIST_INIT, PARSE_NML_STRINGLIST
@@ -12137,14 +12140,8 @@ c check input sources of CID list:
       IS_CCID_LIST   = ( SNCCID_LIST(1) .NE. ' ' )     ! user input list of strings
       IS_CIDINT_LIST = SNCID_LIST(1) > 0               ! user input list of integers
 
+      IS_LIST = IS_FILE .or. IS_CCID_LIST .or. IS_CIDINT_LIST
       NCID_LIST = 0; NCCID_LIST = 0; NCCID_FILE = 0
-
-c xxxxxxx mark delete May 28 2025 xxxxxxx
-c check input methods to specify list of CID strings
-cxxx      IS_CCID_LIST =
-cxxx     &   ( SNCCID_LIST(1) .NE. ' ' )  .or.  ! char strings in NML
-cxxx     &   ( IS_FILE )                        ! separate file list
-c xxxxxxxxxxxxxxxxxxxx
 
 
 c - - - - - - -
@@ -12154,13 +12151,14 @@ c - - - - - - -
 
 c disable CUTWIN_CID and prescale for user-specified list,
 c but allow these features for list read from file.
-      IF ( IS_CIDINT_LIST .or. IS_CCID_LIST ) THEN
+      IF ( IS_LIST ) THEN
          CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
 	 SIM_PRESCALE = 1  ! disable prescale Dec 11 2024
       ENDIF
 
-c      print*,' xxx IS_CID/FILE/INT = ', 
-c     &    IS_CCID_LIST, IS_FILE, IS_CIDINT_LIST
+c      print*,' xxx IS_CCID/IS_CIDINT/FILE = ', 
+c     &    IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
+c      print*,' xxx CUTWIN_CID = ', CUTWIN_CID
 
 c - - - - - - - 
 c check integer lists the old way

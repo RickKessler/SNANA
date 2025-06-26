@@ -12107,7 +12107,9 @@ c
 c For string lists that can be very long (from list file),
 c use match_cidlist_init[exec] utility in sntools.c[h];
 c this match utility uses hash table for faster access.
-
+c
+c Jun 26 2025: set CUTWIN_CID=0 for any input list including SNCID_LIST_FILE
+c
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -12142,7 +12144,6 @@ c check input sources of CID list:
 
       IS_LIST = IS_FILE .or. IS_CCID_LIST .or. IS_CIDINT_LIST
       NCID_LIST = 0; NCCID_LIST = 0; NCCID_FILE = 0
-
 
 c - - - - - - -
       
@@ -12235,9 +12236,6 @@ c - - - -
          write(6,61) NCCID_IGNORE, 'SNCCID_IGNORE'
  61      format(T5,'IGNORE ',I4,  ' CIDs from ', A)
       endif
-
-c      print*,' xxx DEBUG STOP xxx'
-c      STOP ! xxxx
 
       CALL FLUSH(6)
 

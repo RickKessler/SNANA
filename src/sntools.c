@@ -367,10 +367,16 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // - - - - - - - -
   // if we get here, read file with appropriate format
 
-  int  GZIPFLAG,  IDSURVEY, IFILE=0 ;
+  int  GZIPFLAG,  IDSURVEY, IFILE=0, istr ;
   FILE *fp;
   NCID = 0;
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
+
+  // Juj 26 2025 : define list of invalid symbols in a CID name
+#define N_CID_SUBSTRING_INVALID 7 
+  char *substr;
+  char CID_SUBSTRING_INVALID_LIST[N_CID_SUBSTRING_INVALID][12] = 
+    { ":", ",", "=", "SNID", "snid", "CID", "cid" } ;
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
@@ -393,7 +399,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);	
       }
 
-
       // parse words on this line  
       NWD = store_PARSE_WORDS(MSKOPT,tmpLine, fnam);
       if ( NWD == 0 ) { continue ; }
@@ -404,6 +409,16 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	match_cid_hash(CCID, ILIST, NCID);
 	NCID++ ;
 
+	for( istr = 0; istr < N_CID_SUBSTRING_INVALID; istr++ ) {
+	  substr = CID_SUBSTRING_INVALID_LIST[istr];
+	  if ( strstr(CCID,substr) != NULL ) {
+	    sprintf(c1err,"cid string = '%s'  contains invalid substring '%s' ", CCID, substr);
+	    sprintf(c2err,"Check cid-select file %s", fileName);
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	  }
+	}
+
+	/* xxxx mark delete Jun 26 2025 xxxxxxx
         if ( strstr(CCID,COMMA) != NULL || 
 	     strstr(CCID,COLON) != NULL ||
              strstr(CCID,"=")   != NULL )   {
@@ -411,6 +426,8 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
           sprintf(c2err,"Check cid_select_file %s",fileName);
           errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
         }
+	xxxxxxxxxx end mark xxxxxxx */
+
 
       } // end loop over CIDs on line
     } // end loop over lines in file

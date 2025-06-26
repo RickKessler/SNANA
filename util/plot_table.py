@@ -1050,6 +1050,8 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
     #  STRING = 'zcmb:z-zcmb + .003'
     #    return ['zcmb', ':', 'z', '-', 'zcmb', '+', '.003']
     #
+    # Jun 25 2025: fix to work if delim symbol is inside quotes; see inside_quote logical
+
     split_list   = []
     strtype_list = [] 
 
@@ -1064,26 +1066,32 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
               f"\t STRING_local({len_str}) = {STRING_local}")
         
             
-    j_last = 0 ; j=0
+    j_last = 0 ; j=0; nq =  0
     while j < len_str :
         ch         = STRING_local[j:j+1]  # current char
         ch2        = STRING_local[j:j+2]  # allow 2-char delim; e.g., >=
         is_last    = (j == len_str-1)
 
+        # Jun 25 2025: while inside a quote, ignore delim;
+        # e.g., @@CUT LABEL='X+Y' should treat X+Y as a string, not as equation'
+        is_quote  = ch == "'" or ch == '"'
+        if is_quote : nq += 1
+        inside_quote = ( nq == 1 ) 
+
         delim = None
-        if ch2 in DELIM_LIST:            
-            delim = ch2  # 2-char delims take priority over single-char delim
-        elif ch in DELIM_LIST:
-            delim = ch
+        if not inside_quote:
+            if ch2 in DELIM_LIST:            
+                delim = ch2  # 2-char delims take priority over single-char delim
+            elif ch in DELIM_LIST:
+                delim = ch
             
         is_delim  = delim is not None        
-        
+
         str_last = None
         j_last_dump = j_last
         if is_delim:
             len_delim = len(delim)            
             str_last = STRING_local[j_last:j].replace(' ','')
-            # xxx mark delete j_last = j+1
             j_last = j + len_delim 
         elif is_last:
             str_last = STRING_local[j_last:j+1].replace(' ','')
@@ -1108,7 +1116,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
         if args.DEBUG_FLAG_DUMP_TRANSLATE2 :
             print(f"\t xxx - - - - - - - - ")
             print(f"\t xxx j={j}  j_last={j_last_dump}  ch='{ch}' or '{ch2}'  " \
-                  f"is_[last,delim]={is_last},{is_delim}  " \
+                  f"is_[last,delim,quote]={is_last},{is_delim},{is_quote}  " \
                   f"str_last={str_last}  valid_str_last={valid_str_last}")
             print(f"\t xxx split_list -> {split_list}")
 
@@ -1119,6 +1127,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
             j += 1          # advance 1 char for everything else
         
     # - - - -
+
     return split_list, strtype_list
     # end split_var_string
     
@@ -1144,12 +1153,11 @@ def translate_driver(args):
         var_err_list = args.ERROR.split(COLON)
         for var in var_err_list:
             if len(var) > 0: args.raw_var_list += [var]
-    
+
     # remove duplicates
     args.raw_var_list = list(set(args.raw_var_list))
     
     if args.DEBUG_FLAG_DUMP_TRANSLATE :
-        print(f" xxx raw_var_list = {args.raw_var_list}")
         sys.exit(f"\n xxx bye .")
     
     return  # end translate_driver
@@ -1284,22 +1292,7 @@ def translate_CUT(CUT):
         print(f" xxx cut_list_df = {cut_list_df}")
         
     # replace each original cut with cut_df in CUT
-    CUT_df = CUT
-
-    # xxxxxxx mark delete Dec 26 2024 xxxxxxx
-    #n_cut = len(cut_list)
-    #for icut in range(0,n_cut):
-    #    cut     = cut_list[icut]
-    #    cut_df  = cut_list_df[icut]
-    #    is_func = is_func_list[icut]        
-    #    
-    #    CUT_df  = CUT_df.replace(cut,cut_df) 
-    #    if args.DEBUG_FLAG_DUMP_TRANSLATE:
-    #        print(f" xxx \t {icut}: replace user cut {cut} --> {cut_df} " \
-    #              f" (is_func={is_func})")
-    #    icut += 1
-    # xxxxxxxxxxx end mark xxxxxxxxx
-    
+    CUT_df = CUT    
 
     for cut, cut_df, is_func in zip(cut_list, cut_list_df, is_func_list):
         CUT_df = CUT_df.replace(cut,cut_df)
@@ -1592,6 +1585,7 @@ def read_tables(args, plot_info):
             # name of first column identifier, and check that requested
             # variables exist.
             # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
+
             varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
@@ -2377,6 +2371,8 @@ def get_info_plot2d(args, info_plot_dict):
 
     nevt         = len(df)
     plt_size     = 5 / math.log10(max(10,nevt))  # dot size gets smaller with nevt 
+
+    # xxx if 'UDF' in name_legend:    plt_size *= 4 # xxx REMOVE
     if do_nevt: plt_legend += f'  N={nevt}'
     
     xval_list    = df.x_plot_val

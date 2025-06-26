@@ -2600,7 +2600,7 @@ class BBC(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
 
         sync_evt         = submit_info_yaml['SYNC_EVT']
-        if not sync_evt : return  # Jun 25 2025
+        # if not sync_evt : return  # Jun 25 2025  ### RESTORE
 
         VOUT          = f"{output_dir}/{vout}"
 
@@ -2770,8 +2770,9 @@ class BBC(Program):
 
             df_ucid  = df.CID.astype(str)      + sep_ucid + \
                        df.IDSURVEY.astype(str) + sep_ucid + \
-                       df.FIELD.astype(str)    + sep_ucid + \
-                       df.IZBIN.astype(str)  
+                       df.FIELD.astype(str)  
+
+            df[TABLE_VARNAME_UCID] = df_ucid
             ucid_list = np.concatenate( (ucid_list, df_ucid) )
 
             if not found_first_file:
@@ -2779,19 +2780,40 @@ class BBC(Program):
                 df0 = df.copy()
                 df0[TABLE_VARNAME_CID]   = df0[TABLE_VARNAME_CID].astype(str)
 
+
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
         cid_unique, n_count = np.unique(ucid_list, return_counts=True)
 
-        #sys.exit(f"\n xxx cid_unique = \n{cid_unique[0:100]}")
-        for ucid in cid_unique:
+        DEBUG_IZBIN = False
+        if DEBUG_IZBIN:
+            # xxx continue debugging this later ...
+            print(f"\n xxx df0 = \n{df0}")
+            print(f"\n xxx len cid_unique = {len(cid_unique)} \n{cid_unique[0:40]}")
+            mask       = df0[TABLE_VARNAME_UCID].isin(cid_unique)
+            izbin_list = list(df0[mask][TABLE_VARNAME_IZBIN])
+            #sys.exit(f"\n xxx mask = \n{mask} \n\n xxx len izbin_list = {len(izbin_list)} \n{izbin_list[0:40]}")
+            # xxxxxxxxxx
+
+        for i, ucid in enumerate(cid_unique):
             unique_dict[ucid] = {}
             ucid_split = ucid.split(sep_ucid)
             cid      = str(ucid_split[0])
             idsurvey = int(ucid_split[1])
             field    = str(ucid_split[2])  
-            izbin    = int(ucid_split[3])  
 
+
+            if DEBUG_IZBIN:
+                # try faster way, but still buggy ...
+                izbin    = izbin_list[i]
+            else:
+                # legacy method that can be super slow for 100k samples
+                #izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
+                #                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey) & \
+                #                     (df0[TABLE_VARNAME_FIELD]==field) ][TABLE_VARNAME_IZBIN].values
+                izbin_list = df0.loc[ (df0[TABLE_VARNAME_UCID]==ucid) ][TABLE_VARNAME_IZBIN].values
+                izbin = izbin_list[0]
+ 
             unique_dict[ucid][TABLE_VARNAME_CID]      = cid
             unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
             unique_dict[ucid][TABLE_VARNAME_FIELD]    = field

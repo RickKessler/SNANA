@@ -51,7 +51,7 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
-                        choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT",
+                        choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT", "SMP",
                                    "TRAIN_SALT2", "TRAIN_SALT3", "TRAIN_BAYESN",
                                    "MAKEDATAFILES", "MERGE", "AIZ" ])
     msg = "name of input file"

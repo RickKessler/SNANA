@@ -286,7 +286,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  colnum_idsurvey, colnum_field;
   int  NCID, NWD, isn, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
-  int  ILIST = 0, LDMP=1, OPT_AUTOSTORE ;
+  int  ILIST = 0, LDMP=0, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
   char CCID[40], STRINGID[60], ctmp[60], STRING_MATCH[60] ;
   char fnam[] = "match_cidlist_init";

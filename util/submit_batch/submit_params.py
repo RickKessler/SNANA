@@ -227,7 +227,8 @@ OBSOLETE_CONFIG_KEYS = \
 
 
 HELP_CONFIG_GENERIC = f"""
-CONFIG:
+CONFIG:   # generic info for any task
+
   BATCH_INFO: sbatch [batch_template_file]  [n_core]
      or
   NODELIST: [node1] [node2] ...  # for ssh
@@ -250,6 +251,12 @@ CONFIG:
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere
   DONE_STAMP_FILE: $MYPATH/PIPE_STAGE4.DONE
+
+  # define code if not in path, or optional code switch from 
+  # default code in path (e.g., for development)
+  JOBNAME: $MY_PATH/MYCODE
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 """
 
 
@@ -259,8 +266,6 @@ HELP_CONFIG_SIM =  f"""
 
   """ +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_SIM}
-  JOBNAME: $MY_PATH/{PROGRAM_NAME_SIM}
 
   # option to re-route data files (default is $SNDATA_ROOT/SIM)
   PATH_SNDATA_SIM:  $SCRATCH_SIMDIR
@@ -350,8 +355,6 @@ HELP_CONFIG_LCFIT = f"""
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_LCFIT}
-  JOBNAME: $MY_PATH/{PROGRAM_NAME_LCFIT}
 
   OUTDIR:  [outdir]              # all output goes here
   VERSION:
@@ -469,8 +472,6 @@ HELP_CONFIG_COSMOFIT = f"""
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_WFIT}
-  JOBNAME: $MY_PATH/{PROGRAM_NAME_WFIT}
 
   # input directories for wfit are output by create_covariance.
   # Each dir contains hubble diagram file, covsys_* files, and INFO.YML
@@ -535,8 +536,6 @@ HELP_CONFIG_BBC = f"""
     ***** HELP/MENU for BBC  CONFIG-yaml  Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_BBC}
-  JOBNAME: $MY_PATH/{PROGRAM_NAME_BBC}
 
   INPDIR+:
   - dirSurvey1  # LCFIT OUTDIR for Survey1
@@ -670,8 +669,6 @@ HELP_CONFIG_COVMAT = f"""
     ***** HELP/MENU for COVMAT CONFIG-yaml Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_COVMAT}
-  JOBNAME: $MY_PATH/{PROGRAM_NAME_COVMAT}
 
   # input file for {PROGRAM_NAME_COVMAT}
   INPUT_COVMAT_FILE:   CREATE_COVMAT_TEMPLATE.INPUT
@@ -724,16 +721,22 @@ HELP_TRAINOPT_GENERIC = f"""
   - WAVESHIFT CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
   - SHIFTLIST_FILE  shifts_01.dat 
   - SHIFTLIST_FILE  shifts_02.dat
-  - SHIFTLIST_FILE  shifts_03.dat"""
+  - SHIFTLIST_FILE  shifts_03.dat
+  """
 
 
+HELP_CONFIG_SMP = f"""
+    ***** HELP/MENU for SMP YAML Input *****
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+  SMP-specific info ... TO DO LATER ...
+  etc ...
+  """
 
 HELP_CONFIG_TRAIN_SALT2 = f"""
     ***** HELP/MENU for TRAIN_SALT2 YAML Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # Must specify name of training script (because it's outside SNANA)
-  JOBNAME: [train_script_name]
 
   # input data files and config for snpca. Includes survey.yaml, which
   # maps snpca surveys/instruments into SNANA survey/bandpasses.
@@ -760,8 +763,6 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
     ***** HELP/MENU for TRAIN_SALT3 YAML Input *****
   """  +  f"{HELP_CONFIG_GENERIC}" +  \
   f"""
-  # Must specify name of training code (because it's outside SNANA)
-  JOBNAME: [train_script_name]
 
   CONDA_DEFAULT_ENV:  saltshaker  # abort if $CONDA_DEFAULT_ENV != saltshaker
 
@@ -788,8 +789,6 @@ HELP_CONFIG_TRAIN_BAYESN = f"""
     ***** HELP/MENU for TRAIN_BAYESN YAML Input *****
   """  +  f"{HELP_CONFIG_GENERIC}" +  \
   f"""
-  # Must specify name of training code (because it's outside SNANA)
-  JOBNAME: [train_script_name]
 
   # top-level config input files
   BAYESN_CONFIG_FILE:  <fileName> 
@@ -983,6 +982,7 @@ HELP_MENU = {
     'BBC'           : HELP_CONFIG_BBC,
     'COVMAT'        : HELP_CONFIG_COVMAT,
     'COSMOFIT'      : HELP_CONFIG_COSMOFIT,
+    'SMP'           : HELP_CONFIG_SMP,
     'TRAIN_SALT2'   : HELP_CONFIG_TRAIN_SALT2,
     'TRAIN_SALT3'   : HELP_CONFIG_TRAIN_SALT3,
     'TRAIN_BAYESN'  : HELP_CONFIG_TRAIN_BAYESN,

@@ -22,7 +22,8 @@
 # May 22 2023: add train_BAYESN class
 # Jan 17 2023: new option --cpu_sum
 # May 07 2024: add heatmaps to purge list.
-#
+# Jun 13 2025: add new class for combine_fitres 
+# Jun 26 2025: add new template/empty class for smp/multismp
 # - - - - - - - - - -
 
 #import os
@@ -37,6 +38,7 @@ from   submit_prog_bbc      import BBC
 from   submit_prog_covmat   import create_covmat
 from   submit_prog_cosmofit import cosmofit
 from   submit_prog_combine  import combine_fitres       # 6.13.2025
+from   submit_prog_smp      import SceneModelPhotometry
 from   submit_train_SALT2   import train_SALT2
 from   submit_train_SALT3   import train_SALT3
 from   submit_train_BAYESN  import train_BAYESN
@@ -180,7 +182,7 @@ def which_program_class(config):
         program_class = Simulation
 
     elif "VERSION" in CONFIG :
-        program_class = LightCurveFit # SALT2 LC fits
+        program_class = LightCurveFit # SNANA/SALT2/SALT3 or BayeSN LC fits
 
     elif "INPDIR+" in CONFIG :
         program_class = BBC          # Beams with Bias Corr (KS17)
@@ -191,6 +193,9 @@ def which_program_class(config):
     elif "FIRECROWN_INPUT_FILE" in CONFIG :
         program_class = cosmofit    # firecrown/Cosmosis ...   
         
+    elif "MULTISMP" in CONFIG :  # ??? check this later
+        program_class = SceneModelPhotometry  
+
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy
 

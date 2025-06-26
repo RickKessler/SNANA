@@ -42,15 +42,16 @@ PROGRAM_TYPE_BBC    = "BBC"    # BEAMS with bias corrections
 PROGRAM_TYPE_COSMOFIT   = "COSMOFIT"   # cosmology fitter
 
 # default program names ... can be changed by user
-PROGRAM_NAME_SIM     =  "snlc_sim.exe"
-PROGRAM_NAME_LCFIT   =  "snlc_fit.exe" 
-PROGRAM_NAME_BBC     =  "SALT2mu.exe"
-PROGRAM_NAME_COVMAT  =  "create_covariance.py"
-PROGRAM_NAME_WFIT    =  "wfit.exe"
+PROGRAM_NAME_SIM            =  "snlc_sim.exe"
+PROGRAM_NAME_LCFIT          =  "snlc_fit.exe" 
+PROGRAM_NAME_BBC            =  "SALT2mu.exe"
+PROGRAM_NAME_COVMAT         =  "create_covariance.py"
+PROGRAM_NAME_WFIT           =  "wfit.exe"
 PROGRAM_NAME_COMBINE_FITRES = "combine_fitres.exe"
-PROGRAM_NAME_FIRECROWN  =  None  
-PROGRAM_NAME_MKDATA  =  "makeDataFiles.sh"
-PROGRAM_NAME_UNKNOWN       =  "UNKNOWN"          # must be specified by JOBNAME key
+PROGRAM_NAME_SMP            = "MultiSMP.py"
+PROGRAM_NAME_FIRECROWN      =  None  
+PROGRAM_NAME_MKDATA         =  "makeDataFiles.sh"
+PROGRAM_NAME_UNKNOWN        =  "UNKNOWN"          # must be specified by JOBNAME key
 
 # utilities
 PROGRAM_NAME_CAT           = "sntable_cat.py"    # utility used by BBC class

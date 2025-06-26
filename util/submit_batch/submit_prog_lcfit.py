@@ -289,7 +289,7 @@ class LightCurveFit(Program):
             
         else :
             # default is SNANA lcfit
-            LCFIT_SUBCLASS = LCFIT_SNANA
+            LCFIT_SUBCLASS    = LCFIT_SNANA
             TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_HBOOK,  FORMAT_ROOT ] 
         
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)

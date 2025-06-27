@@ -19037,6 +19037,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //
   // May 30 2025: check INPUTS.USE_SIMLIB_SPECTROGRAPH to store SPECTROGRAPH information
   //
+  // Jun 26 2026; fix to count SPECTROGRAPH lines with SIMLIB_DUMP 
+  //    (and no KCOR file to define a SPECTROGRAPH)
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 #define MXCHAR_LINE_SIMLIB 400
@@ -19246,11 +19248,18 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       }
     
 
-      
+      FOUND_SPECTROGRAPH = ( strcmp(wd0,"SPECTROGRAPH:")==0 );
+      if ( FOUND_SPECTROGRAPH && 
+	   USEFLAG_LIBID==ACCEPT_FLAG && 
+	   (SPECTROGRAPH_USEFLAG | INPUTS.SIMLIB_DUMP>0) )
+	{ OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ; }
+
+      /* xxxxxxxxxxxxxxxxxxx mark del June 26 2025  xxxxxxxxxxxxxxxx
       FOUND_SPECTROGRAPH = 
 	( SPECTROGRAPH_USEFLAG && strcmp(wd0,"SPECTROGRAPH:")==0 );
       if ( FOUND_SPECTROGRAPH && USEFLAG_LIBID==ACCEPT_FLAG )
 	{ OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ; }
+	xxxxxxxx end mark */
 
       // always check reasons to reject (header cuts, FIELD, APPEND ...)
       OPTLINE_REJECT = ( USEFLAG_LIBID == REJECT_FLAG || 

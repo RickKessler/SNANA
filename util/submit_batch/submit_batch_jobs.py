@@ -32,6 +32,7 @@ import submit_util      as util
 
 
 from   submit_params        import *
+from   submit_HELP          import *
 from   submit_prog_sim      import Simulation
 from   submit_prog_lcfit    import LightCurveFit
 from   submit_prog_bbc      import BBC

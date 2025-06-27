@@ -23080,6 +23080,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + combine_fitres.exe : works on csv (CSV) files by internally converting to
           SNANA-key format using convertcsv2snana.py
 
+     + fix SIMLIB_DUMP to work (i.e. not abort) when there are SPECTROGRAPH 
+       keys in the SIMLIB
    
    sndata.h:  MXOBS_SIMLIB = 30,000 -> 60,000 (for Ultra deep fields in LSST)
         size of snlc_sim = 101 MB -> 133 MB

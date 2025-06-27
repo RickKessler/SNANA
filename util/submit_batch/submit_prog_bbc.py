@@ -113,12 +113,9 @@ from submit_prog_base import Program
 
 USE_INPDIR = True
 
-WRITE_SUMMARY_REJECT = False  # Jun 24 2025: later, convert this to CONFIG flag for user
-
 # for preparing catenated input fitres files using sntable_cat.py,
 # define number of interactive jobs to parallelize this slow task.
 NJOB_PREP_INPUT_FITRES     = 10
-DOFAST_PREP_INPUT_FILES    = True
 
 PREFIX_SALT2mu           = "SALT2mu"
 PREFIX_PREP              = "PREP"
@@ -148,6 +145,7 @@ PROGRAM_wfit      = "wfit.exe"
 PREFIX_wfit       = "wfit"
 KEY_WFITMUDIF_OPT = "WFITMUDIF_OPT"
 
+
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_PREFIX   = "BBC_SUMMARY_wfit"
@@ -168,6 +166,9 @@ BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 #  Allow either of two keys
 #                        pippin/submit key       key for snlc_fit
 KEYLIST_SYNC_EVT     = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
+
+
+KEY_WRITE_REJECT_MONITOR = "WRITE_REJECT_MONITOR"
 
 MUOPT_STRING           = "MUOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
@@ -211,22 +212,30 @@ class BBC(Program):
     def submit_prepare_driver(self):
         logging.info("")
 
+        CONFIG     = self.config_yaml['CONFIG']  
+
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
-        if devel_flag == -328 :
-            global DOFAST_PREP_INPUT_FILES
-            DOFAST_PREP_INPUT_FILES = False
 
 
         # May 2024: if WFITMUDIF_OPT is specified as item, switch to a list.
-        CONFIG     = self.config_yaml['CONFIG']                
-        if KEY_WFITMUDIF_OPT in CONFIG:
-            arg = CONFIG[KEY_WFITMUDIF_OPT]            
-            if not isinstance(arg,list):
-                CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
-        else:
-            CONFIG[KEY_WFITMUDIF_OPT] = []
+        CONFIG[KEY_WFITMUDIF_OPT] = CONFIG.setdefault(KEY_WFITMUDIF_OPT,[])
+        arg = CONFIG[KEY_WFITMUDIF_OPT]            
+        if not isinstance(arg,list):   CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
+        
+        # xxxxxxxx mark delete Jun 27 2025 xxxxxxxx
+        #CONFIG     = self.config_yaml['CONFIG']                
+        #if KEY_WFITMUDIF_OPT in CONFIG:
+        #    arg = CONFIG[KEY_WFITMUDIF_OPT]            
+        #    if not isinstance(arg,list):
+        #        CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
+        #else:
+        #    CONFIG[KEY_WFITMUDIF_OPT] = []
+        # xxxxxxx end mark xxxxxxxxx
 
+
+        # store flag to write reject-monitor info
+        self.config_prep[KEY_WRITE_REJECT_MONITOR] = CONFIG.setdefault(KEY_WRITE_REJECT_MONITOR,False)
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -255,16 +264,11 @@ class BBC(Program):
         self.bbc_prep_copy_files()
 
         # copy & combine tables from INPDIR+ directories
-        if DOFAST_PREP_INPUT_FILES :
-            self.bbc_prep_input_tables_fast()  # refactored/parallel 
-        else:           
-            self.bbc_prep_input_tables_slow()  # original/slow code
+        self.bbc_prep_input_tables_fast()  # refactored/parallel 
 
-        # xxx mark del May 3 2025   self.bbc_prep_copy_files()
 
         # if sync-FITOPT000 option, change output for 1st iteration
         self.prep_outdir_iter()
-
 
         logging.info("")
         return
@@ -1467,7 +1471,7 @@ class BBC(Program):
         # LCFIT/BBC cut options that result in a missing event.
         # For BIASCOR stage, append NFITOPT_REJECT_BIASCOR.
 
-        if not WRITE_SUMMARY_REJECT: return  # later replace global flag with CONFIG input
+        if not self.config_prep[KEY_WRITE_REJECT_MONITOR]: return 
 
         n_version        = self.config_prep['n_version_out']    
         script_dir       = self.config_prep['script_dir']
@@ -1586,82 +1590,7 @@ class BBC(Program):
         return
         # end tag_missing_events
 
-    def bbc_prep_input_tables_slow(self):
 
-        # Catenate FITRES files from INPDIR+ so that each copied
-        # FITRES file includes multiple surveys.
-        # For NSPLITRAN, copy only to first split-dir to avoid
-        # duplicate copies of input FITRES files.
-        # A single interactive core is used, and thus can take a 
-        # long time to prepare hundreds/thousands of INPUT*FITRES files.
-
-        if not USE_INPDIR: return
-
-        output_dir         = self.config_prep['output_dir']  
-        n_inpdir           = self.config_prep['n_inpdir']  
-        v_out_list         = self.config_prep['version_out_sort_list2d']
-        iver_list2         = self.config_prep['iver_list2'] 
-        ifit_list2         = self.config_prep['ifit_list2']
-        fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
-        n_splitran         = self.config_prep['n_splitran']
-        USE_SPLITRAN       = n_splitran > 1
-
-        t_start = time.time()
-        logging.info("\n  Prepare input FITRES files")
-        iver_last = -9
-
-        for iver,ifit in zip(iver_list2, ifit_list2):
-
-            idir0 = 0  # some things just need first INPDIR index
-
-            # get output dir name
-            v_dir   = v_out_list[idir0][iver]
-            v_dir  += self.suffix_splitran(n_splitran,1)
-            V_DIR   = f"{output_dir}/{v_dir}"
-
-            cat_list   = self.make_cat_fitres_list(iver,ifit)
-
-            #print(" xxx ---------------------------------- " )
-            #print(f" xxx iver={iver} ifit={ifit} :")
-            #print(f" xxx cat_list = {cat_list} ")
-
-            # execute the FITRES catenation
-            fitopt_num     = fitopt_num_outlist[ifit]
-            ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
-            input_ff       = "INPUT_" + ff
-            cat_file_out   = f"{V_DIR}/{input_ff}"
-            cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG" # always same
-            nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
-
-            if iver != iver_last : logging.info(f"    {v_dir}: ")
-            iver_last = iver
-
-            logging.info(f"\t Catenate {n_inpdir} {ff} files"\
-                         f" -> {nrow} events ")
-
-        # - - - - - 
-        wildcard = f"INPUT_FITOPT*.{SUFFIX_FITRES}"
-        logging.info(f"   gzip the catenated {wildcard} files.")
-        util.gzip_list_by_chunks(output_dir,wildcard,10) # Mar 2023
-        # xxx mark cmd_gzip = f"cd {output_dir}; gzip {wildcard}"
-        # xxx mark os.system(cmd_gzip)
-
-        # remove cat log file
-        rm_log = f"cd {output_dir}; rm {cat_file_log}"
-        os.system(rm_log)
-
-        t_end  = time.time()
-        t_prep = (t_end - t_start)
-
-        n = len(iver_list2)
-        msg = f"Total time to prep {n} INPUT*FITRES.gz files: "\
-              f"{t_prep:.0f} seconds."
-        logging.info(f"  {msg}")
-
-        return
-        # end bbc_prep_input_tables_slow
-    
-        
     def exec_cat_fitres(self,cat_list, cat_file_out, cat_file_log):
 
         # prepare & execute catenate command for this cat_list 
@@ -2206,6 +2135,7 @@ class BBC(Program):
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         iter2             = self.config_yaml['args'].iter2
         sync_evt          = self.config_prep['sync_evt_list'][0]
+        WRITE_REJECT      = self.config_prep[KEY_WRITE_REJECT_MONITOR] 
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
         MUOPT_OUT_LIST    = self.config_prep['MUOPT_OUT_LIST']
         CONFIG            = self.config_yaml['CONFIG']
@@ -2232,14 +2162,16 @@ class BBC(Program):
         f.write(f"w_REF:     {w_ref}  \n")
         
         f.write(f"ITER2:        {iter2} # False, True -> ITER1, ITER2 \n")
-        f.write(f"SYNC_EVT:     {sync_evt} # T -> use evnts from FITOP000\n")
-        f.write(f"USE_WFIT:       {use_wfit}     " \
-                f"# option to run wfit on BBC output\n")
+        f.write(f"SYNC_EVT:     {sync_evt} # T -> use common events from all FITOPT\n")
+        f.write(f"{KEY_WRITE_REJECT_MONITOR}:  {WRITE_REJECT}  " \
+                f"# T -> write info to describe common-event rejections\n")
+        f.write(f"USE_WFIT:     {use_wfit}     " \
+                f"# option to run wfit on BBC output (stat only)\n")
         if use_wfit :
             wfit_arg_list = CONFIG[KEY_WFITMUDIF_OPT]
             f.write(f"OPT_WFIT:     #   wfit arguments\n")
             for wfit_arg in wfit_arg_list:
-                f.write(f"  - {wfit_arg}\n")
+                f.write(f"  -   {wfit_arg}\n")
 
         f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
@@ -2338,6 +2270,7 @@ class BBC(Program):
         self.config_prep['script_dir']       = submit_info_yaml['SCRIPT_DIR']
         self.config_prep['FITOPT_OUT_LIST']  = submit_info_yaml['FITOPT_OUT_LIST']
         self.config_prep['MUOPT_OUT_LIST']   = submit_info_yaml['MUOPT_OUT_LIST']
+        self.config_prep[KEY_WRITE_REJECT_MONITOR] = submit_info_yaml[KEY_WRITE_REJECT_MONITOR]
 
         # end merge_config_prep
 
@@ -2566,9 +2499,8 @@ class BBC(Program):
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         # Mar 2023: cleanup PREP files
-        if DOFAST_PREP_INPUT_FILES :
-            wildcard = f"{PREFIX_PREP}*"
-            util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
+        wildcard = f"{PREFIX_PREP}*"
+        util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
 
 
         logging.info("")
@@ -2946,7 +2878,7 @@ class BBC(Program):
             f.write(f"\n# ================================================= \n")
             f.write(f"{version}:   # data version\n")
 
-            if WRITE_SUMMARY_REJECT:
+            if self.config_prep[KEY_WRITE_REJECT_MONITOR]:
                 self.write_fitpar_summary_reject(f,version, bbc_yaml_list[0] )  
 
             f.write(f"\n  # - - - - - - - - - - - - - -\n  BBC_PROCESS_LIST: \n")

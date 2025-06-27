@@ -3,8 +3,12 @@ from submit_params    import *
 
 # ================================================
 #   HELP_CONFIG per task. Each HELP_CONFIG is a mini-manual that should
-#   help users create/modify a config file for ther task
+#   help users create/modify a config file for ther task.
 #   HELP_CONFIG_GENERIC is common info for all tasks.
+#   For new help menu, make sure to append HELP_MENU dictionary at bottom 
+#   of this file.
+
+
 
 HELP_CONFIG_GENERIC = f"""
 CONFIG:   # generic info for any task
@@ -452,7 +456,7 @@ HELP_CONFIG_BBC = f"""
  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  # Flag to monitor rejected events due to common-event requirement;
  # create self-documented BBC_REJECT_MONITOR.FITRES and add reject stats to BBC_FITPAR_SUMMARY
- FLAG_REJECT_MONITOR: True  
+ WRITE_REJECT_MONITOR: True  
 
 #END_YAML
 
@@ -784,4 +788,5 @@ HELP_MENU = {
     'AIZ'           : HELP_AIZ     # ABORT_IF_ZERO
 }
 
-# === END ===
+
+# === END: ===

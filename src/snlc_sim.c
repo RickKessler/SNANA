@@ -31283,9 +31283,9 @@ void SIMLIB_DUMP_DRIVER(void) {
   // stdout table header
 
   if ( !QUIET ) {
-    printf("\n  LIBID  MJD-range    NEPOCH(all,%s)    GAPMAX(frac) <GAP> \n", 
+    printf("\n  NREAD  LIBID  MJD-range    NEPOCH(all,%s)    GAPMAX(frac) <GAP> \n", 
 	   INPUTS.GENFILTERS );
-    printf(" ------------------------------------------------------------- \n");
+    printf(" ----------------------------------------------------------------------------- \n");
     fflush(stdout);
   }
     if ( INPUTS.NGENTOT_LC <= 0 ) { INPUTS.NGENTOT_LC = 9999999; }
@@ -31490,24 +31490,23 @@ void SIMLIB_DUMP_DRIVER(void) {
     if ( LDMP_AVG_TEXT ) { fprintf(fpdmp0,"\n" ); }
     
     // screen dump
-    if ( LDMP_LOCAL  && NREAD <= MXSIMLIB_DUMP_STDOUT ) {
+    bool  LPRINT_UPDATE = LDMP_LOCAL && ( NREAD <= MXSIMLIB_DUMP_STDOUT || NREAD%1000 == 0 ) ;
+    if ( LPRINT_UPDATE ) {
 
       GAPMAX = SIMLIB_DUMP_AVG1.GAPMAX[0];
       GAPAVG = SIMLIB_DUMP_AVG1.GAPAVG[0];
       MJDWIN = SIMLIB_DUMP_AVG1.MJDMAX - SIMLIB_DUMP_AVG1.MJDMIN;
       FRAC   = GAPMAX/MJDWIN;
-
-      
-      printf("  %4.4d   %5.0f-%5.0f  %3d,"
-	     ,ID, MJDMIN4, MJDMAX4, (int)SIMLIB_DUMP_AVG1.NEPFILT[0] );
+   
+      printf("  %5d  %4.4d   %5.0f-%5.0f  %4d,", 
+	     NREAD_SIMLIB, ID, MJDMIN4, MJDMAX4, (int)SIMLIB_DUMP_AVG1.NEPFILT[0] );
 
       for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
 	ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
-	printf("%2d ", (int)SIMLIB_DUMP_AVG1.NEPFILT[ifilt_obs] );
+	printf("%3d ", (int)SIMLIB_DUMP_AVG1.NEPFILT[ifilt_obs] );
       }
 
       printf("  %5.1f(%3.2f) %4.1f \n", GAPMAX, FRAC, GAPAVG );
-
       fflush(stdout);
 
     } // end of LDMP_LOCAL - screen dump

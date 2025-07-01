@@ -373,7 +373,7 @@ set_Cpreproc_flags :
 makeDirs:
 	mkdir -p $(OBJ)
 	mkdir -p $(BIN)
-	mkdir -p $(LIB)	
+# xxx mark	mkdir -p $(LIB)	
 
 # ------------------------
 # fcasplit (April 2014)

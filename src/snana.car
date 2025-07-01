@@ -7733,10 +7733,12 @@ c ------------- BEGIN -------------
          else if ( MATCH_NMLKEY('CALIB_FILE',
      &             1, iArg, ARGLIST) ) then 
            CALIB_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+           KCOR_FILE = ''
 
          else if ( MATCH_NMLKEY('KCOR_FILE',  ! legacy key for CALIB_FILE
      &             1, iArg, ARGLIST) ) then 
            CALIB_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+           KCOR_FILE = ''
 
          else if ( MATCH_NMLKEY('OVERRIDE_RESTLAM_BOUNDARY',
      &             1, iArg, ARGLIST) ) then 

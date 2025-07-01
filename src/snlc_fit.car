@@ -3250,8 +3250,6 @@ c now init each filter.
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
          cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
 
-	 ! xxx mark delete Apr 12 2025 LAMSHIFT = DBLE(FILTOBS_LAMSHIFT(ifilt_obs))
-
          LAMSHIFT = FILTER_LAMSHIFT_FILT(ifilt_obs) ! Apr 12 2025 fix
 
 c pass ifilt_obs; everything else is returned.

@@ -23091,6 +23091,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + new input arg --SIMLIB_COADD_FILE to override default output file
      + internally sort MJDs so that output is ordered by MJD
 
+   snana.car
+     + fix bug parsing CALIB_FILE/KCOR_FILE from command-line override;
+       confusion is that both keys reset internally to CALIB_FILE.
+
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.

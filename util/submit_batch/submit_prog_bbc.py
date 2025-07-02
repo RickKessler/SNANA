@@ -2689,8 +2689,9 @@ class BBC(Program):
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag
 
-        LEGACY_IZBIN     = devel_flag == -626
-        REFAC_IZBIN      = not LEGACY_IZBIN
+        #LEGACY_IZBIN     = devel_flag == -626
+        #REFAC_IZBIN      = not LEGACY_IZBIN
+        REFAC_IZBIN      = devel_flag == 626  # fix DES-SN5YR ??
 
         sep_ucid         = '__'
             

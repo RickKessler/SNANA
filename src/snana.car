@@ -1387,6 +1387,8 @@ c Apr 6 2020:
 c  Add J,H,K from Table 3 of arxiv:0809.4988, and increase NLIST->10.
 c  This CALAR ALTO paper doesn't have a table of mean filter wavelengths,
 c  so we take <SKYLAM> from CSP JHK bands.
+c Jul 7 2025:
+c  L' from https://www.gemini.edu/instrumentation/niri/capability
 
       INTEGER  NLIST_SKY_GROUND
       PARAMETER ( NLIST_SKY_GROUND = 10 )
@@ -1398,11 +1400,13 @@ c v is made up to extend bluer.
       DATA SKYLAM_GROUND_LIST / 
      &     2700.0, 3714.0, 4790.0, 6220.0,  ! v,u,g,r
      &     7544.0, 8679.0, 10095,           ! i,z,Y
-     &     12500.0, 18900.0, 21500.  /      ! J,H,K (Apr 2020)
+     &     12500.0, 18900.0, 21500., /      ! J,H,K (Apr 2020)
+     &     37700.0 /                        ! L' (Jul 2025)
       DATA SKYMAG_GROUND_LIST / 
      &     23.8, 22.7,  21.0,  20.4,    ! v,u,g,r 
      &     19.4, 18.1,  17.9,           ! i,z,Y
-     &     16.0, 14.0,  12.4  /         ! J,H,K (Apr 2020)
+     &     16.0, 14.0,  12.4, /         ! J,H,K (Apr 2020)
+     &     3.5 /                        ! L' (Jul 2025)
 
 c --- hard-write space based array pf SKYMAG vs. lambda
 

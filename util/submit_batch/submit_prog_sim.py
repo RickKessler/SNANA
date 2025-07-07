@@ -1728,7 +1728,6 @@ class Simulation(Program):
         return jobname_expand, genopt_no_jobname
 
     def model_string_suffix(self,model,ifile):
-        # xxx mark model_string = f"{model}MODEL{ifile}"     # e.g., SNIaMODEL0
         model_string = f"{model}MODEL{ifile:02d}"     # e.g., SNIaMODEL00 or NONIaMODEL01
         return model_string
         # end model_string_suffix

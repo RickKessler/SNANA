@@ -2689,9 +2689,9 @@ class BBC(Program):
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag
 
-        #LEGACY_IZBIN     = devel_flag == -626
-        #REFAC_IZBIN      = not LEGACY_IZBIN
-        REFAC_IZBIN      = devel_flag == 626  # fix DES-SN5YR ??
+        LEGACY_IZBIN     = devel_flag == -626
+        REFAC_IZBIN      = not LEGACY_IZBIN  # REFAC is default
+        # xxx REFAC_IZBIN      = devel_flag == 626  
 
         sep_ucid         = '__'
             
@@ -2731,7 +2731,10 @@ class BBC(Program):
             mask           = df0[TABLE_VARNAME_UCID].isin(list(cid_unique))
             ucid_tmp_list  = list(df0[mask][TABLE_VARNAME_UCID])
             izbin_tmp_list = list(df0[mask][TABLE_VARNAME_IZBIN])    # wrong order
-            izbin_unique   = [ izbin_tmp_list[ucid_tmp_list.index(c)] for c in cid_unique ] # correct order
+
+            izbin_unique   = [ izbin_tmp_list[ucid_tmp_list.index(c)] if c in ucid_tmp_list  \
+                               else -9 for c in cid_unique ] # correct order
+
             ncid           = len(cid_unique)
             dt = time.time() - t0
             logging.info(f"\t time to create IZBIN list for {ncid} CIDs: {dt:.1f} sec")

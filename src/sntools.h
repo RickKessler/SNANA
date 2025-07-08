@@ -1,6 +1,7 @@
 /*******************************************************
      Created Jan 2005 by R.Kessler
 
+
      Defines:
       - Generic tools to read input from file
       - error handling routines

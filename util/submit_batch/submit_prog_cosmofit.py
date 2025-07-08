@@ -571,7 +571,6 @@ class cosmofit(Program):
             else:
                 covtot_inv_file_list.append(None)
 
-        sys.exit(f"\n xxx USE_COVSYS_INV={USE_COVSYS_INV}  covtot_inv_file = \n{covtot_inv_file_list}")
         # - - - - -
         # check optional subset of covsys options to store
         if covsys_select_list is not None :

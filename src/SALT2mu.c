@@ -9,9 +9,8 @@ Program to take output from the SALT fitter dict files and
 For help, run code with no arguments
   SALT2mu.exe
   SALT2mu.exe | more
-  SALT2mu.exe | grep -i pec
+  SALT2mu.exe | grep -i pec  
   etc ...
-
 
 ==============HISTORY========================
    

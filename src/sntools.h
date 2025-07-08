@@ -1,5 +1,5 @@
 /*******************************************************
-     Created by R.Kessler  
+     Created by R.Kessler    
 
      Defines:
       - Generic tools to read input from file

@@ -7,45 +7,6 @@
       - physical constants.
 
 
-  Aug 22 2013:  define MODEL_S11DM15
-
-  Aug 28 2013:  define struct SNTOOLS_FITRES to hold FITRES-variables;
-                avoids accidental conflicts with other programs.
-
-  Mar 20 2017: remove special chars from  FILTERSTRING_DEFAULT, except
-               for '&' to add default SYN_SPECTROGRAPH filter if
-               user does not define them.
-
-  Apr 6 2017: define EXEC_CIDMASK()
-
-  Jul 5 2017: add read_SURVEY
-
-  Nov 2017: add XXX_PATH_SNDATA_SIM tools to keep track of
-            user-defined output directories for simulations.
-
-  Dec 10 2017: declare SNANA_VERSION here instad of snana.car
-               so that it is more accessible. Also define function
-               get_SNANA_VERSION.
-
-  May 30 2020:
-    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle
-    data files with lots of spectra.
-
-  Jul 30 2020:
-    + optional pre-proc flag ONE_RANDOM_STREAM to disable 2nd
-      stream for Mac compilation. Default is still 2 streams.
-
-  Jul 31 2020:
-    + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
-
-  Nov 12 2020:
-    + Adding glob utility
-
-  Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
-  Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
-  Jun 15 2022: MXCHARWORD_PARSE_WORDS -> MXPATHLEN + 200 
-             (for long rows in FITRES or HOSTLIB)
-
 ********************************************************/
 
 

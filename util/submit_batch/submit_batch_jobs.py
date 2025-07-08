@@ -194,7 +194,7 @@ def which_program_class(config):
     elif "FIRECROWN_INPUT_FILE" in CONFIG :
         program_class = cosmofit    # firecrown/Cosmosis ...   
         
-    elif "MULTISMP" in CONFIG :  # ??? check this later
+    elif "SMP_METHOD" in CONFIG :  # ??? check this later
         program_class = SceneModelPhotometry  
 
     elif "PATH_INPUT_TRAIN" in CONFIG :

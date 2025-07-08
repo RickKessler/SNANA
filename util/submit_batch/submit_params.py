@@ -47,7 +47,7 @@ PROGRAM_NAME_BBC            =  "SALT2mu.exe"
 PROGRAM_NAME_COVMAT         =  "create_covariance.py"
 PROGRAM_NAME_WFIT           =  "wfit.exe"
 PROGRAM_NAME_COMBINE_FITRES = "combine_fitres.exe"
-PROGRAM_NAME_SMP            = "MultiSMP.py"
+PROGRAM_NAME_SMP            = "campari.py"
 PROGRAM_NAME_FIRECROWN      =  None  
 PROGRAM_NAME_MKDATA         =  "makeDataFiles.sh"
 PROGRAM_NAME_UNKNOWN        =  "UNKNOWN"          # must be specified by JOBNAME key
@@ -71,7 +71,7 @@ SUBDIR_SCRIPTS_MKDATA = "SCRIPTS_MKDATA"
 SUBDIR_SCRIPTS_COMBINE = ""
 SUBDIR_OUTPUT_TRAIN   = "OUTPUT_TRAIN"
 SUBDIR_CALIB_TRAIN    = "CALIB_TRAIN"
-
+SUBDIR_SCRIPTS_SMP    = "SCRIPTS_SMP"    # July 8 2025
 SUBDIR_MISC           = "misc"           # used by train_SALT3
 
 MODEL_SNIa  = "SNIa"

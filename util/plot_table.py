@@ -16,7 +16,7 @@
 # May 15 2025: new @@LEGEND_MSCALE to scale size of marker(s) in legend
 # May 16 2025: add @@HACK_FLAG option and method hack_value for publication plots
 # May 20 2025: plot error on mean for DIFF_ALL option
-#
+# Jul 09 2025: fix bug evaluating chi2 fit; and add legend label in front of chi2/dof info
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -1857,7 +1857,8 @@ def plotter_func_driver(args, plot_info):
     for key_name, df_dict in MASTER_DF_DICT.items():
 
         df          = df_dict['df'] 
-        name_legend = df_dict['name_legend']        
+        name_legend = df_dict['name_legend'] 
+        logging.info(f"# -------------------------------------------------")
         logging.info(f"Plot {name_legend}")
 
         info_plot_dict['do_plot_errorbar']    =  False
@@ -1925,6 +1926,7 @@ def plotter_func_driver(args, plot_info):
                 else:
                     yerr_data   = np.array(yerr_list)
 
+
         elif do_plot_hist and NDIM == 1 :
             (contents_1d, xedges, patches) = \
                 plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
@@ -1970,7 +1972,7 @@ def plotter_func_driver(args, plot_info):
 
         # check for fit fun option
         if args.FIT:
-            apply_plt_fit(args, xfit_data, yfit_data, yerr_data)
+            apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data)
 
         # check for misc plt options (mostly decoration)
         if numplot == numplot_tot-1:
@@ -2232,7 +2234,9 @@ def get_info_plot1d(args, info_plot_dict):
     
         
     # - - - -
-    yerr_list = [errl_list, erru_list]
+
+    # xxx mark delete yerr_list = [errl_list, erru_list]
+    yerr_list =  [ (x+y)/2. for x,y in zip(errl_list,erru_list) ]
     nevt    = nevt
     avg     = np.mean(df.x_plot_val)
     median  = np.median(df.x_plot_val)
@@ -2431,7 +2435,6 @@ def get_info_plot2d(args, info_plot_dict):
                                  how='inner', lsuffix='_0', rsuffix='_1')
             xval_list = join.x_plot_val_0.values
             yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
-            # xxx mark delete yval_list = join.y_plot_val_1.values-join.y_plot_val_0.values 
 
             info_plot_dict['xval_list']     = xval_list
             info_plot_dict['yval_list']     = yval_list
@@ -2478,15 +2481,7 @@ def get_info_plot2d(args, info_plot_dict):
             info_plot_dict['xval_list'] = xbins_cen
             info_plot_dict['yval_list'] = y_dif
             info_plot_dict['yerr_list'] = y_dif_err
-      
-            # xxxxxxxx mark delete 5.20.2025 xxxxxxxx
-            #print(f" xxx xbins_cen = {xbins_cen}")
-            #print(f" xxx y_std = {y_std}")
-            #print(f" xxx y_cnt = {y_cnt}")
-            #print(f" xxx y_dif_err = {y_dif_err}")
-            #print(f" xxx y_dif     = {y_dif}")
-            # xxxxxxxxx
-  
+        
     return  # end  get_info_plot2d
 
 def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
@@ -2686,11 +2681,9 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
 
 # =================================================================    
-def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
+def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
     # Created Mar 2025
     # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
-
-    verbose = False
 
     fitfun = args.FIT[0]
     FITFUN = args.FIT[0].upper()
@@ -2699,8 +2692,9 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     else:
         init_fitpar = None
     
-    logging.info(f"Fit 1D histogram with {fitfun}")
+    logging.info(f"Fit 1D {name_legend}  histogram with {fitfun}")
 
+    verbose = False
     if verbose :
         print(f"\n xxxx VERBOSE DUMP for apply_plt_fit xxxx ")
         print(f" xxx xbins_cen      = \n{xbins_cen}")
@@ -2744,16 +2738,17 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     ndata     = len(xbins_cen)
     ndof      = ndata - nfitpar
 
+
     if ybins_sigma is None:
-        label_chi2 = ''
+        label_fit = f'{fitfun} Fit'  
     else:
         ycov_contents  = [y*y for y in ybins_sigma]
         chi2_bins = [ (ydata-yfun)**2/ycov for ydata, yfun, ycov in \
                       zip(ybins_contents, yfun_cen, ycov_contents) ]
         chi2      = sum(chi2_bins)
 
-        label_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
-        logging.info(f"chi2/dof = {chi2:.2f} / {ndof}")
+        label_fit = f"{name_legend} {fitfun} Fit chi2/dof = {chi2:.1f}/{ndof}"
+        logging.info(label_fit)
 
         if verbose :
             print(f" xxx ybins_contents = \n{ybins_contents}")
@@ -2763,7 +2758,6 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
             sys.stdout.flush()
 
 
-    label_fit = f'{fitfun} Fit {label_chi2}'
     plt.plot(xbins_cen, yfun_cen, label=label_fit )
 
     return

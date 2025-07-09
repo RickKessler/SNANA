@@ -103,7 +103,8 @@ bool  SNFITSIO_SIMFLAG_TEMPLATEMAG; // write template mags (LCLIB,AGN ..)
 bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;            // Jan 2018
 bool  SNFITSIO_COMPACT_noFLUXCAL_FLAG ;  // Jul 2023
-bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
+bool  SNFITSIO_SPECTRA_FLAG ;            // write or read spectra, Oct 2021
+bool  SNFITSIO_SPECTRA_SKIPREAD;        // flag to skip reading spectra (see OPTMASK in RD_SNFITSIO_PREP)
 
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 int   SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples

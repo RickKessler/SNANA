@@ -3425,7 +3425,8 @@ c read global info and store in SNDATA struct in sndata.h
       OPTRD = 0   ;   
       IF ( FORMAT_FITS ) THEN       
          IF ( LRDFLAG_GLOBAL )          OPTRD = OPTRD + 2
-         IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256
+         IF ( .NOT. LRDFLAG_SPEC      ) OPTRD = OPTRD + 128  ! Jul 9 2025
+         IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256  ! Mar 2022
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE

@@ -3022,6 +3022,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   //
   // MSKOPT & 2 : read header only; do NOT open first PHOT file
   //
+  // MSKOPT & 128 : ignore SPEC.FITS table  (July 2025)
   // MSKOPT & 256 : ignore sim-truth; treat like real data  (Mar 2022)
   //
   // PATH = optional user-path to data; 
@@ -3034,7 +3035,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // ------------- BEGIN -----------
 
   sprintf(SNFITSIO_PHOT_VERSION, "%s", version);
-  sprintf(SNFITSIO_DATA_PATH, "%s", PATH);
+  sprintf(SNFITSIO_DATA_PATH,    "%s", PATH);
   
   istat = 
     getInfo_PHOTOMETRY_VERSION( SNFITSIO_PHOT_VERSION    // (I)
@@ -3062,7 +3063,6 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   if ( (MSKOPT & 1) > 0 ) { // check if FITS format; don't read
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
-    // xxx mark delete Mar 9 2025: malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
     return istat ;  // it's in FITS format
   }
 
@@ -3089,8 +3089,12 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   for ( ep=0; ep < MXEPOCH; ep++ ) 
     {  RDMASK_SNFITSIO_PARVAL[ep] = 1 ; }
 
+
+  // Jul 2025: check option to skip reading spectra (from DEBUG_FLAG = -333)
+  SNFITSIO_SPECTRA_SKIPREAD = ( (MSKOPT & 128) > 0) ;
+
   // Mar 2022: check option to treat sim like real data
-  SNFITSIO_noSIMFLAG_SNANA = ( (MSKOPT & 256) > 0) ;
+  SNFITSIO_noSIMFLAG_SNANA  = ( (MSKOPT & 256) > 0) ;
 
   // loop over all header files to get total number of SN.
   // Close each file after reading the NAXIS2 key.
@@ -3098,13 +3102,14 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   int photflag_open=0,  vbose=0;
   for (ifile = 1; ifile <= NFILE_RD_SNFITSIO; ifile++ ) {
 
-    rd_snfitsio_open(ifile,photflag_open,vbose); // open and read 
+    rd_snfitsio_open(ifile, photflag_open,vbose); // open and read 
 
     NSNLC_RD_SNFITSIO_TOT       += NSNLC_RD_SNFITSIO[ifile] ; // increment total
     NSNLC_RD_SNFITSIO_SUM[ifile] = NSNLC_RD_SNFITSIO_TOT ;
 
     rd_snfitsFile_close(ifile, ITYPE_SNFITSIO_HEAD );
   }
+
 
   // open and read the first HEADER file ; do not open PHOT file
   if ( (MSKOPT & 2) == 0 ) {  
@@ -4220,10 +4225,15 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
 
   // read name of optional SPEC file from HEADER file (Apri 2019)
-  itype = ITYPE_SNFITSIO_SPEC ;  istat_spec=0;
-  sprintf(keyname, "SPECFILE" );
-  fits_read_key(fp, TSTRING, keyname,
-		rd_snfitsFile[ifile][itype], comment, &istat_spec );
+  if ( SNFITSIO_SPECTRA_SKIPREAD ) {
+    istat_spec = -1;
+  }
+  else {
+    itype = ITYPE_SNFITSIO_SPEC ;  istat_spec=0;
+    sprintf(keyname, "SPECFILE" );
+    fits_read_key(fp, TSTRING, keyname,
+		  rd_snfitsFile[ifile][itype], comment, &istat_spec );
+  }
   //  istat_spec = -9; // xxx REMOVE
   if ( istat_spec == 0 ) {
     SNFITSIO_SPECTRA_FLAG = true ;
@@ -4235,7 +4245,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
 
-  
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();

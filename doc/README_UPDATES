@@ -23011,7 +23011,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  USEFUL(v11_05u) *****
 
     RESTORE_DES5YR flag in sim and snana/snlc_fit:
-      see ...
 
     New sim input "SIMGEN_DUMP_MXCL: 1" creates table file with 
     RV WAVE magMWXT computed with several different color laws.
@@ -23040,6 +23039,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         avoid abort. Initial use is for SIM_ZFLAG<4.
       + for cutwin_only, append IDSAMPLE column to output table
 
+
+    snlc_sim.exe
+     + for SIMGEN_DUMP, added IGEN option to show sequential generation  index 1,2,3 ... NGENTOT_LC.
+       This enables looking for SIMLIB correlations.
 
     plot_table.py
       + DIFF_ALL option includes error bars
@@ -23094,6 +23097,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snana.car
      + fix bug parsing CALIB_FILE/KCOR_FILE from command-line override;
        confusion is that both keys reset internally to CALIB_FILE.
+
+   sntools_dataformat_fits.c / snana.car
+     + option to skip reading SPEC.FITS (DEBUG_FLAG = -333) worked only
+       if SPEC.FITS files exist, but aborts if they are missing.
+       Fixed to work even if SPEC.FITS files are missing.
 
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must

@@ -4653,7 +4653,6 @@ void *MNCHI2FUN(void *thread) {
 				  optmask_dump );
       }
       
-      // xxx mark delete Mar 20 2025 if ( IS_SIM && SIM_TEMPLATE_INDEX > 0 ) { nsnfit_truecc++ ; } 
       if ( IS_SIM && SIM_TEMPLATE_INDEX !=0 ) { nsnfit_truecc++ ; } 
 
       // store reference errors for 1/sigma term
@@ -5830,7 +5829,6 @@ void read_data(void) {
     store_input_varnames(ifile, TABLEVAR) ;
   }
 
-  // xxx mark  parshift_data(TABLEVAR, &INPUTS.SELECT_PARSHIFT) ;
   
   // store comma-sep list of VERSION_PHOTOMETRY; note that
   // SNTABLE_VERSION_PHOTOMETRY appends comma-sep list internally
@@ -7132,7 +7130,6 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   CUTNAME = INPUTS.SELECT_CUTWIN.NAME_LIST[icut] ;
   
-  // xxx mark delete Oct 2 2024  INPUTS.LCUTWIN_RDFLAG[icut] = false ;
 
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
@@ -7170,7 +7167,6 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   else {
     print_debug_malloc(+1*debug_malloc,fnam);
     RDFLAG = true;
-    // xxx mark delete INPUTS.LCUTWIN_RDFLAG[icut] = true ;
     TABLEVAR->CUTVAL[icut] = (float*)malloc(MEMF);  MEMTOT += MEMF ; 
 
     if ( strcmp(CUTNAME,INPUTS.varname_gamma) == 0 ) 
@@ -7401,7 +7397,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID ); 
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->field[ISTART], 
 				   LEN, OPTMASK_WARN ) ;
-    // xxx mark  if ( ivar < 0 ) { NVAR_REQ_MISS++; }
   }
 
   sprintf(vartmp,"IDSURVEY:S" ); // S -> short int
@@ -13553,7 +13548,6 @@ int  storeDataBias(int n, int DUMPFLAG) {
 
 
   if ( DUMPFLAG ) { dump_muCOVcorr(n); }
-  // xxx mark delete Apr 7 2025  if ( INPUTS.debug_mucovscale > 0 && n < 40 )   { dump_muCOVcorr(n); }
 
 
   return(ISTAT);
@@ -14678,7 +14672,6 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
 	 fnam, nbin, NAME, BININFO->lo[0], BININFO->hi[nbin-1] );
 
   
-  // xxx mark delete Jan 31 2025  if ( nbin > MAXBIN || nbin >= MXpar ) {
   if ( nbin > MAXBIN ) {
     sprintf(c1err,"nbin = %d exceeds MAXBIN=%d or MXpar=%d", 
 	    nbin, MAXBIN, MXpar );
@@ -15481,7 +15474,6 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   //
   // Feb 8 2025: extend DMUMIN_CCPRIOR more negative (to -3.0) for Roman
 
-  // xxx mark delete Feb 2025 #define DMUMIN_CCPRIOR  -1.5  // add buffer bin to allow for interp
 #define DMUMIN_CCPRIOR  -3.0  // add buffer bin to allow for interp
 #define DMUMAX_CCPRIOR  +4.0  // add buffer bin to allow for interp
 #define DMUBIN_CCPRIOR   0.5  
@@ -16580,7 +16572,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // ---------- BEGIN ---------
 
   NCUTWIN          = INPUTS.SELECT_CUTWIN.NVAR ;
-  // xxx mark delet Apr 2 2025 LCUTWIN_DISABLE  = IS_DATA && INPUTS.SELECT_CUTWIN.L_DISABLE ;
   
   // strip off local variables
 
@@ -16875,7 +16866,6 @@ int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN) {
   }
   else if ( match_on_cid_idsurvey_field ) {
     sprintf(STRINGID, "%s_%d_%s", cid, IDSURVEY, FIELD);
-    // xxx mark delete Feb 24 2025: sprintf(STRINGID, "%s_%d", cid, IDSURVEY);
   }
   else {
     sprintf(c1err,"Boolean logic failed, unable to match.");
@@ -16945,7 +16935,6 @@ int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
   if ( fmodf( XN, XNPS ) != 0 )  { REJECT = 1 ; }
 
   // increment separate NSIMCC counter
-  // xxx mark delete Mar 20 2025   if ( SIM_TEMPLATE_INDEX > 0 ) {
   if ( SIM_TEMPLATE_INDEX != 0 ) {
     NSIMCC++ ;
     XN    = (float)NSIMCC ;
@@ -21049,7 +21038,6 @@ void write_yaml_info(char *fileName) {
       str       =   STRING_EVENT_TYPE[evtype] ;
       sprintf(KEY,"NEVT_%s_bySAMPLE:", str);
       write_yaml_line_by_idsample(fp, KEY, NPASS_CUTMASK_BYSAMPLE[evtype]);
-      // xxx mark fprintf(fp,"%-22.22s %s\n", KEY, STR_NEVT_LIST[evtype] );
     }
 
     fprintf(fp, "\n");
@@ -22124,7 +22112,6 @@ void write_NWARN(FILE *fp, int FLAG) {
   char *NAME, str_warn[40] ;
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     NPASS = NPASS_CUTMASK_BYSAMPLE[EVENT_TYPE_DATA][idsample];
-    // xxx mark NTOT = NDATA_BIASCORCUT[0][idsample];
     NREJ = NREJECT_BIASCOR_BYSAMPLE[idsample];
     NTOT = NPASS + NREJ;
     NAME = SAMPLE_BIASCOR[idsample].NAME ;
@@ -24518,9 +24505,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     SUBPROCESS.KEEP_AFTER_REWGT[isn] = KEEP = false;
     LDMP            = SUBPROCESS.DUMPFLAG_REWGT[isn];
 
-    // xxx mark delete Mar 20 2025 if ( SIM_TEMPLATE_INDEX > 0 ) { continue; } // reject of not true SNIa
     if ( SIM_TEMPLATE_INDEX !=0 ) { continue; } // reject of not true SNIa
-    //    if ( CUTMASK != 0        ) { continue; }
 
     NKEEP_ORIG++ ;
 

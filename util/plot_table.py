@@ -17,6 +17,8 @@
 # May 16 2025: add @@HACK_FLAG option and method hack_value for publication plots
 # May 20 2025: plot error on mean for DIFF_ALL option
 # Jul 09 2025: fix bug evaluating chi2 fit; and add legend label in front of chi2/dof info
+# Jul 11 2025: new @@CUT feature "FIELD ~ 'C'" --> select any field containing char C
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -42,11 +44,13 @@ NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
 NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
-DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',
-                        '==', '!=', '=', '*', '+', '-', '/' ]  # for @@CUT
+DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',      # for @@CUT
+                        '==', '!=', '=', '*', '+', '-', '/',
+                        '~' , '.str.contains' ] 
 
 COLON = ':'
 BAR   = '|'
+STR_CONTAINS = '.str.contains'
 
 DEFAULT  = 'DEFAULT'
 SUPPRESS = 'SUPPRESS'
@@ -127,7 +131,7 @@ STRTYPE_VAR   = "VARIABLE"
 STRTYPE_NUM   = "NUMBER"
 STRTYPE_DELIM = "DELIMETER"   # e.g., + - : / *
 STRTYPE_FUNC  = "FUNCTION"    # e.g., log10, sqrt 
-STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC]
+STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC ]
 
 FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
 
@@ -168,6 +172,7 @@ HACK_FLAG_DICT = {
 
 
 # ================================
+
 
 def print_help():
 
@@ -225,6 +230,7 @@ and two types of command-line input delimeters
   you can explicitly prepend np (and please post github issue about 
   missing function).
 
+
   Multiple variables are overlaid on same plot; e.g.
      @V SNRMAX1  SNRMAX2  SNRMAX3
   If using math symbols or pad spaces, use single quotes, e.g.
@@ -257,9 +263,13 @@ and two types of command-line input delimeters
   double) are required around all cuts: e.g,
 
      @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD='C3'"
+     @@CUT 'zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD="C3"'  # same with ' <--> "
+     @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD~'C'"   # FIELD contains C in string name
+ 
 
   If a cut includes a string matches (e.g., FIELD='C3'), single quotes must be 
-  used around the string to match, and double quotes around the entire CUT arg.
+  used around the string to match, and double quotes around the entire CUT arg
+  (or switch single and double quotes).
   To overlay the same variable with different cuts, provide a list of cuts,
      @@CUT  'SNRMAX1>10'  'SNRMAX1>20'  'SNRMAX1>40'
   results in 3 overlaid plots, and default legend shows each cut.
@@ -1110,6 +1120,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
                 
         if is_delim:
             if delim == '=' : delim = '=='  # allow user to specify single '='
+            if delim == '~' : delim = STR_CONTAINS
             split_list.append(delim)
             strtype_list.append(STRTYPE_DELIM)
 
@@ -1215,7 +1226,8 @@ def translate_CUT(CUT):
     #
     # July 24 2024 rewrite logic to split by bool and (),
     #   then wrap each item as '(df.' + item + ')'
-
+    # Jul 11 2025 check str_contains with user symbol ~
+    #
     CUT_ORIG = CUT
     if not CUT:       return CUT, []
     if STR_df in CUT: return CUT, []
@@ -1253,21 +1265,29 @@ def translate_CUT(CUT):
             split_var_string(cut, DELIMITER_CUT_LIST, NUMPY_FUNC_LIST)
         
         cut_df = ''
+        last_str_contains = False
         for tmp_str, tmp_type in zip(split_list, strtype_list ):
-            if args.DEBUG_FLAG_DUMP_TRANSLATE:
+            if args.DEBUG_FLAG_DUMP_TRANSLATE :
                 tmp = f"'{tmp_str}'"
-                print(f"\t xxx cut sub-string = {tmp:<14} is {tmp_type}")
+                print(f"\t xxx cut sub-string = {tmp:<14} is {tmp_type} | last_str_contains = {last_str_contains}")
                 
             tmp_append = tmp_str
             if tmp_type == STRTYPE_VAR:
                 tmp_append = STR_df + tmp_str
-                if tmp_str not in raw_var_list: raw_var_list.append(tmp_str)
+                if tmp_str not in raw_var_list: 
+                    raw_var_list.append(tmp_str)
             elif tmp_type == STRTYPE_FUNC:
                 tmp_append = tmp_str
                 #sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
                 #         f"remove '{tmp_str}' from @@CUT arg")
+
+            elif tmp_type == STRTYPE_NUM and last_str_contains:
+                tmp_append = f"({tmp_str})"  # Jul 11 2025
             else:
                 pass
+
+            last_str_contains = (tmp_str == STR_CONTAINS )
+
             cut_df += tmp_append
             
 
@@ -1303,7 +1323,7 @@ def translate_CUT(CUT):
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    
 
     logging.info(f"Translate CUT {CUT}  ")
-    logging.info(f"          ->  {CUT_df}")
+    logging.info(f"          ->  {CUT_df} ")
     
     return CUT_df, raw_var_list
 

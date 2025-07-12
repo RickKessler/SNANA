@@ -15529,7 +15529,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     for(ia=0; ia<NBINa; ia++ )
       { SUMa += (*BININFO_SIM_ALPHA).avg[ia]; }
     for(ib=0; ib<NBINb; ib++ )
-      { SUMb += (*BININFO_SIM_BETA).avg[ib]; }  // XXX Might be wrong BETA. A.M. JUN 2025
+      { SUMb += (*BININFO_SIM_BETA).avg[ib]; } 
 
     if ( NBINa>0  && NBINb>0 ) {
       MUZMAP->alpha = SUMa / (double)NBINa ;
@@ -15595,7 +15595,6 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     
   // ----------------- BEGIN ---------------
   
-
   if ( INFO_CCPRIOR.USEH11 ) { return ; }
     
   // number of DMU bins to make PDF
@@ -15652,16 +15651,20 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
     // keep only CC events in current IZ bin
     iz   = TABLEVAR->IZBIN[icc] ;   // redshift bin 
-    z    = TABLEVAR->zhd[icc] ;     // XXX Replace with true redshift ?? A.M. Jun 2026
-    if (INPUTS.REFAC_CCPRIOR_Z ) {z    = TABLEVAR->SIM_ZCMB[icc] ; }  
+
+    z    = TABLEVAR->zhd[icc] ;     
+    if (INPUTS.REFAC_CCPRIOR_Z ) {z  = TABLEVAR->SIM_ZCMB[icc] ; }  // test, June 2025
+
     c    = TABLEVAR->fitpar[INDEX_c][icc] ;
     x1   = TABLEVAR->fitpar[INDEX_s][icc] ;
     mB   = TABLEVAR->fitpar[INDEX_d][icc] ;
     name = TABLEVAR->name[icc] ;
     
-    mu = mB + a*x1 - b*c - M0 ;  
+    mu = mB + a*x1 - b*c - M0 ; 
     
-    // apply mu-bias Correction if simfile_bias is given
+    // naively apply SNIa mu-bias Correction if simfile_bias is given;
+    // ??? this can't be right ???
+
     muBias = muBiasErr = 0.0 ;  muCOVscale = 1.0 ;
     if ( USE_BIASCOR ) {    
       BIASCORLIST.z                = z;
@@ -15681,13 +15684,13 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
 		   FITPARBIAS_TMP,         // (I) bias vs. ia,ib
 		   MUCOVSCALE_TMP,         // (I) muCOVscale vs. ia,ib
-		   MUCOVADD_TMP,         // (I) muCOVscale vs. ia,ib
+		   MUCOVADD_TMP,           // (I) muCOVscale vs. ia,ib
 		   &INTERPWGT,             // (I) wgt at each a,b grid point
-		   fitParBias,     // (O) interp bias on mB,x1,c
-		   &muBias,        // (O) interp bias on mu
-		   &muBiasErr,     // (O) stat-error on above
-		   &muCOVscale,  // (O) scale bias on muCOV (not used below) 
-		   &muCOVadd,  // (O) add bias on muCOV (not used below)
+		   fitParBias,       // (O) interp bias on mB,x1,c
+		   &muBias,          // (O) interp bias on mu
+		   &muBiasErr,       // (O) stat-error on above
+		   &muCOVscale,      // (O) scale bias on muCOV (not used below) 
+		   &muCOVadd,        // (O) add bias on muCOV (not used below)
 		   &nevt_biascor );
       }
       else if ( NDIM_BIASCOR == 1 ) {

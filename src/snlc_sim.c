@@ -31890,14 +31890,16 @@ void prep_SIMLIB_DUMP(void) {
   // Created Aug 1 2024
   // Prepare for SIMLIB_DUMP assuming that user input is only
   // the name of SIMLIB_FILE and nothing else.
-  
+  //
+  // Jul 11 2025: Increase NGENTOT_LC fro 50k to 150k 
+  //
   char fnam[] = "prep_SIMLIB_DUMP" ;
 
   // ------------- BEGIN ------------
 
   // set params to read entire SIMLIB once; then quit. (Mar 2021)
   INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_QUIT_NOREWIND;
-  INPUTS.NGENTOT_LC = 50000;
+  INPUTS.NGENTOT_LC = 150000;
   INPUTS.NGEN_LC=0;
 
   // hack inputs to avoid abort  (Aug 2024)

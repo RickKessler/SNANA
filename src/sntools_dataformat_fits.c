@@ -306,7 +306,9 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "20A" ,"NAME_TRANSIENT", itype); // optional name (Jul 2024)
   }
   
-  wr_snfitsio_addCol( "1I" , "FAKE", itype   ) ;  // 0=data; >1 => sim
+
+  wr_snfitsio_addCol( "1E" , "ZP_FLUXCAL", itype   ) ; 
+  wr_snfitsio_addCol( "1I" , "FAKE",       itype   ) ;  // 0=data; >1 => sim
 
   if ( !SNFITSIO_SIMFLAG_SNANA  )
     {  wr_snfitsio_addCol( "1I" , "MASK_FLUXCOR_SNANA", itype );  }
@@ -1512,6 +1514,11 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.NAME_TRANSIENT ;
     wr_snfitsio_fillTable ( ptrColnum, "NAME_TRANSIENT", itype );
   }
+
+  // ZP_FLUXCAL 
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZP_FLUXCAL ;
+  wr_snfitsio_fillTable ( ptrColnum, "ZP_FLUXCAL", itype );
   
   // fake flag
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3227,6 +3234,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       
     }
     
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "ZP_FLUXCAL", &SNDATA.ZP_FLUXCAL, 
+    				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 

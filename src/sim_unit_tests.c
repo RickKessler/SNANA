@@ -385,42 +385,6 @@ void test_GET_KCOR_DRIVER(void) {
 
 } // end test_GET_KCOR_DRIVER
 
-// =================================
-#ifdef USE_KCOR_FORTRAN
-void test_fortran(void) {
-
-  char kcorFile[80] = "  " ;
-  int IERR, ifilt_rest, ifilt_obs, iz;
-  double t8, z8, av8, kcor8 ;
-
-  // ----------- BEGIN -----------
-
-  print_banner ( " TEST FORTRAN INTERFACE " );
-
-  init_snvar__(&IERR);
-  sprintf(kcorFile, "%s", INPUTS.KCOR_FILE );
-  rdkcor_(kcorFile, &IERR, strlen(kcorFile) );
-
-  av8 = 0.0;
-  z8  = 0.20;
-  t8  = 0.0;
-
-  ifilt_rest = 7 ;
-  ifilt_obs  = 3 ;
-
-
-  for ( iz=0; iz<=10; iz++ ) {
-    z8 = 0.04 * (double)iz ;
-    printf(" --------------------------------------- \n");
-    kcor8  = get_kcor8__( &ifilt_rest, &ifilt_obs, &t8, &z8, &av8 );
-    printf(" xxx z=%4.2f  Tr=%5.2f AV=%4.2f   K_(%d->%d) = %f \n",
-	   z8, t8, av8, ifilt_rest, ifilt_obs, kcor8 );
-  }
-
-  exit(1);
-  
-}  // end of test_fortran
-#endif
 
 // ******************************
 void test_zcmb_dLmag_invert(void) {

@@ -653,6 +653,8 @@ struct INPUTS {
   char   FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
   double FLUXERRMODEL_SNRMIN_REDCOV; // default = 2
 
+  float ZP_FLUXCAL ; // Jul 2025 
+
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
   char HOSTNOISE_FILE[MXPATHLEN];

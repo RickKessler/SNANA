@@ -23008,6 +23008,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + read gzipped or regular cov file for EXTRA_COVS
 
 
+    Start preparing for switching ZP_FLUXCAL=27.5 to 31.4 (nJy).
+    ZP_FLUXCAL is written to data headers to be used in analysis.
+
          *****  USEFUL(v11_05u) *****
 
     RESTORE_DES5YR flag in sim and snana/snlc_fit:

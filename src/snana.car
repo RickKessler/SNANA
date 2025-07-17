@@ -845,7 +845,8 @@ c
      &  ,SNLC8_FLUXCAL_ERRTOT(MXEPOCH)
      
       REAL 
-     &   SNLC_ZHELIO        ! redshift used for final analysis 
+     &   SNLC_ZP_FLUXCAL    ! read ZP_FLUXCAL from header
+     &  ,SNLC_ZHELIO        ! redshift used for final analysis 
      &  ,SNLC_ZHELIO_ERR    ! error on above 
      &  ,SNLC_ZCMB          ! redshift used for final analysis 
      &  ,SNLC_ZCMB_ERR      ! error on above 
@@ -961,7 +962,7 @@ c
      &    ,SNLC_SNANAFIT_PEAKMJD
      &    ,SNLC_SNANAFIT_PEAKMJD_FITPAR
      &    ,SNLC_SNANAFIT_PEAKMJD_FITERR
-     &    ,SNLC_SEARCH_PEAKMJD
+     &    ,SNLC_SEARCH_PEAKMJD, SNLC_ZP_FLUXCAL
      &    ,SNLC_ZHELIO, SNLC_ZHELIO_ERR
      &    ,SNLC_ZCMB,   SNLC_ZCMB_ERR, SNLC_ZHD, SNLC_ZHD_ERR
      &    ,SNLC_ZSN, SNLC_ZSN_ERR
@@ -4450,6 +4451,16 @@ c Convert CCID to integer CID, and check if this CCID is selected.
          ISTAT = ISTAT_SKIP;  RETURN
       endif
 c - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      CALL FETCH_SNDATA_WRAPPER("ZP_FLUXCAL", 
+     &     ONE, STRING, DARRAY, OPT)
+      SNLC_ZP_FLUXCAL = SNGL(DARRAY(1))
+c xxx      print*,' xxx read SNLC_ZP_FLUXCAL = ', SNLC_ZP_FLUXCAL
+      if ( SNLC_ZP_FLUXCAL < 0.0 ) then
+         SNLC_ZP_FLUXCAL = ZEROPOINT_FLUXCAL_DEFAULT
+      endif
+c xxx      print*,' xxx final SNLC_ZP_FLUXCAL = ', SNLC_ZP_FLUXCAL
+c xxx      call flush(6) ! xxx 
 
       CALL FETCH_SNDATA_WRAPPER("FAKE", 
      &     ONE, STRING, DARRAY, OPT)

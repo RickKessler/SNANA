@@ -94,12 +94,6 @@ int main(int argc, char **argv) {
 
   init_commandLine_simargs(argc, argv);
 
-  // init fortran variables
-#ifdef USE_KCOR_FORTRAN
-  istat = 0;
-  init_snvar__(&istat); 
-#endif
-
   // one-time init of sim-variables
   init_simvar();
 
@@ -719,6 +713,8 @@ void set_user_defaults(void) {
   INPUTS.DEBUG_FLAG = 0; 
   INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
+
+  INPUTS.ZP_FLUXCAL = ZEROPOINT_FLUXCAL_DEFAULT ; // Jul 2025
 
   INPUTS.RESTORE_BUGS_DES3YR    = false; // Mar 2020
   INPUTS.RESTORE_BUG_HOSTLIB    = false; // Nov 2019
@@ -24604,6 +24600,7 @@ void snlc_to_SNDATA(int FLAG) {
   sprintf(SNDATA.SUBSURVEY_LIST, "%s", SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST);
   sprintf(SNDATA.DATATYPE,       "%s", DATATYPE_SIM_SNANA);
 
+  SNDATA.ZP_FLUXCAL      = INPUTS.ZP_FLUXCAL ;
   SNDATA.SIMLIB_MSKOPT   = INPUTS.SIMLIB_MSKOPT ;
   SNDATA.PHOTFLAG_DETECT = PHOTFLAG_DETECT ; // Jul 2022 
   sprintf(SNDATA.SIMLIB_FILE,    "%s", INPUTS.SIMLIB_FILE );

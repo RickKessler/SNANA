@@ -41,7 +41,9 @@
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
 #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
-#define ZEROPOINT_FLUXCAL_DEFAULT 27.5
+#define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
+#define ZEROPOINT_FLUXCAL_nJy         31.4
+#define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG
 
 #define WRITE_MASK_LCMERGE       2  // idem to write lcmerge data files.
 #define WRITE_MASK_SIM_SNANA     4  // idem to write SNANA-SIM  
@@ -160,8 +162,6 @@ struct VERSION
 
   int NEPOCH_TOT;          // total number of epochs in all SN
 
-  // xxx mark  int GENFRAME_SIM ;   // sim only: 1=rest+boost(=> KCOR), 2=obs
-
 } VERSION_INFO ;
 
 
@@ -214,6 +214,7 @@ struct SNDATA {
   int   FAKE ;            // 1=FAKE, 0=DATA
   int   NEPOCH;           // total NEPOCH including peak and unused filters
   int   NOBS ;            // total Num of observations (<= NEPOCH)
+  float ZP_FLUXCAL ;      // Jul 15 2025
 
   // list of observations to store; they pass select_MJD_SNDATA func
   int   NOBS_STORE;
@@ -377,7 +378,6 @@ struct SNDATA {
   int  SIM_MODEL_INDEX;      //integer id for model or class
   int  SIM_TEMPLATE_INDEX ;  // template index for NON1ASED, SIMSED, LCLIB ...
   char SIM_COMMENT[200]; 
-  // xxx mark  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
   int  SIM_GENTYPE;          // same as SNTYPE (if set).
   char SIM_TYPE_NAME[60];    // Ia, Ib, II, etc ...
 

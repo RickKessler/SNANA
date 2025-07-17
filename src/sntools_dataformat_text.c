@@ -139,9 +139,14 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 	      SNDATA.NAME_TRANSIENT);
     }
   }
+
+  fprintf(fp,"ZP_FLUXCAL:  %.2f  # mag = ZP_FLUXCAL - 2.5*log10(FLUXCAL) \n", 
+	  SNDATA.ZP_FLUXCAL);
   
   fprintf(fp,"SNTYPE:   %d    # integer type; e.g. spec or phot classification\n",
 	  SNDATA.SNTYPE);
+
+
   fprintf(fp,"RA:       %.6f  # deg (avg among obs)\n", SNDATA.RA_AVG);
   fprintf(fp,"DEC:      %.6f  # deg (avg among obs)\n", SNDATA.DEC_AVG);
 
@@ -226,7 +231,6 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   for(j=0; j < SNDATA.NLINES_AUXHEADER; j++ ) 
     {  fprintf(fp,"%s \n", SNDATA.AUXHEADER_LINES[j]); }
 
-  
   // write SIM_ info for SNANA sim
   if ( IS_SIM && !IS_BLINDTEST ) 
     { wr_dataformat_text_SIMPAR(fp); }
@@ -2258,6 +2262,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     sscanf(word1_val, "%s", SNDATA.NAME_TRANSIENT);
   }
   
+  else if ( strcmp(word0,"ZP_FLUXCAL:") == 0 ) {
+    SNDATA.ZP_FLUXCAL = FVAL ;
+  }
   else if ( strcmp(word0,"FAKE:") == 0 ) {
     SNDATA.FAKE = IVAL;
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_FAKE] = true ;

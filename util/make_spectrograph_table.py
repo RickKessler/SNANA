@@ -19,6 +19,7 @@ USERNAME   = os.environ['USER']
 
 
 UNIT_CONVERT_DICT = {
+    'm'   : 1.0E10,   # 4most etc output is meters !
     'nm'  : 10.0,
     'um'  : 10000.0 ,
     'A'   : 1.0

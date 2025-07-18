@@ -5,7 +5,11 @@
 # an ETC for a spectroscopic instrument,
 # and create an SNANA-formatted SPECTROGRAPH table for the SNANA kcor.exe
 # program and simulation.
-
+#
+# July 18 2025: fix bug adding fluxes for red+blue overlap;
+#               add inverse-variances in quadrature, not add variances.
+#               This bug should explain why Spring 2025 Gemini & SOAR proposals were rejected.
+#
 
 import os, sys, yaml, argparse, logging, datetime
 import pandas as pd
@@ -420,10 +424,11 @@ def rebin_sedflux_tables(args, config, spectro_data):
             flux_rebin_dict_list[j]['flux_list']  =  \
                 [ x + y for x, y in zip(tmp0, tmp1)]
 
+            # add inverse variances in quadrature 
             tmp0 = flux_rebin_dict_list[j]['fluxvar_list']
             tmp1 = flux_rebin_dict['fluxvar_list']
             flux_rebin_dict_list[j]['fluxvar_list']  =  \
-                [ x + y for x, y in zip(tmp0, tmp1)]
+                [ 1/(1/x + 1/y) for x, y in zip(tmp0, tmp1)]
 
             flux_rebin_dict_list[j]['flux_table_file'] += f"+{flux_table_file}"
             logging.info(f"\t append {key_unique} for {flux_table_file} ")            
@@ -580,8 +585,11 @@ def write_specbins(o_sim, o_tbl, args, config, spectro_data):
     # write header info
     o_sim.write(f"{string_magref}\n")
     o_sim.write(f"{string_texpose}\n")
-    o_sim.write(f"SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 2.0  " \
-            f"# allow SNR ~ sqrt[Texpose] within x2 factor\n")
+    o_sim.write(f"SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 3.0  " \
+            f"# allow SNR ~ sqrt[Texpose] within x3 factor\n")
+    o_sim.write(f"SNR_POISSON_RATIO_ABORT_vsMAGREF: 10.0  " \
+                f"# allow SNR ~ sqrt[Fsource] within x10 factor\n")
+
     o_sim.write(f"\n")    
     o_sim.write(f"#          WAVE_MIN   WAVE_MAX  WAVE_RES  {varnames_snr}\n")
 

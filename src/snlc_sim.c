@@ -1824,6 +1824,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_HOSTLIB(WORDS, keySource);
   }
   // - - - - -
+  else if ( keyMatchSim(1, "ZP_FLUXCAL", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.ZP_FLUXCAL );  // July 2025: only for testing
+  }
+
   else if ( keyMatchSim(1, "FLUXERRMODEL_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMODEL_FILE );
     README_KEYPLUSARGS_load(20,1, WORDS, keySource, 
@@ -11006,7 +11010,6 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
   int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
-  double ZP_SNANA     = ZEROPOINT_FLUXCAL_DEFAULT ;  
   double hc8          = (double)hc ;
   bool   DO_MAGERR    =  FLAMERR_LIST[0] >= 0.0 ;
 
@@ -18224,6 +18227,12 @@ void SIMLIB_prepGlobalHeader(void) {
     ifilt_obs = INTFILTER(cfilt);
     GENLC.SIMLIB_FLUXERR_ADDPAR[ifilt_obs] = 
       (float)SIMLIB_GLOBAL_HEADER.FLUXERR_ADD_VALUES[ifilt] ;
+
+    // Jul 17 2025: fix to work with new ZP_FLUXCAL; assumes old FLUXERR_ADD has ZP=27.5
+    double arg, scale ;
+    arg   =  INPUTS.ZP_FLUXCAL - ZEROPOINT_FLUXCAL_SNANA_ORIG;
+    scale =  pow(TEN,0.4*arg);
+    GENLC.SIMLIB_FLUXERR_ADDPAR[ifilt_obs] *= scale ;
   }
 
 
@@ -25069,7 +25078,7 @@ void snlc_to_SNDATA(int FLAG) {
     
     // --> fill SNDATA.FLUXCAL
     int OPT_ZPERR = 2; // --> do NOT add ZP_sig since it's already added
-    istat = fluxcal_SNDATA ( epoch, "log10", OPT_ZPERR ) ; 
+    istat = fluxcal_SNDATA ( epoch, (double)INPUTS.ZP_FLUXCAL, "log10", OPT_ZPERR ) ; 
     
     // check option to make MWEBV-analysis correction on the
     // reported flux, flux-error and mag
@@ -27118,7 +27127,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   }
 
   // compute zp in photo-electrons 
-  ZPTDIF_ADU        = zpt - ZEROPOINT_FLUXCAL_DEFAULT ;
+  ZPTDIF_ADU        = zpt - INPUTS.ZP_FLUXCAL ;
   NADU_over_FLUXCAL = pow( TEN , 0.4*ZPTDIF_ADU) ;
   Npe_over_FLUXCAL  = NADU_over_FLUXCAL * ccdgain;
   NADU_over_Npe     = NADU_over_FLUXCAL/Npe_over_FLUXCAL ;  

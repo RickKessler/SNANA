@@ -240,6 +240,7 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   int    NLAMBIN = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN ;  
   double DAYMIN  = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;  
   double mag_extrap = mag_daymin ;
+  double ZP_FLUXCAL = ZEROPOINT_FLUXCAL_nJy; // any value works here
 
   double arg, F_DAYMIN, F_EXTRAP, VAL, PARLIST[MXPAR_EXTRAP_LATETIME_Ia];
   double *ptrLam, *ptrVal;
@@ -258,14 +259,14 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   }
 
   // compute flux at daymin
-  arg      = 0.4*(mag_daymin - ZEROPOINT_FLUXCAL_DEFAULT);
+  arg      = 0.4*(mag_daymin - ZP_FLUXCAL);
   F_DAYMIN = pow(10.0,-arg);
 
   // extrapolate flux
   F_EXTRAP = genflux_extrap_latetime_Ia(F_DAYMIN, day, lam);
 
   // convert extrapolated flux back to mag
-  mag_extrap = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*log10(F_EXTRAP);
+  mag_extrap = ZP_FLUXCAL - 2.5*log10(F_EXTRAP);
   
   // - - - -
   if ( mag_extrap > 60.0 ) { mag_extrap = MAG_ZEROFLUX; }

@@ -602,8 +602,8 @@ double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);
 
 
 
-int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
-double asinhinv(double mag, int ifilt);
+int fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) ;
+double asinhinv(double mag, double zp_fluxcal, int ifilt);
 
 double pressure_atmos(double h);
 

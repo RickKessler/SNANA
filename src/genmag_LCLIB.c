@@ -2520,6 +2520,8 @@ double magTemplate_LCLIB(int EXTERNAL_ID, int ifilt) {
   int LASTROW_T     = LCLIB_EVENT.LASTROW_T ;
   int Nforce_T      = LCLIB_EVENT.NforceTemplateRows ;
 
+  double ZP_FLUXCAL = ZEROPOINT_FLUXCAL_nJy ; // any ZP works since code does mag -> flux -> mag
+
   double Tep, fluxSum=0.0, flux, fluxAvg, arg, mag ;
   int    ep, I2MAG ;
   int    LDMP = (EXTERNAL_ID < -1 );
@@ -2573,7 +2575,7 @@ double magTemplate_LCLIB(int EXTERNAL_ID, int ifilt) {
 			    &LCLIB_EVENT.DAY[FIRSTROW_T], 
 			    &LCLIB_EVENT.I2MAG[ifilt][FIRSTROW_T] );
 
-      arg    = 0.4*(mag-ZEROPOINT_FLUXCAL_DEFAULT);
+      arg    = 0.4*(mag-ZP_FLUXCAL);
       flux   = pow(10.0,-arg);
       fluxSum += flux ;
 
@@ -2588,7 +2590,7 @@ double magTemplate_LCLIB(int EXTERNAL_ID, int ifilt) {
   }
 
   fluxAvg = fluxSum / (double)NEP_TEMPLATE ;
-  mag     = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*log10(fluxAvg) ;
+  mag     = ZP_FLUXCAL - 2.5*log10(fluxAvg) ;
 
   //  printf(" xxx %s: ifilt=%d magTemplate = %f\n", fnam,ifilt, mag);
 

@@ -2258,7 +2258,8 @@ double get_lightCurveWidth(int OPTMASK_LCWIDTH, int NOBS,
       LCWIDTH.TLIST_SORTED[obs]   = T; 
       LCWIDTH.MAGLIST_SORTED[obs] = MAG ;
 
-      ARG = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - MAG);
+      // xxx mark delete ARG = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - MAG);
+      ARG = 0.4*(ZEROPOINT_FLUXCAL_nJy - MAG); // any ZP works here since only flux-vs-MJD shape matters
       FLUX = pow(TEN,ARG);
       LCWIDTH.FLUXLIST_SORTED[obs] = FLUX ;
       if ( FLUX > FLUXMAX ) { TMAX=T; FLUXMAX=FLUX; obsFmax=obs; }
@@ -8722,7 +8723,7 @@ void set_SNDATA_FILTER(char *filter_list) {
 } // end set_SNDATA_FILTER
 
 // ******************************************************
-int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
+int  fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) {
 
 
   /*********
@@ -8738,6 +8739,7 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
   Inputs:
      iepoch : epoch index for SNDATA.XXX arrays
+     zp_fluxcal : fluxcal  -> mag zp
      magfun : log10 or asinh
      opt    : 0 or 1 -> add ZP_sig uncertainty
                    2 -> do not add ZP_sig term (error added earlier)
@@ -8750,6 +8752,8 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
   Jan 23 2020: 
     pass opt argument to control use of ZP_sig in flux uncertainty.
    
+  Jul 17 2025: pass zp_fluxcal
+
   *********/
 
   double mag, mag_err, mag_tmp, ZP, ZP_err, ZP_scale, ZP_sig;
@@ -8791,13 +8795,13 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
     VALID_MAGFUN = 1 ;
 
-    fluxcal = asinhinv ( mag, IFILT ) ;
+    fluxcal = asinhinv ( mag, zp_fluxcal, IFILT ) ;
 
     mag_tmp = mag - mag_err ;
-    ferrp  = asinhinv ( mag_tmp, IFILT) - fluxcal;
+    ferrp  = asinhinv ( mag_tmp, zp_fluxcal, IFILT) - fluxcal;
 
     mag_tmp    = mag+mag_err ;
-    ferrm      = fluxcal - asinhinv ( mag_tmp, IFILT ) ;
+    ferrm      = fluxcal - asinhinv ( mag_tmp, zp_fluxcal, IFILT ) ;
 
     fluxcal_err = (ferrp+ferrm)/2.0;
 
@@ -8820,7 +8824,8 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
   if ( strcmp(magfun,"log10") == 0 ) {
     VALID_MAGFUN = 1 ;
-    arg      = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
+    // xxx mark delete Jul 17 2025      arg   = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
+    arg      = -0.4 * (ZP - zp_fluxcal) ;
     ZP_scale = pow(TEN,arg) ;
  
     if ( flux_err >= 0.0 && ZP > 10.0 ) {
@@ -8863,9 +8868,11 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
 
 // ******************************************* 
-double asinhinv(double mag, int ifilt) {
+double asinhinv(double mag, double zp_fluxcal, int ifilt) {
 
   // Invert SDSS mag to get calibrated flux.
+  // Jul 17 2025: pass zp_fluxcal as argument
+
 
   // define SDSS softening parameter vs. filter
   double bb[6]     = {0.0, 1.4e-10, 0.9e-10, 1.2e-10, 1.8e-10, 7.4e-10};
@@ -8877,7 +8884,8 @@ double asinhinv(double mag, int ifilt) {
   b       = bb[ifilt];
   arg     = mag/magoff - log(b);
 
-  fluxScale = pow(TEN,0.4*ZEROPOINT_FLUXCAL_DEFAULT);
+  // xxx mark delete July 2025  fluxScale = pow(TEN,0.4*ZEROPOINT_FLUXCAL_DEFAULT);
+  fluxScale = pow(TEN,0.4*zp_fluxcal);
   fluxCal   = fluxScale * (2*b) * sinh(arg);
 
   // xxx delete Mar 2013:  fluxcal = FLUXCAL_SCALE * 2*b * sinh(arg);

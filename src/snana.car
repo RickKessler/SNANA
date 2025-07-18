@@ -11644,7 +11644,7 @@ c  skip obs that are cut in SNRECON (Jan 2, 2012)
             ZPOFF   = MAGOBS_SHIFT_ZP_FILT(ifilt_obs)
             MJD8    = SNLC8_MJD(EP)
 
-            ZP  = SNGL(ZEROPOINT_FLUXCAL_DEFAULT) + ZPOFF
+            ZP  = SNGL(SNLC_ZP_FLUXCAL) + ZPOFF
             arg = 0.4*ZPOFF
 
             Fscale  = 10.0**ARG
@@ -17620,7 +17620,7 @@ c Jan 3 2018: skip saturated mags
 
 c convert sim-mag to SIM_FLUXCA
           IF ( ISJOB_SIM ) THEN
-             ZP        = ZEROPOINT_FLUXCAL_DEFAULT
+             ZP        = SNLC_ZP_FLUXCAL
              SIM_MAG   = SIM_EPMAGOBS(ep)
              if ( SIM_MAG < 90.0 ) then
                NEP_SIM_MAGOBS = NEP_SIM_MAGOBS + 1 ! Nov 25 2019
@@ -18216,7 +18216,7 @@ C --------- BEGIN ------------
       ELSE IF ( FLUXCAL < 1.0E-9 ) THEN
         MAG = 128.0  ! negative flux
       ELSE 
-        ZP  = SNGL(ZEROPOINT_FLUXCAL_DEFAULT)
+        ZP  = SNGL(SNLC_ZP_FLUXCAL)
         MAG = ZP - 2.5*LOG10(FLUXCAL)
       ENDIF
 
@@ -18244,7 +18244,7 @@ C --------- BEGIN ------------
       SBFLUX = SNHOST_SBFLUXCAL(ifilt)
       SBFLUXMIN = 1.0
 
-      ZP = SNGL( ZEROPOINT_FLUXCAL_DEFAULT )
+      ZP = SNGL( SNLC_ZP_FLUXCAL )
       IF ( SBFLUX > SBFLUXMIN ) THEN
          SBMAG = ZP - 2.5*LOG10(SBFLUX)
       ELSE
@@ -18747,7 +18747,7 @@ c get C function arguments
       SKYSIG     = DBLE( SNLC_SKYSIG(ep) )          ! sigma, ADU/pixel
       RDNOISE_pe = DBLE(SNLC_RDNOISE(ep) )  ! e-/pix
       ZP         = DBLE( SNLC_ZEROPT(ep) )
-      ZPDIF      = ZP - ZEROPOINT_FLUXCAL_DEFAULT
+      ZPDIF      = ZP - SNLC_ZP_FLUXCAL
       MJD        = SNLC8_MJD(EP)
 
 c - - - - - - - - - - - - - - 
@@ -19970,6 +19970,7 @@ c ----------------------------------------
       IMPLICIT NONE
 
 +CDE,SNPAR.
++CDE,SNLCCOM.
 +CDE,SIMLIBCOM.
 +CDE,CTRLCOM.
  
@@ -20011,9 +20012,9 @@ c      LDMP = .TRUE.
       FNAM = 'COMPUTE_SIMLIB_INFO' 
 
 c set MAG_MAX based on Flux = FluxErr
-      MAG_MAX = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*LOG10(FLUXERR)
+      MAG_MAX = SNLC_ZP_FLUXCAL - 2.5*LOG10(FLUXERR)
       if ( FLUX > FLUXERR ) then
-         MAG = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*LOG10(FLUX) 
+         MAG = SNLC_ZP_FLUXCAL - 2.5*LOG10(FLUX) 
       else
          MAG = MAG_MAX
       endif
@@ -20414,7 +20415,7 @@ c set logical as soon as we get here.
 c use ZPT to convert calibated flux back into ADU
 c (since FLUX in the data file can be either ADU or uJy)
 
-      ZPDIF       = ZP - SNGL(ZEROPOINT_FLUXCAL_DEFAULT)
+      ZPDIF       = ZP - SNGL(SNLC_ZP_FLUXCAL)
       ZPSCALE     = 10**(0.4*ZPDIF)   ! FLUXADU/FLUXCAL ratio
       FLUXADU     = ZPSCALE * FLUXCAL
       FLUXADU_ERR = ZPSCALE * FLUXCAL_ERR

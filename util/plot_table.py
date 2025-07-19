@@ -2760,7 +2760,7 @@ def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
 
 
     if ybins_sigma is None:
-        label_fit = f'{fitfun} Fit'  
+        label_fit = f'{name_legend} {fitfun} Fit'  
     else:
         ycov_contents  = [y*y for y in ybins_sigma]
         chi2_bins = [ (ydata-yfun)**2/ycov for ydata, yfun, ycov in \

@@ -428,7 +428,7 @@ def rebin_sedflux_tables(args, config, spectro_data):
             tmp0 = flux_rebin_dict_list[j]['fluxvar_list']
             tmp1 = flux_rebin_dict['fluxvar_list']
             flux_rebin_dict_list[j]['fluxvar_list']  =  \
-                [ 1/(1/x + 1/y) for x, y in zip(tmp0, tmp1)]
+                [ x + y for x, y in zip(tmp0, tmp1)]
 
             flux_rebin_dict_list[j]['flux_table_file'] += f"+{flux_table_file}"
             logging.info(f"\t append {key_unique} for {flux_table_file} ")            

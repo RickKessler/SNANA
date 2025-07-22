@@ -217,7 +217,8 @@ def read_single_flux_table(flux_table, wave_scale ):
         'flux_list'      : flux_list,
         'fluxerr_list'   : fluxerr_list,
         'wave_min'       : wave_min,
-        'wave_max'       : wave_max
+        'wave_max'       : wave_max,
+        'is_snr_map'     : found_snr
     }
 
     return flux_dict
@@ -393,7 +394,8 @@ def rebin_sedflux_tables(args, config, spectro_data):
         texpose         = flux_dict['texpose']
         flux_table_file = flux_dict['flux_table_file']
         snr_scale       = flux_dict['snr_scale']
-        
+
+        is_snr_map   = flux_dict['is_snr_map']
         wave_list    = flux_dict['wave_list']
         flux_list    = flux_dict['flux_list']
         fluxerr_list = flux_dict['fluxerr_list']
@@ -401,34 +403,64 @@ def rebin_sedflux_tables(args, config, spectro_data):
 
         key_unique         = str(magref) + '_' + str(texpose)
         flux_grid_array    = [ 0.0 ] * nbin_grid
-        fluxvar_grid_array = [ 0.0 ] * nbin_grid 
+        fluxvar_grid_array = [ 0.0 ] * nbin_grid
+        snr_grid_array     = [ 0.0 ] * nbin_grid         
         
         for wave, flux, fluxvar in zip(wave_list, flux_list, fluxvar_list):
             ibin = int((wave - wave_min_grid)/wave_bin_size)
             flux_grid_array[ibin]    += flux
             fluxvar_grid_array[ibin] += fluxvar
+        snr_grid_array = [ x/np.sqrt(y) if y>0 else 0 for x, y in zip(flux_grid_array,fluxvar_grid_array) ]
             
         flux_rebin_dict = {
             'nbin'           : nbin_grid,
             'wave_list'      : wave_grid_array,
             'flux_list'      : flux_grid_array,
-            'fluxvar_list'   : fluxvar_grid_array
+            'fluxvar_list'   : fluxvar_grid_array,
+            'snr_list'       : snr_grid_array
         }
 
-
+        #print(f" xxx -------------------------- ")
+        #print(f" xxx {flux_table_file}")
+        
         if key_unique in key_unique_list:
             # add flux and fluxvar to existing flux_rebin_dict
             j = key_unique_list.index(key_unique)
-            tmp0 = flux_rebin_dict_list[j]['flux_list']
-            tmp1 = flux_rebin_dict['flux_list']
-            flux_rebin_dict_list[j]['flux_list']  =  \
-                [ x + y for x, y in zip(tmp0, tmp1)]
+            flux_tmp0    = flux_rebin_dict_list[j]['flux_list']
+            flux_tmp1    = flux_rebin_dict['flux_list']
+            fluxvar_tmp0 = flux_rebin_dict_list[j]['fluxvar_list']
+            fluxvar_tmp1 = flux_rebin_dict['fluxvar_list']
+            snr_tmp0     = flux_rebin_dict_list[j]['snr_list']
+            snr_tmp1     = flux_rebin_dict['snr_list']
+            nbin = len(snr_tmp0)
+            
+            if is_snr_map :
+                # when only snr-vs-wave is provided, hack flux split into multiple arms
+                wgt_tmp0 = [ s0/(s0+s1+1.0e-12) for s0, s1 in zip(snr_tmp0,snr_tmp1) ]
+                wgt_tmp1 = [ s1/(s0+s1+1.0e-12) for s0, s1 in zip(snr_tmp0,snr_tmp1) ]
+            else:                
+                # sum fluxes produced by ETC; assumes correct flux-splitting in red/blue arms
+                # hence all weights = 1
+                wgt_tmp0 = [ 1.0 ] * nbin
+                wgt_tmp1 = [ 1.0 ] * nbin 
 
-            # add inverse variances in quadrature 
-            tmp0 = flux_rebin_dict_list[j]['fluxvar_list']
-            tmp1 = flux_rebin_dict['fluxvar_list']
-            flux_rebin_dict_list[j]['fluxvar_list']  =  \
-                [ x + y for x, y in zip(tmp0, tmp1)]
+            update_flux_list = \
+                [ f0*w0 + f1*w1 for f0, f1, w0, w1 in \
+                  zip(flux_tmp0, flux_tmp1, wgt_tmp0, wgt_tmp1) ]      
+                
+            update_fluxvar_list =  \
+                [ v0*w0*w0 + v1*w1*w1 for v0, v1, w0, w1 in \
+                  zip(fluxvar_tmp0, fluxvar_tmp1, wgt_tmp0, wgt_tmp1) ]
+            
+            update_snr_list  = \
+                [ x/np.sqrt(y) if y>0 else 0 for x, y in zip(update_flux_list, update_fluxvar_list) ]
+                    
+            flux_rebin_dict_list[j]['flux_list']     =  update_flux_list
+            flux_rebin_dict_list[j]['fluxvar_list']  =  update_fluxvar_list
+            flux_rebin_dict_list[j]['snr_list']      =  update_snr_list
+            
+            #sys.exit(f" xxx {key_unique} \n xxx tmp0 = {tmp0} \n\n xxx tmp1 = {tmp1} \n\n xxx snr = {snr_list}")            
+            #[ 1/(1/max(x,1) + 1/max(y,1)) for x, y in zip(tmp0, tmp1)]
 
             flux_rebin_dict_list[j]['flux_table_file'] += f"+{flux_table_file}"
             logging.info(f"\t append {key_unique} for {flux_table_file} ")            
@@ -449,7 +481,9 @@ def rebin_sedflux_tables(args, config, spectro_data):
         flux_list    = flux_rebin_dict['flux_list']
         fluxvar_list = flux_rebin_dict['fluxvar_list']
         snr_scale    = flux_rebin_dict['snr_scale'] 
-        snr_list     = [ snr_scale*x/np.sqrt(y+1.0E-9) for x, y in zip(flux_list,fluxvar_list) ]
+        # xxx mark snr_list     = [ snr_scale*x/np.sqrt(y+1.0E-9) for x, y in zip(flux_list,fluxvar_list) ]
+        snr_list     = [ snr_scale*x/np.sqrt(y) if y>0 else 0 \
+                         for x, y in zip(flux_list,fluxvar_list) ]        
         flux_rebin_dict_list[j]['snr_list'] = snr_list
 
     

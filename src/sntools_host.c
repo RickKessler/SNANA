@@ -2887,6 +2887,9 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   //   + check for user-defined ZPHOT column name
   //   + refactor using replace_varName_HOSTLIB utility to simplify
   //     code and write message about replacement of column names.
+  //
+  // July 22 2025: fix abort trap on ZTRUE_CMB and missing SN2GAL to also
+  //               require DO_VPEC
 
   char *BASENAME;
   char varName_check[40], varName_replace[40];
@@ -2924,10 +2927,12 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
     HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
 
     // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
-    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
-    if ( !SN2GAL && !REWRITE ) {
-      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
-	      HOSTLIB_VARNAME_ZTRUE_CMB);
+    bool SN2GAL  = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
+    bool DO_VPEC = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ; 
+    // xxx mark if ( !SN2GAL && !REWRITE ) {
+    if ( DO_VPEC && !SN2GAL && !REWRITE ) {
+      sprintf(c1err,"%s column found in HOSTLIB and HOSTLIB_MSKOPT% %d is set (VPEC)... but ", 
+	      HOSTLIB_VARNAME_ZTRUE_CMB, HOSTLIB_MSKOPT_USEVPEC );
       sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
 	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -3919,8 +3924,8 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   //
   // Nov 25 2023: return ZTRUE_CMB if vel_cmbapex=0
   // Jan 16 2024: Add VPEC to ZHEL
-  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC) ;
 
+  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC) ;
 
   int IVAR_GALID = HOSTLIB.IVAR_GALID ;
   int IVAR_RA    = HOSTLIB.IVAR_RA ;
@@ -3961,8 +3966,8 @@ double transform_ZTRUE_HOSTLIB(int igal) {
 
   if ( INPUTS.GENSIGMA_VPEC > 0. && !DO_VPEC ) {
     sprintf(c1err,"RANDOM VPEC option ( GENSIGMA_VPEC ) not allowed with ZTRUE_CMB in HOSTLIB");
-	  sprintf(c2err,"Try adding VPEC column in HOSTLIB");
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    sprintf(c2err,"Try adding VPEC column in HOSTLIB");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   if ( INPUTS.VEL_CMBAPEX  == 0.0 ) { 

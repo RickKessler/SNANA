@@ -23046,6 +23046,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.exe
      + for SIMGEN_DUMP, added IGEN option to show sequential generation  index 1,2,3 ... NGENTOT_LC.
        This enables looking for SIMLIB correlations.
+  
+     + if ZTRUE_CMB is in HOSTLIB and +8 bit (SN->GAL coords) is not set, code was aborting ...
+       also require using VPEC in HOSTLIB to abort so that OpenUniverse HOSTLIB can be used
+       populate true N/S regions of Roman. There may be other issues that I forgot about,
+       so beware.
 
     plot_table.py
       + DIFF_ALL option includes error bars

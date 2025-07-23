@@ -109,7 +109,6 @@ c
      &  ,KCORPACK
      &  ,XTMW_FRACERR
      &  ,MJDOFF
-     &  ,ZEROPOINT_FLUXCAL_DEFAULT
      &  ,RV_MWCOLORLAW_DEFAULT
      &  ,CUTVAL_OPEN, IGNORE_HEADVAL
      
@@ -229,7 +228,6 @@ c
 c
      &  ,MXLINE_ARGS      = 100  ! max number of command line args
      &  ,MXKEY_ARGS       =   5  ! max number of args per key
-     &  ,ZEROPOINT_FLUXCAL_DEFAULT  = 27.5
      &  ,MXEPOCH_IGNORE   = 1000
      &  ,NPAR_ANYLC       = 10   ! for MNFIT_PKMJD 
      &  ,MXPAR_SIMSED     = 100  ! max number of SIMSED parameters
@@ -481,7 +479,7 @@ c global survey info
      &  ,SURVEY_IDFIELD(MXIDFIELD) ! integer ID for each field
 
       REAL
-     &   ZEROPOINT_FLUXCAL(MXFILT_OBS)  ! defines calibrated flux
+     &   ZP_FLUXCAL  ! defines calibrated flux
 
       INTEGER*4
      &   N_VERSION             ! number of photometry version to read
@@ -527,13 +525,12 @@ c global survey info
       COMMON / CTRLCOM / 
      &     SNANA_VERSION, SNANA_VERSION_DATA, REFORMAT_VERSION, DATATYPE
      &    ,SURVEY_NAME, SURVEY_NAME_LIST
-     &    ,SUBSURVEY_NAME, SUBSURVEY_NAME_LIST
+     &    ,SUBSURVEY_NAME, SUBSURVEY_NAME_LIST, ZP_FLUXCAL
      &    ,NSURVEY_LIST, IDSURVEY, IDSUBSURVEY, IDSURVEY_LIST
      &    ,SURVEY_FILTERS
      &    ,SURVEY_FIELDNAME, SURVEY_IDFIELD, NFIELD_SURVEY
      &    ,ISJOB_SNANA, ISJOB_SNFIT, ISJOB_PSNID, ISJOB_SIM, ISJOB_BATCH
      &    ,REDUCE_STDOUT_BATCH
-     &    ,ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
      &    ,DO_FIT, DO_GETINFO, DO_FLUXERRCALC
@@ -845,8 +842,7 @@ c
      &  ,SNLC8_FLUXCAL_ERRTOT(MXEPOCH)
      
       REAL 
-     &   SNLC_ZP_FLUXCAL    ! read ZP_FLUXCAL from header
-     &  ,SNLC_ZHELIO        ! redshift used for final analysis 
+     &   SNLC_ZHELIO        ! redshift used for final analysis 
      &  ,SNLC_ZHELIO_ERR    ! error on above 
      &  ,SNLC_ZCMB          ! redshift used for final analysis 
      &  ,SNLC_ZCMB_ERR      ! error on above 
@@ -962,7 +958,7 @@ c
      &    ,SNLC_SNANAFIT_PEAKMJD
      &    ,SNLC_SNANAFIT_PEAKMJD_FITPAR
      &    ,SNLC_SNANAFIT_PEAKMJD_FITERR
-     &    ,SNLC_SEARCH_PEAKMJD, SNLC_ZP_FLUXCAL
+     &    ,SNLC_SEARCH_PEAKMJD
      &    ,SNLC_ZHELIO, SNLC_ZHELIO_ERR
      &    ,SNLC_ZCMB,   SNLC_ZCMB_ERR, SNLC_ZHD, SNLC_ZHD_ERR
      &    ,SNLC_ZSN, SNLC_ZSN_ERR
@@ -3723,7 +3719,8 @@ c
 c Apr 24 2021: read SIM_BIASCOR_MASK
 c Oct 08 2021: read SIM_MODEL_INDEX
 c Dec 02 2022: fix subtle (harmless?) bug setting ISCORRECT_SIGN_VPEC
-c
+c Jul 23 2025: read ZP_FLUXCAL
+
       IMPLICIT NONE
 
 c local var
@@ -3760,6 +3757,12 @@ c     &     + OPTMASK_SNDATA_DUMP
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
      &        SURVEY_NAME, DARRAY, OPT)
+
+      CALL FETCH_SNDATA_WRAPPER("ZP_FLUXCAL", ONE, 
+     &        STRING, DARRAY, OPT) 
+      ZP_FLUXCAL = SNGL(DARRAY(1))
+ 
+      print*,' xxx ZP_FLUXCAL = ', ZP_FLUXCAL 
 
       IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
          CALL FETCH_SNDATA_WRAPPER("FILTERS", 
@@ -4452,15 +4455,6 @@ c Convert CCID to integer CID, and check if this CCID is selected.
       endif
 c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-      CALL FETCH_SNDATA_WRAPPER("ZP_FLUXCAL", 
-     &     ONE, STRING, DARRAY, OPT)
-      SNLC_ZP_FLUXCAL = SNGL(DARRAY(1))
-c xxx      print*,' xxx read SNLC_ZP_FLUXCAL = ', SNLC_ZP_FLUXCAL
-      if ( SNLC_ZP_FLUXCAL < 0.0 ) then
-         SNLC_ZP_FLUXCAL = ZEROPOINT_FLUXCAL_DEFAULT
-      endif
-c xxx      print*,' xxx final SNLC_ZP_FLUXCAL = ', SNLC_ZP_FLUXCAL
-c xxx      call flush(6) ! xxx 
 
       CALL FETCH_SNDATA_WRAPPER("FAKE", 
      &     ONE, STRING, DARRAY, OPT)
@@ -11644,7 +11638,7 @@ c  skip obs that are cut in SNRECON (Jan 2, 2012)
             ZPOFF   = MAGOBS_SHIFT_ZP_FILT(ifilt_obs)
             MJD8    = SNLC8_MJD(EP)
 
-            ZP  = SNGL(SNLC_ZP_FLUXCAL) + ZPOFF
+            ZP  = SNGL(ZP_FLUXCAL) + ZPOFF
             arg = 0.4*ZPOFF
 
             Fscale  = 10.0**ARG
@@ -17620,7 +17614,7 @@ c Jan 3 2018: skip saturated mags
 
 c convert sim-mag to SIM_FLUXCA
           IF ( ISJOB_SIM ) THEN
-             ZP        = SNLC_ZP_FLUXCAL
+             ZP        = ZP_FLUXCAL
              SIM_MAG   = SIM_EPMAGOBS(ep)
              if ( SIM_MAG < 90.0 ) then
                NEP_SIM_MAGOBS = NEP_SIM_MAGOBS + 1 ! Nov 25 2019
@@ -18216,7 +18210,7 @@ C --------- BEGIN ------------
       ELSE IF ( FLUXCAL < 1.0E-9 ) THEN
         MAG = 128.0  ! negative flux
       ELSE 
-        ZP  = SNGL(SNLC_ZP_FLUXCAL)
+        ZP  = SNGL(ZP_FLUXCAL)
         MAG = ZP - 2.5*LOG10(FLUXCAL)
       ENDIF
 
@@ -18244,7 +18238,7 @@ C --------- BEGIN ------------
       SBFLUX = SNHOST_SBFLUXCAL(ifilt)
       SBFLUXMIN = 1.0
 
-      ZP = SNGL( SNLC_ZP_FLUXCAL )
+      ZP = SNGL( ZP_FLUXCAL )
       IF ( SBFLUX > SBFLUXMIN ) THEN
          SBMAG = ZP - 2.5*LOG10(SBFLUX)
       ELSE
@@ -18747,7 +18741,7 @@ c get C function arguments
       SKYSIG     = DBLE( SNLC_SKYSIG(ep) )          ! sigma, ADU/pixel
       RDNOISE_pe = DBLE(SNLC_RDNOISE(ep) )  ! e-/pix
       ZP         = DBLE( SNLC_ZEROPT(ep) )
-      ZPDIF      = ZP - SNLC_ZP_FLUXCAL
+      ZPDIF      = ZP - ZP_FLUXCAL
       MJD        = SNLC8_MJD(EP)
 
 c - - - - - - - - - - - - - - 
@@ -20012,9 +20006,9 @@ c      LDMP = .TRUE.
       FNAM = 'COMPUTE_SIMLIB_INFO' 
 
 c set MAG_MAX based on Flux = FluxErr
-      MAG_MAX = SNLC_ZP_FLUXCAL - 2.5*LOG10(FLUXERR)
+      MAG_MAX = ZP_FLUXCAL - 2.5*LOG10(FLUXERR)
       if ( FLUX > FLUXERR ) then
-         MAG = SNLC_ZP_FLUXCAL - 2.5*LOG10(FLUX) 
+         MAG = ZP_FLUXCAL - 2.5*LOG10(FLUX) 
       else
          MAG = MAG_MAX
       endif
@@ -20415,7 +20409,7 @@ c set logical as soon as we get here.
 c use ZPT to convert calibated flux back into ADU
 c (since FLUX in the data file can be either ADU or uJy)
 
-      ZPDIF       = ZP - SNGL(SNLC_ZP_FLUXCAL)
+      ZPDIF       = ZP - SNGL(ZP_FLUXCAL)
       ZPSCALE     = 10**(0.4*ZPDIF)   ! FLUXADU/FLUXCAL ratio
       FLUXADU     = ZPSCALE * FLUXCAL
       FLUXADU_ERR = ZPSCALE * FLUXCAL_ERR

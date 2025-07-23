@@ -307,7 +307,6 @@ void wr_snfitsio_init_head(void) {
   }
   
 
-  wr_snfitsio_addCol( "1E" , "ZP_FLUXCAL", itype   ) ; 
   wr_snfitsio_addCol( "1I" , "FAKE",       itype   ) ;  // 0=data; >1 => sim
 
   if ( !SNFITSIO_SIMFLAG_SNANA  )
@@ -950,6 +949,7 @@ void wr_snfitsio_create(int itype ) {
   //
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
   // Mar 07 2022: fix bug setting SUBSURVEY_FLAG when SUBSURVEY = ''
+  // Jul 23 2025: add ZP_FLUXCAL (part of switching 27.5 to 31.4 for nJy)
 
   int istat, ipar, ivar, NVAR ;
   long NAXIS = 1, NAXES = 0    ;
@@ -997,8 +997,9 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
   //  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
   //   SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
-  
-  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
+  //  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
+
+  SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
   
   // - - - - - - - 
 
@@ -1022,6 +1023,10 @@ void wr_snfitsio_create(int itype ) {
   wr_snfitsio_SET_SUBSURVEY_FLAG();
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
 		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
+
+  // July 23 2025: write calibrated ZP
+  fits_update_key(fp, TFLOAT, "ZP_FLUXCAL", &SNDATA.ZP_FLUXCAL, 
+		  "Zero point for calibrated flux", &istat );
 
   // misc flags
   fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",  // July 2018
@@ -1515,10 +1520,6 @@ void wr_snfitsio_update_head(void) {
     wr_snfitsio_fillTable ( ptrColnum, "NAME_TRANSIENT", itype );
   }
 
-  // ZP_FLUXCAL 
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZP_FLUXCAL ;
-  wr_snfitsio_fillTable ( ptrColnum, "ZP_FLUXCAL", itype );
   
   // fake flag
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3234,8 +3235,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       
     }
     
-    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "ZP_FLUXCAL", &SNDATA.ZP_FLUXCAL, 
-    				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -4106,6 +4105,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
   // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
   //                unzip and gzip files exist.
+  // July 23 2025: read ZP_FLUXCAL
 
   fitsfile *fp ;
   int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1, FLAG  ;
@@ -4163,6 +4163,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   fits_read_key(fp, TINT, keyname, 
 		&SNDATA.SUBSURVEY_FLAG, comment, &istat );
   if ( istat != 0 ) { SNDATA.SUBSURVEY_FLAG = 0 ; }
+  istat = 0 ;
+
+  // July 23 2025: read ZP_FLUXCAL
+  sprintf(keyname, "%s", "ZP_FLUXCAL" );  
+  fits_read_key(fp, TFLOAT, keyname, 
+		&SNDATA.ZP_FLUXCAL, comment, &istat );
+  if ( istat != 0 ) { SNDATA.ZP_FLUXCAL = ZEROPOINT_FLUXCAL_SNANA_ORIG ; }  // no key -> older data
   istat = 0 ;
 
 

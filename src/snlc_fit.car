@@ -4722,7 +4722,7 @@ c increment SNRMAX for fitted epochs only
 
            if ( flux_model .GT. 0.0 ) then
              mag_tmp = -2.5 * dlog10(flux_model)   ! model-mag_{obs}
-     &               + SNLC_ZP_FLUXCAL  
+     &               + ZP_FLUXCAL  
 
              R4EP_ALL(epoch,JEP_MODELMAG)     = mag_tmp
              R4EP_ALL(epoch,JEP_MODELMAG_ERR) = mag_err
@@ -6201,7 +6201,7 @@ c allow any MAG for TEST option
       if ( FITMODEL_INDEX .EQ. MODEL_FIXMAG ) LTMP = .TRUE.
 
       if ( LTMP ) then
-         arg   = -0.4 * (MAG_OBS - SNLC_ZP_FLUXCAL)
+         arg   = -0.4 * (MAG_OBS - ZP_FLUXCAL)
          FLUX  =  TEN8**(ARG)
       else
          FLUX = 0.0
@@ -6876,12 +6876,12 @@ c  fit-model flux, observer
 
       ELSE IF ( LREST_COSMO ) THEN
 
-        magtmp8 = -2.5*DLOG10(FLUX8) + SNLC_ZP_FLUXCAL
+        magtmp8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL
      &            -(XTMW + KCOR8(1) + DLMAG8_REF(Z8) )
 
         if ( OPT .EQ. 3 ) magtmp8 = magtmp8 - XTAV
 
-        ARG8 = -0.4 * ( MAGTMP8 - SNLC_ZP_FLUXCAL)
+        ARG8 = -0.4 * ( MAGTMP8 - ZP_FLUXCAL)
         GET_FLUX_FITFUN = TEN8**ARG8
 
 cc  xxxxxxx
@@ -11017,7 +11017,7 @@ C ----------------- BEGIN ----------------
       Z = REDSHIFT_FIT
       Z1 = 1. + z
    
-      ZP = SNGL(SNLC_ZP_FLUXCAL)
+      ZP = SNGL(ZP_FLUXCAL)
 
 c -------------------------------
 c save previous R4ALL values in R4_LAST array in case 
@@ -14855,7 +14855,7 @@ cc         CALL MADABORT("MODELMAG_CALC", c1err, c2err )
 c convert flux to MAG.
 
       if ( Flux .GT. 1.0E-20 ) then
-        mag    = -2.5 * LOG10(Flux) + MAGOFF + SNLC_ZP_FLUXCAL
+        mag    = -2.5 * LOG10(Flux) + MAGOFF + ZP_FLUXCAL
         magerr =  2.5 * LOG10(1.0 + Fluxerr/Flux)
       else
         mag    = 99.
@@ -17143,7 +17143,7 @@ c now the rest-frame
 
          IF ( MAGOBS > 0 ) THEN
            MAGREST    = MAGOBS + KCOR - SNLC_DLMAG
-           ARG        = 0.4*(SNLC_ZP_FLUXCAL - MAGREST)
+           ARG        = 0.4*(ZP_FLUXCAL - MAGREST)
            FLUX_REST  = 10.0**(ARG)
            R4EP_ALL(ep,JEP_DATAFLUX_REST) = FLUX_REST
            I4EP_ALL(ep,IEP_IFILT_REST1)   = IFILTREST
@@ -18536,7 +18536,7 @@ c18    format(T3,'REST UBVRI mags: ', 5F8.4 )
      &             ,AVwarp8, KCOR8, XTAV, XTMW, MAGERR8 )    ! (O) 
 
 ccc         MAG8 = -2.5*DLOG10(FLUX8/ADUSCALE)
-         MAG8 = -2.5*DLOG10(FLUX8) + SNLC_ZP_FLUXCAL
+         MAG8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL
 
          write(6,20) 
      &     filtdef_string(ifilt_obs:ifilt_obs), MAG8

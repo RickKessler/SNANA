@@ -1500,6 +1500,7 @@ void  rd_sntextio_global(void) {
   // Dec 10 2021: fix to work with SIM_HOSTLIB
   // May 25 2023: use PySEDMODEL_CHOICE_LIST and remove hard-coded PySEDMODEL names
   // Mar 25 2024: Read number of quantiles
+  // Jul 23 2025: read ZP_FLUXCAL
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1523,6 +1524,10 @@ void  rd_sntextio_global(void) {
   if ( LDMP ) {
     printf(" xxx %s: store %d words from \n\t %s\n", fnam, NWD, FIRSTFILE);
   }
+
+  // set default ZP_FLUXCAL to old/original 27.5 value; 
+  // if ZP_FLUXCAL is in header, then override it below.
+  SNDATA.ZP_FLUXCAL = ZEROPOINT_FLUXCAL_SNANA_ORIG ; 
 
   load_PySEDMODEL_CHOICE_LIST();
 
@@ -1555,6 +1560,10 @@ void  rd_sntextio_global(void) {
       iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SURVEY_NAME, fnam );
       // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
       extractStringOpt(SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME); 
+    }
+
+    else if ( strcmp(word0,"ZP_FLUXCAL:") == 0 ) {
+      iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.ZP_FLUXCAL, fnam );
     }
 
     else if( strcmp(word0,"FILTERS:") == 0 ) {

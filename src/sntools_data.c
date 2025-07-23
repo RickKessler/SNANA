@@ -121,6 +121,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"SUBSURVEY_FLAG") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SUBSURVEY_FLAG );  }
 
+  else if ( strcmp(key,"ZP_FLUXCAL") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.ZP_FLUXCAL );  }
+
   else if ( strcmp(key,"FILTERS") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA_FILTER.LIST );  }
 
@@ -313,9 +316,6 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
   else if ( strcmp(key,"NAME_TRANSIENT") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.NAME_TRANSIENT ); }  
-
-  else if ( strcmp(key,"ZP_FLUXCAL") == 0 ) 
-    { copy_flt(copyFlag, parVal, &SNDATA.ZP_FLUXCAL ); }
 
   else if ( strcmp(key,"FAKE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.FAKE ); }

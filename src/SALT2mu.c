@@ -1637,6 +1637,7 @@ void  makeMap_fitPar_biasCor(int ISAMPLE, int ipar_LCFIT);
 void  makeMap_sigmu_biasCor(int ISAMPLE);   
 void  vpec_biasCor(void);
 
+
 void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) ;
 void  LOAD_SIGINT_ABGRID(double sigInt, int IDSAMPLE);
 void  get_abg_biasCor(int ievt, double *a, double *b, double *g, char *callFun);
@@ -1692,6 +1693,8 @@ int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
 int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN); 
+
+void update_fitres_passcuts(int flag, int isn, char *which, FILE **fp) ;
 
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -13092,6 +13095,7 @@ void  makeSparseList_biasCor(void) {
   short int *ptr_IDSAMPLE, idsample ;
   int       *ptr_CUTMASK  ;
   int NROW, irow, isp, cutmask, MEMI, NBIASCOR ;
+  bool FOUND_FIELD = (INFO_DATA.NFIELD_TOT > 0);
   FILE *fout;
   char fnam[] = "makeSparseList_biasCor" ;
 
@@ -13114,13 +13118,7 @@ void  makeSparseList_biasCor(void) {
   }
 
 
-  if ( INPUTS.write_biascor> 0 ) {
-    char outfile[MXPATHLEN];
-    sprintf(outfile, "%s_BIASCOR.FITRES", INPUTS.PREFIX);
-    fout = fopen(outfile, "wt");
-    fprintf(fout,"# BiasCor events passing BBC cuts\n");
-    fprintf(fout,"VARNAMES:  CID  IDSAMPLE  IDSURVEY\n");
-  }
+  if ( INPUTS.write_biascor> 0 ) { update_fitres_passcuts(0, 0, "BIASCOR", &fout);  }
 
   for(irow=0; irow < NROW; irow++ ) {
     cutmask  = ptr_CUTMASK[irow];
@@ -13129,13 +13127,8 @@ void  makeSparseList_biasCor(void) {
     // apply selection cuts for making biasCor map
     if ( cutmask ) { continue; }
 
-    if ( INPUTS.write_biascor > 0 ) {
-      fprintf(fout,"SN: %s  %d  %d \n",
-	      INFO_BIASCOR.TABLEVAR.name[irow],
-	      INFO_BIASCOR.TABLEVAR.IDSAMPLE[irow],
-	      INFO_BIASCOR.TABLEVAR.IDSURVEY[irow] );
-      fflush(fout);
-    }
+    if ( INPUTS.write_biascor > 0 ) 
+      { update_fitres_passcuts(1, irow, "BIASCOR", &fout);   }
 
     isp = SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS ;
     if ( isp < 0 || isp > NROW ) {
@@ -13154,12 +13147,67 @@ void  makeSparseList_biasCor(void) {
   }
   fflush(stdout);
 
-  if ( INPUTS.write_biascor> 0 ) { fclose(fout); }
+  if ( INPUTS.write_biascor > 0 ) { fclose(fout); }
+
 
   return;
 
 } // end makeSparseList_biasCor
 
+
+void update_fitres_passcuts(int flag, int isn, char *which, FILE **fp) {
+
+  // Jul 28 2025
+  // utility to write list of BIASCOR or CCPRIOR events passing cuts.
+  //
+  // flag = 0(init), 1(update using isn), 2=close
+  // isn = absolute sn index (0 to N-1); isn
+  // which = BIASCOR or CCPRIOR
+
+  bool FOUND_FIELD = (INFO_DATA.NFIELD_TOT > 0 );
+  int  IDSAMPLE, IDSURVEY;
+  char outfile[MXPATHLEN], *NAME, *FIELD, VARLIST[100];
+  char fnam[] = "update_fitres_passcuts" ;
+
+  // ----------- BEGIN ----------
+
+  if ( flag == 0 ) {
+    sprintf(outfile,"%s_%s.FITRES", INPUTS.PREFIX, which);
+    sprintf(VARLIST, "CID  IDSAMPLE  IDSURVEY  ");
+    if ( FOUND_FIELD ) { strcat(VARLIST,"FIELD"); }
+
+    *fp = fopen(outfile, "wt");
+    fprintf(*fp, "# list of %s events passing BBC cuts \n\n", which);
+    fprintf(*fp, "VARNAMES:  %s\n", VARLIST );
+    fflush(*fp);
+  }
+  else if ( flag == 1 ) {
+
+    if ( strstr(which,"BIASCOR") != NULL ) {
+      NAME     = INFO_BIASCOR.TABLEVAR.name[isn];
+      IDSAMPLE = INFO_BIASCOR.TABLEVAR.IDSAMPLE[isn];
+      IDSURVEY = INFO_BIASCOR.TABLEVAR.IDSURVEY[isn];
+      FIELD    = INFO_BIASCOR.TABLEVAR.field[isn];
+    }
+    else {
+      NAME     = INFO_CCPRIOR.TABLEVAR.name[isn];
+      IDSAMPLE = INFO_CCPRIOR.TABLEVAR.IDSAMPLE[isn];
+      IDSURVEY = INFO_CCPRIOR.TABLEVAR.IDSURVEY[isn];
+      FIELD    = INFO_CCPRIOR.TABLEVAR.field[isn];
+    }
+    sprintf(VARLIST, "%12s  %2d  %3d  ", NAME, IDSAMPLE, IDSURVEY );
+    if ( FOUND_FIELD ) { strcat(VARLIST, FIELD); }
+
+    fprintf(*fp,"SN: %s \n", VARLIST);
+    fflush(*fp);
+  }
+  else if ( flag == 2 ) {
+    fclose(*fp);
+  }
+
+  return;
+
+}  // end update_fitres_passcuts
 // ===============================================================
 void  makeMap_binavg_biasCor(int IDSAMPLE) {
 
@@ -15354,14 +15402,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
 
   // Jul 28 2025: check option to write CIDs passing cuts for CCprior
   FILE *fout;  
-  if ( INPUTS.write_ccprior > 0 ) {
-    char outfile[MXPATHLEN];
-    sprintf(outfile, "%s_CCPRIOR.FITRES", INPUTS.PREFIX );
-    //.xyz
-    fout = fopen(outfile,"wt");
-    fprintf(fout,"# CCprior events passing BBC cuts\n");
-    fprintf(fout,"VARNAMES: CID IDSAMPLE IDSURVEY \n");    
-  }
+  if ( INPUTS.write_ccprior > 0 )           
+    { update_fitres_passcuts(0, 0, "CCPRIOR", &fout);   }
 
   // count number of true CC with cuts
   icc=0;
@@ -15373,13 +15415,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
     name = INFO_CCPRIOR.TABLEVAR.name[icc];
     sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.name[icc],"%s", name);
 
-    if ( INPUTS.write_ccprior > 0 ) {
-      fprintf(fout,"SN: %s  %d  %d \n",
-	      name, 
-	      INFO_CCPRIOR.TABLEVAR.IDSAMPLE[isn],
-	      INFO_CCPRIOR.TABLEVAR.IDSURVEY[isn]  );
-      fflush(fout);
-    }
+    if ( INPUTS.write_ccprior > 0 )
+      { update_fitres_passcuts(1, isn, "CCPRIOR", &fout);   }
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];

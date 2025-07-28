@@ -20088,6 +20088,7 @@ c check how close computed TMP_SKYMAG is to expected SKYMAG
 
          IF ( NLOOP > MXLOOP ) THEN
             CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
+            print*,'   CID = ', CCID
             print*,'   FLUX = ', sngl(FLUX), ' +- ', sngl(FLUXERR)
             print*,'   LAMOBS, SKYMAG = ', sngl(LAMOBS), sngl(SKYMAG)
             print*,'   NEA  = ', sngl(NEA)

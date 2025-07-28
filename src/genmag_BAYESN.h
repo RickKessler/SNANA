@@ -4,35 +4,43 @@
 
 // init
 int  init_genmag_BAYESN(
-     char * MODEL_VERSION
-    ,char * MODEL_EXTRAP
-    ,int    optmask
-);
+			char *MODEL_VERSION
+			,char *MODEL_EXTRAP
+			,int    optmask
+			,char *NAMES_HOSTPAR 
+			);
+
 int  init_genmag_bayesn__(
-     char * model_version
-    ,char * model_extrap
-    ,int  * optmask
-);
-void read_BAYESN_inputs(
-     char * filename
-);
+			  char *model_version
+			  ,char *model_extrap
+			  ,int  *optmask
+			  ,char *names_hostpar
+			  );
+
+
+void read_BAYESN_inputs( char * filename );
+
+void init_HOSTPAR_BAYESN(int OPTMASK, char *NAMES_HOSTPAR) ;
 
 // genmag
 void genmag_BAYESN(
-     int      OPTMASK      // (I) bit-mask of options (LSB=0)
-    ,int      ifilt_obs    // (I) absolute filter index
-	,double * parList_SN   // (I) DLMAG, THETA, AV, RV
-	,double   mwebv        // (I) Galactic extinction: E(B-V)
-	,double   z            // (I) Supernova redshift
-	,int      Nobs         // (I) number of epochs
-	,double * Tobs_list    // (I) list of Tobs (w.r.t peakMJD)
-	,double * magobs_list  // (O) observer-frame model mag values
-	,double * magerr_list  // (O) observer-frame model mag errors
-);
+		   int      OPTMASK      // (I) bit-mask of options (LSB=0)
+		   ,int      ifilt_obs    // (I) absolute filter index
+		   ,double * parList_SN   // (I) DLMAG, THETA, AV, RV
+		   ,double * parList_HOST // (I) see init_HOSTPAR_BAYESN (Jul 2025)
+		   ,double   mwebv        // (I) Galactic extinction: E(B-V)
+		   ,double   z            // (I) Supernova redshift
+		   ,int      Nobs         // (I) number of epochs
+		   ,double * Tobs_list    // (I) list of Tobs (w.r.t peakMJD)
+		   ,double * magobs_list  // (O) observer-frame model mag values
+		   ,double * magerr_list  // (O) observer-frame model mag errors
+		   );
+
 void genmag_bayesn__(
      int    * OPTMASK
     ,int    * ifilt_obs
     ,double * parlist_SN
+    ,double * parlist_HOST
     ,double * mwebv
     ,double * z 
     ,int    * Nobs
@@ -40,6 +48,14 @@ void genmag_bayesn__(
     ,double * magobs_list
     ,double * magerr_list
 );
+
+
+void genSCATTER_BAYESN(); // renamed by ST Sep 14 2024
+
+
+// ------------------------------------------
+// -------------- globals -------------------
+// ------------------------------------------
 
 // splines
 gsl_matrix * invKD_irr(
@@ -64,7 +80,8 @@ gsl_matrix * sample_epsilon(
     ,gsl_vector * nu
     ,gsl_matrix * L_Sigma_epsilon
 );
-void genSCATTER_BAYESN(); // renamed by ST Sep 14 2024
+
+
 
 // model path
 char    BAYESN_MODELPATH[MXPATHLEN];
@@ -76,7 +93,9 @@ int     ENABLE_SCATTER_BAYESN;             // ST (14 Sep 2024)
 #define OPTMASK_BAYESN_EPSILON         2   // enable only the non-gray (EPSILON) scatter
 #define OPTMASK_BAYESN_DELTAM          4   // enable only the gray (DELTAM) scatter
 #define OPTMASK_BAYESN_SCATTER_ALL     6   // sum of all non-default scatter bits
-#define OPTMASK_BAYESN_SCATTER_DEFAULT 1   // enable all scatter components (default behaviour)
+#define OPTMASK_BAYESN_SCATTER_DEFAULT 1   // enable all scatter components (default)
+
+#define MXHOSTPAR_BAYESN 20                // max number of host params (Jul 2025)
 
 // model structure
 struct {
@@ -110,4 +129,10 @@ struct {
    gsl_matrix * J_lam;
    // for the base SED - typically Hsiao
    SEDMODEL_FLUX_DEF S0; 
+
+  // Jul 28 2025 RK - tack on hostpar info, same as in genmag_PySEDMODEL
+  int  N_HOSTPAR;
+  char *NAME_ARRAY_HOSTPAR[MXHOSTPAR_BAYESN] ;
+  int  IPAR_LOGMASS; 
+
 } BAYESN_MODEL_INFO;

@@ -22617,7 +22617,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + add restore_bug_sigint0=1 -> restore bug in prepNextFit (was fixed Feb 2022)
       + add more explicit WARNING messages for a few restore_bug flags.
       + begin refactor of CUTWIN so that new PARSHIFT uses same tools as CUTWIN.
-      
+
+
     plot_table.py:
       + lots of continued development.
       
@@ -23042,6 +23043,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         avoid abort. Initial use is for SIM_ZFLAG<4.
       + for cutwin_only, append IDSAMPLE column to output table
 
+      + new inputs write_biascor=1 and write_ccprior=1 to write "CID IDSAMPLE IDSURVEY"
+        for events passing cuts.
 
     snlc_sim.exe
      + for SIMGEN_DUMP, added IGEN option to show sequential generation  index 1,2,3 ... NGENTOT_LC.

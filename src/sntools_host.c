@@ -9682,7 +9682,6 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
   if ( OPT == 1 ) {
     // always start with RV and AV    
-    // xxx more delete    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
     sprintf(NAMES_HOSTPAR,"RV,AV,REDSHIFT");  NPAR=3;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  

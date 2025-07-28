@@ -25971,6 +25971,8 @@ void init_genmodel(void) {
  Feb 21 2022: minor refactor to set LGEN_SNIA and GENLC.SIM_GENTYPE
               before the MODEL if-block so that README_DUMPFLAG
               can return without time-consuming model init.
+ 
+ Jul 28 2025: pass NAMES_HOSTPAR to init_genmag_BAYESN
 
   ************/
 
@@ -25979,6 +25981,7 @@ void init_genmodel(void) {
   char  covFile[] = ""  ;
   char *ARGLIST_PySEDMODEL ;
   int istat, OPTMASK,  ifilt, ifilt_obs, ifilt_rest ;
+  int NPAR; char NAMES_HOSTPAR[200];  double VAL_HOSTPAR=0.0 ;
   float scale_covar_flt ;
   char fnam[] = "init_genmodel" ;
 
@@ -26086,7 +26089,9 @@ void init_genmodel(void) {
     // model-specific init
     OPTMASK = INPUTS.GENMODEL_MSKOPT;
 
-    istat = init_genmag_BAYESN(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
+    NPAR = fetch_HOSTPAR_GENMODEL(1, NAMES_HOSTPAR, &VAL_HOSTPAR); // 7.28.2025
+
+    istat = init_genmag_BAYESN(GENMODEL, GENMODEL_EXTRAP, OPTMASK, NAMES_HOSTPAR) ;
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
 
     if ( istat != 0 ) {
@@ -26171,7 +26176,6 @@ void init_genmodel(void) {
     sprintf(ARGLIST_PySEDMODEL,"%s %s %s",
 	    string_ranseed, string_population_par, INPUTS.GENMODEL_ARGLIST );
 
-    int NPAR; char NAMES_HOSTPAR[200];  double VAL_HOSTPAR=0.0 ;
     NPAR = fetch_HOSTPAR_GENMODEL(1, NAMES_HOSTPAR, &VAL_HOSTPAR);
 
     // init generic part of any SEDMODEL (filter & primary ref)
@@ -28541,6 +28545,9 @@ void genmodel(
     ,*ptr_genmag, *ptr_generr, *ptr_epoch, *ptr_template 
     ;
 
+  int NHOSTPAR; char *NAMES_HOSTPAR = NULL; 
+  double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
+
   char  model[40], cfilt_obs[2], cfilt_rest[2]    ;
   char fnam[] = "genmodel" ;
 
@@ -28778,10 +28785,13 @@ void genmodel(
 
     double parList_SN[4] = { GENLC.DLMU, GENLC.THETA, GENLC.AV, GENLC.RV } ;
 
+    NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);
+
     genmag_BAYESN (
 		  OPTMASK         // (I) bit-mask options
 		  ,ifilt_obs      // (I) obs filter index 
 		  ,parList_SN     // (I) SN params: MU, THETA, AV, RV
+		  ,VAL_HOSTPAR    // (I) host params
 		  ,mwebv          // (I) Galactic E(B-V)
 		  ,z              // (I) redshift, and z used for error
 		  ,NEPFILT        // (I) number of epochs
@@ -28833,8 +28843,6 @@ void genmodel(
   else if ( IS_PySEDMODEL ) {
 
     // python-based SED model: BYOSED, SNEMO, PYBAYESN, AGN
-    int NHOSTPAR; char *NAMES_HOSTPAR = NULL; 
-    double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
     NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);
 
     // Sep 2022: optional sed prep for all MJDs on first call

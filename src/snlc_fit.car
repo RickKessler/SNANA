@@ -3308,8 +3308,8 @@ c unless user specifically sets OPT_COVAR=0
 
 c       BAYESN BLOCK created Nov 2022
         OPTMASK = 1024  ! disable intrinsic scatter
-        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, OPTMASK,
-     &            LEN_NAME )
+        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, OPTMASK, BLANK,
+     &            LEN_NAME, 8 )
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
@@ -5886,7 +5886,7 @@ c from other filters used for Landolt color trans.
           PARLIST_SN(4) = RVHOST    ! RV for host
 
           CALL genmag_BAYESN( MSKBAYESN, ifilt_obs
-     &          , PARLIST_SN, MWEBV_MODEL
+     &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
      &          , ZSN, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt_obs)       ! return arg
      &          , MAG_ERR                    ) ! return arg 

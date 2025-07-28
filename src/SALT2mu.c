@@ -1049,7 +1049,10 @@ struct INPUTS {
   int    write_yaml;  // used by submit_batch_jobs.py
   int    write_csv ;  // M0DIF formatted for CosmoMC
   int    write_chi2grid; // number of chi2 grid bins for alpha & beta
-  
+
+  int    write_biascor;  // write list of biasCor passing cuts .xyz ???
+  int    write_ccprior;  // write list of CCprior passing cuts .xyz ???
+
   int    minos;  // 1 -> use minos for full fit (very slow)
   int    minos2; // 1 -> use minos only for repeat after crazy errors
 
@@ -5536,6 +5539,9 @@ void set_defaults(void) {
   // ---------------------
 
   INPUTS.cutmask_write = 0;  // default -> write events used in fit
+
+  INPUTS.write_biascor = 0 ;
+  INPUTS.write_ccprior = 0 ;
 
   INPUTS.IDSAMPLE_SELECT.NID = 0;
   INPUTS.IDSURVEY_SELECT.NID = 0;
@@ -13079,11 +13085,14 @@ void  makeSparseList_biasCor(void) {
   // Created Dec 21 2017
   // make sparse BIASCOR list for this IDSAMPLE with cuts,
   // so that later loops are faster.
+  //
+  // Jul 28 2025: check option to write "CID IDSAMPLE IDSURVEY" to fitres file
 
   int debug_malloc = INPUTS.debug_malloc ;
   short int *ptr_IDSAMPLE, idsample ;
   int       *ptr_CUTMASK  ;
   int NROW, irow, isp, cutmask, MEMI, NBIASCOR ;
+  FILE *fout;
   char fnam[] = "makeSparseList_biasCor" ;
 
   // ---------- BEGIN ------------
@@ -13105,12 +13114,28 @@ void  makeSparseList_biasCor(void) {
   }
 
 
+  if ( INPUTS.write_biascor> 0 ) {
+    char outfile[MXPATHLEN];
+    sprintf(outfile, "%s_BIASCOR.FITRES", INPUTS.PREFIX);
+    fout = fopen(outfile, "wt");
+    fprintf(fout,"# BiasCor events passing BBC cuts\n");
+    fprintf(fout,"VARNAMES:  CID  IDSAMPLE  IDSURVEY\n");
+  }
+
   for(irow=0; irow < NROW; irow++ ) {
     cutmask  = ptr_CUTMASK[irow];
     idsample = ptr_IDSAMPLE[irow] ;
 
     // apply selection cuts for making biasCor map
     if ( cutmask ) { continue; }
+
+    if ( INPUTS.write_biascor > 0 ) {
+      fprintf(fout,"SN: %s  %d  %d \n",
+	      INFO_BIASCOR.TABLEVAR.name[irow],
+	      INFO_BIASCOR.TABLEVAR.IDSAMPLE[irow],
+	      INFO_BIASCOR.TABLEVAR.IDSURVEY[irow] );
+      fflush(fout);
+    }
 
     isp = SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS ;
     if ( isp < 0 || isp > NROW ) {
@@ -13129,6 +13154,7 @@ void  makeSparseList_biasCor(void) {
   }
   fflush(stdout);
 
+  if ( INPUTS.write_biascor> 0 ) { fclose(fout); }
 
   return;
 
@@ -15325,6 +15351,18 @@ void store_INFO_CCPRIOR_CUTS(void) {
   INFO_CCPRIOR.TABLEVAR_CUTS.NSN_ALL      = NSN_PASS ;
   INFO_CCPRIOR.TABLEVAR_CUTS.NSN_PASSCUTS = NSN_PASS ;
   
+
+  // Jul 28 2025: check option to write CIDs passing cuts for CCprior
+  FILE *fout;  
+  if ( INPUTS.write_ccprior > 0 ) {
+    char outfile[MXPATHLEN];
+    sprintf(outfile, "%s_CCPRIOR.FITRES", INPUTS.PREFIX );
+    //.xyz
+    fout = fopen(outfile,"wt");
+    fprintf(fout,"# CCprior events passing BBC cuts\n");
+    fprintf(fout,"VARNAMES: CID IDSAMPLE IDSURVEY \n");    
+  }
+
   // count number of true CC with cuts
   icc=0;
   for(isn=0; isn < NSN_ALL; isn++ ) {
@@ -15334,6 +15372,14 @@ void store_INFO_CCPRIOR_CUTS(void) {
 
     name = INFO_CCPRIOR.TABLEVAR.name[icc];
     sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.name[icc],"%s", name);
+
+    if ( INPUTS.write_ccprior > 0 ) {
+      fprintf(fout,"SN: %s  %d  %d \n",
+	      name, 
+	      INFO_CCPRIOR.TABLEVAR.IDSAMPLE[isn],
+	      INFO_CCPRIOR.TABLEVAR.IDSURVEY[isn]  );
+      fflush(fout);
+    }
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];
@@ -15382,7 +15428,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
   fflush(FP_STDOUT);
   malloc_INFO_CCPRIOR(-1,INFO_CCPRIOR.TABLEVAR.LEN_MALLOC,0);
 
-
+  if ( INPUTS.write_ccprior > 0 ) { fclose(fout); }
   return ;
   
 } // end store_INFO_CCPRIOR_CUTS
@@ -17303,8 +17349,11 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"cutmask_write=") )
     { sscanf(&item[14],"%i", &INPUTS.cutmask_write ); return(1); }
-  if ( uniqueOverlap(item,"errmask_write=") ) // allow legacy name
-    { sscanf(&item[14],"%i", &INPUTS.cutmask_write ); return(1); }
+
+  if ( uniqueOverlap(item,"write_biascor=") )
+    { sscanf(&item[14],"%i", &INPUTS.write_biascor ); return(1); }
+  if ( uniqueOverlap(item,"write_ccprior=") )
+    { sscanf(&item[14],"%i", &INPUTS.write_ccprior ); return(1); }
 
   if ( uniqueOverlap(item,"minos=") ) 
     { sscanf(&item[6],"%i", &INPUTS.minos ); return(1); }
@@ -23614,6 +23663,9 @@ void print_SALT2mu_HELP(void) {
     "write_yaml=1 -> write yaml info output for batch script",
     "write_csv=1  -> write M0DIF vs. z in csv format for CosmoMC input",
     "write_chi2grid=1 -> write chi2 vs. alpha and vs. beta (diagnostic)",
+    "",
+    "write_biascor=1 -> write CID IDSAMPLE IDSURVEY for bcor events passing cuts",
+    "write_ccprior=1 -> write CID IDSAMPLE IDSURVEY for cc prior events passing cuts",
     "",
     " - - - - -  fit par initial values and float flags - - - - - ",
     "",

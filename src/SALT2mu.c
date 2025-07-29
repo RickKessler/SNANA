@@ -1182,6 +1182,8 @@ struct INPUTS {
   BININFO_DEF BININFO_z ; // Aug 20 2016
   int     min_per_zbin ;
 
+  double dmubin_ccprior; // Jul 28 2025
+
   char varname_z[100]; // name of redshift variable (default = 'z Z zSPEC')
 
   // - - - - - user parameter bounds - - - - - 
@@ -1604,7 +1606,7 @@ void   setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 			    MUZMAP_DEF *MUZMAP) ;
 
 void   setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
-			    MUZMAP_DEF *MUZMAP );
+			    MUZMAP_DEF *MUZMAP, bool PRINT_TABLE );
 
 void print_contam_CCprior(FILE *fp);
 void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO);
@@ -1615,7 +1617,7 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
 void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
 
-double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
+double prob_CCprior_sim(int OPT, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
 		    double z, double dmu, int DUMPFLAG);
 double prob_CCprior_H11(int n, double dmu, double *H11_fitpar, 
 			double *sqsigCC, double *sigCC_chi2penalty);
@@ -4577,7 +4579,7 @@ void *MNCHI2FUN(void *thread) {
 				    &sqsigCC, &sigCC_chi2penalty );
       }
       else { // CC prob from sim
-	dPdmu_CC = prob_CCprior_sim(idsample, CCPRIOR_MUZMAP, 
+	dPdmu_CC = prob_CCprior_sim(INPUTS.opt_ccprior, idsample, CCPRIOR_MUZMAP, 
 				    z, mures, DUMPFLAG );
       }
       Prob_CC   = PTOT_CC * dPdmu_CC ;
@@ -5311,7 +5313,7 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11,
   
   for(idsample=0; idsample < NSAMPLE; idsample++ ) {
       setup_DMUPDF_CCprior(idsample, 
-			   &INFO_CCPRIOR.TABLEVAR_CUTS, MUZMAP );
+			   &INFO_CCPRIOR.TABLEVAR_CUTS, MUZMAP, false );
   }
 
   // - - - - -
@@ -5503,6 +5505,7 @@ void set_defaults(void) {
 
   // stuff for CC prior
   INPUTS.opt_ccprior = MASK_CCPRIOR_FUNDMU_GAUSS; // Feb 2025
+  INPUTS.dmubin_ccprior = 0.5 ;  // Jul 2025
 
   INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
@@ -15280,6 +15283,13 @@ void prepare_CCprior(void) {
 			 &INFO_CCPRIOR.MUZMAP );
   }
 
+
+  // - - - - - - - -
+  fprintf(FP_STDOUT,"\n Print PDF(DMU) in z-bin with max NEVT:\n");
+  int IZTEST = INFO_CCPRIOR.IZ_NEVTMAX;
+  for(idsample=0; idsample < NSAMPLE; idsample++ )
+    { dump_DMUPDF_CCprior(idsample, IZTEST, &INFO_CCPRIOR.MUZMAP) ; }
+
   // ----------------------------------------------
   fprintf(FP_STDOUT, "\n Finished preparing CC prior. \n");
   fflush(FP_STDOUT);
@@ -15401,9 +15411,13 @@ void store_INFO_CCPRIOR_CUTS(void) {
   
 
   // Jul 28 2025: check option to write CIDs passing cuts for CCprior
+
+  /* xxx mark delete 
   FILE *fout;  
   if ( INPUTS.write_ccprior > 0 )           
     { update_fitres_passcuts(0, 0, "CCPRIOR", &fout);   }
+  xxx mark */
+
 
   // count number of true CC with cuts
   icc=0;
@@ -15415,8 +15429,10 @@ void store_INFO_CCPRIOR_CUTS(void) {
     name = INFO_CCPRIOR.TABLEVAR.name[icc];
     sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.name[icc],"%s", name);
 
+    /* xxx mark delete 
     if ( INPUTS.write_ccprior > 0 )
       { update_fitres_passcuts(1, isn, "CCPRIOR", &fout);   }
+    xxx end mark */
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];
@@ -15437,6 +15453,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
     INFO_CCPRIOR.TABLEVAR_CUTS.IDSAMPLE[icc] = 
       INFO_CCPRIOR.TABLEVAR.IDSAMPLE[isn];
 
+
+    sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.field[icc], "%s", INFO_CCPRIOR.TABLEVAR.field[isn]);
 
     for(ia = 0; ia < NBINa; ia++ ) {
       for(ib = 0; ib < NBINb; ib++ ) {
@@ -15465,7 +15483,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
   fflush(FP_STDOUT);
   malloc_INFO_CCPRIOR(-1,INFO_CCPRIOR.TABLEVAR.LEN_MALLOC,0);
 
-  if ( INPUTS.write_ccprior > 0 ) { fclose(fout); }
+  // xxx mark dele   if ( INPUTS.write_ccprior > 0 ) { fclose(fout); }
+
   return ;
   
 } // end store_INFO_CCPRIOR_CUTS
@@ -15559,7 +15578,8 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
 #define DMUMIN_CCPRIOR  -3.0  // add buffer bin to allow for interp
 #define DMUMAX_CCPRIOR  +4.0  // add buffer bin to allow for interp
-#define DMUBIN_CCPRIOR   0.5  
+  double DMUBIN_CCPRIOR  = INPUTS.dmubin_ccprior ;
+    // xxx mark delete #define DMUBIN_CCPRIOR   0.5
 
   int NBINa, NBINb, ia, ib, nbin_dmu ;
   double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
@@ -15624,21 +15644,21 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
     }
 
-    printf(" xxx %s: IDSAMPLE=%d  NBINa=%d NBINb=%d <alpha, beta> = %.3f, %.3f \n", 
-	   fnam ,IDSAMPLE, NBINa, NBINb, MUZMAP->alpha, MUZMAP->beta ); fflush(stdout);
     
     if (INPUTS.REFAC_CCPRIOR_BETA ){ MUZMAP->beta = INPUTS.parval[IPAR_BETA0]; }
   }
 
 
   // get DMUPDF in each z bin
-  setup_DMUPDF_CCprior(IDSAMPLE, TABLEVAR, MUZMAP );  
+  setup_DMUPDF_CCprior(IDSAMPLE, TABLEVAR, MUZMAP, true );  
   
+  /* xxx mark delete Jul 28 2025 xxxx
   // -------------------------------
-  // print sumary of MU-bins
+  // print sumary of MU-bins in z-bin with most CC events
   int IZTEST = INFO_CCPRIOR.IZ_NEVTMAX;
   dump_DMUPDF_CCprior(IDSAMPLE, IZTEST, MUZMAP) ;
-    
+  xxxx */
+
   return ;
 
 }  // end setup_MUZMAP_CCprior
@@ -15646,7 +15666,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
 // =============================================
 void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
-			  MUZMAP_DEF *MUZMAP ) {
+			  MUZMAP_DEF *MUZMAP, bool PRINT_TABLE ) {
 
   // Created Feb 2016
   // for input redshift (z) and DMU map (*MUZMAP),
@@ -15656,6 +15676,11 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   //
   // This function is called for each fcn call, so no print statements !
   //
+  // Jul 28 2025:
+  //   + add PRINT_TABLE arg to print table only during init
+  //   + check user input INPUTS.write_ccprior
+
+  int NSN_ALL = TABLEVAR->NSN_ALL;
 
   int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample, nevt_biascor ;
   int NCC[MXz][MAXMUBIN], NCC_SUM[MXz]; 
@@ -15663,6 +15688,13 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   double z, c, x1, mB, dl, mu, mumodel, dmu, a, b, gDM, M0 ;
   double XMU, XCC, XCC_SUM, DMUBIN ;
   char *name ;
+
+  bool WRITE_CCPRIOR = ( INPUTS.write_ccprior > 0 && PRINT_TABLE ); // diagnostic output
+  FILE *fcc;
+  char outfile_cc[MXPATHLEN];
+  int *IZ_CCPRIOR, *IMU_CCPRIOR;  double *DMU_CCPRIOR;
+  int MEMI = NSN_ALL * sizeof(int) ;
+  int MEMD = NSN_ALL * sizeof(double) ;
 
   // muBias declarations
   bool USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
@@ -15678,6 +15710,12 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     
   // ----------------- BEGIN ---------------
   
+  if ( WRITE_CCPRIOR ) {
+    IZ_CCPRIOR   = (int*)malloc(MEMI);
+    IMU_CCPRIOR  = (int*)malloc(MEMI);
+    DMU_CCPRIOR  = (double*)malloc(MEMD);
+  }
+
   if ( INFO_CCPRIOR.USEH11 ) { return ; }
     
   // number of DMU bins to make PDF
@@ -15726,7 +15764,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   if ( NDIM_BIASCOR >= 5 ) 
     { get_INTERPWGT_abg(a,b,gDM, 0, &INTERPWGT,fnam ); } // returns INTERPWGT
    
-  for(icc=0; icc < TABLEVAR->NSN_ALL ; icc++ ) {  
+  for(icc=0; icc < NSN_ALL ; icc++ ) {  
 
     // require correct IDSAMPLE to continue
     idsample = TABLEVAR->IDSAMPLE[icc] ;
@@ -15734,10 +15772,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
     // keep only CC events in current IZ bin
     iz   = TABLEVAR->IZBIN[icc] ;   // redshift bin 
-
     z    = TABLEVAR->zhd[icc] ;     
-    if (INPUTS.REFAC_CCPRIOR_Z ) {z  = TABLEVAR->SIM_ZCMB[icc] ; }  // test, June 2025
-
     c    = TABLEVAR->fitpar[INDEX_c][icc] ;
     x1   = TABLEVAR->fitpar[INDEX_s][icc] ;
     mB   = TABLEVAR->fitpar[INDEX_d][icc] ;
@@ -15745,9 +15780,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     
     mu = mB + a*x1 - b*c - M0 ; 
     
-    // naively apply SNIa mu-bias Correction if simfile_bias is given;
-    // ??? this can't be right ???
-
+    // apply SNIa mu-bias Correction if simfile_bias is given;
     muBias = muBiasErr = 0.0 ;  muCOVscale = 1.0 ;
     if ( USE_BIASCOR ) {    
       BIASCORLIST.z                = z;
@@ -15778,7 +15811,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       }
       else if ( NDIM_BIASCOR == 1 ) {
 	debugexit("CCPRIOR does NOT WORK WITH BBC-1D");  // Jun 19 2018
-	// muBias   =  ?? 	
+	// muBias   =  ??  
       }
 	
     } // end biasCor if-block
@@ -15790,6 +15823,9 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     mumodel += muBias ;     // add bias
     dmu      = mu - mumodel ;
     imu      = IBINFUN(dmu, &MUZMAP->DMUBIN, 0, "" );
+
+    if ( WRITE_CCPRIOR ) 
+      { IZ_CCPRIOR[icc] = iz;   IMU_CCPRIOR[icc] = imu;   DMU_CCPRIOR[icc] = dmu; }
 
     // xxxxxxxxxxxxxxxxxxxxxxx
     if ( icc < -5 ) {
@@ -15819,6 +15855,11 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   // If the stats are too low then leave flat/default PDF.
   double S1TMP, S2TMP, AVG, STD; 
   int NTMP, NTMP_MAX = 0 ;  
+
+  if ( PRINT_TABLE ) {
+    fprintf(FP_STDOUT, "\n   %s: \n", SAMPLE_BIASCOR[IDSAMPLE].NAME  );
+    fprintf(FP_STDOUT, "\t IDSAMPLE iz    zmin zmax  N(NONIA)  AVG(DMU)  STD(DMU)\n" );
+  }  // end PRINT_TABLE
 
   for(iz=0; iz < NZBIN; iz++ ) {
 
@@ -15857,6 +15898,67 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   }   // and iz loop
  
 
+  // - - - -
+  if ( PRINT_TABLE ) {
+    double zmin, zmax ;     
+    NZBIN  = MUZMAP->ZBIN.nbin ;
+    for(iz=0; iz < NZBIN; iz++ ) {
+      zmin = MUZMAP->ZBIN.lo[iz];
+      zmax = MUZMAP->ZBIN.hi[iz];
+      NTMP = NCC_SUM[iz] ;
+      AVG  = MUZMAP->DMUAVG[IDSAMPLE][iz];
+      STD  = MUZMAP->DMURMS[IDSAMPLE][iz];
+      fprintf(FP_STDOUT,"\t  %3d  %5d   %5.3f %5.3f  %6d    %6.3f  %8.3f\n",
+	      IDSAMPLE, iz, zmin, zmax, NTMP, AVG, STD ); fflush(FP_STDOUT);
+    }
+    fflush(FP_STDOUT);
+  } // end print_table
+
+
+  // - - - - - - - - 
+  // diagnostic: write all CCprior events to FITRES file and include PDF_TRUE and PDF_BBC
+  if ( WRITE_CCPRIOR ) {
+    sprintf(outfile_cc,"%s_CCPRIOR.FITRES", INPUTS.PREFIX);
+    if ( IDSAMPLE == 0 ) { 	
+      fcc = fopen(outfile_cc, "wt"); 
+      fprintf(fcc, "#  CCprior events passing BBC cuts.\n");
+      fprintf(fcc, "#  DMU = mu - mumodel - mubias(Ia)\n");
+      fprintf(fcc, "#  PDF_TRUE = Exact PDF evaluated numerically.\n");
+      fprintf(fcc, "#  PDF_BBC  = PDF used in BBC fit (either exact or Gauss approx)\n");
+      fprintf(fcc, "#  \n");
+      fprintf(fcc, "\nVARNAMES: CID  IDSAMPLE  IDSURVEY  FIELD  IZ  IMU  DMU  "
+	      "PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
+      fflush(fcc);
+    }
+    else {
+      fcc = fopen(outfile_cc,"at"); 
+    }
+
+    double PDF_TRUE, PDF_GAUSS, PDF_INTERP;
+    for(icc=0; icc < NSN_ALL ; icc++ ) {  
+      idsample = TABLEVAR->IDSAMPLE[icc] ;
+      if( idsample != IDSAMPLE ) { continue ; }
+      z   = TABLEVAR->zhd[icc] ;     
+      iz  = IZ_CCPRIOR[icc];
+      imu = IMU_CCPRIOR[icc];
+      dmu = DMU_CCPRIOR[icc];
+      PDF_TRUE   = MUZMAP->DMUPDF[IDSAMPLE][iz][imu] ;
+      PDF_GAUSS  = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_GAUSS,  IDSAMPLE, MUZMAP, z, dmu, 0 );
+      PDF_INTERP = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_INTERP, IDSAMPLE, MUZMAP, z, dmu, 0 );
+
+      fprintf(fcc,"SN: %12s %2d %3d  "       // CID IDSAM IDSURVEY 
+	      "%8s  %2d %2d  "                // FIELD, iz, imu
+	      "%6.3f  %5.3f  %5.3f  %5.3f\n",     // DMU PDF_[TRUE,GAUSS,INTERP]
+	      TABLEVAR->name[icc], TABLEVAR->IDSAMPLE[icc], TABLEVAR->IDSURVEY[icc],
+	      TABLEVAR->field[icc], iz, imu,
+	      dmu, PDF_TRUE, PDF_GAUSS, PDF_INTERP );
+      fflush(fcc);
+    }
+    
+    free(IZ_CCPRIOR);  free(IMU_CCPRIOR);  free(DMU_CCPRIOR);
+    fclose(fcc);
+  } // end WRITE_CCPRIOR
+
   return ;
   
 } // end setup_DMUPDF_CCprior
@@ -15864,9 +15966,13 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 // ============================================
 void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
 
+  // Jul 28 2025: refactor to write more/better info
+
   int imu, NCC ;
-  double PDF;
+  double PDF_TRUE, PDF_BBC, DMU_LO, DMU_HI, DMU ;
   double z  = MUZMAP->ZBIN.avg[IZ] ;
+  double a  = MUZMAP->alpha; 
+  double b  = MUZMAP->beta ;
   char fnam[] = "dump_DMUPDF_CCprior" ;
 
   // -------------- BEGIN ---------------
@@ -15874,8 +15980,7 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
   if ( SAMPLE_BIASCOR[IDSAMPLE].NSN[EVENT_TYPE_CCPRIOR] == 0 ) { return; } // Feb 2025
 
   fprintf(FP_STDOUT, "\n  %s : ", SAMPLE_BIASCOR[IDSAMPLE].NAME  );
-  fprintf(FP_STDOUT, "  a=%.3f b=%.3f \n",
-	 MUZMAP->alpha, MUZMAP->beta );
+  fprintf(FP_STDOUT, "  z=%.3f  a=%.3f b=%.3f \n", z, a, b );
 
   fprintf(FP_STDOUT, "   <DMU>=%.3f  RMS(DMU)=%.3f \n"
 	 , MUZMAP->DMUAVG[IDSAMPLE][IZ] 
@@ -15887,14 +15992,20 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
 	 MUZMAP->cosPar[2], MUZMAP->cosPar[3]  );  */
   
 
-  fprintf(FP_STDOUT, "\t  imu  dMU(min) dMU(max)     PDF(z=%.2f)\n", z );
+  fprintf(FP_STDOUT, "\t  imu  dMU(min) dMU(max)   NCC   PDF_TRUE  PDF_BBC\n");
 
   for(imu=0; imu < MUZMAP->DMUBIN.nbin; imu++ ) {
-    NCC = MUZMAP->NDMUPDF[IDSAMPLE][IZ][imu] ; 
-    PDF = MUZMAP->DMUPDF[IDSAMPLE][IZ][imu] ;
-    fprintf(FP_STDOUT, "\t  %3d  %6.3f  %6.3f       %.3f  (%d) \n"
-	   ,imu, MUZMAP->DMUBIN.lo[imu], MUZMAP->DMUBIN.hi[imu]
-	   ,PDF, NCC);
+    NCC      = MUZMAP->NDMUPDF[IDSAMPLE][IZ][imu] ; 
+    PDF_TRUE = MUZMAP->DMUPDF[IDSAMPLE][IZ][imu] ;
+
+    // get PDF as determined in BBC fit
+    DMU_LO = MUZMAP->DMUBIN.lo[imu];
+    DMU_HI = MUZMAP->DMUBIN.hi[imu];
+    DMU    = 0.5 * ( DMU_LO + DMU_HI );
+    PDF_BBC  = prob_CCprior_sim(INPUTS.opt_ccprior, IDSAMPLE, MUZMAP, z, DMU, 0 );
+
+    fprintf(FP_STDOUT, "\t  %3d  %6.3f  %6.3f   %5d      %.3f    %.3f\n",
+	    imu, DMU_LO, DMU_HI, NCC, PDF_TRUE, PDF_BBC );
   }  
   fflush(FP_STDOUT);
 
@@ -16299,7 +16410,7 @@ double prob_CCprior_H11(int n, double dmu,
 
 
 // ===================================================
-double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
+double prob_CCprior_sim(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
 			double z, double dmu, int DUMPFLAG) {
 
   // Called by fcn function in minuit to return CC prob 
@@ -16310,7 +16421,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   //              speed up DMU interp using known binsize 
 
   
-  bool DO_FUNDMU_GAUSS  = ( (INPUTS.opt_ccprior & MASK_CCPRIOR_FUNDMU_GAUSS) > 0 ) ;
+  bool DO_FUNDMU_GAUSS  = ( (OPT_CCPRIOR & MASK_CCPRIOR_FUNDMU_GAUSS) > 0 ) ; // default
   bool DO_FUNDMU_INTERP = !DO_FUNDMU_GAUSS;
 
   int OPT_INTERP = 1; // 1=linear
@@ -16371,8 +16482,6 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
     debugexit(fnam);
   }
   // xxxxxxxxxxxxxxxxxxx
-
-  
 
   // -------------------------------
   return(prob);
@@ -17519,6 +17628,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"opt_ccprior=") ) 
     { sscanf(&item[12],"%d", &INPUTS.opt_ccprior); return(1); }
+
+  if ( uniqueOverlap(item,"dmubin_ccprior=") ) 
+    { sscanf(&item[15],"%le", &INPUTS.dmubin_ccprior); return(1); }
 
 
   if ( uniqueOverlap(item,"nzbin_ccprior=")) 

@@ -1052,6 +1052,7 @@ struct INPUTS {
 
   int    write_biascor;  // write list of biasCor passing cuts .xyz ???
   int    write_ccprior;  // write list of CCprior passing cuts .xyz ???
+  int    write_ccprior_status; // for internal use to open in write or append mode
 
   int    minos;  // 1 -> use minos for full fit (very slow)
   int    minos2; // 1 -> use minos only for repeat after crazy errors
@@ -5548,6 +5549,7 @@ void set_defaults(void) {
 
   INPUTS.write_biascor = 0 ;
   INPUTS.write_ccprior = 0 ;
+  INPUTS.write_ccprior_status = 0 ;
 
   INPUTS.IDSAMPLE_SELECT.NID = 0;
   INPUTS.IDSURVEY_SELECT.NID = 0;
@@ -15415,15 +15417,6 @@ void store_INFO_CCPRIOR_CUTS(void) {
   INFO_CCPRIOR.TABLEVAR_CUTS.NSN_PASSCUTS = NSN_PASS ;
   
 
-  // Jul 28 2025: check option to write CIDs passing cuts for CCprior
-
-  /* xxx mark delete 
-  FILE *fout;  
-  if ( INPUTS.write_ccprior > 0 )           
-    { update_fitres_passcuts(0, 0, "CCPRIOR", &fout);   }
-  xxx mark */
-
-
   // count number of true CC with cuts
   icc=0;
   for(isn=0; isn < NSN_ALL; isn++ ) {
@@ -15434,10 +15427,6 @@ void store_INFO_CCPRIOR_CUTS(void) {
     name = INFO_CCPRIOR.TABLEVAR.name[icc];
     sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.name[icc],"%s", name);
 
-    /* xxx mark delete 
-    if ( INPUTS.write_ccprior > 0 )
-      { update_fitres_passcuts(1, isn, "CCPRIOR", &fout);   }
-    xxx end mark */
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];
@@ -15487,8 +15476,6 @@ void store_INFO_CCPRIOR_CUTS(void) {
   fprintf(FP_STDOUT, "  %s: free memory for ALL \n", fnam); 
   fflush(FP_STDOUT);
   malloc_INFO_CCPRIOR(-1,INFO_CCPRIOR.TABLEVAR.LEN_MALLOC,0);
-
-  // xxx mark dele   if ( INPUTS.write_ccprior > 0 ) { fclose(fout); }
 
   return ;
   
@@ -15925,16 +15912,17 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   // diagnostic: write all CCprior events to FITRES file and include PDF_TRUE and PDF_BBC
   if ( WRITE_CCPRIOR ) {
     sprintf(outfile_cc,"%s_CCPRIOR.FITRES", INPUTS.PREFIX);
-    if ( IDSAMPLE == 0 ) { 	
+    if ( INPUTS.write_ccprior_status == 0 ) { 	
       fcc = fopen(outfile_cc, "wt"); 
       fprintf(fcc, "#  CCprior events passing BBC cuts.\n");
       fprintf(fcc, "#  DMU = mu - mumodel - mubias(Ia)\n");
-      fprintf(fcc, "#  PDF_TRUE = Exact PDF evaluated numerically.\n");
-      fprintf(fcc, "#  PDF_BBC  = PDF used in BBC fit (either exact or Gauss approx)\n");
+      fprintf(fcc, "#  PDF_TRUE = Exact binned PDF(DMU) evaluated numerically.\n");
+      fprintf(fcc, "#  PDF_[GAUSS,INTERP] is for opt_ccprior = [1,2]\n");
       fprintf(fcc, "#  \n");
       fprintf(fcc, "\nVARNAMES: CID  IDSAMPLE  IDSURVEY  FIELD  IZ  IMU  "
 	      "zHD c x1  DMU  PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
       fflush(fcc);
+      INPUTS.write_ccprior_status++ ; // opened
     }
     else {
       fcc = fopen(outfile_cc,"at"); 

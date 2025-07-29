@@ -15285,7 +15285,12 @@ void prepare_CCprior(void) {
 
 
   // - - - - - - - -
-  fprintf(FP_STDOUT,"\n Print PDF(DMU) in z-bin with max NEVT:\n");
+  char comment[3][40] = { "", "Gaussian approx", "linear interp" } ;
+  int  icomment = (INPUTS.opt_ccprior & 3);
+  fprintf(FP_STDOUT,"\n");
+  fprintf(FP_STDOUT,"\t\t Print PDF(DMU) in z-bin with max NEVT:\n");
+  fprintf(FP_STDOUT,"\t\t PDF_BBC uses %s method. \n", comment[icomment] );
+
   int IZTEST = INFO_CCPRIOR.IZ_NEVTMAX;
   for(idsample=0; idsample < NSAMPLE; idsample++ )
     { dump_DMUPDF_CCprior(idsample, IZTEST, &INFO_CCPRIOR.MUZMAP) ; }
@@ -15689,10 +15694,11 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   double XMU, XCC, XCC_SUM, DMUBIN ;
   char *name ;
 
-  bool WRITE_CCPRIOR = ( INPUTS.write_ccprior > 0 && PRINT_TABLE ); // diagnostic output
+  // define diagnostic CCprior output if user requests it and PRINT_TABLE=true
+  bool WRITE_CCPRIOR = ( INPUTS.write_ccprior > 0 && PRINT_TABLE ); 
   FILE *fcc;
   char outfile_cc[MXPATHLEN];
-  int *IZ_CCPRIOR, *IMU_CCPRIOR;  double *DMU_CCPRIOR;
+  int *IZ_CCPRIOR, *IMU_CCPRIOR;  double *DMU_CCPRIOR; // store local info
   int MEMI = NSN_ALL * sizeof(int) ;
   int MEMD = NSN_ALL * sizeof(double) ;
 
@@ -15926,8 +15932,8 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       fprintf(fcc, "#  PDF_TRUE = Exact PDF evaluated numerically.\n");
       fprintf(fcc, "#  PDF_BBC  = PDF used in BBC fit (either exact or Gauss approx)\n");
       fprintf(fcc, "#  \n");
-      fprintf(fcc, "\nVARNAMES: CID  IDSAMPLE  IDSURVEY  FIELD  IZ  IMU  DMU  "
-	      "PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
+      fprintf(fcc, "\nVARNAMES: CID  IDSAMPLE  IDSURVEY  FIELD  IZ  IMU  "
+	      "zHD c x1  DMU  PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
       fflush(fcc);
     }
     else {
@@ -15946,11 +15952,13 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       PDF_GAUSS  = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_GAUSS,  IDSAMPLE, MUZMAP, z, dmu, 0 );
       PDF_INTERP = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_INTERP, IDSAMPLE, MUZMAP, z, dmu, 0 );
 
-      fprintf(fcc,"SN: %12s %2d %3d  "       // CID IDSAM IDSURVEY 
-	      "%8s  %2d %2d  "                // FIELD, iz, imu
-	      "%6.3f  %5.3f  %5.3f  %5.3f\n",     // DMU PDF_[TRUE,GAUSS,INTERP]
+      fprintf(fcc,"SN: %12s %2d %3d  "          // CID IDSAMPLE IDSURVEY 
+	      "%8s  %2d %2d  "                  // FIELD, iz, imu
+	      "%5.3f %6.3f %5.2f  "             // zHD c x1
+	      "%6.3f  %5.3f  %5.3f  %5.3f\n",   // DMU PDF_[TRUE,GAUSS,INTERP]
 	      TABLEVAR->name[icc], TABLEVAR->IDSAMPLE[icc], TABLEVAR->IDSURVEY[icc],
 	      TABLEVAR->field[icc], iz, imu,
+	      TABLEVAR->zhd[icc], TABLEVAR->fitpar[INDEX_c][icc], TABLEVAR->fitpar[INDEX_s][icc],
 	      dmu, PDF_TRUE, PDF_GAUSS, PDF_INTERP );
       fflush(fcc);
     }

@@ -23012,6 +23012,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Start preparing for switching ZP_FLUXCAL=27.5 to 31.4 (nJy).
     ZP_FLUXCAL is written to data headers to be used in analysis.
 
+
          *****  USEFUL(v11_05u) *****
 
     RESTORE_DES5YR flag in sim and snana/snlc_fit:
@@ -23042,9 +23043,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + for CUTWIN(BIASCORONLY) SIM_XXX <min> <max>, skip reading real data to
         avoid abort. Initial use is for SIM_ZFLAG<4.
       + for cutwin_only, append IDSAMPLE column to output table
-
-      + new inputs write_biascor=1 and write_ccprior=1 to write "CID IDSAMPLE IDSURVEY"
-        for events passing cuts.
+      + new inputs write_biascor=1 and write_ccprior=1 to write "CID IDSAMPLE IDSURVEY etc ..."
+        for events passing cuts. Diagnostic only; not used in BBC fit or pippin.
 
     snlc_sim.exe
      + for SIMGEN_DUMP, added IGEN option to show sequential generation  index 1,2,3 ... NGENTOT_LC.
@@ -23113,6 +23113,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + option to skip reading SPEC.FITS (DEBUG_FLAG = -333) worked only
        if SPEC.FITS files exist, but aborts if they are missing.
        Fixed to work even if SPEC.FITS files are missing.
+
+   genmag_BAYESN:
+     + pass parlist_HOST.
 
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must

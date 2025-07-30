@@ -23124,5 +23124,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    To DO: use GENLC.ncall_genran_modelSmear to make sure that randoms for intrinsic
           scatter are generated only once .... this will change random sync, so must
           tag version immediately after this update.
+           -> DONE July 30 2025
+
+# =============================================================
+         v11_06a (July 30 2025) <-- start date of git tag
+
+         *****  IMPORTANT(v11_06a) *****
+
+         *****  USEFUL(v11_06a) *****
+
+         *****  MISCELLANEOUS(v11_06a) *****
+
+
 
 END: 

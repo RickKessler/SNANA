@@ -23008,7 +23008,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + fix refactor bug that ignored EXTRA_COVS (vpec syst) [CID_IDSURVEY != CID_IDSURVEY_FIELD]
        + read gzipped or regular cov file for EXTRA_COVS
 
-
     Start preparing for switching ZP_FLUXCAL=27.5 to 31.4 (nJy).
     ZP_FLUXCAL is written to data headers to be used in analysis.
 
@@ -23045,6 +23044,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + for cutwin_only, append IDSAMPLE column to output table
       + new inputs write_biascor=1 and write_ccprior=1 to write "CID IDSAMPLE IDSURVEY etc ..."
         for events passing cuts. Diagnostic only; not used in BBC fit or pippin.
+
+      + Refactor for:
+          debug_flag=31 -> use pre-computed PROB(DMU) for CCprior; no more updates during fit -> DONE
+          debug_flag=33 -> replace 1D (redshift) dependence on PROB(DMU) with 3D dependence
+                           on z,c,x1.  -> for next snana code version
 
     snlc_sim.exe
      + for SIMGEN_DUMP, added IGEN option to show sequential generation  index 1,2,3 ... NGENTOT_LC.

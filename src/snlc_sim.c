@@ -14149,7 +14149,10 @@ void genran_modelSmear(void) {
   int    ifilt ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
   double rr8, rho, RHO, rmax, rmin, rtot ;
-  bool ALLOW_ONE_CALL = ( SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY == 0 ) ; // temp until new SNANA tag
+
+  // xxx mark delete bool ALLOW_ONE_CALL = ( SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY == 0 ) ; // temp until new SNANA tag
+  bool ALLOW_ONE_CALL = true; // Jul 30 2025
+
   char fnam[] = "genran_modelSmear" ;
 
   // -------------- BEGIN --------

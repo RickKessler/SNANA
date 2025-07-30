@@ -422,21 +422,49 @@ int NWARN_CRAZYERR[4];
 FILE *FP_STDOUT ;  // direct stdout to screen (stdout) or log file
 char PATH_SNDATA_ROOT[MXPATHLEN];
 
+// define FITRES var names for misc variables
+#define VARNAME_VPEC       "VPEC"
+#define VARNAME_VPECERR    "VPECERR" 
+#define VARNAME_VPECERR2   "VPEC_ERR"
+#define VARNAME_zHD        "zHD"
+#define VARNAME_zHDERR     "zHDERR"
+#define VARNAME_zHEL       "zHEL"
+#define VARNAME_zHELERR    "zHELERR"
+#define VARNAME_zCMB       "zCMB"
+#define VARNAME_LOGMASS    "HOST_LOGMASS"
+#define VARNAME_LOGSFR     "HOST_LOGSFR"
+#define VARNAME_LOGsSFR    "HOST_LOGsSFR"
+#define VARNAME_COLOR      "HOST_COLOR"
+
+#define VARNAME_IZBIN    "IZBIN"
+#define VARNAME_dmu      "dmu"
+
+#define VARNAME_SALT2_mB       "mB"
+#define VARNAME_SALT2_mx       "mx"
+#define VARNAME_SALT2_x1       "x1"
+#define VARNAME_SALT2_c        "c"
+#define VARNAME_BAYESN_theta1  "theta1"
+#define VARNAME_BAYESN_AV      "AV"
+#define VARNAME_BAYESN_mu      "mu"
+
+
 // B.P.Done - split things like "BIASCOR_MINVAL_LCFIT" into two  
 // BIASCOR_MINVAL_SALT & BIASCOR_MINVAL_BAYESN
 // Make OG BIASCOR_MINVAL_LCFIT into a global variable set based on ismodel SALT/Bayesn
 
 // hard wire bins to store biasCor 
+
+
 //                                    mB    x1     c
 double  BIASCOR_MINVAL_SALT2[3]  = {  5.0, -4.0, -0.30 } ; // for SALT2/3 ! 
 double  BIASCOR_MAXVAL_SALT2[3]  = { 30.0, +4.0, +0.50 } ;
 double  BIASCOR_BINSIZE_SALT2[3] = { 25.0,  0.5,  0.05 } ;
-char    BIASCOR_NAME_SALT2[3][8] = { "mB", "x1", "c"   } ;
+char    BIASCOR_NAME_SALT2[3][8] = { VARNAME_SALT2_mB, VARNAME_SALT2_x1, VARNAME_SALT2_c };
 
 double  BIASCOR_MINVAL_BAYESN[3]  = { -9.0, -4.0, +0.00 } ;
 double  BIASCOR_MAXVAL_BAYESN[3]  = { -9.0, +4.0, +1.00 } ;
 double  BIASCOR_BINSIZE_BAYESN[3] = { -9.0,  0.5,  0.10 } ; //0.1 for now 
-char    BIASCOR_NAME_BAYESN[3][8] = { "mu", "theta1", "AV" } ;
+char    BIASCOR_NAME_BAYESN[3][8] = { VARNAME_BAYESN_mu, VARNAME_BAYESN_theta1, VARNAME_BAYESN_AV} ;
 double  SIM_ABG_BAYESN  = 1.0;   // dummy values for SALT2 alpha, beta, gamma
 
 double  BIASCOR_MINVAL_LCFIT[3]  ; //Set to either SALT2 or BAYESN values
@@ -545,23 +573,6 @@ double  M0_DEFAULT;
 #define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added
 #define USERFLAG_IGNORE_SAMPLE       6  // ignore this sample
 
-// define FITRES var names for misc variables
-#define VARNAME_VPEC       "VPEC"
-#define VARNAME_VPECERR    "VPECERR" 
-#define VARNAME_VPECERR2   "VPEC_ERR"
-#define VARNAME_zHD        "zHD"
-#define VARNAME_zHDERR     "zHDERR"
-#define VARNAME_zHEL       "zHEL"
-#define VARNAME_zHELERR    "zHELERR"
-#define VARNAME_zCMB       "zCMB"
-#define VARNAME_LOGMASS    "HOST_LOGMASS"
-#define VARNAME_LOGSFR     "HOST_LOGSFR"
-#define VARNAME_LOGsSFR    "HOST_LOGsSFR"
-#define VARNAME_COLOR      "HOST_COLOR"
-#define VARNAME_mB         "mB"
-#define VARNAME_mx         "mx"
-
-#define VARNAME_IZBIN    "IZBIN"
 
 // ---------------------
 double LOGTEN  ;
@@ -704,7 +715,7 @@ typedef struct  {
 
 typedef struct {
   // things fixed at start
-  BININFO_DEF  ZBIN ;
+  BININFO_DEF  ZBIN, CBIN, SBIN ; // Jul 30 2025: add CBIN and SBIN
   BININFO_DEF  DMUBIN ;
 
   // things that vary in fit
@@ -1617,6 +1628,7 @@ void   load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCP
 void    setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP);
 void    setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR_CUTS, MUZMAP_DEF *MUZMAP, 
 				    PROB_CCPRIOR_DEF *PROB, bool PRINT_TABLE );  
+void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO);
 
 // - - - - legacy CCprior functions, Jul 29 2025 xxxxxxxx
 void   setup_zbins_CCprior_legacy (TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) ;
@@ -4601,7 +4613,6 @@ void *MNCHI2FUN(void *thread) {
 				    &sqsigCC, &sigCC_chi2penalty );
       }
       else { // CC prob from sim
-	//.xyz
 	if ( REFAC1 ) {
 	  // pre-computed during init with user-input alpha,beta
 	  dPdmu_CC = INFO_DATA.PROB_CCPRIOR.PROB[n];  
@@ -6259,9 +6270,9 @@ void apply_data_parshift(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
 	  { IPAR_SHIFT_VPEC = ipar; }
 	else if ( strcmp(VARNAME_LOGMASS,varName_table) == 0 )
 	  { IPAR_SHIFT_LOGMASS = ipar; }
-	else if ( strcmp(VARNAME_mB,varName_table) == 0 )
+	else if ( strcmp(VARNAME_SALT2_mB,varName_table) == 0 )
 	  { IPAR_SHIFT_mB = ipar; }
-	else if ( strcmp(VARNAME_mx,varName_table) == 0 )
+	else if ( strcmp(VARNAME_SALT2_mx,varName_table) == 0 )
 	  { IPAR_SHIFT_mB = ipar; }			
 	else {
 	  sprintf(c1err,"PARSHIFT for %s is not defined", varName_table);
@@ -15563,48 +15574,40 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   // Load MUZMAP_INFO need later to determine PROB(DMU).
 
 
-  int    nzbin_ccprior = INPUTS.nzbin_ccprior ;
-  double zrange        = INPUTS.zmax - INPUTS.zmin ;
-  double DZBIN_CCPRIOR = 0.10 ;  // fragile alert
+  bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
+  bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
 
-  BININFO_DEF *ZBIN = &MUZMAP->ZBIN ;
+  bool REFAC1 = ( INPUTS.REFAC_CCPRIOR & 1 ) > 0 ;  // fix PROB(DMU) during init
+  bool REFAC2 = ( INPUTS.REFAC_CCPRIOR & 2 ) > 0 ;  // define PROB(DMU) vs. z,c,x1
 
-  double z, zlo, zhi, z0, z1 ;
-  int  nbz, icc, iz, j ;
+  BININFO_DEF *ZBIN   = &MUZMAP->ZBIN ;
+  BININFO_DEF *CBIN   = &MUZMAP->CBIN ;
+  BININFO_DEF *SBIN   = &MUZMAP->SBIN ;
+  BININFO_DEF *DMUBIN = &MUZMAP->DMUBIN ;
+
+  double z; 
+  int  icc, iz, j ;
   char MSGERR[100];
   char fnam[] = "setup_MUZMAP_INFO_CCPRIOR" ;
 
   // ------------- BEGIN -------------
 
-  if ( nzbin_ccprior > 0 ) {
-    // user input nzbin
-    nbz = nzbin_ccprior;  
+  setup_BININFO_CCPRIOR(VARNAME_zHD, ZBIN);
+  setup_BININFO_CCPRIOR(VARNAME_dmu, DMUBIN);
+
+  if ( REFAC2 ) {
+    if ( ISMODEL_SALT2 ) {
+      setup_BININFO_CCPRIOR(VARNAME_SALT2_c,  CBIN);
+      setup_BININFO_CCPRIOR(VARNAME_SALT2_x1, SBIN);
+    }
+    else if ( ISMODEL_BAYESN ) {
+      setup_BININFO_CCPRIOR(VARNAME_BAYESN_AV,     CBIN);
+      setup_BININFO_CCPRIOR(VARNAME_BAYESN_theta1, SBIN);
+    }
   }
-  else {
-    // default use hard wired bin size of DZBIN_CCPRIOR
-    double d_nbz   = zrange/DZBIN_CCPRIOR ;
-    nbz     = (int)d_nbz;
-    if ( d_nbz > (double)nbz ) { nbz++ ; }
-  }
-  DZBIN_CCPRIOR = zrange/(double)nbz ;
 
 
-  // make uniform z-grid, although a non-uniform grid is allowed.
-  nbz = 0;
-  z0 = INPUTS.zmin;  
-  z1 = INPUTS.zmax - DZBIN_CCPRIOR + 1.0E-5;
-  sprintf( ZBIN->varName,"z(CCprior)" );
-
-  for ( z=z0; z < z1; z += DZBIN_CCPRIOR ) {
-    zlo = z;
-    zhi = z + DZBIN_CCPRIOR ;
-    ZBIN->lo[nbz]  = zlo ;
-    ZBIN->hi[nbz]  = zhi ;
-    ZBIN->avg[nbz] = 0.5*(zlo+zhi);
-    ZBIN->n_perbin[nbz] = 0 ;
-    nbz++ ;  ZBIN->nbin = nbz;
-  }
-    
+  //.xyz
   for(icc=0; icc < TABLEVAR->NSN_ALL; icc++ ) {
     z = TABLEVAR->zhd[icc];
     sprintf(MSGERR,"%s: z=%f", fnam, z);
@@ -15613,11 +15616,12 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
     ZBIN->n_perbin[iz]++ ;
   }
 
-
+  /* xxx mark delete (printed in BININFO util)
   // print summary info for each z-bin
   fprintf(FP_STDOUT, "\n");
   fprintf(FP_STDOUT, "  %s: %d z-bins from %.3f to %.3f\n",
 	 fnam, ZBIN->nbin, INPUTS.zmin, INPUTS.zmax);
+  xxxxxx end mark xxxxxxxxxx*/
 
   fprintf(FP_STDOUT, "\t   iz  zmin   zmax     N(NONIA) \n" );
   for(iz=0; iz < ZBIN->nbin; iz++ ) {
@@ -15629,54 +15633,24 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
 
 
   // - - - - -
-  // setup dmu binning
-
-#define DMUMIN_CCPRIOR  -3.0  // add buffer bin to allow for interp
-#define DMUMAX_CCPRIOR  +4.0  // add buffer bin to allow for interp
-  double DMUBIN_CCPRIOR  = INPUTS.dmubin_ccprior ;
-
-  int NBINa, NBINb, ia, ib, nbin_dmu ;
-  double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
-
-  bool USE_BIASCOR = (INFO_BIASCOR.TABLEVAR.NSN_ALL > 0) ;
-  BININFO_DEF *BININFO_SIM_ALPHA = &INFO_BIASCOR.BININFO_SIM_ALPHA;
-  BININFO_DEF *BININFO_SIM_BETA  = &INFO_BIASCOR.BININFO_SIM_BETA ;
-
-  nbin_dmu = 0;
-  for ( dmu  = DMUMIN_CCPRIOR; dmu < DMUMAX_CCPRIOR-DMUBIN_CCPRIOR+.0001; 
-	dmu += DMUBIN_CCPRIOR ) {
-    dmulo = dmu;
-    dmuhi = dmu + DMUBIN_CCPRIOR ;
-    MUZMAP->DMUBIN.lo[nbin_dmu] = dmulo ;
-    MUZMAP->DMUBIN.hi[nbin_dmu]  = dmuhi ;
-    MUZMAP->DMUBIN.avg[nbin_dmu] = 0.5 * ( dmulo + dmuhi );
-    MUZMAP->DMUBIN.binSize       = DMUBIN_CCPRIOR;
-    nbin_dmu++ ;  MUZMAP->DMUBIN.nbin = nbin_dmu ;
-  }
-  
-
-  fprintf(FP_STDOUT, "\n");
-  fprintf(FP_STDOUT, "  %s: %d dMU-bins from %.3f to %.3f\n",
-	  fnam, MUZMAP->DMUBIN.nbin, DMUMIN_CCPRIOR, DMUMAX_CCPRIOR);
 
 
-  // print DMU distribution for first redshift bin
+  for ( j=0; j < 4; j++ ) { MUZMAP->cosPar[0] = INPUTS.COSPAR[j] ;  }
+
+  // setup alpha, beta stuff
   MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
   MUZMAP->M0    = INPUTS.M0 ;
 
-  for ( j=0; j < 4; j++ ) { MUZMAP->cosPar[0] = INPUTS.COSPAR[j] ;  }
-
-  /* xxx mark delete 
-  MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
-  MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok
-  MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
-  MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
-  xxxxxxx end */
-
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
   // starts alpha,beta way off.
+  bool USE_BIASCOR = (INFO_BIASCOR.TABLEVAR.NSN_ALL > 0) ;
+  BININFO_DEF *BININFO_SIM_ALPHA = &INFO_BIASCOR.BININFO_SIM_ALPHA;
+  BININFO_DEF *BININFO_SIM_BETA  = &INFO_BIASCOR.BININFO_SIM_BETA ;
+  int NBINa, NBINb, ia, ib, nbin_dmu ;
+  double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
+
   if ( USE_BIASCOR  ) {
     NBINa   = (*BININFO_SIM_ALPHA).nbin ;
     NBINb   = (*BININFO_SIM_BETA).nbin ;
@@ -15705,12 +15679,106 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
 } // end setup_MUZMAP_INFO_CCPRIOR
 
 
+void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO) {
+
+  int nbin ;
+  double xbin, xmin, xmax; // generic variables for any VARNAME
+  char fnam[] = "setup_BININFO_CCPRIOR" ;
+
+  // ----------- BEGIN -----------
+
+  if ( strcmp(VARNAME,VARNAME_zHD) == 0 ) {
+
+    double zrange        = INPUTS.zmax - INPUTS.zmin ;
+    if ( INPUTS.nzbin_ccprior > 0 ) {
+      // user input nzbin
+      nbin = INPUTS.nzbin_ccprior ;  
+    }
+    else {
+      double DZBIN_CCPRIOR = 0.10 ;  // fragile alert for hard-wired z-bin size
+      double d_nbz         = zrange/DZBIN_CCPRIOR ;
+      nbin                 = (int)d_nbz;
+      if ( d_nbz > (double)nbin ) { nbin++ ; }
+    }
+    xbin = zrange/(double)nbin ;
+    xmin = INPUTS.zmin ;
+    xmax = INPUTS.zmax ;
+  }
+  else if ( strcmp(VARNAME,VARNAME_dmu) == 0 ) {
+
+    double DMUMIN_CCPRIOR = -3.0;  // add buffer bin to allow for interp
+    double DMUMAX_CCPRIOR = +4.0;  // add buffer bin to allow for interp
+    double DMUBIN_CCPRIOR = INPUTS.dmubin_ccprior ;
+
+    xmin = DMUMIN_CCPRIOR ;
+    xmax = DMUMAX_CCPRIOR ;
+    xbin = DMUBIN_CCPRIOR ;
+    nbin = (int)( (xmax-xmin+1.0e-8) / xbin) ;
+
+    //.xyz
+  }
+  else if ( strcmp(VARNAME,VARNAME_SALT2_c) == 0 ) {
+    xmin = INPUTS.cmin ;
+    xmax = INPUTS.cmax ;
+    nbin = 3 ;  // perhaps make this user input ?
+    xbin = (xmax-xmin) / (double)nbin ;
+  }
+  else if ( strcmp(VARNAME,VARNAME_SALT2_x1) == 0 ) {
+    xmin = INPUTS.x1min ;
+    xmax = INPUTS.x1max ;
+    nbin = 2 ;  // convert to user input ?
+    xbin = (xmax-xmin) / (double)nbin ;
+  }
+  else if ( strcmp(VARNAME,VARNAME_BAYESN_AV) == 0 || 
+	    strcmp(VARNAME,VARNAME_BAYESN_theta1) ) {
+    sprintf(c1err,"Don't know what to do for BAYESN var = %s", VARNAME);
+    sprintf(c2err,"Somebody needs to figure out how to bin this variable for CCprior.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+  }
+  else {
+    sprintf(c1err,"Invalid VARNAME = %s", VARNAME);
+    sprintf(c2err,"Valid VARNAMES are %s  %s  %s  %s  %s ",
+	    VARNAME_zHD, VARNAME_SALT2_c, VARNAME_SALT2_x1, 
+	    VARNAME_BAYESN_AV, VARNAME_BAYESN_theta1);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+  }
+
+  // make uniform z-grid, although a non-uniform grid is allowed.
+  int ibin  = 0;
+  double x0 = xmin ;
+  double x1 = xmax - xbin + 1.0E-5*(xmax-xmin);
+  double x, lo, hi;
+
+  sprintf( BININFO->varName,"%s(CCprior)", VARNAME );
+
+  for ( x=x0; x < x1; x +=xbin ) {
+    lo = x;
+    hi = x + xbin;
+    BININFO->lo[ibin]  = lo ;
+    BININFO->hi[ibin]  = hi ;
+    BININFO->avg[ibin] = 0.5*(lo+hi);
+    BININFO->n_perbin[ibin] = 0 ;
+    ibin++ ;  
+  }
+  BININFO->nbin    = ibin;
+  BININFO->binSize = xbin;
+
+  nbin = BININFO->nbin ;
+  fprintf(FP_STDOUT, "  %s has %d bins from %.3f to %.3f (binsize=%.4f)\n", 
+	  BININFO->varName, BININFO->nbin, BININFO->lo[0],  BININFO->hi[nbin-1],
+	  BININFO->binSize);
+  fflush(FP_STDOUT);
+
+  return;
+
+} // end setup_BININFO_CCPRIOR
 
 void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, 
 				 PROB_CCPRIOR_DEF *PROB, bool PRINT_TABLE ) {
   
   // Created Jul 29 2025
-  // Compute DMUPDF for input IDSAMPLE. Use precomputed PROB(DMU)
+  // Compute DMUPDF in each redshift bin for input IDSAMPLE. 
+  // Use precomputed PROB(DMU)
 
   bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
   bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
@@ -15774,6 +15842,9 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     dmu      = PROB->DMU[icc] ;
     imu      = IBINFUN(dmu, &MUZMAP->DMUBIN, 0, "" );
     iz       = TABLEVAR->IZBIN[icc] ;   // redshift bin 
+    // ic = ?
+    // is = ?
+    // i3d = intfun(iz,ic,is)
 
     PROB->IZ[icc]  = iz;  
     PROB->IMU[icc] = imu; 

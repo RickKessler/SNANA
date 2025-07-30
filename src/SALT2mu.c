@@ -1,6 +1,6 @@
 /*******************************************
 Created by J. Marriner.
-Installed into snana v8_38, January 2010. 
+Installed into snana v8_38, January 2010.   
  
 Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters
@@ -604,8 +604,8 @@ typedef struct {
   int istat_malloc ;
 } PROB_CCPRIOR_DEF ;  // Jul 29 2025
 
-// Jun 4 2019: define general data structure for DATA,BIASCOR,CCPRIOR
 
+// Jun 4 2019: define general data structure for DATA,BIASCOR,CCPRIOR
 typedef struct {
   int  EVENT_TYPE ;      // DATA, BIASCOR, or CCPRIOR
   char INPUT_FILE[MXFILE_DATA][MXCHAR_FILENAME]; // input file name(s)
@@ -1640,12 +1640,12 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
 
 double prob_CCprior_sim(int OPT, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-		    double z, double dmu, int DUMPFLAG);
+			double z, double dmu, int DUMPFLAG, char *callFun);
 double prob_CCprior_H11(int n, double dmu, double *H11_fitpar, 
 			double *sqsigCC, double *sigCC_chi2penalty);
 
-void   load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
-			       (*FITPARBIAS_ABGRID)[MXb][MXg]);
+void   load_FITPARBIAS(int EVENT_TYPE, int isn, FITPARBIAS_DEF
+		       (*FITPARBIAS_ABGRID)[MXb][MXg]);
 
 int IBINFUN(double VAL, BININFO_DEF *BIN, int OPT_ABORT, char *MSG_ABORT );
 void copy_BININFO(BININFO_DEF *BIN1, BININFO_DEF *BIN2);
@@ -4231,6 +4231,7 @@ void *MNCHI2FUN(void *thread) {
   double   MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
   double   *fitParBias;
 
+  bool REFAC1 = ( INPUTS.REFAC_CCPRIOR & 1 ) > 0 ;  // fix PROB(DMU) during init
   bool LDMP = ISMODEL_LCFIT_BAYESN ;
   
   // -------------- BEGIN ------------
@@ -4351,16 +4352,15 @@ void *MNCHI2FUN(void *thread) {
 	for(ib=0; ib<MXb; ib++ ) {
 	  for(ig=0; ig<MXg; ig++ ) {
 	    
-	    MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
-	      INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
+	    MUCOVSCALE_ALPHABETA[ia][ib][ig] = INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
 
-	    if ( DO_COVADD ) {
-	      MUCOVADD_ALPHABETA[ia][ib][ig] = 
-		INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] ; 
+	    if ( DO_COVADD ) 
+	      { MUCOVADD_ALPHABETA[ia][ib][ig] = INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] ; 	}
+
+	    if (set_fitwgt0) { 
+	      MUCOVSCALE_ALPHABETA[ia][ib][ig] = 1.0; 
+	      MUCOVADD_ALPHABETA[ia][ib][ig]   = 1.0; 
 	    }
-
-	    if (set_fitwgt0) { MUCOVSCALE_ALPHABETA[ia][ib][ig]=1.0; }
-	    if (set_fitwgt0) { MUCOVADD_ALPHABETA[ia][ib][ig]=1.0; }
 	    
 	    FITPARBIAS_ALPHABETA[ia][ib][ig].NEVT_BIASCOR =
 	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].NEVT_BIASCOR ; 
@@ -4601,8 +4601,16 @@ void *MNCHI2FUN(void *thread) {
 				    &sqsigCC, &sigCC_chi2penalty );
       }
       else { // CC prob from sim
-	dPdmu_CC = prob_CCprior_sim(INPUTS.opt_ccprior, idsample, CCPRIOR_MUZMAP, 
-				    z, mures, DUMPFLAG );
+	//.xyz
+	if ( REFAC1 ) {
+	  // pre-computed during init with user-input alpha,beta
+	  dPdmu_CC = INFO_DATA.PROB_CCPRIOR.PROB[n];  
+	}
+	else {
+	  // original/legacy recomputes prob_CC for each fit step
+	  dPdmu_CC = prob_CCprior_sim(INPUTS.opt_ccprior, idsample, CCPRIOR_MUZMAP, 
+				      z, mures, DUMPFLAG, fnam );
+	}
       }
       Prob_CC   = PTOT_CC * dPdmu_CC ;
 
@@ -15267,6 +15275,10 @@ void prepare_CCprior(void) {
   int  NSAMPLE      = NSAMPLE_BIASCOR ;
   int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
   int idsample, USE_CCPRIOR_H11 ;
+
+  bool REFAC1 = ( INPUTS.REFAC_CCPRIOR & 1 ) > 0 ;  // fix PROB(DMU) during init
+  bool REFAC2 = ( INPUTS.REFAC_CCPRIOR & 2 ) > 0 ;  // define PROB(DMU) vs. z,c,x1
+
   char fnam[] = "prepare_CCprior" ;
 
   // ------------- BEGIN -------------
@@ -15301,42 +15313,49 @@ void prepare_CCprior(void) {
   // allocate memory and read simFile
   read_simFile_CCprior(); 
   print_eventStats(EVENT_TYPE); // call this before store_INFO_CCPRIOR
-  store_INFO_CCPRIOR_CUTS();    // transfer INFO to smaller arrays
+  store_INFO_CCPRIOR_CUTS();    // transfer TABLEVAR to sparse TABLEVAR_CUTS 
 
   MUZMAP_DEF   *MUZMAP             = &INFO_CCPRIOR.MUZMAP;
-  TABLEVAR_DEF *TABLEVAR_CUTS      = &INFO_CCPRIOR.TABLEVAR_CUTS ;
+  TABLEVAR_DEF *TABLEVAR_CCPRIOR   = &INFO_CCPRIOR.TABLEVAR_CUTS ;
   PROB_CCPRIOR_DEF *PROB_CCPRIOR   = &INFO_CCPRIOR.PROB_CCPRIOR ;
+  TABLEVAR_DEF *TABLEVAR_DATA      = &INFO_DATA.TABLEVAR ;
+  PROB_CCPRIOR_DEF *PROB_DATA      = &INFO_DATA.PROB_CCPRIOR ;
   double ABG[3] = { INPUTS.parval[IPAR_ALPHA0], INPUTS.parval[IPAR_BETA0], 0.0 };  // alpha, beta, gamma
 
   // compute dmu for all sim CC events and store in PROB_CCPRIOR structure
-  load_DMU_CCprior(TABLEVAR_CUTS, ABG, PROB_CCPRIOR);
+  PROB_CCPRIOR->istat_malloc = 0;
+  load_DMU_CCprior(TABLEVAR_CCPRIOR, ABG, PROB_CCPRIOR);
 
-  if ( ( INPUTS.REFAC_CCPRIOR & 1 ) > 0 ) {
-    // add back later ... load_DMU_CCprior(&INFO_DATA.TABLEVAR, ABG, &INFO_DATA.PROB_CCPRIOR);
-  }
 
   // - - - - 
 
   if ( INPUTS.REFAC_CCPRIOR > 0 ) { // Jul 29 2025
 
-    printf("\t %s: call refactored setup_MUMZAP*CCPRIOR functions\n"); fflush(stdout);
-    setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_CUTS, MUZMAP);
+    printf("\t %s: call refactored setup_MUMZAP*CCPRIOR functions\n", fnam); fflush(stdout);
+    setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_CCPRIOR, MUZMAP);
 
     bool PRINT_TABLE = true;
     for(idsample=0; idsample < NSAMPLE; idsample++ ) {
-      setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CUTS, MUZMAP, PROB_CCPRIOR, PRINT_TABLE );
+      setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CCPRIOR, MUZMAP, 
+				  PROB_CCPRIOR, PRINT_TABLE );
     }
+
+    if ( REFAC1 ) { 
+      INFO_DATA.PROB_CCPRIOR.istat_malloc = 0;
+      load_DMU_CCprior(TABLEVAR_DATA, ABG, PROB_DATA);
+      load_PROBDMU_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA); 
+    } 
   }
   else {
     // legacy functions
     // set z-bin index in MUZMAP for each event to speed things up in fitting
-    printf("\t %s: call setup*CCprior_legacy functions\n"); fflush(stdout);
+    printf("\t %s: call setup*CCprior_legacy functions\n", fnam ); fflush(stdout);
 
-    setup_zbins_CCprior_legacy(TABLEVAR_CUTS, &MUZMAP->ZBIN );
+    setup_zbins_CCprior_legacy(TABLEVAR_CCPRIOR, &MUZMAP->ZBIN );
 
     for(idsample=0; idsample < NSAMPLE; idsample++ ) {
-      setup_MUZMAP_CCprior_legacy(idsample, TABLEVAR_CUTS, MUZMAP );
-      setup_DMUPDF_CCprior_legacy(idsample, TABLEVAR_CUTS, MUZMAP, true );  
+      setup_MUZMAP_CCprior_legacy(idsample, TABLEVAR_CCPRIOR, MUZMAP );
+      setup_DMUPDF_CCprior_legacy(idsample, TABLEVAR_CCPRIOR, MUZMAP, true );  
     }
   } // end legacy calls
 
@@ -15448,6 +15467,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
 
   int  NSN_ALL      = INFO_CCPRIOR.TABLEVAR.NSN_ALL ;
   int  NSN_PASS     = INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
+  int  EVENT_TYPE   = INFO_CCPRIOR.TABLEVAR.EVENT_TYPE ;
   int  NBINa        = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   int  NBINb        = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   int  NBINg        = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
@@ -15469,7 +15489,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
 
   INFO_CCPRIOR.TABLEVAR_CUTS.NSN_ALL      = NSN_PASS ;
   INFO_CCPRIOR.TABLEVAR_CUTS.NSN_PASSCUTS = NSN_PASS ;
-  
+  INFO_CCPRIOR.TABLEVAR_CUTS.EVENT_TYPE   = EVENT_TYPE ;
 
   // count number of true CC with cuts
   icc=0;
@@ -15550,7 +15570,7 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   BININFO_DEF *ZBIN = &MUZMAP->ZBIN ;
 
   double z, zlo, zhi, z0, z1 ;
-  int  nbz, icc, iz ;
+  int  nbz, icc, iz, j ;
   char MSGERR[100];
   char fnam[] = "setup_MUZMAP_INFO_CCPRIOR" ;
 
@@ -15645,11 +15665,15 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
   MUZMAP->M0    = INPUTS.M0 ;
 
+  for ( j=0; j < 4; j++ ) { MUZMAP->cosPar[0] = INPUTS.COSPAR[j] ;  }
+
+  /* xxx mark delete 
   MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
   MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok
   MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
   MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
-    
+  xxxxxxx end */
+
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
   // starts alpha,beta way off.
@@ -15691,6 +15715,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
   bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   int NSN_ALL         = TABLEVAR->NSN_ALL;
+  int EVENT_TYPE      = TABLEVAR->EVENT_TYPE ;
 
   int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample, nevt_biascor ;
   int NCC[MXz][MAXMUBIN], NCC_SUM[MXz]; 
@@ -15753,6 +15778,14 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     PROB->IZ[icc]  = iz;  
     PROB->IMU[icc] = imu; 
 
+    // xxxxxxxxxxxxx
+    if  (EVENT_TYPE == EVENT_TYPE_DATA && icc < -10 ) {
+      printf(" xxx %s: icc=%d  dmu=%.3f  imu=%d  iz=%d \n", 
+	     fnam, icc, dmu, imu, iz); fflush(stdout);
+    }
+    // xxxxxxxxxxxxx
+
+
     if ( imu >= 0 ) {
       NCC_SUM[iz]++ ;
       NCC[iz][imu]++ ;
@@ -15770,8 +15803,10 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   double S1TMP, S2TMP, AVG, STD; 
   int NTMP, NTMP_MAX = 0 ;  
 
+ 
   if ( PRINT_TABLE ) {
-    fprintf(FP_STDOUT, "\n   %s: \n", SAMPLE_BIASCOR[IDSAMPLE].NAME  );
+    fprintf(FP_STDOUT, "\n   %s for %s: \n", 
+	    SAMPLE_BIASCOR[IDSAMPLE].NAME, STRING_EVENT_TYPE[EVENT_TYPE]  );
     fprintf(FP_STDOUT, "\t IDSAMPLE iz    zmin zmax  N(NONIA)  AVG(DMU)  STD(DMU)\n" );
   }  // end PRINT_TABLE
 
@@ -15858,8 +15893,10 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       imu = PROB->IMU[icc];
       dmu = PROB->DMU[icc];
       PDF_TRUE   = MUZMAP->DMUPDF[IDSAMPLE][iz][imu] ;
-      PDF_GAUSS  = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_GAUSS,  IDSAMPLE, MUZMAP, z, dmu, 0 );
-      PDF_INTERP = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_INTERP, IDSAMPLE, MUZMAP, z, dmu, 0 );
+      PDF_GAUSS  = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_GAUSS,  
+				    IDSAMPLE, MUZMAP, z, dmu, 0, fnam );
+      PDF_INTERP = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_INTERP, 
+				    IDSAMPLE, MUZMAP, z, dmu, 0, fnam );
 
       fprintf(fcc,"SN: %12s %2d %3d  "          // CID IDSAMPLE IDSURVEY 
 	      "%8s  %2d %2d  "                  // FIELD, iz, imu
@@ -16180,7 +16217,7 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
       // transfer FITPARBIAS_ALPHABETA to FITPARBIAS_TMP that has
       // the right 2D structure definition for get_muBias
-      load_FITPARBIAS_CCprior(icc,FITPARBIAS_TMP);
+      load_FITPARBIAS(EVENT_TYPE_CCPRIOR, icc,FITPARBIAS_TMP);
 
       if ( NDIM_BIASCOR >= 5 ) {
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
@@ -16330,8 +16367,10 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       imu = IMU_CCPRIOR[icc];
       dmu = DMU_CCPRIOR[icc];
       PDF_TRUE   = MUZMAP->DMUPDF[IDSAMPLE][iz][imu] ;
-      PDF_GAUSS  = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_GAUSS,  IDSAMPLE, MUZMAP, z, dmu, 0 );
-      PDF_INTERP = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_INTERP, IDSAMPLE, MUZMAP, z, dmu, 0 );
+      PDF_GAUSS  = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_GAUSS, 
+				    IDSAMPLE, MUZMAP, z, dmu, 0, fnam );
+      PDF_INTERP = prob_CCprior_sim(MASK_CCPRIOR_FUNDMU_INTERP, 
+				    IDSAMPLE, MUZMAP, z, dmu, 0, fnam );
 
       fprintf(fcc,"SN: %12s %2d %3d  "          // CID IDSAMPLE IDSURVEY 
 	      "%8s  %2d %2d  "                  // FIELD, iz, imu
@@ -16372,12 +16411,12 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
   bool USE_BIASCOR    = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
   int  NDIM_BIASCOR   = INFO_BIASCOR.NDIM ;
 
-  int  NSN_ALL        =  TABLEVAR->NSN_ALL ;
+  int  EVENT_TYPE     = TABLEVAR->EVENT_TYPE;
+  int  NSN_ALL        = TABLEVAR->NSN_ALL ;
   bool DO_MALLOC      = ( PROB_CCPRIOR->istat_malloc == 0 ) ;
   int  MEMI           = NSN_ALL * sizeof(int);
   int  MEMD           = NSN_ALL * sizeof(double);
   double M0           = M0_DEFAULT;
-
 
   FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
   double           MUCOVSCALE_TMP[MXa][MXb][MXg] ; 
@@ -16463,7 +16502,7 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
 
       // transfer FITPARBIAS_ALPHABETA to FITPARBIAS_TMP that has
       // the right 2D structure definition for get_muBias
-      load_FITPARBIAS_CCprior(icc,FITPARBIAS_TMP);
+      load_FITPARBIAS(EVENT_TYPE, icc,FITPARBIAS_TMP);
 
       if ( NDIM_BIASCOR >= 5 ) {
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
@@ -16522,13 +16561,30 @@ void load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRI
   // Loop over events in TABLEVAR and use MUZMAP and PROB_CCPRIOR to compute
   // PROB(DMU) for each event; store PROB in PROB_CCPRIOR.PROB.
 
+  int NSN_ALL  = TABLEVAR->NSN_ALL;
+  double *DMU  = PROB_CCPRIOR->DMU ; // already loaded
+  double *PROB = PROB_CCPRIOR->PROB ; // to be loaded below
+
+  double z;
+  int DUMPFLAG = 0 ;
+  int isn, IDSAMPLE, CUTMASK;
   char fnam[] = "load_PROBDMU_CCprior" ;
 
   // ------------- BEGIN ----------
 
+  for(isn=0; isn < NSN_ALL; isn++ ) {
+
+    if ( TABLEVAR->CUTMASK[isn] ) { continue; }
+
+    z          = TABLEVAR->zhd[isn];
+    IDSAMPLE   = TABLEVAR->IDSAMPLE[isn];
+    PROB[isn]  = prob_CCprior_sim(INPUTS.opt_ccprior, IDSAMPLE, MUZMAP, 
+				  z, DMU[isn], DUMPFLAG, fnam );
+  }
+
   return ;
 
-}
+}  // load_PROBDMU_CCprior
 
 
 // ============================================
@@ -16570,7 +16626,7 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
     DMU_LO = MUZMAP->DMUBIN.lo[imu];
     DMU_HI = MUZMAP->DMUBIN.hi[imu];
     DMU    = 0.5 * ( DMU_LO + DMU_HI );
-    PDF_BBC  = prob_CCprior_sim(INPUTS.opt_ccprior, IDSAMPLE, MUZMAP, z, DMU, 0 );
+    PDF_BBC  = prob_CCprior_sim(INPUTS.opt_ccprior, IDSAMPLE, MUZMAP, z, DMU, 0, fnam );
 
     fprintf(FP_STDOUT, "\t  %3d  %6.3f  %6.3f   %5d      %.3f    %.3f\n",
 	    imu, DMU_LO, DMU_HI, NCC, PDF_TRUE, PDF_BBC );
@@ -16852,12 +16908,11 @@ void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO) {
 } // print_table_CONTAM_INFO
 
 // ===================================================
-void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
-			     (*FITPARBIAS_ABGRID)[MXb][MXg] )
+void load_FITPARBIAS(int EVENT_TYPE, int isn, FITPARBIAS_DEF (*FITPARBIAS_ABGRID)[MXb][MXg] )
 {
 
   // Created Jun 7, 2016
-  // load FITPARBIAS struct from global function of icc= CC index.
+  // load FITPARBIAS struct from global function of isn = SN index.
   // The global structure does not have the right form to pass
   // to get_muBias, so load FITPARBIAS that can be passed to get_muBias.
   //
@@ -16869,9 +16924,10 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
   int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;  
 
-  char fnam[] = "load_FITPARBIAS_CCprior" ;
+  char fnam[] = "load_FITPARBIAS" ;
 
   // -------- BEGIN ------------
+
   NBINa   = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   NBINb   = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   NBINg   = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ; 
@@ -16884,13 +16940,23 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
 
 	for(ipar=ILCPAR_MIN; ipar<= ILCPAR_MAX; ipar++ ) {
 
-	  FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar] =
-	    INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[icc][ia][ib][ig].VAL[ipar] ;
-	  FITPARBIAS_ABGRID[ia][ib][ig].ERR[ipar] =
-	    INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[icc][ia][ib][ig].ERR[ipar] ;
-	  FITPARBIAS_ABGRID[ia][ib][ig].RMS[ipar] =
-	    INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[icc][ia][ib][ig].RMS[ipar] ;
-	
+	  if ( EVENT_TYPE == EVENT_TYPE_CCPRIOR ) {
+	    FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar] =
+	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[isn][ia][ib][ig].VAL[ipar] ;
+	    FITPARBIAS_ABGRID[ia][ib][ig].ERR[ipar] =
+	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[isn][ia][ib][ig].ERR[ipar] ;
+	    FITPARBIAS_ABGRID[ia][ib][ig].RMS[ipar] =
+	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[isn][ia][ib][ig].RMS[ipar] ;
+	  }
+	  else if ( EVENT_TYPE == EVENT_TYPE_DATA ) {
+	    FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar] =
+	      INFO_DATA.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].VAL[ipar] ;
+	    FITPARBIAS_ABGRID[ia][ib][ig].ERR[ipar] =
+	      INFO_DATA.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].ERR[ipar] ;
+	    FITPARBIAS_ABGRID[ia][ib][ig].RMS[ipar] =
+	      INFO_DATA.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].RMS[ipar] ;
+	  }
+
 	} //ipar
       } //ig
     } // ib
@@ -16898,7 +16964,7 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
   
   return ;
 
-} // end load_FITPARBIAS_CCprior
+} // end load_FITPARBIAS
 
 
 // ===================================================
@@ -16979,7 +17045,7 @@ double prob_CCprior_H11(int n, double dmu,
 
 // ===================================================
 double prob_CCprior_sim(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-			double z, double dmu, int DUMPFLAG) {
+			double z, double dmu, int DUMPFLAG, char *callFun) {
 
   // Called by fcn function in minuit to return CC prob 
   // for input MUZMAP (includes cosPar) and Hubble resid dmu.
@@ -16995,12 +17061,20 @@ double prob_CCprior_sim(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   int OPT_INTERP = 1; // 1=linear
   int IZ, NBMU, imu ;
   double dmumin, dmumax, dmubin, dmu_local=dmu , prob, prob2, frac, *DMUPDF, *DMUAVG;
-  char fnam[] = "prob_CCprior_sim" ;
+
+  char fnam[100] ;
+  concat_callfun_plus_fnam(callFun, "prob_CCprior_sim", fnam); // return fnam 
 
   // ----------------- BEGIN ------------
   prob = 0.0 ;
 
   IZ   = IBINFUN(z, &MUZMAP->ZBIN, 0, fnam);
+
+  if ( IZ < 0 ) {
+    sprintf(c1err,"Invalid IZ = %d for z=%.4f  dmu=%.4f", IZ, z, dmu );
+    sprintf(c2err,"IDSAMPLE=%d", IDSAMPLE);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
 
   if ( DO_FUNDMU_GAUSS ) {
     // make Guassian approximation with <DMU> and RMS(DMU).
@@ -17042,14 +17116,6 @@ double prob_CCprior_sim(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP,
 
   }
 
-
-  // xxxxxxxxxxxxxxxxxxx
-  if ( IZ < -3    ) {
-    printf(" xxx IDSAMPLE=%d  z=%.3f IZ=%2d   dmu_local=%6.3f  prob=%.3f/%.3f \n",
-	   IDSAMPLE, z, IZ, dmu_local, prob, prob2); fflush(stdout);
-    debugexit(fnam);
-  }
-  // xxxxxxxxxxxxxxxxxxx
 
   // -------------------------------
   return(prob);

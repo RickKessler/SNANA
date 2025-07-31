@@ -18389,9 +18389,6 @@ void  print_SIMLIB_MSKOPT(void) {
   print_mask_comment(stdout, MSKOPT, SIMLIB_MSKOPT_IDEAL_GRID,
 		     "IDEAL GRID; compute PEAKMJD_FIX");
 
-  //  print_mask_comment(stdout, MSKOPT, 0, 		     "");
-  //  print_mask_comment(stdout, MSKOPT, 0, 		     "");
-
   return;
 
 } //end print_SIMLIB_MSKOPT

@@ -805,7 +805,6 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
       OFFSET_1DINDEX[ID][i] = OFFSET  = 1 ;
     }
       
-    
     if ( LDMP ) {
       printf(" xxxx OFFSET_1DINDEX[ID=%d][ivar=%2d] = %7d   "
 	     " NPT_PERDIM=%d\n",

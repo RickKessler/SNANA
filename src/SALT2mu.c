@@ -15912,7 +15912,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
 
   //  printf(" xxx %s: NROW = %d \n", fnam, INFO_CC->NROW);
 
-  int ABORT_IBINFUN = 1 ; // 1 = Abort. To return edge bin, instead of aborting, set to 2
+  int ABORT_IBINFUN = 2 ; // 1 = Abort; 2=shift to edge of bin
   int i3list[3];
   for(icc=0; icc < NSN_ALL ; icc++ ) {  
 

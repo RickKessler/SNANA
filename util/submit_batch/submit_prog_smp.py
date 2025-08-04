@@ -2,9 +2,10 @@
 # Initial use is MultiSMP for Roman.
 #
 
-import os, sys, logging, datetime, time, subprocess
+import os, sys, logging, datetime, time, subprocess, yaml
 import submit_util as util
 import pandas as pd
+import numpy  as np
 
 from   submit_params    import *
 from   submit_prog_base import Program
@@ -62,13 +63,15 @@ class SceneModelPhotometry(Program):
         self.prep_smp_subclass()
         self.prep_smp_fitopt()
         self.prep_smp_output_dirs()
+        self.prep_smp_healpix()
 
+        self.prep_smp_flatten()
+        
         # load misc globals used by base program
 
         n_fitopt = self.config_prep['fitopt_dict']['n_jobopt']
         self.config_prep['n_job_tot']   = n_fitopt
         self.config_prep['n_done_tot']  = n_fitopt
-        self.config_prep['n_job_split'] = 1        
         
         return
         # end submit_prepare_driver
@@ -98,6 +101,8 @@ class SceneModelPhotometry(Program):
 
     def prep_smp_output_dirs(self):
 
+        # prepare output dir for each fitopt; passed to campari code
+    
         output_dir        = self.config_prep['output_dir']
         fitopt_dict       = self.config_prep['fitopt_dict']
         fitopt_num_list   = fitopt_dict['jobopt_num_list']  # e.g., "FITOPT001"
@@ -107,7 +112,7 @@ class SceneModelPhotometry(Program):
         logging.info('')
         logging.info(f"  prepare SMP outdir(s):")        
         for fitopt_num in fitopt_num_list:
-            prefix         = self.smp_prefix(fitopt_num)
+            prefix         = self.smp_prefix(fitopt_num,0)  # FIX THIS ???
             output_dir_smp = f"{output_dir}/OUTPUT_{prefix}"
             output_dir_smp_list.append(output_dir_smp)
             logging.info(f"\t {output_dir_smp}")
@@ -117,6 +122,91 @@ class SceneModelPhotometry(Program):
         self.config_prep['output_dir_smp_list'] = output_dir_smp_list
         
         return
+
+    def prep_smp_healpix(self):
+
+        CONFIG        = self.config_yaml['CONFIG']
+        n_fitopt      = self.config_prep['fitopt_dict']['n_jobopt']
+        n_core        = self.config_prep['n_core']
+
+        n_hpsubset    = int(n_core/n_fitopt)  # number of healpix subsets
+        if n_hpsubset < 1: n_hpsubset = 1
+        n_job_split   = n_hpsubset
+        
+        # revise n_core
+        n_core = n_hpsubset * n_fitopt
+        self.config_prep['n_core'] = n_core
+        
+        logging.info(f" Calculated nubmer of healpix subsets: {n_hpsubset}")
+        logging.info(f" Revised n_core: {n_core} = " \
+                     f"{n_fitopt}(FITOPT) x {n_hpsubset}(HEALPIX SUBSETS)")
+
+        # read full list of healpixels
+        key = 'HEALPIX_LIST_FILE' 
+        if key not in CONFIG:
+            sys.exit(f"\n ABORT: missing required key = {key}\n CONFIG = \n{CONFIG}") # use official abort function
+
+        HEALPIX_LIST_FILE = CONFIG[key]
+        with open(HEALPIX_LIST_FILE,"rt") as h:
+            lines = h.readlines()
+            
+        contents = yaml.safe_load("\n".join(lines))
+        nside        = contents['NSIDE']
+        healpix_global_list = contents['HEALPIX']
+
+        # split healpix_list into n_job_split sub-lists
+        # (welcome AI overlords for figuring this out)
+        split_list = [list(arr) for arr in \
+                      np.array_split(np.array(healpix_global_list), n_job_split)]
+
+
+        # construct separate healpix list file for each task/list
+        healpix_file_list = []
+        for i_split, healpix_list in enumerate(split_list):
+            hp_file = self.write_healpix_sublist(i_split, nside,healpix_list)
+            healpix_file_list.append(hp_file)
+            
+        self.config_prep['n_job_split']       = n_job_split
+        self.config_prep['healpix_file_list'] = healpix_file_list
+        return
+        # end prep_smp_healpix
+
+    def prep_smp_flatten(self):
+        n_job_split      = self.config_prep['n_job_split']
+        fitopt_dict      = self.config_prep['fitopt_dict']
+        n_fitopt         = fitopt_dict['n_jobopt']
+
+        iopt_list = []  # for FITOPT
+        isplit_list = []
+
+        for iopt in range(0,n_fitopt):
+            for isplit in range(0,n_job_split):
+                iopt_list.append(iopt)
+                isplit_list.append(isplit)
+
+        self.config_prep['iopt_list']   = iopt_list
+        self.config_prep['isplit_list'] = isplit_list        
+
+        return
+    
+    def write_healpix_sublist(self, i_split, nside, healpix_list):
+                                            
+        script_dir       = self.config_prep['script_dir']
+        
+        hp_file = f"HEALPIX_SPLIT{i_split:03d}.DAT"
+        hp_path = f"{script_dir}/{hp_file}"
+        logging.info(f"\t write {hp_file}")
+
+        with open(hp_path,"wt") as h:
+            h.write(f"Healpix sub-list for SPLIT job {i_split}\n\n")
+            h.write(f"NSIDE: {nside} \n")
+            h.write(f"\nHEALPIX: \n")
+            for hp in healpix_list:
+                h.write(f"- {hp}\n")
+                
+        return hp_path
+    
+        # end write_healpix_sublist
         
     def write_command_file(self, icpu, f):
 
@@ -127,16 +217,21 @@ class SceneModelPhotometry(Program):
         n_job_tot        = self.config_prep['n_job_tot']
         n_core           = self.config_prep['n_core']
         fitopt_dict      = self.config_prep['fitopt_dict']
+        n_job_split      = self.config_prep['n_job_split']
 
-        n_fitopt          = fitopt_dict['n_jobopt']
+        iopt_list        = self.config_prep['iopt_list']
+        isplit_list      = self.config_prep['isplit_list']
+        
+        n_fitopt         = fitopt_dict['n_jobopt']
         n_job_local       = 0
         
-        i = 0
-        for i in range(0,n_fitopt):
+        for iopt, isplit in zip(iopt_list, isplit_list):
+            
+            index_dict = { 'iopt':iopt, 'isplit':isplit, 'icpu':icpu  }
 
             n_job_local += 1
-            if i % n_core == icpu:                
-                job_info_exec   = self.prep_JOB_INFO_smp(i)
+            if ( (n_job_local-1) % n_core ) == icpu :        
+                job_info_exec  = self.prep_JOB_INFO_smp(index_dict)
                 util.write_job_info(f, job_info_exec, icpu)
 
                 #job_info_merge = self.prep_JOB_INFO_merge(icpu, n_job_local, False)
@@ -147,23 +242,27 @@ class SceneModelPhotometry(Program):
         # end write_command_file
         
 
-    def prep_JOB_INFO_smp(self, i):
+    def prep_JOB_INFO_smp(self, index_dict):
 
+        iopt = index_dict['iopt']  # this is the FITOPT
+        isplit = index_dict['isplit']
+        icpu   = index_dict['icpu']
+        
         program             = self.config_prep['program']
         output_dir          = self.config_prep['output_dir']
         fitopt_dict         = self.config_prep['fitopt_dict']
         output_dir_smp_list = self.config_prep['output_dir_smp_list']
         args                = self.config_yaml['args']  # user args to submit_batch
         
-        fitopt_num   = fitopt_dict['jobopt_num_list'][i]
-        fitopt_arg   = fitopt_dict['jobopt_arg_list'][i]
-        fitopt_label = fitopt_dict['jobopt_label_list'][i]
-        output_dir_smp = output_dir_smp_list[i]
+        fitopt_num   = fitopt_dict['jobopt_num_list'][iopt]
+        fitopt_arg   = fitopt_dict['jobopt_arg_list'][iopt]
+        fitopt_label = fitopt_dict['jobopt_label_list'][iopt]
+        output_dir_smp = output_dir_smp_list[iopt]
         
         if fitopt_label is None:
             fitopt_label = 'NOLABEL'
             
-        prefix    = self.smp_prefix(fitopt_num)
+        prefix    = self.smp_prefix(fitopt_num, isplit)
         log_file  = f"{prefix}.LOG"
         done_file = f"{prefix}.DONE"
         yaml_file = f"{prefix}.YAML"
@@ -195,8 +294,8 @@ class SceneModelPhotometry(Program):
 
 	# end prep_JOB_INFO_smp        
 
-    def smp_prefix(self, fitopt_num):
-        prefix = f"SMP_{fitopt_num}"
+    def smp_prefix(self, fitopt_num, isplit):
+        prefix = f"SMP_{fitopt_num}_SPLIT{isplit:03d}"
         return prefix
     
     # ========== MERGE STUFF =============
@@ -219,7 +318,13 @@ class SceneModelPhotometry(Program):
             row[COLNUM_FITOPT_ARG]   =  fitopt_dict['jobopt_arg_list'][i]
             f.write(f"  - {row} \n")
         f.write("\n")
-        
+
+
+        healpix_file_list = self.config_prep['healpix_file_list']
+        f.write(f"\nHEALPIX_FILE_LIST: \n")
+        for h in healpix_file_list:
+            f.write(f"  - {h}\n")
+            
         return
     # end append_info_file
                
@@ -283,7 +388,7 @@ class SceneModelPhotometry(Program):
             # strip off row info                   
             STATE       = row[COLNUM_SMP_MERGE_STATE]
             FITOPT_NUM  = row[COLNUM_SMP_MERGE_FITOPT]
-            prefix      = self.smp_prefix(FITOPT_NUM)            
+            prefix      = self.smp_prefix(FITOPT_NUM, 0 )  # FIX THIS ???    
             search_wildcard = f"{prefix}*"
 
             #COLNUM_SMP_MERGE_STATE           = 0  # STATE required in col=0
@@ -293,7 +398,6 @@ class SceneModelPhotometry(Program):
             #COLNUM_SMP_MERGE_NOBS            = 4  # number of observations for which flux is determined
             #COLNUM_SMP_MERGE_CPU             = 5
 
-            # .xyz
             # check if DONE or FAIL ; i.e., if Finished                 
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)

@@ -421,7 +421,7 @@ c
      &  ,LC_MARGCHI2(0:MXFILT_OBS)  ! chi2 from marginalized params
      &  ,LC_MARGPROB(0:MXFILT_OBS)  ! prob from above
 c
-     &  ,RESTLAMBDA_MODEL(2)   ! range defined by SN model
+     &  ,RESTLAMBDA_MODEL(2)   ! central filter range defined by SN model
      &  ,RESTLAMBDA_USEFIT(2)  ! range actually used in fit (Nov 2012)
 
       LOGICAL 
@@ -1654,9 +1654,6 @@ c set optional filter-dependent cuts on TREST
       CALL SETCUTS_FITWIN_TREST
 
 c ----------------------------------------------
-
-c xxx  mark del  CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_MJD(1)  
-c xxx  mark del  CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_MJD(2)
 
       CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_PEAKMJD(1)  
       CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_PEAKMJD(2)

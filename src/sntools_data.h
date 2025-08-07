@@ -20,7 +20,13 @@ struct {
   char **VARLIST_ZPHOT_Q;
 
   bool FOUND_NAME_IAUC, FOUND_NAME_TRANSIENT; // July 2024
-  
+
+  // define variables to monitor what variable(s) are actually over-written.
+  // If no vars are over-written, abort with error message 
+  int  NEVT;     // number of events with unique CID
+  int  NVAR_USE; // number of override variables used (Aug 2025)
+  char CID_LAST[40]; // last CID passed; used to count NUSE_OVERRIDE
+
 } RD_OVERRIDE;
 
 

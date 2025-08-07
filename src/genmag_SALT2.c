@@ -2779,16 +2779,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     get_genSmear(parList_genSmear, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
     free(lam);
 
-    /* xxxx mark delete May 26 2025 xxxx
-    if ( LDMP ) {  //.xyz
-      for ( ilamobs=10; ilamobs < 20; ilamobs++ ) {
-	get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
-	printf("\t xxx smear(lam=%7.1f) = %.3f \n", LAMOBS, GENSMEAR.MAGSMEAR_LIST[ilamobs] );
-      }
-    } // end LDMP
-    LDMP = 0;
-    xxxxxxx end mark xxxxxx */
-
   } // end ISTAT_GENSMEAR
 
 

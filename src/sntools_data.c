@@ -1360,6 +1360,11 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   if ( RD_OVERRIDE.FOUND_zCMB && RD_OVERRIDE.FOUND_zHEL ) 
     { RD_OVERRIDE.FOUND_zCMB = RD_OVERRIDE.FOUND_zHEL = false; }
 
+  
+  RD_OVERRIDE.NVAR_USE    = 0;
+  RD_OVERRIDE.CID_LAST[0] = 0; // Aug 8 2025
+  RD_OVERRIDE.NEVT        = 0; 
+
   return ;
 
 
@@ -1385,7 +1390,7 @@ void rd_override_check_mistake(char *varname_mistake, char *varname_correct) {
 
 
 // ==================================================
-int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL) {
+int RD_OVERRIDE_FETCH(char *CID, char *VARNAME, double *DVAL, char *STRVAL) {
 
   // Created Dec 2021
   // If SNID and VARNAME is on override list, return DVAL
@@ -1393,7 +1398,9 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL) {
   // Function returns 0 if there is no override.
   //
   // July 25 2024: return *STRVAL if VARNAME cast is string (e.g., for IAUC)
-  
+  // Aug  07 2025: abort if none of the override vars are used.
+
+  bool NEW_CID, FOUND_VARNAME;
   int  ISTAT, NRD, IVAR, NTMP, ICAST ;
   char fnam[] = "RD_OVERRIDE_FETCH";
 
@@ -1402,18 +1409,36 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL) {
   if ( !RD_OVERRIDE.USE ) { return 0; }
 
   IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
-  if ( IVAR < 0 ) { return 0; }
+  FOUND_VARNAME = ( IVAR >= 0 ) ;
+
+  // - - - - - -
+  // Aug 2025; abort if none of the override variables are used.
+  NEW_CID = ( strcmp(RD_OVERRIDE.CID_LAST,CID) != 0 );
+  if ( NEW_CID ) {
+    if ( RD_OVERRIDE.NEVT > 0 && RD_OVERRIDE.NVAR_USE == 0 ) {
+      sprintf(c1err,"No OVERRIDE variables are used.");
+      sprintf(c2err,"Make sure at least one override var matches varname in data file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    RD_OVERRIDE.NVAR_USE = 0; RD_OVERRIDE.NEVT++ ; 
+  } 
+  sprintf(RD_OVERRIDE.CID_LAST, "%s", CID);  // update last CCID
+  // --------
+
+
+  if ( !FOUND_VARNAME ) { return 0; }
+  RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
   // read from override table; ISTAT and DVALare returned
-  SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, DVAL, STRVAL);  
+  SNTABLE_AUTOSTORE_READ(CID, VARNAME, &ISTAT, DVAL, STRVAL);  
 
-  // *ISTAT =  0  if CCID is found; 
-  // *ISTAT = -1  if CCID is NOT found    
+  // *ISTAT =  0  if CID is found; 
+  // *ISTAT = -1  if CID is NOT found    
   // *ISTAT = -2  if VARNAME is NOT found
 
   if ( ISTAT == 0 ) {
     //    printf(" xxx %s: CID=%s  '%s'=%f  ISTAT=%d \n",
-    //	   fnam, CCID, VARNAME, *DVAL, ISTAT); fflush(stdout);
+    //	   fnam, CID, VARNAME, *DVAL, ISTAT); fflush(stdout);
     NRD = 1;
     if ( RD_OVERRIDE.N_PER_VAR[IVAR] == 0 ) 
       { printf("\t Found override for %s\n", VARNAME );  fflush(stdout); }
@@ -1423,6 +1448,7 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL) {
   else {
     NRD = 0 ;
   }
+ 
 
   return NRD ;
 

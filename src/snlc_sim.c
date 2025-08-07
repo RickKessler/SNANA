@@ -13406,7 +13406,8 @@ void gen_filtmap(int ilc) {
     if ( INDEX_GENMODEL == MODEL_SALT2  || 
 	 INDEX_GENMODEL == MODEL_SIMSED	||
 	 INDEX_GENMODEL == MODEL_BAYESN ||
-	 INDEX_GENMODEL == MODEL_NON1ASED  // 9.24.2017
+	 INDEX_GENMODEL == MODEL_NON1ASED ||  // 9.24.2017
+	 INDEX_GENMODEL == MODEL_SIMSED       // Aug 20925
 	 ) {
       istat = IFILTSTAT_SEDMODEL(ifilt_obs, z) ; 
       if ( istat == 0 ) {

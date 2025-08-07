@@ -72,6 +72,7 @@
  Oct 08 2024: add TEXPOSE per observation
  Mar 04 2025: minor REFAC_SNFITSIO to explicitly pass flag when done reading  event
               and close files. This fixes bug reading NONIASED followed by SALT3 sim data.
+ Aug 07 2025: remove REFAC_SNFITSIO flag
 
 **************************************************/
 
@@ -3196,7 +3197,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     return(SUCCESS) ; 
   }
 
-  if ( REFAC_SNFITSIO  &&  ifile != IFILE_RD_SNFITSIO ) {
+  if ( ifile != IFILE_RD_SNFITSIO ) {
     RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; 
     IFILE_RD_SNFITSIO = ifile ;              // update global file index
     ISNFIRST_SNFITSIO = isn ;                // first ISN in file
@@ -3874,16 +3875,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   } // end LRD_SPEC
 
   
-  /* xxx
-  // close file on last event
-  if ( REFAC_SNFITSIO ) {
-    //    printf(" xxx %s end: isn=%d  ifile=%d  N_SUM=%d \n",
-    //	   fnam, isn, ifile, NSNLC_RD_SNFITSIO_SUM[ifile] ); fflush(stdout);
-    if ( LRD_DONE && isn == NSNLC_RD_SNFITSIO_SUM[ifile] ) 
-      { RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; }
-  }
-  xxx */
-
   return(SUCCESS);
 
 } // end RD_SNFITSIO_EVENT
@@ -5607,31 +5598,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   NPARVAL      =  0 ;  
   parList[0]   = -9.0 ;
   parString[0] =  0 ;
-
-  // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-  if ( !REFAC_SNFITSIO ) {
-    ifile = -9 ; 
-    // check if we read current fits file, or need to open the next one.
-    for ( itmp = 1; itmp <= NFILE_RD_SNFITSIO; itmp++ ) {
-      if ( isn >  NSNLC_RD_SNFITSIO_SUM[itmp-1] &&
-	   isn <= NSNLC_RD_SNFITSIO_SUM[itmp] ) 
-	{ ifile = itmp ; }
-    }
-
-    //    printf(" xxx %s LEGACY  ifile=%d  isn=%d  IFILE_RD_SNFITSIO=%d \n", 
-    //	   fnam, ifile, isn, IFILE_RD_SNFITSIO);    fflush(stdout);
-
-    if ( ifile != IFILE_RD_SNFITSIO ) {
-      RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ;
-      IFILE_RD_SNFITSIO = ifile ;           // update global file index
-      ISNFIRST_SNFITSIO = isn ;             // first ISN in file
-      rd_snfitsio_file(IFILE_RD_SNFITSIO);  // open next fits file.
-      rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
-    }
-
-  } // end legacy
-  // xxxxxxxxxxxxxxx
-
 
   // - - - - - - - - - - - 
   // get local 'isn_file' index within this file;

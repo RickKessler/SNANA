@@ -596,7 +596,7 @@ void init_HOSTPAR_BAYESN(int OPTMASK, char *NAMES_HOSTPAR) {
     printf("\t ipar(%s) = %d \n", NAME, ipar);
   }
   else {
-    printf("\t WARNING: could not find LOGMASS among HOSTPAR.");
+    printf("\t WARNING: could not find LOGMASS among HOSTPAR.\n");
   }
 
 

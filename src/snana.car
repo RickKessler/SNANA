@@ -3762,8 +3762,6 @@ c     &     + OPTMASK_SNDATA_DUMP
      &        STRING, DARRAY, OPT) 
       ZP_FLUXCAL = SNGL(DARRAY(1))
  
-      print*,' xxx ZP_FLUXCAL = ', ZP_FLUXCAL 
-
       IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
          CALL FETCH_SNDATA_WRAPPER("FILTERS", 
      &        ONE, SURVEY_FILTERS, DARRAY, OPT)

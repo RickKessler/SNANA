@@ -44,8 +44,6 @@
 #include "sntools_genPDF.h"
 #include "sntools_host.h"
 
-//#include "sntools_genGauss_asym.h"
-
 #endif
 
 // =====================================================
@@ -367,8 +365,9 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   double PEAK    = GENGAUSS->PEAK ;
     
-  double sig_tiny = PEAK/1.0E6;
-  if ( GENGAUSS->SIGMA[0] == 0.0 )
+  // xxx mark  double sig_tiny = PEAK/1.0E6;
+  double sig_tiny = PEAK/1.0E8; 
+  if ( GENGAUSS->SIGMA[0] == 0.0 )  
     { GENGAUSS->SIGMA[0] = sig_tiny;  GENGAUSS->RANGE[0] = PEAK - 2.0*sig_tiny; }
   if ( GENGAUSS->SIGMA[1] == 0.0 )
     { GENGAUSS->SIGMA[1] = sig_tiny;  GENGAUSS->RANGE[1] = PEAK + 2.0*sig_tiny; }

@@ -108,7 +108,9 @@ NUMPY_FUNC_DICT = {
     'cos'         :  'np.cos'  ,
     'sin'         :  'np.sin'  ,
     'tan'         :  'np.tan'  ,        
-    'heaviside'   :  'np.heaviside'
+    'heaviside'   :  'np.heaviside',
+    'min'         :  'np.min',
+    'max'         :  'np.max'
 }
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 

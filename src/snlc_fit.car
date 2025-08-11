@@ -305,7 +305,7 @@ c variable indices for integer I4EP_
      &   IEP_IMJD, IEP_EPOCH
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
      &  ,IEP_REJECT, IEP_REJECT2
-     &  ,IEP_CCDNUM, IEP_IMGNUM
+     &  ,IEP_DETNUM, IEP_IMGNUM
 
 c variable indices for real R4EP_
       INTEGER   
@@ -339,7 +339,7 @@ c
      &  ,IEP_IFILT_REST2     = 7  ! idem, 2nd nearest rest-frame filter
      &  ,IEP_REJECT          = 8  ! flag to reject epoch from fit
      &  ,IEP_REJECT2         = 9  ! rejected inside Trest window (Mar 2020)
-     &  ,IEP_CCDNUM          = 10 ! CCD number
+     &  ,IEP_DETNUM          = 10 ! Detector/CCD number
      &  ,IEP_IMGNUM          = 11 ! image number (e..g, EXPNUM, VISIT_ID)
 c
 c for R4EP_XXX
@@ -1010,7 +1010,7 @@ c variables to define subset of fitted bands;
 
 c variables for SPECTRA table (Nov 2016)
       INTEGER    MXLAM_TBLSPEC, NBLAM_TBLSPEC, TBLSPEC_IFILTOBS
-      INTEGER    TBLSPEC_CCDNUM, TBLSPEC_IMGNUM  ! Oct 2021
+      INTEGER    TBLSPEC_DETNUM, TBLSPEC_IMGNUM  ! Oct 2021
       PARAMETER ( MXLAM_TBLSPEC = 1000 )
       CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
       REAL  
@@ -1034,7 +1034,7 @@ c
 
       COMMON / TABLEVARCOM4_SPEC /
      &   NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
-     &  ,TBLSPEC_CCDNUM, TBLSPEC_IMGNUM
+     &  ,TBLSPEC_DETNUM, TBLSPEC_IMGNUM
      &  ,TBLSPEC_CFILT, TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
      &  ,TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
@@ -11130,7 +11130,7 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT)       = IFILT
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
-        I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
+        I4EP_ALL(ep,IEP_DETNUM)      = ISNLC_DETNUM(ep)
         I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)
 
@@ -20061,7 +20061,7 @@ c   terminate strings for C table-functions (snana.car routine)
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
           TBLSPEC_LAMREST           = R4EP_ALL(ep,JEP_LAMREST) 
           TBLSPEC_IFILTOBS          = IFILTOBS
-          TBLSPEC_CCDNUM            = I4EP_ALL(ep,IEP_CCDNUM) 
+          TBLSPEC_DETNUM            = I4EP_ALL(ep,IEP_DETNUM) 
           TBLSPEC_IMGNUM            = I4EP_ALL(ep,IEP_IMGNUM)
           TBLSPEC_FLUXCAL_DATA      = R4EP_ALL(ep,JEP_DATAFLUX)
           TBLSPEC_FLUXCAL_DATA_ERR  = R4EP_ALL(ep,JEP_DATAFLUX_ERR)
@@ -20190,8 +20190,8 @@ c - - - -
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, TBLSPEC_CFILT, VARNAME, 1,
      &                   LENBLOCK, 4 )
 
-      VARNAME = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLSPEC_CCDNUM, VARNAME, 1,
+      VARNAME = 'DETNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLSPEC_DETNUM, VARNAME, 1,
      &                   LENBLOCK, 20 )
 
       VARNAME = 'IMGNUM:I' // char(0)

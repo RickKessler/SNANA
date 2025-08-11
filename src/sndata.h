@@ -241,7 +241,7 @@ struct SNDATA {
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
 
-  int   CCDNUM[MXEPOCH] ; // CCD number or sensor id
+  int   DETNUM[MXEPOCH] ; // detector/CCD number or sensor id
   int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g., EXPNUM, VISIT_ID)
 
   bool   OBSFLAG_WRITE[MXEPOCH];

@@ -1351,6 +1351,7 @@ struct GENLC {
   double  peakmag_rest3[MXFILTINDX] ;
 
   int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
+  int     DETNUM[MXEPSIM]  ; // detector/CCD number (Aug 11 2025)
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
@@ -1614,7 +1615,7 @@ struct SIMLIB_HEADER {
 
   // optional stuff
   double MWEBV, PIXSIZE ;
-  int    FAKEID, CCDNUM ;
+  int    FAKEID, DETNUM ; // Aug 11 2025: change CCDNUM to DETNUM
   long long GALID;
 
   int  NGROUPID_HOSTLIB;
@@ -1669,6 +1670,7 @@ typedef struct  {
 
   int     IDEXPT[MXOBS_SIMLIB];
   int     NEXPOSE[MXOBS_SIMLIB];  // Jan 2018 (for saturation calc)
+  int     DETNUM[MXOBS_SIMLIB];   // Aug 2025 for IDEXPT(DETNUM) 
   double  MJD[MXOBS_SIMLIB];
   double  CCDGAIN[MXOBS_SIMLIB];
   double  READNOISE[MXOBS_SIMLIB];
@@ -1940,10 +1942,12 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
-//xxx int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
-//xxx			char *cfiltList, int *ifiltList) ;
+
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
-void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
+
+// xxx mark del Aug 11 2025 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE);
+void   parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM) ;
+
 bool   parse_SIMLIB_TEXPOSE(char *inString, char *field);
 double get_TEXPOSE(int epoch);
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header

@@ -8546,7 +8546,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.RA[i_epoch]           = 9999999.0 ;
     SNDATA.DEC[i_epoch]          = 9999999.0 ;
 
-    SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
+    SNDATA.DETNUM[i_epoch]   = NULLINT ; // Mar 15 2021
     SNDATA.IMGNUM[i_epoch]   = NULLINT ; // Oct 13 2021 
 
     // Mar 28 2021: replace 'NULL' with 'VOID' because pandas 

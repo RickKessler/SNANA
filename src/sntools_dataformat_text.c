@@ -875,7 +875,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
-  bool WRFLAG_CCDNUM     = (SNDATA.CCDNUM[1] >= 0);
+  bool WRFLAG_DETNUM     = (SNDATA.DETNUM[1] >= 0);
   bool WRFLAG_IMGNUM     = (SNDATA.IMGNUM[1] >= 0);
   bool WRFLAG_METADATA   = true;
   bool WRFLAG_MAG        = false; 
@@ -910,7 +910,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   VARLIST[0] = NVAR = 0;
   NVAR++ ;  strcat(VARLIST,"MJD ");  
   NVAR++ ;  strcat(VARLIST,"BAND ");
-  if ( WRFLAG_CCDNUM ) { NVAR++ ; strcat(VARLIST,"CCDNUM "); }
+  if ( WRFLAG_DETNUM ) { NVAR++ ; strcat(VARLIST,"DETNUM "); }
   if ( WRFLAG_IMGNUM ) { NVAR++ ; strcat(VARLIST,"IMGNUM "); }
   NVAR++ ;  strcat(VARLIST,"FIELD ");
 
@@ -987,8 +987,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%s ",  SNDATA.FILTNAME[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    if ( WRFLAG_CCDNUM ) {
-      sprintf(cval,"%3d ", SNDATA.CCDNUM[ep]);
+    if ( WRFLAG_DETNUM ) {
+      sprintf(cval,"%3d ", SNDATA.DETNUM[ep]);
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
     }
     if ( WRFLAG_IMGNUM ) {
@@ -1721,9 +1721,9 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   IVAROBS_SNTEXTIO.SKYSIG = IVAROBS_SNTEXTIO.SKYSIG_T = -9;
   IVAROBS_SNTEXTIO.GAIN = -9;
   IVAROBS_SNTEXTIO.PHOTFLAG = IVAROBS_SNTEXTIO.PHOTPROB = -9 ;
-  IVAROBS_SNTEXTIO.XPIX = IVAROBS_SNTEXTIO.YPIX = -9;
-  IVAROBS_SNTEXTIO.CCDNUM = IVAROBS_SNTEXTIO.IMGNUM = -9;
-  IVAROBS_SNTEXTIO.dRA = IVAROBS_SNTEXTIO.dDEC = IVAROBS_SNTEXTIO.AIRMASS = -9;
+  IVAROBS_SNTEXTIO.XPIX     = IVAROBS_SNTEXTIO.YPIX = -9;
+  IVAROBS_SNTEXTIO.DETNUM   = IVAROBS_SNTEXTIO.IMGNUM = -9;
+  IVAROBS_SNTEXTIO.dRA      = IVAROBS_SNTEXTIO.dDEC = IVAROBS_SNTEXTIO.AIRMASS = -9;
 
   IVAROBS_SNTEXTIO.SIMEPOCH_MAG      = -9 ;
   IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dRA  = -9 ;
@@ -1751,8 +1751,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"BAND") == 0 || strcmp(varName,"FLT")==0 ) 
       { IVAROBS_SNTEXTIO.BAND = ivar; }
 
-    else if ( strcmp(varName,"CCDNUM") == 0 ) 
-      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
+    else if ( strcmp(varName,"DETNUM") == 0 ) 
+      { IVAROBS_SNTEXTIO.DETNUM = ivar; }  
 
     else if ( strcmp(varName,"IMGNUM") == 0 ) 
       { IVAROBS_SNTEXTIO.IMGNUM = ivar; }  
@@ -2299,8 +2299,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   else if ( strcmp(word0,"NYPIX:") == 0 ) {
     SNDATA.NYPIX = IVAL ;
   }
-  else if ( strcmp(word0,"CCDNUM:") == 0 ) {
-    SNDATA.CCDNUM[0] = IVAL ;
+  else if ( strcmp(word0,"DETNUM:") == 0 ) {
+    SNDATA.DETNUM[0] = IVAL ;
   }
   else if ( strcmp(word0,"IMGNUM:") == 0 ) {
     SNDATA.IMGNUM[0] = IVAL ;
@@ -3074,9 +3074,9 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
       SNDATA.YPIX[ep] = (float)dval;
     }
 
-    if ( IVAROBS_SNTEXTIO.CCDNUM >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.CCDNUM] ;
-      sscanf(str, "%d", &SNDATA.CCDNUM[ep] );
+    if ( IVAROBS_SNTEXTIO.DETNUM >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.DETNUM] ;
+      sscanf(str, "%d", &SNDATA.DETNUM[ep] );
     }
     if ( IVAROBS_SNTEXTIO.IMGNUM >= 0 ) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.IMGNUM] ;

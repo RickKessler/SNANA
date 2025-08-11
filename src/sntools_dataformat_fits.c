@@ -734,8 +734,8 @@ void wr_snfitsio_init_phot(void) {
   sprintf(FMT,"%dA", MXCHAR_FILTNAME);
   wr_snfitsio_addCol( FMT,  "BAND" , itype ) ; 
   
-  if (WRFULL ) {
-    wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
+  if ( WRFULL ) {
+    wr_snfitsio_addCol( "1I",  "DETNUM"      , itype ) ;
   
     if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
       { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
@@ -2376,10 +2376,10 @@ void wr_snfitsio_update_phot(int ep) {
   wr_snfitsio_fillTable ( ptrColnum, "BAND", itype );
 
   if ( WRFULL ){
-    // CCDNUM (Mar 2021)
+    // DETNUM (Mar 2021)
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
-    wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.DETNUM[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
 
     // IMGNUM (Oct 2021)
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
@@ -3751,7 +3751,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     // store arrays need to re-write in text format
     for(ep=0; ep<=NRD; ep++) { SNDATA.OBSFLAG_WRITE[ep] = true ; }
 
-    j++; NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[ep0], 
+    j++; NRD = RD_SNFITSIO_INT(isn, "DETNUM", &SNDATA.DETNUM[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
 
     j++; NRD = RD_SNFITSIO_INT(isn, "IMGNUM", &SNDATA.IMGNUM[ep0], 

@@ -9436,7 +9436,8 @@ void  init_event_GENLC(void) {
 
     sprintf(GENLC.FIELDNAME[epoch],"%s", FIELD_NONAME );
 
-    GENLC.NEXPOSE[epoch]     = 1 ; 
+    GENLC.NEXPOSE[epoch]     =  1 ; 
+    GENLC.DETNUM[epoch]      = -9 ; 
     GENLC.MJD[epoch]         = NULLFLOAT ;
     GENLC.epoch_obs[epoch]   = NULLFLOAT ;
     GENLC.epoch_rest[epoch]  = NULLFLOAT ;
@@ -19199,8 +19200,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"MWEBV:") == 0  )
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.MWEBV ); iwd++ ; continue; }
 
-      else if ( strcmp(wd0,"CCD:") == 0 || strcmp(wd0,"CCDNUM:") == 0 ) 
-	{ sscanf(wd1,"%d",&SIMLIB_HEADER.CCDNUM);  iwd++ ; continue; }
+      else if ( strcmp(wd0,"CCD:")    == 0 || 
+		strcmp(wd0,"CCDNUM:") == 0 ||
+		strcmp(wd0,"DETNUM:") == 0 )   // Aug 2025
+	{ sscanf(wd1,"%d",&SIMLIB_HEADER.DETNUM);  iwd++ ; continue; }
 
       // read optional header keys for FAKEID option
       else if ( strcmp(wd0,"GALID:") == 0 )  
@@ -19295,10 +19298,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  SIMLIB_OBS_RAW.MJD[ISTORE]     = MJD;
 
 	  IWD++; sscanf(WDLIST[IWD], "%s", ctmp );
-	  parse_SIMLIB_IDplusNEXPOSE(ctmp, 
-				     &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
-				     &SIMLIB_OBS_RAW.NEXPOSE[ISTORE] );
-	  
+	  parse_SIMLIB_IDEXPT(ctmp, 
+			      &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
+			      &SIMLIB_OBS_RAW.NEXPOSE[ISTORE],
+			      &SIMLIB_OBS_RAW.DETNUM[ISTORE] );
+	 
 	  IWD++; sscanf(WDLIST[IWD], "%s" , SIMLIB_OBS_RAW.BAND[ISTORE]     );
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.READNOISE[ISTORE]);
@@ -19735,6 +19739,7 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       // store_SIMLIB_SPECTROGRAPH (as part of 'prepCadence')
       SIMLIB_OBS_RAW.IDEXPT[ISTORE]     = -9 ;
       SIMLIB_OBS_RAW.NEXPOSE[ISTORE]    =  0 ;
+      SIMLIB_OBS_RAW.DETNUM[ISTORE]     = -9 ;
       SIMLIB_OBS_RAW.CCDGAIN[ISTORE]    = -9.0 ;
       SIMLIB_OBS_RAW.READNOISE[ISTORE]  = -9.0 ;
       SIMLIB_OBS_RAW.SKYSIG[ISTORE]     = -9.0 ;
@@ -20076,7 +20081,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   // - - - - - - -
   bool KEEP;
-  int isort, ifilt, IFILT_OBS, NEXPOSE, NEP, NEP_NEWMJD ;
+  int isort, ifilt, IFILT_OBS, NEXPOSE, DETNUM, NEP, NEP_NEWMJD ;
   int  IFLAG_SYNFILT, IFLAG_TEMPLATE, IFIELD, APP ;
   double MJD, CCDGAIN, RDNOISE, SKYSIG, ZPT[2], MAG ;
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
@@ -20121,6 +20126,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     MAG        = SIMLIB_OBS_RAW.MAG[OBSRAW] ;
     IFILT_OBS  = SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
+    DETNUM     = SIMLIB_OBS_RAW.DETNUM[OBSRAW] ;
     BAND       = SIMLIB_OBS_RAW.BAND[OBSRAW];
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
@@ -20197,6 +20203,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.genmag_obs[NEP]    = MAG ;
     GENLC.MJD[NEP]           = MJD ;
     GENLC.NEXPOSE[NEP]       = NEXPOSE; // June 2022
+    GENLC.DETNUM[NEP]        = DETNUM;  // Aug 2025
     sprintf( GENLC.FIELDNAME[NEP], "%s", FIELD );
 
     // store min/max TREST (Apr 2021) for efficiency studies.
@@ -20222,6 +20229,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.ZPTERR[NEP]      = ZPT[1] ;
     SIMLIB_OBS_GEN.MAG[NEP]         = MAG ;
     SIMLIB_OBS_GEN.NEXPOSE[NEP]     = NEXPOSE ;
+    SIMLIB_OBS_GEN.DETNUM[NEP]      = DETNUM ;
     SIMLIB_OBS_GEN.ISTORE_RAW[NEP]  = OBSRAW ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[NEP] = APP ;
     sprintf(SIMLIB_OBS_GEN.FIELDNAME[NEP], "%s", FIELD );
@@ -21417,37 +21425,62 @@ double get_TEXPOSE(int epoch) {
 } // end get_TEXPOSE
 
 // ================================================
-void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
+void parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM ) {
 
   // Created Jan 3 2018
   // If inString has no *   -->  IDEXPT = inString and NEXPOSE=1
   // If inString = ID*NEXP  -->  IDEXPT = ID and NEXPOSE=NEXP
+  // Optional detector number (DETNUM) in ()
+  //
+  //
+  // Examples:
+  //    inString        IDEXPT   NEXPOSE   DETNUM
+  //    - - - - - - - - - - - - - - - - - - - - - - -
+  //     243289         243289      1        -9
+  //     243289*4       243289      4        -9
+  //     243289(12)     243289      1        12
+  //     243289*4(12)   243289      4        12
+  //
+  //
+  // Aug 11 2025: add *DETNUM arg for detector number
+  //
 
-  int  IDTMP, NTMP, NRD;
+  int  ID_TMP, NEXPOSE_TMP, DETNUM_TMP, NRD;
   char star[] = "*" ;
+  char instring_local[100], instring_detnum[8];
   char WDLIST[2][20], *ptrWDLIST[2];
-  char fnam[] = "parse_SIMLIB_IDplusNEXPOSE" ;
+  char fnam[] = "parse_SIMLIB_IDEXPT" ;
 
   // ----------- BEGIN ------------
 
-  NTMP = 1;  // default
+  ID_TMP      = -9;
+  NEXPOSE_TMP =  1;  // default
+  DETNUM_TMP  = -9;
 
-  if ( strchr(inString,'*') == NULL ) {
+  // check for optional DETNUM in ()
+  sprintf(instring_local, "%s", inString); 
+  extractStringOpt(instring_local, instring_detnum);
+  if ( strlen(instring_detnum) > 0 ) 
+    { sscanf(instring_detnum, "%d", &DETNUM_TMP);  }
+
+  // check for * followed by NEXPOSE
+  if ( strchr(instring_local,'*') == NULL ) {
     // no star, just read IDEXPT
-    sscanf(inString , "%d", &IDTMP ); 
+    sscanf(instring_local , "%d", &ID_TMP ); 
   }
   else {
     // found star, read both ID and NEXPOSE
     ptrWDLIST[0] = WDLIST[0] ;
     ptrWDLIST[1] = WDLIST[1] ;
-    splitString(inString, star, fnam, 3,  &NRD, ptrWDLIST ); 
-    sscanf( WDLIST[0] , "%d", &IDTMP ); 
-    sscanf( WDLIST[1] , "%d", &NTMP ); 
+    splitString(instring_local, star, fnam, 3,  &NRD, ptrWDLIST ); 
+    sscanf( WDLIST[0] , "%d", &ID_TMP ); 
+    sscanf( WDLIST[1] , "%d", &NEXPOSE_TMP ); 
   }
 
   // load output arguments
-  *IDEXPT  = IDTMP ;
-  *NEXPOSE = NTMP ;
+  *IDEXPT  = ID_TMP ;
+  *NEXPOSE = NEXPOSE_TMP ;
+  *DETNUM  = DETNUM_TMP ; // Aug 11 2025
 
   /*
   printf(" xxx %s: inString='%s'  NRD=%d   ID=%d  NEXPOSE=%d \n",
@@ -24860,7 +24893,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_MJD_EXPLODE  = GENLC.MJD_EXPLODE;
 
   SNDATA.PIXSIZE          = SIMLIB_OBS_GEN.PIXSIZE[1];
-  SNDATA.CCDNUM[0]        = SIMLIB_HEADER.CCDNUM ;
+  // xxx mark del Aug 11 2025  SNDATA.DETNUM[0]        = SIMLIB_HEADER.DETNUM ;
   SNDATA.SIM_AV           = GENLC.AV ;
   SNDATA.SIM_RV           = GENLC.RV ;
 
@@ -24989,6 +25022,7 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
+    SNDATA.DETNUM[epoch]       = GENLC.DETNUM[epoch];
 
     SNDATA.GAIN[epoch]      =  SIMLIB_OBS_GEN.CCDGAIN[epoch] ;
     SNDATA.READNOISE[epoch] =  SIMLIB_OBS_GEN.READNOISE[epoch] ;

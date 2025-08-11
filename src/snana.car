@@ -658,7 +658,7 @@ c May 6, 2008: define lists for epochs to ignore
      &    NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
      &   ,NEP_OUTLIER_CHECK(MXFILT_OUTLIER)  ! total epochs checked per band
      &   ,NEP_OUTLIER_FOUND(MXFILT_OUTLIER)  ! Noutlier per band
-     &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
+     &   ,OUTLIER_IFILTOBS, OUTLIER_DETNUM, OUTLIER_PHOTFLAG
      &   ,OUTLIER_IXPIX, OUTLIER_IYPIX
 
       CHARACTER OUTLIER_BAND*4, OUTLIER_FIELD*20
@@ -679,7 +679,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
      &  ,OUTLIER_z, OUTLIER_TREST 
      &  ,OUTLIER_IFILTOBS, OUTLIER_BAND, OUTLIER_FIELD
-     &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
+     &  ,OUTLIER_DETNUM, OUTLIER_PHOTFLAG
 
 c efficiency for PHOTFLAG bits
 
@@ -819,7 +819,7 @@ c analysis-related variables.
      &  ,ISNLC_NOBS_PREDETECT   ! NOBS in CUTWIN_TOBS_PREDETECT window
 c
      &  ,ISNLC_FAKE             ! => real data, else it's a fake
-     &  ,ISNLC_CCDNUM(MXEPOCH)  ! read from header (May 2017)
+     &  ,ISNLC_DETNUM(MXEPOCH)  ! read from header (May 2017)
      &  ,ISNLC_IMGNUM(MXEPOCH)  ! Oct 2021: IMAGE NUNBER (e.g., EXPNUM, VISIT_ID)
      &  ,ISNLC_IDFIELD(MXEPOCH) ! integer field id      
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
@@ -1003,7 +1003,7 @@ c
      &    ,ISNLC_NEPOCH_USE, ISNLC_NEPOCH_PHOTPROB
      &    ,ISNLC_NEPOCH_FILT,  ISNLC_NOBS_PREDETECT
      &    ,ISNLC_NOBS_DETECT, SNLC_TLIVE_DETECT
-     &    ,ISNLC_FAKE, ISNLC_CCDNUM, ISNLC_IMGNUM
+     &    ,ISNLC_FAKE, ISNLC_DETNUM, ISNLC_IMGNUM
      &    ,ISNLC_NFILT_SNRMAX, ISNLC_NFILT_SNRMAX2
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
      &    ,ISNLC_NFILT_TREST2
@@ -1573,7 +1573,7 @@ c define namelist cuts
      &  ,SNCID_LIST(MXLISTNML)     ! I: user-list of integer CIDs
      &  ,MXEVT_PROCESS             ! I: quit after processing this many
      &  ,MXEVT_CUTS                ! I: quit after Nevt passing cuts
-     &  ,CCDNUM_LIST(MXLISTNML)    ! I: user-list of CCDNUMs (Dec 2017)
+     &  ,DETNUM_LIST(MXLISTNML)    ! I: user-list of Detector/CCD NUMBERS (Dec 2017)
      &  ,SIM_TEMPLATE_INDEX_LIST(MXLISTNML)
      &  ,SNCID_IGNORE(MXLISTNML)   ! I: list of CIDs to ignore
      &  ,PHOTFLAG_MSKREJ(5)        ! I: PHOTFLAG mask-bits to reject, 1,2 => logical OR,AND
@@ -1581,7 +1581,7 @@ c define namelist cuts
      &  ,IDFIELD_LIST(MXLISTNML)   ! 
      &  ,NIDFIELD_LIST
      &  ,NSNTYPE_LIST           ! size of SNTYPE_LIST
-     &  ,NCCDNUM_LIST           ! size of CCDNUM list
+     &  ,NDETNUM_LIST           ! size of DETNUM list
      &  ,NSIM_TEMPLATE_INDEX_LIST
      &  ,NSNTYPE_IGNORE
      &  ,NFILT_SNRMAX           ! number of CUTWIN_SNRMAX_FILT cuts
@@ -1759,9 +1759,9 @@ c
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
      &   ,MXEVT_PROCESS, MXEVT_CUTS
-     &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
+     &   ,SNTYPE_IGNORE, DETNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, IDFIELD_LIST, NIDFIELD_LIST, DOALL_SNFIELD
-     &   ,NSNTYPE_LIST, NCCDNUM_LIST, NSIM_TEMPLATE_INDEX_LIST
+     &   ,NSNTYPE_LIST, NDETNUM_LIST, NSIM_TEMPLATE_INDEX_LIST
      &   ,NSNTYPE_IGNORE, NFILT_SNRMAX, IFILT_SNRMAX
      &   ,NFILT_HOST_SBFLUX, IFILT_HOST_SBFLUX
      &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT, USE_MWCOR
@@ -2130,7 +2130,7 @@ c
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
      &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
-     &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
+     &   ,SNTYPE_IGNORE, DETNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST
      &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT
      &   ,cutwin_cid, cutwin_sntype
@@ -5237,9 +5237,9 @@ c     &    + OPTMASK_SNDATA_DUMP
      &      NOBS_STORE, STRFITS, DARRAY, OPT)
       CALL UNPACK_SNFITSIO_STR(NOBS_STORE, "FLT", STRFITS)
 
-      CALL FETCH_SNDATA_WRAPPER("CCDNUM",  
+      CALL FETCH_SNDATA_WRAPPER("DETNUM",  
      &        NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE; ISNLC_CCDNUM(o)=int(DARRAY(o)); ENDDO
+      DO o=1,NOBS_STORE; ISNLC_DETNUM(o)=int(DARRAY(o)); ENDDO
 
       CALL FETCH_SNDATA_WRAPPER("IMGNUM",  
      &        NOBS_STORE, STRING, DARRAY, OPT)
@@ -6176,7 +6176,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       DO i = 1, MXLISTNML
          SNTYPE_LIST(i)    = 0
          SNTYPE_IGNORE(i)  = -9  ! note that type=0(no type) can be ignored
-         CCDNUM_LIST(i)    = 0 
+         DETNUM_LIST(i)    = 0 
          SNCID_LIST(i)     = 0
          SNCID_IGNORE(i)   = 0
          SIM_TEMPLATE_INDEX_LIST(i) = 0 
@@ -6193,7 +6193,7 @@ c set default field to ALL
       SNFIELD_LIST(1)   = 'ALL'
 
       NSNTYPE_LIST = 0
-      NCCDNUM_LIST = 0
+      NDETNUM_LIST = 0
       NSNTYPE_IGNORE = 0
 
       NIDFIELD_LIST = 0
@@ -6461,9 +6461,9 @@ c Compute useful variables from namelist
           CALL  MADABORT(FNAM, C1ERR, ' ') 
       endif
 
-      i = 1 ; NCCDNUM_LIST=0
-      DO WHILE ( CCDNUM_LIST(i) > 0 ) 
-          NCCDNUM_LIST = NCCDNUM_LIST + 1
+      i = 1 ; NDETNUM_LIST=0
+      DO WHILE ( DETNUM_LIST(i) > 0 ) 
+          NDETNUM_LIST = NDETNUM_LIST + 1
           i = i + 1
       END DO
 
@@ -8095,10 +8095,10 @@ c - - - -
            STRING_LIST = ARGLIST(1)(1:60)
            NSNTYPE_LIST = PARSE_INTLIST(STRING_LIST,SNTYPE_LIST)
 
-         else if ( MATCH_NMLKEY('CCDNUM_LIST',
+         else if ( MATCH_NMLKEY('DETNUM_LIST',
      &             1, iArg, ARGLIST) ) then 
            STRING_LIST = ARGLIST(1)(1:60)
-           NCCDNUM_LIST = PARSE_INTLIST(STRING_LIST,CCDNUM_LIST)
+           NDETNUM_LIST = PARSE_INTLIST(STRING_LIST,DETNUM_LIST)
 
          else if ( MATCH_NMLKEY('SNTYPE_IGNORE',
      &             1, iArg, ARGLIST) ) then 
@@ -9304,15 +9304,15 @@ c check for valid SNTYPES (Jul 2012)
 
 
 +SELF,IF=CCDLATER.
-c Need to define NACCEPT_CCDNUM, and increment it.
-c check for valid CCDNUM
-      LFAIL = NCCDNUM_LIST .GT. 0 .and. NACCEPT_CCDNUM .LE. 0
+c Need to define NACCEPT_DETNUM, and increment it.
+c check for valid DETNUM
+      LFAIL = NDETNUM_LIST .GT. 0 .and. NACCEPT_DETNUM .LE. 0
       IF ( LFAIL ) THEN
          print*,' '
-         print*,' WARNING-CCDNUM: ',
-     &       'NEVER FOUND A VALID CCDNUM ?!?!?! '
-         print*,' WARNING-CCDNUM: Check nml variable CCDNUM_LIST = ', 
-     &        CCDNUM_LIST(1), CCDNUM_LIST(2)
+         print*,' WARNING-DETNUM: ',
+     &       'NEVER FOUND A VALID DETNUM ?!?!?! '
+         print*,' WARNING-DETNUM: Check nml variable DETNUM_LIST = ', 
+     &        DETNUM_LIST(1), DETNUM_LIST(2)
          print*,' '
       ENDIF
 +SELF.
@@ -15359,9 +15359,9 @@ C ------------- BEGIN ------------
       SNLC_ZEROPT_forCUT(ep1)   = SNLC_ZEROPT_forCUT(ep2)
       SNLC_PSF_FWHM_ARCSEC(ep1) = SNLC_PSF_FWHM_ARCSEC(ep2)
 
-c beware that CCDNUM is read from header, and also from 
-c PHOT section of TEXT format ... but not read from PHOT-FITS file
-      ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
+c beware that DETNUM is read from header, and also from 
+c PHOT section of TEXT format ... but not read from PHOT-FITS file??
+      ISNLC_DETNUM(EP1)        = ISNLC_DETNUM(EP2)
       ISNLC_IMGNUM(EP1)        = ISNLC_IMGNUM(EP2)
 
       IF ( ISJOB_SIM ) THEN
@@ -15443,7 +15443,7 @@ c ------------- BEGIN -------------
 
       NEPOCH_BADPHOT      =   0
       ISNLC_FAKE          =   0  ! Feb 2021: default is real data
-      ISNLC_CCDNUM(1)     =  -9
+      ISNLC_DETNUM(1)     =  -9
       ISNLC_IMGNUM(1)     =  -9
 
       SNLC8_RA            =  -9.0
@@ -19339,18 +19339,18 @@ C ------- BEGIN -------
 
 
 C =============================
-+DECK,CCDNUMSTAT.
-      INTEGER FUNCTION CCDNUMSTAT(CCDNUM)
++DECK,DETNUMSTAT.
+      INTEGER FUNCTION DETNUMSTAT(DETNUM)
 c
 c Dec 2017
-c Returns 0 if CCDNUM is valid; returns -1 otherwise.
+c Returns 0 if DETNUM is valid; returns -1 otherwise.
 c -------------------------
 
       IMPLICIT NONE
 
 c function args
 
-      INTEGER CCDNUM
+      INTEGER DETNUM
 
 c local args
 
@@ -19358,30 +19358,30 @@ c local args
 +CDE,SNLCINP.
 
       INTEGER i
-      LOGICAL LCCDNUM
+      LOGICAL LDETNUM
 
 C -------------- BEGIN --------------
 
-      IF ( NCCDNUM_LIST .LE. 0 ) THEN  
+      IF ( NDETNUM_LIST .LE. 0 ) THEN  
          ! don't check  anything
-         CCDNUMSTAT = 0
+         DETNUMSTAT = 0
          RETURN
       ENDIF
 
-      LCCDNUM = .FALSE.
-      do i = 1, NCCDNUM_LIST
-        if ( CCDNUM_LIST(i) .EQ. CCDNUM ) LCCDNUM = .TRUE.
+      LDETNUM = .FALSE.
+      do i = 1, NDETNUM_LIST
+        if ( DETNUM_LIST(i) .EQ. DETNUM ) LDETNUM = .TRUE.
       enddo
 
 
-      IF ( LCCDNUM ) THEN
-         CCDNUMSTAT   = 0
+      IF ( LDETNUM ) THEN
+         DETNUMSTAT   = 0
       ELSE 
-         CCDNUMSTAT = -1
+         DETNUMSTAT = -1
       endif
 
       RETURN
-      END  ! end CCDNUMSTAT
+      END  ! end DETNUMSTAT
 
 
 C ================================================
@@ -23136,7 +23136,7 @@ c  termination so that parsing CCID with C code is easier.
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
-c ROWNUM is easy identifier for CID-MJD-BAND-CCDNUM;
+c ROWNUM is easy identifier for CID-MJD-BAND-DETNUM;
 c e.g., pass ROWNUM to script that fetches stamps.
       VARLIST = 'ROWNUM:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
@@ -23158,8 +23158,8 @@ c e.g., pass ROWNUM to script that fetches stamps.
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IFILTOBS, VARLIST,1,
      &                   LENBLOCK, 20 )
 
-      VARLIST = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
+      VARLIST = 'DETNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_DETNUM, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c---
@@ -23359,7 +23359,7 @@ c ---------- BEGIN ---------
       OUTLIER_IFILTOBS     = IFILT_OBS
       OUTLIER_BAND         = BAND
       OUTLIER_FIELD        = SNLC_FIELD(ep)
-      OUTLIER_CCDNUM       = ISNLC_CCDNUM(ep)
+      OUTLIER_DETNUM       = ISNLC_DETNUM(ep)
       OUTLIER_PHOTFLAG     = ISNLC_PHOTFLAG(ep)
       OUTLIER_FLUXCAL_DATA      = SNLC_FLUXCAL(ep)
       OUTLIER_FLUXCAL_ERR_DATA  = SNLC_FLUXCAL_ERRTOT(ep)
@@ -23790,11 +23790,11 @@ c but keep same name 'IDSURVEY'
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1,
      &                   LENBLOCK, 20 )
 
-c Feb 15 2018: remove condition on CCDNUM 
+c Feb 15 2018: remove condition on DETNUM 
       ITEXT = ITEXT_NO
-      IF(NCCDNUM_LIST>0) ITEXT = ITEXT_YES
-      VARLIST = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_CCDNUM(1), 
+      IF(NDETNUM_LIST>0) ITEXT = ITEXT_YES
+      VARLIST = 'DETNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_DETNUM(1), 
      &            VARLIST,ITEXT,       LENBLOCK, 20 )
 
 c -------------------------------------------

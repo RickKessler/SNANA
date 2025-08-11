@@ -335,8 +335,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"NYPIX") == 0 )
     { copy_int(copyFlag, parVal, &SNDATA.NYPIX ); } 
 
-  else if ( strcmp(key,"CCDNUM") == 0 ) 
-    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[0] ); } // should be obsolete
+  else if ( strcmp(key,"DETNUM") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.DETNUM[0] ); } // should be obsolete
 
   else if ( strcmp(key,"SNTYPE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SNTYPE ); } 
@@ -929,10 +929,10 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     }
 
   }
-  else if ( strcmp(key,"CCDNUM") == 0 ) {
+  else if ( strcmp(key,"DETNUM") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
       OBS = SNDATA.OBS_STORE_LIST[obs];  
-      copy_int(copyFlag, &parVal[obs], &SNDATA.CCDNUM[OBS]) ; 
+      copy_int(copyFlag, &parVal[obs], &SNDATA.DETNUM[OBS]) ; 
     }  
   }
   else if ( strcmp(key,"IMGNUM") == 0 ) {

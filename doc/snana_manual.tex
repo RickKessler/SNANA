@@ -1251,10 +1251,16 @@ along with references to terms in Eq.~\ref{eq:noiseModel},
 %
   \item  {\bf S:} key starts a line with search-image info.
 %
-  \item {\bf IDEXPT:} arbitrary identifier. You can set this to zero 
-        if you want. For SDSS, it glues together the run and field numbers.
+  \item {\bf IDEXPT:} arbitrary integer identifier for exposure/visit ID. Related options include:
+     \begin{itemize}
+       \item {\bf IDEXPT*NEXPOSE:} Exposure/Visit ID \& number of expsoures used to determine saturation
+            (\S\ref{sssec:saturation}). Default {\bf NEXPOSE}=1.
+       \item {\bf IDEXPT(DETNUM):} Exposure/Visit and detector/ccd number in (). \\
+            Default {\bf DETNUM}$=-9$.
+       \item {\bf IDEXPT*NEXPOSE(DETNUM):} Exposure/Visit \& Nexpose \& detector/ccd number.
+     \end{itemize}
 %
-  \item {\bf FLT:} single character to specify a filter for this observation.
+  \item {\bf BAND:} single character to specify a filter for this observation.
 %
   \item {\bf CCD Gain:} Number of photo-electrons per ADU or DN.
 %

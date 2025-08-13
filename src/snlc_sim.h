@@ -1666,7 +1666,8 @@ typedef struct  {
   int     IFILT_OBS[MXOBS_SIMLIB];    // absolute filter index
 
   char    *PTR_BAND[MXOBS_SIMLIB];
-  char    BAND[MXOBS_SIMLIB][4];
+  // xxx mark deletet Aug 11 2025  char    BAND[MXOBS_SIMLIB][4];
+  char    BAND[MXOBS_SIMLIB][20]; // Aug 11 2025: allow full filter name in SIMLIB
 
   int     IDEXPT[MXOBS_SIMLIB];
   int     NEXPOSE[MXOBS_SIMLIB];  // Jan 2018 (for saturation calc)

@@ -151,7 +151,6 @@
 #define KEYSOURCE_ARG  2
 
 // keep this in sync with the fortran FILTDEF_STRING
-// Oct 22 2015: add 27 special chars to hack an IFU
 #define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx" 
 
 // [moved from sntools_kcor.h on Nov 17 2022]

@@ -19112,6 +19112,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
+    
     if ( !FOUND_EOF ) {
       // remove line feed    
       if ( (pos=strchr(cline,'\n') ) != NULL )  { *pos = '\0' ; }
@@ -19407,7 +19408,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
-	
+
 	if ( USEFLAG_LIBID != ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
 	  { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }	
       }
@@ -19444,7 +19445,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   }
 
   SIMLIB_OBS_RAW.NOBS      = ISTORE ;      // can change with SPECTROGRAPH
-  SIMLIB_OBS_RAW.NOBS_READ = ISTORE ;  // won't change for this cadence
+  SIMLIB_OBS_RAW.NOBS_READ = ISTORE ;     // won't change for this cadence
 
 	
   NOBS_EXPECT -= NOBS_SKIP ;
@@ -19520,7 +19521,7 @@ int keep_SIMLIB_HEADER(void) {
   int  iskip, icheck, NTEST=0 ;
   double *ptrGen ;
   char fnam[] = "keep_SIMLIB_HEADER" ;
-  int LTRACE  = 0; // (SIMLIB_HEADER.LIBID == 4 );
+  int LTRACE  = 0 ; // (SIMLIB_HEADER.LIBID == 4 );
 
   // ----------- BEGIN ---------------
 

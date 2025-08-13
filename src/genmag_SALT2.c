@@ -1890,7 +1890,8 @@ void init_calib_shift_SALT2train(void) {
   double shift, magprimary, mag_shift, lam_shift;
   double *lam, *trans, *transREF ;
   bool MATCH ;
-  char string_shift[3][12] = { "", "MAGSHIFT", "LAMSHIFT" } ;
+  // xxx mark delete Aug 11 2025  char string_shift[3][12] = { "", "MAGSHIFT", "LAMSHIFT" } ;
+  char string_shift[3][12] = { "", "MAGSHIFT", "WAVESHIFT" } ;
   char fnam[] = "init_calib_shift_SALT2train" ;
 
   // ----------- BEGIN -------------

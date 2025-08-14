@@ -20683,6 +20683,8 @@ void  prep_input_zrate_scale(void) {
 
   if ( strlen(zrate_scale_file) == 0 ) { return; }
 
+  ENVreplace(zrate_scale_file, fnam, 1);
+
   fp = fopen(zrate_scale_file,"rt");
   if ( !fp )  {
     sprintf(c1err,"Could not open zrate_scale_file");

@@ -12,6 +12,9 @@ from   submit_prog_base import Program
 
 # ===================================================
 
+FILTERMAP_DICT =  {
+    'R' : 'R062',  'Z': 'Z087',  'Y':'Y106', 'J':'J129',  'H':'H158',  'F':'F184'
+}
 
 # not sure we need this subclass dictionary, but maybe later if there are multiple
 # SMP implementations
@@ -24,13 +27,18 @@ FITOPT_STRING = "FITOPT"
 
 # define columns in merge file
 COLNUM_SMP_MERGE_STATE           = 0  # STATE required in col=0
-COLNUM_SMP_MERGE_FITOPT          = 1
-COLNUM_SMP_MERGE_ISPLIT          = 2
-COLNUM_SMP_MERGE_NDET            = 3  # number of detectors (not detections)
-COLNUM_SMP_MERGE_NLC             = 4  # number of light curves
-COLNUM_SMP_MERGE_NOBS            = 5  # number of observations for which flux is determined
-COLNUM_SMP_MERGE_CPU             = 6
+COLNUM_SMP_MERGE_FILTER          = 1
+COLNUM_SMP_MERGE_FITOPT          = 2
+COLNUM_SMP_MERGE_ISPLIT          = 3
+COLNUM_SMP_MERGE_NDET            = 4  # number of detectors (not detections)
+COLNUM_SMP_MERGE_NLC             = 5  # number of light curves
+COLNUM_SMP_MERGE_NOBS            = 6  # number of observations for which flux is determined
+COLNUM_SMP_MERGE_CPU             = 7
 
+STRING_SUBSET_HEALPIX = "HEALPIX"
+STRING_SUBSET_SNID    = "SNID"
+KEY_SUBSET_LIST       = [ f'{STRING_SUBSET_HEALPIX}_LIST_FILE',
+                          f'{STRING_SUBSET_SNID}_LIST_FILE' ]
 
 # ====================================================
 #    BEGIN CLASS
@@ -62,16 +70,19 @@ class SceneModelPhotometry(Program):
 
         # init driver for smp
         self.prep_smp_subclass()
+        self.prep_smp_filters()
         self.prep_smp_fitopt()
-        self.prep_smp_healpix()
+        self.prep_smp_subsets()  # split list of healpix or snid into subsets
         self.prep_smp_flatten()
         self.prep_smp_output_dirs()  
-
+        self.prep_cmp_copy_files()
+        
         # load misc globals used by base program
-
+        n_filter = self.config_prep['n_filter']
         n_fitopt = self.config_prep['fitopt_dict']['n_jobopt']
-        self.config_prep['n_job_tot']   = n_fitopt
-        self.config_prep['n_done_tot']  = n_fitopt
+        n_job_tot = n_fitopt * n_filter
+        self.config_prep['n_job_tot']   = n_job_tot
+        self.config_prep['n_done_tot']  = n_job_tot
         
         return
         # end submit_prepare_driver
@@ -81,6 +92,31 @@ class SceneModelPhotometry(Program):
         msg = f"\n\t !!!! SMP_SUBCLASS = {SMP_SUBCLASS} !!!! \n"
         logging.info(msg)
 
+
+    def prep_smp_filters(self):
+        CONFIG        = self.config_yaml['CONFIG']
+        KEY_FILTERS   = 'FILTERS'
+        FILTERS       = CONFIG.setdefault(KEY_FILTERS, None)
+
+        if not FILTERS:
+            msgerr = [ f'Missing required {KEY_FILTERS} key in config file' ]
+            util.log_assert(False, msgerr)
+
+        filter_list_input = FILTERS.split()
+        filter_list = []
+        for band_inp in filter_list_input:
+            
+            if len(band_inp) == 1:
+                band_arg = FILTERMAP_DICT[band_inp]
+            else:
+                band_arg = band_inp
+            filter_list.append(band_arg)
+            
+        self.config_prep['filter_list'] = filter_list
+        self.config_prep['n_filter']    = len(filter_list)
+        return
+    # end prep_smp_filters
+        
     def prep_smp_fitopt(self):
 
         CONFIG        = self.config_yaml['CONFIG']
@@ -104,18 +140,23 @@ class SceneModelPhotometry(Program):
         # prepare output dir for each fitopt; passed to campari code
     
         output_dir        = self.config_prep['output_dir']
+
+        ifilt_list        = self.config_prep['ifilt_list']  
         iopt_list         = self.config_prep['iopt_list']  
         isplit_list       = self.config_prep['isplit_list']
 
+
+        filter_list       = self.config_prep['filter_list']
         fitopt_dict       = self.config_prep['fitopt_dict']
         fitopt_num_list   = fitopt_dict['jobopt_num_list']  # e.g., "FITOPT001"=
 
         output_dir_smp_list = []
         logging.info('')
         logging.info(f"  prepare SMP outdir(s):")        
-        for iopt, isplit in zip(iopt_list,isplit_list):
-            fitopt_num = fitopt_num_list[iopt]
-            prefix         = self.smp_prefix(fitopt_num,isplit) 
+        for ifilt, iopt, isplit in zip(ifilt_list, iopt_list, isplit_list):
+            filt           = filter_list[ifilt]
+            fitopt_num     = fitopt_num_list[iopt]
+            prefix         = self.smp_prefix(filt, fitopt_num,isplit) 
             output_dir_smp = f"{output_dir}/OUTPUT_{prefix}"
             output_dir_smp_list.append(output_dir_smp)
             logging.info(f"\t {output_dir_smp}")
@@ -127,91 +168,131 @@ class SceneModelPhotometry(Program):
         return
     # end prep_smp_output_dirs
 
-    def prep_smp_healpix(self):
+    def prep_cmp_copy_files(self):
+
+        script_dir       = self.config_prep['script_dir']
+        input_file       = self.config_yaml['args'].input_file  # for msgerr
+        cp_file_list = [ input_file ]
+
+        for cp_file in cp_file_list:
+            cmd = f"cp {cp_file} {script_dir}"
+            os.system(cmd)
+            
+        return
+    
+    def prep_smp_subsets(self):
 
         CONFIG        = self.config_yaml['CONFIG']
+        n_filter      = self.config_prep['n_filter']
         n_fitopt      = self.config_prep['fitopt_dict']['n_jobopt']
         n_core        = self.config_prep['n_core']
 
-        n_hpsubset    = int(n_core/n_fitopt)  # number of healpix subsets
-        if n_hpsubset < 1: n_hpsubset = 1
-        n_job_split   = n_hpsubset
+        n_subset    = int(n_core/(n_fitopt*n_filter))  # number of SPLIT subsets
+        if n_subset < 1: n_subset = 1
+        n_job_split   = n_subset
         
         # revise n_core
-        n_core = n_hpsubset * n_fitopt
+        n_core = n_subset * n_fitopt * n_filter
         self.config_prep['n_core'] = n_core
+
+        # - - - - - - -
+        # determine if subsets are based on healpix or snid
+        key_list_file = None
         
-        logging.info(f" Calculated nubmer of healpix subsets: {n_hpsubset}")
-        logging.info(f" Revised n_core: {n_core} = " \
-                     f"{n_fitopt}(FITOPT) x {n_hpsubset}(HEALPIX SUBSETS)")
+        for key in KEY_SUBSET_LIST:
+            if key in CONFIG:
+                key_list_file  = key
+                list_file      = CONFIG[key]
 
-        # read full list of healpixels
-        key = 'HEALPIX_LIST_FILE' 
-        if key not in CONFIG:
-            sys.exit(f"\n ABORT: missing required key = {key}\n CONFIG = \n{CONFIG}") # use official abort function
-
-        HEALPIX_LIST_FILE = CONFIG[key]
-        with open(HEALPIX_LIST_FILE,"rt") as h:
-            lines = h.readlines()
+        if key_list_file is None:
+            msgerr = [ f'Missing required key for list file.',
+                       f'Must define one of these key in the input config file:',
+                       f'\t {key_list}' ]
+            util.log_assert(False, msgerr)
             
-        contents = yaml.safe_load("\n".join(lines))
-        nside        = contents['NSIDE']
-        healpix_global_list = contents['HEALPIX']
-        n_healpix_global = len(healpix_global_list)
-        logging.info(f" Found {n_healpix_global} total healpixels to process in {HEALPIX_LIST_FILE}")
-        # split healpix_list into n_job_split sub-lists
+        subset_var = key_list_file.split('_LIST')[0]
+        
+        self.config_prep['subset_var']    = subset_var
+        self.config_prep['key_list_file'] = key_list_file
+
+        # - - - - - - - -
+        logging.info(f" Calculated nubmer of {subset_var} subsets: {n_subset}")
+        logging.info(f" Revised n_core: {n_core} = " \
+                     f"{n_filter }(FILTER) x {n_fitopt}(FITOPT) x {n_subset}({subset_var} SUBSETS)")
+
+        # - - - - - - - - - - -
+        # read list file
+        with open(list_file,"rt") as h:
+            lines = h.readlines()
+
+        # below, "item" refers to either a healpix of snid
+        contents         = yaml.safe_load("\n".join(lines))
+        nside            = contents.setdefault('NSIDE',None) # only for healpix
+        global_item_list = contents[subset_var]
+        n_global_item    = len(global_item_list)
+        logging.info(f" Found {n_global_item} total {subset_var}s to process in {list_file}")
+        
+        # split global_item_list into n_job_split sub-lists
         # (welcome AI overlords for figuring this out)
         split_list = [list(arr) for arr in \
-                      np.array_split(np.array(healpix_global_list), n_job_split)]
+                      np.array_split(np.array(global_item_list), n_job_split)]
 
         # construct separate healpix list file for each task/list
-        healpix_file_list = []
-        for i_split, healpix_list in enumerate(split_list):
-            hp_file = self.write_healpix_sublist(i_split, nside,healpix_list)
-            healpix_file_list.append(hp_file)
+        item_file_list = []
+        for i_split, item_list in enumerate(split_list):
+            item_file = self.write_item_sublist(i_split, item_list, nside )
+            item_file_list.append(item_file)
             
         self.config_prep['n_job_split']       = n_job_split
-        self.config_prep['healpix_file_list'] = healpix_file_list
+        self.config_prep['item_file_list']    = item_file_list
         return
-        # end prep_smp_healpix
+        # end prep_smp_subsets
 
     def prep_smp_flatten(self):
         n_job_split      = self.config_prep['n_job_split']
         fitopt_dict      = self.config_prep['fitopt_dict']
+        filter_list      = self.config_prep['filter_list']
+        
         n_fitopt         = fitopt_dict['n_jobopt']
+        n_filter         = len(filter_list)
 
+        ifilt_list   = []  # for filters
         iopt_list   = []  # for FITOPT
         isplit_list = []
 
-        for iopt in range(0,n_fitopt):
-            for isplit in range(0,n_job_split):
-                iopt_list.append(iopt)
-                isplit_list.append(isplit)
+        for ifilt in range(0,n_filter):
+            for iopt in range(0,n_fitopt):
+                for isplit in range(0,n_job_split):
+                    ifilt_list.append(ifilt)
+                    iopt_list.append(iopt)
+                    isplit_list.append(isplit)
 
-        self.config_prep['iopt_list']   = iopt_list
-        self.config_prep['isplit_list'] = isplit_list        
+        self.config_prep['ifilt_list']   = ifilt_list
+        self.config_prep['iopt_list']    = iopt_list
+        self.config_prep['isplit_list']  = isplit_list        
 
         return
     
-    def write_healpix_sublist(self, i_split, nside, healpix_list):
+    def write_item_sublist(self, i_split, item_list, nside ):
                                             
         script_dir       = self.config_prep['script_dir']
+        subset_var       = self.config_prep['subset_var']
         
-        n_healpix = len(healpix_list)
-        hp_file = f"HEALPIX_SPLIT{i_split:03d}.DAT"
-        hp_path = f"{script_dir}/{hp_file}"
-        logging.info(f"\t write {hp_file} with {n_healpix} healpixels")
+        n_item = len(item_list)
+        subset_file = f"{subset_var}_SPLIT{i_split:03d}.DAT"
+        subset_path = f"{script_dir}/{subset_file}"
+        logging.info(f"\t write {subset_file} with {n_item} {subset_var} items")
 
-        with open(hp_path,"wt") as h:
-            h.write(f"Healpix sub-list for SPLIT job {i_split}\n\n")
-            h.write(f"NSIDE: {nside} \n")
-            h.write(f"\nHEALPIX: \n")
-            for hp in healpix_list:
-                h.write(f"- {hp}\n")
+        with open(subset_path,"wt") as s:
+            s.write(f"# {subset_var} sub-list for SPLIT job {i_split}\n\n")
+            if nside :  s.write(f"NSIDE: {nside} \n")  # only for healpix
+            s.write(f"\n{subset_var}: \n")
+            for item in item_list:
+                s.write(f"- {item}\n")
                 
-        return hp_path
+        return subset_path
     
-        # end write_healpix_sublist
+        # end write_item_sublist
         
     def write_command_file(self, icpu, f):
 
@@ -221,18 +302,23 @@ class SceneModelPhotometry(Program):
         
         n_job_tot        = self.config_prep['n_job_tot']
         n_core           = self.config_prep['n_core']
+
+        n_filter         = self.config_prep['n_filter']
+        filter_list      = self.config_prep['filter_list']
         fitopt_dict      = self.config_prep['fitopt_dict']
         n_job_split      = self.config_prep['n_job_split']
 
+        ifilt_list       = self.config_prep['ifilt_list']
         iopt_list        = self.config_prep['iopt_list']
         isplit_list      = self.config_prep['isplit_list']
-        
+
+
         n_fitopt         = fitopt_dict['n_jobopt']
         n_job_local       = 0
         
-        for iopt, isplit in zip(iopt_list, isplit_list):
+        for ifilt, iopt, isplit in zip(ifilt_list, iopt_list, isplit_list):
             
-            index_dict = { 'iopt':iopt, 'isplit':isplit, 'icpu':icpu  }
+            index_dict = { 'ifilt': ifilt, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu  }
 
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :        
@@ -249,27 +335,30 @@ class SceneModelPhotometry(Program):
 
     def prep_JOB_INFO_smp(self, index_dict):
 
-        iopt   = index_dict['iopt']  # this is the FITOPT
+        ifilt  = index_dict['ifilt'] #  sparse filter index
+        iopt   = index_dict['iopt']  #  sparse FITOPT index
         isplit = index_dict['isplit']
         icpu   = index_dict['icpu']
         
         program             = self.config_prep['program']
         output_dir          = self.config_prep['output_dir']
         fitopt_dict         = self.config_prep['fitopt_dict']
-        healpix_file_list   = self.config_prep['healpix_file_list']
+        item_file_list      = self.config_prep['item_file_list']
         output_dir_smp_list = self.config_prep['output_dir_smp_list']
+        filt                = self.config_prep['filter_list'][ifilt]
+        subset_var          = self.config_prep['subset_var']  # HEALPIX or SNID
         args                = self.config_yaml['args']  # user args to submit_batch
         
         fitopt_num     = fitopt_dict['jobopt_num_list'][iopt]
         fitopt_arg     = fitopt_dict['jobopt_arg_list'][iopt]
         fitopt_label   = fitopt_dict['jobopt_label_list'][iopt]
         output_dir_smp = output_dir_smp_list[iopt]
-        healpix_file   = healpix_file_list[isplit]
+        item_file      = item_file_list[isplit]
 
         if fitopt_label is None:
             fitopt_label = 'NOLABEL'
             
-        prefix    = self.smp_prefix(fitopt_num, isplit)
+        prefix    = self.smp_prefix(filt, fitopt_num, isplit)
         log_file  = f"{prefix}.LOG"
         done_file = f"{prefix}.DONE"
         yaml_file = f"{prefix}.YAML"
@@ -277,23 +366,29 @@ class SceneModelPhotometry(Program):
         JOB_INFO = {}
         JOB_INFO['job_dir']      = output_dir  # where to run job 
         JOB_INFO['program']      = program
-        JOB_INFO['input_file']   = args.input_file
+        JOB_INFO['input_file']   = ''  # no positional arg; see --config key below
         
         arg_list = []
+
+        arg_list.append(f"--config {args.input_file}")
+            
         arg_list.append(fitopt_arg)
 
-        # append required yaml_file
-        yaml_arg = f"--outfile_yaml {yaml_file}"
-        arg_list.append(yaml_arg)
+        arg_list.append(f"--filter {filt}") 
 
-        # specify outdir for this FITOPT
-        output_arg     = f"photometry-campari-paths-output_dir {output_dir_smp}"
-        arg_list.append(output_arg)
+        # xxx restore ... arg_list.append(f"--outfile_yaml {yaml_file}")
+
+        arg_list.append(f"--photometry-campari-paths-output_dir {output_dir_smp}")
         
-        # specify file with healpix subset
-        hp_subset_arg = f"photometry-campari-paths-healpix-file {healpix_file}"  # RK guess; ask Cole
-        arg_list.append(hp_subset_arg)
+        # specify file with healpix or snid subset
+        if subset_var == STRING_SUBSET_HEALPIX:
+            arg_list.append(f"--healpix_file {item_file}")
+        elif subset_var == STRING_SUBSET_SNID:
+            arg_list.append(f"--snid_file {item_file}")
 
+        if args.fast:
+            arg_list.append(f"--fast_debug True")
+            
         JOB_INFO['log_file']      = log_file
         JOB_INFO['done_file']     = done_file
         JOB_INFO['arg_list']      = arg_list
@@ -305,8 +400,8 @@ class SceneModelPhotometry(Program):
 
 	# end prep_JOB_INFO_smp        
 
-    def smp_prefix(self, fitopt_num, isplit):
-        prefix = f"SMP_{fitopt_num}_SPLIT{isplit:03d}"
+    def smp_prefix(self, filt, fitopt_num, isplit):
+        prefix = f"SMP-{filt}_{fitopt_num}_SPLIT{isplit:03d}"
         return prefix
     
     # ========== MERGE STUFF =============
@@ -331,10 +426,11 @@ class SceneModelPhotometry(Program):
         f.write("\n")
 
 
-        healpix_file_list = self.config_prep['healpix_file_list']
-        f.write(f"\nHEALPIX_FILE_LIST: \n")
-        for h in healpix_file_list:
-            f.write(f"  - {h}\n")
+        subset_var     = self.config_prep['subset_var']
+        item_file_list = self.config_prep['item_file_list']
+        f.write(f"\n{subset_var}_FILE_LIST: \n")
+        for item_file in item_file_list:
+            f.write(f"  - {item_file}\n")
             
         return
     # end append_info_file
@@ -342,22 +438,26 @@ class SceneModelPhotometry(Program):
 
     def create_merge_table(self,f):
 
+        ifilt_list        = self.config_prep['ifilt_list']  # sparse filter indices
         iopt_list         = self.config_prep['iopt_list']
         isplit_list       = self.config_prep['isplit_list']
+
+        filter_list       = self.config_prep['filter_list']  # filter string names
         fitopt_dict       = self.config_prep['fitopt_dict']        
         n_fitopt          = fitopt_dict['n_jobopt']
         fitopt_num_list   = fitopt_dict['jobopt_num_list']  # e.g., "FITOPT001"    
 
-        header_line = " STATE   FITOPT  ISPLIT  NDET  NLC  NOBS   CPU "
+        header_line = " STATE  FILTER  FITOPT  ISPLIT  NDET  NLC  NOBS   CPU "
         MERGE_INFO = { 
             'primary_key' : TABLE_MERGE, 
             'header_line' : header_line,
             'row_list'      : []
         }
         
-        for iopt, isplit in zip(iopt_list, isplit_list):
+        for ifilt, iopt, isplit in zip(ifilt_list, iopt_list, isplit_list):
+            filt       = filter_list[ifilt]
             fitopt_num = fitopt_num_list[iopt]
-            ROW = [ SUBMIT_STATE_WAIT, fitopt_num,  isplit, 0,0,0,0 ]
+            ROW = [ SUBMIT_STATE_WAIT, filt, fitopt_num,  isplit, 0,0,0,0 ]
             MERGE_INFO['row_list'].append(ROW)
 
         util.write_merge_file(f, MERGE_INFO, [] )
@@ -401,9 +501,10 @@ class SceneModelPhotometry(Program):
             irow        = nrow_check - 1 # row index
             # strip off row info                   
             STATE       = row[COLNUM_SMP_MERGE_STATE]
+            FILTER      = row[COLNUM_SMP_MERGE_FILTER]
             FITOPT_NUM  = row[COLNUM_SMP_MERGE_FITOPT]
             ISPLIT      = row[COLNUM_SMP_MERGE_ISPLIT]
-            prefix      = self.smp_prefix(FITOPT_NUM, ISPLIT ) 
+            prefix      = self.smp_prefix(FILTER, FITOPT_NUM, ISPLIT ) 
             search_wildcard = f"{prefix}*"
 
             # check if DONE or FAIL ; i.e., if Finished                 

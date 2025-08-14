@@ -23136,6 +23136,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Update SIMLIB to accept detector/ccd number as part of IDEXPT(DETNUM);
     see https://github.com/RickKessler/SNANA/issues/1539
 
+    New SALT2mu input zrate_scale_file=<file> to scale true rate as
+    function of true redshift. scales must be <=1 to reject events.
+
          *****  MISCELLANEOUS(v11_06a) *****
 
     SALT2mu.c

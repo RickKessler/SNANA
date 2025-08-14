@@ -306,6 +306,8 @@ For help, run code with no arguments
 
  Jun 2 2025: for CUTWIN(BIASCORONLY), skip reading SIM_XXX for data 
 
+ Aug 13 2025: add new input zrate_scale_file
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1052,6 +1054,13 @@ typedef struct {
 } SELECT_VAR_DEF ;
 
 
+#define MXZBIN_ZRATE_SCALE 200
+typedef struct {
+  char file[200];
+  int  nzbin;
+  double redshift_list[MXZBIN_ZRATE_SCALE];
+  double scale_list[MXZBIN_ZRATE_SCALE];
+} ZRATE_SCALE_DEF ;
 
 // --------------------------------
 // store values from input file and from command line overrides.
@@ -1151,6 +1160,10 @@ struct INPUTS {
   double prescale_simData ;   // prescale for simData (never real data)
   double prescale_simCC ;     // e.g., 2 --> use only 1/2 of sim CC
   double prescale_simIa ;     // prescale Ia only 
+
+  // 2-column file with "z scale" and scale <= 1; apply to true SNIa sim-data and sim-bcor
+  // Valid for sim-data only; aborts on real data.
+  ZRATE_SCALE_DEF ZRATE_SCALE ;
 
   // - - - - - -  cuts - - - - - 
   double cmin,  cmax  ;
@@ -1571,6 +1584,8 @@ void  prep_input_varname_missing(void);
 void  prep_input_repeat(void); 
 void  prep_debug_flag(void);
 void  prep_fitpar(void);
+void  prep_input_zrate_scale(void);
+bool  accept_zrate_scale(int OPT, char *snid, double z, int EVENT_TYPE);
 
 int   force_probcc0(int itype, int idsurvey);
 int   ppar(char* string);
@@ -1743,8 +1758,8 @@ void  setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
 int   unsetbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
 
 void  countData_per_zbin(void) ;
-int   prescale_reject_simData(int SIM_TEMPLATE_INDEX);
-int   prescale_reject_biasCor(int isn);
+int   prescale_reject_simData(int isn, TABLEVAR_DEF *TABLEVAR);
+int   prescale_reject_biasCor(int isn, TABLEVAR_DEF *TABLEVAR);
 int   outside_biasCor_grid(int isn);
 
 int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN); 
@@ -5701,6 +5716,8 @@ void set_defaults(void) {
   INPUTS.prescale_simData  = 1.0 ; // include all simData by default
   INPUTS.prescale_simCC    = 1.0 ; // include all simcc by default.
   INPUTS.prescale_simIa    = 1.0 ; // include all simIa by default.
+  INPUTS.ZRATE_SCALE.file[0] = 0 ; // ignore by default
+  INPUTS.ZRATE_SCALE.nzbin   = 0 ;
 
   DOFIT_FLAG = FITFLAG_CHI2 ;
   INPUTS.zpolyflag = 0;
@@ -16054,10 +16071,6 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       imu   = PROB->IMU[icc];
       dmu   = PROB->DMU[icc];
 
-      //.xyz
-      //double prob_CCprior_sim(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-      //		double z, double c, double s, double dmu, int DUMPFLAG, char *callFun) {
-
       PDF_TRUE     = MUZMAP->DMUPDF[IDSAMPLE][i3d][imu] ;
 
       OPT_CCPRIOR  = MASK_CCPRIOR_FUNDMU_GAUSS;
@@ -17260,7 +17273,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   if ( IS_DATA ) {
     // check pre-scale if data is from a simulation
-    REJECT = prescale_reject_simData(SIM_TEMPLATE_INDEX);
+    REJECT = prescale_reject_simData(isn, TABLEVAR);
     if ( REJECT )
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
@@ -17281,7 +17294,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     if ( idsample < 0 )
       { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR); }
 
-    if ( prescale_reject_biasCor(isn) ) 
+    if ( prescale_reject_biasCor(isn,TABLEVAR) ) 
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
     
@@ -17451,7 +17464,7 @@ int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN) {
 } // END selectCID_data
 
 // =============================================
-int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
+int prescale_reject_simData(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   // Created Apr 14 2017 by R.Kessler
   // For simulated data, check prescales to see if this event is rejected:
@@ -17465,6 +17478,12 @@ int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
   // Do not use this function for biasCor or CCprior.
   //
   // Nov 25 2021: check prescale_simIa
+  // Aug 13 2025: pass isn index instead of SIM_TEMPLATE_INDEX; check accept_zrate_scale
+
+  int EVENT_TYPE         = TABLEVAR->EVENT_TYPE ;
+  int SIM_TEMPLATE_INDEX = (int)TABLEVAR->SIM_TEMPLATE_INDEX[isn] ;
+  char *name             = TABLEVAR->name[isn] ;
+  double ztrue           = TABLEVAR->SIM_ZCMB[isn] ;
 
   int REJECT = 0 ;
   float XN, XNPS;
@@ -17484,6 +17503,7 @@ int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
 
   // increment separate NSIMCC counter
   if ( SIM_TEMPLATE_INDEX != 0 ) {
+    // is NOT SNIa
     NSIMCC++ ;
     XN    = (float)NSIMCC ;
     XNPS  = (float)INPUTS.prescale_simCC ;
@@ -17492,10 +17512,14 @@ int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
   }
 
   if ( SIM_TEMPLATE_INDEX == 0 ) {
+    // is SNIa
     NSIMIa++ ;
     XN    = (float)NSIMIa ;
     XNPS  = (float)INPUTS.prescale_simIa ;
     if ( fmodf( XN, XNPS ) != 0 ) { REJECT = 1 ; }
+
+    bool accept_tmp = accept_zrate_scale(0, name, ztrue, EVENT_TYPE);
+    if ( !accept_tmp ) { REJECT = 1; }  // Aug 13 2025
   }
 
 
@@ -17504,15 +17528,17 @@ int prescale_reject_simData(int SIM_TEMPLATE_INDEX) {
 } // end prescale_reject_simData
 
 // =============================================
-int prescale_reject_biasCor(int isn) {
+int prescale_reject_biasCor(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   // Created Jun 2019 
   //   [coded moved from obsolete biasMapSelect]
   // Returns 1 to reject; returns 0 to keep.
   //
+
+  int  REJECT = 0 ;
   int  PS0, PS1;
   double Xisn, XPS1;
-  //  char fnam[] = "prescale_reject_biasCor" ;
+  char fnam[] = "prescale_reject_biasCor" ;
 
   // --------------- BEGIN ------------
 
@@ -17521,11 +17547,24 @@ int prescale_reject_biasCor(int isn) {
     PS1  =  INPUTS.prescale_biasCor[1] ;
     Xisn =  (double)isn ;
     XPS1 =  (double)PS1 ;
-    if ( fmod(Xisn,XPS1) != PS0 ) { return(1); } 
+    if ( fmod(Xisn,XPS1) != PS0 ) { REJECT = 1 ; } 
+    // xxx mark delete Aug 13 2025  if ( fmod(Xisn,XPS1) != PS0 ) { return(1); } 
   }
 
+  
+  // Aug 13 2025; check user option to scale z-dependent rate for Ia;
+  //   non-SNIa are ignored here.
+  if ( INPUTS.ZRATE_SCALE.nzbin > 0 ) {
+    int EVENT_TYPE         = TABLEVAR->EVENT_TYPE ;
+    int SIM_TEMPLATE_INDEX = (int)TABLEVAR->SIM_TEMPLATE_INDEX[isn] ;
+    char *name             = TABLEVAR->name[isn] ;
+    double ztrue           = TABLEVAR->SIM_ZCMB[isn] ;
+    bool accept            = accept_zrate_scale(0, name, ztrue, EVENT_TYPE );
+    bool is_snia           = (SIM_TEMPLATE_INDEX == 0);
+    if ( is_snia && !accept ) { REJECT=1; } // scale only SNIa; all nonIa pass here
+  }
 
-  return(0) ;
+  return(REJECT) ;
 
 }  // end prescale_reject_biasCor
 
@@ -18340,6 +18379,8 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"prescale_sim1a="))  // allow 1a or Ia
     { sscanf(&item[15],"%lf",&INPUTS.prescale_simIa); return(1); }
 
+  if ( uniqueOverlap(item,"zrate_scale_file="))  // down-scale z-dependent rate for data and bcor
+    { sscanf(&item[17],"%s",&INPUTS.ZRATE_SCALE.file); return(1); }
 
   // misc.  
   if ( uniqueOverlap(item,"NDUMPLOG=")) 
@@ -20362,6 +20403,8 @@ void prep_input_driver(void) {
 	    INPUTS.prescale_simCC);
   }
 
+  prep_input_zrate_scale();
+
   int  ISFILE_BIASCOR = ( INPUTS.nfile_biasCor > 0 );
   // check for default biasCor option
   if ( ISFILE_BIASCOR ) {
@@ -20619,6 +20662,135 @@ void  prep_fitpar(void) {
 
 } // end prep_fitpar
 
+
+// ===============================================
+void  prep_input_zrate_scale(void) {
+
+  // Aug 2025
+  // Read 2-column "z scale" file and store contents.
+  // Abort if any scale is > 1 since we can only reduce rate, not increase it.
+  // This z-dependent scale is equivalent to re-running sim + lcfit with 
+  // lower rate in DNDZ sim-input key
+
+  FILE *fp;
+  int nzbin = 0, iwd0=0, iwd1=1;
+  double z, scale;
+  char line[100], ctmp_z[40], ctmp_scale[40], msg[100];
+  char *zrate_scale_file = INPUTS.ZRATE_SCALE.file ;
+  char fnam[] = "prep_input_zrate_scale" ;
+
+  // ------------- BEGIN --------------
+
+  if ( strlen(zrate_scale_file) == 0 ) { return; }
+
+  fp = fopen(zrate_scale_file,"rt");
+  if ( !fp )  {
+    sprintf(c1err,"Could not open zrate_scale_file");
+    sprintf(c2err,"%s", zrate_scale_file);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
+  }
+
+  print_banner(fnam);  
+  fprintf(FP_STDOUT, "\t Read z,scale list from %s\n", zrate_scale_file);
+
+  while ( fgets (line, 100, fp) !=NULL  ) {
+    if ( line[0] == ' '    ) { continue ; }
+    if ( commentchar(line) ) { continue ; }
+
+    store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, line, fnam);
+    get_PARSE_WORD(0, iwd0, ctmp_z,     fnam);
+    get_PARSE_WORD(0, iwd1, ctmp_scale, fnam);
+
+    sscanf(ctmp_z,     "%le", &z);
+    sscanf(ctmp_scale, "%le", &scale);
+
+    INPUTS.ZRATE_SCALE.redshift_list[nzbin] = z;
+    INPUTS.ZRATE_SCALE.scale_list[nzbin]    = scale;
+
+    if ( scale > 1.00000001 ) {
+      sprintf(c1err,"Invalid scale = %le at z = %f", scale, z);
+      sprintf(c2err,"Scales must be <= 1");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);       
+    }
+
+    fprintf(FP_STDOUT, "\t iz=%2d  z = %.3f -> scale = %.3f \n", nzbin, z, scale);
+    fflush(FP_STDOUT);
+    nzbin++ ;
+  }
+
+  INPUTS.ZRATE_SCALE.nzbin  = nzbin ;
+
+  fclose(fp) ;
+
+  return;
+
+} // end prep_input_zrate_scale
+
+
+// ========================================
+bool accept_zrate_scale(int OPT, char *snid, double z, int EVENT_TYPE ) {
+
+  // Created Aug 2025
+  // Return True to accept event based on z-dependent rate-scale.
+  //
+  // Inputs
+  //   OPT :  8-bit -> DUMP
+  //   snid:  snid string that is really an integer
+  //   z   : redshift
+  //   EVENT_TYPE; for messages only; DATA, BIASCOR or CCPRIOR
+  //
+  // Convert last 3 digits of SNID into integer, then divide by 1000; compare with scale.
+  // Example:
+  //   Input SNID = 45345643, z = 1.89
+  //   Strip off 643 and divide by 1000 -> ran = 0.643
+  //   Interpolate zrate_scale vs. z to get value at z
+  //   Return True if ran < zrate_scale; false otherwise
+  //
+  // This function works only if snid string is an integer; i.e., for sims.
+  
+  bool accept = true;
+  int lensnid = strlen(snid);
+  int i3;
+  double ran, scale ;
+  char c3[8];
+  char fnam[] = "accept_zrate_scale" ;
+
+  // ------------ BEGIN -------------
+
+  if ( INPUTS.ZRATE_SCALE.nzbin == 0 ) { return accept; }
+
+  if ( lensnid > 3 ) 
+    { sscanf(&snid[lensnid-3], "%d", &i3); }
+  else
+    { sscanf(snid, "%d", &i3); }
+
+  ran = (double)i3/1000.0;
+
+  // - - - - -
+  // get scale .xyz
+  int OPT_INTERP = 1; // 1=linear
+  scale = interp_1DFUN(OPT_INTERP, z, 
+		       INPUTS.ZRATE_SCALE.nzbin,
+		       INPUTS.ZRATE_SCALE.redshift_list,
+		       INPUTS.ZRATE_SCALE.scale_list,   fnam);
+
+  // note that if all scale=1 (nominal rate), accept is always true.
+  accept = ( ran <= scale ) ;
+
+  bool LDMP = (OPT & 8) > 0 ;
+  //   LDMP = ( z>1.8 && z < 1.81 ); // xxx REMOVE
+  if ( LDMP ) {
+    char *stype = STRING_EVENT_TYPE[EVENT_TYPE];
+    fprintf(FP_STDOUT," xxx -------------------------------------------- \n");
+    fprintf(FP_STDOUT," xxx %s DUMP for %s SNID=%s (len=%d)  z = %f \n", 
+	    fnam, stype, snid, lensnid,  z);
+    fprintf(FP_STDOUT," xxx i3=%d  ran=%.4f  scale=%.4f  accept=%d \n",
+	    i3, ran, scale, accept);
+    fflush(FP_STDOUT);
+  }
+
+  return accept ;
+} // end accept_zrate_scale
 
 // =========================
 void  prep_input_trueIa(void) {
@@ -21795,7 +21967,7 @@ void  write_M0_fitres(char *fileName) {
   write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
 
-  fprintf(fp,"# For cosmology fit: z=zHD, MU=MUREF+MUDIF, MUERR=MUDIFERR\n\n");
+  fprintf(fp,"# For cosmology fit: zHD, MU=MUREF+MUDIF, MUERR=MUDIFERR\n\n");
   
   fprintf(fp,"VARNAMES: ROW  zHDMIN zHDMAX   zHD        "
 	  "MUDIF  MUDIFERR   MUREF  NFIT \n");
@@ -22306,7 +22478,7 @@ void write_fitres_driver(char* fileName) {
 
       if ( line[0] == ' '    ) { continue ; }
       if ( strlen(line) < 3  ) { continue ; }
-      if ( commentchar(line) ) { continue; }
+      if ( commentchar(line) ) { continue ; }
 
       store_PARSE_WORDS(MSKOPT_PARSE_WORDS,line, fnam);
 
@@ -23991,6 +24163,7 @@ void print_SALT2mu_HELP(void) {
     "prescale_simdata=<preScale>  # pre scale for sim data",
     "prescale_simcc=<preScale>    # pre-scale only the simulated CC",
     "prescale_simIa=<preScale>    # pre-scale only the simulated Ia",
+    "zrate_scale_file=<file>      # 2-col file with 'z scale' and scale<=1; applies to true SNIa in sims ",
     "",
     "iflag_duplicate=0   # 0=ignore, 1=abort, 2=merge with wgted avg",
     "",

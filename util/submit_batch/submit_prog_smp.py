@@ -12,9 +12,6 @@ from   submit_prog_base import Program
 
 # ===================================================
 
-FILTERMAP_DICT =  {
-    'R' : 'R062',  'Z': 'Z087',  'Y':'Y106', 'J':'J129',  'H':'H158',  'F':'F184'
-}
 
 # not sure we need this subclass dictionary, but maybe later if there are multiple
 # SMP implementations
@@ -102,18 +99,13 @@ class SceneModelPhotometry(Program):
             msgerr = [ f'Missing required {KEY_FILTERS} key in config file' ]
             util.log_assert(False, msgerr)
 
-        filter_list_input = FILTERS.split()
-        filter_list = []
-        for band_inp in filter_list_input:
-            
-            if len(band_inp) == 1:
-                band_arg = FILTERMAP_DICT[band_inp]
-            else:
-                band_arg = band_inp
-            filter_list.append(band_arg)
-            
+        filter_list = FILTERS.split()
+        n_filter    = len(filter_list)
+        
+        logging.info(f"\t Found {n_filter}  FILTERs: {filter_list}")
+                
         self.config_prep['filter_list'] = filter_list
-        self.config_prep['n_filter']    = len(filter_list)
+        self.config_prep['n_filter']    = n_filter
         return
     # end prep_smp_filters
         
@@ -182,18 +174,23 @@ class SceneModelPhotometry(Program):
     
     def prep_smp_subsets(self):
 
+
         CONFIG        = self.config_yaml['CONFIG']
         n_filter      = self.config_prep['n_filter']
         n_fitopt      = self.config_prep['fitopt_dict']['n_jobopt']
-        n_core        = self.config_prep['n_core']
+        n_core_orig   = self.config_prep['n_core']
 
-        n_subset    = int(n_core/(n_fitopt*n_filter))  # number of SPLIT subsets
+        logging.info('')
+        logging.info(' Compute subsets to split jobs:')
+        
+        n_subset    = int(n_core_orig/(n_fitopt*n_filter))  # number of SPLIT subsets
         if n_subset < 1: n_subset = 1
         n_job_split   = n_subset
         
         # revise n_core
-        n_core = n_subset * n_fitopt * n_filter
-        self.config_prep['n_core'] = n_core
+        n_job_tot =  n_subset * n_fitopt * n_filter
+        n_core_final = min(n_job_tot,n_core_orig)
+        self.config_prep['n_core'] = n_core_final
 
         # - - - - - - -
         # determine if subsets are based on healpix or snid
@@ -216,9 +213,10 @@ class SceneModelPhotometry(Program):
         self.config_prep['key_list_file'] = key_list_file
 
         # - - - - - - - -
-        logging.info(f" Calculated nubmer of {subset_var} subsets: {n_subset}")
-        logging.info(f" Revised n_core: {n_core} = " \
-                     f"{n_filter }(FILTER) x {n_fitopt}(FITOPT) x {n_subset}({subset_var} SUBSETS)")
+        logging.info(f"   Calculated number of {subset_var} subsets: {n_subset}")
+        logging.info(f"   n_job_tot = {n_job_tot} = {n_filter }(FILTER) x {n_fitopt}(FITOPT) x " \
+                     f"{n_subset}({subset_var} SUBSETS)")
+        logging.info(f"   Final n_core =  {n_core_final}")
 
         # - - - - - - - - - - -
         # read list file
@@ -230,7 +228,7 @@ class SceneModelPhotometry(Program):
         nside            = contents.setdefault('NSIDE',None) # only for healpix
         global_item_list = contents[subset_var]
         n_global_item    = len(global_item_list)
-        logging.info(f" Found {n_global_item} total {subset_var}s to process in {list_file}")
+        logging.info(f"   Found {n_global_item} total {subset_var}s to process in {list_file}")
         
         # split global_item_list into n_job_split sub-lists
         # (welcome AI overlords for figuring this out)

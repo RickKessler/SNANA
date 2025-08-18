@@ -619,7 +619,7 @@ typedef struct {
 typedef struct {
   int    *IZ,  *IMU, *IC, *IS, *I3D;
   double *DMU, *PROB;
-  int istat_malloc ;
+  double *MUMODEL;  // store to avoid re-computing
 } PROB_CCPRIOR_DEF ;  // Jul 29 2025
 
 
@@ -1658,6 +1658,7 @@ void   read_simFile_CCprior(void);
 void   store_INFO_CCPRIOR_CUTS(void);
 int    storeBias_CCprior(int n) ;
 
+void  malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRIOR_DEF *PROB_CCPRIOR);
 void   load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PROB_CCPRIOR);
 void   load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRIOR_DEF *PROB_CCPRIOR);
 
@@ -1694,7 +1695,7 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 void  dump_DMUPDF_CCprior(int IDSAMPLE, int I3D, MUZMAP_DEF *MUZMAP) ;
 
 double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-			double z, double c, double s, double dmu, int DUMPFLAG, char *callFun);
+			int i3d, double z, double dmu, int DUMPFLAG, char *callFun);
 
 double prob_CCprior_H11(int n, double dmu, double *H11_fitpar, 
 			double *sqsigCC, double *sigCC_chi2penalty);
@@ -4625,7 +4626,7 @@ void *MNCHI2FUN(void *thread) {
     
     if ( USE_CCPRIOR  ) {
       // BEAMS-like chi2 = -2ln [ PIa + PCC ]
-      DUMPFLAG = 0; // (strcmp(name,"386263") == 0) ; // (n==13198) 
+      DUMPFLAG = 0; //  (strcmp(name,"1302942") == 0) || (strcmp(name,"1682419")==0)  || (strcmp(name,"3144094")==0); 
       nsnfit++ ;
 
       if ( INPUTS.ipar[IPAR_scalePCC] <= 1 ) {
@@ -4662,8 +4663,9 @@ void *MNCHI2FUN(void *thread) {
 	  // pre-computed during init with user-input alpha,beta
 	  if ( INPUTS.DO_CCPRIOR_UPDATE ) {
 	    // re-compute prior with updated alpha, beta
+	    int i3d = INFO_DATA.PROB_CCPRIOR.I3D[n];
 	    dPdmu_CC = prob_CCprior_sim(idsample, CCPRIOR_MUZMAP, 
-					z, c, s, mures, DUMPFLAG, fnam );
+					i3d, z, mures, DUMPFLAG, fnam );
 	  }
 	  else {
 	    // use pre-computed PROB(DMU) based on user-defined alpha, beta
@@ -5381,7 +5383,7 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
   int NSAMPLE                      = NSAMPLE_BIASCOR ;
   TABLEVAR_DEF* TABLEVAR_CUTS      = &INFO_CCPRIOR.TABLEVAR_CUTS; // should be passed as arg?
   PROB_CCPRIOR_DEF *PROB_CCPRIOR   = &INFO_CCPRIOR.PROB_CCPRIOR ;
-
+  double  ABG[3]  = { xval[IPAR_ALPHA0], xval[IPAR_BETA0], 0.0 } ;
   int i, idsample ;
   double cosPar[10];
   char fnam[] = "fcn_ccprior_muzmap";
@@ -5399,7 +5401,6 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
   cosPar[2] = xval[IPAR_w0] ;
   cosPar[3] = xval[IPAR_wa] ;
 
-
   // avoid using blinded cosmology params for CC prior (July 20 2023)  
   if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) { // Dec 2023
     cosPar[0] = OMEGA_LAMBDA_DEFAULT ;
@@ -5410,16 +5411,22 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
 
   for(i=0; i < NCOSPAR ; i++ ) { MUZMAP->cosPar[i] = cosPar[i] ; } 
 
-  for(idsample=0; idsample < NSAMPLE; idsample++ ) {
-    if ( REFAC ) {
-      setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CUTS, MUZMAP, PROB_CCPRIOR, false );
-    }
-    else {
+  if ( REFAC ) {
+
+    load_DMU_CCprior(TABLEVAR_CUTS, ABG, PROB_CCPRIOR); // load PROB_CCPRIOR->DMU[icc]
+
+    // load MUZMAP and reset PROB_CCPRIOR
+    for(idsample=0; idsample < NSAMPLE; idsample++ ) 
+      { setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CUTS, MUZMAP, PROB_CCPRIOR, false ); }
+   
+  }
+  else {
+    // legacy code
+    for(idsample=0; idsample < NSAMPLE; idsample++ ) {
       setup_DMUPDF_CCprior_legacy(idsample, TABLEVAR_CUTS, MUZMAP, false );
     }
   }
-  //.xyz
-
+  
   // - - - - -
 
   if ( USE_CCPRIOR_H11 ) {
@@ -15437,9 +15444,7 @@ void prepare_CCprior(void) {
   TABLEVAR_DEF *TABLEVAR_DATA      = &INFO_DATA.TABLEVAR ;
   PROB_CCPRIOR_DEF *PROB_DATA      = &INFO_DATA.PROB_CCPRIOR ;
   
-  // compute dmu for all sim CC events and store in PROB_CCPRIOR structure
-  PROB_CCPRIOR->istat_malloc = 0;
-  // xxx mark   load_DMU_CCprior(TABLEVAR_CCPRIOR, ABG, PROB_CCPRIOR);
+  // xxx mark >  PROB_CCPRIOR->istat_malloc = 0;
 
   // - - - - 
 
@@ -15450,6 +15455,7 @@ void prepare_CCprior(void) {
 
 
     double ABG[3] = { MUZMAP->alpha, MUZMAP->beta, MUZMAP->gammadm } ;
+    malloc_PROB_CCprior(TABLEVAR_CCPRIOR, MUZMAP, PROB_CCPRIOR);
     load_DMU_CCprior(TABLEVAR_CCPRIOR, ABG, PROB_CCPRIOR);
 
     bool PRINT_TABLE = true ;
@@ -15458,9 +15464,9 @@ void prepare_CCprior(void) {
 				  PROB_CCPRIOR, PRINT_TABLE );
     }
 
+    malloc_PROB_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA);
     if ( !INPUTS.DO_CCPRIOR_UPDATE ) {
       // data prior is fixed during init
-      INFO_DATA.PROB_CCPRIOR.istat_malloc = 0;
       load_DMU_CCprior(TABLEVAR_DATA, ABG, PROB_DATA);
       load_PROBDMU_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA); 
     } 
@@ -15922,7 +15928,9 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   // Compute DMUPDF in each redshift bin for input IDSAMPLE. 
   // TABLEVAR is for SIM CC events.
   // Use precomputed PROB(DMU) un *PROB input.
-
+  //
+  // Input structures MUZMAP and PROB are updated.
+  //
   bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
   bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   int NBIN3D          = MUZMAP->NBIN3D;
@@ -15943,7 +15951,6 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   bool WRITE_CCPRIOR = ( INPUTS.write_ccprior > 0 && PRINT_TABLE ); 
   FILE *fcc;
   char outfile_cc[MXPATHLEN];
-
   char fnam[] = "setup_MUZMAP_DMUPDF_CCPRIOR" ;
     
   // ----------------- BEGIN ---------------
@@ -15952,7 +15959,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
 
   // number of DMU bins to make PDF
   XMU    = (double)NMUBIN ;
-  DMUBIN = MUZMAP->DMUBIN.hi[0] - MUZMAP->DMUBIN.lo[0]; 
+  DMUBIN = MUZMAP->DMUBIN.hi[0] - MUZMAP->DMUBIN.lo[0];  // assumes uniform bin size
   
   // init default PDF to flat in case there are not enough CC sim stats  
   for(i3d=0; i3d < NBIN3D; i3d++ ) {
@@ -15967,8 +15974,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     for(imu=0; imu < NMUBIN; imu++ ) { 
       NCC[i3d][imu] = 0 ;
       MUZMAP->NDMUPDF[IDSAMPLE][i3d][imu] = 0 ;
-      MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = 1.0/XMU ;
-      MUZMAP->DMUPDF[IDSAMPLE][i3d][imu] /= DMUBIN ; // Jul 2016
+      MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = (1.0/XMU) / DMUBIN ;
     }
   }
   
@@ -15978,6 +15984,12 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   //  (e.g.., spec-confirmed subset)
   if ( SAMPLE_BIASCOR[IDSAMPLE].NSN[EVENT_TYPE_CCPRIOR] == 0 ) { return; }
 
+  bool DO_INTEGRAL_CHECK = false;  // internal diagnostic
+  double *INTEGRAL_CHECK;
+  if ( DO_INTEGRAL_CHECK ) {
+    INTEGRAL_CHECK = (double* ) malloc ( NBIN3D * sizeof(double) ) ;
+    for(i3d=0; i3d < NBIN3D; i3d++ ) { INTEGRAL_CHECK[i3d] = 0.0 ; }
+  }
 
   int ABORT_IBINFUN = 2 ; // 1 = Abort; 2=shift to edge of bin
   int i3list[3];
@@ -15987,8 +15999,11 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     idsample = TABLEVAR->IDSAMPLE[icc] ;
     if( idsample != IDSAMPLE ) { continue ; }
 
-    dmu        = PROB->DMU[icc] ;
+    i3d        = PROB->I3D[icc] ;
+    dmu        = PROB->DMU[icc] ; // already computed in load_DMU_CCprior
     imu        = IBINFUN(dmu, &MUZMAP->DMUBIN, ABORT_IBINFUN, fnam);
+
+    /* xxx mark deletel 
     i3list[0]  = IBINFUN(TABLEVAR->zhd[icc],             &MUZMAP->ZBIN, ABORT_IBINFUN, fnam); // redshift
     i3list[1]  = IBINFUN(TABLEVAR->fitpar[INDEX_c][icc], &MUZMAP->CBIN, ABORT_IBINFUN, fnam); // colour
     i3list[2]  = IBINFUN(TABLEVAR->fitpar[INDEX_s][icc], &MUZMAP->SBIN, ABORT_IBINFUN, fnam); // stretch
@@ -15998,7 +16013,9 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     PROB->IZ[icc]  = i3list[0];
     PROB->IC[icc]  = i3list[1];
     PROB->IS[icc]  = i3list[2];
-    PROB->I3D[icc] = i3d;  
+    PROB->I3D[icc] = i3d;
+    xxx end mark */  
+
     PROB->IMU[icc] = imu; 
 
     if ( imu >= 0 && imu < NMUBIN ) {
@@ -16014,7 +16031,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
 
   // Normalize each DMU distribution to get PDF in each class,i3d bin.
   // If the stats are too low then leave flat/default PDF.
-  double S1TMP, S2TMP, AVG, STD; 
+  double S1TMP, S2TMP, AVG, STD, P ; 
   int NTMP, NTMP_MAX = 0 ;  
 
   /* xxx ???
@@ -16051,13 +16068,23 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       // prob in each bin
       for(imu=0; imu < NMUBIN; imu++ ) { 
 	XCC = (double)NCC[i3d][imu];
-	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = XCC / XCC_SUM ;
+	P   = ( XCC / XCC_SUM ) / DMUBIN ;
+	// xxx mark delete	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = XCC / XCC_SUM ;
+
+	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = P ;
 	MUZMAP->NDMUPDF[IDSAMPLE][i3d][imu] = NCC[i3d][imu];
 	MUZMAP->NCC3D[IDSAMPLE][i3d]       += NCC[i3d][imu];
-	// divide by DMU bin size to get normalized integral
-	// assuming that each DMU bin is linearly interpolated.
-	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu] /= DMUBIN ; 
+
+	if ( DO_INTEGRAL_CHECK ) { INTEGRAL_CHECK[i3d] += (P * DMUBIN); }
+
       }
+
+      /* xxxxxx
+      if ( PRINT_TABLE ) {
+	fprintf(FP_STDOUT,"\t INTEGRAL_CHECK for IDSAMPLE=%d  I3d=%3d: %f \n", 
+		IDSAMPLE, i3d, INTEGRAL_CHECK[i3d]);      fflush(FP_STDOUT);
+      }
+      xxx */
     }
 
   }   // and iz loop
@@ -16124,10 +16151,10 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       PDF_TRUE     = MUZMAP->DMUPDF[IDSAMPLE][i3d][imu] ;
 
       OPT_CCPRIOR  = MASK_CCPRIOR_FUNDMU_GAUSS;
-      PDF_GAUSS    = prob_CCprior_sim(IDSAMPLE, MUZMAP, z, c, s, dmu, 0, fnam );
+      PDF_GAUSS    = prob_CCprior_sim(IDSAMPLE, MUZMAP, i3d, z, dmu, 0, fnam );
 
       OPT_CCPRIOR  = MASK_CCPRIOR_FUNDMU_INTERP ;
-      PDF_INTERP   = prob_CCprior_sim(IDSAMPLE, MUZMAP, z, c, s, dmu, 0, fnam );
+      PDF_INTERP   = prob_CCprior_sim(IDSAMPLE, MUZMAP, i3d, z, dmu, 0, fnam );
 
       fprintf(fcc,"SN: %12s %2d %3d  "          // CID IDSAMPLE IDSURVEY 
 	      "%8s  %2d %2d %2d %2d %2d  "      // FIELD, i3d, iz, ic, is, imu
@@ -16142,6 +16169,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     
     fclose(fcc);
   } // end WRITE_CCPRIOR
+  if ( DO_INTEGRAL_CHECK ) {  free(INTEGRAL_CHECK); }
 
   return ;
   
@@ -16170,9 +16198,10 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
   bool USE_BIASCOR    = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
   int  NDIM_BIASCOR   = INFO_BIASCOR.NDIM ;
 
+  int ABORT_IBINFUN = 2 ; // 1 = Abort; 2=shift to edge of bin
+
   int  EVENT_TYPE     = TABLEVAR->EVENT_TYPE;
   int  NSN_ALL        = TABLEVAR->NSN_ALL ;
-  bool DO_MALLOC      = ( PROB_CCPRIOR->istat_malloc == 0 ) ;
   int  MEMI           = NSN_ALL * sizeof(int);
   int  MEMD           = NSN_ALL * sizeof(double);
   double M0           = M0_DEFAULT;
@@ -16185,24 +16214,12 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
   double fitParBias[NLCPAR];
 
   char *name ;
-  int icc, iz, imu, idsample, nevt_biascor ;
+  int icc, iz, imu, idsample, nevt_biascor; 
   double z, c, s, d, mu, dl, mumodel, dmu, a=0.0, b=0.0, gDM=0.0 ;
   double muBias, muBiasErr, muCOVscale, muCOVadd;
   char fnam[] = "load_DMU_CCprior" ;
 
   // ------------- BEGIN ----------
-
-  if ( DO_MALLOC ) {
-    // malloc everything, even though onlu DMU is computed here.
-    PROB_CCPRIOR->IZ  = (int*) malloc(MEMI);
-    PROB_CCPRIOR->IC  = (int*) malloc(MEMI);  // index for color
-    PROB_CCPRIOR->IS  = (int*) malloc(MEMI);  // index for stretch
-    PROB_CCPRIOR->I3D = (int*) malloc(MEMI);  // 1D index representing z,c,s
-    PROB_CCPRIOR->IMU = (int*) malloc(MEMI);  // index for hubble resid (dmu)
-    PROB_CCPRIOR->DMU  = (double*) malloc(MEMD);  // Hubble resid
-    PROB_CCPRIOR->PROB = (double*) malloc(MEMD);  // prob(dmu)
-    PROB_CCPRIOR->istat_malloc = 1;
-  }
 
 
   int ia, ib, ig;
@@ -16220,12 +16237,6 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
     a    = ABG[0];
     b    = ABG[1];
     gDM  = ABG[2];
-
-    /* xxxx
-    if ( EVENT_TYPE == EVENT_TYPE_CCPRIOR ) 
-      { printf(" xxx %s: a,b,g = %.3f  %.3f  %.3f\n", fnam, a, b, gDM); fflush(stdout); } 
-    xxx */
-
     if ( NDIM_BIASCOR >= 5 ) 
       { get_INTERPWGT_abg(a,b,gDM, 0, &INTERPWGT,fnam ); } // returns INTERPWGT
   }
@@ -16290,18 +16301,21 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
     } // end biasCor if-block
     
 
-
     // compute mucos for each SIM CC event
+    mumodel = PROB_CCPRIOR->MUMODEL[icc] + muBias;
+    dmu      = mu - mumodel ;
+
+    /* xxxxxxxxxxxxxxx mark delete xxxxxxx
     dl       = cosmodl_forFit(z, z, INPUTS.COSPAR) ; // zhel approx ok here for CC
     mumodel  = 5.0*log10(dl) + 25.0 ;
     mumodel += muBias ;     // add bias
-    dmu      = mu - mumodel ;
-
     PROB_CCPRIOR->IZ[icc]   = -9;  // to be set later when PROB is determined from MUZMAP
     PROB_CCPRIOR->IC[icc]   = -9;  // idem
     PROB_CCPRIOR->IS[icc]   = -9;  // idem
-    PROB_CCPRIOR->IMU[icc]  = -9;  // idem
-    PROB_CCPRIOR->PROB[icc] = -9.0;
+    xxxxxxxxxxxxxxxx */
+
+    PROB_CCPRIOR->PROB[icc] = -9.0 ;
+    PROB_CCPRIOR->IMU[icc]  = -9.0 ;
     PROB_CCPRIOR->DMU[icc]  = dmu;  // only dmu gets set here
 
     int  LDMP_MUBIAS = 0; // strcmp(name,"1136521")==0 || strcmp(name,"1199903")==0  ;  // refac
@@ -16319,6 +16333,68 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
 } // end load_DMU_CCprior
 
 
+void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRIOR_DEF *PROB_CCPRIOR) {
+
+  // Created Aug 2025
+  // Malloc PROB_CCPRIOR and load IZ,IC,IS, I3D indices for each event in TABLEVAR.
+  //
+  // Inputs:
+  //   TABLEVAR  : contents of FITRES file read earlier
+  //   MUZMAP    : contains bin info for each z,c,s dimension
+  //  
+  // Output:
+  //   PROB_CCPRIOR:  struct to be malloced and filled.
+
+
+  int  NSN_ALL     = TABLEVAR->NSN_ALL ;
+  int  MEMI        = NSN_ALL * sizeof(int);
+  int  MEMD        = NSN_ALL * sizeof(double);
+
+  double z, c, s, mumodel, dl ;
+  int icc, i3d, i3list[3] ;
+  int ABORT_IBINFUN = 2 ; // 1 = Abort; 2=shift to edge of bin    
+  char fnam[] = "malloc_PROB_CCprior" ;
+
+  // ------------- BEGIN ----------
+  
+  PROB_CCPRIOR->IZ   = (int*) malloc(MEMI);
+  PROB_CCPRIOR->IC   = (int*) malloc(MEMI);  // index for color
+  PROB_CCPRIOR->IS   = (int*) malloc(MEMI);  // index for stretch
+  PROB_CCPRIOR->I3D  = (int*) malloc(MEMI);  // 1D index representing z,c,s
+
+  PROB_CCPRIOR->IMU     = (int*) malloc(MEMI);  // index for hubble resid (dmu)
+  PROB_CCPRIOR->DMU     = (double*) malloc(MEMD);  // Hubble resid
+  PROB_CCPRIOR->PROB    = (double*) malloc(MEMD);  // prob(dmu)
+  PROB_CCPRIOR->MUMODEL = (double*) malloc(MEMD);  // model mu
+
+  // load z,c,x1 indices here since they never change.
+  // Note that imu index can change and is computed elsewhere
+
+  for(icc=0; icc < NSN_ALL ; icc++ ) {  
+
+    z  = TABLEVAR->zhd[icc];
+    c  = TABLEVAR->fitpar[INDEX_c][icc];
+    s  = TABLEVAR->fitpar[INDEX_s][icc];
+    i3list[0]  = IBINFUN(z,  &MUZMAP->ZBIN, ABORT_IBINFUN, fnam); // redshift
+    i3list[1]  = IBINFUN(c,  &MUZMAP->CBIN, ABORT_IBINFUN, fnam); // colour
+    i3list[2]  = IBINFUN(s,  &MUZMAP->SBIN, ABORT_IBINFUN, fnam); // stretch
+    i3d        = get_1DINDEX(MUZMAP->IDMAP3D, 3, i3list);
+    
+    // load the goodies into PROB struct
+    PROB_CCPRIOR->IZ[icc]  = i3list[0];
+    PROB_CCPRIOR->IC[icc]  = i3list[1];
+    PROB_CCPRIOR->IS[icc]  = i3list[2];
+    PROB_CCPRIOR->I3D[icc] = i3d; 
+
+    dl       = cosmodl_forFit(z, z, INPUTS.COSPAR) ; // zhel approx ok here for CC
+    mumodel  = 5.0*log10(dl) + 25.0 ;
+    PROB_CCPRIOR->MUMODEL[icc] = mumodel; 
+  }
+
+  return ;
+} // end malloc_PROB_CCprior
+
+
 void load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRIOR_DEF *PROB_CCPRIOR) {
 
   // Created July 29 2025
@@ -16331,19 +16407,24 @@ void load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRI
 
   double z, c, s, dmu ;
   int DUMPFLAG = 0 ;
-  int isn, IDSAMPLE, CUTMASK;
+  int isn, IDSAMPLE, CUTMASK, i3d;
   char fnam[] = "load_PROBDMU_CCprior" ;
 
   // ------------- BEGIN ----------
 
   for(isn=0; isn < NSN_ALL; isn++ ) {
     if ( TABLEVAR->CUTMASK[isn] ) { continue; }
+
     z          = TABLEVAR->zhd[isn];
+    /* xxxxxxx mark delete 
     c          = TABLEVAR->fitpar[INDEX_c][isn];
     s          = TABLEVAR->fitpar[INDEX_s][isn];
-    dmu        = DMU[isn];
+    xxxxxxx end mark */
+
+    i3d        = PROB_CCPRIOR->I3D[isn] ;
+    dmu        = DMU[isn] ;
     IDSAMPLE   = TABLEVAR->IDSAMPLE[isn];
-    PROB[isn]  = prob_CCprior_sim(IDSAMPLE, MUZMAP, z, c, s, dmu, DUMPFLAG, fnam );
+    PROB[isn]  = prob_CCprior_sim(IDSAMPLE, MUZMAP, i3d, z, dmu, DUMPFLAG, fnam );
   }
 
   return ;
@@ -16394,7 +16475,7 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int I3D, MUZMAP_DEF *MUZMAP) {
     DMU_LO = MUZMAP->DMUBIN.lo[imu];
     DMU_HI = MUZMAP->DMUBIN.hi[imu];
     DMU    = 0.5 * ( DMU_LO + DMU_HI );
-    PDF_BBC  = prob_CCprior_sim(IDSAMPLE, MUZMAP, z, c, s, DMU, 0, fnam );
+    PDF_BBC  = prob_CCprior_sim(IDSAMPLE, MUZMAP, I3D, z, DMU, 0, fnam );
 
     fprintf(FP_STDOUT, "\t  %3d  %6.3f  %6.3f   %5d      %.3f    %.3f\n",
 	    imu, DMU_LO, DMU_HI, NCC, PDF_TRUE, PDF_BBC );
@@ -16813,7 +16894,7 @@ double prob_CCprior_H11(int n, double dmu,
 
 // ===================================================
 double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-			double z, double c, double s, double dmu, int DUMPFLAG, char *callFun) {
+			int I3D, double z, double dmu, int DUMPFLAG, char *callFun) {
 
   // Called by fcn function in minuit to return CC prob 
   // for input MUZMAP (includes cosPar) and Hubble resid dmu.
@@ -16821,7 +16902,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   // Inputs:
   //   IDSAMPLE     idsample to process
   //   MUZMAP       map information'
-  //   z, c, s      redshift, color, stretch params
+  //   z            redshift (temp; only for legacy call)
   //   dmu          Hubble resid corrected with 1A biasCor
   //
   // Jun 18 2018: pass DUMPFLAG argument for debugging
@@ -16829,7 +16910,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   // Feb 08 2025: use opt_ccprior to decide prior eval method;
   //              speed up DMU interp using known binsize 
 
-  bool REFAC  = ( INPUTS.REFAC_CCPRIOR  > 0 ) ;  
+  bool REFAC  = ( INPUTS.REFAC_CCPRIOR  > 0 ) ;  // remove z arg when making REFAC default.
   bool LEGACY = !REFAC ;
 
   int  OPT_CCPRIOR      = INPUTS.opt_ccprior ;
@@ -16837,7 +16918,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   bool DO_FUNDMU_INTERP = INPUTS.DO_CCPRIOR_INTERP ; 
 
   int OPT_INTERP = 1; // 1=linear
-  int I3LIST[3], NBMU, imu, I3D ;
+  int NBMU, imu ;
   double dmumin, dmumax, dmubin, dmu_local=dmu , prob, prob2, frac, *DMUPDF, *DMUAVG;
 
   char fnam[100] ;
@@ -16853,24 +16934,26 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
 
   prob = 0.0 ;
 
+  /* xxx end mark xxx
   I3LIST[0]   = IBINFUN(z, &MUZMAP->ZBIN, 0, fnam);
   I3LIST[1]   = IBINFUN(c, &MUZMAP->CBIN, 0, fnam);
   I3LIST[2]   = IBINFUN(s, &MUZMAP->SBIN, 0, fnam);
   I3D         = get_1DINDEX(MUZMAP->IDMAP3D, 3, I3LIST);
+  xxxx end */
 
   if ( I3D < 0 || I3D >= MUZMAP->NBIN3D ) {
     print_preAbort_banner(fnam);
     printf("\t OPT_CCPRIOR = %d \n", OPT_CCPRIOR);
-    printf("\t z = %6.3f  iz=%d \n", z, I3LIST[0]);
-    printf("\t c = %6.3f  ic=%d \n", c, I3LIST[1]);
-    printf("\t s = %6.3f  is=%d \n", s, I3LIST[2]);
     printf("\t IDSAMPLE = %d \n", IDSAMPLE);
     sprintf(c1err,"Invalid I3D = %d  (expect 0 to %d)", I3D, MUZMAP->NBIN3D-1);
     sprintf(c2err,"3D map is messed up.", IDSAMPLE);
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
+
   if ( DUMPFLAG ) {
+    printf(" xxx --------------------------------------------- \n");
+    printf(" xxx %s: NCALL=%d  \n", fnam, FITRESULT.NCALL_FCN);
     printf(" xxx %s: DO_FUNDMU_GAUSS=%d  IDSAM=%d  I3D=%d  AVG=%f  RMS=%f \n",
 	   fnam, DO_FUNDMU_GAUSS, IDSAMPLE, I3D, MUZMAP->DMUAVG[IDSAMPLE][I3D],
 	   MUZMAP->DMURMS[IDSAMPLE][I3D] ); fflush(stdout);
@@ -16888,7 +16971,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
       //  prob2 = prob;
     }
 
-    /*/ xxxxxxxxxxx
+    /* xxxxxxxxxxx
     printf(" xxx %s: AVG=%f  RMS=%f prob=%f\n", fnam, AVG, RMS, prob);
     debugexit(fnam); // xxx
     xxxxxxxxxxx */

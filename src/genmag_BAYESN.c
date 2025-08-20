@@ -454,8 +454,12 @@ int init_genmag_BAYESN(
   }
   // otherwise, turn on a specific combination of scatter terms
   else {
-    ENABLE_SCATTER_BAYESN = optmask & OPTMASK_BAYESN_SCATTER_ALL;
+    ENABLE_SCATTER_BAYESN = (optmask & OPTMASK_BAYESN_SCATTER_ALL);
   }
+
+
+  // R.Kessler Aug 20 2025: check for generic test flag for devel only; not for production
+  ENABLE_TEST_BAYESN = (optmask & OPTMASK_BAYESN_TEST); 
 
   // print the scatter flag we ended up with
   printf("ENABLE_SCATTER_BAYESN flag is %d (DELTAM %scluded; EPSILON %scluded)\n" 
@@ -544,6 +548,9 @@ int init_genmag_BAYESN(
   // Jul 28 2025 R.Kessler - read & store HOST_PARNAMES
   // .xyz
   init_HOSTPAR_BAYESN(optmask, NAMES_HOSTPAR);
+
+  // init stuff for determining magerr 
+  init_magerr_BAYESN();
 
   //debugexit(fnam);
   fflush(stdout);
@@ -874,7 +881,9 @@ void genmag_BAYESN(
     } else {
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + BAYESN_MODEL_INFO.DELTAM
 	+ DLMAG - 2.5*log10(flux_list[o]/hc_local) + ZP; 
-      magerr_list[o] = 0.01; // RK 0.1 is too big for LCfit
+
+      // xxx mark delete Aug 20 2025: magerr_list[o] = 0.01; // RK 0.1 is too big for LCfit
+      magerr_list[o] = get_magerr_BAYESN(Trest_list[o],meanlam_rest, parList_SN, parList_HOST);
     }
   } // end second o loop over Nobs bins
   
@@ -892,6 +901,53 @@ void genmag_BAYESN(
   return;
 
 } //End of genmag_BAYESN
+
+
+// ================================================
+void init_magerr_BAYESN(void) {
+
+  // Created Aug 20 2025 by R.Kessler & Mykola
+
+  char fnam[] = "init_magerr_BAYESN" ;
+  // ------------- BEGIN --------------
+
+  if (!ENABLE_TEST_BAYESN) { return; }
+
+  // Mykola parametrization:  RMS(λ) = a*λ + b; a = 5.091544e-06; b = 0.027604
+  char stringPoly[] = "5.091544e-06,0.027604";
+  parse_GENPOLY(stringPoly, "magerr", GENPOLYLAM_BAYESN, fnam);
+
+  print_GENPOLY(GENPOLYLAM_BAYESN);
+
+  return ;
+
+} // init_magerr_BAYESN
+
+// ======================================
+double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, double *parlist_HOST) {
+
+  // Created Aug 20 2025 by R.Kessler
+  // Inputs:
+  //   Test :      rest-frame phase (days); Trest=0 at peak brightness
+  //   wavelength: rest-frame central wavelength of band, A
+  //   parlist_SN: DLMAG, Theta, AV, RV
+  //   parList_HOST:  host parmas (TBD ...)
+
+  double magerr = MAGERR_UNDEFINED ;
+  char fnam[] = "get_magerr_BAYESN" ;
+  // ----------- BEGIN ------------
+  
+  magerr = 0.01; // original hack default
+
+  if ( !ENABLE_TEST_BAYESN ) { return magerr; }
+
+  // if we get here, try new magerr model based on z=0.01 sims with EXPSOURE_TIME >>> 1/
+
+  magerr = eval_GENPOLY(wavelength, GENPOLYLAM_BAYESN, fnam);
+
+  return magerr;
+
+} // end get_magerr_BAYESN
 
 // =====================================================
 // ============ SPLINE FUNCTIONS =============

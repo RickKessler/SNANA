@@ -18,6 +18,7 @@
 # May 20 2025: plot error on mean for DIFF_ALL option
 # Jul 09 2025: fix bug evaluating chi2 fit; and add legend label in front of chi2/dof info
 # Jul 11 2025: new @@CUT feature "FIELD ~ 'C'" --> select any field containing char C
+# Aug 19 2025: update RATIO to work on 2d plots
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -664,9 +665,11 @@ def arg_prep_driver(args):
     # store plot dimension as if it were passed on command line
     args.NDIM = len(args.VARIABLE[0].split(COLON))
 
-    if args.NDIM == 2 and OPT_RATIO in args.OPT:
-        sys.exit(f"\n ERROR: '@@OPT RATIO' is not valid for 2D plot")
-        
+    # xxxxxxxxxxxxx mark delete Aug 19 2025 xxxxxxx
+    #if args.NDIM == 2 and OPT_RATIO in args.OPT:
+    #    sys.exit(f"\n ERROR: '@@OPT RATIO' is not valid for 2D plot")
+    # xxxxxxxxxxx end mark xxxxxxx
+
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
@@ -805,6 +808,11 @@ def args_prep_DIFF(args):
     
     # if user does not specify statistic for DIFF, set MEDIAN as default    
     if opt_diff and  opt_stat is None :
+        args.OPT.append(OPT_MEDIAN) 
+
+    # piggy back on diff to set MEDIAN default for RATIO (Aug 19 2025)
+    do_ratio   = OPT_RATIO in args.OPT
+    if do_ratio and  opt_stat is None :
         args.OPT.append(OPT_MEDIAN) 
 
 
@@ -2388,6 +2396,11 @@ def get_info_plot2d(args, info_plot_dict):
 
     do_hist      = OPT_HIST in args.OPT 
     do_nevt      = OPT_NEVT in args.OPT
+    do_ratio     = OPT_RATIO  in args.OPT   # Aug 19 2025 
+
+    do_diff_all  = args.DIFF == OPT_DIFF_ALL
+    do_diff_cid  = args.DIFF == OPT_DIFF_CID
+    do_diff      = do_diff_all or do_diff_cid
 
     numplot      = info_plot_dict['numplot']
     df_dict      = info_plot_dict['df_dict']
@@ -2430,79 +2443,86 @@ def get_info_plot2d(args, info_plot_dict):
     info_plot_dict['xerr_list']     = xerr_list
     info_plot_dict['yerr_list']     = yerr_list
 
-    if args.DIFF:
-            
-        if numplot == 0:
-            # nothing to plot on first file; store references
+
+    # check options to skip first plot and store df_ref for 2nd plot operation
+    if do_ratio or do_diff :
+        if numplot == 0 :
             info_plot_dict['do_plot_errorbar']   = False  # disable making plot
             info_plot_dict['df_ref']             = df     # store ref table for next plot
             info_plot_dict['name_legend_ref']    = name_legend
             return
-
-        # strip off reference values from first plot
-        df_ref          = info_plot_dict['df_ref']
-        name_legend_ref = info_plot_dict['name_legend_ref']
-
-        # if there is no user-supplied legend, construct legend using
-        # auto-generated legend from each plot
-        if args.LEGEND is None:
-            info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
-            # xxx mark delete info_plot_dict['plt_legend'] = f"{name_legend}-{name_legend_ref}"
-        
-        if args.DIFF == OPT_DIFF_CID :
-            #need to do an inner join with each entry in dic, then plot the diff
-            # (join logic thanks to Charlie Prior)
-            varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW
-            join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
-                                 how='inner', lsuffix='_0', rsuffix='_1')
-            xval_list = join.x_plot_val_0.values
-            yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
-
-            info_plot_dict['xval_list']     = xval_list
-            info_plot_dict['yval_list']     = yval_list
-            if yerr_list is not None:
-                yerr_list_0 = join.y_plot_err_0.values
-                info_plot_dict['yerr_list']  = yerr_list_0
+        else:
+            df_ref          = info_plot_dict['df_ref']
+            name_legend_ref = info_plot_dict['name_legend_ref']
+            if args.LEGEND is None:
+                info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
                 
-        elif args.DIFF == OPT_DIFF_ALL :
+    # - - - - - - - - - - - - -
 
-            if OPT_MEDIAN in args.OPT:
-                which_stat = 'median'
-            elif OPT_MEAN in args.OPT:
-                which_stat = 'mean'                
+    # - - - - - - - - - - - - -         
+    if do_diff_cid:
+        #need to do an inner join with each entry in dic, then plot the diff
+        # (join logic thanks to Charlie Prior)
+        varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW
+        join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
+                             how='inner', lsuffix='_0', rsuffix='_1')
+        xval_list = join.x_plot_val_0.values
+        yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
 
-            xbins  = info_plot_dict['xbins']
-            y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
-                                          bins=xbins, statistic=which_stat)[0]
-            y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
-                                          bins=xbins, statistic='std')[0]
-            y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
-                                          bins=xbins, statistic='count')[0]
-            y_ref_cnt = replace_zeros(y_ref_cnt)
+        info_plot_dict['xval_list']     = xval_list
+        info_plot_dict['yval_list']     = yval_list
+        if yerr_list is not None:
+            yerr_list_0 = join.y_plot_err_0.values
+            info_plot_dict['yerr_list']  = yerr_list_0
+                
+    if do_diff_all or do_ratio :
 
-            y      = binned_statistic(df.x_plot_val, df.y_plot_val,
-                                      bins=xbins, statistic=which_stat)[0]            
-            y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
-                                      bins=xbins, statistic='std')[0]            
-            y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
-                                      bins=xbins, statistic='count')[0]            
-            y_cnt = replace_zeros(y_cnt)
+        if OPT_MEDIAN in args.OPT:
+            which_stat = 'median'
+        elif OPT_MEAN in args.OPT:
+            which_stat = 'mean'                
 
-            # convert NaN (empty bins) to zero to avoid crash when plotting
-            y_ref[np.isnan(y_ref)] = 0
-            y[np.isnan(y)]         = 0                        
-            y_dif     = y_ref - y
+        xbins      = info_plot_dict['xbins']
+        y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                      bins=xbins, statistic=which_stat)[0]
+        y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                      bins=xbins, statistic='std')[0]
+        y_ref_var = y_ref_std * y_ref_std
+        y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                      bins=xbins, statistic='count')[0]
+        y_ref_cnt = replace_zeros(y_ref_cnt)
 
+        y      = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic=which_stat)[0]            
+        y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic='std')[0]            
+        y_var = y_std * y_std
+        y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic='count')[0]            
+        y_cnt = replace_zeros(y_cnt)
+
+        # convert NaN (empty bins) to zero to avoid crash when plotting
+        y_ref[np.isnan(y_ref)] = 0
+        y[np.isnan(y)]         = 0                        
+
+        if do_diff:        
+            y_out     = y_ref - y
             # compute error on the mean diff as quadrature sum of each term
-            y_dif_err = np.sqrt(y_std*y_std/y_cnt + y_ref_std*y_ref_std/y_ref_cnt)
+            y_out_err = np.sqrt(y_var/y_cnt + y_ref_var/y_ref_cnt)
+        else:
+            # ratio
+            y_out = y/y_ref
+            y_out_err = y_out*np.sqrt((y_std/y)**2 + (y_ref_std/y_ref)**2 ) # .xyz ???
+            #print(f"\n xxx y_out = \n{y_out} \n xxx y_std=\n{y_std} \n xxx y_out_err = \n{y_out_err}")
 
-            xbins_cen = info_plot_dict['xbins_cen']
-            xmin      = xbins[0] ; xmax = xbins[-1]; dx = (xmax-xmin)/200
-            xbins_cen += dx*(numplot-1)  # automate x-shift to avoid overlapping points
+        xbins_cen = info_plot_dict['xbins_cen']
+        xmin      = xbins[0] ; xmax = xbins[-1]; dx = (xmax-xmin)/200
+        xbins_cen += dx*(numplot-1)  # automate x-shift to avoid overlapping points
 
-            info_plot_dict['xval_list'] = xbins_cen
-            info_plot_dict['yval_list'] = y_dif
-            info_plot_dict['yerr_list'] = y_dif_err
+        info_plot_dict['xval_list'] = xbins_cen
+        info_plot_dict['yval_list'] = y_out
+        info_plot_dict['yerr_list'] = y_out_err
+        
         
     return  # end  get_info_plot2d
 

@@ -1,3 +1,4 @@
+
 #include "gsl/gsl_linalg.h"
 #include "gsl/gsl_rng.h"
 #include "gsl/gsl_randist.h"
@@ -52,6 +53,8 @@ void genmag_bayesn__(
 
 void genSCATTER_BAYESN(); // renamed by ST Sep 14 2024
 
+void  init_magerr_BAYESN(void) ;
+double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, double *parlist_HOST);
 
 // ------------------------------------------
 // -------------- globals -------------------
@@ -88,14 +91,18 @@ char    BAYESN_MODELPATH[MXPATHLEN];
 
 // optmask bits
 int     VERBOSE_BAYESN;
-#define OPTMASK_BAYESN_VERBOSE         128
 int     ENABLE_SCATTER_BAYESN;             // ST (14 Sep 2024)
+int     ENABLE_TEST_BAYESN;                // RK (Aug 20 2025)
+
+#define OPTMASK_BAYESN_VERBOSE         128
 #define OPTMASK_BAYESN_EPSILON         2   // enable only the non-gray (EPSILON) scatter
 #define OPTMASK_BAYESN_DELTAM          4   // enable only the gray (DELTAM) scatter
-#define OPTMASK_BAYESN_SCATTER_ALL     6   // sum of all non-default scatter bits
+#define OPTMASK_BAYESN_SCATTER_ALL     6   // 2+4 = sum of all non-default scatter bits
 #define OPTMASK_BAYESN_SCATTER_DEFAULT 1   // enable all scatter components (default)
+#define OPTMASK_BAYESN_TEST         2048   // generic mask to test new code (Aug 2025)
+#define MXHOSTPAR_BAYESN 20                // max number of host params 
 
-#define MXHOSTPAR_BAYESN 20                // max number of host params (Jul 2025)
+GENPOLY_DEF *GENPOLYLAM_BAYESN;  // poly-vs-wave to describe magerr-vs-wavelength (Aug 20 2025)
 
 // model structure
 struct {

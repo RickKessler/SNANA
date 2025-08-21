@@ -1,5 +1,5 @@
 /**********************************************
-
+  
   July 1 2022 G. Narayan, S.Thorp, R.Kessler
 
   CPU profile with -pg (Jun 19 2023):
@@ -576,7 +576,7 @@ void init_HOSTPAR_BAYESN(int OPTMASK, char *NAMES_HOSTPAR) {
 
   // - - - - - - - -
   if ( strlen(NAMES_HOSTPAR) == 0 ) {
-    printf("\t %s: no host params. ", fnam ); fflush(stdout);
+    printf("\t %s: no host params.\n", fnam ); fflush(stdout);
     return;
   }
 
@@ -914,10 +914,10 @@ void init_magerr_BAYESN(void) {
   if (!ENABLE_TEST_BAYESN) { return; }
 
   // Mykola parametrization:  RMS(λ) = a*λ + b; a = 5.091544e-06; b = 0.027604
-  char stringPoly[] = "5.091544e-06,0.027604";
-  parse_GENPOLY(stringPoly, "magerr", GENPOLYLAM_BAYESN, fnam);
+  char stringPoly[50] = "0.027604, 5.091544e-06";
+  parse_GENPOLY(stringPoly, "magerr", &GENPOLYLAM_BAYESN, fnam);
 
-  print_GENPOLY(GENPOLYLAM_BAYESN);
+  print_GENPOLY(&GENPOLYLAM_BAYESN);
 
   double wave,trest=0.0;
   double parlist_SN[4], parlist_HOST[4];
@@ -960,7 +960,7 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
   if( wave_local < 4770) { wave_local = 4770; }
   if( wave_local > 7625) { wave_local = 7625; }
   
-  magerr = eval_GENPOLY(wave_local, GENPOLYLAM_BAYESN, fnam);
+  magerr = eval_GENPOLY(wave_local, &GENPOLYLAM_BAYESN, fnam);
 
   return magerr;
 

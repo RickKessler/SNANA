@@ -3304,8 +3304,11 @@ c unless user specifically sets OPT_COVAR=0
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
 c       BAYESN BLOCK created Nov 2022
-        OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
-c	istat = init_genmag_BAYESN(model_version, model_extrap, *optmask, names_hostpar) ;
+	OPTMASK = 0
+	if(debug_flag == 821) then
+           OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
+	endif
+	   
 
         ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,
      &            LEN_NAME,10,8)

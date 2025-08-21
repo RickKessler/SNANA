@@ -3165,7 +3165,7 @@ c local var
       CHARACTER 
      &   tmpname*40
      &  ,SURVEY_NAME_FILTER*(2*MXCHAR_SURVEY)
-     &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
+     &  ,TMP_FITMODEL*(MXCHAR_FILENAME), TMP_EXTRAP*10
      &  ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
 
       LOGICAL LBX
@@ -3304,9 +3304,11 @@ c unless user specifically sets OPT_COVAR=0
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
 c       BAYESN BLOCK created Nov 2022
-        OPTMASK = 1024  ! disable intrinsic scatter
-        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, OPTMASK, BLANK,
-     &            LEN_NAME, 8 )
+        OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
+c	istat = init_genmag_BAYESN(model_version, model_extrap, *optmask, names_hostpar) ;
+
+        ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,
+     &            LEN_NAME,10,8)
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0

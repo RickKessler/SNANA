@@ -919,6 +919,18 @@ void init_magerr_BAYESN(void) {
 
   print_GENPOLY(GENPOLYLAM_BAYESN);
 
+  double wave,trest=0.0;
+  double parlist_SN[4], parlist_HOST[4];
+  double magerr;
+  
+  for (wave = 3000.0; wave <= 8000.0; wave+=1000)
+    {
+      magerr = get_magerr_BAYESN(trest, wave, parlist_SN, parlist_HOST);
+      printf("\t wave=%0.f magerr =%.3f \n", wave, magerr);
+
+    }
+  
+  fflush(stdout);
   return ;
 
 } // init_magerr_BAYESN
@@ -926,7 +938,8 @@ void init_magerr_BAYESN(void) {
 // ======================================
 double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, double *parlist_HOST) {
 
-  // Created Aug 20 2025 by R.Kessler
+  // Created Aug 20 2025 by R.Kessler, M. Chernyashevskyy
+  // Beware of hard coded hacked values: should eventuall put these values in BAYESN .yaml file.
   // Inputs:
   //   Test :      rest-frame phase (days); Trest=0 at peak brightness
   //   wavelength: rest-frame central wavelength of band, A
@@ -934,6 +947,7 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
   //   parList_HOST:  host parmas (TBD ...)
 
   double magerr = MAGERR_UNDEFINED ;
+  double wave_local = wavelength;
   char fnam[] = "get_magerr_BAYESN" ;
   // ----------- BEGIN ------------
   
@@ -943,7 +957,10 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
 
   // if we get here, try new magerr model based on z=0.01 sims with EXPSOURE_TIME >>> 1/
 
-  magerr = eval_GENPOLY(wavelength, GENPOLYLAM_BAYESN, fnam);
+  if( wave_local < 4770) { wave_local = 4770; }
+  if( wave_local > 7625) { wave_local = 7625; }
+  
+  magerr = eval_GENPOLY(wave_local, GENPOLYLAM_BAYESN, fnam);
 
   return magerr;
 

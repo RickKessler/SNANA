@@ -561,7 +561,8 @@ struct INPUTS {
   int  USE_SIMLIB_DISTANCE ;  // 1 => use distance in LIB (if it's there)
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
-  int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
+  // xxx mark  int  USE_SIMLIB_SPECTRA;        // obsolete; same as USE_SIMLIB_TAKE_SPECTRUM below
+  int  USE_SIMLIB_TAKE_SPECTRUM;  // use TAKE_SPECTRUM keys in SIMLIB header
   int  USE_SIMLIB_SPECTROGRAPH;  // use SPECTROGRAPH keys in SIMLIB entries (May 30 2025)
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
@@ -1076,7 +1077,7 @@ struct GENLC {
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
   int  SIMLIB_USEFILT_ENTRY[MXFILTINDX];   // 1=> filter used for this entry
-
+  
   int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)
   int  SIMLIB_ID;        // LIB ID from simlib
   int  SIMLIB_IDMAX;     // max ID in libraray
@@ -1084,6 +1085,7 @@ struct GENLC {
   int  NGEN_SIMLIB_ID ;  // Nuse on same SIMLIB ID until event is accepted
 
   double SIMLIB_FLUXERR_ADDPAR[MXFILTINDX] ; // fudge-error to add in quad.
+  int    NKEYTOT_SIMLIB_SPECTROGRAPH; // total number of SPECTROGRAPH keys in simlib
 
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
@@ -1660,13 +1662,12 @@ typedef struct  {
   int     NOBS;       // everything, including SPECTROGRAPH and TAKE_SPECTRUM
   int     NOBS_READ ; // orginal NOBS read from cadence (never changes)
   int     NOBS_SPECTROGRAPH ;
-  int     NOBS_TAKE_SPECTUM ;
+  int     NOBS_TAKE_SPECTRUM ;
 
   int     OPTLINE[MXOBS_SIMLIB];
   int     IFILT_OBS[MXOBS_SIMLIB];    // absolute filter index
 
   char    *PTR_BAND[MXOBS_SIMLIB];
-  // xxx mark deletet Aug 11 2025  char    BAND[MXOBS_SIMLIB][4];
   char    BAND[MXOBS_SIMLIB][20]; // Aug 11 2025: allow full filter name in SIMLIB
 
   int     IDEXPT[MXOBS_SIMLIB];

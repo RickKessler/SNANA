@@ -1133,13 +1133,14 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_DISTANCE = 0;  // use 'DISTANCE: <d(Mpc)>' in header
   INPUTS.USE_SIMLIB_PEAKMJD  = 0;  // use 'PEAKMJD: <t0>'  in header
   INPUTS.USE_SIMLIB_MAGOBS   = 0;
-  INPUTS.USE_SIMLIB_SPECTRA  = 0;
+  INPUTS.USE_SIMLIB_TAKE_SPECTRUM = 0;
   INPUTS.USE_SIMLIB_SPECTROGRAPH = 0 ;
   INPUTS.USE_SIMLIB_SALT2    = 0;
   INPUTS.USE_SIMLIB_GROUPID  = 0;
   
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
+  GENLC.NKEYTOT_SIMLIB_SPECTROGRAPH = 0 ;
 
   sprintf(INPUTS.HOSTLIB_FILE,          "NONE" );  // input library
   sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,   "NONE" );  // optional wgtmap
@@ -3724,10 +3725,12 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_MAGOBS );
     INPUTS.USE_SIMLIB_GENOPT=1;
   }
-  else if ( keyMatchSim(1, "USE_SIMLIB_SPECTRA",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_SPECTRA );
-    INPUTS.USE_SIMLIB_GENOPT=1;
-  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_TAKE_SPECTRUM",  WORDS[0],keySource) ||
+	    keyMatchSim(1, "USE_SIMLIB_SPECTRA",  WORDS[0],keySource) )  // legacy key Aug 2025
+    {
+      N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_TAKE_SPECTRUM );
+      INPUTS.USE_SIMLIB_GENOPT=1;
+    }
 
   else if ( keyMatchSim(1, "USE_SIMLIB_SPECTROGRAPH",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_SPECTROGRAPH );
@@ -5395,6 +5398,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //              allow FIELD check for command line or input file,
   //              and check for prescale; e.g, TAKE_SPECTRUM(DEEP/2.3)
   //
+  // Aug 22 2025: check for TAKE_SPECTRUM: NONE to disable all previous keys
+
   bool READ_fp            = (fp != NULL);
   int  NTAKE              = NPEREVT_TAKE_SPECTRUM ;
   // xxx  int  iKEY_TAKE_SPECTRUM = NKEY_TAKE_SPECTRUM ;
@@ -5516,10 +5521,21 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     return(N) ;
   }
   else if ( strcmp(stringTmp,"NONE") == 0 ) {
-    // turn off all spectra with command line arg: "TAKE_SPECTRUM NONE"
-    INPUTS.NHOST_TAKE_SPECTRUM = 0;
-    NPEREVT_TAKE_SPECTRUM = 0 ;
-    SPECTROGRAPH_USEFLAG  = 0 ;
+    // turn off all TAKE_SPECTRUM keys with command line arg: "TAKE_SPECTRUM NONE" 
+    printf("\n\t ALERT: all TAKE_SPECTRUM keys have been disabled with TAKE_SPECTRUM NONE\n");
+    for(i=0; i < NPEREVT_TAKE_SPECTRUM; i++ ) {
+      INPUTS.TAKE_SPECTRUM[i].FIELD[0]         = 0;
+      INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_EPOCH  = 0 ;
+      INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_LAMBDA = 0 ;
+      INPUTS.TAKE_SPECTRUM[i].OPT_TEXPOSE      = 0 ;
+    }
+    INPUTS.NHOST_TAKE_SPECTRUM = 0; 
+    INPUTS.NWARP_TAKE_SPECTRUM = 0;
+    NPEREVT_TAKE_SPECTRUM      = 0 ;
+    NKEY_TAKE_SPECTRUM         = 0 ;
+    SPECTROGRAPH_USEFLAG       = INPUTS.USE_SIMLIB_SPECTROGRAPH ;
+   
+    // .xyz
     return(N) ;
   }
   else {
@@ -5566,7 +5582,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // - - - - - - - - - - - - -  -
   // if reading SIMLIB header, apply Trest cut to 
   // skip epochs outside GENRANGE_TREST
-  if ( !IS_HOST && INPUTS.USE_SIMLIB_SPECTRA ) {
+  if ( !IS_HOST && INPUTS.USE_SIMLIB_TAKE_SPECTRUM ) {
     double z, Tmin, Tmax, Trest=9999.;  int OPT_FRAME;
 
     if ( INPUTS.USE_SIMLIB_REDSHIFT ) 
@@ -10240,6 +10256,7 @@ void GENSPEC_DRIVER(void) {
     imjd = imjd_order[i];
     MJD  = GENSPEC.MJD_LIST[imjd] ;
 
+    
     //    printf(" xxx %s: i=%d imjd=%d  MJD=%.2f \n",
     //	   fnam, i, imjd, GENSPEC.MJD_LIST[imjd] ); fflush(stdout);
 
@@ -10247,7 +10264,7 @@ void GENSPEC_DRIVER(void) {
 
     SNR_LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
     SNR_LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
-    if ( INPUTS.USE_SIMLIB_SPECTRA && SNR_LAMMIN > 0.1 ) {
+    if ( INPUTS.USE_SIMLIB_TAKE_SPECTRUM && SNR_LAMMIN > 0.1 ) {
       // clip spectra wavelength range to match that for SNR range.
       LAMMIN = SNR_LAMMIN ;
       LAMMAX = SNR_LAMMAX ;
@@ -10306,9 +10323,12 @@ bool DO_GENSPEC(int imjd) {
   int    INDX           = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
 
   double WGT = 1.0 ;
-  if ( INDX >= 0 ) { WGT = INPUTS.TAKE_SPECTRUM[INDX].WGT ; } 
+  int  iKEY = -9;
+  if ( INDX >= 0 ) { 
+    WGT   = INPUTS.TAKE_SPECTRUM[INDX].WGT ; 
+    iKEY  = INPUTS.TAKE_SPECTRUM[INDX].iKEY_TAKE_SPECTRUM ;
+  } 
 
-  int    iKEY           = INPUTS.TAKE_SPECTRUM[INDX].iKEY_TAKE_SPECTRUM ;
   char  *FIELD_REQUIRE  = INPUTS.TAKE_SPECTRUM[imjd].FIELD ;
   bool   CHECK_FIELD    = ( strlen(FIELD_REQUIRE) > 0 );
   bool   CHECK_PS       = ( DICT->N_ITEM > 0 ) ;
@@ -10327,8 +10347,8 @@ bool DO_GENSPEC(int imjd) {
   // skip if outside Trest range
   if ( LTRACE) {
     printf(" xxx ----------------------------------------------- \n");
-    printf(" xxx %s: imjd=%d INDX=%d  SKIP=%d \n", 
-	   fnam, imjd, INDX, GENSPEC.SKIP[imjd]);  fflush(stdout); 
+    printf(" xxx %s: imjd=%d INDX=%d     CID=%d  FIELD_REQUIRE='%s'\n", 
+	   fnam, imjd, INDX, GENLC.CID, FIELD_REQUIRE );  fflush(stdout); 
   }
   if ( GENSPEC.SKIP[imjd] ) { return(false); } 
 
@@ -10363,6 +10383,10 @@ bool DO_GENSPEC(int imjd) {
 
     // check field-dependent spectrum (host and SN)
     if ( CHECK_FIELD ) {
+      if ( LTRACE ) {
+	printf(" xxx %s: compare LIBID FIELD==%s against FIELD_REQUIRE=%s \n", 
+	       fnam, field_tmp, FIELD_REQUIRE); fflush(stdout);
+      }
       MATCH_FIELD  = ( strcmp(field_tmp,FIELD_REQUIRE) == 0 );
       if ( MATCH_FIELD)  { ACCEPT_FIELD = true ; }   
     }
@@ -10386,9 +10410,10 @@ bool DO_GENSPEC(int imjd) {
 
   // - - - - - - - - 
 
-  if ( LTRACE) { printf(" xxx %s: ACCEPT_FIELD=%d  ACCEPT_PS=%d \n",
-			fnam, ACCEPT_FIELD, ACCEPT_PS ); fflush(stdout); }
   DO = (ACCEPT_FIELD && ACCEPT_PS) ;
+
+  if ( LTRACE) { printf(" xxx %s: ACCEPT_FIELD=%d  ACCEPT_PS=%d -> DO_GENSPEC=%d \n",
+			fnam, ACCEPT_FIELD, ACCEPT_PS, DO ); fflush(stdout); }
 
   // Jul 1 2021: set SKIP logical to account for pre-scale logic above.
   //     -> used later for writing data.
@@ -15029,7 +15054,7 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // ----------- BEGIN ---------
 
   bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || 
-		      INPUTS.USE_SIMLIB_SPECTRA || 
+		      INPUTS.USE_SIMLIB_TAKE_SPECTRUM || 
 		      INPUTS.USE_SIMLIB_SPECTROGRAPH ) ;
 
   if ( !IS_SPECTRA ) { return; }
@@ -15307,7 +15332,7 @@ void wr_SIMGEN_DUMP_MWCL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fflush(stdout);
     fp = SIMFILE_AUX->FP_DUMP_MWCL ;
 
-    // construct header .xyz
+    // construct header 
     // ROW LAM RV MWXT_[options...]
     sprintf(VARNAMES_LIST,"VARNAMES:  ROW  RV WAVE   ");
     for (icl=0; icl < NCL_DUMP; icl++ ) {
@@ -19261,19 +19286,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S; }
       }
     
-
       FOUND_SPECTROGRAPH = ( strcmp(wd0,"SPECTROGRAPH:")==0 );
       if ( FOUND_SPECTROGRAPH && 
-	   USEFLAG_LIBID==ACCEPT_FLAG && 
-	   (SPECTROGRAPH_USEFLAG | INPUTS.SIMLIB_DUMP>0) )
+	   USEFLAG_LIBID == ACCEPT_FLAG && 
+	   (SPECTROGRAPH_USEFLAG | INPUTS.SIMLIB_DUMP > 0 ) )
 	{ OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ; }
-
-      /* xxxxxxxxxxxxxxxxxxx mark del June 26 2025  xxxxxxxxxxxxxxxx
-      FOUND_SPECTROGRAPH = 
-	( SPECTROGRAPH_USEFLAG && strcmp(wd0,"SPECTROGRAPH:")==0 );
-      if ( FOUND_SPECTROGRAPH && USEFLAG_LIBID==ACCEPT_FLAG )
-	{ OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ; }
-	xxxxxxxx end mark */
 
       // always check reasons to reject (header cuts, FIELD, APPEND ...)
       OPTLINE_REJECT = ( USEFLAG_LIBID == REJECT_FLAG || 
@@ -19365,8 +19382,16 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
 	
 	NOBS_FOUND++ ;
+	GENLC.NKEYTOT_SIMLIB_SPECTROGRAPH++ ;
 
 	KEEP_MJD = ( INPUTS.USE_SIMLIB_SPECTROGRAPH > 0 ) ; // May 30 2025
+	
+	if ( GENLC.NKEYTOT_SIMLIB_SPECTROGRAPH==1 && !KEEP_MJD ) {
+	  printf("\n WARNING: found SPECTROGRAPH key at LIBID=%d, but sim-input USE_SIMLIB_SPECTROGRAPH=%d ;\n",
+		 SIMLIB_HEADER.LIBID, INPUTS.USE_SIMLIB_SPECTROGRAPH);
+	  printf("   ignoring all SIMLIB-SPECTROGRAPH keys; to enable, set USE_SIMLIB_SPECTROGRAPH: 1\n\n");
+	  fflush(stdout);
+	}
 
 	if ( KEEP_MJD &&  ISTORE < MXOBS_SIMLIB ) {
 	  sscanf(WDLIST[iwd+1], "%le", &MJD );
@@ -19403,7 +19428,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // -> check for random RA,DEC shift
       // -> apply header cuts on ID, redshift, etc...
       if ( NOBS_FOUND_ALL == 1 ) { 
-
 	compute_galactic_coords(); 
 
 	SIMLIB_randomize_skyCoords();
@@ -21350,11 +21374,8 @@ void init_SIMLIB_HEADER(void) {
 
   SIMLIB_HEADER.PIXSIZE  = SIMLIB_GLOBAL_HEADER.PIXSIZE ;
 
-  if ( INPUTS.USE_SIMLIB_SPECTRA ) { NPEREVT_TAKE_SPECTRUM = 0 ; }
+  if ( INPUTS.USE_SIMLIB_TAKE_SPECTRUM ) { NPEREVT_TAKE_SPECTRUM = 0 ; }
 
-
-  
-  
   return ;
 
 } // end init_SIMLIB_HEADER
@@ -21518,7 +21539,7 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
   bool RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
-  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA );
+  bool RDFLAG_TAKE_SPECTRUM   = (INPUTS.USE_SIMLIB_TAKE_SPECTRUM );
   bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
   bool RDFLAG_GROUPID   = (INPUTS.USE_SIMLIB_GROUPID  || USE_MODEL_SIMLIB);
   bool UPDATE_MJDrange = false;
@@ -21680,7 +21701,7 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
-  if ( RDFLAG_SPECTRA ) {
+  if ( RDFLAG_TAKE_SPECTRUM ) {
     if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
       parse_input_TAKE_SPECTRUM( WDLIST, KEYSOURCE_FILE, NULL ); 
     }
@@ -26609,10 +26630,7 @@ void init_read_calib_wrapper(void) {
 
   // check for spectrograph information (for sim only)
   read_spectrograph_fits(INPUTS.CALIB_FILE) ;
-  if ( SPECTROGRAPH_USEFLAG ) {
-    //    dump_INPUTS_SPECTRO(4,"");
-    extend_spectrograph_lambins();
-  }
+  if ( SPECTROGRAPH_USEFLAG ) { extend_spectrograph_lambins();  }
 
   NFILTDEF = CALIB_INFO.FILTERCAL_OBS.NFILTDEF;
 

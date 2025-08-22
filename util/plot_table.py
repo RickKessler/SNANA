@@ -164,13 +164,15 @@ DEBUG_FLAG_DUMP_TRANSLATE2 =  33  # info dump for each char of @V and @@CUT stri
 # hack flags from @@hack input; used to make subtle refinements for a paper
 # without waiting to add more formal input flag
 HACK_FLAG_OpenUniverse24 =  1
-HACK_FLAG_M25            =  2
+HACK_FLAG_M25            =  2  # Mitra 2025
+HACK_FLAG_K25            =  3  # Kessler 2025
 HACK_FLAG_HELP           = 99
 
 HACK_FLAG_DICT = {
     'OpenUniverse2024'  : HACK_FLAG_OpenUniverse24,
     'M25'               : HACK_FLAG_M25,
-    'help'              : HACK_FLAG_HELP
+    'K25'               : HACK_FLAG_K25,
+    'help'              : HACK_FLAG_HELP    
 }
 
 
@@ -2683,6 +2685,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     fsize_ticklabel = 10*args.FONTSIZE_SCALE
     plt.xticks(fontsize=fsize_ticklabel)  # numbers under x-axis tick marks
     plt.yticks(fontsize=fsize_ticklabel)  # numbers left of y-axis tick marks
+
+    if args.HACK_FLAG == HACK_FLAG_K25:
+        # for w0wa bias plot in K25 (Roman analysis)
+        plt.xticks(np.arange(xmin, xmax, step=0.05)) 
+        plt.yticks(np.arange(ymin, ymax, step=0.10)) 
     
     # - - - - -
     fsize_legend   = 10 * args.FONTSIZE_SCALE
@@ -2828,6 +2835,9 @@ def hack_value(parname, value_orig, args):
         if parname == 'HIST_LINE_ARGS' and is_zcmb:
             # different line style per hist, and thicker than default
             value_hack = [ (4.0,'-' ), (3.0, '--' ), (2.8, ':' ) ]
+    
+    elif HACK_FLAG == HACK_FLAG_K25:
+        pass
 
     elif HACK_FLAG == HACK_FLAG_HELP:
         print('')

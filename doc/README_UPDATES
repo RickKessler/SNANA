@@ -23159,4 +23159,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       Previously, SALT2mu was finding 3 beta values very close togehter,
       instead of just 1 beta value ... hopefully it is fixed now.
 
+    snlc_sim:
+      + fix "TAKE_SPECTRUM NONE" to allow SPECTROGRAPH keys in simlib.
+
 END: 

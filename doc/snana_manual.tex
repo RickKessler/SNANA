@@ -1429,7 +1429,7 @@ etc ...
   USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
-  USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
+  USE_SIMLIB_TAKE_SPECTRUM: 1  # use TAKE_SPECTRUM keys in header 
   USE_SIMLIB_SPECTROGRAPH:  1  # use SPECTROGRAPH keys under each LIBID
   USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
 
@@ -5975,9 +5975,12 @@ SNR, the template exposure time is the same for all epochs.
 This key overrides the {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH} 
 key in the \simlib\ file.
 
-\medskip
-To turn off all spectra without commenting or removing all of the 
-{\tt TAKE\_SPECTRUM} keys, 
+
+\subsubsection{Disable {\tt TAKE\_SPECTRUM} keys}
+\label{sss:disable_take_spectrum}
+
+Disable {\tt TAKE\_SPECTRUM} keys without commenting them out or removing them from the 
+sim-input file;
 \vspace{-0.4cm}
 \begin{verbatim}
     snlc_sim.exe <inputFile>  TAKE_SPECTRUM NONE
@@ -6062,6 +6065,7 @@ This option is useful to study multiple spec-follow up strategies
 with a single generation of the simulation, provided that the
 FIELD-dependent exposure times are unique for each 
 {\tt TAKE\_SPECTRUM} key.
+
 
 % ------------------------------------
 %\clearpage

@@ -102,7 +102,7 @@ int     ENABLE_TEST_BAYESN;                // RK (Aug 20 2025)
 #define OPTMASK_BAYESN_TEST         2048   // generic mask to test new code (Aug 2025)
 #define MXHOSTPAR_BAYESN 20                // max number of host params 
 
-GENPOLY_DEF *GENPOLYLAM_BAYESN;  // poly-vs-wave to describe magerr-vs-wavelength (Aug 20 2025)
+GENPOLY_DEF GENPOLYLAM_BAYESN;  // poly-vs-wave to describe magerr-vs-wavelength (Aug 20 2025)
 
 // model structure
 struct {

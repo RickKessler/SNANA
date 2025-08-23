@@ -630,7 +630,7 @@ c xxx mark      &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
      &   ,USESIM_SHAPE      ! I: T => use sim shape value in fit
      &   ,USESIM_PEAKMJD    ! I: T => use sim peakMJD 
      &   ,USESIM_DLMAG      ! I: T => use sim DLMAG
-     &   ,USESIM_REDSHIFT   ! I: T => use sim redshift in fit
+c     &   ,USESIM_REDSHIFT   ! I: T => use sim redshift in fit
      &   ,USESIM_INIVAL     ! I: T => use sim params as initial values
      &   ,MINOS_ERR_DLMAG   ! I: T=> require valid MINOS error for DLMAG
      &   ,MINOS_ERR_REQALL0 ! I: T=> require all MINOS errors to be valid   
@@ -855,7 +855,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,SNMAGRMS_for_PHOTOZ
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -931,7 +931,7 @@ c ------
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -7284,7 +7284,7 @@ c setup default grid w.r.t. peakmjd-estimate
       USESIM_LUMIPAR  = .FALSE.  ! legacy variable
       USESIM_PEAKMJD  = .FALSE.
       USESIM_DLMAG    = .FALSE.
-      USESIM_REDSHIFT = .FALSE.
+c xxx      USESIM_REDSHIFT = .FALSE.
       USESIM_INIVAL   = .FALSE.
 
       LKCOR_AVWARP  = .TRUE.
@@ -8125,8 +8125,10 @@ c -------------
         else if(MATCH_NMLKEY('USESIM_DLMAG', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) USESIM_DLMAG
 
-        else if(MATCH_NMLKEY('USESIM_REDSHIFT', 1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) USESIM_REDSHIFT
+c xxxxxxx mark delete Aug 23 2025 xxxxx
+c        else if(MATCH_NMLKEY('USESIM_REDSHIFT', 1,i,ARGLIST)) then
+c            READ(ARGLIST(1),*) USESIM_REDSHIFT
+c xxxxxxxxxxxx
 
         else if(MATCH_NMLKEY('INIVAL_RV', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) INIVAL_RV

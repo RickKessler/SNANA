@@ -1,6 +1,6 @@
 +KEEP,HISTORY.   
 c
-c Program to read light curves and apply user selection
+c Program to read light curves and apply user selection 
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
@@ -1471,7 +1471,8 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_ERRTEST          ! epoch cut on ERRCALC/ERRTRUE
-     &  ,CUTBIT_SIMPULL          ! cut on (F-F_true)/sigma_F
+     &  ,CUTBIT_SIM_PULL         ! cut on (F-F_true)/sigma_F
+     &  ,CUTBIT_SIM_REDSHIFT     ! cut on true redshift
      &  ,CUTBIT_TREST_TRUEFLUX2  ! for sim or fakes, require valid flux
      &  ,CUTBIT_NFILT_SNRMAX
      &  ,CUTBIT_NFILT_SNRMAX2
@@ -1533,9 +1534,9 @@ c MJD-dependent cuts below
      &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 7  
      &  ,CUTBIT_TREST_TRUEFLUX2= CUTBIT_MJD_MARKER + 8
      &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 9
-     &  ,CUTBIT_SIMPULL      = CUTBIT_MJD_MARKER + 10 ! Mar 2021
+     &  ,CUTBIT_SIM_PULL     = CUTBIT_MJD_MARKER + 10 ! Mar 2021
 c
-     &  ,CUTBIT_OFFSET       = CUTBIT_SIMPULL
+     &  ,CUTBIT_OFFSET       = CUTBIT_SIM_PULL
      &  ,NCUTBIT             = CUTBIT_OFFSET  
      &      )
 
@@ -1649,7 +1650,7 @@ c# -----------  epoch-dependent cut windows  ! I: ------------------------------
      &  ,cutwin_ZPERR(2)         ! I: ZPERR cut
      &  ,cutwin_photprob(2)      ! I: cut on PHOTPROP (e.g., real/bogus)
      &  ,cutwin_errtest(2)       ! I: cut on ERRCALC/ERRTRUE
-     &  ,cutwin_simpull(2)       ! I: cut on (F-Ftrue)/sigmaF
+     &  ,cutwin_sim_pull(2)       ! I: cut on (F-Ftrue)/sigmaF
      &  ,cutwin_Trest_trueflux(2) ! I: Trest range requiring valid true flux
      &  ,cutwin_Trest_trueflux2(2)! I: cut on logical flag
      &  ,cutwin_Trest(2)         ! I: cut on all epochs, rest frame days
@@ -1804,7 +1805,7 @@ c
      &   ,( cutwin_var(1,cutbit_zperr),     cutwin_zperr  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
      &   ,( cutwin_var(1,cutbit_errtest),   cutwin_errtest   )
-     &   ,( cutwin_var(1,cutbit_simpull),   cutwin_simpull   )
+     &   ,( cutwin_var(1,cutbit_sim_pull),  cutwin_sim_pull   )
      &   ,( cutwin_var(1,cutbit_trest_trueflux2),cutwin_trest_trueflux2)
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax2),cutwin_nfilt_snrmax2 )
@@ -1959,6 +1960,7 @@ c
      &  ,USESIM_SNIA         ! I: default True -> process simulated SNIa 
      &  ,USESIM_NONIA        ! I: default True -> process simulated nonIa
      &  ,USESIM_TRUEFLUX     ! I: SNLC_FLUXCAL -> SIM_FLUXCAL 
+     &  ,USESIM_REDSHIFT     ! I: replace REDSHIFT with SIM_REDSHIFT
      &  ,LPROB_TRUEFLUX      ! I: T=> compute F-Ftrue chi2 and PROB
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
@@ -2050,7 +2052,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LDMP_SATURATE
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
-     &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
+     &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX, USESIM_REDSHIFT
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR
@@ -2106,7 +2108,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION, LDMP_SATURATE
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
-     &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX
+     &    , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX, USESIM_REDSHIFT
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
      &    , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR
@@ -2146,7 +2148,8 @@ c
      &   ,cutwin_peakmjd,  cutwin_nobs_predetect, cutwin_mjd
 c
      &   ,cutwin_psf, cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
-     &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest, cutwin_simpull
+     &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest
+     &   ,cutwin_sim_pull
      &   ,cutwin_trest_trueflux, cutwin_nband_thresh
      &   ,cutwin_nfilt_snrmax,   cutwin_nfilt_snrmax2
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
@@ -6288,6 +6291,7 @@ c default is to reject nothing (accept everything)
       USESIM_SNIA      = .TRUE. 
       USESIM_NONIA     = .TRUE.
       USESIM_TRUEFLUX  = .FALSE.
+      USESIM_REDSHIFT  = .FALSE.
 
       LPROB_TRUEFLUX     = .FALSE.  
       RESTORE_WRONG_VPEC = .FALSE.    ! Nov 3 2020
@@ -7933,6 +7937,10 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USESIM_TRUEFLUX
 
+         else if ( MATCH_NMLKEY('USESIM_REDSHIFT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USESIM_REDSHIFT
+
 c - - - - - 
          else if ( MATCH_NMLKEY('RESTORE_MWEBV_ERR_BUG',
      &             1, iArg, ARGLIST) ) then 
@@ -8342,10 +8350,10 @@ c - - -
           READ(ARGLIST(1),*) CUTWIN_ERRTEST(1)
           READ(ARGLIST(2),*) CUTWIN_ERRTEST(2)
 
-        else if ( MATCH_NMLKEY('CUTWIN_SIMPULL',
+        else if ( MATCH_NMLKEY('CUTWIN_SIM_PULL',
      &            2, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) CUTWIN_SIMPULL(1)
-          READ(ARGLIST(2),*) CUTWIN_SIMPULL(2)
+          READ(ARGLIST(1),*) CUTWIN_SIM_PULL(1)
+          READ(ARGLIST(2),*) CUTWIN_SIM_PULL(2)
 
         else if ( MATCH_NMLKEY('CUTWIN_TREST_TRUEFLUX',
      &            2, iArg, ARGLIST) ) then
@@ -15910,7 +15918,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
       cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
       cutvar_name(CUTBIT_ERRTEST)      = 'ERR(CALC)/ERR(TRUE):'
-      cutvar_name(CUTBIT_SIMPULL)      = '(F-Ftrue)/sigF:'
+      cutvar_name(CUTBIT_SIM_PULL)     = '(F-Ftrue)/sigF:'
       cutvar_name(CUTBIT_TREST_TRUEFLUX2) = 'Trest_TRUEFLUX:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
@@ -17855,13 +17863,24 @@ c  + option to use host photo-z
 c  + fix for missing zHELIO (on very old surveys)
 c  + systematic shifts
 c  + etc ...
-
+c
+c Aug 23 2025: check USESIM_REDSHIFT option (moved from snlc_fit to here)
+c
+c
+c
       IMPLICIT NONE
 
-c +CDE,SNDATCOM.
-c +CDE,SNLCINP.
++CDE,SNDATCOM.
++CDE,SNLCINP.
 
 C -------------- BEGIN ----------
+
+      if ( USESIM_REDSHIFT ) then  ! Aug 23 2025
+         SNLC_REDSHIFT = SIM_REDSHIFT_HELIO  ! .xyz
+         SNLC_zHELIO   = SIM_REDSHIFT_HELIO
+         SNLC_zCMB     = SIM_REDSHIFT_CMB
+         return
+      endif
 
 c Check option to use host photo-z as redshift.
       CALL SET_SNHOST_ZPHOT()
@@ -21310,7 +21329,7 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  = 
      &       SNLC_FLUXCAL_ERRTEST(EPMIN)
 
-         SNEP_CUTVAR(CUTBIT_SIMPULL,imjd)  = 
+         SNEP_CUTVAR(CUTBIT_SIM_PULL,imjd)  = 
      &       SIM_EPPULL(EPMIN)
 
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 

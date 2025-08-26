@@ -1148,11 +1148,11 @@ void readme_docana_epoch(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "GENRANGE_MJD:", noComment, 
 		    lenkey, false, nval2, dptr, 21000.0,79000.0, -1.0); 
 
-  /* xxx mark delete May 26 2025 xxxxxxx
+  // xxx mark delete May 26 2025 xxxxxxx RESTORE Aug 26 2025
   dptr = INPUTS.GENRANGE_PEAKMJD;
   VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMJD:", noComment, 
 		    lenkey, false, nval2, dptr, 1.0E3,1.0E5, -1.0); 
-  xxxxxxxx end mark xxxxx*/
+  // xxxxxxxx end mark xxxxx*/
 
 
   dval = (double)INPUTS.GENSIGMA_PEAKMJD;

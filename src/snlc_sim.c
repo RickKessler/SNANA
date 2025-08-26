@@ -5534,8 +5534,6 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     NPEREVT_TAKE_SPECTRUM      = 0 ;
     NKEY_TAKE_SPECTRUM         = 0 ;
     SPECTROGRAPH_USEFLAG       = INPUTS.USE_SIMLIB_SPECTROGRAPH ;
-   
-    // .xyz
     return(N) ;
   }
   else {
@@ -10255,11 +10253,7 @@ void GENSPEC_DRIVER(void) {
 
     imjd = imjd_order[i];
     MJD  = GENSPEC.MJD_LIST[imjd] ;
-
-    
-    //    printf(" xxx %s: i=%d imjd=%d  MJD=%.2f \n",
-    //	   fnam, i, imjd, GENSPEC.MJD_LIST[imjd] ); fflush(stdout);
-
+   
     if ( !DO_GENSPEC(imjd) ) { continue; }
 
     SNR_LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
@@ -10269,7 +10263,6 @@ void GENSPEC_DRIVER(void) {
       LAMMIN = SNR_LAMMIN ;
       LAMMAX = SNR_LAMMAX ;
     }
-    
 
     GENSPEC_INIT(2,imjd);   // 2-> event-dependent init
 
@@ -10338,7 +10331,7 @@ bool DO_GENSPEC(int imjd) {
   int  OPT_DICT = 1 ;   // 0=exact match, 1=partial string match
   int  ifield ;
   double preScale, r1 ;
-  int LTRACE = 0 ;
+  int LTRACE = (SIMLIB_HEADER.LIBID == -17) ;
   char *field_tmp ; 
   char fnam[] = "DO_GENSPEC" ;
 
@@ -10347,8 +10340,8 @@ bool DO_GENSPEC(int imjd) {
   // skip if outside Trest range
   if ( LTRACE) {
     printf(" xxx ----------------------------------------------- \n");
-    printf(" xxx %s: imjd=%d INDX=%d     CID=%d  FIELD_REQUIRE='%s'\n", 
-	   fnam, imjd, INDX, GENLC.CID, FIELD_REQUIRE );  fflush(stdout); 
+    printf(" xxx %s: imjd=%d INDX=%d     CID=%d  FIELD_REQUIRE='%s'  SKIP=%d\n", 
+	   fnam, imjd, INDX, GENLC.CID, FIELD_REQUIRE, GENSPEC.SKIP[imjd]  );  fflush(stdout); 
   }
   if ( GENSPEC.SKIP[imjd] ) { return(false); } 
 
@@ -10707,6 +10700,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
     GENSPEC.IS_HOST[imjd]          = false;
+    GENSPEC.SKIP[imjd]             = false ; // Aug 26 2025
   }
 
   GENSPEC.SNR_REST_U[imjd] = 0.0 ;
@@ -10797,6 +10791,7 @@ void GENSPEC_TRUE(int imjd) {
     ptrGENMAG  = GENSPEC.GENMAG_LIST[imjd] ;
   }
 
+
   // - - - - - - - - - - - 
 
   if ( IS_HOST ) {    
@@ -10849,6 +10844,7 @@ void GENSPEC_TRUE(int imjd) {
 		     ptrGENMAG             // (O) magGen per bin
 		     ); 
     GOT_SNSPEC = true;
+    
   }
   else  if ( INDEX_GENMODEL  == MODEL_NON1AGRID ) {    
     sprintf(c1err,"Spectrograph option not available for NON1AGRID;");    
@@ -11774,7 +11770,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   SNR_TRUE_LIST   = (double*) malloc( MEMD ) ;
   ERRFRAC_T_LIST  = (double*) malloc( MEMD ) ;
- 
+ 	 
   for(ilam=0; ilam < NBLAM; ilam++ ) {
 
     SNR_TRUE_LIST[ilam] = -9.0 ;
@@ -11789,13 +11785,15 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     GENFLUX = GENSPEC.GENFLUX_LIST[imjd][ilam] ;
     GENMAG  = GENSPEC.GENMAG_LIST[imjd][ilam] ;
 
-    /* xxxxxxx
-    if ( GENFLUX <= 0.0 || GENMAG >= 600 ) {
+
+    /* xxxxxxxxxxxxxxxxx
+    if ( GENLC.CID == 50017 ) {
       printf(" xxx %s: ilam=%3d LAMAVG=%.0f GEN[FLUX,MAG] = %le , %f \n",
 	     fnam, ilam, LAMAVG, GENFLUX, GENMAG);
       fflush(stdout);
     }
-    xxxxx */
+    xxxxxxx */
+
 
     // skip unphysical fluxes for real spectra
     if ( !DO_SEDMODEL && GENFLUX <= 0.0  ) { continue ; }
@@ -11825,6 +11823,11 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   } // end ilam  
  
 
+  /* xxx
+  printf(" xxx %s: CID=%d  LIBID=%d  imjd = %d  NBLAM_USE=%d \n", 
+	 fnam, GENLC.CID, SIMLIB_HEADER.LIBID, imjd, NBLAM_USE ); fflush(stdout);
+  xxx */
+
   if ( NBLAM_USE == 0 ) { goto DONE ; }
 
   // - - - - - - - - - - - - - - 
@@ -11848,6 +11851,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
     OBSFLUX       = GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
+    
 
     if ( OBSFLUXERR < 1.0E-50 ) { continue; }
 

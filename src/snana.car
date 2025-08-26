@@ -9358,7 +9358,7 @@ c -----------------------------------
 
 cc      write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_USE
       write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_TOT
-170   format(T5,'Bad PHOTOMETRY FLAG for ',I8,' of ', I8,' epochs')
+170   format(T5,'Bad PHOTOMETRY FLAG for ',I8,' of ', I9,' epochs')
 
       print*,' '
 c -------------------------------------------------

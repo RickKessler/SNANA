@@ -6,7 +6,7 @@
 # Append resulting N_MISSING colunm to original reference table.
 # Original use is submit_batch_jobs with BBC task to flag the following
 # for each event:
-#   NFITOPT_REJECT_CUTWIN
+#   NFITOPT_REJECT_LCFIT
 #   NFITOPT_REJECT_BIASCOR
 #
 # and enable monitoring loss from BBC's CUTWIN separately from the biasCor loss.
@@ -101,12 +101,14 @@ if __name__ == "__main__":
 
     setup_logging()
     logging.info("# ========== BEGIN tag_missing_events.py ===============")
+    logging.info("# full command: {sys.argv} ")
+
     args   = get_args()
 
     # store all tables in list of data frames
     df_list = read_input_tables(args) 
-    n_tf = len(df_list)
-    nevt = len(df_list[0])
+    n_tf    = len(df_list)
+    nevt    = len(df_list[0])
 
     # combine all UCID lists together
     ucid_list   = []

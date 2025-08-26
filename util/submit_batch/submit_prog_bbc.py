@@ -154,7 +154,8 @@ BBC_ACCEPT_SUMMARY_FILE  = "BBC_ACCEPT_SUMMARY.LIST"
 BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
 BBC_REJECT_MONITOR_FILE  = "BBC_REJECT_MONITOR.FITRES"
 
-TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"    # check CUTWIN (2_LCFIT) loss in all systematics
+#TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"    # check CUTWIN (2_LCFIT) loss in all systematics
+TAG_REJECT_STAGE_LCFIT       = "LCFIT"     # check 2_LCFIT (+BBC CUTWIN) loss in all systematics
 TAG_REJECT_STAGE_BIASCOR     = "BIASCOR"   # check events rejected from biasCor in all systematics
 TAG_REJECT_STAGE_BIASCOR0    = "BIASCOR0"  # check events rejected from biasCor in FITOPT000 only
 
@@ -221,18 +222,7 @@ class BBC(Program):
         # May 2024: if WFITMUDIF_OPT is specified as item, switch to a list.
         CONFIG[KEY_WFITMUDIF_OPT] = CONFIG.setdefault(KEY_WFITMUDIF_OPT,[])
         arg = CONFIG[KEY_WFITMUDIF_OPT]            
-        if not isinstance(arg,list):   CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
-        
-        # xxxxxxxx mark delete Jun 27 2025 xxxxxxxx
-        #CONFIG     = self.config_yaml['CONFIG']                
-        #if KEY_WFITMUDIF_OPT in CONFIG:
-        #    arg = CONFIG[KEY_WFITMUDIF_OPT]            
-        #    if not isinstance(arg,list):
-        #        CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
-        #else:
-        #    CONFIG[KEY_WFITMUDIF_OPT] = []
-        # xxxxxxx end mark xxxxxxxxx
-
+        if not isinstance(arg,list):   CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]        
 
         # store flag to write reject-monitor info
         self.config_prep[KEY_WRITE_REJECT_MONITOR] = CONFIG.setdefault(KEY_WRITE_REJECT_MONITOR,False)
@@ -451,7 +441,6 @@ class BBC(Program):
         # abort if n_fitopt is different for any INPDIR
         SAME = len(set(n_fitopt_list)) == 1
         IGNORE_SAME_TEST = IS_FITOPT_MAP or ignore_fitopt
-        # xxx mark if not SAME and not IS_FITOPT_MAP :
         if not SAME and not IGNORE_SAME_TEST :
             msgerr = []
             msgerr.append(f"Mis-match number of FITOPT; "\
@@ -1447,7 +1436,7 @@ class BBC(Program):
                     time.sleep(5.0)
 
             # - - - - - - -
-            self.tag_missing_events(TAG_REJECT_STAGE_CUTWIN,vdir)  # May 2025
+            self.tag_missing_events(TAG_REJECT_STAGE_LCFIT,vdir)  # May 2025
 
         # - - - - - - -
         t_end  = time.time()
@@ -1467,7 +1456,7 @@ class BBC(Program):
         # Input stage = "CUTWIN" or "BIASCOR";
         # For CUTWIN stage, use BBC program to apply CUTWIN cuts and skip fit;
         # output fitres file is a base monitor file.
-        # Next, append NFITOPT_REJECT_CUTWIN column to store number of
+        # Next, append NFITOPT_REJECT_LCFIT column to store number of
         # LCFIT/BBC cut options that result in a missing event.
         # For BIASCOR stage, append NFITOPT_REJECT_BIASCOR.
 
@@ -1494,7 +1483,7 @@ class BBC(Program):
         tmp_outfile_tag = 'TMP_' + BBC_REJECT_MONITOR_FILE 
 
         # - - - - -
-        if stage == TAG_REJECT_STAGE_CUTWIN :
+        if stage == TAG_REJECT_STAGE_LCFIT :
             search_pattern    = "INPUT_FITOPT*.FITRES.gz"
             do_create         = True
             verb              = "Create"
@@ -1542,7 +1531,6 @@ class BBC(Program):
         # get fitres file list using search pattern
         tfile_list   = self.get_fflist_accept_summary(V_DIR,search_pattern)  # exclude NOREJECT labels
         tfile_string = ' '.join(tfile_list)
-        #logging.info(f" xxx tfile_list = {tfile_string}")
 
         cmd_tag = f"{tag_script} " \
                   f"--tfile_ref {BBC_REJECT_MONITOR_FILE}  " \
@@ -1552,7 +1540,7 @@ class BBC(Program):
 
         write_comments = True
         if write_comments:
-            colcut   = f"{colname_prefix}{TAG_REJECT_STAGE_CUTWIN}"
+            colcut   = f"{colname_prefix}{TAG_REJECT_STAGE_LCFIT}"
             colbcor  = f"{colname_prefix}{TAG_REJECT_STAGE_BIASCOR}"
             colbcor0 = f"{colname_prefix}{TAG_REJECT_STAGE_BIASCOR0}"
             comment_list_global = [ 
@@ -1579,7 +1567,7 @@ class BBC(Program):
             comment_list += [' ']
 
             comments = ""
-            for comment in comment_list:   comments += f"'{comment}' " # string list arg for tag_missing_events
+            for comment in comment_list:  comments += f"'{comment}' " # string list arg for tag_missing_events
             cmd_tag   += f"--comments {comments}  "
 
         cmd_mv   = f"mv {tmp_outfile_tag} {BBC_REJECT_MONITOR_FILE}"
@@ -2045,7 +2033,6 @@ class BBC(Program):
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
                 wait_file += f" {STRING_SUCCESS}" # require SUCCESS in file
-                # xxx mark delete 4.21.2025 JOB_INFO['refac_file_check'] = True
                 select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
@@ -2908,9 +2895,6 @@ class BBC(Program):
         # Read BBC_REJECT_MONITOR_FILE and extract information about losses
         # for each IDSAMPLE; print info in YAML format to file f
 
-        # PROBLEM: How to recover IDSAMPLE for each event ???
-        #  IDSAMPLE is defined for output of BBC, not for input events
-
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
 
@@ -2925,22 +2909,21 @@ class BBC(Program):
             tmp_idsample = '-1'
 
         SAMPLE_LIST   = [x.strip() for x in tmp_sample.split(',')]   # string list such as CSP or DES(X3)
-        IDSAMPLE_LIST = [int(x) for x in tmp_idsample.split(',')] # integer IDSAMPLE list
+        IDSAMPLE_LIST = [int(x) for x in tmp_idsample.split(',')]    # integer IDSAMPLE list
 
         df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
         ntot = len(df)
         logging.info(f" Summarize reject stats for {version}") 
-        #print(f" xxx \n df = \n{df}")
 
         KEY_LCFIT_SYS = 'LCFIT_SYS'
         KEY_BCOR_NOM  = 'BIASCOR_NOMINAL' 
         KEY_BCOR_SYS  = 'BIASCOR_SYS' 
 
         reject_cut_dict = {
-            KEY_LCFIT_SYS  : [ 'NFITOPT_REJECT_CUTWIN>0' ],
-            KEY_BCOR_NOM   : [ 'NFITOPT_REJECT_CUTWIN==0',  
+            KEY_LCFIT_SYS  : [ 'NFITOPT_REJECT_LCFIT>0' ],
+            KEY_BCOR_NOM   : [ 'NFITOPT_REJECT_LCFIT==0',  
                                'NFITOPT_REJECT_BIASCOR0==1' ],
-            KEY_BCOR_SYS   : [ 'NFITOPT_REJECT_CUTWIN==0', 
+            KEY_BCOR_SYS   : [ 'NFITOPT_REJECT_LCFIT==0', 
                                'NFITOPT_REJECT_BIASCOR>0',
                                'NFITOPT_REJECT_BIASCOR0==0' ]
         }
@@ -2979,7 +2962,6 @@ class BBC(Program):
             sample_plus_colon = sample[0:np-1] + ':' 
             ncut_string = ' '.join( [ f"{n:7d} ({f:.3f})" for n,f in zip(ncut_list,frac_list) ] )
             f.write(f"    {sample_plus_colon:<{np}}  {ncut_string}   # loss (fracLoss)  | {version}\n")
-        # .xyz
 
         # - - - - -
         # write footnotes to explain columns
@@ -3003,13 +2985,6 @@ class BBC(Program):
         # get indices for summary file
         ifit = int(f"{fitopt_num[6:]}")
         imu  = int(f"{muopt_num[5:]}")
-
-        # xxxxxx mark delete Jun 5 2025 xxxxxxxx
-        # figure out name of BBC-YAML file and read it 
-        #prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-        #YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
-        #bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
-        # xxxxxxxxx end mark xxxxxxxxxx
 
         BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
 

@@ -13,7 +13,7 @@
 #
 #
 
-import os, sys, logging, argparse, glob
+import os, sys, logging, argparse, glob, copy
 import pandas as pd
 import numpy  as np
 
@@ -40,6 +40,9 @@ def get_args():
 
     msg = "name of column to add to ref table (default={DEFAULT_COLNAME_ADD})"
     parser.add_argument("--ref_colname_add", help=msg, nargs="?", default=DEFAULT_COLNAME_ADD)
+
+    msg = "prefix for columns indicating REJECT=[0,1] for each table; default is no colunms"
+    parser.add_argument("--reject_colname_prefix", help=msg, nargs="?", default=None)
 
     msg = "name of output table file with added column"
     parser.add_argument("--outfile", help=msg, nargs="?", default=DEFAULT_OUTFILE )
@@ -75,13 +78,13 @@ def read_input_tables(args):
         
         # keep subset of rows in df_ref
         if len(df_list) == 0 :
-            df_ref = df
+            df_ref = copy.deepcopy(df)
         else:
             df = df[df[COLNAME_UCID].isin(df_ref[COLNAME_UCID])]
 
         df_list.append(df)    
 
-    return df_list
+    return df_list, tfile_local_list
 
 def write_output(args, df):
 
@@ -100,21 +103,36 @@ def write_output(args, df):
 if __name__ == "__main__":
 
     setup_logging()
-    logging.info("# ========== BEGIN tag_missing_events.py ===============")
-    logging.info("# full command: {sys.argv} ")
+    logging.info(f"# ========== BEGIN tag_missing_events.py ===============")
+
+    full_command = ' '.join(sys.argv)
+    logging.info(f"# full command: {full_command} ")
 
     args   = get_args()
 
     # store all tables in list of data frames
-    df_list = read_input_tables(args) 
-    n_tf    = len(df_list)
-    nevt    = len(df_list[0])
+    df_list, tfile_list = read_input_tables(args) 
+    n_tf    = len(df_list)     # total number of tables, incuding ref
+    nevt    = len(df_list[0])  # nevt in ref table
+    df_ref  =  df_list[0]  # strip off reference table
+    df_ref_copy = copy.deepcopy(df_ref)
 
     # combine all UCID lists together
     ucid_list   = []
-    for df in df_list:
+    for i, df in enumerate(df_list):
         df_id    = df[COLNAME_UCID]
         ucid_list = np.concatenate( (ucid_list, df_id) )  # list over all files
+        ifile = i - 1  # ref is -1 and nominal list starts at 0
+        if ifile >= 0 and args.reject_colname_prefix:
+            colname = f"{args.reject_colname_prefix}{ifile:02d}"
+            df_ref[colname]   = ~df_ref[COLNAME_UCID].isin(df[COLNAME_UCID])
+            df_ref[colname]  = df_ref[colname].replace({True: 1, False: 0}).astype('Int64')
+            logging.info(f"   Check {tfile_list[i]}   ")
+
+
+    #df_tmp = df_ref[df_ref[COLNAME_UCID] == '3772746__102__WIDE' ]
+    #print(f"\n xxx df_tmp = \n{df_tmp} \n\n")
+
 
     # count number of times each UCID appears
     ucid_unique, ucid_index, n_count = np.unique(ucid_list, return_index=True, return_counts=True)
@@ -124,9 +142,6 @@ if __name__ == "__main__":
         n_reject[ind] = n_reject_sorted[j]  # aligns with orginal data frame
 
     # - - - -
-
-    # strip off reference data frame
-    df_ref = df_list[0]
 
     # add n_reject colunm 
     logging.info(f"Append {args.ref_colname_add} column")

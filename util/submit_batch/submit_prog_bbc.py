@@ -1487,17 +1487,19 @@ class BBC(Program):
             search_pattern    = "INPUT_FITOPT*.FITRES.gz"
             do_create         = True
             verb              = "Create"
+            reject_colname_prefix = 'REJECT'
         elif stage == TAG_REJECT_STAGE_BIASCOR : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
             search_pattern    = "FITOPT*.FITRES.gz"  
             do_create         = False  # append only
             verb              = "Append"
+            reject_colname_prefix = None
         elif stage == TAG_REJECT_STAGE_BIASCOR0 : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
             search_pattern    = "FITOPT000_MUOPT000.FITRES.gz"    # no wildcard; just pick nominal output
             do_create         = False  # append only
             verb              = "Append"
-
+            reject_colname_prefix = None
         
         logging.info(f"\t {verb} table file to monitor {v_dir} loss from {stage} (snana_dir={snana_dir})")
 
@@ -1538,6 +1540,11 @@ class BBC(Program):
                   f"--ref_colname_add {colname_add}  " \
                   f"--outfile  {tmp_outfile_tag}  "
 
+        # for LCFIT check, set option to add REJECTff column for each FITOPT to
+        # check which FITOPT(s) fail for each event.
+        if reject_colname_prefix :
+            cmd_tag += f"--reject_colname_prefix {reject_colname_prefix}  "
+
         write_comments = True
         if write_comments:
             colcut   = f"{colname_prefix}{TAG_REJECT_STAGE_LCFIT}"
@@ -1547,7 +1554,8 @@ class BBC(Program):
                 f"=========================================================================",
                 f"Examples on selecting events using the appended {colname_prefix}* columns:",
                 f"  {colcut}>0   -> ",
-                f"\t rejected by 2_LCFIT cuts on FITOPTnnn systematics (nnn>=1)" 
+                f"\t rejected by 2_LCFIT cuts on FITOPTnnn systematics (nnn>=1)" ,
+                f"\t Column REJECT[01,02...] = 1 --> 2_LCFIT rejected FITOPT[001,002...] " 
             ]
             comment_list_bcor = [
                 f"  {colcut}=0 & {colbcor} >0 -> ",

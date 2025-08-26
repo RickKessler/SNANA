@@ -10700,7 +10700,9 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
     GENSPEC.IS_HOST[imjd]          = false;
-    GENSPEC.SKIP[imjd]             = false ; // Aug 26 2025
+
+    if ( INPUTS.USE_SIMLIB_SPECTROGRAPH ) 
+      { GENSPEC.SKIP[imjd] = false ; } // Aug 26 2025
   }
 
   GENSPEC.SNR_REST_U[imjd] = 0.0 ;

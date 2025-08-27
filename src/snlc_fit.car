@@ -1,5 +1,5 @@
 c *********************************************************
-c Created June 2006   by R.Kessler 
+c Created June 2006   by R.Kessler  
 c   
 c Generic SNIa lightcurve fitter.
 c "Generic" means that any SNIa model can be fit to the data.
@@ -3490,7 +3490,7 @@ c local var
 
       LOGICAL   LCUT, LDMP, LZTEST, LDROP, LADD
       CHARACTER cfilt1*12, cfiltdrop*20, cfiltadd*20, ccid*(MXCHAR_CCID)
-      character VERB*8
+      character VERB*8, msgerr*20 
 
 c function
       REAL TRESTzCUT 
@@ -3764,6 +3764,10 @@ c tighter (final) cuts.
 c if we don't have enough measurements after filter-drop, bail ASAP.
         if ( NTLIST .LT. CUTWIN_NEPOCH(1) ) then
           ERRFLAG = ERRFLAG_ZFIT_DROPFILTCUTS
+          if ( STDOUT_UPDATE ) then
+            write(6,186) NTLIST
+186         format(I2,' obs -> FAIL' )
+          endif
           return
         endif
 
@@ -3920,7 +3924,7 @@ C ------------- BEGIN -------------
             LCID = ISNLC_LENCCID
             CCID = SNLC_CCID
             write(6,301) CCID(1:LCID), ZPH, cfilt1, ITER
-301         format(T2,'WARNING SN=',A,' : PHOTOZ=', F5.3,
+301         format(T2,'WARNING CID=',A,' : PHOTOZ=', F5.3,
      &                 ' is outside range for ',
      &                  A,'-band (ITER=',I1, ') => SKIP ' )
             IFILTBAD = IFILT_OBS 
@@ -4264,7 +4268,7 @@ c store marginalized chi2 per filter
 
 C ============================================
 +DECK,FCNSNLC.
-      SUBROUTINE FCNSNLC(NVAR,GRAD, CHI2TOT,XVAL,IFLAG, USRFUN )
+      SUBROUTINE FCNSNLC(NVAR,GRAD, CHI2TOT, XVAL,IFLAG, USRFUN )
 c
 c User function to be minimized (chi2, log-likelihood, etc ...).
 c "USRFUN" is an optional function, for example from MC.
@@ -4338,7 +4342,7 @@ c local arguments
       INTEGER
      &   ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata
      &  ,NFITDATA_LOC, irow, icol, IERR, ep
-     &  ,NFITDATA_FILT(MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
+     &  ,NFITDATA_FILT(0:MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
       character cfilt*1
 
@@ -4475,11 +4479,22 @@ c -------------------------------------------
          NFITDATA_FILT(ifilt)  = 0
          NDMPFCN(ifilt)        = 0
       ENDDO
+         NFITDATA_FILT(0)  = 0
          NDMPFCN(0)        = 0
 
       FIRSTFILT = .TRUE.
 
+      IF ( LDMPFCN(0) ) THEN
+         print*,' '
+         print*,' -------------------------------------- '
+         write(6,602) SNLC_CCID,  ITER, IFLAG
+602      format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
+     &           3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
+         call flush(6)
+      ENDIF
+
 c ------------------------------------
+
 
       DO 102 ifitdata   = 1, NFITDATA_LOC
 
@@ -4518,6 +4533,7 @@ c compute data SNR with/without fudged error
         Trest     = Tobs / ZZ 
   
         Nfitdata_filt(ifilt) = Nfitdata_filt(ifilt) + 1
+        Nfitdata_filt(0)     = Nfitdata_filt(0) + 1
         LASTFILT  = Nfitdata_filt(ifilt) .EQ. NEPOCH_FIT(ifilt)
 
 c set local dump logicals = namelist flag .and. (debug option)     
@@ -4535,11 +4551,13 @@ c set local dump logicals = namelist flag .and. (debug option)
 c dumpe header just once per filter.
          if(LDMPFCN_LOC .and. FIRSTFILT ) then
 
-              print*,' '
-              print*,' -------------------------------------- '
-              write(6,602) SNLC_CCID,  ITER, IFLAG
-602           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
-     &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
+c xxxxxxx mark delete; moved up xxxx
+c              print*,' '
+c              print*,' -------------------------------------- '
+c              write(6,602) SNLC_CCID,  ITER, IFLAG
+c602           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
+c     &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
+c xxxxx end mark 
 
 c print  fit-pars to see crazy values.
 
@@ -4956,8 +4974,11 @@ c   check option to include determinant term log[det(COV_INC)]
 
 c - - - - - - -
       IF ( LDMPFCN_LOC ) THEN
-         print*,'   CHI2-FINAL(all filters)    = ', chi2tot
+         write(6,6665) chi2tot,  NFITDATA_FILT(0)
+6665     format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x, 
+     &             'NFITDATA=', I5)
          print*,'      ********* END OF FCN DUMP ********** '
+	 print*,' '
          CALL FLUSH(6)
 
          TBLDMPFCN_CHI2TOT = sngl(chi2tot)
@@ -10210,7 +10231,7 @@ c prevent large/unphysical deviations.
 +CDE,SNLCINP.
 
 c local args
-      REAL*8  PRIOR_SIG, SCALE_SIGMA
+      REAL*8  PRIOR_SIG, SCALE_SIGMA, SIG_FLOOR, MAGERR_MIN
       LOGICAL LX2, LX3, LNOzPRIOR
 
 C ------------- BEGIN ----------
@@ -10221,6 +10242,27 @@ c while still avoiding crazy outliers. This is not well tuned so may
 c need more study.
       SCALE_SIGMA = 1.0  
 
+c SIG_FLOOR logic is desgined for SALT2/3, and maybe works for BayeSN ??
+c But set a trap for BayeSN just to alert the user
+      IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
+        c1err = 'Must check SIG_FLOOR logic below before ' 
+     &          // 'bypassing this abort.'
+        c2err = 'Does BAYESN need different SIG_FLOOR values ?'
+        CALL MADABORT ( "SET_PRIOR_FITPAR_SIG", c1err, c2err )
+      ENDIF
+
+      SIG_FLOOR  = .01
+      MAGERR_MIN = 0.03  ! guess
+      IF ( IPAR == IPAR_COLOR ) THEN 
+         SIG_FLOOR = MAGERR_MIN/3.1  ! beta*cERR >= MAGERR_MIN
+      ELSE IF ( IPAR == IPAR_SHAPE ) THEN
+         SIG_FLOOR = MAGERR_MIN/0.15  ! alpha*sERR >= MAGERR_MIN 
+      ELSE IF ( IPAR == IPAR_DLMAG ) THEN  ! MU or x0
+         SIG_FLOOR = MAGERR_MIN
+      ELSE IF ( IPAR == IPAR_ZPHOT ) THEN
+         SIG_FLOOR = 0.02   ! guess
+      ENDIF
+
 c few debug option to play with scale
       LX2       = (IAND(DEBUG_FLAG,2) > 0)
       LX3       = (IAND(DEBUG_FLAG,4) > 0)
@@ -10230,8 +10272,10 @@ c few debug option to play with scale
       ELSE IF ( LX3 ) THEN
          SCALE_SIGMA = 3.0
       ENDIF
-
       PRIOR_SIG = SCALE_SIGMA*DVALSIG
+
+c Aug 27 2025 : avoid too-small PRIOR_SIG 
+      if ( PRIOR_SIG < SIG_FLOOR ) PRIOR_SIG = SIG_FLOOR 
 
       SET_PRIOR_FITPAR_SIG = PRIOR_SIG
       RETURN

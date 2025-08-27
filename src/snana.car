@@ -7618,6 +7618,9 @@ c   valid key with space sep or '=' delimeter. The old refactor code
 c   had never been properly integrated until now. Advantage is that
 c   FITNML_OVERRIDE can use the same function.
 c
+c Aug 25 2025: STRING_LIST*60 -> STRING_LIST*(MXCHAR_PATH) where MXCHAR_PATH=160;
+c              Initial motivation is to pass bigger list for SNCID_LIST.
+c
 c ----------
 
       IMPLICIT  NONE
@@ -7627,7 +7630,7 @@ c ----------
 c local var
 
       INTEGER iArg, LL, ilast, iuse, NVERLOC
-      CHARACTER STRING_LIST*60
+      CHARACTER STRING_LIST*(MXCHAR_PATH)
       CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       LOGICAL LSNIGNORE, DO_STOP, FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
       LOGICAL FOUND_MATCH, LDMP
@@ -8035,7 +8038,7 @@ c xxx mark           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
          else if ( MATCH_NMLKEY('SIM_TEMPLATE_INDEX_LIST',
      &             1, iArg, ARGLIST) ) then 
-           STRING_LIST = ARGLIST(1)(1:60)
+           STRING_LIST = ARGLIST(1)(1:MXCHAR_PATH)
            NSIM_TEMPLATE_INDEX_LIST =  ! select SIM_TEMPLATE INDICE
      &        PARSE_INTLIST(STRING_LIST,SIM_TEMPLATE_INDEX_LIST)
 
@@ -8064,7 +8067,7 @@ c xxx mark           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
          else if ( MATCH_NMLKEY('SNFIELD_LIST',
      &             1, iArg, ARGLIST) ) then 
-           SNFIELD_LIST(1) = ARGLIST(1)(1:60)
+           SNFIELD_LIST(1) = ARGLIST(1)(1:MXCHAR_PATH)
            SNFIELD_LIST(2) = ''
 
          else if ( MATCH_NMLKEY('FORCE_STDOUT_BATCH',
@@ -8100,22 +8103,22 @@ c xxx mark           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 c - - - -
          else if ( MATCH_NMLKEY('SNTYPE_LIST',
      &             1, iArg, ARGLIST) ) then 
-           STRING_LIST = ARGLIST(1)(1:60)
+           STRING_LIST = ARGLIST(1)(1:MXCHAR_PATH)
            NSNTYPE_LIST = PARSE_INTLIST(STRING_LIST,SNTYPE_LIST)
 
          else if ( MATCH_NMLKEY('DETNUM_LIST',
      &             1, iArg, ARGLIST) ) then 
-           STRING_LIST = ARGLIST(1)(1:60)
+           STRING_LIST = ARGLIST(1)(1:MXCHAR_PATH)
            NDETNUM_LIST = PARSE_INTLIST(STRING_LIST,DETNUM_LIST)
 
          else if ( MATCH_NMLKEY('SNTYPE_IGNORE',
      &             1, iArg, ARGLIST) ) then 
-           STRING_LIST    = ARGLIST(1)(1:60)
+           STRING_LIST    = ARGLIST(1)(1:MXCHAR_PATH)
            NSNTYPE_IGNORE = PARSE_INTLIST(STRING_LIST,SNTYPE_IGNORE)
 
          else if ( MATCH_NMLKEY('SNCID_LIST',  ! Aug 18 2020
      &             1, iArg, ARGLIST) ) then 
-           STRING_LIST = ARGLIST(1)(1:60)
+           STRING_LIST = ARGLIST(1)(1:MXCHAR_PATH)
            NCID_LIST   = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
 
 c xxxx mark delete Jun 26 2025 xxx
@@ -8691,7 +8694,7 @@ C ------------- BEGIN ------------
 
       if ( LDMP ) then
         print*,' xxx --------- MATCH_NMLKEY DUMP ------------- '
-        print*,' xxx  LINE_ARG  = ', ARG(1:60)
+        print*,' xxx  LINE_ARG  = ', ARG(1:MXCHAR_PATH)
         print*,' xxx  KEYNAME   = ', KEYNAME(1:LENKEY)
         print*,' xxx  iArg,NARG = ', iArg, NARG
         print*,' xxx  LENARG1   = ', LENARG1_EQ, LENARG1_TOT
@@ -14759,19 +14762,23 @@ c Translate comma-separated list of integers in STRING_LIST
 c into array of integers (OUTLIST).
 c Function returns number of integers in OUTLIST array.
 c
+c Aug 25 2025: 
+c   STRING_LIST length of 60 -> MXCHAR_PATH[=120]
+c   MXINT=10 -> 50
+c
       IMPLICIT NONE 
 
 +CDE,SNPAR.
       INTEGER   MXINT
-      PARAMETER (MXINT=10)
+      PARAMETER (MXINT=50)
 
-      CHARACTER STRING_INLIST*60    ! (I) comma-separated list of integers
+      CHARACTER STRING_INLIST*(MXCHAR_PATH)  ! (I) comma-separated list of integers
       INTEGER   OUTLIST(MXINT)      ! (O) output array of integers
      
 c local arg
 
       INTEGER iwd, NWD, LEN, MSKOPT
-      CHARACTER CWD*60, C1ERR*72, C2ERR*72, FNAM*30
+      CHARACTER CWD*(MXCHAR_PATH), C1ERR*72, C2ERR*72, FNAM*16
 C function
       INTEGER STORE_PARSE_WORDS
 
@@ -14779,14 +14786,16 @@ C ---------------- BEGIN ----------------
       FNAM   = 'PARSE_INTLIST'
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
       LEN    = INDEX(STRING_INLIST,' ') - 1
-      NWD    = STORE_PARSE_WORDS(MSKOPT,STRING_INLIST//char(0),
-     &            FNAM//char(0), LEN, 30)
+      NWD    = STORE_PARSE_WORDS(MSKOPT, STRING_INLIST//char(0),
+     &            FNAM//char(0), LEN, 16)
 
       IF ( NWD > MXINT ) THEN
+         CALL PRINT_PREABORT_BANNER(FNAM(1:14)//char(0),14)
+         print*,'     STRING_INLIST = ', STRING_INLIST
+         print*,'     LEN(STRING_INLIST) = ', LEN
          write(c1err,61) NWD, MXINT
  61      format('NWD=',I2,' exceeds bound of MXINT=',I2)
-         write(c2err,62) STRING_INLIST(1:LEN)
- 62      format('STRING_INLIST=',A)
+         c2err = 'Check input args'
          CALL MADABORT("PARSE_INTLIST", c1err, c2err )
       ENDIF
 

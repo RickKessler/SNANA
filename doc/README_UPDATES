@@ -23166,4 +23166,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + update to add REJECT[nn] columns indicating which FITOPTs fail LCFIT.
         Note that REJECT00 = 0 always since the referenve can never fail.
 
+    snana.car:
+      + for SNLCINP_OVERRIDE, increase max arg length from 60 to 160 (MXCHAR_PATH)
+        characters. Initial reason is to pass bigger list of SNCID_LIST.
 END: 

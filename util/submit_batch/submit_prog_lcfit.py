@@ -59,15 +59,22 @@
 #
 # Jun 18 2025: set n_split=n_core if only single FITOPT000
 #
+# Aug 27 2025: put import f90mnl in try/except block so that generic submit_batch
+#              works without full snana setup.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
 import logging
 #import coloredlogs
 import datetime, time, subprocess
-import f90nml
 import submit_util as util
 import pandas as pd
+
+try:
+    import f90nml
+except:
+    pass
 
 from   submit_params import *
 from   submit_prog_base import Program

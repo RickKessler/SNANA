@@ -30,15 +30,20 @@ FASTFAC   = 10    # for --fast
 FASTFAC2 = 100    # for --faster
 
 # - - - - - -
-SNANA_DIR        = os.environ['SNANA_DIR']
-SNDATA_ROOT      = os.environ['SNDATA_ROOT']
 SHELL            = os.environ['SHELL']
+
+SNANA_DIR        = os.environ['SNANA_DIR']  # must have SNANA_DIR
+try:
+    SNDATA_ROOT  = os.environ['SNDATA_ROOT']
+else:
+    pass  # allow classes to run without SNDATA_ROOT (Aug 28 2025)
+
 
 # generic program types to control batch flow
 PROGRAM_TYPE_SIM    = "SIM"    # simulation
 PROGRAM_TYPE_LCFIT  = "FIT"    # light curve fit (e.g., SALT2, PSNID, ...)
 PROGRAM_TYPE_BBC    = "BBC"    # BEAMS with bias corrections
-PROGRAM_TYPE_COSMOFIT   = "COSMOFIT"   # cosmology fitter
+PROGRAM_TYPE_COSMOFIT  = "COSMOFIT"   # cosmology fitter
 
 # default program names ... can be changed by user
 PROGRAM_NAME_SIM            =  "snlc_sim.exe"

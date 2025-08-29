@@ -499,6 +499,35 @@ HELP_CONFIG_COVMAT = f"""
 
 """
 
+
+HELP_CONFIG_COMBINE = f"""
+    ***** HELP/MENU to COMBINE/MERGE Classifier PROBS into LCFIT FITRES files (for Pippin only) *****
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+COMBINE_FITRES:
+
+  INPUT_TOPDIR:  /scratch/midway2/rkessler/PIPPIN_OUTPUT/D5YR_RERUN_ANALYSIS
+
+  TASK_LIST:
+  - DATADES_SIM-0001:
+      # use wildcard to select LCFIT FITOPT*.FITRES files to append
+      INPUT_BASE:   2_LCFIT/Dsys_DATADES_SIM/output/PIP_D5YR_RERUN_SIM_NOMINAL_DATADESSIM_IA-0001/FITOPT*
+
+      # define classifier outputs containing PROB_XXX columns
+      INPUT_APPEND:  [3_CLAS/SCONETESTV19_z_data_1_DATADES_SIM/predictions.csv,  
+                      3_CLAS/SNNTESTDESCC_z_data_1_DATADES_SIM_SNNTRAINDESCC_z_TRAINDES_DESCC/predictions.csv,
+                      3_CLAS/SNNTESTJ17_z_data_1_DATADES_SIM_SNNTRAINJ17_z_TRAINDES_J17/predictions.csv,
+                      3_CLAS/SNNTESTV19_z_data_1_DATADES_SIM_SNNTRAINV19_z_TRAINDES_V19/predictions.csv ]
+
+      # define location of merged/combined fitres files with classifier probs appended
+      OUTDIR_COMBINE:  5_MERGE_TEST/MERGE_Dsys_DATADES_SIM/output/PIP_D5YR_RERUN_SIM_NOMINAL_DATADESSIM_IA-0001
+
+      # make combined output look like these already-run pippin tasks ... as if LCFIT included classifier probs
+      MIMIC_OUTDIR_SUBMIT_BATCH:  2_LCFIT/Dsys_DATADES_SIM/output   5_MERGE_TEST/MERGE_Dsys_DATADES_SIM/output
+
+  etc ...
+  """
+
 HELP_TRAINOPT_GENERIC = f"""
   # The nominal training with salt-input files is output as TRAINOPT000.
   # For additional trainings with variations (e.g, calibration shifts,
@@ -779,6 +808,7 @@ HELP_MENU = {
     'BBC'           : HELP_CONFIG_BBC,
     'COVMAT'        : HELP_CONFIG_COVMAT,
     'COSMOFIT'      : HELP_CONFIG_COSMOFIT,
+    'COMBINE'       : HELP_CONFIG_COMBINE,
     'SMP'           : HELP_CONFIG_SMP,
     'TRAIN_SALT2'   : HELP_CONFIG_TRAIN_SALT2,
     'TRAIN_SALT3'   : HELP_CONFIG_TRAIN_SALT3,

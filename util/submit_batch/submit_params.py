@@ -35,7 +35,7 @@ SHELL            = os.environ['SHELL']
 SNANA_DIR        = os.environ['SNANA_DIR']  # must have SNANA_DIR
 try:
     SNDATA_ROOT  = os.environ['SNDATA_ROOT']
-else:
+except:
     pass  # allow classes to run without SNDATA_ROOT (Aug 28 2025)
 
 

@@ -30,6 +30,8 @@
 
  Jan 05 2023: MXCHAR_FILENAME-> 300 (was 240)
 
+ Aug 29 2025: MXVAR_TABLE -> 800 (was 400)
+
 *******************************************/
 
 
@@ -56,7 +58,7 @@
 // xxx#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_MODELNAME 32  // max length of model name (e.g., SALT2.Guy10)
 
-#define MXVAR_TABLE      400  // max number of variables in 1 table
+#define MXVAR_TABLE      800  // max number of variables in 1 table
 #define MXLINE_TABLECOMMENT  20   // max number of user-passed comments
 
 #define OPENFLAG_NULL   0

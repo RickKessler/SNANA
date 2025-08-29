@@ -23169,4 +23169,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.car:
       + for SNLCINP_OVERRIDE, increase max arg length from 60 to 160 (MXCHAR_PATH)
         characters. Initial reason is to pass bigger list of SNCID_LIST.
+
+    sntools_output.h
+      + MXVAR_TABLE => 800 (was 400) to handle data with more bands
+
 END: 

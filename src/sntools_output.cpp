@@ -669,17 +669,21 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
   // of the vector. However, 'NFIT' is a string giving the name
   // of the array-size for each SN.
 
-  int USE ;
+  int USE, ivar, LDMP=0 ;
+  SNTABLE_ADDCOL_VARDEF ADDCOL_VARDEF ;  
   char fnam[] = "SNTABLE_ADDCOL" ;
-  SNTABLE_ADDCOL_VARDEF ADDCOL_VARDEF ;
-
   // ---------------- BEGIN --------------
   
   parse_ADDCOL_VARLIST(VARLIST, &ADDCOL_VARDEF); // return ADDCOL_VARDEF
 
+  if ( LDMP ) { printf(" xxx %s: VARLIST = '%s' \n", fnam, VARLIST);  fflush(stdout);  }
+
   //Mar 28 2016: add protection against too many variables
   NVAR_ADDCOL_TOT += ADDCOL_VARDEF.NVAR;
   if ( NVAR_ADDCOL_TOT >= MXVAR_TABLE ) {
+
+    // print_preAbort_banner(fnam);
+
     sprintf(MSGERR1,"NVAR_ADDCOL_TOT=%d exceeds MXVAR_TABLE=%d",
 	    NVAR_ADDCOL_TOT, MXVAR_TABLE );
     sprintf(MSGERR2,"IDTABLE=%d", IDTABLE);

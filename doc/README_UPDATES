@@ -23177,4 +23177,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_output.h
       + MXVAR_TABLE => 800 (was 400) to handle data with more bands
 
+
+   Changes on hold until Dovekie submission (as of Aug 30 2025)
+    - sndata.h
+         #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG
+            ->
+         #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_nJy
+
+    - SALT2mu:
+         INPUTS.REFAC_CCPRIOR=0 -> 1 
+         INPUTS.opt_ccprior = OPT_CCPRIOR_LEGACY -> OPT_CCPRIOR_DEFAULT [=5]  
+            [update includes 3 color bins and 2 x1 bins for CCprior]
+
+    - SALT2mu:
+         restore_des5yr=1 -> 0 # leave bug there -> fix bug
+
 END: 

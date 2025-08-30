@@ -308,6 +308,8 @@ For help, run code with no arguments
 
  Aug 13 2025: add new input zrate_scale_file
 
+ Aug 29 2025: remove restore_bug_WGTabg (oct 2023)
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -618,7 +620,7 @@ typedef struct {
 
 typedef struct {
   int    *IZ,  *IMU, *IC, *IS, *I3D;
-  double *DMU, *PROB;
+  double *DMU, *PROB, *MUBIAS;
   double *MUMODEL;  // store to avoid re-computing
 } PROB_CCPRIOR_DEF ;  // Jul 29 2025
 
@@ -1301,8 +1303,8 @@ struct INPUTS {
   int restore_bug_sigint0; // bug calling recalc_datacov when sigint=0
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
-  int restore_bug_WGTabg ;      // Oct 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
+  int restore_des5yr;   // restore bug setting mubias=0 for CCprior
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
@@ -1730,7 +1732,7 @@ void  calc_zM0_data(void);
 double zmu_solve(double mu, double *cosPar) ;
 void   test_zmu_solve(void);
 
-int   storeDataBias(int n, int dumpFlag ) ;
+int   storeBias_data(int n, int dumpFlag ) ;
 int   biasMapSelect(int i) ;
 void  read_simFile_biasCor(void);
 void  set_DUST_FLAG_biasCor(void) ;
@@ -5789,13 +5791,13 @@ void set_defaults(void) {
   INPUTS.check_duplicates_biasCor = 0 ;
   
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
+  INPUTS.restore_des5yr         = 1 ; // Aug 29 2025: maintain bug for a while ...
   INPUTS.restore_bug_mucovscale = 0 ;
   INPUTS.restore_bug_mucovadd   = 0 ;
   INPUTS.restore_bug2_mucovadd  =  0 ;
   INPUTS.restore_bug_sigint0    =  0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
-  INPUTS.restore_bug_WGTabg     = 0 ;
   INPUTS.restore_bug_mumodel_zhel = 0; // leave bug until more testing is done
 
   INPUTS.nthread           = 1 ; // 1 -> no thread
@@ -10267,14 +10269,14 @@ void prepare_biasCor(void) {
       DUMPFLAG = ( strstr(cidlist_debug,name) != NULL ); 
     }
 
-    istore = storeDataBias(n,DUMPFLAG);
+    istore = storeBias_data(n,DUMPFLAG);
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
     if ( istore == 0 && REQUIRE_VALID_BIASCOR )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;  
       setbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); 
       if( NSKIP_TOT < ndump_nobiasCor ) 
-	{ storeDataBias(n,1); } 
+	{ storeBias_data(n,1); } 
     }    
   }
 
@@ -13649,7 +13651,7 @@ double zmu_solve(double mu, double *cosPar) {
 } // end zmu_solve
 
 // ======================================================
-int  storeDataBias(int n, int DUMPFLAG) {
+int  storeBias_data(int n, int DUMPFLAG) {
 
   // Created Mar 22 2016
   // for data event 'n', store bias for ipar = mB,x1,c.
@@ -13682,7 +13684,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
   int    ISTAT = 1;
   double z, m, muCOVscale, muCOVadd ;
   char   *name ;
-  char   fnam[] = "storeDataBias" ;
+  char   fnam[] = "storeBias_data" ;
 
   // ------------- BEGIN -------------
 
@@ -13770,7 +13772,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
 
   return(ISTAT);
 
-} // end storeDataBias
+} // end storeBias_data
 
 
 
@@ -13782,7 +13784,7 @@ int  storeBias_CCprior(int n) {
   // Returns 1 if bias can be determined;
   // returns 0 otherwise (to be rejected)
   //
-  // This routine is analagous to storeDataBias for real data.
+  // This routine is analagous to storeBias_data for real data.
   //
   // Jan 17 2020: fix index bug setting BIASCORLIST.gammadm.
   // Nov 29 2021: return if idsample < 0
@@ -13794,7 +13796,7 @@ int  storeBias_CCprior(int n) {
 
   BIASCORLIST_DEF BIASCORLIST ;
 
-  int    DUMPFLAG = 0; // (strcmp(name,"184000") == 0) ;
+  int    DUMPFLAG = 0 ; // (strcmp(name,"473121") == 0 ); 
   int    ia, ib, ig, istat_bias, idsample ;
   char   fnam[] = "storeBias_CCprior" ;
 
@@ -13831,7 +13833,7 @@ int  storeBias_CCprior(int n) {
  
   if ( DUMPFLAG ) {
     printf(" xxx --------------------------------- \n");
-    printf(" xxx %s: mB,x1,c = %.3f, %.3f, %.3f \n", fnam,
+    printf(" xxx %s: CID=%s   mB,x1,c = %.3f, %.3f, %.3f \n", fnam, name, 
 	   BIASCORLIST.FITPAR[INDEX_d],
 	   BIASCORLIST.FITPAR[INDEX_s], 
 	   BIASCORLIST.FITPAR[INDEX_c] );
@@ -13848,19 +13850,12 @@ int  storeBias_CCprior(int n) {
       BIASCORLIST.beta     = INFO_BIASCOR.BININFO_SIM_BETA.avg[ib];
       BIASCORLIST.gammadm  = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[ig];
 
+
       istat_bias =
 	get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		       &INFO_CCPRIOR.FITPARBIAS_ALPHABETA[n][ia][ib][ig] );
 
-      /* 
-      if ( DUMPFLAG ) {
-	printf(" xxx %s: a,b=%.2f,%.2f  BIAS(mB,x1,c)=%.3f,%.3f,%.3f \n",
-	       fnam, BIASCORLIST.alpha, BIASCORLIST.beta,
-	       FITPARBIAS_TMP.VAL[0], FITPARBIAS_TMP.VAL[1],
-	       FITPARBIAS_TMP.VAL[2] );    fflush(stdout);
-      }
-      */
-
+      
       if ( istat_bias < 0 ) { return 0 ; }
 
       } // end ig
@@ -13915,7 +13910,7 @@ int get_fitParBias(char *cid,
   int IDSAMPLE = BIASCORLIST->idsample ;
   int ID = IDSAMPLE;
 
-  bool DO_BIASCOR_MU  = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool DO_BIASCOR_MU         = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool REQUIRE_VALID_BIASCOR = (INPUTS.opt_biasCor & MASK_BIASCOR_noCUT)==0;
 
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
@@ -15148,14 +15143,14 @@ void get_muBias(char *NAME,
   //  + fix subtle bug where WGTabg is incremented for bin with no biasCor;
   //    see INPUTS.restore_bug_WGTabg to restore bug.
   //
-  //      
+  // Aug 29 2025: add internal LDMP flag
 
   double alpha    = BIASCORLIST->alpha ;
   double beta     = BIASCORLIST->beta  ;
   double gammadm  = BIASCORLIST->gammadm  ;
   double z        = BIASCORLIST->z  ;
-  double mB       = BIASCORLIST->FITPAR[INDEX_d] ;
-  double x1       = BIASCORLIST->FITPAR[INDEX_s] ;
+  double d        = BIASCORLIST->FITPAR[INDEX_d] ;
+  double s        = BIASCORLIST->FITPAR[INDEX_s] ;
   double c        = BIASCORLIST->FITPAR[INDEX_c] ;
 
   double muBias_local       = 0.0 ;
@@ -15176,10 +15171,23 @@ void get_muBias(char *NAME,
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
   int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;
 
+  int LDMP = 0 ; // ( strcmp(NAME,"473121") == 0 );
   int  ia, ib, ig, ipar ;
   char fnam[] = "get_muBias";
 
   // --------------- BEGIN ------------
+
+  if ( LDMP ) {
+    printf(" xxx -------------------------------------------- \n");
+    printf(" xxx %s DUMP for CID = %s \n", fnam, NAME );
+    printf(" xxx %s: z=%.3f  d=%.3f s=%.2f c=%.3f  a=%.3f b=%.3f \n",
+	   fnam, z, d, s, c, alpha, beta );
+    printf(" xxx %s: ia = %d/%d  ib=%d/%d  ig=%d/%d \n", fnam, 
+	   INTERPWGT->ia_min, INTERPWGT->ia_max,
+	   INTERPWGT->ib_min, INTERPWGT->ib_max,
+	   INTERPWGT->ig_min, INTERPWGT->ig_max );
+    fflush(stdout);         
+  }
 
   for(ipar=0; ipar < NLCPAR+1; ipar++ )  { 
     biasVal[ipar] = biasErr[ipar] = 0.0 ;
@@ -15209,10 +15217,14 @@ void get_muBias(char *NAME,
 
 	nevt_biascor_local = FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR;
 	nevt_biascor_sum  += nevt_biascor_local;
-	if ( nevt_biascor_local == 0 ) { 
-	  if ( !INPUTS.restore_bug_WGTabg ) { continue; } 
-	  //  continue;  // <== use this if restore_bug_WGTabg line is removed
+
+
+	if ( LDMP ) {
+	  printf(" xxx %s: ia,ib,ig=%d,%d,%d  WGTabg=%f  nevt_bcor=%d \n",
+		 fnam, ia, ib, ig, WGTabg, nevt_biascor_local ) ; fflush(stdout);
 	}
+
+	if ( nevt_biascor_local == 0 ) { continue ; }
 
 
 	for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX ; ipar++ ) {
@@ -15260,10 +15272,17 @@ void get_muBias(char *NAME,
   
   for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX ; ipar++ ) {
 
+    if ( LDMP ) {
+      printf(" xxx %s ipar=%d(%s)  biasVal=%f  WGTpar_SUM = %f \n", 
+	     fnam, ipar, BIASCOR_NAME_LCFIT[ipar], biasVal[ipar], WGTpar_SUM[ipar]);
+      fflush(stdout);
+    }
+
     if( WGTpar_SUM[ipar] == 0.0 ) { continue; }
 
     biasVal[ipar] /= WGTpar_SUM[ipar] ;
     biasErr[ipar] /= WGTpar_SUM[ipar] ;
+
 
     fitParBias[ipar]   = biasVal[ipar] ;     //store output array
     muBias_local += ( MUCOEF[ipar] * biasVal[ipar] ) ;
@@ -15298,7 +15317,7 @@ void get_muBias(char *NAME,
 	     ,BIASCOR_NAME_LCFIT[ipar],biasVal[ipar], biasErr[ipar]  );
     }
     sprintf(c1err,"Crazy muBias=%f for CID = %s",  muBias_local, NAME);
-    sprintf(c2err,"z=%.3f  mB=%.3f  x1=%.3f  c=%.4f", z, mB, x1, c );
+    sprintf(c2err,"z=%.3f  d=%.3f  s=%.3f  c=%.4f", z, d, s, c );
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
@@ -15526,7 +15545,7 @@ void  read_simFile_CCprior(void) {
   int  NEVT[MXFILE_CCPRIOR], NEVT_TOT;
   int  LEN_MALLOC, NROW, ifile, ISTART, isn, IFILETYPE, NVAR_ORIG ;
   char *simFile ;
-  //  char fnam[] = "read_simFile_CCprior" ;
+  char fnam[] = "read_simFile_CCprior" ;
 
   // -------------------- BEGIN --------------------
 
@@ -15597,6 +15616,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
   // to separate structures so that large (ALL) arrays 
   // can be de-alloated.
   //
+  // Aug 29 2025: fix index bug for using INFO_CCPRIOR.TABLEVAR.name
 
   int  NSN_ALL      = INFO_CCPRIOR.TABLEVAR.NSN_ALL ;
   int  NSN_PASS     = INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
@@ -15608,6 +15628,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
   //  int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
   //  int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;
 
+  int LDMP ;
   int  isn, icc, ia, ib, ig, ipar, cutmask;
   char *name ;
   char fnam[] = "store_INFO_CCPRIOR_CUTS" ;
@@ -15631,9 +15652,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
     cutmask  = INFO_CCPRIOR.TABLEVAR.CUTMASK[isn];
     if ( cutmask ) { continue; }
 
-    name = INFO_CCPRIOR.TABLEVAR.name[icc];
+    name = INFO_CCPRIOR.TABLEVAR.name[isn];
     sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.name[icc],"%s", name);
-
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];
@@ -15654,6 +15674,17 @@ void store_INFO_CCPRIOR_CUTS(void) {
     INFO_CCPRIOR.TABLEVAR_CUTS.IDSAMPLE[icc] = 
       INFO_CCPRIOR.TABLEVAR.IDSAMPLE[isn];
 
+    LDMP = 0 ; //  ( strcmp(name,"473121") == 0 )  ;
+    if ( LDMP ) {
+      printf(" xxx %s: CID=%s  isn=%d  icc=%d  z=%.3f  mB/x1/c = %.3f/%.3f/%.3f \n",
+	     fnam, name, isn, icc,  
+	     INFO_CCPRIOR.TABLEVAR.zhd[isn],
+	     INFO_CCPRIOR.TABLEVAR.fitpar[0][isn],
+	     INFO_CCPRIOR.TABLEVAR.fitpar[1][isn],
+	     INFO_CCPRIOR.TABLEVAR.fitpar[2][isn] );
+      fflush(stdout);
+    }
+
 
     sprintf(INFO_CCPRIOR.TABLEVAR_CUTS.field[icc], "%s", INFO_CCPRIOR.TABLEVAR.field[isn]);
 
@@ -15671,6 +15702,10 @@ void store_INFO_CCPRIOR_CUTS(void) {
 	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].RMS[ipar] ;
 
 	  } //end ipar
+	  
+	  INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[icc][ia][ib][ig].NEVT_BIASCOR =
+	    INFO_CCPRIOR.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].NEVT_BIASCOR ; // Aug 29 2025
+
 	} // end ig
       } // end ib
     }  // end ia
@@ -15943,7 +15978,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   int OPT_CCPRIOR;
   int NCC[MX3DMAP_CCPRIOR][MAXMUBIN], NCC_SUM[MX3DMAP_CCPRIOR]; 
   double SUM_DMU[MX3DMAP_CCPRIOR], SUMSQ_DMU[MX3DMAP_CCPRIOR];
-  double z, c, s, dmu ;
+  double z, c, s, dmu, mubias ;
   double XMU, XCC, XCC_SUM, DMUBIN ;
   char *name, *field ;
 
@@ -16069,8 +16104,6 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       for(imu=0; imu < NMUBIN; imu++ ) { 
 	XCC = (double)NCC[i3d][imu];
 	P   = ( XCC / XCC_SUM ) / DMUBIN ;
-	// xxx mark delete	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = XCC / XCC_SUM ;
-
 	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = P ;
 	MUZMAP->NDMUPDF[IDSAMPLE][i3d][imu] = NCC[i3d][imu];
 	MUZMAP->NCC3D[IDSAMPLE][i3d]       += NCC[i3d][imu];
@@ -16115,16 +16148,18 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     if ( INPUTS.write_ccprior_status == 0 ) { 	
       fcc = fopen(outfile_cc, "wt"); 
       fprintf(fcc, "#  CCprior events passing BBC cuts.\n");
-      fprintf(fcc, "#  DMU = mu - mumodel - mubias(Ia)\n");
-      fprintf(fcc, "#  NBIN(z,c,s) = %d, %d, %d    (%d total 3D bins)\n", 
+      fprintf(fcc, "#  Colummn definitions:.\n");
+      fprintf(fcc, "#    DMU         : mu - mumodel - mubias(Ia)\n");
+      fprintf(fcc, "#    MUBIAS      : bias correctdion applied to DMU\n");
+      fprintf(fcc, "#    NBIN(z,c,s) : %d, %d, %d    (%d total 3D bins)\n", 
 	      MUZMAP->ZBIN.nbin, MUZMAP->CBIN.nbin, MUZMAP->SBIN.nbin, MUZMAP->NBIN3D);
-      fprintf(fcc, "#  IZ, IC, IS = 1D index for redshift, color, stretch \n");
-      fprintf(fcc, "#  I3D = z,c,s  1D-index from 0 to %d \n", MUZMAP->NBIN3D-1);
-      fprintf(fcc, "#  PDF_TRUE = Exact binned PDF(DMU) evaluated numerically.\n");
-      fprintf(fcc, "#  PDF_[GAUSS,INTERP] is for opt_ccprior = [1,2]\n");
+      fprintf(fcc, "#    IZ, IC, IS  : 1D index for redshift, color, stretch \n");
+      fprintf(fcc, "#    I3D         : z,c,s  1D-index from 0 to %d \n", MUZMAP->NBIN3D-1);
+      fprintf(fcc, "#    PDF_TRUE    : Exact binned PDF(DMU) evaluated numerically.\n");
+      fprintf(fcc, "#    PDF_[GAUSS,INTERP] is for opt_ccprior = [1,2]\n");
       fprintf(fcc, "#  \n");
       fprintf(fcc, "\nVARNAMES: CID  IDSAMPLE  IDSURVEY  FIELD  I3D IZ IC IS IMU  "
-	      "zHD c x1  DMU  PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
+	      "zHD c x1  DMU MUBIAS PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
       fflush(fcc);
       INPUTS.write_ccprior_status++ ; // opened
     }
@@ -16147,6 +16182,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       is    = PROB->IS[icc];
       imu   = PROB->IMU[icc];
       dmu   = PROB->DMU[icc];
+      mubias = PROB->MUBIAS[icc];
 
       PDF_TRUE     = MUZMAP->DMUPDF[IDSAMPLE][i3d][imu] ;
 
@@ -16159,11 +16195,13 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       fprintf(fcc,"SN: %12s %2d %3d  "          // CID IDSAMPLE IDSURVEY 
 	      "%8s  %2d %2d %2d %2d %2d  "      // FIELD, i3d, iz, ic, is, imu
 	      "%5.3f %6.3f %5.2f  "             // zHD c x1
-	      "%6.3f  %5.3f  %5.3f  %5.3f\n",   // DMU PDF_[TRUE,GAUSS,INTERP]
+	      "%6.3f  %6.3f  "                  // DMU MUBIAS
+	      "%5.3f  %5.3f  %5.3f \n",          // PDF_[TRUE,GAUSS,INTERP]
 	      name, IDSAMPLE, TABLEVAR->IDSURVEY[icc],
 	      field, i3d, iz, ic, is, imu,
 	      z, c, s, 
-	      dmu, PDF_TRUE, PDF_GAUSS, PDF_INTERP );
+	      dmu, mubias,
+	      PDF_TRUE, PDF_GAUSS, PDF_INTERP );
       fflush(fcc);
     }
     
@@ -16214,7 +16252,7 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
   double fitParBias[NLCPAR];
 
   char *name ;
-  int icc, iz, imu, idsample, nevt_biascor; 
+  int icc, iz, imu, idsample, nevt_biascor, dumpflag ; 
   double z, c, s, d, mu, dl, mumodel, dmu, a=0.0, b=0.0, gDM=0.0 ;
   double muBias, muBiasErr, muCOVscale, muCOVadd;
   char fnam[] = "load_DMU_CCprior" ;
@@ -16237,8 +16275,9 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
     a    = ABG[0];
     b    = ABG[1];
     gDM  = ABG[2];
+    dumpflag = 0 ;
     if ( NDIM_BIASCOR >= 5 ) 
-      { get_INTERPWGT_abg(a,b,gDM, 0, &INTERPWGT,fnam ); } // returns INTERPWGT
+      { get_INTERPWGT_abg(a, b, gDM, dumpflag , &INTERPWGT, fnam ); } // returns INTERPWGT
   }
 
   // - - - - - -
@@ -16278,7 +16317,7 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
 
       // transfer FITPARBIAS_ALPHABETA to FITPARBIAS_TMP that has
       // the right 2D structure definition for get_muBias
-      load_FITPARBIAS(EVENT_TYPE, icc,FITPARBIAS_TMP);
+      load_FITPARBIAS(EVENT_TYPE, icc, FITPARBIAS_TMP);
 
       if ( NDIM_BIASCOR >= 5 ) {
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
@@ -16314,9 +16353,10 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABG, PROB_CCPRIOR_DEF *PRO
     PROB_CCPRIOR->IS[icc]   = -9;  // idem
     xxxxxxxxxxxxxxxx */
 
-    PROB_CCPRIOR->PROB[icc] = -9.0 ;
-    PROB_CCPRIOR->IMU[icc]  = -9.0 ;
-    PROB_CCPRIOR->DMU[icc]  = dmu;  // only dmu gets set here
+    PROB_CCPRIOR->PROB[icc]    = -9.0 ;
+    PROB_CCPRIOR->IMU[icc]     = -9.0 ;
+    PROB_CCPRIOR->DMU[icc]     = dmu;  // only dmu gets set here
+    PROB_CCPRIOR->MUBIAS[icc]  = muBias;  // for diagnostic in CCPRIOR table dump
 
     int  LDMP_MUBIAS = 0; // strcmp(name,"1136521")==0 || strcmp(name,"1199903")==0  ;  // refac
     if ( LDMP_MUBIAS && EVENT_TYPE == EVENT_TYPE_CCPRIOR ) {
@@ -16364,6 +16404,7 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
 
   PROB_CCPRIOR->IMU     = (int*) malloc(MEMI);  // index for hubble resid (dmu)
   PROB_CCPRIOR->DMU     = (double*) malloc(MEMD);  // Hubble resid
+  PROB_CCPRIOR->MUBIAS  = (double*) malloc(MEMD);  // bias correction use for dmu
   PROB_CCPRIOR->PROB    = (double*) malloc(MEMD);  // prob(dmu)
   PROB_CCPRIOR->MUMODEL = (double*) malloc(MEMD);  // model mu
 
@@ -16767,6 +16808,8 @@ void load_FITPARBIAS(int EVENT_TYPE, int isn, FITPARBIAS_DEF (*FITPARBIAS_ABGRID
   //
   // May 16 2023: fix bug loading FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR
   //   inside a,b,g loop instead of outside.
+  //
+  // Aug 29 2025: load NEVT_BIASCOR (impacts CC prior)
 
   int  NBINa, NBINb, NBINg, ia, ib, ig, ipar ;
 
@@ -16796,6 +16839,9 @@ void load_FITPARBIAS(int EVENT_TYPE, int isn, FITPARBIAS_DEF (*FITPARBIAS_ABGRID
 	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[isn][ia][ib][ig].ERR[ipar] ;
 	    FITPARBIAS_ABGRID[ia][ib][ig].RMS[ipar] =
 	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[isn][ia][ib][ig].RMS[ipar] ;
+
+	    FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR =
+	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[isn][ia][ib][ig].NEVT_BIASCOR ; // Aug 29 2025
 	  }
 	  else if ( EVENT_TYPE == EVENT_TYPE_DATA ) {
 	    FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar] =
@@ -16804,7 +16850,13 @@ void load_FITPARBIAS(int EVENT_TYPE, int isn, FITPARBIAS_DEF (*FITPARBIAS_ABGRID
 	      INFO_DATA.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].ERR[ipar] ;
 	    FITPARBIAS_ABGRID[ia][ib][ig].RMS[ipar] =
 	      INFO_DATA.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].RMS[ipar] ;
+
+	    FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR =
+	      INFO_DATA.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].NEVT_BIASCOR ; // Aug 29 2025
 	  }
+
+	  // Aug 29 2025: check option to restore DES5YR bug that results in mubias=0 for CCprior events
+	  if ( INPUTS.restore_des5yr ) { FITPARBIAS_ABGRID[ia][ib][ig].NEVT_BIASCOR = 0 ; }
 
 	} //ipar
       } //ig
@@ -18568,6 +18620,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_sigz=")) 
     { sscanf(&item[13],"%d", &INPUTS.restore_sigz); return(1); }
 
+  if ( uniqueOverlap(item,"restore_des5yr=")) 
+    { sscanf(&item[15],"%d", &INPUTS.restore_des5yr); return(1); }
+
   if ( uniqueOverlap(item,"restore_bug_mucovscale=")) 
     { sscanf(&item[23],"%d", &INPUTS.restore_bug_mucovscale); return(1); }
 
@@ -18583,9 +18638,6 @@ int ppar(char* item) {
     { sscanf(&item[19],"%d", &INPUTS.restore_bug_muzerr); return(1); }
   if ( uniqueOverlap(item,"restore_bug_zmax_biascor="))
     { sscanf(&item[25],"%d", &INPUTS.restore_bug_zmax_biascor); return(1); }
-
-  if ( uniqueOverlap(item,"restore_bug_WGTabg="))
-    { sscanf(&item[19],"%d", &INPUTS.restore_bug_WGTabg); return(1); }
 
   if ( uniqueOverlap(item,"restore_bug_mumodel_zhel="))
     { sscanf(&item[25],"%d", &INPUTS.restore_bug_mumodel_zhel); return(1); }
@@ -21008,6 +21060,10 @@ void prep_debug_flag(void) {
     printf("\n RESTORE BUG for mucovscale\n");
   }
 
+  if ( INPUTS.restore_des5yr ) {
+    printf("\n RESTORE DES-SN5YR BUG setting mubias=0 for CCprior events.\n");
+  }
+
   if ( INPUTS.restore_bug_mucovadd ) {
     printf("\n RESTORE BUG for mucovadd (set to %d)\n", 
 	   INPUTS.restore_bug_mucovadd);
@@ -21032,10 +21088,6 @@ void prep_debug_flag(void) {
     fflush(FP_STDOUT);
   }
 
-  if ( INPUTS.restore_bug_WGTabg ) {
-    printf("\n RESTORE BUG for WGTabg in get_muBias() \n" );
-    fflush(FP_STDOUT);
-  }
 
   if ( INPUTS.restore_bug_mumodel_zhel  ) {
     printf("\n RESTORE BUG for using 1+zHD instead of 1+zhel in mumodel calc\n");
@@ -24626,7 +24678,6 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",
     "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
-    "restore_bug_WGTabg=1        # restore WGTabg bug in get_muBias",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
     0
   } ;

@@ -23131,6 +23131,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_06a) *****
 
+   SALT2mu.c
+      Fix bug resulting in mubias=0 for CCprior events;
+      restore_des5yr=1 restores this bug and is currently set to 1 by default.
+
          *****  USEFUL(v11_06a) *****
    
     Update SIMLIB to accept detector/ccd number as part of IDEXPT(DETNUM);

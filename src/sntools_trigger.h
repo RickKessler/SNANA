@@ -14,6 +14,8 @@
 
   Aug 27 2024: add variables to update SPECEFF map to include SALT2x1, SALT2c, LOGMASS
 
+  Sep 02 2025: MXMAP_SEARCHEFF_SPEC = 20 -> 50 (for ATLAS)
+
  **************************************************/
 
 
@@ -40,7 +42,7 @@
 #define  MXVAR_SEARCHEFF_PHOTPROB     20
 #define  MXOBS_PHOTPROB              400 // max obs per event with PHOTPROB
 
-#define  MXMAP_SEARCHEFF_SPEC   20   // max number of SPEC-maps
+#define  MXMAP_SEARCHEFF_SPEC   50   // max number of SPEC-maps
 #define  MXROW_SEARCHEFF_SPEC 30000  // temp max size of SPEC-eff map
 
 #define  MXMAP_SEARCHEFF_zHOST   20    // max number of zHOST maps

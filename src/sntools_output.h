@@ -360,7 +360,8 @@ char MSGERR1[200], MSGERR2[200] ;
 char SNANA_VERSION[100] ;
 
 #define KEYNAME_VERSION_PHOTOMETRY "VERSION_PHOTOMETRY:"
-char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_FILENAME*2]; // beware it's a comma-sep list
+#define MXCHAR_VERSION_PHOTOMETRY MXCHAR_FILENAME*3
+char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_VERSION_PHOTOMETRY]; // beware it's a comma-sep list
 
 // -------------------------------------------------
 //                   FUNCTIONS

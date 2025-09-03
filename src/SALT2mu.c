@@ -1,6 +1,6 @@
 /*******************************************
 Created by J. Marriner.
-Installed into snana v8_38, January 2010.   
+Installed into snana v8_38, January 2010.    
  
 Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters

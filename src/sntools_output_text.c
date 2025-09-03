@@ -1,10 +1,10 @@
 // **********************************************
-// Created Feb 23 2013 by R. Kessler
+// Created Feb 23 2013 by R. Kessler  
 //
 // functions to write and read ascii tables.
 //
 // - - - - - - - - - - - 
-// HISTORY
+// HISTORY  
 //
 // Apr 17 2019: in SNTABLE_NEVT_TEXT, rewind -> snana_rewind.
 //
@@ -1090,6 +1090,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
 int  SNTABLE_READPREP_TEXT(void) {
 
   int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG, iwd, MSKOPT ; 
+  int LENV_TOT = 0;
   bool MATCH;
   FILE *FP ;
   char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST, vtmp[MXCHAR_FILENAME*2] ;
@@ -1123,6 +1124,13 @@ int  SNTABLE_READPREP_TEXT(void) {
 	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
 	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST, fnam);
 	iwd=1;   get_PARSE_WORD(0, iwd, vtmp, fnam) ; 
+	LENV_TOT = strlen(SNTABLE_VERSION_PHOTOMETRY) + strlen(vtmp);
+	if ( LENV_TOT >= MXCHAR_VERSION_PHOTOMETRY ) {
+	  sprintf(MSGERR1,"len(SNTABLE_VERSION_PHOTOMETRY) = %d exceeds bound of %d",
+		  LENV_TOT, MXCHAR_VERSION_PHOTOMETRY );
+	  sprintf(MSGERR2,"%s", "Check MXCHAR_VERSION_PHOTOMETRY");
+	  errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+	}
 	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
       } // end MATCH
       continue ;

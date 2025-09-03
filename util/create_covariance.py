@@ -1268,9 +1268,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
     for key, tmp  in contributions.items():
             
         source = contributions_source[key]
-
-        #print(f" xxxx key = {key}  source = {source}")
-
+        
         fitopt_label, muopt_label = key.split("|")
 
         apply_fitopt = apply_filter(fitopt_label, fitopt_filter)
@@ -1309,7 +1307,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
                     # nominal usage here
                     final_cov += cov * covopt_scale
                     n_cov += 1
-                    
+
             del tmp, cov # Jan 2025
             gc.collect()  # for release of memory
 
@@ -1317,7 +1315,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
     t_make_mat = time.time() - t_start
     logging.info(f"\t ({t_make_mat:.1f} sec to sum {n_cov} contributions to {label})")
     
-    assert final_cov is not None,  f"No syst matches {msg_content1} " 
+    assert final_cov is not None,  f"No syst matches {msg_content1}\n final_cov = {final_cov} " 
 
 
     return label, final_cov
@@ -1342,9 +1340,6 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         diag_muerr_cov = np.diag(muerr_stat_list**2)
         covtot         = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
 
-        if args.debug_flag == 215 : 
-            covtot *= 20.0
-            logging.info(f" xxx covtot *= 20 before invert")
 
         # First just try and invert it to catch singular matrix errors
         # precision -> covtot_inv
@@ -1354,10 +1349,6 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         str_tproc = f"({t_inv-t_start:.2f} sec)"
         logging.info(f"\t\t {label} covtot has been inverted {str_tproc}")
         
-        if args.debug_flag == 215 : 
-            covtot /= 20.0
-            covtot_inv *= 20.0
-
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
         pr   = np.dot(covtot,covtot_inv)

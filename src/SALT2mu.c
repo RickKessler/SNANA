@@ -310,6 +310,8 @@ For help, run code with no arguments
 
  Aug 29 2025: remove restore_bug_WGTabg (oct 2023)
 
+ Sep 03 2025: new option CUTWIN(CCPRIORONLY), analogous to CUTWIN(BIASCORONLY)
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1045,6 +1047,7 @@ typedef struct {
   bool  L_ABORTFLAG_LIST[MXSELECT_VAR] ;     // T=> abort if var does not exist
   bool  L_DATAONLY_LIST[MXSELECT_VAR] ;      // T=> cut on real or sim data 
   bool  L_BIASCORONLY_LIST[MXSELECT_VAR];    // T=> cut on biasCor only
+  bool  L_CCPRIORONLY_LIST[MXSELECT_VAR];    // T=> cut on CCPRIOR only
   bool  L_DISABLE;                      // T=> command line override to disable all 
 
   // for CUTWIN only:
@@ -1195,6 +1198,7 @@ struct INPUTS {
   bool  LCUTWIN_ABORTFLAG[MXSELECT_VAR] ;  // T=> abort if var does not exist
   bool  LCUTWIN_DATAONLY[MXSELECT_VAR] ;   // T=> cut on real or sim data 
   bool  LCUTWIN_BIASCORONLY[MXSELECT_VAR]; // T=> cut on biasCor only
+  bool  LCUTWIN_CCPRIORONLY[MXSELECT_VAR]; // T=> cut on CCprior only
   bool  LCUTWIN_FITWGT0[MXSELECT_VAR];     // T=> MUERR->888 instead of cut
   bool  LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
   bool  APPLY_CUTWIN_pIa ;
@@ -1568,7 +1572,6 @@ void parse_FIELDLIST_SELECT(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
-void copy_CUTWIN(int icut0,int icut1);
 int  icut_CUTWIN(char *varName) ;
 bool APPLY_CUTWIN_IDSAMPLE(int ID, int icut);
 bool APPLY_CUTWIN_IDSURVEY(int ID, int icut);
@@ -7419,7 +7422,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
   int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0, NCUTWIN=0, NPARSHIFT=0 ;
-  bool L_RDFLAG, L_BCORONLY ;
+  bool L_RDFLAG, L_BCORONLY, L_CCONLY ;
   char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
   char str_zerr[MXCHAR_VARNAME]; 
 
@@ -7709,11 +7712,18 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     cutname    = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
     L_RDFLAG   = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] ;
     L_BCORONLY = INPUTS.SELECT_CUTWIN.L_BIASCORONLY_LIST[icut] ;
-
+    L_CCONLY   = INPUTS.SELECT_CUTWIN.L_CCPRIORONLY_LIST[icut] ;
 
     // June 2 2025: if reading SIM_XXX variable for biasCor cut (e.g. SIM_ZFLAG), skip for data
     if ( IS_DATA && L_BCORONLY && strstr(cutname,"SIM_")!= NULL )  {  
       printf("\t Skip reading %s for DATA ; this CUTWIN variable is for BiasCor only\n", cutname);
+      fflush(stdout);  
+      continue; 
+    }
+
+    // Sep 04 2025: if reading SIM_XXX variable for CCprior cut (e.g. SIM_ZFLAG), skip for data
+    if ( IS_DATA && L_CCONLY && strstr(cutname,"SIM_")!= NULL )  {  
+      printf("\t Skip reading %s for DATA ; this CUTWIN variable is for CCprior only\n", cutname);
       fflush(stdout);  
       continue; 
     }
@@ -19435,7 +19445,7 @@ void parse_PARSHIFT(char *line_PARSHIFT) {
   //     or
   //  PARSHIFT([stringOpt]) LOGMASS 0.2
   //
-  // where stringOpt can be: NOABORT DATAONLY BIASCORONLY FITWGT0
+  // where stringOpt can be: NOABORT DATAONLY BIASCORONLY CCPRIORONLY FITWGT0
   //
   // Note that PARSHIFT can inlcude multiple options, e.g., 
   //    PARSHIFT(OPT1,OPT2,..ETC)
@@ -19448,7 +19458,9 @@ void parse_PARSHIFT(char *line_PARSHIFT) {
   // 
   // Beware that shift value in BBC (after LCFIT) may not be the
   // same as shifting value at input to LCFIT stage.
-  
+  //
+  // Sep 4 2025: allow CCPRIORONLY
+
   char fnam[] = "parse_PARSHIFT";
 
   // ------------ BEGIN ------------
@@ -19481,6 +19493,7 @@ void reset_SELECT_VAR(SELECT_VAR_DEF *SELECT_VAR) {
     SELECT_VAR->L_ABORTFLAG_LIST[ivar]   = true;
     SELECT_VAR->L_DATAONLY_LIST[ivar]    = false;
     SELECT_VAR->L_BIASCORONLY_LIST[ivar] = false;
+    SELECT_VAR->L_CCPRIORONLY_LIST[ivar] = false;
     SELECT_VAR->L_FITWGT0_LIST[ivar]     = false;
 
     SELECT_VAR->IDSAMPLE_LIST[ivar][0] = -9 ;
@@ -19516,9 +19529,9 @@ void copy_SELECT_VAR(int ivar0,int ivar1, SELECT_VAR_DEF *SELECT_VAR) {
   SELECT_VAR->L_ABORTFLAG_LIST[ivar1]   = SELECT_VAR->L_ABORTFLAG_LIST[ivar0] ;
   SELECT_VAR->L_DATAONLY_LIST[ivar1]    = SELECT_VAR->L_DATAONLY_LIST[ivar0] ;
   SELECT_VAR->L_BIASCORONLY_LIST[ivar1] = SELECT_VAR->L_BIASCORONLY_LIST[ivar0] ;
+  SELECT_VAR->L_CCPRIORONLY_LIST[ivar1] = SELECT_VAR->L_CCPRIORONLY_LIST[ivar0] ;
   SELECT_VAR->L_FITWGT0_LIST[ivar1]     = SELECT_VAR->L_FITWGT0_LIST[ivar0] ;
 
-  
   SELECT_VAR->NIDSAMPLE[ivar1]   = SELECT_VAR->NIDSAMPLE[ivar0] ;
   SELECT_VAR->NIDSURVEY[ivar1]   = SELECT_VAR->NIDSURVEY[ivar0] ;
 
@@ -19628,6 +19641,9 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 	else if ( strcmp(selectOpt,"BIASCORONLY") == 0 ) 
 	  { SELECT_VAR->L_BIASCORONLY_LIST[ICUT] = true ; } // cut on sim & biascor
 
+	else if ( strcmp(selectOpt,"CCPRIORONLY") == 0 ) 
+	  { SELECT_VAR->L_CCPRIORONLY_LIST[ICUT] = true ; } // cut on sim & biascor
+
 	else if ( strcmp(selectOpt,STRING_FITWGT0) == 0 ) 
 	  { SELECT_VAR->L_FITWGT0_LIST[ICUT] = true ; }  // ?? CUTWIN only ??
       
@@ -19645,7 +19661,7 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 	}
 	else {
 	  sprintf(c1err,"Invalid %s option: '%s'", KEYNAME_SELECT, selectOpt);
-	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
+	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY CCPRIORONLY FITWGT0");
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	}
 
@@ -19726,55 +19742,6 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 } // end parseLine_SELECT_VAR
 
 
-// **************************************************
-void copy_CUTWIN(int icut0,int icut1) {
-
-  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
-  //
-  // Created Sep 15 2021
-  // Copy CUTWIN contents from icut0 to icut1.
-  // Used to enable command line CUTWIN overrides with relaxed cut
-  // compared to CUTWIN in the input file.
-  //
-  // Dec 13 2022
-  //   + fix icut1 -> icut0 bug in several places
-  //   + add NIDSAMPLE and NIDSURVEY
-
-  int i;
-  char fnam[] = "copy_CUTWIN" ;
-
-  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
-  
-  // ---------- BEGIN ---------
-
-  sprintf(INPUTS.CUTWIN_NAME_LIST[icut1], "%s", INPUTS.CUTWIN_NAME_LIST[icut0] );
-  INPUTS.CUTWIN_RANGE_LIST[icut1][0] = INPUTS.CUTWIN_RANGE_LIST[icut0][0];
-  INPUTS.CUTWIN_RANGE_LIST[icut1][1] = INPUTS.CUTWIN_RANGE_LIST[icut0][1];
-
-  INPUTS.LCUTWIN_ABORTFLAG[icut1]   = INPUTS.LCUTWIN_ABORTFLAG[icut0] ;
-  INPUTS.LCUTWIN_DATAONLY[icut1]    = INPUTS.LCUTWIN_DATAONLY[icut0] ;
-  INPUTS.LCUTWIN_BIASCORONLY[icut1] = INPUTS.LCUTWIN_BIASCORONLY[icut0] ;
-  INPUTS.LCUTWIN_FITWGT0[icut1]     = INPUTS.LCUTWIN_FITWGT0[icut0] ;
-
-  INPUTS.CUTWIN_NIDSAMPLE[icut1]   = INPUTS.CUTWIN_NIDSAMPLE[icut0] ;
-  INPUTS.CUTWIN_NIDSURVEY[icut1]   = INPUTS.CUTWIN_NIDSURVEY[icut0] ;
-
-  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
-  
-  for(i=0; i < INPUTS.CUTWIN_NIDSAMPLE[icut0]; i++ )  { 
-    INPUTS.CUTWIN_IDSAMPLE_LIST[icut1][i] = 
-      INPUTS.CUTWIN_IDSAMPLE_LIST[icut0][i] ;
-  }
-
-  for(i=0; i < INPUTS.CUTWIN_NIDSURVEY[icut0]; i++ )  { 
-    INPUTS.CUTWIN_IDSURVEY_LIST[icut1][i] = 
-      INPUTS.CUTWIN_IDSURVEY_LIST[icut0][i] ; 
-  }
-
-  // @@@@@@@@ WILL BE OBDOLETE SOON (Oct 2024) @@@@@@@@@@@
-  
-  return;
-} // end copy_CUTWIN
 
 // **************************************************
 int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY, 
@@ -19935,7 +19902,7 @@ int set_DOFLAG_SELECT_VAR(int ivar_table, int ivar_select, int isData,
   bool  L_VALID_VAR   = ( ivar_table >= 0 );
   bool  L_NOVAR       = !L_VALID_VAR ;
   
-  bool  L_ABORTFLAG, L_DATAONLY, L_BIASCORONLY, L_FITWGT0, L_DISABLE, ISVAR_PROB ;
+  bool  L_ABORTFLAG, L_DATAONLY, L_BIASCORONLY, L_CCPRIORONLY, L_FITWGT0, L_DISABLE, ISVAR_PROB ;
   char *VARNAME;
   
   int   DOFLAG ;
@@ -19947,6 +19914,7 @@ int set_DOFLAG_SELECT_VAR(int ivar_table, int ivar_select, int isData,
   L_ABORTFLAG   = SELECT_VAR->L_ABORTFLAG_LIST[ivar_select];
   L_DATAONLY    = SELECT_VAR->L_DATAONLY_LIST[ivar_select];
   L_BIASCORONLY = SELECT_VAR->L_BIASCORONLY_LIST[ivar_select];
+  L_CCPRIORONLY = SELECT_VAR->L_CCPRIORONLY_LIST[ivar_select];
   L_FITWGT0     = SELECT_VAR->L_FITWGT0_LIST[ivar_select];
   L_DISABLE     = SELECT_VAR->L_DISABLE ;
   VARNAME       = SELECT_VAR->NAME_LIST[ivar_select];
@@ -19954,6 +19922,7 @@ int set_DOFLAG_SELECT_VAR(int ivar_table, int ivar_select, int isData,
    
   if ( L_DATAONLY    && !isData ) { return(DOFLAG_SELECT_IGNORE); }
   if ( L_BIASCORONLY &&  isData ) { return(DOFLAG_SELECT_IGNORE); }
+  if ( L_CCPRIORONLY &&  isData ) { return(DOFLAG_SELECT_IGNORE); }
 
   // Oct 28 2020: Apply cut to biasCor sample if varname doesn't exist
   //    and starts with PROB. This assumes that idsurvey_list_probcc0
@@ -24515,7 +24484,8 @@ void print_SALT2mu_HELP(void) {
     "CUTWIN  SNRMAX3   8  999999     # cut-window on SNRMAX3",
     "CUTWIN(NOABORT)  SIM_x1  -2 2   # cut, but don't abort if missing SIM_x1",
     "CUTWIN(DATAONLY)    LOGMASS  5 12 # cut on data only (not on biasCor)",
-    "CUTWIN(BIASCORONLY) LOGMASS  5 12 # cut on biasCor (not on data)",
+    "CUTWIN(BIASCORONLY) LOGMASS  5 12 # cut on biasCor (not on data, nor CCprior)",
+    "CUTWIN(CCPRIORONLY) LOGMASS  5 12 # cut on CCprior (not on data, nor biasCor)",
     "CUTWIN varname_pIa  0.9 1.0   # substitute argument of varname_pIa",
     "CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut",
     "CUTWIN NONE       #  command-line override to disable cuts",

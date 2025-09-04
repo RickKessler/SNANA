@@ -23154,6 +23154,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       continue refac to define CCprior in bins of z,color, stretch
       (instead of only z-dependence)
 
+      new option CUTWIN(CCPRIORONLY), analogous to CUTWIN(BIASCORONLY)
+       (WARNING: not tested !!!)
+
     snlc_fit.car/sntools_data.c
       abort if none of the HEADER_OVERRIDE_FILE variables match to a data variables;
       user has likely made a mistake here.

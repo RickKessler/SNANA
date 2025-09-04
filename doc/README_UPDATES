@@ -23157,6 +23157,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       new option CUTWIN(CCPRIORONLY), analogous to CUTWIN(BIASCORONLY)
        (WARNING: not tested !!!)
 
+      if REQUIRE_pIa is set, allow missing pIa variable for biasCor since
+      LOWZ Bcor does not have this variable.
+
     snlc_fit.car/sntools_data.c
       abort if none of the HEADER_OVERRIDE_FILE variables match to a data variables;
       user has likely made a mistake here.

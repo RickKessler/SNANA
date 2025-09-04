@@ -448,7 +448,7 @@ COVOPTS:
 - '[NOCALONLY] [-CAL,]'          # all syst (i.e. all FITOPTS and MUOPTS ) except CAL systs
 - '[noFrag] [,-SCAT]'            # all syst (i.e. all FITOPTS and MUOPTS ) except SCAT systs
 # optional 3rd arg scales syst error
-- '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 2, and covSys*= 1.2^2
+- '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 1.2, and covSys*= 1.2^2
 - '[ALL]    [,,1.4]              # scale ALL errSys by 1.4, covSys*= 1.4^2
 
 # Define extra covsys terms that can be evaluated without light curve fit or BBC,

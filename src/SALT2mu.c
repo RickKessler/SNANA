@@ -310,7 +310,10 @@ For help, run code with no arguments
 
  Aug 29 2025: remove restore_bug_WGTabg (oct 2023)
 
- Sep 03 2025: new option CUTWIN(CCPRIORONLY), analogous to CUTWIN(BIASCORONLY)
+ Sep 03 2025: 
+   + new option CUTWIN(CCPRIORONLY), analogous to CUTWIN(BIASCORONLY); not tested
+   + do NOT require pIa variable for biascor to avoid false abort on LOWZ biascor.
+       (in function SNTABLE_READPREP_TABLEVAR)
 
  ******************************************************/
 
@@ -7684,7 +7687,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     sprintf(vartmp,"%s:F", varname_pIa);
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART], 
 				   LEN, OPTMASK_WARN );
-    if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    // xxx mark delete Sep 3 2025:  if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+    if ( ivar < 0 && !IS_BIASCOR ) { NVAR_REQ_MISS++ ; }
     
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
   }

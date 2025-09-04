@@ -649,9 +649,10 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   // Write optional header info at top of file.
   // See FORMAT string below.
   // Mar 2023: write VERSION_PHOTOMETRY if it is defined
+  // Sep 2025: avoid writing VERSION_PHOTOMETRY key twice to top of file.
 
   int   NVAR, IVAR, OPT_FORMAT, IDTABLE ;
-  char *FORMAT, *VARLIST, *TBNAME;
+  char *FORMAT, *VARLIST, *TBNAME, *LINE ;
   char fnam[] = "SNTABLE_WRITE_HEADER_TEXT" ;
   FILE *FP ;
   // ------------- BEGIN --------------
@@ -677,13 +678,17 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   if ( OPT_FORMAT == OPT_FORMAT_KEY ) {
 
     // Oct 23 2014: print comment lines
-    int iline ;
+    int iline ; bool WROTE_VERSION_PHOTOMETRY = false;
     for(iline=0; iline < NLINE_TABLECOMMENT; iline++ ) {
-      fprintf(FP, "# %s \n", LINE_TABLECOMMENT[iline] );
+      LINE = LINE_TABLECOMMENT[iline];
+      fprintf(FP, "# %s \n", LINE );
+      if ( strstr(LINE,KEYNAME_VERSION_PHOTOMETRY) != NULL ) { WROTE_VERSION_PHOTOMETRY = true; }
+      fflush(stdout);
     }
     fflush(FP);
-    
-    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 ) 
+
+
+    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 && !WROTE_VERSION_PHOTOMETRY) 
       { fprintf(FP, "# %s %s \n", 
 		KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY) ; 
       }

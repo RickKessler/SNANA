@@ -62,6 +62,9 @@
 # Aug 27 2025: put import f90mnl in try/except block so that generic submit_batch
 #              works without full snana setup.
 #
+# Sep 03 2025:
+#   + for --merge_reste, untar remaining PIP*.tar.gz files
+#   + ...
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -2271,6 +2274,7 @@ class LightCurveFit(Program):
         #  + remove all-done file
         #
         # Apr 23 2021: check that file/subdir exists before removing it.
+        # Sep 02 2025: untar remaining PIP*.tar.gz files
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         version_list     = submit_info_yaml['VERSION_LIST']
@@ -2326,7 +2330,16 @@ class LightCurveFit(Program):
                 cmd_rm = f"rm {output_dir}/{wildcard}"
                 print(f"\t Remove {wildcard}  ")
                 os.system(cmd_rm)
+                
+        # - - - - -
+        # Sep 2025: check to untar PIP*.tar.gz files
+        tar_list = glob.glob1(script_dir,"PIP*.tar.gz")
+        for tar in tar_list:
+            logging.info(f"\t untar {tar}")
+            cmd_untar = f"cd {script_dir} ; tar -xzf {tar}; rm -r {tar}"
+            os.system(cmd_untar)
 
+        return
         # end merge_reset
 
     def flag_force_merge_table_fail(self, itable, version_fitopt):

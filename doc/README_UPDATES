@@ -23177,6 +23177,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_output.h
       + MXVAR_TABLE => 800 (was 400) to handle data with more bands
 
+    sntools_output_text.c
+      + fix bug writing duplicate VERSION_PHOTOMETRY keys into FITRES file ;
+        see https://github.com/RickKessler/SNANA/issues/1548
 
    Changes on hold until Dovekie submission (as of Aug 30 2025)
     - sndata.h

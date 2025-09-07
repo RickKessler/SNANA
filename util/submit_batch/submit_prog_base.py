@@ -43,7 +43,7 @@
 # ============================================
 
 #import argparse
-import os, sys, shutil, yaml
+import os, sys, shutil, yaml, re
 import logging
 #import coloredlogs
 import datetime, time, subprocess
@@ -396,10 +396,8 @@ class Program:
         submit_mode   = submit_info_yaml['SUBMIT_MODE'] 
         batch_command = SBATCH_COMMAND   # fragile alert warning
 
-
         IS_SSH        = submit_mode == SUBMIT_MODE_SSH
         IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
-
 
         # write FAIL stamps before killing the jobs
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
@@ -422,16 +420,6 @@ class Program:
             msgerr.append(f"  submit_mode   = '{submit_mode} ")
             msgerr.append(f"  batch_command = '{batch_command}")
             util.log_assert(False,msgerr)
-
-
-        # xxxxxxxxxxx mark delete Feb 2025 xxxxxxxxxxxx
-        # if we get here, leave notice in both MERGE.LOG and ALL.DONE files
-        #MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
-        #time_now            = datetime.datetime.now()
-        #with open(MERGE_LOG_PATHFILE, 'a') as f:
-        #    f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
-        #        util.write_done_stamp(output_dir, done_list, STRING_STOP)
-        # xxxxxxxxxxxxxxxxxx end mark xxxxxxxxxx
 
 
         # end kill_jobs
@@ -1178,7 +1166,6 @@ class Program:
 
             # - - - -
             self.examine_slurm_pid_list(slurm_pid_list, slurm_job_name_list)
-            #self.fetch_slurm_pid_list_obsolete()
 
         elif submit_mode == SUBMIT_MODE_SSH :
             # SSH
@@ -1359,58 +1346,6 @@ class Program:
 
         # end examine_slurm_pid_list
 
-    def fetch_slurm_pid_list_obsolete(self):
-
-        # for sbatch, fetch process id for each CPU; otherwise do nothing.
-        # Nov 25 2020: list all pid failures before aborting.
-
-        batch_command    = self.config_prep['batch_command']
-        output_dir       = self.config_prep['output_dir']
-        script_dir       = self.config_prep['script_dir']
-        job_name_list    = self.config_prep['job_name_list']
-        batch_single_node = self.config_prep['batch_single_node']
-
-        msgerr = []
-        if batch_command != SBATCH_COMMAND : return
-
-        # for single-node option, there is only one pid to check
-        if batch_single_node:
-            job_name0     = job_name_list[0]
-            job_name_list = [ job_name0 ]
-
-        # prep squeue command with format: i=pid, j=jobname            
-        cmd = f"squeue -u {USERNAME} -h -o '%i %j' "
-        ret = subprocess.run( [cmd], shell=True, 
-                              capture_output=True, text=True )
-        pid_all = ret.stdout.split()
-
-        INFO_PATHFILE  = f"{output_dir}/{SUBMIT_INFO_FILE}"
-        f = open(INFO_PATHFILE, 'a') 
-        f.write(f"\nSBATCH_LIST:  # [CPU,PID,JOB_NAME] \n")
-
-        npid_fail = 0 ; njob_tot = len(job_name_list)
-        for job_name in job_name_list :
-            if job_name in pid_all:
-                j_job    = pid_all.index(job_name)
-                pid      = pid_all[j_job-1]
-                cpunum   = int(job_name[-4:])
-                logging.info(f"\t pid = {pid} for {job_name}")
-                f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
-            else:
-                npid_fail += 1
-                logging.info(f" ERROR: cannot find pid for job = {job_name}")
-                continue
-
-        f.close()
-        
-        if npid_fail > 0 :
-            msgerr.append(f"{npid_fail} of {njob_tot} jobs NOT in queue.")
-            msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
-            self.log_assert(False, msgerr)
-
-        return
-
-        # end fetch_slurm_pid_list_obsolete
 
     def merge_driver(self):
 
@@ -1498,6 +1433,9 @@ class Program:
 
         # set busy lock file to prevent a simultaneous  merge task
         self.set_merge_busy_lock(+1,t_merge_start)
+
+        # Sep 5 2025: kill everything if any of the CPUs have died 
+        self.merge_check_dead_cpu()
 
         # read status from MERGE file. There is one comment line above
         # each table to provide a human-readable header. The remaining
@@ -1650,6 +1588,60 @@ class Program:
         self.merge_driver_exit(t_merge_start,False)
         return
         # end merge_driver
+
+    def merge_check_dead_cpu(self):
+
+        # Created Sep 5 2025 by R.Kessler
+        #
+        # For each CPU*LOG that is not done (i.e., CPU[nnn].DONE does not exist),
+        # check for fatal error keywords from slurm ; see KEY_FATAL_LIST.
+        # Be careful NOT to print these words for normal operation;
+        # i.e., don't print things like "Do error check", otherwise 'error'
+        # will trigger all jobs to be killed.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml'] 
+        script_dir       = submit_info_yaml['SCRIPT_DIR'] 
+
+        KEY_FATAL_LIST = [ 'FAIL', 'KILL', 'ERROR', 'CANCEL', 
+                           'fail', 'kill', 'error' ]      # leave out cancel to avoid conflict with scancel
+        # xxx 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
+
+        verbose = True
+
+        cpu_log_list  = self.fetch_cpu_logfiles_notdone()
+        n_tot, n_list = util.grep(cpu_log_list, KEY_FATAL_LIST, verbose )
+
+        if n_tot > 0:            
+            # in this message, be careful not to use any words from KEY_FATAL_LIST
+            logging.info(f"Found FATAL key from slurm --> stop all jobs.")
+            self.config_yaml['args'].kill = True
+            self.kill_jobs()
+
+        return
+
+    def fetch_cpu_logfiles_notdone(self):
+
+        # Created Sep 5 2025
+        # return list of CPU*.LOG files that do not have associated DONE file
+
+        submit_info_yaml = self.config_prep['submit_info_yaml'] 
+        script_dir       = submit_info_yaml['SCRIPT_DIR'] 
+
+        wildcard_done = f"{script_dir}/CPU*DONE"
+        wildcard_log  = f"{script_dir}/CPU*LOG"
+
+        cpu_done_list_all = glob.glob(wildcard_done)
+        cpu_log_list_all  = glob.glob(wildcard_log)
+        cpu_log_list = []
+
+        # check each CPU*LOG and store only those that do NOT have DONE file.
+        for cpu_log in cpu_log_list_all:
+            prefix = cpu_log.split('.')[0] # remove .LOG
+            cpu_done = f"{prefix}.DONE"
+            if cpu_done not in cpu_done_list_all:
+                cpu_log_list.append(cpu_log)
+    
+        return cpu_log_list
 
     def merge_driver_exit(self, t_merge_start, exit_flag):
 

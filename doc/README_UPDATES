@@ -23135,6 +23135,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       Fix bug resulting in mubias=0 for CCprior events;
       restore_des5yr=1 restores this bug and is currently set to 1 by default.
 
+   submit_batch_jobs:  
+      Merge process checks each CPU*LOG file for slurm failure 
+      (NOT related to SNANA) and stops all pids.
+      See new method merge_check_dead_cpu() in submit_prog_base.py
+      and method grep() in submit_util.py.
+
          *****  USEFUL(v11_06a) *****
    
     Update SIMLIB to accept detector/ccd number as part of IDEXPT(DETNUM);

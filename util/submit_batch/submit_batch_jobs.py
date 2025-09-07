@@ -505,7 +505,7 @@ if __name__ == "__main__":
     # - - - - - -
     # check option to kill jobs
     if args.kill :
-        program.kill_jobs()
+        program.kill_jobs("User passed --kill argument")
         logging.info('  Done killing jobs -> exit Main.')
         exit(0) 
 

@@ -159,6 +159,7 @@ class Program:
         print(f"\n WARNING: not implemented.")
 
     def prep_check_abort(self,config_yaml):
+
         # Prepare to run interactive job with 1 event and check for abort.
         # set ncore=1
 
@@ -379,10 +380,12 @@ class Program:
         return
         #end check_docker_image
 
-    def kill_jobs(self):
+    def kill_jobs(self, comment):
 
         # create_output_dir sets dir names, but won't create anything
         # because kill flag is set
+        # Sep 7 2025: pass comment giving reason to kill jobs
+
         self.create_output_dir()
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep.setdefault('submit_info_yaml',None)
@@ -403,7 +406,10 @@ class Program:
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         time_now            = datetime.datetime.now()
         with open(MERGE_LOG_PATHFILE, 'a') as f:
-            f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
+            f.write(f"\n")
+            f.write(f"  !!! JOBS KILLED at {time_now} !!! \n")
+            f.write(f"  because \n")
+            f.write(f"  {comment}\n")
 
         util.write_done_stamp(output_dir, done_list, STRING_STOP)
 
@@ -1435,7 +1441,7 @@ class Program:
         self.set_merge_busy_lock(+1,t_merge_start)
 
         # Sep 5 2025: kill everything if any of the CPUs have died 
-        self.merge_check_dead_cpu()
+        self.check_for_slurm_failure()
 
         # read status from MERGE file. There is one comment line above
         # each table to provide a human-readable header. The remaining
@@ -1467,7 +1473,7 @@ class Program:
         row_extra_list = row_list_dict['row_extra_list'] # optional
         
         if not MERGE_LAST: 
-            self.force_merge_failure(submit_info_yaml)
+            self.force_merge_code_failure(submit_info_yaml)
 
         use_split = len(row_split_list) > 0
         use_merge = len(row_merge_list) > 0
@@ -1556,7 +1562,7 @@ class Program:
         # Feb 2024: check kill_on_fail here in addition to check in CPU*.CMD
         if n_fail > 0 and submit_info_yaml['KILL_ON_FAIL'] :
             args.kill = True   # set flag as if -k were comman-line arg
-            self.kill_jobs()
+            self.kill_jobs(f"{n_fail} code failures are detected.")
 
         # Only last merge process does cleanup tasks and DONE stamps
         if MERGE_LAST and n_done == n_job_merge :
@@ -1589,12 +1595,14 @@ class Program:
         return
         # end merge_driver
 
-    def merge_check_dead_cpu(self):
+    def check_for_slurm_failure(self):
 
         # Created Sep 5 2025 by R.Kessler
         #
         # For each CPU*LOG that is not done (i.e., CPU[nnn].DONE does not exist),
-        # check for fatal error keywords from slurm ; see KEY_FATAL_LIST.
+        # check for fatal error keywords from slurm (see KEY_FATAL_LIST) that
+        # have nothing to do with the underlying code from SNANA/SALT3train/etc ...
+        # Slurm error detection results in all terminating all pids.
         # Be careful NOT to print these words for normal operation;
         # i.e., don't print things like "Do error check", otherwise 'error'
         # will trigger all jobs to be killed.
@@ -1604,20 +1612,32 @@ class Program:
 
         KEY_FATAL_LIST = [ 'FAIL', 'KILL', 'ERROR', 'CANCEL', 
                            'fail', 'kill', 'error' ]      # leave out cancel to avoid conflict with scancel
-        # xxx 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
 
-        verbose = True
 
+        # xxx KEY_FATAL_LIST +=  [ 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
+
+        # get list of CPU*.LOG files that do NOT have associated CPU*.DONE
         cpu_log_list  = self.fetch_cpu_logfiles_notdone()
+
+        # grep each KEY_FATAL_LIST key in each cpu log file.
+        # n_tot is the total number of matches (scalar);
+        # n_list = number of matches for each KEY_FATAL_LIST (vector).
+        verbose = True
         n_tot, n_list = util.grep(cpu_log_list, KEY_FATAL_LIST, verbose )
 
         if n_tot > 0:            
-            # in this message, be careful not to use any words from KEY_FATAL_LIST
+            # Terminate all pids.
+            # In this message, be careful not to use any words from KEY_FATAL_LIST
             logging.info(f"Found FATAL key from slurm --> stop all jobs.")
             self.config_yaml['args'].kill = True
-            self.kill_jobs()
+            # construct error message for kill_jobs arg; to be appended to MERGE.LOG file
+            msgerr = ''
+            for n, cpu_log in zip(n_list, cpu_log_list):
+                if n > 0:
+                    msgerr += f'slurm failure identified in {os.path.basename(cpu_log)}\n'
+            self.kill_jobs(msgerr)  # msgerr will appear in MERGE.LOG
 
-        return
+        return  # end check_for_slurm_failure
 
     def fetch_cpu_logfiles_notdone(self):
 
@@ -1709,7 +1729,7 @@ class Program:
 
         # end merge_reset_driver
 
-    def force_merge_failure(self,submit_info_yaml):
+    def force_merge_code_failure(self,submit_info_yaml):
 
         # Apr 23 2021
         # check user option to force crash or force abort in merge process.
@@ -1728,7 +1748,7 @@ class Program:
 
         return
 
-        # end force_merge_failure
+        # end force_merge_code_failure
 
     def merge_last_wait(self):
 
@@ -2167,7 +2187,7 @@ class Program:
             self.log_assert(exist, msgerr)
     # end check_file_exists
 
-    def check_for_failure(self, log_file, nevt, bad_output, isplit):
+    def check_for_code_failure(self, log_file, nevt, bad_output, isplit):
 
         # Top-level function to check for failures. External
         # program must determine nevt.
@@ -2193,7 +2213,7 @@ class Program:
 
         return found_fail
 
-        # end check_for_failure
+        # end check_for_code_failure
     
     def failure_update(self, job_log_file, create_script, found_zero, bad_output ):
 
@@ -2482,7 +2502,7 @@ class Program:
         # Store both stat sums and a stat-list overy YAML files.
         #
         # Only yaml files are parsed here; log_file is passed to
-        # check_for_failures so that ABORT message can be
+        # check_for_code_failures so that ABORT message can be
         # extracted elsewhere .
         #
         # Feb 2025: check for BAD_OUTPUT key
@@ -2562,7 +2582,7 @@ class Program:
             log_file   = log_file_list[isplit]
             aiz        = aiz_list[isplit]            
             bad        = bad_list[isplit]            
-            found_fail =  self.check_for_failure(log_file, aiz, bad, isplit+1)
+            found_fail =  self.check_for_code_failure(log_file, aiz, bad, isplit+1)
             if found_fail : job_stats['nfail'] += 1
 
         return job_stats

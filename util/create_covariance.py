@@ -176,10 +176,13 @@
 # Jun 13 2025:
 #   + fix EXTRA_COVs again to use cov instead of mudif x mudif; based on SOURCE_COV_MUDIF[FILE]
 #
+# Sep 9 2025; add new --tracemalloc input; see tracemalloc_snapshot method.
+
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
 import re, yaml, sys, gzip, math, gc, csv
+import tracemalloc
 import numpy  as np
 import pandas as pd
 from   pathlib import Path
@@ -386,6 +389,10 @@ def get_args():
     msg = "output yaml file (for submit_batch_jobs)"
     parser.add_argument("--yaml_file", help=msg, 
                         nargs='?', type=str, default=None )
+
+    msg = "trace malloc/memory flag (default = 0 -> no trace)"
+    parser.add_argument("--tracemalloc", help=msg,
+                        nargs='?', type=int, default=0 ) 
 
     msg = "debug flag for development"
     parser.add_argument("--debug_flag", help=msg,
@@ -1139,8 +1146,8 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         muopt_label = muopt_labels[m] if m else "DEFAULT"
         muopt_scale = muopt_scales.get(muopt_label, 1.0)
 
-        logging.info(f"\t FITOPT{f:03d} has scale {fitopt_scale}, " \
-                     f"MUOPT{m:03d} has scale {muopt_scale}") 
+        logging.info(f"\t FITOPT{f:03d} has err_scale={fitopt_scale}, " \
+                     f"MUOPT{m:03d} has err_scale={muopt_scale}") 
 
         cov_label = f"{fitopt_label}|{muopt_label}"
 
@@ -1238,7 +1245,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
         sig_scale    = float(bracket_content1_list[2])
         covopt_scale = sig_scale * sig_scale
 
-    logging.info(f"Compute cov for {label:14}  [scale={covopt_scale:.3f}]")
+    logging.info(f"Compute cov for {label:14}  [cov scale={covopt_scale:.3f}]")
     
     # generic message-content for debug or error
     msg_content1 =  \
@@ -1505,6 +1512,8 @@ def write_standard_output(config, args, covsys_list, base,
             else:  
                 t_write = write_covariance_text(cov_file, covtot_inv, opt_cov, data)
             args.t_write_sum += t_write
+
+            if args.tracemalloc > 0 :  tracemalloc_snapshot(f'Stage 50: after inverting {label}')
 
             # resource control/monitor
             del covtot_inv   # avoid memory pile up (Jan 2025)
@@ -2326,9 +2335,13 @@ def create_covariance(config, args):
     for extra in extra_covs:
         muopt_scales[extra.split()[0]] = extra.split()[1]
 
+    if args.tracemalloc > 0 :  tracemalloc_snapshot('Stage 10')
+
     # Load in all the hubble diagrams
     logging.info(f"Read Hubble diagrams for version = {version}")
     data = get_hubble_diagrams(data_dir, args, config)
+
+    if args.tracemalloc > 0 :  tracemalloc_snapshot('Stage 20: after reading HDs')
 
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
@@ -2340,6 +2353,8 @@ def create_covariance(config, args):
                               muopt_labels, 
                               muopt_scales, 
                               extracovdict)
+
+    if args.tracemalloc > 0 :  tracemalloc_snapshot('Stage 30: after contributions_cov')
 
     # find contributions which match to construct covs for each COVOPT
     logging.info("")
@@ -2364,7 +2379,7 @@ def create_covariance(config, args):
                                                base,
                                                config.get("CALIBRATORS") )
         covsys_list.append( (label, covsys) )
-        
+        if args.tracemalloc > 0 :  tracemalloc_snapshot(f'Stage 40: after get_covsys for {label}')
     args.tend_cov = time.time()
 
     # P. Armstrong 05 Aug 2022
@@ -2520,6 +2535,28 @@ def write_yaml(args, n_cov, covsize):
     return
     # end write_yaml
 
+def tracemalloc_snapshot(comment):
+
+    if comment is None:
+        logging.info(f"TRACEMALLOC: init")
+        tracemalloc.start()
+        return
+
+    # - - - - -
+    logging.info("")
+    logging.info(f"TRACEMALLOC at {comment}")
+    snapshot  = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('lineno')
+
+    for i, stat in enumerate(top_stats[:4]):
+        msg = ("%4d memory blocks: %.3f MB" % (stat.count, stat.size / 1.048E6) )
+        logging.info(f"TRACEMALLOC {i:2d} : {msg}")
+
+
+    logging.info("")
+
+    return  # end tracemalloc_snapshot
+
 # ===================================================
 if __name__ == "__main__":
 
@@ -2535,6 +2572,8 @@ if __name__ == "__main__":
         args.tstart_all = time.time()
         config          = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...
+
+        if args.tracemalloc > 0 :  tracemalloc_snapshot(None)
 
         create_covariance(config, args)
         loginfo_cpu_summary(args)

@@ -24659,6 +24659,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
+    "restore_des5yr=1            # restore DES-SN5YR bug in which CC prior events are not bias-corrected.",
     0
   } ;
 

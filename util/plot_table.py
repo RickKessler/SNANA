@@ -19,6 +19,8 @@
 # Jul 09 2025: fix bug evaluating chi2 fit; and add legend label in front of chi2/dof info
 # Jul 11 2025: new @@CUT feature "FIELD ~ 'C'" --> select any field containing char C
 # Aug 19 2025: update RATIO to work on 2d plots
+# Sep 11 2025: fix args_prep_DIFF() to capitalize args.OPT so that
+#              lower case diff_cid works same as DIFF_CID
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -667,11 +669,6 @@ def arg_prep_driver(args):
     # store plot dimension as if it were passed on command line
     args.NDIM = len(args.VARIABLE[0].split(COLON))
 
-    # xxxxxxxxxxxxx mark delete Aug 19 2025 xxxxxxx
-    #if args.NDIM == 2 and OPT_RATIO in args.OPT:
-    #    sys.exit(f"\n ERROR: '@@OPT RATIO' is not valid for 2D plot")
-    # xxxxxxxxxxx end mark xxxxxxx
-
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
@@ -720,11 +717,6 @@ def arg_prep_driver(args):
     for tfile in tfile_list :
         table_list.append( os.path.expandvars(tfile) )
         table_base_list.append( os.path.basename(tfile) )
-
-    # xxx mark delete xxxx
-    #if (any(table_list.count(x) > 1 for x in table_list)):
-    #    sys.exit(f"\n ERROR: found duplicate table file; check {table_list}")
-    # xxxxxxxxx
     
     args.tfile_list      = table_list           # ENVs are expanded
     args.tfile_base_list = table_base_list    
@@ -764,8 +756,8 @@ def arg_prep_driver(args):
     args.text_list   = arg_prep_TEXT(args)
 
     # - - - - - - -
-    args.OPT = arg_prep_OPT(args)            
-    
+    args.OPT = arg_prep_OPT(args) 
+
     # check valid fit function
     if args.FIT:
         valid = False
@@ -797,14 +789,19 @@ def args_prep_DIFF(args):
 
     # set args.DIFF internally, and append args.OPT with MEDIAN
     # if no stat option is given.    
+    # 9.11.2025: capitalize all OPT args before starting; allows inputs such as diff_cid
 
     narg_tfile = len(args.tfile_list)
-    
+
+    # capitalize everything
+    OPT_uc = [ x.upper() for x in args.OPT ]
+    args.OPT = OPT_uc
+
     # if user has not specified any kind of statistical average
     # for DIFF, then set default MEDIAN
     OPT        = args.OPT
-    opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL], args.OPT)
-    opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], args.OPT)
+    opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL],  OPT)
+    opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], OPT)
     args.DIFF  = opt_diff  # e.g., 'DIFF_CID' or 'DIFF_ALL' or None
     narg_tfile = len(args.tfile_list)
     

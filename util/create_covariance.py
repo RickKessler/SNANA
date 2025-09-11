@@ -181,7 +181,7 @@
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
-import re, yaml, sys, gzip, math, gc, csv
+import re, yaml, sys, gzip, math, gc, csv, psutil
 import tracemalloc
 import numpy  as np
 import pandas as pd
@@ -390,9 +390,9 @@ def get_args():
     parser.add_argument("--yaml_file", help=msg, 
                         nargs='?', type=str, default=None )
 
-    msg = "trace malloc/memory flag (default = 0 -> no trace)"
+    msg = "flag to enable tracemalloc; value is Nseconds of sleep after each trace"
     parser.add_argument("--tracemalloc", help=msg,
-                        nargs='?', type=int, default=0 ) 
+                        nargs='?', type=int, default=1 ) 
 
     msg = "debug flag for development"
     parser.add_argument("--debug_flag", help=msg,
@@ -1513,7 +1513,7 @@ def write_standard_output(config, args, covsys_list, base,
                 t_write = write_covariance_text(cov_file, covtot_inv, opt_cov, data)
             args.t_write_sum += t_write
 
-            if args.tracemalloc > 0 :  tracemalloc_snapshot(f'Stage 50: after inverting {label}')
+            tracemalloc_snapshot(args, f'Stage 50: after inverting {label}')
 
             # resource control/monitor
             del covtot_inv   # avoid memory pile up (Jan 2025)
@@ -2335,13 +2335,13 @@ def create_covariance(config, args):
     for extra in extra_covs:
         muopt_scales[extra.split()[0]] = extra.split()[1]
 
-    if args.tracemalloc > 0 :  tracemalloc_snapshot('Stage 10')
+    tracemalloc_snapshot(args, 'Stage 10')
 
     # Load in all the hubble diagrams
     logging.info(f"Read Hubble diagrams for version = {version}")
     data = get_hubble_diagrams(data_dir, args, config)
 
-    if args.tracemalloc > 0 :  tracemalloc_snapshot('Stage 20: after reading HDs')
+    tracemalloc_snapshot(args, 'Stage 20: after reading HDs')
 
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
@@ -2354,7 +2354,7 @@ def create_covariance(config, args):
                               muopt_scales, 
                               extracovdict)
 
-    if args.tracemalloc > 0 :  tracemalloc_snapshot('Stage 30: after contributions_cov')
+    tracemalloc_snapshot(args, 'Stage 30: after contributions_cov')
 
     # find contributions which match to construct covs for each COVOPT
     logging.info("")
@@ -2379,7 +2379,7 @@ def create_covariance(config, args):
                                                base,
                                                config.get("CALIBRATORS") )
         covsys_list.append( (label, covsys) )
-        if args.tracemalloc > 0 :  tracemalloc_snapshot(f'Stage 40: after get_covsys for {label}')
+        tracemalloc_snapshot(args, f'Stage 40: after get_covsys for {label}')
     args.tend_cov = time.time()
 
     # P. Armstrong 05 Aug 2022
@@ -2535,9 +2535,15 @@ def write_yaml(args, n_cov, covsize):
     return
     # end write_yaml
 
-def tracemalloc_snapshot(comment):
+def tracemalloc_snapshot(args,comment):
+
+    # utility to take malloc and memory snapshots, and print results.
+
+    if args.tracemalloc == 0 : return
 
     if comment is None:
+        current_pid = os.getpid()
+        logging.info(f"TRACEMALLOC: Current Process ID is {current_pid}")
         logging.info(f"TRACEMALLOC: init")
         tracemalloc.start()
         return
@@ -2548,12 +2554,29 @@ def tracemalloc_snapshot(comment):
     snapshot  = tracemalloc.take_snapshot()
     top_stats = snapshot.statistics('lineno')
 
-    for i, stat in enumerate(top_stats[:4]):
-        msg = ("%4d memory blocks: %.3f MB" % (stat.count, stat.size / 1.048E6) )
-        logging.info(f"TRACEMALLOC {i:2d} : {msg}")
+    mem_fac  = 1024 * 1024
+    unit_mem = "MB"
 
+    memtot = 0.0
+    for i, stat in enumerate(top_stats):
+        mem = stat.size / mem_fac
+        memtot += mem
 
+    logging.info(f"TRACEMALLOC: total memory is {memtot:.2f} {unit_mem} ")
+
+    # get psutil memory
+    process     = psutil.Process(os.getpid())
+    memory_info = process.memory_info()
+    mem_rss     = memory_info.rss / mem_fac
+    mem_vms     = memory_info.vms / mem_fac
+
+    logging.info(f"psutil RSS/VMS memory: {mem_rss:.2f} / {mem_vms:.2f} {unit_mem}")
+
+    logging.info(f"TRACEMALLOC: sleep for {args.tracemalloc} seconds before continuing ... ")
+    time.sleep(args.tracemalloc)
+    logging.info(f"TRACEMALLOC: continuie after sleep.")
     logging.info("")
+
 
     return  # end tracemalloc_snapshot
 
@@ -2573,7 +2596,7 @@ if __name__ == "__main__":
         config          = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...
 
-        if args.tracemalloc > 0 :  tracemalloc_snapshot(None)
+        tracemalloc_snapshot(args, None)
 
         create_covariance(config, args)
         loginfo_cpu_summary(args)

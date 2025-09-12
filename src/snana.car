@@ -1,6 +1,6 @@
 +KEEP,HISTORY.   
 c
-c Program to read light curves and apply user selection 
+c Program to read light curves and apply user selection  
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
@@ -571,7 +571,7 @@ c SNTABLE control variables (May 2014)
      &  ,USE_TABLEFILE_TEXT   ! write table in TEXT format
      &  ,USE_TABLEFILE_MARZ   ! write table in MARZ/FITS format
      &  ,USE_TABLEFILE        ! T if either any of the above are set
-     &  ,WRTABLEFILE_IAUC     ! T-> SNID -> IAUC (for writing tables)
+     &  ,WRTABLEFILE_IAUC     ! T-> add IAUC column(for writing tables)
      &  ,WRTABLEFILE_SIMVAR   ! T-> include SIM_XXX vars for simulation
      &  ,WRTABLEFILE_ZPHOT    ! T-> include ZPHOT info for PHOTOZ fit
      &  ,WRTABLEFILE_HOST_TEXT  ! T-> add HOST info in SNANA TEXT table 
@@ -936,7 +936,7 @@ c
      &  ,MULTISEASON_MJDMAX(MXSEASON)
 
       CHARACTER
-     &   SNLC_CCID*(MXCHAR_CCID)    ! public integer or string name
+     &   SNLC_CCID*(MXCHAR_CCID)           ! public integer or string name
      &  ,SNLC_NAME_IAUC*(MXCHAR_CCID)      ! public IAUC name
      &  ,SNLC_NAME_TRANSIENT*(MXCHAR_CCID) ! internal transient name (July 2024)
      &  ,SNLC_CASTCID*8             ! = 'INT' or 'CHAR' to indicate cast
@@ -4436,10 +4436,14 @@ c     &    + OPTMASK_SNDATA_DUMP
      &     ONE, SNLC_NAME_IAUC, DARRAY, OPT)
       ISNLC_LENIAUC = INDEX(SNLC_NAME_IAUC,' ') - 1
       call checkString_CCID(SNLC_NAME_IAUC) ! abort if illegal char in name
-      IF ( WRTABLEFILE_IAUC .and. ISNLC_LENIAUC > 0 ) THEN
-         SNLC_CCID      = SNLC_NAME_IAUC
-         ISNLC_LENCCID  = ISNLC_LENIAUC
-      ENDIF     
+      IF ( SNLC_NAME_IAUC(1:4) == 'NULL' ) SNLC_NAME_IAUC = 'NONE'  ! null confuses plot_table.py
+
+c xxxxxx mark delete 9.12.2025 xxxxxxxxxxxxxx
+c      IF ( WRTABLEFILE_IAUC .and. ISNLC_LENIAUC > 0 ) THEN
+c         SNLC_CCID      = SNLC_NAME_IAUC
+c         ISNLC_LENCCID  = ISNLC_LENIAUC
+c      ENDIF     
+c xxxxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("NAME_TRANSIENT",  ! July 2024
      &     ONE, SNLC_NAME_TRANSIENT, DARRAY, OPT)
@@ -7335,7 +7339,7 @@ c summarize
       endif
 
       if ( WRTABLEFILE_IAUC ) then
-         print*,'    All tables: write CID=IAUC name instead of SNID '
+         print*,'    All tables: append column with IAUC name  '
       endif
 
       call flush(6)
@@ -23792,6 +23796,12 @@ c  termination so that parsing CCID with C code is easier.
       VARLIST = 'CCID:C*20' // char(0)
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
+
+      if ( WRTABLEFILE_IAUC ) then ! .xzy
+        VARLIST = 'IAUC:C*20' // char(0)
+        CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_NAME_IAUC, VARLIST,1,
+     &                     LENBLOCK, 20 )
+      endif
 
 c Aug 2022: check optional user-column; e.g., to tag magshift value
       if ( SNTABLE_APPEND_VARNAME .NE. '' ) then

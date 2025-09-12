@@ -1,5 +1,5 @@
 /******************************************
-  Created Dec 10 2021 by R.Kessler
+  Created Dec 10 2021 by R.Kessler 
 
   Data-handling tools that don't depend on format.
   Format-specific tools are in 
@@ -1408,15 +1408,23 @@ int RD_OVERRIDE_FETCH(char *CID, char *VARNAME, double *DVAL, char *STRVAL) {
   *DVAL = 0.0;
   if ( !RD_OVERRIDE.USE ) { return 0; }
 
+  if ( strlen(CID) == 0 ) { return 0; }  // SNID has not been read yet (Sep 12 2015)
+
   IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
   FOUND_VARNAME = ( IVAR >= 0 ) ;
+
 
   // - - - - - -
   // Aug 2025; abort if none of the override variables are used.
   NEW_CID = ( strcmp(RD_OVERRIDE.CID_LAST,CID) != 0 );
   if ( NEW_CID ) {
     if ( RD_OVERRIDE.NEVT > 0 && RD_OVERRIDE.NVAR_USE == 0 ) {
-      sprintf(c1err,"No OVERRIDE variables are used.");
+      print_preAbort_banner(fnam);
+      printf("\t RD_OVERRIDE.NEVT = %d \n", RD_OVERRIDE.NEVT);
+      printf("\t RD_OVERRIDE.NVAR_USE = %d \n", RD_OVERRIDE.NVAR_USE);
+      printf("\t Current VARNAME = %s (IVAR=%d) \n", VARNAME, IVAR);
+
+      sprintf(c1err,"No OVERRIDE variables are used for CID=%s.", CID);
       sprintf(c2err,"Make sure at least one override var matches varname in data file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }

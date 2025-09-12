@@ -5719,8 +5719,8 @@ void set_defaults(void) {
   INPUTS.min_per_zbin = MINEVT_PER_ZBIN_DEFAULT ;
 
   INPUTS.nzbin_ccprior = 0 ; // 0-> use default z-bin size of 0.1
-  INPUTS.nsbin_ccprior = 2 ; // number of stretch bins for CC prior
-  INPUTS.ncbin_ccprior = 3 ; // number of colour bins for CC prior
+  INPUTS.nsbin_ccprior = 1 ; // number of stretch bins for CC prior
+  INPUTS.ncbin_ccprior = 1 ; // number of colour bins for CC prior
 
   // global scatter matrix
   INPUTS.sigmB  = 0.00 ; 

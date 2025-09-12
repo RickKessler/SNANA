@@ -23168,7 +23168,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_fit.car/sntools_data.c
       abort if none of the HEADER_OVERRIDE_FILE variables match to a data variables;
-      user has likely made a mistake here.
+      user has likely made a mistake here. 
+      Rquire strlen(CID)>0 to process.
 
     sntools_genPDF.c
       fix numerical artifacts for delta function adding +_ tiny.
@@ -23185,7 +23186,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.car:
       + for SNLCINP_OVERRIDE, increase max arg length from 60 to 160 (MXCHAR_PATH)
         characters. Initial reason is to pass bigger list of SNCID_LIST.
-
+      + for SNTABLE_LIST = 'SNANA(IAUC)', append IAUC column instead of overwriting CID
+     
     sntools_output.h
       + MXVAR_TABLE => 800 (was 400) to handle data with more bands
 

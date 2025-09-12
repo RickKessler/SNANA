@@ -913,8 +913,12 @@ void init_magerr_BAYESN(void) {
 
   if (!ENABLE_TEST_BAYESN) { return; }
 
-  // Mykola parametrization:  RMS(λ) = a*λ + b; a = 5.091544e-06; b = 0.027604
-  char stringPoly[50] = "0.027604, 5.091544e-06";
+  // Updated Sep 12 2025 by Mykola
+  // Mykola parametrization:  RMS(λ) = c*λ² + a*λ + b; c = 2.047537e-09; a = -2.894536e-05;  b = 0.160715
+
+  // NOTE: as part of the GENPOLY function, coefficients must be parsed
+  // in increasing power of λ (i.e. b, a, c if RMS(λ) = c*λ² + a*λ + b)
+  char stringPoly[50] = "0.160715, -2.894536e-05, 2.047537e-09";
   parse_GENPOLY(stringPoly, "magerr", &GENPOLYLAM_BAYESN, fnam);
 
   print_GENPOLY(&GENPOLYLAM_BAYESN);
@@ -923,7 +927,7 @@ void init_magerr_BAYESN(void) {
   double parlist_SN[4], parlist_HOST[4];
   double magerr;
   
-  for (wave = 3000.0; wave <= 8000.0; wave+=1000)
+  for (wave = 3000.0; wave <= 9000.0; wave+=1000)
     {
       magerr = get_magerr_BAYESN(trest, wave, parlist_SN, parlist_HOST);
       printf("\t wave=%0.f magerr =%.3f \n", wave, magerr);
@@ -957,8 +961,10 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
 
   // if we get here, try new magerr model based on z=0.01 sims with EXPSOURE_TIME >>> 1/
 
-  if( wave_local < 4770) { wave_local = 4770; }
-  if( wave_local > 7625) { wave_local = 7625; }
+  // Edited Sep 12 by Mykola.
+  // Widened the range to accomodate the u and z bands.
+  if( wave_local < 3671) { wave_local = 3671; }
+  if( wave_local > 8691) { wave_local = 8691; }
   
   magerr = eval_GENPOLY(wave_local, &GENPOLYLAM_BAYESN, fnam);
 

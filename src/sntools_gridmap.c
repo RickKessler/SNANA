@@ -661,8 +661,8 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
       for ( ivar=0; ivar < NVAR; ivar++ ) 
 	{ printf("\t ivar=%d  igrid = %d \n", ivar, igrid_var[ivar]);  }      
       sprintf(c1err,"Invalid igrid_1D=%d (should be 0 to %d)",
-	      igrid_1D, gridmap->NROW-1); //.xyz
-      sprintf(c2err,"ID=%d  NVAR=%d ", ID, NVAR ); //.xyz
+	      igrid_1D, gridmap->NROW-1); 
+      sprintf(c2err,"ID=%d  NVAR=%d ", ID, NVAR ); 
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
 

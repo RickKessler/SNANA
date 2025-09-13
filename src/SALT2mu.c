@@ -1,6 +1,6 @@
 /*******************************************
 Created by J. Marriner.
-Installed into snana v8_38, January 2010.    
+Installed into snana v8_38, January 2010.   
  
 Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters
@@ -4669,7 +4669,7 @@ void *MNCHI2FUN(void *thread) {
       }
       else { // CC prob from sim
 
-	//	DUMPFLAG = ( strcmp(name,"1257419") == 0 ) ; // CCPRIOR IZBIN=3  .xyz
+	//	DUMPFLAG = ( strcmp(name,"1257419") == 0 ) ; // CCPRIOR IZBIN=3  
 
 	if ( REFAC ) {
 	  // pre-computed during init with user-input alpha,beta
@@ -5812,20 +5812,20 @@ void set_defaults(void) {
   INPUTS.debug_flag        = 0 ;
   //  INPUTS.debug_flag        = 31 ; // xxx REMOVE
 
-  INPUTS.REFAC_CCPRIOR     = 0;
+  INPUTS.REFAC_CCPRIOR     = 1;
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
   INPUTS.check_duplicates_biasCor = 0 ;
   
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
-  INPUTS.restore_des5yr         = 1 ; // Aug 29 2025: maintain bug for a while ...
+  INPUTS.restore_des5yr         = 0 ; // Sep 12 2025: disable restore flag -> implement CC prior bug fix
   INPUTS.restore_bug_mucovscale = 0 ;
   INPUTS.restore_bug_mucovadd   = 0 ;
-  INPUTS.restore_bug2_mucovadd  =  0 ;
-  INPUTS.restore_bug_sigint0    =  0 ;
+  INPUTS.restore_bug2_mucovadd  = 0 ;
+  INPUTS.restore_bug_sigint0    = 0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
-  INPUTS.restore_bug_mumodel_zhel = 0; // leave bug until more testing is done
+  INPUTS.restore_bug_mumodel_zhel = 0; 
 
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
@@ -13827,6 +13827,7 @@ int  storeBias_CCprior(int n) {
   int  NBINg   = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
   char *name   = INFO_CCPRIOR.TABLEVAR.name[n];
 
+  bool  DOCOR_MU          = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU ) ;
   BIASCORLIST_DEF BIASCORLIST ;
 
   int    DUMPFLAG = 0; // (strcmp(name,"115872590") == 0 ); 
@@ -13851,7 +13852,7 @@ int  storeBias_CCprior(int n) {
   BIASCORLIST.FITPAR[INDEX_c] =
     INFO_CCPRIOR.TABLEVAR.fitpar[INDEX_c][n];
 
-  if ( !INPUTS.restore_des5yr ) {
+  if ( DOCOR_MU &&  !INPUTS.restore_des5yr ) { 
     BIASCORLIST.FITPAR[INDEX_mu] =
       INFO_CCPRIOR.TABLEVAR.fitpar[INDEX_mu][n];
   }
@@ -15650,7 +15651,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
   // can be de-alloated.
   //
   // Aug 29 2025: fix index bug for using INFO_CCPRIOR.TABLEVAR.name
-  // Aug 20 2025: loop over NLCPAR+1 instead of NLCLPAR to catch mu for BS21 mubias
+  // Aug 20 2025: for DOCOR_MU, loop over NLCPAR+1 instead of NLCLPAR to catch mu for BS21 mubias
 
   int  NSN_ALL      = INFO_CCPRIOR.TABLEVAR.NSN_ALL ;
   int  NSN_PASS     = INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
@@ -15659,8 +15660,10 @@ void store_INFO_CCPRIOR_CUTS(void) {
   int  NBINb        = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   int  NBINg        = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
 
-  int NFITPAR_LOCAL = NLCPAR+1;
-  if ( INPUTS.restore_des5yr ) { NFITPAR_LOCAL = NLCPAR; }  // restore bug forcing mubias=0
+  bool DOCOR_MU          = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU ) ;
+  int  NFITPAR_LOCAL     = NLCPAR;  
+  if ( DOCOR_MU && !INPUTS.restore_des5yr ) { NFITPAR_LOCAL+=1; }
+  // xxx mark 9.12.2025  if ( INPUTS.restore_des5yr ) { NFITPAR_LOCAL = NLCPAR; }  // restore bug forcing mubias=0
 
   int LDMP ;
   int  isn, icc, ia, ib, ig, ipar, cutmask;
@@ -16115,7 +16118,6 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
       //debugexit(fnam) ;                                                                                 
     }
 
-    // .xyz
   
   } // end icc loop
 
@@ -21122,9 +21124,9 @@ void prep_debug_flag(void) {
   }
 
   // - - - - - -
-  if (INPUTS.debug_flag == 33)    {
-    INPUTS.REFAC_CCPRIOR = 33 ;
-    printf("\n debug flag set to %d : used refactored CCPRIOR with more opt_ccprior options\n", 
+  if (INPUTS.debug_flag == -33)  {
+    INPUTS.REFAC_CCPRIOR = 0 ;
+    printf("\n debug flag set to %d : used legacy CCPRIOR with only z-dependence\n", 
 	   INPUTS.debug_flag);
   }
   

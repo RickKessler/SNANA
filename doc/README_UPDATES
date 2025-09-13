@@ -23201,12 +23201,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
             ->
          #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_nJy
 
-    - SALT2mu:
-         INPUTS.REFAC_CCPRIOR=0 -> 1 
+    + SALT2mu:
+         INPUTS.REFAC_CCPRIOR=0 -> 1   <== DONE 9/12
          INPUTS.opt_ccprior = OPT_CCPRIOR_LEGACY -> OPT_CCPRIOR_DEFAULT [=5]  
-            [update includes 3 color bins and 2 x1 bins for CCprior]
+            [default is 1 color bins and 1 stretch bin for CCprior]
 
-    - SALT2mu:
-         restore_des5yr=1 -> 0 # leave bug there -> fix bug
+    + SALT2mu:
+         restore_des5yr=1 -> 0 # leave bug there -> fix bug  <== DONE 9/12
 
 END: 

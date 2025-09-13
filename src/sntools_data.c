@@ -1522,7 +1522,7 @@ void rd_override_append(void) {
 
   int ivar;
   double DVAL ;
-  char *varName, STRVAL[40] ;
+  char *varName, STRVAL[60] ;
   char fnam[] = "rd_override_append" ;
 
   // --------- BEGIN --------
@@ -1581,7 +1581,7 @@ void rd_override_zphot_q(int OPT) {
   //  OPT=2 --> read zphot_q values
 
   int  NZPHOT_Q, PCT, q, LEN_PREFIX ;
-  char PREFIX[60], *varName, STRDUM[40] ;
+  char PREFIX[60], *varName, STRDUM[60] ;
   char fnam[] = "rd_override_zphot_q" ;
 
   // ------------- BEGIN -------------

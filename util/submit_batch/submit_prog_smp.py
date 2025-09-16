@@ -386,7 +386,7 @@ class SceneModelPhotometry(Program):
             #arg_list.append(f"--snid_file {item_file}")
 
         if args.fast:
-            arg_list.append(f"--fast_debug True")
+            arg_list.append(f"--fast_debug")
             
         JOB_INFO['log_file']      = log_file
         JOB_INFO['done_file']     = done_file

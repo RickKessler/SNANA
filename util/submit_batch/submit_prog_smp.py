@@ -382,7 +382,8 @@ class SceneModelPhotometry(Program):
         if subset_var == STRING_SUBSET_HEALPIX:
             arg_list.append(f"--healpix_file {item_file}")
         elif subset_var == STRING_SUBSET_SNID:
-            arg_list.append(f"--snid_file {item_file}")
+            arg_list.append(f"--SNID_file {item_file}")
+            #arg_list.append(f"--snid_file {item_file}")
 
         if args.fast:
             arg_list.append(f"--fast_debug True")

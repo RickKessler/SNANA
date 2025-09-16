@@ -10435,6 +10435,9 @@ void print_ccprior_options(void) {
   print_mask_comment(FP_STDOUT, opt_ccprior, MASK_CCPRIOR_FUNDMU_UPDATE,
 		     "Update PDF(DMU) prior each fit-iter"); 
 
+  fprintf(FP_STDOUT,"\t nbin_ccprior[c x1] = %d %d     restore_des5yr=%d \n",
+	  INPUTS.ncbin_ccprior, INPUTS.nsbin_ccprior, INPUTS.restore_des5yr);
+
   fprintf(FP_STDOUT,"\n");
   return;
 
@@ -12161,8 +12164,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
  
   // -------------------------
   // print errBias info in z bins
-
-  int LPRINT = !INPUTS.cutwin_only ;
+  int LPRINT ;
+  LPRINT = !INPUTS.cutwin_only ;
+  LPRINT = 0; // Sep 16 2025: remove this bulky output
 
   if ( LPRINT ) {
 
@@ -15483,7 +15487,7 @@ void prepare_CCprior(void) {
     return ;
   }
 
-  sprintf(BANNER,"%s: read simulated CC mu-prior vs. z", fnam);
+  sprintf(BANNER,"%s: read simulated CC events and compute mures-prior vs. z,c,x1", fnam);
   fprint_banner(FP_STDOUT,BANNER);
 
   print_ccprior_options();
@@ -15924,8 +15928,7 @@ void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO) {
   if ( strcmp(VARNAME,VARNAME_zHD) == 0 ) {
 
     double zrange        = INPUTS.zmax - INPUTS.zmin ;
-    if ( INPUTS.nzbin_ccprior > 0 ) {
-      // user input nzbin
+    if ( INPUTS.nzbin_ccprior > 0 ) {  
       nbin = INPUTS.nzbin_ccprior ;  
     }
     else {
@@ -15933,6 +15936,7 @@ void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO) {
       double d_nbz         = zrange/DZBIN_CCPRIOR ;
       nbin                 = (int)d_nbz;
       if ( d_nbz > (double)nbin ) { nbin++ ; }
+      INPUTS.nzbin_ccprior = nbin;
     }
     xbin = zrange/(double)nbin ;
     xmin = INPUTS.zmin ;

@@ -177,7 +177,10 @@
 #   + fix EXTRA_COVs again to use cov instead of mudif x mudif; based on SOURCE_COV_MUDIF[FILE]
 #
 # Sep 9 2025; add new --tracemalloc input; see tracemalloc_snapshot method.
-
+#
+# Sep 16 2025: write HD_BIN_METHOD to INFO.YML, and do some minor refactor to better track
+#    binning, HD_size, and nbin_[z,c,x1]
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -399,12 +402,22 @@ def get_args():
                         nargs='?', type=int, default=0 ) 
     
     # parse it
+
     args = parser.parse_args()
+
+    args.rebin  = False  # 9.16.2025 RK
+    args.binned = True   # 9.16.2025 default
+
+
     if args.subtract_vpec:
         args.unbinned = True
+        
+    if (args.nbin_x1 > 0 or args.nbin_c > 0): 
+        args.rebin    = True
+        args.unbinned    = False  # recommended by D.Brout, Aug 8 2022
 
-    if (args.nbin_x1>0 or args.nbin_c>0): 
-        args.unbinned = False  # recommended by D.Brout, Aug 8 2022
+    if args.unbinned or args.rebin:
+        args.binned = False
 
     if args.label_cov_rows:
         args.write_format_cov = WRITE_FORMAT_COV_TEXT  # Jun 13 2025
@@ -417,7 +430,6 @@ def get_args():
         args.write_cov_npz  = True
     else:
         sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}") 
-
 
 
     if len(sys.argv) == 1:
@@ -641,9 +653,10 @@ def get_hubble_diagrams(folder, args, config):
 
     # return table for each Hubble diagram 
 
-    is_rebin    = config['nbin_x1'] > 0 and config['nbin_c'] > 0
+    # xxx mark delete 9.16.2025 is_rebin    = config['nbin_x1'] > 0 and config['nbin_c'] > 0    
+    is_rebin    = args.rebin
     is_unbinned = args.unbinned 
-    is_binned   = not (is_unbinned or is_rebin)
+    is_binned   = args.binned   # xxx mark not (is_unbinned or is_rebin)
 
     folder_expand = Path(os.path.expandvars(folder))
     logging.debug(f"Loading all data files in {folder_expand}")
@@ -653,7 +666,9 @@ def get_hubble_diagrams(folder, args, config):
     first_load  = True
     str_skip_list = [ '~', 'wfit_' ]
 
-    for infile in sorted(os.listdir(folder_expand)):
+    infile_listdir = sorted(os.listdir(folder_expand))
+
+    for infile in infile_listdir:
 
         skip = False
         for s in str_skip_list : 
@@ -709,10 +724,11 @@ def get_hubble_diagrams(folder, args, config):
     if is_unbinned or is_rebin:
         HD_list = get_common_set_of_sne(HD_list)
 
+    # - - - - - - 
     label0 = label_list[0]
-    nsn = len(HD_list[label0])
-    logging.info(f"Hubble diagram size for {label0}: {nsn}")
-    
+    nsn    = len(HD_list[label0])
+    base   = os.path.basename(infile_list[0])
+    logging.info(f"Input Hubble diagram size for {base}: {nsn}")
 
     # - - - - -    
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
@@ -828,6 +844,7 @@ def get_rebin_info(config,HD):
 
 
     config['nbin_HD']        = nbin_x1 * nbin_c * nbin_z
+    config['HD_size']        = nbin_x1 * nbin_c * nbin_z
     config['col_iHD']        = col_iHD
 
     config['col_iz']         = col_iz
@@ -1451,6 +1468,13 @@ def write_standard_output(config, args, covsys_list, base,
     # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
     config['muerr_sys_list']    = get_muerr_sys(covsys_list)
     
+
+    # 9.16.2025 - load size of HD and number of z-bins for binned
+    label0  = label_list[0]
+    HD_size = len(data[label0]) 
+    config['HD_size'] = HD_size
+    if args.binned:  config['nbin_z'] = HD_size  # for binned, nbin_z = HD_size
+
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
     t0 = time.time()
@@ -1467,7 +1491,7 @@ def write_standard_output(config, args, covsys_list, base,
         if unbinned :
             write_HD_unbinned(config, data_file, data[label] )
         else:
-            is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
+            # xxx mark del 9.16 2025  is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
             write_HD_binned(config, data_file, data[label])
 
     args.t_write_sum += (time.time() - t0)
@@ -1841,8 +1865,6 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
 
     # Apr 2025: write rebin info is rebin options is set
 
-    is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
-
     f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
 
     if unbinned:
@@ -1872,6 +1894,7 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
     f.write(f"# {KEYNAME_ISDATA}: {ISDATA}   "\
             "# flag for cosmology fitter to choose blind option\n")
 
+    is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
     if is_rebin:
         f.write(f"#\n")
         nbin_z  = config['nbin_z']
@@ -2054,7 +2077,7 @@ def write_summary_output(args, config, covsys_list, base):
 
     info['HD']           = HD_FILENAME
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]  # May 13 2025
-
+    
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):
         covsys_file     = None
@@ -2103,16 +2126,49 @@ def write_summary_output(args, config, covsys_list, base):
         yaml.safe_dump(info2, f )
         
     # - - - - - - - - - - - - - 
-    # append cospar_biascor so that it's at the end, rather than 
-    # at the beginning with default alphabetical ordering
+    # append more info manually to avoid alphabetical order and to append comments
 
     cospar_biascor = config['cospar_biascor']
     with open(out / INFO_YML_FILENAME, "at") as f:
+
+        f.write(f"\n")
+        method, comment = get_string_bin_method(args, config)
+        f.write(f"HD_BIN_METHOD: {method}   # {comment}\n")
+
         info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
         yaml.safe_dump(info_cospar, f )
 
     return
     # end write_summary_output
+
+def get_string_bin_method(args, config):
+    # Created Sep 16 2025 by R.kessler
+    # Return binning method string : BINNED, REBIN , or UNBIN;
+    # also return comment string
+    # Initial use is to add information in INFO.YML
+
+    is_unbinned = args.unbinned
+    is_rebin    = args.rebin
+    is_binned   = args.binned
+
+    nbin_z  = config['nbin_z']
+    nbin_c  = config['nbin_c']
+    nbin_x1 = config['nbin_x1']
+    HD_size = config['HD_size']  
+
+    if is_unbinned :
+        method = 'UNBIN'
+        comment = f'no binning'
+    elif is_rebin:
+        method = f'REBIN'
+        comment = f'{nbin_z}(z) x {nbin_c}(c) x {nbin_x1}(x1) '
+    else:
+        # default binned
+        method = f'BINNED'
+        comment = f'{nbin_z} redshift bins'
+
+    return method, comment
+    # end get_string_bin_method
 
 
 def get_version_photomety(BBC_DIR):
@@ -2422,6 +2478,9 @@ def prep_config(config,args):
     #   of at the end.
 
     # - - - - -
+
+    logging.info(f"BINNED / REBIN / UNBIN = {args.binned} / {args.rebin} / {args.unbinned} ")
+
     # Apr 28 2024: check which COV(s) to write
     config['write_covsys']     = False
     config['write_covtot_inv'] = False
@@ -2489,14 +2548,11 @@ def prep_config(config,args):
     # check special/legacy features for cosmoMC/JLA
     config['use_cosmomc'] = False
 
-    # xxxxxx mark delete Jun 10 2025
-    #if 'COSMOMC_TEMPLATES_PATH' in config: 
-    #    config['use_cosmomc'] = True
-    # xxxxxxxxxx
-
     # WARNING: later add option to read from input file
+    config['nbin_z']   = None
     config['nbin_x1']  = args.nbin_x1
     config['nbin_c']   = args.nbin_c
+    config['HD_size']  = None
 
     config['data_dir'] = Path(config["INPUT_DIR"]) / config["VERSION"]  # Feb 2025
 
@@ -2572,10 +2628,11 @@ def tracemalloc_snapshot(args,comment):
 
     logging.info(f"psutil RSS/VMS memory: {mem_rss:.2f} / {mem_vms:.2f} {unit_mem}")
 
-    logging.info(f"TRACEMALLOC: sleep for {args.tracemalloc} seconds before continuing ... ")
-    time.sleep(args.tracemalloc)
-    logging.info(f"TRACEMALLOC: continuie after sleep.")
-    logging.info("")
+    if args.tracemalloc > 1 :
+        logging.info(f"TRACEMALLOC: sleep for {args.tracemalloc} seconds before continuing ... ")
+        time.sleep(args.tracemalloc)
+        logging.info(f"TRACEMALLOC: continuie after sleep.")
+        logging.info("")
 
 
     return  # end tracemalloc_snapshot

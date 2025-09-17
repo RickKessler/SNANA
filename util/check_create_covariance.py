@@ -4,7 +4,11 @@
 # Compute one element of covariance matrix using input pair of {CID,IDSURVEY}.
 # Then read element from output of create_covariance.py and compare.
 #
-
+# Sep 17 2025: refactor to work with ...
+#   + reading text or npz covsys file.
+#   + binned HD that has no IDSURVEY column
+#   + cov_num > 0 (see get_bbc_fitres_list)
+#
 # ================================================================
 import os, argparse, logging, shutil, time, datetime, subprocess
 import re, yaml, sys, gzip, math, gc, glob
@@ -12,12 +16,32 @@ import numpy  as np
 import pandas as pd
 
 # ===================================
-VARNAME_CID      = 'CID'
-VARNAME_IDSURVEY = 'IDSURVEY'
-VARNAME_MU       = 'MU'
-VARNAME_MUMODEL  = 'MUMODEL'
 
-#xxx mark OUTFILE_COV_INFO    = "cov_info.csv"
+HD_METHOD_BINNED = 'BINNED'
+HD_METHOD_REBIN  = 'REBINxxx'  # beware that check doesn't work for rebin
+HD_METHOD_UNBIN  = 'UNBIN'
+
+
+SUFFIX_FITOPT_DICT = {
+    HD_METHOD_BINNED:  'M0DIF' ,
+    HD_METHOD_UNBIN:   'FITRES'
+}
+
+VARNAME_IDROW_DICT = {
+    HD_METHOD_BINNED:  'ROW' ,
+    HD_METHOD_UNBIN:   'CID'
+}
+
+VARNAME_MU_DICT = {
+    HD_METHOD_BINNED:  'MUDIF' ,
+    HD_METHOD_UNBIN:   'MU'
+}
+
+VARNAME_IDROW    = None   # loaded in main after reading INFO.YML
+VARNAME_IDSURVEY = 'IDSURVEY'
+VARNAME_MU       = None   # loaded in main after reading INFO.YML
+VARNAME_MUMODEL  = 'MUMODEL'  # for UNBIN only
+
 OUTFILE_PREFIX      = "out_check_cov"
 
 # ===================================================
@@ -56,43 +80,65 @@ def read_covinfo(args):
     # read INFO.YAML from cov directory and store the following:
     # BBC_DIR, SIZE_HD
 
-    info_yaml = args.cov_dir+"/INFO.YML"
-    contents = read_yaml(info_yaml)
-    args.bbc_dir = contents['BBC_DIR']
-    args.sizehd  = contents['SIZE_HD']
-    args.bbc_info_file  = contents['BBC_INFO_FILE']
-    args.sys_scale_file = contents['SYS_SCALE_FILE']
     
-    
-    return args
+    info_yaml    = args.cov_dir + "/INFO.YML"
+    contents     = read_yaml(info_yaml)
+    contents['INFO_YAML_FILE'] = info_yaml
 
-def get_sys_scale(args):
+    # xxxxxxx mark delete 
+    #args.bbc_dir = contents['BBC_DIR']
+    #args.sizehd  = contents['SIZE_HD']
+    #args.cov_info_file  = info_yaml
+    #args.bbc_info_file  = contents['BBC_INFO_FILE']
+    #args.sys_scale_file = contents['SYS_SCALE_FILE']
+    #args.hd_bin_method  = contents['HD_BIN_METHOD'] 
+    # xxxxxxxxxxxx
 
-    bbc_info_file  = args.bbc_info_file
-    sys_scale_file = args.sys_scale_file
+    hd_bin_method = contents['HD_BIN_METHOD'] 
+    contents['IS_BINNED'] = (hd_bin_method == HD_METHOD_BINNED)
+    contents['IS_UNBIN']  = (hd_bin_method == HD_METHOD_UNBIN)
+
+    return contents
+    # end read_covinfo
+
+def get_sys_scale(args, covinfo):
+
+    bbc_info_file  = covinfo['BBC_INFO_FILE']
+    sys_scale_file = covinfo['SYS_SCALE_FILE']
 
     contents_sys_scale = read_yaml(sys_scale_file)
     contents_bbcinfo   = read_yaml(bbc_info_file)["FITOPT_OUT_LIST"]
  
-    syst_scale_list = []
+    sys_scale_dict = {}  # at create_cov stage
+    sys_label_dict = {}  # from bbc stage
 
     for line in contents_bbcinfo:
         fitopt = line[0] 
         label  = line[2]
-
-        scale = contents_sys_scale.setdefault(label, 1.0)
-        #print('XXX Fitopt label, scale = ', fitopt, label, scale)
-        syst_scale_list.append(scale)
         
-    return syst_scale_list
+        scale = contents_sys_scale.setdefault(label, 1.0)
+        #print(' xxx Fitopt  label   scale = ', fitopt, label, scale)
+        sys_scale_dict[fitopt] = scale
+        sys_label_dict[fitopt] = label
+    
+    covinfo['sys_scale_dict'] = sys_scale_dict
+    covinfo['sys_label_dict'] = sys_label_dict
+
+    return 
+    # end get_sys_scale
 
 def parse_cidpair(args):
     cid_list      = []
     idsurvey_list = []
     
     for cidpair in args.cidpair:
-        cid = str(cidpair.split(",")[0])
-        idsurvey = int(cidpair.split(",")[1])
+        cid_split = cidpair.split(",")
+        cid = str(cid_split[0])
+        if len(cid_split) > 1:
+            idsurvey = int(cidpair.split(",")[1])
+        else:
+            idsurvey = None
+
         cid_list.append(cid)
         idsurvey_list.append(idsurvey)
     args.cid_list = cid_list
@@ -100,11 +146,17 @@ def parse_cidpair(args):
     
     return args
 
-def get_idrow(cid,idsurvey):
-    idrow = str(cid) + '+' + str(idsurvey)
-    return idrow
+def get_uidrow(idrow,idsurvey):
+    
+    # return unique idrow combining idrow and idsurvey
+    if idsurvey is None:
+        uidrow = str(idrow)
+    else:
+        uidrow = str(idrow) + '+' + str(idsurvey)
 
-def compute_scaled_covpair(args, sys_scale_list):  
+    return uidrow
+
+def compute_scaled_covpair(args, covinfo):
     """
     For each FITRES file (each FITOPT), this function:
       - First, loads the FITRES file with FITOPT identifier "FITOPT000" to obtain reference MU values 
@@ -121,9 +173,13 @@ def compute_scaled_covpair(args, sys_scale_list):
         'CID2', 'MU2', 'RefMU2', 'Delta2', 'SysScale', 'FinalDelta' ]
     """
 
-    bbc_dir = args.bbc_dir
-    wildcard = os.path.join(bbc_dir, 'FITOPT*FITRES.gz')
-    fitres_list = sorted(glob.glob(wildcard))  # Load all FITRES files
+    sys_scale_dict = covinfo['sys_scale_dict']
+    is_unbin       = covinfo['IS_UNBIN']
+    is_binned      = covinfo['IS_BINNED']
+    has_idsurvey = args.idsurvey_list[0] is not None
+
+    # get list of FITRES (or M0DIF) files from BBC directory
+    fitres_list = get_bbc_fitres_list(args,covinfo)
 
     # --- NEW CODE: Find the FITRES file with FITOPT identifier "FITOPT000" and load its reference MU values ---
     ref_file = None
@@ -137,22 +193,29 @@ def compute_scaled_covpair(args, sys_scale_list):
 
     # Load the reference file and extract MU for each CID/IDSURVEY pair (using the first matching row)
     df_ref = pd.read_csv(ref_file, comment='#', sep='\s+')
-    df_ref[VARNAME_CID]      = df_ref[VARNAME_CID].astype(str)
-    df_ref[VARNAME_IDSURVEY] = df_ref[VARNAME_IDSURVEY].astype(int)
+    df_ref[VARNAME_IDROW]  = df_ref[VARNAME_IDROW].astype(str)
+
+    if has_idsurvey:    
+        df_ref[VARNAME_IDSURVEY] = df_ref[VARNAME_IDSURVEY].astype(int)
+
     ref_mu      = {}  # dictionary mapping CID to its reference MU from FITOPT000
     ref_mumodel = {}
 
-    for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
-        matching_rows = df_ref[(df_ref[VARNAME_CID] == cid) & \
-                               (df_ref[VARNAME_IDSURVEY] == idsurvey)]
+    for idrow, idsurvey in zip(args.cid_list, args.idsurvey_list):
+        
+        matching_rows = get_matching_rows(df_ref, idrow, idsurvey)
+
         if matching_rows.empty :
-            msgerr = f"ERROR: no matching row for CID={cid} IDSURVEY={idsurvey} ; " \
+            msgerr = f"ERROR: no matching row for {VARNAME_IDROW}={idrow} IDSURVEY={idsurvey} ; " \
                      f"\n\t see {ref_file}"
             sys.exit(f"\n{msgerr}")
         else:
-            idrow              = get_idrow(cid,idsurvey)
-            ref_mu[idrow]      = matching_rows.iloc[0][VARNAME_MU]
-            ref_mumodel[idrow] = matching_rows.iloc[0][VARNAME_MUMODEL]
+            uidrow              = get_uidrow(idrow,idsurvey)
+            ref_mu[uidrow]      = matching_rows.iloc[0][VARNAME_MU]
+            if is_unbin:
+                ref_mumodel[uidrow] = matching_rows.iloc[0][VARNAME_MUMODEL]
+            else:
+                ref_mumodel[uidrow] = 0.0
 
     #sys.exit(f"\n xxx ref_mu = {ref_mu}")
 
@@ -172,44 +235,49 @@ def compute_scaled_covpair(args, sys_scale_list):
         fitopt_str = fitopt_match.group(1)         # e.g. FITOPT000
         fitopt_num = int(fitopt_match.group(2))    # For indexing sys_scale_list
 
-        # Get the systematic scale factor (default to 1.0 if out-of-range)
-        sys_scale = sys_scale_list[fitopt_num] if fitopt_num < len(sys_scale_list) else 1.0
+        # xxx mark sys_scale = sys_scale_list[fitopt_num] if fitopt_num < len(sys_scale_list) else 1.0
+
+        sys_scale = sys_scale_dict[fitopt_str]
 
         #print(f" xxx {fitres_base}  str={fitopt_str}  num={fitopt_num:2d}  scale={sys_scale}")  # .xyz
 
         # Load the current FITRES file into a DataFrame
         df = pd.read_csv(fitres, comment='#', sep='\s+')
-        df[VARNAME_CID]      = df[VARNAME_CID].astype(str)
-        df[VARNAME_IDSURVEY] = df[VARNAME_IDSURVEY].astype(int)
+        df[VARNAME_IDROW]    = df[VARNAME_IDROW].astype(str)
+        if has_idsurvey:
+            df[VARNAME_IDSURVEY] = df[VARNAME_IDSURVEY].astype(int)
 
         # Assume there are exactly two CID/IDSURVEY pairs in args.
         # We'll use the first matching row for each.
         pair_results = []  # list to store result for each CID        
 
-        for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
-            matching_rows = df[ (df[VARNAME_CID]      == cid) & \
-                                (df[VARNAME_IDSURVEY] == idsurvey) ]
+        for idrow, idsurvey in zip(args.cid_list, args.idsurvey_list):
+
+            matching_rows = get_matching_rows(df, idrow, idsurvey)
 
             # Use the first matching row
             row         = matching_rows.iloc[0]
             mu_val      = row[VARNAME_MU]
-            mumodel_val = row[VARNAME_MUMODEL]
+            if is_unbin:
+                mumodel_val = row[VARNAME_MUMODEL]
+            else:
+                mumodel_val = 0.0
 
             # Use the reference MU from FITOPT000 as MU0.
             # Note that subtracting mumodel is needed for zshift sytematics;
-            idrow             = get_idrow(cid,idsurvey)
-            reference_mu      = ref_mu[idrow]
-            reference_mumodel = ref_mumodel[idrow]
+            uidrow             = get_uidrow(idrow,idsurvey)
+            reference_mu       = ref_mu[uidrow]
+            reference_mumodel  = ref_mumodel[uidrow]
             delta_val    = (mu_val - mumodel_val) - \
                            (reference_mu - reference_mumodel)  # compute delta as current MU minus reference MU
 
             scaled_delta = delta_val * sys_scale
-            pair_results.append((cid, mu_val, reference_mu, delta_val, scaled_delta))
+            pair_results.append((idrow, mu_val, reference_mu, delta_val, scaled_delta))
 
         # - - - - - - -
         # Unpack the two results (assumed order corresponds to the order in args)
-        cid1, mu1, ref_mu1, delta1, scaled_delta1 = pair_results[0]
-        cid2, mu2, ref_mu2, delta2, scaled_delta2 = pair_results[1]
+        id1, mu1, ref_mu1, delta1, scaled_delta1 = pair_results[0]
+        id2, mu2, ref_mu2, delta2, scaled_delta2 = pair_results[1]
 
         # Compute final delta as the product of the two scaled deltas
         final_delta    = scaled_delta1 * scaled_delta2
@@ -218,11 +286,11 @@ def compute_scaled_covpair(args, sys_scale_list):
         # Build a dictionary with all the desired fields.
         row_dict = {
             "FITOPT"  : fitopt_str,
-            "CID1"    : cid1,
+            "ID1"     : id1,
             "MU1"     : mu1,
             "RefMU1"  : ref_mu1,
             "Delta1"  : scaled_delta1,
-            "CID2"    : cid2,
+            "ID2"     : id2,
             "MU2"     : mu2,
             "RefMU2"  : ref_mu2,
             "Delta2"  : scaled_delta2,
@@ -233,19 +301,66 @@ def compute_scaled_covpair(args, sys_scale_list):
 
     # Create a DataFrame from the collected results
     df_cov_info = pd.DataFrame(cov_info_list)
-    #print('XXX df_result covar', df_results['Covariance'])
-    
     
     return df_cov_info, cov_check
     # end compute_scaled_covpair
 
 
-def get_cov_from_create_covariance(args):
+def get_bbc_fitres_list(args,covinfo):
+    # read list of FITOPTs from COV's INFO.YML file (covifo dict),
+    # and select appropriate fitres files from BBC_DIR
+    # If cov_num=0, then take them all.
+
+    cov_num        = args.cov_num
+    bbc_dir        = covinfo['BBC_DIR']
+    hd_bin_method  = covinfo['HD_BIN_METHOD']
+    sys_label_dict = covinfo['sys_label_dict']  # labels from BBC dir (passed from LCFIT)
+    suffix         = SUFFIX_FITOPT_DICT[hd_bin_method]
+
+    wildcard       = os.path.join(bbc_dir, f'FITOPT*.{suffix}.gz')
+    fitres_list_all = sorted(glob.glob(wildcard))  # Load all FITRES files
+    
+    if cov_num == 0:
+        fitres_list = fitres_list_all
+    else:
+        # go fishing for subset
+        fitres_list = []
+        covopt = covinfo['COVOPTS'][cov_num]
+        cov_label = covopt.split()[0]  # label in create_cov input
+        for ff in fitres_list_all:
+            ff_base   = os.path.basename(ff)
+            fitopt    = ff_base.split('_MUOPT')[0]  # e.g. FITOPT004
+            bbc_label = sys_label_dict[fitopt]
+            keep_ref = 'FITOPT000' in ff_base
+            keep_sys = cov_label in bbc_label
+            if keep_ref or keep_sys :
+                fitres_list.append(ff)
+                if keep_ref:
+                    print(f"\t keep {fitopt} as reference.")
+                else:
+                    print(f"\t keep {fitopt}  {bbc_label} contains {cov_label} for cov_num={cov_num}")
+
+    #sys.exit(f"\n xxx stop debug")
+
+    return fitres_list
+    # end get_bbc_fitres_list
+
+def get_matching_rows(df, idrow, idsurvey):
+    # Created Sep 16 2025 
+    if idsurvey is None:
+        matching_rows = df[ (df[VARNAME_IDROW] == idrow) ]
+    else:
+        matching_rows = df[ (df[VARNAME_IDROW]    == idrow) & \
+                            (df[VARNAME_IDSURVEY] == idsurvey) ]
+
+    return matching_rows
+    
+def get_cov_from_create_covariance(args, covinfo):
 
     cov_dir = args.cov_dir
-    cov_num = args.cov_num
     hd_file = os.path.join(cov_dir, "hubble_diagram.txt")
-    covsys_file = os.path.join(cov_dir, f"covsys_{cov_num:03d}.txt.gz")
+
+    is_unbin = covinfo['IS_UNBIN']
 
     # --- Step 1: Read the Hubble diagram file ---
     # The hubble diagram file is assumed to be space-delimited with commented header lines.
@@ -253,26 +368,33 @@ def get_cov_from_create_covariance(args):
     print(f"\n Find hubble diagram rows in \n {hd_file}")
     sys.stdout.flush()
 
-    df_hd = pd.read_csv(hd_file, comment='#', delim_whitespace=True)
-    df_hd[VARNAME_CID]      = df_hd[VARNAME_CID].astype(str).str.strip()
-    df_hd[VARNAME_IDSURVEY] = df_hd[VARNAME_IDSURVEY].astype(int)
+    df_hd = pd.read_csv(hd_file, comment='#', delim_whitespace=True)    
+    df_hd[VARNAME_IDROW]    = df_hd[VARNAME_IDROW].astype(str).str.strip()
+    if is_unbin:
+        df_hd[VARNAME_IDSURVEY] = df_hd[VARNAME_IDSURVEY].astype(int)
 
     # Find the row indices for each CID/IDSURVEY pair in your arguments.
     row_indices = []
-    for cid, idsurvey in zip(args.cid_list, args.idsurvey_list):
+    for idrow, idsurvey in zip(args.cid_list, args.idsurvey_list):
+
         # Note: Ensure the data types match (CID as string, IDSURVEY as integer)
-        idx = df_hd[(df_hd['CID'] == (cid)) & (df_hd['IDSURVEY'] == (idsurvey))].index
+
+        if idsurvey is None:
+            idx = df_hd[(df_hd[VARNAME_IDROW] == (idrow)) ].index
+        else:
+            idx = df_hd[(df_hd[VARNAME_IDROW] == (idrow)) & (df_hd[VARNAME_IDSURVEY] == (idsurvey))].index
+
         if idx.empty:
-            msgerr = f"ERROR: No row found for CID={cid}, IDSURVEY={idsurvey} "\
-                     f"in hubble diagram file {hd_file}"
+            msgerr = f"ERROR: row not found for {VARNAME_IDROW}={idrow}, IDSURVEY={idsurvey} \n"\
+                     f"\t in hubble diagram file {hd_file}"
             sys.exit(f"\n{msgerr}")
         else:
             # We take the first matching row
             row_indices.append(idx[0])
     
     print(" Found row indices in hubble diagram:")
-    for cid, idsurvey, row in zip(args.cid_list, args.idsurvey_list, row_indices):
-        print(f"\t HD row = {row:5d} for CID={cid:<10}  IDSURVEY={idsurvey}")
+    for idrow, idsurvey, row in zip(args.cid_list, args.idsurvey_list, row_indices):
+        print(f"\t HD row = {row:5d} for {VARNAME_IDROW}={idrow:<10}  IDSURVEY={idsurvey}")
         sys.stdout.flush()
     
     # Check that you have at least two indices to compare.
@@ -287,8 +409,76 @@ def get_cov_from_create_covariance(args):
     # The file is assumed to be gzipped, with the first line as the dimension (e.g. 1802)
     # and subsequent lines as the matrix elements (row-major order).
 
+    cov_matrix = read_covsys_file(args)
+    
+    print("Covariance matrix shape:", cov_matrix.shape)
+    sys.stdout.flush()
+
+    # --- Step 3: Extract the covariance entry for the two selected rows ---
+    # For example, if you have two indices (row_i, row_j):
+    row_i = row_indices[0]
+    row_j = row_indices[1]
+    covariance_value = cov_matrix[row_i, row_j]
+    print(f"         Covariance between row {row_i} and row {row_j}: {covariance_value}")
+    print(f"Reversed Covariance between row {row_j} and row {row_i}: {covariance_value}")
+    print(f"")
+    sys.stdout.flush()
+
+    return covariance_value
+    # end get_cov_from_create_covariance 
+
+def read_covsys_file(args):
+
+    cov_dir = args.cov_dir
+    cov_num = args.cov_num
+
+    # check if covsys file is text of npz, and if it even exists
+    covsys_file_txt  = os.path.join(cov_dir, f"covsys_{cov_num:03d}.txt.gz")
+    covsys_file_npz  = os.path.join(cov_dir, f"covsys_{cov_num:03d}.npz")
+    covsys_file_list = [ covsys_file_txt, covsys_file_npz ]
+    covsys_file      = None
+    for tmp_file in covsys_file_list:
+        if os.path.exists(tmp_file): covsys_file = tmp_file
+
+    if not covsys_file:
+        base_txt = os.path.basename(covsys_file_txt)
+        base_npz = os.path.basename(covsys_file_npz)
+        sys.exit(f"\n ERROR: cannot find {base_txt} or {base_npz} in \n" \
+                 f"\t {cov_dir}\n" \
+                 f"\t Rerun create_covariance.py with option to write covsys in addition to covtot_inv")
+
     print(f"\n Read create_covariance element from \n\t {covsys_file}")
     sys.stdout.flush()
+
+    if covsys_file == covsys_file_txt:
+        covsys = read_covsys_txt(covsys_file)
+    elif covsys_file == covsys_file_npz:
+        covsys = read_covsys_npz(covsys_file)
+    else:
+        pass
+
+    return covsys
+    # end read_covsys_file
+
+def read_covsys_npz(covsys_file):
+
+    loaded_data     = np.load(covsys_file)
+    dim             = loaded_data['nsn'][0]
+    cov_upper       = loaded_data['cov']
+
+    # restore full symmetric matrix from upper-triangle matrix
+
+    cov_matrix    = np.empty((dim,dim)) 
+    upper_indices = np.triu_indices(dim, k=0) # k=0 includes the diagonal, k=1 excludes it
+    cov_matrix[upper_indices]   = cov_upper
+    cov_matrix.T[upper_indices] = cov_upper
+
+    return cov_matrix
+
+def read_covsys_txt(covsys_file):
+
+    # Created Sep 16 2025 [moved from covariance_value]
+    # Read covsys from text file
 
     with gzip.open(covsys_file, 'rt') as f:
         # Read the first non-empty line which gives the dimension.
@@ -316,31 +506,28 @@ def get_cov_from_create_covariance(args):
     # Check if we have the correct number of elements.
     if len(cov_elements) != dim * dim:
         sys.exit("\n ERROR: Expected", dim * dim, "elements, but got", len(cov_elements))
-    
-    # Convert the list of elements to a NumPy array and reshape it.
+
     cov_matrix = np.array(cov_elements).reshape(dim, dim)
-    print("Covariance matrix shape:", cov_matrix.shape)
-    sys.stdout.flush()
 
-    # --- Step 3: Extract the covariance entry for the two selected rows ---
-    # For example, if you have two indices (row_i, row_j):
-    row_i = row_indices[0]
-    row_j = row_indices[1]
-    covariance_value = cov_matrix[row_i, row_j]
-    print(f"         Covariance between row {row_i} and row {row_j}: {covariance_value}")
-    print(f"Reversed Covariance between row {row_j} and row {row_i}: {covariance_value}")
-    print(f"")
-    sys.stdout.flush()
+    return cov_matrix
 
-    return covariance_value
-
+    # end read_covsys_txt
 
 def print_cov_results(args, results_dict):
 
     cid_list   = args.cid_list
     idsrv_list = args.idsurvey_list
-    id0        = f"{cid_list[0]}+{idsrv_list[0]}"
-    id1        = f"{cid_list[1]}+{idsrv_list[1]}"
+
+    cid0   = cid_list[0]
+    cid1   = cid_list[1]
+    idsrv0 = idsrv_list[0]
+    idsrv1 = idsrv_list[1]
+    if idsrv0 is None:
+        id0  = cid0
+        id1  = cid1
+    else:
+        id0  = f"{cid0}+{idsrv0}"
+        id1  = f"{cid1}+{idsrv0}"
 
     dff_cov_info                  = results_dict['dff_cov_info']
     cov_check                     = results_dict['cov_check']
@@ -391,16 +578,24 @@ if __name__ == "__main__":
 
     args = get_args()
     args = parse_cidpair(args)
-    args = read_covinfo(args)
+    covinfo = read_covinfo(args)
 
-    # read scale per systematic
-    sys_scale_list = get_sys_scale(args)
+    # set table column names based on HC binning method
+    hd_bin_method = covinfo['HD_BIN_METHOD'] 
+    VARNAME_IDROW = VARNAME_IDROW_DICT[hd_bin_method]  # CID or ROW
+    VARNAME_MU    = VARNAME_MU_DICT[hd_bin_method]     # MU or MUDIF
+
+    # read scale & label per systematic (store in covinfo
+    get_sys_scale(args, covinfo)
     
-    # compute cov(cid0,cid1)
-    df_cov_info, cov_check = compute_scaled_covpair(args, sys_scale_list)
-    
+    # compute cov(cid0,cid1); this is the cross check value
+    df_cov_info, cov_check = compute_scaled_covpair(args, covinfo)
+
+
     # fetch cov(cid0,cid1) from output of create_covariance
-    cov_from_create_covariance = get_cov_from_create_covariance(args)
+    cov_from_create_covariance = get_cov_from_create_covariance(args, covinfo)
+
+    #sys.exit(f"\n xxx covinfo = \n{covinfo}")
 
     # print results to stdout
     results_dict = {

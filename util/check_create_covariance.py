@@ -42,7 +42,7 @@ VARNAME_IDSURVEY = 'IDSURVEY'
 VARNAME_MU       = None   # loaded in main after reading INFO.YML
 VARNAME_MUMODEL  = 'MUMODEL'  # for UNBIN only
 
-OUTFILE_PREFIX      = "out_check_cov"
+OUTFILE_PREFIX      = "out_check_covnum"
 
 # ===================================================
 
@@ -84,15 +84,6 @@ def read_covinfo(args):
     info_yaml    = args.cov_dir + "/INFO.YML"
     contents     = read_yaml(info_yaml)
     contents['INFO_YAML_FILE'] = info_yaml
-
-    # xxxxxxx mark delete 
-    #args.bbc_dir = contents['BBC_DIR']
-    #args.sizehd  = contents['SIZE_HD']
-    #args.cov_info_file  = info_yaml
-    #args.bbc_info_file  = contents['BBC_INFO_FILE']
-    #args.sys_scale_file = contents['SYS_SCALE_FILE']
-    #args.hd_bin_method  = contents['HD_BIN_METHOD'] 
-    # xxxxxxxxxxxx
 
     hd_bin_method = contents['HD_BIN_METHOD'] 
     contents['IS_BINNED'] = (hd_bin_method == HD_METHOD_BINNED)
@@ -543,7 +534,7 @@ def print_cov_results(args, results_dict):
     print(df_cov_info,'\n');         sys.stdout.flush()
 
     tmp_string = f"{id0}_{id1}"
-    outfile    = f"{OUTFILE_PREFIX}_{tmp_string}.csv"
+    outfile    = f"{OUTFILE_PREFIX}{args.cov_num}_{tmp_string}.csv"
 
     df_cov_info.to_csv(outfile,  sep=' ', index=False)
     print(f"# Write cov_check terms to {outfile}") ; 

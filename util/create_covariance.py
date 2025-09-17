@@ -1342,7 +1342,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
     assert final_cov is not None,  f"No syst matches {msg_content1}\n final_cov = {final_cov} " 
 
 
-    return label, final_cov
+    return label, final_cov, covopt_scale
     # end get_covsys_from_covopt
 
 
@@ -2127,7 +2127,6 @@ def write_summary_output(args, config, covsys_list, base):
         
     # - - - - - - - - - - - - - 
     # append more info manually to avoid alphabetical order and to append comments
-
     cospar_biascor = config['cospar_biascor']
     with open(out / INFO_YML_FILENAME, "at") as f:
 
@@ -2138,6 +2137,7 @@ def write_summary_output(args, config, covsys_list, base):
         info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
         yaml.safe_dump(info_cospar, f )
 
+        
     return
     # end write_summary_output
 
@@ -2365,7 +2365,6 @@ def create_covariance(config, args):
         sys_scale = { 0: (None,1.0) }
 
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
-
     
     # Also need to get the MUOPT labels from the original LCFIT directory
     muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in  \
@@ -2428,12 +2427,12 @@ def create_covariance(config, args):
     covsys_list = []
     for c in covopts:
         if FLAG_WAIT: input("Press Enter to continue...")
-        label, covsys = get_covsys_from_covopt(c,
-                                               contributions_cov,
-                                               contributions_mudif,
-                                               contributions_source,
-                                               base,
-                                               config.get("CALIBRATORS") )
+        label, covsys, covopt_scale = get_covsys_from_covopt(c,
+                                                             contributions_cov,
+                                                             contributions_mudif,
+                                                             contributions_source,
+                                                             base,
+                                                             config.get("CALIBRATORS") )
         covsys_list.append( (label, covsys) )
         tracemalloc_snapshot(args, f'Stage 40: after get_covsys for {label}')
     args.tend_cov = time.time()

@@ -222,13 +222,15 @@ WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
 WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
 
-WRITE_FORMAT_COV_TEXT = "text"
-WRITE_FORMAT_COV_NPZ  = "npz"
+WRITE_FORMAT_COV_TEXT   = "text"
+WRITE_FORMAT_COV_NPZ    = "npz"
+WRITE_FORMAT_COV_CSV    = "csv"  # multi-column csv format for making plots; not for cosmology fitting
 WRITE_FORMAT_COV_DEFAULT = WRITE_FORMAT_COV_NPZ
 
 SUFFIX_COV_DICT = {
     WRITE_FORMAT_COV_TEXT:  'txt.gz' ,
-    WRITE_FORMAT_COV_NPZ :  'npz'
+    WRITE_FORMAT_COV_NPZ :  'npz' ,
+    WRITE_FORMAT_COV_CSV :  'csv'
 }
 
 VARNAME_CID          = "CID"  # for unbinned fitres files
@@ -379,7 +381,7 @@ def get_args():
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
-    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ} " \
+    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}  or {WRITE_FORMAT_COV_CSV}" \
           f"(default: {WRITE_FORMAT_COV_DEFAULT})"
     parser.add_argument("--write_format_cov", help=msg,
                         nargs='?', type=str, default=WRITE_FORMAT_COV_DEFAULT )
@@ -422,12 +424,15 @@ def get_args():
     if args.label_cov_rows:
         args.write_format_cov = WRITE_FORMAT_COV_TEXT  # Jun 13 2025
     
+    args.write_cov_text = False
+    args.write_cov_npz  = False
+    args.write_cov_csv  = False
     if args.write_format_cov == WRITE_FORMAT_COV_TEXT:
         args.write_cov_text = True
-        args.write_cov_npz  = False
     elif args.write_format_cov == WRITE_FORMAT_COV_NPZ:
-        args.write_cov_text = False
         args.write_cov_npz  = True
+    elif args.write_format_cov == WRITE_FORMAT_COV_CSV:
+        args.write_cov_csv  = True
     else:
         sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}") 
 
@@ -599,6 +604,7 @@ def load_hubble_diagram(hd_file, args, config):
 
     # M0DIF doesnt have MU column, so add it back in
     # For FITRES file with all events, do nothing sinve MU exists
+
     if "MU" not in df.columns:
         df[VARNAME_MU] = df[VARNAME_MUREF] + df[VARNAME_MUDIF]
     if VARNAME_MUERR not in df.columns:
@@ -664,7 +670,7 @@ def get_hubble_diagrams(folder, args, config):
     infile_list = []
     label_list  = []
     first_load  = True
-    str_skip_list = [ '~', 'wfit_' ]
+    str_skip_list = [ '~', 'wfit_',  'cospar']
 
     infile_listdir = sorted(os.listdir(folder_expand))
 
@@ -1514,12 +1520,7 @@ def write_standard_output(config, args, covsys_list, base,
         if config['write_covsys']:
             base_file   = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
             cov_file    = outdir / base_file
-
-            if args.write_cov_npz:
-                t_write = write_covariance_npz(cov_file, covsys)
-            else:  
-                t_write = write_covariance_text(cov_file, covsys, opt_cov, data)
-
+            t_write = write_covariance_driver(args, cov_file, covsys, opt_cov, data)     
             args.t_write_sum += t_write
 
         # Apr 2024: check writing covtot_inv 
@@ -1530,11 +1531,7 @@ def write_standard_output(config, args, covsys_list, base,
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
             base_file   = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
             cov_file    = outdir / base_file
-
-            if args.write_cov_npz:
-                t_write = write_covariance_npz(cov_file, covtot_inv)
-            else:  
-                t_write = write_covariance_text(cov_file, covtot_inv, opt_cov, data)
+            t_write = write_covariance_driver(args, cov_file, covtot_inv, opt_cov, data)  
             args.t_write_sum += t_write
 
             tracemalloc_snapshot(args, f'Stage 50: after inverting {label}')
@@ -1548,11 +1545,7 @@ def write_standard_output(config, args, covsys_list, base,
             base_file  = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
             cov_file   = outdir / base_file
             covtot     = covsys + np.diag(base[VARNAME_MUERR]**2) # cov
-
-            if args.write_cov_npz:
-                t_write = write_covariance_npz(cov_file, covtot)
-            else:  
-                t_write = write_covariance_text(cov_file, covtot, opt_cov, data)
+            t_write    = write_covariance_driver(args, cov_file, covtot, opt_cov, data)
             args.t_write_sum += t_write
 
             # resource control/monitor
@@ -1912,6 +1905,23 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
     return
     # end write_HD_comments
 
+def write_covariance_driver(args, cov_file, covtot, opt_cov, data):
+
+    # Created Sep 17 2025 by R.Kessler
+    # driver to write cov matrix in user-specified format
+    # Method returns time (sec) to write.
+
+    if args.write_cov_npz:
+        t_write = write_covariance_npz(cov_file, covtot)
+    elif args.write_cov_text:  
+        t_write = write_covariance_text(cov_file, covtot, opt_cov, data)
+    elif args.write_cov_csv:
+        t_write = write_covariance_csv(cov_file, covtot, opt_cov, data)
+    else:
+        sys.exit(f"\n ERROR: unknown format to write cov matrix.")
+
+    return t_write
+
 def write_covariance_text(path, cov, opt_cov, data):
     # Inputs  :
     # path    : the filename of the output covariance matrix
@@ -1992,6 +2002,51 @@ def write_covariance_text(path, cov, opt_cov, data):
     t_write = time.time() - t0
     return t_write
     # end write_covariance_text
+
+def write_covariance_csv(path, cov, opt_cov, data):
+
+    # Created Sep 17 2025: write multi-column csv table for making plots;
+    #    WARNING: not for cosmology fitting
+    #
+    # Inputs  :
+    # path    : the filename of the output covariance matrix
+    # cov     : covariance matrix
+    # opt_cov : 1 --> label each row (for diagnostics)
+    # data    :  information for opt_cov = 1 
+    # write cov matrix to path; return time to write (seconds)
+
+    add_labels     = (opt_cov == 1) # label some elements for human readability
+    file_base      = os.path.basename(path)
+    nrow           = cov.shape[0]
+    t0             = time.time()
+
+    logging.info(f"Write to {file_base}")
+
+    # - - - - -
+    # Write out the matrix
+    nwr = 0 ; rownum = -1; colnum=-1
+
+    if '.gz' in str(path):
+        f = gzip.open(path,"wt", compresslevel=6 )
+    else:
+        f = open(path,"wt") 
+
+    f.write(f"VARNAMES:  ROW  irow  jcol  COV \n")
+
+    # this is slower with f.write for each cov element
+    for c in cov.flatten():
+        colnum = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
+        rownum = nwr % nrow
+        line   = f"ROW:  {nwr+1:5d}  {rownum:3d}  {colnum:3d}  {c:13.9f}"
+        nwr   += 1
+        f.write(f"{line}\n") ;       
+        f.flush()
+
+
+    f.close()
+    t_write = time.time() - t0
+    return t_write
+    # end write_covariance_csv
 
 
 def write_covariance_npz(path, cov):

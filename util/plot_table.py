@@ -21,6 +21,7 @@
 # Aug 19 2025: update RATIO to work on 2d plots
 # Sep 11 2025: fix args_prep_DIFF() to capitalize args.OPT so that
 #              lower case diff_cid works same as DIFF_CID
+# Sep 18 2025: finally get @@WGTVAR working with HIST mode
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -309,6 +310,12 @@ and two types of command-line input delimeters
    Select fraction for subset of rows;
       @@FRACTION 0.44 0.142  # select random 44% for first plot, and 14.2% of second plot
 
+@@WGTVAR @W @w
+  Reweight 1D or 2D histogram using this variable. Works only with @@OPT HIST.
+  Example:
+    @V SALT2c  @W PROB_CLASSIFIER
+  plots histogram of SALT2c weighted by PROB_CLASSIFIER.
+
 @@WEIGHT
   Reweight 1D bin contents with arbitrary math function of x-axis using
   syntax with 'x' as variable:
@@ -534,8 +541,11 @@ def get_args():
     parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
     msg = 'variable to reweight 1D plot'
-    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg, nargs="+")
+    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg)
     
+    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
+    parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
+
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
@@ -547,9 +557,6 @@ def get_args():
     parser.add_argument('@@FRACTION', '@@fraction', default = [1.0],
                         type=float, help=msg, nargs="+" )
         
-    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
-    parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
-
     msg = "number of rows to read (for large files)"
     parser.add_argument('@@NROWS', '@@nrows', default=None, help=msg, type=int )
     
@@ -1618,6 +1625,10 @@ def read_tables(args, plot_info):
             varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
+            if args.WGTVAR and args.WGTVAR not in usecol_list: 
+                usecol_list += [ args.WGTVAR ]  # 9.18.2025
+                if OPT_HIST not  in args.OPT:
+                    sys.exit(f"\n ERROR: must use HIST option with @@WGTVAR")
 
             # read table and store in data frame.
             # only read needed columms to reduce memory consumption.
@@ -1636,7 +1647,6 @@ def read_tables(args, plot_info):
 
         # apply user cuts
         if cut:
-            #print(f" xxx cut = {cut}")
             df = eval(cut)
 
         if prescale > 1:
@@ -1672,8 +1682,13 @@ def read_tables(args, plot_info):
         }
 
         try:
-            # xxx MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(varname_x)
             MASTER_DF_DICT[key]['df'].loc[:,'x_plot_val'] = eval(varname_x)
+            if args.WGTVAR :
+                varname_wgt = f"df.{args.WGTVAR}"
+                MASTER_DF_DICT[key]['df'].loc[:,'weights']     = eval(varname_wgt)
+            else:
+                MASTER_DF_DICT[key]['df'].loc[:,'weights']     = 1.0 # default weight
+
             xmin = np.amin(df['x_plot_val'])
             xmax = np.amax(df['x_plot_val'])
             logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}") 
@@ -1915,7 +1930,7 @@ def plotter_func_driver(args, plot_info):
             
         xval_list   = info_plot_dict['xval_list'] 
         yval_list   = info_plot_dict['yval_list']
-        wgt_ov      = info_plot_dict['wgt_ov']
+        wgt_ov      = info_plot_dict['wgt_ov']    # overlay weight
         
         if args.use_err_list:        
             xerr_list   = info_plot_dict['xerr_list'] 
@@ -1956,26 +1971,30 @@ def plotter_func_driver(args, plot_info):
                     yerr_data   = np.array(yerr_list)
 
 
-        elif do_plot_hist and NDIM == 1 :
+        elif do_plot_hist and NDIM == 1 :            
             (contents_1d, xedges, patches) = \
                 plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
-                     label = plt_legend, linewidth=lwid, linestyle=lsty)
+                         label = plt_legend, linewidth=lwid, linestyle=lsty,
+                         weights = df.weights )
 
             dump_hist1d_contents(args, xedges, contents_1d)
 
             if args.FIT:
-                xfit_data = xbins_cen
-                yfit_data = contents_1d
+                xfit_data  = xbins_cen
+                yfit_data  = contents_1d
                 yerr_data = [ max(1.0,math.sqrt(y)) for y in yfit_data]
                 
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
+            cmin = .1 * df['weight'].min()
             contents_2d, xedges, yedges, im = \
                 plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
-                           cmin=.1, alpha=plt_alpha, cmap='rainbow_r', 
+                           cmin=cmin, alpha=plt_alpha, cmap='rainbow_r', 
                            bins  = hist2d_args.bins,
                            range = hist2d_args.range,
-                           norm  = hist2d_args.norm  )
+                           norm  = hist2d_args.norm,      
+                           weights = df.weights  )
+
             plt.colorbar(im)
             dump_hist2d_contents(args, xedges, yedges, contents_2d) 
             
@@ -2135,7 +2154,7 @@ def get_info_plot1d(args, info_plot_dict):
     if is_empty:
         yval_list = [ 0.0 ]  * nxbins  # allow for empty plot        
     else:
-        yval_list = binned_statistic(df.x_plot_val, df.x_plot_val, 
+        yval_list = binned_statistic(df.x_plot_val, df.x_plot_val,
                                      bins=xbins, statistic='count')[0]
     
     plt_histtype = 'step'  # default for HIST
@@ -2152,7 +2171,7 @@ def get_info_plot1d(args, info_plot_dict):
         
     do_plot_hist_ov1d     = False
 
-    # apply option user-weight function (see @@WGTFUN arg)
+    # apply optional user-weight function (see @@WGTFUN arg)
     if wgtfun:
         wgtfun_user   = get_wgtfun_user(xbins_cen, wgtfun)
         yval_list    *= wgtfun_user
@@ -2263,13 +2282,19 @@ def get_info_plot1d(args, info_plot_dict):
     
         
     # - - - -
-
-    # xxx mark delete yerr_list = [errl_list, erru_list]
     yerr_list =  [ (x+y)/2. for x,y in zip(errl_list,erru_list) ]
     nevt    = nevt
-    avg     = np.mean(df.x_plot_val)
-    median  = np.median(df.x_plot_val)
-    stddev  = np.std(df.x_plot_val)
+
+    # xxx mark delete Sep 18 2025 xxxxxxxx
+    # avg     = np.mean(df.x_plot_val)
+    # median  = np.median(df.x_plot_val)
+    # stddev  = np.std(df.x_plot_val)  
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    x_val_list = df.x_plot_val.to_numpy()
+    w_val_list = df.weights.to_numpy()
+    avg, stddev = weighted_stats(x_val_list, w_val_list)      # 9/18/2025 - works with @@WGTVAR
+    median      = weighted_median(x_val_list, w_val_list)     # idem
 
     stat_dict = {  # value        add legend    format
         STAT_NAME_N       : [ int(nevt),  do_nevt,
@@ -2306,6 +2331,87 @@ def get_info_plot1d(args, info_plot_dict):
     info_plot_dict['wgt_ov']            = wgt_ov
      
     return  # end get_info_plot1d
+
+def weighted_median(values, weights):
+    """
+    Compute the weighted median of an array of values.
+    
+    This implementation sorts values and computes the cumulative
+    sum of the weights. The weighted median is the smallest value for
+    which the cumulative sum is greater than or equal to half of the
+    total sum of weights.
+    Parameters
+    ----------
+    values : array-like
+        List or array of values on which to calculate the weighted median.
+    weights : array-like
+        List or array of weights corresponding to the values.
+    Returns
+    -------
+    float
+        The weighted median of the input values.
+    """
+    # Convert input values and weights to numpy arrays
+    values = np.array(values)
+    weights = np.array(weights)
+    
+    # Get the indices that would sort the array
+    sort_indices = np.argsort(values)
+    
+    # Sort values and weights according to the sorted indices
+    values_sorted = values[sort_indices]
+    weights_sorted = weights[sort_indices]  
+
+    # Compute the cumulative sum of the sorted weights
+    cumsum = weights_sorted.cumsum()
+    
+    # Calculate the cutoff as half of the total weight sum
+    cutoff = weights_sorted.sum() / 2.
+    
+    # Return the smallest value for which the cumulative sum is greater
+    # than or equal to the cutoff
+    return values_sorted[cumsum >= cutoff][0]
+
+
+def weighted_stats(values, weights):
+
+    """
+    Created Sep 18 2025
+    Calculates and return the weighted average and standard deviation.
+
+    Args:
+        values  (np.array): The array of data values.
+        weights (np.array): The array of weights corresponding to each value.
+
+    Returns:
+        float: The weighted average & standard deviation.
+    """
+
+    if len(values) != len(weights):
+        raise ValueError("Values and weights must have the same length.")
+
+    weighted_mean = np.average(values, weights=weights)
+    
+    # Calculate the sum of squared differences from the weighted mean, weighted
+    numerator = np.sum(weights * (values - weighted_mean)**2)
+
+    # Calculate the normalization factor for an unbiased estimate
+    sum_of_weights         = np.sum(weights)
+    sum_of_squared_weights = np.sum(weights**2)
+    
+    if sum_of_weights == 0 or (sum_of_weights**2 - sum_of_squared_weights) == 0:
+        return 0.0 # Handle cases where weighted variance is undefined
+
+    denominator = sum_of_weights - (sum_of_squared_weights / sum_of_weights)
+    
+    if denominator <= 0: # Avoid division by zero or negative values for the variance
+        return 0.0
+
+    weighted_variance = numerator / denominator
+    weighted_stdev    = np.sqrt(weighted_variance)
+    
+    return weighted_mean, weighted_stdev
+    # end weighted_stats 
 
 def stat_format(stat_name, stat_value):
 

@@ -2031,14 +2031,15 @@ def write_covariance_csv(path, cov, opt_cov, data):
     else:
         f = open(path,"wt") 
 
-    f.write(f"VARNAMES:  ROW  irow  jcol  COV \n")
+    f.write(f"VARNAMES:  ROW  index1d irow  jcol  COV \n")
 
     # this is slower with f.write for each cov element
     for c in cov.flatten():
-        colnum = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
-        rownum = nwr % nrow
-        line   = f"ROW:  {nwr+1:5d}  {rownum:3d}  {colnum:3d}  {c:13.9f}"
-        nwr   += 1
+        colnum  = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
+        rownum  = nwr % nrow
+        index1d = nwr+1
+        line    = f"ROW:  {index1d:5d}  {index1d:5d}  {rownum:3d}  {colnum:3d}  {c:13.9f}"
+        nwr    += 1
         f.write(f"{line}\n") ;       
         f.flush()
 

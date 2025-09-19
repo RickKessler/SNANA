@@ -408,14 +408,14 @@ int init_genmag_BAYESN(
   //     ST - update extrapolation behaviour
   //        - now uses BayeSN's default linear extrap rule for -20<Trest<85
   //        - uses flux=0 for Trest<-20 and SNANA linear extrap for Trest>85
-  //
-  // Jul 28 2925 RK
-  //    - pass NAMES_HOSTPAR = comma-sep list of host params passed
+  // Jul 28 2025:
+  //     RK - pass NAMES_HOSTPAR = comma-sep list of host params passed
   //      later to genmag_BAYESN
-  //
-  // Old To Dos (from RK?):
-  // -  Implement MODEL_EXTRAP following logic in genmag_SALT2.c
-  // -  make sure that default modelflux_extrap(...) is called correctly.
+  // Sep 17 2025:
+  //     ST - update wavelength extrapolation behaviour
+  //        - implements cubic Hermite spline to go beyond BayeSN
+  //        - extrapolation should revert to Hsiao-like behaviour
+  //        - switched on with OPTMASK_BAYESN_WAVE_EXTRAP
 
   int  ised;
   int  retval = 0   ;
@@ -460,6 +460,8 @@ int init_genmag_BAYESN(
 
   // R.Kessler Aug 20 2025: check for generic test flag for devel only; not for production
   ENABLE_TEST_BAYESN = (optmask & OPTMASK_BAYESN_TEST); 
+  // S.Thorp Sep 17 2025: check if wavelength extrapolation to be included
+  ENABLE_WAVE_EXTRAP_BAYESN = (optmask & OPTMASK_BAYESN_WAVE_EXTRAP);
 
   // print the scatter flag we ended up with
   printf("ENABLE_SCATTER_BAYESN flag is %d (DELTAM %scluded; EPSILON %scluded)\n" 
@@ -487,9 +489,17 @@ int init_genmag_BAYESN(
   //      Tupper =  85.0, hardcoded as this is the upper edge of Hsiao07
   double Tlower    = -20.0 ; // formerly BAYESN_MODEL_INFO.tau_knots[0]
   double Tupper    =  85.0 ; // formerly BAYESN_MODEL_INFO.tau_knots[BAYESN_MODEL_INFO.n_tau_knots-1] ;
+  // ST - I've modified this further to load the full wavelength range when requested
+  double Llower, Lupper;
+  if (ENABLE_WAVE_EXTRAP_BAYESN) {
+      Llower =  1000.0 ; // lower edge of Hsiao07
+      Lupper = 25000.0 ; // upper edge of Hsiao07
+  } else {
+      Llower = BAYESN_MODEL_INFO.lam_knots[0];
+      Lupper = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1];
+  }
   double Trange[2] = {Tlower, Tupper};
-  double Lrange[2] = {BAYESN_MODEL_INFO.lam_knots[0]
-		      ,BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1]};
+  double Lrange[2] = {Llower, Lupper};
     
   istat = rd_sedFlux(SED_filepath, "Hsiao Template", Trange, Lrange
 		     ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
@@ -507,11 +517,18 @@ int init_genmag_BAYESN(
   filtdump_SEDMODEL();
 
   // rest-frame wavelength range of SED
-  SEDMODEL.LAMMIN_ALL      = BAYESN_MODEL_INFO.lam_knots[0] ;
-  SEDMODEL.LAMMAX_ALL      = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
+  // now allows extension beyond spline knots if ENABLE_WAVE_EXTRAP_BAYESN
+  SEDMODEL.LAMMIN_ALL      = Llower ;
+  SEDMODEL.LAMMAX_ALL      = Lupper ;
   // rest-frame central wavelength range allowed for filters
-  SEDMODEL.RESTLAMMIN_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_min ; 
-  SEDMODEL.RESTLAMMAX_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_max ;
+  // now allows extension beyond spline knots if ENABLE_WAVE_EXTRAP_BAYESN
+  if (ENABLE_WAVE_EXTRAP_BAYESN) {
+      SEDMODEL.RESTLAMMIN_FILTERCEN =  Llower + 1000.0 ; //  2000 Angstroms
+      SEDMODEL.RESTLAMMAX_FILTERCEN =  Lupper - 1500.0 ; // 23500 Angstroms
+  } else {
+      SEDMODEL.RESTLAMMIN_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_min ; 
+      SEDMODEL.RESTLAMMAX_FILTERCEN =  BAYESN_MODEL_INFO.l_filter_cen_max ;
+  }
 
   if ( VERBOSE_BAYESN > 0 ) {
     printf("DEBUG: LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n"
@@ -529,7 +546,8 @@ int init_genmag_BAYESN(
 					      ,BAYESN_MODEL_INFO.n_lam_knots
 					      ,BAYESN_MODEL_INFO.S0.LAM
 					      ,BAYESN_MODEL_INFO.lam_knots
-					      ,BAYESN_MODEL_INFO.KD_lam);
+					      ,BAYESN_MODEL_INFO.KD_lam
+                          ,ENABLE_WAVE_EXTRAP_BAYESN);
 
   // allocate memory for epsilon (which will keep being overwritten)
   // the genEPSILON_BAYESN() function will update this when it gets
@@ -732,7 +750,7 @@ void genmag_BAYESN(
 
   // compute the matrix for time interpolation
   J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots, Trest_list,
-			    BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+			    BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau, 0);
 
   // compute W0 + THETA*W1 + EPSILON
   int wx, wy;
@@ -888,9 +906,14 @@ void genmag_BAYESN(
   } // end second o loop over Nobs bins
   
   if (VERBOSE_BAYESN > 0) {
+    printf("DEBUG: Printing phases\n");
+    for (o = 0; o < Nobs; o++) { 
+      printf("%.2f, ",Trest_list[o]);
+    }
+    printf("\n");
     printf("DEBUG: Printing lightcurve\n");
     for (o = 0; o < Nobs; o++) { 
-      printf("%.2f  ",magobs_list[o]);
+      printf("%.2f, ",magobs_list[o]);
     }
     printf("\n-----\n\n\n");
   }
@@ -1034,38 +1057,79 @@ gsl_matrix * spline_coeffs_irr(
         ,double     * x      // (I) Locations to evaluate at
         ,double     * xk     // (I) Locations of knots
         ,gsl_matrix * invKD  // (I) K^{-1}D matrix
+        ,int          herm   // (I) Flag to turn on Hermite extrapolation
 ) {
 
     gsl_matrix * J = gsl_matrix_alloc(N, Nk); 
     gsl_matrix_set_zero(J);
 
     int i, j, q;
-    double h, a, b, c, d, f, h2, a3, b3;
+    double h, a, b, c, d, f, r, t, h2, a3, b3, xl, xu, h0, h1, t2, t3;
     for (i=0; i<N; i++) {
         if (x[i] > xk[Nk-1]) {
-            h = xk[Nk-1] - xk[Nk-2];
-            a = (xk[Nk-1] - x[i])/h;
-            b = 1.0 - a;
-            f = (x[i] - xk[Nk-1])*h/6.0;
+            if (herm) {
+                xu = 2*xk[Nk-1] - xk[Nk-2];
+                if (x[i] < xu) {
+                    t = (x[i] - xk[Nk-1])/(xu - x[Nk-1]);
+                    r = (xu - xk[Nk-1])/(xk[Nk-1] - xk[Nk-2]);
+                    t2 = t*t;
+                    t3 = t2*t;
+                    h0 = 2.0*t3 - 3.0*t2 + 1.0;
+                    h1 = t3 - 2.0*t2 + t;
+                    f = (xu - xk[Nk-1])*(xk[Nk-1] - xk[Nk-2])/6.0;
+
+                    gsl_matrix_set(J, i, Nk-1,  h0 + h1*r);
+                    gsl_matrix_set(J, i, Nk-2, -h1*r);
+                    for (j=0; j<Nk; j++) {
+                        gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                                + h1*f*gsl_matrix_get(invKD, Nk-2, j));
+                    }
+                } // else leave it at 0
+            } else {
+                h = xk[Nk-1] - xk[Nk-2];
+                a = (xk[Nk-1] - x[i])/h;
+                b = 1.0 - a;
+                f = (x[i] - xk[Nk-1])*h/6.0;
       
-            gsl_matrix_set(J, i, Nk-2, a);
-            gsl_matrix_set(J, i, Nk-1, b);
-            //FIXME I can probably do this by accessing a row and modifying
-            for (j=0; j<Nk; j++) {
-                gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
-                                        + f*gsl_matrix_get(invKD, Nk-2, j));
+                gsl_matrix_set(J, i, Nk-2, a);
+                gsl_matrix_set(J, i, Nk-1, b);
+                //FIXME I can probably do this by accessing a row and modifying
+                for (j=0; j<Nk; j++) {
+                    gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                            + f*gsl_matrix_get(invKD, Nk-2, j));
+                }
             }
         } else if (x[i] < xk[0]) {
-            h = xk[1] - xk[0];
-            b = (x[i] - xk[0])/h;
-            a = 1.0 - b;
-            f = (x[i] - xk[0])*h/6.0;
-      
-            gsl_matrix_set(J, i, 0, a);
-            gsl_matrix_set(J, i, 1, b);
-            for (j=0; j<Nk; j++) {
-                gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
-                                        - f*gsl_matrix_get(invKD, 1, j));
+            if (herm) {
+                xl = 2*xk[0] - xk[1];
+                if (x[i] > xl) {
+                    t = (x[i] - xl)/(xk[0] - xl);
+                    r = (xk[0] - xl)/(xk[1] - xk[0]);
+                    t2 = t*t;
+                    t3 = t2*t;
+                    h0 = -2.0*t3 + 3.0*t2;
+                    h1 = t3 - t2;
+                    f = (xk[1] - xk[0])*(xk[0] - xl)/6.0;
+
+                    gsl_matrix_set(J, i, 0, h0 - h1*r);
+                    gsl_matrix_set(J, i, 1, h1*r);
+                    for (j=0; j<Nk; j++) {
+                        gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                                + h1*f*gsl_matrix_get(invKD, 1, j));
+                    }
+                } // else leave it at 0
+            } else {
+                h = xk[1] - xk[0];
+                b = (x[i] - xk[0])/h;
+                a = 1.0 - b;
+                f = (x[i] - xk[0])*h/6.0;
+          
+                gsl_matrix_set(J, i, 0, a);
+                gsl_matrix_set(J, i, 1, b);
+                for (j=0; j<Nk; j++) {
+                    gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                            - f*gsl_matrix_get(invKD, 1, j));
+                }
             }
         } else {
             q = 0;

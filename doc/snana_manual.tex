@@ -11958,6 +11958,10 @@ are as follows:
   \item \verb!GENMODEL_MSKOPT+=4!: Enable the gray ($\delta_M$) component of the
    \BAYESN\ residual scatter model.
   \item \verb!GENMODEL_MSKOPT+=128!: Enable a ``verbose'' mode for debugging purposes.
+  \item \verb!GENMODEL_MSKOPT+=256!: Enable an experimental wavelength extrapolation that uses
+  a cubic Hermite spline to revert to the Hsiao \cite{Hsiao2007} template outside of the \BAYESN
+  wavelength range.
+  \item \verb!GENMODEL_MSKOPT+=2048!: Generic development mask for testing new code.
 \end{itemize}
 Multiple bits can be combined, when this is unambiguous. For example, \verb!GENMODEL_MSKOPT=6!
 would enable both components of the residual scatter model (equivalent to 

@@ -23195,6 +23195,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix bug writing duplicate VERSION_PHOTOMETRY keys into FITRES file ;
         see https://github.com/RickKessler/SNANA/issues/1548
 
+    create_covariance.py: 
+       + write HD_BIN_METHOD to INFO.YML
+       + minor refactor to better track binned/rebin/unbined and track nbin[z,c,x1]
+
+   check_create_covariance.py:
+      + refactor to i) read npz file, ii) handle binned HD, iii) process cov_num>0
+
    Changes on hold until Dovekie submission (as of Aug 30 2025)
     - sndata.h
          #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG

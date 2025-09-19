@@ -1,7 +1,7 @@
 /***************************************************************************** 
-   wfit [refactored release, Oct 4 2021]  
+   wfit [refactored release, Oct 4 2021]   
 
-   Read Hubble diagram in SNANA's "FITRES" format with VARNAMES key,
+   Read Hubble diagram in SNANA's "FITRES" format with VARNAMES key, 
    and optionally read cov_syst matrix from create_covariance;
    then fit for constraints on Omega_m & w  or  Omega_m and [w0,wa].
    Fit assumes flatness. Each parameter constraint is marginalized
@@ -1843,7 +1843,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   else if ( INPUTS.use_mucov == FLAG_MUCOVTOT_INV )
     { sprintf(covtype, "MUCOVTOT^{-1}");  }    
 
-  printf("  Process %s file \n", covtype);   fflush(stdout);
+  printf("  Process %s file %s\n", covtype, inFile);   fflush(stdout);
   sprintf(MUCOV->fileName, "%s", inFile);
   
   // - - - - - - -
@@ -1879,16 +1879,13 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
     printf("\t -> disable off-diag COVSYS computations.\n"); fflush(stdout);
     INPUTS.USE_SPEED_SKIP_OFFDIAG = false; // disable speed flag for approx min chi2 
 
-    if ( INPUTS.use_mucov == FLAG_MUCOVSYS ) { INPUTS.use_mucov = FLAG_MUCOVNOSYS; }
-    return ;
+    // xxx mark delete 9.17.2025 xxxxxx
+    // xxx HD no longer includes covsys_diag
+    // xxx if ( INPUTS.use_mucov == FLAG_MUCOVSYS ) { INPUTS.use_mucov = FLAG_MUCOVNOSYS; }
+    // xxx return ;
+    // xxxxxxxxxxxxxx
   }
 
-  /* xxx mark delete May 13 2025 xxxxxxx
-  if (INPUTS.use_mucov == FLAG_MUCOVSYS &&  MUCOV->N_NONZERO_TOT == 0 ) { 
-    INPUTS.use_mucov = FLAG_MUCOVNOSYS; 
-    return; 
-  }
-  xxxxxxxx end mark xxxxxxxxx */
 
   // - - - - - - - - - - - - - - - - -
 
@@ -1977,17 +1974,12 @@ int read_mucov_text(char *inFile, int NSN,  COVMAT_DEF *MUCOV) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-      /*** xxx mark delete xxxx
-      MUCOV->NDIM    = NDIM_ORIG; // read entire COV without cuts
-      malloc_COVMAT(+1,MUCOV);
-      xxxxx end mark xxxx*/
-
       NMAT_ORIG = NDIM_ORIG * NDIM_ORIG ;
       XMTOT = (double)(NMAT_ORIG) * 1.0E-6 ;
     }
     else {
       // store entire cov matrix (no cuts yet)
-      sscanf( ptrSplit[0],"%le",&cov);
+      sscanf( ptrSplit[0], "%le", &cov);
       MUCOV->ARRAY1D[NMAT_read] = cov;
       NMAT_read++ ;
       UPDSTD = ( (NMAT_read % NMAT_READ_UPDATE) == 0 ||
@@ -2113,6 +2105,7 @@ int applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
   int  i0, i1, k0, k1, kk, j, NDIM_ORIG = MUCOV->NDIM;
   int  NDIM_STORE = 0 ;
   double cov;
+  bool off_diag ;
   char fnam[] = "applyCut_COVMAT" ;
 
   // ----------- BEGIN --------------
@@ -2129,11 +2122,21 @@ int applyCut_COVMAT(bool *PASS_CUT_LIST, COVMAT_DEF *MUCOV) {
   for(j=0; j < NDIM_ORIG*NDIM_ORIG; j++ ) {
     cov = MUCOV->ARRAY1D[j];
     if( PASS_CUT_LIST[i0] && PASS_CUT_LIST[i1] ) {
+
+	off_diag = ( k0 != k1 );
+
+	// xxxxxxxxxxx hacky tests xxxxxxxxxx
+	if ( INPUTS.debug_flag == 917 ) { 
+	  if( off_diag ) { cov = 0.0; }    // 9.17.2025 dum test
+	}
+	// xxxxxxxxxxx
+
 	kk = k1*NDIM_STORE + k0;
 	MUCOV->ARRAY1D[kk] = cov;
+
 	if ( cov != 0.0 ) { 
 	  MUCOV->N_NONZERO_TOT++ ; 
-	  if ( k0 != k1 ) { MUCOV->N_NONZERO_OFFDIAG++ ; }  // May 13 2025
+	  if ( off_diag ) { MUCOV->N_NONZERO_OFFDIAG++ ; }  // May 13 2025
 	}
 
 	k0++;
@@ -4095,7 +4098,6 @@ void get_chi2_fit (
 
   char fnam[] = "get_chi2_fit";
 
-
   // --------- BEGIN --------
 
   OE = 1.0 - OM ;
@@ -5338,6 +5340,11 @@ void write_output_chi2grid(void) {
   fprintf(fp, "# chi2_sn:   chi2 contribution from SN only\n");
   fprintf(fp, "# chi2_tot:  total chi2 from SN plus priors\n");
   fprintf(fp, "# weight:    weight used by chainconsumer (added April 2025)\n");
+
+  if ( float_w0  ) { fprintf(fp,"# w0  step size: %.4f \n", INPUTS.w0_stepsize); }
+  if ( float_wa  ) { fprintf(fp,"# wa  step size: %.4f \n", INPUTS.wa_stepsize); }
+  if ( float_omm ) { fprintf(fp,"# omm step size: %.4f \n", INPUTS.omm_stepsize); }
+
   fprintf(fp, "\n");
   fprintf(fp, "VARNAMES: ROW %s\n", VARLIST);
 

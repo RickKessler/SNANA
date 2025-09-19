@@ -188,6 +188,10 @@
 
  Jun 07 2025: add -unblind flag to unblind real data
 
+ Sep 19 2025: for speed trick to skip off-diag, increase threshold from 6 sigma to 15 sigma
+              to allow more off-diag compensation. This has minimal impact on fit params,
+              but impacts what we see in chi2grid map.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -214,6 +218,7 @@
 #define SPEED_MASK_SKIP_OFFDIAG 2  // skip off-diag calc if chi2(diag)>threshold
 #define SPEED_MASK_STOP_DIAG    4  // stop diag calc if chi2(diag)>threshold (4.08.2025)
 #define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_INTERP + SPEED_MASK_SKIP_OFFDIAG // +SPEED_MASK_STOP_DIAG ??
+//#define SPEED_FLAG_CHI2_DEFAULT  0
 
 #define PROBSUM_1SIGMA  0.683
 
@@ -2993,7 +2998,6 @@ void init_rz_interp(HD_DEF *HD) {
 
   WORKSPACE.n_exec_interp = 0;
 
-  // xxx mark delete Apr 8 2025    if ( NSN > 1000 ) 
   if ( NSN > 500 ) 
     { INPUTS.USE_SPEED_INTERP  = (INPUTS.speed_flag_chi2 & SPEED_MASK_INTERP )>0; }
   else
@@ -3313,7 +3317,9 @@ void prep_speed_skip_offdiag(double chi2min_approx) {
   if ( INPUTS.use_mucov || INPUTS.USE_SPEED_STOP_DIAG ) {
     double nsig_chi2min_skip;
     // xxx mark del Apr 8 2025  double NSIG_MULTIPLIER = 10.0 ;
-    double NSIG_MULTIPLIER = 6.0 ;
+    // xxx mark dele 9.19 2025 double NSIG_MULTIPLIER = 6.0 ;
+    double NSIG_MULTIPLIER = 15.0 ; // 9.19.2025: leave lots of room for off-diag compensation
+
     if ( nsig < 1.0 )
       { nsig_chi2min_skip = NSIG_MULTIPLIER; } 
     else
@@ -4077,11 +4083,11 @@ void get_chi2_fit (
   double nsig_chi2, chi_hat, chi_tmp ;
   double dmu, dmu0, dmu1, mu_cos, mu_obs  ;
     
-  double  chi2_prior = 0.0 ;
+  double  chi2_prior = 0.0, chi2_h0marg ;
   double *rz_list  = (double*) malloc(NSN * sizeof(double) );
   double *dmu_list = (double*) malloc(NSN * sizeof(double) );
   Cosparam cparloc;
-  int k, k0, k1, N0, N1, k1min, n_count=0, LDMP=0 ;
+  int k, k0, k1, N0, N1, k1min, n_count=0 ;
   
   HD_DEF *HD0 = &HD_LIST[0];
   HD_DEF *HD1 = &HD_LIST[1];
@@ -4095,6 +4101,7 @@ void get_chi2_fit (
   int n_logz, iz;
   double z ;
   double mu_obs0, mu_obs1, f_interp;
+  int LDMP = INPUTS.debug_flag == 919 && OM==.316 && w0 == -0.97;
 
   char fnam[] = "get_chi2_fit";
 
@@ -4196,7 +4203,7 @@ void get_chi2_fit (
     // extra chi_tmp computations.
     if ( USE_SPEED_STOP_DIAG && k%9==0 ) {
       chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
-      nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
+      nsig_chi2   = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
       skip_offdiag = nsig_chi2 > nsig_chi2min_skip ; 
       if ( skip_offdiag ) { goto MARG_H0 ; }
     }
@@ -4252,15 +4259,25 @@ void get_chi2_fit (
   
  MARG_H0:
 
-  Csum    += 1./SQSIG_MUOFF ;  // H0 prior term
-  *chi2sn  =  chi_hat - Bsum*Bsum/Csum ;
+  Csum       += 1./SQSIG_MUOFF ;  // for H0 prior term
+  chi2_h0marg = -Bsum*Bsum/Csum;
 
-
-  *muresid_avg = Bsum/Csum; // Dec 7 2024
-  
   // Ignore constant term:
   //  logCsum  = log(Csum/(2.*M_PI));
   //  *chi2sn += logCsum;
+
+
+  *chi2sn  =  chi_hat + chi2_h0marg ;
+
+  if ( LDMP ) {
+    //double logCsum  = log(Csum/TWOPI) ;
+    //    chi2_h0marg += logCsum;    *chi2sn     += logCsum;
+    printf(" xxx %s DUMP: w0,wa,omm = %6.3f %6.3f %6.3f chi2sn = %6.1f(sn) + %6.1f(h0marg) = %6.1f\n",
+	   fnam, w0, wa, OM, chi_hat, chi2_h0marg, *chi2sn); fflush(stdout);
+  }
+
+  *muresid_avg = Bsum/Csum; // Dec 7 2024
+  
 
   *chi2tot = *chi2sn ;     // load intermediate function output
 

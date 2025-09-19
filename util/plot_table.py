@@ -1986,7 +1986,7 @@ def plotter_func_driver(args, plot_info):
                 
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
-            cmin = .1 * df['weight'].min()
+            cmin = .1 * df['weights'].min()
             contents_2d, xedges, yedges, im = \
                 plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
                            cmin=cmin, alpha=plt_alpha, cmap='rainbow_r', 

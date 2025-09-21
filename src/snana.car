@@ -121,7 +121,7 @@ c
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,MXSNLC        = 10000000    ! max number of SNe (fits format)
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
-     &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
+     &  ,MXCID       = 499 999 999  ! max CID = 500 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
      &  ,MXEPOCH     = 30000      ! max number of filter-epochs per SN
      &  ,MXEP_MODELGRID = 200     ! max model grid for SNANA+SIM_MAGOBS table

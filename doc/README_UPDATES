@@ -23141,6 +23141,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       See new method check_for_slurm_failure() in submit_prog_base.py
       and also new method grep() in submit_util.py.
 
+   MXCID = 299 999 999 -> 499 999 999 in snlc_sim.h and snana.car
+
          *****  USEFUL(v11_06a) *****
    
     Update SIMLIB to accept detector/ccd number as part of IDEXPT(DETNUM);
@@ -23201,6 +23203,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    check_create_covariance.py:
       + refactor to i) read npz file, ii) handle binned HD, iii) process cov_num>0
+
+   wfit.c
+     + change speed-trick default NSIG_MULTIPLIER=6 to 15 to avoid restricting 
+       the chi2grid map too much. This may result in slower fits for UNBINNNED.
+       New input parameter -speed_nsig_multiplier can change value.
+       This nsig_multiplier change results in very slight (and expected) change
+       in wfit regression test:
+         ==> REF:  DES3YR(w,werr,om,omerr) = -0.96451 0.05922   0.32641 0.01795
+	 ==> TEST: DES3YR(w,werr,om,omerr) = -0.96453 0.05923   0.32640 0.01796
 
    Changes on hold until Dovekie submission (as of Aug 30 2025)
     - sndata.h

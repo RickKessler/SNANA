@@ -35,6 +35,7 @@
  Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
  Jan 28 2022: MXEPSIM -> 15k (was 10k)
  Aug 02 2024: MXSEASON_SIMLIB -> 30 (was 20) to handle LSST cadence artifact
+ Sep 21 2024: MXCID_SIM = 300 million -> 500 million for DES-SN5YR reanalysis
 
 ********************************************/
 
@@ -42,7 +43,7 @@
 // ************ GLOBAL VARIABLES *************
 
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
-#define  MXCID_SIM  299999999   // max sim CID and max number of SN
+#define  MXCID_SIM  499999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT MXEPOCH/2       //
 #define  MXEPSIM       MXEPOCH  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins

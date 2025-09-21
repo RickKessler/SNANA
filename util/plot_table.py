@@ -109,6 +109,8 @@ NUMPY_FUNC_DICT = {
     'log'         :  'np.log'  ,   # works for log and log10
     'sqrt'        :  'np.sqrt' ,
     'abs'         :  'np.abs'  ,
+    'int'         :  'np.int'  ,
+    'floor'       :  'np.floot',
     'cos'         :  'np.cos'  ,
     'sin'         :  'np.sin'  ,
     'tan'         :  'np.tan'  ,        
@@ -2005,8 +2007,8 @@ def plotter_func_driver(args, plot_info):
         elif do_plot_hist_ov1d and NDIM == 1:
             # 1D, typically sim overlaid on data
             plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype='step',
-                     weights = wgt_ov, label = plt_legend,
-                     linewidth=lwid, linestyle=lsty)
+                     weights = df.weights * wgt_ov, label = plt_legend,
+                     linewidth=lwid, linestyle=lsty )
             
         else:
             # nothing to plot; e.g, 1st file for DIFF or RATIO option
@@ -2150,13 +2152,17 @@ def get_info_plot1d(args, info_plot_dict):
     xerr_list = None
 
     is_empty = len(df.x_plot_val) == 0
-    
+
     if is_empty:
         yval_list = [ 0.0 ]  * nxbins  # allow for empty plot        
     else:
-        yval_list = binned_statistic(df.x_plot_val, df.x_plot_val,
-                                     bins=xbins, statistic='count')[0]
-    
+        yval_list = binned_statistic(df.x_plot_val, df.weights,
+                                     bins=xbins, statistic='sum')[0]
+        # xxxxxxxx mark delete 9.19/2025 xxxxxx
+        #yval_list = binned_statistic(df.x_plot_val, df.x_plot_val,
+        #                             bins=xbins, statistic='count')[0]
+        # xxxxxxxxxxxxxxxxxxxxxxx
+
     plt_histtype = 'step'  # default for HIST
     
     if do_hist :
@@ -2198,14 +2204,14 @@ def get_info_plot1d(args, info_plot_dict):
             do_plot_errorbar = False
             do_plot_hist     = False            
     else:
-        df0          = info_plot_dict['df0'] 
-        yval0_list   = info_plot_dict['yval0_list']
-        errl0_list   = info_plot_dict['errl0_list']
-        erru0_list   = info_plot_dict['erru0_list']        
-        name0_legend = info_plot_dict['name0_legend']         
+        df0           = info_plot_dict['df0'] 
+        yval0_list    = info_plot_dict['yval0_list']
+        errl0_list    = info_plot_dict['errl0_list']
+        erru0_list    = info_plot_dict['erru0_list']        
+        name0_legend  = info_plot_dict['name0_legend']         
+
         if do_ov:
-            # re-scale overlay plot only if chi2 option is requested
-            ov_scale = np.sum(yval0_list) / np.sum(yval_list)
+            ov_scale   = np.sum(yval0_list) / np.sum(yval_list)
             do_plot_errorbar   = False
             do_plot_hist       = False
             do_plot_hist_ov1d  = True

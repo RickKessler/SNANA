@@ -564,7 +564,7 @@ int init_genmag_BAYESN(
   SEDMODEL_HOSTXT_LAST.z  = -999.   ;
   
   // Jul 28 2025 R.Kessler - read & store HOST_PARNAMES
-  // .xyz
+ 
   init_HOSTPAR_BAYESN(optmask, NAMES_HOSTPAR);
 
   // init stuff for determining magerr 
@@ -931,36 +931,95 @@ void init_magerr_BAYESN(void) {
 
   // Created Aug 20 2025 by R.Kessler & Mykola
 
+  OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_POLY;
+  if ( ENABLE_TEST_BAYESN ) { OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_MAP; } 
+
   char fnam[] = "init_magerr_BAYESN" ;
+
   // ------------- BEGIN --------------
 
-  if (!ENABLE_TEST_BAYESN) { return; }
+  // xxx mark delete 9.24.2025  if (!ENABLE_TEST_BAYESN) { return; }
 
-  // Updated Sep 12 2025 by Mykola
-  // Mykola parametrization:  RMS(λ) = c*λ² + a*λ + b; c = 2.047537e-09; a = -2.894536e-05;  b = 0.160715
+  if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_POLY ) {
 
-  // NOTE: as part of the GENPOLY function, coefficients must be parsed
-  // in increasing power of λ (i.e. b, a, c if RMS(λ) = c*λ² + a*λ + b)
-  char stringPoly[50] = "0.160715, -2.894536e-05, 2.047537e-09";
-  parse_GENPOLY(stringPoly, "magerr", &GENPOLYLAM_BAYESN, fnam);
+    // Updated Sep 12 2025 by Mykola
+    //    RMS(λ) = c*λ² + a*λ + b; c = 2.047537e-09; a = -2.894536e-05;  b = 0.160715
+    // NOTE: as part of the GENPOLY function, coefficients must be parsed
+    // in increasing power of λ (i.e. b, a, c if RMS(λ) = c*λ² + a*λ + b)
+    char stringPoly[50] = "0.160715, -2.894536e-05, 2.047537e-09";
+    parse_GENPOLY(stringPoly, "magerr", &GENPOLYLAM_MAGERR_BAYESN, fnam);
+    print_GENPOLY(&GENPOLYLAM_MAGERR_BAYESN);
 
-  print_GENPOLY(&GENPOLYLAM_BAYESN);
+  }
+  else if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_MAP ) {
 
-  double wave,trest=0.0;
-  double parlist_SN[4], parlist_HOST[4];
-  double magerr;
-  
-  for (wave = 3000.0; wave <= 9000.0; wave+=1000)
-    {
-      magerr = get_magerr_BAYESN(trest, wave, parlist_SN, parlist_HOST);
-      printf("\t wave=%0.f magerr =%.3f \n", wave, magerr);
+    // .xyz
+    int OPTMASK_NOFILE_ABORT = 2; // abort if no file found
+    int NDIM_MAP = 2, NFUN_MAP=1, MXROW, GZIPFLAG ;
+    int OPT_EXTRAP = 0 ;  // 1-> extrap, 0->return error, -1->abort outside range
+    char MAPNAME[] = "MAGERR_BAYESN" ;
+    char KEY_ROW[] = "MAGERR:" ;
+    char magerr_map_file[MXPATHLEN];
+    FILE *fp;
 
-    }
-  
+    sprintf(magerr_map_file, "%s/BAYESN_MODEL_MAGERR_MAP.DAT",  BAYESN_MODELPATH);
+    printf("   Read magerr map from \n\t%s \n", magerr_map_file);
+
+    fp = open_TEXTgz(magerr_map_file, "rt", OPTMASK_NOFILE_ABORT, &GZIPFLAG, fnam );
+
+    MXROW = nrow_read(magerr_map_file, fnam);
+    sprintf(GRIDMAP_MAGERR_BAYESN.VARLIST, "PHASE,WAVE,MAGERR");
+
+    read_GRIDMAP(fp, MAPNAME, KEY_ROW, "", IDGRIDMAP_MODELERR, 
+		 NDIM_MAP, NFUN_MAP, OPT_EXTRAP, MXROW, fnam, 
+		 &GRIDMAP_MAGERR_BAYESN);  // <== returned
+
+    fclose(fp);
+      
+  }
+  else {
+    sprintf(c1err, "Invalid OPT_BAYESN_MAGERR = %d", OPT_BAYESN_MAGERR);
+    sprintf(c2err, "see valid OPT with :  grep OPT_BAYESN_MAGERR genmag_BAYESN.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+  monitor_magerr_BAYESN();
+
   fflush(stdout);
   return ;
 
 } // init_magerr_BAYESN
+
+void monitor_magerr_BAYESN(void) {
+
+  // Created Sep 24 2025 by R.Kessler
+  // print a few magerr values to stdout for visual monitor.
+
+  int t;
+  double wave, Trest_grid[3] = { -10.0, 0.0, 10.0 };
+  double parlist_SN[4] = { 40.0, 0.0, 0.0, 3.1 } ;   // DLMAG, THETA, AV, RV
+
+  double parlist_HOST[4];
+  double magerr[3];
+  
+  // ---------- BEGIN ---------
+
+  for (wave = 3000.0; wave <= 9000.0; wave+=1000)    {
+
+    for(t=0 ; t < 3; t++ ) {
+      magerr[t] = get_magerr_BAYESN(Trest_grid[t], wave, parlist_SN, parlist_HOST);
+    }
+
+    printf("\t wave = %0.f  magerr[Trest = %.0f %.0f %.0f] = %.3f %.3f %.3f \n", 
+	   wave, Trest_grid[0], Trest_grid[1], Trest_grid[2],
+	   magerr[0] , magerr[1], magerr[2] );	
+  }
+  fflush(stdout);
+
+  return;
+
+} // end print_magerr_BAYESN
 
 // ======================================
 double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, double *parlist_HOST) {
@@ -972,24 +1031,33 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
   //   wavelength: rest-frame central wavelength of band, A
   //   parlist_SN: DLMAG, Theta, AV, RV
   //   parList_HOST:  host parmas (TBD ...)
-
+  int istat ;
   double magerr = MAGERR_UNDEFINED ;
-  double wave_local = wavelength;
+  double Trest_local = Trest;
+  double wave_local  = wavelength;
   char fnam[] = "get_magerr_BAYESN" ;
   // ----------- BEGIN ------------
   
+  /* xxxxx mark delete 9.24.2025 by R.Kessler xxxxxx
   magerr = 0.01; // original hack default
-
   if ( !ENABLE_TEST_BAYESN ) { return magerr; }
+  xxxxxxxx end mark xxxxxxxx */
+
 
   // if we get here, try new magerr model based on z=0.01 sims with EXPSOURE_TIME >>> 1/
 
-  // Edited Sep 12 by Mykola.
-  // Widened the range to accomodate the u and z bands.
-  if( wave_local < 3671) { wave_local = 3671; }
-  if( wave_local > 8691) { wave_local = 8691; }
-  
-  magerr = eval_GENPOLY(wave_local, &GENPOLYLAM_BAYESN, fnam);
+  if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_POLY ) {
+    // Edited Sep 12 by Mykola.
+    // Widened the range to accomodate the u and z bands.
+    if( wave_local < 3671) { wave_local = 3671; }
+    if( wave_local > 8691) { wave_local = 8691; }
+   
+    magerr = eval_GENPOLY(wave_local, &GENPOLYLAM_MAGERR_BAYESN, fnam);
+  }
+  else if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_MAP ) {
+    double data[2] = { Trest, wavelength } ;
+    istat = interp_GRIDMAP(&GRIDMAP_MAGERR_BAYESN, data, &magerr );
+  }
 
   return magerr;
 

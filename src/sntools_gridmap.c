@@ -36,7 +36,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   //  MAPNAME     : name of map
   //  KEY_ROW     : NVAR columns follows this row-key
   //  KEY_STOP    : stop reading when this key is reached;
-  //              " default is to stop reading on blank line.
+  //              : default is to stop reading on blank line.
   //  IDMAP       : integer ID of GRIDMAP_LOAD
   //  NDIM        : number of dimensions of map
   //  NFUN        : number of functions of map
@@ -105,6 +105,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   while ( READ_NEXTLINE ) {
     LINE[0] = 0 ;
     fgets(LINE,200,fp);  NLINE++ ;
+
     NWD = store_PARSE_WORDS(MSKOPT,LINE, fnam);
 
     // abort if we read too many lines without finding any valid row keys

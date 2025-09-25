@@ -624,7 +624,7 @@ typedef struct {
 
 
 typedef struct {
-  int    *IZ,  *IMU, *IC, *IS, *I3D;
+  int    *IZ,  *IMU, *IC, *IS, *I3D, *I3D_NN;
   double *DMU, *PROB, *MUBIAS;
   double *MUMODEL;    // store to avoid re-computing
   double COSPAR[10];  // store cos params used to compute MUMODEL
@@ -1669,8 +1669,10 @@ void   store_INFO_CCPRIOR_CUTS(void);
 int    storeBias_CCprior(int n) ;
 
 void  malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRIOR_DEF *PROB_CCPRIOR);
-void   load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PROB_CCPRIOR);
-void   load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRIOR_DEF *PROB_CCPRIOR);
+void  load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PROB_CCPRIOR);
+void  load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRIOR_DEF *PROB_CCPRIOR);
+void  get_FITPAR_INDICES_CCprior(int icc, TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, 
+				 int *i3list, int *i3d, int *i3d_nn);
 
 void    setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP);
 
@@ -4691,7 +4693,7 @@ void *MNCHI2FUN(void *thread) {
 					     z, mures, DUMPFLAG, fnam );
 	}
 
-	/* xxxxxxxxxxxxxxx .xyz
+	/* xxxxxxxxxxxxxxx 
 	if ( strcmp(name,"1251536") == 0 ) {   
 	  printf(" xxx %s: snid=%s  NCALL=%4d  i3d=%3d z=%.3f mures=%.3f  dPdmu_CC = %.4f \n",
 		 fnam, name, FITRESULT.NCALL_FCN, i3d, z, mures, dPdmu_CC ); fflush(stdout);
@@ -15889,7 +15891,7 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   int NBINa, NBINb, ia, ib, nbin_dmu ;
   double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
 
-  if ( USE_BIASCOR  ) {     // xxxx{  && !INPUTS.DO_CCPRIOR_LEGACY ) { 
+  if ( USE_BIASCOR  ) {  
     NBINa   = (*BININFO_SIM_ALPHA).nbin ;
     NBINb   = (*BININFO_SIM_BETA).nbin ;
 
@@ -16450,22 +16452,23 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
   //
   // Sep 11 2025: use INPUTS.COSPAR_UNBLIND to set MUZMZP->cospar;
   //         These are user inputs prior to blind offsets.
+  //
 
   int  NSN_ALL     = TABLEVAR->NSN_ALL ;
   int  MEMI        = NSN_ALL * sizeof(int);
   int  MEMD        = NSN_ALL * sizeof(double);
 
   double z, c, s, mumodel, dl ;
-  int icc, i3d, i3list[3], j ;
-  int ABORT_IBINFUN = 2 ; // 1 = Abort; 2=shift to edge of bin    
+  int icc, i3d, i3d_nn, i3list[3], j ;
   char fnam[] = "malloc_PROB_CCprior" ;
 
   // ------------- BEGIN ----------
   
-  PROB_CCPRIOR->IZ   = (int*) malloc(MEMI);
-  PROB_CCPRIOR->IC   = (int*) malloc(MEMI);  // index for color
-  PROB_CCPRIOR->IS   = (int*) malloc(MEMI);  // index for stretch
-  PROB_CCPRIOR->I3D  = (int*) malloc(MEMI);  // 1D index representing z,c,s
+  PROB_CCPRIOR->IZ      = (int*) malloc(MEMI);
+  PROB_CCPRIOR->IC      = (int*) malloc(MEMI);  // index for color
+  PROB_CCPRIOR->IS      = (int*) malloc(MEMI);  // index for stretch
+  PROB_CCPRIOR->I3D     = (int*) malloc(MEMI);  // 1D index representing z,c,s
+  PROB_CCPRIOR->I3D_NN  = (int*) malloc(MEMI);  // 1D index for "Nearest Neighbor" bin (for interpolation)
 
   PROB_CCPRIOR->IMU     = (int*) malloc(MEMI);  // index for hubble resid (dmu)
   PROB_CCPRIOR->DMU     = (double*) malloc(MEMD);  // Hubble resid
@@ -16478,6 +16481,7 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
 
   for(icc=0; icc < NSN_ALL ; icc++ ) {  
 
+    /* xxxxxx mark delete 9.23.2025 xxxxxxx
     z  = TABLEVAR->zhd[icc];
     c  = TABLEVAR->fitpar[INDEX_c][icc];
     s  = TABLEVAR->fitpar[INDEX_s][icc];
@@ -16485,13 +16489,18 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
     i3list[1]  = IBINFUN(c,  &MUZMAP->CBIN, ABORT_IBINFUN, fnam); // colour
     i3list[2]  = IBINFUN(s,  &MUZMAP->SBIN, ABORT_IBINFUN, fnam); // stretch
     i3d        = get_1DINDEX(MUZMAP->IDMAP3D, 3, i3list);
-    
+    xxxxxxxxxx end mark xxxxxxx */
+
+    get_FITPAR_INDICES_CCprior(icc, TABLEVAR, MUZMAP, i3list, &i3d, &i3d_nn);
+
     // load the goodies into PROB struct
     PROB_CCPRIOR->IZ[icc]  = i3list[0];
     PROB_CCPRIOR->IC[icc]  = i3list[1];
     PROB_CCPRIOR->IS[icc]  = i3list[2];
-    PROB_CCPRIOR->I3D[icc] = i3d; 
+    PROB_CCPRIOR->I3D[icc]    = i3d; 
+    PROB_CCPRIOR->I3D_NN[icc] = i3d_nn; 
 
+    z  = TABLEVAR->zhd[icc];
     dl = cosmodl_forFit(z, z, INPUTS.COSPAR_UNBLIND) ; // zhel approx ok here for CC
     // xxx mark del 9.11.2025 dl   = cosmodl_forFit(z, z, MUZMAP->cosPar) ; // zhel approx ok here for CC
     mumodel  = 5.0*log10(dl) + 25.0 ;
@@ -16503,6 +16512,32 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
   return ;
 } // end malloc_PROB_CCprior
 
+
+void get_FITPAR_INDICES_CCprior(int icc, TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, 
+				int *i3list, int *i3d, int *i3d_nn) {
+
+  // Created Sep 23 2025 [move code out of malloc_PROB_CCprior]
+  // For input event icc, get z,c,x1 indices and I3D index
+
+  int ABORT_IBINFUN = 2 ; // 1 = Abort; 2=shift to edge of bin    
+  double z, c, s;
+  char fnam[] = "get_FITPAR_INDICES_CCprior" ;
+
+  // -------------- BEGIN -----------
+
+  z  = TABLEVAR->zhd[icc];
+  c  = TABLEVAR->fitpar[INDEX_c][icc];
+  s  = TABLEVAR->fitpar[INDEX_s][icc];
+  i3list[0]  = IBINFUN(z,  &MUZMAP->ZBIN, ABORT_IBINFUN, fnam); // redshift
+  i3list[1]  = IBINFUN(c,  &MUZMAP->CBIN, ABORT_IBINFUN, fnam); // colour
+  i3list[2]  = IBINFUN(s,  &MUZMAP->SBIN, ABORT_IBINFUN, fnam); // stretch
+  *i3d        = get_1DINDEX(MUZMAP->IDMAP3D, 3, i3list);
+
+  *i3d_nn = -9 ;
+
+  return;
+
+} // end get_FITPAR_INDICES_CCprior
 
 
 void load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRIOR_DEF *PROB_CCPRIOR) {

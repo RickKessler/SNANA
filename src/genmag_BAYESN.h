@@ -55,6 +55,7 @@ void genSCATTER_BAYESN(); // renamed by ST Sep 14 2024
 
 void  init_magerr_BAYESN(void) ;
 double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, double *parlist_HOST);
+void monitor_magerr_BAYESN(void);
 
 // ------------------------------------------
 // -------------- globals -------------------
@@ -106,7 +107,14 @@ int     ENABLE_WAVE_EXTRAP_BAYESN;         // ST (Sep 17 2025)
 
 #define MXHOSTPAR_BAYESN 20                 // max number of host params 
 
-GENPOLY_DEF GENPOLYLAM_BAYESN;  // poly-vs-wave to describe magerr-vs-wavelength (Aug 20 2025)
+
+#define  OPT_BAYESN_MAGERR_MAP   1   // model error from map vs. phase and wavelength
+#define  OPT_BAYESN_MAGERR_POLY  2   // model error from polynomial function of wavelength
+int      OPT_BAYESN_MAGERR ;          // set in init_genmag_BAYESN based on user input
+
+GRIDMAP_DEF GRIDMAP_MAGERR_BAYESN;     // load this if reading magerr map (Sep 2025)
+GENPOLY_DEF GENPOLYLAM_MAGERR_BAYESN;   // poly-vs-wave to describe magerr-vs-wavelength (Aug 20 2025)
+
 
 // model structure
 struct {

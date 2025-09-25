@@ -968,6 +968,9 @@ void init_magerr_BAYESN(void) {
     fp = open_TEXTgz(magerr_map_file, "rt", OPTMASK_NOFILE_ABORT, &GZIPFLAG, fnam );
 
     MXROW = nrow_read(magerr_map_file, fnam);
+
+    // list of variables is hard-coded here, but it really should be 
+    // read from VARNAMES key
     sprintf(GRIDMAP_MAGERR_BAYESN.VARLIST, "PHASE,WAVE,MAGERR");
 
     read_GRIDMAP(fp, MAPNAME, KEY_ROW, "", IDGRIDMAP_MODELERR, 

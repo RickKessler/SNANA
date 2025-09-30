@@ -1172,7 +1172,6 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
       ISTAT = istat ;  
       strcat(VARLIST_FOUND," ") ;
       strcat(VARLIST_FOUND,VARNAME_withCast);
-      // xxx mark sprintf(VARLIST_FOUND, "%s %s", VARLIST_FOUND, VARNAME_withCast);
       NVAR_FOUND++ ; 
       break; // Feb 2023
     }
@@ -2034,7 +2033,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // init each variable with auto-generated memory
   // Tack on CID since user will fetch values based on CID.
-  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C  GALID:C");
+  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C  GALID:C HOSTGAL_OBJID:C");
   ivar = SNTABLE_READPREP_VARDEF(varName_withCast, 
 				 SNTABLE_AUTOSTORE[NF].CCID, NROW, 1);
 

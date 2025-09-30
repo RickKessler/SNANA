@@ -23180,7 +23180,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_sim:
       + fix "TAKE_SPECTRUM NONE" to allow SPECTROGRAPH keys in simlib.
-
+      
     sumbit_prog_bbc and tag_missing_events.py:
       + update to add REJECT[nn] columns indicating which FITOPTs fail LCFIT.
         Note that REJECT00 = 0 always since the referenve can never fail.
@@ -23196,6 +23196,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_output_text.c
       + fix bug writing duplicate VERSION_PHOTOMETRY keys into FITRES file ;
         see https://github.com/RickKessler/SNANA/issues/1548
+
+    sntools_output_fits.c
+      + write PHOTFLAG_TRIGGER in global header
 
     create_covariance.py: 
        + write HD_BIN_METHOD to INFO.YML
@@ -23213,6 +23216,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          ==> REF:  DES3YR(w,werr,om,omerr) = -0.96451 0.05922   0.32641 0.01795
 	 ==> TEST: DES3YR(w,werr,om,omerr) = -0.96453 0.05923   0.32640 0.01796
    
+   sntools_data.c
+    + refactor RD_OVERRIDE utils to match by CID or HOSTGAL_OBJID (or GALID);
+
    genmag_BAYESN.c[h]
       + add code to read magerr map; currently requires GENMODEL_MSKOPT += 20248
         to enable test mode, but this feature may become default soon.

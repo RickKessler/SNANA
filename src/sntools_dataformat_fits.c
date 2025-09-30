@@ -74,6 +74,7 @@
               and close files. This fixes bug reading NONIASED followed by SALT3 sim data.
  Aug 07 2025: remove REFAC_SNFITSIO flag
 
+ Sep 29 2025: write PHOTFLAG_TRIGGER to global header
 **************************************************/
 
 #include "fitsio.h"
@@ -1041,6 +1042,10 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "PHOTFLAG_DETECT", // July 2022
 		  &SNDATA.PHOTFLAG_DETECT,
 		  "PHOTFLAG mask for detection", &istat );
+  
+  fits_update_key(fp, TINT, "PHOTFLAG_TRIGGER", // Sep 2025
+		  &SNDATA.PHOTFLAG_TRIGGER,
+		  "PHOTFLAG mask for trigger", &istat );
   
   // List of filters
   fits_update_key(fp, TSTRING, "FILTERS",
@@ -5578,7 +5583,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   //
   // Dec 12 2021: call RD_OVERRIDE_FETCH
   // Jul 25 2024: allow RD_OVERRIDE_FETCH to return string C_VAL (e.g., IAUC)
-  
+  // Sep 29 2025: pass GALID to RD_OVERRIDE_FETCH
+
   int  iptr_local, iform, itype, ifile, itmp, icol, ipar, NSTORE;
   int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX, NSTR=0;
   int  *IPTR, MASK, NEP_RDMASK, NEP_MASK=0, OPTMASK ;
@@ -5610,7 +5616,13 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // This override occurs whether or not parName exists, and thus
   // it overrides or appends data.
   D_VAL = -9.9; C_VAL[0] = 0 ;
-  if ( RD_OVERRIDE_FETCH(SNDATA.CCID, parName, &D_VAL, C_VAL) > 0 ) {
+
+
+  
+  char *CCID          = SNDATA.CCID;
+  long long int GALID = SNDATA.HOSTGAL_OBJID[0]; // 9.29.2025
+
+  if ( RD_OVERRIDE_FETCH(CCID, GALID, parName, &D_VAL, C_VAL) > 0 ) {
     if ( iform == IFORM_A )
       { sprintf(parString,"%s", C_VAL); } // July 25 2024
     else

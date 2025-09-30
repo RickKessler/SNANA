@@ -2172,6 +2172,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   int  len_PySEDMODEL   = strlen(PySEDMODEL_NAME);
   int  ncmp_PySEDMODEL ;
 
+  char *CCID = SNDATA.CCID;
+  long long int GALID = SNDATA.HOSTGAL_OBJID[0]; // 9.29.2025
+
   int    iwd0      = *iwd_file ; // never changes
   int    iwd       = *iwd_file ; // iwd increments
   int    igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs;
@@ -2220,8 +2223,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   len_word0 = strlen(word0);
   sprintf(KEY,"%s", word0); KEY[len_word0-1] = 0;
   sprintf(KEY_ERR, "%s_ERR", KEY);
-  NRD     = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY,     &DVAL,     STRVAL);    // return DVAL
-  NRD_ERR = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY_ERR, &DVAL_ERR, STRVAL);  
+  NRD     = RD_OVERRIDE_FETCH(CCID, GALID, KEY,     &DVAL,     STRVAL);    // return DVAL
+  NRD_ERR = RD_OVERRIDE_FETCH(CCID, GALID, KEY_ERR, &DVAL_ERR, STRVAL);  
   if ( NRD     > 0 ) { sprintf(word1_val, "%le", DVAL); }
   if ( NRD_ERR > 0 ) { sprintf(word3_err, "%le", DVAL_ERR); PLUS_MINUS=true; }
 
@@ -3305,7 +3308,7 @@ void check_nblam_sntextio_spec(void) {
     NBLAM_EXPECT = GENSPEC.NBLAM_TOT[ispec]; 
     NBLAM_READ   = GENSPEC.NBLAM_READ[ispec]; 
 
-    if ( NBLAM_EXPECT != NBLAM_READ ) { // .xyz
+    if ( NBLAM_EXPECT != NBLAM_READ ) { 
 
       if ( NERR == 0 ) 	{ print_preAbort_banner(fnam); }
 

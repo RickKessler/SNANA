@@ -137,7 +137,7 @@ struct {
   short int      value_1I ;  // 2-byte signed int
   unsigned short value_1U ;  // 2-byte unsigned int
   unsigned int   value_1V ;  // 4-byte unsigned int
-  long long      value_1K ;  // 8 bytte long long int (May 2013)
+  long long      value_1K ;  // 8 bytte long long int
   
   int NROW ; // increment number of rows written
 

@@ -1269,15 +1269,20 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   int NROW, ivar, ifile, NFILE = 0;
   int OPTMASK_SNTABLE = 4; // append next file
-  char **file_list, *ptrFile;
+  char **file_list, *ptrFile, *VARNAME_MATCH ;
   char TABLE_NAME[] = "OVERRIDE";
   char VARLIST[]    = "ALL";
   char fnam[]       = "RD_OVERRIDE_INIT";
 
   // ----------- BEGIN -----------
 
+
   RD_OVERRIDE.USE = false;
   if ( IGNOREFILE(OVERRIDE_FILE) ) { return; }
+
+  // assume matching by CID (or SNID); below might switch to GALID match 
+  RD_OVERRIDE.MATCH_by_CID   = true ;
+  RD_OVERRIDE.MATCH_by_GALID = false ;
 
   print_banner(fnam);
 
@@ -1303,10 +1308,23 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
     }
 
 
+
     ENVreplace(ptrFile, fnam, 1);
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST,
 				  OPTMASK_SNTABLE );
-    printf("   Stored %d rows of header-override data\n", NROW);
+
+    // store varname in 1st column used to match with data
+    sprintf(RD_OVERRIDE.VARNAME_MATCH, "%s", READTABLE_POINTERS.VARNAME[0] ); //9.29.2025
+    VARNAME_MATCH = RD_OVERRIDE.VARNAME_MATCH;
+    if ( strcmp(VARNAME_MATCH,"HOSTGAL_OBJID") == 0 ||
+	 strcmp(VARNAME_MATCH,"GALID")         == 0 ) {
+      RD_OVERRIDE.MATCH_by_CID   = false;
+      RD_OVERRIDE.MATCH_by_GALID = true;
+    }
+
+    printf("   Stored %d rows of header-override data; match rows using %s\n", 
+	   NROW, VARNAME_MATCH );
+
 
     if ( NROW == 0 ) {
       sprintf(c1err,"NROW=0 in HEADER_OVERRIDE_FILE");
@@ -1341,8 +1359,9 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   if ( EXIST_VARNAME_AUTOSTORE("NAME_TRANSIENT") ) 
     { RD_OVERRIDE.FOUND_NAME_TRANSIENT = true; }    
 
+  
   // check for varname mistakes
-  rd_override_check_mistake("HOSTGAL_ZPHOT" ,    "HOSTGAL_PHOTOZ");
+  rd_override_check_mistake("HOSTGAL_ZPHOT" ,    "HOSTGAL_PHOTOZ");  // 2nd one is correct; allow 1st one
   rd_override_check_mistake("HOSTGAL_ZPHOTERR" , "HOSTGAL_PHOTOZ_ERR");
   rd_override_check_mistake("HOSTGAL_ZPHOT_ERR", "HOSTGAL_PHOTOZ_ERR");
 
@@ -1362,7 +1381,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   
   RD_OVERRIDE.NVAR_USE    = 0;
-  RD_OVERRIDE.CID_LAST[0] = 0; // Aug 8 2025
+  RD_OVERRIDE.ID_LAST[0]  = 0; // Aug 8 2025
   RD_OVERRIDE.NEVT        = 0; 
 
   return ;
@@ -1390,47 +1409,57 @@ void rd_override_check_mistake(char *varname_mistake, char *varname_correct) {
 
 
 // ==================================================
-int RD_OVERRIDE_FETCH(char *CID, char *VARNAME, double *DVAL, char *STRVAL) {
+int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVAL, char *STRVAL) {
 
   // Created Dec 2021
-  // If SNID and VARNAME is on override list, return DVAL
+  // If CID (or GALID) and VARNAME is on override list, return DVAL
   // and function returns 1.
   // Function returns 0 if there is no override.
   //
   // July 25 2024: return *STRVAL if VARNAME cast is string (e.g., for IAUC)
   // Aug  07 2025: abort if none of the override vars are used.
+  // Sep  29 2025: pass GALID and check option to match by GALID (HOSTGAL_OBJID) instead of by CID
 
-  bool NEW_CID, FOUND_VARNAME;
+  bool NEW_ID, FOUND_VARNAME;
   int  ISTAT, NRD, IVAR, NTMP, ICAST ;
+  char ID_LOCAL[40];
   char fnam[] = "RD_OVERRIDE_FETCH";
 
   // ----------- BEGIN -----------
   *DVAL = 0.0;
   if ( !RD_OVERRIDE.USE ) { return 0; }
 
-  if ( strlen(CID) == 0 ) { return 0; }  // SNID has not been read yet (Sep 12 2015)
+  // xxx mark del  if ( strlen(CID) == 0 ) { return 0; }  // SNID has not been read yet
+
+  // - - - - - -
+  ID_LOCAL[0] = 0 ;
+  if ( RD_OVERRIDE.MATCH_by_CID ) 
+    { sprintf(ID_LOCAL,"%s", CID);  }
+  else if ( GALID != 0 )
+    { sprintf(ID_LOCAL,"%lld", GALID);  }
+
+  if ( strlen(ID_LOCAL) == 0 ) { return 0; } // 9.29.2025: wait for VARNAME_MATCH to be read 
 
   IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
   FOUND_VARNAME = ( IVAR >= 0 ) ;
 
-
-  // - - - - - -
   // Aug 2025; abort if none of the override variables are used.
-  NEW_CID = ( strcmp(RD_OVERRIDE.CID_LAST,CID) != 0 );
-  if ( NEW_CID ) {
+  NEW_ID = ( strcmp(RD_OVERRIDE.ID_LAST,ID_LOCAL) != 0 );
+  if ( NEW_ID ) {
     if ( RD_OVERRIDE.NEVT > 0 && RD_OVERRIDE.NVAR_USE == 0 ) {
       print_preAbort_banner(fnam);
-      printf("\t RD_OVERRIDE.NEVT = %d \n", RD_OVERRIDE.NEVT);
+      printf("\t RD_OVERRIDE.NEVT     = %d \n", RD_OVERRIDE.NEVT);
       printf("\t RD_OVERRIDE.NVAR_USE = %d \n", RD_OVERRIDE.NVAR_USE);
-      printf("\t Current VARNAME = %s (IVAR=%d) \n", VARNAME, IVAR);
+      printf("\t Current VARNAME      = %s (IVAR=%d) \n", VARNAME, IVAR);
 
-      sprintf(c1err,"No OVERRIDE variables are used for CID=%s.", CID);
+      sprintf(c1err,"No OVERRIDE variables are used for %s = %s ", 
+	      RD_OVERRIDE.VARNAME_MATCH, ID_LOCAL);
       sprintf(c2err,"Make sure at least one override var matches varname in data file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
     RD_OVERRIDE.NVAR_USE = 0; RD_OVERRIDE.NEVT++ ; 
   } 
-  sprintf(RD_OVERRIDE.CID_LAST, "%s", CID);  // update last CCID
+  sprintf(RD_OVERRIDE.ID_LAST, "%s", ID_LOCAL);  // update last CID or GALID
   // --------
 
 
@@ -1438,15 +1467,14 @@ int RD_OVERRIDE_FETCH(char *CID, char *VARNAME, double *DVAL, char *STRVAL) {
   RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
   // read from override table; ISTAT and DVALare returned
-  SNTABLE_AUTOSTORE_READ(CID, VARNAME, &ISTAT, DVAL, STRVAL);  
+  // xxx mark SNTABLE_AUTOSTORE_READ(CID, VARNAME, &ISTAT, DVAL, STRVAL);  
+  SNTABLE_AUTOSTORE_READ(ID_LOCAL, VARNAME, &ISTAT, DVAL, STRVAL);  
 
-  // *ISTAT =  0  if CID is found; 
-  // *ISTAT = -1  if CID is NOT found    
+  // *ISTAT =  0  if ID is found; 
+  // *ISTAT = -1  if ID is NOT found    
   // *ISTAT = -2  if VARNAME is NOT found
 
   if ( ISTAT == 0 ) {
-    //    printf(" xxx %s: CID=%s  '%s'=%f  ISTAT=%d \n",
-    //	   fnam, CID, VARNAME, *DVAL, ISTAT); fflush(stdout);
     NRD = 1;
     if ( RD_OVERRIDE.N_PER_VAR[IVAR] == 0 ) 
       { printf("\t Found override for %s\n", VARNAME );  fflush(stdout); }
@@ -1530,7 +1558,7 @@ void rd_override_append(void) {
   for (ivar=0; ivar < NVAR_OVERRIDE_CHECK; ivar++ ) {
     varName = VARNAME_CHECK[ivar] ;
     if ( EXIST_VARNAME_AUTOSTORE(varName) ) { 
-      RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &DVAL, STRVAL) ;
+      RD_OVERRIDE_FETCH(SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], varName, &DVAL, STRVAL) ;
       *ptr_SNDATA[ivar] = (float)DVAL;
 
       if ( strstr(varName,"HOSTGAL") != NULL ) {
@@ -1614,19 +1642,21 @@ void rd_override_zphot_q(int OPT) {
   else if ( OPT == 2 ) {
     double zq, d_nzphot_q;
     int    IGAL = 0, OVERRIDE_NZPHOT_Q ;
+    char   *CCID  =  SNDATA.CCID;
+    long long int GALID =  SNDATA.HOSTGAL_OBJID[0];
     NZPHOT_Q = RD_OVERRIDE.NZPHOT_Q ;
     SNDATA.HOSTGAL_NZPHOT_Q = NZPHOT_Q ;
 
     // check if NZPHOT_Q in override file matches number of
     // ZPHOT_Q[nnn] that were found
-    RD_OVERRIDE_FETCH(SNDATA.CCID, STRING_NZPHOT_Q, &d_nzphot_q, STRDUM ) ;
+    RD_OVERRIDE_FETCH(CCID, GALID, STRING_NZPHOT_Q, &d_nzphot_q, STRDUM ) ;
     OVERRIDE_NZPHOT_Q = (int)d_nzphot_q ;
 
     for(q=0; q < NZPHOT_Q; q++ ) {
       zq = -9.0 ;
       if ( OVERRIDE_NZPHOT_Q == NZPHOT_Q ) {
 	varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
-	RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &zq, STRDUM) ; // return zq
+	RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq
       }
       
       SNDATA.HOSTGAL_ZPHOT_Q[IGAL][q] = zq ;
@@ -1645,18 +1675,19 @@ void rd_override_name(void) {
   // Check misc overrides that are not in original data file.
 
   double D_VAL = 0.0 ;
+  long long int GALID_DUMMY = 999 ;
   char   *ptr_str;
   char fnam[] = "rd_override_name" ;
   
   // ---------- BEGIN -------------
 
   if ( RD_OVERRIDE.FOUND_NAME_IAUC ) {
-    RD_OVERRIDE_FETCH(SNDATA.CCID, "NAME_IAUC",
+    RD_OVERRIDE_FETCH(SNDATA.CCID, GALID_DUMMY, "NAME_IAUC",
 		      &D_VAL, SNDATA.NAME_IAUC) ;
   }
 
   if ( RD_OVERRIDE.FOUND_NAME_TRANSIENT ) {
-    RD_OVERRIDE_FETCH(SNDATA.CCID, "NAME_TRANSIENT",
+    RD_OVERRIDE_FETCH(SNDATA.CCID, GALID_DUMMY, "NAME_TRANSIENT",
 		      &D_VAL, SNDATA.NAME_TRANSIENT) ;
   }
   

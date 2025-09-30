@@ -196,7 +196,8 @@ struct SNDATA {
   char  CALIB_FILE[MXPATHLEN];
   char  SPEC_FILE[MXPATHLEN];
 
-  int   PHOTFLAG_DETECT; // mask in PHOTFLAG for detection
+  int   PHOTFLAG_DETECT;  // mask in PHOTFLAG for detection
+  int   PHOTFLAG_TRIGGER; // mask in PHOTFLAG for trigger
 
   // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];

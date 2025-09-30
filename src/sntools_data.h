@@ -14,6 +14,9 @@ struct {
   int NVAR;  // number of override variables
   int N_PER_VAR[MXVAR_OVERRIDE] ;
 
+  bool MATCH_by_CID, MATCH_by_GALID; // 9.29.2025
+  char VARNAME_MATCH[40];  // e.g., CID, SNID, GALID ...
+
   // logicals to decide if zCMB or zHEL needs to be recomputed.
   bool FOUND_zCMB, FOUND_zHEL ;
   int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023)
@@ -23,9 +26,10 @@ struct {
 
   // define variables to monitor what variable(s) are actually over-written.
   // If no vars are over-written, abort with error message 
-  int  NEVT;     // number of events with unique CID
+  int  NEVT;     // number of events with unique CID or GALID
   int  NVAR_USE; // number of override variables used (Aug 2025)
-  char CID_LAST[40]; // last CID passed; used to count NUSE_OVERRIDE
+
+  char ID_LAST[40]; // last CID or GALID passed; used to count NUSE_OVERRIDE
 
 } RD_OVERRIDE;
 
@@ -58,7 +62,7 @@ void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 bool IS_SIMKEY_SNDATA(char *key);
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
-int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL, char *STRVAL);
+int  RD_OVERRIDE_FETCH(char *CCID, long long int GALID, char *VARNAME, double *DVAL, char *STRVAL);
 void RD_OVERRIDE_POSTPROC(void); 
 void rd_override_append(void);
 void rd_override_zcalc(void);

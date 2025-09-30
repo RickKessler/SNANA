@@ -32,6 +32,7 @@
 #   + fix bug writing to output file (-o option)
 #
 # Jun 17 2025: refactor selection of CID list to avoid strange crash
+# Sep 29 2025: remove legacy code for not REFAC_SELECT_CID_LIST
 
 import os, sys, argparse, gzip, math
 import numpy as np
@@ -49,7 +50,7 @@ ZP_nJy              = 31.4
 ZP_SNANA            = 27.5
 MAGERR_DEFAULT      = 0.05
 
-REFAC_SELECT_CID_LIST = True
+# xxx mark delete  REFAC_SELECT_CID_LIST = True
 
 # =====================================
 def get_args():
@@ -278,8 +279,6 @@ def read_fitres_file(info_fitres, reformat_option):
                           skiprows = nrow_skip, dtype=str,
                           usecols  = var_list_local)
     # - - - - - -
-    if not REFAC_SELECT_CID_LIST:
-        df = df.set_index(keyname_id, drop=False)
 
     # load data frame
     info_fitres['df'] = df
@@ -335,10 +334,7 @@ def print_info(info_fitres):
         # without index ... this avoids index name (CID) printed
         # to a separate row compared to other varnames
     
-        if  REFAC_SELECT_CID_LIST:
-            df = df.loc[ df[keyname_id].isin(id_list) ]
-        else:
-            df = df.loc[ id_list, [keyname_id] + var_list ]
+        df = df.loc[ df[keyname_id].isin(id_list) ]
 
         print(df.to_string(index=False))        
         if outfile is not None:

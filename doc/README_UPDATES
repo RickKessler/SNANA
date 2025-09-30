@@ -23180,7 +23180,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_sim:
       + fix "TAKE_SPECTRUM NONE" to allow SPECTROGRAPH keys in simlib.
-      
+      + fix readme output to include DELTAM and THETA distributions
+
     sumbit_prog_bbc and tag_missing_events.py:
       + update to add REJECT[nn] columns indicating which FITOPTs fail LCFIT.
         Note that REJECT00 = 0 always since the referenve can never fail.

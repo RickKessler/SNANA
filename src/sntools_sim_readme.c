@@ -1002,10 +1002,14 @@ void readme_docana_modelPar(int *iline, char *pad) {
     readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_SALT2ALPHA);
     readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_SALT2BETA);
   }
-  else {
+  else if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) {
     readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_DM15);
     readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_DELTA);
     readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_STRETCH);
+  }
+  else if ( INDEX_GENMODEL == MODEL_BAYESN ) { // 9.29.2025
+    readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_DELTAM);
+    readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_THETA);
   }
 
 

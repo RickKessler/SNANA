@@ -10434,17 +10434,20 @@ For \snana\ analysis programs
 here we describe how to over-ride header information in the
 data files without re-making the data files.
 This feature is useful to study the impact of data changes
-(e.g., redshifts and host matches) without altering a released
+without altering a released
 data set. Beware that this feature is intended only for internal 
 use by analysis teams,
 and should not be part of a publicly released data set;
 see Sec.~\ref{sss:new_data_files} on updating data files with 
 override information.
 
-The header information includes host properties, peculiar
-velocities, redshifts (spec-$z$ and photo-$z$), 
-and Galactic extintion, all of which can be modified for a particular study. 
-To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
+The header information includes any variable in a {\tt *HEAD.FITS} file:
+host properties, peculiar velocities, redshifts (spec-$z$ and photo-$z$), 
+Galactic extintion, and many more.
+This override feature does {\tt NOT} work
+on epoch-dependent quantities in the {\tt *PHOT.FITS} files, 
+but mag and flux corrections can be applied as described below in Sec.~\ref{sss:magcor}.
+
 The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
@@ -10455,35 +10458,66 @@ The input key for the analysis programs is
      SIM_HEADER_OVERRIDE_FILE = 'sim_overrides.dat'  ! sim data only
 
 more myUpdates.dat
-VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV
-SN:   1346137      0.246        0.001              0.021
-SN:   1346387      0.533        0.0011             0.038
+VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV   EXTRA
+SN:   1346137      0.246        0.001              0.021    45
+SN:   1346387      0.533        0.0011             0.038    46
 etc ...
 \end{verbatim}
-%
-%VARNAMES: CID  VPEC VPEC_ERR  HOSTGAL_LOGMASS HOSTGAL_LOGMASS_ERR
-%SN:  1346137    78.4 150.0   10.87  0.21
-%SN:  1346387   -63.0 150.0    9.44  0.33
 
 In the first example ({\tt muUpdates.dat}), three header values are updated:
-helio redshift, the uncertainty, and Galactic extintion.
+helio redshift, the uncertainty, and Galactic extintion. The {\tt EXTRA} column
+does not correspond to a known data variable and is thus ignored, which means
+that extra diagnostic variables are allowed to be mixed with data variables.
 For SNe missing from the update file, the original values in the 
-data file header are preserved. This override feature does {\tt NOT} work
-on epoch-dependent quantities, but mag and flux corrections can
-be applied as described below in Sec.~\ref{sss:magcor}.
-The second example illustrates a comma-separated list of table files;
+data file header are preserved. 
+The first column name can be either {\tt CID} or {\tt SNID}.
+The second example illustrates a comma-separated list of override table files;
 beware that the variables in each override file must be unique (except for CID).
 
 Data-override variables must exist in the original data file,
 with the exception of photo-$z$ quantiles (\S\ref{sss:quantiles}).
-Thus quantiles can be overwritten if they already exist in the
+Quantiles can be overwritten if they already exist in the
 original data files, 
 or appended if the original data files
 do not include quantile information. For quantile overrides using
 {\tt HOSTGAL\_ZPHOT\_Qppp} (where {\tt ppp=000, 010, ... 100}), 
 make sure to also include an {\tt NZPHOT\_Q} column with each value set to 11.
 
+
+A common  mistake is to accidentally replace data variable names with names in the
+output FITRES tables: unfortunately the variable naming is not consistent.
+Such substituion usually results in an abort since no
+valid override variables are found.
+
+% - - - - - - - - 
 \clearpage
+\subsubsection{Over-Riding by {\tt HOSTGAL\_OBJID} instead of {\tt CID}}
+\label{sss:header_override_galid}
+
+{\tt OVERRIDE} table row identification by {\tt CID} (or {\tt SNID}) is robust for real data
+because real data event names should not change (or change rarely with reprocessing).
+To modify host properties for simulated data, however, would require an intermediate
+script to create a new {\tt HEADER\_OVERRIDE\_FILE} table for each simulated data
+set and for each bias-correction sim. To simplify altering host properties for sims,
+particularly photo-z information, the {\tt HEADER\_OVERRIDE\_FILE} can be keyed
+by {\tt HOSTGAL\_OBJID} or {\tt GALID} for galaxies in an entire {\tt HOSTLIB\_FILE}, e.g. 
+
+\begin{verbatim}                                                                                                   
+VARNAMES: GALID  HOSTGAL_PHOTOZ HOSTGAL_PHOTOZ_ERR
+SN:  104754   .111   0.011
+SN:  104049   .222   0.022
+SN:  463249   .333   0.033
+etc ...
+\end{verbatim}
+This single table override file is valid for simulated data regardless of which
+random {\tt CID}s are chosen. This galaxy-based identification can be used for real
+data as well, but beware that host-less events cannot be modified using the {\tt GALID} key.
+
+
+% - - - - - - - - 
+\subsubsection{Over-Riding Table Information in BBC/SALT2mu Input }
+\label{sss:bbc_override}
+
 
 The header-override list may include variables that are used later in 
 BBC or cosmology fitting, but not used in light curve fitting;

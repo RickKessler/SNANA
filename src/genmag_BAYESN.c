@@ -431,7 +431,7 @@ int init_genmag_BAYESN(
   if (VERBOSE_BAYESN)
     {
       printf("DEBUG: VERBOSE_BAYESN flag is set\n");
-      printf("DEBUG: %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
+      printf("DEBUG: %s MODEL_VERSION=%s\n", fnam, MODEL_VERSION);
     }
 
   // new OPTMASK behaviour implemented by ST (14 Sep 24)
@@ -462,12 +462,40 @@ int init_genmag_BAYESN(
   ENABLE_TEST_BAYESN = (optmask & OPTMASK_BAYESN_TEST); 
   // S.Thorp Sep 17 2025: check if wavelength extrapolation to be included
   ENABLE_WAVE_EXTRAP_BAYESN = (optmask & OPTMASK_BAYESN_WAVE_EXTRAP);
+  // S.Thorp Oct 1 2025: check some extrapolation flags
+  // hopefully we can sanitize this a bit when a definitive strategy is decided
+  TIME_EXTRAP_MODE_BAYESN = 0; // default to linear extrapolation of W
+  WAVE_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_FLAT_EXTRAP; // default to flat W
+  if (optmask & OPTMASK_BAYESN_ZERO_EXTRAP) {
+    // sanity check to abort on confusing input
+    if (optmask & OPTMASK_BAYESN_FLAT_EXTRAP) {
+      sprintf(c1err, "Ambiguous extrapolation requested with OPTMASK=%d", 
+	      optmask );
+      sprintf(c2err, "Only one of bits %d and %d can be set",
+              OPTMASK_BAYESN_ZERO_EXTRAP, OPTMASK_BAYESN_FLAT_EXTRAP);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    TIME_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_ZERO_EXTRAP;
+    WAVE_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_ZERO_EXTRAP;
+  } else if (optmask & OPTMASK_BAYESN_FLAT_EXTRAP) {
+    TIME_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_FLAT_EXTRAP;
+    WAVE_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_FLAT_EXTRAP;
+  }
 
   // print the scatter flag we ended up with
   printf("ENABLE_SCATTER_BAYESN flag is %d (DELTAM %scluded; EPSILON %scluded)\n" 
 	 ,ENABLE_SCATTER_BAYESN
 	 ,(ENABLE_SCATTER_BAYESN & 4) ? "in" : "ex"
-	 ,(ENABLE_SCATTER_BAYESN & 2) ? "in" : "ex");
+	 ,(ENABLE_SCATTER_BAYESN & 2) ? "in" : "ex"
+  );
+
+  // print the extrapolation flags we ended up with
+  printf("TIME_EXTRAP_MODE_BAYESN=%d\n", TIME_EXTRAP_MODE_BAYESN);
+  if (ENABLE_WAVE_EXTRAP_BAYESN) {
+    printf("WAVE_EXTRAP_MODE_BAYESN=%d\n", WAVE_EXTRAP_MODE_BAYESN);
+  } else {
+    printf("WAVE_EXTRAP disabled\n");
+  }
   
   // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
   char version[60], yaml_file[MXPATHLEN];
@@ -547,7 +575,7 @@ int init_genmag_BAYESN(
 					      ,BAYESN_MODEL_INFO.S0.LAM
 					      ,BAYESN_MODEL_INFO.lam_knots
 					      ,BAYESN_MODEL_INFO.KD_lam
-                          ,ENABLE_WAVE_EXTRAP_BAYESN);
+                          ,WAVE_EXTRAP_MODE_BAYESN);
 
   // allocate memory for epsilon (which will keep being overwritten)
   // the genEPSILON_BAYESN() function will update this when it gets
@@ -750,7 +778,8 @@ void genmag_BAYESN(
 
   // compute the matrix for time interpolation
   J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots, Trest_list,
-			    BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau, 0);
+			    BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau, 
+                TIME_EXTRAP_MODE_BAYESN);
 
   // compute W0 + THETA*W1 + EPSILON
   int wx, wy;
@@ -1128,7 +1157,7 @@ gsl_matrix * spline_coeffs_irr(
         ,double     * x      // (I) Locations to evaluate at
         ,double     * xk     // (I) Locations of knots
         ,gsl_matrix * invKD  // (I) K^{-1}D matrix
-        ,int          herm   // (I) Flag to turn on Hermite extrapolation
+        ,int          extrap // (I) Flag to change extrapolation mode
 ) {
 
     gsl_matrix * J = gsl_matrix_alloc(N, Nk); 
@@ -1137,26 +1166,8 @@ gsl_matrix * spline_coeffs_irr(
     int i, j, q;
     double h, a, b, c, d, f, r, t, h2, a3, b3, xl, xu, h0, h1, t2, t3;
     for (i=0; i<N; i++) {
-        if (x[i] > xk[Nk-1]) {
-            if (herm) {
-                xu = 2*xk[Nk-1] - xk[Nk-2];
-                if (x[i] < xu) {
-                    t = (x[i] - xk[Nk-1])/(xu - x[Nk-1]);
-                    r = (xu - xk[Nk-1])/(xk[Nk-1] - xk[Nk-2]);
-                    t2 = t*t;
-                    t3 = t2*t;
-                    h0 = 2.0*t3 - 3.0*t2 + 1.0;
-                    h1 = t3 - 2.0*t2 + t;
-                    f = (xu - xk[Nk-1])*(xk[Nk-1] - xk[Nk-2])/6.0;
-
-                    gsl_matrix_set(J, i, Nk-1,  h0 + h1*r);
-                    gsl_matrix_set(J, i, Nk-2, -h1*r);
-                    for (j=0; j<Nk; j++) {
-                        gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
-                                                + h1*f*gsl_matrix_get(invKD, Nk-2, j));
-                    }
-                } // else leave it at 0
-            } else {
+        if (x[i] > xk[Nk-1]) { //  extrapolate high  //
+            if (extrap == 0) { //  linear  //
                 h = xk[Nk-1] - xk[Nk-2];
                 a = (xk[Nk-1] - x[i])/h;
                 b = 1.0 - a;
@@ -1169,27 +1180,33 @@ gsl_matrix * spline_coeffs_irr(
                     gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
                                             + f*gsl_matrix_get(invKD, Nk-2, j));
                 }
-            }
-        } else if (x[i] < xk[0]) {
-            if (herm) {
-                xl = 2*xk[0] - xk[1];
-                if (x[i] > xl) {
-                    t = (x[i] - xl)/(xk[0] - xl);
-                    r = (xk[0] - xl)/(xk[1] - xk[0]);
+            } else { //  hermite  //
+                xu = 2*xk[Nk-1] - xk[Nk-2];
+                if (x[i] < xu) {
+                    t = (x[i] - xk[Nk-1])/(xu - x[Nk-1]);
+                    r = (xu - xk[Nk-1])/(xk[Nk-1] - xk[Nk-2]);
                     t2 = t*t;
                     t3 = t2*t;
-                    h0 = -2.0*t3 + 3.0*t2;
-                    h1 = t3 - t2;
-                    f = (xk[1] - xk[0])*(xk[0] - xl)/6.0;
+                    if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                        h0 = 1.0;
+                    } else { 
+                        h0 = 2.0*t3 - 3.0*t2 + 1.0;
+                    }
+                    h1 = t3 - 2.0*t2 + t;
+                    f = (xu - xk[Nk-1])*(xk[Nk-1] - xk[Nk-2])/6.0;
 
-                    gsl_matrix_set(J, i, 0, h0 - h1*r);
-                    gsl_matrix_set(J, i, 1, h1*r);
+                    gsl_matrix_set(J, i, Nk-1,  h0 + h1*r);
+                    gsl_matrix_set(J, i, Nk-2, -h1*r);
                     for (j=0; j<Nk; j++) {
                         gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
-                                                + h1*f*gsl_matrix_get(invKD, 1, j));
+                                                + h1*f*gsl_matrix_get(invKD, Nk-2, j));
                     }
+                } else if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                    gsl_matrix_set(J, i, Nk-1,  1.0);
                 } // else leave it at 0
-            } else {
+            }
+        } else if (x[i] < xk[0]) { //  extrapolate low   //
+            if (extrap == 0) {     //  linear  //
                 h = xk[1] - xk[0];
                 b = (x[i] - xk[0])/h;
                 a = 1.0 - b;
@@ -1201,8 +1218,32 @@ gsl_matrix * spline_coeffs_irr(
                     gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
                                             - f*gsl_matrix_get(invKD, 1, j));
                 }
+            } else { //  hermite  //
+                xl = 2*xk[0] - xk[1];
+                if (x[i] > xl) {
+                    t = (x[i] - xl)/(xk[0] - xl);
+                    r = (xk[0] - xl)/(xk[1] - xk[0]);
+                    t2 = t*t;
+                    t3 = t2*t;
+                    if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                        h0 = 1.0;
+                    } else {
+                        h0 = -2.0*t3 + 3.0*t2;
+                    }
+                    h1 = t3 - t2;
+                    f = (xk[1] - xk[0])*(xk[0] - xl)/6.0;
+
+                    gsl_matrix_set(J, i, 0, h0 - h1*r);
+                    gsl_matrix_set(J, i, 1, h1*r);
+                    for (j=0; j<Nk; j++) {
+                        gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
+                                                + h1*f*gsl_matrix_get(invKD, 1, j));
+                    }
+                } else if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                    gsl_matrix_set(J, i, 0, 1.0);
+                } // else leave it at 0
             }
-        } else {
+        } else { //  interpolate  //
             q = 0;
             while (q < Nk-2 && xk[q+1] <= x[i]) { q++; }
             h = xk[q+1] - xk[q];

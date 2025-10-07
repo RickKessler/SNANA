@@ -23241,4 +23241,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + SALT2mu:
          restore_des5yr=1 -> 0 # leave bug there -> fix bug  <== DONE 9/12
 
+
+# =============================================================
+         v11_06b (Oct 6 2025) <--- start date of git tag
+
+         *****  IMPORTANT(v11_06b) *****
+
+       
+         *****  USEFUL(v11_06b) *****
+
+
+         *****  MISCELLANEOUS(v11_06b) *****
+
 END: 

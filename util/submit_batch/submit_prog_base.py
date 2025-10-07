@@ -1617,7 +1617,7 @@ class Program:
         # add this TEST0 key for debugging on regression test with
         #   cd $SNANA_TESTS/inputs_submit_batch
         #   ~/SNANA/util/submit_batch_jobs.sh LCFIT_LOWZ_DATA+SIM.NML
-        KEY_FATAL_LIST +=  [ 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
+        #KEY_FATAL_LIST +=  [ 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
 
         # get list of CPU*.LOG files that do NOT have associated CPU*.DONE
         cpu_log_list  = self.fetch_cpu_logfiles_notdone()

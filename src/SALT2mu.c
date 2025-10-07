@@ -24751,6 +24751,10 @@ void print_SALT2mu_HELP(void) {
   for (i = 0; help[i] != 0; i++)
     { printf ("%s\n", help[i]); }
 
+
+  printf("\n Hit any key to exit: ");
+  getchar();
+
   return;
 
 } // end print_SALT2mu_HELP

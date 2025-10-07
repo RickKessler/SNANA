@@ -23224,6 +23224,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + add code to read magerr map; currently requires GENMODEL_MSKOPT += 20248
         to enable test mode, but this feature may become default soon.
 
+   Makefile:
+     + few tweaks to work without $ROOT_DIR.
+
    Changes on hold until Dovekie submission (as of Aug 30 2025)
     - sndata.h
          #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG

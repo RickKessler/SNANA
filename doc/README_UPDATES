@@ -23253,4 +23253,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v11_06b) *****
 
+   submit_batch_jobs:
+     + fix slurm error check to avoid finding it's own message with slurm key;
+       this avoids meamingless slurm error messages in all of the CPU*LOG files.
+
 END: 

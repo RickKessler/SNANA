@@ -713,6 +713,7 @@ void set_user_defaults(void) {
   INPUTS.DEBUG_FLAG = 0; 
   INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
+  INPUTS.SKIP_CHECK_CRAZYFLUX = 0;
 
   INPUTS.ZP_FLUXCAL = ZEROPOINT_FLUXCAL_DEFAULT ; // Jul 2025
 
@@ -1798,6 +1799,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ;
+  }
+  else if ( keyMatchSim(1, "SKIP_CHECK_CRAZYFLUX", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SKIP_CHECK_CRAZYFLUX) ;
   }
   else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%i", &INPUTS.APPEND_SNID_SEDINDEX) ; 
@@ -28076,6 +28080,8 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
 
   // ----------- BEGIN -----------
 
+  if ( INPUTS.SKIP_CHECK_CRAZYFLUX ) { return; } // Oct 8 2025 (for S.Thorp/BAYESN)
+
   // use 1/z^2 dependence on mag to set bounds for crazy flux abort;
   // account for exposure time (xt) and SIMLIB zeropoint (zptfac)
   // Also add 10 sigma of noise to allow for fluctuations.
@@ -32601,6 +32607,7 @@ void print_sim_help(void) {
     "GENPERFECT:  <mask>     # ideal sim; grep BITPERFECT snlc_sim.c | grep define",
     "RANSEED:  128473        # random seed",
     "DEBUG_FLAG: 0           # use this for development",
+    "SKIP_CHECK_CRAZYFLUX: 0 # set to 1 to skip crazycheck/abort (for debug only)",
     "",
     "# - - - - - -  CUTWIN - - - - - ",
     "APPLY_CUTWIN_OPT: 1   # apply cuts; see EPCUTWIN_ & CUTWIN_ in snana manual",

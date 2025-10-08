@@ -508,6 +508,8 @@ class LightCurveFit(Program):
         # specified in $SNDATA_ROOT/SIM/PATH_SNDATA_SIM.LIST
         # Finally, create output_dir/[VERSION] for each version ...
         # this is where merged table files end up.
+        #
+        # Oct 7 2025: fix to allow partial path versions e.g, DES-SN3YR/DES-SN3YR_LOWZ
 
         input_file      = self.config_yaml['args'].input_file 
         path_check_list = self.config_prep['path_check_list']
@@ -529,23 +531,29 @@ class LightCurveFit(Program):
         opt_validate  = OPT_VALIDATE_VERSION
         
         logging.info("\n Search for VERSION wildcards and paths: ")
+
         for v_tmp in version_list_tmp :  # may include wild cards
             found     = False
-            full_path = v_tmp[0] == '/'  # .xyz allow full path ??
 
-            for path in path_check_list :                    
-                v_list  = sorted(glob.glob(f"{path}/{v_tmp}"))
-                
+            for path in path_check_list :  
+                path_plus_v = f"{path}/{v_tmp}"
+                v_list  = sorted(glob.glob(path_plus_v))
+
+                # xxx mark print(f" xxx {path_plus_v} --> v_list = {v_list}") # .xyz
+
                 for v in v_list:
                     found   = True
                     version = os.path.basename(v)
-                    
+                    folder  = os.path.dirname(v)  # 10.07.2025
+
                     # avoid tar files and gz files
                     if '.tar' in v : continue
                     if '.gz'  in v : continue
 
                     validate,msg_status = \
-                        self.fit_validate_VERSION(opt_validate,path,version)
+                        self.fit_validate_VERSION(opt_validate, folder, version)
+                        # xxx mark self.fit_validate_VERSION(opt_validate, path, version)
+
                     msg = f"   Found VERSION {version}    {msg_status}"
                     logging.info(f"{msg}")
                     if validate is False :
@@ -625,7 +633,7 @@ class LightCurveFit(Program):
         validate      = True  # default is validation success
         string_status = ""    # no string needed for success
         readme_file = f"{path}/{version}/{version}.README"
-        
+
         # if no README file, it's a no-brainer failure
         if os.path.isfile(readme_file) is False :
             validate = False

@@ -514,7 +514,8 @@ struct INPUTS {
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
   int  APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
-
+  
+  int  SKIP_CHECK_CRAZYFLUX; // default is False, so this is for special debug only
   bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_BUGS_DES3YR;       // restore DES3YR bugs

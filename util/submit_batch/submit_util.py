@@ -28,24 +28,35 @@ def grep(path_list, key_list, verbose):
     # loop over all files in path_list;
     # grep each key in key_list;
     # Return number of keys found per file and total in all files.
+    #
+    # oct 78 2025: fix to avoid re-grepping grep message by checking for unique_symbol
 
     n_tot = 0
     n_list = [0] * len(key_list)
 
+    unique_symbol = '_@_'  # write this symbol in grep message to avoid grepping it later
+
     for fil in path_list:
         n_list_tmp = [0] * len(key_list)
-        with open(fil,"rt") as f:
-            for line in f:
-                for k, key in enumerate(key_list):
-                    if re.search(key, line):
-                        n_tot += 1
-                        n_list[k] += 1      # returned 
-                        n_list_tmp[k] += 1  # local for verbose print
 
-            for key, n in zip(key_list, n_list_tmp):
-                if n > 0 and verbose:
-                    base = os.path.basename(fil)
-                    logging.info(f" grep found {n} instances of '{key}' in {base} ")
+        # read lines from file that do NOT contain unique_symbol
+        line_list = []
+        with open(fil,"rt") as f:
+            for line in f:                
+                if len(line) > 0 and unique_symbol not in line: 
+                    line_list.append(line)
+
+        for line in line_list:
+            for k, key in enumerate(key_list):
+                if re.search(key, line):
+                    n_tot += 1
+                    n_list[k] += 1      # returned 
+                    n_list_tmp[k] += 1  # local for verbose print
+
+        for key, n in zip(key_list, n_list_tmp):
+            if n > 0 and verbose:
+                base = os.path.basename(fil)
+                logging.info(f"  {unique_symbol}  grep found {n} instances of '{key}' in {base} ")
 
     # - - - - - -
     return n_tot, n_list

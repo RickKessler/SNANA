@@ -415,7 +415,9 @@ int init_genmag_BAYESN(
   //     ST - update wavelength extrapolation behaviour
   //        - implements cubic Hermite spline to go beyond BayeSN
   //        - extrapolation should revert to Hsiao-like behaviour
-  //        - switched on with OPTMASK_BAYESN_WAVE_EXTRAP
+  //        - switched on with OPTMASK_BAYESN_WAVE_EXTRAP_0
+  // Oct 13 2025:
+  //     ST - more fine-grained control of extrapolation
 
   int  ised;
   int  retval = 0   ;
@@ -427,10 +429,10 @@ int init_genmag_BAYESN(
   print_banner(fnam);
   
   // extrac OPTMASK options
-  VERBOSE_BAYESN = optmask & OPTMASK_BAYESN_VERBOSE;
-  if (VERBOSE_BAYESN)
+  VERBOSE_BAYESN = optmask & (OPTMASK_BAYESN_VERBOSE + OPTMASK_BAYESN_SUPER_VERBOSE);
+  if (VERBOSE_BAYESN > 0)
     {
-      printf("DEBUG: VERBOSE_BAYESN flag is set\n");
+      printf("DEBUG: VERBOSE_BAYESN flag is set to %d\n", VERBOSE_BAYESN);
       printf("DEBUG: %s MODEL_VERSION=%s\n", fnam, MODEL_VERSION);
     }
 
@@ -457,29 +459,25 @@ int init_genmag_BAYESN(
     ENABLE_SCATTER_BAYESN = (optmask & OPTMASK_BAYESN_SCATTER_ALL);
   }
 
-
   // R.Kessler Aug 20 2025: check for generic test flag for devel only; not for production
   ENABLE_TEST_BAYESN = (optmask & OPTMASK_BAYESN_TEST); 
-  // S.Thorp Sep 17 2025: check if wavelength extrapolation to be included
-  ENABLE_WAVE_EXTRAP_BAYESN = (optmask & OPTMASK_BAYESN_WAVE_EXTRAP);
-  // S.Thorp Oct 1 2025: check some extrapolation flags
+  // S.Thorp Oct 13 2025: check some extrapolation flags
   // hopefully we can sanitize this a bit when a definitive strategy is decided
-  TIME_EXTRAP_MODE_BAYESN = 0; // default to linear extrapolation of W
-  WAVE_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_FLAT_EXTRAP; // default to flat W
-  if (optmask & OPTMASK_BAYESN_ZERO_EXTRAP) {
-    // sanity check to abort on confusing input
-    if (optmask & OPTMASK_BAYESN_FLAT_EXTRAP) {
-      sprintf(c1err, "Ambiguous extrapolation requested with OPTMASK=%d", 
-	      optmask );
-      sprintf(c2err, "Only one of bits %d and %d can be set",
-              OPTMASK_BAYESN_ZERO_EXTRAP, OPTMASK_BAYESN_FLAT_EXTRAP);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    TIME_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_ZERO_EXTRAP;
-    WAVE_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_ZERO_EXTRAP;
-  } else if (optmask & OPTMASK_BAYESN_FLAT_EXTRAP) {
-    TIME_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_FLAT_EXTRAP;
-    WAVE_EXTRAP_MODE_BAYESN = OPTMASK_BAYESN_FLAT_EXTRAP;
+  TIME_EXTRAP_MODE_BAYESN = optmask & (OPTMASK_BAYESN_TIME_EXTRAP_0 + OPTMASK_BAYESN_TIME_EXTRAP_W);
+  WAVE_EXTRAP_MODE_BAYESN = optmask & (OPTMASK_BAYESN_WAVE_EXTRAP_0 + OPTMASK_BAYESN_WAVE_EXTRAP_W); 
+
+  // sanity check to abort on confusing input
+  if (TIME_EXTRAP_MODE_BAYESN > OPTMASK_BAYESN_TIME_EXTRAP_W) {
+    sprintf(c1err, "Ambiguous time extrapolation requested with OPTMASK=%d", optmask);
+    sprintf(c2err, "Only one of bits %d and %d can be set",
+          OPTMASK_BAYESN_TIME_EXTRAP_0, OPTMASK_BAYESN_TIME_EXTRAP_W);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  if (WAVE_EXTRAP_MODE_BAYESN > OPTMASK_BAYESN_WAVE_EXTRAP_W) {
+    sprintf(c1err, "Ambiguous wavelength extrapolation requested with OPTMASK=%d", optmask);
+    sprintf(c2err, "Only one of bits %d and %d can be set",
+          OPTMASK_BAYESN_WAVE_EXTRAP_0, OPTMASK_BAYESN_WAVE_EXTRAP_W);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   // print the scatter flag we ended up with
@@ -491,7 +489,7 @@ int init_genmag_BAYESN(
 
   // print the extrapolation flags we ended up with
   printf("TIME_EXTRAP_MODE_BAYESN=%d\n", TIME_EXTRAP_MODE_BAYESN);
-  if (ENABLE_WAVE_EXTRAP_BAYESN) {
+  if (WAVE_EXTRAP_MODE_BAYESN > 0) {
     printf("WAVE_EXTRAP_MODE_BAYESN=%d\n", WAVE_EXTRAP_MODE_BAYESN);
   } else {
     printf("WAVE_EXTRAP disabled\n");
@@ -519,7 +517,7 @@ int init_genmag_BAYESN(
   double Tupper    =  85.0 ; // formerly BAYESN_MODEL_INFO.tau_knots[BAYESN_MODEL_INFO.n_tau_knots-1] ;
   // ST - I've modified this further to load the full wavelength range when requested
   double Llower, Lupper;
-  if (ENABLE_WAVE_EXTRAP_BAYESN) {
+  if (WAVE_EXTRAP_MODE_BAYESN > 0) {
       Llower =  1000.0 ; // lower edge of Hsiao07
       Lupper = 25000.0 ; // upper edge of Hsiao07
   } else {
@@ -545,12 +543,12 @@ int init_genmag_BAYESN(
   filtdump_SEDMODEL();
 
   // rest-frame wavelength range of SED
-  // now allows extension beyond spline knots if ENABLE_WAVE_EXTRAP_BAYESN
+  // now allows extension beyond spline knots if WAVE_EXTRAP_MODE_BAYESN > 0
   SEDMODEL.LAMMIN_ALL      = Llower ;
   SEDMODEL.LAMMAX_ALL      = Lupper ;
   // rest-frame central wavelength range allowed for filters
-  // now allows extension beyond spline knots if ENABLE_WAVE_EXTRAP_BAYESN
-  if (ENABLE_WAVE_EXTRAP_BAYESN) {
+  // now allows extension beyond spline knots if WAVE_EXTRAP_MODE_BAYESN > 0
+  if (WAVE_EXTRAP_MODE_BAYESN > 0) {
       SEDMODEL.RESTLAMMIN_FILTERCEN =  Llower + 1000.0 ; //  2000 Angstroms
       SEDMODEL.RESTLAMMAX_FILTERCEN =  Lupper - 1500.0 ; // 23500 Angstroms
   } else {
@@ -575,7 +573,7 @@ int init_genmag_BAYESN(
 					      ,BAYESN_MODEL_INFO.S0.LAM
 					      ,BAYESN_MODEL_INFO.lam_knots
 					      ,BAYESN_MODEL_INFO.KD_lam
-                          ,WAVE_EXTRAP_MODE_BAYESN);
+                          ,WAVE_EXTRAP_MODE_BAYESN/OPTMASK_BAYESN_WAVE_EXTRAP_0);
 
   // allocate memory for epsilon (which will keep being overwritten)
   // the genEPSILON_BAYESN() function will update this when it gets
@@ -779,7 +777,7 @@ void genmag_BAYESN(
   // compute the matrix for time interpolation
   J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots, Trest_list,
 			    BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau, 
-                TIME_EXTRAP_MODE_BAYESN);
+                TIME_EXTRAP_MODE_BAYESN/OPTMASK_BAYESN_TIME_EXTRAP_0);
 
   // compute W0 + THETA*W1 + EPSILON
   int wx, wy;
@@ -935,12 +933,12 @@ void genmag_BAYESN(
   } // end second o loop over Nobs bins
   
   if (VERBOSE_BAYESN > 0) {
-    printf("DEBUG: Printing phases\n");
+    printf("DEBUG: Printing phases %s\n", cfilt);
     for (o = 0; o < Nobs; o++) { 
       printf("%.2f, ",Trest_list[o]);
     }
     printf("\n");
-    printf("DEBUG: Printing lightcurve\n");
+    printf("DEBUG: Printing lightcurve %s\n", cfilt);
     for (o = 0; o < Nobs; o++) { 
       printf("%.2f, ",magobs_list[o]);
     }
@@ -1159,7 +1157,9 @@ gsl_matrix * spline_coeffs_irr(
         ,gsl_matrix * invKD  // (I) K^{-1}D matrix
         ,int          extrap // (I) Flag to change extrapolation mode
 ) {
-
+    // extrap==0 -> linear extrapolation
+    // extrap==1 -> smooth reversion to zero
+    // extrap==2 -> smooth flattening
     gsl_matrix * J = gsl_matrix_alloc(N, Nk); 
     gsl_matrix_set_zero(J);
 
@@ -1183,11 +1183,11 @@ gsl_matrix * spline_coeffs_irr(
             } else { //  hermite  //
                 xu = 2*xk[Nk-1] - xk[Nk-2];
                 if (x[i] < xu) {
-                    t = (x[i] - xk[Nk-1])/(xu - x[Nk-1]);
+                    t = (x[i] - xk[Nk-1])/(xu - xk[Nk-1]);
                     r = (xu - xk[Nk-1])/(xk[Nk-1] - xk[Nk-2]);
                     t2 = t*t;
                     t3 = t2*t;
-                    if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                    if (extrap == 2) {
                         h0 = 1.0;
                     } else { 
                         h0 = 2.0*t3 - 3.0*t2 + 1.0;
@@ -1201,7 +1201,7 @@ gsl_matrix * spline_coeffs_irr(
                         gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
                                                 + h1*f*gsl_matrix_get(invKD, Nk-2, j));
                     }
-                } else if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                } else if (extrap == 2) {
                     gsl_matrix_set(J, i, Nk-1,  1.0);
                 } // else leave it at 0
             }
@@ -1225,7 +1225,7 @@ gsl_matrix * spline_coeffs_irr(
                     r = (xk[0] - xl)/(xk[1] - xk[0]);
                     t2 = t*t;
                     t3 = t2*t;
-                    if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                    if (extrap == 2) {
                         h0 = 1.0;
                     } else {
                         h0 = -2.0*t3 + 3.0*t2;
@@ -1239,7 +1239,7 @@ gsl_matrix * spline_coeffs_irr(
                         gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j)
                                                 + h1*f*gsl_matrix_get(invKD, 1, j));
                     }
-                } else if (extrap == OPTMASK_BAYESN_FLAT_EXTRAP) {
+                } else if (extrap == 2) {
                     gsl_matrix_set(J, i, 0, 1.0);
                 } // else leave it at 0
             }
@@ -1265,7 +1265,17 @@ gsl_matrix * spline_coeffs_irr(
             }
         }
     }
-  
+
+    if (VERBOSE_BAYESN > OPTMASK_BAYESN_VERBOSE) {
+        for (i=0; i<N; i++) {
+            printf("DEBUG: x[i] = %.3f; J[i] = ", x[i]);
+            for (j=0; j<Nk; j++) {
+                printf("%.3f, ", gsl_matrix_get(J, i, j));
+            }
+            printf("\n");
+        }
+        printf("\n\n");
+    }
     return J;
 
 } // end spline_coeffs_irr 

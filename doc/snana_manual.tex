@@ -11964,6 +11964,11 @@ to disable these keys,
 \label{subsec:bayesn}
 References: K.~S.\ Mandel et al., {\bf MNRAS 510}, 3939 (2022); S.\ Thorp et al., {\bf MNRAS 508}, 4310 (2021); M.\ Grayling et al., {\bf MNRAS 531}, 953 (2024). \cite{Mandel2022, Thorp2021, Grayling2024}.
 
+The \BAYESN\ SED model is based on the Hsiao template \cite{Hsiao2007}, modified by a
+$t$- and $\lambda$-dependent warping surface $\propto 10^{-0.4 W(t,\lambda)}$, and extinguished by dust.
+Extrapolation of a \BAYESN\ model outside its defined phase and wavelength range is achieved
+by extrapolating $W(t,\lambda)$.
+
 Note that host-galaxy extinction parameters (for $A_V$,$R_V$) 
 are required from \S\ref{subsec:host_extinct}. The form of the host-galaxy
 dust extinction curve will be inherited from the Milky-Way color law.
@@ -11991,16 +11996,34 @@ are as follows:
    component of the \BAYESN\ residual scatter model.
   \item \verb!GENMODEL_MSKOPT+=4!: Enable the gray ($\delta_M$) component of the
    \BAYESN\ residual scatter model.
+  \item \verb!GENMODEL_MSKOPT+=32!: Enable extrapolation beyond the \BAYESN\ phase range
+   by setting $W(t,\lambda) \to 0$. This reverts to the Hsiao template.
+  \item \verb!GENMODEL_MSKOPT+=64!: Enable extrapolation beyond the \BAYESN\ phase range
+   by setting $W(t,\lambda) \to W(t_\mathrm{edge},\lambda)$. This gives Hsiao-like behavior,
+   but re-normalized to minimize any jumps in magnitude.
   \item \verb!GENMODEL_MSKOPT+=128!: Enable a ``verbose'' mode for debugging purposes.
-  \item \verb!GENMODEL_MSKOPT+=256!: Enable an experimental wavelength extrapolation that uses
-  a cubic Hermite spline to revert to the Hsiao \cite{Hsiao2007} template outside of the \BAYESN
-  wavelength range.
+  \item \verb!GENMODEL_MSKOPT+=256!: Enable a ``super verbose'' mode for debugging splines.
+  \item \verb!GENMODEL_MSKOPT+=512!: Enable extrapolation beyond the \BAYESN\ wavelength range
+   by setting $W(t,\lambda) \to 0$. This reverts to the Hsiao template.
+  \item \verb!GENMODEL_MSKOPT+=1024!: Enable extrapolation beyond the \BAYESN\ wavelength range
+   by setting $W(t,\lambda) \to W(t,\lambda_\mathrm{edge})$. This reverts to the Hsiao template, re-scaled
+   to match the normalization of the \BAYESN\ model at the edge of its defined wavelength range.
   \item \verb!GENMODEL_MSKOPT+=2048!: Generic development mask for testing new code.
 \end{itemize}
 Multiple bits can be combined, when this is unambiguous. For example, \verb!GENMODEL_MSKOPT=6!
 would enable both components of the residual scatter model (equivalent to 
 \verb!GENMODEL_MSKOPT=1!). An ambiguous combination of bits will cause the program
 to abort.
+
+Please note that extrapolation in wavelength, or by $>10$~d in phase, is not recommended in most
+circumstances. Without setting any of the extrapolation-related \verb!GENMODEL_MSKOPT! bits, the
+model will \emph{not} be extrapolated in wavelength, and will be extended in phase by linearly
+extrapolating $W(t,\lambda)$. This phase-dependent extrapolation can lead to surprising results
+(e.g.\ re-brightening at late times) if pushed too far! If extensive extrapolation of the model is
+needed, setting \verb!GENMODEL_MSKOPT=576! is probably the best option, but this is experimental
+and should be used with caution!
+It is currently not possible to extrapolate beyond the phase ($t\in[-20,85]$~d) 
+and wavelength ($\lambda\in[1000,25000]$~\AA) ranges of the Hsiao \cite{Hsiao2007} template.
 
 % ------------------------
 \clearpage

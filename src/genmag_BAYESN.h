@@ -103,11 +103,11 @@ int     TIME_EXTRAP_MODE_BAYESN;           // ST (Oct 1  2025)
 #define OPTMASK_BAYESN_DELTAM          4    // enable only the gray (DELTAM) scatter
 #define OPTMASK_BAYESN_SCATTER_ALL     6    // 2+4 = sum of all non-default scatter bits
 #define OPTMASK_BAYESN_TIME_EXTRAP_0   32   // extrapolate in time by reverting to Hsiao [W(t)=0]
-#define OPTMASK_BAYESN_TIME_EXTRAP_W   64   // extrapolate in time w/ renormalized Hsiao [W(t)=W_N]
+#define OPTMASK_BAYESN_TIME_EXTRAP_W   64   // extrapolate in time w/ renormalized Hsiao [W(t)=const.]
 #define OPTMASK_BAYESN_VERBOSE         128  // verbose mode (prints light curves and DEBUG info)
 #define OPTMASK_BAYESN_SUPER_VERBOSE   256  // doubly verbose mode (prints spline matrices)
 #define OPTMASK_BAYESN_WAVE_EXTRAP_0   512  // extrapolate in wavelength [W(lam)=0]
-#define OPTMASK_BAYESN_WAVE_EXTRAP_W   1024 // extrapolate in wavelength [W(lam)=W_N]
+#define OPTMASK_BAYESN_WAVE_EXTRAP_W   1024 // extrapolate in wavelength [W(lam)=const.]
 #define OPTMASK_BAYESN_TEST            2048 // generic mask to test new code (Aug 2025)
 
 #define MXHOSTPAR_BAYESN 20                 // max number of host params 

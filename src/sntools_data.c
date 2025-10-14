@@ -1607,6 +1607,8 @@ void rd_override_zphot_q(int OPT) {
   // Input:
   //  OPT=1 --> init by determining NZPHOT_Q and PERCENTILES
   //  OPT=2 --> read zphot_q values
+  //
+  // Oct 14 2025: abort on mis-match number of quantiles in override file.
 
   int  NZPHOT_Q, PCT, q, LEN_PREFIX ;
   char PREFIX[60], *varName, STRDUM[60] ;
@@ -1643,7 +1645,7 @@ void rd_override_zphot_q(int OPT) {
     double zq, d_nzphot_q;
     int    IGAL = 0, OVERRIDE_NZPHOT_Q ;
     char   *CCID  =  SNDATA.CCID;
-    long long int GALID =  SNDATA.HOSTGAL_OBJID[0];
+    long long int GALID = SNDATA.HOSTGAL_OBJID[0];
     NZPHOT_Q = RD_OVERRIDE.NZPHOT_Q ;
     SNDATA.HOSTGAL_NZPHOT_Q = NZPHOT_Q ;
 
@@ -1652,13 +1654,18 @@ void rd_override_zphot_q(int OPT) {
     RD_OVERRIDE_FETCH(CCID, GALID, STRING_NZPHOT_Q, &d_nzphot_q, STRDUM ) ;
     OVERRIDE_NZPHOT_Q = (int)d_nzphot_q ;
 
+    if ( OVERRIDE_NZPHOT_Q != NZPHOT_Q ) {
+      sprintf(c1err,"Expected NZPHOT_Q=%d quantiles but found %d",
+	      OVERRIDE_NZPHOT_Q, NZPHOT_Q);
+      sprintf(c2err,"Check quantile override file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+    }
+
     for(q=0; q < NZPHOT_Q; q++ ) {
       zq = -9.0 ;
-      if ( OVERRIDE_NZPHOT_Q == NZPHOT_Q ) {
-	varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
-	RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq
-      }
-      
+      varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
+      RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq      
       SNDATA.HOSTGAL_ZPHOT_Q[IGAL][q] = zq ;
     }
 

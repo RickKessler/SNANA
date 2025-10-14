@@ -411,7 +411,8 @@ class Program:
             f.write(f"  because \n")
             f.write(f"  {comment}\n")
 
-        util.write_done_stamp(output_dir, done_list, STRING_STOP)
+        # xxx mark util.write_done_stamp(output_dir, done_list, STRING_STOP)
+        util.write_done_stamp(output_dir, done_list, STRING_FAIL)
 
         # - - - - - - - - - 
         if IS_SSH :

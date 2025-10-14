@@ -3107,6 +3107,8 @@ c Created May 2023
 c Wrapper to call C-function RD_OVERRIDE_INIT
 c
 c Oct 2023: pass REQ_DOC=1 to require DOCANA.
+c Oct 2025: require ISDATA=T to read HEADER_OVERRIDE_FILE, and require 
+c           LSIM_SNANA=T to read SIM_HEADER_OVERRIDE_FILE
 c
 
       IMPLICIT NONE
@@ -3114,6 +3116,7 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
       INTEGER LENF_DATA, LENF_SIM, LEN_PRIV, REQ_DOC
+      LOGICAL ISDATA
       CHARACTER STR_TMP*(10*MXCHAR_FILENAME)
 
 C ------------ BEGIN -----------
@@ -3123,7 +3126,9 @@ C ------------ BEGIN -----------
 
       LENF_DATA = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
       LENF_SIM  = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1
-      IF ( LENF_DATA > 0 .AND. LSIM_SNANA ) THEN
+      ISDATA    = .NOT. LSIM_SNANA
+
+      IF ( LENF_DATA > 0 .AND. LENF_SIM == 0 .AND. LSIM_SNANA ) THEN
           print*,' '
           print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
           print*,'    WARNING: HEADER_OVERRIDE_FILE ignored for sim'
@@ -3133,11 +3138,11 @@ C ------------ BEGIN -----------
 
       REQ_DOC = 1  ! require DOCANA
 
-      IF ( LENF_DATA > 0 ) THEN
+      IF ( LENF_DATA > 0 .AND. ISDATA ) THEN
        STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
        CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_DATA)
       ENDIF
-      IF ( LENF_SIM > 0 ) THEN
+      IF ( LENF_SIM > 0 .AND. LSIM_SNANA ) THEN
         STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
         CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_SIM)
       ENDIF
@@ -3452,7 +3457,7 @@ c read global info and store in SNDATA struct in sndata.h
 
 c read SNDATA struct and tranfer global info to fortran variables
       if ( LRDFLAG_GLOBAL .OR. IVERS > 1 ) then
-         CALL INIT_READ_OVERRIDE()      ! May 2023         
+c xxx mark Oct 2025         CALL INIT_READ_OVERRIDE()      ! May 2023     
          CALL RDGLOBAL_DRIVER()
          CALL INIT_SURVEY(NSN_VERS)     ! init a few things
          IF ( LRDFLAG_GLOBAL ) RETURN
@@ -3723,6 +3728,8 @@ c Apr 24 2021: read SIM_BIASCOR_MASK
 c Oct 08 2021: read SIM_MODEL_INDEX
 c Dec 02 2022: fix subtle (harmless?) bug setting ISCORRECT_SIGN_VPEC
 c Jul 23 2025: read ZP_FLUXCAL
+c Oct 14 2025: call INIT_READ_OVERRIDE after LSIM_SNANA is set (instead of before RDGLOBAL)
+
 
       IMPLICIT NONE
 
@@ -3792,6 +3799,9 @@ c Mar 2022: check option to re-write sims to look like real data
           LSIM_SNANA = .FALSE.
           DATATYPE   = 'DATA'
       ENDIF
+
+c check HEADER_OVERRIDE here after LSIM_SNANA is set
+      CALL INIT_READ_OVERRIDE()         
 
       ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
 
@@ -4674,6 +4684,7 @@ c read ZPHOT_Q (May 2022)
 c          print*,' xxx ------------------------------------------- '
 c          print*,' xxx CID ,igal = ', SNLC_CCID, igal
 c          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
+c          call flush(6) ! .xyz
       endif      
 
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
@@ -10942,6 +10953,8 @@ c   + MJD_DETECT_LAST    # idem
 c   
 c   + MWMAGCOR_[band]  # Nov 2023
 c   + BAND name        # Apr 2025
+c
+c   + photo-z quantiles  # Oct 14 2025
 c -------------
 
       IMPLICIT NONE
@@ -10953,7 +10966,7 @@ c -------------
 +CDE,FITSCOM.
 
       INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
-      INTEGER IFILT, IFILT_OBS, LEN_SURVEY
+      INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ, q, igal
       REAL*8 DVAL(MXEPOCH)
       CHARACTER cKEY*20, cSTRING*20, cfilt*2
       EXTERNAL COPY_SNDATA_HEAD
@@ -11032,6 +11045,18 @@ c VPEC
       DVAL(1)  = DBLE(SNLC_VPEC_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+c Oct 2025: photo-z quantiles .xyz
+      NQ = SNHOST_NZPHOT_Q
+      IF ( NQ > 0 ) THEN
+        IGAL = 1
+        do q = 1, NQ
+           cKEY    = VARNAME_ZPHOT_Q(IGAL,q) // char(0)
+           DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q) 
+           CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+        enddo
+      ENDIF
 
 c check option to exclude PRIVATE variables from output.
 c Do NOT modify NVAR_PRIVATE.
@@ -17889,7 +17914,7 @@ c
 C -------------- BEGIN ----------
 
       if ( USESIM_REDSHIFT ) then  ! Aug 23 2025
-         SNLC_REDSHIFT = SIM_REDSHIFT_HELIO  ! .xyz
+         SNLC_REDSHIFT = SIM_REDSHIFT_HELIO  
          SNLC_zHELIO   = SIM_REDSHIFT_HELIO
          SNLC_zCMB     = SIM_REDSHIFT_CMB
          return
@@ -24352,8 +24377,7 @@ c  * sntable_dump extraction will write real*8 as integer.
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(IGAL), 
      &               VARLIST,ITEXT,    LENBLOCK, 40 )
 
-c     XYZ
-
+c   
       if(SNHOST_NZPHOT_Q > 0) then  
         VARLIST =  PREFIX(1:LP) // 'QZPHOT:F' // char(0)  
       	    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_MEAN(IGAL), 

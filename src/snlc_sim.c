@@ -259,13 +259,6 @@ int main(int argc, char **argv) {
 
     if ( GENLC.STOPGEN_FLAG ) { NGENEV_TOT--;  goto ENDLOOP ; }
     
-    /* xxx mark delete May 27 2025: move this below after NGENLC_TOT++ 
-    if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
-      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "NEPOCH");
-      goto GENEFF; 
-    }
-    xxxxxxxxx */
-
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("03", ilc) ; }
 
     // build filter-maps & logical after shapepar in case
@@ -303,7 +296,7 @@ int main(int argc, char **argv) {
       goto GENEFF; 
     }
 
-    // now check zHOST-dependent efficiency (Dec 1 2017)
+    // now check zHOST-dependent efficiency (Dec 1 2017)   .xyz
     if ( gen_TRIGGER_zHOST() == 0 ) { 
       gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "SEARCHEFF");
       goto GENEFF; 
@@ -312,13 +305,6 @@ int main(int argc, char **argv) {
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("07", ilc) ; }
     GENMAG_DRIVER();   // July 2016
-
-    /* xxxx mark del May 26 2025 xxxxxxx
-    if ( GENMAG_CUT() == 0  ) {
-      gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "GENMAG");
-      goto GENEFF;
-    }
-    xxxxxxxx end mark xxxx */
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("08", ilc) ; }
 

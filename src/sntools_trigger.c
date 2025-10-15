@@ -2679,7 +2679,14 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
 
   *EFF_zHOST = 0.0 ; // init return arg
 
-  if ( USE_HOSTLIB && SNHOSTGAL.NNBR_DDLRCUT == 0 ) { return 0; }
+  if ( INPUTS_SEARCHEFF.RESTORE_DES5YR ) {
+    // restore D5YR bug by ignoring hostless events
+  }
+  else {
+    // implement host-less fix Oct 15 2025 
+    // (original motivation: for DESC all photo-z/re-analysis of DES-SN5YR)
+    if ( USE_HOSTLIB && SNHOSTGAL.NNBR_DDLRCUT == 0 ) { return 0; }
+  }
 
   // check debug option
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {

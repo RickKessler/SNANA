@@ -65,7 +65,6 @@
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
 #define DETECT_MASK_PHOTPROB    4  // detect mask for PHOTPROB
 
-// xxx mark delete Sep 1 2023   #define MXOBS_TRIGGER 10*MXEPOCH 
 #define MXOBS_TRIGGER  MXEPOCH 
 
 // define allowed variables to use in PHOTPROB map
@@ -75,6 +74,7 @@
 #define IVARABS_PHOTPROB_REDSHIFT  3  // Feb 14 2020
 #define IVARABS_PHOTPROB_GALMAG    4  // Feb 16 2020
 #define MXDEF_VARNAMES_PHOTPROB    5
+
 
 char COMMENT_README_SEARCHEFF[2][200];
 
@@ -145,6 +145,8 @@ struct  {
   int    FUNEFF_DEBUG ;  
 
   int  OPTMASK_OPENFILE ;
+
+  int RESTORE_DES5YR; // Oct 15 2025
 
 } INPUTS_SEARCHEFF ;
 

@@ -709,6 +709,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
+  INPUTS_SEARCHEFF.RESTORE_DES5YR = 0 ; // Oct 15 2025
 
   NLINE_RATE_INFO   = 0;
 
@@ -1796,6 +1797,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - - -
   else if ( keyMatchSim(1, "RESTORE_DES5YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.RESTORE_DES5YR);   // May 28 2025
+    INPUTS_SEARCHEFF.RESTORE_DES5YR = INPUTS.RESTORE_DES5YR; // Oct 15 2025
   }
   else if ( keyMatchSim(1, "RESTORE_BUGS_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  

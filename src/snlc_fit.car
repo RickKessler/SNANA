@@ -2053,7 +2053,7 @@ c reset DROPFILTER array in first iteration only
 
 c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           MASK_PHOTOZ_SOURCE = 0
-           
+          
           LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
           LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
           LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
@@ -8931,11 +8931,11 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
       
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
-         LDMP_Q = .false.  ! RK - control debug dump with  flag
-
+        LDMP_Q = .false.  ! RK - control debug dump with  flag
         if ( LDMP_Q ) then
             Print *, ' xxx Start init_zPDF_quantile for CID=', SNLC_CCID
         endif
+
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
             c2err = 'but there are no zPDF quantiles in the data.'
@@ -8964,19 +8964,12 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
         SNHOST_QZPHOT_STD(1)  = STD 
 
-c xxxxx mark xxx
-c        REDSHIFT_FIT          = MEAN 
-c        SNHOST_ZPHOT(1)       = MEAN ! Apr 22 2025
-c        SNHOST_ZPHOT_ERR(1)   = STD  ! Apr 22 2025
-c xxxxxxxxxxx
-
         if ( LDMP_Q ) then
            Print *, ' xxx Finished init_zPDF_spline for CID=', SNLC_CCID 
            call flush(6)
         endif
 
 c     initialize at Q50
-c xxx mark 4.22.2025   INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)  ! Fragile alert !!! 
           INIVAL(ipar) = MEAN    
           if ( LEGACY ) LZDONE       = .TRUE.
           CZTMP        = 'QUANTILES'

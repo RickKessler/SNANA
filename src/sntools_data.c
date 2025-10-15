@@ -577,6 +577,13 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	}
       }
     }
+
+    else if ( strcmp(key,"SIM_SNHOST_DDLR") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_SNHOST_DDLR) ; }   // Oct 2025
+
+    else if ( strcmp(key,"SIM_SNHOST_SEP") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_SNHOST_SEP) ; }    // Oct 2025
+
     else if ( strcmp(key,"SIM_DLMU") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_DLMU) ; }  
 
@@ -1608,7 +1615,10 @@ void rd_override_zphot_q(int OPT) {
   //  OPT=1 --> init by determining NZPHOT_Q and PERCENTILES
   //  OPT=2 --> read zphot_q values
   //
-  // Oct 14 2025: abort on mis-match number of quantiles in override file.
+  // Oct 14 2025: 
+  //  + abort on mis-match number of quantiles in override file.
+  //  + if override NZPHOT_Q = 0 (missing override), set all quantile values
+  //    to -9 so that mean redshift is negative and fails CUTWIN_REDSHIFT cut.
 
   int  NZPHOT_Q, PCT, q, LEN_PREFIX ;
   char PREFIX[60], *varName, STRDUM[60] ;
@@ -1642,11 +1652,13 @@ void rd_override_zphot_q(int OPT) {
 
   } 
   else if ( OPT == 2 ) {
-    double zq, d_nzphot_q;
+    double zq, d_nzphot_q = 0.0, zq_null = -9.0 ;
     int    IGAL = 0, OVERRIDE_NZPHOT_Q ;
     char   *CCID  =  SNDATA.CCID;
     long long int GALID = SNDATA.HOSTGAL_OBJID[0];
-    NZPHOT_Q = RD_OVERRIDE.NZPHOT_Q ;
+    bool MISSING_Q = false;
+
+    NZPHOT_Q                = RD_OVERRIDE.NZPHOT_Q ;
     SNDATA.HOSTGAL_NZPHOT_Q = NZPHOT_Q ;
 
     // check if NZPHOT_Q in override file matches number of
@@ -1654,22 +1666,28 @@ void rd_override_zphot_q(int OPT) {
     RD_OVERRIDE_FETCH(CCID, GALID, STRING_NZPHOT_Q, &d_nzphot_q, STRDUM ) ;
     OVERRIDE_NZPHOT_Q = (int)d_nzphot_q ;
 
-    if ( OVERRIDE_NZPHOT_Q != NZPHOT_Q ) {
-      sprintf(c1err,"Expected NZPHOT_Q=%d quantiles but found %d",
-	      OVERRIDE_NZPHOT_Q, NZPHOT_Q);
-      sprintf(c2err,"Check quantile override file.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    if ( OVERRIDE_NZPHOT_Q == 0 ) {
+      MISSING_Q = true;
+      OVERRIDE_NZPHOT_Q = NZPHOT_Q;  // force correct number of quantiles to have null values
+    }
 
+    if ( OVERRIDE_NZPHOT_Q != NZPHOT_Q ) {
+      sprintf(c1err,"Override NZPHOT_Q=%d but there are %d HOSTGAL_ZPHOT_Q* override columns",
+	      OVERRIDE_NZPHOT_Q, NZPHOT_Q );
+      sprintf(c2err,"Check quantile override file: CID=%s  GALID=%lld", CCID, GALID);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     for(q=0; q < NZPHOT_Q; q++ ) {
-      zq = -9.0 ;
-      varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
-      RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq      
+      zq = zq_null ;
+      if ( !MISSING_Q ) {
+	varName = RD_OVERRIDE.VARLIST_ZPHOT_Q[q];
+	RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq      
+      }
       SNDATA.HOSTGAL_ZPHOT_Q[IGAL][q] = zq ;
     }
 
-  }
+  }  // end OPT if block
 
   return ;
 

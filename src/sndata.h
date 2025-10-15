@@ -428,7 +428,7 @@ struct SNDATA {
   float SIM_ANGSEP_GROUPID;  // ang-sep between SIMLIB and HOSTLIB coord (GROUPID only)
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
-  //  float     SIM_HOSTLIB_DDLR  ; // true DDLR
+  float     SIM_SNHOST_DDLR, SIM_SNHOST_SEP  ; // true DDLR and SN-HOST sep (Oct 15 2025)
 
   // - - - - -
   float SIM_RISETIME_SHIFT;    // rise time shift relative to model

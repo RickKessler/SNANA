@@ -25502,6 +25502,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     // associated OBS and ERR to it's "HOSTLESS" value (e.g., -9) rather
     // than -9999 for "not exist" -> so that analysis codes aren't fooled
     // into ignoring the property.
+    SNDATA.SIM_SNHOST_DDLR = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE_SORT].DDLR;
+    SNDATA.SIM_SNHOST_SEP  = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE_SORT].SNSEP;
+
     if ( NMATCH2 == 0 && IMATCH_TRUE_SORT >= 0 ) { 
       m = 0 ;
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 

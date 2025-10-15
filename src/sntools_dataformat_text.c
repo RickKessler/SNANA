@@ -328,6 +328,11 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 	    SNDATA.SIM_ANGSEP_GROUPID);
   }
 
+  fprintf(fp,"SIM_SNHOST_DDLR:      %.3f  # DLR/SEP \n",
+	  SNDATA.SIM_SNHOST_DDLR);
+  fprintf(fp,"SIM_SNHOST_SEP:      %.3f   # arcsec \n",
+	  SNDATA.SIM_SNHOST_SEP);
+
   fprintf(fp, "SIM_DLMU:            %.4f   # mag   [ -5*log10(10pc/dL) ]\n", 
 	  SNDATA.SIM_DLMU );
 

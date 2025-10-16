@@ -23247,6 +23247,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v11_06b) *****
 
+     snlc_sim.c  do not allow zSPEC for host-less events:
+         https://github.com/RickKessler/SNANA/issues/1564
+
        
          *****  USEFUL(v11_06b) *****
 

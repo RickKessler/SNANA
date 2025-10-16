@@ -1,4 +1,3 @@
-
 /******************************************* 
   snlc_sim:  Mar 2006: Created by R.Kessler
              Apr 2007: Remove SQL dependencies for public usage. 
@@ -15053,7 +15052,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || 
 		      INPUTS.USE_SIMLIB_TAKE_SPECTRUM || 
-		      INPUTS.USE_SIMLIB_SPECTROGRAPH ) ;
+		      INPUTS.USE_SIMLIB_SPECTROGRAPH  ||
+		      INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0. ) ;
 
   if ( !IS_SPECTRA ) { return; }
   

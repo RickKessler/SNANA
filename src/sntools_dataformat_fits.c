@@ -3047,7 +3047,9 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // MSKOPT & 1 : return istat after checking if in fits-format
   //              ==> don't open/read the tables
   //
-  // MSKOPT & 2 : read header only; do NOT open first PHOT file
+  // MSKOPT & 2 : NEVT, then read header only; do NOT open first PHOT file
+  //
+  // MSKOPT & 64 : for speed, read only first file gor GETINFO option in snana (Oct 2025)
   //
   // MSKOPT & 128 : ignore SPEC.FITS table  (July 2025)
   // MSKOPT & 256 : ignore sim-truth; treat like real data  (Mar 2022)
@@ -3127,7 +3129,11 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // Close each file after reading the NAXIS2 key.
 
   int photflag_open=0,  vbose=0;
-  for (ifile = 1; ifile <= NFILE_RD_SNFITSIO; ifile++ ) {
+  int NFILE_RD = NFILE_RD_SNFITSIO;
+  bool LRD1 = ( (MSKOPT & 64) > 0 ); 
+  if ( LRD1 ) { NFILE_RD=1; }
+
+  for (ifile = 1; ifile <= NFILE_RD; ifile++ ) {
 
     rd_snfitsio_open(ifile, photflag_open,vbose); // open and read 
 
@@ -3137,6 +3143,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     rd_snfitsFile_close(ifile, ITYPE_SNFITSIO_HEAD );
   }
 
+  if ( LRD1 ) { return 0; }
 
   // open and read the first HEADER file ; do not open PHOT file
   if ( (MSKOPT & 2) == 0 ) {  

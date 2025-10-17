@@ -3436,6 +3436,7 @@ c read global info and store in SNDATA struct in sndata.h
          IF ( LRDFLAG_GLOBAL )          OPTRD = OPTRD + 2
          IF ( .NOT. LRDFLAG_SPEC      ) OPTRD = OPTRD + 128  ! Jul 9 2025
          IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256  ! Mar 2022
+	 IF ( DO_GETINFO )              OPTRD = 64   ! Oct 2025
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
@@ -6015,7 +6016,9 @@ c - - - - - - - - - - - -
 
       write(6,20) 'FILTERS:', SURVEY_FILTERS(1:NFILTDEF_SURVEY), ' '
 
-      write(6,21) 'NEVENT: ',  N_SNLC_READ(1), ' '
+c xxx mark delete Oct 16 2025 xxxxxxx
+c      write(6,21) 'NEVENT: ',  N_SNLC_READ(1), ' '
+c xxxxxxxxxx
 
       COMMENT = ''
       IF ( DATATYPE == 'SIM_MAGOBS' ) THEN

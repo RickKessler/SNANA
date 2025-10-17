@@ -23267,4 +23267,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + write new output variables SIM_SNHOST_DDLR and SIM_SNHOST_SEP so that
        we have this information for host-less events too.
 
+   create_covariance.py
+     + abort on duplicate CID_IDSURVEY_FIELD
+     + remove grand try/except/execpt block in main that resulted in 
+       multiple/confusing trace dumps on error.
+
 END: 

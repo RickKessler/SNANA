@@ -181,10 +181,12 @@
 # Sep 16 2025: write HD_BIN_METHOD to INFO.YML, and do some minor refactor to better track
 #    binning, HD_size, and nbin_[z,c,x1]
 #
+# Oct 17 2025: abort on duplicate CID_IDSURVEY_FIELD; see n_dup
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
-import re, yaml, sys, gzip, math, gc, csv, psutil
+import re, yaml, sys, gzip, math, gc, csv, psutil, glob
 import tracemalloc
 import numpy  as np
 import pandas as pd
@@ -638,7 +640,11 @@ def load_hubble_diagram(hd_file, args, config):
         n_dup    = len(dup_rows)
         if n_dup > 0 :            
             hd_base = os.path.basename(hd_file)
-            msgerr = f"\n FATAL ERROR: Found {n_dup} duplicate rows in {hd_base}: \n{dup_rows}"
+            dup_list = dup_rows['CIDstr'].tolist()
+            msgerr = f"\n FATAL DUPLICATE ERROR: \n" \
+                     f"\t Found {n_dup} duplicate [CID]_[IDSURVEY]_[FIELD] in \n" \
+                     f"\t {hd_file} ; \n" \
+                     f"\t Duplicate list: {dup_list}"
             assert False, msgerr
      
         # we need to make a new column to index the dataframe on 
@@ -672,22 +678,22 @@ def get_hubble_diagrams(folder, args, config):
     is_unbinned = args.unbinned 
     is_binned   = args.binned   # xxx mark not (is_unbinned or is_rebin)
 
-    folder_expand = Path(os.path.expandvars(folder))
+    folder_expand = os.path.expandvars(folder)
+    folder_path   = Path(folder_expand)
+
     logging.debug(f"Loading all data files in {folder_expand}")
     HD_list     = {}
     infile_list = []
     label_list  = []
     first_load  = True
     str_skip_list     = [ '~', 'wfit_',  'cospar']
-    str_require_list  = [ 'FITOPT', 'MUOPT' ]
 
-    infile_listdir = sorted(os.listdir(folder_expand))
+    # xxx mark infile_listdir = sorted(os.listdir(folder_expand))
+    infile_listdir = sorted(glob.glob1(folder_expand,"FITOPT*MUOPT*"))
 
     for infile in infile_listdir:
 
-        skip = True
-        for s in str_require_list :
-            if s in infile : skip = False
+        skip = False
         for s in str_skip_list : 
             if s in infile : skip = True
 
@@ -715,7 +721,7 @@ def get_hubble_diagrams(folder, args, config):
 
             infile_list.append(infile)
             label_list.append(label)
-            hd_file = folder_expand/infile
+            hd_file = folder_path/infile
 
             # grab contents of every M0DIF(binned) or FITRES(unbinned) hd file 
             HD_list[label] = load_hubble_diagram(hd_file, args, config)
@@ -2707,26 +2713,24 @@ def tracemalloc_snapshot(args,comment):
 # ===================================================
 if __name__ == "__main__":
 
-    try:
-        setup_logging()
-        logging.info(f"# ========== BEGIN create_covariance {tnow} ===============")
+
+    setup_logging()
+    logging.info(f"# ========== BEGIN create_covariance {tnow} ===============")
         
-        command = " ".join(sys.argv)
-        logging.info(f"# Command: {command}")
-        sys.stdout.flush()
+    command = " ".join(sys.argv)
+    logging.info(f"# Command: {command}")
+    sys.stdout.flush()
 
-        args            = get_args()
-        args.tstart_all = time.time()
-        config          = read_yaml(args.input_file)
-        prep_config(config,args)  # expand vars, set defaults, etc ...
+    args            = get_args()
+    args.tstart_all = time.time()
+    config          = read_yaml(args.input_file)
+    prep_config(config,args)  # expand vars, set defaults, etc ...
 
-        tracemalloc_snapshot(args, None)
+    tracemalloc_snapshot(args, None)
 
-        create_covariance(config, args)
-        loginfo_cpu_summary(args)
-    except Exception as e:
-        logging.exception(e)
-        raise e
+    create_covariance(config, args)
+    loginfo_cpu_summary(args)
+
 
     logging.info('Done.')
     

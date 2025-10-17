@@ -23272,4 +23272,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + remove grand try/except/execpt block in main that resulted in 
        multiple/confusing trace dumps on error.
 
+   SALT2mu.c
+     + in function exec_mnparm(), always set REPEAT flag to false so that
+       all init is redone -> fixed bug in dust2dust using SUBPROCESS.
+
 END: 

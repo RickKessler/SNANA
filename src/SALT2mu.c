@@ -2092,7 +2092,9 @@ int main(int argc,char* argv[ ]) {
   if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
 #endif
 
+
   SALT2mu_DRIVER_EXEC();
+
 
   FLAG = SALT2mu_DRIVER_SUMMARY();
 
@@ -2271,7 +2273,6 @@ void SALT2mu_DRIVER_EXEC(void) {
   // print stats for data after ALL cuts are applied
   print_eventStats(EVENT_TYPE_DATA);
  
-
   // Beginning of DOFIT loop
   while ( DOFIT_FLAG != FITFLAG_DONE  ) {
 
@@ -2433,7 +2434,9 @@ void exec_mnparm(void) {
   int  nzbin                = INPUTS.nzbin ;
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
+
   bool REPEAT = ( FITINP.NFITPAR_FLOAT > 0 );
+  REPEAT = false; // Oct 17 2025: don't set REPEAT for SUBPROCESS
 
   const int null=0;
   char text[100];
@@ -2456,6 +2459,7 @@ void exec_mnparm(void) {
       sprintf(FITRESULT.PARNAME[i],"%s", FITPARNAMES_DEFAULT[i] );
     }
   }
+
 
   //Setup M0(z) paramters for Minuit
 
@@ -2485,7 +2489,8 @@ void exec_mnparm(void) {
 	    &INPUTS.parbndmin[i], &INPUTS.parbndmax[i], &ierflag,len);
     sprintf(FITRESULT.PARNAME[i],"%s", text );
   }
-  
+
+
   if ( REPEAT ) { return ; } // Oct 28 2022
 
   FITINP.NFITPAR_ALL   = MXCOSPAR + nzbin ;
@@ -4220,7 +4225,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     FITRESULT.NSNFIT_IA  = nsnfitIa ; 
     FITRESULT.NSNFIT_CC  = nsnfitcc ; 
     FITRESULT.NSNSPEC_IA = nsnspecIa ; // Dec 01 2024
-      
+    
     // a,b,g stored for re-computing COV between fit iterations
     FITRESULT.ALPHA      = xval[IPAR_ALPHA0];
     FITRESULT.BETA       = xval[IPAR_BETA0];
@@ -4314,6 +4319,8 @@ void *MNCHI2FUN(void *thread) {
   //  dg_dz        = xval[6] ;
   //  logmass_cen  = xval[7] ; 
   //  logmass_tau  = xval[8] ;
+
+
   omega_l      = xval[IPAR_OL] ;
   omega_k      = xval[IPAR_Ok] ;
   wde          = xval[IPAR_w0] ;
@@ -20883,6 +20890,7 @@ void  prep_fitpar(void) {
     b0 = -9.0; b1 = 9.0 ;
     g0 = -0.5; g1 = 0.5 ;
   }
+
 
   //         ipar  val      step   bnd0  bnd1 float
   set_fitPar(  1,  val[1],  0.01,  a0,   a1,   ipar[1] ); // alpha (orig)

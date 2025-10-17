@@ -777,6 +777,10 @@ def arg_prep_driver(args):
         if not valid:
             sys.exit(f"\n ERROR: invalid @@FIT {fitfun}; \n Valid FITFUNs are {FITFUN_LIST}")
 
+    # misc checks
+    if OPT_RATIO in args.OPT and OPT_HIST in args.OPT:
+        sys.exit(f"\n ERROR: cannot combine @@OPT args HIST & RATIO\n\t Try without HIST.")
+
     return  # end arg_prep_driver
 
 
@@ -1886,7 +1890,8 @@ def plotter_func_driver(args, plot_info):
     NDIM          = args.NDIM    
     OPT           = args.OPT
     do_list_cid   = OPT_LIST_CID  in OPT 
-    
+    do_ratio      = OPT_RATIO     in OPT
+
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     bounds_dict          = plot_info.bounds_dict
     varname_idrow        = plot_info.varname_idrow  # e.g., 'CID' or 'GALID' 
@@ -1952,7 +1957,9 @@ def plotter_func_driver(args, plot_info):
         lwid = HIST_LINES[numplot][0]  # for 1D hist only
         lsty = HIST_LINES[numplot][1]          
         # - - - - -        
-        
+
+
+
         if do_plot_errorbar :
             # default
             if plt_alpha > 0 :
@@ -1971,7 +1978,7 @@ def plotter_func_driver(args, plot_info):
                     yerr_data   = yerr_list
                 else:
                     yerr_data   = np.array(yerr_list)
-
+                    
 
         elif do_plot_hist and NDIM == 1 :            
             (contents_1d, xedges, patches) = \
@@ -2483,11 +2490,16 @@ def compute_ratio(yval0_list, errl0_list, erru0_list,
         # binomial error with set0 being subset of set1,
         # and input errors are ignored;
         # COV = p ( 1 − p ) * NTOT (per bin)
+        # Note that p = (y0+.01)/(y1+.02) instead of y0/y1 ... this avoids zero error
+        # when y0=0 or y0=y1, which messes up polynomial fits to ratio.
+
         logging.info("\t Compute binomial error for ratio.")
-        p          = yval0_list/yval1_list
+        # xxx mark Oct 17 2025   p  = yval0_list/yval1_list
+        p          = (yval0_list+.01)/(yval1_list+.02)  # avoid zero error, Oct 2025
         cov_ratio  = p*(1-p) / yval1_list
-        errl_ratio = np.sqrt(cov_ratio)
-        erru_ratio = errl_ratio
+        err        = np.sqrt(cov_ratio)
+        errl_ratio = err
+        erru_ratio = err
         
     else:
         # independent error
@@ -2505,8 +2517,8 @@ def get_info_plot2d(args, info_plot_dict):
 
     # prepare arguments for matplotlib's plt.errobar.
 
-    do_hist      = OPT_HIST in args.OPT 
-    do_nevt      = OPT_NEVT in args.OPT
+    do_hist      = OPT_HIST   in args.OPT 
+    do_nevt      = OPT_NEVT   in args.OPT
     do_ratio     = OPT_RATIO  in args.OPT   # Aug 19 2025 
 
     do_diff_all  = args.DIFF == OPT_DIFF_ALL

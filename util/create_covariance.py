@@ -632,7 +632,15 @@ def load_hubble_diagram(hd_file, args, config):
         df['CIDstr'] = df[VARNAME_CID].astype(str)         + "_" + \
                        df[VARNAME_IDSURVEY].astype(str)    + "_" + \
                        df[VARNAME_FIELD].astype(str)     # Feb 25 2025
-                       
+
+        # Oct 16 2025: abort on duplicate rows
+        dup_rows = df[df.duplicated(subset=['CIDstr'] )]
+        n_dup    = len(dup_rows)
+        if n_dup > 0 :            
+            hd_base = os.path.basename(hd_file)
+            msgerr = f"\n FATAL ERROR: Found {n_dup} duplicate rows in {hd_base}: \n{dup_rows}"
+            assert False, msgerr
+     
         # we need to make a new column to index the dataframe on 
         # unique rows for merging two different systematic ...
         # or combining sims with different surveys that have random CID overlaps.
@@ -670,19 +678,23 @@ def get_hubble_diagrams(folder, args, config):
     infile_list = []
     label_list  = []
     first_load  = True
-    str_skip_list = [ '~', 'wfit_',  'cospar']
+    str_skip_list     = [ '~', 'wfit_',  'cospar']
+    str_require_list  = [ 'FITOPT', 'MUOPT' ]
 
     infile_listdir = sorted(os.listdir(folder_expand))
 
     for infile in infile_listdir:
 
-        skip = False
+        skip = True
+        for s in str_require_list :
+            if s in infile : skip = False
         for s in str_skip_list : 
             if s in infile : skip = True
+
         if skip: continue
 
         is_M0DIF    = f".{SUFFIX_M0DIF}"  in infile
-        is_FITRES   = f".{SUFFIX_FITRES}" in infile and "MUOPT" in infile
+        is_FITRES   = f".{SUFFIX_FITRES}" in infile
 
         # Feb 15 2021 RK - check option to select only one of the MUOPT
         if args.muopt >= 0 :

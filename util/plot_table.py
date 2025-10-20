@@ -2235,7 +2235,7 @@ def get_info_plot1d(args, info_plot_dict):
             errl_list  = errl_ratio
             erru_list  = erru_ratio
             ratio = len(df) / len(df0)
-            plt_legend = f"<ratio> = {ratio:.2f}"
+            plt_legend = f"<ratio> = {ratio:.3f}"
             if args.legend_list:
                 legend = args.legend_list[numplot]
                 plt_legend += f' for {legend} '                

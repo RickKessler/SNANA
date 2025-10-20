@@ -19888,6 +19888,9 @@ C -------------- BEGIN --------------
       IF ( INDEX(SURVEY_NAME,'JWST'    ) > 0 ) ISGROUND = .FALSE.
       IF ( INDEX(SURVEY_NAME,'WFIRST'  ) > 0 ) ISGROUND = .FALSE.
       IF ( INDEX(SURVEY_NAME,'CANDELS' ) > 0 ) ISGROUND = .FALSE.
+      IF ( INDEX(SURVEY_NAME,'ROMAN'   ) > 0 ) ISGROUND = .FALSE.  ! Oct 20 2025
+      IF ( INDEX(SURVEY_NAME,'EUCLID'  ) > 0 ) ISGROUND = .FALSE.  ! Oct 20 2025
+      IF ( INDEX(SURVEY_NAME,'CSST'    ) > 0 ) ISGROUND = .FALSE.  ! Oct 20 2025
 
       LENS = INDEX(SURVEY_NAME,' ') - 1
 

@@ -443,11 +443,32 @@ def get_survey(PRIVATE_DATA_PATH,VERSION):
     os.system(cmd)
 
     # read from YAML file
-    yaml_file = (f"{prefix}.YAML")
-    with open(yaml_file,"rt") as y :
-        for line in y:
-            word_list = line.split()
-            if word_list[0] == "SURVEY:" : survey = word_list[1]
+    yaml_file = f"{prefix}.YAML"
+    try:
+        with open(yaml_file, "rt", encoding="utf-8") as f:
+            docs = list(yaml.safe_load_all(f))
+        for data in reversed(docs):
+            if isinstance(data, dict) and "SURVEY" in data:
+                val = data["SURVEY"]
+                survey = (val.strip().strip('"\'')) if isinstance(val, str) else str(val)
+                break
+    except FileNotFoundError:
+        survey = None
+    except Exception:
+        try:
+            with open(yaml_file, "rt") as y:
+                for line in y:
+                    s = line.strip()
+                    if not s or s.startswith("#"):
+                        continue
+                    if s.startswith("SURVEY:"):
+                        raw = s.split(":", 1)[1].strip()
+                        if "#" in raw:
+                            raw = raw.split("#", 1)[0].rstrip()
+                        survey = raw.strip('"\'')
+                        break
+        except Exception:
+            pass
 
     # remove junk files, and be careful not to   rm .* by accident
     if len(prefix) > 2 :

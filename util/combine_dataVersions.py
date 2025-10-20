@@ -443,7 +443,7 @@ def get_survey(PRIVATE_DATA_PATH,VERSION):
     os.system(cmd)
 
     # read from YAML file
-    yaml_file = f"{prefix}.YAML"
+    yaml_file = (f"{prefix}.YAML")
     try:
         with open(yaml_file, "rt", encoding="utf-8") as f:
             docs = list(yaml.safe_load_all(f))

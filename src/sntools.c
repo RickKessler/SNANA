@@ -269,7 +269,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // Jun 17 2025: 
   //   + shift OPTMASK bits so that OPTMASK=1 for CID only and not OPTMASK=0.
   //   + for IS_FILE, check presence of '/' in addition to DOT.
-
+  //
+  // Oct 20 2025: 
+  //    MXCHAR_LINE -> 2000 (was 400) for SN-unite that uses some filter-dependent entries.
+  
   int  OPTMASK_CID      = 1;
   int  OPTMASK_IDSURVEY = 2;
   int  OPTMASK_FIELD    = 4;
@@ -383,7 +386,8 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
 
-    int MXCHAR_LINE = 400; // xxx MXCHARLINE_PARSE_WORDS;
+    // xxx mark int MXCHAR_LINE = 400; // xxx MXCHARLINE_PARSE_WORDS;
+    int MXCHAR_LINE = MXCHARLINE_PARSE_WORDS; // expand for SN-unite and filter-dependent entries
     char *tmpLine = (char*) malloc( MXCHAR_LINE * sizeof(char)) ;
     int len_tmp ;
 

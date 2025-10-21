@@ -22015,8 +22015,8 @@ void write_yaml_info(char *fileName) {
   if ( NSAMPLE_BIASCOR > 0 ) {
     fprintf(fp,"\n") ;  
 
-    char STR_SAMPLE_LIST[200], STR_NEVT_LIST[MXEVENT_TYPE][100];
-    char STR_IDSAMPLE_LIST[100];
+    char STR_SAMPLE_LIST[400], STR_NEVT_LIST[MXEVENT_TYPE][100];
+    char STR_IDSAMPLE_LIST[200];
 
     STR_SAMPLE_LIST[0] = STR_IDSAMPLE_LIST[0] = 0;
 
@@ -22151,7 +22151,7 @@ void write_yaml_line_by_idsample(FILE *fp, char *KEY, int *NEVT_BY_SAMPLE) {
 
   int N, N_ALL = 0 ;
   int idsample ;
-  char STR_NEVT_LIST[80], ctmp[40] ;
+  char STR_NEVT_LIST[200], ctmp[40] ;
 
   for (idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) 
     {  N_ALL += NEVT_BY_SAMPLE[idsample] ;  }

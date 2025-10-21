@@ -444,10 +444,40 @@ def get_survey(PRIVATE_DATA_PATH,VERSION):
 
     # read from YAML file
     yaml_file = (f"{prefix}.YAML")
-    with open(yaml_file,"rt") as y :
-        for line in y:
-            word_list = line.split()
-            if word_list[0] == "SURVEY:" : survey = word_list[1]
+    try:
+        with open(yaml_file, "rt", encoding="utf-8") as f:
+            docs = list(yaml.safe_load_all(f))
+        for data in docs:
+            if isinstance(data, dict) and "SURVEY" in data:
+                val = data["SURVEY"]
+                if isinstance(val, str):
+                    _clean = val.strip().strip('"\'' )
+                    survey = _clean or None
+                else:
+                    survey = None
+                break
+    except FileNotFoundError:
+        print(f"[WARN] YAML not found: {yaml_file}")
+        survey = None
+    except (yaml.YAMLError, UnicodeDecodeError) as e:
+        print(f"[WARN] YAML parse failed: {e}; fallback to line-scan.")
+        try:
+            with open(yaml_file, "rt") as y:
+                for line in y:
+                    s = line.strip()
+                    if not s or s.startswith("#"):
+                        continue
+                    if s.startswith("SURVEY:"):
+                        raw = s.split(":", 1)[1].strip()
+                        # only strip inline '#' if unquoted
+                        if not (raw.startswith(("'", '"')) and raw.endswith(("'", '"'))):
+                            if "#" in raw:
+                                raw = raw.split("#", 1)[0].rstrip()
+                        _clean = raw.strip('"\'' )
+                        survey = _clean or None
+                        break
+        except Exception as e2:
+            print(f"[WARN] line-scan failed: {e2}")
 
     # remove junk files, and be careful not to   rm .* by accident
     if len(prefix) > 2 :

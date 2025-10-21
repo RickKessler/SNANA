@@ -2853,6 +2853,7 @@ void setup_zbins_fit(void) {
   // ----------- BEGIN --------
   
   // init counters
+
   for (nz=0; nz < nzbin; nz++)  {
     FITINP.NEVT_zTOT[nz] = 0;
     FITINP.NEVT_zFIT[nz] = 0;
@@ -2889,6 +2890,7 @@ void setup_zbins_fit(void) {
 
   } // end loop over NSNCUTS
   
+
   /*  Count the number of bins with enough SN data to fit */
   NZFLOAT=0;
 
@@ -4306,7 +4308,7 @@ void *MNCHI2FUN(void *thread) {
   double   *fitParBias;
 
   bool REFAC  = (INPUTS.REFAC_CCPRIOR > 0) ; 
-  bool LDMP   = ISMODEL_LCFIT_BAYESN ;
+  bool LDMP   = ISMODEL_LCFIT_SALT2 ;
   
   // -------------- BEGIN ------------
 
@@ -4606,13 +4608,14 @@ void *MNCHI2FUN(void *thread) {
     // ------------------------
 
     if ( ISMODEL_LCFIT_SALT2 ) 
-      { mu   = d  + alpha*s - beta*c - gammaDM ;  } // d = mB
+      { mu   = d  + alpha*s - beta*c - gammaDM - M0;  } // d = mB; add -M0 Oct 21 2025
     else if ( ISMODEL_LCFIT_BAYESN ) 
       { mu   = d ; }
 
     
     mu      -= muBias ;      // bias correction 
-    mures    = mu - M0 - mumodel ;
+    mures    = mu - mumodel ;
+    // xxx mark delete    mures    = mu - M0 - mumodel ;
     sqmures  = mures*mures ;
 
     // store info
@@ -4638,14 +4641,16 @@ void *MNCHI2FUN(void *thread) {
       if ( iflag == 3 ) { INFO_DATA.probcc_beams[n] = 0.0 ; } // Dec 2020
     } 
 
-    if ( LDMP && n < -5 ) 
-      { printf(" xxx %s: n=%d  mu = %.3f +_ %.3f  mumodel=%.3f "
-	       "M0=%.2f chi2evt=%.1f\n", 
-	       fnam, n, mu , muerr, mumodel, M0, chi2evt_Ia ); fflush(stdout); }
+    if ( LDMP && n < -20 && FITRESULT.NCALL_FCN < 20 )  { 
+      fprintf(FP_STDOUT," xxx %s: NCALL=%2d n=%3d CID=%s mures = %6.3f +_ %.3f  mumodel=%.3f "
+	      "chi2evt=%.1f\n", 
+	      fnam, FITRESULT.NCALL_FCN, n, name, mures , muerr, mumodel,  chi2evt_Ia ); 
+      fflush(FP_STDOUT); 
+    }
     
     if ( USE_CCPRIOR  ) {
       // BEAMS-like chi2 = -2ln [ PIa + PCC ]
-      DUMPFLAG = 0; //  (strcmp(name,"1302942") == 0) || (strcmp(name,"1682419")==0)  || (strcmp(name,"3144094")==0); 
+      DUMPFLAG = 0; //  (strcmp(name,"1302942") == 0) 
       nsnfit++ ;
 
       if ( INPUTS.ipar[IPAR_scalePCC] <= 1 ) {
@@ -20123,6 +20128,10 @@ void prep_input_repeat(void) {
   //   + NSPLITRAN>1
   //   + SUBPROCESS called from python fitter
   //   + after crazy fitpar detected
+  //
+  // Oct 21 2025: 
+  //   comment out line with CUTBIT_SPLITRAN to fix D2D bug; not sure why this
+  //   seems to work.
 
   char fnam[] = "prep_input_repeat" ;
 
@@ -20153,21 +20162,27 @@ void prep_input_repeat(void) {
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) {
     //printf("   Reset a few CUTBITS \n" );
+    int N_PASSCUTS =  0;
     int isn, CUTMASK ;
     int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ; 
     for (isn=0; isn < NSN_DATA; isn++)  {
 
       CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[isn];
       
+      /* xxx mark delete Oct 21 2025: this fixes Dust2Dust bug, but not sure why? 
       // reset... cut bits that get re-applied in SUBPROCESS
       CUTMASK -= ( CUTMASK & CUTMASK_LIST[CUTBIT_SPLITRAN] ) ;
-      //      CUTMASK -= ( CUTMASK & CUTMASK_LIST[CUTBIT_MINBIN]   ) ;
+      xxxxxxxxxxxxx */
+
       if ( SUBPROCESS.NEVT_SIM_PRESCALE > 0 )
 	{ CUTMASK -= (CUTMASK & CUTMASK_LIST[CUTBIT_SIMPS] ); }
       
       INFO_DATA.TABLEVAR.CUTMASK[isn] = CUTMASK ;
-      
+      if ( CUTMASK == 0 ) { N_PASSCUTS++ ; } // diagnostic
+
     } // end isn
+    fprintf(FP_STDOUT," Reset CUTBITS: %d of %d pass cuts\n", N_PASSCUTS, NSN_DATA);
+    fflush(FP_STDOUT);
   }
 #endif
 
@@ -22656,7 +22671,7 @@ void write_fitres_driver(char* fileName) {
 
   double chi2sum_m0 = 0.0 ;
   int    NBIN_m0 = 0 ;
-  int    ISM0;
+  int    ISM0, NEVT_zFIT_SUM = 0 ;
 
   for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
 
@@ -22676,6 +22691,7 @@ void write_fitres_driver(char* fileName) {
     if ( ISM0 ) { 
       iz    = INPUTS.izpar[n] ;
       VAL = FITRESULT.M0DIF[iz]; 
+      NEVT_zFIT_SUM += FITINP.NEVT_zFIT[iz];
       sprintf(tmpName,"%s-<M0avg>", FITRESULT.PARNAME[n] );
       sprintf(ztxt,"(%5.3f < z < %5.3f, N=%d)", 
 	      INPUTS.BININFO_z.lo[iz], INPUTS.BININFO_z.hi[iz],
@@ -22705,6 +22721,9 @@ void write_fitres_driver(char* fileName) {
 
   fprintf(fout,"#  m0-M0avg chi2/dof = %.1f / %d \n",
 	  chi2sum_m0, NBIN_m0-1);
+
+  fprintf(fout,"#  sum_N over m0_[nn] bins: %d  (compare to NSNFIT=%d)\n", 
+	  NEVT_zFIT_SUM, FITRESULT.NSNFIT ); // Oct 21 2025
 
   // ----------
 
@@ -25165,8 +25184,8 @@ void  SUBPROCESS_INIT_RANFLAT(int iter) {
   // ------------ BEGIN -------------
 
   if (INITSTEP) {
-    printf("%s  init randoms with ISEED=%d \n",
-	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPUT_ISEED );
+    printf("%s  init randoms with ISEED=%d (ITER = %d)\n",
+	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPUT_ISEED, iter );
 
     init_random_seed(SUBPROCESS.INPUT_ISEED,1);
 
@@ -25523,7 +25542,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     SUBPROCESS.KEEP_AFTER_REWGT[isn] = KEEP = false;
     LDMP            = SUBPROCESS.DUMPFLAG_REWGT[isn];
 
-    if ( SIM_TEMPLATE_INDEX !=0 ) { continue; } // reject of not true SNIa
+    if ( SIM_TEMPLATE_INDEX !=0 ) { continue; } // reject if not true SNIa
 
     NKEEP_ORIG++ ;
 

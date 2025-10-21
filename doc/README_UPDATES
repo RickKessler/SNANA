@@ -23275,7 +23275,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu.c
      + in function exec_mnparm(), always set REPEAT flag to false so that
        all init is redone -> fixed bug in dust2dust using SUBPROCESS.
-     
+     + few SUBPROCESS fixes for revining dust2dust
+ 
    sntools.c
      + in function match_cidlist_init(), increase MXCHAR from 400 -> 2000
 

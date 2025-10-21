@@ -26631,8 +26631,13 @@ void init_read_calib_wrapper(void) {
 		    MAGREST_SHIFT, MAGOBS_SHIFT );
 
   // check for spectrograph information (for sim only)
-  read_spectrograph_fits(INPUTS.CALIB_FILE) ;
-  if ( SPECTROGRAPH_USEFLAG ) { extend_spectrograph_lambins();  }
+  if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE < 1.0E-5 ) {
+    read_spectrograph_fits(INPUTS.CALIB_FILE) ;
+    if ( SPECTROGRAPH_USEFLAG ) { extend_spectrograph_lambins();  }
+  }
+  else {
+    // for true SED option, do NOT read spectrograph info
+  }
 
   NFILTDEF = CALIB_INFO.FILTERCAL_OBS.NFILTDEF;
 
@@ -32547,6 +32552,7 @@ void print_sim_help(void) {
     "GENSIGMA_REDSHIFT: <zsig>         # zspec uncertainty",
     "GENSIGMA_VPEC:     <vsig>         # true vpec scatter (km/sec)",
     "VPEC_ERR:          <verr>         # vpec error after correction (km/sec)",
+    "VEL_CMBAPEX        <vel>          # default is 370 ; replace with 0 for zhel=zcmb",
     "",
     "# - - - - - - Epoch & sky coverage inputs - - - - -  - ",
     "GENRANGE_PEAKMJD: <MJDMIN> <MJDMAX>  # generation range for PEAKMJD",

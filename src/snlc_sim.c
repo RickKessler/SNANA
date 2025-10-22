@@ -11848,7 +11848,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
     
 
-    if ( OBSFLUXERR < 1.0E-50 && !IS_SED_TRUE ) { continue; }  
+    if ( OBSFLUXERR < 1.0E-50  ) { continue; }   // .xyz ??? for true SED ???
 
     // compute random flucution of spectrograph flux
     // be careful with correlated template noise in each spectrum

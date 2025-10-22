@@ -473,7 +473,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1I",  "SIM_GENTYPE"     , itype );
     wr_snfitsio_addCol( "1I",  "SIM_TYPE_INDEX",   itype ); // legacy duplicate
 
-    wr_snfitsio_addCol( "8A",  "SIM_TYPE_NAME"      , itype );
+    wr_snfitsio_addCol( "12A",  "SIM_TYPE_NAME"      , itype ); // 8->12, Oct 22 2025
 
     wr_snfitsio_addCol( "1J",  "SIM_TEMPLATE_INDEX" , itype );
     wr_snfitsio_addCol( "1J",  "SIM_LIBID"          , itype );

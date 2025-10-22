@@ -23287,4 +23287,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for OPT_REFORMAT_SPECTRA, write additional SPEC.LIST table with
        summary for each spectrum
 
+   BUG : for writing true SED option, read-back works for FITS format,
+         but aborts on error for TEXT format.
+
 END: 

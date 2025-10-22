@@ -1324,6 +1324,7 @@ void RD_SNTEXTIO_INIT(int init_num) {
   SNTEXTIO_VERSION_INFO.PHOT_VERSION[0] = 0 ;
   SNTEXTIO_VERSION_INFO.DATA_PATH[0]    = 0 ;
   check_head_sntextio(0);
+
   malloc_GENSPEC(0, 0,0); 
 
   if ( init_num == 1 ) {
@@ -3197,7 +3198,6 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   // ------------ BEGIN -------------
 
-  
   get_PARSE_WORD(langC, iwd, word0, fnam) ;
 
   if ( strcmp(word0,"NSPECTRA:") == 0 ) {
@@ -3249,6 +3249,12 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   else if ( strcmp(word0,"SPECTRUM_NLAM:") == 0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &NBLAM, fnam );
+
+    if ( DEBUG_RDSPEC > 0 ) {
+      printf(" xxx ------------------------- \n");
+      printf(" xxx %s: ISPEC=%d and NBLAM = %d \n", fnam, ISPEC, NBLAM); fflush(stdout);
+    }
+
     init_GENSPEC_EVENT(ISPEC,NBLAM);    // malloc GENSPEC arrays vs. ilam
     GENSPEC.NBLAM_VALID[ISPEC] = NBLAM ;
     GENSPEC.NBLAM_TOT[ISPEC]   = NBLAM ;

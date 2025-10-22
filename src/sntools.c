@@ -8644,13 +8644,19 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
 
+  if ( DEBUG_RDSPEC > 0 ) {
+    printf(" xxx %s: ispec=%d  IS_MALLOC = %d \n",
+	   fnam, ispec, GENSPEC.IS_MALLOC[ispec]); fflush(stdout);
+  }
+
   if ( GENSPEC.IS_MALLOC[ispec] ) { malloc_GENSPEC(-1, ispec, 0); }
 
   // always re-malloc in case NBLAM changes
   malloc_GENSPEC(+1, ispec, NBLAM);
   
   // Jul 1 2021: init wave-dependent arrays in case they aren't filled
-  int ilam;
+
+   int ilam;
   for(ilam=0; ilam < NBLAM; ilam++ ) {    
     GENSPEC.FLAM_LIST[ispec][ilam]     = -9.0 ;
     GENSPEC.FLAMERR_LIST[ispec][ilam]  = -9.0 ;
@@ -8677,7 +8683,12 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   char fnam[] = "malloc_GENSPEC" ;
 
   // --------- BEGIN ------------
+
   if ( opt == 0 ) {
+
+    if ( DEBUG_RDSPEC > 0 ) 
+      { printf(" xxx %s set all IS_MALLOC = false \n", fnam); fflush(stdout); }
+
     for(i=0; i < MXSPEC; i++ ) 
       { GENSPEC.IS_MALLOC[i] = false; }
   }
@@ -8694,6 +8705,7 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   }
   else if ( opt > 0 ) {
     int MEMD = (NBLAM+100) * sizeof(double); 
+
     GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
@@ -8703,6 +8715,12 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
     GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
     GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);    
     GENSPEC.IS_MALLOC[ispec]     = true;
+
+    if ( DEBUG_RDSPEC > 0 ) {
+      printf(" xxx %s: set IS_MALLOC[%d]=%d for NBLAM=%d \n",
+	     fnam, ispec, GENSPEC.IS_MALLOC[ispec], NBLAM); fflush(stdout);
+    }
+
   }
 
   return ;

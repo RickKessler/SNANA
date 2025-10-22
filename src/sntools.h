@@ -26,6 +26,9 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
+
+#define DEBUG_RDSPEC 0 // temp debug flag
+
 // --------------------------------------------------
 //#define  SNANA_VERSION_CURRENT  "v11_04p"   
 #define  SNANA_VERSION_CURRENT  GIT_SNANA_VERSION  // Dec 2 2022

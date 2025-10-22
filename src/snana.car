@@ -1175,7 +1175,7 @@ c xxx mark del May 19 2025  REAL SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT ! r
 
       CHARACTER 
      &   SIMNAME_MODEL*(MXCHAR_MODELNAME)     ! SALT2, mlcs2k2, NON1A, etc ...
-     &  ,SIMNAME_TYPE*12      ! Ia, Ib, II, IIN, etc ...
+     &  ,SIMNAME_TYPE*20      ! Ia, Ib, II, IIN, etc ...
      &  ,SIMNAME_SHAPEPAR*40  ! DELTA, x1, stretch ...
      &  ,SIMNAME_SHAPELAW*40  ! alpha ...
      &  ,SIMNAME_COLORPAR*40  ! AV, c ...
@@ -4687,7 +4687,7 @@ c read ZPHOT_Q (May 2022)
 c          print*,' xxx ------------------------------------------- '
 c          print*,' xxx CID ,igal = ', SNLC_CCID, igal
 c          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
-c          call flush(6) ! .xyz
+c          call flush(6) 
       endif      
 
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
@@ -10824,7 +10824,7 @@ c
 +CDE,SNLCINP.
 +CDE,SPECCOM.
 
-      CHARACTER LIST_FILE*40, VARNAMES_LIST_FILE*100
+      CHARACTER VARNAMES_LIST_FILE*100
 C --------------- BEGIN ------------
 
 c open table list file to give summary info for each spectrum
@@ -10834,8 +10834,8 @@ c open table list file to give summary info for each spectrum
       OPEN (UNIT=LUNTMP, FILE=SPECTRUM_LIST_FILE, STATUS='UNKNOWN' )
 
       VARNAMES_LIST_FILE = 
-     &    'CID SPEC_FILE REDSHIFT MJD TOBS TREST ' // 
-     &    'NBIN_WAVE ISDATA_REAL'
+     &    'CID SPEC_FILE  TYPE  REDSHIFT MJD TOBS TREST ' // 
+     &    'NBIN_WAVE ISDATA_REAL  '
 
       WRITE(LUNTMP,700) 
      &     ' ================================================= '
@@ -10843,6 +10843,8 @@ c open table list file to give summary info for each spectrum
      &         'Candidate ID (or SNID) of event'
       WRITE(LUNTMP,700) 'SPEC_FILE   : ' // 
      &         'name of table file with WAVE FLAM FLAMERR'
+      WRITE(LUNTMP,700) 'TYPE        : ' // 
+     &         'string type, e.g. Ia, Ib, II ... '
       WRITE(LUNTMP,700) 'REDSHIFT    : ' // 
      &         'redshift (-9 for unknown) '
       WRITE(LUNTMP,700) 'MJD         : ' // 
@@ -11231,11 +11233,11 @@ c
 
 c local args
  
-      INTEGER LENV, LENC, LENROW, LENF, ispec, NLAMBIN, ilam
-      INTEGER ISDATA_REAL
+      INTEGER LENV, LENC, LENROW, LENF, LENT
+      INTEGER ispec, NLAMBIN, ilam, ISDATA_REAL
       REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, TREST, z
-      CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80
-      CHARACTER VERS*(MXCHAR_FILENAME)
+      CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80, MSGTMP*80
+      CHARACTER VERS*(MXCHAR_FILENAME), SIM_TYPE*20
       CHARACTER VARNAMES_LIST_FILE*100
       LOGICAL WR_FLAM, WR_FLUX, WR_KEY
 C ------------- BEGIN -----------
@@ -11276,11 +11278,22 @@ c open table list file to give summary info for each spectrum
          ENDIF
 
          LENF = INDEX(SPEC_FILE,' ') - 1
+
+         SIM_TYPE = 'NULL'
+         IF ( LSIM_SNANA ) THEN
+            SIM_TYPE = SIMNAME_TYPE
+            if ( INDEX(SIMNAME_TYPE,'SALT')   > 0 ) SIM_TYPE = 'Ia'            
+            if ( INDEX(SIMNAME_TYPE,'BAYESN') > 0 ) SIM_TYPE = 'Ia'            
+         ENDIF
+         LENT = INDEX(SIM_TYPE,' ') - 1  !  .xyz
+
          WRITE(LUNTMP,710) 
-     &        SNLC_CCID(1:LENC), SPEC_FILE(1:LENF), z,
+     &        SNLC_CCID(1:LENC), SPEC_FILE(1:LENF), 
+     &        SIM_TYPE(1:LENT), z,
      &        MJD, TOBS, TREST,
      &        NLAMBIN, ISDATA_REAL
-710      FORMAT('SN: ', A, 2x, A, 2x, F6.3, 2x,
+710      FORMAT('SN: ', A, 2x, A, 2x, 
+     &            A, 2x, F6.3, 2x,
      &            F10.4, 2F8.1,
      &            I5, I3 )
 c
@@ -11350,7 +11363,8 @@ c write spectrum
 	
 	   if ( LSIM_SNANA) then
 	      FSIM = SIM_FLAM_SPECTRUM(ilam)
-	      write(MSG,446) MSG(1:LENROW), FSIM
+	      MSGTMP = MSG
+	      write(MSG,446) MSGTMP(1:LENROW), FSIM
 446           format(A,E14.5)
            endif
    

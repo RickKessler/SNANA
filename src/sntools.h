@@ -756,7 +756,7 @@ double interp_1dfun__(int *opt, double *val, int *NBIN,
 		      char *abort_comment );
 
 int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
-		   char *abort_comment);
+		   char *abort_comment, char *callFun);
 double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 		    char *abort_comment );
 

@@ -936,7 +936,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
 
   NLAM = TEMP_SEDMODEL.NLAM ;    *NLAM_SED = NLAM ;
   NDAY = TEMP_SEDMODEL.NDAY ;
-  iday = quickBinSearch(Trest, NDAY,TEMP_SEDMODEL.DAY, fnam);
+  iday = quickBinSearch(Trest, NDAY,TEMP_SEDMODEL.DAY, fnam, fnam);
   if ( iday >= NDAY-2 ) { iday = NDAY-3; }
   TMPDAY[0] = TEMP_SEDMODEL.DAY[iday+0] ;
   TMPDAY[1] = TEMP_SEDMODEL.DAY[iday+1] ;
@@ -1121,7 +1121,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 
       // find rest-frame bin for PySEDMODEL ... note that non-uniform
       // bins are allowed, but non-uniform might lead to trouble elsewhere.
-      ilamsed = quickBinSearch(LAMSED, NLAM,LAM, fnam);
+      ilamsed = quickBinSearch(LAMSED, NLAM,LAM, fnam, fnam);
       if ( ilamsed >= NLAM-2 ) { ilamsed=NLAM-3; }
 
       TMPLAM[0]=LAM[ilamsed+0];  TMPSED[0]=SED[ilamsed+0];

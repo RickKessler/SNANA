@@ -23282,4 +23282,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools.c
      + in function match_cidlist_init(), increase MXCHAR from 400 -> 2000
 
+   snana.car
+     + for OPT_REFORMAT_SPECTRA, write additional SPEC.LIST table with
+       summary for each spectrum
+
 END: 

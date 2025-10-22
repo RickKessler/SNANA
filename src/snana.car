@@ -27,7 +27,7 @@ c parameters used by snana code
      &  ,LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
      &  ,LUNCID, LUNOUT
      &  ,LUNRES1, LUNRES2, LUNINTERP, LUNLIST, LUNIGNORE, LUNSALT2
-     &  ,LUNLIST2, LUNIGNORE2
+     &  ,LUNLIST2, LUNIGNORE2, LUNSPEC
      &  ,ISTAGE_INIT, ISTAGE_RDSN, ISTAGE_CUTS, ISTAGE_USRANA
      &  ,ISTAGE_TEST
      &  ,INTERP_LINEAR, INTERP_SMOOTH, INTERP_ZSMOOTH
@@ -170,6 +170,7 @@ c
      &  ,LUNSALT2  = 34  ! for SALT2 dictFile
      &  ,LUNPKMJD  = 35
      &  ,LUNCID    = 36  ! reserved for reading SNCID_LIST_FILE
+     &  ,LUNSPEC   = 37  ! to write reformatted SPEC 
      &  ,LUNLIST2  = 47
      &  ,LUNIGNORE2= 48
      &  ,ISTAGE_INIT    = 10       ! init has finished
@@ -1065,6 +1066,7 @@ c  Not intended for analysis.
 
       LOGICAL RDFLAG_SPECTRUM
       CHARACTER VARNAMES_SPECTRUM(MXVAR_SPECTRUM)*40
+      CHARACTER SPECTRUM_LIST_FILE*40
 
       INTEGER 
      &    NVAR_SPECTRUM           ! number of spectrum variables to read
@@ -1084,7 +1086,7 @@ c
      &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM)
      &   ,SIM_FLAM_SPECTRUM(MXLAM_SPECTRUM)
 
-      COMMON/SPECCOM4/ RDFLAG_SPECTRUM
+      COMMON/SPECCOM4/ RDFLAG_SPECTRUM, SPECTRUM_LIST_FILE
      &   ,NVAR_SPECTRUM, NSPECTRUM, ID_SPECTRUM, NLAMBIN_SPECTRUM
      &   ,VARNAMES_SPECTRUM, NLAMBIN_READ
 
@@ -3528,7 +3530,7 @@ c ---------------------------------------------------------------
          IF ( ISTAT .EQ. 0 ) THEN
             N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
             call PRINT_RDSN()      ! print one-line summary
-            CALL SNANA_DRIVER(ISN,N_SNLC_PROC)
+            CALL SNANA_DRIVER( ISN, N_SNLC_PROC, IVERS)
          ENDIF
 
 
@@ -9778,13 +9780,14 @@ c ----------  BEGIN ------------
       
 C ======================================
 +DECK,SNANA_DRIVER.
-      SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC)
+      SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC, IVERS)
 
 c Created May 18, 2012 by R.Kessler
 c
 c Analysis driver for SN with
 c   ISN_ALL  = absolute index for all events, regardless of cuts
 c   ISN_PROC = sparse index of processed events (after cuts)
+C   IVERS    = index of VERSION_PHOTOMETRY (added Oct 2025)
 C
 c Move code from MAIN to here so that each SN is fit
 c right after it is read.
@@ -9798,7 +9801,7 @@ c ----------------------
 
       IMPLICIT NONE
 
-      INTEGER ISN_ALL, ISN_PROC  ! (I) 
+      INTEGER ISN_ALL, ISN_PROC, IVERS  ! (I) 
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -9898,7 +9901,7 @@ c check dump-option for SN that fail cuts.
      &        , ISNLC_NEWMJD_CUTS
       ENDIF
 
-      CALL EXEC_REFORMAT()
+      CALL EXEC_REFORMAT(IVERS)
 
 +SELF,IF=SNFIT.
 
@@ -10811,18 +10814,53 @@ C ====================================
 +DECK,INIT_REFORMAT_SPECTRA.
       SUBROUTINE INIT_REFORMAT_SPECTRA_ONLY()
 
+c Open SPEC.LIST summary file and write table header
+c Beware that using OPT_REFORMAT_SPECTRA option on multiple data folders
+c results in clobbering SPEC.LIST file.
+c
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,SPECCOM.
 
+      CHARACTER LIST_FILE*40, VARNAMES_LIST_FILE*100
 C --------------- BEGIN ------------
 
-c  For now do nothing (no new folder) and write spec files in cwd.
-c  The idea is that organization of folders is done by code calling
-c  snana.exe with OPT_REFORMAT_SPECTRA option.
-c
-c  file name = [version]_snid[snid]-mjd[mjd].spec
+c open table list file to give summary info for each spectrum
+      SPECTRUM_LIST_FILE = 'SPEC.LIST'
+      print*,' Open ', SPECTRUM_LIST_FILE
+
+      OPEN (UNIT=LUNTMP, FILE=SPECTRUM_LIST_FILE, STATUS='UNKNOWN' )
+
+      VARNAMES_LIST_FILE = 
+     &    'CID SPEC_FILE REDSHIFT MJD TOBS TREST ' // 
+     &    'NBIN_WAVE ISDATA_REAL'
+
+      WRITE(LUNTMP,700) 
+     &     ' ================================================= '
+      WRITE(LUNTMP,700) 'CID         : ' //
+     &         'Candidate ID (or SNID) of event'
+      WRITE(LUNTMP,700) 'SPEC_FILE   : ' // 
+     &         'name of table file with WAVE FLAM FLAMERR'
+      WRITE(LUNTMP,700) 'REDSHIFT    : ' // 
+     &         'redshift (-9 for unknown) '
+      WRITE(LUNTMP,700) 'MJD         : ' // 
+     &         'MJD of spectrum'
+      WRITE(LUNTMP,700) 'TOBS        : ' // 
+     &         'MJD - PEAKMJD (days) '
+      WRITE(LUNTMP,700) 'TREST       : ' // 
+     &         'TOBS/(1+z) (days)'
+      WRITE(LUNTMP,700) 'NBIN_WAVE   : ' // 
+     &         'Number of WAVE bins'
+      WRITE(LUNTMP,700) 'ISDATA_REAL : ' // 
+     &         '1 -> real data, 0 -> sim data'
+      WRITE(LUNTMP,700) ' '
+700   FORMAT('# ', A)
+
+      WRITE(LUNTMP,701) VARNAMES_LIST_FILE 
+701   FORMAT('VARNAMES: ', A)
+
 
       RETURN
       END   ! end INIT_REFORMAT_SPECTRA_ONLY
@@ -10854,7 +10892,7 @@ C ------------ BEGIN -----------
 
 C =============================
 +DECK,EXEC_REFORMAT.
-      SUBROUTINE EXEC_REFORMAT()
+      SUBROUTINE EXEC_REFORMAT(IVERS)
 c
 c Create Feb 7 2021;
 c Update reformat output:
@@ -10864,13 +10902,15 @@ c
 c Jan 20 2022: move copy_SNDATA_MISC() to work for either TEXT for FITS.
 c Jul 18 2023: check OPT_REFORMAT_SPECTRA
 c Apr 19 2025: check new option for BAND_NAME
-c
+c Oct 22 2025: pass IVERS index for VERSION_PHOTOMETRY
 c -------------
 
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER IVERS  ! (I)
 
       INTEGER MXWR_TEXT
       PARAMETER (MXWR_TEXT = 400)
@@ -10925,7 +10965,7 @@ c check Julien's original SALT2 format (not SNANA format)
       ENDIF
 
       IF ( REFORMAT_SPECTRA_ONLY ) THEN
-        CALL WR_SPECTRA()
+        CALL WR_SPECTRA(IVERS)
       ENDIF
 
       RETURN
@@ -11049,7 +11089,7 @@ c VPEC
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-c Oct 2025: photo-z quantiles .xyz
+c Oct 2025: photo-z quantiles 
       NQ = SNHOST_NZPHOT_Q
       IF ( NQ > 0 ) THEN
         IGAL = 1
@@ -11166,7 +11206,7 @@ C ----------- BEGIN ----------
 
 C ===============================
 +DECK,WR_SPECTRA.
-      SUBROUTINE WR_SPECTRA()
+      SUBROUTINE WR_SPECTRA(IVERS)
 
 c Created July 2023
 c For each spectrum, re-write using format based on OPT_REFORMAT_SPECTRA.
@@ -11179,20 +11219,37 @@ c
 c Mar 20 2025: update output to include SIM_FLAM for all options
 c              (instead of only KEY option)
 c
+c Oct 22 2025: pass IVERS index for VERSION_PHOTOMETRY
+c
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SPECCOM.
-  
-      INTEGER LENV, LENC, LENROW, ispec, NLAMBIN, ilam
-      REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, z
+ 
+      INTEGER IVERS ! (I)
+
+c local args
+ 
+      INTEGER LENV, LENC, LENROW, LENF, ispec, NLAMBIN, ilam
+      INTEGER ISDATA_REAL
+      REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, TREST, z
       CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80
+      CHARACTER VERS*(MXCHAR_FILENAME)
+      CHARACTER VARNAMES_LIST_FILE*100
       LOGICAL WR_FLAM, WR_FLUX, WR_KEY
 C ------------- BEGIN -----------
 
-      LENV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
+c open table list file to give summary info for each spectrum
+      OPEN (UNIT=LUNTMP, FILE=SPECTRUM_LIST_FILE, STATUS='UNKNOWN', 
+     &       ACCESS='APPEND' )
+
+      VERS = VERSION_PHOTOMETRY(IVERS)
+      LENV = INDEX(VERS,' ') - 1
       LENC = ISNLC_LENCCID
+
+      ISDATA_REAL = 1
+      if ( LSIM_SNANA ) ISDATA_REAL = 0
 
       WR_FLAM = BTEST(OPT_REFORMAT_SPECTRA,0)
       WR_FLUX = BTEST(OPT_REFORMAT_SPECTRA,1)
@@ -11206,41 +11263,53 @@ C ------------- BEGIN -----------
 
          MJD     = MJD_SPECTRUM(ispec)
 	 TOBS    = TOBS_SPECTRUM(ispec)
+	 TREST   = TOBS/(1.0+z)
          NLAMBIN = NLAMBIN_SPECTRUM(ispec)
 
          if ( MJD > 0.0 ) THEN
-             WRITE(SPEC_FILE,40) 
-     &       VERSION_PHOTOMETRY(1)(1:LENV), SNLC_CCID(1:LENC), MJD
+             WRITE(SPEC_FILE,40) VERS(1:LENV), SNLC_CCID(1:LENC), MJD
 40          format(A,'_',A,'_', F9.3, '.SPEC' )
          ELSE
              WRITE(SPEC_FILE,41) 
-     &       VERSION_PHOTOMETRY(1)(1:LENV), SNLC_CCID(1:LENC), "HOST"
+     &       VERS(1:LENV), SNLC_CCID(1:LENC), "HOST"
 41          format(A,'_',A,'_', A, '.SPEC' )
          ENDIF
 
-         OPEN(UNIT= LUNTMP, FILE=SPEC_FILE, STATUS='UNKNOWN' )
+         LENF = INDEX(SPEC_FILE,' ') - 1
+         WRITE(LUNTMP,710) 
+     &        SNLC_CCID(1:LENC), SPEC_FILE(1:LENF), z,
+     &        MJD, TOBS, TREST,
+     &        NLAMBIN, ISDATA_REAL
+710      FORMAT('SN: ', A, 2x, A, 2x, F6.3, 2x,
+     &            F10.4, 2F8.1,
+     &            I5, I3 )
+c
+c     &       'CID SPEC_FILE REDSHIFT MJD TOBS TREST ' // 
+c     &       'NBIN_WAVE ISDATA_REAL'
+
+         OPEN(UNIT= LUNSPEC, FILE=SPEC_FILE, STATUS='UNKNOWN' )
 
 c write comments
 
-         MSG = 'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:LENV)
-	 write(LUNTMP,350) MSG
+         MSG = 'VERSION_PHOTOMETRY: ' // VERS(1:LENV)
+	 write(LUNSPEC,350) MSG
 
          write(MSG,301) 'MJD:      ', MJD
-	 write(LUNTMP,350) MSG
+	 write(LUNSPEC,350) MSG
 
          write(MSG,301) 'TOBS:     ', TOBS
-	 write(LUNTMP,350) MSG
+	 write(LUNSPEC,350) MSG
 
          write(MSG,301) 'REDSHIFT: ', z
-	 write(LUNTMP,350) MSG
+	 write(LUNSPEC,350) MSG
 	 
 301      format(A, 3x, F9.3)
 
          write(MSG,302) 'NLAMBIN:  ', NLAMBIN
 302      format(A, 3x, I5)
-	 write(LUNTMP,350) MSG
+	 write(LUNSPEC,350) MSG
 
-         write(LUNTMP,350) ' ' 
+         write(LUNSPEC,350) ' ' 
 
          if ( WR_FLAM ) then
      	      write(MSG,360) 'WAVE FLAM FLAMERR'
@@ -11252,7 +11321,7 @@ c xxx mark Mar 21 2025	if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
          endif
 
          if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
-         write(LUNTMP,360) MSG(1:50)
+         write(LUNSPEC,360) MSG(1:50)
 
 350      format('# ', A)
 351      format('VARNAMES: ', A)
@@ -11285,12 +11354,14 @@ c write spectrum
 446           format(A,E14.5)
            endif
    
-	   write(LUNTMP,360) MSG
+	   write(LUNSPEC,360) MSG
 
 401      CONTINUE         
          
-         CLOSE(LUNTMP)  ! close spec file
+         CLOSE(LUNSPEC)  ! close spec file
 400   CONTINUE
+
+      CLOSE ( UNIT = LUNTMP )
 
       RETURN
       END   ! end WR_SPECTRA

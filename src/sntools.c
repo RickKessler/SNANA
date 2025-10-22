@@ -7285,7 +7285,7 @@ double interp_1DFUN(
   if ( NBIN==1 ) { return(VAL_LIST[0]) ; }
 
   // do binary search to quickly find which bin contains 'val'
-  IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
+  IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment, fnam );
 
   if ( IBIN < 0 || IBIN >= NBIN-1 ) {
     sprintf(c1err,"quickBinSearch returned invalid IBIN=%d (NBIN=%d)", 
@@ -7501,7 +7501,7 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 // ===================================================
 int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
-		   char *abort_comment) {
+		   char *abort_comment, char *callFun) {
 
   // April 2011.
   // Return integer bin [0 < IBIN < NBIN-1] such that 
@@ -7509,10 +7509,14 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
   // Dec 13 2019: return(0) immediately if NBIN=1
+  // Oct 22 2025: pass fnam for error message
 
-  char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
   double    MINVAL, MAXVAL, VAL1, VAL2 ;
+  // xxx mark  char fnam[] = "quickBinSearch" ;  //.xyz
+
+  char fnam[200] ;  
+  concat_callfun_plus_fnam(callFun, "quickBinSearch", fnam); // return fnam
 
   // ------------- BEGIN --------------
 

@@ -3237,8 +3237,8 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   int    NBIN_WAVE  = GENSMEAR_COVSED.NBIN_WAVE;
   int i0, i1 ;
   if ( LAMPAIR[0] > 0.0 ) {
-    i0 = quickBinSearch(LAMPAIR[0], NBIN_WAVE, WAVE_LIST, fnam);
-    i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam);
+    i0 = quickBinSearch(LAMPAIR[0], NBIN_WAVE, WAVE_LIST, fnam, fnam);
+    i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam, fnam);
     LAMPAIR[0] = WAVE_LIST[i0] ; // snap to nearest bin
     LAMPAIR[1] = WAVE_LIST[i1] ; // snap to nearest bin
     COVMAT[0][0] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i0+i0] ;

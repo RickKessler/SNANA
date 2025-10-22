@@ -26438,7 +26438,7 @@ void init_genSEDMODEL(void) {
 
   logzdif =  log10(zmax) - log10(zmin) ;
   NZBIN = (int)( 50. * logzdif ) + 1 ;
-  if ( NZBIN <= 1 ) { NZBIN = 2; } // avoid divide-by-zero in init_redshift_SEDMODEL
+  // xxx mark Oct 22 2025  if ( NZBIN <= 1 ) { NZBIN = 2; } // avoid divide-by-zero in init_redshift_SEDMODEL
 
   init_redshift_SEDMODEL(NZBIN, zmin, zmax);
 

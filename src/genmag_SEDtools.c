@@ -470,7 +470,12 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
   int iz;
   LOGZMIN = log10(Zmin);
   LOGZMAX = log10(Zmax);
-  LOGZBIN = (LOGZMAX-LOGZMIN) / (double)(NZbin-1) ;
+
+  if ( NZbin > 1 ) 
+    { LOGZBIN = (LOGZMAX-LOGZMIN) / (double)(NZbin-1) ; }
+  else
+    { LOGZBIN = 0.0; }
+
   for( iz = 0; iz <= NZbin ; iz++ ) { 
     if ( iz == 0 )  
       { z = 0.0; logz = -999. ; } 
@@ -1752,8 +1757,8 @@ double interp_flux_SEDMODEL(
   else { 
     S = interp_1DFUN(1, logz, 
 		     NBIN_SPLINE, ptr_LOGZ, SZTMP, fnam);   
-    // xxx mark delete Nov 2023: S = quadInterp( logz, ptr_LOGZ, SZTMP, fnam ); 
   }
+
 
   LDMP = ( EPLO == 20 &&  ifilt_obs == -2  ) ;
   if ( LDMP ) {
@@ -2131,7 +2136,7 @@ void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC) {
   }
   else {
     // find where DAY lands in SEDMODEL.DAY array
-    IDAY_LOCAL = quickBinSearch(DAY, NDAY, SEDMODEL.DAY[ISED], fnam);
+    IDAY_LOCAL = quickBinSearch(DAY, NDAY, SEDMODEL.DAY[ISED], fnam, fnam);
     DAYREF0    = SEDMODEL.DAY[ISED][IDAY_LOCAL];
     DAYREF1    = SEDMODEL.DAY[ISED][IDAY_LOCAL+1];
     DAYSTEP    = DAYREF1-DAYREF0 ;

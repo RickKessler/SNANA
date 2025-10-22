@@ -1254,7 +1254,7 @@ int pick_SIMSED_BY_WGT(void){
   }
 
   ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE+1, 
-			SEDMODEL.WGT_SUM, fnam);
+			SEDMODEL.WGT_SUM, fnam, fnam);
  
   ISED++ ; // avoid ISED=0 since ISED starts at 1
 

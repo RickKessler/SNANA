@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
       goto GENEFF; 
     }
 
-    // now check zHOST-dependent efficiency (Dec 1 2017)   .xyz
+    // now check zHOST-dependent efficiency (Dec 1 2017)  
     if ( gen_TRIGGER_zHOST() == 0 ) { 
       gen_event_reject(&ilc, &GENLC.SIMFILE_AUX, "SEARCHEFF");
       goto GENEFF; 
@@ -11754,6 +11754,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
   bool DO_SEDMODEL   = ( (OPTMASK & SPECTROGRAPH_OPTMASK_SEDMODEL)>0 );
 
+  bool IS_SED_TRUE = (INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0.0 );
+
   bool IS_HOST       = GENSPEC.IS_HOST[imjd];
   char   fnam[] = "GENSPEC_SMEAR" ;
 
@@ -11846,7 +11848,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
     
 
-    if ( OBSFLUXERR < 1.0E-50 ) { continue; }
+    if ( OBSFLUXERR < 1.0E-50 && !IS_SED_TRUE ) { continue; }  
 
     // compute random flucution of spectrograph flux
     // be careful with correlated template noise in each spectrum

@@ -23253,6 +23253,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        
          *****  USEFUL(v11_06b) *****
 
+    sntools_dataformat_fits.c
+       Finally fixed to read back compact SED_TRUE where only SIM_FLAM array 
+       is writtin; now the missing columns are internally computed for
+       LAMMIN, LAMMAX, FLAM, FLAMERR. This compact format was developed to
+       save disk space for OpenUniverse2024 sims.
+
 
          *****  MISCELLANEOUS(v11_06b) *****
 
@@ -23287,7 +23293,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for OPT_REFORMAT_SPECTRA, write additional SPEC.LIST table with
        summary for each spectrum
 
-   BUG : for writing true SED option, read-back works for FITS format,
-         but aborts on error for TEXT format.
+
 
 END: 

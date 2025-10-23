@@ -75,6 +75,11 @@
  Aug 07 2025: remove REFAC_SNFITSIO flag
 
  Sep 29 2025: write PHOTFLAG_TRIGGER to global header
+
+ Oct 23 2025: finally fix reader to work with compact SED_TRUE that writes
+              only SIM_FLAM to save disk space. This compact write feature
+              was developed for OpenUniverse2024.
+
 **************************************************/
 
 #include "fitsio.h"
@@ -878,6 +883,7 @@ void wr_snfitsio_init_spec(void) {
     wr_snfitsio_addCol( "1E",  "LAMMAX",    itype   ) ;
     wr_snfitsio_addCol( "1E",  "LAMBIN",    itype   ) ;
   }
+
 
   wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MIN", itype   ) ; 
@@ -2568,6 +2574,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   char fnam[] = "wr_snfitsio_update_spec" ;
 
   // ----------- BEGIN ------------
+
 
   //  printf(" xxx %s imjd=%2d  SKIP=%d \n",
   //	 fnam, imjd, GENSPEC.SKIP[imjd] ); fflush(stdout);
@@ -4988,7 +4995,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
   // print summary of allocated memory
   FMEM = 1.0E-6*(float)(MEMTOT) ;  
-  printf("   Allocate %6.3f MB memory for %s (IFILE=%d, LEN=%d). \n", 
+  printf("   Allocate %6.3f MB memory for %s (IFILE=%d, NROW=%d). \n", 
 	 FMEM, ptrFile, ifile, LEN_LOCAL );
   fflush(stdout); 
 
@@ -5192,6 +5199,8 @@ void  rd_snfitsio_specFile( int ifile ) {
   // Since sim keys are skipped, translating FITS -> TEXT doesn't include
   // the sim-only header keys for each spectrum.
   
+  bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
+
   int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
@@ -5205,6 +5214,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   istat = 0;
   itype   = ITYPE_SNFITSIO_SPEC ;
   ptrFile = rd_snfitsFile_plusPath[ifile][itype];
+
 
   // open SPEC fits file for reading
   fits_open_file(&fp_rd_snfitsio[itype], ptrFile, READONLY, &istat );
@@ -5228,7 +5238,6 @@ void  rd_snfitsio_specFile( int ifile ) {
   // read number of HEADER rows
   sprintf(keyName, "%s", "NAXIS2" );
   fits_read_key(fp, TLONG, keyName,  &NROW, comment, &istat );
-  printf("   Read %ld SPECTRUM-HEADER rows.\n", NROW);  fflush(stdout);
   RDSPEC_SNFITSIO_HEADER.NROW = NROW ;
 
   // if spectrograph table exists but there are no sim spectra,
@@ -5238,7 +5247,6 @@ void  rd_snfitsio_specFile( int ifile ) {
     { SNFITSIO_SIMFLAG_SPECTROGRAPH = false ; return; }
 
   rd_snfitsio_mallocSpec(+1,ifile);
-
 
   icol=1 ;
   fits_read_col_str(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_A,
@@ -5257,6 +5265,21 @@ void  rd_snfitsio_specFile( int ifile ) {
 		      RDSPEC_SNFITSIO_HEADER.INSTRUMENT, &anynul, &istat );     
   } 
   
+  // Oct 23 2025: read global wave range and bin size (for SED_TRUE_
+  if ( READ_SED_TRUE ) {
+    icol=5 ; 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.LAMMIN, &anynul, &istat );     
+
+    icol=6 ; 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.LAMMAX, &anynul, &istat );     
+
+    icol=7 ; 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.LAMBIN, &anynul, &istat );     
+  }
+
   // Sep 2024: skip over optional LAMMIN/LAMMAX/LAMBIN keys and jump
   // to column with name 'NBIN_LAM'
   char NEXT_COL[] = "NBIN_LAM" ;
@@ -5343,7 +5366,9 @@ void RD_SNFITSIO_SPECDATA(int irow,
   //
   // For sim, also return true GENFLAM
   // Oct 15 2021: check legacy vs. refac FITS format
-
+  // Oct 23 2025: finally fix this to work with true sim SED that
+  //             are written in very compact form 
+  //
   char fnam[] = "RD_SNFITSIO_SPECDATA";
   if ( irow < 0 ) {
     sprintf(c1err,"Invalid irow = %d", irow);
@@ -5355,49 +5380,79 @@ void RD_SNFITSIO_SPECDATA(int irow,
   int PTRMIN   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN[irow];
   int PTRMAX   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX[irow];
   int itype    = ITYPE_SNFITSIO_SPEC;
+  bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
+  bool READ_SPECTRUM = !READ_SED_TRUE ;
 
   int  istat=0, icol=0, anynul, ilam, ILAM ; 
   long NROW      = PTRMAX - PTRMIN + 1;
   long FIRSTROW  = PTRMIN ;
   long FIRSTELEM = 1 ;
 
-  int  LDMP = 0 ;
+  int  LDMP =  0 ;
 
   // --------------- BEGIN --------------
 
   if ( LDMP ) {
     printf(" 0. xxx %s ---------------------------- \n", fnam);
     printf(" 1. xxx %s ROW=%d \n", fnam, irow );
+    printf(" 2. xxx %s: SIMFLAG_SNANA=%d  READ_SED_TRUE=%d \n",   
+	   fnam, SNFITSIO_SIMFLAG_SNANA, READ_SED_TRUE );
+    fflush(stdout);
   }
 
+
+  if ( READ_SPECTRUM ) {
+    // refac FITS format with explicit LAMMIN and LAMMAX colums
+    // --> works for data and sim
+
+    icol++ ; ;  
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      LAMMIN, &anynul, &istat ); 
+
+    sprintf(c1err,"Read LAMMIN for spectrum" ) ;
+    snfitsio_errorCheck(c1err, istat);
   
-  // refac FITS format with explicit LAMMIN and LAMMAX colums
-  // --> works for data and sim
-  icol++ ; ;  
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    LAMMIN, &anynul, &istat ); 
-  sprintf(c1err,"Read LAMMIN for spectrum" ) ;
-  snfitsio_errorCheck(c1err, istat);
-  
-  icol++ ; ;  
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    LAMMAX, &anynul, &istat ); 
-  sprintf(c1err,"Read LAMMAX for spectrum" ) ;
-  snfitsio_errorCheck(c1err, istat);    
+    icol++ ; ;  
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      LAMMAX, &anynul, &istat ); 
+    sprintf(c1err,"Read LAMMAX for spectrum" ) ;
+    snfitsio_errorCheck(c1err, istat);    
 
-  // - - - -
+    // - - - -
 
-  icol++ ;  istat=0;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    FLAM, &anynul, &istat ); 
+    icol++ ;  istat=0;
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      FLAM, &anynul, &istat ); 
+    
+    icol++ ;  istat=0;
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      FLAMERR, &anynul, &istat ); 
+  }
 
-  icol++ ;  istat=0;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    FLAMERR, &anynul, &istat ); 
+  // for sim, read true SIM_FLAM
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
+    icol++ ;  istat=0;
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      SIM_FLAM, &anynul, &istat ); 
+  }
 
-  icol++ ;  istat=0;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    SIM_FLAM, &anynul, &istat ); 
+
+  if ( READ_SED_TRUE ) {
+    // explicitly compute arrays that were left out of the compact data structure 
+    // that was designed to save disk space for voluminous SED_TRUE feature.
+    double LAMMIN_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMIN[irow] ;
+    double LAMMAX_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMAX[irow] ;
+    double LAMBIN_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMBIN[irow] ;
+    double lammin_tmp = LAMMIN_SPEC;
+    for ( ilam=0; ilam < NLAM; ilam++ ) {
+      LAMMIN[ilam] = lammin_tmp;
+      lammin_tmp  += LAMBIN_SPEC;
+      LAMMAX[ilam] = lammin_tmp ;      
+
+      FLAM[ilam]    = SIM_FLAM[ilam];
+      FLAMERR[ilam] = SIM_FLAM[ilam] * 1.0E-4 ; // must be positive number
+    }
+  }
 
   return ;
 
@@ -5420,6 +5475,9 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
   int  MEMC  =   NROW * sizeof(char*);
   int  MEMSNID = 40   * sizeof(char) ;
   int irow;
+
+  bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
+
   char fnam[] = "rd_snfitsio_mallocSpec" ;
 
   // ------------ BEGIN -----------
@@ -5432,6 +5490,13 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
     RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
     RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
 
+    if ( READ_SED_TRUE ) {
+      // allocate global lam min and max and bin size
+      RDSPEC_SNFITSIO_HEADER.LAMMIN  = (float *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+      RDSPEC_SNFITSIO_HEADER.LAMMAX  = (float *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+      RDSPEC_SNFITSIO_HEADER.LAMBIN  = (float *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+    }
+
     RDSPEC_SNFITSIO_HEADER.SNID       = (char**) malloc (MEMC) ;
     RDSPEC_SNFITSIO_HEADER.INSTRUMENT = (char**) malloc (MEMC) ;    
     for(irow=0; irow<NROW; irow++ ) {
@@ -5443,8 +5508,9 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
     // print summary of allocated memory
     double FMEM = 1.0E-6*(float)(MEMTOT) ;  
-    printf("   Allocated %6.3f MB of memory for %s table. \n", 
-	   FMEM, snfitsType[ITYPE_SNFITSIO_SPEC] );
+    char *ptrFile = rd_snfitsFile[ifile][ITYPE_SNFITSIO_SPEC] ; 
+    printf("   Allocate %6.3f MB memory for %s (IFILE=%d. NSPEC=%d) \n", 
+	   FMEM, ptrFile, ifile, NROW );
     fflush(stdout); 
 
   }

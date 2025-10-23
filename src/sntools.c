@@ -8644,10 +8644,7 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
 
-  if ( DEBUG_RDSPEC > 0 ) {
-    printf(" xxx %s: ispec=%d  IS_MALLOC = %d \n",
-	   fnam, ispec, GENSPEC.IS_MALLOC[ispec]); fflush(stdout);
-  }
+  print_IS_MALLOC(fnam, ispec, NBLAM); // xxx mark delete 
 
   if ( GENSPEC.IS_MALLOC[ispec] ) { malloc_GENSPEC(-1, ispec, 0); }
 
@@ -8686,13 +8683,19 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
 
   if ( opt == 0 ) {
 
-    if ( DEBUG_RDSPEC > 0 ) 
-      { printf(" xxx %s set all IS_MALLOC = false \n", fnam); fflush(stdout); }
+    // xxxxxxxxxxx
+    if ( DEBUG_RDSPEC > 0 )  { 
+      printf(" xxx %s set all IS_MALLOC = false \n", fnam); fflush(stdout); 
+    }
+    // xxxxxxxxxx
 
     for(i=0; i < MXSPEC; i++ ) 
       { GENSPEC.IS_MALLOC[i] = false; }
   }
   else if ( opt < 0 ) {
+
+    print_IS_MALLOC("malloc_GENSPEC-free", ispec, 0); // xxx mark delete
+
     free(GENSPEC.LAMMIN_LIST[ispec])  ;
     free(GENSPEC.LAMMAX_LIST[ispec])  ;
     free(GENSPEC.LAMAVG_LIST[ispec])  ;
@@ -8706,6 +8709,8 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   else if ( opt > 0 ) {
     int MEMD = (NBLAM+100) * sizeof(double); 
 
+    print_IS_MALLOC("malloc_GENSPEC+1", ispec, NBLAM); // xxx mark delete
+
     GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
@@ -8716,16 +8721,23 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
     GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);    
     GENSPEC.IS_MALLOC[ispec]     = true;
 
-    if ( DEBUG_RDSPEC > 0 ) {
-      printf(" xxx %s: set IS_MALLOC[%d]=%d for NBLAM=%d \n",
-	     fnam, ispec, GENSPEC.IS_MALLOC[ispec], NBLAM); fflush(stdout);
-    }
-
+    print_IS_MALLOC("malloc_GENSPEC+2", ispec, NBLAM); // xxx mark delete
   }
 
   return ;
 
 } // end malloc_GENSPEC
+
+
+
+// xxxxxxxx temp hacky thing for debug xxxxxxxxxxxx
+void print_IS_MALLOC(char *callFun, int ispec, int NBLAM) {
+  if ( DEBUG_RDSPEC == 0 ) { return; }
+  printf(" xxx %-20s: set IS_MALLOC[ispec=%d] = %d for NBLAM=%d \n",
+	 callFun, ispec, GENSPEC.IS_MALLOC[ispec], NBLAM); 
+  fflush(stdout);
+}
+// xxxxxxxxxxxxxx
 
 // =====================================
 void set_SNDATA_FILTER(char *filter_list) {

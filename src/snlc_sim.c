@@ -30293,6 +30293,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Oct 14 2021: set spectra bit of INPUTS.WRITE_MASK 
   // Dec 22 2021: refactored write-spectra is now default.
   // Jul 05 2022: check for strong lens (SL) dump
+  // Oct 23 2025; fix WRITE_MASK logic for SED_TRUE
 
   int i, isys, FLAG ;
   double zero = 0.0, dummy[10] ;
@@ -30385,14 +30386,15 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // DCR leverages SPECTROGRAPH infrastructure. However, if original user input
   // requests SED output, then do it.
   
+  double LAMBIN_SED_TRUE = INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE ;
   bool WRITE_SPECTRA  = SPECTROGRAPH_USEFLAG && !WRFLAG_noSPEC;
-  bool WRITE_SED_TRUE = false;
-  
+  bool WRITE_SED_TRUE = (LAMBIN_SED_TRUE > 0.0 );
+
   if ( INPUTS_ATMOSPHERE.OPTMASK > 0 ) {
     int OPTMASK_ORIG = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK_ORIG; // original user intent
 
     if ( (OPTMASK_ORIG & SPECTROGRAPH_OPTMASK_SEDMODEL) == 0 ) 
-      { WRITE_SPECTRA = false; }
+      { WRITE_SPECTRA = false; WRITE_SED_TRUE = false; }
     else
       { WRITE_SPECTRA = true; WRITE_SED_TRUE = true; }
   }
@@ -30400,7 +30402,6 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( WRITE_SPECTRA  )  { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA  ; }
   if ( WRITE_SED_TRUE )  { INPUTS.WRITE_MASK += WRITE_MASK_SED_TRUE ; } // Oct 29 2024
 
-  
   // - - - - 
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 

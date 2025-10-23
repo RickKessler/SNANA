@@ -3248,11 +3248,13 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   }
 
   else if ( strcmp(word0,"SPECTRUM_NLAM:") == 0 ) {
-    iwd++; get_PARSE_WORD_INT(langC, iwd, &NBLAM, fnam );
 
-    if ( DEBUG_RDSPEC > 0 ) {
-      printf(" xxx ------------------------- \n");
-      printf(" xxx %s: ISPEC=%d and NBLAM = %d \n", fnam, ISPEC, NBLAM); fflush(stdout);
+    // Oct 23 2025: skip NBLAM_VALID and read NBLAM_TOT
+    iwd +=2 ; get_PARSE_WORD_INT(langC, iwd, &NBLAM, fnam );
+
+    if ( DEBUG_RDSPEC > 0 ) { // xxx mark delete
+      printf(" xxx ------------------------------------------ \n"); 
+      print_IS_MALLOC(fnam, ISPEC, NBLAM); // xxx mark delete     
     }
 
     init_GENSPEC_EVENT(ISPEC,NBLAM);    // malloc GENSPEC arrays vs. ilam

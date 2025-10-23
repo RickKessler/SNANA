@@ -215,6 +215,7 @@ struct {
   double *MJD;
   float  *TEXPOSE;
   char  **INSTRUMENT ; // Sep 2024
+  float  *LAMMIN, *LAMMAX, *LAMBIN ; // Oct 2025; needed for SED_TRUE
   int    *PTRSPEC_MIN, *PTRSPEC_MAX ;
 } RDSPEC_SNFITSIO_HEADER ;
 

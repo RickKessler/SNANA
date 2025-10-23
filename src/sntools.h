@@ -535,6 +535,7 @@ void set_SNDATA_FILTER(char *filter_list);
 void init_GENSPEC_GLOBAL(void) ;
 void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
 void malloc_GENSPEC(int opt, int ispec, int NBLAM); 
+void print_IS_MALLOC(char *callFun, int ispec, int NBLAM) ; // xxx delete after debug
 
 void ld_null(float *ptr, float value);
 

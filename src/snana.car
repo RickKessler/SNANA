@@ -22794,7 +22794,7 @@ C ---------------- BEGIN --------------
 c check if we should make the plot
       IF ( .NOT. DOPLOT_SNLC() ) RETURN
 
-      CALL SNLCPAK_NFIT(1)      ! May 11 2014
+c xxx mark dele      CALL SNLCPAK_NFIT(1)      ! May 11 2014
 
       LENCCID = ISNLC_LENCCID
       CCID = SNLC_CCID(1:LENCCID) // char(0)
@@ -22812,10 +22812,11 @@ c create subdir
 c prepare text string(s) to display on plot
       LENTEXT = LEN(TEXT_forC)
 
+
       write(TEXT_forC,20) ISNLC_TYPE, SNLC_REDSHIFT, char(0)
  20   format('TYPE = ', I3, 3x,'z=',F5.3, 3x, A )
       CALL SNLCPAK_DISPLAYTEXT(CCID, TEXT_forC, LENCCID, LENTEXT )
-   
+
       IF ( OVMODEL_ANYFUN ) THEN
          TEXT_forC = 'Fit  ANYFUN  to estimate peak MJD' // char(0)
          CALL SNLCPAK_DISPLAYTEXT(CCID, TEXT_forC, LENCCID, LENTEXT )
@@ -22882,7 +22883,7 @@ c -----------------------------
           VFLUX(NOBS)     = SNLC_FLUXCAL(ep)
           VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
           VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
-          VSIMFLUX(NOBS) = SIM_EPFLUXCAL(ep)   ! Jan 2020
+          VSIMFLUX(NOBS)  = SIM_EPFLUXCAL(ep)   ! Jan 2020
 
 c Sep 7 2022: check options to fold LC within a single cylce.
           if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
@@ -22928,8 +22929,6 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 200   CONTINUE   ! NEWMJD
 
 c ------------------------------------------
-
-      IF ( NOBS == 0 ) RETURN ! Oct 23 2025
 
 c store data fluxes
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR, 
@@ -23028,6 +23027,8 @@ c --------------------------------------------------
 c fill output structure with above; here iy goes to a disk file.
 
  500  CONTINUE
+
+      CALL SNLCPAK_NFIT(1)      ! move from abvove, Oct 23 2025
 
       CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,
      &    VBAND_PKMJD,VBAND_PKMJD_ERR, 

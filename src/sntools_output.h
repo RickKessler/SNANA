@@ -388,6 +388,8 @@ extern"C" {
 
   int  IGNOREFILE(char *fileName);
 
+  void concat_callfun_plus_fnam(char *callFun, char *fnam, char *fnam_concat);
+
   // ------------------------------
   // functions added 4/26/2104 
 
@@ -581,7 +583,7 @@ extern"C" {
   
   // internal wrappers that do NOT need mangled fortran fun.
   void SNLCPAK_FILL_PREP(void);
-  void SNLCPAK_CHECK(char *CCID, char *comment);
+  void SNLCPAK_CHECK(char *CCID, char *callFun);
   char *replace_str(char *st, const char *orig, const char *repl) ;
   
   // SPECPAK functions (Apr 2019)

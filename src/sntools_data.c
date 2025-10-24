@@ -926,12 +926,17 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    splitString(SNDATA.FIELDNAME_1D, COMMA, fnam, MXEPOCH,    // inputs    
-		&NSPLIT, &SNDATA.FIELDNAME[1] );            // outputs 
+    bool IS_FIELD = (strlen(SNDATA.FIELDNAME_1D) > 0); 
+
+    if ( IS_FIELD ) {
+      splitString(SNDATA.FIELDNAME_1D, COMMA, fnam, MXEPOCH,    // inputs    
+		  &NSPLIT, &SNDATA.FIELDNAME[1] );            // outputs 
+    }
 
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs] ;    
+      if ( !IS_FIELD ) { sprintf(SNDATA.FIELDNAME[OBS],FIELD_NONAME); }
       catVarList_with_comma(stringVal, SNDATA.FIELDNAME[OBS] );
     }
 

@@ -3143,20 +3143,22 @@ char *replace_str(char *st, const char *orig, const char *repl) {
 
 
 // ===========================================
-void SNLCPAK_CHECK(char *CCID, char *comment) {
+void SNLCPAK_CHECK(char *CCID, char *callFun) {
 
-  // either store CCID in global array,
+  // Either store CCID in global array,
   // or check the CCID matches what is in global array.
   // This CHECK prevents switching CIDs before calling SNLCPAK_FILL.
 
   char *ptrCCID ;
-  char fnam[] = "SNLCPAK_CHECK" ;
-
+  // xxx mark  char fnam[] = "SNLCPAK_CHECK" ;
+  char fnam0[] = "SNLCPAK_CHECK";
+  char fnam[100];
+  concat_callfun_plus_fnam(callFun, fnam0, fnam);
   // ------------ BEGIN -----------
 
   // make sure that SNLCPAK_INIT was called
   if ( SNLCPAK_OUTPUT.INITDONE != SNLCPAK_INITDONE ) {
-    sprintf(MSGERR1,"%s called before SNLCPAK_INIT.", comment);
+    sprintf(MSGERR1,"%s called before SNLCPAK_INIT.", callFun);
     sprintf(MSGERR2,"Must call SNLCPAK_INIT first.");
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
@@ -3171,7 +3173,7 @@ void SNLCPAK_CHECK(char *CCID, char *comment) {
   }
   else if ( strcmp(CCID,ptrCCID) != 0 ) {
     // abort on error
-    sprintf(MSGERR1,"Invalid CCID = '%s' passed to %s", CCID, comment);
+    sprintf(MSGERR1,"Invalid CCID = '%s' passed to %s", CCID, callFun);
     sprintf(MSGERR2,"Expected CCID = '%s'", ptrCCID) ;
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }

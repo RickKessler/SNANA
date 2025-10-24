@@ -23255,10 +23255,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     sntools_dataformat_fits.c
        Finally fixed to read back compact SED_TRUE where only SIM_FLAM array 
-       is writtin; now the missing columns are internally computed for
+       is writtin; the missing columns are internally computed for
        LAMMIN, LAMMAX, FLAM, FLAMERR. This compact format was developed to
-       save disk space for OpenUniverse2024 sims.
-
+       save disk space for OpenUniverse2024 sims; I didn't have time back then
+       to fix the snana reader, but it's done now to extract true SEDs for
+       SNID-SAGE.
 
          *****  MISCELLANEOUS(v11_06b) *****
 

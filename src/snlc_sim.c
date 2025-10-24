@@ -16906,7 +16906,7 @@ void gen_zsmear(double zerr) {
   // 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
-  double ZGEN_MIN = 0.0001;
+  double ZGEN_MIN = 2.0e-9 ; // xxx mark 0.0001;
   double zhelio, RA, DEC ;
   char   fnam[] = "gen_zsmear";
 

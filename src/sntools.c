@@ -8644,8 +8644,6 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
 
-  print_IS_MALLOC(fnam, ispec, NBLAM); // xxx mark delete 
-
   if ( GENSPEC.IS_MALLOC[ispec] ) { malloc_GENSPEC(-1, ispec, 0); }
 
   // always re-malloc in case NBLAM changes
@@ -8683,18 +8681,10 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
 
   if ( opt == 0 ) {
 
-    // xxxxxxxxxxx
-    if ( DEBUG_RDSPEC > 0 )  { 
-      printf(" xxx %s set all IS_MALLOC = false \n", fnam); fflush(stdout); 
-    }
-    // xxxxxxxxxx
-
     for(i=0; i < MXSPEC; i++ ) 
       { GENSPEC.IS_MALLOC[i] = false; }
   }
   else if ( opt < 0 ) {
-
-    print_IS_MALLOC("malloc_GENSPEC-free", ispec, 0); // xxx mark delete
 
     free(GENSPEC.LAMMIN_LIST[ispec])  ;
     free(GENSPEC.LAMMAX_LIST[ispec])  ;
@@ -8709,8 +8699,6 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   else if ( opt > 0 ) {
     int MEMD = (NBLAM+100) * sizeof(double); 
 
-    print_IS_MALLOC("malloc_GENSPEC+1", ispec, NBLAM); // xxx mark delete
-
     GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
@@ -8720,8 +8708,6 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
     GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
     GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);    
     GENSPEC.IS_MALLOC[ispec]     = true;
-
-    print_IS_MALLOC("malloc_GENSPEC+2", ispec, NBLAM); // xxx mark delete
   }
 
   return ;

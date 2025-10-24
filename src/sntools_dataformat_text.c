@@ -3252,11 +3252,6 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
     // Oct 23 2025: skip NBLAM_VALID and read NBLAM_TOT
     iwd +=2 ; get_PARSE_WORD_INT(langC, iwd, &NBLAM, fnam );
 
-    if ( DEBUG_RDSPEC > 0 ) { // xxx mark delete
-      printf(" xxx ------------------------------------------ \n"); 
-      print_IS_MALLOC(fnam, ISPEC, NBLAM); // xxx mark delete     
-    }
-
     init_GENSPEC_EVENT(ISPEC,NBLAM);    // malloc GENSPEC arrays vs. ilam
     GENSPEC.NBLAM_VALID[ISPEC] = NBLAM ;
     GENSPEC.NBLAM_TOT[ISPEC]   = NBLAM ;

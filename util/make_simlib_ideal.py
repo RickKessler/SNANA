@@ -24,7 +24,7 @@ def make_simblib_ideal(survey='LSST', filters='ugrizY', zpt=35., zpterr=0.,\
         outf.write(f'\n')
         outf.write('BEGIN LIBGEN\n\n')
         outf.write('LIBID: 1\n')
-        outf.write(f'RA: 0.0   DECL: 0.0   NOBS: {nobs:d}   MWEBV: 0.0   PIXSIZE: 0.2\n\n')
+        outf.write(f'RA: 0.0   DEC: 0.0   NOBS: {nobs:d}   MWEBV: 0.0   PIXSIZE: 0.2\n\n')
         outf.write('#                           CCD  CCD         PSF1 PSF2 PSF2/1 \n')
         outf.write('#     MJD      IDEXPT  FLT GAIN NOISE SKYSIG (pixels)  RATIO  ZPTAVG ZPTERR  MAG \n')
 

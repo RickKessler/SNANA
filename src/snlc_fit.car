@@ -7419,8 +7419,8 @@ c ---------------------------------
 
       PRIOR_AVRES      = 0.0     ! smear AV prior by this resolution
       PRIOR_MJDSIG     = 20.0    ! sigma for gauss prior on PEAKMJD (days)
-      PRIOR_ZERRSCALE  = 1000.0   ! default is no prior
-      PRIOR_MUERRSCALE = 1000.0   ! default is no prior
+      PRIOR_ZERRSCALE  = 1000.01   ! default is no prior
+      PRIOR_MUERRSCALE = 1000.01   ! default is no prior
       DOPRIOR_DLMAG    = .FALSE. 
 
       OPT_PRIOR      = 1
@@ -7602,7 +7602,7 @@ c first, allow user to set integer option or logical flag.
       endif
       if ( DOFIT_PHOTOZ .and. OPT_PHOTOZ .LE. 0 ) then
    ! use host-galaxy prior by default.
-   ! But note PRIOR_ZERRSCALE=1000 by default
+   ! But note PRIOR_ZERRSCALE=1000.01 by default
          OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) 
       endif
 
@@ -8907,7 +8907,7 @@ c set initial value and step size.
         CZTMP        = 'zBEST-Gauss'
 
 c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
-        if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
+        if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
 
         if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
            PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR

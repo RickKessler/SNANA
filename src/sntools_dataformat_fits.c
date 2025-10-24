@@ -3142,7 +3142,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 
   for (ifile = 1; ifile <= NFILE_RD; ifile++ ) {
 
-    rd_snfitsio_open(ifile, photflag_open,vbose); // open and read 
+    rd_snfitsio_open(ifile, photflag_open, vbose); // open and read 
 
     NSNLC_RD_SNFITSIO_TOT       += NSNLC_RD_SNFITSIO[ifile] ; // increment total
     NSNLC_RD_SNFITSIO_SUM[ifile] = NSNLC_RD_SNFITSIO_TOT ;
@@ -4264,22 +4264,27 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
 
+
   // construct full name of PHOT file.
   sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
 	  SNFITSIO_DATA_PATH, rd_snfitsFile[ifile][itype] );
 
 
+  // - - - - - - - - - - - - - - - - - -  - -
   // read name of optional SPEC file from HEADER file (Apri 2019)
+  itype = ITYPE_SNFITSIO_SPEC ;  // Oct 23 2025
   if ( SNFITSIO_SPECTRA_SKIPREAD ) {
-    istat_spec = -1;
+    istat_spec = -1 ;
   }
   else {
-    itype = ITYPE_SNFITSIO_SPEC ;  istat_spec=0;
+    // xxx mark delete Oct 23 2025    itype = ITYPE_SNFITSIO_SPEC ;  
+    istat_spec=0;
     sprintf(keyname, "SPECFILE" );
     fits_read_key(fp, TSTRING, keyname,
 		  rd_snfitsFile[ifile][itype], comment, &istat_spec );
   }
-  //  istat_spec = -9; // xxx REMOVE
+
+  
   if ( istat_spec == 0 ) {
     SNFITSIO_SPECTRA_FLAG = true ;
     sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
@@ -4361,6 +4366,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   } // end read sim keys
 
+
+
   // ---------------------------
   // Now open the PHOT file.  
   int NFILE_OPEN = 1;
@@ -4372,7 +4379,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     fits_open_file(&fp_rd_snfitsio[itype], ptrFile, READONLY, &istat );
     sprintf(c1err,"Open %s", rd_snfitsFile[ifile][itype] );
     snfitsio_errorCheck(c1err, istat);
-    if ( vbose ) { printf("   Open %s \n", rd_snfitsFile[ifile][itype] ); }
+    if ( vbose ) { printf("   Open (ifile=%d, itype=%d) %s \n", 
+			  ifile, itype, rd_snfitsFile[ifile][itype] ); }
   }
 
   // move to table in each file
@@ -4667,7 +4675,7 @@ void rd_snfitsio_private(void) {
 void rd_snfitsio_file(int ifile) {
 
   int photflag_open = 1;
-  int vbose=0;
+  int vbose=1; // xxx RESTORE to zero
   char fnam[] = "rd_snfitsio_file" ;
 
   // ----------- BEGIN --------------

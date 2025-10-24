@@ -1056,17 +1056,27 @@ c  Apr 2019
 c  Read spectra to pass into tables for plotting.
 c  Not intended for analysis.
      
-      INTEGER MXVAR_SPECTRUM, MXSPECTRUM, MXLAM_SPECTRUM     
+      INTEGER 
+     &   MXVAR_SPECTRUM, MXSPECTRUM, MXLAM_SPECTRUM, MXVAR_SPEC_TABLE
 
       PARAMETER (
      &   MXVAR_SPECTRUM = 10     ! max number of variables after SPEC: key
      &  ,MXSPECTRUM     = 200   ! max number of spectra to read per event
      &  ,MXLAM_SPECTRUM = 20000  ! max number of wave bins per spectrum
+     &  ,MXVAR_SPEC_TABLE = 20   ! max number of columns in summary spec table
      &        )
 
-      LOGICAL RDFLAG_SPECTRUM
-      CHARACTER VARNAMES_SPECTRUM(MXVAR_SPECTRUM)*40
-      CHARACTER SPECTRUM_LIST_FILE*40
+      INTEGER NVAR_SPEC_TABLE
+     &   ,IVAR_SPEC_SUBTYPE, IVAR_SPEC_MJD, IVAR_SPEC_TOBS
+     &   ,IVAR_SPEC_TREST, IVAR_SPEC_NBIN
+
+      CHARACTER 
+     &   SPEC_TABLE_FILE*40
+     &  ,VARNAMES_SPEC_TABLE(MXVAR_SPEC_TABLE)*40  ! for summary table, not individual spectrum files
+     &  ,COMMENTS_SPEC_TABLE(MXVAR_SPEC_TABLE)*80  ! comment string for each VARNAME
+      LOGICAL USECOL_SPEC_TABLE(MXVAR_SPEC_TABLE)  ! logical flag
+
+      LOGICAL WRSPEC_FLAM, WRSPEC_FLUX, WRSPEC_KEY, WRSPEC_SNID_SAGE
 
       INTEGER 
      &    NVAR_SPECTRUM           ! number of spectrum variables to read
@@ -1086,9 +1096,16 @@ c
      &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM)
      &   ,SIM_FLAM_SPECTRUM(MXLAM_SPECTRUM)
 
-      COMMON/SPECCOM4/ RDFLAG_SPECTRUM, SPECTRUM_LIST_FILE
+      COMMON/SPECTABLE/ SPEC_TABLE_FILE
+     &   ,NVAR_SPEC_TABLE
+     &   ,IVAR_SPEC_SUBTYPE, IVAR_SPEC_MJD, IVAR_SPEC_TOBS
+     &   ,IVAR_SPEC_TREST, IVAR_SPEC_NBIN
+     &   ,VARNAMES_SPEC_TABLE, COMMENTS_SPEC_TABLE, USECOL_SPEC_TABLE
+
+      COMMON/SPECCOM4/ 
+     &    WRSPEC_FLAM, WRSPEC_FLUX, WRSPEC_KEY, WRSPEC_SNID_SAGE
      &   ,NVAR_SPECTRUM, NSPECTRUM, ID_SPECTRUM, NLAMBIN_SPECTRUM
-     &   ,VARNAMES_SPECTRUM, NLAMBIN_READ
+     &   ,NLAMBIN_READ
 
       COMMON/SPECCOM8/ 
      &    MJD_SPECTRUM, TOBS_SPECTRUM, TEXPOSE_SPECTRUM
@@ -3439,6 +3456,7 @@ c read global info and store in SNDATA struct in sndata.h
          IF ( .NOT. LRDFLAG_SPEC      ) OPTRD = OPTRD + 128  ! Jul 9 2025
          IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256  ! Mar 2022
 	 IF ( DO_GETINFO )              OPTRD = 64   ! Oct 2025
+
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
@@ -10317,6 +10335,7 @@ c  lsb  mask
 c   0    1      3-column text format: lam, Flam, Flam_err
 c   1    2      3-column text format: lam, Flux, Flux_err 
 c   2    4      SNANA keyed format for plot_table ; include SIM_FLAM for sims
+c   3    8      format for SNID-SAVE (Oct 2025)
 c
 c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 c
@@ -10325,6 +10344,8 @@ c July 2023: check OPT_REFORMAT_SPECTRA
 c Dec  2024: new OPT_REFORMAT_SPECTRA = 4 for SNANA keyed format
 c Apr  2025: new OPT += 32 to rename band -> [SURVEY]-band
 c            Minor refactor using IAND and MASKs instead of BTEST
+c Oct  2025: add new option for SNID-SAGE format
+c
 c -------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -10824,45 +10845,135 @@ c
 +CDE,SNLCINP.
 +CDE,SPECCOM.
 
-      CHARACTER VARNAMES_LIST_FILE*100
+      INTEGER NVAR, ivar, LL, LENV
+      CHARACTER VARNAMES_LIST*100, FNAM*28, VARNAME*20, COMMENT*80
+      CHARACTER LINE*60
+
 C --------------- BEGIN ------------
 
-c open table list file to give summary info for each spectrum
-      SPECTRUM_LIST_FILE = 'SPEC.LIST'
-      print*,' Open ', SPECTRUM_LIST_FILE
+      FNAM = 'INIT_REFORMAT_SPECTRA_ONLY'
+      CALL PRBANNER(FNAM)
 
-      OPEN (UNIT=LUNTMP, FILE=SPECTRUM_LIST_FILE, STATUS='UNKNOWN' )
+      LINE = '========================================' 
+     &      // '================== '
+      WRSPEC_FLAM = BTEST(OPT_REFORMAT_SPECTRA,0)
+      WRSPEC_FLUX = BTEST(OPT_REFORMAT_SPECTRA,1)
+      WRSPEC_KEY  = BTEST(OPT_REFORMAT_SPECTRA,2)      
+      WRSPEC_SNID_SAGE = BTEST(OPT_REFORMAT_SPECTRA,3) 
 
-      VARNAMES_LIST_FILE = 
-     &    'CID SPEC_FILE  TYPE  REDSHIFT MJD TOBS TREST ' // 
-     &    'NBIN_WAVE ISDATA_REAL  '
+      write(6,120) 
+     &   WRSPEC_FLAM, WRSPEC_FLUX, WRSPEC_KEY, WRSPEC_SNID_SAGE
+120   format(T5, 'WRSPEC[FLAM,FLUX,KEY,SNID_SAGE] = ', 4L3)
 
-      WRITE(LUNTMP,700) 
-     &     ' ================================================= '
-      WRITE(LUNTMP,700) 'CID         : ' //
-     &         'Candidate ID (or SNID) of event'
-      WRITE(LUNTMP,700) 'SPEC_FILE   : ' // 
-     &         'name of table file with WAVE FLAM FLAMERR'
-      WRITE(LUNTMP,700) 'TYPE        : ' // 
-     &         'string type, e.g. Ia, Ib, II ... '
-      WRITE(LUNTMP,700) 'REDSHIFT    : ' // 
-     &         'redshift (-9 for unknown) '
-      WRITE(LUNTMP,700) 'MJD         : ' // 
-     &         'MJD of spectrum'
-      WRITE(LUNTMP,700) 'TOBS        : ' // 
-     &         'MJD - PEAKMJD (days) '
-      WRITE(LUNTMP,700) 'TREST       : ' // 
-     &         'TOBS/(1+z) (days)'
-      WRITE(LUNTMP,700) 'NBIN_WAVE   : ' // 
-     &         'Number of WAVE bins'
-      WRITE(LUNTMP,700) 'ISDATA_REAL : ' // 
-     &         '1 -> real data, 0 -> sim data'
-      WRITE(LUNTMP,700) ' '
+
+      IF ( WRSPEC_SNID_SAGE ) THEN  ! set FLAM bit in case user doesn't
+         OPT_REFORMAT_SPECTRA = IBSET(OPT_REFORMAT_SPECTRA,0)
+	 WRSPEC_FLAM = .TRUE.
+      ENDIF
+
+c define all possible columns for spec table
+
+      NVAR = 0
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'CID'
+      COMMENTS_SPEC_TABLE(NVAR) = 'Candidate ID (or SNID) of event'
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'SPEC_FILE'
+      COMMENTS_SPEC_TABLE(NVAR) =  
+     &     'name of table file with WAVE FLAM FLAMERR'
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'TYPE'
+      COMMENTS_SPEC_TABLE(NVAR) = 'string type, e.g. Ia, Ib, II ... '
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'SUBTYPE'
+      COMMENTS_SPEC_TABLE(NVAR) = 'string sub type '
+      IVAR_SPEC_SUBTYPE = NVAR
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'REDSHIFT'
+      COMMENTS_SPEC_TABLE(NVAR) = 'redshift (-9 for unknown) '
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'MJD'
+      COMMENTS_SPEC_TABLE(NVAR) = 'MJD of spectrum'
+      IVAR_SPEC_MJD = NVAR
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'TOBS'
+      COMMENTS_SPEC_TABLE(NVAR) = 'MJD - PEAKMJD (days) '
+      IVAR_SPEC_TOBS = NVAR
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'TREST'
+      COMMENTS_SPEC_TABLE(NVAR) = 'TOBS/(1+z)'
+      IVAR_SPEC_TREST = NVAR
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'NBIN_WAVE'
+      COMMENTS_SPEC_TABLE(NVAR) = 'Number of WAVE bins'
+      IVAR_SPEC_NBIN = NVAR
+
+      NVAR = NVAR + 1
+      VARNAMES_SPEC_TABLE(NVAR) = 'ISDATA_REAL'
+      COMMENTS_SPEC_TABLE(NVAR) = '1 -> real data, 0 -> sim data'
+ 
+      if ( NVAR > MXVAR_SPEC_TABLE ) then
+        write(c1err,61) NVAR, MXVAR_SPEC_TABLE
+61      format('NVAR(SPEC_TABLE) = ',I3,' exceeds bound of ', I3)
+        c2err = 'Consider increasing MXVAR_SPEC_TABLE in snana.car'
+        CALL MADABORT(FNAM, C1ERR, C2ERR)
+      endif
+
+      NVAR_SPEC_TABLE = NVAR
+      DO ivar = 1, NVAR
+         USECOL_SPEC_TABLE(ivar) = .TRUE.
+      ENDDO
+
+c Now remove columns based on output format option
+      IF ( WRSPEC_SNID_SAGE ) THEN
+         USECOL_SPEC_TABLE(IVAR_SPEC_MJD)   = .FALSE.
+         USECOL_SPEC_TABLE(IVAR_SPEC_TOBS)  = .FALSE.
+         USECOL_SPEC_TABLE(IVAR_SPEC_NBIN)  = .FALSE.
+      ELSE
+         USECOL_SPEC_TABLE(IVAR_SPEC_SUBTYPE) = .FALSE.
+      ENDIF
+
+c .xyz
+
+c ---------------------------------------------------------
+c open table list file to give one per spectrum summary
+
+      SPEC_TABLE_FILE = 'SPEC.LIST'
+      print*,' Open ', SPEC_TABLE_FILE
+
+      OPEN (UNIT=LUNTMP, FILE=SPEC_TABLE_FILE, STATUS='UNKNOWN' )
+      WRITE(LUNTMP,700) LINE 
+
+c construct list of varnames based on USECOL_SPEC_TABLE list of logicals
+c Also write comment to SPEC_TABLE_FILE for each used variable
+      VARNAMES_LIST = ''
+      LL = 0
+      DO ivar = 1, NVAR
+         if (  USECOL_SPEC_TABLE(ivar) ) then
+             VARNAME = VARNAMES_SPEC_TABLE(ivar)
+             LENV    = INDEX(VARNAME,' ')
+             VARNAMES_LIST = VARNAMES_LIST(1:LL)//VARNAME(1:LENV) // ' '
+             LL = LL + LENV + 1
+
+             COMMENT = COMMENTS_SPEC_TABLE(ivar)
+             WRITE(LUNTMP,700) VARNAME(1:13) // ' : ' // COMMENT(1:40)
+         endif
+      ENDDO
+
 700   FORMAT('# ', A)
 
-      WRITE(LUNTMP,701) VARNAMES_LIST_FILE 
-701   FORMAT('VARNAMES: ', A)
-
+      WRITE(LUNTMP,700) LINE 
+      WRITE(LUNTMP,701) VARNAMES_LIST  ! avoid blank space
+701   FORMAT(A)
 
       RETURN
       END   ! end INIT_REFORMAT_SPECTRA_ONLY
@@ -11233,17 +11344,16 @@ c
 
 c local args
  
-      INTEGER LENV, LENC, LENROW, LENF, LENT
+      INTEGER LENV, LENC, LENROW, LENF, LENT, LENTT, LENR
       INTEGER ispec, NLAMBIN, ilam, ISDATA_REAL
       REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, TREST, z
       CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80, MSGTMP*80
-      CHARACTER VERS*(MXCHAR_FILENAME), SIM_TYPE*20
-      CHARACTER VARNAMES_LIST_FILE*100
-      LOGICAL WR_FLAM, WR_FLUX, WR_KEY
+      CHARACTER VERS*(MXCHAR_FILENAME), TYPE*20,SUBTYPE*20
+
 C ------------- BEGIN -----------
 
 c open table list file to give summary info for each spectrum
-      OPEN (UNIT=LUNTMP, FILE=SPECTRUM_LIST_FILE, STATUS='UNKNOWN', 
+      OPEN (UNIT=LUNTMP, FILE=SPEC_TABLE_FILE, STATUS='UNKNOWN', 
      &       ACCESS='APPEND' )
 
       VERS = VERSION_PHOTOMETRY(IVERS)
@@ -11252,10 +11362,6 @@ c open table list file to give summary info for each spectrum
 
       ISDATA_REAL = 1
       if ( LSIM_SNANA ) ISDATA_REAL = 0
-
-      WR_FLAM = BTEST(OPT_REFORMAT_SPECTRA,0)
-      WR_FLUX = BTEST(OPT_REFORMAT_SPECTRA,1)
-      WR_KEY  = BTEST(OPT_REFORMAT_SPECTRA,2)      
 
       z       = SNLC_REDSHIFT
       
@@ -11276,33 +11382,41 @@ c open table list file to give summary info for each spectrum
      &       VERS(1:LENV), SNLC_CCID(1:LENC), "HOST"
 41          format(A,'_',A,'_', A, '.SPEC' )
          ENDIF
-
          LENF = INDEX(SPEC_FILE,' ') - 1
 
-         SIM_TYPE = 'NULL'
-         IF ( LSIM_SNANA ) THEN
-            SIM_TYPE = SIMNAME_TYPE
-            if ( INDEX(SIMNAME_TYPE,'SALT')   > 0 ) SIM_TYPE = 'Ia'            
-            if ( INDEX(SIMNAME_TYPE,'BAYESN') > 0 ) SIM_TYPE = 'Ia'            
-         ENDIF
-         LENT = INDEX(SIM_TYPE,' ') - 1  !  .xyz
 
-         WRITE(LUNTMP,710) 
+         TYPE    = 'NULL'
+         SUBTYPE = 'NULL'
+         IF ( LSIM_SNANA ) THEN
+            CALL GET_SIMTYPE_SPEC_FILE(TYPE,SUBTYPE)
+         ENDIF
+         LENT  = INDEX(TYPE,' ') - 1  !  .xyz
+         LENTT = INDEX(SUBTYPE,' ') - 1  !  .xyz
+
+         if ( WRSPEC_SNID_SAGE ) then
+           WRITE(LUNTMP,709) 
      &        SNLC_CCID(1:LENC), SPEC_FILE(1:LENF), 
-     &        SIM_TYPE(1:LENT), z,
+     &        TYPE(1:LENT), SUBTYPE(1:LENTT), z, 
+     &        TREST, ISDATA_REAL
+709        FORMAT(A, 2x, A, 2x, 
+     &            A, 2x, A, 2x, E9.3, 2x,
+     &            F8.1, I3)
+         else
+c             write few more columns for generic SNANA SPEC table
+           WRITE(LUNTMP,710) 
+     &        SNLC_CCID(1:LENC), SPEC_FILE(1:LENF), 
+     &        TYPE(1:LENT), z,
      &        MJD, TOBS, TREST,
      &        NLAMBIN, ISDATA_REAL
-710      FORMAT('SN: ', A, 2x, A, 2x, 
-     &            A, 2x, F6.3, 2x,
+710        FORMAT(A, 2x, A, 2x, 
+     &            A, 2x, E9.3, 2x,
      &            F10.4, 2F8.1,
      &            I5, I3 )
-c
-c     &       'CID SPEC_FILE REDSHIFT MJD TOBS TREST ' // 
-c     &       'NBIN_WAVE ISDATA_REAL'
+         endif
 
          OPEN(UNIT= LUNSPEC, FILE=SPEC_FILE, STATUS='UNKNOWN' )
 
-c write comments
+c write comments at top of SPECTRUM file
 
          MSG = 'VERSION_PHOTOMETRY: ' // VERS(1:LENV)
 	 write(LUNSPEC,350) MSG
@@ -11324,13 +11438,12 @@ c write comments
 
          write(LUNSPEC,350) ' ' 
 
-         if ( WR_FLAM ) then
+         if ( WRSPEC_FLAM ) then
      	      write(MSG,360) 'WAVE FLAM FLAMERR'
-         else if ( WR_FLUX ) then
+         else if ( WRSPEC_FLUX ) then
               write(MSG,360)	'WAVE FLUX FLUXERR'
-	 else if ( WR_KEY ) then
+	 else if ( WRSPEC_KEY ) then
               write(MSG,351)	'ROW WAVE FLAM FLAMERR' 
-c xxx mark Mar 21 2025	if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
          endif
 
          if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
@@ -11346,16 +11459,16 @@ c write spectrum
            LAMBIN = LAMMAX_SPECTRUM(ilam) - LAMMIN_SPECTRUM(ilam)
            F      = FLAM_SPECTRUM(ilam)
            FERR   = FLAMERR_SPECTRUM(ilam)
-           if ( WR_FLUX ) then
+           if ( WRSPEC_FLUX ) then
               F    = F * LAMBIN
               FERR = FERR * LAMBIN
            endif
 
-           if ( WR_FLAM .or. WR_FLUX ) THEN
+           if ( WRSPEC_FLAM .or. WRSPEC_FLUX ) THEN
               WRITE(MSG,440) '', LAM, F, FERR
 440           format(A, F8.2, 3x, 2E14.5 )  
               LENROW = 42
-           else if ( WR_KEY ) THEN
+           else if ( WRSPEC_KEY ) THEN
               WRITE(MSG,442) 'ROW: ', ilam, LAM, F, FERR
 442           format(A, I5, 2x, F8.2, 3x, 2E14.5 )
               LENROW = 60
@@ -11379,6 +11492,58 @@ c write spectrum
 
       RETURN
       END   ! end WR_SPECTRA
+
+C ===========================
++DECK,GET_SIMTYPE_SPEC_FILE.
+      SUBROUTINE  GET_SIMTYPE_SPEC_FILE(SIM_TYPE, SIM_SUBTYPE)
+
+c Created Oct 23 2025
+c Return TYPE and SUBTYPE based on SIMNAMEP_TYPE;
+c This really should be read from a map.
+c
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SPECCOM.
+ 
+      CHARACTER SIM_TYPE*20, SIM_SUBTYPE*20
+
+C ---------- BEGIN -----------
+
+      SIM_TYPE = SIMNAME_TYPE
+      if ( INDEX(SIMNAME_TYPE,'SALT')   > 0 ) SIM_TYPE = 'Ia'            
+      if ( INDEX(SIMNAME_TYPE,'BAYESN') > 0 ) SIM_TYPE = 'Ia'            
+
+c get subtypes for SNID-SAGE only using hard-wired strings sent
+c by Fiore on Oct 23 2025
+
+      if ( WRSPEC_SNID_SAGE ) then
+
+         if ( SIM_TYPE(1:2) .EQ. 'Ia' ) SIM_SUBTYPE = 'Ia-norm'
+
+         if ( SIMNAME_TYPE .EQ. 'IIP' ) then 
+             SIM_TYPE = 'II' ; SIM_SUBTYPE = 'IIP'
+         endif
+
+         if ( SIMNAME_TYPE .EQ. 'IIL' ) then 
+             SIM_TYPE = 'II' ; SIM_SUBTYPE = 'IIL'
+         endif
+
+         if ( SIMNAME_TYPE .EQ. 'Ib' ) then 
+             SIM_TYPE = 'Ib' ; SIM_SUBTYPE = 'Ib-norm'
+         endif
+
+         if ( SIMNAME_TYPE .EQ. 'Ic' ) then 
+             SIM_TYPE = 'Ic' ; SIM_SUBTYPE = 'Ic-norm'
+         endif
+
+         if ( SIMNAME_TYPE .EQ. 'iax' ) then 
+             SIM_TYPE = 'Ia' ; SIM_SUBTYPE = 'Ia-02cx'
+         endif
+      endif
+      RETURN
+      END
 
 C ===============================
 +DECK,END_REFORMAT.
@@ -12226,7 +12391,6 @@ c misc.
 
       NWD = STORE_PARSE_WORDS(-1, ""//char(0), FNAM//char(0), 2, 12);
 
-      RDFLAG_SPECTRUM = .FALSE.
 
       RETURN
       END   ! end of INIT_SNVAR
@@ -15848,6 +16012,8 @@ c
 
 C -------------- BEGIN -------------------
  
+      CALL PRBANNER('INIT_CUTMASK')
+
       IERR = 0  ! init output arg
      
       if ( NCUTBIT .GE. 64 ) then
@@ -15879,10 +16045,10 @@ c Jan 2021: check option to require ONLY CID-select.
           CALL FLUSH(6)
       endif
 
-      print*,' '
       print*,' INIT_CUTMASK: NCUTBIT          = ', NCUTBIT
       print*,' INIT_CUTMASK: CUTMASK8_SN_ALL  = ',CUTMASK8_SN_ALL
       print*,' INIT_CUTMASK: CUTMASK8_MJD_ALL = ',CUTMASK8_MJD_ALL
+      call flush(6)
 
 c - - - - - - - - -  -
 c July 11 2020: 
@@ -22762,6 +22928,9 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 200   CONTINUE   ! NEWMJD
 
 c ------------------------------------------
+
+      IF ( NOBS == 0 ) RETURN ! Oct 23 2025
+
 c store data fluxes
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_FLUXDATA, LENCCID)

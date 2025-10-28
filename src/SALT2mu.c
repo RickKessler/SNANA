@@ -6751,6 +6751,7 @@ void read_data_override(void) {
   free(VARNAMES_STRING_DATA);
   free(VARNAMES_STRING_OVER);
 
+  SNTABLE_AUTOSTORE_RESET(); // Oct 27 2025 .xyz
   return ;
 
 } // end  read_data_override
@@ -18940,6 +18941,8 @@ void parse_cidFile_data(int OPT, char *fileName) {
     printf("\t Reject %d  events matching %s \n", ncid, id_name);
   }
   fflush(stdout);
+
+  SNTABLE_AUTOSTORE_RESET(); // Oct 27 2025 .xyz
 
   return ;
 

@@ -23286,14 +23286,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + in function exec_mnparm(), always set REPEAT flag to false so that
        all init is redone -> fixed bug in dust2dust using SUBPROCESS.
      + few SUBPROCESS fixes for revining dust2dust
- 
+     + add SNTABLE_AUTOSTORE_RESET() commands in read_data_override() and in
+       parse_cidFile_data() so that cid_select_file and datafile_override
+       do not interfere with each other. Caught by R.Camillaro doing Unite analysis.
+
+
    sntools.c
      + in function match_cidlist_init(), increase MXCHAR from 400 -> 2000
 
    snana.car
      + for OPT_REFORMAT_SPECTRA, write additional SPEC.LIST table with
        summary for each spectrum
-
-
+     + special new key  LCPLOT_BATCH to allow it in batch mode;
+         SNTABEL_LIST = 'FITRES LCPLOT_BATCH'
 
 END: 

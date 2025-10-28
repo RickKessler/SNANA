@@ -7229,6 +7229,7 @@ c           OUTLIER table is automatically disabled for large BIASCOR sim
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
             ITAB = ITABLE_SNLCPAK
             DISABLE = ( ISJOB_BATCH .and. ISJOB_SIM ) 
+	    if ( TBname(1:12) .EQ. 'lcplot_batch' ) DISABLE = .FALSE.  ! Oct 27 2025; special key to allow
             IF ( DISABLE ) THEN
                NOPT = 0 
                print*,
@@ -7360,7 +7361,7 @@ c summarize
       write(6,40) 'MARZ', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
  40   format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
- 41   format(T5,A9,'-table: MXLC_PLOT=',I6, 3x, 'TEXTFORMAT=',A4 )
+ 41   format(T5,A9,'-table: MXLC_PLOT=',I8, 3x, 'TEXTFORMAT=',A4 )
 
       write(6,51) 'SNANA', CUTMASK_SNANA_TABLE
 51    format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )

@@ -54,6 +54,8 @@ void genmag_bayesn__(
 void genSCATTER_BAYESN(); // renamed by ST Sep 14 2024
 
 void  init_magerr_BAYESN(void) ;
+int   init_magerr_map_BAYESN(void);
+
 double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, double *parlist_HOST);
 void monitor_magerr_BAYESN(void);
 

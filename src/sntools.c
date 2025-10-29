@@ -9716,10 +9716,12 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
   //  + pass calling function *callFun for error or warning messages.
   //  + if 0 files found for full path (has leading slash), try again in 5 sec.
   //
+  // Oct 29 2025: return fp=NULL if OPTMASK_NOFILE=0
 
   bool NOFILE_ABORT      = (OPTMASK_NOFILE & 1) > 0;
   bool NOFILE_TRY_AGAIN  = (OPTMASK_NOFILE & 2) > 0;
-  
+  bool NOFILE_RETURN     = (OPTMASK_NOFILE == 0 ) ; // return fp=NULL
+
   FILE *fp ;
   struct stat statbuf ;
   int istat_gzip, istat_unzip, LEN, N_ITER=0;
@@ -9794,7 +9796,8 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     
-    
+    if ( FOUND_0FILES && NOFILE_RETURN ) { return(NULL);  } // Oct 29 2025
+
     if ( istat_gzip == 0 ) {
       sprintf(cmd_zcat, "gunzip -c %s", gzipFile);
       fp = popen(cmd_zcat,"r");

@@ -28,6 +28,8 @@ Each sample counts as 0.01 seconds.
   Jul 28 2025 RK - add init_HOSTPAR_BAYESN to process input NAME_HOSTPAR,
                    and pass new arg parList_HOST to genmag_BAYESN
 
+  Oct 29 2025 RK - 2D error map model is now default; impacts LC fitting (no impact on sim)
+
 ********************************************/
 
 #include "stdio.h"
@@ -958,17 +960,26 @@ void init_magerr_BAYESN(void) {
 
   // Created Aug 20 2025 by R.Kessler & Mykola
 
-  OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_POLY;
-  if ( ENABLE_TEST_BAYESN ) { OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_MAP; } 
-
+  // xxx mark delete Oct 29 2025    OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_POLY;
+  OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_MAP; 
+  bool FOUND_MAGERR_MODEL = false ;
   char fnam[] = "init_magerr_BAYESN" ;
 
   // ------------- BEGIN --------------
 
-  // xxx mark delete 9.24.2025  if (!ENABLE_TEST_BAYESN) { return; }
+  if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_MAP ) {
+    int istat = init_magerr_map_BAYESN();
+    if ( istat !=0 ) { 
+      printf("  WARNING could not read magerr map -> \n" 
+	     "\t fall back to MAGERR_POLY option (no phase dependence) \n\n");
+      OPT_BAYESN_MAGERR = OPT_BAYESN_MAGERR_POLY; 
+    } 
+    else {
+      FOUND_MAGERR_MODEL = true; 
+    }
+  }
 
-  if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_POLY ) {
-
+  if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_POLY ) { 
     // Updated Sep 12 2025 by Mykola
     //    RMS(λ) = c*λ² + a*λ + b; c = 2.047537e-09; a = -2.894536e-05;  b = 0.160715
     // NOTE: as part of the GENPOLY function, coefficients must be parsed
@@ -976,43 +987,15 @@ void init_magerr_BAYESN(void) {
     char stringPoly[50] = "0.160715, -2.894536e-05, 2.047537e-09";
     parse_GENPOLY(stringPoly, "magerr", &GENPOLYLAM_MAGERR_BAYESN, fnam);
     print_GENPOLY(&GENPOLYLAM_MAGERR_BAYESN);
-
+    FOUND_MAGERR_MODEL = true; 
   }
-  else if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_MAP ) {
 
-    // .xyz
-    int OPTMASK_NOFILE_ABORT = 2; // abort if no file found
-    int NDIM_MAP = 2, NFUN_MAP=1, MXROW, GZIPFLAG ;
-    int OPT_EXTRAP = 0 ;  // 1-> extrap, 0->return error, -1->abort outside range
-    char MAPNAME[] = "MAGERR_BAYESN" ;
-    char KEY_ROW[] = "MAGERR:" ;
-    char magerr_map_file[MXPATHLEN];
-    FILE *fp;
 
-    sprintf(magerr_map_file, "%s/BAYESN_MODEL_MAGERR_MAP.DAT",  BAYESN_MODELPATH);
-    printf("   Read magerr map from \n\t%s \n", magerr_map_file);
-
-    fp = open_TEXTgz(magerr_map_file, "rt", OPTMASK_NOFILE_ABORT, &GZIPFLAG, fnam );
-
-    MXROW = nrow_read(magerr_map_file, fnam);
-
-    // list of variables is hard-coded here, but it really should be 
-    // read from VARNAMES key
-    sprintf(GRIDMAP_MAGERR_BAYESN.VARLIST, "PHASE,WAVE,MAGERR");
-
-    read_GRIDMAP(fp, MAPNAME, KEY_ROW, "", IDGRIDMAP_MODELERR, 
-		 NDIM_MAP, NFUN_MAP, OPT_EXTRAP, MXROW, fnam, 
-		 &GRIDMAP_MAGERR_BAYESN);  // <== returned
-
-    fclose(fp);
-      
-  }
-  else {
-    sprintf(c1err, "Invalid OPT_BAYESN_MAGERR = %d", OPT_BAYESN_MAGERR);
+  if ( !FOUND_MAGERR_MODEL ) {
+    sprintf(c1err, "unable to define magerr model; OPT_BAYESN_MAGERR=%d", OPT_BAYESN_MAGERR);
     sprintf(c2err, "see valid OPT with :  grep OPT_BAYESN_MAGERR genmag_BAYESN.h");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
 
   monitor_magerr_BAYESN();
 
@@ -1020,6 +1003,44 @@ void init_magerr_BAYESN(void) {
   return ;
 
 } // init_magerr_BAYESN
+
+int  init_magerr_map_BAYESN(void) {
+
+  // Created ict 29 2025 by R.Kessler
+
+  int OPTMASK_NOFILE = 0; // 0=return if no file; 2=abort if no file found
+  int NDIM_MAP = 2, NFUN_MAP=1, MXROW, GZIPFLAG ;
+  int OPT_EXTRAP = 0 ;  // 1-> extrap, 0->return error, -1->abort outside range
+  char MAPNAME[] = "MAGERR_BAYESN" ;
+  char KEY_ROW[] = "MAGERR:" ;
+  char magerr_map_file[MXPATHLEN];
+  FILE *fp;
+  
+  int istat = 0;
+  char fnam[] = "init_magerr_map_BAYESN" ;
+  
+  // -------------- BEGIN ------------
+
+  sprintf(magerr_map_file, "%s/BAYESN_MODEL_MAGERR_MAP.DAT",  BAYESN_MODELPATH);
+  printf("   Read magerr map from \n\t%s \n", magerr_map_file);
+
+  fp = open_TEXTgz(magerr_map_file, "rt", OPTMASK_NOFILE, &GZIPFLAG, fnam );
+  if ( !fp ) { return(-1); }
+
+  MXROW = nrow_read(magerr_map_file, fnam);
+
+  // list of variables is hard-coded here, but it really should be 
+  // read from VARNAMES key
+  sprintf(GRIDMAP_MAGERR_BAYESN.VARLIST, "PHASE,WAVE,MAGERR");
+  
+  read_GRIDMAP(fp, MAPNAME, KEY_ROW, "", IDGRIDMAP_MODELERR, 
+	       NDIM_MAP, NFUN_MAP, OPT_EXTRAP, MXROW, fnam, 
+	       &GRIDMAP_MAGERR_BAYESN);  // <== returned
+  
+  fclose(fp);
+
+  return istat;
+} // end init_magerr_map_BAYESN
 
 void monitor_magerr_BAYESN(void) {
 

@@ -238,16 +238,18 @@ def append_info_file(f, append_info_dict):
 
     # append training info to SUBMIT.INFO file with pointer f.
     
-    METHOD       = append_info_dict['METHOD']  # SALT3 or BAYESN ...
-    CONFIG       = append_info_dict['CONFIG']
-    n_trainopt   = append_info_dict['n_trainopt'] 
-    num_list     = append_info_dict['num_list']
-    arg_list     = append_info_dict['arg_list'] 
-    ARG_list     = append_info_dict['ARG_list'] 
-    label_list   = append_info_dict['label_list']
-    calib_shift_list  = append_info_dict['calib_shift_list']
-    outdir_model_list = append_info_dict['outdir_model_list']
-    
+    METHOD             = append_info_dict['METHOD']  # SALT3 or BAYESN ...
+    CONFIG             = append_info_dict['CONFIG']
+    n_trainopt         = append_info_dict['n_trainopt'] 
+    trainopt_num_list  = append_info_dict['num_list']
+    arg_list           = append_info_dict['arg_list'] 
+    ARG_list           = append_info_dict['ARG_list'] 
+    label_list         = append_info_dict['label_list']
+    calib_shift_list   = append_info_dict['calib_shift_list']
+    outdir_model_list  = append_info_dict['outdir_model_list']
+    output_dir         = append_info_dict['output_dir']
+
+    # - - - - - - 
     f.write(f"# train_{METHOD} info \n")
     f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
 
@@ -256,8 +258,8 @@ def append_info_file(f, append_info_dict):
             f"# 'TRAINOPTNUM'  'user_label'  'user_args'\n")
     # use original ARG_list instead of arg_list; the latter may
     # include contents of shiftlist_file.
-    for num, arg, label in zip(num_list, ARG_list, label_list):
-        row   = [ num, label, arg ]
+    for trainopt, arg, label in zip(trainopt_num_list, ARG_list, label_list):
+        row   = [ trainopt, label, arg ]
         f.write(f"  - {row} \n")
     f.write("\n")
 
@@ -278,11 +280,31 @@ def append_info_file(f, append_info_dict):
     # each row is
     #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
     f.write(f"{KEY_SNANA_CALIB_INFO}: \n")
-    for num, item_list in zip(num_list,calib_shift_list) :
+    for trainopt, item_list in zip(trainopt_num_list, calib_shift_list) :
         for item in item_list:
-            row = [ num ] + item.split()
+            row = [ trainopt ] + item.split()
             f.write(f"  - {row} \n")
     f.write("\n")
+
+    # - - - - - - - - - 
+    # Oct 28 2025: write csv table of shifts to enable diagnostic plots
+    rownum = 0
+    calib_table =  f"{output_dir}/CALIB_SHIFTS_TABLE.DAT"
+    t = open(calib_table,"wt")
+    t.write(f"ROW  MODELNUM  SURVEY  BAND  VARNAME_SHIFT  SHIFT \n")    
+    for trainopt, item_list in zip(trainopt_num_list, calib_shift_list) :
+        trainopt_num = int(trainopt.split('TRAINOPT')[1])
+        for item in item_list:
+            wdlist = item.split()
+            var_shift = wdlist[0]  # MAGSHFIT or WAVESHIFT
+            survey    = wdlist[1]
+            band      = wdlist[2]
+            shift     = wdlist[3]  # shift value (mag or Angstroms)
+            rownum += 1
+            t.write(f"{rownum:4d}  {trainopt_num:2d}  {survey:<12}  {band:<8}  " \
+                    f"{var_shift:<10} {shift} \n")
+
+    t.close()
 
     return
 

@@ -132,7 +132,7 @@ FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P0, FITFUN_P1, FITFUN_P2, FITF
 
 
 # list possible VARNAME to identify row
-VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW' ]
+VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID' ]
 
 # internal strings to identify type of string in @V or @@CUT
 STRTYPE_VAR   = "VARIABLE"

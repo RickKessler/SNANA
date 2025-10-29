@@ -1396,6 +1396,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   RD_OVERRIDE.ID_LAST[0]  = 0; // Aug 8 2025
   RD_OVERRIDE.NEVT        = 0; 
 
+  printf("\n Finished %s\n\n", fnam);
+
   return ;
 
 

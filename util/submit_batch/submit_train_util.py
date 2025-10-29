@@ -6,6 +6,7 @@ import  os, sys, shutil, yaml, glob, logging
 import  datetime, time, subprocess
 import  submit_util as util
 from    submit_params    import *
+import  numpy as np
 
 METHOD_TRAIN_SALT3  = "SALT3"  # also known as SALTshaker
 METHOD_TRAIN_BAYESN = "BAYESN"
@@ -290,8 +291,12 @@ def append_info_file(f, append_info_dict):
     # Oct 28 2025: write csv table of shifts to enable diagnostic plots
     rownum = 0
     calib_table =  f"{output_dir}/CALIB_SHIFTS_TABLE.DAT"
-    t = open(calib_table,"wt")
-    t.write(f"ROW  MODELNUM  SURVEY  BAND  VARNAME_SHIFT  SHIFT \n")    
+
+    magshift_dict = {}
+    waveshift_dict = {}
+    table_lines = []  # store table lines to allow pre-pending stats at stop of file
+    table_lines.append(f"ROW  MODELNUM  SURVEY  BAND  VARNAME_SHIFT  SHIFT")
+
     for trainopt, item_list in zip(trainopt_num_list, calib_shift_list) :
         trainopt_num = int(trainopt.split('TRAINOPT')[1])
         for item in item_list:
@@ -301,15 +306,55 @@ def append_info_file(f, append_info_dict):
             band      = wdlist[2]
             shift     = wdlist[3]  # shift value (mag or Angstroms)
             rownum += 1
-            t.write(f"{rownum:4d}  {trainopt_num:2d}  {survey:<12}  {band:<8}  " \
-                    f"{var_shift:<10} {shift} \n")
+            
+            line = f"{rownum:4d}  {trainopt_num:2d}  {survey:<12}  {band:<8}  " \
+                   f"{var_shift:<10} {shift} "
 
+            table_lines.append(line)
+
+            # store list of shift values by survey and var to get stats
+            if 'MAG' in var_shift:
+                if survey not in magshift_dict:  magshift_dict[survey]  = []
+                magshift_dict[survey].append(float(shift))
+            if 'WAVE' in var_shift:
+                if survey not in waveshift_dict: waveshift_dict[survey] = []
+                waveshift_dict[survey].append(float(shift))
+
+    # - - - - - -
+    t = open(calib_table,"wt")
+    t.write(f"# ======================================================================== \n")
+    print_calib_shift_stats(t, "MAGSHIFT",  magshift_dict)
+    print_calib_shift_stats(t, "WAVESHIFT", waveshift_dict)
+    t.write(f"# ======================================================================== \n")
+    t.write('\n')
+    for line in table_lines:
+        t.write(f"{line}\n")
     t.close()
 
     return
 
     # end append_info_file
     
+def print_calib_shift_stats(f, shift_type, shift_dict):
+    # Created Oct 29 2025
+    # Inputs
+    #  f = file pointer to write to
+    #  shift_type = MAGSHIFT or WAVESHIFT
+    #  shift_dict[survey] = [ list of shift values ]
+    #
+    # Print mean, stddev, rms to file pointer f
+
+    for survey, shift_list in shift_dict.items():
+        shift_list_np = np.array(shift_list)
+        key     = f"{survey}_{shift_type}:"
+        nval    = len(shift_list)
+        mean    = np.mean(shift_list_np)
+        std_dev = np.std(shift_list_np)
+        rms     = np.sqrt(np.mean(shift_list_np**2))
+        f.write(f"# {key:<20}  n={nval:3d}  mean={mean:7.4f}  std_dev={std_dev:7.4f}  rms={rms:7.4f}\n")
+
+    return
+
 # =========== END: =======
 
 

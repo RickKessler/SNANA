@@ -3224,6 +3224,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   else if ( strcmp(word0,"SPECTRUM_MJD:") == 0 ) {
     iwd++ ;  get_PARSE_WORD_DBL(langC, iwd, &MJD, fnam );
     GENSPEC.MJD_LIST[ISPEC] = MJD ;
+    // xxx mark GENSPEC.TOBS_LIST[ISPEC]= MJD - SNDATA.SEARCH_PEAKMJD ; // Oct 29 2025: for comment field only
     if ( MJD > 0.0 ) 
       { GENSPEC.IS_HOST[ISPEC] = 0 ; } // is SN spectrum
     else

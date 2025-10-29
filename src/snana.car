@@ -11422,6 +11422,9 @@ c write comments at top of SPECTRUM file
          MSG = 'VERSION_PHOTOMETRY: ' // VERS(1:LENV)
 	 write(LUNSPEC,350) MSG
 
+         MSG = 'CID:      ' // SNLC_CCID(1:LENC)  ! Oct 29 2025
+	 write(LUNSPEC,350) MSG
+
          write(MSG,301) 'MJD:      ', MJD
 	 write(LUNSPEC,350) MSG
 

@@ -1135,6 +1135,12 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
   // Created Feb 18 2021
   // Return contents of GENSPEC structure; 
   // intended as fortran interface to read spectra from data.
+  //
+  // Inputs:
+  //  copyFlag : 
+  //     +1 -> copy from string or parVal to SNDATA (prep  data write)
+  //     -1 -> copy from SNDATA to string or parVal (after read data)
+  //
 
   int  NBLAM, ilam ;
   char fnam[] = "copy_GENSPEC" ;

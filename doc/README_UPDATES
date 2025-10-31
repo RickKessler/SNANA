@@ -23276,6 +23276,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + write new output variables SIM_SNHOST_DDLR and SIM_SNHOST_SEP so that
        we have this information for host-less events too.
      + fix dumb bug causing interp abort on redshift delta function for NON1ASED models.
+     + saturation calculation now includes host contribution
 
    genmag_BAYESN.c 
      + 2D error map model is now default (Oct 29 2025); if no map exists,

@@ -9066,8 +9066,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig ) ;
     SB_MAG    += 2.5*log10(AREA); // normalize to 1 sq-arcsec
     
-    // convert mag to fluxcal
-    // xxx mark del July 2025   arg   = -0.4*(SB_MAG - ZEROPOINT_FLUXCAL_DEFAULT) ;
     arg     = -0.4*(SB_MAG - INPUTS.ZP_FLUXCAL) ;
     SB_FLUXCAL = pow(10.0,arg) ;
     

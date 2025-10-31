@@ -11848,7 +11848,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
     
 
-    if ( OBSFLUXERR < 1.0E-50  ) { continue; }   // .xyz ??? for true SED ???
+    if ( OBSFLUXERR < 1.0E-50  ) { continue; } 
 
     // compute random flucution of spectrograph flux
     // be careful with correlated template noise in each spectrum
@@ -24247,7 +24247,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
       */
       SEARCHEFF_DATA.PEAKMAG[ifilt_obs] =  GENLC.peakmag_obs[ifilt_obs] ;
       SEARCHEFF_DATA.HOSTMAG[ifilt_obs] =  SNHOSTGAL.GALMAG[ifilt_obs][0] ;
-      SEARCHEFF_DATA.SBMAG[ifilt_obs] =    SNHOSTGAL.SB_MAG[ifilt_obs];
+      SEARCHEFF_DATA.SBMAG[ifilt_obs]   =  SNHOSTGAL.SB_MAG[ifilt_obs];
   }  // ifilt
 
   return ;
@@ -24552,6 +24552,8 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   // Oct 28 2021: reutrn -999 if INPUTS.EXPOSURE_TIME>10
   //               (otherwise all epochs saturate and fail trigger)
   //
+  // Oct 30 2025: include host contribution (needs testing)
+
   int npe = -999 ; // default is not saturated
   int NEXPOSE      = SIMLIB_OBS_GEN.NEXPOSE[epoch] ;
   int LDMP ;
@@ -24562,9 +24564,12 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   double PIX        = SIMLIB_OBS_GEN.PIXSIZE[epoch];  // pix size, arcsec
   double PI         = 3.1415926535 ;
 
+  int ifilt_obs     = GENLC.IFILT_OBS[epoch] ; 
+  double SB_FLUXCAL = SNHOSTGAL.SB_FLUXCAL[ifilt_obs];
+
   double NPE_SAT = SIMLIB_GLOBAL_HEADER.NPE_PIXEL_SATURATE ;
   double skysig_pe, sky_pe, areaFrac, areaCor, AREAPIX, SQPSFSIG ;
-  double fluxtot_pe, fluxtot_pe_avg;
+  double fluxtot_pe, fluxtot_pe_avg, areaFrac_SB;
   char fnam[] = "npe_above_saturation" ;
 
   // -------------- BEGIN ------------
@@ -24590,6 +24595,13 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   // flux in central pixel
   fluxtot_pe = (flux_pe*areaFrac) + sky_pe ;
   
+  // Oct 30 2025: need to include host contribution ... .xyz
+  if ( INPUTS.HOSTLIB_USE ) {
+    double r = INPUTS.HOSTLIB_SBRADIUS ;
+    areaFrac_SB = AREAPIX / ( PI * r*r );
+    fluxtot_pe += (areaFrac_SB * SB_FLUXCAL * ccdgain) ;
+  }
+
   // divide by number of exposues
   fluxtot_pe_avg = fluxtot_pe / (double)NEXPOSE ;
 
@@ -24599,7 +24611,6 @@ int npe_above_saturation ( int epoch, double flux_pe) {
 
   LDMP = ( epoch <= -4) ;
   if ( LDMP ) {
-    int ifilt_obs = GENLC.IFILT_OBS[epoch] ; 
     double genmag = GENLC.genmag_obs[epoch];
     printf("\n");
     printf(" xxx ------------------------------------ \n");

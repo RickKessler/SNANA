@@ -15672,6 +15672,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
   // Aug 29 2025: fix index bug for using INFO_CCPRIOR.TABLEVAR.name
   // Aug 20 2025: for DOCOR_MU, loop over NLCPAR+1 instead of NLCLPAR to catch mu for BS21 mubias
 
+  bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
+  bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   int  NSN_ALL      = INFO_CCPRIOR.TABLEVAR.NSN_ALL ;
   int  NSN_PASS     = INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
   int  EVENT_TYPE   = INFO_CCPRIOR.TABLEVAR.EVENT_TYPE ;
@@ -15713,8 +15715,13 @@ void store_INFO_CCPRIOR_CUTS(void) {
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];
-    INFO_CCPRIOR.TABLEVAR_CUTS.x0[icc]  = 
-      INFO_CCPRIOR.TABLEVAR.x0[isn];
+
+    /* xxxxxxx mark delete Nov 6 2025: don't seem to need this, and it causes BAYESN to crash
+    if ( ISMODEL_SALT2 )  { 
+       INFO_CCPRIOR.TABLEVAR_CUTS.x0[icc]  = INFO_CCPRIOR.TABLEVAR.x0[isn]; 
+    }
+    xxxxxxxx end mark xxxxxx */
+
 
     for(ipar=0; ipar < NFITPAR_LOCAL; ipar++ ) { 
       INFO_CCPRIOR.TABLEVAR_CUTS.fitpar[ipar][icc] = 

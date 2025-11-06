@@ -192,6 +192,11 @@
               to allow more off-diag compensation. This has minimal impact on fit params,
               but impacts what we see in chi2grid map.
 
+ Nov 6 2025: remove logic that skips USE_SPEED_INTERP if n_logz > NSN/2. Not sure why 
+             this logic was there, but it disables this speed trick for REBINNED HDs.
+             Prelim estimate is that wfit now runs x1.5 faster on REBINNED HD with
+             negligible change in fitted params.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -3008,6 +3013,7 @@ void init_rz_interp(HD_DEF *HD) {
   else
     { INPUTS.USE_SPEED_INTERP = false; }
 
+
   if ( !INPUTS.USE_SPEED_INTERP ) { return; }
 
   logz_min = log10(zmin);
@@ -3015,7 +3021,12 @@ void init_rz_interp(HD_DEF *HD) {
 
   n_logz   = (int)(200.0 * (zmax - zmin));
 
-  if ( n_logz > NSN/2 ) { INPUTS.USE_SPEED_INTERP=false; return; }
+  
+  /* xxxxxx mark delete Nov 6 2025 
+  if ( INPUTS.debug_flag == 1106 ) {
+    if ( n_logz > NSN/2 ) { INPUTS.USE_SPEED_INTERP = false; return; }
+  }
+  xxxxxxxxxx end mark  */
 
   logz_bin = ( logz_max - logz_min ) / (double)(n_logz-1) ;
   MEMD     = n_logz * sizeof(double);
@@ -3516,7 +3527,7 @@ void wfit_uncertainty_fitpar(char *varname) {
 
   // Created Apr 2024
   // Compute and store two kinds of fitted uncertainty for parameter 'varname';
-  // 1. standard devistion (std) of marginalized posterior (prob_array)
+  // 1. standard deviation (std) of marginalized posterior (prob_array)
   //     -> symmetric uncertainty
   // 2. 68% confidence interval of marginalized posterior
   //     -> lower and upper uncertainty
@@ -3527,12 +3538,18 @@ void wfit_uncertainty_fitpar(char *varname) {
   double val_sum,  probsum, cdf_find, cdf_max ;
   double *val_array, *prob_array, *cdf_array, STD_WARN ;
   int  i, n_steps;
-  bool ISVAR_w = false ;
+  bool ISVAR_w = false, ISVAR_omm=false ;
+
+  int  write_prob_table = (INPUTS.debug_flag == 1106); // for debug only
+  char prob_table_debug[] = "out_prob_table.dat" ;
+  FILE *fp_table;
+
   char fnam[] = "wfit_uncertainty_fitpar";
 
   // ---------- BEGIN -----------
 
   if ( strcmp(varname,varname_omm) == 0 ) {
+    ISVAR_omm = true ;
     sig_std   = &WORKSPACE.omm_sig_std ;
     sig_lower = &WORKSPACE.omm_sig_lower ;
     sig_upper = &WORKSPACE.omm_sig_upper ;
@@ -3593,18 +3610,48 @@ void wfit_uncertainty_fitpar(char *varname) {
   *sig_upper = 0.0 ;
   *sig_lower = 0.0 ;
 
+  if ( write_prob_table ) { 
+    if ( ISVAR_omm ) {
+      fp_table = fopen(prob_table_debug,"wt"); 
+      fprintf(fp_table,"VARNAMES:  ROW  NAME_COSPAR  VAL  PROB  CDF \n");
+    }
+    else { 
+      fp_table = fopen(prob_table_debug,"at");  // append
+    }
+
+  }
+
   // Get std dev for the weighted mean.  This is a reasonable   
   //  measure of uncertainty in w if distribution is ~Gaussian
   sqdelta = 0.0;
-  cdf_array[0] = 0.0 ;
-  for(i=0; i < n_steps; i++){ 	
+  // xxx mark cdf_array[0] = 0.0;
+  cdf_array[0] = prob_array[0]; // minor fix, Nov 6 2025
+
+  double probsum_check = 0.0, mean_check=0.0 ;
+  for(i=0; i < n_steps; i++) {
     val      = val_min + i*val_step;
     val_array[i]   = val;
     prob_array[i] /= probsum;  
     delta    = val - val_mean ;
     sqdelta += prob_array[i] * (delta*delta);   
     if ( i > 0 ) { cdf_array[i] = cdf_array[i-1] + prob_array[i]; }
+
+    probsum_check += prob_array[i];
+    mean_check    += val * prob_array[i];
+
+    if ( write_prob_table ) { 
+      fprintf(fp_table,"ROW:  %3d  %4s  %.5f  %.5f  %.5f \n", 
+	      i, varname, val, prob_array[i], cdf_array[i] );
+    }
   }
+
+  if ( write_prob_table ) { fclose(fp_table); }
+
+  /* xxxxxx
+  mean_check /= probsum_check;
+  printf(" xxx %s: probsum[orig, check] = %f %f \n", fnam, probsum, probsum_check);
+  printf(" xxx %s: mean   [orig, check] = %f %f \n", fnam, val_mean, mean_check);
+  xxxxx */
 
   cdf_max  = cdf_array[n_steps-1] ;
   if ( cdf_max < 0.8 ) {
@@ -3623,8 +3670,8 @@ void wfit_uncertainty_fitpar(char *varname) {
     printf(" WARNING-%s: STD too small, likley BBC problem with MUERR\n", varname);
   }
 
-  
-  // - - - -
+
+  // - - - - - - - - - 
   cdf_find = (0.5 - PROBSUM_1SIGMA/2.0);
   val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
   *sig_lower = val_mean - val;
@@ -3640,6 +3687,16 @@ void wfit_uncertainty_fitpar(char *varname) {
   
   printf("\t 68 percent %s-err estimate: lower = %f, upper = %f (use=%d)\n", 
 	 varname, *sig_lower, *sig_upper, INPUTS.use_sig_68);  
+
+
+  // - - - -
+  // xxx check mean using cdf ...
+  cdf_find = 0.5;
+  val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
+  printf(" xxx %s: mean[orig, cdf=0.5] = %f  %f \n",
+	 fnam, val_mean, val);
+  // xxxxx
+
   fflush(stdout);
 
   return;

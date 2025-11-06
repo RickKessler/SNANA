@@ -3376,8 +3376,8 @@ void check_vpec_sign(void) {
       if (INPUTS.ISMODEL_LCFIT_SALT2){
 	mures   = mB  + alpha*x1 - beta*c - M0_DEFAULT - mumodel;
       }
-      else if (INPUTS.ISMODEL_LCFIT_BAYESN){
-	mures   = mu - mumodel;
+      else if (INPUTS.ISMODEL_LCFIT_BAYESN) {
+	mures   = mu - M0_DEFAULT - mumodel ;
       }
       
       SUM_MURES[i]   += mures ;
@@ -4610,7 +4610,7 @@ void *MNCHI2FUN(void *thread) {
     if ( ISMODEL_LCFIT_SALT2 ) 
       { mu   = d  + alpha*s - beta*c - gammaDM - M0;  } // d = mB; add -M0 Oct 21 2025
     else if ( ISMODEL_LCFIT_BAYESN ) 
-      { mu   = d ; }
+      { mu   = d - M0; }  // Same -M0 fix here as done few weeks ago for SALT2
 
     
     mu      -= muBias ;      // bias correction 

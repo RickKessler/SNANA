@@ -37,6 +37,7 @@
  Aug 04 2023: write RA_AVG_[band] and DEC_AVG_[band]
  Dec 22 2023: write SIM_WGT_POPULATION 
  Mar 14 2024: write and read MASK_REDSHIFT_SOURCE
+ Oct 31 2025: write SIM_PEAKMAG with f7.4 format instead of f6.3
 
 *************************************************/
 
@@ -520,7 +521,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
 
   wr_dataformat_text_FILTERPAR(fp, "SIM_PEAKMAG", "", 
-			       "%6.3f", SNDATA.SIM_PEAKMAG); 
+			       "%7.4f", SNDATA.SIM_PEAKMAG); 
 
   bool WR_TEMPLATEMAG = ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ||
 			  SNDATA.SIM_MODEL_INDEX == MODEL_AGN ) ;

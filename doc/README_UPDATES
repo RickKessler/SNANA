@@ -23294,7 +23294,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + add SNTABLE_AUTOSTORE_RESET() commands in read_data_override() and in
        parse_cidFile_data() so that cid_select_file and datafile_override
        do not interfere with each other. Caught by R.Camillaro doing Unite analysis.
-
+     + fix subtle missing M0 bug for distance inside MNCHI2FUN
 
    sntools.c
      + in function match_cidlist_init(), increase MXCHAR from 400 -> 2000
@@ -23304,5 +23304,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        summary for each spectrum
      + special new key  LCPLOT_BATCH to allow it in batch mode;
          SNTABEL_LIST = 'FITRES LCPLOT_BATCH'
+
+   wfit.c
+     + remove strange logic that suppressed USE_SPEED_INTERP if n_logz > NSN/2;
+       this logic disabled speed trick for REBIN HD. This fix now runs
+       REBIN HD x1.5 faster.
+     + add debug feature to dump PROB and CDF into csv table.
 
 END: 

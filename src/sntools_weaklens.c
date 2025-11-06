@@ -257,7 +257,7 @@ void init_lensDMU(void) {
 double gen_lensDMU_smear(double lensDMU) {
 
   // Created Feb 2025
-  // Apply simle/naive lensDMU error based on fraction of lensDMU
+  // Apply simple/naive lensDMU error based on fraction of lensDMU
 
   double lensDMU_smear = lensDMU;
   double lensDMU_err, lensDMU_shift = 0.0, gran ;

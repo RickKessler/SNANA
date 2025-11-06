@@ -16,6 +16,25 @@ AC_PROG_F77([gfortran])
 AC_F77_LIBRARY_LDFLAGS
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
+AM_PATH_PYTHON([3.10])
+
+AC_PATH_PROGS([PYTHON_CONFIG], [python3-config python-config], [no])
+AS_IF([test "x$PYTHON_CONFIG" = xno], [AC_MSG_ERROR([cannot find python-config])])
+
+PYTHON_INCLUDES=`$PYTHON_CONFIG --includes`
+AC_SUBST([PYTHON_INCLUDES])
+
+if test "x$PYTHON_CONFIG" != "xno"; then
+	# We seem to require the python3.x libray, so we use embed
+  PYTHON_LIBS=`$PYTHON_CONFIG --embed --ldflags`
+#  AC_DEFINE([USE_PYTHON], [1], [Define to 1 if Python is available.])
+else
+  AC_MSG_ERROR([python3-config not found])
+fi
+AC_SUBST([PYTHON_LIBS])
+
+#AM_CONDITIONAL([USE_PYTHON], [test "x$PYTHON_CONFIG" = "xyes"])
+#AC_SUBST(USE_PYTHON)
 
 AC_CHECK_LIB([m],[cos])
 AC_CHECK_LIB([gslcblas],[cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [], [$LIBS])

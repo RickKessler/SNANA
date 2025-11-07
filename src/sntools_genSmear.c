@@ -1282,9 +1282,16 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   double LAMCHECK = LAM2 * (1.0+zmin);
   if ( LAMCHECK < MAXLAM && LAMCHECK < SED_LAMMAX ) { // Sep 19 2019
     double zmin_suggest = MAXLAM/LAM2 - 1.0 ;
-    sprintf(c1err,"genSmear model can't handle zmin=%.3f "
+    print_preAbort_banner(fnam); 
+
+    printf("\t LAMCHECK=%.3f ; LAM2(node)=%.3f  ; zmin=%.3le \n",
+	   LAMCHECK, LAM2, zmin );
+    printf("\t MAXLAM = %.3f ; SED_LAMMAX = %.3f \n",
+	   MAXLAM, SED_LAMMAX );
+
+    sprintf(c1err,"genSmear model can't handle zmin=%.3le "
 	    "(see GENRANGE_REDSHIFT)", zmin);
-    sprintf(c2err,"Suggest increasing zmin to be > %.3f\n", zmin_suggest);
+    sprintf(c2err,"Suggest increasing zmin to be > %.3le\n", zmin_suggest);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 
@@ -3237,8 +3244,8 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   int    NBIN_WAVE  = GENSMEAR_COVSED.NBIN_WAVE;
   int i0, i1 ;
   if ( LAMPAIR[0] > 0.0 ) {
-    i0 = quickBinSearch(LAMPAIR[0], NBIN_WAVE, WAVE_LIST, fnam);
-    i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam);
+    i0 = quickBinSearch(LAMPAIR[0], NBIN_WAVE, WAVE_LIST, fnam, fnam);
+    i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam, fnam);
     LAMPAIR[0] = WAVE_LIST[i0] ; // snap to nearest bin
     LAMPAIR[1] = WAVE_LIST[i1] ; // snap to nearest bin
     COVMAT[0][0] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i0+i0] ;

@@ -30,13 +30,15 @@
 
  Jan 05 2023: MXCHAR_FILENAME-> 300 (was 240)
 
+ Aug 29 2025: MXVAR_TABLE -> 800 (was 400)
+
 *******************************************/
 
 
 // define flags for software packages
 
 
-#define USE_ROOT   
+#define USE_ROOT    
 #define USE_TEXT  // always leave this on; same logic as for ROOT, ...
 #define USE_MARZ  // always leave this on
 
@@ -56,7 +58,7 @@
 // xxx#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_MODELNAME 32  // max length of model name (e.g., SALT2.Guy10)
 
-#define MXVAR_TABLE      400  // max number of variables in 1 table
+#define MXVAR_TABLE      800  // max number of variables in 1 table
 #define MXLINE_TABLECOMMENT  20   // max number of user-passed comments
 
 #define OPENFLAG_NULL   0
@@ -94,9 +96,9 @@ int  NOPEN_TABLEFILE ; // number of table files (should be >0)
 // logical flag for first call to root
 int  FIRSTCALL_TABLEFILE_OPEN[MXTABLEFILETYPE];
 
-
 int  NLINE_TABLECOMMENT ;
 char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
+
 
 // -------------------------------------
 // define a few things from sntools.h so that we don't have to
@@ -358,7 +360,8 @@ char MSGERR1[200], MSGERR2[200] ;
 char SNANA_VERSION[100] ;
 
 #define KEYNAME_VERSION_PHOTOMETRY "VERSION_PHOTOMETRY:"
-char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_FILENAME*2]; // beware it's a comma-sep list
+#define MXCHAR_VERSION_PHOTOMETRY MXCHAR_FILENAME*3
+char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_VERSION_PHOTOMETRY]; // beware it's a comma-sep list
 
 // -------------------------------------------------
 //                   FUNCTIONS
@@ -384,6 +387,8 @@ extern"C" {
 		   double *dptr, double dmin, double dmax);
 
   int  IGNOREFILE(char *fileName);
+
+  void concat_callfun_plus_fnam(char *callFun, char *fnam, char *fnam_concat);
 
   // ------------------------------
   // functions added 4/26/2104 
@@ -578,7 +583,7 @@ extern"C" {
   
   // internal wrappers that do NOT need mangled fortran fun.
   void SNLCPAK_FILL_PREP(void);
-  void SNLCPAK_CHECK(char *CCID, char *comment);
+  void SNLCPAK_CHECK(char *CCID, char *callFun);
   char *replace_str(char *st, const char *orig, const char *repl) ;
   
   // SPECPAK functions (Apr 2019)

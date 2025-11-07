@@ -157,11 +157,7 @@ void INIT_HOSTLIB(void) {
   initvar_HOSTLIB();
 
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
-  if ( INPUTS.REFAC_WGTMAP ){
-    read_HOSTLIB_WGTMAP();
-  } else {
-    read_HOSTLIB_WGTMAP_LEGACY();
-  }
+  read_HOSTLIB_WGTMAP();
 
   // open hostlib and start reading
   open_HOSTLIB(&fp_hostlib);     // open and return file pointer
@@ -460,7 +456,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
 
   for (i=0; i<N_PROP; i++){
     BASENAME = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
-    get_PARSE_WORD(0,i,BASENAME);
+    get_PARSE_WORD(0,i,BASENAME, fnam);
     HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = 1.0; //default
   } 
 
@@ -587,7 +583,7 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   for (j=0; j<N_HOSTGAL_PROPERTY; j++){
     init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME, &NVAR);
-    }
+  }
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
@@ -953,16 +949,10 @@ void append_HOSTLIB_STOREPAR(void) {
   int OPTMASK_WGTMAP = 
     OPTMASK_WGTMAP_READ_VARNAMES_ONLY + OPTMASK_WGTMAP_VERBOSE;
 
-
-  if ( INPUTS.REFAC_WGTMAP ) {
-    NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, 
-			      &HOSTLIB_WGTMAP.GRIDMAP); // <= returned
-    
-    strip_SNVAR_from_VARLIST_WGTMAP(VARLIST_WGTMAP,VARLIST_WGTMAP_noSNVAR);
-  } 
-  else {
-    NVAR_WGTMAP = read_VARNAMES_WGTMAP_LEGACY(VARLIST_WGTMAP_noSNVAR);
-  }
+  NVAR_WGTMAP = read_WGTMAP(INPUTS.HOSTLIB_WGTMAP_FILE, OPTMASK_WGTMAP, 
+			    &HOSTLIB_WGTMAP.GRIDMAP); // <= returned
+  
+  strip_SNVAR_from_VARLIST_WGTMAP(VARLIST_WGTMAP,VARLIST_WGTMAP_noSNVAR); 
 
   if ( NVAR_WGTMAP > 0 ) {
     catVarList_with_comma(STOREPAR, VARLIST_WGTMAP_noSNVAR);
@@ -994,7 +984,7 @@ void strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
   NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARLIST_WGTMAP, fnam);
 
   for(ivar=0; ivar < NWD; ivar++ ) {
-    get_PARSE_WORD(0, ivar, VARNAME);
+    get_PARSE_WORD(0, ivar, VARNAME, fnam );
     IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME); // Mar 2020
     if ( !IS_SNVAR ) {
       catVarList_with_comma(VARLIST_WGTMAP_noSNVAR, VARNAME);
@@ -1058,7 +1048,7 @@ void  init_OUTVAR_HOSTLIB(void) {
 
   for(ivar=0; ivar < NVAR_STOREPAR; ivar++ ) {
 
-    get_PARSE_WORD(0,ivar,varName); // return varName
+    get_PARSE_WORD(0,ivar,varName, fnam ); // return varName
 
     if ( LDMP ) {
       printf(" xxx %s: --------------------------- \n", fnam);
@@ -1259,189 +1249,6 @@ void  read_HOSTLIB_WGTMAP(void) {
 
 } // end of read_HOSTLIB_WGTMAP
 
-// ====================================
-void  read_HOSTLIB_WGTMAP_LEGACY(void) {
-
-  // Function to read OPTIONAL weight-map to over-ride
-  // weight map in the HOSTLIB. If the weight map is read
-  // here, then the corresponding weight-map in the HOSTLIB
-  // will be ignored. Note that this function must be called
-  // before read_head_HOSTLIB().
-  //
-  // July 14 2020: replace PATH_USER_INPUT with PATH_DEFAULT_HOSTLIB
-  // Feb  07 2024: return if FORCE_GALID > 0 (no need for WGTMAP)
-  //
-  FILE *fp ;
-  int  gzipFlag ;
-  char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
-  char fnam[] = "read_HOSTLIB_WGTMAP_LEGACY"  ;
-
-  // ------------- BEGIN --------------
-
-  HOSTLIB_WGTMAP.READSTAT = false ;
-
-  ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
-  if ( IGNOREFILE(ptrFile) )  { return ; }
-
-  if ( INPUTS.HOSTLIB_GALID_FORCE > 0 ) { //
-    sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,"NONE");
-    return; 
-  }
-
-  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
-			  PATH_DEFAULT_HOSTLIB, ptrFile,
-			  fileName_full, &gzipFlag );  // <== returned
-
-  if ( !fp ) {
-      abort_openTextFile("HOSTLIB_WGTMAP_FILE", 
-			 PATH_DEFAULT_HOSTLIB, ptrFile, fnam);
-  }
-
-  // if we get here, open and read WGTMAP file.
-
-  printf("\t Read WEIGHT-MAP from supplemental file:\n\t   %s\n", ptrFile );
-  fflush(stdout);
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) 
-    { parse_HOSTLIB_WGTMAP_LEGACY(fp,c_get);  }
-
-  if ( gzipFlag ) { pclose(fp); }   else { fclose(fp); }
-
-  HOSTLIB_WGTMAP.READSTAT = true ;
-
-  if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
-    { printf("\t Implement SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
-  else
-    { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
-
-
-  int NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
-  if ( NVAR_WGTMAP == 0 ) {
-    sprintf(c1err, "Found no VARNAMES_WGTMAP key in HOSTLIB_WGTMAP_FILE ;");
-    sprintf(c2err, "Check argument of HOSTLIB_WGTMAP_FILE");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  return;
-
-} // end of read_HOSTLIB_WGTMAP_LEGACY
-
-
-// ====================================
-void parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string) {
-
-  // Parse WGTMAP variables from file *fp.
-  // *string is the current string value to check
-  // if this is one of the WGTMAP keys.
-  //
-  // Mar 14 2019: refactor to use read_GRIDMAP().
-  // Apr 12 2019: return if string != VARNAMES_WGTMAP
-  // Jun 20 2020: fix what seems like a cut-and-paste bug for N_SNVAR
-  // Nov 18 2021: check HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT
-
-  int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
-  long long GALID ;
-  bool FOUND_VARNAMES, IS_SNVAR, IS_STORED ;
-  int NVAR_WGTMAP, IVAR_STORE, NDIM, NFUN, ivar, N, N_SNVAR=0 ;
-
-  char LINE[100], *VARNAME ;
-  char fnam[] = "parse_HOSTLIB_WGTMAP_LEGACY"  ;
-
-  // ----------- BEGIN -------------
-
-  if ( strcmp(string,"NVAR_WGTMAP:")==0 ) {
-    printf("\n WARNING: Should remove obsolete "
-	   "NVAR_WGTMAP key from %s\n", INPUTS.HOSTLIB_FILE );
-  }
-
-  IVAR_STORE = HOSTLIB.NVAR_STORE ;
-
-  if ( strcmp(string,"OPT_EXTRAP_WGTMAP:") == 0 ) 
-    { HOSTLIB_WGTMAP.OPT_EXTRAP = 1;  } // Jun 11 2021
-
-  FOUND_VARNAMES = ( strcmp(string,"VARNAMES_WGTMAP:") ==0 );
-  if ( !FOUND_VARNAMES) { return ; }
- 
-  fgets(LINE,100,fp);
-  NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
-
-  NFUN = 1;    // WGT is required fun-val
-  if ( HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT )  { NFUN++; }
-  NDIM = NVAR_WGTMAP-NFUN ; 
-
-  if ( NDIM < 1 ) {
-    sprintf(c1err, "Invalid NDIM=%d for %s", NDIM, string);
-    sprintf(c2err, "VARNAMES_WGTMAP must inclulde WGT & SNMAGSHIFT");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  
-  // - - - - - - -  -
-  // read in names used for weight map
-  HOSTLIB_WGTMAP.GRIDMAP.VARLIST[0] = 0 ;
-
-  for ( ivar=0; ivar < NVAR_WGTMAP ; ivar++ ) {
-    VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0,ivar,VARNAME) ;
-
-    checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
-
-    // check SN properties (e..g, x1, c) that are not in HOSTLIB
-    IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME); // Mar 2020
-    HOSTLIB_WGTMAP.IS_SNVAR[ivar] = IS_SNVAR ; 
-    if ( IS_SNVAR ) { 
-      N = HOSTLIB_WGTMAP.N_SNVAR;
-      HOSTLIB_WGTMAP.ISPARSE_SNVAR[N]       = ivar ;
-      HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar]  = N ;
-      HOSTLIB_WGTMAP.N_SNVAR++ ; 
-      N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
-    }
-
-    catVarList_with_comma(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
-    
-    // load variable if it's not already loaded, and NOT SN var.
-    IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 
-    if ( !IS_STORED && !IS_SNVAR && ivar < NDIM ) {
-      sprintf(HOSTLIB.VARNAME_STORE[IVAR_STORE], "%s", VARNAME );
-      IVAR_STORE++ ;
-    }  
-  } // end of ivar loop
-  
-  // temporary hack until we remove this function.
-  int MXROW_WGTMAP = 25000000;
-
-  // read WGT keys and load GRIDMAP struct.
-  read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 
-	       HOSTLIB_WGTMAP.OPT_EXTRAP,
-	       MXROW_WGTMAP, fnam,
-	       &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
-  
-  HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
-
-  // update global counter
-  HOSTLIB.NVAR_STORE = IVAR_STORE ;
-
-
-  // check for optional WGTMAP_CHECK key to verify
-  // WGTMAP interpolation.
-  double TMPVAL[10];
-  if ( strcmp(string,"WGTMAP_CHECK:") == 0  && N_SNVAR==0  ) {
-    readlong  (fp, 1, &GALID ); // Feb 2015
-    readdouble(fp, 2, TMPVAL  );
-    N = HOSTLIB_WGTMAP.NCHECKLIST ;
-    HOSTLIB_WGTMAP.CHECKLIST_GALID[N] = GALID ;
-    HOSTLIB_WGTMAP.CHECKLIST_ZTRUE[N] = TMPVAL[0] ;
-    HOSTLIB_WGTMAP.CHECKLIST_WGT[N]   = TMPVAL[1] ;
-    HOSTLIB_WGTMAP.CHECKLIST_SNMAG[N] = TMPVAL[2] ;
-    HOSTLIB_WGTMAP.NCHECKLIST++ ;  
-  }
-
-  // - - - - - - -
-
-  prep_SNVAR_HOSTLIB_WGTMAP();
-
-  return ;
-
-} // end of parse_HOSTLIB_WGTMAP_LEGACY
 
 // ====================================
 void prep_HOSTLIB_WGTMAP(void){
@@ -1483,7 +1290,7 @@ void prep_HOSTLIB_WGTMAP(void){
   for ( ivar=0; ivar < NDIM ; ivar++ ) {
     
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0, ivar, VARNAME);		  
+    get_PARSE_WORD(0, ivar, VARNAME, fnam );	  
 
     checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
 
@@ -1618,7 +1425,7 @@ int read_VARNAMES_WGTMAP_LEGACY(char *VARLIST_WGTMAP) {
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam);
      
       for(ivar=0; ivar < NWD; ivar++ ) {
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam );
 
 	if ( strcmp(VARNAME,"WGT") == 0 )
 	  { FOUNDVAR_WGT = true; continue; }
@@ -2183,7 +1990,7 @@ void read_specTable_EAZY(char *spec_list_file) {
   // - - - -
   while ( fgets(line, MXPATHLEN, fp_list) != NULL ) {
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line,fnam);
-    get_PARSE_WORD(0, ICOL_FILENAME, fileName_tmp);
+    get_PARSE_WORD(0, ICOL_FILENAME, fileName_tmp, fnam );
     basename = strrchr(fileName_tmp, '/'); // basename include slash
     printf("\t Read & store  EAZY template %s \n",
 	   &basename[1] ); fflush(stdout);
@@ -2648,7 +2455,7 @@ void read_head_HOSTLIB(FILE *fp) {
 
       // parse the VARNAMES from LINE string
       for ( ivar=0; ivar < NVAR; ivar++ ) {
-	get_PARSE_WORD(0,ivar,c_var);
+	get_PARSE_WORD(0,ivar,c_var, fnam);
 	sprintf( HOSTLIB.VARNAME_ORIG[ivar], "%s", c_var); // 9.16.2021
 
 	checkAlternateVarNames_HOSTLIB(c_var);
@@ -2713,13 +2520,6 @@ void read_head_HOSTLIB(FILE *fp) {
     // look for fixed Sersic index 'n#_Sersic' outside of VARNAMES list
     if ( FOUND_VARNAMES ) 
       { parse_Sersic_n_fixed(fp,c_get); }
-
-    // -----------
-    // look for variables to use in weight-map 
-    // (unless already read from elsewhere)
-
-    if ( !HOSTLIB_WGTMAP.READSTAT  )
-      { parse_HOSTLIB_WGTMAP_LEGACY(fp,c_get); }
 
 
     // check for fixed VPEC_ERR or VPECERR
@@ -2868,7 +2668,8 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_WEAKLENS_DMU = IVAR_HOSTLIB(HOSTLIB_VARNAME_WEAKLENS_DMU, 0) ;
 
   // keep this debug flag to disable host NBR
-  if ( INPUTS.DEBUG_FLAG == 1012 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
+  if ( INPUTS.DEBUG_FLAG  == 1012      ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
+  if ( (INPUTS.RESTORE_DES5YR & 2) > 0 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; } // May 28 2025
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
@@ -3086,6 +2887,9 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   //   + check for user-defined ZPHOT column name
   //   + refactor using replace_varName_HOSTLIB utility to simplify
   //     code and write message about replacement of column names.
+  //
+  // July 22 2025: fix abort trap on ZTRUE_CMB and missing SN2GAL to also
+  //               require DO_VPEC
 
   char *BASENAME;
   char varName_check[40], varName_replace[40];
@@ -3123,10 +2927,12 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
     HOSTLIB.FRAME_ZTRUE = HOSTLIB_FRAME_ZTRUE_CMB;
 
     // to use ZTRUE_CMB feature, SIMLIB coords must be transferred to HOSTLIB coords
-    bool SN2GAL = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
-    if ( !SN2GAL && !REWRITE ) {
-      sprintf(c1err,"%s column found in HOSTLIB ... but ", 
-	      HOSTLIB_VARNAME_ZTRUE_CMB);
+    bool SN2GAL  = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC  ;
+    bool DO_VPEC = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ; 
+    // xxx mark if ( !SN2GAL && !REWRITE ) {
+    if ( DO_VPEC && !SN2GAL && !REWRITE ) {
+      sprintf(c1err,"%s column found in HOSTLIB and HOSTLIB_MSKOPT% %d is set (VPEC)... but ", 
+	      HOSTLIB_VARNAME_ZTRUE_CMB, HOSTLIB_MSKOPT_USEVPEC );
       sprintf(c2err,"required HOSTLIB_MSKOPT & %d is not set [SNcoord->GALcoord]",
 	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -4118,8 +3924,8 @@ double transform_ZTRUE_HOSTLIB(int igal) {
   //
   // Nov 25 2023: return ZTRUE_CMB if vel_cmbapex=0
   // Jan 16 2024: Add VPEC to ZHEL
-  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC) ;
 
+  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC) ;
 
   int IVAR_GALID = HOSTLIB.IVAR_GALID ;
   int IVAR_RA    = HOSTLIB.IVAR_RA ;
@@ -4160,8 +3966,8 @@ double transform_ZTRUE_HOSTLIB(int igal) {
 
   if ( INPUTS.GENSIGMA_VPEC > 0. && !DO_VPEC ) {
     sprintf(c1err,"RANDOM VPEC option ( GENSIGMA_VPEC ) not allowed with ZTRUE_CMB in HOSTLIB");
-	  sprintf(c2err,"Try adding VPEC column in HOSTLIB");
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    sprintf(c2err,"Try adding VPEC column in HOSTLIB");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   if ( INPUTS.VEL_CMBAPEX  == 0.0 ) { 
@@ -8495,7 +8301,8 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].DDLR  = -9.0 ;  
     SNHOSTGAL_DDLR_SORT[i].RA    = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].DEC   = 999.0 ;
-    SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
+    SNHOSTGAL_DDLR_SORT[i].REDSHIFT     = -9.0 ;
+    SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH   = false ;
     SNHOSTGAL_DDLR_SORT[i].GALID2       = -9;
     SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = -9;
     SNHOSTGAL_DDLR_SORT[i].GROUPID      = -9;
@@ -8687,7 +8494,8 @@ void SORT_SNHOST_byDDLR(void) {
     // load global struct
     SNHOSTGAL_DDLR_SORT[i].DDLR  = DDLR ;
     SNHOSTGAL_DDLR_SORT[i].SNSEP = SNSEP ;
-    SNHOSTGAL_DDLR_SORT[i].GALID = get_GALID_HOSTLIB(IGAL);
+    SNHOSTGAL_DDLR_SORT[i].GALID    = get_GALID_HOSTLIB(IGAL);
+    SNHOSTGAL_DDLR_SORT[i].REDSHIFT = get_ZTRUE_HOSTLIB(IGAL);
 
     // if HOSTLIB coords don't match the SN, then use GAL-SN difference
     // to determine final host coords near SN. This feature allows using
@@ -9258,8 +9066,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig ) ;
     SB_MAG    += 2.5*log10(AREA); // normalize to 1 sq-arcsec
     
-    // convert mag to fluxcal
-    arg     = -0.4*(SB_MAG - ZEROPOINT_FLUXCAL_DEFAULT) ;
+    arg     = -0.4*(SB_MAG - INPUTS.ZP_FLUXCAL) ;
     SB_FLUXCAL = pow(10.0,arg) ;
     
     SNHOSTGAL.SB_FLUXCAL[ifilt_obs] = SB_FLUXCAL ;  
@@ -9873,7 +9680,6 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
   if ( OPT == 1 ) {
     // always start with RV and AV    
-    // xxx more delete    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
     sprintf(NAMES_HOSTPAR,"RV,AV,REDSHIFT");  NPAR=3;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
@@ -10041,7 +9847,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     LINE_APPEND[0] = 0 ;
 
     if ( NWD_LINE > 2 ) {
-      get_PARSE_WORD(0, 0, FIRSTWORD);
+      get_PARSE_WORD(0, 0, FIRSTWORD, fnam );
       if ( strcmp(FIRSTWORD,"VARNAMES:") == 0 ) 
 	{ sprintf(LINE_APPEND,"%s", VARNAMES); }
 
@@ -10059,7 +9865,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 		 fnam, igal_unsort, GALID); fflush(stdout);
 	}
 
-	get_PARSE_WORD(0, 1, NEXTWORD);    // read GALID
+	get_PARSE_WORD(0, 1, NEXTWORD, fnam);    // read GALID
 	sscanf(NEXTWORD, "%lld", &GALID_orig);
 	if ( GALID != GALID_orig ) {
 	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
@@ -10770,7 +10576,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   append_varname_list = (char**) malloc( NVAR_TOT* sizeof(char*) );
   int MEMC = MXCHAR_VARNAME * sizeof(char);
   for (ivar=0; ivar < NVAR_TOT; ivar++ ) {
-    get_PARSE_WORD(0, ivar, tmp_varName);
+    get_PARSE_WORD(0, ivar, tmp_varName, fnam);
     if ( IVAR_HOSTLIB(tmp_varName,0) > 0 ) { 
       printf("\t WARNING: remove duplicate varname '%s' from append list\n",
 	     tmp_varName); fflush(stdout) ;
@@ -10787,10 +10593,10 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
 
   // - - - -
-  OPTMASK = 0 ;
+  OPTMASK = 1 ; // match CID only
   match_cidlist_init(BLANK_STRING, &OPTMASK, BLANK_STRING);
 
-  OPTMASK = 0 ;
+  OPTMASK = 1 ; // match CID only
   NROW = match_cidlist_init(append_file, &OPTMASK, append_varname_string); 
 
   // - - - -

@@ -12,43 +12,53 @@
 #
 # See input arguments with
 #    sntable_cat.py -h
+#
+# Jun 20 2025: minor refactor of inpfile_list to accept either comma-sep list as before,
+#              or accept space-sep list or accept wildcard. Replace OptionParser with argparse.
+#              Only changes are in parse_args().
 # ------------------------------------------
 
-import os,sys
-from optparse import OptionParser
+import os, sys, argparse
+#from optparse import OptionParser
 
 # =============================
 def parse_args():
-    parser = OptionParser()
 
-    msg = 'comma-sep list of text-formatted SNANA tables'
-    parser.add_option('-i',help=msg,action='store',type='string',
-                      dest='inpfile_list',default=None)
+    parser=argparse.ArgumentParser()
+
+    msg = 'list of text-formatted SNANA tables (comma sep or space sep)'
+    parser.add_argument('-i', help=msg, nargs="+", type=str,
+                        dest='inpfile_list', default=None)
 
     msg = 'name of output/catenated sntable (text format)'
-    parser.add_option('-o',help=msg,action='store',type='string',
-                      dest='outfile_cat',default=None)
+    parser.add_argument('-o',help=msg, type=str,
+                        dest='outfile_cat',default=None)
 
     msg = 'list of column names to append if missing (wildcard allowed, e.g., PROB*)'
-    parser.add_option('-a',help=msg,action='store',type='string',
-                      dest='append_varname_missing',default='PROB*,zPRIOR*')
+    parser.add_argument('-a',help=msg, type=str,
+                        dest='append_varname_missing', default='PROB*,zPRIOR*')
 
     msg = 'optional integer prescale'
-    parser.add_option('-p',help=msg,action='store',type='int',
-                      dest='prescale',default=1)
+    parser.add_argument('-p',help=msg, type=int,
+                        dest='prescale', default=1)
 
     msg = 'DEBUG ONLY: jobname'
-    parser.add_option('-j',help=msg,action='store',type='string',
-                      dest='jobname',default='SALT2mu.exe')
+    parser.add_argument('-j', help=msg, type=str,
+                        dest='jobname', default='SALT2mu.exe')
 
-
-    (INPUTS,ARGS)=parser.parse_args()
+    INPUTS  = parser.parse_args()
 
 # abort on missing arguments
-    if (not INPUTS.inpfile_list ):
+    if not INPUTS.inpfile_list:
         parser.error('Missing required arg: -i <inpfile_list>')
 
-    if (not INPUTS.outfile_cat ):  
+    # 6/20/2025: convert list to comma-sep string for C code input
+    if len(INPUTS.inpfile_list) == 1:
+        INPUTS.inpfile_list = INPUTS.inpfile_list[0] # convert list to string
+    else:
+        INPUTS.inpfile_list = ','.join(INPUTS.inpfile_list) 
+
+    if not INPUTS.outfile_cat:  
         parser.error('Missing required arg: -o <outfile_cat>')
 
     return INPUTS
@@ -63,7 +73,8 @@ def exec_salt2mu(INPUTS):
     arg_cat        = "cat_only"
     jobname        = INPUTS.jobname
 
-    if INPUTS.prescale > 1: arg_cat += f"/{INPUTS.prescale}"
+    if INPUTS.prescale > 1: 
+        arg_cat += f"/{INPUTS.prescale}"
 
     arg_list = f"{arg_cat} " \
                f"datafile={inpfile_list} "   \

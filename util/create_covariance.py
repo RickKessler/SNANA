@@ -169,11 +169,25 @@
 #   + new option to write COVTOT (--write_mask_cov += 4)
 #
 # Apr 17 2025: read VERSION_PHOTOMETRY keys from BBC FITRES file and write them to INFO.YAML
+# Jun 03 2025: fix rebin to work if MUERR_RENORM isn't defied (e.g., spec-only sample)
+# Jun 10 2025:
+#   + refactor parsing of extra_covs and fix bug comparing CID_IDSURVEY to CID_IDSURVEY_FIELD
+#   + new --restore_des5yr command line option, or "RESTORE_DES5YR: True" in config input file
+# Jun 13 2025:
+#   + fix EXTRA_COVs again to use cov instead of mudif x mudif; based on SOURCE_COV_MUDIF[FILE]
+#
+# Sep 9 2025; add new --tracemalloc input; see tracemalloc_snapshot method.
+#
+# Sep 16 2025: write HD_BIN_METHOD to INFO.YML, and do some minor refactor to better track
+#    binning, HD_size, and nbin_[z,c,x1]
+#
+# Oct 17 2025: abort on duplicate CID_IDSURVEY_FIELD; see n_dup
 #
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
-import re, yaml, sys, gzip, math, gc
+import re, yaml, sys, gzip, math, gc, csv, psutil, glob
+import tracemalloc
 import numpy  as np
 import pandas as pd
 from   pathlib import Path
@@ -209,16 +223,16 @@ WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
 WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
-# xxx mark WRITE_MASK_COV_DEFAULT  = 3  # write both covsys & covtot_in by default (4/28/2024)
 
-
-WRITE_FORMAT_COV_TEXT = "text"
-WRITE_FORMAT_COV_NPZ  = "npz"
+WRITE_FORMAT_COV_TEXT   = "text"
+WRITE_FORMAT_COV_NPZ    = "npz"
+WRITE_FORMAT_COV_CSV    = "csv"  # multi-column csv format for making plots; not for cosmology fitting
 WRITE_FORMAT_COV_DEFAULT = WRITE_FORMAT_COV_NPZ
 
 SUFFIX_COV_DICT = {
     WRITE_FORMAT_COV_TEXT:  'txt.gz' ,
-    WRITE_FORMAT_COV_NPZ :  'npz'
+    WRITE_FORMAT_COV_NPZ :  'npz' ,
+    WRITE_FORMAT_COV_CSV :  'csv'
 }
 
 VARNAME_CID          = "CID"  # for unbinned fitres files
@@ -270,6 +284,9 @@ DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 
 MAXROW_DETCOV_TEST = 1000  # compute and print det(cov) for regression tests if fewer than 1000 rows
+
+SOURCE_COV_MUDIF = "MUDIF"
+SOURCE_COV_FILE  = "FILE"
 
 # ============================
 def setup_logging():
@@ -356,19 +373,18 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
+    # xxx ??
+    #msg = "Restore DES-SN5YR bug that ignored VPEC systematic under EXTRA_COVs"
+    #parser.add_argument("--restore_des5yr", help=msg, action="store_true")
+
     mmm = f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT}"
     msg = f"Define which COV(s) to write: +={mmm} -> covsys/covtot_inv/covtot ; " \
           f"{WRITE_MASK_COV_DEFAULT}=default;  7 -> write all 3 covs "
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
 
-    # xxxx mark delete
-    #msg = f"output cov format: default = {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}"
-    #parser.add_argument("--write_format_cov", help=msg,
-    #                    nargs='?', type=str, default=WRITE_FORMAT_COV_TEXT )
-    # xxxxx
-
-    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ} (default: {WRITE_FORMAT_COV_DEFAULT})"
+    msg = f"output cov format: {WRITE_FORMAT_COV_TEXT}  or  {WRITE_FORMAT_COV_NPZ}  or {WRITE_FORMAT_COV_CSV}" \
+          f"(default: {WRITE_FORMAT_COV_DEFAULT})"
     parser.add_argument("--write_format_cov", help=msg,
                         nargs='?', type=str, default=WRITE_FORMAT_COV_DEFAULT )
 
@@ -381,27 +397,47 @@ def get_args():
     parser.add_argument("--yaml_file", help=msg, 
                         nargs='?', type=str, default=None )
 
+    msg = "flag to enable tracemalloc; value is Nseconds of sleep after each trace"
+    parser.add_argument("--tracemalloc", help=msg,
+                        nargs='?', type=int, default=1 ) 
+
     msg = "debug flag for development"
     parser.add_argument("--debug_flag", help=msg,
                         nargs='?', type=int, default=0 ) 
     
     # parse it
+
     args = parser.parse_args()
+
+    args.rebin  = False  # 9.16.2025 RK
+    args.binned = True   # 9.16.2025 default
+
+
     if args.subtract_vpec:
         args.unbinned = True
+        
+    if (args.nbin_x1 > 0 or args.nbin_c > 0): 
+        args.rebin    = True
+        args.unbinned    = False  # recommended by D.Brout, Aug 8 2022
 
-    if (args.nbin_x1>0 or args.nbin_c>0): 
-        args.unbinned = False  # recommended by D.Brout, Aug 8 2022
+    if args.unbinned or args.rebin:
+        args.binned = False
 
+    if args.label_cov_rows:
+        args.write_format_cov = WRITE_FORMAT_COV_TEXT  # Jun 13 2025
     
+    args.write_cov_text = False
+    args.write_cov_npz  = False
+    args.write_cov_csv  = False
     if args.write_format_cov == WRITE_FORMAT_COV_TEXT:
         args.write_cov_text = True
-        args.write_cov_npz  = False
     elif args.write_format_cov == WRITE_FORMAT_COV_NPZ:
-        args.write_cov_text = False
         args.write_cov_npz  = True
+    elif args.write_format_cov == WRITE_FORMAT_COV_CSV:
+        args.write_cov_csv  = True
     else:
         sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}") 
+
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -425,7 +461,7 @@ VERSION:    <subDir under INPUT_DIR>
 {KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales>
   [allows legacy key SYSFILE: ]
 
-# Define extra cov matrices using covsys options:
+# Define multiple cov matrices using covsys options:
 #  [COVOPT-label]  [FITOPT-label,MUOPT-label,errSystScale]
 #   and no pad spaces allowed inside []
 COVOPTS:
@@ -438,8 +474,17 @@ COVOPTS:
 - '[NOCALONLY] [-CAL,]'          # all syst (i.e. all FITOPTS and MUOPTS ) except CAL systs
 - '[noFrag] [,-SCAT]'            # all syst (i.e. all FITOPTS and MUOPTS ) except SCAT systs
 # optional 3rd arg scales syst error
-- '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 2, and covSys*= 1.2^2
+- '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 1.2, and covSys*= 1.2^2
 - '[ALL]    [,,1.4]              # scale ALL errSys by 1.4, covSys*= 1.4^2
+
+# Define extra covsys terms that can be evaluated without light curve fit or BBC,
+EXTRA_COVS:
+- tag1  wgt1   extra_mucov1.dat  # CID1, IDSURVEY1, CID2, IDSURVEY2, MU_COV  (can be diagonal only)
+- tag2  wgt2   extra_mucov2.dat  # idem ...
+# where tag1[2] are tag names, wgt1**2 and wgt2**2 are the weights used to
+# compute covsys, and the *.dat files contain the extra covsys matrix.
+# Example use case is to compute MU_COV based on vpec systematics, and avoid
+# burning CPU to re-fit all the data for each vpec systematic.
 
 MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
   CLAS_SNIRF:  1.0
@@ -453,7 +498,7 @@ OUTDIR:  <name of output directory>
      -v VERSION   \\
      --sys_scale_file SYS_SCALE_FILE \\
 
-# specialized keys for CosmoMC
+# specialized (obsolete) keys for CosmoMC
 COSMOMC_TEMPLATES_PATH: <out path of ini files for Cosmomc>
   [allows legacy key COSMOMC_TEMPLATES:]
 
@@ -561,6 +606,7 @@ def load_hubble_diagram(hd_file, args, config):
 
     # M0DIF doesnt have MU column, so add it back in
     # For FITRES file with all events, do nothing sinve MU exists
+
     if "MU" not in df.columns:
         df[VARNAME_MU] = df[VARNAME_MUREF] + df[VARNAME_MUDIF]
     if VARNAME_MUERR not in df.columns:
@@ -588,7 +634,19 @@ def load_hubble_diagram(hd_file, args, config):
         df['CIDstr'] = df[VARNAME_CID].astype(str)         + "_" + \
                        df[VARNAME_IDSURVEY].astype(str)    + "_" + \
                        df[VARNAME_FIELD].astype(str)     # Feb 25 2025
-                       
+
+        # Oct 16 2025: abort on duplicate rows
+        dup_rows = df[df.duplicated(subset=['CIDstr'] )]
+        n_dup    = len(dup_rows)
+        if n_dup > 0 :            
+            hd_base = os.path.basename(hd_file)
+            dup_list = dup_rows['CIDstr'].tolist()
+            msgerr = f"\n FATAL DUPLICATE ERROR: \n" \
+                     f"\t Found {n_dup} duplicate [CID]_[IDSURVEY]_[FIELD] in \n" \
+                     f"\t {hd_file} ; \n" \
+                     f"\t Duplicate list: {dup_list}"
+            assert False, msgerr
+     
         # we need to make a new column to index the dataframe on 
         # unique rows for merging two different systematic ...
         # or combining sims with different surveys that have random CID overlaps.
@@ -615,27 +673,34 @@ def get_hubble_diagrams(folder, args, config):
 
     # return table for each Hubble diagram 
 
-    is_rebin    = config['nbin_x1'] > 0 and config['nbin_c'] > 0
+    # xxx mark delete 9.16.2025 is_rebin    = config['nbin_x1'] > 0 and config['nbin_c'] > 0    
+    is_rebin    = args.rebin
     is_unbinned = args.unbinned 
-    is_binned   = not (is_unbinned or is_rebin)
+    is_binned   = args.binned   # xxx mark not (is_unbinned or is_rebin)
 
-    folder_expand = Path(os.path.expandvars(folder))
+    folder_expand = os.path.expandvars(folder)
+    folder_path   = Path(folder_expand)
+
     logging.debug(f"Loading all data files in {folder_expand}")
     HD_list     = {}
     infile_list = []
     label_list  = []
     first_load  = True
-    str_skip_list = [ '~', 'wfit_' ]
+    str_skip_list     = [ '~', 'wfit_',  'cospar']
 
-    for infile in sorted(os.listdir(folder_expand)):
+    # xxx mark infile_listdir = sorted(os.listdir(folder_expand))
+    infile_listdir = sorted(glob.glob1(folder_expand,"FITOPT*MUOPT*"))
+
+    for infile in infile_listdir:
 
         skip = False
         for s in str_skip_list : 
             if s in infile : skip = True
+
         if skip: continue
 
         is_M0DIF    = f".{SUFFIX_M0DIF}"  in infile
-        is_FITRES   = f".{SUFFIX_FITRES}" in infile and "MUOPT" in infile
+        is_FITRES   = f".{SUFFIX_FITRES}" in infile
 
         # Feb 15 2021 RK - check option to select only one of the MUOPT
         if args.muopt >= 0 :
@@ -656,7 +721,7 @@ def get_hubble_diagrams(folder, args, config):
 
             infile_list.append(infile)
             label_list.append(label)
-            hd_file = folder_expand/infile
+            hd_file = folder_path/infile
 
             # grab contents of every M0DIF(binned) or FITRES(unbinned) hd file 
             HD_list[label] = load_hubble_diagram(hd_file, args, config)
@@ -683,10 +748,11 @@ def get_hubble_diagrams(folder, args, config):
     if is_unbinned or is_rebin:
         HD_list = get_common_set_of_sne(HD_list)
 
+    # - - - - - - 
     label0 = label_list[0]
-    nsn = len(HD_list[label0])
-    logging.info(f"Hubble diagram size for {label0}: {nsn}")
-    
+    nsn    = len(HD_list[label0])
+    base   = os.path.basename(infile_list[0])
+    logging.info(f"Input Hubble diagram size for {base}: {nsn}")
 
     # - - - - -    
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
@@ -720,6 +786,7 @@ def get_common_set_of_sne(datadict):
 
         n_sn = combined.shape[0]
         n_file += 1
+        logging.info(f"# - - - - - -  - - - - - - - - - - - - - - - - - - - - - ")
         logging.info(f"Common set from {label} has {n_sn} elements")
         logging.info(f"\n{missing}")
         assert combined.shape[0], "\t No common SNe ?!?!?"
@@ -801,6 +868,7 @@ def get_rebin_info(config,HD):
 
 
     config['nbin_HD']        = nbin_x1 * nbin_c * nbin_z
+    config['HD_size']        = nbin_x1 * nbin_c * nbin_z
     config['col_iHD']        = col_iHD
 
     config['col_iz']         = col_iz
@@ -816,7 +884,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
     # Dec 29 2020
     # rebin unbinned results based on nbin_xxx user inputs
     #
-    # 
+    # Jun 3 2025: fix to work if VARNAME_MUERR_RENORM is not defined (e.g. spec-only sample)
 
     nbin_x1      = config['nbin_x1']
     nbin_c       = config['nbin_c']
@@ -836,7 +904,12 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_muref    = HD_unbinned[VARNAME_MUREF]
     col_mu       = HD_unbinned[VARNAME_MU]
     col_muerr    = HD_unbinned[VARNAME_MUERR]
-    col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
+
+    if VARNAME_MUERR_RENORM in HD_unbinned:
+        col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
+    else:
+        col_muerr_renorm = col_muerr  
+
     HD_rebin_dict = { VARNAME_ROW: [], 
                       VARNAME_zHD: [], VARNAME_MU: [] , VARNAME_MUERR: [],
                       VARNAME_MUREF: [], VARNAME_NEVT_BIN: [] }
@@ -1006,34 +1079,99 @@ def get_cov_from_diff(df1, df2, scale):
 
 def get_covsys_from_covfile(data, covfile, scale):
 
-    # ??DJB??
-    covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
-    covindf['CID1'] = covindf['CID1'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
-    covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
-    covout    = np.zeros((len(data),len(data)))
-    mudifout  = np.zeros( len(data) )    # RK Jan 2025
-                         
-    for i,row in covindf.iterrows():
-        if len(np.argwhere(data['CIDstr'].array == row['CID1'])) == 0:
-            print(row['CID1'],'1 missing from output/cosmomc/data_wCID.txt')
-            continue
-        if len(np.argwhere(data['CIDstr'].array == row['CID2'])) == 0:
-            print(row['CID2'],'2 missing from output/cosmomc/data_wCID.txt')
-            continue
-        ww1 = np.argwhere(data['CIDstr'].array == row['CID1'])[0][0]
-        ww2 = np.argwhere(data['CIDstr'].array == row['CID2'])[0][0]
-        #if ww1 == ww2:
-        #    print('skipping, not doing same SN diagonals')
-        #    continue
-        covout[ww1,ww2] = row['MU_COV']
-        mudifout = ww1  # RK total guess ... needs to be debugged .xyz  ??DJB??
-        
+    # Read and return extra covs (e.g., for VPEC)
+    # Jun 2025: major refact to fix broken code; read gzip or unzip
+
+    logging.info(f"Read extra cov from {covfile}")
+
+    # convert data CID_IDSURVEY_FIELD back to CID_IDSURVEY because 
+    # there is no FIELD info extra_cov file.
+    cid_data_list = data['CIDstr'].array 
+    cid_data_list = [ '_'.join(c.split('_')[0:2]) for c in cid_data_list]
+    n_data        = len(cid_data_list)
+
+    #  check delimeter in cov sys file (comma or blank spaces)
+    if '.gz' in covfile:
+        c = gzip.open(covfile, 'r') 
+        is_gzip = True
+    else:
+        c = open(covfile, 'r')         
+        is_gzip = False
+
+    lines = c.readlines()
+    for line in lines:
+        if is_gzip:  line  = line.decode('utf-8')
+        if line[0] == '#' : continue
+        if ',' in line:
+            covsep = ','    # allow reading older style with commas
+        else:
+            covsep = '\s+'  # spaces are default delimeter as of 6/2025
+
+        break
+    c.close()
+
+    df_cov = pd.read_csv(covfile, float_precision='high', low_memory=False, 
+                         compression='infer', comment='#', delim_whitespace=False, sep=covsep )
+
+    nrow_cov = len(df_cov)
+    df_cov['CID1'] = df_cov['CID1'].astype(str) + "_" + df_cov['IDSURVEY1'].astype(str)
+    df_cov['CID2'] = df_cov['CID2'].astype(str) + "_" + df_cov['IDSURVEY2'].astype(str)
+    covout    = np.zeros( (n_data, n_data) )
+    mudifout  = np.zeros(n_data)
+
+    mask1 = df_cov['CID1'].isin(cid_data_list)
+    mask2 = df_cov['CID2'].isin(cid_data_list)
+    df_cov_select = df_cov[mask1 & mask2]
+    nrow_cov_sel  = len(df_cov_select)
+    logging.info(f"\t Require valid CID and reduce nrow(cov) = {nrow_cov} -> {nrow_cov_sel} ")
+    
+    n_missing = 0
+    n_use     = 0
+    n_tot     = 0
+    covsum    = 0.0 
+
+    for i,row in df_cov_select.iterrows():
+
+        n_tot += 1
+        if n_tot % 10000 == 0 : logging.info(f"\t processing cov row {n_tot} ")
+
+        CID1 = row['CID1']
+        CID2 = row['CID2']
+        j1 = -9;  j2 = -9
+        if CID1 in cid_data_list: 
+            j1 = cid_data_list.index(CID1)
+        else:
+            n_missing += 1 ; continue
+
+        if CID2 in cid_data_list: 
+            j2 = cid_data_list.index(CID2)
+        else:
+            n_missing += 1 ; continue          
+
+        n_use += 1    
+        mu_cov        = row['MU_COV']
+        covout[j1,j2] = mu_cov
+        covsum       += mu_cov  # diagnostic for regression test
+
+        if j1 == j2 :
+            mudifout[j1]  = np.sqrt(mu_cov)
+
+    # - - - - - -
+    (sgn, logcovdet)  = np.linalg.slogdet(covout)
+
+    logging.info(f"\t {n_tot} extra COV rows processed.")
+    logging.info(f"\t {n_use} extra COV rows stored .")
+    logging.info(f"\t {n_missing} extra COV rows skipped that didn't match valid CID")
+    logging.info(f"\t Diagnostic covsum = {covsum:.5e}")
+
     return covout, mudifout, (0, 0, 0)
+    # end get_covsys_from_covfile
 
 def get_contributions(m0difs, fitopt_scales, muopt_labels, 
                       muopt_scales, extracovdict):
     """ Gets a dict mapping 'FITOPT_LABEL|MUOPT_LABEL' to covariance)"""
     result_cov, result_mudif, slopes = {}, {}, []
+    source_cov = {} # Jun 13 2025
 
     for name, df in m0difs.items():
         f, m = get_fitopt_muopt_from_name(name)
@@ -1049,8 +1187,10 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         muopt_label = muopt_labels[m] if m else "DEFAULT"
         muopt_scale = muopt_scales.get(muopt_label, 1.0)
 
-        logging.info(f"\t FITOPT{f:03d} has scale {fitopt_scale}, " \
-                     f"MUOPT{m:03d} has scale {muopt_scale}") 
+        logging.info(f"\t FITOPT{f:03d} has err_scale={fitopt_scale}, " \
+                     f"MUOPT{m:03d} has err_scale={muopt_scale}") 
+
+        cov_label = f"{fitopt_label}|{muopt_label}"
 
         #if FLAG_WAIT: input(f"Press Enter to continue get_contribution for f={f} m={m}")
         
@@ -1058,8 +1198,9 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         if f == f_REF and m == m_REF :
             # This is the base file, so don't return anything.
             # CosmoMC will add the diag terms itself.
-            cov   = np.zeros((df[VARNAME_MU].size, df[VARNAME_MU].size))
-            mudif = np.zeros(df[VARNAME_MU].size)
+            size = df[VARNAME_MU].size
+            cov   = np.zeros((size, size))
+            mudif = np.zeros(size)
             summary = 0, 0, 0
         elif m != m_REF :
             # This is a muopt, to compare it against the MUOPT000 for the same FITOPT
@@ -1072,27 +1213,31 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
             cov, mudif, summary = \
                 get_cov_from_diff(df, df_compare, fitopt_scale)
         
-        result_cov[f"{fitopt_label}|{muopt_label}"]   = cov
-        result_mudif[f"{fitopt_label}|{muopt_label}"] = mudif
+        result_cov[cov_label]   = cov
+        result_mudif[cov_label] = mudif
+        source_cov[cov_label]   = SOURCE_COV_MUDIF
         slopes.append([name, fitopt_label, muopt_label, *summary])
 
-    #now loop over extracov_labels
-    # need comment from ??DJB??
-    for key,value in extracovdict.items():
+    # loop over EXTRA_COV labels
+    for key, value in extracovdict.items():
+        logging.info("# - - - - - - - - - - - - - - - - ")
+        logging.info(f"Get extra cov from file for {key}")
         cov_file = os.path.expandvars(value)
         scale    = muopt_scales[key]
         cov, mudif, summary = get_covsys_from_covfile(df, cov_file, scale)
         
         fitopt_label = 'DEFAULT'
-        muopt_label = key
-        result_cov[f"{fitopt_label}|{muopt_label}"]   = cov
-        result_mudif[f"{fitopt_label}|{muopt_label}"] = mudif                           
+        muopt_label  = key
+        cov_label    = f"{fitopt_label}|{muopt_label}"
+        result_cov[cov_label]   = cov
+        result_mudif[cov_label] = mudif
+        source_cov[cov_label]   = SOURCE_COV_FILE
         slopes.append([name, fitopt_label, muopt_label, *summary])
         
     # - - - - 
     summary_df = pd.DataFrame(slopes, columns=["name", "fitopt_label", "muopt_label", "slope", "mean_abs_deviation", "max_abs_deviation"])
     summary_df = summary_df.sort_values(["slope", "mean_abs_deviation", "max_abs_deviation"], ascending=False)
-    return result_cov, result_mudif, summary_df
+    return result_cov, result_mudif, source_cov, summary_df
     # end get_contributions
 
 def apply_filter(string, pattern):
@@ -1110,7 +1255,7 @@ def apply_filter(string, pattern):
         raise ValueError(f"Unable to parse COVOPT matching pattern {pattern}")
 
 
-def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base, calibrators):
+def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contributions_source, base, calibrators):
 
     # Parse covopts (from input config file) that look like 
     #        "[cal] [+cal,=DEFAULT]"
@@ -1141,7 +1286,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
         sig_scale    = float(bracket_content1_list[2])
         covopt_scale = sig_scale * sig_scale
 
-    logging.info(f"Compute cov for {label:14}  [scale={covopt_scale:.3f}]")
+    logging.info(f"Compute cov for {label:14}  [cov scale={covopt_scale:.3f}]")
     
     # generic message-content for debug or error
     msg_content1 =  \
@@ -1170,6 +1315,8 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
     
     for key, tmp  in contributions.items():
             
+        source = contributions_source[key]
+        
         fitopt_label, muopt_label = key.split("|")
 
         apply_fitopt = apply_filter(fitopt_label, fitopt_filter)
@@ -1184,8 +1331,11 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
             if FLAG_REDUCE_MEMORY:
                 cov = tmp[:, None] @ tmp[None, :]    # tmp = mudif array
             else:
-                cov = tmp                          # tmp is cov for this contribution
-            
+                cov = tmp                            # tmp is cov for this contribution
+
+            if source == SOURCE_COV_FILE: 
+                cov = contributions_cov[key]  # cannot build cov-from-file using mudif (6.2025)
+
             if final_cov is None:
                 final_cov = cov.copy()
                 final_cov *= 0.0
@@ -1200,12 +1350,12 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
                     cov2[:, mask_calib] = 0
                     final_cov += cov2 * covopt_scale
                     del cov2
-                    gc.collect()  # for release of memory                    
+                    gc.collect()  # for release of memory
                 else:
                     # nominal usage here
                     final_cov += cov * covopt_scale
                     n_cov += 1
-                    
+
             del tmp, cov # Jan 2025
             gc.collect()  # for release of memory
 
@@ -1213,10 +1363,10 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, base,
     t_make_mat = time.time() - t_start
     logging.info(f"\t ({t_make_mat:.1f} sec to sum {n_cov} contributions to {label})")
     
-    assert final_cov is not None,  f"No syst matches {msg_content1} " 
+    assert final_cov is not None,  f"No syst matches {msg_content1}\n final_cov = {final_cov} " 
 
 
-    return label, final_cov
+    return label, final_cov, covopt_scale
     # end get_covsys_from_covopt
 
 
@@ -1238,9 +1388,6 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         diag_muerr_cov = np.diag(muerr_stat_list**2)
         covtot         = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
 
-        if args.debug_flag == 215 : 
-            covtot *= 20.0
-            logging.info(f" xxx covtot *= 20 before invert")
 
         # First just try and invert it to catch singular matrix errors
         # precision -> covtot_inv
@@ -1250,10 +1397,6 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         str_tproc = f"({t_inv-t_start:.2f} sec)"
         logging.info(f"\t\t {label} covtot has been inverted {str_tproc}")
         
-        if args.debug_flag == 215 : 
-            covtot /= 20.0
-            covtot_inv *= 20.0
-
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
         pr   = np.dot(covtot,covtot_inv)
@@ -1349,6 +1492,13 @@ def write_standard_output(config, args, covsys_list, base,
     # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
     config['muerr_sys_list']    = get_muerr_sys(covsys_list)
     
+
+    # 9.16.2025 - load size of HD and number of z-bins for binned
+    label0  = label_list[0]
+    HD_size = len(data[label0]) 
+    config['HD_size'] = HD_size
+    if args.binned:  config['nbin_z'] = HD_size  # for binned, nbin_z = HD_size
+
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
     t0 = time.time()
@@ -1365,7 +1515,7 @@ def write_standard_output(config, args, covsys_list, base,
         if unbinned :
             write_HD_unbinned(config, data_file, data[label] )
         else:
-            is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
+            # xxx mark del 9.16 2025  is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
             write_HD_binned(config, data_file, data[label])
 
     args.t_write_sum += (time.time() - t0)
@@ -1374,19 +1524,21 @@ def write_standard_output(config, args, covsys_list, base,
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
     
+    non_zero_dict = {}
+    n_warn_zero = 0
+
     for i, (label, covsys) in enumerate(covsys_list):
 
         logging.info(f"# - - - - - - - - - - - - - - - - - - - -")
         
+        non_zero_count       = np.count_nonzero(covsys)
+        non_zero_dict[label] = non_zero_count
+        if non_zero_count == 0: n_warn_zero += 1
+
         if config['write_covsys']:
             base_file   = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
             cov_file    = outdir / base_file
-
-            if args.write_cov_npz:
-                t_write = write_covariance_npz(cov_file, covsys)
-            else:  
-                t_write = write_covariance_text(cov_file, covsys, opt_cov, data)
-
+            t_write = write_covariance_driver(args, cov_file, covsys, opt_cov, data)     
             args.t_write_sum += t_write
 
         # Apr 2024: check writing covtot_inv 
@@ -1397,12 +1549,10 @@ def write_standard_output(config, args, covsys_list, base,
                 get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
             base_file   = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
             cov_file    = outdir / base_file
-
-            if args.write_cov_npz:
-                t_write = write_covariance_npz(cov_file, covtot_inv)
-            else:  
-                t_write = write_covariance_text(cov_file, covtot_inv, opt_cov, data)
+            t_write = write_covariance_driver(args, cov_file, covtot_inv, opt_cov, data)  
             args.t_write_sum += t_write
+
+            tracemalloc_snapshot(args, f'Stage 50: after inverting {label}')
 
             # resource control/monitor
             del covtot_inv   # avoid memory pile up (Jan 2025)
@@ -1410,20 +1560,25 @@ def write_standard_output(config, args, covsys_list, base,
             args.t_invert_sum += t_invert            
         
         if config['write_covtot']:
-            # xxx mark base_file  = get_covtot_filename(i, args.write_format_cov)
-            base_file   = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
+            base_file  = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
             cov_file   = outdir / base_file
             covtot     = covsys + np.diag(base[VARNAME_MUERR]**2) # cov
-
-            if args.write_cov_npz:
-                t_write = write_covariance_npz(cov_file, covtot)
-            else:  
-                t_write = write_covariance_text(cov_file, covtot, opt_cov, data)
+            t_write    = write_covariance_driver(args, cov_file, covtot, opt_cov, data)
             args.t_write_sum += t_write
 
             # resource control/monitor
             del covtot
             gc.collect() 
+
+
+    # - - - - - -
+    # print warnings for covsys that have all zeros
+    if n_warn_zero > 0:
+        logging.info('')
+        for label, non_zero in non_zero_dict.items():
+            if non_zero == 0:
+                logging.info(f"\t *** WARNING: all covsys({label}) elements are 0 ***")
+        logging.info('')
 
     return
     # end write_standard_output
@@ -1721,8 +1876,6 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
 
     # Apr 2025: write rebin info is rebin options is set
 
-    is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
-
     f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
 
     if unbinned:
@@ -1752,6 +1905,7 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
     f.write(f"# {KEYNAME_ISDATA}: {ISDATA}   "\
             "# flag for cosmology fitter to choose blind option\n")
 
+    is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
     if is_rebin:
         f.write(f"#\n")
         nbin_z  = config['nbin_z']
@@ -1768,6 +1922,23 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
 
     return
     # end write_HD_comments
+
+def write_covariance_driver(args, cov_file, covtot, opt_cov, data):
+
+    # Created Sep 17 2025 by R.Kessler
+    # driver to write cov matrix in user-specified format
+    # Method returns time (sec) to write.
+
+    if args.write_cov_npz:
+        t_write = write_covariance_npz(cov_file, covtot)
+    elif args.write_cov_text:  
+        t_write = write_covariance_text(cov_file, covtot, opt_cov, data)
+    elif args.write_cov_csv:
+        t_write = write_covariance_csv(cov_file, covtot, opt_cov, data)
+    else:
+        sys.exit(f"\n ERROR: unknown format to write cov matrix.")
+
+    return t_write
 
 def write_covariance_text(path, cov, opt_cov, data):
     # Inputs  :
@@ -1850,6 +2021,52 @@ def write_covariance_text(path, cov, opt_cov, data):
     return t_write
     # end write_covariance_text
 
+def write_covariance_csv(path, cov, opt_cov, data):
+
+    # Created Sep 17 2025: write multi-column csv table for making plots;
+    #    WARNING: not for cosmology fitting
+    #
+    # Inputs  :
+    # path    : the filename of the output covariance matrix
+    # cov     : covariance matrix
+    # opt_cov : 1 --> label each row (for diagnostics)
+    # data    :  information for opt_cov = 1 
+    # write cov matrix to path; return time to write (seconds)
+
+    add_labels     = (opt_cov == 1) # label some elements for human readability
+    file_base      = os.path.basename(path)
+    nrow           = cov.shape[0]
+    t0             = time.time()
+
+    logging.info(f"Write to {file_base}")
+
+    # - - - - -
+    # Write out the matrix
+    nwr = 0 ; rownum = -1; colnum=-1
+
+    if '.gz' in str(path):
+        f = gzip.open(path,"wt", compresslevel=6 )
+    else:
+        f = open(path,"wt") 
+
+    f.write(f"VARNAMES:  ROW  index1d irow  jcol  COV \n")
+
+    # this is slower with f.write for each cov element
+    for c in cov.flatten():
+        colnum  = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
+        rownum  = nwr % nrow
+        index1d = nwr+1
+        line    = f"ROW:  {index1d:5d}  {index1d:5d}  {rownum:3d}  {colnum:3d}  {c:13.9f}"
+        nwr    += 1
+        f.write(f"{line}\n") ;       
+        f.flush()
+
+
+    f.close()
+    t_write = time.time() - t0
+    return t_write
+    # end write_covariance_csv
+
 
 def write_covariance_npz(path, cov):
     # Inputs :
@@ -1909,10 +2126,12 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
     zhd_row       = row_info_dict['zHD_LIST'][rownum]
     zhd_col       = row_info_dict['zHD_LIST'][colnum]
     
-    label = f"# CID, IDSURVEY, zHD, index   =   " \
+    label = f"# CID,IDSURVEY,zHD,index = " \
             f"[ {cid_row:>8}, {idsurvey_row:3d}, {zhd_row:.5f}, {rownum} ] x " \
             f"[ {cid_col:>8}, {idsurvey_col:3d}, {zhd_row:.5f}, {colnum} ]"
 
+    if rownum == colnum :
+        label += '  diag'
     return label
     
 def write_summary_output(args, config, covsys_list, base):
@@ -1932,7 +2151,7 @@ def write_summary_output(args, config, covsys_list, base):
 
     info['HD']           = HD_FILENAME
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]  # May 13 2025
-
+    
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):
         covsys_file     = None
@@ -1979,20 +2198,51 @@ def write_summary_output(args, config, covsys_list, base):
 
         f.write(f"\n")
         yaml.safe_dump(info2, f )
-
-        # xxx mark f.write(f"\nSIZE_HD: {SIZE_HD}\n\n")  # Nov 2024
         
     # - - - - - - - - - - - - - 
-    # append cospar_biascor so that it's at the end, rather than 
-    # at the beginning with default alphabetical ordering
-
+    # append more info manually to avoid alphabetical order and to append comments
     cospar_biascor = config['cospar_biascor']
     with open(out / INFO_YML_FILENAME, "at") as f:
+
+        f.write(f"\n")
+        method, comment = get_string_bin_method(args, config)
+        f.write(f"HD_BIN_METHOD: {method}   # {comment}\n")
+
         info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
         yaml.safe_dump(info_cospar, f )
 
+        
     return
     # end write_summary_output
+
+def get_string_bin_method(args, config):
+    # Created Sep 16 2025 by R.kessler
+    # Return binning method string : BINNED, REBIN , or UNBIN;
+    # also return comment string
+    # Initial use is to add information in INFO.YML
+
+    is_unbinned = args.unbinned
+    is_rebin    = args.rebin
+    is_binned   = args.binned
+
+    nbin_z  = config['nbin_z']
+    nbin_c  = config['nbin_c']
+    nbin_x1 = config['nbin_x1']
+    HD_size = config['HD_size']  
+
+    if is_unbinned :
+        method = 'UNBIN'
+        comment = f'no binning'
+    elif is_rebin:
+        method = f'REBIN'
+        comment = f'{nbin_z}(z) x {nbin_c}(c) x {nbin_x1}(x1) '
+    else:
+        # default binned
+        method = f'BINNED'
+        comment = f'{nbin_z} redshift bins'
+
+    return method, comment
+    # end get_string_bin_method
 
 
 def get_version_photomety(BBC_DIR):
@@ -2019,7 +2269,6 @@ def get_version_photomety(BBC_DIR):
 
         if 'SNANA_VERSION' in line: break
 
-    # .xyz
     return version_phot_dict
 
 def get_cospar_sim(hd_header_info):
@@ -2172,15 +2421,12 @@ def remove_nans(data):
 def create_covariance(config, args):
     # Define all our pathing to be super obvious about where it all is
 
-
     version         = config["VERSION"]
     input_dir       = Path(config["INPUT_DIR"])
     data_dir        = config['data_dir']
-    #xxx mark data_dir        = input_dir / version
 
-    extra_covs      = config.get("EXTRA_COVS",[])
     use_cosmomc     = config['use_cosmomc']
-
+    extra_covs      = config.get("EXTRA_COVS",[])
 
     # Read in all the needed data
     submit_info   = read_yaml(input_dir / "SUBMIT.INFO")
@@ -2193,7 +2439,6 @@ def create_covariance(config, args):
         sys_scale = { 0: (None,1.0) }
 
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
-
     
     # Also need to get the MUOPT labels from the original LCFIT directory
     muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in  \
@@ -2219,20 +2464,26 @@ def create_covariance(config, args):
     for extra in extra_covs:
         muopt_scales[extra.split()[0]] = extra.split()[1]
 
+    tracemalloc_snapshot(args, 'Stage 10')
+
     # Load in all the hubble diagrams
     logging.info(f"Read Hubble diagrams for version = {version}")
     data = get_hubble_diagrams(data_dir, args, config)
+
+    tracemalloc_snapshot(args, 'Stage 20: after reading HDs')
 
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
 
     # Now that we have the data, figure out how much each
     # FITOPT/MUOPT pair contributes to cov
-    contributions_cov, contributions_mudif, summary = \
+    contributions_cov, contributions_mudif, contributions_source, summary = \
             get_contributions(data, fitopt_scales,
                               muopt_labels, 
                               muopt_scales, 
                               extracovdict)
+
+    tracemalloc_snapshot(args, 'Stage 30: after contributions_cov')
 
     # find contributions which match to construct covs for each COVOPT
     logging.info("")
@@ -2250,13 +2501,14 @@ def create_covariance(config, args):
     covsys_list = []
     for c in covopts:
         if FLAG_WAIT: input("Press Enter to continue...")
-        label, covsys = get_covsys_from_covopt(c,
-                                               contributions_cov,
-                                               contributions_mudif,
-                                               base,
-                                               config.get("CALIBRATORS") )
+        label, covsys, covopt_scale = get_covsys_from_covopt(c,
+                                                             contributions_cov,
+                                                             contributions_mudif,
+                                                             contributions_source,
+                                                             base,
+                                                             config.get("CALIBRATORS") )
         covsys_list.append( (label, covsys) )
-        
+        tracemalloc_snapshot(args, f'Stage 40: after get_covsys for {label}')
     args.tend_cov = time.time()
 
     # P. Armstrong 05 Aug 2022
@@ -2266,8 +2518,6 @@ def create_covariance(config, args):
     # Only create hubble_diagram.txt for the nominal
     else:
         label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
-
-    # xxx mark delete args.tstart_write = time.time()
 
     logging.info("")
     logging.info("# ================  OUTPUT ================= ")
@@ -2282,8 +2532,6 @@ def create_covariance(config, args):
         write_cosmomc_output(config, args, covsys_list, base)
 
     write_summary_output(args, config, covsys_list, base)
-
-    # xxx mark del args.tend_write = time.time()
 
     args.tend_all = time.time()
 
@@ -2303,6 +2551,9 @@ def prep_config(config,args):
     #   of at the end.
 
     # - - - - -
+
+    logging.info(f"BINNED / REBIN / UNBIN = {args.binned} / {args.rebin} / {args.unbinned} ")
+
     # Apr 28 2024: check which COV(s) to write
     config['write_covsys']     = False
     config['write_covtot_inv'] = False
@@ -2344,6 +2595,10 @@ def prep_config(config,args):
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
 
+    # xxx ??? xxx
+    #if 'RESTORE_DES5YR' in config:
+    #    args.restore_des5yr = config['RESTORE_DES5YR']
+        
     # - - -  - -    
 
     key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
@@ -2365,12 +2620,12 @@ def prep_config(config,args):
 
     # check special/legacy features for cosmoMC/JLA
     config['use_cosmomc'] = False
-    if 'COSMOMC_TEMPLATES_PATH' in config: 
-        config['use_cosmomc'] = True
 
     # WARNING: later add option to read from input file
+    config['nbin_z']   = None
     config['nbin_x1']  = args.nbin_x1
     config['nbin_c']   = args.nbin_c
+    config['HD_size']  = None
 
     config['data_dir'] = Path(config["INPUT_DIR"]) / config["VERSION"]  # Feb 2025
 
@@ -2388,7 +2643,6 @@ def loginfo_cpu_summary(args):
         cpu_minutes = args.t_invert_sum / 60.0
         logging.info(f"CPUTIME_COV_INVERT   = {cpu_minutes:.3f} minutes")
     
-    # xxx mark cpu_minutes = (args.tend_write - args.tstart_write)/60.0
     cpu_minutes = args.t_write_sum / 60.0
     logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")
 
@@ -2410,27 +2664,73 @@ def write_yaml(args, n_cov, covsize):
     return
     # end write_yaml
 
+def tracemalloc_snapshot(args,comment):
+
+    # utility to take malloc and memory snapshots, and print results.
+
+    if args.tracemalloc == 0 : return
+
+    if comment is None:
+        current_pid = os.getpid()
+        logging.info(f"TRACEMALLOC: Current Process ID is {current_pid}")
+        logging.info(f"TRACEMALLOC: init")
+        tracemalloc.start()
+        return
+
+    # - - - - -
+    logging.info("")
+    logging.info(f"TRACEMALLOC at {comment}")
+    snapshot  = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('lineno')
+
+    mem_fac  = 1024 * 1024
+    unit_mem = "MB"
+
+    memtot = 0.0
+    for i, stat in enumerate(top_stats):
+        mem = stat.size / mem_fac
+        memtot += mem
+
+    logging.info(f"TRACEMALLOC: total memory is {memtot:.2f} {unit_mem} ")
+
+    # get psutil memory
+    process     = psutil.Process(os.getpid())
+    memory_info = process.memory_info()
+    mem_rss     = memory_info.rss / mem_fac
+    mem_vms     = memory_info.vms / mem_fac
+
+    logging.info(f"psutil RSS/VMS memory: {mem_rss:.2f} / {mem_vms:.2f} {unit_mem}")
+
+    if args.tracemalloc > 1 :
+        logging.info(f"TRACEMALLOC: sleep for {args.tracemalloc} seconds before continuing ... ")
+        time.sleep(args.tracemalloc)
+        logging.info(f"TRACEMALLOC: continuie after sleep.")
+        logging.info("")
+
+
+    return  # end tracemalloc_snapshot
+
 # ===================================================
 if __name__ == "__main__":
 
-    try:
-        setup_logging()
-        logging.info(f"# ========== BEGIN create_covariance {tnow} ===============")
+
+    setup_logging()
+    logging.info(f"# ========== BEGIN create_covariance {tnow} ===============")
         
-        command = " ".join(sys.argv)
-        logging.info(f"# Command: {command}")
-        sys.stdout.flush()
+    command = " ".join(sys.argv)
+    logging.info(f"# Command: {command}")
+    sys.stdout.flush()
 
-        args            = get_args()
-        args.tstart_all = time.time()
-        config          = read_yaml(args.input_file)
-        prep_config(config,args)  # expand vars, set defaults, etc ...
+    args            = get_args()
+    args.tstart_all = time.time()
+    config          = read_yaml(args.input_file)
+    prep_config(config,args)  # expand vars, set defaults, etc ...
 
-        create_covariance(config, args)
-        loginfo_cpu_summary(args)
-    except Exception as e:
-        logging.exception(e)
-        raise e
+    tracemalloc_snapshot(args, None)
+
+    create_covariance(config, args)
+    loginfo_cpu_summary(args)
+
 
     logging.info('Done.')
     

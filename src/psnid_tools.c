@@ -1414,11 +1414,6 @@ void psnid_pogson2fluxcal(double mag, double mage,
       ibin = (int)arg ;
       *fluxcal = PSNID_FLUXCAL_LOOKUP[ibin];
 
-      /* xxxxxxxx
-      double F ;
-      arg  = mag - ZEROPOINT_FLUXCAL ;   F  = pow(10.0,-0.4*arg);
-      printf(" xxx F(lookup)/F(true) = %le/%le = %f \n",
-	     *fluxcal, F, *fluxcal/F );	  xxxxxxxxx */
     }
 
     // *fluxcale  = (*fluxcal) * (mage) ; // OLD approx.

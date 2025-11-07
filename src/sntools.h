@@ -1,50 +1,11 @@
 /*******************************************************
-     Created Jan 2005 by R.Kessler
+     Created by R.Kessler    
 
      Defines:
       - Generic tools to read input from file
       - error handling routines
       - physical constants.
 
-
-  Aug 22 2013:  define MODEL_S11DM15
-
-  Aug 28 2013:  define struct SNTOOLS_FITRES to hold FITRES-variables;
-                avoids accidental conflicts with other programs.
-
-  Mar 20 2017: remove special chars from  FILTERSTRING_DEFAULT, except
-               for '&' to add default SYN_SPECTROGRAPH filter if
-               user does not define them.
-
-  Apr 6 2017: define EXEC_CIDMASK()
-
-  Jul 5 2017: add read_SURVEY
-
-  Nov 2017: add XXX_PATH_SNDATA_SIM tools to keep track of
-            user-defined output directories for simulations.
-
-  Dec 10 2017: declare SNANA_VERSION here instad of snana.car
-               so that it is more accessible. Also define function
-               get_SNANA_VERSION.
-
-  May 30 2020:
-    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle
-    data files with lots of spectra.
-
-  Jul 30 2020:
-    + optional pre-proc flag ONE_RANDOM_STREAM to disable 2nd
-      stream for Mac compilation. Default is still 2 streams.
-
-  Jul 31 2020:
-    + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
-
-  Nov 12 2020:
-    + Adding glob utility
-
-  Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
-  Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
-  Jun 15 2022: MXCHARWORD_PARSE_WORDS -> MXPATHLEN + 200 
-             (for long rows in FITRES or HOSTLIB)
 
 ********************************************************/
 
@@ -64,6 +25,9 @@
 #include "sntools_gridmap.h"
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
+
+
+#define DEBUG_RDSPEC 0 // temp debug flag
 
 // --------------------------------------------------
 //#define  SNANA_VERSION_CURRENT  "v11_04p"   
@@ -190,7 +154,6 @@
 #define KEYSOURCE_ARG  2
 
 // keep this in sync with the fortran FILTDEF_STRING
-// Oct 22 2015: add 27 special chars to hack an IFU
 #define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx" 
 
 // [moved from sntools_kcor.h on Nov 17 2022]
@@ -572,6 +535,7 @@ void set_SNDATA_FILTER(char *filter_list);
 void init_GENSPEC_GLOBAL(void) ;
 void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
 void malloc_GENSPEC(int opt, int ispec, int NBLAM); 
+void print_IS_MALLOC(char *callFun, int ispec, int NBLAM) ; // xxx delete after debug
 
 void ld_null(float *ptr, float value);
 
@@ -596,17 +560,19 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 
 int  store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun);
 void malloc_PARSE_WORDS(int NWD);
-void get_PARSE_WORD(int langFlag, int iwd, char *word);
-void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
-void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);
-void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val);
-void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val);
+void get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun );
+void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val, char *callFun );
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val, char *callFun );
+void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val, char *callFun );
+void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val, char *callFun);
 
-void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val);
-void get_parse_word__(int *langFlag, int *iwd, char  *word );
-void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
-void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
-void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val, char *callFun );
+void get_parse_word__(int *langFlag, int *iwd, char  *word, char *callFun );
+void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val, char *callFun );
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val, char *callFun );
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val, char *callFun );
+
+unsigned long long int hash(const char *word) ;
 
 void malloc_HASH_STORAGE(int NVAR);
 void malloc_HASH_STORAGE2(int IVAR, char *VARNAME, int ICAST, int NCID, int ISNOFF) ;
@@ -639,8 +605,8 @@ double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);
 
 
 
-int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
-double asinhinv(double mag, int ifilt);
+int fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) ;
+double asinhinv(double mag, double zp_fluxcal, int ifilt);
 
 double pressure_atmos(double h);
 
@@ -794,7 +760,7 @@ double interp_1dfun__(int *opt, double *val, int *NBIN,
 		      char *abort_comment );
 
 int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
-		   char *abort_comment);
+		   char *abort_comment, char *callFun);
 double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 		    char *abort_comment );
 

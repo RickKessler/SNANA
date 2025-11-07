@@ -14,6 +14,8 @@
 
   Aug 27 2024: add variables to update SPECEFF map to include SALT2x1, SALT2c, LOGMASS
 
+  Sep 02 2025: MXMAP_SEARCHEFF_SPEC = 20 -> 50 (for ATLAS)
+
  **************************************************/
 
 
@@ -40,7 +42,7 @@
 #define  MXVAR_SEARCHEFF_PHOTPROB     20
 #define  MXOBS_PHOTPROB              400 // max obs per event with PHOTPROB
 
-#define  MXMAP_SEARCHEFF_SPEC   20   // max number of SPEC-maps
+#define  MXMAP_SEARCHEFF_SPEC   50   // max number of SPEC-maps
 #define  MXROW_SEARCHEFF_SPEC 30000  // temp max size of SPEC-eff map
 
 #define  MXMAP_SEARCHEFF_zHOST   20    // max number of zHOST maps
@@ -63,7 +65,6 @@
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
 #define DETECT_MASK_PHOTPROB    4  // detect mask for PHOTPROB
 
-// xxx mark delete Sep 1 2023   #define MXOBS_TRIGGER 10*MXEPOCH 
 #define MXOBS_TRIGGER  MXEPOCH 
 
 // define allowed variables to use in PHOTPROB map
@@ -73,6 +74,7 @@
 #define IVARABS_PHOTPROB_REDSHIFT  3  // Feb 14 2020
 #define IVARABS_PHOTPROB_GALMAG    4  // Feb 16 2020
 #define MXDEF_VARNAMES_PHOTPROB    5
+
 
 char COMMENT_README_SEARCHEFF[2][200];
 
@@ -143,6 +145,8 @@ struct  {
   int    FUNEFF_DEBUG ;  
 
   int  OPTMASK_OPENFILE ;
+
+  int RESTORE_DES5YR; // Oct 15 2025
 
 } INPUTS_SEARCHEFF ;
 

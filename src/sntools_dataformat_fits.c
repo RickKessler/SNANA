@@ -72,6 +72,13 @@
  Oct 08 2024: add TEXPOSE per observation
  Mar 04 2025: minor REFAC_SNFITSIO to explicitly pass flag when done reading  event
               and close files. This fixes bug reading NONIASED followed by SALT3 sim data.
+ Aug 07 2025: remove REFAC_SNFITSIO flag
+
+ Sep 29 2025: write PHOTFLAG_TRIGGER to global header
+
+ Oct 23 2025: finally fix reader to work with compact SED_TRUE that writes
+              only SIM_FLAM to save disk space. This compact write feature
+              was developed for OpenUniverse2024.
 
 **************************************************/
 
@@ -306,7 +313,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "20A" ,"NAME_TRANSIENT", itype); // optional name (Jul 2024)
   }
   
-  wr_snfitsio_addCol( "1I" , "FAKE", itype   ) ;  // 0=data; >1 => sim
+
+  wr_snfitsio_addCol( "1I" , "FAKE",       itype   ) ;  // 0=data; >1 => sim
 
   if ( !SNFITSIO_SIMFLAG_SNANA  )
     {  wr_snfitsio_addCol( "1I" , "MASK_FLUXCOR_SNANA", itype );  }
@@ -470,7 +478,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1I",  "SIM_GENTYPE"     , itype );
     wr_snfitsio_addCol( "1I",  "SIM_TYPE_INDEX",   itype ); // legacy duplicate
 
-    wr_snfitsio_addCol( "8A",  "SIM_TYPE_NAME"      , itype );
+    wr_snfitsio_addCol( "12A",  "SIM_TYPE_NAME"      , itype ); // 8->12, Oct 22 2025
 
     wr_snfitsio_addCol( "1J",  "SIM_TEMPLATE_INDEX" , itype );
     wr_snfitsio_addCol( "1J",  "SIM_LIBID"          , itype );
@@ -480,7 +488,8 @@ void wr_snfitsio_init_head(void) {
 
     wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HELIO" , itype );
     wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_CMB"   , itype );
-    wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST"  , itype ); 
+    wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST"      , itype ); 
+    wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST_MATCH", itype );   // 6.04.2025
     wr_snfitsio_addCol( "1I",  "SIM_REDSHIFT_FLAG"  , itype ); // 4.19.2019
     wr_snfitsio_addCol( "1E",  "SIM_VPEC"           , itype );
     wr_snfitsio_addCol( "1K",  "SIM_HOSTLIB_GALID"  , itype ); // Feb 2020
@@ -489,6 +498,9 @@ void wr_snfitsio_init_head(void) {
       sprintf(parName,"%s", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
       wr_snfitsio_addCol( "1E",  parName           , itype );
     }
+
+    wr_snfitsio_addCol( "1E",  "SIM_SNHOST_DDLR"    , itype ); // Oct 2025
+    wr_snfitsio_addCol( "1E",  "SIM_SNHOST_SEP"     , itype ); // ""
 
     wr_snfitsio_addCol( "1E",  "SIM_DLMU"           , itype );
     wr_snfitsio_addCol( "1E",  "SIM_LENSDMU"        , itype );
@@ -693,7 +705,7 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
   // -------------- BEGIN ------------
 
   for(i=0; i < N_PROP; i++ ) {
-    get_PARSE_WORD(0,i,PROPERTY);
+    get_PARSE_WORD(0,i,PROPERTY, fnam );
     sprintf(KEY,     "%s_%s",     PREFIX_HOSTGAL, PROPERTY);
     sprintf(KEY_ERR, "%s_%s_ERR", PREFIX_HOSTGAL, PROPERTY);
 
@@ -731,8 +743,8 @@ void wr_snfitsio_init_phot(void) {
   sprintf(FMT,"%dA", MXCHAR_FILTNAME);
   wr_snfitsio_addCol( FMT,  "BAND" , itype ) ; 
   
-  if (WRFULL ) {
-    wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
+  if ( WRFULL ) {
+    wr_snfitsio_addCol( "1I",  "DETNUM"      , itype ) ;
   
     if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
       { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
@@ -872,6 +884,7 @@ void wr_snfitsio_init_spec(void) {
     wr_snfitsio_addCol( "1E",  "LAMBIN",    itype   ) ;
   }
 
+
   wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MIN", itype   ) ; 
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MAX", itype   ) ; 
@@ -947,6 +960,7 @@ void wr_snfitsio_create(int itype ) {
   //
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
   // Mar 07 2022: fix bug setting SUBSURVEY_FLAG when SUBSURVEY = ''
+  // Jul 23 2025: add ZP_FLUXCAL (part of switching 27.5 to 31.4 for nJy)
 
   int istat, ipar, ivar, NVAR ;
   long NAXIS = 1, NAXES = 0    ;
@@ -994,8 +1008,9 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
   //  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
   //   SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
-  
-  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
+  //  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
+
+  SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
   
   // - - - - - - - 
 
@@ -1020,6 +1035,10 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
 		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
 
+  // July 23 2025: write calibrated ZP
+  fits_update_key(fp, TFLOAT, "ZP_FLUXCAL", &SNDATA.ZP_FLUXCAL, 
+		  "Zero point for calibrated flux", &istat );
+
   // misc flags
   fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",  // July 2018
 		  &SNDATA.APPLYFLAG_MWEBV,
@@ -1032,6 +1051,10 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "PHOTFLAG_DETECT", // July 2022
 		  &SNDATA.PHOTFLAG_DETECT,
 		  "PHOTFLAG mask for detection", &istat );
+  
+  fits_update_key(fp, TINT, "PHOTFLAG_TRIGGER", // Sep 2025
+		  &SNDATA.PHOTFLAG_TRIGGER,
+		  "PHOTFLAG mask for trigger", &istat );
   
   // List of filters
   fits_update_key(fp, TSTRING, "FILTERS",
@@ -1511,6 +1534,7 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.NAME_TRANSIENT ;
     wr_snfitsio_fillTable ( ptrColnum, "NAME_TRANSIENT", itype );
   }
+
   
   // fake flag
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1927,10 +1951,15 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_CMB ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_CMB", itype );
 
-  // zhost (different from zhelio if wrong host)
+  // zhost 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HOST ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HOST", itype );
+
+  // true z of DDLR-matched host
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HOST_MATCH ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HOST_MATCH", itype );
 
   // integer redshift flag to indicate source of redshift
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1961,6 +1990,16 @@ void wr_snfitsio_update_head(void) {
   }
  
   
+  // -------------------
+  // SIM_SNHOST_DDLR (Oct 2025)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SNHOST_DDLR ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_SNHOST_DDLR", itype );
+
+  // SIM_SNHOST_SEP (Oct 2025)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SNHOST_SEP ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_SNHOST_SEP", itype );
 
   // -------------------
   // SIM_DLMU
@@ -2361,10 +2400,10 @@ void wr_snfitsio_update_phot(int ep) {
   wr_snfitsio_fillTable ( ptrColnum, "BAND", itype );
 
   if ( WRFULL ){
-    // CCDNUM (Mar 2021)
+    // DETNUM (Mar 2021)
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
-    wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.DETNUM[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
 
     // IMGNUM (Oct 2021)
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
@@ -2535,6 +2574,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   char fnam[] = "wr_snfitsio_update_spec" ;
 
   // ----------- BEGIN ------------
+
 
   //  printf(" xxx %s imjd=%2d  SKIP=%d \n",
   //	 fnam, imjd, GENSPEC.SKIP[imjd] ); fflush(stdout);
@@ -3014,8 +3054,11 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // MSKOPT & 1 : return istat after checking if in fits-format
   //              ==> don't open/read the tables
   //
-  // MSKOPT & 2 : read header only; do NOT open first PHOT file
+  // MSKOPT & 2 : NEVT, then read header only; do NOT open first PHOT file
   //
+  // MSKOPT & 64 : for speed, read only first file gor GETINFO option in snana (Oct 2025)
+  //
+  // MSKOPT & 128 : ignore SPEC.FITS table  (July 2025)
   // MSKOPT & 256 : ignore sim-truth; treat like real data  (Mar 2022)
   //
   // PATH = optional user-path to data; 
@@ -3028,7 +3071,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // ------------- BEGIN -----------
 
   sprintf(SNFITSIO_PHOT_VERSION, "%s", version);
-  sprintf(SNFITSIO_DATA_PATH, "%s", PATH);
+  sprintf(SNFITSIO_DATA_PATH,    "%s", PATH);
   
   istat = 
     getInfo_PHOTOMETRY_VERSION( SNFITSIO_PHOT_VERSION    // (I)
@@ -3056,7 +3099,6 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   if ( (MSKOPT & 1) > 0 ) { // check if FITS format; don't read
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
-    // xxx mark delete Mar 9 2025: malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
     return istat ;  // it's in FITS format
   }
 
@@ -3083,22 +3125,32 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   for ( ep=0; ep < MXEPOCH; ep++ ) 
     {  RDMASK_SNFITSIO_PARVAL[ep] = 1 ; }
 
+
+  // Jul 2025: check option to skip reading spectra (from DEBUG_FLAG = -333)
+  SNFITSIO_SPECTRA_SKIPREAD = ( (MSKOPT & 128) > 0) ;
+
   // Mar 2022: check option to treat sim like real data
-  SNFITSIO_noSIMFLAG_SNANA = ( (MSKOPT & 256) > 0) ;
+  SNFITSIO_noSIMFLAG_SNANA  = ( (MSKOPT & 256) > 0) ;
 
   // loop over all header files to get total number of SN.
   // Close each file after reading the NAXIS2 key.
 
   int photflag_open=0,  vbose=0;
-  for (ifile = 1; ifile <= NFILE_RD_SNFITSIO; ifile++ ) {
+  int NFILE_RD = NFILE_RD_SNFITSIO;
+  bool LRD1 = ( (MSKOPT & 64) > 0 ); 
+  if ( LRD1 ) { NFILE_RD=1; }
 
-    rd_snfitsio_open(ifile,photflag_open,vbose); // open and read 
+  for (ifile = 1; ifile <= NFILE_RD; ifile++ ) {
+
+    rd_snfitsio_open(ifile, photflag_open, vbose); // open and read 
 
     NSNLC_RD_SNFITSIO_TOT       += NSNLC_RD_SNFITSIO[ifile] ; // increment total
     NSNLC_RD_SNFITSIO_SUM[ifile] = NSNLC_RD_SNFITSIO_TOT ;
 
     rd_snfitsFile_close(ifile, ITYPE_SNFITSIO_HEAD );
   }
+
+  if ( LRD1 ) { return 0; }
 
   // open and read the first HEADER file ; do not open PHOT file
   if ( (MSKOPT & 2) == 0 ) {  
@@ -3177,7 +3229,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     return(SUCCESS) ; 
   }
 
-  if ( REFAC_SNFITSIO  &&  ifile != IFILE_RD_SNFITSIO ) {
+  if ( ifile != IFILE_RD_SNFITSIO ) {
     RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; 
     IFILE_RD_SNFITSIO = ifile ;              // update global file index
     ISNFIRST_SNFITSIO = isn ;                // first ISN in file
@@ -3216,6 +3268,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       
     }
     
+
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
@@ -3530,6 +3583,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_REDSHIFT_HOST", 
 				 &SNDATA.SIM_REDSHIFT_HOST,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_REDSHIFT_HOST_MATCH", 
+				 &SNDATA.SIM_REDSHIFT_HOST_MATCH,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
       j++; NRD = RD_SNFITSIO_INT(isn, "SIM_REDSHIFT_FLAG", 
 				 &SNDATA.SIM_REDSHIFT_FLAG,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3546,6 +3602,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ,
 				   &SNFITSIO_READINDX_HEAD[j] ) ;	
       }
+
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SNHOST_DDLR", &SNDATA.SIM_SNHOST_DDLR ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SNHOST_SEP", &SNDATA.SIM_SNHOST_SEP ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_DLMU", &SNDATA.SIM_DLMU ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3727,7 +3788,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     // store arrays need to re-write in text format
     for(ep=0; ep<=NRD; ep++) { SNDATA.OBSFLAG_WRITE[ep] = true ; }
 
-    j++; NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[ep0], 
+    j++; NRD = RD_SNFITSIO_INT(isn, "DETNUM", &SNDATA.DETNUM[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
 
     j++; NRD = RD_SNFITSIO_INT(isn, "IMGNUM", &SNDATA.IMGNUM[ep0], 
@@ -3802,7 +3863,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS )  {
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_MAGOBS", &SNDATA.SIMEPOCH_MAG[ep0], 
-				 &SNFITSIO_READINDX_PHOT[j] ) ;
+				 &SNFITSIO_READINDX_PHOT[j] ) ;     
     }
 
     if ( SNFITSIO_SIMFLAG_SNRMON ) {
@@ -3851,16 +3912,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   } // end LRD_SPEC
 
   
-  /* xxx
-  // close file on last event
-  if ( REFAC_SNFITSIO ) {
-    //    printf(" xxx %s end: isn=%d  ifile=%d  N_SUM=%d \n",
-    //	   fnam, isn, ifile, NSNLC_RD_SNFITSIO_SUM[ifile] ); fflush(stdout);
-    if ( LRD_DONE && isn == NSNLC_RD_SNFITSIO_SUM[ifile] ) 
-      { RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ; }
-  }
-  xxx */
-
   return(SUCCESS);
 
 } // end RD_SNFITSIO_EVENT
@@ -4082,6 +4133,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
   // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
   //                unzip and gzip files exist.
+  // July 23 2025: read ZP_FLUXCAL
 
   fitsfile *fp ;
   int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1, FLAG  ;
@@ -4139,6 +4191,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   fits_read_key(fp, TINT, keyname, 
 		&SNDATA.SUBSURVEY_FLAG, comment, &istat );
   if ( istat != 0 ) { SNDATA.SUBSURVEY_FLAG = 0 ; }
+  istat = 0 ;
+
+  // July 23 2025: read ZP_FLUXCAL
+  sprintf(keyname, "%s", "ZP_FLUXCAL" );  
+  fits_read_key(fp, TFLOAT, keyname, 
+		&SNDATA.ZP_FLUXCAL, comment, &istat );
+  if ( istat != 0 ) { SNDATA.ZP_FLUXCAL = ZEROPOINT_FLUXCAL_SNANA_ORIG ; }  // no key -> older data
   istat = 0 ;
 
 
@@ -4205,17 +4264,27 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
 
+
   // construct full name of PHOT file.
   sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
 	  SNFITSIO_DATA_PATH, rd_snfitsFile[ifile][itype] );
 
 
+  // - - - - - - - - - - - - - - - - - -  - -
   // read name of optional SPEC file from HEADER file (Apri 2019)
-  itype = ITYPE_SNFITSIO_SPEC ;  istat_spec=0;
-  sprintf(keyname, "SPECFILE" );
-  fits_read_key(fp, TSTRING, keyname,
-		rd_snfitsFile[ifile][itype], comment, &istat_spec );
-  //  istat_spec = -9; // xxx REMOVE
+  itype = ITYPE_SNFITSIO_SPEC ;  // Oct 23 2025
+  if ( SNFITSIO_SPECTRA_SKIPREAD ) {
+    istat_spec = -1 ;
+  }
+  else {
+    // xxx mark delete Oct 23 2025    itype = ITYPE_SNFITSIO_SPEC ;  
+    istat_spec=0;
+    sprintf(keyname, "SPECFILE" );
+    fits_read_key(fp, TSTRING, keyname,
+		  rd_snfitsFile[ifile][itype], comment, &istat_spec );
+  }
+
+  
   if ( istat_spec == 0 ) {
     SNFITSIO_SPECTRA_FLAG = true ;
     sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
@@ -4226,7 +4295,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
 
-  
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
@@ -4298,6 +4366,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   } // end read sim keys
 
+
+
   // ---------------------------
   // Now open the PHOT file.  
   int NFILE_OPEN = 1;
@@ -4309,7 +4379,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     fits_open_file(&fp_rd_snfitsio[itype], ptrFile, READONLY, &istat );
     sprintf(c1err,"Open %s", rd_snfitsFile[ifile][itype] );
     snfitsio_errorCheck(c1err, istat);
-    if ( vbose ) { printf("   Open %s \n", rd_snfitsFile[ifile][itype] ); }
+    if ( vbose ) { printf("   Open (ifile=%d, itype=%d) %s \n", 
+			  ifile, itype, rd_snfitsFile[ifile][itype] ); }
   }
 
   // move to table in each file
@@ -4604,7 +4675,7 @@ void rd_snfitsio_private(void) {
 void rd_snfitsio_file(int ifile) {
 
   int photflag_open = 1;
-  int vbose=0;
+  int vbose=1; // xxx RESTORE to zero
   char fnam[] = "rd_snfitsio_file" ;
 
   // ----------- BEGIN --------------
@@ -4932,7 +5003,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
   // print summary of allocated memory
   FMEM = 1.0E-6*(float)(MEMTOT) ;  
-  printf("   Allocate %6.3f MB memory for %s (IFILE=%d, LEN=%d). \n", 
+  printf("   Allocate %6.3f MB memory for %s (IFILE=%d, NROW=%d). \n", 
 	 FMEM, ptrFile, ifile, LEN_LOCAL );
   fflush(stdout); 
 
@@ -5136,6 +5207,8 @@ void  rd_snfitsio_specFile( int ifile ) {
   // Since sim keys are skipped, translating FITS -> TEXT doesn't include
   // the sim-only header keys for each spectrum.
   
+  bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
+
   int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
@@ -5149,6 +5222,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   istat = 0;
   itype   = ITYPE_SNFITSIO_SPEC ;
   ptrFile = rd_snfitsFile_plusPath[ifile][itype];
+
 
   // open SPEC fits file for reading
   fits_open_file(&fp_rd_snfitsio[itype], ptrFile, READONLY, &istat );
@@ -5172,7 +5246,6 @@ void  rd_snfitsio_specFile( int ifile ) {
   // read number of HEADER rows
   sprintf(keyName, "%s", "NAXIS2" );
   fits_read_key(fp, TLONG, keyName,  &NROW, comment, &istat );
-  printf("   Read %ld SPECTRUM-HEADER rows.\n", NROW);  fflush(stdout);
   RDSPEC_SNFITSIO_HEADER.NROW = NROW ;
 
   // if spectrograph table exists but there are no sim spectra,
@@ -5182,7 +5255,6 @@ void  rd_snfitsio_specFile( int ifile ) {
     { SNFITSIO_SIMFLAG_SPECTROGRAPH = false ; return; }
 
   rd_snfitsio_mallocSpec(+1,ifile);
-
 
   icol=1 ;
   fits_read_col_str(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_A,
@@ -5201,6 +5273,21 @@ void  rd_snfitsio_specFile( int ifile ) {
 		      RDSPEC_SNFITSIO_HEADER.INSTRUMENT, &anynul, &istat );     
   } 
   
+  // Oct 23 2025: read global wave range and bin size (for SED_TRUE_
+  if ( READ_SED_TRUE ) {
+    icol=5 ; 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.LAMMIN, &anynul, &istat );     
+
+    icol=6 ; 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.LAMMAX, &anynul, &istat );     
+
+    icol=7 ; 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+		      RDSPEC_SNFITSIO_HEADER.LAMBIN, &anynul, &istat );     
+  }
+
   // Sep 2024: skip over optional LAMMIN/LAMMAX/LAMBIN keys and jump
   // to column with name 'NBIN_LAM'
   char NEXT_COL[] = "NBIN_LAM" ;
@@ -5287,7 +5374,9 @@ void RD_SNFITSIO_SPECDATA(int irow,
   //
   // For sim, also return true GENFLAM
   // Oct 15 2021: check legacy vs. refac FITS format
-
+  // Oct 23 2025: finally fix this to work with true sim SED that
+  //             are written in very compact form 
+  //
   char fnam[] = "RD_SNFITSIO_SPECDATA";
   if ( irow < 0 ) {
     sprintf(c1err,"Invalid irow = %d", irow);
@@ -5299,49 +5388,79 @@ void RD_SNFITSIO_SPECDATA(int irow,
   int PTRMIN   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN[irow];
   int PTRMAX   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX[irow];
   int itype    = ITYPE_SNFITSIO_SPEC;
+  bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
+  bool READ_SPECTRUM = !READ_SED_TRUE ;
 
   int  istat=0, icol=0, anynul, ilam, ILAM ; 
   long NROW      = PTRMAX - PTRMIN + 1;
   long FIRSTROW  = PTRMIN ;
   long FIRSTELEM = 1 ;
 
-  int  LDMP = 0 ;
+  int  LDMP =  0 ;
 
   // --------------- BEGIN --------------
 
   if ( LDMP ) {
     printf(" 0. xxx %s ---------------------------- \n", fnam);
     printf(" 1. xxx %s ROW=%d \n", fnam, irow );
+    printf(" 2. xxx %s: SIMFLAG_SNANA=%d  READ_SED_TRUE=%d \n",   
+	   fnam, SNFITSIO_SIMFLAG_SNANA, READ_SED_TRUE );
+    fflush(stdout);
   }
 
+
+  if ( READ_SPECTRUM ) {
+    // refac FITS format with explicit LAMMIN and LAMMAX colums
+    // --> works for data and sim
+
+    icol++ ; ;  
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      LAMMIN, &anynul, &istat ); 
+
+    sprintf(c1err,"Read LAMMIN for spectrum" ) ;
+    snfitsio_errorCheck(c1err, istat);
   
-  // refac FITS format with explicit LAMMIN and LAMMAX colums
-  // --> works for data and sim
-  icol++ ; ;  
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    LAMMIN, &anynul, &istat ); 
-  sprintf(c1err,"Read LAMMIN for spectrum" ) ;
-  snfitsio_errorCheck(c1err, istat);
-  
-  icol++ ; ;  
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    LAMMAX, &anynul, &istat ); 
-  sprintf(c1err,"Read LAMMAX for spectrum" ) ;
-  snfitsio_errorCheck(c1err, istat);    
+    icol++ ; ;  
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      LAMMAX, &anynul, &istat ); 
+    sprintf(c1err,"Read LAMMAX for spectrum" ) ;
+    snfitsio_errorCheck(c1err, istat);    
 
-  // - - - -
+    // - - - -
 
-  icol++ ;  istat=0;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    FLAM, &anynul, &istat ); 
+    icol++ ;  istat=0;
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      FLAM, &anynul, &istat ); 
+    
+    icol++ ;  istat=0;
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      FLAMERR, &anynul, &istat ); 
+  }
 
-  icol++ ;  istat=0;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    FLAMERR, &anynul, &istat ); 
+  // for sim, read true SIM_FLAM
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
+    icol++ ;  istat=0;
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		      SIM_FLAM, &anynul, &istat ); 
+  }
 
-  icol++ ;  istat=0;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    SIM_FLAM, &anynul, &istat ); 
+
+  if ( READ_SED_TRUE ) {
+    // explicitly compute arrays that were left out of the compact data structure 
+    // that was designed to save disk space for voluminous SED_TRUE feature.
+    double LAMMIN_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMIN[irow] ;
+    double LAMMAX_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMAX[irow] ;
+    double LAMBIN_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMBIN[irow] ;
+    double lammin_tmp = LAMMIN_SPEC;
+    for ( ilam=0; ilam < NLAM; ilam++ ) {
+      LAMMIN[ilam] = lammin_tmp;
+      lammin_tmp  += LAMBIN_SPEC;
+      LAMMAX[ilam] = lammin_tmp ;      
+
+      FLAM[ilam]    = SIM_FLAM[ilam];
+      FLAMERR[ilam] = SIM_FLAM[ilam] * 1.0E-4 ; // must be positive number
+    }
+  }
 
   return ;
 
@@ -5364,6 +5483,9 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
   int  MEMC  =   NROW * sizeof(char*);
   int  MEMSNID = 40   * sizeof(char) ;
   int irow;
+
+  bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
+
   char fnam[] = "rd_snfitsio_mallocSpec" ;
 
   // ------------ BEGIN -----------
@@ -5376,6 +5498,13 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
     RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
     RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX = (int*) malloc (MEMI) ; MEMTOT += (double)MEMI ;
 
+    if ( READ_SED_TRUE ) {
+      // allocate global lam min and max and bin size
+      RDSPEC_SNFITSIO_HEADER.LAMMIN  = (float *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+      RDSPEC_SNFITSIO_HEADER.LAMMAX  = (float *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+      RDSPEC_SNFITSIO_HEADER.LAMBIN  = (float *) malloc (MEMF) ; MEMTOT += (double)MEMF ;
+    }
+
     RDSPEC_SNFITSIO_HEADER.SNID       = (char**) malloc (MEMC) ;
     RDSPEC_SNFITSIO_HEADER.INSTRUMENT = (char**) malloc (MEMC) ;    
     for(irow=0; irow<NROW; irow++ ) {
@@ -5387,8 +5516,9 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
     // print summary of allocated memory
     double FMEM = 1.0E-6*(float)(MEMTOT) ;  
-    printf("   Allocated %6.3f MB of memory for %s table. \n", 
-	   FMEM, snfitsType[ITYPE_SNFITSIO_SPEC] );
+    char *ptrFile = rd_snfitsFile[ifile][ITYPE_SNFITSIO_SPEC] ; 
+    printf("   Allocate %6.3f MB memory for %s (IFILE=%d. NSPEC=%d) \n", 
+	   FMEM, ptrFile, ifile, NROW );
     fflush(stdout); 
 
   }
@@ -5552,7 +5682,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   //
   // Dec 12 2021: call RD_OVERRIDE_FETCH
   // Jul 25 2024: allow RD_OVERRIDE_FETCH to return string C_VAL (e.g., IAUC)
-  
+  // Sep 29 2025: pass GALID to RD_OVERRIDE_FETCH
+
   int  iptr_local, iform, itype, ifile, itmp, icol, ipar, NSTORE;
   int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX, NSTR=0;
   int  *IPTR, MASK, NEP_RDMASK, NEP_MASK=0, OPTMASK ;
@@ -5573,31 +5704,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   parList[0]   = -9.0 ;
   parString[0] =  0 ;
 
-  // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-  if ( !REFAC_SNFITSIO ) {
-    ifile = -9 ; 
-    // check if we read current fits file, or need to open the next one.
-    for ( itmp = 1; itmp <= NFILE_RD_SNFITSIO; itmp++ ) {
-      if ( isn >  NSNLC_RD_SNFITSIO_SUM[itmp-1] &&
-	   isn <= NSNLC_RD_SNFITSIO_SUM[itmp] ) 
-	{ ifile = itmp ; }
-    }
-
-    //    printf(" xxx %s LEGACY  ifile=%d  isn=%d  IFILE_RD_SNFITSIO=%d \n", 
-    //	   fnam, ifile, isn, IFILE_RD_SNFITSIO);    fflush(stdout);
-
-    if ( ifile != IFILE_RD_SNFITSIO ) {
-      RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ;
-      IFILE_RD_SNFITSIO = ifile ;           // update global file index
-      ISNFIRST_SNFITSIO = isn ;             // first ISN in file
-      rd_snfitsio_file(IFILE_RD_SNFITSIO);  // open next fits file.
-      rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
-    }
-
-  } // end legacy
-  // xxxxxxxxxxxxxxx
-
-
   // - - - - - - - - - - - 
   // get local 'isn_file' index within this file;
   // Note that 'isn' is an absolute index over all files.
@@ -5609,7 +5715,13 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // This override occurs whether or not parName exists, and thus
   // it overrides or appends data.
   D_VAL = -9.9; C_VAL[0] = 0 ;
-  if ( RD_OVERRIDE_FETCH(SNDATA.CCID, parName, &D_VAL, C_VAL) > 0 ) {
+
+
+  
+  char *CCID          = SNDATA.CCID;
+  long long int GALID = SNDATA.HOSTGAL_OBJID[0]; // 9.29.2025
+
+  if ( RD_OVERRIDE_FETCH(CCID, GALID, parName, &D_VAL, C_VAL) > 0 ) {
     if ( iform == IFORM_A )
       { sprintf(parString,"%s", C_VAL); } // July 25 2024
     else

@@ -70,70 +70,6 @@
 
                 HISTORY
  
-  Mar 31 2016: MXFILE -> 20 ( was 10)
-
-  Dec 04 2016: allow VERSION column
-
-  Feb 27 2017: add check for CCID being string or integer;
-               CIDint -> isn if CCID is a string.
-
-  Mar 8 2017: 
-    make VARNAME_1ONLY list of SNANA variables to include only once. 
-    Also check for first SNANA file (IFILE_FIRST_SNANA) in case 
-    first file was not made by SNANA.
-
-  Apr 29 2019: option T or t for text-only (no hbook)
-  May 03 2019: refactor indices to start at 0 instead of 1
-
-  Jun 06 2019:
-    +  new argument -outfile_text <outFile>
-    +  if outFile has .gz extension, gzip it.
-
-  Sep 19 2019
-   + naive trick to speed up CID-matching, but works only
-     if both FITRES files have same list of CIDs. 
-   + MXSTRLEN -> MXCHAR_VARNAME (instead of 28)
-
- Oct 7 2019:
-   use hash table for cid matching using uthash.h from
-      http://troydhanson.github.io/uthash/index.html
-   It's way way faster for large (e.g., biasCor) files.
-   To revert back to slow matching method,
-      combine_fitres.exe <argList>  -matchflag 1
-   Beware of significant refactor.
-
-  Jan 16 2020: 
-    + implement -mxrow (was read, but not implemented)
-    + new input -zcut <zmin> <zmax>
-  Jan 23 2020
-    + abort if NEVT_APPROX > MXSN
-    + USEDCID -> bool instead of short int.
-    + MXSN -> 5M (was 2M)
-
- Apr 27 2020:
-   + init strings to NULL (see INIVAL_COMBINE_STR)
-
- Jun 7 2020: 
-   + match variables with ignore-case so that zCMB and ZCMB are
-     written out as zCMB and ZCMB_2.
-
- Sep 15 2020: 
-   + new input -nullval_float 0 (override default -888). Initial use is
-     for Pippin to set classifier PROB_CC=0 when classifier returns
-     no value.
-   + allow 1 or 2 dashes in front of input args to allow pythonic structure.
-
- Oct 27 2020: fix a few warnings from -Wall flag 
-
- Nov 18 2020: allow comma-sep list of space-sep list of fitres files.
-              See new function parse_FFILE(arg).
-
- Dec 09 2020: new -varnames arg to select subset of variables to write out.
-
- Jan 4 2021: add print_stats() for NEVT, NEVT_MISSING, NEVT_COMMON
-
- Jun 08 2021: switch to using match_cid_hash  utility in sntools.c
-                (matchflag=5).
    
  Apr 27 2022: 
    + print full command to stdout.
@@ -154,6 +90,10 @@
      bigger than I*4 can hold.
 
  Dec 12 2023: new --rowmatch option
+ 
+ Jun 13 2025: allow .csv (.CSV) file as 2nd, 3rd ... appended file. 
+              Inernally translate to temp-keyed file. Original motivation is for
+              integration into submit_batch_jobs to replace 4_AGG and 5_MERGE in pippin.
 
 ******************************/
 
@@ -204,6 +144,9 @@ void malloc_NMATCH_PER_EVT(int N);
 
 void  relabel_rownum(int ifile);
 
+void WRITE_YAML(void) ; // for submit_batch only
+bool is_csv_file(char *file_name);
+
 // ================================
 // Global variables
 // ================================
@@ -252,7 +195,8 @@ struct INPUTS {
   int  NFFILE ;   // number of input fitres files to combine
   char FFILE[MXFFILE][2*MXPATHLEN] ;
   char OUTPREFIX_COMBINE[MXPATHLEN] ;
-  char OUTFILE_TEXT[MXPATHLEN] ;
+  char OUTFILE_TEXT[MXPATHLEN] ;   // text file name for output table
+  char OUTFILE_YAML[MXPATHLEN] ;   // yaml file name to communicate with submit_batch (not a table)
   int  MXROW_READ ;
   int  MATCHFLAG ;
   double CUTWIN_zHD[2];
@@ -267,6 +211,8 @@ struct INPUTS {
 
 } INPUTS ;
 
+int NFILE_CSV;
+char PREFIX_CSV[MXPATHLEN];
 
 #define  NVARNAME_1ONLY 4  // NVAR to include only once
 char VARNAME_1ONLY[NVARNAME_1ONLY][20] = 
@@ -333,7 +279,7 @@ int  NEVT_COMMON;   // number of events common to all FITRES files
 int  NEVT_READ[MXFFILE];    // NEVT read from each file
 int  NEVT_MISSING[MXFFILE]; // NEVT missing w.r.t. 1st FITRES file
 
-time_t t_start ;
+time_t t_start, t_end ;
 
 // =========================================
 int main(int argc, char **argv) {
@@ -381,9 +327,11 @@ int main(int argc, char **argv) {
 
   WRITE_SNTABLE() ;
 
+  t_end = time(NULL);
+  WRITE_YAML() ; // for submit_batch only
+
   sprintf(str_cputime,"%s(write_output_tables)", STRING_CPUTIME_PROC_ALL);
   print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
-  // xxx mark print_elapsed_time(t_start, "write output tables", UNIT_TIME_SECONDS );
 
   printf("   Done writing %d events. \n", NWRITE_SNTABLE );
   fflush(stdout);
@@ -493,6 +441,8 @@ void  init_misc(void) {
   for(i=0; i < MXFFILE; i++ )  
     { NEVT_MISSING[i] = NEVT_READ[i] = 0; }
 
+  NFILE_CSV = PREFIX_CSV[0] = 0 ;
+  
 } // end init_misc
 
 // ===============================
@@ -511,6 +461,7 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.MATCHFLAG    = MATCHFLAG_HASH_UTIL ;  // Jun 2021  
 
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
+  INPUTS.OUTFILE_YAML[0]  = 0 ;
   INPUTS.CUTWIN_zHD[0] = -9.0 ;  
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
   INPUTS.DOzCUT = 0 ;
@@ -537,6 +488,10 @@ void  PARSE_ARGV(int argc, char **argv) {
 
     if ( keyarg_match(argv[i],"outfile_text"))  {
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
+      continue ;
+    }
+    if ( keyarg_match(argv[i],"outfile_yaml"))  {
+      i++ ; sprintf(INPUTS.OUTFILE_YAML,"%s", argv[i]);
       continue ;
     }
 
@@ -732,24 +687,47 @@ void ADD_FITRES(int ifile) {
   // Sep 24: slightly improve matching method so that it is very 
   //         fast when both files have exactly the same CIDs.
   //
-
+  // Ju 13 2025: check for csv file
+  
+ 
   int  ivar, ivarstr, j, isn, isn2, NMATCH2 ;
   int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST ;
   int  index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
-
-  char 
-    *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME]
-    ,*ptr_CTAG, ccid[60]
-    ,fnam[] = "ADD_FITRES"
-    ;
+  bool is_csv ;
+  char FFILE[2*MXPATHLEN];
+  char *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME] ;
+  char *ptr_CTAG, ccid[60],  cmd[2*MXPATHLEN];
+  char fnam[] = "ADD_FITRES" ;
 
   // ----------- BEGIN -----------
 
   printf("\n --------------------- %s -------------------------\n", fnam );
+  sprintf(FFILE, "%s", INPUTS.FFILE[ifile]);
+
+  if ( is_csv_file(FFILE) ) {  // Jun 2025
+    if ( ifile == 0 ) {
+      sprintf(c1err,"Primary (1st) file cannot be csv");
+      sprintf(c2err,"2nd, 3rd ... file(s) can be csv.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    }
+
+    if ( NFILE_CSV == 0 ) {
+      // define prefix with unique hash to avoid conflicts with multiple jobs
+      unsigned long long int ihash = hash(INPUTS.FFILE[0]);
+      sprintf(PREFIX_CSV, "TMP_%lld", ihash );
+    }
+    sprintf(FFILE, "%s_ADD_IFILE%3.3d.FITRES", PREFIX_CSV, ifile );
+    // xxx sprintf(cmd,"/home/rkessler/SNANA/util/convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
+    sprintf(cmd,"convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
+    printf(" Convert csv format to SNANA-key format with command\n\t %s\n", cmd);
+    fflush(stdout);
+    system(cmd);
+    NFILE_CSV++ ;
+  }
 
   // open file & read header; use generic table name SNTABLE
   // since for ascii files the table name is not used.
-  IFILETYPE = TABLEFILE_OPEN( INPUTS.FFILE[ifile], "read text" );
+  IFILETYPE = TABLEFILE_OPEN( FFILE, "read text" );
   NVARALL   = SNTABLE_READPREP(IFILETYPE,"SNTABLE");
   NVARALL_FILE[ifile] = NVARALL;
 
@@ -763,8 +741,8 @@ void ADD_FITRES(int ifile) {
       }
     }
     if ( IFILE_FIRST_SNANA >= 0 ) {
-      printf("\t First SNANA ifile = %d (%s) \n",
-	     IFILE_FIRST_SNANA, INPUTS.FFILE[ifile] );
+      printf("\t First SNANA ifile = %d (%return) \n",
+	     IFILE_FIRST_SNANA, FFILE );
     }
   }
 
@@ -780,7 +758,7 @@ void ADD_FITRES(int ifile) {
   }
 
   // get number of SN for memory allocation
-  NEVT_APPROX = SNTABLE_NEVT(INPUTS.FFILE[ifile],"TABLE");
+  NEVT_APPROX = SNTABLE_NEVT(FFILE,"TABLE");
 
   if ( NEVT_APPROX >= MXSN-1 ) { 
     sprintf(c1err,"NEVT_APPROX=%d exceeds MXSN=%d", NEVT_APPROX, MXSN);
@@ -822,7 +800,7 @@ void ADD_FITRES(int ifile) {
     if ( ivar == IVARSTR_CCID ) {
       if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
 	sprintf(c1err,"Unrecognized first column: %s", VARNAME);
-	sprintf(c2err,"Check %s", INPUTS.FFILE[ifile] );
+	sprintf(c2err,"Check %s", FFILE );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
       }
     }
@@ -935,7 +913,15 @@ void ADD_FITRES(int ifile) {
 
   // free temp arrays
   freeVar_TMP(ifile, NVARALL, NVARSTR, NEVT_APPROX);
+  
+  // remove lingering tmp-fitres file converted from input csv.
+  if ( NFILE_CSV > 0 && ifile == INPUTS.NFFILE - 1 ) {
+    sprintf(cmd,"rm %s*.FITRES", PREFIX_CSV );
+    // printf("\n xxx %s \n\n", cmd);
+    system(cmd);
+  }
 
+  return ;
 } // end of ADD_FITRES
 
 // =====================================
@@ -1629,3 +1615,33 @@ void relabel_rownum(int ifile) {
 
   return;
 } // end relabel_rownum
+
+
+
+void WRITE_YAML(void) {
+  
+  FILE *fp;
+  char *outfile = INPUTS.OUTFILE_YAML;
+  double t_tot = (t_end - t_start)/60.0;  // total proc time, minutes
+  char fnam[] = "WRITE_YAML";
+  
+  // ------------ BEGIN ---------------
+  if ( strlen(outfile) == 0 ) { return; }
+
+  fp = fopen(outfile, "wt") ;
+  fprintf(fp,"%s:  %d  # number of common events in combined file\n", 
+	  YAMLKEY_ABORT_IF_ZERO, NWRITE_SNTABLE);
+  fprintf(fp,"NFILE_COMBINE: %d \n", INPUTS.NFFILE);
+  fprintf(fp,"NEVT_COMMON:   %d \n", NWRITE_SNTABLE );
+  fprintf(fp,"CPU_MINUTES:   %.3f\n", t_tot );
+  fclose(fp) ;
+
+  return;
+} // end WRITE_YAML
+
+bool is_csv_file(char *file_name) {
+  bool is_csv = false;
+  if ( strstr(file_name,".csv") != NULL ) { is_csv = true; }
+  if ( strstr(file_name,".CSV") != NULL ) { is_csv = true; }
+  return is_csv ;
+}

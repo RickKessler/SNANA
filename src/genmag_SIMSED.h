@@ -14,6 +14,7 @@
 #define OPTMASK_INIT_SIMSED_BINARY2   4  // force create flux-table binary
 #define OPTMASK_INIT_SIMSED_TESTMODE  64 // used by SIMSED_check program
 #define OPTMASK_INIT_SIMSED_BATCH    128 // batch mode -> abort on stale binary
+#define OPTMASK_INIT_SIMSED_SKIP_KCOR_MATCH  256  // allow different KCOR_FILE
 
 
 #define SIMSED_INFO_FILENAME    "SED.INFO" 
@@ -95,7 +96,7 @@ void open_SEDBINARY(char *fileName, bool force_create,
 void open_TABBINARY(char *fileName, bool force_create, 
 		    FILE **fpbin, bool *RDFLAG, bool *WRFLAG);
 
-void read_SIMSED_TABBINARY(FILE *fp, char *binFile);
+void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK);
 
 void genmag_SIMSED(int OPTMASK, int ifilt, double x0, 
 		   int NLUMIPAR, int *iflagpar, int *iparmap, double *lumipar,

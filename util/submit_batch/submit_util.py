@@ -10,6 +10,7 @@
 # Sep 26 2022: in nrow_table_TEXT(), check for nan
 # Mar 18 2023: add gzip_list_by_chunks
 # Nov    2024: add diagnostices  in read_merge_file if merge_log cannot be opened.
+# Sep 05 2025: add grep util
 #
 # ==============================================
 
@@ -20,6 +21,46 @@ import pandas as pd
 from   submit_params import *
 
 # =================================================
+
+def grep(path_list, key_list, verbose):
+
+    # Created Sep 5 2025 
+    # loop over all files in path_list;
+    # grep each key in key_list;
+    # Return number of keys found per file and total in all files.
+    #
+    # oct 78 2025: fix to avoid re-grepping grep message by checking for unique_symbol
+
+    n_tot = 0
+    n_list = [0] * len(key_list)
+
+    unique_symbol = '_@_'  # write this symbol in grep message to avoid grepping it later
+
+    for fil in path_list:
+        n_list_tmp = [0] * len(key_list)
+
+        # read lines from file that do NOT contain unique_symbol
+        line_list = []
+        with open(fil,"rt") as f:
+            for line in f:                
+                if len(line) > 0 and unique_symbol not in line: 
+                    line_list.append(line)
+
+        for line in line_list:
+            for k, key in enumerate(key_list):
+                if re.search(key, line):
+                    n_tot += 1
+                    n_list[k] += 1      # returned 
+                    n_list_tmp[k] += 1  # local for verbose print
+
+        for key, n in zip(key_list, n_list_tmp):
+            if n > 0 and verbose:
+                base = os.path.basename(fil)
+                logging.info(f"  {unique_symbol}  grep found {n} instances of '{key}' in {base} ")
+
+    # - - - - - -
+    return n_tot, n_list
+    # end grep
 
 def print_elapse_time(t0,comment):
     dt_sec = (datetime.datetime.now() - t0).total_seconds()
@@ -131,7 +172,7 @@ def prep_jobopt_list(config_rows, string_jobopt, start_jobopt, key_arg_file):
         jobopt_file_list  = []
     else:
         msgerr = []
-        msgerr.append(f"Invalie start_jobopt={start_jobopt} arg")
+        msgerr.append(f"Invalid start_jobopt={start_jobopt} arg")
         msgerr.append(f"in util.prep_jobopt_list")
         log_assert(False,msgerr)
 

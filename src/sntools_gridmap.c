@@ -36,7 +36,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   //  MAPNAME     : name of map
   //  KEY_ROW     : NVAR columns follows this row-key
   //  KEY_STOP    : stop reading when this key is reached;
-  //              " default is to stop reading on blank line.
+  //              : default is to stop reading on blank line.
   //  IDMAP       : integer ID of GRIDMAP_LOAD
   //  NDIM        : number of dimensions of map
   //  NFUN        : number of functions of map
@@ -75,7 +75,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double *TMPVAL, *TMPVAL_LAST, *DIFVAL_LAST, DDIF, DIF;
 
-  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP ;
+  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP, NVAR_TMP ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
   char  LINE[200], word[80] ;
 
@@ -105,6 +105,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   while ( READ_NEXTLINE ) {
     LINE[0] = 0 ;
     fgets(LINE,200,fp);  NLINE++ ;
+
     NWD = store_PARSE_WORDS(MSKOPT,LINE, fnam);
 
     // abort if we read too many lines without finding any valid row keys
@@ -122,7 +123,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
     if ( NROW_READ > 0  && NWD == 0 )  { READ_NEXTLINE=0; }
     if ( NWD == 0 ) { continue ; }
 
-    get_PARSE_WORD(0,0,word);  
+    get_PARSE_WORD(0,0,word, fnam);  
 
     ISKEY_ROW = 0 ;
     if ( strcmp(word,KEY_ROW) ==0 ) { ISKEY_ROW = 1; }
@@ -138,7 +139,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
       // allow comment string on same line as grid data
       EXTRA_WORD_OK = 1 ;
       if ( NWD-1 > NVARTOT ) {
-	get_PARSE_WORD(0,NVARTOT+1,word);
+	get_PARSE_WORD(0,NVARTOT+1,word, fnam);
 	EXTRA_WORD_OK = ( word[0] == '#' ) ;
       }
       //  printf(" xxx extra word = '%s'  OK=%d \n",word, EXTRA_WORD_OK);
@@ -155,7 +156,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
       }
 
       for(ivar=0; ivar < NVARTOT; ivar++ ) {
-	get_PARSE_WORD(0,1+ivar,word);
+	get_PARSE_WORD(0,1+ivar,word, fnam);
 	sscanf ( word, "%le", &TMPVAL[ivar] );
 	TMPMAP2D[ivar][NROW_READ] = TMPVAL[ivar];
 
@@ -218,7 +219,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 	 IDMAP, MAPNAME, VARLIST, NROW_READ); fflush(stdout);
 
   // split VARLIST into array of names 04/12/2024
-  for ( ivar = 0; ivar < NDIM; ivar++ ){
+  for ( ivar = 0; ivar < NDIM+1; ivar++ ){
     GRIDMAP_LOAD->VARNAMES[ivar] = (char*) malloc(100);
   } 
 
@@ -335,7 +336,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   //
 
   int idim, ifun, i, NBIN, igrid_tmp, igrid_1d[100] ;
-  double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF ;
+  double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF, DIF_TMP ;
   double FUNVAL, RANGE_CHECK, RATIO ;
   char fnam[] = "init_interp_GRIDMAP" ;
 
@@ -363,10 +364,11 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
     } 
 
     RANGE = VALMAX - VALMIN ;
-    if ( RANGE > 1.0E-9 ) 
-      { NBIN = (int)( (RANGE+0.001*VALBIN) / VALBIN ) + 1; }
+    if ( RANGE > 1.0E-12 ) 
+      { NBIN = (int)( (RANGE+0.001*VALBIN) / VALBIN ) + 1; }  
     else
       { NBIN = 1; }
+
 
     // load output struct
     gridmap->ID           = ID ;
@@ -424,11 +426,13 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
 	VAL    = GRIDMAP_INPUT[idim][i] ;
 	VALMIN = gridmap->VALMIN[idim] ;
 	VALBIN = gridmap->VALBIN[idim] ;
-	DIF    = VAL - VALMIN ;
-	if ( VALBIN < 1.0E-9 ) 
+	RANGE  = gridmap->RANGE[idim] ; // Aug 2025
+	DIF     = VAL - VALMIN ;
+	DIF_TMP = DIF * ( 1.0 + 1.0E-9);  // Aug 2025
+	if ( VALBIN < 1.0E-9*RANGE )   
 	  { igrid_1d[idim] = 0 ; }
 	else
-	  { igrid_1d[idim] = (int)((DIF+1.0E-9)/VALBIN); }  //  + 1 ; }
+	  { igrid_1d[idim] = (int)(DIF_TMP/VALBIN); }  //  + 1 ; }
 
       }
 
@@ -653,6 +657,17 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
     igrid_tmp    = get_1DINDEX( ID, NVAR, &igrid_var[0]);
     igrid_1D     = gridmap->INVMAP[igrid_tmp] ;        
 
+    if ( igrid_1D < 0 ||  igrid_1D > gridmap->NROW ) {
+      print_preAbort_banner(fnam);
+      for ( ivar=0; ivar < NVAR; ivar++ ) 
+	{ printf("\t ivar=%d  igrid = %d \n", ivar, igrid_var[ivar]);  }      
+      sprintf(c1err,"Invalid igrid_1D=%d (should be 0 to %d)",
+	      igrid_1D, gridmap->NROW-1); 
+      sprintf(c2err,"ID=%d  NVAR=%d ", ID, NVAR ); 
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+
+
     for  ( ifun=0; ifun < NFUN; ifun++ )   {  
       FUNVAL[ifun]       = gridmap->FUNVAL[ifun][igrid_1D];
       WGT_SUM[ifun]     += (CORNER_WGT * FUNVAL[ifun]) ;
@@ -719,8 +734,6 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
 
   //------------ BEGIN -------------
 
-  //  printf(" xxxx %s called with ID = %d \n", fnam, ID) ;
-
   if ( NPT_PERDIM_1DINDEX[ID][0] == 0 ) {
     sprintf(c1err,"ID=%d  is not defined.", ID );
     sprintf(c2err,"%s", "Must first call init_1DINDEX()");
@@ -741,7 +754,7 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
     */
 
     // make sure that index does not exceed NPT
-    NPT =    NPT_PERDIM_1DINDEX[ID][i] ;
+    NPT = NPT_PERDIM_1DINDEX[ID][i] ;
     if ( index_1d >= NPT ) {
       sprintf(c1err,"index_1d=%d exceeds NPT=%d (ID=%d)", 
 	      index_1d, NPT, ID );
@@ -805,7 +818,6 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
       OFFSET_1DINDEX[ID][i] = OFFSET  = 1 ;
     }
       
-    
     if ( LDMP ) {
       printf(" xxxx OFFSET_1DINDEX[ID=%d][ivar=%2d] = %7d   "
 	     " NPT_PERDIM=%d\n",

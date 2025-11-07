@@ -17,7 +17,7 @@
 
 **************************************************/
 
-#define REFAC_SNFITSIO 1
+// xxx mark delete Aug 7 2025   #define REFAC_SNFITSIO 1
 
 // ==================================
 // global variables
@@ -103,7 +103,8 @@ bool  SNFITSIO_SIMFLAG_TEMPLATEMAG; // write template mags (LCLIB,AGN ..)
 bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;            // Jan 2018
 bool  SNFITSIO_COMPACT_noFLUXCAL_FLAG ;  // Jul 2023
-bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
+bool  SNFITSIO_SPECTRA_FLAG ;            // write or read spectra, Oct 2021
+bool  SNFITSIO_SPECTRA_SKIPREAD;        // flag to skip reading spectra (see OPTMASK in RD_SNFITSIO_PREP)
 
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 int   SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
@@ -136,7 +137,7 @@ struct {
   short int      value_1I ;  // 2-byte signed int
   unsigned short value_1U ;  // 2-byte unsigned int
   unsigned int   value_1V ;  // 4-byte unsigned int
-  long long      value_1K ;  // 8 bytte long long int (May 2013)
+  long long      value_1K ;  // 8 bytte long long int
   
   int NROW ; // increment number of rows written
 
@@ -214,6 +215,7 @@ struct {
   double *MJD;
   float  *TEXPOSE;
   char  **INSTRUMENT ; // Sep 2024
+  float  *LAMMIN, *LAMMAX, *LAMBIN ; // Oct 2025; needed for SED_TRUE
   int    *PTRSPEC_MIN, *PTRSPEC_MAX ;
 } RDSPEC_SNFITSIO_HEADER ;
 

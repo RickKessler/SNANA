@@ -1177,7 +1177,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = SEARCHEFF_SPEC[NMAP].VARNAMES[ivar] ;
 	VARLIST = SEARCHEFF_SPEC[NMAP].GRIDMAP.VARLIST ;
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam);
 	assign_SPECEFF(NMAP,ivar,VARNAME); 
 	if ( ivar == 0 ) 
 	  { sprintf(VARLIST,"%s", VARNAME ); }
@@ -1424,10 +1424,6 @@ void read_zHOST_FILE(FILE *fp) {
     ptr_VARNAMES[ivar] = (char*) malloc( 40*sizeof(char) );
   }
 
-  /* xxx mark delete Aug 19 2024 xxxx
-  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ )
-  {    ptr_VARNAMES[ivar] = VARNAME_HOSTLIB_TMP[ivar];   }
-  xxxxxxx end mark xxxx */
   
   NMAP = NVAR = 0;    
   sprintf(FIELDLIST,"%s", ALL);
@@ -1547,7 +1543,7 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
     varName_H = varName_HOSTLIB[ivar];
     ivar_H    = &ivar_HOSTLIB[ivar];
 
-    get_PARSE_WORD(0,ivar,varName_H);
+    get_PARSE_WORD(0,ivar,varName_H, fnam);
     checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
     *ivar_H  = IVAR_HOSTLIB(varName_H,0);
     
@@ -1738,6 +1734,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
    + use APPLYMASK_SEARCHEFF_xxx parmaeters to set return MASK
    + add argument *EFF_zHOST
 
+
   *****/
 
   int  LFIND1_PIPELINE, LFIND2_SPEC, LFIND3_zHOST, MASK ;
@@ -1766,7 +1763,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
     LFIND1_PIPELINE = 1;      // set flag that search software finds SN
   }
   else {
-    // check check software/pipeline finds this SN
+    // check if software/pipeline detection finds this SN
     LFIND1_PIPELINE = gen_SEARCHEFF_PIPELINE(ID,MJD_DETECT);
   }
 
@@ -2668,7 +2665,10 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   // Jan 22 2017: check for field-dependent HOSTEFF map.
   // Mar 11 2018: refactor
   // Jun 19 2018: check CUTWIN_SNRMAX
+  // Oct 15 2025: 
+  //    + bail if hostless event (can't get zSpec_host if host is not found)
 
+  bool  USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; // Oct 2025
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   double  *CUTWIN_SNRMAX = INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST ;
   int     LFIND ;
@@ -2677,13 +2677,24 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
 
   // ----------- BEGIN -----------
 
+  *EFF_zHOST = 0.0 ; // init return arg
+
+  if ( INPUTS_SEARCHEFF.RESTORE_DES5YR ) {
+    // restore D5YR bug by ignoring hostless events
+  }
+  else {
+    // implement host-less fix Oct 15 2025 
+    // (original motivation: for DESC all photo-z/re-analysis of DES-SN5YR)
+    if ( USE_HOSTLIB && SNHOSTGAL.NNBR_DDLRCUT == 0 ) { return 0; }
+  }
+
   // check debug option
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
     RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
     return gen_SEARCHEFF_DEBUG("zHOST", RAN, EFF_zHOST) ;
   }
 
-  LFIND = 1 ;  *EFF_zHOST = 0.0 ;
+  LFIND = 1 ;
 
   // check options if there is no zHOST-eff file
   if ( NMAP == 0 )  { 

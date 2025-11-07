@@ -22,7 +22,7 @@
 
 *****************************************************/
 
-#define MXEPOCH  30000   // max Nepoch for data & simlib
+#define MXEPOCH  60000   // max Nepoch for data & simlib
 
 #define MXEPCOV  112     // max epochs to store in covariance matrix
 
@@ -41,7 +41,10 @@
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
 #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
-#define ZEROPOINT_FLUXCAL_DEFAULT 27.5
+#define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
+#define ZEROPOINT_FLUXCAL_nJy         31.4
+#define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG
+// #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_nJy
 
 #define WRITE_MASK_LCMERGE       2  // idem to write lcmerge data files.
 #define WRITE_MASK_SIM_SNANA     4  // idem to write SNANA-SIM  
@@ -160,8 +163,6 @@ struct VERSION
 
   int NEPOCH_TOT;          // total number of epochs in all SN
 
-  // xxx mark  int GENFRAME_SIM ;   // sim only: 1=rest+boost(=> KCOR), 2=obs
-
 } VERSION_INFO ;
 
 
@@ -195,7 +196,8 @@ struct SNDATA {
   char  CALIB_FILE[MXPATHLEN];
   char  SPEC_FILE[MXPATHLEN];
 
-  int   PHOTFLAG_DETECT; // mask in PHOTFLAG for detection
+  int   PHOTFLAG_DETECT;  // mask in PHOTFLAG for detection
+  int   PHOTFLAG_TRIGGER; // mask in PHOTFLAG for trigger
 
   // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];
@@ -214,6 +216,7 @@ struct SNDATA {
   int   FAKE ;            // 1=FAKE, 0=DATA
   int   NEPOCH;           // total NEPOCH including peak and unused filters
   int   NOBS ;            // total Num of observations (<= NEPOCH)
+  float ZP_FLUXCAL ;      // Jul 15 2025
 
   // list of observations to store; they pass select_MJD_SNDATA func
   int   NOBS_STORE;
@@ -239,7 +242,7 @@ struct SNDATA {
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
 
-  int   CCDNUM[MXEPOCH] ; // CCD number or sensor id
+  int   DETNUM[MXEPOCH] ; // detector/CCD number or sensor id
   int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g., EXPNUM, VISIT_ID)
 
   bool   OBSFLAG_WRITE[MXEPOCH];
@@ -377,7 +380,6 @@ struct SNDATA {
   int  SIM_MODEL_INDEX;      //integer id for model or class
   int  SIM_TEMPLATE_INDEX ;  // template index for NON1ASED, SIMSED, LCLIB ...
   char SIM_COMMENT[200]; 
-  // xxx mark  int  SIM_TYPE_INDEX;        // same as SNTYPE (if set).
   int  SIM_GENTYPE;          // same as SNTYPE (if set).
   char SIM_TYPE_NAME[60];    // Ia, Ib, II, etc ...
 
@@ -388,8 +390,9 @@ struct SNDATA {
   float SIM_SEARCHEFF_zHOST;   // EFF(zHOST) when not spec-confirmed
   float SIM_REDSHIFT_HELIO ;   // for SN
   float SIM_REDSHIFT_CMB   ;   // for SN
-  float SIM_REDSHIFT       ; // legacy variable, same as z_CMB
-  float SIM_REDSHIFT_HOST  ; // zhelio of host (Jan 2016)
+  // xxx mark Jun 5 2025  float SIM_REDSHIFT       ; // legacy variable, same as z_CMB
+  float SIM_REDSHIFT_HOST        ; // zhelio of true host (Jan 2016)
+  float SIM_REDSHIFT_HOST_MATCH  ; // zhelio of DDLR-matched host (June 2025)
   int   SIM_REDSHIFT_FLAG  ; // indicates source of redshift (4.19.2019)
   char  SIM_REDSHIFT_COMMENT[40];
   float SIM_VPEC ;           // peculiar velocity, km/sec
@@ -425,7 +428,7 @@ struct SNDATA {
   float SIM_ANGSEP_GROUPID;  // ang-sep between SIMLIB and HOSTLIB coord (GROUPID only)
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
-  //  float     SIM_HOSTLIB_DDLR  ; // true DDLR
+  float     SIM_SNHOST_DDLR, SIM_SNHOST_SEP  ; // true DDLR and SN-HOST sep (Oct 15 2025)
 
   // - - - - -
   float SIM_RISETIME_SHIFT;    // rise time shift relative to model

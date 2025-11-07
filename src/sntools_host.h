@@ -494,8 +494,7 @@ typedef struct {
   long long GALID ;
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
-  double RA, DEC, SNSEP, DLR, DDLR ;
-  // xxx mark Aug 28 2024  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
+  double RA, DEC, SNSEP, DLR, DDLR, REDSHIFT ;
   HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
@@ -706,8 +705,6 @@ void   close_HOSTLIB(FILE *fp);
 
 void   init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END);
 void   read_HOSTLIB_WGTMAP(void);
-void   read_HOSTLIB_WGTMAP_LEGACY(void);
-void   parse_HOSTLIB_WGTMAP_LEGACY(FILE *fp, char *string);
 void   prep_HOSTLIB_WGTMAP(void);
 int    read_VARNAMES_WGTMAP_LEGACY(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);

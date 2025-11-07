@@ -1,10 +1,10 @@
 // **********************************************
-// Created Feb 23 2013 by R. Kessler
+// Created Feb 23 2013 by R. Kessler  
 //
 // functions to write and read ascii tables.
 //
 // - - - - - - - - - - - 
-// HISTORY
+// HISTORY  
 //
 // Apr 17 2019: in SNTABLE_NEVT_TEXT, rewind -> snana_rewind.
 //
@@ -152,7 +152,7 @@ extern"C" {
   FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 		    int *GZIPFLAG, char *callFun);
   int   store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun );
-  void  get_PARSE_WORD(int langFlag, int iwd, char *word);
+  void  get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun );
   void  trim_blank_spaces(char *string);
   void  debugexit(char *string);
   void  snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
@@ -649,9 +649,10 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   // Write optional header info at top of file.
   // See FORMAT string below.
   // Mar 2023: write VERSION_PHOTOMETRY if it is defined
+  // Sep 2025: avoid writing VERSION_PHOTOMETRY key twice to top of file.
 
   int   NVAR, IVAR, OPT_FORMAT, IDTABLE ;
-  char *FORMAT, *VARLIST, *TBNAME;
+  char *FORMAT, *VARLIST, *TBNAME, *LINE ;
   char fnam[] = "SNTABLE_WRITE_HEADER_TEXT" ;
   FILE *FP ;
   // ------------- BEGIN --------------
@@ -677,13 +678,17 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   if ( OPT_FORMAT == OPT_FORMAT_KEY ) {
 
     // Oct 23 2014: print comment lines
-    int iline ;
+    int iline ; bool WROTE_VERSION_PHOTOMETRY = false;
     for(iline=0; iline < NLINE_TABLECOMMENT; iline++ ) {
-      fprintf(FP, "# %s \n", LINE_TABLECOMMENT[iline] );
+      LINE = LINE_TABLECOMMENT[iline];
+      fprintf(FP, "# %s \n", LINE );
+      if ( strstr(LINE,KEYNAME_VERSION_PHOTOMETRY) != NULL ) { WROTE_VERSION_PHOTOMETRY = true; }
+      fflush(stdout);
     }
     fflush(FP);
-    
-    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 ) 
+
+
+    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 && !WROTE_VERSION_PHOTOMETRY) 
       { fprintf(FP, "# %s %s \n", 
 		KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY) ; 
       }
@@ -1090,6 +1095,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
 int  SNTABLE_READPREP_TEXT(void) {
 
   int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG, iwd, MSKOPT ; 
+  int LENV_TOT = 0;
   bool MATCH;
   FILE *FP ;
   char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST, vtmp[MXCHAR_FILENAME*2] ;
@@ -1122,7 +1128,14 @@ int  SNTABLE_READPREP_TEXT(void) {
       if ( MATCH ) {
 	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
 	NVAR   = store_PARSE_WORDS(MSKOPT,VARLIST, fnam);
-	iwd=1;   get_PARSE_WORD(0, iwd, vtmp) ; 
+	iwd=1;   get_PARSE_WORD(0, iwd, vtmp, fnam) ; 
+	LENV_TOT = strlen(SNTABLE_VERSION_PHOTOMETRY) + strlen(vtmp);
+	if ( LENV_TOT >= MXCHAR_VERSION_PHOTOMETRY ) {
+	  sprintf(MSGERR1,"len(SNTABLE_VERSION_PHOTOMETRY) = %d exceeds bound of %d",
+		  LENV_TOT, MXCHAR_VERSION_PHOTOMETRY );
+	  sprintf(MSGERR2,"%s", "Check MXCHAR_VERSION_PHOTOMETRY");
+	  errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+	}
 	catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY,vtmp);
       } // end MATCH
       continue ;
@@ -1136,7 +1149,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST, fnam );
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
-	get_PARSE_WORD(0,ivar,VARNAME);
+	get_PARSE_WORD(0,ivar,VARNAME, fnam );
 	READTABLE_POINTERS.ICAST_STORE[ivar] = ICAST_for_textVar(VARNAME);
 	READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST_for_textVar(VARNAME);
       }
@@ -1352,12 +1365,12 @@ int ICAST_for_textVar(char *varName) {
   //
   // Jan 2025: add BANDLIST
   
-#define NVARNAME_STRING_TABLE 16
+#define NVARNAME_STRING_TABLE 17
   char ALLOWED_STRING_COLUMN_LIST[NVARNAME_STRING_TABLE][20] =
     { "CID",            "SNID",         "CCID",        "GALID",
       "ROW",            "STARID",      "FIELD",        "BAND",  "BANDLIST", 
       "NAME_TRANSIENT", "NAME_IAUC",   "IAUC",         "CATALOG",
-      "VERSION",        "PARNAME",     "OBJID" } ;
+      "VERSION",        "PARNAME",     "OBJID",  "snid" } ;
 
   int ivar;
   char *varname_tmp;
@@ -1417,6 +1430,8 @@ int ICAST_for_textVar_obsolete(char *varName) {
   if ( strcmp_ignoreCase(varName,(char*)"CID"  )  == 0 ) 
     { return ICAST_C; }
   if ( strcmp_ignoreCase(varName,(char*)"SNID" )  == 0 ) 
+    { return ICAST_C; }
+  if ( strcmp_ignoreCase(varName,(char*)"snid" )  == 0 ) 
     { return ICAST_C; }
   if ( strcmp_ignoreCase(varName,(char*)"CCID" )  == 0 ) 
     { return ICAST_C; }

@@ -519,7 +519,7 @@ class cosmofit(Program):
         yaml_info = util.extract_yaml(yaml_file, None, None )
 
         # check option to use COVSYS_INV (default) or to perform inversion
-        # USE_COVSYS_INV .xyz
+        # USE_COVSYS_INV 
         USE_COVSYS_INV = True  # default
         CONFIG     = self.config_yaml['CONFIG']
         if KEYNAME_USE_COVSYS_INV in CONFIG:

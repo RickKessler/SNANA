@@ -988,105 +988,6 @@ void init_SALT2interp_SEDFLUX(void) {
 } // end of init_SALT2interp_SEDFLUX
 
 
-/* xxxxxxxx mark delete May 8 2025 xxxxxxxxxxxxxxx
-// ***************************************
-void init_SALT2interp_ERRMAP(void) {
-
-  // if spline-option is set for error maps,
-  // then init splines
-
-  
-  int OPT, IDGRIDMAP, imap, ispline, iday, ilam, N2DBIN, jtmp, IERR, NDIM=2 ;
-  int NDAY, NLAM ;
-  int OPT_EXTRAP = 0 ; //  0 -> return error outside map  
-  double ERRTMP, XM, SS, **ERRMAP2D_TMP ;
-  float  MEM;
-
-  char fnam[] = "init_SALT2interp_ERRMAP" ;
-
-  // ---------- BEGIN -----------
-
-  OPT = INPUT_SALT2_INFO.ERRMAP_INTERP_OPT ;
-  if ( OPT != SALT2_INTERP_SPLINE ) { return ; }
-
-  for ( imap=0; imap < NERRMAP_SALT2; imap++ ) {
-
-    if ( imap >= INDEX_SALT2_ERRMAP.COLORDISP ) { continue ; }
-
-    // xxx mark delete ispline = SALT2_TABLE.INDEX_SPLINE[1] + imap + 1 ; 
-    ispline   = imap + 1 ; 
-    IDGRIDMAP = IDGRIDMAP_SALT2ERR + imap ; 
-    SALT2_ERRMAP[imap].INDEX_SPLINE = ispline ; 
-    SALT2_ERRMAP[imap].IDGRIDMAP    = IDGRIDMAP; 
-    
-    SALT2_SPLINE_ARGS.DAYLIM[0] = SALT2_ERRMAP[imap].DAYMIN ;
-    SALT2_SPLINE_ARGS.DAYLIM[1] = SALT2_ERRMAP[imap].DAYMAX ;
-    SALT2_SPLINE_ARGS.LAMLIM[0] = SALT2_ERRMAP[imap].LAMMIN ;
-    SALT2_SPLINE_ARGS.LAMLIM[1] = SALT2_ERRMAP[imap].LAMMAX ;
-    
-    NDAY = SALT2_ERRMAP[imap].NDAY ;
-    NLAM = SALT2_ERRMAP[imap].NLAM ;
-    MEM  = malloc_double2D(+1, 3, NDAY*NLAM, &ERRMAP2D_TMP);
-
-    // for spline, use every other day and every other lambda bin
-    N2DBIN = 0;
-    for ( iday=0; iday <  SALT2_ERRMAP[imap].NDAY ; iday+=2 ) {
-      for ( ilam=0; ilam <  SALT2_ERRMAP[imap].NLAM ; ilam+=2 ) {
-
-	jtmp = SALT2_ERRMAP[imap].NLAM *iday + ilam ;
-	ERRTMP = SALT2_ERRMAP[imap].VALUE[jtmp] ;
-	if ( ERRTMP == 0.0 ) { ERRTMP = 1.0E-9 ; }
-
-	SALT2_SPLINE_ARGS.DAY[N2DBIN] = SALT2_ERRMAP[imap].DAY[iday] ;
-	SALT2_SPLINE_ARGS.LAM[N2DBIN] = SALT2_ERRMAP[imap].LAM[ilam] ;
-	SALT2_SPLINE_ARGS.VALUE[N2DBIN] = log10(ERRTMP*ERRTMP) ;
-
-	ERRMAP2D_TMP[0][N2DBIN]  = SALT2_ERRMAP[imap].DAY[iday] ;
-	ERRMAP2D_TMP[1][N2DBIN]  = SALT2_ERRMAP[imap].LAM[iday] ;
-	ERRMAP2D_TMP[2][N2DBIN]  = log10(ERRTMP*ERRTMP) ;
-
-	N2DBIN++ ;
-      }// ilam
-    } // iday
-     
-
-    init_interp_GRIDMAP(IDGRIDMAP, "SALT2ERR", N2DBIN, NDIM, 1, OPT_EXTRAP,
-			ERRMAP2D_TMP, &ERRMAP2D_TMP[2],
-			&SALT2_ERRMAP[imap].GRIDMAP );
-    
-    XM  = (double)N2DBIN ;  SS  = XM ;
-    in2dex_(&ispline, &N2DBIN
-	    , SALT2_SPLINE_ARGS.DAY
-	    , SALT2_SPLINE_ARGS.LAM
-	    , SALT2_SPLINE_ARGS.VALUE
-	    , SALT2_SPLINE_ARGS.DAYLIM
-	    , SALT2_SPLINE_ARGS.LAMLIM
-	    , &SS, &IERR ) ; 
-
-    // .xyz
-    IERR = 0 ;
-    printf("\t Init SPLINE %2d  for error map: %d nodes (IERR=%d) \n", 
-	   ispline, N2DBIN, IERR);
-
-    if ( IERR > 0 ) {
-      sprintf(c1err,"IN2DEX SPLINE-INIT is bad: IERR=%d", IERR );
-      sprintf(c2err,"ispline=%d  SS=%le \n", ispline, SS);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-    
-    // free GRIDMAP memory (May 2025)
-    MEM  = malloc_double2D(-1, NDAY, NLAM, &ERRMAP2D_TMP);
-
-  } // imap
-
-  return ;
-} // end of init_SALT2interp_ERRMAP
-
-xxxxxxxxx end mark xxxxxxxxxx */
-
-
-
-
 
 // **************************************
 void getFileName_SALT2colorDisp(char *fileName) {
@@ -1329,7 +1230,6 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 	double RESTLAMMIN_FILTERCEN_ORIG = INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN;
 	double RESTLAMMIN_FILTERCEN_NEW  = UVLAM_EXTRAP_RESTLAMMIN_FILTERCEN(UVLAM);
 	INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN = RESTLAMMIN_FILTERCEN_NEW ;
-
 	printf("\t RESTLAMMIN_FILTERCEN = %.0f --> %.0f for UVLAM_EXTRAP=%.0f A\n",
 	       RESTLAMMIN_FILTERCEN_ORIG, RESTLAMMIN_FILTERCEN_NEW, UVLAM);
 	fflush(stdout);
@@ -1891,7 +1791,8 @@ void init_calib_shift_SALT2train(void) {
   double shift, magprimary, mag_shift, lam_shift;
   double *lam, *trans, *transREF ;
   bool MATCH ;
-  char string_shift[3][12] = { "", "MAGSHIFT", "LAMSHIFT" } ;
+  // xxx mark delete Aug 11 2025  char string_shift[3][12] = { "", "MAGSHIFT", "LAMSHIFT" } ;
+  char string_shift[3][12] = { "", "MAGSHIFT", "WAVESHIFT" } ;
   char fnam[] = "init_calib_shift_SALT2train" ;
 
   // ----------- BEGIN -------------
@@ -2779,16 +2680,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
     get_genSmear(parList_genSmear, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
     free(lam);
-
-    /* xxxx mark delete May 26 2025 xxxx
-    if ( LDMP ) {  //.xyz
-      for ( ilamobs=10; ilamobs < 20; ilamobs++ ) {
-	get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
-	printf("\t xxx smear(lam=%7.1f) = %.3f \n", LAMOBS, GENSMEAR.MAGSMEAR_LIST[ilamobs] );
-      }
-    } // end LDMP
-    LDMP = 0;
-    xxxxxxx end mark xxxxxx */
 
   } // end ISTAT_GENSMEAR
 

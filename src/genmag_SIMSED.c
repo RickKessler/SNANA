@@ -122,16 +122,19 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // OPTMASK +=  4 --> force creaton of flux-table binary
   // OPTMASK += 64 --> test mode only, no binary, no time-stamp checks
   // OPTMASK += 128 -> batch mode, thus abort on stale binary
+  // OPTMASK += 256 -> skip check on matching KCOR_FILE (e.g., allow different
+  //                     KCOR/CALIB files with very small ZPT shifts
   //
   // Aug 18 2020: check kcor file with .gz
   // Dec 14 2021: new OPTMASK 2 and 4
   // Mar 02 2022: check UVLAM_EXTRAP
   // Feb 05 2024: abort if PATH_BINARY is not a directory.
+  // Jul 02 2025: new OPTMASK += 256 option
 
   int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR;
   int retval = SUCCESS ;
 
-  bool USE_BINARY=false, USE_TESTMODE=false;
+  bool USE_BINARY=false, USE_TESTMODE=false ;
   bool FORCE_SEDBINARY=false, FORCE_TABBINARY=false;
 
   char
@@ -157,6 +160,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   USE_BINARY      = ( OPTMASK &  OPTMASK_INIT_SIMSED_BINARY   ) > 0 ;
   USE_TESTMODE    = ( OPTMASK &  OPTMASK_INIT_SIMSED_TESTMODE ) > 0 ;
   ISBATCH_SIMSED  = ( OPTMASK &  OPTMASK_INIT_SIMSED_BATCH    ) > 0 ;
+
   ISWGTMAP_SIMSED = ( strlen(WGTMAP_FILE) > 0 );
 
   if ( (OPTMASK & OPTMASK_INIT_SIMSED_BINARY1)> 0 )
@@ -424,7 +428,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     fflush(stdout);
   }
   else if ( SIMSED_BINARY_INFO.RDFLAG_FLUX ) {
-    read_SIMSED_TABBINARY(fpbin2,bin2File);
+    read_SIMSED_TABBINARY(fpbin2,bin2File, OPTMASK);
     fclose(fpbin2);
   }
 
@@ -572,7 +576,7 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
 } // end of read_SIMSED_flux
 
 // ****************************************************************
-void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
+void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
 
   // Created Dec 16, 2010 by R.Kessler
   // Before reading flux-integral table from binary file,
@@ -583,10 +587,11 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   // and using the same table for smaller z-ranges.
   //
   // Mar 24 2021: improve error messaging with CTAG.
-  //
-
+  // Jul 02 2025: check OPTMASK bit to check KCOR_FILE
+  
+  bool REQUIRE_KCOR_MATCH = ( OPTMASK & OPTMASK_INIT_SIMSED_SKIP_KCOR_MATCH) == 0 ;
   int NERR, idim, IZSIZE_RD, IZSIZE_ACTUAL;
-  bool LZSAME, LZOK, LZBAD, LZMIN_OK, LZMAX_OK, LNZBIN_OK ;
+  bool LZSAME, LZOK, LZBAD, LZMIN_OK, LZMAX_OK, LNZBIN_OK, MATCH_KCOR_FILE ;
   int NBINTMP[NDIM_SEDMODEL_FLUXTABLE+1]  ;
 
   struct REDSHIFT_SEDMODEL_TYPE  ZTMP ;
@@ -613,7 +618,8 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   fread(&REDSHIFT_SEDMODEL, IZSIZE_ACTUAL,      1, fp);
 
   if ( IZSIZE_RD != IZSIZE_ACTUAL ) {
-    print_preAbort_banner(fnam);
+
+    print_preAbort_banner(fnam);    
     printf("\t sizeof(REDSHIFT_SEDMODEL) struct in binary file: %d bytes \n",
 	    IZSIZE_RD);
     printf("\t sizeof(REDSHIFT_SEDMODEL) struct now : %d bytes \n",
@@ -688,13 +694,25 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   // read name of kcor file form binary, and check for match of full path
   if ( BINARYFLAG_KCORFILENAME ) {
     fread(kcorFile_tmp, MXPATHLEN, 1, fp );
-    // xxx mark if ( strcmp(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
-    if ( strcmp_ignoregz(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
-      sprintf(c1err,"Binary file KCOR_FILE: '%s' ", kcorFile_tmp);
-      sprintf(c2err,"but current KCOR_FILE: '%s' ", SIMSED_KCORFILE);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    MATCH_KCOR_FILE = ( strcmp_ignoregz(SIMSED_KCORFILE,kcorFile_tmp) == 0  );
+
+    if ( !MATCH_KCOR_FILE ) {
+      printf("WARNING: \n");
+      printf("  Binary file KCOR_FILE is '%s' \n", kcorFile_tmp);
+      printf("  but current KCOR_FILE is '%s' \n", SIMSED_KCORFILE);  
+
+      if ( REQUIRE_KCOR_MATCH ) {
+	sprintf(c1err,"Binary file KCOR_FILE does not match current KCOR_FILE.");
+	sprintf(c2err,"Remake binaries or switch KCOR_FILE");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      else {
+	printf("  Allow KCOR_FILE mismatch because user input SIMSED_USE_BINARY & %d > 0\n\n",
+	       OPTMASK_INIT_SIMSED_SKIP_KCOR_MATCH);
+      }
+      fflush(stdout);
     }
-  }
+  }  // end BINARYFLAG_KCORFILENAME
 
   // ------------
   // read entire flux table
@@ -858,7 +876,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       tmpName_index[0] = 0 ;
       tmpName_WGT[0] = 0;
       for(ipar=0; ipar < NPAR; ipar++ ) {
-	get_PARSE_WORD(0, ipar, tmpName);
+	get_PARSE_WORD(0, ipar, tmpName, fnam);
 	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
 	if ( IS_INDEX_SIMSED(tmpName) ) { 
 	  NPAR_INDEX++ ; 
@@ -1236,7 +1254,7 @@ int pick_SIMSED_BY_WGT(void){
   }
 
   ISED = quickBinSearch(ranCDF, SEDMODEL.NSURFACE+1, 
-			SEDMODEL.WGT_SUM, fnam);
+			SEDMODEL.WGT_SUM, fnam, fnam);
  
   ISED++ ; // avoid ISED=0 since ISED starts at 1
 

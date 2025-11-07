@@ -20,6 +20,8 @@
 # Jul 19 2023: --extract_spectra_format
 # Jan 31 2024: fix bug finding DOCANA keys for --extract_sim_input  option
 # Feb 21 2025: add option --table_file_dupl
+# Jun 17 2025: add option --idsurvey to work with --diff
+#
 # ==================================================================
 
 import os, sys, argparse, subprocess, yaml, tarfile, fnmatch, glob
@@ -91,6 +93,9 @@ HELP_COMMANDS = f"""
 # Computes mean diff, RMS(diff), max outliers ...
   quick_commands.py --diff_fitres  lcfit_ref.fitres  lcfit_test.fitres
 
+  quick_commands.py --diff_fitres  lcfit_ref.fitres  lcfit_test.fitres  --idsurvey 10
+     (compare only IDSURVEY=10 for DES events)
+
 """
 
 # =============================
@@ -156,6 +161,9 @@ def get_args():
     msg = "two fitres files to analyse stat difference for SALT2 fit params"
     parser.add_argument("-d", "--diff_fitres", nargs='+', 
                         help=msg, type=str,default=None)
+
+    msg = "idsurvey to select for --diff option"
+    parser.add_argument("--idsurvey", help=msg, type=int,default=None)
 
     msg = "two data folders (full paths) to analyse stat difference of contents"
     parser.add_argument("-D", "--diff_data", nargs='+', 
@@ -638,7 +646,7 @@ def util_analyze_diff_INIT(diff_list, WHAT):
     
     # end util_analyze_diff_INIT
 
-def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional):
+def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional, args):
 
     # Inputs
     #   diff_list : list of two FITRES-formatted table files (REF and TEST)
@@ -668,6 +676,10 @@ def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional):
     df  = pd.read_csv(combine_fitres_file, comment="#", delim_whitespace=True)
     df["CID"] = df["CID"].astype(str)
 
+    if args.idsurvey :
+        cut = f"df.loc[(df.IDSURVEY=={args.idsurvey})]"
+        df = eval(cut)
+
     # define ref variables to check; test var name is {var}_2
     var_check_list = var_list_require
 
@@ -683,7 +695,8 @@ def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional):
 
     # tack on optional varialbes
     for var_name in var_list_optional:
-        if var_name in df:
+        var_name_2 = var_name + '_2'
+        if var_name in df and var_name_2 in df:
             var_check_list.append(var_name)
 
     # define dfsel = table rows where both ref and test are defined
@@ -706,9 +719,12 @@ def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional):
     if ISTABLE_HEAD:
 
         CID_lost_list = dfcut['CID'].to_numpy()
+        n_lost = len(CID_lost_list)
+        n_lost_print = min(50,n_lost)  # manally hack first number of what to show
 
         print(f" TEST table contains {len_sel} of {len_tot} REF events ")
-        print(f" CIDs missing in TEST: {CID_lost_list[0:20]}")
+        print(f" REF  list shows {n_lost_print} of {n_lost} CIDs missing in TEST: \n" \
+              f"{CID_lost_list[0:n_lost_print]}")
 
     # - - - - - 
     print("")
@@ -820,12 +836,12 @@ def analyze_diff_data(args):
                           'HOST_ZPHOT', 'HOST_DDLR' 
     ]  
     var_list_optional = [ ]
-    util_analyze_diff_EXEC(snana_table_list, var_list_require, var_list_optional)
+    util_analyze_diff_EXEC(snana_table_list, var_list_require, var_list_optional, args)
     
     # analyze LCPLOT(PHOT) table for each band
     var_list_require = [ 'MJD', 'FLUXCAL', 'FLUXCAL_ERR' ]
     var_list_optional = [ ]
-    util_analyze_diff_EXEC(phot_table_list, var_list_require, var_list_optional)
+    util_analyze_diff_EXEC(phot_table_list, var_list_require, var_list_optional, args)
 
 
     # - - - - - -  - -
@@ -851,7 +867,7 @@ def analyze_diff_fitres(args):
     var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
     var_list_optional = [ 'FITPROB', 'MU', 'MUERR', 'HOST_LOGMASS', 'HOST_LOGSFR' ]
 
-    util_analyze_diff_EXEC(diff_fitres_expand, var_list_require, var_list_optional)
+    util_analyze_diff_EXEC(diff_fitres_expand, var_list_require, var_list_optional, args)
 
     # end analyze_diff_fitres
 

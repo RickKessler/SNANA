@@ -24,6 +24,9 @@
   Mar 05 2024: minor refac; rename IDMAP var -> IMAP for sparse index;
                reserve IDMAP as absolute index. Refac is to avoid confusion.
 
+  Jun 4 2025: enable reading GEN[PEAK,SIGMA,RANGE]_SALT2c so that asyn Gauss
+              profile can go into genPDF map file.
+
  ****************************************************/
 
 #ifndef USE_SUBPROCESS
@@ -40,8 +43,6 @@
 #include "sntools.h"
 #include "sntools_genPDF.h"
 #include "sntools_host.h"
-
-//#include "sntools_genGauss_asym.h"
 
 #endif
 
@@ -102,6 +103,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   GENGAUSS_ASYM_DEF  gengauss_SALT2ALPHA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
+  GENGAUSS_ASYM_DEF  gengauss_SALT2c;  // June 2025
+  bool  USE_SALT2 = false;
+
   char **ptr_ITEMLIST;
   int KEYSOURCE = 1; // default source is from file
 
@@ -122,6 +126,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // init optional asymGauss params for SALT2alpha and beta
   init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );
   init_GENGAUSS_ASYM(&gengauss_SALT2BETA,  0.0 );
+  init_GENGAUSS_ASYM(&gengauss_SALT2c,     0.0 );
+
   ptr_ITEMLIST = (char**)malloc( MXWD_TMPLINE*sizeof(char*));
   for(i=0; i<MXWD_TMPLINE; i++) 
     { ptr_ITEMLIST[i] = (char*)malloc(80*sizeof(char)); }
@@ -202,12 +208,19 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     }
     // try sim-input keys
     if ( IS_SALT2 ) {
-      NWD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
-				 &gengauss_SALT2BETA);
+
       NWD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
 				 &gengauss_SALT2ALPHA);      
+      if ( NWD > 0 ) { USE_SALT2 = true; }
 
-      //dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA); // .xyz
+      NWD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
+				 &gengauss_SALT2BETA);
+      if ( NWD > 0 ) { USE_SALT2 = true; }
+
+      NWD = parse_input_GENGAUSS("SALT2c", ptr_ITEMLIST, KEYSOURCE, 
+				 &gengauss_SALT2c);      
+      if ( NWD > 0 ) { USE_SALT2 = true; }
+
     }
 
     // try column name in FITRES file
@@ -262,7 +275,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   }
 
   // - - - - - - -
-  if ( gengauss_SALT2ALPHA.USE || gengauss_SALT2BETA.USE ) {
+  if ( USE_SALT2 ) {
 
     if ( gengauss_SALT2ALPHA.USE ) {
       init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2ALPHA) ; 
@@ -272,14 +285,18 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2BETA) ;
       NMAP++ ;
     }
+    if ( gengauss_SALT2c.USE ) {
+      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2c) ;
+      NMAP++ ;
+    }
 
     /*
     dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
     dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
     debugexit(fnam); // xxx remove me!
     */
-  }
-
+  } // end USE_SALT2
+  
 
   NMAP_GENPDF = NMAP ;
 
@@ -348,8 +365,9 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   double PEAK    = GENGAUSS->PEAK ;
     
-  double sig_tiny = PEAK/1.0E6;
-  if ( GENGAUSS->SIGMA[0] == 0.0 )
+  // xxx mark  double sig_tiny = PEAK/1.0E6;
+  double sig_tiny = PEAK/1.0E8; 
+  if ( GENGAUSS->SIGMA[0] == 0.0 )  
     { GENGAUSS->SIGMA[0] = sig_tiny;  GENGAUSS->RANGE[0] = PEAK - 2.0*sig_tiny; }
   if ( GENGAUSS->SIGMA[1] == 0.0 )
     { GENGAUSS->SIGMA[1] = sig_tiny;  GENGAUSS->RANGE[1] = PEAK + 2.0*sig_tiny; }

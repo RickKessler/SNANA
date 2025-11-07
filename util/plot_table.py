@@ -16,6 +16,12 @@
 # May 15 2025: new @@LEGEND_MSCALE to scale size of marker(s) in legend
 # May 16 2025: add @@HACK_FLAG option and method hack_value for publication plots
 # May 20 2025: plot error on mean for DIFF_ALL option
+# Jul 09 2025: fix bug evaluating chi2 fit; and add legend label in front of chi2/dof info
+# Jul 11 2025: new @@CUT feature "FIELD ~ 'C'" --> select any field containing char C
+# Aug 19 2025: update RATIO to work on 2d plots
+# Sep 11 2025: fix args_prep_DIFF() to capitalize args.OPT so that
+#              lower case diff_cid works same as DIFF_CID
+# Sep 18 2025: finally get @@WGTVAR working with HIST mode
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -42,11 +48,13 @@ NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
 NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
 DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
-DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',
-                        '==', '!=', '=', '*', '+', '-', '/' ]  # for @@CUT
+DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',      # for @@CUT
+                        '==', '!=', '=', '*', '+', '-', '/',
+                        '~' , '.str.contains' ] 
 
 COLON = ':'
 BAR   = '|'
+STR_CONTAINS = '.str.contains'
 
 DEFAULT  = 'DEFAULT'
 SUPPRESS = 'SUPPRESS'
@@ -101,10 +109,14 @@ NUMPY_FUNC_DICT = {
     'log'         :  'np.log'  ,   # works for log and log10
     'sqrt'        :  'np.sqrt' ,
     'abs'         :  'np.abs'  ,
+    'int'         :  'np.int'  ,
+    'floor'       :  'np.floot',
     'cos'         :  'np.cos'  ,
     'sin'         :  'np.sin'  ,
     'tan'         :  'np.tan'  ,        
-    'heaviside'   :  'np.heaviside'
+    'heaviside'   :  'np.heaviside',
+    'min'         :  'np.min',
+    'max'         :  'np.max'
 }
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 
@@ -120,14 +132,14 @@ FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P0, FITFUN_P1, FITFUN_P2, FITF
 
 
 # list possible VARNAME to identify row
-VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW' ]
+VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID' ]
 
 # internal strings to identify type of string in @V or @@CUT
 STRTYPE_VAR   = "VARIABLE"
 STRTYPE_NUM   = "NUMBER"
 STRTYPE_DELIM = "DELIMETER"   # e.g., + - : / *
 STRTYPE_FUNC  = "FUNCTION"    # e.g., log10, sqrt 
-STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC]
+STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC ]
 
 FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
 
@@ -157,15 +169,20 @@ DEBUG_FLAG_DUMP_TRANSLATE2 =  33  # info dump for each char of @V and @@CUT stri
 # hack flags from @@hack input; used to make subtle refinements for a paper
 # without waiting to add more formal input flag
 HACK_FLAG_OpenUniverse24 =  1
+HACK_FLAG_M25            =  2  # Mitra 2025
+HACK_FLAG_K25            =  3  # Kessler 2025
 HACK_FLAG_HELP           = 99
 
 HACK_FLAG_DICT = {
     'OpenUniverse2024'  : HACK_FLAG_OpenUniverse24,
-    'help'              : HACK_FLAG_HELP
+    'M25'               : HACK_FLAG_M25,
+    'K25'               : HACK_FLAG_K25,
+    'help'              : HACK_FLAG_HELP    
 }
 
 
 # ================================
+
 
 def print_help():
 
@@ -223,6 +240,7 @@ and two types of command-line input delimeters
   you can explicitly prepend np (and please post github issue about 
   missing function).
 
+
   Multiple variables are overlaid on same plot; e.g.
      @V SNRMAX1  SNRMAX2  SNRMAX3
   If using math symbols or pad spaces, use single quotes, e.g.
@@ -255,9 +273,13 @@ and two types of command-line input delimeters
   double) are required around all cuts: e.g,
 
      @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD='C3'"
+     @@CUT 'zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD="C3"'  # same with ' <--> "
+     @@CUT "zHD > 0.2 &  zHDERR<.1 & SNRMAX1 < 100 & FIELD~'C'"   # FIELD contains C in string name
+ 
 
   If a cut includes a string matches (e.g., FIELD='C3'), single quotes must be 
-  used around the string to match, and double quotes around the entire CUT arg.
+  used around the string to match, and double quotes around the entire CUT arg
+  (or switch single and double quotes).
   To overlay the same variable with different cuts, provide a list of cuts,
      @@CUT  'SNRMAX1>10'  'SNRMAX1>20'  'SNRMAX1>40'
   results in 3 overlaid plots, and default legend shows each cut.
@@ -289,6 +311,12 @@ and two types of command-line input delimeters
 @@FRACTION 
    Select fraction for subset of rows;
       @@FRACTION 0.44 0.142  # select random 44% for first plot, and 14.2% of second plot
+
+@@WGTVAR @W @w
+  Reweight 1D or 2D histogram using this variable. Works only with @@OPT HIST.
+  Example:
+    @V SALT2c  @W PROB_CLASSIFIER
+  plots histogram of SALT2c weighted by PROB_CLASSIFIER.
 
 @@WEIGHT
   Reweight 1D bin contents with arbitrary math function of x-axis using
@@ -515,8 +543,11 @@ def get_args():
     parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
     msg = 'variable to reweight 1D plot'
-    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg, nargs="+")
+    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg)
     
+    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
+    parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
+
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
@@ -528,9 +559,6 @@ def get_args():
     parser.add_argument('@@FRACTION', '@@fraction', default = [1.0],
                         type=float, help=msg, nargs="+" )
         
-    msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
-    parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
-
     msg = "number of rows to read (for large files)"
     parser.add_argument('@@NROWS', '@@nrows', default=None, help=msg, type=int )
     
@@ -650,9 +678,6 @@ def arg_prep_driver(args):
     # store plot dimension as if it were passed on command line
     args.NDIM = len(args.VARIABLE[0].split(COLON))
 
-    if args.NDIM == 2 and OPT_RATIO in args.OPT:
-        sys.exit(f"\n ERROR: '@@OPT RATIO' is not valid for 2D plot")
-        
     # CUT is tricky. Make sure that length of cut list matchs length
     # of table-file list ... or vice versa ... make sure that length of
     # tfile list matches length of CUT list.
@@ -701,11 +726,6 @@ def arg_prep_driver(args):
     for tfile in tfile_list :
         table_list.append( os.path.expandvars(tfile) )
         table_base_list.append( os.path.basename(tfile) )
-
-    # xxx mark delete xxxx
-    #if (any(table_list.count(x) > 1 for x in table_list)):
-    #    sys.exit(f"\n ERROR: found duplicate table file; check {table_list}")
-    # xxxxxxxxx
     
     args.tfile_list      = table_list           # ENVs are expanded
     args.tfile_base_list = table_base_list    
@@ -745,8 +765,8 @@ def arg_prep_driver(args):
     args.text_list   = arg_prep_TEXT(args)
 
     # - - - - - - -
-    args.OPT = arg_prep_OPT(args)            
-    
+    args.OPT = arg_prep_OPT(args) 
+
     # check valid fit function
     if args.FIT:
         valid = False
@@ -756,6 +776,10 @@ def arg_prep_driver(args):
                 valid = True
         if not valid:
             sys.exit(f"\n ERROR: invalid @@FIT {fitfun}; \n Valid FITFUNs are {FITFUN_LIST}")
+
+    # misc checks
+    if OPT_RATIO in args.OPT and OPT_HIST in args.OPT:
+        sys.exit(f"\n ERROR: cannot combine @@OPT args HIST & RATIO\n\t Try without HIST.")
 
     return  # end arg_prep_driver
 
@@ -778,19 +802,29 @@ def args_prep_DIFF(args):
 
     # set args.DIFF internally, and append args.OPT with MEDIAN
     # if no stat option is given.    
+    # 9.11.2025: capitalize all OPT args before starting; allows inputs such as diff_cid
 
     narg_tfile = len(args.tfile_list)
-    
+
+    # capitalize everything
+    OPT_uc = [ x.upper() for x in args.OPT ]
+    args.OPT = OPT_uc
+
     # if user has not specified any kind of statistical average
     # for DIFF, then set default MEDIAN
     OPT        = args.OPT
-    opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL], args.OPT)
-    opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], args.OPT)
+    opt_diff   = get_list_match( [OPT_DIFF_CID, OPT_DIFF_ALL],  OPT)
+    opt_stat   = get_list_match( [OPT_MEDIAN,OPT_MEAN,OPT_AVG], OPT)
     args.DIFF  = opt_diff  # e.g., 'DIFF_CID' or 'DIFF_ALL' or None
     narg_tfile = len(args.tfile_list)
     
     # if user does not specify statistic for DIFF, set MEDIAN as default    
     if opt_diff and  opt_stat is None :
+        args.OPT.append(OPT_MEDIAN) 
+
+    # piggy back on diff to set MEDIAN default for RATIO (Aug 19 2025)
+    do_ratio   = OPT_RATIO in args.OPT
+    if do_ratio and  opt_stat is None :
         args.OPT.append(OPT_MEDIAN) 
 
 
@@ -1048,6 +1082,8 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
     #  STRING = 'zcmb:z-zcmb + .003'
     #    return ['zcmb', ':', 'z', '-', 'zcmb', '+', '.003']
     #
+    # Jun 25 2025: fix to work if delim symbol is inside quotes; see inside_quote logical
+
     split_list   = []
     strtype_list = [] 
 
@@ -1062,26 +1098,32 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
               f"\t STRING_local({len_str}) = {STRING_local}")
         
             
-    j_last = 0 ; j=0
+    j_last = 0 ; j=0; nq =  0
     while j < len_str :
         ch         = STRING_local[j:j+1]  # current char
         ch2        = STRING_local[j:j+2]  # allow 2-char delim; e.g., >=
         is_last    = (j == len_str-1)
 
+        # Jun 25 2025: while inside a quote, ignore delim;
+        # e.g., @@CUT LABEL='X+Y' should treat X+Y as a string, not as equation'
+        is_quote  = ch == "'" or ch == '"'
+        if is_quote : nq += 1
+        inside_quote = ( nq == 1 ) 
+
         delim = None
-        if ch2 in DELIM_LIST:            
-            delim = ch2  # 2-char delims take priority over single-char delim
-        elif ch in DELIM_LIST:
-            delim = ch
+        if not inside_quote:
+            if ch2 in DELIM_LIST:            
+                delim = ch2  # 2-char delims take priority over single-char delim
+            elif ch in DELIM_LIST:
+                delim = ch
             
         is_delim  = delim is not None        
-        
+
         str_last = None
         j_last_dump = j_last
         if is_delim:
             len_delim = len(delim)            
             str_last = STRING_local[j_last:j].replace(' ','')
-            # xxx mark delete j_last = j+1
             j_last = j + len_delim 
         elif is_last:
             str_last = STRING_local[j_last:j+1].replace(' ','')
@@ -1100,13 +1142,14 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
                 
         if is_delim:
             if delim == '=' : delim = '=='  # allow user to specify single '='
+            if delim == '~' : delim = STR_CONTAINS
             split_list.append(delim)
             strtype_list.append(STRTYPE_DELIM)
 
         if args.DEBUG_FLAG_DUMP_TRANSLATE2 :
             print(f"\t xxx - - - - - - - - ")
             print(f"\t xxx j={j}  j_last={j_last_dump}  ch='{ch}' or '{ch2}'  " \
-                  f"is_[last,delim]={is_last},{is_delim}  " \
+                  f"is_[last,delim,quote]={is_last},{is_delim},{is_quote}  " \
                   f"str_last={str_last}  valid_str_last={valid_str_last}")
             print(f"\t xxx split_list -> {split_list}")
 
@@ -1117,6 +1160,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
             j += 1          # advance 1 char for everything else
         
     # - - - -
+
     return split_list, strtype_list
     # end split_var_string
     
@@ -1142,12 +1186,11 @@ def translate_driver(args):
         var_err_list = args.ERROR.split(COLON)
         for var in var_err_list:
             if len(var) > 0: args.raw_var_list += [var]
-    
+
     # remove duplicates
     args.raw_var_list = list(set(args.raw_var_list))
     
     if args.DEBUG_FLAG_DUMP_TRANSLATE :
-        print(f" xxx raw_var_list = {args.raw_var_list}")
         sys.exit(f"\n xxx bye .")
     
     return  # end translate_driver
@@ -1205,7 +1248,8 @@ def translate_CUT(CUT):
     #
     # July 24 2024 rewrite logic to split by bool and (),
     #   then wrap each item as '(df.' + item + ')'
-
+    # Jul 11 2025 check str_contains with user symbol ~
+    #
     CUT_ORIG = CUT
     if not CUT:       return CUT, []
     if STR_df in CUT: return CUT, []
@@ -1243,21 +1287,29 @@ def translate_CUT(CUT):
             split_var_string(cut, DELIMITER_CUT_LIST, NUMPY_FUNC_LIST)
         
         cut_df = ''
+        last_str_contains = False
         for tmp_str, tmp_type in zip(split_list, strtype_list ):
-            if args.DEBUG_FLAG_DUMP_TRANSLATE:
+            if args.DEBUG_FLAG_DUMP_TRANSLATE :
                 tmp = f"'{tmp_str}'"
-                print(f"\t xxx cut sub-string = {tmp:<14} is {tmp_type}")
+                print(f"\t xxx cut sub-string = {tmp:<14} is {tmp_type} | last_str_contains = {last_str_contains}")
                 
             tmp_append = tmp_str
             if tmp_type == STRTYPE_VAR:
                 tmp_append = STR_df + tmp_str
-                if tmp_str not in raw_var_list: raw_var_list.append(tmp_str)
+                if tmp_str not in raw_var_list: 
+                    raw_var_list.append(tmp_str)
             elif tmp_type == STRTYPE_FUNC:
                 tmp_append = tmp_str
                 #sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
                 #         f"remove '{tmp_str}' from @@CUT arg")
+
+            elif tmp_type == STRTYPE_NUM and last_str_contains:
+                tmp_append = f"({tmp_str})"  # Jul 11 2025
             else:
                 pass
+
+            last_str_contains = (tmp_str == STR_CONTAINS )
+
             cut_df += tmp_append
             
 
@@ -1282,22 +1334,7 @@ def translate_CUT(CUT):
         print(f" xxx cut_list_df = {cut_list_df}")
         
     # replace each original cut with cut_df in CUT
-    CUT_df = CUT
-
-    # xxxxxxx mark delete Dec 26 2024 xxxxxxx
-    #n_cut = len(cut_list)
-    #for icut in range(0,n_cut):
-    #    cut     = cut_list[icut]
-    #    cut_df  = cut_list_df[icut]
-    #    is_func = is_func_list[icut]        
-    #    
-    #    CUT_df  = CUT_df.replace(cut,cut_df) 
-    #    if args.DEBUG_FLAG_DUMP_TRANSLATE:
-    #        print(f" xxx \t {icut}: replace user cut {cut} --> {cut_df} " \
-    #              f" (is_func={is_func})")
-    #    icut += 1
-    # xxxxxxxxxxx end mark xxxxxxxxx
-    
+    CUT_df = CUT    
 
     for cut, cut_df, is_func in zip(cut_list, cut_list_df, is_func_list):
         CUT_df = CUT_df.replace(cut,cut_df)
@@ -1308,7 +1345,7 @@ def translate_CUT(CUT):
     CUT_df = STR_df_loc + '[' + CUT_df + ']'    
 
     logging.info(f"Translate CUT {CUT}  ")
-    logging.info(f"          ->  {CUT_df}")
+    logging.info(f"          ->  {CUT_df} ")
     
     return CUT_df, raw_var_list
 
@@ -1590,9 +1627,14 @@ def read_tables(args, plot_info):
             # name of first column identifier, and check that requested
             # variables exist.
             # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
+
             varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
+            if args.WGTVAR and args.WGTVAR not in usecol_list: 
+                usecol_list += [ args.WGTVAR ]  # 9.18.2025
+                if OPT_HIST not  in args.OPT:
+                    sys.exit(f"\n ERROR: must use HIST option with @@WGTVAR")
 
             # read table and store in data frame.
             # only read needed columms to reduce memory consumption.
@@ -1646,8 +1688,13 @@ def read_tables(args, plot_info):
         }
 
         try:
-            # xxx MASTER_DF_DICT[key]['df']['x_plot_val'] = eval(varname_x)
             MASTER_DF_DICT[key]['df'].loc[:,'x_plot_val'] = eval(varname_x)
+            if args.WGTVAR :
+                varname_wgt = f"df.{args.WGTVAR}"
+                MASTER_DF_DICT[key]['df'].loc[:,'weights']     = eval(varname_wgt)
+            else:
+                MASTER_DF_DICT[key]['df'].loc[:,'weights']     = 1.0 # default weight
+
             xmin = np.amin(df['x_plot_val'])
             xmax = np.amax(df['x_plot_val'])
             logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}") 
@@ -1843,7 +1890,8 @@ def plotter_func_driver(args, plot_info):
     NDIM          = args.NDIM    
     OPT           = args.OPT
     do_list_cid   = OPT_LIST_CID  in OPT 
-    
+    do_ratio      = OPT_RATIO     in OPT
+
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     bounds_dict          = plot_info.bounds_dict
     varname_idrow        = plot_info.varname_idrow  # e.g., 'CID' or 'GALID' 
@@ -1860,7 +1908,8 @@ def plotter_func_driver(args, plot_info):
     for key_name, df_dict in MASTER_DF_DICT.items():
 
         df          = df_dict['df'] 
-        name_legend = df_dict['name_legend']        
+        name_legend = df_dict['name_legend'] 
+        logging.info(f"# -------------------------------------------------")
         logging.info(f"Plot {name_legend}")
 
         info_plot_dict['do_plot_errorbar']    =  False
@@ -1888,7 +1937,7 @@ def plotter_func_driver(args, plot_info):
             
         xval_list   = info_plot_dict['xval_list'] 
         yval_list   = info_plot_dict['yval_list']
-        wgt_ov      = info_plot_dict['wgt_ov']
+        wgt_ov      = info_plot_dict['wgt_ov']    # overlay weight
         
         if args.use_err_list:        
             xerr_list   = info_plot_dict['xerr_list'] 
@@ -1908,7 +1957,9 @@ def plotter_func_driver(args, plot_info):
         lwid = HIST_LINES[numplot][0]  # for 1D hist only
         lsty = HIST_LINES[numplot][1]          
         # - - - - -        
-        
+
+
+
         if do_plot_errorbar :
             # default
             if plt_alpha > 0 :
@@ -1927,27 +1978,32 @@ def plotter_func_driver(args, plot_info):
                     yerr_data   = yerr_list
                 else:
                     yerr_data   = np.array(yerr_list)
+                    
 
-        elif do_plot_hist and NDIM == 1 :
+        elif do_plot_hist and NDIM == 1 :            
             (contents_1d, xedges, patches) = \
                 plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype=plt_histtype,
-                     label = plt_legend, linewidth=lwid, linestyle=lsty)
+                         label = plt_legend, linewidth=lwid, linestyle=lsty,
+                         weights = df.weights )
 
             dump_hist1d_contents(args, xedges, contents_1d)
 
             if args.FIT:
-                xfit_data = xbins_cen
-                yfit_data = contents_1d
-                yerr_data = max(1.0,sqrt(yfit_data))
+                xfit_data  = xbins_cen
+                yfit_data  = contents_1d
+                yerr_data = [ max(1.0,math.sqrt(y)) for y in yfit_data]
                 
         elif do_plot_hist and NDIM == 2 :
             hist2d_args = plot_info.hist2d_args
+            cmin = .1 * df['weights'].min()
             contents_2d, xedges, yedges, im = \
                 plt.hist2d(df.x_plot_val, df.y_plot_val, label=plt_legend,
-                           cmin=.1, alpha=plt_alpha, cmap='rainbow_r', 
+                           cmin=cmin, alpha=plt_alpha, cmap='rainbow_r', 
                            bins  = hist2d_args.bins,
                            range = hist2d_args.range,
-                           norm  = hist2d_args.norm  )
+                           norm  = hist2d_args.norm,      
+                           weights = df.weights  )
+
             plt.colorbar(im)
             dump_hist2d_contents(args, xedges, yedges, contents_2d) 
             
@@ -1958,8 +2014,8 @@ def plotter_func_driver(args, plot_info):
         elif do_plot_hist_ov1d and NDIM == 1:
             # 1D, typically sim overlaid on data
             plt.hist(df.x_plot_val, xbins, alpha=plt_alpha, histtype='step',
-                     weights = wgt_ov, label = plt_legend,
-                     linewidth=lwid, linestyle=lsty)
+                     weights = df.weights * wgt_ov, label = plt_legend,
+                     linewidth=lwid, linestyle=lsty )
             
         else:
             # nothing to plot; e.g, 1st file for DIFF or RATIO option
@@ -1973,7 +2029,7 @@ def plotter_func_driver(args, plot_info):
 
         # check for fit fun option
         if args.FIT:
-            apply_plt_fit(args, xfit_data, yfit_data, yerr_data)
+            apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data)
 
         # check for misc plt options (mostly decoration)
         if numplot == numplot_tot-1:
@@ -2103,13 +2159,17 @@ def get_info_plot1d(args, info_plot_dict):
     xerr_list = None
 
     is_empty = len(df.x_plot_val) == 0
-    
+
     if is_empty:
         yval_list = [ 0.0 ]  * nxbins  # allow for empty plot        
     else:
-        yval_list = binned_statistic(df.x_plot_val, df.x_plot_val, 
-                                     bins=xbins, statistic='count')[0]
-    
+        yval_list = binned_statistic(df.x_plot_val, df.weights,
+                                     bins=xbins, statistic='sum')[0]
+        # xxxxxxxx mark delete 9.19/2025 xxxxxx
+        #yval_list = binned_statistic(df.x_plot_val, df.x_plot_val,
+        #                             bins=xbins, statistic='count')[0]
+        # xxxxxxxxxxxxxxxxxxxxxxx
+
     plt_histtype = 'step'  # default for HIST
     
     if do_hist :
@@ -2124,7 +2184,7 @@ def get_info_plot1d(args, info_plot_dict):
         
     do_plot_hist_ov1d     = False
 
-    # apply option user-weight function (see @@WGTFUN arg)
+    # apply optional user-weight function (see @@WGTFUN arg)
     if wgtfun:
         wgtfun_user   = get_wgtfun_user(xbins_cen, wgtfun)
         yval_list    *= wgtfun_user
@@ -2151,14 +2211,14 @@ def get_info_plot1d(args, info_plot_dict):
             do_plot_errorbar = False
             do_plot_hist     = False            
     else:
-        df0          = info_plot_dict['df0'] 
-        yval0_list   = info_plot_dict['yval0_list']
-        errl0_list   = info_plot_dict['errl0_list']
-        erru0_list   = info_plot_dict['erru0_list']        
-        name0_legend = info_plot_dict['name0_legend']         
+        df0           = info_plot_dict['df0'] 
+        yval0_list    = info_plot_dict['yval0_list']
+        errl0_list    = info_plot_dict['errl0_list']
+        erru0_list    = info_plot_dict['erru0_list']        
+        name0_legend  = info_plot_dict['name0_legend']         
+
         if do_ov:
-            # re-scale overlay plot only if chi2 option is requested
-            ov_scale = np.sum(yval0_list) / np.sum(yval_list)
+            ov_scale   = np.sum(yval0_list) / np.sum(yval_list)
             do_plot_errorbar   = False
             do_plot_hist       = False
             do_plot_hist_ov1d  = True
@@ -2175,7 +2235,7 @@ def get_info_plot1d(args, info_plot_dict):
             errl_list  = errl_ratio
             erru_list  = erru_ratio
             ratio = len(df) / len(df0)
-            plt_legend = f"<ratio> = {ratio:.2f}"
+            plt_legend = f"<ratio> = {ratio:.3f}"
             if args.legend_list:
                 legend = args.legend_list[numplot]
                 plt_legend += f' for {legend} '                
@@ -2235,11 +2295,19 @@ def get_info_plot1d(args, info_plot_dict):
     
         
     # - - - -
-    yerr_list = [errl_list, erru_list]
+    yerr_list =  [ (x+y)/2. for x,y in zip(errl_list,erru_list) ]
     nevt    = nevt
-    avg     = np.mean(df.x_plot_val)
-    median  = np.median(df.x_plot_val)
-    stddev  = np.std(df.x_plot_val)
+
+    # xxx mark delete Sep 18 2025 xxxxxxxx
+    # avg     = np.mean(df.x_plot_val)
+    # median  = np.median(df.x_plot_val)
+    # stddev  = np.std(df.x_plot_val)  
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    x_val_list = df.x_plot_val.to_numpy()
+    w_val_list = df.weights.to_numpy()
+    avg, stddev = weighted_stats(x_val_list, w_val_list)      # 9/18/2025 - works with @@WGTVAR
+    median      = weighted_median(x_val_list, w_val_list)     # idem
 
     stat_dict = {  # value        add legend    format
         STAT_NAME_N       : [ int(nevt),  do_nevt,
@@ -2276,6 +2344,87 @@ def get_info_plot1d(args, info_plot_dict):
     info_plot_dict['wgt_ov']            = wgt_ov
      
     return  # end get_info_plot1d
+
+def weighted_median(values, weights):
+    """
+    Compute the weighted median of an array of values.
+    
+    This implementation sorts values and computes the cumulative
+    sum of the weights. The weighted median is the smallest value for
+    which the cumulative sum is greater than or equal to half of the
+    total sum of weights.
+    Parameters
+    ----------
+    values : array-like
+        List or array of values on which to calculate the weighted median.
+    weights : array-like
+        List or array of weights corresponding to the values.
+    Returns
+    -------
+    float
+        The weighted median of the input values.
+    """
+    # Convert input values and weights to numpy arrays
+    values = np.array(values)
+    weights = np.array(weights)
+    
+    # Get the indices that would sort the array
+    sort_indices = np.argsort(values)
+    
+    # Sort values and weights according to the sorted indices
+    values_sorted = values[sort_indices]
+    weights_sorted = weights[sort_indices]  
+
+    # Compute the cumulative sum of the sorted weights
+    cumsum = weights_sorted.cumsum()
+    
+    # Calculate the cutoff as half of the total weight sum
+    cutoff = weights_sorted.sum() / 2.
+    
+    # Return the smallest value for which the cumulative sum is greater
+    # than or equal to the cutoff
+    return values_sorted[cumsum >= cutoff][0]
+
+
+def weighted_stats(values, weights):
+
+    """
+    Created Sep 18 2025
+    Calculates and return the weighted average and standard deviation.
+
+    Args:
+        values  (np.array): The array of data values.
+        weights (np.array): The array of weights corresponding to each value.
+
+    Returns:
+        float: The weighted average & standard deviation.
+    """
+
+    if len(values) != len(weights):
+        raise ValueError("Values and weights must have the same length.")
+
+    weighted_mean = np.average(values, weights=weights)
+    
+    # Calculate the sum of squared differences from the weighted mean, weighted
+    numerator = np.sum(weights * (values - weighted_mean)**2)
+
+    # Calculate the normalization factor for an unbiased estimate
+    sum_of_weights         = np.sum(weights)
+    sum_of_squared_weights = np.sum(weights**2)
+    
+    if sum_of_weights == 0 or (sum_of_weights**2 - sum_of_squared_weights) == 0:
+        return 0.0 # Handle cases where weighted variance is undefined
+
+    denominator = sum_of_weights - (sum_of_squared_weights / sum_of_weights)
+    
+    if denominator <= 0: # Avoid division by zero or negative values for the variance
+        return 0.0
+
+    weighted_variance = numerator / denominator
+    weighted_stdev    = np.sqrt(weighted_variance)
+    
+    return weighted_mean, weighted_stdev
+    # end weighted_stats 
 
 def stat_format(stat_name, stat_value):
 
@@ -2341,11 +2490,16 @@ def compute_ratio(yval0_list, errl0_list, erru0_list,
         # binomial error with set0 being subset of set1,
         # and input errors are ignored;
         # COV = p ( 1 − p ) * NTOT (per bin)
+        # Note that p = (y0+.01)/(y1+.02) instead of y0/y1 ... this avoids zero error
+        # when y0=0 or y0=y1, which messes up polynomial fits to ratio.
+
         logging.info("\t Compute binomial error for ratio.")
-        p          = yval0_list/yval1_list
+        # xxx mark Oct 17 2025   p  = yval0_list/yval1_list
+        p          = (yval0_list+.01)/(yval1_list+.02)  # avoid zero error, Oct 2025
         cov_ratio  = p*(1-p) / yval1_list
-        errl_ratio = np.sqrt(cov_ratio)
-        erru_ratio = errl_ratio
+        err        = np.sqrt(cov_ratio)
+        errl_ratio = err
+        erru_ratio = err
         
     else:
         # independent error
@@ -2363,8 +2517,13 @@ def get_info_plot2d(args, info_plot_dict):
 
     # prepare arguments for matplotlib's plt.errobar.
 
-    do_hist      = OPT_HIST in args.OPT 
-    do_nevt      = OPT_NEVT in args.OPT
+    do_hist      = OPT_HIST   in args.OPT 
+    do_nevt      = OPT_NEVT   in args.OPT
+    do_ratio     = OPT_RATIO  in args.OPT   # Aug 19 2025 
+
+    do_diff_all  = args.DIFF == OPT_DIFF_ALL
+    do_diff_cid  = args.DIFF == OPT_DIFF_CID
+    do_diff      = do_diff_all or do_diff_cid
 
     numplot      = info_plot_dict['numplot']
     df_dict      = info_plot_dict['df_dict']
@@ -2374,6 +2533,8 @@ def get_info_plot2d(args, info_plot_dict):
 
     nevt         = len(df)
     plt_size     = 5 / math.log10(max(10,nevt))  # dot size gets smaller with nevt 
+
+    # xxx if 'UDF' in name_legend:    plt_size *= 4 # xxx REMOVE
     if do_nevt: plt_legend += f'  N={nevt}'
     
     xval_list    = df.x_plot_val
@@ -2405,89 +2566,87 @@ def get_info_plot2d(args, info_plot_dict):
     info_plot_dict['xerr_list']     = xerr_list
     info_plot_dict['yerr_list']     = yerr_list
 
-    if args.DIFF:
-            
-        if numplot == 0:
-            # nothing to plot on first file; store references
+
+    # check options to skip first plot and store df_ref for 2nd plot operation
+    if do_ratio or do_diff :
+        if numplot == 0 :
             info_plot_dict['do_plot_errorbar']   = False  # disable making plot
             info_plot_dict['df_ref']             = df     # store ref table for next plot
             info_plot_dict['name_legend_ref']    = name_legend
             return
-
-        # strip off reference values from first plot
-        df_ref          = info_plot_dict['df_ref']
-        name_legend_ref = info_plot_dict['name_legend_ref']
-
-        # if there is no user-supplied legend, construct legend using
-        # auto-generated legend from each plot
-        if args.LEGEND is None:
-            info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
-            # xxx mark delete info_plot_dict['plt_legend'] = f"{name_legend}-{name_legend_ref}"
-        
-        if args.DIFF == OPT_DIFF_CID :
-            #need to do an inner join with each entry in dic, then plot the diff
-            # (join logic thanks to Charlie Prior)
-            varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW
-            join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
-                                 how='inner', lsuffix='_0', rsuffix='_1')
-            xval_list = join.x_plot_val_0.values
-            yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
-            # xxx mark delete yval_list = join.y_plot_val_1.values-join.y_plot_val_0.values 
-
-            info_plot_dict['xval_list']     = xval_list
-            info_plot_dict['yval_list']     = yval_list
-            if yerr_list is not None:
-                yerr_list_0 = join.y_plot_err_0.values
-                info_plot_dict['yerr_list']  = yerr_list_0
+        else:
+            df_ref          = info_plot_dict['df_ref']
+            name_legend_ref = info_plot_dict['name_legend_ref']
+            if args.LEGEND is None:
+                info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
                 
-        elif args.DIFF == OPT_DIFF_ALL :
+    # - - - - - - - - - - - - -
 
-            if OPT_MEDIAN in args.OPT:
-                which_stat = 'median'
-            elif OPT_MEAN in args.OPT:
-                which_stat = 'mean'                
+    # - - - - - - - - - - - - -         
+    if do_diff_cid:
+        #need to do an inner join with each entry in dic, then plot the diff
+        # (join logic thanks to Charlie Prior)
+        varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW
+        join   = df_ref.join(df.set_index(varname_idrow), on=varname_idrow,
+                             how='inner', lsuffix='_0', rsuffix='_1')
+        xval_list = join.x_plot_val_0.values
+        yval_list = join.y_plot_val_0.values - join.y_plot_val_1.values
 
-            xbins  = info_plot_dict['xbins']
-            y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+        info_plot_dict['xval_list']     = xval_list
+        info_plot_dict['yval_list']     = yval_list
+        if yerr_list is not None:
+            yerr_list_0 = join.y_plot_err_0.values
+            info_plot_dict['yerr_list']  = yerr_list_0
+                
+    if do_diff_all or do_ratio :
+
+        if OPT_MEDIAN in args.OPT:
+            which_stat = 'median'
+        elif OPT_MEAN in args.OPT:
+            which_stat = 'mean'                
+
+        xbins      = info_plot_dict['xbins']
+        y_ref      = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
                                       bins=xbins, statistic=which_stat)[0]
-            y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
-                                          bins=xbins, statistic='std')[0]
-            y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
-                                          bins=xbins, statistic='count')[0]
-            y_ref_cnt = replace_zeros(y_ref_cnt)
+        y_ref_std  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                      bins=xbins, statistic='std')[0]
+        y_ref_var = y_ref_std * y_ref_std
+        y_ref_cnt  = binned_statistic(df_ref.x_plot_val, df_ref.y_plot_val,
+                                      bins=xbins, statistic='count')[0]
+        y_ref_cnt = replace_zeros(y_ref_cnt)
 
-            y      = binned_statistic(df.x_plot_val, df.y_plot_val,
-                                      bins=xbins, statistic=which_stat)[0]            
-            y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
-                                      bins=xbins, statistic='std')[0]            
-            y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
-                                      bins=xbins, statistic='count')[0]            
-            y_cnt = replace_zeros(y_cnt)
+        y      = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic=which_stat)[0]            
+        y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic='std')[0]            
+        y_var = y_std * y_std
+        y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic='count')[0]            
+        y_cnt = replace_zeros(y_cnt)
 
-            # convert NaN (empty bins) to zero to avoid crash when plotting
-            y_ref[np.isnan(y_ref)] = 0
-            y[np.isnan(y)]         = 0                        
-            y_dif     = y_ref - y
+        # convert NaN (empty bins) to zero to avoid crash when plotting
+        y_ref[np.isnan(y_ref)] = 0
+        y[np.isnan(y)]         = 0                        
 
+        if do_diff:        
+            y_out     = y_ref - y
             # compute error on the mean diff as quadrature sum of each term
-            y_dif_err = np.sqrt(y_std*y_std/y_cnt + y_ref_std*y_ref_std/y_ref_cnt)
+            y_out_err = np.sqrt(y_var/y_cnt + y_ref_var/y_ref_cnt)
+        else:
+            # ratio
+            y_out = y/y_ref
+            y_out_err = y_out*np.sqrt((y_std/y)**2 + (y_ref_std/y_ref)**2 ) # .xyz ???
+            #print(f"\n xxx y_out = \n{y_out} \n xxx y_std=\n{y_std} \n xxx y_out_err = \n{y_out_err}")
 
-            xbins_cen = info_plot_dict['xbins_cen']
-            xmin      = xbins[0] ; xmax = xbins[-1]; dx = (xmax-xmin)/200
-            xbins_cen += dx*(numplot-1)  # automate x-shift to avoid overlapping points
+        xbins_cen = info_plot_dict['xbins_cen']
+        xmin      = xbins[0] ; xmax = xbins[-1]; dx = (xmax-xmin)/200
+        xbins_cen += dx*(numplot-1)  # automate x-shift to avoid overlapping points
 
-            info_plot_dict['xval_list'] = xbins_cen
-            info_plot_dict['yval_list'] = y_dif
-            info_plot_dict['yerr_list'] = y_dif_err
-      
-            # xxxxxxxx mark delete 5.20.2025 xxxxxxxx
-            #print(f" xxx xbins_cen = {xbins_cen}")
-            #print(f" xxx y_std = {y_std}")
-            #print(f" xxx y_cnt = {y_cnt}")
-            #print(f" xxx y_dif_err = {y_dif_err}")
-            #print(f" xxx y_dif     = {y_dif}")
-            # xxxxxxxxx
-  
+        info_plot_dict['xval_list'] = xbins_cen
+        info_plot_dict['yval_list'] = y_out
+        info_plot_dict['yerr_list'] = y_out_err
+        
+        
     return  # end  get_info_plot2d
 
 def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
@@ -2647,6 +2806,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     fsize_ticklabel = 10*args.FONTSIZE_SCALE
     plt.xticks(fontsize=fsize_ticklabel)  # numbers under x-axis tick marks
     plt.yticks(fontsize=fsize_ticklabel)  # numbers left of y-axis tick marks
+
+    if args.HACK_FLAG == HACK_FLAG_K25:
+        # for w0wa bias plot in K25 (Roman analysis)
+        plt.xticks(np.arange(xmin, xmax, step=0.05)) 
+        plt.yticks(np.arange(ymin, ymax, step=0.10)) 
     
     # - - - - -
     fsize_legend   = 10 * args.FONTSIZE_SCALE
@@ -2687,11 +2851,9 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
 
 # =================================================================    
-def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
+def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
     # Created Mar 2025
     # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
-
-    verbose = False
 
     fitfun = args.FIT[0]
     FITFUN = args.FIT[0].upper()
@@ -2700,8 +2862,9 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     else:
         init_fitpar = None
     
-    logging.info(f"Fit 1D histogram with {fitfun}")
+    logging.info(f"Fit 1D {name_legend}  histogram with {fitfun}")
 
+    verbose = False
     if verbose :
         print(f"\n xxxx VERBOSE DUMP for apply_plt_fit xxxx ")
         print(f" xxx xbins_cen      = \n{xbins_cen}")
@@ -2745,16 +2908,17 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
     ndata     = len(xbins_cen)
     ndof      = ndata - nfitpar
 
+
     if ybins_sigma is None:
-        label_chi2 = ''
+        label_fit = f'{name_legend} {fitfun} Fit'  
     else:
-        ycov_contents  = ybins_sigma*ybins_sigma
+        ycov_contents  = [y*y for y in ybins_sigma]
         chi2_bins = [ (ydata-yfun)**2/ycov for ydata, yfun, ycov in \
                       zip(ybins_contents, yfun_cen, ycov_contents) ]
         chi2      = sum(chi2_bins)
 
-        label_chi2 = f"chi2/dof = {chi2:.1f}/{ndof}"
-        logging.info(f"chi2/dof = {chi2:.2f} / {ndof}")
+        label_fit = f"{name_legend} {fitfun} Fit chi2/dof = {chi2:.1f}/{ndof}"
+        logging.info(label_fit)
 
         if verbose :
             print(f" xxx ybins_contents = \n{ybins_contents}")
@@ -2764,7 +2928,6 @@ def apply_plt_fit(args, xbins_cen, ybins_contents, ybins_sigma):
             sys.stdout.flush()
 
 
-    label_fit = f'{fitfun} Fit {label_chi2}'
     plt.plot(xbins_cen, yfun_cen, label=label_fit )
 
     return
@@ -2793,6 +2956,9 @@ def hack_value(parname, value_orig, args):
         if parname == 'HIST_LINE_ARGS' and is_zcmb:
             # different line style per hist, and thicker than default
             value_hack = [ (4.0,'-' ), (3.0, '--' ), (2.8, ':' ) ]
+    
+    elif HACK_FLAG == HACK_FLAG_K25:
+        pass
 
     elif HACK_FLAG == HACK_FLAG_HELP:
         print('')

@@ -35,6 +35,7 @@
  Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
  Jan 28 2022: MXEPSIM -> 15k (was 10k)
  Aug 02 2024: MXSEASON_SIMLIB -> 30 (was 20) to handle LSST cadence artifact
+ Sep 21 2024: MXCID_SIM = 300 million -> 500 million for DES-SN5YR reanalysis
 
 ********************************************/
 
@@ -42,7 +43,7 @@
 // ************ GLOBAL VARIABLES *************
 
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
-#define  MXCID_SIM  299999999   // max sim CID and max number of SN
+#define  MXCID_SIM  499999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT MXEPOCH/2       //
 #define  MXEPSIM       MXEPOCH  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
@@ -62,7 +63,7 @@
 #define  SIMGEN_DUMP_NOISE_NEARPEAK 1
 #define  SIMGEN_DUMP_NOISE_ALLOBS   2
 
-#define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
+#define  MXREAD_SIMLIB 150000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  MXEPOCH    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
@@ -187,6 +188,7 @@ typedef struct { // SIMFILE_AUX_DEF
   FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXPATHLEN] ;  
   FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
   FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXPATHLEN] ;  
+  FILE *FP_DUMP_MWCL;   char  DUMP_MWCL[MXPATHLEN] ;  
   FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -385,7 +387,7 @@ typedef struct {
   GENPOLY_DEF GENZPOLY_TEXPOSE ;  // TEXPOSE =poly fun of z
   GENPOLY_DEF GENZPOLY_SNR ;      // SNR = poly fun of z
   float   SNR_LAMRANGE[2];   // lam-range to define SNR
-  char    EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'HOST'
+  char    EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'MJD' or 'HOST'
   int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS or MJD
   int   OPT_FRAME_LAMBDA ; // for SNR opt below, LAMREST or LAMOBS
 
@@ -512,8 +514,8 @@ struct INPUTS {
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
   int  APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
-
-  bool REFAC_WGTMAP ;         // Temporary development flag; set internally from DEBUG_FLAG value
+  
+  int  SKIP_CHECK_CRAZYFLUX; // default is False, so this is for special debug only
   bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_BUGS_DES3YR;       // restore DES3YR bugs
@@ -521,6 +523,10 @@ struct INPUTS {
   bool RESTORE_BUG_FLUXERR ;      // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC;       // incorrect VPEC sign convention (not a bug)
   bool RESTORE_BUG_ZHEL;         // ZHEL include vpec for DLMU calc
+
+  // restores settings for DES-SN5YR/V24: 
+  // +=1(Fitz99 approx), +=2(no host NBR); 3 -> both
+  int RESTORE_DES5YR;    
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)
@@ -557,11 +563,13 @@ struct INPUTS {
   int  USE_SIMLIB_DISTANCE ;  // 1 => use distance in LIB (if it's there)
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
-  int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
+  // xxx mark  int  USE_SIMLIB_SPECTRA;        // obsolete; same as USE_SIMLIB_TAKE_SPECTRUM below
+  int  USE_SIMLIB_TAKE_SPECTRUM;  // use TAKE_SPECTRUM keys in SIMLIB header
+  int  USE_SIMLIB_SPECTROGRAPH;  // use SPECTROGRAPH keys in SIMLIB entries (May 30 2025)
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
-  int  SIMLIB_REFAC ; // temporary to apply GENRANGE_MJD on simlib read
+
 
   // ---- end simlib inputs -----
 
@@ -648,6 +656,8 @@ struct INPUTS {
   char   FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
   double FLUXERRMODEL_SNRMIN_REDCOV; // default = 2
 
+  float ZP_FLUXCAL ; // Jul 2025 
+
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
   char HOSTNOISE_FILE[MXPATHLEN];
@@ -729,6 +739,7 @@ struct INPUTS {
   int   OPT_FUDGE_SNRMAX ;     // 1=adjust EXPOSURE_TIME; 2=adjust sigSKY only
 
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
+  double GENRANGE_MJD_EXCLUDE[2]; // exclude this MJD region (6/2025)
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
   // xxx mark del  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
@@ -1033,7 +1044,8 @@ struct INPUTS {
 
   int  SIMGEN_DUMP_NOISE; // Aug 30 2014: diagnostic dump of noise per obs.
   int  SIMGEN_DUMP_TRAINSALT; // OCt 2024: write aux file with TMAX for trainsalt
-  
+  int  SIMGEN_DUMP_MWCL ;     // write aux file with CL-vs.wavelength for all MWCL options
+
   // inputs for intrinsic scatter matrix (July 27, 2011)
   int    NCOVMAT_SCATTER ;           // number of non-zero elements
   double COVMAT_SCATTER[3][3] ;
@@ -1067,7 +1079,7 @@ struct GENLC {
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
   int  SIMLIB_USEFILT_ENTRY[MXFILTINDX];   // 1=> filter used for this entry
-
+  
   int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)
   int  SIMLIB_ID;        // LIB ID from simlib
   int  SIMLIB_IDMAX;     // max ID in libraray
@@ -1075,6 +1087,7 @@ struct GENLC {
   int  NGEN_SIMLIB_ID ;  // Nuse on same SIMLIB ID until event is accepted
 
   double SIMLIB_FLUXERR_ADDPAR[MXFILTINDX] ; // fudge-error to add in quad.
+  int    NKEYTOT_SIMLIB_SPECTROGRAPH; // total number of SPECTROGRAPH keys in simlib
 
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
@@ -1090,10 +1103,10 @@ struct GENLC {
   double sin_GLON, cos_GLON;
   double sin_DEC,  cos_DEC ;
   
-  double REDSHIFT_HELIO ;   // true Helio redshift of SN
-  double REDSHIFT_CMB   ;   // true CMB   redshift of SN
-  double REDSHIFT_HOST  ;   // true Helio redshift of host
-  int    REDSHIFT_FLAG  ;   // indicates source of redshift
+  double REDSHIFT_HELIO ;     // true Helio redshift of SN
+  double REDSHIFT_CMB   ;     // true CMB   redshift of SN
+  double REDSHIFT_HOST  ;     // true zhel redshift of true host
+  int    REDSHIFT_FLAG  ;     // indicates source of redshift
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
   double MUSHIFT;            // user MUSHIFT
@@ -1291,7 +1304,7 @@ struct GENLC {
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
   int     ncall_genran_modelSmear; 
-
+  
   double  SPECEFF_RAN[MXFILTINDX+1]  ;
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
 
@@ -1342,6 +1355,7 @@ struct GENLC {
   double  peakmag_rest3[MXFILTINDX] ;
 
   int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
+  int     DETNUM[MXEPSIM]  ; // detector/CCD number (Aug 11 2025)
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
@@ -1605,7 +1619,7 @@ struct SIMLIB_HEADER {
 
   // optional stuff
   double MWEBV, PIXSIZE ;
-  int    FAKEID, CCDNUM ;
+  int    FAKEID, DETNUM ; // Aug 11 2025: change CCDNUM to DETNUM
   long long GALID;
 
   int  NGROUPID_HOSTLIB;
@@ -1650,16 +1664,17 @@ typedef struct  {
   int     NOBS;       // everything, including SPECTROGRAPH and TAKE_SPECTRUM
   int     NOBS_READ ; // orginal NOBS read from cadence (never changes)
   int     NOBS_SPECTROGRAPH ;
-  int     NOBS_TAKE_SPECTUM ;
+  int     NOBS_TAKE_SPECTRUM ;
 
   int     OPTLINE[MXOBS_SIMLIB];
   int     IFILT_OBS[MXOBS_SIMLIB];    // absolute filter index
 
   char    *PTR_BAND[MXOBS_SIMLIB];
-  char    BAND[MXOBS_SIMLIB][4];
+  char    BAND[MXOBS_SIMLIB][20]; // Aug 11 2025: allow full filter name in SIMLIB
 
   int     IDEXPT[MXOBS_SIMLIB];
   int     NEXPOSE[MXOBS_SIMLIB];  // Jan 2018 (for saturation calc)
+  int     DETNUM[MXOBS_SIMLIB];   // Aug 2025 for IDEXPT(DETNUM) 
   double  MJD[MXOBS_SIMLIB];
   double  CCDGAIN[MXOBS_SIMLIB];
   double  READNOISE[MXOBS_SIMLIB];
@@ -1931,10 +1946,12 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
-//xxx int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
-//xxx			char *cfiltList, int *ifiltList) ;
+
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
-void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
+
+// xxx mark del Aug 11 2025 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE);
+void   parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM) ;
+
 bool   parse_SIMLIB_TEXPOSE(char *inString, char *field);
 double get_TEXPOSE(int epoch);
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header
@@ -2253,6 +2270,7 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			  double *NOISE_PAR_LIST);
 void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_DUMP_MWCL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);

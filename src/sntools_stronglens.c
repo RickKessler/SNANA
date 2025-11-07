@@ -117,7 +117,7 @@ void init_stronglens(char *MODEL_FILE) {
   while( NVARS==-1 && fgets(cline, MXCHAR_LINE, fp)  != NULL ){
     NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline, fnam );
     if ( NWD > 1 ) {
-      get_PARSE_WORD(0,0,tmpWord);
+      get_PARSE_WORD(0,0,tmpWord, fnam);
       if ( strcmp(tmpWord,"VARNAMES:") ==0  ) { NVARS=NWD-1; }
     }
   }
@@ -132,7 +132,7 @@ void init_stronglens(char *MODEL_FILE) {
   // read and store each VARNAME
   char VARLIST[NVARS][40];   
   for(k=0; k < NVARS+1; k++ ) {
-    get_PARSE_WORD(0,k,VARLIST[k]);
+    get_PARSE_WORD(0,k,VARLIST[k], fnam );
     //  printf(" xxx %s: found VARLIST[%d] = '%s' \n", fnam, k, VARLIST[k]);
 
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_LENSID) == 0 ) 
@@ -218,7 +218,7 @@ void init_stronglens(char *MODEL_FILE) {
 
     NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline, fnam );
     iwd = 0;
-    get_PARSE_WORD(0,iwd,tmpWord); // read first word
+    get_PARSE_WORD(0,iwd,tmpWord, fnam ); // read first word
 
     if ( strcmp(tmpWord,"LENS:") != 0 ) { continue ; } // RK
 
@@ -237,7 +237,7 @@ void init_stronglens(char *MODEL_FILE) {
     INPUTS_STRONGLENS.NIMG[i]             =  0;
 
     while ( iwd < NVARS+1 ) {
-      get_PARSE_WORD(0,iwd,tmpWord);
+      get_PARSE_WORD(0,iwd,tmpWord, fnam);
 
       if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
 	{ sscanf(tmpWord, "%lld", &INPUTS_STRONGLENS.IDLENS[i]); }

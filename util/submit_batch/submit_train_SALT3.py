@@ -294,7 +294,8 @@ class train_SALT3(Program):
             'ARG_list'    : self.config_prep['trainopt_ARG_list'],
             'label_list'  : self.config_prep['trainopt_label_list'],
             'calib_shift_list'  : self.config_prep['calib_shift_list'],
-            'outdir_model_list' : self.config_prep['outdir_model_list']
+            'outdir_model_list' : self.config_prep['outdir_model_list'],
+            'output_dir'        : self.config_prep['output_dir']  # Oct 28 2025
         }
 
         train_util.append_info_file(f, append_info_dict)
@@ -302,65 +303,6 @@ class train_SALT3(Program):
 
         # end append_info_file
 
-    def append_info_file_obsolete(self,f):
-
-        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
-        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-        # append info to SUBMIT.INFO file; use passed file pointer f
-
-        CONFIG       = self.config_yaml['CONFIG']
-        n_trainopt   = self.config_prep['n_trainopt'] 
-        num_list     = self.config_prep['trainopt_num_list']
-        arg_list     = self.config_prep['trainopt_arg_list'] 
-        ARG_list     = self.config_prep['trainopt_ARG_list'] 
-        label_list   = self.config_prep['trainopt_label_list']
-        calib_shift_list = self.config_prep['calib_shift_list']
-        outdir_model_list = self.config_prep['outdir_model_list']
-
-        f.write(f"# train_SALT2 info \n")
-        f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
-
-        f.write(f"\n")
-        f.write(f"TRAINOPT_OUT_LIST:  " \
-                f"# 'TRAINOPTNUM'  'user_label'  'user_args'\n")
-        # use original ARG_list instead of arg_list; the latter may
-        # include contents of shiftlist_file.
-        for num, arg, label in zip(num_list, ARG_list, label_list):
-            row   = [ num, label, arg ]
-            f.write(f"  - {row} \n")
-        f.write("\n")
-
-        f.write("MODELDIR_LIST:\n")
-        for model_dir in outdir_model_list :
-            model_dir_base = os.path.basename(model_dir)
-            f.write(f"  - {model_dir_base}\n")
-        f.write("\n")
-
-
-        for key in KEYS_SURVEY_LIST_SAME:
-            if key in CONFIG :
-                f.write(f"{key}:  {CONFIG[key]} \n")
-            else:
-                f.write(f"{key}:  [ ] \n")
-
-        # write keys for SALT3.INFO to be read by SNANA code 
-        # each row is
-        #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
-        f.write(f"{KEY_SNANA_CALIB_INFO}: \n")
-        for num, item_list in zip(num_list,calib_shift_list) :
-            for item in item_list:
-                row = [ num ] + item.split()
-                f.write(f"  - {row} \n")
-        f.write("\n")
-
-        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-        # xxx mark obsolete Jun 15 2023 (movedf to submit_train_util.py) xxxx
-        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-        return
-
-        # end append_info_file_obsolete
 
     def merge_config_prep(self,output_dir):
         pass
@@ -477,7 +419,8 @@ class train_SALT3(Program):
 
         if not done_misc :
             os.mkdir(misc_dir)
-            mv_string = "*.png *.pdf *.npy gauss* *parameters* " \
+            # Oct 28 2025: remove guass* from list
+            mv_string = "*.png *.pdf *.npy  *parameters* " \
                 "*.pkl *.pickle options.json testing.log salt3train_snparams.txt"
             cmd = f"cd {model_dir} ; mv {mv_string} {SUBDIR_MISC}/"
             os.system(cmd)
@@ -498,7 +441,7 @@ class train_SALT3(Program):
 
         # end  merge_job_wrapup
 
-    def append_SALT3_INFO_FILE(self,trainopt,model_dir):
+    def append_SALT3_INFO_FILE(self, trainopt, model_dir):
 
         # append SALT3.INFO file with calib info;
         # used by SNANA light curve fitting code to use same shift
@@ -511,14 +454,18 @@ class train_SALT3(Program):
 
         if trainopt == f"{TRAINOPT_STRING}000" : return
 
+        # extract trainopt number = MODELNUM
+        trainopt_num = int(trainopt.split('TRAINOPT')[1])
+
         # read SNANA_SALT3_INFO from SUBMIT.INFO; this includes
         # info for all trainopts.
-        # xxx mark delete SNANA_INFO  = submit_info_yaml[KEY_SNANA_SALT3_INFO]
         SNANA_CALIB_INFO   = submit_info_yaml[KEY_SNANA_CALIB_INFO]
 
         SALT3_INFO_FILE = f"{model_dir}/SALT3.INFO"
-        print(f"\t Append calib info to {SALT3_INFO_FILE}")
+        print(f"\t Append calib-shift info to {SALT3_INFO_FILE}")
 
+
+        # - - - - - - - - 
         f = open(SALT3_INFO_FILE,"at")
         f.write(f"\n\n# Calibration shifts used in SALTshaker Training\n")
 
@@ -542,7 +489,6 @@ class train_SALT3(Program):
                         f.write(f"{key}: {s:<10} {band} {shift}  " \
                                 f"  # {comment}\n")
         f.close()
-
         # end append_SALT2_INFO_FILE
 
     def get_misc_merge_info(self):

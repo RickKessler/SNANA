@@ -1054,16 +1054,16 @@ void parse_KCOR_STRING(char *STRING,
 
   for(iwd=0; iwd < NWD-1; iwd++ ) {
 
-    get_PARSE_WORD(0, iwd, word );
+    get_PARSE_WORD(0, iwd, word, fnam );
 
     if( word[0] == 'K' && word[1] == '_' ) 
       { sprintf(strKcor, "%s", word); }
 
     if ( strcmp(word,"rest") == 0 ) 
-      { get_PARSE_WORD(0, iwd+1, cfilt_rest); }
+      { get_PARSE_WORD(0, iwd+1, cfilt_rest, fnam); }
 
     if ( strcmp(word,"obs") == 0 ) 
-      { get_PARSE_WORD(0, iwd+1, cfilt_obs); }
+      { get_PARSE_WORD(0, iwd+1, cfilt_obs, fnam ); }
   } // end iwd loop
 
   // - - - - - -

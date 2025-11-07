@@ -1,6 +1,8 @@
 // sntools.c
 // General tools for snana codes.
 
+
+
 #include "sntools.h"
 #include "sntools_spectrograph.h" 
 #include "sntools_data.h"
@@ -205,6 +207,30 @@ double smooth_stepfun(double sep, double sepmax) {
 
 } // end smooth_stepfun
 
+
+// ==================================================
+unsigned long long int hash(const char *word) {
+
+  // convert string to hash integer (from AI/web, so beware)
+
+  unsigned long long int hash = 0;
+  unsigned int c; // Use unsigned int for character values to avoid undefined behavior
+  int prime = 293; // 31;
+
+  for (size_t i = 0; word[i] != '\0'; i++) {
+    c = (unsigned char)word[i]; // Cast to unsigned char to avoid potential undefined behavior with signed chars
+    // This is a simple hash combining current hash value with character value, multiplied by 31
+    hash = prime * hash + c;
+  }
+
+  // Optional: If you need to fit the hash into a specific table size,
+  // apply the modulo operation here. For example, for a hash table of size SIZE:
+  // return hash % SIZE;
+
+  return hash; // Return the calculated hash value
+}
+
+
 // =====================================
 int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
@@ -212,16 +238,16 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   //
   // if fileName == "", init hash table and return.
   //
-  // OPTMASK += 1: use CID_IDSURVEY  for matching, else CID
-  // OPTMASK += 2: use _FIELD        for matching, else CID
+  // OPTMASK += 2: use CID_IDSURVEY  for matching, else CID
+  // OPTMASK += 3: use _FIELD        for matching, else CID
   //    WARNING: returned OPTMASK value is changed if 
   //             IDSURVEY doesnt exist.
   //
   // Matching string options are :
-  //    OPTMASK=0 -> CID                  
-  //    OPTMASK=1 -> CID_IDSURVEY    (handles duplicate CIDs in different surveys)
-  //    OPTMASK=2 -> CID_FIELD           
-  //    OPTMASK=3 -> CID_IDSURVEY_FIELD  
+  //    OPTMASK=1 -> CID                  
+  //    OPTMASK=3 -> CID_IDSURVEY    (handles duplicate CIDs in different surveys)
+  //    OPTMASK=5 -> CID_FIELD           
+  //    OPTMASK=7 -> CID_IDSURVEY_FIELD    <<<=== recommended
 
   // OPTMASK += 8 -> this is first file, so reset AUTOSTORE
   //
@@ -238,36 +264,39 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // Function returns number of stored CIDs.
   //
   // Jan 2025: allow double or char strings; see ICAST
-  // Feb 24 2025: new OPTMASK += 2 option to match on FIELD.
+  // Feb 24 2025: new OPTMASK += 4 option to match on FIELD.
+  //
+  // Jun 17 2025: 
+  //   + shift OPTMASK bits so that OPTMASK=1 for CID only and not OPTMASK=0.
+  //   + for IS_FILE, check presence of '/' in addition to DOT.
+  //
+  // Oct 20 2025: 
+  //    MXCHAR_LINE -> 2000 (was 400) for SN-unite that uses some filter-dependent entries.
+  
+  int  OPTMASK_CID      = 1;
+  int  OPTMASK_IDSURVEY = 2;
+  int  OPTMASK_FIELD    = 4;
 
-  int  OPTMASK_IDSURVEY = 1;
-  int  OPTMASK_FIELD    = 2;
-
-  bool IS_FILE = ( strstr(fileName,DOT) != NULL );
+  bool IS_FILE = ( strstr(fileName,DOT) != NULL || ( strstr(fileName,"/") != NULL ) ) ;
   bool USE_IDSURVEY       = ( *OPTMASK & OPTMASK_IDSURVEY );
   bool USE_FIELD          = ( *OPTMASK & OPTMASK_FIELD    ); // feb 24 2025
   bool FIRST_FILE         = ( *OPTMASK & 8 );
   bool REFAC              = ( *OPTMASK & 64 );
-  // xxx   bool LEGACY            = !REFAC ;
+  char VARNAME_IDSURVEY[] = "IDSURVEY";
+  char VARNAME_FIELD[]    = "FIELD";
 
   bool FORMAT_TABLE = false ; // FITRES table format
   bool FORMAT_NONE  = false ; // cid list with no format
+
   int  colnum_idsurvey, colnum_field;
   int  NCID, NWD, isn, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
   int  ILIST = 0, LDMP=0, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
   char CCID[40], STRINGID[60], ctmp[60], STRING_MATCH[60] ;
-  char VARNAME_IDSURVEY[] = "IDSURVEY";
-  char VARNAME_FIELD[]    = "FIELD";
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
-
-  if ( LDMP ) {
-    printf(" xxx %s: fileName = '%s'   OPTMASK=%d\n", fnam, fileName, *OPTMASK);
-    fflush(stdout);
-  }
 
   // construct comment STRING_MATCH to print below
   sprintf(STRING_MATCH,"CID");
@@ -280,6 +309,14 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     HASH_STORAGE.NVAR = 0;
     SNTABLE_AUTOSTORE_RESET();  // May 2022
     return 0; 
+  }
+
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------------------- \n") ;
+    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
+    printf(" xxx %s: IS_FILE  =  %d  \n", fnam, IS_FILE);
+    printf(" xxx %s: OPTMASK  =  %d  \n", fnam, *OPTMASK);
+    fflush(stdout);
   }
 
 
@@ -302,7 +339,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       { *OPTMASK -= OPTMASK_IDSURVEY;  USE_IDSURVEY = false; }
 
     if ( USE_FIELD && colnum_field < 0 ) 
-      { *OPTMASK -= OPTMASK_FIELD;  USE_FIELD = false; } //.xyz
+      { *OPTMASK -= OPTMASK_FIELD;  USE_FIELD = false; } 
 
     if ( colnum_idsurvey == -1 ) { 
       sprintf(c1err,"Requested CID-match table does not exist.");
@@ -319,30 +356,38 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     MSKOPT  = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
     NCID    = store_PARSE_WORDS(MSKOPT,fileName, fnam);
     for(iwd = 0; iwd < NCID; iwd++ ) {
-      get_PARSE_WORD(langC, iwd, CCID);
+      get_PARSE_WORD(langC, iwd, CCID, fnam );
       match_cid_hash(CCID, ILIST, iwd);
     }
-    return NCID ;
+    goto DONE ;
+    // xxx mark delete Jun 17 2025   return NCID ;
   }
 
   if ( LDMP ) {
-    printf(" xxx %s: FORMAT_TABLE = %d  COLNUM_IDSURVEY = %d\n", 
-	   fnam, FORMAT_TABLE, colnum_idsurvey );
+    printf(" xxx %s: FORMAT_TABLE = %d  COLNUM_[IDSURVEY,FIELD] = %d, %d\n", 
+	   fnam, FORMAT_TABLE, colnum_idsurvey, colnum_field ); 
+    fflush(stdout);
   }
 
   // - - - - - - - -
   // if we get here, read file with appropriate format
 
-  int  GZIPFLAG,  IDSURVEY, IFILE=0 ;
+  int  GZIPFLAG,  IDSURVEY, IFILE=0, istr ;
   FILE *fp;
   NCID = 0;
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
 
+  // Juj 26 2025 : define list of invalid symbols in a CID name
+#define N_CID_SUBSTRING_INVALID 3
+  char *substr;
+  char CID_SUBSTRING_INVALID_LIST[N_CID_SUBSTRING_INVALID][12] = 
+    { ":", ",", "=" } ;
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
 
-    int MXCHAR_LINE = 400; // xxx MXCHARLINE_PARSE_WORDS;
+    // xxx mark int MXCHAR_LINE = 400; // xxx MXCHARLINE_PARSE_WORDS;
+    int MXCHAR_LINE = MXCHARLINE_PARSE_WORDS; // expand for SN-unite and filter-dependent entries
     char *tmpLine = (char*) malloc( MXCHAR_LINE * sizeof(char)) ;
     int len_tmp ;
 
@@ -360,17 +405,26 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);	
       }
 
-
       // parse words on this line  
       NWD = store_PARSE_WORDS(MSKOPT,tmpLine, fnam);
       if ( NWD == 0 ) { continue ; }
 
       // loop over words on this line     
       for ( iwd = 0; iwd < NWD; iwd++ ) {
-	get_PARSE_WORD(langC, iwd, CCID);
+	get_PARSE_WORD(langC, iwd, CCID, fnam );
 	match_cid_hash(CCID, ILIST, NCID);
 	NCID++ ;
 
+	for( istr = 0; istr < N_CID_SUBSTRING_INVALID; istr++ ) {
+	  substr = CID_SUBSTRING_INVALID_LIST[istr];
+	  if ( strstr(CCID,substr) != NULL ) {
+	    sprintf(c1err,"cid string = '%s'  contains invalid substring '%s' ", CCID, substr);
+	    sprintf(c2err,"Check cid-select file %s", fileName);
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	  }
+	}
+
+	/* xxxx mark delete Jun 26 2025 xxxxxxx
         if ( strstr(CCID,COMMA) != NULL || 
 	     strstr(CCID,COLON) != NULL ||
              strstr(CCID,"=")   != NULL )   {
@@ -378,6 +432,8 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
           sprintf(c2err,"Check cid_select_file %s",fileName);
           errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
         }
+	xxxxxxxxxx end mark xxxxxxx */
+
 
       } // end loop over CIDs on line
     } // end loop over lines in file
@@ -501,10 +557,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
   } // end FORMAT_TABLE
 
-
+ DONE:
   if ( LDMP ) {
-    printf(" xxx %s: IS_FILE=%d  NCID=%d \n", 
-	   fnam, IS_FILE, NCID );
+    printf(" xxx %s: done with NCID=%d \n",  fnam, NCID );
+    printf(" xxx ------------------------------------------------------ \n");
     fflush(stdout);
   }
 
@@ -1888,7 +1944,7 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   // ------------ BEGIN --------------                                          
   NKEY = store_PARSE_WORDS(MSKOPT,KEY, fnam);
   for(ikey=0; ikey < NKEY; ikey++ ) {
-    get_PARSE_WORD(0, ikey, tmpKey);
+    get_PARSE_WORD(0, ikey, tmpKey, fnam );
     if ( IS_FILE ) {
       // read from file; key must have colon
       sprintf(KEY_PLUS_COLON, "%s%s", tmpKey, COLON);
@@ -2206,7 +2262,8 @@ double get_lightCurveWidth(int OPTMASK_LCWIDTH, int NOBS,
       LCWIDTH.TLIST_SORTED[obs]   = T; 
       LCWIDTH.MAGLIST_SORTED[obs] = MAG ;
 
-      ARG = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - MAG);
+      // xxx mark delete ARG = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - MAG);
+      ARG = 0.4*(ZEROPOINT_FLUXCAL_nJy - MAG); // any ZP works here since only flux-vs-MJD shape matters
       FLUX = pow(TEN,ARG);
       LCWIDTH.FLUXLIST_SORTED[obs] = FLUX ;
       if ( FLUX > FLUXMAX ) { TMAX=T; FLUXMAX=FLUX; obsFmax=obs; }
@@ -2751,14 +2808,17 @@ void malloc_PARSE_WORDS(int NWD) {
 } // end malloc_PARSE_WORDS
 
 
-void get_PARSE_WORD(int langFlag, int iwd, char *word) {
+void get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun) {
 
   // Code-language flag:
   // langFlag=0 ==> called by C code  ==> do NOT leave pad space
   // langFlag=1 ==> called by fortran ==> leave pad space
+  //
+  // Jun 12 2025: long overdue addition of *callFun arg to use in abort message
 
   int NWD = PARSE_WORDS.NWD ;
-  char fnam[] = "get_PARSE_WORD" ;
+  char fnam[200] = "get_PARSE_WORD" ;
+  concat_callfun_plus_fnam(callFun, "get_PARSE_WORDS", fnam);
 
   // ----------- BEGIN ---------
 
@@ -2779,52 +2839,53 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
   else
     { strcat(word," "); }     // extra space for fortran
   
+  return ;
 } // end get_PARSE_WORD
 
-void get_PARSE_WORD_INT(int langFlag, int iwd, int *i_val) {
-  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+void get_PARSE_WORD_INT(int langFlag, int iwd, int *i_val, char *callFun) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word, callFun);
   sscanf(word, "%d", i_val);
 }
-void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val) {
-  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val, char *callFun) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word, callFun);
   sscanf(word, "%f", f_val);
 }
-void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val) {
+void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val, char *callFun) {
   // Created Dec 10 2021
   // return NFLT floats from store_PARSE_WORDS starting at iwd
   int i;
   for(i=0; i < NFLT; i++ ) { 
-    get_PARSE_WORD_FLT(langFlag, iwd+i, &f_val[i]);
+    get_PARSE_WORD_FLT(langFlag, iwd+i, &f_val[i], callFun);
   }
 }  // end get_PARSE_WORD_NFLT
 
-void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val) {
+void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val, char *callFun) {
   // Created Dec 10 2021
   // load NFILT words and store into f_val[ifilt_obs]
   int ifilt, ifilt_obs, NFILT = SNDATA_FILTER.NDEF;
   for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-    get_PARSE_WORD_FLT(langFlag, iwd+ifilt, &f_val[ifilt_obs] ); 
+    get_PARSE_WORD_FLT(langFlag, iwd+ifilt, &f_val[ifilt_obs], callFun ); 
   }
 
 } // end get_PARSE_WORD_NFILTDEF
 
-void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val) {
-  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val, char *callFun) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word, callFun );
   sscanf(word, "%le", d_val);
 }
 
-void get_parse_word__(int *langFlag, int *iwd, char *word) 
-{ get_PARSE_WORD(*langFlag, *iwd, word); }
+void get_parse_word__(int *langFlag, int *iwd, char *word, char *callFun) 
+{ get_PARSE_WORD(*langFlag, *iwd, word, callFun ); }
 
-void get_parse_word_int__(int *langFlag, int *iwd, int *i_val) 
-{ get_PARSE_WORD_INT(*langFlag, *iwd, i_val); }
+void get_parse_word_int__(int *langFlag, int *iwd, int *i_val, char *callFun) 
+{ get_PARSE_WORD_INT(*langFlag, *iwd, i_val, callFun); }
 
-void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val) 
-{ get_PARSE_WORD_FLT(*langFlag, *iwd, f_val); }
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val, char *callFun) 
+{ get_PARSE_WORD_FLT(*langFlag, *iwd, f_val, callFun); }
 
-void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val) 
-{ get_PARSE_WORD_DBL(*langFlag, *iwd, d_val); }
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val, char *callFun) 
+{ get_PARSE_WORD_DBL(*langFlag, *iwd, d_val, callFun); }
 
 
 // ******************************************
@@ -4097,9 +4158,10 @@ double host_confusion(char *CID, int N_DDLR, double *DDLR_LIST_SORTED) {
 
   D1 = DDLR_LIST_SORTED[0]; // D1 is Gupta notation; [0] is C index
   D2 = DDLR_LIST_SORTED[1];
-  if ( D2<=1.0E-6 ) {
+  if ( D2 <= 1.0E-6 ) {
     HC = +9.0 ;
-    printf ("WARNING: D2=%le for CID=%s, set HC=%.2f\n",D2,CID,HC);
+    printf ("WARNING(%s): 2nd DDLR=%.2f for CID=%s, set HC=%.2f\n", 
+	    fnam, D2,CID,HC);
     fflush(stdout);
     return HC; 
   } // protect against data error
@@ -7223,7 +7285,7 @@ double interp_1DFUN(
   if ( NBIN==1 ) { return(VAL_LIST[0]) ; }
 
   // do binary search to quickly find which bin contains 'val'
-  IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
+  IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment, fnam );
 
   if ( IBIN < 0 || IBIN >= NBIN-1 ) {
     sprintf(c1err,"quickBinSearch returned invalid IBIN=%d (NBIN=%d)", 
@@ -7439,7 +7501,7 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 // ===================================================
 int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
-		   char *abort_comment) {
+		   char *abort_comment, char *callFun) {
 
   // April 2011.
   // Return integer bin [0 < IBIN < NBIN-1] such that 
@@ -7447,10 +7509,14 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
   // Dec 13 2019: return(0) immediately if NBIN=1
+  // Oct 22 2025: pass fnam for error message
 
-  char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
   double    MINVAL, MAXVAL, VAL1, VAL2 ;
+  // xxx mark  char fnam[] = "quickBinSearch" ;  //.xyz
+
+  char fnam[200] ;  
+  concat_callfun_plus_fnam(callFun, "quickBinSearch", fnam); // return fnam
 
   // ------------- BEGIN --------------
 
@@ -8239,6 +8305,7 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.MASK_FLUXCOR      =  0 ;
   SNDATA.VARNAME_SNRMON[0] =  0 ;
   SNDATA.DATATYPE[0]       =  0 ;
+  SNDATA.ZP_FLUXCAL        = NULLFLOAT ; // Jul 2025
 
   SNDATA_FILTER.NDEF       =  0 ;
   SNDATA_FILTER.LIST[0]    =  0 ;
@@ -8487,7 +8554,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.RA[i_epoch]           = 9999999.0 ;
     SNDATA.DEC[i_epoch]          = 9999999.0 ;
 
-    SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
+    SNDATA.DETNUM[i_epoch]   = NULLINT ; // Mar 15 2021
     SNDATA.IMGNUM[i_epoch]   = NULLINT ; // Oct 13 2021 
 
     // Mar 28 2021: replace 'NULL' with 'VOID' because pandas 
@@ -8583,7 +8650,8 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   malloc_GENSPEC(+1, ispec, NBLAM);
   
   // Jul 1 2021: init wave-dependent arrays in case they aren't filled
-  int ilam;
+
+   int ilam;
   for(ilam=0; ilam < NBLAM; ilam++ ) {    
     GENSPEC.FLAM_LIST[ispec][ilam]     = -9.0 ;
     GENSPEC.FLAMERR_LIST[ispec][ilam]  = -9.0 ;
@@ -8610,11 +8678,14 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   char fnam[] = "malloc_GENSPEC" ;
 
   // --------- BEGIN ------------
+
   if ( opt == 0 ) {
+
     for(i=0; i < MXSPEC; i++ ) 
       { GENSPEC.IS_MALLOC[i] = false; }
   }
   else if ( opt < 0 ) {
+
     free(GENSPEC.LAMMIN_LIST[ispec])  ;
     free(GENSPEC.LAMMAX_LIST[ispec])  ;
     free(GENSPEC.LAMAVG_LIST[ispec])  ;
@@ -8627,6 +8698,7 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   }
   else if ( opt > 0 ) {
     int MEMD = (NBLAM+100) * sizeof(double); 
+
     GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
     GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
@@ -8641,6 +8713,17 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   return ;
 
 } // end malloc_GENSPEC
+
+
+
+// xxxxxxxx temp hacky thing for debug xxxxxxxxxxxx
+void print_IS_MALLOC(char *callFun, int ispec, int NBLAM) {
+  if ( DEBUG_RDSPEC == 0 ) { return; }
+  printf(" xxx %-20s: set IS_MALLOC[ispec=%d] = %d for NBLAM=%d \n",
+	 callFun, ispec, GENSPEC.IS_MALLOC[ispec], NBLAM); 
+  fflush(stdout);
+}
+// xxxxxxxxxxxxxx
 
 // =====================================
 void set_SNDATA_FILTER(char *filter_list) {
@@ -8664,7 +8747,7 @@ void set_SNDATA_FILTER(char *filter_list) {
 } // end set_SNDATA_FILTER
 
 // ******************************************************
-int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
+int  fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) {
 
 
   /*********
@@ -8680,6 +8763,7 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
   Inputs:
      iepoch : epoch index for SNDATA.XXX arrays
+     zp_fluxcal : fluxcal  -> mag zp
      magfun : log10 or asinh
      opt    : 0 or 1 -> add ZP_sig uncertainty
                    2 -> do not add ZP_sig term (error added earlier)
@@ -8692,6 +8776,8 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
   Jan 23 2020: 
     pass opt argument to control use of ZP_sig in flux uncertainty.
    
+  Jul 17 2025: pass zp_fluxcal
+
   *********/
 
   double mag, mag_err, mag_tmp, ZP, ZP_err, ZP_scale, ZP_sig;
@@ -8733,13 +8819,13 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
     VALID_MAGFUN = 1 ;
 
-    fluxcal = asinhinv ( mag, IFILT ) ;
+    fluxcal = asinhinv ( mag, zp_fluxcal, IFILT ) ;
 
     mag_tmp = mag - mag_err ;
-    ferrp  = asinhinv ( mag_tmp, IFILT) - fluxcal;
+    ferrp  = asinhinv ( mag_tmp, zp_fluxcal, IFILT) - fluxcal;
 
     mag_tmp    = mag+mag_err ;
-    ferrm      = fluxcal - asinhinv ( mag_tmp, IFILT ) ;
+    ferrm      = fluxcal - asinhinv ( mag_tmp, zp_fluxcal, IFILT ) ;
 
     fluxcal_err = (ferrp+ferrm)/2.0;
 
@@ -8762,7 +8848,8 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
   if ( strcmp(magfun,"log10") == 0 ) {
     VALID_MAGFUN = 1 ;
-    arg      = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
+    // xxx mark delete Jul 17 2025      arg   = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
+    arg      = -0.4 * (ZP - zp_fluxcal) ;
     ZP_scale = pow(TEN,arg) ;
  
     if ( flux_err >= 0.0 && ZP > 10.0 ) {
@@ -8805,9 +8892,11 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
 
 // ******************************************* 
-double asinhinv(double mag, int ifilt) {
+double asinhinv(double mag, double zp_fluxcal, int ifilt) {
 
   // Invert SDSS mag to get calibrated flux.
+  // Jul 17 2025: pass zp_fluxcal as argument
+
 
   // define SDSS softening parameter vs. filter
   double bb[6]     = {0.0, 1.4e-10, 0.9e-10, 1.2e-10, 1.8e-10, 7.4e-10};
@@ -8819,7 +8908,8 @@ double asinhinv(double mag, int ifilt) {
   b       = bb[ifilt];
   arg     = mag/magoff - log(b);
 
-  fluxScale = pow(TEN,0.4*ZEROPOINT_FLUXCAL_DEFAULT);
+  // xxx mark delete July 2025  fluxScale = pow(TEN,0.4*ZEROPOINT_FLUXCAL_DEFAULT);
+  fluxScale = pow(TEN,0.4*zp_fluxcal);
   fluxCal   = fluxScale * (2*b) * sinh(arg);
 
   // xxx delete Mar 2013:  fluxcal = FLUXCAL_SCALE * 2*b * sinh(arg);
@@ -8990,7 +9080,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
       }
 		       
       for ( ivar=ivar_start; ivar < ivar_end; ivar++ ) {
-	get_PARSE_WORD(0, ivar, tmpName);
+	get_PARSE_WORD(0, ivar, tmpName, fnam );
 	IVAR_EXIST = ivar_matchList(tmpName, NVAR_STORE, VARNAMES );
 	if ( LDMP ) {
 	  printf(" xxx %s: ivar=%d(%s) EXIST=%d  \n",
@@ -9626,10 +9716,12 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
   //  + pass calling function *callFun for error or warning messages.
   //  + if 0 files found for full path (has leading slash), try again in 5 sec.
   //
+  // Oct 29 2025: return fp=NULL if OPTMASK_NOFILE=0
 
   bool NOFILE_ABORT      = (OPTMASK_NOFILE & 1) > 0;
   bool NOFILE_TRY_AGAIN  = (OPTMASK_NOFILE & 2) > 0;
-  
+  bool NOFILE_RETURN     = (OPTMASK_NOFILE == 0 ) ; // return fp=NULL
+
   FILE *fp ;
   struct stat statbuf ;
   int istat_gzip, istat_unzip, LEN, N_ITER=0;
@@ -9704,7 +9796,8 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     
-    
+    if ( FOUND_0FILES && NOFILE_RETURN ) { return(NULL);  } // Oct 29 2025
+
     if ( istat_gzip == 0 ) {
       sprintf(cmd_zcat, "gunzip -c %s", gzipFile);
       fp = popen(cmd_zcat,"r");
@@ -9921,7 +10014,7 @@ int colnum_in_table(char *fileName, char *varName) {
       fgets(VARNAME_STRING, MXPATHLEN, fp);
       nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING, fnam);
       for(ivar=0; ivar < nvar; ivar++ ) {
-	get_PARSE_WORD(0, ivar, c_get);
+	get_PARSE_WORD(0, ivar, c_get, fnam );
 	if ( strcmp(varName,c_get) == 0 ) { colnum = ivar; }
       }
       break; 
@@ -9989,7 +10082,7 @@ void check_file_docana(int optmask, char *fileName) {
   NWD = store_PARSE_WORDS(MSKOPT, fileName, fnam );
 
   for(iwd=0; iwd < NWD; iwd++ ) {
-    get_PARSE_WORD(langFlag, iwd, key);
+    get_PARSE_WORD(langFlag, iwd, key, fnam);
     if ( strcmp(key,KEYNAME_DOCANA_REQUIRED)==0 ) 
       { FOUND_DOCANA = true; }
   }

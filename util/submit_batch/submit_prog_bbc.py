@@ -1,5 +1,4 @@
-# Created July 2020 by R.Kessler
-#
+# Created July 2020 by R.Kessler#
 # Improvements w.r.t. SALT2mu_fit.pl:
 #
 #  + if there is 1 and only 1 version per INPDIR, there is no
@@ -92,6 +91,12 @@
 # May 03 2025: create BBC_REJECT_MONITOR.FITRES and remove code that wrote BBC_REJECT_SUMMARY.FITRES
 #              Rename make_reject_summary to make_accept_summary().
 #
+# Jun 6 2025 : read BBC_REJECT_MONITOR.FITRES and write NREJECT_bySAMPLE dictionary in BBC_SUMMARY_FITPAR.YAML
+#        
+# Jun 24 2025: check optional MUOPT000_LABEL to override None as label
+# Jun 25 2025: in get_cid_list_duplicates(), speed up izbin extraction that was
+#               very slow for large samples [no more explicit df call inside ucid loop]
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -105,12 +110,12 @@ import pandas as pd
 from submit_params    import *
 from submit_prog_base import Program
 
+
 USE_INPDIR = True
 
 # for preparing catenated input fitres files using sntable_cat.py,
 # define number of interactive jobs to parallelize this slow task.
 NJOB_PREP_INPUT_FITRES     = 10
-DOFAST_PREP_INPUT_FILES    = True
 
 PREFIX_SALT2mu           = "SALT2mu"
 PREFIX_PREP              = "PREP"
@@ -140,6 +145,7 @@ PROGRAM_wfit      = "wfit.exe"
 PREFIX_wfit       = "wfit"
 KEY_WFITMUDIF_OPT = "WFITMUDIF_OPT"
 
+
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_PREFIX   = "BBC_SUMMARY_wfit"
@@ -148,7 +154,8 @@ BBC_ACCEPT_SUMMARY_FILE  = "BBC_ACCEPT_SUMMARY.LIST"
 BBC_REJECT_SUMMARY_FILE  = "BBC_REJECT_SUMMARY.LIST"
 BBC_REJECT_MONITOR_FILE  = "BBC_REJECT_MONITOR.FITRES"
 
-TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"    # check CUTWIN (2_LCFIT) loss in all systematics
+#TAG_REJECT_STAGE_CUTWIN      = "CUTWIN"    # check CUTWIN (2_LCFIT) loss in all systematics
+TAG_REJECT_STAGE_LCFIT       = "LCFIT"     # check 2_LCFIT (+BBC CUTWIN) loss in all systematics
 TAG_REJECT_STAGE_BIASCOR     = "BIASCOR"   # check events rejected from biasCor in all systematics
 TAG_REJECT_STAGE_BIASCOR0    = "BIASCOR0"  # check events rejected from biasCor in FITOPT000 only
 
@@ -160,6 +167,9 @@ BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 #  Allow either of two keys
 #                        pippin/submit key       key for snlc_fit
 KEYLIST_SYNC_EVT     = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
+
+
+KEY_WRITE_REJECT_MONITOR = "WRITE_REJECT_MONITOR"
 
 MUOPT_STRING           = "MUOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
@@ -173,6 +183,7 @@ TABLE_VARNAME_CID      = "CID"
 TABLE_VARNAME_IDSURVEY = "IDSURVEY"
 TABLE_VARNAME_FIELD    = "FIELD"     # Feb 23 2025
 TABLE_VARNAME_IZBIN    = "IZBIN"
+TABLE_VARNAME_UCID     = "UCID"      # unique CID__SURVEY__FIELD
 
 # keep these variables if they exist in some FITRES files but not others
 VARNAME_APPEND = 'PROB*,zPRIOR*,SNRSUM,SIM_c,SIM_x1'  
@@ -202,22 +213,19 @@ class BBC(Program):
     def submit_prepare_driver(self):
         logging.info("")
 
+        CONFIG     = self.config_yaml['CONFIG']  
+
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
-        if devel_flag == -328 :
-            global DOFAST_PREP_INPUT_FILES
-            DOFAST_PREP_INPUT_FILES = False
 
 
         # May 2024: if WFITMUDIF_OPT is specified as item, switch to a list.
-        CONFIG     = self.config_yaml['CONFIG']                
-        if KEY_WFITMUDIF_OPT in CONFIG:
-            arg = CONFIG[KEY_WFITMUDIF_OPT]            
-            if not isinstance(arg,list):
-                CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]
-        else:
-            CONFIG[KEY_WFITMUDIF_OPT] = []
+        CONFIG[KEY_WFITMUDIF_OPT] = CONFIG.setdefault(KEY_WFITMUDIF_OPT,[])
+        arg = CONFIG[KEY_WFITMUDIF_OPT]            
+        if not isinstance(arg,list):   CONFIG[KEY_WFITMUDIF_OPT] = [ arg ]        
 
+        # store flag to write reject-monitor info
+        self.config_prep[KEY_WRITE_REJECT_MONITOR] = CONFIG.setdefault(KEY_WRITE_REJECT_MONITOR,False)
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -246,16 +254,11 @@ class BBC(Program):
         self.bbc_prep_copy_files()
 
         # copy & combine tables from INPDIR+ directories
-        if DOFAST_PREP_INPUT_FILES :
-            self.bbc_prep_input_tables_fast()  # refactored/parallel 
-        else:           
-            self.bbc_prep_input_tables_slow()  # original/slow code
+        self.bbc_prep_input_tables_fast()  # refactored/parallel 
 
-        # xxx mark del May 3 2025   self.bbc_prep_copy_files()
 
         # if sync-FITOPT000 option, change output for 1st iteration
         self.prep_outdir_iter()
-
 
         logging.info("")
         return
@@ -438,7 +441,6 @@ class BBC(Program):
         # abort if n_fitopt is different for any INPDIR
         SAME = len(set(n_fitopt_list)) == 1
         IGNORE_SAME_TEST = IS_FITOPT_MAP or ignore_fitopt
-        # xxx mark if not SAME and not IS_FITOPT_MAP :
         if not SAME and not IGNORE_SAME_TEST :
             msgerr = []
             msgerr.append(f"Mis-match number of FITOPT; "\
@@ -1434,7 +1436,7 @@ class BBC(Program):
                     time.sleep(5.0)
 
             # - - - - - - -
-            self.tag_missing_events(TAG_REJECT_STAGE_CUTWIN,vdir)  # May 2025
+            self.tag_missing_events(TAG_REJECT_STAGE_LCFIT,vdir)  # May 2025
 
         # - - - - - - -
         t_end  = time.time()
@@ -1454,9 +1456,11 @@ class BBC(Program):
         # Input stage = "CUTWIN" or "BIASCOR";
         # For CUTWIN stage, use BBC program to apply CUTWIN cuts and skip fit;
         # output fitres file is a base monitor file.
-        # Next, append NFITOPT_REJECT_CUTWIN column to store number of
+        # Next, append NFITOPT_REJECT_LCFIT column to store number of
         # LCFIT/BBC cut options that result in a missing event.
         # For BIASCOR stage, append NFITOPT_REJECT_BIASCOR.
+
+        if not self.config_prep[KEY_WRITE_REJECT_MONITOR]: return 
 
         n_version        = self.config_prep['n_version_out']    
         script_dir       = self.config_prep['script_dir']
@@ -1475,25 +1479,27 @@ class BBC(Program):
         bbc_code    = util.get_program_name(PROGRAM_NAME_BBC, snana_dir)
         tag_script  = util.get_program_name("tag_missing_events.py", snana_dir)
 
-        tmp_logfile_bbc = 'TMP_' + prefix + '.LOG'
+        tmp_logfile_bbc = f'{script_dir}/PREP_{prefix}_{v_dir}.LOG'
         tmp_outfile_tag = 'TMP_' + BBC_REJECT_MONITOR_FILE 
 
         # - - - - -
-        if stage == TAG_REJECT_STAGE_CUTWIN :
+        if stage == TAG_REJECT_STAGE_LCFIT :
             search_pattern    = "INPUT_FITOPT*.FITRES.gz"
             do_create         = True
             verb              = "Create"
+            reject_colname_prefix = 'REJECT'
         elif stage == TAG_REJECT_STAGE_BIASCOR : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
             search_pattern    = "FITOPT*.FITRES.gz"  
             do_create         = False  # append only
             verb              = "Append"
+            reject_colname_prefix = None
         elif stage == TAG_REJECT_STAGE_BIASCOR0 : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
             search_pattern    = "FITOPT000_MUOPT000.FITRES.gz"    # no wildcard; just pick nominal output
             do_create         = False  # append only
             verb              = "Append"
-
+            reject_colname_prefix = None
         
         logging.info(f"\t {verb} table file to monitor {v_dir} loss from {stage} (snana_dir={snana_dir})")
 
@@ -1514,19 +1520,19 @@ class BBC(Program):
                 elif n_try > 1:
                     time.sleep(3.0)
 
-            data_file0       = data_file_list[0]
+            data_file0 = data_file_list[0]
             cmd_bbc    = f"{bbc_code} {script_dir}/{input_file_bbc} " \
                          f"datafile={data_file0} " \
                          f"cutwin_only prefix={prefix}  " \
                          f">& {tmp_logfile_bbc}   "
-            cmd_rm     = f"rm {tmp_logfile_bbc} "   
-            cmd_full   = f"{cmd_cd} ; {cmd_bbc} ; {cmd_rm}"
+
+            cmd_full   = f"{cmd_cd} ; {cmd_bbc} "
+            logging.info(f"\t run bbc with cuts only: {cmd_bbc}")
             os.system(cmd_full)
 
         # get fitres file list using search pattern
         tfile_list   = self.get_fflist_accept_summary(V_DIR,search_pattern)  # exclude NOREJECT labels
         tfile_string = ' '.join(tfile_list)
-        #logging.info(f" xxx tfile_list = {tfile_string}")
 
         cmd_tag = f"{tag_script} " \
                   f"--tfile_ref {BBC_REJECT_MONITOR_FILE}  " \
@@ -1534,16 +1540,22 @@ class BBC(Program):
                   f"--ref_colname_add {colname_add}  " \
                   f"--outfile  {tmp_outfile_tag}  "
 
+        # for LCFIT check, set option to add REJECTff column for each FITOPT to
+        # check which FITOPT(s) fail for each event.
+        if reject_colname_prefix :
+            cmd_tag += f"--reject_colname_prefix {reject_colname_prefix}  "
+
         write_comments = True
         if write_comments:
-            colcut   = f"{colname_prefix}{TAG_REJECT_STAGE_CUTWIN}"
+            colcut   = f"{colname_prefix}{TAG_REJECT_STAGE_LCFIT}"
             colbcor  = f"{colname_prefix}{TAG_REJECT_STAGE_BIASCOR}"
             colbcor0 = f"{colname_prefix}{TAG_REJECT_STAGE_BIASCOR0}"
             comment_list_global = [ 
                 f"=========================================================================",
                 f"Examples on selecting events using the appended {colname_prefix}* columns:",
                 f"  {colcut}>0   -> ",
-                f"\t rejected by 2_LCFIT cuts on FITOPTnnn systematics (nnn>=1)" 
+                f"\t rejected by 2_LCFIT cuts on FITOPTnnn systematics (nnn>=1)" ,
+                f"\t Column REJECT[01,02...] = 1 --> 2_LCFIT rejected FITOPT[001,002...] " 
             ]
             comment_list_bcor = [
                 f"  {colcut}=0 & {colbcor} >0 -> ",
@@ -1563,98 +1575,18 @@ class BBC(Program):
             comment_list += [' ']
 
             comments = ""
-            for comment in comment_list:   comments += f"'{comment}' " # string list arg for tag_missing_events
+            for comment in comment_list:  comments += f"'{comment}' " # string list arg for tag_missing_events
             cmd_tag   += f"--comments {comments}  "
 
         cmd_mv   = f"mv {tmp_outfile_tag} {BBC_REJECT_MONITOR_FILE}"
         cmd_full = f"{cmd_cd} ; {cmd_tag} ; {cmd_mv}"
-
-
-        #logging.info(" xxx ")
-        #logging.info(f" xxx cmd_full = {cmd_full}")
-        #logging.info(" xxx ")
 
         os.system(cmd_full)
 
         return
         # end tag_missing_events
 
-    def bbc_prep_input_tables_slow(self):
 
-        # Catenate FITRES files from INPDIR+ so that each copied
-        # FITRES file includes multiple surveys.
-        # For NSPLITRAN, copy only to first split-dir to avoid
-        # duplicate copies of input FITRES files.
-        # A single interactive core is used, and thus can take a 
-        # long time to prepare hundreds/thousands of INPUT*FITRES files.
-
-        if not USE_INPDIR: return
-
-        output_dir         = self.config_prep['output_dir']  
-        n_inpdir           = self.config_prep['n_inpdir']  
-        v_out_list         = self.config_prep['version_out_sort_list2d']
-        iver_list2         = self.config_prep['iver_list2'] 
-        ifit_list2         = self.config_prep['ifit_list2']
-        fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
-        n_splitran         = self.config_prep['n_splitran']
-        USE_SPLITRAN       = n_splitran > 1
-
-        t_start = time.time()
-        logging.info("\n  Prepare input FITRES files")
-        iver_last = -9
-
-        for iver,ifit in zip(iver_list2, ifit_list2):
-
-            idir0 = 0  # some things just need first INPDIR index
-
-            # get output dir name
-            v_dir   = v_out_list[idir0][iver]
-            v_dir  += self.suffix_splitran(n_splitran,1)
-            V_DIR   = f"{output_dir}/{v_dir}"
-
-            cat_list   = self.make_cat_fitres_list(iver,ifit)
-
-            #print(" xxx ---------------------------------- " )
-            #print(f" xxx iver={iver} ifit={ifit} :")
-            #print(f" xxx cat_list = {cat_list} ")
-
-            # execute the FITRES catenation
-            fitopt_num     = fitopt_num_outlist[ifit]
-            ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
-            input_ff       = "INPUT_" + ff
-            cat_file_out   = f"{V_DIR}/{input_ff}"
-            cat_file_log   = f"{output_dir}/cat_FITRES_SALT2mu.LOG" # always same
-            nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
-
-            if iver != iver_last : logging.info(f"    {v_dir}: ")
-            iver_last = iver
-
-            logging.info(f"\t Catenate {n_inpdir} {ff} files"\
-                         f" -> {nrow} events ")
-
-        # - - - - - 
-        wildcard = f"INPUT_FITOPT*.{SUFFIX_FITRES}"
-        logging.info(f"   gzip the catenated {wildcard} files.")
-        util.gzip_list_by_chunks(output_dir,wildcard,10) # Mar 2023
-        # xxx mark cmd_gzip = f"cd {output_dir}; gzip {wildcard}"
-        # xxx mark os.system(cmd_gzip)
-
-        # remove cat log file
-        rm_log = f"cd {output_dir}; rm {cat_file_log}"
-        os.system(rm_log)
-
-        t_end  = time.time()
-        t_prep = (t_end - t_start)
-
-        n = len(iver_list2)
-        msg = f"Total time to prep {n} INPUT*FITRES.gz files: "\
-              f"{t_prep:.0f} seconds."
-        logging.info(f"  {msg}")
-
-        return
-        # end bbc_prep_input_tables_slow
-    
-        
     def exec_cat_fitres(self,cat_list, cat_file_out, cat_file_log):
 
         # prepare & execute catenate command for this cat_list 
@@ -1747,16 +1679,23 @@ class BBC(Program):
     def bbc_prep_muopt_list(self):
     
         # Jan 24 2021: refactor using prep_jobopt_list util
+        # Jun 24 2025: check optional MUOPT000_LABEL
 
         CONFIG   = self.config_yaml['CONFIG']
-        key      = MUOPT_STRING
-        if key in CONFIG  :
-            muopt_rows = CONFIG[key]
-        else:
-            muopt_rows = []
+        MUOPT000_LABEL = CONFIG.setdefault('MUOPT000_LABEL',None)
+
+        muopt_rows = []
+        ROW_START  = 1
+        if MUOPT000_LABEL:   # Jun 24 2025
+            muopt_rows = [ f'/{MUOPT000_LABEL}/   ' ]
+            ROW_START  = 0
+
+        key  = MUOPT_STRING
+        if key in CONFIG  :    muopt_rows += CONFIG[key]
 
         # - - - - - -
-        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, 1, None)
+        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, ROW_START, None)
+
 
         n_muopt          = muopt_dict['n_jobopt']
         muopt_arg_list   = muopt_dict['jobopt_arg_list']
@@ -1782,7 +1721,8 @@ class BBC(Program):
         muopt_arg_list   = self.config_prep['muopt_arg_list']
         muopt_label_list = self.config_prep['muopt_label_list'] 
 
-        for num,arg,label in zip(muopt_num_list, muopt_arg_list,  muopt_label_list):
+        for num, arg, label in zip(muopt_num_list, muopt_arg_list,  muopt_label_list):
+
             if arg == '' : arg = None 
             row   = [ num, label, arg ]
             MUOPT_OUT_LIST.append(row)
@@ -2101,7 +2041,6 @@ class BBC(Program):
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
                 wait_file += f" {STRING_SUCCESS}" # require SUCCESS in file
-                # xxx mark delete 4.21.2025 JOB_INFO['refac_file_check'] = True
                 select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
@@ -2191,6 +2130,7 @@ class BBC(Program):
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         iter2             = self.config_yaml['args'].iter2
         sync_evt          = self.config_prep['sync_evt_list'][0]
+        WRITE_REJECT      = self.config_prep[KEY_WRITE_REJECT_MONITOR] 
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
         MUOPT_OUT_LIST    = self.config_prep['MUOPT_OUT_LIST']
         CONFIG            = self.config_yaml['CONFIG']
@@ -2217,14 +2157,16 @@ class BBC(Program):
         f.write(f"w_REF:     {w_ref}  \n")
         
         f.write(f"ITER2:        {iter2} # False, True -> ITER1, ITER2 \n")
-        f.write(f"SYNC_EVT:     {sync_evt} # T -> use evnts from FITOP000\n")
-        f.write(f"USE_WFIT:       {use_wfit}     " \
-                f"# option to run wfit on BBC output\n")
+        f.write(f"SYNC_EVT:     {sync_evt} # T -> use common events from all FITOPT\n")
+        f.write(f"{KEY_WRITE_REJECT_MONITOR}:  {WRITE_REJECT}  " \
+                f"# T -> write info to describe common-event rejections\n")
+        f.write(f"USE_WFIT:     {use_wfit}     " \
+                f"# option to run wfit on BBC output (stat only)\n")
         if use_wfit :
             wfit_arg_list = CONFIG[KEY_WFITMUDIF_OPT]
             f.write(f"OPT_WFIT:     #   wfit arguments\n")
             for wfit_arg in wfit_arg_list:
-                f.write(f"  - {wfit_arg}\n")
+                f.write(f"  -   {wfit_arg}\n")
 
         f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
@@ -2255,14 +2197,6 @@ class BBC(Program):
         f.write("MUOPT_OUT_LIST:  # MUOPTNUM  USER_LABEL   USER_ARGS \n")
         for row in MUOPT_OUT_LIST:
             f.write(f"  - {row} \n")
-
-        # xxxxxxxxx mark delete May 8 2025 xxxxxxx
-        #for num,arg,label in zip(muopt_num_list, muopt_arg_list, muopt_label_list):
-        #   if arg == '' : arg = None  # 9.19.2021
-        #    row   = [ num, label, arg ]
-        #    f.write(f"  - {row} \n")
-        #f.write("\n")
-        # xxxxxxxxx end mark 
 
         # end append_info_file
 
@@ -2331,6 +2265,7 @@ class BBC(Program):
         self.config_prep['script_dir']       = submit_info_yaml['SCRIPT_DIR']
         self.config_prep['FITOPT_OUT_LIST']  = submit_info_yaml['FITOPT_OUT_LIST']
         self.config_prep['MUOPT_OUT_LIST']   = submit_info_yaml['MUOPT_OUT_LIST']
+        self.config_prep[KEY_WRITE_REJECT_MONITOR] = submit_info_yaml[KEY_WRITE_REJECT_MONITOR]
 
         # end merge_config_prep
 
@@ -2521,6 +2456,7 @@ class BBC(Program):
 
         self.make_fitpar_summary()  # call this after tag_missing_events to use table to get info
 
+        # - - - - -  -
         if use_wfit :
             opt_wfit_list   = submit_info_yaml['OPT_WFIT']
             for iwfit, opt_wfit in enumerate(opt_wfit_list):
@@ -2558,9 +2494,8 @@ class BBC(Program):
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         # Mar 2023: cleanup PREP files
-        if DOFAST_PREP_INPUT_FILES :
-            wildcard = f"{PREFIX_PREP}*"
-            util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
+        wildcard = f"{PREFIX_PREP}*"
+        util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
 
 
         logging.info("")
@@ -2573,9 +2508,9 @@ class BBC(Program):
 
         # get list of all FITRES files in /vout, then find number
         # of matches for each SN. Finally, write file with
-        #   VARNAMES: CID  NJOB_REJECT
-        # where NJOB_REJECT is the number of FITRES files where
-        # CID was rejected.
+        #   VARNAMES:CID IDSURVEY FIELD IZBIN
+        # with events common to all output fitres files.
+        #
         # Goal is to use this file in 2nd round of BBC and include
         # only events that pass in all FITOPT and MUOPTs.
         #
@@ -2585,31 +2520,38 @@ class BBC(Program):
         # Feb 23 2025: match duplicate by CID+IDSURVEY+FIELD 
         #   Prevous matching by CID+IDSURVEY isn't enough for same survey
         #   simulated multiple times, each with different field.
+        # Jun 25 2025: if SYNC_EVT=F, bail out.
 
-        args          = self.config_yaml['args']  
-        output_dir    = self.config_prep['output_dir']
+
+        args             = self.config_yaml['args']  
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+
+        sync_evt         = submit_info_yaml['SYNC_EVT']
+        if not sync_evt : return  # Jun 25 2025  ### RESTORE
+        
         VOUT          = f"{output_dir}/{vout}"
 
         search_pattern  = "FITOPT*MUOPT*.FITRES.gz"
         fitres_list     = self.get_fflist_accept_summary(VOUT, search_pattern)
 
-        reject_file   = BBC_REJECT_SUMMARY_FILE
-        REJECT_FILE   = f"{VOUT}/{reject_file}"
-
         accept_file   = BBC_ACCEPT_SUMMARY_FILE
         ACCEPT_FILE   = f"{VOUT}/{accept_file}"
 
-        logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
+        logging.info(f"  - - - - - - - - - - - - - - - - - - - - - - - - -  ")
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
+
+        t_start = time.time()
 
         n_ff     = len(fitres_list) # number of FITRES files
         
         first_fitres_file = VOUT + "/" + fitres_list[0]
 
-        # check for duplicates from 
+        # check for CID duplicates from 
         # same data light curve measured by multiple surveys, or
         # multiple sims (e.g., LOWZ + HIGHZ) with random overlap CIDs
-
+        # If there are duplicate CIDs, write out SURVEY and FIELD in
+        # accept/reject file to break degeneracy
         df_first  = pd.read_csv(first_fitres_file, 
                                 comment="#", delim_whitespace=True)
         first_cids  = df_first[TABLE_VARNAME_CID]
@@ -2617,19 +2559,12 @@ class BBC(Program):
         n_dupl   = len(counts[counts>1])
         has_dupl = n_dupl > 0
 
-        dump_dupl = False 
-        if dump_dupl:
-            for cid,cnt in zip(first_cids_unique,counts) :
-                if cnt > 1:
-                    print(f" xxx duplicate cid={cid} has cnt={cnt}")
-                
         # - - - - - - - - 
-        if has_dupl :
-            logging.info(f"\t {n_dupl} duplicates found in first fitres file.")
-            cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
-            unique_dict = cid_dict['unique_dict']
-        else:
-            cid_dict = self.get_cid_list(fitres_list, VOUT)
+
+        logging.info(f"\t {n_dupl} duplicate CIDs found in first fitres file.")
+        logging.info(f"\t --> include SURVEY and FIELD in ACCEPT/REJECT files")
+        cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
+        unique_dict = cid_dict['unique_dict']
 
         cid_list        = cid_dict['cid_list']
         cid_unique      = cid_dict['cid_unique']
@@ -2654,39 +2589,36 @@ class BBC(Program):
                     f"{n_ff} (FITOPT x MUOPT). \n")
             f.write(f"# {n_all_pass} CIDs " \
                     f"pass cuts in all BBC-FF\n")
-            f.write(f"# These CIDs are selected in {PROGRAM_NAME_BBC} with\n")
-            f.write(f"#    accept_list_file={accept_file} \n")
-            f.write(f"\n")
-            if has_dupl :
-                f.write(f"# Beware of Duplicate CIDs " \
-                        f"(each CID + IDSURVEY + FIELD is unique) \n")
-                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
-                        f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_FIELD} {TABLE_VARNAME_IZBIN}\n")
-                for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
-                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
-                    field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
-                    izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
-                    if nrej==0: 
-                        f.write(f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {izbin:2d}\n")
-            else:
-                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} "\
-                        f" {TABLE_VARNAME_IZBIN}\n")
-                izbin_unique      = cid_dict['izbin_unique']
-
-                for cid, izbin, nrej in \
-                    zip(cid_unique,izbin_unique,n_reject) :
-                    if nrej==0: 
-                        f.write(f"SN:  {cid:<12}  {izbin}\n")
-
+            f.write(f"# To select common events in all BBC-FF, " \
+                    f"these CIDs can be selected in {PROGRAM_NAME_BBC} with\n")
+            f.write(f"#    cid_select_file={accept_file} \n")
             f.write(f"\n")
 
+            f.write(f"# Beware of Duplicate CIDs " \
+                    f"(each CID + IDSURVEY + FIELD is unique) \n")
+            f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
+                    f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_FIELD} {TABLE_VARNAME_IZBIN}\n")
+            for ucid, nrej in zip(cid_unique,n_reject) :
+                cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
+                field  = unique_dict[ucid][TABLE_VARNAME_FIELD]
+                izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
+
+                if nrej==0: 
+                    line = f"SN:  {cid:<12} {idsurv:3d}   {field:<10} {izbin:2d}"
+                    f.write(f"{line}\n")
+
+            # - - - -
+            f.write(f"\n")
         # - - - - -
+        t_tot = time.time() - t_start
+        logging.info(f"\t time to create {accept_file}: {t_tot:.1f} sec")
+
         return
         # end make_accept_summary
 
 
-    def get_cid_list(self,fitres_list,VOUT):
+    def get_cid_list_OBSOLETE(self,fitres_list,VOUT):
         # get cid_list of all CIDs in all files. If same events appear in 
         # each file, each CID appears n_ff times. If a CID appears less 
         # than n_ff times, it goes into reject list.
@@ -2694,6 +2626,8 @@ class BBC(Program):
         cid_list   = []
         izbin_list = []
         found_first_file = False
+
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
 
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
@@ -2704,6 +2638,8 @@ class BBC(Program):
                 df0 = df.copy()
                 df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
                 found_first_file = True
+
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
@@ -2718,6 +2654,8 @@ class BBC(Program):
         cid_dict['n_count']    = n_count
         cid_dict['n_reject']   = n_reject
 
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
+
         # Mar 28 2022: fetch list of izbin 
         if TABLE_VARNAME_IZBIN in df0:
             izbin_unique = []
@@ -2730,70 +2668,104 @@ class BBC(Program):
             ncid         = len(cid_unique)
             izbin_unique = [ -9 ] * ncid
 
+        # @@@@@@@@ OBSOLETE @@@@@@@@@@
         cid_dict['izbin_unique']  = izbin_unique
 
         return cid_dict
-        # end of get_cid_list
+        # end of get_cid_list_OBSOLETE
 
     def get_cid_list_duplicates(self,fitres_list,VOUT):
         # get cid_list of all CIDs in all files. If same events appear in 
         # each file, each CID appears n_ff times. If a CID appears less 
         # than n_ff times, it goes into reject list.
+        #
+        # Jun 26 2025: speed up slow extraction of izbin 
 
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag
 
+        LEGACY_IZBIN     = devel_flag == -626
+        REFAC_IZBIN      = not LEGACY_IZBIN  # REFAC is default
+        # xxx REFAC_IZBIN      = devel_flag == 626  
+
+        sep_ucid         = '__'
+            
         n_ff        = len(fitres_list)
-        unique_dict = {}
-        ucid_list   = []
+        unique_dict     = {}
+        ucid_list_all   = []
         found_first_file = False
 
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
             df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
-            df_id    = df.CID.astype(str) + "__" + df.IDSURVEY.astype(str) + "__" + \
-                       df.FIELD.astype(str)  
-            ucid_list = np.concatenate( (ucid_list, df_id) )
 
+            if TABLE_VARNAME_IZBIN not in df: df[TABLE_VARNAME_IZBIN] = -9
+
+            df_ucid  = df.CID.astype(str)      + sep_ucid + \
+                       df.IDSURVEY.astype(str) + sep_ucid + \
+                       df.FIELD.astype(str)  
+
+            df[TABLE_VARNAME_UCID] = df_ucid
+            ucid_list_all = np.concatenate( (ucid_list_all, df_ucid) )
 
             if not found_first_file:
-                df0 = df.copy()
-                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
                 found_first_file = True
+                df0 = df.copy()
+                df0[TABLE_VARNAME_CID]   = df0[TABLE_VARNAME_CID].astype(str)
+
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
-        cid_unique, n_count = np.unique(ucid_list, return_counts=True)
-        HAS_IZBIN = TABLE_VARNAME_IZBIN in df0
+        cid_unique, n_count = np.unique(ucid_list_all, return_counts=True)
 
-        for ucid in cid_unique:
+        if REFAC_IZBIN :
+            # the mask of event that are in cid_unique are in a different order
+            # after using df0[mask] to select using isin(cid_unique).
+            # Thus we explicitly define izbin_unique to correspond to cid_unique
+            t0 = time.time()
+            mask           = df0[TABLE_VARNAME_UCID].isin(list(cid_unique))
+            ucid_tmp_list  = list(df0[mask][TABLE_VARNAME_UCID])
+            izbin_tmp_list = list(df0[mask][TABLE_VARNAME_IZBIN])    # wrong order
+
+            izbin_unique   = [ izbin_tmp_list[ucid_tmp_list.index(c)] if c in ucid_tmp_list  \
+                               else -9 for c in cid_unique ] # correct order
+
+            ncid           = len(cid_unique)
+            dt = time.time() - t0
+            logging.info(f"\t time to create IZBIN list for {ncid} CIDs: {dt:.1f} sec")
+
+        for i, ucid in enumerate(cid_unique):
             unique_dict[ucid] = {}
-            cid      = str(ucid.split("__")[0])
-            idsurvey = int(ucid.split("__")[1])
-            field    = str(ucid.split("__")[-1])  
+            ucid_split = ucid.split(sep_ucid)
+            cid      = str(ucid_split[0])
+            idsurvey = int(ucid_split[1])
+            field    = str(ucid_split[2])  
 
-            if HAS_IZBIN:
-                izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
-                                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey) & \
-                                     (df0[TABLE_VARNAME_FIELD]==field) ][TABLE_VARNAME_IZBIN].values
+            if REFAC_IZBIN:
+                izbin    = izbin_unique[i]
             else:
-                izbin_list = []
-
-            if len(izbin_list) > 0 :
-                izbin = int(izbin_list[0])
-            else:
-                izbin = -9
-
+                # legacy method that can be super slow for 100k samples
+                #izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
+                #                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey) & \
+                #                     (df0[TABLE_VARNAME_FIELD]==field) ][TABLE_VARNAME_IZBIN].values
+                izbin_list = df0.loc[ (df0[TABLE_VARNAME_UCID]==ucid) ][TABLE_VARNAME_IZBIN].values
+                if len(izbin_list) > 0 :
+                    izbin = int(izbin_list[0])
+                else:
+                    izbin = -9
+ 
             unique_dict[ucid][TABLE_VARNAME_CID]      = cid
             unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
             unique_dict[ucid][TABLE_VARNAME_FIELD]    = field
             unique_dict[ucid][TABLE_VARNAME_IZBIN]    = izbin
 
+        # - - - -
+
         # number of times each CID does not appear in a fitres file
         n_reject        = n_ff - n_count
 
         cid_dict = {}
-        cid_dict['cid_list']    = ucid_list
+        cid_dict['cid_list']    = ucid_list_all
         cid_dict['cid_unique']  = cid_unique
         cid_dict['unique_dict'] = unique_dict
         cid_dict['n_count']     = n_count
@@ -2818,10 +2790,6 @@ class BBC(Program):
 
         FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
         MUOPT_OUT_LIST  = self.config_prep['MUOPT_OUT_LIST'] 
-
-        #xxxsubmit_info_yaml = self.config_prep['submit_info_yaml']
-        #xxxFITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
-        #xxxMUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
 
         fitres_list_all   = sorted(glob.glob1(search_path,search_pattern))
         fitres_list       = []
@@ -2878,8 +2846,8 @@ class BBC(Program):
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         # - - - 
-        SUMMARYF_FILE     = f"{output_dir}/{FITPAR_SUMMARY_FILE}"
-        f = open(SUMMARYF_FILE,"wt") 
+        SUMMARY_FILE     = f"{output_dir}/{FITPAR_SUMMARY_FILE}"
+        f = open(SUMMARY_FILE,"wt") 
 
         # write a few header comments
         snana_version = util.get_snana_version()
@@ -2888,9 +2856,17 @@ class BBC(Program):
         f.write(f"# OUTDIR:  {output_dir}\n")
 
         # collect list of versions in MERGE.LOG file
-        version_list = []
+        version_list  = []   # list of unique versions
+        bbc_yaml_list = []   # per row in merge table
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             version    = row[COLNUM_BBC_MERGE_VERSION]  # sim data version
+
+            prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
+            YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
+            bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+            bbc_yaml_list.append(bbc_yaml)
+
+
             if version not in version_list:
                 version_list.append(version)
 
@@ -2899,38 +2875,109 @@ class BBC(Program):
 
         for version in version_list:
             f.write(f"\n# ================================================= \n")
-            f.write(f"{version}: \n")
-            self.write_fitpar_summary_reject(f,version)  # May 2025
-            for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
-                if version == row[COLNUM_BBC_MERGE_VERSION]:
-                    self.write_fitpar_summary_row(f,row)
+            f.write(f"{version}:   # data version\n")
 
+            if self.config_prep[KEY_WRITE_REJECT_MONITOR]:
+                self.write_fitpar_summary_reject(f,version, bbc_yaml_list[0] )  
+
+            f.write(f"\n  # - - - - - - - - - - - - - -\n  BBC_PROCESS_LIST: \n")
+            for row, bbc_yaml in zip(MERGE_INFO_CONTENTS[TABLE_MERGE], bbc_yaml_list):
+                if version == row[COLNUM_BBC_MERGE_VERSION]:
+                    self.write_fitpar_summary_row(f,row, bbc_yaml)
+                            
         f.close()
         #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
 
+        DOTEST_READBACK = False
+        if DOTEST_READBACK:
+            readback = util.extract_yaml(SUMMARY_FILE, None, None )    
+            tmp = readback['OUTPUT_BBCFIT']['NREJECT_bySAMPLE']  # hard-wire for need
+            print(f"\n\n xxx test readback contents for {SUMMARY_FILE}: \n{tmp}\n")
         return
 
         # end make_fitpar_summary
 
-    def write_fitpar_summary_reject(self,f,version):
+    def write_fitpar_summary_reject(self,f, version, bbc_yaml):
 
         # Created May 22 2025
         # Read BBC_REJECT_MONITOR_FILE and extract information about losses
-        # for each IDSURVEY; print info in YAML format to file f
+        # for each IDSAMPLE; print info in YAML format to file f
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
 
         reject_file = f"{output_dir}/{version}/{BBC_REJECT_MONITOR_FILE}"
         
-        df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
-        logging.info(f" xxx summarize reject for {version}") 
-        print(f" xxx \n df = \n{df}")
+        # get list of SAMPLES & IDSAMPLES from bbc yaml contents
+        if 'SAMPLE_LIST' in bbc_yaml:
+            tmp_sample           = bbc_yaml['SAMPLE_LIST']
+            tmp_idsample         = bbc_yaml['IDSAMPLE_LIST']
+        else:
+            tmp_sample   = 'ALL'
+            tmp_idsample = '-1'
 
-        # .xyz
+        SAMPLE_LIST   = [x.strip() for x in tmp_sample.split(',')]   # string list such as CSP or DES(X3)
+        IDSAMPLE_LIST = [int(x) for x in tmp_idsample.split(',')]    # integer IDSAMPLE list
+
+        df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
+        ntot = len(df)
+        logging.info(f" Summarize reject stats for {version}") 
+
+        KEY_LCFIT_SYS = 'LCFIT_SYS'
+        KEY_BCOR_NOM  = 'BIASCOR_NOMINAL' 
+        KEY_BCOR_SYS  = 'BIASCOR_SYS' 
+
+        reject_cut_dict = {
+            KEY_LCFIT_SYS  : [ 'NFITOPT_REJECT_LCFIT>0' ],
+            KEY_BCOR_NOM   : [ 'NFITOPT_REJECT_LCFIT==0',  
+                               'NFITOPT_REJECT_BIASCOR0==1' ],
+            KEY_BCOR_SYS   : [ 'NFITOPT_REJECT_LCFIT==0', 
+                               'NFITOPT_REJECT_BIASCOR>0',
+                               'NFITOPT_REJECT_BIASCOR0==0' ]
+        }
+        reject_comment_dict = {
+            KEY_LCFIT_SYS  : 'Loss from LCFIT systematics (FITOPT>0)',
+            KEY_BCOR_NOM   : 'Loss from valid biasCor requirement on nominal (FITOT000_MUOPT000)',
+            KEY_BCOR_SYS   : 'Loss from valid biasCor requirement on systematics (all FITOPT>0 or MUOPT>0)'
+        }
+
+        keys_reject  = '  '.join(list(reject_cut_dict.keys()))
+        f.write(f"\n  NREJECT_bySAMPLE:       #     {keys_reject}\n")
+        for sample, idsample in zip(SAMPLE_LIST, IDSAMPLE_LIST):
+            if idsample >= 0:
+                select_sample = f"(df.IDSAMPLE=={idsample})"
+            else:
+                select_sample = f"(df.IDSAMPLE>-9)"   # all
+
+            cut_norm   = f"df.loc[ {select_sample} ] "  # count total number of events for this IDSAMPLE
+            df_norm    = eval(cut_norm)
+            ntot       = len(df_norm)  # ntot for this idsample
+
+            ncut_list = []
+            frac_list = []
+            for key, cut_list in reject_cut_dict.items():
+                dfcut_list = [ "(df."+x+")" for x in cut_list ]
+                cut_join   = ' & '.join(dfcut_list)
+                cut        = f"df.loc[ {cut_join} & {select_sample} ] "
+                df_cut     = eval(cut)
+                ncut       = len(df_cut)   # pass cuts for this idsample
+                frac       = ncut/(ntot+1.0e-20)
+
+                ncut_list.append(ncut)
+                frac_list.append(frac)
+                
+            np=20  # number of chars to print for sample string; truncate string+colon to this len
+            sample_plus_colon = sample[0:np-1] + ':' 
+            ncut_string = ' '.join( [ f"{n:7d} ({f:.3f})" for n,f in zip(ncut_list,frac_list) ] )
+            f.write(f"    {sample_plus_colon:<{np}}  {ncut_string}   # loss (fracLoss)  | {version}\n")
+
+        # - - - - -
+        # write footnotes to explain columns
+        for key, comment in reject_comment_dict.items() :
+            f.write(f"      # {key:<16} -> {comment}\n")
         return
 
-    def write_fitpar_summary_row(self,f,row):
+    def write_fitpar_summary_row(self, f, row, bbc_yaml):
         # created Feb 2025
         # Write summary for this MERGE.LOG row to file pointer f
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -2946,12 +2993,7 @@ class BBC(Program):
         # get indices for summary file
         ifit = int(f"{fitopt_num[6:]}")
         imu  = int(f"{muopt_num[5:]}")
-            
-        # figure out name of BBC-YAML file and read it 
-        prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-        YAML_FILE  = f"{script_dir}/{version}_{prefix_final}.YAML"
-        #print(f"  YAML_FILE = {YAML_FILE}")
-        bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+
         BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
 
         NEVT_DATA            = bbc_yaml['NEVT_DATA']
@@ -2965,21 +3007,22 @@ class BBC(Program):
         key_opt      = f"{fitopt_num}_{muopt_num}"
         comment_grep = f"{version}  {key_opt}"
 
+        pad = '  '
         f.write(f" \n")
-        f.write(f"- {key_opt}: \n")
+        f.write(f"{pad }- {key_opt}: \n")
 
         # check list sizes to accomodate noINPDIR option
         n_list = 0
         if FITOPT_LIST : n_list = len(FITOPT_LIST)
         if n_list > 0 :
-            f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+            f.write(f"{pad}    FITOPT: {FITOPT_LIST[ifit][3]} \n")
 
         n_list = 0
         if MUOPT_LIST : n_list = len(MUOPT_LIST)
         if n_list > 0 :
-            f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+            f.write(f"{pad}    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
-        f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
+        f.write(f"{pad}    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
                 f"        # DATA, BIASCOR, CCPRIOR for {comment_grep}\n")
 
         f.flush()
@@ -3000,15 +3043,17 @@ class BBC(Program):
             tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
             NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
 
-            f.write(f"    NEVT_bySAMPLE:"
+            f.write(f"{pad}    NEVT_bySAMPLE:"
                     f"                # DATA, BIASCOR, CCPRIOR\n")
 
             for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
                                               NEVT_DATA_bySAMPLE,
                                               NEVT_BIASCOR_bySAMPLE,
                                               NEVT_CCPRIOR_bySAMPLE) :
-                key = f"{sample}:"                
-                f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}  # {comment_grep}\n")
+
+                np = 20
+                key = f"{sample[0:np-1]}:"                
+                f.write(f"{pad}      {key:<{np}} {ndata:>5s}  {nbias:>7s}  {ncc:>4s}  # {comment_grep}\n")
                 f.flush()
 
             nrej = NEVT_REJECT_BIASCOR
@@ -3020,17 +3065,16 @@ class BBC(Program):
             # - - - -
             tmp = bbc_yaml['NREJECT_BIASCOR_bySAMPLE']  # May 4 2025
             BIASCOR_LOSS_bySAMPLE = [ x.strip() for x in tmp.split(',')]
-            f.write(f"    BIASCOR_LOSS_bySAMPLE:       # {comment}\n")
+            f.write(f"{pad}    BIASCOR_LOSS_bySAMPLE:       # {comment}\n")
             for sample, ndata, bcor_loss in zip(SAMPLE_LIST,NEVT_DATA_bySAMPLE,BIASCOR_LOSS_bySAMPLE):
                 ndata_tot_f = float(ndata) + float(bcor_loss) 
                 bcor_loss_f = float(bcor_loss)
                 frac        = bcor_loss_f / (ndata_tot_f + 1.0E-9)
-                key   = f"{sample}:"
-                f.write(f"      {key:<20} {bcor_loss:>5s}  {frac:.3f}    " \
-                        f"# LOSS  LOSS/(NDATA+LOSS)  |  {comment_grep}\n")
-                f.flush()
 
-            # xxx mark f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
+                np=20
+                key   = f"{sample[0:np-1]}:"
+                f.write(f"{pad}      {key:<{np}} {bcor_loss:>5s}  ({frac:.3f})    " \
+                        f"# loss (fracLoss)  |  {comment_grep}\n")                
             f.flush()
 
             # - - - - 
@@ -3040,7 +3084,7 @@ class BBC(Program):
                     val = str(result[key].split()[0])
                     err = str(result[key].split()[1])
                     KEY = f"{key}:"
-                    f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8}    # {comment_grep}\n")
+                    f.write(f"{pad}    {KEY:<12}  {val:>8} +_ {err:<8}    # {comment_grep}\n")
                     f.flush()
 
         return  # end write_fitpar_summary_row
@@ -3048,7 +3092,8 @@ class BBC(Program):
     def make_wfit_summary(self, iwfit, opt_wfit):
 
         # May 2024: pass index iwfit and opt_wfit as input args.
-        
+        # Jun 2025: add row label string made from FITOPT and MUOPT labels; see label_row
+
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -3079,7 +3124,7 @@ class BBC(Program):
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
-                   f"CHI2 NDOF NWARN {varname_FoM}"
+                   f"CHI2 NDOF NWARN {varname_FoM}  LABEL"
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
@@ -3106,6 +3151,12 @@ class BBC(Program):
             imu  = int(imu_str)
             label_fitopt = fitopt_list[ifit][2]
             label_muopt  = muopt_list[imu][1]
+
+            label_list = []
+            if label_fitopt != "None": label_list.append(label_fitopt)
+            if label_muopt  != "None": label_list.append(label_muopt)
+            if len(label_list) > 0: label_row = '/'.join(label_list)
+            else  :                 label_row = 'DEFAULT'
 
             # figure out name of wfit-YAML file and read it
             prefix_orig,prefix_final = self.bbc_prefix(f"wfit{iwfit}", row)
@@ -3143,7 +3194,7 @@ class BBC(Program):
             string_values = \
                 f"{nrow:3d}  {version} {ifit_str} {imu_str} " \
                 f"{str_w}  {omm:6.4f} {omm_sig:6.4f} " \
-                f"{chi2:.1f} {ndof} {nwarn} {str_FoM}"
+                f"{chi2:5.1f} {ndof} {nwarn} {str_FoM}"
             
             if nrow == 1 and use_wfit_blind: 
                 f.write(f"# cosmology params blinded.\n")
@@ -3163,7 +3214,7 @@ class BBC(Program):
                 f.write(f"# FITOPT{ifit_str}={label_fitopt} " \
                         f"  MUOPT{imu_str}={label_muopt}\n")
 
-            f.write(f"{KEY_ROW} {string_values}\n")
+            f.write(f"{KEY_ROW} {string_values}  {label_row}\n")
 
             ifit_last = ifit; imu_last = imu
         f.close()

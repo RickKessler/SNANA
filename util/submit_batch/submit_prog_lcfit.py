@@ -57,15 +57,27 @@
 # Sep 18 2024 M.Grayling, RK
 #    + check private_data_path for bayesn.
 #
+# Jun 18 2025: set n_split=n_core if only single FITOPT000
+#
+# Aug 27 2025: put import f90mnl in try/except block so that generic submit_batch
+#              works without full snana setup.
+#
+# Sep 03 2025:
+#   + for --merge_reste, untar remaining PIP*.tar.gz files
+#   + ...
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
 import logging
 #import coloredlogs
 import datetime, time, subprocess
-import f90nml
 import submit_util as util
 import pandas as pd
+
+try:
+    import f90nml
+except:
+    pass
 
 from   submit_params import *
 from   submit_prog_base import Program
@@ -287,7 +299,7 @@ class LightCurveFit(Program):
             
         else :
             # default is SNANA lcfit
-            LCFIT_SUBCLASS = LCFIT_SNANA
+            LCFIT_SUBCLASS    = LCFIT_SNANA
             TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_HBOOK,  FORMAT_ROOT ] 
         
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
@@ -496,6 +508,8 @@ class LightCurveFit(Program):
         # specified in $SNDATA_ROOT/SIM/PATH_SNDATA_SIM.LIST
         # Finally, create output_dir/[VERSION] for each version ...
         # this is where merged table files end up.
+        #
+        # Oct 7 2025: fix to allow partial path versions e.g, DES-SN3YR/DES-SN3YR_LOWZ
 
         input_file      = self.config_yaml['args'].input_file 
         path_check_list = self.config_prep['path_check_list']
@@ -517,23 +531,29 @@ class LightCurveFit(Program):
         opt_validate  = OPT_VALIDATE_VERSION
         
         logging.info("\n Search for VERSION wildcards and paths: ")
+
         for v_tmp in version_list_tmp :  # may include wild cards
             found     = False
-            full_path = v_tmp[0] == '/'  # .xyz allow full path ??
 
-            for path in path_check_list :                    
-                v_list  = sorted(glob.glob(f"{path}/{v_tmp}"))
-                
+            for path in path_check_list :  
+                path_plus_v = f"{path}/{v_tmp}"
+                v_list  = sorted(glob.glob(path_plus_v))
+
+                # xxx mark print(f" xxx {path_plus_v} --> v_list = {v_list}") # .xyz
+
                 for v in v_list:
                     found   = True
                     version = os.path.basename(v)
-                    
+                    folder  = os.path.dirname(v)  # 10.07.2025
+
                     # avoid tar files and gz files
                     if '.tar' in v : continue
                     if '.gz'  in v : continue
 
                     validate,msg_status = \
-                        self.fit_validate_VERSION(opt_validate,path,version)
+                        self.fit_validate_VERSION(opt_validate, folder, version)
+                        # xxx mark self.fit_validate_VERSION(opt_validate, path, version)
+
                     msg = f"   Found VERSION {version}    {msg_status}"
                     logging.info(f"{msg}")
                     if validate is False :
@@ -613,7 +633,7 @@ class LightCurveFit(Program):
         validate      = True  # default is validation success
         string_status = ""    # no string needed for success
         readme_file = f"{path}/{version}/{version}.README"
-        
+
         # if no README file, it's a no-brainer failure
         if os.path.isfile(readme_file) is False :
             validate = False
@@ -773,12 +793,16 @@ class LightCurveFit(Program):
         n_fitopt_tmp = n_fitopt_tot - n_fitopt_link # number of FITOPTs to process
         n_job_tmp    = n_version * n_fitopt_tmp  # N_job if no splitting
         n_job_split  = int(n_core/n_job_tmp)
-
+        
         # - - - - - - -
         # check special cases to alter n_job_split
 
         # require at least 1 job
         if n_job_split == 0 : n_job_split = 1
+
+        # Jun 18 2025: if only 1 FITOPT, set n_job_split=n_core so that each
+        #  data version gets lots of cores (e.g., fitting many ELASTICC samples)
+        if n_fitopt_tmp == 1: n_job_split = n_core
 
         # if waiting for FITOPT000, distribute over all cores to avoid
         # long wait for FITOPT000. But no more than 100 splits
@@ -2258,6 +2282,7 @@ class LightCurveFit(Program):
         #  + remove all-done file
         #
         # Apr 23 2021: check that file/subdir exists before removing it.
+        # Sep 02 2025: untar remaining PIP*.tar.gz files
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         version_list     = submit_info_yaml['VERSION_LIST']
@@ -2313,7 +2338,16 @@ class LightCurveFit(Program):
                 cmd_rm = f"rm {output_dir}/{wildcard}"
                 print(f"\t Remove {wildcard}  ")
                 os.system(cmd_rm)
+                
+        # - - - - -
+        # Sep 2025: check to untar PIP*.tar.gz files
+        tar_list = glob.glob1(script_dir,"PIP*.tar.gz")
+        for tar in tar_list:
+            logging.info(f"\t untar {tar}")
+            cmd_untar = f"cd {script_dir} ; tar -xzf {tar}; rm -r {tar}"
+            os.system(cmd_untar)
 
+        return
         # end merge_reset
 
     def flag_force_merge_table_fail(self, itable, version_fitopt):

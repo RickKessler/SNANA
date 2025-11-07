@@ -1594,25 +1594,13 @@ class Simulation(Program):
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
         
-        # xxx mark infile_list2d     = self.config_prep['infile_list2d']
         infile            = self.config_prep['infile_list2d'][iver][ifile]
-        
-        # xxx mark model_list2d      = self.config_prep['model_list2d']
-        model             = self.config_prep['model_list2d'][iver][ifile]
-                
+        model             = self.config_prep['model_list2d'][iver][ifile]                
         INFILE_KEYS       = self.config_prep['INFILE_KEYS']
-        n_genversion      = self.config_prep['n_genversion']
-        
-        # xxx mark genversion_list   = self.config_prep['genversion_list']
+        n_genversion      = self.config_prep['n_genversion']        
         genversion       = self.config_prep['genversion_list'][iver]        
-
-        # xxx mark genopt_list2d     = self.config_prep['genopt_list2d']
         genopt            = self.config_prep['genopt_list2d'][iver][ifile]
-        
-        # xxx mark ngentot_list2d    = self.config_prep['ngentot_list2d']
-        ngentot           = self.config_prep['ngentot_list2d'][iver][ifile]
-        
-        # XXX MARK ranseed_list      = self.config_prep['ranseed_list']
+        ngentot           = self.config_prep['ngentot_list2d'][iver][ifile]        
         ranseed           = self.config_prep['ranseed_list'][isplit]
         
         ranseed_key       = self.config_prep['ranseed_key']
@@ -1647,12 +1635,6 @@ class Simulation(Program):
         JOB_INFO['program']   = program
 
         isplit1      = isplit+1               # for TMP-genversion names 
-        # xxx genversion   = genversion_list[iver]
-        # xxx genopt       = genopt_list2d[iver][ifile] # .xyz
-        # xxx ranseed      = ranseed_list[isplit]
-        # xxx infile       = infile_list2d[iver][ifile]
-        # xxx model        = model_list2d[iver][ifile]
-        # xxx ngentot      = ngentot_list2d[iver][ifile]
         
         if check_abort: ngentot = NGENTOT_CHECK_ABORT
         Nsec         = seconds_since_midnight
@@ -1746,7 +1728,6 @@ class Simulation(Program):
         return jobname_expand, genopt_no_jobname
 
     def model_string_suffix(self,model,ifile):
-        # xxx mark model_string = f"{model}MODEL{ifile}"     # e.g., SNIaMODEL0
         model_string = f"{model}MODEL{ifile:02d}"     # e.g., SNIaMODEL00 or NONIaMODEL01
         return model_string
         # end model_string_suffix

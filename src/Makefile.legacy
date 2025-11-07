@@ -41,6 +41,7 @@
 # Apr 13 2025: add cnpy for wfit to read cov matrix in optional npz format
 # Apr 24 2025: fix make for wfit to work on both midway and perlmutter
 # May 08 2025: replace FFC with CC for C codes, and remove libsnana.lib and libsnfit.lib
+# Oct 06 2025: few minors fixes to work without $ROOT_DIR
 # -------------------------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -72,9 +73,10 @@ GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
 ifeq ($(GCCVERSION10),0)
    EXTRA_FLAGS_FORTRAN  = $(EXTRA_FLAGS)
    EXTRA_FLAGS_C        = $(EXTRA_FLAGS)
-   EXTRA_FLAGS_CPLUS    = 
+# ???   EXTRA_FLAGS_CPLUS    =  # xxx mark delete Oct 6 2025
+   EXTRA_FLAGS_CPLUS   = -std=c++17
 else 
-# for gcc v10, allow argument-mismatch errors (9.2020)
+# for gcc v10, allow argument-mismatch errors (9.2020)Sccou
    EXTRA_FLAGS_FORTRAN = $(EXTRA_FLAGS) -fallow-argument-mismatch -fcommon
    EXTRA_FLAGS_C       = $(EXTRA_FLAGS) -fcommon
    EXTRA_FLAGS_CPLUS   = -std=c++17
@@ -117,8 +119,11 @@ endif
 # and the -lstdc++  & root libraries for linking.
 
 ifeq ($(USE_ROOT),0)
-   CCoutput = cc
-   CPPLIB   = 
+# xxx   CCoutput = cc   # xxx mark delete Oct 6 2025
+# xxx   CPPLIB   =      # xxx mark delete Oct 6 2025
+
+   CCoutput    = c++  $(EXTRA_FLAGS_CPLUS)
+   CPPLIB      = -lstdc++
    SNTOOLS_ROOT = 
 else
    CCoutput    = c++ $(EXTRA_FLAGS_CPLUS)
@@ -373,7 +378,7 @@ set_Cpreproc_flags :
 makeDirs:
 	mkdir -p $(OBJ)
 	mkdir -p $(BIN)
-	mkdir -p $(LIB)	
+# xxx mark	mkdir -p $(LIB)	
 
 # ------------------------
 # fcasplit (April 2014)

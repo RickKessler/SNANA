@@ -1251,10 +1251,16 @@ along with references to terms in Eq.~\ref{eq:noiseModel},
 %
   \item  {\bf S:} key starts a line with search-image info.
 %
-  \item {\bf IDEXPT:} arbitrary identifier. You can set this to zero 
-        if you want. For SDSS, it glues together the run and field numbers.
+  \item {\bf IDEXPT:} arbitrary integer identifier for exposure/visit ID. Related options include:
+     \begin{itemize}
+       \item {\bf IDEXPT*NEXPOSE:} Exposure/Visit ID \& number of expsoures used to determine saturation
+            (\S\ref{sssec:saturation}). Default {\bf NEXPOSE}=1.
+       \item {\bf IDEXPT(DETNUM):} Exposure/Visit and detector/ccd number in (). \\
+            Default {\bf DETNUM}$=-9$.
+       \item {\bf IDEXPT*NEXPOSE(DETNUM):} Exposure/Visit \& Nexpose \& detector/ccd number.
+     \end{itemize}
 %
-  \item {\bf FLT:} single character to specify a filter for this observation.
+  \item {\bf BAND:} single character to specify a filter for this observation.
 %
   \item {\bf CCD Gain:} Number of photo-electrons per ADU or DN.
 %
@@ -1407,6 +1413,7 @@ etc ...
 
 \begin{Verbatim}[frame=single]
   SIMLIB_MSKOPT:  nnn     # bit-mask of options (see below)
+  SIMLIB_SURVEY:  xyz     # override survey name in SIMLIB file; e.g., rename survey to be LOWZ
   SIMLIB_MINOBS:  nnn     # require at least this many obs per LIBID
   SIMLIB_MAXOBS:  nnn     # require fewer than this many obs per LIBID
   SIMLIB_IDSTART: nnn     # start at LIBID nnn
@@ -1423,7 +1430,8 @@ etc ...
   USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
-  USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
+  USE_SIMLIB_TAKE_SPECTRUM: 1  # use TAKE_SPECTRUM keys in header 
+  USE_SIMLIB_SPECTROGRAPH:  1  # use SPECTROGRAPH keys under each LIBID
   USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
 
   SMEARFLAG_FLUX:    1  # apply Poisson noise to fluxes
@@ -3997,7 +4005,7 @@ Galactic extinction:
   GENRANGE_MWEBV:  xxx yyy       # genrate flat distrib between xxx and yyy
 \end{Verbatim}
 %
-The first four keys control the $R_V$ value, color law, 
+The first five keys control the $R_V$ value, color law, optional color law params (PARLIST), 
 source of {\mwebv}$= E(B-V)$,
 and the fractional uncertainty on $E(B-V)$. 
 The remaining keys are intended for additional systematic tests.
@@ -4048,6 +4056,15 @@ grep  OPT_MWEBV  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWEBV_SFD98          2  // use SFD98 value
 #define OPT_MWEBV_Sch11_PS2013   3  // PS1-2013 implementation of Schlafly 2011
 \end{Verbatim}
+
+An auxilary table of extinction mag vs. $R_V,\lambda$ for a few color law options
+is created with sim-input command:
+\begin{Verbatim}
+   SIMGEN_DUMP_MWCL: 1
+\end{Verbatim}
+which creates {\tt [GENVERSION].MWCL} table file in the same directory as
+the sim data files.
+
 %   # $
 The default keys are indicated above, and these defaults are 
 trivially implemented by running the simulation without specifying
@@ -4071,7 +4088,7 @@ If the smearing for a given SN results in negative extinction,
 the extinction is set to zero.
 
 Finally, the reported {\tt FLUXCAL} are corrected for {\tt MWEBV}
-if {\t APPLYFLAG\_MWEBV} is set, as was done for the PLASTICC 
+if {\tt APPLYFLAG\_MWEBV} is set, as was done for the PLASTICC 
 classification challenge. Use caution with this flag to avoid
 double-correcting in both the simulation and in the analysis.
 
@@ -4117,9 +4134,8 @@ explicit crosscheck by re-generating another kcor/calib file.
 There are a number of extinction laws now present and
 accessible via the `\texttt{GALextinct}' function. The
 form used is selected by the {\tt OPT\_MWCOLORLAW} key.
-The default option is the CCM89 law with O'Donnell's
-modification \cite{Cardelli1989, ODonnell1994}. Also
-included are variants of the Fitzpatrick law 
+The default option is 99 ({\tt FITZ99\_EXACT}(.
+Also included are variants of the Fitzpatrick law 
 \cite{Fitzpatrick1999, Fitzpatrick2004}, the CCM-like law
 by Ma\'{i}z Apell\'{a}niz et al.~\cite{MaizApellaniz2014},
 the more recent Fitzpatrick et al.\ curve \cite{Fitzpatrick2019},
@@ -5960,9 +5976,12 @@ SNR, the template exposure time is the same for all epochs.
 This key overrides the {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH} 
 key in the \simlib\ file.
 
-\medskip
-To turn off all spectra without commenting or removing all of the 
-{\tt TAKE\_SPECTRUM} keys, 
+
+\subsubsection{Disable {\tt TAKE\_SPECTRUM} keys}
+\label{sss:disable_take_spectrum}
+
+Disable {\tt TAKE\_SPECTRUM} keys without commenting them out or removing them from the 
+sim-input file;
 \vspace{-0.4cm}
 \begin{verbatim}
     snlc_sim.exe <inputFile>  TAKE_SPECTRUM NONE
@@ -6047,6 +6066,7 @@ This option is useful to study multiple spec-follow up strategies
 with a single generation of the simulation, provided that the
 FIELD-dependent exposure times are unique for each 
 {\tt TAKE\_SPECTRUM} key.
+
 
 % ------------------------------------
 %\clearpage
@@ -6742,7 +6762,7 @@ To use a command-line override to change the Gaussian function in the
 \newcommand{\Prewgt}{P_{\rm REWGT}}
 
 To simulate bias corrections, low-probability regions are difficult
-to population with adequate statistics for a reliable bias correction.
+to populate with adequate statistics for a reliable bias correction.
 The following sim-input enhances low-prob regions:
 \begin{verbatim}
    GENPDF_EXPON_REWGT:  <REWGT>
@@ -10415,17 +10435,20 @@ For \snana\ analysis programs
 here we describe how to over-ride header information in the
 data files without re-making the data files.
 This feature is useful to study the impact of data changes
-(e.g., redshifts and host matches) without altering a released
+without altering a released
 data set. Beware that this feature is intended only for internal 
 use by analysis teams,
 and should not be part of a publicly released data set;
 see Sec.~\ref{sss:new_data_files} on updating data files with 
 override information.
 
-The header information includes host properties, peculiar
-velocities, redshifts (spec-$z$ and photo-$z$), 
-and Galactic extintion, all of which can be modified for a particular study. 
-To see a complete list of data keys, search any {\tt *HEAD.FITS} data file.
+The header information includes any variable in a {\tt *HEAD.FITS} file:
+host properties, peculiar velocities, redshifts (spec-$z$ and photo-$z$), 
+Galactic extintion, and many more.
+This override feature does {\tt NOT} work
+on epoch-dependent quantities in the {\tt *PHOT.FITS} files, 
+but mag and flux corrections can be applied as described below in Sec.~\ref{sss:magcor}.
+
 The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
@@ -10436,35 +10459,66 @@ The input key for the analysis programs is
      SIM_HEADER_OVERRIDE_FILE = 'sim_overrides.dat'  ! sim data only
 
 more myUpdates.dat
-VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV
-SN:   1346137      0.246        0.001              0.021
-SN:   1346387      0.533        0.0011             0.038
+VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR  MWEBV   EXTRA
+SN:   1346137      0.246        0.001              0.021    45
+SN:   1346387      0.533        0.0011             0.038    46
 etc ...
 \end{verbatim}
-%
-%VARNAMES: CID  VPEC VPEC_ERR  HOSTGAL_LOGMASS HOSTGAL_LOGMASS_ERR
-%SN:  1346137    78.4 150.0   10.87  0.21
-%SN:  1346387   -63.0 150.0    9.44  0.33
 
 In the first example ({\tt muUpdates.dat}), three header values are updated:
-helio redshift, the uncertainty, and Galactic extintion.
+helio redshift, the uncertainty, and Galactic extintion. The {\tt EXTRA} column
+does not correspond to a known data variable and is thus ignored, which means
+that extra diagnostic variables are allowed to be mixed with data variables.
 For SNe missing from the update file, the original values in the 
-data file header are preserved. This override feature does {\tt NOT} work
-on epoch-dependent quantities, but mag and flux corrections can
-be applied as described below in Sec.~\ref{sss:magcor}.
-The second example illustrates a comma-separated list of table files;
+data file header are preserved. 
+The first column name can be either {\tt CID} or {\tt SNID}.
+The second example illustrates a comma-separated list of override table files;
 beware that the variables in each override file must be unique (except for CID).
 
 Data-override variables must exist in the original data file,
 with the exception of photo-$z$ quantiles (\S\ref{sss:quantiles}).
-Thus quantiles can be overwritten if they already exist in the
+Quantiles can be overwritten if they already exist in the
 original data files, 
 or appended if the original data files
 do not include quantile information. For quantile overrides using
 {\tt HOSTGAL\_ZPHOT\_Qppp} (where {\tt ppp=000, 010, ... 100}), 
 make sure to also include an {\tt NZPHOT\_Q} column with each value set to 11.
 
+
+A common  mistake is to accidentally replace data variable names with names in the
+output FITRES tables: unfortunately the variable naming is not consistent.
+Such substituion usually results in an abort since no
+valid override variables are found.
+
+% - - - - - - - - 
 \clearpage
+\subsubsection{Over-Riding by {\tt HOSTGAL\_OBJID} instead of {\tt CID}}
+\label{sss:header_override_galid}
+
+{\tt OVERRIDE} table row identification by {\tt CID} (or {\tt SNID}) is robust for real data
+because real data event names should not change (or change rarely with reprocessing).
+To modify host properties for simulated data, however, would require an intermediate
+script to create a new {\tt HEADER\_OVERRIDE\_FILE} table for each simulated data
+set and for each bias-correction sim. To simplify altering host properties for sims,
+particularly photo-z information, the {\tt HEADER\_OVERRIDE\_FILE} can be keyed
+by {\tt HOSTGAL\_OBJID} or {\tt GALID} for galaxies in an entire {\tt HOSTLIB\_FILE}, e.g. 
+
+\begin{verbatim}                                                                                                   
+VARNAMES: GALID  HOSTGAL_PHOTOZ HOSTGAL_PHOTOZ_ERR
+SN:  104754   .111   0.011
+SN:  104049   .222   0.022
+SN:  463249   .333   0.033
+etc ...
+\end{verbatim}
+This single table override file is valid for simulated data regardless of which
+random {\tt CID}s are chosen. This galaxy-based identification can be used for real
+data as well, but beware that host-less events cannot be modified using the {\tt GALID} key.
+
+
+% - - - - - - - - 
+\subsubsection{Over-Riding Table Information in BBC/SALT2mu Input }
+\label{sss:bbc_override}
+
 
 The header-override list may include variables that are used later in 
 BBC or cosmology fitting, but not used in light curve fitting;
@@ -11911,6 +11965,11 @@ to disable these keys,
 \label{subsec:bayesn}
 References: K.~S.\ Mandel et al., {\bf MNRAS 510}, 3939 (2022); S.\ Thorp et al., {\bf MNRAS 508}, 4310 (2021); M.\ Grayling et al., {\bf MNRAS 531}, 953 (2024). \cite{Mandel2022, Thorp2021, Grayling2024}.
 
+The \BAYESN\ SED model is based on the Hsiao template \cite{Hsiao2007}, modified by a
+$t$- and $\lambda$-dependent warping surface $\propto 10^{-0.4 W(t,\lambda)}$, and extinguished by dust.
+Extrapolation of a \BAYESN\ model outside its defined phase and wavelength range is achieved
+by extrapolating $W(t,\lambda)$.
+
 Note that host-galaxy extinction parameters (for $A_V$,$R_V$) 
 are required from \S\ref{subsec:host_extinct}. The form of the host-galaxy
 dust extinction curve will be inherited from the Milky-Way color law.
@@ -11938,12 +11997,34 @@ are as follows:
    component of the \BAYESN\ residual scatter model.
   \item \verb!GENMODEL_MSKOPT+=4!: Enable the gray ($\delta_M$) component of the
    \BAYESN\ residual scatter model.
+  \item \verb!GENMODEL_MSKOPT+=32!: Enable extrapolation beyond the \BAYESN\ phase range
+   by setting $W(t,\lambda) \to 0$. This reverts to the Hsiao template.
+  \item \verb!GENMODEL_MSKOPT+=64!: Enable extrapolation beyond the \BAYESN\ phase range
+   by setting $W(t,\lambda) \to W(t_\mathrm{edge},\lambda)$. This gives Hsiao-like behavior,
+   but re-normalized to minimize any jumps in magnitude.
   \item \verb!GENMODEL_MSKOPT+=128!: Enable a ``verbose'' mode for debugging purposes.
+  \item \verb!GENMODEL_MSKOPT+=256!: Enable a ``super verbose'' mode for debugging splines.
+  \item \verb!GENMODEL_MSKOPT+=512!: Enable extrapolation beyond the \BAYESN\ wavelength range
+   by setting $W(t,\lambda) \to 0$. This reverts to the Hsiao template.
+  \item \verb!GENMODEL_MSKOPT+=1024!: Enable extrapolation beyond the \BAYESN\ wavelength range
+   by setting $W(t,\lambda) \to W(t,\lambda_\mathrm{edge})$. This reverts to the Hsiao template, re-scaled
+   to match the normalization of the \BAYESN\ model at the edge of its defined wavelength range.
+  \item \verb!GENMODEL_MSKOPT+=2048!: Generic development mask for testing new code.
 \end{itemize}
 Multiple bits can be combined, when this is unambiguous. For example, \verb!GENMODEL_MSKOPT=6!
 would enable both components of the residual scatter model (equivalent to 
 \verb!GENMODEL_MSKOPT=1!). An ambiguous combination of bits will cause the program
 to abort.
+
+Please note that extrapolation in wavelength, or by $>10$~d in phase, is not recommended in most
+circumstances. Without setting any of the extrapolation-related \verb!GENMODEL_MSKOPT! bits, the
+model will \emph{not} be extrapolated in wavelength, and will be extended in phase by linearly
+extrapolating $W(t,\lambda)$. This phase-dependent extrapolation can lead to surprising results
+(e.g.\ re-brightening at late times) if pushed too far! If extensive extrapolation of the model is
+needed, setting \verb!GENMODEL_MSKOPT=576! is probably the best option, but this is experimental
+and should be used with caution!
+It is currently not possible to extrapolate beyond the phase ($t\in[-20,85]$~d) 
+and wavelength ($\lambda\in[1000,25000]$~\AA) ranges of the Hsiao \cite{Hsiao2007} template.
 
 % ------------------------
 \clearpage
@@ -14640,6 +14721,7 @@ For simulations, {\tt SIM\_FLAM} is automatically appended as last column.
     OPT_REFORMAT_SPECTRA = 1 ! 3-column text file: lam Flam Flamerr
     OPT_REFORMAT_SPECTRA = 2 ! write FLUX instead of FLam for astrodash
     OPT_REFORMAT_SPECTRA = 4 ! write 'lam Flam Flamerr' using keyed format
+    OPT_REFORMAT_SPECTRA = 8 ! specialized output for SNID-SAGE code
 \end{verbatim}
 
 

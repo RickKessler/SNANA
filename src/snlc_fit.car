@@ -1,5 +1,5 @@
 c *********************************************************
-c Created June 2006   by R.Kessler 
+c Created June 2006   by R.Kessler  
 c   
 c Generic SNIa lightcurve fitter.
 c "Generic" means that any SNIa model can be fit to the data.
@@ -305,7 +305,7 @@ c variable indices for integer I4EP_
      &   IEP_IMJD, IEP_EPOCH
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
      &  ,IEP_REJECT, IEP_REJECT2
-     &  ,IEP_CCDNUM, IEP_IMGNUM
+     &  ,IEP_DETNUM, IEP_IMGNUM
 
 c variable indices for real R4EP_
       INTEGER   
@@ -339,7 +339,7 @@ c
      &  ,IEP_IFILT_REST2     = 7  ! idem, 2nd nearest rest-frame filter
      &  ,IEP_REJECT          = 8  ! flag to reject epoch from fit
      &  ,IEP_REJECT2         = 9  ! rejected inside Trest window (Mar 2020)
-     &  ,IEP_CCDNUM          = 10 ! CCD number
+     &  ,IEP_DETNUM          = 10 ! Detector/CCD number
      &  ,IEP_IMGNUM          = 11 ! image number (e..g, EXPNUM, VISIT_ID)
 c
 c for R4EP_XXX
@@ -421,7 +421,7 @@ c
      &  ,LC_MARGCHI2(0:MXFILT_OBS)  ! chi2 from marginalized params
      &  ,LC_MARGPROB(0:MXFILT_OBS)  ! prob from above
 c
-     &  ,RESTLAMBDA_MODEL(2)   ! range defined by SN model
+     &  ,RESTLAMBDA_MODEL(2)   ! central filter range defined by SN model
      &  ,RESTLAMBDA_USEFIT(2)  ! range actually used in fit (Nov 2012)
 
       LOGICAL 
@@ -630,7 +630,7 @@ c xxx mark      &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
      &   ,USESIM_SHAPE      ! I: T => use sim shape value in fit
      &   ,USESIM_PEAKMJD    ! I: T => use sim peakMJD 
      &   ,USESIM_DLMAG      ! I: T => use sim DLMAG
-     &   ,USESIM_REDSHIFT   ! I: T => use sim redshift in fit
+c     &   ,USESIM_REDSHIFT   ! I: T => use sim redshift in fit
      &   ,USESIM_INIVAL     ! I: T => use sim params as initial values
      &   ,MINOS_ERR_DLMAG   ! I: T=> require valid MINOS error for DLMAG
      &   ,MINOS_ERR_REQALL0 ! I: T=> require all MINOS errors to be valid   
@@ -855,7 +855,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,SNMAGRMS_for_PHOTOZ
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -931,7 +931,7 @@ c ------
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -1010,7 +1010,7 @@ c variables to define subset of fitted bands;
 
 c variables for SPECTRA table (Nov 2016)
       INTEGER    MXLAM_TBLSPEC, NBLAM_TBLSPEC, TBLSPEC_IFILTOBS
-      INTEGER    TBLSPEC_CCDNUM, TBLSPEC_IMGNUM  ! Oct 2021
+      INTEGER    TBLSPEC_DETNUM, TBLSPEC_IMGNUM  ! Oct 2021
       PARAMETER ( MXLAM_TBLSPEC = 1000 )
       CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
       REAL  
@@ -1034,7 +1034,7 @@ c
 
       COMMON / TABLEVARCOM4_SPEC /
      &   NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
-     &  ,TBLSPEC_CCDNUM, TBLSPEC_IMGNUM
+     &  ,TBLSPEC_DETNUM, TBLSPEC_IMGNUM
      &  ,TBLSPEC_CFILT, TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
      &  ,TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
@@ -1655,9 +1655,6 @@ c set optional filter-dependent cuts on TREST
 
 c ----------------------------------------------
 
-c xxx  mark del  CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_MJD(1)  
-c xxx  mark del  CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_MJD(2)
-
       CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_PEAKMJD(1)  
       CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_PEAKMJD(2)
       CUTWIN_FITPAR(1,IPAR_SHAPE) = FITWIN_SHAPE(1)
@@ -2031,6 +2028,7 @@ c load redshift to use in spec-z fit
          write(6,26) SNLC_CCID(1:LCHAR)
 26       format(T5,'Z-WARNING for CID=',A, 
      &      ' : no Z_helio => use ZCMB for lc fit' )
+         call flush(6)
       ENDIF
 c ------------------------------
 c set global REDSHIFT_FIT to use for things like
@@ -2055,7 +2053,7 @@ c reset DROPFILTER array in first iteration only
 
 c Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
           MASK_PHOTOZ_SOURCE = 0
-           
+          
           LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
           LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
           LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
@@ -3167,7 +3165,7 @@ c local var
       CHARACTER 
      &   tmpname*40
      &  ,SURVEY_NAME_FILTER*(2*MXCHAR_SURVEY)
-     &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
+     &  ,TMP_FITMODEL*(MXCHAR_FILENAME), TMP_EXTRAP*10
      &  ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
 
       LOGICAL LBX
@@ -3249,8 +3247,6 @@ c now init each filter.
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
          cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
 
-	 ! xxx mark delete Apr 12 2025 LAMSHIFT = DBLE(FILTOBS_LAMSHIFT(ifilt_obs))
-
          LAMSHIFT = FILTER_LAMSHIFT_FILT(ifilt_obs) ! Apr 12 2025 fix
 
 c pass ifilt_obs; everything else is returned.
@@ -3308,9 +3304,14 @@ c unless user specifically sets OPT_COVAR=0
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
 c       BAYESN BLOCK created Nov 2022
-        OPTMASK = 1024  ! disable intrinsic scatter
-        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, OPTMASK,
-     &            LEN_NAME )
+	OPTMASK = 0
+	if(debug_flag == 821) then
+           OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
+	endif
+	   
+
+        ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,
+     &            LEN_NAME,10,8)
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
@@ -3489,7 +3490,7 @@ c local var
 
       LOGICAL   LCUT, LDMP, LZTEST, LDROP, LADD
       CHARACTER cfilt1*12, cfiltdrop*20, cfiltadd*20, ccid*(MXCHAR_CCID)
-      character VERB*8
+      character VERB*8, msgerr*20 
 
 c function
       REAL TRESTzCUT 
@@ -3763,6 +3764,10 @@ c tighter (final) cuts.
 c if we don't have enough measurements after filter-drop, bail ASAP.
         if ( NTLIST .LT. CUTWIN_NEPOCH(1) ) then
           ERRFLAG = ERRFLAG_ZFIT_DROPFILTCUTS
+          if ( STDOUT_UPDATE ) then
+            write(6,186) NTLIST
+186         format(I2,' obs -> FAIL' )
+          endif
           return
         endif
 
@@ -3919,7 +3924,7 @@ C ------------- BEGIN -------------
             LCID = ISNLC_LENCCID
             CCID = SNLC_CCID
             write(6,301) CCID(1:LCID), ZPH, cfilt1, ITER
-301         format(T2,'WARNING SN=',A,' : PHOTOZ=', F5.3,
+301         format(T2,'WARNING CID=',A,' : PHOTOZ=', F5.3,
      &                 ' is outside range for ',
      &                  A,'-band (ITER=',I1, ') => SKIP ' )
             IFILTBAD = IFILT_OBS 
@@ -4263,7 +4268,7 @@ c store marginalized chi2 per filter
 
 C ============================================
 +DECK,FCNSNLC.
-      SUBROUTINE FCNSNLC(NVAR,GRAD, CHI2TOT,XVAL,IFLAG, USRFUN )
+      SUBROUTINE FCNSNLC(NVAR,GRAD, CHI2TOT, XVAL,IFLAG, USRFUN )
 c
 c User function to be minimized (chi2, log-likelihood, etc ...).
 c "USRFUN" is an optional function, for example from MC.
@@ -4337,7 +4342,7 @@ c local arguments
       INTEGER
      &   ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata
      &  ,NFITDATA_LOC, irow, icol, IERR, ep
-     &  ,NFITDATA_FILT(MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
+     &  ,NFITDATA_FILT(0:MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
       character cfilt*1
 
@@ -4474,11 +4479,22 @@ c -------------------------------------------
          NFITDATA_FILT(ifilt)  = 0
          NDMPFCN(ifilt)        = 0
       ENDDO
+         NFITDATA_FILT(0)  = 0
          NDMPFCN(0)        = 0
 
       FIRSTFILT = .TRUE.
 
+      IF ( LDMPFCN(0) ) THEN
+         print*,' '
+         print*,' -------------------------------------- '
+         write(6,602) SNLC_CCID,  ITER, IFLAG
+602      format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
+     &           3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
+         call flush(6)
+      ENDIF
+
 c ------------------------------------
+
 
       DO 102 ifitdata   = 1, NFITDATA_LOC
 
@@ -4517,6 +4533,7 @@ c compute data SNR with/without fudged error
         Trest     = Tobs / ZZ 
   
         Nfitdata_filt(ifilt) = Nfitdata_filt(ifilt) + 1
+        Nfitdata_filt(0)     = Nfitdata_filt(0) + 1
         LASTFILT  = Nfitdata_filt(ifilt) .EQ. NEPOCH_FIT(ifilt)
 
 c set local dump logicals = namelist flag .and. (debug option)     
@@ -4534,11 +4551,13 @@ c set local dump logicals = namelist flag .and. (debug option)
 c dumpe header just once per filter.
          if(LDMPFCN_LOC .and. FIRSTFILT ) then
 
-              print*,' '
-              print*,' -------------------------------------- '
-              write(6,602) SNLC_CCID,  ITER, IFLAG
-602           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
-     &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
+c xxxxxxx mark delete; moved up xxxx
+c              print*,' '
+c              print*,' -------------------------------------- '
+c              write(6,602) SNLC_CCID,  ITER, IFLAG
+c602           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
+c     &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
+c xxxxx end mark 
 
 c print  fit-pars to see crazy values.
 
@@ -4723,7 +4742,7 @@ c increment SNRMAX for fitted epochs only
 
            if ( flux_model .GT. 0.0 ) then
              mag_tmp = -2.5 * dlog10(flux_model)   ! model-mag_{obs}
-     &               + ZEROPOINT_FLUXCAL_DEFAULT
+     &               + ZP_FLUXCAL  
 
              R4EP_ALL(epoch,JEP_MODELMAG)     = mag_tmp
              R4EP_ALL(epoch,JEP_MODELMAG_ERR) = mag_err
@@ -4955,8 +4974,11 @@ c   check option to include determinant term log[det(COV_INC)]
 
 c - - - - - - -
       IF ( LDMPFCN_LOC ) THEN
-         print*,'   CHI2-FINAL(all filters)    = ', chi2tot
+         write(6,6665) chi2tot,  NFITDATA_FILT(0)
+6665     format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x, 
+     &             'NFITDATA=', I5)
          print*,'      ********* END OF FCN DUMP ********** '
+	 print*,' '
          CALL FLUSH(6)
 
          TBLDMPFCN_CHI2TOT = sngl(chi2tot)
@@ -5887,7 +5909,7 @@ c from other filters used for Landolt color trans.
           PARLIST_SN(4) = RVHOST    ! RV for host
 
           CALL genmag_BAYESN( MSKBAYESN, ifilt_obs
-     &          , PARLIST_SN, MWEBV_MODEL
+     &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
      &          , ZSN, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt_obs)       ! return arg
      &          , MAG_ERR                    ) ! return arg 
@@ -6202,7 +6224,7 @@ c allow any MAG for TEST option
       if ( FITMODEL_INDEX .EQ. MODEL_FIXMAG ) LTMP = .TRUE.
 
       if ( LTMP ) then
-         arg   = -0.4 * (MAG_OBS - ZEROPOINT_FLUXCAL_DEFAULT)
+         arg   = -0.4 * (MAG_OBS - ZP_FLUXCAL)
          FLUX  =  TEN8**(ARG)
       else
          FLUX = 0.0
@@ -6877,12 +6899,12 @@ c  fit-model flux, observer
 
       ELSE IF ( LREST_COSMO ) THEN
 
-        magtmp8 = -2.5*DLOG10(FLUX8) + ZEROPOINT_FLUXCAL_DEFAULT 
+        magtmp8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL
      &            -(XTMW + KCOR8(1) + DLMAG8_REF(Z8) )
 
         if ( OPT .EQ. 3 ) magtmp8 = magtmp8 - XTAV
 
-        ARG8 = -0.4 * ( MAGTMP8 - ZEROPOINT_FLUXCAL_DEFAULT)
+        ARG8 = -0.4 * ( MAGTMP8 - ZP_FLUXCAL)
         GET_FLUX_FITFUN = TEN8**ARG8
 
 cc  xxxxxxx
@@ -7283,7 +7305,7 @@ c setup default grid w.r.t. peakmjd-estimate
       USESIM_LUMIPAR  = .FALSE.  ! legacy variable
       USESIM_PEAKMJD  = .FALSE.
       USESIM_DLMAG    = .FALSE.
-      USESIM_REDSHIFT = .FALSE.
+c xxx      USESIM_REDSHIFT = .FALSE.
       USESIM_INIVAL   = .FALSE.
 
       LKCOR_AVWARP  = .TRUE.
@@ -7397,8 +7419,8 @@ c ---------------------------------
 
       PRIOR_AVRES      = 0.0     ! smear AV prior by this resolution
       PRIOR_MJDSIG     = 20.0    ! sigma for gauss prior on PEAKMJD (days)
-      PRIOR_ZERRSCALE  = 1000.0   ! default is no prior
-      PRIOR_MUERRSCALE = 1000.0   ! default is no prior
+      PRIOR_ZERRSCALE  = 1000.01   ! default is no prior
+      PRIOR_MUERRSCALE = 1000.01   ! default is no prior
       DOPRIOR_DLMAG    = .FALSE. 
 
       OPT_PRIOR      = 1
@@ -7580,7 +7602,7 @@ c first, allow user to set integer option or logical flag.
       endif
       if ( DOFIT_PHOTOZ .and. OPT_PHOTOZ .LE. 0 ) then
    ! use host-galaxy prior by default.
-   ! But note PRIOR_ZERRSCALE=1000 by default
+   ! But note PRIOR_ZERRSCALE=1000.01 by default
          OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) 
       endif
 
@@ -8124,8 +8146,10 @@ c -------------
         else if(MATCH_NMLKEY('USESIM_DLMAG', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) USESIM_DLMAG
 
-        else if(MATCH_NMLKEY('USESIM_REDSHIFT', 1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) USESIM_REDSHIFT
+c xxxxxxx mark delete Aug 23 2025 xxxxx
+c        else if(MATCH_NMLKEY('USESIM_REDSHIFT', 1,i,ARGLIST)) then
+c            READ(ARGLIST(1),*) USESIM_REDSHIFT
+c xxxxxxxxxxxx
 
         else if(MATCH_NMLKEY('INIVAL_RV', 1,i,ARGLIST)) then
             READ(ARGLIST(1),*) INIVAL_RV
@@ -8883,7 +8907,7 @@ c set initial value and step size.
         CZTMP        = 'zBEST-Gauss'
 
 c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
-        if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
+        if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
 
         if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
            PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
@@ -8907,11 +8931,11 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
       
       ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
-         LDMP_Q = .false.  ! RK - control debug dump with  flag
-
+        LDMP_Q = .false.  ! RK - control debug dump with  flag
         if ( LDMP_Q ) then
             Print *, ' xxx Start init_zPDF_quantile for CID=', SNLC_CCID
         endif
+
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
             c2err = 'but there are no zPDF quantiles in the data.'
@@ -8940,19 +8964,12 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
         SNHOST_QZPHOT_STD(1)  = STD 
 
-c xxxxx mark xxx
-c        REDSHIFT_FIT          = MEAN 
-c        SNHOST_ZPHOT(1)       = MEAN ! Apr 22 2025
-c        SNHOST_ZPHOT_ERR(1)   = STD  ! Apr 22 2025
-c xxxxxxxxxxx
-
         if ( LDMP_Q ) then
            Print *, ' xxx Finished init_zPDF_spline for CID=', SNLC_CCID 
            call flush(6)
         endif
 
 c     initialize at Q50
-c xxx mark 4.22.2025   INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)  ! Fragile alert !!! 
           INIVAL(ipar) = MEAN    
           if ( LEGACY ) LZDONE       = .TRUE.
           CZTMP        = 'QUANTILES'
@@ -10207,7 +10224,7 @@ c prevent large/unphysical deviations.
 +CDE,SNLCINP.
 
 c local args
-      REAL*8  PRIOR_SIG, SCALE_SIGMA
+      REAL*8  PRIOR_SIG, SCALE_SIGMA, SIG_FLOOR, MAGERR_MIN
       LOGICAL LX2, LX3, LNOzPRIOR
 
 C ------------- BEGIN ----------
@@ -10218,6 +10235,27 @@ c while still avoiding crazy outliers. This is not well tuned so may
 c need more study.
       SCALE_SIGMA = 1.0  
 
+c SIG_FLOOR logic is desgined for SALT2/3, and maybe works for BayeSN ??
+c But set a trap for BayeSN just to alert the user
+      IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
+        c1err = 'Must check SIG_FLOOR logic below before ' 
+     &          // 'bypassing this abort.'
+        c2err = 'Does BAYESN need different SIG_FLOOR values ?'
+        CALL MADABORT ( "SET_PRIOR_FITPAR_SIG", c1err, c2err )
+      ENDIF
+
+      SIG_FLOOR  = .01
+      MAGERR_MIN = 0.03  ! guess
+      IF ( IPAR == IPAR_COLOR ) THEN 
+         SIG_FLOOR = MAGERR_MIN/3.1  ! beta*cERR >= MAGERR_MIN
+      ELSE IF ( IPAR == IPAR_SHAPE ) THEN
+         SIG_FLOOR = MAGERR_MIN/0.15  ! alpha*sERR >= MAGERR_MIN 
+      ELSE IF ( IPAR == IPAR_DLMAG ) THEN  ! MU or x0
+         SIG_FLOOR = MAGERR_MIN
+      ELSE IF ( IPAR == IPAR_ZPHOT ) THEN
+         SIG_FLOOR = 0.02   ! guess
+      ENDIF
+
 c few debug option to play with scale
       LX2       = (IAND(DEBUG_FLAG,2) > 0)
       LX3       = (IAND(DEBUG_FLAG,4) > 0)
@@ -10227,8 +10265,10 @@ c few debug option to play with scale
       ELSE IF ( LX3 ) THEN
          SCALE_SIGMA = 3.0
       ENDIF
-
       PRIOR_SIG = SCALE_SIGMA*DVALSIG
+
+c Aug 27 2025 : avoid too-small PRIOR_SIG 
+      if ( PRIOR_SIG < SIG_FLOOR ) PRIOR_SIG = SIG_FLOOR 
 
       SET_PRIOR_FITPAR_SIG = PRIOR_SIG
       RETURN
@@ -11018,7 +11058,7 @@ C ----------------- BEGIN ----------------
       Z = REDSHIFT_FIT
       Z1 = 1. + z
    
-      ZP = SNGL(ZEROPOINT_FLUXCAL_DEFAULT)
+      ZP = SNGL(ZP_FLUXCAL)
 
 c -------------------------------
 c save previous R4ALL values in R4_LAST array in case 
@@ -11134,7 +11174,7 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT)       = IFILT
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
-        I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
+        I4EP_ALL(ep,IEP_DETNUM)      = ISNLC_DETNUM(ep)
         I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)
 
@@ -14053,7 +14093,9 @@ c ---------------- BEGIN ---------------
 
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
+
 c -------------------------------
+
       IF ( DOFIT_PHOTOZ ) THEN
 
 c check for host photoZ
@@ -14091,11 +14133,13 @@ c - - - - - - -  -
         REDSHIFT_FIT = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
       endif
 
-c xxxxxxx mark xxxx
-c         REDSHIFT_FIT = 1.04
-c         print*,' xxx ITER, REDSHIFT = ', ITER, REDSHIFT_FIT
-c         call flush(6)
-c xxxxxx mark xxxx
+c June 2025: abort on invalid redshift (likely missing in data file)
+      if ( REDSHIFT_FIT < 0.0 .and. OPT_PHOTOZ == 0 ) then
+         write(c1err,660) REDSHIFT_FIT, SNLC_CCID
+660      format('Undefined REDSHIFT_FIT=', F6.3,' for CID=',A8 )   
+         c2err = 'Check REDSHIFT info in data file'
+         CALL MADABORT("SET_REDSHIFT_FIT", c1err, c2err )
+      endif
 
       RETURN
       END   ! end SET_REDSHIFT_FIT
@@ -14852,7 +14896,7 @@ cc         CALL MADABORT("MODELMAG_CALC", c1err, c2err )
 c convert flux to MAG.
 
       if ( Flux .GT. 1.0E-20 ) then
-        mag    = -2.5 * LOG10(Flux) + MAGOFF + ZEROPOINT_FLUXCAL_DEFAULT
+        mag    = -2.5 * LOG10(Flux) + MAGOFF + ZP_FLUXCAL
         magerr =  2.5 * LOG10(1.0 + Fluxerr/Flux)
       else
         mag    = 99.
@@ -17140,7 +17184,7 @@ c now the rest-frame
 
          IF ( MAGOBS > 0 ) THEN
            MAGREST    = MAGOBS + KCOR - SNLC_DLMAG
-           ARG        = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - MAGREST)
+           ARG        = 0.4*(ZP_FLUXCAL - MAGREST)
            FLUX_REST  = 10.0**(ARG)
            R4EP_ALL(ep,JEP_DATAFLUX_REST) = FLUX_REST
            I4EP_ALL(ep,IEP_IFILT_REST1)   = IFILTREST
@@ -18533,7 +18577,7 @@ c18    format(T3,'REST UBVRI mags: ', 5F8.4 )
      &             ,AVwarp8, KCOR8, XTAV, XTMW, MAGERR8 )    ! (O) 
 
 ccc         MAG8 = -2.5*DLOG10(FLUX8/ADUSCALE)
-         MAG8 = -2.5*DLOG10(FLUX8) + ZEROPOINT_FLUXCAL_DEFAULT
+         MAG8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL
 
          write(6,20) 
      &     filtdef_string(ifilt_obs:ifilt_obs), MAG8
@@ -20061,7 +20105,7 @@ c   terminate strings for C table-functions (snana.car routine)
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
           TBLSPEC_LAMREST           = R4EP_ALL(ep,JEP_LAMREST) 
           TBLSPEC_IFILTOBS          = IFILTOBS
-          TBLSPEC_CCDNUM            = I4EP_ALL(ep,IEP_CCDNUM) 
+          TBLSPEC_DETNUM            = I4EP_ALL(ep,IEP_DETNUM) 
           TBLSPEC_IMGNUM            = I4EP_ALL(ep,IEP_IMGNUM)
           TBLSPEC_FLUXCAL_DATA      = R4EP_ALL(ep,JEP_DATAFLUX)
           TBLSPEC_FLUXCAL_DATA_ERR  = R4EP_ALL(ep,JEP_DATAFLUX_ERR)
@@ -20190,8 +20234,8 @@ c - - - -
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, TBLSPEC_CFILT, VARNAME, 1,
      &                   LENBLOCK, 4 )
 
-      VARNAME = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLSPEC_CCDNUM, VARNAME, 1,
+      VARNAME = 'DETNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, TBLSPEC_DETNUM, VARNAME, 1,
      &                   LENBLOCK, 20 )
 
       VARNAME = 'IMGNUM:I' // char(0)

@@ -338,7 +338,7 @@ c physical constants
      &  ,ORAD_DEFAULT
      &  ,H0_DEFAULT,   H0ERR_DEFAULT
      &  ,W0_DEFAULT,   W0ERR_DEFAULT
-     &  ,DWDA_DEFAULT, DWDAERR_DEFAULT
+     &  ,WA_DEFAULT,   WAERR_DEFAULT
 
       PARAMETER (
      &   PARSEC        = 3.085678E13  ! 1 parsec (km)
@@ -346,14 +346,14 @@ c physical constants
 c
      &  ,H0_DEFAULT        = 70.0  ! standard value
      &  ,W0_DEFAULT        = -1.0
-     &  ,DWDA_DEFAULT      =  0.0
+     &  ,WA_DEFAULT        =  0.0
      &  ,OMAT_DEFAULT      =  0.315  ! Planck 2018 (updated Mar 2020)
      &  ,OLAM_DEFAULT      =  0.685  ! idem
      &  ,ORAD_DEFAULT      =  1.2E-5
 c
      &  ,H0ERR_DEFAULT        =  7.0
      &  ,W0ERR_DEFAULT        =  0.1
-     &  ,DWDAERR_DEFAULT      =  0.0
+     &  ,WAERR_DEFAULT        =  0.0
      &  ,OMATERR_DEFAULT      =  0.03
      &  ,OLAMERR_DEFAULT      =  0.03
 c
@@ -2034,7 +2034,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &  ,OMAT_REF(2)  ! I: OMEGA_MATTER & uncertainty (for x0 prior)
      &  ,ORAD_REF(2)  ! I: OMEGA_RAD & uncertainty (for x0 prior)
      &  ,W0_REF(2)    ! I: DE eq stat w = p/rho & uncertainty (for x0 prior)
-     &  ,DWDA_REF(2)  ! I: DE dw/da [a = 1/(1+z)] & uncertainty
+     &  ,WA_REF(2)    ! I: DE wa [a = 1/(1+z)] & uncertainty
 
       INTEGER   NSIMVAR_CUTWIN
       REAL      SIMVAR_CUTWIN(2,MXCUT_PRIVATE)
@@ -2098,7 +2098,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , cutwin_tobs_predetect
 
       COMMON / SNLCINP8 /
-     &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
+     &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, WA_REF
 
       NAMELIST / SNLCINP / 
      &      VERSION_PHOTOMETRY, VERSION_PHOTOMETRY_WILDCARD
@@ -2137,7 +2137,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
      &    , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER
-     &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
+     &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, WA_REF
      &    , USE_MWCOR
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT
      &    , MJDPERIOD_PLOT, MJDSHIFT_PLOT
@@ -6375,8 +6375,8 @@ c set reference cosmo params to defaults.
       ORAD_REF(2) = 0.0
       W0_REF(1)   = W0_DEFAULT
       W0_REF(2)   = W0ERR_DEFAULT
-      DWDA_REF(1) = DWDA_DEFAULT
-      DWDA_REF(2) = DWDAERR_DEFAULT
+      WA_REF(1)   = WA_DEFAULT
+      WA_REF(2)   = WAERR_DEFAULT
 
       zTOL_HELIO2CMB   = 0.02   ! tolerance on dzHELIO/zHELIO
       QUANTILE_ZERRMIN = 0.00   ! 0 -> always use quantiles
@@ -19643,7 +19643,7 @@ C ------- BEGIN -------
       OM   = OMAT_REF(1)
       OL   = OLAM_REF(1)
       w0   = W0_REF(1)
-      wa   = DWDA_REF(1)
+      wa   = WA_REF(1)
       zCMB = z8
       zHEL = z8
       vPEC = 0.0 

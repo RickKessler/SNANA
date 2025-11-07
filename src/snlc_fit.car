@@ -12687,8 +12687,8 @@ c local
 +CDE,SNLCINP.
 
       REAL*8  
-     &   muerr, mudif, muref, mu1, mu2
-     &  ,W_SAVE, OMAT_SAVE
+     &   muerr, mudif, muref, mu_w0, mu_wa, mu_om
+     &  ,W_SAVE, OMAT_SAVE, sqdif
 
 c functions
       REAL*8 DLMAG8_REF
@@ -12702,19 +12702,26 @@ C ------------ BEGIN -------------
 c Now get DLMAG with w shifted by its uncertainty
       W_SAVE    = W0_REF(1)
       W0_REF(1) = W0_REF(1) + W0_REF(2)
-      mu1       = DLMAG8_REF(ZSN)
+      mu_w0     = DLMAG8_REF(ZSN)
       W0_REF(1) = W_SAVE 
+
+c Nov 7 2025: Now get DLMAG with wa shifted by its uncertainty
+      W_SAVE    = WA_REF(1)
+      WA_REF(1) = WA_REF(1) + WA_REF(2)
+      mu_wa     = DLMAG8_REF(ZSN)
+      WA_REF(1) = W_SAVE 
 
 c now get DLMAG with OMAT shifted by its uncertainty
       OMAT_SAVE    = OMAT_REF(1)
       OMAT_REF(1)  = OMAT_REF(1) + OMAT_REF(2)
-      mu2          = DLMAG8_REF(ZSN)
+      mu_om        = DLMAG8_REF(ZSN)
       OMAT_REF(1)  = OMAT_SAVE 
 
 c now add mu-shifts in quadrature (ignore correlations)
 c to get distance error.
-
-      muerr = sqrt ( (mu1-muref)**2 + (mu2-muref)**2 )
+  
+      sqdif = (mu_w0-muref)**2 + (mu_wa-muref)**2 + (mu_om-muref)**2
+      muerr = sqrt(sqdif)
       mudif = MUSN - muref
 
 c inclucde user MUERRSCALE in evaluating the pull.

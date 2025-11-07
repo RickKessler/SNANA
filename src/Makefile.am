@@ -38,7 +38,7 @@ AM_LDFLAGS = $(MYLDFLAGS)
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS += -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
 
-bin_PROGRAMS = snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_fudge.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
+bin_PROGRAMS = fcasplit snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_fudge.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
 
 sntable_dump_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
@@ -72,6 +72,8 @@ simlib_coadd_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTL
 
 unfold_snpar_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
+fcasplit_LDADD = -lpthread $(FLIBS)
+
 snana_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
 
 psnid_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
@@ -84,6 +86,10 @@ SALT2mu_LINK = $(FC) -o SALT2mu.exe
 snana_exe_LINK = $(FC) -o snana.exe
 
 psnid_exe_LINK = $(FC) -o psnid.exe
+
+fcasplit_LINK = $(FC) -o fcasplit
+
+fcasplit_SOURCES = fcasplit.F
 
 SNTOOLS_OUTPUT = \
         sntools_output.cpp

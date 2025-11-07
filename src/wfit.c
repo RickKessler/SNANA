@@ -197,6 +197,8 @@
              Prelim estimate is that wfit now runs x1.5 faster on REBINNED HD with
              negligible change in fitted params.
 
+ Nov 7 2025: new input -outfile_prob1d to give 1D marginalized PDF and CDF
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -298,6 +300,7 @@ struct INPUTS {
   char outFile_cospar[MXCHAR_FILENAME] ; // output name of cospar file
   char outFile_resid[MXCHAR_FILENAME] ;
   char outFile_chi2grid[MXCHAR_FILENAME];
+  char outFile_prob1d[MXCHAR_FILENAME];
   double weightmin;  // min weight for outfile_chi2grid (Apr 28 2025)
   char outFile_mucovtot_inv[MXCHAR_FILENAME];
   
@@ -772,6 +775,7 @@ void init_stuff(void) {
   INPUTS.outFile_cospar[0]   = 0 ;
   INPUTS.outFile_resid[0]    = 0 ;
   INPUTS.outFile_chi2grid[0] = 0 ;
+  INPUTS.outFile_prob1d[0]   = 0 ;
   INPUTS.weightmin           = 1.0E-20;
   INPUTS.outFile_mucovtot_inv[0] = 0 ;
   INPUTS.use_mucov           = FLAG_MUCOVNOSYS ;
@@ -938,12 +942,11 @@ void print_wfit_help(void) {
   static char *help_output[] = {
     " Output:",
     "   -outfile_cospar\tname of output file with fit cosmo params",
-    "   -cospar\t\t  [same as previous]",
     "   -cospar_yaml\tname of output YAML file with fit cosmo params",
-    "   -outfile_resid\tname of output file with mu-residuals",
-    "   -resid\t\t  [same as previous]" ,
-    "   -outfile_chi2grid\tname of output file containing chi2-grid",
+    "   -outfile_resid\tname of output table file with mu-residuals",
+    "   -outfile_chi2grid\tname of output table file containing chi2-grid",
     "   -weightmin\t min weight for outfile_chi2grid (default=1.0E-20)",
+    "   -outfile_prob1d\tname of output table file with marginalized 1D PDF and CDF vs. omm, w0, wa ",
     "   -label\tstring-label for cospar file.",
     "   -outfile_mucovtot_inv\t Write mucovtot_inv to file",
     "",
@@ -1189,6 +1192,8 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"weightmin")==0)  
 	{ INPUTS.weightmin = atof(argv[++iarg]); }
 
+      else if (strcasecmp(argv[iarg]+1,"outfile_prob1d")==0)  
+	{ strcpy(INPUTS.outFile_prob1d, argv[++iarg]); }
 
       else if (strcasecmp(argv[iarg]+1,"outfile_mucovtot_inv")==0)  
 	{ strcpy(INPUTS.outFile_mucovtot_inv,argv[++iarg]); }
@@ -3552,8 +3557,8 @@ void wfit_uncertainty_fitpar(char *varname) {
   int  i, n_steps, nbin_threshold=0;
   bool ISVAR_w = false, ISVAR_omm=false ;
 
-  int  write_prob_table = (INPUTS.debug_flag == 1106); // for debug only
-  char prob_table_debug[] = "out_prob_table.dat" ;
+  char *outfile_prob1d = INPUTS.outFile_prob1d;
+  int  write_prob_table = (strlen(outfile_prob1d) > 0);
   FILE *fp_table;
 
   char fnam[] = "wfit_uncertainty_fitpar";
@@ -3627,11 +3632,12 @@ void wfit_uncertainty_fitpar(char *varname) {
 
   if ( write_prob_table ) { 
     if ( ISVAR_omm ) {
-      fp_table = fopen(prob_table_debug,"wt"); 
+      printf("\t Open diagnostic PROB-1d table : %s\n", outfile_prob1d );
+      fp_table = fopen(outfile_prob1d,"wt"); 
       fprintf(fp_table,"VARNAMES:  ROW  NAME_COSPAR  VAL  PROB  CDF \n");
     }
     else { 
-      fp_table = fopen(prob_table_debug,"at");  // append
+      fp_table = fopen(outfile_prob1d,"at");  // append
     }
 
   }

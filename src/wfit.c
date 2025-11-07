@@ -3405,7 +3405,7 @@ void wfit_marginalize(void) {
   // Created Oct 2 2021
   // use prob map to marginalize; store means in WORKSPACE struct.
 
-  double P1max, P2max, Pt1mp, Pt2mp, w0, wa, omm, chi2 ;
+  double Pmax_tmp, Pt1mp, Pt2mp, w0, wa, omm, chi2 ;
   int    i, kk, j;
   char fnam[] = "wfit_marginalize" ;
 
@@ -3420,23 +3420,23 @@ void wfit_marginalize(void) {
   WORKSPACE.w0_probsum = WORKSPACE.wa_probsum = WORKSPACE.omm_probsum = 0.0 ;
   WORKSPACE.w0_mean    = WORKSPACE.wa_mean    = WORKSPACE.omm_mean    = 0.0 ;
   WORKSPACE.w0_probmax = WORKSPACE.wa_probmax = WORKSPACE.omm_probmax = 0.0 ;
-  P1max = P2max = 0.0;
     
   // Get Marginalise w0
   printf("\t Get Marginalized %s\n", varname_w ); fflush(stdout);
+  Pmax_tmp = 0.0;
   for(i=0; i < INPUTS.w0_steps; i++){
     w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
     WORKSPACE.w0_prob[i] = 0. ;      
     for(kk=0; kk < INPUTS.wa_steps; kk++) {
       for(j=0; j < INPUTS.omm_steps; j++) {
-	Pt1mp       = WORKSPACE.extprob3d[i][kk][j] ;
-	WORKSPACE.w0_prob[i] += Pt1mp ;
-	if ( Pt1mp > P1max ) {
-	  P1max = Pt1mp ;
-	  WORKSPACE.w0_probmax = w0 ;
-	} // if Loop
+	WORKSPACE.w0_prob[i] += WORKSPACE.extprob3d[i][kk][j] ;
+      }
 
-      } // j
+      if ( WORKSPACE.w0_prob[i] > Pmax_tmp ) {
+	Pmax_tmp = WORKSPACE.w0_prob[i];
+	WORKSPACE.w0_probmax = Pmax_tmp;
+      } // if Loop
+      
     } // kk
 
     WORKSPACE.w0_mean    += WORKSPACE.w0_prob[i]*w0;
@@ -3449,6 +3449,7 @@ void wfit_marginalize(void) {
 	
   // - - - - - - - -
   // Get Marginalise wa 	
+  Pmax_tmp = 0.0 ;
   if( INPUTS.dofit_w0wa ) {
     printf("\t Get Marginalized %s\n", varname_wa ); fflush(stdout);
     for(kk=0; kk < INPUTS.wa_steps; kk++){
@@ -3456,13 +3457,14 @@ void wfit_marginalize(void) {
       WORKSPACE.wa_prob[kk] = 0. ; 
       for(i=0; i < INPUTS.w0_steps; i++) {
 	for(j=0; j < INPUTS.omm_steps; j++) {
-	  Pt2mp       = WORKSPACE.extprob3d[i][kk][j] ;
-	  WORKSPACE.wa_prob[kk] += Pt2mp ;
-	  if ( Pt2mp > P2max ) {
-	    P2max = Pt2mp ;
-	    WORKSPACE.wa_probmax = wa ; 
-	  } // if Loop
-	} // j
+	  WORKSPACE.wa_prob[kk] += WORKSPACE.extprob3d[i][kk][j] ;
+	}
+
+	if ( WORKSPACE.wa_prob[kk] > Pmax_tmp ) {
+	  Pmax_tmp = WORKSPACE.wa_prob[kk];
+	  WORKSPACE.wa_probmax = Pmax_tmp;
+	} // if Loop
+	
       } // i
 
       WORKSPACE.wa_mean    += WORKSPACE.wa_prob[kk]*wa;
@@ -3478,6 +3480,7 @@ void wfit_marginalize(void) {
   // - - - - - - - - 
   // Marginalize over w,wa to get omega_m 
   printf("\t Get Marginalized %s\n", varname_omm ); fflush(stdout);
+  Pmax_tmp = 0.0 ;
   for(j=0; j < INPUTS.omm_steps; j++){
     omm = INPUTS.omm_min + j*INPUTS.omm_stepsize;
     WORKSPACE.omm_prob[j] = 0.0 ;
@@ -3485,6 +3488,12 @@ void wfit_marginalize(void) {
       for(i=0; i < INPUTS.w0_steps; i++) {
 	WORKSPACE.omm_prob[j] += WORKSPACE.extprob3d[i][kk][j]; 
       }
+
+      if ( WORKSPACE.omm_prob[j] > Pmax_tmp ) {
+	Pmax_tmp = WORKSPACE.omm_prob[j];
+	WORKSPACE.omm_probmax = Pmax_tmp;
+      } // if Loop
+
     }
     WORKSPACE.omm_mean    += WORKSPACE.omm_prob[j]*omm;
     WORKSPACE.omm_probsum += WORKSPACE.omm_prob[j];
@@ -3533,11 +3542,14 @@ void wfit_uncertainty_fitpar(char *varname) {
   //     -> lower and upper uncertainty
   //
   
+  double prob_threshold_monitor = 0.05; // count how many bins have p/pmax > this (Nov 2025)
+
   double *sig_std, *sig_upper, *sig_lower, sqdelta, delta ;
   double val, val_min, val_max, val_mean, val_step ;
-  double val_sum,  probsum, cdf_find, cdf_max ;
+  double val_sum,  prob, probsum, probmax, cdf_find, cdf_max ;
   double *val_array, *prob_array, *cdf_array, STD_WARN ;
-  int  i, n_steps;
+  double probsum_check = 0.0, mean_check=0.0 ;
+  int  i, n_steps, nbin_threshold=0;
   bool ISVAR_w = false, ISVAR_omm=false ;
 
   int  write_prob_table = (INPUTS.debug_flag == 1106); // for debug only
@@ -3559,6 +3571,7 @@ void wfit_uncertainty_fitpar(char *varname) {
     val_step =  INPUTS.omm_stepsize;
     val_mean =  WORKSPACE.omm_mean;
     probsum  =  WORKSPACE.omm_probsum;    
+    probmax  =  WORKSPACE.omm_probmax / probsum; 
 
     val_array     =  WORKSPACE.omm_val ;
     prob_array    =  WORKSPACE.omm_prob;
@@ -3575,6 +3588,7 @@ void wfit_uncertainty_fitpar(char *varname) {
     val_step =  INPUTS.w0_stepsize;
     val_mean =  WORKSPACE.w0_mean;
     probsum  =  WORKSPACE.w0_probsum;
+    probmax  =  WORKSPACE.w0_probmax / probsum; 
 
     val_array      =  WORKSPACE.w0_val ;    
     prob_array     =  WORKSPACE.w0_prob;
@@ -3591,6 +3605,7 @@ void wfit_uncertainty_fitpar(char *varname) {
     val_step =  INPUTS.wa_stepsize;
     val_mean =  WORKSPACE.wa_mean;
     probsum  =  WORKSPACE.wa_probsum;
+    probmax  =  WORKSPACE.wa_probmax / probsum;    
 
     val_array      =  WORKSPACE.wa_val ;        
     prob_array     =  WORKSPACE.wa_prob;
@@ -3627,15 +3642,16 @@ void wfit_uncertainty_fitpar(char *varname) {
   // xxx mark cdf_array[0] = 0.0;
   cdf_array[0] = prob_array[0]; // minor fix, Nov 6 2025
 
-  double probsum_check = 0.0, mean_check=0.0 ;
   for(i=0; i < n_steps; i++) {
     val      = val_min + i*val_step;
     val_array[i]   = val;
     prob_array[i] /= probsum;  
+    prob           = prob_array[i];
     delta    = val - val_mean ;
     sqdelta += prob_array[i] * (delta*delta);   
     if ( i > 0 ) { cdf_array[i] = cdf_array[i-1] + prob_array[i]; }
 
+    if ( prob/probmax > prob_threshold_monitor ) { nbin_threshold++; }
     probsum_check += prob_array[i];
     mean_check    += val * prob_array[i];
 
@@ -3687,15 +3703,12 @@ void wfit_uncertainty_fitpar(char *varname) {
   
   printf("\t 68 percent %s-err estimate: lower = %f, upper = %f (use=%d)\n", 
 	 varname, *sig_lower, *sig_upper, INPUTS.use_sig_68);  
+  printf("\t diagnostic: prob/probmax at PDF edges: %.3le / %.3le (probmax=%.4f) \n",
+	 prob_array[0], prob_array[n_steps-1], probmax );
+  printf("\t diagnostic: %d bins with prob/probmax > %.3f \n",
+	 nbin_threshold, prob_threshold_monitor);
 
-
-  // - - - -
-  // xxx check mean using cdf ...
-  cdf_find = 0.5;
-  val  = interp_1DFUN(1, cdf_find, n_steps,  cdf_array, val_array, fnam);
-  printf(" xxx %s: mean[orig, cdf=0.5] = %f  %f \n",
-	 fnam, val_mean, val);
-  // xxxxx
+  // .xyz
 
   fflush(stdout);
 
@@ -3895,7 +3908,6 @@ void wfit_final(void) {
 		 &HD_FINAL.muresid_avg, &snchi_tmp, &chi2_final );   // return args
 
   // correctd HD_FINAL.mu so that wgt avg resid is zero (Dec 2024)
-  // .xyz
   
   WORKSPACE.chi2_final  = chi2_final;
 

@@ -538,8 +538,8 @@ double  M0_DEFAULT;
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
 #define CUTBIT_z          0    //  zmin - zmax cut
-#define CUTBIT_s         1    //  x1min-x1max cut
-#define CUTBIT_c          2    //  cmin - cmax cut
+#define CUTBIT_s         1    //   x1min-x1max cut (or cut on BAYESN theta)
+#define CUTBIT_c          2    //  cmin - cmax cut (or cut on BAYESN AV)
 #define CUTBIT_logmass    3    //  logmass cut
 #define CUTBIT_sntype     4    //  sntype cut 
 #define CUTBIT_HOST       5    //  required host info
@@ -1179,8 +1179,8 @@ struct INPUTS {
   ZRATE_SCALE_DEF ZRATE_SCALE ;
 
   // - - - - - -  cuts - - - - - 
-  double cmin,  cmax  ;
-  double x1min, x1max ;
+  double cmin,  cmax, avmin, avmax  ;   // Nov 6 2025: add BAYESN Av range 
+  double x1min, x1max, thetamin, thetamax ;
   double zmin,  zmax  ;
   double logmass_min, logmass_max ;
   int    nbin_logmass;
@@ -5687,6 +5687,11 @@ void set_defaults(void) {
   INPUTS.x1max = +3.0;
   INPUTS.cmin  = -0.3; 
   INPUTS.cmax  = +0.3;
+
+  INPUTS.thetamin = -3.0; // Nov 6 2025
+  INPUTS.thetamax = +3.0;
+  INPUTS.avmin    =  0.0; 
+  INPUTS.avmax    = +1.0;
 
   INPUTS.nbinc_mucovscale  = 3 ;
 
@@ -15941,6 +15946,8 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
 
 void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO) {
 
+  // For input *VARNAME, define bins used for CC prior.
+
   int nbin ;
   double xbin, xmin, xmax; // generic variables for any VARNAME
   char fnam[] = "setup_BININFO_CCPRIOR" ;
@@ -18435,10 +18442,20 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"x1max="))  
     { sscanf(&item[6],"%le",&INPUTS.x1max); return(1); }
 
+  if ( uniqueOverlap(item,"thetamin=")) 
+    { sscanf(&item[9],"%le",&INPUTS.thetamin); return(1); }
+  if ( uniqueOverlap(item,"thetamax="))  
+    { sscanf(&item[9],"%le",&INPUTS.thetamax); return(1); }
+
   if ( uniqueOverlap(item,"cmin="))  
     { sscanf(&item[5],"%le",&INPUTS.cmin); return(1); }
   if ( uniqueOverlap(item,"cmax="))  
     { sscanf(&item[5],"%le",&INPUTS.cmax); return(1); }
+
+  if ( uniqueOverlap(item,"avmin="))  
+    { sscanf(&item[6],"%le",&INPUTS.avmin); return(1); }  // Nov 6 2025
+  if ( uniqueOverlap(item,"avmax="))  
+    { sscanf(&item[6],"%le",&INPUTS.avmax); return(1); }
 
 
   if ( uniqueOverlap(item,"logmass_min="))  

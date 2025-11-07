@@ -9,6 +9,9 @@ AM_INIT_AUTOMAKE([foreign])
 
 AC_CONFIG_MACRO_DIR([m4])
 
+UTIL_DIR='$(top_srcdir)/util'
+AC_SUBST([UTIL_DIR])
+
 dnl setting up gfortran and gcc
 AC_PROG_CC([gcc])
 AC_PROG_FC([gfortran])

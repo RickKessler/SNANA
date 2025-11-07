@@ -3,6 +3,14 @@ EXTRA_FLAGS = -O2
 
 PROFILEFLAG = 
 
+bindir = $(top_builddir)/bin
+
+# Make sure the bin directory exists before building
+all-local:
+	$(MKDIR_P) $(bindir)
+
+clean-local:
+	rm -rf $(bindir)
 
 if BIT64
 MYFFLAGS = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) 
@@ -28,13 +36,13 @@ AM_CFLAGS = $(MYCFLAGS)
 AM_LDFLAGS = $(MYLDFLAGS)
 
 # tack on flag to provide git version to C/fortran codes
-AM_CFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
+AM_CFLAGS += -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
 
-bin_PROGRAMS = snana.exe sntable_dump sntable_combine combine_fitres.exe SALT2mu wfit.exe kcor.exe snlc_sim.exe SIMSED_fudge.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
+bin_PROGRAMS = snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_fudge.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
 
-sntable_dump_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
+sntable_dump_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
-sntable_combine_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
+sntable_combine_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
 combine_fitres_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
@@ -68,10 +76,10 @@ snana_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
 
 psnid_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
 
-SALT2mu_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS) $(FLIBS)
+SALT2mu_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS) $(FLIBS)
 
 # Need to force automake to use gfortran as the linker
-SALT2mu_LINK = $(FC) -o SALT2mu
+SALT2mu_LINK = $(FC) -o SALT2mu.exe
 
 snana_exe_LINK = $(FC) -o snana.exe
 
@@ -80,9 +88,9 @@ psnid_exe_LINK = $(FC) -o psnid.exe
 SNTOOLS_OUTPUT = \
         sntools_output.cpp
 
-sntable_dump_SOURCES = sntable_dump.c sntools.c sntools_output.cpp
+sntable_dump_exe_SOURCES = sntable_dump.c sntools.c sntools_output.cpp
 
-sntable_combine_SOURCES = sntable_combine.c sntools.c sntools_output.cpp
+sntable_combine_exe_SOURCES = sntable_combine.c sntools.c sntools_output.cpp
 
 combine_fitres_exe_SOURCES = combine_fitres.c sntools.c sntools_output.cpp
 
@@ -101,7 +109,7 @@ snlc_sim_exe_SOURCES = snlc_sim.c $(sntools_snana_SRC) sntools_host.c sntools_wg
 
 snlc_fit_exe_SOURCES = snlc_fit.f $(sntools_snana_SRC) sntools_genSmear.c sntools_devel.c sntools_zPDF_spline.c minuit.F $(genmag_fit_SRC)
 
-SALT2mu_SOURCES = SALT2mu.c sntools.c sntools_output.cpp sntools_gridmap.c sntools_genGauss_asym.c minuit.F sntools_genExpHalfGauss.c
+SALT2mu_exe_SOURCES = SALT2mu.c sntools.c sntools_output.cpp sntools_gridmap.c sntools_genGauss_asym.c minuit.F sntools_genExpHalfGauss.c
 
 sntools_data_SRC = sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_output.cpp sntools_cosmology.c
 

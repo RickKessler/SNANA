@@ -19,6 +19,20 @@ AC_PROG_F77([gfortran])
 AC_F77_LIBRARY_LDFLAGS
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
+
+
+# Try to get Git version
+AC_CHECK_PROG([GIT], [git], [git], [no])
+if test "$GIT" != "no"; then
+  AC_MSG_CHECKING([Git version])
+  GIT_VERSION=`$GIT describe --always --tags 2>/dev/null || echo "unknown"`
+  AC_MSG_RESULT([$GIT_VERSION])
+else
+  GIT_VERSION="unknown"
+fi
+AC_SUBST([GIT_VERSION])
+
+
 AM_PATH_PYTHON([3.10])
 
 AC_PATH_PROGS([PYTHON_CONFIG], [python3-config python-config], [no])

@@ -1,6 +1,4 @@
 SUBDIRS = src 
-# HMK Will need to add util
-#
 
 clean-local:
 	rm config.status configure config.log

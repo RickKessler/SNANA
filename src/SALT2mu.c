@@ -16375,15 +16375,16 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PR
   }
 
 
-  if ( ISMODEL_SALT2 )  {
-    a    = ABGM[0];
-    b    = ABGM[1];
-    gDM  = ABGM[2];
-    M0   = ABGM[3];
-    dumpflag = 0 ;
-    if ( NDIM_BIASCOR >= 5 ) 
-      { get_INTERPWGT_abg(a, b, gDM, dumpflag , &INTERPWGT, fnam ); } // returns INTERPWGT
-  }
+  // Call get_INTERPWGT_abg for SALT3 or BAYESN
+  a    = ABGM[0];
+  b    = ABGM[1];
+  gDM  = ABGM[2];
+  M0   = ABGM[3];
+  dumpflag = 0 ;
+  if ( NDIM_BIASCOR >= 5 ) 
+    { get_INTERPWGT_abg(a, b, gDM, dumpflag , &INTERPWGT, fnam ); } // returns INTERPWGT
+
+
 
   // - - - - - -
   // start loop over events
@@ -16402,7 +16403,7 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PR
       mu   = d + a*s - b*c - M0 ; 
     }
     else {
-      mu = d; 
+      mu = d - M0; 
     }
     
     // apply SNIa mu-bias Correction if simfile_bias is given;
@@ -16418,6 +16419,9 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PR
 	BIASCORLIST.alpha       = a ;
 	BIASCORLIST.beta        = b ;
 	BIASCORLIST.gammadm     = gDM;
+      }
+      else if ( ISMODEL_BAYESN ) {
+	// do nothing ??
       }
 
       // transfer FITPARBIAS_ALPHABETA to FITPARBIAS_TMP that has

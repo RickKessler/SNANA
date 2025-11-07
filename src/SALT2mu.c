@@ -457,7 +457,8 @@ char PATH_SNDATA_ROOT[MXPATHLEN];
 #define VARNAME_SALT2_mx       "mx"
 #define VARNAME_SALT2_x1       "x1"
 #define VARNAME_SALT2_c        "c"
-#define VARNAME_BAYESN_theta1  "theta1"
+#define VARNAME_BAYESN_theta  "theta"
+// xxx mark delete Nov 7 2025 #define VARNAME_BAYESN_theta1  "theta1"
 #define VARNAME_BAYESN_AV      "AV"
 #define VARNAME_BAYESN_mu      "mu"
 
@@ -478,7 +479,7 @@ char    BIASCOR_NAME_SALT2[3][8] = { VARNAME_SALT2_mB, VARNAME_SALT2_x1, VARNAME
 double  BIASCOR_MINVAL_BAYESN[3]  = { -9.0, -4.0, +0.00 } ;
 double  BIASCOR_MAXVAL_BAYESN[3]  = { -9.0, +4.0, +1.00 } ;
 double  BIASCOR_BINSIZE_BAYESN[3] = { -9.0,  0.5,  0.10 } ; //0.1 for now 
-char    BIASCOR_NAME_BAYESN[3][8] = { VARNAME_BAYESN_mu, VARNAME_BAYESN_theta1, VARNAME_BAYESN_AV} ;
+char    BIASCOR_NAME_BAYESN[3][8] = { VARNAME_BAYESN_mu, VARNAME_BAYESN_theta, VARNAME_BAYESN_AV} ;
 double  SIM_ABG_BAYESN  = 1.0;   // dummy values for SALT2 alpha, beta, gamma
 
 double  BIASCOR_MINVAL_LCFIT[3]  ; //Set to either SALT2 or BAYESN values
@@ -6094,8 +6095,13 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
 
   // setup color bins that are coarser than those for muBias.
   // Note that other bins (a,b,z) are same for muCOVscale and muBias.
+  if ( INPUTS.ISMODEL_LCFIT_SALT2 ) 
+    { cmin=INPUTS.cmin; cmax=INPUTS.cmax; }
+  else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) 
+    { cmin=INPUTS.avmin; cmax=INPUTS.avmax; }
+
   NBINc=INPUTS.nbinc_mucovscale; // user input instead of hard-wired (March 2022 MVincenzi)
-  cmin=INPUTS.cmin; cmax=INPUTS.cmax;
+  // xxx mark delete Nov 7 2025   cmin=INPUTS.cmin; cmax=INPUTS.cmax;
   cbin=(cmax-cmin)/(double)NBINc;
 
 
@@ -15839,8 +15845,8 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
       setup_BININFO_CCPRIOR(VARNAME_SALT2_x1, SBIN);
     }
     else if ( ISMODEL_BAYESN ) {
-      setup_BININFO_CCPRIOR(VARNAME_BAYESN_AV,     CBIN);
-      setup_BININFO_CCPRIOR(VARNAME_BAYESN_theta1, SBIN);
+      setup_BININFO_CCPRIOR(VARNAME_BAYESN_AV,    CBIN);
+      setup_BININFO_CCPRIOR(VARNAME_BAYESN_theta, SBIN);
     }
   }
 
@@ -15994,17 +16000,23 @@ void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO) {
     nbin = INPUTS.nsbin_ccprior ;      
     xbin = (xmax-xmin) / (double)nbin ;
   }
-  else if ( strcmp(VARNAME,VARNAME_BAYESN_AV) == 0 || 
-	    strcmp(VARNAME,VARNAME_BAYESN_theta1) ) {
-    sprintf(c1err,"Don't know what to do for BAYESN var = %s", VARNAME);
-    sprintf(c2err,"Somebody needs to figure out how to bin this variable for CCprior.");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+  else if ( strcmp(VARNAME,VARNAME_BAYESN_AV) == 0 ) {
+    xmin = INPUTS.avmin ;
+    xmax = INPUTS.avmax ;
+    nbin = INPUTS.ncbin_ccprior ;  // re-use generic ncbin for number of color bins
+    xbin = (xmax-xmin) / (double)nbin ;
+  }
+  else if ( strcmp(VARNAME,VARNAME_BAYESN_theta) == 0 ) {
+    xmin = INPUTS.thetamin;
+    xmax = INPUTS.thetamax;
+    nbin = INPUTS.nsbin_ccprior ;  // re-use generic nsbin for number of stretch bins
+    xbin = (xmax-xmin) / (double)nbin ;
   }
   else {
     sprintf(c1err,"Invalid VARNAME = %s", VARNAME);
     sprintf(c2err,"Valid VARNAMES are %s  %s  %s  %s  %s ",
 	    VARNAME_zHD, VARNAME_SALT2_c, VARNAME_SALT2_x1, 
-	    VARNAME_BAYESN_AV, VARNAME_BAYESN_theta1);
+	    VARNAME_BAYESN_AV, VARNAME_BAYESN_theta);
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
@@ -17448,7 +17460,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // May 28 2021: fix COV cut bug; cut on cov(mB,X) instead of cov(x0,X)
   // Dec 16 2022: use select_FIELD(field) to apply fieldlist cut
   // Feb 24 2025: always parse field (do not require INPUTS.NFIELD>0)
-  //
+  // Nov 07 2025: replace x1 with generic 's' (stretch) to work for SALT3 and BAYESN
+
   int  event_type = TABLEVAR->EVENT_TYPE;
   bool IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   bool IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
@@ -17463,8 +17476,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int  sntype, SIM_TEMPLATE_INDEX, idsample, idsurvey, IZBIN ;
   bool BADERR=false, BADCOV=false, sel ;
   double cutvar_local[MXSELECT_VAR];
-  double z, x1, c, logmass, x0err, x1err, cerr  ;
+  double z, s, c, logmass, x0err, serr, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
+  double smin, smax, cmin, cmax; // generic cuts on stretch and color
   char   *name, field[60]="VOID" ;
   char fnam[]=  "set_CUTMASK";
 
@@ -17493,13 +17507,15 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     { TABLEVAR->host_logmass[isn] = logmass = -9.0; }
 
 
+  // get generic stretch and color for either SALT3 or BAYESN
+  s         =  (double)TABLEVAR->fitpar[INDEX_s][isn] ;
+  c         =  (double)TABLEVAR->fitpar[INDEX_c][isn] ;  
+  serr      =  (double)TABLEVAR->fitpar_err[INDEX_s][isn] ;
+  cerr      =  (double)TABLEVAR->fitpar_err[INDEX_c ][isn] ;
+
   if ( ISMODEL_LCFIT_SALT2 ) {
-    x1        =  (double)TABLEVAR->fitpar[INDEX_s][isn] ;
-    c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
     x0err     =  (double)TABLEVAR->x0err[isn] ;
     mBerr     =  (double)TABLEVAR->fitpar_err[INDEX_d][isn] ;
-    x1err     =  (double)TABLEVAR->fitpar_err[INDEX_s][isn] ;
-    cerr      =  (double)TABLEVAR->fitpar_err[INDEX_c ][isn] ;
     COV_mBx1  = (double)TABLEVAR->covmat_fit[isn][INDEX_d][INDEX_s];     
     COV_mBc   = (double)TABLEVAR->covmat_fit[isn][INDEX_d][INDEX_c];
     COV_x1c   = (double)TABLEVAR->covmat_fit[isn][INDEX_s][INDEX_c];
@@ -17507,6 +17523,16 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   SIM_TEMPLATE_INDEX = (int)TABLEVAR->SIM_TEMPLATE_INDEX[isn] ;
 
+
+
+  if ( ISMODEL_LCFIT_SALT2 ) {
+    cmin = INPUTS.cmin;   cmax = INPUTS.cmax;
+    smin = INPUTS.x1min;  smax = INPUTS.x1max;
+  }
+  else if ( ISMODEL_LCFIT_BAYESN ) {
+    cmin = INPUTS.avmin;   cmax = INPUTS.avmax;
+    smin = INPUTS.thetamin;  smax = INPUTS.thetamax;
+  }
 
   // =======================================
   // check CUTWIN options; reject_CUTWIN returns 
@@ -17546,18 +17572,26 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   if ( (logmass<INPUTS.logmass_min) || (logmass>INPUTS.logmass_max) ) 
     { setbit_CUTMASK(isn, CUTBIT_logmass, TABLEVAR);  }
 
-  // - - - -
+
+  if ( (s < smin) || (s > smax))   // Nov 7 2025: works for SALT3 or BAYESN
+    { setbit_CUTMASK(isn, CUTBIT_s, TABLEVAR); }
+
+  if ( (c < cmin) || ( c > cmax) )  // Nov 7 idem
+    { setbit_CUTMASK(isn, CUTBIT_c, TABLEVAR); }
+
 
   if ( ISMODEL_LCFIT_SALT2 ) {
-    if ( (x1 < INPUTS.x1min) || (x1 > INPUTS.x1max)) 
+
+    /* xxx mark delete Nov 7 2025 xxx
+    if ( (s < INPUTS.x1min) || (s > INPUTS.x1max)) 
       { setbit_CUTMASK(isn, CUTBIT_s, TABLEVAR); }
 
     if ( (c < INPUTS.cmin) || ( c > INPUTS.cmax) ) 
       { setbit_CUTMASK(isn, CUTBIT_c, TABLEVAR); }
-
+    xxxxxxxx */
 
     if ( x0err <= INPUTS.maxerr_abort_x0 ) { BADERR = true ; }
-    if ( x1err <= INPUTS.maxerr_abort_x1 ) { BADERR = true ; }
+    if (  serr <= INPUTS.maxerr_abort_x1 ) { BADERR = true ; }
     if (  cerr <= INPUTS.maxerr_abort_c  ) { BADERR = true ; }
 
     if ( BADERR ) {
@@ -17567,7 +17601,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 	      "one or more x0,x1,c errors <=0 (SNID=%s)\n", fnam, name );
       }
     }
-
   
     // May 2016  flag crazy COV and mBerr 
     if ( fabs(COV_mBx1) > 8.0 ) { BADCOV = true ; } 
@@ -20673,10 +20706,21 @@ void prep_input_driver(void) {
   }
 
 
-  fprintf(FP_STDOUT, "x1min/x1max = %.3f / %.3f \n", 
-	  INPUTS.x1min, INPUTS.x1max);
-  fprintf(FP_STDOUT, "cmin/cmax   = %.3f / %.3f \n", 
-	 INPUTS.cmin, INPUTS.cmax);
+  if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
+    fprintf(FP_STDOUT, "x1min/x1max = %.3f / %.3f \n", 
+	    INPUTS.x1min, INPUTS.x1max);
+    fprintf(FP_STDOUT, "cmin/cmax   = %.3f / %.3f \n", 
+	    INPUTS.cmin, INPUTS.cmax);
+  }
+  else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
+    fprintf(FP_STDOUT, "thetamin/thetamax = %.3f / %.3f \n", 
+	    INPUTS.thetamin, INPUTS.thetamax);
+    fprintf(FP_STDOUT, "avmin/avmax   = %.3f / %.3f \n", 
+	    INPUTS.avmin, INPUTS.avmax);
+
+  }
+
+
   fprintf(FP_STDOUT, "logmass_min/max = %.3f/%.3f \n", 
 	 INPUTS.logmass_min, INPUTS.logmass_max);
   fprintf(FP_STDOUT, "H0=%f \n", INPUTS.H0);

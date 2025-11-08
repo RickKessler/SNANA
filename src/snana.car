@@ -8552,16 +8552,24 @@ c - - - -
           READ(ARGLIST(1),*) H0_REF
 
         else if ( MATCH_NMLKEY('OLAM_REF',
-     &            1, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) OLAM_REF
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) OLAM_REF(1)
+          READ(ARGLIST(2),*) OLAM_REF(2)
 
         else if ( MATCH_NMLKEY('OMAT_REF',
-     &            1, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) OMAT_REF
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) OMAT_REF(1)
+          READ(ARGLIST(2),*) OMAT_REF(2)
 
         else if ( MATCH_NMLKEY('W0_REF',
-     &            1, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) W0_REF
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) W0_REF(1)
+          READ(ARGLIST(2),*) W0_REF(2)
+
+        else if ( MATCH_NMLKEY('WA_REF',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) WA_REF(1)
+          READ(ARGLIST(2),*) WA_REF(2)
 
         else if ( MATCH_NMLKEY('ZTOL_HELIO2CMB',
      &            1, iArg, ARGLIST) ) then

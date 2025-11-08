@@ -23304,6 +23304,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        summary for each spectrum
      + special new key  LCPLOT_BATCH to allow it in batch mode;
          SNTABEL_LIST = 'FITRES LCPLOT_BATCH'
+     + rename DWDA_REF to WA_REF and fix command line override to read
+       both value and error for all cos params (for cosmology prior)
 
    wfit.c
      + remove strange logic that suppressed USE_SPEED_INTERP if n_logz > NSN/2;

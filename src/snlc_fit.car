@@ -12688,7 +12688,8 @@ c local
 
       REAL*8  
      &   muerr, mudif, muref, mu_w0, mu_wa, mu_om
-     &  ,W_SAVE, OMAT_SAVE, sqdif
+     &  ,W_SAVE, OMAT_SAVE, sqdif, RHO_W0WA
+     &  ,sigmu_w0, sigmu_wa, sigmu_om
 
 c functions
       REAL*8 DLMAG8_REF
@@ -12720,7 +12721,15 @@ c now get DLMAG with OMAT shifted by its uncertainty
 c now add mu-shifts in quadrature (ignore correlations)
 c to get distance error.
   
-      sqdif = (mu_w0-muref)**2 + (mu_wa-muref)**2 + (mu_om-muref)**2
+      sigmu_w0 = mu_w0-muref
+      sigmu_wa = mu_wa-muref
+      sigmu_om = mu_om-muref
+      sqdif = sigmu_w0*sigmu_w0 + sigmu_wa*sigmu_wa + sigmu_om*sigmu_om
+
+c Nov 7 2025: very rough correction for w0/wa correlation
+      RHO_W0WA = -0.8
+      sqdif = sqdif + 2.0*sigmu_w0*sigmu_wa*RHO_W0WA
+      
       muerr = sqrt(sqdif)
       mudif = MUSN - muref
 

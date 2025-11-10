@@ -32041,14 +32041,14 @@ void append_stats_SIMLIB_DUMP(int NLIBID_TOT, int NOBS_TOT, char *SIMLIB_DUMPFIL
 
   char cmd_sed[MXPATHLEN];
   char fnam[] = "append_stats_SIMLIB_DUMP" ;
-
+  int isys;
   // ----------- BEGIN -----------
 
   sprintf(cmd_sed, "sed -i 's/NLIBID_XXX/%d/g'  %s", NLIBID_TOT, SIMLIB_DUMPFILE);
-  system(cmd_sed);
+  isys = system(cmd_sed);
 
   sprintf(cmd_sed, "sed -i 's/NOBS_XXX/%d/g'  %s", NOBS_TOT, SIMLIB_DUMPFILE);
-  system(cmd_sed);  
+  isys = system(cmd_sed);  
   
   return ;
 } // end append_stats_SIMLIB_DUMP

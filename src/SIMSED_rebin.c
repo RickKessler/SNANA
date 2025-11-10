@@ -284,6 +284,7 @@ void  make_OUTDIR_SIMSED(void) {
 
   // Create output SIMSED dir, and open SED.INFO file.
   FILE *fp;
+  int isys;
   char cmd_make[400], cmd_rm[400] ;
   // ----------- BEGIN ---------
 
@@ -291,11 +292,11 @@ void  make_OUTDIR_SIMSED(void) {
   if ( fp ) {
     sprintf(cmd_rm,"rm -r %s/", INPUTS.OUTDIR_SIMSED);
     if ( strlen(INPUTS.OUTDIR_SIMSED) > 5 ) 
-      { system(cmd_rm); }
+      { isys = system(cmd_rm); }
   }
 
   sprintf(cmd_make, "mkdir -m g+wr %s", INPUTS.OUTDIR_SIMSED);
-  system(cmd_make);
+  isys = system(cmd_make);
   printf("  mkdir %s \n", INPUTS.OUTDIR_SIMSED);
 
   FP_SEDINFO_OUT = fopen(SEDINFO_FILE_OUT,"wt");

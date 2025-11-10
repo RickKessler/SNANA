@@ -690,7 +690,7 @@ void ADD_FITRES(int ifile) {
   // Ju 13 2025: check for csv file
   
  
-  int  ivar, ivarstr, j, isn, isn2, NMATCH2 ;
+  int  ivar, ivarstr, j, isn, isn2, NMATCH2, isys ;
   int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST ;
   int  index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
   bool is_csv ;
@@ -721,7 +721,7 @@ void ADD_FITRES(int ifile) {
     sprintf(cmd,"convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
     printf(" Convert csv format to SNANA-key format with command\n\t %s\n", cmd);
     fflush(stdout);
-    system(cmd);
+    isys = system(cmd);
     NFILE_CSV++ ;
   }
 
@@ -918,7 +918,7 @@ void ADD_FITRES(int ifile) {
   if ( NFILE_CSV > 0 && ifile == INPUTS.NFFILE - 1 ) {
     sprintf(cmd,"rm %s*.FITRES", PREFIX_CSV );
     // printf("\n xxx %s \n\n", cmd);
-    system(cmd);
+    isys = system(cmd);
   }
 
   return ;
@@ -1482,7 +1482,7 @@ void WRITE_SNTABLE(void) {
   if ( GZIPFLAG )  { 
     char cmd[400];
     sprintf(cmd,"gzip %s", INPUTS.OUTFILE_TEXT);
-    system(cmd); 
+    int isys = system(cmd); 
   }
 
   return;

@@ -1404,7 +1404,7 @@ void checkBinary_SIMSED(char *binaryFile) {
       printf("%s\n\n", line);
       
       sprintf(rm,"rm %s", binaryFile);
-      system(rm); return ;
+      int isys = system(rm); return ;
     }
   } // end ifile loop
 

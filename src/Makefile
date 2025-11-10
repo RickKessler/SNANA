@@ -409,8 +409,8 @@ $(OBJ)/cnpy.o : $(SRC)/cnpy.cpp $(SRC)/cnpy.h
 $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/wfit.c ) 
 
-$(OBJ)/sntools_npz.o : $(SRC)/sntools_npz.c
-	(cd $(OBJ); $(CCoutput) $(SNCFLAGS) -I/$(CONDA_PREFIX)/include $(SRC)/sntools_npz.c )
+$(OBJ)/sntools_npz.o : $(SRC)/sntools_npz.cpp
+	(cd $(OBJ); $(CCoutput) $(SNCFLAGS) -I/$(CONDA_PREFIX)/include $(SRC)/sntools_npz.cpp )
 
 $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o  $(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(CC) -o  $@ $(SNLDFLAGS) \

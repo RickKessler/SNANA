@@ -315,6 +315,13 @@ For help, run code with no arguments
    + do NOT require pIa variable for biascor to avoid false abort on LOWZ biascor.
        (in function SNTABLE_READPREP_TABLEVAR)
 
+ Nov 10 2025
+   + reverse Oct 21 2025 change for adding -M0 to mu
+   + remove input M0 (or mag0) and just use M0_DEFAUT everywhere to work
+     for SALT3 or BAYESN
+
+ 
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1279,7 +1286,7 @@ struct INPUTS {
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
   int    uzsim ;     // flag to cheat and use simulated zCMB (default=F)
-  double M0 ;        // nominal SN magnitude without offset (-30)
+  // xxx mark delete Nov 10 2025   double M0 ;        // nominal SN magnitude without offset (-30)
   double H0 ;
 
   int    FLOAT_COSPAR ;    // internal: TRUE if any COSPAR is floated
@@ -1468,7 +1475,7 @@ struct {
   int NSNSPEC_IA ;     // NSN with force_probcc=0 (e.g. low-z samples)
   
   double AVEMAG0 ; // average M0 among z bins
-  double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.M0
+  double SNMAG0 ;  // AVEMAG0, or user-input M0_DEFAULT
 
   double M0DIF[MXz]; // M0-M0avg per z-bin
   double M0ERR[MXz]; // error on above
@@ -2480,7 +2487,8 @@ void exec_mnparm(void) {
     ISFLOAT = FITINP.ISFLOAT_z[iz] ;
       
     //               val            step   min  max     boolean
-    set_fitPar( i, INPUTS.M0, 0.1,   M0min,M0max,  ISFLOAT ); 
+    // xxx mark delet Nov 10 2025   set_fitPar( i, INPUTS.M0, 0.1,   M0min,M0max,  ISFLOAT );
+    set_fitPar( i, M0_DEFAULT, 0.1,   M0min,M0max,  ISFLOAT ); 
     INPUTS.izpar[i] = iz ; 
       
     sprintf(text,"m0_%2.2d",iz);
@@ -3169,7 +3177,8 @@ void applyCut_chi2max(void) {
   int  IFLAG_GLOBAL   = 4 ;
 
   bool   DO_H0marg   = true ;
-  double M0_ORIG     = INPUTS.M0;
+  // xxx mark Nov 2025 double M0_ORIG     = INPUTS.M0;
+  double M0_ORIG     = M0_DEFAULT;
   //   int  IFLAG_SURVEY   = 8 ;
 
   bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
@@ -3219,7 +3228,8 @@ void applyCut_chi2max(void) {
     }
     
     muoff        = sum_mures / sum_wgt;
-    INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
+    // xxx mark Nov 10 2025 INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
+    M0_DEFAULT  += muoff;  // adjust M0 to account for unknown H0
     fprintf(FP_STDOUT, "\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
     fflush(FP_STDOUT);
 
@@ -4904,7 +4914,8 @@ double fcn_M0(int n, double *M0LIST) {
 
   // ----------- BEGIN ----------
 
-  M0      = INPUTS.M0 ;
+  // xxx mark Nov 10 2025   M0      = INPUTS.M0 ;
+  M0      = M0_DEFAULT ;
 
   iz0     = INFO_DATA.TABLEVAR.IZBIN[n];
   zdata   = INFO_DATA.TABLEVAR.zhd[n];
@@ -5420,7 +5431,10 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
   int NSAMPLE                      = NSAMPLE_BIASCOR ;
   TABLEVAR_DEF* TABLEVAR_CUTS      = &INFO_CCPRIOR.TABLEVAR_CUTS; // should be passed as arg?
   PROB_CCPRIOR_DEF *PROB_CCPRIOR   = &INFO_CCPRIOR.PROB_CCPRIOR ;
-  double  ABGM[4]  = { xval[IPAR_ALPHA0], xval[IPAR_BETA0], 0.0, INPUTS.M0 } ;
+
+  // xxx mark delete Nov 10 2025  double  ABGM[4]  = { xval[IPAR_ALPHA0], xval[IPAR_BETA0], 0.0, INPUTS.M0 } ;
+  double  ABGM[4]  = { xval[IPAR_ALPHA0], xval[IPAR_BETA0], 0.0, M0_DEFAULT } ;
+  
   int i, idsample ;
   double cosPar[10];
   char fnam[] = "fcn_ccprior_muzmap";
@@ -5431,7 +5445,8 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
 
   MUZMAP->alpha = xval[IPAR_ALPHA0];
   MUZMAP->beta  = xval[IPAR_BETA0];
-  MUZMAP->M0    = INPUTS.M0;
+  // xxx mark delete MUZMAP->M0    = INPUTS.M0;
+  MUZMAP->M0    = M0_DEFAULT;
 
 
   /* xxxx mark delete 9.11. 2025 xxxxxxx
@@ -5796,7 +5811,7 @@ void set_defaults(void) {
   INPUTS.zpolyflag = 0;
   //Default distance modulus parameters
   INPUTS.H0         = 70.0;
-  INPUTS.M0         = M0_DEFAULT ;
+  // xxx mark delete Nov 10 2025  INPUTS.M0         = M0_DEFAULT ;
   INPUTS.uave       = 1;
 
   // Default parameters 
@@ -12392,8 +12407,8 @@ double muresid_biasCor(int ievt ) {
 
   // ----------------- BEGIN ----------------
 
-
-  M0     = INPUTS.M0 ;
+  // xxx mark  M0     = INPUTS.M0 ;
+  M0     = M0_DEFAULT ;
 
   //  g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
   z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
@@ -15911,7 +15926,8 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   MUZMAP->alpha   = INPUTS.parval[IPAR_ALPHA0] ;
   MUZMAP->beta    = INPUTS.parval[IPAR_BETA0] ;
   MUZMAP->gammadm = 0.0  ;
-  MUZMAP->M0      = INPUTS.M0 ;
+  // xxx mark delerte   MUZMAP->M0      = INPUTS.M0 ; 
+  MUZMAP->M0      = M0_DEFAULT ;
   
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
@@ -16139,6 +16155,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     mubias     = PROB->MUBIAS[icc];
     imu        = IBINFUN(dmu, &MUZMAP->DMUBIN, ABORT_IBINFUN, fnam);
 
+    
     PROB->IMU[icc] = imu; 
 
     if ( imu >= 0 && imu < NMUBIN ) {
@@ -16346,7 +16363,6 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PR
   int  NSN_ALL        = TABLEVAR->NSN_ALL ;
   int  MEMI           = NSN_ALL * sizeof(int);
   int  MEMD           = NSN_ALL * sizeof(double);
-  // xxx mark   double M0           = M0_DEFAULT;
 
   FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
   double           MUCOVSCALE_TMP[MXa][MXb][MXg] ; 
@@ -16403,7 +16419,7 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PR
       mu   = d + a*s - b*c - M0 ; 
     }
     else {
-      mu = d - M0; 
+      mu = d - M0;
     }
     
     // apply SNIa mu-bias Correction if simfile_bias is given;
@@ -16450,9 +16466,18 @@ void load_DMU_CCprior(TABLEVAR_DEF *TABLEVAR, double *ABGM, PROB_CCPRIOR_DEF *PR
     
 
     // compute mucos for each SIM CC event
+    
     mumodel      = PROB_CCPRIOR->MUMODEL[icc];
     mumodel_bcor = mumodel + muBias;
     dmu          = mu - mumodel_bcor ;
+
+    if ( icc == -90 ) {
+      printf(" xxx %s: icc=%d  d=%f  M0=%f  mu=%f  z = %.3f \n",
+	     fnam, icc, d, M0, mu, z );
+      printf(" xxx %s: muBias = %.4f  mumodel = %.3f  dmu=%f\n",
+	     fnam, muBias, PROB_CCPRIOR->MUMODEL[icc], dmu );
+      debugexit(fnam);
+    }
 
     PROB_CCPRIOR->PROB[icc]    = -9.0 ;
     PROB_CCPRIOR->IMU[icc]     = -9.0 ;
@@ -18703,11 +18728,13 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"h0=")) 
     { sscanf(&item[3],"%lf",&INPUTS.H0); return(1); }
 
+  /* xxx mark delete Nov 10 2025 xxxxxxx
   if ( uniqueOverlap(item,"m0=")) 
     { sscanf(&item[3],"%lf",&INPUTS.M0); return(1); }
   if ( uniqueOverlap(item,"mag0="))  // legacy name
     { sscanf(&item[5],"%lf",&INPUTS.M0); return(1); }
-
+  xxxxxxx end mark xxx*/
+  
   if ( uniqueOverlap(item,"uave="))  
     { sscanf(&item[5],"%i", &INPUTS.uave); return(1); }
 
@@ -20728,7 +20755,7 @@ void prep_input_driver(void) {
   fprintf(FP_STDOUT, "logmass_min/max = %.3f/%.3f \n", 
 	 INPUTS.logmass_min, INPUTS.logmass_max);
   fprintf(FP_STDOUT, "H0=%f \n", INPUTS.H0);
-  fprintf(FP_STDOUT, "Nominal M0=%f \n", INPUTS.M0);
+  fprintf(FP_STDOUT, "Nominal M0=%f \n", M0_DEFAULT);
   fprintf(FP_STDOUT, "zpecerr(override)   = %.5f \n", INPUTS.zpecerr );
   fprintf(FP_STDOUT, "dsigint/dz(lensing) = %.4f \n", INPUTS.lensing_zpar );
 
@@ -22808,7 +22835,8 @@ void write_fitres_driver(char* fileName) {
   if ( INPUTS.uave)
     { FITRESULT.SNMAG0 = FITRESULT.AVEMAG0; }
   else 
-    { FITRESULT.SNMAG0 = INPUTS.M0; }
+    { FITRESULT.SNMAG0 = M0_DEFAULT; }
+  // xxx mark delete   { FITRESULT.SNMAG0 = INPUTS.M0; }
 
 
   fprintf(fout," \n");
@@ -24779,7 +24807,6 @@ void print_SALT2mu_HELP(void) {
     "fitflag_sigmb=1  #  find sigmB giving chi2(Ia)/N = 1 (or sig1fit=1)",
     "fitflag_sigmb=2  #  idem, with extra fit adding 2log(sigma)",
     "redchi2_tol=0.02 #  tolerance on chi2/dof-1",
-    "M0=-30           #  nominal SN abs mag without offset (note ~ -30, not -19)",
     "",
     "sigint_fix=0.11           # fix sigint=0.11 for all data",
     "sigint_fix=0.11,0.09,0.08 # comma-sep list of sigint_fix for each IDSAMPLE",
@@ -26881,7 +26908,8 @@ void setup_MUZMAP_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   // print DMU distribution for first redshift bin
   MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
-  MUZMAP->M0    = INPUTS.M0 ;
+  // xxx mark delete Nov 10 2025   MUZMAP->M0    = INPUTS.M0 ;
+  MUZMAP->M0    = M0_DEFAULT ;
 
   MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
   MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok

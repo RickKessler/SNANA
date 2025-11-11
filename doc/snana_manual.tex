@@ -1440,7 +1440,7 @@ etc ...
 \end{Verbatim}
 
 More information about the {\tt SIMLIB\_DUMP} option
-is in \S\ref{sssec:simlib_dump}.
+is in \S\ref{sss:simlib_dump}.
 The {\tt SIMLIB\_MSKOPT} options are 
 \begin{itemize}
    \item {\tt MSKOPT} += 2~: for each {\tt LIBID} in the simlib,
@@ -5695,7 +5695,7 @@ The {\tt DNDB}-rate feature specifies a relative re-weight vs. $b$,
 but the simulation has no mechanism to normalize separate simulations
 of different sky regions. Here we describe how to determine
 the relative normalization using the 
-{\tt SIMLIB\_DUMP} feature (\S\ref{sssec:simlib_dump}).
+{\tt SIMLIB\_DUMP} feature (\S\ref{sss:simlib_dump}).
 Consider three sky regions, S1, S2, S3, with solid angles
 $\Omega_1,~\Omega_2,~\Omega_3$, and each with a separate 
 {\tt SIMLIB}-cadence file.
@@ -7254,10 +7254,42 @@ it is written to TEXT, ROOT, and HBOOK files.
    \label{subsec:dump_options}
 % ------------------------------------
 
+Here is an overview of the simulation table-DUMP options that
+produce text-formatted table summaries which are easily read with
+python. {\tt [GENV]} is the {\tt GENVERSION} argument,
+and is the prefix for all table-dump files names.
+%
+\begin{Verbatim}[frame=single]
+  table file               sim-input
+  name                     key: value(s)               comment
+  ----------------------------------------------------------------------------
+  Optional:
+  [GENV].DUMP       SIMGEN_DUMP: [below]      user specifies variable list
+  [GENV].NOISE      SIMGEN_DUMP_NOISE: 1      noise per obs: sky,galaxy,source
+  [GENV].TRAINSALT  SIMGEN_DUMP_TRAINSALT: 1  PEAKMJD table for saltshaker
+  [GENV].MWCL       SIMGEN_DUMP_MWCL: 1       Color law vs. lam and RV
+  [GENV].RATE       SIMGEN_DUMP_RATE: 1       z & vol-Rate in .01 z bins
+  SIMLIB_DUMP_*     SIMLIB_DUMP 1             command line arg; sim quits after dump.
+
+  Auto-generated:
+  [GENV].SL          ---                      Strong Lensing
+  [GENV].DCR         ---                      Differential Chromatic Correction
+  [GENV].SPEC        ---                      TAKE_SPECTRUM 
+\end{Verbatim}
+%
+The most commonly used table-DUMP is {\tt SIMGEN\_DUMP} that produces
+a one-row-per-SN summary. This is the only table that requires
+a user-input list of variable names (\S~\ref{sss:simgen_dump});
+the other tables produce standard columns, and column changes
+require a code update. 
+{\tt SIMLIB\_DUMP} (\S~\ref{sss:simlib_dump}) is unique because
+the key is entered on the command line, and it quits after the dump,
+and thus is not used with nominal sim generation.
 
 % ------------------------------------
+   \clearpage
    \subsubsection{{\tt SIMLIB\_DUMP} Utility }
-   \label{sssec:simlib_dump}
+   \label{sss:simlib_dump}
 % ------------------------------------
 
 To quickly check global properties of a  \simlib,
@@ -7335,7 +7367,7 @@ of the SIMLIB\_DUMP mask,
     snlc_sim.exe  NOFILE  SIMLIB_FILE <simlib_file>  SIMLIB_DUMP 2
 \end{Verbatim}
 and the corresponding output file is 
-{\tt DUMP\_MJD-[simlib]}. To obtain both the LIBID and MJD
+{\tt SIMLIB\_DUMP\_AVG-[simlib]}. To obtain both the LIBID and MJD
 dump-files, set the {\tt SIMLIB\_DUMP} argument to 3.
 
 
@@ -7348,7 +7380,7 @@ dump-files, set the {\tt SIMLIB\_DUMP} argument to 3.
 %First, you can extract the function  ``{\tt SNcadenceFoM}''  from 
 %{\tt sntools.c} and pass the arguments from your own wrapper function.
 %The second method is to simply analyze any {\tt SIMLIB} using the 
-%{\tt SIMLIB\_DUMP} option (\S~\ref{sssec:simlib_dump}). The FoM is 
+%{\tt SIMLIB\_DUMP} option (\S~\ref{sss:simlib_dump}). The FoM is 
 %appended to each entry in the output {\tt [simlib].DUMP} file. 
 %The FoM for each simlib entry is a function of the MJD and the $5\sigma$ 
 %limiting magnitude  for each observation.
@@ -12374,7 +12406,6 @@ the observed photometry.
 In addition to non-Ia SNe, this feature can be used to
 simulate peculiar Ia, theoretical models, or any transient object.
 
-% .xyz
 
 The observer-frame ``{\NONIA}'' model assumes that each
 rest-frame SED has been warped to match the photometry of the

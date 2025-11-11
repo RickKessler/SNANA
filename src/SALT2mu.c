@@ -4609,14 +4609,14 @@ void *MNCHI2FUN(void *thread) {
     // ------------------------
 
     if ( ISMODEL_LCFIT_SALT2 ) 
-      { mu   = d  + alpha*s - beta*c - gammaDM - M0;  } // d = mB; add -M0 Oct 21 2025
+      { mu   = d  + alpha*s - beta*c - gammaDM ;  } // d = mB;
     else if ( ISMODEL_LCFIT_BAYESN ) 
-      { mu   = d - M0; }  // Same -M0 fix here as done few weeks ago for SALT2
+      { mu   = d ; }  
 
     
     mu      -= muBias ;      // bias correction 
-    mures    = mu - mumodel ;
-    // xxx mark delete    mures    = mu - M0 - mumodel ;
+    // xxx mark delete Nov 10 2025    mures    = mu - mumodel ;
+    mures    = mu - M0 - mumodel ;
     sqmures  = mures*mures ;
 
     // store info
@@ -22662,7 +22662,10 @@ void write_fitres_driver(char* fileName) {
 	    (t_end_fit-t_start_fit)/60.0  );
     if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
       { write_blindFlag_message(fout); }      
-    fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
+
+    // xxx mark Nov 10 2025fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
+    fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-MUMODEL \n"); // redefinition, Nov 10 2025
+
     write_MUERR_INCLUDE(fout);
     
     fprintf(fout,"# For cosmology fit: use zHD, MU, MUERR_RENORM\n");

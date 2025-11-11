@@ -23295,6 +23295,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        parse_cidFile_data() so that cid_select_file and datafile_override
        do not interfere with each other. Caught by R.Camillaro doing Unite analysis.
      + fix subtle missing M0 bug for distance inside MNCHI2FUN
+     + Reverse Oct 21 2025 change to mu in MNCHI2FUN; this attempt to help
+       BAYESN introduces a very subtle bug in unbinned (MU) distances.
 
    sntools.c
      + in function match_cidlist_init(), increase MXCHAR from 400 -> 2000
@@ -23312,5 +23314,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        this logic disabled speed trick for REBIN HD. This fix now runs
        REBIN HD x1.5 faster.
      + add debug feature to dump PROB and CDF into csv table.
+
+   rename sntools_npz.c to sntools_npz.cpp (for autotools)
 
 END: 

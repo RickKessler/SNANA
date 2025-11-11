@@ -23399,11 +23399,16 @@ void write_fitres_misc(FILE *fout) {
 
   int MASK  = INPUTS.opt_biasCor ;
   int NUMD =  INFO_BIASCOR.NDIM ;    // default number of biasCor dimensions
+  char comment[80];
   if ( MASK > 0 ) {
-    fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   "
-	    "(N_alpha x N_beta = %d x %d) \n"
-	    ,NUMD, NSN_BIASCOR
-	    ,(*BININFO_SIM_ALPHA).nbin, (*BININFO_SIM_BETA).nbin    );
+
+    if ( INPUTS.ISMODEL_LCFIT_SALT2 ) 
+      { sprintf(comment, "(N_alpha x N_beta = %d x %d)", (*BININFO_SIM_ALPHA).nbin, (*BININFO_SIM_BETA).nbin ); }
+    else if ( INPUTS.ISMODEL_LCFIT_SALT2 ) 
+      { comment[0] = 0; }
+	
+    fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   %s\n",
+	    NUMD, NSN_BIASCOR, comment);
 
     fprintf(fout,"#  sigint(%dD-BIASCOR) = %.3f \n",
 	    NUMD, SIGINT_AVG );

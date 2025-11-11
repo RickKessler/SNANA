@@ -320,8 +320,7 @@ For help, run code with no arguments
    + remove input M0 (or mag0) and just use M0_DEFAUT everywhere to work
      for SALT3 or BAYESN
 
- 
-
+     xxx
  ******************************************************/
 
 #include "sntools.h" 

@@ -102,7 +102,7 @@ endif
 
   LIB_SDIR  = lib
 
-  LGSL    =  -L$(GSL_DIR)/$(LIB_SDIR) -lgsl  \
+  LGSL    =  -L$(GSL_DIR)/$(LIB_SDIR) -lgsl \
 	     -L$(GSL_DIR)/$(LIB_SDIR) -lgslcblas
 
   IGSL    =  -I$(GSL_DIR)/include

@@ -7257,11 +7257,13 @@ it is written to TEXT, ROOT, and HBOOK files.
 Here is an overview of the simulation table-DUMP options that
 produce text-formatted table summaries which are easily read with
 python. {\tt [GENV]} is the {\tt GENVERSION} argument,
-and is the prefix for all table-dump files names.
+and is the prefix for all table-dump files names that are
+stored in the sim-data folder along with other auxiliary files
+({\tt [GENV].LIST} and {\tt [GENV].README}).
 %
 \begin{Verbatim}[frame=single]
   table file               sim-input
-  name                     key: value(s)               comment
+  name                     key: value               comment
   ----------------------------------------------------------------------------
   Optional:
   [GENV].DUMP       SIMGEN_DUMP: [below]      user specifies variable list

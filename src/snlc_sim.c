@@ -4732,7 +4732,8 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   // Apr 16 2021: check SIMGEN_DUMPALL SWITCH 
   // Jun 23 2023: check LRD_ADD
   // Aug 30 2024: check SIMGEN_DUMP_NOISE
-  
+  // Nov 13 2025: replace return(N) with "goto README_LOAD" for obscure SIMGEN_DUMP_XXX options.
+
   int  ivar, NVAR=0, N=0 ;
   bool LRD = false, LRD_COMMA_SEP=false, LRD_SPACE_SEP=false ;
   bool LRD_ADD = false;
@@ -4777,19 +4778,19 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_NOISE", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_NOISE );
-    return(N);
+    goto README_LOAD;
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_TRAINSALT", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_TRAINSALT );
-    return(N);
+    goto README_LOAD;
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_MWCL", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_MWCL );
-    return(N);
+    goto README_LOAD;
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_RATE", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_RATE );
-    return(N);
+    goto README_LOAD;
   }
 
   // - - - - - - - 

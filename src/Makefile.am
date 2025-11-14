@@ -46,37 +46,37 @@ sntable_combine_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthrea
 
 combine_fitres_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
-wfit_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lz -lstdc++ $(ROOTLIBS)
+wfit_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lz -lstdc++ $(ROOTLIBS)
 
-kcor_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lz -lstdc++ $(ROOTLIBS)
+kcor_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lz -lstdc++ $(ROOTLIBS)
 
-snlc_sim_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread $(ROOTLIBS) @PYTHON_LIBS@
+snlc_sim_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread $(ROOTLIBS) @PYTHON_LIBS@
 
 snlc_sim_exe_CFLAGS = $(AM_CFLAGS) @PYTHON_INCLUDES@
 
-snlc_fit_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS) $(FLIBS)
+snlc_fit_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS) $(FLIBS)
 
 snlc_fit_exe_LINK = $(FC) -o snlc_fit.exe
 
 
-SIMSED_fudge_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
+SIMSED_fudge_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
-SIMSED_extractSpec_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
+SIMSED_extractSpec_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
-SIMSED_check_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
+SIMSED_check_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
-SIMSED_rebin_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
+SIMSED_rebin_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
-simlib_coadd_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
+simlib_coadd_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
 
-unfold_snpar_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
+unfold_snpar_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
 fcasplit_LDADD = -lpthread $(FLIBS)
 
-snana_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
+snana_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
 
-psnid_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
+psnid_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lstdc++ $(ROOTLIBS) $(FLIBS)
 
 SALT2mu_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS) $(FLIBS)
 

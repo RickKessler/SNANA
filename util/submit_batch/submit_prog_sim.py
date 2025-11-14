@@ -79,6 +79,8 @@
 #
 # Feb 20 2025: add TAKE_SPECTRUM to GENOPT_GLOBAL_IGNORE_SIMnorm
 # May 20 2025: fix JOBNAME arg udner GENOPT to work nicely with other GENOPTS
+# Nov 14 2025: add MWCL and RATE to list of SIMGEN_DUMP options 
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -145,7 +147,8 @@ FORMAT_MASK_BLIND  =  8   # suppress sim truth to look like real data
 FORMAT_TEXT = "TEXT"
 FORMAT_FITS = "FITS"
 
-SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC', 'NOISE' ]
+SUFFIX_DUMP_LIST = [ 'DUMP', 'SL', 'DCR', 'SPEC', 'NOISE', 'MWCL', 'RATE' ]
+DUMP_NOCAT_LIST  = [ 'MWCL', 'RATE' ]  # only use first DUMP file; do not concat (Nov 2025)
 
 # define max ranseed to avoid exceeding 4-byte limit of snlc_sim storage
 RANSEED_MAX = 1000000000   # 1 billion
@@ -2181,7 +2184,6 @@ class Simulation(Program):
             
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
         for suffix in SUFFIX_DUMP_LIST :
-            # xxx mark split_list  = glob.glob(f"{from_dir}/TMP*.{suffix}")
             split_list  = sorted(glob.glob(f"{from_dir}/TMP*.{suffix}"))
             if len(split_list) > 0:
                 dump_file_merge = f"{target_dir}/{genversion_combine}.{suffix}"
@@ -2255,8 +2257,12 @@ class Simulation(Program):
 
         for suffix, split_list in DUMP_FILE_LIST_DICT.items():
             merge_file    = DUMP_FILE_MERGE_DICT[suffix]
+            n_split = 0
             for split_file in split_list:
                 self.append_merge_dump_file(split_file, merge_file)
+                n_split += 1
+                if suffix in DUMP_NOCAT_LIST and n_split == 1: break  # Nov 14 2025
+
         return
         # end move_sim_data_files
 

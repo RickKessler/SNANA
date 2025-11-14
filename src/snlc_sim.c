@@ -15281,58 +15281,64 @@ void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 } // end wr_SIMGEN_DUMP_TRAINSALT
 
 void wr_SIMGEN_DUMP_RATE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
-// Created Nov 2025 by Cole Meldorf
-//    Invoked by sim input:
-//         SIMGEN_DUMP_RATE: 1
-//        Write volumetric rate versus redshift.
-//        Initial motivation: Needed input to rate fitting model.
-//         
-	double Z0 = INPUTS.GENRANGE_REDSHIFT[0] ;
-        double Z1 = INPUTS.GENRANGE_REDSHIFT[1] ;
-        double rtmp , ztmp ; 
-	FILE *fp ;
-        char *ptrFile = SIMFILE_AUX->DUMP_RATE ;
-	char fnam[] = "wr_SIMGEN_DUMP_RATE" ;
-	// BEGIN
-	
-	if ( INPUTS.SIMGEN_DUMP_RATE <= 0 ) { return; }
-	if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+  // Created Nov 2025 by Cole Meldorf
+  //    Invoked by sim input:
+  //         SIMGEN_DUMP_RATE: 1
+  //        Write volumetric rate versus redshift.
+  //        Initial motivation: Needed input to rate fitting model.
+  //         
+  double Z0 = INPUTS.GENRANGE_REDSHIFT[0] ;
+  double Z1 = INPUTS.GENRANGE_REDSHIFT[1] ;
+  double rtmp , ztmp ; 
+  FILE *fp ;
+  char *ptrFile = SIMFILE_AUX->DUMP_RATE ;
+  char fnam[] = "wr_SIMGEN_DUMP_RATE" ;
 
-    		sprintf(BANNER,"Created SIMGEN_DUMP_RATE file " );
-    		print_banner(BANNER);
+  // ------------- BEGIN ----------------
+  
+  if ( INPUTS.SIMGEN_DUMP_RATE <= 0 ) { return; }
+
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+
+    sprintf(BANNER,"Created SIMGEN_DUMP_RATE file " );
+    print_banner(BANNER);
 
 
-    		// open file and write header
-        	if ( (SIMFILE_AUX->FP_DUMP_RATE = fopen(ptrFile, "wt")) == NULL ) {
-        		sprintf ( c1err, "Cannot open SIMGEN RATE-dump file :" );
-        		sprintf ( c2err," '%s' ", ptrFile );
-                	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-                               }
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_RATE = fopen(ptrFile, "wt")) == NULL ) {
+      sprintf ( c1err, "Cannot open SIMGEN RATE-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
     
-   	     printf("\t open %s\n", ptrFile );
-             fflush(stdout);
-             fp = SIMFILE_AUX->FP_DUMP_RATE ;
-             fprintf(fp, "# RATE = Volumetric Rate (per year per Mpc^3) w/ H0 = 70.0 \n");
-	     fprintf(fp, "VARNAMES: ROW REDSHIFT RATE \n");
-             ztmp = Z0 ; 
-             int nrow = 0 ;
-             while ( ztmp <= Z1 ) {
-                nrow += 1 ;
-      	     	rtmp = genz_wgt(ztmp,&INPUTS.RATEPAR) ;
-                fprintf(fp, "ROW: %d %.3f %.4le \n", nrow, ztmp, rtmp) ; 
-             	ztmp += 0.01 ;
-    	     }
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_RATE ;
+    fprintf(fp, "# RATE = Volumetric Rate (per year per Mpc^3) w/ H0 = 70.0 \n");
+    fprintf(fp, "VARNAMES: ROW REDSHIFT RATE \n");
+    ztmp = Z0 ; 
+    int nrow = 0 ;
+    while ( ztmp <= Z1 ) {
+      nrow += 1 ;
+      rtmp = genz_wgt(ztmp,&INPUTS.RATEPAR) ;
+      fprintf(fp, "ROW: %3d  %.3f  %.4le \n", nrow, ztmp, rtmp) ; 
+      ztmp += 0.01 ;
+    }
+  }   // end FLAG_PROCESS_INIT
+  
+  
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
+    // nothing to update
   } 
-    
 
-        
-        // Close the file
-	if ( OPT_DUMP == FLAG_PROCESS_END) {
-    		fp = SIMFILE_AUX->FP_DUMP_RATE ;
-    		fclose(SIMFILE_AUX->FP_DUMP_RATE);
-    		printf("  %s\n", ptrFile );     fflush(stdout);
+      
+  // Close the file
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
+    fp = SIMFILE_AUX->FP_DUMP_RATE ;
+    fclose(SIMFILE_AUX->FP_DUMP_RATE);
+    printf("  %s\n", ptrFile );     fflush(stdout);
   }
-	return ; 	
+  return ; 	
 } // end wr_SIMGEN_DUMP_RATE
 
 

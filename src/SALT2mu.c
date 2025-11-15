@@ -20394,7 +20394,7 @@ void parse_ZPOLY_COVMAT(char *item) {
   double tmp[50] ;
   double *ptr_ZPOLY ;
 
-  char  local_item[200], KEY[60], key[60], *ptrtok ;
+  char  local_item[200], KEY[60], key[60], *ptrtok, c1[2] ;
   char  fnam[] = "parse_ZPOLY_COVMAT" ;
 
   // ----------- BEGIN ----------
@@ -20439,8 +20439,11 @@ void parse_ZPOLY_COVMAT(char *item) {
   key[0] = 0 ;
   ptr_ZPOLY = &tmp[0] ; // anything to avoid compile error
 
-  for ( i=6; i < LKEY-1; i++ ) 
-    { sprintf(key,"%s%c", key, KEY[i] );  }
+  for ( i=6; i < LKEY-1; i++ ) { 
+    sprintf(c1, "%c",  KEY[i]);
+    strcat(key,c1);  
+  }
+  // xxx mark delete Nov 14 2025  { sprintf(key,"%s%c", key, KEY[i] );  }
 
   if ( strcmp(key,"sigmB") == 0 ) 
     { ptr_ZPOLY = INPUTS_ZPOLY_COVMAT.sigmB[ISP_SURVEY] ; }
@@ -20462,7 +20465,9 @@ void parse_ZPOLY_COVMAT(char *item) {
 
   // load polynomial parameters
   for ( i=0; i <= ORDER_ZPOLY_COVMAT; i++ ) 
-    {  *(ptr_ZPOLY+i) = tmp[i] ; }
+    {  ptr_ZPOLY[i] = tmp[i] ; }
+
+  // xxx mark delete Nov 14 2025 {  *(ptr_ZPOLY+i) = tmp[i] ; }
 
   /*
   printf("\t xxx KEY = %s(%s)   |  IDSURVEY=%d  ISP_SURVEY=%d\n", 

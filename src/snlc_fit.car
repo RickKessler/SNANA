@@ -1,7 +1,7 @@
 c *********************************************************
-c Created June 2006   by R.Kessler  
+c Created June 2006   by R.Kessler    
 c   
-c Generic SNIa lightcurve fitter.
+c Generic SNIa lightcurve fitter. 
 c "Generic" means that any SNIa model can be fit to the data.
 c This code applies a known model, but does NOT train SN models.
 c    
@@ -12773,12 +12773,12 @@ c local var
       INTEGER   L1, L2, ivar, ipar, NWD, MSKOPT
       CHARACTER 
      &   VARNAMES*200, NAME*(MXCHAR_FILEWORD)
-     &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME), FNAM*32
+     &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME), FNAM*20
 
       LOGICAL USE_SIMEFF
 
 c function
-      INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS
+      INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS 
       EXTERNAL INIT_SIMEFFMAP, STORE_PARSE_WORDS
 
 C ------------------- BEGIN ---------------
@@ -12806,14 +12806,15 @@ c ---------------------------------------------
 
       L1 = INDEX(SIMEFF_FILE,' ') - 1
       SIMEFF_FILE_LOC = SIMEFF_FILE(1:L1) // CHAR(0)
-      NPAR_SIMEFF = INIT_SIMEFFMAP(SIMEFF_FILE_LOC, VARNAMES)
+      NPAR_SIMEFF = INIT_SIMEFFMAP(SIMEFF_FILE_LOC, VARNAMES, L1)
+
 
 c translate VARNAMES string into variable names and fill 
 c IPAR_SIMEFF array for faster lookups.
 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
       NWD = STORE_PARSE_WORDS(MSKOPT, VARNAMES//char(0), 
-     &        FNAM//char(0), 200, 32 )
+     &        FNAM//char(0), 200, 20 )
 
       IF ( NPAR_SIMEFF .NE. NWD ) THEN
         write(c1err,601) NPAR_SIMEFF

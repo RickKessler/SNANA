@@ -54,13 +54,12 @@
 
  Dec 29 2017: use open_TEXTgz() to allow reading gzipped text files.
       
+ Nov 14 2025: use strcat to increment filtlist in init_genmag_mlcs2k2
+              to work with autotools compiler
+
 *******************************************************************/
-/*
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <math.h>
-*/
+
+
 
 #include "sntools.h"
 #include "genmag_mlcs2k2.h"
@@ -211,7 +210,9 @@ int init_genmag_mlcs2k2(
 
       NFILT_MLCS2k2++ ;
       sprintf(cfilt,"%c", FILTSTRING_MLCS2k2[ifilt] );
-      sprintf(filtlist,"%s%s", filtlist, cfilt );
+
+      // xxx mark delete Nov 14 2025 sprintf(filtlist,"%s%s", filtlist, cfilt );
+      strcat(filtlist, cfilt );
 
       if ( strcmp(cfilt,"Y") == 0 ) LAMRANGE_MLCS2k2[1] = MAXLAM_MLCS2k2_Y ;
       if ( strcmp(cfilt,"J") == 0 ) LAMRANGE_MLCS2k2[1] = MAXLAM_MLCS2k2_J ;

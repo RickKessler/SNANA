@@ -1,7 +1,7 @@
 /****************************************
 
   Created July 2021 [extracted from sntools.c]
-  Obsolete MLCS-SIMEFF utilities used in SDSS-II cosmology analysis
+  Obsolete MLCS-SIMEFF utilities used in SDSS-II cosmology analysis 
    (https://arxiv.org/abs/0908.4274)
   These functions are kept in SNANA to enable replicating these
   old MLCS fits and sim, but this MLCS-based methodology is obsolete,
@@ -198,8 +198,12 @@ int init_SIMEFFMAP(char *file, char *varnamesList) {
 
       NBINTOT *= SIMEFFMAP.NBIN[NVAR_READ] ;
       SIMEFFMAP.NBINTOT = NBINTOT;
-      sprintf(varnamesList,"%s %s ", 
-	      varnamesList, SIMEFFMAP.VARNAME[NVAR_READ] );
+
+      strcat(varnamesList, SIMEFFMAP.VARNAME[NVAR_READ]); // Nov 2025
+      strcat(varnamesList," ");     
+
+      // xxx mark Nov 14 2025     sprintf(varnamesList,"%s %s ", 
+      // xxx mark                    varnamesList, SIMEFFMAP.VARNAME[NVAR_READ] );
 
       cptr = SIMEFFMAP.VARSCALE[NVAR_READ];
       if ( strcmp(cptr,"LIN") == 0 ) 
@@ -277,6 +281,7 @@ int init_SIMEFFMAP(char *file, char *varnamesList) {
 
 } // end of init_SIMEFFMAP
 
+
 // mangled routines for fortrans
 int init_simeffmap__(char *file, char *varnamesList) {
   return init_SIMEFFMAP(file, varnamesList);
@@ -295,7 +300,7 @@ void malloc_SIMEFFMAP(int flag) {
 
   int  NVAR, NBINTOT, MEM, ivar, I8, I8p, I4 ;
   double XMEM;
-  //  char fnam[] = "malloc_SIMEFFMAP" ;
+  char fnam[] = "malloc_SIMEFFMAP" ;
 
   // --------------- BEGIN ---------------
 

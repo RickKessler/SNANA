@@ -37,7 +37,7 @@ void system_pmap(char *code_name, char *call_fun) {
   printf("\n xxx Function %s calling unix pmap :\n", call_fun);
   fflush(stdout);
   sprintf(cmd,"pmap `pidof %s` | tail -1", code_name );
-  system(cmd);
+  int istat = system(cmd);
   printf("\n");
   fflush(stdout);
 }
@@ -4620,7 +4620,8 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
       if ( FOUNDSLASH > 0  ) 
 	{ strcat(suffix,c1); }
       else
-	{ sprintf(ENVname, "%s%s", ENVname, c1) ; }
+	{ strcat(ENVname,c1) ; }
+      // xxx mark delete Nov 10 2025 { sprintf(ENVname, "%s%s", ENVname, c1) ; }
     }
 
     

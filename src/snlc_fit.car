@@ -1,7 +1,7 @@
 c *********************************************************
-c Created June 2006   by R.Kessler  
+c Created June 2006   by R.Kessler    
 c   
-c Generic SNIa lightcurve fitter.
+c Generic SNIa lightcurve fitter. 
 c "Generic" means that any SNIa model can be fit to the data.
 c This code applies a known model, but does NOT train SN models.
 c    
@@ -12687,8 +12687,9 @@ c local
 +CDE,SNLCINP.
 
       REAL*8  
-     &   muerr, mudif, muref, mu1, mu2
-     &  ,W_SAVE, OMAT_SAVE
+     &   muerr, mudif, muref, mu_w0, mu_wa, mu_om
+     &  ,W_SAVE, OMAT_SAVE, sqdif, RHO_W0WA
+     &  ,sigmu_w0, sigmu_wa, sigmu_om
 
 c functions
       REAL*8 DLMAG8_REF
@@ -12702,19 +12703,34 @@ C ------------ BEGIN -------------
 c Now get DLMAG with w shifted by its uncertainty
       W_SAVE    = W0_REF(1)
       W0_REF(1) = W0_REF(1) + W0_REF(2)
-      mu1       = DLMAG8_REF(ZSN)
+      mu_w0     = DLMAG8_REF(ZSN)
       W0_REF(1) = W_SAVE 
+
+c Nov 7 2025: Now get DLMAG with wa shifted by its uncertainty
+      W_SAVE    = WA_REF(1)
+      WA_REF(1) = WA_REF(1) + WA_REF(2)
+      mu_wa     = DLMAG8_REF(ZSN)
+      WA_REF(1) = W_SAVE 
 
 c now get DLMAG with OMAT shifted by its uncertainty
       OMAT_SAVE    = OMAT_REF(1)
       OMAT_REF(1)  = OMAT_REF(1) + OMAT_REF(2)
-      mu2          = DLMAG8_REF(ZSN)
+      mu_om        = DLMAG8_REF(ZSN)
       OMAT_REF(1)  = OMAT_SAVE 
 
 c now add mu-shifts in quadrature (ignore correlations)
 c to get distance error.
+  
+      sigmu_w0 = mu_w0-muref
+      sigmu_wa = mu_wa-muref
+      sigmu_om = mu_om-muref
+      sqdif = sigmu_w0*sigmu_w0 + sigmu_wa*sigmu_wa + sigmu_om*sigmu_om
 
-      muerr = sqrt ( (mu1-muref)**2 + (mu2-muref)**2 )
+c Nov 7 2025: very rough correction for w0/wa correlation
+      RHO_W0WA = -0.8
+      sqdif = sqdif + 2.0*sigmu_w0*sigmu_wa*RHO_W0WA
+      
+      muerr = sqrt(sqdif)
       mudif = MUSN - muref
 
 c inclucde user MUERRSCALE in evaluating the pull.
@@ -12757,12 +12773,12 @@ c local var
       INTEGER   L1, L2, ivar, ipar, NWD, MSKOPT
       CHARACTER 
      &   VARNAMES*200, NAME*(MXCHAR_FILEWORD)
-     &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME), FNAM*32
+     &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME), FNAM*20
 
       LOGICAL USE_SIMEFF
 
 c function
-      INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS
+      INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS 
       EXTERNAL INIT_SIMEFFMAP, STORE_PARSE_WORDS
 
 C ------------------- BEGIN ---------------
@@ -12790,14 +12806,15 @@ c ---------------------------------------------
 
       L1 = INDEX(SIMEFF_FILE,' ') - 1
       SIMEFF_FILE_LOC = SIMEFF_FILE(1:L1) // CHAR(0)
-      NPAR_SIMEFF = INIT_SIMEFFMAP(SIMEFF_FILE_LOC, VARNAMES)
+      NPAR_SIMEFF = INIT_SIMEFFMAP(SIMEFF_FILE_LOC, VARNAMES, L1)
+
 
 c translate VARNAMES string into variable names and fill 
 c IPAR_SIMEFF array for faster lookups.
 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
       NWD = STORE_PARSE_WORDS(MSKOPT, VARNAMES//char(0), 
-     &        FNAM//char(0), 200, 32 )
+     &        FNAM//char(0), 200, 20 )
 
       IF ( NPAR_SIMEFF .NE. NWD ) THEN
         write(c1err,601) NPAR_SIMEFF

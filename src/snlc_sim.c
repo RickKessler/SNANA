@@ -1400,6 +1400,7 @@ void set_user_defaults(void) {
   INPUTS.SIMGEN_DUMP_NOISE = 0 ;
   INPUTS.SIMGEN_DUMP_TRAINSALT = 0 ;
   INPUTS.SIMGEN_DUMP_MWCL      = 0 ;
+  INPUTS.SIMGEN_DUMP_RATE      = 0 ;
   
 #ifdef MODELGRID_GEN
   sprintf(GRIDGEN_INPUTS.FORMAT, "%s", "BLANK" );
@@ -4731,7 +4732,8 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   // Apr 16 2021: check SIMGEN_DUMPALL SWITCH 
   // Jun 23 2023: check LRD_ADD
   // Aug 30 2024: check SIMGEN_DUMP_NOISE
-  
+  // Nov 13 2025: replace return(N) with "goto README_LOAD" for obscure SIMGEN_DUMP_XXX options.
+
   int  ivar, NVAR=0, N=0 ;
   bool LRD = false, LRD_COMMA_SEP=false, LRD_SPACE_SEP=false ;
   bool LRD_ADD = false;
@@ -4776,15 +4778,19 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_NOISE", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_NOISE );
-    return(N);
+    goto README_LOAD;
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_TRAINSALT", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_TRAINSALT );
-    return(N);
+    goto README_LOAD;
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMP_MWCL", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_MWCL );
-    return(N);
+    goto README_LOAD;
+  }
+  else if ( keyMatchSim(1, "SIMGEN_DUMP_RATE", WORDS[0], keySource) ) {
+    N++ ; sscanf(WORDS[N] , "%d", &INPUTS.SIMGEN_DUMP_RATE );
+    goto README_LOAD;
   }
 
   // - - - - - - - 
@@ -15273,6 +15279,68 @@ void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   return;
 } // end wr_SIMGEN_DUMP_TRAINSALT
+
+void wr_SIMGEN_DUMP_RATE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
+  // Created Nov 2025 by Cole Meldorf
+  //    Invoked by sim input:
+  //         SIMGEN_DUMP_RATE: 1
+  //        Write volumetric rate versus redshift.
+  //        Initial motivation: Needed input to rate fitting model.
+  //         
+  double Z0 = INPUTS.GENRANGE_REDSHIFT[0] ;
+  double Z1 = INPUTS.GENRANGE_REDSHIFT[1] ;
+  double rtmp , ztmp ; 
+  FILE *fp ;
+  char *ptrFile = SIMFILE_AUX->DUMP_RATE ;
+  char fnam[] = "wr_SIMGEN_DUMP_RATE" ;
+
+  // ------------- BEGIN ----------------
+  
+  if ( INPUTS.SIMGEN_DUMP_RATE <= 0 ) { return; }
+
+  if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
+
+    sprintf(BANNER,"Created SIMGEN_DUMP_RATE file " );
+    print_banner(BANNER);
+
+
+    // open file and write header
+    if ( (SIMFILE_AUX->FP_DUMP_RATE = fopen(ptrFile, "wt")) == NULL ) {
+      sprintf ( c1err, "Cannot open SIMGEN RATE-dump file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+    
+    printf("\t open %s\n", ptrFile );
+    fflush(stdout);
+    fp = SIMFILE_AUX->FP_DUMP_RATE ;
+    fprintf(fp, "# RATE = Volumetric Rate (per year per Mpc^3) w/ H0 = 70.0 \n");
+    fprintf(fp, "VARNAMES: ROW REDSHIFT RATE \n");
+    ztmp = Z0 ; 
+    int nrow = 0 ;
+    while ( ztmp <= Z1 ) {
+      nrow += 1 ;
+      rtmp = genz_wgt(ztmp,&INPUTS.RATEPAR) ;
+      fprintf(fp, "ROW: %3d  %.3f  %.4le \n", nrow, ztmp, rtmp) ; 
+      ztmp += 0.01 ;
+    }
+  }   // end FLAG_PROCESS_INIT
+  
+  
+  if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
+    // nothing to update
+  } 
+
+      
+  // Close the file
+  if ( OPT_DUMP == FLAG_PROCESS_END) {
+    fp = SIMFILE_AUX->FP_DUMP_RATE ;
+    fclose(SIMFILE_AUX->FP_DUMP_RATE);
+    printf("  %s\n", ptrFile );     fflush(stdout);
+  }
+  return ; 	
+} // end wr_SIMGEN_DUMP_RATE
+
 
 
 // ***********************************************
@@ -30348,6 +30416,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->DUMP_NOISE, "%s.NOISE",       prefix ); // Aug 2024
   sprintf(SIMFILE_AUX->DUMP_SPEC,  "%s.SPEC",        prefix ); // Mar 2024
   sprintf(SIMFILE_AUX->DUMP_MWCL,  "%s.MWCL",        prefix ); // May 2025
+  sprintf(SIMFILE_AUX->DUMP_RATE,  "%s.RATE",        prefix ); // Nov 2025
   sprintf(SIMFILE_AUX->DUMP_TRAINSALT, "%s.TRAINSALT",  prefix ); // Oct 2024  
 
   // Aug 10 2020: for batch mode, write YAML file locally so that
@@ -30386,6 +30455,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);          // SPEC 
   wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt
   wr_SIMGEN_DUMP_MWCL(FLAG,SIMFILE_AUX);          // MWCL amd MAG vs. wavelength
+  wr_SIMGEN_DUMP_RATE(FLAG,SIMFILE_AUX);          // Volumetric Rate vs. z
   wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero );  // SED_TRUE
 
   // - - - - - 
@@ -30579,6 +30649,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP_SPEC(FLAG,SIMFILE_AUX);
   wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt  
   wr_SIMGEN_DUMP_MWCL(FLAG,SIMFILE_AUX);          // MW CL vs. wave
+  wr_SIMGEN_DUMP_RATE(FLAG,SIMFILE_AUX);          // Volumetric rate
   wr_VERIFY_SED_TRUE(FLAG, 0, zero, zero, zero);
 
   // copy ZVARATION file to SIM/[VERSION]
@@ -32041,14 +32112,14 @@ void append_stats_SIMLIB_DUMP(int NLIBID_TOT, int NOBS_TOT, char *SIMLIB_DUMPFIL
 
   char cmd_sed[MXPATHLEN];
   char fnam[] = "append_stats_SIMLIB_DUMP" ;
-
+  int isys;
   // ----------- BEGIN -----------
 
   sprintf(cmd_sed, "sed -i 's/NLIBID_XXX/%d/g'  %s", NLIBID_TOT, SIMLIB_DUMPFILE);
-  system(cmd_sed);
+  isys = system(cmd_sed);
 
   sprintf(cmd_sed, "sed -i 's/NOBS_XXX/%d/g'  %s", NOBS_TOT, SIMLIB_DUMPFILE);
-  system(cmd_sed);  
+  isys = system(cmd_sed);  
   
   return ;
 } // end append_stats_SIMLIB_DUMP

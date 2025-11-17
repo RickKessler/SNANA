@@ -1392,7 +1392,7 @@ void  insert_NLIBID(void) {
   sprintf(sedCmd,"sed -i '/SURVEY/a\\%s' %s", 
 	  INSERT_LINE, SIMLIB_OUTPUT.FILE );
 
-  system(sedCmd);
+  int isys = system(sedCmd);
 
 
   return ;

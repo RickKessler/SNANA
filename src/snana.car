@@ -8622,36 +8622,6 @@ c - - - -
 c - - - 
         endif
 
-
-+SELF,IF=REMOVE.
-c ?????????????
-c PROBLEM: for XYZ=5,999 iArg does not increment, and thus USE_LINE_ARGS
-c          is NOT filled.
-c ?????????????
-
-c set logical flag for used LINE_ARGS 
-c   _LEGACY is for "KEY VAL" (space separated)
-c   _REFAC  is for "KEY=VAL" (single string)
-
-        VALID_ARGLIST = .TRUE.
-        if ( ARGLIST(1) .EQ. ''     ) VALID_ARGLIST = .FALSE.
-        if ( ARGLIST(1) .EQ. 'NULL' ) VALID_ARGLIST = .FALSE.
-
-        HAS_EQUAL = ( INDEX(ARG,'=') > 0 )
-        FOUND_MATCH_LEGACY = 
-     &    ( iArg .GT. ilast )
-        FOUND_MATCH_REFAC  = 
-     &    ( iArg .EQ. ilast .and. HAS_EQUAL .and. VALID_ARGLIST )
-
-        if ( LDMP ) then
-           print*,' xxx - - - - - - - - '
-           print*,' xxx  LEGACY,REFAC = ', 
-     &          FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
-           print*,' xxx  ilast, iArg = ', ilast, iArg
-           print*,' xxx  ARGLIST(1)  = ', ARGLIST(1)(1:40)
-        endif
-+SELF.
-
          FOUND_MATCH = FOUND_MATCH_NMLKEY(iArg,ilast,ARG,ARGLIST(1))
          IF ( FOUND_MATCH ) THEN
            DO iuse = ilast, iArg
@@ -9609,7 +9579,7 @@ C ----------------
       REAL FRAC, T_ELAPSE, T_REMAIN
 C ------------ BEGIN ---------
 
-      if ( .NOT. STDOUT_UPDATE ) RETURN
+      if ( .NOT. STDOUT_UPDATE ) RETURN 
 
 c bail for subset option for which this update makes no sense
       if ( .NOT. ISJOB_BATCH     ) RETURN 
@@ -10035,8 +10005,12 @@ c check ERRFLAG_FIT
         endif
 +SELF.
 
+
 +SELF,IF=PSNID.
-      CALL PSNIDANA(IERR)
+      CALL PSNIDANA(IERR)   
+      if ( STDOUT_UPDATE ) THEN
+          CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Nov 2025
+      endif
 +SELF.
 
 
@@ -10951,7 +10925,7 @@ c Now remove columns based on output format option
          USECOL_SPEC_TABLE(IVAR_SPEC_SUBTYPE) = .FALSE.
       ENDIF
 
-c .xyz
+c 
 
 c ---------------------------------------------------------
 c open table list file to give one per spectrum summary
@@ -11399,8 +11373,8 @@ c open table list file to give summary info for each spectrum
          IF ( LSIM_SNANA ) THEN
             CALL GET_SIMTYPE_SPEC_FILE(TYPE,SUBTYPE)
          ENDIF
-         LENT  = INDEX(TYPE,' ') - 1  !  .xyz
-         LENTT = INDEX(SUBTYPE,' ') - 1  !  .xyz
+         LENT  = INDEX(TYPE,' ') - 1  !  
+         LENTT = INDEX(SUBTYPE,' ') - 1 
 
          if ( WRSPEC_SNID_SAGE ) then
            WRITE(LUNTMP,709) 
@@ -17667,8 +17641,8 @@ c Includes:
 c
 c  * ISNLC_NFILT_TRESTMIN[MAX]
 c  * ISNLC_NFILT_TREST2  
-c  * SNLC_TREST(epoch)        = MJD - MJDatPEAK(search) 
-c  * SNLC_TOBS(epoch)
+c  * SNLC_TREST(epoch)        = MJD - MJDatPEAK(search) / 1+z
+c  * SNLC_TOBS(epoch)         = MJD - MJDatPEAK(search) 
 c  *
 c  * SNLC_FLUXCAL_ERRCALC(ifilt,epoch,isn)  ! calc flux error 
 c  * SNHOST_ZPHOT[_ERR]
@@ -24095,7 +24069,7 @@ c  termination so that parsing CCID with C code is easier.
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
-      if ( WRTABLEFILE_IAUC ) then ! .xzy
+      if ( WRTABLEFILE_IAUC ) then 
         VARLIST = 'IAUC:C*20' // char(0)
         CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_NAME_IAUC, VARLIST,1,
      &                     LENBLOCK, 20 )

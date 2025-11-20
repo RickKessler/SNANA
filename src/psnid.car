@@ -720,8 +720,8 @@ c - - - - - -  -
       TEMPLERR_SCALE_NONIA = 1.0
 
       PBAYES_IA_CUT     = 0.0 ! default min
-      PBAYES_IBC_CUT    = 0.9 ! default min
-      PBAYES_II_CUT     = 0.9 ! default min
+      PBAYES_IBC_CUT    = 0.6 ! default min (0.9 -> 0.6 Nov 2025)
+      PBAYES_II_CUT     = 0.6 ! default min (0.9 -> 0.6 Nov 2025)
       PBAYES_PEC1A_CUT  = 0.9
       PBAYES_MODEL1_CUT = 0.0
       PBAYES_MODEL2_CUT = 0.0

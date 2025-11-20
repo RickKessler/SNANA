@@ -23315,6 +23315,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        REBIN HD x1.5 faster.
      + add debug feature to dump PROB and CDF into csv table.
 
+   snlc_sim.c/sntools_modelgrid_gen.c
+     + disable scatter for GRIDGEN option (for PSNID)
+
    rename sntools_npz.c to sntools_npz.cpp (for autotools)
 
 END: 

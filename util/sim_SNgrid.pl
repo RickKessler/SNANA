@@ -237,22 +237,6 @@ sub prep_simInput_Files {
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
-    # ---------------
-    # xxxxxx mark delete May 5 2022 xxxxxxxxxx
-    #
-    # if KCOR_FILE is local, then make symbolic link in OUTDIR
-    #$KEY  = "KCOR_FILE:" ;
-    #@tmp  = sntools::parse_line($inFile, 1, $KEY, $OPT_ABORT ) ;
-    #$KCOR_FILE = "$tmp[0]" ;
-    #$KCOR_FILE = qx(echo $KCOR_FILE); # unpack ENV
-    #$KCOR_FILE =~ s/\s+$// ;   # trim trailing whitespace  
-
-    #$KCOR_SYMLINK = "$OUTDIR/$KCOR_FILE" ;
-    #if ( (-e $KCOR_FILE) &&  !(-e $KCOR_SYMLINK ) )
-    #{ qx(cd $OUTDIR ; ln -s ../$KCOR_FILE $KCOR_FILE); } 
-    #
-    # xxxxxxxxx end mark xxxxxxxx
-
 
     # -------------------
     $KEY  = "SURVEY:" ;

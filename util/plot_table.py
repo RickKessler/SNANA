@@ -22,7 +22,7 @@
 # Sep 11 2025: fix args_prep_DIFF() to capitalize args.OPT so that
 #              lower case diff_cid works same as DIFF_CID
 # Sep 18 2025: finally get @@WGTVAR working with HIST mode
-#
+# Nov 20 2025: add p4 and p5 option for @@FIT
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -128,7 +128,10 @@ FITFUN_P0    = [ 'P0' ]
 FITFUN_P1    = [ 'P1' ]
 FITFUN_P2    = [ 'P2' ]
 FITFUN_P3    = [ 'P3' ]
-FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P0, FITFUN_P1, FITFUN_P2, FITFUN_P3 ]
+FITFUN_P4    = [ 'P4' ]
+FITFUN_P5    = [ 'P5' ]
+FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, 
+                 FITFUN_P0, FITFUN_P1, FITFUN_P2, FITFUN_P3, FITFUN_P4, FITFUN_P5 ]
 
 
 # list possible VARNAME to identify row
@@ -294,6 +297,8 @@ and two types of command-line input delimeters
      @@FIT P1       # linear fit    (also accepts 'p1')
      @@FIT P2       # quadratic fit (also accepts 'p2')
      @@FIT P3       # cubic     fit (also accepts 'p3')
+     @@FIT P4       # quartic   fit (also accepts 'p4')
+     @@FIT P5       # 5th order
 
   The best fit curve is overlaid on plot, and fit chi2/dof is printed in legend.
   Chi2 calc assumes that variance = bin contents, so chi2 accuracy may be poor
@@ -2891,6 +2896,13 @@ def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
     elif FITFUN in FITFUN_P3:
         popt, pcov = curve_fit(func_p3, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_p3(xbins_cen, *popt)
+    elif FITFUN in FITFUN_P4:
+        popt, pcov = curve_fit(func_p4, xbins_cen, ybins_contents, sigma=ybins_sigma)
+        yfun_cen   = func_p4(xbins_cen, *popt)
+    elif FITFUN in FITFUN_P5:
+        popt, pcov = curve_fit(func_p5, xbins_cen, ybins_contents, sigma=ybins_sigma)
+        yfun_cen   = func_p5(xbins_cen, *popt)
+
     else:
         sys.exit(f"\n ERROR: unknown user fitfun = {fitfun}; \n Valid fit funs: {FITFUN_LIST}")
 
@@ -2985,6 +2997,17 @@ def func_p2(x,a,b,c):
 
 def func_p3(x,a,b,c,d):
     return a + b*x + c*(x*x) + d*(x*x*x)
+
+def func_p4(x,a,b,c,d,e):
+    sqx = x*x
+    func = a + b*x + c*(sqx) + d*(sqx*x) + e*(sqx*sqx)
+    return func
+
+def func_p5(x,a,b,c,d,e,f):
+    sqx = x*x    
+    func = a + b*x + c*(sqx) + d*(sqx*x) + e*(sqx*sqx) + f*(sqx*sqx*x)
+    return func
+
 
 def func_exp(x,a,b):
     return a * np.exp(b*x)

@@ -71,7 +71,7 @@ c (translated from user-namelist string METHOD_NAME)
       INTEGER    
      &   NOBSMIN        ! I: min NOBS to process
      &  ,OPT_ZPRIOR     ! I: 0,1,2 -> FLAT, ZSPEC, Zphot(host)
-     &  ,OPT_RATEPRIOR  ! I: use rate prior (RK - Sep 6 2013)
+     &  ,OPT_RATEPRIOR  ! I: use rate prior; default=0 --> no rate prior
      &  ,OPT_SIMCHEAT   ! I: 0 --> don't allow same PSNID template as in sim
      &  ,MCMC_NSTEP     ! I: number of MCMC steps (set to <=0 to turn off)
      &  ,NCOLOR, NDMU   ! I: number of color and delta-mu bins in grid search

@@ -23250,6 +23250,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      snlc_sim.c  do not allow zSPEC for host-less events:
          https://github.com/RickKessler/SNANA/issues/1564
 
+     create_covariance.py
+         Allow MUOPT sys scales in sys_scale_file; 
+         remove obsolete MUOPT_SCALES key from config input
        
          *****  USEFUL(v11_06b) *****
 
@@ -23318,6 +23321,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    snlc_sim.c/sntools_modelgrid_gen.c
      + disable scatter for GRIDGEN option (for PSNID)
 
+ 
    rename sntools_npz.c to sntools_npz.cpp (for autotools)
 
 END: 

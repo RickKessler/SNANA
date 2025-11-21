@@ -183,6 +183,12 @@
 #
 # Oct 17 2025: abort on duplicate CID_IDSURVEY_FIELD; see n_dup
 #
+# Nov 21 2025: 
+#  + update to allow sys_scale_file to include MUOPT scales as well as FITOPTs
+#    Includes partrial refactor to treat FITOPT and MUOPT scales the same way
+#    using the same dictionary structure. Previously, the FITOPT and MUOPT
+#    dictionaries had different structures, which makes code more confusing.
+#    
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -458,7 +464,7 @@ def print_help_menu():
 INPUT_DIR:  <BBC output dir from submit_batch_jobs or from Pippin>
 VERSION:    <subDir under INPUT_DIR>  
 
-{KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales>
+{KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales> # include FITOPT and MUOPT scales
   [allows legacy key SYSFILE: ]
 
 # Define multiple cov matrices using covsys options:
@@ -486,9 +492,6 @@ EXTRA_COVS:
 # Example use case is to compute MU_COV based on vpec systematics, and avoid
 # burning CPU to re-fit all the data for each vpec systematic.
 
-MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
-  CLAS_SNIRF:  1.0
-  SCATTER_C11: 1.0
 
 OUTDIR:  <name of output directory>
 
@@ -673,10 +676,9 @@ def get_hubble_diagrams(folder, args, config):
 
     # return table for each Hubble diagram 
 
-    # xxx mark delete 9.16.2025 is_rebin    = config['nbin_x1'] > 0 and config['nbin_c'] > 0    
     is_rebin    = args.rebin
     is_unbinned = args.unbinned 
-    is_binned   = args.binned   # xxx mark not (is_unbinned or is_rebin)
+    is_binned   = args.binned 
 
     folder_expand = os.path.expandvars(folder)
     folder_path   = Path(folder_expand)
@@ -688,7 +690,6 @@ def get_hubble_diagrams(folder, args, config):
     first_load  = True
     str_skip_list     = [ '~', 'wfit_',  'cospar']
 
-    # xxx mark infile_listdir = sorted(os.listdir(folder_expand))
     infile_listdir = sorted(glob.glob1(folder_expand,"FITOPT*MUOPT*"))
 
     for infile in infile_listdir:
@@ -1005,21 +1006,161 @@ def get_name_from_fitopt_muopt(f, m):
     return f"FITOPT{f:03d}_MUOPT{m:03d}"
 
 
-def get_fitopt_scales(lcfit_info, sys_scales):
-    """ Returns a dict mapping FITOPT numbers to (label, scale) """
-    fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
+def get_sys_scales(which_opt, submit_info, config):
+    """ 
+    Created nov 21 2025 by R.Kessler
+    Re-write obsolete get_fitopt_scales to a more general method that works
+    on both FITOPT ane MUOPT syst scales.
+    Returns a dict mapping of [which_opt] numbers to (label, scale).
+    
+    Inputs:
+      which_opt = 'FITOPT' or 'MUOPT', for LCFIT or BBC, respectively
+      submit_info = contents of SUBMIT.INFO file for LCFIT or BBC stage
+      config      = config file contents
+    """
 
-    if fitopt_list is None: return None
+    if which_opt == 'FITOPT' :
+        col_num   = 0
+        col_label = 2
+    elif which_opt == 'MUOPT' :
+        col_num   = 0
+        col_label = 1
+
+        # protect against obsolete key (Nov 2025)
+        if 'MUOPT_SCALES' in config:
+            msgerr = f"\nERROR: MUOPT_SCALES key is no longer valid in config file; \n" \
+                     f"\t define MUOPT sys scales in SYS_SCALE_FILE (along with FITOPT sys scales)"
+            sys.exit(msgerr)
+
+    else:
+        sys.exit(f"ERROR: Invalid which_opt = {which_opt}")
+
+    # - - - - - -
+    key = which_opt + '_OUT_LIST'
+    sysopt_list = submit_info[key]
+    if sysopt_list is None: 
+        return None
+        
+    # - - - - - - 
+    sys_scale_file = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
+    if sys_scale_file:
+        sys_scales = read_yaml(sys_scale_file)
+    else:
+        sys_scales = { 0: (None,1.0) }
+
+    result = {}
+    for row in sysopt_list:
+
+        number = row[col_num]
+        label  = row[col_label]
+
+        if label != "DEFAULT" and label is not None:
+            if label not in sys_scales:
+                pass
+                #logging.warning(f"No FITOPT scale found for {label} ")
+        scale = sys_scales.get(label, 1.0)
+        d = int(number.replace(which_opt, ""))
+        result[d] = (label, scale)
+
+    result[0] = ( 'DEFAULT', 1.0 ) 
+
+    return result
+    # end get_sys_scales
+
+
+def get_fitopt_scales(lcfit_info, config):
+    """ 
+    Returns a dict mapping FITOPT numbers to (label, scale).
+    """
+
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
+    fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
+    if fitopt_list is None: 
+        return None
+
+    # - - - - - - 
+    sys_scale_file = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
+    if sys_scale_file:
+        sys_scales = read_yaml(sys_scale_file)
+    else:
+        sys_scales = { 0: (None,1.0) }
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
 
     result = {}
     for number, _, label, _ in fitopt_list:
         if label != "DEFAULT" and label is not None:
             if label not in sys_scales:
                 pass
-                #logging.warning(f"No FITOPT scale found for {label}")
+                #logging.warning(f"No FITOPT scale found for {label} ")
         scale = sys_scales.get(label, 1.0)
         d = int(number.replace("FITOPT", ""))
         result[d] = (label, scale)
+
+    result[0] = ( 'DEFAULT', 1.0 ) 
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
+    return result
+    # end get_fitopt_scales
+
+def get_fitopt_scales_legacy(lcfit_info, sys_scales):
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
+    """ 
+    Returns a dict mapping FITOPT numbers to (label, scale).
+    """
+    fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
+
+    if fitopt_list is None: return None
+
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
+
+    result = {}
+    for number, _, label, _ in fitopt_list:
+        if label != "DEFAULT" and label is not None:
+            if label not in sys_scales:
+                pass
+                #logging.warning(f"No FITOPT scale found for {label} ")
+        scale = sys_scales.get(label, 1.0)
+        d = int(number.replace("FITOPT", ""))
+        result[d] = (label, scale)
+    return result
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
+    # end get_fitopt_scales_legacy
+
+def get_muopt_scales(bbc_info, config):
+
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@    
+    # Created Nov 21 2025 by R.Kessler
+    # Check both submit_info and input config for muopt scales
+
+    muopt_list = bbc_info["MUOPT_OUT_LIST"]
+    if muopt_list is None : 
+        return sys_scales
+
+    sys_scales = { "DEFAULT" : 1.0 }
+    
+    # xxx if 'MUOPT_SCALES' in config:
+    # xxx   sys_scales  = config["MUOPT_SCALES"]
+    
+    sys_scale_file = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
+    if sys_scale_file:
+        sys_scales = read_yaml(sys_scale_file)
+    else:
+        sys_scales = { 0: (None,1.0) }
+
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
+
+    result = {}
+    for number, label, _ in muopt_list:
+        if label != "DEFAULT" and label is not None:
+            if label not in sys_scales:
+                pass
+            #logging.warning(f"No FITOPT scale found for {label} ")                                                                
+        scale = sys_scales.get(label, 1.0)
+
+        d = int(number.replace("MUOPT", ""))
+        result[d] = (label, scale)
+ 
+    result[0] = ( 'DEFAULT', 1.0 ) 
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
     return result
 
 def get_cov_from_diff(df1, df2, scale):
@@ -1178,14 +1319,19 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         logging.debug(f"Determining contribution for FITOPT {f}, MUOPT {m}")
         
         # Get label and scale for FITOPTS and MUOPTS. Note 0 index is DEFAULT
-        if f == 0:
-            fitopt_label = "DEFAULT"
-            fitopt_scale = 1.0
-        else:
-            fitopt_label, fitopt_scale = fitopt_scales[f]
 
-        muopt_label = muopt_labels[m] if m else "DEFAULT"
-        muopt_scale = muopt_scales.get(muopt_label, 1.0)
+        # xxxxxx mark delete Nov 21 2025 xxxxxxxxx
+        #if f == 0:
+        #    fitopt_label = "DEFAULT"
+        #    fitopt_scale = 1.0
+        #else:
+        #    fitopt_label, fitopt_scale = fitopt_scales[f]
+        #muopt_label = muopt_labels[m] if m else "DEFAULT"
+        #muopt_scale = muopt_scales.get(muopt_label, 1.0)
+        # xxxxxxxxxxxxxxxxxxxx end mark xxxxxxx
+
+        fitopt_label, fitopt_scale = fitopt_scales[f]
+        muopt_label,  muopt_scale  = muopt_scales[m]
 
         logging.info(f"\t FITOPT{f:03d} has err_scale={fitopt_scale}, " \
                      f"MUOPT{m:03d} has err_scale={muopt_scale}") 
@@ -1222,8 +1368,9 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
     for key, value in extracovdict.items():
         logging.info("# - - - - - - - - - - - - - - - - ")
         logging.info(f"Get extra cov from file for {key}")
-        cov_file = os.path.expandvars(value)
-        scale    = muopt_scales[key]
+        num_muopt = value[0]  # Nov 2025, RK
+        cov_file  = os.path.expandvars(value[1])
+        scale     = muopt_scales[num_muopt]
         cov, mudif, summary = get_covsys_from_covfile(df, cov_file, scale)
         
         fitopt_label = 'DEFAULT'
@@ -1515,7 +1662,6 @@ def write_standard_output(config, args, covsys_list, base,
         if unbinned :
             write_HD_unbinned(config, data_file, data[label] )
         else:
-            # xxx mark del 9.16 2025  is_rebin  = config['nbin_x1'] > 0 and config['nbin_c'] > 0
             write_HD_binned(config, data_file, data[label])
 
     args.t_write_sum += (time.time() - t0)
@@ -2431,24 +2577,25 @@ def create_covariance(config, args):
     # Read in all the needed data
     submit_info   = read_yaml(input_dir / "SUBMIT.INFO")
 
-    # read optional sys scales 
-    if KEYNAME_SYS_SCALE_FILE in config:
-        sys_scale_file  = Path(os.path.expandvars(config[KEYNAME_SYS_SCALE_FILE]))
-        sys_scale       = read_yaml(sys_scale_file)
-    else:
-        sys_scale = { 0: (None,1.0) }
 
-    fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
-    
+    # - - - - - - - -
+    # read optional sys scales for FITOPTs (from LCFIT)
+
+    # xxxx mark delete Nov 21 2025 xxxxxxxx
+    #if sys_scale_file:
+    #    sys_scale_file  = os.path.expandvars(sys_scale_file)
+    #    sys_scale       = read_yaml(sys_scale_file)
+    #else:
+    #    sys_scale = { 0: (None,1.0) }
+    #fitopt_scales_legacy = get_fitopt_scales(submit_info, sys_scale) # warning: muopts are ignored here
+    # xxxxxxxx end mark xxxxxx
+
+    fitopt_scales = get_sys_scales('FITOPT', submit_info, config) 
+
+    # - - - - - -
     # Also need to get the MUOPT labels from the original LCFIT directory
     muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in  \
                     submit_info.get("MUOPT_OUT_LIST", [])}
-
-    #tack on extra covs as muopts
-    extracovdict = {}
-    for extra in extra_covs:
-        muopt_labels[len(muopt_labels)+1] = extra.split()[0]
-        extracovdict[extra.split()[0]] = extra.split()[2]
 
 
     # Feb 15 2021 RK - check option to selet only one of the muopt
@@ -2456,13 +2603,40 @@ def create_covariance(config, args):
         tmp_label    = muopt_labels[args.muopt]
         muopt_labels = { args.muopt : "DEFAULT" }     
     
-    if 'MUOPT_SCALES' in config:
-        muopt_scales = config["MUOPT_SCALES"]
-    else:
-        muopt_scales = { "DEFAULT" : 1.0 }
+    # - - - - - -
 
+    muopt_scales = get_sys_scales('MUOPT', submit_info, config)
+
+    # - - - - -
+    debug_dump = False
+    if debug_dump:
+        print(f"\n 0 xxx fitopt_scales = \n{fitopt_scales} \n\n xxx muopt_scales = \n{muopt_scales}\n")
+        print(f" xxx extra_covs = {extra_covs}")
+
+    #tack on extra covs as muopts (refactored Nov 2025 by R.Kessler)    
+    extracovdict = {}
     for extra in extra_covs:
-        muopt_scales[extra.split()[0]] = extra.split()[1]
+        label     = extra.split()[0]
+        scale     = float(extra.split()[1])
+        sys_file  = extra.split()[2]
+        n_label_last = len(muopt_labels)
+        n_scale_last = len(muopt_scales)
+        muopt_labels[n_label_last+1] = label
+        muopt_scales[n_scale_last+0] = ( label, scale )
+        extracovdict[label]          = ( n_scale_last, sys_file )
+
+    # xxxxxxxxx mark delete Nov 21 2025 xxxxxxxxx
+    #for extra in extra_covs:
+    #    label = extra.split()[0]
+    #    scale = float(extra.split()[1])
+    #    muopt_scales[len(muopt_scales)e] = ( label, scale )
+    #    extracovdict[label] = sys_file
+    #    # xxx mark delete muopt_scales[extra.split()[0]] = extra.split()[1] 
+    # xxxxxxxxx end mark xxxxxxxxxxxx
+
+
+    if debug_dump:
+        sys.exit(f"\n 1 xxx muopt_scales = \n{muopt_scales}\n")
 
     tracemalloc_snapshot(args, 'Stage 10')
 
@@ -2628,6 +2802,8 @@ def prep_config(config,args):
     config['HD_size']  = None
 
     config['data_dir'] = Path(config["INPUT_DIR"]) / config["VERSION"]  # Feb 2025
+
+    return
 
     # end prep_config
 

@@ -23250,6 +23250,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      snlc_sim.c  do not allow zSPEC for host-less events:
          https://github.com/RickKessler/SNANA/issues/1564
 
+         ABORT if NLIBID key is missing in SIMLIB_FILE, and it's a batch job
+         [needs NLIBID to figure out starting LIBID for each core]
+
      create_covariance.py
          Allow MUOPT sys scales in sys_scale_file; 
          remove obsolete MUOPT_SCALES key from config input

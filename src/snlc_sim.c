@@ -18669,6 +18669,12 @@ void SIMLIB_findStart(void) {
 	   NSKIP_LIBID ); 
   }
 
+  if ( NJOBTOT > 1 && NLIBID <= 0 ) {
+    sprintf(c1err,"NLIBID key in SIMLIB_FILE header is required for batch mode;");
+    sprintf(c2err,"but this key is missing.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  } 
+
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100  && IDSTART <= 0 ) { 
     flatRan     = unix_getRan_Flat1(0) ;

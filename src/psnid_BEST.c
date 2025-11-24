@@ -1682,7 +1682,6 @@ double psnid_best_modelErr_S11(int TYPEINDX, double Trest) {
 
   if ( ISIA ) {
 
-
     if ( absT < 20.0 ) 
       {  MAGERR  =  0.08 + 0.04*absT/20.0;  }    // Eq. 6
     else 

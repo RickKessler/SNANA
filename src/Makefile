@@ -42,6 +42,8 @@
 # Apr 24 2025: fix make for wfit to work on both midway and perlmutter
 # May 08 2025: replace FFC with CC for C codes, and remove libsnana.lib and libsnfit.lib
 # Oct 06 2025: few minors fixes to work without $ROOT_DIR
+# Nov 25 2025: remove obsolete fcasplit
+#
 # -------------------------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -204,7 +206,7 @@ TMPFIT = $(SRC)/tempfit
 # --------------------------------------------
 
 # define fortran pre-processor tools (from obsolete cernlib)
-FPP_EXECUTABLES = $(BIN)/fcasplit
+#xxFPP_EXECUTABLES = $(BIN)/fcasplit
 
 # Define snana executables 
 SNANA_EXECUTABLES	=		\
@@ -381,15 +383,16 @@ makeDirs:
 # xxx mark	mkdir -p $(LIB)	
 
 # ------------------------
+# xxxxxxxxx mark delete Nov 2025 xxxxxxx
 # fcasplit (April 2014)
+#$(OBJ)/fcasplit.o : $(SRC)/fcasplit.F
+#	(cd $(OBJ);  $(FFC)  $(SNCFLAGS) $(SRC)/fcasplit.F ) 
 
-$(OBJ)/fcasplit.o : $(SRC)/fcasplit.F
-	(cd $(OBJ);  $(FFC)  $(SNCFLAGS) $(SRC)/fcasplit.F ) 
-
-$(BIN)/fcasplit : $(OBJ)/fcasplit.o 
-	$(FFC) -o  $@ $(SNLDFLAGS) \
-	$(OBJ)/fcasplit.o 
-	(cd $(OBJ);  rm fcasplit.o ) 
+#$(BIN)/fcasplit : $(OBJ)/fcasplit.o 
+#	$(FFC) -o  $@ $(SNLDFLAGS) \
+#	$(OBJ)/fcasplit.o 
+#	(cd $(OBJ);  rm fcasplit.o ) 
+# xxxxxxxxxxx 
 
 # -------------------------
 $(OBJ)/minuit.o :  minuit.F

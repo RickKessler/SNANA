@@ -1901,6 +1901,114 @@ void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 }
 
 
+
+// =============================================
+int init_SNCUT_NOBS_TREST(char *string_sncut) {
+
+  // Created Nov 24 2025
+  // implement snana's SNCUT_NOBS_TREST cut using C code instead of fortran
+  // Input string_cut is the &SNLCINP argument for SNCUT_NOBS_TREST:
+  // '1 -10 0   2 0 30' -> 
+  //    require 1 or more obs with -10 < Trest < 0 &&
+  //    require 2 or more obs with   0 < Trest < 30 days
+  //
+
+  int NWD, iwd, nobs, n_range=0;
+  float tmin, tmax ;
+  int MSKOPT = MSKOPT_PARSE_WORDS_STRING; 
+  int langC  = LANGFLAG_PARSE_WORDS_C;
+  char fnam[] = "init_SNCUT_NOBS_TREST";
+
+  // --------------- BEGIN --------------
+
+  SNCUT_NOBS_TREST.MASK_SNCUT_REQUIRE = 0;
+  SNCUT_NOBS_TREST.N_TREST_RANGE = 0;
+
+  int len = strlen(string_sncut);
+  if ( len < 2 ) { return SNCUT_NOBS_TREST.MASK_SNCUT_REQUIRE ; }
+
+  printf("  %s: prepare SNCUT_NOBS_TREST  \n", 	 fnam );
+
+  NWD = store_PARSE_WORDS(MSKOPT, string_sncut, fnam);
+
+  for(iwd=0; iwd < NWD; iwd+=3 ) {
+    get_PARSE_WORD_INT(langC, iwd+0, &nobs, fnam );
+    get_PARSE_WORD_FLT(langC, iwd+1, &tmin, fnam );
+    get_PARSE_WORD_FLT(langC, iwd+2, &tmax, fnam );
+
+    SNCUT_NOBS_TREST.NOBS_LIST[n_range]     = nobs ;
+    SNCUT_NOBS_TREST.TREST_LIST[0][n_range] = tmin;
+    SNCUT_NOBS_TREST.TREST_LIST[1][n_range] = tmax;
+    SNCUT_NOBS_TREST.MASK_SNCUT_REQUIRE += (1 << n_range);
+
+    n_range++ ;
+    SNCUT_NOBS_TREST.N_TREST_RANGE = n_range;
+
+
+    printf("\t Require Nobs >= %2d for %6.1f < Trest < %6.1f \n",
+	   nobs, tmin, tmax);  fflush(stdout);
+  }
+
+  printf("\t\t MASK_SNCUT_REQUIRE = %d \n", SNCUT_NOBS_TREST.MASK_SNCUT_REQUIRE);
+  fflush(stdout);
+
+  return SNCUT_NOBS_TREST.MASK_SNCUT_REQUIRE ;
+
+} // end init_SNCUT_NOBS_TREST
+
+
+
+int eval_SNCUT_NOBS_TREST(int n_list, float *Trest_list, int verbose) {
+
+  // Created Nov 24 2025
+  // Return mask of which trest ranges pass cuts.
+
+
+  int N_RANGE = SNCUT_NOBS_TREST.N_TREST_RANGE;
+  int  mask_sncut = 0 ;  
+  int  o, r, nobs_require, nobs_range[10];
+  float tmin, tmax, trest;
+  bool pass;
+  char fnam[] = "eval_SNCUT_NOBS_TREST" ;
+
+  // ----------- BEGIN -------------
+
+  if ( SNCUT_NOBS_TREST.MASK_SNCUT_REQUIRE == 0 ) { return mask_sncut; }
+
+  for( r=0; r < N_RANGE; r++ ) { nobs_range[r] = 0; }
+
+  for(o=0; o < n_list; o++ ) {
+
+    trest = Trest_list[o];
+    for(r=0; r < N_RANGE; r++ ) {
+      nobs_require = SNCUT_NOBS_TREST.NOBS_LIST[r] ;
+      tmin = SNCUT_NOBS_TREST.TREST_LIST[0][r];
+      tmax = SNCUT_NOBS_TREST.TREST_LIST[1][r];
+      if ( trest >= tmin   &&   trest <= tmax ) { nobs_range[r] += 1;  }
+    }
+
+  } // end loop over observations
+
+
+  for( r=0; r < N_RANGE; r++ ) { 
+    if ( nobs_range[r] >= SNCUT_NOBS_TREST.NOBS_LIST[r] ) {
+      mask_sncut += (1 << r);
+    }
+  }
+
+  return mask_sncut ;
+
+} // end eval_SNCUT_NOBS_TREST
+
+
+int init_sncut_nobs_trest__(char *string_sncut) {
+  return init_SNCUT_NOBS_TREST(string_sncut);
+}
+
+int eval_sncut_nobs_trest__(int *n_list, float *trest_list, int *verbose ) {
+  return eval_SNCUT_NOBS_TREST(*n_list, trest_list, *verbose);
+}
+
 // ==============================================
 int keyMatch(char *string,char *key, char *keySuffix_optional ) {
   if ( strcmp(string,key)==0 )   

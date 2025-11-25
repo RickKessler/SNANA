@@ -411,6 +411,12 @@ struct {
   double MJDWIN ;
 } INPUTS_OBS_atFLUXMAX ;
 
+struct {
+  int MASK_SNCUT_REQUIRE;
+  int    N_TREST_RANGE;      // number of Trest ranges to check
+  int    NOBS_LIST[10];      // NOBS required per TREST range
+  float TREST_LIST[2][10];  // list of TREST ranges
+} SNCUT_NOBS_TREST;
 
 #define MXFILE_ENVreplace 100
 struct {
@@ -928,6 +934,7 @@ void   init_lightcurvewidth__(void);
 double get_lightcurvewidth__(int *OPTMASK, int *NOBS, double *TLIST,
 			   double *MAGLIST, int *ERRFLAG, char *FUNCALL ) ;
 
+// --- util for finding observation at fluxmax -----
 void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE);
 void get_obs_atFLUXMAX(char *CCID, int NOBS, float *FLUX, float *FLUXERR,
 		       double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
@@ -936,6 +943,13 @@ void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 
 void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
+
+// - - - util for evaluating SNCUT_NOBS_TREST cut in fortran's snana.car - - - -
+int init_SNCUT_NOBS_TREST(char *string_sncut);
+int eval_SNCUT_NOBS_TREST(int n_list, float *Trest_list, int verbose);
+
+int init_sncut_nobs_trest__(char *string_sncut);
+int eval_sncut_nobs_trest__(int *n_list, float *trest_list, int *verbose);
 
 void system_pmap(char *code_name, char *call_fun);
 

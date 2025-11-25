@@ -23267,6 +23267,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        to fix the snana reader, but it's done now to extract true SEDs for
        SNID-SAGE.
 
+    snana.exe/snlc_fit.exe
+      New &SNLCINP SNCUT_NOBS_TREST to apply NOBS cut in multiple Trest ranges
+
          *****  MISCELLANEOUS(v11_06b) *****
 
    submit_batch_jobs:

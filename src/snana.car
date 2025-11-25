@@ -825,11 +825,13 @@ c
      &  ,ISNLC_IDFIELD(MXEPOCH) ! integer field id      
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
      &  ,ISNLC_CUTFLAG_REQEP        ! idem
+     &  ,ISNLC_NOBS_TREST           ! mask for SNCUT_NOBS_TREST (Nov 2025)
      &  ,ISNLC_CUTFLAG_PRIVATE      ! idem for private var cuts
      &  ,ISNLC_CUTFLAG_SIMVAR       ! idem for SIMVAR cuts
      &  ,ISNLC_WRMASK_FLUXCOR_SNANA   ! write if fudges applied to data
      &  ,ISNLC_RDMASK_FLUXCOR_SNANA   ! read if SNANA fudges applied to data
-      
+
+
       REAL*8
      &   SNLC8_RA        ! RA   vs. SN
      &  ,SNLC8_DEC       ! DEC  vs. SN
@@ -1009,7 +1011,7 @@ c
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
      &    ,ISNLC_NFILT_TREST2
      &    ,ISNLC_IDFIELD, ISNLC_NFIELD_OVP
-     &    ,ISNLC_CUTFLAG_REQEP
+     &    ,ISNLC_CUTFLAG_REQEP, ISNLC_NOBS_TREST
      &    ,ISNLC_CUTFLAG_PRIVATE
      &    ,ISNLC_CUTFLAG_SIMVAR
      &    ,ISNLC_WRMASK_FLUXCOR_SNANA, ISNLC_RDMASK_FLUXCOR_SNANA
@@ -1479,13 +1481,14 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_SNRSUM         ! cut on sqrt[ sum SNR_i^2 ]
      &  ,CUTBIT_NFIELD         ! cut on number of fields used by SN
      &  ,CUTBIT_MWEBV          ! cut on Galactic extinct (May 8 2012)
-     &  ,CUTBIT_NSEASON_ACTIVE ! Nseason with activity
-     &  ,CUTBIT_REQEP          ! required epochs (to select short events)
-     &  ,CUTBIT_PRIVATE        ! all private-var cuts together (Nov 3 2014)
-     &  ,CUTBIT_SIMVAR         ! SIMVAR cuts
-     &  ,CUTBIT_OFFSET_SBFLUX  ! host surface brightness
-     &  ,CUTBIT_OFFSET_SNRMAX  ! SNRMAX cuts in each filter     
-     &  ,CUTBIT_MJD_MARKER     ! things above do NOT depend on epoch
+     &  ,CUTBIT_NSEASON_ACTIVE   ! Nseason with activity
+     &  ,CUTBIT_REQEP            ! required epochs (to select short events)
+     &  ,CUTBIT_PRIVATE          ! all private-var cuts together (Nov 3 2014)
+     &  ,CUTBIT_SIMVAR           ! SIMVAR cuts
+     &  ,CUTBIT_MASK_NOBS_TREST  ! cut on Nobs in multiple Trest ranges
+     &  ,CUTBIT_OFFSET_SBFLUX    ! host surface brightness
+     &  ,CUTBIT_OFFSET_SNRMAX    ! SNRMAX cuts in each filter     
+     &  ,CUTBIT_MJD_MARKER       ! things above do NOT depend on epoch
      &  ,CUTBIT_PSF,  CUTBIT_ZP, CUTBIT_ZPERR
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
@@ -1538,8 +1541,9 @@ c
      &  ,CUTBIT_REQEP          = 31  ! required epochs (9/17/2017)
      &  ,CUTBIT_PRIVATE        = 32  ! all private-var cuts
      &  ,CUTBIT_SIMVAR         = 33  ! 
-     &  ,CUTBIT_OFFSET_SBFLUX  = 34 
-     &  ,CUTBIT_OFFSET_SNRMAX  = 34 + MXFILT_SNRMAX
+     &  ,CUTBIT_MASK_NOBS_TREST= 34  ! Nov 24 2025 require Nobs in multiple Trest ranges
+     &  ,CUTBIT_OFFSET_SBFLUX  = 35 
+     &  ,CUTBIT_OFFSET_SNRMAX  = 35 + MXFILT_SNRMAX
      &  ,CUTBIT_MJD_MARKER     = CUTBIT_OFFSET_SNRMAX + MXFILT_SNRMAX
      &  ,NCUTBIT_SNLC          = CUTBIT_MJD_MARKER
 c SN-dependent cuts above
@@ -1642,6 +1646,7 @@ c# -----------  SN-dependent cut-window  ! I: --------------------------------
      &  ,cutwin_cutflag_reqep(2)       ! for internal use only
      &  ,cutwin_cutflag_private(2)     ! for internal use only
      &  ,cutwin_cutflag_simvar(2)      ! for internal use only
+     &  ,cutwin_mask_nobs_trest(2)     ! for internal use only
      &  ,cutwin_nfilt_snrmax(2)  ! I: Nfilt passing global SNRMAX cut
      &  ,cutwin_nfilt_snrmax2(2) ! I: Nfilt passing 2nd-best SNRMAX
      &  ,cutwin_nfilt_trestmin(2)! I: Nfilt passing Trestmin cut
@@ -1698,12 +1703,14 @@ c
      & ,EPCUT_SKYSIG  ! I: max SKY noise accepted each epoch/filter
                       ! I: example: 'u 20.  g 50.  r 80.  i 120.  z 200.'
 c
-     & ,EPCUT_PSFSIG  ! max PSF (arcsec) accepted each epoch/filter
-                      ! example: 'u 1.8  g 1.5  r 1.6  i 1.8  z 2.0'
+     & ,EPCUT_PSFSIG  ! I: max PSF (arcsec) accepted each epoch/filter
+                      ! I: example: 'u 1.8  g 1.5  r 1.6  i 1.8  z 2.0'
 c
      & ,SNCUT_HOST_SBFLUX ! I: require min surface brightness,
-                          ! I: example 'r 1000.' -> SBFLUX > 1000
-
+                          ! I: example 'r 1000.' -> SBFLUX_r > 1000
+c
+     & ,SNCUT_NOBS_TREST  ! I: multiple NOBS cuts in Trest ranges
+                          ! I: e.g, '1 -10 0  2 0 30' -> >= 1 obs in -10 to 0 days & >=2 obs in 0 to 30 days
       ! I:# --------------------------------
 c ----------
 c systematic tests for calibration:
@@ -1747,7 +1754,7 @@ c
      &  ,MWEBV_SCALE        ! I: scale MW extinc for syst test
      &  ,MWEBV_SHIFT        ! I: shift MW extinc
      &  ,MWEBV_FORCE        ! I: force specific MWEBV value (Feb 2020)
-
+ 
       REAL 
      &   RV_MWCOLORLAW   ! I: RV for Galactic extinction 
 
@@ -1852,11 +1859,12 @@ c
      &   ,( cutwin_var(1,cutbit_snrsum),        cutwin_snrsum  )     
      &   ,( cutwin_var(1,cutbit_nfield),        cutwin_nfield  )
      &   ,( cutwin_var(1,cutbit_mwebv),         cutwin_mwebv  )
-     &   ,( cutwin_var(1,cutbit_reqep),        cutwin_cutflag_reqep)
-     &   ,( cutwin_var(1,cutbit_private),      cutwin_cutflag_private)
-     &   ,( cutwin_var(1,cutbit_simvar),       cutwin_cutflag_simvar)
-     &   ,( cutwin_var(1,cutbit_offset_sbflux+1), cutwin_sbflux_filt)
-     &   ,( cutwin_var(1,cutbit_offset_snrmax+1), cutwin_snrmax_filt)
+     &   ,( cutwin_var(1,cutbit_reqep),         cutwin_cutflag_reqep)
+     &   ,( cutwin_var(1,cutbit_private),       cutwin_cutflag_private)
+     &   ,( cutwin_var(1,cutbit_simvar),         cutwin_cutflag_simvar)
+     &   ,( cutwin_var(1,cutbit_mask_nobs_trest),cutwin_mask_nobs_trest)
+     &   ,( cutwin_var(1,cutbit_offset_sbflux+1),cutwin_sbflux_filt)
+     &   ,( cutwin_var(1,cutbit_offset_snrmax+1),cutwin_snrmax_filt)
 c
      &   ,( cutwin_restlam(1), cutwin_lamrest(1) )
 
@@ -2081,7 +2089,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
      &    , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER
-     &    , SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
+     &    , SNCUT_SNRMAX, SNCUT_HOST_SBFLUX, SNCUT_NOBS_TREST
      &    , EPCUT_SNRMIN, EPCUT_SKYSIG, EPCUT_PSFSIG
      &    , CUTWIN_LAMREST, CUTWIN_LAMOBS, cutwin_snr_nodetect
      &    , PRIVATE_CUTWIN_STRING, PRIVATE_VARNAME_READLIST
@@ -2179,7 +2187,7 @@ c
      &   ,SIMVAR_CUTWIN_STRING
      &   ,EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
 c
-     &   ,SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
+     &   ,SNCUT_SNRMAX, SNCUT_HOST_SBFLUX, SNCUT_NOBS_TREST
      &   ,EPCUT_SNRMIN, EPCUT_SKYSIG, EPCUT_PSFSIG
      &   ,MAGOBS_SHIFT_PRIMARY,  MAGOBS_SHIFT_ZP
      &   ,MAGREST_SHIFT_PRIMARY, MAGREST_SHIFT_ZP, FILTER_LAMSHIFT
@@ -6146,6 +6154,7 @@ c set namelist defaults
       CUTWIN_SNR_NODETECT(2) = +CUTVAL_OPEN
 
       SNCUT_HOST_SBFLUX = ''
+      SNCUT_NOBS_TREST  = ''  ! Nov 2025
       SNCUT_SNRMAX = '' 
       EPCUT_SNRMIN = ''
       EPCUT_SKYSIG = ''
@@ -8296,6 +8305,10 @@ c - - -
      &            1, iArg, ARGLIST) ) then
           SNCUT_HOST_SBFLUX = ARGLIST(1)(1:MXCHAR_CUTNAME)
 
+        else if ( MATCH_NMLKEY('SNCUT_NOBS_TREST',
+     &            1, iArg, ARGLIST) ) then
+          SNCUT_NOBS_TREST = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
         else if ( MATCH_NMLKEY('SIMVAR_CUTWIN_STRING',
      &            1, iArg, ARGLIST) ) then
           SIMVAR_CUTWIN_STRING = ARGLIST(1)(1:MXCHAR_CUTNAME)
@@ -8889,7 +8902,7 @@ c local var
       INTEGER IAFILT(MXFILT_OBS)
       REAL    XAFILT(MXFILT_OBS)
 
-      INTEGER ifiltdef, NF, i, ifilt, ifiltinv
+      INTEGER ifiltdef, NF, i, ifilt, ifiltinv, MASK_REQ, L
       CHARACTER cfilt*2
       REAL TMP_ZP, TMP_PRIM
       LOGICAL LDMP, LTMP
@@ -8897,7 +8910,11 @@ c local var
 c function
       INTEGER FILTINDX
 
+      INTEGER  INIT_SNCUT_NOBS_TREST
+      EXTERNAL INIT_SNCUT_NOBS_TREST
 C ---------------- BEGIN -------------
+
+      CALL PRBANNER('PROCSNNML')
 
       IERR = 0
       CALL PARSE_FILTSTRING(1,SNCUT_SNRMAX, NF, iafilt, xafilt )
@@ -8908,8 +8925,6 @@ C ---------------- BEGIN -------------
          c2err = 'Check &SNLCINP variable SNCUT_SNRMAX'
          CALL  MADABORT("PROCSNNML", C1ERR, C2ERR)
       endif
-
-
       DO i = 1, NF
          ifiltdef = IAFILT(i)
          ifilt    = IFILTDEF_INVMAP_SURVEY(ifiltdef)
@@ -9093,6 +9108,18 @@ c set flag for systematic zshift (Jun 2021)
      &    ( REDSHIFT_FINAL_SHIFT .NE. 0.0 ) .or.
      &    ( HOSTGAL_ZSPEC_SHIFT  .NE. 0.0 ) .or.
      &    ( HOSTGAL_ZPHOT_SHIFT  .NE. 0.0 )
+
+c -------------------
+c check for Nobs cut in multiple Trest ranges
+
+      L = LEN_TRIM(SNCUT_NOBS_TREST) + 1
+      MASK_REQ=INIT_SNCUT_NOBS_TREST(SNCUT_NOBS_TREST(1:L)//char(0),L)
+
+c set cut window to require MASK in which all trest ranges are satisfied;
+c this feature also enables checking which Trest range(s) fail.
+
+      cutwin_mask_nobs_trest(1) = float(MASK_REQ) - 0.5
+      cutwin_mask_nobs_trest(2) = float(MASK_REQ) + 0.5
 
       RETURN
       END  ! end PROCSNNML
@@ -15955,6 +15982,7 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
       ISNLC_CUTFLAG_REQEP    = 1
       ISNLC_CUTFLAG_PRIVATE  = 1
+      ISNLC_NOBS_TREST       = 0
       ISNLC_CUTFLAG_SIMVAR   = 1
       ISNLC_WRMASK_FLUXCOR_SNANA = 0 
       ISNLC_RDMASK_FLUXCOR_SNANA = 0 
@@ -21529,6 +21557,8 @@ c Feb 06 2020: add cut for Trest_trueflux
 c Feb 20 2020: make sure PHOTPROB cut passes if PHOTPROB < 0
 c Mar 16 2021: load SIM_EPPULL to enable cut on PULL
 c Jul 01 2024: compute SNRLIST and pass to GET_TRESTVAR
+c Nov 25 2025: check SNCUT_NOBS_TREST
+c
 c -----------------------------
 
       IMPLICIT NONE
@@ -21542,7 +21572,7 @@ c local var
       INTEGER
      &   NEWMJD, imjd, NEWMJD_CUTS
      &  ,EPMIN, EPMAX, ep, ifilt, ifilt_obs
-     &  ,ICUT, i, cid,  NTLIST
+     &  ,ICUT, i, cid,  NTLIST, MASK, VBOSE
      &  ,FLIST(MXEPOCH)
      &  ,NFILT, NFTMIN, NFTMAX, NFT2
 
@@ -21556,6 +21586,8 @@ c local var
 
 c functions
       LOGICAL MJDSELECT, LCIDSELECT
+      INTEGER  EVAL_SNCUT_NOBS_TREST
+      EXTERNAL EVAL_SNCUT_NOBS_TREST
 
 c ---------------- BEGIN ---------------
 
@@ -21761,7 +21793,6 @@ c first build TLIST array for epochs that pass MJDSELECT()
            TLIST(NTLIST)   = SNLC_Trest(EP)  
            FLIST(NTLIST)   = ISNLC_IFILT_OBS(EP)
            SNRLIST(NTLIST) = SNLC_SNR(EP)
-	   
          ENDDO
 444    CONTINUE
 
@@ -21792,6 +21823,13 @@ c ----------------------------------------------------
 
        imjd  = 1
        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,imjd)
+
+c - - - - -
+c Nov 24 2025: check NOBS cut in multiple Trest ranges
+       VBOSE = 0
+       MASK = EVAL_SNCUT_NOBS_TREST(NTLIST, TLIST, VBOSE)  
+       SNLC_CUTVAR(CUTBIT_MASK_NOBS_TREST) = float(MASK) 
+c- - - - - -
 
        SNLC_CUTVAR(CUTBIT_TRESTMIN)  = 
      &       SNLC_TRESTMIN

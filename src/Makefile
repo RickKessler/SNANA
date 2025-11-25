@@ -42,7 +42,7 @@
 # Apr 24 2025: fix make for wfit to work on both midway and perlmutter
 # May 08 2025: replace FFC with CC for C codes, and remove libsnana.lib and libsnfit.lib
 # Oct 06 2025: few minors fixes to work without $ROOT_DIR
-# Nov 25 2025: remove obsolete fcasplit
+# Nov 25 2025: remove obsolete fcasplit & SIMSED_fudge.c
 #
 # -------------------------------------------------------------------------------------------
 
@@ -220,7 +220,6 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/combine_fitres.exe 	\
 	$(BIN)/sntable_dump.exe 	\
 	$(BIN)/sntable_combine.exe 	\
-	$(BIN)/SIMSED_fudge.exe		\
 	$(BIN)/SIMSED_extractSpec.exe	\
 	$(BIN)/SIMSED_check.exe		\
 	$(BIN)/SIMSED_rebin.exe		\
@@ -382,17 +381,6 @@ makeDirs:
 	mkdir -p $(BIN)
 # xxx mark	mkdir -p $(LIB)	
 
-# ------------------------
-# xxxxxxxxx mark delete Nov 2025 xxxxxxx
-# fcasplit (April 2014)
-#$(OBJ)/fcasplit.o : $(SRC)/fcasplit.F
-#	(cd $(OBJ);  $(FFC)  $(SNCFLAGS) $(SRC)/fcasplit.F ) 
-
-#$(BIN)/fcasplit : $(OBJ)/fcasplit.o 
-#	$(FFC) -o  $@ $(SNLDFLAGS) \
-#	$(OBJ)/fcasplit.o 
-#	(cd $(OBJ);  rm fcasplit.o ) 
-# xxxxxxxxxxx 
 
 # -------------------------
 $(OBJ)/minuit.o :  minuit.F
@@ -923,30 +911,6 @@ $(BIN)/merge_root.exe :  \
 	(cd $(OBJ); rm merge_root.o )
 
 # -------------
-# SIMSED_fudge
-
-$(OBJ)/SIMSED_fudge.o : $(SRC)/SIMSED_fudge.c $(SRC)/genmag_SIMSED.c 
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/SIMSED_fudge.c )
-
-$(BIN)/SIMSED_fudge.exe : \
-	$(OBJ)/SIMSED_fudge.o  $(OBJ)/sntools.o  $(OBJ)/sntools_genSmear.o \
-	$(OBJ)/genmag_SEDtools.o  $(OBJ)/genmag_SIMSED.o 
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/SIMSED_fudge.o  \
-	$(OBJ)/sntools.o  \
-	$(OBJ_SNTOOLS_DATA) 		\
-	$(OBJ)/genmag_SEDtools.o \
-	$(OBJ)/genmag_SIMSED.o   \
-	$(OBJ)/genmag_extrap.o   \
-	$(OBJ)/genmag_SALT2.o   \
-	$(OBJ)/sntools_genSmear.o \
-	$(OBJ)/sntools_devel.o \
-	$(OBJ)/sntools_wgtmap.o \
-	$(OBJ)/sntools_gridmap.o \
-	$(OBJ)/MWgaldust.o \
-	-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
-	(cd $(OBJ); rm SIMSED_fudge.o )
-
 
 # -------------
 # SIMSED_extractSpec

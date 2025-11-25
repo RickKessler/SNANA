@@ -23330,4 +23330,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
  
    rename sntools_npz.c to sntools_npz.cpp (for autotools)
 
+   remove src/fcasplit.F src/SIMSED_fudge.c    util/obdatamc.py
+   
 END: 

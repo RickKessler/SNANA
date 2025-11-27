@@ -13,17 +13,13 @@ c parameters used by snana code
      &  ,MXFILT_CALIB, MXFILT_SNRMAX, MXEP_MODELGRID
      &  ,MXIDFIELD, MXFIELD_OVP, MXSEASON
      &  ,MXSNHOST, MXZPHOT_Q
-     &  ,MXTABLE1D_KCOR,MXTABLE1D_LCMAG,MXTABLE1D_MWXT,MXTABLE1D_AVWARP
-     &  ,MXZBIN_KCOR, MXTBIN_KCOR, MXAVBIN_KCOR, MXCBIN_AVWARP
      &  ,MNTYPE, MXTYPE, MXLISTNML, MXIGNORE_LIST
      &  ,MXVAR_PRIVATE, MXCUT_PRIVATE, MXVAR_TERSE, MXBIT_PHOTFLAG
-     &  ,HOFF_NOCUTS, HOFF_CUTS, HOFF_SIM
      &  ,LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
      &  ,LUNCID, LUNOUT
      &  ,LUNRES1, LUNRES2, LUNINTERP, LUNLIST, LUNIGNORE, LUNSALT2
      &  ,LUNLIST2, LUNIGNORE2, LUNSPEC
-     &  ,ISTAGE_INIT, ISTAGE_RDSN, ISTAGE_CUTS, ISTAGE_USRANA
-     &  ,ISTAGE_TEST
+     &  ,ISTAGE_INIT, ISTAGE_RDSN, ISTAGE_CUTS, ISTAGE_TEST
      &  ,INTERP_LINEAR, INTERP_SMOOTH, INTERP_ZSMOOTH
      &  ,MXERRTYPE, ERRTYPE_MINOS, ERRTYPE_PARAB, ERRTYPE_MARG
      &  ,ERRTYPE_BAD
@@ -54,7 +50,6 @@ c parameters used by snana code
      &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA
      &  ,MSKOPT_PARSE_WORDS_IGNORECOMMENT
      &  ,MSKOPT_PARSE_WORDS_FIRSTLINE
-c
      &  ,MODEL_STRETCH
      &  ,MODEL_STRETCH2
      &  ,MODEL_MLCS2k2
@@ -68,13 +63,11 @@ c
      &  ,MODEL_LCLIB    ! Sep 2017
      &  ,MODEL_FIXMAG   ! force mags to user-value
      &  ,MXMODEL_INDEX
-c
      &  ,MXCHAR_CCID, MXCHAR_VERSION, MXCHAR_SURVEY
      &  ,MXCHAR_PATH, MXCHAR_FILENAME, MXCHAR_MODELNAME
      &  ,MXCHAR_FIELDNAME, MXCHAR_PARNAME, MXCHAR_CUTNAME
      &  ,MXCHAR_FILEWORD,  MXCHAR_ARG, MXFILE_LIST
      &  ,FLAG_DOCANA_START, FLAG_DOCANA_END, FLAG_DOCANA_ERROR
-c
      &  ,SNLCPAK_EPFLAG_FLUXDATA     ! DATA flux per epoch
      &  ,SNLCPAK_EPFLAG_FLUXMODEL    ! MODEL flux per epoch
      &  ,SNLCPAK_EPFLAG_REJECT   ! REJECT flag (1=> excluded from fit)
@@ -90,7 +83,6 @@ c
      &  ,SNLCPAK_BANDFLAG_PKMJD    ! peak MJD  vs. filter
      &  ,SNLCPAK_BANDFLAG_NDOF     ! Ndof vs. filter
      &  ,SNLCPAK_BANDFLAG_CHI2     ! chi2 vs. filter
-c
      &  ,IFLAG_INI, IFLAG_ANA, IFLAG_END
      &  ,MASK_FLUXCOR_SNANA, MASK_FLUXERRCOR_SNANA
      &  ,EXIT_ERRCODE_SNANA, EXIT_ERRCODE_SNFIT, EXIT_ERRCODE_PSNID
@@ -100,7 +92,6 @@ c
       REAL*8 
      &   ZERO8, ONE8, TEN8,  PI, LOGTEN
      &  ,PDFMIN, PDFMAX_EDGE, PDFMIN_GOOD
-     &  ,KCORPACK
      &  ,XTMW_FRACERR
      &  ,MJDOFF
      &  ,RV_MWCOLORLAW_DEFAULT
@@ -115,8 +106,8 @@ c
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,MXSNLC        = 10000000    ! max number of SNe (fits format)
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
-     &  ,MXCID       = 499 999 999  ! max CID = 500 million -1 (9 digits)
-     &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
+     &  ,MXCID       = 499999999  ! max CID = 500 million -1 (9 digits)
+     &  ,MXCID_CHECK =  99999999  ! MXCID to check duplicates
      &  ,MXEPOCH     = 30000      ! max number of filter-epochs per SN
      &  ,MXEP_MODELGRID = 200     ! max model grid for SNANA+SIM_MAGOBS table
      &  ,MXIDFIELD   = 200        ! max FIELD ID in SURVEY.DEF
@@ -136,20 +127,7 @@ c
      &  ,MXFILT_SNRMAX =  8       ! no more than this many SNRMAX(filt) cuts
      &  ,MNTYPE       =   1       ! min sn "type"
      &  ,MXTYPE       = 1000      ! max sn "type"
-     &  ,MXZBIN_KCOR  = 100       ! max # Z-bins for KCOR tables
-     &  ,MXTBIN_KCOR  = 150       ! max # Epochs for KCOR tables
-     &  ,MXAVBIN_KCOR = 100      ! max # AV bins for KCOR tables
-     &  ,MXCBIN_AVWARP = 100      ! max color index for AVWARP table
-     &  ,MXTABLE1D_KCOR   = 10 000 000  ! max number of KCOR bins
-     &  ,MXTABLE1D_AVWARP =  1 500 000  ! max number of bins for AVWARP table
-     &  ,MXTABLE1D_LCMAG  =  2 000 000  ! idem for LCMAG  table
-     &  ,MXTABLE1D_MWXT   =  2 000 000  ! idem for MWXT table
-     &  ,KCORPACK      = 1000.  ! store KCOR * KCORPACK as I*2
      &  ,XTMW_FRACERR  = 0.16   ! error on MW Xtinc is 16% of XTMW
-c
-     &  ,HOFF_NOCUTS = 100
-     &  ,HOFF_CUTS   = 200
-     &  ,HOFF_SIM    = 20000
      &  ,LUNNML    = 22  ! LUN for input namelist
      &  ,LUNDAT    = 23  ! LUN for data      
      &  ,LUNTMP    = 24
@@ -170,7 +148,6 @@ c
      &  ,ISTAGE_INIT    = 10       ! init has finished
      &  ,ISTAGE_RDSN    = 20       ! SN have been read
      &  ,ISTAGE_CUTS    = 30       ! cuts have been applied
-     &  ,ISTAGE_USRANA  = 40       ! USRANA has been called.
      &  ,ISTAGE_TEST    = 90       ! set for testing
      &  ,ZERO8          = 0.0
      &  ,ONE8           = 1.0
@@ -180,13 +157,11 @@ c
      &  ,INTERP_LINEAR  = 1    ! option flag to use linear DFINT
      &  ,INTERP_SMOOTH  = 2    ! option flag to use smoothing
      &  ,INTERP_ZSMOOTH = 3    ! linear DFINT, but smooth along z
-c
      &  ,MXERRTYPE      = 10
      &  ,ERRTYPE_MINOS  = 1
      &  ,ERRTYPE_PARAB  = 2
      &  ,ERRTYPE_MARG   = 3  ! marginalized error
      &  ,ERRTYPE_BAD    = 6
-C
      &  ,FCNFLAG_LAST     = 3    ! last MINUIT call
      &  ,FCNFLAG_USER     = 90   ! pass this IFLAG for user-FCNSNLC calls
      &  ,FCNFLAG_FAST     = 91   ! go as fast as possible (no LAST if-block)
@@ -194,20 +169,17 @@ C
      &  ,FCNFLAG_SIGMA_ONLY = 93
      &  ,FCNFLAG_USESIM     = 99   ! pass this IFLAG to use SIM params
      &  ,FCNFLAG_MAX        = 100
-c     
      &  ,PI     = 3.1415926535898
      &  ,PDFMIN      = 1.0E-5   ! used to speed up PDF integration
      &  ,PDFMAX_EDGE = 0.03     ! max allowed PDF value at edges
      &  ,PDFMIN_GOOD = 1.0E-4   ! PDF > PDFMIN_GOOD counts as good point
      &  ,OPT_INTEGPDF_QUITCHI2 = 2  ! abort FCNSNLC if chi2 > quitchi2
      &  ,OPT_INTEGPDF_FULL     = 1  ! do full FCNSNLC evaluation
-c 
      &  ,OPT_SNXT_CCM89   = 1  ! exact SN etinction using INIT_XTHOST
      &  ,OPT_SNXT_SJPAR   = 2  ! SN extinction with Jha's parameters
      &  ,OPT_KCORERR_SMOOTH = 1 ! use smooth half-Gaussian 
      &  ,OPT_KCORERR_SJ     = 2   ! use Saurabh's Kcor error 
      &  ,OPT_KCORERR_SJ5    = 5  ! x5 Saurabh's Kcor error 
-c
      &  ,OPTMASK_SNDATA_GLOBAL =  1
      &  ,OPTMASK_SNDATA_HEAD   =  2
      &  ,OPTMASK_SNDATA_OBS    =  4
@@ -216,11 +188,9 @@ c
      &  ,OPTMASK_SNDATA_DONE   = 16     ! done reading data version
      &  ,OPTMASK_SNDATA_DUMP   = 32     ! flag to dump variable
      &  ,OPTMASK_SNDATA_REQUIRE= 64     ! flag to require variable
-c
      &  ,RV_MWCOLORLAW_DEFAULT  = 3.1   ! A_V/E(B-V)
      &  ,OPT_MWCOLORLAW_DEFAULT = 99    ! Fitzpatrick 99
      &  ,OPT_MWEBV_DEFAULT      =  1    ! whatever is in the data file
-c
      &  ,MXLINE_ARGS      = 100  ! max number of command line args
      &  ,MXKEY_ARGS       =   5  ! max number of args per key
      &  ,MXEPOCH_IGNORE   = 1000
@@ -229,7 +199,6 @@ c
      &  ,MXPAR_LCLIB      = 40   ! should be same as in genmag_LCLIB.h
      &  ,MXLAMBIN_SNSED   = 6000 ! May 2024: raised from 4k -> 6k
      &  ,MXCUTBIT         = 64   ! max number of cut bits
-c
      &  ,OPT_FILTUPD_EACHSN   = 1  ! default filter-updates
      &  ,OPT_FILTUPD_MAP      = 2  ! default filter-updates
      &  ,OPT_FILTUPD_SAMEFILT = 3  ! test: use same filter each SN
@@ -237,7 +206,6 @@ c
      &  ,OPT_FILTOBS          = 2
      &  ,ISTAT_READAGAIN      = 7 
      &  ,ISTAT_SKIP           = -1
-c
      &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_OUTLIER=3
      &  ,ITABLE_SNLCPAK=4, ITABLE_SPECPAK=5
      &  ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7, ITABLE_DMPFCN=8
@@ -255,7 +223,6 @@ c
      &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA   = 4  ! ignore comma for string
      &  ,MSKOPT_PARSE_WORDS_IGNORECOMMENT = 8  ! ignore comment lines
      &  ,MSKOPT_PARSE_WORDS_FIRSTLINE     = 16 ! read only 1st line of file
-c 
      &  ,MODEL_STRETCH    = 1
      &  ,MODEL_STRETCH2   = 2
      &  ,MODEL_MLCS2k2    = 3
@@ -273,7 +240,6 @@ c
      &  ,NULLVAL          = -99999.
      &  ,LEGACY_INIT_VAL  = 1.0E8
      &  ,IGNORE_HEADVAL   = -5555.
-c
      &  ,MXCHAR_CCID       = 20   ! max len of CCID string (i.e, SN name)
      &  ,MXCHAR_VERSION    = 72   ! max len of VERSION_PHOTOMETRY
      &  ,MXCHAR_SURVEY     = 40   ! max len of SURVEY_NAME
@@ -286,11 +252,9 @@ c
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
      &  ,MXCHAR_ARG        = 800  ! max lenth of command line arg
      &  ,MXFILE_LIST       =  10  ! max number of files in input list
-c
      &  ,FLAG_DOCANA_START  =  1  ! flags DOCUMENTATION key
      &  ,FLAG_DOCANA_END    =  2  ! flags DOCUMENTATION_END 
      &  ,FLAG_DOCANA_ERROR  = -1  ! flags missing DOCANA keys
-
      &  ,SNLCPAK_EPFLAG_FLUXDATA    = 1    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_FLUXMODEL   = 11
      &  ,SNLCPAK_EPFLAG_REJECT      = 2
@@ -306,13 +270,11 @@ c
      &  ,SNLCPAK_BANDFLAG_PKFLUX  = 101  ! filter-dependent 
      &  ,SNLCPAK_BANDFLAG_PKMJD   = 102
      &  ,SNLCPAK_BANDFLAG_CHI2    = 103
-c
      &  ,IFLAG_INI=1, IFLAG_ANA=2, IFLAG_END=3
      &  ,MAG_SATURATE = -7.0    ! for sim only
      &  ,CUTVAL_OPEN  = 1.0E12  ! cutwin value to accept everything.
      &  ,MASK_FLUXCOR_SNANA    = 1
      &  ,MASK_FLUXERRCOR_SNANA = 2
-c
      &  ,EXIT_ERRCODE_SNANA = 21
      &  ,EXIT_ERRCODE_SNFIT = 22
      &  ,EXIT_ERRCODE_PSNID = 23
@@ -337,20 +299,17 @@ c physical constants
       PARAMETER (
      &   PARSEC        = 3.085678E13  ! 1 parsec (km)
      &  ,CLIGHT        = 2.998E5      ! c (km/sec)
-c
      &  ,H0_DEFAULT        = 70.0  ! standard value
      &  ,W0_DEFAULT        = -1.0
      &  ,WA_DEFAULT        =  0.0
      &  ,OMAT_DEFAULT      =  0.315  ! Planck 2018 (updated Mar 2020)
      &  ,OLAM_DEFAULT      =  0.685  ! idem
      &  ,ORAD_DEFAULT      =  1.2E-5
-c
      &  ,H0ERR_DEFAULT        =  7.0
      &  ,W0ERR_DEFAULT        =  0.1
      &  ,WAERR_DEFAULT        =  0.0
      &  ,OMATERR_DEFAULT      =  0.03
      &  ,OLAMERR_DEFAULT      =  0.03
-c
      &  ,PEAKMAG_AT_10PC   = -19.6  
      &  ,Zat10pc           = 2.34E-9   ! magic redshift at 10 pc
      &  ,MJDOFF            = 0.0       ! 53000.
@@ -378,8 +337,6 @@ c
      &  ,SNDATA_FILE_CURRENT
      &  ,GLOBAL_BANNER, SNDATA_PREFIX, SNREADME_FILE, SNDATA_PATH
      &  ,C1ERR, C2ERR, LFLAG_RDHEAD_ONLY
-     
-
 
 +KEEP,CTRLCOM.
 
@@ -392,10 +349,8 @@ c control variables and counters.
      &  ,NACCEPT_TYPE          ! # SN with valid TYPE
      &  ,NACCEPT_Z             ! idem with valid redshift
      &  ,NACCEPT_ZERR          ! idem with valid redshift error
-c
      &  ,NCALL_SNANA_DRIVER
      &  ,NCALL_FCNFLAG(FCNFLAG_MAX)
-c
      &  ,NPASSCUT_INCREMENT(-1:MXTYPE,100)  ! 100 > NCUTBIT_SNLC 
      &  ,NPASSCUT_FIT(-1:MXTYPE)
      &  ,NSTORE_MAGCOR         ! number of stored MAGCOR values
@@ -588,7 +543,6 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
      &    ,WRTABLEFILE_ZPHOT
      &    ,WRTABLEFILE_HOST_TEXT, WRTABLEFILE_HOST2_TEXT
      &    ,WRTABLEFILE_ERRCALC_TEXT 
-c
      &    ,NFILT_REMAP_TABLE, IFILTLIST_REMAP_TABLE
      &    ,FILTLIST_REMAP_TABLE
      &    ,NTABLEVAR_USER, TABLEVARNAME_USER
@@ -802,7 +756,6 @@ c analysis-related variables.
      &  ,ISNLC_NEPOCH_FILT(MXFILT_OBS)  ! NEPOCH vs. filter
      &  ,ISNLC_NOBS_DETECT      ! NOBS with detection
      &  ,ISNLC_NOBS_PREDETECT   ! NOBS in CUTWIN_TOBS_PREDETECT window
-c
      &  ,ISNLC_FAKE             ! => real data, else it's a fake
      &  ,ISNLC_DETNUM(MXEPOCH)  ! read from header (May 2017)
      &  ,ISNLC_IMGNUM(MXEPOCH)  ! Oct 2021: IMAGE NUNBER (e.g., EXPNUM, VISIT_ID)
@@ -967,7 +920,6 @@ c
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
      &    ,SNLC_PSF_NEA, SNLC_PSF_FWHM_ARCSEC
-c
      &    ,SNLC_SNR, SNLC_FLUXCAL_OFF
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
      &    ,SNLC_FLUXCAL_HOSTERRCALC
@@ -1075,7 +1027,6 @@ c  Not intended for analysis.
      &    MJD_SPECTRUM(MXSPECTRUM) 
      &   ,TOBS_SPECTRUM(MXSPECTRUM)
      &   ,TEXPOSE_SPECTRUM(MXSPECTRUM)
-c
      &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM)
      &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM)
      &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM)
@@ -1115,7 +1066,6 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_MUSHIFT 
      &  ,SIM_MWEBV
      &  ,SIM_MWRV
-c
      &  ,SIM_WGT_POPULATION     ! Dec 2023: for biasCor sims only
      &  ,SIM_SALT2x0
      &  ,SIM_SALT2mb
@@ -1134,7 +1084,6 @@ c
      &  ,SIM_EPdRA(MXEPOCH)
      &  ,SIM_EPdDEC(MXEPOCH)
      &  ,SIM_EPdMAG(MXEPOCH)
-c
      &  ,SIMSED_PARVAL(MXPAR_SIMSED)
      &  ,PySEDMODEL_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
@@ -1143,11 +1092,8 @@ c
      &  ,SIM_SALT2gammaDM             ! usually this is gamma or gamma/2
      &  ,SIM_TEMPLATEMAG(MXFILT_ALL)  ! image-sub template, not LCLIB template
      &  ,SIM_LCWIDTH(MXFILT_ALL)      ! computed from SIM_EPFLUXCAL
-c 
      &  ,SIM_MODELGRID_TOBS(MXEP_MODELGRID)    ! for SNANA+SIM_MAGOBS table
      &  ,SIM_MODELGRID_MAGOBS(MXEP_MODELGRID,MXFILT_OBS/2) ! idem
-
-c xxx mark del May 19 2025  REAL SIM_OM, SIM_OL, SIM_w0, SIM_wa, SIM_MUSHIFT ! read from README
 
       INTEGER
      &   SIM_MODEL_INDEX      ! model index (MLCS,SALT2,NON1a ...)
@@ -1339,7 +1285,6 @@ c quantites which do not depend on which host
      &  ,EXIST_SNHOST_ZPHOT,  EXIST_SNHOST_LOGMASS, EXIST_SNHOST_LOGSFR
      &  ,EXIST_SNHOST_LOGsSFR, EXIST_SNHOST_COLOR
      &  ,EXIST_SNHOST_MAGOBS, EXIST_SNHOST_SB
-c
      &  ,SNHOST_NMATCH, SNHOST_NMATCH2, SNHOST_FLAG
      &  ,SNHOST_ANGSEP, SNHOST_DDLR, SNHOST_CONFUSION
      &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR
@@ -1505,10 +1450,8 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_TobsMIN        = 14 
      &  ,CUTBIT_TobsMAX        = 15
      &  ,CUTBIT_PEAKMJD        = 16
-c
      &  ,CUTBIT_NOBS_PREDETECT = 17  ! Mar 2025
      &  ,CUTBIT_NSEASON_ACTIVE = 18  ! May 2019
-c
      &  ,CUTBIT_NEPOCH         = 19  ! total # of measurements
      &  ,CUTBIT_SEARCH         = 20  ! found by search (SIM only)
      &  ,CUTBIT_NFILT_SNRMAX   = 21
@@ -1530,7 +1473,7 @@ c
      &  ,CUTBIT_MJD_MARKER     = CUTBIT_OFFSET_SNRMAX + MXFILT_SNRMAX
      &  ,NCUTBIT_SNLC          = CUTBIT_MJD_MARKER
 c SN-dependent cuts above
-c MJD-dependent cuts below
+c  MJD-dependent cuts below
      &  ,CUTBIT_PSF          = CUTBIT_MJD_MARKER + 1  ! PSF cut
      &  ,CUTBIT_ZP           = CUTBIT_MJD_MARKER + 2  ! ZP  cut (Feb 2018)
      &  ,CUTBIT_ZPERR        = CUTBIT_MJD_MARKER + 3  ! ZPERR (Feb 2020)
@@ -1541,7 +1484,6 @@ c MJD-dependent cuts below
      &  ,CUTBIT_TREST_TRUEFLUX2= CUTBIT_MJD_MARKER + 8
      &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 9
      &  ,CUTBIT_SIM_PULL     = CUTBIT_MJD_MARKER + 10 ! Mar 2021
-c
      &  ,CUTBIT_OFFSET       = CUTBIT_SIM_PULL
      &  ,NCUTBIT             = CUTBIT_OFFSET  
      &      )
@@ -1630,16 +1572,16 @@ c# -----------  SN-dependent cut-window  ! I: --------------------------------
      &  ,cutwin_cutflag_private(2)     ! for internal use only
      &  ,cutwin_cutflag_simvar(2)      ! for internal use only
      &  ,cutwin_mask_nobs_trest(2)     ! for internal use only
-     &  ,cutwin_nfilt_snrmax(2)  ! I: Nfilt passing global SNRMAX cut
-     &  ,cutwin_nfilt_snrmax2(2) ! I: Nfilt passing 2nd-best SNRMAX
-     &  ,cutwin_nfilt_trestmin(2)! I: Nfilt passing Trestmin cut
-     &  ,cutwin_nfilt_trestmax(2)! I: Nfilt passing Trestmax cut
-     &  ,cutwin_nfilt_trest2(2)  ! I: Nfilt passinng Trest2 cut
-     &  ,cutwin_nband_thresh(2)  ! I: number of bands above $band_THRESH
-     &  ,cutwin_Trestmin(2)      ! I: cut on earliest epoch, rest frame days
-     &  ,cutwin_Trestmax(2)      ! I: cut on  latest epoch, rest frame day
-     &  ,cutwin_TrestRange(2)    ! I: cut on Trestmax - Trestmin
-     &  ,cutwin_Trest2(2)        ! I: cut on CUTWIN_NFILT_TREST2
+     &  ,cutwin_nfilt_snrmax(2)    ! I: Nfilt passing global SNRMAX cut
+     &  ,cutwin_nfilt_snrmax2(2)   ! I: Nfilt passing 2nd-best SNRMAX
+     &  ,cutwin_nfilt_trestmin(2)  ! I: Nfilt passing Trestmin cut
+     &  ,cutwin_nfilt_trestmax(2)  ! I: Nfilt passing Trestmax cut
+     &  ,cutwin_nfilt_trest2(2)    ! I: Nfilt passinng Trest2 cut
+     &  ,cutwin_nband_thresh(2)    ! I: number of bands above $band_THRESH
+     &  ,cutwin_Trestmin(2)        ! I: cut on earliest epoch, rest frame days
+     &  ,cutwin_Trestmax(2)        ! I: cut on  latest epoch, rest frame day
+     &  ,cutwin_TrestRange(2)      ! I: cut on Trestmax - Trestmin
+     &  ,cutwin_Trest2(2)          ! I: cut on CUTWIN_NFILT_TREST2
      &  ,cutwin_Tgapmax(2)         ! I: max Trest-gap within cutwin_TREST(2)
      &  ,cutwin_T0gapmax(2)        ! I: max Trest-gap near peak 
      &  ,cutwin_Tobsmin(2)         ! I: cut on min Tobs
@@ -1647,19 +1589,21 @@ c# -----------  SN-dependent cut-window  ! I: --------------------------------
      &  ,cutwin_peakmjd(2)         ! I: cut on search peakMJD
      &  ,cutwin_tobs_predetect(2)  ! I: pre-detection Tobs window  e.g. -10, 0 w.r.t. MJD_DETECT_FIRST
      &  ,cutwin_nobs_predetect(2)  ! I: Nobs required in pre-detect time window
-c  
+
+
 c  Below are Epoch-dependent cuts
 c# -----------  epoch-dependent cut windows  ! I: --------------------------------
-     &  ,cutwin_psf(2)           ! I: PSF cut, FWHM, ARCSEC
+      REAL
+     &   cutwin_psf(2)           ! I: PSF cut, FWHM, ARCSEC
      &  ,cutwin_zp(2)            ! I: ZEROPT cut, ADU or NPE
      &  ,cutwin_zpADU(2)         ! I: ZEROPT cut, ADU
      &  ,cutwin_zpNPE(2)         ! I: ZEROPT cut, NPE
      &  ,cutwin_ZPERR(2)         ! I: ZPERR cut
      &  ,cutwin_photprob(2)      ! I: cut on PHOTPROP (e.g., real/bogus)
      &  ,cutwin_errtest(2)       ! I: cut on ERRCALC/ERRTRUE
-     &  ,cutwin_sim_pull(2)       ! I: cut on (F-Ftrue)/sigmaF
-     &  ,cutwin_Trest_trueflux(2) ! I: Trest range requiring valid true flux
-     &  ,cutwin_Trest_trueflux2(2)! I: cut on logical flag
+     &  ,cutwin_sim_pull(2)        ! I: cut on (F-Ftrue)/sigmaF
+     &  ,cutwin_Trest_trueflux(2)  ! I: Trest range requiring valid true flux
+     &  ,cutwin_Trest_trueflux2(2) ! I: cut on logical flag
      &  ,cutwin_Trest(2)         ! I: cut on all epochs, rest frame days
      &  ,cutwin_Tobs(2)          ! I: cut on all epochs, obs-frame days
      &  ,cutwin_MJD(2)           ! I: cut on MJD range
@@ -1670,7 +1614,8 @@ c# -----------  epoch-dependent cut windows  ! I: ------------------------------
      &  ,cutwin_lamrest(2)                ! I: same as above
      &  ,cutwin_lamobs(2)                 ! I: cut on <LAMOBS>, no cutBit
      &  ,cutwin_snr_nodetect(2)    ! I: SNR cut for non-detections
-c
+
+
 c define character strings to specify cuts and filters
 c 'SNCUT' specifies cut on each SN
 c 'EPCUT' specifies selection cut on each epoch
@@ -1698,7 +1643,7 @@ c
 c ----------
 c systematic tests for calibration:
 c 'U 01 B -0.01' => shift U & B mags of primary
-
+c
      &  ,MAGOBS_SHIFT_PRIMARY  ! I: shift primary mags  (for syst test)
      &  ,MAGOBS_SHIFT_ZP       ! I: shift zero points (e.g.,AB off for SDSS)
      &  ,MAGREST_SHIFT_PRIMARY ! I: idem for rest-frame mags 
@@ -2814,6 +2759,9 @@ c common block for translating SNANA format into SALT2 format.
 +CDE,SNSIMCOM.
 
 
+C END_KEEP  # key for script to convert F77 to F99
+
+
 +PATCH,*SNANA.
 
 +USE,P=*SNMAIN,T=EXE.
@@ -2822,12 +2770,10 @@ c common block for translating SNANA format into SALT2 format.
 +USE,P=*SNTABLE,T=EXE.
 +USE,P=*CALIB,T=EXE.
 +USE,P=*FITPKMJD,T=EXE.
-c +USE,P=*SPLINE,T=EXE.
 
 
-C =============================================
+
 +PATCH,*SNMAIN.
-C =============================================
 
 C =============================================
 +DECK,MAIN.
@@ -10033,7 +9979,8 @@ c Beware that SNANA table gets filled after FITRES table.
       END         ! end of SNANA_DRIVER
 
 C =====================================================
-+DECK,SNANA_ERRFLAG,IF=SNFIT.
++SELF,IF=SNFIT.
++DECK,SNANA_ERRFLAG.
       SUBROUTINE SNANA_ERRFLAG_FIT(ITER,ERRFLAG)
 
 c Created May 24 2018
@@ -20514,7 +20461,8 @@ C ================================================
       RETURN
       END
 C =======================================================
-+DECK,FLUXERRCALC,IF=SNANA,SNFIT.
++SELF,IF=SNANA,SNFIT.
++DECK,FLUXERRCALC.
       SUBROUTINE FLUXERRCALC(iepoch, FLUXCAL, FLUXCAL_ERR )
 c 
 c Compute error from SKY,PSF and ZPT the same way as the
@@ -20875,7 +20823,7 @@ c      print*,' xxx BAND = ', BAND, LEN_BAND
       END
 
 C ==========================================
-+DECK,AREAFRAC,IF=SNANA,SNFIT.
++DECK,AREAFRAC.   
       SUBROUTINE CCD_AREAFRAC(ep)
 
 c Created aug 2014 by R.Kessler
@@ -20930,8 +20878,8 @@ c      print*,' xxx NXPIX,NYPIX = ', SNLC_NXPIX, SNLC_NYPIX
       SNLC_AREAFRAC(ep) = A/AMAX
 
       RETURN
-      END   ! end of CCD_AREAFRAC
-+SELF.
+      END  
+c +SELF.
 
 C ==========================================
 +DECK,MON_SNANA.
@@ -22467,7 +22415,8 @@ c check list of CCIDs to plot
       END
 
 C -----------------------------------------
-+DECK,GETNLCPLOT,IF=SNANA.
++SELF,IF=SNANA.
++DECK,GETNLCPLOT.
       INTEGER FUNCTION SNANA_GET_NLCPLOT()
 
 C Created May 17 2014 by R.Kessler
@@ -22493,7 +22442,8 @@ c return function value
 +SELF.
 
 C ==============================
-+DECK,SNLCPLOT,IF=SNANA.
++SELF,IF=SNANA.
++DECK,SNLCPLOT.
       SUBROUTINE SNLCPLOT()
 
 c Created Feb 2013 by R.Kessler
@@ -23409,7 +23359,8 @@ c ---------- BEGIN ---------
 
       
 C ===========================================
-+DECK,NSIG_OUTLIER_FIT,IF=SNFIT.
++SELF,IF=SNFIT.
++DECK,NSIG_OUTLIER_FIT.
       REAL FUNCTION NSIG_OUTLIER_FIT(ep)
 
 c Created Mar 17 2021
@@ -23461,6 +23412,7 @@ c set function value
 
       RETURN
       END     ! end NSIG_OUTLIER_FIT(ep)
++SELF.
      
 C ==================================
 +DECK,PR_OUTLIER_SUMMARY.
@@ -26087,314 +26039,6 @@ c -----------------------------
       END   ! end FILTER_UPDATE_EACHSN
 
 
-C ================================================
-+DECK,FUPD_EACHSN_LEGACY.
-      SUBROUTINE FILTER_UPDATE_EACHSN_LEGACY(ifilt)
-
-c Nov 8, 2010
-c Read/update filter response for this sparse 'ifilt'
-c Store in FILTOBS_TRANS_UPD array using same lambda 
-c binning as in KCOR file. Updated lambda binning 
-c can be different since it gets interpolated to the 
-c original grid.
-c
-c Nov 2022: refactor to use new & old kcor/calib code.
-c
-
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c +CDE,PARSECOM.
-
-c subroutine args
-      INTEGER IFILT     ! (I) sparse indices
-
-c local var
-
-      INTEGER 
-     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
-     &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
-     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME, OPT_RD2COL
-
-      CHARACTER 
-     &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
-     &  ,FILTFILE_REF*(MXCHAR_FILENAME)  ! idem for primary ref
-     &  ,TMPFILE*(MXCHAR_FILENAME)
-     &  ,CCID*(MXCHAR_CCID)
-     &  ,cfilt*1
-     &  ,c1err*80
-     &  ,c2err*80
-     &  ,comment*40 
-
-      REAL*8
-     &   LAM
-     &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
-     &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
-     &  ,Trans_upd
-     &  ,FLAM_STORE(MXLAMBIN_FILT) ! store trans on this lam array
-     &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
-     &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
-     
-      LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
-
-c define utilities from sntools.c
-      INTEGER  RD2COLUMNFILE 
-      EXTERNAL RD2COLUMNFILE 
-  
-      REAL*8   INTERP_1DFUN
-      EXTERNAL INTERP_1DFUN
-      EXTERNAL LOAD_FILTERTRANS_CALIB, GET_CALIB_FILTERLAM
-
-C ---------------- BEGIN --------------
-
-      UPD_DUMP = .FALSE.  ! internal dump logical
-
-      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-      cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
-      LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
-      CCID      = SNLC_CCID(1:LCC)
-
-      OPT_FRAME = OPT_FILTOBS - 1
-      CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
-     &                      NLAM_STORE, FLAM_STORE)
-
-c - - - - - 
-      if (UPD_DUMP) then
-        print*,' '
-        print*, 'XXXXXX ----------------------------------------- '
-        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
-     &       CCID(1:LCC),'-', cfilt
-        call flush(6)
-      end if 
-
-      OPT_INTERP = 1   ! 1=linear;  2=quadratic
-
-      comment = CCID(1:LCC) // '-filter-update' // char(0)
-      LCOM    = INDEX(comment,' ') - 1
-
-c     get string lengths for file name
-
-      LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
-      LSSN  = INDEX(SUFFIX_UPD_TRANSSN,' ') -1 
-
-      LPREF = INDEX(PREFIX_UPD_TRANSREF,' ') -1 
-      LSREF = INDEX(SUFFIX_UPD_TRANSREF,' ') -1 
-
-      L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
-      LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
-
-c construct full filename of SN and REF-transmission files.
-
-      TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
-     &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
-      LTMPF = INDEX(TMPFILE,' ') - 1
-      FILTFILE_SN = FILTER_UPDATE_DIR(1:LDIR)  
-     &                 // '/' // TMPFILE(1:LTMPF) 
-
-      TMPFILE = PREFIX_UPD_TRANSREF(1:LPREF)   
-     &          // cfilt // SUFFIX_UPD_TRANSREF(1:LSREF)
-      LTMPF = INDEX(TMPFILE,' ') - 1
-      FILTFILE_REF = FILTER_UPDATE_DIR(1:LDIR)  
-     &          // '/' // TMPFILE(1:LTMPF) 
-
-
-      if ( UPD_DUMP ) then
-        print*, '++++ UPDATING FILTER ' 
-     &          ,'IFILT = ', ifilt_obs,' '
-     &         , cfilt(1:1), ' with NLAM '
-     &         , NLAM_STORE , ' for SN ', CCID
-        call flush(6)
-       end if
-
-
-      OPT_RD2COL = 1
-
-c Use IOSTAT option to figure out which of the files
-c FILTFILE_REF  and FILTFILE_SN exist
-
-c     check if FILTFILE_REF exists?
-
-      istat=1
-      LL = INDEX(FILTFILE_REF,' ') - 1
-      TMPFILE =FILTFILE_REF(1:LL)
-      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &      IOSTAT=istat)
-      CLOSE( UNIT = LUNTMP) 
-
-      if (istat .EQ. 0) then
-         LEXIST_REF = .true.
-         MXLAM   = MXLAMBIN_FILT
-         TMPFILE = FILTFILE_REF(1:LL) // char(0)
-         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &            ,FLAM_UPD, FTRANS_UPD, OPT_RD2COL, LL)  ! (out)
-
-      else 
-          LEXIST_REF = .false.
-      endif 
-
-      if (UPD_DUMP) then 
-        print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
-        call flush(6)
-      end if
-
-c - - - - - -
-c    now interpolate to the original grid
-c    for files which exist
-
-      IF ( LEXIST_REF ) THEN
-        DO 20 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 
- 
-            LAM = FLAM_STORE(ilam)
-            FTRANSREF_STORE(ilam) = 0.0 
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
- 
-            Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
-     &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
-
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) 
-            FTRANSREF_STORE(ilam)  = Trans_upd
-
-20      CONTINUE  ! ILAM loop over original lambda binning
-        if (UPD_DUMP) then
-          print*, "REF interp done"
-          call flush(6)
-        end if 
-
-      ENDIF  ! end LEXIST_REF
-
-
-c ------------------------------------
-c     FILTFILE_SN exists?
-
-
-      istat=1
-      LL = INDEX(FILTFILE_SN,' ') - 1
-      TMPFILE =FILTFILE_SN(1:LL)
-      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &  IOSTAT=istat)
-     
-      if (istat.EQ.0) then
-         LEXIST_SN = .true.
-c        readsnfile
-         MXLAM   = MXLAMBIN_FILT
-         TMPFILE = FILTFILE_SN(1:LL) // char(0)
-         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &            ,FLAM_UPD, FTRANS_UPD, OPT_RD2COL, LL)  ! (out)
-      else 
-         LEXIST_SN = .false.
-      endif 
-
-      CLOSE( UNIT = LUNTMP) 
-
-c - - - - - - - 
-c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
-
-      IF (LEXIST_SN) THEN
-cc      print*, ' Interpolate SN file', NLAM_STORE
-        DO 70 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 
-
-            LAM = FLAM_STORE(ilam)
-            FTRANSSN_STORE(ilam) = 0.0 
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
- 
-            Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
-     &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
-
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) 
-            FTRANSSN_STORE(ilam) = Trans_upd
-
-70      CONTINUE  ! ILAM loop over original lambda binning
-        if (UPD_DUMP) then
-          print*, 'SN Interp done for', NLAM_STORE, CCID
-          call flush(6)
-        end if
-      ENDIF
-
-
-c    If neither file exists, abort program
-
-
-      if (.NOT.( LEXIST_REF .OR. LEXIST_SN) ) then        
-        c1err = 'Could not update filter-trans for CID = ' 
-     &       // CCID(1:LCC) // '-' // cfilt
-        c2err = 'FILTDIR=' // FILTER_UPDATE_DIR(1:LDIR)
-        CALL MADABORT('FILTER_UPDATE_EACHSN', c1err, c2err )
-      endif
-
-c     IF either SN or REF file does not exist, copy the other 
-c     file for the transmission functions
-
-
-c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
-c                             IF REF file does not exist, SN trans undef
-c                             but should have been aborted above
-
-      if (.NOT. LEXIST_SN ) then 
-        DO 170 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
-     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
-
-            FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
-170     CONTINUE  ! ILAM loop over original lambda binning
-      end if
-
-
-c - - - - - - - - -
-c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
-c                             IF SN file does not exist, Ref trans undef
-c                             but should have been aborted above
-      IF (.NOT. LEXIST_REF ) THEN
-        DO 270 ilam = 1, NLAM_STORE
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) =
-     &      FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
-
-            FTRANSREF_STORE(ilam) = FTRANSSN_STORE(ilam)
-270      CONTINUE  ! ILAM loop over original lambda binning
-      ENDIF
-
-       CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
-     &         FLAM_STORE, FTRANSSN_STORE )
-
-c -----------------------------
-      if ( UPD_DUMP ) then 
-        print*, '%%%% ', NLAM_STORE
-        if (mod(NLAM_STORE,2).EQ.0) then
-           ilam = NLAM_STORE/2
-        else
-         ilam = (NLAM_STORE+1)/2
-        end if
-        LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
-        print*, 'xxxxx', NLAM_STORE 
-     &        , sngl(FTRANSSN_STORE(ilam))
-     &        , sngl(FTRANSREF_STORE(ilam))
-
-        print*, 'xxxx SN =' , CCID
-        print*, 'xxxx LEXIST_REF =', LEXIST_REF
-        print*, 'xxxx LEXIST_SN  =', LEXIST_SN
-        print*, 'xxxx FILE_REF   =', FILTFILE_REF
-        print*, 'xxxx FILE_SN    =', FILTFILE_SN
-
-        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
-        call flush(6)
-      endif
-
-
-      RETURN
-      END   ! end FILTER_UPDATE_EACHSN_LEGACY
-
-
 C =======================================
 +DECK,IMAP2FUPD.
       INTEGER FUNCTION IMAP2_FUPDMATCH(CCID)
@@ -28102,7 +27746,7 @@ c Aug 31 2019: protect against crazy values.
 
 C =====================================
 +DECK,COVPKFLUX.
-      REAL*8 FUNCTION COVPKFLUXFUN(ifilt_obs, MJD1, MJD2)
+      DOUBLE PRECISION FUNCTION COVPKFLUXFUN(ifilt_obs, MJD1, MJD2)
 
 c
 c Created April 12, 2010 by R.Kessler
@@ -28858,12 +28502,12 @@ c compute correlation matrix from error matrix
 
 C ======================================
 +DECK,ERRTYPE_STR.
-      FUNCTION ERRTYPE_STR(ERRTYPE)
+      CHARACTER*1 FUNCTION ERRTYPE_STR(ERRTYPE)
       IMPLICIT NONE
 
       INTEGER ERRTYPE  ! (I) error type
 
-      CHARACTER ERRTYPE_STR*1
+c xxx mark      CHARACTER ERRTYPE_STR*1
 
 +CDE,SNPAR.
 

@@ -23332,4 +23332,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    remove src/fcasplit.F src/SIMSED_fudge.c    util/obdatamc.py
    
+   misc:
+     cleanup and prep for f77 -> f90 conversion
+
 END: 

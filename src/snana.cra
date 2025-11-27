@@ -5,15 +5,10 @@ c --------------------------------------------------------
 +NAMES,8,6000,48000.
 +USE,LINUX.
 +USE,SNANA.
-c+USE,KCOR.
 +USE,MINUIT.
-
-c +USE,TESTFUNS.
-c +USE,DBUGAVWARP.
 
 +USE,P=*SNCOM.
 +USE,P=*SNANA,T=EXE.
-+USE,P=*TESTFUNS,T=EXE,IF=TESTFUNS.
 +PAM,LUN=10, T=A,C. snana.lnk
 
 c patch in user code (see below)

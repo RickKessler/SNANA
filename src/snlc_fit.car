@@ -1311,9 +1311,6 @@ C ------------------- BEGIN ---------------------
       CALL RDFITNML(IERR)
       if ( IERR .NE. 0 ) RETURN
 
-      CALL RDMCMCNML(IERR)
-      if ( IERR .NE. 0 ) RETURN
-
 
 c set FITANA_CUTWIN_XXX for cuts that might change for photoZ fits.
 c This allows using the same FITANA_CUTWIN_XXX array in FITANA

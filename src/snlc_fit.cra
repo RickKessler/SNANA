@@ -17,7 +17,6 @@ c+USE,KCOR.
 +USE,P=*SNCOM.
 +USE,P=*SNANA,T=EXE.
 +USE,P=*FITUTIL,T=EXE.
-+USE,P=*TESTFUNS,T=EXE,IF=TESTFUNS.
 +PAM,LUN=10, T=A,C. snana.lnk
 
 c patch in fitter code

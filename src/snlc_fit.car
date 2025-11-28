@@ -1223,7 +1223,6 @@ c  OPT_VMAX = 3 -> use peak for both mag and Zmax
 C ===================================
 +PATCH,*FITCODE.
 +USE,P=*SNTABFIT,T=EXE.
-+USE,P=*HFUNS,T=EXE.
 
 C ===========================================
 +DECK,FITPAR_INI.
@@ -12752,7 +12751,6 @@ C ==========================================
 c
 c Jul 25, 2011
 c Initialize simulated efficiency for prior.
-c [modified from MON_SIMEFF]
 c Also make plots of simulated efficiency vs. Z and
 c other variables.
 c
@@ -12857,9 +12855,11 @@ c check other variables that are not in the fit-par list
 200   CONTINUE
 
 
-      IF ( FITMODEL_INDEX == MODEL_MLCS2k2 .and. USE_TABLEFILE ) THEN
-        CALL MON_SIMEFF()
-      ENDIF
+c xxxxxx mark delete Nov 2025 xxxxxxx
+c      IF ( FITMODEL_INDEX == MODEL_MLCS2k2 .and. USE_TABLEFILE ) THEN
+c        CALL MON_SIMEFF()
+c      ENDIF
+c xxxxxxxxxxxxxxxx
 
       RETURN
       END     ! end of INIT_PRIOR_SIMEFF
@@ -20423,98 +20423,3 @@ c      check FITRESTMAG variables
       END  ! end of  IPAR_PARNAME_STORE
 
 
-C =====================================================
-+PATCH,*HFUNS.
-
-
-C ================================
-+DECK,MONSIMEFF.
-      SUBROUTINE MON_SIMEFF
-c
-c Aug 2011: Plot SIMEFF vs. whatever.
-c Feb 2013: replace HBOOK and HF2 with SNHIST_XXXX utils
-
-      IMPLICIT NONE
-
-c local var
-
-+CDE,SNDATCOM.
-+CDE,SNFITPAR.
-
-      INTEGER hid, NBAV, NBZ, iav, ilum, iz, ISN, NDIM, NBIN(2)
-      REAL*8  
-     &   XVAL(10), EFF, AV, DELTA, Z, WGT
-     &  ,AVMIN, AVMAX, AVBIN
-     &  ,ZMIN,  ZMAX,  ZBIN, MWEBV
-     &  ,DMIN(2), DMAX(2), DVAL(2)
-
-      CHARACTER chis*80
-
-c function
-      REAL*8  SNLC_FIT_SIMEFF
-
-C ------------- BEGIN ----------
-
-C hard wire redshift and AV bins
-
-      NDIM  = 2  ! 2D plots
-      WGT   = 1.0
-
-      AVMIN = -0.1
-      AVMAX =  2.0
-      AVBIN =  0.02
-      NBAV   = (AVMAX - AVMIN + 1.0E-5)/AVBIN
-
-      ZMIN = 0.05
-      ZMAX = 0.95
-      ZBIN = 0.10
-      NBZ   = (ZMAX - ZMIN + 1.0E-5)/ZBIN
-
-      NBIN(1) = NBZ
-      NBIN(2) = NBAV
-      DMIN(1) = ZMIN
-      DMIN(2) = AVMIN
-      DMAX(1) = ZMAX
-      DMAX(2) = AVMAX
-
-c set artificial ISN index to and set MWEBV=0 temporarily
-      ISN = 1
-      MWEBV = SNLC_MWEBV
-      SNLC_MWEBV = 0.0
-
-     
-      DO 100 ilum = 1, 5  ! loop over DELTA values
-
-        DELTA = -0.5 + float(ilum-1)*.2
-        XVAL(IPAR_SHAPE)  = DELTA
-
-c book EFF vs. AV & Z for this DELTA value.
-          write(chis,20) DELTA
-20        format('SIMEFF vs. AV and z,  DELTA=',F5.2)
-          chis = chis(1:40) // char(0)
-          hid = 18000 + ilum
-          CALL SNHIST_INIT(NDIM, HID, CHIS, NBIN,DMIN,DMAX, 80 )
-
-        DO 201 iz  = 1, NBZ
-          Z  = ZMIN + ZBIN * (FLOAT(iz)-0.5)
-          XVAL(IPAR_zPHOT)   = Z
-        DO 202 iav = 1, 210
-          AV = AVMIN + AVBIN * (FLOAT(iav)-0.5)
-          XVAL(IPAR_AV)  = AV
-          EFF  = SNLC_FIT_SIMEFF(ISN,XVAL)
-
-          DVAL(1) = Z
-          DVAL(2) = AV
-          CALL SNHIST_FILL(NDIM, HID, DVAL, EFF )
-
-202     CONTINUE
-
-201     CONTINUE
-
-100   CONTINUE
-
-c restore MWEBV
-      SNLC_MWEBV = MWEBV
-
-      RETURN
-      END

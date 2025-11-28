@@ -16,7 +16,7 @@ cc+USE,P=*SNANA,T=EXE.
 
 c patch in code for lc plots with best-fit model (same as in snlc_fit)
 +USE,P=*FITCOM.  
-+USE,P=*PLOTPREP,T=EXE.
+c+USE,P=*PLOTPREP,T=EXE.
 +PAM,LUN=20, T=A,C. snlc_fit.lnk
 
 c patch in PSNID control-code below (psnid.car -> psnid.lnk during compilation)

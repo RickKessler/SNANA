@@ -100,11 +100,6 @@ c --------------------------------------------------------
 C =======================================
 +PATCH,*FITCOM.
 
-+KEEP,SNFITCOM.
-
-+CDE,SNFITPAR.
-+CDE,SNFITVAR.
-+CDE,SNFITINP.
 
 +KEEP,SNFITPAR.
 
@@ -593,11 +588,10 @@ c namelist input variables.
      &   ,STRETCH_TEMPLATE_FILE*(MXCHAR_FILENAME)  ! template for stretch model
      &   ,SALT2_DICTFILE*(MXCHAR_FILENAME)    ! output for SALT2's HUBBLEFIT
      &   ,FILTLIST_FIT*(MXFILT_ALL)    ! I: char list of filters to fit: 
-     &                            ! I: examples: 'gri' or 'g r i', etc ...
+c                                      ! I: examples: 'gri' or 'g r i', etc ...
      &   ,FILTLIST_DMPFCN*20      ! I: idem for CHI2FUN [FCN] dump
      &   ,FILTLIST_DMPFUN*20      ! I: idem for USRFUN [flux-fun] dump
      &   ,NEARFILT_IGNORE_REST*20 ! I: ignore these nearest rest-filters
-c xxx mark      &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
      &   ,FILTER_FITMAGDIF*4      ! I: fit magObs in this filter 2 ways for test
      &   ,CCID_DUMP_CHI2_MATRIX*20  ! I: CID to print each chi2 term in matrix
      
@@ -665,10 +659,10 @@ c Jun 2015: FITWIN_AV -> FITWIN_COLOR
      &  ,FITWIN_PROB(2)        ! I: cut-window on chi2 prob
      &  ,FITWIN_PROB_ITER1(2)  ! I: cut-window on 1st-iter FITPROB (fast cut)
      &  ,FITWIN_SHAPE_ITER1(2) ! I: cut-window on 1st-iter shape (fast cut)
-     &  ,FITWIN_COLOR_ITER1(2) ! I: cut-window on 1st-iter color (fast cut)
+     &  ,FITWIN_COLOR_ITER1(2)  ! I: cut-window on 1st-iter color (fast cut)
      &  ,FITWIN_CHI2RED_INI(2)  ! I: cut-window on chi2 using initial guess params
      &  ,FITWIN_CHI2RED_INI2(2) ! I: cut-window on chi2 using init-adjusted params
-     &  ,FITWIN_NOMARG_PROB(2) ! I: cut-window before marginalization
+     &  ,FITWIN_NOMARG_PROB(2)  ! I: cut-window before marginalization
      &  ,FITWIN_CHI2SIGMA(2)   ! I: cut on chi2-contribution from sigma-term
      &  ,FITWIN_TREST(2)       ! I: cut on T - T0 (to replace TREST_REJECT)
      &  ,FITWIN_MJD(2)         ! I: cut on absolute MJD range.
@@ -680,12 +674,13 @@ c
      &  ,FITWIN_SHAPE_ERR(2)   ! I: cut on x1err or delta_err (9/2016)
      &  ,FITWIN_COLOR_ERR(2)   ! I: cut on cerr or AVerr (9/2016)
 c
-     &  ,FITWIN_PEAKMJD_ERRz1(2)! I: cut on PEAKMJDerr/(1+z), added Mar 2017
-     &  ,FITWIN_MB_ERRz1(2)     ! I: cut on NBerr/(1+z)
-     &  ,FITWIN_SHAPE_ERRz1(2)  ! I: cut on x1err/(1+z)
-     &  ,FITWIN_COLOR_ERRz1(2)  ! I: cut on cerr/(1+z)
-c
-     &  ,INISTP_PEAKMJD       ! I: initial step size for MJD  (days)   
+     &  ,FITWIN_PEAKMJD_ERRz1(2)  ! I: cut on PEAKMJDerr/(1+z), added Mar 2017
+     &  ,FITWIN_MB_ERRz1(2)       ! I: cut on NBerr/(1+z)
+     &  ,FITWIN_SHAPE_ERRz1(2)    ! I: cut on x1err/(1+z)
+     &  ,FITWIN_COLOR_ERRz1(2)    ! I: cut on cerr/(1+z)
+
+      REAL
+     &   INISTP_PEAKMJD       ! I: initial step size for MJD  (days)   
      &  ,INISTP_AV            ! I: initial step size for AV
      &  ,INISTP_RV
      &  ,INISTP_AVRV          ! I: non-zero => fit for AV/RV instead of RV
@@ -986,7 +981,7 @@ c elements removed; e.g., SNRMAX-list with unused filters
 c excluded.  
 
       INTEGER MXCOV_TBL
-      PARAMETER (MXCOV_TBL = IPAR_MAX*(IPAR_MAX-1)/2 ) ! off-diags only
+      PARAMETER (MXCOV_TBL = 50)
 
       REAL
      &   TBL_REDCOV(MXCOV_TBL)         ! only fited params
@@ -1051,7 +1046,7 @@ c define table var for DMPFCN
      &   TBLDMPFCN_ZSN
      &  ,TBLDMPFCN_PEAKMJD, TBLDMPFCN_DISTANCE
      &  ,TBLDMPFCN_SHAPEPAR, TBLDMPFCN_COLORPAR
-     &  ,TBLDMPFCN_CHI2PRIOR(0:MXFITPAR), TBLDMPFCN_CHI2TOT
+     &  ,TBLDMPFCN_CHI2PRIOR(0:20), TBLDMPFCN_CHI2TOT
 
       COMMON / TABLEVARCOM_DMPFCN / 
      &   TBLDMPFCN_ISN, TBLDMPFCN_NCALL
@@ -1075,8 +1070,8 @@ c           before doing more specialize fits such as rest-frame mags.
      &   USE_ALLFILT(MXFILT_ALL)  
 
       REAL
-     &   FITVAL_ALLFILT(MXFITPAR)
-     &  ,FITERR_ALLFILT(MXFITPAR)
+     &   FITVAL_ALLFILT(20)  ! MXFITPAR = 12, so 20 gives extra room
+     &  ,FITERR_ALLFILT(20)
 
       COMMON / ALLFILTCOM / NFIT_ITERATION_ALLFILT
      &  ,USE_ALLFILT, NOBS_ALLFILT,  ALLFILTLIST_FIT
@@ -1084,8 +1079,7 @@ c           before doing more specialize fits such as rest-frame mags.
 
 
 +KEEP,MAGDIFCOM.
-
-+CDE,ALLFILTCOM.
++CDE,ALLFILTCOM.   DELETE_F90
 
 c Mar 2013: for FILTER_FITMAGDIF option
 
@@ -1125,9 +1119,10 @@ c Mar 2013: for FILTER_FITMAGDIF option
      &    ,FITMAGDIF, FITERRDIF
      &    ,FITPROB_1FILT, FITPROB_XFILT
     
+
 +KEEP,FITRESTCOM.
 
-+CDE,ALLFILTCOM.
++CDE,ALLFILTCOM.   DELETE_F90
 
 c for option to fit peakMag in rest-frame filter
 
@@ -1220,6 +1215,18 @@ c  OPT_VMAX = 3 -> use peak for both mag and Zmax
      &   ,TREST_LIST_VMAX, MAG_LIST_VMAX, Z_LIST_VMAX, VOL_LIST_VMAX
      &   ,NEP_LIST_VMAX
 
+
+
++KEEP,SNFITCOM.
+
++CDE,SNFITPAR.
++CDE,SNFITVAR.
++CDE,SNFITINP.
+
+
+C END_KEEP
+
+
 C ===================================
 +PATCH,*FITCODE.
 +USE,P=*SNTABFIT,T=EXE.
@@ -1243,17 +1250,17 @@ c
 c -------------------------------------
       IMPLICIT NONE
 
-      INTEGER 
-     &   IERR    ! (O) 0 => OK
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNANAFIT. 
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,SNLCINP.
 +CDE,INTERPCM.
+
+      INTEGER 
+     &   IERR    ! (O) 0 => OK
+
+c local var
 
       LOGICAL  LTMP
 
@@ -1796,6 +1803,7 @@ c but before the fit is performed.
 c
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT. 
 +CDE,SNFITCOM.
@@ -1828,9 +1836,9 @@ c not yet been filled.
         if (INISTP_PHOTOZ .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
 
       IPAR = IPAR_SHAPE
-        if (INISTP_SHAPE.  EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
+        if (INISTP_SHAPE  .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
       IPAR = IPAR_SHAPE2
-        if (INISTP_SHAPE2. EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
+        if (INISTP_SHAPE2 .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
 
       IPAR = IPAR_DLMAG
         if (INISTP_DLMAG  .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
@@ -1864,6 +1872,7 @@ c User end-routine after all analysis/fits are done.
 c [close files, summarize statistics, global analysis, etc ...]
 c -------------------------------------
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -1924,6 +1933,7 @@ c
 c ----------------------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -2259,16 +2269,10 @@ C =====================================
       SUBROUTINE FITINI_EPVAR(ITER)
       IMPLICIT NONE
 
-c init R4 and I4 arrays
++CDE,SNPAR.
++CDE,SNFITCOM.
 
       INTEGER ITER  ! (I) SN index and iteraion
-
-c local var
-
-+CDE,SNPAR.
-cc +CDE,SNDATCOM.
-cc +CDE,SNLCINP.
-+CDE,SNFITCOM.
 
       INTEGER  epoch, ifilt, i, ep, ivar
 
@@ -2463,7 +2467,8 @@ c May 2018 check option to repeat entire fit with MINOS
      &    LAST                  .and.  ! last fit iteration
      &    (.NOT. LREPEAT_MINOS) .and. 
      &    ABS(FRACERRDIF) > FRACERRDIF_REPEATFIT  ! large cERR change
-     &   
+     
+   
       IF ( DO_REFIT ) THEN
          write(6,48) FRACERRDIF, CCID(1:12)
  48      format(T5,'Unstable c-error: cFRACERRDIF=',F6.2,
@@ -2982,9 +2987,6 @@ c -------------------------
       IMPLICIT NONE
 
 +CDE,SNDATCOM. 
-
-c +CDE,SNANAFIT.
-c +CDE,SNLCINP.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 
@@ -3133,18 +3135,18 @@ c ---------------------------------------------------------
 
       IMPLICIT NONE
 
-c subroutine args
-      INTEGER  IFLAG   ! (I) 0-> one-time init
-      INTEGER  IERR    ! (O) 0 => OK
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNANAFIT. 
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,FILTUPDCM.
 +CDE,SNLCINP.
+
+c subroutine args
+      INTEGER  IFLAG   ! (I) 0-> one-time init
+      INTEGER  IERR    ! (O) 0 => OK
+
+c local var
 
       INTEGER 
      &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY, OPT_FRAME, i
@@ -3882,17 +3884,17 @@ c --------------
 
       IMPLICIT NONE
 
-      INTEGER ITER            ! (I) fit-iter
-      REAL*8  ZPH, ZPH_ERR    ! (I) ZPHOT and its error
-      INTEGER IFILTBAD        ! (O) absolute filter index bad filter
-
-c local var
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
+
+      INTEGER ITER            ! (I) fit-iter
+      REAL*8  ZPH, ZPH_ERR    ! (I) ZPHOT and its error
+      INTEGER IFILTBAD        ! (O) absolute filter index bad filter
+
+c local var
 
       REAL*8  ZMIN, ZMAX
       INTEGER IFILT, IFILT_OBS, LCID
@@ -4067,7 +4069,6 @@ C -------------- BEGIN -------------
 C ====================================================
 +DECK,FITANA_MARG.
       SUBROUTINE FITANA_MARG(isn,DOPDFPLOT,ERRFLAG)
-      IMPLICIT NONE
 c
 c Shell to call MARG_DRIVER
 c Returns ERRFLAG=0 (OK) or ERRFLAG > 0 (discard fit)
@@ -4096,11 +4097,8 @@ c Jan 4, 2013: replace ISTAT with ERRFLAG
 c              Success is now ERRFLAG=0 rather than ISTAT=1.
 c
 c -----------
-      INTEGER ISN       ! (I) SN sparse index
-      LOGICAL DOPDFPLOT ! (I) T => make PDF monitor plots
-      INTEGER ERRFLAG   ! (O) returns 0=> OK, >0 => discard
 
-c local var
+      IMPLICIT NONE
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
@@ -4109,6 +4107,11 @@ c local var
 +CDE,SNFITCOM.
 +CDE,FILTCOM. 
 
+      INTEGER ISN       ! (I) SN sparse index
+      LOGICAL DOPDFPLOT ! (I) T => make PDF monitor plots
+      INTEGER ERRFLAG   ! (O) returns 0=> OK, >0 => discard
+
+c local var
 
       REAL NSIGMA, Z1
       INTEGER 
@@ -6274,7 +6277,7 @@ c write fit parameters
 
         CALL FLUSH(6)
 
-+SELF,IF=XXXDBG.
++SELF,IF=DEBUG_USRFUN.
         print*,' xxxxxxxxxxxx '
         print*,'  MAG_XTAV= ', MAG_XTAV_REST
         print*,'  MAG_REST= ', MAG_REST
@@ -6561,18 +6564,6 @@ c get efficiency
       EFF = GET_SIMEFFMAP(OPTEFF, NPAR_SIMEFF, PARVAL8_SIMEFF )
       SNLC_FIT_SIMEFF = MAX(EFF,EFFMIN)
 
-+SELF,IF=DEBUG.
-      print*,' xxx -------------------------------------------- '
-      print*,' xxx OPTEFF = ', OPTEFF, 
-     &             '  NPAR_SIMEFF=', NPAR_SIMEFF
-      print*,' xxx Z, DELTA,AV = '
-     &          ,sngl(PARVAL8_SIMEFF(1))
-     &          ,sngl(PARVAL8_SIMEFF(2))
-     &          ,sngl(PARVAL8_SIMEFF(3))
-      print*,' xxx EFF =', EFF
-      CALL FLUSH(6)
-+SELF.
-
       RETURN
       END   ! end of SNLC_FIT_SIMEFF
 
@@ -6728,13 +6719,15 @@ c Interface for snana to fetch fitted FLUXCAL and error;
 c e.g., for OUTLIER table.
 
       IMPLICIT NONE
-      INTEGER EP                         ! (I) epoch index
-      REAL FIT_FLUXCAL, FIT_FLUXCAL_ERR  ! (O) fitted flux and erro
-      LOGICAL  REJECT                    ! (O) T -> epoch rejected
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.    public snana.car
 +CDE,SNFITCOM.    local fitter info
+
+      INTEGER EP                         ! (I) epoch index
+      REAL FIT_FLUXCAL, FIT_FLUXCAL_ERR  ! (O) fitted flux and erro
+      LOGICAL  REJECT                    ! (O) T -> epoch rejected
+
 C  -------------- BEGIN ------------
       FIT_FLUXCAL       = R4EP_ALL(ep,JEP_MODELFLUX)
       FIT_FLUXCAL_ERR   = R4EP_ALL(ep,JEP_MODELFLUX_ERR)
@@ -6788,18 +6781,17 @@ c --------------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.    public snana.car
++CDE,SNFITCOM.    local fitter info
++CDE,SNLCINP.     NFIT_ITERATION is here
+
 c define function input
       INTEGER IFILT_OBS    ! (I) SN and obs filter index 
       REAL*8  T8obs             ! (I) MJD - MJDatPk1
       INTEGER opt               ! (I) option      
 
-
 c local args
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.    public snana.car
-+CDE,SNFITCOM.    local fitter info
-+CDE,SNLCINP.     NFIT_ITERATION is here
   
       REAL*8  
      &   Flux8, Z8, DISTPAR8, COLORPAR8
@@ -7070,10 +7062,6 @@ c Jan 25, 2014: use new I4/R4EP_ALL arrays
 c ---------------------
 
       IMPLICIT NONE
- 
-      INTEGER  ifilt   ! (I) sparse filter index
-
-c local 
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
@@ -7081,6 +7069,9 @@ c local
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
+      INTEGER  ifilt   ! (I) sparse filter index
+
+c local
       INTEGER imjd, ifilt_obs, i, ep
 
       REAL RAT, ERR, RSUM, WSUM, w, TREST
@@ -7758,6 +7749,7 @@ C ========================================
 +DECK,FITNML_OVERRIDE.
       SUBROUTINE FITNML_OVERRIDE(IERR)
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNFITINP.
 +CDE,SNLCINP.
@@ -8345,6 +8337,7 @@ c
 c ----------------------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -8796,6 +8789,7 @@ c Dec 19 2024: print time to process this function
 c
 c --------------------------------------------
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -9108,16 +9102,16 @@ C =============================
 c Created July 2012
 c FITINI_PHOTOZ print utility to show
 c     initial-[string]: zPhot,s,c,x0 = [values]
-
-c local var
+c - - - -
 
       IMPLICIT NONE
-      CHARACTER STRING*(*)                 ! (I) descriptor
-      REAL*8 INIPAR_VAL(*),     chi2   ! (I) values to print
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT. 
 +CDE,SNFITCOM.
+
+      CHARACTER STRING*(*)          ! (I) descriptor
+      REAL*8 INIPAR_VAL(*),  chi2   ! (I) values to print
 
       REAL*8  z, s, c, x0, d
       INTEGER LZ, LS, LC, LD, LD2
@@ -9176,16 +9170,16 @@ c [Code moved from FITINI_PHOTOZ]
 
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,SNLCINP.  ! for DEBUG_FLAG
+
 c subroutine arguments
       REAL*8  CHI2INI ! (I) initial chi2 from guess; try doing better
       LOGICAL LZFIX   ! (I) T=> fix redshift to INIVAL
 
 c local args
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
-+CDE,SNLCINP.  ! for DEBUG_FLAG
 
       REAL*8 Z_SAVE, ZMIN, ZMAX, ZBIN, z,  ZBND_MIN, ZBND_MAX
       REAL*8 S_SAVE, SMIN, SMAX, SBIN, s
@@ -9356,14 +9350,14 @@ c   !!! BEWARE: this is experimental !!!
 c -------------------------------
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
 c subroutine args
       REAL*8 CHI2INI  ! (I) chi2 from guess params; goal is to beat this
 
 c local var
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
 
       INTEGER ISEED 
       PARAMETER ( ISEED = 12379 )
@@ -9564,6 +9558,10 @@ c ---------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
 c subroutine args.
       INTEGER IPAR                  ! (I) fit parameter index
       INTEGER ITER                  ! (I) fit-iteration to prepare
@@ -9571,10 +9569,6 @@ c subroutine args.
       REAL*8  PARBIN,PARMIN,PARMAX  ! (O) binsize, min and max
 
 c local args
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
 
       LOGICAL DO_SALT2, DO_COLOR, DO_SHAPE
       REAL*8 PARLAST, DIF, BND_LOCAL(2)
@@ -9651,6 +9645,7 @@ c
 c ----------------------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -10065,12 +10060,12 @@ c Jan 2025: check new option (4-bit) to use FITPAR as prior
 c
       IMPLICIT NONE
 
-      INTEGER ITER ! (I) fit iteration
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
+
+      INTEGER ITER ! (I) fit iteration
 
       INTEGER IPAR_LIST(20), NPAR, i, ipar 
       INTEGER ABORT_FLAG, LENV, N_NOTVALID_INIVAL,N_NOTVALID_PRIOR
@@ -10211,13 +10206,13 @@ c prevent large/unphysical deviations.
 
       IMPLICIT NONE
 
-      INTEGER IPAR     ! (I) fit par index
-      REAL*8  DVALSIG  ! (I) fitpar sigma read from previous fit
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
+
+      INTEGER IPAR     ! (I) fit par index
+      REAL*8  DVALSIG  ! (I) fitpar sigma read from previous fit
 
 c local args
       REAL*8  PRIOR_SIG, SCALE_SIGMA, SIG_FLOOR, MAGERR_MIN
@@ -10619,6 +10614,7 @@ c
 c ----------------------------------------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -11004,16 +11000,16 @@ c -------------------------
 
       IMPLICIT NONE
 
-      INTEGER ITER  ! (I) fit iteration
-      REAL*8  PKMJD8
-
-c local var
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,SNLCINP.
+
+      INTEGER ITER    ! (I) fit iteration
+      REAL*8  PKMJD8  ! (I) peak MJD
+
+c local var
 
       INTEGER 
      &   IFILT, IFILT_OBS, IREJ, IMJD, ep, EPMIN, EPMAX
@@ -11364,16 +11360,16 @@ c
 c -------------
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNFITCOM.
++CDE,SNLCINP.
++CDE,SNANAFIT.
+
 c input args
       INTEGER ITER, IFILT_OBS  ! (I) fit-iter and filter index
       REAL    TREST, LAMREST   ! (I) rest epoch (days), rest-lambda(A)
 
 c local args
-
-+CDE,SNDATCOM. 
-+CDE,SNFITCOM.
-+CDE,SNLCINP.
-+CDE,SNANAFIT.
 
       REAL ALL_MAXFRAC, FITERR_MAXFRAC
       LOGICAL LT1, LT2, LAM1, LAM2, LFILT, LITER
@@ -11672,11 +11668,11 @@ c ------------------------
 
       IMPLICIT NONE
 
-      LOGICAL  LSTAT  ! (O) T => prior is defined
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
+
+      LOGICAL  LSTAT  ! (O) T => prior is defined
 
       INTEGER IPAR, IZ
 
@@ -11784,24 +11780,16 @@ c ------------------------
 
       IMPLICIT NONE
 
-      LOGICAL  LSTAT  ! (O) T => prior is defined
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      INTEGER
-     &   IPAR
-     &  ,IMU
+      LOGICAL  LSTAT  ! (O) T => prior is defined
 
-      REAL*8
-     &   tmp
-     &  ,pull_BINSIZE
-     &  ,pull, MU
-     &  ,CHI2, PROB
-     &  ,SQSIG
-     &  ,SQDIF
-     &  ,GNORM
+      INTEGER IPAR, IMU
+
+      REAL*8 TMP, pull_BINSIZE, PULL, MU
+      REAL*8 CHI2, PROB, SQSIG, SQDIF, GNORM 
 
 C -------------- BEGIN ---------------
 
@@ -11864,30 +11852,17 @@ c The MJD prior will give a big chi2 when MJD wanders off.
 c
 c Note that MJD really mean PEAKMJD here.
 c
-c Jul 16, 2008: increase storage range to +-40 instead of +-20.
-c
-c
-c Jul 16, 2008: when MJD is withing a few days of the edge,
-c               CHI2 -> CHI2 * exp[(MJD-MJDedge)^2]
-c               so that the CHI2 blows up much more quickly
-c               resulting in a larger slope to extrapolate.
-c               This suppresses crazy MJD values in the fit.
-c               Note that both CHI2 and dCHI2/dMJD are continuous
-c               with this function-change.
-c
-c Aug 7, 2009: reduce MJD window from +-40 to +-30 and similarly
-c              reduce MJD for which exponential chi2 takes over.
-c
 c ------------------------
 
       IMPLICIT NONE
-
-      LOGICAL LSTAT  ! (O) T => prior is defined OK
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
+      LOGICAL LSTAT  ! (O) T => prior is defined OK
+
+c local
       INTEGER
      &   IPAR
      &  ,IMJD
@@ -11994,13 +11969,15 @@ c ------------------------
 
       IMPLICIT NONE
 
-      INTEGER IPAR   ! (I) fitpar index to define prior
-      LOGICAL LSTAT  ! (O) T => prior is defined OK
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
+
+      INTEGER IPAR   ! (I) fitpar index to define prior
+      LOGICAL LSTAT  ! (O) T => prior is defined OK
+
+c local
 
       INTEGER   IVAR, LL
 
@@ -12211,11 +12188,13 @@ c ------------------------
 
       IMPLICIT NONE
 
-      LOGICAL LSTAT ! (O) T => prior is defined
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
+
+      LOGICAL LSTAT ! (O) T => prior is defined
+
+c local
 
       INTEGER 
      &   IAV1
@@ -12549,6 +12528,10 @@ c prior in each fit variable from previous fit stored in SNCID_LIST_FILE
 
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
 c function inputs
       INTEGER IPAR ! (I) fit par index
       REAL*8  VAL  ! (I) param value
@@ -12556,9 +12539,6 @@ c function inputs
 c local
 
       REAL DIF, MEAN, ERR
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
 
 c --------- BEGIN ------------
 
@@ -12595,14 +12575,14 @@ c ------------------------------------------------
 
       IMPLICIT NONE
 
-      REAL*8  ZSN  ! (I) redshift in fit
-
-c local
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
+
+      REAL*8  ZSN  ! (I) redshift in fit
+
+c local
 
       REAL*8  zPRIOR_err, zPRIOR, sqerr, Zpull, Zdif, Zsig
       LOGICAL LPULL, LPZ_PHOT, LPZ_BEST
@@ -12671,16 +12651,16 @@ c ------------------------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,SNLCINP.
+
       INTEGER isn   ! (I) SN index
       REAL*8  ZSN   ! (I) redshift
       REAL*8  MUSN  ! (I) distance modulus
 
 c local
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
-+CDE,SNLCINP.
 
       REAL*8  
      &   muerr, mudif, muref, mu_w0, mu_wa, mu_om
@@ -12733,15 +12713,6 @@ c inclucde user MUERRSCALE in evaluating the pull.
 
       PRIOR_MUPULL = mudif / (muerr * PRIOR_MUERRSCALE)
 
-+SELF,IF=XXXDMP.
-      print*,' ------------------------------------- '
-      print*,' CID=', SNLC_CID, '    ZSN = ', ZSN
-      print*,' MUREF, MUSN  = ', MUREF, MUSN
-      print*,' MU(DIF,ERR)  = ', MUDIF, MUERR
-      print*,' PRIOR_MUPULL = ', PRIOR_MUPULL
-      call flush(6)
-+SELF.
-
       RETURN
       END  ! end PRIOR_MUPULL
 
@@ -12757,8 +12728,6 @@ c
 c ------------------
 
       IMPLICIT NONE
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNFITCOM.
@@ -13313,6 +13282,7 @@ c
 c --------------------------------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -13711,6 +13681,11 @@ c filters correspond to REMAPed IFILT.
 c
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,FILTCOM.
+
 c function inputs
       INTEGER 
      &   IPAR        ! index to store for FITVAL_STORE and FITERR_STORE   
@@ -13720,14 +13695,6 @@ c function inputs
       REAL ARRAY(*) ! array to copy into storage
 
 c local variables
-
-+CDE,SNDATCOM. 
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
-+CDE,FILTCOM.
-
-c +CDE,FITRESTCOM. 
-c +CDE,TABLEVARCOM.
 
       LOGICAL LOADVAL, LOADERR, DO_AVG, DO_SUM
       REAL    VAL_STORE
@@ -13928,9 +13895,6 @@ c ---------------------
 +CDE,SNDATCOM. 
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
-c +CDE,SNLCINP.
-c +CDE,FILTCOM.
-
 
       INTEGER ITER  ! (I) fit iteration
       REAL*8  x1    ! (I) x1/stretch
@@ -13979,9 +13943,6 @@ c ---------------------
 +CDE,SNDATCOM. 
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
-c +CDE,SNLCINP.
-c +CDE,FILTCOM.
-
 
       INTEGER ITER  ! (I) fit iteration
       REAL*8  z     ! (I) redshift
@@ -14045,10 +14006,6 @@ c -----------------------------------------------------------
 
       IMPLICIT NONE
 
-c subroutine args
-
-c local var
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -14090,6 +14047,7 @@ c
 c ----------------------
  
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -14170,12 +14128,12 @@ c           one bit set, thus simplifying local logic.
 c
       IMPLICIT NONE
 
-      INTEGER  NPAR   ! (I) storage index
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
+
+      INTEGER  NPAR   ! (I) storage index
 
 c local var
 
@@ -14208,51 +14166,6 @@ c extract fit photoZ and determine total error.
       zhost    = PRIOR_PHOTOZ 
       zhosterr = PRIOR_PHOTOZ_ERR 
       czprior  = PRIOR_COMMENT
-
-c xxxxxxxx mark delete Dec 20 2024 xxxxxxx
-c      print*,' xxx PHOTOZ_STORE: PRIOR_PHOTOZ     = ', PRIOR_PHOTOZ
-c      print*,' xxx PHOTOZ_STORE: PRIOR_PHOTOZ_ERR = ', PRIOR_PHOTOZ_ERR
-c      print*,' xxx PHOTOZ_STORE: PRIOR_COMMENT    = ', PRIOR_COMMENT
-c      call flush(6)
-c xxxxxx end mark xxxxx
-
-
-+SELF,IF=OBSOLETE.
-c xxxxxxxxx mark delete Dec 20 2024 xxxxxxxxx
-      LPZ_PHOT     = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
-      LPZ_BEST     = BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS) 
-      LPZ_QUANTILE = BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
-
-      if ( LPZ_PHOT ) then 
-        zhost    =  SNHOST_ZPHOT(1)
-        zhosterr =  SNHOST_ZPHOT_ERR(1)
-        czprior  = 'HOST-Gauss'   ! for screen dump comment
-
-      else if ( LPZ_BEST ) then
-        zhost    = SNLC_REDSHIFT
-        zhosterr = SNLC_REDSHIFT_ERR
-        czprior  = 'zBEST-Gauss'   ! for screen dump comment
-
-      else if ( LPZ_QUANTILE ) then ! Jan 2024
-        zhost    = SNHOST_QZPHOT_MEAN(1)  
-        zhosterr = SNHOST_QZPHOT_STD(1)
-        czprior  = 'QUANTILES'   ! for screen dump comment
-
-      endif
-
-c scale the error by user-scale:
-      zhosterr = zhosterr * PRIOR_ZERRSCALE
-      if ( zhost < 0.0 .or. Zhosterr < 0.0 .or. 
-     &     DOFIT_PHOTOZ_noHOST) then
-         zhost    = zfit
-         zhosterr = 0.0
-      endif
-
-c Jun 3 2024 [moved from PRIOR_ZPULL]
-      PRIOR_PHOTOZ     =  zhost
-      PRIOR_PHOTOZ_ERR =  max(zhosterr,0.001) 
-c xxxxxxxxx end mark xxxxxxxxxxx
-+SELF.
 
 c ---------------------
 c Compute photoZ-error from intrinsic MAG-dispersion.
@@ -14333,13 +14246,12 @@ c --------------------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER isn ! (I)  sn index
-
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
-c +CDE,SNLCINP.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
+
+      INTEGER isn ! (I)  sn index
 
 c local var 
 
@@ -14506,16 +14418,16 @@ c write simulated efficiency if used in prior.
 C ========================================
 +DECK,LCPROBCHI2.
       REAL FUNCTION LCPROBCHI2(ifilt)
+
       IMPLICIT  NONE
-      INTEGER   IFILT  ! (I) filter index
-
-c Mar 2011: protect againt chi2 < 0.
-
-c local 
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
+
+      INTEGER   IFILT  ! (I) filter index
+
+c local 
 
       REAL    probtmp, chi2
       INTEGER Ndof
@@ -14582,15 +14494,15 @@ c --------------------
 
       IMPLICIT NONE
 
-c subroutine args.
-
-      INTEGER  IFILT_OBS    ! (I) obs filter to process
-c local var
-
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNANAFIT.  from snana.car
 +CDE,SNFITCOM.
 +CDE,FILTCOM. 
+
+c subroutine args.
+      INTEGER  IFILT_OBS    ! (I) obs filter to process
+
+c local var
 
       INTEGER IMJD, ifilt, ifilto, ifiltr, iep, ifitdata
 
@@ -14743,15 +14655,12 @@ c This variable is useful to reduce non-SNIa contamination.
 
       IMPLICIT NONE
 
-      INTEGER i
-      REAL s, c, s_scale, c_scale
-    
-c local var
-
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNANAFIT.  from snana.cars
 +CDE,SNFITCOM.
-c+CDE,FILTCOM. 
+
+      INTEGER i
+      REAL s, c, s_scale, c_scale
 
 C ------------ BEGIN -------------
 
@@ -14803,6 +14712,11 @@ c
 c ----------------------------------------------
       IMPLICIT NONE
 
++CDE,SNDATCOM.  from snana.car
++CDE,SNANAFIT.  from snana.cars
++CDE,SNFITCOM.
++CDE,FILTCOM. 
+
       INTEGER 
      &   ifilt  ! (I) IFILT_OBS or IFILT_REST (depends on CFRAME)
 
@@ -14814,13 +14728,7 @@ c ----------------------------------------------
      &  ,MAG,  MAGERR
      &  ,KCOR 
 
-
 c local var
-
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNANAFIT.  from snana.cars
-+CDE,SNFITCOM.
-+CDE,FILTCOM. 
 
       REAL*8  
      &   TREF, MAGOFF, TOBS, MAGOFF_REST
@@ -14925,18 +14833,6 @@ c get the K-correction
         KCOR = 0.0
       endif
 
-c+SELF,IF=XXXDBG.
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      if ( LDMP ) THEN
-         print*,' xxx Peak FLUX = ', SNGL(Flux/1.0E18), 
-     &       ' +- ', SNGL(fluxerr/1.0E18)
-         print*,' xxx Peak MAG = ', mag,' +- ' , magerr
-         print*,' xxx ---------------------------- '
-         call flush(6)          ! xxxxxx
-      ENDIF
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-c+SELF.
-
       RETURN
       END   ! end of MODELMAG_CALC
 
@@ -14953,17 +14849,17 @@ c
 c ----------------------------------------------
       IMPLICIT NONE
 
++CDE,SNDATCOM.  from snana.car
++CDE,SNANAFIT.  from snana.car
++CDE,SNFITCOM.
++CDE,FILTCOM. 
+
       INTEGER 
      &   ifiltdef  ! (I) IFILT_OBS or IFILT_REST (depends on CFRAME)
 
       CHARACTER CFRAME*(*)  ! (I) 'REST' or 'OBS'
 
 c local var
-
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNANAFIT.  from snana.car
-+CDE,SNFITCOM.
-+CDE,FILTCOM. 
 
       INTEGER IFILT
       REAL*8 PKMJD, FLUX, FLUXERR, MAG, MAGERR, KCOR
@@ -15022,6 +14918,11 @@ c -------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.  from snana.car
++CDE,SNANAFIT.  from snana.car
++CDE,SNFITCOM.
++CDE,FILTCOM. 
+
 c subroutine args:
 
       INTEGER
@@ -15034,11 +14935,6 @@ c subroutine args:
       LOGICAL LDMP  ! (I) dump flag.
 
 c local var
-
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNANAFIT.  from snana.car
-+CDE,SNFITCOM.
-+CDE,FILTCOM. 
 
       INTEGER 
      &   ipar_k, ipar_l
@@ -15140,12 +15036,12 @@ c input FUDGE_MAG_COVERR.
 c
       IMPLICIT NONE
 
++CDE,SNDATCOM. 
++CDE,SNFITCOM.
+
       INTEGER irow, icol   ! (I) matrix location
 
 c local var
-
-+CDE,SNDATCOM. 
-+CDE,SNFITCOM.
 
       REAL*8 COV, R1, R2, ERR1, ERR2, F1, F2
       INTEGER IFILT1, IFILT2
@@ -15279,11 +15175,6 @@ c
 +CDE,FILTCOM.
 +CDE,VMAXCOM.
 
-c +CDE,SNLCINP.
-c +CDE,SNANAFIT.
-c +CDE,SNFITCOM.
-c +CDE,FILTCOM.
-
       INTEGER IFILT, IFILT_OBS, NFTMP, IFLIST(MXFILT_OBS)
       REAL    MAGLIM,  MAGLIST(MXFILT_OBS)
       CHARACTER FNAM*12, CFILT*2
@@ -15393,9 +15284,6 @@ c  Fix bug setting x0 = LCVAL_STORE(IPAR_DLMAG)  in iterative loop.
 c
       IMPLICIT NONE
 
-      INTEGER IFILT_VMAX  ! (I) sparse filter index for VMAX calc
-
-
 +CDE,SNDATCOM.   from snana.car
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -15403,7 +15291,7 @@ c
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-c +CDE,SNLCINP.
+      INTEGER IFILT_VMAX  ! (I) sparse filter index for VMAX calc
 
       INTEGER JOBS, JFIT
       PARAMETER ( JOBS=1, JFIT=2 )
@@ -15719,18 +15607,18 @@ c -----------------------
 
       IMPLICIT NONE
 
-c subroutine args
-
-      INTEGER ITER ! (I) SN index and fit iteration
-
-c local var
-
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,MAGDIFCOM.
+
+c subroutine args
+
+      INTEGER ITER ! (I) SN index and fit iteration
+
+c local var
 
       LOGICAL LMATCH, USE
       INTEGER ipar, ifilt, ifiltdef, iflag, LL
@@ -15883,18 +15771,18 @@ c Feb 20 2017: load PEAKMAG_OBS_MODEL array using sparse IFILT
 c
       IMPLICIT NONE
 
-c subroutine args
-
-      INTEGER ITER ! (I) SN index and fit iteration
-
-c local var
-
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,MAGDIFCOM.
+
+c subroutine args
+
+      INTEGER ITER ! (I) SN index and fit iteration
+
+c local var
 
       LOGICAL DO_MAGDIF, DO_LCPLOT
       INTEGER IFLAG, IFILTOBS, LCID, NFUNPLOT, NDOF, IFILT
@@ -15996,13 +15884,14 @@ c Return final results via subroutine args.
 c May 8 2013: add FITPROB(2) to output
 c
       IMPLICIT NONE
-      REAL MAGDIF, MAGERR  ! (O)
-      REAL FITPROB(2)      ! (O) fit prob for 1 filter, other filters
 
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,MAGDIFCOM.
+
+      REAL MAGDIF, MAGERR  ! (O)
+      REAL FITPROB(2)      ! (O) fit prob for 1 filter, other filters
 
 C ---------- BEGIN ---------
 
@@ -16039,7 +15928,6 @@ c
 +CDE,FITIDEALCOM.
 +CDE,SNLCINP.
 
-c+CDE,SNANAFIT.
 
 C ---------- BEGIN --------------
 
@@ -16142,12 +16030,12 @@ c Jan 28 2018:  set USESIM_PEAKMJD = T/F
 c
       IMPLICIT NONE
 
-      INTEGER OPT
-
 +CDE,SNDATCOM. 
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
 +CDE,FITIDEALCOM.
+
+      INTEGER OPT   ! (I)
 
       INTEGER IMJD, EPMIN, EPMAX, EP, IFILT_OBS
       REAL FSCALE
@@ -16214,15 +16102,14 @@ C Jan 28 2018: compute mB from x0
 c
       IMPLICIT NONE
 
-      INTEGER ITER ! (I) fit iteration that just completed
-
-c local var
-
 +CDE,SNDATCOM. 
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
 +CDE,FITIDEALCOM.
-c+CDE,SNLCINP.
+
+      INTEGER ITER ! (I) fit iteration that just completed
+
+c local var
 
       INTEGER IPAR
       REAL*8  x0, mB, SALT2MBCALC
@@ -16467,18 +16354,18 @@ c -----------------------
 
       IMPLICIT NONE
 
-c subroutine args
-
-      INTEGER ITER ! (I) SN index and fit iteration
-
-c local var
-
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,FITRESTCOM.
+
+c subroutine args
+
+      INTEGER ITER ! (I) SN index and fit iteration
+
+c local var
 
       INTEGER  
      &   i, IFILT, IFILTDEF, IFILT_TMP, IF1, IF2
@@ -16658,16 +16545,6 @@ c new default, Mar 28 2020
          IF1 = IFILTOBS_BRACKET(1)  ! closest band, low wavelen
          IF2 = IFILTOBS_BRACKET(2)  ! closest band, high wavelen
 
-+SELF,IF=XYZDEL.
-         print*, ' xxx ------------------------------------------ '
-         print*, ' xxx NBRA, itry = ', NBRA, itry
-         print*, ' xxx LAMREST =', LAMREST(itry),'   z=',Z
-         print*, ' xxx --> IF1,IF2 = ', IF1, IF2
-         print*, ' xxx --> BAND1,2 = ', 
-     &         FILTDEF_STRING(IF1:IF1), FILTDEF_STRING(IF2:IF2)
-         call flush(6)
-+SELF.
-
          IF ( IF1 .LE. 0 ) GOTO 440
          IF ( IF2 .LE. 0 ) GOTO 440
 
@@ -16757,15 +16634,6 @@ c sanity check
          CALL MADABORT('FITRESTMAG_PREP', C1ERR, C2ERR)
       ENDIF
 
-+SELF,IF=XXXDBG.
-      print*,' xxx -------------------------------------------- '
-      print*,' xxx LAMREST, Z =', LAMREST, Z
-      print*,' xxx BRACKET-IFILTOBS = '
-     &      ,IFILTOBS,' -> ', CFILT(1), CFILT(2)
-      print*,' xxx LOK = ', LOK
-      CALL FLUSH(6)
-+SELF.
-
       RETURN
       END    ! end of FITRESTMAG_PREP(ITER)
 
@@ -16813,6 +16681,10 @@ c ------------------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.  from snana.car
++CDE,SNLCINP.
++CDE,FILTCOM.
+
 c subroutine args.
 
       REAL LAMREST   ! (I) rest-frame lambda to match
@@ -16823,9 +16695,6 @@ c subroutine args.
      &  IFILTOBS_BRACKET(*) ! (O) IFILTOBS that brackets LAMREST
 
 c local var
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNLCINP.
-+CDE,FILTCOM.
 
       INTEGER IFILT, NFILT, IFILTOBS, IFILTOBS_LO, IFILTOBS_HI, JLOHI
       REAL    Z1, LAMZ, LAMZ_LO, LAMZ_HI, LAMDIF, LAMDIFMIN(2)
@@ -16927,18 +16796,18 @@ c ----------------------------------
 
       IMPLICIT NONE
 
-c subroutine args
-
-      INTEGER ITER ! (I) SN index and fit iteration
-
-c local var
-
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,FITRESTCOM.
+
+c subroutine args
+
+      INTEGER ITER ! (I) SN index and fit iteration
+
+c local var
 
       INTEGER 
      &   IFILTDEF, IFILT, NFUNPLOT, ITERLAST_2BAND
@@ -17095,18 +16964,18 @@ c ---------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.  from snana.car
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,FILTCOM.
++CDE,FITRESTCOM.
+
 c subroutine args
       INTEGER IFILTREST      ! (I) absolute value of rest-frame filter
       REAL*8  SHAPE, COLOR   ! (I) 
       REAL*8  SHAPE2
 
 c local args
-
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
-+CDE,FILTCOM.
-+CDE,FITRESTCOM.
 
       INTEGER 
      &   IF1, IF2, IFILTOBS, IFILT, IMJD
@@ -17227,12 +17096,14 @@ C created Mar 2013.
 C Return fitted rest-mag and error for this sparse IFILT.
 C
       IMPLICIT NONE
-      INTEGER  IFILT            ! (I) sparse filter index
-      REAL     MAGREST, MAGERR  ! (O)
 
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNANAFIT.
 +CDE,FITRESTCOM.
+
+      INTEGER  IFILT            ! (I) sparse filter index
+      REAL     MAGREST, MAGERR  ! (O)
+
 C ----------- BEGIN ----------
       MAGREST = FITRESTMAG(ifilt)
       MAGERR  = FITRESTMAG_ERR(ifilt)
@@ -17664,13 +17535,13 @@ c --------------------------------------
 
       IMPLICIT NONE
 
-      LOGICAL  LPRINT  ! (I)
-
 +CDE,SNDATCOM.  from snana.car
-c +CDE,SNANAFIT.  from snana.car
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 
+      LOGICAL  LPRINT  ! (I)
+
+c local
       INTEGER 
      &   ifilt, ifilt2
      &  ,ifilt_obs, ifilt2_obs
@@ -17962,10 +17833,10 @@ c IFLAG > 0 => update with next SN
 c ------------------
 
       IMPLICIT NONE      
+
 +CDE,SNDATCOM.  from snana.car
 +CDE,SNANAFIT.  from snana.car
 +CDE,SNFITCOM.
-
 
       INTEGER IFLAG ! (I) 0-> open file; 1-> write
 
@@ -18115,6 +17986,7 @@ c Dump non-zero elements of COVMAT2 matrix
 c before it is  inverted.
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -18200,6 +18072,7 @@ c
 c ------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -18423,8 +18296,6 @@ c
 c
       IMPLICIT NONE
 
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -18522,6 +18393,7 @@ c complicated.
 c
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -18909,10 +18781,10 @@ C ============================================
 +DECK,SNPKTEXT.
       SUBROUTINE SNLCPAK_DISPLAYTEXT_FIT()
 
-      IMPLICIT NONE
 c Create strings and pass them to generic wrapper SNLCPAK_DISPLAYTEXT()
 c
-c May 2013: tack on optional FITMAGDIF result 
+
+      IMPLICIT NONE
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.    public snana.car
@@ -19064,12 +18936,13 @@ c -----------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER ID, IFLAG
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNFITCOM.
+
+      INTEGER ID, IFLAG  ! (I)
+
+c local var
 
       INTEGER i, LENNAME, LENFMT
       CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
@@ -19170,10 +19043,7 @@ c Jan 10 2025: add FILTLIST_FIT_USE
 c --------------
 
       IMPLICIT NONE
-      INTEGER   ID          ! (I) table id
-      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
 
-c local var
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
@@ -19183,6 +19053,11 @@ c local var
 +CDE,TABLEVARCOM.
 +CDE,VMAXCOM.
 +CDE,FITIDEALCOM.
+
+      INTEGER   ID          ! (I) table id
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
+
+c local var
 
       INTEGER IPAR_START
       PARAMETER (IPAR_START=3)  ! skip ISN and ITER for CWN
@@ -19446,12 +19321,12 @@ c
 c Jan 2024: check x2
 
       IMPLICIT NONE
-      CHARACTER VARNAME*(*)  ! (I) name of fitpar variable to check
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
+      CHARACTER VARNAME*(*)  ! (I) name of fitpar variable to check
       LOGICAL  SKIP
 
 c ------------- BEGIN -------------
@@ -19490,15 +19365,16 @@ c
 c ----------------------------------------------
 
       IMPLICIT NONE
-      INTEGER   ID          ! (I) table id
-      CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,FITRESTCOM.
+
+      INTEGER   ID          ! (I) table id
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
+
+c local var
 
       INTEGER LENB, LENV
       CHARACTER CBLK*40, CNFIT*14, VARNAME*40
@@ -19733,13 +19609,15 @@ c ----------------------------
 c subroutine args
 
       IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
+
       INTEGER IPAR_MIN, IPAR_MAX  ! (I) IPAR range
       CHARACTER VARLIST*(*)       ! (O) comma-separate par-name list
       INTEGER   LENLIST           ! (O) length of VARLIST
 
 c local var
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
 
       INTEGER ipar,  LENNAME, LENPACK
       character CTMP*20, C2*2, STR_IPACK*40, NAME*40
@@ -19806,16 +19684,17 @@ c
 c ------------------------------------
 
       IMPLICIT NONE
-      INTEGER   FLAGCOV              ! (I)
-      CHARACTER VARLIST*(*)          ! (O) 
-      INTEGER   LENLIST, LENPKMJD    ! (O) 
-      
-c local args
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.         PARNAME_STORE  is here
 +CDE,SNFITPAR.
 +CDE,TABLEVARCOM.
+
+      INTEGER   FLAGCOV              ! (I)
+      CHARACTER VARLIST*(*)          ! (O) 
+      INTEGER   LENLIST, LENPKMJD    ! (O) 
+      
+c local args
 
       INTEGER IPAR1, IPAR2,  LENNAME, LEN1, LEN2
       character ctmp*60, NAM1*40, NAM2*40
@@ -19890,9 +19769,6 @@ c Beware that the output is huge, so use this only for a few events.
 c
 c -------------------------------
       IMPLICIT NONE
-      INTEGER   ISN   ! 0->init, otherwise fill
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNFITCOM.
@@ -19900,6 +19776,9 @@ c local var
 +CDE,FILTCOM.
 +CDE,TABLEVARCOM.
 
+      INTEGER   ISN   ! 0->init, otherwise fill
+
+c local
       INTEGER ID, i, ep, LENNAME, LENFMT
       INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
       REAL    Tobs, z, x0, x1, c, MWEBV
@@ -19956,15 +19835,16 @@ c
 c --------------
 
       IMPLICIT NONE
-      INTEGER   ID          ! (I) table id
-      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 +CDE,TABLEVARCOM.
+
+      INTEGER   ID          ! (I) table id
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
+
+c local var
 
       INTEGER 
      &    IPAR, IFILT, IFILT_OBS
@@ -20062,15 +19942,16 @@ c Mar 21 2022: compute TBLSPEC_MAG_MODEL[_ERR] for each band and MJD
 c
 c -------------------------------
       IMPLICIT NONE
-      INTEGER   ISN   ! 0->init, otherwise fill
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
 +CDE,TABLEVARCOM.
+
+      INTEGER   ISN   ! 0->init, otherwise fill
+
+c local var
 
       INTEGER ID, i, ep, LENNAME, LENFMT
       INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
@@ -20149,15 +20030,6 @@ c Mar21 2022: compute model mag for every band at every MJD
      &      getSpec_band_SALT2(IFILTOBS, Tobs,    ! (I)
      &      z, x0, x1, c, MWEBV,                  ! (I)
      &      TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST )   ! (O)
-
-+SELF,IF=REMOVE.
-          print*,' xxx ----------', ep,' ---------- '
-          print*,' xxx NBLAM   = ', NBLAM_TBLSPEC
-          print*,' xxx IFILTOBS= ', IFILTOBS
-          print*,' xxx Tobs, z = ', Tobs, z
-          print*,' xxx x1,x1,c = ', x0, x1, c
-          print*,' xxx MWEBV   = ', MWEBV
-+SELF.
    
           IF ( NBLAM_TBLSPEC > MXLAM_TBLSPEC ) THEN
             write(C1ERR,661) NBLAM_TBLSPEC, MXLAM_TBLSPEC
@@ -20200,10 +20072,6 @@ c
 c --------------
 
       IMPLICIT NONE
-      INTEGER   ID          ! (I) table id
-      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
@@ -20213,6 +20081,11 @@ c local var
 +CDE,USRTAGCM.
 +CDE,TABLEVARCOM.
 +CDE,VMAXCOM.
+
+      INTEGER   ID          ! (I) table id
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK
+
+c local var
 
       INTEGER 
      &    IFILT, IFILT_OBS, USE4TEXT
@@ -20342,15 +20215,16 @@ c Nov 14 2014: fix bug to allow zPHOT as well as z.
 c Jan 02 2016: check for 'ERR' extension
 
       IMPLICIT NONE
-      CHARACTER VARNAME*(*)  ! (I) variable name to analyze
-      
-c local var
 
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITPAR.
 +CDE,SNFITINP.
 +CDE,FITRESTCOM.
+
+      CHARACTER VARNAME*(*)  ! (I) variable name to analyze
+      
+c local var
 
       CHARACTER tmpName*40, cfilt*2, FNAM*20, VLOC*40
       INTEGER IPAR, ifilt, LENPAR, LENLOC

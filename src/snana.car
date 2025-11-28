@@ -2619,29 +2619,6 @@ c a bunch of MCMC stuff
   
  
 c ----------------------------
-+KEEP,XTCOM.
-c
-c Created Nov 16, 2006
-c extinction parameters:
-c  XTmag = zeta(t) * [alpha + beta/RV] * AV
-c XTPAR are Saurabh's parameters.
-c
-c Aug 30, 2010: add newer XTHOST - exact calculation
-
-      INTEGER NRVBIN_XTHOST
-      PARAMETER ( NRVBIN_XTHOST = 5 )
-
-      REAL
-     &   XTPAR_ZETA(MXFILT_ALL,MXTBIN_KCOR)
-     &  ,XTPAR_ALPHA(MXFILT_ALL)
-     &  ,XTPAR_BETA(MXFILT_ALL)
-     &  ,XTHOST(MXFILT_ALL,MXTBIN_KCOR,NRVBIN_XTHOST)
-     &  ,RVINV_XTHOST(NRVBIN_XTHOST)
-
-      COMMON / XTCOM / XTPAR_ZETA, XTPAR_ALPHA, XTPAR_BETA, 
-     &                 XTHOST, RVINV_XTHOST
-
-
 
 +KEEP,PKMJDCOM.
 
@@ -3319,12 +3296,12 @@ c ------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
       INTEGER 
      &   IVERS     ! (I) ! version index to read
      &  ,OPTMASK   ! (I) ! indicates GLOBAL or ALL
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
 
 c local var
 
@@ -3497,10 +3474,10 @@ c
 
       IMPLICIT NONE
 
-      INTEGER IVERS  ! (I) version index
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER IVERS  ! (I) version index
 
       INTEGER LEN_VERS, istat, L1, L2, L3
       CHARACTER*(2*MXCHAR_FILENAME)
@@ -3592,11 +3569,11 @@ c
 
       IMPLICIT NONE
 
-      INTEGER IVERS, IERR  ! (I/O) 
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER IVERS, IERR  ! (I/O) 
 
       INTEGER LEN_README, IERROPEN, L1, LL
 
@@ -3947,12 +3924,11 @@ c
 
       IMPLICIT NONE
 
-      INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
 
+      INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
 
       INTEGER   IVAR, LEN
       REAL*8    DARRAY(MXVAR_PRIVATE)
@@ -4012,11 +3988,11 @@ c
 
       IMPLICIT NONE
 
-      INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
+
+      INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
 
       INTEGER   IVAR, q, PCT
       REAL*8    DARRAY(MXZPHOT_Q)
@@ -4072,11 +4048,14 @@ c Read/parse SIMSED keys from header if NPAR_SIMSED exists.
 c
 
       IMPLICIT NONE
-      INTEGER OPT   ! (I) 1 -> dump 
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FITSCOM. 
+
+      INTEGER OPT   ! (I) 1 -> dump 
+
+
       INTEGER   ipar, ipar_read, LENWD, IPAR_OFF, OPT_LOCAL
       REAL*8    DARRAY(MXPAR_SIMSED)
       CHARACTER DUM*20, KEYNAME*40, KEYWORD*80, c2*2, PARNAME*60
@@ -4134,10 +4113,11 @@ c Read/parse PySEDMODEL keys from header if NPAR_[BYOSED,SNEMO] exists.
 
       IMPLICIT NONE
 
-      INTEGER   OPT            ! (I) 1 -> dump
-      CHARACTER MODEL_NAME*(*) ! (I) e.g., 'BYOSED', 'SNEMO'
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER   OPT            ! (I) 1 -> dump
+      CHARACTER MODEL_NAME*(*) ! (I) e.g., 'BYOSED', 'SNEMO'
 
       INTEGER   ipar, LENM, LENVAL, NPAR_LOCAL
       CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
@@ -4205,9 +4185,10 @@ c
 
       IMPLICIT NONE
 
-      INTEGER  OPT  ! (I) 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER  OPT  ! (I) 
 
       INTEGER   ipar, LENVAL
       REAL*8    DARRAY(4)
@@ -4248,11 +4229,12 @@ c Read/parse SIM_HOSTLIB keys from header if NPAR_SIM_HOSTLIB exists.
 c These are extra HOSTLIB params used in wgtmaps, etc ...
 
       IMPLICIT NONE
-      
-      INTEGER OPT  ! (I)
+     
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER OPT  ! (I)
 
       INTEGER   ipar, LENVAL
       REAL*8    DARRAY(4)
@@ -4338,10 +4320,10 @@ c   REDSHIFT_ERR ??
 c
       IMPLICIT NONE
 
-      INTEGER ISTAT  ! (O) < 0 -> reject event
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER ISTAT  ! (O) < 0 -> reject event
 
       INTEGER OPT, igal, CID
       REAL*8  DARRAY(10), TMPCUT
@@ -4500,11 +4482,11 @@ c Created Feb 2021 to read PRIVATE variables (pass from SNDATA struct)
 
       IMPLICIT NONE
 
-      INTEGER OPT    ! OPT is arg for WRAPPER
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
+
+      INTEGER OPT    ! OPT is arg for WRAPPER
 
       INTEGER ivar, NVAR
       REAL*8 DARRAY(4)
@@ -4537,11 +4519,12 @@ c May 11 2022: read ZPHOT_Q
 
       IMPLICIT NONE
 
-      INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
+
       INTEGER   LENPRE, ifilt, q
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
       REAL*8    DARRAY(MXFILT_OBS), SB, MAG, zq
@@ -4721,14 +4704,14 @@ c Check keys KEY_PREFIX_[band] and return float FARRAY(ifilt).
 c Mar 23 2021: fix bug using LENPRE
 
       IMPLICIT NONE
-
-      CHARACTER KEY_PREFIX*(*)  ! (I) check keys KEY_PREFIX_[band]
-      REAL      FARRAY(*)       ! (O) value vs. ifilt
-      INTEGER   OPT             ! (I) argument for FETCH_SNDATA_WRAPPER
       
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      CHARACTER KEY_PREFIX*(*)  ! (I) check keys KEY_PREFIX_[band]
+      REAL      FARRAY(*)       ! (O) value vs. ifilt
+      INTEGER   OPT             ! (I) argument for FETCH_SNDATA_WRAPPER
 
       INTEGER   IFILT, IFILT_OBS, LENPRE
       CHARACTER STRING*10, BAND*2, KEY*60
@@ -4763,12 +4746,12 @@ c
 c Jun 5 2021: no longer apply REDSHIFT_FINAL_SHIFT here; see SET_zSHIFT().
 c Aug 19 2024: check OPT_VPEC_COR option to disable VPEC
 c
-      IMPLICIT NONE
-
-      INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
+      IMPLICIT NONE     
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
 
       CHARACTER STRING*40
       REAL*8 DARRAY(10)
@@ -4870,10 +4853,10 @@ C =============================
 
       IMPLICIT NONE
 
-      INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
 
       INTEGER ipar
       CHARACTER STRING*100, KEY*80
@@ -5126,7 +5109,6 @@ c
 c Jun 7 2021: abort on undefined filter
 
       IMPLICIT NONE
-cc      INTEGER  ISN    ! (I) sparse SN index
 
 c local var
 
@@ -5377,12 +5359,10 @@ C ISPEC > 0 -> read wave-dependent arrays for ISPEC
 
       IMPLICIT NONE
 
-      INTEGER ISPEC  ! (I)
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SPECCOM.
+
+      INTEGER ISPEC  ! (I)
 
       INTEGER    OPT, NBLAM, I
       REAL*8     DVAL(10)
@@ -5525,15 +5505,16 @@ c Apr 27 2021: check veto option with VARNAME != VALUE
 c
       IMPLICIT NONE
 
-c input args
-      CHARACTER CWORD*60     ! (I) text string to parse
-      INTEGER IVAR_PRIVATE   ! (I) PRIVATE parameter index
-
 c local args
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
 
+c input args
+      CHARACTER CWORD*60     ! (I) text string to parse
+      INTEGER IVAR_PRIVATE   ! (I) PRIVATE parameter index
+
+c local args
       INTEGER J1, J2, LK, IVAR, LEN_NAME, NMATCH, icut
       INTEGER NWD, LWD1, LWD2, LWD3, MSKOPT
       CHARACTER VARNAME*60, STR*(MXCHAR_CUTNAME), CUTSTRING*30
@@ -5661,10 +5642,12 @@ c PRIVATE_VARNAME and PRIVATE_KEYWORD.
 c Also returns IVAR_PRIVATE that is valid if NMATCH=1
 
       IMPLICIT  NONE
-      CHARACTER NAME*(*)
-      INTEGER   IVAR_PRIVATE
+
 +CDE,SNPAR.
 +CDE,PRIVCOM.
+
+      CHARACTER NAME*(*)
+      INTEGER   IVAR_PRIVATE
 
       INTEGER 
      &   IVAR 
@@ -5725,10 +5708,10 @@ c Called from MAIN to read & ananlyze events.
 
       IMPLICIT NONE
 
-      INTEGER IVERS  ! (I) version index to process
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER IVERS  ! (I) version index to process
 
 C --------------- BEGIN -------------
 
@@ -5755,8 +5738,10 @@ c Aug 2020: of no args, call function to print help menu
 c Dec 2022: get SNANA_VERSION here to print it after full command
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
       INTEGER i, LL, LL_SNANA, istat
       CHARACTER ARG1*(MXCHAR_ARG), ARG2*(MXCHAR_ARG)
       CHARACTER FNAM*20, COMMAND*2000, CODE_FILENAME*40
@@ -5889,12 +5874,13 @@ c Apr 2021: pass VERSION_ARG and dump more info
 c Jan 10 2022: write NVAR_PRIVATE
 
       IMPLICIT NONE
-      CHARACTER VERSION_ARG*(*)  ! VERSION or PATH/VERSION
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.      
 +CDE,FILTCOM.
 +CDE,PRIVCOM.
+
+      CHARACTER VERSION_ARG*(*)  ! VERSION or PATH/VERSION
 
 c local var
       CHARACTER VERSION*(MXCHAR_FILENAME), COMMENT*40
@@ -6724,12 +6710,12 @@ C ---------------- BEGIN --------------
 
       IMPLICIT NONE
 
++CDE,SNPAR.
+
       CHARACTER NMLVARNAME*(*)  ! (I) name of namelist variable
       CHARACTER CCID*(*)        ! (I) SN CID name
- 
-c local variables
 
-+CDE,SNPAR.
+c local variables
 
       INTEGER   JCOMMA, NWD, LEN, MSKOPT
       CHARACTER MSG1*72, MSG2*72, FNAM*30
@@ -6799,10 +6785,10 @@ c ------------------------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER NFIT_PER_SN ! (I) max number of fits to plot per SN
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER NFIT_PER_SN ! (I) max number of fits to plot per SN
 
       INTEGER LENFILE,  IFILETYPE, SIMFLAG
 
@@ -7336,11 +7322,12 @@ c Feb 2019
 c For each filter, compute and store SIM_LCWIDTH(ifilt)
 c
       IMPLICIT NONE
-      INTEGER MODE  ! (I) 0=init, 1=get width
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER MODE  ! (I) 0=init, 1=get width
 
       INTEGER MXEP_LCWIDTH
       PARAMETER ( MXEP_LCWIDTH = 200)
@@ -7407,12 +7394,12 @@ c  ep > 0  -> increment chi2
 c  ep = -1 -> compute prob(chi2,Ndof)
 c --------------
 
-      INTEGER EP  ! (I) 
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,TRUECHI2COM.
+
+      INTEGER EP  ! (I) 
 
       INTEGER IFILT_OBS, IFILT, NDOF
       REAL CHI2
@@ -8798,14 +8785,11 @@ c Dec 16, 2018: parse SIMVAR_CUTWIN_STRING
 c -----------------------------
 
       IMPLICIT NONE
-
-      INTEGER IERR
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER IERR  ! (I) return status
 
       INTEGER IAFILT(MXFILT_OBS)
       REAL    XAFILT(MXFILT_OBS)
@@ -9040,10 +9024,11 @@ c Created Dec 29 2024
 c If the legacy value has been set, transfer it to the VAL_NOMINAL
 
       IMPLICIT NONE
-      REAL VAL_LEGACY   ! Input
-      REAL VAL_NOMINAL  ! Output
 
 +CDE,SNPAR.
+
+      REAL VAL_LEGACY   ! Input
+      REAL VAL_NOMINAL  ! Output
 
       IF(VAL_LEGACY < .99*LEGACY_INIT_VAL ) THEN
          VAL_NOMINAL = VAL_LEGACY
@@ -9504,11 +9489,12 @@ C Used only for BATCH mode.
 C ----------------
 
       IMPLICIT NONE
-      
-      INTEGER ISN  ! (I) integer index (1-NSN)
+     
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER ISN  ! (I) integer index (1-NSN)
 
       INTEGER NSN_TOT, JTIME, JTDIF, PERCENT
       REAL FRAC, T_ELAPSE, T_REMAIN
@@ -9653,13 +9639,14 @@ c intended to help figure out what redshift sources are
 c in the data or sim.
 
       IMPLICIT NONE
-      INTEGER LUN  ! (I)
-      CHARACTER WHICH*(*)  ! LC_CUTS or LCFIT_CUTS
       
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT. 
 +CDE,FILTCOM.
+
+      INTEGER LUN  ! (I)
+      CHARACTER WHICH*(*)  ! (I)  LC_CUTS or LCFIT_CUTS
 
       INTEGER NEVT, NEVT2, MASK, MASK2, NEVT_or
       INTEGER N_MASK_LOCAL(0:MXMASK_zSOURCE)
@@ -9735,11 +9722,11 @@ c ----------------------
 
       IMPLICIT NONE
 
-      INTEGER ISN_ALL, ISN_PROC, IVERS  ! (I) 
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
+
+      INTEGER ISN_ALL, ISN_PROC, IVERS  ! (I) 
 
 +SELF,IF=SNFIT.
       INTEGER NCALL_MNFIT, ITER
@@ -9988,13 +9975,11 @@ c Minor refactor: move some code out of SNANA_DRIVER for cleanup.
 
       IMPLICIT NONE
 
-      INTEGER ITER, ERRFLAG ! (I)
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
+
+      INTEGER ITER, ERRFLAG ! (I)
 
       LOGICAL LAST_ITER, ALREADY_MINOS
 
@@ -10198,13 +10183,10 @@ c Apr 26 2017: pass PRESCALE as argument.
 
       IMPLICIT NONE
 
++CDE,SNPAR.
+
       INTEGER N           ! (I) use for pseudo-random pre-scale
       REAL*8  PRESCALE    ! (I) prescale
-c local var
-
-+CDE,SNPAR.
-c +CDE,SNDATCOM.
-c +CDE,SNLCINP.
 
       DOUBLE PRECISION XN, RAN, RANMAX
 
@@ -10903,11 +10885,13 @@ C ================================================
 c Open text file name REFORMAT_VERSION/REFORMAT_VERSION.SUFFIX
 c use imput LUN 
       IMPLICIT NONE
+
++CDE,SNDATCOM.
+
       INTEGER   LUN          ! (I) open with this logical unit
       CHARACTER SUFFIX*(*)   ! (I) open with this suffix
       CHARACTER REFORMAT_FILE*(*)  ! (O) name of file opened
 
-+CDE,SNDATCOM.
       INTEGER   LEN_VER
 
 C ------------ BEGIN -----------
@@ -11212,7 +11196,9 @@ C =========================================
 c Open and write IGNORE file
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
+
       INTEGER i, LEN1_CCID, LEN2_CCID
       CHARACTER CCID*(MXCHAR_CCID)
 C ----------- BEGIN ----------
@@ -11877,9 +11863,12 @@ c get fluxes in native system (i.e., undo AB offsets)
 C ============================
 +DECK,MADABORT.
       SUBROUTINE MADABORT(funname,c1err,c2err)
+
       IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,CTRLCOM.
+
       character funname*(*)  ! name of function calling MADABORT
       character c1err*(*), c2err*(*) ! two error messages
       INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
@@ -11907,6 +11896,7 @@ c Created Dec 17 2019
 c STRING = 'Hi, what is this.' --> LENSTR = 17
 c 
       IMPLICIT NONE
+
       CHARACTER STRING*(*)
       INTEGER LENTOT, LEN, i
 C ---------- BEGIN -------------
@@ -12334,6 +12324,7 @@ c
 c Jun 26 2025: set CUTWIN_CID=0 for any input list including SNCID_LIST_FILE
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -12492,6 +12483,7 @@ c May 18, 2012: complete re-write
 c ---------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,INTERPCM.
@@ -12656,10 +12648,10 @@ c but passing back the return string to fortran is not
 c so easy, so safer to write this one in fortran too.
 
       IMPLICIT NONE
-      CHARACTER STRING*(*)  ! I/O
 
-c local args
 +CDE,SNPAR.
+
+      CHARACTER STRING*(*)  ! I/O
 
       INTEGER jslash, LTOT, LENV, LENS
       CHARACTER ENVname*200, ENV*400, SUFFIX*400
@@ -12832,6 +12824,7 @@ C ===========================================
 +DECK,RDNINT.
       SUBROUTINE RDNINT( cwords, NINT, IARRAY )
       IMPLICIT NONE
+
 c ---------------------------------------------------
 c Read NINT consecutive integers from cwords array
 c Store results in IARRAY.
@@ -12852,6 +12845,7 @@ C ===========================================
 +DECK,RDNFLOAT.
       SUBROUTINE RDNFLOAT ( CWORDS, NFLOAT, FARRAY )
       IMPLICIT NONE
+
 c ---------------------------------------------------
 c Read NFLOAT consecutive floats from CWORDS array
 c Store results in FARRAY.
@@ -12884,6 +12878,7 @@ C ===========================================
 +DECK,RDNDBLE.
       SUBROUTINE RDNDBLE ( CWORDS, NDBLE, DARRAY )
       IMPLICIT NONE
+
 c ---------------------------------------------------
 c Created Jun 20, 2011
 c Read NDBLE consecutive doubles from CWORDS array
@@ -12914,6 +12909,7 @@ C ==============================================
 +DECK,RDSTRING.
       CHARACTER*80 FUNCTION RDSTRING( OPT, FILE )
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -12981,15 +12977,11 @@ c -------------
 
       IMPLICIT NONE
 
-c subroutine args
-
-      INTEGER NSN_VERS
-
-c local variables.
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER NSN_VERS  ! (I) number of data versions
 
       INTEGER 
      &   iwd, NWD, IFILT_OBS, LL, L1, L2, LNAM,  i, IDTMP
@@ -13354,6 +13346,13 @@ c
 c ---------
 
       IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,FILTCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
+
 c subroutine args
 
       CHARACTER NAME*(*)         ! (I) name of survey
@@ -13365,12 +13364,6 @@ c subroutine args
       REAL LAMSHIFT(NFILTDEF) ! (I) LAMSHIFT for each band
  
 c local args
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,FILTCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
 
       INTEGER ifilt, ifilt_obs
 
@@ -13416,7 +13409,6 @@ c -------------------------------------------
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 
-    
       INTEGER NCUT, i, icut, ICUTLIST(20)
       INTEGER NCUT_USE, LEN
       LOGICAL LLO, LHI
@@ -13504,6 +13496,7 @@ c May 13 2021: check for PHOTFLAG_MSKREJ in IGNORE file
 c
 c ----------------------------------
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -13704,12 +13697,12 @@ c checks against an already existing list of epochs to ignore.
 c       
 
       IMPLICIT NONE
-      
-      INTEGER EP ! (I) epoch index
-
+     
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER EP ! (I) epoch index
 
       INTEGER  i, LL, ifilt_obs
       LOGICAL  LFILT, IGNORE, LMJD, LCID
@@ -13818,13 +13811,13 @@ c OPT  = 3 -> apply all obs/epoch cuts
 
       IMPLICIT NONE
 
-      INTEGER OPT  ! (I)
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SNANAFIT.
 +CDE,PKMJDCOM.
+
+      INTEGER OPT  ! (I)
 
       REAL*8    MJD8, MJD8_LAST
       INTEGER   NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
@@ -13925,17 +13918,16 @@ c -----------------
 
       IMPLICIT NONE
 
-c input args
-      INTEGER OPTMASK, EP  ! (I)
-
-c local args
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SNANAFIT.
 +CDE,PKMJDCOM.
 
+c input args
+      INTEGER OPTMASK, EP  ! (I)
+
+c local args
       INTEGER PHOTFLAG, OV, i, IFILT, IFILT_OBS, IDFIELD
       LOGICAL BADPHOT, REJECT, LXMJD, LTMP, NO_DETECT
       REAL    ZP, PSF, MJD, SNR
@@ -14062,17 +14054,17 @@ C Return TRUE if epoch passes TREST cut
      
       IMPLICIT NONE
 
-c input args
-      REAL z, PEAKMJD  ! (I) redshift and peak MJD
-      INTEGER EP       ! (I) epoch index to check Trest cut
-
-c local args
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SNANAFIT.
 +CDE,PKMJDCOM.
+
+c input args
+      REAL z, PEAKMJD  ! (I) redshift and peak MJD
+      INTEGER EP       ! (I) epoch index to check Trest cut
+
+c local args
 
       REAL MJD, ZZ, Trest
       LOGICAL VALID_PEAKMJD
@@ -14114,14 +14106,14 @@ c -------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
 c function args
 
       INTEGER  ITYPE  ! SN-integer type from data header
 
 c local args
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
 
       CHARACTER FNAM*12
       INTEGER i
@@ -14192,17 +14184,19 @@ c
 c Feb 11 2021: fix computation of LENS (length of STRING)
 c -----------------------------
 
-      IMPLICIT NONE
+      IMPLICIT NONE  
 
-      INTEGER 
-     &   NVAL    ! (I) expect number of values to extract from STRING
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+c subtroutine args
+      INTEGER   NVAL    ! (I) expect number of values to extract from STRING
 
       CHARACTER 
      &   KEYNAME*(*)  ! (I) table par name read from fits file
      &  ,STRING*(*)   ! (I) string returned from RD_SNFITSIO_STR
 
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
+c local args
 
       INTEGER iwd, LWD, NWD, LK, LENS, MSKOPT
       CHARACTER  CWD*80, FNAM*30
@@ -14294,6 +14288,10 @@ c all epochs failed the epoch-MASK  cuts.
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+
       INTEGER 
      &  IVERS   ! (I) version index
      & ,NRD     ! (I) Number of elements returned for fits key
@@ -14301,9 +14299,6 @@ c all epochs failed the epoch-MASK  cuts.
       CHARACTER KEY*(*)  ! (I) name of fits key
 
 c local var
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
 
       CHARACTER VERSION*100
       INTEGER LK, LV
@@ -14405,6 +14400,7 @@ c For inoput IGAL, return PREFIX = 'HOSTGAL' or 'HOSTGAL2', etc ..,
 c along with LENPRE = length of PREFIX string.
 c The output is used for parsing and writing output.
       IMPLICIT NONE
+
       INTEGER IGAL         ! (I) 1,2 ... host-match index
       CHARACTER PREFIX*20  ! (O) key prefix
       INTEGER LENPRE       ! (O) length of prefix string
@@ -14428,10 +14424,12 @@ c   + SNLC_ZEROPT_forCUT(ep) based on cut in ADU or Npe
 c   + SNLC_PSF_FWHM_ARCSEC(ep)
 
       IMPLICIT NONE
-      INTEGER ep      ! (I) epoch index
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER ep      ! (I) epoch index
+
       REAL   ZPADD_pe, GAIN
       REAL*8 PSFSIG1, PSFSIG2, PSFRAT, NEA
 
@@ -14482,8 +14480,9 @@ C =================================
 c  Jun 2016: abort if illegal char in SNLC_CCID
 
       IMPLICIT NONE
-      CHARACTER CCID*(*)
        
+      CHARACTER CCID*(*)
+
 c local
       INTEGER NBADCHAR, ichar
       PARAMETER  (NBADCHAR = 14)
@@ -14518,11 +14517,11 @@ C -------------
 
       IMPLICIT NONE
 
-      CHARACTER FILTERS*(*)  ! (I) argument of "FILTERS:" key
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      CHARACTER FILTERS*(*)  ! (I) argument of "FILTERS:" key
 
       INTEGER   NFILT, IFILT, itmp, IFILT_OBS
       CHARACTER cfilt1*2
@@ -14582,7 +14581,6 @@ c subroutine args
       CHARACTER INKEY*(*)   ! (I) input key with varname in ()
       CHARACTER OUTSTR*(*)  ! (O) string in ()
 
-
 c local args
       INTEGER J1, J2, LK
       CHARACTER C1ERR*72, C2ERR*72
@@ -14621,6 +14619,7 @@ c
 c ---------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,INTERPCM.
@@ -14740,13 +14739,14 @@ C ============================================
 +DECK,GET_IDSURVEY.
       INTEGER FUNCTION GET_IDSURVEY(SURVEY)
 
-      CHARACTER SURVEY*(*)  ! (I) name of survey
+      IMPLICIT NONE
 
-c local var
 +CDE,SNPAR.
 +CDE,CTRLCOM.  
 
-      INTEGER ID, j1, j2
+      CHARACTER SURVEY*(*)  ! (I) name of survey
+
+      INTEGER ID, j1, j2, i
       LOGICAL LMATCH
 C ---------- BEGIN ------------
 
@@ -14785,11 +14785,11 @@ c
 c ---------------------
 
       IMPLICIT NONE
-      CHARACTER CCID*(*)  ! (I) 
 
-c local var
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      CHARACTER CCID*(*)  ! (I) 
 
       INTEGER IERR, CID, LCHAR 
 
@@ -14959,6 +14959,7 @@ c
       IMPLICIT NONE 
 
 +CDE,SNPAR.
+
       INTEGER   MXINT
       PARAMETER (MXINT=50)
 
@@ -15013,10 +15014,11 @@ c    SNCCID_LIST = '2004hq', '2006ab'
 c 
 
       IMPLICIT NONE     
-      CHARACTER KEY*(*), LINE*(*)
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      CHARACTER KEY*(*), LINE*(*)  ! (I)
 
       INTEGER  MSKOPT, NWD, iwd, LL
       INTEGER  STORE_PARSE_WORDS
@@ -15083,7 +15085,6 @@ c ------------------------------
       IMPLICIT NONE
 
 +CDE,SNPAR.
-c +CDE,PARSECOM.
 
       INTEGER NCHAR   ! (I)
       CHARACTER STRLIST(MXLISTNML)*(NCHAR) ! (I,O)
@@ -15144,6 +15145,7 @@ c If integer CID < 1 million, return 6-char CCID and LENCCID=6;
 c otherwise return 8-char CCID and LENCCID=8.
 c   
       IMPLICIT NONE
+
 +CDE,SNPAR.
 
       INTEGER   CID                ! (I) integer cand. id
@@ -15190,11 +15192,11 @@ c
 c ------
 
       IMPLICIT NONE
-      character cfilt*(*)  ! (I) filter name to parse
 
-c local args
 +CDE,SNPAR.
 +CDE,FILTCOM.
+
+      character cfilt*(*)  ! (I) filter name to parse
 
       INTEGER   IFILTDEF_ORIG
 c  function
@@ -15218,11 +15220,11 @@ c Assumes that last character is the 1-char symbol;
 c i.e, SDSS-g => g,  CTIO4m-R => R, etc ...
 
       IMPLICIT NONE
-      character cfilt*(*)  ! (I) filter name to parse
 
 +CDE,SNPAR.
 +CDE,FILTCOM.
 
+      character cfilt*(*)  ! (I) filter name to parse
 
       integer LL, ifilt
       character cfilt1*1, ctest*1
@@ -15257,15 +15259,17 @@ c
 
       IMPLICIT NONE
 
-c function args
-
-      INTEGER IFILT  ! absolute filter index
-      CHARACTER
-     &   NAME*(*)    ! full name of filter
-     &  ,FRAME*(*)   ! 'OBS' or 'REST'
-
 +CDE,SNPAR.
 +CDE,FILTCOM.
+
+c function args
+
+      INTEGER IFILT  ! (I) absolute filter index
+      CHARACTER
+     &   NAME*(*)    ! (I) full name of filter
+     &  ,FRAME*(*)   ! (I) 'OBS' or 'REST'
+
+c local args
 
       INTEGER JX
       CHARACTER C2*2
@@ -15310,6 +15314,7 @@ c Return integer ID for this FIELD.
 c IDFIELD is defined $SNDATA_ROOT/SURVEY.DEF
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -15354,6 +15359,7 @@ c
 c ---------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
@@ -15534,6 +15540,7 @@ c   for I/O refactor, include SNLC_ZEROPT_forCUTS and SNLC_PSF_FWHM
 c Mar 01 2021: include SNLC_PSF_NEA
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -15603,6 +15610,7 @@ c Feb 07 2021: rename INIT_SNDATA -> INIT_SNLC to avoid confusion
 c               with INIT_SNDATA in sntools.c
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
@@ -15913,6 +15921,7 @@ c  + remove obsolete logic with !LSIM_SNANA && ibit==CUTBIT_SEARCH
 c  + check OPT_SNCID_LIST
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
@@ -15975,6 +15984,7 @@ C =============================================
       SUBROUTINE WRITE_EPOCH_IGNORE_INIT()
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -16033,10 +16043,11 @@ C =============================================
 
       IMPLICIT NONE
 
-      INTEGER ep ! index to process
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER ep ! index to process
 
       INTEGER   NVAR, IFILT_OBS
       CHARACTER CCID*(MXCHAR_CCID), BAND*2
@@ -16073,6 +16084,7 @@ c Initialize strings for cut names.
 c
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
@@ -16309,7 +16321,6 @@ c --------------------
 
       IMPLICIT NONE
 
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,USRTAGCM.
@@ -16390,12 +16401,13 @@ C =========================================
 c
 c Load global USERTAG value for this SN
 c
-      CHARACTER CCID*(*)
 
-c local var
+      IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,USRTAGCM.
 
+      CHARACTER CCID*(*)  ! (I)
 
       INTEGER i, LCCID, LTMP
       CHARACTER CCID_TMP*(MXCHAR_CCID)
@@ -16436,10 +16448,10 @@ c May 1 2019: convert GET_MULTISEASON args to double.
 
       IMPLICIT NONE
 
-      INTEGER IFLAG ! (I) 
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER IFLAG ! (I)
 
       INTEGER NEWMJD, EPMIN, EPMAX, EP, NOBS, iSeason
       INTEGER ITMP_REJECT(MXEPOCH)
@@ -16566,14 +16578,14 @@ c -------------------
 
       IMPLICIT NONE
 
-      INTEGER EP    ! (I) epoch to analyze
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,EARLYCOM.
 +CDE,FILTCOM.
+
+      INTEGER EP    ! (I) epoch to analyze
+
+c local var
 
       REAL SNR, PROB, MJD
       INTEGER IFILT_OBS, MASK, OVPMASK, OVPMASK_START, NMJD_DIF
@@ -16729,6 +16741,7 @@ c
 c -------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,EARLYCOM.
@@ -16884,6 +16897,7 @@ c Return 1 (TRUE) if epochs satify user input REQUIRE_EPOCHS_STRING.
 c
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,REQEPCOM.
@@ -17059,6 +17073,7 @@ c  Setting TRANGE(1)=0 or TRANGE(3)=0 will disable the
 c  corresponding requirement.
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,REQEPCOM.
@@ -17294,6 +17309,7 @@ c
 c May 22 2018: skip lines with comment field
 
       IMPLICIT NONE
+
 +CDE,SNPAR.
 
 c inputs
@@ -17378,12 +17394,13 @@ c ---------------------------------
 
       IMPLICIT NONE
     
-      INTEGER ep ! epoch index
-
-c local variables
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER ep ! epoch index
+
+c local variables
       
       INTEGER IFILT_OBS, ISTAT, L, L2
       REAL*8 MJD, DVAL
@@ -17455,8 +17472,10 @@ C ========================================================
 +DECK,END_MAGCOR.
       SUBROUTINE END_MAGCOR()
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
-+CDE,SNLCINP.   
++CDE,SNLCINP.
+
 C --------------- BEGIN --------------
 
       IF ( NSTORE_MAGCOR == 0 ) RETURN
@@ -17476,9 +17495,10 @@ C ========================================================
       SUBROUTINE RD_VPEC_FILE()
 c ----------------------------
       IMPLICIT NONE
-c local var
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
 C ------------- BEGIN ------------
       IF ( VPEC_FILE .EQ. '' ) RETURN
       C1ERR = '&SNLCIP VPEC_FILE input is obsolete'
@@ -18319,6 +18339,7 @@ c specz if redshift error is less than &SNLCINP variable
 c QUANTILE_ZERRMIN.
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -18400,12 +18421,12 @@ C Aug 2022: check LDMP_SATURATE
 c
       IMPLICIT NONE
 
-      INTEGER ep  ! (I) epoch index
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SNANAFIT.
+
+      INTEGER ep  ! (I) epoch index
 
       REAL FLUXCAL, FLUXCAL_ERR, MAG, ZP
       INTEGER IFILT_OBS
@@ -18450,8 +18471,10 @@ c Mar 23 2021: SBFLUXMIN -> 1.0 (was 0.1)
 c Aug 11 2021: SBFLUX = -99 -> SBMAG=99
 c
       IMPLICIT NONE
-      INTEGER ifilt  ! (I) sparse filter index
+
 +CDE,SNDATCOM.
+
+      INTEGER ifilt  ! (I) sparse filter index
       REAL SBFLUX, SBMAG, SBFLUXMIN, ZP
 C --------- BEGIN ------------
       SBFLUX = SNHOST_SBFLUXCAL(ifilt)
@@ -18473,10 +18496,11 @@ C --------- BEGIN ------------
 C ========================
 +DECK,PARSE_SIMVAR_CUTS.
       SUBROUTINE PARSE_SIMVAR_CUTS()
-      IMPLICIT NONE
 
 c Dec 2018
 c Parse &SNLCINP input SIMVAR_CUTWIN_STRING
+
+      IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -18688,10 +18712,10 @@ c Apr 15 2018: mass OPTMASK argument to INIT_FLUXERRMODEL
 
       IMPLICIT NONE
 
-      INTEGER IERR  ! (I) return 0 if all ok
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER IERR  ! (I) return 0 if all ok
 
       INTEGER LL, OPTMASK, MSKTMP, RDMASK
       CHARACTER cFILE*(MXCHAR_FILENAME), cNONE*6, FNAM*20
@@ -18902,12 +18926,12 @@ c ------------
 
       IMPLICIT NONE
 
-      INTEGER EP  ! (I) epoch index and SN index
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SNANAFIT.
+
+      INTEGER EP  ! (I) epoch index and SN index
 
 c local var
 
@@ -19136,11 +19160,11 @@ c                                 and set INFILE = fileName
 c - - - - - -
       IMPLICIT NONE
 
-      INTEGER MASK         ! (I) mask to set for FORCEMASK
-      CHARACTER INFILE*(*) ! (I) name of input file
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER MASK         ! (I) mask to set for FORCEMASK
+      CHARACTER INFILE*(*) ! (I) name of input file
 
       CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME), FNAM*30
       INTEGER iwd, NWD, LENFILE,MSKOPT
@@ -19184,9 +19208,10 @@ C ===========================================
 
       IMPLICIT NONE
 
-      INTEGER MASK  ! (I) mask to set
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER MASK  ! (I) mask to set
 
       INTEGER ALREADY_SET, FORCE
       CHARACTER FNAM*24
@@ -19483,15 +19508,14 @@ c
 c --------
 
       IMPLICIT NONE
-      INTEGER IFILT_OBS   !(O) SN index, and filter index
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
+      INTEGER IFILT_OBS   !(O) SN index, and filter index
 
       INTEGER NEWMJD, EPMIN, EPMAX, ep, ifilt
-
       LOGICAL LTMP 
 
 C -------- BEGIN -------
@@ -19533,10 +19557,13 @@ C -------- BEGIN -------
 C =============================================
 +DECK,DLMAG8_REF.
       DOUBLE PRECISION FUNCTION DLMAG8_REF(Z8)
-      IMPLICIT NONE
 c Oct 23 2020: refactor DLMAG function to use sntools_cosmology.c
+
+      IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
       REAL*8 Z8             ! input redshift
       REAL*8 zCMB, zHEL, vPEC, H0, OM, OL, w0, wa
 
@@ -19569,15 +19596,13 @@ c -------------------------
 
       IMPLICIT NONE
 
-c function args
-
-      INTEGER DETNUM
-
-c local args
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
+c function args
+      INTEGER DETNUM
+
+c local args
       INTEGER i
       LOGICAL LDETNUM
 
@@ -19635,15 +19660,15 @@ c --------------------------
 
       IMPLICIT NONE
 
-      INTEGER OPT_FLAG ! 1=> init file, 2=> add simlib entry
-
 +CDE,SNDATCOM.
-c +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
 +CDE,SPECCOM.
 
+      INTEGER OPT_FLAG ! 1=> init file, 2=> add simlib entry
+
+c local args
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
       REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
@@ -20036,6 +20061,7 @@ c set SKYMAG_LIST and PSF_FWHM accordingly.
 c Beware that list of space surveys is hard-wired.
 
       IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,CTRLCOM. 
 +CDE,SIMLIBCOM.
@@ -20115,8 +20141,7 @@ c If SIMLIB_ZPERR_LIST='', set all ZPERR = 0.01
 c
 
       IMPLICIT NONE
-c +CDE,SNPAR.
-c +CDE,CTRLCOM. 
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SIMLIBCOM.
@@ -20353,11 +20378,12 @@ C SIMLIB header (LUNOUT)
 C
 
       IMPLICIT NONE
-      INTEGER LUN ! (I) write to this LUN
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SPECCOM.
+
+      INTEGER LUN ! (I) write to this LUN
 
 c discard if FLUXERR/FLUXERR_MEDIAN exceeds this value
 c --> avoid crazy large errors that result in bad FLUXUM/FLUXERRSUM.
@@ -20439,12 +20465,14 @@ C ================================================
       REAL*8 VAL            ! (I) double value to convert
       CHARACTER STRING*(*)  ! (O) string with float value 
       INTEGER  LEN          ! (O) length of string
+
       write(STRING,240) VAL
  240  format(F10.1)
       STRING = ADJUSTL(STRING)
       LEN = INDEX(STRING,' ') - 1
       RETURN
       END
+
 +DECK,FLOAT2STRING_NOSPACE.
       SUBROUTINE float2string_nospace(VAL, STRING, LEN)
       IMPLICIT NONE
@@ -20509,13 +20537,13 @@ c
 c --------------------------------------------
       IMPLICIT NONE
   
-      INTEGER iepoch                ! (I) epoch & SN indices
-      REAL    FLUXCAL, FLUXCAL_ERR  ! (I) FLUXCAL and its error
-
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER iepoch                ! (I) epoch & SN indices
+      REAL    FLUXCAL, FLUXCAL_ERR  ! (I) FLUXCAL and its error
 
 c local var
 
@@ -20769,6 +20797,7 @@ C =====================================
 c return STRING = STRING // ':' // APPEND
 c Note that there are no blank spaces. Each item is separated by colon.
       IMPLICIT NONE
+
       CHARACTER STRING*(*), APPEND*(*)
       INTEGER LENS
 C ----------- BEGIN ------------
@@ -20844,11 +20873,11 @@ c
 c --------------
       IMPLICIT NONE
 
-      INTEGER ep  ! (I) epoch index
-
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
+
+      INTEGER ep  ! (I) epoch index
 
       REAL XCEN, YCEN, YSCALE, X, Y, xy, A, AMAX
 
@@ -20891,13 +20920,12 @@ c May 2 2020: add call to TABLE_MARZ
 
       IMPLICIT NONE
 
-      INTEGER IFLAG   ! (I) see IFLAG_XXX params
-
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
+      INTEGER IFLAG   ! (I) see IFLAG_XXX params
+
+c local var
       LOGICAL   LTMP
       CHARACTER FNAM*10
 
@@ -20942,9 +20970,10 @@ c Apr 23, 2019: add 8th plot with Orad = 1.2E-5
 c Oct 23, 2020: use DLMAG_fortC to get DLMAG
 
       IMPLICIT NONE
-      INTEGER IERR ! (O) 0=> OK
 
 +CDE,SNPAR.
+
+      INTEGER IERR ! (O) 0=> OK
 
 c local var
 
@@ -21050,14 +21079,14 @@ c Nov 12, 2018: real MJD -> real*8 MJD
 c -------------------------------------------
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
 c declare subroutine args
 
       INTEGER 
      &   imjd     ! (I) epoch index
      &  ,cutbit   ! (I) cut to ignore (if negative)
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
 
 c local var
 
@@ -21154,6 +21183,7 @@ c Jul 01 2024 pass and process SNRLIST
 c --------------------
 
       IMPLICIT NONE
+
 +CDE,SNPAR.
 
       INTEGER 
@@ -21325,6 +21355,7 @@ c Aug 2007: make special note when telescope is not found.
 c Nov 2019: remove telescope logic and CUTBIT_IDTEL
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -21459,6 +21490,7 @@ c
 c -----------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,FILTCOM.
 +CDE,SNLCINP.
@@ -21895,16 +21927,17 @@ C ---------------------------
 
       IMPLICIT NONE
 
-c input function args
-      INTEGER CID
-      CHARACTER CCID*(*), NAME_IAUC*(*)
-
 +CDE,SNPAR. 
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 +CDE,INTERPCM.
 +CDE,SNLCCOM.
-   
+
+c input function args
+      INTEGER CID
+      CHARACTER CCID*(*), NAME_IAUC*(*)
+
+c local var   
       INTEGER i, LEN, LENCCID, LENIAUC, ISN_MATCH
       REAL XCID     
       CHARACTER CCID_forC*(MXCHAR_CCID), CCIDTMP*(MXCHAR_CCID)
@@ -22023,6 +22056,7 @@ C Created Dec 2015
 C Return True of STR1=STR2
 
       IMPLICIT NONE
+
       CHARACTER STR1*(*), STR2*(*)
       INTEGER   LEN1, LEN2
 
@@ -22050,8 +22084,15 @@ c Define smooth function that goes from 0 to 1 between
 c -SEPMAX and SEPMAX, and returns 0.5 at SEP=0.
 c Return value of function at SEP.
 c Function is atan.
+c
+c NOTE: this should be moved to sntools.c (C code)
+c
 c --------------------------
-+CDE,SNPAR.
+
+      IMPLICIT NONE
+
+c +CDE,SNPAR.
+
       REAL*8 SEP, SEPMAX  ! (I)
       REAL*8 TAU, F
 c ----------- BEGIN ----------
@@ -22073,88 +22114,6 @@ c ----------- BEGIN ----------
       END
 
 
-C =======================================
-+DECK,GET_HOSTXTINCT8.
-      DOUBLE PRECISION FUNCTION GET_HOSTXTINCT8 ( AV, RV, Lambda )
-      IMPLICIT NONE
-
-c input args
-
-      REAL*8
-     &   AV      ! (I) extinction at  5495 A
-     &  ,RV      ! (I) assumed A(V)/E(B-V) (e.g., = 3.1 in the LMC)
-     &  ,Lambda  ! (I) wavelen, A
-
-c local var
-
-      REAL*8 x, y, a, b, fa, fb, dx, dx2, dx3
-      REAL*8 y2, y3, y4, y5, y6, y7
-
-C --------------- BEGIN --------------
-      
-      x = 10000./lambda    ! inverse wavelength in microns
-      y = x - 1.82;
-
-      if (x .GE. 0.3 .and. x .LT. 1.1) then   !  IR
-
-         a =  0.574*(x**1.61)
-         b = -0.527*(x**1.61)
-
-      else if (x .GE. 1.1 .and. x .LT. 3.3) then    ! Optical/NIR
-
-         y2 = y**2
-         y3 = y**3
-         y4 = y**4
-         y5 = y**5
-         y6 = y**6
-         y7 = y**7
-
-         a = 1. + 0.17699*y  - 0.50447*y2 - 0.02427*y3
-     &          + 0.72085*y4 + 0.01979*y5 - 0.77530*y6
-     &          + 0.32999*y7
-
-         b = 1.41338*y + 2.28305*y2 + 1.07233*y3 - 5.38434*y4
-     &                 - 0.62251*y5 + 5.30260*y6 - 2.09002*y7
-
-      else if ( x .GE. 3.3 .and. x .LT. 8.0) then    ! UV
-
-         if (x .GT. 5.9) then
-          dx  = x - 5.9
-          dx2 = dx  * dx
-          dx3 = dx2 * dx
-          fa = -0.04473*dx2 - 0.009779*dx3
-          fb =  0.21300*dx2 + 0.120700*dx3
-        else 
-          fa = 0.0
-          fb = 0.0
-        endif
-
-        a =  1.752 - 0.316*x - 0.104/((x-4.67)**2 + 0.341) + fa
-        b = -3.090 + 1.825*x + 1.206/((x-4.62)**2 + 0.263) + fb
-
-      else if (x .GE. 8.0 .and.  x .LE. 10.0 ) then  ! Far-UV
-
-         dx  = x - 8.0
-         dx2 = dx * dx
-         dx3 = dx2 * dx
-
-         a = -1.073 - 0.628*dx + 0.137*dx2 - 0.070*dx3
-         b = 13.670 + 4.257*dx - 0.420*dx2 + 0.374*dx3
-
-      else
-          a = 0.0
-          b = 0.0
-      ENDIF
-
-      GET_HOSTXTINCT8 = av*(a + b/RV)
-
-      RETURN
-      END
-
-
-
-
-
 C ======================================
 +DECK,FIRSTBIN_INTERP.
       INTEGER FUNCTION FIRSTBIN_INTERP (
@@ -22171,6 +22130,7 @@ c
 c ------------------------------
 
       IMPLICIT NONE
+
       REAL  VALUE, RANGE(2), BINSIZE  ! (I)
 
 c local args    
@@ -22271,12 +22231,10 @@ c -----------------------------
 
       IMPLICIT NONE
 
-      INTEGER NPLOT  ! (I) sequential plot number for this job
-
-c local variables.
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      INTEGER NPLOT  ! (I) sequential plot number for this job
 
       INTEGER NJOBTOT, IJOB, IPLOT
       
@@ -22309,10 +22267,14 @@ C =============================================
 +DECK,GTSIMTYPE.
       SUBROUTINE GET_SIMNAME_TYPE(name)
       IMPLICIT NONE
-      CHARACTER NAME*(*)
-      INTEGER LL
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
+      CHARACTER NAME*(*)  ! (I)
+      INTEGER LL
+
+C --------- BEGIN ---------
       NAME = ''
       IF ( .NOT. LSIM_SNANA ) RETURN
       LL = INDEX(SIMNAME_TYPE,' ') - 1
@@ -22331,6 +22293,7 @@ C
 C ----------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNLCINP.
 
@@ -22378,6 +22341,7 @@ C
 C ----------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM. 
 +CDE,SNLCINP.
 
@@ -22425,8 +22389,10 @@ C For snana.exe job only.
 c Sep 7 2014: use OPT_TABLE.
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
+
       INTEGER NLCPLOT, OPT
 c --------------- BEGIN ------------
 
@@ -22842,12 +22808,11 @@ c as previous epoch.
 
       IMPLICIT NONE
 
-      INTEGER IEP ! (I) epoch index
-
-c local var
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
+
+      INTEGER IEP ! (I) epoch index
 
       REAL*8 MJD, MJD_LAST
       INTEGER IFILTOBS, IFILTOBS_LAST, i
@@ -22913,6 +22878,7 @@ C
 c Aug 11 2021: check SBMAG cut
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
@@ -23033,13 +22999,14 @@ C ======================================
       SUBROUTINE COUNT_OUTLIERS(OPT,EP)
 
       IMPLICIT NONE
-      INTEGER OPT  ! 0=init, 1=count all, 2=count outliers, 3=print summary
-      INTEGER EP   ! epoch index
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
 +CDE,OUTLIERCOM.
+
+      INTEGER OPT  ! (I) 0=init, 1=count all, 2=count outliers, 3=print summary
+      INTEGER EP   ! (I) epoch index
 
       INTEGER IFILTOBS, BIT, PHOTFLAG
       REAL    XNALL(2), XNOUTLIER(2), XNBULK(2)
@@ -23135,15 +23102,15 @@ C =============================
       SUBROUTINE INIT_TABLE_OUTLIERVAR(ID, BLOCK)
 
       IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,OUTLIERCOM.
+
       INTEGER   ID          ! (I) table ID
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
 
 c local var
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-c +CDE,FILTCOM.
-+CDE,OUTLIERCOM.
 
       INTEGER 
      &   IFILT, IFILT_OBS, ITEXT
@@ -23369,12 +23336,12 @@ c where ERRTOT^2 = FLUXCAL_ERR_DATA^2 + FLUXCAL_ERR_FIT^2
 c Initial use is for OUTLIER table.
 c
       IMPLICIT NONE
-      INTEGER  ep  ! (I) epoch index
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
-c +CDE,FILTCOM.
 +CDE,OUTLIERCOM.
+
+      INTEGER  ep  ! (I) epoch index
 
       REAL  FLUXCAL_FIT, FLUXCAL_ERR_FIT
       REAL  FLUXCAL_DATA, FLUXCAL_ERR_DATA, SQERR, ERRTOT, NSIG
@@ -23429,13 +23396,8 @@ c then using system cat command.
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
-
 +CDE,FILTCOM.
 +CDE,OUTLIERCOM.
-
-c +CDE,SNPAR.
-c +CDE,CTRLCOM.
-c +CDE,SNLCINP.
 
       INTEGER IFILT, IFILTOBS, N0, N1, LEN_WHAT
       INTEGER LEN1, LEN2, LEN3, LEN_HEAD
@@ -23535,6 +23497,7 @@ c Apr 26 2017: check PRESCALE_TABLE
 c
 c ------------------------------
       IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,SNCUTS.
 +CDE,CTRLCOM.
@@ -23659,11 +23622,6 @@ c Feb 05 2025: add LENSDMU[ERR]
 c -------------------------------------------------------------
 
       IMPLICIT NONE
-      INTEGER   ID          ! (I) table ID
-      CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
-      INTEGER   IFLAG       ! (I) SNANA or _FIT variables
-
-c local var
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
@@ -23675,6 +23633,12 @@ c local var
 +CDE,REQEPCOM.
 +CDE,OUTLIERCOM.
 +CDE,TRUECHI2COM.
+
+      INTEGER   ID          ! (I) table ID
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
+      INTEGER   IFLAG       ! (I) SNANA or _FIT variables
+
+c local var
 
       INTEGER 
      &   IFILT, IFILT_OBS, ITEXT, ITEXT2, ITEXT_NO, ITEXT_YES, IGAL
@@ -24239,6 +24203,10 @@ c Sep 24 2024: fix so that MAGOBS works for IGAL > 1
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
 c subroutine args
       INTEGER ID, IGAL, ITEXT   ! (I) 
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
@@ -24246,10 +24214,6 @@ c subroutine args
 c local var
       CHARACTER PREFIX*8, VARLIST*400, CBLOCK*40
       INTEGER   LP, LENLIST, LENBLOCK, ITEXT_LOCAL
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
 
 c ------------- BEGIN ----------
 
@@ -24393,6 +24357,9 @@ c - - - - - - - - -
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
       INTEGER   ID          ! (I) table id
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
 
@@ -24401,8 +24368,6 @@ c - - - - - - - - -
 
 c local var
 
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
       INTEGER LENV, LENB, LENTMP
       CHARACTER CBLK*40, CNOBS*14, VARNAME*40
       LOGICAL  IGNORE
@@ -24537,14 +24502,14 @@ c  NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
       INTEGER   ID          ! (I) table id
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
 
 c local var
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
 
       INTEGER LENV, LENB, IFILT, IFILT_OBS
       LOGICAL IGNORE
@@ -24604,8 +24569,6 @@ c NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
     
       IMPLICIT NONE
 
-c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
@@ -24637,6 +24600,7 @@ c define arbitrary epoch grid
       RETURN
       END
 
+C ===========================
 +DECK,SIM_MAGOBS_INTERP.
       REAL FUNCTION SIM_MAGOBS_INTERP(IFILT,Tobs)
 
@@ -24646,12 +24610,12 @@ c   * Tobs   = MJD - SIM_PEAKMJD
      
       IMPLICIT NONE
 
-      INTEGER IFILT
-      REAL Tobs
-
 +CDE,SNDATCOM.
 +CDE,FILTCOM.
 
+      INTEGER IFILT  ! (I)
+      REAL Tobs      ! (I) 
+ 
       INTEGER NEWMJD, EP, EPMIN, EPMAX, IFILT_OBS, EP0, EP1
       REAL MAGOBS, Tobs_tmp, T0, T1, MAG0, MAG1, frac
       REAL*8 MJD8
@@ -24706,13 +24670,14 @@ c Jan  8  2023: restore SIM_TYPE_INDEX (forgot why it was removed)
 c Dec 23  2023: add SIM_WGT_POPULATION
 c
       IMPLICIT  NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
       INTEGER   ID          ! (I) table id
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
 
 c local var
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
 
       CHARACTER 
      &    CTMP*(MXCHAR_FILEWORD)
@@ -24977,6 +24942,9 @@ c ------------------------------------
 
       IMPLICIT NONE
 
++CDE,SNPAR.
++CDE,FILTCOM.
+
       CHARACTER 
      &   PREFIX*(*)   ! (I) prefix for variable names
      &  ,CAST*(*)     ! (I) 'F', 'I', 'D'
@@ -24986,9 +24954,6 @@ c ------------------------------------
       INTEGER LENLIST    ! (O) length of VARLIST
 
 c local var
-
-+CDE,SNPAR.
-+CDE,FILTCOM.
 
       INTEGER NFILT, ifilt, lenv, MXFILT, LENMAX, LENSUM
       INTEGER IFILTOBS
@@ -25062,11 +25027,11 @@ c Use nominal filter indices, or REMAPED filters if
 c &SNLCINP namelist input SNTABLE_FILTER_REMAP is set.
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,PKMJDCOM.
-c+CDE,SNHOSTCOM.
 +CDE,TRUECHI2COM.
 
       INTEGER ifilt, NFILT, IFILTOBS, IFILTOBS_REMAP, IFILT_REMAP
@@ -25194,11 +25159,10 @@ c Oct 20 2020: fix index for removing termination char
 
       IMPLICIT NONE
 
-      INTEGER OPT  ! (I) integer option
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
+      INTEGER OPT  ! (I) integer option
       INTEGER LENCID, LENFLD
 
 C ------------ BEGIN --------------
@@ -25232,6 +25196,7 @@ c May 3 2021: include GALID as part of NAME
 c Nov 16 2023: update text to handle 12 digit GALID instead of 9 digits
 c ------------------------------
       IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,SNCUTS.
 +CDE,CTRLCOM.
@@ -25540,6 +25505,7 @@ c or REFACTORED/C function. This function should be removed
 c after the transistion to refactored code.
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
@@ -25664,9 +25630,6 @@ c -------------
 
       IMPLICIT NONE
 
-
-c local args
-
 +CDE,SNPAR.
 +CDE,CTRLCOM.
 +CDE,SNLCCOM. 
@@ -25708,13 +25671,11 @@ c Used for filter-update option.
 
       IMPLICIT NONE
 
-      CHARACTER CCID*(*)  ! (I) SN name
-
-c local var
-
 +CDE,SNPAR.
 +CDE,FILTCOM.
 +CDE,FILTUPDCM.
+
+      CHARACTER CCID*(*)  ! (I) SN name
 
       INTEGER LPDIR, LSDIR, LPATH, LCC, LMAP, IMAP1, IMAP2
       CHARACTER MAPDIR*100
@@ -25767,6 +25728,7 @@ c Dec 2023: remove fortran OPEN and rely on rd2column to read gzipped or unzippe
 c
 
       IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,CTRLCOM.
 +CDE,SNLCCOM. 
@@ -26050,13 +26012,12 @@ c Used to match CCID to sparse index associated
 c with the filter-subdir.
 
       IMPLICIT NONE
-      CHARACTER CCID*(*)  ! (I) SN name to match
-
-c local  var
 
 +CDE,SNPAR.
 +CDE,FILTCOM.
 +CDE,FILTUPDCM.
+
+      CHARACTER CCID*(*)  ! (I) SN name to match
 
       INTEGER IMAP2, L0, L1
       CHARACTER CCID_TMP*(MXCHAR_CCID), C1ERR*72, C2ERR*72
@@ -26095,6 +26056,7 @@ C ================================================
 +DECK,FUPD_SAME.
       SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
       IMPLICIT NONE
+
 +CDE,SNPAR.
 +CDE,CTRLCOM.
 +CDE,SNLCCOM. 
@@ -26297,14 +26259,11 @@ c See &SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS(3)
 c
       IMPLICIT NONE
 
-c local 
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
       INTEGER IFILT, IFILTDEF
-
       REAL MAGOBS_SHIFT_USRFUN  ! function
 C --------------- BEGIN -----------
 
@@ -26534,12 +26493,11 @@ c for each SN.
 
       IMPLICIT NONE
 
-      INTEGER NWD ! (I) number of words in file
 +CDE,SNPAR.
-c +CDE,PARSECOM.
 +CDE,FILTCOM.
 +CDE,FILTUPDCM.
 
+      INTEGER NWD ! (I) number of words in file
       INTEGER IWD, istar, LEN
 
       character 
@@ -26748,16 +26706,15 @@ c ---------
 
       IMPLICIT  NONE
 
++CDE,SNPAR.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
 c input arguments
       CHARACTER KEY*(*)     ! (I) 'SN' or 'REF'
       CHARACTER STRING*(*)  ! (I) string to define filter filename
  
 c local variables
-
-+CDE,SNPAR.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
   
       INTEGER istar, LSTR, LKEY
       LOGICAL LDUMP 
@@ -27357,6 +27314,11 @@ c ----------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,PKMJDCOM.
+
 c function args
 
       INTEGER IFILT_OBS   ! (I) SN index and obs filter to fit
@@ -27369,11 +27331,6 @@ c function args
      &  ,PKMJDERR   ! (O) approx error on PKMJD (used for wgted avg)
      &  ,PKFLUX     ! (O) peak flux from fit
      &  ,PKFLUXERR  ! (O) error on above
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,PKMJDCOM.
 
 c MINUIT stuff
 
@@ -27605,6 +27562,12 @@ c
 c --------------------------------------------
       IMPLICIT NONE
 
+  
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,PKMJDCOM.  Oct 2014
+
       INTEGER NVAR, IFLAG
       REAL*8 
      &   XVAL(*)  ! (I) T0, Trise, Tfall, A, B
@@ -27613,11 +27576,6 @@ c --------------------------------------------
      &  ,ANYLCFUN
 
       EXTERNAL ANYLCFUN
-  
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,PKMJDCOM.  Oct 2014
 
 c local var
 
@@ -27777,6 +27735,12 @@ c -------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.  from snana.car
++CDE,SNANAFIT.  from snana.car
++CDE,SNLCINP.
++CDE,FILTCOM. 
++CDE,PKMJDCOM.
+
 c subroutine args:
 
       INTEGER
@@ -27785,12 +27749,6 @@ c subroutine args:
       REAL*8  MJD1, MJD2  ! (I) MJDs to get covariance
   
 c local var
-
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNANAFIT.  from snana.car
-+CDE,SNLCINP.
-+CDE,FILTCOM. 
-+CDE,PKMJDCOM.
 
       INTEGER 
      &   ipar, ipar_k, ipar_l, isp_k, isp_l, IFILT
@@ -27889,6 +27847,7 @@ c
 c Jan 9, 2012: write output to LUNINTERP if SNMJD_OUT_FILE is defined.
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
@@ -27976,6 +27935,7 @@ C =======================
 C =======================
 
 C ==============================================
++SELF,IF=SNFIT.
 +DECK,MNFIT_DRIVER.
       SUBROUTINE MNFIT_DRIVER ( 
      &   CCID        ! (I) cand id
@@ -28019,6 +27979,9 @@ c -------------------------------------------------
 
       IMPLICIT NONE
 
++CDE,SNPAR.
++CDE,CTRLCOM.
+
 c arguments
 
       CHARACTER CCID*(*)
@@ -28041,9 +28004,6 @@ c arguments
       INTEGER IERR, N_NAN
 
 c local var
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
 
       EXTERNAL FCNSNLC, USRFUN
       DOUBLE PRECISION  USRFUN
@@ -28075,7 +28035,6 @@ C Unit numbers for input and output
 
 C -------------------- BEGIN -------------------------
 
-+SELF,IF=MINUIT.
 
       IERR = 0
       N_NAN   = 0
@@ -28257,7 +28216,6 @@ c Stop fit and make LAST call to function
         CALL FLUSH(6)
       ENDIF
 
-+SELF.
 c ---------------------------------
       RETURN
       END  ! end MNFIT_DRIVER
@@ -28265,11 +28223,6 @@ c ---------------------------------
 C ===========================
 +DECK,MNFIT_STOREPAR.
       SUBROUTINE MNFIT_STOREPAR(iter,IERR)
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,SNANAFIT.
-
 c
 c Nov 17, 2011: replace CERNLIB's PROB with snana's PROB_CHI2NDOF
 c Jan 04, 2016: protect sqrt(negative SQERR8)
@@ -28278,6 +28231,12 @@ c May 23, 2018: set LCFRACERRDIF_STORE(ipar)
 c Feb 22, 2020: set NDOF_PRIOR=0  here on each iteration.
 c Apr 16, 2024: write FITPROB to stdout
 c Jul 30, 2024: protect EPLUS/EMINUS when EMINUS=0
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SNANAFIT.
 
 c subroutine args
 
@@ -28312,10 +28271,8 @@ c store chi2
 
 c get prior-chi2 using special flag
 
-+SELF,IF=MINUIT.
       CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, FITVAL(1,iter),
      &       FCNFLAG_PRIOR_ONLY, USRFUN)
-+SELF.
 
 c determine effective Ndof for prior.
    
@@ -28330,10 +28287,8 @@ c determine effective Ndof for prior.
      &     FITCHI2_STORE(1) - FITCHI2_STORE(3)  ! total - prior
 
 c store chi2 from ln(sigma) terms
-+SELF,IF=MINUIT.
       CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, FITVAL(1,iter),
      &       FCNFLAG_SIGMA_ONLY, USRFUN)
-+SELF.
       FITCHI2_STORE(4) = CHI8
 
 c store number of degrees of freedom
@@ -28421,7 +28376,7 @@ c print results for floated parameters only
 
          if ( FLOATPAR(ipar)
      &     .or. NFIXPAR .EQ. NFITPAR_MN 
-     &     .or .IPAR    .EQ. 1             ! IPAR_ITER - Nov 2014
+     &     .or. IPAR    .EQ. 1  
      &           ) then
             CALL PRINT_FITPAR(SNLC_CCID, iter, ipar, 'fit' )
          endif
@@ -28455,10 +28410,8 @@ c - - - - - -
 c ----------------------
 c 9/29/2007: get error matrix
 
-+SELF,IF=MINUIT.
       IF ( LREPEAT_MINOS ) MNSTAT_COV = MNSTAT_COV + 10
       CALL MNEMAT(FITERRMAT_SPARSE,MXFITPAR)
-+SELF.
 
 c compute correlation matrix from error matrix
 
@@ -28505,11 +28458,9 @@ C ======================================
       CHARACTER*1 FUNCTION ERRTYPE_STR(ERRTYPE)
       IMPLICIT NONE
 
-      INTEGER ERRTYPE  ! (I) error type
-
-c xxx mark      CHARACTER ERRTYPE_STR*1
-
 +CDE,SNPAR.
+
+      INTEGER ERRTYPE  ! (I) error type
 
 C --------------- BEGIN -------------
 
@@ -28546,6 +28497,10 @@ c            (to reduce output for BIG jobs)
 c
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
 c subroutine args
 
       INTEGER  ITER, IPAR  ! (I) SN cand id and IPAR to print
@@ -28553,9 +28508,7 @@ c subroutine args
      &    CCID*(*)   ! (I) char string cand id
      &   ,type*(*)   ! (I) 'fit' or 'pdf' type of result
 
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
+c local var
 
       INTEGER LL
       REAL*8  VAL, ERR
@@ -28618,6 +28571,7 @@ c the PDFVAL array.
 c
 c ---------------------------
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
@@ -28661,6 +28615,7 @@ c
 c -----------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
@@ -28744,8 +28699,6 @@ c compute fit-probs.
       RETURN
       END
 
- 
-
 
 C =======================================
 +DECK,MARG_DRIVER.
@@ -28778,7 +28731,11 @@ c Nov 24, 2009: call PDF_INIT() to init PDFXXX arrays
 c
 c -------------------------------------------
 
-      IMPLICIT NONE
+      IMPLICIT NONE  
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
 
 c input args
 
@@ -28790,12 +28747,7 @@ c input args
 
       REAL  NSIGMA     ! (I) integrate +_ NSIGMA for exact pdf.
 
-c -------------
 c local var
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
 
       INTEGER 
      &   ipar, ipar2
@@ -28983,6 +28935,10 @@ c -------------------------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
 c function aarguments
 
       INTEGER 
@@ -28996,10 +28952,6 @@ c function aarguments
       REAL*8  NSIGMA   ! (I) integrate +- NSIGMA in each dimension
 
 c local args
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
 
       INTEGER MXPAR, MXGRID
 
@@ -29501,6 +29453,10 @@ c -----------------------------------
 
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
 c subroutine args
 
       INTEGER
@@ -29515,10 +29471,6 @@ c subroutine args
       LOGICAL LREDO      ! (I) flag to redo integration
 
 c local args
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
 
       LOGICAL   
      &   LSYMERR
@@ -29802,16 +29754,16 @@ c
 c -----------------------
       IMPLICIT NONE
 
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
 c function input
 
       INTEGER NDIM     ! (I) number of dimensions
       REAL*8  X(NDIM)  ! (I) args for chi2-function
 
 c local args
-
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNLCINP.
 
       INTEGER 
      &   ipar_all
@@ -29867,6 +29819,8 @@ c chi2 got too big.
       END  ! end of FCNPDF
 
 
++SELF.
+
 C ==============================================
 +DECK,FITVAL_FLOAT.
       SUBROUTINE FITVAL_FLOAT(FITVAL_LOC,NDIM,X)
@@ -29879,6 +29833,7 @@ c
 c -----------------------------------
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.

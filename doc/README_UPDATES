@@ -23362,5 +23362,22 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + remove *.car and *.cra files
      + remove util/ypathcy.pl 
 
+    NO CODE CHANGES FOR THIS TAG
+
+# =============================================================
+         v12_01 (Nov 29 2025) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01) *****
+
+     Continue normal development with F90 fortran code files.
+
+
+         *****  USEFUL(v12_01) *****
+
+
+         *****  MISCELLANEOUS(v12_01) *****
+
+
+     *.F90: start updating PARAMETER statements to F90 syntax.
 
 END: 

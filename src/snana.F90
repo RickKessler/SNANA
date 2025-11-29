@@ -9,104 +9,11 @@
   MODULE SNPAR
     IMPLICIT NONE
 
-    CHARACTER  SNTABLE_LIST_DEFAULT*60
 
 ! parameters used by snana code
 
-    INTEGER  & 
-         MXVERS, MXSURVEY, MXSNLC,MXCID, MXCID_CHECK,MXEPOCH, MXITER  & 
-        ,MXFILT_ALL, MXFILT_OBS, MXFILT_REST, ONE  & 
-        ,MXFILT_CALIB, MXFILT_SNRMAX, MXEP_MODELGRID  & 
-        ,MXIDFIELD, MXFIELD_OVP, MXSEASON  & 
-        ,MXSNHOST, MXZPHOT_Q  & 
-        ,MNTYPE, MXTYPE, MXLISTNML, MXIGNORE_LIST  & 
-        ,MXVAR_PRIVATE, MXCUT_PRIVATE, MXVAR_TERSE, MXBIT_PHOTFLAG  & 
-        ,LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP  & 
-        ,LUNCID, LUNOUT  & 
-        ,LUNRES1, LUNRES2, LUNINTERP, LUNLIST, LUNIGNORE, LUNSALT2  & 
-        ,LUNLIST2, LUNIGNORE2, LUNSPEC  & 
-        ,ISTAGE_INIT, ISTAGE_RDSN, ISTAGE_CUTS, ISTAGE_TEST  & 
-        ,INTERP_LINEAR, INTERP_SMOOTH, INTERP_ZSMOOTH  & 
-        ,MXERRTYPE, ERRTYPE_MINOS, ERRTYPE_PARAB, ERRTYPE_MARG  & 
-        ,ERRTYPE_BAD  & 
-        ,FCNFLAG_USER, FCNFLAG_FAST, FCNFLAG_LAST, FCNFLAG_USESIM  & 
-        ,FCNFLAG_PRIOR_ONLY, FCNFLAG_SIGMA_ONLY, FCNFLAG_MAX  & 
-        ,OPT_INTEGPDF_QUITCHI2, OPT_INTEGPDF_FULL  & 
-        ,OPT_SNXT_CCM89, OPT_SNXT_SJPAR  & 
-        ,OPT_MWCOLORLAW_DEFAULT, OPT_MWEBV_DEFAULT  & 
-        ,OPT_KCORERR_SJ, OPT_KCORERR_SJ5, OPT_KCORERR_SMOOTH  & 
-        ,OPTMASK_SNDATA_GLOBAL, OPTMASK_SNDATA_HEAD, OPTMASK_SNDATA_OBS  & 
-        ,OPTMASK_SNDATA_SPEC, OPTMASK_SNDATA_DUMP, OPTMASK_SNDATA_ALL  & 
-        ,OPTMASK_SNDATA_REQUIRE, OPTMASK_SNDATA_DONE  & 
-        ,MXLINE_ARGS, MXKEY_ARGS, MXEPOCH_IGNORE  & 
-        ,NPAR_ANYLC, MXPAR_SIMSED, MXPAR_LCLIB  & 
-        ,MXLAMBIN_SNSED, MXCUTBIT  & 
-        ,OPT_FILTUPD_EACHSN, OPT_FILTUPD_MAP, OPT_FILTUPD_SAMEFILT  & 
-        ,OPT_FILTOBS, OPT_FILTREST  & 
-        ,ISTAT_READAGAIN, ISTAT_SKIP  & 
-        ,IDTABLE_MCMC  & 
-        ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_OUTLIER  & 
-        ,ITABLE_SNLCPAK, ITABLE_SPECPAK  & 
-        ,ITABLE_MODELSPEC, ITABLE_MARZ, ITABLE_DMPFCN, MXTABLE  & 
-        ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_OUTLIER  & 
-        ,IDTABLE_MODELSPEC, IDTABLE_MARZ, IDTABLE_DMPFCN  & 
-        ,OPT_PARSTORE_TEXTTABLE  & 
-        ,MSKOPT_PARSE_WORDS_STRING  & 
-        ,MSKOPT_PARSE_WORDS_FILE  & 
-        ,MSKOPT_PARSE_WORDS_IGNORECOMMA  & 
-        ,MSKOPT_PARSE_WORDS_IGNORECOMMENT  & 
-        ,MSKOPT_PARSE_WORDS_FIRSTLINE  & 
-        ,MODEL_STRETCH  & 
-        ,MODEL_STRETCH2  & 
-        ,MODEL_MLCS2k2  & 
-        ,MODEL_SNOOPY  & 
-        ,MODEL_SALT2, MODEL_SALT3  & 
-        ,MODEL_BAYESN  & 
-        ,MODEL_SIMSED  & 
-        ,MODEL_BYOSED  & 
-        ,MODEL_SNEMO  & 
-        ,MODEL_NON1A  & 
-        ,MODEL_LCLIB     &  ! Sep 2017
-        ,MODEL_FIXMAG    &  ! force mags to user-value
-        ,MXMODEL_INDEX  & 
-        ,MXCHAR_CCID, MXCHAR_VERSION, MXCHAR_SURVEY  & 
-        ,MXCHAR_PATH, MXCHAR_FILENAME, MXCHAR_MODELNAME  & 
-        ,MXCHAR_FIELDNAME, MXCHAR_PARNAME, MXCHAR_CUTNAME  & 
-        ,MXCHAR_FILEWORD,  MXCHAR_ARG, MXFILE_LIST  & 
-        ,FLAG_DOCANA_START, FLAG_DOCANA_END, FLAG_DOCANA_ERROR  & 
-        ,SNLCPAK_EPFLAG_FLUXDATA      &  ! DATA flux per epoch
-        ,SNLCPAK_EPFLAG_FLUXMODEL     &  ! MODEL flux per epoch
-        ,SNLCPAK_EPFLAG_REJECT    &  ! REJECT flag (1=> excluded from fit)
-        ,SNLCPAK_EPFLAG_CHI2      &  ! data-fit chi2 per epoch
-        ,SNLCPAK_EPFLAG_FITFUN    &  ! smooth  fitfun curve
-        ,SNLCPAK_EPFLAG_FLUXSIM   &  ! SIM flux per epoch
-        ,SNLCPAK_EPFLAG_FLUXREST  &  ! rest-frame flux per epoch (optional)
-        ,SNLCPAK_EPFLAG_KCOR      &  ! rest-frame kcor (Jan 2020)
-        ,SNLCPAK_EPFLAG_AVWARP    &  ! rest-frame AVWARP
-        ,SNLCPAK_EPFLAG_SIMFLUXREST  &  ! idem for sim truth
-        ,SNLCPAK_EPFLAG_ERRCALC     &  ! FLUX-ERROR calculated from PSF,ZP,SKY
-        ,SNLCPAK_BANDFLAG_PKFLUX    &  ! peak flux vs. filter
-        ,SNLCPAK_BANDFLAG_PKMJD     &  ! peak MJD  vs. filter
-        ,SNLCPAK_BANDFLAG_NDOF      &  ! Ndof vs. filter
-        ,SNLCPAK_BANDFLAG_CHI2      &  ! chi2 vs. filter
-        ,IFLAG_INI, IFLAG_ANA, IFLAG_END  & 
-        ,MASK_FLUXCOR_SNANA, MASK_FLUXERRCOR_SNANA  & 
-        ,EXIT_ERRCODE_SNANA, EXIT_ERRCODE_SNFIT, EXIT_ERRCODE_PSNID  & 
-        ,ERRFLAG_MNFIT_INITPAR, ERRFLAG_MNFIT_FIXPAR, ERRFLAG_MNFIT_NAN  & 
-        ,MXMASK_zSOURCE
-
-    REAL*8  & 
-         ZERO8, ONE8, TEN8,  PI, LOGTEN  & 
-        ,PDFMIN, PDFMAX_EDGE, PDFMIN_GOOD  & 
-        ,XTMW_FRACERR  & 
-        ,MJDOFF  & 
-        ,RV_MWCOLORLAW_DEFAULT  & 
-        ,CUTVAL_OPEN, IGNORE_HEADVAL
-
-    REAL NULLVAL, MAG_SATURATE, LEGACY_INIT_VAL
-
-    PARAMETER (                    &  ! BEGIN SNANA PARAMS
-         SNTABLE_LIST_DEFAULT = 'SNANA  FITRES  LCPLOT'  & 
+    INTEGER, PARAMETER  ::           &  ! BEGIN SNANA PARAMS
+         ONE           = 1           & 
         ,MXVERS        = 50          &  ! max number of versions to read
         ,MXSURVEY      = 100         &  ! max number of SURVEY_NAMEs to store
         ,MXITER        = 12          &  ! max # fit iterations
@@ -133,7 +40,6 @@
         ,MXFILT_SNRMAX =  8        &  ! no more than this many SNRMAX(filt) cuts
         ,MNTYPE       =   1        &  ! min sn "type"
         ,MXTYPE       = 1000       &  ! max sn "type"
-        ,XTMW_FRACERR  = 0.16    &  ! error on MW Xtinc is 16% of XTMW
         ,LUNNML    = 22   &  ! LUN for input namelist
         ,LUNDAT    = 23   &  ! LUN for data
         ,LUNTMP    = 24  & 
@@ -155,11 +61,6 @@
         ,ISTAGE_RDSN    = 20        &  ! SN have been read
         ,ISTAGE_CUTS    = 30        &  ! cuts have been applied
         ,ISTAGE_TEST    = 90        &  ! set for testing
-        ,ZERO8          = 0.0  & 
-        ,ONE8           = 1.0  & 
-        ,ONE            = 1  & 
-        ,TEN8           = 10.0  & 
-        ,LOGTEN         = 2.302585092994  & 
         ,INTERP_LINEAR  = 1     &  ! option flag to use linear DFINT
         ,INTERP_SMOOTH  = 2     &  ! option flag to use smoothing
         ,INTERP_ZSMOOTH = 3     &  ! linear DFINT, but smooth along z
@@ -175,10 +76,6 @@
         ,FCNFLAG_SIGMA_ONLY = 93  & 
         ,FCNFLAG_USESIM     = 99    &  ! pass this IFLAG to use SIM params
         ,FCNFLAG_MAX        = 100  & 
-        ,PI     = 3.1415926535898  & 
-        ,PDFMIN      = 1.0E-5    &  ! used to speed up PDF integration
-        ,PDFMAX_EDGE = 0.03      &  ! max allowed PDF value at edges
-        ,PDFMIN_GOOD = 1.0E-4    &  ! PDF > PDFMIN_GOOD counts as good point
         ,OPT_INTEGPDF_QUITCHI2 = 2   &  ! abort FCNSNLC if chi2 > quitchi2
         ,OPT_INTEGPDF_FULL     = 1   &  ! do full FCNSNLC evaluation
         ,OPT_SNXT_CCM89   = 1   &  ! exact SN etinction using INIT_XTHOST
@@ -194,7 +91,6 @@
         ,OPTMASK_SNDATA_DONE   = 16      &  ! done reading data version
         ,OPTMASK_SNDATA_DUMP   = 32      &  ! flag to dump variable
         ,OPTMASK_SNDATA_REQUIRE= 64      &  ! flag to require variable
-        ,RV_MWCOLORLAW_DEFAULT  = 3.1    &  ! A_V/E(B-V)
         ,OPT_MWCOLORLAW_DEFAULT = 99     &  ! Fitzpatrick 99
         ,OPT_MWEBV_DEFAULT      =  1     &  ! whatever is in the data file
         ,MXLINE_ARGS      = 100   &  ! max number of command line args
@@ -243,9 +139,6 @@
         ,MODEL_LCLIB      = 12  & 
         ,MODEL_FIXMAG     = 20  & 
         ,MXMODEL_INDEX    = 20  & 
-        ,NULLVAL          = -99999.  & 
-        ,LEGACY_INIT_VAL  = 1.0E8  & 
-        ,IGNORE_HEADVAL   = -5555.  & 
         ,MXCHAR_CCID       = 20    &  ! max len of CCID string (i.e, SN name)
         ,MXCHAR_VERSION    = 72    &  ! max len of VERSION_PHOTOMETRY
         ,MXCHAR_SURVEY     = 40    &  ! max len of SURVEY_NAME
@@ -277,8 +170,6 @@
         ,SNLCPAK_BANDFLAG_PKMJD   = 102  & 
         ,SNLCPAK_BANDFLAG_CHI2    = 103  & 
         ,IFLAG_INI=1, IFLAG_ANA=2, IFLAG_END=3  & 
-        ,MAG_SATURATE = -7.0     &  ! for sim only
-        ,CUTVAL_OPEN  = 1.0E12   &  ! cutwin value to accept everything.
         ,MASK_FLUXCOR_SNANA    = 1  & 
         ,MASK_FLUXERRCOR_SNANA = 2  & 
         ,EXIT_ERRCODE_SNANA = 21  & 
@@ -287,40 +178,49 @@
         ,ERRFLAG_MNFIT_INITPAR = 91  & 
         ,ERRFLAG_MNFIT_FIXPAR  = 92  & 
         ,ERRFLAG_MNFIT_NAN     = 93  & 
-        ,MXMASK_zSOURCE        = 128   &  ! max mask value for MASK_zSOURCE
-            )
+        ,MXMASK_zSOURCE        = 128    ! max mask value for MASK_zSOURCE
+            
 
+   REAL*8, PARAMETER ::           &
+         XTMW_FRACERR   = 0.16    &  ! default error on MW Xtinc is 16% of XTMW
+        ,ZERO8          = 0.0     & 
+        ,ONE8           = 1.0     & 
+        ,TEN8           = 10.0    & 
+        ,LOGTEN         = 2.302585092994   & 
+        ,PI             = 3.1415926535898  & 
+        ,PDFMIN         = 1.0E-5    &  ! used to speed up PDF integration
+        ,PDFMAX_EDGE    = 0.03      &  ! max allowed PDF value at edges
+        ,PDFMIN_GOOD    = 1.0E-4    &  ! PDF > PDFMIN_GOOD counts as good point
+        ,MJDOFF         = 0.0       &
+        ,RV_MWCOLORLAW_DEFAULT  = 3.1    &  ! A_V/E(B-V)
+        ,CUTVAL_OPEN  = 1.0E12              ! cutwin value to accept everything.
+
+   REAL, PARAMETER ::           &
+        NULLVAL          = -99999.  &      
+       ,MAG_SATURATE     = -7.0     &  ! for sim only
+       ,LEGACY_INIT_VAL  = 1.0E8    
+
+    CHARACTER, PARAMETER :: SNTABLE_LIST_DEFAULT*60  = 'SNANA  FITRES  LCPLOT'
+
+! - - - - - - - - - - - - - - 
 ! physical constants
 
-    REAL*8  & 
-         PARSEC, CLIGHT, PEAKMAG_AT_10PC  & 
-        ,Zat10pc  & 
-        ,OMAT_DEFAULT, OMATERR_DEFAULT  & 
-        ,OLAM_DEFAULT, OLAMERR_DEFAULT  & 
-        ,ORAD_DEFAULT  & 
-        ,H0_DEFAULT,   H0ERR_DEFAULT  & 
-        ,W0_DEFAULT,   W0ERR_DEFAULT  & 
-        ,WA_DEFAULT,   WAERR_DEFAULT
-
-    PARAMETER (  & 
-         PARSEC        = 3.085678E13   &  ! 1 parsec (km)
-        ,CLIGHT        = 2.998E5       &  ! c (km/sec)
-        ,H0_DEFAULT        = 70.0   &  ! standard value
-        ,W0_DEFAULT        = -1.0  & 
-        ,WA_DEFAULT        =  0.0  & 
-        ,OMAT_DEFAULT      =  0.315   &  ! Planck 2018 (updated Mar 2020)
-        ,OLAM_DEFAULT      =  0.685   &  ! idem
-        ,ORAD_DEFAULT      =  1.2E-5  & 
-        ,H0ERR_DEFAULT        =  7.0  & 
-        ,W0ERR_DEFAULT        =  0.1  & 
-        ,WAERR_DEFAULT        =  0.0  & 
-        ,OMATERR_DEFAULT      =  0.03  & 
-        ,OLAMERR_DEFAULT      =  0.03  & 
-        ,PEAKMAG_AT_10PC   = -19.6  & 
-        ,Zat10pc           = 2.34E-9    &  ! magic redshift at 10 pc
-        ,MJDOFF            = 0.0        &  ! 53000.
-           )
-
+    REAL*8, PARAMETER ::                      & 
+         PARSEC               = 3.085678E13   &  ! 1 parsec (km)
+        ,CLIGHT               = 2.998E5       &  ! c (km/sec)
+        ,H0_DEFAULT           = 70.0     &  ! standard value
+        ,W0_DEFAULT           = -1.0     & 
+        ,WA_DEFAULT           =  0.0     & 
+        ,OMAT_DEFAULT         =  0.315   &  ! Planck 2018 (updated Mar 2020)
+        ,OLAM_DEFAULT         =  0.685   &  ! idem
+        ,ORAD_DEFAULT         =  1.2E-5  & 
+        ,H0ERR_DEFAULT        =  7.0     & 
+        ,W0ERR_DEFAULT        =  0.1     & 
+        ,WAERR_DEFAULT        =  0.0     & 
+        ,OMATERR_DEFAULT      =  0.03    & 
+        ,OLAMERR_DEFAULT      =  0.03    & 
+        ,Zat10pc              = 2.34E-9      ! magic redshift at 10 pc
+          
 
   END MODULE SNPAR
 
@@ -532,8 +432,7 @@
     USE SNPAR
     IMPLICIT NONE
 
-    INTEGER MXFILT_OUTLIER
-    PARAMETER ( MXFILT_OUTLIER = 100) ! avoid includig FILTCOM
+    INTEGER, PARAMETER ::  MXFILT_OUTLIER = 100 ! avoid includig FILTCOM
 
     CHARACTER OUTLIER_TABLE_NAME*12
 
@@ -580,8 +479,7 @@
     USE SNPAR
     IMPLICIT NONE
 
-    INTEGER MXUSERTAG
-    PARAMETER ( MXUSERTAG = 1000 ) ! max number of user tags
+    INTEGER, PARAMETER :: MXUSERTAG = 1000  ! max number of user tags
 
     INTEGER  & 
          N_USERTAGS            &  ! number of tags in USERTAGS_FILE
@@ -618,9 +516,7 @@
     USE SNPAR
     IMPLICIT NONE
 
-    REAL DT_SAMENIGHT
-! c   PARAMETER (DT_SAMENIGHT = 0.333) ! same night within 1/3 day = 8 hr
-    PARAMETER (DT_SAMENIGHT = 0.400) ! same night within 0.4 day
+    REAL, PARAMETER :: DT_SAMENIGHT = 0.400 ! same night within 0.4 day
 
 ! variables for selecting the early part of a light curve
     INTEGER    NOBS_EARLYLC, NNIGHT_EARLYLC
@@ -629,7 +525,7 @@
     REAL       MJDLAST_EARLYLC, MJDLAST_SELECT
 
 
-! parameters parsed from EARLYLC_STRING:
+! variables parsed from EARLYLC_STRING:
     INTEGER  MAXOBS_EARLYLC, MAXNIGHT_EARLYLC, PHOTMASK_EARLYLC,  & 
                NDAYADD_EARLYLC, PHOTMASK_START_EARLYLC
     REAL  SNRMIN_EARLYLC, PHOTPROBMIN_EARLYLC, SNR_START_EARLYLC
@@ -645,8 +541,7 @@
 
 ! arrays for interpolation
 
-    INTEGER MXINTERP
-    PARAMETER ( MXINTERP = 1000) ! ->1000 Nov 19 2019 (was 100)
+    INTEGER, PARAMETER :: MXINTERP = 1000 ! ->1000 Nov 19 2019 (was 100)
 
     INTEGER*4  & 
          N_INTERP_MJDLIST        ! # SN MJDs to interpolate
@@ -872,15 +767,12 @@
 !  Read spectra to pass into tables for plotting.
 !  Not intended for analysis.
 
-    INTEGER  & 
-         MXVAR_SPECTRUM, MXSPECTRUM, MXLAM_SPECTRUM, MXVAR_SPEC_TABLE
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::         & 
          MXVAR_SPECTRUM = 10      &  ! max number of variables after SPEC: key
-        ,MXSPECTRUM     = 200    &  ! max number of spectra to read per event
+        ,MXSPECTRUM     = 200     &  ! max number of spectra to read per event
         ,MXLAM_SPECTRUM = 20000   &  ! max number of wave bins per spectrum
-        ,MXVAR_SPEC_TABLE = 20    &  ! max number of columns in summary spec table
-              )
+        ,MXVAR_SPEC_TABLE = 20       ! max number of columns in summary spec table
+              
 
     INTEGER NVAR_SPEC_TABLE  & 
          ,IVAR_SPEC_SUBTYPE, IVAR_SPEC_MJD, IVAR_SPEC_TOBS  & 
@@ -1031,8 +923,7 @@
 ! Nov 2012: PRIVATE_VAR variables in data files
 ! Aug 2014: MXVAR_PRIVATE -> 28 (was 20)
 
-    REAL*8  PRIVATE_NULL
-    PARAMETER ( PRIVATE_NULL = -999.0909 )
+    REAL*8, PARAMETER :: PRIVATE_NULL = -999.0909 
 
     INTEGER  & 
          NVAR_PRIVATE         &  ! Number of private  variables
@@ -1131,8 +1022,7 @@
 
 ! Feb 2017: common block for writing SIMLIB file to SIMLIB_OUT
 
-    INTEGER MXLIST_SKY
-    PARAMETER ( MXLIST_SKY = 20)
+    INTEGER, PARAMETER :: MXLIST_SKY = 20
     INTEGER  NLIST_SKY
     REAL*8   SKYLAM_LIST(MXLIST_SKY), SKYMAG_LIST(MXLIST_SKY)
     REAL*8   PSF_FWHM_GUESS, PIXSIZE_GUESS, ADD_SKYSIG_PIX
@@ -1155,8 +1045,7 @@
 ! Jul 7 2025:
 !  L' from https://www.gemini.edu/instrumentation/niri/capability
 
-    INTEGER  NLIST_SKY_GROUND
-    PARAMETER ( NLIST_SKY_GROUND = 11 )
+    INTEGER, PARAMETER :: NLIST_SKY_GROUND = 11
     REAL*8 SKYLAM_GROUND_LIST(NLIST_SKY_GROUND)
     REAL*8 SKYMAG_GROUND_LIST(NLIST_SKY_GROUND)
 
@@ -1174,9 +1063,7 @@
            3.5 /                        ! L' (Jul 2025)
 
 ! --- hard-write space based array pf SKYMAG vs. lambda
-
-    INTEGER  NLIST_SKY_SPACE
-    PARAMETER ( NLIST_SKY_SPACE = 13 )
+    INTEGER, PARAMETER :: NLIST_SKY_SPACE = 13
     REAL*8 SKYLAM_SPACE_LIST(NLIST_SKY_SPACE)
     REAL*8 SKYMAG_SPACE_LIST(NLIST_SKY_SPACE)
 
@@ -1218,49 +1105,8 @@
 ! and cut-mask for each epoch.
 ! User must fill cutwin_XXX arrays in main routine.
 
-    INTEGER  & 
-         CUTBIT_CID, CUTBIT_SNTYPE  & 
-        ,CUTBIT_REDSHIFT, CUTBIT_REDSHIFT_ERR  & 
-        ,CUTBIT_RA,  CUTBIT_DEC  & 
-        ,CUTBIT_HOSTSEP  & 
-        ,CUTBIT_Trestmin, CUTBIT_Trestmax, CUTBIT_TrestRange  & 
-        ,CUTBIT_TREST2  & 
-        ,CUTBIT_Tgapmax,  CUTBIT_T0gapmax  & 
-        ,CUTBIT_Tobsmin,  CUTBIT_Tobsmax  & 
-        ,CUTBIT_SEARCH            &  ! sim only
-        ,CUTBIT_PEAKMJD  & 
-        ,CUTBIT_NOBS_PREDETECT      &  ! Mar 2025
-        ,CUTBIT_NEPOCH  & 
-        ,CUTBIT_SNRMAX          &  ! global SNRMAX cut; any filter(s)
-        ,CUTBIT_SNRMAX2         &  ! 2nd global SNRMAX cut; any filter(s)
-        ,CUTBIT_SNRSUM          &  ! cut on sqrt[ sum SNR_i^2 ]
-        ,CUTBIT_NFIELD          &  ! cut on number of fields used by SN
-        ,CUTBIT_MWEBV           &  ! cut on Galactic extinct (May 8 2012)
-        ,CUTBIT_NSEASON_ACTIVE    &  ! Nseason with activity
-        ,CUTBIT_REQEP             &  ! required epochs (to select short events)
-        ,CUTBIT_PRIVATE           &  ! all private-var cuts together (Nov 3 2014)
-        ,CUTBIT_SIMVAR            &  ! SIMVAR cuts
-        ,CUTBIT_MASK_NOBS_TREST   &  ! cut on Nobs in multiple Trest ranges
-        ,CUTBIT_OFFSET_SBFLUX     &  ! host surface brightness
-        ,CUTBIT_OFFSET_SNRMAX     &  ! SNRMAX cuts in each filter
-        ,CUTBIT_MJD_MARKER        &  ! things above do NOT depend on epoch
-        ,CUTBIT_PSF,  CUTBIT_ZP, CUTBIT_ZPERR  & 
-        ,CUTBIT_PHOTPROB  & 
-        ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD  & 
-        ,CUTBIT_ERRTEST           &  ! epoch cut on ERRCALC/ERRTRUE
-        ,CUTBIT_SIM_PULL          &  ! cut on (F-F_true)/sigma_F
-        ,CUTBIT_SIM_REDSHIFT      &  ! cut on true redshift
-        ,CUTBIT_TREST_TRUEFLUX2   &  ! for sim or fakes, require valid flux
-        ,CUTBIT_NFILT_SNRMAX  & 
-        ,CUTBIT_NFILT_SNRMAX2  & 
-        ,CUTBIT_NFILT_TRESTMIN  & 
-        ,CUTBIT_NFILT_TRESTMAX  & 
-        ,CUTBIT_NFILT_TREST2  & 
-        ,CUTBIT_OFFSET  & 
-        ,NCUTBIT  & 
-        ,NCUTBIT_SNLC
 
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::           & 
          CUTBIT_CID            = 1  & 
         ,CUTBIT_SNTYPE         = 2  & 
         ,CUTBIT_REDSHIFT       = 3  & 
@@ -1312,8 +1158,8 @@
         ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 9  & 
         ,CUTBIT_SIM_PULL     = CUTBIT_MJD_MARKER + 10  &  ! Mar 2021
         ,CUTBIT_OFFSET       = CUTBIT_SIM_PULL  & 
-        ,NCUTBIT             = CUTBIT_OFFSET  & 
-            )
+        ,NCUTBIT             = CUTBIT_OFFSET 
+          
 
 ! Define cut-masks with 64-BIT integers
 
@@ -1884,8 +1730,7 @@
 ! Aug 31 2023: 40k -> 80k
 ! Nov 16 2023: 80k -> 160k
 
-    INTEGER MXLEN_EPSTRING
-    PARAMETER (MXLEN_EPSTRING = 160000 )
+    INTEGER, PARAMETER :: MXLEN_EPSTRING = 160000
 
     INTEGER  & 
          RD_SNFITSIO_PREP  & 
@@ -1905,8 +1750,7 @@
         ,SET_RDMASK_SNFITSIO ! void
 
 ! Define index-lookup arrays used for faster reading of fits files
-    INTEGER MXFITSPAR
-    PARAMETER ( MXFITSPAR = 400 )
+    INTEGER, PARAMETER :: MXFITSPAR = 400
 
     INTEGER  & 
          INDXFITS_HEAD(MXFITSPAR)     &  ! used in RDSNFITS_HEAD
@@ -1936,22 +1780,19 @@
 ! Jan 16 2017: MXLAMBIN_FILT -> 4000 (was 3000) for JWST test
 ! May 31 2024 sync MXLAMBIN_PRIM = MXLAMBIN_SNSED
 ! 
-    INTEGER MXLAMBIN_FILT, MXLAMBIN_PRIM
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::                 & 
          MXLAMBIN_FILT = 4000             &  ! max number of lambda bins per filter
-        ,MXLAMBIN_PRIM = MXLAMBIN_SNSED   &  ! max lambda bins for primary
-          )
+        ,MXLAMBIN_PRIM = MXLAMBIN_SNSED      ! max lambda bins for primary
 
 ! Define filter chars A-Z, a-z and 0-9, but do not change order of
 ! original FILTDEF characters so that we can still use older Kcor files.
 ! 
-    CHARACTER FILTDEF_STRING*100
-    PARAMETER (FILTDEF_STRING =  & 
+!    CHARACTER FILTDEF_STRING*100
+    CHARACTER,  PARAMETER :: FILTDEF_STRING*100 =  &  
         "ugrizYJHK UBVRIXy0123456789 abcdef " //   &  !  32
         "ACDEFGLMNOPQSTWZ " //                     &  ! +16
-        "hjklmnopqstvwx "                          &  ! +14 = 62
-!      &  "~!@#$%^&*()-_=+[]{}<>,|;`'"  ! doesn't work for m0obs_[band] in tables
-               )
+        "hjklmnopqstvwx "                             ! +14 = 62
+
 
     CHARACTER  & 
          FILTOBS_NAME(MXFILT_ALL)*40    &  ! full filternames
@@ -2098,9 +1939,8 @@
 !   MAP1: subdir name vs. index
 !   MAP2: indx vs. SNID
 
-    INTEGER MXMAP1_FILTER_UPDATE, MXSNLC_FILTUPD
-    PARAMETER ( MXMAP1_FILTER_UPDATE = 20 )
-    PARAMETER ( MXSNLC_FILTUPD = 20000 ) ! replaces MXSNLC_FILES
+    INTEGER, PARAMETER :: MXMAP1_FILTER_UPDATE = 20 
+    INTEGER, PARAMETER :: MXSNLC_FILTUPD       = 20000  ! replaces MXSNLC_FILES
 
 ! MAP1:
     INTEGER  & 
@@ -2130,12 +1970,9 @@
 ! store fit results for use in snana
 ! define arrays used in fit.
 
-    INTEGER MXFITPAR, MXFITSTORE
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::      & 
          MXFITPAR    =  12     &  ! max number of fit parameters
-        ,MXFITSTORE  =  800    &  ! max number of storage params
-           )
+        ,MXFITSTORE  =  800       ! max number of storage params
 
     INTEGER  & 
          NFITPAR(0:MXFILT_OBS)    &  ! Nfitpar for 0=all, or 'ifilt'
@@ -2260,19 +2097,8 @@
     IMPLICIT NONE
 
 ! define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
-    INTEGER  & 
-         OPTBIT_SETPKMJD_ANYFUN  & 
-        ,OPTBIT_SETPKMJD_POLYCOR  & 
-        ,OPTBIT_SETPKMJD_NOABORT  & 
-        ,OPTBIT_SETPKMJD_FLUXMAX  & 
-        ,OPTBIT_SETPKMJD_SAVEPAR  & 
-        ,OPTBIT_SETPKMJD_FLUXMAX2  & 
-        ,OPTBIT_SETPKMJD_FLUXMAX3  & 
-        ,OPTBIT_SETPKMJD_TRIGGER  & 
-        ,OPTBIT_SETPKMJD_DUMP  & 
-        ,OPTBIT_SETPKMJD_SIM
 
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::             & 
         OPTBIT_SETPKMJD_ANYFUN  = 0   &  ! (=1) use exact function from Bazin 09
        ,OPTBIT_SETPKMJD_POLYCOR = 1   &  ! (=2) include POLY cor in Bazin function
        ,OPTBIT_SETPKMJD_NOABORT = 2   &  ! (=4) do not abort if can't find PKMJD
@@ -2282,19 +2108,12 @@
        ,OPTBIT_SETPKMJD_TRIGGER = 6   &  ! (=64) PKMJD = MJD_TRIGGER
        ,OPTBIT_SETPKMJD_SAVEPAR = 9   &  ! (=512) save fit params to SNANA table
        ,OPTBIT_SETPKMJD_DUMP    =10   &  !(=1024) extra screen dump per SN/filter
-       ,OPTBIT_SETPKMJD_SIM     =11   &  !(=2048) PKMJDINI = SIM_PEAKMJD
-         )
+       ,OPTBIT_SETPKMJD_SIM     =11      !(=2048) PKMJDINI = SIM_PEAKMJD
+        
 
 ! Define fit params
 
-    INTEGER  & 
-         IPAR_ISN, IPAR_FILT, IPAR_MJDMIN, IPAR_MJDMAX  & 
-        ,IPAR_T0, IPAR_TRISE, IPAR_TFALL  & 
-        ,IPAR_A0, IPAR_A1, IPAR_A2
-
-    REAL SNRMIN_forFLUXMAX
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::  & 
          IPAR_ISN    = 1   &  ! fixed param
         ,IPAR_FILT   = 2   &  ! fixed param
         ,IPAR_MJDMIN = 3   &  ! fixed param (May 2019)
@@ -2304,9 +2123,9 @@
         ,IPAR_TFALL  = 7  & 
         ,IPAR_A0     = 8  & 
         ,IPAR_A1     = 9  & 
-        ,IPAR_A2     = 10  & 
-        ,SNRMIN_forFLUXMAX  = 3.0    &  ! min SNR to consider for fluxmax
-           )
+        ,IPAR_A2     = 10 
+
+     REAL, PARAMETER ::  SNRMIN_forFLUXMAX  = 3.0   ! min SNR to consider for fluxmax
 
      CHARACTER  PKPARNAME(NPAR_ANYLC)*16
      DATA  PKPARNAME /  & 
@@ -4739,8 +4558,7 @@
 
     IMPLICIT NONE
 
-    REAL*8 MJD_SAFETEY
-    PARAMETER ( MJD_SAFETEY = 10.0 ) ! extra margin for MJD window
+    REAL*8, PARAMETER :: MJD_SAFETEY = 10.0  ! extra margin for MJD window
 
     INTEGER OPT, NOBS_STORE, o, LENTMP, IFILT, IFILT_OBS
     REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2), MJD
@@ -6946,8 +6764,7 @@
 
     INTEGER MODE  ! (I) 0=init, 1=get width
 
-    INTEGER MXEP_LCWIDTH
-    PARAMETER ( MXEP_LCWIDTH = 200)
+    INTEGER, PARAMETER :: MXEP_LCWIDTH = 200
 
     REAL*8  SIM_MAGOBS(MXEP_LCWIDTH), SIM_MJD(MXEP_LCWIDTH)
     REAL*8  WIDTH
@@ -9690,8 +9507,8 @@
 
     IMPLICIT NONE
 
-    INTEGER NTABLE_CHECK
-    PARAMETER (NTABLE_CHECK = 2)
+    INTEGER, PARAMETER :: NTABLE_CHECK = 2
+
     INTEGER  & 
          ITABLE_LIST(NTABLE_CHECK)  & 
         ,IDTABLE_LIST(NTABLE_CHECK)  & 
@@ -10496,8 +10313,7 @@
 
     INTEGER IVERS  ! (I)
 
-    INTEGER MXWR_TEXT
-    PARAMETER (MXWR_TEXT = 400)
+    INTEGER, PARAMETER :: MXWR_TEXT = 400
 
     LOGICAL    NOT_TOO_MANY
     CHARACTER  CCID*(MXCHAR_CCID), TEXTFILE*100, TEXTFILE_FULL*100
@@ -11440,8 +11256,9 @@
 
     character funname*(*)  ! name of function calling MADABORT
     character c1err*(*), c2err*(*) ! two error messages
-    INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
-    PARAMETER ( ISEV_FATAL = 4, IPROMPT=0 )
+
+    INTEGER LENF, LEN1, LEN2
+    INTEGER, PARAMETER :: ISEV_FATAL = 4, IPROMPT=0 
 
     EXTERNAL ERRMSG
     INTEGER  LENSTR
@@ -14038,8 +13855,9 @@
     CHARACTER CCID*(*)
 
 ! local
-    INTEGER NBADCHAR, ichar
-    PARAMETER  (NBADCHAR = 14)
+
+    INTEGER, PARAMETER  :: NBADCHAR = 14
+    INTEGER ichar
     CHARACTER  BADCHAR_LIST*(NBADCHAR)
     CHARACTER  c1err*44, c2err*44, c1*2
 ! ----------- BEGIN ---------------
@@ -14512,8 +14330,7 @@
 
     IMPLICIT NONE
 
-    INTEGER   MXINT
-    PARAMETER (MXINT=50)
+    INTEGER, PARAMETER :: MXINT=50
 
     CHARACTER STRING_INLIST*(MXCHAR_PATH)  ! (I) comma-separated list of integers
     INTEGER   OUTLIST(MXINT)      ! (O) output array of integers
@@ -16960,8 +16777,7 @@
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
     CHARACTER STR_EPID1*60, STR_EPID2*60
 
-    REAL MAGCOR_CRAZY
-    PARAMETER ( MAGCOR_CRAZY = 0.2 )
+    REAL, PARAMETER :: MAGCOR_CRAZY = 0.2
 
 ! function
     EXTERNAL SNTABLE_AUTOSTORE_READ
@@ -17897,8 +17713,7 @@
 
 ! define local zspec mask;
 !   grep MASK_REDSHIFT_SOURCE sndata.h
-    INTEGER MASK_ZSPEC_SOURCE
-    PARAMETER ( MASK_ZSPEC_SOURCE = 3) ! 1=zspec_host, 2=zspec(SN)
+    INTEGER, PARAMETER :: MASK_ZSPEC_SOURCE = 3   ! 1=zspec_host, 2=zspec(SN)
 
     IS_ZSPEC = (SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN) .or.  & 
                  (IAND(ISNLC_zSOURCE,MASK_ZSPEC_SOURCE) > 0)
@@ -18945,8 +18760,7 @@
 
     character cfilt*2, ccid*(MXCHAR_CCID), cdiscard*32
 
-    REAL ULAMMAX
-    PARAMETER ( ULAMMAX = 3900.0 ) ! max U-band lambda in rest-frame
+    REAL, PARAMETER :: ULAMMAX = 3900.0  ! max U-band lambda in rest-frame
 
     EXTERNAL SORTFLOAT
 
@@ -19939,8 +19753,7 @@
 
 ! discard if FLUXERR/FLUXERR_MEDIAN exceeds this value
 ! --> avoid crazy large errors that result in bad FLUXUM/FLUXERRSUM.
-    REAL TOL_FLUXERR_MEDIAN_RATIO
-    PARAMETER ( TOL_FLUXERR_MEDIAN_RATIO = 50.0 )
+    REAL, PARAMETER :: TOL_FLUXERR_MEDIAN_RATIO = 50.0
 
     REAL*8  TOBS, LAMMIN, LAMMAX, SNR
     REAL*8  MJD, LAMMIN_BIN, LAMMAX_BIN
@@ -20527,8 +20340,7 @@
 
 ! define parameters for theory plots
 
-    INTEGER NPL, NDIM
-    PARAMETER (NPL = 8, NDIM=1 )
+    INTEGER, PARAMETER :: NPL = 8, NDIM=1
 
     REAL*8  & 
          OM(NPL)  / 0.3, 0.3,  0.3,  0.3,  0.0,  0.0,  1.0,  0.3 /  & 
@@ -21984,8 +21796,7 @@
 
 ! SNLCPAK arrays
 
-    INTEGER MXEP_SNLCPAK
-    PARAMETER ( MXEP_SNLCPAK = 4*MXEPOCH )
+    INTEGER, PARAMETER :: MXEP_SNLCPAK = 4*MXEPOCH 
 
     REAL*8  & 
          VMJD(MXEP_SNLCPAK)  & 
@@ -23899,8 +23710,7 @@
     INTEGER   ID          ! (I) table id
     CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
 
-    INTEGER MXOBS_SNTABLE
-    PARAMETER (MXOBS_SNTABLE = 900) ! cannot exceed 1000 for MJD*8
+    INTEGER, PARAMETER :: MXOBS_SNTABLE = 900  !  cannot exceed 1000 for MJD*8
 
 ! local var
 
@@ -25729,8 +25539,7 @@
     INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
 
     INTEGER IBIT2
-    INTEGER MXBIT
-    PARAMETER ( MXBIT =  60 )
+    INTEGER, PARAMETER ::  MXBIT =  60
 
     LOGICAL LTMP
 ! ------------ BEGIN ------------
@@ -25756,8 +25565,7 @@
     INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
 
     INTEGER IBIT2
-    INTEGER MXBIT
-    PARAMETER ( MXBIT =  60 )
+    INTEGER, PARAMETER :: MXBIT =  60
 
 ! ------------ BEGIN ------------
 
@@ -26351,16 +26159,10 @@
     CHARACTER cfilt*8, FNAM*12, METHOD*24, CCID*(MXCHAR_CCID)
 
 ! define hard-wired cut-parameters
-    REAL  & 
-         MJDMIN_LC  & 
-        ,PKMJD_OUTLIER  & 
-        ,MAX_SNRMIN_REJECT
-
-    PARAMETER (  & 
+    REAL, PARAMETER ::                 & 
          MJDMIN_LC           = 40000.  &  ! min MJD to consider for light curve
         ,PKMJD_OUTLIER       = 30.0    &  ! reject PKMJD off by this much
-        ,MAX_SNRMIN_REJECT   = 2.0     &  ! max SNRMIN to reject filter
-           )
+        ,MAX_SNRMIN_REJECT   = 2.0        ! max SNRMIN to reject filter
 
 ! function
     EXTERNAL init_obs_atFLUXMAX, get_obs_atFLUXMAX
@@ -27106,8 +26908,7 @@
          MJDMIN, MJDMAX, FLUX, FLUXERR, MJD, SQDIF, SQERR, SNR  & 
         ,MODEL_FLUX, MODEL_FLUXERR
 
-    REAL*8 MODEL_MAGERR
-    PARAMETER ( MODEL_MAGERR = 0.05 )
+    REAL*8, PARAMETER :: MODEL_MAGERR = 0.05
 
 ! --------------- BEGIN -------------
 
@@ -28476,13 +28277,9 @@
     REAL*8  NSIGMA   ! (I) integrate +- NSIGMA in each dimension
 
 ! local args
-
-    INTEGER MXPAR, MXGRID
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER :: &
           MXPAR   = 10    &  ! max number of fit paramters/dimensions
-         ,MXGRID  = 30  & 
-           )
+         ,MXGRID  = 30  
 
     INTEGER  & 
          IPAR, IPAR2  & 

@@ -112,6 +112,7 @@
     USE SNPAR
     IMPLICIT NONE
 
+#ifdef OBSOLETE
     INTEGER  & 
          IPAR_ITER  & 
         ,IPAR_ISN  & 
@@ -125,8 +126,6 @@
         ,IPAR_MB               &  ! for SALT2
         ,IPAR_MAX  & 
         ,IPAR_SPARE  & 
-!  Define Error flags
-!  _FIT -> fixed redshift; _ZFIT -> photoz fit
         ,ERRFLAG_FITPREP_NOFILTERS  & 
         ,ERRFLAG_FITPREP_QUANTILES  & 
         ,ERRFLAG_FITPREP_NOEPOCHS  & 
@@ -146,14 +145,15 @@
 ! 
         ,OPT_FITANA_STORE_VAL  & 
         ,OPT_FITANA_STORE_ERR
+#endif
 
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::            &
          IPAR_ITER            =  1   &  ! iteration: 1,2 ... NFIT_ITERATION
-        ,IPAR_ISN             =  2  & 
+        ,IPAR_ISN             =  2   & 
         ,IPAR_PEAKMJD         =  3   &  ! MJD at peak
         ,IPAR_SHAPE           =  4   &  ! stretch or delta, or dm15 ...
         ,IPAR_SHAPE2          =  5   &  ! 2nd shape-param
-        ,IPAR_AV              =  6  & 
+        ,IPAR_AV              =  6   & 
         ,IPAR_COLOR           =  IPAR_AV      &  ! for SALT2
         ,IPAR_RV              =  7            &  ! MLCS-RV
         ,IPAR_MB              =  IPAR_RV      &  ! for SALT2
@@ -161,9 +161,10 @@
         ,IPAR_DLMAG           =  8            &  ! distance modulus
         ,IPAR_X0              =  IPAR_DLMAG   &  ! for SALT2
         ,IPAR_ZPHOT           =  9            &  ! photoZ
-        ,IPAR_MAX             =  9   &  ! max number of fit params
+        ,IPAR_MAX             =  9             &  ! max number of fit params
         ,IPAR_SPARE           =  IPAR_MAX + 1  & 
-! 
+!  Define Error flags
+!  _FIT -> fixed redshift; _ZFIT -> photoz fit
         ,ERRFLAG_FITPREP_NOFILTERS  =  1   &  ! no valid filters
         ,ERRFLAG_FITPREP_NOEPOCHS   =  2   &  ! no epochs in FITINI_COV
         ,ERRFLAG_FITPREP_NEPOCH     =  3   &  ! too few epochs
@@ -180,45 +181,28 @@
         ,ERRFLAG_FIT_COLOR_ITER1    = 17   &  ! 1st iteration COLOR cut
         ,ERRFLAG_REPEAT_ITER        = -1   &  ! repeat fit iteration
         ,ERRFLAG_REPEAT_MINOS       = -2   &  ! repeat entire it with MINOS
-! 
-        ,OPT_FITANA_STORE_VAL = 1  & 
-        ,OPT_FITANA_STORE_ERR = 2  & 
-          )
-
-
+        ,OPT_FITANA_STORE_VAL = 1          & 
+        ,OPT_FITANA_STORE_ERR = 2 
+         
 !  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
-    INTEGER  & 
-         BIT_PHOTOZ_GAUSS   &  ! use <zPhot> and RMS in Gauss approx
-        ,BIT_BESTZ_GAUSS    &  ! idem, but with best redshift (e.g., zSpec)
-        ,BIT_PHOTOZ_QUANTILES  &  ! use photo-z quantiles for prior
-        ,BIT_PHOTOZ_QUANTILES_STEFFEN  &  ! replace default cubic with Steffen
-        ,BIT_PHOTOZ_QUANTILES_LINEAR  &  ! replace default cubic with LINEAR
-        ,BIT_PHOTOZ_CHEAT   &  ! use correct redshift and filters
-        ,BIT_PHOTOZ_AUTO_INISTP  ! automatically set INISTP_PHOTOZ (Aug 2024)
 
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::                  & 
          BIT_PHOTOZ_GAUSS            = 0   &  ! OPT_PHOTOZ += 1
         ,BIT_BESTZ_GAUSS             = 1   &  ! OPT_PHOTOZ += 2
         ,BIT_PHOTOZ_QUANTILES        = 2   &  ! OPT_PHOTOZ += 4
         ,BIT_PHOTOZ_QUANTILES_STEFFEN = 3   &  ! OPT_PHOTOZ += 8 ! note: set OPT_PHOTOZ = 12 for this option
         ,BIT_PHOTOZ_QUANTILES_LINEAR = 4   &  ! OPT_PHOTOZ += 16
         ,BIT_PHOTOZ_AUTO_INISTP      = 5   &  ! OPT_PHOTOZ += 32
-        ,BIT_PHOTOZ_CHEAT            = 6   &  ! OPT_PHOTOZ += 64
-          )
+        ,BIT_PHOTOZ_CHEAT            = 6      ! OPT_PHOTOZ += 64
+         
 
 ! Declare masks for how to treat log sigma term in fit April 26 2024 W.D. Kenworthy
-    INTEGER  & 
-        MASK_CHI2_SIGMA_ERRTOT  & 
-       ,MASK_CHI2_SIGMA_ERRDATA  & 
-       ,MASK_CHI2_SIGMA_LOGDET    &  ! Eventually should become default
-       ,MASK_CHI2_SIGMA_IGNORE  ! Compute quantity for output, but do not use in fit
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::             & 
         MASK_CHI2_SIGMA_ERRTOT  = 1   &  ! sigma = sigma_data + sigma_model
        ,MASK_CHI2_SIGMA_ERRDATA = 2   &  ! sigma_data only
        ,MASK_CHI2_SIGMA_LOGDET  = 4   &  ! Eventually should become default
-       ,MASK_CHI2_SIGMA_IGNORE  = 128  &  ! Compute quantity for output, but do not use in fit
-       )
+       ,MASK_CHI2_SIGMA_IGNORE  = 128    ! Compute quantity for output, but do not use in fit
+
     CHARACTER METHOD_SPLINE_QUANTILES*20
 
   END MODULE SNFITPAR
@@ -228,17 +212,10 @@
     USE SNPAR
     IMPLICIT NONE
 
-    INTEGER  & 
-         MXPAR_SIMEFF  & 
-        ,IPAR_SIMEFF_REDSHIFT  & 
-        ,IPAR_SIMEFF_MWEBV
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::           & 
          MXPAR_SIMEFF         = 10  & 
-        ,IPAR_SIMEFF_REDSHIFT = 51   &  ! much larger than IPAR_MAX
-        ,IPAR_SIMEFF_MWEBV    = 52  & 
-           )
-
+        ,IPAR_SIMEFF_REDSHIFT = 51  &  ! much larger than IPAR_MAX
+        ,IPAR_SIMEFF_MWEBV    = 52  
 
     INTEGER  & 
          NPAR_SIMEFF  & 
@@ -254,8 +231,7 @@
     USE SNFITPAR
     IMPLICIT NONE
 
-    INTEGER MXFIT_DATA
-    PARAMETER ( MXFIT_DATA = 2000 ) ! -> 2000 on Mar 13 2024 (was 1500)
+    INTEGER, PARAMETER :: MXFIT_DATA = 2000   ! -> 2000 on Mar 13 2024 (was 1500)
 
 ! variables used in fit.
 
@@ -289,8 +265,7 @@
 ! 
 ! Oct 15 2021: add IEP_CCDNUN, IEP_IMGNUM
 
-    INTEGER MXVAR_R4, MXVAR_I4
-    PARAMETER ( MXVAR_R4=60, MXVAR_I4=12 )
+    INTEGER, PARAMETER :: MXVAR_R4=60, MXVAR_I4=12
 
     REAL*4  & 
          R4EP_ALL(MXFIT_DATA,MXVAR_R4)   &  !vs. absolute epoch; fixed each iter
@@ -309,39 +284,12 @@
 
 ! define index for each variable.
 
-! variable indices for integer I4EP_
-    INTEGER  & 
-         IEP_IMJD, IEP_EPOCH  & 
-        ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2  & 
-        ,IEP_REJECT, IEP_REJECT2  & 
-        ,IEP_DETNUM, IEP_IMGNUM
+! variable indices for integer I4EP_ and R4EP_
 
-! variable indices for real R4EP_
-    INTEGER  & 
-         JEP_MJD, JEP_TOBS, JEP_TREST  & 
-        ,JEP_DATAFLUX,  JEP_DATAFLUX_ERR  & 
-        ,JEP_DATAMAG,   JEP_DATAMAG_ERR  & 
-        ,JEP_MODELFLUX, JEP_MODELFLUX_ERR  & 
-        ,JEP_MODELMAG,  JEP_MODELMAG_ERR  & 
-        ,JEP_FLUX_ERRTOT, JEP_RATIO, JEP_RATIO_ERR  & 
-        ,JEP_LAMREST, JEP_AVWARP, JEP_KCOR, JEP_KCOR_ERR  & 
-        ,JEP_DATAFLUX_REST, JEP_MODELMAG_REST  & 
-        ,JEP_FUDGEFLUX_ERR, JEP_FUDGE_MAXFRAC  & 
-        ,JEP_RESID, JEP_RESID_ERR, JEP_MAGDIF, JEP_DELCHI2  & 
-        ,JEP_XTHOST, JEP_MWXT, JEP_MWXT_MAGERR, JEP_MWXT_FLUXERR  & 
-        ,JEP_FPKRAT, JEP_FPKRATERR  & 
-        ,JEP_PSF, JEP_NEA, JEP_SKYSIG, JEP_SKYSIG_T  & 
-        ,JEP_ZP, JEP_ZPERR, JEP_GAIN, JEP_XPIX, JEP_YPIX, JEP_AREAFRAC  & 
-        ,JEP_SKYFLUXCAL, JEP_SBFLUXCAL, JEP_ERRTEST, JEP_ERRCALC  & 
-        ,JEP_PHOTPROB  & 
-        ,JEP_SIM_MAGREST, JEP_SIM_FLUXREST  & 
-        ,JEP_SIM_FLUXCAL, JEP_SIM_DELCHI2
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::           & 
 ! for I4EP_XXX
          IEP_IMJD            = 1   &  ! for absolute IMJD index
         ,IEP_EPOCH           = 2   &  ! for absolute ep index
-! 
         ,IEP_IFILT           = 4   &  ! sparse survey filter index
         ,IEP_IFILT_OBS       = 5   &  ! absolute filter index
         ,IEP_IFILT_REST1     = 6   &  ! absolute filter index, nearest rest-filter
@@ -397,13 +345,13 @@
         ,JEP_SBFLUXCAL     = 43  & 
         ,JEP_ERRTEST       = 44   &  ! ERRCALC/FLUXCAL_ERR
         ,JEP_ERRCALC       = 45   &  ! calculated error
-        ,JEP_PHOTPROB      = 46  & 
-        ,JEP_SIM_MAGREST   = 47  & 
-        ,JEP_SIM_FLUXREST  = 48  & 
+        ,JEP_PHOTPROB      = 46   & 
+        ,JEP_SIM_MAGREST   = 47   & 
+        ,JEP_SIM_FLUXREST  = 48   & 
         ,JEP_SIM_FLUXCAL   = 49   &  ! for LSIM_MAGOBS = T
         ,JEP_SIM_DELCHI2   = 50   &  ! chi2 from data-sim flux diff
-        ,JEP_FUDGE_MAXFRAC = 51  & 
-           )
+        ,JEP_FUDGE_MAXFRAC = 51 
+
 
 ! EP_XXX refers to "IMJD" variables stored at end of fit.
 ! These arrays are defined to be passed for plotting.
@@ -521,8 +469,7 @@
 ! define variables for prior on each fit variable.
 ! CHI2GRID_PRIOR is a grid storing chi2-values to add.
 
-    INTEGER NBIN_PRIOR
-    PARAMETER ( NBIN_PRIOR = 1000 )
+    INTEGER, PARAMETER :: NBIN_PRIOR = 1000
 
     REAL*8  & 
          PRIOR_CHI2GRID(NBIN_PRIOR,IPAR_MAX)  & 
@@ -883,8 +830,7 @@
 ! elements removed; e.g., SNRMAX-list with unused filters
 ! excluded.
 
-    INTEGER MXCOV_TBL
-    PARAMETER (MXCOV_TBL = 50)
+    INTEGER, PARAMETER :: MXCOV_TBL = 50
 
     REAL  & 
          TBL_REDCOV(MXCOV_TBL)          &  ! only fited params
@@ -907,9 +853,9 @@
     CHARACTER SURVEY_FILTERS_TABLE*100  ! list of surveys filters to plot
 
 ! variables for SPECTRA table (Nov 2016)
-    INTEGER    MXLAM_TBLSPEC, NBLAM_TBLSPEC, TBLSPEC_IFILTOBS
+    INTEGER, PARAMETER :: MXLAM_TBLSPEC = 1000
+    INTEGER    NBLAM_TBLSPEC, TBLSPEC_IFILTOBS
     INTEGER    TBLSPEC_DETNUM, TBLSPEC_IMGNUM  ! Oct 2021
-    PARAMETER ( MXLAM_TBLSPEC = 1000 )
     CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
     REAL  & 
          TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_LAMREST  & 
@@ -972,19 +918,15 @@
 ! Mar 2013: for FILTER_FITMAGDIF option
 
     INTEGER  & 
-         NFIT_ITER_FITMAGDIF  & 
-        ,IFLAG_FITMAGDIF_NOMINAL  & 
-        ,IFLAG_FITMAGDIF_1FILT   &  ! fit only test filter
-        ,IFLAG_FITMAGDIF_XFILT   &  ! exclude test filter
-        ,IFILTOBS_FITMAGDIF      &  ! absolute index
-        ,IFILT_FITMAGDIF        ! sparse survey-filter index
+         IFILTOBS_FITMAGDIF      &  ! absolute index
+        ,IFILT_FITMAGDIF            ! sparse survey-filter index
 
-    PARAMETER (  & 
-         NFIT_ITER_FITMAGDIF     = 1     &  ! Number of fit-iters per test
+    INTEGER,  PARAMETER ::             & 
+         NFIT_ITER_FITMAGDIF     = 1  &  ! Number of fit-iters per test
         ,IFLAG_FITMAGDIF_NOMINAL = 0  & 
         ,IFLAG_FITMAGDIF_1FILT   = 1  & 
-        ,IFLAG_FITMAGDIF_XFILT   = 2  & 
-            )
+        ,IFLAG_FITMAGDIF_XFILT   = 2 
+
 
     INTEGER  & 
          IFLAG_FITMAGDIF(MXITER)   &  ! 1-> one filter fit, 2-> complement
@@ -1011,12 +953,9 @@
 
 
 ! for option to fit peakMag in rest-frame filter
-
-    INTEGER MXFILT_FITRESTMAG, NFIT_ITER_FITRESTMAG
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::           & 
          MXFILT_FITRESTMAG    = 10  & 
-        ,NFIT_ITER_FITRESTMAG =  1   &  ! Number of fit-iters per rest-filter
-           )
+        ,NFIT_ITER_FITRESTMAG =  1    ! Number of fit-iters per rest-filter
 
     INTEGER  & 
          NFILTDEF_FITRESTMAG  & 
@@ -1041,8 +980,7 @@
     USE SNPAR
     IMPLICIT NONE
 
-    INTEGER SIMFIT_IDEAL_DEBUG
-    PARAMETER (SIMFIT_IDEAL_DEBUG=777)   ! do nominal fit twice
+    INTEGER, PARAMETER :: SIMFIT_IDEAL_DEBUG=777    ! do nominal fit twice
 
     LOGICAL DOFIT_IDEAL_EVENT ! refers to both ideal and nominal fit for this event
     LOGICAL DOFIT_IDEAL       ! =T for ideal fit, =F for nominal fit that follows
@@ -1064,22 +1002,13 @@
 !  OPT_VMAX = 2 -> use obs for mag, peak for Zmax
 !  OPT_VMAX = 3 -> use peak for both mag and Zmax
 
+    REAL*8, PARAMETER ::  MAGDIF_CONVERGE = 0.001    ! stop when |mag(zmax)-MAGLIM| < CONVERGE    
 
-    INTEGER  & 
-        MXFILT_VMAX  & 
-       ,OPTBIT_MAG     &  ! Zmax at epoch of max obs brightness
-       ,OPTBIT_ZMAX  & 
-       ,OPTBIT_VERBOSE
-
-    REAL*8  MAGDIF_CONVERGE
-
-    PARAMETER (  & 
-         MXFILT_VMAX   = 5  & 
+    INTEGER, PARAMETER ::     & 
+         MXFILT_VMAX   = 5   & 
         ,OPTBIT_MAG    = 0   &  ! bit0 off/on -> mag at best-fit obs/peak
         ,OPTBIT_ZMAX   = 1   &  ! bit1 off/on -> zmax from best-fot obs/peak
-        ,OPTBIT_VERBOSE = 7  &  ! bit7(128) -> verbose printout
-        ,MAGDIF_CONVERGE = 0.001  &  ! stop when |mag(zmax)-MAGLIM| < CONVERGE
-           )
+        ,OPTBIT_VERBOSE = 7     ! bit7(128) -> verbose printout
 
     INTEGER  & 
          NFILT_VMAX    &  !Number of obs filters to compute Zmax/Vmax
@@ -2718,23 +2647,17 @@
 
     USE SNDATCOM
     USE SNANAFIT
-! +CDE,SNLCINP.
     USE SNFITCOM
     USE FILTCOM
 
     IMPLICIT NONE
 
-    INTEGER  & 
-         OPTMASK_COVAR_FIXCOV_M11   &  ! fix non-invertible COV as in Marriner11
-        ,OPTMASK_COVAR_FIXCOV_RED   &  ! fix COV using reduced FITERRMAT
-        ,OPTMASK_COVAR_DUMPROW      &  ! one-row dump for each fix
-        ,OPTMASK_COVAR_DUMPFULL    ! dump COV(old) -> COV(fix)
-    PARAMETER (  & 
-         OPTMASK_COVAR_FIXCOV_M11 =   1  & 
-        ,OPTMASK_COVAR_FIXCOV_RED =   2  & 
-        ,OPTMASK_COVAR_DUMPROW    = 128  & 
-        ,OPTMASK_COVAR_DUMPFULL   = 256  & 
-           )
+    INTEGER, PARAMETER ::                & 
+         OPTMASK_COVAR_FIXCOV_M11 =   1  & ! fix non-invertible COV as in Marriner11
+        ,OPTMASK_COVAR_FIXCOV_RED =   2  & ! fix COV using reduced FITERRMAT
+        ,OPTMASK_COVAR_DUMPROW    = 128  & ! one-row dump for each fix 
+        ,OPTMASK_COVAR_DUMPFULL   = 256    ! dump COV(old) -> COV(fix)  
+
 
     CHARACTER NAME*20
     LOGICAL  L_VALID, L_UPD
@@ -4946,13 +4869,11 @@
 ! define max color and MU for which exponential priorchi2 is used
 ! to prevent MINUIT from probing extreme values.
 
-    REAL*8  CMAX_SALT2, AVMAX, MUMIN, MUMAX
-    PARAMETER (  & 
+    REAL*8, PARAMETER ::    & 
          CMAX_SALT2 = 0.5   &  ! max abs(color) for SALT2
         ,AVMAX      = 5.0   &  ! max AV for host-galaxy extinction
         ,MUMIN      = 10.   &  ! min dist mod
-        ,MUMAX      = 60.   &  ! max distance mod.
-           )
+        ,MUMAX      = 60.      ! max distance mod.
 
 ! functions
     REAL*8  & 
@@ -6359,8 +6280,7 @@
     INTEGER OPTEFF, ipar, ipar2, j
 
 ! define EFFMIN so that EFF > 0 to avoid log(0) problems
-    REAL*8 EFFMIN
-    PARAMETER (EFFMIN = 1.0E-10)
+    REAL*8, PARAMETER :: EFFMIN = 1.0E-10
 
 ! functions
     REAL*8   GET_SIMEFFMAP
@@ -9198,9 +9118,7 @@
     REAL*8 CHI2INI  ! (I) chi2 from guess params; goal is to beat this
 
 ! local var
-
-    INTEGER ISEED
-    PARAMETER ( ISEED = 12379 )
+    INTEGER, PARAMETER :: ISEED = 12379
 
     INTEGER NEVAL_REDUCE_STEP
     REAL*8  FRACRANGE_STEPINI, FRAC_STEP_REDUCE, DMU_MAX
@@ -11718,18 +11636,11 @@
         ,DT
 
 ! parameters (relative to initial SEARCH_PEAKMJD)
-
-    REAL  & 
-         MINDEF_PKMJD1, MAXDEF_PKMJD1  & 
-        ,MINDEF_PKMJD2, MAXDEF_PKMJD2
-
-    PARAMETER (  & 
-! udpated Aug 7, 2009 to handle SALT2
+    REAL, PARAMETER ::             & 
           MINDEF_PKMJD1 = -30.0    &  ! defined MJD-range for prior
-         ,MAXDEF_PKMJD1 = +30.0  & 
+         ,MAXDEF_PKMJD1 = +30.0    & 
          ,MINDEF_PKMJD2 = -28.0    &  ! chi2 -> chi2*exp for MJD < this
-         ,MAXDEF_PKMJD2 = +28.0    &  ! idem for MJD > this
-           )
+         ,MAXDEF_PKMJD2 = +28.0       ! idem for MJD > this
 
 ! -------------- BEGIN ---------------
 
@@ -14538,15 +14449,6 @@
 ! [modified from PEAKMAG_CALC]
 ! 
 ! 
-! Mar 24, 2008: add 'REST2' option to get rest-mag
-!               from cosmology instead of from model.
-! 
-! April 6, 2008: add new return arguments FLUXERR and MAGERR,
-!                which are computed using full covariance matrix.
-! 
-! Dec 18, 2011: for photoZ fit, return if min or max filter-lambda
-!               is outside model-wavelength range => avoids abort.
-! 
 ! ----------------------------------------------
 
     USE SNDATCOM
@@ -14600,7 +14502,7 @@
     TOBS  =  MJD - PKMJD
 
     IF ( PARNAME_STORE(IPAR_DLMAG) .EQ. 'DLMAG' ) THEN
-       MAGOFF_REST = -PEAKMAG_AT_10pc
+       MAGOFF_REST = 19.6  ! -PEAKMAG_AT_10pc
     ELSE
        MAGOFF_REST = 0.0
     ENDIF
@@ -15130,8 +15032,7 @@
 
     INTEGER IFILT_VMAX  ! (I) sparse filter index for VMAX calc
 
-    INTEGER JOBS, JFIT
-    PARAMETER ( JOBS=1, JFIT=2 )
+    INTEGER, PARAMETER :: JOBS=1, JFIT=2
 
     INTEGER  IFITDATA, IFILT, IFILT_OBS, IMJD, j, ep
     INTEGER  NITER, OPTWGT, NEP
@@ -17272,7 +17173,7 @@
       Z8  = Zat10pc
       DO ifilt = IFILT_BESS_U, IFILT_BESS_BX
         MAG8_TMP = EVAL_KCOR_TABLE_LCMAG(ifilt,T8,Z8,AV8)
-        MAG8_SYNBESS(ifilt) = MAG8_TMP - PEAKMAG_AT_10pc
+        MAG8_SYNBESS(ifilt) = MAG8_TMP - (-19.6)  ! PEAKMAG_AT_10pc
       ENDDO
     ELSE IF ( OPT .EQ. 1 ) then
       print*,'  Check VEGA mags. '
@@ -17681,8 +17582,7 @@
 
     INTEGER LTMP,  ivar
 
-    INTEGER NVAR_DICTFILE
-    PARAMETER ( NVAR_DICTFILE =  17 )
+    INTEGER, PARAMETER :: NVAR_DICTFILE =  17
     REAL*8  XVAR(NVAR_DICTFILE)
 
 ! ----------- BEGIN ----------
@@ -17928,7 +17828,7 @@
 ! local args
 
     INTEGER  & 
-         LTMP, imjd, NMJD, ipar, NVAR_OUT  & 
+         LTMP, imjd, NMJD, ipar & 
         ,CID, CID_TMP  & 
         ,IFILT, IFILT_OBS, IFILT_RST
 
@@ -17951,10 +17851,7 @@
          ,VAL, ERR
 
     CHARACTER CCID*(MXCHAR_CCID), BAND*2
-
     LOGICAL LDMP, LSKIP, ADDFLAG
-
-    PARAMETER ( NVAR_OUT=9 )
 
 ! ------------ BEGIN -----------
 
@@ -18339,8 +18236,7 @@
 
     IMPLICIT NONE
 
-    INTEGER MXEP_SNLCPAK   !  includes all filters
-    PARAMETER ( MXEP_SNLCPAK = 10*MXEPOCH )
+    INTEGER, PARAMETER :: MXEP_SNLCPAK = 10*MXEPOCH
 
     CHARACTER  CCID*(MXCHAR_CCID)
 
@@ -18892,9 +18788,7 @@
     CHARACTER BLOCK*(*)   ! (I) name of BLOCK
 
 ! local var
-
-    INTEGER IPAR_START
-    PARAMETER (IPAR_START=3)  ! skip ISN and ITER for CWN
+    INTEGER, PARAMETER :: IPAR_START=3   ! skip ISN and ITER for CWN
 
     INTEGER  & 
           IFILT, IFILT_OBS, OPT_STORE, USE4TEXT  & 

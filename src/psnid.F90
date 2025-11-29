@@ -61,14 +61,11 @@
 ! define integer parameter for each  method
 ! (translated from user-namelist string METHOD_NAME)
 
-    INTEGER  & 
-         METHOD_BEST, METHOD_BEST2, MXITER_PSNID
-
-    PARAMETER (  & 
+    INTEGER, PARAMETER ::       & 
          METHOD_BEST       = 1  &  ! Bayesian Evidence from SN Templates (Sako)
         ,METHOD_BEsT2      = 2  &  ! faster code, more options (Sako)
-        ,MXITER_PSNID      = 3  &  ! Sep 2017
-            )
+        ,MXITER_PSNID      = 3     ! Sep 2017
+            
 
   END MODULE PSNIDPAR
 
@@ -191,8 +188,7 @@
     USE PSNIDPAR
     IMPLICIT NONE
 
-    INTEGER MXTYPE_PSNID
-    PARAMETER (MXTYPE_PSNID = 400)
+    INTEGER, PARAMETER :: MXTYPE_PSNID = 400
 
     INTEGER  & 
          ITYPE_IA            &  ! index of IA

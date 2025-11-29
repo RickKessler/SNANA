@@ -13,6 +13,9 @@
 # This script has lots of custom accomodations, so it is not
 # a general script to convert f77 code to f90.
 #
+# After running this script, the same compilation and link commands
+# are used, but there is no need to run ypatchy.pl.
+#
 import os, sys, argparse, datetime
 import subprocess
 
@@ -26,6 +29,8 @@ MODULE_SNCUTS   =  PREFIX_MODULE + 'SNCUTS'
 MODULE_SNLCINP  =  PREFIX_MODULE + 'SNLCINP'
 MODULE_SNDATCOM =  PREFIX_MODULE + 'SNDATCOM'
 MODULE_SNFITCOM =  PREFIX_MODULE + 'SNFITCOM'
+MODULE_PSNIDPAR =  PREFIX_MODULE + 'PSNIDPAR'
+MODULE_PSNIDCOM =  PREFIX_MODULE + 'PSNIDCOM'
 
 SNANA_DIR = os.getenv('SNANA_DIR')
 
@@ -75,7 +80,7 @@ def open_output_code_file(args):
     o.write(f"!   {full_command}\n")
     o.write(f"\n")
 
-    if args.is_snfit:
+    if not args.is_snana:
         o.write(f'! Include base snana code to read/write data and apply cuts\n')
         o.write(f'#include "{BASE_F90_CODE}" \n')
     o.write(f"\n")
@@ -218,7 +223,7 @@ def get_lines_append_module(name_module):
     # This is all hard-wired.
 
     lines = []
-
+    
     if name_module != MODULE_SNPAR and name_module != MODULE_SNDATCOM and name_module != MODULE_SNFITCOM :  
         lines.append(f"{INDENT2}USE {MODULE_SNPAR}")
                 
@@ -235,8 +240,14 @@ def get_lines_append_module(name_module):
     if name_module == 'MOD_MAGDIFCOM'  or name_module == 'MOD_FITRESTCOM' :
         lines.append(f"{INDENT2}USE MOD_ALLFILTCOM")
 
+    # for PSNID
+    # .xyz MODULE_PSNIDPAR
+    if name_module != MODULE_PSNIDPAR and name_module != MODULE_PSNIDCOM :
+        lines.append(f"{INDENT2}USE {MODULE_PSNIDPAR}")
+        
     # - - - 
-    is_group = name_module == MODULE_SNDATCOM or name_module == MODULE_SNFITCOM
+    is_group = (name_module == MODULE_SNDATCOM or name_module == MODULE_SNFITCOM or \
+                name_module == MODULE_PSNIDCOM)
     if not is_group:
         lines.append(f"{INDENT2}IMPLICIT NONE")
 

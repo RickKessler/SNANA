@@ -45,13 +45,6 @@ C ###############################
 C ###############################
 
 
-+KEEP,PSNIDCOM.
-
-+CDE,PSNIDPAR.
-+CDE,PSNIDINP.
-+CDE,PSNIDANA.
-+CDE,PSNIDMON.
-
 +KEEP,PSNIDPAR.
 
 c define integer parameter for each  method
@@ -69,24 +62,24 @@ c (translated from user-namelist string METHOD_NAME)
 +KEEP,PSNIDINP.
 
       INTEGER    
-     &   NOBSMIN        ! I: min NOBS to process
-     &  ,OPT_ZPRIOR     ! I: 0,1,2 -> FLAT, ZSPEC, Zphot(host)
-     &  ,OPT_RATEPRIOR  ! I: use rate prior; default=0 --> no rate prior
-     &  ,OPT_SIMCHEAT   ! I: 0 --> don't allow same PSNID template as in sim
-     &  ,MCMC_NSTEP     ! I: number of MCMC steps (set to <=0 to turn off)
-     &  ,NCOLOR, NDMU   ! I: number of color and delta-mu bins in grid search
-     &  ,NREJECT_OUTLIER! I: max number of outliers points to reject
+     &   NOBSMIN          ! I: min NOBS to process
+     &  ,OPT_ZPRIOR       ! I: 0,1,2 -> FLAT, ZSPEC, Zphot(host)
+     &  ,OPT_RATEPRIOR    ! I: use rate prior; default=0 --> no rate prior
+     &  ,OPT_SIMCHEAT     ! I: 0 --> don't allow same PSNID template as in sim
+     &  ,MCMC_NSTEP       ! I: number of MCMC steps (set to <=0 to turn off)
+     &  ,NCOLOR, NDMU     ! I: number of color and delta-mu bins in grid search
+     &  ,NREJECT_OUTLIER  ! I: max number of outliers points to reject
 
       CHARACTER 
      &   METHOD_NAME*60                ! I: pick method name/acronym
      &  ,FILTLIST_FIT*(MXFILT_ALL)     ! I: list of filters to fit
-     &  ,FILTLIST_PEAKMAG_STORE*(MXFILT_ALL) ! list of filters to store PKMAG
+     &  ,FILTLIST_PEAKMAG_STORE*(MXFILT_ALL)  ! list of filters to store PKMAG
      &  ,PRIVATE_TEMPLATES_PATH*(MXCHAR_PATH) ! I: replace $SNDATA_ROOT/models/psnid
-     &  ,TEMPLATES_SNIA*(MXCHAR_FILENAME)  ! I: dir or FITS file with SNIa templates
-     &  ,TEMPLATES_NONIA*(MXCHAR_FILENAME) ! I: idem for nonIa
+     &  ,TEMPLATES_SNIA*(MXCHAR_FILENAME)     ! I: dir or FITS file with SNIa templates
+     &  ,TEMPLATES_NONIA*(MXCHAR_FILENAME)    ! I: idem for nonIa
      &  ,TEMPLATES_NONIA_IGNORE*(MXCHAR_FILENAME) ! I: list of NONIA templates to ignore
-     &  ,TEMPLATES_NONIA_LIST*(MXCHAR_FILENAME)  ! I: select this list only
-     &  ,MODELNAME_MAGERR*60     ! I: name of mag-error model
+     &  ,TEMPLATES_NONIA_LIST*(MXCHAR_FILENAME)   ! I: select this list only
+     &  ,MODELNAME_MAGERR*60                      ! I: name of mag-error model
 
       REAL*8
      &   AV_TAU, AV_SMEAR, AV_PRIOR_STR   ! place-holder color-prior parameter
@@ -192,7 +185,6 @@ c variables computed from PSNIDINP
 c --------
 
       CHARACTER CCID_forC*(MXCHAR_CCID)
-
       COMMON / PSNIDCOM2 / CCID_forC
 
 
@@ -210,6 +202,18 @@ c --------
 
       COMMON / PSNIDMON / ITYPE_IA, NTYPE_PSNID,
      &         NSIM_GENIA, NSIM_PSNIDIA
+
+
++KEEP,PSNIDCOM.
+
++CDE,PSNIDPAR.
++CDE,PSNIDINP.
++CDE,PSNIDANA.
++CDE,PSNIDMON.
+
+
+C END_KEEP
+
 
 C ###############################
 +PATCH,*PIDCODE.
@@ -232,13 +236,14 @@ c
 c -------------------------------------
       IMPLICIT NONE
 
-      INTEGER IERR ! (O) 0 => OK
-
-c local var
 +CDE,SNPAR.
 +CDE,PSNIDCOM.
 +CDE,SNCUTS.
 +CDE,SNLCINP.
+
+      INTEGER IERR ! (O) 0 => OK
+
+c local var
 
       INTEGER 
      &   LEN_FILT, TYPEINDX, i
@@ -385,13 +390,13 @@ c
 
       IMPLICIT NONE
 
-      INTEGER IERR ! (O) 0=> ok
-
-c local args
-
 +CDE,SNPAR.
 +CDE,CTRLCOM.
 +CDE,PSNIDCOM.
+
+      INTEGER IERR ! (O) 0=> ok
+
+c local args
 
       CHARACTER
      &  C1ERR*80, C2ERR*80, FMT*20, FMT_forC*20, FNAM*10
@@ -454,6 +459,7 @@ c Mar 10, 2017: pass SIM_NON1a to PSNID_BEST_DOFIT
 c Jan 08, 2020: pass FLUXSIM
 c -------------------------------------
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,PSNIDCOM.
 +CDE,FILTCOM.
@@ -538,20 +544,6 @@ cc         XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
 
          IFILTLIST_PSNID(NOBS) = IFILTINV_PSNID(IFILT_OBS)  
 
-+SELF,IF=XXX.
-         if ( LDUMP_PSNIDFUN_ARGS .and. NOBS .LT. 30 ) then
-            cfilt  = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-            write(6,60) SNLC_CCID(1:LENCCID)
-     &         ,IFILTLIST_PSNID(NOBS), CFILT
-     &         ,MJD8(NOBS)
-     &         ,FLUXDATA8(NOBS)
-     &         ,FLUXERR8(NOBS)
-60          format(' Call PSNID_BEST_DOFIT(',A,'):', 2x,
-     &          'IFILT=',I1,'(',A1,')', 2x,
-     &          'MJD=',F9.3, 2x, 'FLUX=',G12.5, '+- ', G10.3 )
-         endif
-+SELF.
-
 102   CONTINUE
 101   CONTINUE
 
@@ -618,10 +610,14 @@ c User end-routine after all analysis/fits are done.
 c [close files, summarize statistics, global analysis, etc ...]
 c -------------------------------------
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,SNFITCOM.
- 
+
+c xxxxxxxx mark del Nov 28 2025 xxxxxx
+cxxx+CDE,SNANAFIT.
+cxxx+CDE,SNFITCOM.
+c xxxxxxxxxxxxxxxxx
+
       INTEGER IERR ! (O) 0 => OK
 c local var
 
@@ -646,6 +642,7 @@ C =============================
 c Read PSNIDINP namelist
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.  
 +CDE,PSNIDCOM.
@@ -841,6 +838,7 @@ c Each new nml variable must be included below.
 c 
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,PSNIDPAR.
@@ -1265,10 +1263,12 @@ c Aug 28 2017: use function DOPLOT_PSNID to determine which IPLOT to do
 
       IMPLICIT NONE
 
-c local
 +CDE,SNDATCOM.
-+CDE,SNFITPAR.
 +CDE,PSNIDCOM.
+
+c xxxxxxxx mark del Nov 28 2025 xxxxxx
+cxxx+CDE,SNFITPAR.
+c xxxxxxxxxxxxxx
 
       INTEGER MXFUNPLOT, NFUNPLOT, iplot, LENCCID
 
@@ -1333,9 +1333,6 @@ c performed for each SN.
 c 
       IMPLICIT NONE
 
-c local
-c +CDE,SNDATCOM.
-c +CDE,SNFITPAR.
 +CDE,SNPAR.
 +CDE,PSNIDCOM.
 
@@ -1381,6 +1378,7 @@ c Basic monitoring of PSNID; results are reported in PSNID_MONEND
 c at end of job.
 
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,PSNIDCOM.
 
@@ -1432,6 +1430,7 @@ c
 c Mar 31 2013: EFF->0 of there are no simulated SNIa (fix NaN bug)
 c
       IMPLICIT NONE
+
 +CDE,SNDATCOM.
 +CDE,PSNIDCOM.
 

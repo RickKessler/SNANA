@@ -4,7 +4,7 @@ C Top-level pre-processor commands to include psnid and snana fortran codes.
 C Psnid-dependent C code (psnid_BEST.c, psnid_toos.c[h]) is included in the 
 C Makefile link.
 C
-
+C Nov 28 2025: remove patching in snlc_fit since nother there is used; simplifies f77 -> f90 conversion
 
 +NAMES,8,6000,48000.
 +USE,LINUX.
@@ -15,9 +15,11 @@ c Patch in the main snana program and common blocks to read data and apply cuts
 +USE,P=*SNANA,T=EXE.
 +PAM,LUN=10, T=A,C. snana.lnk
 
-c patch in code for lc plots with best-fit model (same as in snlc_fit)
-+USE,P=*FITCOM.
-+PAM,LUN=20, T=A,C. snlc_fit.lnk
+c xxxxxxxxx mark delete Nov 28 2025 xxxxxxx
+cxxx+USE,P=*FITCOM.
+cxxx+PAM,LUN=20, T=A,C. snlc_fit.lnk
+c xxxxxxxxxxx
+
 
 c patch in PSNID control-code below (psnid.car -> psnid.lnk during compilation)
 +USE,P=*PIDCOM.

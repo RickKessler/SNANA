@@ -43,7 +43,7 @@
 # May 08 2025: replace FFC with CC for C codes, and remove libsnana.lib and libsnfit.lib
 # Oct 06 2025: few minors fixes to work without $ROOT_DIR
 # Nov 25 2025: remove obsolete fcasplit & SIMSED_fudge.c
-#
+# Nov 29 2025: set "USE_F90 1" for permanent switch to F90
 # -------------------------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -372,7 +372,7 @@ debug:	EXTRA_FLAGS = -g -fbounds-check
 debug:  all
 
 clean:
-	rm -f $(CLEAN_FILES) $(OBJ)/*.o
+	rm -f $(CLEAN_FILES) $(OBJ)/*.o $(OBJ)/*.mod
 
 # -----------------------------------
 # set define statements in sntools_output.cpp to pick ROOT

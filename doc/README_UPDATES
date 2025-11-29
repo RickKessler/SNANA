@@ -23360,7 +23360,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Switch the three fortran codes (snana.exe, snlc_fit.exe, psnid.exe) from f77 to *.F90 
      + In Makefile set "USE_F90 1"
      + remove *.car and *.cra files
-     
+     + remove util/ypathcy.pl 
 
 
 END: 

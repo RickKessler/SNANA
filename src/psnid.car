@@ -38,6 +38,8 @@ c Jun 19 2019:
 c   + add calls to empty BEST2 functions in psnid_BEST2.c.
 c     Functions will be filled in over the summer by Masao.
 c
+c Nov 28 2025: rename PSNIDANA -> PSNIDVAR to avoid conflict with SUBROUTINE PSNIDANA
+c              in F90 conversion
 c ---------------------------------------------------
 
 C ###############################
@@ -166,7 +168,7 @@ c define namelist to read from input file.
      &  ,CHISQMIN_OUTLIER, NREJECT_OUTLIER, MJDFIT_RANGE
      &  ,TMAX_START, TMAX_STOP, TMAX_STEP
 
-+KEEP,PSNIDANA.
++KEEP,PSNIDVAR.
 
 c variables computed from PSNIDINP
       INTEGER
@@ -188,7 +190,6 @@ c --------
       COMMON / PSNIDCOM2 / CCID_forC
 
 
-
 +KEEP,PSNIDMON.
 
       INTEGER MXTYPE_PSNID
@@ -208,7 +209,7 @@ c --------
 
 +CDE,PSNIDPAR.
 +CDE,PSNIDINP.
-+CDE,PSNIDANA.
++CDE,PSNIDVAR.
 +CDE,PSNIDMON.
 
 

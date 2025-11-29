@@ -23,14 +23,21 @@ CAST_LIST = [ 'INTEGER', 'REAL', 'DOUBLE', 'CHARACTER', 'LOGICAL' ]
 INDENT     = '  '
 INDENT2    = '    '
 
-PREFIX_MODULE   = 'MOD_'  # for each KEEP in original f77, prepend this prefix to avoid conflicts
+PREFIX_MODULE   = ''  
 MODULE_SNPAR    =  PREFIX_MODULE + 'SNPAR'
 MODULE_SNCUTS   =  PREFIX_MODULE + 'SNCUTS'
-MODULE_SNLCINP  =  PREFIX_MODULE + 'SNLCINP'
+MODULE_SNLCINP  =  PREFIX_MODULE + 'SNLCINP_NML'
 MODULE_SNDATCOM =  PREFIX_MODULE + 'SNDATCOM'
 MODULE_SNFITCOM =  PREFIX_MODULE + 'SNFITCOM'
 MODULE_PSNIDPAR =  PREFIX_MODULE + 'PSNIDPAR'
 MODULE_PSNIDCOM =  PREFIX_MODULE + 'PSNIDCOM'
+
+# define dictionary of modules to rename to avoid conflicts
+RENAME_MODULE_DICT = {
+    'SNLCINP'   :  'SNLCINP_NML' ,
+    'SNFITINP'  :  'FITINP_NML' ,
+    'PSNIDINP'  :  'PSNIDINP_NML'
+}
 
 SNANA_DIR = os.getenv('SNANA_DIR')
 
@@ -100,10 +107,14 @@ def fix_line_CDE(line, keep_name_list):
     # if line = "+CDE,SNPAR" then return   "    USE SNPAR"
 
     name = get_patchy_name(line)
+
     if name not in keep_name_list:
         sys.exit(f"\n ERROR: found name = {name} from \n\t line = {line}\n\t but expected name from {keep_name_list}")
 
-    new_line = f"{INDENT2}USE MOD_{name}"
+    if name in RENAME_MODULE_DICT:
+        name = RENAME_MODULE_DICT[name]
+
+    new_line = f"{INDENT2}USE {PREFIX_MODULE}{name}"
     return new_line
 
 def fix_line_amper(line):
@@ -217,7 +228,7 @@ def get_name_function(line):
     return name
 
 
-def get_lines_append_module(name_module):
+def get_lines_append_module(args, name_module):
 
     # for newly determined module, determine line to append using a previous module.
     # This is all hard-wired.
@@ -230,20 +241,20 @@ def get_lines_append_module(name_module):
     if name_module == MODULE_SNLCINP:
         lines.append(f"{INDENT2}USE {MODULE_SNCUTS}")
 
-    if name_module == 'MOD_FILTUPDCM' :
-        lines.append(f"{INDENT2}USE MOD_FILTCOM")
+    if name_module == f"{PREFIX_MODULE}FILTUPDCM" :
+        lines.append(f"{INDENT2}USE {PREFIX_MODULE}FILTCOM")
 
     # for SNFIT
-    if name_module == 'MOD_SNFITVAR' :
-        lines.append(f"{INDENT2}USE MOD_SNFITPAR")
+    if name_module == f"{PREFIX_MODULE}SNFITVAR" :
+        lines.append(f"{INDENT2}USE {PREFIX_MODULE}SNFITPAR")
              
-    if name_module == 'MOD_MAGDIFCOM'  or name_module == 'MOD_FITRESTCOM' :
-        lines.append(f"{INDENT2}USE MOD_ALLFILTCOM")
+    if name_module == f'{PREFIX_MODULE}MAGDIFCOM'  or name_module == f'{PREFIX_MODULE}FITRESTCOM' :
+        lines.append(f"{INDENT2}USE {PREFIX_MODULE}ALLFILTCOM")
 
     # for PSNID
-    # .xyz MODULE_PSNIDPAR
-    if name_module != MODULE_PSNIDPAR and name_module != MODULE_PSNIDCOM :
-        lines.append(f"{INDENT2}USE {MODULE_PSNIDPAR}")
+    if args.is_psnid :
+        if name_module != MODULE_PSNIDPAR and name_module != MODULE_PSNIDCOM :
+            lines.append(f"{INDENT2}USE {MODULE_PSNIDPAR}")
         
     # - - - 
     is_group = (name_module == MODULE_SNDATCOM or name_module == MODULE_SNFITCOM or \
@@ -325,12 +336,18 @@ def translate_to_F90(KEEP_LIST, code_lines,o):
         if found_KEEP:
             n_KEEP += 1
             name_orig  = get_patchy_name(line)
+
+            if name_orig in RENAME_MODULE_DICT :
+                tmp = name_orig
+                name_orig = RENAME_MODULE_DICT[name_orig]
+                print(f" rename {tmp} --> {name_orig}")
+
             name_F90   = PREFIX_MODULE + name_orig
             F90_line_list.append(f"")
             F90_line_list.append(f"{line_equal}")
             F90_line_list.append(f"{INDENT}MODULE {name_F90}")
 
-            lines_append = get_lines_append_module(name_F90)
+            lines_append = get_lines_append_module(args, name_F90)
             if len(lines_append) > 0 :
                 F90_line_list += lines_append
 
@@ -342,7 +359,7 @@ def translate_to_F90(KEEP_LIST, code_lines,o):
             skip_COMMON = False            
 
 
-        # REMOVE
+        # remove  stuff that is not needed in F90 file
         if found_IMPNONE or found_PATCH or found_END_KEEP or skip_COMMON or \
            found_USE or found_USR or found_DELETE :
             keep_line = False

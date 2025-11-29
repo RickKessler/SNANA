@@ -1,4 +1,4 @@
-! F77 -> F90 translation created 2025-11-28 with command:
+! F77 -> F90 translation created 2025-11-29 with command:
 !   ../util/convert_snana_f77_to_f90.py snana.car
 
 
@@ -6,8 +6,7 @@
 
 
 ! =====================================================================
-  MODULE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNPAR
     IMPLICIT NONE
 
     CHARACTER  SNTABLE_LIST_DEFAULT*60
@@ -323,12 +322,11 @@
            )
 
 
-  END MODULE MOD_SNPAR
+  END MODULE SNPAR
 
 ! =====================================================================
-  MODULE MOD_SNFILECOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNFILECOM
+    USE SNPAR
     IMPLICIT NONE
 
     CHARACTER  & 
@@ -346,12 +344,11 @@
     LOGICAL LFLAG_RDHEAD_ONLY
 
 
-  END MODULE MOD_SNFILECOM
+  END MODULE SNFILECOM
 
 ! =====================================================================
-  MODULE MOD_CTRLCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE CTRLCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! control variables and counters.
@@ -528,12 +525,11 @@
 
     REAL*8  DUPLICATE_MJDLIST(200)
 
-  END MODULE MOD_CTRLCOM
+  END MODULE CTRLCOM
 
 ! =====================================================================
-  MODULE MOD_OUTLIERCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE OUTLIERCOM
+    USE SNPAR
     IMPLICIT NONE
 
     INTEGER MXFILT_OUTLIER
@@ -577,12 +573,11 @@
         ,NEP_ALL_VS_PHOTBIT(2,MXBIT_PHOTFLAG)        ! 1=TOT, 2=bit set
 
 
-  END MODULE MOD_OUTLIERCOM
+  END MODULE OUTLIERCOM
 
 ! =====================================================================
-  MODULE MOD_USRTAGCM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE USRTAGCM
+    USE SNPAR
     IMPLICIT NONE
 
     INTEGER MXUSERTAG
@@ -601,12 +596,11 @@
 
 
 
-  END MODULE MOD_USRTAGCM
+  END MODULE USRTAGCM
 
 ! =====================================================================
-  MODULE MOD_REQEPCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE REQEPCOM
+    USE SNPAR
     IMPLICIT NONE
     CHARACTER FILTLIST_REQEP*(MXFILT_ALL)
     INTEGER NFILT_REQEP, IFILTLIST_REQEP(MXFILT_ALL)
@@ -617,12 +611,11 @@
     REAL NDAYS_ABOVE_SNRMIN_REQEP
 
 
-  END MODULE MOD_REQEPCOM
+  END MODULE REQEPCOM
 
 ! =====================================================================
-  MODULE MOD_EARLYCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE EARLYCOM
+    USE SNPAR
     IMPLICIT NONE
 
     REAL DT_SAMENIGHT
@@ -643,12 +636,11 @@
     CHARACTER  FILTERS_EARLYLC*(MXFILT_ALL)
 
 
-  END MODULE MOD_EARLYCOM
+  END MODULE EARLYCOM
 
 ! =====================================================================
-  MODULE MOD_INTERPCM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE INTERPCM
+    USE SNPAR
     IMPLICIT NONE
 
 ! arrays for interpolation
@@ -670,12 +662,11 @@
 
 
 
-  END MODULE MOD_INTERPCM
+  END MODULE INTERPCM
 
 ! =====================================================================
-  MODULE MOD_SNLCCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNLCCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! Main common block variables for light curves and
@@ -871,12 +862,11 @@
 
 ! - - - -- MULTI-SEASON STUFF - - - -
 
-  END MODULE MOD_SNLCCOM
+  END MODULE SNLCCOM
 
 ! =====================================================================
-  MODULE MOD_SPECCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SPECCOM
+    USE SNPAR
     IMPLICIT NONE
 !  Apr 2019
 !  Read spectra to pass into tables for plotting.
@@ -924,12 +914,11 @@
 
 
 
-  END MODULE MOD_SPECCOM
+  END MODULE SPECCOM
 
 ! =====================================================================
-  MODULE MOD_SNSIMCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNSIMCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! simulation parameters (if FAKE=2)
@@ -1032,12 +1021,11 @@
 
 
 
-  END MODULE MOD_SNSIMCOM
+  END MODULE SNSIMCOM
 
 ! =====================================================================
-  MODULE MOD_PRIVCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE PRIVCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! Nov 2012: PRIVATE_VAR variables in data files
@@ -1070,12 +1058,11 @@
 
 
 
-  END MODULE MOD_PRIVCOM
+  END MODULE PRIVCOM
 
 ! =====================================================================
-  MODULE MOD_SNHOSTCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNHOSTCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! Host galaxy parameters.
@@ -1135,12 +1122,11 @@
 
 
 
-  END MODULE MOD_SNHOSTCOM
+  END MODULE SNHOSTCOM
 
 ! =====================================================================
-  MODULE MOD_SIMLIBCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SIMLIBCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! Feb 2017: common block for writing SIMLIB file to SIMLIB_OUT
@@ -1204,12 +1190,11 @@
               23.5,    23.7,     23.8,   23.9, 24.2,  & 
               23.1,    23.3,     22.3,   22.0	        /
 
-  END MODULE MOD_SIMLIBCOM
+  END MODULE SIMLIBCOM
 
 ! =====================================================================
-  MODULE MOD_TRUECHI2COM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE TRUECHI2COM
+    USE SNPAR
     IMPLICIT NONE
 
 ! for fakes and sim, compute sum[F-Ftrue]^2/sigma^2 per band
@@ -1222,12 +1207,11 @@
     INTEGER NDOF_TRUEFLUX(0:MXFILT_ALL)
 
 
-  END MODULE MOD_TRUECHI2COM
+  END MODULE TRUECHI2COM
 
 ! =====================================================================
-  MODULE MOD_SNCUTS
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNCUTS
+    USE SNPAR
     IMPLICIT NONE
 
 ! Define cut-window for each variables
@@ -1599,13 +1583,12 @@
          ,( cutwin_restlam(1), cutwin_lamrest(1) )
 
 
-  END MODULE MOD_SNCUTS
+  END MODULE SNCUTS
 
 ! =====================================================================
-  MODULE MOD_SNLCINP
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_PSNIDPAR
+  MODULE SNLCINP_NML
+    USE SNPAR
+    USE SNCUTS
     IMPLICIT NONE
 
 ! define general input to program:
@@ -1887,12 +1870,11 @@
 ! ---------- end of SNLCINP ---------
 
 
-  END MODULE MOD_SNLCINP
+  END MODULE SNLCINP_NML
 
 ! =====================================================================
-  MODULE MOD_FITSCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE FITSCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! define external C functions to read from fits files
@@ -1943,12 +1925,11 @@
 
 
 
-  END MODULE MOD_FITSCOM
+  END MODULE FITSCOM
 
 ! =====================================================================
-  MODULE MOD_FILTCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE FILTCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! filter bandpasses.
@@ -2064,13 +2045,12 @@
 
 
 
-  END MODULE MOD_FILTCOM
+  END MODULE FILTCOM
 
 ! =====================================================================
-  MODULE MOD_FILTUPDCM
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
-    USE MOD_PSNIDPAR
+  MODULE FILTUPDCM
+    USE SNPAR
+    USE FILTCOM
     IMPLICIT NONE
 
 ! Nov 2010
@@ -2140,12 +2120,11 @@
 
 
 
-  END MODULE MOD_FILTUPDCM
+  END MODULE FILTUPDCM
 
 ! =====================================================================
-  MODULE MOD_SNANAFIT
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE SNANAFIT
+    USE SNPAR
     IMPLICIT NONE
 
 ! store fit results for use in snana
@@ -2271,50 +2250,13 @@
 
 
 
-! =============================================
-  END MODULE MOD_SNANAFIT
-
-! =====================================================================
-  MODULE MOD_MCMCCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
-    IMPLICIT NONE
-
-! Created Nov 2009 for Ben Dilday's  MCMC method
-
-! a bunch of MCMC stuff
-    LOGICAL LMCMC  & 
-        ,LTUP_MCMC    ! book/fill special ntuple
-
-    INTEGER  & 
-         NMCMC_EVAL         &  ! number of total evaluations for MCMC
-        ,IMCMC_FLAG         &  ! a generic flag for MCMC variations
-        ,NMCMC_CHAINS       &  ! number of chains to run
-        ,NMCMC_BURN         &  ! size of burn in
-        ,IMCMC_STORE       ! store every nth chi2 in the ntuple
-
-    CHARACTER  & 
-        CHOPT_MCMC*16     ! ??
-
-    REAL  & 
-         MCMC_NSIG_STEP    &  ! ??
-        ,NSIG_MCMC_START  ! ??
-
-
-    NAMELIST / MCMCINP / NMCMC_EVAL, IMCMC_FLAG  & 
-           ,NMCMC_CHAINS, NMCMC_BURN, MCMC_NSIG_STEP  & 
-           ,CHOPT_MCMC, LMCMC, LTUP_MCMC  & 
-           ,IMCMC_STORE, NSIG_MCMC_START
-
 
 ! ----------------------------
-
-  END MODULE MOD_MCMCCOM
+  END MODULE SNANAFIT
 
 ! =====================================================================
-  MODULE MOD_PKMJDCOM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE PKMJDCOM
+    USE SNPAR
     IMPLICIT NONE
 
 ! define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
@@ -2387,12 +2329,11 @@
     INTEGER NFIT_PKMJD, NDOF_FITPKMJD(MXFILT_ALL)
 
 
-  END MODULE MOD_PKMJDCOM
+  END MODULE PKMJDCOM
 
 ! =====================================================================
-  MODULE MOD_WRS2COM
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE WRS2COM
+    USE SNPAR
     IMPLICIT NONE
 
 ! Nov 03, 2011:
@@ -2414,22 +2355,21 @@
 
 
 
-  END MODULE MOD_WRS2COM
+  END MODULE WRS2COM
 
 ! =====================================================================
-  MODULE MOD_SNDATCOM
-    USE MOD_PSNIDPAR
+  MODULE SNDATCOM
 
-    USE MOD_SNPAR
-    USE MOD_SNFILECOM
-    USE MOD_CTRLCOM
-    USE MOD_SNLCCOM
-    USE MOD_SNCUTS
-    USE MOD_SNHOSTCOM
-    USE MOD_SNSIMCOM
+    USE SNPAR
+    USE SNFILECOM
+    USE CTRLCOM
+    USE SNLCCOM
+    USE SNCUTS
+    USE SNHOSTCOM
+    USE SNSIMCOM
 
 
-  END MODULE MOD_SNDATCOM
+  END MODULE SNDATCOM
 
 
 
@@ -2445,10 +2385,10 @@
 ! 
 ! Main snana program.
 ! 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -2665,8 +2605,8 @@
 ! Called once during global init stage.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -2707,8 +2647,8 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
     INTEGER LENF_DATA, LENF_SIM, LEN_PRIV, REQ_DOC
     LOGICAL ISDATA
     CHARACTER STR_TMP*(10*MXCHAR_FILENAME)
@@ -2769,8 +2709,8 @@
 ! -------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -2822,9 +2762,9 @@
 ! and to call read-kcor function with appropriate args.
 ! [uses refactored C code]
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -2976,8 +2916,8 @@
 ! ------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -3154,8 +3094,8 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -3249,9 +3189,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -3329,11 +3269,11 @@
 
 ! local var
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_FITSCOM
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE FITSCOM
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -3470,8 +3410,8 @@
 ! Return STRINGVAL or DVAL
 
 
-    USE MOD_SNPAR
-    USE MOD_FITSCOM
+    USE SNPAR
+    USE FITSCOM
 
     IMPLICIT NONE
 
@@ -3558,8 +3498,8 @@
 ! 
 
 
-    USE MOD_SNPAR
-    USE MOD_FITSCOM
+    USE SNPAR
+    USE FITSCOM
 
     IMPLICIT NONE
 
@@ -3604,9 +3544,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -3668,9 +3608,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -3729,9 +3669,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FITSCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FITSCOM
 
     IMPLICIT NONE
 
@@ -3793,8 +3733,8 @@
 ! Read/parse PySEDMODEL keys from header if NPAR_[BYOSED,SNEMO] exists.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -3865,8 +3805,8 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -3911,8 +3851,8 @@
 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -3955,7 +3895,7 @@
 ! Read simulated cosmology parameters from yaml-README
 ! (instead of from data header)
 
-    USE MOD_SNDATCOM
+    USE SNDATCOM
 
     IMPLICIT NONE
 
@@ -4000,8 +3940,8 @@
 !   REDSHIFT_ERR ??
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -4162,9 +4102,9 @@
 ! Created Feb 2021 to read PRIVATE variables (pass from SNDATA struct)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -4199,9 +4139,9 @@
 ! May 11 2022: read ZPHOT_Q
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -4385,9 +4325,9 @@
 ! Mar 23 2021: fix bug using LENPRE
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -4428,8 +4368,8 @@
 ! Aug 19 2024: check OPT_VPEC_COR option to disable VPEC
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -4533,8 +4473,8 @@
     SUBROUTINE RDHEAD_SIM_SNANA(OPT)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -4792,10 +4732,10 @@
 
 ! local var
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FITSCOM
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FITSCOM
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -5039,8 +4979,8 @@
 ! ISPEC > 0 -> read wave-dependent arrays for ISPEC
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -5131,9 +5071,9 @@
 ! Oct 12, 2021: check MXEVT_CUTS
 ! -----------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_INTERPCM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE INTERPCM
 
     IMPLICIT NONE
 
@@ -5186,9 +5126,9 @@
 ! 
 
 ! local args
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -5323,8 +5263,8 @@
 ! Also returns IVAR_PRIVATE that is valid if NMATCH=1
 
 
-    USE MOD_SNPAR
-    USE MOD_PRIVCOM
+    USE SNPAR
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -5387,8 +5327,8 @@
 ! Called from MAIN to read & ananlyze events.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -5418,8 +5358,8 @@
 ! Dec 2022: get SNANA_VERSION here to print it after full command
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -5552,10 +5492,10 @@
 ! Jan 10 2022: write NVAR_PRIVATE
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -5637,10 +5577,10 @@
 
 ! ==================================
     SUBROUTINE RDSNNML(IERR)
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -6244,9 +6184,9 @@
 ! 
 ! Aug 2022: set abort trap on VERSION string length
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -6385,7 +6325,7 @@
 ! ---------------- BEGIN --------------
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -6460,8 +6400,8 @@
 ! ------------------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -6653,9 +6593,9 @@
 ! 
 ! -------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -6998,9 +6938,9 @@
 ! For each filter, compute and store SIM_LCWIDTH(ifilt)
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -7070,10 +7010,10 @@
 !  ep = -1 -> compute prob(chi2,Ndof)
 ! --------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_TRUECHI2COM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE TRUECHI2COM
 
     IMPLICIT NONE
 
@@ -7241,8 +7181,8 @@
 ! 
 ! ----------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -8252,10 +8192,10 @@
 ! 
 ! ----------------------
 ! 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
+    USE SNPAR
+    USE SNCUTS
 ! CDE,CTRLCOM.
-    USE MOD_SNLCINP
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -8393,41 +8333,6 @@
 
     RETURN
   END FUNCTION FOUND_MATCH_NMLKEY
-! ========================================
-    SUBROUTINE MCMCINP_OVERRIDE(IERR)
-
-! Created Dec 4, 2009 R.Kessler
-! 
-! Check command-line args for user-option to override
-! &MCMCINP namelist values.
-! 
-! ----------------------
-
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_MCMCCOM
-    INTEGER IERR ! (O) 0 => OK
-! local var
-    INTEGER  i, ilast, iuse
-! -------------- BEGIN --------------
-    IERR = 0
-    i = 2
-    ilast = 2
-    DO WHILE ( i .LT. NLINE_ARGS )
-!  xxxxx
-
-! set logical flag for used LINE_ARGS
-       IF ( i .GT. ilast ) THEN
-         DO iuse = ilast, i
-            USE_LINE_ARGS(iuse) = .TRUE.
-         ENDDO
-       ENDIF
-       i = i + 1
-       ilast = i
-    ENDDO
-
-    RETURN
-  END SUBROUTINE MCMCINP_OVERRIDE
 
 
 
@@ -8455,9 +8360,9 @@
 ! Dec 16, 2018: parse SIMVAR_CUTWIN_STRING
 ! -----------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -8695,7 +8600,7 @@
 ! If the legacy value has been set, transfer it to the VAL_NOMINAL
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -8727,8 +8632,8 @@
 ! --------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -8821,7 +8726,7 @@
 ! - - - - -
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -8846,8 +8751,8 @@
 
 ! ====================================
     SUBROUTINE PRBANNER ( banner )
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
+    USE SNPAR
+    USE CTRLCOM
     character banner*(*)
 
     if ( .NOT. REDUCE_STDOUT_BATCH ) print*,' '
@@ -8875,9 +8780,9 @@
 ! Apr 26, 2017: I6 -> I7 in format 48.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -9039,10 +8944,10 @@
 ! Jun 19 2019: incluce ROWKEY = "CUTSTAT:" to make log file parsable.
 ! 
 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_CTRLCOM
-    USE MOD_SNLCINP
+    USE SNPAR
+    USE SNCUTS
+    USE CTRLCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -9159,8 +9064,8 @@
 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -9214,10 +9119,10 @@
 ! Jul 08 2021: write N_SNHOST_ZSPEC[ZPHOT]
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -9308,10 +9213,10 @@
 ! in the data or sim.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -9390,9 +9295,9 @@
 ! ----------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -9641,9 +9546,9 @@
 ! Minor refactor: move some code out of SNANA_DRIVER for cleanup.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -9699,9 +9604,9 @@
 ! 
 ! Nov 10 2018: move call to PRINT_SNSTATS() to end of SNANA_END
 ! 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -9779,9 +9684,9 @@
 ! because these table formats hold multiple tables in one file.
 ! --------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -9847,7 +9752,7 @@
 ! Apr 26 2017: pass PRESCALE as argument.
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -9912,8 +9817,8 @@
 ! Oct  2025: add new option for SNID-SAGE format
 ! 
 ! -------------------------
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -10079,9 +9984,9 @@
 
 ! Prepare for translating text file format into FITS format.
 ! 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -10174,10 +10079,10 @@
 ! 
 ! ------------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_WRS2COM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE WRS2COM
 
     IMPLICIT NONE
 
@@ -10403,9 +10308,9 @@
 ! results in clobbering SPEC.LIST file.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -10548,7 +10453,7 @@
 ! Open text file name REFORMAT_VERSION/REFORMAT_VERSION.SUFFIX
 ! use imput LUN
 
-    USE MOD_SNDATCOM
+    USE SNDATCOM
 
     IMPLICIT NONE
 
@@ -10584,8 +10489,8 @@
 ! -------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -10679,11 +10584,11 @@
 ! -------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PRIVCOM
-    USE MOD_FILTCOM
-    USE MOD_FITSCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PRIVCOM
+    USE FILTCOM
+    USE FITSCOM
 
     IMPLICIT NONE
 
@@ -10859,7 +10764,7 @@
 ! Open and write IGNORE file
 
 
-    USE MOD_SNDATCOM
+    USE SNDATCOM
 
     IMPLICIT NONE
 
@@ -10902,9 +10807,9 @@
 ! Oct 22 2025: pass IVERS index for VERSION_PHOTOMETRY
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -11072,9 +10977,9 @@
 ! This really should be read from a map.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -11130,9 +11035,9 @@
 ! 
 ! -------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -11223,11 +11128,11 @@
 ! -----------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_WRS2COM
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE WRS2COM
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -11528,8 +11433,8 @@
     SUBROUTINE MADABORT(funname,c1err,c2err)
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
+    USE SNPAR
+    USE CTRLCOM
 
     IMPLICIT NONE
 
@@ -11582,8 +11487,8 @@
 ! Aug 2020: use MADABORT for consistent error messaging
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -11634,20 +11539,20 @@
 
 ! include everything except the memory hogging SNLCCOM
 
-    USE MOD_SNPAR
-    USE MOD_SNFILECOM
-    USE MOD_CTRLCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_SNHOSTCOM
+    USE SNPAR
+    USE SNFILECOM
+    USE CTRLCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE SNHOSTCOM
 ! +CDE,PARSECOM.
-    USE MOD_SNSIMCOM
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
-    USE MOD_PKMJDCOM
-    USE MOD_PRIVCOM
-    USE MOD_EARLYCOM
-    USE MOD_SPECCOM
+    USE SNSIMCOM
+    USE SNANAFIT
+    USE FILTCOM
+    USE PKMJDCOM
+    USE PRIVCOM
+    USE EARLYCOM
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -11986,8 +11891,8 @@
 ! Jun 26 2025: set CUTWIN_CID=0 for any input list including SNCID_LIST_FILE
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -12145,9 +12050,9 @@
 ! ---------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_INTERPCM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE INTERPCM
 
     IMPLICIT NONE
 
@@ -12245,8 +12150,8 @@
 ! ADDFLAG = F if this CCID is added because of the ALL option.
 ! 
 
-    USE MOD_SNPAR
-    USE MOD_INTERPCM
+    USE SNPAR
+    USE INTERPCM
 
     IMPLICIT NONE
 
@@ -12310,7 +12215,7 @@
 ! so easy, so safer to write this one in fortran too.
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -12380,7 +12285,7 @@
 ! Wrapper to call IGNOREFILE C-utility to return True if
 ! file = 'NULL' or 'NONE' or 'BLANK' or ''
 
-    USE MOD_SNPAR
+    USE SNPAR
     CHARACTER FILENAME*(*), cFILE*(MXCHAR_FILENAME)
     INTEGER LENF, IGNORE
 
@@ -12422,7 +12327,7 @@
 ! Jul 2020: extend WORD_C size to 4*MXCHAR_FILENAME
 ! 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -12561,8 +12466,8 @@
 ! ==============================================
     CHARACTER*80 FUNCTION RDSTRING( OPT, FILE )
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -12628,9 +12533,9 @@
 ! -------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -12898,9 +12803,9 @@
 ! which UGRIZ and ugriz bands are very similar.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -12998,11 +12903,11 @@
 ! ---------
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_FILTCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
+    USE SNPAR
+    USE CTRLCOM
+    USE FILTCOM
+    USE SNCUTS
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -13056,9 +12961,9 @@
 ! -------------------------------------------
 
 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
+    USE SNPAR
+    USE SNCUTS
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -13148,8 +13053,8 @@
 ! 
 ! ----------------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -13349,9 +13254,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -13411,10 +13316,10 @@
 ! 
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_FITSCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE FITSCOM
 
     IMPLICIT NONE
 
@@ -13462,11 +13367,11 @@
 ! OPT  = 3 -> apply all obs/epoch cuts
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -13569,11 +13474,11 @@
 ! -----------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -13705,11 +13610,11 @@
 ! Return TRUE if epoch passes TREST cut
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -13757,8 +13662,8 @@
 ! -------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -13837,8 +13742,8 @@
 ! -----------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -13939,8 +13844,8 @@
 ! all epochs failed the epoch-MASK  cuts.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -13989,8 +13894,8 @@
 !              more predictable prints.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -14074,8 +13979,8 @@
 !   + SNLC_PSF_FWHM_ARCSEC(ep)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -14164,9 +14069,9 @@
 ! -------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -14265,9 +14170,9 @@
 ! ---------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_INTERPCM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE INTERPCM
 
     IMPLICIT NONE
 
@@ -14386,8 +14291,8 @@
     INTEGER FUNCTION GET_IDSURVEY(SURVEY)
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
+    USE SNPAR
+    USE CTRLCOM
 
     IMPLICIT NONE
 
@@ -14431,8 +14336,8 @@
 ! ---------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -14491,9 +14396,9 @@
 ! --------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -14603,7 +14508,7 @@
 !   MXINT=10 -> 50
 ! 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -14660,8 +14565,8 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -14729,7 +14634,7 @@
 ! ------------------------------
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -14791,7 +14696,7 @@
 ! otherwise return 8-char CCID and LENCCID=8.
 ! 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -14838,8 +14743,8 @@
 ! ------
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
+    USE SNPAR
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -14866,8 +14771,8 @@
 ! i.e, SDSS-g => g,  CTIO4m-R => R, etc ...
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
+    USE SNPAR
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -14904,8 +14809,8 @@
 ! 
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
+    USE SNPAR
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -14960,8 +14865,8 @@
 ! IDFIELD is defined $SNDATA_ROOT/SURVEY.DEF
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -15005,9 +14910,9 @@
 ! ---------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -15186,8 +15091,8 @@
 ! Mar 01 2021: include SNLC_PSF_NEA
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -15256,12 +15161,12 @@
 !               with INIT_SNDATA in sntools.c
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
-    USE MOD_PRIVCOM
-    USE MOD_EARLYCOM
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
+    USE PRIVCOM
+    USE EARLYCOM
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -15567,9 +15472,9 @@
 !  + check OPT_SNCID_LIST
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -15630,8 +15535,8 @@
     SUBROUTINE WRITE_EPOCH_IGNORE_INIT()
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -15688,9 +15593,9 @@
     SUBROUTINE WRITE_EPOCH_IGNORE_EXEC(ep)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -15730,9 +15635,9 @@
 ! 
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -15820,10 +15725,10 @@
 ! --------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -15966,9 +15871,9 @@
 ! --------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_USRTAGCM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE USRTAGCM
 
     IMPLICIT NONE
 
@@ -16049,8 +15954,8 @@
 ! 
 
 
-    USE MOD_SNPAR
-    USE MOD_USRTAGCM
+    USE SNPAR
+    USE USRTAGCM
 
     IMPLICIT NONE
 
@@ -16093,8 +15998,8 @@
 ! May 1 2019: convert GET_MULTISEASON args to double.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -16223,10 +16128,10 @@
 ! -------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_EARLYCOM
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE EARLYCOM
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -16387,9 +16292,9 @@
 ! -------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_EARLYCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE EARLYCOM
 
     IMPLICIT NONE
 
@@ -16543,9 +16448,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_REQEPCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE REQEPCOM
 
     IMPLICIT NONE
 
@@ -16719,9 +16624,9 @@
 !  corresponding requirement.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_REQEPCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE REQEPCOM
 
     IMPLICIT NONE
 
@@ -16863,8 +16768,8 @@
 ! ----------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -16955,7 +16860,7 @@
 ! May 22 2018: skip lines with comment field
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -17039,9 +16944,9 @@
 ! ---------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -17118,8 +17023,8 @@
 ! ========================================================
     SUBROUTINE END_MAGCOR()
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17141,8 +17046,8 @@
     SUBROUTINE RD_VPEC_FILE()
 ! ----------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17172,8 +17077,8 @@
 ! ----------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17263,11 +17168,11 @@
 ! -------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -17372,7 +17277,7 @@
 ! determine redshift for Hubble diagram (Oct 2013)
     CALL REDSHIFT_HD()
 
-#if defined(SNANA) || defined(SNFIT)
+#if defined(MINUIT)
 ! get approx peakMJD
     if ( OPT_SETPKMJD > 0 ) THEN
        CALL SET_PEAKMJD()
@@ -17737,8 +17642,8 @@
 ! 
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17786,8 +17691,8 @@
 ! ---------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17866,8 +17771,8 @@
 ! This ignores accurate specz to enable using photo-z.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17913,8 +17818,8 @@
 ! Apr 22 2025: fix bug and shift ZPHOT_Q (quantiles)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -17985,8 +17890,8 @@
 ! QUANTILE_ZERRMIN.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -18009,7 +17914,7 @@
 ! 
 
 
-    USE MOD_SNDATCOM
+    USE SNDATCOM
 
     IMPLICIT NONE
 
@@ -18066,10 +17971,10 @@
 ! Aug 2022: check LDMP_SATURATE
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -18117,7 +18022,7 @@
 ! Aug 11 2021: SBFLUX = -99 -> SBMAG=99
 ! 
 
-    USE MOD_SNDATCOM
+    USE SNDATCOM
 
     IMPLICIT NONE
 
@@ -18147,8 +18052,8 @@
 ! Parse &SNLCINP input SIMVAR_CUTWIN_STRING
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -18209,9 +18114,9 @@
 ! Mar 07 2025: check SIM_PEAKMAG_[band]
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -18309,9 +18214,9 @@
 ! Apr 27 2021: refactor to allow veto option
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PRIVCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PRIVCOM
 
     IMPLICIT NONE
 
@@ -18357,8 +18262,8 @@
 ! Apr 15 2018: mass OPTMASK argument to INIT_FLUXERRMODEL
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -18496,8 +18401,8 @@
 ! Print appropriate message for FLUXCOR or FLUXERR correction.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -18571,10 +18476,10 @@
 ! ------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -18805,8 +18710,8 @@
 !                                 and set INFILE = fileName
 ! - - - - - -
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -18853,8 +18758,8 @@
     SUBROUTINE SETMASK_FLUXCOR_SNANA(MASK)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -18903,8 +18808,8 @@
 ! --------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -19017,10 +18922,10 @@
 ! --------------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -19154,9 +19059,9 @@
 ! --------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -19206,8 +19111,8 @@
 ! Oct 23 2020: refactor DLMAG function to use sntools_cosmology.c
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -19241,8 +19146,8 @@
 ! -------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -19305,11 +19210,11 @@
 ! --------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SIMLIBCOM
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SIMLIBCOM
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -19653,10 +19558,10 @@
 
 ! local variables
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SIMLIBCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SIMLIBCOM
 
     IMPLICIT NONE
 
@@ -19707,9 +19612,9 @@
 ! Beware that list of space surveys is hard-wired.
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SIMLIBCOM
+    USE SNPAR
+    USE CTRLCOM
+    USE SIMLIBCOM
 
     IMPLICIT NONE
 
@@ -19787,10 +19692,10 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SIMLIBCOM
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SIMLIBCOM
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -19855,10 +19760,10 @@
 ! ----------------------------------------
 
 
-    USE MOD_SNPAR
-    USE MOD_SNLCCOM
-    USE MOD_SIMLIBCOM
-    USE MOD_CTRLCOM
+    USE SNPAR
+    USE SNLCCOM
+    USE SIMLIBCOM
+    USE CTRLCOM
 
     IMPLICIT NONE
 
@@ -20024,9 +19929,9 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -20178,10 +20083,10 @@
 ! 
 ! --------------------------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -20510,9 +20415,9 @@
 ! 
 ! --------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -20557,8 +20462,8 @@
 ! May 2 2020: add call to TABLE_MARZ
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -20608,7 +20513,7 @@
 ! Oct 23, 2020: use DLMAG_fortC to get DLMAG
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -20716,8 +20621,8 @@
 ! Nov 12, 2018: real MJD -> real*8 MJD
 ! -------------------------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -20821,7 +20726,7 @@
 ! --------------------
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -20993,8 +20898,8 @@
 ! Nov 2019: remove telescope logic and CUTBIT_IDTEL
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -21053,8 +20958,8 @@
 ! Shows cuts that fail for SN, and cuts that fail for each epoch.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -21128,10 +21033,10 @@
 ! -----------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_FILTCOM
-    USE MOD_SNLCINP
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE FILTCOM
+    USE SNLCINP_NML
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -21564,11 +21469,11 @@
 ! ---------------------------
 
 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_INTERPCM
-    USE MOD_SNLCCOM
+    USE SNPAR
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE INTERPCM
+    USE SNLCCOM
 
     IMPLICIT NONE
 
@@ -21800,9 +21705,9 @@
 ! ==================================================
     LOGICAL FUNCTION LCUTVAR ( var, icut, VBOSE )
 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
+    USE SNPAR
+    USE SNCUTS
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -21860,8 +21765,8 @@
 ! -----------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -21897,8 +21802,8 @@
 ! =============================================
     SUBROUTINE GET_SIMNAME_TYPE(name)
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -21923,8 +21828,8 @@
 ! ----------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -21971,8 +21876,8 @@
 ! ----------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -22019,8 +21924,8 @@
 ! Sep 7 2014: use OPT_TABLE.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -22056,11 +21961,11 @@
 ! Jan 16 2020:  pass sim fluxes (see VSIMFLUX)
 ! -----------------------------------------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -22376,9 +22281,9 @@
 ! Works only for TEXT output; not for ROOT
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SPECCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SPECCOM
 
     IMPLICIT NONE
 
@@ -22437,9 +22342,9 @@
 ! as previous epoch.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -22507,11 +22412,11 @@
 ! Aug 11 2021: check SBMAG cut
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -22628,10 +22533,10 @@
     SUBROUTINE COUNT_OUTLIERS(OPT,EP)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE FILTCOM
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -22731,9 +22636,9 @@
     SUBROUTINE INIT_TABLE_OUTLIERVAR(ID, BLOCK)
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -22893,10 +22798,10 @@
 ! Created Mar 17 2021
 ! Load OUTLIER_XXX variables for epoch 'ep'.
 ! 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE FILTCOM
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -22966,9 +22871,9 @@
 ! Initial use is for OUTLIER table.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -23022,11 +22927,11 @@
 ! then using system cat command.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_OUTLIERCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE OUTLIERCOM
 
     IMPLICIT NONE
 
@@ -23127,10 +23032,10 @@
 ! 
 ! ------------------------------
 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_CTRLCOM
-    USE MOD_SNLCINP
+    USE SNPAR
+    USE SNCUTS
+    USE CTRLCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -23252,16 +23157,16 @@
 ! -------------------------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
-    USE MOD_SNLCINP
-    USE MOD_USRTAGCM
-    USE MOD_PRIVCOM
-    USE MOD_PKMJDCOM
-    USE MOD_REQEPCOM
-    USE MOD_OUTLIERCOM
-    USE MOD_TRUECHI2COM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE FILTCOM
+    USE SNLCINP_NML
+    USE USRTAGCM
+    USE PRIVCOM
+    USE PKMJDCOM
+    USE REQEPCOM
+    USE OUTLIERCOM
+    USE TRUECHI2COM
 
     IMPLICIT NONE
 
@@ -23832,9 +23737,9 @@
 ! Sep 24 2024: fix so that MAGOBS works for IGAL > 1
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -23986,8 +23891,8 @@
 ! - - - - - - - - -
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -24131,9 +24036,9 @@
 !  NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -24198,9 +24103,9 @@
 ! NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -24239,8 +24144,8 @@
 !   * Tobs   = MJD - SIM_PEAKMJD
 
 
-    USE MOD_SNDATCOM
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -24300,8 +24205,8 @@
 ! Dec 23  2023: add SIM_WGT_POPULATION
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -24571,8 +24476,8 @@
 ! ------------------------------------
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
+    USE SNPAR
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -24657,11 +24562,11 @@
 ! &SNLCINP namelist input SNTABLE_FILTER_REMAP is set.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_PKMJDCOM
-    USE MOD_TRUECHI2COM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE PKMJDCOM
+    USE TRUECHI2COM
 
     IMPLICIT NONE
 
@@ -24788,8 +24693,8 @@
 ! Oct 20 2020: fix index for removing termination char
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -24826,14 +24731,14 @@
 ! Nov 16 2023: update text to handle 12 digit GALID instead of 9 digits
 ! ------------------------------
 
-    USE MOD_SNPAR
-    USE MOD_SNCUTS
-    USE MOD_CTRLCOM
-    USE MOD_SNLCCOM
-    USE MOD_SNLCINP
-    USE MOD_SNFILECOM
-    USE MOD_SPECCOM
-    USE MOD_SNSIMCOM
+    USE SNPAR
+    USE SNCUTS
+    USE CTRLCOM
+    USE SNLCCOM
+    USE SNLCINP_NML
+    USE SNFILECOM
+    USE SPECCOM
+    USE SNSIMCOM
 
     IMPLICIT NONE
 
@@ -24995,11 +24900,11 @@
 ! ------------------------------------------
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_SNSIMCOM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE SNSIMCOM
 
     IMPLICIT NONE
 
@@ -25132,10 +25037,10 @@
 ! after the transistion to refactored code.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_FILTCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE FILTCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -25168,11 +25073,11 @@
 ! --------------
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNLCCOM
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNLCCOM
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -25256,13 +25161,13 @@
 ! -------------
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNLCCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNLCCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE FILTUPDCM
 ! CDE,PARSECOM.
 
     INTEGER IFILT, IFILT_OBS
@@ -25295,9 +25200,9 @@
 ! Used for filter-update option.
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -25353,13 +25258,13 @@
 ! 
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNLCCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNLCCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE FILTUPDCM
 ! +CDE,PARSECOM.
 
 ! subroutine args
@@ -25635,9 +25540,9 @@
 ! with the filter-subdir.
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -25679,13 +25584,13 @@
 ! ================================================
     SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNLCCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNLCCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE FILTUPDCM
 ! +CDE,PARSECOM.
 
     INTEGER ifilt  ! (I) sparse SN & filter index
@@ -25725,12 +25630,12 @@
 ! -------------
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_SNFILECOM
-    USE MOD_FILTCOM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE SNFILECOM
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -25770,11 +25675,11 @@
 !            and from user MAGOBS_SHIFT_ZP ... not from kcor-input file.
 ! -------------------------
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -25877,9 +25782,9 @@
 ! See &SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS(3)
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -25917,9 +25822,9 @@
 ! ----------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
 
     IMPLICIT NONE
 
@@ -25979,14 +25884,14 @@
 ! Jun 15 2016:  CALL ENVreplace(FILTER_UPDATE_PATH)
 ! 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
-    USE MOD_SNFILECOM
+    USE SNPAR
+    USE CTRLCOM
+    USE SNCUTS
+    USE SNLCINP_NML
+    USE SNFILECOM
 ! +CDE,PARSECOM.
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -26111,9 +26016,9 @@
 ! for each SN.
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -26194,10 +26099,10 @@
 ! ------------------------
 
 
-    USE MOD_SNPAR
+    USE SNPAR
 ! CDE,PARSECOM.
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -26324,9 +26229,9 @@
 ! ---------
 
 
-    USE MOD_SNPAR
-    USE MOD_FILTCOM
-    USE MOD_FILTUPDCM
+    USE SNPAR
+    USE FILTCOM
+    USE FILTUPDCM
 
     IMPLICIT NONE
 
@@ -26378,7 +26283,7 @@
 ! utility to fit for the peak-MJD.
 ! ==============================
 
-
+#if defined(MINUIT)
 
 ! ====================================
     SUBROUTINE SET_PEAKMJD()
@@ -26408,11 +26313,11 @@
 ! -------------------------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_SNANAFIT
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -26553,7 +26458,6 @@
        endif
 
 ! open INTERP-OUT file if set
-#if defined(SNANA)
        IF ( SNMJD_OUT_FILE .NE. ' ' ) THEN
           LUN = LUNINTERP
           OPEN(UNIT=LUN,FILE=SNMJD_OUT_FILE,status='UNKNOWN')
@@ -26561,7 +26465,6 @@
  46         format('VARNAMES:',2x,'CID', 4x,'FILT', 5x,'MJD',  & 
                  10x,'FLUX      FLUXERR')
        ENDIF
-#endif
 
     ENDIF  ! end of FIRST_INIT
 
@@ -26658,6 +26561,7 @@
        SNLC_SEARCH_PEAKMJD    = PKMJD
        IF ( STDOUT_UPDATE ) then
           write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
+          call FLUSH(6)
        ENDIF
 
        RETURN
@@ -26722,9 +26626,7 @@
          NPKMJD = NPKMJD + 1
 
 ! check option to interpolate flux
-#if defined(SNANA)
          CALL SNMJD_INTERP_ANYLC(ifilt_obs)
-#endif
 
 200   CONTINUE
 
@@ -26931,10 +26833,10 @@
 ! ----------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -26980,7 +26882,6 @@
 
 ! ---------------- BEGIN -------------
 
-#if defined(MINUIT)
     USE_ANYFUN  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_ANYFUN)
     USE_POLYCOR = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_POLYCOR)
 
@@ -27116,7 +27017,7 @@
 
     MNARG(1) = ZERO8
     CALL MNEXCM ( FCNANYLC, 'EXIT',  MNARG, 0, IERR, ANYLCFUN )
-**      PRINT *,'  MNFIT_PKMJD: EXIT returns IERR = ', IERR
+    PRINT *,'  MNFIT_PKMJD: EXIT returns IERR = ', IERR
 
 ! compute PKMJD from setting 1st deriviate = 0
     Tfall = TMPVAL(IPAR_TFALL)
@@ -27163,7 +27064,6 @@
       PKFLUX_ERRWGT = PKFLUX_ERRWGT + 1.0/SNGL(ERRTMP*ERRTMP)
     ENDIF
 
-#endif
     RETURN
   END SUBROUTINE MNFIT_PKMJD
 
@@ -27180,10 +27080,10 @@
 ! --------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -27270,8 +27170,8 @@
 ! May 28 2019: replace hard-code XVAL-indices with IPAR_XXX
 ! ------------
 
-    USE MOD_SNPAR
-    USE MOD_PKMJDCOM
+    USE SNPAR
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -27352,11 +27252,11 @@
 ! -------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_PKMJDCOM
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE PKMJDCOM
 
     IMPLICIT NONE
 
@@ -27465,10 +27365,10 @@
 ! Jan 9, 2012: write output to LUNINTERP if SNMJD_OUT_FILE is defined.
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_FILTCOM
-    USE MOD_INTERPCM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE INTERPCM
 
     IMPLICIT NONE
 
@@ -27545,6 +27445,7 @@
     RETURN
   END SUBROUTINE SNMJD_INTERP_ANYLC
 
+#endif
 
 
 
@@ -27600,8 +27501,8 @@
 ! -------------------------------------------------
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
+    USE SNPAR
+    USE CTRLCOM
 
     IMPLICIT NONE
 
@@ -27855,9 +27756,9 @@
 ! Jul 30, 2024: protect EPLUS/EMINUS when EMINUS=0
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_SNANAFIT
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SNANAFIT
 
     IMPLICIT NONE
 
@@ -28079,7 +27980,7 @@
 ! ======================================
     CHARACTER*1 FUNCTION ERRTYPE_STR(ERRTYPE)
 
-    USE MOD_SNPAR
+    USE SNPAR
 
     IMPLICIT NONE
 
@@ -28118,9 +28019,9 @@
 !            (to reduce output for BIG jobs)
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -28193,9 +28094,9 @@
 ! 
 ! ---------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -28237,9 +28138,9 @@
 ! -----------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -28354,9 +28255,9 @@
 ! -------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -28556,9 +28457,9 @@
 ! -------------------------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -29074,9 +28975,9 @@
 ! -----------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -29375,9 +29276,9 @@
 ! 
 ! -----------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -29454,9 +29355,9 @@
 ! -----------------------------------
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNANAFIT
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 

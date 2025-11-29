@@ -2584,42 +2584,8 @@ c
      &  ,PDFVAL, PDFERR, PDFPROB2, PDFERRMAT, PDFCORMAT
      &  ,MAG_XTMW_REF
 
-C =============================================
-+KEEP,MCMCCOM.  
-  
-c Created Nov 2009 for Ben Dilday's  MCMC method  
-  
-c a bunch of MCMC stuff  
-      LOGICAL LMCMC  
-     &  ,LTUP_MCMC    ! book/fill special ntuple  
-  
-      INTEGER   
-     &   NMCMC_EVAL        ! number of total evaluations for MCMC  
-     &  ,IMCMC_FLAG        ! a generic flag for MCMC variations  
-     &  ,NMCMC_CHAINS      ! number of chains to run  
-     &  ,NMCMC_BURN        ! size of burn in  
-     &  ,IMCMC_STORE       ! store every nth chi2 in the ntuple  
-   
-      CHARACTER   
-     &  CHOPT_MCMC*16     ! ??  
-        
-      REAL   
-     &   MCMC_NSIG_STEP   ! ??  
-     &  ,NSIG_MCMC_START  ! ??  
-  
-      COMMON / SNFMCMC / NMCMC_EVAL, IMCMC_FLAG  
-     &     ,NMCMC_CHAINS, NMCMC_BURN,MCMC_NSIG_STEP  
-     &     ,CHOPT_MCMC, LMCMC, LTUP_MCMC        
-     &     ,IMCMC_STORE, NSIG_MCMC_START  
-       
-      NAMELIST / MCMCINP / NMCMC_EVAL, IMCMC_FLAG  
-     &     ,NMCMC_CHAINS, NMCMC_BURN, MCMC_NSIG_STEP  
-     &     ,CHOPT_MCMC, LMCMC, LTUP_MCMC        
-     &     ,IMCMC_STORE, NSIG_MCMC_START  
-  
  
 c ----------------------------
-
 +KEEP,PKMJDCOM.
 
 c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
@@ -8719,43 +8685,6 @@ C ----------- BEGIN -----------
 
       RETURN
       END
-C ========================================
-+DECK,MCMCINP_OVERRIDE.
-      SUBROUTINE MCMCINP_OVERRIDE(IERR)
-
-c Created Dec 4, 2009 R.Kessler
-c
-c Check command-line args for user-option to override
-c &MCMCINP namelist values.
-c
-c ----------------------
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,MCMCCOM.
-      INTEGER IERR ! (O) 0 => OK
-c local var
-      INTEGER  i, ilast, iuse
-C -------------- BEGIN --------------
-      IERR = 0
-      i = 2
-      ilast = 2
-      DO WHILE ( i .LT. NLINE_ARGS )
-cc xxxxx
-
-c set logical flag for used LINE_ARGS
-         IF ( i .GT. ilast ) THEN
-           DO iuse = ilast, i
-              USE_LINE_ARGS(iuse) = .TRUE.
-           ENDDO
-         ENDIF
-         i = i + 1
-         ilast = i
-      ENDDO
-
-      RETURN
-      END   ! end of MCMCINP_OVERRIDE
 
 
 
@@ -17725,7 +17654,7 @@ c (Oct 11 2013: code moved from MAIN to here)
 c determine redshift for Hubble diagram (Oct 2013)
       CALL REDSHIFT_HD()
 
-+SELF,IF=SNANA,SNFIT.
++SELF,IF=MINUIT.
 c get approx peakMJD
       if ( OPT_SETPKMJD > 0 ) THEN
          CALL SET_PEAKMJD()
@@ -26759,7 +26688,7 @@ C ==============================
 C utility to fit for the peak-MJD.
 C ==============================
 
-
++SELF,IF=MINUIT.
 
 C ====================================
 +DECK,SET_PEAKMJD.
@@ -26934,7 +26863,6 @@ c open outfile to dump MINUIT stdout
          endif
 
 c open INTERP-OUT file if set
-+SELF,IF=SNANA.
          IF ( SNMJD_OUT_FILE .NE. ' ' ) THEN
             LUN = LUNINTERP
             OPEN(UNIT=LUN,FILE=SNMJD_OUT_FILE,status='UNKNOWN')
@@ -26942,7 +26870,6 @@ c open INTERP-OUT file if set
  46         format('VARNAMES:',2x,'CID', 4x,'FILT', 5x,'MJD',
      &           10x,'FLUX      FLUXERR')
          ENDIF
-+SELF.
 
       ENDIF  ! end of FIRST_INIT
     
@@ -27039,6 +26966,7 @@ c check option to use MJD at max-flux or at TRIGGER
          SNLC_SEARCH_PEAKMJD    = PKMJD
          IF ( STDOUT_UPDATE ) then
             write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
+            call FLUSH(6)
          ENDIF
 
          RETURN
@@ -27103,9 +27031,7 @@ c store result for each filter.
            NPKMJD = NPKMJD + 1
 
 c check option to interpolate flux
-+SELF,IF=SNANA.
            CALL SNMJD_INTERP_ANYLC(ifilt_obs)
-+SELF.
 
 200   CONTINUE
 
@@ -27361,7 +27287,6 @@ c functions
 
 C ---------------- BEGIN -------------
 
-+SELF,IF=MINUIT.
       USE_ANYFUN  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_ANYFUN)
       USE_POLYCOR = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_POLYCOR)
 
@@ -27497,7 +27422,7 @@ c keep track of fixed parameters
 
       MNARG(1) = ZERO8
       CALL MNEXCM ( FCNANYLC, 'EXIT',  MNARG, 0, IERR, ANYLCFUN )
-**      PRINT *,'  MNFIT_PKMJD: EXIT returns IERR = ', IERR
+      PRINT *,'  MNFIT_PKMJD: EXIT returns IERR = ', IERR
 
 c compute PKMJD from setting 1st deriviate = 0
       Tfall = TMPVAL(IPAR_TFALL)
@@ -27544,7 +27469,6 @@ c keep track of min error and wgted error
         PKFLUX_ERRWGT = PKFLUX_ERRWGT + 1.0/SNGL(ERRTMP*ERRTMP)
       ENDIF
 
-+SELF.
       RETURN
       END
 
@@ -27926,6 +27850,7 @@ c IF MJD=0, then replace with PEAKMJD (Aug 20, 2012)
       RETURN 
       END  ! end of SNMJD_INTERP_ANYLC
 
++SELF.
 
 
 +PATCH,*FITUTIL.

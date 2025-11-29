@@ -1,4 +1,4 @@
-! F77 -> F90 translation created 2025-11-28 with command:
+! F77 -> F90 translation created 2025-11-29 with command:
 !   ../util/convert_snana_f77_to_f90.py psnid.car
 
 ! Include base snana code to read/write data and apply cuts
@@ -44,6 +44,8 @@
 !   + add calls to empty BEST2 functions in psnid_BEST2.c.
 !     Functions will be filled in over the summer by Masao.
 ! 
+! Nov 28 2025: rename PSNIDANA -> PSNIDVAR to avoid conflict with SUBROUTINE PSNIDANA
+!              in F90 conversion
 ! ---------------------------------------------------
 
 ! ###############################
@@ -52,8 +54,8 @@
 
 
 ! =====================================================================
-  MODULE MOD_PSNIDPAR
-    USE MOD_SNPAR
+  MODULE PSNIDPAR
+    USE SNPAR
     IMPLICIT NONE
 
 ! define integer parameter for each  method
@@ -68,12 +70,12 @@
         ,MXITER_PSNID      = 3  &  ! Sep 2017
             )
 
-  END MODULE MOD_PSNIDPAR
+  END MODULE PSNIDPAR
 
 ! =====================================================================
-  MODULE MOD_PSNIDINP
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE PSNIDINP_NML
+    USE SNPAR
+    USE PSNIDPAR
     IMPLICIT NONE
 
     INTEGER  & 
@@ -157,12 +159,12 @@
         ,CHISQMIN_OUTLIER, NREJECT_OUTLIER, MJDFIT_RANGE  & 
         ,TMAX_START, TMAX_STOP, TMAX_STEP
 
-  END MODULE MOD_PSNIDINP
+  END MODULE PSNIDINP_NML
 
 ! =====================================================================
-  MODULE MOD_PSNIDANA
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE PSNIDVAR
+    USE SNPAR
+    USE PSNIDPAR
     IMPLICIT NONE
 
 ! variables computed from PSNIDINP
@@ -181,13 +183,12 @@
     CHARACTER CCID_forC*(MXCHAR_CCID)
 
 
-
-  END MODULE MOD_PSNIDANA
+  END MODULE PSNIDVAR
 
 ! =====================================================================
-  MODULE MOD_PSNIDMON
-    USE MOD_SNPAR
-    USE MOD_PSNIDPAR
+  MODULE PSNIDMON
+    USE SNPAR
+    USE PSNIDPAR
     IMPLICIT NONE
 
     INTEGER MXTYPE_PSNID
@@ -201,19 +202,19 @@
 
 
 
-  END MODULE MOD_PSNIDMON
+  END MODULE PSNIDMON
 
 ! =====================================================================
-  MODULE MOD_PSNIDCOM
-    USE MOD_SNPAR
+  MODULE PSNIDCOM
+    USE SNPAR
 
-    USE MOD_PSNIDPAR
-    USE MOD_PSNIDINP
-    USE MOD_PSNIDANA
-    USE MOD_PSNIDMON
+    USE PSNIDPAR
+    USE PSNIDINP_NML
+    USE PSNIDVAR
+    USE PSNIDMON
 
 
-  END MODULE MOD_PSNIDCOM
+  END MODULE PSNIDCOM
 
 
 ! ###############################
@@ -237,10 +238,10 @@
 ! 
 ! -------------------------------------
 
-    USE MOD_SNPAR
-    USE MOD_PSNIDCOM
-    USE MOD_SNCUTS
-    USE MOD_SNLCINP
+    USE SNPAR
+    USE PSNIDCOM
+    USE SNCUTS
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -391,9 +392,9 @@
 ! 
 
 
-    USE MOD_SNPAR
-    USE MOD_CTRLCOM
-    USE MOD_PSNIDCOM
+    USE SNPAR
+    USE CTRLCOM
+    USE PSNIDCOM
 
     IMPLICIT NONE
 
@@ -461,10 +462,10 @@
 ! Jan 08, 2020: pass FLUXSIM
 ! -------------------------------------
 
-    USE MOD_SNDATCOM
-    USE MOD_PSNIDCOM
-    USE MOD_FILTCOM
-    USE MOD_SNLCINP
+    USE SNDATCOM
+    USE PSNIDCOM
+    USE FILTCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -612,7 +613,7 @@
 ! [close files, summarize statistics, global analysis, etc ...]
 ! -------------------------------------
 
-    USE MOD_SNDATCOM
+    USE SNDATCOM
 
     IMPLICIT NONE
 
@@ -644,9 +645,9 @@
 ! Read PSNIDINP namelist
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PSNIDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PSNIDCOM
 
     IMPLICIT NONE
 
@@ -840,10 +841,10 @@
 ! 
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PSNIDPAR
-    USE MOD_PSNIDINP
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PSNIDPAR
+    USE PSNIDINP_NML
 
     IMPLICIT NONE
 
@@ -1061,9 +1062,9 @@
 ! Feb 25 2020: pass DEBUG_FLAG to C code.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_SNLCINP
-    USE MOD_PSNIDCOM
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE PSNIDCOM
 
     IMPLICIT NONE
 
@@ -1264,8 +1265,8 @@
 ! Aug 28 2017: use function DOPLOT_PSNID to determine which IPLOT to do
 
 
-    USE MOD_SNDATCOM
-    USE MOD_PSNIDCOM
+    USE SNDATCOM
+    USE PSNIDCOM
 
     IMPLICIT NONE
 
@@ -1334,8 +1335,8 @@
 ! performed for each SN.
 ! 
 
-    USE MOD_SNPAR
-    USE MOD_PSNIDCOM
+    USE SNPAR
+    USE PSNIDCOM
 
     IMPLICIT NONE
 
@@ -1380,8 +1381,8 @@
 ! at end of job.
 
 
-    USE MOD_SNDATCOM
-    USE MOD_PSNIDCOM
+    USE SNDATCOM
+    USE PSNIDCOM
 
     IMPLICIT NONE
 
@@ -1432,8 +1433,8 @@
 ! Mar 31 2013: EFF->0 of there are no simulated SNIa (fix NaN bug)
 ! 
 
-    USE MOD_SNDATCOM
-    USE MOD_PSNIDCOM
+    USE SNDATCOM
+    USE PSNIDCOM
 
     IMPLICIT NONE
 

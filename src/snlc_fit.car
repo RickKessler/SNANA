@@ -4074,28 +4074,6 @@ c Shell to call MARG_DRIVER
 c Returns ERRFLAG=0 (OK) or ERRFLAG > 0 (discard fit)
 c
 c
-c Jul 8, 2009: skip marg if fitprob(before marginalization)
-c              fails CUTWIN_NOMARG_PROB(2)
-c
-c Oct 7,2009: fix logic to avoid fbounds-check with ifilt=0.
-c             Code runs the same as before
-c
-c Oct 20, 2009: add DOPLOT argument  for monitor plots
-c
-c Nov 11, 2009: add LMCMC option 
-c
-c Mar 2011: 
-c   skip marginalization if DOCHI2_SIGMA=T and chi2(sigma)
-c   fails cut since it won't change after marg.
-c
-c Dec 18, 2011: 
-c  - add ISTAT arg
-c  - LZPHOT = LTEST_ZPHFILTER after marginalization and set 
-c    ISTAT=0 if a filter is dropped => discard fit
-c
-c Jan 4, 2013: replace ISTAT with ERRFLAG
-c              Success is now ERRFLAG=0 rather than ISTAT=1.
-c
 c -----------
 
       IMPLICIT NONE
@@ -4103,7 +4081,6 @@ c -----------
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
-+CDE,MCMCCOM.
 +CDE,SNFITCOM.
 +CDE,FILTCOM. 
 
@@ -4161,17 +4138,10 @@ c These are just the fit chi2 from minimization.
       ENDDO  ! ifilt
 
       LMARG = NGRID_PDF .GT. 0
-
-      IF ( LMCMC .and. LMARG ) THEN
-        c1err = 'Cannot marginalize and use MCMC'
-        c2err = 'Choose one or the other (not both!)'
-        CALL MADABORT("FITANA_MARG", c1err, "")
-      ENDIF
-
       
 c make sure that either MARGINALIZATION or MCMC is specified.
 
-      IF ( .not. ( LMCMC .or. LMARG ) ) RETURN
+      IF ( .not. LMARG ) RETURN
 
 c ---------------------------------------------------------
 c skip marginalization if fitted chi2-prob fails cut
@@ -4236,9 +4206,6 @@ c   can happen if photoZ_marg - photoZ_fit is  large enough.
 
         ENDIF
 
-      ELSE IF ( LMCMC ) THEN
-         print*,' ERROR: no MCMC option '
-         STOP
       ENDIF
 
 c store marginalized chi2 per filter

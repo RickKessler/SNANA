@@ -89,7 +89,7 @@ endif
 # ------------------------
 # compile default storage options for both ROOT and BAYESN.
 USE_ROOT   = 1
-USE_F90    = 0
+USE_F90    = 1
 
 ifndef ROOT_DIR
    USE_ROOT = 0

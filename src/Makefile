@@ -283,6 +283,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_dataformat_fits.o	\
 	$(OBJ)/sntools_dataformat_text.o	\
 	$(OBJ)/sntools_data.o 			\
+	$(OBJ)/sntools_zPDF_spline.o \
 	$(OBJ)/sntools_modelgrid_read.o \
 	$(OBJ)/sntools_calib.o \
 	$(OBJ)/sntools_output.o  \
@@ -314,7 +315,6 @@ OBJ_SNFIT	 = 		\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o    \
-	$(OBJ)/sntools_zPDF_spline.o \
 	$(OBJ)/minuit.o  	\
 	$(OBJ_GENMAG_FIT)
 

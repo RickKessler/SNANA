@@ -8568,7 +8568,7 @@
     LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
     REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
     REAL   t_start, t_end
-    LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC, LEGACY, LDMP_REFAC
+    LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
     CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
     REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
@@ -8653,7 +8653,6 @@
     IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
       INIVAL(ipar) = SNLC_REDSHIFT
       STD          = SNLC_REDSHIFT_ERR
-      if ( LEGACY ) LZDONE       = .TRUE.
       CZTMP        = 'zBEST-Gauss'
 
 ! Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
@@ -8663,14 +8662,11 @@
          PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
       endif
 
-      if ( LEGACY ) goto 777    ! legacy jump
-
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
       if ( DOFIT_PHOTOZ_HOST ) THEN
          INIVAL(ipar) = zhost
          STD          = zhost_err
-         if ( LEGACY ) LZDONE       = .TRUE.
          CZTMP        = 'HOST-Gauss'
       else
          CZTMP        = 'AVG[PHOTOZ_BOUND]'
@@ -8701,18 +8697,23 @@
           endif
       enddo
 
+      CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
+
+#ifdef MARK_DELETE
       LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
       CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  & 
-           CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),  & 
+           CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),      & 
            IPRINT, MEAN, STD, IERR_ZPDF, ISNLC_LENCCID, 20)
+
+      SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
+      SNHOST_QZPHOT_STD(1)  = STD
+#endif
 
       if (IERR_ZPDF .NE. 0 ) then
 	   IERR = ERRFLAG_FITPREP_QUANTILES
 	   return
 	endif
 
-      SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
-      SNHOST_QZPHOT_STD(1)  = STD
 
       if ( LDMP_Q ) then
          Print *, ' xxx Finished init_zPDF_spline for CID=', SNLC_CCID
@@ -8721,7 +8722,6 @@
 
 !     initialize at Q50
         INIVAL(ipar) = MEAN
-        if ( LEGACY ) LZDONE       = .TRUE.
         CZTMP        = 'QUANTILES'
     ENDIF
 

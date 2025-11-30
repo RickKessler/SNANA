@@ -200,7 +200,9 @@
        ,MAG_SATURATE     = -7.0     &  ! for sim only
        ,LEGACY_INIT_VAL  = 1.0E8    
 
-    CHARACTER, PARAMETER :: SNTABLE_LIST_DEFAULT*60  = 'SNANA  FITRES  LCPLOT'
+    CHARACTER, PARAMETER ::        &
+       SNTABLE_LIST_DEFAULT*60           = 'SNANA  FITRES  LCPLOT'  &
+      ,METHOD_SPLINE_QUANTILES_DEFAULT*8 = 'CUBIC'  ! default; may change in LC fit
 
 ! - - - - - - - - - - - - - - 
 ! physical constants
@@ -1003,10 +1005,10 @@
 
 ! quantites which do not depend on which host
     INTEGER*4  & 
-          SNHOST_NMATCH    &  ! number of host matches, e.g., d_DLR<4
-         ,SNHOST_NMATCH2   &  ! number of host matches, e.g., d_DLR<7
-         ,SNHOST_NZPHOT_Q         &  ! Ma 2022: number of zphot quantiles
-         ,SNHOST_FLAG(MXSNHOST)  ! May 21 2021: indicate problems with host
+          SNHOST_NMATCH         &  ! number of host matches, e.g., d_DLR<4
+         ,SNHOST_NMATCH2        &  ! number of host matches, e.g., d_DLR<7
+         ,SNHOST_NZPHOT_Q       &  ! May 2022: number of zphot quantiles
+         ,SNHOST_FLAG(MXSNHOST)    ! May 21 2021: indicate problems with host
 
     REAL  & 
          SNHOST_SBFLUXCAL_ERR(MXFILT_ALL)  & 
@@ -3169,37 +3171,29 @@
 
     CALL RDGLOBAL_PRIVATE(OPT)
 
-    CALL RDGLOBAL_ZPHOT_Q(OPT)  ! May 2022
+    CALL RDGLOBAL_ZPHOT_Q(OPT) 
 
     IF ( LSIM_SNANA ) THEN
-       CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE",  & 
-              ONE, SIMLIB_FILENAME, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", ONE, SIMLIB_FILENAME, DARRAY, OPT)
 
-       CALL FETCH_SNDATA_WRAPPER("SIMLIB_MSKOPT",  & 
-              ONE, STRING, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIMLIB_MSKOPT",  ONE, STRING, DARRAY, OPT)
        SIMLIB_MSKOPT = int(DARRAY(1))
 
-       CALL FETCH_SNDATA_WRAPPER("SIMOPT_MWCOLORLAW",  & 
-              ONE, STRING, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIMOPT_MWCOLORLAW",  ONE, STRING, DARRAY, OPT)
        SIMOPT_MWCOLORLAW = int(DARRAY(1))
 
-       CALL FETCH_SNDATA_WRAPPER("SIMOPT_MWEBV",  & 
-              ONE, STRING, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIMOPT_MWEBV",  ONE, STRING, DARRAY, OPT)
        SIMOPT_MWEBV = int(DARRAY(1))
 
-       CALL FETCH_SNDATA_WRAPPER("SIM_MWRV",  & 
-              ONE, STRING, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIM_MWRV", ONE, STRING, DARRAY, OPT)
        SIM_MWRV = SNGL(DARRAY(1))
 
-       CALL FETCH_SNDATA_WRAPPER("SIM_VARNAME_SNRMON",  & 
-              ONE, SIMNAME_SNRMON, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIM_VARNAME_SNRMON", ONE, SIMNAME_SNRMON, DARRAY, OPT)
 
-       CALL FETCH_SNDATA_WRAPPER("SIM_BIASCOR_MASK",  & 
-              ONE, STRING, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIM_BIASCOR_MASK", ONE, STRING, DARRAY, OPT)
        SIM_BIASCOR_MASK = int(DARRAY(1))
 
-       CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",   &  ! Oct 8 2021
-             ONE, STRING, DARRAY, OPT)
+       CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  ONE, STRING, DARRAY, OPT)
        SIM_MODEL_INDEX = INT(DARRAY(1))
 
        CALL RDGLOBAL_SIMSED(OPT)
@@ -3211,8 +3205,6 @@
        CALL RDGLOBAL_LCLIB(OPT)
 
        CALL RDGLOBAL_SIM_HOSTLIB(OPT)
-
-! xxx mark delete          CALL RDGLOBAL_SIM_COSPAR()
 
     ENDIF  ! end LSIM_SNANA block
 
@@ -3426,7 +3418,6 @@
 ! Read/parse names host galaxy photo-z quantiles that determine
 ! column names. E.g., percentile 20 means HOSTGAL_ZPHOT_Q020 exists.
 ! 
-
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -17456,13 +17447,11 @@
 ! 
 ! Aug 23 2025: check USESIM_REDSHIFT option (moved from snlc_fit to here)
 ! 
-! 
-! 
-
     USE SNDATCOM
     USE SNLCINP_NML
 
     IMPLICIT NONE
+    INTEGER IERR
 
 ! -------------- BEGIN ----------
 
@@ -17472,6 +17461,9 @@
        SNLC_zCMB     = SIM_REDSHIFT_CMB
        return
     endif
+
+! Nov 30 2025: if there are quantiles, compute MEAN and STDDEV 
+    CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT,IERR)
 
 ! Check option to use host photo-z as redshift.
     CALL SET_SNHOST_ZPHOT()
@@ -17581,8 +17573,56 @@
     RETURN
   END SUBROUTINE SET_ZHELIO
 
+
 ! =============================================
-    SUBROUTINE SET_SNHOST_ZPHOT
+    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES,IERR)
+!
+! Created Nov 30 2025:
+! If there are host photot-z quanitiles, compute MEAN and STDDEV
+!  [code moved from snlc_fit.F90 to here so that MEAN and STDDEV
+!    appear in SNANA table without having to do LC fit]
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+
+    CHARACTER :: METHOD_SPLINE_QUANTILES*(*)  ! (I) method to interpolate PDF
+    INTEGER   :: IERR                         ! (O) return error code (0 = no error)
+
+! local var
+    INTEGER   :: q, LM, IERR_ZPDF, IPRINT
+    REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
+    CHARACTER :: CCID_forC(MXCHAR_CCID)
+
+
+! ------------- BEGIN ---------------
+
+    if ( SNHOST_NZPHOT_Q <= 0 ) RETURN
+
+    do q = 1, SNHOST_NZPHOT_Q
+       ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q)) / 100.  ! 0 <= PROB <= 1
+       ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
+    enddo
+    
+    LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
+    CCID_forC = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
+    IPRINT    = 0   ! set to 1 for dump
+
+    CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  &
+         CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
+         IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, 20)
+
+    if (IERR .EQ. 0 ) then
+       SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
+       SNHOST_QZPHOT_STD(1)  = STD
+    endif
+
+    return
+    END SUBROUTINE SET_SNHOST_QZPHOT
+
+! =============================================
+    SUBROUTINE SET_SNHOST_ZPHOT()
 
 ! if USE_SNHOST_ZPHOT=T then set redshift variables to host zphot.
 ! This ignores accurate specz to enable using photo-z.
@@ -17600,7 +17640,7 @@
     REAL*8 zhelio_zcmb_translator ! function
 ! -------------- BEGIN ----------------
 
-    IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN
+    IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
 
     if ( .not. EXIST_SNHOST_ZPHOT ) then
         C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
@@ -17611,8 +17651,7 @@
     OPT    = 1     ! --> convert ZHEL to ZCMB
     EQ     = 'eq' // char(0)
     ZHEL8  = DBLE( SNHOST_ZPHOT(1) )
-    ZCMB8  =  & 
-          zhelio_zcmb_translator(ZHEL8,SNLC8_RA,SNLC8_DEC,EQ,OPT,4)
+    ZCMB8  = zhelio_zcmb_translator(ZHEL8, SNLC8_RA, SNLC8_DEC, EQ, OPT, 4)
 
     SNLC_ZCMB         = SNGL(ZCMB8)
     SNLC_ZHELIO       = SNGL(ZHEL8)
@@ -17715,9 +17754,12 @@
 ! define local zspec mask;
 !   grep MASK_REDSHIFT_SOURCE sndata.h
     INTEGER, PARAMETER :: MASK_ZSPEC_SOURCE = 3   ! 1=zspec_host, 2=zspec(SN)
+    LOGICAL  IS_SMALL_ZERR, IS_MASK_ZSPEC
 
-    IS_ZSPEC = (SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN) .or.  & 
-           (IAND(ISNLC_zSOURCE,MASK_ZSPEC_SOURCE) > 0)  ! .xyz
+    IS_SMALL_ZERR = (SNLC_REDSHIFT_ERR < QUANTILE_ZERRMIN) .and. (SNLC_REDSHIFT_ERR >= 0.0)
+    IS_MASK_ZSPEC = (IAND(ISNLC_zSOURCE,MASK_ZSPEC_SOURCE) > 0)
+
+    IS_ZSPEC = IS_SMALL_ZERR .or. IS_MASK_ZSPEC
 
     RETURN
   END FUNCTION IS_ZSPEC
@@ -23432,7 +23474,7 @@
        VARLIST = 'SNRMAX:F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1), VARLIST, ITEXT_NO,   LENBLOCK, 20 )
 
-       VARLIST = 'SNRMAX1:F,SNRMAX2:F,SMNRMAX3:F' // char(0)
+       VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1), VARLIST, ITEXT_YES, LENBLOCK, 40 )
 
        VARLIST = 'SNRSUM:F' // char(0)

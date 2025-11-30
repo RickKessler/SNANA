@@ -690,8 +690,6 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);     
   }
 
-  
-  // xxx mark if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
 
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
@@ -787,6 +785,11 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
 
   // store original [unparsed] VARLiST
   sprintf(ADDCOL_VARDEF->VARLIST_ORIG,"%s", VARLIST);
+
+  if ( strchr(VARLIST,',') != NULL ) {
+    printf(" %s TABLE WARNING; comma in %s\n", fnam, VARLIST);
+    fflush(stdout);
+  }
 
   NVAR = ICAST_FIRST = 0;
   sprintf(local_VARLIST,"%s", VARLIST);

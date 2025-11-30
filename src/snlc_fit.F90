@@ -19322,14 +19322,10 @@
   END SUBROUTINE INIT_TABLE_SNFITEP
 
 ! ======================
-    SUBROUTINE TABLE_VARLIST_ERRFLAG(IPAR_MIN,IPAR_MAX,  & 
-                                       VARLIST,LENLIST )
+    SUBROUTINE TABLE_VARLIST_ERRFLAG(IPAR_MIN,IPAR_MAX, VARLIST,LENLIST )
 
 ! Created Sep 2012
 ! Return VARLIST string for HBNAME call to initialize ERRFLAGs.
-! 
-! Feb  5, 2013: return LENLIST
-! Apr 29, 2013: ERRFLAG_[ipar] -> ERRFLAG_[name] to be more clear
 ! 
 ! ----------------------------
 
@@ -19355,7 +19351,7 @@
     do ipar = IPAR_MIN, IPAR_MAX
 
        write(c2,22) ipar
-22       format(I2.2)
+22     format(I2.2)
 
        NAME    = PARNAME_STORE(IPAR)
        LENNAME = INDEX(NAME,' ') - 1

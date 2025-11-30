@@ -1325,8 +1325,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
       fclose(fp);
     }
 
-
-
     ENVreplace(ptrFile, fnam, 1);
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST,
 				  OPTMASK_SNTABLE );

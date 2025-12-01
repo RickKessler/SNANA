@@ -613,14 +613,9 @@
 
     IMPLICIT NONE
 
-! xxxxxxxx mark del Nov 28 2025 xxxxxx
-! xx+CDE,SNANAFIT.
-! xx+CDE,SNFITCOM.
-! xxxxxxxxxxxxxxxxx
-
     INTEGER IERR ! (O) 0 => OK
-! local var
 
+! local var
     EXTERNAL PSNID_BEST_SUMMARY
 
 ! ------------------- BEGIN ---------------------

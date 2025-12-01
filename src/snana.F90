@@ -2807,7 +2807,7 @@
     IF ( NSN_VERS > MXSNLC-1 ) THEN
       write(C1err,161) NSN_VERS, MXSNLC
 161     format('NSN_VERS=',I8,' exceeds bound MXSNLC=',I8 )
-      C2err = 'Check MXSNLC parameter in snana.car'
+      C2err = 'Check MXSNLC parameter in snana.F90'
       CALL MADABORT(FNAM, c1err, c2err )
     ENDIF
 
@@ -4583,7 +4583,7 @@
     if ( NOBS_STORE > MXEPOCH ) then
        write(C1ERR,660) NOBS_STORE, MXEPOCH
 660      format('NOBS_STORE = ', I6, ' exceeds MXEPOCH=', I6)
-       C2ERR = 'Need to increase MXEPOCH in snana.car'
+       C2ERR = 'Need to increase MXEPOCH in snana.F90'
        CALL MADABORT(FNAM, C1ERR, C2ERR)
     endif
 
@@ -5196,15 +5196,15 @@
     IF ( NLINE_ARGS == 0 ) THEN
 
 !  always print help for &SNLCINP base code inputs
-       CMD_SNANA_HELP = 'help_inputs_fortran.py ' // 'snana.car'
+       CMD_SNANA_HELP = 'help_inputs_fortran.py ' // 'snana.F90'
        CALL SYSTEM(CMD_SNANA_HELP)
 
 #if defined(SNANA)
         CODE_FILENAME = ''
 #elif defined(SNFIT)
-        CODE_FILENAME = 'snlc_fit.car'
+        CODE_FILENAME = 'snlc_fit.F90'
 #elif defined(PSNID)
-        CODE_FILENAME = 'psnid.car'
+        CODE_FILENAME = 'psnid.F90'
 #endif
 
 	 if ( CODE_FILENAME .NE. '' )  then
@@ -10202,7 +10202,7 @@
     if ( NVAR > MXVAR_SPEC_TABLE ) then
       write(c1err,61) NVAR, MXVAR_SPEC_TABLE
 61      format('NVAR(SPEC_TABLE) = ',I3,' exceeds bound of ', I3)
-      c2err = 'Consider increasing MXVAR_SPEC_TABLE in snana.car'
+      c2err = 'Consider increasing MXVAR_SPEC_TABLE in snana.F90'
       CALL MADABORT(FNAM, C1ERR, C2ERR)
     endif
 
@@ -22335,7 +22335,7 @@
     NEP_OUTLIER_PEREVT = 0
     IF ( .NOT. DOFILL_TABLE ) RETURN
 
-!   terminate strings for C table-functions (snana.car routine)
+!   terminate strings for C table-functions (snana.F90 routine)
     CALL TABLE_STRING_TERMINATION(+1)
 
     DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE
@@ -22957,7 +22957,7 @@
 
     IF ( DO_FILL ) THEN
 
-!       terminate strings for C table-functions (snana.car routine)
+!       terminate strings for C table-functions (snana.F90 routine)
       CALL TABLE_STRING_TERMINATION(+1)
 
 ! check option to store MODEL-MAG on epoch grid (Feb 2019)
@@ -23481,7 +23481,7 @@
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRSUM,  VARLIST, ITEXT_YES,   LENBLOCK, 20 )
 ! ----------
 ! Below are SNANA variables for which the FIT analog is not
-! available here -> book FIT-analogs in snlc_fit.car
+! available here -> book FIT-analogs in snlc_fit.F90
 
        CALL TABLE_VARLIST_FILTERS('SNRMAX', 'F', ADDCOL_FILTERS, VARLIST, LENLIST )
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNRMAX(1),  & 
@@ -24922,7 +24922,7 @@
       else
          write(c1err,60) OPT
 60         format('Invalid  OPT_FILTER_UPDATE = ', I3 )
-         c2err = 'Check OPT_FILTUPD_*  parameters in snana.car'
+         c2err = 'Check OPT_FILTUPD_*  parameters in snana.F90'
          CALL MADABORT("FILTER_UPDATE_DRIVER", C1ERR, C2ERR)
       endif
 
@@ -27010,10 +27010,10 @@
 ! 
 ! Created April 12, 2010 by R.Kessler
 ! 
-! Similar to COVARFLUX in snlc_fit.car, but this is
+! Similar to COVARFLUX in snlc_fit.F90, but this is
 ! for the PKMJD fit to estimate error on peak flux.
 ! Since the user-function calls are different than
-! in snlc_fit.car, we must have a separate COV function
+! in snlc_fit.F90, we must have a separate COV function
 ! here to evaluate errors.
 ! 
 ! Using full fitpar covariance, FITERRMAT(ipar1,ipar2)

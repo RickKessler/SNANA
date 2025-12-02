@@ -322,7 +322,7 @@ def print_info(info_fitres):
         df_sorted = df_copy.sort_values(keyname_id)
 
         # sort variables in user order:
-        df_sorted = df_sorted[var_list]
+        df_sorted = df_sorted[ [keyname_id] + var_list]
 
         print(df_sorted.to_string(index=False))        
         if outfile is not None:

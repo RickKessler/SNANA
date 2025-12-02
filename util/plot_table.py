@@ -23,6 +23,9 @@
 #              lower case diff_cid works same as DIFF_CID
 # Sep 18 2025: finally get @@WGTVAR working with HIST mode
 # Nov 20 2025: add p4 and p5 option for @@FIT
+# Dec 02 2025: for @@OPT CID_DIFF, print id list in comma-sep string format to cut-and-paste
+#              into quick_commands for things like FITS->TEXT translation
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -3043,7 +3046,10 @@ def print_cid_list(df, name_legend) :
     # print list of cids to stdout
     varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
     id_list = sorted(df[varname_idrow].to_numpy())[0:NMAX_CID_LIST]
-    print(f"\n {varname_idrow}s passing cuts for '{name_legend}' : \n{id_list}" )
+
+    id_string = ','.join(id_list)
+
+    print(f"\n {varname_idrow}s passing cuts for '{name_legend}' : \n{id_list}\n   or  \n{id_string}\n" )
     sys.stdout.flush()
     return
 

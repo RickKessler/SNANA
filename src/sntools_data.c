@@ -1286,14 +1286,13 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   //
 
   int NROW, ivar, ifile, NFILE = 0;
-  int OPTMASK_SNTABLE = 4; // append next file
+  int OPTMASK_SNTABLE = 4;           // append next file
   char **file_list, *ptrFile, *VARNAME_MATCH ;
-  char TABLE_NAME[] = "OVERRIDE";
-  char VARLIST[]    = "ALL";
-  char fnam[]       = "RD_OVERRIDE_INIT";
+  char TABLE_NAME[] = "OVERRIDE" ;
+  char VARLIST[]    = "ALL" ;
+  char fnam[]       = "RD_OVERRIDE_INIT" ;
 
   // ----------- BEGIN -----------
-
 
   RD_OVERRIDE.USE = false;
   if ( IGNOREFILE(OVERRIDE_FILE) ) { return; }
@@ -1341,7 +1340,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
     printf("   Stored %d rows of header-override data; match rows using %s\n", 
 	   NROW, VARNAME_MATCH );
 
-
     if ( NROW == 0 ) {
       sprintf(c1err,"NROW=0 in HEADER_OVERRIDE_FILE");
       sprintf(c2err,"Check %s", ptrFile);
@@ -1352,7 +1350,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   // - - - - - - - - - - - - 
   RD_OVERRIDE.USE    = true ;
   RD_OVERRIDE.NFILE  = NFILE;
-  for(ivar=0; ivar < MXVAR_OVERRIDE; ivar++ )
+  for(ivar=0; ivar < IVARMAX_OVERRIDE ; ivar++ )
     { RD_OVERRIDE.N_PER_VAR[ivar] = 0 ; }
 
   // - - - - - - - 
@@ -1404,7 +1402,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   return ;
 
-
 } // end RD_OVERRIDE_INIT
 
 
@@ -1439,15 +1436,13 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   // Sep  29 2025: pass GALID and check option to match by GALID (HOSTGAL_OBJID) instead of by CID
 
   bool NEW_ID, FOUND_VARNAME;
-  int  ISTAT, NRD, IVAR, NTMP, ICAST ;
+  int  ISTAT, NRD, IVAR, NTMP, ICAST, N_PER_VAR ;
   char ID_LOCAL[40];
   char fnam[] = "RD_OVERRIDE_FETCH";
 
   // ----------- BEGIN -----------
   *DVAL = 0.0;
   if ( !RD_OVERRIDE.USE ) { return 0; }
-
-  // xxx mark del  if ( strlen(CID) == 0 ) { return 0; }  // SNID has not been read yet
 
   // - - - - - -
   ID_LOCAL[0] = 0 ;
@@ -1460,6 +1455,13 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
   FOUND_VARNAME = ( IVAR >= 0 ) ;
+
+  if ( IVAR >= IVARMAX_OVERRIDE ) {
+    sprintf(c1err,"IVAR(%s) = %d exceeds bound of IVARMAX_OVERRIDE = %d",
+	    VARNAME, IVAR, IVARMAX_OVERRIDE);
+    sprintf(c2err,"May need to increase IVARMAX_OVERRIDE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
 
   // Aug 2025; abort if none of the override variables are used.
   NEW_ID = ( strcmp(RD_OVERRIDE.ID_LAST,ID_LOCAL) != 0 );
@@ -1485,7 +1487,6 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
   // read from override table; ISTAT and DVALare returned
-  // xxx mark SNTABLE_AUTOSTORE_READ(CID, VARNAME, &ISTAT, DVAL, STRVAL);  
   SNTABLE_AUTOSTORE_READ(ID_LOCAL, VARNAME, &ISTAT, DVAL, STRVAL);  
 
   // *ISTAT =  0  if ID is found; 
@@ -1494,8 +1495,11 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   if ( ISTAT == 0 ) {
     NRD = 1;
-    if ( RD_OVERRIDE.N_PER_VAR[IVAR] == 0 ) 
-      { printf("\t Found override for %s\n", VARNAME );  fflush(stdout); }
+    N_PER_VAR = RD_OVERRIDE.N_PER_VAR[IVAR] ;
+    if ( N_PER_VAR == 0 )  { 
+      printf("\t Found override for %s  (ID=%s  N_PER_VAR=%d IVAR=%d))\n", 
+	     VARNAME, ID_LOCAL, N_PER_VAR, IVAR );  fflush(stdout); 
+    }
 
     RD_OVERRIDE.N_PER_VAR[IVAR]++ ;
   }

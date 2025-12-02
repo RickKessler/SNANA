@@ -6,14 +6,15 @@
  ******************************************/
 
 #define MXFILE_OVERRIDE 10
-#define MXVAR_OVERRIDE  20
+// xxx mark delete #define MXVAR_OVERRIDE  40
+#define IVARMAX_OVERRIDE  200  // max IVAR in override file, so this can be large even with only 1 override var
 
 
 struct {
   bool USE;
   int NFILE; // number of override files
   int NVAR;  // number of override variables
-  int N_PER_VAR[MXVAR_OVERRIDE] ;
+  int N_PER_VAR[IVARMAX_OVERRIDE] ;
 
   bool MATCH_by_CID, MATCH_by_GALID; // 9.29.2025
   char VARNAME_MATCH[40];  // e.g., CID, SNID, GALID ...

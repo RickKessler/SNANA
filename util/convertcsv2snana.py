@@ -10,13 +10,20 @@
 #  + write "GAL:" row key if GALID is in header
 #  + fix to work with either comma-sep or space-sep var list in header.
 #
-
+# Dec 01 2025: 
+#   + replace blanks and dash (-) with -9
+#   + if valid row key (e.g. SNID) is not in column 0, them automatically move it
+#     to row 0
+#
 import os, sys, argparse, csv
 
 VALID_ROWID_LIST = [ "CID", "SNID", "snid", "ROW", "GALID", "STARID" ]
 ROWID_DEFAULT    = "ROW" 
 
 ROWKEY = "ROW:"  # default row key
+
+BLANK_LIST = [ '', '-' ]  # replace this nulls with VALUE_BLANK
+VALUE_BLANK = '-9'   # replace blanks with this value
 
 # =====================================
 def get_args():
@@ -59,6 +66,7 @@ def read_csv_file(csv_file):
     nrow = 0; row_list = []
     with open(csv_file, 'r') as f:  
         contents = csv.reader(f)
+
         for row in contents :
             if len(row) == 0 : continue
             if row[0][0] == '#' : continue
@@ -84,6 +92,16 @@ def read_csv_file(csv_file):
         varname_list = varname_list[0].split()
 
     return varname_list, row_list
+    # end read_csv_file
+
+def get_colnum_rowid(varname_list):
+
+    colnum = -9
+    for valid_rowid in VALID_ROWID_LIST:
+        if valid_rowid in varname_list:
+            colnum = varname_list.index(valid_rowid)
+
+    return colnum
 
 # ==============================
 def  write_out_file(out_file,varname_list,row_list):
@@ -91,12 +109,24 @@ def  write_out_file(out_file,varname_list,row_list):
     # check if first varname is a valid IDentifier
 
     add_rownum = False 
-    varname0 = varname_list[0]
+    # xxx varname0 = varname_list[0]
 
-    if varname0 in VALID_ROWID_LIST:
-        header = varname_list
-        if varname0 == "GALID": 
+    colnum_rowid = get_colnum_rowid(varname_list)
+
+    if colnum_rowid >= 0:
+        
+        varname_rowid = varname_list[colnum_rowid]
+        if varname_rowid == "GALID": 
             global ROWKEY ; ROWKEY = "GAL:"
+
+        if colnum_rowid == 0:
+            header = varname_list
+        else:
+            print(f" Move {varname_rowid} column from colnum={colnum_rowid} to colnum=0")
+            rowid =  varname_list.pop(colnum_rowid)
+            del      varname_list[colnum_rowid] 
+            header = [ rowid ] + varname_list
+            #sys.exit(f"\n xxx header = \n{header}")
     else:
         header = [ ROWID_DEFAULT ] + varname_list
         add_rownum = True
@@ -115,10 +145,22 @@ def  write_out_file(out_file,varname_list,row_list):
 
     # write each row
     rownum = 0 
-    for row in row_list:
+    for row_orig in row_list:
+
+        row = row_orig
         rownum += 1
         line  = f"{ROWKEY} "
-        if add_rownum :  line += (f"{rownum:3d}  ")
+        if add_rownum : 
+            line += (f"{rownum:3d}  ")
+
+        if colnum_rowid > 0:  # move rowid value to 1st column
+            rowid =  row.pop(colnum_rowid)
+            del      row[colnum_rowid] 
+            row    = [ rowid ] + row
+
+        for blank in BLANK_LIST:
+            if blank in row: row = [ VALUE_BLANK  if x == blank else x for x in row]
+
         line += " ".join(row)
         f.write(f"{line}\n")
 
@@ -145,7 +187,7 @@ if __name__ == "__main__":
     else:
         VARNAME_LIST = varname_list
 
-    write_out_file(out_file,VARNAME_LIST,row_list)
+    write_out_file(out_file, VARNAME_LIST, row_list)
     print(" Done.\n")
 
 # END

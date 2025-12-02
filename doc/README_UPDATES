@@ -23381,6 +23381,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + read HOSTGAL_MAGERR
      + if  SNTABLE_LIST = 'SNANA(text:host)', include HOSTGAL_MAGERR
 
-     *.F90: start updating PARAMETER statements to F90 syntax.
+    get_fitres_values.py: 
+      + sort output so that CIDs and VARIABLES appear in user-defined order
 
+    *.F90: update PARAMETER statements to F90 syntax.
+
+ 
 END: 

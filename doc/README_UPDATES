@@ -23377,6 +23377,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_01) *****
 
+    snana.F90, sntools_dataformat_fits.c
+     + read HOSTGAL_MAGERR
+     + if  SNTABLE_LIST = 'SNANA(text:host)', include HOSTGAL_MAGERR
 
      *.F90: start updating PARAMETER statements to F90 syntax.
 

@@ -285,6 +285,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   //
   // History:
   // Sep 9 2021 A. Gagliano: Load igal dimension of SNDATA.SIM_HOSTLIB_PARVAL
+  // Dec 1 2025 R.Kessler check for HOSTGAL_MAGERR
 
   int NFILT = SNDATA_FILTER.NDEF ;
   char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ; // BYOSED or SNEMO
@@ -485,6 +486,12 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_MAG[igal][ifilt]); } 
       }
 
+      for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY_TEST,"%s_MAGERR_%c", PREFIX, FILTERSTRING[ifilt_obs]); 
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_MAGERR[igal][ifilt]); } 
+      }
       if ( strstr(key,PREFIX_ZPHOT_Q) != NULL ) {
 	for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
 	  PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ;

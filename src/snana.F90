@@ -742,14 +742,15 @@
           ADDCOL_FILTERS*(MXFILT_ALL) ! SURVEY_FILTERS
 
     REAL  & 
-          ADDCOL_SNHOST_MAGOBS(MXFILT_ALL,MXSNHOST)  & 
-         ,ADDCOL_SNHOST_SBFLUXCAL(MXFILT_ALL)  & 
-         ,ADDCOL_SNHOST_SBMAG(MXFILT_ALL)  & 
-         ,ADDCOL_FLUXCALMAX(MXFILT_ALL)  & 
-         ,ADDCOL_FLUXCALMAX_ERR(MXFILT_ALL)  & 
-         ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)  & 
-         ,ADDCOL_SNRMAX(MXFILT_ALL)  & 
-         ,ADDCOL_XTMW(MXFILT_ALL)  & 
+          ADDCOL_SNHOST_MAG(MXFILT_ALL,MXSNHOST)     & 
+         ,ADDCOL_SNHOST_MAGERR(MXFILT_ALL,MXSNHOST)  & 
+         ,ADDCOL_SNHOST_SBFLUXCAL(MXFILT_ALL)        & 
+         ,ADDCOL_SNHOST_SBMAG(MXFILT_ALL)            & 
+         ,ADDCOL_FLUXCALMAX(MXFILT_ALL)              & 
+         ,ADDCOL_FLUXCALMAX_ERR(MXFILT_ALL)          & 
+         ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)           & 
+         ,ADDCOL_SNRMAX(MXFILT_ALL)                  & 
+         ,ADDCOL_XTMW(MXFILT_ALL)                    & 
          ,ADDCOL_PROB_TRUEFLUX(MXFILT_ALL)
 
     INTEGER  & 
@@ -963,15 +964,15 @@
 
 ! logical flags for output tables
     LOGICAL  & 
-         EXIST_SNHOST_ANGSEP  & 
-        ,EXIST_SNHOST_DDLR  & 
+         EXIST_SNHOST_ANGSEP     & 
+        ,EXIST_SNHOST_DDLR       & 
         ,EXIST_SNHOST_CONFUSION  & 
-        ,EXIST_SNHOST_ZPHOT  & 
+        ,EXIST_SNHOST_ZPHOT    & 
         ,EXIST_SNHOST_LOGMASS  & 
-        ,EXIST_SNHOST_LOGSFR  & 
+        ,EXIST_SNHOST_LOGSFR   & 
         ,EXIST_SNHOST_LOGsSFR  & 
-        ,EXIST_SNHOST_COLOR  & 
-        ,EXIST_SNHOST_MAGOBS  & 
+        ,EXIST_SNHOST_COLOR    & 
+        ,EXIST_SNHOST_MAGOBS   & 
         ,EXIST_SNHOST_SB
 
     INTEGER*8  SNHOST_OBJID(MXSNHOST)    ! int id
@@ -3948,7 +3949,7 @@
 ! May 11 2021: read HOSTGAL_MAG (forgotten in I/O refactor)
 ! May 21 2021: read HOSTGAL_FLAG
 ! May 11 2022: read ZPHOT_Q
-
+! Dec 01 2025: read HOSTGAL_MAGERR
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -3993,6 +3994,11 @@
           MAG   = SNHOST_MAGOBS(ifilt,1)
           if ( MAG > -998.0 ) EXIST_SNHOST_MAGOBS = .TRUE.
        ENDDO
+
+       IF ( EXIST_SNHOST_MAGOBS ) then
+         KEY_PREFIX = "HOSTGAL_MAGERR"  ! Dec 1 2025 
+         CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_MAGOBS_ERR, OPT)
+       ENDIF
 
        KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
        CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
@@ -23589,7 +23595,7 @@
 ! 
 ! Jul 13 2024: fix bug in which all gal property indices were 1 instead of IGAL.
 ! Sep 24 2024: fix so that MAGOBS works for IGAL > 1
-
+! Dec 01 2025: add MAGERR
 
     USE SNDATCOM
     USE SNANAFIT
@@ -23702,7 +23708,11 @@
 ! Sep 24 2024: update to allow writing MAGOBS for both host matches.
     IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
       CALL TABLE_VARLIST_FILTERS( PREFIX(1:LP)//'MAG', 'F', ADDCOL_FILTERS, VARLIST, LENLIST)
-      CALL SNTABLE_ADDCOL_flt(ID,CBLOCK,ADDCOL_SNHOST_MAGOBS(1,IGAL), VARLIST(1:LENLIST)//char(0),  & 
+      CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, ADDCOL_SNHOST_MAG(1,IGAL), VARLIST(1:LENLIST)//char(0),  & 
+            ITEXT_LOCAL, LENBLOCK, LENLIST)
+
+      CALL TABLE_VARLIST_FILTERS( PREFIX(1:LP)//'MAGERR', 'F', ADDCOL_FILTERS, VARLIST, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, ADDCOL_SNHOST_MAGERR(1,IGAL), VARLIST(1:LENLIST)//char(0),  & 
             ITEXT_LOCAL, LENBLOCK, LENLIST)
     ENDIF
 
@@ -24393,8 +24403,13 @@
          ADDCOL_FLUXCALMAX_ERR(IFILT_REMAP)     = -9.0
          ADDCOL_PROB_TRUEFLUX(IFILT_REMAP)      = -9.0
          ADDCOL_NDOF_TRUEFLUX(IFILT_REMAP)      =  0
-         ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0
-         ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,2)    = -9.0
+
+         ADDCOL_SNHOST_MAG(IFILT_REMAP,1)       = -9.0
+         ADDCOL_SNHOST_MAG(IFILT_REMAP,2)       = -9.0
+
+         ADDCOL_SNHOST_MAGERR(IFILT_REMAP,1)    = -9.0
+         ADDCOL_SNHOST_MAGERR(IFILT_REMAP,2)    = -9.0
+
          ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP)   = -9.0
          ADDCOL_SNHOST_SBMAG(IFILT_REMAP)       = -9.0
     ENDDO
@@ -24411,8 +24426,10 @@
          ADDCOL_PROB_TRUEFLUX(ifilt)    = PROB_TRUEFLUX(ifilt)
          ADDCOL_NDOF_TRUEFLUX(ifilt)    = NDOF_TRUEFLUX(ifilt)
          ADDCOL_CHI2_FITPKMJD(ifilt)    = CHI2_FITPKMJD(ifilt)
-         ADDCOL_SNHOST_MAGOBS(ifilt,1)  = SNHOST_MAGOBS(ifilt,1)
-         ADDCOL_SNHOST_MAGOBS(ifilt,2)  = SNHOST_MAGOBS(ifilt,2)
+         ADDCOL_SNHOST_MAG(ifilt,1)     = SNHOST_MAGOBS(ifilt,1)
+         ADDCOL_SNHOST_MAG(ifilt,2)     = SNHOST_MAGOBS(ifilt,2)
+         ADDCOL_SNHOST_MAGERR(ifilt,1)  = SNHOST_MAGOBS_ERR(ifilt,1)
+         ADDCOL_SNHOST_MAGERR(ifilt,2)  = SNHOST_MAGOBS_ERR(ifilt,2)
          ADDCOL_SNHOST_SBFLUXCAL(ifilt) = SNHOST_SBFLUXCAL(ifilt)
          ADDCOL_SNHOST_SBMAG(ifilt)     = SNHOST_SBMAG(ifilt)
        ELSE
@@ -24454,12 +24471,21 @@
          VAL_NEW = CHI2_FITPKMJD(ifilt)
          ADDCOL_CHI2_FITPKMJD(IFILT_REMAP) = VAL_OLD + VAL_NEW
 
-         ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1) =  & 
+         ADDCOL_SNHOST_MAG(IFILT_REMAP,1) =  & 
                   SNHOST_MAGOBS(ifilt,1)      ! any band
-         ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,2) =  & 
+
+         ADDCOL_SNHOST_MAG(IFILT_REMAP,2) =  & 
                   SNHOST_MAGOBS(ifilt,2)      ! any band
+
+         ADDCOL_SNHOST_MAGERR(IFILT_REMAP,1) =  & 
+                  SNHOST_MAGOBS_ERR(ifilt,1)      ! any band
+
+         ADDCOL_SNHOST_MAGERR(IFILT_REMAP,2) =  & 
+                  SNHOST_MAGOBS_ERR(ifilt,2)      ! any band
+
          ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP) =  & 
                   SNHOST_SBFLUXCAL(ifilt)   ! any band
+
          ADDCOL_SNHOST_SBMAG(IFILT_REMAP) =  & 
                   SNHOST_SBMAG(ifilt)   ! any band
 

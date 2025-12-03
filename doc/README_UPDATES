@@ -23377,14 +23377,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_01) *****
 
-    snana.F90, sntools_dataformat_fits.c
+    snana.F90
      + read HOSTGAL_MAGERR
      + if  SNTABLE_LIST = 'SNANA(text:host)', include HOSTGAL_MAGERR
+     + if there are quantiles, call init_zpdf_spline so that MEAN and STD
+        are available even if there is no LC fit (init_zpdf_spline no
+        longer called from snlc_fit)
 
     get_fitres_values.py: 
       + sort output so that CIDs and VARIABLES appear in user-defined order
 
     *.F90: update PARAMETER statements to F90 syntax.
 
- 
 END: 

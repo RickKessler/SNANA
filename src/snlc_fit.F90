@@ -8579,7 +8579,7 @@
     REAL*8  & 
           GRAD(MXFITPAR)  & 
          ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT  & 
-         ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD, STP
+         ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
     CHARACTER FNAM*14
     REAL*8 GET_DIST8, USRFUN
     EXTERNAL USRFUN, init_zPDF_spline
@@ -8677,16 +8677,14 @@
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
-      LDMP_Q = .false.  ! RK - control debug dump with  flag
-      if ( LDMP_Q ) then
-          Print *, ' xxx Start init_zPDF_quantile for CID=', SNLC_CCID
-      endif
 
       if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
           c1err = 'zPDF quantiles requested for photo-z fit'
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
       endif
+
+#ifdef MARK_DELETE
       do q = 1, SNHOST_NZPHOT_Q
           ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
           ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
@@ -8696,33 +8694,26 @@
             call flush(6)
           endif
       enddo
-
-      CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
-
-#ifdef MARK_DELETE
       LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
       CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  & 
            CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),      & 
            IPRINT, MEAN, STD, IERR_ZPDF, ISNLC_LENCCID, 20)
-
       SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
       SNHOST_QZPHOT_STD(1)  = STD
 #endif
 
+      CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
+      MEAN = SNHOST_QZPHOT_MEAN(1) 
+      STD  = SNHOST_QZPHOT_STD(1)  
+
       if (IERR_ZPDF .NE. 0 ) then
 	   IERR = ERRFLAG_FITPREP_QUANTILES
 	   return
-	endif
-
-
-      if ( LDMP_Q ) then
-         Print *, ' xxx Finished init_zPDF_spline for CID=', SNLC_CCID
-         call flush(6)
       endif
 
 !     initialize at Q50
-        INIVAL(ipar) = MEAN
-        CZTMP        = 'QUANTILES'
+      INIVAL(ipar) = MEAN
+      CZTMP        = 'QUANTILES'
     ENDIF
 
 ! check cheat option (4/30/2012)

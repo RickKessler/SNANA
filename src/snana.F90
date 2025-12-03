@@ -17599,7 +17599,6 @@
 ! local var
     INTEGER   :: q, LM, IERR_ZPDF, IPRINT
     REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
-    CHARACTER :: CCID_forC(MXCHAR_CCID)
 
 
 ! ------------- BEGIN ---------------
@@ -17612,12 +17611,13 @@
     enddo
     
     LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
-    CCID_forC = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
     IPRINT    = 0   ! set to 1 for dump
+    if ( STDOUT_UPDATE ) IPRINT = 1
 
     CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  &
-         CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
-         IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, 20)
+         SNLC_CCID(1:ISNLC_LENCCID)//char(0),  &
+         METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
+         IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
 
     if (IERR .EQ. 0 ) then
        SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global

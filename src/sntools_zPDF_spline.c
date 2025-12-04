@@ -177,7 +177,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   zPDF_spline.pdf_max = pdf_max;
 
   if ( verbose ) {
-    printf("\t zPhot-quantile pdf(max) = %.2f mean = %.3f  std = %.3f for CID = %s\n", 
+    printf("\t zPhot-quantile pdf(max) = %5.2f  mean = %.3f  std = %.3f for CID = %s\n", 
 	   pdf_max,*mean, *std_dev,  cid);
     fflush(stdout);
   }

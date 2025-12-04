@@ -12232,13 +12232,13 @@
 ! - - - - - -
 
 ! check trivial case of flat-prior region
-    if ( PARVAL .GE. FLATPRIOR_RANGE(1,ipar) .and.  & 
-           PARVAL .LE. FLATPRIOR_RANGE(2,ipar) ) then
+    if ( PARVAL >= FLATPRIOR_RANGE(1,ipar) .and.  & 
+         PARVAL <= FLATPRIOR_RANGE(2,ipar) ) then
        CHI2_PRIOR = 0.0
        RETURN
     endif
 
-    OPTMASK = 1  ! 1=linear, 2=quadratic interp
+    OPTMASK = 1       ! 1=linear, 2=quadratic interp
     COMMENT = 'CHI2_PRIOR(' // PARNAME_STORE(ipar)(1:8) //  ')'
 
     TMPVAL = PARVAL
@@ -12254,7 +12254,6 @@
     CHI2_PRIOR = interp_1DFUN(OPTMASK, TMPVAL, NBIN_PRIOR,  & 
            PRIOR_VALGRID(1,IPAR), PRIOR_CHI2GRID(1,IPAR),  & 
            COMMENT//char(0), 40 )
-
 
     RETURN
   END FUNCTION CHI2_PRIOR

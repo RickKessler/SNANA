@@ -262,9 +262,9 @@ more than 100 \snana\ jobs.
 The main science codes are:
 \begin{verbatim}
   > $SNANA_DIR/src/snlc_sim.c     # simulation
-  > $SNANA_DIR/src/snlc_fit.car   # light curve fitting
-  > $SNANA_DIR/src/psnid.car      # psnid classifier
-  > $SNANA_DIR/src/SALT2mu.car    # implement BBC to create hubble diagram
+  > $SNANA_DIR/src/snlc_fit.F90   # light curve fitting
+  > $SNANA_DIR/src/psnid.F90      # psnid classifier
+  > $SNANA_DIR/src/SALT2mu.c      # implement BBC to create hubble diagram
 
   > $SNANA_DIR/util/create_covariance.py # create stat+syst cov matrix
   > $SNANA_DIR/util/submit_batch.sh      # submit batch jobs
@@ -2739,7 +2739,7 @@ and is stored in
 \end{verbatim}
 %
 The subroutines that read and interpolate the {\tt kcor} tables 
-are written in fortran, and are stored in {\tt snana.car}.
+are written in fortran, and are stored in {\tt snana.F90}.
 The \snana\ product includes a fortran library {\tt ../lib/libsnana.a},
 which allows C programs to use the fortran utilities.
 The {\tt extern} statements at the top of {\tt snlc\_sim.c}
@@ -4119,7 +4119,7 @@ sim-input file or in the fit-input namelist (\S\ref{subsec:fit_MWEBV}),
 i.e., are different than what was used to generate the kcor/calib file, 
 an extinction correction is computed at the central wavelength 
 of the observer-frame 
-filter.\footnote{See function {\tt GET\_MWXT8} in {\tt snana.car.}}
+filter.\footnote{See function {\tt GET\_MWXT8} in {\tt snana.F90.}}
 The correction is the extinction difference between using the
 sim-input (or fit-input) parameters and those used to generate 
 the kcor/calib file.
@@ -8154,13 +8154,13 @@ There are two separate namelists:
 	earliest \& latest times relative  to peak, 
 	maximum signal-to-noise, etc ... 
    	All namelist options are defined and commented inside
-  	\snanadir{\tt /src/snana.car}~.
+  	\snanadir{\tt /src/snana.F90}~.
 %
  \item	{\bf \tt \&FITINP:} defines fitting options such as priors,
      	marginalization, and range of $T_{\rm rest}$ in the second
 	fit-iteration.
      	All namelist options are defined and commented inside \\
-     	\snanadir{\tt /src/snlc\_fit.car}~. 
+     	\snanadir{\tt /src/snlc\_fit.F90}~. 
 \end{itemize}
 
 
@@ -8865,7 +8865,7 @@ variables
    ERRFLAG_FIT = -9    -> no fit done (i.e., CUTFLAG_SNANA=0 or snana.exe job)
    ERRFLAG_FIT =  0    -> no fitting errors
    ERRFLAG_FIT >  0    -> see error codes with
-                      grep  'ERRFLAG_'  \$SNANA_DIR/src/snlc_fit.car | grep '&'
+                      grep  'ERRFLAG_'  \$SNANA_DIR/src/snlc_fit.F90 | grep '&'
 \end{Verbatim}
 %
 where this table is created with {\tt LTUP\_SNANA=T}
@@ -9316,7 +9316,7 @@ is determined as
 \end{equation}
 where $\sigma_i$ is the quadrature sum of data and model errors
 and '$i$' is the epoch index.\footnote{See {\tt R4SN\_FFSUM\_XXX} 
-   variables in {\tt snlc\_fit.car}.}
+   variables in {\tt snlc\_fit.F90}.}
 The resulting $x_0$ or $\mu$ value is used to re-evaluate
 the $\chi^2$ at this grid-point. 
 After finding these four parameter estimates, 
@@ -9477,6 +9477,7 @@ are defined at the highest allowed $\Zphot$ set by the
 
 
 % ------------------------------------
+  \clearpage
    \subsubsection{4-Parameter Fit Using Host Galaxy Photo-$z$ }
    \label{sss:zphot_host}
 % ------------------------------------
@@ -9491,6 +9492,47 @@ Note that this will {\it not} perform a 5-parameter photo-$z$ fit,
 but instead uses the already determined host-galaxy photo-$z$
 as a fixed redshift in the fit. If any photo-$z$ fit flags are set
 with {\tt USE\_SNHOST\_ZPHOT=T}, the code will abort.
+
+
+% ------------------------------------
+   \subsubsection{Cosmology Prior}
+   \label{sss:zphot_cosmology_prior}
+% ------------------------------------
+
+For improved redshift fitting, a cosmology prior can be included;
+for example,
+\begin{verbatim}
+  &SNLCINP
+     OMAT_REF =  0.3, 0.03  ! value and uncertainty for prior 
+     W0_REF   = -1.0, 0.1   ! idem
+     WA_REF   = -0.4, 0.2   ! idem
+\end{verbatim}
+% 
+uses $\sigma_{\OM}=0.03$, $\sigma_{w0}=0.1$ and $\sigma_{wa}=0.02$ to calculate
+the $\mu$-error for the photoZ at each fit-iteration. 
+The $\chi^2$ prior term is
+\begin{equation}
+   \chi_{\mu{\rm -prior}}^2 = \left[ \frac{ \Delta\mu  }{ \sigma_{\mu} \times {\rm\tt PRIOR\_MUERRSCALE} } \right]^2
+\end{equation}
+%
+where 
+\newcommand{\muTripp}{\mu_{\rm Tripp}}
+\newcommand{\muTheory}{\mu_{\rm theory}}
+\newcommand{\rhowowa}{\rho_{w0wa}}
+\begin{itemize}
+  \item $\Delta\mu = \muTripp - \muTheory$, with $\muTripp = m_x + 0.14x_1 - 3.2c$ and 
+    $\muTheory$ is computed using $\Zphot$ and cosmology parameters from
+    {\tt \&SNLCINP} namelist inputs {\tt OMAT\_REF}, {\tt W0\_REF}, {\tt WA\_REF};
+    \item $\sigma_\mu^2 = [\delta_{\mu}(\OM)]^2 + [\delta_{\mu}(w_0)]^2 + [\delta_{\mu}(w_a)]^2 
+          + [ 2 \rhowowa \times \delta_{\mu}(w_0) \times \delta_{\mu}(w_a)] $ ~~~where \\
+          $\delta_{\mu}(\OM) = \mu({\OM} +\delta_{\OM}) - \mu(\OM)$
+          with $\OM = {\rm\tt OMAT\_REF(1)}$ and $\delta_{\OM} = {\rm\tt OMAT\_REF(2)}$,
+          and similarly for $\delta_{\mu}(w_0)$ and $\delta_{\mu}(w_a)$,
+          and $\rhowowa = -0.8$ is hard-coded (see {\tt RHO\_W0WA} in {\tt snlc\_fit.F90}).
+    \item {\rm\tt PRIOR\_MUERRSCALE} is a {\tt \&FITINP} namelist input to soften the cosmology prior
+      by inflating the computed distance uncertainty $\sigma_{\mu}$.
+\end{itemize}
+
 
 % ------------------------------------
    \clearpage
@@ -10866,8 +10908,8 @@ the executable file {\tt myfit.exe}.
 
 In addition to adding private code into the {\tt USR[INI,ANA,END]}
 routines, you can also modify the official public code. 
-Copy any subroutine from {\tt \$SNANA\_DIR/src/snana.car} or 
-{\tt snlc\_fit.car},
+Copy any subroutine from {\tt \$SNANA\_DIR/src/snana.F90} or 
+{\tt snlc\_fit.F90},
 paste it into your private {\tt snlc\_fit\_private.cra},
 and then make modifications. Once these changes are fully tested,
 you can request that the modified routine(s) be installed into
@@ -11365,7 +11407,7 @@ reading light curves and applying selection requirements
 is done the same way. Instead of defining a {\tt\&FITINP} namelist
 for the {\snfitter} program, there is a {\tt\&PSNIDINP}
 namelist with declarations and definitions in
-{\tt \$SNANA\_DIR/src/psnid.car}.
+{\tt \$SNANA\_DIR/src/psnid.F90}.
 The {\psnid} architecture allows for arbitrary methods based 
 on SNIa and CC templates. The templates are created with the 
 simulation program ({\simexe}) as described in \S\ref{ssec:grid}.
@@ -11397,7 +11439,7 @@ and the main namelist keys are as follows
 The default template location is ``{\tt \$SNDATA\_ROOT/models/psnid}''
 unless {\tt PRIVATE\_TEMPLATES\_PATH} is specified.
 In addition to these control keys, there are many variables 
-(see {\tt psnid.car}) to control the detailed behavior
+(see {\tt psnid.F90}) to control the detailed behavior
 of the classification algorithm.
 
 
@@ -11836,7 +11878,7 @@ Simulation input keys  for  {\tt snlc\_sim.exe} :
    INISTP_SHAPE   = xxx  ! 0 => fix DELTA to INIVAL_SHAPE; else float
    INIVAL_SHAPE   = xxx
 
-   PRIOR_DELTA_PROFILE = xxx, xxx, xxx, xxx  ! grep snlc_fit.car for details
+   PRIOR_DELTA_PROFILE = xxx, xxx, xxx, xxx  ! grep snlc_fit.F90 for details
 \end{Verbatim}
 
 
@@ -14960,7 +15002,7 @@ include a common set of cuts via the {\tt \&SNLCINP} namelist.
 Unfortunately these cut parameters are documented only within
 the code, e.g.,
 \begin{verbatim}                                                               
-   grep cutvar_name $SNANA_DIR/src/snana.car | grep CUTBIT
+   grep cutvar_name $SNANA_DIR/src/snana.F90 | grep CUTBIT
 \end{verbatim}
 and for each {\tt CUTBIT\_XXX} there is an associated 
 {\tt CUTWIN\_XXX} for {\tt \&SNLCINP} or command line override.

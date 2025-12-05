@@ -11395,7 +11395,27 @@
     RETURN
   END SUBROUTINE FITINI_PRIORS
 
-
+  SUBROUTINE FITINI_PRIOR_MUERR()
+    ! Created DEC 5 2025 by Jonah Medoff
+    ! If using cosmology prior for photo-z fit, compute muerr on redshift grid for faster computation during fit
+    ! .xyz
+    USE SNLCINP_NML
+    USE FITINP_NML
+    ! PHOTOZ_BOUND(2)
+    
+    IMPLICIT NONE
+    REAL :: DZBIN = 0.01
+    REAL :: ZMIN, ZMAX
+    INTEGER :: NBIN, i
+    ! begin
+    ZMIN = PHOTOZ_BOUND(1)
+    ZMAX = PHOTOZ_BOUND(2)
+    NBIN = int((ZMAX-ZMIN)/DZBIN)+1
+    
+    PRINT*,'xxx NBIN = ',NBIN
+    RETURN
+  END SUBROUTINE FITINI_PRIOR_MUERR
+    
 ! ==========================================
     SUBROUTINE FITINI_ZPRIOR(LSTAT)
 ! 
@@ -11578,7 +11598,8 @@
 50    CONTINUE
 
     LSTAT = .TRUE.
-
+    ! .xyz
+    CALL FITINI_PRIOR_MUERR()
     RETURN
   END SUBROUTINE FITINI_MUPRIOR
 

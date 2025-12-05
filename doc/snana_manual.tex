@@ -8894,7 +8894,7 @@ attempted; this occurs if the snana cuts fail
 Here we describe light curve fits that determine the
 SN~Ia redshift ($z$) from photometry, called ``SN-photoZ'' fits.
 There are two fundamental methods to perform photoZ fits.
-The first method, called a ``constrained photoZ fit,'' 
+The first method, called a ``cosmology-constrained photoZ fit,'' 
 is designed to identify SNe~Ia that do not have
 a \spec\ redshift: uses include SN rates and targeting
 host-galaxy redshifts for unconfirmed SN~Ia.
@@ -8904,27 +8904,25 @@ For \SALTII\ photoZ fits, the four floated parameters are
 $z$, $t_0$, $x_1$, and $c$.
 %
 The distance modulus is constrained (calculated)
-assuming a particular cosmology: $\mu = \mu(z,\OM,\OL,w)$
-where $z$ is floated in the fit, and $\OM,\OL,w$ are
+assuming a particular cosmology: $\mu = \mu(z,\OM,\OL,w_0,w_a)$
+where $z$ is floated in the fit, and $\OM,\OL,w_0,w_a$ are
 fixed by the user.  The cosmology can be specified
 with \&SNLCINP namelist parameters
-{\tt H0\_REF}, {\tt OMAT\_REF}, and {\tt OLAM\_REF}.
+{\tt OMAT\_REF}, {\tt OLAM\_REF}, {\tt W0\_REF}, {\tt WA\_REF}.
 For \SALTII\ photoZ fits, the distance modulus is converted
 into the $x_0$ parameter, and therefore 
 {\tt SALT2alpha} \& {\tt SALT2beta} must be specified
 as \&FITINP namelist parameters.
 
-The second method, called a ``cosmology-photoZ'' fit,
+
+The second method, called a ``unconstrained photoZ'' fit,
 involves floating five parameters:
 $\mu$, $z$, $t_0$, $\Delta$, and $A_V$ for \mlcs, and
 $x_0$, $z$, $t_0$, $x_1$, and $c$ for \SALTII.
 This method is designed to use large photometric samples
 to measure distance moduli that can be used to measure
-cosmological parameters. One of the difficulties with
-the 5-parameter fit is CPU time:
-the marginalization takes a few minutes per fit,
-so studying the bias on a sample of $10^4$ simulated
-SNe~Ia requires about a CPU-month of resources.
+cosmological parameters. 
+
 
 In addition to the two main methods above, there are
 variations that involve using the host-galaxy photoZ
@@ -8934,7 +8932,7 @@ method (5-parameter fit); this is essentially a
 constrained-photoZ fit, but the photoZ errors will include 
 uncertainties from the cosmological parameters.
 Needless to say, {\it never} run a cosmology fit
-on ouput where a distance-modulus prior is used !
+on lightcurve-fit ouput where a distance-modulus prior is used with zero uncertainty.
 
 There are five {\tt \&FITINP} namelist parameters that
 control photoZ fits. The default values are set so
@@ -8949,25 +8947,28 @@ that photoZ fits are turned off,
 \end{Verbatim}
 %
 Setting {\tt DOFIT\_PHOTOZ=T} and {\tt INISTP\_DLMAG=0.0}
-results in a 4-parameter constrained-photoZ fit.
+results in a 4-parameter cosmology-constrained-photoZ fit.
 Since {\tt PRIOR\_ZERRSCALE=100.0} by default, the host-photoZ
 errors are multiplied by 100 and therefore have no impact on the fits.
 Setting {\tt PRIOR\_ZERRSCALE = 1.0} results in using the 
 host-photoZ prior described by a Gaussian 
 distribution\footnote{Depending on user interest, 
 non-Gaussian tails may be added later.}.
+If the host photo-$z$ is described by a zPDF unpacked from quantiles,
+{\tt PRIOR\_ZERRSCALE<100} is simply a flag to use the host zPDF,
+but the value is not applied to the zPDF.
 
-
-To switch from a constrained-photoZ fit to a 5-parameter
-cosmology-photoZ fit, set {\tt INISTP\_DLMAG} to any
+To switch from a cosmology-constrained-photoZ fit to a 5-parameter
+unconstrained-photoZ fit, set {\tt INISTP\_DLMAG} to any
 non-zero value such as 0.1. The use (or non-use) of the
 host-photoZ prior is controlled by the value of 
-{\tt PRIOR\_ZERRSCALE}.
+{\tt PRIOR\_ZERRSCALE}. {\tt PRIOR\_MUERRSCALE} controls the
+cosmology prior as described in  \S~\ref{sss:zphot_cosmology_prior}.
 The parameter {\tt OPT\_PHOTOZ} controls the source of
 the redshift prior as follows:
 %
 \begin{verbatim}
-   OPT_PHOTOZ += 1   ! use host zPhot mean and Gauss sigma
+   OPT_PHOTOZ += 1   ! use host zPhot  mean and Gauss sigma
    OPT_PHOTOZ += 2   ! use best-z (spec or host photo-z) 
    OPT_PHOTOZ += 4   ! use photo-z PDF unpacked from quantiles; cubic interp
    OPT_PHOTOZ += 8   ! use photo-z PDF unpacked from quantiles; Steffan interp
@@ -8977,11 +8978,8 @@ the redshift prior as follows:
    OPT_PHOTOZ += 64  ! CHEAT: set initial zPhot=zSpec and skip grid search (for debug)
 \end{verbatim}
 %
-%When {\tt DOFIT\_PHOTOZ=T}, 
-%{\tt OPT\_PHOTOZ} is automatically set to 1 so that the
-%host-photoZ Gaussian prior is used.  
 Setting {\tt OPT\_PHOTOZ=1} forces using host photo-z Gaussian prior, 
-even if spec-$z$ is available.
+even if spec-$z$ are available. For quantiles, the mean and stddev are used as Gauss prior.
 {\tt OPT\_PHOTOZ=2} uses the best redshift (spec or photo-$z$)
 as a Gaussian prior, and is useful for samples with a mix of spec-$z$ and 
 photo-$z$ redshifts.
@@ -9004,30 +9002,9 @@ is to define {\tt \&SNLCINP} input {\tt QUANTILE\_ZERRMIN = 0.01};
 this identifies spec-$z$ if redshift uncertainty is below 0.01.
 
 
-%When {\tt OPT\_PHOTOZ$>0$}, the {\tt DOFIT\_PHOTOZ} flag is
-%automatically set, and vice-versa: thus the
-%photo-$z$ option can be enabled with either namelist variable.
-
-If {\tt PRIOR\_MUERRSCALE} is 100 or larger (the default),
-then there is no prior applied to the distance modulus ($\mu$).
-Setting {\tt PRIOR\_MUERRSCALE = 2} will apply a $\mu$-prior
-using a Gaussian profile of width $\sigma = 2\sigma_{\mu}$,
-where $\sigma_{\mu}$ is calculated from the user-specified
-uncertainties in the cosmological parameters.
-Note that {\tt OMAT\_REF}, and {\tt W0\_REF} are two-dimensional
-arrays that specify both the value and error. 
-For example,
-\begin{verbatim}
-   OMAT_REF =  0.3, 0.03  
-   W0_REF   = -1.0, 0.1
-\end{verbatim}
-% 
-would use $\sigma_w=0.1$ and $\sigma_M=0.03$ to calculate
-the $\mu$-error for the photoZ at each fit-iteration.
 
 To get going quickly, some useful examples of setting
 the namelist options are given below in Fig.~\ref{fig:photoZ}.
-
 
 \bigskip
 A few other photoZ-related issues are:
@@ -9495,7 +9472,7 @@ with {\tt USE\_SNHOST\_ZPHOT=T}, the code will abort.
 
 
 % ------------------------------------
-   \subsubsection{Cosmology Prior}
+   \subsubsection{Cosmology Prior and {\tt PRIOR\_MUERRSCALE}}
    \label{sss:zphot_cosmology_prior}
 % ------------------------------------
 
@@ -9508,7 +9485,7 @@ for example,
      WA_REF   = -0.4, 0.2   ! idem
 \end{verbatim}
 % 
-uses $\sigma_{\OM}=0.03$, $\sigma_{w0}=0.1$ and $\sigma_{wa}=0.02$ to calculate
+uses $\sigma_{\OM}=0.03$, $\sigma_{w0}=0.1$ and $\sigma_{wa}=0.2$ to calculate
 the $\mu$-error for the photoZ at each fit-iteration. 
 The $\chi^2$ prior term is
 \begin{equation}

@@ -23389,4 +23389,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     *.F90: update PARAMETER statements to F90 syntax.
 
+    SALT2mu.c
+      + write chi2max rejects by IDSAMPLE
+
 END: 

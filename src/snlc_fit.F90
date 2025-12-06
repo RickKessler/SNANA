@@ -25,80 +25,11 @@
 !   FCNSNLC      : function to minimize for MINUIT
 ! 
 ! 
-!        HISTORY (2011-)
+!        HISTORY 
 !  ~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! 
-! Jun 2, 2011: OPT_COVAR_FLUX > 0 now works with SALT2 model.
-!              See call to new function  GENCOVAR_SALT2().
-! 
-! Jul 25, 2011: replace code for SIMEFF.
-!               Use utility INIT_SIMEFF and GET_SIMEFFMAP
-!               New shell function SNLC_FIT_SIMEFF()
-! 
-! July 26, 2011: FUDGE_FITERR_PASSBANDS*8 -> FUDGE_FITERR_PASSBANDS*80
-! 
-! Sep 29, 2011: remove obsolete MAGERR_FILT
-! 
-! Oct 19, 2011: define new FITNML variables FITWIN_TREST and FITWIN_MJD
-!               to eventually replace TREST_REJECT and MJD_REJECT.
-!               Note these variables are just defined ...not implemented.
-! 
-! Oct 28, 2011: new &FITNML variable OPT_NTUP_FITRES for ntuple options.
-! 
-! Jan 05, 2012:
-!    Replace MJD_REJECT -> FITWIN_MJD and TREST_REJECT -> FITWIN_TREST.
-!    Allow legacy nnl variables using EQUIVLANCE to new variables.
-! 
-!    New &FITINP namelist variable string FITWIN_TREST_FILTER
-!    to set filter-dependent TREST selection.
-!    See new subroutine SETCUTS_FITWIN_TREST.
-! 
-!    EP_SNRMAX -> EP_SNRMAX_FIT and EP_SNRMAX_RAW ;
-!    the former includes the error fudge, the latter does not.
-!    The former (with error fudge) is used for sorted SNRMAX
-!    while the latter goes into the ntuple for SNRMAX_[filt]
-! 
-! Feb 03, 2012: OPT_NEARFILT is now obsolete, but leave it in
-!               &FITINP to avoid aborts.
-! 
-! Feb 12, 2012: new option FILTLIST_FITRESTMAG = 'X' to fit for
-!               rest-frame mag in filter X. See manual.
-! 
-! May 17, 2012: remove obsolete DMP_FITSORT
-! 
-! Sep 28,2012:  new suborutine CWNTUP_FITRES(isn) to give column-wise
-!               ntuple instead of row-wise. Can get legacy RWN using
-!                 OPT_LEGACY_RWNT = 1 (RWNT id=7788, no CWNT)
-!                 OPT_LEGACY_RWNT = 3 (RWNT id=7788, and CWNT id=6666)
-! 
-! Nov 26, 2012:
-!    fix bug applying optional user-defined  RESTLAMBDA_FITRANGE.
-!    See new variable RESTLAMBDA_USEFIT ... the range actually used.
-! 
-! Feb 01, 2013: remove OPT_LEGACY_RWNT
-! 
-! Mar 22, 2013: new option FILTER_FITMAGDIF; fit this filter only,
-!               then fit all other filters; plot difference in peakmag.
-! 
-! Apr 7, 2013:
-!   New namelist variables with LUMI -> SHAPE :
-!    LUMIFIX_FITRESTMAG    -> SHAPEFIX_FITRESMAG
-!    USESIM_LUMIPAR        -> USESIM_SHAPE
-!    FITWIN_LUMIPAR        -> FITWIN_SHAPE
-!    INISTP_LUMIPAR        -> INISTP_SHAPE
-!    INIVAL_LUMIPAR        -> INIVAL_SHAPE
-!    PRIOR_LUMIPAR_RANGE   -> PRIOR_SHAPE_RANGE
-!    PRIOR_LUMIPAR_SIGMA   -> PRIOR_SHAPE_SIGMA
-!  Keep old LUMIPAR nml variables for back-compatibility
-! 
-! Sep 8 2104: changes for new SNTABLE_LIST system of outputs.
-!   remove obsolete &FITINP variable OPT_NTUP_FITRES
-!   remove obsolete subroutine TABLE_PARNAMES
-! 
-! Apr 2 2018:
-!  + new &FITINP inputs PRIOR_COLOR_RANGE(2) and PRIOR_COLOR_SIGMA
-! 
-! Jul 31 2018: rename SIM_NONIa -> SIM_TEMPLATE_INDEX
+! Dec 2025: translate to fotran 90 [.F90]
+
 ! --------------------------------------------------------
 
 
@@ -207,23 +138,6 @@
 
   END MODULE SNFITPAR
 
-! =====================================================================
-  MODULE SIMEFFCM
-    USE SNPAR
-    IMPLICIT NONE
-
-    INTEGER, PARAMETER ::           & 
-         MXPAR_SIMEFF         = 10  & 
-        ,IPAR_SIMEFF_REDSHIFT = 51  &  ! much larger than IPAR_MAX
-        ,IPAR_SIMEFF_MWEBV    = 52  
-
-    INTEGER  & 
-         NPAR_SIMEFF  & 
-        ,IPAR_SIMEFF(MXPAR_SIMEFF)
-
-    REAL*8  PARVAL8_SIMEFF(MXPAR_SIMEFF) ! Z, AV, DELTA, etc ...
-
-  END MODULE SIMEFFCM
 
 ! =====================================================================
   MODULE SNFITVAR
@@ -502,7 +416,6 @@
     CHARACTER  & 
           FITMODEL_NAME*(MXCHAR_FILENAME)     &  ! I: path/model
          ,FITCOVAR_FILE*(MXCHAR_FILENAME)     &  ! I: '' => default, 'SIM' => from sim (for MLCS2k2)
-         ,SIMEFF_FILE*(MXCHAR_FILENAME)       &  ! sim-eff file for PRIOR
          ,STRETCH_TEMPLATE_FILE*(MXCHAR_FILENAME)   &  ! template for stretch model
          ,SALT2_DICTFILE*(MXCHAR_FILENAME)     &  ! output for SALT2's HUBBLEFIT
          ,FILTLIST_FIT*(MXFILT_ALL)     &  ! I: char list of filters to fit:
@@ -643,7 +556,6 @@
         ,FUDGE_COVAR       &  ! I: fudge normalized covariances (0=> no fudge)
         ,SCALE_COVAR       &  ! I: scale entire covariance matrix by this factor
         ,LANDOLT_COLOR_SHIFT(10)   &  ! shifts in color terms (if OPT_LANDOLT>0)
-        ,ZSCALE_SIMEFF          &  ! scale redshift for SIMEFF call.
         ,TREST_PEAKRENORM(2)    &  ! I: Trest-range to renorm peakFlux for FPKRAT
         ,TREST_DMPFUN(2)        &  ! I: Trest-range for FILTLIST_DMPFUN
         ,SCALE_PLOTCHI2         &  ! I: for HFUNMIN
@@ -663,8 +575,6 @@
         ,OPT_LANDOLT        &  ! I: bit1 => convert Bessell -> Landolt
         ,OPT_PRIOR          &  ! I: 1=use prior; 0=turn off all priors
         ,OPT_PRIOR_AV       &  ! I: 1=> nominal (default), 0=> flat
-        ,OPT_PRIOR_SIMEFF   &  ! I: internally set based on SIMEFF_FILE
-        ,OPT_SIMEFF         &  ! I: obsolete => ABORT if non-zero !!!
         ,OPT_MNSTAT_COV     &  ! I: 1-> repeat on bad value
         ,SIMFIT_IDEAL_PRESCALE   &  ! I: pre-scale sample for including IDEAL fit
         ,NGRID_PDF      &  ! I: number of grid-bins for each dimens of pdf
@@ -751,7 +661,7 @@
          ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH  & 
          ,USE_MODEL_MAGERR, DOCHI2_SIGMA, OPT_CHI2_SIGMA  & 
          , LAMREST_MODEL_SMOOTH  & 
-         ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz  & 
+         ,CHECK_CRAZYFITERR, ADD_SALT2ERR_FROMz  & 
          ,ENABLE_MAGSHIFT_SALT2, ENABLE_WAVESHIFT_SALT2  & 
          ,ALLOW_NEGFLUX_SALT2  & 
          ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE  & 
@@ -783,7 +693,7 @@
          ,FRACERRDIF_REPEATFIT  & 
          ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR  & 
          ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT  & 
-         ,OPT_LANDOLT, ZSCALE_SIMEFF, UCOR_BXB  & 
+         ,OPT_LANDOLT, UCOR_BXB  & 
          ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ  & 
          ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ  & 
          ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT  & 
@@ -795,7 +705,7 @@
          ,PRIOR_SHAPE2_RANGE, PRIOR_SHAPE2_SIGMA  & 
          ,PRIOR_LUMIPAR_RANGE, PRIOR_LUMIPAR_SIGMA   &  ! legacy
          ,PRIOR_DELTA_PROFILE  & 
-         ,OPT_PRIOR, OPT_PRIOR_AV, OPT_SIMEFF  & 
+         ,OPT_PRIOR, OPT_PRIOR_AV  & 
          ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE  & 
          ,MINOS_ERR_DLMAG, MINOS_ERR_REQALL0, MINOS_ERR_REQALL1  & 
          ,MINOS_ERRMAX_BAD  & 
@@ -1234,18 +1144,6 @@
 
     CALL LANDOLT_PREP()
 
-! Parse filter lambda-shifts;
-! OPT=0 to NOT error-check filter because Bessell-B
-! is usually not an observer-frame filter.
-
-! xxxxxxx mark delete Apr 12 2025 xxxxxxxx
-!      CALL PARSE_FILTSTRING(0, FILTLAM_SHIFT, NF_DEF, iafilt, xafilt )
-!      DO i = 1, NF_DEF
-!         ifiltdef            = IAFILT(i)
-!         FILTOBS_LAMSHIFT(ifiltdef) = xafilt(i)  ! global R*4 storage
-!      ENDDO
-! xxxxxxxxxxxxxxxxx
-
 ! ---------------------
 ! print WARNING if fitting subset of filters.
     Len1 = INDEX(SURVEY_FILTERS,' ') - 1
@@ -1431,9 +1329,6 @@
        c2err = 'Check &FITINP namelist'
        CALL MADABORT("FITPAR_INI", c1err, c2err )
     ENDIF
-
-! check for simulated efficiency map to use as prior
-    CALL INIT_PRIOR_SIMEFF
 
 ! ============================================
 ! load IFILTMAP_MODEL array and its inverse
@@ -4348,11 +4243,7 @@
 
             print*,' '
             DO ipar = 0, IPAR_MAX
-              if ( ipar .EQ. 0 ) then
-                  CVAR = 'SIMEFF'
-              else
-                  CVAR = PARNAME_STORE(ipar)
-              endif
+              CVAR = PARNAME_STORE(ipar)
               if ( CHI2PRIOR(ipar) .GT. 0.0 ) then
                 write(6,690) CVAR, CHI2PRIOR(ipar)
 690               format(T8,'CHI2PRIOR(', A8, ') = ', G12.4 )
@@ -4881,7 +4772,6 @@
         ,PRIOR_ZPULL  & 
         ,PRIOR_MUPULL  & 
         ,GET_RV8  & 
-        ,SNLC_FIT_SIMEFF  & 
         ,eval_zPDF_spline
 
     EXTERNAL eval_zPDF_spline
@@ -5026,15 +4916,6 @@
       CHI2PRIOR(IPAR_COLOR)  & 
                 = CHI2_PRIOR(IPAR_COLOR,COLOR)
     ENDIF
-
-! ----------------------------------------------
-! Jul 25, 2011: prior for simulated efficiency
-
-    IF ( OPT_PRIOR_SIMEFF .GT. 0  ) THEN
-       EFF = SNLC_FIT_SIMEFF(ISN,XVAL)
-       CHI2PRIOR(0) = -2.0*DLOG( EFF )
-    ENDIF
-
 
 ! =================================================
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888 ! restore 6/19/23
@@ -6251,84 +6132,6 @@
     RETURN
   END FUNCTION GET_DIST8
 
-! ===================================================
-    DOUBLE PRECISION FUNCTION SNLC_FIT_SIMEFF(isn,XVAL)
-! 
-! Created Jul 25, 2011
-! Return simulated efficiency for this SN (ISN)
-! and fit-parameters (XVAL)
-! Fill variables needed to get efficiency,
-! and then call utility GET_SIMEFFMAP().
-! 
-! -----------------------
-
-    USE SNDATCOM
-    USE SNFITCOM
-    USE SNANAFIT
-    USE FILTCOM
-    USE SIMEFFCM
-
-    IMPLICIT NONE
-
-! function args
-    INTEGER ISN          ! (I) sparse SN index
-    REAL*8  XVAL(*)      ! (I) current fit parameters
-
-! local variables
-
-    REAL*8  EFF
-    INTEGER OPTEFF, ipar, ipar2, j
-
-! define EFFMIN so that EFF > 0 to avoid log(0) problems
-    REAL*8, PARAMETER :: EFFMIN = 1.0E-10
-
-! functions
-    REAL*8   GET_SIMEFFMAP
-    EXTERNAL GET_SIMEFFMAP  ! inside sntools.c
-
-!  ------------- BEGIN ------------
-
-    IF ( DOFIT_PHOTOZ ) THEN
-      OPTEFF = 1     !   EFF -> EFF/EFFMAX
-    ELSE
-      OPTEFF = 0
-    ENDIF
-
-! load up the PARVAL_SIMEFF
-    DO 100 ipar   = 1, NPAR_SIMEFF
-
-       PARVAL8_SIMEFF(ipar) = -999.
-       ipar2  = IPAR_SIMEFF(ipar)
-
-       if ( ipar2 .LE. IPAR_MAX ) then
-          PARVAL8_SIMEFF(ipar) = XVAL(IPAR2)
-          goto 100
-       endif
-
-       if ( ipar2 .EQ. IPAR_SIMEFF_REDSHIFT ) then
-          PARVAL8_SIMEFF(ipar) = ZSCALE_SIMEFF * XVAL(IPAR_zPHOT)
-          goto 100
-       endif
-
-       if ( ipar2 .EQ. IPAR_SIMEFF_MWEBV ) then
-          PARVAL8_SIMEFF(ipar) = SNLC_MWEBV
-          goto 100
-       endif
-
-! if we get here then abort
-
-
-100   CONTINUE
-
-
-! get efficiency
-
-    EFF = GET_SIMEFFMAP(OPTEFF, NPAR_SIMEFF, PARVAL8_SIMEFF )
-    SNLC_FIT_SIMEFF = MAX(EFF,EFFMIN)
-
-    RETURN
-  END FUNCTION SNLC_FIT_SIMEFF
-
 
 ! ====================================================
     SUBROUTINE FITMODEL_INI()
@@ -6898,18 +6701,6 @@
 ! HISTORY
 ! ---------------------
 ! 
-! Sep 30, 2090: Hard-wire DOCHI2_SIGMA = .TRUE.  for photoz fits
-! 
-! Jul 20, 2011: on error call MADABORT with informative message
-!               rather than returning IERR=-1.
-! 
-! Jul 25, 2011: abort if OPT_SIMEFF != 0
-! 
-! Aug 20, 2011:
-!  FITWIN_CHI2SIGMA is wide open by default instead of -10 to 50
-! 
-! Aug 28, 2012: udpate defaults for OPT_XTMW_ERR and OPT_COVAR_FLUX
-! Mar 17, 2018: INISTP_COLOR -> 0.03 (was 0.2)
 ! -------------------------------------
 
     USE SNFITPAR
@@ -7093,15 +6884,11 @@
     MINOS_ERR_REQALL1 = .FALSE.
     OPT_COVAR_LCFIT = 0   ! default: do not fix un-invertible COV(x0,x1,c)
 
-    SIMEFF_FILE   =  ' '
-
     STRETCH_TEMPLATE_FILE = ' '
     SALT2_DICTFILE        = ' '
     SALT2alpha            = 0.14  ! -> JLA value, Dec 2014
     SALT2beta             = 3.20  ! -> JLA value
     OPT_SALT2FIT          = 0  ! 0 => nominal SALT2 defn
-
-    ZSCALE_SIMEFF = 1.0
 
     TREST_PEAKRENORM(1) = 0.0  ! default is no peak renorm
     TREST_PEAKRENORM(2) = 0.0
@@ -7174,8 +6961,6 @@
 
     OPT_PRIOR      = 1
     OPT_PRIOR_AV   = 1
-    OPT_PRIOR_SIMEFF = 0
-    OPT_SIMEFF     = 0   ! obsolete ; abort if set to non-zero
 
     OPT_MNSTAT_COV = 1   ! 1-> repeat fit on MNSTAT_COV<3 (bad cov)
 
@@ -7306,7 +7091,6 @@
 ! ------------------
 ! check option to turn off all priors.
     IF ( OPT_PRIOR .LE. 0 ) THEN
-      OPT_PRIOR_SIMEFF       =  0
       PRIOR_AVEXP(1)         = -1.0
       PRIOR_AVEXP(2)         = -1.0
       PRIOR_SHAPE_RANGE(1)   = -8.0
@@ -7318,11 +7102,6 @@
       PRIOR_DELTA_PROFILE(4) =  1.0
     ENDIF
 
-    IF ( OPT_SIMEFF .NE. 0 ) THEN
-       C1ERR = '&FITINP namelist variable OPT_SIMEFF is obsolete'
-       C2ERR = 'Remove OPT_SIMEFF and use SIMEFF_FILE'
-       CALL MADABORT('RDFITNML', C1ERR, C2ERR)
-    ENDIF
 ! -------------------------------------
 ! Convert FILTLIST_XXX strings into logical arrays
 
@@ -7334,13 +7113,7 @@
        USE_MODEL_MAGERR = .FALSE.
     endif
 
-    USE_AVPRIOR = (OPT_PRIOR_AV   .GT. 0) .and.  & 
-                    (prior_avexp(1) .GT. 0.0 )
-
-! turn off sim efficiency code if there is no AV prior.
-    if ( .not.  USE_AVPRIOR ) then
-       OPT_PRIOR_SIMEFF  = 0
-    endif
+    USE_AVPRIOR = (OPT_PRIOR_AV   .GT. 0) .and. (prior_avexp(1) .GT. 0.0 )
 
 ! check PHOTOZ stuff.
 
@@ -7548,14 +7321,6 @@
 
       else if ( MATCH_NMLKEY('OPT_SALT2FIT', 1,i,ARGLIST) ) then
           READ(ARGLIST(1),*) OPT_SALT2FIT
-
-! xxxxxxxx mark delete xxxx
-!        else if ( MATCH_NMLKEY('FILTLAM_SHIFT', 1,i,ARGLIST) ) then
-!            READ(ARGLIST(1),*) FILTLAM_SHIFT
-! xxxxx mark
-
-      else if ( MATCH_NMLKEY('SIMEFF_FILE', 1,i,ARGLIST) ) then
-          READ(ARGLIST(1),*) SIMEFF_FILE
 
       else if ( MATCH_NMLKEY('TREST_PEAKRENORM', 2,i,ARGLIST) ) then
           READ(ARGLIST(1),*) TREST_PEAKRENORM(1)
@@ -7851,9 +7616,6 @@
 
       else if (MATCH_NMLKEY('OPT_KCORERR', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) OPT_KCORERR
-
-      else if (MATCH_NMLKEY('ZSCALE_SIMEFF', 1,i,ARGLIST)) then
-          READ(ARGLIST(1),*) ZSCALE_SIMEFF
 
       else if (MATCH_NMLKEY('LKCOR_AVWARP', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) LKCOR_AVWARP
@@ -12477,122 +12239,6 @@
     RETURN
   END FUNCTION PRIOR_MUPULL
 
-! ==========================================
-    SUBROUTINE INIT_PRIOR_SIMEFF
-! 
-! Jul 25, 2011
-! Initialize simulated efficiency for prior.
-! Also make plots of simulated efficiency vs. Z and
-! other variables.
-! 
-! ------------------
-
-
-    USE SNDATCOM
-    USE SNFITCOM
-    USE SIMEFFCM
-    USE SNANAFIT
-
-    IMPLICIT NONE
-
-    INTEGER   L1, L2, ivar, ipar, NWD, MSKOPT
-    CHARACTER  & 
-         VARNAMES*200, NAME*(MXCHAR_FILEWORD)  & 
-        ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME), FNAM*20
-
-    LOGICAL USE_SIMEFF
-
-! function
-    INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS
-    EXTERNAL INIT_SIMEFFMAP, STORE_PARSE_WORDS
-
-! ------------------- BEGIN ---------------
-
-    IF ( OPT_PRIOR    .EQ. 0 ) RETURN
-
-    FNAM = 'INIT_PRIOR_SIMEFF'
-
-    USE_SIMEFF = SIMEFF_FILE .NE. ' '
-
-    IF ( USE_SIMEFF ) THEN
-       OPT_PRIOR_SIMEFF = 1
-       global_banner =  & 
-            'INIT_PRIOR_SIMEFF: PRIOR multiplied by sim-efficiency'
-    ELSE
-       global_banner =  & 
-            'INIT_PRIOR_SIMEFF: sim-efficiency NOT used for PRIOR.'
-    ENDIF
-
-    CALL PRBANNER( global_banner(1:60) )
-
-    IF( .NOT. USE_SIMEFF ) RETURN
-
-! ---------------------------------------------
-
-    L1 = INDEX(SIMEFF_FILE,' ') - 1
-    SIMEFF_FILE_LOC = SIMEFF_FILE(1:L1) // CHAR(0)
-    NPAR_SIMEFF = INIT_SIMEFFMAP(SIMEFF_FILE_LOC, VARNAMES, L1)
-
-
-! translate VARNAMES string into variable names and fill
-! IPAR_SIMEFF array for faster lookups.
-
-    MSKOPT = MSKOPT_PARSE_WORDS_STRING
-    NWD = STORE_PARSE_WORDS(MSKOPT, VARNAMES//char(0),  & 
-              FNAM//char(0), 200, 20 )
-
-    IF ( NPAR_SIMEFF .NE. NWD ) THEN
-      write(c1err,601) NPAR_SIMEFF
-      write(c2err,602) VARNAMES, NWD
-601     format('INIT_SIMEFFMAP returned NVAR=',I2)
-602     format('but VARNAMES=|', A30,'| has NWD=',I2 )
-      CALL MADABORT('INIT_PRIOR_SIMEFF', C1ERR, C2ERR)
-    ENDIF
-
-
-    DO 200 ivar   = 1, NWD
-       IPAR_SIMEFF(IVAR) = -9
-       call get_PARSE_WORD_fortran(ivar, name, L1 )
-
-! check all of the fit parameter names
-       DO 201 ipar = 1, IPAR_MAX  ! loop over fit-parameters
-          L2 = INDEX(PARNAME_STORE(ipar),' ') -1
-          if ( L1 .NE. L2 ) goto 201
-          if ( NAME(1:L1) .EQ. PARNAME_STORE(ipar)(1:L2) ) then
-             IPAR_SIMEFF(IVAR) = IPAR
-             GOTO 200
-          endif
-201      CONTINUE
-
-! check other variables that are not in the fit-par list
-
-       IF ( NAME(1:1) .EQ. 'Z' ) THEN
-           IPAR_SIMEFF(IVAR) = IPAR_SIMEFF_REDSHIFT
-           GOTO 200
-       ENDIF
-       IF ( NAME(1:8) .EQ. 'REDSHIFT' ) THEN
-           IPAR_SIMEFF(IVAR) = IPAR_SIMEFF_REDSHIFT
-           GOTO 200
-       ENDIF
-       IF ( NAME(1:5) .EQ. 'MWEBV' ) THEN
-           IPAR_SIMEFF(IVAR) = IPAR_SIMEFF_MWEBV
-           GOTO 200
-       ENDIF
-
-       C1ERR = 'Uncrecognized SIMEFF map-var: ' // NAME(1:L1)
-       C2ERR = 'Check SIMEFF map file.'
-       CALL MADABORT('INIT_PRIOR_SIMEFF', C1ERR, C2ERR)
-200   CONTINUE
-
-
-! xxxxxx mark delete Nov 2025 xxxxxxx
-!      IF ( FITMODEL_INDEX == MODEL_MLCS2k2 .and. USE_TABLEFILE ) THEN
-!        CALL MON_SIMEFF()
-!      ENDIF
-! xxxxxxxxxxxxxxxx
-
-    RETURN
-  END SUBROUTINE INIT_PRIOR_SIMEFF
 
 ! ===================================================
     SUBROUTINE FITANA_CUTS(isn, LCUTS )
@@ -14038,9 +13684,6 @@
 
     DATA  CCHI2 / 'TOTAL' , 'DATA', 'PRIOR', 'SIGMA' /
 
-! function
-    REAL*8 SNLC_FIT_SIMEFF
-
 ! ------------------- BEGIN -----------------
 
     IF ( .NOT. STDOUT_UPDATE ) RETURN ! Jun 2024
@@ -14157,17 +13800,6 @@
 
 781   format(T4,A,'(',A,') returns ',A6,2x,  & 
          'CHI2/dof=',G10.3,'/',I3,  3x, 'PROB=',F7.5)
-
-
-! write simulated efficiency if used in prior.
-    IF ( OPT_PRIOR_SIMEFF .GT. 0 ) THEN
-      do ipar = 1, IPAR_MAX
-        LCVAL8(ipar) = DBLE( LCVAL_STORE(ipar) )
-      enddo
-      EFF8 = SNLC_FIT_SIMEFF(isn, LCVAL8 )
-      write(6,801) EFF8
-801     format(T4,'SIMEFF(Best Fit) = ', F5.3)
-    ENDIF
 
     print*,' '
 

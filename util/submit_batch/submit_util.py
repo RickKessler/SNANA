@@ -325,9 +325,13 @@ def separate_label_from_arg(input_arg_string):
     
     if len(input_arg_string) > 0 :
 
-        # replace each '/' with padded slash ' / ', and then parse
-        # assuming a pad space between slash and text
-        arg_string = input_arg_string.replace('/', ' / ')
+        # if first char is slash, replace first two '/' with padded slash ' / ' ;
+        # Be careful not to modify slashes in path argument
+        if input_arg_string[0] == '/' :
+            arg_string = input_arg_string.replace('/', ' / ', 2)
+        else:
+            arg_string = input_arg_string  # no label
+
         word_list  = arg_string.split()
         has_label  = '/' in arg_string
 

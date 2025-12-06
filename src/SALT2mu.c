@@ -3913,6 +3913,7 @@ int prepNextFit(void) {
   // check reasons to stop all fitting
 
   if ( INPUTS.fitflag_sigmb == 0 && !USE_CCPRIOR  )  { 
+    fprintf(FP_STDOUT,"\n WARNING: fitflag_sigmb =0 --> no fit iterations varying sigint\n\n");
     return(FITFLAG_DONE); 
   }   // fix sigint --> no more fits
 
@@ -5814,7 +5815,7 @@ void set_defaults(void) {
   INPUTS.zwin_vpec_check[0] = 0.01 ;  // Oct 28 2020
   INPUTS.zwin_vpec_check[1] = 0.05 ; 
 
-  INPUTS.fitflag_sigmb       = 0;     // option to repeat fit until chi2/dof=1
+  INPUTS.fitflag_sigmb       = 0;     // >0 -> option to repeat fit until chi2/dof=1
   INPUTS.redchi2_tol         = 0.02;  // tolerance on chi2.dof
   INPUTS.sigint_step1        = 0.01 ; // size of 1st sigint step 
   INPUTS.dchi2red_dsigint    = 0.0 ;

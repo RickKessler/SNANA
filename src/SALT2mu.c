@@ -1692,9 +1692,6 @@ void  dump_DMUPDF_CCprior_legacy(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
 double prob_CCprior_sim_legacy(int OPT, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
 			       double z, double dmu, int DUMPFLAG, char *callFun);
 
-//void    setup_MUZMAP_DMUPDF_CCPRIOR_REFAC1(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR_CUTS, MUZMAP_DEF *MUZMAP, 
-//				    PROB_CCPRIOR_DEF *PROB, bool PRINT_TABLE );
-
 void   setup_zbins_CCprior_legacy (TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) ;
 
 void   setup_MUZMAP_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
@@ -3272,11 +3269,11 @@ void applyCut_chi2max(void) {
     FAILCUT = ( chi2 > chi2max );
     if ( FAILCUT ) {
       char str_chi2[40];
-      sprintf(str_chi2, "Chi2(%s) = %.2f   (%s/%s)", name, chi2, survey, field);
+      sprintf(str_chi2, "Chi2(%s) = %.2f  ", name, chi2 );
       if ( idsample >= 0 ) { n_fail[idsample]++ ; }
 
       if ( DOCUT_APPLY )  { 
-	fprintf(FP_STDOUT, "\t %s -> reject \n", str_chi2);
+	fprintf(FP_STDOUT, "\t %s -> reject   (%s/%s) \n", str_chi2, survey, field);
 	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);
 	NREJ++ ;
       }
@@ -5934,9 +5931,7 @@ void init_CUTMASK(void) {
     }
   }
 
-  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) {
-    NREJECT_BIASCOR_BYSAMPLE[bit] = 0;
-  }
+  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) { NREJECT_BIASCOR_BYSAMPLE[bit] = 0;  }
 
 
   sprintf(CUTSTRING_LIST[CUTBIT_z],         "z"  );
@@ -23270,9 +23265,9 @@ void write_NWARN(FILE *fp, int FLAG) {
   char *NAME, str_warn[40] ;
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     NPASS = NPASS_CUTMASK_BYSAMPLE[EVENT_TYPE_DATA][idsample];
-    NREJ = NREJECT_BIASCOR_BYSAMPLE[idsample];
-    NTOT = NPASS + NREJ;
-    NAME = SAMPLE_BIASCOR[idsample].NAME ;
+    NREJ  = NREJECT_BIASCOR_BYSAMPLE[idsample];
+    NTOT  = NPASS + NREJ;
+    NAME  = SAMPLE_BIASCOR[idsample].NAME ;
     if ( NTOT > 0 ) { frac = (double)NREJ / (double)NTOT; }  else { frac = 0.0 ; }
     frac_percent = 100.0*frac;
     

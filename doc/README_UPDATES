@@ -23392,4 +23392,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu.c
       + write chi2max rejects by IDSAMPLE
 
+    submit_batch_jobs:
+      + fix parsing logic to allow pad spaces between slashes and label; e.g.
+         FITOPT:
+         - /label1/    CUTWIN_REDSHITT 0 .5  # previously, label1 cannot have pad spaces 
+         - /label2 /   CUTWIN_REDSHITT 0 .6  # fix allows pad space between slashes
+         - / label3 /  CUTWIN_REDSHITT 0 .7  # fix allows two pad spaces between slashes
+         - / label4 /CUTWIN_REDSHITT 0 .8    # fix allows no pad spaces between last slash and arg
+
 END: 

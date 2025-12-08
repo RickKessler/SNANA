@@ -17599,7 +17599,7 @@
 ! local var
     INTEGER   :: q, LM, IERR_ZPDF, IPRINT
     REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
-
+    LOGICAL   :: BIGGER_z
 
 ! ------------- BEGIN ---------------
 
@@ -17608,6 +17608,16 @@
     do q = 1, SNHOST_NZPHOT_Q
        ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q)) / 100.  ! 0 <= PROB <= 1
        ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
+
+       if ( q > 1 ) then
+          BIGGER_z = ZPHOT_Q(q) > ZPHOT_Q(q-1) 
+          if ( .not. BIGGER_z ) then
+             write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q)
+61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3)
+             C2ERR = 'ZPHOT_Q must be monotonically increasing'
+             CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
+          endif
+       endif
     enddo
     
     LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1

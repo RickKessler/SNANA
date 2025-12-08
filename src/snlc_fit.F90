@@ -4731,6 +4731,8 @@
 ! Jun 2022: check option to use zphot quantiles
 ! Jan 2024: check prior for IPAR_SHAPE2 (2nd SHAPE param)
 ! Jan 2025: call CHI2_PRIOR_SNCID_FILE for USE_PRIOR_SNCID_FILE = T
+! Dec 2025: if PROBz <=0, force chi2prior = 1000 
+!
 ! --------------
 
     USE SNDATCOM
@@ -4744,7 +4746,7 @@
 ! function args
     REAL*8  & 
          XVAL(MXFITPAR)          &  ! (I) fit parameters
-        ,CHI2PRIOR(0:MXFITPAR)  ! (O) prior-chi2 for SEEFF   each parameter
+        ,CHI2PRIOR(0:MXFITPAR)      ! (O) prior-chi2 for SEEFF   each parameter
 
 ! local args
 
@@ -4876,11 +4878,17 @@
 !  load local variables for user-specified options from &SNLCINP OPT_PHOTOZ
       DO_QUANTILES    = btest(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
 
+
       if ( DO_QUANTILES ) then
         ! get the probability at this redshift
         PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
-        if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
-        CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
+! xxx mark        if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
+        if ( PROBZ > 0.0 ) then
+           CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
+        else
+           CHI2PRIOR(IPAR_zPHOT) = 1000.0
+        endif
+
       else
         pull   = PRIOR_ZPULL(ZSN)
         CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
@@ -13450,6 +13458,8 @@
 ! that is used to select filters & epochs.
 ! Most of the logic here is related to photoZ fits.
 ! 
+! Dec 8 2025: fix bug seting DOFIT_PHOTOZ_HOST for quantiles
+!
 ! ----------------------
 
 
@@ -13464,6 +13474,8 @@
     INTEGER  & 
         iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
 
+! local
+    INTEGER NZPHOT_Q
     REAL Zhost
 
 ! ---------------- BEGIN ---------------
@@ -13479,10 +13491,13 @@
 
 ! check for host photoZ
 
-      Zhost   =  SNHOST_ZPHOT(1)
+      Zhost    = SNHOST_ZPHOT(1)
+      NZPHOT_Q = SNHOST_NZPHOT_Q
+
+! xxx mark delete Dec 8 2025  DOFIT_PHOTOZ_HOST =   (Zhost > 0.0 ) .and. (PRIOR_ZERRSCALE .LT. 10.0)
+
       DOFIT_PHOTOZ_HOST =  & 
-                Zhost .GT. 0.0  & 
-          .and. PRIOR_ZERRSCALE .LT. 10.0
+           (Zhost > 0.0 .or. NZPHOT_Q > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
 
       DOFIT_PHOTOZ_noHOST = .NOT. DOFIT_PHOTOZ_HOST
 

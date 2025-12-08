@@ -4214,14 +4214,6 @@
 ! dumpe header just once per filter.
        if(LDMPFCN_LOC .and. FIRSTFILT ) then
 
-! xxxxxxx mark delete; moved up xxxx
-!              print*,' '
-!              print*,' -------------------------------------- '
-!              write(6,602) SNLC_CCID,  ITER, IFLAG
-! 02           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16,
-!     &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' )
-! xxxxx end mark
-
 ! print  fit-pars to see crazy values.
 
             write(6,603) 'ZSN', ZSN

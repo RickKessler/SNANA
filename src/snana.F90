@@ -17597,6 +17597,8 @@
     INTEGER   :: IERR                         ! (O) return error code (0 = no error)
 
 ! local var
+    INTEGER*8 :: GALID
+    CHARACTER*(MXCHAR_CCID)  CCID
     INTEGER   :: q, LM, IERR_ZPDF, IPRINT
     REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
@@ -17609,11 +17611,13 @@
        ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q)) / 100.  ! 0 <= PROB <= 1
        ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
 
-       if ( q > 1 ) then
+       if ( q > 1 .and. ZPHOT_Q(q) > -8.0 ) then
           BIGGER_z = ZPHOT_Q(q) > ZPHOT_Q(q-1) 
           if ( .not. BIGGER_z ) then
-             write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q)
-61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3)
+             CCID   = SNLC_CCID
+             GALID = SNHOST_OBJID(1)
+             write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
+61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I8 )
              C2ERR = 'ZPHOT_Q must be monotonically increasing'
              CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
           endif

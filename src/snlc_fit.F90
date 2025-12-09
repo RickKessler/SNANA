@@ -599,7 +599,9 @@
                    ! I: bit 1 (2 ) => use spectro Z-prior
                    ! I: bit 2 (4 ) => use zPhot quantiles
                    ! I: bit 4 (16) => cheat: start with Zspec and correct filt
-        ,ISCALE_COURSEBIN_PHOTOZ   &  ! I: scale number of course-grid bins for init
+        ,ISCALE_COURSEBIN_PHOTOZ   &  ! I: scale number of course-grid bins for init; z,c,s
+        ,ISCALE_COURSEcBIN_PHOTOZ  &  ! I: if > 0, scale only number of color bins
+        ,ISCALE_COURSEsBIN_PHOTOZ  &  ! I: if > 0, scale only number of stretch bins
         ,NEVAL_MCMC_PHOTOZ
 
     REAL  & 
@@ -694,7 +696,7 @@
          ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR  & 
          ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT  & 
          ,OPT_LANDOLT, UCOR_BXB  & 
-         ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ  & 
+         ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, ISCALE_COURSEcBIN_PHOTOZ, ISCALE_COURSEsBIN_PHOTOZ  & 
          ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ  & 
          ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT  & 
          ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF  & 
@@ -4496,14 +4498,10 @@
            if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = MJD
 
            ! sums used for initializing photoz x0/MU
-           if ( LFLAG_USER .and. SNR_RAW > 3.0 .and.  & 
-                  ISCALE_COURSEBIN_PHOTOZ > 0 ) then
-              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA  & 
-                     + (flux_data**2)*inv_sqsig
-              R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  & 
-                     + (flux_model**2)*inv_sqsig
-              R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  & 
-                     + (flux_data*flux_model)*inv_sqsig
+           if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. ISCALE_COURSEBIN_PHOTOZ > 0 ) then
+              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2)*inv_sqsig
+              R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig
+              R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig
            endif
 
          endif
@@ -6870,7 +6868,9 @@
     PHOTOZ_ITER1_LAMRANGE(1) =  4000.  ! default => skip UV region;
     PHOTOZ_ITER1_LAMRANGE(2) = 26000.  ! note this is obs-frame !
 
-    ISCALE_COURSEBIN_PHOTOZ = 1
+    ISCALE_COURSEBIN_PHOTOZ  = 1
+    ISCALE_COURSEcBIN_PHOTOZ = 1 
+    ISCALE_COURSEsBIN_PHOTOZ = 1 
     NEVAL_MCMC_PHOTOZ      =  0
     PARLIST_MCMC_PHOTOZ(1) =  float(NEVAL_MCMC_PHOTOZ)
     PARLIST_MCMC_PHOTOZ(2) =  20.0  ! NEVAL before reducing step size
@@ -7522,9 +7522,13 @@
           READ(ARGLIST(1),*) PHOTOZ_BOUND(1)
           READ(ARGLIST(2),*) PHOTOZ_BOUND(2)
 
-      else if (MATCH_NMLKEY('ISCALE_COURSEBIN_PHOTOZ',  & 
-                    1, i, ARGLIST) ) then
+      else if (MATCH_NMLKEY('ISCALE_COURSEBIN_PHOTOZ',  1, i, ARGLIST) ) then
           READ(ARGLIST(1),*) ISCALE_COURSEBIN_PHOTOZ
+
+      else if (MATCH_NMLKEY('ISCALE_COURSEcBIN_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_COURSEcBIN_PHOTOZ
+      else if (MATCH_NMLKEY('ISCALE_COURSEsBIN_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_COURSEsBIN_PHOTOZ
 
       else if (MATCH_NMLKEY('PARLIST_MCMC_PHOTOZ',5,i,ARGLIST)) then
           READ(ARGLIST(1),*) PARLIST_MCMC_PHOTOZ(1)
@@ -8760,7 +8764,7 @@
 
     ZVAR_BIN = (ZVAR_MAX - ZVAR_MIN) / DBLE(NZBIN)
 
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER,  & 
+    CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR, ITER,  & 
                        NCBIN,CBIN,CMIN,CMAX)  ! output
     CALL SETBINS_FITINI_PHOTOZ(IPAR_SHAPE, ITER,  & 
                        NSBIN,SBIN,SMIN,SMAX)  ! output
@@ -8907,8 +8911,7 @@
     IF ( STDOUT_UPDATE ) THEN
        write(6,30) 'Use MCMC minimization for initial values: '
  30      format(T7,A)
-       write(6,31) NEVAL_MCMC_PHOTOZ, FRAC_STEP_REDUCE,  & 
-                     NEVAL_REDUCE_STEP
+       write(6,31) NEVAL_MCMC_PHOTOZ, FRAC_STEP_REDUCE,  NEVAL_REDUCE_STEP
  31      format(T7,I3,' evals, STEP*=',F4.2,' every ',I3,' evals.')
        write(6,32) FRACRANGE_STEPINI
  32      format(T7,'Initial MCMC STEP = RANGE x ', F5.2 )
@@ -9070,6 +9073,7 @@
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -9116,8 +9120,9 @@
       PARMAX  = BND_LOCAL(2)
       IF ( DO_COLOR ) THEN
          NBIN    = int(6.*(PARMAX-PARMIN) ) + 1     ! hard-wire
+         NBIN    = NBIN * ISCALE_COURSEcBIN_PHOTOZ
       ELSE
-         NBIN    = 3  ! stretch/lumi bins
+         NBIN    = 3 * ISCALE_COURSEsBIN_PHOTOZ    ! stretch/lumi bins
       ENDIF
 
       NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
@@ -11174,7 +11179,6 @@
     ZMAX = PHOTOZ_BOUND(2)
     NBIN = int((ZMAX-ZMIN)/DZBIN)+1
     
-    PRINT*,'xxx NBIN = ',NBIN
     RETURN
   END SUBROUTINE FITINI_PRIOR_MUERR
     
@@ -11360,7 +11364,7 @@
 50    CONTINUE
 
     LSTAT = .TRUE.
-    ! .xyz
+
     CALL FITINI_PRIOR_MUERR()
     RETURN
   END SUBROUTINE FITINI_MUPRIOR
@@ -18797,15 +18801,6 @@
     VARNAME = 'IFILTOBS(NPTFIT):I' // char(0)  ! abs. obs-frame filter indx
     CALL SNTABLE_ADDCOL_int(ID,CBLK, I4EP_FIT(1,IEP_IFILT_OBS),  & 
             VARNAME, 0, LENB,LENV)
-
-! xxxxxxxxxxxxxxxxxxxxxx
-! Jul 22 2017: add BAND, but beware that MXFIT_DATA must be < 1000
-!              to work with HBOOK. Also doens't work right with HBOOK
-!              when lower and upper case are mixed: e.g., grGR
-!      VARNAME = 'BAND(NPTFIT):C*4' // char(0)  ! abs. obs-frame filter char
-!      CALL SNTABLE_ADDCOL(ID,CBLK, BANDEP_FIT(1),
-!     &      VARNAME, 0, LENB, LENV)
-! xxxxxxxxxxxxxxxxxxxxxx
 
     VARNAME = 'FLUXCAL_DATA(NPTFIT):F' // char(0)  ! FLUXCAL, data
     CALL SNTABLE_ADDCOL_flt(ID,CBLK, R4EP_FIT(1,JEP_DATAFLUX),  & 

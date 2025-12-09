@@ -2524,7 +2524,7 @@ corresponding to the last {\tt FLUXERR\_COR} row.
 
 \bigskip
 To determine $\sigOFF$, plot the calibrated flux-\unc\ 
-``{\tt FLUXCAL\_ERRTOT}'' (or {\tt FLUXERR} in ntuple 7799) 
+``{\tt FLUXCAL\_ERRTOT}''  
 for both data and simulation; 
 adding the best-fit $\sigOFF$ in quadrature to the simulated \unc\ 
 should match the measured distribution. It is recommended
@@ -2536,8 +2536,8 @@ in a simulation. This feature is automatically enabled
 for verbose-formatted data that includes the SKY, PSF and
 ZPTAVG for each \obs. See the SDSS data as an example
 of the  verbose format. The quantity ``{\tt ERRTEST},''
-the ratio of calculated-to-true \unc, is included
-in ntuple 7799 for each \obs. 
+the ratio of calculated-to-true \unc, is included in the output
+table for {\tt SNTABLE\_LIST='SNANA+EPOCH'}.
 
 To determine $\SSNR$, plot {\tt ERRTEST} vs. $\logSNR$
 and the construct the {\tt FLUXERR\_COR} map from 
@@ -7001,7 +7001,7 @@ then the total computing time needed for this map is
 
 % ------------------------------------
   \clearpage
-   \subsection{Light Curve Output Formats}
+   \subsection{Simulated Output Formats with {\tt FORMAT\_MASK} }
    \label{subsec:sim_formats}
 % ------------------------------------
 
@@ -7009,16 +7009,18 @@ Each simulated light curve is written
 to the directory
 \begin{verbatim}
   $SNDATA_ROOT/SIM/[GENVERSION]    # default
+     or
+  [PATH_SNDATA_SIM]/[GENVERSION]   # optional output path with PATH_SNDATA_SIM key
 \end{verbatim}
 % $
-or to argument of {\tt PATH\_SNDATA\_SIM},
-where {\tt GENVERSION} is the user-supplied version name.
-For FITS format, two FITS files are created: 
+For FITS format, two sets of FITS files are created: 
 i) a ``HEADER'' file containing global information 
 for each SN (SNID, redshift, RA, etc ...) 
-and ii) a ``PHOT'' file containing all of the light curves.
-Pointers in the HEADER file are used to extract the
-appropriate light curve from the PHOT file.
+and ii) a ``PHOT'' file containing all of the light curves,
+along with meta-data (sky noise, PSF, zeropoint ...).
+Pointers in the HEADER file are used to quickly extract the
+appropriate light curve from the PHOT file, without doing a full
+search for each PHOT row.
 These FITS files can be visually examined with the product ``fv.''
 For text-output options each light curve is written to a
 separate file, {\tt [GENVERSION]\_SN\#\#\#\#\#\#.DAT},
@@ -7030,7 +7032,7 @@ debugging.
 The output format is controlled by the sim-input keyword
 {\tt FORMAT\_MASK}, and the various options are described
 below. Note that {\tt FORMAT\_MASK} is a bit-mask so that
-multiple format options can be included.
+multiple format options can be included with a single integer.
 Either TEXT or FITS format can be selected, but not both.
 {\tt TEXT} format is allowed only for interactive jobs; 
 {\tt FITS} format must be used for batch jobs.
@@ -7047,9 +7049,14 @@ Here is a quick summary of the bit-mask format options,
                       (remove GAIN,RDNOISE,SKYSIG_T,PSF_SIG2,PSF_RATIO,ZP_ERR)
    FORMAT_MASK:  288  # 32(FITS) + 256(write filterTrans files)
    FORMAT_MASK:  2080 # 32(FITS) + 2048(no SPEC.FITS, but keep VERSION.SPEC)
+
+   FOMAT_MASK:   10   # 2(TEXT)  + 8(no SIM_XXX output, looks like real data)
+   FOMAT_MASK:   40   # 32(FITS) + 8(no SIM_XXX output, looks like real data)
 \end{Verbatim}
 %
 and the sub-sections below give more details.
+Note that the 2-bit (TEXT) or 32-bit (FITS) must be included for all options,
+except for the compact feature (64-bit) that automatically enables FITS format.
 
 % ------------------------------------
 %  \clearpage
@@ -7057,7 +7064,7 @@ and the sub-sections below give more details.
    \label{sss:fits_format}
 % ------------------------------------
 ``{\tt\bf FORMAT\_MASK:  32}'' 
-uses the compact binary-FITS format that is processed using the 
+uses the binary-FITS format that is processed using the 
 {\tt cfitsio} library. 
 The advantage of this format is that there are very few files
 to manage, reading is much faster compared to the TEXT options, 
@@ -7065,7 +7072,7 @@ FITS files are portable to any computing platform,
 and there are public fits-viewing utilities such as ``fv.''
 
 For data version {\tt VVV}, the file {\tt VVV.LIST} points 
-a set of {\tt HEAD} files with a one-row summary for each SN.
+a set of {\tt HEAD.FITS} files with a one-row summary for each SN.
 The summary info includes the SNID, sky coordinates, redshift,
 Galactic extinction, host-galaxy information, and many other quantities.
 Each {\tt HEAD} file also contains the name of the second 
@@ -7081,30 +7088,12 @@ after each light curve to clearly indicate the end of the light curve.
 If {\tt submit\_batch\_jobs} is used to generate simulations on mutiple cores,
 there will be one {\tt HEAD} and one {\tt PHOT} file per core, all gzipped. 
 Reading a gzipped FITS file requires the memory of the entire unzipped FITS
-file; therefore the FITS files are not merged to reduce memory.
+file; to reduce memory for reading, the FITS files are not merged.
 For example, 40 1GB FITS files requires only 1GB of memory to read,
 while merging into one file would require 40 GB memory.
 
-The {\tt PHOT} table columns are:
-\begin{Verbatim}[frame=single]
-  TTYPE1  = 'MJD     '           / MJD
-  TTYPE2  = 'BAND    '           / single-char band label
-  TTYPE3  = 'FIELD   '           / name of FIELD
-  TTYPE5  = 'PHOTFLAG'           / bit-mask from photometry pipeline
-  TTYPE6  = 'PHOTPROB'           / float FoM from photometry pipeline
-  TTYPE7  = 'FLUXCAL '           / MAG = 27.5 - 2.5*LOG10(FLUXCAL)
-  TTYPE8  = 'FLUXCALERR'         / error on FLUXCAL  
-  TTYPE12 = 'PSF_SIG1'           / central Gaussian PSF (sigma, pixels)
-  TTYPE12 = 'PSF_SIG2'           / 2nd Gaussian PSF (sigma, pixels)
-  TTYPE13 = 'PSF_RATIO'          / PSF2/PSF1 at origin
-  TTYPE14 = 'SKY_SIG '           / Search image sky sigma (ADU/pixel) 
-  TTYPE15 = 'SKY_SIG_T'          / Template sky sigma (ADU per pixel)
-  TTYPE16 = 'RDNOISE '           / image read noise (pe/pixel)
-  TTYPE17 = 'ZEROPT  '           / image zero point (ADU)
-  TTYPE18 = 'ZEROPT_ERR'         / error on above
-  TTYPE19 = 'GAIN    '           / ADU per pe
-  TTYPE21 = 'SIM_MAGOBS'         / True model mag (sim only)
-\end{Verbatim}
+The {\tt HEAD} and {\tt PHOT} table columns are shown in \S~\ref{dataFiles}.
+
 
 % ------------------------------------
 %   \clearpage
@@ -7113,39 +7102,21 @@ The {\tt PHOT} table columns are:
 % ------------------------------------
 
 ``{\tt\bf FORMAT\_MASK:  2}'' 
-This  option results in a simplified one-line-per-{\obs} 
-output for the light curves. Header information includes 
-RA, DEC, redshift, etc ...
-This output is recommended for testing with small interactive jobs.
-Below is a sample of the output.
-%
-\begin{Verbatim}[frame=single]
-# TEXT LIGHT CURVE OUTPUT: 
-#
-NVAR: 9 
-VARLIST:  MJD  FLT FIELD  FLUXCAL  FLUXCALERR   SNR    MAG     MAGERR  SIM_MAG
-OBS: 49562.316  Y 1694  -1.333e+03  5.891e+02  -2.26  128.000    0.000  27.313
-OBS: 49572.430  z 1694   6.500e+01  1.708e+02   0.38   26.628  101.372  25.385
-OBS: 49590.422  Y 1694   1.492e+02  1.635e+02   0.91   24.236  103.764  24.064
-OBS: 49591.387  i 1694   3.733e+03  4.644e+02   8.04   23.970    0.144  24.198
-OBS: 49591.414  z 1694   1.644e+03  3.271e+02   5.03   23.850    0.241  24.200
-...
-\end{Verbatim}
-%
-It is recommended to use the fluxes instead of mags because
-the mags are not defined for negative fluxes, and are ill-defined
-for very small fluxes.
-The {\tt FIELD} is given for each measurement to properly label
-overlapping fields, {\tt SNR} is the signal-to-noise ratio
-({\tt FLUXCAL/FLUXCALERR}) and  {\tt SIM\_MAG} is the exact 
-magnitude (without noise fluctuations) computed from the SN model.
-
+This  option results one outut TEXT file per event.
+These files are human-readable, and is thus recommended for testing with small interactive jobs.
+For sims created in FITS format, a small number of light curves can be extracted
+into TEXT format with command:
+\begin{verbatim}
+   quick_commands.py -v [GENVERSION] -cidlist_text [cid0],[cid1], ...
+     or
+   quick_commands.py -v [GENVERSION] --cidlist_text TEN   # extract first 10 events
+\end{verbatim}
 
 % ------------------------------------
    \subsubsection{Suppress {\tt SIM\_XXX} Info}
    \label{sss:blind_test}
 % ------------------------------------
-``{\tt\bf FORMAT\_MASK:  8}'' 
+``{\tt\bf FORMAT\_MASK: 10 or 40 (+8 bit)}'' 
 Suppress {\tt SIM\_XXX} header info. This option is
 useful for things like blind-testing photometric
 classifiers.
@@ -7154,7 +7125,7 @@ classifiers.
    \subsubsection{Random CID}
    \label{sss:random_CID}
 % ------------------------------------
-``{\tt\bf FORMAT\_MASK:  16}'' 
+``{\tt\bf FORMAT\_MASK: 18 or 48 (+16 bit)}'' 
 Generate random (integer) CID  from 1-{\MXSIM} instead
 of the default sequential generation.
 The purpose of this option is that mixing different SN samples 
@@ -7353,9 +7324,7 @@ In addition to the screen-dump, a one-line summary for each
 {\tt LIBID} is written to {\tt DUMP\_LIBID-[simlib]} where
 {\tt [simlib]} is the name of the \simlib\ file that you
 specify.
-This file is self-documented like the ``fitres'' files,
-and can be converted into an ntuple using the
-``{\tt combine\_fitres.exe}'' program (\S\ref{sss:combine_fitres}).
+This file is self-documented like the ``fitres'' files.
 
 
 A one-line dump per MJD, which includes ZP in photoelectrons,
@@ -8875,8 +8844,7 @@ utility (\S\ref{sss:sntable_dump}).
 {\tt CUTFLAG\_SNANA}$=1$ means that the snana cut-requirements
 were satisfied, but the fit either failed or was not attempted.
 {\tt CUTFLAG\_SNANA}$=3$ means that the SN satisfied the snana cuts
-and has a valid fit whose results are stored in the fitres file
-and the fitres ntuple.
+and has a valid fit whose results are stored in the {\tt SNANA} and {\tt FITRES} table files.
 
 {\tt ERRFLAG\_FIT} is zero if the fit is valid and the
 fit-cuts are satisfied. A positive flag indicates an
@@ -9216,7 +9184,7 @@ and similarly grepping for ``{\tt ADDED}'' will find any
 (UV) filters that were added.
 
 To study filter dropouts in more detail, 
-five variables are include in the fitres-ntuple (ntid 7788):
+five variables are include in the {\tt FITRES} table file:
 \begin{itemize}
   \item {\tt NEARDROP}: index of filter that is closest
         to being dropped. Positive (negative) value indicates
@@ -9955,8 +9923,7 @@ The quantity {\tt MAGDIF\_u} and its erros are computed as
    MAGDIF_u = peakMag(u, extrapolate gr) -  peakMag(u only) 
             = peakMag(predicted)         -  peakMag(measured)
 \end{verbatim}
-The {\tt MAGDIF} variable is in the fitres table (ntuple 7788)
-and also in the fitres-text outout.
+The {\tt MAGDIF} variable is stored in the output {\tt FITRES} table.
 
 % ------------------------------------
    \clearpage
@@ -10469,9 +10436,7 @@ User-defined SN tags can be specified with the
   etc ...
 \end{Verbatim}
 %
-and these {\tt USERTAG} indices will appear in 
-the analysis ntuples. These tags may be useful,
-for example, to label SNe confirmed by a particular telescope.
+and these {\tt USERTAG} indices appear in output table files.
 
 
 % ------------------------------------------------
@@ -10724,7 +10689,7 @@ For simulations, the $\chi^2$ is automatically computed
 in which the fitted parameters are replaced by the 
 exact simulated paarameter values. The resulting $\chi^2$ variable
 is called {\tt SIMCHI2\_CHEAT} and it is stored in the 
-table output (ntuple for hbook, tree for root).
+{\tt FITRES} table output.
 
 There is no ambguity for fits with fixed redshifts.
 For photo-z fits, however, the defined filter bands based
@@ -11548,163 +11513,6 @@ The $f_i$ are internally
 renormalized so that $\sum_i f_i = 1$.
 
 % -----------------------------------------------
-\clearpage
-\subsection{Nearest Neighbor Method}
-% -----------------------------------------------
-
-\newcommand{\zsepmax}{{\Delta z}_{\rm max}}
-\newcommand{\csepmax}{{\Delta c}_{\rm max}}
-\newcommand{\ssepmax}{{\Delta s}_{\rm max}}
-\newcommand{\Wfalse}{W_{\rm false}}
-\newcommand{\Nfalse}{N_{\rm false}}
-\newcommand{\Ntrue}{N_{\rm true}^{\rm Ia-tag}}
-
-This method follows that used in \cite{Sako2014}.
-%
-%Three steps are needed:
-%1) a simulation generates a training sample and a mock data set,
-%2) a fitting program gets SN parameters (e.g., stretch and color),
-%and builds special tables, and 
-%3) program {\tt nearnbr\_maxFoM.exe} analyzes the tables from step 2.
-%
-For this discussion we consider SN classification based
-on nearest-neighbor (NN) distances defined by
-redshift ($z$), color ($c$) and shape ($s$),
-where $c$ and $s$ are fitted parameters from {\tt snlc\_fit.exe}.
-However, parameters from any light curve fitting program 
-(e.g., {\psnid}) can be used. 
-The NN distance ($d_i$) between a SN from 
-the data (real or mock) and the $i$'th SN in the 
-simulated training sample is
-%
-\begin{equation}
-  d_i^2 =  \frac{(z - z_i)^2}{\zsepmax^2} +
-           \frac{(c - c_i)^2}{\csepmax^2} +
-           \frac{(s - s_i)^2}{\ssepmax^2}
-\end{equation}
-%
-where $\zsepmax$, $\csepmax$, $\ssepmax$ are parameters 
-optimized in the NN-training process described below.
-We count neighbors in the training set as the number of
-SN with $d_i < 1$;
-hence the $\Delta_{\rm max}$ parameters are the maximum
-allowed deviations to be included as a neighbor.
-
-The simulation-based training procedure 
-can be executed with 
-\begin{Verbatim}[frame=single]
-    $SNANA_DIR/util/NEARNBR_pipeline.pl
-\end{Verbatim}
-%  #$
-and the input-file instructions are given at the top
-of this perl script. This script executes 5 serial stages:
-1) simulate two large MC samples, REF and TRAIN,
-2) fit the MC-REF sample, 
-3) fit and train using the MC-TRAIN sample,
-4) determine optimal NN parameters ($\zsepmax$, $\csepmax$, $\ssepmax$)
- to maximize purity$\times$efficiency.
-5) apply training to data and simulation.
-While the {\tt NEARNBR\_pipeline.pl} script executes
-all of these stages, it may be useful to run the steps
-manually at least once to better understand the procedure.
-These five steps are described below in more detail:
-%
-\begin{enumerate}
-  \item Generate TWO large simulated samples, each including
-        a mix of SNIa and SNCC.
-        Use best estimates of redshift-dependent rates to get the
-        correct CC/Ia ratio. One simulation serves as the
-	training sample, while the other serves as a mock data sample.
-	In principle one simulated sample could serve both purposes,
-	but using two independent samples avoids odd statistical
-	artifacts.
-%
- \item  Run fitting program on the simulated training sample,
-        and save the output asci/{\tt FITRES} file. If using
-	{\tt split\_and\_fit} on multiple simulated versions,
-	the key ``{COMBINE\_ALL\_FLAG: 1}'' is useful to 
-	catenate all of the ascii/fitres files.
-%
- \item  Run fitting program on simulated mock data sample with the
-        following snana namelist,
-     \begin{verbatim}
-  &NNINP 
-    NEARNBR_TRAINFILE_PATH = 'path'
-    NEARNBR_TRAINFILE_LIST = 'ascii/fitres file from previous step'
-    NEARNBR_SEPMAX_VARDEF = 
-        'z .005 .14 .005   c .02 .30 .01   x1 .30 .80 .02'
-    NEARNBR_TRUETYPE_VARNAME = 'SIM_TYPE_INDEX'
-    !NEARNBR_SEPMAX_IGNORE = 'z x1'  ! optional disable list
-  &END
-     \end{verbatim}
-       Note that {\tt NEARNBR\_SEPMAX\_VARDEF} specifies a 3-dimensional
-       grid of $\zsepmax,\csepmax,\ssepmax$. For example, $\csepmax$
-       runs from 0.02 to 0.30 with a bin-size of 0.01. The total
-       number of bins in the above example is 
-       $27\times 28 \times 25 = 18,900$. Be careful not to define
-       outrageously large grids that cause memory problems.
-       Either {\tt HFILE\_OUT} and/or {\tt ROOTFILE\_OUT} is
-       required to define an output hbook and/or root file. 
-       The {\tt NNINP} namelist
-       turns on special NN tables needed to optimize the
-       $\Delta_{\rm max}$ parameters. 
-       See {\tt sntools\_nearnbr.c[h]} for more details.
-       SEPMAX variables can be disabled with {\tt NEARNBR\_SEPMAX\_IGNORE}.
-       This disable feature is convenient for using the batch script 
-       {\tt split\_and\_fit} to run multiple trainings with different size 
-       {\tt VARDEF} lists;
-       specify the complete list in {\tt NEARNBR\_SEPMAX\_VARDEF} and
-       then use the command-line override {\tt NEARNBR\_SEPMAX\_IGNORE}
-       to disable one or more variables. In the above example,
-       z and x1 would be disabled leaving only 1 variable (c) for
-       training.  In addition to redshift, color and shape parameters,
-       rest-frame peak-mags (\S\ref{subsec:FitRestMag})
-       can also be specified in {\tt NEARNBR\_SEPMAX\_VARDEF};
-       e.g., '{\tt M0\_B .3 0.8 0.05}'.
-%
- \item  Use output tables from previous step to maximum 
-        the Figure-of-Merit defined by
-    \begin{equation}
-       {\rm FoM} = {\rm Efficiency} \times {\rm Purity}~~ = ~~
-           \frac{\Ntrue}{N_{\rm all}^{Ia}} \times
-           \frac{\Ntrue}{ \Ntrue + \Wfalse\Nfalse}
-    \end{equation}
-     where $\Ntrue$ is the number of correctly classified SNIa,
-     and $\Nfalse$ if the number of incorrectly classified SNIa.
-     This optimization is done with the snana program
-     \begin{verbatim}
-      nearnbr_maxFoM.exe  <HFILE_OUT argument from previous stage>
-          or
-      nearnbr_maxFoM.exe  <ROOTFILE_OUT argument from previous stage>
-     \end{verbatim}
-     You will get a screen dump showing the optimzed $\Delta_{\rm max}$
-     values, each with a $\Wfalse$ grid of $1,3,5$.
-     A classified SNIa from the mock data sample requires that a
-     majority of nearest neighbors (with $d_i<1$) in the training
-     sample are true SNIa. To avoid statistical problems with
-     few neighbors, the SNIa-fraction must be $1\sigma$ above
-     50\%. For example, 3 SNIa among a total of 5 neighbors
-     has a majority-significance of $(0.6-0.5)/(\sqrt{3}/5) = 0.3\sigma$;
-     this is below the $1\sigma$ requirement and is hence flagged as
-     ``unclassified.''  Generating larger training samples reduces
-     the number of unclassified SNe.
-%
- \item To apply the trained $\zsepmax,\csepmax,\ssepmax$ values
-       on data, use the same {\tt NNINP} namelist above, 
-       but input the trained values as follows,
-     \begin{verbatim}
-        NEARNBR_SEPMAX_VARDEF =  'z .10   c 0.13   x1 0.62'
-     \end{verbatim}
-       The output ntuple/tree will include the following variables:
-     \begin{verbatim}
-      NN_ITYPE     ! best integer type (corresponding to SIM_ITYPE_INDEX)
-      NN_NCELL     ! number or training SN in cell with d_i < 1
-      NN_PROB_IA   ! Type Ia  fraction in cell
-      NN_PROB_II   ! Type II  fraction in cell
-      NN_PROB_IBC  ! Type Ibc fraction in cell
-     \end{verbatim}
-\end{enumerate}
-
 
 % ##########################################
    \clearpage
@@ -13412,8 +13220,6 @@ The available output tables are
 %
 The {\tt SNANA,FITRES,OUTLIER} tables are intended for continued 
 analysis after the \snana\ code finishes; 
-the table name is assigned to a ``tree'' in \ROOT, 
-while the the integer ID is assigned to an ``ntuple'' in \HBOOK. 
 The {\tt SNLCPAK} table is for internal plotting scripts, and is not
 intended for general use.
 The user-selection of format(s) and table(s) is described below.
@@ -13737,13 +13543,12 @@ which produces the files '{\tt mlcs.tup}' and '{\tt mlcs.txt}.'
   \label{sss:sntable_dump}
 % --------------------------------------
 
-The fitres text-file output from the light curve fitter
+The fitres text-file output from the light curve fit program {\tt snlc\_fit.exe}
 contains a small fraction of the analysis variables.
 The entire set of analysis variables is stored in a more
-compact ``{\tt SNTABLE}'' structure using HBOOK and/or ROOT
+compact ``{\tt SNTABLE}'' structure using ROOT
 based on the {\t\&SNLCINP} namelist inputs 
 \begin{verbatim}
-   HFILE_OUT    = 'mjob.hbook'
    ROOTFILE_OUT = 'mjob.root'
 \end{verbatim} 
 %
@@ -13755,12 +13560,11 @@ There are two primary {\tt SNTABLEs}:
                                   snlc_fit/psnid
                         snana     fit results
       --------------------------------------------
-      HBOOK TABLE ID    7100       7788     (column-wise ntuples)
       ROOT  TABLE ID    SNANA      FITRES   (trees)
       -----------------------------------------------
 \end{verbatim} 
 %
-If you are fluent in {\tt PAW/HBOOK} or {\tt ROOT},
+If you are fluent in {\tt ROOT},
 then you can analyze these tables directly without
 using text files. However, if you prefer a different
 analysis platform then {\sndump} can be used to
@@ -14898,8 +14702,8 @@ the brightest observed epoch rather than the observed fluxes.
 {\tt OPT\_Vmax}=3 means that both the SN magnitude and $\zmax$
 are computed at the best-fit epoch of peak brightness.
 
-The following variables are automatically included in the
-fitres-text file and the SNTABLE (ntuple or Tree):
+The following variables are automatically included in the output
+{\tt FITRES} table file:
 $\Trest$ where mag is computed, mag, $\zmax$, volume.
 
 

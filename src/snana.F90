@@ -13720,7 +13720,7 @@
 
 ! determine STDOUT_UPDATE logical to dump info
 
-    N_UPDATE_PS1  = 50 ! update first 50 events
+    N_UPDATE_PS1  = 100 ! update first 100 events
     N_UPDATE_PS10 = 300
     if ( REDUCE_STDOUT_BATCH ) then
        N_UPDATE_PS1  = 5
